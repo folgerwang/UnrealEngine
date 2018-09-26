@@ -34,8 +34,8 @@ class ENGINE_API URectLightComponent : public ULocalLightComponent
 	float SourceHeight;
 
 	/** Texture mapped to the light source rectangle */
-	//UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Light, AdvancedDisplay)
-	//class UTexture* SourceTexture;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Light)
+	class UTexture* SourceTexture;
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetSourceWidth(float bNewValue);
@@ -46,6 +46,9 @@ class ENGINE_API URectLightComponent : public ULocalLightComponent
 public:
 
 	virtual float ComputeLightBrightness() const override;
+#if WITH_EDITOR
+	virtual void SetLightBrightness(float InBrightness) override;
+#endif
 
 	//~ Begin ULightComponent Interface.
 	virtual ELightComponentType GetLightType() const override;

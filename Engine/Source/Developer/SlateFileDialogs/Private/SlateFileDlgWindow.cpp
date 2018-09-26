@@ -1491,7 +1491,7 @@ void SSlateFileOpenDlg::ParseFilters()
 			if (FilterNameArray.Num() == 0)
 			{
 				TCHAR Temp[MAX_FILTER_LENGTH];
-				FCString::Strcpy(Temp, Filters.Len(), *Filters);
+				FCString::Strcpy(Temp, ARRAY_COUNT(Temp), *Filters);
 
 				// break path into tokens
 				TCHAR *ContextStr = nullptr;
@@ -1535,7 +1535,7 @@ bool SSlateFileOpenDlg::GetFilterExtension(FString &OutString)
 
 	// make a copy of filter string that we can modify
 	TCHAR Temp[MAX_FILTER_LENGTH];
-	FCString::Strcpy(Temp, FilterNameArray[FilterIndex]->Len(), *(*FilterNameArray[FilterIndex].Get()));
+	FCString::Strcpy(Temp, ARRAY_COUNT(Temp), *(*FilterNameArray[FilterIndex].Get()));
 
 	// find start of extension
 	TCHAR *FilterExt = FCString::Strchr(Temp, '.');

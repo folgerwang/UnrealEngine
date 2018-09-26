@@ -22,7 +22,7 @@ void FOnlineAsyncTaskGooglePlayLogout::Start_OnTaskThread()
 	// If we haven't created a GameServices object yet, do so.
 	if (Subsystem->GameServicesPtr.get() == nullptr)
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayLogout::Start_OnTaskThread: GameServicesPtr is null"));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayLogout::Start_OnTaskThread: GameServicesPtr is null"));
 		bWasSuccessful = false;
 		bIsComplete = true;
 		return;

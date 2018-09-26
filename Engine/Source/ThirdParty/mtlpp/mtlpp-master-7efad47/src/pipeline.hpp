@@ -28,7 +28,7 @@ namespace mtlpp
 	}
 	MTLPP_AVAILABLE(10_13, 11_0);
 	
-	class PipelineBufferDescriptor : public ns::Object<MTLPipelineBufferDescriptor*>
+	class MTLPP_EXPORT PipelineBufferDescriptor : public ns::Object<MTLPipelineBufferDescriptor*>
 	{
 	public:
 		PipelineBufferDescriptor();

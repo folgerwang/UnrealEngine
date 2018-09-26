@@ -56,6 +56,17 @@ DEFINE_STAT(STAT_OpenGLEmulatedUniformBufferTime);
 DEFINE_STAT(STAT_OpenGLFreeUniformBufferMemory);
 DEFINE_STAT(STAT_OpenGLNumFreeUniformBuffers);
 DEFINE_STAT(STAT_OpenGLShaderFirstDrawTime);
+DEFINE_STAT(STAT_OpenGLProgramBinaryMemory);
+DEFINE_STAT(STAT_OpenGLProgramCount);
+
+DEFINE_STAT(STAT_OpenGLShaderLRUEvictTime);
+DEFINE_STAT(STAT_OpenGLShaderLRUMissTime);
+DEFINE_STAT(STAT_OpenGLShaderLRUProgramCount);
+DEFINE_STAT(STAT_OpenGLShaderLRUEvictionDelaySavedCount);
+DEFINE_STAT(STAT_OpenGLShaderLRUEvictedProgramCount);
+DEFINE_STAT(STAT_OpenGLShaderLRUScopeEvictedProgramCount);
+DEFINE_STAT(STAT_OpenGLShaderLRUMissCount);
+DEFINE_STAT(STAT_OpenGLShaderLRUProgramMemory);
 
 #if OPENGLRHI_DETAILED_STATS
 DEFINE_STAT(STAT_OpenGLDrawPrimitiveTime);

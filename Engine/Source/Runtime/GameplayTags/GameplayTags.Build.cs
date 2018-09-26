@@ -20,6 +20,17 @@ namespace UnrealBuildTool.Rules
 					"Engine"
 				}
 				);
-		}
+
+            if (Target.Type == TargetType.Editor)
+            {
+                PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "SlateCore",
+                    "Slate"
+                }
+                );
+            }
+        }
 	}
 }

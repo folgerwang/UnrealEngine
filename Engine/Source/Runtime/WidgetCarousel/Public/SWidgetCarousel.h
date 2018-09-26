@@ -454,14 +454,6 @@ public:
 		CenterCarouselWidget = MakeShareable(new FCarouselDisplayItem());
 		RightCarouselWidget = MakeShareable(new FCarouselDisplayItem());
 
-		const TArray<ItemType>& ItemsSourceRef = (*ItemsSource);
-		if (ItemsSourceRef.Num() > 0)
-		{
-			LeftCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[GetLeftWidgetIndex(WidgetIndex)]));
-			CenterCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[WidgetIndex]));
-			RightCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[GetRightWidgetIndex(WidgetIndex)]));
-		}
-
 		// Set up the Carousel Widget
 		CenterCarouselWidget->SetOpacity(1.0f);
 		CenterCarouselWidget->SetSlide(0.f);
@@ -478,17 +470,29 @@ public:
 		RightCarouselWidget->SetMoveSpeed(MoveSpeed);
 		RightCarouselWidget->SetFadeRate(FadeRate);
 
-		SetSliderLimits();
-
 		// Create the widget
 		ChildSlot
 		[
 			SAssignNew(WidgetDisplayBox, SHorizontalBox)
 		];
 
-		GenerateWidgets();
+		GenerateCurrentWidgets();
 
 		OnPageChanged.ExecuteIfBound(WidgetIndex);
+	}
+
+	void GenerateCurrentWidgets()
+	{
+		const TArray<ItemType>& ItemsSourceRef = (*ItemsSource);
+		if (ItemsSourceRef.Num() > 0)
+		{
+			LeftCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[GetLeftWidgetIndex(WidgetIndex)]));
+			CenterCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[WidgetIndex]));
+			RightCarouselWidget->SetWidgetContent(OnGenerateWidget.Execute(ItemsSourceRef[GetRightWidgetIndex(WidgetIndex)]));
+		}
+
+		SetSliderLimits();
+		GenerateWidgets();
 	}
 
 	/**

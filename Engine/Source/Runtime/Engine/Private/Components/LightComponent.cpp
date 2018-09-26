@@ -215,10 +215,11 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, ShadowBias(InLightComponent->ShadowBias)
 	, ShadowSharpen(InLightComponent->ShadowSharpen)
 	, ContactShadowLength(InLightComponent->ContactShadowLength)
-	, bContactShadowLengthInWS(InLightComponent->ContactShadowLengthInWS ? true : false)
 	, SpecularScale(InLightComponent->SpecularScale)
 	, LightGuid(InLightComponent->LightGuid)
+	, RayStartOffsetDepthScale(InLightComponent->RayStartOffsetDepthScale)
 	, IESTexture(0)
+	, bContactShadowLengthInWS(InLightComponent->ContactShadowLengthInWS ? true : false)
 	, bMovable(InLightComponent->IsMovable())
 	, bStaticLighting(InLightComponent->HasStaticLighting())
 	, bStaticShadowing(InLightComponent->HasStaticShadowing())
@@ -236,12 +237,11 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, bUseRayTracedDistanceFieldShadows(InLightComponent->bUseRayTracedDistanceFieldShadows)
 	, bCastModulatedShadows(false)
 	, bUseWholeSceneCSMForMovableObjects(false)
-	, RayStartOffsetDepthScale(InLightComponent->RayStartOffsetDepthScale)
 	, LightType(InLightComponent->GetLightType())	
 	, LightingChannelMask(GetLightingChannelMaskForStruct(InLightComponent->LightingChannels))
+	, StatId(InLightComponent->GetStatID(true))
 	, ComponentName(InLightComponent->GetOwner() ? InLightComponent->GetOwner()->GetFName() : InLightComponent->GetFName())
 	, LevelName(InLightComponent->GetOutermost()->GetFName())
-	, StatId(InLightComponent->GetStatID(true))
 	, FarShadowDistance(0)
 	, FarShadowCascadeCount(0)
 {
@@ -418,6 +418,27 @@ float ULightComponent::ComputeLightBrightness() const
 
 	return LightBrightness;
 }
+
+#if WITH_EDITOR
+void ULightComponent::SetLightBrightness(float InBrightness)
+{
+	if (IESTexture && IESTexture->TextureMultiplier > 0)
+	{
+		if(bUseIESBrightness && IESBrightnessScale > 0)
+		{
+			IESTexture->Brightness = InBrightness / IESBrightnessScale / IESTexture->TextureMultiplier;
+		}
+		else
+		{
+			Intensity = InBrightness / IESTexture->TextureMultiplier;
+		}
+	}
+	else
+	{
+		Intensity = InBrightness;
+	}
+}
+#endif // WITH_EDITOR
 
 void ULightComponent::Serialize(FArchive& Ar)
 {

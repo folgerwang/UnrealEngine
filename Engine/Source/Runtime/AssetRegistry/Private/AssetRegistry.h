@@ -222,6 +222,8 @@ private:
 	/** Finds all class names of classes capable of generating new UClasses */
 	void CollectCodeGeneratorClasses();
 
+	bool ResolveRedirect(const FString& InPackageName, FString& OutPackageName);
+
 private:
 	
 	/** Internal state of the cached asset registry */
@@ -306,6 +308,16 @@ private:
 
 	/** Handle to the registered OnDirectoryChanged delegate for the OnContentPathMounted handler */
 	FDelegateHandle OnContentPathMountedOnDirectoryChangedDelegateHandle;
+
+
+	struct FAssetRegistryPackageRedirect
+	{
+	public:
+		FAssetRegistryPackageRedirect(const FString& InSourcePackageName, const FString& InDestPackageName) : SourcePackageName(InSourcePackageName), DestPackageName(InDestPackageName) { }
+		FString SourcePackageName;
+		FString DestPackageName;
+	};
+	TArray<FAssetRegistryPackageRedirect> PackageRedirects;
 
 #if WITH_EDITOR
 	/** List of loaded objects that need to be processed */

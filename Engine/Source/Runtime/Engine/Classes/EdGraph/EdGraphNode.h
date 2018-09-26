@@ -207,11 +207,18 @@ private:
 	UPROPERTY()
 	ENodeEnabledState EnabledState;
 
-public:
+protected:
 	/** When reconstructing a node should the orphaned pins be retained and transfered to the new pin list. */
 	ESaveOrphanPinMode OrphanedPinSaveMode;
 
+public:
+	/** When true, overrides whatever OrphanedPinSaveMode specifies and behaves as if it were SaveNone. */
+	uint8 bDisableOrphanPinSaving:1;
+
 private:
+	UPROPERTY()
+	uint8 bDisplayAsDisabled:1;
+
 	/** Indicates whether or not the user explicitly set the enabled state */
 	UPROPERTY()
 	uint8 bUserSetEnabledState:1;
@@ -282,10 +289,10 @@ public:
 	FGuid NodeGuid;
 
 public:
-	/** Determines whether or not the node is enabled. */
+	/** Is the node actually enabled */
 	bool IsNodeEnabled() const
 	{
-		return (EnabledState == ENodeEnabledState::Enabled) || ((EnabledState == ENodeEnabledState::DevelopmentOnly) && IsInDevelopmentMode());
+		return (EnabledState == ENodeEnabledState::Enabled)	|| ((EnabledState == ENodeEnabledState::DevelopmentOnly) && IsInDevelopmentMode());
 	}
 
 	/** Returns the specific sort of enable state this node wants */
@@ -299,6 +306,17 @@ public:
 	{
 		EnabledState = NewState;
 		bUserSetEnabledState = bUserAction;
+	}
+
+	/** Set whether or not this node should be forced to display as disabled */
+	void SetForceDisplayAsDisabled(const bool bInNewDisplayState)
+	{
+		bDisplayAsDisabled = bInNewDisplayState;
+	}
+
+	bool IsDisplayAsDisabledForced() const
+	{
+		return bDisplayAsDisabled;
 	}
 
 	/** Has the user set the enabled state or is it still using the automatic settings? */

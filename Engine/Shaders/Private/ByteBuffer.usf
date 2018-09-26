@@ -2,12 +2,36 @@
 
 #include "Common.ush"
 
+uint Value;
+uint Size;
 uint SrcOffset;
 uint DstOffset;
-uint Size;
 
 ByteAddressBuffer	SrcBuffer;
 RWByteAddressBuffer	DstBuffer;
+
+[numthreads(THREADGROUP_SIZE, 1, 1)]
+void MemsetBufferCS( uint3 DispatchThreadId : SV_DispatchThreadID ) 
+{
+	uint DstIndex = DstOffset + DispatchThreadId.x * 4;
+
+	if( ( DispatchThreadId.x + 3 ) * 4 < Size )
+	{
+		DstBuffer.Store4( DstIndex * 4, Value );
+	}
+	else if( ( DispatchThreadId.x + 2 ) * 4 < Size )
+	{
+		DstBuffer.Store3( DstIndex * 4, Value );
+	}
+	else if( ( DispatchThreadId.x + 1 ) * 4 < Size )
+	{
+		DstBuffer.Store2( DstIndex * 4, Value );
+	}
+	else if( ( DispatchThreadId.x + 0 ) * 4 < Size )
+	{
+		DstBuffer.Store( DstIndex * 4, Value );
+	}
+}
 
 [numthreads(THREADGROUP_SIZE, 1, 1)]
 void MemcpyBufferCS( uint3 DispatchThreadId : SV_DispatchThreadID ) 

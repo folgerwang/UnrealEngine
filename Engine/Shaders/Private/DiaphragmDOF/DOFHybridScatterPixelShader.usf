@@ -66,22 +66,9 @@ void ScatterMainPS(
 	#if DIM_SCATTER_OCCLUSION
 		float4 ScatterOcclusionSample = PostprocessInput3.SampleLevel(GlobalBilinearWrappedSampler, SvPosition.xy * PostprocessInput3Size.zw, 0);
 
-		#if 1
-			float OcclusionStepness = ScatterOcclusionSample.x;
-			float OcclusionOffset = ScatterOcclusionSample.y;
-		#else
-			float CocRadiusAvg = ScatterOcclusionSample.x;
-			float CocRadiusStdDeviation = max(ScatterOcclusionSample.y * (0.5 * CocRadiusAvg), 1);
-			float OcclusionStepness = rcp(CocRadiusStdDeviation);
-			float OcclusionOffset = (CocRadiusAvg + CocRadiusStdDeviation) * OcclusionStepness;
-
-			// Multiply OcclusionStepness, to be equivalent as multiplying AbsCocRadius. This will result in a
-			// pull of the background bokeh closer to the camera when doing occlusion, reducing the amount of tiling
-			// artifacts between fast and slow gathered tiles that can generate noticeably different occlusion buffer.
-			OcclusionStepness *= 1 - FAST_GATHERING_COC_ERROR;
-		#endif
+		float CocRadiusAvg = ScatterOcclusionSample.x;
+		float CocRadiusVariance = ScatterOcclusionSample.y;
 	#endif
-
 	
 	float2 PixelOffset0 = SvPosition.xy - BokehCenter0;
 
@@ -119,7 +106,8 @@ void ScatterMainPS(
 		float Visibility = 1;
 		#if DIM_SCATTER_OCCLUSION
 		{
-			Visibility = saturate(OcclusionOffset - AbsCocRadius[i] * OcclusionStepness);
+			float CocRadiusComparison = max(AbsCocRadius[i] * (1 - FAST_GATHERING_COC_ERROR) - CocRadiusAvg, 0);
+			Visibility = CocRadiusVariance / (CocRadiusVariance + CocRadiusComparison * CocRadiusComparison);
 		}
 		#endif
 

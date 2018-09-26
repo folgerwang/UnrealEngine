@@ -647,6 +647,7 @@ protected:
 
 	/** Count of how many PIE instances are waiting to log in */
 	int32 PIEInstancesToLogInCount;
+	bool bAtLeastOnePIELoginFailed;
 
 	/* These are parameters that we need to cache for late joining */
 	FString ServerPrefix;
@@ -2079,15 +2080,6 @@ public:
 	bool PackageIsAMapFile( const TCHAR* PackageFilename, FText& OutNotMapReason );
 
 	/**
-	 *	Searches through the given ULevel for any external references. Prints any found UObjects to the log and informs the user
-	 *
-	 *	@param	LevelToCheck		ULevel to search through for external objects
-	 *	@param	bAddForMapCheck		Optional flag to add any found references to the Map Check dialog (defaults to false)
-	 *	@return	true if the given package has external references and the user does not want to ignore the warning (via prompt)
-	 */
-	bool PackageUsingExternalObjects(ULevel* LevelToCheck, bool bAddForMapCheck=false);
-
-	/**
 	 * Synchronizes the content or generic browser's selected objects to the collection specified.
 	 *
 	 * @param	ObjectSet	the list of objects to sync to
@@ -2632,7 +2624,7 @@ public:
 
 private:
 	/** Gets the scene viewport for a viewport client */
-	const FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
+	FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
 
 	/**
 	 * Non Online PIE creation flow, creates all instances of PIE at once when online isn't requested/required
@@ -2995,7 +2987,23 @@ public:
 	/** This function should be called to notify the editor that new materials were added to our scene or some materials were modified */
 	void OnSceneMaterialsModified();
 
+	/** Call this function to change the feature level and to override the material quality platform of the editor and PIE worlds */
+	void SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings = true);
+
 protected:
+	/** Call this function to change the feature level of the editor and PIE worlds */
+	void SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel);
+
+	/** call this function to change the feature level for all materials */
+	void SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel);
+
+	/** call this to recompile the materials */
+	void AllMaterialsCacheResourceShadersForRendering();
+
+	/** Function pair used to save and restore the global feature level */
+	void LoadEditorFeatureLevel();
+	void SaveEditorFeatureLevel();
+
 	/** For some platforms (e.g. mobiles), when running in editor mode, we emulate the shaders functionality on available running GPU (e.g. DirectX),
 	 *  but when displaying the shader complexity we need to be able compile and extract statistics (instruction count) from the real shaders that
 	 *  will be compiled when the game will run on the specific platform. Thus (if compiler available) we perform an 'offline' shader compilation step,

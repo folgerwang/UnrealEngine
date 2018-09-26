@@ -37,13 +37,7 @@ namespace ns
         Validate();
         return NSUInteger([(NSString*)m_ptr length]);
     }
-	
-	Error::Error(ns::Ownership const retain)
-	: Object<NSError*>(retain)
-	{
-		
-	}
-	
+
 	ns::AutoReleased<String> Error::GetDomain() const
 	{
 		Validate();

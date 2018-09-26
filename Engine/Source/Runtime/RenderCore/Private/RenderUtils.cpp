@@ -5,6 +5,12 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "RenderResource.h"
 
+#if WITH_EDITOR
+#include "Misc/CoreMisc.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#endif
+
 const uint16 GCubeIndices[12*3] =
 {
 	0, 2, 3,
@@ -20,6 +26,10 @@ const uint16 GCubeIndices[12*3] =
 	1, 3, 7,
 	1, 7, 5,
 };
+
+TGlobalResource<FCubeIndexBuffer> GCubeIndexBuffer;
+TGlobalResource<FTwoTrianglesIndexBuffer> GTwoTrianglesIndexBuffer;
+TGlobalResource<FScreenSpaceVertexBuffer> GScreenSpaceVertexBuffer;
 
 //
 // FPackedNormal serializer
@@ -125,6 +135,9 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 
 	{ TEXT("R16G16B16A16_UINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_UNORM },
 	{ TEXT("R16G16B16A16_SINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_SNORM },
+	{ TEXT("PLATFORM_HDR_0"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_0 },
+	{ TEXT("PLATFORM_HDR_1"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_1 },
+	{ TEXT("PLATFORM_HDR_2"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_2 },
 };
 
 static struct FValidatePixelFormats
@@ -423,17 +436,20 @@ RENDERCORE_API int32 GMipColorTextureMipLevels = FMipColorTexture::NumMips;
 // 4: 8x8 cubemap resolution, shader needs to use the same value as preprocessing
 RENDERCORE_API const uint32 GDiffuseConvolveMipLevel = 4;
 
-//
-// FWhiteTextureCube implementation
-//
-
 /** A solid color cube texture. */
 class FSolidColorTextureCube : public FTexture
 {
 public:
-	FSolidColorTextureCube(const FColor& InColor, EPixelFormat InPixelFormat = PF_B8G8R8A8)
-	: Color(InColor)
-	, PixelFormat(InPixelFormat)
+	FSolidColorTextureCube(const FColor& InColor)
+		: bInitToZero(false)
+		, PixelFormat(PF_B8G8R8A8)
+		, ColorData(InColor.DWColor())
+	{}
+
+	FSolidColorTextureCube(EPixelFormat InPixelFormat)
+		: bInitToZero(true)
+		, PixelFormat(InPixelFormat)
+		, ColorData(0)
 	{}
 
 	// FRenderResource interface.
@@ -441,20 +457,27 @@ public:
 	{
 		// Create the texture RHI.
 		FRHIResourceCreateInfo CreateInfo;
-		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat,1,0,CreateInfo);
+		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, 0, CreateInfo);
 		TextureRHI = TextureCube;
 
 		// Write the contents of the texture.
-		for(uint32 FaceIndex = 0;FaceIndex < 6;FaceIndex++)
+		for (uint32 FaceIndex = 0; FaceIndex < 6; FaceIndex++)
 		{
 			uint32 DestStride;
-			FColor* DestBuffer = (FColor*)RHILockTextureCubeFace(TextureCube, FaceIndex, 0, 0, RLM_WriteOnly, DestStride, false);
-			*DestBuffer = Color;
+			void* DestBuffer = RHILockTextureCubeFace(TextureCube, FaceIndex, 0, 0, RLM_WriteOnly, DestStride, false);
+			if (bInitToZero)
+			{
+				FMemory::Memzero(DestBuffer, GPixelFormats[PixelFormat].BlockBytes);
+			}
+			else
+			{
+				FMemory::Memcpy(DestBuffer, &ColorData, sizeof(ColorData));
+			}
 			RHIUnlockTextureCubeFace(TextureCube, FaceIndex, 0, 0, false);
 		}
 
 		// Create the sampler state RHI resource.
-		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point,AM_Wrap,AM_Wrap,AM_Wrap);
+		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point, AM_Wrap, AM_Wrap, AM_Wrap);
 		SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
 	}
 
@@ -471,8 +494,9 @@ public:
 	}
 
 private:
-	FColor Color;
-	EPixelFormat PixelFormat;
+	const bool bInitToZero;
+	const EPixelFormat PixelFormat;
+	const uint32 ColorData;
 };
 
 /** A white cube texture. */
@@ -487,7 +511,7 @@ FTexture* GWhiteTextureCube = new TGlobalResource<FWhiteTextureCube>;
 class FBlackTextureCube : public FSolidColorTextureCube
 {
 public:
-	FBlackTextureCube(): FSolidColorTextureCube(FColor::Black) {}
+	FBlackTextureCube() : FSolidColorTextureCube(FColor::Black) {}
 };
 FTexture* GBlackTextureCube = new TGlobalResource<FBlackTextureCube>;
 
@@ -495,7 +519,7 @@ FTexture* GBlackTextureCube = new TGlobalResource<FBlackTextureCube>;
 class FBlackTextureDepthCube : public FSolidColorTextureCube
 {
 public:
-	FBlackTextureDepthCube() : FSolidColorTextureCube(FColor::Black, PF_ShadowDepth) {}
+	FBlackTextureDepthCube() : FSolidColorTextureCube(PF_ShadowDepth) {}
 };
 FTexture* GBlackTextureDepthCube = new TGlobalResource<FBlackTextureDepthCube>;
 
@@ -820,6 +844,29 @@ RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector3()
 	return GVector3VertexDeclaration.VertexDeclarationRHI;
 }
 
+class FVector2VertexDeclaration : public FRenderResource
+{
+public:
+	FVertexDeclarationRHIRef VertexDeclarationRHI;
+	virtual void InitRHI() override
+	{
+		FVertexDeclarationElementList Elements;
+		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D)));
+		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	}
+	virtual void ReleaseRHI() override
+	{
+		VertexDeclarationRHI.SafeRelease();
+	}
+};
+
+TGlobalResource<FVector2VertexDeclaration> GVector2VertexDeclaration;
+
+RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector2()
+{
+	return GVector2VertexDeclaration.VertexDeclarationRHI;
+}
+
 RENDERCORE_API bool PlatformSupportsSimpleForwardShading(EShaderPlatform Platform)
 {
 	static const auto SupportSimpleForwardShadingCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportSimpleForwardShading"));
@@ -833,15 +880,70 @@ RENDERCORE_API bool IsSimpleForwardShadingEnabled(EShaderPlatform Platform)
 	return CVar->GetValueOnAnyThread() != 0 && PlatformSupportsSimpleForwardShading(Platform);
 }
 
-RENDERCORE_API int32 bUseForwardShading = 0;
+RENDERCORE_API int32 GUseForwardShading = 0;
 static FAutoConsoleVariableRef CVarForwardShading(
 	TEXT("r.ForwardShading"),
-	bUseForwardShading,
+	GUseForwardShading,
 	TEXT("Whether to use forward shading on desktop platforms - requires Shader Model 5 hardware.\n")
 	TEXT("Forward shading has lower constant cost, but fewer features supported. 0:off, 1:on\n")
 	TEXT("This rendering path is a work in progress with many unimplemented features, notably only a single reflection capture is applied per object and no translucency dynamic shadow receiving."),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly
 	); 
+
+RENDERCORE_API uint32 GForwardShadingPlatformMask = 0;
+static_assert(SP_NumPlatforms <= sizeof(GForwardShadingPlatformMask) * 8, "GForwardShadingPlatformMask must be large enough to support all shader platforms");
+
+RENDERCORE_API uint32 GDBufferPlatformMask = 0;
+static_assert(SP_NumPlatforms <= sizeof(GDBufferPlatformMask) * 8, "GDBufferPlatformMask must be large enough to support all shader platforms");
+
+RENDERCORE_API void RenderUtilsInit()
+{
+	if (GUseForwardShading)
+	{
+		GForwardShadingPlatformMask = ~0u;
+	}
+
+	static IConsoleVariable* CDBufferVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DBuffer"));
+	if (CDBufferVar && CDBufferVar->GetInt())
+	{
+		GDBufferPlatformMask = ~0u;
+	}
+
+#if WITH_EDITOR
+	ITargetPlatformManagerModule* TargetPlatformManager = GetTargetPlatformManager();
+	if (TargetPlatformManager)
+	{
+		for (uint32 ShaderPlatformIndex = 0; ShaderPlatformIndex < SP_NumPlatforms; ++ShaderPlatformIndex)
+		{
+			EShaderPlatform ShaderPlatform = EShaderPlatform(ShaderPlatformIndex);
+			FName PlatformName = ShaderPlatformToPlatformName(ShaderPlatform);
+			ITargetPlatform* TargetPlatform = TargetPlatformManager->FindTargetPlatform(PlatformName.ToString());
+			if (TargetPlatform)
+			{
+				uint32 Mask = 1u << ShaderPlatformIndex;
+
+				if (TargetPlatform->UsesForwardShading())
+				{
+					GForwardShadingPlatformMask |= Mask;
+				}
+				else
+				{
+					GForwardShadingPlatformMask &= ~Mask;
+				}
+
+				if (TargetPlatform->UsesDBuffer())
+				{
+					GDBufferPlatformMask |= Mask;
+				}
+				else
+				{
+					GDBufferPlatformMask &= ~Mask;
+				}
+			}
+		}
+	}
+#endif
+}
 
 class FUnitCubeVertexBuffer : public FVertexBuffer
 {

@@ -121,6 +121,15 @@ public:
 	FString CreateCorrelationId() const;
 
 	/**
+	 * Determine if the domain is allowed to be accessed
+	 *
+	 * @param Url the path to check domain on
+	 *
+	 * @return true if domain is whitelisted and allowed
+	 */
+	bool IsDomainAllowed(const FString& Url) const;
+
+	/**
 	 * Get the default method for creating new correlation ids for a request
 	 *
 	 * @return The default correlationid creation method

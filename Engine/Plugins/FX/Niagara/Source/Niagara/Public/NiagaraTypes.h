@@ -134,6 +134,7 @@ struct FNiagaraSpawnInfo
 		: Count(0)
 		, InterpStartDt(0.0f)
 		, IntervalDt(1.0f)
+		, SpawnGroup(0)
 	{}
 
 	/** How many particles to spawn. */
@@ -302,6 +303,7 @@ struct NIAGARA_API FNiagaraVariableMetaData
 public:
 	FNiagaraVariableMetaData()
 		:EditorSortPriority(0)
+		, CallSortPriority(0)
 	{
 	}
 public:
@@ -842,7 +844,7 @@ struct FNiagaraVariable
 			}
 		}
 
-		OutVarStrName = FString::Join<FString>(SplitName, InJoinSeparator);
+		OutVarStrName = FString::Join(SplitName, InJoinSeparator);
 
 		OutVar.SetName(*OutVarStrName);
 		return OutVar;

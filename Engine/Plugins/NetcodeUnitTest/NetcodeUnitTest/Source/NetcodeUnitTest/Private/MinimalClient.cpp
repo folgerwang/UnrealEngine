@@ -13,6 +13,7 @@
 #include "NetcodeUnitTest.h"
 #include "UnitTestEnvironment.h"
 #include "UnitTestManager.h"
+#include "NUTGlobals.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 #include "Net/NUTUtilNet.h"
@@ -291,7 +292,7 @@ bool UMinimalClient::SendRawBunch(FOutBunch& Bunch, bool bAllowPartial/*=false*/
 
 
 				SendBunches.Add(NewBunch);
-				NewBunch->DebugString = FString::Printf(TEXT("Partial[%d]: %s"), SendBunches.Num(), *Bunch.DebugString);
+				NewBunch->SetDebugString(FString::Printf(TEXT("Partial[%d]: %s"), SendBunches.Num(), *Bunch.GetDebugString()));
 			}
 
 			UNIT_LOG(, TEXT("SendRawBunch: Split oversized bunch (%i bits) into '%i' partial packets."), BunchNumBits,
@@ -720,7 +721,7 @@ void UMinimalClient::CreateNetDriver()
 
 	if (GameEngine != nullptr && UnitWorld != nullptr)
 	{
-		static int UnitTestNetDriverCount = 0;
+		int32& UnitTestNetDriverCount = UNUTGlobals::Get().UnitTestNetDriverCount;
 
 		// Setup a new driver name entry
 		bool bFoundDef = false;
@@ -842,9 +843,9 @@ void UMinimalClient::SendInitialJoin()
 				*ControlChanBunch << MessageType;
 				*ControlChanBunch << BeaconType;
 
-				int32 UIDSize = JoinUID.Len();
+				uint8 EncType = 0;
 
-				*ControlChanBunch << UIDSize;
+				*ControlChanBunch << EncType;
 				*ControlChanBunch << JoinUID;
 
 				// Also immediately ack the beacon GUID setup; we're just going to let the server setup the client beacon,
@@ -888,8 +889,8 @@ void UMinimalClient::WriteControlLogin(FOutBunch* ControlChanBunch)
 {
 	uint8 MessageType = NMT_Login;
 	FString BlankStr = TEXT("");
-	int32 UIDSize = JoinUID.Len();
 	FString OnlinePlatformName = TEXT("Dud");
+	uint8 EncType = 0;
 
 	// @todo #JohnB: It would be nice to remove this last UnitTest dependency (may be opportune to, when doing MCP connect URL)
 	// @todo #JohnB: Update the existing environments that use this, to use a UnitTask with AlterMinClient instead, like Fortnite,
@@ -903,7 +904,7 @@ void UMinimalClient::WriteControlLogin(FOutBunch* ControlChanBunch)
 	*ControlChanBunch << MessageType;
 	*ControlChanBunch << BlankStr;
 	*ControlChanBunch << ConnectURL;
-	*ControlChanBunch << UIDSize;
+	*ControlChanBunch << EncType;
 	*ControlChanBunch << JoinUID;
 	*ControlChanBunch << OnlinePlatformName;
 }

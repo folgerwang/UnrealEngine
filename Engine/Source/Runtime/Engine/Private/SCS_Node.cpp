@@ -112,12 +112,6 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 			NewActorComp->OnComponentCreated();
 		}
 
-		if (NewActorComp->GetIsReplicated())
-		{
-			// Make sure this component is added to owning actor's replicated list.
-			NewActorComp->SetIsReplicated(true);
-		}
-
 		// Special handling for scene components
 		USceneComponent* NewSceneComp = Cast<USceneComponent>(NewActorComp);
 		if (NewSceneComp != nullptr)

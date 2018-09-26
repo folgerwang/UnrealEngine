@@ -21,11 +21,13 @@ static const uint32	EventDeepCRC = FCrc::StrCrc32<TCHAR>(*EventDeepString);
  */
 void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 {
+	GIsSupported = false;
+
 	// Are the static variables initialized?
 	check( !GAreGlobalsInitialized );
 
 	FVulkanGPUTiming* Caller = (FVulkanGPUTiming*)UserData;
-	if (Caller && Caller->Device)
+	if (Caller && Caller->Device && FVulkanPlatform::SupportsTimestampRenderQueries())
 	{
 		const VkPhysicalDeviceLimits& Limits = Caller->Device->GetDeviceProperties().limits;
 		bool bSupportsTimestamps = (Limits.timestampComputeAndGraphics == VK_TRUE);
@@ -34,11 +36,7 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Timestamps not supported on Device"));
 			return;
 		}
-#if VULKAN_USE_NEW_QUERIES
 		GTimingFrequency = (uint64)((1.0f / Limits.timestampPeriod) * 1000.0f * 1000.0f * 1000.0f);
-#else
-		GTimingFrequency = 1;
-#endif
 	}
 }
 
@@ -82,6 +80,64 @@ void FVulkanDynamicRHI::RHICalibrateTimers()
 	FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList());
 
 	FVulkanGPUTiming::CalibrateTimers(GetDevice()->GetImmediateContext());
+}
+
+
+FVulkanStagingBuffer::~FVulkanStagingBuffer()
+{
+	if (StagingBuffer)
+	{
+		FVulkanVertexBuffer* VertexBuffer = ResourceCast(GetBackingBuffer());
+		VertexBuffer->GetParent()->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
+	}
+}
+
+FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef BackingBuffer)
+{
+	return new FVulkanStagingBuffer(BackingBuffer);
+}
+
+void FVulkanDynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+{
+	FVulkanCommandListContext& Context = Device->GetImmediateContext();
+	FVulkanCmdBuffer* CmdBuffer = Context.GetCommandBufferManager()->GetActiveCmdBuffer();
+
+	FVulkanGPUFence* Fence = ResourceCast(FenceRHI);
+	Fence->CmdBuffer = CmdBuffer;
+	Fence->FenceSignaledCounter = CmdBuffer->GetFenceSignaledCounter();
+
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
+	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
+	StagingBuffer->QueuedOffset = Offset;
+	StagingBuffer->QueuedNumBytes = NumBytes;
+
+	VkBufferCopy Region;
+	FMemory::Memzero(Region);
+	Region.size = NumBytes;
+	FVulkanVertexBuffer* VertexBuffer = ResourceCast(StagingBufferRHI->GetBackingBuffer());
+	Region.srcOffset = Offset + VertexBuffer->GetOffset();
+	//Region.dstOffset = 0;
+	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), ReadbackStagingBuffer->GetHandle(), 1, &Region);
+
+	return FDynamicRHI::RHIEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
+}
+
+void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
+{
+	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	uint32 QueuedEndOffset = StagingBuffer->QueuedNumBytes + StagingBuffer->QueuedOffset;
+	uint32 EndOffset = Offset + SizeRHI;
+	check(Offset < StagingBuffer->QueuedNumBytes && EndOffset <= QueuedEndOffset);
+	//#todo-rco: Apply the offset in case it doesn't match
+	return StagingBuffer->StagingBuffer->GetMappedPointer();
+}
+
+void FVulkanDynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
+{
+	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer->StagingBuffer);
 }
 
 /**
@@ -128,7 +184,7 @@ void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
 	{
 		CurrentTimerIndex = (CurrentTimerIndex + 1) % MaxTimers;
 		NumActiveTimers = FMath::Min(NumActiveTimers + 1, (int32)MaxTimers);
-#if VULKAN_USE_NEW_QUERIES
+/*
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
@@ -136,13 +192,8 @@ void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
 		Timers[CurrentTimerIndex].BeginCmdBuffer = CmdBuffer;
 		Timers[CurrentTimerIndex].BeginFenceCounter = CmdBuffer->GetFenceSignaledCounter();
 		CmdContext->RHIEndRenderQuery(Timers[CurrentTimerIndex].Begin);
-#else
-		if (CmdBuffer == nullptr)
-		{
-			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
-		}
-		CmdContext->EndRenderQueryInternal(CmdBuffer, Timers[CurrentTimerIndex].Begin);
-#endif
+*/
+
 		bIsTiming = true;
 	}
 }
@@ -156,7 +207,7 @@ void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 	// Issue a timestamp query for the 'end' time.
 	if (GIsSupported && bIsTiming)
 	{
-#if VULKAN_USE_NEW_QUERIES
+/*
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
@@ -164,13 +215,7 @@ void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 		Timers[CurrentTimerIndex].EndCmdBuffer = CmdBuffer;
 		Timers[CurrentTimerIndex].EndFenceCounter = CmdBuffer->GetFenceSignaledCounter();
 		CmdContext->RHIEndRenderQuery(Timers[CurrentTimerIndex].End);
-#else
-		if (CmdBuffer == nullptr)
-		{
-			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
-		}
-		CmdContext->EndRenderQueryInternal(CmdBuffer, Timers[CurrentTimerIndex].End);
-#endif
+*/
 		bIsTiming = false;
 		bEndTimestampIssued = true;
 	}
@@ -186,6 +231,7 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 {
 	if (GIsSupported)
 	{
+/*
 		uint64 BeginTime, EndTime;
 		int32 TimerIndex = CurrentTimerIndex;
 		if (!bGetCurrentResultsAndBlock)
@@ -262,6 +308,7 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 				checkf(0, TEXT("Could not wait for Begin timer query result!"));
 			}
 		}
+		*/
 	}
 
 	return 0;
@@ -297,7 +344,9 @@ float FVulkanEventNodeFrame::GetRootTimingResults()
 
 #if VULKAN_USE_NEW_QUERIES
 		// In milliseconds
+/*
 		RootResult = (double)GPUTiming / (double)RootEventTiming.GetTimingFrequency();
+*/
 #else
 		RootResult = ConvertTiming(GPUTiming);
 #endif
@@ -315,7 +364,9 @@ float FVulkanEventNode::GetTiming()
 		const uint64 GPUTiming = Timing.GetTiming(true);
 #if VULKAN_USE_NEW_QUERIES
 		// In milliseconds
+/*
 		Result = (double)GPUTiming / (double)Timing.GetTimingFrequency();
+*/
 #else
 		Result = ConvertTiming(GPUTiming);
 #endif
@@ -534,7 +585,7 @@ namespace VulkanRHI
 		ZeroVulkanStruct(BufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 		BufferCreateInfo.size = Size;
 		BufferCreateInfo.usage = BufferUsageFlags;
-		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateBuffer(Device, &BufferCreateInfo, nullptr, &Buffer));
+		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateBuffer(Device, &BufferCreateInfo, VULKAN_CPU_ALLOCATOR, &Buffer));
 
 		VulkanRHI::vkGetBufferMemoryRequirements(Device, Buffer, &OutMemoryRequirements);
 
@@ -623,7 +674,8 @@ DEFINE_STAT(STAT_VulkanDispatchCallPrepareTime);
 DEFINE_STAT(STAT_VulkanGetOrCreatePipeline);
 DEFINE_STAT(STAT_VulkanGetDescriptorSet);
 DEFINE_STAT(STAT_VulkanPipelineBind);
-DEFINE_STAT(STAT_VulkanNumBoundShaderState);
+DEFINE_STAT(STAT_VulkanNumCmdBuffers);
+DEFINE_STAT(STAT_VulkanNumPSOs);
 DEFINE_STAT(STAT_VulkanNumRenderPasses);
 DEFINE_STAT(STAT_VulkanNumFrameBuffers);
 DEFINE_STAT(STAT_VulkanNumBufferViews);
@@ -636,12 +688,14 @@ DEFINE_STAT(STAT_VulkanDynamicIBLockTime);
 DEFINE_STAT(STAT_VulkanUPPrepTime);
 DEFINE_STAT(STAT_VulkanUniformBufferCreateTime);
 DEFINE_STAT(STAT_VulkanApplyDSUniformBuffers);
+DEFINE_STAT(STAT_VulkanApplyPackedUniformBuffers);
 DEFINE_STAT(STAT_VulkanSRVUpdateTime);
 DEFINE_STAT(STAT_VulkanUAVUpdateTime);
 DEFINE_STAT(STAT_VulkanDeletionQueue);
 DEFINE_STAT(STAT_VulkanQueueSubmit);
 DEFINE_STAT(STAT_VulkanQueuePresent);
 DEFINE_STAT(STAT_VulkanNumQueries);
+DEFINE_STAT(STAT_VulkanNumQueryPools);
 DEFINE_STAT(STAT_VulkanWaitQuery);
 DEFINE_STAT(STAT_VulkanWaitFence);
 DEFINE_STAT(STAT_VulkanResetQuery);
@@ -650,11 +704,9 @@ DEFINE_STAT(STAT_VulkanAcquireBackBuffer);
 DEFINE_STAT(STAT_VulkanStagingBuffer);
 DEFINE_STAT(STAT_VulkanVkCreateDescriptorPool);
 DEFINE_STAT(STAT_VulkanNumDescPools);
-DEFINE_STAT(STAT_VulkanDescriptorSetAllocator);
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DEFINE_STAT(STAT_VulkanUpdateDescriptorSets);
 DEFINE_STAT(STAT_VulkanNumUpdateDescriptors);
-DEFINE_STAT(STAT_VulkanNumRedundantDescSets);
 DEFINE_STAT(STAT_VulkanNumDescSets);
 DEFINE_STAT(STAT_VulkanSetUniformBufferTime);
 DEFINE_STAT(STAT_VulkanVkUpdateDS);

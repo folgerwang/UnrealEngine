@@ -12,6 +12,18 @@
 #include "Templates/ScopedPointer.h"
 #include "Templates/UniquePtr.h"
 
+#ifndef PLATFORM_FILE_READER_BUFFER_SIZE
+ #define PLATFORM_FILE_READER_BUFFER_SIZE 1024
+#endif
+
+#ifndef PLATFORM_FILE_WRITER_BUFFER_SIZE
+ #define PLATFORM_FILE_WRITER_BUFFER_SIZE 4096
+#endif 
+
+#ifndef PLATFORM_DEBUG_FILE_WRITER_BUFFER_SIZE
+ #define PLATFORM_DEBUG_FILE_WRITER_BUFFER_SIZE 4096
+#endif 
+
 /**
  * Base class for file managers.
  *
@@ -56,13 +68,20 @@ public:
 		return GetLowLevel().IsSandboxEnabled();
 	}
 
-	FArchive* CreateFileReader( const TCHAR* Filename, uint32 ReadFlags=0 ) override;	
-	FArchive* CreateFileWriter( const TCHAR* Filename, uint32 WriteFlags=0 ) override;
+	FArchive* CreateFileReader( const TCHAR* Filename, uint32 ReadFlags=0 ) override
+	{
+		return CreateFileReaderInternal( Filename, ReadFlags, PLATFORM_FILE_READER_BUFFER_SIZE );
+	}
+
+	FArchive* CreateFileWriter( const TCHAR* Filename, uint32 WriteFlags=0 ) override
+	{
+		return CreateFileWriterInternal( Filename, WriteFlags, PLATFORM_FILE_WRITER_BUFFER_SIZE );
+	}
 
 #if ALLOW_DEBUG_FILES
 	FArchive* CreateDebugFileWriter( const TCHAR* Filename, uint32 WriteFlags=0 ) override
 	{
-		return CreateFileWriter( Filename, WriteFlags );
+		return CreateFileWriterInternal( Filename, WriteFlags, PLATFORM_DEBUG_FILE_WRITER_BUFFER_SIZE );
 	}
 #endif
 
@@ -183,6 +202,8 @@ public:
 	}
 
 private:
+	FArchive * CreateFileReaderInternal(const TCHAR* Filename, uint32 ReadFlags, uint32 BufferSize);
+	FArchive* CreateFileWriterInternal(const TCHAR* Filename, uint32 WriteFlags, uint32 BufferSize);
 
 	/**
 	 * Helper called from Copy if Progress is available
@@ -200,7 +221,7 @@ private:
 class CORE_API FArchiveFileReaderGeneric : public FArchive
 {
 public:
-	FArchiveFileReaderGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InSize );
+	FArchiveFileReaderGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InSize, uint32 InBufferSize = PLATFORM_FILE_READER_BUFFER_SIZE );
 	~FArchiveFileReaderGeneric();
 
 	virtual void Seek( int64 InPos ) final;
@@ -244,7 +265,8 @@ protected:
 	int64 BufferBase;
 	int64 BufferCount;
 	TUniquePtr<IFileHandle> Handle;
-	uint8 Buffer[1024];
+	uint8* Buffer;
+	uint32 BufferSize;
 };
 
 
@@ -255,7 +277,7 @@ protected:
 class FArchiveFileWriterGeneric : public FArchive
 {
 public:
-	FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos );
+	FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize = PLATFORM_FILE_WRITER_BUFFER_SIZE );
 	~FArchiveFileWriterGeneric();
 
 	virtual void Seek( int64 InPos ) final;
@@ -306,6 +328,7 @@ protected:
 	int64 Pos;
 	int64 BufferCount;
 	TUniquePtr<IFileHandle> Handle;
-	uint8 Buffer[4096];
+	uint8* Buffer;
+	uint32 BufferSize;
 	bool bLoggingError;
 };

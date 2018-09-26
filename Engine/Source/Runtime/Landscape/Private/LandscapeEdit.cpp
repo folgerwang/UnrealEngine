@@ -50,13 +50,24 @@ LandscapeEdit.cpp: Landscape editing
 #include "Interfaces/ITargetPlatform.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "ScopedTransaction.h"
+#include "Editor.h"
 #endif
 #include "Algo/Count.h"
 #include "Serialization/MemoryWriter.h"
+#include "Engine/Canvas.h"
 
 DEFINE_LOG_CATEGORY(LogLandscape);
+DEFINE_LOG_CATEGORY(LogLandscapeBP);
 
 #define LOCTEXT_NAMESPACE "Landscape"
+
+int32 GMobileCompressLandscapeWeightMaps = 0;
+FAutoConsoleVariableRef CVarMobileCompressLanscapeWeightMaps(
+    TEXT("r.Mobile.CompressLandscapeWeightMaps"),
+    GMobileCompressLandscapeWeightMaps,
+    TEXT("Whether to compress the terrain weight maps for mobile."),
+    ECVF_ReadOnly
+);
 
 #if WITH_EDITOR
 
@@ -157,12 +168,47 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 	return MaterialInstance;
 }
 
-UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, bool bMobile /*= false*/) const
+/**
+* Generate a key for this component's layer allocations to use with MaterialInstanceConstantMap.
+*/
+FString ULandscapeComponent::GetLayerAllocationKey(const TArray<FWeightmapLayerAllocationInfo>& Allocations, UMaterialInterface* LandscapeMaterial, bool bMobile /*= false*/)
+{
+	if (!LandscapeMaterial)
+	{
+		return FString();
+	}
+
+	FString Result = LandscapeMaterial->GetPathName();
+
+	// Generate a string to describe each allocation
+	TArray<FString> LayerStrings;
+	for (int32 LayerIdx = 0; LayerIdx < Allocations.Num(); LayerIdx++)
+	{
+		const bool bNoWeightBlend = Allocations[LayerIdx].LayerInfo && Allocations[LayerIdx].LayerInfo->bNoWeightBlend;
+		LayerStrings.Add(FString::Printf(TEXT("_%s_%s%d"), *Allocations[LayerIdx].GetLayerName().ToString(), bNoWeightBlend ? TEXT("n") : TEXT("w"), Allocations[LayerIdx].WeightmapTextureIndex));
+	}
+	// Sort them alphabetically so we can share across components even if the order is different
+	LayerStrings.Sort(TGreater<FString>());
+
+	for (int32 LayerIdx = 0; LayerIdx < LayerStrings.Num(); LayerIdx++)
+	{
+		Result += LayerStrings[LayerIdx];
+	}
+
+	if (bMobile)
+	{
+		Result += TEXT("M");
+	}
+
+	return Result;
+}
+
+UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile /*= false*/) const
 {
 	check(GIsEditor);
 
 	const bool bComponentHasHoles = ComponentHasVisibilityPainted();
-	UMaterialInterface* const LandscapeMaterial = GetLandscapeMaterial();
+	UMaterialInterface* const LandscapeMaterial = GetLandscapeMaterial(InLODIndex);
 	UMaterialInterface* const HoleMaterial = bComponentHasHoles ? GetLandscapeHoleMaterial() : nullptr;
 	UMaterialInterface* const MaterialToUse = bComponentHasHoles && HoleMaterial ? HoleMaterial : LandscapeMaterial;
 	bool bOverrideBlendMode = bComponentHasHoles && !HoleMaterial && LandscapeMaterial->GetBlendMode() == BLEND_Opaque;
@@ -235,86 +281,135 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 {
 	check(GIsEditor);
 
-	// Find or set a matching MIC in the Landscape's map.
-	UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(WeightmapLayerAllocations, false);
+	int32 MaxLOD = FMath::CeilLogTwo(SubsectionSizeQuads + 1) - 1;
+	TMap<UMaterialInterface*, int8> NewMaterialPerLOD;
+	LODIndexToMaterialIndex.SetNumUninitialized(MaxLOD+1);
+	int8 LastLODIndex = INDEX_NONE;
 
-	if (CombinationMaterialInstance != nullptr)
+	UMaterialInterface* BaseMaterial = GetLandscapeMaterial();
+	UMaterialInterface* LOD0Material = GetLandscapeMaterial(0);
+
+	for (int32 LODIndex = 0; LODIndex <= MaxLOD; ++LODIndex)
 	{
-		// If using tessellation, we need a second material instance for LOD 1+ with it disabled.
-		const bool bTessellationEnabled = (CombinationMaterialInstance->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
+		UMaterialInterface* CurrentMaterial = GetLandscapeMaterial(LODIndex);
 
-		// Size the MaterialInstances array appropriately
-		MaterialInstances.SetNumZeroed(bTessellationEnabled ? 2 : 1);
-
-		UMaterialInstanceConstant* MaterialInstance = MaterialInstances[0];
-
-		// Create the instance for this component, that will use the layer combination instance.
-		if (MaterialInstance == nullptr || GetOutermost() != MaterialInstance->GetOutermost())
+		// if we have a LOD0 override, do not let the base material override it, it should override everything!
+		if (CurrentMaterial == BaseMaterial && BaseMaterial != LOD0Material)
 		{
-			MaterialInstance = MaterialInstances[0] = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+			CurrentMaterial = LOD0Material;
 		}
 
-		// Material Instances don't support Undo/Redo (the shader map goes out of sync and crashes happen)
-		// so we call UpdateMaterialInstances() from ULandscapeComponent::PostEditUndo instead
-		//MaterialInstance->SetFlags(RF_Transactional);
-		//MaterialInstance->Modify();
+		const int8* MaterialLOD = NewMaterialPerLOD.Find(CurrentMaterial);
 
-		MaterialInstance->SetParentEditorOnly(CombinationMaterialInstance);
-		MaterialInstance->ClearParameterValuesEditorOnly();
-		Context.AddMaterialInstance(MaterialInstance); // must be done after SetParent
-
-		FLinearColor Masks[4];
-		Masks[0] = FLinearColor(1.0f, 0.0f, 0.0f, 0.0f);
-		Masks[1] = FLinearColor(0.0f, 1.0f, 0.0f, 0.0f);
-		Masks[2] = FLinearColor(0.0f, 0.0f, 1.0f, 0.0f);
-		Masks[3] = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-		// Set the layer mask
-		for (int32 AllocIdx = 0; AllocIdx < WeightmapLayerAllocations.Num(); AllocIdx++)
+		if (MaterialLOD != nullptr)
 		{
-			FWeightmapLayerAllocationInfo& Allocation = WeightmapLayerAllocations[AllocIdx];
-
-			FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo ? Allocation.LayerInfo->LayerName : NAME_None;
-			MaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
+			LODIndexToMaterialIndex[LODIndex] = *MaterialLOD > LastLODIndex ? *MaterialLOD : LastLODIndex;
 		}
-
-		// Set the weightmaps
-		for (int32 i = 0; i < WeightmapTextures.Num(); i++)
+		else
 		{
-			MaterialInstance->SetTextureParameterValueEditorOnly(FName(*FString::Printf(TEXT("Weightmap%d"), i)), WeightmapTextures[i]);
-		}
-
-		// Set the heightmap, if needed.
-		if (HeightmapTexture)
-		{
-			MaterialInstance->SetTextureParameterValueEditorOnly(FName(TEXT("Heightmap")), HeightmapTexture);
-		}
-		MaterialInstance->PostEditChange();
-
-		// Setup material instance with disabled tessellation
-		if (bTessellationEnabled)
-		{
-			ULandscapeMaterialInstanceConstant*& TessellationMaterialInstance = (ULandscapeMaterialInstanceConstant*&)MaterialInstances[1];
-			if (TessellationMaterialInstance == nullptr || GetOutermost() != TessellationMaterialInstance->GetOutermost())
-			{
-				TessellationMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
-			}
-			TessellationMaterialInstance->SetParentEditorOnly(MaterialInstance);
-			Context.AddMaterialInstance(TessellationMaterialInstance); // must be done after SetParent
-			TessellationMaterialInstance->bDisableTessellation = true;
-			TessellationMaterialInstance->PostEditChange();
+			int32 AddedIndex = NewMaterialPerLOD.Num();
+			NewMaterialPerLOD.Add(CurrentMaterial, LODIndex);
+			LODIndexToMaterialIndex[LODIndex] = AddedIndex;
+			LastLODIndex = AddedIndex;
 		}
 	}
-	else
+
+	MaterialPerLOD = NewMaterialPerLOD;
+
+	MaterialInstances.SetNumZeroed(MaterialPerLOD.Num() * 2); // over allocate in case we are using tessellation
+	MaterialIndexToDisabledTessellationMaterial.Init(INDEX_NONE, MaxLOD + 1);
+	int8 TessellatedMaterialCount = 0;
+	int8 MaterialIndex = 0;
+
+	for (auto It = MaterialPerLOD.CreateConstIterator(); It; ++It)
+	{
+		const int8 MaterialLOD = It.Value();
+
+		// Find or set a matching MIC in the Landscape's map.
+		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(WeightmapLayerAllocations, MaterialLOD, false);
+
+		if (CombinationMaterialInstance != nullptr)
+		{
+			// Create the instance for this component, that will use the layer combination instance.
+			UMaterialInstanceConstant* MaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+			MaterialInstances[MaterialIndex] = MaterialInstance;
+
+			// Material Instances don't support Undo/Redo (the shader map goes out of sync and crashes happen)
+			// so we call UpdateMaterialInstances() from ULandscapeComponent::PostEditUndo instead
+			//MaterialInstance->SetFlags(RF_Transactional);
+			//MaterialInstance->Modify();
+
+			MaterialInstance->SetParentEditorOnly(CombinationMaterialInstance);
+			MaterialInstance->ClearParameterValuesEditorOnly();
+			Context.AddMaterialInstance(MaterialInstance); // must be done after SetParent
+
+			FLinearColor Masks[4] = { FLinearColor(1.0f, 0.0f, 0.0f, 0.0f), FLinearColor(0.0f, 1.0f, 0.0f, 0.0f), FLinearColor(0.0f, 0.0f, 1.0f, 0.0f), FLinearColor(0.0f, 0.0f, 0.0f, 1.0f) };
+
+			// Set the layer mask
+			for (int32 AllocIdx = 0; AllocIdx < WeightmapLayerAllocations.Num(); AllocIdx++)
+			{
+				FWeightmapLayerAllocationInfo& Allocation = WeightmapLayerAllocations[AllocIdx];
+
+				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo ? Allocation.LayerInfo->LayerName : NAME_None;
+				MaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
+			}
+
+			// Set the weightmaps
+			for (int32 i = 0; i < WeightmapTextures.Num(); i++)
+			{
+				MaterialInstance->SetTextureParameterValueEditorOnly(FName(*FString::Printf(TEXT("Weightmap%d"), i)), WeightmapTextures[i]);
+			}
+
+			// Set the heightmap, if needed.
+			if (HeightmapTexture)
+			{
+				MaterialInstance->SetTextureParameterValueEditorOnly(FName(TEXT("Heightmap")), HeightmapTexture);
+			}
+			MaterialInstance->PostEditChange();
+
+			// Setup material instance with disabled tessellation
+			if (CombinationMaterialInstance->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation)
+			{
+				ULandscapeMaterialInstanceConstant* TessellationMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+				int32 TessellatedMaterialIndex = MaterialPerLOD.Num() + TessellatedMaterialCount++;
+				MaterialInstances[TessellatedMaterialIndex] = TessellationMaterialInstance;
+				MaterialIndexToDisabledTessellationMaterial[MaterialIndex] = TessellatedMaterialIndex;
+
+				TessellationMaterialInstance->SetParentEditorOnly(MaterialInstance);
+				Context.AddMaterialInstance(TessellationMaterialInstance); // must be done after SetParent
+				TessellationMaterialInstance->bDisableTessellation = true;
+				TessellationMaterialInstance->PostEditChange();
+			}
+		}
+
+		++MaterialIndex;
+	}
+
+	MaterialInstances.Remove(nullptr);
+	MaterialInstances.Shrink();
+
+	if (MaterialPerLOD.Num() == 0)
 	{
 		MaterialInstances.Empty(1);
 		MaterialInstances.Add(nullptr);
+		LODIndexToMaterialIndex.Empty(1);
+		LODIndexToMaterialIndex.Add(0);
 	}
 
 	// Update mobile combination material
 	{
 		GenerateMobileWeightmapLayerAllocations();
-		MobileCombinationMaterialInstance = GetCombinationMaterial(MobileWeightmapLayerAllocations, true);
+
+		MobileCombinationMaterialInstances.SetNumZeroed(MaterialPerLOD.Num());
+		int8 MobileMaterialIndex = 0;
+
+		for (auto It = MaterialPerLOD.CreateConstIterator(); It; ++It)
+		{
+			const int8 MaterialLOD = It.Value();
+
+			MobileCombinationMaterialInstances[MobileMaterialIndex] = GetCombinationMaterial(MobileWeightmapLayerAllocations, MaterialLOD, true);
+			++MobileMaterialIndex;
+		}
 	}
 }
 
@@ -369,12 +464,10 @@ class UMaterialInterface* ULandscapeComponent::GetMaterial(int32 ElementIndex) c
 {
 	if (ensure(ElementIndex == 0))
 	{
-		return GetLandscapeMaterial();
+		return GetLandscapeMaterial(ElementIndex);
 	}
-	else
-	{
-		return nullptr;
-	}
+
+	return nullptr;
 }
 
 void ULandscapeComponent::SetMaterial(int32 ElementIndex, class UMaterialInterface* Material)
@@ -3733,6 +3826,10 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		CheckGenerateLandscapePlatformData(false, nullptr);
 		MarkComponentsRenderStateDirty();
 	}
+	else if (PropertyName == FName(TEXT("bUseDynamicMaterialInstance")))
+	{
+		MarkComponentsRenderStateDirty();
+	}
 	
 	// Remove null layer infos
 	EditorLayerSettings.RemoveAll([](const FLandscapeEditorLayerSettings& Entry) { return Entry.LayerInfoObj == nullptr; });
@@ -3772,6 +3869,7 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 void ALandscapeStreamingProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	const FName PropertyName = PropertyChangedEvent.MemberProperty ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+
 	if (PropertyName == FName(TEXT("LandscapeActor")))
 	{
 		if (LandscapeActor && IsValidLandscapeActor(LandscapeActor.Get()))
@@ -3788,15 +3886,20 @@ void ALandscapeStreamingProxy::PostEditChangeProperty(FPropertyChangedEvent& Pro
 			LandscapeActor = nullptr;
 		}
 	}
-	else if (PropertyName == FName(TEXT("LandscapeMaterial")) || PropertyName == FName(TEXT("LandscapeHoleMaterial")))
+	else if (PropertyName == FName(TEXT("LandscapeMaterial")) || PropertyName == FName(TEXT("LandscapeHoleMaterial")) || PropertyName == FName(TEXT("LandscapeMaterialsOverride")))
 	{
-		{
-			ULandscapeInfo* Info = GetLandscapeInfo();
+		bool RecreateMaterialInstances = true;
 
-			if (Info != nullptr)
+		if (PropertyName == FName(TEXT("LandscapeMaterialsOverride")) && PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd)
+		{
+			RecreateMaterialInstances = false;
+		}
+
+		if (RecreateMaterialInstances)
+		{
 			{
 				FMaterialUpdateContext MaterialUpdateContext;
-				Info->UpdateLayerInfoMap(/*this*/);
+				GetLandscapeInfo()->UpdateLayerInfoMap(/*this*/);
 
 				// Clear the parents out of combination material instances
 				for (const auto& MICPair : MaterialInstanceConstantMap)
@@ -3810,9 +3913,22 @@ void ALandscapeStreamingProxy::PostEditChangeProperty(FPropertyChangedEvent& Pro
 				// Remove our references to any material instances
 				MaterialInstanceConstantMap.Empty();
 			}
-		}
 
-		UpdateAllComponentMaterialInstances();
+			UpdateAllComponentMaterialInstances();
+
+			UWorld* World = GetWorld();
+
+			if (World != nullptr && World->FeatureLevel <= ERHIFeatureLevel::ES3_1)
+			{
+				for (ULandscapeComponent * Component : LandscapeComponents)
+				{
+					if (Component != nullptr)
+					{
+						Component->CheckGenerateLandscapePlatformData(false, nullptr);
+					}
+				}
+			}
+		}
 	}
 
 	// Must do this *after* clamping values
@@ -3822,6 +3938,7 @@ void ALandscapeStreamingProxy::PostEditChangeProperty(FPropertyChangedEvent& Pro
 void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
 
 	bool ChangedMaterial = false;
 	bool bNeedsRecalcBoundingBox = false;
@@ -3831,9 +3948,16 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 
 	ULandscapeInfo* Info = GetLandscapeInfo();
 
-	if (PropertyName == FName(TEXT("LandscapeMaterial")) || PropertyName == FName(TEXT("LandscapeHoleMaterial")))
+	if (PropertyName == FName(TEXT("LandscapeMaterial")) || PropertyName == FName(TEXT("LandscapeHoleMaterial")) || MemberPropertyName == FName(TEXT("LandscapeMaterialsOverride")))
 	{
-		if (Info != nullptr)
+		bool RecreateMaterialInstances = true;
+
+		if (PropertyName == FName(TEXT("LandscapeMaterialsOverride")) && PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd)
+		{
+			RecreateMaterialInstances = false;
+		}		
+
+		if (Info != nullptr && RecreateMaterialInstances)
 		{
 			FMaterialUpdateContext MaterialUpdateContext;
 			Info->UpdateLayerInfoMap(/*this*/);
@@ -3991,6 +4115,19 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 			if (ChangedMaterial)
 			{
 				UpdateAllComponentMaterialInstances();
+
+				UWorld* World = GetWorld();
+
+				if (World != nullptr && World->FeatureLevel <= ERHIFeatureLevel::ES3_1)
+				{
+					for (ULandscapeComponent * Component : LandscapeComponents)
+					{
+						if (Component != nullptr)
+						{
+							Component->CheckGenerateLandscapePlatformData(false, nullptr);
+						}
+					}
+				}
 			}
 		}
 
@@ -4107,9 +4244,28 @@ void ULandscapeComponent::PreEditChange(UProperty* PropertyThatWillChange)
 void ULandscapeComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if (PropertyName == FName(TEXT("OverrideMaterial")))
+	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+
+	if (PropertyName == FName(TEXT("OverrideMaterial")) || MemberPropertyName == FName(TEXT("OverrideMaterials")))
 	{
-		UpdateMaterialInstances();
+		bool RecreateMaterialInstances = true;
+
+		if (PropertyName == FName(TEXT("OverrideMaterials")) && PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd)
+		{
+			RecreateMaterialInstances = false;
+		}
+
+		if (RecreateMaterialInstances)
+		{
+			UpdateMaterialInstances();
+
+			UWorld* World = GetWorld();
+
+			if (World != nullptr && World->FeatureLevel <= ERHIFeatureLevel::ES3_1)
+			{
+				CheckGenerateLandscapePlatformData(false, nullptr);
+			}
+		}
 	}
 	else if (GIsEditor && (PropertyName == FName(TEXT("ForcedLOD")) || PropertyName == FName(TEXT("LODBias"))))
 	{
@@ -4710,6 +4866,9 @@ void ULandscapeComponent::InitWeightmapData(TArray<ULandscapeLayerInfoObject*>& 
 
 	MaterialInstances.Empty(1);
 	MaterialInstances.Add(nullptr);
+
+	LODIndexToMaterialIndex.Empty(1);
+	LODIndexToMaterialIndex.Add(0);
 }
 
 #define MAX_LANDSCAPE_EXPORT_COMPONENTS_NUM		16
@@ -5020,7 +5179,7 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 
 	MobileWeightmapTextures.Empty();
 
-	UTexture2D* MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+    UTexture2D* MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8, nullptr, GMobileCompressLandscapeWeightMaps ? true : false );
 	CreateEmptyTextureMips(MobileWeightNormalmapTexture);
 
 	{
@@ -5063,7 +5222,7 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 					// create a new weightmap texture if we've run out of channels
 					CurrentChannel = 0;
 					RemainingChannels = 4;
-					CurrentWeightmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+                    CurrentWeightmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8, nullptr, GMobileCompressLandscapeWeightMaps ? true : false);
 					CreateEmptyTextureMips(CurrentWeightmapTexture);
 					MobileWeightmapTextures.Add(CurrentWeightmapTexture);
 				}
@@ -5094,53 +5253,97 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 	{
 		// This path is used by game mode running with uncooked data, eg standalone executable Mobile Preview.
 		// Game mode cannot create MICs, so we use a MaterialInstanceDynamic here.
-		UMaterialInstanceDynamic* NewMobileMaterialInstance = UMaterialInstanceDynamic::Create(MobileCombinationMaterialInstance, GetOutermost());
-
-		// Set the layer mask
-		for (const auto& Allocation : MobileWeightmapLayerAllocations)
-		{
-			if (Allocation.LayerInfo)
-			{
-				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-				NewMobileMaterialInstance->SetVectorParameterValue(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
-			}
-		}
-
-		for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
-		{
-			NewMobileMaterialInstance->SetTextureParameterValue(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
-		}
 		
-		MobileMaterialInterface = NewMobileMaterialInstance;
+		// Fallback to use non mobile materials if there is no mobile one
+		if (MobileCombinationMaterialInstances.Num() == 0)
+		{
+			MobileCombinationMaterialInstances.Append(MaterialInstances);
+		}
+
+		MobileMaterialInterfaces.Reset();
+		MobileMaterialInterfaces.Reserve(MobileCombinationMaterialInstances.Num());
+
+		for (int32 MaterialIndex = 0; MaterialIndex < MobileCombinationMaterialInstances.Num(); ++MaterialIndex)
+		{
+			UMaterialInstanceDynamic* NewMobileMaterialInstance = UMaterialInstanceDynamic::Create(MobileCombinationMaterialInstances[MaterialIndex], GetOutermost());
+
+			// Set the layer mask
+			for (const auto& Allocation : MobileWeightmapLayerAllocations)
+			{
+				if (Allocation.LayerInfo)
+				{
+					FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
+					NewMobileMaterialInstance->SetVectorParameterValue(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
+				}
+			}
+
+			for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+			{
+				NewMobileMaterialInstance->SetTextureParameterValue(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
+			}
+
+			MobileMaterialInterfaces.Add(NewMobileMaterialInstance);
+		}
 	}
 	else
 	{
 		// When cooking, we need to make a persistent MIC. In the editor we also do so in
 		// case we start a Cook in Editor operation, which will reuse the MIC we create now.
 
-		MobileCombinationMaterialInstance = GetCombinationMaterial(MobileWeightmapLayerAllocations, true);
-		UMaterialInstanceConstant* NewMobileMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+		check(LODIndexToMaterialIndex.Num() > 0);		
 
-		NewMobileMaterialInstance->SetParentEditorOnly(MobileCombinationMaterialInstance);
-
-		// Set the layer mask
-		for (const auto& Allocation : MobileWeightmapLayerAllocations)
+		if (MaterialPerLOD.Num() == 0)
 		{
-			if (Allocation.LayerInfo)
+			int32 MaxLOD = FMath::CeilLogTwo(SubsectionSizeQuads + 1) - 1;
+
+			for (int32 LODIndex = 0; LODIndex <= MaxLOD; ++LODIndex)
 			{
-				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-				NewMobileMaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
+				UMaterialInterface* CurrentMaterial = GetLandscapeMaterial(LODIndex);
+
+				if (MaterialPerLOD.Find(CurrentMaterial) == nullptr)
+				{
+					MaterialPerLOD.Add(CurrentMaterial, LODIndex);
+				}
 			}
 		}
 
-		for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+		MobileCombinationMaterialInstances.SetNumZeroed(MaterialPerLOD.Num());
+		MobileMaterialInterfaces.Reset();
+		MobileMaterialInterfaces.Reserve(MaterialPerLOD.Num());
+		int8 MaterialIndex = 0;
+
+		for (auto It = MaterialPerLOD.CreateConstIterator(); It; ++It)
 		{
-			NewMobileMaterialInstance->SetTextureParameterValueEditorOnly(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
+			const int8 MaterialLOD = It.Value();
+
+			// Find or set a matching MIC in the Landscape's map.
+			MobileCombinationMaterialInstances[MaterialIndex] = GetCombinationMaterial(MobileWeightmapLayerAllocations, MaterialLOD, true);
+			check(MobileCombinationMaterialInstances[MaterialIndex] != nullptr);
+
+			UMaterialInstanceConstant* NewMobileMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+
+			NewMobileMaterialInstance->SetParentEditorOnly(MobileCombinationMaterialInstances[MaterialIndex]);
+
+			// Set the layer mask
+			for (const auto& Allocation : MobileWeightmapLayerAllocations)
+			{
+				if (Allocation.LayerInfo)
+				{
+					FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
+					NewMobileMaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
+				}
+			}
+
+			for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+			{
+				NewMobileMaterialInstance->SetTextureParameterValueEditorOnly(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
+			}
+
+			NewMobileMaterialInstance->PostEditChange();
+
+			MobileMaterialInterfaces.Add(NewMobileMaterialInstance);
+			++MaterialIndex;
 		}
-
-		NewMobileMaterialInstance->PostEditChange();
-
-		MobileMaterialInterface = NewMobileMaterialInstance;
 	}
 }
 
@@ -5353,13 +5556,13 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 	PlatformData.InitializeFromUncompressedData(NewPlatformData);
 }
 
-UTexture2D* ALandscapeProxy::CreateLandscapeTexture(int32 InSizeX, int32 InSizeY, TextureGroup InLODGroup, ETextureSourceFormat InFormat, UObject* OptionalOverrideOuter) const
+UTexture2D* ALandscapeProxy::CreateLandscapeTexture(int32 InSizeX, int32 InSizeY, TextureGroup InLODGroup, ETextureSourceFormat InFormat, UObject* OptionalOverrideOuter, bool bCompress) const
 {
 	UObject* TexOuter = OptionalOverrideOuter ? OptionalOverrideOuter : GetOutermost();
 	UTexture2D* NewTexture = NewObject<UTexture2D>(TexOuter);
 	NewTexture->Source.Init2DWithMipChain(InSizeX, InSizeY, InFormat);
 	NewTexture->SRGB = false;
-	NewTexture->CompressionNone = true;
+	NewTexture->CompressionNone = !bCompress;
 	NewTexture->MipGenSettings = TMGS_LeaveExistingMips;
 	NewTexture->AddressX = TA_Clamp;
 	NewTexture->AddressY = TA_Clamp;
@@ -5441,61 +5644,234 @@ TArray<FLinearColor> ALandscapeProxy::SampleRTData(UTextureRenderTarget2D* InRen
 	return { FLinearColor(0,0,0,0) };
 }
 
-bool ALandscapeProxy::LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget)
+bool ALandscapeProxy::LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, bool InImportHeightFromRGChannel)
 {
+	uint64 StartCycle = FPlatformTime::Cycles64();
+
 	ALandscape* Landscape = GetLandscapeActor();
-	if (Landscape != nullptr)
+	if (Landscape == nullptr)
 	{
-		ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+		FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportHeightmapFromRenderTarget_NullLandscape", "LandscapeImportHeightmapFromRenderTarget: Landscape must be non-null."));
+		return false;
+	}
 
-		int32 MinX, MinY, MaxX, MaxY;
-		if (LandscapeInfo && LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+	int32 MinX, MinY, MaxX, MaxY;
+	ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+
+	if (!LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+	{
+		FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportHeightmapFromRenderTarget_InvalidLandscapeExtends", "LandscapeImportHeightmapFromRenderTarget: The landscape min extends are invalid."));
+		return false;
+	}
+
+	if (InRenderTarget == nullptr || InRenderTarget->Resource == nullptr)
+	{
+		FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportHeightmapFromRenderTarget_InvalidRT", "LandscapeImportHeightmapFromRenderTarget: Render Target must be non null and not released."));
+		return false;
+	}
+
+	FTextureRenderTargetResource* RenderTargetResource = InRenderTarget->GameThread_GetRenderTargetResource();
+	FIntRect SampleRect = FIntRect(0, 0, FMath::Min(1 + MaxX - MinX, InRenderTarget->SizeX), FMath::Min(1 + MaxY - MinY, InRenderTarget->SizeY));
+
+	TArray<uint16> HeightData;
+
+	switch (InRenderTarget->RenderTargetFormat)
+	{
+		case RTF_RGBA16f:
+		case RTF_RGBA32f:
 		{
-			const uint32 LandscapeWidth = (uint32)(1 + MaxX - MinX);
-			const uint32 LandscapeHeight = (uint32)(1 + MaxY - MinY);
-			FLinearColor SampleRect = FLinearColor(0, 0, LandscapeWidth, LandscapeHeight);
+			TArray<FLinearColor> OutputRTHeightmap;
+			OutputRTHeightmap.Reserve(SampleRect.Width() * SampleRect.Height());
 
-			const uint32 RTWidth = InRenderTarget->SizeX;
-			const uint32 RTHeight = InRenderTarget->SizeY;
-			ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
-			bool ishdr = ((format == (RTF_R16f)) || (format == (RTF_RG16f)) || (format == (RTF_RGBA16f)) || (format == (RTF_R32f)) || (format == (RTF_RG32f)) || (format == (RTF_RGBA32f)));
-			if (!ishdr)
+			RenderTargetResource->ReadLinearColorPixels(OutputRTHeightmap, FReadSurfaceDataFlags(RCM_MinMax, CubeFace_MAX), SampleRect);
+			HeightData.Reserve(OutputRTHeightmap.Num());
+
+			for (auto LinearColor : OutputRTHeightmap)
 			{
-				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportHeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
-				return 0;
-			}
-
-			if (RTWidth >= LandscapeWidth && RTHeight >= LandscapeHeight)
-			{
-				TArray<FLinearColor> RTData;
-				RTData = SampleRTData(InRenderTarget, SampleRect);
-
-				TArray<uint16> HeightData;
-
-				for (auto i : RTData)
+				if (InImportHeightFromRGChannel)
 				{
-					HeightData.Add((uint16)i.R);
+					FColor Color = LinearColor.ToFColor(false);
+					uint16 Height = ((Color.R << 8) | Color.G);
+					HeightData.Add(Height);
 				}
-
-				FScopedTransaction Transaction(LOCTEXT("Undo_ImportHeightmap", "Importing Landscape Heightmap"));
-
-				FHeightmapAccessor<false> HeightmapAccessor(LandscapeInfo);
-				HeightmapAccessor.SetData(MinX, MinY, MaxX, MaxY, HeightData.GetData());
-				return 1;
-			}
-			else
-			{
-				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportHeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
-				return 0;
+				else
+				{
+					HeightData.Add((uint16)LinearColor.R);
+				}
 			}
 		}
-		else
+		break;			
+
+		case RTF_RGBA8:
 		{
-			return 0;
+			TArray<FColor> OutputRTHeightmap;
+			OutputRTHeightmap.Reserve(SampleRect.Width() * SampleRect.Height());
+
+			RenderTargetResource->ReadPixels(OutputRTHeightmap, FReadSurfaceDataFlags(RCM_MinMax, CubeFace_MAX), SampleRect);
+			HeightData.Reserve(OutputRTHeightmap.Num());
+
+			for (FColor Color : OutputRTHeightmap)
+			{
+				uint16 Height = ((Color.R << 8) | Color.G);
+				HeightData.Add(Height);
+			}
+		}
+		break;
+
+		default:
+		{
+			FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportHeightmapFromRenderTarget_InvalidRTFormat", "LandscapeImportHeightmapFromRenderTarget: The Render Target format is invalid. We only support RTF_RGBA16f, RTF_RGBA32f, RTF_RGBA8"));
+			return false;
+		}
+	}	
+
+	FScopedTransaction Transaction(LOCTEXT("Undo_ImportHeightmap", "Importing Landscape Heightmap"));
+
+	FHeightmapAccessor<false> HeightmapAccessor(LandscapeInfo);
+	HeightmapAccessor.SetData(MinX, MinY, SampleRect.Width() - 1, SampleRect.Height() - 1, HeightData.GetData());
+
+	double SecondsTaken = FPlatformTime::ToSeconds64(FPlatformTime::Cycles64() - StartCycle);
+	UE_LOG(LogLandscapeBP, Display, TEXT("Took %f seconds to import heightmap from render target."), SecondsTaken);
+
+	return true;
+}
+
+bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarget2D* InRenderTarget, bool InExportHeightIntoRGChannel)
+{
+	uint64 StartCycle = FPlatformTime::Cycles64();
+
+	ALandscape* Landscape = GetLandscapeActor();
+	if (Landscape == nullptr)
+	{
+		FMessageLog("Blueprint").Error(LOCTEXT("LandscapeExportHeightmapToRenderTarget_NullLandscape.", "LandscapeExportHeightmapToRenderTarget: Landscape must be non-null."));
+		return false;
+	}
+
+	UMaterial* HeightmapRenderMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/Landscape_Heightmap_To_RenderTarget2D.Landscape_Heightmap_To_RenderTarget2D"));
+
+	if (HeightmapRenderMaterial == nullptr)
+	{
+		FMessageLog("Blueprint").Error(LOCTEXT("LandscapeExportHeightmapToRenderTarget_Landscape_Heightmap_To_RenderTarget2D.", "LandscapeExportHeightmapToRenderTarget: Material Landscape_Heightmap_To_RenderTarget2D not found in engine content."));
+		return false;
+	}
+
+	UWorld* World = GEditor->GetEditorWorldContext().World();
+	FTextureRenderTargetResource* RenderTargetResource = InRenderTarget->GameThread_GetRenderTargetResource();
+
+	// Create a canvas for the render target and clear it to black
+	FCanvas Canvas(RenderTargetResource, nullptr, 0, 0, 0, World->FeatureLevel);
+	Canvas.Clear(FLinearColor::Black);
+
+	ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+
+	TArray<ULandscapeComponent*> LandscapeComponentsToExport;
+	LandscapeComponentsToExport.Append(Landscape->LandscapeComponents);
+
+	// When run on the landscape actor, we will also export all proxies otherwise, we only export the component linked to the specified proxy
+	if (Landscape == LandscapeInfo->LandscapeActor.Get())
+	{
+		for (ALandscapeProxy* Proxy : LandscapeInfo->Proxies)
+		{
+			LandscapeComponentsToExport.Append(Proxy->LandscapeComponents);
 		}
 	}
-	FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_NullLandscape.", "LandscapeImportHeightmapFromRenderTarget: Landscape must be non-null."));
-	return 0;
+
+	struct FTrianglePerMID
+	{
+		UMaterialInstanceDynamic* HeightmapMID;
+		TArray<FCanvasUVTri> TriangleList;
+	};
+
+	TMap<UTexture*, FTrianglePerMID> TrianglesPerHeightmap;
+
+	for (const ULandscapeComponent* Component : LandscapeComponentsToExport)
+	{
+		FTrianglePerMID* TrianglesPerMID = TrianglesPerHeightmap.Find(Component->HeightmapTexture);
+
+		if (TrianglesPerMID == nullptr)
+		{
+			FTrianglePerMID Data;
+			Data.HeightmapMID = UMaterialInstanceDynamic::Create(HeightmapRenderMaterial, this);
+			Data.HeightmapMID->SetTextureParameterValue(TEXT("Heightmap"), Component->HeightmapTexture);
+			Data.HeightmapMID->SetScalarParameterValue(TEXT("ExportHeightIntoRGChannel"), InExportHeightIntoRGChannel);
+			TrianglesPerMID = &TrianglesPerHeightmap.Add(Component->HeightmapTexture, Data);
+		}
+
+		FIntPoint ComponentSectionBase = Component->GetSectionBase();
+		FIntPoint ComponentHeightmapTextureSize(Component->HeightmapTexture->Source.GetSizeX(), Component->HeightmapTexture->Source.GetSizeY());
+		int32 SubsectionSizeVerts = Component->SubsectionSizeQuads + 1;
+		float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)ComponentHeightmapTextureSize.X;
+		float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)ComponentHeightmapTextureSize.Y;
+
+		for (int8 SubY = 0; SubY < NumSubsections; ++SubY)
+		{
+			for (int8 SubX = 0; SubX < NumSubsections; ++SubX)
+			{
+				FIntPoint SubSectionSectionBase = ComponentSectionBase;
+				SubSectionSectionBase.X = ComponentSectionBase.X + Component->SubsectionSizeQuads * SubX;
+				SubSectionSectionBase.Y = ComponentSectionBase.Y + Component->SubsectionSizeQuads * SubY;
+
+				// Offset for this component's data in heightmap texture
+				float HeightmapOffsetU = Component->HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
+				float HeightmapOffsetV = Component->HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
+
+				FCanvasUVTri Tri1;
+				Tri1.V0_Pos = FVector2D(SubSectionSectionBase.X, SubSectionSectionBase.Y);
+				Tri1.V1_Pos = FVector2D(SubSectionSectionBase.X + SubsectionSizeVerts, SubSectionSectionBase.Y);
+				Tri1.V2_Pos = FVector2D(SubSectionSectionBase.X + SubsectionSizeVerts, SubSectionSectionBase.Y + SubsectionSizeVerts);
+
+				Tri1.V0_UV = FVector2D(HeightmapOffsetU, HeightmapOffsetV);
+				Tri1.V1_UV = FVector2D(HeightmapOffsetU + HeightmapSubsectionOffsetU, HeightmapOffsetV);
+				Tri1.V2_UV = FVector2D(HeightmapOffsetU + HeightmapSubsectionOffsetU, HeightmapOffsetV + HeightmapSubsectionOffsetV);
+				TrianglesPerMID->TriangleList.Add(Tri1);
+
+				FCanvasUVTri Tri2;
+				Tri2.V0_Pos = FVector2D(SubSectionSectionBase.X + SubsectionSizeVerts, SubSectionSectionBase.Y + SubsectionSizeVerts);
+				Tri2.V1_Pos = FVector2D(SubSectionSectionBase.X, SubSectionSectionBase.Y + SubsectionSizeVerts);
+				Tri2.V2_Pos = FVector2D(SubSectionSectionBase.X, SubSectionSectionBase.Y);
+
+				Tri2.V0_UV = FVector2D(HeightmapOffsetU + HeightmapSubsectionOffsetU, HeightmapOffsetV + HeightmapSubsectionOffsetV);
+				Tri2.V1_UV = FVector2D(HeightmapOffsetU, HeightmapOffsetV + HeightmapSubsectionOffsetV);
+				Tri2.V2_UV = FVector2D(HeightmapOffsetU, HeightmapOffsetV);
+
+				TrianglesPerMID->TriangleList.Add(Tri2);
+			}
+		}
+	}
+
+	for (auto& TriangleList : TrianglesPerHeightmap)
+	{
+		FCanvasTriangleItem TriItemList(MoveTemp(TriangleList.Value.TriangleList), nullptr);
+		TriItemList.MaterialRenderProxy = TriangleList.Value.HeightmapMID->GetRenderProxy(false);
+		TriItemList.BlendMode = SE_BLEND_Opaque;
+		TriItemList.SetColor(FLinearColor::White);
+
+		TriItemList.Draw(&Canvas);
+	}
+
+	TrianglesPerHeightmap.Reset();
+
+	// Tell the rendering thread to draw any remaining batched elements
+	Canvas.Flush_GameThread(true);
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		DrawHeightmapRTCommand,
+		FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+		{
+			// Copy (resolve) the rendered image from the frame buffer to its render target texture
+			RHICmdList.CopyToResolveTarget(
+				RenderTargetResource->GetRenderTargetTexture(),		// Source texture
+				RenderTargetResource->TextureRHI,					// Dest texture
+				FResolveParams());									// Resolve parameters
+		});
+
+
+	FlushRenderingCommands();
+
+	double SecondsTaken = FPlatformTime::ToSeconds64(FPlatformTime::Cycles64() - StartCycle);
+	UE_LOG(LogLandscapeBP, Display, TEXT("Took %f seconds to export heightmap to render target."), SecondsTaken);
+
+	return true;
 }
 
 bool ALandscapeProxy::LandscapeImportWeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName)
@@ -5540,28 +5916,37 @@ bool ALandscapeProxy::LandscapeImportWeightmapFromRenderTarget(UTextureRenderTar
 				if (CurWeightmapInfo.LayerInfoObj == nullptr)
 				{
 					FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidLayerInfoObject", "LandscapeImportWeightmapFromRenderTarget: Layers must first have Layer Info Objects assigned before importing."));
-					return 0;
+					return false;
 				}
 
 				FScopedTransaction Transaction(LOCTEXT("Undo_ImportWeightmap", "Importing Landscape Layer"));
 
 				FAlphamapAccessor<false, false> AlphamapAccessor(LandscapeInfo, CurWeightmapInfo.LayerInfoObj);
 				AlphamapAccessor.SetData(MinX, MinY, MaxX, MaxY, LayerData.GetData(), ELandscapeLayerPaintingRestriction::None);
-				return 1;
+
+				uint64 CycleEnd = FPlatformTime::Cycles64();
+				UE_LOG(LogLandscape, Log, TEXT("Took %f seconds to import heightmap from render target"), FPlatformTime::ToSeconds64(CycleEnd));
+
+				return true;
 			}
 			else
 			{
 				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportWeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
-				return 0;
+				return false;
 			}
 		}
 		else
 		{
-			return 0;
+			return false;
 		}
 	}
 	FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_NullLandscape.", "LandscapeImportWeightmapFromRenderTarget: Landscape must be non-null."));
-	return 0;
+	return false;
+}
+
+bool ALandscapeProxy::LandscapeExportWeightmapToRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName)
+{
+	return false;
 }
 
 #endif //WITH_EDITOR

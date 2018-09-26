@@ -98,7 +98,10 @@ class AIMODULE_API UBTCompositeNode : public UBTNode
 	TArray<UBTService*> Services;
 
 	/** delegate for finding next child to execute */
+	DEPRECATED(4.21, "OnNextChild is no longer being used. Please override UBTCompositeNode::GetNextChildHandler instead")
 	FGetNextChildDelegate OnNextChild;
+
+	~UBTCompositeNode();
 
 	/** fill in data about tree structure */
 	void InitializeComposite(uint16 InLastExecutionIndex);
@@ -231,6 +234,9 @@ protected:
 
 	/** store delayed execution request */
 	void RequestDelayedExecution(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type LastResult) const;
+
+protected:
+	virtual int32 GetNextChildHandler(struct FBehaviorTreeSearchData& SearchData, int32 PrevChild, EBTNodeResult::Type LastResult) const { return BTSpecialChild::ReturnToParent; }
 };
 
 

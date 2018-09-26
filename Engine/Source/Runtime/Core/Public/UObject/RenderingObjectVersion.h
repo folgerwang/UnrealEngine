@@ -75,6 +75,8 @@ struct CORE_API FRenderingObjectVersion
 		// Changed normal precision in imported data
 		IncreaseNormalPrecision,
 
+		VirtualTexturedLightmaps,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

@@ -224,10 +224,10 @@ template<typename TNumericType>
 inline TNumericType FFrame::ReadInt()
 {
 	TNumericType Result;
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
-	FMemory::Memcpy(&Result, Code, sizeof(TNumericType));
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 	Result = *(TNumericType*)Code;
+#else
+	FMemory::Memcpy(&Result, Code, sizeof(TNumericType));	
 #endif
 	Code += sizeof(TNumericType);
 	return Result;
@@ -238,10 +238,10 @@ inline UObject* FFrame::ReadObject()
 	// we always pull 64-bits of data out, which is really a UObject* in some representation (depending on platform)
 	ScriptPointerType TempCode;
 
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
-	FMemory::Memcpy(&TempCode, Code, sizeof(ScriptPointerType));
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 	TempCode = *(ScriptPointerType*)Code;
+#else
+	FMemory::Memcpy(&TempCode, Code, sizeof(ScriptPointerType));
 #endif
 
 	// turn that uint32 into a UObject pointer
@@ -271,10 +271,10 @@ inline UProperty* FFrame::ReadPropertyUnchecked()
 inline float FFrame::ReadFloat()
 {
 	float Result;
-#ifdef REQUIRES_ALIGNED_ACCESS
-	FMemory::Memcpy(&Result, Code, sizeof(float));
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 	Result = *(float*)Code;
+#else
+	FMemory::Memcpy(&Result, Code, sizeof(float));
 #endif
 	Code += sizeof(float);
 	return Result;
@@ -283,12 +283,12 @@ inline float FFrame::ReadFloat()
 inline int32 FFrame::ReadWord()
 {
 	int32 Result;
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
+	Result = *(uint16*)Code;
+#else
 	uint16 Temporary;
 	FMemory::Memcpy(&Temporary, Code, sizeof(uint16));
 	Result = Temporary;
-#else
-	Result = *(uint16*)Code;
 #endif
 	Code += sizeof(uint16);
 	return Result;
@@ -302,10 +302,10 @@ inline CodeSkipSizeType FFrame::ReadCodeSkipCount()
 {
 	CodeSkipSizeType Result;
 
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
-	FMemory::Memcpy(&Result, Code, sizeof(CodeSkipSizeType));
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 	Result = *(CodeSkipSizeType*)Code;
+#else
+	FMemory::Memcpy(&Result, Code, sizeof(CodeSkipSizeType));
 #endif
 
 	Code += sizeof(CodeSkipSizeType);
@@ -334,10 +334,10 @@ inline VariableSizeType FFrame::ReadVariableSize( UProperty** ExpressionField )
 inline FName FFrame::ReadName()
 {
 	FScriptName Result;
-#ifdef REQUIRES_ALIGNED_ACCESS
-	FMemory::Memcpy(&Result, Code, sizeof(FScriptName));
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 	Result = *(FScriptName*)Code;
+#else
+	FMemory::Memcpy(&Result, Code, sizeof(FScriptName));
 #endif
 	Code += sizeof(FScriptName);
 	return ScriptNameToName(Result);

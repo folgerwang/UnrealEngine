@@ -37,18 +37,23 @@ protected:
 
 	/** If set to true NavAgentProps' radius and height will be updated with Owner's collision capsule size */
 	UPROPERTY(EditAnywhere, Category = NavMovement)
-	uint32 bUpdateNavAgentWithOwnersCollision:1;
+	uint8 bUpdateNavAgentWithOwnersCollision:1;
 
 	/** If set, pathfollowing will control character movement via acceleration values. If false, it will set velocities directly. */
 	UPROPERTY(EditAnywhere, Category = NavMovement, GlobalConfig)
-	uint32 bUseAccelerationForPaths : 1;
+	uint8 bUseAccelerationForPaths : 1;
 
 	/** If set, FixedPathBrakingDistance will be used for path following deceleration */
 	UPROPERTY(EditAnywhere, Category = NavMovement, meta = (EditCondition = "bUseAccelerationForPaths"))
-	uint32 bUseFixedBrakingDistanceForPaths : 1;
+	uint8 bUseFixedBrakingDistanceForPaths : 1;
 
 	/** If set, StopActiveMovement call will abort current path following request */
-	uint32 bStopMovementAbortPaths:1;
+	uint8 bStopMovementAbortPaths:1;
+
+public:
+	/** Expresses runtime state of character's movement. Put all temporal changes to movement properties here */
+	UPROPERTY()
+	FMovementProperties MovementState;
 
 private:
 	/** object implementing IPathFollowingAgentInterface. Is private to control access to it.
@@ -57,10 +62,6 @@ private:
 	UObject* PathFollowingComp;
 
 public:
-	/** Expresses runtime state of character's movement. Put all temporal changes to movement properties here */
-	UPROPERTY()
-	FMovementProperties MovementState;
-
 	/** Stops applying further movement (usually zeros acceleration). */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|PawnMovement")
 	virtual void StopActiveMovement();

@@ -375,6 +375,30 @@ ULandscapeSplinesComponent::ULandscapeSplinesComponent(const FObjectInitializer&
 	//RelativeScale3D = FVector(1/100.0f, 1/100.0f, 1/100.0f); // cancel out landscape scale. The scale is set up when component is created, but for a default landscape it's this
 }
 
+TArray<USplineMeshComponent*> ULandscapeSplinesComponent::GetSplineMeshComponents()
+{
+	TArray<USplineMeshComponent*> SplineMeshComponents;
+#if WITH_EDITOR
+	for (ULandscapeSplineSegment* SplineSegment : Segments)
+	{
+		// local
+		SplineMeshComponents.Append(SplineSegment->GetLocalMeshComponents());
+		
+		// foreign
+		TMap<ULandscapeSplinesComponent*, TArray<USplineMeshComponent*>> ForeignMeshComponentsMap = SplineSegment->GetForeignMeshComponents();
+		for (const auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
+		{
+			for (USplineMeshComponent* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
+			{
+				SplineMeshComponents.Add(ForeignMeshComponent);
+			}
+		}
+	}
+#endif
+
+	return SplineMeshComponents;
+}
+
 void ULandscapeSplinesComponent::CheckSplinesValid()
 {
 #if DO_CHECK
@@ -613,6 +637,11 @@ void ULandscapeSplinesComponent::AutoFixMeshComponentErrors(UWorld* OtherWorld)
 	{
 		StreamingSplinesComponent->DestroyOrphanedForeignMeshComponents(ThisOuterWorld);
 	}
+}
+
+bool ULandscapeSplinesComponent::IsUsingEditorMesh(const USplineMeshComponent* SplineMeshComponent) const
+{
+	return SplineMeshComponent->GetStaticMesh() == SplineEditorMesh && SplineMeshComponent->bHiddenInGame;
 }
 
 void ULandscapeSplinesComponent::CheckForErrors()
@@ -1221,7 +1250,7 @@ ULandscapeSplineControlPoint::ULandscapeSplineControlPoint(const FObjectInitiali
 #if WITH_EDITORONLY_DATA
 	Mesh = nullptr;
 	MeshScale = FVector(1);
-
+	bHiddenInGame = false;
 	LDMaxDrawDistance = 0;
 	TranslucencySortPriority = 0;
 
@@ -1625,6 +1654,12 @@ void ULandscapeSplineControlPoint::UpdateSplinePoints(bool bUpdateCollision, boo
 			MeshComponent->MarkRenderStateDirty();
 		}
 
+		if (MeshComponent->bHiddenInGame != bHiddenInGame)
+		{
+			MeshComponent->Modify();
+			MeshComponent->SetHiddenInGame(bHiddenInGame);
+		}
+
 		if (MeshComponent->LDMaxDrawDistance != LDMaxDrawDistance)
 		{
 			MeshComponent->Modify();
@@ -1864,6 +1899,7 @@ ULandscapeSplineSegment::ULandscapeSplineSegment(const FObjectInitializer& Objec
 	// SplineMesh properties
 	SplineMeshes.Empty();
 	LDMaxDrawDistance = 0;
+	bHiddenInGame = false;
 	TranslucencySortPriority = 0;
 	bPlaceSplineMeshesInStreamingLevels = true;
 	bCastShadow = true;
@@ -1978,13 +2014,15 @@ void ULandscapeSplineSegment::PostLoad()
 
 	if (GIsEditor && GetLinkerCustomVersion(FLandscapeCustomVersion::GUID) < FLandscapeCustomVersion::AddingBodyInstanceToSplinesElements)
 	{
+		ULandscapeSplinesComponent* OuterSplines = GetOuterULandscapeSplinesComponent();
+
 		auto ForeignMeshComponentsMap = GetForeignMeshComponents();
 
 		for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
 		{
 			for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 			{
-				const bool bUsingEditorMesh = ForeignMeshComponent->bHiddenInGame;
+				const bool bUsingEditorMesh = OuterSplines->IsUsingEditorMesh(ForeignMeshComponent);
 
 				if (!bUsingEditorMesh)
 				{
@@ -2001,7 +2039,7 @@ void ULandscapeSplineSegment::PostLoad()
 		{
 			if (LocalMeshComponent != nullptr)
 			{
-				const bool bUsingEditorMesh = LocalMeshComponent->bHiddenInGame;
+				const bool bUsingEditorMesh = OuterSplines->IsUsingEditorMesh(LocalMeshComponent);
 
 				if (!bUsingEditorMesh)
 				{
@@ -2030,8 +2068,10 @@ void ULandscapeSplineSegment::PostLoad()
 
 void ULandscapeSplineSegment::UpdateMeshCollisionProfile(USplineMeshComponent* MeshComponent)
 {
-	const bool bUsingEditorMesh = MeshComponent->bHiddenInGame;
 #if WITH_EDITORONLY_DATA
+	ULandscapeSplinesComponent* OuterSplines = CastChecked<ULandscapeSplinesComponent>(GetOuter());
+	const bool bUsingEditorMesh = OuterSplines->IsUsingEditorMesh(MeshComponent);
+
 	const FName DesiredCollisionProfileName = SplinesAlwaysUseBlockAll ? UCollisionProfile::BlockAll_ProfileName : CollisionProfileName;
 	const FName CollisionProfile = (bEnableCollision_DEPRECATED && !bUsingEditorMesh) ? DesiredCollisionProfileName : UCollisionProfile::NoCollision_ProfileName;
 #else
@@ -2138,6 +2178,11 @@ TMap<ULandscapeSplinesComponent*, TArray<USplineMeshComponent*>> ULandscapeSplin
 	}
 
 	return ForeignMeshComponentsMap;
+}
+
+TArray<USplineMeshComponent*> ULandscapeSplineSegment::GetLocalMeshComponents() const
+{
+	return LocalMeshComponents;
 }
 
 void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
@@ -2365,7 +2410,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 				MeshComponent->BodyInstance.UpdatePhysicalMaterials();
 			}
 
-			MeshComponent->SetHiddenInGame(bUsingEditorMesh);
+			MeshComponent->SetHiddenInGame(bUsingEditorMesh || bHiddenInGame);
 			MeshComponent->SetVisibility(!bUsingEditorMesh || OuterSplines->bShowSplineEditorMesh);
 
 			MeshSettings.Add(FMeshSettings(T, MeshEntry));
@@ -2620,7 +2665,7 @@ void ULandscapeSplineSegment::UpdateSplineEditorMesh()
 
 	for (auto* LocalMeshComponent : LocalMeshComponents)
 	{
-		if (LocalMeshComponent->bHiddenInGame)
+		if (OuterSplines->IsUsingEditorMesh(LocalMeshComponent))
 		{
 			LocalMeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
 		}
@@ -2631,7 +2676,7 @@ void ULandscapeSplineSegment::UpdateSplineEditorMesh()
 	{
 		for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
 		{
-			if (ForeignMeshComponent->bHiddenInGame)
+			if (OuterSplines->IsUsingEditorMesh(ForeignMeshComponent))
 			{
 				ForeignMeshComponent->SetVisibility(OuterSplines->bShowSplineEditorMesh);
 			}

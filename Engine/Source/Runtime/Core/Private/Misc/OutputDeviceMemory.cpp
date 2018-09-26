@@ -109,7 +109,7 @@ void FOutputDeviceMemory::Dump(FArchive& Ar)
 	const int32 BufferCapacity = Buffer.Num(); // Never changes
 
 	// Dump the startup logs
-	Ar.Serialize(Buffer.GetData(), PreserveSize * sizeof(ANSICHAR));
+	Ar.Serialize(Buffer.GetData(), FMath::Min(PreserveSize, BufferLength) * sizeof(ANSICHAR));
 
 	// If the log has wrapped, dump the earliest portion chronologically from the end
 	if (BufferLength == BufferCapacity)

@@ -50,12 +50,37 @@ bool FPlayTimeLimitModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 			}
 			else if (FParse::Command(&Cmd, TEXT("SETUSERLIMITS")))
 			{
-				// Usage: SETUSERLIMITS <usernum> <has limit = [true, false]> <current play time limits>
+				// Usage: SETUSERLIMITS <(optional) sub=(Online Subsystem Name)> <usernum> <has limit = [true, false]> <current play time limits>
+				// Ex:  PLAYTIMELIMIT SETUSERLIMITS SUB=NULL 0 TRUE 60
+				// Ex:  PLAYTIMELIMIT SETUSERLIMITS 0 FALSE
+
+				FString SubNameString;
+				FParse::Value(Cmd, TEXT("Sub="), SubNameString);
+				// Allow for either Sub=<platform> or Subsystem=<platform>
+				if (SubNameString.Len() > 0)
+				{
+					Cmd += FCString::Strlen(TEXT("Sub=")) + SubNameString.Len();
+				}
+				else
+				{ 
+					FParse::Value(Cmd, TEXT("Subsystem="), SubNameString);
+					if (SubNameString.Len() > 0)
+					{
+						Cmd += FCString::Strlen(TEXT("Subsystem=")) + SubNameString.Len();
+					}
+				}
+
+				FName SubName(NAME_None);
+				if (!SubNameString.IsEmpty())
+				{
+					SubName = FName(*SubNameString);
+				}
+
 				const int32 LocalUserNum = FCString::Atoi(*FParse::Token(Cmd, false));
 				const bool bHasLimit = FCString::ToBool(*FParse::Token(Cmd, false));
 				const double CurrentPlayTimeMinutes = FCString::Atof(*FParse::Token(Cmd, false));
 
-				IOnlineSubsystem* const OnlineSubsystem = IOnlineSubsystem::Get();
+				IOnlineSubsystem* const OnlineSubsystem = IOnlineSubsystem::Get(SubName);
 				if (OnlineSubsystem)
 				{
 					const IOnlineIdentityPtr IdentityInt = OnlineSubsystem->GetIdentityInterface();

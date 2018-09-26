@@ -23,6 +23,11 @@ struct APPLICATIONCORE_API FWindowsPlatformApplicationMisc : public FGenericPlat
 	static float GetDPIScaleFactorAtPoint(float X, float Y);
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
+
+	/** Windows platform only */
+	/** Function should retrieve the DPI value for the provided monitor information structure */
+	static int32 GetMonitorDPI(const FMonitorInfo& MonitorInfo);
+	/** End Windows platform only */
 };
 
 typedef FWindowsPlatformApplicationMisc FPlatformApplicationMisc;

@@ -37,14 +37,22 @@ namespace FNavigationSystem
 	}
 
 
-	void AddNavigationSystemToWorld(UWorld& WorldOwner, const FNavigationSystemRunMode RunMode, const bool bInitializeForWorld)
+	void AddNavigationSystemToWorld(UWorld& WorldOwner, const FNavigationSystemRunMode RunMode, UNavigationSystemConfig* NavigationSystemConfig, const bool bInitializeForWorld)
 	{
 		if (WorldOwner.GetNavigationSystem() == nullptr)
 		{
-			AWorldSettings* WorldSettings = WorldOwner.GetWorldSettings();
-			if (WorldSettings && WorldSettings->NavigationSystemConfig)
+			if (NavigationSystemConfig == nullptr)
 			{
-				UNavigationSystemBase* NavSysInstance = WorldSettings->NavigationSystemConfig->CreateAndConfigureNavigationSystem(WorldOwner);
+				AWorldSettings* WorldSettings = WorldOwner.GetWorldSettings();
+				if (WorldSettings)
+				{
+					NavigationSystemConfig = WorldSettings->GetNavigationSystemConfig();
+				}
+			}
+
+			if (NavigationSystemConfig)
+			{
+				UNavigationSystemBase* NavSysInstance = NavigationSystemConfig->CreateAndConfigureNavigationSystem(WorldOwner);
 				WorldOwner.SetNavigationSystem(NavSysInstance);
 			}
 		}

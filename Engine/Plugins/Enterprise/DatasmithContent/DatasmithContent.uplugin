@@ -19,7 +19,7 @@
 		{
 			"Name" : "DatasmithContent",
 			"Type" : "Runtime",
-			"LoadingPhase" : "Default"
+			"LoadingPhase" : "PostConfigInit"
 		},
 		{
 			"Name" : "DatasmithContentEditor",

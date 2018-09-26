@@ -19,7 +19,7 @@ namespace mtlpp
 	class Drawable;
 	MTLPP_CLOSURE(PresentHandler, void, const Drawable&);
 	
-    class Drawable : public ns::Object<ns::Protocol<id<MTLDrawable>>::type>
+    class MTLPP_EXPORT Drawable : public ns::Object<ns::Protocol<id<MTLDrawable>>::type>
     {
     public:
         Drawable() { }

@@ -11,12 +11,10 @@ static const float kVignetteHardness = 25;
 
 void FGoogleVRHMD::GenerateDistortionCorrectionIndexBuffer()
 {
-	// Delete existing indices if they exist
-	delete [] DistortionMeshIndices;
-	DistortionMeshIndices = nullptr;
-
-	// Allocate new indices
-	DistortionMeshIndices = new uint16[6 * DistortionPointsX * DistortionPointsY];
+	FRHIResourceCreateInfo CreateInfo;
+	DistortionMeshIndices = RHICreateIndexBuffer(sizeof(uint16), sizeof(uint16) * 6 * DistortionPointsX * DistortionPointsY, BUF_Static, CreateInfo);
+	void* VoidPtr = RHILockIndexBuffer(DistortionMeshIndices, 0, sizeof(uint16) * 6 * DistortionPointsX * DistortionPointsY, RLM_WriteOnly);
+	uint16* DistortionMeshIndicesPtr = reinterpret_cast<uint16*>(VoidPtr);
 
 	uint32 InsertIndex = 0;
 	for(uint32 y = 0; y < DistortionPointsY - 1; ++y)
@@ -30,32 +28,28 @@ void FGoogleVRHMD::GenerateDistortionCorrectionIndexBuffer()
 			const uint16 TopRight =		(y * DistortionPointsX) + x + 1 + DistortionPointsX;
 
 			// Insert indices
-			DistortionMeshIndices[InsertIndex + 0] = BottomLeft;
-			DistortionMeshIndices[InsertIndex + 1] = BottomRight;
-			DistortionMeshIndices[InsertIndex + 2] = TopRight;
-			DistortionMeshIndices[InsertIndex + 3] = BottomLeft;
-			DistortionMeshIndices[InsertIndex + 4] = TopRight;
-			DistortionMeshIndices[InsertIndex + 5] = TopLeft;
+			DistortionMeshIndicesPtr[InsertIndex + 0] = BottomLeft;
+			DistortionMeshIndicesPtr[InsertIndex + 1] = BottomRight;
+			DistortionMeshIndicesPtr[InsertIndex + 2] = TopRight;
+			DistortionMeshIndicesPtr[InsertIndex + 3] = BottomLeft;
+			DistortionMeshIndicesPtr[InsertIndex + 4] = TopRight;
+			DistortionMeshIndicesPtr[InsertIndex + 5] = TopLeft;
 			InsertIndex += 6;
 		}
 	}
-
+	RHIUnlockIndexBuffer(DistortionMeshIndices);
 	check(InsertIndex == NumIndices);
 }
 
 void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Eye)
 {
-	FDistortionVertex** UsingPtr = (Eye == eSSP_LEFT_EYE) ? &DistortionMeshVerticesLeftEye : &DistortionMeshVerticesRightEye;
-	FDistortionVertex*& Verts = *UsingPtr;
-
-	// Cleanup old data if necessary
-	delete [] Verts;
-	Verts = nullptr;
+	FVertexBufferRHIRef& DistortionMeshVertices = (Eye == eSSP_LEFT_EYE) ? DistortionMeshVerticesLeftEye : DistortionMeshVerticesRightEye;
+	FRHIResourceCreateInfo CreateInfo;
+	DistortionMeshVertices = RHICreateVertexBuffer(sizeof(FDistortionVertex) * NumVerts, BUF_Static, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(DistortionMeshVertices, 0, sizeof(FDistortionVertex) * NumVerts, RLM_WriteOnly);
+	FDistortionVertex* Verts = reinterpret_cast<FDistortionVertex*>(VoidPtr);
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	// Allocate new vertex buffer
-	Verts = new FDistortionVertex[NumVerts];
-
 	// Fill out distortion vertex info, using GVR Api to calculate transformation coordinates
 	const gvr_eye Type = (Eye == eSSP_RIGHT_EYE) ? GVR_RIGHT_EYE : GVR_LEFT_EYE;
 	uint32 VertexIndex = 0;
@@ -123,6 +117,7 @@ void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Ey
 
 	check(VertexIndex == NumVerts);
 #endif
+	RHIUnlockVertexBuffer(DistortionMeshVertices);
 }
 
 void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize)
@@ -136,14 +131,14 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 	if(View.StereoPass == eSSP_LEFT_EYE)
 	{
 		RHICmdList.SetViewport(0, 0, 0.0f, ViewportSize.X / 2, ViewportSize.Y, 1.0f);
-		DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, NumVerts, NumTris, DistortionMeshIndices,
-			sizeof(DistortionMeshIndices[0]), DistortionMeshVerticesLeftEye, sizeof(DistortionMeshVerticesLeftEye[0]));
+		RHICmdList.SetStreamSource(0, DistortionMeshVerticesLeftEye, 0);
+		RHICmdList.DrawIndexedPrimitive(DistortionMeshIndices, PT_TriangleList, 0, 0, NumVerts, 0, NumTris, 1);
 	}
 	else
 	{
 		RHICmdList.SetViewport(ViewportSize.X / 2, 0, 0.0f, ViewportSize.X, ViewportSize.Y, 1.0f);
-		DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, NumVerts, NumTris, DistortionMeshIndices,
-			sizeof(DistortionMeshIndices[0]), DistortionMeshVerticesRightEye, sizeof(DistortionMeshVerticesRightEye[0]));
+		RHICmdList.SetStreamSource(0, DistortionMeshVerticesRightEye, 0);
+		RHICmdList.DrawIndexedPrimitive(DistortionMeshIndices, PT_TriangleList, 0, 0, NumVerts, 0, NumTris, 1);
 	}
 #else
 	// Editor Preview: We are using a hardcoded quad mesh for now with no distortion applyed.
@@ -152,36 +147,34 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 		static const uint32 LocalNumVertsPerEye = 4;
 		static const uint32 LocalNumTrisPerEye = 2;
 
-		static const FDistortionVertex VertsLeft[4] =
+		static const FDistortionVertex Verts[4] =
 		{
-			// left eye
-			{ FVector2D(-1.0f, -1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(1.0f, -1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(1.0f, 1.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), 1.0f, 0.0f },
-			{ FVector2D(-1.0f, 1.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), 1.0f, 0.0f },
-		};
-		static const FDistortionVertex VertsRight[4] =
-		{
-			// right eye
 			{ FVector2D(-1.0f, -1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), 1.0f, 0.0f },
 			{ FVector2D( 1.0f, -1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(1.0f, 1.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), 1.0f, 0.0f },
-			{ FVector2D(-1.0f, 1.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), 1.0f, 0.0f },
+			{ FVector2D(-1.0f,  1.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), 1.0f, 0.0f },
+			{ FVector2D( 1.0f,  1.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), 1.0f, 0.0f },
 		};
 
-		static const uint16 Indices[6] = {0, 1, 2, 0, 2, 3};
+		FRHIResourceCreateInfo CreateInfo;
+		FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FDistortionVertex) * 4, BUF_Volatile, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FDistortionVertex) * 4, RLM_WriteOnly);
+		FPlatformMemory::Memcpy(VoidPtr, Verts, sizeof(FDistortionVertex) * 4);
+		RHIUnlockVertexBuffer(VertexBufferRHI);
 
 		const uint32 XBound = TextureSize.X / 2;
 		if(View.StereoPass == eSSP_LEFT_EYE)
 		{
 			RHICmdList.SetViewport(0, 0, 0.0f, XBound, TextureSize.Y, 1.0f);
-			DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, LocalNumVertsPerEye, LocalNumTrisPerEye, &Indices, sizeof(Indices[0]), &VertsLeft, sizeof(VertsLeft[0]));
+			RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
 		}
 		else
 		{
 			RHICmdList.SetViewport(XBound, 0, 0.0f, TextureSize.X, TextureSize.Y, 1.0f);
-			DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, LocalNumVertsPerEye, LocalNumTrisPerEye, &Indices, sizeof(Indices[0]), &VertsRight, sizeof(VertsRight[0]));
+			RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
 		}
+		VertexBufferRHI.SafeRelease();
 	}
 #endif
 }

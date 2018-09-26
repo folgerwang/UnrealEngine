@@ -3,13 +3,23 @@
 #include "BuildPatchGeneration.h"
 #include "Templates/ScopedPointer.h"
 #include "Templates/UniquePtr.h"
+#include "Templates/Greater.h"
+#include "Templates/Tuple.h"
+#include "Algo/Sort.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/SecureHash.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Misc/CommandLine.h"
+#include "Containers/Ticker.h"
+#include "Containers/Queue.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 #include "BuildPatchManifest.h"
 #include "BuildPatchServicesModule.h"
 #include "BuildPatchHash.h"
 #include "Core/BlockStructure.h"
+#include "Core/BlockData.h"
+#include "Common/FileSystem.h"
 #include "Data/ChunkData.h"
 #include "Generation/DataScanner.h"
 #include "Generation/BuildStreamer.h"
@@ -17,6 +27,8 @@
 #include "Generation/ManifestBuilder.h"
 #include "Generation/FileAttributesParser.h"
 #include "Generation/ChunkWriter.h"
+#include "Generation/ChunkMatchProcessor.h"
+#include "BuildPatchUtil.h"
 
 using namespace BuildPatchServices;
 
@@ -28,14 +40,14 @@ namespace BuildPatchServices
 	struct FScannerDetails
 	{
 	public:
-		FScannerDetails(int32 InLayer, uint64 InLayerOffset, bool bInIsFinalScanner, uint64 InPaddingSize, TArray<uint8> InData, FBlockStructure InStructure, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector)
+		FScannerDetails(int32 InLayer, uint64 InLayerOffset, bool bInIsFinalScanner, uint64 InPaddingSize, TArray<uint8> InData, FBlockStructure InStructure, const TArray<uint32>& ChunkWindowSizes, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector)
 			: Layer(InLayer)
 			, LayerOffset(InLayerOffset)
 			, bIsFinalScanner(bInIsFinalScanner)
 			, PaddingSize(InPaddingSize)
 			, Data(MoveTemp(InData))
 			, Structure(MoveTemp(InStructure))
-			, Scanner(FDataScannerFactory::Create(Data, CloudEnumeration, StatsCollector))
+			, Scanner(FDataScannerFactory::Create(ChunkWindowSizes, Data, CloudEnumeration, StatsCollector))
 		{}
 
 	public:
@@ -51,49 +63,6 @@ namespace BuildPatchServices
 
 namespace PatchGenerationHelpers
 {
-	bool SerializeIntersection(const FBlockStructure& ByteStructure, const FBlockStructure& Intersection, FBlockStructure& SerialRanges)
-	{
-		FBlockStructure ActualIntersection = ByteStructure.Intersect(Intersection);
-		uint64 ByteOffset = 0;
-		const FBlockEntry* ByteBlock = ByteStructure.GetHead();
-		const FBlockEntry* IntersectionBlock = ActualIntersection.GetHead();
-		while (ByteBlock != nullptr && IntersectionBlock != nullptr)
-		{
-			uint64 ByteBlockEnd = ByteBlock->GetOffset() + ByteBlock->GetSize();
-			if (ByteBlockEnd <= IntersectionBlock->GetOffset())
-			{
-				ByteOffset += ByteBlock->GetSize();
-				ByteBlock = ByteBlock->GetNext();
-				continue;
-			}
-			else
-			{
-				// Intersection must overlap.
-				check(IntersectionBlock->GetOffset() >= ByteBlock->GetOffset());
-				check(ByteBlockEnd >= (IntersectionBlock->GetOffset() + IntersectionBlock->GetSize()));
-				uint64 Chop = IntersectionBlock->GetOffset() - ByteBlock->GetOffset();
-				ByteOffset += Chop;
-				SerialRanges.Add(ByteOffset, IntersectionBlock->GetSize());
-				ByteOffset += ByteBlock->GetSize() - Chop;
-				IntersectionBlock = IntersectionBlock->GetNext();
-				ByteBlock = ByteBlock->GetNext();
-			}
-		}
-		return true;
-	}
-
-	uint64 CountSerialBytes(const FBlockStructure& Structure)
-	{
-		uint64 Count = 0;
-		const FBlockEntry* Block = Structure.GetHead();
-		while (Block != nullptr)
-		{
-			Count += Block->GetSize();
-			Block = Block->GetNext();
-		}
-		return Count;
-	}
-
 	int32 GetMaxScannerBacklogCount()
 	{
 		int32 MaxScannerBacklogCount = 75;
@@ -107,31 +76,19 @@ namespace PatchGenerationHelpers
 		static int32 MaxScannerBacklogCount = GetMaxScannerBacklogCount();
 		return (FDataScannerCounter::GetNumIncompleteScanners() > FDataScannerCounter::GetNumRunningScanners()) || (Scanners.Num() >= MaxScannerBacklogCount);
 	}
+
+	FSHAHash GetShaForDataSet(const uint8* DataSet, uint32 DataSize)
+	{
+		FSHAHash SHAHash;
+		FSHA1::HashBuffer(DataSet, DataSize, SHAHash.Hash);
+		return SHAHash;
+	}
+
 }
 
 bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Settings)
 {
-	uint64 StartTime = FStatsCollector::GetCycles();
-
-	// Create a manifest details.
-	FManifestDetails ManifestDetails;
-	ManifestDetails.AppId = Settings.AppId;
-	ManifestDetails.AppName = Settings.AppName;
-	ManifestDetails.BuildVersion = Settings.BuildVersion;
-	ManifestDetails.LaunchExe = Settings.LaunchExe;
-	ManifestDetails.LaunchCommand = Settings.LaunchCommand;
-	ManifestDetails.PrereqIds = Settings.PrereqIds;
-	ManifestDetails.PrereqName = Settings.PrereqName;
-	ManifestDetails.PrereqPath = Settings.PrereqPath;
-	ManifestDetails.PrereqArgs = Settings.PrereqArgs;
-	ManifestDetails.CustomFields = Settings.CustomFields;
-
-	// Use the cloud directory passed in if present, otherwise fall back to module default
-	FString CloudDirectory = Settings.CloudDirectory;
-	if (CloudDirectory.IsEmpty())
-	{
-		CloudDirectory = FBuildPatchServicesModule::GetCloudDirectory();
-	}
+	const uint64 StartTime = FStatsCollector::GetCycles();
 
 	// Check for the required output filename.
 	if (Settings.OutputFilename.IsEmpty())
@@ -141,54 +98,15 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	}
 
 	// Ensure that cloud directory exists, and create it if not.
-	IFileManager::Get().MakeDirectory(*CloudDirectory, true);
-	if (!IFileManager::Get().DirectoryExists(*CloudDirectory))
+	IFileManager::Get().MakeDirectory(*Settings.CloudDirectory, true);
+	if (!IFileManager::Get().DirectoryExists(*Settings.CloudDirectory))
 	{
-		UE_LOG(LogPatchGeneration, Error, TEXT("Unable to create specified cloud directory %s"), *CloudDirectory);
+		UE_LOG(LogPatchGeneration, Error, TEXT("Unable to create specified cloud directory %s"), *Settings.CloudDirectory);
 		return false;
 	}
-
-	// Load the required file attributes.
-	if (!Settings.AttributeListFile.IsEmpty())
-	{
-		FFileAttributesParserRef FileAttributesParser = FFileAttributesParserFactory::Create();
-		if (!FileAttributesParser->ParseFileAttributes(Settings.AttributeListFile, ManifestDetails.FileAttributesMap))
-		{
-			UE_LOG(LogPatchGeneration, Error, TEXT("Attributes list file did not parse %s"), *Settings.AttributeListFile);
-			return false;
-		}
-	}
-
-	// Create stat collector.
-	FStatsCollectorRef StatsCollector = FStatsCollectorFactory::Create();
-
-	// Enumerate Chunks.
-	const FDateTime Cutoff = Settings.bShouldHonorReuseThreshold ? FDateTime::UtcNow() - FTimespan::FromDays(Settings.DataAgeThreshold) : FDateTime::MinValue();
-	ICloudEnumerationRef CloudEnumeration = FCloudEnumerationFactory::Create(CloudDirectory, Cutoff, StatsCollector);
-
-	// Create a build streamer.
-	FBuildStreamerRef BuildStream = FBuildStreamerFactory::Create(Settings.RootDirectory, Settings.IgnoreListFile, StatsCollector);
-
-	// Create a chunk writer.
-	FChunkWriter ChunkWriter(CloudDirectory, StatsCollector);
 
 	// Output to log for builder info.
-	UE_LOG(LogPatchGeneration, Log, TEXT("Running Chunks Patch Generation for: %u:%s %s"), Settings.AppId, *Settings.AppName, *Settings.BuildVersion);
-
-	// Create the manifest builder.
-	IManifestBuilderRef ManifestBuilder = FManifestBuilderFactory::Create(ManifestDetails);
-
-	TArray<FString> EnumeratedFiles = BuildStream->GetAllFilenames();
-
-	// Check existence of prereq exe, if specified.
-	if (!Settings.PrereqPath.IsEmpty() && !EnumeratedFiles.Contains(FPaths::Combine(Settings.RootDirectory, Settings.PrereqPath)))
-	{
-		UE_LOG(LogPatchGeneration, Error, TEXT("Provided prerequisite executable file was not found within the build root. %s"), *Settings.PrereqPath);
-		return false;
-	}
-
-	// Used to store data read lengths.
-	uint32 ReadLen = 0;
+	UE_LOG(LogPatchGeneration, Log, TEXT("Running NEW Chunks Patch Generation for: %u:%s %s"), Settings.AppId, *Settings.AppName, *Settings.BuildVersion);
 
 	// The last time we logged out data processed.
 	double LastProgressLog = FPlatformTime::Seconds();
@@ -202,8 +120,9 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	GenerationScannerSizeMegabytes = FMath::Clamp<float>(GenerationScannerSizeMegabytes, 10.0f, 500.0f);
 	StatsLoggerTimeSeconds = FMath::Clamp<float>(StatsLoggerTimeSeconds, 1.0f, 60.0f);
 	const uint64 ScannerDataSize = GenerationScannerSizeMegabytes * 1048576;
-	const uint64 ScannerOverlapSize = BuildPatchServices::ChunkDataSize - 1;
-	TArray<uint8> DataBuffer;
+
+	// Create stat collector.
+	FStatsCollectorRef StatsCollector = FStatsCollectorFactory::Create();
 
 	// Setup Generation stats.
 	volatile int64* StatTotalTime = StatsCollector->CreateStat(TEXT("Generation: Total Time"), EStatFormat::Timer);
@@ -213,140 +132,134 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	volatile int64* StatUnknownDataNum = StatsCollector->CreateStat(TEXT("Generation: Unmatched Buffers Use"), EStatFormat::DataSize);
 	int64 MaxLayer = 0;
 
-	// List of created scanners.
-	TArray<TUniquePtr<FScannerDetails>> Scanners;
+	// Create a chunk writer.
+	TUniquePtr<IFileSystem> FileSystem(FFileSystemFactory::Create());
+	TUniquePtr<IChunkDataSerialization> ChunkDataSerialization(FChunkDataSerializationFactory::Create(FileSystem.Get(), Settings.FeatureLevel));
+	TUniquePtr<IParallelChunkWriter> ChunkWriter(FParallelChunkWriterFactory::Create({5, 5, 50, 8, Settings.CloudDirectory, Settings.FeatureLevel}, FileSystem.Get(), ChunkDataSerialization.Get(), &StatsCollector.Get()));
 
-	// Tracking info per layer for rescanning.
-	TMap<int32, FChunkMatch> LayerToLastChunkMatch;
-	TMap<int32, uint64> LayerToProcessedCount;
-	TMap<int32, uint64> LayerToScannerCount;
-	TMap<int32, uint64> LayerToDataOffset;
-	TMap<int32, TArray<uint8>> LayerToUnknownLayerData;
-	TMap<int32, FBlockStructure> LayerToUnknownLayerStructure;
-	TMap<int32, FBlockStructure> LayerToUnknownBuildStructure;
+	// Create a manifest details.
+	FManifestDetails ManifestDetails;
+	ManifestDetails.FeatureLevel = Settings.FeatureLevel;
+	ManifestDetails.AppId = Settings.AppId;
+	ManifestDetails.AppName = Settings.AppName;
+	ManifestDetails.BuildVersion = Settings.BuildVersion;
+	ManifestDetails.LaunchExe = Settings.LaunchExe;
+	ManifestDetails.LaunchCommand = Settings.LaunchCommand;
+	ManifestDetails.PrereqIds = Settings.PrereqIds;
+	ManifestDetails.PrereqName = Settings.PrereqName;
+	ManifestDetails.PrereqPath = Settings.PrereqPath;
+	ManifestDetails.PrereqArgs = Settings.PrereqArgs;
+	ManifestDetails.CustomFields = Settings.CustomFields;
 
-	// For future investigation.
-	TArray<FChunkMatch> RejectedChunkMatches;
-	FBlockStructure BuildSpaceRejectedStructure;
+	// Load the required file attributes.
+	if (!Settings.AttributeListFile.IsEmpty())
+	{
+		FFileAttributesParserRef FileAttributesParser = FFileAttributesParserFactory::Create();
+		if (!FileAttributesParser->ParseFileAttributes(Settings.AttributeListFile, ManifestDetails.FileAttributesMap))
+		{
+			UE_LOG(LogPatchGeneration, Error, TEXT("Attributes list file did not parse %s"), *Settings.AttributeListFile);
+			return false;
+		}
+	}
 
-	// Keep a copy of the new chunk inventory.
+	// Enumerate Chunks.
+	const FDateTime Cutoff = Settings.bShouldHonorReuseThreshold ? FDateTime::UtcNow() - FTimespan::FromDays(Settings.DataAgeThreshold) : FDateTime::MinValue();
+	ICloudEnumerationRef CloudEnumeration = FCloudEnumerationFactory::Create(Settings.CloudDirectory, Cutoff, Settings.FeatureLevel, StatsCollector);
+
+	// Start the build stream.
+	FBuildStreamerRef BuildStream = FBuildStreamerFactory::Create(Settings.RootDirectory, Settings.InputListFile, Settings.IgnoreListFile, StatsCollector);
+
+	// Check existence of launch exe, if specified.
+	TArray<FString> EnumeratedFiles = BuildStream->GetAllFilenames();
+	if (!Settings.LaunchExe.IsEmpty() && !EnumeratedFiles.Contains(FPaths::Combine(Settings.RootDirectory, Settings.LaunchExe)))
+	{
+		UE_LOG(LogPatchGeneration, Error, TEXT("Provided launch executable file was not found within the build root. %s"), *Settings.LaunchExe);
+		return false;
+	}
+
+	// Check existence of prereq exe, if specified.
+	if (!Settings.PrereqPath.IsEmpty() && !EnumeratedFiles.Contains(FPaths::Combine(Settings.RootDirectory, Settings.PrereqPath)))
+	{
+		UE_LOG(LogPatchGeneration, Error, TEXT("Provided prerequisite executable file was not found within the build root. %s"), *Settings.PrereqPath);
+		return false;
+	}
+
+	// We've got to wait for enumeration to complete as that shares a thread pool.
+	while (CloudEnumeration->IsComplete() == false)
+	{
+		// Log collected stats.
+		GLog->FlushThreadedLogs();
+		FStatsCollector::Set(StatTotalTime, FStatsCollector::GetCycles() - StartTime);
+		StatsCollector->LogStats(StatsLoggerTimeSeconds);
+
+		// Sleep to allow other threads.
+		FPlatformProcess::Sleep(0.01f);
+	}
+
+	// Grab the window sizes we are trying to match against.
+	TArray<uint32> WindowSizes;
+	if (Settings.bShouldMatchAnyWindowSize)
+	{
+		WindowSizes.Append(CloudEnumeration->GetChunkWindowSizes().Array());
+	}
+	else
+	{
+		WindowSizes.Add(Settings.OutputChunkWindowSize);
+	}
+	Algo::Sort(WindowSizes, TGreater<uint32>());
+	const uint32 LargestWindowSize = WindowSizes.Num() > 0 ? WindowSizes[0] : Settings.OutputChunkWindowSize;
+	const uint64 ScannerOverlapSize = LargestWindowSize - 1;
+
+	// Construct the chunk match processor.
+	TUniquePtr<IChunkMatchProcessor> ChunkMatchProcessor(FChunkMatchProcessorFactory::Create());
+
+	// Keep a record of the new chunk inventory.
 	TMap<uint64, TSet<FGuid>> ChunkInventory;
 	TMap<FGuid, FSHAHash> ChunkShaHashes;
 
-	// Loop through all data.
+	// Tracking info per layer for rescanning.
+	TMap<int32, uint64> LayerToScannerCount;
+	TMap<int32, FBlockStructure> LayerToBuildSpaceStructure;
+	TMap<int32, uint64> LayerToCreatedScannerOffset;
+	TMap<int32, uint64> LayerToScannedSize;
+	TMap<int32, uint64> LayerToTotalDataSize;
+	TMap<int32, FBlockStructure> LayerToUnknownLayerSpaceStructure;
+	TMap<int32, FBlockStructure> LayerToUnknownBuildSpaceStructure;
+	TMap<int32, TBlockData<uint8>> LayerToLayerSpaceBlockData;
+
+	// This is a blatant hack :(
+	TMap<FGuid, uint32> OriginalWindowSizes;
+
+	// Create the manifest builder.
+	IManifestBuilderRef ManifestBuilder = FManifestBuilderFactory::Create(ManifestDetails);
+
+	FBlockStructure AcceptedBuildSpaceMatches;
+	FBlockStructure CreatedBuildSpaceMatches;
+	TSet<FGuid> NewCreatedChunks;
+	TMap<int32, FBlockStructure> LayerCreatingScannersTest;
+	TMap<int32, FBlockStructure> LayerCreatingScannersLayerSpaceTest;
+	TMap<int32, FBlockStructure> LayerCreatingChunksTest;
+	TMap<int32, bool> LayerCreatingFinalTest;
+
+	// Run the main loop.
+	TArray<uint8> DataBuffer;
+	uint64 DataBufferFirstIdx = 0;
+	uint32 ReadLen = 0;
+	TArray<TUniquePtr<FScannerDetails>> Scanners;
 	bool bHasUnknownData = true;
 	while (!BuildStream->IsEndOfData() || Scanners.Num() > 0 || bHasUnknownData)
 	{
-		if (!PatchGenerationHelpers::ScannerArrayFull(Scanners))
+		// Grab a scanner result.
+		if (Scanners.Num() > 0 && Scanners[0]->Scanner->IsComplete())
 		{
-			// Create a scanner from new build data?
-			if (!BuildStream->IsEndOfData())
+			FScannerDetails& ScannerDetails = *Scanners[0];
+			TArray<FChunkMatch> ChunkMatches = ScannerDetails.Scanner->GetResultWhenComplete();
+			for (FChunkMatch& ChunkMatch : ChunkMatches)
 			{
-				// Keep the overlap data from previous scanner.
-				int32 PreviousSize = DataBuffer.Num();
-				uint64& DataOffset = LayerToDataOffset.FindOrAdd(0);
-				if (PreviousSize > 0)
-				{
-					check(PreviousSize > ScannerOverlapSize);
-					uint8* CopyTo = DataBuffer.GetData();
-					uint8* CopyFrom = CopyTo + (PreviousSize - ScannerOverlapSize);
-					FMemory::Memcpy(CopyTo, CopyFrom, ScannerOverlapSize);
-					DataBuffer.SetNum(ScannerOverlapSize, false);
-					DataOffset += ScannerDataSize - ScannerOverlapSize;
-				}
-
-				// Grab some data from the build stream.
-				PreviousSize = DataBuffer.Num();
-				DataBuffer.SetNumUninitialized(ScannerDataSize);
-				const bool bWaitForData = true;
-				ReadLen = BuildStream->DequeueData(DataBuffer.GetData() + PreviousSize, ScannerDataSize - PreviousSize, bWaitForData);
-				DataBuffer.SetNum(PreviousSize + ReadLen, false);
-
-				// Only make a scanner if we are getting new data.
-				if (ReadLen > 0)
-				{
-					// Pad scanner data if end of build
-					uint64 PadSize = BuildStream->IsEndOfData() ? ScannerOverlapSize : 0;
-					DataBuffer.AddZeroed(PadSize);
-
-					// Create data processor.
-					FBlockStructure Structure;
-					Structure.Add(DataOffset, DataBuffer.Num() - PadSize);
-					UE_LOG(LogPatchGeneration, Verbose, TEXT("Creating scanner on layer 0 at %llu. IsFinal:%d."), DataOffset, BuildStream->IsEndOfData());
-					Scanners.Emplace(new FScannerDetails(0, DataOffset, BuildStream->IsEndOfData(), PadSize, DataBuffer, MoveTemp(Structure), CloudEnumeration, StatsCollector));
-					LayerToScannerCount.FindOrAdd(0)++;
-				}
-			}
-		}
-
-		// Grab any completed scanners?
-		FStatsCollector::Set(StatNumScanners, Scanners.Num());
-		while (Scanners.Num() > 0 && Scanners[0]->Scanner->IsComplete())
-		{
-			FScannerDetails& Scanner = *Scanners[0];
-			UE_LOG(LogPatchGeneration, Verbose, TEXT("Scanner on layer %d completed. IsFinal:%d."), Scanner.Layer, Scanner.bIsFinalScanner);
-
-			// Check that we are able to process this scanner, there is a 2GB limit on our TArrays of data.
-			if (LayerToUnknownLayerData.Contains(Scanner.Layer))
-			{
-				int32 CurrentUnknownLayerDataNum = LayerToUnknownLayerData[Scanner.Layer].Num();
-				const int32 OneGigabyte = 1073741824;
-				if (CurrentUnknownLayerDataNum >= OneGigabyte)
-				{
-					UE_LOG(LogPatchGeneration, Verbose, TEXT("Ignoring completed scanners in order to process accumulated unknown data."));
-					break;
-				}
-			}
-
-			// Get the scan result.
-			TArray<FChunkMatch> ChunkMatches = Scanner.Scanner->GetResultWhenComplete();
-
-			// Create structures to track results in required spaces.
-			FBlockStructure LayerSpaceUnknownStructure;
-			FBlockStructure LayerSpaceKnownStructure;
-			FBlockStructure BuildSpaceUnknownStructure;
-			FBlockStructure BuildSpaceKnownStructure;
-			BuildSpaceUnknownStructure.Add(Scanner.Structure);
-			LayerSpaceUnknownStructure.Add(Scanner.LayerOffset, Scanner.Data.Num() - Scanner.PaddingSize);
-
-			// Grab the last match from previous layer scanner, to handle to overlap.
-			FChunkMatch* LayerLastChunkMatch = LayerToLastChunkMatch.Find(Scanner.Layer);
-			if (LayerLastChunkMatch != nullptr)
-			{
-				// Track the last match in this range's layer structure.
-				LayerSpaceUnknownStructure.Remove(LayerLastChunkMatch->DataOffset, BuildPatchServices::ChunkDataSize);
-				LayerSpaceKnownStructure.Add(LayerLastChunkMatch->DataOffset, BuildPatchServices::ChunkDataSize);
-				LayerSpaceKnownStructure.Remove(0, Scanner.LayerOffset);
-
-				// Assert there is one or zero blocks
-				check(LayerSpaceKnownStructure.GetHead() == LayerSpaceKnownStructure.GetFoot());
-
-				// Track the last match in this range's build structure.
-				if (LayerSpaceKnownStructure.GetHead() != nullptr)
-				{
-					uint64 FirstByte = LayerSpaceKnownStructure.GetHead()->GetOffset() - Scanner.LayerOffset;
-					uint64 Count = LayerSpaceKnownStructure.GetHead()->GetSize();
-					FBlockStructure LastChunkBuildSpace;
-					if (Scanner.Structure.SelectSerialBytes(FirstByte, Count, LastChunkBuildSpace) != Count)
-					{
-						// Fatal error, translated last chunk should be in range.
-						UE_LOG(LogPatchGeneration, Error, TEXT("Translated last chunk match was not within scanner's range."));
-						return false;
-					}
-					BuildSpaceUnknownStructure.Remove(LastChunkBuildSpace);
-					BuildSpaceKnownStructure.Add(LastChunkBuildSpace);
-				}
-			}
-
-			// Process each chunk that this scanner matched.
-			for (int32 MatchIdx = 0; MatchIdx < ChunkMatches.Num(); ++MatchIdx)
-			{
-				FChunkMatch& Match = ChunkMatches[MatchIdx];
-
 				// Translate to build space.
 				FBlockStructure BuildSpaceChunkStructure;
-				const uint64 BytesFound = Scanner.Structure.SelectSerialBytes(Match.DataOffset, BuildPatchServices::ChunkDataSize, BuildSpaceChunkStructure);
-				const bool bFoundOk = Scanner.bIsFinalScanner || BytesFound == BuildPatchServices::ChunkDataSize;
+				const uint64 BytesFound = ScannerDetails.Structure.SelectSerialBytes(ChunkMatch.DataOffset, ChunkMatch.WindowSize, BuildSpaceChunkStructure);
+				const bool bFoundOk = ScannerDetails.bIsFinalScanner || BytesFound == ChunkMatch.WindowSize;
 				if (!bFoundOk)
 				{
 					// Fatal error if the scanner returned a matched range that doesn't fit inside it's data.
@@ -354,271 +267,416 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 					return false;
 				}
 
-				uint64 LayerOffset = Scanner.LayerOffset + Match.DataOffset;
-				if (LayerLastChunkMatch == nullptr || ((LayerLastChunkMatch->DataOffset + BuildPatchServices::ChunkDataSize) <= LayerOffset))
+				ChunkMatch.DataOffset += ScannerDetails.LayerOffset;
+				if (ChunkMatch.WindowSize != BytesFound)
 				{
-					// Accept the match.
-					LayerLastChunkMatch = &LayerToLastChunkMatch.Add(Scanner.Layer, FChunkMatch(LayerOffset, Match.ChunkGuid));
-
-					// Track data from this scanner.
-					LayerSpaceUnknownStructure.Remove(LayerOffset, BuildPatchServices::ChunkDataSize);
-					LayerSpaceKnownStructure.Add(LayerOffset, BuildPatchServices::ChunkDataSize);
-
-					// Process the chunk in build space.
-					BuildSpaceUnknownStructure.Remove(BuildSpaceChunkStructure);
-					BuildSpaceKnownStructure.Add(BuildSpaceChunkStructure);
-					ManifestBuilder->AddChunkMatch(Match.ChunkGuid, BuildSpaceChunkStructure);
-					UE_LOG(LogPatchGeneration, Verbose, TEXT("Accepted a chunk match with %s on layer %d. Mapping:%s"), *Match.ChunkGuid.ToString(), Scanner.Layer, *BuildSpaceChunkStructure.ToString());
+					OriginalWindowSizes.Add(ChunkMatch.ChunkGuid, ChunkMatch.WindowSize);
 				}
-				else
-				{
-					// Currently we don't use overlapping chunks, but we should save that info to drive improvement investigation.
-					RejectedChunkMatches.Add(Match);
-					BuildSpaceRejectedStructure.Add(BuildSpaceChunkStructure);
-					UE_LOG(LogPatchGeneration, Verbose, TEXT("Rejected an overlapping chunk match with %s on layer %d. Mapping:%s"), *Match.ChunkGuid.ToString(), Scanner.Layer, *BuildSpaceChunkStructure.ToString());
-				}
+				ChunkMatch.WindowSize = BytesFound;
+
+				ChunkMatchProcessor->ProcessMatch(ScannerDetails.Layer, ChunkMatch, MoveTemp(BuildSpaceChunkStructure));
 			}
-			// Remove padding from known structure.
-			LayerSpaceKnownStructure.Remove(Scanner.LayerOffset + Scanner.Data.Num() - Scanner.PaddingSize, Scanner.PaddingSize);
 
-			// Collect unknown data into buffers and spaces.
-			TArray<uint8>& UnknownLayerData = LayerToUnknownLayerData.FindOrAdd(Scanner.Layer);
-			FBlockStructure& UnknownLayerStructure = LayerToUnknownLayerStructure.FindOrAdd(Scanner.Layer);
-			FBlockStructure& UnknownBuildStructure = LayerToUnknownBuildStructure.FindOrAdd(Scanner.Layer);
+			FBlockStructure OverlapStructure = LayerToBuildSpaceStructure.FindOrAdd(ScannerDetails.Layer).Intersect(ScannerDetails.Structure);
+			uint64 OverlapBytes = BlockStructureHelpers::CountSize(OverlapStructure);
+			check(OverlapBytes == ScannerOverlapSize || ScannerDetails.LayerOffset == 0);
 
-			// Check sanity of tracked data
-			check(UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownLayerStructure)
-				&& UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownBuildStructure));
+			// Store the layer build space.
+			LayerToBuildSpaceStructure.FindOrAdd(ScannerDetails.Layer).Add(ScannerDetails.Structure);
 
-			// Remove from unknown data buffer what we now know. This covers newly recognized data from previous overlaps.
-			FBlockStructure NowKnownDataStructure;
-			if (PatchGenerationHelpers::SerializeIntersection(UnknownLayerStructure, LayerSpaceKnownStructure, NowKnownDataStructure))
+			// Add to layer space block data. We include padding that comes at the end of any layer as that may be included.
+			const uint64 LayerDataStartIndex = ScannerDetails.LayerOffset == 0 ? 0 : ScannerOverlapSize;
+			const uint64 LayerDataSize = ScannerDetails.LayerOffset == 0 ? ScannerDetails.Data.Num() : ScannerDetails.Data.Num() - ScannerOverlapSize;
+			TBlockData<uint8>& LayerSpaceBlockData = LayerToLayerSpaceBlockData.FindOrAdd(ScannerDetails.Layer);
+			LayerSpaceBlockData.AddData(FBlockStructure(ScannerDetails.LayerOffset + LayerDataStartIndex, LayerDataSize), ScannerDetails.Data.GetData() + LayerDataStartIndex, LayerDataSize);
+
+			// Give some flush time to the processor.
+			check(ScannerDetails.PaddingSize == 0 || ScannerDetails.bIsFinalScanner);
+			const FBlockRange ScannerRange(ScannerDetails.LayerOffset, ScannerDetails.Data.Num() - ScannerDetails.PaddingSize);
+			const uint64 SafeFlushSize = ScannerDetails.bIsFinalScanner ? ScannerRange.GetLast() + 1 : ScannerRange.GetLast() - ScannerOverlapSize;
+			ChunkMatchProcessor->FlushLayer(ScannerDetails.Layer, SafeFlushSize);
+			if (ScannerDetails.bIsFinalScanner)
 			{
-				const FBlockEntry* NowKnownDataBlock = NowKnownDataStructure.GetFoot();
-				while (NowKnownDataBlock != nullptr)
-				{
-					UnknownLayerData.RemoveAt(NowKnownDataBlock->GetOffset(), NowKnownDataBlock->GetSize(), false);
-					NowKnownDataBlock = NowKnownDataBlock->GetPrevious();
-				}
-			}
-			else
-			{
-				// Fatal error if we could not convert to serial space.
-				UE_LOG(LogPatchGeneration, Error, TEXT("Could not convert new blocks to serial space."));
-				return false;
-			}
-			UnknownLayerStructure.Remove(LayerSpaceKnownStructure);
-			UnknownBuildStructure.Remove(BuildSpaceKnownStructure);
-
-			// Check sanity of tracked data
-			check(UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownLayerStructure)
-				&& UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownBuildStructure));
-
-			// Mark the number of bytes we know to be accurate. This stays one scanner behind.
-			LayerToProcessedCount.FindOrAdd(Scanner.Layer) = UnknownLayerData.Num();
-
-			// Add new unknown data to buffer and structures.
-			LayerSpaceUnknownStructure.Remove(UnknownLayerStructure);
-			const FBlockEntry* LayerSpaceUnknownBlock = LayerSpaceUnknownStructure.GetHead();
-			while (LayerSpaceUnknownBlock != nullptr)
-			{
-				const int32 ScannerDataOffset = LayerSpaceUnknownBlock->GetOffset() - Scanner.LayerOffset;
-				const int32 BlockSize = LayerSpaceUnknownBlock->GetSize();
-				check(ScannerDataOffset >= 0 && (ScannerDataOffset + BlockSize) <= (Scanner.Data.Num() - Scanner.PaddingSize));
-				UnknownLayerData.Append(&Scanner.Data[ScannerDataOffset], BlockSize);
-				LayerSpaceUnknownBlock = LayerSpaceUnknownBlock->GetNext();
-			}
-			UnknownLayerStructure.Add(LayerSpaceUnknownStructure);
-			UnknownBuildStructure.Add(BuildSpaceUnknownStructure);
-
-			// Check sanity of tracked data
-			check(UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownLayerStructure)
-				&& UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownBuildStructure));
-
-			// If this is the final scanner then mark all unknown data ready for processing.
-			if (Scanner.bIsFinalScanner)
-			{
-				LayerToProcessedCount.FindOrAdd(Scanner.Layer) = UnknownLayerData.Num();
+				LayerToTotalDataSize.Add(ScannerDetails.Layer, SafeFlushSize);
 			}
 
 			// Remove scanner from list.
-			LayerToScannerCount.FindOrAdd(Scanner.Layer)--;
+			LayerToScannerCount.FindOrAdd(ScannerDetails.Layer)--;
 			Scanners.RemoveAt(0);
 		}
 
-		// Process some unknown data for each layer
-		for (TPair<int32, TArray<uint8>>& UnknownLayerDataPair : LayerToUnknownLayerData)
+		// Handle accepted chunk matches, and unknown data tracking.
+		for (int32 LayerIdx = 0; LayerIdx <= MaxLayer; ++LayerIdx)
 		{
-			// Gather info for the layer.
-			const int32 Layer = UnknownLayerDataPair.Key;
-			uint64& ProcessedCount = LayerToProcessedCount[Layer];
-			TArray<uint8>& UnknownLayerData = UnknownLayerDataPair.Value;
-			FBlockStructure& UnknownLayerStructure = LayerToUnknownLayerStructure[Layer];
-			FBlockStructure& UnknownBuildStructure = LayerToUnknownBuildStructure[Layer];
-
-			// Check if this final data for the layer.
-			bool bIsFinalData = BuildStream->IsEndOfData();
-			for (int32 LayerIdx = 0; LayerIdx < Layer; ++LayerIdx)
+			TArray<TTuple<FChunkMatch, FBlockStructure>> AcceptedChunkMatches;
+			const FBlockStructure& LayerBuildSpaceStructure = LayerToBuildSpaceStructure.FindOrAdd(LayerIdx);
+			uint64& LayerScannedSize = LayerToScannedSize.FindOrAdd(LayerIdx);
+			const FBlockRange CollectionRange = ChunkMatchProcessor->CollectLayer(LayerIdx, AcceptedChunkMatches);
+			if (CollectionRange.GetSize() > 0)
 			{
-				bIsFinalData = bIsFinalData && LayerToUnknownLayerData.FindRef(LayerIdx).Num() == 0;
-				bIsFinalData = bIsFinalData && LayerToScannerCount.FindRef(LayerIdx) == 0;
-			}
-			bIsFinalData = bIsFinalData && LayerToScannerCount.FindRef(Layer) == 0;
-
-			// Use large enough unknown data runs to make new chunks.
-			if (UnknownLayerData.Num() > 0)
-			{
-				const FBlockEntry* UnknownLayerBlock = UnknownLayerStructure.GetHead();
-				bool bSingleBlock = UnknownLayerBlock != nullptr && UnknownLayerBlock->GetNext() == nullptr;
-				uint64 ByteOffset = 0;
-				while (UnknownLayerBlock != nullptr)
+				// Add new chunk matches to the manifest builder, and track new unknown data.
+				TBlockData<uint8>& LayerSpaceBlockData = LayerToLayerSpaceBlockData.FindOrAdd(LayerIdx);
+				FBlockStructure BlockDataToRemove;
+				FBlockStructure NewUnknownLayerSpaceStructure(CollectionRange.GetFirst(), CollectionRange.GetSize());
+				FBlockStructure NewUnknownBuildSpaceStructure;
+				const uint64 BytesFound = LayerBuildSpaceStructure.SelectSerialBytes(CollectionRange.GetFirst(), CollectionRange.GetSize(), NewUnknownBuildSpaceStructure);
+				checkSlow(BytesFound == CollectionRange.GetSize());
+				const uint64 BeforeDataCount = LayerSpaceBlockData.GetDataCount();
+				const uint64 BeforeStructureCount = CollectionRange.GetSize();
+				for (TTuple<FChunkMatch, FBlockStructure>& AcceptedChunkMatch : AcceptedChunkMatches)
 				{
-					uint64 ByteEnd = ByteOffset + UnknownLayerBlock->GetSize();
-					if (ByteEnd > ProcessedCount)
-					{
-						// Clamp size by setting end to processed count or offset. Unsigned subtraction is unsafe.
-						ByteEnd = FMath::Max<uint64>(ProcessedCount, ByteOffset);
-					}
-					// Make a new chunk if large enough block, or it's a final single block.
-					if ((ByteEnd - ByteOffset) >= BuildPatchServices::ChunkDataSize || (bSingleBlock && bIsFinalData))
-					{
-						// Chunk needs padding?
-						check(UnknownLayerData.Num() > ByteOffset);
-						uint64 SizeOfData = FMath::Min<uint64>(BuildPatchServices::ChunkDataSize, UnknownLayerData.Num() - ByteOffset);
-						if (SizeOfData < BuildPatchServices::ChunkDataSize)
-						{
-							UnknownLayerData.SetNumZeroed(ByteOffset + BuildPatchServices::ChunkDataSize);
-						}
+					const FChunkMatch& ChunkMatch = AcceptedChunkMatch.Get<0>();
+					const FBlockStructure& BlockStructure = AcceptedChunkMatch.Get<1>();
+					const FBlockStructure LayerSpaceStructure(ChunkMatch.DataOffset, ChunkMatch.WindowSize);
 
-						// Create data for new chunk.
-						uint8* NewChunkData = &UnknownLayerData[ByteOffset];
-						FGuid NewChunkGuid = FGuid::NewGuid();
-						uint64 NewChunkHash = FRollingHash<BuildPatchServices::ChunkDataSize>::GetHashForDataSet(NewChunkData);
-						FSHAHash NewChunkSha;
-						FSHA1::HashBuffer(NewChunkData, BuildPatchServices::ChunkDataSize, NewChunkSha.Hash);
+					check(BlockStructureHelpers::CountSize(LayerSpaceStructure.Intersect(NewUnknownLayerSpaceStructure)) == ChunkMatch.WindowSize);
+					check(BlockStructureHelpers::CountSize(LayerSpaceStructure.Intersect(BlockDataToRemove)) == 0);
+					check(BlockStructureHelpers::CountSize(NewUnknownBuildSpaceStructure.Intersect(BlockStructure)) == ChunkMatch.WindowSize);
+					checkf(CreatedBuildSpaceMatches.Intersect(BlockStructure).GetHead() == nullptr, TEXT("ACCEPTEDCHUNK Overlap %llu bytes with created struct!"), BlockStructureHelpers::CountSize(CreatedBuildSpaceMatches.Intersect(BlockStructure)));
+					checkf(AcceptedBuildSpaceMatches.Intersect(BlockStructure).GetHead() == nullptr, TEXT("ACCEPTEDCHUNK Overlap %llu bytes with accepted struct!"), BlockStructureHelpers::CountSize(AcceptedBuildSpaceMatches.Intersect(BlockStructure)));
+
+					AcceptedBuildSpaceMatches.Add(BlockStructure);
+					NewUnknownBuildSpaceStructure.Remove(BlockStructure);
+					ManifestBuilder->AddChunkMatch(ChunkMatch.ChunkGuid, BlockStructure);
+					// Do we need to re-save the chunk at current feature level?
+					if (!CloudEnumeration->IsChunkFeatureLevelMatch(ChunkMatch.ChunkGuid))
+					{
+						// Grab the data.
+						TArray<uint8> ChunkDataArray;
+						LayerSpaceBlockData.CopyTo(ChunkDataArray, LayerSpaceStructure);
+						check(ChunkDataArray.Num() == ChunkMatch.WindowSize);
+						// Ensure padding if necessary.
+						const uint32 TrueWindowSize = OriginalWindowSizes.Contains(ChunkMatch.ChunkGuid) ? OriginalWindowSizes[ChunkMatch.ChunkGuid] : ChunkMatch.WindowSize;
+						ChunkDataArray.SetNumZeroed(TrueWindowSize);
 
 						// Save it out.
-						ChunkWriter.QueueChunk(NewChunkData, NewChunkGuid, NewChunkHash);
-						ChunkShaHashes.Add(NewChunkGuid, NewChunkSha);
-						ChunkInventory.FindOrAdd(NewChunkHash).Add(NewChunkGuid);
-
-						// Add to manifest builder.
-						FBlockStructure BuildSpaceChunkStructure;
-						if (UnknownBuildStructure.SelectSerialBytes(ByteOffset, SizeOfData, BuildSpaceChunkStructure) != SizeOfData)
-						{
-							// Fatal error if the scanner returned a matched range that doesn't fit inside it's data.
-							UE_LOG(LogPatchGeneration, Error, TEXT("New chunk was not within build space structure."));
-							return false;
-						}
-						ManifestBuilder->AddChunkMatch(NewChunkGuid, BuildSpaceChunkStructure);
-						UE_LOG(LogPatchGeneration, Verbose, TEXT("Created a new chunk %s with hash %016llX on layer %d. Mapping:%s"), *NewChunkGuid.ToString(), NewChunkHash, Layer, *BuildSpaceChunkStructure.ToString());
-
-						// Remove from tracking.
-						UnknownLayerData.RemoveAt(ByteOffset, BuildPatchServices::ChunkDataSize, false);
-						FBlockStructure LayerSpaceChunkStructure;
-						if (UnknownLayerStructure.SelectSerialBytes(ByteOffset, SizeOfData, LayerSpaceChunkStructure) != SizeOfData)
-						{
-							// Fatal error if the scanner returned a matched range that doesn't fit inside it's data.
-							UE_LOG(LogPatchGeneration, Error, TEXT("New chunk was not within layer space structure."));
-							return false;
-						}
-						UnknownLayerStructure.Remove(LayerSpaceChunkStructure);
-						UnknownBuildStructure.Remove(BuildSpaceChunkStructure);
-						check(ProcessedCount >= SizeOfData);
-						ProcessedCount -= SizeOfData;
-
-						// Check sanity of tracked data
-						check(UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownLayerStructure)
-							&& UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownBuildStructure));
-						check(SizeOfData >= BuildPatchServices::ChunkDataSize || UnknownLayerData.Num() == 0);
-
-						// UnknownLayerBlock is now potentially invalid due to mutation of UnknownLayerStructure so we must loop from beginning.
-						UnknownLayerBlock = UnknownLayerStructure.GetHead();
-						ByteOffset = 0;
-						continue;
+						const uint64& ChunkHash = CloudEnumeration->GetChunkHash(ChunkMatch.ChunkGuid);
+						const FSHAHash& ChunkSha = CloudEnumeration->GetChunkShaHash(ChunkMatch.ChunkGuid);
+						check(ChunkHash == FRollingHash::GetHashForDataSet(ChunkDataArray.GetData(), TrueWindowSize));
+						check(ChunkSha == PatchGenerationHelpers::GetShaForDataSet(ChunkDataArray.GetData(), TrueWindowSize));
+						ChunkWriter->AddChunkData(MoveTemp(ChunkDataArray), ChunkMatch.ChunkGuid, ChunkHash, ChunkSha);
 					}
-					ByteOffset += UnknownLayerBlock->GetSize();
-					UnknownLayerBlock = UnknownLayerBlock->GetNext();
+					NewUnknownLayerSpaceStructure.Remove(LayerSpaceStructure);
+					BlockDataToRemove.Add(LayerSpaceStructure);
 				}
+				const uint64 BlockDataToRemoveSize = BlockStructureHelpers::CountSize(BlockDataToRemove);
+				LayerSpaceBlockData.RemoveData(BlockDataToRemove);
+				const uint64 AfterDataCount = LayerSpaceBlockData.GetDataCount();
+				const uint64 AfterStructureCount = BlockStructureHelpers::CountSize(NewUnknownLayerSpaceStructure);
+				const uint64 RemovedDataCount = BeforeDataCount - AfterDataCount;
+				const uint64 RemovedStructureCount = BeforeStructureCount - AfterStructureCount;
+				check(BeforeDataCount >= AfterDataCount);
+				check(BeforeStructureCount >= AfterStructureCount);
+				check(RemovedDataCount == RemovedStructureCount);
+				check(RemovedDataCount == BlockDataToRemoveSize);
+
+				check(BlockStructureHelpers::CountSize(NewUnknownLayerSpaceStructure) == BlockStructureHelpers::CountSize(NewUnknownBuildSpaceStructure));
+
+				// Grab layer tracking.
+				FBlockStructure& UnknownLayerSpaceStructure = LayerToUnknownLayerSpaceStructure.FindOrAdd(LayerIdx);
+				FBlockStructure& UnknownBuildSpaceStructure = LayerToUnknownBuildSpaceStructure.FindOrAdd(LayerIdx);
+
+				// Expect to never get overlap with this new system.
+				check(!BlockStructureHelpers::HasIntersection(UnknownLayerSpaceStructure, NewUnknownLayerSpaceStructure));
+				check(!BlockStructureHelpers::HasIntersection(UnknownBuildSpaceStructure, NewUnknownBuildSpaceStructure));
+
+				// Add unknown tracking to the structures.
+				UnknownLayerSpaceStructure.Add(NewUnknownLayerSpaceStructure);
+				UnknownBuildSpaceStructure.Add(NewUnknownBuildSpaceStructure);
+				check(BlockStructureHelpers::CountSize(UnknownLayerSpaceStructure) == BlockStructureHelpers::CountSize(UnknownBuildSpaceStructure));
+
+				// Count processed data
+				LayerScannedSize = CollectionRange.GetLast() + 1;
+			}
+		}
+
+		// Collect unknown data into new chunks.
+		for (int32 LayerIdx = 0; LayerIdx <= MaxLayer; ++LayerIdx)
+		{
+			FBlockStructure& UnknownLayerSpaceStructure = LayerToUnknownLayerSpaceStructure.FindOrAdd(LayerIdx);
+			FBlockStructure& UnknownBuildSpaceStructure = LayerToUnknownBuildSpaceStructure.FindOrAdd(LayerIdx);
+
+			check(BlockStructureHelpers::CountSize(UnknownLayerSpaceStructure) == BlockStructureHelpers::CountSize(UnknownBuildSpaceStructure));
+
+			const uint64& LayerScannedSize = LayerToScannedSize.FindOrAdd(LayerIdx);
+			const bool bLayerComplete = LayerToTotalDataSize.Contains(LayerIdx) && (LayerScannedSize >= LayerToTotalDataSize[LayerIdx]);
+
+			FBlockStructure ChunkedLayerSpaceStructure;
+			FBlockStructure ChunkedBuildSpaceStructure;
+			const FBlockEntry* UnknownLayerBlock = UnknownLayerSpaceStructure.GetHead();
+			const bool bIsFinalSingleBlock = bLayerComplete && UnknownLayerBlock != nullptr && UnknownLayerBlock == UnknownLayerSpaceStructure.GetTail();
+			uint64 UnknownBlockByteCount = 0;
+
+			if (UnknownLayerBlock != nullptr)
+			{
+				UE_LOG(LogPatchGeneration, VeryVerbose, TEXT("Unknown layer[%d] data at %llu bytes"), LayerIdx, BlockStructureHelpers::CountSize(UnknownLayerSpaceStructure));
 			}
 
-			// Use unknown data to make new scanners.
-			if (UnknownLayerData.Num() > 0)
+			TBlockData<uint8>& LayerSpaceBlockData = LayerToLayerSpaceBlockData.FindOrAdd(LayerIdx);
+			FBlockStructure BlockDataToRemove;
+			while (UnknownLayerBlock != nullptr)
 			{
+				uint64 UnknownBlockOffset = UnknownLayerBlock->GetOffset();
+				uint64 UnknownBlockSize = UnknownLayerBlock->GetSize();
+				bool bFinalLayerChunk = false;
+				while (UnknownBlockSize >= LargestWindowSize || (bIsFinalSingleBlock && !bFinalLayerChunk))
+				{
+					// Copy out the chunk data.
+					FBlockStructure NewChunkLayerSpace(UnknownBlockOffset, FMath::Min<uint64>(Settings.OutputChunkWindowSize, UnknownBlockSize));
+					check(BlockStructureHelpers::CountSize(NewChunkLayerSpace) == Settings.OutputChunkWindowSize || bIsFinalSingleBlock);
+					TArray<uint8> NewChunkDataArray;
+					LayerSpaceBlockData.CopyTo(NewChunkDataArray, NewChunkLayerSpace);
+					check( bIsFinalSingleBlock || NewChunkDataArray.Num() == Settings.OutputChunkWindowSize);
+					check(!bIsFinalSingleBlock || NewChunkDataArray.Num() == FMath::Min<uint64>(Settings.OutputChunkWindowSize, UnknownBlockSize));
+					// Ensure padding if necessary.
+					NewChunkDataArray.SetNumZeroed(Settings.OutputChunkWindowSize);
+
+					// Create data for new chunk.
+					const FGuid NewChunkGuid = FGuid::NewGuid();
+					const uint64 NewChunkHash = FRollingHash::GetHashForDataSet(NewChunkDataArray.GetData(), Settings.OutputChunkWindowSize);
+					const FSHAHash NewChunkSha = PatchGenerationHelpers::GetShaForDataSet(NewChunkDataArray.GetData(), Settings.OutputChunkWindowSize);
+
+					// Save it out.
+					ChunkWriter->AddChunkData(MoveTemp(NewChunkDataArray), NewChunkGuid, NewChunkHash, NewChunkSha);
+					ChunkShaHashes.Add(NewChunkGuid, NewChunkSha);
+					ChunkInventory.FindOrAdd(NewChunkHash).Add(NewChunkGuid);
+					BlockDataToRemove.Add(NewChunkLayerSpace);
+
+					UE_LOG(LogPatchGeneration, Verbose, TEXT("Created layer[%d] chunk @ %llu for %d out of %llu"), LayerIdx, UnknownBlockOffset, Settings.OutputChunkWindowSize, UnknownBlockSize);
+
+					// Add to manifest builder.
+					FBlockStructure BuildSpaceChunkStructure;
+					const uint64 ChunkBuildSize = UnknownBuildSpaceStructure.SelectSerialBytes(UnknownBlockByteCount, Settings.OutputChunkWindowSize, BuildSpaceChunkStructure);
+					bFinalLayerChunk = bIsFinalSingleBlock && (UnknownBlockSize == ChunkBuildSize);
+
+					// Chunk build space should either be window size, or size minus any padding if the final piece.
+					check( bIsFinalSingleBlock || ChunkBuildSize == Settings.OutputChunkWindowSize);
+					check(!bIsFinalSingleBlock || ChunkBuildSize == FMath::Min<uint64>(Settings.OutputChunkWindowSize, UnknownBlockSize));
+
+					// This new chunk must not overlap any previous chunks.
+					check(CreatedBuildSpaceMatches.Intersect(BuildSpaceChunkStructure).GetHead() == nullptr);
+					check(AcceptedBuildSpaceMatches.Intersect(BuildSpaceChunkStructure).GetHead() == nullptr);
+
+					CreatedBuildSpaceMatches.Add(BuildSpaceChunkStructure);
+					NewCreatedChunks.Add(NewChunkGuid);
+
+					LayerCreatingChunksTest.FindOrAdd(LayerIdx).Add(BuildSpaceChunkStructure);
+					ManifestBuilder->AddChunkMatch(NewChunkGuid, BuildSpaceChunkStructure);
+
+					// Track data selected.
+					ChunkedLayerSpaceStructure.Add(UnknownBlockOffset, ChunkBuildSize);
+					ChunkedBuildSpaceStructure.Add(BuildSpaceChunkStructure);
+
+					check(BlockStructureHelpers::CountSize(ChunkedLayerSpaceStructure) == BlockStructureHelpers::CountSize(ChunkedBuildSpaceStructure));
+
+					UnknownBlockOffset += ChunkBuildSize;
+					UnknownBlockSize -= ChunkBuildSize;
+					UnknownBlockByteCount += ChunkBuildSize;
+					check(!bFinalLayerChunk || UnknownBlockSize == 0);
+				}
+				UnknownBlockByteCount += UnknownBlockSize;
+				UnknownLayerBlock = UnknownLayerBlock->GetNext();
+				check(!bFinalLayerChunk || UnknownLayerBlock == nullptr);
+			}
+			UnknownLayerSpaceStructure.Remove(ChunkedLayerSpaceStructure);
+			UnknownBuildSpaceStructure.Remove(ChunkedBuildSpaceStructure);
+			LayerSpaceBlockData.RemoveData(BlockDataToRemove);
+		}
+
+		// Create new scanners from unknown data.
+		while (!PatchGenerationHelpers::ScannerArrayFull(Scanners))
+		{
+			bool bScannerCreated = false;
+			for (int32 LayerIdx = 0; LayerIdx <= MaxLayer; ++LayerIdx)
+			{
+				// Check that we have enough slack space in the data array to be queuing up more scanners on the next layer.
+				const int32 NextLayer = LayerIdx + 1;
+				const uint64 NextLayerSpaceBlockCount = LayerToLayerSpaceBlockData.FindOrAdd(NextLayer).GetDataCount();
+				const int32 OneGigabyte = 1073741824;
+				const bool bQueuedDataFull = NextLayerSpaceBlockCount > OneGigabyte;
+				if (bQueuedDataFull)
+				{
+					UE_LOG(LogPatchGeneration, Verbose, TEXT("Not making new scanners on next layer %d due to current backlog %llu bytes"), NextLayer, NextLayerSpaceBlockCount);
+					break;
+				}
+
+				FBlockStructure& UnknownLayerSpaceStructure = LayerToUnknownLayerSpaceStructure.FindOrAdd(LayerIdx);
+				FBlockStructure& UnknownBuildSpaceStructure = LayerToUnknownBuildSpaceStructure.FindOrAdd(LayerIdx);
+				TBlockData<uint8>& LayerSpaceBlockData = LayerToLayerSpaceBlockData.FindOrAdd(LayerIdx);
+				const uint64& LayerScannedSize = LayerToScannedSize.FindOrAdd(LayerIdx);
+				const bool bLayerComplete = LayerToTotalDataSize.Contains(LayerIdx) && (LayerScannedSize >= LayerToTotalDataSize[LayerIdx]);
+
+				FBlockStructure NewScannerBuildSpaceStructure;
+				FBlockStructure NewScannerLayerSpaceStructure;
+				const uint64 SelectedBuildSpaceSize = UnknownBuildSpaceStructure.SelectSerialBytes(0, ScannerDataSize, NewScannerBuildSpaceStructure);
+				const uint64 UnknownDataSize = BlockStructureHelpers::CountSize(UnknownBuildSpaceStructure);
+
 				// Make sure there are enough bytes available for a scanner, plus a chunk, so that we know no more chunks will get
 				// made from this sequential unknown data.
-				uint64 RequiredScannerBytes = ScannerDataSize + BuildPatchServices::ChunkDataSize;
-				// We make a scanner when there's enough data, or if we are at the end of data for this layer.
-				bool bShouldMakeScanner = (ProcessedCount >= RequiredScannerBytes) || bIsFinalData;
-				if (!PatchGenerationHelpers::ScannerArrayFull(Scanners) && bShouldMakeScanner)
+				const uint64 RequiredScannerBytes = ScannerDataSize + LargestWindowSize;
+				const bool bHasEnoughData = bLayerComplete || UnknownDataSize > RequiredScannerBytes;
+
+				if (bHasEnoughData && (SelectedBuildSpaceSize == ScannerDataSize || (bLayerComplete && SelectedBuildSpaceSize > 0)))
 				{
-					// Create data processor.
-					const uint64 SizeToTake = FMath::Min<uint64>(ScannerDataSize, UnknownLayerData.Num());
-					bool bIsFinalScanner = bIsFinalData && SizeToTake == UnknownLayerData.Num();
-					TArray<uint8> ScannerData;
-					ScannerData.Append(UnknownLayerData.GetData(), SizeToTake);
-					// Pad scanner data if end of build.
-					uint64 PadSize = bIsFinalScanner ? ScannerOverlapSize : 0;
-					ScannerData.AddZeroed(PadSize);
-					// Grab structure for scanner.
-					FBlockStructure BuildStructure;
-					if (UnknownBuildStructure.SelectSerialBytes(0, SizeToTake, BuildStructure) != SizeToTake)
-					{
-						// Fatal error if the tracked results do not align correctly.
-						UE_LOG(LogPatchGeneration, Error, TEXT("Tracked unknown build data inconsistent."));
-						return false;
-					}
-					const int32 NextLayer = Layer + 1;
-					uint64& DataOffset = LayerToDataOffset.FindOrAdd(NextLayer);
-					Scanners.Emplace(new FScannerDetails(NextLayer, DataOffset, bIsFinalScanner, PadSize, MoveTemp(ScannerData), BuildStructure, CloudEnumeration, StatsCollector));
+					check(bHasEnoughData || bLayerComplete);
+
+					const uint64 SelectedLayerSpaceSize = UnknownLayerSpaceStructure.SelectSerialBytes(0, ScannerDataSize, NewScannerLayerSpaceStructure);
+					check(SelectedBuildSpaceSize == SelectedLayerSpaceSize);
+					bScannerCreated = true;
 					LayerToScannerCount.FindOrAdd(NextLayer)++;
-					UE_LOG(LogPatchGeneration, Verbose, TEXT("Creating scanner on layer %d at %llu. IsFinal:%d."), NextLayer, DataOffset, bIsFinalScanner);
 					MaxLayer = FMath::Max<int64>(MaxLayer, NextLayer);
 					FStatsCollector::Set(StatLayers, MaxLayer);
 
-					// Remove data we just pulled out from tracking, minus the overlap.
-					uint64 RemoveSize = bIsFinalScanner ? SizeToTake : SizeToTake - ScannerOverlapSize;
-					DataOffset += RemoveSize;
-					FBlockStructure LayerStructure;
-					if (UnknownLayerStructure.SelectSerialBytes(0, RemoveSize, LayerStructure) != RemoveSize)
-					{
-						// Fatal error if the tracked results do not align correctly.
-						UE_LOG(LogPatchGeneration, Error, TEXT("Tracked unknown layer data inconsistent."));
-						return false;
-					}
-					BuildStructure.Empty();
-					if (UnknownBuildStructure.SelectSerialBytes(0, RemoveSize, BuildStructure) != RemoveSize)
-					{
-						// Fatal error if the tracked results do not align correctly.
-						UE_LOG(LogPatchGeneration, Error, TEXT("Tracked unknown build data inconsistent."));
-						return false;
-					}
-					UnknownLayerData.RemoveAt(0, RemoveSize, false);
-					UnknownLayerStructure.Remove(LayerStructure);
-					UnknownBuildStructure.Remove(BuildStructure);
-					check(ProcessedCount >= RemoveSize);
-					ProcessedCount -= RemoveSize;
+					uint64& NextLayerScannerOffset = LayerToCreatedScannerOffset.FindOrAdd(NextLayer);
+					TArray<uint8> ScannerData;
+					LayerSpaceBlockData.CopyTo(ScannerData, NewScannerLayerSpaceStructure);
+					check(ScannerData.Num() == SelectedLayerSpaceSize);
 
-					// Check sanity of tracked data.
-					check(UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownLayerStructure)
-						&& UnknownLayerData.Num() == PatchGenerationHelpers::CountSerialBytes(UnknownBuildStructure));
-					// Final scanner must have emptied data.
-					check(PadSize == 0 || UnknownLayerData.Num() == 0);
+					const bool bIsFinalScanner = bLayerComplete && UnknownDataSize <= SelectedBuildSpaceSize;
+					const uint64 PadSize = bIsFinalScanner ? ScannerOverlapSize : 0;
+					ScannerData.AddZeroed(PadSize);
+
+					// Test overlaps.
+					FBlockStructure OverlapStructure = LayerCreatingScannersTest.FindOrAdd(NextLayer).Intersect(NewScannerBuildSpaceStructure);
+					uint64 OverlapBytes = BlockStructureHelpers::CountSize(OverlapStructure);
+					FBlockStructure OverlapLayerSpaceStructure = LayerCreatingScannersLayerSpaceTest.FindOrAdd(NextLayer).Intersect(NewScannerLayerSpaceStructure);
+					uint64 OverlapLayerSpaceBytes = BlockStructureHelpers::CountSize(OverlapLayerSpaceStructure);
+					check(OverlapLayerSpaceBytes == ScannerOverlapSize || NextLayerScannerOffset == 0);
+					check(OverlapBytes == ScannerOverlapSize || NextLayerScannerOffset == 0);
+					LayerCreatingScannersTest.FindOrAdd(NextLayer).Add(NewScannerBuildSpaceStructure);
+					LayerCreatingScannersLayerSpaceTest.FindOrAdd(NextLayer).Add(NewScannerLayerSpaceStructure);
+
+					// Check only one final scanner.
+					if (bIsFinalScanner)
+					{
+						check(LayerCreatingFinalTest.Contains(NextLayer) == false);
+						LayerCreatingFinalTest.Add(NextLayer, true);
+					}
+
+					UE_LOG(LogPatchGeneration, Verbose, TEXT("Creating scanner on layer %d at %llu. IsFinal:%d. Mapping:%s, BuildMapping:%s"), NextLayer, NextLayerScannerOffset, bIsFinalScanner, *NewScannerLayerSpaceStructure.ToString(), *NewScannerBuildSpaceStructure.ToString());
+					Scanners.Emplace(new FScannerDetails(NextLayer, NextLayerScannerOffset, bIsFinalScanner, PadSize, MoveTemp(ScannerData), NewScannerBuildSpaceStructure, WindowSizes, CloudEnumeration, StatsCollector));
+					NextLayerScannerOffset += ScannerDataSize - ScannerOverlapSize;
+
+					// Remove blocks from structures.
+					NewScannerBuildSpaceStructure.Empty();
+					NewScannerLayerSpaceStructure.Empty();
+					const uint64 SerialBytesToSelect = bIsFinalScanner ? ScannerDataSize : ScannerDataSize - ScannerOverlapSize;
+					const uint64 SizeBuildRemoving = UnknownBuildSpaceStructure.SelectSerialBytes(0, SerialBytesToSelect, NewScannerBuildSpaceStructure);
+					const uint64 SizeLayerRemoving = UnknownLayerSpaceStructure.SelectSerialBytes(0, SerialBytesToSelect, NewScannerLayerSpaceStructure);
+					UnknownBuildSpaceStructure.Remove(NewScannerBuildSpaceStructure);
+					UnknownLayerSpaceStructure.Remove(NewScannerLayerSpaceStructure);
+					LayerSpaceBlockData.RemoveData(NewScannerLayerSpaceStructure);
+					check(SizeBuildRemoving == SizeLayerRemoving);
+					check(SizeBuildRemoving == SerialBytesToSelect || SizeBuildRemoving == UnknownDataSize);
+					check(!bIsFinalScanner || BlockStructureHelpers::CountSize(UnknownBuildSpaceStructure) == 0);
+					check(!bIsFinalScanner || BlockStructureHelpers::CountSize(UnknownLayerSpaceStructure) == 0);
+				}
+				else
+				{
+					UE_LOG(LogPatchGeneration, Verbose, TEXT("Not making Layer[%d] unknown data scanners.. RequiredScannerBytes:%llu UnknownDataSize:%llu"), LayerIdx, RequiredScannerBytes, UnknownDataSize);
+				}
+			}
+			// Stop when we cannot make scanners anymore.
+			if (!bScannerCreated)
+			{
+				break;
+			}
+		}
+
+		// Stream some build data.
+		if (!PatchGenerationHelpers::ScannerArrayFull(Scanners))
+		{
+			// Check that we have enough slack space in the data array to be queuing up more scanners on layer 0.
+			const uint64 BottomLayerSpaceBlockCount = LayerToLayerSpaceBlockData.FindOrAdd(0).GetDataCount();
+			const int32 OneGigabyte = 1073741824;
+			const bool bQueuedDataFull = BottomLayerSpaceBlockCount > OneGigabyte;
+			if (bQueuedDataFull)
+			{
+				UE_LOG(LogPatchGeneration, Verbose, TEXT("Not making new scanners on layer 0 due to current backlog %llu bytes."), BottomLayerSpaceBlockCount);
+			}
+			else
+			{
+				// Create a scanner from new build data?
+				if (!BuildStream->IsEndOfData())
+				{
+					// Keep the overlap data from previous scanner.
+					int32 PreviousSize = DataBuffer.Num();
+					if (PreviousSize > 0)
+					{
+						check(PreviousSize > ScannerOverlapSize);
+						uint8* CopyTo = DataBuffer.GetData();
+						uint8* CopyFrom = CopyTo + (PreviousSize - ScannerOverlapSize);
+						FMemory::Memcpy(CopyTo, CopyFrom, ScannerOverlapSize);
+						DataBuffer.SetNum(ScannerOverlapSize, false);
+						DataBufferFirstIdx += (PreviousSize - ScannerOverlapSize);
+					}
+
+					// Grab some data from the build stream.
+					PreviousSize = DataBuffer.Num();
+					DataBuffer.SetNumUninitialized(ScannerDataSize);
+					const bool bWaitForData = true;
+					ReadLen = BuildStream->DequeueData(DataBuffer.GetData() + PreviousSize, ScannerDataSize - PreviousSize, bWaitForData);
+					DataBuffer.SetNum(PreviousSize + ReadLen, false);
+
+					// Only make a scanner if we are getting new data.
+					if (ReadLen > 0)
+					{
+						// Pad scanner data if end of build
+						uint64 PadSize = BuildStream->IsEndOfData() ? ScannerOverlapSize : 0;
+						DataBuffer.AddZeroed(PadSize);
+
+						// Create data scanner.
+						const bool bIsFinalScanner = BuildStream->IsEndOfData();
+						FBlockStructure Structure;
+						Structure.Add(DataBufferFirstIdx, DataBuffer.Num() - PadSize);
+
+						// Test overlaps.
+						FBlockStructure OverlapStructure = LayerCreatingScannersTest.FindOrAdd(0).Intersect(Structure);
+						FBlockStructure OverlapLayerSpaceStructure = LayerCreatingScannersLayerSpaceTest.FindOrAdd(0).Intersect(Structure);
+						uint64 OverlapBytes = BlockStructureHelpers::CountSize(OverlapStructure);
+						uint64 OverlapLayerSpaceBytes = BlockStructureHelpers::CountSize(OverlapLayerSpaceStructure);
+						check(OverlapBytes == ScannerOverlapSize || DataBufferFirstIdx == 0);
+						check(OverlapLayerSpaceBytes == ScannerOverlapSize || DataBufferFirstIdx == 0);
+						LayerCreatingScannersTest.FindOrAdd(0).Add(Structure);
+						LayerCreatingScannersLayerSpaceTest.FindOrAdd(0).Add(Structure);
+
+						// Check only one final scanner.
+						if (bIsFinalScanner)
+						{
+							check(LayerCreatingFinalTest.Contains(0) == false);
+							LayerCreatingFinalTest.Add(0, true);
+						}
+
+						UE_LOG(LogPatchGeneration, Verbose, TEXT("Creating scanner on layer 0 at %llu. IsFinal:%d. Mapping:%s"), DataBufferFirstIdx, BuildStream->IsEndOfData(), *Structure.ToString());
+						Scanners.Emplace(new FScannerDetails(0, DataBufferFirstIdx, BuildStream->IsEndOfData(), PadSize, DataBuffer, MoveTemp(Structure), WindowSizes, CloudEnumeration, StatsCollector));
+						LayerToScannerCount.FindOrAdd(0)++;
+					}
 				}
 			}
 		}
 
-		// Set whether we are still processing unknown data.
+		// Did we run out of unknown data?
+		bHasUnknownData = false;
+		for (const TPair<int32, FBlockStructure>& UnknownBuildSpaceStructurePair : LayerToUnknownBuildSpaceStructure)
+		{
+			if (UnknownBuildSpaceStructurePair.Value.GetHead() != nullptr)
+			{
+				bHasUnknownData = true;
+				break;
+			}
+		}
+
+		// Update some stats.
 		int64 UnknownDataAlloc = 0;
 		int64 UnknownDataNum = 0;
-		for (TPair<int32, TArray<uint8>>& UnknownLayerDataPair : LayerToUnknownLayerData)
+		for (const TPair<int32, TBlockData<uint8>>& LayerToLayerSpaceBlockDataPair : LayerToLayerSpaceBlockData)
 		{
-			UnknownDataNum += UnknownLayerDataPair.Value.Num();
-			UnknownDataAlloc += UnknownLayerDataPair.Value.GetAllocatedSize();
+			UnknownDataNum += LayerToLayerSpaceBlockDataPair.Value.GetDataCount();
+			UnknownDataAlloc += LayerToLayerSpaceBlockDataPair.Value.GetAllocatedSize();
 		}
-		bHasUnknownData = UnknownDataNum > 0;
 		FStatsCollector::Set(StatUnknownDataAlloc, UnknownDataAlloc);
 		FStatsCollector::Set(StatUnknownDataNum, UnknownDataNum);
+		FStatsCollector::Set(StatNumScanners, Scanners.Num());
 
 		// Log collected stats.
 		GLog->FlushThreadedLogs();
@@ -628,24 +686,19 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 		// Sleep to allow other threads.
 		FPlatformProcess::Sleep(0.01f);
 	}
-	UE_LOG(LogPatchGeneration, Verbose, TEXT("Scanning complete, waiting for writer thread."));
 
-	// Check that we read some build data
-	if (BuildStream->GetBuildSize() == 0)
-	{
-		UE_LOG(LogPatchGeneration, Error, TEXT("There was no data to process. Please check path: %s."), *Settings.RootDirectory);
-		return false;
-	}
+	// Complete chunk writer.
+	FParallelChunkWriterSummaries ChunkWriterSummaries = ChunkWriter->OnProcessComplete();
 
-	// Inform no more chunks.
-	ChunkWriter.NoMoreChunks();
-	// Wait for chunk writer.
-	ChunkWriter.WaitForThread();
+	// Produce final stats log.
+	const uint64 EndTime = FStatsCollector::GetCycles();
+	FStatsCollector::Set(StatTotalTime, EndTime - StartTime);
+	StatsCollector->LogStats();
 
 	// Collect chunk info for the manifest builder.
 	TMap<FGuid, FChunkInfo> ChunkInfoMap;
 	TMap<FGuid, int64> ChunkFileSizes = CloudEnumeration->GetChunkFileSizes();
-	ChunkWriter.GetChunkFilesizes(ChunkFileSizes);
+	ChunkFileSizes.Append(ChunkWriterSummaries.ChunkOutputSizes);
 	for (const TPair<uint64, TSet<FGuid>>& ChunkInventoryPair : CloudEnumeration->GetChunkInventory())
 	{
 		TSet<FGuid>& ChunkSet = ChunkInventory.FindOrAdd(ChunkInventoryPair.Key);
@@ -675,15 +728,16 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	{
 		UE_LOG(LogPatchGeneration, Error, TEXT("Finalizing manifest failed."));
 	}
-
-	// Produce final stats log.
-	FStatsCollector::Set(StatTotalTime, FStatsCollector::GetCycles() - StartTime);
-	StatsCollector->LogStats();
-	uint64 EndTime = FStatsCollector::GetCycles();
-	UE_LOG(LogPatchGeneration, Log, TEXT("Completed in %s."), *FPlatformTime::PrettyTime(FStatsCollector::CyclesToSeconds(EndTime - StartTime)));
+	uint64 NewChunkBytes = 0;
+	for (const FGuid& NewChunk : NewCreatedChunks)
+	{
+		NewChunkBytes += ChunkWriterSummaries.ChunkOutputSizes[NewChunk];
+	}
+	UE_LOG(LogPatchGeneration, Log, TEXT("Created %d chunks (%llu build bytes) (%llu compressed bytes)"), NewCreatedChunks.Num(), BlockStructureHelpers::CountSize(CreatedBuildSpaceMatches), NewChunkBytes);
+	UE_LOG(LogPatchGeneration, Log, TEXT("Completed in %s."), *FPlatformTime::PrettyTime(FStatsCollector::CyclesToSeconds(*StatTotalTime)));
 
 	// Save manifest out to the cloud directory.
-	FString OutputFilename = CloudDirectory / Settings.OutputFilename;
+	FString OutputFilename = Settings.CloudDirectory / Settings.OutputFilename;
 	if (ManifestBuilder->SaveToFile(OutputFilename) == false)
 	{
 		UE_LOG(LogPatchGeneration, Error, TEXT("Saving manifest failed."));

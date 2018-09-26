@@ -228,6 +228,26 @@ bool FProxyMessageHandler::OnTouchEnded(const FVector2D& Location, int32 TouchIn
 	return false;
 }
 
+bool FProxyMessageHandler::OnTouchForceChanged(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+{
+	if (TargetHandler.IsValid())
+	{
+		return TargetHandler->OnTouchForceChanged(Location, Force, TouchIndex, ControllerId);
+	}
+
+	return false;
+}
+
+bool FProxyMessageHandler::OnTouchFirstMove(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+{
+	if (TargetHandler.IsValid())
+	{
+		return TargetHandler->OnTouchFirstMove(Location, Force, TouchIndex, ControllerId);
+	}
+
+	return false;
+}
+
 void FProxyMessageHandler::ShouldSimulateGesture(EGestureEvent Gesture, bool bEnable)
 {
 	if (TargetHandler.IsValid())

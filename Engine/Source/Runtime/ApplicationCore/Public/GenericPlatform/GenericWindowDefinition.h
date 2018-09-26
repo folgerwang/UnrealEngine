@@ -120,4 +120,7 @@ struct APPLICATIONCORE_API FGenericWindowDefinition
 	int32 CornerRadius;
 
 	FWindowSizeLimits SizeLimits;
+
+	/** false if the window should respond to system DPI changes, otherwise this will be handled, internally, by the application */
+	bool bManualDPI = false;
 };

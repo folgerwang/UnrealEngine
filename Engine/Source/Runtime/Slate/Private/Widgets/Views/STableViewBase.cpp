@@ -337,6 +337,9 @@ FReply STableViewBase::OnPreviewMouseButtonDown( const FGeometry& MyGeometry, co
 		this->InertialScrollManager.ClearScrollVelocity();
 		// We have started a new interaction; track how far the user has moved since they put their finger down.
 		AmountScrolledWhileRightMouseDown = 0;
+
+		PressedScreenSpacePosition = MouseEvent.GetScreenSpacePosition();
+
 		// Someone put their finger down in this list, so they probably want to drag the list.
 		bStartedTouchInteraction = true;
 		return FReply::Unhandled();
@@ -416,7 +419,7 @@ FReply STableViewBase::OnMouseButtonUp( const FGeometry& MyGeometry, const FPoin
 
 FReply STableViewBase::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {	
-	if( MouseEvent.IsMouseButtonDown( EKeys::RightMouseButton ) )
+	if( MouseEvent.IsMouseButtonDown( EKeys::RightMouseButton ) && !MouseEvent.IsTouchEvent())
 	{
 		const float ScrollByAmount = MouseEvent.GetCursorDelta().Y / MyGeometry.Scale;
 		// If scrolling with the right mouse button, we need to remember how much we scrolled.
@@ -560,7 +563,7 @@ FReply STableViewBase::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 		AmountScrolledWhileRightMouseDown += FMath::Abs( ScrollByAmount );
 		TickScrollDelta -= ScrollByAmount;
 
-		if (AmountScrolledWhileRightMouseDown > FSlateApplication::Get().GetDragTriggerDistance())
+		if (FSlateApplication::Get().HasTraveledFarEnoughToTriggerDrag(InTouchEvent, PressedScreenSpacePosition))
 		{
 			// Make sure the active timer is registered to update the inertial scroll
 			if ( !bIsScrollingActiveTimerRegistered )

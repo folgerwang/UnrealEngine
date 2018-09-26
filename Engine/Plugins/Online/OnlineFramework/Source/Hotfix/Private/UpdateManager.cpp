@@ -53,6 +53,8 @@ UUpdateManager::UUpdateManager()
 	, UpdateCheckCompleteDelay(0.5f)
 	, HotfixAvailabilityCheckCompleteDelay(0.1f)
 	, UpdateCheckAvailabilityCompleteDelay(0.1f)
+	, bCheckPlatformOSSForUpdate(true)
+	, bCheckOSSForUpdate(true)
 	, AppSuspendedUpdateCheckTimeSeconds(600)
 	, bPlatformEnvironmentDetected(false)
 	, bInitialUpdateFinished(false)
@@ -232,88 +234,110 @@ void UUpdateManager::StartPatchCheck()
 {
 	ensure(ChecksEnabled());
 
-	UGameInstance* GameInstance = GetGameInstance();
-	check(GameInstance);
-	bool bStarted = false;
-
 	SetUpdateState(EUpdateState::CheckingForPatch);
-
-	if (PLATFORM_ANDROID)
+	if (bCheckPlatformOSSForUpdate && IOnlineSubsystem::GetByPlatform() != nullptr)
 	{
-		UE_LOG(LogHotfixManager, Warning, TEXT("Android skipping patch check for now"));
-		PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
-		return;
-	}	
-
-	EPatchCheckResult PatchResult = EPatchCheckResult::PatchCheckFailure;
-
-	IOnlineSubsystem* PlatformOnlineSub = IOnlineSubsystem::GetByPlatform();
-	bool platformIOS = PLATFORM_IOS; // trick static analysis into not complaining
-	if (PlatformOnlineSub && !platformIOS)
+		StartPlatformOSSPatchCheck();
+	}
+	else if (bCheckOSSForUpdate)
 	{
-		IOnlineIdentityPtr PlatformOnlineIdentity = PlatformOnlineSub->GetIdentityInterface();
-		if (PlatformOnlineIdentity.IsValid())
-		{
-			TSharedPtr<const FUniqueNetId> UserId = GetFirstSignedInUser(PlatformOnlineIdentity);
-			if (UserId.IsValid() && (PlatformOnlineIdentity->GetLoginStatus(*UserId) == ELoginStatus::LoggedIn))
-			{
-				bStarted = true;
-				PlatformOnlineIdentity->GetUserPrivilege(*UserId,
-					EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, true));
-			}
-			else if (!bInitialUpdateFinished)
-			{
-				UE_LOG(LogHotfixManager, Verbose, TEXT("Skipping initial patch check with no signed in user"));
-				bStarted = true;
-				PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
-			}
-			else
-			{
-				UE_LOG(LogHotfixManager, Warning, TEXT("No valid platform user id when starting patch check!"));
-				PatchResult = EPatchCheckResult::NoLoggedInUser;
-			}
-		}
+		StartOSSPatchCheck();
 	}
 	else
 	{
-		if (GameInstance->IsDedicatedServerInstance())
+		UE_LOG(LogHotfixManager, Warning, TEXT("Patch check disabled for both Platform and Default OSS"));
+		PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
+	}
+}
+
+void UUpdateManager::StartPlatformOSSPatchCheck()
+{
+	EPatchCheckResult PatchResult = EPatchCheckResult::PatchCheckFailure;
+	bool bStarted = false;
+
+	IOnlineSubsystem* PlatformOnlineSub = IOnlineSubsystem::GetByPlatform();
+	check(PlatformOnlineSub);
+	IOnlineIdentityPtr PlatformOnlineIdentity = PlatformOnlineSub->GetIdentityInterface();
+	if (PlatformOnlineIdentity.IsValid())
+	{
+		TSharedPtr<const FUniqueNetId> UserId = GetFirstSignedInUser(PlatformOnlineIdentity);
+#if PLATFORM_SWITCH
+		// checking the CanPlayOnline privilege on switch will log the user in if required in all but the NotLoggedIn state
+		const bool bCanCheckPlayOnlinePrivilege = UserId.IsValid() && (PlatformOnlineIdentity->GetLoginStatus(*UserId) != ELoginStatus::NotLoggedIn);
+#else
+		const bool bCanCheckPlayOnlinePrivilege = UserId.IsValid() && (PlatformOnlineIdentity->GetLoginStatus(*UserId) == ELoginStatus::LoggedIn);
+#endif
+		if (bCanCheckPlayOnlinePrivilege)
 		{
+			bStarted = true;
+			PlatformOnlineIdentity->GetUserPrivilege(*UserId,
+				EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, true));
+		}
+		else if (!bInitialUpdateFinished)
+		{
+			UE_LOG(LogHotfixManager, Verbose, TEXT("Skipping initial patch check with no signed in user"));
 			bStarted = true;
 			PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
 		}
 		else
 		{
-			UWorld* World = GetWorld();
-			IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
-			if (IdentityInt.IsValid())
-			{
-				ULocalPlayer* LP = GameInstance->GetFirstGamePlayer();
-				if (LP != nullptr)
-				{
-					const int32 ControllerId = LP->GetControllerId();
-					TSharedPtr<const FUniqueNetId> UserId = IdentityInt->GetUniquePlayerId(ControllerId);
-					if (!bInitialUpdateFinished && !UserId.IsValid())
-					{
-						// Invalid user for "before title/login" check, underlying code doesn't need a valid user currently
-						UserId = IdentityInt->CreateUniquePlayerId(TEXT("InvalidUser"));
-					}
+			UE_LOG(LogHotfixManager, Warning, TEXT("No valid platform user id when starting patch check!"));
+			PatchResult = EPatchCheckResult::NoLoggedInUser;
+		}
+	}
 
-					if (UserId.IsValid())
-					{
-						bStarted = true;
-						IdentityInt->GetUserPrivilege(*UserId,
-							EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, false));
-					}
-					else
-					{
-						UE_LOG(LogHotfixManager, Warning, TEXT("No valid user id when starting patch check!"));
-						PatchResult = EPatchCheckResult::NoLoggedInUser;
-					}
+	if (!bStarted)
+	{
+		// Any failure to call GetUserPrivilege will result in completing the flow via this path
+		PatchCheckComplete(PatchResult);
+	}
+}
+
+void UUpdateManager::StartOSSPatchCheck()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	check(GameInstance);
+
+	EPatchCheckResult PatchResult = EPatchCheckResult::PatchCheckFailure;
+	bool bStarted = false;
+
+	if (GameInstance->IsDedicatedServerInstance())
+	{
+		bStarted = true;
+		PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
+	}
+	else
+	{
+		UWorld* World = GetWorld();
+		IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
+		if (IdentityInt.IsValid())
+		{
+			ULocalPlayer* LP = GameInstance->GetFirstGamePlayer();
+			if (LP != nullptr)
+			{
+				const int32 ControllerId = LP->GetControllerId();
+				TSharedPtr<const FUniqueNetId> UserId = IdentityInt->GetUniquePlayerId(ControllerId);
+				if (!bInitialUpdateFinished && !UserId.IsValid())
+				{
+					// Invalid user for "before title/login" check, underlying code doesn't need a valid user currently
+					UserId = IdentityInt->CreateUniquePlayerId(TEXT("InvalidUser"));
+				}
+
+				if (UserId.IsValid())
+				{
+					bStarted = true;
+					IdentityInt->GetUserPrivilege(*UserId,
+						EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, false));
 				}
 				else
 				{
-					UE_LOG(LogHotfixManager, Warning, TEXT("No local player to perform check!"));
+					UE_LOG(LogHotfixManager, Warning, TEXT("No valid user id when starting patch check!"));
+					PatchResult = EPatchCheckResult::NoLoggedInUser;
 				}
+			}
+			else
+			{
+				UE_LOG(LogHotfixManager, Warning, TEXT("No local player to perform check!"));
 			}
 		}
 	}
@@ -379,10 +403,17 @@ void UUpdateManager::OnCheckForPatchComplete(const FUniqueNetId& UniqueId, EUser
 				// Skip console backend failures
 				Result = EPatchCheckResult::NoPatchRequired;
 #else
-				Result = EPatchCheckResult::PatchCheckFailure;	
+				Result = EPatchCheckResult::PatchCheckFailure;
 #endif
 			}
 		}
+	}
+
+	if (bCheckOSSForUpdate && bConsoleCheck && Result == EPatchCheckResult::NoPatchRequired)
+	{
+		// We perform both checks in this case
+		StartOSSPatchCheck();
+		return;
 	}
 
 	PatchCheckComplete(Result);
@@ -774,4 +805,30 @@ UWorld* UUpdateManager::GetWorld() const
 UGameInstance* UUpdateManager::GetGameInstance() const
 {
 	return GetTypedOuter<UGameInstance>();
+}
+
+FString LexToString(EUpdateCompletionStatus Status)
+{
+	switch (Status)
+	{
+		case EUpdateCompletionStatus::UpdateSuccess:
+			return TEXT("UpdateSuccess");
+		case EUpdateCompletionStatus::UpdateSuccess_NoChange:
+			return TEXT("UpdateSuccess_NoChange");
+		case EUpdateCompletionStatus::UpdateSuccess_NeedsReload:
+			return TEXT("UpdateSuccess_NeedsReload");
+		case EUpdateCompletionStatus::UpdateSuccess_NeedsRelaunch:
+			return TEXT("UpdateSuccess_NeedsRelaunch");
+		case EUpdateCompletionStatus::UpdateSuccess_NeedsPatch:
+			return TEXT("UpdateSuccess_NeedsPatch");
+		case EUpdateCompletionStatus::UpdateFailure_PatchCheck:
+			return TEXT("UpdateFailure_PatchCheck");
+		case EUpdateCompletionStatus::UpdateFailure_HotfixCheck:
+			return TEXT("UpdateFailure_HotfixCheck");
+		case EUpdateCompletionStatus::UpdateFailure_NotLoggedIn:
+			return TEXT("UpdateFailure_NotLoggedIn");
+		case EUpdateCompletionStatus::UpdateUnknown:
+		default:
+			return TEXT("UpdateUnknown");
+	}
 }

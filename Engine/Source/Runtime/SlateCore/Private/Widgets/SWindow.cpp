@@ -53,7 +53,7 @@ public:
 
 	void Construct( const FArguments& InArgs, const TSharedRef<SWindow>& InWindow )
 	{
-		bCanTick = false;
+		SetCanTick(false);
 
 		OwnerWindow = InWindow;
 
@@ -227,7 +227,6 @@ void SWindow::Construct(const FArguments& InArgs)
 	this->bDragAnywhere = InArgs._bDragAnywhere;
 	this->TransparencySupport = InArgs._SupportsTransparency.Value;
 	this->Opacity = InArgs._InitialOpacity;
-	this->bIsWindow = true;
 	this->bInitiallyMaximized = InArgs._IsInitiallyMaximized;
 	this->bInitiallyMinimized = InArgs._IsInitiallyMinimized;
 	this->SizingRule = InArgs._SizingRule;
@@ -249,7 +248,9 @@ void SWindow::Construct(const FArguments& InArgs)
 		.SetMinHeight(InArgs._MinHeight)
 		.SetMaxWidth(InArgs._MaxWidth)
 		.SetMaxHeight(InArgs._MaxHeight);
-	bCanTick = false;
+	this->bManualManageDPI = InArgs._bManualManageDPI;
+
+	SetCanTick(false);
 
 	// calculate window size from client size
 	bCreateTitleBar = InArgs._CreateTitleBar && !bIsPopupWindow && Type != EWindowType::CursorDecorator && !bHasOSWindowBorder;
@@ -264,7 +265,7 @@ void SWindow::Construct(const FArguments& InArgs)
 
 	// Get desktop metrics
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplicationBase::Get().GetDisplayMetrics( DisplayMetrics );
+	FSlateApplicationBase::Get().GetCachedDisplayMetrics( DisplayMetrics );
 	const FPlatformRect& VirtualDisplayRect = DisplayMetrics.VirtualDisplayRect;
 	FPlatformRect PrimaryDisplayRect = AutoCenterRule == EAutoCenter::PrimaryWorkArea ? DisplayMetrics.PrimaryDisplayWorkAreaRect : DisplayMetrics.GetMonitorWorkAreaFromPoint(WindowPosition);
 
@@ -561,6 +562,16 @@ void SWindow::ConstructWindowInternals()
 				)
 			]
 
+			// window outline
+			+ SOverlay::Slot()
+			[
+				FSlateApplicationBase::Get().MakeImage(
+					WindowOutlineAttr,
+					WindowOutlineColorAttr,
+					WindowContentVisibility
+				)
+			]
+
 			// main area
 			+ SOverlay::Slot()
 			[
@@ -579,16 +590,6 @@ void SWindow::ConstructWindowInternals()
 			[
 				SAssignNew(PopupLayer, SPopupLayer, SharedThis(this))
 			]
-
-			// window outline
-			+ SOverlay::Slot()
-			[
-				FSlateApplicationBase::Get().MakeImage(
-					WindowOutlineAttr,
-					WindowOutlineColorAttr,
-					WindowContentVisibility
-				)
-			]
 		];
 	}
 	else if ( bHasOSWindowBorder || bVirtualWindow )
@@ -600,10 +601,10 @@ void SWindow::ConstructWindowInternals()
 			[
 				MainWindowArea
 			]
-			+ SOverlay::Slot()
-			[
-				SAssignNew(PopupLayer, SPopupLayer, SharedThis(this))
-			]
+ 			+ SOverlay::Slot()
+ 			[
+ 				SAssignNew(PopupLayer, SPopupLayer, SharedThis(this))
+ 			]
 		];
 	}
 }
@@ -707,7 +708,7 @@ void SWindow::Tick( const FGeometry& AllottedGeometry, const double InCurrentTim
 
 			this->SetOpacity( Morpher.TargetOpacity );
 			Morpher.bIsActive = false;
-			bCanTick = false;
+			SetCanTick(false);
 		}
 	}
 }
@@ -1007,7 +1008,7 @@ void SWindow::StartMorph()
 	Morpher.StartingMorphShape = FSlateRect( this->ScreenPosition.X, this->ScreenPosition.Y, this->ScreenPosition.X + this->Size.X, this->ScreenPosition.Y + this->Size.Y );
 	Morpher.bIsActive = true;
 	Morpher.Sequence.JumpToStart();
-	bCanTick = true;
+	SetCanTick(true);
 	if ( !ActiveTimerHandle.IsValid() )
 	{
 		ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SWindow::TriggerPlayMorphSequence ) );
@@ -1105,6 +1106,24 @@ float SWindow::GetDPIScaleFactor() const
 	}
 
 	return 1.0f;
+}
+
+void SWindow::SetDPIScaleFactor(const float Factor)
+{
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->SetDPIScaleFactor(Factor);
+	}
+}
+
+void SWindow::SetManualManageDPIChanges(const bool bManualDPI)
+{
+	bManualManageDPI = bManualDPI;
+
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->SetManualManageDPIChanges(bManualManageDPI);
+	}
 }
 
 bool SWindow::IsDescendantOf( const TSharedPtr<SWindow>& ParentWindow ) const
@@ -1869,6 +1888,7 @@ SWindow::SWindow()
 	, bIsModalWindow( false )
 	, bIsMirrorWindow( false )
 	, bShouldPreserveAspectRatio( false )
+	, bManualManageDPI( false )
 	, WindowActivationPolicy( EWindowActivationPolicy::Always )
 	, InitialDesiredScreenPosition( FVector2D::ZeroVector )
 	, InitialDesiredSize( FVector2D::ZeroVector )

@@ -742,14 +742,14 @@ static FRenderingCompositeOutputRef AddBloom(FBloomDownSampleArray& BloomDownSam
 	// Extract the Context
 	FPostprocessContext& Context = BloomDownSampleArray.Context;
 
-	const bool bOldMetalNoFFT = IsMetalPlatform(Context.View.GetShaderPlatform());
+	const bool bOldMetalNoFFT = IsMetalPlatform(Context.View.GetShaderPlatform()) && (RHIGetShaderLanguageVersion(Context.View.GetShaderPlatform()) < 4);
 	const bool bUseFFTBloom = (Context.View.FinalPostProcessSettings.BloomMethod == EBloomMethod::BM_FFT
 		&& Context.View.FeatureLevel >= ERHIFeatureLevel::SM5);
 		
 	static bool bWarnAboutOldMetalFFTOnce = false;
 	if (bOldMetalNoFFT && bUseFFTBloom && !bWarnAboutOldMetalFFTOnce)
 	{
-		UE_LOG(LogRenderer, Error, TEXT("FFT Bloom is unsupported in Metal."));
+		UE_LOG(LogRenderer, Error, TEXT("FFT Bloom is only supported on Metal 2.1 and later."));
 		bWarnAboutOldMetalFFTOnce = true;
 	}
 
@@ -2331,21 +2331,29 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 
 			// Use original mobile Dof on ES2 devices regardless of bMobileHQGaussian.
 			// HQ gaussian 
+#if PLATFORM_HTML5 // EMSCRITPEN_TOOLCHAIN_UPGRADE_CHECK -- i.e. remove this when LLVM no longer errors -- appologies for the mess
+			// UE-61742 : the following will coerce i160 bit (bMobileHQGaussian) to an i8 LLVM variable
+			bool bUseMobileDof = bUseDof && ((1 - View.FinalPostProcessSettings.bMobileHQGaussian) + (Context.View.GetFeatureLevel() < ERHIFeatureLevel::ES3_1));
+#else
 			bool bUseMobileDof = bUseDof && (!View.FinalPostProcessSettings.bMobileHQGaussian || (Context.View.GetFeatureLevel() < ERHIFeatureLevel::ES3_1));
+#endif
 
 			// This is a workaround to avoid a performance cliff when using many render targets. 
 			bool bUseBloomSmall = bUseBloom && !bUseSun && !bUseDof && bWorkaround;
 
-			bool bUsePost = bUseSun | bUseDof | bUseBloom | bUseVignette;
-
 			// Post is not supported on ES2 devices using mosaic.
-			bUsePost &= bHDRModeAllowsPost;
-			bUsePost &= IsMobileHDR();
+			bool bUsePost = bHDRModeAllowsPost && IsMobileHDR();
 
-			if(bUsePost)
+			// Always evaluate custom post processes
+			if (bUsePost)
 			{
 				Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_BeforeTranslucency, nullptr);
 				Context.FinalOutput = AddPostProcessMaterialChain(Context, BL_BeforeTonemapping, nullptr);
+			}
+
+			// Optional fixed pass processes
+			if (bUsePost && (bUseSun | bUseDof | bUseBloom | bUseVignette))
+			{
 						
 				// Skip this pass if the pass was done prior before resolve.
 				if ((!bUsedFramebufferFetch) && (bUseSun || bUseDof))

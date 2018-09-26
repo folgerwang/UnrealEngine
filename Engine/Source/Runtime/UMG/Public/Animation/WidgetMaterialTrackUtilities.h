@@ -39,13 +39,23 @@ private:
 	void* Data;
 };
 
+struct FWidgetMaterialPropertyPath
+{
+	FWidgetMaterialPropertyPath(const TArray<UProperty*>& InPropertyPath, const FString& InDisplayName)
+		: PropertyPath(InPropertyPath)
+		, DisplayName(InDisplayName)
+	{}
+
+	TArray<UProperty*> PropertyPath;
+	FString DisplayName;
+};
 namespace WidgetMaterialTrackUtilities
 {
 	/** Gets a material handle from a property on a widget by the properties FName path. */
 	UMG_API FWidgetMaterialHandle GetMaterialHandle(UWidget* Widget, const TArray<FName>& BrushPropertyNamePath);
 
 	/** Gets the property paths on a widget which are slate brush properties, and who's slate brush has a valid material. */
-	UMG_API void GetMaterialBrushPropertyPaths( UWidget* Widget, TArray<TArray<UProperty*>>& MaterialBrushPropertyPaths ); 
+	UMG_API void GetMaterialBrushPropertyPaths( UWidget* Widget, TArray<FWidgetMaterialPropertyPath>& MaterialBrushPropertyPaths );
 
 	/** Converts a property name path into a single name which is appropriate for a track name. */
 	UMG_API FName GetTrackNameFromPropertyNamePath( const  TArray<FName>& PropertyNamePath );

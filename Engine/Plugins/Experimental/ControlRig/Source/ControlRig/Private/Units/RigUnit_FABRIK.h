@@ -12,7 +12,8 @@
  * Spec define: TBD
  */
 
-USTRUCT(meta=(DisplayName="FABRIK", Category="Transforms"))
+// make it abstract since it's not working yet
+USTRUCT(meta=(DisplayName="FABRIK", Category="Transforms", Abstract))
 struct CONTROLRIG_API FRigUnit_FABRIK : public FRigUnit
 {
 	GENERATED_BODY()

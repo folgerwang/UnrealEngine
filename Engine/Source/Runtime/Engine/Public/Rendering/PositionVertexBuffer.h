@@ -38,15 +38,15 @@ public:
 	* Initializes the buffer with the given vertices, used to convert legacy layouts.
 	* @param InVertices - The vertices to initialize the buffer with.
 	*/
-	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices);
+	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices, bool bNeedsCPUAccess = true);
 
 	/**
 	* Initializes this vertex buffer with the contents of the given vertex buffer.
 	* @param InVertexBuffer - The vertex buffer to initialize from.
 	*/
-	void Init(const FPositionVertexBuffer& InVertexBuffer);
+	void Init(const FPositionVertexBuffer& InVertexBuffer, bool bNeedsCPUAccess = true);
 
-	ENGINE_API void Init(const TArray<FVector>& InPositions);
+	ENGINE_API void Init(const TArray<FVector>& InPositions, bool bNeedsCPUAccess = true);
 
 	/**
 	 * Appends the specified vertices to the end of the buffer
@@ -117,6 +117,8 @@ private:
 
 	/** The cached number of vertices. */
 	uint32 NumVertices;
+
+	bool NeedsCPUAccess = true;
 
 	/** Allocates the vertex data storage type. */
 	void AllocateData(bool bNeedsCPUAccess = true);

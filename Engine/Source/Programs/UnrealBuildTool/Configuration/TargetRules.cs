@@ -715,7 +715,7 @@ namespace UnrealBuildTool
 		/// Whether to disable debug info generation for generated files. This improves link times for modules that have a lot of generated glue code.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bDisableDebugInfoForGeneratedCode = true;
+		public bool bDisableDebugInfoForGeneratedCode = false;
 
 		/// <summary>
 		/// Whether to disable debug info on PC in development builds (for faster developer iteration, as link times are extremely fast with debug info disabled).
@@ -1073,6 +1073,11 @@ namespace UnrealBuildTool
 		public LuminTargetRules LuminPlatform = new LuminTargetRules();
 
 		/// <summary>
+		/// Linux-specific target settings.
+		/// </summary>
+		public LinuxTargetRules LinuxPlatform = new LinuxTargetRules();
+
+		/// <summary>
 		/// Mac-specific target settings.
 		/// </summary>
 		public MacTargetRules MacPlatform = new MacTargetRules();
@@ -1304,6 +1309,7 @@ namespace UnrealBuildTool
 			yield return AndroidPlatform;
 			yield return IOSPlatform;
 			yield return LuminPlatform;
+			yield return LinuxPlatform;
 			yield return MacPlatform;
 			yield return PS4Platform;
 			yield return SwitchPlatform;
@@ -1357,6 +1363,7 @@ namespace UnrealBuildTool
 			AndroidPlatform = new ReadOnlyAndroidTargetRules(Inner.AndroidPlatform);
 			IOSPlatform = new ReadOnlyIOSTargetRules(Inner.IOSPlatform);
 			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
+			LinuxPlatform = new ReadOnlyLinuxTargetRules(Inner.LinuxPlatform);
 			MacPlatform = new ReadOnlyMacTargetRules(Inner.MacPlatform);
 			PS4Platform = new ReadOnlyPS4TargetRules(Inner.PS4Platform);
 			SwitchPlatform = new ReadOnlySwitchTargetRules(Inner.SwitchPlatform);
@@ -2074,6 +2081,12 @@ namespace UnrealBuildTool
 			private set;
 		}
 
+		public ReadOnlyLinuxTargetRules LinuxPlatform
+		{
+			get;
+			private set;
+		}
+
 		public ReadOnlyIOSTargetRules IOSPlatform
 		{
 			get;
@@ -2118,6 +2131,11 @@ namespace UnrealBuildTool
 		public bool bGenerateProjectFiles
 		{
 			get { return Inner.bGenerateProjectFiles; }
+		}
+
+		public bool bIsEngineInstalled
+		{
+			get { return Inner.bIsEngineInstalled; }
 		}
 
 		#if !__MonoCS__

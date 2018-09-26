@@ -3,6 +3,7 @@
 #include "Android/AndroidApplicationMisc.h"
 
 #include "Android/AndroidApplication.h"
+#include "Android/AndroidFeedbackContext.h"
 #include "Android/AndroidErrorOutputDevice.h"
 #include "Android/AndroidInputInterface.h"
 #include "HAL/PlatformMisc.h"
@@ -17,6 +18,12 @@ void FAndroidApplicationMisc::LoadPreInitModules()
 	FModuleManager::Get().LoadModule(TEXT("AndroidAudio"));
 	FModuleManager::Get().LoadModule(TEXT("AudioMixerAndroid"));
 #endif
+}
+
+class FFeedbackContext* FAndroidApplicationMisc::GetFeedbackContext()
+{
+	static FAndroidFeedbackContext Singleton;
+	return &Singleton;
 }
 
 class FOutputDeviceError* FAndroidApplicationMisc::GetErrorOutputDevice()
@@ -39,7 +46,15 @@ void FAndroidApplicationMisc::RequestMinimize()
 #endif
 }
 
-
+bool FAndroidApplicationMisc::IsScreensaverEnabled()
+{
+#if USE_ANDROID_JNI
+	extern bool AndroidThunkCpp_IsScreensaverEnabled();
+	return AndroidThunkCpp_IsScreensaverEnabled();
+#else
+	return false;
+#endif
+}
 
 bool FAndroidApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 {

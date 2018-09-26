@@ -236,6 +236,19 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Game", meta=(WorldContext="WorldContextObject") )
 	static bool IsGamePaused(const UObject* WorldContextObject);
 
+	/**
+	 * Enabled rendering of the world
+	 * @param	bEnable		Whether the world should be rendered or not
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
+	static void SetEnableWorldRendering(const UObject* WorldContextObject, bool bEnable);
+
+	/**
+	 * Returns the world rendering state
+	 * @return	Whether the world should be rendered or not
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
+	static bool GetEnableWorldRendering(const UObject* WorldContextObject);
 
 	/** Hurt locally authoritative actors within the radius. Will only hit components that block the Visibility channel.
 	 * @param BaseDamage - The base damage to apply, i.e. the damage at the origin.

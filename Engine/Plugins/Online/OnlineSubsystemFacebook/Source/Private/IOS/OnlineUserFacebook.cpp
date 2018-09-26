@@ -56,21 +56,21 @@ bool FOnlineUserFacebook::QueryUserInfo(int32 LocalUserNum, const TArray<TShared
 						FBUserInfo->AccountData.Add(TEXT("name"), RealName);
 						FBUserInfo->AccountData.Add(TEXT("username"), UserName);
 						
-						UE_LOG(LogOnline, Display, TEXT("User Found: u:%s r:%s"), *UserName, *RealName);
+						UE_LOG_ONLINE_USER(Display, TEXT("User Found: u:%s r:%s"), *UserName, *RealName);
 						CachedUsers.Add( FBUserInfo );
 						bGatheredUserInfo = true;
 					}
 					else
 					{
 						ErrorStr = TEXT("No user ids matched those of the single facebook user.");
-						UE_LOG(LogOnline, Display, TEXT("Failed to gather user information: %s"), *ErrorStr);
+						UE_LOG_ONLINE_USER(Display, TEXT("Failed to gather user information: %s"), *ErrorStr);
 					}
 
 				}
 				else
 				{
 					ErrorStr = TEXT("No valid login.");
-					UE_LOG(LogOnline, Display, TEXT("Failed to gather user information: %s"), *ErrorStr);
+					UE_LOG_ONLINE_USER(Display, TEXT("Failed to gather user information: %s"), *ErrorStr);
 				}
 				
 				TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, bGatheredUserInfo, UserIds, *ErrorStr);
@@ -99,7 +99,7 @@ bool FOnlineUserFacebook::QueryUserInfo(int32 LocalUserNum, const TArray<TShared
 					}
 				}
 
-				UE_LOG(LogOnline, Display, TEXT("RunningFQL Query: %s"), *FString(fqlQuery));
+				UE_LOG_ONLINE_USER(Display, TEXT("RunningFQL Query: %s"), *FString(fqlQuery));
 
 				// Kick off the FB Request
 				[[[FBSDKGraphRequest alloc]

@@ -358,7 +358,10 @@ struct FRenderingCompositeOutputRef
 	{
 	}
 
-	FRenderingCompositePass* GetPass() const; 
+	inline FRenderingCompositePass* GetPass() const
+	{
+		return Source;
+	}
 
 	/** @return can be 0 */
 	FRenderingCompositeOutput* GetOutput() const;

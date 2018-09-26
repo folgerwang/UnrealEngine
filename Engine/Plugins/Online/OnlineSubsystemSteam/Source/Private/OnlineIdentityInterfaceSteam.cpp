@@ -55,7 +55,7 @@ bool FOnlineIdentitySteam::Login(int32 LocalUserNum, const FOnlineAccountCredent
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Failed Steam login. %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Failed Steam login. %s"), *ErrorStr);
 		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdSteam(0), ErrorStr);
 	}
 
@@ -189,14 +189,14 @@ FString FOnlineIdentitySteam::GetAuthToken(int32 LocalUserNum) const
 				AuthTokenSize > 0)
 			{
 				ResultToken = BytesToHex(AuthToken, AuthTokenSize);
-				UE_LOG_ONLINE(Log, TEXT("Obtained steam authticket"));
+				UE_LOG_ONLINE_IDENTITY(Log, TEXT("Obtained steam authticket"));
 				// In release builds our code checks the authTicket faster than Steam's login server can save it
 				// Added a small amount of sleep here so the ResultToken is valid by the time this call returns
 				FPlatformProcess::Sleep(0.1f);
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Failed to acquire Steam auth session ticket for %d"), 
+				UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Failed to acquire Steam auth session ticket for %d"), 
 					LocalUserNum);
 			}
 		}
@@ -206,7 +206,7 @@ FString FOnlineIdentitySteam::GetAuthToken(int32 LocalUserNum) const
 
 void FOnlineIdentitySteam::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentitySteam::RevokeAuthToken not implemented"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentitySteam::RevokeAuthToken not implemented"));
 	TSharedRef<const FUniqueNetId> UserIdRef(UserId.AsShared());
 	SteamSubsystem->ExecuteNextTick([UserIdRef, Delegate]()
 	{

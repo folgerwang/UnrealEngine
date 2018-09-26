@@ -153,10 +153,21 @@ struct FSlateUpdateVertexAndIndexBuffers final : public FRHICommand<FSlateUpdate
 		uint32 RequiredIndexBufferSize = NumBatchedIndices*sizeof(SlateIndex);		
 		uint8* IndexBufferData = (uint8*)GDynamicRHI->RHILockIndexBuffer( IndexBufferRHI, 0, RequiredIndexBufferSize, RLM_WriteOnly );
 
-		BatchData.FillVertexAndIndexBuffer( VertexBufferData, IndexBufferData, bAbsoluteIndices );
+		//Early out if we have an invalid buffer (might have lost context and now have invalid buffers)
+		if ((nullptr != VertexBufferData) && (nullptr != IndexBufferData))
+		{
+			BatchData.FillVertexAndIndexBuffer(VertexBufferData, IndexBufferData, bAbsoluteIndices);
+		}
 
-		GDynamicRHI->RHIUnlockVertexBuffer( VertexBufferRHI );
-		GDynamicRHI->RHIUnlockIndexBuffer( IndexBufferRHI );
+		if (nullptr != VertexBufferData)
+		{
+			GDynamicRHI->RHIUnlockVertexBuffer(VertexBufferRHI);
+		}
+
+		if (nullptr != IndexBufferData)
+		{
+			GDynamicRHI->RHIUnlockIndexBuffer(IndexBufferRHI);
+		}
 	}
 };
 
@@ -202,11 +213,22 @@ void FSlateRHIRenderingPolicy::UpdateVertexAndIndexBuffers(FRHICommandListImmedi
 		{
 			uint8* VertexBufferData = (uint8*)VertexBuffer.LockBuffer_RenderThread(NumVertices);
 			uint8* IndexBufferData =  (uint8*)IndexBuffer.LockBuffer_RenderThread(NumIndices);
-									
-			InBatchData.FillVertexAndIndexBuffer( VertexBufferData, IndexBufferData, bAbsoluteIndices );
-	
-			VertexBuffer.UnlockBuffer_RenderThread();
-			IndexBuffer.UnlockBuffer_RenderThread();
+			
+			//Check if the LockBuffer failed for these threads (might have lost context)
+			if ((nullptr != VertexBufferData) && (nullptr != IndexBufferData))
+			{
+				InBatchData.FillVertexAndIndexBuffer(VertexBufferData, IndexBufferData, bAbsoluteIndices);
+			}
+
+			if (nullptr != VertexBufferData)
+			{
+				VertexBuffer.UnlockBuffer_RenderThread();
+			}
+			
+			if (nullptr != IndexBufferData)
+			{
+				IndexBuffer.UnlockBuffer_RenderThread();
+			}
 		}
 		else
 		{
@@ -224,6 +246,7 @@ void FSlateRHIRenderingPolicy::UpdateVertexAndIndexBuffers(FRHICommandListImmedi
 
 static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix )
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_CreateSceneView);
 	// In loading screens, the engine is NULL, so we skip out.
 	if (GEngine == nullptr)
 	{
@@ -271,7 +294,10 @@ static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, 
 
 	UpdateNoiseTextureParameters(ViewUniformShaderParameters);
 
-	View->ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformShaderParameters, UniformBuffer_SingleFrame);
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_CreateViewUniformBufferImmediate);
+		View->ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformShaderParameters, UniformBuffer_SingleFrame);
+	}
 
 	return View;
 }
@@ -451,13 +477,20 @@ static void UpdateScissorRect(
 
 						SCOPE_CYCLE_COUNTER(STAT_SlateRTStencilDrawCall);
 
+						FRHIResourceCreateInfo CreateInfo;
+						FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector2D) * 4, BUF_Volatile, CreateInfo);
+						void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector2D) * 4, RLM_WriteOnly);
 						//TODO Slate If we ever decided to add masking with a texture, we could do that here.
-						FVector2D Vertices[4];
+						FVector2D* Vertices = (FVector2D*)VoidPtr;
+
 						Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
 						Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
 						Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
 						Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
-						DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+
+						RHIUnlockVertexBuffer(VertexBufferRHI);
+						RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+						RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 					}
 
 					// Now setup the pipeline to use SO_SaturatedIncrement, since we've established the initial
@@ -496,12 +529,20 @@ static void UpdateScissorRect(
 
 					SCOPE_CYCLE_COUNTER(STAT_SlateRTStencilDrawCall);
 					//TODO Slate If we ever decided to add masking with a texture, we could do that here.
-					FVector2D Vertices[4];
+					FRHIResourceCreateInfo CreateInfo;
+					FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector2D) * 4, BUF_Volatile, CreateInfo);
+					void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector2D) * 4, RLM_WriteOnly);
+					// Generate the vertices used
+					FVector2D* Vertices = (FVector2D*)VoidPtr;
+
 					Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
 					Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
 					Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
 					Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
-					DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+
+					RHIUnlockVertexBuffer(VertexBufferRHI);
+					RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+					RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 				}
 
 				// Setup the stenciling state to be read only now, disable depth writes, and restore the color buffer
@@ -1396,7 +1437,7 @@ FSlateMaterialShaderPS* FSlateRHIRenderingPolicy::GetMaterialPixelShader( const 
 		break;
 	}
 
-	return FoundShader ? (FSlateMaterialShaderPS*)FoundShader->GetShaderChecked() : nullptr;
+	return FoundShader ? (FSlateMaterialShaderPS*)FoundShader->GetShader() : nullptr;
 }
 
 FSlateMaterialShaderVS* FSlateRHIRenderingPolicy::GetMaterialVertexShader( const FMaterial* Material, bool bUseInstancing )
@@ -1413,7 +1454,7 @@ FSlateMaterialShaderVS* FSlateRHIRenderingPolicy::GetMaterialVertexShader( const
 		FoundShader = MaterialShaderMap->GetShader(&TSlateMaterialShaderVS<false>::StaticType);
 	}
 	
-	return FoundShader ? (FSlateMaterialShaderVS*)FoundShader->GetShaderChecked() : nullptr;
+	return FoundShader ? (FSlateMaterialShaderVS*)FoundShader->GetShader() : nullptr;
 }
 
 EPrimitiveType FSlateRHIRenderingPolicy::GetRHIPrimitiveType(ESlateDrawPrimitive::Type SlateType)

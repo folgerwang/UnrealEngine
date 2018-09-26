@@ -105,8 +105,6 @@ void FXAudio2SoundSource::FreeResources( void )
 
 	if (XAudio2Buffer && XAudio2Buffer->RealtimeAsyncHeaderParseTask)
 	{
-		check(bResourcesNeedFreeing);
-
 		XAudio2Buffer->RealtimeAsyncHeaderParseTask->EnsureCompletion();
 		delete XAudio2Buffer->RealtimeAsyncHeaderParseTask;
 		XAudio2Buffer->RealtimeAsyncHeaderParseTask = nullptr;

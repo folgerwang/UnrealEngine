@@ -1277,7 +1277,7 @@ void SReferenceViewer::ViewAssetAudit()
 void SReferenceViewer::ReCenterGraphOnNodes(const TSet<UObject*>& Nodes)
 {
 	TArray<FAssetIdentifier> NewGraphRootNames;
-	FIntPoint TotalNodePos(EForceInit::ForceInitToZero);
+	FIntPoint TotalNodePos(ForceInitToZero);
 	for ( auto NodeIt = Nodes.CreateConstIterator(); NodeIt; ++NodeIt )
 	{
 		UEdGraphNode_Reference* ReferenceNode = Cast<UEdGraphNode_Reference>(*NodeIt);

@@ -788,7 +788,7 @@ class BuildPhysX : BuildCommand
 		return null;
 	}
 
-	private static string RemoveOtherMakeFromPath(string WindowsPath)
+	private static string RemoveOtherMakeAndCygwinFromPath(string WindowsPath)
 	{
 		string[] PathComponents = WindowsPath.Split(';');
 		string NewPath = "";
@@ -797,7 +797,7 @@ class BuildPhysX : BuildCommand
 			// everything what contains /bin or /sbin is suspicious, check if it has make in it
 			if (PathComponent.Contains("\\bin") || PathComponent.Contains("/bin") || PathComponent.Contains("\\sbin") || PathComponent.Contains("/sbin"))
 			{
-				if (File.Exists(PathComponent + "/make.exe") || File.Exists(PathComponent + "make.exe"))
+				if (File.Exists(PathComponent + "/make.exe") || File.Exists(PathComponent + "make.exe") || File.Exists(PathComponent + "/cygwin1.dll"))
 				{
 					// gotcha!
 					LogInformation("Removing {0} from PATH since it contains possibly colliding make.exe", PathComponent);
@@ -832,7 +832,7 @@ class BuildPhysX : BuildCommand
 
 				string PrevPath = Environment.GetEnvironmentVariable("PATH");
 				// mixing bundled make and cygwin make is no good. Try to detect and remove cygwin paths.
-				string PathWithoutCygwin = RemoveOtherMakeFromPath(PrevPath);
+				string PathWithoutCygwin = RemoveOtherMakeAndCygwinFromPath(PrevPath);
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + PathWithoutCygwin);
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + Environment.GetEnvironmentVariable("PATH"));
 				LogInformation("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
@@ -1558,27 +1558,27 @@ class BuildPhysX : BuildCommand
 		}
 		
 		// if we don't pass anything, we'll just merge by default
-		string RobomergeAction = ParseParamValue("Robomerge", "").ToLower();
-		if(!string.IsNullOrEmpty(RobomergeAction))
+		string RobomergeCommand = ParseParamValue("Robomerge", "").ToLower();
+		if(!string.IsNullOrEmpty(RobomergeCommand))
 		{
-			// empty for merge default action
-			if(RobomergeAction == "merge")
+			// for merge default action, add flag to make sure buildmachine commit isn't skipped
+			if(RobomergeCommand == "merge")
 			{
-				RobomergeAction = "";
+				RobomergeCommand = "#robomerge[all] #DisregardExcludedAuthors";
 			}
 			// otherwise add hashtags
-			else if(RobomergeAction == "ignore")
+			else if(RobomergeCommand == "ignore")
 			{
-				RobomergeAction = "#ignore";
+				RobomergeCommand = "#robomerge #ignore";
 			}
-			else if(RobomergeAction == "null")
+			else if(RobomergeCommand == "null")
 			{
-				RobomergeAction = "#null";
+				RobomergeCommand = "#robomerge #null";
 			}
 			// otherwise the submit will likely fail.
 			else
 			{
-				throw new AutomationException("Invalid Robomerge param passed in {0}.  Must be empty, \"null\", or \"ignore\"", RobomergeAction);
+				throw new AutomationException("Invalid Robomerge param passed in {0}.  Must be \"merge\", \"null\", or \"ignore\"", RobomergeCommand);
 			}
 		}
 
@@ -1679,9 +1679,9 @@ class BuildPhysX : BuildCommand
 			}
 
 			string RobomergeLine = string.Empty;
-			if(!string.IsNullOrEmpty(RobomergeAction))
+			if(!string.IsNullOrEmpty(RobomergeCommand))
 			{
-				RobomergeLine = Environment.NewLine + "#robomerge " + RobomergeAction;
+				RobomergeLine = Environment.NewLine + RobomergeCommand;
 			}
             P4ChangeList = P4.CreateChange(P4Env.Client, String.Format("BuildPhysX.Automation: Deploying {0} libs.", LibDeploymentDesc) + Environment.NewLine + "#rb none" + Environment.NewLine + "#lockdown Nick.Penwarden" + Environment.NewLine + "#tests none" + Environment.NewLine + "#jira none" + RobomergeLine);
 		}

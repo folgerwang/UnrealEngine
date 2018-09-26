@@ -2,6 +2,7 @@
 
 #include "XmppConnection.h"
 #include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
 
 enum class XMPP_RESOURCE_VERSION : uint8
 {
@@ -86,4 +87,23 @@ FString FXmppUserJid::ParseMucUserResource(const FString& InResource)
 	}
 
 	return UserResource;
+}
+
+FString FXmppUserJid::ToDebugString() const
+{
+	static const bool bUseShortDebugString = []()
+	{
+		bool bValue = false;
+		GConfig->GetBool(TEXT("XMPP"), TEXT("bUseShortDebugString"), bValue, GEngineIni);
+		return bValue;
+	}();
+
+	if (bUseShortDebugString)
+	{
+		return FString::Printf(TEXT("%s:%s"), *Id, *Resource);
+	}
+	else
+	{
+		return FString::Printf(TEXT("%s:%s:%s"), *Id, *Domain, *Resource);
+	}
 }

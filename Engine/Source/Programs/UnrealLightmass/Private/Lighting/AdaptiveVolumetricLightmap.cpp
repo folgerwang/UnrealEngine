@@ -567,6 +567,8 @@ void FStaticLightingSystem::ProcessVolumetricLightmapBrickTask(FVolumetricLightm
 	float AverageClosestGeometryDistance = 0;
 	bool bAllCellsInsideGeometry = true;
 
+#if LIGHTMASS_DO_PROCESSING
+
 	for (int32 Z = 0; Z < BrickSize; Z++)
 	{
 		for (int32 Y = 0; Y < BrickSize; Y++)
@@ -653,6 +655,8 @@ void FStaticLightingSystem::ProcessVolumetricLightmapBrickTask(FVolumetricLightm
 			}
 		}
 	}
+
+#endif
 
 	BrickData.AverageClosestGeometryDistance = AverageClosestGeometryDistance / TotalBrickSize;
 	

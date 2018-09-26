@@ -18,6 +18,7 @@
 #include "BodyInstanceCustomization.h"
 #include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
+#include "Widgets/Layout/SScrollBox.h"
 
 #define LOCTEXT_NAMESPACE "CollsiionProfileDetails"
 
@@ -585,7 +586,11 @@ void SProfileEditDialog::Construct(const FArguments& InArgs)
 		+SVerticalBox::Slot()
 		.FillHeight(1)
 		[
-			SAssignNew(SCollisionPanel, SVerticalBox)
+			SNew(SScrollBox)
+			+ SScrollBox::Slot()
+			[
+				SAssignNew(SCollisionPanel, SVerticalBox)
+			]
 		]
 
 		// accept or cancel button
@@ -1343,7 +1348,6 @@ void FCollisionProfileDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 	ObjectChannelCategory.AddCustomRow(LOCTEXT("CustomCollisionObjectChannels", "ObjectChannels"))
 	[
 		SNew(SVerticalBox)
-
 		+SVerticalBox::Slot()
 		.Padding(5)
 		.AutoHeight()
@@ -1401,36 +1405,40 @@ void FCollisionProfileDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 		.Padding(5)
 		.FillHeight(1)
 		[
-			SAssignNew(ObjectChannelListView, SChannelListView)
-			.ItemHeight(15.f)
-			.ListItemsSource(&ObjectChannelList)
-			.OnGenerateRow(this, &FCollisionProfileDetails::HandleGenerateChannelWidget)
-			.OnMouseButtonDoubleClick(this, &FCollisionProfileDetails::OnObjectChannelListItemDoubleClicked)
-			.SelectionMode(ESelectionMode::Single)
+			SNew(SBox)
+			.MaxDesiredHeight(200.f)
+			[
+				SAssignNew(ObjectChannelListView, SChannelListView)
+				.ItemHeight(15.f)
+				.ListItemsSource(&ObjectChannelList)
+				.OnGenerateRow(this, &FCollisionProfileDetails::HandleGenerateChannelWidget)
+				.OnMouseButtonDoubleClick(this, &FCollisionProfileDetails::OnObjectChannelListItemDoubleClicked)
+				.SelectionMode(ESelectionMode::Single)
 
-			.HeaderRow(
-				SNew(SHeaderRow)
-				// Name
-				+ SHeaderRow::Column("Name")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ChannelListHeader_Name", "Name"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-				// Default Response
-				+ SHeaderRow::Column("DefaultResponse")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ChannelListHeader_DefaultResponse", "Default Response"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-			)
+				.HeaderRow(
+					SNew(SHeaderRow)
+					// Name
+					+ SHeaderRow::Column("Name")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ChannelListHeader_Name", "Name"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+					// Default Response
+					+ SHeaderRow::Column("DefaultResponse")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ChannelListHeader_DefaultResponse", "Default Response"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+				)
+			]
 		]
 	];
 	
@@ -1495,36 +1503,40 @@ void FCollisionProfileDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 		.Padding(5)
 		.FillHeight(1)
 		[
-			SAssignNew(TraceChannelListView, SChannelListView)
-			.ItemHeight(15.0f)
-			.ListItemsSource(&TraceChannelList)
-			.OnGenerateRow(this, &FCollisionProfileDetails::HandleGenerateChannelWidget)
-			.OnMouseButtonDoubleClick(this, &FCollisionProfileDetails::OnTraceChannelListItemDoubleClicked)
-			.SelectionMode(ESelectionMode::Single)
+			SNew(SBox)
+			.MaxDesiredHeight(400.f)
+			[
+				SAssignNew(TraceChannelListView, SChannelListView)
+				.ItemHeight(15.0f)
+				.ListItemsSource(&TraceChannelList)
+				.OnGenerateRow(this, &FCollisionProfileDetails::HandleGenerateChannelWidget)
+				.OnMouseButtonDoubleClick(this, &FCollisionProfileDetails::OnTraceChannelListItemDoubleClicked)
+				.SelectionMode(ESelectionMode::Single)
 
-			.HeaderRow(
-				SNew(SHeaderRow)
-				// Name
-				+ SHeaderRow::Column("Name")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ChannelListHeader_Name", "Name"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-				// Default Response
-				+ SHeaderRow::Column("DefaultResponse")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ChannelListHeader_DefaultResponse", "Default Response"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-			)
+				.HeaderRow(
+					SNew(SHeaderRow)
+					// Name
+					+ SHeaderRow::Column("Name")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ChannelListHeader_Name", "Name"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+					// Default Response
+					+ SHeaderRow::Column("DefaultResponse")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ChannelListHeader_DefaultResponse", "Default Response"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+				)
+			]
 		]
 	];
 
@@ -1588,70 +1600,74 @@ void FCollisionProfileDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 		.Padding(5)
 		.FillHeight(1)
 		[
-			SAssignNew(ProfileListView, SProfileListView)
-			.ItemHeight(20.0f)
-			.ListItemsSource(&ProfileList)
-			.OnGenerateRow(this, &FCollisionProfileDetails::HandleGenerateProfileWidget)
-			.OnMouseButtonDoubleClick(this, &FCollisionProfileDetails::OnProfileListItemDoubleClicked)
-			.SelectionMode(ESelectionMode::Single)
+			SNew(SBox)
+			.MaxDesiredHeight(600.f)
+			[
+				SAssignNew(ProfileListView, SProfileListView)
+				.ItemHeight(20.0f)
+				.ListItemsSource(&ProfileList)
+				.OnGenerateRow(this, &FCollisionProfileDetails::HandleGenerateProfileWidget)
+				.OnMouseButtonDoubleClick(this, &FCollisionProfileDetails::OnProfileListItemDoubleClicked)
+				.SelectionMode(ESelectionMode::Single)
 
-			.HeaderRow(
-				SNew(SHeaderRow)
-				// Name
-				+ SHeaderRow::Column("Engine")
-				.HAlignCell(HAlign_Left)
-				.FixedWidth(30)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
+				.HeaderRow(
+					SNew(SHeaderRow)
+					// Name
+					+ SHeaderRow::Column("Engine")
+					.HAlignCell(HAlign_Left)
+					.FixedWidth(30)
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Text(FText::GetEmpty())
+							.Font(IDetailLayoutBuilder::GetDetailFont())
+						]
+					]
+					// Name
+					+ SHeaderRow::Column("Name")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
 					[
 						SNew(STextBlock)
-						.Text(FText::GetEmpty())
+						.Text(LOCTEXT("ProfileListHeader_Name", "Name"))
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
-				]
-				// Name
-				+ SHeaderRow::Column("Name")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ProfileListHeader_Name", "Name"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-				// Default Response
-				+ SHeaderRow::Column("Collision")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ProfileListHeader_Collision", "Collision"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-				// Trace Type
-				+ SHeaderRow::Column("ObjectType")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(1)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ProfileListHeader_ObjectType", "Object Type"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-				// Static Object
-				+ SHeaderRow::Column("Description")
-				.HAlignCell(HAlign_Left)
-				.FillWidth(2)
-				.HeaderContentPadding(FMargin(0, 3))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ProfileListHeader_Description", "Description"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-			)
+					// Default Response
+					+ SHeaderRow::Column("Collision")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ProfileListHeader_Collision", "Collision"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+					// Trace Type
+					+ SHeaderRow::Column("ObjectType")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(1)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ProfileListHeader_ObjectType", "Object Type"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+					// Static Object
+					+ SHeaderRow::Column("Description")
+					.HAlignCell(HAlign_Left)
+					.FillWidth(2)
+					.HeaderContentPadding(FMargin(0, 3))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ProfileListHeader_Description", "Description"))
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+				)
+			]
 		]
 	];
 }

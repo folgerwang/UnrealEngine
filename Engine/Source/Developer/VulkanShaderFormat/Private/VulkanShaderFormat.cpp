@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VulkanShaderFormat.h"
+#include "VulkanCommon.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "Interfaces/IShaderFormat.h"
@@ -23,8 +24,8 @@ class FShaderFormatVulkan : public IShaderFormat
 {
 	enum 
 	{
-		UE_SHADER_VULKAN_ES3_1_VER = 17,
-		UE_SHADER_VULKAN_SM5_VER = 17,
+		UE_SHADER_VULKAN_ES3_1_VER	= 25,
+		UE_SHADER_VULKAN_SM5_VER 	= 25,
 	};
 
 	int32 InternalGetVersion(FName Format) const
@@ -50,7 +51,10 @@ public:
 	virtual uint32 GetVersion(FName Format) const override
 	{
 		const uint8 HLSLCCVersion = ((HLSLCC_VersionMajor & 0x0f) << 4) | (HLSLCC_VersionMinor & 0x0f);
-		const uint16 Version = ((HLSLCCVersion & 0xff) << 8) | (InternalGetVersion(Format) & 0xff);
+		uint16 Version = ((HLSLCCVersion & 0xff) << 8) | (InternalGetVersion(Format) & 0xff);
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+		Version = (Version << 1) + Version;
+#endif
 		return Version;
 	}
 	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const
@@ -72,35 +76,35 @@ public:
 		check(InternalGetVersion(Format) >= 0);
 		if (Format == NAME_VULKAN_ES3_1 || Format == NAME_VULKAN_ES3_1_LUMIN)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1);
 		}
 		else if (Format == NAME_VULKAN_ES3_1_NOUB)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_NOUB);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_NOUB);
 		}
 		else if (Format == NAME_VULKAN_ES3_1_ANDROID)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID);
 		}
 		else if (Format == NAME_VULKAN_ES3_1_ANDROID_NOUB)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID_NOUB);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID_NOUB);
 		}
 		else if (Format == NAME_VULKAN_SM4_NOUB)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM4_NOUB);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM4_NOUB);
 		}
 		else if (Format == NAME_VULKAN_SM4)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM4);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM4);
 		}
 		else if (Format == NAME_VULKAN_SM5_NOUB)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM5_NOUB);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM5_NOUB);
 		}
 		else if (Format == NAME_VULKAN_SM5 || Format == NAME_VULKAN_SM5_LUMIN)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM5);
+			DoCompileVulkanShader(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM5);
 		}
 	}
 
@@ -110,6 +114,11 @@ public:
 	//	OutBackend = new FVulkanCodeBackend(InHlslCompileFlags, HCT_FeatureLevelSM4);
 	//	return false;
 	//}
+
+	virtual const TCHAR* GetPlatformIncludeDirectory() const
+	{
+		return TEXT("Vulkan");
+	}
 };
 
 /**

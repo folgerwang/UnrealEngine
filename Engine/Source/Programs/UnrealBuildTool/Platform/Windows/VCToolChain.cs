@@ -1370,7 +1370,7 @@ namespace UnrealBuildTool
 						ProducedItems.Add(MAPFile);
 
 						// Export a list of object file paths, so we can locate the object files referenced by the map file
-						ExportObjectFilePaths(LinkEnvironment, Path.ChangeExtension(MAPFilePath.FullName, ".objpaths"));
+						ExportObjectFilePaths(LinkEnvironment, Path.ChangeExtension(MAPFilePath.FullName, ".objpaths"), EnvVars);
 					}
 				}
 
@@ -1430,7 +1430,7 @@ namespace UnrealBuildTool
 			return OutputFile;
 		}
 
-		private void ExportObjectFilePaths(LinkEnvironment LinkEnvironment, string FileName)
+		private void ExportObjectFilePaths(LinkEnvironment LinkEnvironment, string FileName, VCEnvironment EnvVars)
 		{
 			// Write the list of object file directories
 			HashSet<DirectoryReference> ObjectFileDirectories = new HashSet<DirectoryReference>();
@@ -1458,6 +1458,10 @@ namespace UnrealBuildTool
 			foreach(string LibraryPath in (Environment.GetEnvironmentVariable("LIB") ?? "").Split(new char[]{ ';' }, StringSplitOptions.RemoveEmptyEntries))
 			{
 				ObjectFileDirectories.Add(new DirectoryReference(LibraryPath));
+			}
+			foreach (DirectoryReference LibraryPath in EnvVars.LibraryPaths)
+			{
+				ObjectFileDirectories.Add(LibraryPath);
 			}
 			Directory.CreateDirectory(Path.GetDirectoryName(FileName));
 			File.WriteAllLines(FileName, ObjectFileDirectories.Select(x => x.FullName).OrderBy(x => x).ToArray());

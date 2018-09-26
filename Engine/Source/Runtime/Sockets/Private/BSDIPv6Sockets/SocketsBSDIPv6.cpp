@@ -6,7 +6,56 @@
 
 #include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
 #include "BSDIPv6Sockets/SocketSubsystemBSDIPv6.h"
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+FSocketBSDIPv6::~FSocketBSDIPv6()
+{
+	FSocketBSDIPv6::Close();
+}
+
+SOCKET FSocketBSDIPv6::GetNativeSocket()
+{
+	return Socket;
+}
+
 //#include "Net/NetworkProfiler.h"
+
+bool FSocketBSDIPv6::Shutdown(ESocketShutdownMode Mode)
+{
+	int InternalMode = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	// Windows uses different constants than POSIX
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SD_RECEIVE;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SD_SEND;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SD_BOTH;
+			break;
+	}
+#else
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SHUT_RD;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SHUT_WR;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SHUT_RDWR;
+			break;
+	}
+#endif
+
+	return shutdown(Socket, InternalMode) == 0;
+}
 
 bool FSocketBSDIPv6::Close(void)
 {
@@ -57,18 +106,20 @@ EIPv6SocketInternalState::Return FSocketBSDIPv6::HasState(EIPv6SocketInternalSta
 	FD_ZERO(&SocketSet);
 	FD_SET(Socket, &SocketSet);
 
+	timeval* TimePointer = WaitTime.GetTicks() >= 0 ? &Time : nullptr;
+
 	// Check the status of the state
 	int32 SelectStatus = 0;
 	switch (State)
 	{
 		case EIPv6SocketInternalState::CanRead:
-			SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, &Time);
+			SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, TimePointer);
 			break;
 		case EIPv6SocketInternalState::CanWrite:
-			SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, &Time);
+			SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, TimePointer);
 			break;
 		case EIPv6SocketInternalState::HasError:
-			SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, &Time);
+			SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, TimePointer);
 			break;
 	}
 
@@ -120,7 +171,7 @@ bool FSocketBSDIPv6::HasPendingData(uint32& PendingDataSize)
 }
 
 
-FSocket* FSocketBSDIPv6::Accept(const FString& SocketDescription)
+FSocket* FSocketBSDIPv6::Accept(const FString& InSocketDescription)
 {
 	SOCKET NewSocket = accept(Socket,NULL,NULL);
 
@@ -129,14 +180,14 @@ FSocket* FSocketBSDIPv6::Accept(const FString& SocketDescription)
 		// we need the subclass to create the actual FSocket object
 		check(SocketSubsystem);
 		FSocketSubsystemBSDIPv6* BSDSystem = static_cast<FSocketSubsystemBSDIPv6*>(SocketSubsystem);
-		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, SocketDescription);
+		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, InSocketDescription);
 	}
 
 	return NULL;
 }
 
 
-FSocket* FSocketBSDIPv6::Accept(FInternetAddr& OutAddr, const FString& SocketDescription)
+FSocket* FSocketBSDIPv6::Accept(FInternetAddr& OutAddr, const FString& InSocketDescription)
 {
 	SOCKLEN SizeOf = sizeof(sockaddr_in6);
 	SOCKET NewSocket = accept(Socket, *(FInternetAddrBSDIPv6*)(&OutAddr), &SizeOf);
@@ -146,7 +197,7 @@ FSocket* FSocketBSDIPv6::Accept(FInternetAddr& OutAddr, const FString& SocketDes
 		// we need the subclass to create the actual FSocket object
 		check(SocketSubsystem);
 		FSocketSubsystemBSDIPv6* BSDSystem = static_cast<FSocketSubsystemBSDIPv6*>(SocketSubsystem);
-		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, SocketDescription);
+		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, InSocketDescription);
 	}
 
 	return NULL;
@@ -374,7 +425,14 @@ bool FSocketBSDIPv6::SetMulticastTtl(uint8 TimeToLive)
 bool FSocketBSDIPv6::SetReuseAddr(bool bAllowReuse)
 {
 	int Param = bAllowReuse ? 1 : 0;
-	return setsockopt(Socket,SOL_SOCKET,SO_REUSEADDR,(char*)&Param,sizeof(Param)) == 0;
+	int ReuseAddrResult = setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, (char*)&Param, sizeof(Param));
+#ifdef SO_REUSEPORT // Linux kernel 3.9+ and FreeBSD define this separately
+	if (ReuseAddrResult == 0)
+	{
+		return setsockopt(Socket, SOL_SOCKET, SO_REUSEPORT, (char *)&Param, sizeof(Param)) == 0;
+	}
+#endif
+	return ReuseAddrResult == 0;
 }
 
 
@@ -454,5 +512,7 @@ bool FSocketBSDIPv6::SetIPv6Only(bool bIPv6Only)
 
 	return bOk;
 }
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 #endif

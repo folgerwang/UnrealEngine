@@ -70,14 +70,23 @@ inline TStatId GetMemoryStatType(EShaderFrequency ShaderFrequency)
 	return GET_STATID(STAT_VertexShaderMemory);
 }
 
+/** Initializes shader hash cache from IShaderFormatModules. This must be called before reading any shader include. */
+extern SHADERCORE_API void InitializeShaderHashCache();
+
+/** Checks if shader include isn't skipped by a shader hash cache. */
+extern SHADERCORE_API void CheckShaderHashCacheInclude(const FString& VirtualFilePath, EShaderPlatform ShaderPlatform);
+
 /** Initializes cached shader type data.  This must be called before creating any FShaderType. */
 extern SHADERCORE_API void InitializeShaderTypes();
 
 /** Uninitializes cached shader type data.  This is needed before unloading modules that contain FShaderTypes. */
 extern SHADERCORE_API void UninitializeShaderTypes();
 
-/** Returns true if debug viewmodes are allowed for the given platform. */
+/** Returns true if debug viewmodes are allowed for the current platform. */
 extern SHADERCORE_API bool AllowDebugViewmodes();
+
+/** Returns true if debug viewmodes are allowed for the given platform. */
+extern SHADERCORE_API bool AllowDebugViewmodes(EShaderPlatform Platform);
 
 struct FShaderTarget
 {
@@ -109,6 +118,16 @@ struct FShaderTarget
 		}
 		return Ar;
 	}
+
+	EShaderPlatform GetPlatform() const
+	{
+		return (EShaderPlatform)Platform;
+	}
+
+	EShaderFrequency GetFrequency() const
+	{
+		return (EShaderFrequency)Frequency;
+	}
 };
 
 enum ECompilerFlags
@@ -139,7 +158,9 @@ enum ECompilerFlags
 	// Prepare the shader for archiving in the native binary shader cache format
 	CFLAG_Archive,
 	// Shaders uses external texture so may need special runtime handling
-	CFLAG_UsesExternalTexture
+	CFLAG_UsesExternalTexture,
+	// Use emulated uniform buffers on supported platforms
+	CFLAG_UseEmulatedUB
 };
 
 /**
@@ -383,6 +404,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	TMap<FString,FResourceTableEntry> ResourceTableMap;
 	TMap<FString,uint32> ResourceTableLayoutHashes;
 	TMap<FString, FString> RemoteServerData;
+	TMap<FString, FString> ShaderFormatCVars;
 
 	/** Default constructor. */
 	FShaderCompilerEnvironment()
@@ -432,6 +454,8 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		Ar << Environment.ResourceTableMap;
 		Ar << Environment.ResourceTableLayoutHashes;
 		Ar << Environment.RemoteServerData;
+		Ar << Environment.ShaderFormatCVars;
+
 		return Ar;
 	}
 	
@@ -461,6 +485,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		Definitions.Merge(Other.Definitions);
 		RenderTargetOutputFormatsMap.Append(Other.RenderTargetOutputFormatsMap);
 		RemoteServerData.Append(Other.RemoteServerData);
+		ShaderFormatCVars.Append(Other.ShaderFormatCVars);
 	}
 
 private:
@@ -953,6 +978,8 @@ struct FShaderCompilerOutput
 
 	FString OptionalFinalShaderSource;
 
+	TArray<uint8> PlatformDebugData;
+
 	/** Generates OutputHash from the compiler output. */
 	SHADERCORE_API void GenerateOutputHash();
 
@@ -962,6 +989,7 @@ struct FShaderCompilerOutput
 		Ar << Output.ParameterMap << Output.Errors << Output.Target << Output.ShaderCode << Output.NumInstructions << Output.NumTextureSamplers << Output.bSucceeded;
 		Ar << Output.bFailedRemovingUnused << Output.bSupportsQueryingUsedAttributes << Output.UsedAttributes;
 		Ar << Output.OptionalFinalShaderSource;
+		Ar << Output.PlatformDebugData;
 
 		return Ar;
 	}
@@ -996,18 +1024,19 @@ extern SHADERCORE_API void LoadShaderSourceFileChecked(const TCHAR* VirtualFileP
 /**
  * Recursively populates IncludeFilenames with the include filenames from Filename
  */
-extern SHADERCORE_API void GetShaderIncludes(const TCHAR* EntryPointVirtualFilePath, const TCHAR* VirtualFilePath, TArray<FString>& IncludeVirtualFilePaths, uint32 DepthLimit=100);
+extern SHADERCORE_API void GetShaderIncludes(const TCHAR* EntryPointVirtualFilePath, const TCHAR* VirtualFilePath, TArray<FString>& IncludeVirtualFilePaths, EShaderPlatform ShaderPlatform, uint32 DepthLimit=100);
 
 /**
  * Calculates a Hash for the given filename if it does not already exist in the Hash cache.
  * @param Filename - shader file to Hash
+ * @param ShaderPlatform - shader platform to Hash
  */
-extern SHADERCORE_API const class FSHAHash& GetShaderFileHash(const TCHAR* VirtualFilePath);
+extern SHADERCORE_API const class FSHAHash& GetShaderFileHash(const TCHAR* VirtualFilePath, EShaderPlatform ShaderPlatform);
 
 /**
  * Calculates a Hash for the list of filenames if it does not already exist in the Hash cache.
  */
-extern SHADERCORE_API const class FSHAHash& GetShaderFilesHash(const TArray<FString>& VirtualFilePaths);
+extern SHADERCORE_API const class FSHAHash& GetShaderFilesHash(const TArray<FString>& VirtualFilePaths, EShaderPlatform ShaderPlatform);
 
 extern void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables);
 
@@ -1017,7 +1046,7 @@ extern void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*>
  */
 extern SHADERCORE_API void FlushShaderFileCache();
 
-extern SHADERCORE_API void VerifyShaderSourceFiles();
+extern SHADERCORE_API void VerifyShaderSourceFiles(EShaderPlatform ShaderPlatform);
 
 struct FCachedUniformBufferDeclaration
 {
@@ -1034,3 +1063,20 @@ extern void GenerateReferencedUniformBuffers(
 
 /** Records information about all the uniform buffer layouts referenced by UniformBufferEntries. */
 extern SHADERCORE_API void SerializeUniformBufferInfo(class FShaderSaveArchive& Ar, const TMap<const TCHAR*,FCachedUniformBufferDeclaration>& UniformBufferEntries);
+
+
+
+/**
+ * Returns the map virtual shader directory path -> real shader directory path.
+ */
+extern SHADERCORE_API const TMap<FString, FString>& AllShaderSourceDirectoryMappings();
+
+/** Hook for shader compile worker to reset the directory mappings. */
+extern SHADERCORE_API void ResetAllShaderSourceDirectoryMappings();
+
+/**
+ * Maps a real shader directory existing on disk to a virtual shader directory.
+ * @param VirtualShaderDirectory Unique absolute path of the virtual shader directory (ex: /Project).
+ * @param RealShaderDirectory FPlatformProcess::BaseDir() relative path of the directory map.
+ */
+extern SHADERCORE_API void AddShaderSourceDirectoryMapping(const FString& VirtualShaderDirectory, const FString& RealShaderDirectory);

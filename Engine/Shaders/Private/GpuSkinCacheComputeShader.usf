@@ -131,8 +131,8 @@ FBoneMatrix CalcBoneMatrix( FVertexUnpacked VertexUnpacked )
 	return BoneMatrix;
 }
 
-Buffer<float4> TangentInputBuffer;
-RWBuffer<float4> TangentBufferUAV;
+Buffer<SNORM float4> TangentInputBuffer;
+RWBuffer<SNORM float4> TangentBufferUAV;
 Buffer<float> PositionInputBuffer;
 RWBuffer<float> PositionBufferUAV;
 

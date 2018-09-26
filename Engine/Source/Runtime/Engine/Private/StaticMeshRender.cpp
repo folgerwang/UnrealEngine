@@ -26,7 +26,7 @@
 #include "ComponentReregisterContext.h"
 #include "EngineUtils.h"
 #include "StaticMeshResources.h"
-
+#include "SpeedTreeWind.h"
 
 #include "Engine/Engine.h"
 #include "Engine/LevelStreaming.h"
@@ -38,6 +38,8 @@
 #include "ComponentRecreateRenderStateContext.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/LODActor.h"
+
+#include "UnrealEngine.h"
 
 /** If true, optimized depth-only index buffers are used for shadow rendering. */
 static bool GUseShadowIndexBuffer = true;
@@ -119,9 +121,9 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	, SectionIndexPreview(InComponent->SectionIndexPreview)
 	, MaterialIndexPreview(InComponent->MaterialIndexPreview)
 #endif
+	, StaticMesh(InComponent->GetStaticMesh())
 #if STATICMESH_ENABLE_DEBUG_RENDERING
 	, Owner(InComponent->GetOwner())
-	, StaticMesh(InComponent->GetStaticMesh())
 	, LightMapResolution(InComponent->GetStaticLightMapResolution())
 	, BodySetup(InComponent->GetBodySetup())
 	, CollisionTraceFlag(ECollisionTraceFlag::CTF_UseSimpleAndComplex)
@@ -266,7 +268,6 @@ FStaticMeshSceneProxy::~FStaticMeshSceneProxy()
 
 void FStaticMeshSceneProxy::AddSpeedTreeWind()
 {
-#if STATICMESH_ENABLE_DEBUG_RENDERING
 	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
@@ -275,12 +276,10 @@ void FStaticMeshSceneProxy::AddSpeedTreeWind()
 			GetScene().AddSpeedTreeWind(&RenderData->LODVertexFactories[LODIndex].VertexFactoryOverrideColorVertexBuffer, StaticMesh);
 		}
 	}
-#endif
 }
 
 void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 {
-#if STATICMESH_ENABLE_DEBUG_RENDERING
 	check(IsInRenderingThread());
 	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
@@ -290,12 +289,12 @@ void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 			GetScene().RemoveSpeedTreeWind_RenderThread(&RenderData->LODVertexFactories[LODIndex].VertexFactory, StaticMesh);
 		}
 	}
-#endif
 }
 
-void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 MaxSize )
+bool UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 MaxSize )
 {
 	check(MaxSize <= MAX_STATIC_MESH_LODS);
+
 	if (MaxSize < (uint32)LODData.Num())
 	{
 		// FStaticMeshComponentLODInfo can't be deleted directly as it has rendering resources
@@ -306,6 +305,7 @@ void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 M
 
 		// call destructors
 		LODData.RemoveAt(MaxSize, LODData.Num() - MaxSize);
+		return true;
 	}
 	
 	if(MinSize > (uint32)LODData.Num())
@@ -317,10 +317,14 @@ void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 M
 		uint32 ItemCountToAdd = MinSize - LODData.Num();
 		for(uint32 i = 0; i < ItemCountToAdd; ++i)
 		{
+			int32 LodIndex = LODData.Num();
 			// call constructor
-			new (LODData)FStaticMeshComponentLODInfo(this);
+			new (LODData)FStaticMeshComponentLODInfo(this, LodIndex);
 		}
+		return true;
 	}
+
+	return false;
 }
 
 SIZE_T FStaticMeshSceneProxy::GetTypeHash() const
@@ -390,13 +394,17 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 	bool bAllowPreCulledIndices, 
 	FMeshBatch& OutMeshBatch) const
 {
+	const ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();
 	const FStaticMeshLODResources& LOD = RenderData->LODResources[LODIndex];
 	const FStaticMeshVertexFactories& VFs = RenderData->LODVertexFactories[LODIndex];
 	const FStaticMeshSection& Section = LOD.Sections[SectionIndex];
-
+	
 	const FLODInfo& ProxyLODInfo = LODs[LODIndex];
-	UMaterialInterface* Material = ProxyLODInfo.Sections[SectionIndex].Material;
-	OutMeshBatch.MaterialRenderProxy = Material->GetRenderProxy(bUseSelectedMaterial,bUseHoveredMaterial);
+	UMaterialInterface* MaterialInterface = ProxyLODInfo.Sections[SectionIndex].Material;
+	const FMaterialRenderProxy* MaterialRenderProxy = MaterialInterface->GetRenderProxy(bUseSelectedMaterial,bUseHoveredMaterial);
+	const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+	
+	OutMeshBatch.MaterialRenderProxy = MaterialRenderProxy;
 	OutMeshBatch.VertexFactory = &VFs.VertexFactory;
 
 #if WITH_EDITORONLY_DATA
@@ -413,7 +421,7 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 #endif
 
 	const bool bWireframe = false;
-	const bool bRequiresAdjacencyInformation = RequiresAdjacencyInformation( Material, OutMeshBatch.VertexFactory->GetType(), GetScene().GetFeatureLevel() );
+	const bool bRequiresAdjacencyInformation = RequiresAdjacencyInformation( MaterialInterface, OutMeshBatch.VertexFactory->GetType(), FeatureLevel );
 	
 	// Two sided material use bIsFrontFace which is wrong with Reversed Indices. AdjacencyInformation use another index buffer.
 	CA_SUPPRESS(6239);
@@ -1735,12 +1743,13 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 				checkSlow(RenderData);
 
 				// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
+				const ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();
 				const FLODInfo& ProxyLODInfo = LODs[0];
 				const FStaticMeshLODResources& LODModel = RenderData->LODResources[0];
 				// Draw the static mesh elements.
 				for(int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 				{
-					UMaterialInterface* Material = ProxyLODInfo.Sections[SectionIndex].Material;
+					const FMaterial* Material = ProxyLODInfo.Sections[SectionIndex].Material->GetRenderProxy(false)->GetMaterial(FeatureLevel);
 					if (Material->IsDitheredLODTransition())
 					{
 						bUseDithered = true;
@@ -1750,8 +1759,9 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 
 			}
 
-			static TConsoleVariableData<float>* CVarStaticMeshLODDistanceScale = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.StaticMeshLODDistanceScale"));
-			float InvScreenSizeScale = 1.f / CVarStaticMeshLODDistanceScale->GetValueOnRenderThread();
+			FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
+
+			float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
 
 			if (bUseDithered)
 			{

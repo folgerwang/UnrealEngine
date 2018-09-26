@@ -48,6 +48,8 @@ struct FCollisionPerfTest
 	FVector CreationElements;
 
 	FCollisionPerfTest()
+		: CreationBounds(ForceInitToZero)
+		, CreationElements(ForceInitToZero)
 	{
 	}
 };

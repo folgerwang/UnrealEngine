@@ -15,7 +15,7 @@ FOnlineAsyncTaskGooglePlayQueryInAppPurchases::FOnlineAsyncTaskGooglePlayQueryIn
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchases::ProcessQueryAvailablePurchasesResults(bool bInSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::ProcessQueryAvailablePurchasesResults"));
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::ProcessQueryAvailablePurchasesResults"));
 
 	bWasSuccessful = bInSuccessful;
 	bIsComplete = true;
@@ -23,18 +23,18 @@ void FOnlineAsyncTaskGooglePlayQueryInAppPurchases::ProcessQueryAvailablePurchas
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchases::Finalize()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::Finalize"));
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::Finalize"));
 }
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchases::TriggerDelegates()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::TriggerDelegates"));
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::TriggerDelegates"));
 	Subsystem->GetStoreInterface()->TriggerOnQueryForAvailablePurchasesCompleteDelegates(bWasSuccessful);
 }
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchases::Tick()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::Tick"));
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchases::Tick"));
 
 	if (!bWasRequestSent)
 	{
@@ -58,7 +58,7 @@ FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::FOnlineAsyncTaskGooglePlayQuery
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::ProcessQueryAvailablePurchasesResults(EGooglePlayBillingResponseCode InResponse)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::ProcessQueryAvailablePurchasesResults %d"), (int32)InResponse);
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::ProcessQueryAvailablePurchasesResults %d"), (int32)InResponse);
 	if (InResponse == EGooglePlayBillingResponseCode::Ok)
 	{
 		bWasSuccessful = true;
@@ -73,18 +73,18 @@ void FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::ProcessQueryAvailablePurch
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::Finalize()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::Finalize"));
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::Finalize"));
 }
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::TriggerDelegates()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::TriggerDelegates"));
+	UE_LOG_ONLINE(Verbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::TriggerDelegates"));
 	CompletionDelegate.ExecuteIfBound(bWasSuccessful, ProductIdsV2, ErrorStr);
 }
 
 void FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::Tick()
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::Tick"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskGooglePlayQueryInAppPurchasesV2::Tick"));
 
 	if (!bWasRequestSent)
 	{

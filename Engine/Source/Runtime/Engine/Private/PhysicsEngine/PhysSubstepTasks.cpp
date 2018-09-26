@@ -337,8 +337,15 @@ void FPhysSubstepTask::InterpolateKinematicActor_AssumesLocked(const FPhysTarget
 			InterTM.SetLocation(FMath::Lerp(StartTM.GetLocation(), TargetTM.GetLocation(), InAlpha));
 			InterTM.SetRotation(FMath::Lerp(StartTM.GetRotation(), TargetTM.GetRotation(), InAlpha));
 
-			const PxTransform PNewPose = U2PTransform(InterTM);
-			check(PNewPose.isValid());
+			PxTransform PNewPose = U2PTransform(InterTM);
+			if (!ensureMsgf(PNewPose.isValid(), TEXT("Found an Invalid Pose for %s. Using previous pose."), *BodyInstance->GetBodyDebugName()))
+			{
+				PRigidDynamic->getKinematicTarget(PNewPose);
+				if (!ensureMsgf(PNewPose.isValid(), TEXT("Previous pose is invalid. Using identity.")))
+				{
+					PNewPose = U2PTransform(FTransform::Identity);
+				}
+			}
 			PRigidDynamic->setKinematicTarget(PNewPose);
 		}
 	}

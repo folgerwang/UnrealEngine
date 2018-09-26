@@ -9,6 +9,7 @@
 #include "VulkanContext.h"
 #include "VulkanPendingState.h"
 #include "Containers/ResourceArray.h"
+#include "VulkanLLM.h"
 
 static FCriticalSection GTextureMapLock;
 
@@ -129,7 +130,9 @@ inline void FVulkanSurface::InternalLockWrite(FVulkanCommandListContext& Context
 
 	VulkanRHI::vkCmdCopyBufferToImage(StagingCommandBuffer, StagingBuffer->GetHandle(), Surface->Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
 
-	Context.GetTransitionAndLayoutManager().FindOrAddLayout(Surface->Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	VulkanRHI::ImagePipelineBarrier(StagingCommandBuffer, Surface->Image, EImageLayoutBarrier::TransferDest, EImageLayoutBarrier::PixelShaderRead, SubresourceRange);
+
+	Context.GetTransitionAndLayoutManager().FindOrAddLayoutRW(Surface->Image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	Surface->Device->GetStagingManager().ReleaseBuffer(CmdBuffer, StagingBuffer);
 
@@ -259,7 +262,11 @@ VkImage FVulkanSurface::CreateImage(
 	}
 	else if (UEFlags & (TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable))
 	{
-		ImageCreateInfo.usage |= (UEFlags & TexCreate_RenderTargetable) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		if ((UEFlags & TexCreate_InputAttachmentRead) == TexCreate_InputAttachmentRead)
+		{
+			ImageCreateInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		}
+		ImageCreateInfo.usage |= ((UEFlags & TexCreate_RenderTargetable) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 		ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	}
 	else if (UEFlags & (TexCreate_DepthStencilResolveTarget))
@@ -278,6 +285,7 @@ VkImage FVulkanSurface::CreateImage(
 		ImageCreateInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 	}
 
+	//#todo-rco: If using CONCURRENT, make sure to NOT do so on render targets as that kills DCC compression
 	ImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	ImageCreateInfo.queueFamilyIndexCount = 0;
 	ImageCreateInfo.pQueueFamilyIndices = nullptr;
@@ -375,7 +383,7 @@ VkImage FVulkanSurface::CreateImage(
 #endif
 
 	VkImage Image;
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(InDevice.GetInstanceHandle(), &ImageCreateInfo, nullptr, &Image));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(InDevice.GetInstanceHandle(), &ImageCreateInfo, VULKAN_CPU_ALLOCATOR, &Image));
 
 	// Fetch image size
 	VulkanRHI::vkGetImageMemoryRequirements(InDevice.GetInstanceHandle(), Image, &OutMemoryRequirements);
@@ -836,7 +844,9 @@ uint32 FVulkanDynamicRHI::RHIComputeMemorySize(FTextureRHIParamRef TextureRHI)
 -----------------------------------------------------------------------------*/
 
 FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
+
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	return new FVulkanTexture2D(*Device, (EPixelFormat)Format, SizeX, SizeY, NumMips, NumSamples, Flags, CreateInfo);
 }
 
@@ -854,11 +864,13 @@ void FVulkanDynamicRHI::RHICopySharedMips(FTexture2DRHIParamRef DestTexture2D,FT
 
 FTexture2DArrayRHIRef FVulkanDynamicRHI::RHICreateTexture2DArray(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	return new FVulkanTexture2DArray(*Device, (EPixelFormat)Format, SizeX, SizeY, SizeZ, NumMips, Flags, CreateInfo.BulkData, CreateInfo.ClearValueBinding);
 }
 
 FTexture3DRHIRef FVulkanDynamicRHI::RHICreateTexture3D(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture3D* Tex3d = new FVulkanTexture3D(*Device, (EPixelFormat)Format, SizeX, SizeY, SizeZ, NumMips, Flags, CreateInfo.BulkData, CreateInfo.ClearValueBinding);
 
 	return Tex3d;
@@ -872,6 +884,7 @@ void FVulkanDynamicRHI::RHIGetResourceInfo(FTextureRHIParamRef Ref, FRHIResource
 
 static void DoAsyncReallocateTexture2D(FVulkanCommandListContext& Context, FVulkanTexture2D* OldTexture, FVulkanTexture2D* NewTexture, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	//QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandGnmAsyncReallocateTexture2D_Execute);
 	check(Context.IsImmediate());
 
@@ -885,16 +898,8 @@ static void DoAsyncReallocateTexture2D(FVulkanCommandListContext& Context, FVulk
 
 	VkCommandBuffer StagingCommandBuffer = CmdBuffer->GetHandle();
 
-	FPendingBarrier Barrier;
-
-	{
-		int32 BarrierIndex = Barrier.AddImageBarrier(NewTexture->Surface.Image, VK_IMAGE_ASPECT_COLOR_BIT, NumSharedMips);
-		Barrier.GetSubresource(BarrierIndex).baseMipLevel = DestFirstMip;
-		Barrier.SetTransition(BarrierIndex, EImageLayoutBarrier::Undefined, VulkanRHI::EImageLayoutBarrier::TransferDest);
-		Context.GetTransitionAndLayoutManager().FindOrAddLayoutRW(NewTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED) = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	}
-
 	VkImageCopy Regions[MAX_TEXTURE_MIP_COUNT];
+	check(NumSharedMips <= MAX_TEXTURE_MIP_COUNT);
 	FMemory::Memzero(&Regions[0], sizeof(VkImageCopy) * NumSharedMips);
 	for (uint32 Index = 0; Index < NumSharedMips; ++Index)
 	{
@@ -917,18 +922,38 @@ static void DoAsyncReallocateTexture2D(FVulkanCommandListContext& Context, FVulk
 		Region.extent.depth = 1;
 	}
 
-	VkImageLayout OldTextureLayout = Context.GetTransitionAndLayoutManager().FindOrAddLayout(OldTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
-	ensure(OldTextureLayout != VK_IMAGE_LAYOUT_UNDEFINED);
-	if (OldTextureLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
 	{
-		int32 BarrierIndex = Barrier.AddImageBarrier(OldTexture->Surface.Image, VK_IMAGE_ASPECT_COLOR_BIT, NumSharedMips);
-		Barrier.GetSubresource(BarrierIndex).baseMipLevel = SourceFirstMip;
-		Barrier.SetTransition(BarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(OldTextureLayout), VulkanRHI::EImageLayoutBarrier::TransferSource);
+		// Pre-copy barriers
+		FPendingBarrier Barrier;
+		{
+			int32 BarrierIndex = Barrier.AddImageBarrier(NewTexture->Surface.Image, VK_IMAGE_ASPECT_COLOR_BIT, NumSharedMips);
+			Barrier.GetSubresource(BarrierIndex).baseMipLevel = DestFirstMip;
+			Barrier.SetTransition(BarrierIndex, EImageLayoutBarrier::Undefined, VulkanRHI::EImageLayoutBarrier::TransferDest);
+		}
+
+		VkImageLayout OldTextureLayout = Context.GetTransitionAndLayoutManager().FindOrAddLayout(OldTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
+		ensure(OldTextureLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+		if (OldTextureLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+		{
+			int32 BarrierIndex = Barrier.AddImageBarrier(OldTexture->Surface.Image, VK_IMAGE_ASPECT_COLOR_BIT, NumSharedMips);
+			Barrier.GetSubresource(BarrierIndex).baseMipLevel = SourceFirstMip;
+			Barrier.SetTransition(BarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(OldTextureLayout), VulkanRHI::EImageLayoutBarrier::TransferSource);
+		}
+
+		Barrier.Execute(CmdBuffer);
 	}
 
-	Barrier.Execute(CmdBuffer);
-
 	VulkanRHI::vkCmdCopyImage(StagingCommandBuffer, OldTexture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, NewTexture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, NumSharedMips, Regions);
+
+	{
+		// Post-copy barriers
+		FPendingBarrier Barrier;
+		int32 BarrierIndex = Barrier.AddImageBarrier(NewTexture->Surface.Image, VK_IMAGE_ASPECT_COLOR_BIT, NumSharedMips);
+		Barrier.GetSubresource(BarrierIndex).baseMipLevel = DestFirstMip;
+		Barrier.SetTransition(BarrierIndex, EImageLayoutBarrier::TransferDest, VulkanRHI::EImageLayoutBarrier::PixelShaderRead);
+		Barrier.Execute(CmdBuffer);
+	}
+	Context.GetTransitionAndLayoutManager().FindOrAddLayoutRW(NewTexture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED) = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
 	// request is now complete
 	RequestStatus->Decrement();
@@ -967,6 +992,7 @@ struct FRHICommandVulkanAsyncReallocateTexture2D final : public FRHICommand<FRHI
 
 FTexture2DRHIRef FVulkanDynamicRHI::AsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef OldTextureRHI, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	if (RHICmdList.Bypass())
 	{
 		return FDynamicRHI::AsyncReallocateTexture2D_RenderThread(RHICmdList, OldTextureRHI, NewMipCount, NewSizeX, NewSizeY, RequestStatus);
@@ -984,6 +1010,7 @@ FTexture2DRHIRef FVulkanDynamicRHI::AsyncReallocateTexture2D_RenderThread(class 
 
 FTexture2DRHIRef FVulkanDynamicRHI::RHIAsyncReallocateTexture2D(FTexture2DRHIParamRef OldTextureRHI, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture2D* OldTexture = ResourceCast(OldTextureRHI);
 
 	FRHIResourceCreateInfo CreateInfo;
@@ -1006,6 +1033,7 @@ ETextureReallocationStatus FVulkanDynamicRHI::RHICancelAsyncReallocateTexture2D(
 
 void* FVulkanDynamicRHI::RHILockTexture2D(FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture2D* Texture = ResourceCast(TextureRHI);
 	check(Texture);
 
@@ -1031,6 +1059,7 @@ void* FVulkanDynamicRHI::RHILockTexture2D(FTexture2DRHIParamRef TextureRHI,uint3
 
 void FVulkanDynamicRHI::InternalUnlockTexture2D(bool bFromRenderingThread, FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,bool bLockWithinMiptail)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture2D* Texture = ResourceCast(TextureRHI);
 	check(Texture);
 
@@ -1083,6 +1112,7 @@ void FVulkanDynamicRHI::InternalUnlockTexture2D(bool bFromRenderingThread, FText
 
 void* FVulkanDynamicRHI::RHILockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture2DArray* Texture = ResourceCast(TextureRHI);
 	check(Texture);
 
@@ -1105,6 +1135,7 @@ void* FVulkanDynamicRHI::RHILockTexture2DArray(FTexture2DArrayRHIParamRef Textur
 
 void FVulkanDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture2DArray* Texture = ResourceCast(TextureRHI);
 	check(Texture);
 
@@ -1155,25 +1186,37 @@ void FVulkanDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef Textu
 	}
 }
 
-void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
+void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourceRowPitch, const uint8* SourceData)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture2D* Texture = ResourceCast(TextureRHI);
 
 	EPixelFormat PixelFormat = Texture->GetFormat();
-	check(GPixelFormats[PixelFormat].BlockSizeX == 1);
-	check(GPixelFormats[PixelFormat].BlockSizeY == 1);
-
+	const int32 BlockSizeX = GPixelFormats[PixelFormat].BlockSizeX;
+	const int32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
+	const int32 BlockSizeZ = GPixelFormats[PixelFormat].BlockSizeZ;
+	const int32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
 	VkFormat Format = UEToVkFormat(PixelFormat, false);
+
+	ensure(BlockSizeZ == 1);
 
 	FVulkanCommandListContext& Context = Device->GetImmediateContext();
 	const VkPhysicalDeviceLimits& Limits = Device->GetLimits();
-	const uint32 AlignedSourcePitch = Align(SourcePitch, Limits.optimalBufferCopyRowPitchAlignment);
-	const uint32 BufferSize = Align(UpdateRegion.Height * AlignedSourcePitch, Limits.minMemoryMapAlignment);
-	const uint32 AlignedSourceWidth = AlignedSourcePitch / GPixelFormats[PixelFormat].BlockBytes;
 
-	VulkanRHI::FStagingBuffer* StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
-	void* Memory = StagingBuffer->GetMappedPointer();
-	
+	VkBufferImageCopy Region;
+	FMemory::Memzero(Region);
+	VulkanRHI::FStagingBuffer* StagingBuffer = nullptr;
+	const uint32 NumBlocksX = (uint32)FMath::DivideAndRoundUp<int32>(UpdateRegion.Width, (uint32)BlockSizeX);
+	const uint32 NumBlocksY = (uint32)FMath::DivideAndRoundUp<int32>(UpdateRegion.Height, (uint32)BlockSizeY);
+	ensure(NumBlocksX * BlockBytes <= SourceRowPitch);
+
+	const uint32 DestRowPitch = NumBlocksX * BlockBytes;
+	const uint32 DestSlicePitch = DestRowPitch * NumBlocksY;
+
+	const uint32 BufferSize = Align(DestSlicePitch, Limits.minMemoryMapAlignment);
+	StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
+	void* RESTRICT Memory = StagingBuffer->GetMappedPointer();
+
 	VkImageSubresourceRange SubresourceRange;
 	FMemory::Memzero(SubresourceRange);
 	SubresourceRange.aspectMask = Texture->Surface.GetFullAspectMask();
@@ -1182,27 +1225,29 @@ void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FText
 	//SubresourceRange.baseArrayLayer = 0;
 	SubresourceRange.layerCount = 1;
 
-	uint8* RowData = (uint8*)Memory;
-	uint8* SourceRowData = (uint8*)SourceData;
-	const uint32 CopyPitch = UpdateRegion.Width * GPixelFormats[PixelFormat].BlockBytes;
-	check(CopyPitch <= SourcePitch);
-	for (uint32 i = 0; i < UpdateRegion.Height; i++)
+	ensure(UpdateRegion.SrcX == 0);
+	ensure(UpdateRegion.SrcY == 0);
+
+	uint8* RESTRICT DestData = (uint8*)Memory;
+	uint8* RESTRICT SourceRowData = (uint8*)SourceData;
+	for (uint32 Height = 0; Height < NumBlocksY; ++Height)
 	{
-		FMemory::Memcpy(RowData, SourceRowData, CopyPitch);
-		SourceRowData += SourcePitch;
-		RowData += AlignedSourcePitch;
+		FMemory::Memcpy(DestData, SourceRowData, NumBlocksX * BlockBytes);
+		DestData += DestRowPitch;
+		SourceRowData += SourceRowPitch;
 	}
-	
-	VkBufferImageCopy Region;
-	FMemory::Memzero(Region);
-	Region.bufferRowLength = AlignedSourceWidth;
+
+	//Region.bufferOffset = 0;
+	// Set these to zero to assume tightly packed buffer
+	//Region.bufferRowLength = 0;
+	//Region.bufferImageHeight = 0;
 	Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	Region.imageSubresource.mipLevel = MipIndex;
-	Region.imageSubresource.baseArrayLayer = 0;
+	//Region.imageSubresource.baseArrayLayer = 0;
 	Region.imageSubresource.layerCount = 1;
 	Region.imageOffset.x = UpdateRegion.DestX;
 	Region.imageOffset.y = UpdateRegion.DestY;
-	Region.imageOffset.z = 0;
+	//Region.imageOffset.z = 0;
 	Region.imageExtent.width = UpdateRegion.Width;
 	Region.imageExtent.height = UpdateRegion.Height;
 	Region.imageExtent.depth = 1;
@@ -1221,6 +1266,7 @@ void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FText
 
 void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FTexture3DRHIParamRef TextureRHI, uint32 MipIndex, const FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTexture3D* Texture = ResourceCast(TextureRHI);
 
 	const EPixelFormat PixelFormat = Texture->GetFormat();
@@ -1257,6 +1303,9 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 	SubresourceRange.levelCount = 1;
 	//SubresourceRange.baseArrayLayer = 0;
 	SubresourceRange.layerCount = 1;
+
+	ensure(UpdateRegion.SrcX == 0);
+	ensure(UpdateRegion.SrcY == 0);
 
 	uint8* RESTRICT DestData = (uint8*)Memory;
 	for (uint32 Depth = 0; Depth < UpdateRegion.Depth; Depth++)
@@ -1297,13 +1346,15 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 	}
 }
 
-VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle, const FSamplerYcbcrConversionInitializer* ConversionInitializer)
+
+VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle, const FSamplerYcbcrConversionInitializer* ConversionInitializer)
 {
-	VkImageView View = VK_NULL_HANDLE;
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
+	VkImageView OutView = VK_NULL_HANDLE;
 
 	VkImageViewCreateInfo ViewInfo;
 	ZeroVulkanStruct(ViewInfo, VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
-	ViewInfo.image = Image;
+	ViewInfo.image = InImage;
 	ViewInfo.viewType = ViewType;
 	ViewInfo.format = Format;
 	if (bUseIdentitySwizzle)
@@ -1384,9 +1435,9 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 	}
 
 	INC_DWORD_STAT(STAT_VulkanNumImageViews);
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateImageView(Device.GetInstanceHandle(), &ViewInfo, nullptr, &View));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateImageView(Device.GetInstanceHandle(), &ViewInfo, VULKAN_CPU_ALLOCATOR, &OutView));
 
-	return View;
+	return OutView;
 }
 
 void FVulkanTextureView::Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices)
@@ -1438,6 +1489,7 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	#endif
 	, bIsAliased(false)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	if (Surface.ViewFormat == VK_FORMAT_UNDEFINED)
 	{
 		Surface.StorageFormat = UEToVkFormat(InFormat, false);
@@ -1773,16 +1825,19 @@ FVulkanTexture3D::~FVulkanTexture3D()
 -----------------------------------------------------------------------------*/
 FTextureCubeRHIRef FVulkanDynamicRHI::RHICreateTextureCube(uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	return new FVulkanTextureCube(*Device, (EPixelFormat)Format, Size, false, 1, NumMips, Flags, CreateInfo.BulkData, CreateInfo.ClearValueBinding);
 }
 
 FTextureCubeRHIRef FVulkanDynamicRHI::RHICreateTextureCubeArray(uint32 Size, uint32 ArraySize, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	return new FVulkanTextureCube(*Device, (EPixelFormat)Format, Size, true, ArraySize, NumMips, Flags, CreateInfo.BulkData, CreateInfo.ClearValueBinding);
 }
 
 void* FVulkanDynamicRHI::RHILockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTextureCube* Texture = ResourceCast(TextureCubeRHI);
 	check(Texture);
 
@@ -1805,6 +1860,7 @@ void* FVulkanDynamicRHI::RHILockTextureCubeFace(FTextureCubeRHIParamRef TextureC
 
 void FVulkanDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI,uint32 FaceIndex,uint32 ArrayIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	FVulkanTextureCube* Texture = ResourceCast(TextureCubeRHI);
 	check(Texture);
 
@@ -1972,7 +2028,7 @@ static VkMemoryRequirements FindOrCalculateTexturePlatformSize(FVulkanDevice* De
 		PixelFormat, SizeX, SizeY, SizeZ, false, 0, NumMips, NumSamples,
 		Flags, MemReq, &InternalStorageFormat, &InternalViewFormat, &CreateInfo, false);
 
-	VulkanRHI::vkDestroyImage(Device->GetInstanceHandle(), TmpImage, nullptr);
+	VulkanRHI::vkDestroyImage(Device->GetInstanceHandle(), TmpImage, VULKAN_CPU_ALLOCATOR);
 
 	{
 		FScopeLock Lock(&TextureSizesLock);
@@ -2022,6 +2078,7 @@ void FVulkanCommandListContext::RHIUpdateTextureReference(FTextureReferenceRHIPa
 
 void FVulkanCommandListContext::RHICopyTexture(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FRHICopyTextureInfo& CopyInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	check(SourceTexture && DestTexture);
 
 	FVulkanTextureBase* Source = static_cast<FVulkanTextureBase*>(SourceTexture->GetTextureBaseRHI());

@@ -672,7 +672,7 @@ FTransform FPhysInterface_Apeiron::GetGlobalPose_AssumesLocked(const FPhysicsAct
     return Apeiron::TRigidTransform<float, 3>(LocalParticles.X(Index), LocalParticles.R(Index));
 }
 
-void FPhysInterface_Apeiron::SetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewPose)
+void FPhysInterface_Apeiron::SetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewPose, bool bAutoWake)
 {
     TArray<RigidBodyId> BodiesToModify = { InActorReference.First };
     auto& Particles = InActorReference.Second->BeginUpdateRigidParticles(BodiesToModify);
@@ -723,7 +723,7 @@ FVector FPhysInterface_Apeiron::GetLinearVelocity_AssumesLocked(const FPhysicsAc
 	return Particles.V(Index);
 }
 
-void FPhysInterface_Apeiron::SetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity)
+void FPhysInterface_Apeiron::SetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
     TArray<RigidBodyId> BodiesToModify = { InActorReference.First };
     auto& Particles = InActorReference.Second->BeginUpdateRigidParticles(BodiesToModify);
@@ -736,7 +736,7 @@ FVector FPhysInterface_Apeiron::GetAngularVelocity_AssumesLocked(const FPhysicsA
     return InActorReference.Second->Scene.GetRigidParticles().W(InActorReference.Second->GetIndexFromId(InActorReference.First));
 }
 
-void FPhysInterface_Apeiron::SetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity)
+void FPhysInterface_Apeiron::SetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
     TArray<RigidBodyId> BodiesToModify = { InActorReference.First };
     auto& Particles = InActorReference.Second->BeginUpdateRigidParticles(BodiesToModify);

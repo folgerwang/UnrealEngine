@@ -164,6 +164,12 @@ GenericApplication* FIOSPlatformApplicationMisc::CreateApplication()
 	return CachedApplication;
 }
 
+bool FIOSPlatformApplicationMisc::IsScreensaverEnabled()
+{
+	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
+	return [AppDelegate IsIdleTimerEnabled];
+}
+
 bool FIOSPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 {
 	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];

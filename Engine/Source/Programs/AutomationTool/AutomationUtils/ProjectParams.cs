@@ -567,6 +567,12 @@ namespace AutomationTool
             this.ServerTargetPlatforms = SetupTargetPlatforms(ref this.ServerDependentPlatformMap, Command, ServerTargetPlatforms, this.ClientTargetPlatforms, false, "ServerTargetPlatform", "ServerPlatform");
 
 			this.Build = GetParamValueIfNotSpecified(Command, Build, this.Build, "build");
+			bool bSkipBuild = GetParamValueIfNotSpecified(Command, null, false, "skipbuild");
+			if (bSkipBuild)
+			{
+				this.Build = false;
+			}
+
 			this.SkipBuildClient = GetParamValueIfNotSpecified(Command, SkipBuildClient, this.SkipBuildClient, "skipbuildclient");
 			this.SkipBuildEditor = GetParamValueIfNotSpecified(Command, SkipBuildEditor, this.SkipBuildEditor, "skipbuildeditor");
 			this.Run = GetParamValueIfNotSpecified(Command, Run, this.Run, "run");
@@ -769,8 +775,8 @@ namespace AutomationTool
             string DeviceString = ParseParamValueIfNotSpecified(Command, Device, "device", String.Empty).Trim(new char[] { '\"' });
             if(DeviceString == "")
             {
-                this.Devices = new ParamList<string>();
-                this.DeviceNames = new ParamList<string>();
+                this.Devices = new ParamList<string>("");
+                this.DeviceNames = new ParamList<string>("");
             }
             else
             {

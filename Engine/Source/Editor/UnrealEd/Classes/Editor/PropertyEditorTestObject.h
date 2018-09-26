@@ -72,7 +72,8 @@ struct FPropertyEditorTestSubStruct
 
 	FPropertyEditorTestSubStruct()
 		: FirstProperty( 7897789 )
-		, SecondProperty( 342432432  )
+		, SecondProperty( 342432432 )
+		, CustomizedStructInsideUncustomizedStruct(ForceInitToZero)
 	{
 	}
 
@@ -100,7 +101,8 @@ struct FPropertyEditorTestBasicStruct
 	FPropertyEditorTestBasicStruct()
 		: IntPropertyInsideAStruct( 0 )
 		, FloatPropertyInsideAStruct( 0.0f )
-		, ObjectPropertyInsideAStruct( NULL )
+		, ObjectPropertyInsideAStruct( nullptr )
+		, InnerStruct()
 	{
 	}
 

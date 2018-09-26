@@ -173,7 +173,6 @@ namespace
 	void WriteUTF16String(FArchive* ReportFile, const TCHAR * UTFString4BytesChar, uint32 NumChars)
 	{
 		check(UTFString4BytesChar != NULL || NumChars == 0);
-		static_assert(sizeof(TCHAR) == 4, "Platform TCHAR is not 4 bytes. Revisit this function.");
 
 		for (uint32 Idx = 0; Idx < NumChars; ++Idx)
 		{
@@ -398,7 +397,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 
 	// By default we wont upload unless the *.ini has set this to true
 	bool bAgreedToCrashUpload = false;
-	GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bAgreedToCrashUpload"), bAgreedToCrashUpload, GEngineIni);
+	GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bAgreeToCrashUpload"), bAgreedToCrashUpload, GEngineIni);
 
 	bool bSkipCRC = bUnattended && !bAgreedToCrashUpload;
 

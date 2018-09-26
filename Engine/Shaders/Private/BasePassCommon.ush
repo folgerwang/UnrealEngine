@@ -4,16 +4,17 @@
 	BasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
 =============================================================================*/
 
+// Defining SSProfilesTexture here overrides the default definition in SubsurfaceProfileCommon.ush
 #if MATERIALBLENDING_ANY_TRANSLUCENT
 	#define ForwardLightData TranslucentBasePass.Shared.Forward
 	#define ReflectionStruct TranslucentBasePass.Shared.Reflection
 	#define FogStruct TranslucentBasePass.Shared.Fog
-	#define BasePassSSProfilesTexture TranslucentBasePass.SSProfilesTexture
+	#define ActualSSProfilesTexture TranslucentBasePass.Shared.SSProfilesTexture
 #else
 	#define ForwardLightData OpaqueBasePass.Shared.Forward
 	#define ReflectionStruct OpaqueBasePass.Shared.Reflection
 	#define FogStruct OpaqueBasePass.Shared.Fog
-	#define BasePassSSProfilesTexture OpaqueBasePass.Shared.SSProfilesTexture
+	#define ActualSSProfilesTexture OpaqueBasePass.Shared.SSProfilesTexture
 #endif 
 
 #undef NEEDS_LIGHTMAP_COORDINATE

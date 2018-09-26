@@ -576,7 +576,7 @@ FString FHlslNiagaraTranslator::BuildParameterMapHlslDefinitions(TArray<FNiagara
 			{
 				FString FinalName = StructNameArray[StructNameArray.Num() - 1];
 				StructNameArray.RemoveAt(StructNameArray.Num() - 1);
-				FString StructType = FString::Printf(TEXT("FParamMap%d_%s"), UniqueParamMapIdx, *FString::Join<FString>(StructNameArray, TEXT("_")));
+				FString StructType = FString::Printf(TEXT("FParamMap%d_%s"), UniqueParamMapIdx, *FString::Join(StructNameArray, TEXT("_")));
 				if (StructNameArray.Num() == 0)
 				{
 					StructType = FString::Printf(TEXT("FParamMap%d"), UniqueParamMapIdx);
@@ -586,7 +586,7 @@ FString FHlslNiagaraTranslator::BuildParameterMapHlslDefinitions(TArray<FNiagara
 				FString VarName = GetSanitizedSymbolName(*FinalName);
 				if (NumFound > StructNameArray.Num() + 1 && StructNameArray.Num() != 0)
 				{
-					TypeName = FString::Printf(TEXT("FParamMap%d_%s_%s"), UniqueParamMapIdx, *FString::Join<FString>(StructNameArray, TEXT("_")), *GetSanitizedSymbolName(*FinalName));
+					TypeName = FString::Printf(TEXT("FParamMap%d_%s_%s"), UniqueParamMapIdx, *FString::Join(StructNameArray, TEXT("_")), *GetSanitizedSymbolName(*FinalName));
 				}
 				else if (StructNameArray.Num() == 0)
 				{
@@ -2518,7 +2518,7 @@ FString FHlslNiagaraTranslator::GetSanitizedSymbolName(FString SymbolName, bool 
 	}
 
 	// Gather back into single string..
-	Ret = FString::Join<FString>(SplitName, TEXT("."));
+	Ret = FString::Join(SplitName, TEXT("."));
 
 	/*
 	Ret.ReplaceInline(TEXT("\\"), TEXT("_"));
@@ -4642,7 +4642,7 @@ void FHlslNiagaraTranslator::HandleCustomHlslNode(UNiagaraNodeCustomHlsl* Custom
 
 	// Now reassemble the tokens into the final hlsl output
 	OutSignature.Outputs = SigOutputs;
-	OutCustomHlsl = FString::Join<FString>(Tokens, TEXT(""));
+	OutCustomHlsl = FString::Join(Tokens, TEXT(""));
 
 	// Dynamic inputs are assumed to be of the form 
 	// "20.0f * Particles.Velocity.x + length(Particles.Velocity)", i.e. a mix of native functions, constants, operations, and variable names.

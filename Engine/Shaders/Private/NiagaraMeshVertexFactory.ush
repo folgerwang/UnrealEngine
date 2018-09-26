@@ -352,6 +352,12 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	Result.TangentToWorld = mul(TangentToLocal, (float3x3)Transform );
 
+#if USE_PREVIOUS_TRANSFORM
+	Result.PrevFrameLocalToWorld = GetParticlePrevTransform(Input);
+#else
+	Result.PrevFrameLocalToWorld = GetParticleTransform(Intermediates);
+#endif
+
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	for(int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
 	{
@@ -513,11 +519,11 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float3 ParticleVelocity;
 	if (NiagaraMeshVF.VelocityDataOffset == -1)
 	{
-		ParticleVelocity = float4(0.0f, 0.0f, 0.0f, 1);
+		ParticleVelocity = float3(0.0f, 0.0f, 0.0f);
 	}
 	else
 	{
-		ParticleVelocity = float4(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId), 1);
+		ParticleVelocity = float3(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId));
 	}
 
 #if NUM_DYNAMIC_PARAMETERS > 0
@@ -701,7 +707,7 @@ void CalcTangentToWorld(FVertexFactoryInput Input, FVertexFactoryIntermediates I
 
 	// Normalize to remove scaling. Incorrect but faster than computing the inverse-transpose.
 	TangentToWorld0 = normalize(TangentToWorld[0]);
-	TangentToWorld2 = float4(normalize(TangentToWorld[2]), TangentBias(Input.TangentZ.w) * Primitive.LocalToWorldDeterminantSign);
+	TangentToWorld2 = float4(normalize(TangentToWorld[2]), TangentBias(Input.TangentZ.w) * Primitive.InvNonUniformScaleAndDeterminantSign.w);
 }
 
 FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)

@@ -711,16 +711,14 @@ public class LuminPlatform : Platform
 		NonUFSManifests = null;
 
 		string PackageName = GetPackageName(Params);
-		// Note: appends the device name to make the filename unique; these files will be deleted later during delta manifest generation
-		// Replace colon with underscore for legal filename (colon may be present for wifi connected devices)
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
-		string UFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.UFSDeployedManifestFileName + "_" + SanitizedDeviceName);
-		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.NonUFSDeployedManifestFileName + "_" + SanitizedDeviceName);
+
+		string UFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.GetUFSDeployedManifestFileName(DeviceName));
+		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.GetNonUFSDeployedManifestFileName(DeviceName));
 		string ExeTimestampFileName = CombinePaths(Path.Combine(Params.RawProjectPath.Directory.FullName, "Intermediate", "ExeTimestamp.txt"));
 
 
 		// Try retrieving the UFS files manifest files from the device
-		IProcessResult UFSResult = RunDeviceCommand(Params, DeviceName, " pull -p " + PackageName + " " + PackageWritePath + "/" + SC.UFSDeployedManifestFileName + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		IProcessResult UFSResult = RunDeviceCommand(Params, DeviceName, " pull -p " + PackageName + " " + PackageWritePath + "/" + SC.GetUFSDeployedManifestFileName(null) + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!(UFSResult.Output.Contains("bytes") || UFSResult.Output.Contains("[100%]")))
 		{
 			File.Delete(UFSManifestFileName);
@@ -729,7 +727,7 @@ public class LuminPlatform : Platform
 		}
 
 		// Try retrieving the non UFS files manifest files from the device
-		IProcessResult NonUFSResult = RunDeviceCommand(Params, DeviceName, " pull -p " + PackageName + " " + PackageWritePath + "/" + SC.NonUFSDeployedManifestFileName + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		IProcessResult NonUFSResult = RunDeviceCommand(Params, DeviceName, " pull -p " + PackageName + " " + PackageWritePath + "/" + SC.GetNonUFSDeployedManifestFileName(null) + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!(NonUFSResult.Output.Contains("bytes") || NonUFSResult.Output.Contains("[100%]")))
 		{
 			// Did not retrieve both so delete one we did retrieve

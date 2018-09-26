@@ -25,6 +25,10 @@ bool GDX11NVAfterMathEnabled = false;
 bool GNVAftermathModuleLoaded = false;
 #endif
 
+#if INTEL_METRICSDISCOVERY
+bool GDX11IntelMetricsDiscoveryEnabled = false;
+#endif
+
 extern bool D3D11RHI_ShouldCreateWithD3DDebug();
 extern bool D3D11RHI_ShouldAllowAsyncResourceCreation();
 
@@ -135,6 +139,36 @@ namespace RHIConsoleVariables
 		TEXT("If set to 10, limit D3D RHI to D3D10 feature level. Otherwise, it will use default. Changing this at run-time has no effect. (default is -1)")
 		);
 };
+
+static void FD3D11DumpLiveObjects()
+{
+	if (D3D11RHI_ShouldCreateWithD3DDebug())
+	{
+		FD3D11DynamicRHI* D3DRHI = (FD3D11DynamicRHI*)GDynamicRHI;
+
+		TRefCountPtr<ID3D11Debug> DebugDevice = nullptr;
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->QueryInterface(__uuidof(ID3D11Debug), (void**)DebugDevice.GetInitReference()), D3DRHI->GetDevice());
+		if (DebugDevice)
+		{
+			HRESULT HR = DebugDevice->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY|D3D11_RLDO_DETAIL);
+			if (HR != S_OK)
+			{
+				UE_LOG(LogD3D11RHI, Warning, TEXT("ReportLiveDeviceObjects failed with 0x%x"), HR);
+			}
+		}		
+	}
+	else
+	{
+		UE_LOG(LogD3D11RHI, Warning, TEXT("Must run with -d3ddebug to report live objects"));
+	}
+}
+
+FAutoConsoleCommand FD3DDumpLiveObjectsCommand
+(
+	TEXT("r.d3d11.dumpliveobjects"),
+	TEXT("When using -d3ddebug will dump a list of live d3d objects.  Mostly for finding leaks."),
+	FConsoleCommandDelegate::CreateStatic(&FD3D11DumpLiveObjects)
+);
 
 /** This function is used as a SEH filter to catch only delay load exceptions. */
 static bool IsDelayLoadException(PEXCEPTION_POINTERS ExceptionPointers)
@@ -1024,6 +1058,143 @@ void FD3D11DynamicRHI::StopNVAftermath()
 
 #endif
 
+#if INTEL_METRICSDISCOVERY
+void FD3D11DynamicRHI::CreateIntelMetricsDiscovery()
+{
+	if (IsRHIDeviceIntel())
+	{
+		IntelMetricsDiscoveryHandle = MakeUnique<Intel_MetricsDiscovery_ContextData>();
+
+		MDH_Context::Result Result;
+		Result = IntelMetricsDiscoveryHandle->MDHContext.Initialize();
+
+		if (Result != MDH_Context::Result::RESULT_OK)
+		{
+			UE_LOG(LogD3D11RHI, Log, TEXT("[IntelMetricsDiscovery] Failed to initialize context. Result=%08x"), Result);
+			GDX11IntelMetricsDiscoveryEnabled = false;
+			IntelMetricsDiscoveryHandle = nullptr;
+			return;
+		}
+
+		GDX11IntelMetricsDiscoveryEnabled = true;
+	}
+	else
+	{
+		GDX11IntelMetricsDiscoveryEnabled = false;
+	}
+}
+
+void FD3D11DynamicRHI::StartIntelMetricsDiscovery()
+{
+	bool bShouldStart = GDX11IntelMetricsDiscoveryEnabled
+		&& IntelMetricsDiscoveryHandle;
+
+	if (bShouldStart)
+	{
+		IntelMetricsDiscoveryHandle->MDConcurrentGroup = MDH_FindConcurrentGroup(IntelMetricsDiscoveryHandle->MDHContext.MDDevice, "OA");
+		IntelMetricsDiscoveryHandle->MDMetricSet = MDH_FindMetricSet(IntelMetricsDiscoveryHandle->MDConcurrentGroup, "RenderBasic");
+		auto GPUFreqValue = MDH_FindGlobalSymbol(IntelMetricsDiscoveryHandle->MDHContext.MDDevice, "GpuTimestampFrequency");
+		IntelMetricsDiscoveryHandle->GPUTimeIndex = MDH_FindMetric(IntelMetricsDiscoveryHandle->MDMetricSet, "GpuTime");
+
+		if (IntelMetricsDiscoveryHandle->GPUTimeIndex == UINT32_MAX ||
+			GPUFreqValue.ValueType == MetricsDiscovery::VALUE_TYPE_LAST)
+		{
+			UE_LOG(LogD3D11RHI, Log, TEXT("[IntelMetricsDiscovery] Failed to initialize metrics set"));
+			IntelMetricsDiscoveryHandle->MDHContext.Finalize();
+			GDX11IntelMetricsDiscoveryEnabled = false;
+			return;
+		}
+
+		if(!IntelMetricsDiscoveryHandle->MDHRangeMetrics.Initialize(IntelMetricsDiscoveryHandle->MDHContext.MDDevice,
+			IntelMetricsDiscoveryHandle->MDConcurrentGroup, IntelMetricsDiscoveryHandle->MDMetricSet, GetDevice(), 2))
+		{
+			UE_LOG(LogD3D11RHI, Log, TEXT("[IntelMetricsDiscovery] Failed to initialize range metrics"));
+			IntelMetricsDiscoveryHandle->MDHContext.Finalize();
+			GDX11IntelMetricsDiscoveryEnabled = false;
+			IntelMetricsDiscoveryHandle = nullptr;
+			return;
+		}
+
+		IntelMetricsDiscoveryHandle->bFrameBegun = false;
+
+		UE_LOG(LogD3D11RHI, Log, TEXT("[IntelMetricsDiscovery] Started"));
+	}
+}
+
+void FD3D11DynamicRHI::StopIntelMetricsDiscovery()
+{
+	bool bShouldStop = GDX11IntelMetricsDiscoveryEnabled
+		&& IntelMetricsDiscoveryHandle;
+
+	if (bShouldStop)
+	{
+		IntelMetricsDiscoveryHandle->MDHRangeMetrics.Finalize();
+		IntelMetricsDiscoveryHandle->MDHContext.Finalize();
+
+		UE_LOG(LogD3D11RHI, Log, TEXT("[IntelMetricsDiscovery] Stopped"));
+		GDX11IntelMetricsDiscoveryEnabled = false;
+		IntelMetricsDiscoveryHandle = nullptr;
+	}
+}
+
+void FD3D11DynamicRHI::IntelMetricsDicoveryBeginFrame()
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_IntelMetricsDiscovery_BeginFrame);
+
+	bool bShouldBeginFrame = GDX11IntelMetricsDiscoveryEnabled
+		&& IntelMetricsDiscoveryHandle && !IntelMetricsDiscoveryHandle->bFrameBegun;
+
+	if (bShouldBeginFrame)
+	{
+		IntelMetricsDiscoveryHandle->ReportInUse = IntelMetricsDiscoveryHandle->ReportInUse == 1 ? 0 : 1;
+		IntelMetricsDiscoveryHandle->bFrameBegun = true;
+		IntelMetricsDiscoveryHandle->MDHRangeMetrics.BeginRange(GetDeviceContext(), IntelMetricsDiscoveryHandle->ReportInUse);
+	}
+}
+
+void FD3D11DynamicRHI::IntelMetricsDicoveryEndFrame()
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_IntelMetricsDiscovery_EndFrame);
+
+	bool bShouldEndFrame = GDX11IntelMetricsDiscoveryEnabled
+		&& IntelMetricsDiscoveryHandle && IntelMetricsDiscoveryHandle->bFrameBegun;
+
+	if (bShouldEndFrame)
+	{
+		IntelMetricsDiscoveryHandle->MDHRangeMetrics.EndRange(GetDeviceContext(), IntelMetricsDiscoveryHandle->ReportInUse);
+		IntelMetricsDiscoveryHandle->bFrameBegun = false;
+
+		static bool bFirstFrame = true;
+
+		if (!bFirstFrame)
+		{
+			uint32 ReportToGather = IntelMetricsDiscoveryHandle->ReportInUse == 1 ? 0 : 1;
+
+			IntelMetricsDiscoveryHandle->MDHRangeMetrics.GetRangeReports(GetDeviceContext(), ReportToGather, 1);
+			IntelMetricsDiscoveryHandle->MDHRangeMetrics.ExecuteRangeEquations(GetDeviceContext(), ReportToGather, 1);
+
+			auto GPUTime = IntelMetricsDiscoveryHandle->MDHRangeMetrics.ReportValues.GetValue(ReportToGather, IntelMetricsDiscoveryHandle->GPUTimeIndex).ValueUInt64;
+
+			uint64 CyclesPerMs = 0.001 / FPlatformTime::GetSecondsPerCycle();
+			uint64 GPUTimeMs = GPUTime / (1000 * 1000);
+			uint64 GPUCycles = GPUTimeMs * CyclesPerMs;
+
+			IntelMetricsDiscoveryHandle->LastGPUTime = GPUCycles;
+		}
+
+		if (bFirstFrame)
+		{
+			bFirstFrame = false;
+		}
+	}
+}
+
+double FD3D11DynamicRHI::IntelMetricsDicoveryGetGPUTime()
+{
+	return IntelMetricsDiscoveryHandle->LastGPUTime;
+}
+#endif // INTEL_METRICSDISCOVERY
+
 void FD3D11DynamicRHI::InitD3DDevice()
 {
 	check( IsInGameThread() );
@@ -1279,6 +1450,14 @@ void FD3D11DynamicRHI::InitD3DDevice()
 				GRHIDeviceIsAMDPreGCNArchitecture = false;				
 			}
 		}
+
+#if INTEL_METRICSDISCOVERY
+		if (IsRHIDeviceIntel())
+		{
+			// Needs to be done before device creation
+			CreateIntelMetricsDiscovery();
+		}
+#endif
 		
 		if (!bDeviceCreated)
 		{
@@ -1377,6 +1556,19 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			UE_LOG(LogD3D11RHI, Log, TEXT("r.DX11NumForcedGPUs forcing GNumAlternateFrameRenderingGroups to: %i "), GDX11ForcedGPUs);
 		}
 #endif // WITH_SLI
+
+#if INTEL_METRICSDISCOVERY
+		if (IsRHIDeviceIntel())
+		{
+			StartIntelMetricsDiscovery();
+
+			if (GDX11IntelMetricsDiscoveryEnabled)
+			{
+				GRHISupportsDynamicResolution = true;
+				GRHISupportsFrameCyclesBubblesRemoval = true;
+			}
+		}
+#endif // INTEL_METRICSDISCOVERY
 
 		SetupAfterDeviceCreation();
 

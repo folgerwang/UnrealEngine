@@ -209,7 +209,9 @@ void StatelessConnectHandlerComponent::NotifyHandshakeBegin()
 			{
 				if (ServerConn->Driver->IsNetResourceValid())
 				{
-					ServerConn->LowLevelSend(InitialPacket.GetData(), InitialPacket.GetNumBytes(), InitialPacket.GetNumBits());
+					FOutPacketTraits Traits;
+
+					ServerConn->LowLevelSend(InitialPacket.GetData(), InitialPacket.GetNumBits(), Traits);
 				}
 			}
 
@@ -224,7 +226,7 @@ void StatelessConnectHandlerComponent::NotifyHandshakeBegin()
 	}
 }
 
-void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddress)
+void StatelessConnectHandlerComponent::SendConnectChallenge(const FString& ClientAddress)
 {
 	if (Driver != nullptr)
 	{
@@ -242,7 +244,10 @@ void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddres
 		ChallengePacket.Serialize(Cookie, ARRAY_COUNT(Cookie));
 
 #if !UE_BUILD_SHIPPING
-		UE_LOG( LogHandshake, Log, TEXT( "SendConnectChallenge. Timestamp: %f, Cookie: %s" ), Timestamp, *FString::FromBlob( Cookie, ARRAY_COUNT( Cookie ) ) );
+		FDDoSDetection* DDoS = Handler->GetDDoS();
+
+		UE_CLOG((DDoS == nullptr || !DDoS->CheckLogRestrictions()), LogHandshake, Log,
+				TEXT("SendConnectChallenge. Timestamp: %f, Cookie: %s" ), Timestamp, *FString::FromBlob(Cookie, ARRAY_COUNT(Cookie)));
 #endif
 
 		CapHandshakePacket(ChallengePacket);
@@ -269,7 +274,9 @@ void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddres
 		{
 			if (Driver->IsNetResourceValid())
 			{
-				Driver->LowLevelSend(ClientAddress, ChallengePacket.GetData(), ChallengePacket.GetNumBits());
+				FOutPacketTraits Traits;
+
+				Driver->LowLevelSend(ClientAddress, ChallengePacket.GetData(), ChallengePacket.GetNumBits(), Traits);
 			}
 		}
 
@@ -325,12 +332,13 @@ void StatelessConnectHandlerComponent::SendChallengeResponse(uint8 InSecretId, f
 		{
 			if (ServerConn->Driver->IsNetResourceValid())
 			{
-				ServerConn->LowLevelSend(ResponsePacket.GetData(), ResponsePacket.GetNumBytes(), ResponsePacket.GetNumBits());
+				FOutPacketTraits Traits;
+
+				ServerConn->LowLevelSend(ResponsePacket.GetData(), ResponsePacket.GetNumBits(), Traits);
 			}
 		}
 
 		Handler->SetRawSend(false);
-
 
 		int16* CurSequence = (int16*)InCookie;
 
@@ -348,7 +356,7 @@ void StatelessConnectHandlerComponent::SendChallengeResponse(uint8 InSecretId, f
 	}
 }
 
-void StatelessConnectHandlerComponent::SendChallengeAck(FString ClientAddress, uint8 InCookie[COOKIE_BYTE_SIZE])
+void StatelessConnectHandlerComponent::SendChallengeAck(const FString& ClientAddress, uint8 InCookie[COOKIE_BYTE_SIZE])
 {
 	if (Driver != nullptr)
 	{
@@ -390,7 +398,9 @@ void StatelessConnectHandlerComponent::SendChallengeAck(FString ClientAddress, u
 		{
 			if (Driver->IsNetResourceValid())
 			{
-				Driver->LowLevelSend(ClientAddress, AckPacket.GetData(), AckPacket.GetNumBits());
+				FOutPacketTraits Traits;
+
+				Driver->LowLevelSend(ClientAddress, AckPacket.GetData(), AckPacket.GetNumBits(), Traits);
 			}
 		}
 
@@ -473,7 +483,7 @@ void StatelessConnectHandlerComponent::Incoming(FBitReader& Packet)
 		{
 			if (Handler->Mode == Handler::Mode::Client)
 			{
-				if (State == Handler::Component::State::UnInitialized || State == Handler::Component::InitializedOnLocal)
+				if (State == Handler::Component::State::UnInitialized || State == Handler::Component::State::InitializedOnLocal)
 				{
 					// Receiving challenge, verify the timestamp is > 0.0f
 					if (Timestamp > 0.0f)
@@ -483,7 +493,7 @@ void StatelessConnectHandlerComponent::Incoming(FBitReader& Packet)
 						SendChallengeResponse(SecretId, Timestamp, Cookie);
 
 						// Utilize this state as an intermediary, indicating that the challenge response has been sent
-						SetState(Handler::Component::InitializedOnLocal);
+						SetState(Handler::Component::State::InitializedOnLocal);
 					}
 					// Receiving challenge ack, verify the timestamp is < 0.0f
 					else if (Timestamp < 0.0f)
@@ -502,7 +512,7 @@ void StatelessConnectHandlerComponent::Incoming(FBitReader& Packet)
 						}
 
 						// Now finish initializing the handler - flushing the queued packet buffer in the process.
-						SetState(Handler::Component::Initialized);
+						SetState(Handler::Component::State::Initialized);
 						Initialized();
 					}
 				}
@@ -539,20 +549,19 @@ void StatelessConnectHandlerComponent::Incoming(FBitReader& Packet)
 #endif
 }
 
-void StatelessConnectHandlerComponent::Outgoing(FBitWriter& Packet)
+void StatelessConnectHandlerComponent::Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 	// All UNetConnection packets must specify a zero bHandshakePacket value
-	FBitWriter NewPacket(Packet.GetNumBits()+1);
+	FBitWriter NewPacket(Packet.GetNumBits()+1, true);
 	uint8 bHandshakePacket = 0;
 
 	NewPacket.WriteBit(bHandshakePacket);
 	NewPacket.SerializeBits(Packet.GetData(), Packet.GetNumBits());
 
-	Packet.Reset();
-	Packet.SerializeBits(NewPacket.GetData(), NewPacket.GetNumBits());
+	Packet = MoveTemp(NewPacket);
 }
 
-void StatelessConnectHandlerComponent::IncomingConnectionless(FString Address, FBitReader& Packet)
+void StatelessConnectHandlerComponent::IncomingConnectionless(const FString& Address, FBitReader& Packet)
 {
 	bool bHandshakePacket = !!Packet.ReadBit() && !Packet.IsError();
 
@@ -619,8 +628,16 @@ void StatelessConnectHandlerComponent::IncomingConnectionless(FString Address, F
 		{
 			Packet.SetError();
 
+			FDDoSDetection* DDoS = Handler->GetDDoS();
+
+			if (DDoS != nullptr)
+			{
+				DDoS->IncBadPacketCounter();
+			}
+
 #if !UE_BUILD_SHIPPING
-			UE_LOG(LogHandshake, Log, TEXT("IncomingConnectionless: Error reading handshake packet."));
+			UE_CLOG(DDoS == nullptr || !DDoS->CheckLogRestrictions(), LogHandshake, Log,
+					TEXT("IncomingConnectionless: Error reading handshake packet."));
 #endif
 		}
 	}
@@ -699,7 +716,7 @@ void StatelessConnectHandlerComponent::UpdateSecret()
 	}
 }
 
-int32 StatelessConnectHandlerComponent::GetReservedPacketBits()
+int32 StatelessConnectHandlerComponent::GetReservedPacketBits() const
 {
 	int32 ReturnVal = 1;
 
@@ -724,7 +741,7 @@ void StatelessConnectHandlerComponent::Tick(float DeltaTime)
 
 				if (bRestartChallenge)
 				{
-					SetState(Handler::Component::UnInitialized);
+					SetState(Handler::Component::State::UnInitialized);
 				}
 
 				if (State == Handler::Component::State::UnInitialized)
@@ -733,7 +750,7 @@ void StatelessConnectHandlerComponent::Tick(float DeltaTime)
 
 					NotifyHandshakeBegin();
 				}
-				else if (State == Handler::Component::InitializedOnLocal && LastTimestamp != 0.f)
+				else if (State == Handler::Component::State::InitializedOnLocal && LastTimestamp != 0.f)
 				{
 					UE_LOG(LogHandshake, Verbose, TEXT("Challenge response packet timeout - resending."));
 

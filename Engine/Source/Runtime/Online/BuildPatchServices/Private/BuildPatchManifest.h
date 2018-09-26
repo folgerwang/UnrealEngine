@@ -10,6 +10,7 @@
 #include "Misc/Guid.h"
 #include "Interfaces/IBuildManifest.h"
 #include "Data/ChunkData.h"
+#include "Data/ManifestData.h"
 
 class FBuildPatchAppManifest;
 class FBuildPatchCustomField;
@@ -18,188 +19,6 @@ typedef TSharedPtr< class FBuildPatchCustomField, ESPMode::ThreadSafe > FBuildPa
 typedef TSharedRef< class FBuildPatchCustomField, ESPMode::ThreadSafe > FBuildPatchCustomFieldRef;
 typedef TSharedPtr< class FBuildPatchAppManifest, ESPMode::ThreadSafe > FBuildPatchAppManifestPtr;
 typedef TSharedRef< class FBuildPatchAppManifest, ESPMode::ThreadSafe > FBuildPatchAppManifestRef;
-
-/**
- * An enum type to describe supported features of a certain manifest
- */
-namespace EBuildPatchAppManifestVersion
-{
-	enum Type
-	{
-		// The original version
-		Original = 0,
-		// Support for custom fields
-		CustomFields,
-		// Started storing the version number
-		StartStoringVersion,
-		// Made after data files where renamed to include the hash value, these chunks now go to ChunksV2
-		DataFileRenames,
-		// Manifest stores whether build was constructed with chunk or file data
-		StoresIfChunkOrFileData,
-		// Manifest stores group number for each chunk/file data for reference so that external readers don't need to know how to calculate them
-		StoresDataGroupNumbers,
-		// Added support for chunk compression, these chunks now go to ChunkV3. NB: Not File Data Compression yet
-		ChunkCompressionSupport,
-		// Manifest stores product prerequisites info
-		StoresPrerequisitesInfo,
-		// Manifest stores chunk download sizes
-		StoresChunkFileSizes,
-		// Manifest can optionally be stored using UObject serialization and compressed
-		StoredAsCompressedUClass,
-		// These two features were removed and never used
-		UNUSED_0,
-		UNUSED_1,
-		// Manifest stores chunk data SHA1 hash to use in place of data compare, for faster generation
-		StoresChunkDataShaHashes,
-		// Manifest stores Prerequisite Ids
-		StoresPrerequisiteIds,
-
-
-		// Always after the latest version, signifies the latest version plus 1 to allow initialization simplicity
-		LatestPlusOne,
-		Latest = (LatestPlusOne - 1),
-		// This is for UObject default, so that we always serialize it
-		Invalid = -1
-	};
-}
-
-namespace EBuildPatchAppManifestVersion
-{
-	/** @return The last known manifest feature of this code base. Handy for manifest constructor */
-	Type GetLatestVersion();
-
-	/** @return The latest version of a manifest supported by JSON serialization method */
-	Type GetLatestJsonVersion();
-
-	/** @return The latest version of a manifest supported by file data (nochunks) */
-	Type GetLatestFileDataVersion();
-
-	/** @return The latest version of a manifest supported by chunk data */
-	Type GetLatestChunkDataVersion();
-
-	/**
-	 * Get the chunk subdirectory for used for a specific manifest version, e.g. Chunks, ChunksV2 etc
-	 * @param ManifestVersion     The version of the manifest
-	 * @return The subdirectory name that this manifest version will access
-	 */
-	const FString& GetChunkSubdir(const Type ManifestVersion);
-
-	/**
-	 * Get the file data subdirectory for used for a specific manifest version, e.g. Files, FilesV2 etc
-	 * @param ManifestVersion     The version of the manifest
-	 * @return The subdirectory name that this manifest version will access
-	 */
-	const FString& GetFileSubdir(const Type ManifestVersion);
-};
-
-
-/**
- * An enum type to describe the format that manifest data is stored
- */
-namespace EManifestFileHeader
-{
-	enum Type
-	{
-		// Storage flags, can be raw or a combination of others.
-
-		/** Zero means raw data. */
-		STORED_RAW = 0x0,
-		/** Flag for compressed. */
-		STORED_COMPRESSED = 0x1,
-	};
-}
-
-/**
- * A data structure describing a chunk file
- */
-struct FChunkInfo
-{
-public:
-	FChunkInfo();
-
-public:
-	FGuid Guid;
-
-	uint64 Hash;
-
-	FSHAHash ShaHash;
-
-	int64 FileSize;
-
-	uint8 GroupNumber;
-};
-
-/**
- * A data structure describing the part of a chunk used to construct a file
- */
-struct FChunkPart
-{
-public:
-	FChunkPart();
-
-public:
-	// The GUID of the chunk containing this part
-	FGuid Guid;
-
-	// The offset of the first byte into the chunk
-	uint32 Offset;
-
-	// The size of this part
-	uint32 Size;
-};
-
-/**
- * A data structure that describes a file's construction information
- */
-struct FFileManifest
-{
-public:
-	FFileManifest();
-
-	void Init();
-	int64 GetFileSize() const;
-	bool operator<(const FFileManifest& Other) const;
-
-public:
-	FString Filename;
-
-	FSHAHash FileHash;
-
-	TArray<FChunkPart> FileChunkParts;
-
-	TArray<FString> InstallTags;
-
-	bool bIsUnixExecutable;
-
-	FString SymlinkTarget;
-
-	bool bIsReadOnly;
-
-	bool bIsCompressed;
-
-private:
-	int64 FileSize;
-};
-
-/**
- * The manifest file header wraps the manifest data stored in a file on disc to describe how to read it
- */
-struct FManifestFileHeader
-{
-public:
-	FManifestFileHeader();
-
-	bool CheckMagic() const;
-	friend FArchive& operator<<(FArchive& Ar, FManifestFileHeader& Header);
-
-public:
-	uint32 Magic;
-	uint32 HeaderSize;
-	uint32 DataSize;
-	uint32 CompressedSize;
-	FSHAHash SHAHash;
-	uint8 StoredAs;
-};
 
 /**
  * Declare the FBuildPatchCustomField object class, which is the implementation of the object we return to
@@ -231,35 +50,12 @@ private:
 	FString CustomValue;
 };
 
-/**
- * Declares a struct to store the info about a piece of a chunk that is inside a file
- */
-struct FFileChunkPart
-{
-public:
-	/**
-	 * Default Constructor
-	 */
-	FFileChunkPart()
-		: Filename()
-		, FileOffset(0)
-		, ChunkPart()
-	{}
-
-public:
-	// The file containing this piece
-	FString Filename;
-	// The offset into the file of this piece
-	uint64 FileOffset;
-	// The FChunkPart that can be salvaged from this file
-	FChunkPart ChunkPart;
-};
-
 // Required to allow private access to manifest builder for now..
 namespace BuildPatchServices
 {
 	class FBuildPatchInstaller;
 	class FManifestBuilder;
+	class FManifestData;
 }
 
 /**
@@ -276,8 +72,8 @@ class FBuildPatchAppManifest
 	friend class FBuildMergeManifests;
 	friend class FBuildDiffManifests;
 	friend class FManifestUObject;
+	friend class BuildPatchServices::FManifestData;
 public:
-	typedef TPair<FString, FString> FCustomField;
 
 	/**
 	 * Default constructor
@@ -352,12 +148,13 @@ public:
 	virtual bool DeserializeFromJSON(const FString& JSONInput);
 
 	/**
-	 * Saves out the manifest information
-	 * @param Filename		The file to save to
-	 * @param bUseBinary	Whether to save out in the new UObject binary format
-	 * @return		True if successful.
+	 * Saves out the manifest information.
+	 * @param Filename      The file to save to.
+	 * @param SaveFormat    The feature level that the intended client has support for, which the manifest will need saving as.
+	 *                      A manifest file cannot be downgraded, the function will fail if the provided value is less than GetFeatureLevel().
+	 * @return True if successful.
 	 */
-	virtual bool SaveToFile(const FString& Filename, bool bUseBinary);
+	virtual bool SaveToFile(const FString& Filename, BuildPatchServices::EFeatureLevel SaveFormat = BuildPatchServices::EFeatureLevel::Latest);
 
 	/**
 	 * Creates the object in JSON format
@@ -366,10 +163,10 @@ public:
 	virtual void SerializeToJSON(FString& JSONOutput);
 
 	/**
-	 * Gets the version for this manifest. Useful for manifests that were loaded from JSON.
+	 * Gets the feature level for this manifest.
 	 * @return		The highest available feature support
 	 */
-	virtual EBuildPatchAppManifestVersion::Type GetManifestVersion() const;
+	virtual BuildPatchServices::EFeatureLevel GetFeatureLevel() const;
 
 	/**
 	 * Provides the set of chunks required to produce the given files.
@@ -450,7 +247,7 @@ public:
 	 * @param Filename	The filename.
 	 * @return	The file manifest, or invalid ptr
 	 */
-	virtual const FFileManifest* GetFileManifest(const FString& Filename) const;
+	virtual const BuildPatchServices::FFileManifest* GetFileManifest(const FString& Filename) const;
 
 	/**
 	 * Gets whether this manifest is made up of file data instead of chunk data
@@ -527,7 +324,7 @@ public:
 	 * @param ChunkId       The guid for the desired chunk.
 	 * @return The array of file parts that can produce this chunk. Array is empty if the chunk cannot be produced.
 	 */
-	virtual TArray<FFileChunkPart> GetFilePartsForChunk(const FGuid& ChunkId) const;
+	virtual TArray<BuildPatchServices::FFileChunkPart> GetFilePartsForChunk(const FGuid& ChunkId) const;
 
 	/** @return True if any files in this manifest have file attributes to be set */
 	virtual bool HasFileAttributes() const;
@@ -545,30 +342,19 @@ private:
 
 private:
 	/** Holds the actual manifest data. Some other variables point to the memory held by these objects */
-	uint8 ManifestFileVersion;
-	bool bIsFileData;
-	uint32 AppID;
-	FString AppName;
-	FString BuildVersion;
-	FString LaunchExe;
-	FString LaunchCommand;
-	TSet<FString> PrereqIds;
-	FString PrereqName;
-	FString PrereqPath;
-	FString PrereqArgs;
-	TArray<FFileManifest> FileManifestList;
-	TArray<FChunkInfo> ChunkList;
-	TArray<FCustomField> CustomFields;
+	BuildPatchServices::FManifestMeta ManifestMeta;
+	BuildPatchServices::FChunkDataList ChunkDataList;
+	BuildPatchServices::FFileManifestList FileManifestList;
+	BuildPatchServices::FCustomFields CustomFields;
 
 	/** Holds the handle to our PreExit delegate */
 	FDelegateHandle OnPreExitHandle;
 
 	/** Some lookups to optimize data access */
-	TMap<FGuid, FString*> FileNameLookup;
-	TMap<FString, FFileManifest*> FileManifestLookup;
-	TMap<FString, TArray<FFileManifest*>> TaggedFilesLookup;
-	TMap<FGuid, FChunkInfo*> ChunkInfoLookup;
-	TMap<FString, FCustomField*> CustomFieldLookup;
+	TMap<FGuid, const FString*> FileNameLookup;
+	TMap<FString, const BuildPatchServices::FFileManifest*> FileManifestLookup;
+	TMap<FString, TArray<const BuildPatchServices::FFileManifest*>> TaggedFilesLookup;
+	TMap<FGuid, const BuildPatchServices::FChunkInfo*> ChunkInfoLookup;
 
 	/** Holds the total build size in bytes */
 	int64 TotalBuildSize;

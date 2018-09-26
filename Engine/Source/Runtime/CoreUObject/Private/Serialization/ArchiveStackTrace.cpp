@@ -300,7 +300,10 @@ void FArchiveStackTrace::Serialize(void* InData, int64 Num)
 					{
 						FCStringAnsi::Strcat(StackTrace, StackTraceSize, TCHAR_TO_ANSI(*SubIndent));
 					}
-					FCStringAnsi::Strcat(StackTrace, StackTraceSize, DebugData.GetPlainANSIString());
+
+					ANSICHAR DebugName[NAME_SIZE];
+					DebugData.GetPlainANSIString(DebugName);
+					FCStringAnsi::Strcat(StackTrace, StackTraceSize, DebugName);
 
 					//these are special-cased, as we assume they'll be followed by object/property names and want the names on the same line for readability's sake.
 					const bool bIsPropertyLabel = (DebugData == TEXT("SerializeScriptProperties") || DebugData == TEXT("PropertySerialize") || DebugData == TEXT("SerializeTaggedProperty"));
@@ -931,41 +934,62 @@ FLinkerLoad* FArchiveStackTrace::CreateLinkerForPackage(const FString& InPackage
 	return Linker;
 }
 
-bool ComparePackageIndices(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FPackageIndex& SourceIndex, const FPackageIndex& DestIndex, bool bMoveOnly);
-
-template <typename T>
-bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const T& SourceItem, const T& DestItem, bool bMoveOnly)
+static FString GetTableKey(const FLinkerLoad* Linker, const FObjectExport& Export)
 {
-	check(false);
-	return false;
+	FName ClassName = Export.ClassIndex.IsNull() ? FName(NAME_Class) : Linker->ImpExp(Export.ClassIndex).ObjectName;
+	return FString::Printf(TEXT("%s %s.%s"),
+		*ClassName.ToString(),
+		!Export.OuterIndex.IsNull() ? *Linker->ImpExp(Export.OuterIndex).ObjectName.ToString() : *FPackageName::GetShortName(Linker->LinkerRoot),
+		*Export.ObjectName.ToString());
 }
 
-template <typename T>
-FString ConvertItemToText(const T& Item, FLinkerLoad* Linker)
+static FString GetTableKey(const FLinkerLoad* Linker, const FObjectImport& Import)
 {
-	check(false);
-	return TEXT("");
+	return FString::Printf(TEXT("%s %s.%s"),
+		*Import.ClassName.ToString(),
+		!Import.OuterIndex.IsNull() ? *Linker->ImpExp(Import.OuterIndex).ObjectName.ToString() : TEXT("NULL"),
+		*Import.ObjectName.ToString());
 }
 
-template<>
-bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FName& SourceName, const FName& DestName, bool bMoveOnly)
+static inline FString GetTableKey(const FLinkerLoad* Linker, const FName& Name)
+{
+	return *Name.ToString();
+}
+
+static inline FString GetTableKeyForIndex(const FLinkerLoad* Linker, FPackageIndex Index)
+{
+	if (Index.IsNull())
+	{
+		return TEXT("NULL");
+	}
+	else if (Index.IsExport())
+	{
+		return GetTableKey(Linker, Linker->Exp(Index));
+	}
+	else
+	{
+		return GetTableKey(Linker, Linker->Imp(Index));
+	}
+}
+
+bool ComparePackageIndices(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FPackageIndex& SourceIndex, const FPackageIndex& DestIndex);
+
+bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FName& SourceName, const FName& DestName)
 {
 	return SourceName == DestName;
 }
 
-template<>
 FString ConvertItemToText(const FName& Name, FLinkerLoad* Linker)
 {
 	return Name.ToString();
 }
 
-template<>
-bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FObjectImport& SourceImport, const FObjectImport& DestImport, bool bMoveOnly)
+bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FObjectImport& SourceImport, const FObjectImport& DestImport)
 {
 	if (SourceImport.ObjectName != DestImport.ObjectName ||
 		SourceImport.ClassName != DestImport.ClassName ||
 		SourceImport.ClassPackage != DestImport.ClassPackage ||
-		!ComparePackageIndices(SourceLinker, DestLinker, SourceImport.OuterIndex, DestImport.OuterIndex, bMoveOnly))
+		!ComparePackageIndices(SourceLinker, DestLinker, SourceImport.OuterIndex, DestImport.OuterIndex))
 	{
 		return false;
 	}
@@ -975,9 +999,38 @@ bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const 
 	}
 }
 
-static uint32 GetTypeHash(const FObjectImport& Import)
+FString ConvertItemToText(const FObjectImport& Import, FLinkerLoad* Linker)
 {
-	return HashCombine(GetTypeHash(Import.ObjectName), HashCombine(GetTypeHash(Import.OuterIndex), GetTypeHash(Import.ClassName)));
+	return FString::Printf(
+		TEXT("%s ClassPackage: %s"),
+		*GetTableKey(Linker, Import),
+		*Import.ClassPackage.ToString()
+	);
+}
+
+bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FObjectExport& SourceExport, const FObjectExport& DestExport)
+{
+	if (SourceExport.ObjectName != DestExport.ObjectName ||
+		SourceExport.PackageGuid != DestExport.PackageGuid ||
+		SourceExport.PackageFlags != DestExport.PackageFlags ||
+		SourceExport.ObjectFlags != DestExport.ObjectFlags ||
+		SourceExport.SerialSize != DestExport.SerialSize ||
+		SourceExport.bForcedExport != DestExport.bForcedExport ||
+		SourceExport.bNotForClient != DestExport.bNotForClient ||
+		SourceExport.bNotForServer != DestExport.bNotForServer ||
+		SourceExport.bNotAlwaysLoadedForEditorGame != DestExport.bNotAlwaysLoadedForEditorGame ||
+		SourceExport.bIsAsset != DestExport.bIsAsset ||
+		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.TemplateIndex, DestExport.TemplateIndex) ||
+		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.OuterIndex, DestExport.OuterIndex) ||
+		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.ClassIndex, DestExport.ClassIndex) ||
+		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.SuperIndex, DestExport.SuperIndex))
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
 }
 
 static bool IsImportMapIdentical(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker)
@@ -987,7 +1040,7 @@ static bool IsImportMapIdentical(FLinkerLoad* SourceLinker, FLinkerLoad* DestLin
 	{
 		for (int32 ImportIndex = 0; ImportIndex < SourceLinker->ImportMap.Num(); ++ImportIndex)
 		{
-			if (!CompareTableItem<FObjectImport>(SourceLinker, DestLinker, SourceLinker->ImportMap[ImportIndex], DestLinker->ImportMap[ImportIndex], false))
+			if (!CompareTableItem(SourceLinker, DestLinker, SourceLinker->ImportMap[ImportIndex], DestLinker->ImportMap[ImportIndex]))
 			{
 				bIdentical = false;
 				break;
@@ -997,48 +1050,7 @@ static bool IsImportMapIdentical(FLinkerLoad* SourceLinker, FLinkerLoad* DestLin
 	return bIdentical;
 }
 
-template <>
-FString ConvertItemToText(const FObjectImport& Import, FLinkerLoad* Linker)
-{
-	return FString::Printf(TEXT("%s %s.%s"),
-		*Import.ClassName.ToString(),
-		!Import.OuterIndex.IsNull() ? *Linker->ImpExp(Import.OuterIndex).ObjectName.ToString() : TEXT("NULL"),
-		*Import.ObjectName.ToString());
-}
-
-template <>
-bool CompareTableItem(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FObjectExport& SourceExport, const FObjectExport& DestExport, bool bMoveOnly)
-{
-	if (SourceExport.ObjectName != DestExport.ObjectName ||
-		SourceExport.TemplateIndex != DestExport.TemplateIndex ||
-		SourceExport.PackageGuid != DestExport.PackageGuid ||
-		SourceExport.PackageFlags != DestExport.PackageFlags ||
-		SourceExport.ObjectFlags != DestExport.ObjectFlags ||
-		SourceExport.SerialSize != DestExport.SerialSize ||
-		(!bMoveOnly && SourceExport.SerialOffset != DestExport.SerialOffset) || // Offset will be different when two otherwise identical exports are re-arranged
-		SourceExport.bForcedExport != DestExport.bForcedExport ||
-		SourceExport.bNotForClient != DestExport.bNotForClient ||
-		SourceExport.bNotForServer != DestExport.bNotForServer ||
-		SourceExport.bNotAlwaysLoadedForEditorGame != DestExport.bNotAlwaysLoadedForEditorGame ||
-		SourceExport.bIsAsset != DestExport.bIsAsset ||
-		SourceExport.FirstExportDependency != DestExport.FirstExportDependency ||
-		SourceExport.SerializationBeforeSerializationDependencies != DestExport.SerializationBeforeSerializationDependencies ||
-		SourceExport.CreateBeforeSerializationDependencies != DestExport.CreateBeforeSerializationDependencies ||
-		SourceExport.SerializationBeforeCreateDependencies != DestExport.SerializationBeforeCreateDependencies ||
-		SourceExport.CreateBeforeCreateDependencies != DestExport.CreateBeforeCreateDependencies ||
-		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.OuterIndex, DestExport.OuterIndex, bMoveOnly) ||
-		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.ClassIndex, DestExport.ClassIndex, bMoveOnly) ||
-		!ComparePackageIndices(SourceLinker, DestLinker, SourceExport.SuperIndex, DestExport.SuperIndex, bMoveOnly))
-	{
-		return false;
-	}
-	else
-	{
-		return true;
-	}
-}
-
-bool ComparePackageIndices(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FPackageIndex& SourceIndex, const FPackageIndex& DestIndex, bool bMoveOnly)
+bool ComparePackageIndices(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, const FPackageIndex& SourceIndex, const FPackageIndex& DestIndex)
 {
 	if (SourceIndex.IsNull() && DestIndex.IsNull())
 	{
@@ -1059,7 +1071,10 @@ bool ComparePackageIndices(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, c
 		const FObjectExport& SourceOuterExport = SourceLinker->Exp(SourceIndex);
 		const FObjectExport& DestOuterExport   = DestLinker  ->Exp(DestIndex);
 
-		return CompareTableItem(SourceLinker, DestLinker, SourceOuterExport, DestOuterExport, bMoveOnly);
+		FString SourceOuterExportKey = GetTableKey(SourceLinker, SourceOuterExport);
+		FString DestOuterExportKey   = GetTableKey(DestLinker,   DestOuterExport);
+
+		return SourceOuterExportKey == DestOuterExportKey;
 	}
 
 	if (SourceIndex.IsImport() && DestIndex.IsImport())
@@ -1069,39 +1084,39 @@ bool ComparePackageIndices(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker, c
 
 		if (!SourceLinker->ImportMap.IsValidIndex(SourceArrayIndex) || !DestLinker->ImportMap.IsValidIndex(DestArrayIndex))
 		{
-			UE_LOG(LogArchiveDiff, Warning, TEXT("Invalid import indices found, source: %d (of %d), dest: %d (of %d)"), SourceArrayIndex, SourceLinker->ExportMap.Num(), DestArrayIndex, DestLinker->ExportMap.Num());
+			UE_LOG(LogArchiveDiff, Warning, TEXT("Invalid import indices found, source: %d (of %d), dest: %d (of %d)"), SourceArrayIndex, SourceLinker->ImportMap.Num(), DestArrayIndex, DestLinker->ImportMap.Num());
 			return false;
 		}
 
 		const FObjectImport& SourceOuterImport = SourceLinker->Imp(SourceIndex);
 		const FObjectImport& DestOuterImport   = DestLinker  ->Imp(DestIndex);
 
-		return CompareTableItem(SourceLinker, DestLinker, SourceOuterImport, DestOuterImport, bMoveOnly);
+		FString SourceOuterImportKey = GetTableKey(SourceLinker, SourceOuterImport);
+		FString DestOuterImportKey   = GetTableKey(DestLinker,   DestOuterImport);
+
+		return SourceOuterImportKey == DestOuterImportKey;
 	}
 
 	return false;
 }
 
-static uint32 GetTypeHash(const FObjectExport& Export)
-{
-	return HashCombine(GetTypeHash(Export.ObjectName), 
-		HashCombine(GetTypeHash(Export.OuterIndex), 
-			HashCombine(GetTypeHash(Export.ClassIndex), GetTypeHash(Export.SuperIndex))));
-}
-
-template <>
 FString ConvertItemToText(const FObjectExport& Export, FLinkerLoad* Linker)
 {
 	FName ClassName = Export.ClassIndex.IsNull() ? FName(NAME_Class) : Linker->ImpExp(Export.ClassIndex).ObjectName;
-	return FString::Printf(TEXT("%s %s.%s Super: %d, Template: %d, Flags: %d, Size: %lld, Offset: %lld"),
-		*ClassName.ToString(),
-		!Export.OuterIndex.IsNull() ? *Linker->ImpExp(Export.OuterIndex).ObjectName.ToString() : *FPackageName::GetShortName(Linker->LinkerRoot),
-		*Export.ObjectName.ToString(),
-		Export.SuperIndex.ForDebugging(),
-		Export.TemplateIndex.ForDebugging(),
+	return FString::Printf(TEXT("%s Super: %s, Template: %s, Flags: %d, Size: %lld, PackageGuid: %s, PackageFlags: %d, ForcedExport: %d, NotForClient: %d, NotForServer: %d, NotAlwaysLoadedForEditorGame: %d, IsAsset: %d"),
+		*GetTableKey(Linker, Export),
+		*GetTableKeyForIndex(Linker, Export.SuperIndex),
+		*GetTableKeyForIndex(Linker, Export.TemplateIndex),
 		(int32)Export.ObjectFlags,
 		Export.SerialSize,
-		Export.SerialOffset);
+		*Export.PackageGuid.ToString(),
+		Export.PackageFlags,
+		Export.bForcedExport,
+		Export.bNotForClient,
+		Export.bNotForServer,
+		Export.bNotAlwaysLoadedForEditorGame,
+		Export.bIsAsset
+	);
 }
 
 static bool IsExportMapIdentical(FLinkerLoad* SourceLinker, FLinkerLoad* DestLinker)
@@ -1111,7 +1126,7 @@ static bool IsExportMapIdentical(FLinkerLoad* SourceLinker, FLinkerLoad* DestLin
 	{
 		for (int32 ExportIndex = 0; ExportIndex < SourceLinker->ExportMap.Num(); ++ExportIndex)
 		{
-			if (CompareTableItem<FObjectExport>(SourceLinker, DestLinker, SourceLinker->ExportMap[ExportIndex], DestLinker->ExportMap[ExportIndex], false))
+			if (CompareTableItem(SourceLinker, DestLinker, SourceLinker->ExportMap[ExportIndex], DestLinker->ExportMap[ExportIndex]))
 			{
 				bIdentical = false;
 				break;
@@ -1133,40 +1148,32 @@ static void ForceKillPackageAndLinker(FLinkerLoad* Linker)
 	}
 }
 
-// This is sad, but we can't pass data to the keyfuncs
-namespace
-{
-	FLinkerLoad* GSourceLinker = nullptr;
-	FLinkerLoad* GDestLinker   = nullptr;
-}
-
 /** Structure that holds an item from the NameMap/ImportMap/ExportMap in a TSet for diffing */
 template <typename T>
 struct TTableItem
 {
+	/** The key generated for this item */
+	FString Key;
 	/** Pointer to the original item */
 	const T* Item;
 	/** Index in the original *Map (table). Only for information purposes. */
 	int32 Index;
 
-	TTableItem(const T* InItem, int32 InIndex)
-		: Item(InItem)
+	TTableItem(FString&& InKey, const T* InItem, int32 InIndex)
+		: Key(MoveTemp(InKey))
+		, Item(InItem)
 		, Index(InIndex)
-	{}
-	TTableItem()
-		: Item(nullptr)
-		, Index(-1)
-	{}
+	{
+	}
 
 	FORCENOINLINE friend uint32 GetTypeHash(const TTableItem& TableItem)
 	{
-		// Only get the item hash, ignore Index completely
-		return GetTypeHash(*TableItem.Item);
+		return GetTypeHash(TableItem.Key);
 	}
-	FORCENOINLINE bool operator == (const TTableItem& Other) const
+
+	FORCENOINLINE friend bool operator==(const TTableItem& Lhs, const TTableItem& Rhs)
 	{
-		// Only compare the item, ignore Index completely
-		return CompareTableItem(GSourceLinker, GDestLinker, *Item, *Other.Item, false);
+		return Lhs.Key == Rhs.Key;
 	}
 };
 
@@ -1190,9 +1197,6 @@ static void DumpTableDifferences(
 	int32 LoggedDiffs = 0;
 	int32 NumDiffs = 0;
 
-	TGuardValue<FLinkerLoad*> SourceLinkerGuard(GSourceLinker, SourceLinker);
-	TGuardValue<FLinkerLoad*> DestLinkerGuard  (GDestLinker,   DestLinker);
-
 	TSet<TTableItem<T>> SourceSet;
 	TSet<TTableItem<T>> DestSet;
 
@@ -1201,60 +1205,49 @@ static void DumpTableDifferences(
 
 	for (int32 Index = 0; Index < SourceTable.Num(); ++Index)
 	{
-		SourceSet.Add(TTableItem<T>(&SourceTable[Index], Index));
+		const T& Item = SourceTable[Index];
+		SourceSet.Add(TTableItem<T>(GetTableKey(SourceLinker, Item), &Item, Index));
 	}
 	for (int32 Index = 0; Index < DestTable.Num(); ++Index)
 	{
-		DestSet.Add(TTableItem<T>(&DestTable[Index], Index));
+		const T& Item = DestTable[Index];
+		DestSet.Add(TTableItem<T>(GetTableKey(DestLinker, Item), &Item, Index));
 	}
 
 	// Determine the list of items removed from the source package and added to the dest package
-	TArray<TTableItem<T>> RemovedItems = SourceSet.Difference(DestSet).Array();
-	TArray<TTableItem<T>> AddedItems = DestSet.Difference(SourceSet).Array();
+	TSet<TTableItem<T>> RemovedItems = SourceSet.Difference(DestSet);
+	TSet<TTableItem<T>> AddedItems   = DestSet.Difference(SourceSet);
 
-	// Now find all items from the above lists that were simply moved to a different index
-	TArray<TKeyValuePair<int32, TTableItem<T>>> MovedItems;
-	MovedItems.Reserve(FMath::Max(RemovedItems.Num(), AddedItems.Num()));
-	for (int32 RemovedItemIndex = RemovedItems.Num() - 1; RemovedItemIndex >= 0; --RemovedItemIndex)
+	// Add changed items as added-and-removed
+	for (const TTableItem<T>& ChangedSourceItem : SourceSet)
 	{
-		const TTableItem<T>& RemovedItem = RemovedItems[RemovedItemIndex];
-		for (int32 AddedItemIndex = AddedItems.Num() - 1; AddedItemIndex >= 0; --AddedItemIndex)
+		if (const TTableItem<T>* ChangedDestItem = DestSet.Find(ChangedSourceItem))
 		{
-			const TTableItem<T>& AddedItem = AddedItems[AddedItemIndex];
-			// Special compare case here since we don't want to compare item properties that we know change when the item is moved
-			if (CompareTableItem(SourceLinker, DestLinker, *RemovedItem.Item, *AddedItem.Item, true))
+			if (!CompareTableItem(SourceLinker, DestLinker, *ChangedSourceItem.Item, *ChangedDestItem->Item))
 			{
-				MovedItems.Add(TKeyValuePair<int32, TTableItem<T>>(RemovedItem.Index, AddedItem));
-				RemovedItems.RemoveAt(RemovedItemIndex);
-				AddedItems.RemoveAt(AddedItemIndex);
-				break;
+				RemovedItems.Add(ChangedSourceItem);
+				AddedItems  .Add(*ChangedDestItem);
 			}
 		}
 	}
+
+	// Sort all additions and removals by index
+	RemovedItems.Sort([](const TTableItem<T>& Lhs, const TTableItem<T>& Rhs){ return Lhs.Index < Rhs.Index; });
+	AddedItems.  Sort([](const TTableItem<T>& Lhs, const TTableItem<T>& Rhs){ return Lhs.Index < Rhs.Index; });
 
 	// Dump all changes
 	for (const TTableItem<T>& RemovedItem : RemovedItems)
 	{
 		HumanReadableString += Indent;
-		HumanReadableString += FString::Printf(TEXT("-[%d] %s"), RemovedItem.Index, *ConvertItemToText<T>(*RemovedItem.Item, SourceLinker));
+		HumanReadableString += FString::Printf(TEXT("-[%d] %s"), RemovedItem.Index, *ConvertItemToText(*RemovedItem.Item, SourceLinker));
 		HumanReadableString += LineTerminator;
 	}
 	for (const TTableItem<T>& AddedItem : AddedItems)
 	{
 		HumanReadableString += Indent;
-		HumanReadableString += FString::Printf(TEXT("+[%d] %s"), AddedItem.Index, *ConvertItemToText<T>(*AddedItem.Item, DestLinker));
+		HumanReadableString += FString::Printf(TEXT("+[%d] %s"), AddedItem.Index, *ConvertItemToText(*AddedItem.Item, DestLinker));
 		HumanReadableString += LineTerminator;
 	}
-// This generates a lot of noise about different offsets/indices, which doesn't help us find what we're looking for  - removed for now
-#if 0
-	for (int32 MovedItemIndex = MovedItems.Num() - 1; MovedItemIndex >= 0; --MovedItemIndex)
-	{
-		TKeyValuePair<int32, TTableItem<T>>& MovedItem = MovedItems[MovedItemIndex];
-		HumanReadableString += Indent;
-		HumanReadableString += FString::Printf(TEXT(" [%d] -> [%d] %s"), MovedItem.Key, MovedItem.Value.Index, *ConvertItemToText<T>(*MovedItem.Value.Item, SourceLinker));
-		HumanReadableString += LineTerminator;
-	}
-#endif
 
 	// For now just log everything out. When this becomes too spammy, respect the MaxDiffsToLog parameter
 	NumDiffs = RemovedItems.Num() + AddedItems.Num();

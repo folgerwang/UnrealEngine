@@ -102,7 +102,14 @@ inline bool AreEqual(TNumberVector& A, TNumberVector& B)
 	return true;
 }
 
-typedef std::map<ir_instruction*, SNumber> TLVN;
+template<typename T>
+struct ir_type_compare {
+	bool operator() (const T* const& lhs, const T* const& rhs) const {
+		return lhs->id < rhs->id;
+	}
+};
+
+typedef std::map<ir_instruction*, SNumber, ir_type_compare<ir_instruction>> TLVN;
 
 struct SLVNRedundancyInfo
 {
@@ -188,7 +195,7 @@ struct SLVNOptimizeRedundant : public ir_rvalue_visitor
 	}
 };
 
-typedef std::map<SBasicBlock*, struct SLVNVisitor*> TLVNVisitors;
+typedef std::map<SBasicBlock*, struct SLVNVisitor*, ir_type_compare<SBasicBlock>> TLVNVisitors;
 struct SLVNVisitor : public ir_hierarchical_visitor
 {
 	TLVN LVN;
@@ -203,17 +210,17 @@ struct SLVNVisitor : public ir_hierarchical_visitor
 		bool operator==(const SArrayPair& P) { return Base == P.Base && Index == P.Index; }
 	};
 	std::stack<SNumber> ExpressionNumberStack;
-	std::map<ir_variable*, TNumberVector > Assignments;
-	std::map<ir_expression*, TNumberVector > Expressions;
+	std::map<ir_variable*, TNumberVector , ir_type_compare<ir_variable>> Assignments;
+	std::map<ir_expression*, TNumberVector , ir_type_compare<ir_expression>> Expressions;
 	struct SFunctionCall
 	{
 		TNumberVector Parameters;
 		SNumber AssignmentNumber;
 	};
-	std::map<ir_call*, SFunctionCall > FunctionCalls;
-	std::map<ir_texture*, TNumberVector > Textures;
-	std::map<ir_dereference_array*, SArrayPair > Arrays;
-	std::map<ir_swizzle*, SNumber > SwizzleVars;
+	std::map<ir_call*, SFunctionCall , ir_type_compare<ir_call>> FunctionCalls;
+	std::map<ir_texture*, TNumberVector , ir_type_compare<ir_texture>> Textures;
+	std::map<ir_dereference_array*, SArrayPair , ir_type_compare<ir_dereference_array>> Arrays;
+	std::map<ir_swizzle*, SNumber , ir_type_compare<ir_swizzle>> SwizzleVars;
 	_mesa_glsl_parse_state* ParseState;
 	bool bInLHS;
 

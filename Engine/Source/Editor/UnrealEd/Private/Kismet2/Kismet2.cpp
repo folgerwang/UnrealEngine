@@ -506,8 +506,11 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 
 	if (GBlueprintUseCompilationManager)
 	{
+		// Skip validation of the class default object here, because (a) the new CDO may fail validation since this
+		// is a new Blueprint that the user has not had a chance to modify any defaults for yet, and (b) in some cases,
+		// default value propagation to the new Blueprint's CDO may be deferred until after compilation (e.g. reparenting).
 		FBlueprintCompilationManager::CompileSynchronously(
-			FBPCompileRequest(NewBP, EBlueprintCompileOptions::SkipGarbageCollection, nullptr)
+			FBPCompileRequest(NewBP, EBlueprintCompileOptions::SkipGarbageCollection|EBlueprintCompileOptions::SkipDefaultObjectValidation, nullptr)
 		);
 	}
 	else

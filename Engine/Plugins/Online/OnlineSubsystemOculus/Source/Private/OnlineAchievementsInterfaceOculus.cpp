@@ -78,7 +78,7 @@ void FOnlineAchievementsOculus::WriteAchievements(const FUniqueNetId& PlayerId, 
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!(LoggedInPlayerId.IsValid() && PlayerId == *LoggedInPlayerId))
 	{
-		UE_LOG_ONLINE(Error, TEXT("Can only write achievements for logged in player id"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Error, TEXT("Can only write achievements for logged in player id"));
 		WriteObject->WriteState = EOnlineAsyncTaskState::Failed;
 		Delegate.ExecuteIfBound(PlayerId, false);
 		return;
@@ -109,7 +109,7 @@ void FOnlineAchievementsOculus::WriteAchievements(const FUniqueNetId& PlayerId, 
 			return;
 		}
 
-		UE_LOG_ONLINE(Verbose, TEXT("WriteObject AchievementId: '%s'"), *AchievementId);
+		UE_LOG_ONLINE_ACHIEVEMENTS(Verbose, TEXT("WriteObject AchievementId: '%s'"), *AchievementId);
 
 		ovrRequest RequestId = 0;
 
@@ -136,7 +136,7 @@ void FOnlineAchievementsOculus::WriteAchievements(const FUniqueNetId& PlayerId, 
 			}
 			default:
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Unknown achievement type"));
+				UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("Unknown achievement type"));
 				break;
 			}
 		}
@@ -153,7 +153,7 @@ void FOnlineAchievementsOculus::QueryAchievements(const FUniqueNetId& PlayerId, 
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!(LoggedInPlayerId.IsValid() && PlayerId == *LoggedInPlayerId))
 	{
-		UE_LOG_ONLINE(Error, TEXT("Can only query for logged in player id"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Error, TEXT("Can only query for logged in player id"));
 		Delegate.ExecuteIfBound(PlayerId, false);
 		return;
 	}
@@ -314,7 +314,7 @@ EOnlineCachedResult::Type FOnlineAchievementsOculus::GetCachedAchievementDescrip
 bool FOnlineAchievementsOculus::ResetAchievements(const FUniqueNetId& PlayerId)
 {
 	// We cannot reset achievements from the client
-	UE_LOG_ONLINE(Error, TEXT("Achievements cannot be reset here"));
+	UE_LOG_ONLINE_ACHIEVEMENTS(Error, TEXT("Achievements cannot be reset here"));
 	return false;
 };
 #endif // !UE_BUILD_SHIPPING
@@ -351,7 +351,7 @@ void FOnlineAchievementsOculus::GetWriteAchievementCountValue(FVariantData Varia
 		}
 		default:
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Could not %s convert to uint64"), VariantData.GetTypeString());
+			UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("Could not %s convert to uint64"), VariantData.GetTypeString());
 			OutData = 0;
 			break;
 		}
@@ -382,7 +382,7 @@ void FOnlineAchievementsOculus::GetWriteAchievementBitfieldValue(FVariantData Va
 		}
 		default:
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Could not %s convert to string"), VariantData.GetTypeString());
+			UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("Could not %s convert to string"), VariantData.GetTypeString());
 			break;
 		}
 	}
@@ -398,7 +398,7 @@ double FOnlineAchievementsOculus::CalculatePlayerAchievementProgress(const FOnli
 	auto Desc = AchievementDescriptions.Find(Achievement.Id);
 	if (Desc == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Could not calculate progress for Achievement: '%s'"), *Achievement.Id);
+		UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("Could not calculate progress for Achievement: '%s'"), *Achievement.Id);
 		return 0.0;
 	}
 

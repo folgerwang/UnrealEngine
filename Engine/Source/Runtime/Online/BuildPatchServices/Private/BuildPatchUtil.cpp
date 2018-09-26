@@ -16,22 +16,26 @@ using namespace BuildPatchServices;
 
 /* FBuildPatchUtils implementation
 *****************************************************************************/
-FString FBuildPatchUtils::GetChunkNewFilename( const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& ChunkGUID, const uint64& ChunkHash )
+FString FBuildPatchUtils::GetChunkNewFilename(const EFeatureLevel FeatureLevel, const FString& RootDirectory, const FGuid& ChunkGUID, const uint64& ChunkHash)
 {
-	check( ChunkGUID.IsValid() );
-	return FPaths::Combine( *RootDirectory, *FString::Printf( TEXT("%s/%02d/%016llX_%s.chunk"), *EBuildPatchAppManifestVersion::GetChunkSubdir( ManifestVersion ),FCrc::MemCrc32( &ChunkGUID, sizeof( FGuid ) ) % 100, ChunkHash, *ChunkGUID.ToString() ) );
+	check(ChunkGUID.IsValid());
+	if (FeatureLevel < EFeatureLevel::DataFileRenames)
+	{
+		return GetChunkOldFilename(RootDirectory, ChunkGUID);
+	}
+	return FPaths::Combine(*RootDirectory, *FString::Printf(TEXT("%s/%02d/%016llX_%s.chunk"), ManifestVersionHelpers::GetChunkSubdir(FeatureLevel), FCrc::MemCrc32(&ChunkGUID, sizeof(FGuid)) % 100, ChunkHash, *ChunkGUID.ToString()));
 }
 
-FString FBuildPatchUtils::GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHash& FileHash)
+FString FBuildPatchUtils::GetFileNewFilename(const EFeatureLevel FeatureLevel, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHash& FileHash)
 {
-	check( FileGUID.IsValid() );
-	return FPaths::Combine( *RootDirectory, *FString::Printf( TEXT("%s/%02d/%s_%s.file"), *EBuildPatchAppManifestVersion::GetFileSubdir( ManifestVersion ), FCrc::MemCrc32( &FileGUID, sizeof( FGuid ) ) % 100, *FileHash.ToString(), *FileGUID.ToString() ) );
+	check(FileGUID.IsValid());
+	return FPaths::Combine(*RootDirectory, *FString::Printf(TEXT("%s/%02d/%s_%s.file"), ManifestVersionHelpers::GetFileSubdir(FeatureLevel), FCrc::MemCrc32(&FileGUID, sizeof(FGuid)) % 100, *FileHash.ToString(), *FileGUID.ToString()));
 }
 
-FString FBuildPatchUtils::GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FileHash)
+FString FBuildPatchUtils::GetFileNewFilename(const EFeatureLevel FeatureLevel, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FileHash)
 {
-	check( FileGUID.IsValid() );
-	return FPaths::Combine( *RootDirectory, *FString::Printf( TEXT("%s/%02d/%016llX_%s.file"), *EBuildPatchAppManifestVersion::GetFileSubdir( ManifestVersion ), FCrc::MemCrc32( &FileGUID, sizeof( FGuid ) ) % 100, FileHash, *FileGUID.ToString() ) );
+	check(FileGUID.IsValid());
+	return FPaths::Combine(*RootDirectory, *FString::Printf(TEXT("%s/%02d/%016llX_%s.file"), ManifestVersionHelpers::GetFileSubdir(FeatureLevel), FCrc::MemCrc32(&FileGUID, sizeof(FGuid)) % 100, FileHash, *FileGUID.ToString()));
 }
 
 void FBuildPatchUtils::GetChunkDetailFromNewFilename( const FString& ChunkNewFilename, FGuid& ChunkGUID, uint64& ChunkHash )
@@ -97,7 +101,7 @@ FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifestRef& Manif
 FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifest& Manifest, const FString& RootDirectory, const FGuid& DataGUID)
 {
 	const EBuildPatchDataType DataType = Manifest.IsFileDataManifest() ? EBuildPatchDataType::FileData : EBuildPatchDataType::ChunkData;
-	if (Manifest.GetManifestVersion() < EBuildPatchAppManifestVersion::DataFileRenames)
+	if (Manifest.GetFeatureLevel() < EFeatureLevel::DataFileRenames)
 	{
 		return FBuildPatchUtils::GetDataTypeOldFilename(DataType, RootDirectory, DataGUID);
 	}
@@ -107,15 +111,15 @@ FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifest& Manifest
 		const bool bFound = Manifest.GetChunkHash(DataGUID, ChunkHash);
 		// Should be impossible to not exist
 		check(bFound);
-		return FBuildPatchUtils::GetChunkNewFilename(Manifest.GetManifestVersion(), RootDirectory, DataGUID, ChunkHash);
+		return FBuildPatchUtils::GetChunkNewFilename(Manifest.GetFeatureLevel(), RootDirectory, DataGUID, ChunkHash);
 	}
-	else if (Manifest.GetManifestVersion() <= EBuildPatchAppManifestVersion::StoredAsCompressedUClass)
+	else if (Manifest.GetFeatureLevel() <= EFeatureLevel::StoredAsCompressedUClass)
 	{
 		FSHAHash FileHash;
 		const bool bFound = Manifest.GetFileHash(DataGUID, FileHash);
 		// Should be impossible to not exist
 		check(bFound);
-		return FBuildPatchUtils::GetFileNewFilename(Manifest.GetManifestVersion(), RootDirectory, DataGUID, FileHash);
+		return FBuildPatchUtils::GetFileNewFilename(Manifest.GetFeatureLevel(), RootDirectory, DataGUID, FileHash);
 	}
 	else
 	{
@@ -123,7 +127,7 @@ FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifest& Manifest
 		const bool bFound = Manifest.GetFilePartHash(DataGUID, FileHash);
 		// Should be impossible to not exist
 		check(bFound);
-		return FBuildPatchUtils::GetFileNewFilename(Manifest.GetManifestVersion(), RootDirectory, DataGUID, FileHash);
+		return FBuildPatchUtils::GetFileNewFilename(Manifest.GetFeatureLevel(), RootDirectory, DataGUID, FileHash);
 	}
 	return TEXT("");
 }
@@ -201,52 +205,4 @@ uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileT
 	}
 	ProgressDelegate.ExecuteIfBound(1.0f);
 	return ReturnValue;
-}
-
-bool FBuildPatchUtils::UncompressChunkFile(TArray< uint8 >& ChunkFileArray)
-{
-	FMemoryReader ChunkArrayReader(ChunkFileArray);
-	// Read the header
-	FChunkHeader Header;
-	ChunkArrayReader << Header;
-	// Check header
-	const bool bValidHeader = Header.Guid.IsValid();
-	const bool bSupportedFormat = !(Header.StoredAs & EChunkStorageFlags::Encrypted);
-	if (bValidHeader && bSupportedFormat)
-	{
-		bool bSuccess = true;
-		// Uncompress if we need to
-		if (Header.StoredAs == EChunkStorageFlags::Compressed)
-		{
-			// Load the compressed chunk data
-			TArray< uint8 > CompressedData;
-			TArray< uint8 > UncompressedData;
-			CompressedData.Empty(Header.DataSize);
-			CompressedData.AddUninitialized(Header.DataSize);
-			UncompressedData.Empty(BuildPatchServices::ChunkDataSize);
-			UncompressedData.AddUninitialized(BuildPatchServices::ChunkDataSize);
-			ChunkArrayReader.Serialize(CompressedData.GetData(), Header.DataSize);
-			ChunkArrayReader.Close();
-			// Uncompress
-			bSuccess = FCompression::UncompressMemory(
-				static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-				UncompressedData.GetData(),
-				UncompressedData.Num(),
-				CompressedData.GetData(),
-				CompressedData.Num());
-			// If successful, write back over the original array
-			if (bSuccess)
-			{
-				ChunkFileArray.Empty();
-				FMemoryWriter ChunkArrayWriter(ChunkFileArray);
-				Header.StoredAs = EChunkStorageFlags::None;
-				Header.DataSize = BuildPatchServices::ChunkDataSize;
-				ChunkArrayWriter << Header;
-				ChunkArrayWriter.Serialize(UncompressedData.GetData(), UncompressedData.Num());
-				ChunkArrayWriter.Close();
-			}
-		}
-		return bSuccess;
-	}
-	return false;
 }

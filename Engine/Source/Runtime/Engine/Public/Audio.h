@@ -717,7 +717,7 @@ public:
 	ENGINE_API FSpatializationParams GetSpatializationParams();
 
 	/** Returns the contained sound buffer object. */
-	const FSoundBuffer* GetBuffer() const { return Buffer; }
+	virtual const FSoundBuffer* GetBuffer() const { return Buffer; }
 
 	/** Initializes any source effects for this sound source. */
 	virtual void InitializeSourceEffects(uint32 InEffectVoiceId)

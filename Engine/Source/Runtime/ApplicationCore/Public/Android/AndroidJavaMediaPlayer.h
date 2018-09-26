@@ -104,9 +104,7 @@ private:
 	FJavaClassMethod GetVideoWidthMethod;
 	FJavaClassMethod SetVideoEnabledMethod;
 	FJavaClassMethod SetAudioEnabledMethod;
-#if PLATFORM_LUMIN
-	FJavaClassMethod SetAudioVolumedMethod;
-#endif
+	FJavaClassMethod SetAudioVolumeMethod;
 	FJavaClassMethod GetVideoLastFrameDataMethod;
 	FJavaClassMethod StartMethod;
 	FJavaClassMethod PauseMethod;

@@ -18,10 +18,12 @@ void FAnimNode_PoseHandler::CacheBones_AnyThread(const FAnimationCacheBonesConte
 	FAnimNode_AssetPlayerBase::CacheBones_AnyThread(Context);
 
 	BoneBlendWeights.Reset();
+
 	// this has to update bone blending weight
 	if (CurrentPoseAsset.IsValid())
 	{
-		const TArray<FName>& TrackNames = CurrentPoseAsset.Get()->GetTrackNames();
+		const UPoseAsset* CurrentAsset = CurrentPoseAsset.Get();
+		const TArray<FName>& TrackNames = CurrentAsset->GetTrackNames();
 		const FBoneContainer& BoneContainer = Context.AnimInstanceProxy->GetRequiredBones();
 		const TArray<FBoneIndexType>& RequiredBoneIndices = BoneContainer.GetBoneIndicesArray();
 		BoneBlendWeights.AddZeroed(RequiredBoneIndices.Num());
@@ -33,6 +35,32 @@ void FAnimNode_PoseHandler::CacheBones_AnyThread(const FAnimationCacheBonesConte
 			if (CompactBoneIndex != INDEX_NONE)
 			{
 				BoneBlendWeights[CompactBoneIndex.GetInt()] = 1.f;
+			}
+		}
+
+		RebuildPoseList(BoneContainer, CurrentAsset);
+	}
+	else
+	{
+		PoseExtractContext.PoseCurves.Reset();
+	}
+}
+
+void FAnimNode_PoseHandler::RebuildPoseList(const FBoneContainer& InBoneContainer, const UPoseAsset* InPoseAsset)
+{
+	PoseExtractContext.PoseCurves.Reset();
+	const TArray<FSmartName>& PoseNames = InPoseAsset->GetPoseNames();
+	const int32 TotalPoseNum = PoseNames.Num();
+	if (TotalPoseNum > 0)
+	{
+		TArray<uint16> const& LUTIndex = InBoneContainer.GetUIDToArrayLookupTable();
+		for (int32 PoseIndex = 0; PoseIndex < PoseNames.Num(); ++PoseIndex)
+		{
+			const FSmartName& PoseName = PoseNames[PoseIndex];
+			if (ensure(LUTIndex.IsValidIndex(PoseName.UID)) && LUTIndex[PoseName.UID] != MAX_uint16)
+			{
+				// we keep pose index as that is the fastest way to search when extracting pose asset
+				PoseExtractContext.PoseCurves.Add(FPoseCurve(PoseIndex, PoseName.UID, 0.f));
 			}
 		}
 	}
@@ -68,38 +96,6 @@ void FAnimNode_PoseHandler::GatherDebugData(FNodeDebugData& DebugData)
 void FAnimNode_PoseHandler::UpdatePoseAssetProperty(struct FAnimInstanceProxy* InstanceProxy)
 {
 	CurrentPoseAsset = PoseAsset;
-
-	if (CurrentPoseAsset.IsValid())
-	{
-		const TArray<FSmartName>& PoseNames = CurrentPoseAsset->GetPoseNames();
-		const int32 TotalPoseNum = PoseNames.Num();
-		if (TotalPoseNum > 0)
-		{
-			PoseExtractContext.PoseCurves.Reset(TotalPoseNum);
-			PoseUIDList.Reset(TotalPoseNum);
-
-			if (TotalPoseNum > 0)
-			{
-				PoseExtractContext.PoseCurves.AddZeroed(TotalPoseNum);
-				for (const auto& PoseName : PoseNames)
-				{
-					PoseUIDList.Add(PoseName.UID);
-				}
-			}
-
-			CacheBones_AnyThread(FAnimationCacheBonesContext(InstanceProxy));
-		}
-		else
-		{
-			PoseUIDList.Reset();
-			PoseExtractContext.PoseCurves.Reset();
-			BoneBlendWeights.Reset();
-		}
-	}
-	else
-	{
-		PoseUIDList.Reset();
-		PoseExtractContext.PoseCurves.Reset();
-		BoneBlendWeights.Reset();
-	}
+	CacheBones_AnyThread(FAnimationCacheBonesContext(InstanceProxy));
 }
+

@@ -12,13 +12,8 @@ D3D12CommandContext.cpp: RHI  Command Context implementation.
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-#if PLATFORM_XBOXONE
-// @TODO: We fixed this on PC. Need to check it works on XB before re-enabling. 
 // Aggressive batching saves ~0.1ms on the RHI thread, reduces executecommandlist calls by around 25%
 int32 GCommandListBatchingMode = CLB_AggressiveBatching;
-#else
-int32 GCommandListBatchingMode = CLB_AggressiveBatching;
-#endif 
 
 static FAutoConsoleVariableRef CVarCommandListBatchingMode(
 	TEXT("D3D12.CommandListBatchingMode"),
@@ -104,6 +99,7 @@ FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllo
 	CurrentDSVAccessType(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 	bDiscardSharedConstants(false),
 	bUsingTessellation(false),
+	SkipFastClearEliminateState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
 #if PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
 	bNeedFlushTextureCache(false),
 #endif
@@ -764,9 +760,16 @@ FD3D12TemporalEffect::FD3D12TemporalEffect()
 	, EffectFence(nullptr, FRHIGPUMask::GPU0(), "TemporalEffectFence")
 {}
 
+FName MakeEffectName(FName InEffectName)
+{
+	ANSICHAR AnsiName[NAME_SIZE];
+	InEffectName.GetPlainANSIString(AnsiName);
+	return FName(AnsiName);
+}
+
 FD3D12TemporalEffect::FD3D12TemporalEffect(FD3D12Adapter* Parent, const FName& InEffectName)
 	: FD3D12AdapterChild(Parent)
-	, EffectFence(Parent, FRHIGPUMask::All(), InEffectName.GetPlainANSIString())
+	, EffectFence(Parent, FRHIGPUMask::All(), MakeEffectName(InEffectName))
 {}
 
 FD3D12TemporalEffect::FD3D12TemporalEffect(const FD3D12TemporalEffect& Other)

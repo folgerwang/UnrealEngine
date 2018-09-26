@@ -20,7 +20,9 @@ FDeferredDecalProxy::FDeferredDecalProxy(const UDecalComponent* InComponent)
 	: DrawInGame( InComponent->bVisible && !InComponent->bHiddenInGame )
 	, DrawInEditor( InComponent->bVisible )
 	, InvFadeDuration(-1.0f)
+	, InvFadeInDuration(1.0f)
 	, FadeStartDelayNormalized(1.0f)
+	, FadeInStartDelayNormalized(0.0f)
 	, FadeScreenSize( InComponent->FadeScreenSize )
 {
 	UMaterialInterface* EffectiveMaterial = UMaterial::GetDefaultMaterial(MD_DeferredDecal);
@@ -47,7 +49,7 @@ FDeferredDecalProxy::FDeferredDecalProxy(const UDecalComponent* InComponent)
 	if (!GIsEditor || GIsPlayInEditorWorld)
 #endif
 	{
-		InitializeFadingParameters(InComponent->GetWorld()->GetTimeSeconds(), InComponent->GetFadeDuration(), InComponent->GetFadeStartDelay());
+		InitializeFadingParameters(InComponent->GetWorld()->GetTimeSeconds(), InComponent->GetFadeDuration(), InComponent->GetFadeStartDelay(), InComponent->GetFadeInDuration(), InComponent->GetFadeInStartDelay());
 	}
 	
 	if ( InComponent->GetOwner() )
@@ -64,12 +66,17 @@ void FDeferredDecalProxy::SetTransformIncludingDecalSize(const FTransform& InCom
 	ComponentTrans = InComponentToWorldIncludingDecalSize;
 }
 
-void FDeferredDecalProxy::InitializeFadingParameters(float AbsSpawnTime, float FadeDuration, float FadeStartDelay)
+void FDeferredDecalProxy::InitializeFadingParameters(float AbsSpawnTime, float FadeDuration, float FadeStartDelay, float FadeInDuration, float FadeInStartDelay)
 {
 	if (FadeDuration > 0.0f)
 	{
 		InvFadeDuration = 1.0f / FadeDuration;
 		FadeStartDelayNormalized = (AbsSpawnTime + FadeStartDelay + FadeDuration) * InvFadeDuration;
+	}
+	if(FadeInDuration > 0.0f)
+	{
+		InvFadeInDuration = 1.0f / FadeInDuration;
+		FadeInStartDelayNormalized = (AbsSpawnTime + FadeInStartDelay) * -InvFadeInDuration;
 	}
 }
 
@@ -159,6 +166,16 @@ float UDecalComponent::GetFadeDuration() const
 	return FadeDuration;
 }
 
+float UDecalComponent::GetFadeInDuration() const
+{
+	return FadeInDuration;
+}
+
+float UDecalComponent::GetFadeInStartDelay() const
+{
+	return FadeInStartDelay;
+}
+
 void UDecalComponent::SetFadeOut(float StartDelay, float Duration, bool DestroyOwnerAfterFade /*= true*/)
 {
 	float FadeDurationScale = CVarDecalFadeDurationScale.GetValueOnGameThread();
@@ -167,9 +184,32 @@ void UDecalComponent::SetFadeOut(float StartDelay, float Duration, bool DestroyO
 	FadeStartDelay = StartDelay * FadeDurationScale;
 	FadeDuration = Duration * FadeDurationScale;
 	bDestroyOwnerAfterFade = DestroyOwnerAfterFade;
+
 	SetLifeSpan(FadeStartDelay + FadeDuration);
 
-	MarkRenderStateDirty();
+	if(SceneProxy != nullptr)
+	{
+		GetWorld()->Scene->UpdateDecalFadeOutTime(this);
+	}
+	else
+	{
+		MarkRenderStateDirty();
+	}
+}
+
+void UDecalComponent::SetFadeIn(float StartDelay, float Duration)
+{
+	FadeInStartDelay = StartDelay;
+	FadeInDuration = Duration;
+
+	if (SceneProxy != nullptr)
+	{
+		GetWorld()->Scene->UpdateDecalFadeInTime(this);
+	}
+	else
+	{
+		MarkRenderStateDirty();
+	}
 }
 
 void UDecalComponent::SetFadeScreenSize(float NewFadeScreenSize)

@@ -567,6 +567,26 @@ public:
 	}
 
 	/**
+	 * Called when a touchpad touch force changes, but may or may not have moved
+	 * 
+	 * @param ControllerEvent	The controller event generated
+	 */
+	virtual FReply OnTouchForceChanged( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent )
+	{
+		return FReply::Unhandled();
+	}
+
+	/**
+	 * Called when a touchpad touch has first moved after initial press
+	 * 
+	 * @param ControllerEvent	The controller event generated
+	 */
+	virtual FReply OnTouchFirstMove( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent )
+	{
+		return FReply::Unhandled();
+	}
+
+	/**
 	 * Called on a touchpad gesture event
 	 *
 	 * @param InGestureEvent	The touch event generated

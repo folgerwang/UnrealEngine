@@ -252,6 +252,9 @@ void SScreenShotBrowser::RebuildTree()
 
 	if ( ScreenShotManager->OpenComparisonReports(ComparisonRoot, CurrentReports) )
 	{
+		//Sort by what will resolve down to the Screenshots' names
+		CurrentReports.Sort([](const FComparisonReport& LHS, const FComparisonReport& RHS) { return LHS.ReportFolder.Compare(RHS.ReportFolder) < 0; });
+
 		for ( const FComparisonReport& Report : CurrentReports )
 		{
 			TSharedPtr<FScreenComparisonModel> Model = MakeShared<FScreenComparisonModel>(Report);

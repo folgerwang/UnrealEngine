@@ -18,23 +18,31 @@ bool UPostProcessComponent::EncompassesPoint(FVector Point, float SphereRadius/*
 	UShapeComponent* ParentShape = Cast<UShapeComponent>(GetAttachParent());
 	if (ParentShape != nullptr)
 	{
+		float Distance = -1.f;
+
 #if WITH_PHYSX
 		FVector ClosestPoint;
-		float Distance = ParentShape->GetDistanceToCollision(Point, ClosestPoint);
-#else
-		FBoxSphereBounds SphereBounds = ParentShape->CalcBounds(ParentShape->GetComponentTransform());
-		float Distance = 0;
-		if (ParentShape->IsA<USphereComponent>())
+		float DistanceSq = -1.f;
+
+		if (ParentShape->GetSquaredDistanceToCollision(Point, DistanceSq, ClosestPoint))
 		{
-			const FSphere& Sphere = SphereBounds.GetSphere();
-			const FVector& Dist = Sphere.Center - Point;
-			Distance = FMath::Max(0.0f, Dist.Size() - Sphere.W);
+			Distance = FMath::Sqrt(DistanceSq);
 		}
-		else // UBox or UCapsule shape (approx).
-		{
-			Distance = FMath::Sqrt(SphereBounds.GetBox().ComputeSquaredDistanceToPoint(Point));
-		}
+		else
 #endif
+		{
+			FBoxSphereBounds SphereBounds = ParentShape->CalcBounds(ParentShape->GetComponentTransform());	
+			if (ParentShape->IsA<USphereComponent>())
+			{
+				const FSphere& Sphere = SphereBounds.GetSphere();
+				const FVector& Dist = Sphere.Center - Point;
+				Distance = FMath::Max(0.0f, Dist.Size() - Sphere.W);
+			}
+			else // UBox or UCapsule shape (approx).
+			{
+				Distance = FMath::Sqrt(SphereBounds.GetBox().ComputeSquaredDistanceToPoint(Point));
+			}
+		}
 
 		if (OutDistanceToPoint)
 		{

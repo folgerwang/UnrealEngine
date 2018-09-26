@@ -124,6 +124,8 @@ FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 , BoxExtents(0.0f)
 , LocalJointOffset(0.0f)
 , GravityScale(1.0f)
+, GravityOverride(FVector::ZeroVector)
+, bUseGravityOverride(false)
 , bLinearSpring(false)
 , bAngularSpring(false)
 , LinearSpringConstant(0.0f)
@@ -145,11 +147,16 @@ FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 , bUseSphericalLimits(false)
 , CollisionType(AnimPhysCollisionType::CoM)
 , SphereCollisionRadius(0.0f)
+, ExternalForce(ForceInitToZero)
 #if ENABLE_ANIM_DRAW_DEBUG
 , FilteredBoneIndex(INDEX_NONE)
 #endif
 {
-	
+	ComponentLinearAccScale = FVector::ZeroVector;
+	ComponentLinearVelScale = FVector::ZeroVector;
+	ComponentAppliedLinearAccClamp = FVector(100000, 100000, 100000);
+
+	PreviousComponentLinearVelocity = FVector::ZeroVector;
 }
 
 void FAnimNode_AnimDynamics::Initialize_AnyThread(const FAnimationInitializeContext& Context)
@@ -164,6 +171,9 @@ void FAnimNode_AnimDynamics::Initialize_AnyThread(const FAnimationInitializeCont
 	{
 		RequestInitialise(ETeleportType::ResetPhysics);
 	}
+
+	PreviousCompWorldSpaceTM = Context.AnimInstanceProxy->GetComponentTransform();
+	PreviousActorWorldSpaceTM = Context.AnimInstanceProxy->GetActorTransform();
 
 	NextTimeStep = 0.0f;
 	TimeDebt = 0.0f;
@@ -181,14 +191,20 @@ struct FSimBodiesScratch : public TThreadSingleton<FSimBodiesScratch>
 	TArray<FAnimPhysRigidBody*> SimBodies;
 };
 
+bool FAnimNode_AnimDynamics::IsAnimDynamicsSystemEnabledFor(int32 InLOD)
+{
+	int32 RestrictToLOD = CVarRestrictLod.GetValueOnAnyThread();
+	bool bEnabledForLod = RestrictToLOD >= 0 ? InLOD == RestrictToLOD : true;
+
+	// note this doesn't check LODThreshold of global value here. That's checked in
+	// GetLODThreshold per node
+	return (CVarEnableDynamics.GetValueOnAnyThread() == 1 && bEnabledForLod);
+}
 void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsOverall);
 
-	int32 RestrictToLOD = CVarRestrictLod.GetValueOnAnyThread();
-	bool bEnabledForLod = RestrictToLOD >= 0 ? Output.AnimInstanceProxy->GetLODLevel() == RestrictToLOD : true;
-
-	if (CVarEnableDynamics.GetValueOnAnyThread() == 1 && bEnabledForLod)
+	if (IsAnimDynamicsSystemEnabledFor(Output.AnimInstanceProxy->GetLODLevel()))
 	{
 		if(LastSimSpace != SimulationSpace)
 		{
@@ -223,6 +239,9 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 
 		if (bDoUpdate && NextTimeStep > 0.0f)
 		{
+			// Calculate gravity direction
+			SimSpaceGravityDirection = TransformWorldVectorToSimSpace(Output, FVector(0.0f, 0.0f, -1.0f));
+
 			FVector OrientedExternalForce = ExternalForce;
 			if(!OrientedExternalForce.IsNearlyZero())
 			{
@@ -238,6 +257,28 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 				{
 					SimBodies.Add(BaseBodyPtrs[ActiveIndex]);
 				}
+			}
+
+			FVector ComponentLinearAcc(0.0f);
+
+			if (SimulationSpace != AnimPhysSimSpaceType::World)
+			{
+				FTransform CurrentTransform = Output.AnimInstanceProxy->GetComponentTransform();
+
+				// Calc linear velocity
+				const FVector ComponentDeltaLocation = CurrentTransform.GetTranslation() - PreviousCompWorldSpaceTM.GetTranslation();
+				const FVector ComponentLinearVelocity = ComponentDeltaLocation / NextTimeStep;
+				// Apply acceleration that opposed velocity (basically 'drag')
+				ComponentLinearAcc += TransformWorldVectorToSimSpace(Output, -ComponentLinearVelocity) * ComponentLinearVelScale;
+
+				// Calc linear acceleration
+				const FVector ComponentLinearAcceleration = (ComponentLinearVelocity - PreviousComponentLinearVelocity) / NextTimeStep;
+				PreviousComponentLinearVelocity = ComponentLinearVelocity;
+				// Apply opposite acceleration to bodies
+				ComponentLinearAcc += TransformWorldVectorToSimSpace(Output, -ComponentLinearAcceleration) * ComponentLinearAccScale;
+
+				// Clamp to desired strength
+				ComponentLinearAcc = ComponentLinearAcc.BoundToBox(-ComponentAppliedLinearAccClamp, ComponentAppliedLinearAccClamp);
 			}
 
 			if (CVarEnableAdaptiveSubstep.GetValueOnAnyThread() == 1)
@@ -265,7 +306,7 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 				for (int32 Iter = 0; Iter < NumIters; ++Iter)
 				{
 					UpdateLimits(Output);
-					FAnimPhys::PhysicsUpdate(FixedTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
+					FAnimPhys::PhysicsUpdate(FixedTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, ComponentLinearAcc, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
 				}
 			}
 			else
@@ -276,7 +317,7 @@ void FAnimNode_AnimDynamics::EvaluateSkeletalControl_AnyThread(FComponentSpacePo
 				NextTimeStep = FMath::Min(NextTimeStep, MaxDeltaTime);
 
 				UpdateLimits(Output);
-				FAnimPhys::PhysicsUpdate(NextTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
+				FAnimPhys::PhysicsUpdate(NextTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, ComponentLinearAcc, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
 			}
 
 #if ENABLE_ANIM_DRAW_DEBUG
@@ -596,6 +637,9 @@ void FAnimNode_AnimDynamics::InitPhysics(FComponentSpacePoseContext& Output)
 				}
 
 				PhysicsBody.GravityScale = GravityScale;
+				PhysicsBody.bUseGravityOverride = bUseGravityOverride;
+				PhysicsBody.GravityOverride = GravityOverride;
+
 				PhysicsBody.bWindEnabled = bWindWasEnabled;
 
 				// Link to parent
@@ -1150,4 +1194,3 @@ void FAnimNode_AnimDynamics::ConvertSimulationSpace(FComponentSpacePoseContext& 
 		Body->Pose.Position = BodyTransform.GetTranslation();
 	}
 }
-

@@ -361,6 +361,9 @@ struct FWorldContext
 	/** The Prefix in front of PIE level names, empty is default */
 	FString	PIEPrefix;
 
+	/** The feature level that PIE world should use */
+	ERHIFeatureLevel::Type PIEWorldFeatureLevel;
+
 	/** Is this running as a dedicated server */
 	bool	RunAsDedicated;
 
@@ -410,6 +413,7 @@ struct FWorldContext
 		, GameViewport(nullptr)
 		, OwningGameInstance(nullptr)
 		, PIEInstance(INDEX_NONE)
+		, PIEWorldFeatureLevel(ERHIFeatureLevel::Num)
 		, RunAsDedicated(false)
 		, bWaitingOnOnlineSubsystem(false)
 		, AudioDeviceHandle(INDEX_NONE)
@@ -741,6 +745,10 @@ public:
 
 	UPROPERTY(globalconfig, noclear, meta = (MetaClass = "NavigationSystem", DisplayName = "Navigation System Config Class"))
 	FSoftClassPath NavigationSystemConfigClassName;
+
+	/** The class for NavigationSystem **/
+	UPROPERTY()
+	TSubclassOf<class UNavigationSystemConfig>  NavigationSystemConfigClass;
 	
 	/** Name of behavior tree manager class */
 	UPROPERTY(globalconfig, noclear, meta=(MetaClass="AvoidanceManager", DisplayName="Avoidance Manager Class"))
@@ -1616,6 +1624,14 @@ public:
 	DECLARE_EVENT_ThreeParams(UEngine, FOnNetworkLagStateChanged, UWorld*, UNetDriver*, ENetworkLagState::Type);
 	FOnNetworkLagStateChanged NetworkLagStateChangedEvent;
 
+	/**
+	 * Network burst or DDoS detected. Used for triggering analytics, mostly
+	 *
+	 * @param SeverityCategory	The name of the severity category the DDoS detection escalated to
+	 */
+	DECLARE_EVENT_ThreeParams(UEngine, FOnNetworkDDoSEscalation, UWorld*, UNetDriver*, FString /*SeverityCategory*/);
+	FOnNetworkDDoSEscalation NetworkDDoSEscalationEvent;
+
 	// for IsInitialized()
 	bool bIsInitialized;
 
@@ -1904,6 +1920,14 @@ public:
 	void BroadcastNetworkLagStateChanged(UWorld * World, UNetDriver *NetDriver, ENetworkLagState::Type LagType)
 	{
 		NetworkLagStateChangedEvent.Broadcast(World, NetDriver, LagType);
+	}
+
+	/** Event triggered when network burst or DDoS is detected */
+	FOnNetworkDDoSEscalation& OnNetworkDDoSEscalation() { return NetworkDDoSEscalationEvent; }
+	/** Called by internal engine systems after network burst or DDoS is detected */
+	void BroadcastNetworkDDosSEscalation(UWorld* World, UNetDriver* NetDriver, FString SeverityCategory)
+	{
+		NetworkDDoSEscalationEvent.Broadcast(World, NetDriver, SeverityCategory);
 	}
 
 	//~ Begin UObject Interface.
@@ -2628,10 +2652,8 @@ protected:
 
 	/**
 	 *	Initialize the audio device manager
-	 *
-	 *	@return	true on success, false otherwise.
 	 */
-	virtual bool InitializeAudioDeviceManager();
+	virtual void InitializeAudioDeviceManager();
 
 	/**
 	 *	Detects and initializes any attached HMD devices
@@ -2774,7 +2796,7 @@ public:
 	 *
 	 * @return A pointer to the UNetDriver that was found, or nullptr if it wasn't found.
 	 */
-	UNetDriver* FindNamedNetDriver(UWorld* InWorld, FName NetDriverName);
+	UNetDriver* FindNamedNetDriver(const UWorld* InWorld, FName NetDriverName);
 	UNetDriver* FindNamedNetDriver(const UPendingNetGame* InPendingNetGame, FName NetDriverName);
 
 	/**

@@ -124,7 +124,7 @@ public:
 	/** Constructor */
 	SScaleBox()
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 
@@ -171,7 +171,7 @@ protected:
 	float GetLayoutScale() const;
 	void RefreshSafeZoneScale();
 #if WITH_EDITOR
-	void DebugSafeAreaUpdated(const FMargin& NewSafeZone);
+	void DebugSafeAreaUpdated(const FMargin& NewSafeZone, bool bShouldRecacheMetrics);
 #endif
 
 protected:

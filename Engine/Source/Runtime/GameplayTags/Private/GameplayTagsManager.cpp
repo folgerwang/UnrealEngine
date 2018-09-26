@@ -28,6 +28,8 @@ FSimpleMulticastDelegate UGameplayTagsManager::OnEditorRefreshGameplayTagTree;
 #endif
 #include "HAL/IConsoleManager.h"
 
+const static FName NAME_Categories("Categories");
+const static FName NAME_GameplayTagFilter("GameplayTagFilter");
 
 #define LOCTEXT_NAMESPACE "GameplayTagManager"
 
@@ -102,25 +104,33 @@ void UGameplayTagsManager::ConstructGameplayTagTree()
 			GetRestrictedTagConfigFiles(RestrictedGameplayTagFiles);
 			RestrictedGameplayTagFiles.Sort();
 
-			for (FString& FileName : RestrictedGameplayTagFiles)
+			for (const FString& FileName : RestrictedGameplayTagFiles)
 			{
 				FName TagSource = FName(*FPaths::GetCleanFilename(FileName));
+				if (TagSource == NAME_None)
+				{
+					continue;
+				}
 				RestrictedGameplayTagSourceNames.Add(TagSource);
 				FGameplayTagSource* FoundSource = FindOrAddTagSource(TagSource, EGameplayTagSourceType::RestrictedTagList);
 
 				// Make sure we have regular tag sources to match the restricted tag sources but don't try to read any tags from them yet.
 				FindOrAddTagSource(TagSource, EGameplayTagSourceType::TagList);
 
-				FoundSource->SourceRestrictedTagList->LoadConfig(URestrictedGameplayTagsList::StaticClass(), *FileName);
+				if (FoundSource && FoundSource->SourceRestrictedTagList)
+				{
+					FoundSource->SourceRestrictedTagList->LoadConfig(URestrictedGameplayTagsList::StaticClass(), *FileName);
+
 #if WITH_EDITOR
-				if (GIsEditor || IsRunningCommandlet()) // Sort tags for UI Purposes but don't sort in -game scenario since this would break compat with noneditor cooked builds
-				{
-					FoundSource->SourceRestrictedTagList->SortTags();
-				}
+					if (GIsEditor || IsRunningCommandlet()) // Sort tags for UI Purposes but don't sort in -game scenario since this would break compat with noneditor cooked builds
+					{
+						FoundSource->SourceRestrictedTagList->SortTags();
+					}
 #endif
-				for (const FRestrictedGameplayTagTableRow& TableRow : FoundSource->SourceRestrictedTagList->RestrictedGameplayTagList)
-				{
-					AddTagTableRow(TableRow, TagSource, true);
+					for (const FRestrictedGameplayTagTableRow& TableRow : FoundSource->SourceRestrictedTagList->RestrictedGameplayTagList)
+					{
+						AddTagTableRow(TableRow, TagSource, true);
+					}
 				}
 			}
 		}
@@ -215,31 +225,34 @@ void UGameplayTagsManager::ConstructGameplayTagTree()
 
 				UE_LOG(LogGameplayTags, Display, TEXT("Loading Tag File: %s"), *FileName);
 
-				// Check deprecated locations
-				TArray<FString> Tags;
-				if (GConfig->GetArray(TEXT("UserTags"), TEXT("GameplayTags"), Tags, FileName))
+				if (FoundSource && FoundSource->SourceTagList)
 				{
-					for (const FString& Tag : Tags)
+					// Check deprecated locations
+					TArray<FString> Tags;
+					if (GConfig->GetArray(TEXT("UserTags"), TEXT("GameplayTags"), Tags, FileName))
 					{
-						FoundSource->SourceTagList->GameplayTagList.AddUnique(FGameplayTagTableRow(FName(*Tag)));
+						for (const FString& Tag : Tags)
+						{
+							FoundSource->SourceTagList->GameplayTagList.AddUnique(FGameplayTagTableRow(FName(*Tag)));
+						}
 					}
-				}
-				else
-				{
-					// Load from new ini
-					FoundSource->SourceTagList->LoadConfig(UGameplayTagsList::StaticClass(), *FileName);
-				}
+					else
+					{
+						// Load from new ini
+						FoundSource->SourceTagList->LoadConfig(UGameplayTagsList::StaticClass(), *FileName);
+					}
 
 #if WITH_EDITOR
-				if (GIsEditor || IsRunningCommandlet()) // Sort tags for UI Purposes but don't sort in -game scenario since this would break compat with noneditor cooked builds
-				{
-					FoundSource->SourceTagList->SortTags();
-				}
+					if (GIsEditor || IsRunningCommandlet()) // Sort tags for UI Purposes but don't sort in -game scenario since this would break compat with noneditor cooked builds
+					{
+						FoundSource->SourceTagList->SortTags();
+					}
 #endif
 
-				for (const FGameplayTagTableRow& TableRow : FoundSource->SourceTagList->GameplayTagList)
-				{
-					AddTagTableRow(TableRow, TagSource);
+					for (const FGameplayTagTableRow& TableRow : FoundSource->SourceTagList->GameplayTagList)
+					{
+						AddTagTableRow(TableRow, TagSource);
+					}
 				}
 			}
 		}
@@ -1105,6 +1118,16 @@ void UGameplayTagsManager::GetFilteredGameplayRootTags(const FString& InFilterSt
 	}
 }
 
+FString UGameplayTagsManager::GetCategoriesMetaFromStruct(UScriptStruct* Struct) const
+{
+	check(Struct);
+	if (Struct->HasMetaData(NAME_Categories))
+	{
+		return Struct->GetMetaData(NAME_Categories);
+	}
+	return FString();
+}
+
 FString UGameplayTagsManager::GetCategoriesMetaFromPropertyHandle(TSharedPtr<IPropertyHandle> PropertyHandle) const
 {
 	// Global delegate override. Useful for parent structs that want to override tag categories based on their data (e.g. not static property meta data)
@@ -1115,15 +1138,13 @@ FString UGameplayTagsManager::GetCategoriesMetaFromPropertyHandle(TSharedPtr<IPr
 		return DelegateOverrideString;
 	}
 
-
-	const FName CategoriesName = TEXT("Categories");
 	FString Categories;
 
 	auto GetMetaData = ([&](UField* Field)
 	{
-		if (Field->HasMetaData(CategoriesName))
+		if (Field->HasMetaData(NAME_Categories))
 		{
-			Categories = Field->GetMetaData(CategoriesName);
+			Categories = Field->GetMetaData(NAME_Categories);
 			return true;
 		}
 
@@ -1173,9 +1194,9 @@ FString UGameplayTagsManager::GetCategoriesMetaFromPropertyHandle(TSharedPtr<IPr
 FString UGameplayTagsManager::GetCategoriesMetaFromFunction(UFunction* ThisFunction) const
 {
 	FString FilterString;
-	if (ThisFunction->HasMetaData(TEXT("GameplayTagFilter")))
+	if (ThisFunction->HasMetaData(NAME_GameplayTagFilter))
 	{
-		FilterString = ThisFunction->GetMetaData(TEXT("GameplayTagFilter"));
+		FilterString = ThisFunction->GetMetaData(NAME_GameplayTagFilter);
 	}
 	return FilterString;
 }
@@ -1318,6 +1339,18 @@ const FGameplayTagSource* UGameplayTagsManager::FindTagSource(FName TagSourceNam
 	return nullptr;
 }
 
+FGameplayTagSource* UGameplayTagsManager::FindTagSource(FName TagSourceName)
+{
+	for (FGameplayTagSource& TagSource : TagSources)
+	{
+		if (TagSource.SourceName == TagSourceName)
+		{
+			return &TagSource;
+		}
+	}
+	return nullptr;
+}
+
 void UGameplayTagsManager::FindTagSourcesWithType(EGameplayTagSourceType TagSourceType, TArray<const FGameplayTagSource*>& OutArray) const
 {
 	for (const FGameplayTagSource& TagSource : TagSources)
@@ -1331,10 +1364,15 @@ void UGameplayTagsManager::FindTagSourcesWithType(EGameplayTagSourceType TagSour
 
 FGameplayTagSource* UGameplayTagsManager::FindOrAddTagSource(FName TagSourceName, EGameplayTagSourceType SourceType)
 {
-	const FGameplayTagSource* FoundSource = FindTagSource(TagSourceName);
+	FGameplayTagSource* FoundSource = FindTagSource(TagSourceName);
 	if (FoundSource)
 	{
-		return const_cast<FGameplayTagSource*>(FoundSource);
+		if (SourceType == FoundSource->SourceType)
+		{
+			return FoundSource;
+		}
+
+		return nullptr;
 	}
 
 	// Need to make a new one

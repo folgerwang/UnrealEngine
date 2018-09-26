@@ -19,7 +19,6 @@ FPlayTimeLimitImpl::FPlayTimeLimitImpl()
 
 FPlayTimeLimitImpl::~FPlayTimeLimitImpl()
 {
-	Users.Empty();
 }
 
 FPlayTimeLimitImpl& FPlayTimeLimitImpl::Get()
@@ -57,6 +56,8 @@ void FPlayTimeLimitImpl::Shutdown()
 		FTicker::GetCoreTicker().RemoveTicker(TickHandle);
 		TickHandle.Reset();
 	}
+
+	Users.Empty();
 }
 
 bool FPlayTimeLimitImpl::Tick(float DeltaTime)
@@ -73,7 +74,7 @@ bool FPlayTimeLimitImpl::Tick(float DeltaTime)
 	const double Now = FPlatformTime::Seconds();
 	if ((LastTickLogicTime == 0) || ((Now - LastTickLogicTime) > TickFrequencySeconds))
 	{
-		for (const TUniquePtr<FPlayTimeLimitUser>& User : Users)
+		for (const FPlayTimeLimitUserPtr& User : Users)
 		{
 			User->Tick();
 			if (User->HasTimeLimit())
@@ -98,8 +99,9 @@ bool FPlayTimeLimitImpl::Tick(float DeltaTime)
 				if (bShouldNotify)
 				{
 					const int32 PlayTimeMinutes = User->GetPlayTimeMinutes();
-					GetWarnUserPlayTimeDelegate().Broadcast(*User->GetUserId(), PlayTimeMinutes, RewardRate);
+					GetWarnUserPlayTimeDelegate().Broadcast(*User->GetUserId(), PlayTimeMinutes, RewardRate, *User->OverrideDialogTitle, *User->OverrideDialogText, *User->OverrideButtonText);
 					UpdateNextNotificationTime(*User, PlayTimeMinutes);
+					User->ClearDialogOverrideText();
 				}
 			}
 		}
@@ -108,24 +110,41 @@ bool FPlayTimeLimitImpl::Tick(float DeltaTime)
 	return bRetick;
 }
 
-void FPlayTimeLimitImpl::RegisterUser(FPlayTimeLimitUser* const NewUser)
+void FPlayTimeLimitImpl::RegisterUser(const FUniqueNetId& UserId)
 {
-	check(NewUser != nullptr);
-	if (!Users.ContainsByPredicate([NewUser](const TUniquePtr<FPlayTimeLimitUser>& User) { return *User->GetUserId() == *NewUser->GetUserId(); }))
+	if (!Users.ContainsByPredicate([&UserId](const FPlayTimeLimitUserPtr& User) { return *User->GetUserId() == UserId; }))
 	{
-		const TUniquePtr<FPlayTimeLimitUser>& User = Users[Users.Emplace(NewUser)];
-		const int32 PlayTimeMinutes = User->GetPlayTimeMinutes();
-		UpdateNextNotificationTime(*User, PlayTimeMinutes);
+		if (OnRequestCreateUser.IsBound())
+		{
+			FPlayTimeLimitUserRawPtr NewUser = OnRequestCreateUser.Execute(UserId);
+			if (NewUser)
+			{
+				FPlayTimeLimitUserPtr User = MakeShareable(NewUser);
+				Users.Emplace(User);
+
+				User->Init();
+				const int32 PlayTimeMinutes = User->GetPlayTimeMinutes();
+				UpdateNextNotificationTime(*User, PlayTimeMinutes);
+			}
+			else
+			{
+				UE_LOG(LogPlayTimeLimit, Warning, TEXT("FPlayTimeLimitImpl: OnRequestCreateUser Delegate returned a null User."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogPlayTimeLimit, Warning, TEXT("FPlayTimeLimitImpl: No OnRequestCreateUser delegate bound."));
+		}
 	}
 	else
 	{
-		UE_LOG(LogPlayTimeLimit, Log, TEXT("FPlayTimeLimitImpl: User [%s] already registered"), *NewUser->GetUserId()->ToDebugString());
+		UE_LOG(LogPlayTimeLimit, Log, TEXT("FPlayTimeLimitImpl: User [%s] already registered"), *UserId.ToDebugString());
 	}
 }
 
 void FPlayTimeLimitImpl::UnregisterUser(const FUniqueNetId& UserId)
 {
-	const int32 Index = Users.IndexOfByPredicate([&UserId](const TUniquePtr<FPlayTimeLimitUser>& User) { return *User->GetUserId() == UserId; });
+	const int32 Index = Users.IndexOfByPredicate([&UserId](const FPlayTimeLimitUserPtr& User) { return *User->GetUserId() == UserId; });
 	if (Index != INDEX_NONE)
 	{
 		Users.RemoveAtSwap(Index);
@@ -139,11 +158,11 @@ void FPlayTimeLimitImpl::UnregisterUser(const FUniqueNetId& UserId)
 void FPlayTimeLimitImpl::MockUser(const FUniqueNetId& UserId, const bool bHasTimeLimit, const double CurrentPlayTimeMinutes)
 {
 #if ALLOW_PLAY_LIMIT_MOCK
-	const int32 ExistingIndex = Users.IndexOfByPredicate([&UserId](const TUniquePtr<FPlayTimeLimitUser>& User) { return *User->GetUserId() == UserId; });
+	const int32 ExistingIndex = Users.IndexOfByPredicate([&UserId](const FPlayTimeLimitUserPtr& User) { return *User->GetUserId() == UserId; });
 	if (ExistingIndex != INDEX_NONE)
 	{
 		Users.RemoveAtSwap(ExistingIndex);
-		const TUniquePtr<FPlayTimeLimitUser>& User = Users[Users.Emplace(new FPlayTimeLimitUserMock(UserId.AsShared(), bHasTimeLimit, CurrentPlayTimeMinutes))];
+		const FPlayTimeLimitUserPtr& User = Users[Users.Emplace(new FPlayTimeLimitUserMock(UserId.AsShared(), bHasTimeLimit, CurrentPlayTimeMinutes))];
 		// Hacky solution to try to line up the next notification time based on the new play time minutes
 		// Pretend the user logged in at 0 minutes, so that notifications happen at exactly 60 minutes, 120 minutes, etc
 		// The behavior of the real system is 60 minutes (etc) from login time, because WeGame does not tell us the exact number of minutes the player has played
@@ -152,11 +171,11 @@ void FPlayTimeLimitImpl::MockUser(const FUniqueNetId& UserId, const bool bHasTim
 		{
 			ConfigRate = GetConfigEntry(static_cast<int32>(CurrentPlayTimeMinutes));
 		}
-		if (ConfigRate)
-		{
-			User->SetLastKnownRewardRate(ConfigRate->RewardRate);
-		}
-		double SecondsToNextNotification = 0;
+
+		const float RewardRate = (ConfigRate != nullptr) ? ConfigRate->RewardRate : 1.0f;
+		User->SetLastKnownRewardRate(RewardRate);
+
+		int32 SecondsToNextNotification = 0;
 		if (ConfigRate && ConfigRate->NotificationRateMinutes != 0)
 		{
 			const double NumMinutesInBracketAlready = CurrentPlayTimeMinutes - ConfigRate->TimeStartMinutes;
@@ -166,13 +185,13 @@ void FPlayTimeLimitImpl::MockUser(const FUniqueNetId& UserId, const bool bHasTim
 			const double NextNotificationTime = BracketStartTime + ((NumNotificationsInBracketAlready + 1) * ConfigRate->NotificationRateMinutes * 60);
 			User->SetNextNotificationTime(NextNotificationTime);
 
-			SecondsToNextNotification = (NextNotificationTime - NowSeconds);
+			SecondsToNextNotification = static_cast<int32>(NextNotificationTime - NowSeconds);
 		}
 		else
 		{
 			User->SetNextNotificationTime(TOptional<double>());
 		}
-		UE_LOG(LogPlayTimeLimit, Log, TEXT("MockUser: UserId=%s, bHasTimeLimit=%s, CurrentPlayTimeMinutes=%d, SecondsToNextNotification=%d"), *UserId.ToDebugString(), bHasTimeLimit ? TEXT("true") : TEXT("false"), static_cast<int32>(CurrentPlayTimeMinutes), static_cast<int32>(SecondsToNextNotification));
+		UE_LOG(LogPlayTimeLimit, Log, TEXT("MockUser: UserId=%s, bHasTimeLimit=%s, CurrentPlayTimeMinutes=%d, SecondsToNextNotification=%d"), *UserId.ToDebugString(), bHasTimeLimit ? TEXT("true") : TEXT("false"), static_cast<int32>(CurrentPlayTimeMinutes), SecondsToNextNotification);
 	}
 #endif
 }
@@ -182,7 +201,7 @@ void FPlayTimeLimitImpl::NotifyNow()
 	// Well... on next Tick
 	LastTickLogicTime = 0.0;
 	double Now = FPlatformTime::Seconds();
-	for (const TUniquePtr<FPlayTimeLimitUser>& User : Users)
+	for (const FPlayTimeLimitUserPtr& User : Users)
 	{
 		User->SetNextNotificationTime(Now);
 	}
@@ -194,7 +213,7 @@ void FPlayTimeLimitImpl::DumpState()
 	if (Users.Num() != 0)
 	{
 		const double Now = FPlatformTime::Seconds();
-		for (const TUniquePtr<FPlayTimeLimitUser>& User : Users)
+		for (const FPlayTimeLimitUserPtr& User : Users)
 		{
 			FString NextNotificationTimeString;
 			const TOptional<double> NextNotificationTime = User->GetNextNotificationTime();
@@ -225,7 +244,7 @@ void FPlayTimeLimitImpl::DumpState()
 bool FPlayTimeLimitImpl::HasTimeLimit(const FUniqueNetId& UserId)
 {
 	bool bHasTimeLimit = false;
-	const TUniquePtr<FPlayTimeLimitUser>* const User = Users.FindByPredicate([&UserId](const TUniquePtr<FPlayTimeLimitUser>& ExistingUser) { return *ExistingUser->GetUserId() == UserId; });
+	const FPlayTimeLimitUserPtr* const User = Users.FindByPredicate([&UserId](const FPlayTimeLimitUserPtr& ExistingUser) { return *ExistingUser->GetUserId() == UserId; });
 	if (User != nullptr)
 	{
 		bHasTimeLimit = (*User)->HasTimeLimit();
@@ -240,7 +259,7 @@ bool FPlayTimeLimitImpl::HasTimeLimit(const FUniqueNetId& UserId)
 int32 FPlayTimeLimitImpl::GetPlayTimeMinutes(const FUniqueNetId& UserId)
 {
 	int32 PlayTimeMinutes = 0;
-	const TUniquePtr<FPlayTimeLimitUser>* const User = Users.FindByPredicate([&UserId](const TUniquePtr<FPlayTimeLimitUser>& ExistingUser) { return *ExistingUser->GetUserId() == UserId; });
+	const FPlayTimeLimitUserPtr* const User = Users.FindByPredicate([&UserId](const FPlayTimeLimitUserPtr& ExistingUser) { return *ExistingUser->GetUserId() == UserId; });
 	if (User != nullptr)
 	{
 		PlayTimeMinutes = (*User)->GetPlayTimeMinutes();
@@ -255,7 +274,7 @@ int32 FPlayTimeLimitImpl::GetPlayTimeMinutes(const FUniqueNetId& UserId)
 float FPlayTimeLimitImpl::GetRewardRate(const FUniqueNetId& UserId)
 {
 	float RewardRate = 1.0f;
-	const TUniquePtr<FPlayTimeLimitUser>* const User = Users.FindByPredicate([&UserId](const TUniquePtr<FPlayTimeLimitUser>& ExistingUser) { return *ExistingUser->GetUserId() == UserId; });
+	const FPlayTimeLimitUserPtr* const User = Users.FindByPredicate([&UserId](const FPlayTimeLimitUserPtr& ExistingUser) { return *ExistingUser->GetUserId() == UserId; });
 	if (User != nullptr)
 	{
 		RewardRate = (*User)->GetLastKnownRewardRate();

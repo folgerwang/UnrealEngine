@@ -4,10 +4,22 @@ import android.util.Log;
 
 public class Logger
 {
+	public interface ILoggerCallback
+	{
+		void LoggerCallback(String Level, String Tag, String Message);
+	}
+
+	private static ILoggerCallback mCallback = null;
 	private String mTag;
 	
 	private static boolean bAllowLogging			= true;
 	private static boolean bAllowExceptionLogging	= true;
+
+	public static void RegisterCallback(ILoggerCallback callback)
+	{
+		mCallback = callback;
+	}
+
 	public static void SuppressLogs ()
 	{
 		bAllowLogging = bAllowExceptionLogging = false;
@@ -17,11 +29,16 @@ public class Logger
 	{
 		mTag = Tag;
 	}
+	
 	public void debug(String Message)
 	{
 		if (bAllowLogging)
 		{
 			Log.d(mTag, Message);
+		}
+		if (mCallback != null)
+		{
+			mCallback.LoggerCallback("D/", mTag, Message);
 		}
 	}
 	
@@ -31,6 +48,10 @@ public class Logger
 		{
 			Log.w(mTag, Message);
 		}
+		if (mCallback != null)
+		{
+			mCallback.LoggerCallback("W/", mTag, Message);
+		}
 	}
 	
 	public void error(String Message)
@@ -38,6 +59,10 @@ public class Logger
 		if (bAllowLogging)
 		{
 			Log.e(mTag, Message);
+		}
+		if (mCallback != null)
+		{
+			mCallback.LoggerCallback("E/", mTag, Message);
 		}
 	}
 }

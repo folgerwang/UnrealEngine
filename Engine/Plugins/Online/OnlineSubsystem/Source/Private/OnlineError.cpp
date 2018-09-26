@@ -20,6 +20,11 @@ FOnlineError::FOnlineError(bool bSucceededIn)
 {
 }
 
+FOnlineError::FOnlineError(const TCHAR* const ErrorCodeIn)
+	: FOnlineError(FString(ErrorCodeIn))
+{
+}
+
 FOnlineError::FOnlineError(const FString& ErrorCodeIn)
 	: bSucceeded(false)
 	, HttpResult(0)

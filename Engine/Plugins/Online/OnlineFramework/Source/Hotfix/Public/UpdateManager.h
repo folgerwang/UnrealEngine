@@ -64,6 +64,8 @@ enum class EUpdateCompletionStatus : uint8
 	UpdateFailure_NotLoggedIn
 };
 
+HOTFIX_API FString LexToString(EUpdateCompletionStatus Status);
+
 /**
  * Possible outcomes at the end of just the patch check
  */
@@ -262,11 +264,20 @@ protected:
 	/** Amount of time to wait at the end of the entire check before notifying listening entities (availability check only) */
 	UPROPERTY(Config)
 	float UpdateCheckAvailabilityCompleteDelay;
+	/** Check the platform OSS for an update */
+	UPROPERTY(Config)
+	bool bCheckPlatformOSSForUpdate;
+	/** Check the default OSS for an update */
+	UPROPERTY(Config)
+	bool bCheckOSSForUpdate;
+
 
 	/**
 	 * Patch check
 	 */
 	virtual void StartPatchCheck();
+	virtual void StartPlatformOSSPatchCheck();
+	virtual void StartOSSPatchCheck();
 	virtual void OnCheckForPatchComplete(const FUniqueNetId& UniqueId, EUserPrivileges::Type Privilege, uint32 PrivilegeResult, bool bConsoleCheck);
 	virtual void PatchCheckComplete(EPatchCheckResult PatchResult);
 

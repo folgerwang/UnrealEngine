@@ -8,6 +8,7 @@
 #include "VulkanDevice.h"
 #include "VulkanContext.h"
 #include "Containers/ResourceArray.h"
+#include "VulkanLLM.h"
 
 static TMap<FVulkanResourceMultiBuffer*, VulkanRHI::FPendingBufferLock> GPendingLockIBs;
 static FCriticalSection GPendingLockIBsMutex;
@@ -80,7 +81,16 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 		BufferUsageFlags |= bUAV ? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bIndirect ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0;
 
-		if (!bVolatile)
+		if (bVolatile)
+		{
+			bool bRenderThread = IsInRenderingThread();
+
+			// Get a dummy buffer as sometimes the high-level misbehaves and tries to use SRVs off volatile buffers before filling them in...
+			void* Data = Lock(bRenderThread, RLM_WriteOnly, InSize, 0);
+			FMemory::Memzero(Data, InSize);
+			Unlock(bRenderThread);
+		}
+		else
 		{
 			VkDevice VulkanDevice = InDevice->GetInstanceHandle();
 
@@ -324,6 +334,7 @@ FVulkanIndexBuffer::FVulkanIndexBuffer(FVulkanDevice* InDevice, uint32 InStride,
 
 FIndexBufferRHIRef FVulkanDynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanIndexBuffers);
 	return new FVulkanIndexBuffer(Device, Stride, Size, InUsage, CreateInfo, nullptr);
 }
 

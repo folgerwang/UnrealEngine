@@ -17,7 +17,6 @@
 #include "RenderResource.h"
 #include "ShaderCore.h"
 #include "RenderUtils.h"
-#include "ShaderCache.h"
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 #include "SceneUtils.h"
@@ -163,8 +162,8 @@ FOpenGLContextState& FOpenGLDynamicRHI::GetContextStateForCurrentContext(bool bA
 	int32 ContextType = (int32)PlatformOpenGLCurrentContext(PlatformDevice);
 	if (bAssertIfInvalid)
 	{
-		check(ContextType >= 0);
-	}
+			check(ContextType >= 0);
+		}
 	else if (ContextType < 0)
 	{
 		return InvalidContextState;
@@ -801,19 +800,18 @@ static void InitRHICapabilitiesForGL()
 #else
 	GRHISupportsRHIThread = false;
 #endif
+	
+	static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("OpenGL.UseEmulatedUBs"));
+	const bool bUseEmulatedUBs = (CVar && CVar->GetValueOnAnyThread() != 0);
+	
+	// Emulate uniform buffers on ES2
+	// Optional emulation on ES3.1 and PC
+	GUseEmulatedUniformBuffers = (IsES2Platform(GMaxRHIShaderPlatform) && !IsPCPlatform(GMaxRHIShaderPlatform)) || bUseEmulatedUBs;
 
-	// Emulate uniform buffers on ES2, unless we're on a desktop platform emulating ES2.
-	GUseEmulatedUniformBuffers = IsES2Platform(GMaxRHIShaderPlatform) && !IsPCPlatform(GMaxRHIShaderPlatform);
 #if PLATFORM_HTML5
 	// On browser builds, ask the current browser we are running on whether it supports uniform buffers or not.
 	GUseEmulatedUniformBuffers = !FOpenGL::SupportsUniformBuffers();
 #endif
-
-	if (!GUseEmulatedUniformBuffers && IsPCPlatform(GMaxRHIShaderPlatform))
-	{
-		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("OpenGL.UseEmulatedUBs"));
-		GUseEmulatedUniformBuffers = CVar && CVar->GetValueOnAnyThread() != 0;
-	}
 
 	FString FeatureLevelName;
 	GetFeatureLevelName(GMaxRHIFeatureLevel, FeatureLevelName);
@@ -867,6 +865,8 @@ static void InitRHICapabilitiesForGL()
 	GSupportsTimestampRenderQueries = FOpenGL::SupportsTimestampQueries();
 
 	GSupportsHDR32bppEncodeModeIntrinsic = FOpenGL::SupportsHDR32bppEncodeModeIntrinsic();
+
+	GRHISupportsLazyShaderCodeLoading = true;
 
 	checkf(!IsMobileHDR32bpp() || GSupportsHDR32bppEncodeModeIntrinsic || IsPCPlatform(GMaxRHIShaderPlatform), TEXT("Current platform does not support 32bpp HDR but IsMobileHDR32bpp() returned true"));
 
@@ -1236,6 +1236,11 @@ static void AttemptLinkProgramExecute(GLuint VertexShaderResource, GLuint PixelS
 		return;
 	}
 
+	// pull binary from linked program
+	GLint BinaryLength = -1;
+	glGetProgramiv(Program, GL_PROGRAM_BINARY_LENGTH, &BinaryLength);
+	FOpenGL::bBinaryProgramRetrievalFailed = BinaryLength == 0;
+
 	UE_LOG(LogRHI, Warning, TEXT("gl_FragCoord does not need a varying"));
 }
 
@@ -1601,9 +1606,6 @@ void FOpenGLDynamicRHI::Init()
 	VERIFY_GL_SCOPE();
 
 	FOpenGLProgramBinaryCache::Initialize();
-	FShaderCache::InitShaderCache(SCO_Default, GMaxRHIShaderPlatform);
-	FShaderCache::SetMaxShaderResources(FOpenGL::GetMaxTextureImageUnits());
-
 	InitializeStateResources();
 
 	// Create a default point sampler state for internal use.
@@ -1693,6 +1695,8 @@ void FOpenGLDynamicRHI::Shutdown()
 
 	DestroyShadersAndPrograms();
 	PlatformDestroyOpenGLDevice(PlatformDevice);
+
+	UnregisterSharedShaderCodeDelegates();
 
 	PrivateOpenGLDevicePtr = NULL;
 }

@@ -322,6 +322,12 @@ void SRigHierarchy::OnSelectionChanged(TSharedPtr<FRigTreeJoint> Selection, ESel
 				ControlRigEditor.Pin()->SelectJoint(Selection->CachedJoint);
 				return;
 			}
+			else
+			{
+				// clear the current selection
+				ControlRigEditor.Pin()->ClearDetailObject();
+				ControlRigEditor.Pin()->SelectJoint(NAME_None);
+			}
 		}
 
 		// if failed, try BP hierarhcy? Todo:
@@ -450,6 +456,7 @@ void SRigHierarchy::RefreshHierarchy(const FAssetData& InAssetData)
 			}
 		}
 
+		ControlRigEditor.Pin()->OnHierarchyChanged();
 		RefreshTreeView();
 		FSlateApplication::Get().DismissAllMenus();
 	}
@@ -505,6 +512,7 @@ void SRigHierarchy::ImportHierarchy(const FAssetData& InAssetData)
 			}
 		}
 
+		ControlRigEditor.Pin()->OnHierarchyChanged();
 		RefreshTreeView();
 		FSlateApplication::Get().DismissAllMenus();
 	}
@@ -543,6 +551,7 @@ void SRigHierarchy::HandleDeleteItem()
 			}
 		}
 
+		ControlRigEditor.Pin()->OnHierarchyChanged();
 		RefreshTreeView();
  	}
 }
@@ -578,7 +587,7 @@ void SRigHierarchy::HandleNewItem()
 		Hierarchy->AddJoint(NewJointName, ParentName, ParentTransform);
 
 		RefreshTreeView();
-
+		ControlRigEditor.Pin()->OnHierarchyChanged();
 		// reselect current selected item
 		SelectJoint(NewJointName);
 	}
@@ -616,6 +625,7 @@ void SRigHierarchy::HandleDuplicateItem()
 		}
 
 		RefreshTreeView();
+		ControlRigEditor.Pin()->OnHierarchyChanged();
 		
 		for (int32 Index = 0; Index < NewNames.Num(); ++Index)
 		{
@@ -709,6 +719,7 @@ bool SRigHierarchy::RenameJoint(const FName& OldName, const FName& NewName)
 		Hierarchy->Rename(OldName, NewName);
 		SelectJoint(NewName);
 
+		ControlRigEditor.Pin()->OnHierarchyChanged();
 		return true;
 	}
 

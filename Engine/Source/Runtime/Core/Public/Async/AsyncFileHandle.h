@@ -65,7 +65,10 @@ public:
 	/* Not legal to destroy the request until it is complete. */
 	virtual ~IAsyncReadRequest() TSAN_SAFE
 	{
-		check(bCompleteAndCallbackCalled && (bSizeRequest || !Memory)); // must be complete, and if it was a read request, the memory should be gone
+		// check(bCompleteAndCallbackCalled && (bSizeRequest || !Memory)); // must be complete, and if it was a read request, the memory should be gone
+		UE_CLOG(!(bCompleteAndCallbackCalled && (bSizeRequest || !Memory)),
+			LogHAL, Fatal, TEXT("IAsyncReadRequests must not be deleted until they are completed.")
+		);
 		DEC_DWORD_STAT(STAT_AsyncFileRequests);
 	}
 

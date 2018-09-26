@@ -189,4 +189,6 @@ private:
 
 	/** Valid Static Mesh actors in level (populated during initialize clusters) */
 	TArray<AActor*> ValidStaticMeshActorsInLevel;
+	/** Actors which were rejected from the previous HLOD level(s) */
+	TArray<AActor*> RejectedActorsInLevel;
 };

@@ -128,6 +128,9 @@ public:
 	virtual FComputeShaderRHIRef CreateComputeShader(const FSHAHash& Hash) = 0;
 };
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FSharedShaderCodeRequest, const FSHAHash&, FArchive*);
+DECLARE_MULTICAST_DELEGATE_OneParam(FSharedShaderCodeRelease, const FSHAHash&);
+
 // Collection of unique shader code
 // Populated at cook time
 struct SHADERCORE_API FShaderCodeLibrary
@@ -169,11 +172,25 @@ struct SHADERCORE_API FShaderCodeLibrary
 	// Shader code preload will be finished before owning UObject PostLoad call
 	static bool RequestShaderCode(const FSHAHash& Hash, FArchive* Ar);
 
+	// Note that we skipped preloading shader code.
+	// All this does is call the delegate so that other folks are aware that it was lazy
+	static bool LazyRequestShaderCode(const FSHAHash& Hash, FArchive* Ar);
+
+	// Get the raw payload synchronously
+	// This does NOT require a ReleaseShaderCode; because it is synchronous
+	// This also does not fire any delegates...which are used to load binary programs (we are calling this because we failed to find a binary program)
+	static bool RequestShaderCode(const FSHAHash& Hash, TArray<uint8>& OutRaw);
+
 	// Request to release shader code
 	// Must match RequestShaderCode call
 	// Invalid to call before owning UObject PostLoad call
 	static void ReleaseShaderCode(const FSHAHash& Hash);
-	
+
+	// Request to release shader code that we lazy loaded
+	// Must match LazyRequestShaderCode call
+	// All this does is call the delegate so that other folks are aware that it was lazy
+	static void LazyReleaseShaderCode(const FSHAHash& Hash);
+
 	// Create an iterator over all the shaders in the library
 	static TRefCountPtr<FRHIShaderLibrary::FShaderLibraryIterator> CreateIterator(void);
 	
@@ -209,7 +226,7 @@ struct SHADERCORE_API FShaderCodeLibrary
 	static bool AddShaderPipeline(FShaderPipeline* Pipeline);
 	
 	// Save collected shader code to a file for each specified shader platform, collating all child cooker results.
-	static bool SaveShaderCodeMaster(const FString& OutputDir, const FString& MetaOutputDir, const TArray<FName>& ShaderFormats, FString& OutSCLCSVPath);
+	static bool SaveShaderCodeMaster(const FString& OutputDir, const FString& MetaOutputDir, const TArray<FName>& ShaderFormats, TArray<FString>& OutSCLCSVPath);
 	
 	// Save collected shader code to a file for each specified shader platform, handles only this instances intermediate results.
 	static bool SaveShaderCodeChild(const FString& OutputDir, const FString& MetaOutputDir, const TArray<FName>& ShaderFormats);
@@ -223,4 +240,12 @@ struct SHADERCORE_API FShaderCodeLibrary
 	
 	// Safely assign the hash to a shader object
 	static void SafeAssignHash(FRHIShader* InShader, const FSHAHash& Hash);
+
+	// Delegate called whenever shader code is requested.
+	static FDelegateHandle RegisterSharedShaderCodeRequestDelegate_Handle(const FSharedShaderCodeRequest::FDelegate& Delegate);
+	static void UnregisterSharedShaderCodeRequestDelegate_Handle(FDelegateHandle Handle);
+
+	// Delegate called whenever shader code is released.
+	static FDelegateHandle RegisterSharedShaderCodeReleaseDelegate_Handle(const FSharedShaderCodeRelease::FDelegate& Delegate);
+	static void UnregisterSharedShaderCodeReleaseDelegate_Handle(FDelegateHandle Handle);
 };

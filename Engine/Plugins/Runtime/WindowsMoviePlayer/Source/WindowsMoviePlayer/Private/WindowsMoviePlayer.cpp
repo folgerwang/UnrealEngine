@@ -11,6 +11,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 #include "Windows/HideWindowsPlatformTypes.h"
 
+#include "Misc/CoreDelegates.h"
 
 TSharedPtr<FMediaFoundationMovieStreamer> MovieStreamer;
 
@@ -43,18 +44,18 @@ class FWindowsMoviePlayerModule : public IModuleInterface
 			HRESULT Hr = MFStartup(MF_VERSION);
 			check(SUCCEEDED(Hr));
 
-			MovieStreamer = MakeShareable(new FMediaFoundationMovieStreamer);
-			GetMoviePlayer()->RegisterMovieStreamer(MovieStreamer);
+            MovieStreamer = MakeShareable(new FMediaFoundationMovieStreamer);
+            FCoreDelegates::RegisterMovieStreamerDelegate.Broadcast(MovieStreamer);
 		}
 	}
 
 	virtual void ShutdownModule() override
 	{
-		if( MovieStreamer.IsValid() )
+        if( MovieStreamer.IsValid())
 		{
-			MovieStreamer.Reset();
-
-			MFShutdown();
+            FCoreDelegates::UnRegisterMovieStreamerDelegate.Broadcast(MovieStreamer);
+            MovieStreamer.Reset();
+            MFShutdown();
 		}
 	}
 

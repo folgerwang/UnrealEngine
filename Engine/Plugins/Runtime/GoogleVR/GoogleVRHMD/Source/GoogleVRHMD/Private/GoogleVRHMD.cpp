@@ -106,22 +106,6 @@ void OnTriggerEvent(void* UserParam)
 
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
-// Note: Should probably be moved into AndroidJNI class
-int64 CallLongMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...)
-{
-	if (Method == NULL || Object == NULL)
-	{
-		return false;
-	}
-
-	va_list Args;
-	va_start(Args, Method);
-	jlong Return = Env->CallLongMethodV(Object, Method, Args);
-	va_end(Args);
-
-	return (int64)Return;
-}
-
 JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnUiLayerBack(JNIEnv* jenv, jobject thiz)
 {
 	// Need to be on game thread to dispatch handler
@@ -156,7 +140,7 @@ gvr_context* AndroidThunkCpp_GetNativeGVRApi()
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GetNativeGVRApi", "()J", false);
-		return reinterpret_cast<gvr_context*>(CallLongMethod(Env, FJavaWrapper::GameActivityThis, Method));
+		return reinterpret_cast<gvr_context*>(FJavaWrapper::CallLongMethod(Env, FJavaWrapper::GameActivityThis, Method));
 	}
 
 	return nullptr;
@@ -338,16 +322,13 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 	, BaseOrientation(FQuat::Identity)
 	, PixelDensity(1.0f)
 	, RendererModule(nullptr)
-	, DistortionMeshIndices(nullptr)
-	, DistortionMeshVerticesLeftEye(nullptr)
-	, DistortionMeshVerticesRightEye(nullptr)
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 	, OverlayView(nil)
 #endif
 	, LastUpdatedCacheFrame(0)
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	, CachedFinalHeadRotation(EForceInit::ForceInit)
-	, CachedFinalHeadPosition(EForceInit::ForceInitToZero)
+	, CachedFinalHeadPosition(ForceInitToZero)
 	, DistortedBufferViewportList(nullptr)
 	, NonDistortedBufferViewportList(nullptr)
 	, ActiveViewportList(nullptr)
@@ -555,13 +536,6 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 
 FGoogleVRHMD::~FGoogleVRHMD()
 {
-	delete[] DistortionMeshIndices;
-	DistortionMeshIndices = nullptr;
-	delete[] DistortionMeshVerticesLeftEye;
-	DistortionMeshVerticesLeftEye = nullptr;
-	delete[] DistortionMeshVerticesRightEye;
-	DistortionMeshVerticesRightEye = nullptr;
-
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	if (DistortedBufferViewportList)
 	{

@@ -18,7 +18,7 @@
 
 // This is a value that should be tweaked to fit the app, lower numbers will have better performance
 // Titles using many terrain layers may want to set MAX_SRVS to 64 to avoid shader compilation errors. This will have a small performance hit of around 0.1%
-#define MAX_SRVS		32
+#define MAX_SRVS		48
 #define MAX_SAMPLERS	16
 #define MAX_UAVS		16
 #define MAX_CBS			16

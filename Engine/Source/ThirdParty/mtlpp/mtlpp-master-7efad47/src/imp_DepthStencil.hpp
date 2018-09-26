@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<MTLStencilDescriptor*, void> : public IMPTableBase<MTLStencilDescriptor*>
+struct MTLPP_EXPORT IMPTable<MTLStencilDescriptor*, void> : public IMPTableBase<MTLStencilDescriptor*>
 {
 	IMPTable()
 	{
@@ -47,7 +47,7 @@ struct IMPTable<MTLStencilDescriptor*, void> : public IMPTableBase<MTLStencilDes
 };
 
 template<>
-struct IMPTable<MTLDepthStencilDescriptor*, void> : public IMPTableBase<MTLDepthStencilDescriptor*>
+struct MTLPP_EXPORT IMPTable<MTLDepthStencilDescriptor*, void> : public IMPTableBase<MTLDepthStencilDescriptor*>
 {
 	IMPTable()
 	{

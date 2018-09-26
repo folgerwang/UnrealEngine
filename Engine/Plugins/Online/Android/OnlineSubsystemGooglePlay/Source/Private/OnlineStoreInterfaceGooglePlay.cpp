@@ -17,12 +17,12 @@ FOnlineStoreGooglePlay::FOnlineStoreGooglePlay(FOnlineSubsystemGooglePlay* InSub
 	: Subsystem( InSubsystem )
 	, CurrentQueryTask( nullptr )
 {
-	UE_LOG(LogOnline, Display, TEXT( "FOnlineStoreGooglePlay::FOnlineStoreGooglePlay" ));
+	UE_LOG_ONLINE_STORE(Display, TEXT( "FOnlineStoreGooglePlay::FOnlineStoreGooglePlay" ));
 }
 
 FOnlineStoreGooglePlay::~FOnlineStoreGooglePlay()
 {
-	UE_LOG(LogOnline, Display, TEXT( "FOnlineStoreGooglePlay::~FOnlineStoreGooglePlay" ));
+	UE_LOG_ONLINE_STORE(Display, TEXT( "FOnlineStoreGooglePlay::~FOnlineStoreGooglePlay" ));
 
 	if (Subsystem)
 	{
@@ -34,7 +34,7 @@ FOnlineStoreGooglePlay::~FOnlineStoreGooglePlay()
 
 void FOnlineStoreGooglePlay::Init()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineStoreGooglePlay::Init"));
+	UE_LOG_ONLINE_STORE(Display, TEXT("FOnlineStoreGooglePlay::Init"));
 	FOnGooglePlayAvailableIAPQueryCompleteDelegate IAPQueryDelegate = FOnGooglePlayAvailableIAPQueryCompleteDelegate::CreateThreadSafeSP(this, &FOnlineStoreGooglePlay::OnGooglePlayAvailableIAPQueryComplete);
 	AvailableIAPQueryDelegateHandle = Subsystem->AddOnGooglePlayAvailableIAPQueryCompleteDelegate_Handle(IAPQueryDelegate);
 
@@ -47,7 +47,7 @@ void FOnlineStoreGooglePlay::Init()
 	FString GooglePlayLicenseKey;
 	if (!GConfig->GetString(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("GooglePlayLicenseKey"), GooglePlayLicenseKey, GEngineIni) || GooglePlayLicenseKey.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Missing GooglePlayLicenseKey key in /Script/AndroidRuntimeSettings.AndroidRuntimeSettings of DefaultEngine.ini"));
+		UE_LOG_ONLINE_STORE(Warning, TEXT("Missing GooglePlayLicenseKey key in /Script/AndroidRuntimeSettings.AndroidRuntimeSettings of DefaultEngine.ini"));
 	}
 
 	extern void AndroidThunkCpp_Iap_SetupIapService(const FString&);
@@ -56,7 +56,7 @@ void FOnlineStoreGooglePlay::Init()
 
 bool FOnlineStoreGooglePlay::IsAllowedToMakePurchases()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineStoreGooglePlay::IsAllowedToMakePurchases"));
+	UE_LOG_ONLINE_STORE(Display, TEXT("FOnlineStoreGooglePlay::IsAllowedToMakePurchases"));
 
 	extern bool AndroidThunkCpp_Iap_IsAllowedToMakePurchases();
 	return AndroidThunkCpp_Iap_IsAllowedToMakePurchases();
@@ -65,7 +65,7 @@ bool FOnlineStoreGooglePlay::IsAllowedToMakePurchases()
 
 bool FOnlineStoreGooglePlay::QueryForAvailablePurchases(const TArray<FString>& ProductIds, FOnlineProductInformationReadRef& InReadObject)
 {
-	UE_LOG(LogOnline, Display, TEXT( "FOnlineStoreGooglePlay::QueryForAvailablePurchases" ));
+	UE_LOG_ONLINE_STORE(Display, TEXT( "FOnlineStoreGooglePlay::QueryForAvailablePurchases" ));
 	
 	ReadObject = InReadObject;
 	ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
@@ -175,7 +175,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeQueryComplete
 
 void FOnlineStoreGooglePlay::OnGooglePlayAvailableIAPQueryComplete(EGooglePlayBillingResponseCode InResponseCode, const TArray<FInAppPurchaseProductInfo>& AvailablePurchases)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineStoreGooglePlay::OnGooglePlayAvailableIAPQueryComplete"));
+	UE_LOG_ONLINE_STORE(Display, TEXT("FOnlineStoreGooglePlay::OnGooglePlayAvailableIAPQueryComplete"));
 
 	if (ReadObject.IsValid())
 	{
@@ -191,7 +191,7 @@ void FOnlineStoreGooglePlay::OnGooglePlayAvailableIAPQueryComplete(EGooglePlayBi
 
 bool FOnlineStoreGooglePlay::BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InPurchaseStateObject)
 {
-	UE_LOG(LogOnline, Display, TEXT( "FOnlineStoreGooglePlay::BeginPurchase" ));
+	UE_LOG_ONLINE_STORE(Display, TEXT( "FOnlineStoreGooglePlay::BeginPurchase" ));
 	
 	bool bCreatedNewTransaction = false;
 	
@@ -202,12 +202,12 @@ bool FOnlineStoreGooglePlay::BeginPurchase(const FInAppPurchaseProductRequest& P
 
 		extern bool AndroidThunkCpp_Iap_BeginPurchase(const FString&);
 		bCreatedNewTransaction = AndroidThunkCpp_Iap_BeginPurchase(ProductRequest.ProductIdentifier);
-		UE_LOG(LogOnline, Display, TEXT("Created Transaction? - %s"), 
+		UE_LOG_ONLINE_STORE(Display, TEXT("Created Transaction? - %s"), 
 			bCreatedNewTransaction ? TEXT("Created a transaction.") : TEXT("Failed to create a transaction."));
 
 		if (!bCreatedNewTransaction)
 		{
-			UE_LOG(LogOnline, Display, TEXT("FOnlineStoreGooglePlay::BeginPurchase - Could not create a new transaction."));
+			UE_LOG_ONLINE_STORE(Display, TEXT("FOnlineStoreGooglePlay::BeginPurchase - Could not create a new transaction."));
 			CachedPurchaseStateObject->ReadState = EOnlineAsyncTaskState::Failed;
 			TriggerOnInAppPurchaseCompleteDelegates(EInAppPurchaseState::Invalid);
 		}
@@ -218,7 +218,7 @@ bool FOnlineStoreGooglePlay::BeginPurchase(const FInAppPurchaseProductRequest& P
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("This device is not able to make purchases."));
+		UE_LOG_ONLINE_STORE(Display, TEXT("This device is not able to make purchases."));
 
 		InPurchaseStateObject->ReadState = EOnlineAsyncTaskState::Failed;
 		TriggerOnInAppPurchaseCompleteDelegates(EInAppPurchaseState::NotAllowed);
@@ -282,8 +282,8 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativePurchaseCompl
 
 void FOnlineStoreGooglePlay::OnProcessPurchaseResult(EGooglePlayBillingResponseCode InResponseCode, const FGoogleTransactionData& InTransactionData)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineStoreGooglePlay::OnProcessPurchaseResult"));
-	UE_LOG(LogOnline, Display, TEXT("3... Response: %s Transaction: %s"), ToString(InResponseCode), *InTransactionData.ToDebugString());
+	UE_LOG_ONLINE_STORE(Display, TEXT("FOnlineStoreGooglePlay::OnProcessPurchaseResult"));
+	UE_LOG_ONLINE_STORE(Display, TEXT("3... Response: %s Transaction: %s"), ToString(InResponseCode), *InTransactionData.ToDebugString());
 
 	bool bWasSuccessful = (InResponseCode == EGooglePlayBillingResponseCode::Ok);
 	if (CachedPurchaseStateObject.IsValid())
@@ -334,7 +334,7 @@ bool FOnlineStoreGooglePlay::RestorePurchases(const TArray<FInAppPurchaseProduct
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("This device is not able to make purchases."));
+		UE_LOG_ONLINE_STORE(Display, TEXT("This device is not able to make purchases."));
 		TriggerOnInAppPurchaseRestoreCompleteDelegates(EInAppPurchaseState::NotAllowed);
 	}
 
@@ -417,7 +417,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GooglePlayStoreHelper_nativeRestorePurcha
 
 void FOnlineStoreGooglePlay::OnRestorePurchasesComplete(EGooglePlayBillingResponseCode InResponseCode, const TArray<FGoogleTransactionData>& InRestoredPurchases)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreGooglePlay::OnRestorePurchasesComplete Response: %s Num: %d"), ToString(InResponseCode), InRestoredPurchases.Num());
+	UE_LOG_ONLINE_STORE(Verbose, TEXT("FOnlineStoreGooglePlay::OnRestorePurchasesComplete Response: %s Num: %d"), ToString(InResponseCode), InRestoredPurchases.Num());
 
 	bool bWasSuccessful = (InResponseCode == EGooglePlayBillingResponseCode::Ok);
 	if (CachedPurchaseRestoreObject.IsValid())

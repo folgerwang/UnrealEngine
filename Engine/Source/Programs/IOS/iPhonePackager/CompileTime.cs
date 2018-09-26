@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -177,10 +178,10 @@ namespace iPhonePackager
 			}
 		}
 
-		static bool FindMobileProvision(string BundleIdentifier, out string OutFileName)
+		static bool FindMobileProvision(string BundleIdentifier, out string OutFileName, bool bCheckCert = true)
 		{
 			bool bNameMatch;
-			string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(BundleIdentifier, out bNameMatch, true, true, false);
+			string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(BundleIdentifier, out bNameMatch, bCheckCert, true, false);
 			if (!File.Exists(ProvisionWithPrefix))
 			{
 				ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".mobileprovision");
@@ -213,23 +214,29 @@ namespace iPhonePackager
 		static public void ExportCertificate()
 		{
 			string ProvisionWithPrefix;
-			if(!FindMobileProvision("", out ProvisionWithPrefix))
+			if(!FindMobileProvision(Config.OverrideBundleName ?? "", out ProvisionWithPrefix, false))
 			{
 				Program.Error("Missing provision");
 				return;
 			}
 
-			if(Config.Certificate == null)
+			if(Config.OutputCertificate == null)
 			{
-				Program.Error("Missing -Certificate=... argument");
+				Program.Error("Missing -OutputCertificate=... argument");
 				return;
 			}
 
 			// export the signing certificate to a file
 			MobileProvision Provision = MobileProvisionParser.ParseFile(ProvisionWithPrefix);
-			var Certificate = CodeSignatureBuilder.FindCertificate(Provision);
+			X509Certificate2 Certificate = CodeSignatureBuilder.FindCertificate(Provision);
+            if (Certificate == null)
+            {
+                Program.Error("Failed to find a valid certificate");
+                return;
+            }
+
 			byte[] Data = Certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, "A");
-			File.WriteAllBytes(Config.Certificate, Data);
+			File.WriteAllBytes(Config.OutputCertificate, Data);
 		}
 
 		/// <summary>

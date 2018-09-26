@@ -20,6 +20,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Engine/TextureStreamingTypes.h"
 #include "Components/PrimitiveComponent.h"
 #include "AI/NavigationSystemBase.h"
+#include "AI/NavigationSystemConfig.h"
 #include "Misc/MessageDialog.h"
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
@@ -148,9 +149,6 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "ObjectEditorUtils.h"
 #endif
 
-#if WITH_EDITOR
-#include "AudioEditorModule.h"
-#endif
 
 #include "HardwareInfo.h"
 #include "EngineModule.h"
@@ -391,9 +389,22 @@ FCachedSystemScalabilityCVars::FCachedSystemScalabilityCVars()
 	, MaxCSMShadowResolution(-1)
 	, ViewDistanceScale(-1)
 	, ViewDistanceScaleSquared(-1)
+	, StaticMeshLODDistanceScale(1.0f)
 	, MaxAnisotropy(-1)
+	
 {
 
+}
+
+bool FCachedSystemScalabilityCVars::operator==(const FCachedSystemScalabilityCVars& Other)
+{
+	return DetailMode == Other.DetailMode &&
+		MaterialQualityLevel == Other.MaterialQualityLevel &&
+		MaxShadowResolution == Other.MaxShadowResolution &&
+		MaxCSMShadowResolution == Other.MaxCSMShadowResolution &&
+		ViewDistanceScale == Other.ViewDistanceScale &&
+		ViewDistanceScaleSquared == Other.ViewDistanceScaleSquared &&
+		StaticMeshLODDistanceScale == Other.StaticMeshLODDistanceScale;
 }
 
 void ScalabilityCVarsSinkCallback()
@@ -455,7 +466,17 @@ void ScalabilityCVarsSinkCallback()
 		LocalScalabilityCVars.MaterialQualityLevel = (EMaterialQualityLevel::Type)FMath::Clamp(MaterialQualityLevelVar->GetValueOnGameThread(), 0, (int32)EMaterialQualityLevel::Num - 1);
 	}
 
+	{
+		static const auto StaticMeshLODDistanceScale = IConsoleManager::Get().FindConsoleVariable(TEXT("r.StaticMeshLODDistanceScale"));
+		LocalScalabilityCVars.StaticMeshLODDistanceScale = StaticMeshLODDistanceScale->GetFloat();
+	}
+
 	LocalScalabilityCVars.bInitialized = true;
+
+	if ((LocalScalabilityCVars == GCachedScalabilityCVars) && GCachedScalabilityCVars.bInitialized)
+	{
+		return;
+	}
 
 	FlushRenderingCommands();
 
@@ -500,8 +521,6 @@ void ScalabilityCVarsSinkCallback()
 		}
 	}
 }
-
-static bool GHDROutputEnabled = false;
 
 bool ParseResolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int32& OutWindowMode)
 {
@@ -570,14 +589,83 @@ bool ParseResolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int3
 	return false;
 }
 
+void HDRSettingChangedSinkCallback()
+{
+	static const auto CVarHDROutputEnabled = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.EnableHDROutput"));
+	check(CVarHDROutputEnabled);
+	
+	bool bIsHDREnabled = CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	
+	if(bIsHDREnabled != GRHIIsHDREnabled)
+	{
+		// We'll naively fall back to 1000 if DisplayNits is 0
+		uint32 DisplayNitLevel = GEngine->GetGameUserSettings()->GetCurrentHDRDisplayNits();
+		if(DisplayNitLevel == 0)
+		{
+			DisplayNitLevel = 1000;
+		}
+		
+		int32 OutputDevice = 0;
+		int32 ColorGamut = 0;
+		
+		// If we are turning HDR on we must set the appropriate OutputDevice and ColorGamut.
+		// If we are turning it off, we'll reset back to 0/0
+		if(bIsHDREnabled)
+		{
+#if PLATFORM_WINDOWS
+			if (IsRHIDeviceNVIDIA() || IsRHIDeviceAMD())
+			{
+				// ScRGB, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
+				ColorGamut = 2;
+			}
+#elif PLATFORM_PS4
+			{
+				// PQ, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
+				ColorGamut = 2;
+			}
+
+#elif PLATFORM_MAC
+			{
+				// ScRGB, 1000 or 2000 nits, DCI-P3
+				OutputDevice = DisplayNitLevel == 1000 ? 5 : 6;
+				ColorGamut = 1;
+			}
+#elif PLATFORM_IOS
+			{
+				// Linear output to Apple's specific format.
+				OutputDevice = 7;
+				ColorGamut = 0;
+			}
+#elif PLATFORM_XBOXONE
+			{
+				// PQ, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
+				ColorGamut = 2;
+			}
+#endif
+		}
+		
+		static IConsoleVariable* CVarHDROutputDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
+		static IConsoleVariable* CVarHDRColorGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
+		check(CVarHDROutputDevice);
+		check(CVarHDRColorGamut);
+		
+		CVarHDROutputDevice->Set(OutputDevice, ECVF_SetByDeviceProfile);
+		CVarHDRColorGamut->Set(ColorGamut, ECVF_SetByDeviceProfile);
+		
+		// Now set the HDR setting.
+		GRHIIsHDREnabled = CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	}
+}
+
 void SystemResolutionSinkCallback()
 {
 	auto ResString = CVarSystemResolution->GetString();
 
 	uint32 ResX, ResY;
 	int32 WindowModeInt = GSystemResolution.WindowMode;
-
-	bool bHDROutputEnabled = GRHISupportsHDROutput && IsHDREnabled();
 
 	if (ParseResolution(*ResString, ResX, ResY, WindowModeInt))
 	{
@@ -586,19 +674,17 @@ void SystemResolutionSinkCallback()
 		if( GSystemResolution.ResX != ResX ||
 			GSystemResolution.ResY != ResY ||
 			GSystemResolution.WindowMode != WindowMode ||
-			GHDROutputEnabled != bHDROutputEnabled ||
 			GSystemResolution.bForceRefresh)
 		{
 			GSystemResolution.ResX = ResX;
 			GSystemResolution.ResY = ResY;
 			GSystemResolution.WindowMode = WindowMode;
 			GSystemResolution.bForceRefresh = false;
-			GHDROutputEnabled = bHDROutputEnabled;
 
 			// tell anyone listening about the change
 			FCoreDelegates::OnSystemResolutionChanged.Broadcast(ResX, ResY);
 
-			if(GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
+			if (GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Resizing viewport due to setres change, %d x %d"), ResX, ResY);
 				GEngine->GameViewport->ViewportFrame->ResizeFrame(ResX, ResY, WindowMode);
@@ -684,6 +770,7 @@ void RefreshEngineSettings()
 {
 	extern void FreeSkeletalMeshBuffersSinkCallback();
 
+	HDRSettingChangedSinkCallback();
 	RefreshSamplerStatesCallback();
 	ScalabilityCVarsSinkCallback();
 	FreeSkeletalMeshBuffersSinkCallback();
@@ -2313,6 +2400,7 @@ void UEngine::InitializeObjectReferences()
 	LoadEngineClass<ULocalPlayer>(LocalPlayerClassName, LocalPlayerClass);
 	LoadEngineClass<AWorldSettings>(WorldSettingsClassName, WorldSettingsClass);
 	LoadEngineClass<UNavigationSystemBase>(NavigationSystemClassName, NavigationSystemClass);
+	LoadEngineClass<UNavigationSystemConfig>(NavigationSystemConfigClassName, NavigationSystemConfigClass);
 	LoadEngineClass<UAvoidanceManager>(AvoidanceManagerClassName, AvoidanceManagerClass);
 	LoadEngineClass<UPhysicsCollisionHandler>(PhysicsCollisionHandlerClassName, PhysicsCollisionHandlerClass);
 	LoadEngineClass<UGameUserSettings>(GameUserSettingsClassName, GameUserSettingsClass);
@@ -2640,82 +2728,20 @@ FAudioDevice* UEngine::GetActiveAudioDevice()
 	return nullptr;
 }
 
-/**
-*	Initialize the audio device
-*
-*	@return	bool		true if successful, false if not
-*/
-bool UEngine::InitializeAudioDeviceManager()
+void UEngine::InitializeAudioDeviceManager()
 {
-	if (AudioDeviceManager == nullptr)
+	if (AudioDeviceManager == nullptr && bUseSound)
 	{
-		// Initialize the audio device.
-		if (bUseSound == true)
+		AudioDeviceManager = new FAudioDeviceManager();
+		if (AudioDeviceManager->Initialize())
 		{
-			// Check if we're going to try to force loading the audio mixer from the command line
-			bool bForceAudioMixer = FParse::Param(FCommandLine::Get(), TEXT("AudioMixer"));
-
-			// If not using command line switch to use audio mixer, check the engine ini file
-			if (!bForceAudioMixer)
-			{
-				GConfig->GetBool(TEXT("Audio"), TEXT("EnableAudioMixer"), bForceAudioMixer, GEngineIni);
-			}
-
-			FString AudioDeviceModuleName;
-			if (bForceAudioMixer)
-			{
-				GConfig->GetString(TEXT("Audio"), TEXT("AudioMixerModuleName"), AudioDeviceModuleName, GEngineIni);
-			}
-
-			// get the module name from the ini file
-			if (!bForceAudioMixer || AudioDeviceModuleName.IsEmpty())
-			{
-				GConfig->GetString(TEXT("Audio"), TEXT("AudioDeviceModuleName"), AudioDeviceModuleName, GEngineIni);
-			}
-
-			if (AudioDeviceModuleName.Len() > 0)
-			{
-				// load the module by name from the .ini
-				IAudioDeviceModule* AudioDeviceModule = FModuleManager::LoadModulePtr<IAudioDeviceModule>(*AudioDeviceModuleName);
-
-				// did the module exist?
-				if (AudioDeviceModule)
-				{
-					const bool bIsAudioMixerEnabled = AudioDeviceModule->IsAudioMixerModule();
-					GetMutableDefault<UAudioSettings>()->SetAudioMixerEnabled(bIsAudioMixerEnabled);
-
-#if WITH_EDITOR
-					if (bIsAudioMixerEnabled)
-					{
-						IAudioEditorModule* AudioEditorModule = &FModuleManager::LoadModuleChecked<IAudioEditorModule>("AudioEditor");
-						AudioEditorModule->RegisterAudioMixerAssetActions();
-						AudioEditorModule->RegisterEffectPresetAssetActions();
-					}
-#endif
-
-					// Create the audio device manager and register the platform module to the device manager
-					AudioDeviceManager = new FAudioDeviceManager();
-					AudioDeviceManager->RegisterAudioDeviceModule(AudioDeviceModule);
-
-					FAudioDeviceManager::FCreateAudioDeviceResults NewDeviceResults;
-
-					// Create a new audio device.
-					if (AudioDeviceManager->CreateAudioDevice(true, NewDeviceResults))
-					{
-						MainAudioDeviceHandle = NewDeviceResults.Handle;
-						AudioDeviceManager->SetActiveDevice(MainAudioDeviceHandle);
-						FAudioThread::StartAudioThread();
-					}
-					else
-					{
-						ShutdownAudioDeviceManager();
-					}
-				}
-			}
+			MainAudioDeviceHandle = AudioDeviceManager->GetMainAudioDeviceHandle();
+		}
+		else
+		{
+			ShutdownAudioDeviceManager();
 		}
 	}
-
-	return AudioDeviceManager != nullptr;
 }
 
 bool UEngine::UseSound() const
@@ -10026,33 +10052,25 @@ void FFrameEndSync::Sync( bool bAllowOneFrameThreadLag )
 		EventIndex = (EventIndex + 1) % 2;
 	}
 
-	if (GDoAsyncLoadingWhileWaitingForVSync && IsAsyncLoading())
+	// if we only have two cores, it is important to leave them for the RT to get its work done.
+	static bool bEnoughCoresToDoAsyncLoadingWhileWaitingForVSync = FPlatformMisc::NumberOfCoresIncludingHyperthreads() > 2;
+
+	if (bEnoughCoresToDoAsyncLoadingWhileWaitingForVSync && GDoAsyncLoadingWhileWaitingForVSync)
 	{
 		const int32 MaxTicks = 5;
 		int32 NumTicks = 0;
 		float TimeLimit = GAsyncLoadingTimeLimit / 1000.f / float(MaxTicks);
-		while (!Fence[EventIndex].IsFenceComplete())
+		while (NumTicks < MaxTicks && !Fence[EventIndex].IsFenceComplete() && IsAsyncLoading())
 		{
+			NumTicks++;
+			ProcessAsyncLoading(true, false, TimeLimit);
 			if (bEmptyGameThreadTasks)
 			{
-				// need to process gamethread tasks at least once a frame no matter what
 				FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
-				if (Fence[EventIndex].IsFenceComplete())
-				{
-					break;
-				}
-			}
-			if (NumTicks < MaxTicks)
-			{
-				NumTicks++;
-				ProcessAsyncLoading(true, false, TimeLimit);
 			}
 		}
 	}
-	else
-	{
-		Fence[EventIndex].Wait(bEmptyGameThreadTasks);  // here we also opportunistically execute game thread tasks while we wait
-	}
+	Fence[EventIndex].Wait(bEmptyGameThreadTasks);  // here we also opportunistically execute game thread tasks while we wait
 }
 
 FString appGetStartupMap(const TCHAR* CommandLine)
@@ -10652,7 +10670,7 @@ UNetDriver* FindNamedNetDriver_Local(const TArray<FNamedNetDriver>& ActiveNetDri
 	return NULL;
 }
 
-UNetDriver* UEngine::FindNamedNetDriver(UWorld * InWorld, FName NetDriverName)
+UNetDriver* UEngine::FindNamedNetDriver(const UWorld* InWorld, FName NetDriverName)
 {
 #if WITH_EDITOR
 	const FWorldContext* WorldContext = GetWorldContextFromWorld(InWorld);
@@ -11523,8 +11541,17 @@ EBrowseReturnVal::Type UEngine::Browse( FWorldContext& WorldContext, FURL URL, F
 		}
 
 		WorldContext.PendingNetGame = NewObject<UPendingNetGame>();
-		WorldContext.PendingNetGame->Initialize(URL);
-		WorldContext.PendingNetGame->InitNetDriver();
+		WorldContext.PendingNetGame->Initialize(URL); //-V595
+		WorldContext.PendingNetGame->InitNetDriver(); //-V595
+
+		if( !WorldContext.PendingNetGame )
+		{
+			// If the inital packet sent in InitNetDriver results in a socket error, HandleDisconnect() and CancelPending() may be called, which will null the PendingNetGame.
+			Error = NSLOCTEXT("Engine", "PendingNetGameInitFailure", "Error initializing the network driver.").ToString();
+			BroadcastTravelFailure(WorldContext.World(), ETravelFailure::PendingNetGameCreateFailure, Error);
+			return EBrowseReturnVal::Failure;
+		}
+
 		if( !WorldContext.PendingNetGame->NetDriver )
 		{
 			// UPendingNetGame will set the appropriate error code and connection lost type, so
@@ -11734,10 +11761,18 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 
 				const bool bLoadedMapSuccessfully = LoadMap(Context, Context.PendingNetGame->URL, Context.PendingNetGame, Error);
 
-				Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
+				if (Context.PendingNetGame != nullptr)
+				{
+					Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
 
-				// Kill the pending level.
-				Context.PendingNetGame = NULL;
+					// Kill the pending level.
+					Context.PendingNetGame = nullptr;
+				}
+				else
+				{
+					BrowseToDefaultMap(Context);
+					BroadcastTravelFailure(Context.World(), ETravelFailure::TravelFailure, Error);
+				}
 			}
 		}
 	}
@@ -12099,6 +12134,14 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 				NewWorld->RenameToPIEWorld(WorldContext.PIEInstance);
 			}
 			ResetPIEAudioSetting(NewWorld);
+
+#if WITH_EDITOR
+			// PIE worlds should use the same feature level as the editor
+			if (WorldContext.PIEWorldFeatureLevel != ERHIFeatureLevel::Num && NewWorld->FeatureLevel != WorldContext.PIEWorldFeatureLevel)
+			{
+				NewWorld->ChangeFeatureLevel(WorldContext.PIEWorldFeatureLevel);
+			}
+#endif
 		}
 		else if (WorldContext.WorldType == EWorldType::Game)
 		{
@@ -13837,15 +13880,14 @@ bool AllowHighQualityLightmaps(ERHIFeatureLevel::Type FeatureLevel)
 // Helper function for changing system resolution via the r.setres console command
 void FSystemResolution::RequestResolutionChange(int32 InResX, int32 InResY, EWindowMode::Type InWindowMode)
 {
-	if (PLATFORM_UNIX)
+#if PLATFORM_UNIX
+	// Fullscreen and WindowedFullscreen behave the same on Linux, see FLinuxWindow::ReshapeWindow()/SetWindowMode().
+	// Allowing Fullscreen window mode confuses higher level code (see UE-19996).
+	if (InWindowMode == EWindowMode::Fullscreen)
 	{
-		// Fullscreen and WindowedFullscreen behave the same on Linux, see FLinuxWindow::ReshapeWindow()/SetWindowMode().
-		// Allowing Fullscreen window mode confuses higher level code (see UE-19996).
-		if (InWindowMode == EWindowMode::Fullscreen)
-		{
-			InWindowMode = EWindowMode::WindowedFullscreen;
-		}
+		InWindowMode = EWindowMode::WindowedFullscreen;
 	}
+#endif
 
 	FString WindowModeSuffix;
 	switch (InWindowMode)

@@ -3,11 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
 #include "BSDSockets/SocketSubsystemBSDPrivate.h"
 
 class FInternetAddr;
 
-#if PLATFORM_HAS_BSD_SOCKETS
+#if PLATFORM_HAS_BSD_SOCKETS || PLATFORM_HAS_BSD_IPV6_SOCKETS
 
 #include "Sockets.h"
 
@@ -15,7 +16,7 @@ class FInternetAddr;
 /**
  * Enumerates BSD socket state parameters.
  */
-enum class ESocketBSDParam
+enum class ESocketBSDParam : uint8
 {
 	CanRead,
 	CanWrite,
@@ -26,7 +27,7 @@ enum class ESocketBSDParam
 /**
  * Enumerates BSD socket state return values.
  */
-enum class ESocketBSDReturn
+enum class ESocketBSDReturn : uint8
 {
 	Yes,
 	No,
@@ -52,7 +53,7 @@ public:
 	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem) 
 		: FSocket(InSocketType, InSocketDescription)
 		, Socket(InSocket)
-		, LastActivityTime(0)
+		, LastActivityTime(0.0)
 		, SocketSubsystem(InSubsystem)
 	{ }
 
@@ -82,6 +83,7 @@ public:
 
 	// FSocket overrides
 
+	virtual bool Shutdown(ESocketShutdownMode Mode) override;
 	virtual bool Close() override;
 	virtual bool Bind(const FInternetAddr& Addr) override;
 	virtual bool Connect(const FInternetAddr& Addr) override;
@@ -111,22 +113,24 @@ public:
 	virtual bool SetReceiveBufferSize(int32 Size,int32& NewSize) override;
 	virtual int32 GetPortNo() override;
 
+	bool SetIPv6Only(bool bIPv6Only);
+
 protected:
 
 	/** This is generally select(), but makes it easier for platforms without select to replace it. */
 	virtual ESocketBSDReturn HasState(ESocketBSDParam State, FTimespan WaitTime = FTimespan::Zero());
 
 	/** Updates this socket's time of last activity. */
-	void UpdateActivity()
+	FORCEINLINE void UpdateActivity()
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 
 	/** Holds the BSD socket object. */
 	SOCKET Socket;
 
 	/** Last activity time. */
-	FDateTime LastActivityTime;
+	double LastActivityTime;
 
 	/** Pointer to the subsystem that created it. */
 	ISocketSubsystem* SocketSubsystem;

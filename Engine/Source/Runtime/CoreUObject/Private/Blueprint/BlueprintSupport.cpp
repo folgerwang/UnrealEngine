@@ -1958,7 +1958,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 
 				// replace the placeholder with the proper object instance
 				PlaceholderExport->SetLinker(nullptr, INDEX_NONE);
-				Export.Object = nullptr;
+				Export.ResetObject();
 				UObject* ExportObj = CreateExport(ExportIndex);
 
 				// NOTE: we don't count how many references were resolved (and 
@@ -2056,7 +2056,6 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 				if (ensure(PlaceholderExport))
 				{
 					// replace the placeholder with the proper object instance
-					PlaceholderExport->SetLinker(nullptr, INDEX_NONE);
 					Export.Object = nullptr;
 					UObject* ExportObj = CreateExport(ExportIndex);
 
@@ -2127,7 +2126,7 @@ void FLinkerLoad::ResolvedDeferredSubobjects(ULinkerPlaceholderExportObject* Own
 
 		FObjectExport& Export = ExportMap[ExportIndex];
 
-		Export.Object = nullptr;
+		Export.ResetObject();
 
 		UObject* ReplacementObject = CreateExport(ExportIndex);
 		PlaceholderSubobject->ResolveAllPlaceholderReferences(ReplacementObject);

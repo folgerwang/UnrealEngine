@@ -804,7 +804,7 @@ void FStaticLightingSystem::ValidateSettings(FScene& InScene)
 		// Allocate all samples toward uniform sampling if there are no indirect photons
 		InScene.PhotonMappingSettings.FinalGatherImportanceSampleFraction = 0;
 	}
-#if !LIGHTMASS_NOPROCESSING
+#if LIGHTMASS_DO_PROCESSING
 	if (!InScene.PhotonMappingSettings.bUseIrradiancePhotons)
 #endif
 	{

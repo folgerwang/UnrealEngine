@@ -66,29 +66,29 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 	SetExpectedClientLoginMsgType(NMT_Hello);
 }
 
-void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
+	uint32 CountBytes = 0;
 
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
 	{
-		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
+		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits, Traits);
 
 		if (!ProcessedData.bError)
 		{
 			DataToSend = ProcessedData.Data;
-			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 			CountBits = ProcessedData.CountBits;
+			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 		}
 		else
 		{
-			CountBytes = 0;
 			CountBits = 0;
 		}
 	}
 
-	if ( CountBytes > MaxPacket )
+	if (CountBits > (MaxPacket * 8))
 	{
 		UE_LOG( LogNet, Warning, TEXT( "UWebSocketConnection::LowLevelSend: CountBytes > MaxPacketSize! Count: %i, MaxPacket: %i %s" ), CountBytes, MaxPacket, *Describe() );
 	}
@@ -219,6 +219,14 @@ int32 UWebSocketConnection::GetAddrPort()
 	// Get the host byte order ip port
 	struct sockaddr_in* sock = WebSocket->GetRemoteAddr();
 	return (int32)ntohs(sock->sin_port);
+}
+
+TSharedPtr<FInternetAddr> UWebSocketConnection::GetInternetAddr()
+{
+	struct sockaddr_in* sock = WebSocket->GetRemoteAddr();
+
+	// @todo #JIRA UENET-883: This should be based on NetConnection.RemoteAddr, when moved down from IPConnection
+	return ISocketSubsystem::Get()->CreateInternetAddr((int32)ntohl(sock->sin_addr.s_addr), (int32)ntohs(sock->sin_port));
 }
 
 FString UWebSocketConnection::RemoteAddressToString()

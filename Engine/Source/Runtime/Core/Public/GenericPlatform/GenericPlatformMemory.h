@@ -327,6 +327,29 @@ struct CORE_API FGenericPlatformMemory
 	static void BinnedFreeToOS( void* Ptr, SIZE_T Size );
 
 	/**
+	 * Reserves a virtual memory range.
+	 * 
+	 * Unlike BinnedAllocFromOS, this function does not have to return pointers with alignment larger than the VM page.
+	 */
+	static void* MemoryRangeReserve(SIZE_T Size, bool bCommit = false, int32 Node = -1);
+
+	/**
+	 * Frees a virtual memory range.
+	 * 
+	 */
+	static void MemoryRangeFree(void* Ptr, SIZE_T Size);
+
+	/**
+	 * Commits a virtual memory range. Can be no-op on platforms where just reservation of the range is not supported.
+	 */
+	static bool MemoryRangeCommit(void* Ptr, SIZE_T Size) { return true; }
+
+	/**
+	 * Decommits a virtual memory range. Can be no-op on platforms where just reservation of the range is not supported.
+	 */
+	static bool MemoryRangeDecommit(void* Ptr, SIZE_T Size) { return true; }
+
+	/**
 	 * Some platforms may pool allocations of this size to reduce OS calls. This function
 	 * serves as a hint for BinnedMalloc's CachedOSPageAllocator so it does not cache these allocations additionally
 	 */

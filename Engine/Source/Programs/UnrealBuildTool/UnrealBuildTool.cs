@@ -875,6 +875,9 @@ namespace UnrealBuildTool
 								case ProjectFileFormat.CLion:
 									Generator = new CLionGenerator(ProjectFile);
 									break;
+								case ProjectFileFormat.VisualStudioMac:
+									Generator = new VCMacProjectFileGenerator(ProjectFile, OverrideWindowsCompiler);
+									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
 							}
@@ -1664,6 +1667,12 @@ namespace UnrealBuildTool
 											Target.InvalidateVersionManifests();
 										}
 									}
+								}
+
+								// Remove the receipts, so we know the target is not valid if the compile fails
+								foreach (UEBuildTarget Target in Targets)
+								{
+									Target.DeleteReceipts();
 								}
 
 								// Execute the actions.

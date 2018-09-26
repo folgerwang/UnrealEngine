@@ -229,7 +229,7 @@ public:
 		{
 			Size.X = Size.Y = Owner->Size.X;
 
-			const uint32 CreateFlags = TexCreate_NoMipTail | TexCreate_SRGB;
+			const uint32 CreateFlags = TexCreate_SRGB;
 			EnvCubemapTextureRHIRef = RHICreateTextureCube(Size.X, PF_B8G8R8A8, 1, CreateFlags, CreateInfo);
 
 			/**

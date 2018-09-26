@@ -17,6 +17,7 @@
 #include "NetworkingDistanceConstants.h"
 #include "PhysicsReplication.h"
 #include "PhysicsPublic.h"
+#include "DrawDebugHelpers.h"
 
 /*-----------------------------------------------------------------------------
 	AActor networking implementation.
@@ -28,6 +29,7 @@
 static bool		SavedbHidden;
 static AActor*	SavedOwner;
 static bool		SavedbRepPhysics;
+static ENetRole SavedRole;
 
 float AActor::GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth)
 {
@@ -126,6 +128,7 @@ void AActor::PreNetReceive()
 	SavedbHidden = bHidden;
 	SavedOwner = Owner;
 	SavedbRepPhysics = ReplicatedMovement.bRepPhysics;
+	SavedRole = Role;
 }
 
 void AActor::PostNetReceive()
@@ -149,10 +152,36 @@ void AActor::PostNetReceive()
 	{
 		SetOwner(SavedOwner);
 	}
+
+	if (Role != SavedRole)
+	{
+		PostNetReceiveRole();
+	}
 }
+
+void AActor::PostNetReceiveRole()
+{
+}
+
+static TAutoConsoleVariable<int32> CVarDrawDebugRepMovement(TEXT("Net.RepMovement.DrawDebug"), 0, TEXT(""), ECVF_Default);
 
 void AActor::OnRep_ReplicatedMovement()
 {
+	// Since ReplicatedMovement and AttachmentReplication are REPNOTIFY_Always (and OnRep_AttachmentReplication may call OnRep_ReplicatedMovement directly),
+	// this check is needed since this can still be called on actors for which bReplicateMovement is false - for example, during fast-forward in replay playback.
+	// When this happens, the values in ReplicatedMovement aren't valid, and must be ignored.
+	if (!bReplicateMovement)
+	{
+		return;
+	}
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (CVarDrawDebugRepMovement->GetInt() > 0)
+		{
+			DrawDebugCapsule(GetWorld(), ReplicatedMovement.Location, GetSimpleCollisionHalfHeight(), GetSimpleCollisionRadius(), ReplicatedMovement.Rotation.Quaternion(), FColor(100, 255, 100), true, 1.f);
+		}
+#endif
+
 	if (RootComponent)
 	{
 		if (SavedbRepPhysics != ReplicatedMovement.bRepPhysics)

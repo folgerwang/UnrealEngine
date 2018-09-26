@@ -7,7 +7,7 @@
 void STooltipPresenter::Construct(const FArguments& InArgs)
 {
 	this->ChildSlot.AttachWidget(InArgs._Content.Widget);
-	bCanTick = false;
+	SetCanTick(false);
 }
 
 void STooltipPresenter::SetContent(const TSharedRef<SWidget>& InWidget)

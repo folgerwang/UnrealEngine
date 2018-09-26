@@ -90,6 +90,8 @@ public:
 	void RegisterEvent(const FAINoiseEvent& Event);	
 	void RegisterEventsBatch(const TArray<FAINoiseEvent>& Events);
 
+	virtual void PostInitProperties() override;
+
 	// part of BP interface. Translates PerceptionEvent to FAINoiseEvent and call RegisterEvent(const FAINoiseEvent& Event)
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent) override;
 
@@ -107,6 +109,7 @@ public:
 
 protected:
 	virtual float Update() override;
+	virtual void RegisterMakeNoiseDelegate();
 
 	void OnNewListenerImpl(const FPerceptionListener& NewListener);
 	void OnListenerUpdateImpl(const FPerceptionListener& UpdatedListener);

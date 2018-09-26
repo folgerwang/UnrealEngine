@@ -14,52 +14,30 @@
 class PIEPREVIEWDEVICEPROFILESELECTOR_API SPIEPreviewWindowTitleBar
 	: public SWindowTitleBar
 {
-
 private:
 	/**
 	* Creates widgets for this window's title bar area.
 	*/
 	virtual void MakeTitleBarContentWidgets(TSharedPtr< SWidget >& OutLeftContent, TSharedPtr< SWidget >& OutRightContent) override;
-	
-	void ApplyWindowRotation(TSharedPtr<SWindow> OwnerWindow);
-
-	void ApplyWindowScaleFactor(TSharedPtr<SWindow> OwnerWindow);
 
 	const FSlateBrush* GetScreenRotationButtonImage() const;
 
-	const FSlateBrush* GetQuarterMobileContentScaleFactorImage() const;
-	
-	const FSlateBrush* GetHalfMobileContentScaleFactorImage() const;
-
-	const FSlateBrush* GetFullMobileContentScaleFactorImage() const;
-
-	FReply ScreenRotationButton_OnClicked();
-
-
-	FReply QuarterMobileContentScaleFactorButton_OnClicked();
-
-
-	FReply HalfMobileContentScaleFactorButton_OnClicked();
-
-
-	FReply FullMobileContentScaleFactorButton_OnClicked();
+	TSharedPtr<class SPIEPreviewWindow> GetOwnerWindow() const;
 
 private:
-
 	// Holds the screen rotation button.
 	TSharedPtr<SButton> ScreenRotationButton;
 
-	// Holds the 0.25X button.
-	TSharedPtr<SButton> QuarterMobileContentScaleFactorButton;
-
-	// Holds the 0.5X button.
-	TSharedPtr<SButton> HalfMobileContentScaleFactorButton;
-
-	// Holds the 1X button.
-	TSharedPtr<SButton> FullMobileContentScaleFactorButton;
-
-	bool IsPortrait;
-
-	float ScaleFactor = 1.0f;
+	// Holds the clamp button.
+	TSharedPtr<class SCheckBox> ClampWindowSizeCheckBox;
 };
+
+FORCEINLINE TSharedPtr<class SPIEPreviewWindow> SPIEPreviewWindowTitleBar::GetOwnerWindow() const
+{
+	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
+	TSharedPtr<SPIEPreviewWindow> PIEWindow = StaticCastSharedPtr<SPIEPreviewWindow>(OwnerWindow);
+
+	return PIEWindow;
+}
+
 #endif

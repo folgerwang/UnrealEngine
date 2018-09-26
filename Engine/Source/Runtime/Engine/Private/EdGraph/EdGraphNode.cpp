@@ -552,6 +552,7 @@ void UEdGraphNode::PostLoad()
 
 		DeprecatedPins.Empty();
 	}
+
 }
 
 void UEdGraphNode::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

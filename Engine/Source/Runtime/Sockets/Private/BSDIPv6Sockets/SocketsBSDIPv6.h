@@ -29,9 +29,15 @@ namespace EIPv6SocketInternalState
 /**
  * Implements a BSD network socket.
  */
-class FSocketBSDIPv6
-	: public FSocket
+class FSocketBSDIPv6: public FSocket
 {
+protected:
+	// Holds the BSD socket object.
+	SOCKET Socket;
+
+	// Pointer to the subsystem that created it
+	ISocketSubsystem * SocketSubsystem;
+
 public:
 
 	/**
@@ -53,23 +59,19 @@ public:
 	 *
 	 * Closes the socket if it is still open
 	 */
-	virtual ~FSocketBSDIPv6()
-	{
-		FSocketBSDIPv6::Close();
-	}
+	virtual ~FSocketBSDIPv6();
 
 	/**
 	* Gets the Socket for anyone who knows they have an FSocketBSD.
 	*
 	* @return The native socket.
 	*/
-	SOCKET GetNativeSocket()
-	{
-		return Socket;
-	}
+	SOCKET GetNativeSocket();
 
 
 public:
+
+	virtual bool Shutdown(ESocketShutdownMode Mode) override;
 
 	virtual bool Close() override;
 
@@ -83,9 +85,9 @@ public:
 
 	virtual bool HasPendingData(uint32& PendingDataSize) override;
 
-	virtual class FSocket* Accept(const FString& SocketDescription) override;
+	virtual class FSocket* Accept(const FString& InSocketDescription) override;
 
-	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& SocketDescription) override;
+	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& InSocketDescription) override;
 
 	virtual bool SendTo(const uint8* Data, int32 Count, int32& BytesSent, const FInternetAddr& Destination) override;
 
@@ -135,11 +137,6 @@ protected:
 	// This is generally select(), but makes it easier for platforms without select to replace it
 	virtual EIPv6SocketInternalState::Return HasState(EIPv6SocketInternalState::Param State, FTimespan WaitTime = FTimespan::Zero());
 
-	// Holds the BSD socket object.
-	SOCKET Socket;
-
-	// Pointer to the subsystem that created it
-	ISocketSubsystem * SocketSubsystem;
 };
 
 #endif

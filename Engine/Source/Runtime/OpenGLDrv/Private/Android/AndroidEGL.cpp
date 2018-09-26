@@ -18,6 +18,11 @@
 AndroidEGL* AndroidEGL::Singleton = NULL;
 DEFINE_LOG_CATEGORY(LogEGL);
 
+static TAutoConsoleVariable<int32> CVarAllowFrameTimestamps(
+	TEXT("a.AllowFrameTimestamps"),
+	1,
+	TEXT("True to allow the use use eglGetFrameTimestampsANDROID et al for frame pacing or spew."));
+
 #define ENABLE_CONFIG_FILTER 1
 #define ENABLE_EGL_DEBUG 0
 #define ENABLE_VERIFY_EGL 0
@@ -163,8 +168,19 @@ struct AndroidESPImpl
 	EOpenGLCurrentContext CurrentContextType;
 	GLuint OnScreenColorRenderBuffer;
 	GLuint ResolveFrameBuffer;
-	int32 DesiredSyncInterval;
-	int32 DriverSyncInterval;
+	int32 DesiredSyncIntervalRelativeTo60Hz;
+	int32 DesiredSyncIntervalRelativeToDevice;
+	int32 DriverSyncIntervalRelativeToDevice;
+	float DriverRefreshRate;
+	int64 DriverRefreshNanos;
+
+	//unknown google mystery meat, maybe search for open source google code called swappy
+	int64 DriverAppVsyncOffsetNanos; 
+	int64 DriverDeadlineNanos;
+	int64 DriverSlopNanos;
+	EGLSyncKHR SyncFenceForChoreographerMethod;
+
+
 	double LastTimeEmulatedSync;
 	AndroidESPImpl();
 };
@@ -332,6 +348,11 @@ void AndroidEGL::CreateEGLSurface(ANativeWindow* InWindow, bool bCreateWndSurfac
 	{
 		//need ANativeWindow
 		PImplData->eglSurface = eglCreateWindowSurface(PImplData->eglDisplay, PImplData->eglConfigParam,InWindow, NULL);
+
+		if (CVarAllowFrameTimestamps.GetValueOnAnyThread())
+		{
+			eglSurfaceAttrib(PImplData->eglDisplay, PImplData->eglSurface, EGL_TIMESTAMPS_ANDROID, EGL_TRUE);
+		}
 
 		FPlatformMisc::LowLevelOutputDebugStringf( TEXT("AndroidEGL::CreateEGLSurface() %p" ),PImplData->eglSurface);
 
@@ -576,8 +597,16 @@ eglDisplay(EGL_NO_DISPLAY)
 	,ResolveFrameBuffer(0)
 	,NativeVisualID(0)
 	,CurrentContextType(CONTEXT_Invalid)
-	,DesiredSyncInterval(-1)
-	,DriverSyncInterval(1)
+	,DesiredSyncIntervalRelativeTo60Hz(-1)
+	,DesiredSyncIntervalRelativeToDevice(-1)
+	,DriverSyncIntervalRelativeToDevice(1)
+	,DriverRefreshRate(60.0f)
+	,DriverRefreshNanos(16666666)
+	,DriverAppVsyncOffsetNanos(2000000)
+	,DriverDeadlineNanos(10666666)
+	,DriverSlopNanos(1000000)
+	,SyncFenceForChoreographerMethod(EGL_NO_SYNC_KHR)
+
 	,LastTimeEmulatedSync(-1.0)
 {
 }
@@ -754,120 +783,469 @@ int32 AndroidEGL::GetError()
 	return eglGetError();
 }
 
-// this is a prototype currently unused, left here for possible future use
-#if !defined(WITH_Android_Choreographer)
-#define WITH_Android_Choreographer (0)
-#endif
 
-#if WITH_Android_Choreographer
+#include <chrono>
 
-extern void StartChoreographer(TFunction<void(int64)> Callback);
+static int64 ChoreographerClock()
+{
+	return std::chrono::steady_clock::now().time_since_epoch().count();
+}
 
+extern void StartChoreographer(TFunction<int64(int64)> Callback);
+extern bool ChoreographerIsAvailable();
+
+static TAutoConsoleVariable<int32> CVarUseChoreographerEventArrivalTimes(
+	TEXT("a.UseChoreographerEventArriveTimes"),
+	0,
+	TEXT("On some devices and drivers the choreographer time stamps are wobbly and bad. If this is set to 1, then use the arrival times of the choreographer event instead"));
 
 struct AChoreographer;
 struct FChoreographerFramePacer
 {
 	bool bSetup = false;
+	bool bStopped = false;
 	FCriticalSection ChoreographerSetupLock;
 
-	int64 LastFrameCounter = -1000; // this will force it to always fire on the very first frame....we don't know what the frame counter will be then.
-	int64 TriggerFrameCounter = MAX_int64;
+	FEvent* ChoreographerThreadWaitEvent = nullptr;
+	FEvent* RHIThreadWaitEvent = nullptr;
+	bool bRHIThreadWaiting = false;
 
-	FEvent* ChoreographerEvent = nullptr;
+	int64 NextDelay = -1;
+	int64 SleepTime = -1;
+	int64 SlopTime = 1000000;
 
 	void SetupChoreographer()
 	{
 		if (!bSetup)
 		{
 			bSetup = true;
-			ChoreographerEvent = FPlatformProcess::GetSynchEventFromPool(false);
-			StartChoreographer([this](int64 FrameCounter) {DoCallback(FrameCounter); });
+			bRHIThreadWaiting = false;
+			if (!ChoreographerThreadWaitEvent)
+			{
+				ChoreographerThreadWaitEvent = FPlatformProcess::GetSynchEventFromPool(false);
+				RHIThreadWaitEvent = FPlatformProcess::GetSynchEventFromPool(false);
+			}
+			else
+			{
+				ChoreographerThreadWaitEvent->Reset();
+				RHIThreadWaitEvent->Reset();
+			}
+			StartChoreographer([this](int64 FrameCounter) {return DoCallback(FrameCounter); });
 		}
 	}
 
-	void DoCallback(int64 FrameCounter)
+	void StopChoreographer()
 	{
 		FScopeLock Lock(&ChoreographerSetupLock);
-		LastFrameCounter = FrameCounter;
-		if (FrameCounter >= TriggerFrameCounter)
+		bSetup = false;
+		if (bRHIThreadWaiting)
 		{
-			TriggerFrameCounter = MAX_int64;
-			ChoreographerEvent->Trigger();
+			bRHIThreadWaiting = false;
+			NextDelay = -1;
+			ChoreographerThreadWaitEvent->Trigger();
 		}
 	}
-	void StartSync(int32 SyncInterval)
+
+	int64 DoCallback(int64 FrameTime)
+	{
+		if (!bSetup)
+		{
+			return -1;
+		}
+		int64 WakeUpDelay = (CVarUseChoreographerEventArrivalTimes.GetValueOnAnyThread() > 0) ? 0.0 : (ChoreographerClock() - FrameTime);
+		int64 AdjustedSleepTime = SlopTime + SleepTime - WakeUpDelay;
+
+		if (AdjustedSleepTime > 0)
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_ChoreographerSleep);
+			//UE_LOG(LogRHI, Log, TEXT("Sleep %6.2fms"), float(AdjustedSleepTime) / 1000000.0f);
+			FPlatformProcess::Sleep(float(AdjustedSleepTime) / 1000000000.0f);
+		}
+		{
+			FScopeLock Lock(&ChoreographerSetupLock);
+			if (!bSetup)
+			{
+				return -1;
+			}
+			if (!bRHIThreadWaiting)
+			{
+				//UE_LOG(LogRHI, Log, TEXT("Missed VSync (CPU)"));
+				return SlopTime;
+			}
+		}
+		RHIThreadWaitEvent->Trigger();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_ChoreographerWait);
+			if (!ChoreographerThreadWaitEvent->Wait(FTimespan::FromMilliseconds(3000.0)))
+			{
+				UE_LOG(LogRHI, Fatal, TEXT("Timed out waiting for ChoreographerThreadWaitEvent."));
+			}
+		}
+		FScopeLock Lock(&ChoreographerSetupLock);
+		ChoreographerThreadWaitEvent->Reset();
+		//UE_LOG(LogRHI, Log, TEXT("Next Delay %6.2fms"), float(NextDelay) / 1000000.0f);
+		return NextDelay;
+	}
+	void StartSync(int64 InNextDelay, int64 InSleepTime)
 	{
 		FScopeLock Lock(&ChoreographerSetupLock);
+		SleepTime = InSleepTime;
+		NextDelay = InNextDelay >= 0 ? InNextDelay + SlopTime : SlopTime;
 		SetupChoreographer();
-		TriggerFrameCounter = LastFrameCounter + SyncInterval;
-		ChoreographerEvent->Reset();
+		if (bRHIThreadWaiting)
+		{
+			bRHIThreadWaiting = false;
+			ChoreographerThreadWaitEvent->Trigger();
+		}
 	}
 	void WaitSync()
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForChoreographerSyncInterval);
-		check(ChoreographerEvent);
-		if (!ChoreographerEvent->Wait(FTimespan::FromMilliseconds(75.0)))
+		check(RHIThreadWaitEvent);
 		{
-			UE_LOG(LogRHI, Error, TEXT("Timed out waiting for ChoreographerEvent."));
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForChoreographerSyncInterval_Lock);
 			FScopeLock Lock(&ChoreographerSetupLock);
-			TriggerFrameCounter = MAX_int64;
-			ChoreographerEvent->Reset();
+			check(!bRHIThreadWaiting);
+			bRHIThreadWaiting = true;
 		}
+		if (!RHIThreadWaitEvent->Wait(FTimespan::FromMilliseconds(3000.0)))
+		{
+			UE_LOG(LogRHI, Fatal, TEXT("Timed out waiting for RHIThreadWaitEvent."));
+		}
+		RHIThreadWaitEvent->Reset();
 	}
 };
 FChoreographerFramePacer TheChoreographerFramePacer;
 
 static TAutoConsoleVariable<int32> CVarUseChoreographer(
-	TEXT("a.UseChoreographer"),
-	1,
+	TEXT("a.UseChoreographerForPacing"),
+	0,
 	TEXT("True to use Choreographer to do frame pacing on android."));
 
-static bool ShouldUseChoreographer()
+bool ShouldUseChoreographer()
 {
 	// should check the ndk version, etc
-	return CVarUseChoreographer.GetValueOnAnyThread() > 0;
+	return CVarUseChoreographer.GetValueOnAnyThread() > 0 && ChoreographerIsAvailable() && eglGetSyncAttribKHR_p;
 }
 
-#endif
+
+extern int64 AndroidThunkCpp_GetMetaDataLong(const FString& Key);
+extern float AndroidThunkCpp_GetMetaDataFloat(const FString& Key);
+
+static uint32 NextFrameIDSlot = 0;
+#define NUM_FRAMES_TO_MONITOR (4)
+static EGLuint64KHR FrameIDs[NUM_FRAMES_TO_MONITOR] = { 0 };
+
+static int32 RecordedFrameInterval[100];
+static int32 NumRecordedFrameInterval = 0;
+
+static TAutoConsoleVariable<int32> CVarUseGetFrameTimestamps(
+	TEXT("a.UseFrameTimeStampsForPacing"),
+	0,
+	TEXT("True to use eglGetFrameTimestampsANDROID for frame pacing on android (if supported). Only active if a.UseChoreographer is false or the various things needed to use that are not available."));
+
+static TAutoConsoleVariable<int32> CVarSpewGetFrameTimestamps(
+	TEXT("a.SpewFrameTimeStamps"),
+	0,
+	TEXT("True to information about frame pacing to the log (if supported). Setting this to 2 results in more detail."));
+
+static TAutoConsoleVariable<float> CVarStallSwap(
+	TEXT("CriticalPathStall.Swap"),
+	0.0f,
+	TEXT("Sleep for the given time after the swap (android only for now). Time is given in ms. This is a debug option used for critical path analysis and forcing a change in the critical path."));
+
+static TAutoConsoleVariable<int32> CVarDisableOpenGLGPUSync(
+	TEXT("r.Android.DisableOpenGLGPUSync"),
+	1,
+	TEXT("When true, android OpenGL will not prevent the GPU from running more than one frame behind. This will allow higher performance on some devices but increase input latency."),
+	ECVF_RenderThreadSafe);
+
+bool ShouldUseGPUFencesToLimitLatency()
+{
+	if (ShouldUseChoreographer())
+	{
+		return false; // this method does its own GPU fences as part of the swap.
+	}
+	if (CVarUseGetFrameTimestamps.GetValueOnAnyThread())
+	{
+		return true; // this method requires a GPU fence to give steady results
+	}
+	return CVarDisableOpenGLGPUSync.GetValueOnAnyThread() == 0; // otherwise just based on the cvar; thought to be bad to use GPU fences on PowerVR
+}
+
 
 bool AndroidEGL::SwapBuffers(int32 SyncInterval)
 {
+	//SyncInterval = 3;
+#if !UE_BUILD_SHIPPING
+	if (CVarStallSwap.GetValueOnAnyThread() > 0.0f)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_Swap_Intentional_Stall);
+		FPlatformProcess::Sleep(CVarStallSwap.GetValueOnRenderThread() / 1000.0f);
+	}
+#endif
+
 	VERIFY_EGL_SCOPE();
 
-// this is a prototype currently unused, left here for possible future use
-#if WITH_Android_Choreographer
 
 	static bool bUseChoreographer = false;
+
+	bool bChoreographerActive = false;
 
 	if (bUseChoreographer)
 	{
 		TheChoreographerFramePacer.WaitSync();
-		bUseChoreographer = false;
-	}
-#endif
+		UE_CLOG(PImplData->SyncFenceForChoreographerMethod == EGL_NO_SYNC_KHR, LogRHI, Fatal, TEXT("SyncFenceForChoreographerMethod was EGL_NO_SYNC_KHR"));
+		bool bReady = false;
+		for (int32 Retry = 0; Retry < 150 && !bReady; Retry++)
+		{
+			EGLint Status = 0;
+			EGLBoolean Result = eglGetSyncAttribKHR_p(PImplData->eglDisplay, PImplData->SyncFenceForChoreographerMethod, EGL_SYNC_STATUS_KHR, &Status);
+			if (Result == EGL_FALSE)
+			{
+				UE_LOG(LogRHI, Error, TEXT("eglGetSyncAttribKHR returned false"));
+			}
+			else if (Status == EGL_SIGNALED_KHR)
+			{
+				bReady = true;
+			}
+			else if (Status != EGL_UNSIGNALED_KHR)
+			{
+				UE_LOG(LogRHI, Fatal, TEXT("eglGetSyncAttribKHR unexpected value %d"), Status);
+			}
 
-	if (PImplData->DesiredSyncInterval != SyncInterval)
+			if (!bReady)
+			{
+				//UE_LOG(LogRHI, Log, TEXT("Missed VSync (GPU)"));
+				TheChoreographerFramePacer.StartSync(-1, PImplData->DriverRefreshNanos - PImplData->DriverDeadlineNanos - PImplData->DriverAppVsyncOffsetNanos);
+				TheChoreographerFramePacer.WaitSync();
+			}
+		}
+		UE_CLOG(!bReady, LogRHI, Fatal, TEXT("Exhausted retries waiting for a GPU fence....GPU hang?"));
+		EGLBoolean Result = eglDestroySyncKHR_p(PImplData->eglDisplay, PImplData->SyncFenceForChoreographerMethod);
+		if (Result == EGL_FALSE)
+		{
+			UE_LOG(LogRHI, Fatal, TEXT("eglDestroySyncKHR_p returned false"));
+		}
+		PImplData->SyncFenceForChoreographerMethod = EGL_NO_SYNC_KHR;
+
+		bUseChoreographer = false;
+		bChoreographerActive = true;
+	}
+
+	bool bPrintMethod = false;
+	if (PImplData->DesiredSyncIntervalRelativeTo60Hz != SyncInterval)
 	{
-		PImplData->DesiredSyncInterval = SyncInterval;
+		bPrintMethod = true;
+		PImplData->DesiredSyncIntervalRelativeTo60Hz = SyncInterval;
+		PImplData->DriverRefreshRate = 60.0f;
+		PImplData->DriverRefreshNanos = 16666666;
+		PImplData->DriverAppVsyncOffsetNanos = 2000000;
+		PImplData->DriverDeadlineNanos = 10666666;
+		PImplData->DriverSlopNanos = 1000000;
+
+
+		EGLnsecsANDROID EGL_COMPOSITE_DEADLINE_ANDROID_Value = -1;
+		EGLnsecsANDROID EGL_COMPOSITE_INTERVAL_ANDROID_Value = -1;
+		EGLnsecsANDROID EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value = -1;
+
+		if (eglGetCompositorTimingANDROID_p)
+		{
+			{
+				EGLint Item = EGL_COMPOSITE_DEADLINE_ANDROID;
+				if (!eglGetCompositorTimingANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, 1, &Item, &EGL_COMPOSITE_DEADLINE_ANDROID_Value))
+				{
+					EGL_COMPOSITE_DEADLINE_ANDROID_Value = -1;
+				}
+			}
+			{
+				EGLint Item = EGL_COMPOSITE_INTERVAL_ANDROID;
+				if (!eglGetCompositorTimingANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, 1, &Item, &EGL_COMPOSITE_INTERVAL_ANDROID_Value))
+				{
+					EGL_COMPOSITE_INTERVAL_ANDROID_Value = -1;
+				}
+			}
+			{
+				EGLint Item = EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID;
+				if (!eglGetCompositorTimingANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, 1, &Item, &EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value))
+				{
+					EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value = -1;
+				}
+			}
+			UE_LOG(LogRHI, Log, TEXT("AndroidEGL:SwapBuffers eglGetCompositorTimingANDROID EGL_COMPOSITE_DEADLINE_ANDROID=%lld, EGL_COMPOSITE_INTERVAL_ANDROID=%lld, EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID=%lld"),
+				EGL_COMPOSITE_DEADLINE_ANDROID_Value,
+				EGL_COMPOSITE_INTERVAL_ANDROID_Value,
+				EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value
+			);
+		}
+
+		int64 PresentationDeadlineNanos = AndroidThunkCpp_GetMetaDataLong(TEXT("ue4.display.PresentationDeadlineNanos"));
+		int64 AppVsyncOffsetNanos = AndroidThunkCpp_GetMetaDataLong(TEXT("ue4.display.AppVsyncOffsetNanos"));
+
+		float RefreshRate = AndroidThunkCpp_GetMetaDataFloat(TEXT("ue4.display.getRefreshRate"));
+
+		UE_LOG(LogRHI, Log, TEXT("JNI Display getPresentationDeadlineNanos=%lld getAppVsyncOffsetNanos=%lld getRefreshRate=%f"),
+			PresentationDeadlineNanos,
+			AppVsyncOffsetNanos,
+			RefreshRate
+		);
+
+		if (EGL_COMPOSITE_INTERVAL_ANDROID_Value >= 4000000 && EGL_COMPOSITE_INTERVAL_ANDROID_Value <= 41666666)
+		{
+			PImplData->DriverRefreshRate = float(1000000000.0 / double(EGL_COMPOSITE_INTERVAL_ANDROID_Value));
+			PImplData->DriverRefreshNanos = EGL_COMPOSITE_INTERVAL_ANDROID_Value;
+		}
+		else if (RefreshRate >= 24.0f && RefreshRate <= 250.0f)
+		{
+			PImplData->DriverRefreshRate = RefreshRate;
+			PImplData->DriverRefreshNanos = int64(0.5 + 1000000000.0 / double(RefreshRate));
+		}
+
+		if (EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value > 0 && EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value <= PImplData->DriverRefreshNanos)
+		{
+			PImplData->DriverDeadlineNanos = EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID_Value;
+		}
+		if (PresentationDeadlineNanos > 1000000 && PresentationDeadlineNanos - 1000000 <= PImplData->DriverRefreshNanos)
+		{
+			PImplData->DriverDeadlineNanos = PresentationDeadlineNanos - 1000000;
+		}
+
+		if (AppVsyncOffsetNanos >= 0 && AppVsyncOffsetNanos < PImplData->DriverRefreshNanos)
+		{
+			PImplData->DriverAppVsyncOffsetNanos = AppVsyncOffsetNanos;
+		}
+
+		UE_LOG(LogRHI, Log, TEXT("Final display timing metrics: DriverRefreshRate=%7.4f  DriverRefreshNanos=%lld  DriverDeadlineNanos=%lld  DriverAppVsyncOffsetNanos=%lld"),
+			PImplData->DriverRefreshRate,
+			PImplData->DriverRefreshNanos,
+			PImplData->DriverDeadlineNanos,
+			PImplData->DriverAppVsyncOffsetNanos
+		);
+
+
 		// make sure requested interval is in supported range
 		EGLint MinSwapInterval, MaxSwapInterval;
 		eglGetConfigAttrib(PImplData->eglDisplay, PImplData->eglConfigParam, EGL_MIN_SWAP_INTERVAL, &MinSwapInterval);
 		eglGetConfigAttrib(PImplData->eglDisplay, PImplData->eglConfigParam, EGL_MAX_SWAP_INTERVAL, &MaxSwapInterval);
 
-		int32 DesiredDriverSyncInterval = FMath::Clamp<int32>(SyncInterval, MinSwapInterval, MaxSwapInterval);
-		
-		UE_LOG(LogRHI, Log, TEXT("AndroidEGL:SwapBuffers Min=%d, Max=%d, Request=%d, SetDriver=%d"), MinSwapInterval, MaxSwapInterval, PImplData->DesiredSyncInterval, DesiredDriverSyncInterval);
+		int64 SyncIntervalNanos = (30 + 1000000000l * int64(SyncInterval)) / 60;
 
-		if (DesiredDriverSyncInterval != PImplData->DriverSyncInterval)
+		int32 UnderDriverInterval = int32(SyncIntervalNanos / PImplData->DriverRefreshNanos);
+		int32 OverDriverInterval = UnderDriverInterval + 1;
+
+		int64 UnderNanos = int64(UnderDriverInterval) * PImplData->DriverRefreshNanos;
+		int64 OverNanos = int64(OverDriverInterval) * PImplData->DriverRefreshNanos;
+
+		PImplData->DesiredSyncIntervalRelativeToDevice = (FMath::Abs(SyncIntervalNanos - UnderNanos) < FMath::Abs(SyncIntervalNanos - OverNanos)) ?
+			UnderDriverInterval : OverDriverInterval;
+
+		int32 DesiredDriverSyncInterval = FMath::Clamp<int32>(PImplData->DesiredSyncIntervalRelativeToDevice, MinSwapInterval, MaxSwapInterval);
+		
+		UE_LOG(LogRHI, Log, TEXT("AndroidEGL:SwapBuffers Min=%d, Max=%d, Request=%d, ClosestDriver=%d, SetDriver=%d"), MinSwapInterval, MaxSwapInterval, PImplData->DesiredSyncIntervalRelativeTo60Hz, PImplData->DesiredSyncIntervalRelativeToDevice, DesiredDriverSyncInterval);
+
+		if (DesiredDriverSyncInterval != PImplData->DriverSyncIntervalRelativeToDevice)
 		{
-			PImplData->DriverSyncInterval = DesiredDriverSyncInterval;
+			PImplData->DriverSyncIntervalRelativeToDevice = DesiredDriverSyncInterval;
 			UE_LOG(LogRHI, Log, TEXT("Called eglSwapInterval %d"), DesiredDriverSyncInterval);
-			eglSwapInterval(PImplData->eglDisplay, PImplData->DriverSyncInterval);
+			eglSwapInterval(PImplData->eglDisplay, PImplData->DriverSyncIntervalRelativeToDevice);
 		}
 	}
 
+	if (PImplData->DesiredSyncIntervalRelativeToDevice > PImplData->DriverSyncIntervalRelativeToDevice)
+	{
+		// this is a prototype currently unused, left here for possible future use
+		if (ShouldUseChoreographer())
+		{
+			UE_CLOG(bPrintMethod, LogRHI, Display, TEXT("Using google choreographer method for frame pacing"));
+
+			TheChoreographerFramePacer.StartSync((PImplData->DesiredSyncIntervalRelativeToDevice - 1) * PImplData->DriverRefreshNanos, PImplData->DriverRefreshNanos - PImplData->DriverDeadlineNanos - PImplData->DriverAppVsyncOffsetNanos);
+			UE_CLOG(PImplData->SyncFenceForChoreographerMethod != EGL_NO_SYNC_KHR, LogRHI, Fatal, TEXT("SyncFenceForChoreographerMethod was NOT EGL_NO_SYNC_KHR"));
+			PImplData->SyncFenceForChoreographerMethod = eglCreateSyncKHR_p(PImplData->eglDisplay, EGL_SYNC_FENCE_KHR, NULL);
+			if (eglPresentationTimeANDROID_p)
+			{
+				EGLnsecsANDROID PresentationTime = ChoreographerClock() + PImplData->DesiredSyncIntervalRelativeToDevice * PImplData->DriverRefreshNanos;
+				eglPresentationTimeANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, PresentationTime);
+			}
+
+			bUseChoreographer = true;
+		}
+		else
+		{
+			UE_CLOG(bPrintMethod, LogRHI, Display, TEXT("Using niave method for frame pacing (possible with timestamps method)"));
+			if (PImplData->LastTimeEmulatedSync > 0.0)
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForEmulatedSyncInterval);
+				float MinTimeBetweenFrames = (float(PImplData->DesiredSyncIntervalRelativeToDevice) / PImplData->DriverRefreshRate);
+
+				float ThisTime = FPlatformTime::Seconds() - PImplData->LastTimeEmulatedSync;
+				if (ThisTime > 0 && ThisTime < MinTimeBetweenFrames)
+				{
+					FPlatformProcess::Sleep(MinTimeBetweenFrames - ThisTime);
+				}
+			}
+		}
+	}
+	if (bChoreographerActive && !bUseChoreographer)
+	{
+		TheChoreographerFramePacer.StopChoreographer();
+	}
+	if (!bUseChoreographer && eglPresentationTimeANDROID_p && CVarUseGetFrameTimestamps.GetValueOnAnyThread())
+	{
+		if (eglGetFrameTimestampsANDROID_p && eglGetNextFrameIdANDROID_p)
+		{
+			UE_CLOG(bPrintMethod, LogRHI, Display, TEXT("Using eglGetFrameTimestampsANDROID method for frame pacing"));
+
+			//static bool bPrintOnce = true;
+			if (FrameIDs[(int32(NextFrameIDSlot) - 1) % NUM_FRAMES_TO_MONITOR])
+				// not supported   && eglGetFrameTimestampsSupportedANDROID_p && eglGetFrameTimestampsSupportedANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, EGL_FIRST_COMPOSITION_START_TIME_ANDROID))
+			{
+				//UE_CLOG(bPrintOnce, LogRHI, Log, TEXT("eglGetFrameTimestampsSupportedANDROID retured true for EGL_FIRST_COMPOSITION_START_TIME_ANDROID"));
+				EGLint TimestampList = EGL_FIRST_COMPOSITION_START_TIME_ANDROID;
+				//EGLint TimestampList = EGL_COMPOSITION_LATCH_TIME_ANDROID;
+				//EGLint TimestampList = EGL_LAST_COMPOSITION_START_TIME_ANDROID;
+				//EGLint TimestampList = EGL_DISPLAY_PRESENT_TIME_ANDROID;
+				EGLnsecsANDROID Result = 0;
+				int32 DeltaFrameIndex = 1;
+				for (int32 Index = int32(NextFrameIDSlot) - 1; Index >= int32(NextFrameIDSlot) - NUM_FRAMES_TO_MONITOR && Index >= 0; Index--)
+				{
+					Result = 0;
+					if (FrameIDs[Index % NUM_FRAMES_TO_MONITOR])
+					{
+						eglGetFrameTimestampsANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, FrameIDs[Index % NUM_FRAMES_TO_MONITOR], 1, &TimestampList, &Result);
+					}
+					if (Result > 0)
+					{
+						break;
+					}
+					DeltaFrameIndex++;
+				}
+				if (Result > 0)
+				{
+					EGLnsecsANDROID FudgeFactor = 0; //  8333 * 1000;
+					EGLnsecsANDROID DeltaNanos = EGLnsecsANDROID(PImplData->DesiredSyncIntervalRelativeToDevice) * EGLnsecsANDROID(DeltaFrameIndex) * PImplData->DriverRefreshNanos;
+					EGLnsecsANDROID PresentationTime = Result + DeltaNanos + FudgeFactor;
+					eglPresentationTimeANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, PresentationTime);
+				}
+			}
+			else
+			{
+				//UE_CLOG(bPrintOnce, LogRHI, Log, TEXT("eglGetFrameTimestampsSupportedANDROID doesn't exist or retured false for EGL_FIRST_COMPOSITION_START_TIME_ANDROID, discarding eglGetNextFrameIdANDROID_p and eglGetFrameTimestampsANDROID_p"));
+			}
+			//bPrintOnce = false;
+		}
+	}
+
+	PImplData->LastTimeEmulatedSync = FPlatformTime::Seconds();
+
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_eglSwapBuffers);
+
+		FrameIDs[(NextFrameIDSlot) % NUM_FRAMES_TO_MONITOR] = 0;
+		if (eglGetNextFrameIdANDROID_p && (CVarUseGetFrameTimestamps.GetValueOnAnyThread() || CVarSpewGetFrameTimestamps.GetValueOnAnyThread()))
+		{
+			eglGetNextFrameIdANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, &FrameIDs[(NextFrameIDSlot) % NUM_FRAMES_TO_MONITOR]);
+		}
+		NextFrameIDSlot++;
 
 		if (PImplData->eglSurface == NULL || !eglSwapBuffers(PImplData->eglDisplay, PImplData->eglSurface))
 		{
@@ -896,33 +1274,104 @@ bool AndroidEGL::SwapBuffers(int32 SyncInterval)
 		}
 	}
 
-	if (PImplData->DesiredSyncInterval > PImplData->DriverSyncInterval)
+	if (PImplData->DesiredSyncIntervalRelativeToDevice > 0 && eglGetFrameTimestampsANDROID_p && CVarSpewGetFrameTimestamps.GetValueOnAnyThread())
 	{
-// this is a prototype currently unused, left here for possible future use
-#if WITH_Android_Choreographer		
-		if (ShouldUseChoreographer())
+		static EGLint TimestampList[9] = 
 		{
-			TheChoreographerFramePacer.StartSync(PImplData->DesiredSyncInterval);
-			bUseChoreographer = true;
-		}
-		else 
-#endif
-		if (PImplData->LastTimeEmulatedSync > 0.0)
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForEmulatedSyncInterval);
-			float MinTimeBetweenFrames = (float(PImplData->DesiredSyncInterval) / 60.0f);
+			EGL_REQUESTED_PRESENT_TIME_ANDROID,
+			EGL_RENDERING_COMPLETE_TIME_ANDROID,
+			EGL_COMPOSITION_LATCH_TIME_ANDROID,
+			EGL_FIRST_COMPOSITION_START_TIME_ANDROID,
+			EGL_LAST_COMPOSITION_START_TIME_ANDROID,
+			EGL_FIRST_COMPOSITION_GPU_FINISHED_TIME_ANDROID,
+			EGL_DISPLAY_PRESENT_TIME_ANDROID,
+			EGL_DEQUEUE_READY_TIME_ANDROID,
+			EGL_READS_DONE_TIME_ANDROID
+		};
 
-			float ThisTime = FPlatformTime::Seconds() - PImplData->LastTimeEmulatedSync;
-			if (ThisTime > 0 && ThisTime < MinTimeBetweenFrames)
+		static const TCHAR* TimestampStrings[9] =
+		{
+			TEXT("EGL_REQUESTED_PRESENT_TIME_ANDROID"),
+			TEXT("EGL_RENDERING_COMPLETE_TIME_ANDROID"),
+			TEXT("EGL_COMPOSITION_LATCH_TIME_ANDROID"),
+			TEXT("EGL_FIRST_COMPOSITION_START_TIME_ANDROID"),
+			TEXT("EGL_LAST_COMPOSITION_START_TIME_ANDROID"),
+			TEXT("EGL_FIRST_COMPOSITION_GPU_FINISHED_TIME_ANDROID"),
+			TEXT("EGL_DISPLAY_PRESENT_TIME_ANDROID"),
+			TEXT("EGL_DEQUEUE_READY_TIME_ANDROID"),
+			TEXT("EGL_READS_DONE_TIME_ANDROID")
+		};
+
+
+		EGLnsecsANDROID Results[NUM_FRAMES_TO_MONITOR][9] = { {0} };
+		EGLnsecsANDROID FirstRealValue = 0;
+		for (int32 Index = int32(NextFrameIDSlot) - NUM_FRAMES_TO_MONITOR; Index < int32(NextFrameIDSlot); Index++)
+		{
+			eglGetFrameTimestampsANDROID_p(PImplData->eglDisplay, PImplData->eglSurface, FrameIDs[Index % NUM_FRAMES_TO_MONITOR], 9, TimestampList, Results[Index % NUM_FRAMES_TO_MONITOR]);
+			for (int32 IndexInner = 0; IndexInner < 9; IndexInner++)
 			{
-				FPlatformProcess::Sleep(MinTimeBetweenFrames - ThisTime);
+				if (!FirstRealValue || (Results[Index % NUM_FRAMES_TO_MONITOR][IndexInner] > 1 && Results[Index % NUM_FRAMES_TO_MONITOR][IndexInner] < FirstRealValue))
+				{
+					FirstRealValue = Results[Index % NUM_FRAMES_TO_MONITOR][IndexInner];
+				}
+			}
+		}
+		UE_CLOG(CVarSpewGetFrameTimestamps.GetValueOnAnyThread() > 1, LogRHI, Log, TEXT("************************************  frame %d   base time is %lld"), NextFrameIDSlot - 1, FirstRealValue);
+
+		for (int32 Index = int32(NextFrameIDSlot) - NUM_FRAMES_TO_MONITOR; Index < int32(NextFrameIDSlot); Index++)
+		{
+
+			UE_CLOG(CVarSpewGetFrameTimestamps.GetValueOnAnyThread() > 1, LogRHI, Log, TEXT("eglGetFrameTimestampsANDROID_p  frame %d"), Index);
+			for (int32 IndexInner = 0; IndexInner < 9; IndexInner++)
+			{
+				int32 MsVal = (Results[Index % NUM_FRAMES_TO_MONITOR][IndexInner] > 1) ? int32((Results[Index % NUM_FRAMES_TO_MONITOR][IndexInner] - FirstRealValue) / 1000000) : int32(Results[Index % NUM_FRAMES_TO_MONITOR][IndexInner]);
+
+				UE_CLOG(CVarSpewGetFrameTimestamps.GetValueOnAnyThread() > 1, LogRHI, Log, TEXT("     %8d    %s"), MsVal, TimestampStrings[IndexInner]);
 			}
 		}
 
+		int32 IndexLast = int32(NextFrameIDSlot) - NUM_FRAMES_TO_MONITOR;
+		int32 IndexLastNext = IndexLast + 1;
+
+		if (Results[IndexLast % NUM_FRAMES_TO_MONITOR][3] > 1 && Results[IndexLastNext % NUM_FRAMES_TO_MONITOR][3] > 1)
+		{
+			int32 MsVal = int32((Results[IndexLastNext % NUM_FRAMES_TO_MONITOR][3] - Results[IndexLast % NUM_FRAMES_TO_MONITOR][3]) / 1000000);
+
+			RecordedFrameInterval[NumRecordedFrameInterval++] = MsVal;
+			if (NumRecordedFrameInterval == 100)
+			{
+				FString All;
+				int32 NumOnTarget = 0;
+				int32 NumBelowTarget = 0;
+				int32 NumAboveTarget = 0;
+				for (int32 Index = 0; Index < 100; Index++)
+				{
+					if (Index)
+					{
+						All += TCHAR(' ');
+					}
+					All += FString::Printf(TEXT("%d"), RecordedFrameInterval[Index]);
+
+					if (RecordedFrameInterval[Index] > PImplData->DesiredSyncIntervalRelativeTo60Hz * 16 - 8 && RecordedFrameInterval[Index] < PImplData->DesiredSyncIntervalRelativeTo60Hz * 16 + 8)
+					{
+						NumOnTarget++;
+					}
+					else if (RecordedFrameInterval[Index] < PImplData->DesiredSyncIntervalRelativeTo60Hz * 16)
+					{
+						NumBelowTarget++;
+					}
+					else
+					{
+						NumAboveTarget++;
+					}
+				}
+				UE_LOG(LogRHI, Log, TEXT("%3d fast  %3d ok  %3d slow   %s"), NumBelowTarget, NumOnTarget, NumAboveTarget, *All);
+				NumRecordedFrameInterval = 0;
+			}
+		}
 	}
 
 
-	PImplData->LastTimeEmulatedSync = FPlatformTime::Seconds();
 	return true;
 }
 
@@ -1107,6 +1556,16 @@ void FAndroidAppEntry::ReInitWindow(void* NewNativeWindowHandle)
 	if (!FAndroidMisc::ShouldUseVulkan())
 	{
 		AndroidEGL::GetInstance()->ReInit();
+	}
+}
+
+
+void FAndroidAppEntry::OnPauseEvent()
+{
+	const auto& OnPauseCallback = FAndroidMisc::GetOnPauseCallback();
+	if (OnPauseCallback)
+	{
+		OnPauseCallback();
 	}
 }
 

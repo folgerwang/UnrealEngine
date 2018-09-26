@@ -13,13 +13,15 @@ SET(PHYSXCOMMON_LIBTYPE STATIC)
 
 SET(PXCOMMON_PLATFORM_INCLUDES
 	$ENV{EMSCRIPTEN}/system/include
+	${NVTOOLSEXT_INCLUDE_DIRS}
+	${PHYSX_SOURCE_DIR}/Common/src/linux
 )
 
 # Use generator expressions to set config specific preprocessor definitions
 SET(PXCOMMON_COMPILE_DEFS
 
 	# Common to all configurations
-	${PHYSX_HTML5_COMPILE_DEFS};
+	${PHYSX_HTML5_COMPILE_DEFS};PX_PHYSX_STATIC_LIB;
 	
 	$<$<CONFIG:debug>:${PHYSX_HTML5_DEBUG_COMPILE_DEFS};>
 	$<$<CONFIG:checked>:${PHYSX_HTML5_CHECKED_COMPILE_DEFS};>

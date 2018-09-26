@@ -57,6 +57,7 @@ Level.cpp: Level-related functions
 #include "Engine/LevelActorContainer.h"
 #include "Engine/StaticMeshActor.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "Algo/Copy.h"
 
 DEFINE_LOG_CATEGORY(LogLevel);
 
@@ -308,6 +309,13 @@ void ULevel::Serialize( FArchive& Ar )
 			Actors.Push(Actor);
 		}
 	}
+	else if (Ar.IsSaving() && Ar.IsPersistent())
+	{
+		TArray<AActor*> NonTransientActors;
+		NonTransientActors.Reserve(Actors.Num());
+		Algo::CopyIf(Actors, NonTransientActors, [](AActor* Actor) { return Actor && !Actor->HasAnyFlags(RF_Transient); });
+		Ar << NonTransientActors;
+	}
 	else
 	{
 		Ar << Actors;
@@ -454,6 +462,7 @@ bool ULevel::IsNetActor(const AActor* Actor)
 
 void ULevel::SortActorList()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_Level_SortActorList);
 	if (Actors.Num() == 0)
 	{
 		// No need to sort an empty list

@@ -74,10 +74,9 @@ protected:
 	FString			GetCurrentMap() const;
 
 	/**
-	 *	Called to end the current test with the provided exit code. This will cause the
-	 *	app to exit with the provided return code.
+	 *	Called to end testing and exit the app with provided code, static to avoid test instance state/lifetime dependency
 	 */
-	void			EndTest(int32 ExitCode = 0);
+	static void	EndTest(int32 ExitCode = 0);
 
 	/**
 	 * Returns the gauntlet module running this test

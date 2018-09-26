@@ -275,8 +275,46 @@ bool FWindowsPlatformApplicationMisc::GetWindowTitleMatchingText(const TCHAR* Ti
 	return bWasFound;
 }
 
+int32 FWindowsPlatformApplicationMisc::GetMonitorDPI(const FMonitorInfo& MonitorInfo)
+{
+	int32 DisplayDPI = 96;
+
+	if (IsHighDPIAwarenessEnabled())
+	{
+		if (GetDpiForMonitor)
+		{
+			RECT MonitorDim;
+			MonitorDim.left = MonitorInfo.DisplayRect.Left;
+			MonitorDim.top = MonitorInfo.DisplayRect.Top;
+			MonitorDim.right = MonitorInfo.DisplayRect.Right;
+			MonitorDim.bottom = MonitorInfo.DisplayRect.Bottom;
+
+			HMONITOR Monitor = MonitorFromRect(&MonitorDim, MONITOR_DEFAULTTONEAREST);
+			if (Monitor)
+			{
+				uint32 DPIX = 0;
+				uint32 DPIY = 0;
+				if (SUCCEEDED(GetDpiForMonitor(Monitor, 0 /*MDT_EFFECTIVE_DPI*/, &DPIX, &DPIY)))
+				{
+					DisplayDPI = DPIX;
+				}
+			}
+		}
+		else
+		{
+			HDC Context = GetDC(nullptr);
+			DisplayDPI = GetDeviceCaps(Context, LOGPIXELSX);
+			ReleaseDC(nullptr, Context);
+		}
+	}
+
+	return DisplayDPI;
+}
+
 float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y)
 {
+	float Scale = 1.0f;
+
 	if (IsHighDPIAwarenessEnabled())
 	{
 		if (GetDpiForMonitor)
@@ -287,18 +325,22 @@ float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y
 			{
 				uint32 DPIX = 0;
 				uint32 DPIY = 0;
-				return SUCCEEDED(GetDpiForMonitor(Monitor, 0 /*MDT_EFFECTIVE_DPI*/, &DPIX, &DPIY)) ? DPIX / 96.0f : 1.0f;
+				if (SUCCEEDED(GetDpiForMonitor(Monitor, 0 /*MDT_EFFECTIVE_DPI*/, &DPIX, &DPIY)))
+				{
+					Scale = (float)DPIX / 96.0f;
+				}
 			}
 		}
 		else
 		{
 			HDC Context = GetDC(nullptr);
-			const float DPIScaleFactor = GetDeviceCaps(Context, LOGPIXELSX) / 96.0f;
+			int32 DPI = GetDeviceCaps(Context, LOGPIXELSX);
+			Scale = (float)DPI / 96.0f;
 			ReleaseDC(nullptr, Context);
-			return DPIScaleFactor;
 		}
 	}
-	return 1.0f;
+
+	return Scale;
 }
 
 // Disabling optimizations helps to reduce the frequency of OpenClipboard failing with error code 0. It still happens

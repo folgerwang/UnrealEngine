@@ -201,19 +201,24 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FVector>& Data)
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
 		uint8* ContextRawData = (uint8*)ContextData.RawData.GetData();
 
-		Data.SetNumUninitialized(ContextData.NumValues);
+		Data.Reserve(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
 			const FVector ItemLocation = DefTypeOb->GetItemLocation(ContextRawData);
 			if (FAISystem::IsValidLocation(ItemLocation))
 			{
-				Data[ValueIndex] = ItemLocation;
-				ContextRawData += DefTypeValueSize;
+				Data.Add(ItemLocation);
 			}
+			ContextRawData += DefTypeValueSize;
+		}
+
+		if (Data.Num() != ContextData.NumValues)
+		{
+			UE_LOG(LogEQS, Warning, TEXT("FEnvQuery::PrepareContext found %d invalid vectors from context %s"), ContextData.NumValues - Data.Num(), *Context->GetPathName());
 		}
 	}
 
-	return bSuccess;
+	return Data.Num() > 0;
 }
 
 bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FRotator>& Data)
@@ -232,19 +237,24 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FRotator>& Data)
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
 		uint8* ContextRawData = ContextData.RawData.GetData();
 
-		Data.SetNumUninitialized(ContextData.NumValues);
+		Data.Reserve(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
 			const FRotator ItemRotation = DefTypeOb->GetItemRotation(ContextRawData);
 			if (FAISystem::IsValidRotation(ItemRotation))
 			{
-				Data[ValueIndex] = ItemRotation;
-				ContextRawData += DefTypeValueSize;
+				Data.Add(ItemRotation);
 			}
+			ContextRawData += DefTypeValueSize;
+		}
+
+		if (Data.Num() != ContextData.NumValues)
+		{
+			UE_LOG(LogEQS, Warning, TEXT("FEnvQuery::PrepareContext found %d invalid rotators from context %s"), ContextData.NumValues - Data.Num(), *Context->GetPathName());
 		}
 	}
 
-	return bSuccess;
+	return Data.Num() > 0;
 }
 
 bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<AActor*>& Data)

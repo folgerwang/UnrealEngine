@@ -32,8 +32,10 @@ public:
  * Allows you to setup an image decorator that can be configured
  * to map certain keys to certain images.  We recommend you subclass this
  * as a blueprint to configure the instance.
+ *
+ * Understands the format <img id="NameOfBrushInTable"></>
  */
-UCLASS()
+UCLASS(Abstract)
 class UMG_API URichTextBlockImageDecorator : public URichTextBlockDecorator
 {
 	GENERATED_BODY()
@@ -43,9 +45,12 @@ public:
 
 	virtual TSharedPtr<ITextDecorator> CreateDecorator(URichTextBlock* InOwner) override;
 
-	FRichImageRow* FindImageRow(FName TagOrId, bool bWarnIfMissing);
+	virtual const FSlateBrush* FindImageBrush(FName TagOrId, bool bWarnIfMissing);
 
 protected:
+
+	FRichImageRow* FindImageRow(FName TagOrId, bool bWarnIfMissing);
+
 	UPROPERTY(EditAnywhere, Category=Appearance, meta=(RowType="RichImageRow"))
 	class UDataTable* ImageSet;
 };

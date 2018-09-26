@@ -31,7 +31,7 @@ void UOculusIdentityCallbackProxy::Activate()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Oculus platform service not available to get the Oculus ID."));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Oculus platform service not available to get the Oculus ID."));
 		OnFailure.Broadcast();
 	}
 }

@@ -59,6 +59,7 @@ public:
 	//
 	virtual int32 Error(const TCHAR* Text) = 0;
 	ENGINE_API int32 Errorf(const TCHAR* Format,...);
+	virtual void AppendExpressionError(UMaterialExpression* Expression, const TCHAR* Text) = 0;
 
 	virtual int32 CallExpression(FMaterialExpressionKey ExpressionKey,FMaterialCompiler* InCompiler) = 0;
 
@@ -67,6 +68,8 @@ public:
 	virtual EMaterialQualityLevel::Type GetQualityLevel() = 0;
 
 	virtual ERHIFeatureLevel::Type GetFeatureLevel() = 0;
+
+	virtual EShaderPlatform GetShaderPlatform() = 0;
 
 	virtual EMaterialShadingModel GetMaterialShadingModel() const = 0;
 
@@ -288,6 +291,7 @@ public:
 	// The compiler can run in a different state and this affects caching of sub expression, Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values
 	// If possible we should re-factor this to avoid having to deal with compiler state
 	virtual bool IsCurrentlyCompilingForPreviousFrame() const { return false; }
+	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const { return true; }
 };
 
 /** 
@@ -319,6 +323,7 @@ public:
 
 	virtual EShaderFrequency GetCurrentShaderFrequency() const override { return Compiler->GetCurrentShaderFrequency(); }
 	virtual int32 Error(const TCHAR* Text) override { return Compiler->Error(Text); }
+	virtual void AppendExpressionError(UMaterialExpression* Expression, const TCHAR* Text) override { return Compiler->AppendExpressionError(Expression, Text); }
 
 	virtual int32 CallExpression(FMaterialExpressionKey ExpressionKey,FMaterialCompiler* InCompiler) override { return Compiler->CallExpression(ExpressionKey,InCompiler); }
 
@@ -329,6 +334,7 @@ public:
 	virtual EMaterialValueType GetType(int32 Code) override { return Compiler->GetType(Code); }
 	virtual EMaterialQualityLevel::Type GetQualityLevel() override { return Compiler->GetQualityLevel(); }
 	virtual ERHIFeatureLevel::Type GetFeatureLevel() override { return Compiler->GetFeatureLevel(); }
+	virtual EShaderPlatform GetShaderPlatform() override { return Compiler->GetShaderPlatform(); }
 	virtual int32 ValidCast(int32 Code,EMaterialValueType DestType) override { return Compiler->ValidCast(Code, DestType); }
 	virtual int32 ForceCast(int32 Code,EMaterialValueType DestType,uint32 ForceCastFlags = 0) override
 	{ return Compiler->ForceCast(Code,DestType,ForceCastFlags); }
@@ -539,6 +545,11 @@ public:
 	virtual int32 EyeAdaptation() override
 	{
 		return Compiler->EyeAdaptation();
+	}
+
+	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const override
+	{
+		return Compiler->IsDevelopmentFeatureEnabled(FeatureName);
 	}
 
 protected:

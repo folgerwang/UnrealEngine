@@ -180,8 +180,7 @@ private:
 	};
 
 	/** The async task to update this object, only one can be active at anytime. It just calls Tick(). */
-	typedef FAsyncTask<FMipUpdateTask> FAsyncMipUpdateTask;
-	TUniquePtr<FAsyncMipUpdateTask> AsyncMipUpdateTask;
+	typedef FAutoDeleteAsyncTask<FMipUpdateTask> FAsyncMipUpdateTask;
 
 	/** Whether the task has been cancelled because the update could not proceed or because the user called Abort(). */
 	bool bIsCancelled;

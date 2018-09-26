@@ -175,18 +175,18 @@ namespace EGameplayAbilityTargetingLocationType
 }
 
 /**
- *	Handle for Targeting Data. This servers two main purposes:
- *		-Avoid us having to copy around the full targeting data structure in Blueprints
- *		-Allows us to leverage polymorphism in the target data structure
- *		-Allows us to implement NetSerialize and replicate by value between clients/server
- *
- *		-Avoid using UObjects could be used to give us polymorphism and by reference passing in blueprints.
- *		-However we would still be screwed when it came to replication
- *
- *		-Replication by value
- *		-Pass by reference in blueprints
- *		-Polymophism in TargetData structure
- */
+*	Handle for Targeting Data. This servers two main purposes:
+*		-Avoid us having to copy around the full targeting data structure in Blueprints
+*		-Allows us to leverage polymorphism in the target data structure
+*		-Allows us to implement NetSerialize and replicate by value between clients/server
+*
+*		-Avoid using UObjects could be used to give us polymorphism and by reference passing in blueprints.
+*		-However we would still be screwed when it came to replication
+*
+*		-Replication by value
+*		-Pass by reference in blueprints
+*		-Polymophism in TargetData structure
+*/
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 {
@@ -197,6 +197,12 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 	{
 		Data.Add(TSharedPtr<FGameplayAbilityTargetData>(DataPtr));
 	}
+
+	FGameplayAbilityTargetDataHandle(FGameplayAbilityTargetDataHandle&& Other) : Data(MoveTemp(Other.Data))	{ }
+	FGameplayAbilityTargetDataHandle(const FGameplayAbilityTargetDataHandle& Other) : Data(Other.Data) { }
+
+	FGameplayAbilityTargetDataHandle& operator=(FGameplayAbilityTargetDataHandle&& Other) { Data = MoveTemp(Other.Data); return *this; }
+	FGameplayAbilityTargetDataHandle& operator=(const FGameplayAbilityTargetDataHandle& Other) { Data = Other.Data; return *this; }
 
 	/** Raw storage of target data, do not modify this directly */
 	TArray<TSharedPtr<FGameplayAbilityTargetData>, TInlineAllocator<1> >	Data;
@@ -293,10 +299,10 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetingLocationInfo
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayAbilityTargetingLocationInfo()
-		: LocationType(EGameplayAbilityTargetingLocationType::LiteralTransform)
-		, SourceActor(nullptr)
-		, SourceComponent(nullptr)
-		, SourceAbility(nullptr)
+	: LocationType(EGameplayAbilityTargetingLocationType::LiteralTransform)
+	, SourceActor(nullptr)
+	, SourceComponent(nullptr)
+	, SourceAbility(nullptr)
 	{ }
 
 	virtual ~FGameplayAbilityTargetingLocationInfo() {}
@@ -314,7 +320,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetingLocationInfo
 	/** Converts internal format into a literal world space transform */
 	FTransform GetTargetingTransform() const
 	{
-		// Return or calculate based on LocationType.
+		//Return or calculate based on LocationType.
 		switch (LocationType)
 		{
 		case EGameplayAbilityTargetingLocationType::ActorTransform:

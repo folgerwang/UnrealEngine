@@ -100,7 +100,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-	class Resource : public ns::Object<ns::Protocol<id<MTLResource>>::type, ns::CallingConvention::Mixed>
+	class MTLPP_EXPORT Resource : public ns::Object<ns::Protocol<id<MTLResource>>::type, ns::CallingConvention::Mixed>
     {
     public:
         Resource(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLResource>>::type, ns::CallingConvention::Mixed>(retain) { }

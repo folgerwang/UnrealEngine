@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ...
+// .....
 
 #include "MetalBackend.h"
 #include "MetalShaderFormat.h"
@@ -33,6 +33,25 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #define DEVICE_MEMORY_BARRIER_WITH_GROUP_SYNC	"DeviceMemoryBarrierWithGroupSync"
 #define ALL_MEMORY_BARRIER						"AllMemoryBarrier"
 #define ALL_MEMORY_BARRIER_WITH_GROUP_SYNC		"AllMemoryBarrierWithGroupSync"
+
+#define WAVE_ONCE "WaveOnce"
+#define WAVE_GET_LANE_COUNT "WaveGetLaneCount"
+#define WAVE_GET_LANE_INDEX "WaveGetLaneIndex"
+#define WAVE_ANY_TRUE "WaveAnyTrue"
+#define WAVE_ALL_TRUE "WaveAllTrue"
+#define WAVE_ALL_EQUAL "WaveAllEqual"
+#define WAVE_BALLOT "WaveBallot"
+#define WAVE_READ_LANE_AT "WaveReadLaneAt"
+#define WAVE_READ_FIRST_LANE "WaveReadFirstLane"
+#define WAVE_ALL_SUM "WaveAllSum"
+#define WAVE_ALL_PRODUCT "WaveAllProduct"
+#define WAVE_ALL_BIT_AND "WaveAllBitAnd"
+#define WAVE_ALL_BIT_OR "WaveAllBitOr"
+#define WAVE_ALL_BIT_XOR "WaveAllBitXor"
+#define WAVE_ALL_MIN "WaveAllMin"
+#define WAVE_ALL_MAX "WaveAllMax"
+#define WAVE_PREFIX_SUM "WavePrefixSum"
+#define WAVE_PREFIX_PRODUCT "WavePrefixProduct"
 
 // NOTE: a lot of the comments refer to running out OUTPUT_CP rate -- not all comments were fixed...
 #define EXEC_AT_INPUT_CP_RATE 1 // exec at input CP rate
@@ -564,6 +583,11 @@ protected:
 	
 	bool bExplicitEarlyFragTests;
 	bool bImplicitEarlyFragTests;
+
+	bool bInsertSideTable;
+
+	bool bRequiresWave;
+	bool bNeedsDeviceIndex;
 	
     const char *shaderPrefix()
     {
@@ -1143,7 +1167,7 @@ protected:
 						check(BufferIndex >= 0 && BufferIndex <= 30);
 						// There is a bug on Nvidia's pipeline compiler where the VSHS shaders are doing something bad with constant buffers
 						// Let us make them "const device" buffers instead as that bypasses the issue and is very, very easy to do!
-						if(bNeedsPointer && !var->type->is_record() && Backend.bIsTessellationVSHS && strcmp(var->name, "BufferSizes"))
+						if(bNeedsPointer && !var->type->is_record() && Backend.bIsTessellationVSHS && Backend.Version <= 2 && strcmp(var->name, "BufferSizes"))
 						{
 							ralloc_asprintf_append(
 								buffer,
@@ -1339,17 +1363,24 @@ protected:
 		{
 			bExplicitEarlyFragTests = true;
 		}
-		ralloc_asprintf_append(buffer, " FUNC_ATTRIBS ");
 		print_type_full(sig->return_type);
 		ralloc_asprintf_append(buffer, " %s(", sig->function_name());
 		
+        bInsertSideTable = false;
         if (sig->is_main && Backend.bBoundsChecks)
 		{
-            bool bInsertSideTable = false;
             foreach_iter(exec_list_iterator, iter, sig->parameters)
             {
                 ir_variable *const inst = (ir_variable *) iter.get();
-                bInsertSideTable |= ((inst->type->is_image() || inst->type->sampler_buffer) && inst->used);
+				if ((inst->type->is_image() || inst->type->sampler_buffer) && inst->used)
+				{
+					bool bIsStructuredBuffer = (inst->type->inner_type->is_record() || !strncmp(inst->type->name, "RWStructuredBuffer<", 19) || !strncmp(inst->type->name, "StructuredBuffer<", 17));
+					bool bIsByteAddressBuffer = (!strncmp(inst->type->name, "RWByteAddressBuffer", 19) || !strncmp(inst->type->name, "ByteAddressBuffer", 17));
+                	if (Buffers.AtomicVariables.find(inst) != Buffers.AtomicVariables.end() || bIsStructuredBuffer || bIsByteAddressBuffer || inst->invariant || (inst->type->components() == 3) || Backend.Version <= 2)
+					{
+						bInsertSideTable |= true;
+					}
+				}
             }
             if (bInsertSideTable)
             {
@@ -1388,6 +1419,14 @@ protected:
                 patchIndex, IndexBufferIndex
 			);
 			bPrintComma = true;
+		}
+		// These should work in fragment shaders but Apple are behind the curve on SM6.
+		if (Frequency == compute_shader && Backend.Version >= 3)
+		{
+			ralloc_asprintf_append(
+				buffer,
+				"WAVE_INDEX_VARS "
+			);
 		}
 		if(Frequency == tessellation_evaluation_shader)
 		{
@@ -1502,6 +1541,7 @@ protected:
 					switch (Frequency)
 					{
 					case vertex_shader:
+						ralloc_asprintf_append(buffer, "FUNC_ATTRIBS ");
 						if (Backend.bIsTessellationVSHS)
 						{
 							ralloc_asprintf_append(buffer, "kernel ");
@@ -1512,6 +1552,7 @@ protected:
 						}
 						break;
 					case tessellation_control_shader:
+						ralloc_asprintf_append(buffer, "FUNC_ATTRIBS ");
 						ralloc_asprintf_append(buffer, "kernel ");
 						break;
 					case tessellation_evaluation_shader:
@@ -1544,13 +1585,16 @@ protected:
 								break;
 							}
 							ralloc_asprintf_append(buffer, "[[ patch(%s, %d) ]] ", domainString, sig->tessellation.outputcontrolpoints);
+							ralloc_asprintf_append(buffer, "FUNC_ATTRIBS ");
 							ralloc_asprintf_append(buffer, "vertex ");
 						}
 						break;
 					case fragment_shader:
+						ralloc_asprintf_append(buffer, "FUNC_ATTRIBS ");
 						ralloc_asprintf_append(buffer, "fragment ");
 						break;
 					case compute_shader:
+						ralloc_asprintf_append(buffer, "FUNC_ATTRIBS ");
 						ralloc_asprintf_append(buffer, "kernel ");
 						break;
 					default:
@@ -1661,7 +1705,7 @@ protected:
             expr->operands[0]->accept(this);
             ralloc_asprintf_append(buffer, ")");
         }
-		else if (Backend.Version >= 2 && numOps == 2 && op == ir_binop_mul && expr->operands[0]->type == expr->operands[1]->type && expr->operands[0]->type->is_float())
+		else if (numOps == 2 && op == ir_binop_mul && expr->operands[0]->type == expr->operands[1]->type && expr->operands[0]->type->is_float())
 		{
 			ralloc_asprintf_append(buffer, "fma(");
 			expr->operands[0]->accept(this);
@@ -1744,9 +1788,19 @@ protected:
 		}
 		else if ((op == ir_ternop_fma || op == ir_ternop_clamp || op == ir_unop_sqrt || op == ir_unop_rsq || op == ir_unop_saturate) && expr->type->base_type == GLSL_TYPE_FLOAT)
 		{
-			if (!Backend.bAllowFastIntriniscs && op != ir_ternop_fma)
+			if (!Backend.bAllowFastIntriniscs)
 			{
-				ralloc_asprintf_append(buffer, "precise::");
+				switch(op)
+				{
+					case ir_ternop_clamp:
+					case ir_unop_saturate:
+					case ir_unop_sqrt:
+					case ir_unop_rsq:
+						ralloc_asprintf_append(buffer, "accurate::");
+						break;
+					default:
+						break;
+				}
 			}
 			ralloc_asprintf_append(buffer, "%s", MetalExpressionTable[op][0]);
 			for (int i = 0; i < numOps; ++i)
@@ -1767,7 +1821,7 @@ protected:
 			}
 			else if(!Backend.bAllowFastIntriniscs && expr->type->base_type == GLSL_TYPE_FLOAT)
 			{
-				ralloc_asprintf_append(buffer, "precise::");
+				ralloc_asprintf_append(buffer, "accurate::");
 			}
 			
 			ralloc_asprintf_append(buffer, OpString);
@@ -1800,7 +1854,7 @@ protected:
 		else if (numOps == 2 && op == ir_binop_cross)
 		{
 			// Use a precise fma based cross-product to avoid reassociation errors messing up WPO
-			if(!Backend.bAllowFastIntriniscs && Backend.Version >= 2)
+			if(!Backend.bAllowFastIntriniscs)
 			{
 				ralloc_asprintf_append(buffer, "accurate::");
 			}
@@ -2059,7 +2113,10 @@ protected:
 					tex->sampler->accept(this);
 					ralloc_asprintf_append(buffer, ", ");
 					tex->coordinate->accept(this);
-					ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes)", Index);
+					if (bInsertSideTable)
+						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes)", Index);
+					else
+						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d)", Index);
 				}
 				else if (Backend.bBoundsChecks)
 				{
@@ -2073,7 +2130,8 @@ protected:
                         tex->sampler->accept(this);
                         ralloc_asprintf_append(buffer, ", ");
                         tex->coordinate->accept(this);
-                        ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes)");
+						if (bInsertSideTable)
+	                        ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes)");
 					}
                     else
                     {
@@ -2417,7 +2475,10 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes)", Index);
+						if (bInsertSideTable)
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes)", Index);
+						else
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d)", Index);
 					}
 					else if (Backend.bBoundsChecks)
 					{
@@ -2430,7 +2491,8 @@ protected:
                             deref->image->accept(this);
                             ralloc_asprintf_append(buffer, ", ");
                             deref->image_index->accept(this);
-                            ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes)");
+							if (bInsertSideTable)
+	                            ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes)");
                         }
                         else
                         {
@@ -2573,7 +2635,10 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes, ", Index);
+						if (bInsertSideTable)
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes, ", Index);
+						else
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, ", Index);
 						src->accept(this);
 						ralloc_asprintf_append(buffer, ")");
 					}
@@ -2588,7 +2653,10 @@ protected:
                         deref->image->accept(this);
                         ralloc_asprintf_append(buffer, ", ");
                         deref->image_index->accept(this);
-                        ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes, ");
+						if (bInsertSideTable)
+	                        ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes, ");
+						else
+	                        ralloc_asprintf_append(buffer, ", ");
                         src->accept(this);
                         ralloc_asprintf_append(buffer, ")");
 					}
@@ -2722,12 +2790,12 @@ protected:
 				float value = constant->value.f[index];
 				float absval = fabsf(value);
 				
-				const char *format = "%e";
+				const char *format = "%.16e";
 				if (absval >= 1.0f)
 				{
-					format = (fmodf(absval,1.0f) < 1.e-8f) ? "%.1f" : "%.8f";
+					format = (fmodf(absval,1.0f) < 1.e-8f) ? "%.1f" : "%.16e";
 				}
-				else if (absval < 1.e-18f)
+				else if (absval < 1.e-10f)
 				{
 					format = "%.1f";
 				}
@@ -2888,7 +2956,7 @@ protected:
 			if(((!Backend.bAllowFastIntriniscs && Frequency == vertex_shader) || Backend.bForceInvariance) && call->return_deref->type->base_type == GLSL_TYPE_FLOAT && !strcmp(call->callee_name(), "sincos"))
 			{
 				// sincos needs to be "precise" unless we explicitly opt-in to fast-intrinsics because some UE4 shaders expect precise results and correct NAN/INF handling.
-				ralloc_asprintf_append(buffer, "precise::");
+				ralloc_asprintf_append(buffer, "accurate::");
 			}
             else if (call->return_deref->type->is_scalar() && !strcmp(call->callee_name(), "length"))
             {
@@ -2917,6 +2985,11 @@ protected:
             }
         }
 		
+		if (!strncmp(call->callee_name(), "Wave", 4))
+		{
+			bRequiresWave = true;
+		}
+
 		if (!strcmp(call->callee_name(), "unpackHalf2x16") && call->return_deref && call->return_deref->type && call->return_deref->type->base_type == GLSL_TYPE_HALF)
 		{
 			ralloc_asprintf_append(buffer, "as_type<half2>(");
@@ -3448,9 +3521,9 @@ protected:
 			const glsl_uniform_block* block = state->uniform_blocks[i];
 			if (hash_table_find(used_uniform_blocks, block->name))
 			{
+				/*
 				const char* block_name = block->name;
 				check(0);
-/*
 				if (state->has_packed_uniforms)
 				{
 					block_name = ralloc_asprintf(mem_ctx, "%sb%u",
@@ -3642,6 +3715,22 @@ protected:
 						{
 							if (bNeedsHeader)
 							{
+								CBIndex = ~0u;
+								for (int BufferIndex = 0; BufferIndex < Buffers.Buffers.Num(); ++BufferIndex)
+								{
+									// Some entries might be null, if we used more packed than real UBs used
+									if (Buffers.Buffers[BufferIndex])
+									{
+										auto* Var = Buffers.Buffers[BufferIndex]->as_variable();
+										if (Var && strcmp(Var->name, block->name) == 0)
+										{
+											CBIndex = BufferIndex;
+											break;
+										}
+									}
+								}
+								check(CBIndex != ~0u);
+								
 								ralloc_asprintf_append(buffer, "// @PackedUB: %s(%u): ",
 									block->name,
 									CBIndex);
@@ -3708,7 +3797,7 @@ protected:
 	{
 		PrintPackedGlobals(State);
 
-		if (State->bFlattenUniformBuffers && !State->CBuffersOriginal.empty())
+		if (!State->CBuffersOriginal.empty())
 		{
 			PrintPackedUniformBuffers(State);
 		}
@@ -3717,7 +3806,7 @@ protected:
 	/**
 	 * Print a list of external variables.
 	 */
-	void print_extern_vars(_mesa_glsl_parse_state* State, exec_list* extern_vars)
+	void print_extern_vars(_mesa_glsl_parse_state* State, exec_list* extern_vars, bool const bPrintSemantic = false)
 	{
 		const char *type_str[] = { "u", "i", "f", "f", "b", "t", "?", "?", "?", "?", "s", "os", "im", "ip", "op" };
 		const char *col_str[] = { "", "", "2x", "3x", "4x" };
@@ -3771,7 +3860,14 @@ protected:
 			{
 				ralloc_asprintf_append(buffer, "[%u]", array_size);
 			}
-			ralloc_asprintf_append(buffer, ":%s", var->name);
+			if (bPrintSemantic)
+			{
+				ralloc_asprintf_append(buffer, ":%s", var->semantic);
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, ":%s", var->name);
+			}
 			need_comma = true;
 		}
 	}
@@ -3784,7 +3880,7 @@ protected:
 		if (!input_variables.is_empty())
 		{
 			ralloc_asprintf_append(buffer, "// @Inputs: ");
-			print_extern_vars(state, &input_variables);
+			print_extern_vars(state, &input_variables, true);
 			ralloc_asprintf_append(buffer, "\n");
 		}
 
@@ -3803,7 +3899,7 @@ protected:
 				if (Buffers.Buffers[i])
 				{
 					auto* Var = Buffers.Buffers[i]->as_variable();
-					if (!Var->semantic && !Var->type->is_sampler() && !Var->type->is_image())
+					if (!Var->semantic && !Var->type->is_sampler() && !Var->type->is_image() && state->CBPackedArraysMap.find(Var->name) == state->CBPackedArraysMap.end())
 					{
 						ralloc_asprintf_append(buffer, "%s%s(%d)",
 							bFirst ? "// @UniformBlocks: " : ",",
@@ -4060,6 +4156,9 @@ public:
 		, bNeedsComputeInclude(false)
 		, bExplicitEarlyFragTests(false)
 		, bImplicitEarlyFragTests(InBackend.Version >= 2)
+		, bInsertSideTable(false)
+		, bRequiresWave(false)
+		, bNeedsDeviceIndex(false)
 	{
 		printable_names = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
 		used_structures = hash_table_ctor(128, hash_table_pointer_hash, hash_table_pointer_compare);
@@ -4096,7 +4195,6 @@ public:
 		buffer = &decl_buffer;
 		declare_structs(ParseState);
         
-        bool bNeedsDeviceIndex = false;
         if (Backend.TypedBuffers)
         {
             ralloc_asprintf_append(buffer, "\n");
@@ -4108,20 +4206,20 @@ public:
                     {
                         ralloc_asprintf_append(buffer, "#if __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_RAW__\n");
                         ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Max;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_2D__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_TB__\n");
+                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_RW_IMPL__ == __METAL_TYPED_BUFFER_FC__\n");
                         ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d [[ function_constant(%d) ]];\n", i, i);
+                        ralloc_asprintf_append(buffer, "#else\n");
+                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
                         ralloc_asprintf_append(buffer, "#endif\n");
                     }
                     else
                     {
                         ralloc_asprintf_append(buffer, "#if __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_RAW__\n");
                         ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Max;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_2D__\n");
-                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
-                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_TB__\n");
+                        ralloc_asprintf_append(buffer, "#elif __METAL_TYPED_BUFFER_READ_IMPL__ == __METAL_TYPED_BUFFER_FC__\n");
                         ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d [[ function_constant(%d) ]];\n", i, i);
+                        ralloc_asprintf_append(buffer, "#else\n");
+                        ralloc_asprintf_append(buffer, "constant uint GMetalTypedBufferFormat%d = ue4::Unknown;\n", i);
                         ralloc_asprintf_append(buffer, "#endif\n");
                     }
                 }
@@ -4136,6 +4234,36 @@ public:
 		{
 			ralloc_asprintf_append(buffer, "\n#define FUNC_ATTRIBS \n\n");
 		}
+
+		// These should work in fragment shaders but Apple are behind the curve on SM6.
+		if (bRequiresWave && Frequency == compute_shader && Backend.Version >= 3)
+		{
+			ralloc_asprintf_append(buffer, "\n#define WAVE_INDEX_VARS decl_wave_index_vars, \n\n");
+		}
+		else
+		{
+			ralloc_asprintf_append(buffer, "\n#define WAVE_INDEX_VARS \n\n");
+		}
+        
+        // Vertex + Hull compute shaders must always use FMAs.
+        if (Backend.bIsTessellationVSHS)
+        {
+            ralloc_asprintf_append(buffer, "#define fma(a, b, c) fma(a, b, c)\n");
+        }
+        // Plain vertex & domain shaders need only use FMAs on Metal 1.2-2.0
+        else if (Frequency == vertex_shader || Frequency == tessellation_evaluation_shader)
+        {
+            ralloc_asprintf_append(buffer, "#if __METAL_VERSION__ < 120 || __METAL_VERSION__ >= 210\n"
+                                   "#define fma(a, b, c) ((a  * b) + c)\n"
+                                   "#else\n"
+                                   "#define fma(a, b, c) fma(a, b, c)\n"
+                                   "#endif\n");
+        }
+        // Fragment shaders and compute shaders need not use FMAs.
+        else
+        {
+            ralloc_asprintf_append(buffer, "#define fma(a, b, c) ((a  * b) + c)\n");
+        }
 
 		buffer = 0;
 
@@ -4196,6 +4324,10 @@ public:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 1\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 1\n");
                 break;
+            case EMetalTypeBufferModeTex:
+                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 3\n");
+                ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 3\n");
+                break;
             case EMetalTypeBufferModeFun:
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_READ_IMPL__ 2\n");
                 ralloc_asprintf_append(buffer, "#define __METAL_TYPED_BUFFER_RW_IMPL__ 2\n");
@@ -4213,7 +4345,7 @@ public:
             ralloc_asprintf_append(buffer, "#define __METAL_DEVICE_CONSTANT_INDEX__ 0\n");
         }
 		
-		if (Backend.bIsTessellationVSHS)
+		if (Backend.bIsTessellationVSHS || Backend.Version >= 3)
 		{
 			ralloc_asprintf_append(buffer, "#define __METAL_MANUAL_TEXTURE_METADATA__ 0\n");
 		}
@@ -4794,6 +4926,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 				ArgVarDeref = MetalUtils::GenerateInput(
 					Frequency, bIsDesktop,
 					ParseState,
+					Variable->name,
 					Variable->semantic,
 					Variable->type,
 					&DeclInstructions,
@@ -4952,6 +5085,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 						ArgVarDeref = MetalUtils::GenerateInput(
 							Frequency, bIsDesktop,
 							ParseState,
+							Variable->name,
 							Variable->semantic,
 							Variable->type,
 							&VertexDeclInstructions,
@@ -4996,7 +5130,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 			//	struct InputVertexType {
 			//		vec4 IN_ATTRIBUTE0;
 			//	} InputVertexVar;
-			std::set<ir_variable*> VSInVariables;
+			TIRVarSet VSInVariables;
 
 			TArray<glsl_struct_field> VSInMembers;
 
@@ -5360,7 +5494,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 			// make a flat perControlPoint struct
 			ir_dereference_variable* OutputControlPointDeref = NULL;
 			{
-				std::set<ir_variable*> HSOutVariables;
+				TIRVarSet HSOutVariables;
 
 				TArray<glsl_struct_field> HSOutMembers;
 				
@@ -5706,10 +5840,10 @@ void FMetalCodeBackend::CallPatchConstantFunction(_mesa_glsl_parse_state* ParseS
 	// write TFOut to TFOutBuffer (only if outputCPID == 0)
 	// write HSOut to HSOutBuffer (only if outputCPID == 0)
 	{
-		std::set<ir_variable*> HSOutVariables;
+		TIRVarSet HSOutVariables;
 		ir_variable* HSOut = nullptr;
 
-		std::set<ir_variable*> HSTFOutVariables;
+		TIRVarSet HSTFOutVariables;
 		ir_variable* HSTFOut = nullptr;
 
 		TArray<glsl_struct_field> HSOutMembers;
@@ -5915,6 +6049,11 @@ FMetalCodeBackend::FMetalCodeBackend(FMetalTessellationOutputs& TessOutputAttrib
 	PatchControlPointStructHash = 0;
 }
 
+static ir_variable* make_var(void *ctx, const glsl_type* type, unsigned index, ir_variable_mode mode)
+{
+	return new(ctx)ir_variable(type, ralloc_asprintf(ctx, "arg%u", index), mode);
+}
+
 void FMetalLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir)
 {
 	// Framebuffer fetch
@@ -5982,4 +6121,119 @@ void FMetalLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, 
 		make_intrinsic_genType(ir, State, ALL_MEMORY_BARRIER, ir_invalid_opcode, IR_INTRINSIC_RETURNS_VOID, 0, 0, 0);
 		make_intrinsic_genType(ir, State, ALL_MEMORY_BARRIER_WITH_GROUP_SYNC, ir_invalid_opcode, IR_INTRINSIC_RETURNS_VOID, 0, 0, 0);
 	}
+
+	// Wave operations
+	
+//	{
+//		make_intrinsic_genType(ir, State, WAVE_ONCE, ir_invalid_opcode, IR_INTRINSIC_SCALAR|IR_INTRINSIC_BOOL, 0, 0, 0);
+//		make_intrinsic_genType(ir, State, WAVE_GET_LANE_COUNT, ir_invalid_opcode, IR_INTRINSIC_SCALAR|IR_INTRINSIC_UINT, 0, 0, 0);
+//		make_intrinsic_genType(ir, State, WAVE_GET_LANE_INDEX, ir_invalid_opcode, IR_INTRINSIC_SCALAR|IR_INTRINSIC_UINT, 0, 0, 0);
+//
+//		make_intrinsic_genType(ir, State, WAVE_ANY_TRUE, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_SCALAR|IR_INTRINSIC_RETURNS_BOOL, 1, 1, 1);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_TRUE, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_SCALAR|IR_INTRINSIC_RETURNS_BOOL, 1, 1, 1);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_EQUAL, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_SCALAR|IR_INTRINSIC_RETURNS_BOOL, 1, 1, 1);
+//
+//		{
+//			void* ctx = State;
+//			ir_function* func = new(ctx)ir_function(WAVE_BALLOT);
+//
+//			for (unsigned Type = GLSL_TYPE_UINT; Type <= GLSL_TYPE_BOOL; ++Type)
+//			{
+//				for (unsigned c = 1; c <= 4; ++c)
+//				{
+//					const glsl_type* arg_type = glsl_type::get_instance(Type, c, 1);
+//					const glsl_type* ret_type = glsl_type::get_instance(Type, c, 1);
+//					ir_function_signature* sig = new(ctx)ir_function_signature(ret_type);
+//					sig->is_builtin = true;
+//					sig->is_defined = true;
+//
+//					ir_variable* var = make_var(ctx, arg_type, 0, ir_var_in);
+//					sig->parameters.push_tail(var);
+//
+//					ir_expression* expr = new(ctx)ir_expression(ir_invalid_opcode, ret_type,
+//						new(ctx)ir_dereference_variable(var));
+//					sig->body.push_tail(new(ctx)ir_return(expr));
+//
+//					func->add_signature(sig);
+//				}
+//			}
+//
+//			State->symbols->add_global_function(func);
+//			ir->push_tail(func);
+//		}
+//		{
+//			void* ctx = State;
+//			ir_function* func = new(ctx)ir_function(WAVE_READ_LANE_AT);
+//
+//			for (unsigned Type = GLSL_TYPE_UINT; Type <= GLSL_TYPE_BOOL; ++Type)
+//			{
+//				for (unsigned c = 1; c <= 4; ++c)
+//				{
+//					const glsl_type* arg_type = glsl_type::get_instance(Type, c, 1);
+//					const glsl_type* arg1_type = glsl_type::uint_type;
+//					const glsl_type* ret_type = glsl_type::get_instance(Type, c, 1);
+//					ir_function_signature* sig = new(ctx)ir_function_signature(ret_type);
+//					sig->is_builtin = true;
+//					sig->is_defined = true;
+//
+//					ir_variable* var = make_var(ctx, arg_type, 0, ir_var_in);
+//					sig->parameters.push_tail(var);
+//					
+//					ir_variable* var1 = make_var(ctx, arg1_type, 1, ir_var_in);
+//					sig->parameters.push_tail(var1);
+//
+//					ir_expression* expr = new(ctx)ir_expression(ir_invalid_opcode, ret_type,
+//						new(ctx)ir_dereference_variable(var),
+//						new(ctx)ir_dereference_variable(var1));
+//					sig->body.push_tail(new(ctx)ir_return(expr));
+//
+//					func->add_signature(sig);
+//				}
+//			}
+//
+//			State->symbols->add_global_function(func);
+//			ir->push_tail(func);
+//		}
+//		{
+//			void* ctx = State;
+//			ir_function* func = new(ctx)ir_function(WAVE_READ_FIRST_LANE);
+//
+//			for (unsigned Type = GLSL_TYPE_UINT; Type <= GLSL_TYPE_BOOL; ++Type)
+//			{
+//				for (unsigned c = 1; c <= 4; ++c)
+//				{
+//					const glsl_type* arg_type = glsl_type::get_instance(Type, c, 1);
+//					const glsl_type* ret_type = glsl_type::get_instance(Type, c, 1);
+//					ir_function_signature* sig = new(ctx)ir_function_signature(ret_type);
+//					sig->is_builtin = true;
+//					sig->is_defined = true;
+//
+//					ir_variable* var = make_var(ctx, arg_type, 0, ir_var_in);
+//					sig->parameters.push_tail(var);
+//
+//					ir_expression* expr = new(ctx)ir_expression(ir_invalid_opcode, ret_type,
+//						new(ctx)ir_dereference_variable(var));
+//					sig->body.push_tail(new(ctx)ir_return(expr));
+//
+//					func->add_signature(sig);
+//				}
+//			}
+//
+//			State->symbols->add_global_function(func);
+//			ir->push_tail(func);
+//		}
+//
+//		make_intrinsic_genType(ir, State, WAVE_ALL_SUM, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_PRODUCT, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_BIT_AND, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_BIT_OR, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_BIT_XOR, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_MIN, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_ALL_MAX, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_PREFIX_SUM, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		make_intrinsic_genType(ir, State, WAVE_PREFIX_PRODUCT, ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 1, 1, 4);
+//		
+//		make_intrinsic_genType(ir, State, "min3", ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 3, 1, 4);
+//		make_intrinsic_genType(ir, State, "max3", ir_invalid_opcode, IR_INTRINSIC_BOOL|IR_INTRINSIC_INT|IR_INTRINSIC_UINT|IR_INTRINSIC_HALF|IR_INTRINSIC_FLOAT, 3, 1, 4);
+//	}
 }

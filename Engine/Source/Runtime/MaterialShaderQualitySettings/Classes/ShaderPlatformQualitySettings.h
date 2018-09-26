@@ -30,7 +30,8 @@ public:
 	GENERATED_USTRUCT_BODY()
 	
 	FMaterialQualityOverrides() 
-		: bEnableOverride(false)
+		: bDiscardQualityDuringCook(false)
+		, bEnableOverride(false)
 		, bForceFullyRough(false)
 		, bForceNonMetal(false)
 		, bForceDisableLMDirectionality(false)
@@ -39,6 +40,9 @@ public:
 		, MobileCSMQuality(EMobileCSMQuality::PCF_2x2)
 	{
 	}
+
+	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Discard Quality During Cook"), Category = "Quality")
+	bool bDiscardQualityDuringCook;
 
 	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Enable Quality Override"), Category = "Quality")
 	bool bEnableOverride;
@@ -88,4 +92,11 @@ public:
 
 	void BuildHash(EMaterialQualityLevel::Type QualityLevel, class FSHAHash& OutHash) const;
 	void AppendToHashState(EMaterialQualityLevel::Type QualityLevel, class FSHA1& HashState) const;
+	
+	virtual const TCHAR* GetConfigOverridePlatform() const override
+	{
+		return ConfigPlatformName.IsEmpty() ? nullptr : *ConfigPlatformName;
+	}
+
+	FString ConfigPlatformName;
 };

@@ -6,8 +6,6 @@
 #include "MetalCommandEncoder.h"
 #include "MetalPipeline.h"
 
-class FShaderCacheState;
-
 enum EMetalPipelineFlags
 {
 	EMetalPipelineFlagPipelineState = 1 << 0,
@@ -131,7 +129,7 @@ public:
 	const mtlpp::Viewport& GetViewport(uint32 const Index) const { check(Index < ML_MaxViewports); return Viewport[Index]; }
 	uint32 GetVertexBufferSize(uint32 const Index);
 	uint32 GetRenderTargetArraySize() const { return RenderTargetArraySize; }
-	TRefCountPtr<FRHIUniformBuffer>* GetBoundUniformBuffers(EShaderFrequency const Freq) { return BoundUniformBuffers[Freq]; }
+	const FRHIUniformBuffer** GetBoundUniformBuffers(EShaderFrequency const Freq) { return (const FRHIUniformBuffer**)&BoundUniformBuffers[Freq][0]; }
 	uint32 GetDirtyUniformBuffers(EShaderFrequency const Freq) const { return DirtyUniformBuffers[Freq]; }
 	FMetalQueryBuffer* GetVisibilityResultsBuffer() const { return VisibilityResults; }
 	bool GetScissorRectEnabled() const { return bScissorRectEnabled; }
@@ -150,9 +148,6 @@ public:
 	
 	FTexture2DRHIRef CreateFallbackDepthStencilSurface(uint32 Width, uint32 Height);
 	bool GetFallbackDepthStencilBound(void) const { return bFallbackDepthStencilBound; }
-	
-	void SetShaderCacheStateObject(FShaderCacheState* CacheState)	{ShaderCacheContextState = CacheState;}
-	FShaderCacheState* GetShaderCacheStateObject() const			{return ShaderCacheContextState;}
 	
     void SetRenderPipelineState(FMetalCommandEncoder& CommandEncoder, FMetalCommandEncoder* PrologueEncoder);
     void SetComputePipelineState(FMetalCommandEncoder& CommandEncoder);
@@ -226,7 +221,7 @@ private:
 	{
 		FMetalSamplerBindings() : Bound(0) {}
 		/** The bound sampler states or nil. */
-		TRefCountPtr<FMetalSamplerState> Samplers[ML_MaxSamplers];
+		ns::AutoReleased<FMetalSampler> Samplers[ML_MaxSamplers];
 		/** A bitmask for which samplers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint16 Bound;
 	};
@@ -239,10 +234,11 @@ private:
 	EMetalIndexType IndexType;
 	uint32 SampleCount;
 
-	TRefCountPtr<FRHIUniformBuffer> BoundUniformBuffers[SF_NumFrequencies][ML_MaxBuffers];
+	TSet<TRefCountPtr<FRHIUniformBuffer>> ActiveUniformBuffers;
+	FRHIUniformBuffer* BoundUniformBuffers[SF_NumFrequencies][ML_MaxBuffers];
 	
 	/** Bitfield for which uniform buffers are dirty */
-	uint64 DirtyUniformBuffers[SF_NumFrequencies];
+	uint32 DirtyUniformBuffers[SF_NumFrequencies];
 	
 	/** Vertex attribute buffers */
 	FMetalBufferBinding VertexBuffers[MaxVertexElementCount];
@@ -294,6 +290,4 @@ private:
     bool bCanRestartRenderPass;
     bool bImmediate;
 	bool bFallbackDepthStencilBound;
-	
-	FShaderCacheState* ShaderCacheContextState;
 };

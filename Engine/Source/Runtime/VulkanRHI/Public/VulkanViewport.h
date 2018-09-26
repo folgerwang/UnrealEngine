@@ -47,6 +47,8 @@ public:
 		return CustomPresent;
 	}
 
+	virtual void Tick(float DeltaTime) override final;
+
 	void AdvanceBackBufferFrame();
 
 	bool Present(FVulkanCommandListContext* Context, FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, FVulkanQueue* PresentQueue, bool bLockToVsync);
@@ -75,6 +77,8 @@ protected:
 	void* WindowHandle;
 	uint32 PresentCount;
 
+	int8 LockToVsync;
+
 	// Just a pointer, not owned by this class
 	VulkanRHI::FSemaphore* AcquiredSemaphore;
 
@@ -84,6 +88,7 @@ protected:
 	void AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBackBuffer* NewBackBuffer);
 
 	void RecreateSwapchain(void* NewNativeWindow, bool bForce = false);
+	void RecreateSwapchainFromRT();
 	void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen);
 
 	static int32 DoAcquireImageIndex(FVulkanViewport* Viewport);

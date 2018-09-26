@@ -21,8 +21,15 @@
 #endif
 
 
-#define MEDIASOUNDCOMPONENT_TRACE_RATEADJUSTMENT 0
+static int32 SyncAudioAfterDropoutsCVar = 1;
+FAutoConsoleVariableRef CVarSyncAudioAfterDropouts(
+	TEXT("m.SyncAudioAfterDropouts"),
+	SyncAudioAfterDropoutsCVar,
+	TEXT("Skip over delayed contiguous audio samples.\n")
+	TEXT("0: Not Enabled, 1: Enabled"),
+	ECVF_Default);
 
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Sync"), STAT_MediaUtils_MediaSoundComponent, STATGROUP_Media);
 
 /* Static initialization
  *****************************************************************************/
@@ -43,14 +50,25 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	, CachedTime(FTimespan::Zero())
 	, RateAdjustment(1.0f)
 	, Resampler(new FMediaAudioResampler)
+	, FrameSyncOffset(0)
+	, bSyncAudioAfterDropouts(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
+
+#if PLATFORM_MAC
+	PreferredBufferLength = 4 * 1024; // increase buffer callback size on macOS to prevent underruns
+#endif
 
 #if WITH_EDITORONLY_DATA
 	bVisualizeComponent = true;
 #endif
 
+#if PLATFORM_PS4 || PLATFORM_SWITCH || PLATFORM_XBOXONE
+	bSyncAudioAfterDropouts = true;
+#else
+	bSyncAudioAfterDropouts = false;
+#endif
 }
 
 
@@ -109,6 +127,7 @@ void UMediaSoundComponent::UpdatePlayer()
 
 		FScopeLock Lock(&CriticalSection);
 		SampleQueue.Reset();
+		FrameSyncOffset = 0;
 
 		return;
 	}
@@ -123,6 +142,7 @@ void UMediaSoundComponent::UpdatePlayer()
 		{
 			FScopeLock Lock(&CriticalSection);
 			SampleQueue = NewSampleQueue;
+			FrameSyncOffset = 0;
 		}
 
 		CurrentPlayerFacade = PlayerFacade;
@@ -285,7 +305,7 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 	}*/
 
 	// increase buffer callback size for media decoding. Media doesn't need fast response time so can decode more per callback.
-	PreferredBufferLength = NumChannels * 8196;
+	//PreferredBufferLength = NumChannels * 8196;
 
 	Resampler->Initialize(NumChannels, SampleRate);
 
@@ -295,10 +315,12 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 
 int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
+	int32 InitialSyncOffset = 0;
 	TSharedPtr<FMediaAudioSampleQueue, ESPMode::ThreadSafe> PinnedSampleQueue;
 	{
 		FScopeLock Lock(&CriticalSection);
 		PinnedSampleQueue = SampleQueue;
+		InitialSyncOffset = FrameSyncOffset;
 	}
 
 	if (PinnedSampleQueue.IsValid() && (CachedRate != 0.0f))
@@ -308,54 +330,93 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 		FTimespan OutTime = FTimespan::Zero();
 
-		while (true)
+		if (bSyncAudioAfterDropouts && SyncAudioAfterDropoutsCVar)
 		{
-			const uint32 FramesRequested = NumSamples / NumChannels;
-			const uint32 FramesWritten = Resampler->Generate(OutAudio, OutTime, FramesRequested, Rate * RateAdjustment, Time, *PinnedSampleQueue);
+			int32 SyncOffset = InitialSyncOffset + (NumSamples / NumChannels);
+			while (SyncOffset > 0)
+			{
+				float* DestAudio = OutAudio;
+				int32 FramesRequested = NumSamples / NumChannels;
 
+				if (SyncOffset < FramesRequested)
+				{
+					// Handle final generate before audio resumes playback
+					// Move frames left to sync them with expected playback time
+					int32 FloatsMoved = (FramesRequested - SyncOffset) * NumChannels;
+					FMemory::Memmove(OutAudio, OutAudio + (SyncOffset * NumChannels), FloatsMoved * sizeof(float));
+					DestAudio = OutAudio + FloatsMoved;
+					FramesRequested = SyncOffset;
+				}
+
+				uint32 JumpFrame = MAX_uint32;
+				int32 FramesWritten = (int32)Resampler->Generate(DestAudio, OutTime, (uint32)FramesRequested, Rate, Time, *PinnedSampleQueue, JumpFrame);
+
+				if (JumpFrame != MAX_uint32)
+				{
+					UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( JUMP ) SyncOffset was: %d"), SyncOffset);
+					int32 JumpFramesRequested = FramesRequested - JumpFrame;
+					int32 JumpFramesWritten = FramesWritten - JumpFrame;
+					SyncOffset = JumpFramesRequested - JumpFramesWritten;
+				}
+				else
+				{
+					SyncOffset -= FramesWritten;
+				}
+
+				if (FramesWritten < FramesRequested)
+				{
+					if (FramesWritten > 0)
+					{
+						UE_LOG(LogMediaAssets, Verbose, TEXT("Audio partial generate, FramesWritten: %d"), FramesWritten);
+					}
+					// Source buffer is empty
+					break;
+				}
+			}
+
+			if (SyncOffset > 0)
+			{
+				UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( STARVED ) SyncOffset: %d, PlayerTime: %s, OutTime: %s"), SyncOffset, *Time.ToString(), *OutTime.ToString());
+				FMemory::Memzero(OutAudio, NumSamples * sizeof(float));
+			}
+			else if (SyncOffset < 0)
+			{
+				UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( DESYNCED ) SyncOffset: %d"), SyncOffset);
+			}
+
+			{
+				FScopeLock Lock(&CriticalSection);
+				// Commit only if another thread did not change value
+				if (InitialSyncOffset == FrameSyncOffset)
+				{
+					FrameSyncOffset = SyncOffset;
+				}
+			}
+		}
+		else
+		{
+			const int32 FramesRequested = NumSamples / NumChannels;
+			uint32 JumpFrame = MAX_uint32;
+			uint32 FramesWritten = Resampler->Generate(OutAudio, OutTime, (uint32)FramesRequested, Rate, Time, *PinnedSampleQueue, JumpFrame);
 			if (FramesWritten == 0)
 			{
 				return 0; // no samples available
 			}
-
-			if (DynamicRateAdjustment)
-			{
-				RateAdjustment = 1.0f + (CachedTime.Load().GetTicks() - OutTime.GetTicks()) * RateAdjustmentFactor;
-			}
-
-			if (RateAdjustmentRange.IsEmpty() || RateAdjustmentRange.Contains(RateAdjustment))
-			{
-				break; // valid sample
-			}
-
-			// drop sample (clocks are too out of sync)
-			RateAdjustment = 1.0f;
-
-			#if MEDIASOUNDCOMPONENT_TRACE_RATEADJUSTMENT
-				UE_LOG(LogMediaAssets, Verbose, TEXT("MediaSoundComponent %p: Sample dropped, Rate %f, Time %s, OutTime %s, Queue %i"),
-					this,
-					Rate,
-					*Time.ToString(TEXT("%h:%m:%s.%t")),
-					*OutTime.ToString(TEXT("%h:%m:%s.%t")),
-					PinnedSampleQueue->Num()
-				);
-			#endif
 		}
 
-		#if MEDIASOUNDCOMPONENT_TRACE_RATEADJUSTMENT
-			UE_LOG(LogMediaAssets, Verbose, TEXT("MediaSoundComponent %p: Sample rendered, Rate %f, Time %s, OutTime %s, RateAdjustment %f, Queue %i"),
-				this,
-				Rate,
-				*Time.ToString(TEXT("%h:%m:%s.%t")),
-				*OutTime.ToString(TEXT("%h:%m:%s.%t")),
-				RateAdjustment,
-				PinnedSampleQueue->Num()
-			);
-		#endif
+#if STATS
+		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponent, (Time - OutTime).GetTotalMilliseconds());
+#endif
 	}
 	else
 	{
 		Resampler->Flush();
+
+		if (bSyncAudioAfterDropouts && SyncAudioAfterDropoutsCVar)
+		{
+			FScopeLock Lock(&CriticalSection);
+			FrameSyncOffset = 0;
+		}
 	}
 	return NumSamples;
 }

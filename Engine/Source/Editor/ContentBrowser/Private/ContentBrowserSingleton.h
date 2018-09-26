@@ -45,6 +45,8 @@ public:
 	virtual void SyncBrowserToFolders(const TArray<FString>& FolderList, bool bAllowLockedBrowsers = false, bool bFocusContentBrowser = true) override;
 	virtual void SyncBrowserTo(const FContentBrowserSelection& ItemSelection, bool bAllowLockedBrowsers = false, bool bFocusContentBrowser = true) override;
 	virtual void GetSelectedAssets(TArray<FAssetData>& SelectedAssets) override;
+	virtual void GetSelectedFolders(TArray<FString>& SelectedFolders) override;
+	virtual void GetSelectedPathViewFolders(TArray<FString>& SelectedFolders) override;
 	virtual void CaptureThumbnailFromViewport(FViewport* InViewport, TArray<FAssetData>& SelectedAssets) override;
 	virtual void SetSelectedPaths(const TArray<FString>& FolderPaths, bool bNeedsRefresh = false) override;
 	virtual void ForceShowPluginContent(bool bEnginePlugin) override;

@@ -126,6 +126,18 @@ public:
 	 * Signal to RHI that cached state is no longer valid
 	 */
 	virtual void RHIInvalidateCachedState() {};
+
+
+	/**
+	 * Insert a GPU-to-CPU fence into the GPU command-stream. 
+	 * The default implementation will simply write the current frame-number into the fence.
+	 * RHIs that can implement true GPU fences should override this to do so.
+	 */
+	virtual void RHIInsertGPUFence(FGPUFenceRHIParamRef Fence) 
+	{ 
+		check(Fence); 
+		Fence->Write(); 
+	}
 };
 
 // These states are now set by the Pipeline State Object and are now deprecated
@@ -252,6 +264,12 @@ public:
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 
 	virtual void RHISubmitCommandsHint() = 0;
+
+	// Used for OpenGL to check and see if any occlusion queries can be read back on the RHI thread. If they aren't ready when we need them, then we end up stalling.
+	virtual void RHIPollOcclusionQueries()
+	{
+		/* empty default implementation */
+	}
 
 	// Not all RHIs need this (Mobile specific)
 	virtual void RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask) {};

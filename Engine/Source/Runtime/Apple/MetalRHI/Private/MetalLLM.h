@@ -22,6 +22,7 @@ enum class ELLMTagMetal : LLM_TAG_TYPE
 {
 	Buffers = (LLM_TAG_TYPE)ELLMTag::PlatformTagStart,
 	Textures,
+	Heaps,
 	
 	Count
 };
@@ -45,6 +46,7 @@ namespace MetalLLM
 {
 	void LogAllocTexture(mtlpp::Device& Device, mtlpp::TextureDescriptor const& Desc, mtlpp::Texture const& Texture);
 	void LogAllocBuffer(mtlpp::Device& Device, mtlpp::Buffer const& Buffer);
+	void LogAllocHeap(mtlpp::Device& Device, mtlpp::Heap const& Heap);
 }
 
 

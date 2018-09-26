@@ -429,7 +429,9 @@ UBrushComponent::UBrushComponent(const FObjectInitializer& ObjectInitializer)
 	bUseAsOccluder = true;
 	bUseEditorCompositing = true;
 	bCanEverAffectNavigation = true;
+#if WITH_EDITORONLY_DATA
 	PrePivot_DEPRECATED = FVector::ZeroVector;
+#endif
 }
 
 FPrimitiveSceneProxy* UBrushComponent::CreateSceneProxy()

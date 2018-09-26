@@ -355,6 +355,7 @@ void ACharacter::OnRep_IsCrouched()
 			CharacterMovement->bWantsToCrouch = false;
 			CharacterMovement->UnCrouch(true);
 		}
+		CharacterMovement->bNetworkUpdateReceived = true;
 	}
 }
 
@@ -952,7 +953,7 @@ void ACharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 Pre
 		ResetJumpState();
 	}
 
-	// Recored jump force start time for proxies. Allows us to expire the jump even if not continually ticking down a timer.
+	// Record jump force start time for proxies. Allows us to expire the jump even if not continually ticking down a timer.
 	if (bProxyIsJumpForceApplied && CharacterMovement->IsFalling())
 	{
 		ProxyJumpForceStartedTime = GetWorld()->GetTimeSeconds();
@@ -1062,8 +1063,8 @@ void ACharacter::PostNetReceive()
 {
 	if (Role == ROLE_SimulatedProxy)
 	{
-		CharacterMovement->bNetworkUpdateReceived = true;
-		CharacterMovement->bNetworkMovementModeChanged = (CharacterMovement->bNetworkMovementModeChanged || (SavedMovementMode != ReplicatedMovementMode));
+		CharacterMovement->bNetworkMovementModeChanged |= (SavedMovementMode != ReplicatedMovementMode);
+		CharacterMovement->bNetworkUpdateReceived |= CharacterMovement->bNetworkMovementModeChanged || CharacterMovement->bJustTeleported;
 	}
 
 	Super::PostNetReceive();
@@ -1082,6 +1083,7 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 		return;
 	}
 
+	CharacterMovement->bNetworkUpdateReceived = true;
 	TGuardValue<bool> bInBaseReplicationGuard(bInBaseReplication, true);
 
 	const bool bBaseChanged = (BasedMovement.MovementBase != ReplicatedBasedMovement.MovementBase || BasedMovement.BoneName != ReplicatedBasedMovement.BoneName);
@@ -1130,6 +1132,11 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 
 void ACharacter::OnRep_ReplicatedMovement()
 {
+	if (CharacterMovement && (CharacterMovement->NetworkSmoothingMode == ENetworkSmoothingMode::Replay))
+	{
+		return;
+	}
+
 	// Skip standard position correction if we are playing root motion, OnRep_RootMotion will handle it.
 	if (!IsPlayingNetworkedRootMotionMontage()) // animation root motion
 	{
@@ -1140,6 +1147,11 @@ void ACharacter::OnRep_ReplicatedMovement()
 	}
 }
 
+void ACharacter::OnRep_ReplayLastTransformUpdateTimeStamp()
+{
+	ReplicatedServerLastTransformUpdateTimeStamp = ReplayLastTransformUpdateTimeStamp;
+}
+
 /** Get FAnimMontageInstance playing RootMotion */
 FAnimMontageInstance * ACharacter::GetRootMotionAnimMontageInstance() const
 {
@@ -1148,31 +1160,43 @@ FAnimMontageInstance * ACharacter::GetRootMotionAnimMontageInstance() const
 
 void ACharacter::OnRep_RootMotion()
 {
-	if( Role == ROLE_SimulatedProxy )
+	if (CharacterMovement && (CharacterMovement->NetworkSmoothingMode == ENetworkSmoothingMode::Replay))
 	{
+		return;
+	}
+
+	if (Role == ROLE_SimulatedProxy)
+	{
+
 		UE_LOG(LogRootMotion, Log,  TEXT("ACharacter::OnRep_RootMotion"));
 
 		// Save received move in queue, we'll try to use it during Tick().
 		if( RepRootMotion.bIsActive )
 		{
+			// Add new move
+			RootMotionRepMoves.AddZeroed(1);
+			FSimulatedRootMotionReplicatedMove& NewMove = RootMotionRepMoves.Last();
+			NewMove.RootMotion = RepRootMotion;
+			NewMove.Time = GetWorld()->GetTimeSeconds();
+
+			// Convert RootMotionSource Server IDs -> Local IDs in AuthoritativeRootMotion and cull invalid
+			// so that when we use this root motion it has the correct IDs
 			if (CharacterMovement)
 			{
-				// Add new move
-				RootMotionRepMoves.AddZeroed(1);
-				FSimulatedRootMotionReplicatedMove& NewMove = RootMotionRepMoves.Last();
-				NewMove.RootMotion = RepRootMotion;
-				NewMove.Time = GetWorld()->GetTimeSeconds();
-
-				// Convert RootMotionSource Server IDs -> Local IDs in AuthoritativeRootMotion and cull invalid
-				// so that when we use this root motion it has the correct IDs
 				CharacterMovement->ConvertRootMotionServerIDsToLocalIDs(CharacterMovement->CurrentRootMotion, NewMove.RootMotion.AuthoritativeRootMotion, NewMove.Time);
-				NewMove.RootMotion.AuthoritativeRootMotion.CullInvalidSources();
 			}
+			
+			NewMove.RootMotion.AuthoritativeRootMotion.CullInvalidSources();
 		}
 		else
 		{
 			// Clear saved moves.
 			RootMotionRepMoves.Empty();
+		}
+
+		if (CharacterMovement)
+		{
+			CharacterMovement->bNetworkUpdateReceived = true;
 		}
 	}
 }
@@ -1214,8 +1238,10 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 							CharacterMovement->SimulateRootMotion(DeltaTime, LocalRootMotionTransform);
 
 							// After movement correction, smooth out error in position if any.
+							const FVector NewLocation = GetActorLocation();
 							CharacterMovement->bNetworkSmoothingComplete = false;
-							CharacterMovement->SmoothCorrection(OldLocation, OldRotation, GetActorLocation(), GetActorQuat());
+							CharacterMovement->bJustTeleported |= (OldLocation != NewLocation);
+							CharacterMovement->SmoothCorrection(OldLocation, OldRotation, NewLocation, GetActorQuat());
 						}
 					}
 				}
@@ -1351,6 +1377,7 @@ void ACharacter::OnUpdateSimulatedPosition(const FVector& OldLocation, const FQu
 		}
 	}
 	CharacterMovement->bJustTeleported |= bLocationChanged;
+	CharacterMovement->bNetworkUpdateReceived = true;
 }
 
 void ACharacter::PostNetReceiveLocationAndRotation()
@@ -1363,11 +1390,13 @@ void ACharacter::PostNetReceiveLocationAndRotation()
 			const FVector OldLocation = GetActorLocation();
 			const FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(ReplicatedMovement.Location, this);
 			const FQuat OldRotation = GetActorQuat();
-		
+
 			CharacterMovement->bNetworkSmoothingComplete = false;
+			CharacterMovement->bJustTeleported |= (OldLocation != NewLocation);
 			CharacterMovement->SmoothCorrection(OldLocation, OldRotation, NewLocation, ReplicatedMovement.Rotation.Quaternion());
 			OnUpdateSimulatedPosition(OldLocation, OldRotation);
 		}
+		CharacterMovement->bNetworkUpdateReceived = true;
 	}
 }
 
@@ -1411,7 +1440,6 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 	}
 
 	bProxyIsJumpForceApplied = (JumpForceTimeRemaining > 0.0f);
-	ReplicatedServerLastTransformUpdateTimeStamp = CharacterMovement->GetServerLastTransformUpdateTimeStamp();
 	ReplicatedMovementMode = CharacterMovement->PackNetworkMovementMode();	
 	ReplicatedBasedMovement = BasedMovement;
 
@@ -1429,7 +1457,11 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 	}
 
 	// Save bandwidth by not replicating this value unless it is necessary, since it changes every update.
-	if ((CharacterMovement->NetworkSmoothingMode != ENetworkSmoothingMode::Linear) && !CharacterMovement->bNetworkAlwaysReplicateTransformUpdateTimestamp)
+	if ((CharacterMovement->NetworkSmoothingMode == ENetworkSmoothingMode::Linear) || CharacterMovement->bNetworkAlwaysReplicateTransformUpdateTimestamp)
+	{
+		ReplicatedServerLastTransformUpdateTimeStamp = CharacterMovement->GetServerLastTransformUpdateTimeStamp();
+	}
+	else
 	{
 		ReplicatedServerLastTransformUpdateTimeStamp = 0.f;
 	}
@@ -1453,8 +1485,15 @@ void ACharacter::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPro
 		FNetworkPredictionData_Client_Character const* const ClientNetworkPredicationData = CharacterMovement->GetPredictionData_Client_Character();
 		if ((Role == ROLE_SimulatedProxy) && ClientNetworkPredicationData)
 		{
-			ReplaySample.Location = GetActorLocation() + ClientNetworkPredicationData->MeshRotationOffset.UnrotateVector(ClientNetworkPredicationData->MeshTranslationOffset);
-			ReplaySample.Rotation = GetActorRotation() + ClientNetworkPredicationData->MeshRotationOffset.Rotator();
+			ReplaySample.Location = GetActorLocation() + ClientNetworkPredicationData->MeshTranslationOffset;
+			if (CharacterMovement->NetworkSmoothingMode == ENetworkSmoothingMode::Exponential)
+			{
+				ReplaySample.Rotation = GetActorRotation() + ClientNetworkPredicationData->MeshRotationOffset.Rotator();
+			}
+			else
+			{
+				ReplaySample.Rotation = ClientNetworkPredicationData->MeshRotationOffset.Rotator();
+			}
 		}
 		else
 		{
@@ -1484,9 +1523,14 @@ void ACharacter::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPro
 	ReplaySample.Acceleration = CharacterMovement->GetCurrentAcceleration();
 	ReplaySample.RemoteViewPitch = RemoteViewPitch;
 
-	if (World && World->DemoNetDriver)
+	if (World)
 	{
-		ReplaySample.Time = World->DemoNetDriver->DemoCurrentTime;
+		if (World->DemoNetDriver)
+		{
+			ReplaySample.Time = World->DemoNetDriver->DemoCurrentTime;
+		}
+
+		ReplayLastTransformUpdateTimeStamp = World->GetTimeSeconds();
 	}
 	
 	FBitWriter Writer(0, true);
@@ -1495,21 +1539,18 @@ void ACharacter::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPro
 	ChangedPropertyTracker.SetExternalData(Writer.GetData(), Writer.GetNumBits());
 }
 
-
 void ACharacter::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
 {
 	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
 
-	DOREPLIFETIME_CONDITION( ACharacter, RepRootMotion,						COND_SimulatedOnlyNoReplay );
+	DOREPLIFETIME_CONDITION( ACharacter, RepRootMotion,						COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedBasedMovement,			COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedServerLastTransformUpdateTimeStamp, COND_SimulatedOnlyNoReplay );
 	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedMovementMode,			COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, bIsCrouched,						COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, bProxyIsJumpForceApplied,			COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, AnimRootMotionTranslationScale,	COND_SimulatedOnly );
-
-	// Change the condition of the replicated movement property to not replicate in replays since we handle this specifically via saving this out in external replay data
-	DOREPLIFETIME_CHANGE_CONDITION( AActor, ReplicatedMovement,				COND_SimulatedOrPhysicsNoReplay );
+	DOREPLIFETIME_CONDITION( ACharacter, ReplayLastTransformUpdateTimeStamp, COND_ReplayOnly );
 }
 
 bool ACharacter::IsPlayingRootMotion() const

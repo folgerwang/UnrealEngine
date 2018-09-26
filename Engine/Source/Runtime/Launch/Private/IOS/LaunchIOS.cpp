@@ -26,41 +26,68 @@ FGameLaunchDaemonMessageHandler GCommandSystem;
 
 static const double cMaxThreadWaitTime = 2.0;    // Setting this to be 2 seconds
 
-void FAppEntry::Suspend()
+static int32 DisableAudioSuspendOnAudioInterruptCvar = 1;
+FAutoConsoleVariableRef CVarDisableAudioSuspendOnAudioInterrupt(
+    TEXT("au.DisableAudioSuspendOnAudioInterrupt"),
+    DisableAudioSuspendOnAudioInterruptCvar,
+    TEXT("Disables callback for suspending the audio device when we are notified that the audio session has been interrupted.\n")
+    TEXT("0: Not Disabled, 1: Disabled"),
+    ECVF_Default);
+
+void FAppEntry::Suspend(bool bIsInterrupt)
 {
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
         FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
-        
-        if (FTaskGraphInterface::IsRunning())
+        if (bIsInterrupt && DisableAudioSuspendOnAudioInterruptCvar)
         {
-            FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+            if (FTaskGraphInterface::IsRunning())
             {
-                FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
                 {
-                    AudioDevice->SuspendContext();
-                }, TStatId());
-                
-                FAudioCommandFence AudioCommandFence;
-                AudioCommandFence.BeginFence();
-                AudioCommandFence.Wait();
-            }, TStatId(), NULL, ENamedThreads::GameThread);
-            
-            // Do not wait forever for this task to complete since the game thread may be stuck on waiting for user input from a modal dialog box
-            double    startTime = FPlatformTime::Seconds();
-            while((FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+                    FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                    {
+                        AudioDevice->SetTransientMasterVolume(0.0f);
+                    }, TStatId());
+                }, TStatId(), NULL, ENamedThreads::GameThread);
+            }
+            else
             {
-                FPlatformProcess::Sleep(0.05f);
-                if(ResignTask->IsComplete())
-                {
-                    break;
-                }
+                AudioDevice->SetTransientMasterVolume(0.0f);
             }
         }
         else
         {
-            AudioDevice->SuspendContext();
-        }        
+            if (FTaskGraphInterface::IsRunning())
+            {
+                FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+                {
+                    FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                    {
+                        AudioDevice->SuspendContext();
+                    }, TStatId());
+                
+                    FAudioCommandFence AudioCommandFence;
+                    AudioCommandFence.BeginFence();
+                    AudioCommandFence.Wait();
+                }, TStatId(), NULL, ENamedThreads::GameThread);
+            
+                // Do not wait forever for this task to complete since the game thread may be stuck on waiting for user input from a modal dialog box
+                double    startTime = FPlatformTime::Seconds();
+                while((FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+                {
+                    FPlatformProcess::Sleep(0.05f);
+                    if(ResignTask->IsComplete())
+                    {
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                AudioDevice->SuspendContext();
+            }
+        }
 	}
 	else
 	{
@@ -72,25 +99,45 @@ void FAppEntry::Suspend()
 	}
 }
 
-void FAppEntry::Resume()
+void FAppEntry::Resume(bool bIsInterrupt)
 {
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
         FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
         
-        if (FTaskGraphInterface::IsRunning())
+        if (bIsInterrupt && DisableAudioSuspendOnAudioInterruptCvar)
         {
-            FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+            if (FTaskGraphInterface::IsRunning())
             {
-                FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
                 {
-                    AudioDevice->ResumeContext();
-                }, TStatId());
-            }, TStatId(), NULL, ENamedThreads::GameThread);
+                    FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                    {
+                        AudioDevice->SetTransientMasterVolume(1.0f);
+                    }, TStatId());
+                }, TStatId(), NULL, ENamedThreads::GameThread);
+            }
+            else
+            {
+                AudioDevice->SetTransientMasterVolume(1.0f);
+            }
         }
         else
         {
-            AudioDevice->ResumeContext();
+            if (FTaskGraphInterface::IsRunning())
+            {
+                FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+                {
+                    FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                    {
+                        AudioDevice->ResumeContext();
+                    }, TStatId());
+                }, TStatId(), NULL, ENamedThreads::GameThread);
+            }
+            else
+            {
+                AudioDevice->ResumeContext();
+            }
         }
 	}
 	else
@@ -210,7 +257,7 @@ void FAppEntry::PlatformInit()
 
 	// Set GSystemResolution now that we have the size.
 	FDisplayMetrics DisplayMetrics;
-	FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 	FSystemResolution::RequestResolutionChange(DisplayMetrics.PrimaryDisplayWidth, DisplayMetrics.PrimaryDisplayHeight, EWindowMode::Fullscreen);
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }

@@ -982,7 +982,7 @@ FVector FPhysInterface_LLImmediate::GetLinearVelocity_AssumesLocked(const FPhysi
 	return FVector::ZeroVector;
 }
 
-void FPhysInterface_LLImmediate::SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity)
+void FPhysInterface_LLImmediate::SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
 
 }
@@ -992,7 +992,7 @@ FVector FPhysInterface_LLImmediate::GetAngularVelocity_AssumesLocked(const FPhys
 	return FVector::ZeroVector;
 }
 
-void FPhysInterface_LLImmediate::SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity)
+void FPhysInterface_LLImmediate::SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
 
 }
@@ -1206,7 +1206,7 @@ FTransform FPhysInterface_LLImmediate::GetGlobalPose_AssumesLocked(const FPhysic
 	return FTransform::Identity;
 }
 
-void FPhysInterface_LLImmediate::SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FTransform& InNewPose)
+void FPhysInterface_LLImmediate::SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FTransform& InNewPose, bool bAutoWake)
 {
 
 }

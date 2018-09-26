@@ -16,6 +16,7 @@ ALevelBounds::ALevelBounds(const FObjectInitializer& ObjectInitializer)
 	RootComponent = BoxComponent;
 	RootComponent->Mobility = EComponentMobility::Movable;
 	RootComponent->RelativeScale3D = DefaultLevelSize;
+	RootComponent->SetCanEverAffectNavigation(false);
 
 	bAutoUpdateBounds = true;
 

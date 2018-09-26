@@ -7,6 +7,79 @@
 #include "ShaderParameterUtils.h"
 #include "GlobalShader.h"
 
+class FMemsetBufferCS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(FMemsetBufferCS,Global)
+	
+	FMemsetBufferCS() {}
+	
+	static bool ShouldCompilePermutation( const FGlobalShaderPermutationParameters& Parameters )
+	{
+		return /*IsFeatureLevelSupported( Parameters.Platform, ERHIFeatureLevel::SM5 )*/
+			Parameters.Platform == SP_PS4 || Parameters.Platform == SP_PCD3D_SM5 || Parameters.Platform == SP_XBOXONE_D3D12;
+	}
+
+	static void ModifyCompilationEnvironment( const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment )
+	{
+		FGlobalShader::ModifyCompilationEnvironment( Parameters, OutEnvironment );
+		OutEnvironment.SetDefine( TEXT("THREADGROUP_SIZE"), ThreadGroupSize );
+	}
+
+public:
+	enum { ThreadGroupSize = 64 };
+
+	FShaderParameter			Value;
+	FShaderParameter			Size;
+	FShaderParameter			DstOffset;
+	FShaderResourceParameter	DstBuffer;
+
+	FMemsetBufferCS( const ShaderMetaType::CompiledShaderInitializerType& Initializer )
+		: FGlobalShader(Initializer)
+	{
+		Value.Bind(		Initializer.ParameterMap, TEXT("Value") );
+		Size.Bind(		Initializer.ParameterMap, TEXT("Size") );
+		DstOffset.Bind(	Initializer.ParameterMap, TEXT("DstOffset") );
+		DstBuffer.Bind(	Initializer.ParameterMap, TEXT("DstBuffer") );
+	}
+
+	virtual bool Serialize(FArchive& Ar) override
+	{		
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << Value;
+		Ar << Size;
+		Ar << DstOffset;
+		Ar << DstBuffer;
+		return bShaderHasOutdatedParameters;
+	}
+};
+
+IMPLEMENT_SHADER_TYPE(, FMemsetBufferCS, TEXT("/Engine/Private/ByteBuffer.usf"), TEXT("MemsetBufferCS"), SF_Compute );
+
+
+// Must be aligned to 4 bytes
+void MemsetBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, uint32 Value, uint32 NumBytes, uint32 DstOffset )
+{
+	check( (NumBytes & 3) == 0 );
+	check( (DstOffset & 3) == 0 );
+
+	auto ShaderMap = GetGlobalShaderMap( GMaxRHIFeatureLevel );
+
+	TShaderMapRef< FMemsetBufferCS > ComputeShader( ShaderMap );
+
+	const FComputeShaderRHIParamRef ShaderRHI = ComputeShader->GetComputeShader();
+	RHICmdList.SetComputeShader( ShaderRHI );
+
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Value, Value );
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumBytes / 4 );
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->DstOffset, DstOffset / 4 );
+	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV );
+
+	RHICmdList.DispatchComputeShader( FMath::DivideAndRoundUp< uint32 >( NumBytes / 4, FMemsetBufferCS::ThreadGroupSize * 4 ), 1, 1 );
+
+	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, FUnorderedAccessViewRHIRef() );
+}
+
+
 class FMemcpyBufferCS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FMemcpyBufferCS,Global)
@@ -28,18 +101,18 @@ class FMemcpyBufferCS : public FGlobalShader
 public:
 	enum { ThreadGroupSize = 64 };
 
+	FShaderParameter			Size;
 	FShaderParameter			SrcOffset;
 	FShaderParameter			DstOffset;
-	FShaderParameter			Size;
 	FShaderResourceParameter	SrcBuffer;
 	FShaderResourceParameter	DstBuffer;
 
 	FMemcpyBufferCS( const ShaderMetaType::CompiledShaderInitializerType& Initializer )
 		: FGlobalShader(Initializer)
 	{
+		Size.Bind(		Initializer.ParameterMap, TEXT("Size") );
 		SrcOffset.Bind(	Initializer.ParameterMap, TEXT("SrcOffset") );
 		DstOffset.Bind(	Initializer.ParameterMap, TEXT("DstOffset") );
-		Size.Bind(		Initializer.ParameterMap, TEXT("Size") );
 		SrcBuffer.Bind(	Initializer.ParameterMap, TEXT("SrcBuffer") );
 		DstBuffer.Bind(	Initializer.ParameterMap, TEXT("DstBuffer") );
 	}
@@ -47,9 +120,9 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << Size;
 		Ar << SrcOffset;
 		Ar << DstOffset;
-		Ar << Size;
 		Ar << SrcBuffer;
 		Ar << DstBuffer;
 		return bShaderHasOutdatedParameters;
@@ -60,7 +133,7 @@ IMPLEMENT_SHADER_TYPE(, FMemcpyBufferCS, TEXT("/Engine/Private/ByteBuffer.usf"),
 
 
 // Must be aligned to 4 bytes
-void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& SrcBuffer, const FRWByteAddressBuffer& DstBuffer, uint32 NumBytes, uint32 SrcOffset, uint32 DstOffset )
+void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, const FRWByteAddressBuffer& SrcBuffer, uint32 NumBytes, uint32 DstOffset, uint32 SrcOffset )
 {
 	check( (NumBytes & 3) == 0 );
 	check( (SrcOffset & 3) == 0 );
@@ -73,9 +146,9 @@ void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& SrcB
 	const FComputeShaderRHIParamRef ShaderRHI = ComputeShader->GetComputeShader();
 	RHICmdList.SetComputeShader( ShaderRHI );
 
+	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumBytes / 4 );
 	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->SrcOffset, SrcOffset / 4 );
 	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->DstOffset, DstOffset / 4 );
-	SetShaderValue( RHICmdList, ShaderRHI, ComputeShader->Size, NumBytes / 4 );
 	SetSRVParameter( RHICmdList, ShaderRHI, ComputeShader->SrcBuffer, SrcBuffer.SRV );
 	SetUAVParameter( RHICmdList, ShaderRHI, ComputeShader->DstBuffer, DstBuffer.UAV );
 
@@ -108,7 +181,7 @@ void ResizeBuffer( FRHICommandList& RHICmdList, FRWByteAddressBuffer& Buffer, ui
 
 		// Copy data to new buffer
 		uint32 CopyBytes = FMath::Min( NumBytes, Buffer.NumBytes );
-		MemcpyBuffer( RHICmdList, Buffer, NewBuffer, CopyBytes );
+		MemcpyBuffer( RHICmdList, NewBuffer, Buffer, CopyBytes );
 
 		Buffer.Buffer	= NewBuffer.Buffer;
 		Buffer.UAV		= NewBuffer.UAV;

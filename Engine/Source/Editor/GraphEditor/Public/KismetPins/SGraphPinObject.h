@@ -23,6 +23,7 @@ public:
 protected:
 	//~ Begin SGraphPin Interface
 	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
+	virtual bool DoesWidgetHandleSettingEditingEnabled() const override { return true; }
 	//~ End SGraphPin Interface
 
 	/** Delegate to be called when the use current selected item in asset browser button is clicked */

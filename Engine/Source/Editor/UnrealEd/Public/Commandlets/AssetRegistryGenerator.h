@@ -68,6 +68,18 @@ public:
 	void BuildChunkManifest(const TSet<FName>& CookedPackages, const TSet<FName>& DevelopmentOnlyPackages, FSandboxPlatformFile* InSandboxFile, bool bGenerateStreamingInstallManifest);
 
 	/**
+	* PreSave
+	* Notify generator that we are about to save the registry and chunk manifests
+	*/
+	void PreSave();
+
+	/**
+	* PostSave
+	* Notify generator that we are finished saving registry
+	*/
+	void PostSave();
+
+	/**
 	 * ContainsMap
 	 * Does this package contain a map file (determined by finding if this package contains a UWorld / ULevel object)
 	 *

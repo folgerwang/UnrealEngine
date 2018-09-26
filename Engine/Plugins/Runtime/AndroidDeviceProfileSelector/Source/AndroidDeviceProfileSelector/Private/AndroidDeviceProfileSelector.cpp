@@ -5,6 +5,7 @@
 #include "AndroidJavaSurfaceViewDevices.h"
 #include "Templates/Casts.h"
 #include "Internationalization/Regex.h"
+#include "Misc/CommandLine.h"
 
 UAndroidDeviceProfileMatchingRules::UAndroidDeviceProfileMatchingRules(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -29,9 +30,10 @@ static UAndroidDeviceProfileMatchingRules* GetAndroidDeviceProfileMatchingRules(
 	return Rules;
 }
 
-FString FAndroidDeviceProfileSelector::FindMatchingProfile(const FString& GPUFamily, const FString& GLVersion, const FString& AndroidVersion, const FString& DeviceMake, const FString& DeviceModel, const FString& VulkanAvailable, const FString& VulkanVersion, const FString& UsingHoudini, const FString& ProfileName)
+FString FAndroidDeviceProfileSelector::FindMatchingProfile(const FString& GPUFamily, const FString& GLVersion, const FString& AndroidVersion, const FString& DeviceMake, const FString& DeviceModel, const FString& DeviceBuildNumber, const FString& VulkanAvailable, const FString& VulkanVersion, const FString& UsingHoudini, const FString& ProfileName)
 {
 	FString OutProfileName = ProfileName;
+	FString CommandLine = FCommandLine::Get();
 
 	for (const FProfileMatch& Profile : GetAndroidDeviceProfileMatchingRules()->MatchProfile)
 	{
@@ -60,6 +62,9 @@ FString FAndroidDeviceProfileSelector::FindMatchingProfile(const FString& GPUFam
 			case SRC_DeviceModel:
 				SourceString = &DeviceModel;
 				break;
+			case SRC_DeviceBuildNumber:
+				SourceString = &DeviceBuildNumber;
+				break;
 			case SRC_VulkanVersion:
 				SourceString = &VulkanVersion;
 				break;
@@ -69,44 +74,105 @@ FString FAndroidDeviceProfileSelector::FindMatchingProfile(const FString& GPUFam
 			case SRC_VulkanAvailable:
 				SourceString = &VulkanAvailable;
 				break;
+			case SRC_CommandLine:
+				SourceString = &CommandLine;
+				break;
 			default:
 				continue;
 			}
 
+			const bool bNumericOperands = SourceString->IsNumeric() && Item.MatchString.IsNumeric();
+
 			switch (Item.CompareType)
 			{
 			case CMP_Equal:
-				if (*SourceString != Item.MatchString)
+				if (Item.SourceType == SRC_CommandLine) 
 				{
-					bFoundMatch = false;
+					if (!FParse::Param(*CommandLine, *Item.MatchString))
+					{
+						bFoundMatch = false;
+					}
+				}
+				else
+				{
+					if (*SourceString != Item.MatchString)
+					{
+						bFoundMatch = false;
+					}
 				}
 				break;
 			case CMP_Less:
-				if (FPlatformString::Atoi(**SourceString) >= FPlatformString::Atoi(*Item.MatchString))
+				if ((bNumericOperands && FCString::Atof(**SourceString) >= FCString::Atof(*Item.MatchString)) || (!bNumericOperands && *SourceString >= Item.MatchString))
 				{
 					bFoundMatch = false;
 				}
 				break;
 			case CMP_LessEqual:
-				if (FPlatformString::Atoi(**SourceString) > FPlatformString::Atoi(*Item.MatchString))
+				if ((bNumericOperands && FCString::Atof(**SourceString) > FCString::Atof(*Item.MatchString)) || (!bNumericOperands && *SourceString > Item.MatchString))
 				{
 					bFoundMatch = false;
 				}
 				break;
 			case CMP_Greater:
-				if (FPlatformString::Atoi(**SourceString) <= FPlatformString::Atoi(*Item.MatchString))
+				if ((bNumericOperands && FCString::Atof(**SourceString) <= FCString::Atof(*Item.MatchString)) || (!bNumericOperands && *SourceString <= Item.MatchString))
 				{
 					bFoundMatch = false;
 				}
 				break;
 			case CMP_GreaterEqual:
-				if (FPlatformString::Atoi(**SourceString) < FPlatformString::Atoi(*Item.MatchString))
+				if ((bNumericOperands && FCString::Atof(**SourceString) < FCString::Atof(*Item.MatchString)) || (!bNumericOperands && *SourceString < Item.MatchString))
 				{
 					bFoundMatch = false;
 				}
 				break;
 			case CMP_NotEqual:
-				if (*SourceString == Item.MatchString)
+				if (Item.SourceType == SRC_CommandLine)
+				{
+					if (FParse::Param(*CommandLine, *Item.MatchString))
+					{
+						bFoundMatch = false;
+					}
+				}
+				else
+				{
+					if (*SourceString == Item.MatchString)
+					{
+						bFoundMatch = false;
+					}
+				}
+				break;
+			case CMP_EqualIgnore:
+				if (SourceString->ToLower() != Item.MatchString.ToLower())
+				{
+					bFoundMatch = false;
+				}
+				break;
+			case CMP_LessIgnore:
+				if (SourceString->ToLower() >= Item.MatchString.ToLower())
+				{
+					bFoundMatch = false;
+				}
+				break;
+			case CMP_LessEqualIgnore:
+				if (SourceString->ToLower() > Item.MatchString.ToLower())
+				{
+					bFoundMatch = false;
+				}
+				break;
+			case CMP_GreaterIgnore:
+				if (SourceString->ToLower() <= Item.MatchString.ToLower())
+				{
+					bFoundMatch = false;
+				}
+				break;
+			case CMP_GreaterEqualIgnore:
+				if (SourceString->ToLower() < Item.MatchString.ToLower())
+				{
+					bFoundMatch = false;
+				}
+				break;
+			case CMP_NotEqualIgnore:
+				if (SourceString->ToLower() == Item.MatchString.ToLower())
 				{
 					bFoundMatch = false;
 				}

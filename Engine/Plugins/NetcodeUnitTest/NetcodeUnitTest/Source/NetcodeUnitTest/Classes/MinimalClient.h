@@ -2,6 +2,8 @@
 
 #pragma once
 
+// @todo #JohnB: This file is missing a high-level description of what MinimalClient's are, and their purpose
+
 // @todo #JohnB: Refactor
 /**
  * Refactoring Plan
@@ -545,7 +547,7 @@ protected:
 	/** Stores a reference to the created unit test net driver, for execution and later cleanup */
 	UNetDriver* UnitNetDriver;
 
-	/** Stores a reference to the server connection (always a 'UUnitTestNetConnection') */
+	/** Stores a reference to the server connection */
 	UNetConnection* UnitConn;
 
 	/** If notifying of net actor creation, this keeps track of new actor channel indexes pending notification */

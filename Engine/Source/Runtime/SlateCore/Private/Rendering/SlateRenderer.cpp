@@ -52,32 +52,32 @@ TSharedRef<class FSlateFontMeasure> FSlateFontServices::GetFontMeasureService() 
 }
 
 
-void FSlateFontServices::FlushFontCache()
+void FSlateFontServices::FlushFontCache(const FString& FlushReason)
 {
 	const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
 	check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
 
 	if (AtlasThreadId == ESlateTextureAtlasThreadId::Game)
 	{
-		return FlushGameThreadFontCache();
+		return FlushGameThreadFontCache(FlushReason);
 	}
 	else
 	{
-		return FlushRenderThreadFontCache();
+		return FlushRenderThreadFontCache(FlushReason);
 	}
 }
 
 
-void FSlateFontServices::FlushGameThreadFontCache()
+void FSlateFontServices::FlushGameThreadFontCache(const FString& FlushReason)
 {
-	GameThreadFontCache->RequestFlushCache();
+	GameThreadFontCache->RequestFlushCache(FlushReason);
 	GameThreadFontMeasure->FlushCache();
 }
 
 
-void FSlateFontServices::FlushRenderThreadFontCache()
+void FSlateFontServices::FlushRenderThreadFontCache(const FString& FlushReason)
 {
-	RenderThreadFontCache->RequestFlushCache();
+	RenderThreadFontCache->RequestFlushCache(FlushReason);
 	RenderThreadFontMeasure->FlushCache();
 }
 

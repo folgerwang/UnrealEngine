@@ -26,5 +26,5 @@ class UClassThumbnailRenderer : public UDefaultSizedThumbnailRenderer
 	// End UObject Implementation
 
 private:
-	TClassInstanceThumbnailScene<FClassThumbnailScene, 400> ThumbnailScenes;
+	TClassInstanceThumbnailScene<FClassThumbnailScene, 100> ThumbnailScenes;
 };

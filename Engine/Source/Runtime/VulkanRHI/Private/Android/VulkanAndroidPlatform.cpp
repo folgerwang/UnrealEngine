@@ -9,10 +9,11 @@
 #endif
 
 //#todo-Lumin: Remove this define when it becomes untangled from Android
-#if !PLATFORM_LUMIN && !PLATFORM_LUMINGL4
+#if (!defined(PLATFORM_LUMIN) && !defined(PLATFORM_LUMINGL4)) || (!PLATFORM_LUMIN && !PLATFORM_LUMINGL4)
 #include "VulkanAndroidPlatform.h"
 #include "../VulkanRHIPrivate.h"
 #include <dlfcn.h>
+#include "Android/AndroidWindow.h"
 
 // Vulkan function pointers
 #define DEFINE_VK_ENTRYPOINTS(Type,Func) Type VulkanDynamicAPI::Func = NULL;
@@ -46,8 +47,6 @@ bool FVulkanAndroidPlatform::LoadVulkanLibrary()
 
 	ENUM_VK_ENTRYPOINTS_BASE(GET_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_BASE(CHECK_VK_ENTRYPOINTS);
-	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GET_VK_ENTRYPOINTS);
-	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 	if (!bFoundAllEntryPoints)
 	{
 		dlclose(VulkanLib);
@@ -83,8 +82,10 @@ bool FVulkanAndroidPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 	}
 
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 #if UE_BUILD_DEBUG
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(CHECK_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 #endif
 
 #undef GETINSTANCE_VK_ENTRYPOINTS
@@ -109,11 +110,25 @@ void FVulkanAndroidPlatform::FreeVulkanLibrary()
 
 void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {
+	// don't use cached window handle coming from VulkanViewport, as it could be gone by now
+	WindowHandle = FAndroidWindow::GetHardwareWindow();
+	if (WindowHandle == NULL)
+	{
+		// Sleep if the hardware window isn't currently available.
+		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
+		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in FVulkanAndroidPlatform::CreateSurface"));
+		while (WindowHandle == NULL)
+		{
+			FPlatformProcess::Sleep(0.001f);
+			WindowHandle = FAndroidWindow::GetHardwareWindow();
+		}
+	}
+
 	VkAndroidSurfaceCreateInfoKHR SurfaceCreateInfo;
 	ZeroVulkanStruct(SurfaceCreateInfo, VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR);
 	SurfaceCreateInfo.window = (ANativeWindow*)WindowHandle;
 
-	VERIFYVULKANRESULT(vkCreateAndroidSurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));
+	VERIFYVULKANRESULT(VulkanDynamicAPI::vkCreateAndroidSurfaceKHR(Instance, &SurfaceCreateInfo, VULKAN_CPU_ALLOCATOR, OutSurface));
 }
 
 
@@ -122,12 +137,14 @@ void FVulkanAndroidPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutE
 {
 	OutExtensions.Add(VK_KHR_SURFACE_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+	OutExtensions.Add(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
 }
 
 void FVulkanAndroidPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
 	OutExtensions.Add(VK_KHR_SURFACE_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+	OutExtensions.Add(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
 }
 
 bool FVulkanAndroidPlatform::SupportsStandardSwapchain()
@@ -154,11 +171,21 @@ EPixelFormat FVulkanAndroidPlatform::GetPixelFormatForNonDefaultSwapchain()
 	}
 }
 
-void FVulkanAndroidPlatform::OverrideCrashHandlers()
+void FVulkanAndroidPlatform::OverridePlatformHandlers(bool bInit)
 {
-	// Want to see the actual crash report on Android so unregister signal handlers
-	FPlatformMisc::SetCrashHandler((void(*)(const FGenericCrashContext& Context)) -1);
-	FPlatformMisc::SetOnReInitWindowCallback(FVulkanDynamicRHI::RecreateSwapChain);
+	if (bInit)
+	{
+		// Want to see the actual crash report on Android so unregister signal handlers
+		FPlatformMisc::SetCrashHandler((void(*)(const FGenericCrashContext& Context)) -1);
+		FPlatformMisc::SetOnReInitWindowCallback(FVulkanDynamicRHI::RecreateSwapChain);
+		FPlatformMisc::SetOnPauseCallback(FVulkanDynamicRHI::SavePipelineCache);
+	}
+	else
+	{
+		FPlatformMisc::SetCrashHandler(nullptr);
+		FPlatformMisc::SetOnReInitWindowCallback(nullptr);
+		FPlatformMisc::SetOnPauseCallback(nullptr);
+	}
 }
 
 #endif

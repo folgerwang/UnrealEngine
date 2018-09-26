@@ -11,15 +11,19 @@
 
 #ifndef DO_TIMEGUARD
 	// By default we are disabled, DO_TIMEGUARD can be set in XXX.Target.cs if so desired%
-	#define DO_TIMEGUARD 0
+	#define DO_TIMEGUARD 0 
+#endif
+
+#ifndef DO_LIGHTWEIGHT_TIMEGUARD 
+  // By default, enable lightweight timeguards if logging is enabled, except on servers
+	#define DO_LIGHTWEIGHT_TIMEGUARD ( WITH_ENGINE && !UE_SERVER && !NO_LOGGING && !WITH_EDITOR )
 #endif
 
 #if DO_TIMEGUARD
 
-
 DECLARE_DELEGATE_RetVal(const FString, FTimerNameDelegate);
 
-class FLightweightTimeGuard
+class FTimeGuard
 {
 
 public:
@@ -44,7 +48,7 @@ public:
 public:
 
 
-	FORCEINLINE FLightweightTimeGuard(FTimerNameDelegate InNameDelegate, const float InTargetMS = 0.0)
+	FORCEINLINE FTimeGuard(FTimerNameDelegate InNameDelegate, const float InTargetMS = 0.0)
 		: Name(nullptr), ObjectName(NAME_None)
 	{
 		NameDelegate = (bEnabled && IsInGameThread()) ? InNameDelegate : nullptr;
@@ -56,7 +60,7 @@ public:
 		}
 	}
 
-	FORCEINLINE FLightweightTimeGuard(TCHAR const* InName, FName InObjectName = NAME_None, const float InTargetMS = 0.0)
+	FORCEINLINE FTimeGuard(TCHAR const* InName, FName InObjectName = NAME_None, const float InTargetMS = 0.0)
 		: Name(nullptr), ObjectName(NAME_None)
 	{
 		Name = (bEnabled && IsInGameThread()) ? InName : nullptr;
@@ -72,7 +76,7 @@ public:
 	/**
 	* Updates the stat with the time spent
 	*/
-	FORCEINLINE ~FLightweightTimeGuard()
+	FORCEINLINE ~FTimeGuard()
 	{
 		if (Name)
 		{
@@ -128,30 +132,33 @@ protected:
 	double			StartTime;
 };
 
+DEPRECATED(4.21, "FLightweightTimeGuard has been renamed to FTimeGuard.")
+typedef FTimeGuard FLightweightTimeGuard;
+
 #define SCOPE_TIME_GUARD(name) \
-	FLightweightTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name);
+	FTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name);
 
 #define SCOPE_TIME_GUARD_MS(name, timeMs) \
-	FLightweightTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name, NAME_None, timeMs);
+	FTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name, NAME_None, timeMs);
 
 #define SCOPE_TIME_GUARD_NAMED(name, fname) \
-	FLightweightTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name, fname);
+	FTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name, fname);
 
 #define SCOPE_TIME_GUARD_NAMED_MS(name, fname, timems) \
-	FLightweightTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name, fname, timems);
+	FTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(name, fname, timems);
 
 
 
 
 #define SCOPE_TIME_GUARD_DELEGATE(inDelegate) \
-	FLightweightTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(inDelegate);
+	FTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(inDelegate);
 
 #define SCOPE_TIME_GUARD_DELEGATE_MS(inDelegate, timems) \
-	FLightweightTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(inDelegate, timems);
+	FTimeGuard ANONYMOUS_VARIABLE(TimeGuard)(inDelegate, timems);
 
-#define CLEAR_TIME_GUARDS FLightweightTimeGuard::ClearData
+#define CLEAR_TIME_GUARDS FTimeGuard::ClearData
 
-#define ENABLE_TIME_GUARDS(bEnabled) FLightweightTimeGuard::SetEnabled(bEnabled)
+#define ENABLE_TIME_GUARDS(bEnabled) FTimeGuard::SetEnabled(bEnabled)
 
 #else
 
@@ -163,3 +170,26 @@ protected:
 #define ENABLE_TIME_GUARDS(bEnabled)
 
 #endif // DO_TIMEGUARD
+
+// Lightweight time guard, suitable for shipping builds with logging. 
+// Note: Threshold of 0 disables the timeguard
+#if DO_LIGHTWEIGHT_TIMEGUARD
+
+  #define LIGHTWEIGHT_TIME_GUARD_BEGIN( Name, ThresholdMS ) \
+	float PREPROCESSOR_JOIN(__TimeGuard_ThresholdMS_, Name) = ThresholdMS; \
+	uint64 PREPROCESSOR_JOIN(__TimeGuard_StartCycles_, Name) = ( ThresholdMS > 0.0f ) ? FPlatformTime::Cycles64() : 0;
+
+  #define LIGHTWEIGHT_TIME_GUARD_END( Name, NameStringCode ) \
+	if ( PREPROCESSOR_JOIN(__TimeGuard_ThresholdMS_, Name) > 0.0f ) \
+	{\
+		float PREPROCESSOR_JOIN(__TimeGuard_MSElapsed_,Name) = FPlatformTime::ToMilliseconds64( FPlatformTime::Cycles64() - PREPROCESSOR_JOIN(__TimeGuard_StartCycles_,Name) ); \
+		if ( PREPROCESSOR_JOIN(__TimeGuard_MSElapsed_,Name) > PREPROCESSOR_JOIN(__TimeGuard_ThresholdMS_, Name) ) \
+		{ \
+			FString ReportName = NameStringCode; \
+			UE_LOG(LogCore, Warning, TEXT("LIGHTWEIGHT_TIME_GUARD: %s - %s took %.2fms!"), TEXT(#Name), *ReportName, PREPROCESSOR_JOIN(__TimeGuard_MSElapsed_,Name)); \
+		} \
+	}
+#else
+  #define LIGHTWEIGHT_TIME_GUARD_BEGIN( Name, ThresholdMS ) 
+  #define LIGHTWEIGHT_TIME_GUARD_END( Name, NameStringCode )
+#endif

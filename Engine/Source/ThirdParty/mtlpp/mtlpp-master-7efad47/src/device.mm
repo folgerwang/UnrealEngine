@@ -5,11 +5,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
+#include <Metal/MTLComputePipeline.h>
 #include <Metal/MTLDevice.h>
 #include <Metal/MTLRenderPass.h>
 #include <Metal/MTLRenderPipeline.h>
 #include <Metal/MTLSampler.h>
 #include <Metal/MTLStageInputOutputDescriptor.h>
+#include <Foundation/NSError.h>
 #include "device.hpp"
 #include "buffer.hpp"
 #include "command_queue.hpp"
@@ -651,15 +653,15 @@ namespace mtlpp
 #endif
     }
 
-    ComputePipelineState Device::NewComputePipelineState(const Function& computeFunction, PipelineOption options, AutoReleasedComputePipelineReflection& outReflection, ns::AutoReleasedError* error)
+    ComputePipelineState Device::NewComputePipelineState(const Function& computeFunction, PipelineOption options, AutoReleasedComputePipelineReflection* outReflection, ns::AutoReleasedError* error)
     {
         Validate();
 #if MTLPP_CONFIG_IMP_CACHE
-		return ComputePipelineState(m_table->NewComputePipelineStateWithFunctionOptionsReflectionError(m_ptr, computeFunction.GetPtr(), MTLPipelineOption(options), outReflection.GetInnerPtr(), error ? error->GetInnerPtr() : nil), m_table->TableCache, ns::Ownership::Assign);
+		return ComputePipelineState(m_table->NewComputePipelineStateWithFunctionOptionsReflectionError(m_ptr, computeFunction.GetPtr(), MTLPipelineOption(options), outReflection ? outReflection->GetInnerPtr() : nil, error ? error->GetInnerPtr() : nil), m_table->TableCache, ns::Ownership::Assign);
 #else
 		return ComputePipelineState([(id<MTLDevice>)m_ptr newComputePipelineStateWithFunction:(id<MTLFunction>)computeFunction.GetPtr()
 																  options:MTLPipelineOption(options)
-															   reflection:outReflection.GetInnerPtr()
+															   reflection:outReflection ? outReflection.GetInnerPtr() : nil
 																	error:error ? error->GetInnerPtr() : nil], nullptr, ns::Ownership::Assign);
 #endif
     }

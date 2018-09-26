@@ -345,7 +345,7 @@ protected:
 
 		ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 
-		if (!PlayInSettings->DeviceToEmulate.IsEmpty())
+		if (!PlayInSettings->DeviceToEmulate.IsEmpty() && FDisplayMetrics::GetDebugTitleSafeZoneRatio() == 1.0f)
 		{
 			const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PlayInSettings->DeviceToEmulate, false);
 			// Rescale the swapped sizes if we are on Android
@@ -366,7 +366,7 @@ protected:
 		SafeZoneRatio.Right /= (NewWidth / 2.0f);
 		SafeZoneRatio.Bottom /= (NewHeight / 2.0f);
 		SafeZoneRatio.Top /= (NewHeight / 2.0f);
-		FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+		FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 
 		bSetFromMenu = true;
@@ -408,7 +408,7 @@ private:
 		WindowHeightProperty->SetValue(Height);
 		bSetFromMenu = true;
 		WindowWidthProperty->SetValue(Width);
-		FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+		FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 	}
 
 	const FSlateBrush* GetAspectRatioSwitchImage() const
@@ -445,7 +445,7 @@ private:
 			SafeZoneRatio.Right /= (Width / 2.0f);
 			SafeZoneRatio.Bottom /= (Height / 2.0f);
 			SafeZoneRatio.Top /= (Height / 2.0f);
-			FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+			FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 		}
 		bSetFromMenu = false;
 	}

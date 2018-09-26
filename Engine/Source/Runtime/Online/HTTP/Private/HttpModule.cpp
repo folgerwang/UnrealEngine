@@ -8,6 +8,7 @@
 #include "NullHttp.h"
 #include "HttpTests.h"
 #include "Misc/CommandLine.h"
+#include "Misc/CoreDelegates.h"
 
 DEFINE_LOG_CATEGORY(LogHttp);
 
@@ -16,6 +17,18 @@ DEFINE_LOG_CATEGORY(LogHttp);
 IMPLEMENT_MODULE(FHttpModule, HTTP);
 
 FHttpModule* FHttpModule::Singleton = NULL;
+
+static bool ShouldLaunchUrl(const TCHAR* Url)
+{
+	FString SchemeName;
+	if (FParse::SchemeNameFromURI(Url, SchemeName) && (SchemeName == TEXT("http") || SchemeName == TEXT("https")))
+	{
+		FHttpManager& HttpManager = FHttpModule::Get().GetHttpManager();
+		return HttpManager.IsDomainAllowed(Url);
+	}
+
+	return true;
+}
 
 void FHttpModule::UpdateConfigs()
 {
@@ -31,6 +44,9 @@ void FHttpModule::UpdateConfigs()
 	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadActiveMinimumSleepTimeInSeconds"), HttpThreadActiveMinimumSleepTimeInSeconds, GEngineIni);
 	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadIdleFrameTimeInSeconds"), HttpThreadIdleFrameTimeInSeconds, GEngineIni);
 	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadIdleMinimumSleepTimeInSeconds"), HttpThreadIdleMinimumSleepTimeInSeconds, GEngineIni);
+
+	AllowedDomains.Empty();
+	GConfig->GetArray(TEXT("HTTP"), TEXT("AllowedDomains"), AllowedDomains, GEngineIni);
 }
 
 void FHttpModule::StartupModule()
@@ -77,6 +93,8 @@ void FHttpModule::StartupModule()
 	HttpManager->Initialize();
 
 	bSupportsDynamicProxy = HttpManager->SupportsDynamicProxy();
+
+	FCoreDelegates::ShouldLaunchUrl.BindStatic(ShouldLaunchUrl);
 }
 
 void FHttpModule::PostLoadCallback()
@@ -90,32 +108,18 @@ void FHttpModule::PreUnloadCallback()
 
 void FHttpModule::ShutdownModule()
 {
+	FCoreDelegates::ShouldLaunchUrl.Unbind();
+
 	if (HttpManager != nullptr)
 	{
 		// block on any http requests that have already been queued up
 		HttpManager->Flush(true);
 	}
 
-#if PLATFORM_WINDOWS
+	// at least on Linux, the code in HTTP manager (e.g. request destructors) expects platform to be initialized yet
+	delete HttpManager;	// can be passed NULLs
 
-	extern bool bUseCurl;
-	if (!bUseCurl)
-	{
-		// due to peculiarities of some platforms (notably Windows with WinInet implementation) we need to shutdown platform http first,
-		// then delete the manager. It is more logical to have reverse order of their creation though. Proper fix
-		// would be refactoring HTTP platform abstraction to make HttpManager a proper part of it.
-		FPlatformHttp::Shutdown();
-
-		delete HttpManager;	// can be passed NULLs
-	}
-	else
-#endif	// PLATFORM_WINDOWS
-	{
-		// at least on Linux, the code in HTTP manager (e.g. request destructors) expects platform to be initialized yet
-		delete HttpManager;	// can be passed NULLs
-
-		FPlatformHttp::Shutdown();
-	}
+	FPlatformHttp::Shutdown();
 
 	HttpManager = nullptr;
 	Singleton = nullptr;
@@ -144,6 +148,10 @@ bool FHttpModule::HandleHTTPCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 	else if (FParse::Command(&Cmd, TEXT("DUMPREQ")))
 	{
 		GetHttpManager().DumpRequests(Ar);
+	}
+	else if (FParse::Command(&Cmd, TEXT("FLUSH")))
+	{
+		GetHttpManager().Flush(false);
 	}
 	return true;	
 }

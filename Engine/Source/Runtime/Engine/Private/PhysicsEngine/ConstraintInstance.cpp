@@ -178,6 +178,7 @@ void FConstraintInstance::UpdateDriveTarget()
 FConstraintInstance::FConstraintInstance()
 	: ConstraintIndex(0)
 	, PhysScene(nullptr)
+	, AngularRotationOffset(ForceInitToZero)
 	, bScaleLinearLimits(true)
 	, AverageMass(0.f)
 #if WITH_PHYSX

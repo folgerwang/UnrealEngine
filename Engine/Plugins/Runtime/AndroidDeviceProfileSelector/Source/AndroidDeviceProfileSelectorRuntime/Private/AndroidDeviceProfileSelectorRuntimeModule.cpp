@@ -46,6 +46,7 @@ FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfil
 		FString AndroidVersion = FAndroidMisc::GetAndroidVersion();
 		FString DeviceMake = FAndroidMisc::GetDeviceMake();
 		FString DeviceModel = FAndroidMisc::GetDeviceModel();
+		FString DeviceBuildNumber = FAndroidMisc::GetDeviceBuildNumber();
 
 #if !(PLATFORM_ANDROID_X86 || PLATFORM_ANDROID_X64)
 		// Not running an Intel libUE4.so with Houdini library present means we're emulated
@@ -64,13 +65,24 @@ FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfil
 		UE_LOG(LogAndroid, Log, TEXT("  AndroidVersion: %s"), *AndroidVersion);
 		UE_LOG(LogAndroid, Log, TEXT("  DeviceMake: %s"), *DeviceMake);
 		UE_LOG(LogAndroid, Log, TEXT("  DeviceModel: %s"), *DeviceModel);
+		UE_LOG(LogAndroid, Log, TEXT("  DeviceBuildNumber: %s"), *DeviceBuildNumber);
 		UE_LOG(LogAndroid, Log, TEXT("  UsingHoudini: %s"), *UsingHoudini);
 
 		CheckForJavaSurfaceViewWorkaround(DeviceMake, DeviceModel);
 
-		ProfileName = FAndroidDeviceProfileSelector::FindMatchingProfile(GPUFamily, GLVersion, AndroidVersion, DeviceMake, DeviceModel, VulkanAvailable, VulkanVersion, UsingHoudini, ProfileName);
-
-		UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [%s]"), *ProfileName);
+		// Use override from ConfigRules if set
+		FString* ConfigProfile = FAndroidMisc::GetConfigRulesVariable(TEXT("Profile"));
+		if (ConfigProfile != nullptr)
+		{
+			ProfileName = *ConfigProfile;
+			UE_LOG(LogAndroid, Log, TEXT("Using ConfigRules Profile: [%s]"), *ProfileName);
+		}
+		else
+		{
+			// Find a match with the DeviceProfiles matching rules
+			ProfileName = FAndroidDeviceProfileSelector::FindMatchingProfile(GPUFamily, GLVersion, AndroidVersion, DeviceMake, DeviceModel, DeviceBuildNumber, VulkanAvailable, VulkanVersion, UsingHoudini, ProfileName);
+			UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [%s]"), *ProfileName);
+		}
 	}
 
 	return ProfileName;

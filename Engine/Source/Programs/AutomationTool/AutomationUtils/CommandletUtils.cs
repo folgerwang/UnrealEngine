@@ -235,6 +235,20 @@ namespace AutomationTool
 		/// <param name="Parameters">Command line parameters (without -run=)</param>
 		public static void RunCommandlet(FileReference ProjectName, string UE4Exe, string Commandlet, string Parameters = null)
 		{
+			string LogFile;
+			RunCommandlet(ProjectName, UE4Exe, Commandlet, Parameters, out LogFile);
+		}
+
+		/// <summary>
+		/// Runs a commandlet using Engine/Binaries/Win64/UE4Editor-Cmd.exe.
+		/// </summary>
+		/// <param name="ProjectFile">Project name.</param>
+		/// <param name="UE4Exe">The name of the UE4 Editor executable to use.</param>
+		/// <param name="Commandlet">Commandlet name.</param>
+		/// <param name="Parameters">Command line parameters (without -run=)</param>
+		/// <param name="DestLogFile">Log file after completion</param>
+		public static void RunCommandlet(FileReference ProjectName, string UE4Exe, string Commandlet, string Parameters, out string DestLogFile)
+		{
 			LogInformation("Running UE4Editor {0} for project {1}", Commandlet, ProjectName);
 
             var CWD = Path.GetDirectoryName(UE4Exe);
@@ -315,7 +329,8 @@ namespace AutomationTool
 				foreach(FileInfo CrashFileInfo in CrashFileInfos)
 				{
 					// snmpd seems to often crash (suspect due to it being starved of CPU cycles during cooks)
-					if(!CrashFileInfo.Name.StartsWith("snmpd_"))
+					// also ignore spotlight crash with the excel plugin
+					if(!CrashFileInfo.Name.StartsWith("snmpd_") && !CrashFileInfo.Name.StartsWith("mdworker32_"))
 					{
 						CommandUtils.LogInformation("Found crash log - {0}", CrashFileInfo.FullName);
 						try
@@ -335,7 +350,7 @@ namespace AutomationTool
 			}
 
 			// Copy the local commandlet log to the destination folder.
-			string DestLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, Commandlet));
+			DestLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, Commandlet));
 			if (!CommandUtils.CopyFile_NoExceptions(LocalLogFile, DestLogFile))
 			{
 				CommandUtils.LogWarning("Commandlet {0} failed to copy the local log file from {1} to {2}. The log file will be lost.", Commandlet, LocalLogFile, DestLogFile);

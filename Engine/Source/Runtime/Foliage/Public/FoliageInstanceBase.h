@@ -9,7 +9,8 @@ class AInstancedFoliageActor;
 class UActorComponent;
 
 typedef int32 FFoliageInstanceBaseId;
-typedef TLazyObjectPtr<UActorComponent> FFoliageInstanceBasePtr;
+typedef TSoftObjectPtr<UActorComponent> FFoliageInstanceBasePtr;
+typedef TLazyObjectPtr<UActorComponent> FFoliageInstanceBasePtr_DEPRECATED;
 
 #if WITH_EDITORONLY_DATA
 /**
@@ -33,6 +34,9 @@ struct FFoliageInstanceBaseInfo
 	FVector		CachedLocation;
 	FRotator	CachedRotation;
 	FVector		CachedDrawScale;
+
+	// Deprecated data stored for deserializaton done in PostLoad
+	FFoliageInstanceBasePtr_DEPRECATED BasePtr_DEPRECATED;
 };
 
 struct FFoliageInstanceBaseCache
@@ -83,6 +87,9 @@ struct FFoliageInstanceBaseCache
 	// Map for detecting removed bases
 	// serialized
 	TMap<TSoftObjectPtr<UWorld>, TArray<FFoliageInstanceBasePtr>> InstanceBaseLevelMap;
+	
+	// Deprecated data stored for deserializaton done in PostLoad
+	TMap<TSoftObjectPtr<UWorld>, TArray<FFoliageInstanceBasePtr_DEPRECATED>> InstanceBaseLevelMap_DEPRECATED;
 };
 
 #endif// WITH_EDITORONLY_DATA

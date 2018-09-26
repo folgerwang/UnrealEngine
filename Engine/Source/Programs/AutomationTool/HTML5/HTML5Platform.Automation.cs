@@ -15,7 +15,6 @@ public class HTML5Platform : Platform
 {
 	// ini configurations
 	static bool Compressed = false;
-	static bool targetWebGL2 = true;
 	static bool enableIndexedDB = false; // experimental for now...
 
 	public HTML5Platform()
@@ -31,37 +30,41 @@ public class HTML5Platform : Platform
 		HTML5SDKInfo.SetupEmscriptenTemp();
 		HTML5SDKInfo.SetUpEmscriptenConfigFile();
 
-		string PackagePath = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", "HTML5");
-		if (!Directory.Exists(PackagePath))
-		{
-			Directory.CreateDirectory(PackagePath);
-		}
-
+		// ----------------------------------------
 		// ini configurations
-		var ConfigCache = UnrealBuildTool.ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Params.RawProjectPath), UnrealTargetPlatform.HTML5);
-		bool targetWebGL1 = false; // inverted checked - this will be going away soon...
-		if ( ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWebGL1", out targetWebGL1) )
-		{
-			targetWebGL2  = !targetWebGL1;
-		}
+		ConfigHierarchy ConfigCache = UnrealBuildTool.ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Params.RawProjectPath), UnrealTargetPlatform.HTML5);
 
-		// Debug and Development builds are not uncompressed to:
+		// Debug and Development builds are not compressed to:
 		// - speed up iteration times
 		// - ensure (IndexedDB) data are not cached/used
 		// Shipping builds "can be":
 		// - compressed
 		// - (IndexedDB) cached
-		if (Params.ClientConfigsToBuild[0].ToString() == "Shipping")
+		string ProjectConfiguration = Params.ClientConfigsToBuild[0].ToString();
+		if (ProjectConfiguration == "Shipping")
 		{
 			ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "Compressed", out Compressed);
 			ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableIndexedDB", out enableIndexedDB);
 		}
-		LogInformation("HTML5Platform.Automation: TargetWebGL2 = "     + targetWebGL2    );
 		LogInformation("HTML5Platform.Automation: Compressed = "       + Compressed      );
 		LogInformation("HTML5Platform.Automation: EnableIndexedDB = "  + enableIndexedDB );
 
-		string FinalDataLocation = Path.Combine(PackagePath, Params.ShortProjectName) + ".data";
+		// ----------------------------------------
+		// package directory
+		string PackagePath = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", "HTML5");
+		if (!Directory.Exists(PackagePath))
+		{
+			Directory.CreateDirectory(PackagePath);
+		}
+		string _ProjectNameExtra = ProjectConfiguration != "Development" ? "-HTML5-" + ProjectConfiguration : "";
+		string _ProjectFullpath = Params.GetProjectExeForPlatform(UnrealTargetPlatform.HTML5).ToString();
+		string _ProjectFilename = Path.GetFileNameWithoutExtension(_ProjectFullpath) + _ProjectNameExtra;
+		string SrcUE4GameBasename = Path.Combine(Path.GetDirectoryName(_ProjectFullpath), _ProjectFilename);
+		string UE4GameBasename = Path.Combine(PackagePath, _ProjectFilename);
+		string ProjectBasename = Path.Combine(PackagePath, Params.ShortProjectName + _ProjectNameExtra);
 
+		// ----------------------------------------
+		// packaging
 		if (HTMLPakAutomation.CanCreateMapPaks(Params))
 		{
 			HTMLPakAutomation PakAutomation = new HTMLPakAutomation(Params, SC);
@@ -72,7 +75,7 @@ public class HTML5Platform : Platform
 			PakAutomation.CreateContentDirectoryPak();
 
 			// Create Emscripten Package from Necessary Paks. - This will be the VFS.
-			PakAutomation.CreateEmscriptenDataPackage(PackagePath, FinalDataLocation);
+			PakAutomation.CreateEmscriptenDataPackage(PackagePath, ProjectBasename + ".data");
 
 			// Create All Map Paks which  will be downloaded on the fly.
 			PakAutomation.CreateMapPak();
@@ -96,78 +99,80 @@ public class HTML5Platform : Platform
 		{
 			// we need to operate in the root
 			string PythonPath = HTML5SDKInfo.Python();
-			string PackagerPath = HTML5SDKInfo.EmscriptenPackager();
+			string EmPackagerPath = HTML5SDKInfo.EmscriptenPackager();
 
 			using (new ScopedEnvVar("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN))
 			{
 				using (new PushedDirectory(Path.Combine(Params.BaseStageDirectory, "HTML5")))
 				{
-					string CmdLine = string.Format("\"{0}\" \"{1}\" --preload . --js-output=\"{1}.js\" --no-heap-copy", PackagerPath, FinalDataLocation);
+					string CmdLine = string.Format("\"{0}\" \"{1}\" --preload . --js-output=\"{1}.js\" --no-heap-copy", EmPackagerPath, ProjectBasename + ".data");
 					RunAndLog(CmdEnv, PythonPath, CmdLine);
 				}
 			}
 		}
 
-		// copy the "Executable" to the package directory
-		string ProjectGameExeFilename = Params.GetProjectExeForPlatform(UnrealTargetPlatform.HTML5).ToString();
-		string GameBasename = Path.GetFileNameWithoutExtension(ProjectGameExeFilename);
-		if (Params.ClientConfigsToBuild[0].ToString() != "Development")
-		{
-			GameBasename += "-HTML5-" + Params.ClientConfigsToBuild[0].ToString();
-		}
-		// no extension
-		string GameBasepath = Path.GetDirectoryName(ProjectGameExeFilename);
-		string FullGameBasePath = Path.Combine(GameBasepath, GameBasename);
-		string FullPackageGameBasePath = Path.Combine(PackagePath, GameBasename);
 
-		// with extension
-		string GameExe = GameBasename + ".js";
-		string FullGameExePath = Path.Combine(GameBasepath, GameExe);
-		string FullPackageGameExePath = Path.Combine(PackagePath, GameExe);
+		// ----------------------------------------
+		// copy to package directory
 
 		// ensure the ue4game binary exists, if applicable
-		if (!FileExists_NoExceptions(FullGameExePath))
+		if (!FileExists_NoExceptions(SrcUE4GameBasename + ".js"))
 		{
-			LogInformation("Failed to find game application " + FullGameExePath);
-			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
+			LogInformation("Failed to find game application " + SrcUE4GameBasename + ".js");
+			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", SrcUE4GameBasename + ".js");
 		}
 
-		if (FullGameExePath != FullPackageGameExePath) // TODO: remove this check
+		if ( !Params.IsCodeBasedProject )
 		{
-			File.Copy(FullGameExePath + ".symbols", FullPackageGameExePath + ".symbols", true);
-			File.Copy(FullGameBasePath + ".wasm", FullPackageGameBasePath + ".wasm", true);
-			File.Copy(FullGameExePath, FullPackageGameExePath, true);
+			// template project - need to copy over UE4Game.*
+			File.Copy(SrcUE4GameBasename + ".wasm",       UE4GameBasename + ".wasm",       true);
+			File.Copy(SrcUE4GameBasename + ".js",         UE4GameBasename + ".js",         true);
+			File.Copy(SrcUE4GameBasename + ".js.symbols", UE4GameBasename + ".js.symbols", true);
+
+			File.SetAttributes(UE4GameBasename + ".wasm",       FileAttributes.Normal);
+			File.SetAttributes(UE4GameBasename + ".js" ,        FileAttributes.Normal);
+			File.SetAttributes(UE4GameBasename + ".js.symbols", FileAttributes.Normal);
+		}
+		// else, c++ projects will compile "to" PackagePath
+
+		// note: ( ProjectBasename + ".data" ) already created above (!HTMLPakAutomation.CanCreateMapPaks())
+
+
+		// ----------------------------------------
+		// generate HTML files to the package directory
+
+		// custom HTML, JS (if any), and CSS (if any) template files
+		string LocalBuildPath = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/HTML5");
+		string BuildPath = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Build", "HTML5");
+		string TemplateFile = CombinePaths(BuildPath, "project_template.html");
+		if ( !File.Exists(TemplateFile) )
+		{
+			// fall back to default UE4 template files
+			BuildPath = LocalBuildPath;
+			TemplateFile = CombinePaths(BuildPath, "project_template.html");
+		}
+		GenerateFileFromTemplate(TemplateFile, ProjectBasename + ".html", Params, ConfigCache);
+
+		TemplateFile = CombinePaths(BuildPath, "project_template.js");
+		if ( File.Exists(TemplateFile) )
+		{
+			GenerateFileFromTemplate(TemplateFile, ProjectBasename + ".UE4.js", Params, ConfigCache);
 		}
 
-		File.SetAttributes(FullPackageGameExePath + ".symbols", FileAttributes.Normal);
-		File.SetAttributes(FullPackageGameBasePath + ".wasm", FileAttributes.Normal);
-		File.SetAttributes(FullPackageGameExePath, FileAttributes.Normal);
+		TemplateFile = CombinePaths(BuildPath, "project_template.css");
+		if ( File.Exists(TemplateFile) )
+		{
+			GenerateFileFromTemplate(TemplateFile, ProjectBasename + ".css", Params, ConfigCache);
+		}
 
-		// put the HTML file to the package directory
-		string TemplateFile = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/HTML5/GameX.html.template");
-		string OutputFile = Path.Combine(PackagePath,
-				(Params.ClientConfigsToBuild[0].ToString() != "Development" ?
-				 (Params.ShortProjectName + "-HTML5-" + Params.ClientConfigsToBuild[0].ToString()) :
-				 Params.ShortProjectName)) + ".html";
 
-		string CanvasScaleMode;
-		ConfigCache.GetString("/Script/HTML5PlatformEditor.HTML5TargetSettings", "CanvasScalingMode", out CanvasScaleMode);
-		GenerateFileFromTemplate(TemplateFile,
-				OutputFile,
-				Params.ShortProjectName,
-				Params.ClientConfigsToBuild[0].ToString(),
-//				Params.StageCommandline,
-				!Params.IsCodeBasedProject,
-				HTML5SDKInfo.HeapSize(ConfigCache, Params.ClientConfigsToBuild[0].ToString()),
-				CanvasScaleMode
-			);
-
-		string MacBashTemplateFile = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/HTML5/RunMacHTML5LaunchHelper.command.template");
+		// ----------------------------------------
+		// (development) support files
+		string MacBashTemplateFile = CombinePaths(LocalBuildPath, "RunMacHTML5LaunchHelper_template.command");
 		string MacBashOutputFile = Path.Combine(PackagePath, "RunMacHTML5LaunchHelper.command");
 		string MonoPath = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/BatchFiles/Mac/SetupMono.sh");
 		GenerateMacCommandFromTemplate(MacBashTemplateFile, MacBashOutputFile, MonoPath);
-
-		string htaccessTemplate = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/HTML5/htaccess.template");
+		// ........................................
 		string htaccesspath = Path.Combine(PackagePath, ".htaccess");
 		if ( File.Exists(htaccesspath) )
 		{
@@ -178,62 +183,59 @@ public class HTML5Platform : Platform
 				File.SetAttributes(htaccesspath, attributes);
 			}
 		}
-		File.Copy(htaccessTemplate, htaccesspath, true);
+		File.Copy(CombinePaths(LocalBuildPath, "htaccess_template.txt"), htaccesspath, true);
 
-		string JSDir = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/HTML5");
-		string OutDir = PackagePath;
+
+		// ----------------------------------------
+		// final copies
 
 		// Gather utlity .js files and combine into one file
-		string[] UtilityJavaScriptFiles = Directory.GetFiles(JSDir, "*.js");
-
-		string DestinationFile = OutDir + "/Utility.js";
+		string DestinationFile = PackagePath + "/Utility.js";
 		File.Delete(DestinationFile);
-		foreach( var UtilityFile in UtilityJavaScriptFiles)
-		{
-			string Data = File.ReadAllText(UtilityFile);
-			File.AppendAllText(DestinationFile, Data);
-		}
+		// spelling this out - one file at a time (i.e. don't slurp in project_template.js)
+		File.AppendAllText(DestinationFile, File.ReadAllText(CombinePaths(LocalBuildPath, "json2.js")));
+		File.AppendAllText(DestinationFile, File.ReadAllText(CombinePaths(LocalBuildPath, "jstorage.js")));
+		File.AppendAllText(DestinationFile, File.ReadAllText(CombinePaths(LocalBuildPath, "moz_binarystring.js")));
 
 		if (Compressed)
 		{
-			LogInformation("Build configuration is " + Params.ClientConfigsToBuild[0].ToString() + ", so (gzip) compressing files for web servers.");
+			LogInformation("Build configuration is " + ProjectConfiguration + ", so (gzip) compressing files for web servers.");
 
 			// Compress all files. These are independent tasks which can be threaded.
 			List<Task> CompressionTasks = new List<Task>();
 
-			// data file
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FinalDataLocation, FinalDataLocation + "gz")));
-
-			// data file .js driver.
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FinalDataLocation + ".js" , FinalDataLocation + ".jsgz")));
-
-			// main game code
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameBasePath + ".wasm", FullPackageGameBasePath + ".wasmgz")));
-			// main js.
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameExePath, FullPackageGameExePath + "gz")));
-
-			// symbols file.
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameExePath + ".symbols", FullPackageGameExePath + ".symbolsgz")));
-
-			// Utility
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(OutDir + "/Utility.js", OutDir + "/Utility.jsgz")));
-
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".wasm",       UE4GameBasename + ".wasmgz")));			// main game code
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js",         UE4GameBasename + ".jsgz")));			// main js (emscripten)
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js.symbols", UE4GameBasename + ".js.symbolsgz")));	// symbols fil.
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(PackagePath + "/Utility.js",     PackagePath + "/Utility.jsgz")));		// Utility
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".data",       ProjectBasename + ".datagz")));			// DATA file
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".data.js" ,   ProjectBasename + ".data.jsgz")));		// DATA file .js driver (emscripten)
+			if ( File.Exists(ProjectBasename + ".UE4.js") )
+			{
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".UE4.js" , ProjectBasename + ".UE4.jsgz")));		// UE4 js
+			}
+			if ( File.Exists(ProjectBasename + ".css") )
+			{
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".css" , ProjectBasename + ".cssgz")));				// UE4 css
+			}
 			Task.WaitAll(CompressionTasks.ToArray());
 		}
 		else
 		{
-			LogInformation("Build configuration is " + Params.ClientConfigsToBuild[0].ToString() + ", so not compressing. Build Shipping configuration to compress files to save space.");
+			LogInformation("Build configuration is " + ProjectConfiguration + ", so not compressing. Build Shipping configuration to compress files to save space.");
 
 			// nuke old compressed files to prevent using stale files
-			File.Delete(FinalDataLocation + "gz");
-			File.Delete(FinalDataLocation + ".jsgz");
-			File.Delete(FullPackageGameExePath + "gz");
-			File.Delete(FullPackageGameBasePath + ".wasmgz");
-			File.Delete(FullPackageGameExePath + ".symbolsgz");
-			File.Delete(OutDir + "/Utility.jsgz");
+			File.Delete(UE4GameBasename + ".wasmgz");
+			File.Delete(UE4GameBasename + ".jsgz");
+			File.Delete(UE4GameBasename + ".js.symbolsgz");
+			File.Delete(PackagePath + "/Utility.jsgz");
+			File.Delete(ProjectBasename + ".datagz");
+			File.Delete(ProjectBasename + ".data.jsgz");
+			File.Delete(ProjectBasename + ".UE4.jsgz");
+			File.Delete(ProjectBasename + ".cssgz");
 		}
 
-		File.Copy(CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/HTML5LaunchHelper.exe"),CombinePaths(OutDir, "HTML5LaunchHelper.exe"),true);
+		File.Copy(CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/HTML5LaunchHelper.exe"),CombinePaths(PackagePath, "HTML5LaunchHelper.exe"),true);
 //		Task.WaitAll(CompressionTasks);
 		PrintRunTime();
 	}
@@ -273,14 +275,24 @@ public class HTML5Platform : Platform
 		}
 	}
 
-	public override bool RequiresPackageToDeploy
+	protected void GenerateFileFromTemplate(string InTemplateFile, string InOutputFile, ProjectParams Params, ConfigHierarchy ConfigCache)
 	{
-		get { return true; }
-	}
+		bool IsContentOnly = !Params.IsCodeBasedProject;
+		string ProjectConfiguration = Params.ClientConfigsToBuild[0].ToString();
 
+		string UE4GameName = IsContentOnly ? "UE4Game" : Params.ShortProjectName;
+		string ProjectName = Params.ShortProjectName;
+		if (ProjectConfiguration != "Development")
+		{
+			UE4GameName += "-HTML5-" + ProjectConfiguration;
+			ProjectName += "-HTML5-" + ProjectConfiguration;
+		}
 
-	protected void GenerateFileFromTemplate(string InTemplateFile, string InOutputFile, string InGameName, string InGameConfiguration, /*string InArguments,*/ bool IsContentOnly, int HeapSize, string CanvasScaleMode)
-	{
+		string CanvasScaleMode;
+		ConfigCache.GetString("/Script/HTML5PlatformEditor.HTML5TargetSettings", "CanvasScalingMode", out CanvasScaleMode);
+
+		string HeapSize = HTML5SDKInfo.HeapSize(ConfigCache, ProjectConfiguration).ToString();
+
 		StringBuilder outputContents = new StringBuilder();
 		using (StreamReader reader = new StreamReader(InTemplateFile))
 		{
@@ -294,9 +306,19 @@ public class HTML5Platform : Platform
 					LineStr = LineStr.Replace("%TIMESTAMP%", TimeStamp);
 				}
 
-				if (LineStr.Contains("%GAME%"))
+				if (LineStr.Contains("%SHORTNAME%"))
 				{
-					LineStr = LineStr.Replace("%GAME%", InGameName);
+					LineStr = LineStr.Replace("%SHORTNAME%", Params.ShortProjectName);
+				}
+
+				if (LineStr.Contains("%UE4GAMENAME%"))
+				{
+					LineStr = LineStr.Replace("%UE4GAMENAME%", UE4GameName);
+				}
+
+				if (LineStr.Contains("%PROJECTNAME%"))
+				{
+					LineStr = LineStr.Replace("%PROJECTNAME%", ProjectName);
 				}
 
 				if (LineStr.Contains("%SERVE_COMPRESSED%"))
@@ -312,34 +334,13 @@ public class HTML5Platform : Platform
 
 				if (LineStr.Contains("%HEAPSIZE%"))
 				{
-					LineStr = LineStr.Replace("%HEAPSIZE%", HeapSize.ToString() + " * 1024 * 1024");
-				}
-
-				if (LineStr.Contains("%CONFIG%"))
-				{
-					string TempGameName = InGameName;
-					if (IsContentOnly)
-						TempGameName = "UE4Game";
-					LineStr = LineStr.Replace("%CONFIG%", (InGameConfiguration != "Development" ? (TempGameName + "-HTML5-" + InGameConfiguration) : TempGameName));
+					LineStr = LineStr.Replace("%HEAPSIZE%", HeapSize + " * 1024 * 1024");
 				}
 
 				if (LineStr.Contains("%UE4CMDLINE%"))
 				{
-					string ArgumentString = "'../../../" + InGameName + "/" + InGameName + ".uproject',";
+					string ArgumentString = "'../../../" + Params.ShortProjectName + "/" + Params.ShortProjectName + ".uproject',";
 					ArgumentString += "'-stdout',"; // suppress double printing to console.log
-
-// this for() and if() combo looks suspect -- but, seems like Params.StageCommandline is not really used anymore...
-//					InArguments = InArguments.Replace ("\"", "");
-//					string[] Arguments = InArguments.Split(' ');
-//					for (int i = 0; i < Arguments.Length - 1; ++i)
-//					{
-//						ArgumentString += "'" + Arguments[i] + "'" + ",' ',";
-//					}
-//					if (Arguments.Length > 0)
-//					{
-//						ArgumentString += "'" + Arguments[Arguments.Length - 1] + "'";
-//					}
-
 					LineStr = LineStr.Replace("%UE4CMDLINE%", ArgumentString);
 				}
 
@@ -355,11 +356,6 @@ public class HTML5Platform : Platform
 						mode = "3 /*FIXED*/";
 					}
 					LineStr = LineStr.Replace("%CANVASSCALEMODE%", mode);
-				}
-
-				if (!targetWebGL2 && LineStr.Contains("const explicitlyUseWebGL1"))
-				{
-					LineStr = "const explicitlyUseWebGL1 = true;";
 				}
 
 				outputContents.AppendLine(LineStr);
@@ -430,9 +426,8 @@ public class HTML5Platform : Platform
 		}
 	}
 
-	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
-	{
-	}
+	// --------------------------------------------------------------------------------
+	// ArchiveCommand.Automation.cs
 
 	public override void GetFilesToArchive(ProjectParams Params, DeploymentContext SC)
 	{
@@ -441,36 +436,27 @@ public class HTML5Platform : Platform
 			throw new AutomationException("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
 		}
 
+		// copy to archive directory
 		string PackagePath = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", "HTML5");
-		string ProjectDataName = Params.ShortProjectName + ".data";
 
-		// copy the "Executable" to the archive directory
-		string GameBasename = Path.GetFileNameWithoutExtension(Params.GetProjectExeForPlatform(UnrealTargetPlatform.HTML5).ToString());
-		if (Params.ClientConfigsToBuild[0].ToString() != "Development")
+		string UE4GameBasename = Path.GetFileNameWithoutExtension(Params.GetProjectExeForPlatform(UnrealTargetPlatform.HTML5).ToString());
+		string ProjectBasename = Params.ShortProjectName;
+		string ProjectConfiguration = Params.ClientConfigsToBuild[0].ToString();
+		if (ProjectConfiguration != "Development")
 		{
-			GameBasename += "-HTML5-" + Params.ClientConfigsToBuild[0].ToString();
+			UE4GameBasename += "-HTML5-" + ProjectConfiguration;
+			ProjectBasename += "-HTML5-" + ProjectConfiguration;
 		}
-		string GameExe = GameBasename + ".js";
 
-		// put the HTML file to the package directory
-		string OutputFilename = (Params.ClientConfigsToBuild[0].ToString() != "Development" ?
-				 (Params.ShortProjectName + "-HTML5-" + Params.ClientConfigsToBuild[0].ToString()) :
-				 Params.ShortProjectName) + ".html";
-
-		// data file
-		SC.ArchiveFiles(PackagePath, ProjectDataName);
-		// data file js driver
-		SC.ArchiveFiles(PackagePath, ProjectDataName + ".js");
-		// main game code
-		SC.ArchiveFiles(PackagePath, GameBasename + ".wasm");
-		// main js file
-		SC.ArchiveFiles(PackagePath, GameExe);
-		// symbols file
-		SC.ArchiveFiles(PackagePath, GameExe + ".symbols");
-		// utilities
-		SC.ArchiveFiles(PackagePath, "Utility.js");
-		// landing page.
-		SC.ArchiveFiles(PackagePath, OutputFilename);
+		SC.ArchiveFiles(PackagePath, UE4GameBasename + ".wasm");			// MAIN game code
+		SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js");				// MAIN js file (emscripten)
+		SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.symbols");		// symbols file
+		SC.ArchiveFiles(PackagePath, "Utility.js");							// utilities
+		SC.ArchiveFiles(PackagePath, ProjectBasename + ".data");			// DATA file
+		SC.ArchiveFiles(PackagePath, ProjectBasename + ".data.js");			// DATA file js driver (emscripten)
+		SC.ArchiveFiles(PackagePath, ProjectBasename + ".UE4.js");			// UE4 js file
+		SC.ArchiveFiles(PackagePath, ProjectBasename + ".css");				// UE4 css file
+		SC.ArchiveFiles(PackagePath, ProjectBasename + ".html");			// landing page.
 
 		// Archive HTML5 Server and a Readme.
 		SC.ArchiveFiles(CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/"), "HTML5LaunchHelper.exe");
@@ -480,22 +466,26 @@ public class HTML5Platform : Platform
 
 		if (Compressed)
 		{
-			SC.ArchiveFiles(PackagePath, ProjectDataName + "gz");
-			SC.ArchiveFiles(PackagePath, ProjectDataName + ".jsgz");
-			SC.ArchiveFiles(PackagePath, GameExe + "gz");
-			SC.ArchiveFiles(PackagePath, GameBasename + ".wasmgz");
-			SC.ArchiveFiles(PackagePath, GameExe + ".symbolsgz");
+			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".wasmgz");
+			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".jsgz");
+			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.symbolsgz");
 			SC.ArchiveFiles(PackagePath, "Utility.jsgz");
+			SC.ArchiveFiles(PackagePath, ProjectBasename + ".datagz");
+			SC.ArchiveFiles(PackagePath, ProjectBasename + ".data.jsgz");
+			SC.ArchiveFiles(PackagePath, ProjectBasename + ".UE4.jsgz");
+			SC.ArchiveFiles(PackagePath, ProjectBasename + ".cssgz");
 		}
 		else
 		{
 			// nuke old compressed files to prevent using stale files
-			File.Delete(ProjectDataName + "gz");
-			File.Delete(ProjectDataName + ".jsgz");
-			File.Delete(GameExe + "gz");
-			File.Delete(GameBasename + ".wasmgz");
-			File.Delete(GameExe + ".symbolsgz");
+			File.Delete(UE4GameBasename + ".wasmgz");
+			File.Delete(UE4GameBasename + ".jsgz");
+			File.Delete(UE4GameBasename + ".js.symbolsgz");
 			File.Delete("Utility.jsgz");
+			File.Delete(ProjectBasename + ".datagz");
+			File.Delete(ProjectBasename + ".data.jsgz");
+			File.Delete(ProjectBasename + ".UE4.jsgz");
+			File.Delete(ProjectBasename + ".cssgz");
 		}
 
 		if (HTMLPakAutomation.CanCreateMapPaks(Params))
@@ -508,8 +498,11 @@ public class HTML5Platform : Platform
 			}
 		}
 
-		UploadToS3(SC, OutputFilename);
+		UploadToS3(SC, ProjectBasename + ".html");
 	}
+
+	// --------------------------------------------------------------------------------
+	// RunProjectCommand.Automation.cs
 
 	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
@@ -558,10 +551,26 @@ public class HTML5Platform : Platform
 			ProfileDirectory = Path.Combine(ProfileDirectory, "firefox");
 			BrowserCommandline += "  " +  String.Format("-no-remote -profile \\\"{0}\\\"", ProfileDirectory);
 		}
+		else if (LowerBrowserPath.Contains("safari"))
+		{
+			// NOT SUPPORTED: cannot have a separate UE4 profile for safari
+			// -- this "can" be done with a different user (e.g. guest) account...
+			//    (which is not a turn key solution that can be done within UE4)
+			// -- some have tried using symlinks to "mimic" this
+			//    https://discussions.apple.com/thread/3327990
+			// -- but, none of these are fool proof with an existing/running safari instance
 
+			// -- also, "Safari Extensions JS" has been officially deprecated as of Safari 12
+			//    (in favor of using "Safari App Extension")
+			//    https://developer.apple.com/documentation/safariextensions
+
+			// this means, Safari "LaunchOn" (UE4 Editor -> Launch -> Safari) will run with your FULL
+			// Safari profile -- so, all of your "previously opened" tabs will all also be opened...
+		}
+
+		// TODO: test on other platforms to remove this first if() check
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
 		{
-			// TODO: test on other platforms to remove this if() check
 			if (!Directory.Exists(ProfileDirectory))
 			{
 				Directory.CreateDirectory(ProfileDirectory);
@@ -577,6 +586,24 @@ public class HTML5Platform : Platform
 		return BrowserProcess;
 	}
 
+	public override List<FileReference> GetExecutableNames(DeploymentContext SC)
+	{
+		List<FileReference> ExecutableNames = new List<FileReference>();
+		ExecutableNames.Add(FileReference.Combine(SC.ProjectRoot, "Binaries", "HTML5", SC.ShortProjectName));
+		return ExecutableNames;
+	}
+
+	// --------------------------------------------------------------------------------
+	// PackageCommand.Automation.cs
+
+	public override bool RequiresPackageToDeploy
+	{
+		get { return true; }
+	}
+
+	// --------------------------------------------------------------------------------
+	// CookCommand.Automation.cs
+
 	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		return "HTML5";
@@ -585,6 +612,14 @@ public class HTML5Platform : Platform
 	public override string GetCookExtraCommandLine(ProjectParams Params)
 	{
 		return HTMLPakAutomation.CanCreateMapPaks(Params) ? " -GenerateDependenciesForMaps " : "";
+	}
+
+	// --------------------------------------------------------------------------------
+	// CopyBuildToStagingDirectory.Automation.cs
+
+	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
+	{
+		// must implement -- "empty" here
 	}
 
 	public override PakType RequiresPak(ProjectParams Params)
@@ -597,35 +632,13 @@ public class HTML5Platform : Platform
 		return Compressed ? " -compress" : "";
 	}
 
-	public override bool DeployLowerCaseFilenames()
-	{
-		return false;
-	}
-
-	public override string LocalPathToTargetPath(string LocalPath, string LocalRoot)
-	{
-		return LocalPath;//.Replace("\\", "/").Replace(LocalRoot, "../../..");
-	}
+	// --------------------------------------------------------------------------------
+	// AutomationUtils/Platform.cs
 
 	public override bool IsSupported { get { return true; } }
 
-	public override List<string> GetDebugFileExtensions()
-	{
-		return new List<string> { ".pdb" };
-	}
-
-#region Hooks
-	public override void PreBuildAgenda(UE4Build Build, UE4Build.BuildAgenda Agenda)
-	{
-	}
-
-	public override List<FileReference> GetExecutableNames(DeploymentContext SC)
-	{
-		List<FileReference> ExecutableNames = new List<FileReference>();
-		ExecutableNames.Add(FileReference.Combine(SC.ProjectRoot, "Binaries", "HTML5", SC.ShortProjectName));
-		return ExecutableNames;
-	}
-#endregion
+	// --------------------------------------------------------------------------------
+	// --------------------------------------------------------------------------------
 
 #region AMAZON S3
 	public void UploadToS3(DeploymentContext SC, string OutputFilename)
@@ -700,6 +713,8 @@ public class HTML5Platform : Platform
 			{ ".wasmgz", "application/wasm" },
 			{ ".htaccess", "text/plain"},
 			{ ".html", "text/html"},
+			{ ".css", "text/css"},
+			{ ".cssgz", "text/css"},
 			{ ".js", "application/x-javascript" },
 			{ ".jsgz", "application/x-javascript" },
 			{ ".symbols", "text/plain"},

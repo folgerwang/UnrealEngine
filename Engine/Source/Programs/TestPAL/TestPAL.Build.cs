@@ -16,9 +16,17 @@ public class TestPAL : ModuleRules
 				"Core",
 				"ApplicationCore",
 				"Projects",
-				"DirectoryWatcher"
 			}
 		);
+
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Windows) || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"DirectoryWatcher"
+				}
+			);
+		}
 
 		if (Target.Platform == UnrealTargetPlatform.Linux)
 		{

@@ -24,6 +24,9 @@ enum class ETargetPlatformFeatures
 	/** Distance field shadows. */
 	DistanceFieldShadows,
 
+	/** Distance field AO. */
+	DistanceFieldAO,
+
 	/** Gray scale SRGB texture formats support. */
 	GrayscaleSRGB,
 
@@ -65,6 +68,9 @@ enum class ETargetPlatformFeatures
 
 	/* The platform supports half float vertex format */
 	HalfFloatVertexFormat,
+
+	/* The platform supports the experimental Device Output Log window */
+	DeviceOutputLog,
 };
 
 
@@ -277,6 +283,13 @@ public:
 	virtual bool RequiresCookedData() const = 0;
 
 	/**
+	* Checks whether this platform has a secure shippable package format, and therefore doesn't need any encryption or signing support
+	*
+	* @return true if this platform requires cooked data, false otherwise.
+	*/
+	virtual bool HasSecurePackageFormat() const = 0;
+
+	/**
 	 * Checks whether this platform requires user credentials (typically server platforms).
 	 *
 	 * @return true if this platform requires user credentials, false otherwise.
@@ -304,6 +317,16 @@ public:
 	 */
 	virtual bool SupportsFeature( ETargetPlatformFeatures Feature ) const = 0;
 
+	/**
+	 * Gets whether the platform should use forward shading or not.
+	 */
+	virtual bool UsesForwardShading() const = 0;
+
+	/**
+	* Gets whether the platform should use DBuffer for decals.
+	*/
+	virtual bool UsesDBuffer() const = 0;
+	
 #if WITH_ENGINE
 	/**
 	 * Gets the format to use for a particular body setup.
@@ -347,6 +370,25 @@ public:
 	 * @param OutFormats will contain all the texture formats which are possible for this platform
 	 */
 	virtual void GetAllTextureFormats( TArray<FName>& OutFormats ) const = 0;
+
+	/**
+	* Gets the texture format to use for a virtual texturing layer. In order to make a better guess
+	* some parameters are passed to this function.
+	*
+	* @param SourceFormat The raw uncompressed source format (ETextureSourceFormat) the texture is stored in.
+	* @param bAllowCompression Allow a compressed (lossy) format to be chosen.
+	* @param bNoAlpha The chosen format doesn't need to have an alpha channel.
+	* @param bSupportDX11TextureFormats Allow choosing a texture format which is supported only on DX11 hardware (e.g. BC7 etc).
+	* @param settings A hint as to what kind of data is to be stored in the layer or an explicit request for a certain format (TextureCompressionSettings enum value).
+	* @return The chosen format to use for the layer on this platform based on the given input. May return the None name ( Fname::IsNone == true) on platforms that do not support VT.
+	* 
+	* FIXME: Is it better to pass in the UVirtualTexture and layer index instead of all these arguments?! Less encapsulated but cleaner??
+	* this would also mean we don't have to hide the SourceFormat and TextureCompressionSettings enums
+	*/
+	virtual FName GetVirtualTextureLayerFormat(
+		int32 SourceFormat,
+		bool bAllowCompression, bool bNoAlpha,
+		bool bSupportDX11TextureFormats, int32 TextureCompressionSettings) const = 0;
 
 	/**
 	 * Gets the format to use for a particular piece of audio.

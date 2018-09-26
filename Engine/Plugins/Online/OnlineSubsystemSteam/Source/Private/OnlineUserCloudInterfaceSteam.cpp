@@ -44,12 +44,12 @@ void FOnlineAsyncTaskSteamEnumerateUserFiles::Tick()
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Can only enumerate cloud files for logged in user."));
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only enumerate cloud files for logged in user."));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Steam remote storage API disabled."));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Steam remote storage API disabled."));
 	}
 }
 
@@ -104,17 +104,17 @@ void FOnlineAsyncTaskSteamReadUserFile::Tick()
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Requested file %s has invalid size %d."), *FileName, FileSize);
+				UE_LOG_ONLINE_CLOUD(Warning, TEXT("Requested file %s has invalid size %d."), *FileName, FileSize);
 			}
 		}	
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Can only read cloud files for logged in user."));
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only read cloud files for logged in user."));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Steam remote storage API disabled."));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Steam remote storage API disabled."));
 	}
 
 	{
@@ -175,22 +175,22 @@ bool FOnlineAsyncTaskSteamWriteUserFile::WriteUserFile(const FUniqueNetId& InUse
 					}
 					else
 					{
-						UE_LOG_ONLINE(Warning, TEXT("Failed to write file to Steam cloud \"%s\"."), *InFileToWrite);
+						UE_LOG_ONLINE_CLOUD(Warning, TEXT("Failed to write file to Steam cloud \"%s\"."), *InFileToWrite);
 					}
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("File too large %d to write to Steam cloud."), InContents.Num());
+					UE_LOG_ONLINE_CLOUD(Warning, TEXT("File too large %d to write to Steam cloud."), InContents.Num());
 				}
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Can only write cloud files for logged in user."));
+				UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only write cloud files for logged in user."));
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Steam remote storage API disabled."));
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Steam remote storage API disabled."));
 		}
 	}
 
@@ -358,43 +358,43 @@ void FOnlineUserCloudSteam::DumpCloudState(const FUniqueNetId& UserId)
 		TotalBytes = TotalAvailable = 0;
 	}
 
-	UE_LOG_ONLINE(Verbose, TEXT("Steam Disk Quota: %d / %d"), TotalAvailable, TotalBytes);
-	UE_LOG_ONLINE(Verbose, TEXT("Game does %shave cloud storage enabled."), SteamRemoteStorage()->IsCloudEnabledForApp() ? TEXT("") : TEXT("NOT "));
-	UE_LOG_ONLINE(Verbose, TEXT("User does %shave cloud storage enabled."), SteamRemoteStorage()->IsCloudEnabledForAccount() ? TEXT("") : TEXT("NOT "));
+	UE_LOG_ONLINE_CLOUD(Verbose, TEXT("Steam Disk Quota: %d / %d"), TotalAvailable, TotalBytes);
+	UE_LOG_ONLINE_CLOUD(Verbose, TEXT("Game does %shave cloud storage enabled."), SteamRemoteStorage()->IsCloudEnabledForApp() ? TEXT("") : TEXT("NOT "));
+	UE_LOG_ONLINE_CLOUD(Verbose, TEXT("User does %shave cloud storage enabled."), SteamRemoteStorage()->IsCloudEnabledForAccount() ? TEXT("") : TEXT("NOT "));
 }
 
 void FOnlineUserCloudSteam::DumpCloudFileState(const FUniqueNetId& UserId, const FString& FileName)
 {
 	if (FileName.Len() > 0)
 	{
-		UE_LOG_ONLINE(Log, TEXT("Cloud File State file %s:"), *FileName);
+		UE_LOG_ONLINE_CLOUD(Log, TEXT("Cloud File State file %s:"), *FileName);
 		{
 			FScopeLock ScopeLock(&SteamSubsystem->UserCloudDataLock);
 			FSteamUserCloudData* UserCloud = SteamSubsystem->GetUserCloudEntry(UserId);
 			FCloudFileHeader* FileMetadata = UserCloud->GetFileMetadata(FileName);
 			if (FileMetadata)
 			{
-				UE_LOG_ONLINE(Log, TEXT("\tMeta: FileName:%s DLName:%s FileSize:%d Hash:%s"), *FileMetadata->FileName, *FileMetadata->DLName, FileMetadata->FileSize, *FileMetadata->Hash);
+				UE_LOG_ONLINE_CLOUD(Log, TEXT("\tMeta: FileName:%s DLName:%s FileSize:%d Hash:%s"), *FileMetadata->FileName, *FileMetadata->DLName, FileMetadata->FileSize, *FileMetadata->Hash);
 			}
 			else
 			{
-				UE_LOG_ONLINE(Log, TEXT("\tNo metadata found!"));
+				UE_LOG_ONLINE_CLOUD(Log, TEXT("\tNo metadata found!"));
 			}
 
 			FCloudFile* FileData = UserCloud->GetFileData(FileName);
 			if (FileData)
 			{
-				UE_LOG_ONLINE(Log, TEXT("\tFileCache: FileName:%s State:%s CacheSize:%d"), *FileData->FileName, EOnlineAsyncTaskState::ToString(FileData->AsyncState), FileData->Data.Num());
+				UE_LOG_ONLINE_CLOUD(Log, TEXT("\tFileCache: FileName:%s State:%s CacheSize:%d"), *FileData->FileName, EOnlineAsyncTaskState::ToString(FileData->AsyncState), FileData->Data.Num());
 			}
 			else
 			{
-				UE_LOG_ONLINE(Log, TEXT("\tNo cache entry found!"));
+				UE_LOG_ONLINE_CLOUD(Log, TEXT("\tNo cache entry found!"));
 			}
 		}
 
 		int32 FileSize = SteamRemoteStorage()->GetFileSize(TCHAR_TO_UTF8(*FileName));
 
-		UE_LOG_ONLINE(Log, TEXT("\tSteam: FileName:%s Size:%d Exists:%s Persistent:%s"),
+		UE_LOG_ONLINE_CLOUD(Log, TEXT("\tSteam: FileName:%s Size:%d Exists:%s Persistent:%s"),
 			*FileName, FileSize, 
 			SteamRemoteStorage()->FileExists(TCHAR_TO_UTF8(*FileName)) ? TEXT("Y") : TEXT("N"),
 			SteamRemoteStorage()->FilePersisted(TCHAR_TO_UTF8(*FileName)) ? TEXT("Y") : TEXT("N"));
@@ -442,12 +442,12 @@ void FOnlineAsyncTaskSteamDeleteUserFile::Tick()
 		}	
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Can only delete cloud files for logged in user."));
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only delete cloud files for logged in user."));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Steam remote storage API disabled."));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Steam remote storage API disabled."));
 	}
 
 	bIsComplete = true;

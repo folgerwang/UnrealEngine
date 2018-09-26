@@ -109,10 +109,9 @@ bool UListView::BP_IsItemVisible(UObject* Item) const
 
 void UListView::BP_NavigateToItem(UObject* Item)
 {
-	const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer();
-	if (Item && LocalPlayer)
+	if (Item)
 	{
-		RequestNavigateToItem(Item, LocalPlayer->GetControllerId());
+		RequestNavigateToItem(Item);
 	}
 }
 
@@ -123,12 +122,9 @@ void UListView::NavigateToIndex(int32 Index)
 
 void UListView::BP_ScrollItemIntoView(UObject* Item)
 {
-	if (Item && MyListView.IsValid())
+	if (Item)
 	{
-		if (const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer())
-		{
-			RequestScrollItemIntoView(Item, LocalPlayer->GetControllerId());
-		}
+		RequestScrollItemIntoView(Item);
 	}
 }
 
@@ -156,7 +152,7 @@ bool UListView::IsRefreshPending() const
 
 void UListView::BP_SetSelectedItem(UObject* Item)
 {
-	if (MyListView.IsValid() && ListItems.Contains(Item))
+	if (MyListView.IsValid())
 	{
 		MyListView->SetSelection(Item, ESelectInfo::Direct);
 	}
@@ -215,9 +211,9 @@ FMargin UListView::GetDesiredEntryPadding(UObject* Item) const
 	return FMargin(0.f);
 }
 
-UUserWidget& UListView::OnGenerateEntryWidgetInternal(UObject* Item, const TSharedRef<STableViewBase>& OwnerTable)
+UUserWidget& UListView::OnGenerateEntryWidgetInternal(UObject* Item, TSubclassOf<UUserWidget> DesiredEntryClass, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	return GenerateTypedEntry(OwnerTable);
+	return GenerateTypedEntry(DesiredEntryClass, OwnerTable);
 }
 
 void UListView::OnItemClickedInternal(UObject* ListItem)

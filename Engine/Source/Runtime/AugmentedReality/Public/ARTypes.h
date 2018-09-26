@@ -326,7 +326,13 @@ struct AUGMENTEDREALITY_API FARVideoFormat
 	GENERATED_BODY()
 
 public:
-	FARVideoFormat() { }
+	FARVideoFormat()
+		: FPS(0)
+		, Width(0)
+		, Height(0)
+	{
+		
+	}
 	
 	FARVideoFormat(int32 InFPS, int32 InWidth, int32 InHeight)
 		: FPS(InFPS)

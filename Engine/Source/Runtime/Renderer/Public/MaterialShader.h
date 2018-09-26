@@ -124,7 +124,6 @@ public:
 	FORCEINLINE_DEBUGGABLE void SetViewParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View, const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer)
 	{
 		const auto& ViewUniformBufferParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
-		CheckShaderIsValid();
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, ViewUniformBuffer);
 
 		if (View.bShouldBindInstancedViewUB && View.Family->Views.Num() > 0)
@@ -191,6 +190,16 @@ private:
 	FRHIUniformBufferLayout		DebugUniformExpressionUBLayout;
 	FString						DebugDescription;
 #endif
+
+	// Only needed to avoid unbound parameter error
+	FShaderResourceParameter VTFeedbackBuffer;
+
+	// TEMP
+	FShaderResourceParameter PhysicalTexture;
+	FShaderResourceParameter PhysicalTextureSampler;
+
+	FShaderResourceParameter PageTable;
+	FShaderResourceParameter PageTableSampler;
 	
 	/** If true, cached uniform expressions are allowed. */
 	static int32 bAllowCachedUniformExpressions;
