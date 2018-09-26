@@ -27,6 +27,8 @@ template<>							struct TIsComparisonCompatibleChar<UTF32CHAR, ANSICHAR>		{ enum
 struct FGenericPlatformStricmp
 {
 private:
+	CORE_API static int32 CompatibleCharTypesStricmp(const TCHAR* String1, const TCHAR* String2);
+
 	/**
 	 * Compares two strings case-insensitive assuming that both char types are
 	 * compatible.
