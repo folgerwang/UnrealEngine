@@ -146,6 +146,10 @@ protected:
 	TArray<UMeshComponent*> CookedForeignMeshComponents;
 
 public:
+	/** Get a list of spline mesh components representing this landscape spline (Editor only) */
+	UFUNCTION(BlueprintCallable, Category = LandscapeSplines)
+	TArray<USplineMeshComponent*> GetSplineMeshComponents();
+
 	void CheckSplinesValid();
 	bool ModifySplines(bool bAlwaysMarkDirty = true);
 
@@ -182,6 +186,8 @@ public:
 	virtual UObject* GetOwnerForMeshComponent(const UMeshComponent* SplineMeshComponent);
 
 	void AutoFixMeshComponentErrors(UWorld* OtherWorld);
+
+	bool IsUsingEditorMesh(const USplineMeshComponent* SplineMeshComponent) const;
 #endif
 
 	//~ Begin UObject Interface

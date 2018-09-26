@@ -248,58 +248,95 @@ namespace
 	}
 }
 
-void FMobileJSScripting::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent )
+void FMobileJSScripting::AddPermanentBind(const FString& Name, UObject* Object)
 {
 	const FString ExposedName = GetBindingName(Name, Object);
-	FString Converted = ConvertObject(Object);
-	if (bIsPermanent)
-	{
-		// Each object can only have one permanent binding
-		if (BoundObjects[Object].bIsPermanent)
-		{
-			return;
-		}
-		// Existing permanent objects must be removed first
-		if (PermanentUObjectsByName.Contains(ExposedName))
-		{
-			return;
-		}
-		BoundObjects[Object]={true, -1};
-		PermanentUObjectsByName.Add(ExposedName, Object);
-	}
 
+	// Each object can only have one permanent binding
+	if (BoundObjects[Object].bIsPermanent)
+	{
+		return;
+	}
+	// Existing permanent objects must be removed first
+	if (PermanentUObjectsByName.Contains(ExposedName))
+	{
+		return;
+	}
+	BoundObjects[Object] = { true, -1 };
+	PermanentUObjectsByName.Add(ExposedName, Object);
+}
+
+void FMobileJSScripting::RemovePermanentBind(const FString& Name, UObject* Object)
+{
+	const FString ExposedName = GetBindingName(Name, Object);
+
+	// If overriding an existing permanent object, make it non-permanent
+	if (PermanentUObjectsByName.Contains(ExposedName) && (Object == nullptr || PermanentUObjectsByName[ExposedName] == Object))
+	{
+		Object = PermanentUObjectsByName.FindAndRemoveChecked(ExposedName);
+		BoundObjects.Remove(Object);
+		return;
+	}
+	else
+	{
+		return;
+	}
+}
+
+void FMobileJSScripting::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent)
+{
 	TSharedPtr<IWebBrowserWindow> Window = WindowPtr.Pin();
 	if (Window.IsValid())
 	{
-		FString SetValueScript = FString::Printf(TEXT("window.ue['%s'] = %s;"), *ExposedName.ReplaceCharWithEscapedChar(), *Converted);
-		Window->ExecuteJavascript(SetValueScript);
+		BindUObject(Window.ToSharedRef(), Name, Object, bIsPermanent);
+	}
+	else if (bIsPermanent)
+	{
+		AddPermanentBind(Name, Object);
 	}
 }
 
 void FMobileJSScripting::UnbindUObject(const FString& Name, UObject* Object, bool bIsPermanent)
 {
-	const FString ExposedName = GetBindingName(Name, Object);
-	if (bIsPermanent)
-	{
-		// If overriding an existing permanent object, make it non-permanent
-		if (PermanentUObjectsByName.Contains(ExposedName) && (Object == nullptr || PermanentUObjectsByName[ExposedName] == Object))
-		{
-			Object = PermanentUObjectsByName.FindAndRemoveChecked(ExposedName);
-			BoundObjects.Remove(Object);
-			return;
-		}
-		else
-		{
-			return;
-		}
-	}
-
 	TSharedPtr<IWebBrowserWindow> Window = WindowPtr.Pin();
 	if (Window.IsValid())
 	{
-		FString DeleteValueScript = FString::Printf(TEXT("delete window.ue['%s'];"), *ExposedName.ReplaceCharWithEscapedChar());
-		Window->ExecuteJavascript(DeleteValueScript);
+		UnbindUObject(Window.ToSharedRef(), Name, Object, bIsPermanent);
 	}
+	else if (bIsPermanent)
+	{
+		RemovePermanentBind(Name, Object);
+	}
+}
+
+void FMobileJSScripting::BindUObject(TSharedRef<class IWebBrowserWindow> InWindow, const FString& Name, UObject* Object, bool bIsPermanent)
+{
+	WindowPtr = InWindow;
+
+	const FString ExposedName = GetBindingName(Name, Object);
+	FString Converted = ConvertObject(Object);
+	if (bIsPermanent)
+	{
+		AddPermanentBind(Name, Object);
+	}
+
+	InitializeScript(InWindow);
+	FString SetValueScript = FString::Printf(TEXT("window.ue['%s'] = %s;"), *ExposedName.ReplaceCharWithEscapedChar(), *Converted);
+	InWindow->ExecuteJavascript(SetValueScript);
+}
+
+void FMobileJSScripting::UnbindUObject(TSharedRef<class IWebBrowserWindow> InWindow, const FString& Name, UObject* Object, bool bIsPermanent)
+{
+	WindowPtr = InWindow;
+
+	const FString ExposedName = GetBindingName(Name, Object);
+	if (bIsPermanent)
+	{
+		RemovePermanentBind(Name, Object);
+	}
+
+	FString DeleteValueScript = FString::Printf(TEXT("delete window.ue['%s'];"), *ExposedName.ReplaceCharWithEscapedChar());
+	InWindow->ExecuteJavascript(DeleteValueScript);
 }
 
 bool FMobileJSScripting::OnJsMessageReceived(const FString& Command, const TArray<FString>& Params, const FString& Origin)
@@ -530,6 +567,40 @@ bool FMobileJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString>
 	return true;
 }
 
+void FMobileJSScripting::InitializeScript(TSharedRef<class IWebBrowserWindow> InWindow)
+{
+	WindowPtr = InWindow;
+
+	FString Script = ScriptingInit;
+
+	FIntPoint Viewport = InWindow->GetViewportSize();
+	int32 ScreenWidth = Viewport.X;
+	int32 ScreenHeight = Viewport.Y;
+#if PLATFORM_ANDROID
+	if (FString* ScreenWidthVar = FAndroidMisc::GetConfigRulesVariable(TEXT("ScreenWidth")))
+	{
+		ScreenWidth = FCString::Atoi(**ScreenWidthVar);
+	}
+	if (FString* ScreenHeightVar = FAndroidMisc::GetConfigRulesVariable(TEXT("ScreenHeight")))
+	{
+		ScreenHeight = FCString::Atoi(**ScreenHeightVar);
+	}
+	Script.Append(TEXT("window.uePlatform = \"Android\";\n"));
+#endif
+#if PLATFORM_IOS
+	Script.Append(TEXT("window.uePlatform = \"iOS\";\n"));
+#endif
+	Script.Append(*FString::Printf(TEXT(
+		"window.ueDeviceWidth = %d;\n"
+		"window.ueDeviceHeight= %d;\n"
+		"window.ueWindowWidth = %d;\n"
+		"window.ueWindowHeight = %d;\n"),
+		ScreenWidth, ScreenHeight,
+		Viewport.X, Viewport.Y));
+	Script.Append(ScriptingPostInit);
+	InWindow->ExecuteJavascript(Script);
+}
+
 void FMobileJSScripting::PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow)
 {
 	WindowPtr = InWindow;
@@ -543,18 +614,19 @@ void FMobileJSScripting::PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow
 		}
 	}
 
-	FString Script = ScriptingInit;
-	for(auto& Item : PermanentUObjectsByName)
+	InitializeScript(InWindow);
+	FString Script;
+	for (auto& Item : PermanentUObjectsByName)
 	{
 		Script.Append(*FString::Printf(TEXT("window.ue['%s'] = %s;"), *Item.Key.ReplaceCharWithEscapedChar(), *ConvertObject(Item.Value)));
 	}
-	Script.Append(ScriptingPostInit);
 	InWindow->ExecuteJavascript(Script);
 }
 
-FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled)
+FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled, TSharedRef<class IWebBrowserWindow> InWindow)
 	: FWebJSScripting(bJSBindingToLoweringEnabled)
 {
+	WindowPtr = InWindow;
 }
 
 #endif // PLATFORM_ANDROID  || PLATFORM_IOS

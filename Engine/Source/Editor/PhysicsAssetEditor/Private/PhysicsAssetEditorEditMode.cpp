@@ -425,8 +425,8 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 
 				ConstraintSetup->DefaultInstance.SetRefFrame(EConstraintFrame::Frame2, SelectedObject.ManipulateTM * StartManParentConTM[i]);
 
-				//Rotation by default only rotates one frame, but translation by default moves both
-				bool bMultiFrame = (InViewportClient->IsAltPressed() && InViewportClient->GetWidgetMode() == FWidget::WM_Rotate) || (!InViewportClient->IsAltPressed() && InViewportClient->GetWidgetMode() == FWidget::WM_Translate);
+				// Alt + Move will split frames and rotate or move them separately
+				bool bMultiFrame = !InViewportClient->IsAltPressed();
 
 				if (bMultiFrame)
 				{
@@ -459,7 +459,7 @@ void FPhysicsAssetEditorEditMode::Tick(FEditorViewportClient* ViewportClient, fl
 
 		UWorld* World = SharedData->PreviewScene.Pin()->GetWorld();
 		AWorldSettings* Setting = World->GetWorldSettings();
-		Setting->WorldGravityZ = SharedData->bNoGravitySimulation ? 0.0f : UPhysicsSettings::Get()->DefaultGravityZ*SharedData->EditorOptions->GravScale;
+		Setting->WorldGravityZ = SharedData->bNoGravitySimulation ? 0.0f : (SharedData->EditorOptions->bUseGravityOverride ? SharedData->EditorOptions->GravityOverrideZ : (UPhysicsSettings::Get()->DefaultGravityZ * SharedData->EditorOptions->GravScale));
 		Setting->bWorldGravitySet = true;
 
 		// We back up the transforms array now

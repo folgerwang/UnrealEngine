@@ -4,13 +4,16 @@
 
 #include "CoreTypes.h"
 
-#define		MAKEAFFINITYMASK1(x)				(1<<x)
-#define		MAKEAFFINITYMASK2(x,y)				((1<<x)+(1<<y))
-#define		MAKEAFFINITYMASK3(x,y,z)			((1<<x)+(1<<y)+(1<<z))
-#define		MAKEAFFINITYMASK4(w,x,y,z)			((1<<w)+(1<<x)+(1<<y)+(1<<z))
-#define		MAKEAFFINITYMASK5(v,w,x,y,z)		((1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
-#define		MAKEAFFINITYMASK6(u,v,w,x,y,z)		((1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
-#define		MAKEAFFINITYMASK7(t,u,v,w,x,y,z)	((1<<t)+(1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK1(x)					(1<<x)
+#define		MAKEAFFINITYMASK2(x,y)					((1<<x)+(1<<y))
+#define		MAKEAFFINITYMASK3(x,y,z)				((1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK4(w,x,y,z)				((1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK5(v,w,x,y,z)			((1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK6(u,v,w,x,y,z)			((1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK7(t,u,v,w,x,y,z)		((1<<t)+(1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK8(s,t,u,v,w,x,y,z)		((1<<s)+(1<<t)+(1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK9(r,s,t,u,v,w,x,y,z)	((1<<r)+(1<<s)+(1<<t)+(1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
+#define		MAKEAFFINITYMASK10(q,s,t,u,v,w,x,y,z)	((1<<q)+(1<<r)+(1<<s)+(1<<t)+(1<<u)+(1<<v)+(1<<w)+(1<<x)+(1<<y)+(1<<z))
 
 /**
 * The list of enumerated thread priorities we support
@@ -75,6 +78,11 @@ public:
 	}
 
 	static const CORE_API uint64 GetTaskGraphBackgroundTaskMask()
+	{
+		return 0xFFFFFFFFFFFFFFFF;
+	}
+
+	static const CORE_API uint64 GetAsyncLoadingThreadMask()
 	{
 		return 0xFFFFFFFFFFFFFFFF;
 	}

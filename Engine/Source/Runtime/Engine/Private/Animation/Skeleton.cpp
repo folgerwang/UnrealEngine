@@ -718,6 +718,24 @@ void USkeleton::SetBoneTranslationRetargetingMode(const int32 BoneIndex, EBoneTr
 	}
 }
 
+#if WITH_EDITORONLY_DATA
+
+FName USkeleton::GetRetargetSourceForMesh(USkeletalMesh* InMesh) const
+{
+	FSoftObjectPath MeshPath(InMesh);
+	for(const TPair<FName, FReferencePose>& AnimRetargetSource : AnimRetargetSources)
+	{
+		if(AnimRetargetSource.Value.SourceReferenceMesh.ToSoftObjectPath() == MeshPath)
+		{
+			return AnimRetargetSource.Key;
+		}
+	}
+
+	return NAME_None;
+}
+
+#endif
+
 int32 USkeleton::GetAnimationTrackIndex(const int32 InSkeletonBoneIndex, const UAnimSequence* InAnimSeq, const bool bUseRawData)
 {
 	const TArray<FTrackToSkeletonMap>& TrackToSkelMap = bUseRawData ? InAnimSeq->GetRawTrackToSkeletonMapTable() : InAnimSeq->GetCompressedTrackToSkeletonMapTable();

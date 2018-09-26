@@ -1617,10 +1617,10 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 	}
 
 	FVector SourceLocation;
-	FQuat RotationQuat;
+	FQuat RotationQuat = FQuat::Identity; // We use this later so we *must* initialize it properly.
 	const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
-	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();
-	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat;
+	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive(); // Note that this will *never* be false because this module always reports as touching mesh rotation
+	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat; // We always will pass NULL down here due to the above condition.
 	if (GetParticleLocation(InstancePayload, Owner, SourceComponent, SourceIndex, SourceLocation, SourceRotation) == true)
 	{
 		SPAWN_INIT
@@ -1635,7 +1635,7 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 				Particle.BaseVelocity = FMath::Lerp(Particle.BaseVelocity, InstancePayload->BoneSocketVelocities[SourceIndex], InheritVelocityScale);
 				ensureMsgf(!Particle.BaseVelocity.ContainsNaN(), TEXT("NaN in Particle Base Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 			}
-			if (bMeshRotationActive)
+			if (bMeshRotationActive) // Note that right now the rotation wil *always* be Identity (see comments above)
 			{
 				FMeshRotationPayloadData* PayloadData = (FMeshRotationPayloadData*)((uint8*)&Particle + MeshRotationOffset);
 				PayloadData->Rotation = RotationQuat.Euler();
@@ -1702,10 +1702,10 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 
 	FVector SourceLocation;
 
-	FQuat RotationQuat;
+	FQuat RotationQuat = FQuat::Identity; // We use this later so we *must* initialize it properly.
 	const int32 MeshRotationOffset = Owner->GetMeshRotationOffset();
-	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();
-	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat;
+	const bool bMeshRotationActive = MeshRotationOffset > 0 && Owner->IsMeshRotationActive();// Note that this will *never* be false because this module always reports as touching mesh rotation
+	FQuat* SourceRotation = (bMeshRotationActive) ? NULL : &RotationQuat; // We always will pass NULL down here due to the above condition.
 	const FTransform& OwnerTM = Owner->Component->GetAsyncComponentToWorld();
 
 	//TODO: we have bone locations stored already if we're inheriting bone velocity, see if we can use those.
@@ -1716,7 +1716,7 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 		{
 			Particle.Location = SourceLocation;
 			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
-			if (bMeshRotationActive)
+			if (bMeshRotationActive) // Note that right now due to logic above, the rotation will always be identity
 			{
 				FMeshRotationPayloadData* PayloadData = (FMeshRotationPayloadData*)((uint8*)&Particle + MeshRotationOffset);
 				PayloadData->Rotation = RotationQuat.Euler();
@@ -1794,9 +1794,9 @@ uint32 UParticleModuleLocationBoneSocket::RequiredBytes(UParticleModuleTypeDataB
 
 uint32 UParticleModuleLocationBoneSocket::RequiredBytesPerInstance()
 {
-    // Memory in addition to the struct size is reserved for the PrevFrameBonePositions and BoneVelocity arrays. 
-    // The size of these arrays are fixed to SourceLocations.Num(). FModuleLocationBoneSocketInstancePayload contains
-    // an interface to access each array which are setup in PrepPerInstanceBlock to the respective offset into the instance buffer.
+	// Memory in addition to the struct size is reserved for the PrevFrameBonePositions and BoneVelocity arrays. 
+	// The size of these arrays are fixed to SourceLocations.Num(). FModuleLocationBoneSocketInstancePayload contains
+	// an interface to access each array which are setup in PrepPerInstanceBlock to the respective offset into the instance buffer.
 
 	SetSourceIndexMode();
 
@@ -1997,8 +1997,12 @@ void UParticleModuleLocationBoneSocket::GetSkeletalMeshComponentSource(FParticle
 
 	AActor* Actor = nullptr;
 	PSysComp->GetActorParameter(SkelMeshActorParamName, Actor);
+	USkeletalMeshComponent* AttachParentMesh = Cast<USkeletalMeshComponent>(PSysComp->GetAttachParent());
+
 	bool bActorChanged = Actor != InstancePayload->CachedActor.Get();
-	if (!InstancePayload->SourceComponent.IsValid() || bActorChanged)
+	bool bAttachParentChanged = (AttachParentMesh && AttachParentMesh != InstancePayload->SourceComponent.Get());
+
+	if (!InstancePayload->SourceComponent.IsValid() || bActorChanged || bAttachParentChanged)
 	{
 		InstancePayload->SourceComponent = nullptr;
 		InstancePayload->CachedActor = Actor;
@@ -2021,9 +2025,9 @@ void UParticleModuleLocationBoneSocket::GetSkeletalMeshComponentSource(FParticle
 			}
 		}
 
-		if (USkeletalMeshComponent* SkelMesh = Cast<USkeletalMeshComponent>(PSysComp->GetAttachParent()))
+		if (AttachParentMesh)
 		{
-			NewSkelComp = SkelMesh;
+			NewSkelComp = AttachParentMesh;
 		}
 
 		if (NewSkelComp)
@@ -2133,16 +2137,16 @@ bool UParticleModuleLocationBoneSocket::GetParticleLocation(FModuleLocationBoneS
 			{
 				FRotator SocketRotator(0,0,0);
 				FMatrix SocketMatrix;
- 				if (Socket->GetSocketMatrixWithOffset(SocketMatrix, InSkelMeshComponent, SocketOffset, SocketRotator) == false)
- 				{
- 					return false;
- 				}
- 				OutPosition = SocketMatrix.GetOrigin();
- 				if (OutRotation != NULL)
- 				{
- 					SocketMatrix.RemoveScaling();
- 					*OutRotation = SocketMatrix.ToQuat();
- 				}
+				if (Socket->GetSocketMatrixWithOffset(SocketMatrix, InSkelMeshComponent, SocketOffset, SocketRotator) == false)
+				{
+					return false;
+				}
+				OutPosition = SocketMatrix.GetOrigin();
+				if (OutRotation != NULL)
+				{
+					SocketMatrix.RemoveScaling();
+					*OutRotation = SocketMatrix.ToQuat();
+				}
 			}
 			else
 			{
@@ -2629,7 +2633,7 @@ uint32 UParticleModuleLocationSkelVertSurface::RequiredBytes(UParticleModuleType
 uint32 UParticleModuleLocationSkelVertSurface::RequiredBytesPerInstance()
 {
 	// Memory in addition to the struct size is reserved for the ValidAssociatedBoneIndices, PrevFrameBonePositions and BoneVelocity arrays. 
-    // The size of these arrays are fixed to ValidAssociatedBones.Num(). Proxys are setup in PrepPerInstanceBlock 
+	// The size of these arrays are fixed to ValidAssociatedBones.Num(). Proxys are setup in PrepPerInstanceBlock 
 	// to access these arrays
  
 	const uint32 ArraySize = ValidAssociatedBones.Num();
@@ -2790,6 +2794,12 @@ bool UParticleModuleLocationSkelVertSurface::GetParticleLocation(FParticleEmitte
 		FSkinWeightVertexBuffer& SkinWeightBuffer = *InSkelMeshComponent->GetSkinWeightBuffer(0);
 		if (SourceType == VERTSURFACESOURCE_Vert)
 		{
+			if ((uint32)InPrimaryVertexIndex >= LODData.GetNumVertices())
+			{
+				//possible if they change the mesh while the emitter has particles locked to verts/tris that are invalid on the new mesh.
+				return false;
+			}
+
 			FVector VertPos = USkeletalMeshComponent::GetSkinnedVertexPosition(InSkelMeshComponent, InPrimaryVertexIndex, LODData, SkinWeightBuffer);
 			OutPosition = InSkelMeshComponent->GetComponentTransform().TransformPosition(VertPos);
 			OutRotation = FQuat::Identity;
@@ -2798,6 +2808,12 @@ bool UParticleModuleLocationSkelVertSurface::GetParticleLocation(FParticleEmitte
 		{
 			FVector Verts[3];
 			int32 VertIndex[3];
+			int32 NumIndices = LODData.MultiSizeIndexContainer.GetIndexBuffer()->Num();
+			if (InPrimaryVertexIndex + 2 >= NumIndices)
+			{
+				//possible if they change the mesh while the emitter has particles locked to verts/tris that are invalid on the new mesh.
+				return false;
+			}
 
 			VertIndex[0] = LODData.MultiSizeIndexContainer.GetIndexBuffer()->Get( InPrimaryVertexIndex );
 			VertIndex[1] = LODData.MultiSizeIndexContainer.GetIndexBuffer()->Get( InPrimaryVertexIndex+1 );

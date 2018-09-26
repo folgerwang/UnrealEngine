@@ -46,6 +46,9 @@
 #define CASE_ENUM_TO_TEXT(txt) case txt: return TEXT(#txt);
 #endif
 
+/** Enable to verify that the cooked data matches the source data as we cook it */
+#define VERIFY_COOKED_PHYS_DATA 0
+
 const TCHAR* LexToString(ECollisionTraceFlag Enum)
 {
 	switch (Enum)
@@ -430,6 +433,7 @@ void UBodySetup::CreatePhysicsMeshes()
 
 	// Find or create cooked physics data
 	static FName PhysicsFormatName(FPlatformProperties::GetPhysicsFormat());
+
 	FByteBulkData* FormatData = GetCookedData(PhysicsFormatName);
 
 	// On dedicated servers we may be cooking generic data and sharing it
@@ -799,6 +803,9 @@ void UBodySetup::InvalidatePhysicsData()
 	{
 		CookedFormatData.FlushData();
 	}
+#if WITH_EDITOR
+	CookedFormatDataRuntimeOnlyOptimization.FlushData();
+#endif
 }
 
 void UBodySetup::BeginDestroy()
@@ -855,6 +862,29 @@ void UBodySetup::Serialize(FArchive& Ar)
 
 			FFormatContainer* UseCookedFormatData = bUseRuntimeOnlyCookedData ? &CookedFormatDataRuntimeOnlyOptimization : &CookedFormatData;
 			UseCookedFormatData->Serialize(Ar, this, &ActualFormatsToSave, !bSharedCookedData);
+
+#if VERIFY_COOKED_PHYS_DATA
+			// Verify that the cooked data matches the uncooked data
+			if(GetCollisionTraceFlag() != CTF_UseComplexAsSimple)
+			{
+				UObject* Outer = GetOuter();
+
+				for(TPair<FName, FByteBulkData*>& TestFormat : UseCookedFormatData->Formats)
+				{
+					FByteBulkData* BulkData = TestFormat.Value;
+					if(BulkData && BulkData->GetBulkDataSize() > 0)
+					{
+						FPhysXCookingDataReader PhysDataReader(*BulkData, &UVInfo);
+
+						if(PhysDataReader.ConvexMeshes.Num() != AggGeom.ConvexElems.Num() || PhysDataReader.TriMeshes.Num() != TriMeshes.Num())
+						{
+							// Cooked data doesn't match our current geo
+							UE_LOG(LogPhysics, Warning, TEXT("Body setup cooked data for component %s does not match uncooked geo. Convex: %d, %d, Trimesh: %d, %d"), Outer ? *Outer->GetName() : TEXT("None"), AggGeom.ConvexElems.Num(), PhysDataReader.ConvexMeshes.Num(), TriMeshes.Num(), PhysDataReader.TriMeshes.Num());
+						}
+					}
+				}
+			}
+#endif
 		}
 		else
 #endif
@@ -1282,6 +1312,7 @@ void UBodySetup::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 	UVInfo.GetResourceSizeEx(CumulativeResourceSize);
 }
 
+#if WITH_EDITORONLY_DATA
 void FKAggregateGeom::FixupDeprecated(FArchive& Ar)
 {
 	for (auto SphereElemIt = SphereElems.CreateIterator(); SphereElemIt; ++SphereElemIt)
@@ -1299,6 +1330,7 @@ void FKAggregateGeom::FixupDeprecated(FArchive& Ar)
 		SphylElemIt->FixupDeprecated(Ar);
 	}
 }
+#endif
 
 float FKAggregateGeom::GetVolume(const FVector& Scale) const
 {
@@ -1421,6 +1453,7 @@ float FKConvexElem::GetVolume(const FVector& Scale) const
 	return Volume;
 }
 
+#if WITH_EDITORONLY_DATA
 void FKSphereElem::FixupDeprecated( FArchive& Ar )
 {
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
@@ -1428,6 +1461,7 @@ void FKSphereElem::FixupDeprecated( FArchive& Ar )
 		Center = TM_DEPRECATED.GetOrigin();
 	}
 }
+#endif
 
 float FKSphereElem::GetShortestDistanceToPoint(const FVector& WorldPosition, const FTransform& LocalToWorldTM) const
 {
@@ -1490,6 +1524,7 @@ FKSphereElem FKSphereElem::GetFinalScaled(const FVector& Scale3D, const FTransfo
 	return ScaledSphere;
 }
 
+#if WITH_EDITORONLY_DATA
 void FKBoxElem::FixupDeprecated( FArchive& Ar )
 {
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
@@ -1504,6 +1539,7 @@ void FKBoxElem::FixupDeprecated( FArchive& Ar )
 		Rotation = Orientation_DEPRECATED.Rotator();
 	}
 }
+#endif
 
 void FKBoxElem::ScaleElem(FVector DeltaSize, float MinSize)
 {
@@ -1574,6 +1610,7 @@ float FKBoxElem::GetClosestPointAndNormal(const FVector& WorldPosition, const FT
 	return bIsOutside ? Error : 0.f;
 }
 
+#if WITH_EDITORONLY_DATA
 void FKSphylElem::FixupDeprecated( FArchive& Ar )
 {
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
@@ -1588,6 +1625,7 @@ void FKSphylElem::FixupDeprecated( FArchive& Ar )
 		Rotation = Orientation_DEPRECATED.Rotator();
 	}
 }
+#endif
 
 void FKSphylElem::ScaleElem(FVector DeltaSize, float MinSize)
 {

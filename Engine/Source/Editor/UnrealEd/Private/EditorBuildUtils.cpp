@@ -1149,6 +1149,108 @@ bool FEditorBuildUtils::EditorBuildTextureStreaming(UWorld* InWorld, EViewModeIn
 	return true;
 }
 
+static bool AreCloseToOnePercent(float A, float B)
+{
+	return FMath::Abs(A - B) / FMath::Max3(FMath::Abs(A), FMath::Abs(B), 1.f) < 0.01f;
+}
+
+bool FEditorBuildUtils::EditorBuildMaterialTextureStreamingData(UPackage* Package)
+{
+	const EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::High;
+	const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
+
+	TSet<UMaterialInterface*> Materials;
+	if (Package)
+	{
+		//if a package is explicitly provided, we're only interested in materials under that package.
+		//there is no need to perform a prior GC on this path, as we shouldn't be about to unhash any objects in the provided package.
+		TArray<UObject*> ObjectsInPackage;
+		GetObjectsWithOuter(Package, ObjectsInPackage);
+		for (UObject* Obj : ObjectsInPackage)
+		{
+			UMaterialInterface* Material = Cast<UMaterialInterface>(Obj);
+			if (Material && Material->HasAnyFlags(RF_Public) && Material->UseAnyStreamingTexture())
+			{
+				FMaterialResource* Resource = Material->GetMaterialResource(FeatureLevel);
+				if (Resource)
+				{
+					Resource->CacheShaders(GMaxRHIShaderPlatform, false);
+					Materials.Add(Material);
+				}
+			}
+		}
+	}
+	else
+	{
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
+		for (TObjectIterator<UMaterialInterface> MaterialIt; MaterialIt; ++MaterialIt)
+		{
+			UMaterialInterface* Material = *MaterialIt;
+			if (Material && Material->GetOutermost() != GetTransientPackage() && Material->HasAnyFlags(RF_Public) && Material->UseAnyStreamingTexture())
+			{
+				Materials.Add(Material);
+			}
+		}
+	}
+
+	if (Materials.Num() == 0)
+	{ //early out if there's nothing to work on.
+		return false;
+	}
+
+	FScopedSlowTask SlowTask(3.f); // { Sync Pending Shader, Wait for Compilation, Export }
+	SlowTask.MakeDialog(true);
+	const float OneOverNumMaterials = 1.f / FMath::Max(1.f, (float)Materials.Num());
+
+	bool bAnyPackagesDirtied = false;
+	if (CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, true, Materials, SlowTask))
+	{
+		FMaterialUtilities::FExportErrorManager ExportErrors(FeatureLevel);
+		for (UMaterialInterface* MaterialInterface : Materials)
+		{
+			SlowTask.EnterProgressFrame(OneOverNumMaterials);
+			if (MaterialInterface)
+			{
+				//for the explicit package path, we also want to use the quality level from the material resource to ensure we get a hit on the shadermap.
+				FMaterialResource* Resource = Package ? MaterialInterface->GetMaterialResource(FeatureLevel) : nullptr;
+
+				TArray<FMaterialTextureInfo> PreviousData = MaterialInterface->GetTextureStreamingData();
+				if (FMaterialUtilities::ExportMaterialUVDensities(MaterialInterface, Resource ? Resource->GetQualityLevel() : QualityLevel, FeatureLevel, ExportErrors))
+				{
+					TArray<FMaterialTextureInfo> NewData = MaterialInterface->GetTextureStreamingData();
+
+					bool bNeedsResave = PreviousData.Num() != NewData.Num();
+					if (!bNeedsResave)
+					{
+						for (int32 EntryIndex = 0; EntryIndex < NewData.Num(); ++EntryIndex)
+						{
+							if (NewData[EntryIndex].TextureName != PreviousData[EntryIndex].TextureName ||
+								!AreCloseToOnePercent(NewData[EntryIndex].SamplingScale, PreviousData[EntryIndex].SamplingScale) ||
+								NewData[EntryIndex].UVChannelIndex != PreviousData[EntryIndex].UVChannelIndex)
+							{
+								bNeedsResave = true;
+								break;
+							}
+						}
+					}
+
+					if (bNeedsResave)
+					{
+						MaterialInterface->MarkPackageDirty();
+						bAnyPackagesDirtied = true;
+					}
+				}
+			}
+		}
+		ExportErrors.OutputToLog();
+	}
+
+	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
+	return bAnyPackagesDirtied;
+}
+
 bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex SelectedViewMode)
 {
 	if (!InWorld)

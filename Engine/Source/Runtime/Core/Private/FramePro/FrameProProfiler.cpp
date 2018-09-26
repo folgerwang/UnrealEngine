@@ -240,15 +240,11 @@ static FAutoConsoleVariableRef CVarFrameProCPUStatsUpdateRate(
 void FFrameProProfiler::FrameStart()
 {
 	static bool bFirstFrame = true;
-#if PLATFORM_SWITCH
 	if (bFirstFrame && GFrameProEnabled)
-#else
-	if (bFirstFrame)
-#endif
 	{
 		UE_LOG(LogFramePro, Log, TEXT("FramePro Support Available"));
 
-		FramePro::SendSessionInfo(WTEXT(""), *FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist()));
+		FramePro::SendSessionInfo(WTEXT(""), TCHAR_TO_WCHAR(*FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist())));
 
 		FRAMEPRO_THREAD_ORDER(WTEXT("GameThread"));
 		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread"));
@@ -335,16 +331,32 @@ void FFrameProProfiler::PopEvent(const ANSICHAR* Override)
 	}
 }
 
-static void StartFrameProRecording(const TArray< FString >& Args)
+void FFrameProProfiler::StartFrameProRecordingFromCommand(const TArray< FString >& Args)
 {
-	FString RelPathName = FPaths::ProfilingDir() + TEXT("FramePro/");
-	bool bSuccess = IFileManager::Get().MakeDirectory(*RelPathName, true); // ensure folder exists
-
-	FString FilenameRoot = TEXT("Profile");	
+	FString FilenameRoot = TEXT("Profile");
 	if (Args.Num() > 0 && Args[0].Len() > 0)
 	{
 		FilenameRoot = Args[0];
 	}
+
+	StartFrameProRecording(FilenameRoot, 25);
+}
+
+void FFrameProProfiler::StartFrameProRecordingScopeOverrideFromCommand(const TArray< FString >& Args)
+{
+	int32 MinScopeTime = 25;
+	if (Args.Num() > 0 && Args[0].Len() > 0)
+	{
+		MinScopeTime = FCString::Atoi(*Args[0]);
+	}
+
+	StartFrameProRecording(TEXT("Profile"), MinScopeTime);
+}
+
+FString FFrameProProfiler::StartFrameProRecording(const FString& FilenameRoot, int32 MinScopeTime)
+{
+	FString RelPathName = FPaths::ProfilingDir() + TEXT("FramePro/");
+	bool bSuccess = IFileManager::Get().MakeDirectory(*RelPathName, true); // ensure folder exists
 
 	FString Filename = FString::Printf(TEXT("%s(%s).framepro_recording"), *FilenameRoot, *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S")));
 	FString OutputFilename = RelPathName + Filename;
@@ -352,22 +364,30 @@ static void StartFrameProRecording(const TArray< FString >& Args)
 	UE_LOG(LogFramePro, Log, TEXT("--- Start Recording To File: %s"), *OutputFilename);
 	
 	FramePro::StartRecording(OutputFilename, false, 100 * 1024 * 1024); // 100 MB file
-	FramePro::SetConditionalScopeMinTimeInMicroseconds(25);
+	FramePro::SetConditionalScopeMinTimeInMicroseconds(MinScopeTime);
 
 	// Force this on, no events to record without it
 	GFrameProEnabled = true;
 
 	// Enable named events as well
 	GCycleStatsShouldEmitNamedEvents = true;
+
+	return OutputFilename;
 }
 
 static FAutoConsoleCommand StartFrameProRecordCommand(
 	TEXT("framepro.startrec"),
 	TEXT("Start FramePro recording"),
-	FConsoleCommandWithArgsDelegate::CreateStatic(&StartFrameProRecording)
+	FConsoleCommandWithArgsDelegate::CreateStatic(&FFrameProProfiler::StartFrameProRecordingFromCommand)
 );
 
-static void StopFrameProRecording()
+static FAutoConsoleCommand StartFrameProRecordScopeOverrideCommand(
+	TEXT("framepro.startrecscopeoverride"),
+	TEXT("Start FramePro recording with a minimum event scope override"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&FFrameProProfiler::StartFrameProRecordingScopeOverrideFromCommand)
+);
+
+void FFrameProProfiler::StopFrameProRecording()
 {
 	FramePro::StopRecording();
 
@@ -380,7 +400,7 @@ static void StopFrameProRecording()
 static FAutoConsoleCommand StopFrameProRecordCommand(
 	TEXT("framepro.stoprec"),
 	TEXT("Stop FramePro recording"),
-	FConsoleCommandDelegate::CreateStatic(&StopFrameProRecording)
+	FConsoleCommandDelegate::CreateStatic(&FFrameProProfiler::StopFrameProRecording)
 );
 
 

@@ -189,6 +189,8 @@ namespace BuildPatchServices
 		~FFileSystem();
 
 		// IFileSystem interface begin.
+		virtual bool DirectoryExists(const TCHAR* DirectoryPath) const override;
+		virtual bool MakeDirectory(const TCHAR* DirectoryPath) const override;
 		virtual bool GetFileSize(const TCHAR* Filename, int64& FileSize) const override;
 		virtual bool GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const override;
 		virtual bool SetReadOnly(const TCHAR* Filename, bool bIsReadOnly) const override;
@@ -215,6 +217,16 @@ namespace BuildPatchServices
 
 	FFileSystem::~FFileSystem()
 	{
+	}
+
+	bool FFileSystem::DirectoryExists(const TCHAR* DirectoryPath) const
+	{
+		return PlatformFile.DirectoryExists(DirectoryPath);
+	}
+
+	bool FFileSystem::MakeDirectory(const TCHAR* DirectoryPath) const
+	{
+		return PlatformFile.CreateDirectoryTree(DirectoryPath);
 	}
 
 	bool FFileSystem::GetFileSize(const TCHAR* Filename, int64& FileSize) const

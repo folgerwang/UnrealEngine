@@ -14,6 +14,7 @@ const FNiagaraEmitterHandle FNiagaraEmitterHandle::InvalidHandle;
 const FString InitialNotSynchronizedReason("Emitter handle constructed");
 
 FNiagaraEmitterHandle::FNiagaraEmitterHandle() :
+	bIsEnabled(true),
 #if WITH_EDITORONLY_DATA
 	Source(nullptr),
 	LastMergedSource(nullptr),

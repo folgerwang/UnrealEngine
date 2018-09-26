@@ -32,3 +32,8 @@ void FOutputDeviceDebug::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbo
 {
 	Serialize( Data, Verbosity, Category, -1.0 );
 }
+
+bool FOutputDeviceDebug::CanBeUsedOnMultipleThreads() const
+{
+	return FPlatformMisc::IsLocalPrintThreadSafe();
+}

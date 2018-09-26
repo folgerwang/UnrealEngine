@@ -613,3 +613,4 @@ struct FAndroidPlatformString : public FGenericPlatformString
 #endif
 
 typedef FAndroidPlatformString FPlatformString;
+

@@ -152,7 +152,6 @@ public:
 	inline void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FUniformBufferRHIParamRef ViewUniformBuffer)
 	{
 		const auto& ViewUniformBufferParameter = static_cast<const FShaderUniformBufferParameter&>(GetUniformBufferParameter<TViewUniformShaderParameters>());
-		CheckShaderIsValid();
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, ViewUniformBuffer);
 	}
 

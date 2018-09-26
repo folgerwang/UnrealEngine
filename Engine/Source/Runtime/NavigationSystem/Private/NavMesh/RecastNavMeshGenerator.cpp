@@ -38,7 +38,7 @@
 
 #define DO_RECAST_STATS 0
 #if DO_RECAST_STATS
-#define RECAST_STAT SCOPE_CYCLE_COUNTER
+#define RECAST_STAT QUICK_SCOPE_CYCLE_COUNTER
 #else
 #define RECAST_STAT(...) 
 #endif
@@ -1537,9 +1537,8 @@ uint32 GetTileCacheSizeHelper(TArray<FNavMeshTileData>& CompressedTiles)
 	return TotalMemory;
 }
 
-static FBox CalculateTileBounds(int32 X, int32 Y, const FVector& NavMeshOrigin, const FBox& TotalNavBounds, float TileSizeInWorldUnits)
+static FBox CalculateTileBounds(int32 X, int32 Y, const FVector& RcNavMeshOrigin, const FBox& TotalNavBounds, float TileSizeInWorldUnits)
 {
-	const FVector RcNavMeshOrigin = Unreal2RecastPoint(NavMeshOrigin);
 	FBox TileBox(
 		RcNavMeshOrigin + (FVector(X + 0, 0, Y + 0) * TileSizeInWorldUnits),
 		RcNavMeshOrigin + (FVector(X + 1, 0, Y + 1) * TileSizeInWorldUnits)
@@ -1579,11 +1578,11 @@ FRecastTileGenerator::~FRecastTileGenerator()
 
 void FRecastTileGenerator::Setup(const FRecastNavMeshGenerator& ParentGenerator, const TArray<FBox>& DirtyAreas)
 {
-	const FVector NavMeshOrigin = FVector::ZeroVector;
+	const FVector RcNavMeshOrigin = ParentGenerator.GetRcNavMeshOrigin();
 	const FBox NavTotalBounds = ParentGenerator.GetTotalBounds();
 	const float TileCellSize = (TileConfig.tileSize * TileConfig.cs);
 
-	TileBB = CalculateTileBounds(TileX, TileY, NavMeshOrigin, NavTotalBounds, TileCellSize);
+	TileBB = CalculateTileBounds(TileX, TileY, RcNavMeshOrigin, NavTotalBounds, TileCellSize);
 	TileBBExpandedForAgent = TileBB.ExpandBy(NavDataConfig.AgentRadius * 2 + TileConfig.cs);
 	const FBox RCBox = Unreal2RecastBox(TileBB);
 	rcVcopy(TileConfig.bmin, &RCBox.Min.X);
@@ -2740,7 +2739,7 @@ bool FRecastTileGenerator::GenerateNavigationData(FNavMeshBuildContext& BuildCon
 				return false;
 			}
 
-			// if we didn't failed already then it's hight time we created data for off-mesh links
+			// if we didn't fail already then it's high time we created data for off-mesh links
 			FOffMeshData OffMeshData;
 			if (OffmeshLinks.Num() > 0)
 			{
@@ -3161,7 +3160,7 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 				if (SavedNavParams->tileHeight == TileDim && SavedNavParams->tileWidth == TileDim)
 				{
 					const FVector Orig = Recast2UnrealPoint(SavedNavParams->orig);
-					const FVector OrigError(FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.X, TileDim));
+					const FVector OrigError(FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.Y, TileDim), FMath::Fmod(Orig.Z, TileDim));
 					if (OrigError.IsNearlyZero())
 					{
 						bRecreateNavmesh = false;
@@ -3331,7 +3330,9 @@ bool FRecastNavMeshGenerator::ConstructTiledNavMesh()
 		
 		dtNavMeshParams TiledMeshParameters;
 		FMemory::Memzero(TiledMeshParameters);	
-		rcVcopy(TiledMeshParameters.orig, &FVector::ZeroVector.X);
+
+		rcVcopy(TiledMeshParameters.orig, &RcNavMeshOrigin.X);
+
 		TiledMeshParameters.tileWidth = Config.tileSize * Config.cs;
 		TiledMeshParameters.tileHeight = Config.tileSize * Config.cs;
 
@@ -3415,6 +3416,9 @@ bool FRecastNavMeshGenerator::RebuildAll()
 	
 	// Recreate recast navmesh
 	DestNavMesh->GetRecastNavMeshImpl()->ReleaseDetourNavMesh();
+
+	RcNavMeshOrigin = Unreal2RecastPoint(DestNavMesh->NavMeshOriginOffset);
+
 	ConstructTiledNavMesh();
 	
 	// if rebuilding all no point in keeping "old" invalidated areas
@@ -3940,8 +3944,7 @@ void FRecastNavMeshGenerator::MarkDirtyTiles(const TArray<FNavigationDirtyArea>&
 	check(bInitialized);
 	const float TileSizeInWorldUnits = Config.tileSize * Config.cs;
 	check(TileSizeInWorldUnits > 0);
-	const FVector NavMeshOrigin = FVector::ZeroVector;
-	
+
 	const bool bGameStaticNavMesh = IsGameStaticNavMesh(DestNavMesh);
 		
 	// find all tiles that need regeneration
@@ -3983,10 +3986,10 @@ void FRecastNavMeshGenerator::MarkDirtyTiles(const TArray<FNavigationDirtyArea>&
 		}
 				
 		const FBox RcAreaBounds = Unreal2RecastBox(AdjustedAreaBounds);
-		const int32 XMin = FMath::FloorToInt((RcAreaBounds.Min.X - NavMeshOrigin.X) / TileSizeInWorldUnits);
-		const int32 XMax = FMath::FloorToInt((RcAreaBounds.Max.X - NavMeshOrigin.X) / TileSizeInWorldUnits);
-		const int32 YMin = FMath::FloorToInt((RcAreaBounds.Min.Z - NavMeshOrigin.Z) / TileSizeInWorldUnits);
-		const int32 YMax = FMath::FloorToInt((RcAreaBounds.Max.Z - NavMeshOrigin.Z) / TileSizeInWorldUnits);
+		const int32 XMin = FMath::FloorToInt((RcAreaBounds.Min.X - RcNavMeshOrigin.X) / TileSizeInWorldUnits);
+		const int32 XMax = FMath::FloorToInt((RcAreaBounds.Max.X - RcNavMeshOrigin.X) / TileSizeInWorldUnits);
+		const int32 YMin = FMath::FloorToInt((RcAreaBounds.Min.Z - RcNavMeshOrigin.Z) / TileSizeInWorldUnits);
+		const int32 YMax = FMath::FloorToInt((RcAreaBounds.Max.Z - RcNavMeshOrigin.Z) / TileSizeInWorldUnits);
 
 		for (int32 TileY = YMin; TileY <= YMax; ++TileY)
 		{
@@ -3999,7 +4002,7 @@ void FRecastNavMeshGenerator::MarkDirtyTiles(const TArray<FNavigationDirtyArea>&
 
 				if (DirtyArea.HasFlag(ENavigationDirtyFlag::NavigationBounds) == false && bDoTileInclusionTest == true)
 				{
-					const FBox TileBox = CalculateTileBounds(TileX, TileY, NavMeshOrigin, TotalNavBounds, TileSizeInWorldUnits);
+					const FBox TileBox = CalculateTileBounds(TileX, TileY, RcNavMeshOrigin, TotalNavBounds, TileSizeInWorldUnits);
 
 					// do per tile check since we can have lots of tiles inbetween navigable bounds volumes
 					if (IntercestBounds(TileBox, InclusionBounds) == false)

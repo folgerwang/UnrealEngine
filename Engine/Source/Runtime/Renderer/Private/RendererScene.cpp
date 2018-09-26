@@ -52,6 +52,7 @@
 #include "PlanarReflectionSceneProxy.h"
 #include "Engine/StaticMesh.h"
 #include "GPUSkinCache.h"
+#include "DynamicShadowMapChannelBindingHelper.h"
 
 // Enable this define to do slow checks for components being added to the wrong
 // world's scene, when using PIE. This can happen if a PIE component is reattached
@@ -1238,41 +1239,51 @@ void FScene::ReleasePrimitive( UPrimitiveComponent* PrimitiveComponent )
 
 void FScene::AssignAvailableShadowMapChannelForLight(FLightSceneInfo* LightSceneInfo)
 {
-	bool bChannelAvailable[4] = { true, true, true, true };
+	FDynamicShadowMapChannelBindingHelper Helper;
+	check(LightSceneInfo && LightSceneInfo->Proxy);
 
-	for (TSparseArray<FLightSceneInfoCompact>::TConstIterator It(Lights); It; ++It)
+	// For lights with static shadowing, only check for lights intersecting the preview channel if any.
+	if (LightSceneInfo->Proxy->HasStaticShadowing())
 	{
-		const FLightSceneInfoCompact& OtherLightInfo = *It;
+		Helper.DisableAllOtherChannels(LightSceneInfo->GetDynamicShadowMapChannel());
 
-		if (OtherLightInfo.LightSceneInfo != LightSceneInfo
-			&& OtherLightInfo.LightSceneInfo->Proxy->CastsDynamicShadow()
-			&& OtherLightInfo.LightSceneInfo->GetDynamicShadowMapChannel() >= 0
-			&& OtherLightInfo.LightSceneInfo->Proxy->AffectsBounds(LightSceneInfo->Proxy->GetBoundingSphere()))
+		// If this static shadowing light does not need a (preview) channel, skip it.
+		if (!Helper.HasAnyChannelEnabled())
 		{
-			const int32 OtherShadowMapChannel = OtherLightInfo.LightSceneInfo->GetDynamicShadowMapChannel();
-
-			if (OtherShadowMapChannel < ARRAY_COUNT(bChannelAvailable))
-			{
-				bChannelAvailable[OtherShadowMapChannel] = false;
-			}
+			return;
 		}
 	}
-
-	int32 AvailableShadowMapChannel = -1;
-
-	for (int32 TestChannelIndex = 0; TestChannelIndex < ARRAY_COUNT(bChannelAvailable); TestChannelIndex++)
+	else if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional)
 	{
-		if (bChannelAvailable[TestChannelIndex])
-		{
-			AvailableShadowMapChannel = TestChannelIndex;
-			break;
-		}
+		// The implementation of forward lighting in ShadowProjectionPixelShader.usf does not support binding the directional light to channel 3.
+		// This is related to the USE_FADE_PLANE feature that encodes the CSM blend factor the alpha channel.
+		Helper.DisableChannel(3);
 	}
 
-	LightSceneInfo->SetDynamicShadowMapChannel(AvailableShadowMapChannel);
+	Helper.UpdateAvailableChannels(Lights, LightSceneInfo);
 
-	if (AvailableShadowMapChannel == -1)
+	const int32 NewChannelIndex = Helper.GetBestAvailableChannel();
+	if (NewChannelIndex != INDEX_NONE)
 	{
+		// Unbind the channels previously allocated to lower priority lights.
+		for (FLightSceneInfo* OtherLight : Helper.GetLights(NewChannelIndex))
+		{
+			OtherLight->SetDynamicShadowMapChannel(INDEX_NONE);
+		}
+
+		LightSceneInfo->SetDynamicShadowMapChannel(NewChannelIndex);
+
+		// Try to assign new channels to lights that were just unbound.
+		// Sort the lights so that they only get inserted once (prevents recursion).
+		Helper.SortLightByPriority(NewChannelIndex);
+		for (FLightSceneInfo* OtherLight : Helper.GetLights(NewChannelIndex))
+		{
+			AssignAvailableShadowMapChannelForLight(OtherLight);
+		}
+	}
+	else
+	{
+		LightSceneInfo->SetDynamicShadowMapChannel(INDEX_NONE);
 		OverflowingDynamicShadowedLights.AddUnique(LightSceneInfo->Proxy->GetComponentName());
 	}
 }
@@ -1326,42 +1337,9 @@ void FScene::AddLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 		}
 	}
 
-	const bool bForwardShading = IsForwardShadingEnabled(FeatureLevel);
-
-	if (bForwardShading && LightSceneInfo->Proxy->CastsDynamicShadow())
+	if (IsForwardShadingEnabled(GetShaderPlatform()) && LightSceneInfo->Proxy->CastsDynamicShadow())
 	{
-		if (LightSceneInfo->Proxy->HasStaticShadowing())
-		{
-			// If we are a stationary light being added, reassign all movable light shadowmap channels
-			for (TSparseArray<FLightSceneInfoCompact>::TConstIterator It(Lights); It; ++It)
-			{
-				const FLightSceneInfoCompact& OtherLightInfo = *It;
-
-				if (OtherLightInfo.LightSceneInfo != LightSceneInfo
-					&& !OtherLightInfo.LightSceneInfo->Proxy->HasStaticShadowing()
-					&& OtherLightInfo.LightSceneInfo->Proxy->CastsDynamicShadow())
-				{
-					OtherLightInfo.LightSceneInfo->SetDynamicShadowMapChannel(-1);
-				}
-			}
-
-			for (TSparseArray<FLightSceneInfoCompact>::TConstIterator It(Lights); It; ++It)
-			{
-				const FLightSceneInfoCompact& OtherLightInfo = *It;
-
-				if (OtherLightInfo.LightSceneInfo != LightSceneInfo
-					&& !OtherLightInfo.LightSceneInfo->Proxy->HasStaticShadowing()
-					&& OtherLightInfo.LightSceneInfo->Proxy->CastsDynamicShadow())
-				{
-					AssignAvailableShadowMapChannelForLight(OtherLightInfo.LightSceneInfo);
-				}
-			}
-		}
-		else
-		{
-			// If we are a movable light being added, assign a shadowmap channel
-			AssignAvailableShadowMapChannelForLight(LightSceneInfo);
-		}
+		AssignAvailableShadowMapChannelForLight(LightSceneInfo);
 	}
 
 	if (LightSceneInfo->Proxy->IsUsedAsAtmosphereSunLight() &&
@@ -1577,6 +1555,59 @@ void FScene::UpdateDecalTransform(UDecalComponent* Decal)
 		});
 	}
 }
+
+void FScene::UpdateDecalFadeOutTime(UDecalComponent* Decal)
+{
+	FDeferredDecalProxy* Proxy = Decal->SceneProxy;
+	if(Proxy)
+	{
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		float DecalFadeStartDelay = Decal->FadeStartDelay;
+		float DecalFadeDuration = Decal->FadeDuration;
+
+		ENQUEUE_RENDER_COMMAND(FUpdateDecalFadeInTimeCommand)(
+			[Proxy, CurrentTime, DecalFadeStartDelay, DecalFadeDuration](FRHICommandListImmediate& RHICmdList)
+		{
+			if (DecalFadeDuration > 0.0f)
+			{
+				Proxy->InvFadeDuration = 1.0f / DecalFadeDuration;
+				Proxy->FadeStartDelayNormalized = (CurrentTime + DecalFadeStartDelay + DecalFadeDuration) * Proxy->InvFadeDuration;
+			}
+			else
+			{
+				Proxy->InvFadeInDuration = -1.0f;
+				Proxy->FadeInStartDelayNormalized = 1.0f;
+			}
+		});
+	}
+}
+
+void FScene::UpdateDecalFadeInTime(UDecalComponent* Decal)
+{
+	FDeferredDecalProxy* Proxy = Decal->SceneProxy;
+	if (Proxy)
+	{
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		float DecalFadeStartDelay = Decal->FadeInStartDelay;
+		float DecalFadeDuration = Decal->FadeInDuration;
+
+		ENQUEUE_RENDER_COMMAND(FUpdateDecalFadeInTimeCommand)(
+			[Proxy, CurrentTime, DecalFadeStartDelay, DecalFadeDuration](FRHICommandListImmediate& RHICmdList)
+		{
+			if (DecalFadeDuration > 0.0f)
+			{
+				Proxy->InvFadeInDuration = 1.0f / DecalFadeDuration;
+				Proxy->FadeInStartDelayNormalized = (CurrentTime + DecalFadeDuration) * -Proxy->InvFadeInDuration;
+			}
+			else
+			{
+				Proxy->InvFadeInDuration = 1.0f;
+				Proxy->FadeInStartDelayNormalized = 0.0f;
+			}
+		});
+	}
+}
+
 
 void FScene::AddReflectionCapture(UReflectionCaptureComponent* Component)
 {
@@ -3174,6 +3205,8 @@ public:
 	virtual void AddDecal(UDecalComponent*) override {}
 	virtual void RemoveDecal(UDecalComponent*) override {}
 	virtual void UpdateDecalTransform(UDecalComponent* Decal) override {}
+	virtual void UpdateDecalFadeOutTime(UDecalComponent* Decal) override {};
+	virtual void UpdateDecalFadeInTime(UDecalComponent* Decal) override {};
 
 	/** Updates the transform of a light which has already been added to the scene. */
 	virtual void UpdateLightTransform(ULightComponent* Light) override {}

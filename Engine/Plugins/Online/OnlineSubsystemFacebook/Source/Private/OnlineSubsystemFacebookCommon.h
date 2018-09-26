@@ -71,8 +71,8 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemFacebookCommon();
-	FOnlineSubsystemFacebookCommon(FName InInstanceName);
+	FOnlineSubsystemFacebookCommon() = delete;
+	explicit FOnlineSubsystemFacebookCommon(FName InInstanceName);
 
 protected:
 

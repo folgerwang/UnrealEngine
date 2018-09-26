@@ -39,6 +39,10 @@ static void zfree(void *opaque, void *p)
  */
 static ICustomCompressor& GetCustomCompressor()
 {
+	if (IModularFeatures::Get().IsModularFeatureAvailable(CUSTOM_COMPRESSOR_FEATURE_NAME) == false)
+	{
+		UE_LOG(LogCompression, Fatal, TEXT("Custom Compressor is not available. Try adding -customcompressor=<dllpath>"));
+	}
 	static ICustomCompressor& Compressor = IModularFeatures::Get().GetModularFeature<ICustomCompressor>(CUSTOM_COMPRESSOR_FEATURE_NAME);
 	return Compressor;
 }
@@ -198,10 +202,14 @@ bool appUncompressMemoryZLIB( void* UncompressedBuffer, int32 UncompressedSize, 
 	UE_CLOG(Result == Z_BUF_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_BUF_ERROR, not enough room in the output buffer!"));
 	UE_CLOG(Result == Z_DATA_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_DATA_ERROR, input data was corrupted or incomplete!"));
 
-	const bool bOperationSucceeded = (Result == Z_OK);
+	bool bOperationSucceeded = (Result == Z_OK);
 
 	// Sanity check to make sure we uncompressed as much data as we expected to.
-	check( UncompressedSize == ZUncompressedSize );
+	if( UncompressedSize != ZUncompressedSize )
+	{
+		UE_LOG( LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Mismatched uncompressed size. Expected: %d, Got:%d. Result: %d"), UncompressedSize, ZUncompressedSize, Result );
+		bOperationSucceeded = false;
+	}
 	return bOperationSucceeded;
 }
 

@@ -9,6 +9,7 @@
 #include "VulkanResources.h"
 #include "VulkanShaderResources.h"
 #include "VulkanDescriptorSets.h"
+#include "ShaderPipelineCache.h"
 
 #if VULKAN_ENABLE_LRU_CACHE
 #include "PsoLruCache.h"
@@ -35,10 +36,20 @@ public:
 		return *Layout;
 	}
 #if VULKAN_ENABLE_LRU_CACHE
-	inline void DeleteVkPipeline()
+	inline void DeleteVkPipeline(bool ImmediateDestroy)
 	{
-		Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Pipeline, Pipeline);
-		Pipeline = VK_NULL_HANDLE;
+		if (Pipeline)
+		{
+			if (ImmediateDestroy)
+			{
+				VulkanRHI::vkDestroyPipeline(Device->GetInstanceHandle(), Pipeline, VULKAN_CPU_ALLOCATOR);
+}
+			else
+			{
+				Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Pipeline, Pipeline);
+			}
+			Pipeline = VK_NULL_HANDLE;
+		}
 	}
 #endif
 protected:
@@ -94,6 +105,9 @@ public:
 
 	inline void Bind(VkCommandBuffer CmdBuffer)
 	{
+#if VULKAN_ENABLE_LRU_CACHE
+		RecentFrame = GFrameNumberRenderThread;
+#endif
 		VulkanRHI::vkCmdBindPipeline(CmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline);
 	}
 
@@ -119,6 +133,7 @@ public:
 	uint32 GfxEntryHash;
 	uint32 PipelineCacheSize;
 	uint32 ShaderHash;
+	uint32 RecentFrame;
 	// ID to LRU (if used) allows quick access when updating LRU status.
 	FSetElementId LRUNode;
 #endif
@@ -144,6 +159,27 @@ public:
 		Pipeline->Bind(CmdBuffer);
 	}
 
+	inline const FVulkanShader* GetShader(EShaderFrequency Frequency) const
+	{
+		auto& BSS = PipelineStateInitializer.BoundShaderState;
+
+		FVulkanShader* Shader = nullptr;
+
+		switch (Frequency)
+		{
+		case SF_Vertex:   Shader = ResourceCast(BSS.VertexShaderRHI); break;
+		case SF_Hull:     Shader = ResourceCast(BSS.HullShaderRHI); break;
+		case SF_Domain:   Shader = ResourceCast(BSS.DomainShaderRHI); break;
+		case SF_Pixel:    Shader = ResourceCast(BSS.PixelShaderRHI); break;
+		case SF_Geometry: Shader = ResourceCast(BSS.GeometryShaderRHI); break;
+		default:
+			check(0);
+			break;
+		}
+
+		return Shader;
+	}
+
 	TRefCountPtr<FVulkanGfxPipeline>	Pipeline;
 	bool								bHasInputAttachments;
 
@@ -151,10 +187,10 @@ public:
 };
 
 template <typename T>
-static inline VkShaderModule GetDefaultShaderModule(T* ShaderType)
+static inline uint64 GetShaderId(T* ShaderType)
 {
 	auto* VulkanShader = ResourceCast(ShaderType);
-	return VulkanShader ? VulkanShader->GetDefaultShaderModule() : VK_NULL_HANDLE;
+	return VulkanShader ? VulkanShader->GetId() : 0;
 }
 
 class FVulkanPipelineStateCacheManager
@@ -162,20 +198,20 @@ class FVulkanPipelineStateCacheManager
 public:
 	struct FPSOHashable
 	{
-		FVulkanVertexDeclaration*		VertexDeclaration;
-		VkShaderModule					Shaders[ShaderStage::NumStages];
+		uint64								ShaderIds[ShaderStage::NumStages];
+		FVertexDeclarationElementList		VertexDeclaration;
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
-		VkSampler						ImmutableSamplers[MaxImmutableSamplers];
+		VkSampler							ImmutableSamplers[MaxImmutableSamplers];
 #endif
-		FBlendStateRHIParamRef			BlendState;
-		FRasterizerStateRHIParamRef		RasterizerState;
-		FDepthStencilStateRHIParamRef	DepthStencilState;
-		FExclusiveDepthStencil			DepthStencilAccess;
-		EPixelFormat					DepthStencilTargetFormat;
-		uint8							bDepthBounds;
-		TEnumAsByte<EPrimitiveType>		PrimitiveType;
-		uint8							RenderTargetsEnabled;
-		uint8							NumSamples;
+		FBlendStateInitializerRHI			BlendState;
+		FRasterizerStateInitializerRHI		RasterizerState;
+		FDepthStencilStateInitializerRHI	DepthStencilState;
+		FExclusiveDepthStencil				DepthStencilAccess;
+		EPixelFormat						DepthStencilTargetFormat;
+		uint8								bDepthBounds;
+		TEnumAsByte<EPrimitiveType>			PrimitiveType;
+		uint8								RenderTargetsEnabled;
+		uint8								NumSamples;
 	};
 
 	FVulkanRHIGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash);
@@ -184,7 +220,7 @@ public:
 
 	// Array of potential cache locations; first entries have highest priority. Only one cache file is loaded. If unsuccessful, tries next entry in the array.
 	void InitAndLoad(const TArray<FString>& CacheFilenames);
-	void Save(const FString& CacheFilename);
+	void Save(const FString& CacheFilename, bool bFromPSOFC = false);
 
 	FVulkanPipelineStateCacheManager(FVulkanDevice* InParent);
 	~FVulkanPipelineStateCacheManager();
@@ -246,6 +282,7 @@ public:
 		uint32 GetEntryHash(uint32 Crc = 0);
 		uint32 VertexInputKey;
 		bool bLoaded;
+		bool bConsumed; // Entry was added to cache and may not be deleted
 
 		uint32 RasterizationSamples;
 		uint32 Topology;
@@ -471,6 +508,7 @@ public:
 		FGfxPipelineEntry()
 			: VertexInputKey(0)
 			, bLoaded(false)
+			, bConsumed(false)
 			, RasterizationSamples(0)
 			, Topology(0)
 			, RenderPass(nullptr)
@@ -485,9 +523,20 @@ public:
 		~FGfxPipelineEntry();
 
 		// Vulkan Runtime Data/Objects
+		// Used for not loaded entries in order to
+		// create ShaderModules on pipeline creation time.
+		// After pipeline is created shader modules will be purged.
+		TRefCountPtr<FVulkanShader> VulkanShaders[ShaderStage::NumStages];
+		// Holds shader modules that is used to create pipeline
+		// For loaded entries shader modules created when entry is loaded and destroyed when entry is destroyed
+		// For runtime entries shader modules temporary created when pipeline is created
+		// Outside of pipeline creation shader modules are empty
 		VkShaderModule ShaderModules[ShaderStage::NumStages];
 		const FVulkanRenderPass* RenderPass;
 		FVulkanGfxLayout* Layout;
+
+		void CreateShaderModules();
+		void PurgeShaderModules();
 
 		bool operator==(const FGfxPipelineEntry& In) const
 		{
@@ -617,7 +666,12 @@ public:
 	FVulkanComputePipeline* GetOrCreateComputePipeline(FVulkanComputeShader* ComputeShader);
 
 #if VULKAN_ENABLE_LRU_CACHE
-	void CreateGfxPipelineFromEntry(const FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
+	bool ShouldEvictImmediately()
+	{
+		return bEvictImmediately && PipelineLRU.IsActive();
+	}
+
+	void CreateGfxPipelineFromEntry(FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
 	TMap<uint32, FGfxPipelineEntry*> GfxPipelineEntries;
 
 	TMap<uint32, FPipelineSize*> PipelineSizeList;	// key: Shader hash (FShaderHash), value: pipeline size
@@ -635,8 +689,9 @@ public:
 				: Device(InDevice), GfxPipeline(InPipeline), GfxEntry(InGfxEntry)
 			{
 				check(InGfxEntry);
+				check(InGfxEntry->bConsumed);
 
-				GfxPipeline->DeleteVkPipeline();
+				GfxPipeline->DeleteVkPipeline(InPipeline->RecentFrame + NUM_RENDER_BUFFERS < GFrameNumberRenderThread);
 			}
 
 			void RestoreVkPipeline();
@@ -688,6 +743,7 @@ public:
 				check(!EvictedPipelines.Contains(LeastGfxEntryHash));
 				FGfxPipelineEntry*const* Found = InGfxEntriesMap.Find(LeastGfxEntryHash);
 				check(Found);
+
 				FEvictedVkPipeline& test = EvictedPipelines.Emplace(LeastGfxEntryHash, FEvictedVkPipeline(InDevice, LeastRecentPipeline, *Found));
 			}
 		}
@@ -696,6 +752,11 @@ public:
 		FVKPipelineLRU() : LRUUsedPipelineSize(0), LRU(LRUCapacity)
 		{
 			bUseLRU = (int32)CVarEnableLRU.GetValueOnAnyThread() == 1;
+		}
+
+		bool IsActive()
+		{
+			return bUseLRU;
 		}
 
 		void Add(FVulkanDevice* InDevice, FVulkanGfxPipeline* GfxPipeline, const TMap<uint32, FGfxPipelineEntry*>& InGfxEntriesMap)
@@ -721,6 +782,28 @@ public:
 			LRUUsedPipelineSize += GfxPipeline->PipelineCacheSize;
 		}
 
+		bool IsEvicted(uint32 EntryHash)
+		{
+			return EvictedPipelines.Contains(EntryHash);
+		}
+
+		void AddAsEvicted(FVulkanDevice* InDevice, FVulkanGfxPipeline* GfxPipeline, const TMap<uint32, FGfxPipelineEntry*>& InGfxEntriesMap, FGfxPipelineEntry* GfxEntry)
+		{
+			check(bUseLRU);
+
+			uint32 EntryHash = GfxPipeline->GfxEntryHash;
+			check(!LRU.Contains(EntryHash));
+			check(!EvictedPipelines.Contains(EntryHash));
+
+			{
+				FScopeLock Lock(&LRUCS);
+
+				GfxPipeline->LRUNode = FSetElementId();
+
+				FEvictedVkPipeline& test = EvictedPipelines.Emplace(EntryHash, FEvictedVkPipeline(InDevice, GfxPipeline, GfxEntry));
+			}
+		}
+
 		FVulkanGfxPipeline* Find(FVulkanDevice* InDevice, uint32 EntryHash, const TMap<uint32, FGfxPipelineEntry*>& InGfxEntriesMap)
 		{
 			check(bUseLRU);
@@ -729,6 +812,7 @@ public:
 			if (Found)
 			{
 				check((*Found)->LRUNode.IsValidId());
+				(*Found)->RecentFrame = GFrameNumberRenderThread;
 				return *Found;
 			}
 
@@ -746,6 +830,7 @@ public:
 			{
 				FScopeLock Lock(&LRUCS);
 				LRU.MarkAsRecent(GfxPipeline->LRUNode);
+				GfxPipeline->RecentFrame = GFrameNumberRenderThread;
 			}
 			else
 			{
@@ -773,6 +858,20 @@ public:
 private:
 	FVulkanDevice* Device;
 
+	bool bEvictImmediately;
+
+	// if true, we will link to the PSOFC, loading later, when we have that guid and only if the guid matches, saving only if there is no match, and only saving after the PSOFC is done.
+	bool bLinkedToPSOFC;
+	bool bLinkedToPSOFCSucessfulLoaded;
+	FString LinkedToPSOFCCacheFolderPath;
+	FString LinkedToPSOFCCacheFolderFilename;
+	FDelegateHandle OnShaderPipelineCacheOpenedDelegate;
+	FDelegateHandle OnShaderPipelineCachePrecompilationCompleteDelegate;
+
+	/** Delegate handlers to track the ShaderPipelineCache precompile. */
+	void OnShaderPipelineCacheOpened(FString const& Name, EShaderPlatform Platform, uint32 Count, const FGuid& VersionGuid, FShaderPipelineCache::FShaderCachePrecompileContext& ShaderCachePrecompileContext);
+	void OnShaderPipelineCachePrecompilationComplete(uint32 Count, double Seconds, const FShaderPipelineCache::FShaderCachePrecompileContext& ShaderCachePrecompileContext);
+
 	// Key is a hash of the PSO, which is based off shader pointers
 	TMap<uint32, FVulkanRHIGraphicsPipelineState*> InitializerToPipelineMap;
 	FCriticalSection InitializerToPipelineMapCS;
@@ -792,10 +891,12 @@ private:
 	FShaderUCodeCache ShaderCache;
 
 #if VULKAN_ENABLE_LRU_CACHE
+	FVulkanGfxPipeline* CreateAsEvicted(FGfxPipelineEntry* GfxEntry, uint32 ShaderHash);
+
 	FVulkanRHIGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry, uint32 ShaderHash);
 #else
 	FVulkanRHIGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry);
-	void CreateGfxPipelineFromEntry(const FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
+	void CreateGfxPipelineFromEntry(FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
 #endif
 
 #if VULKAN_ENABLE_LRU_CACHE
@@ -804,7 +905,7 @@ private:
 	FGfxPipelineEntry* CreateGfxEntry(const FGraphicsPipelineStateInitializer& PSOInitializer);
 #endif
 	void CreatGfxEntryRuntimeObjects(FGfxPipelineEntry* GfxEntry);
-	void Load(const TArray<FString>& CacheFilenames);
+	bool Load(const TArray<FString>& CacheFilenames);
 	void DestroyCache();
 
 #if VULKAN_ENABLE_LRU_CACHE

@@ -252,14 +252,17 @@ void FActiveGameplayCueContainer::PredictiveRemove(const FGameplayTag& Tag)
 	{
 		return;
 	}
+	
 
+	// Predictive remove: we are predicting the removal of a replicated cue
+	// (We are not predicting the removal of a predictive cue. The predictive cue will be implicitly removed when the prediction key catched up)
 	for (int32 idx=0; idx < GameplayCues.Num(); ++idx)
 	{
+		// "Which" cue we predictively remove is only based on the tag and not already being predictively removed.
+		// Since there are no handles/identifies for the items in this container, we just go with the first.
 		FActiveGameplayCue& Cue = GameplayCues[idx];
-		if (Cue.GameplayCueTag == Tag)
-		{			
-			// Predictive remove: mark the cue as predictive remove, invoke remove event, update tag map.
-			// DONT remove from the replicated array.
+		if (Cue.GameplayCueTag == Tag && !Cue.bPredictivelyRemoved)
+		{
 			Cue.bPredictivelyRemoved = true;
 			Owner->UpdateTagMap(Tag, -1);
 			Owner->InvokeGameplayCueEvent(Tag, EGameplayCueEvent::Removed, Cue.Parameters);	
@@ -311,5 +314,145 @@ void FActiveGameplayCueContainer::SetOwner(UAbilitySystemComponent* InOwner)
 	for (FActiveGameplayCue& Cue : GameplayCues)
 	{
 		Cue.PostReplicatedAdd(*this);
+	}
+}
+
+// ----------------------------------------------------------------------------------------
+
+FMinimalGameplayCueReplicationProxy::FMinimalGameplayCueReplicationProxy()
+{
+	InitGameplayCueParametersFunc = [](FGameplayCueParameters& GameplayCueParameters, UAbilitySystemComponent* InOwner)
+	{
+		if (InOwner)
+		{
+			InOwner->InitDefaultGameplayCueParameters(GameplayCueParameters);
+		}
+	};
+}
+
+void FMinimalGameplayCueReplicationProxy::SetOwner(UAbilitySystemComponent* ASC)
+{
+	Owner = ASC;
+	if (Owner && ReplicatedTags.Num() > 0)
+	{
+		// Invoke events in case we skipped them during ::NetSerialize
+		FGameplayCueParameters Parameters;
+		InitGameplayCueParametersFunc(Parameters, Owner);
+
+		for (FGameplayTag& Tag : ReplicatedTags)
+		{
+			Owner->SetTagMapCount(Tag, 1);
+			Owner->InvokeGameplayCueEvent(Tag, EGameplayCueEvent::WhileActive, Parameters);
+		}
+	}
+}
+
+void FMinimalGameplayCueReplicationProxy::PreReplication(const FActiveGameplayCueContainer& SourceContainer)
+{
+	if (LastSourceArrayReplicationKey != SourceContainer.ArrayReplicationKey)
+	{
+		LastSourceArrayReplicationKey = SourceContainer.ArrayReplicationKey;
+		ReplicatedTags.SetNum(SourceContainer.GameplayCues.Num(), false);
+		for (int32 idx=0; idx < SourceContainer.GameplayCues.Num(); ++idx)
+		{
+			ReplicatedTags[idx] = SourceContainer.GameplayCues[idx].GameplayCueTag;
+		}
+	}
+}
+
+bool FMinimalGameplayCueReplicationProxy::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+{
+	enum { NumBits = 5 }; // Number of bits to use for number of array
+	enum { MaxNum = (1 << NumBits) -1 }; // Number of bits to use for number of array
+
+	uint8 NumElements;
+
+	if (Ar.IsSaving())
+	{
+		NumElements = ReplicatedTags.Num();
+		if (NumElements > MaxNum)
+		{
+			FString Str;
+			for (const FGameplayTag& Tag : ReplicatedTags)
+			{
+				Str += Tag.ToString() + TEXT(" ");
+			}
+			ABILITY_LOG(Warning, TEXT("Too many tags in ReplicatedTags on %s. %d total: %s. Dropping"), *GetPathNameSafe(Owner), NumElements, *Str);
+			NumElements = MaxNum;
+			ReplicatedTags.SetNum(NumElements);
+		}
+
+		Ar.SerializeBits(&NumElements, NumBits);
+
+		for (uint8 i=0; i < NumElements; ++i)
+		{
+			ReplicatedTags[i].NetSerialize(Ar, Map, bOutSuccess);
+		}
+	}
+	else
+	{
+		NumElements = 0;
+		Ar.SerializeBits(&NumElements, NumBits);
+
+		LocalTags = MoveTemp(ReplicatedTags);
+		LocalBitMask.Init(true, LocalTags.Num());
+		
+		ReplicatedTags.SetNumUninitialized(NumElements, false);
+
+		// This struct does not serialize GC parameters but will synthesize them on the receiving side.
+		FGameplayCueParameters Parameters;
+		InitGameplayCueParametersFunc(Parameters, Owner);
+
+		for (uint8 i=0; i < NumElements; ++i)
+		{
+			FGameplayTag& ReplicatedTag = ReplicatedTags[i];
+
+			ReplicatedTag.NetSerialize(Ar, Map, bOutSuccess);
+
+			int32 LocalIdx = LocalTags.IndexOfByKey(ReplicatedTag);
+			if (LocalIdx != INDEX_NONE)
+			{
+				// This tag already existed and is accounted for
+				LocalBitMask[LocalIdx] = false;
+			}
+			else if (Owner)
+			{
+				// This is a new tag, we need to invoke the WhileActive gameplaycue event
+				Owner->SetTagMapCount(ReplicatedTag, 1);
+				Owner->InvokeGameplayCueEvent(ReplicatedTag, EGameplayCueEvent::WhileActive, Parameters);
+			}
+		}
+
+		if (Owner)
+		{
+			for (TConstSetBitIterator<TInlineAllocator<NumInlineTags>> It(LocalBitMask); It; ++It)
+			{
+				FGameplayTag& RemovedTag = LocalTags[It.GetIndex()];
+				Owner->SetTagMapCount(RemovedTag, 0);
+				Owner->InvokeGameplayCueEvent(RemovedTag, EGameplayCueEvent::Removed, Parameters);
+			}
+		}
+	}
+
+
+	bOutSuccess = true;
+	return true;
+}
+
+void FMinimalGameplayCueReplicationProxy::RemoveAllCues()
+{
+	if (!Owner)
+	{
+		return;
+	}
+
+	FGameplayCueParameters Parameters;
+	InitGameplayCueParametersFunc(Parameters, Owner);
+
+	for (int32 idx=0; idx < ReplicatedTags.Num(); ++idx)
+	{
+		const FGameplayTag& GameplayCueTag = ReplicatedTags[idx];
+		Owner->SetTagMapCount(GameplayCueTag, 0);
+		Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed, Parameters);
 	}
 }

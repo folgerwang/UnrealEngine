@@ -17,6 +17,12 @@ public class Renderer : ModuleRules
 		PublicDependencyModuleNames.Add("Core");
         PublicDependencyModuleNames.Add("Engine");
         PublicDependencyModuleNames.Add("MaterialShaderQualitySettings");
+
+        if (Target.bBuildEditor == true)
+        {
+            PrivateDependencyModuleNames.Add("TargetPlatform");
+        }
+
         // Renderer module builds faster without unity
         // Non-unity also provides faster iteration
 		// Not enabled by default as it might harm full rebuild times without XGE

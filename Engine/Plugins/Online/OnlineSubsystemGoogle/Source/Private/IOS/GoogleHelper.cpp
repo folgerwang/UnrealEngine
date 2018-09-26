@@ -2,6 +2,7 @@
 
 #include "GoogleHelper.h"
 #include "OnlineSubsystemGooglePrivate.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 
 #include "Misc/CoreDelegates.h"
 #include "IOS/IOSAppDelegate.h"
@@ -36,12 +37,12 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 		}
 		else
 		{
-			UE_LOG_ONLINE(Verbose, TEXT("GetAuthTokenFromGoogleUser: Failed to parse id token"));
+			UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("GetAuthTokenFromGoogleUser: Failed to parse id token"));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("GetAuthTokenFromGoogleUser: Access token missing"));
+		UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("GetAuthTokenFromGoogleUser: Access token missing"));
 	}
 
 	return bSuccess;
@@ -70,7 +71,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 	}
 	else
 	{
-		UE_LOG(LogOnline, Error, TEXT("Google init missing clientId"));
+		UE_LOG_ONLINE_IDENTITY(Error, TEXT("Google init missing clientId"));
 	}
 
 	return self;
@@ -108,7 +109,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 
 - (void) logout
 {
-	UE_LOG(LogOnline, Display, TEXT("logout"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("logout"));
 
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
@@ -120,7 +121,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 
 		[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 		{
-			UE_LOG(LogOnline, Display, TEXT("logoutComplete: %s"), *SignOutData.ToDebugString());
+			UE_LOG_ONLINE_IDENTITY(Display, TEXT("logoutComplete: %s"), *SignOutData.ToDebugString());
 
 			// Notify on the game thread
 			_OnSignOutComplete.Broadcast(SignOutData);
@@ -138,7 +139,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 	FString Description = FString([error localizedDescription]);
 	SignInData.ErrorStr = MoveTemp(Description);
 
-	UE_LOG(LogOnline, Display, TEXT("signIn didSignInForUser GID:%p User:%p Error:%s"), signIn, user, *SignInData.ErrorStr);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("signIn didSignInForUser GID:%p User:%p Error:%s"), signIn, user, *SignInData.ErrorStr);
 	[self printAuthStatus];
 
 	if (user)
@@ -165,7 +166,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 		SignInData.Response = EGoogleLoginResponse::RESPONSE_ERROR;
 	}
 
-	UE_LOG(LogOnline, Display, TEXT("SignIn: %s"), *SignInData.ToDebugString());
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("SignIn: %s"), *SignInData.ToDebugString());
 
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -184,7 +185,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
-		UE_LOG(LogOnline, Display, TEXT("didDisconnectWithUser Complete: %s"), *SignOutData.ToDebugString());
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("didDisconnectWithUser Complete: %s"), *SignOutData.ToDebugString());
 
 		// Notify on the game thread
 		_OnDisconnectComplete.Broadcast(SignOutData);
@@ -194,14 +195,14 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 
 - (void)signInWillDispatch:(GIDSignIn *)signIn error:(NSError *)error
 {
-	UE_LOG(LogOnline, Display, TEXT("signInWillDispatch %p %s"), signIn, *FString([error localizedDescription]));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("signInWillDispatch %p %s"), signIn, *FString([error localizedDescription]));
 
 	// Google flow has figured out how to proceed, any engine related "please wait" is no longer necessary
 }
 
 - (void)signIn:(GIDSignIn *)signIn presentViewController:(UIViewController *)viewController
 {
-	UE_LOG(LogOnline, Display, TEXT("presentViewController %p"), signIn);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("presentViewController %p"), signIn);
 
 	// Google has provided a view controller for us to login, we present it.
 	[[IOSAppDelegate GetDelegate].IOSController
@@ -210,7 +211,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 
 - (void)signIn:(GIDSignIn *)signIn dismissViewController:(UIViewController *)viewController
 {
-	UE_LOG(LogOnline, Display, TEXT("dismissViewController %p"), signIn);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("dismissViewController %p"), signIn);
 
 	// Dismiss the Google sign in view
 	[viewController dismissViewControllerAnimated: YES completion: nil];
@@ -222,29 +223,29 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 	GIDGoogleUser* googleUser = [signIn currentUser];
 
 	bool bHasAuth = [signIn hasAuthInKeychain];
-	UE_LOG(LogOnline, Display, TEXT("HasAuth: %d"), bHasAuth);
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("HasAuth: %d"), bHasAuth);
 
-	UE_LOG(LogOnline, Display, TEXT("Authentication:"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Authentication:"));
 	if (googleUser.authentication)
 	{
-		UE_LOG(LogOnline, Display, TEXT("- Access: %s"), *FString(googleUser.authentication.accessToken));
-		UE_LOG(LogOnline, Display, TEXT("- Refresh: %s"), *FString(googleUser.authentication.refreshToken));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("- Access: %s"), *FString(googleUser.authentication.accessToken));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("- Refresh: %s"), *FString(googleUser.authentication.refreshToken));
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("- None"));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("- None"));
 	}
 
-	UE_LOG(LogOnline, Display, TEXT("Scopes:"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("Scopes:"));
 	for (NSString* scope in signIn.scopes)
 	{
-		UE_LOG(LogOnline, Display, TEXT("- %s"), *FString(scope));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("- %s"), *FString(scope));
 	}
 
-	UE_LOG(LogOnline, Display, TEXT("User:"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("User:"));
 	if (googleUser)
 	{
-		UE_LOG(LogOnline, Display, TEXT("- UserId: %s RealName: %s FirstName: %s LastName: %s Email: %s"),
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("- UserId: %s RealName: %s FirstName: %s LastName: %s Email: %s"),
 			   *FString(googleUser.userID),
 			   *FString(googleUser.profile.name),
 			   *FString(googleUser.profile.givenName),
@@ -254,7 +255,7 @@ bool GetAuthTokenFromGoogleUser(GIDGoogleUser* user, FAuthTokenGoogle& OutAuthTo
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("- None"));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("- None"));
 	}
 }
 

@@ -40,16 +40,16 @@ public:
 		// Print help if requested
 		if (bHelp)
 		{
-			UE_LOG(LogBuildPatchTool, Log, TEXT("AUTOMATION TEST MODE"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("This tool mode runs automation tests."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("No arguments are required."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Optional arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -TestList=\"\"   Specifies in quotes, the list of tests to run. The list is + delimited."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: If -TestList is not specified, then all BuildPatchServices tests are ran."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("AUTOMATION TEST MODE"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("This tool mode runs automation tests."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("No arguments are required."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Optional arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -TestList=\"\"   Specifies in quotes, the list of tests to run. The list is + delimited."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If -TestList is not specified, then all BuildPatchServices tests are ran."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
 			return EReturnCode::OK;
 		}
 

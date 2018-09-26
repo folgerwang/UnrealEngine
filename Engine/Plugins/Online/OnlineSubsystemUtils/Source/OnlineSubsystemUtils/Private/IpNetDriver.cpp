@@ -36,6 +36,7 @@ Notes:
 
 DECLARE_CYCLE_STAT(TEXT("IpNetDriver Add new connection"), Stat_IpNetDriverAddNewConnection, STATGROUP_Net);
 DECLARE_CYCLE_STAT(TEXT("IpNetDriver Socket RecvFrom"), STAT_IpNetDriver_RecvFromSocket, STATGROUP_Net);
+DECLARE_CYCLE_STAT(TEXT("IpNetDriver Destroy WaitForReceiveThread"), STAT_IpNetDriver_Destroy_WaitForReceiveThread, STATGROUP_Net);
 
 UIpNetDriver::FOnNetworkProcessingCausingSlowFrame UIpNetDriver::OnNetworkProcessingCausingSlowFrame;
 
@@ -57,6 +58,21 @@ FAutoConsoleVariableRef GIpNetDriverLongFramePrintoutThresholdSecsCVar(
 	GIpNetDriverLongFramePrintoutThresholdSecs,
 	TEXT("Time to spend processing networking data in a single frame before an output log warning is printed (in seconds)\n")
 	TEXT(" default: 10 s"));
+
+TAutoConsoleVariable<int32> CVarNetIpNetDriverUseReceiveThread(
+	TEXT("net.IpNetDriverUseReceiveThread"),
+	0,
+	TEXT("If true, the IpNetDriver will call the socket's RecvFrom function on a separate thread (not the game thread)"));
+
+TAutoConsoleVariable<int32> CVarNetIpNetDriverReceiveThreadQueueMaxPackets(
+	TEXT("net.IpNetDriverReceiveThreadQueueMaxPackets"),
+	1024,
+	TEXT("If net.IpNetDriverUseReceiveThread is true, the maximum number of packets that can be waiting in the queue. Additional packets received will be dropped."));
+
+TAutoConsoleVariable<int32> CVarNetIpNetDriverReceiveThreadPollTimeMS(
+	TEXT("net.IpNetDriverReceiveThreadPollTimeMS"),
+	250,
+	TEXT("If net.IpNetDriverUseReceiveThread is true, the number of milliseconds to use as the timeout value for FSocket::Wait on the receive thread. A negative value means to wait indefinitely (FSocket::Shutdown should cancel it though)."));
 
 UIpNetDriver::UIpNetDriver(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -119,7 +135,7 @@ bool UIpNetDriver::InitBase( bool bInitAsClient, FNetworkNotify* InNotify, const
 	if( Socket == NULL )
 	{
 		Socket = 0;
-		Error = FString::Printf( TEXT("WinSock: socket failed (%i)"), (int32)SocketSubsystem->GetLastErrorCode() );
+		Error = FString::Printf( TEXT("%s: socket failed (%i)"), SocketSubsystem->GetSocketAPIName(), (int32)SocketSubsystem->GetLastErrorCode() );
 		return false;
 	}
 	if (SocketSubsystem->RequiresChatDataBeSeparate() == false &&
@@ -165,6 +181,13 @@ bool UIpNetDriver::InitBase( bool bInitAsClient, FNetworkNotify* InNotify, const
 		Error = FString::Printf( TEXT("%s: SetNonBlocking failed (%i)"), SocketSubsystem->GetSocketAPIName(),
 			(int32)SocketSubsystem->GetLastErrorCode());
 		return false;
+	}
+
+	// If the cvar is set and the socket subsystem supports it, create the receive thread.
+	if (CVarNetIpNetDriverUseReceiveThread.GetValueOnAnyThread() != 0 && SocketSubsystem->IsSocketWaitSupported())
+	{
+		SocketReceiveThreadRunnable = MakeUnique<FReceiveThreadRunnable>(this);
+		SocketReceiveThread.Reset(FRunnableThread::Create(SocketReceiveThreadRunnable.Get(), *FString::Printf(TEXT("IpNetDriver Receive Thread"), *NetDriverName.ToString())));
 	}
 
 	// Success.
@@ -254,6 +277,37 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 		// Get data, if any.
 		bool bOk = false;
+		ESocketErrors Error = SE_NO_ERROR;
+		bool bUsingReceiveThread = SocketReceiveThreadRunnable.IsValid();
+
+		if (bUsingReceiveThread)
+		{
+			FReceivedPacket IncomingPacket;
+			const bool bHasPacket = SocketReceiveThreadRunnable->ReceiveQueue.Dequeue(IncomingPacket);
+			if (!bHasPacket)
+			{
+				break;
+			}
+
+			if (IncomingPacket.FromAddress.IsValid())
+			{
+				FromAddr = IncomingPacket.FromAddress.ToSharedRef();
+			}
+			Error = IncomingPacket.Error;
+			bOk = Error == SE_NO_ERROR;
+			
+			if (IncomingPacket.PacketBytes.Num() <= sizeof(Data))
+			{
+				FMemory::Memcpy(Data, IncomingPacket.PacketBytes.GetData(), IncomingPacket.PacketBytes.Num());
+				BytesRead = IncomingPacket.PacketBytes.Num();
+			}
+			else
+			{
+				UE_LOG(LogNet, Log, TEXT("IpNetDriver receive thread received a packet of %d bytes, which is larger than the data buffer size of %d bytes."), IncomingPacket.PacketBytes.Num(), sizeof(Data));
+				continue;
+			}
+		}
+		else
 		{
 			SCOPE_CYCLE_COUNTER(STAT_IpNetDriver_RecvFromSocket);
 			bOk = Socket->RecvFrom(Data, sizeof(Data), BytesRead, *FromAddr);
@@ -275,7 +329,10 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 		}
 		else
 		{
-			ESocketErrors Error = SocketSubsystem->GetLastErrorCode();
+			if (!bUsingReceiveThread)
+			{
+				Error = SocketSubsystem->GetLastErrorCode();
+			}
 
 			if (Error == SE_EWOULDBLOCK || Error == SE_NO_ERROR)
 			{
@@ -551,7 +608,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 	}
 }
 
-void UIpNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits)
+void UIpNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	bool bValidAddress = !Address.IsEmpty();
 	TSharedRef<FInternetAddr> RemoteAddr = GetSocketSubsystem()->CreateInternetAddr();
@@ -568,7 +625,7 @@ void UIpNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits)
 		if (ConnectionlessHandler.IsValid())
 		{
 			const ProcessedPacket ProcessedData =
-					ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits);
+					ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits, Traits);
 
 			if (!ProcessedData.bError)
 			{
@@ -617,6 +674,24 @@ void UIpNetDriver::LowLevelDestroy()
 	// Close the socket.
 	if( Socket && !HasAnyFlags(RF_ClassDefaultObject) )
 	{
+		// Wait for send tasks if needed before closing the socket,
+		// since at this point CleanUp() may not have been called on the server connection.
+		UIpConnection* const IpServerConnection = GetServerConnection();
+		if (IpServerConnection)
+		{
+			IpServerConnection->WaitForSendTasks();
+		}
+
+		// If using a recieve thread, shut down the socket, which will signal the thread to exit gracefully, then wait on the thread.
+		if (SocketReceiveThread.IsValid() && SocketReceiveThreadRunnable.IsValid())
+		{
+			SocketReceiveThreadRunnable->bIsRunning = false;
+			Socket->Shutdown(ESocketShutdownMode::Read);
+
+			SCOPE_CYCLE_COUNTER(STAT_IpNetDriver_Destroy_WaitForReceiveThread);
+			SocketReceiveThread->WaitForCompletion();
+		}
+
 		ISocketSubsystem* SocketSubsystem = GetSocketSubsystem();
 		if( !Socket->Close() )
 		{
@@ -659,4 +734,79 @@ bool UIpNetDriver::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 UIpConnection* UIpNetDriver::GetServerConnection() 
 {
 	return (UIpConnection*)ServerConnection;
+}
+
+UIpNetDriver::FReceiveThreadRunnable::FReceiveThreadRunnable(UIpNetDriver* InOwningNetDriver)
+	: ReceiveQueue(CVarNetIpNetDriverReceiveThreadQueueMaxPackets.GetValueOnAnyThread())
+	, bIsRunning(true)
+	, OwningNetDriver(InOwningNetDriver)
+{
+	SocketSubsystem = OwningNetDriver->GetSocketSubsystem();
+}
+
+uint32 UIpNetDriver::FReceiveThreadRunnable::Run()
+{
+	const FTimespan Timeout = FTimespan::FromMilliseconds(CVarNetIpNetDriverReceiveThreadPollTimeMS.GetValueOnAnyThread());
+
+	UE_LOG(LogNet, Log, TEXT("Receive Thread Startup."));
+
+	while (bIsRunning && OwningNetDriver->Socket)
+	{
+		FReceivedPacket IncomingPacket;
+
+		if (OwningNetDriver->Socket->Wait(ESocketWaitConditions::WaitForRead, Timeout))
+		{
+			bool bOk = false;
+			int32 BytesRead = 0;
+
+			IncomingPacket.FromAddress = SocketSubsystem->CreateInternetAddr();
+
+			IncomingPacket.PacketBytes.AddUninitialized(MAX_PACKET_SIZE);
+
+			{
+				SCOPE_CYCLE_COUNTER(STAT_IpNetDriver_RecvFromSocket);
+				bOk = OwningNetDriver->Socket->RecvFrom(IncomingPacket.PacketBytes.GetData(), IncomingPacket.PacketBytes.Num(), BytesRead, *IncomingPacket.FromAddress);
+			}
+
+			if (bOk)
+			{
+				if (BytesRead == 0)
+				{
+					// Don't even queue empty packets, they can be ignored.
+					continue;
+				}
+			}
+			else
+			{
+				// This relies on the platform's implementation using thread-local storage for the last socket error code.
+				IncomingPacket.Error = SocketSubsystem->GetLastErrorCode();
+
+				// Pass all other errors back to the Game Thread
+				if (IncomingPacket.Error == SE_EWOULDBLOCK || IncomingPacket.Error == SE_NO_ERROR)
+				{
+					continue;
+				}
+			}
+
+
+			IncomingPacket.PacketBytes.SetNum(FMath::Max(BytesRead, 0), false);
+			IncomingPacket.PlatformTimeSeconds = FPlatformTime::Seconds();
+
+			// Add packet to queue. Since ReceiveQueue is a TCircularQueue, if the queue is full, this will simply return false without adding anything.
+			ReceiveQueue.Enqueue(MoveTemp(IncomingPacket));
+		}
+		else
+		{
+			const ESocketErrors WaitError = SocketSubsystem->GetLastErrorCode();
+			if(WaitError != ESocketErrors::SE_NO_ERROR)
+			{
+				IncomingPacket.Error = WaitError;
+				IncomingPacket.PlatformTimeSeconds = FPlatformTime::Seconds();
+
+				ReceiveQueue.Enqueue(MoveTemp(IncomingPacket));
+			}
+		}
+	}
+
+	return 0;
 }

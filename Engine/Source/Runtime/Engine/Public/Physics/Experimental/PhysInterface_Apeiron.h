@@ -291,7 +291,7 @@ public:
 	static ENGINE_API void SetCcdEnabled_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, bool bIsCcdEnabled);
 
 	static ENGINE_API FTransform GetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
-	static ENGINE_API void SetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewPose);
+	static ENGINE_API void SetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewPose, bool bAutoWake = true);
 
     static ENGINE_API FTransform GetTransform_AssumesLocked(const FPhysicsActorHandle& InRef, bool bForceGlobalPose = false);
 
@@ -300,10 +300,10 @@ public:
 	static ENGINE_API void SetKinematicTarget_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewTarget);
 
 	static ENGINE_API FVector GetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
-	static ENGINE_API void SetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity);
+	static ENGINE_API void SetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity, bool bAutoWake = true);
 
 	static ENGINE_API FVector GetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
-	static ENGINE_API void SetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity);
+	static ENGINE_API void SetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity, bool bAutoWake = true);
 	static ENGINE_API float GetMaxAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
 	static ENGINE_API void SetMaxAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, float InMaxAngularVelocity);
 

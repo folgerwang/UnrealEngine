@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLArgumentEncoder>, void> : public IMPTableBase<id<MTLArgumentEncoder>>
+struct MTLPP_EXPORT IMPTable<id<MTLArgumentEncoder>, void> : public IMPTableBase<id<MTLArgumentEncoder>>
 {
 	IMPTable()
 	{
@@ -52,7 +52,7 @@ struct IMPTable<id<MTLArgumentEncoder>, void> : public IMPTableBase<id<MTLArgume
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLArgumentEncoder>, InterposeClass> : public IMPTable<id<MTLArgumentEncoder>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLArgumentEncoder>, InterposeClass> : public IMPTable<id<MTLArgumentEncoder>, void>
 {
 	IMPTable()
 	{

@@ -760,9 +760,16 @@ FD3D12TemporalEffect::FD3D12TemporalEffect()
 	, EffectFence(nullptr, FRHIGPUMask::GPU0(), "TemporalEffectFence")
 {}
 
+FName MakeEffectName(FName InEffectName)
+{
+	ANSICHAR AnsiName[NAME_SIZE];
+	InEffectName.GetPlainANSIString(AnsiName);
+	return FName(AnsiName);
+}
+
 FD3D12TemporalEffect::FD3D12TemporalEffect(FD3D12Adapter* Parent, const FName& InEffectName)
 	: FD3D12AdapterChild(Parent)
-	, EffectFence(Parent, FRHIGPUMask::All(), InEffectName.GetPlainANSIString())
+	, EffectFence(Parent, FRHIGPUMask::All(), MakeEffectName(InEffectName))
 {}
 
 FD3D12TemporalEffect::FD3D12TemporalEffect(const FD3D12TemporalEffect& Other)

@@ -472,7 +472,7 @@ FNiagaraVariable FNiagaraParameterMapHistory::GetSourceForInitialValue(const FNi
 		}
 	}
 
-	FString OutVarStrName = FString::Join<FString>(JoinString, TEXT("."));
+	FString OutVarStrName = FString::Join(JoinString, TEXT("."));
 	FNiagaraVariable Var = InVar;
 	Var.SetName(*OutVarStrName);
 
@@ -1272,7 +1272,7 @@ void UpdateAliasedVariable(FNiagaraVariable& AliasedVar, const FNiagaraVariable&
 		//}
 	}
 
-	FString OutVarStrName = FString::Join<FString>(JoinName, TEXT("."));
+	FString OutVarStrName = FString::Join(JoinName, TEXT("."));
 	AliasedVar.SetName(*OutVarStrName);
 }
 

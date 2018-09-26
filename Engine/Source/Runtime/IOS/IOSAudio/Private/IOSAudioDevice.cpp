@@ -79,6 +79,11 @@ int32& FIOSAudioDevice::GetSuspendCounter()
 	return SuspendCounter;
 }
 
+void FIOSAudioDevice::UpdateDeviceDeltaTime()
+{
+	DeviceDeltaTime = GetGameDeltaTime();
+}
+
 FIOSAudioDevice::FIOSAudioDevice() :
 	FAudioDevice(),
 	AudioUnitGraph(NULL),

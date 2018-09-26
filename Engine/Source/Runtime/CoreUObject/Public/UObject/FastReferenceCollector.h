@@ -185,6 +185,7 @@ public:
 	{
 		TArray<FGCArrayStruct*> AllArrays;
 		Pool.PopAll(AllArrays);
+		int32 Index = 0;
 		for (FGCArrayStruct* ArrayStruct : AllArrays)
 		{
 			for (UObject** WeakReference : ArrayStruct->WeakReferences)
@@ -196,7 +197,8 @@ public:
 				}
 			}
 			ArrayStruct->WeakReferences.Reset();
-			if (bClearPools)
+			if (bClearPools 
+				|| Index % 7 == 3) // delete 1/7th of them just to keep things from growing too much between full purges
 			{
 				delete ArrayStruct;
 			}
@@ -204,6 +206,7 @@ public:
 			{
 				Pool.Push(ArrayStruct);
 			}
+			Index++;
 		}
 	}
 

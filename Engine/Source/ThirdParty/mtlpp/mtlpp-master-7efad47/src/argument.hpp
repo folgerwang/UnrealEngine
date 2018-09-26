@@ -137,7 +137,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-	class Type : public ns::Object<MTLType*>
+	class MTLPP_EXPORT Type : public ns::Object<MTLType*>
 	{
 	public:
 		Type();
@@ -148,7 +148,7 @@ namespace mtlpp
 	}
 	MTLPP_AVAILABLE(10_13, 11_0);
 	
-	class TextureReferenceType : public ns::Object<MTLTextureReferenceType*>
+	class MTLPP_EXPORT TextureReferenceType : public ns::Object<MTLTextureReferenceType*>
 	{
 	public:
 		TextureReferenceType();
@@ -162,7 +162,7 @@ namespace mtlpp
 	}
 	MTLPP_AVAILABLE(10_13, 11_0);
 	
-	class PointerType : public ns::Object<MTLPointerType*>
+	class MTLPP_EXPORT PointerType : public ns::Object<MTLPointerType*>
 	{
 	public:
 		PointerType();
@@ -180,7 +180,7 @@ namespace mtlpp
 	}
 	MTLPP_AVAILABLE(10_13, 11_0);
 	
-    class StructMember : public ns::Object<MTLStructMember*>
+    class MTLPP_EXPORT StructMember : public ns::Object<MTLStructMember*>
     {
     public:
         StructMember();
@@ -200,7 +200,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class StructType : public ns::Object<MTLStructType*>
+    class MTLPP_EXPORT StructType : public ns::Object<MTLStructType*>
     {
     public:
         StructType();
@@ -212,7 +212,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class ArrayType : public ns::Object<MTLArrayType*>
+    class MTLPP_EXPORT ArrayType : public ns::Object<MTLArrayType*>
     {
     public:
         ArrayType();
@@ -231,7 +231,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class Argument : public ns::Object<MTLArgument*>
+    class MTLPP_EXPORT Argument : public ns::Object<MTLArgument*>
     {
     public:
         Argument();

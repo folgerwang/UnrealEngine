@@ -105,30 +105,9 @@ protected:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
+	FOnlineSubsystemSteam() = delete;
 	FOnlineSubsystemSteam(FName InInstanceName) :
 		FOnlineSubsystemImpl(STEAM_SUBSYSTEM, InInstanceName),
-		bSteamworksClientInitialized(false),
-		bSteamworksGameServerInitialized(false),
-		SteamAppID(0),
-		GameServerSteamPort(0),
-		GameServerGamePort(0),
-		GameServerQueryPort(0),
-		SessionInterface(nullptr),
-		IdentityInterface(nullptr),
-		FriendInterface(nullptr),
-		SharedCloudInterface(nullptr),
-		UserCloudInterface(nullptr),
-		LeaderboardsInterface(nullptr),
-		VoiceInterface(nullptr),
-		bVoiceInterfaceInitialized(false),
-		ExternalUIInterface(nullptr),
-		PresenceInterface(nullptr),
-		AuthInterface(nullptr),
-		OnlineAsyncTaskThreadRunnable(nullptr),
-		OnlineAsyncTaskThread(nullptr)
-	{}
-
-	FOnlineSubsystemSteam() : 
 		bSteamworksClientInitialized(false),
 		bSteamworksGameServerInitialized(false),
 		SteamAppID(0),

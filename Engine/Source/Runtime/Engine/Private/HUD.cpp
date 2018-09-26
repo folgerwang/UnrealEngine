@@ -588,15 +588,11 @@ void AHUD::NextDebugTarget()
 	CurrentTargetIndex = Targets.Num() > 0 ? (CurrentTargetIndex + 1) % Targets.Num() : INDEX_NONE;
 	if (Targets.IsValidIndex(CurrentTargetIndex))
 	{
-		CurrentTargetIndex = (CurrentTargetIndex + 1) % Targets.Num();
-		if (Targets.IsValidIndex(CurrentTargetIndex))
-		{
-			ShowDebugTargetActor = Targets[CurrentTargetIndex];
-		}
-		else if (PlayerOwner->PlayerCameraManager && PlayerOwner->PlayerCameraManager->ViewTarget.Target)
-		{
-			ShowDebugTargetActor = PlayerOwner->PlayerCameraManager->ViewTarget.Target;
-		}
+		ShowDebugTargetActor = Targets[CurrentTargetIndex];
+	}
+	else if (PlayerOwner->PlayerCameraManager && PlayerOwner->PlayerCameraManager->ViewTarget.Target)
+	{
+		ShowDebugTargetActor = PlayerOwner->PlayerCameraManager->ViewTarget.Target;
 	}
 }
 

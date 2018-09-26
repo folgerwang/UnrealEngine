@@ -619,7 +619,7 @@ void FMetalDeviceContext::EndDrawingViewport(FMetalViewport* Viewport, bool bPre
 #endif
 		
 		RenderPass.End();
-
+		
 		SubmitCommandsHint(EMetalSubmitFlagsForce|EMetalSubmitFlagsCreateCommandBuffer);
 		
 		Viewport->Present(GetCommandQueue(), bLockToVsync);

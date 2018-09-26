@@ -23,7 +23,7 @@
 	#include "Framework/Notifications/NotificationManager.h"
 	#include "Widgets/Notifications/SNotificationList.h"
 #endif
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Components/BrushComponent.h"
 #include "Engine/CoreSettings.h"
 #include "PhysicsEngine/BodySetup.h"
@@ -35,7 +35,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogLevelStreaming, Log, All);
 
 #define LOCTEXT_NAMESPACE "World"
 
-int32 ULevelStreamingKismet::UniqueLevelInstanceId = 0;
+int32 ULevelStreamingDynamic::UniqueLevelInstanceId = 0;
 
 /**
  * This helper function is defined here so that it can go into the 4.18.1 hotfix (for UE-51791),
@@ -1568,14 +1568,14 @@ ULevelStreamingPersistent::ULevelStreamingPersistent(const FObjectInitializer& O
 }
 
 /*-----------------------------------------------------------------------------
-	ULevelStreamingKismet implementation.
+	ULevelStreamingDynamic implementation.
 -----------------------------------------------------------------------------*/
-ULevelStreamingKismet::ULevelStreamingKismet(const FObjectInitializer& ObjectInitializer)
+ULevelStreamingDynamic::ULevelStreamingDynamic(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 }
 
-void ULevelStreamingKismet::PostLoad()
+void ULevelStreamingDynamic::PostLoad()
 {
 	Super::PostLoad();
 
@@ -1587,7 +1587,7 @@ void ULevelStreamingKismet::PostLoad()
 	}
 }
 
-void ULevelStreamingKismet::SetShouldBeLoaded(const bool bInShouldBeLoaded)
+void ULevelStreamingDynamic::SetShouldBeLoaded(const bool bInShouldBeLoaded)
 {
 	if (bInShouldBeLoaded != bShouldBeLoaded)
 	{
@@ -1599,7 +1599,7 @@ void ULevelStreamingKismet::SetShouldBeLoaded(const bool bInShouldBeLoaded)
 	}
 }
 
-ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance(UObject* WorldContextObject, const FString LevelName, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
+ULevelStreamingDynamic* ULevelStreamingDynamic::LoadLevelInstance(UObject* WorldContextObject, const FString LevelName, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
 {
 	bOutSuccess = false;
 	UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
@@ -1619,7 +1619,7 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance(UObject* WorldCo
 	return LoadLevelInstance_Internal(World, LongPackageName, Location, Rotation, bOutSuccess);
 }
 
-ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstanceBySoftObjectPtr(UObject* WorldContextObject, const TSoftObjectPtr<UWorld> Level, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
+ULevelStreamingDynamic* ULevelStreamingDynamic::LoadLevelInstanceBySoftObjectPtr(UObject* WorldContextObject, const TSoftObjectPtr<UWorld> Level, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
 {
 	bOutSuccess = false;
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
@@ -1637,7 +1637,7 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstanceBySoftObjectPtr(U
 	return LoadLevelInstance_Internal(World, Level.GetLongPackageName(), Location, Rotation, bOutSuccess);
 }
 
-ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance_Internal(UWorld* World, const FString& LongPackageName, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
+ULevelStreamingDynamic* ULevelStreamingDynamic::LoadLevelInstance_Internal(UWorld* World, const FString& LongPackageName, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
 {
     // Create Unique Name for sub-level package
 	const FString ShortPackageName = FPackageName::GetShortName(LongPackageName);
@@ -1646,7 +1646,7 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance_Internal(UWorld*
 	UniqueLevelPackageName += TEXT("_LevelInstance_") + FString::FromInt(++UniqueLevelInstanceId);
     
 	// Setup streaming level object that will load specified map
-	ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>(World, ULevelStreamingKismet::StaticClass(), NAME_None, RF_Transient, NULL);
+	ULevelStreamingDynamic* StreamingLevel = NewObject<ULevelStreamingDynamic>(World, ULevelStreamingDynamic::StaticClass(), NAME_None, RF_Transient, NULL);
     StreamingLevel->SetWorldAssetByPackageName(FName(*UniqueLevelPackageName));
     StreamingLevel->LevelColor = FColor::MakeRandomColor();
     StreamingLevel->SetShouldBeLoaded(true);

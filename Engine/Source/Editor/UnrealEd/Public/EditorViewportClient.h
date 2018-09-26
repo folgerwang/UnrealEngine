@@ -1117,6 +1117,9 @@ public:
 	/** Set whether previewing for low DPI. */
 	void SetLowDPIPreview(bool LowDPIPreview);
 	
+	/** Mouse info is usually transformed to gizmo space before FEdMode handles it, this allows raw delta X and Y access */
+	FMouseDeltaTracker* GetMouseDeltaTracker() { return  MouseDeltaTracker; }
+	
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */
 	void InvalidateViewportWidget();

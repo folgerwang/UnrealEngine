@@ -356,6 +356,7 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.Flags %u"), Desc.Flags);
 		}
 	}
+	FThreadHeartBeat::Get().PresentFrame();
 
 	VERIFYD3D11RESULT_EX(Result, D3DRHI->GetDevice());
 	

@@ -326,6 +326,10 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedPosition = Intermediates.Position.xyz;
 	Result.PreSkinnedNormal = TangentToLocal[2].xyz;
 
+	// Previous frame not handled deliberately. Lacks necessary information and
+	// primitives using this VF are usually transparent and hence don't output velocity
+	Result.PrevFrameLocalToWorld = Primitive.LocalToWorld;
+
 #if NUM_DYNAMIC_PARAMETERS > 0
 	Result.Particle.DynamicParameter = Intermediates.DynamicParameter;
 #endif

@@ -99,7 +99,7 @@ bool IsDedicatedServerForGameplayCue()
 }
 
 
-void UGameplayCueManager::HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
+void UGameplayCueManager::HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters, EGameplayCueExecutionOptions Options)
 {
 #if WITH_EDITOR
 	if (GIsEditor && TargetActor == nullptr && UGameplayCueManager::PreviewComponent)
@@ -108,18 +108,18 @@ void UGameplayCueManager::HandleGameplayCues(AActor* TargetActor, const FGamepla
 	}
 #endif
 
-	if (ShouldSuppressGameplayCues(TargetActor))
+	if (!(Options & EGameplayCueExecutionOptions::IgnoreSuppression) && ShouldSuppressGameplayCues(TargetActor))
 	{
 		return;
 	}
 
 	for (auto It = GameplayCueTags.CreateConstIterator(); It; ++It)
 	{
-		HandleGameplayCue(TargetActor, *It, EventType, Parameters);
+		HandleGameplayCue(TargetActor, *It, EventType, Parameters, Options);
 	}
 }
 
-void UGameplayCueManager::HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
+void UGameplayCueManager::HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters, EGameplayCueExecutionOptions Options)
 {
 #if WITH_EDITOR
 	if (GIsEditor && TargetActor == nullptr && UGameplayCueManager::PreviewComponent)
@@ -128,14 +128,17 @@ void UGameplayCueManager::HandleGameplayCue(AActor* TargetActor, FGameplayTag Ga
 	}
 #endif
 
-	if (ShouldSuppressGameplayCues(TargetActor))
+	if (!(Options & EGameplayCueExecutionOptions::IgnoreSuppression) && ShouldSuppressGameplayCues(TargetActor))
 	{
 		return;
 	}
 
-	TranslateGameplayCue(GameplayCueTag, TargetActor, Parameters);
-
-	RouteGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
+	if (!(Options & EGameplayCueExecutionOptions::IgnoreTranslation))
+	{
+		TranslateGameplayCue(GameplayCueTag, TargetActor, Parameters);
+	}
+	
+	RouteGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters, Options);
 }
 
 bool UGameplayCueManager::ShouldSuppressGameplayCues(AActor* TargetActor)
@@ -158,9 +161,10 @@ bool UGameplayCueManager::ShouldSuppressGameplayCues(AActor* TargetActor)
 	return false;
 }
 
-void UGameplayCueManager::RouteGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
+void UGameplayCueManager::RouteGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters, EGameplayCueExecutionOptions Options)
 {
-	IGameplayCueInterface* GameplayCueInterface = Cast<IGameplayCueInterface>(TargetActor);
+	// If we want to ignore interfaces, set the pointer to null
+	IGameplayCueInterface* GameplayCueInterface = !(Options & EGameplayCueExecutionOptions::IgnoreInterfaces) ? Cast<IGameplayCueInterface>(TargetActor) : nullptr;
 	bool bAcceptsCue = true;
 	if (GameplayCueInterface)
 	{
@@ -170,12 +174,12 @@ void UGameplayCueManager::RouteGameplayCue(AActor* TargetActor, FGameplayTag Gam
 #if !UE_BUILD_SHIPPING
 	if (OnRouteGameplayCue.IsBound())
 	{
-		OnRouteGameplayCue.Broadcast(TargetActor, GameplayCueTag, EventType, Parameters);
+		OnRouteGameplayCue.Broadcast(TargetActor, GameplayCueTag, EventType, Parameters, Options);
 	}
 #endif // !UE_BUILD_SHIPPING
 
 #if ENABLE_DRAW_DEBUG
-	if (DisplayGameplayCues)
+	if (DisplayGameplayCues && !(Options & EGameplayCueExecutionOptions::IgnoreDebug))
 	{
 		FString DebugStr = FString::Printf(TEXT("[%s] %s - %s"), *GetNameSafe(TargetActor), *GameplayCueTag.ToString(), *EGameplayCueEventToString(EventType) );
 		FColor DebugColor = FColor::Green;
@@ -193,8 +197,7 @@ void UGameplayCueManager::RouteGameplayCue(AActor* TargetActor, FGameplayTag Gam
 	}
 
 	// Give the global set a chance
-	check(RuntimeGameplayCueObjectLibrary.CueSet);
-	if (bAcceptsCue)
+	if (bAcceptsCue && !(Options & EGameplayCueExecutionOptions::IgnoreNotifies))
 	{
 		RuntimeGameplayCueObjectLibrary.CueSet->HandleGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
 	}
@@ -204,6 +207,9 @@ void UGameplayCueManager::RouteGameplayCue(AActor* TargetActor, FGameplayTag Gam
 	{
 		GameplayCueInterface->HandleGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
 	}
+
+	// This is to force client side replays to record the target of the GC on the next frame. (ForceNetUpdates from the server will not translate into ForceNetUpdates on the client/replays)
+	TargetActor->ForceNetUpdate();
 
 	CurrentWorld = nullptr;
 }

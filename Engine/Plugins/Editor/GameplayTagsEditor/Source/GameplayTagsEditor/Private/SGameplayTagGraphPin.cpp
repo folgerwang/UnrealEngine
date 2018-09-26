@@ -45,15 +45,20 @@ void SGameplayTagGraphPin::ParseDefaultValueData()
 {
 	FString TagString = GraphPinObj->GetDefaultAsString();
 
-	UK2Node_CallFunction* CallFuncNode = Cast<UK2Node_CallFunction>(GraphPinObj->GetOwningNode());
-	
 	FilterString.Empty();
-	if (CallFuncNode)
+	if (UScriptStruct* PinStructType = Cast<UScriptStruct>(GraphPinObj->PinType.PinSubCategoryObject.Get()))
 	{
-		UFunction* ThisFunction = CallFuncNode->GetTargetFunction();
-		if (ThisFunction)
+		FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromStruct(PinStructType);
+	}
+
+	if (FilterString.IsEmpty())
+	{
+		if (UK2Node_CallFunction* CallFuncNode = Cast<UK2Node_CallFunction>(GraphPinObj->GetOwningNode()))
 		{
-			FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromFunction(ThisFunction);
+			if (UFunction* ThisFunction = CallFuncNode->GetTargetFunction())
+			{
+				FilterString = UGameplayTagsManager::Get().GetCategoriesMetaFromFunction(ThisFunction);
+			}
 		}
 	}
 

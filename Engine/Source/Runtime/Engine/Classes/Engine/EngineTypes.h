@@ -1199,6 +1199,10 @@ struct FRigidBodyErrorCorrection
 	UPROPERTY(EditAnywhere, Category = "Replication")
 	float PingExtrapolation;
 
+	/** For the purpose of extrapolation, ping will be clamped to this value */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float PingLimit;
+
 	/** Error per centimeter */
 	UPROPERTY(EditAnywhere, Category = "Replication")
 	float ErrorPerLinearDifference;
@@ -1210,6 +1214,9 @@ struct FRigidBodyErrorCorrection
 	/** Maximum allowable error for a state to be considered "resolved" */
 	UPROPERTY(EditAnywhere, Category = "Replication")
 	float MaxRestoredStateError;
+
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float MaxLinearHardSnapDistance;
 
 	/** How much to directly lerp to the correct position. Generally
 		this should be very low, if not zero. A higher value will
@@ -1251,9 +1258,11 @@ struct FRigidBodyErrorCorrection
 
 	FRigidBodyErrorCorrection()
 		: PingExtrapolation(0.1f)
+		, PingLimit(100.f)
 		, ErrorPerLinearDifference(1.0f)
 		, ErrorPerAngularDifference(1.0f)
 		, MaxRestoredStateError(1.0f)
+		, MaxLinearHardSnapDistance(400.f)
 		, PositionLerp(0.0f)
 		, AngleLerp(0.4f)
 		, LinearVelocityCoefficient(100.0f)
@@ -2673,7 +2682,7 @@ struct ENGINE_API FPointDamageEvent : public FDamageEvent
 	UPROPERTY()
 	struct FHitResult HitInfo;
 
-	FPointDamageEvent() : Damage(0.0f), HitInfo() {}
+	FPointDamageEvent() : Damage(0.0f), ShotDirection(ForceInitToZero), HitInfo() {}
 	FPointDamageEvent(float InDamage, struct FHitResult const& InHitInfo, FVector const& InShotDirection, TSubclassOf<class UDamageType> InDamageTypeClass)
 		: FDamageEvent(InDamageTypeClass), Damage(InDamage), ShotDirection(InShotDirection), HitInfo(InHitInfo)
 	{}
@@ -2755,6 +2764,10 @@ struct ENGINE_API FRadialDamageEvent : public FDamageEvent
 
 	/** Simple API for common cases where we are happy to assume a single hit is expected, even though damage event may have multiple hits. */
 	virtual void GetBestHitInfo(AActor const* HitActor, AActor const* HitInstigator, struct FHitResult& OutHitInfo, FVector& OutImpulseDir) const override;
+
+	FRadialDamageEvent()
+		: Origin(ForceInitToZero)
+	{}
 };
 
 
@@ -2851,6 +2864,7 @@ struct FTimerHandle
 	GENERATED_BODY()
 
 	friend class FTimerManager;
+	friend struct FTimerHeapOrder;
 
 	FTimerHandle()
 	: Handle(0)
@@ -2866,9 +2880,6 @@ struct FTimerHandle
 	{
 		Handle = 0;
 	}
-
-	DEPRECATED(4.12, "This function is deprecated to avoid problems with timer wraparound. Please call FTimerManager::ValidateHandle.")
-	void MakeValid();
 
 	bool operator==(const FTimerHandle& Other) const
 	{
@@ -2886,8 +2897,38 @@ struct FTimerHandle
 	}
 
 private:
+	static const uint32 IndexBits        = 24;
+	static const uint32 SerialNumberBits = 40;
+
+	static_assert(IndexBits + SerialNumberBits == 64, "The space for the timer index and serial number should total 64 bits");
+
+	static const int32  MaxIndex        = (int32)1 << IndexBits;
+	static const uint64 MaxSerialNumber = (uint64)1 << SerialNumberBits;
+
+	void SetIndexAndSerialNumber(int32 Index, uint64 SerialNumber)
+	{
+		check(Index >= 0 && Index < MaxIndex);
+		check(SerialNumber < MaxSerialNumber);
+		Handle = (SerialNumber << IndexBits) | (uint64)(uint32)Index;
+	}
+
+	FORCEINLINE int32 GetIndex() const
+	{
+		return (int32)(Handle & (uint64)(MaxIndex - 1));
+	}
+
+	FORCEINLINE uint64 GetSerialNumber() const
+	{
+		return Handle >> IndexBits;
+	}
+
 	UPROPERTY(Transient)
 	uint64 Handle;
+
+	friend uint32 GetTypeHash(const FTimerHandle& InHandle)
+	{
+		return GetTypeHash(InHandle.Handle);
+	}
 };
 
 UENUM()
@@ -3965,5 +4006,7 @@ enum class ELevelCollectionType
 	 * only static geometry and other visuals that are not replicated or affected by gameplay.
 	 * These will not be duplicated in order to save memory.
 	 */
-	StaticLevels
+	StaticLevels,
+
+	MAX
 };

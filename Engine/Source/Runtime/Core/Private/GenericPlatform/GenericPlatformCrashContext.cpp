@@ -18,6 +18,7 @@
 #include "Misc/EngineVersion.h"
 #include "Misc/EngineBuildSettings.h"
 #include "Stats/Stats.h"
+#include "Internationalization/TextLocalizationManager.h"
 
 #ifndef NOINITCRASHREPORTER
 #define NOINITCRASHREPORTER 0
@@ -123,7 +124,6 @@ void FGenericCrashContext::Initialize()
 	NCachedCrashContextProperties::ExecutableName = FPlatformProcess::ExecutableName();
 	NCachedCrashContextProperties::PlatformName = FPlatformProperties::PlatformName();
 	NCachedCrashContextProperties::PlatformNameIni = FPlatformProperties::IniPlatformName();
-	NCachedCrashContextProperties::DeploymentName = FApp::GetDeploymentName();
 	NCachedCrashContextProperties::BaseDir = FPlatformProcess::BaseDir();
 	NCachedCrashContextProperties::RootDir = FPlatformMisc::RootDir();
 	NCachedCrashContextProperties::EpicAccountId = FPlatformMisc::GetEpicAccountId();
@@ -138,6 +138,9 @@ void FGenericCrashContext::Initialize()
 	NCachedCrashContextProperties::UserName = FPlatformProcess::UserName();
 	NCachedCrashContextProperties::DefaultLocale = FPlatformMisc::GetDefaultLocale();
 	NCachedCrashContextProperties::CommandLine = FCommandLine::IsInitialized() ? FCommandLine::GetOriginalForLogging() : TEXT(""); 
+
+	// Use -epicapp value from the commandline to start. This will also be set by the game
+	FParse::Value(FCommandLine::Get(), TEXT("EPICAPP="), NCachedCrashContextProperties::DeploymentName);
 
 	if (FInternationalization::IsAvailable())
 	{
@@ -200,6 +203,7 @@ void FGenericCrashContext::Initialize()
 		NCachedCrashContextProperties::GameStateName = InGameStateName;
 	});
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	FCoreDelegates::CrashOverrideParamsChanged.AddLambda([](const FCrashOverrideParameters& InParams)
 	{
 		if (InParams.bSetCrashReportClientMessageText)
@@ -211,6 +215,7 @@ void FGenericCrashContext::Initialize()
 			NCachedCrashContextProperties::GameName = FString(TEXT("UE4-")) + FApp::GetProjectName() + InParams.GameNameSuffix;
 		}
 	});
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	FCoreDelegates::IsVanillaProductChanged.AddLambda([](bool bIsVanilla)
 	{
@@ -244,7 +249,25 @@ void FGenericCrashContext::InitializeFromConfig()
 		CrashConfigFile.Dirty = true;
 		CrashConfigFile.Write(GetCrashConfigFilePath());
 	}
+
+	// Read the initial un-localized crash context text
+	UpdateLocalizedStrings();
+
+	// Make sure we get updated text once the localized version is loaded
+	FTextLocalizationManager::Get().OnTextRevisionChangedEvent.AddStatic(&UpdateLocalizedStrings);
 #endif	// !NOINITCRASHREPORTER
+}
+
+void FGenericCrashContext::UpdateLocalizedStrings()
+{
+#if !NOINITCRASHREPORTER
+	// Allow overriding the crash text
+	FText CrashReportClientRichText;
+	if (GConfig->GetText(TEXT("CrashContextProperties"), TEXT("CrashReportClientRichText"), CrashReportClientRichText, GEngineIni))
+	{
+		NCachedCrashContextProperties::CrashReportClientRichText = CrashReportClientRichText.ToString();
+	}
+#endif
 }
 
 FGenericCrashContext::FGenericCrashContext()
@@ -281,6 +304,14 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "ExecutableName" ), *NCachedCrashContextProperties::ExecutableName );
 	AddCrashProperty( TEXT( "BuildConfiguration" ), EBuildConfigurations::ToString( FApp::GetBuildConfiguration() ) );
 	AddCrashProperty( TEXT( "GameSessionID" ), *NCachedCrashContextProperties::GameSessionID );
+	
+	// Unique string specifying the symbols to be used by CrashReporter
+	FString Symbols = FString::Printf( TEXT( "%s-%s-%s" ), FApp::GetBuildVersion(), FPlatformMisc::GetUBTPlatform(), EBuildConfigurations::ToString(FApp::GetBuildConfiguration())).Replace( TEXT( "+" ), TEXT( "*" ));
+#ifdef UE_BUILD_FLAVOR
+	Symbols = FString::Printf(TEXT( "%s-%s" ), *Symbols, *FString(UE_BUILD_FLAVOR));
+#endif
+
+	AddCrashProperty( TEXT( "Symbols" ), Symbols);
 
 	AddCrashProperty( TEXT( "PlatformName" ), *NCachedCrashContextProperties::PlatformName );
 	AddCrashProperty( TEXT( "PlatformNameIni" ), *NCachedCrashContextProperties::PlatformNameIni );
@@ -387,6 +418,11 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 #endif // PLATFORM_DESKTOP
 
 	AddFooter();
+}
+
+void FGenericCrashContext::SetDeploymentName(const FString& EpicApp)
+{
+	NCachedCrashContextProperties::DeploymentName = EpicApp;
 }
 
 void FGenericCrashContext::GetUniqueCrashName(TCHAR* GUIDBuffer, int32 BufferSize) const

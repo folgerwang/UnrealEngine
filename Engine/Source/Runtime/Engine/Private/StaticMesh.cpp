@@ -65,6 +65,8 @@
 #include "ProfilingDebugging/CookStats.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Streaming/UVChannelDensity.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 #define LOCTEXT_NAMESPACE "StaticMesh"
 DEFINE_LOG_CATEGORY(LogStaticMesh);	
@@ -110,6 +112,12 @@ static TAutoConsoleVariable<int32> CVarSupportReversedIndexBuffers(
 	TEXT("r.SupportReversedIndexBuffers"),
 	1,
 	TEXT("Enables reversed index buffers. Saves a little time at the expense of doubling the size of index buffers."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarStripDistanceFieldDataDuringLoad(
+	TEXT("r.StaticMesh.StripDistanceFieldDataDuringLoad"),
+	0,
+	TEXT("If non-zero, data for distance fields will be discarded on load. TODO: change to discard during cook!."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
 #if ENABLE_COOK_STATS
@@ -830,6 +838,23 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 		for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
 		{
 			Ar << ScreenSize[LODIndex];
+		}
+	}
+
+	if (Ar.IsLoading() )
+	{
+		bool bStripDistanceFieldDataDuringLoad = (CVarStripDistanceFieldDataDuringLoad.GetValueOnAnyThread() == 1);
+		if( bStripDistanceFieldDataDuringLoad )
+		{
+			for (int32 ResourceIndex = 0; ResourceIndex < LODResources.Num(); ResourceIndex++)
+			{
+				FStaticMeshLODResources& LOD = LODResources[ResourceIndex];
+				if( LOD.DistanceFieldData != nullptr )
+				{
+					delete LOD.DistanceFieldData;
+					LOD.DistanceFieldData = nullptr;
+				}
+			}
 		}
 	}
 }
@@ -3371,8 +3396,12 @@ void UStaticMesh::Serialize(FArchive& Ar)
 
 	if( !StripFlags.IsEditorDataStripped() )
 	{
-		Ar << HighResSourceMeshName;
-		Ar << HighResSourceMeshCRC;
+		// TODO: These should be gated with a version check, but not able to be done in this stream.
+		FString Deprecated_HighResSourceMeshName;
+		uint32 Deprecated_HighResSourceMeshCRC;
+
+		Ar << Deprecated_HighResSourceMeshName;
+		Ar << Deprecated_HighResSourceMeshCRC;
 	}
 #endif // #if WITH_EDITORONLY_DATA
 
@@ -3479,12 +3508,13 @@ void UStaticMesh::Serialize(FArchive& Ar)
 	{
 		DistanceFieldSelfShadowBias = SourceModels[0].BuildSettings.DistanceFieldBias_DEPRECATED * 10.0f;
 	}
-#endif // WITH_EDITORONLY_DATA
 
 	if (Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::RefactorMeshEditorMaterials)
+#endif // WITH_EDITORONLY_DATA
 	{
 		Ar << StaticMaterials;
 	}
+#if WITH_EDITORONLY_DATA
 	else if (Ar.IsLoading())
 	{
 		TArray<UMaterialInterface*> Unique_Materials_DEPRECATED;
@@ -3507,12 +3537,13 @@ void UStaticMesh::Serialize(FArchive& Ar)
 			int32 UniqueIndex = Unique_Materials_DEPRECATED.AddUnique(MaterialInterface);
 #if WITH_EDITOR
 			//We must cleanup the material list since we have a new way to build static mesh
-			CleanUpRedondantMaterialPostLoad = StaticMaterials.Num() > 1;
+			bCleanUpRedundantMaterialPostLoad = StaticMaterials.Num() > 1;
 #endif
 		}
 		Materials_DEPRECATED.Empty();
 
 	}
+#endif // WITH_EDITORONLY_DATA
 
 
 #if WITH_EDITOR
@@ -3642,7 +3673,7 @@ void UStaticMesh::PostLoad()
 
 		//Fix up the material to remove redundant material, this is needed since the material refactor where we do not have anymore copy of the materials
 		//in the materials list
-		if (RenderData && CleanUpRedondantMaterialPostLoad)
+		if (RenderData && bCleanUpRedundantMaterialPostLoad)
 		{
 			bool bMaterialChange = false;
 			TArray<FStaticMaterial> CompactedMaterial;
@@ -3708,7 +3739,7 @@ void UStaticMesh::PostLoad()
 					BodySetup->InvalidatePhysicsData();
 				}
 			}
-			CleanUpRedondantMaterialPostLoad = false;
+			bCleanUpRedundantMaterialPostLoad = false;
 		}
 
 		if (RenderData && GStaticMeshesThatNeedMaterialFixup.Get(this))
@@ -3716,6 +3747,47 @@ void UStaticMesh::PostLoad()
 			FixupZeroTriangleSections();
 		}
 	}
+
+	if (RenderData)
+	{
+		// check the MinLOD values are all within range
+		bool bFixedMinLOD = false;
+		int32 MinAvailableLOD = FMath::Max<int32>(RenderData->LODResources.Num() - 1, 0);
+		if (!RenderData->LODResources.IsValidIndex(MinLOD.Default))
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("MinLOD"), FText::AsNumber(MinLOD.Default));
+			Arguments.Add(TEXT("MinAvailLOD"), FText::AsNumber(MinAvailableLOD));
+			FMessageLog("LoadErrors").Warning()
+				->AddToken(FUObjectToken::Create(this))
+				->AddToken(FTextToken::Create(FText::Format(LOCTEXT("LoadError_BadMinLOD", "Min LOD value of {MinLOD} is out of range 0..{MinAvailLOD} and has been adjusted to {MinAvailLOD}. Please verify and resave the asset."), Arguments)));
+
+			MinLOD.Default = MinAvailableLOD;
+			bFixedMinLOD = true;
+		}
+		for (TMap<FName, int32>::TIterator It(MinLOD.PerPlatform); It; ++It)
+		{
+			if (!RenderData->LODResources.IsValidIndex(It.Value()))
+			{
+				FFormatNamedArguments Arguments;
+				Arguments.Add(TEXT("MinLOD"), FText::AsNumber(It.Value()));
+				Arguments.Add(TEXT("MinAvailLOD"), FText::AsNumber(MinAvailableLOD));
+				Arguments.Add(TEXT("Platform"), FText::FromString(It.Key().ToString()));
+				FMessageLog("LoadErrors").Warning()
+					->AddToken(FUObjectToken::Create(this))
+					->AddToken(FTextToken::Create(FText::Format(LOCTEXT("LoadError_BadMinLODOverride", "Min LOD override of {MinLOD} for {Platform} is out of range 0..{MinAvailLOD} and has been adjusted to {MinAvailLOD}. Please verify and resave the asset."), Arguments)));
+
+				It.Value() = MinAvailableLOD;
+				bFixedMinLOD = true;
+			}
+		}
+		if (bFixedMinLOD)
+		{
+			FMessageLog("LoadErrors").Open();
+		}
+	}
+
+
 #endif // #if WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA

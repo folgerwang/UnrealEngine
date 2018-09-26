@@ -15,6 +15,7 @@ class INavEdgeProviderInterface;
 class IRVOAvoidanceInterface;
 class UAvoidanceManager;
 class UMovementComponent;
+class UCharacterMovementComponent;
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Avoidance Time"),STAT_AI_ObstacleAvoidance,STATGROUP_AI, );
 
@@ -138,6 +139,10 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 	UFUNCTION(BlueprintCallable, Category="AI")
 	FVector GetAvoidanceVelocityForComponent(UMovementComponent* MovementComp);
 
+	/** Fast-track GetAvoidanceVelocityForComponent(UMovementComponent) implementation
+	 *	for most common case of UCharacterMovementComponent*/
+	FVector GetAvoidanceVelocityForComponent(UCharacterMovementComponent* MovementComp);
+
 	/** Only use if you want manual velocity planning. Provide your AvoidanceUID in order to avoid colliding with yourself. */
 	FVector GetAvoidanceVelocityIgnoringUID(const FNavAvoidanceData& AvoidanceData, float DeltaTime, int32 IgnoreThisUID);
 
@@ -146,6 +151,9 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 
 	/** Update the RVO avoidance data for the participating UMovementComponent */
 	void UpdateRVO(UMovementComponent* MovementComp);
+
+	/** Fast-track UpdateRVO(UMovementComponent) implementation for most common case of UCharacterMovementComponent*/
+	void UpdateRVO(UCharacterMovementComponent* MovementComp);
 
 	/** For Duration seconds, set this object to ignore all others. */
 	void OverrideToMaxWeight(int32 AvoidanceUID, float Duration);
@@ -169,7 +177,7 @@ class ENGINE_API UAvoidanceManager : public UObject, public FSelfRegisteringExec
 
 	void SetNavEdgeProvider(INavEdgeProviderInterface* InEdgeProvider);
 
-private:
+protected:
 
 	/** Handle for efficient management of RemoveOutdatedObjects timer */
 	FTimerHandle TimerHandle_RemoveOutdatedObjects;

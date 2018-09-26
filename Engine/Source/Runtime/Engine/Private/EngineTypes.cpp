@@ -268,7 +268,7 @@ FRepMovement::FRepMovement()
 /** Rebase zero-origin position onto local world origin value. */
 FVector FRepMovement::RebaseOntoLocalOrigin(const struct FVector& Location, const struct FIntVector& LocalOrigin)
 {
-	if (CVarEnableMultiplayerWorldOriginRebasing->GetInt() <= 0 || LocalOrigin == FIntVector::ZeroValue)
+	if (EnableMultiplayerWorldOriginRebasing <= 0 || LocalOrigin == FIntVector::ZeroValue)
 	{
 		return Location;
 	}
@@ -279,7 +279,7 @@ FVector FRepMovement::RebaseOntoLocalOrigin(const struct FVector& Location, cons
 /** Rebase local-origin position onto zero world origin value. */
 FVector FRepMovement::RebaseOntoZeroOrigin(const struct FVector& Location, const struct FIntVector& LocalOrigin)
 {
-	if (CVarEnableMultiplayerWorldOriginRebasing->GetInt() <= 0 || LocalOrigin == FIntVector::ZeroValue)
+	if (EnableMultiplayerWorldOriginRebasing <= 0 || LocalOrigin == FIntVector::ZeroValue)
 	{
 		return Location;
 	}

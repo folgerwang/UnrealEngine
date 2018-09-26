@@ -13,7 +13,7 @@
 #include "SWorldHierarchyImpl.h"
 
 #include "Engine/LevelStreamingAlwaysLoaded.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -340,6 +340,11 @@ namespace WorldHierarchy
 		return IsLoaded() && LevelModel.Pin()->IsFileReadOnly();
 	}
 
+	bool FLevelModelTreeItem::IsTransient() const
+	{
+		return (LevelModel.IsValid() && LevelModel.Pin()->IsTransient());
+	}
+
 	void FLevelModelTreeItem::SetLocked(bool bLocked)
 	{
 		FLevelModelList LevelModels;
@@ -393,7 +398,7 @@ namespace WorldHierarchy
 	{
 		UClass* StreamingClass = LevelModel.IsValid() ? LevelModel.Pin()->GetStreamingClass() : nullptr;
 		
-		if (StreamingClass == ULevelStreamingKismet::StaticClass())
+		if (StreamingClass == ULevelStreamingDynamic::StaticClass())
 		{
 			return FEditorStyle::GetBrush("WorldBrowser.LevelStreamingBlueprint");
 		}

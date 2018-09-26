@@ -165,7 +165,7 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 	/** Propagates a change to the active lighting scenario. */
 	void PropagateLightingScenarioChange() override;
 
-protected:
+private:
 //BEGIN: Thread-safe functions and data
 		friend class FAsyncTextureStreamingTask;
 
@@ -366,7 +366,8 @@ protected:
 	uint32 MaxNumWantingTextures;
 #endif
 	
-	volatile int32 ConcurrentLockState;
+	// A critical section use around code that could be called in parallel with NotifyPrimitiveUpdated() or NotifyPrimitiveUpdated_Concurrent().
+	FCriticalSection CriticalSection;
 
 	friend bool TrackTextureEvent( FStreamingTexture* StreamingTexture, UTexture2D* Texture, bool bForceMipLevelsToBeResident, const FStreamingManagerTexture* Manager);
 };

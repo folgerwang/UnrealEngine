@@ -72,7 +72,7 @@ struct FImportanceTexture
 
 public:
 	/* Default constructor, must Initialize before use */
-	FImportanceTexture() : NumMips(0), Texture(0), Weighting(EImportanceWeight::Luminance) {}
+	FImportanceTexture() : Size(ForceInitToZero), NumMips(0), Texture(0), Weighting(EImportanceWeight::Luminance) {}
 
 	/* Constructor with initialization */
 	FImportanceTexture(UTexture2D *SourceTexture, TEnumAsByte<EImportanceWeight::Type> WeightingFunc)

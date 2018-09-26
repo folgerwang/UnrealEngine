@@ -34,8 +34,6 @@ private:
 	void DecodeRTWriteMask(FRenderingCompositePassContext& Context);
 };
 
-bool IsDBufferEnabled();
-
 static inline bool IsWritingToGBufferA(FDecalRenderingCommon::ERenderTargetMode RenderTargetMode)
 {
 	return RenderTargetMode == FDecalRenderingCommon::RTM_SceneColorAndGBufferWithNormal
@@ -55,6 +53,7 @@ struct FDecalRenderTargetManager
 		DBufferAIndex,
 		DBufferBIndex,
 		DBufferCIndex,
+		DBufferMaskIndex,
 		ResolveBufferMax,
 	};
 	//
@@ -80,7 +79,7 @@ struct FDecalRenderTargetManager
 
 	void FlushMetaData(FTextureRHIParamRef* Textures, uint32 NumTextures);
 
-	void SetRenderTargetMode(FDecalRenderingCommon::ERenderTargetMode CurrentRenderTargetMode, bool bHasNormal);
+	void SetRenderTargetMode(FDecalRenderingCommon::ERenderTargetMode CurrentRenderTargetMode, bool bHasNormal, bool bPerPixelDBufferMask);
 };
 
 extern FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeatureLevel, EDecalRenderStage InDecalRenderStage, EDecalBlendMode DecalBlendMode, bool bHasNormal);

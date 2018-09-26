@@ -50,6 +50,10 @@
 
 #define VULKAN_SINGLE_ALLOCATION_PER_RESOURCE					0
 
+#ifndef VULKAN_FREEPAGE_FOR_TYPE
+	#define VULKAN_FREEPAGE_FOR_TYPE							0
+#endif
+
 #ifndef VULKAN_USE_NEW_QUERIES
 	#define VULKAN_USE_NEW_QUERIES								1
 #endif
@@ -179,6 +183,9 @@ DECLARE_LOG_CATEGORY_EXTERN(LogVulkanRHI, Log, All);
 	#define VULKAN_CPU_ALLOCATOR								nullptr
 #endif
 
+#ifndef VULKAN_PURGE_SHADER_MODULES
+	#define VULKAN_PURGE_SHADER_MODULES							0
+#endif
 
 namespace VulkanRHI
 {

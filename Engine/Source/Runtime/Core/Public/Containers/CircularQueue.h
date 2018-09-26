@@ -70,7 +70,7 @@ public:
 
 		if (CurrentHead != Tail.Load())
 		{
-			OutElement = Buffer[CurrentHead];
+			OutElement = MoveTemp(Buffer[CurrentHead]);
 			Head.Store(Buffer.GetNextIndex(CurrentHead));
 
 			return true;
@@ -105,6 +105,29 @@ public:
 		if (NewTail != Head.Load())
 		{
 			Buffer[CurrentTail] = Element;
+			Tail.Store(NewTail);
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Adds an item to the end of the queue.
+	 *
+	 * @param Element The element to add.
+	 * @return true if the item was added, false if the queue was full.
+	 * @note To be called only from producer thread.
+	 */
+	bool Enqueue(ElementType&& Element)
+	{
+		const uint32 CurrentTail = Tail.Load();
+		uint32 NewTail = Buffer.GetNextIndex(CurrentTail);
+
+		if (NewTail != Head.Load())
+		{
+			Buffer[CurrentTail] = MoveTemp(Element);
 			Tail.Store(NewTail);
 
 			return true;

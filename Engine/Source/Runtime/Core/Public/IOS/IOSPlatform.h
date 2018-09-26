@@ -47,7 +47,7 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define PLATFORM_ALLOW_NULL_RHI							1
 #define PLATFORM_ENABLE_VECTORINTRINSICS_NEON			PLATFORM_64BITS // disable vector intrinsics to make it compatible with 32-bit in Xcode 8.3
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS					1
-#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK			0 // movies will start before engine is initalized
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK			1 // movies will start before engine is initalized
 
 // on iOS we now perform offline symbolication as it's significantly faster. Requires bGenerateCrashReportSymbols=true in the ini file.
 #define	PLATFORM_RUNTIME_MALLOCPROFILER_SYMBOLICATION	0	

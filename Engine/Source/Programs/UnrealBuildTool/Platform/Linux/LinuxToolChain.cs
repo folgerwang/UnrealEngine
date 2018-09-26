@@ -49,6 +49,9 @@ namespace UnrealBuildTool
 		/** Whether the compiler is set up to produce PIE executables by default */
 		bool bSuppressPIE = false;
 
+		/** Whether or not to preserve the portable symbol file produced by dump_syms */
+		bool bPreservePSYM = false;
+
 		/** Platform SDK to use */
 		protected LinuxPlatformSDK PlatformSDK;
 
@@ -59,11 +62,10 @@ namespace UnrealBuildTool
 		/// Whether to compile with ASan enabled
 		/// </summary>
 		LinuxToolChainOptions Options;
-
-		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
-			: this(CppPlatform.Linux, InArchitecture, InSDK, InOptions)
+		
+		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK, bool InPreservePSYM = false, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
+			: this(CppPlatform.Linux, InArchitecture, InSDK, InPreservePSYM, InOptions)
 		{
-			
 			MultiArchRoot = PlatformSDK.GetSDKLocation();
 			BaseLinuxPath = PlatformSDK.GetBaseLinuxPathForArchitecture(InArchitecture);
 
@@ -182,12 +184,13 @@ namespace UnrealBuildTool
 			bUseLld = (CompilerVersionMajor >= 5);
 		}
 
-		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture, LinuxPlatformSDK InSDK, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
+		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture, LinuxPlatformSDK InSDK, bool InPreservePSYM = false, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
 			: base(InCppPlatform)
 		{
 			Architecture = InArchitecture;
 			PlatformSDK = InSDK;
 			Options = InOptions;
+			bPreservePSYM = InPreservePSYM;
 		}
 
 		protected virtual bool CrossCompiling()
@@ -226,9 +229,14 @@ namespace UnrealBuildTool
 			bool bUseCmdExe = BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32;
 			string DumpCommand = bUseCmdExe ? "\"{0}\" \"{1}\" \"{2}\" 2>NUL\n" : "\"{0}\" -c -o \"{2}\" \"{1}\"\n";
 			FileItem EncodedBinarySymbolsFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".sym"));
-			FileItem SymbolsFile  = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + ".rawsym"));
+			FileItem SymbolsFile  = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + ".psym"));
 			FileItem StrippedFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + "_nodebug"));
 			FileItem DebugFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".debug"));
+
+			if (bPreservePSYM)
+			{
+				SymbolsFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".psym"));
+			}
 
 			string Out = "";
 
@@ -248,6 +256,17 @@ namespace UnrealBuildTool
 
 			if (LinkEnvironment.bCreateDebugInfo)
 			{
+				if (bUseCmdExe)
+				{
+					// Bad hack where objcopy.exe cannot handle files larger then 2GB. Its fine when building on Linux
+					Out += string.Format("for /F \"tokens=*\" %%F in (\"{0}\") DO set size=%%~zF\n",
+						OutputFile.AbsolutePath
+					);
+
+					// If we are less then 2GB create the debugging info
+					Out += "if %size% LSS 2147483648 (\n";
+				}
+
 				// objcopy stripped file
 				Out += string.Format("\"{0}\" --strip-all \"{1}\" \"{2}\"\n",
 					GetObjcopyPath(LinkEnvironment.Architecture),
@@ -276,6 +295,11 @@ namespace UnrealBuildTool
 					Out += string.Format("move /Y \"{0}.temp\" \"{1}\"\n",
 						OutputFile.AbsolutePath,
 						OutputFile.AbsolutePath
+					);
+
+					// If our file is greater then 4GB we'll have to create a debug file anyway
+					Out += string.Format(") ELSE (\necho DummyDebug >> {0}\n)\n",
+						DebugFile.AbsolutePath
 					);
 				}
 				else

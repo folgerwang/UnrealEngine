@@ -49,7 +49,7 @@ bool FOnlineExternalUIFacebook::ShowLoginUI(const int ControllerIndex, bool bSho
 
 	if (!bStarted)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("%s"), *ErrorStr);
+		UE_LOG_ONLINE_EXTERNALUI(Warning, TEXT("%s"), *ErrorStr);
 
 		FOnlineError Error;
 		Error.SetFromErrorCode(MoveTemp(ErrorStr));
@@ -174,7 +174,7 @@ FLoginFlowResult FOnlineExternalUIFacebook::OnLoginRedirectURL(const FString& Re
 
 void FOnlineExternalUIFacebook::OnExternalLoginFlowComplete(const FLoginFlowResult& Result, int ControllerIndex, const FOnLoginUIClosedDelegate Delegate)
 {
-	UE_LOG(LogOnline, Log, TEXT("OnExternalLoginFlowComplete %s"), *Result.ToDebugString());
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("OnExternalLoginFlowComplete %s"), *Result.ToDebugString());
 
 	bool bStarted = false;
 	if (Result.IsValid())

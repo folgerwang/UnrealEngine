@@ -258,6 +258,10 @@ class ENGINE_API UConsole
 	DECLARE_MULTICAST_DELEGATE_OneParam(FRegisterConsoleAutoCompleteEntries, TArray<FAutoCompleteCommand>&);
 	static FRegisterConsoleAutoCompleteEntries RegisterConsoleAutoCompleteEntries;
 
+	/** Deletate for when the console is activated or deactivated */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnConsoleActivationStateChanged, bool);
+	static FOnConsoleActivationStateChanged OnConsoleActivationStateChanged;
+
 private:
 
 	bool InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false );

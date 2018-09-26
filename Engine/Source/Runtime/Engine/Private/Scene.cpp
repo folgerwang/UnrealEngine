@@ -394,7 +394,9 @@ FPostProcessSettings::FPostProcessSettings()
 	Bloom6Size = 64.0f;
 	BloomConvolutionSize = 1.f;
 	BloomConvolutionCenterUV = FVector2D(0.5f, 0.5f);
+#if WITH_EDITORONLY_DATA
 	BloomConvolutionPreFilter_DEPRECATED = FVector(-1.f, -1.f, -1.f);
+#endif
 	BloomConvolutionPreFilterMin = 7.f;
 	BloomConvolutionPreFilterMax = 15000.f;
 	BloomConvolutionPreFilterMult = 15.f;

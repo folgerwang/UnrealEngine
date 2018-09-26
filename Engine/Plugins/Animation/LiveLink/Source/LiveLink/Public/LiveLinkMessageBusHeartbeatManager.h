@@ -6,6 +6,7 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/ThreadSafeBool.h"
 #include "HAL/CriticalSection.h"
+#include "Containers/Set.h"
 
 class FLiveLinkMessageBusSource;
 

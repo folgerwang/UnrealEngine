@@ -4,6 +4,8 @@
 #include "Modules/ModuleManager.h"
 #include "ICurveTableEditor.h"
 #include "CurveTableEditor.h"
+#include "CompositeCurveTableEditor.h"
+#include "Engine/CompositeCurveTable.h"
 
 IMPLEMENT_MODULE( FCurveTableEditorModule, CurveTableEditor );
 
@@ -24,8 +26,25 @@ void FCurveTableEditorModule::ShutdownModule()
 
 TSharedRef<ICurveTableEditor> FCurveTableEditorModule::CreateCurveTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UCurveTable* Table )
 {
-	TSharedRef< FCurveTableEditor > NewCurveTableEditor( new FCurveTableEditor() );
-	NewCurveTableEditor->InitCurveTableEditor( Mode, InitToolkitHost, Table );
+	if (Cast<UCompositeCurveTable>(Table) != nullptr)
+	{
+		return CreateCompositeCurveTableEditor(Mode, InitToolkitHost, Table);
+	}
+
+	return CreateStandardCurveTableEditor(Mode, InitToolkitHost, Table);
+}
+
+TSharedRef<ICurveTableEditor> FCurveTableEditorModule::CreateStandardCurveTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UCurveTable* Table)
+{
+	TSharedRef< FCurveTableEditor > NewCurveTableEditor(new FCurveTableEditor());
+	NewCurveTableEditor->InitCurveTableEditor(Mode, InitToolkitHost, Table);
+	return NewCurveTableEditor;
+}
+
+TSharedRef<ICurveTableEditor> FCurveTableEditorModule::CreateCompositeCurveTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UCurveTable* Table)
+{
+	TSharedRef< FCompositeCurveTableEditor > NewCurveTableEditor(new FCompositeCurveTableEditor());
+	NewCurveTableEditor->InitCurveTableEditor(Mode, InitToolkitHost, Table);
 	return NewCurveTableEditor;
 }
 

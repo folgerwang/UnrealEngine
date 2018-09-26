@@ -44,6 +44,13 @@ public:
 	static IHttpRequest* ConstructRequest();
 
 	/**
+	 * Check if a platform uses the HTTP thread
+	 *
+	 * @return true if the platform uses threaded HTTP, false if not
+	 */
+	static bool UsesThreadedHttp();
+
+	/**
 	 * Returns a percent-encoded version of the passed in string
 	 *
 	 * @param UnencodedString The unencoded string to convert to percent-encoding

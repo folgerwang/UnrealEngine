@@ -180,6 +180,17 @@ FCaptureProtocolInitSettings FCaptureProtocolInitSettings::FromSlateViewport(TSh
 	FCaptureProtocolInitSettings Settings;
 	Settings.SceneViewport = InSceneViewport;
 	Settings.DesiredSize = InSceneViewport->GetSize();
+
+	// hack for FORT-94554
+	if (Settings.DesiredSize == FIntPoint::ZeroValue)
+	{
+        ensureAlwaysMsgf(false, TEXT("Invalid viewport size settings in FCaptureProtocalInitSettings::FromSlateViewport! Using default size! (1920x1080)"));
+		Settings.DesiredSize.X = 1920;
+		Settings.DesiredSize.Y = 1080;
+		InSceneViewport->SetViewportSize(Settings.DesiredSize.X, Settings.DesiredSize.Y);
+	}
+	// end hack
+
 	return Settings;
 }
 

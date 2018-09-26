@@ -451,6 +451,9 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 #if USE_PARTICLE_RANDOM
 	Result.Particle.Random = Intermediates.ParticleRandom;
 #endif
+	// Previous frame not handled deliberately. Lacks necessary information and
+	// primitives using this VF are usually transparent and hence don't output velocity
+	Result.PrevFrameLocalToWorld = Primitive.LocalToWorld;
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	Result.TexCoords[0] = Intermediates.TexCoord.xy;

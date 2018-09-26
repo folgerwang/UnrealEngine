@@ -199,6 +199,7 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, CurrentFrameWeight, CVarTemporalAACurrentFrameWeight.GetValueOnRenderThread());
 
 		// Set history shader parameters.
+		if (InputHistory.IsValid())
 		{
 			FIntPoint ReferenceViewportOffset = InputHistory.ViewportRect.Min;
 			FIntPoint ReferenceViewportExtent = InputHistory.ViewportRect.Size();

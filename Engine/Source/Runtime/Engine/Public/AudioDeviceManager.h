@@ -35,11 +35,17 @@ public:
 	*/
 	~FAudioDeviceManager();
 
-	/**
-	* Registers the audio device module to the audio device manager. The audio device
-	* module is responsible for creating platform-dependent audio devices.
-	*/
-	void RegisterAudioDeviceModule(IAudioDeviceModule* AudioDeviceModuleInput);
+	/** 
+	* Initialize the audio device manager.
+	* Return true if successfully initialized.
+	**/
+	bool Initialize();
+
+	/** Returns the handle to the main audio device. */
+	uint32 GetMainAudioDeviceHandle() const { return MainAudioDeviceHandle; }
+
+	/** Returns true if we're currently using the audio mixer. */
+	bool IsUsingAudioMixer() const;
 
 	struct FCreateAudioDeviceResults
 	{
@@ -234,11 +240,29 @@ private:
 	/** Creates a handle given the index and a generation value. */
 	uint32 CreateHandle(uint32 DeviceIndex, uint8 Generation);
 
+	/** Toggles between audio mixer and non-audio mixer audio engine. */
+	void ToggleAudioMixer();
+
+	/** Load audio device module. */
+	bool LoadDefaultAudioDeviceModule();
+
+	/** Create a "main" audio device. */
+	bool CreateMainAudioDevice();
+
 	/** Array for generation counts of audio devices in indices */
 	TArray<uint8> Generations;
 
-	/** Audio device module which creates audio devices. */
+	/** Audio device module which creates (old backend) audio devices. */
 	IAudioDeviceModule* AudioDeviceModule;
+
+	/** Audio device module name. This is the "old" audio engine module name to use. E.g. XAudio2 */
+	FString AudioDeviceModuleName;
+	
+	/** The audio mixer module name. This is the audio mixer module name to use. E.g. AudioMixerXAudio2 */
+	FString AudioMixerModuleName;
+
+	/** Handle to the main audio device. */
+	uint32 MainAudioDeviceHandle;
 
 	/** Count of the number of free slots in the audio device array. */
 	uint32 FreeIndicesSize;
@@ -269,6 +293,9 @@ private:
 
 	/** Instance of the debug names struct. */
 	FDebugNames DebugNames;
+
+	/** Whether we're currently using the audio mixer or not. Used to toggle between old/new audio engines. */
+	bool bUsingAudioMixer;
 
 	/** Whether or not to play all audio in all active audio devices. */
 	bool bPlayAllDeviceAudio;

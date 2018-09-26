@@ -97,7 +97,8 @@ void FCloudChunkSourceSpec::Define()
 		}
 		FirstChunk = MockChunkReferenceTracker->NextReferences[0];
 		FirstHeader.Guid = FirstChunk;
-		FirstHeader.DataSize = 128;
+		FirstHeader.DataSizeCompressed = 128;
+		FirstHeader.DataSizeUncompressed = 128;
 		FakeDownloadService->ThreadLock.Lock();
 		FakeDownloadService->DefaultChunkHeader = FirstHeader;
 		FakeDownloadService->ThreadLock.Unlock();

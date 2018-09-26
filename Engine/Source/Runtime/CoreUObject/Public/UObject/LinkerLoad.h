@@ -144,10 +144,13 @@ private:
 	TMap<FName, FPackageIndex> ObjectNameToPackageImportIndex;
 	TMap<FName, FPackageIndex> ObjectNameToPackageExportIndex;
 
-protected:
-
 	/** The archive that actually reads the raw data from disk.																*/
 	FArchive*				Loader;
+
+protected:
+
+	void SetLoader(FArchive* InLoader);
+	FArchive* GetLoader() const { return Loader; }
 
 public:
 

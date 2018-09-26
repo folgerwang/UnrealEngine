@@ -62,9 +62,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters,)
 	UNIFORM_MEMBER_STRUCT(FSharedBasePassUniformParameters, Shared)
 	// Forward shading 
 	UNIFORM_MEMBER_TEXTURE(Texture2D, ForwardScreenSpaceShadowMaskTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, ForwardScreenSpaceShadowMaskTextureSampler)
 	UNIFORM_MEMBER_TEXTURE(Texture2D, IndirectOcclusionTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectOcclusionTextureSampler)
 	UNIFORM_MEMBER_TEXTURE(Texture2D, ResolvedSceneDepthTexture)
 	// DBuffer decals
 	UNIFORM_MEMBER_TEXTURE(Texture2D, DBufferATexture)
@@ -119,7 +117,8 @@ extern void CreateTranslucentBasePassUniformBuffer(
 	const FViewInfo& View,
 	IPooledRenderTarget* SceneColorCopy,
 	ESceneTextureSetupMode SceneTextureSetupMode,
-	TUniformBufferRef<class FTranslucentBasePassUniformParameters>& BasePassUniformBuffer);
+	TUniformBufferRef<class FTranslucentBasePassUniformParameters>& BasePassUniformBuffer,
+	const int32 ViewIndex);
 
 /** Parameters for computing forward lighting. */
 class FForwardLightingParameters
@@ -177,13 +176,9 @@ protected:
 		VertexParametersType::Bind(Initializer.ParameterMap);
 		BindBasePassUniformBuffer(Initializer.ParameterMap, PassUniformBuffer);
 		ReflectionCaptureBuffer.Bind(Initializer.ParameterMap, TEXT("ReflectionCapture"));
-		const bool bOutputsVelocityToGBuffer = FVelocityRendering::OutputsToGBuffer();
-		if (bOutputsVelocityToGBuffer)
-		{
-			PreviousLocalToWorldParameter.Bind(Initializer.ParameterMap, TEXT("PreviousLocalToWorld"));
-//@todo-rco: Move to pixel shader
-			SkipOutputVelocityParameter.Bind(Initializer.ParameterMap, TEXT("SkipOutputVelocity"));
-		}
+		PreviousLocalToWorldParameter.Bind(Initializer.ParameterMap, TEXT("PreviousLocalToWorld"));
+		//@todo-rco: Move to pixel shader
+		SkipOutputVelocityParameter.Bind(Initializer.ParameterMap, TEXT("SkipOutputVelocity"));
 
 		InstancedEyeIndexParameter.Bind(Initializer.ParameterMap, TEXT("InstancedEyeIndex"));
 		IsInstancedStereoParameter.Bind(Initializer.ParameterMap, TEXT("bIsInstancedStereo"));
@@ -450,7 +445,7 @@ public:
 	{
 		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 
-		const bool bOutputVelocity = FVelocityRendering::OutputsToGBuffer();
+		const bool bOutputVelocity = FVelocityRendering::BasePassCanOutputVelocity(Platform);
 		if (bOutputVelocity)
 		{
 			const int32 VelocityIndex = 4; // As defined in BasePassPixelShader.usf
@@ -567,7 +562,7 @@ public:
 			|| bTranslucent
 			// Some lightmap policies (eg Simple Forward) always require skylight support
 			|| LightMapPolicyType::RequiresSkylight()
-			|| (bProjectSupportsStationarySkylight && (Material->GetShadingModel() != MSM_Unlit));
+			|| ((bProjectSupportsStationarySkylight || IsForwardShadingEnabled(Platform)) && (Material->GetShadingModel() != MSM_Unlit));
 		return bCacheShaders
 			&& (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
 			&& TBasePassPixelShaderBaseType<LightMapPolicyType>::ShouldCompilePermutation(Platform, Material, VertexFactoryType);

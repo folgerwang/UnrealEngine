@@ -8,6 +8,8 @@
 #include "PackedNormal.h"
 #include "RenderResource.h"
 
+extern RENDERCORE_API void RenderUtilsInit();
+
 /**
 * Constructs a basis matrix for the axis vectors and returns the sign of the determinant
 *
@@ -426,22 +428,45 @@ RENDERCORE_API bool PlatformSupportsSimpleForwardShading(EShaderPlatform Platfor
 
 RENDERCORE_API bool IsSimpleForwardShadingEnabled(EShaderPlatform Platform);
 
-inline bool IsForwardShadingEnabled(ERHIFeatureLevel::Type FeatureLevel)
+/** Returns if ForwardShading is enabled. Only valid for the current platform (otherwise call ITargetPlatform::UsesForwardShading()). */
+inline bool IsForwardShadingEnabled(EShaderPlatform Platform)
 {
-	extern RENDERCORE_API int32 bUseForwardShading;
-	return bUseForwardShading
+	extern RENDERCORE_API uint32 GForwardShadingPlatformMask;
+	return !!(GForwardShadingPlatformMask & (1u << Platform))
 		// Culling uses compute shader
-		&& FeatureLevel >= ERHIFeatureLevel::SM5;
+		&& GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5;
 }
 
+/** Returns if ForwardShading or SimpleForwardShading is enabled. Only valid for the current platform. */
 inline bool IsAnyForwardShadingEnabled(EShaderPlatform Platform)
 {
-	return IsForwardShadingEnabled(GetMaxSupportedFeatureLevel(Platform)) || IsSimpleForwardShadingEnabled(Platform);
+	return IsForwardShadingEnabled(Platform) || IsSimpleForwardShadingEnabled(Platform);
 }
 
+/** Returns if the GBuffer is used. Only valid for the current platform. */
 inline bool IsUsingGBuffers(EShaderPlatform Platform)
 {
 	return !IsAnyForwardShadingEnabled(Platform);
+}
+
+/** Returns whether DBuffer decals are enabled for a given shader platform */
+inline bool IsUsingDBuffers(EShaderPlatform Platform)
+{
+	extern RENDERCORE_API uint32 GDBufferPlatformMask;
+	return !!(GDBufferPlatformMask & (1u << Platform));
+}
+
+inline bool IsUsingPerPixelDBufferMask(EShaderPlatform Platform)
+{
+	switch (Platform)
+	{
+	case SP_SWITCH:
+	case SP_SWITCH_FORWARD:
+		// Per-pixel DBufferMask optimization is currently only tested and supported on Switch.
+		return true;
+	default:
+		return false;
+	}
 }
 
 /** Unit cube vertex buffer (VertexDeclarationFVector4) */

@@ -54,7 +54,7 @@ bool FOnlineSharingFacebook::RequestNewReadPermissions(int32 LocalUserNum, EOnli
 
 void FOnlineSharingFacebook::OnPermissionsLevelRequest(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
 {
-	UE_LOG(LogOnline, Display, TEXT("OnPermissionsLevelRequest : Success - %d %s"), bWasSuccessful, *Error);
+	UE_LOG_ONLINE_SHARING(Display, TEXT("OnPermissionsLevelRequest : Success - %d %s"), bWasSuccessful, *Error);
 	TriggerOnRequestNewReadPermissionsCompleteDelegates(LocalUserNum, bWasSuccessful);
 }
 

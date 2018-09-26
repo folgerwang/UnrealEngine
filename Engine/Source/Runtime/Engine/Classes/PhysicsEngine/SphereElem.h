@@ -15,8 +15,10 @@ struct FKSphereElem : public FKShapeElem
 {
 	GENERATED_USTRUCT_BODY()
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FMatrix TM_DEPRECATED;
+#endif
 
 	/** Position of the sphere's origin */
 	UPROPERTY(Category=Sphere, EditAnywhere)
@@ -28,6 +30,9 @@ struct FKSphereElem : public FKShapeElem
 
 	FKSphereElem() 
 	: FKShapeElem(EAggCollisionShape::Sphere)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
+#endif
 	, Center( FVector::ZeroVector )
 	, Radius(1)
 	{
@@ -36,13 +41,18 @@ struct FKSphereElem : public FKShapeElem
 
 	FKSphereElem( float r ) 
 	: FKShapeElem(EAggCollisionShape::Sphere)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
+#endif
 	, Center( FVector::ZeroVector )
 	, Radius(r)
 	{
 
 	}
 
+#if WITH_EDITORONLY_DATA
 	void FixupDeprecated( FArchive& Ar );
+#endif
 
 	friend bool operator==( const FKSphereElem& LHS, const FKSphereElem& RHS )
 	{

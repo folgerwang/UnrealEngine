@@ -16,8 +16,8 @@
 
 enum EFBXCompareSection
 {
-	EFBXCompareSection_General = 0,
-	EFBXCompareSection_Skeleton,
+	EFBXCompareSection_Skeleton = 0,
+	EFBXCompareSection_References,
 	EFBXCompareSection_Count
 };
 
@@ -30,27 +30,6 @@ public:
 	{}
 	FName MaterialSlotName;
 	FName ImportedMaterialSlotName;
-};
-
-class FCompSection
-{
-public:
-	FCompSection()
-		: MaterialIndex(INDEX_NONE)
-	{}
-
-	int32 MaterialIndex;
-};
-
-class FCompLOD
-{
-public:
-	~FCompLOD()
-	{
-		Sections.Empty();
-	}
-
-	TArray<FCompSection> Sections;
 };
 
 class FCompJoint
@@ -90,31 +69,12 @@ public:
 class FCompMesh
 {
 public:
-	~FCompMesh()
-	{
-		CompMaterials.Empty();
-		CompLods.Empty();
-	}
+	~FCompMesh() {}
 
-	TArray<FCompMaterial> CompMaterials;
-	TArray<FCompLOD> CompLods;
 	FCompSkeleton CompSkeleton;
-	TArray<FString> UVSetsName;
-	int32 LightMapUvIndex;
 
 	TArray<FString> ErrorMessages;
 	TArray<FString> WarningMessages;
-};
-
-class FGeneralFbxFileInfo
-{
-public:
-	FString ApplicationCreator;
-	FString UE4SdkVersion;
-	FString FileVersion;
-	FString AxisSystem;
-	FString UnitSystem;
-	FString CreationDate;
 };
 
 class FSkeletonCompareData : public TSharedFromThis<FSkeletonCompareData>
@@ -127,6 +87,7 @@ public:
 		, ParentJoint(nullptr)
 		, bMatchJoint(false)
 		, bChildConflict(false)
+		, bInitialAutoExpand(false)
 	{}
 	int32 CurrentJointIndex;
 	int32 FbxJointIndex;
@@ -134,6 +95,7 @@ public:
 	TSharedPtr<FSkeletonCompareData> ParentJoint;
 	bool bMatchJoint;
 	bool bChildConflict;
+	bool bInitialAutoExpand;
 	TArray<int32> ChildJointIndexes;
 	TArray<TSharedPtr<FSkeletonCompareData>> ChildJoints;
 };
@@ -162,55 +124,6 @@ public:
 	};
 };
 
-class FMaterialCompareData : public FCompareRowData
-{
-public:
-	enum EMaterialCompareDisplayOption
-	{
-		NoMatch = 0,
-		IndexChanged,
-		SkinxxError,
-		All,
-		MaxOptionEnum
-	};
-
-	FMaterialCompareData()
-		: CurrentMaterialIndex(INDEX_NONE)
-		, FbxMaterialIndex(INDEX_NONE)
-		, CurrentMaterialMatch(INDEX_NONE)
-		, FbxMaterialMatch(INDEX_NONE)
-		, bCurrentSkinxxDuplicate(false)
-		, bCurrentSkinxxMissing(false)
-		, bFbxSkinxxDuplicate(false)
-		, bFbxSkinxxMissing(false)
-		, CompareDisplayOption(EMaterialCompareDisplayOption::All)
-	{}
-	
-	virtual ~FMaterialCompareData() {}
-
-	int32 CurrentMaterialIndex;
-	int32 FbxMaterialIndex;
-	int32 CurrentMaterialMatch;
-	int32 FbxMaterialMatch;
-	bool bCurrentSkinxxDuplicate;
-	bool bCurrentSkinxxMissing;
-	bool bFbxSkinxxDuplicate;
-	bool bFbxSkinxxMissing;
-	EMaterialCompareDisplayOption CompareDisplayOption;
-	
-	FSlateColor GetCellColor(FCompMesh *DataA, int32 MaterialIndexA, int32 MaterialMatchA, FCompMesh *DataB, int32 MaterialIndexB, bool bSkinxxError) const;
-	FSlateColor GetCurrentCellColor() const;
-	FSlateColor GetFbxCellColor() const;
-
-	TSharedRef<SWidget> ConstructCell(FCompMesh *MeshData, int32 MeshMaterialIndex);
-	virtual TSharedRef<SWidget> ConstructCellCurrent() override;
-	virtual TSharedRef<SWidget> ConstructCellFbx() override;
-
-	FText GetCellString(bool IsFbxData) const;
-	FText GetCellTooltipString(bool IsFbxData) const;
-
-	TSharedPtr<SWidget> ParentContextMenu;
-};
 
 class SCompareRowDataTableListViewRow : public SMultiColumnTableRow<TSharedPtr<FCompareRowData>>
 {
@@ -266,17 +179,20 @@ private:
 	TSharedPtr<FCompareRowData> CompareRowData;
 };
 
-class SFbxCompareWindow : public SCompoundWidget
+
+/*
+ * This dialog show the conflict between different skeleton
+ */
+class SFbxSkeltonConflictWindow : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SFbxCompareWindow)
+	SLATE_BEGIN_ARGS(SFbxSkeltonConflictWindow)
 		: _WidgetWindow()
 		, _AssetReferencingSkeleton(nullptr)
 		, _SourceData(nullptr)
 		, _ResultData(nullptr)
 		, _SourceObject(nullptr)
-		, _ResultObject(nullptr)
-		, _FbxGeneralInfo()
+		, _bIsPreviewConflict(false)
 		{}
 
 		SLATE_ARGUMENT( TSharedPtr<SWindow>, WidgetWindow )
@@ -284,8 +200,7 @@ public:
 		SLATE_ARGUMENT( FCompMesh*, SourceData)
 		SLATE_ARGUMENT( FCompMesh*, ResultData)
 		SLATE_ARGUMENT( UObject*, SourceObject )
-		SLATE_ARGUMENT( UObject*, ResultObject)
-		SLATE_ARGUMENT( FGeneralFbxFileInfo, FbxGeneralInfo )		
+		SLATE_ARGUMENT( bool, bIsPreviewConflict )
 			
 	SLATE_END_ARGS()
 
@@ -315,7 +230,7 @@ public:
 		return FReply::Unhandled();
 	}
 
-	SFbxCompareWindow()
+	SFbxSkeltonConflictWindow()
 	{}
 		
 private:
@@ -323,7 +238,7 @@ private:
 
 	//Meshes
 	UObject *SourceObject;
-	UObject *ResultObject;
+	bool bIsPreviewConflict;
 
 	//////////////////////////////////////////////////////////////////////////
 	//Collapse generic
@@ -333,18 +248,6 @@ private:
 	const FSlateBrush* GetCollapsableArrow(EFBXCompareSection SectionIndex) const;
 	//////////////////////////////////////////////////////////////////////////
 	
-	//////////////////////////////////////////////////////////////////////////
-	// General fbx data
-	FGeneralFbxFileInfo FbxGeneralInfo;
-	TArray<TSharedPtr<FString>> GeneralListItem;
-	
-	void FillGeneralListItem();
-	//Construct slate
-	TSharedPtr<SWidget> ConstructGeneralInfo();
-	//Slate events
-	TSharedRef<ITableRow> OnGenerateRowGeneralFbxInfo(TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable);
-	//////////////////////////////////////////////////////////////////////////
-
 	//////////////////////////////////////////////////////////////////////////
 	// Compare data
 	FCompMesh *SourceData;
@@ -360,12 +263,13 @@ private:
 	TArray<TSharedPtr<FSkeletonCompareData>> FbxSkeletonTreeItem;
 
 	TArray<TSharedPtr<FString>> AssetReferencingSkeleton;
-
+	
 	void FilSkeletonTreeItem();
 	void RecursiveMatchJointInfo(TSharedPtr<FSkeletonCompareData> CurrentItem);
 	void SetMatchJointInfo();
 	//Construct slate
 	TSharedPtr<SWidget> ConstructSkeletonComparison();
+	TSharedPtr<SWidget> ConstructSkeletonReference();
 	//Slate events
 	TSharedRef<ITableRow> OnGenerateRowCompareTreeView(TSharedPtr<FSkeletonCompareData> RowData, const TSharedRef<STableViewBase>& Table);
 	void OnGetChildrenRowCompareTreeView(TSharedPtr<FSkeletonCompareData> InParent, TArray< TSharedPtr<FSkeletonCompareData> >& OutChildren);

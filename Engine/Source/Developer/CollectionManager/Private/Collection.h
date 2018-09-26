@@ -49,8 +49,8 @@ public:
 
 	/** Loads content from the SourceFilename into this collection. If false, OutError is a human readable warning depicting the error. */
 	bool Load(FText& OutError);
-	/** Saves this collection to SourceFilename. If false, OutError is a human readable warning depicting the error. */
-	bool Save(FText& OutError);
+	/** Saves this collection to SourceFilename. If submitting to source control, AdditionalChangelistText will be added to the changelist description. If false, OutError is a human readable warning depicting the error. */
+	bool Save(const TArray<FText>& AdditionalChangelistText, FText& OutError);
 	/** Updates this collection to ensure it's the latest version from source control. If false, OutError is a human readable warning depicting the error. */
 	bool Update(FText& OutError);
 	/** Merge the contents of NewCollection into this collection. Returns true if there were changes to merge, or false if the collections were identical. */
@@ -135,8 +135,8 @@ private:
 	void GetObjectDifferencesFromDisk(TArray<FName>& ObjectsAdded, TArray<FName>& ObjectsRemoved) const;
 	/** Checks the shared collection out from source control so it may be saved. If false, OutError is a human readable warning depicting the error. */
 	bool CheckoutCollection(FText& OutError);
-	/** Checks the shared collection in to source control after it is saved. If false, OutError is a human readable warning depicting the error. */
-	bool CheckinCollection(FText& OutError);
+	/** Checks the shared collection in to source control after it is saved. In addition to the normal text, AdditionalChangelistText will be added to the checkin description. If false, OutError is a human readable warning depicting the error. */
+	bool CheckinCollection(const TArray<FText>& AdditionalChangelistText, FText& OutError);
 	/** Reverts the collection in the event that the save was not successful. If false, OutError is a human readable warning depicting the error.*/
 	bool RevertCollection(FText& OutError);
 	/** Marks the source file for delete in source control. If false, OutError is a human readable warning depicting the error. */

@@ -125,7 +125,11 @@ void FClothingSimulationBase::SkinPhysicsMesh(UClothingAsset* InAsset, const FCl
 
 		OutPosition = RootBoneTransformInternal.InverseTransformPosition(OutPosition);
 		OutNormal = RootBoneTransformInternal.InverseTransformVector(OutNormal);
-		OutNormal = OutNormal.GetUnsafeNormal();
+		
+		if(OutNormal.SizeSquared() > SMALL_NUMBER)
+		{
+			OutNormal = OutNormal.GetUnsafeNormal();
+		}
 	}
 }
 
@@ -224,7 +228,7 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 	if(InComponent->IsPendingKill())
 	{
 		AActor* CompOwner = InComponent->GetOwner();
-		ensureMsgf(false, TEXT("Attempting to fill a clothing simulation context for a PendingKill skeletal mesh component (Comp: %s, Actor: %s). Pending kill skeletal mesh components should be unregistered before marked pending kill."), *InComponent->GetName(), CompOwner ? *CompOwner->GetName() : TEXT("None"));
+		UE_LOG(LogSkeletalMesh, Warning, TEXT("Attempting to fill a clothing simulation context for a PendingKill skeletal mesh component (Comp: %s, Actor: %s). Pending kill skeletal mesh components should be unregistered before marked pending kill."), *InComponent->GetName(), CompOwner ? *CompOwner->GetName() : TEXT("None"));
 
 		// Make sure we clear this out to skip any attempted simulations
 		BaseContext->BoneTransforms.Reset();
@@ -234,7 +238,7 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 	{
 		AActor* CompOwner = InComponent->GetOwner();
 		USkinnedMeshComponent* Master = InComponent->MasterPoseComponent.Get();
-		ensureMsgf(false, TEXT("Attempting to fill a clothing simulation context for a skeletal mesh component that has zero bones (Comp: %s, Master: %s, Actor: %s)."), *InComponent->GetName(), Master ? *Master->GetName() : TEXT("None"), CompOwner ? *CompOwner->GetName() : TEXT("None"));
+		UE_LOG(LogSkeletalMesh, Warning, TEXT("Attempting to fill a clothing simulation context for a skeletal mesh component that has zero bones (Comp: %s, Master: %s, Actor: %s)."), *InComponent->GetName(), Master ? *Master->GetName() : TEXT("None"), CompOwner ? *CompOwner->GetName() : TEXT("None"));
 
 		// Make sure we clear this out to skip any attempted simulations
 		BaseContext->BoneTransforms.Reset();

@@ -3754,11 +3754,11 @@ namespace AutomationTool
 			}
 			if(Filter != null)
 			{
-				CommandLine.AppendFormat("-F \"{0}\"", Filter);
+				CommandLine.AppendFormat(" -F \"{0}\"", Filter);
 			}
 			if(MaxResults > 0)
 			{
-				CommandLine.AppendFormat("-m {0}", MaxResults);
+				CommandLine.AppendFormat(" -m {0}", MaxResults);
 			}
 			CommandLine.AppendFormat(" \"{0}\"", StreamPath);
 

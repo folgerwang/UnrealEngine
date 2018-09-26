@@ -207,6 +207,7 @@ public:
 	bool HandleDisplayAllLocationCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDisplayAllRotationCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDisplayClearCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleGetAllLocationCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleTextureDefragCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleToggleMIPFadeCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandlePauseRenderClockCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -335,6 +336,9 @@ public:
 
 	/** @return Whether or not the main viewport is fullscreen or windowed. */
 	bool IsFullScreenViewport() const;
+
+	/** @return If we're specifically in fullscreen mode, not windowed fullscreen. */
+	bool IsExclusiveFullscreenViewport() const;
 
 	/** @return mouse position in game viewport coordinates (does not account for splitscreen) */
 	bool GetMousePosition(FVector2D& MousePosition) const;
@@ -713,7 +717,8 @@ public:
 	 */
 	virtual bool ShouldAlwaysLockMouse() override
 	{
-		return MouseLockMode == EMouseLockMode::LockAlways;
+		return MouseLockMode == EMouseLockMode::LockAlways
+			 || (MouseLockMode == EMouseLockMode::LockInFullscreen && IsExclusiveFullscreenViewport());
 	}
 
 	/**

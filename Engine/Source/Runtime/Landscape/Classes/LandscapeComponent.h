@@ -7,6 +7,7 @@
 #include "Misc/Guid.h"
 #include "Engine/TextureStreamingTypes.h"
 #include "Components/PrimitiveComponent.h"
+#include "PerPlatformProperties.h"
 
 #include "LandscapeComponent.generated.h"
 
@@ -236,6 +237,18 @@ struct FLandscapeComponentGrassData
 	friend FArchive& operator<<(FArchive& Ar, FLandscapeComponentGrassData& Data);
 };
 
+USTRUCT(NotBlueprintable)
+struct FLandscapeComponentMaterialOverride
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Category = LandscapeComponent)
+	FPerPlatformInt LODIndex;
+
+	UPROPERTY(EditAnywhere, Category = LandscapeComponent)
+	UMaterialInterface* Material;
+};
+
 UCLASS(hidecategories=(Display, Attachment, Physics, Debug, Collision, Movement, Rendering, PrimitiveComponent, Object, Transform, Mobility), showcategories=("Rendering|Material"), MinimalAPI, Within=LandscapeProxy)
 class ULandscapeComponent : public UPrimitiveComponent
 {
@@ -267,6 +280,9 @@ class ULandscapeComponent : public UPrimitiveComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LandscapeComponent, AdvancedDisplay)
 	UMaterialInterface* OverrideHoleMaterial;
 
+	UPROPERTY(EditAnywhere, Category = LandscapeComponent)
+	TArray<FLandscapeComponentMaterialOverride> OverrideMaterials;
+
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	UMaterialInstanceConstant* MaterialInstance_DEPRECATED;
@@ -277,6 +293,14 @@ class ULandscapeComponent : public UPrimitiveComponent
 
 	UPROPERTY(Transient, TextExportTransient)
 	TArray<UMaterialInstanceDynamic*> MaterialInstancesDynamic;
+
+	/** Mapping between LOD and Material Index*/
+	UPROPERTY(TextExportTransient)
+	TArray<int8> LODIndexToMaterialIndex;
+
+	/** Mapping between Material Index to associated generated disabled Tessellation Material*/
+	UPROPERTY(TextExportTransient)
+	TArray<int8> MaterialIndexToDisabledTessellationMaterial;
 
 	/** List of layers, and the weightmap and channel they are stored */
 	UPROPERTY()
@@ -388,15 +412,22 @@ public:
 	/** Hash of source for ES2 generated data. Used determine if we need to re-generate ES2 pixel data. */
 	UPROPERTY(DuplicateTransient)
 	FGuid MobileDataSourceHash;
+
+	/** Represent the chosen material for each LOD */
+	UPROPERTY(DuplicateTransient)
+	TMap<UMaterialInterface*, int8> MaterialPerLOD;
 #endif
 
 	/** For ES2 */
 	UPROPERTY()
 	uint8 MobileBlendableLayerMask;
 
-	/** Material interface used for ES2. Serialized only when cooking or loading cooked builds. */
 	UPROPERTY(NonPIEDuplicateTransient)
-	UMaterialInterface* MobileMaterialInterface;
+	UMaterialInterface* MobileMaterialInterface_DEPRECATED;
+
+	/** Material interfaces used for mobile */
+	UPROPERTY(NonPIEDuplicateTransient)
+	TArray<UMaterialInterface*> MobileMaterialInterfaces;
 
 	/** Generated weightmap textures used for ES2. The first entry is also used for the normal map. 
 	  * Serialized only when cooking or loading cooked builds. */
@@ -410,7 +441,10 @@ public:
 	/** The editor needs to save out the combination MIC we'll use for mobile, 
 	  because we cannot generate it at runtime for standalone PIE games */
 	UPROPERTY(NonPIEDuplicateTransient)
-	UMaterialInstanceConstant* MobileCombinationMaterialInstance;
+	TArray<UMaterialInstanceConstant*> MobileCombinationMaterialInstances;
+
+	UPROPERTY(NonPIEDuplicateTransient)
+	UMaterialInstanceConstant* MobileCombinationMaterialInstance_DEPRECATED;
 #endif
 
 public:
@@ -526,6 +560,7 @@ public:
 	void CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform);
 #endif
 
+	LANDSCAPE_API int32 GetMaterialInstanceCount(bool InDynamic = true) const;
 	LANDSCAPE_API class UMaterialInstance* GetMaterialInstance(int32 InIndex, bool InDynamic = true) const;
 
 	/** Gets the landscape material instance dynamic for this component */
@@ -597,7 +632,7 @@ public:
 	void UpdateMaterialInstances_Internal(FMaterialUpdateContext& Context);
 
 	/** Helper function for UpdateMaterialInstance to get Material without set parameters */
-	UMaterialInstanceConstant* GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, bool bMobile = false) const;
+	UMaterialInstanceConstant* GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile = false) const;
 	/**
 	 * Generate mipmaps for height and tangent data.
 	 * @param HeightmapTextureMipData - array of pointers to the locked mip data.
@@ -675,7 +710,7 @@ public:
 	void ReallocateWeightmaps(FLandscapeEditDataInterface* DataInterface=NULL);
 
 	/** Returns the actor's LandscapeMaterial, or the Component's OverrideLandscapeMaterial if set */
-	LANDSCAPE_API UMaterialInterface* GetLandscapeMaterial() const;
+	LANDSCAPE_API UMaterialInterface* GetLandscapeMaterial(int8 InLODIndex = INDEX_NONE) const;
 
 	/** Returns the actor's LandscapeHoleMaterial, or the Component's OverrideLandscapeHoleMaterial if set */
 	LANDSCAPE_API UMaterialInterface* GetLandscapeHoleMaterial() const;

@@ -6,6 +6,8 @@
 #include "Developer/MessageLog/Public/MessageLogModule.h"
 #include "Logging/MessageLog.h"
 #include "Misc/ScopedSlowTask.h"
+#include "AssetRegistryModule.h"
+#include "Editor.h"
 
 #include "CoreGlobals.h"
 
@@ -21,6 +23,7 @@ UDataValidationManager::UDataValidationManager(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 {
 	DataValidationManagerClassName = FSoftClassPath(TEXT("/Script/DataValidation.DataValidationManager"));
+	bValidateOnSave = true;
 }
 
 UDataValidationManager* UDataValidationManager::Get()
@@ -79,10 +82,10 @@ EDataValidationResult UDataValidationManager::IsAssetValid(FAssetData& AssetData
 	return EDataValidationResult::Invalid;
 }
 
-void UDataValidationManager::ValidateAssets(TArray<FAssetData> AssetDataList, bool bSkipExcludedDirectories) const
+int32 UDataValidationManager::ValidateAssets(TArray<FAssetData> AssetDataList, bool bSkipExcludedDirectories, bool bShowIfNoFailures) const
 {
 	FScopedSlowTask SlowTask(1.0f, LOCTEXT("ValidatingDataTask", "Validating Data..."));
-	SlowTask.Visibility = ESlowTaskVisibility::ForceVisible;
+	SlowTask.Visibility = bShowIfNoFailures ? ESlowTaskVisibility::ForceVisible : ESlowTaskVisibility::Invisible;
 	SlowTask.MakeDialog();
 
 	FMessageLog DataValidationLog("DataValidation");
@@ -115,7 +118,7 @@ void UDataValidationManager::ValidateAssets(TArray<FAssetData> AssetDataList, bo
 
 		for (const FText& ErrorMsg : ValidationErrors)
 		{
-			FMessageLog("DataValidation").Error()->AddToken(FTextToken::Create(ErrorMsg));
+			DataValidationLog.Error()->AddToken(FTextToken::Create(ErrorMsg));
 		}
 
 		if (Result == EDataValidationResult::Valid)
@@ -124,37 +127,75 @@ void UDataValidationManager::ValidateAssets(TArray<FAssetData> AssetDataList, bo
 		}
 		else
 		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("Filename"), FText::FromName(Data.PackageName));
 			if (Result == EDataValidationResult::Invalid)
 			{
-				FMessageLog("DataValidation").Error()->AddToken(FTextToken::Create(FText::Format(LOCTEXT("InvalidDataResult", "{Filename} contains invalid data."), Arguments)));
+				DataValidationLog.Error()->AddToken(FAssetNameToken::Create(Data.PackageName.ToString()))
+					->AddToken(FTextToken::Create(LOCTEXT("InvalidDataResult", "contains invalid data.")));
 				++NumInvalidFiles;
 			}
 			else if (Result == EDataValidationResult::NotValidated)
 			{
-				FMessageLog("DataValidation").Info()->AddToken(FTextToken::Create(FText::Format(LOCTEXT("NotValidatedDataResult", "There is no data validation for {Filename}."), Arguments)));
+				if (bShowIfNoFailures)
+				{
+					DataValidationLog.Info()->AddToken(FAssetNameToken::Create(Data.PackageName.ToString()))
+						->AddToken(FTextToken::Create(LOCTEXT("NotValidatedDataResult", "has no data data validation.")));
+				}
 				++NumFilesUnableToValidate;
 			}
 		}
 	}
 
+	const bool bFailed = (NumInvalidFiles > 0);
+
+	if (bFailed || bShowIfNoFailures)
 	{
 		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("Result"), NumInvalidFiles > 0 ? LOCTEXT("Failed", "FAILED") : LOCTEXT("Succeeded", "SUCCEEDED"));
+		Arguments.Add(TEXT("Result"), bFailed ? LOCTEXT("Failed", "FAILED") : LOCTEXT("Succeeded", "SUCCEEDED"));
 		Arguments.Add(TEXT("NumChecked"), NumFilesChecked);
 		Arguments.Add(TEXT("NumValid"), NumValidFiles);
 		Arguments.Add(TEXT("NumInvalid"), NumInvalidFiles);
 		Arguments.Add(TEXT("NumSkipped"), NumFilesSkipped);
 		Arguments.Add(TEXT("NumUnableToValidate"), NumFilesUnableToValidate);
 
-		TSharedRef<FTokenizedMessage> ValidationLog = NumInvalidFiles > 0 ? FMessageLog("DataValidation").Error() : FMessageLog("DataValidation").Info();
-
+		TSharedRef<FTokenizedMessage> ValidationLog = bFailed ? DataValidationLog.Error() : DataValidationLog.Info();
 		ValidationLog->AddToken(FTextToken::Create(FText::Format(LOCTEXT("SuccessOrFailure", "Data validation {Result}."), Arguments)));
 		ValidationLog->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ResultsSummary", "Files Checked: {NumChecked}, Passed: {NumValid}, Failed: {NumInvalid}, Skipped: {NumSkipped}, Unable to validate: {NumUnableToValidate}"), Arguments)));
+
+		DataValidationLog.Open(EMessageSeverity::Info, true);
 	}
 
-	DataValidationLog.Open(EMessageSeverity::Info, true);
+	return NumInvalidFiles;
+}
+
+void UDataValidationManager::ValidateOnSave(TArray<FAssetData> AssetDataList) const
+{
+	// Only validate if enabled and not auto saving
+	if (!bValidateOnSave || GEditor->IsAutosaving())
+	{
+		return;
+	}
+
+	FMessageLog DataValidationLog("DataValidation");
+	if (ValidateAssets(AssetDataList, true, false) > 0)
+	{
+		const FText ErrorMessageNotification = FText::Format(
+			LOCTEXT("ValidationFailureNotification", "Validation failed when saving {0}, check Data Validation log"),
+			AssetDataList.Num() == 1 ? FText::FromName(AssetDataList[0].AssetName) : LOCTEXT("MultipleErrors", "multiple assets"));
+		DataValidationLog.Notify(ErrorMessageNotification, EMessageSeverity::Warning, /*bForce=*/ true);
+	}
+}
+
+void UDataValidationManager::ValidateSavedPackage(FName PackageName)
+{
+	// Only validate if enabled and not auto saving
+	if (!bValidateOnSave || GEditor->IsAutosaving())
+	{
+		return;
+	}
+
+	SavedPackagesToValidate.AddUnique(PackageName);
+
+	GEditor->GetTimerManager()->SetTimerForNextTick(this, &UDataValidationManager::ValidateAllSavedPackages);
 }
 
 bool UDataValidationManager::IsPathExcludedFromValidation(const FString& Path) const
@@ -168,6 +209,22 @@ bool UDataValidationManager::IsPathExcludedFromValidation(const FString& Path) c
 	}
 
 	return false;
+}
+
+void UDataValidationManager::ValidateAllSavedPackages()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	TArray<FAssetData> Assets;
+
+	for (FName PackageName : SavedPackagesToValidate)
+	{
+		// We need to query the in-memory data as the disk cache may not be accurate
+		AssetRegistryModule.Get().GetAssetsByPackageName(PackageName, Assets);
+	}
+
+	ValidateOnSave(Assets);
+
+	SavedPackagesToValidate.Empty();
 }
 
 #undef LOCTEXT_NAMESPACE

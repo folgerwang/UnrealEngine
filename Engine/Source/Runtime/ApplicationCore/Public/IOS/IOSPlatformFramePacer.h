@@ -33,6 +33,9 @@ struct FIOSPlatformRHIFramePacer : public FGenericPlatformRHIFramePacer
     
     /** Number of frames before the CADisplayLink triggers it's readied callback */
     static uint32 FrameInterval;
+
+	 /** The minimum frame interval dictated by project settings on startup */
+	static uint32 MinFrameInterval;
 	
 	/** Frame rate we are pacing to */
 	static uint32 Pace;

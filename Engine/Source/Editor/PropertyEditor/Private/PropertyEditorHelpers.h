@@ -262,5 +262,6 @@ namespace PropertyEditorHelpers
 	 */
 	bool IsVisibleStandaloneProperty(const FPropertyNode& PropertyNode, const FPropertyNode& ParentNode);
 
+	void OrderPropertiesFromMetadata(TArray<UProperty*>& Properties);
 }
 

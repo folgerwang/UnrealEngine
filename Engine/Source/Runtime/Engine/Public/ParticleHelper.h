@@ -2715,12 +2715,20 @@ protected:
 
 #if STATS
 	double LastStatCaptureTime;
-	bool bCountedThisFrame;
+	uint8 bCountedThisFrame:1;
 #endif
 
-	uint32 bCastShadow : 1;
-	uint32 bManagingSignificance : 1;
-	
+	uint8 bCastShadow : 1;
+	uint8 bManagingSignificance : 1;
+	mutable uint8 bVertexFactoriesDirty : 1;
+
+private:
+	uint8	bCanBeOccluded : 1;
+	uint8	bHasCustomOcclusionBounds : 1;
+
+protected:
+	TEnumAsByte<ERHIFeatureLevel::Type> FeatureLevel;
+
 	FMaterialRelevance MaterialRelevance;
 
 	FParticleDynamicData* DynamicData;			// RENDER THREAD USAGE ONLY
@@ -2742,21 +2750,16 @@ protected:
 	TIndirectArray<FMeshBatch, TInlineAllocator<4> > MeshBatchPool;
 	int32 FirstFreeMeshBatch;
 
+private:
+	/** Bounds for occlusion rendering. */
+	FBoxSphereBounds OcclusionBounds;
+
+protected:
 	/** vertex factories for all emitters */
 	mutable TArray<FParticleVertexFactoryBase*> EmitterVertexFactoryArray;
 	mutable TArray<FDynamicEmitterDataBase*> DynamicDataForThisFrame; 
-	mutable bool bVertexFactoriesDirty : 1;
-
-	ERHIFeatureLevel::Type FeatureLevel;
 
 	friend struct FDynamicSpriteEmitterDataBase;
-
-private:
-	uint32	bCanBeOccluded : 1;
-	uint32	bHasCustomOcclusionBounds : 1;
-
-	/** Bounds for occlusion rendering. */
-	FBoxSphereBounds OcclusionBounds;
 };
 
 #if STATS

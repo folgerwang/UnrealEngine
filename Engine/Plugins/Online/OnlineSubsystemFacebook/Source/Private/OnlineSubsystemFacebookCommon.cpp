@@ -13,15 +13,6 @@
 /** Fallback to latest tested API version */
 #define FACEBOOK_API_VER TEXT("v2.12")
 
-FOnlineSubsystemFacebookCommon::FOnlineSubsystemFacebookCommon()
-	: FacebookIdentity(nullptr)
-	, FacebookFriends(nullptr)
-	, FacebookSharing(nullptr)
-	, FacebookUser(nullptr)
-	, FacebookExternalUI(nullptr)
-{
-}
-
 FOnlineSubsystemFacebookCommon::FOnlineSubsystemFacebookCommon(FName InInstanceName)
 	: FOnlineSubsystemImpl(FACEBOOK_SUBSYSTEM, InInstanceName)
 	, FacebookIdentity(nullptr)
@@ -40,12 +31,12 @@ bool FOnlineSubsystemFacebookCommon::Init()
 {
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook"), TEXT("ClientId"), ClientId, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE(Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
 	}
 
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook"), TEXT("APIVer"), APIVer, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing APIVer= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE(Warning, TEXT("Missing APIVer= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
 		APIVer = FACEBOOK_API_VER;
 	}
 
@@ -54,7 +45,7 @@ bool FOnlineSubsystemFacebookCommon::Init()
 
 bool FOnlineSubsystemFacebookCommon::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemFacebookCommon::Shutdown()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemFacebookCommon::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 

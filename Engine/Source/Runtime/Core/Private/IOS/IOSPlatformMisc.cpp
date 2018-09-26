@@ -101,6 +101,46 @@ void FIOSPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT("High frequency timer resolution =%f MHz"), 0.000001 / FPlatformTime::GetSecondsPerCycle() );
 	GStartupFreeMemoryMB = GetFreeMemoryMB();
 	UE_LOG(LogInit, Log, TEXT("Free Memory at startup: %d MB"), GStartupFreeMemoryMB);
+
+	// create the Documents/<GameName>/Content directory so we can exclude it from iCloud backup
+	FString ResultStr = FPaths::ProjectContentDir();
+	ResultStr.ReplaceInline(TEXT("../"), TEXT(""));
+	ResultStr.ReplaceInline(TEXT(".."), TEXT(""));
+	ResultStr.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+	FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+	ResultStr = DownloadPath + ResultStr;
+	NSURL* URL = [NSURL fileURLWithPath : ResultStr.GetNSString()];
+	if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
+	{
+		[[NSFileManager defaultManager] createDirectoryAtURL:URL withIntermediateDirectories : YES attributes : nil error : nil];
+	}
+
+	// mark it to not be uploaded
+	NSError *error = nil;
+	BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+	if (!success)
+	{
+		NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+	}
+
+	// create the Documents/Engine/Content directory so we can exclude it from iCloud backup
+	ResultStr = FPaths::EngineContentDir();
+	ResultStr.ReplaceInline(TEXT("../"), TEXT(""));
+	ResultStr.ReplaceInline(TEXT(".."), TEXT(""));
+	ResultStr.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+	ResultStr = DownloadPath + ResultStr;
+	URL = [NSURL fileURLWithPath : ResultStr.GetNSString()];
+	if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
+	{
+		[[NSFileManager defaultManager] createDirectoryAtURL:URL withIntermediateDirectories : YES attributes : nil error : nil];
+	}
+
+	// mark it to not be uploaded
+	success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+	if (!success)
+	{
+		NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+	}
 }
 
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
@@ -163,6 +203,11 @@ int FIOSPlatformMisc::GetAudioVolume()
 	return [[IOSAppDelegate GetDelegate] GetAudioVolume];
 }
 
+int32 FIOSPlatformMisc::GetDeviceVolume()
+{
+	return [[IOSAppDelegate GetDelegate] GetAudioVolume];
+}
+
 bool FIOSPlatformMisc::AreHeadphonesPluggedIn()
 {
 	return [[IOSAppDelegate GetDelegate] AreHeadphonesPluggedIn];
@@ -204,7 +249,7 @@ float FIOSPlatformMisc::GetDeviceTemperatureLevel()
 #if !PLATFORM_TVOS
 	if (@available(iOS 11, *))
 	{
-		switch ([[NSProcessInfo processInfo] thermalState])
+		switch ([[IOSAppDelegate GetDelegate] GetThermalState])
 		{
 		case NSProcessInfoThermalStateNominal:	return (float)FCoreDelegates::ETemperatureSeverity::Good; break;
 		case NSProcessInfoThermalStateFair:		return (float)FCoreDelegates::ETemperatureSeverity::Bad; break;
@@ -214,6 +259,18 @@ float FIOSPlatformMisc::GetDeviceTemperatureLevel()
 	}
 #endif
 	return -1.0f;
+}
+
+bool FIOSPlatformMisc::IsInLowPowerMode()
+{
+#if !PLATFORM_TVOS
+    if (@available(iOS 11, *))
+    {
+        bool bInLowPowerMode = [[NSProcessInfo processInfo] isLowPowerModeEnabled];
+        return bInLowPowerMode;
+    }
+#endif
+    return false;
 }
 
 
@@ -626,15 +683,51 @@ FString FIOSPlatformMisc::GetOSVersion()
 
 bool FIOSPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)
 {
-	NSDictionary<NSFileAttributeKey, id>* FSStat = [[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil];
-	if (FSStat)
-	{
-		TotalNumberOfBytes = [[FSStat objectForKey:NSFileSystemSize] longLongValue];
-		NumberOfFreeBytes = [[FSStat objectForKey:NSFileSystemFreeSize] longLongValue];
-		return true;
-	}
-	return false;
+    //On iOS 11 use new method to return disk space available for important usages
+#if !PLATFORM_TVOS
+    if (@available(iOS 11, *))
+    {
+	    bool GetValueSuccess = false;
+
+	    NSNumber *FreeBytes = nil;
+	    NSURL *URL = [NSURL fileURLWithPath : NSHomeDirectory()];
+	    GetValueSuccess = [URL getResourceValue : &FreeBytes forKey : NSURLVolumeAvailableCapacityForImportantUsageKey error : nil];
+	    if (FreeBytes)
+	    {
+	        NumberOfFreeBytes = [FreeBytes longLongValue];
+	    }
+
+	    NSNumber *TotalBytes = nil;
+	    GetValueSuccess = GetValueSuccess &&[URL getResourceValue : &TotalBytes forKey : NSURLVolumeTotalCapacityKey error : nil];
+	    if (TotalBytes)
+	    {
+	        TotalNumberOfBytes = [TotalBytes longLongValue];
+	    }
+
+	    if (GetValueSuccess
+	        && (NumberOfFreeBytes > 0)
+	        && (TotalNumberOfBytes > 0))
+	    {
+	        return true;
+	    }
+    }
+#endif
+
+    //fallback to old method if we didn't return above
+    {
+        NSDictionary<NSFileAttributeKey, id>* FSStat = [[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error : nil];
+        if (FSStat)
+        {
+            NumberOfFreeBytes = [[FSStat objectForKey : NSFileSystemFreeSize] longLongValue];
+            TotalNumberOfBytes = [[FSStat objectForKey : NSFileSystemSize] longLongValue];
+
+            return true;
+        }
+
+        return false;
+    }
 }
+
 
 void FIOSPlatformMisc::RequestStoreReview()
 {
@@ -702,6 +795,11 @@ class IPlatformChunkInstall* FIOSPlatformMisc::GetPlatformChunkInstall()
 	}
 
 	return ChunkInstall;
+}
+
+bool FIOSPlatformMisc::SupportsForceTouchInput()
+{
+	return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone && GetIOSDeviceType() != IOS_IPhoneSE;
 }
 
 #if !PLATFORM_TVOS
@@ -1000,7 +1098,7 @@ int32 FIOSPlatformMisc::IOSVersionCompare(uint8 Major, uint8 Minor, uint8 Revisi
 	return 0;
 }
 
-void FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
+bool FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QuerySucceededFunc, TFunction<void(const FString&, const FString&)> QueryFailedFunc)
 {
 	DCDevice* DeviceCheckDevice = [DCDevice currentDevice];
 	if ([DeviceCheckDevice isSupported])
@@ -1012,10 +1110,27 @@ void FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8
 			{
 				TArray<uint8> DeviceToken((uint8*)[token bytes], [token length]);
 
-				QueryCompleteFunc(DeviceToken);
+				QuerySucceededFunc(DeviceToken);
+			}
+			else
+			{
+				FString ErrorDescription([error localizedDescription]);
+
+				NSDate* currentDate = [[[NSDate alloc] init] autorelease];
+                NSTimeZone* timeZone = [NSTimeZone defaultTimeZone];
+                NSDateFormatter* dateFormatter = [[[NSDateFormatter alloc] init] autorelease];
+                [dateFormatter setTimeZone:timeZone];
+                [dateFormatter setDateFormat:@"yyyy-mm-dd'T'HH:mm:ss.SSS'Z'"];
+                FString localDateString([dateFormatter stringFromDate:currentDate]);
+                
+				QueryFailedFunc(ErrorDescription, localDateString);
 			}
 		}];
+
+		return true;
 	}
+
+	return false;
 }
 
 /*------------------------------------------------------------------------------

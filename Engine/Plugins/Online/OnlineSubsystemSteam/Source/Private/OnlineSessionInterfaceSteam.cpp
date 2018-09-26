@@ -214,7 +214,7 @@ public:
 
 bool FOnlineSessionSteam::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 
 	// Check for an existing session
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -251,12 +251,12 @@ bool FOnlineSessionSteam::CreateSession(int32 HostingPlayerNum, FName SessionNam
 			Result = CreateLANSession(HostingPlayerNum, Session);
 		}
 
-		if (Result != ERROR_IO_PENDING)
+		if (Result != ONLINE_IO_PENDING)
 		{
 			// Set the game state as pending (not started)
 			Session->SessionState = EOnlineSessionState::Pending;
 
-			if (Result != ERROR_SUCCESS)
+			if (Result != ONLINE_SUCCESS)
 			{
 				// Clean up the session info so we don't get into a confused state
 				RemoveNamedSession(SessionName);
@@ -269,15 +269,15 @@ bool FOnlineSessionSteam::CreateSession(int32 HostingPlayerNum, FName SessionNam
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
-		TriggerOnCreateSessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		TriggerOnCreateSessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 	
-	return Result == ERROR_IO_PENDING || Result == ERROR_SUCCESS;
+	return Result == ONLINE_IO_PENDING || Result == ONLINE_SUCCESS;
 }
 
 bool FOnlineSessionSteam::CreateSession(const FUniqueNetId& HostingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
@@ -288,7 +288,7 @@ bool FOnlineSessionSteam::CreateSession(const FUniqueNetId& HostingPlayerId, FNa
 
 uint32 FOnlineSessionSteam::CreateLobbySession(int32 HostingPlayerNum, FNamedOnlineSession* Session)
 {
-	uint32 Result = E_FAIL; 
+	uint32 Result = ONLINE_FAIL; 
 
 	if (Session)
 	{
@@ -301,11 +301,11 @@ uint32 FOnlineSessionSteam::CreateLobbySession(int32 HostingPlayerNum, FNamedOnl
 		FOnlineAsyncTaskSteamCreateLobby* NewTask = new FOnlineAsyncTaskSteamCreateLobby(SteamSubsystem, Session->SessionName, SteamLobbyType, MaxLobbySize);
 		SteamSubsystem->QueueAsyncTask(NewTask);
 
-		Result = ERROR_IO_PENDING;
+		Result = ONLINE_IO_PENDING;
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("CreateLobbySession: NULL Session"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("CreateLobbySession: NULL Session"));
 	}
 
 	return Result;
@@ -313,7 +313,7 @@ uint32 FOnlineSessionSteam::CreateLobbySession(int32 HostingPlayerNum, FNamedOnl
 
 uint32 FOnlineSessionSteam::CreateInternetSession(int32 HostingPlayerNum, FNamedOnlineSession* Session)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 
 	// Only allowed one published session with Steam
 	FNamedOnlineSession* MasterSession = GetGameServerSession();
@@ -326,16 +326,16 @@ uint32 FOnlineSessionSteam::CreateInternetSession(int32 HostingPlayerNum, FNamed
 
 			FOnlineAsyncTaskSteamCreateServer* NewTask = new FOnlineAsyncTaskSteamCreateServer(SteamSubsystem, Session->SessionName);
 			SteamSubsystem->QueueAsyncTask(NewTask);
-			Result = ERROR_IO_PENDING;
+			Result = ONLINE_IO_PENDING;
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Failed to initialize game server with Steam!"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to initialize game server with Steam!"));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Advertised session %s already exists, unable to create another."), *Session->SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Advertised session %s already exists, unable to create another."), *Session->SessionName.ToString());
 	}
 
 	return Result;
@@ -345,7 +345,7 @@ uint32 FOnlineSessionSteam::CreateInternetSession(int32 HostingPlayerNum, FNamed
 uint32 FOnlineSessionSteam::CreateLANSession(int32 HostingPlayerNum, FNamedOnlineSession* Session)
 {
 	check(Session);
-	uint32 Result = ERROR_SUCCESS;
+	uint32 Result = ONLINE_SUCCESS;
 
 	// Setup the host session info
 	FOnlineSessionInfoSteam* NewSessionInfo = new FOnlineSessionInfoSteam(ESteamSession::LANSession);
@@ -363,7 +363,7 @@ uint32 FOnlineSessionSteam::CreateLANSession(int32 HostingPlayerNum, FNamedOnlin
 		FOnValidQueryPacketDelegate QueryPacketDelegate = FOnValidQueryPacketDelegate::CreateRaw(this, &FOnlineSessionSteam::OnValidQueryPacketReceived);
 		if (!LANSession->Host(QueryPacketDelegate))
 		{
-			Result = E_FAIL;
+			Result = ONLINE_FAIL;
 		}
 	}
 
@@ -372,7 +372,7 @@ uint32 FOnlineSessionSteam::CreateLANSession(int32 HostingPlayerNum, FNamedOnlin
 
 bool FOnlineSessionSteam::StartSession(FName SessionName)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	// Grab the session information by name
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
@@ -383,7 +383,7 @@ bool FOnlineSessionSteam::StartSession(FName SessionName)
 		{
 			if (!Session->SessionSettings.bIsLANMatch)
 			{
-				Result = ERROR_SUCCESS;
+				Result = ONLINE_SUCCESS;
 				Session->SessionState = EOnlineSessionState::InProgress;
 
 				if (SteamFriends() != NULL)
@@ -402,29 +402,29 @@ bool FOnlineSessionSteam::StartSession(FName SessionName)
 				{
 					LANSession->StopLANSession();
 				}
-				Result = ERROR_SUCCESS;
+				Result = ONLINE_SUCCESS;
 				Session->SessionState = EOnlineSessionState::InProgress;
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning,	TEXT("Can't start an online session (%s) in state %s"),
+			UE_LOG_ONLINE_SESSION(Warning,	TEXT("Can't start an online session (%s) in state %s"),
 				*SessionName.ToString(),
 				EOnlineSessionState::ToString(Session->SessionState));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't start an online game for session (%s) that hasn't been created"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't start an online game for session (%s) that hasn't been created"), *SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
 		// Just trigger the delegate
-		TriggerOnStartSessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		TriggerOnStartSessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 
-	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
+	return Result == ONLINE_SUCCESS || Result == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionSteam::UpdateSession(FName SessionName, FOnlineSessionSettings& UpdatedSessionSettings, bool bShouldRefreshOnlineData)
@@ -465,7 +465,7 @@ bool FOnlineSessionSteam::UpdateSession(FName SessionName, FOnlineSessionSetting
 
 bool FOnlineSessionSteam::EndSession(FName SessionName)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 
 	// Grab the session information by name
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -490,34 +490,34 @@ bool FOnlineSessionSteam::EndSession(FName SessionName)
 				}
 				else
 				{
-					Result = ERROR_SUCCESS;
+					Result = ONLINE_SUCCESS;
 				}
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Can't end session (%s) in state %s"),
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't end session (%s) in state %s"),
 				*SessionName.ToString(),
 				EOnlineSessionState::ToString(Session->SessionState));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't end an online game for session (%s) that hasn't been created"),
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't end an online game for session (%s) that hasn't been created"),
 			*SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
 		if (Session)
 		{
 			Session->SessionState = EOnlineSessionState::Ended;
 		}
 
-		TriggerOnEndSessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		TriggerOnEndSessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 
-	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
+	return Result == ONLINE_SUCCESS || Result == ONLINE_IO_PENDING;
 }
 
 uint32 FOnlineSessionSteam::EndInternetSession(FNamedOnlineSession* Session)
@@ -538,12 +538,12 @@ uint32 FOnlineSessionSteam::EndInternetSession(FNamedOnlineSession* Session)
 	FOnlineAsyncTaskSteamEndSession* NewTask = new FOnlineAsyncTaskSteamEndSession(SteamSubsystem,	Session->SessionName);
 	SteamSubsystem->QueueAsyncTask(NewTask);
 
-	return ERROR_IO_PENDING;
+	return ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionSteam::DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	// Find the session in question
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
@@ -577,31 +577,31 @@ bool FOnlineSessionSteam::DestroySession(FName SessionName, const FOnDestroySess
 					LANSession = NULL;
 				}
 
-				Result = ERROR_SUCCESS;
+				Result = ONLINE_SUCCESS;
 			}
 
-			if (Result != ERROR_IO_PENDING)
+			if (Result != ONLINE_IO_PENDING)
 			{
 				// The session info is no longer needed
 				RemoveNamedSession(Session->SessionName);
-				CompletionDelegate.ExecuteIfBound(SessionName, (Result == ERROR_SUCCESS) ? true : false);
-				TriggerOnDestroySessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+				CompletionDelegate.ExecuteIfBound(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
+				TriggerOnDestroySessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 			}
 		}
 		else
 		{
 			// Purposefully skip the delegate call as one should already be in flight
-			UE_LOG_ONLINE(Warning, TEXT("Already in process of destroying session (%s)"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Already in process of destroying session (%s)"), *SessionName.ToString());
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't destroy a null online session (%s)"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't destroy a null online session (%s)"), *SessionName.ToString());
 		CompletionDelegate.ExecuteIfBound(SessionName, false);
 		TriggerOnDestroySessionCompleteDelegates(SessionName, false);
 	}
 
-	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
+	return Result == ONLINE_SUCCESS || Result == ONLINE_IO_PENDING;
 }
 
 uint32 FOnlineSessionSteam::DestroyLobbySession(FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
@@ -620,7 +620,7 @@ uint32 FOnlineSessionSteam::DestroyLobbySession(FNamedOnlineSession* Session, co
 	FOnlineAsyncTaskSteamDestroySession* NewTask = new FOnlineAsyncTaskSteamDestroySession(SteamSubsystem, Session->SessionName, CompletionDelegate);
 	SteamSubsystem->QueueAsyncTask(NewTask);
 
-	return ERROR_IO_PENDING;
+	return ONLINE_IO_PENDING;
 }
 
 uint32 FOnlineSessionSteam::DestroyInternetSession(FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
@@ -652,7 +652,7 @@ uint32 FOnlineSessionSteam::DestroyInternetSession(FNamedOnlineSession* Session,
 	FOnlineAsyncTaskSteamDestroySession* DestroyTask = new FOnlineAsyncTaskSteamDestroySession(SteamSubsystem, Session->SessionName, CompletionDelegate);
 	SteamSubsystem->QueueAsyncTask(DestroyTask);
 
-	return ERROR_IO_PENDING;
+	return ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionSteam::IsPlayerInSession(FName SessionName, const FUniqueNetId& UniqueId)
@@ -662,28 +662,28 @@ bool FOnlineSessionSteam::IsPlayerInSession(FName SessionName, const FUniqueNetI
 
 bool FOnlineSessionSteam::StartMatchmaking(const TArray< TSharedRef<const FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	UE_LOG(LogOnline, Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionSteam::CancelMatchmaking(int32 SearchingPlayerNum, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionSteam::CancelMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionSteam::FindSessions(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 
 	// Don't start another search while one is in progress
 	if (!CurrentSessionSearch.IsValid() && SearchSettings->SearchState != EOnlineAsyncTaskState::InProgress)
@@ -704,18 +704,18 @@ bool FOnlineSessionSteam::FindSessions(int32 SearchingPlayerNum, const TSharedRe
 			Return = FindLANSession(SearchSettings);
 		}
 
-		if (Return == ERROR_IO_PENDING)
+		if (Return == ONLINE_IO_PENDING)
 		{
 			SearchSettings->SearchState = EOnlineAsyncTaskState::InProgress;
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Ignoring game search request while one is pending"));
-		Return = ERROR_IO_PENDING;
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Ignoring game search request while one is pending"));
+		Return = ONLINE_IO_PENDING;
 	}
 
-	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
+	return Return == ONLINE_SUCCESS || Return == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionSteam::FindSessions(const FUniqueNetId& SearchingPlayerId, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
@@ -745,12 +745,12 @@ uint32 FOnlineSessionSteam::FindInternetSession(const TSharedRef<FOnlineSessionS
 		SteamSubsystem->QueueAsyncTask(NewTask);
 	}
 
-	return ERROR_IO_PENDING;
+	return ONLINE_IO_PENDING;
 }
 
 uint32 FOnlineSessionSteam::FindLANSession(const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	uint32 Return = ERROR_IO_PENDING;
+	uint32 Return = ONLINE_IO_PENDING;
 
 	bool PresenceSearch = false;
 	if (SearchSettings->QuerySettings.Get(SEARCH_PRESENCE, PresenceSearch) && PresenceSearch)
@@ -770,7 +770,7 @@ uint32 FOnlineSessionSteam::FindLANSession(const TSharedRef<FOnlineSessionSearch
 		LANSession->CreateClientQueryPacket(Packet, LANSession->LanNonce);
 		if (Packet.HasOverflow() || LANSession->Search(Packet, ResponseDelegate, TimeoutDelegate) == false)
 		{
-			Return = E_FAIL;
+			Return = ONLINE_FAIL;
 			delete LANSession;
 			LANSession = NULL;
 
@@ -791,20 +791,20 @@ uint32 FOnlineSessionSteam::FindLANSession(const TSharedRef<FOnlineSessionSearch
 
 bool FOnlineSessionSteam::CancelFindSessions()
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 	if (CurrentSessionSearch.IsValid() && CurrentSessionSearch->SearchState == EOnlineAsyncTaskState::InProgress)
 	{
 		// Make sure it's the right type
 		if (CurrentSessionSearch->bIsLanQuery)
 		{
-			Return = ERROR_SUCCESS;
+			Return = ONLINE_SUCCESS;
 			LANSession->StopLANSession();
 			CurrentSessionSearch->SearchState = EOnlineAsyncTaskState::Failed;
 		}
 		else
 		{
 			// @TODO ONLINE Master Server Version
-			Return = ERROR_SUCCESS;
+			Return = ONLINE_SUCCESS;
 			// There is no CANCEL lobby query
 			// NULLing out the object will prevent the async event from adding the results
 			CurrentSessionSearch->SearchState = EOnlineAsyncTaskState::Failed;
@@ -813,20 +813,20 @@ bool FOnlineSessionSteam::CancelFindSessions()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't cancel a search that isn't in progress"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't cancel a search that isn't in progress"));
 	}
 
-	if (Return != ERROR_IO_PENDING)
+	if (Return != ONLINE_IO_PENDING)
 	{
 		TriggerOnCancelFindSessionsCompleteDelegates(true);
 	}
 
-	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
+	return Return == ONLINE_SUCCESS || Return == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionSteam::JoinSession(int32 PlayerNum, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	// Don't join a session if already in one or hosting one
 	if (Session == NULL)
@@ -859,7 +859,7 @@ bool FOnlineSessionSteam::JoinSession(int32 PlayerNum, FName SessionName, const 
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Invalid session info on search result"), *SessionName.ToString());
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session info on search result"), *SessionName.ToString());
 			}
 		}
 		else
@@ -870,9 +870,9 @@ bool FOnlineSessionSteam::JoinSession(int32 PlayerNum, FName SessionName, const 
 			Return = JoinLANSession(PlayerNum, Session, &DesiredSession.Session);
 		}
 
-		if (Return != ERROR_IO_PENDING)
+		if (Return != ONLINE_IO_PENDING)
 		{
-			if (Return != ERROR_SUCCESS)
+			if (Return != ONLINE_SUCCESS)
 			{
 				// Clean up the session info so we don't get into a confused state
 				RemoveNamedSession(SessionName);
@@ -885,16 +885,16 @@ bool FOnlineSessionSteam::JoinSession(int32 PlayerNum, FName SessionName, const 
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Session (%s) already exists, can't join twice"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Session (%s) already exists, can't join twice"), *SessionName.ToString());
 	}
 
-	if (Return != ERROR_IO_PENDING)
+	if (Return != ONLINE_IO_PENDING)
 	{
 		// Just trigger the delegate as having failed
-		TriggerOnJoinSessionCompleteDelegates(SessionName, Return == ERROR_SUCCESS ? EOnJoinSessionCompleteResult::Success : EOnJoinSessionCompleteResult::UnknownError);
+		TriggerOnJoinSessionCompleteDelegates(SessionName, Return == ONLINE_SUCCESS ? EOnJoinSessionCompleteResult::Success : EOnJoinSessionCompleteResult::UnknownError);
 	}
 
-	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
+	return Return == ONLINE_SUCCESS || Return == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionSteam::JoinSession(const FUniqueNetId& PlayerId, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
@@ -905,7 +905,7 @@ bool FOnlineSessionSteam::JoinSession(const FUniqueNetId& PlayerId, FName Sessio
 
 uint32 FOnlineSessionSteam::JoinLobbySession(int32 PlayerNum, FNamedOnlineSession* Session, const FOnlineSession* SearchSession)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	if (Session->SessionInfo.IsValid())
 	{
 		FOnlineSessionInfoSteam* SteamSessionInfo = (FOnlineSessionInfoSteam*)(Session->SessionInfo.Get());
@@ -919,7 +919,7 @@ uint32 FOnlineSessionSteam::JoinLobbySession(int32 PlayerNum, FNamedOnlineSessio
 			// The settings found on the search object will be duplicated again when we enter the lobby, possibly updated
 			FOnlineAsyncTaskSteamJoinLobby* NewTask = new FOnlineAsyncTaskSteamJoinLobby(SteamSubsystem, Session->SessionName, SteamSessionInfo->SessionId);
 			SteamSubsystem->QueueAsyncTask(NewTask);
-			Result = ERROR_IO_PENDING;
+			Result = ONLINE_IO_PENDING;
 		}
 	}
 
@@ -928,7 +928,7 @@ uint32 FOnlineSessionSteam::JoinLobbySession(int32 PlayerNum, FNamedOnlineSessio
 
 uint32 FOnlineSessionSteam::JoinInternetSession(int32 PlayerNum, FNamedOnlineSession* Session, const FOnlineSession* SearchSession)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	Session->SessionState = EOnlineSessionState::Pending;
 
 	if (Session->SessionInfo.IsValid())
@@ -946,7 +946,7 @@ uint32 FOnlineSessionSteam::JoinInternetSession(int32 PlayerNum, FNamedOnlineSes
 				FString ConnectionString = GetSteamConnectionString(Session->SessionName);
 				if (!SteamFriends()->SetRichPresence("connect", TCHAR_TO_UTF8(*ConnectionString)))
 				{
-					UE_LOG_ONLINE(Verbose, TEXT("Failed to set rich presence for session %s"), *Session->SessionName.ToString());
+					UE_LOG_ONLINE_SESSION(Verbose, TEXT("Failed to set rich presence for session %s"), *Session->SessionName.ToString());
 				}
 
 				// SteamAuth will auto advertise any sessions we join.
@@ -967,7 +967,7 @@ uint32 FOnlineSessionSteam::JoinInternetSession(int32 PlayerNum, FNamedOnlineSes
 					UE_LOG_ONLINE(Warning, TEXT("AUTH: JoinInternetSession is calling the depricated AdvertiseGame call"));
 				}
 			}
-			Result = ERROR_SUCCESS;
+			Result = ONLINE_SUCCESS;
 		}
 	}
 
@@ -976,7 +976,7 @@ uint32 FOnlineSessionSteam::JoinInternetSession(int32 PlayerNum, FNamedOnlineSes
 
 uint32 FOnlineSessionSteam::JoinLANSession(int32 PlayerNum, FNamedOnlineSession* Session, const FOnlineSession* SearchSession)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	Session->SessionState = EOnlineSessionState::Pending;
 
 	if (Session->SessionInfo.IsValid())
@@ -988,7 +988,7 @@ uint32 FOnlineSessionSteam::JoinLANSession(int32 PlayerNum, FNamedOnlineSession*
 		uint32 IpAddr;
 		SearchSessionInfo->HostAddr->GetIp(IpAddr);
 		SessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr(IpAddr, SearchSessionInfo->HostAddr->GetPort());
-		Result = ERROR_SUCCESS;
+		Result = ONLINE_SUCCESS;
 	}
 
 	return Result;
@@ -1035,7 +1035,7 @@ bool FOnlineSessionSteam::FindFriendSession(int32 LocalUserNum, const FUniqueNet
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Ignoring friend search request while another search is pending"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Ignoring friend search request while another search is pending"));
 	}
 
 	if (!bSuccess)
@@ -1055,7 +1055,7 @@ bool FOnlineSessionSteam::FindFriendSession(const FUniqueNetId& LocalUserId, con
 
 bool FOnlineSessionSteam::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionSteam::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList) - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionSteam::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList) - not implemented"));
 	// @todo: use proper LocalUserId
 	TArray<FOnlineSessionSearchResult> EmptyResult;
 	TriggerOnFindFriendSessionCompleteDelegates(0, false, EmptyResult);
@@ -1140,7 +1140,7 @@ bool FOnlineSessionSteam::SendSessionInviteToFriends(int32 LocalUserNum, FName S
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("Error inviting %s to session %s, not connected to Steam"), *FriendId.ToDebugString(), *SessionName.ToString());
+					UE_LOG_ONLINE_SESSION(Warning, TEXT("Error inviting %s to session %s, not connected to Steam"), *FriendId.ToDebugString(), *SessionName.ToString());
 				}
 			}
 		}
@@ -1157,22 +1157,22 @@ bool FOnlineSessionSteam::SendSessionInviteToFriends(int32 LocalUserNum, FName S
 				// Inside game accept -> GameRichPresenceJoinRequested_t callback on client
 				if (SteamFriends()->InviteUserToGame(FriendId, TCHAR_TO_UTF8(*ConnectionURL)))
 				{
-					UE_LOG_ONLINE(Verbose, TEXT("Inviting %s to session %s with %s"), *FriendId.ToDebugString(), *SessionName.ToString(), *ConnectionURL);
+					UE_LOG_ONLINE_SESSION(Verbose, TEXT("Inviting %s to session %s with %s"), *FriendId.ToDebugString(), *SessionName.ToString(), *ConnectionURL);
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("Error inviting %s to session %s"), *FriendId.ToDebugString(), *SessionName.ToString());
+					UE_LOG_ONLINE_SESSION(Warning, TEXT("Error inviting %s to session %s"), *FriendId.ToDebugString(), *SessionName.ToString());
 				}
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Invalid session info for invite %s"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session info for invite %s"), *SessionName.ToString());
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Missing or invalid session %s for invite request"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Missing or invalid session %s for invite request"), *SessionName.ToString());
 	}
 
 	return bSuccess;
@@ -1263,12 +1263,12 @@ bool FOnlineSessionSteam::GetResolvedConnectString(FName SessionName, FString& C
 
 		if (!bSuccess)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Invalid session info for session %s in GetResolvedConnectString()"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session info for session %s in GetResolvedConnectString()"), *SessionName.ToString());
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning,
+		UE_LOG_ONLINE_SESSION(Warning,
 			TEXT("Unknown session name (%s) specified to GetResolvedConnectString()"),
 			*SessionName.ToString());
 	}
@@ -1296,7 +1296,7 @@ bool FOnlineSessionSteam::GetResolvedConnectString(const FOnlineSessionSearchRes
 
 	if (!bSuccess || ConnectInfo.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Invalid session info in search result to GetResolvedConnectString()"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session info in search result to GetResolvedConnectString()"));
 	}
 
 	return bSuccess;
@@ -1389,7 +1389,7 @@ bool FOnlineSessionSteam::RegisterPlayers(FName SessionName, const TArray< TShar
 				}
 				else
 				{
-					UE_LOG_ONLINE(Log, TEXT("Player %s already registered in session %s"), *Players[PlayerIdx]->ToDebugString(), *SessionName.ToString());
+					UE_LOG_ONLINE_SESSION(Log, TEXT("Player %s already registered in session %s"), *Players[PlayerIdx]->ToDebugString(), *SessionName.ToString());
 				}
 
 				RegisterVoice(SteamId);
@@ -1399,12 +1399,12 @@ bool FOnlineSessionSteam::RegisterPlayers(FName SessionName, const TArray< TShar
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("No session info to join for session (%s)"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("No session info to join for session (%s)"), *SessionName.ToString());
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No game present to join for session (%s)"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No game present to join for session (%s)"), *SessionName.ToString());
 	}
 
 	TriggerOnRegisterPlayersCompleteDelegates(SessionName, Players, bSuccess);
@@ -1458,7 +1458,7 @@ bool FOnlineSessionSteam::UnregisterPlayers(FName SessionName, const TArray< TSh
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("Player %s is not part of session (%s)"), *PlayerId->ToDebugString(), *SessionName.ToString());
+					UE_LOG_ONLINE_SESSION(Warning, TEXT("Player %s is not part of session (%s)"), *PlayerId->ToDebugString(), *SessionName.ToString());
 				}
 			}
 
@@ -1466,12 +1466,12 @@ bool FOnlineSessionSteam::UnregisterPlayers(FName SessionName, const TArray< TSh
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("No session info to leave for session (%s)"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("No session info to leave for session (%s)"), *SessionName.ToString());
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No game present to leave for session (%s)"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No game present to leave for session (%s)"), *SessionName.ToString());
 	}
 
 	TriggerOnUnregisterPlayersCompleteDelegates(SessionName, Players, bSuccess);
@@ -1512,7 +1512,7 @@ void FOnlineSessionSteam::TickPendingInvites(float DeltaTime)
 
 			if (NewEvent)
 			{
-				UE_LOG_ONLINE(Verbose, TEXT("%s"), *NewEvent->ToString());
+				UE_LOG_ONLINE_SESSION(Verbose, TEXT("%s"), *NewEvent->ToString());
 				SteamSubsystem->QueueAsyncOutgoingItem(NewEvent);
 			}
 
@@ -1540,7 +1540,7 @@ void FOnlineSessionSteam::AppendSessionToPacket(FNboSerializeToBufferSteam& Pack
 void FOnlineSessionSteam::AppendSessionSettingsToPacket(FNboSerializeToBufferSteam& Packet, FOnlineSessionSettings* SessionSettings)
 {
 #if DEBUG_LAN_BEACON
-	UE_LOG_ONLINE(Verbose, TEXT("Sending session settings to client"));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Sending session settings to client"));
 #endif 
 
 	// Members of the session settings class
@@ -1579,7 +1579,7 @@ void FOnlineSessionSteam::AppendSessionSettingsToPacket(FNboSerializeToBufferSte
 			Packet << It.Key();
 			Packet << Setting;
 #if DEBUG_LAN_BEACON
-			UE_LOG_ONLINE(Verbose, TEXT("%s"), *Setting.ToString());
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("%s"), *Setting.ToString());
 #endif
 		}
 	}
@@ -1620,7 +1620,7 @@ void FOnlineSessionSteam::OnValidQueryPacketReceived(uint8* PacketData, int32 Pa
 void FOnlineSessionSteam::ReadSessionFromPacket(FNboSerializeFromBufferSteam& Packet, FOnlineSession* Session)
 {
 #if DEBUG_LAN_BEACON
-	UE_LOG_ONLINE(Verbose, TEXT("Reading session information from server"));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Reading session information from server"));
 #endif
 
 	/** Owner of the session */
@@ -1645,7 +1645,7 @@ void FOnlineSessionSteam::ReadSessionFromPacket(FNboSerializeFromBufferSteam& Pa
 void FOnlineSessionSteam::ReadSettingsFromPacket(FNboSerializeFromBufferSteam& Packet, FOnlineSessionSettings& SessionSettings)
 {
 #if DEBUG_LAN_BEACON
-	UE_LOG_ONLINE(Verbose, TEXT("Reading game settings from server"));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Reading game settings from server"));
 #endif
 
 	// Clear out any old settings
@@ -1698,7 +1698,7 @@ void FOnlineSessionSteam::ReadSettingsFromPacket(FNboSerializeFromBufferSteam& P
 			SessionSettings.Set(Key, Setting);
 
 #if DEBUG_LAN_BEACON
-			UE_LOG_ONLINE(Verbose, TEXT("%s"), *Setting->ToString());
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("%s"), *Setting->ToString());
 #endif
 		}
 	}
@@ -1707,7 +1707,7 @@ void FOnlineSessionSteam::ReadSettingsFromPacket(FNboSerializeFromBufferSteam& P
 	if (Packet.HasOverflow())
 	{
 		SessionSettings.Settings.Empty();
-		UE_LOG_ONLINE(Verbose, TEXT("Packet overflow detected in ReadGameSettingsFromPacket()"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Packet overflow detected in ReadGameSettingsFromPacket()"));
 	}
 }
 
@@ -1730,7 +1730,7 @@ void FOnlineSessionSteam::OnValidResponsePacketReceived(uint8* PacketData, int32
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Failed to create new online game settings object"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to create new online game settings object"));
 	}
 }
 
@@ -1760,7 +1760,7 @@ void FOnlineSessionSteam::OnLANSearchTimeout()
 		// Maintain lan beacon if there was a session that was marked as hosting
 		if (LANSession->Host(QueryPacketDelegate))
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Failed to restart hosted LAN session after search completion"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to restart hosted LAN session after search completion"));
 		}
 	}
 	else
@@ -1787,7 +1787,7 @@ void FOnlineSessionSteam::OnLANSearchTimeout()
 
 void FOnlineSessionSteam::SyncLobbies()
 {
-	UE_LOG_ONLINE(Verbose, TEXT("Member of %d lobbies"), JoinedLobbyList.Num());
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Member of %d lobbies"), JoinedLobbyList.Num());
 	TArray<FUniqueNetIdSteam> LobbiesToRemove = JoinedLobbyList;
 
 	{
@@ -1806,7 +1806,7 @@ void FOnlineSessionSteam::SyncLobbies()
 	for (int32 LobbyIdx=0; LobbyIdx < LobbiesToRemove.Num(); LobbyIdx++)
 	{
 		const FUniqueNetIdSteam& LobbyId = LobbiesToRemove[LobbyIdx];
-		UE_LOG_ONLINE(Verbose, TEXT("Lobby %s out of sync, removing..."), *LobbyId.ToDebugString());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Lobby %s out of sync, removing..."), *LobbyId.ToDebugString());
 		FOnlineAsyncTaskSteamLeaveLobby* NewTask = new FOnlineAsyncTaskSteamLeaveLobby(SteamSubsystem, TEXT("OUTOFSYNC"), LobbyId);
 		SteamSubsystem->QueueAsyncTask(NewTask);
 	}
@@ -1822,7 +1822,7 @@ void FOnlineSessionSteam::DumpSessionState()
 {
 	FScopeLock ScopeLock(&SessionLock);
 
-	UE_LOG_ONLINE(Verbose, TEXT("Member of %d lobbies"), JoinedLobbyList.Num());
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Member of %d lobbies"), JoinedLobbyList.Num());
 	TArray<FUniqueNetIdSteam> OutOfSyncLobbies = JoinedLobbyList;
 	for (int32 SessionIdx=0; SessionIdx < Sessions.Num(); SessionIdx++)
 	{
@@ -1836,10 +1836,10 @@ void FOnlineSessionSteam::DumpSessionState()
 
 	if (OutOfSyncLobbies.Num() > 0)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Out of sync lobbies: %d"), OutOfSyncLobbies.Num());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Out of sync lobbies: %d"), OutOfSyncLobbies.Num());
 		for (int32 LobbyIdx=0; LobbyIdx < OutOfSyncLobbies.Num(); LobbyIdx++)
 		{
-			UE_LOG_ONLINE(Verbose, TEXT("%s"), *OutOfSyncLobbies[LobbyIdx].ToDebugString());
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("%s"), *OutOfSyncLobbies[LobbyIdx].ToDebugString());
 		}
 	}
 

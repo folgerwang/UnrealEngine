@@ -174,7 +174,7 @@ public:
 		return nullptr;
 	}
 
-	virtual ITargetPlatform* FindTargetPlatform(FString Name) override
+	virtual ITargetPlatform* FindTargetPlatform(const FString& Name) override
 	{
 		const TArray<ITargetPlatform*>& TargetPlatforms = GetTargetPlatforms();	
 		
@@ -682,7 +682,7 @@ RETRY_SETUPANDVALIDATE:
 		}
 	}
 
-	bool UpdatePlatformEnvironment(FString PlatformName, TArray<FString> &Keys, TArray<FString> &Values) override
+	bool UpdatePlatformEnvironment(const FString& PlatformName, TArray<FString> &Keys, TArray<FString> &Values) override
 	{
 		SetupEnvironmentVariables(Keys, Values);
 		return SetupSDKStatus(PlatformName);	
@@ -912,7 +912,7 @@ RETRY_SETUPANDVALIDATE:
 		return SetupSDKStatus(TEXT(""));
 	}
 
-	bool SetupSDKStatus(FString TargetPlatforms)
+	bool SetupSDKStatus(const FString& TargetPlatforms)
 	{
 		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FTargetPlatformManagerModule::SetupSDKStatus" ), STAT_FTargetPlatformManagerModule_SetupSDKStatus, STATGROUP_TargetPlatform );
 

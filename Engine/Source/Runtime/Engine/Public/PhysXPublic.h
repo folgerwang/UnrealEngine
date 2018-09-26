@@ -266,4 +266,9 @@ struct ENGINE_API FContactModifyCallback : public PxContactModifyCallback
 	virtual ~FContactModifyCallback() {}	//This should only be called from the factory's destroy method which is called after simulation is done.
 };
 
+struct ENGINE_API FCCDContactModifyCallback : public PxCCDContactModifyCallback
+{
+	virtual ~FCCDContactModifyCallback() {}	//This should only be called from the factory's destroy method which is called after simulation is done.
+};
+
 #endif

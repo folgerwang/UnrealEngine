@@ -32,6 +32,13 @@ static TAutoConsoleVariable<int32> CVarUnbuiltNumWholeSceneDynamicShadowCascades
 	TEXT("DynamicShadowCascades to use when using CSM to preview unbuilt lighting from a directional light"),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<float> CVarCSMShadowDistanceFadeoutMultiplier(
+	TEXT("r.Shadow.CSMShadowDistanceFadeoutMultiplier"),
+	1.0f,
+	TEXT("Multiplier for the CSM distance fade"),
+	ECVF_RenderThreadSafe | ECVF_Scalability );
+
+
 /**
  * The scene info for a directional light.
  */
@@ -41,6 +48,8 @@ public:
 
 	/** Whether to occlude fog and atmosphere inscattering with screenspace blurred occlusion from this light. */
 	bool bEnableLightShaftOcclusion;
+
+	bool bUseInsetShadowsForMovableObjects;
 
 	/** 
 	 * Controls how dark the occlusion masking is, a value of 1 results in no darkening term.
@@ -81,8 +90,6 @@ public:
 	/** see UDirectionalLightComponent::ShadowDistanceFadeoutFraction */
 	float ShadowDistanceFadeoutFraction;
 
-	bool bUseInsetShadowsForMovableObjects;
-
 	/** If greater than WholeSceneDynamicShadowRadius, a cascade will be created to support ray traced distance field shadows covering up to this distance. */
 	float DistanceFieldShadowDistance;
 
@@ -99,6 +106,7 @@ public:
 	FDirectionalLightSceneProxy(const UDirectionalLightComponent* Component):
 		FLightSceneProxy(Component),
 		bEnableLightShaftOcclusion(Component->bEnableLightShaftOcclusion),
+		bUseInsetShadowsForMovableObjects(Component->bUseInsetShadowsForMovableObjects),
 		OcclusionMaskDarkness(Component->OcclusionMaskDarkness),
 		OcclusionDepthRange(Component->OcclusionDepthRange),
 		LightShaftOverrideDirection(Component->LightShaftOverrideDirection),
@@ -106,7 +114,6 @@ public:
 		CascadeDistributionExponent(Component->CascadeDistributionExponent),
 		CascadeTransitionFraction(Component->CascadeTransitionFraction),
 		ShadowDistanceFadeoutFraction(Component->ShadowDistanceFadeoutFraction),
-		bUseInsetShadowsForMovableObjects(Component->bUseInsetShadowsForMovableObjects),
 		DistanceFieldShadowDistance(Component->bUseRayTracedDistanceFieldShadows ? Component->DistanceFieldShadowDistance : 0),
 		LightSourceAngle(Component->LightSourceAngle),
 		LightSourceSoftAngle(Component->LightSourceSoftAngle),
@@ -316,7 +323,7 @@ public:
 	    
 		// The far distance for the dynamic to static fade is the range of the directional light.
 		// The near distance is placed at a depth of 90% of the light's range.
-		const float NearDistance = FarDistance - FarDistance * ShadowDistanceFadeoutFraction;
+		const float NearDistance = FarDistance - FarDistance * ( ShadowDistanceFadeoutFraction * CVarCSMShadowDistanceFadeoutMultiplier.GetValueOnAnyThread() );
 		return FVector2D(NearDistance, 1.0f / FMath::Max<float>(FarDistance - NearDistance, KINDA_SMALL_NUMBER));
 	}
 

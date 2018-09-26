@@ -27,7 +27,7 @@ public:
 
 	SNullWidgetContent()
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 		bCanHaveChildren = false;
 	}

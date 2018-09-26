@@ -19,7 +19,7 @@ class ONLINESUBSYSTEMIOS_API FOnlineSubsystemIOS :
 
 public:
 	
-	virtual ~FOnlineSubsystemIOS() {};
+	virtual ~FOnlineSubsystemIOS() = default;
 
 	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
@@ -59,8 +59,8 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemIOS();
-	FOnlineSubsystemIOS(FName InInstanceName);
+	FOnlineSubsystemIOS() = delete;
+	explicit FOnlineSubsystemIOS(FName InInstanceName);
 
 	/**
 	 * Is IAP available for use
@@ -86,6 +86,9 @@ private:
 	
 	void InitAppStoreHelper();
 	void CleanupAppStoreHelper();
+
+	/** Handle purchase command cheat codes */
+	bool HandlePurchaseExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/** Online async task thread */
 	class FRunnableThread* OnlineAsyncTaskThread;

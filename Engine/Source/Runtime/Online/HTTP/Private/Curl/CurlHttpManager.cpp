@@ -20,6 +20,7 @@
 #if WITH_SSL
 #include "Modules/ModuleManager.h"
 #include "Ssl.h"
+#include <openssl/crypto.h>
 #endif
 
 #include "SocketSubsystem.h"
@@ -30,30 +31,16 @@ CURLSH* FCurlHttpManager::GShareHandle = NULL;
 
 FCurlHttpManager::FCurlRequestOptions FCurlHttpManager::CurlRequestOptions;
 
-#if PLATFORM_UNIX	// known to be available for Linux libcurl+libcrypto bundle at least
-extern "C"
-{
-void CRYPTO_get_mem_functions(
-		void *(**m)(size_t, const char *, int),
-		void *(**r)(void *, size_t, const char *, int),
-		void (**f)(void *, const char *, int));
-int CRYPTO_set_mem_functions(
-		void *(*m)(size_t, const char *, int),
-		void *(*r)(void *, size_t, const char *, int),
-		void (*f)(void *, const char *, int));
-}
-#endif // PLATFORM_UNIX
-
 // set functions that will init the memory
 namespace LibCryptoMemHooks
 {
-	void* (*ChainedMalloc)(size_t Size, const char* Src, int Line) = nullptr;
-	void* (*ChainedRealloc)(void* Ptr, const size_t Size, const char* Src, int Line) = nullptr;
-	void (*ChainedFree)(void* Ptr, const char* Src, int Line) = nullptr;
+	void* (*ChainedMalloc)(size_t Size) = nullptr;
+	void* (*ChainedRealloc)(void* Ptr, const size_t Size) = nullptr;
+	void (*ChainedFree)(void* Ptr) = nullptr;
 	bool bMemoryHooksSet = false;
 
 	/** This malloc will init the memory, keeping valgrind happy */
-	void* MallocWithInit(size_t Size, const char* Src, int Line)
+	void* MallocWithInit(size_t Size)
 	{
 		void* Result = FMemory::Malloc(Size);
 		if (LIKELY(Result))
@@ -65,7 +52,7 @@ namespace LibCryptoMemHooks
 	}
 
 	/** This realloc will init the memory, keeping valgrind happy */
-	void* ReallocWithInit(void* Ptr, const size_t Size, const char* Src, int Line)
+	void* ReallocWithInit(void* Ptr, const size_t Size)
 	{
 		size_t CurrentUsableSize = FMemory::GetAllocSize(Ptr);
 		void* Result = FMemory::Realloc(Ptr, Size);
@@ -78,7 +65,7 @@ namespace LibCryptoMemHooks
 	}
 
 	/** This realloc will init the memory, keeping valgrind happy */
-	void Free(void* Ptr, const char* Src, int Line)
+	void Free(void* Ptr)
 	{
 		return FMemory::Free(Ptr);
 	}
@@ -86,10 +73,10 @@ namespace LibCryptoMemHooks
 	void SetMemoryHooks()
 	{
 		// do not set this in Shipping until we prove that the change in OpenSSL behavior is safe
-#if PLATFORM_UNIX && !UE_BUILD_SHIPPING
+#if PLATFORM_UNIX && !UE_BUILD_SHIPPING && WITH_SSL
 		CRYPTO_get_mem_functions(&ChainedMalloc, &ChainedRealloc, &ChainedFree);
 		CRYPTO_set_mem_functions(MallocWithInit, ReallocWithInit, Free);
-#endif // PLATFORM_UNIX && !UE_BUILD_SHIPPING
+#endif // PLATFORM_UNIX && !UE_BUILD_SHIPPING && WITH_SSL
 
 		bMemoryHooksSet = true;
 	}
@@ -100,9 +87,9 @@ namespace LibCryptoMemHooks
 		if (LibCryptoMemHooks::bMemoryHooksSet)
 		{
 			// do not set this in Shipping until we prove that the change in OpenSSL behavior is safe
-#if PLATFORM_UNIX && !UE_BUILD_SHIPPING
+#if PLATFORM_UNIX && !UE_BUILD_SHIPPING && WITH_SSL
 			CRYPTO_set_mem_functions(LibCryptoMemHooks::ChainedMalloc, LibCryptoMemHooks::ChainedRealloc, LibCryptoMemHooks::ChainedFree);
-#endif // PLATFORM_UNIX && !UE_BUILD_SHIPPING
+#endif // PLATFORM_UNIX && !UE_BUILD_SHIPPING && WITH_SSL
 
 			bMemoryHooksSet = false;
 			ChainedMalloc = nullptr;
@@ -220,123 +207,11 @@ void FCurlHttpManager::InitCurl()
 		CurlRequestOptions.bDontReuseConnections = true;
 	}
 
-	// discover cert location
-	if (PLATFORM_UNIX)
-	{
-		static const char * KnownBundlePaths[] =
-		{
-			"/etc/pki/tls/certs/ca-bundle.crt",
-			"/etc/ssl/certs/ca-certificates.crt",
-			"/etc/ssl/ca-bundle.pem",
-			nullptr
-		};
-
-		for (const char ** CurrentBundle = KnownBundlePaths; *CurrentBundle; ++CurrentBundle)
-		{
-			FString FileName(*CurrentBundle);
-			UE_LOG(LogInit, Log, TEXT(" Libcurl: checking if '%s' exists"), *FileName);
-
-			if (FPaths::FileExists(FileName))
-			{
-				CurlRequestOptions.CertBundlePath = *CurrentBundle;
-				break;
-			}
-		}
-		if (CurlRequestOptions.CertBundlePath == nullptr)
-		{
-			UE_LOG(LogInit, Log, TEXT(" Libcurl: did not find a cert bundle in any of known locations, TLS may not work"));
-		}
-	}
-#if (PLATFORM_ANDROID && USE_ANDROID_FILE) || (PLATFORM_LUMIN)
-	else
-	if (PLATFORM_ANDROID || PLATFORM_LUMIN)
-	{
-		const int32 PathLength = 200;
-		static ANSICHAR capath[PathLength] = { 0 };
-
-		// used #if here to protect against GExternalFilePath only available on Android
-#if PLATFORM_ANDROID && USE_ANDROID_FILE
-		extern FString GExternalFilePath;
-		FString PEMFilename = GExternalFilePath / TEXT("ca-bundle.pem");
-#else
-		FString PEMFilename = FPlatformFileManager::Get().GetPlatformFile().ConvertToAbsolutePathForExternalAppForWrite(TEXT("ca-bundle.pem"));
-#endif
-		// if file does not already exist, create local PEM file with system trusted certificates
-		if (!FPaths::FileExists(PEMFilename))
-		{
-			FString Contents;
-
-			IFileManager* FileManager = &IFileManager::Get();
-			auto Ar = TUniquePtr<FArchive>(FileManager->CreateFileWriter(*PEMFilename, 0));
-			if (Ar)
-			{
-				// check for override ca-bundle.pem embedded in game content
-				FString OverridePEMFilename = FPaths::ProjectContentDir() + TEXT("CurlCertificates/ca-bundle.pem");
-				if (FFileHelper::LoadFileToString(Contents, *OverridePEMFilename))
-				{
-					const TCHAR* StrPtr = *Contents;
-					auto Src = StringCast<ANSICHAR>(StrPtr, Contents.Len());
-					Ar->Serialize((ANSICHAR*)Src.Get(), Src.Length() * sizeof(ANSICHAR));
-				}
-				else
-				{
-					// gather all the files in system certificates directory
-					TArray<FString> directoriesToIgnoreAndNotRecurse;
-					FLocalTimestampDirectoryVisitor Visitor(FPlatformFileManager::Get().GetPlatformFile(), directoriesToIgnoreAndNotRecurse, directoriesToIgnoreAndNotRecurse, false);
-#if PLATFORM_LUMIN
-					FPlatformFileManager::Get().GetPlatformFile().GetPlatformPhysical().SetSandboxEnabled(false);
-#endif
-					FileManager->IterateDirectory(TEXT("/system/etc/security/cacerts"), Visitor);
-
-					for (TMap<FString, FDateTime>::TIterator TimestampIt(Visitor.FileTimes); TimestampIt; ++TimestampIt)
-					{
-						// read and append the certificate file contents
-						const FString CertFilename = TimestampIt.Key();
-						if (FFileHelper::LoadFileToString(Contents, *CertFilename))
-						{
-							const TCHAR* StrPtr = *Contents;
-							auto Src = StringCast<ANSICHAR>(StrPtr, Contents.Len());
-							Ar->Serialize((ANSICHAR*)Src.Get(), Src.Length() * sizeof(ANSICHAR));
-						}
-					}
-
-					// add optional additional certificates
-					FString OptionalPEMFilename = FPaths::ProjectContentDir() + TEXT("CurlCertificates/ca-additions.pem");
-					if (FFileHelper::LoadFileToString(Contents, *OptionalPEMFilename))
-					{
-						const TCHAR* StrPtr = *Contents;
-						auto Src = StringCast<ANSICHAR>(StrPtr, Contents.Len());
-						Ar->Serialize((ANSICHAR*)Src.Get(), Src.Length() * sizeof(ANSICHAR));
-					}
-#if PLATFORM_LUMIN
-					FPlatformFileManager::Get().GetPlatformFile().GetPlatformPhysical().SetSandboxEnabled(true);
-#endif
-				}
-
-				FPlatformString::Strncpy(capath, TCHAR_TO_ANSI(*PEMFilename), PathLength);
-				CurlRequestOptions.CertBundlePath = capath;
-				UE_LOG(LogInit, Log, TEXT(" Libcurl: using generated PEM file: '%s'"), *PEMFilename);
-			}
-		}
-		else
-		{
-			FPlatformString::Strncpy(capath, TCHAR_TO_ANSI(*PEMFilename), PathLength);
-			CurlRequestOptions.CertBundlePath = capath;
-			UE_LOG(LogInit, Log, TEXT(" Libcurl: using existing PEM file: '%s'"), *PEMFilename);
-		}
-
-		if (CurlRequestOptions.CertBundlePath == nullptr)
-		{
-			UE_LOG(LogInit, Log, TEXT(" Libcurl: failed to generate a PEM cert bundle, TLS may not work"));
-		}
-	}
+#if WITH_SSL
+	// Set default verify peer value based on availability of certificates
+	CurlRequestOptions.bVerifyPeer = SslModule.GetCertificateManager().HasCertificatesAvailable();
 #endif
 
-	// set certificate verification (disable to allow self-signed certificates)
-	if (CurlRequestOptions.CertBundlePath == nullptr)
-	{
-		CurlRequestOptions.bVerifyPeer = false;
-	}
 	bool bVerifyPeer = true;
 	if (GConfig->GetBool(TEXT("/Script/Engine.NetworkSettings"), TEXT("n.VerifyPeer"), bVerifyPeer, GEngineIni))
 	{
@@ -416,11 +291,6 @@ void FCurlHttpManager::FCurlRequestOptions::Log()
 	UE_LOG(LogInit, Log, TEXT(" - bDontReuseConnections = %s  - Libcurl will %sreuse connections"),
 		bDontReuseConnections ? TEXT("true") : TEXT("false"),
 		bDontReuseConnections ? TEXT("NOT ") : TEXT("")
-		);
-
-	UE_LOG(LogInit, Log, TEXT(" - CertBundlePath = %s  - Libcurl will %s"),
-		(CertBundlePath != nullptr) ? *FString(CertBundlePath) : TEXT("nullptr"),
-		(CertBundlePath != nullptr) ? TEXT("set CURLOPT_CAINFO to it") : TEXT("use whatever was configured at build time.")
 		);
 
 	UE_LOG(LogInit, Log, TEXT(" - MaxHostConnections = %d  - Libcurl will %slimit the number of connections to a host"),

@@ -55,7 +55,8 @@ public:
 public:
 	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, UUserWidget& InWidgetObject)
 	{
-		WidgetObject = &InWidgetObject;
+		TSharedPtr<SWidget> ContentWidget;
+
 		if (ensureMsgf(InWidgetObject.Implements<UUserListEntry>(), TEXT("Any UserWidget generated as a table row must implement the IUserListEntry interface")))
 		{
 			ObjectRowsByUserWidget.Add(&InWidgetObject, SharedThis(this));
@@ -64,16 +65,20 @@ public:
 
 			OnHovered = InArgs._OnHovered;
 			OnUnhovered = InArgs._OnUnhovered;
-
-			ChildSlot
-			[
-				InArgs._Content.Widget
-			];
+			ContentWidget = InArgs._Content.Widget;
 		}
 		else
 		{
-			ChildSlot [ SNew(STextBlock).Text(NSLOCTEXT("SObjectTableRow", "InvalidWidgetClass", "Any UserWidget generated as a table row must implement the IUserListEntry interface")) ];
+			ContentWidget = SNew(STextBlock)
+				.Text(NSLOCTEXT("SObjectTableRow", "InvalidWidgetClass", "Any UserWidget generated as a table row must implement the IUserListEntry interface"));
 		}
+
+		SObjectWidget::Construct(
+			SObjectWidget::FArguments()
+			.Content()
+			[
+				ContentWidget.ToSharedRef()
+			], &InWidgetObject);
 	}
 
 	virtual ~SObjectTableRow()

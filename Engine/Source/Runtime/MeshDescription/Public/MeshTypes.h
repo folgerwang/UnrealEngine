@@ -16,6 +16,7 @@ struct FElementID	// @todo mesheditor script: BP doesn't have name spaces, so we
 	GENERATED_BODY()
 
 	FElementID()
+		: IDValue(Invalid.GetValue())
 	{
 	}
 

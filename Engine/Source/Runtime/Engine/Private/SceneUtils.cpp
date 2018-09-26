@@ -511,9 +511,12 @@ public:
 #if TRACING_PROFILER
 			if (bTracingStatsEnabled)
 			{
+				ANSICHAR EventName[NAME_SIZE];
+				Event->GetName().GetPlainANSIString(EventName);
+
 				const uint32 GPUIndex = 0;
 				FTracingProfiler::Get()->AddGPUEvent(
-					Event->GetName().GetPlainANSIString(),
+					EventName,
 					Event->GetStartResultMicroseconds(),
 					Event->GetEndResultMicroseconds(),
 					GPUIndex,

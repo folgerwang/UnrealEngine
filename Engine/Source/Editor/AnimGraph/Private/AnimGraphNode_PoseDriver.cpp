@@ -138,6 +138,13 @@ void UAnimGraphNode_PoseDriver::PostLoad()
 {
 	Super::PostLoad();
 
+	// since this is postload, sometimes pose asset post load isn't finished yet
+	// we mmake sure it finishes since this needs post info
+	if (Node.PoseAsset)
+	{
+		Node.PoseAsset->ConditionalPostLoad();
+	}
+
 	if (GetLinkerCustomVersion(FPoseDriverCustomVersion::GUID) < FPoseDriverCustomVersion::MultiBoneInput)
 	{
 		if (Node.SourceBone_DEPRECATED.BoneName != NAME_None)

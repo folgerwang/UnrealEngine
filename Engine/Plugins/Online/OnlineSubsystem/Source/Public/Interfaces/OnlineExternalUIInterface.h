@@ -10,7 +10,7 @@
 
 class FOnlineAccountCredentials;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineExternalUI, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineExternalUI, Log, All);
 
 #define UE_LOG_ONLINE_EXTERNALUI(Verbosity, Format, ...) \
 { \

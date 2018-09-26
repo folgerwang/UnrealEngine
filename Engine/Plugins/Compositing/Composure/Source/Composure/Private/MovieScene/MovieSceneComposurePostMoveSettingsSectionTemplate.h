@@ -17,7 +17,7 @@ struct FMovieSceneComposurePostMoveSettingsSectionTemplate : public FMovieSceneP
 {
 	GENERATED_BODY()
 
-	FMovieSceneComposurePostMoveSettingsSectionTemplate() {}
+	FMovieSceneComposurePostMoveSettingsSectionTemplate() : BlendType(EMovieSceneBlendType::Absolute) {}
 	FMovieSceneComposurePostMoveSettingsSectionTemplate(const UMovieSceneComposurePostMoveSettingsSection& Section, const UMovieScenePropertyTrack& Track);
 
 private:

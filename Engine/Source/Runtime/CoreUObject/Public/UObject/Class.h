@@ -20,6 +20,7 @@
 #include "Templates/IsEnum.h"
 #include "Misc/Optional.h"
 #include "Misc/EnumClassFlags.h"
+#include "Misc/ScopeRWLock.h"
 
 struct FCustomPropertyListNode;
 struct FFrame;
@@ -1769,10 +1770,11 @@ public:
 	 * 
 	 * @param	Key			the metadata tag to find the value for
 	 * @param	NameIndex	if specified, will search the metadata linked for that enum value; otherwise, searches the metadata for the enum itself
+	 * @param	bAllowRemap	if true, the returned value may be remapped from a .ini if the value starts with ini: Pass false when you need the exact string, including any ini:
 	 *
 	 * @return	the value for the key specified, or an empty string if the key wasn't found or had no value.
 	 */
-	const FString& GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
+	FString GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE, bool bAllowRemap=true ) const;
 
 	/**
 	 * Set the metadata value associated with the specified key.
@@ -2221,6 +2223,9 @@ private:
 
 	/** A cache of all functions by name that exist in a parent (superclass or interface) context */
 	mutable TMap<FName, UFunction*> SuperFuncMap;
+
+	/** Scope lock to avoid the SuperFuncMap being read and written to simultaneously on multiple threads. */
+	mutable FRWLock SuperFuncMapLock;
 
 public:
 	/**
@@ -3126,6 +3131,11 @@ struct FStructUtils
 
 	/** Locates a named structure in the package with the given name. Not expected to fail */
 	COREUOBJECT_API static UStruct* FindStructureInPackageChecked(const TCHAR* StructName, const TCHAR* PackageName);
+
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+	/** Looks for uninitialized script struct pointers. Returns the number found */
+	COREUOBJECT_API static int32 AttemptToFindUninitializedScriptStructMembers();
+#endif
 };
 
 /*-----------------------------------------------------------------------------

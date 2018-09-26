@@ -34,6 +34,8 @@
 #include "DecalRenderingCommon.h"
 #include "ExternalTexture.h"
 #include "ShaderCodeLibrary.h"
+#include "HAL/FileManager.h"
+#include "ProfilingDebugging/LoadTimeTracker.h"
 
 DEFINE_LOG_CATEGORY(LogMaterial);
 
@@ -44,6 +46,17 @@ FAutoConsoleVariableRef CVarDeferUniformExpressionCaching(
 	TEXT("Whether to defer caching of uniform expressions until a rendering command needs them up to date.  Deferring updates is more efficient because multiple SetVectorParameterValue calls in a frame will only result in one update."),
 	ECVF_RenderThreadSafe
 	);
+
+bool AllowDitheredLODTransition(ERHIFeatureLevel::Type FeatureLevel)
+{
+	// On mobile support for 'Dithered LOD Transition' has to be explicitly enabled in projects settings
+	if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowDitheredLODTransition"));
+		return (CVar && CVar->GetValueOnAnyThread() != 0) ? true : false;
+	}
+	return true;
+}
 
 FName MaterialQualityLevelNames[] = 
 {
@@ -66,6 +79,67 @@ FName GetMaterialQualityLevelFName(EMaterialQualityLevel::Type InQualityLevel)
 	check(InQualityLevel < ARRAY_COUNT(MaterialQualityLevelNames));
 	return MaterialQualityLevelNames[(int32)InQualityLevel];
 }
+
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+bool HasMaterialResource(
+	UMaterial* Material,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel)
+{
+	TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num>> QualityLevelsUsed;
+	Material->GetQualityLevelUsage(QualityLevelsUsed, GShaderPlatformForFeatureLevel[FeatureLevel]);
+	return QualityLevelsUsed[QualityLevel];
+}
+
+const FMaterialResourceLocOnDisk* FindMaterialResourceLocOnDisk(
+	const TArray<FMaterialResourceLocOnDisk>& DiskLocations,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel)
+{
+	for (const FMaterialResourceLocOnDisk& Loc : DiskLocations)
+	{
+		if (Loc.QualityLevel == QualityLevel && Loc.FeatureLevel == FeatureLevel)
+		{
+			return &Loc;
+		}
+	}
+	return nullptr;
+}
+
+static inline void GetReloadInfo(const FString& PackageName, FString* OutFilename)
+{
+	check(!PackageName.IsEmpty());
+	FString& Filename = *OutFilename;
+	bool bSucceed = FPackageName::TryConvertLongPackageNameToFilename(PackageName, Filename, TEXT(".uexp"));
+	// Dynamic material resource loading requires split export to work
+	check(bSucceed && IFileManager::Get().FileExists(*Filename));
+}
+
+bool ReloadMaterialResource(
+	FMaterialResource* InOutMaterialResource,
+	const FString& PackageName,
+	uint32 OffsetToFirstResource,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel)
+{
+	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
+	SCOPED_LOADTIMER(SerializeInlineShaderMaps);
+
+	FString Filename;
+	GetReloadInfo(PackageName, &Filename);
+
+	FMaterialResourceProxyReader Ar(*Filename, OffsetToFirstResource, FeatureLevel, QualityLevel);
+	FMaterialResource& Tmp = *InOutMaterialResource;
+	Tmp.SerializeInlineShaderMap(Ar);
+	if (Tmp.GetGameThreadShaderMap())
+	{
+		Tmp.GetGameThreadShaderMap()->RegisterSerializedShaders();
+		return true;
+	}
+	UE_LOG(LogMaterial, Warning, TEXT("Failed to reload material resources for package %s (file name: %s)."), *PackageName, *Filename);
+	return false;
+}
+#endif
 
 static inline SIZE_T AddShaderSize(FShader* Shader, TSet<FShaderResourceId>& UniqueShaderResourceIds)
 {
@@ -176,11 +250,17 @@ static bool SerializeExpressionInput(FArchive& Ar, FExpressionInput& Input)
 		Ar << InputNameStr;
 		Input.InputName = *InputNameStr;
 	}
+
+#if WITH_EDITORONLY_DATA
 	Ar << Input.Mask;
 	Ar << Input.MaskR;
 	Ar << Input.MaskG;
 	Ar << Input.MaskB;
 	Ar << Input.MaskA;
+#else
+	int32 Temp = 0;
+	Ar << Temp << Temp << Temp << Temp << Temp;
+#endif
 
 	// Some expressions may have been stripped when cooking and Expression can be null after loading
 	// so make sure we keep the information about the connected node in cooked packages
@@ -203,10 +283,17 @@ static bool SerializeMaterialInput(FArchive& Ar, FMaterialInput<InputType>& Inpu
 {
 	if (SerializeExpressionInput(Ar, Input))
 	{
+#if WITH_EDITORONLY_DATA
 		bool bUseConstantValue = Input.UseConstant;
 		Ar << bUseConstantValue;
 		Input.UseConstant = bUseConstantValue;
 		Ar << Input.Constant;
+#else
+		bool bTemp = false;
+		Ar << bTemp;
+		InputType TempType;
+		Ar << TempType;
+#endif
 		return true;
 	}
 	else
@@ -574,7 +661,7 @@ bool FMaterial::NeedsGBuffer() const
 {
 	check(IsInParallelRenderingThread());
 
-	if (IsOpenGLPlatform(GMaxRHIShaderPlatform) // @todo: TTP #341211
+	if ((IsOpenGLPlatform(GMaxRHIShaderPlatform) || IsSwitchPlatform(GMaxRHIShaderPlatform)) // @todo: TTP #341211
 		&& !IsMobilePlatform(GMaxRHIShaderPlatform)) 
 	{
 		return true;
@@ -1065,6 +1152,11 @@ bool FMaterialResource::IsTwoSided() const
 
 bool FMaterialResource::IsDitheredLODTransition() const 
 {
+	if (!AllowDitheredLODTransition(GetFeatureLevel()))
+	{
+		return false;
+	}
+
 	return MaterialInstance ? MaterialInstance->IsDitheredLODTransition() : Material->IsDitheredLODTransition();
 }
 
@@ -1437,6 +1529,7 @@ void FMaterial::SetupMaterialEnvironment(
 		OutEnvironment.SetDefine(TEXT("EDITOR_PRIMITIVE_MATERIAL"),TEXT("1"));
 	}
 
+	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
 	{	
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
 		OutEnvironment.SetDefine(TEXT("USE_STENCIL_LOD_DITHER_DEFAULT"), CVar->GetValueOnAnyThread() != 0 ? 1 : 0);
@@ -2090,6 +2183,7 @@ bool FOverrideSelectionColorMaterialRenderProxy::GetTextureValue(const FMaterial
 	return Parent->GetTextureValue(ParameterInfo,OutValue,Context);
 }
 
+#if WITH_EDITOR
 /** Returns the number of samplers used in this material, or -1 if the material does not have a valid shader map (compile error or still compiling). */
 int32 FMaterialResource::GetSamplerUsage() const
 {
@@ -2100,6 +2194,7 @@ int32 FMaterialResource::GetSamplerUsage() const
 
 	return -1;
 }
+#endif // WITH_EDITOR
 
 void FMaterialResource::GetUserInterpolatorUsage(uint32& NumUsedUVScalars, uint32& NumUsedCustomInterpolatorScalars) const
 {
@@ -2333,6 +2428,23 @@ bool FMaterial::GetMaterialExpressionSource( FString& OutSource )
 	UE_LOG(LogMaterial, Fatal,TEXT("Not supported."));
 	return false;
 #endif
+}
+
+bool FMaterial::WritesEveryPixel(bool bShadowPass) const
+{
+	bool bStencilDitheredLOD = false;
+	if (FeatureLevel >= ERHIFeatureLevel::SM4)
+	{
+		// this option affects only deferred renderer
+		static TConsoleVariableData<int32>* CVarStencilDitheredLOD =
+			IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
+		bStencilDitheredLOD = (CVarStencilDitheredLOD->GetValueOnAnyThread() != 0);
+	}
+
+	return !IsMasked()
+		// Render dithered material as masked if a stencil prepass is not used (UE-50064, UE-49537)
+		&& !((bShadowPass || !bStencilDitheredLOD) && IsDitheredLODTransition())
+		&& !IsWireframe();
 }
 
 /** Recompiles any materials in the EditorLoadedMaterialResources list if they are not complete. */
@@ -3036,5 +3148,170 @@ void FMaterialAttributeDefinitionMap::GetDisplayNameToIDList(TArray<TPair<FStrin
 	{
 		FMaterialAttributeDefintion* Attribute = GMaterialPropertyAttributesMap.Find(AttributeID);
 		NameToIDList.Emplace(Attribute->DisplayName, AttributeID);
+	}
+}
+
+FMaterialResourceMemoryWriter::FMaterialResourceMemoryWriter(FArchive& Ar) :
+	FMemoryWriter(Bytes, Ar.IsPersistent(), false, TEXT("FShaderMapMemoryWriter")),
+	ParentAr(&Ar)
+{
+	check(Ar.IsSaving());
+	this->SetByteSwapping(Ar.IsByteSwapping());
+	this->SetCookingTarget(Ar.CookingTarget());
+}
+
+FMaterialResourceMemoryWriter::~FMaterialResourceMemoryWriter()
+{
+	SerializeToParentArchive();
+}
+
+FArchive& FMaterialResourceMemoryWriter::operator<<(class FName& Name)
+{
+	const int32* Idx = Name2Indices.Find(Name.GetDisplayIndex());
+	int32 NewIdx;
+	if (Idx)
+	{
+		NewIdx = *Idx;
+	}
+	else
+	{
+		NewIdx = Name2Indices.Num();
+		Name2Indices.Add(Name.GetDisplayIndex(), NewIdx);
+	}
+	auto InstNum = Name.GetNumber();
+	*this << NewIdx << InstNum;
+	return *this;
+}
+
+void FMaterialResourceMemoryWriter::SerializeToParentArchive()
+{
+	FArchive& Ar = *ParentAr;
+	check(Ar.IsSaving() && this->IsByteSwapping() == Ar.IsByteSwapping());
+
+	// Make a array of unique names used by the shader map
+	TArray<NAME_INDEX> DisplayIndices;
+	auto NumNames = Name2Indices.Num();
+	DisplayIndices.Empty(NumNames);
+	DisplayIndices.AddDefaulted(NumNames);
+	for (const auto& Pair : Name2Indices)
+	{
+		DisplayIndices[Pair.Value] = Pair.Key;
+	}
+
+	Ar << NumNames;
+	for (NAME_INDEX DisplayIdx : DisplayIndices)
+	{
+		FName::GetEntry(DisplayIdx)->Write(Ar);
+	}
+	
+	Ar << Locs;
+	auto NumBytes = Bytes.Num();
+	Ar << NumBytes;
+	Ar.Serialize(&Bytes[0], NumBytes);
+}
+
+static inline void AdjustForSingleRead(
+	FArchive* RESTRICT ArPtr,
+	const TArray<FMaterialResourceLocOnDisk>& Locs,
+	int64 OffsetToFirstResource,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel)
+{
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+	FArchive& Ar = *ArPtr;
+
+	if (FeatureLevel != ERHIFeatureLevel::Num)
+	{
+		check(QualityLevel != EMaterialQualityLevel::Num);
+		const FMaterialResourceLocOnDisk* RESTRICT Loc =
+			FindMaterialResourceLocOnDisk(Locs, FeatureLevel, QualityLevel);
+		if (!Loc)
+		{
+			QualityLevel = EMaterialQualityLevel::High;
+			Loc = FindMaterialResourceLocOnDisk(Locs, FeatureLevel, QualityLevel);
+			check(Loc);
+		}
+		if (Loc->Offset)
+		{
+			const int64 ActualOffset = OffsetToFirstResource + Loc->Offset;
+			Ar.Seek(ActualOffset);
+		}
+	}
+#endif
+}
+
+FMaterialResourceProxyReader::FMaterialResourceProxyReader(
+	FArchive& Ar,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel) :
+	FArchiveProxy(Ar),
+	OffsetToEnd(-1),
+	bReleaseInnerArchive(false)
+{
+	check(InnerArchive.IsLoading());
+	Initialize(FeatureLevel, QualityLevel, FeatureLevel != ERHIFeatureLevel::Num);
+}
+
+FMaterialResourceProxyReader::FMaterialResourceProxyReader(
+	const TCHAR* Filename,
+	uint32 NameMapOffset,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel) :
+	FArchiveProxy(*IFileManager::Get().CreateFileReader(Filename)),
+	OffsetToEnd(-1),
+	bReleaseInnerArchive(true)
+{
+	InnerArchive.Seek(NameMapOffset);
+	Initialize(FeatureLevel, QualityLevel);
+}
+
+FMaterialResourceProxyReader::~FMaterialResourceProxyReader()
+{
+	if (bReleaseInnerArchive)
+	{
+		delete &InnerArchive;
+	}
+	else if (OffsetToEnd != -1)
+	{
+		InnerArchive.Seek(OffsetToEnd);
+	}
+}
+
+FArchive& FMaterialResourceProxyReader::operator<<(class FName& Name)
+{
+	int32 NameIdx;
+	decltype(DeclVal<FName>().GetNumber()) InstNum;
+	InnerArchive << NameIdx << InstNum;
+	Name = FName(Names[NameIdx], InstNum);
+	return *this;
+}
+
+void FMaterialResourceProxyReader::Initialize(
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel,
+	bool bSeekToEnd)
+{
+	decltype(Names.Num()) NumNames;
+	InnerArchive << NumNames;
+	Names.Empty(NumNames);
+	for (int32 Idx = 0; Idx < NumNames; ++Idx)
+	{
+		FNameEntrySerialized Entry(ENAME_LinkerConstructor);
+		InnerArchive << Entry;
+		Names.Add(Entry);
+	}
+
+	TArray<FMaterialResourceLocOnDisk> Locs;
+	InnerArchive << Locs;
+	check(Locs[0].Offset == 0);
+	decltype(DeclVal<TArray<uint8>>().Num()) NumBytes;
+	InnerArchive << NumBytes;
+
+	OffsetToFirstResource = InnerArchive.Tell();
+	AdjustForSingleRead(&InnerArchive, Locs, OffsetToFirstResource, FeatureLevel, QualityLevel);
+
+	if (bSeekToEnd)
+	{
+		OffsetToEnd = OffsetToFirstResource + NumBytes;
 	}
 }

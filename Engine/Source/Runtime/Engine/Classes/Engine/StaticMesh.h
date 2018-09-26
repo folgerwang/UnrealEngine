@@ -308,6 +308,9 @@ struct FAssetEditorOrbitCameraPosition
 
 	FAssetEditorOrbitCameraPosition()
 		: bIsSet(false)
+		, CamOrbitPoint(ForceInitToZero)
+		, CamOrbitZoom(ForceInitToZero)
+		, CamOrbitRotation(ForceInitToZero)
 	{
 	}
 
@@ -545,10 +548,6 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category=LodSettings)
 	FName LODGroup;
 
-	/** If true, the screen sizees at which LODs swap are computed automatically. */
-	UPROPERTY()
-	uint32 bAutoComputeLODScreenSize:1;
-
 	/* The last import version */
 	UPROPERTY()
 	int32 ImportVersion;
@@ -560,17 +559,25 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY()
 	int32 LightmapUVVersion;
 
+	/** If true, the screen sizees at which LODs swap are computed automatically. */
+	UPROPERTY()
+	uint8 bAutoComputeLODScreenSize : 1;
+
 	/**
 	* If true on post load we need to calculate Display Factors from the
 	* loaded LOD distances.
 	*/
-	bool bRequiresLODDistanceConversion : 1;
+	uint8 bRequiresLODDistanceConversion : 1;
 
 	/**
 	 * If true on post load we need to calculate resolution independent Display Factors from the
 	 * loaded LOD screen sizes.
 	 */
-	bool bRequiresLODScreenSizeConversion : 1;
+	uint8 bRequiresLODScreenSizeConversion : 1;
+
+	/** Materials used by this static mesh. Individual sections index in to this array. */
+	UPROPERTY()
+	TArray<UMaterialInterface*> Materials_DEPRECATED;
 
 #endif // #if WITH_EDITORONLY_DATA
 
@@ -578,9 +585,9 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY()
 	FPerPlatformInt MinLOD;
 
-	/** Materials used by this static mesh. Individual sections index in to this array. */
-	UPROPERTY()
-	TArray<UMaterialInterface*> Materials_DEPRECATED;
+	/** Bias multiplier for Light Propagation Volume lighting */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, meta=(UIMin = "0.0", UIMax = "3.0"))
+	float LpvBiasMultiplier;
 
 	UPROPERTY()
 	TArray<FStaticMaterial> StaticMaterials;
@@ -599,13 +606,6 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
 	float DistanceFieldSelfShadowBias;
 
-	/** 
-	 * Whether to generate a distance field for this mesh, which can be used by DistanceField Indirect Shadows.
-	 * This is ignored if the project's 'Generate Mesh Distance Fields' setting is enabled.
-	 */
-	UPROPERTY(EditAnywhere, Category=StaticMesh)
-	uint32 bGenerateMeshDistanceField : 1;
-
 	// Physics data.
 	UPROPERTY(EditAnywhere, transient, duplicatetransient, Instanced, Category = StaticMesh)
 	class UBodySetup* BodySetup;
@@ -618,15 +618,22 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StaticMesh, meta=(DisplayName="LOD For Collision"))
 	int32 LODForCollision;
 
+	/** 
+	 * Whether to generate a distance field for this mesh, which can be used by DistanceField Indirect Shadows.
+	 * This is ignored if the project's 'Generate Mesh Distance Fields' setting is enabled.
+	 */
+	UPROPERTY(EditAnywhere, Category=StaticMesh)
+	uint8 bGenerateMeshDistanceField : 1;
+
 	/** If true, strips unwanted complex collision data aka kDOP tree when cooking for consoles.
 		On the Playstation 3 data of this mesh will be stored in video memory. */
 	UPROPERTY()
-	uint32 bStripComplexCollisionForConsole_DEPRECATED:1;
+	uint8 bStripComplexCollisionForConsole_DEPRECATED:1;
 
 	/** If true, mesh will have NavCollision property with additional data for navmesh generation and usage.
 	    Set to false for distant meshes (always outside navigation bounds) to save memory on collision data. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Navigation)
-	uint32 bHasNavigationData:1;
+	uint8 bHasNavigationData:1;
 
 	/**	
 		Mesh supports uniformly distributed sampling in constant time.
@@ -634,27 +641,22 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 		Example usage is uniform spawning of particles.
 	*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
-	uint32 bSupportUniformlyDistributedSampling : 1;
+	uint8 bSupportUniformlyDistributedSampling : 1;
 
-	/** Bias multiplier for Light Propagation Volume lighting */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, meta=(UIMin = "0.0", UIMax = "3.0"))
-	float LpvBiasMultiplier;
+protected:
+	/** Tracks whether InitResources has been called, and rendering resources are initialized. */
+	uint8 bRenderingResourcesInitialized:1;
 
+public:
 	/** 
 	 *	If true, will keep geometry data CPU-accessible in cooked builds, rather than uploading to GPU memory and releasing it from CPU memory.
 	 *	This is required if you wish to access StaticMesh geometry data on the CPU at runtime in cooked builds (e.g. to convert StaticMesh to ProceduralMeshComponent)
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
-	bool bAllowCPUAccess;
+	uint8 bAllowCPUAccess:1;
 
 	/** A fence which is used to keep track of the rendering thread releasing the static mesh resources. */
 	FRenderCommandFence ReleaseResourcesFence;
-
-	/**
-	 * For simplified meshes, this is the fully qualified path and name of the static mesh object we were
-	 * originally duplicated from.  This is serialized to disk, but is discarded when cooking for consoles.
-	 */
-	FString HighResSourceMeshName;
 
 #if WITH_EDITORONLY_DATA
 	/** Importing data and options used for this mesh */
@@ -689,9 +691,6 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	int32 LODForOccluderMesh;
 
 #endif // WITH_EDITORONLY_DATA
-
-	/** For simplified meshes, this is the CRC of the high res mesh we were originally duplicated from. */
-	uint32 HighResSourceMeshCRC;
 
 	/** Unique ID for tracking/caching this mesh during distributed lighting */
 	FGuid LightingGuid;
@@ -735,9 +734,6 @@ protected:
 	/** Array of user data stored with the asset */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = StaticMesh)
 	TArray<UAssetUserData*> AssetUserData;
-
-	/** Tracks whether InitResources has been called, and rendering resources are initialized. */
-	bool bRenderingResourcesInitialized;
 
 public:
 	/** The editable mesh representation of this static mesh */
@@ -1117,6 +1113,6 @@ private:
 	/**
 	 * Fixes up the material when it was converted to the new staticmesh build process
 	 */
-	bool CleanUpRedondantMaterialPostLoad;
+	bool bCleanUpRedundantMaterialPostLoad;
 #endif // #if WITH_EDITOR
 };

@@ -35,12 +35,8 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 
 	SCOPE_CYCLE_COUNTER(STAT_DecalsDrawTime);
 
-	EShaderPlatform ShaderPlatform = ViewFamily.GetShaderPlatform();
-	if (ShaderPlatform != SP_METAL) // temporary workaround for iOS Metal to avoid restarting render-pass
-	{
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
-	}
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
 	
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);

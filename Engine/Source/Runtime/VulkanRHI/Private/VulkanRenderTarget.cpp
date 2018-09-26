@@ -34,6 +34,22 @@ static FAutoConsoleVariableRef CVarVulkanIgnoreCPUReads(
 static FCriticalSection GStagingMapLock;
 static TMap<FVulkanTextureBase*, VulkanRHI::FStagingBuffer*> GPendingLockedStagingBuffers;
 
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+TAutoConsoleVariable<int32> CVarVulkanDebugBarrier(
+	TEXT("r.Vulkan.DebugBarrier"),
+	0,
+	TEXT("Forces a full barrier for debugging. This is a mask/bitfield (so add up the values)!\n")
+	TEXT(" 0: Don't (default)\n")
+	TEXT(" 1: Enable heavy barriers after EndRenderPass()\n")
+	TEXT(" 2: Enable heavy barriers after every dispatch\n")
+	TEXT(" 4: Enable heavy barriers after upload cmd buffers\n")
+	TEXT(" 8: Enable heavy barriers after active cmd buffers\n")
+	/*TEXT(" 8: Enable heavy barrier after swapchain\n")*/,
+	ECVF_Default
+);
+#endif
+
+
 void FTransitionAndLayoutManager::Destroy(FVulkanDevice& InDevice, FTransitionAndLayoutManager* Immediate)
 {
 	check(!GIsRHIInitialized);
@@ -205,6 +221,13 @@ void FTransitionAndLayoutManager::EndEmulatedRenderPass(FVulkanCmdBuffer* CmdBuf
 	check(!bInsideRealRenderPass);
 	CmdBuffer->EndRenderPass();
 	CurrentRenderPass = nullptr;
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 1)
+	{
+		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer->GetHandle());
+	}
+#endif
 }
 
 void FTransitionAndLayoutManager::BeginRealRenderPass(FVulkanCommandListContext& Context, FVulkanDevice& InDevice, FVulkanCmdBuffer* CmdBuffer, const FRHIRenderPassInfo& RPInfo, const FVulkanRenderTargetLayout& RTLayout, FVulkanRenderPass* RenderPass, FVulkanFramebuffer* Framebuffer)
@@ -407,6 +430,13 @@ void FTransitionAndLayoutManager::EndRealRenderPass(FVulkanCmdBuffer* CmdBuffer)
 
 	CurrentRenderPass = nullptr;
 	bInsideRealRenderPass = false;
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 1)
+	{
+		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer->GetHandle());
+	}
+#endif
 }
 
 void FTransitionAndLayoutManager::NotifyDeletedRenderTarget(FVulkanDevice& InDevice, VkImage Image)
@@ -1807,7 +1837,6 @@ FVulkanRenderTargetLayout::FVulkanRenderTargetLayout(FVulkanDevice& InDevice, co
 		CurrDesc.loadOp = RenderTargetLoadActionToVulkan(GetLoadAction(GetDepthActions(RPInfo.DepthStencilRenderTarget.Action)));
 		CurrDesc.stencilLoadOp = RenderTargetLoadActionToVulkan(GetLoadAction(GetStencilActions(RPInfo.DepthStencilRenderTarget.Action)));
 		bFoundClearOp = bFoundClearOp || (CurrDesc.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR || CurrDesc.stencilLoadOp == VK_ATTACHMENT_LOAD_OP_CLEAR);
-
 		if (CurrDesc.samples != VK_SAMPLE_COUNT_1_BIT)
 		{
 			// Can't resolve MSAA depth/stencil

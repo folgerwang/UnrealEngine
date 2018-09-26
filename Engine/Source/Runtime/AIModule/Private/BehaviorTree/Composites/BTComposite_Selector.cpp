@@ -5,8 +5,6 @@
 UBTComposite_Selector::UBTComposite_Selector(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NodeName = "Selector";
-
-	OnNextChild.BindUObject(this, &UBTComposite_Selector::GetNextChildHandler);
 }
 
 int32 UBTComposite_Selector::GetNextChildHandler(FBehaviorTreeSearchData& SearchData, int32 PrevChild, EBTNodeResult::Type LastResult) const

@@ -11,7 +11,11 @@
 class FVulkanDescriptorPool;
 class FVulkanDescriptorPoolsManager;
 class FVulkanCommandListContextImmediate;
+#if VULKAN_USE_NEW_QUERIES
 class FVulkanOcclusionQueryPool;
+#else
+class FOLDVulkanQueryPool;
+#endif
 
 struct FOptionalVulkanDeviceExtensions
 {
@@ -190,6 +194,10 @@ public:
 		return SamplerMap;
 	}
 
+	inline FVulkanShaderFactory& GetShaderFactory()
+	{
+		return ShaderFactory;
+	}
 
 	FVulkanCommandListContextImmediate& GetImmediateContext();
 
@@ -300,6 +308,8 @@ private:
 	VulkanRHI::FFenceManager FenceManager;
 
 	FVulkanDescriptorPoolsManager* DescriptorPoolsManager = nullptr;
+
+	FVulkanShaderFactory ShaderFactory;
 
 	FVulkanSamplerState* DefaultSampler;
 	FVulkanSurface* DefaultImage;

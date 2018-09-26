@@ -213,11 +213,10 @@ protected:
 class FVulkanGraphicsPipelineDescriptorState : public FVulkanCommonPipelineDescriptorState
 {
 public:
-	FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS);
+	FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline);
 	virtual ~FVulkanGraphicsPipelineDescriptorState()
 	{
 		GfxPipeline->Release();
-		BSS->Release();
 	}
 
 	inline void SetPackedGlobalShaderParameter(uint8 Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
@@ -285,7 +284,6 @@ protected:
 	TStaticArray<uint64, ShaderStage::NumStages> PackedUniformBuffersDirty;
 
 	FVulkanRHIGraphicsPipelineState* GfxPipeline;
-	FVulkanBoundShaderState* BSS;
 	int32 ID;
 
 	template<bool bUseDynamicGlobalUBs>

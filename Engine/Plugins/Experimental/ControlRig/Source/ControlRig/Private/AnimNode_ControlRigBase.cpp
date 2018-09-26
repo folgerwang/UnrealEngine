@@ -58,83 +58,65 @@ void FAnimNode_ControlRigBase::Update_AnyThread(const FAnimationUpdateContext& C
 
 void FAnimNode_ControlRigBase::UpdateInput(UControlRig* ControlRig, const FPoseContext& InOutput)
 {
-	// copy output of the rig
-	// @todo: find a better option to do this
-	// but for now, we use this flag to skip the execution and updating input
-	// this is used to skip when refpose is chosen to view
-#if WITH_EDITORONLY_DATA
-	if (ControlRig->bExecutionOn)
-#endif // WITH_EDITORONLY_DATA
+	const FBoneContainer& RequiredBones = InOutput.Pose.GetBoneContainer();
+
+	// get component pose from control rig
+	FCSPose<FCompactPose> MeshPoses;
+	// first I need to convert to local pose
+	MeshPoses.InitPose(InOutput.Pose);
+
+	// should we also update refpose? 
+	const int32 NumNodes = RigHierarchyItemNameMapping.Num();
+	for (int32 Index = 0; Index < NumNodes; ++Index)
 	{
-		const FBoneContainer& RequiredBones = InOutput.Pose.GetBoneContainer();
-
-		// get component pose from control rig
-		FCSPose<FCompactPose> MeshPoses;
-		// first I need to convert to local pose
-		MeshPoses.InitPose(InOutput.Pose);
-
-		// should we also update refpose? 
-		const int32 NumNodes = RigHierarchyItemNameMapping.Num();
-		for (int32 Index = 0; Index < NumNodes; ++Index)
+		if (RigHierarchyItemNameMapping[Index] != NAME_None)
 		{
-			if (RigHierarchyItemNameMapping[Index] != NAME_None)
+			FCompactPoseBoneIndex CompactPoseIndex(Index);
+			FTransform ComponentTransform = MeshPoses.GetComponentSpaceTransform(CompactPoseIndex);
+			if (NodeMappingContainer.IsValid())
 			{
-				FCompactPoseBoneIndex CompactPoseIndex(Index);
-				FTransform ComponentTransform = MeshPoses.GetComponentSpaceTransform(CompactPoseIndex);
-				if (NodeMappingContainer.IsValid())
-				{
-					// @todo : I should reverse retarget
-					//ComponentTransform = NodeMappingContainer->GetSourceToTargetTransform(RigHierarchyItemNameMapping[Index]) * ComponentTransform;
-				}
-
-				ControlRig->SetGlobalTransform(RigHierarchyItemNameMapping[Index], ComponentTransform);
+				ComponentTransform = NodeMappingContainer->GetSourceToTargetTransform(RigHierarchyItemNameMapping[Index]).GetRelativeTransformReverse(ComponentTransform);
 			}
+
+			ControlRig->SetGlobalTransform(RigHierarchyItemNameMapping[Index], ComponentTransform);
 		}
 	}
 }
 
 void FAnimNode_ControlRigBase::UpdateOutput(const UControlRig* ControlRig, FPoseContext& InOutput)
 {
-	// @todo: find a better option to do this
-	// but for now, we use this flag to skip the execution and updating output
-	// this is used to skip when refpose is chosen to view
-#if WITH_EDITORONLY_DATA
-	if (ControlRig->bExecutionOn)
-#endif // WITH_EDITORONLY_DATA
+	// copy output of the rig
+	const FBoneContainer& RequiredBones = InOutput.Pose.GetBoneContainer();
+
+	// get component pose from control rig
+	FCSPose<FCompactPose> MeshPoses;
+	MeshPoses.InitPose(InOutput.Pose);
+
+	const int32 NumNodes = RigHierarchyItemNameMapping.Num();
+	for (int32 Index = 0; Index < NumNodes; ++Index)
 	{
-		// copy output of the rig
-		const FBoneContainer& RequiredBones = InOutput.Pose.GetBoneContainer();
-
-		// get component pose from control rig
-		FCSPose<FCompactPose> MeshPoses;
-		MeshPoses.InitPose(InOutput.Pose);
-
-		const int32 NumNodes = RigHierarchyItemNameMapping.Num();
-		for (int32 Index = 0; Index < NumNodes; ++Index)
+		if (RigHierarchyItemNameMapping[Index] != NAME_None)
 		{
-			if (RigHierarchyItemNameMapping[Index] != NAME_None)
+			FCompactPoseBoneIndex CompactPoseIndex(Index);
+			FTransform ComponentTransform = ControlRig->GetGlobalTransform(RigHierarchyItemNameMapping[Index]);
+			if (NodeMappingContainer.IsValid())
 			{
-				FCompactPoseBoneIndex CompactPoseIndex(Index);
-				FTransform ComponentTransform = ControlRig->GetGlobalTransform(RigHierarchyItemNameMapping[Index]);
-				if (NodeMappingContainer.IsValid())
-				{
-					ComponentTransform = NodeMappingContainer->GetSourceToTargetTransform(RigHierarchyItemNameMapping[Index]) * ComponentTransform;
-				}
-
-				MeshPoses.SetComponentSpaceTransform(CompactPoseIndex, ComponentTransform);
+				ComponentTransform = NodeMappingContainer->GetSourceToTargetTransform(RigHierarchyItemNameMapping[Index]) * ComponentTransform;
 			}
+
+			MeshPoses.SetComponentSpaceTransform(CompactPoseIndex, ComponentTransform);
 		}
+	}
 
-		// now convert to what you'd like
-		// initialize with refpose
-	 	InOutput.ResetToRefPose();
-		for (int32 Index = 0; Index < NumNodes; ++Index)
+	// now convert to what you'd like
+	// initialize with refpose
+	InOutput.ResetToRefPose();
+	for (int32 Index = 0; Index < NumNodes; ++Index)
+	{
+		if (RigHierarchyItemNameMapping[Index] != NAME_None)
 		{
-			if (RigHierarchyItemNameMapping[Index] != NAME_None)
-			{
-				FCompactPoseBoneIndex CompactPoseIndex(Index);
-				InOutput.Pose[CompactPoseIndex] = MeshPoses.GetLocalSpaceTransform(CompactPoseIndex);
-			}
+			FCompactPoseBoneIndex CompactPoseIndex(Index);
+			InOutput.Pose[CompactPoseIndex] = MeshPoses.GetLocalSpaceTransform(CompactPoseIndex);
 		}
 	}
 }

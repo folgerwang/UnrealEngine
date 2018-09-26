@@ -338,11 +338,11 @@ bool FJsonObjectConverter::GetTextFromObject(const TSharedRef<FJsonObject>& Obj,
 
 namespace
 {
-	bool JsonValueToUPropertyWithContainer(TSharedPtr<FJsonValue> JsonValue, UProperty* Property, void* OutValue, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags);
+	bool JsonValueToUPropertyWithContainer(const TSharedPtr<FJsonValue>& JsonValue, UProperty* Property, void* OutValue, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags);
 	bool JsonAttributesToUStructWithContainer(const TMap< FString, TSharedPtr<FJsonValue> >& JsonAttributes, const UStruct* StructDefinition, void* OutStruct, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags);
 
 	/** Convert JSON to property, assuming either the property is not an array or the value is an individual array element */
-	bool ConvertScalarJsonValueToUPropertyWithContainer(TSharedPtr<FJsonValue> JsonValue, UProperty* Property, void* OutValue, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags)
+	bool ConvertScalarJsonValueToUPropertyWithContainer(const TSharedPtr<FJsonValue>& JsonValue, UProperty* Property, void* OutValue, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags)
 	{
 		if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
 		{
@@ -679,7 +679,7 @@ namespace
 	}
 
 
-	bool JsonValueToUPropertyWithContainer(TSharedPtr<FJsonValue> JsonValue, UProperty* Property, void* OutValue, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags)
+	bool JsonValueToUPropertyWithContainer(const TSharedPtr<FJsonValue>& JsonValue, UProperty* Property, void* OutValue, const UStruct* ContainerStruct, void* Container, int64 CheckFlags, int64 SkipFlags)
 	{
 		if (!JsonValue.IsValid())
 		{
@@ -743,11 +743,16 @@ namespace
 			return true;
 		}
 
+		int32 NumUnclaimedProperties = JsonAttributes.Num();
+		if (NumUnclaimedProperties <= 0)
+		{
+			return true;
+		}
+
 		// iterate over the struct properties
 		for (TFieldIterator<UProperty> PropIt(StructDefinition); PropIt; ++PropIt)
 		{
 			UProperty* Property = *PropIt;
-			FString PropertyName = Property->GetName();
 
 			// Check to see if we should ignore this property
 			if (CheckFlags != 0 && !Property->HasAnyPropertyFlags(CheckFlags))
@@ -760,27 +765,27 @@ namespace
 			}
 
 			// find a json value matching this property name
-			TSharedPtr<FJsonValue> JsonValue;
-			for (auto It = JsonAttributes.CreateConstIterator(); It; ++It)
-			{
-				// use case insensitive search sincd FName may change caseing strangely on us
-				if (PropertyName.Equals(It.Key(), ESearchCase::IgnoreCase))
-				{
-					JsonValue = It.Value();
-					break;
-				}
-			}
-			if (!JsonValue.IsValid() || JsonValue->IsNull())
+			const TSharedPtr<FJsonValue>* JsonValue = JsonAttributes.Find(Property->GetName());
+			if (!JsonValue)
 			{
 				// we allow values to not be found since this mirrors the typical UObject mantra that all the fields are optional when deserializing
 				continue;
 			}
 
-			void* Value = Property->ContainerPtrToValuePtr<uint8>(OutStruct);
-			if (!JsonValueToUPropertyWithContainer(JsonValue, Property, Value, ContainerStruct, Container, CheckFlags, SkipFlags))
+			if (JsonValue->IsValid() && !(*JsonValue)->IsNull())
 			{
-				UE_LOG(LogJson, Error, TEXT("JsonObjectToUStruct - Unable to parse %s.%s from JSON"), *StructDefinition->GetName(), *PropertyName);
-				return false;
+				void* Value = Property->ContainerPtrToValuePtr<uint8>(OutStruct);
+				if (!JsonValueToUPropertyWithContainer(*JsonValue, Property, Value, ContainerStruct, Container, CheckFlags, SkipFlags))
+				{
+					UE_LOG(LogJson, Error, TEXT("JsonObjectToUStruct - Unable to parse %s.%s from JSON"), *StructDefinition->GetName(), *Property->GetName());
+					return false;
+				}
+			}
+
+			if (--NumUnclaimedProperties <= 0)
+			{
+				// If we found all properties that were in the JsonAttributes map, there is no reason to keep looking for more.
+				break;
 			}
 		}
 
@@ -789,7 +794,7 @@ namespace
 
 }
 
-bool FJsonObjectConverter::JsonValueToUProperty(TSharedPtr<FJsonValue> JsonValue, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags)
+bool FJsonObjectConverter::JsonValueToUProperty(const TSharedPtr<FJsonValue>& JsonValue, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags)
 {
 	return JsonValueToUPropertyWithContainer(JsonValue, Property, OutValue, nullptr, nullptr, CheckFlags, SkipFlags);
 }

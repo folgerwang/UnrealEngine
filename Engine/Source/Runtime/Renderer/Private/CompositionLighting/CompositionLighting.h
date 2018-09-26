@@ -15,7 +15,7 @@
 class FCompositionLighting
 {
 public:
-	void ProcessBeforeBasePass(FRHICommandListImmediate& RHICmdList, FViewInfo& View);
+	void ProcessBeforeBasePass(FRHICommandListImmediate& RHICmdList, FViewInfo& View, bool bDBuffer, uint32 SSAOLevels);
 
 	void ProcessAfterBasePass(FRHICommandListImmediate& RHICmdList,  FViewInfo& View);
 

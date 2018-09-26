@@ -29,6 +29,12 @@ class UMaterialExpressionVertexInterpolator : public UMaterialExpressionCustomOu
 	int32				InterpolatorIndex;
 	EMaterialValueType	InterpolatedType;
 	int32				InterpolatorOffset;
+
+#if WITH_EDITOR
+	// Errors encountered during pre-translation to be appended if the interpolator is actually in-use
+	TArray<UMaterialExpression*> CompileErrorExpressions;
+	TArray<FString> CompileErrors;	
+#endif
 };
 
 

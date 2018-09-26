@@ -36,18 +36,18 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 
 	/** If true, this projectile will have its rotation updated each frame to match the direction of its velocity. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Projectile)
-	uint32 bRotationFollowsVelocity:1;
+	uint8 bRotationFollowsVelocity:1;
 
 	/** If true, simple bounces will be simulated. Set this to false to stop simulating on contact. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileBounces)
-	uint32 bShouldBounce:1;
+	uint8 bShouldBounce:1;
 
 	/**
 	 * If true, the initial Velocity is interpreted as being in local space upon startup.
 	 * @see SetVelocityInLocalSpace()
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Projectile)
-	uint32 bInitialVelocityInLocalSpace:1;
+	uint8 bInitialVelocityInLocalSpace:1;
 
 	/**
 	 * If true, forces sub-stepping to break up movement into discrete smaller steps to improve accuracy of the trajectory.
@@ -56,14 +56,27 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	 * @see MaxSimulationTimeStep, MaxSimulationIterations
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileSimulation)
-	uint32 bForceSubStepping:1;
+	uint8 bForceSubStepping:1;
+
+	/**
+	 * If true, does normal simulation ticking and update. If false, simulation is halted, but component will still tick (allowing interpolation to run).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileSimulation)
+	uint8 bSimulationEnabled:1;
+
+	/**
+	 * If true, movement uses swept collision checks.
+	 * If false, collision effectively teleports to the destination. Note that when this is disabled, movement will never generate blocking collision hits (though overlaps will be updated).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileSimulation)
+	uint8 bSweepCollision:1;
 
 	/**
 	 * If true, we will accelerate toward our homing target. HomingTargetComponent must be set after the projectile is spawned.
 	 * @see HomingTargetComponent, HomingAccelerationMagnitude
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Homing)
-	uint32 bIsHomingProjectile:1;
+	uint8 bIsHomingProjectile:1;
 
 	/**
 	 * Controls the effects of friction on velocity parallel to the impact surface when bouncing.
@@ -71,14 +84,35 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	 * If false, a bounce will retain a proportion of tangential velocity equal to (1.0 - Friction), acting as a "horizontal restitution".
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileBounces)
-	uint32 bBounceAngleAffectsFriction:1;
+	uint8 bBounceAngleAffectsFriction:1;
 
 	/**
 	 * If true, projectile is sliding / rolling along a surface.
 	 */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=ProjectileBounces)
-	uint32 bIsSliding:1;
+	uint8 bIsSliding:1;
 
+	/**
+	 * If true and there is an interpolated component set, location (and optionally rotation) interpolation is enabled which allows the interpolated object to smooth uneven updates
+	 * of the UpdatedComponent's location (usually to smooth network updates). 
+	 * @see SetInterpolatedComponent(), MoveInterpolationTarget()
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileInterpolation)
+	uint8 bInterpMovement:1;
+
+	/**
+	 * If true and there is an interpolated component set, rotation interpolation is enabled which allows the interpolated object to smooth uneven updates
+	 * of the UpdatedComponent's rotation (usually to smooth network updates).
+	 * Rotation interpolation is *only* applied if bInterpMovement is also enabled.
+	 * @see SetInterpolatedComponent(), MoveInterpolationTarget()
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileInterpolation)
+	uint8 bInterpRotation:1;
+
+protected:
+	uint8 bInterpolationComplete:1;
+
+public:
 	/** Saved HitResult Time (0 to 1) from previous simulation step. Equal to 1.0 when there was no impact. */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=ProjectileBounces)
 	float PreviousHitTime;
@@ -120,6 +154,19 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileBounces)
 	float BounceVelocityStopSimulatingThreshold;
 
+	/**
+	 * When bounce angle affects friction, apply at least this fraction of normal friction.
+	 * Helps consistently slow objects sliding or rolling along surfaces or in valleys when the usual friction amount would take a very long time to settle.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileBounces, AdvancedDisplay, meta=(ClampMin="0", UIMin="0", ClampMax="1", UIMax="1"))
+	float MinFrictionFraction;
+
+	/**
+	 * Returns true if velocity magnitude is less than BounceVelocityStopSimulatingThreshold.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement")
+	bool IsVelocityUnderSimulationThreshold() const { return Velocity.SizeSquared() < FMath::Square(BounceVelocityStopSimulatingThreshold); }
+
 	/** Called when projectile impacts something and bounces are enabled. */
 	UPROPERTY(BlueprintAssignable)
 	FOnProjectileBounceDelegate OnProjectileBounce;
@@ -151,6 +198,7 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	//Begin UMovementComponent Interface
 	virtual float GetMaxSpeed() const override { return MaxSpeed; }
 	virtual void InitializeComponent() override;
+	virtual void UpdateTickRegistration() override;
 	//End UMovementComponent Interface
 
 	/**
@@ -226,6 +274,68 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", ClampMax="4", UIMin="0", UIMax="4"), Category=ProjectileSimulation)
 	int32 BounceAdditionalIterations;
 
+	/**
+	 * Assigns the component that will be used for network interpolation/smoothing. It is expected that this is a component attached somewhere below the UpdatedComponent.
+	 * When network updates use MoveInterpolationTarget() to move the UpdatedComponent, the interpolated component's relative offset will be maintained and smoothed over
+	 * the course of future component ticks. The current relative location and rotation of the component is saved as the target offset for future interpolation.
+	 * @see MoveInterpolationTarget(), bInterpMovement, bInterpRotation
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement|Interpolation")
+	virtual void SetInterpolatedComponent(USceneComponent* Component);
+	
+	/**
+	 * Returns the component used for network interpolation.
+	 */
+	USceneComponent* GetInterpolatedComponent() const;
+
+	/**
+	 * Moves the UpdatedComponent, which is also the interpolation target for the interpolated component. If there is not interpolated component, this simply moves UpdatedComponent.
+	 * Use this typically from PostNetReceiveLocationAndRotation() or similar from an Actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement|Interpolation")
+	virtual void MoveInterpolationTarget(const FVector& NewLocation, const FRotator& NewRotation);
+
+	/**
+	 * Resets interpolation so that interpolated component snaps back to the initial location/rotation without any additional offsets.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement|Interpolation")
+	virtual void ResetInterpolation();
+
+	/**
+	 * "Time" over which most of the location interpolation occurs, when the UpdatedComponent (target) moves ahead of the interpolated component.
+	 * Since the implementation uses exponential lagged smoothing, this is a rough time value and experimentation should inform a final result.
+	 * A value of zero is effectively instantaneous interpolation.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileInterpolation, meta=(ClampMin="0"))
+	float InterpLocationTime;
+
+	/**
+	 * "Time" over which most of the rotation interpolation occurs, when the UpdatedComponent (target) moves ahead of the interpolated component.
+	 * Since the implementation uses exponential lagged smoothing, this is a rough time value and experimentation should inform a final result.
+	 * A value of zero is effectively instantaneous interpolation.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileInterpolation, meta=(ClampMin="0"))
+	float InterpRotationTime;
+
+	/**
+	 * Max distance behind UpdatedComponent which the interpolated component is allowed to lag.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileInterpolation, meta=(ClampMin="0"))
+	float InterpLocationMaxLagDistance;
+
+	/**
+	 * Max distance behind UpdatedComponent beyond which the interpolated component is snapped to the target location instead.
+	 * For instance if the target teleports this far beyond the interpolated component, the interpolation is snapped to match the target.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileInterpolation, meta=(ClampMin="0"))
+	float InterpLocationSnapToTargetDistance;
+
+	/**
+	 * Returns whether interpolation is complete because the target has been reached. True when interpolation is disabled.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement|Interpolation")
+	bool IsInterpolationComplete() const { return bInterpolationComplete || !bInterpMovement; }
+
 protected:
 
 	// Enum indicating how simulation should proceed after HandleBlockingHit() is called.
@@ -297,6 +407,14 @@ protected:
 
 	/** Allow the projectile to track towards its homing target. */
 	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const;
+
+	virtual void TickInterpolation(float DeltaTime);
+	
+	FVector InterpLocationOffset;
+	FVector InterpInitialLocationOffset;
+	TWeakObjectPtr<USceneComponent> InterpolatedComponentPtr;
+	FQuat InterpRotationOffset;
+	FQuat InterpInitialRotationOffset;
 
 public:
 	/** Compute gravity effect given current physics volume, projectile gravity scale, etc. */

@@ -8,7 +8,7 @@
 
 struct FOnlineError;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineFriend, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineFriend, Log, All);
 
 #define UE_LOG_ONLINE_FRIEND(Verbosity, Format, ...) \
 { \
@@ -52,6 +52,52 @@ namespace EFriendsLists
 		return TEXT("");
 	}
 }
+
+/*
+ * Stores a generic list of settings for the Query/UpdateSettings calls
+ */
+struct FFriendSettings
+{
+	FFriendSettings() {}
+
+	virtual ~FFriendSettings() {}
+
+	virtual bool GetSettingValue(const FString& SettingName, FString& Value) const
+	{
+		if (const FString* Result = SettingsMap.Find(SettingName))
+		{
+			Value = *Result;
+			return true;
+		}
+
+		return false;
+	}
+
+	virtual void SetSettingValue(const FString& SettingName, const FString& Value)
+	{
+		SettingsMap.Add(SettingName, Value);
+	}
+
+	TMap<FString, FString> SettingsMap;
+};
+
+/**
+ * Stores information about a recent player
+ */
+struct FReportPlayedWithUser
+{
+	FReportPlayedWithUser() = delete;
+	FReportPlayedWithUser(const TSharedRef<const FUniqueNetId>& InUserId, const FString& InPresenceStr)
+		: UserId(InUserId)
+		, PresenceStr(InPresenceStr)
+	{
+	}
+
+	/** UserId to report played with */
+	TSharedRef<const FUniqueNetId> UserId;
+	/** Optional presence string */
+	FString PresenceStr;
+};
 
 /**
  * Delegate used in friends list change notifications
@@ -231,6 +277,17 @@ typedef FOnInviteAborted::FDelegate FOnInviteAbortedDelegate;
  */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnFriendRemoved, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
 typedef FOnFriendRemoved::FDelegate FOnFriendRemovedDelegate;
+
+/**
+* Delegate used when the friends settings are read / updated
+*
+* @param UserId id of the local user that requested settings operation
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+* @param bWasUpdate true if the operation was an "update" operation (vs a passive read)
+* @param Settings settings retrieved / updated
+* @param ErrorStr string representing the error condition
+*/
+DECLARE_DELEGATE_FiveParams(FOnSettingsOperationComplete, const FUniqueNetId&, bool, bool, const FFriendSettings&, const FString&);
 
 /**
  * Interface definition for the online services friends services 
@@ -438,6 +495,16 @@ public:
 	virtual bool IsFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName) = 0;
 
 	/**
+	 * Add a list of players to a user's recent players list
+	 *
+	 * @param UserId user to query recent players for
+	 * @param InRecentPlayers list of players to report
+	 * @param Namespace the recent players namespace to list players under
+	 * @param InCompletionDelegate delegate to fire on completion
+	 */
+	virtual void AddRecentPlayers(const FUniqueNetId& UserId, const TArray<FReportPlayedWithUser>& InRecentPlayers, const FString& ListName, const FOnAddRecentPlayersComplete& InCompletionDelegate) { check(false); }
+
+	/**
 	 * Query for recent players of the current user
 	 *
 	 * @param UserId user to query recent players for
@@ -476,6 +543,11 @@ public:
 	 * @return true if recent players list was found for the given user
 	 */
 	virtual bool GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers) = 0;
+
+	/**
+	 * Dump state information about blocked players
+	 */
+	virtual void DumpRecentPlayers() const = 0;
 
 	/**
 	 * Block a player
@@ -520,6 +592,25 @@ public:
 	 * Dump state information about blocked players
 	 */
 	virtual void DumpBlockedPlayers() const = 0;
+
+	/**
+	* Query the current friend settings
+	 *
+	 * @param PlayerId user to retrieve friend settings for
+	 * @param Delegate Delegate to call when operation has been completed
+	 *
+	*/
+	virtual void QueryFriendSettings(const FUniqueNetId& PlayerId, FOnSettingsOperationComplete Delegate) { check(false) }
+
+	/**
+	* Update the current friend settings
+	 *
+	 * @param PlayerId user to retrieve friend settings for
+	 * @param NewSettings Settings to be saved
+	 * @param Delegate Delegate to call when operation has been completed
+	 *
+	*/
+	virtual void UpdateFriendSettings(const FUniqueNetId& PlayerId, const FFriendSettings& NewSettings, FOnSettingsOperationComplete Delegate) { check(false) }
 
 };
 

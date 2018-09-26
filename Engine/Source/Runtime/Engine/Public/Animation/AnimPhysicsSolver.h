@@ -244,6 +244,12 @@ class ENGINE_API FAnimPhysRigidBody : public FAnimPhysState
 	// Override gravity scale for this body
 	float				GravityScale;
 
+	//Use manual gravity override
+	bool bUseGravityOverride;
+
+	//Direct gravity override value
+	FVector GravityOverride;
+
 	// Previous motion state (linear/angular momentum)
 	FAnimPhysState		PreviousState;
 
@@ -464,7 +470,7 @@ public:
 	*  @param NumPreIterations Number of times to iterate the limits before performing the integration
 	*  @param NumPostIterations Number of times to iterae the limits after performing the integration
 	*/
-	static void PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodies, TArray<FAnimPhysLinearLimit>& LinearLimits, TArray<FAnimPhysAngularLimit>& AngularLimits, TArray<FAnimPhysSpring>& Springs, const FVector& GravityDirection, const FVector& ExternalForce, int32 NumPreIterations = 8, int32 NumPostIterations = 2);
+	static void PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodies, TArray<FAnimPhysLinearLimit>& LinearLimits, TArray<FAnimPhysAngularLimit>& AngularLimits, TArray<FAnimPhysSpring>& Springs, const FVector& GravityDirection, const FVector& ExternalForce, const FVector& ExternalLinearAcc, int32 NumPreIterations = 8, int32 NumPostIterations = 2);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Constraint functions

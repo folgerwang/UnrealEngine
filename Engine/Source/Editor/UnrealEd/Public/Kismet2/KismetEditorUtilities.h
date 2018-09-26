@@ -48,6 +48,8 @@ enum class EBlueprintCompileOptions
 	SkipReinstancing = 0x40,
 	/** Simply regenerates the skeleton class */
 	RegenerateSkeletonOnly = 0x80,
+	/** Skips class-specific validation of the default object - in some cases we may not have a fully-initialized CDO after reinstancing */
+	SkipDefaultObjectValidation = 0x100,
 };
 
 ENUM_CLASS_FLAGS(EBlueprintCompileOptions)

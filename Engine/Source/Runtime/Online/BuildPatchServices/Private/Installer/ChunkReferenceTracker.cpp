@@ -43,7 +43,7 @@ namespace BuildPatchServices
 			const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 			if (NewFileManifest != nullptr)
 			{
-				for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
+				for (const FChunkPart& ChunkPart : NewFileManifest->ChunkParts)
 				{
 					ReferenceCount.FindOrAdd(ChunkPart.Guid).Increment();
 					UseStack.Add(ChunkPart.Guid);

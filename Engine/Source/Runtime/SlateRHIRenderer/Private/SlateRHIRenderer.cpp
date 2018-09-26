@@ -101,10 +101,11 @@ void FSlateRHIRenderer::FViewportInfo::ConditionallyUpdateDepthBuffer(bool bInRe
 			(ViewportInfo->DepthStencil.IsValid() && (ViewportInfo->DepthStencil->GetSizeX() != InWidth || ViewportInfo->DepthStencil->GetSizeY() != InHeight))
 				);
 
+		ViewportInfo->bRequiresStencilTest = bInRequiresStencilTest;
+
 		// Allocate a stencil buffer if needed and not already allocated
 		if (bDepthStencilStale)
 		{
-			ViewportInfo->bRequiresStencilTest = bInRequiresStencilTest;
 			ViewportInfo->RecreateDepthBuffer_RenderThread();
 		}
 	}
@@ -422,7 +423,7 @@ void FSlateRHIRenderer::UpdateFullscreenState(const TSharedRef<SWindow> Window, 
 
 void FSlateRHIRenderer::SetSystemResolution(uint32 Width, uint32 Height)
 {
-	FSystemResolution::RequestResolutionChange(Width, Height, EWindowMode::Fullscreen);
+	FSystemResolution::RequestResolutionChange(Width, Height, FPlatformProperties::HasFixedResolution() ? EWindowMode::Fullscreen : GSystemResolution.WindowMode);
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
@@ -1067,10 +1068,12 @@ void FSlateRHIRenderer::DrawWindows_Private(FSlateDrawBuffer& WindowDrawBuffer)
 					ConditionalResizeViewport(ViewInfo, ViewInfo->DesiredWidth, ViewInfo->DesiredHeight, IsViewportFullscreen(*Window));
 				}
 
-				if (bRequiresStencilTest)
+				
+				if (bRequiresStencilTest || bRequiresStencilTest != ViewInfo->bRequiresStencilTest)
 				{
 					ViewInfo->ConditionallyUpdateDepthBuffer(bRequiresStencilTest, ViewInfo->DesiredWidth, ViewInfo->DesiredHeight);
 				}
+				
 
 				// Tell the rendering thread to draw the windows
 				{
@@ -1371,28 +1374,34 @@ ISlateAtlasProvider* FSlateRHIRenderer::GetTextureAtlasProvider()
 int32 FSlateRHIRenderer::RegisterCurrentScene(FSceneInterface* Scene)
 {
 	check(IsInGameThread());
-	if (Scene)
+	if (Scene && Scene->GetWorld())
 	{
-		CurrentSceneIndex = ActiveScenes.AddUnique(Scene);
+		// We only want one scene view per world, (todo per player for split screen)
+		CurrentSceneIndex = ActiveScenes.IndexOfByPredicate([&Scene](const FSceneInterface* TestScene) { return TestScene->GetWorld() == Scene->GetWorld(); });
+		if (CurrentSceneIndex == INDEX_NONE)
+		{
+			CurrentSceneIndex = ActiveScenes.Add(Scene);
+
+			// We need to keep the ActiveScenes array synchronized with the Policy's ActiveScenes array on
+			// the render thread.
+			FSlateRHIRenderingPolicy* InRenderPolicy = RenderingPolicy.Get();
+			int32 LocalCurrentSceneIndex = CurrentSceneIndex;
+			ENQUEUE_RENDER_COMMAND(RegisterCurrentSceneOnPolicy)(
+				[InRenderPolicy, Scene, LocalCurrentSceneIndex](FRHICommandListImmediate& RHICmdList)
+			{
+				if (LocalCurrentSceneIndex != -1)
+				{
+					InRenderPolicy->AddSceneAt(Scene, LocalCurrentSceneIndex);
+				}
+			}
+			);
+		}
 	}
 	else
 	{
 		CurrentSceneIndex = -1;
 	}
 
-	// We need to keep the ActiveScenes array synchronized with the Policy's ActiveScenes array on
-	// the render thread.
-	FSlateRHIRenderingPolicy* InRenderPolicy = RenderingPolicy.Get();
-	int32 LocalCurrentSceneIndex = CurrentSceneIndex;
-	ENQUEUE_RENDER_COMMAND(RegisterCurrentSceneOnPolicy)(
-		[InRenderPolicy, Scene, LocalCurrentSceneIndex](FRHICommandListImmediate& RHICmdList)
-	{
-		if (LocalCurrentSceneIndex != -1)
-		{
-			InRenderPolicy->AddSceneAt(Scene, LocalCurrentSceneIndex);
-		}
-	}
-	);
 	return CurrentSceneIndex;
 }
 

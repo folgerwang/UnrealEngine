@@ -127,10 +127,20 @@ public:
 		void FillReferenceInfo();
 
 	public:
+		FReferenceChain() {}
+		FReferenceChain(int32 ReserveDepth)
+		{
+			Nodes.Reserve(ReserveDepth);
+		}
+
 		/** Adds a new node to the chain */
 		void AddNode(FGraphNode* InNode)
 		{
 			Nodes.Add(InNode);
+		}
+		void InsertNode(FGraphNode* InNode)
+		{
+			Nodes.Insert(InNode, 0);
 		}
 		/** Gets a node from the chain */
 		FGraphNode* GetNode(int32 NodeIndex) const
@@ -205,7 +215,7 @@ private:
 	/** Tries to find a node for an object and if it doesn't exists creates a new one and returns it */
 	static FGraphNode* FindOrAddNode(TMap<UObject*, FGraphNode*>& AllNodes, UObject* InObjectToFindNodeFor);
 	/** Builds reference chains */
-	static void BuildReferenceChains(FGraphNode* TargetNode, FReferenceChain* Chain, TArray<FReferenceChain*>& AllChains, const int32 VisitCounter);
+	static int32 BuildReferenceChains(FGraphNode* TargetNode, TArray<FReferenceChain*>& ProducedChains, int32 ChainDepth, const int32 VisitCounter);
 	/** Builds reference chains */
 	static void BuildReferenceChains(FGraphNode* TargetNode, TArray<FReferenceChain*>& AllChains, EReferenceChainSearchMode SearchMode);
 	/** Builds reference chains for direct references only */
@@ -214,10 +224,7 @@ private:
 	static void RemoveChainsWithDuplicatedRoots(TArray<FReferenceChain*>& AllChains);
 	/** Leaves only unique chains */
 	static void RemoveDuplicatedChains(TArray<FReferenceChain*>& AllChains);
-	/** Tries to complete chains we stopped processing in BuildReferenceChains with chains that are already complete */
-	static void TryToCompleteChains(TArray<FReferenceChain*>& IncompleteChains, TArray<FReferenceChain*>& AllChains);
-	
-	static void FindCompleteChains(TArray<FReferenceChain*>& AllChains, TArray<FReferenceChain*>& CompleteChains, TArray<FReferenceChain*>& IncompleteChains, EReferenceChainSearchMode SearchMode);
+
 	/** Returns a string with all flags (we care about) set on an object */
 	static FString GetObjectFlags(UObject* InObject);
 	/** Dumps a reference chain to log */

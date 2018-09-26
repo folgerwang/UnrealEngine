@@ -5,6 +5,12 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "RenderResource.h"
 
+#if WITH_EDITOR
+#include "Misc/CoreMisc.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#endif
+
 const uint16 GCubeIndices[12*3] =
 {
 	0, 2, 3,
@@ -874,15 +880,70 @@ RENDERCORE_API bool IsSimpleForwardShadingEnabled(EShaderPlatform Platform)
 	return CVar->GetValueOnAnyThread() != 0 && PlatformSupportsSimpleForwardShading(Platform);
 }
 
-RENDERCORE_API int32 bUseForwardShading = 0;
+RENDERCORE_API int32 GUseForwardShading = 0;
 static FAutoConsoleVariableRef CVarForwardShading(
 	TEXT("r.ForwardShading"),
-	bUseForwardShading,
+	GUseForwardShading,
 	TEXT("Whether to use forward shading on desktop platforms - requires Shader Model 5 hardware.\n")
 	TEXT("Forward shading has lower constant cost, but fewer features supported. 0:off, 1:on\n")
 	TEXT("This rendering path is a work in progress with many unimplemented features, notably only a single reflection capture is applied per object and no translucency dynamic shadow receiving."),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly
 	); 
+
+RENDERCORE_API uint32 GForwardShadingPlatformMask = 0;
+static_assert(SP_NumPlatforms <= sizeof(GForwardShadingPlatformMask) * 8, "GForwardShadingPlatformMask must be large enough to support all shader platforms");
+
+RENDERCORE_API uint32 GDBufferPlatformMask = 0;
+static_assert(SP_NumPlatforms <= sizeof(GDBufferPlatformMask) * 8, "GDBufferPlatformMask must be large enough to support all shader platforms");
+
+RENDERCORE_API void RenderUtilsInit()
+{
+	if (GUseForwardShading)
+	{
+		GForwardShadingPlatformMask = ~0u;
+	}
+
+	static IConsoleVariable* CDBufferVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DBuffer"));
+	if (CDBufferVar && CDBufferVar->GetInt())
+	{
+		GDBufferPlatformMask = ~0u;
+	}
+
+#if WITH_EDITOR
+	ITargetPlatformManagerModule* TargetPlatformManager = GetTargetPlatformManager();
+	if (TargetPlatformManager)
+	{
+		for (uint32 ShaderPlatformIndex = 0; ShaderPlatformIndex < SP_NumPlatforms; ++ShaderPlatformIndex)
+		{
+			EShaderPlatform ShaderPlatform = EShaderPlatform(ShaderPlatformIndex);
+			FName PlatformName = ShaderPlatformToPlatformName(ShaderPlatform);
+			ITargetPlatform* TargetPlatform = TargetPlatformManager->FindTargetPlatform(PlatformName.ToString());
+			if (TargetPlatform)
+			{
+				uint32 Mask = 1u << ShaderPlatformIndex;
+
+				if (TargetPlatform->UsesForwardShading())
+				{
+					GForwardShadingPlatformMask |= Mask;
+				}
+				else
+				{
+					GForwardShadingPlatformMask &= ~Mask;
+				}
+
+				if (TargetPlatform->UsesDBuffer())
+				{
+					GDBufferPlatformMask |= Mask;
+				}
+				else
+				{
+					GDBufferPlatformMask &= ~Mask;
+				}
+			}
+		}
+	}
+#endif
+}
 
 class FUnitCubeVertexBuffer : public FVertexBuffer
 {

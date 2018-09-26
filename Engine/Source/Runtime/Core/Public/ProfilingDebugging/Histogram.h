@@ -51,10 +51,25 @@ struct CORE_API FHistogram
 	void DumpToLog(const FString& HistogramName);
 
 	/** Populates array commonly used in analytics events, adding two pairs per bin (count and sum). */
+	DEPRECATED(4.21, "This function is deprecated. DumpToJsonString instead")
 	void DumpToAnalytics(const FString& ParamNamePrefix, TArray<TPair<FString, double>>& OutParamArray);
 
 	/** Returns a string in a format that can be consumed by an analytics event in the format expected by the analytics backends. Bucket:Count:Sum;Bucket:Count:Sum;...  */
+	DEPRECATED(4.21, "This function is deprecated. DumpToJsonString instead")
 	FString DumpToAnalyticsString() const;
+
+	/** 
+	 * Returns a string in a Json format: [{"Bin":"BinName","Count":Count,"Sum":Sum},...]. 
+	 * Bucket name is constructed by calling ConvertBinToLabel on the MinValue and UpperBound for each bin. 
+	 * Convert function is used to allow the bin range, which is stored as a double, to be printed prettily.
+	 */
+	FString DumpToJsonString(TFunctionRef<FString (double, double)> ConvertBinToLabel) const;
+
+	/** Same as DumpToJsonString but uses a DefaultConvertBinToLabel. */
+	FString DumpToJsonString() const;
+
+	/** Default stringifier for bins for use with DumpToJsonString. Truncates to int and uses Plus as the suffix for the last bin. ie. [0.0, 3.75, 9.8] -> 0_3, 3_9, 9_Plus */
+	static FString DefaultConvertBinToLabel(double MinValue, double UpperBound);
 
 	/** Gets number of bins. */
 	inline int32 GetNumBins() const
@@ -129,6 +144,37 @@ struct CORE_API FHistogram
 		return Tmp;
 	}
 
+	FORCEINLINE FHistogram operator+(const FHistogram& Other) const
+	{
+		// Logic below expects the bins to be of equal size
+		check(GetNumBins() == Other.GetNumBins());
+
+		FHistogram Tmp;
+		for (int32 BinIndex = 0, NumBins = Bins.Num(); BinIndex < NumBins; BinIndex++)
+		{
+			Tmp.Bins.Add(Bins[BinIndex] + Other.Bins[BinIndex]);
+		}
+		return Tmp;
+	}
+
+	FORCEINLINE FHistogram& operator+=(const FHistogram& Other)
+	{
+		// Logic below expects the bins to be of equal size
+		check(GetNumBins() == Other.GetNumBins());
+
+		for (int32 BinIndex = 0, NumBins = Bins.Num(); BinIndex < NumBins; BinIndex++)
+		{
+			Bins[BinIndex] += Other.Bins[BinIndex];
+		}
+
+		SumOfAllMeasures += Other.SumOfAllMeasures;
+		CountOfAllMeasures += Other.CountOfAllMeasures;
+		MinimalMeasurement = FMath::Min(MinimalMeasurement, Other.MinimalMeasurement);
+		MaximalMeasurement = FMath::Max(MaximalMeasurement, Other.MaximalMeasurement);
+
+		return *this;
+	}
+
 protected:
 
 	/** Bin */
@@ -180,6 +226,16 @@ protected:
 		FORCEINLINE FBin operator-(const FBin& Other) const
 		{
 			return FBin(MinValue, UpperBound, Sum - Other.Sum, Count - Other.Count);
+		}
+		FORCEINLINE FBin operator+(const FBin& Other) const
+		{
+			return FBin(MinValue, UpperBound, Sum + Other.Sum, Count + Other.Count);
+		}
+		FORCEINLINE FBin& operator+=(const FBin& Other)
+		{
+			Sum += Other.Sum;
+			Count += Other.Count;
+			return *this;
 		}
 	};
 

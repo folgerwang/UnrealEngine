@@ -830,7 +830,6 @@ void CreateOpaqueBasePassUniformBuffer(
 			ForwardScreenSpaceShadowMask = GSystemTextures.WhiteDummy.GetReference();
 		}
 		BasePassParameters.ForwardScreenSpaceShadowMaskTexture = ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture;
-		BasePassParameters.ForwardScreenSpaceShadowMaskTextureSampler = TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI();
 
 		IPooledRenderTarget* IndirectOcclusion = SceneRenderTargets.ScreenSpaceAO;
 
@@ -840,7 +839,6 @@ void CreateOpaqueBasePassUniformBuffer(
 		}
 
 		BasePassParameters.IndirectOcclusionTexture = IndirectOcclusion->GetRenderTargetItem().ShaderResourceTexture;
-		BasePassParameters.IndirectOcclusionTextureSampler = TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI();
 
 		FTextureRHIParamRef ResolvedSceneDepthTextureValue = GSystemTextures.WhiteDummy->GetRenderTargetItem().ShaderResourceTexture;
 
@@ -854,8 +852,7 @@ void CreateOpaqueBasePassUniformBuffer(
 
 	// DBuffer Decals
 	{
-		extern bool IsDBufferEnabled();
-		const bool bIsDBufferEnabled = IsDBufferEnabled();
+		const bool bIsDBufferEnabled = IsUsingDBuffers(View.GetShaderPlatform());
 		IPooledRenderTarget* DBufferA = bIsDBufferEnabled && SceneRenderTargets.DBufferA ? SceneRenderTargets.DBufferA : GSystemTextures.BlackAlphaOneDummy;
 		IPooledRenderTarget* DBufferB = bIsDBufferEnabled && SceneRenderTargets.DBufferB ? SceneRenderTargets.DBufferB : GSystemTextures.DefaultNormal8Bit;
 		IPooledRenderTarget* DBufferC = bIsDBufferEnabled && SceneRenderTargets.DBufferC ? SceneRenderTargets.DBufferC : GSystemTextures.BlackAlphaOneDummy;
@@ -867,7 +864,7 @@ void CreateOpaqueBasePassUniformBuffer(
 		BasePassParameters.DBufferBTextureSampler = TStaticSamplerState<>::GetRHI();
 		BasePassParameters.DBufferCTextureSampler = TStaticSamplerState<>::GetRHI();
 
-		if (GSupportsRenderTargetWriteMask && SceneRenderTargets.DBufferMask)
+		if ((GSupportsRenderTargetWriteMask || IsUsingPerPixelDBufferMask(View.GetShaderPlatform())) && SceneRenderTargets.DBufferMask)
 		{
 			BasePassParameters.DBufferRenderMask = SceneRenderTargets.DBufferMask->GetRenderTargetItem().TargetableTexture;
 		}
@@ -1306,7 +1303,6 @@ void FDeferredShadingSceneRenderer::RenderEditorPrimitives(FRHICommandList& RHIC
 	bool bDirty = false;
 	if (!View.Family->EngineShowFlags.CompositeEditorPrimitives)
 	{
-		const auto ShaderPlatform = View.GetShaderPlatform();
 		const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
 
 		// Draw the base pass for the view's batched mesh elements.

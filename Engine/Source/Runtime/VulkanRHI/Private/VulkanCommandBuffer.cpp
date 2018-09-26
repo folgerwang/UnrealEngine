@@ -28,6 +28,10 @@ static FAutoConsoleVariableRef CVarVulkanProfileCmdBuffers(
 
 #define CMD_BUFFER_TIME_TO_WAIT_BEFORE_DELETING		10
 
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+extern TAutoConsoleVariable<int32> CVarVulkanDebugBarrier;
+#endif
+
 const uint32 GNumberOfFramesBeforeDeletingDescriptorPool = 300;
 
 FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool, bool bInIsUploadOnly)
@@ -337,6 +341,14 @@ void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(uint32 NumSignalSemaphor
 	if (!UploadCmdBuffer->IsSubmitted() && UploadCmdBuffer->HasBegun())
 	{
 		check(UploadCmdBuffer->IsOutsideRenderPass());
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+		if (CVarVulkanDebugBarrier.GetValueOnAnyThread() & 4)
+		{
+			VulkanRHI::InsertHeavyWeightBarrier(UploadCmdBuffer->GetHandle());
+		}
+#endif
+
 		UploadCmdBuffer->End();
 		Queue->Submit(UploadCmdBuffer, NumSignalSemaphores, SignalSemaphores);
 		UploadCmdBuffer->SubmittedTime = FPlatformTime::Seconds();
@@ -357,6 +369,14 @@ void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(VulkanRHI::FSemaphore* S
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Forcing EndRenderPass() for submission"));
 			ActiveCmdBuffer->EndRenderPass();
 		}
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+		if (CVarVulkanDebugBarrier.GetValueOnAnyThread() & 8)
+		{
+			VulkanRHI::InsertHeavyWeightBarrier(ActiveCmdBuffer->GetHandle());
+		}
+#endif
+
 		ActiveCmdBuffer->End();
 		if (SignalSemaphore)
 		{

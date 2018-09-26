@@ -44,23 +44,25 @@ void UMaterialShaderQualitySettings::SetPreviewPlatform(FName PlatformName)
 }
 #endif
 
-UShaderPlatformQualitySettings* UMaterialShaderQualitySettings::GetOrCreatePlatformSettings(FName PlatformName)
+UShaderPlatformQualitySettings* UMaterialShaderQualitySettings::GetOrCreatePlatformSettings(FName ShaderPlatformName)
 {
-	auto* PlatformSettings = ForwardSettingMap.Find(PlatformName);
+	auto* PlatformSettings = ForwardSettingMap.Find(ShaderPlatformName);
 	if (PlatformSettings == nullptr)
 	{
 		FString ObjectName("ForwardShadingQuality_");
-		PlatformName.AppendString(ObjectName);
+		ShaderPlatformName.AppendString(ObjectName);
+		FName PlatformName = ShaderPlatformToPlatformName(ShaderFormatToLegacyShaderPlatform(ShaderPlatformName));
 
 		auto* ForwardQualitySettings = FindObject<UShaderPlatformQualitySettings>(this, *ObjectName);
 		if (ForwardQualitySettings == nullptr)
 		{
 			FName ForwardSettingsName(*ObjectName);
 			ForwardQualitySettings = NewObject<UShaderPlatformQualitySettings>(this, UShaderPlatformQualitySettings::StaticClass(), FName(*ObjectName));
+			ForwardQualitySettings->ConfigPlatformName = PlatformName.ToString();
 			ForwardQualitySettings->LoadConfig();
 		}
 
-		return ForwardSettingMap.Add(PlatformName, ForwardQualitySettings);
+		return ForwardSettingMap.Add(ShaderPlatformName, ForwardQualitySettings);
 	}
 	return *PlatformSettings;
 }
@@ -94,7 +96,6 @@ const UShaderPlatformQualitySettings* UMaterialShaderQualitySettings::GetShaderP
 	}
 #endif
 	return GetShaderPlatformQualitySettings(GetPlatformNameFromShaderPlatform(ShaderPlatform));
-
 }
 
 UShaderPlatformQualitySettings* UMaterialShaderQualitySettings::GetShaderPlatformQualitySettings(FName PlatformName)
@@ -140,5 +141,6 @@ bool FMaterialQualityOverrides::HasAnyOverridesSet() const
 		|| bForceFullyRough != DefaultOverrides.bForceFullyRough
 		|| bForceNonMetal != DefaultOverrides.bForceNonMetal
 		|| bForceLQReflections != DefaultOverrides.bForceLQReflections
-		|| bDisableMaterialNormalCalculation != DefaultOverrides.bDisableMaterialNormalCalculation;
+		|| bDisableMaterialNormalCalculation != DefaultOverrides.bDisableMaterialNormalCalculation
+		|| bDiscardQualityDuringCook != DefaultOverrides.bDiscardQualityDuringCook;
 }

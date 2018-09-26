@@ -69,6 +69,12 @@ static FAutoConsoleVariableRef CVarCacheRenderData(
 	CacheRenderData,
 	TEXT("Invalidation panels will cache render data, otherwise cache only widget draw elements."));
 
+static int32 InvalidationLayerPadding = 10;
+static FAutoConsoleVariableRef CVarInvalidationLayerPadding(
+	TEXT("Slate.InvalidationLayerPadding"),
+	InvalidationLayerPadding,
+	TEXT("The invalidation panel adds this much padding to the layer id to avoid re-invalidating if it flucuates in a volatiel child widget."));
+
 static bool ShouldCacheRenderData()
 {
 	return WITH_ENGINE && CacheRenderData != 0;
@@ -90,6 +96,7 @@ void SInvalidationPanel::Construct( const FArguments& InArgs )
 
 	bNeedsCaching = true;
 	bNeedsCachePrepass = true;
+	bPerformingCachePrepass = false;
 	bIsInvalidating = false;
 	bCanCache = true;
 	RootCacheNode = nullptr;
@@ -146,6 +153,11 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 		return true;
 	}
 	
+	//TODO NDarnell if clipping state index continues to be an invalidation problem for non-cached render data frames,
+	// we can pad it out some like we do for cached layer id, and pad + invalidate on higher number.
+	
+	if (bCacheRelativeTransforms || CacheRenderData == 0)
+	{
 	if (LastClippingIndex != OutDrawElements.GetClippingIndex())
 	{
 		return true;
@@ -155,6 +167,7 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 	if (LastClippingStateOffset != ClippingStateCount)
 	{
 		return true;
+	}
 	}
 	
 	if (bCacheRelativeTransforms)
@@ -166,9 +179,20 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 			return true;
 		}
 
-		// If the container we're in has changed in either scale or the rotation matrix has changed, 
-		if ( AllottedGeometry.GetAccumulatedLayoutTransform().GetScale() != LastAllottedGeometry.GetAccumulatedLayoutTransform().GetScale() ||
-			 AllottedGeometry.GetAccumulatedRenderTransform().GetMatrix() != LastAllottedGeometry.GetAccumulatedRenderTransform().GetMatrix() )
+		const float LayoutScale = AllottedGeometry.Scale;
+		const float LastLayoutScale = LastAllottedGeometry.Scale;
+
+		// If the layout scale has changed, we need to update things.
+		if (LayoutScale != LastLayoutScale)
+		{
+			return true;
+		}
+
+		const FMatrix2x2& RenderTransformMatrix = AllottedGeometry.GetAccumulatedRenderTransform().GetMatrix();
+		const FMatrix2x2& LastRenderTransformMatrix = LastAllottedGeometry.GetAccumulatedRenderTransform().GetMatrix();
+
+		// If the container we're in has changed in the rotation matrix has changed
+		if (RenderTransformMatrix != LastRenderTransformMatrix)
 		{
 			return true;
 		}
@@ -216,7 +240,7 @@ void SInvalidationPanel::AddReferencedObjects(FReferenceCollector& Collector)
 void SInvalidationPanel::SetCanCache(bool InCanCache)
 {
 	bCanCache = InCanCache;
-
+	SetCanTick(GetCanCache());
 	InvalidateCache();
 }
 
@@ -241,15 +265,21 @@ void SInvalidationPanel::Tick( const FGeometry& AllottedGeometry, const double I
 		
 		if (bNeedsCachePrepass)
 		{
+			TGuardValue<bool> PerformingCachePrepass(bPerformingCachePrepass, true);
 			CachePrepass(SharedThis(this));
 			bNeedsCachePrepass = false;
 		}
+	}
+	else
+	{
+		// Ticking no longer required
+		SetCanTick(false);
 	}
 }
 
 FChildren* SInvalidationPanel::GetChildren()
 {
-	if ( GetCanCache() == false || IsCachingNeeded() )
+	if ( GetCanCache() == false || IsCachingNeeded() || bPerformingCachePrepass )
 	{
 		return SCompoundWidget::GetChildren();
 	}
@@ -294,21 +324,6 @@ void SInvalidationPanel::OnGlobalInvalidate()
 	InvalidateCache();
 }
 
-template<typename ElementType>
-TFunction<void(ElementType&)> UpdateClipIndexFn(int32 LastClippingIndex, int32 ClippingStateOffset)
-{
-	return [=](ElementType& Element) {
-		if (Element.GetClippingIndex() == -1)
-		{
-			Element.SetClippingIndex(LastClippingIndex);
-		}
-		else
-		{
-			Element.SetClippingIndex(ClippingStateOffset + Element.GetClippingIndex());
-		}
-	};
-}
-
 int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 #if SLATE_VERBOSE_NAMED_EVENTS
@@ -322,7 +337,6 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 
 		if ( bWasCachingNeeded )
 		{
-			{
 #if SLATE_VERBOSE_NAMED_EVENTS
 				SCOPED_NAMED_EVENT_F(TEXT("%s_Invalidation"), FColor::Red, *DebugPaintName);
 #endif
@@ -338,11 +352,13 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 				// Mark that we're in the process of invalidating.
 				bIsInvalidating = true;
 
-				// Record a new maximum layer Id, throw in 10 so we have a bit of padding before we need to recache.
-				MaximumLayerIdCachedAt = LayerId + 10;
+			// Record a new maximum layer Id, throw in some padding that avoids needed to recache
+			// if it varies a bit within the padding it avoids us needing to recache to them.
+			MaximumLayerIdCachedAt = LayerId + InvalidationLayerPadding;
 
 				SWindow* Window = OutDrawElements.GetPaintWindow();
 				CachedWindowElements = FSlateApplication::Get().GetCachableElementList(StaticCastSharedRef<SWindow>(Window->AsShared()), this);
+
 
 				// Reset the render data handle in case it was in use, and we're not overriding it this frame.
 				CachedRenderData.Reset();
@@ -357,17 +373,14 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 				// we'll have already done one pre-pass before getting here.
 				ChildSlot.GetWidget()->SlatePrepass(AllottedGeometry.Scale);
 
-				bool bPushedNewClip = false;
-				const int32 CurrentClippingIndex = OutDrawElements.GetClippingManager().GetClippingIndex();
-
-				if(CurrentClippingIndex != INDEX_NONE)
+			// If we're caching the render data, we need to make sure the states are mirrored so that the cached
+			// buffer has the current stack.
+			if (bCacheRenderData)
 				{
-					bPushedNewClip = true;
-					FSlateClippingState CurrentClippingState = OutDrawElements.GetClippingManager().GetClippingStates()[CurrentClippingIndex];
-					CachedWindowElements->GetClippingManager().PushClippingState(CurrentClippingState);
+				OutDrawElements.GetClippingManager().CopyClippingStateTo(CachedWindowElements->GetClippingManager());
 				}
 
-				//TODO: When SWidget::Paint is called don't drag self if volatile, and we're doing a cache pass.
+			//TODO: When SWidget::Paint is called don't draw self if volatile, and we're doing a cache pass.
 				CachedMaxChildLayer = SCompoundWidget::OnPaint(
 					Args.EnableCaching(SharedMutableThis, RootCacheNode, true, false),
 					AllottedGeometry,
@@ -376,11 +389,6 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 					MaximumLayerIdCachedAt,
 					InWidgetStyle,
 					bParentEnabled);
-
-				if (bPushedNewClip)
-				{
-					CachedWindowElements->GetClippingManager().PopClip();
-				}
 
 				{
 					CachedResources.Reset();
@@ -397,17 +405,28 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 				LastClippingIndex = OutDrawElements.GetClippingIndex();
 				LastClippingState = OutDrawElements.GetClippingState();
 				
-				const int32 ClippingStateOffset = OutDrawElements.GetClippingManager().MergeClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
+			if (bCacheRenderData == 0)
+			{
+				const int32 ClippingStateOffset = OutDrawElements.GetClippingManager().MergePartialClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
 
-				if (bCacheRenderData)
+				TArray<FSlateDrawElement>& CachedElements = CachedWindowElements->GetDrawElements();
+				for (int32 Index = 0; Index < CachedElements.Num(); Index++)
 				{
-					CachedRenderData = CachedWindowElements->CacheRenderData(this);
+					FSlateDrawElement& CachedElement = CachedElements[Index];
+					if (CachedElement.GetClippingIndex() == INDEX_NONE)
+				{
+						CachedElement.SetClippingIndex(LastClippingIndex);
 				}
 				else
 				{
-					// offset clipping indices for cached elements, so they point to correct entry in merged clipping states
-					CachedWindowElements->ForEachElement(UpdateClipIndexFn<FSlateDrawBase>(LastClippingIndex, ClippingStateOffset));
-					CachedWindowElements->ForEachElement(UpdateClipIndexFn<FSlateDrawElement>(LastClippingIndex, ClippingStateOffset));
+						CachedElement.SetClippingIndex(ClippingStateOffset + CachedElement.GetClippingIndex());
+					}
+				}
+			}
+
+			if (bCacheRenderData)
+			{
+				CachedRenderData = CachedWindowElements->CacheRenderData(this);
 				}
 
 				LastHitTestIndex = Args.GetLastHitTestIndex();
@@ -422,13 +441,17 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 
 				bIsInvalidating = false;
 			}
-		}
 		else
 		{
+			// The full clipping state is stored on the render batches when we cache the render data,
+			// so there's no need to merge clipping states on frames where the data has been cached successfully.
+			if (CacheRenderData == 0)
+			{
 #if SLATE_VERBOSE_NAMED_EVENTS
 			SCOPED_NAMED_EVENT_TEXT("SInvalidationPanel::MergeClippingStates", FColor::Magenta);
 #endif
-			OutDrawElements.GetClippingManager().MergeClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
+				OutDrawElements.GetClippingManager().MergePartialClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
+			}
 		}
 
 		FVector2D AbsoluteDeltaPosition = FVector2D::ZeroVector;
@@ -607,5 +630,6 @@ void SInvalidationPanel::SetContent(const TSharedRef< SWidget >& InContent)
 
 bool SInvalidationPanel::ComputeVolatility() const
 {
-	return true;
+	// If we are cacheable we must be volatile 
+	return GetCanCache();
 }

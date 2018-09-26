@@ -35,7 +35,7 @@
 #include "GeneralProjectSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/TimelineComponent.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Dialogs/Dialogs.h"
 #include "UnrealEdGlobals.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -1764,18 +1764,9 @@ void FBlueprintEditor::InitBlueprintEditor(
 	InitAssetEditor(Mode, InitToolkitHost, BlueprintEditorAppName, DummyLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Objects);
 	
 	CommonInitialization(InBlueprints);
-	
-	TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
-	FKismet2Menu::SetupBlueprintEditorMenu( MenuExtender, *this );
-	AddMenuExtender(MenuExtender);
 
-	FBlueprintEditorModule* BlueprintEditorModule = &FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
-	TSharedPtr<FExtender> CustomExtenders = BlueprintEditorModule->GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects());
-	BlueprintEditorModule->OnGatherBlueprintMenuExtensions().Broadcast(CustomExtenders, GetBlueprintObj());
+	InitalizeExtenders();
 
-	AddMenuExtender(CustomExtenders);
-	AddToolbarExtender(CustomExtenders);
-	
 	RegenerateMenusAndToolbars();
 
 	RegisterApplicationModes(InBlueprints, bShouldOpenInDefaultsMode, bNewlyCreated);
@@ -1821,6 +1812,20 @@ void FBlueprintEditor::InitBlueprintEditor(
 			DumpMessagesToCompilerLog(Blueprint->UpgradeNotesLog->Messages, true);
 		}
 	}
+}
+
+void FBlueprintEditor::InitalizeExtenders()
+{
+	TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
+	FKismet2Menu::SetupBlueprintEditorMenu(MenuExtender, *this);
+	AddMenuExtender(MenuExtender);
+
+	FBlueprintEditorModule* BlueprintEditorModule = &FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
+	TSharedPtr<FExtender> CustomExtenders = BlueprintEditorModule->GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects());
+	BlueprintEditorModule->OnGatherBlueprintMenuExtensions().Broadcast(CustomExtenders, GetBlueprintObj());
+
+	AddMenuExtender(CustomExtenders);
+	AddToolbarExtender(CustomExtenders);
 }
 
 void FBlueprintEditor::RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated/* = false*/)
@@ -3078,8 +3083,7 @@ void FBlueprintEditor::OnGraphEditorDropStreamingLevel(const TArray< TWeakObject
 	for (int32 i = 0; i < Levels.Num(); i++)
 	{
 		ULevelStreaming* DroppedLevel = Levels[i].Get();
-		if ((DroppedLevel != NULL) && 
-			(DroppedLevel->IsA(ULevelStreamingKismet::StaticClass()))) 
+		if (DroppedLevel && DroppedLevel->IsA<ULevelStreamingDynamic>())
 		{
 			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
 				Graph,
@@ -5994,9 +5998,6 @@ void FBlueprintEditor::PasteNodesHere(class UEdGraph* DestinationGraph, const FV
 			// Log new node created to analytics
 			AnalyticsTrackNodeEvent(GetBlueprintObj(), Node, false);
 		}
-
-		// post process on the node 
-		PostPasteNode(PastedNodes);
 	}
 
 	if (bNeedToModifyStructurally)

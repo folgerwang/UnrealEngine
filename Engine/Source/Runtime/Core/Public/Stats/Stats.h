@@ -316,6 +316,10 @@ enum EStatType
 	#define STAT(x)
 #endif
 
+#ifndef USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION
+#define USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION 1
+#endif
+
 #if STATS
 
 /**
@@ -388,11 +392,41 @@ struct TStatId
 	}
 };
 
+#if USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
+extern CORE_API bool GHitchDetected;
+
+class FLightweightStatScope
+{
+	const PROFILER_CHAR* StatString;
+public:
+	FORCEINLINE FLightweightStatScope(const PROFILER_CHAR* InStat)
+	{
+		StatString = GHitchDetected ? nullptr : InStat;
+	}
+
+	FORCEINLINE ~FLightweightStatScope()
+	{
+		if (GHitchDetected && StatString)
+		{
+			ReportHitch();
+		}
+	}
+
+	CORE_API void ReportHitch();
+};
+
+#endif
+
 class FScopeCycleCounter
 {
 public:
 	FORCEINLINE FScopeCycleCounter(TStatId InStatId, bool bAlways = false)
-		: bPop(false)
+		: 
+#if USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
+		StatScope(InStatId.StatString),
+#endif
+		
+		bPop(false)
 	{
 		if (GCycleStatsShouldEmitNamedEvents && InStatId.IsValidStat())
 		{
@@ -409,6 +443,9 @@ public:
 		}
 	}
 private:
+#if USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
+	FLightweightStatScope StatScope;
+#endif
 	bool bPop;
 };
 
@@ -431,11 +468,7 @@ FORCEINLINE void StatsMasterEnableSubtract(int32 Value = 1)
 {
 }
 
-// Remove all the macros
 
-#ifndef USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION
-#define USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION 1
-#endif
 
 #if ENABLE_STATNAMEDEVENTS
 

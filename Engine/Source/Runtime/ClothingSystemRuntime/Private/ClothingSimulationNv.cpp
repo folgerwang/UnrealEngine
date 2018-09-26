@@ -25,6 +25,7 @@
 #endif
 
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 #include "SkeletalRenderPublic.h"
 
 DECLARE_CYCLE_STAT(TEXT("Compute Clothing Normals"), STAT_NvClothComputeNormals, STATGROUP_Physics);
@@ -226,12 +227,11 @@ void FClothingSimulationNv::CreateActor(USkeletalMeshComponent* InOwnerComponent
 	ExtractActorCollisions(Asset, NewActor);
 
 	// Invalid indices so the call to UpdateLod runs all the correct logic as if our LOD just changed.
-	CurrentMeshLodIndex = INDEX_NONE;
 	NewActor.CurrentLodIndex = INDEX_NONE;
 
 	// Force update LODs so we're in the correct state now, need to resolve MPC if one is present
 	USkinnedMeshComponent* TransformComponent = InOwnerComponent->MasterPoseComponent.IsValid() ? InOwnerComponent->MasterPoseComponent.Get() : InOwnerComponent;
-	UpdateLod(InOwnerComponent->PredictedLODLevel, InOwnerComponent->GetComponentTransform(), TransformComponent->GetComponentSpaceTransforms(), true);
+	UpdateLod(InOwnerComponent->PredictedLODLevel, InOwnerComponent->GetComponentTransform(), TransformComponent->GetComponentSpaceTransforms(), true, true);
 
 	// Compute normals for all active actors for first frame
 	for(FClothingActorNv& Actor : Actors)
@@ -479,6 +479,8 @@ void FClothingSimulationNv::Initialize()
 	CachedFactory = ClothingModule.GetSoftwareFactory();
 
 	Solver = CachedFactory->createSolver();
+
+	CurrentMeshLodIndex = INDEX_NONE;
 }
 
 void FClothingSimulationNv::Shutdown()
@@ -567,13 +569,18 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 		CurrentCloth->setTranslation(U2PVector(RootBoneWorldTransform.GetTranslation()));
 		CurrentCloth->setRotation(U2PQuat(RootBoneWorldTransform.GetRotation()));
 
-		if(Actor.bUseGravityOverride)
+		FClothConfig& ClothConfig = Actor.AssetCreatedFrom->ClothConfig;
+		if (ClothConfig.bUseGravityOverride)
 		{
-			CurrentCloth->setGravity(U2PVector(Actor.AssetCreatedFrom->ClothConfig.GravityScale * Actor.GravityOverride));
+			CurrentCloth->setGravity(U2PVector(ClothConfig.GravityOverride));
+		}
+		else if(Actor.bUseGravityOverride)
+		{
+			CurrentCloth->setGravity(U2PVector(ClothConfig.GravityScale * Actor.GravityOverride));
 		}
 		else
 		{
-			CurrentCloth->setGravity(U2PVector(Actor.AssetCreatedFrom->ClothConfig.GravityScale * NvContext->WorldGravity));
+			CurrentCloth->setGravity(U2PVector(ClothConfig.GravityScale * NvContext->WorldGravity));
 		}
 
 		Actor.UpdateMotionConstraints(NvContext);
@@ -595,9 +602,10 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 					{
 						const FTransform& BoneTransform = NvContext->BoneTransforms[MappedIndex];
 						SphereLocation = BoneTransform.TransformPosition(Sphere.LocalPosition);
-						SphereLocation = RootBoneTransform.InverseTransformPosition(SphereLocation);
 					}
 				}
+
+				SphereLocation = RootBoneTransform.InverseTransformPosition(SphereLocation);
 
 				Scratch.SphereData.Add(physx::PxVec4(U2PVector(SphereLocation), Sphere.Radius + Actor.CollisionThickness));
 			}
@@ -967,9 +975,9 @@ FBoxSphereBounds FClothingSimulationNv::GetBounds(const USkeletalMeshComponent* 
 	return CurrentBounds;
 }
 
-void FClothingSimulationNv::UpdateLod(int32 InPredictedLod, const FTransform& ComponentToWorld, const TArray<FTransform>& CSTransforms, bool bForceNoRemap)
+void FClothingSimulationNv::UpdateLod(int32 InPredictedLod, const FTransform& ComponentToWorld, const TArray<FTransform>& CSTransforms, bool bForceNoRemap, bool bForceActorChecks)
 {
-	if(InPredictedLod != CurrentMeshLodIndex)
+	if(InPredictedLod != CurrentMeshLodIndex || bForceActorChecks)
 	{
 		for(FClothingActorNv& Actor : Actors)
 		{
@@ -995,6 +1003,12 @@ void FClothingSimulationNv::UpdateLod(int32 InPredictedLod, const FTransform& Co
 			// Get the clothing LOD mapped from the mesh predicted LOD
 			const int32 PredictedClothingLod = LodMap[InPredictedLod];
 			const int32 OldClothingLod = bOldLodMapped ? LodMap[CurrentMeshLodIndex] : INDEX_NONE;
+
+			if(PredictedClothingLod == Actor.CurrentLodIndex)
+			{
+				// We must have forced a LOD update because we added a new actor - this actor is good to go though.
+				continue;
+			}
 
 			if(!Actor.LodData.IsValidIndex(PredictedClothingLod))
 			{

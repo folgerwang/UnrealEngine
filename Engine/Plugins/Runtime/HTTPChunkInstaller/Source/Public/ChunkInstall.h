@@ -85,7 +85,7 @@ public:
 
 		TArray<FString> PakFiles;
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		BPSModule->SaveManifestToFile(ManifestPath, BuildManifest.ToSharedRef(), false);
+		BPSModule->SaveManifestToFile(ManifestPath, BuildManifest.ToSharedRef());
 		if (PlatformFile.FileExists(*HoldingManifestPath))
 		{
 			PlatformFile.DeleteFile(*HoldingManifestPath);

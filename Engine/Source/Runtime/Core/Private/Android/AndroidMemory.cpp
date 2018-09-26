@@ -196,7 +196,7 @@ FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
 #if USE_ANDROID_JNI
 	if (GJavaVM)
 	{
-//		MemoryStats.UsedPhysical = static_cast<uint64>(AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.getUsedMemory"))) * 1024ULL;
+		MemoryStats.UsedPhysical = static_cast<uint64>(AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.getUsedMemory"))) * 1024ULL;
 	}
 #endif
 
@@ -205,6 +205,14 @@ FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
 
 uint64 FAndroidPlatformMemory::GetMemoryUsedFast()
 {
+	// get this value from Java instead (DO NOT INTEGRATE at this time) - skip this if JavaVM not set up yet!
+#if USE_ANDROID_JNI
+	if (GJavaVM)
+	{
+		return static_cast<uint64>(AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.getUsedMemory"))) * 1024ULL;
+	}
+#endif
+
 	// minimal code to get Used memory
 	if (FILE* ProcMemStats = fopen("/proc/self/status", "r"))
 	{

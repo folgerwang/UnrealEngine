@@ -155,19 +155,7 @@ void FIOSInputInterface::HandleDisconnect(GCController* Controller)
 #if !PLATFORM_TVOS
 void ModifyVectorByOrientation(FVector& Vec, bool bIsRotation)
 {
-    UIInterfaceOrientation Orientation = UIInterfaceOrientationPortrait;
-#ifdef __IPHONE_8_0
-    if ([[IOSAppDelegate GetDelegate].IOSController respondsToSelector:@selector(interfaceOrientation)] == NO)
-    {
-        Orientation = [[UIApplication sharedApplication] statusBarOrientation];
-    }
-    else
-#endif
-    {
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
-        Orientation = [[IOSAppDelegate GetDelegate].IOSController interfaceOrientation];
-#endif
-    }
+    UIInterfaceOrientation Orientation = [[UIApplication sharedApplication] statusBarOrientation];
 
 	switch (Orientation)
 	{
@@ -197,6 +185,7 @@ void ModifyVectorByOrientation(FVector& Vec, bool bIsRotation)
 			float Temp = Vec.X;
 			Vec.X = -Vec.Z;
 			Vec.Z = Temp;
+			Vec.Y *= -1.0f;
 		}
 		else
 		{
@@ -212,7 +201,7 @@ void ModifyVectorByOrientation(FVector& Vec, bool bIsRotation)
 		{
 			// swap and negate (as needed) roll and pitch
 			float Temp = Vec.X;
-			Vec.X = Vec.Z;
+			Vec.X = -Vec.Z;
 			Vec.Z = -Temp;
 		}
 		else
@@ -242,9 +231,17 @@ void FIOSInputInterface::ProcessTouchesAndKeys(uint32 ControllerId)
 		{
 			MessageHandler->OnTouchEnded(Touch.Position, Touch.Handle, ControllerId);
 		}
-		else
+		else if (Touch.Type == TouchMoved)
 		{
 			MessageHandler->OnTouchMoved(Touch.Position, Touch.Force, Touch.Handle, ControllerId);
+		}
+		else if (Touch.Type == ForceChanged)
+		{
+			MessageHandler->OnTouchForceChanged(Touch.Position, Touch.Force, Touch.Handle, ControllerId);
+		}
+		else if (Touch.Type == FirstMove)
+		{
+			MessageHandler->OnTouchFirstMove(Touch.Position, Touch.Force, Touch.Handle, ControllerId);
 		}
 	}
 	

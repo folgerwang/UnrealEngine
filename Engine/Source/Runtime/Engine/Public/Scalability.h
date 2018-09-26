@@ -84,6 +84,13 @@ namespace Scalability
 	/** This is the only suggested way to get the current state - don't get CVars directly */
 	ENGINE_API FQualityLevels GetQualityLevels();
 
+	/** Applies quality levels for temporary status which will NOT be saved to user settings e.g. mobile device low-power mode.
+		Originally active settings are backed-up or restored on toggle. */
+	ENGINE_API void ToggleTemporaryQualityLevels(bool bEnable);
+
+	/** Are active scalability settings a temporary override. */
+	ENGINE_API bool IsTemporaryQualityLevelActive();
+
 	/** Gets the effects quality directly for the passed thread.
 	*
 	* @param bGameThread	If true, the game thread value for the CVar is returned, otherwise the render thread value is returned. Useful when accessing the CVar from a game task.

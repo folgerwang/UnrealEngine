@@ -3,15 +3,14 @@
 #include "Widgets/Text/SlateTextBlockLayout.h"
 #include "Fonts/FontCache.h"
 #include "Framework/Text/SlateTextHighlightRunRenderer.h"
-#include "Stats/SlateStats.h"
-
-SLATE_DECLARE_CYCLE_COUNTER(GSlateTextBlockLayoutComputeDesiredSize, "FSlateTextBlockLayout ComputeDesiredSize");
 
 FSlateTextBlockLayout::FSlateTextBlockLayout(SWidget* InOwner, FTextBlockStyle InDefaultTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, const FCreateSlateTextLayout& InCreateSlateTextLayout, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
 	: TextLayout((InCreateSlateTextLayout.IsBound()) ? InCreateSlateTextLayout.Execute(InOwner, MoveTemp(InDefaultTextStyle)) : FSlateTextLayout::Create(InOwner, MoveTemp(InDefaultTextStyle)))
 	, Marshaller(MoveTemp(InMarshaller))
 	, TextHighlighter(FSlateTextHighlightRunRenderer::Create())
 	, CachedSize(ForceInitToZero)
+	, CachedWrapTextAt(0)
+	, bCachedAutoWrapText(false)
 {
 	if (InTextShapingMethod.IsSet())
 	{
@@ -28,9 +27,13 @@ FSlateTextBlockLayout::FSlateTextBlockLayout(SWidget* InOwner, FTextBlockStyle I
 
 FVector2D FSlateTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetArgs, const float InScale, const FTextBlockStyle& InTextStyle)
 {
-	SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_HI, GSlateTextBlockLayoutComputeDesiredSize);
+	// Cache the wrapping rules so that we can recompute the wrap at width in paint.
+	CachedWrapTextAt = InWidgetArgs.WrapTextAt.Get(0.0f);
+	bCachedAutoWrapText = InWidgetArgs.AutoWrapText.Get(false);
+
+	// Set the text layout information
 	TextLayout->SetScale(InScale);
-	TextLayout->SetWrappingWidth(CalculateWrappingWidth(InWidgetArgs));
+	TextLayout->SetWrappingWidth(CalculateWrappingWidth());
 	TextLayout->SetWrappingPolicy(InWidgetArgs.WrappingPolicy.Get());
 	TextLayout->SetMargin(InWidgetArgs.Margin.Get());
 	TextLayout->SetJustification(InWidgetArgs.Justification.Get());
@@ -86,9 +89,18 @@ FVector2D FSlateTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetA
 	return TextLayout->GetSize();
 }
 
+FVector2D FSlateTextBlockLayout::GetDesiredSize() const
+{
+	return TextLayout->GetSize();
+}
+
 int32 FSlateTextBlockLayout::OnPaint(const FPaintArgs& InPaintArgs, const FGeometry& InAllottedGeometry, const FSlateRect& InClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled)
 {
+	// Store a new cached size.
 	CachedSize = InAllottedGeometry.GetLocalSize();
+
+	// Recompute wrapping in case the cached size changed.
+	TextLayout->SetWrappingWidth(CalculateWrappingWidth());
 
 	// Text blocks don't have scroll bars, so when the visible region is smaller than the desired size, 
 	// we attempt to auto-scroll to keep the view of the text aligned with the current justification method
@@ -171,7 +183,6 @@ void FSlateTextBlockLayout::ArrangeChildren(const FGeometry& AllottedGeometry, F
 	TextLayout->ArrangeChildren(AllottedGeometry, ArrangedChildren);
 }
 
-
 void FSlateTextBlockLayout::UpdateTextLayout(const FText& InText)
 {
 	UpdateTextLayout(InText.ToString());
@@ -236,15 +247,12 @@ bool FSlateTextBlockLayout::IsStyleUpToDate(const FTextBlockStyle& NewStyle) con
 		&& (CurrentStyle.HighlightShape == NewStyle.HighlightShape);
 }
 
-float FSlateTextBlockLayout::CalculateWrappingWidth(const FWidgetArgs& InWidgetArgs) const
+float FSlateTextBlockLayout::CalculateWrappingWidth() const
 {
-	const float WrapTextAt = InWidgetArgs.WrapTextAt.Get(0.0f);
-	const bool bAutoWrapText = InWidgetArgs.AutoWrapText.Get(false);
-
 	// Text wrapping can either be used defined (WrapTextAt), automatic (bAutoWrapText and CachedSize), 
 	// or a mixture of both. Take whichever has the smallest value (>1)
-	float WrappingWidth = WrapTextAt;
-	if(bAutoWrapText && CachedSize.X >= 1.0f)
+	float WrappingWidth = CachedWrapTextAt;
+	if (bCachedAutoWrapText && CachedSize.X >= 1.0f)
 	{
 		WrappingWidth = (WrappingWidth >= 1.0f) ? FMath::Min(WrappingWidth, CachedSize.X) : CachedSize.X;
 	}

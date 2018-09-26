@@ -24,8 +24,10 @@ void SProgressBar::Construct( const FArguments& InArgs )
 
 	CurrentTickRate = 0.0f;
 	MinimumTickRate = InArgs._RefreshRate;
+	
+	SetCanTick(false);
 
-	ActiveTimerHandle = RegisterActiveTimer(CurrentTickRate, FWidgetActiveTimerDelegate::CreateSP(this, &SProgressBar::ActiveTick));
+	UpdateMarqueeActiveTimer();
 }
 
 void SProgressBar::SetPercent(TAttribute< TOptional<float> > InPercent)
@@ -33,6 +35,7 @@ void SProgressBar::SetPercent(TAttribute< TOptional<float> > InPercent)
 	if ( !Percent.IdenticalTo(InPercent) )
 	{
 		Percent = InPercent;
+		UpdateMarqueeActiveTimer();
 		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
@@ -54,38 +57,56 @@ void SProgressBar::SetStyle(const FProgressBarStyle* InStyle)
 
 void SProgressBar::SetBarFillType(EProgressBarFillType::Type InBarFillType)
 {
-	BarFillType = InBarFillType;
-	Invalidate(EInvalidateWidget::Layout);
+	if(BarFillType != InBarFillType)
+	{
+		BarFillType = InBarFillType;
+		Invalidate(EInvalidateWidget::Paint);
+	}
 }
 
 void SProgressBar::SetFillColorAndOpacity(TAttribute< FSlateColor > InFillColorAndOpacity)
 {
-	FillColorAndOpacity = InFillColorAndOpacity;
-	Invalidate(EInvalidateWidget::Layout);
+	if(!FillColorAndOpacity.IdenticalTo(InFillColorAndOpacity))
+	{
+		FillColorAndOpacity = InFillColorAndOpacity;
+		Invalidate(EInvalidateWidget::Paint);
+	}
 }
 
 void SProgressBar::SetBorderPadding(TAttribute< FVector2D > InBorderPadding)
 {
-	BorderPadding = InBorderPadding;
-	Invalidate(EInvalidateWidget::Layout);
+	if(!BorderPadding.IdenticalTo(InBorderPadding))
+	{
+		BorderPadding = InBorderPadding;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SProgressBar::SetBackgroundImage(const FSlateBrush* InBackgroundImage)
 {
-	BackgroundImage = InBackgroundImage;
-	Invalidate(EInvalidateWidget::Layout);
+	if(BackgroundImage != InBackgroundImage)
+	{
+		BackgroundImage = InBackgroundImage;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SProgressBar::SetFillImage(const FSlateBrush* InFillImage)
 {
-	FillImage = InFillImage;
-	Invalidate(EInvalidateWidget::Layout);
+	if(FillImage != InFillImage)
+	{
+		FillImage = InFillImage;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SProgressBar::SetMarqueeImage(const FSlateBrush* InMarqueeImage)
 {
-	MarqueeImage = InMarqueeImage;
-	Invalidate(EInvalidateWidget::Layout);
+	if(MarqueeImage != InMarqueeImage)
+	{
+		MarqueeImage = InMarqueeImage;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 const FSlateBrush* SProgressBar::GetBackgroundImage() const
@@ -298,7 +319,7 @@ FVector2D SProgressBar::ComputeDesiredSize( float ) const
 
 bool SProgressBar::ComputeVolatility() const
 {
-	return SLeafWidget::ComputeVolatility() || Percent.IsBound();
+	return SLeafWidget::ComputeVolatility() || Percent.IsBound() || FillColorAndOpacity.IsBound() || BorderPadding.IsBound();
 }
 
 void SProgressBar::SetActiveTimerTickRate(float TickRate)
@@ -313,7 +334,21 @@ void SProgressBar::SetActiveTimerTickRate(float TickRate)
 			UnRegisterActiveTimer(SharedActiveTimerHandle.ToSharedRef());
 		}
 
-		ActiveTimerHandle = RegisterActiveTimer(TickRate, FWidgetActiveTimerDelegate::CreateSP(this, &SProgressBar::ActiveTick));
+		UpdateMarqueeActiveTimer();
+	}
+}
+
+void SProgressBar::UpdateMarqueeActiveTimer()
+{
+	if (ActiveTimerHandle.IsValid())
+	{
+		UnRegisterActiveTimer(ActiveTimerHandle.Pin().ToSharedRef());
+	}
+
+	if (!Percent.IsBound() && !Percent.Get().IsSet())
+	{
+		// If percent is not bound or set then its marquee. Set the timer
+		ActiveTimerHandle = RegisterActiveTimer(CurrentTickRate, FWidgetActiveTimerDelegate::CreateSP(this, &SProgressBar::ActiveTick));
 	}
 }
 
@@ -321,8 +356,8 @@ EActiveTimerReturnType SProgressBar::ActiveTick(double InCurrentTime, float InDe
 {
 	MarqueeOffset = InCurrentTime - FMath::FloorToDouble(InCurrentTime);
 	
-	TOptional<float> PrecentFracton = Percent.Get();
-	if (PrecentFracton.IsSet())
+	TOptional<float> PercentFraction = Percent.Get();
+	if (PercentFraction.IsSet())
 	{
 		SetActiveTimerTickRate(MinimumTickRate);
 	}
@@ -330,6 +365,8 @@ EActiveTimerReturnType SProgressBar::ActiveTick(double InCurrentTime, float InDe
 	{
 		SetActiveTimerTickRate(0.0f);
 	}
+
+	Invalidate(EInvalidateWidget::Paint);
 
 	return EActiveTimerReturnType::Continue;
 }

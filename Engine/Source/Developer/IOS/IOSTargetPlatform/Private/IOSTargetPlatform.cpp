@@ -552,15 +552,20 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 	}
 
 	// if we didn't assign anything specially, then use the defaults
+    bool bIncludePVRTC = !bIsTVOS && CookPVRTC();
+    bool bIncludeASTC = bIsTVOS || CookASTC();
 	if (TextureFormatName == NAME_None)
 	{
-		TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false);
+        int32 BlockSize = 4;
+        if (!Texture->bForcePVRTC4 && !bIncludePVRTC && bIncludeASTC)
+        {
+            BlockSize = 1;
+        }
+		TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false, false, BlockSize);
 	}
 
 	// perform any remapping away from defaults
 	bool bFoundRemap = false;
-	bool bIncludePVRTC = !bIsTVOS && CookPVRTC();
-	bool bIncludeASTC = bIsTVOS || CookASTC();
 
 	if (Texture->bForcePVRTC4 && CookPVRTC())
 	{

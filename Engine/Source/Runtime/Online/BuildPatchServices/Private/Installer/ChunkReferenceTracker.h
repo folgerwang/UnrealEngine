@@ -108,7 +108,7 @@ namespace BuildPatchServices
 				const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 				if (NewFileManifest != nullptr)
 				{
-					for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
+					for (const FChunkPart& ChunkPart : NewFileManifest->ChunkParts)
 					{
 						bool bWasAlreadyInSet = false;
 						AllChunks.Add(ChunkPart.Guid, &bWasAlreadyInSet);
@@ -144,7 +144,7 @@ namespace BuildPatchServices
 				const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 				if (NewFileManifest != nullptr)
 				{
-					for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
+					for (const FChunkPart& ChunkPart : NewFileManifest->ChunkParts)
 					{
 						const bool bIsNewChunk = !OldChunks.Contains(ChunkPart.Guid);
 						if (bIsNewChunk)
@@ -181,7 +181,7 @@ namespace BuildPatchServices
 				const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 				if (NewFileManifest != nullptr)
 				{
-					for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
+					for (const FChunkPart& ChunkPart : NewFileManifest->ChunkParts)
 					{
 						bool bWasAlreadyInSet = false;
 						TaggedChunks.Add(ChunkPart.Guid, &bWasAlreadyInSet);
@@ -218,7 +218,7 @@ namespace BuildPatchServices
 				const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 				if (NewFileManifest != nullptr)
 				{
-					for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
+					for (const FChunkPart& ChunkPart : NewFileManifest->ChunkParts)
 					{
 						const bool bIsNewChunk = !OldChunks.Contains(ChunkPart.Guid);
 						if (bIsNewChunk)

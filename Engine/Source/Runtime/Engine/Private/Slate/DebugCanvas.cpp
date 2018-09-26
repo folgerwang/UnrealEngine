@@ -9,6 +9,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "IStereoLayers.h"
 #include "StereoRendering.h"
+#include "Slate/SceneViewport.h"
 #include "IXRTrackingSystem.h"
 #include "ISpectatorScreenController.h"
 #include "IHeadMountedDisplay.h"
@@ -295,4 +296,58 @@ void FDebugCanvasDrawer::SetRenderThreadCanvas( const FIntRect& InCanvasRect, FC
 		RenderTarget->SetViewRect(InCanvasRect);
 	}
 	RenderThreadCanvas = Canvas;
+}
+
+SDebugCanvas::SDebugCanvas()
+{
+	SetCanTick(false);
+	bCanSupportFocus = false;
+}
+
+void SDebugCanvas::Construct(const FArguments& InArgs)
+{
+	SceneViewport = InArgs._SceneViewport;
+}
+
+int32 SDebugCanvas::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_SlatePaintDebugCanvas);
+	const FSceneViewport* Viewport = SceneViewport.Get();
+	if (Viewport)
+	{
+		Viewport->PaintDebugCanvas(AllottedGeometry, OutDrawElements, LayerId);
+	}
+
+	return LayerId;
+}
+
+FVector2D SDebugCanvas::ComputeDesiredSize(float LayoutScaleMultiplier) const
+{
+	const FSceneViewport* Viewport = SceneViewport.Get();
+	if (Viewport)
+	{
+		return Viewport->GetSizeXY();
+	}
+	else
+	{
+		return FVector2D::ZeroVector;
+	}
+}
+
+void SDebugCanvas::SetSceneViewport(FSceneViewport* InSceneViewport)
+{
+	FSceneViewport* CurrentSceneViewport = SceneViewport.Get();
+	if (CurrentSceneViewport)
+	{
+		// this canvas is moving to another viewport
+		CurrentSceneViewport->SetDebugCanvas(nullptr);
+	}
+
+	SceneViewport = InSceneViewport;
+
+	if (InSceneViewport)
+	{
+		// Notify the new viewport of its debug canvas for invalidation purposes
+		InSceneViewport->SetDebugCanvas(SharedThis(this));
+	}
 }

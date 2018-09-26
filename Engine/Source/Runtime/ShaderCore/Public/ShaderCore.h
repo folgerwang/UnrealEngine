@@ -82,8 +82,11 @@ extern SHADERCORE_API void InitializeShaderTypes();
 /** Uninitializes cached shader type data.  This is needed before unloading modules that contain FShaderTypes. */
 extern SHADERCORE_API void UninitializeShaderTypes();
 
-/** Returns true if debug viewmodes are allowed for the given platform. */
+/** Returns true if debug viewmodes are allowed for the current platform. */
 extern SHADERCORE_API bool AllowDebugViewmodes();
+
+/** Returns true if debug viewmodes are allowed for the given platform. */
+extern SHADERCORE_API bool AllowDebugViewmodes(EShaderPlatform Platform);
 
 struct FShaderTarget
 {
@@ -155,7 +158,9 @@ enum ECompilerFlags
 	// Prepare the shader for archiving in the native binary shader cache format
 	CFLAG_Archive,
 	// Shaders uses external texture so may need special runtime handling
-	CFLAG_UsesExternalTexture
+	CFLAG_UsesExternalTexture,
+	// Use emulated uniform buffers on supported platforms
+	CFLAG_UseEmulatedUB
 };
 
 /**

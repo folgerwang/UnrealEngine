@@ -79,6 +79,20 @@ void FPhysCommandHandler::ExecuteCommands()
 			break;
 		}
 
+		case PhysCommand::DeleteCCDContactModifyCallback:
+		{
+			FCCDContactModifyCallback* CCDContactModifyCallback = Command.Pointer.CCDContactModifyCallback;
+			if (FPhysScene::CCDContactModifyCallbackFactory.IsValid())
+			{
+				FPhysScene::CCDContactModifyCallbackFactory->Destroy(CCDContactModifyCallback);
+			}
+			else
+			{
+				delete CCDContactModifyCallback;
+			}
+			break;
+		}
+
 		case PhysCommand::DeleteCPUDispatcher:
 		{
 			physx::PxCpuDispatcher * CPUDispatcher = Command.Pointer.CPUDispatcher;

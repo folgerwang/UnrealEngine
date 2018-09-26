@@ -88,7 +88,7 @@ public:
 		auto DataTable = NewObject<UDataTable>(GetTransientPackage(), FName(TEXT("TempDataTable")));
 		DataTable->RowStruct = FGameplayTagTableRow::StaticStruct();
 
-#if WITH_EDITOR
+
 		FString CSV(TEXT(",Tag,CategoryText,"));
 		for (int32 Count = 0; Count < TestTags.Num(); Count++)
 		{
@@ -96,21 +96,8 @@ public:
 		}
 
 		DataTable->CreateTableFromCSVString(CSV);
-#else
-		// Construct the data table manually
-		for (int32 Count = 0; Count < TestTags.Num(); Count++)
-		{
-			uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->PropertiesSize);
-			DataTable->RowStruct->InitializeStruct(RowData);
-
-			FGameplayTagTableRow* TagRow = (FGameplayTagTableRow*)RowData;
-			TagRow->Tag = FName(*TestTags[Count]);
-
-			DataTable->RowMap.Add(FName(*FString::FromInt(Count)), RowData);
-		}
-#endif
 	
-		FGameplayTagTableRow * Row = (FGameplayTagTableRow*)DataTable->RowMap["0"];
+		const FGameplayTagTableRow * Row = (const FGameplayTagTableRow*)DataTable->GetRowMap()["0"];
 		if (Row)
 		{
 			check(Row->Tag == TEXT("Effect.Damage"));

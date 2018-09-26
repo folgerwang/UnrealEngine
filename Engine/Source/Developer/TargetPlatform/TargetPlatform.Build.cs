@@ -81,6 +81,7 @@ public class TargetPlatform : ModuleRules
 				{
 					DynamicallyLoadedModuleNames.Add("AudioFormatOgg");
 					DynamicallyLoadedModuleNames.Add("AudioFormatOpus");
+					DynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
 				}
 
 				if (Target.Type == TargetType.Editor || Target.Type == TargetType.Program)
@@ -106,6 +107,7 @@ public class TargetPlatform : ModuleRules
 				{
 					DynamicallyLoadedModuleNames.Add("AudioFormatOgg");
 					DynamicallyLoadedModuleNames.Add("AudioFormatOpus");
+					DynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
 				}
 
 				if (Target.Type == TargetType.Editor || Target.Type == TargetType.Program)

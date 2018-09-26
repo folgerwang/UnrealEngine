@@ -66,7 +66,7 @@ UAssetRegistryImpl::UAssetRegistryImpl(const FObjectInitializer& ObjectInitializ
 	AmortizeStartTime = 0;
 	TotalAmortizeTime = 0;
 
-	MaxSecondsPerFrame = 0.015;
+	MaxSecondsPerFrame = 0.04;
 
 	// By default update the disk cache once on asset load, to incorporate changes made in PostLoad. This only happens in editor builds
 	bUpdateDiskCacheAfterLoad = true;
@@ -167,6 +167,30 @@ UAssetRegistryImpl::UAssetRegistryImpl(const FObjectInitializer& ObjectInitializ
 	InitRedirectors();
 }
 
+bool UAssetRegistryImpl::ResolveRedirect(const FString& InPackageName, FString& OutPackageName)
+{
+	int32 DotIndex = InPackageName.Find(TEXT("."), ESearchCase::CaseSensitive);
+
+	FString ContainerPackageName; 
+	const FString* PackageNamePtr = &InPackageName; // don't return this
+	if (DotIndex != INDEX_NONE)
+	{
+		ContainerPackageName = InPackageName.Left(DotIndex);
+		PackageNamePtr = &ContainerPackageName;
+	}
+	const FString& PackageName = *PackageNamePtr;
+
+	for (const FAssetRegistryPackageRedirect& PackageRedirect : PackageRedirects)
+	{
+		if (PackageName.Compare(PackageRedirect.SourcePackageName) == 0)
+		{
+			OutPackageName = InPackageName.Replace(*PackageRedirect.SourcePackageName, *PackageRedirect.DestPackageName);
+			return true;
+		}
+	}
+	return false;
+}
+
 void UAssetRegistryImpl::InitRedirectors()
 {
 	// plugins can't initialize redirectors in the editor, it will mess up the saving of content.
@@ -208,6 +232,24 @@ void UAssetRegistryImpl::InitRedirectors()
 		TArray<FAssetData> AssetList;
 		GetAssetsByPath(PluginPackageName, AssetList, true, false);
 
+#if 1 // new way
+		for (const FAssetData& Asset : AssetList)
+		{
+			FString NewPackageNameString = Asset.PackageName.ToString();
+			FString RootPackageName = FString::Printf(TEXT("/%s/"), *Plugin->GetName());
+
+			FString OriginalPackageNameString = NewPackageNameString.Replace(*RootPackageName, TEXT("/Game/"));
+
+
+			PackageRedirects.Add(FAssetRegistryPackageRedirect(OriginalPackageNameString, NewPackageNameString));
+
+		}
+
+
+		FCoreDelegates::FResolvePackageNameDelegate PackageResolveDelegate;
+		PackageResolveDelegate.BindUObject(this, &UAssetRegistryImpl::ResolveRedirect);
+		FCoreDelegates::PackageNameResolvers.Add(PackageResolveDelegate);
+#else
 		TArray<FCoreRedirect> PackageRedirects;
 
 		for ( const FAssetData& Asset : AssetList )
@@ -224,6 +266,7 @@ void UAssetRegistryImpl::InitRedirectors()
 
 
 		FCoreRedirects::AddRedirectList(PackageRedirects, Plugin->GetName() );
+#endif
 	}
 
 	
@@ -1439,21 +1482,29 @@ void UAssetRegistryImpl::Tick(float DeltaTime)
 		CookedPackageNamesWithoutAssetDataGathered(TickStartTime, BackgroundCookedPackageNamesWithoutAssetDataResults);
 	}
 
+	// Compute total pending, plus highest pending for this run so we can show a good progress bar
+	static int32 HighestPending = 0;
+	const int32 NumPending = NumFilesToSearch + NumPathsToSearch + BackgroundPathResults.Num() + BackgroundAssetResults.Num() + BackgroundDependencyResults.Num() + BackgroundCookedPackageNamesWithoutAssetDataResults.Num();
+
+	HighestPending = FMath::Max(HighestPending, NumPending);
+
 	// Notify the status change
 	if (bIsSearching || bHadAssetsToProcess)
 	{
 		const FFileLoadProgressUpdateData ProgressUpdateData(
-			State.CachedAssetsByObjectPath.Num() + BackgroundAssetResults.Num() + BackgroundDependencyResults.Num() + NumFilesToSearch,	// NumTotalAssets
-			State.CachedAssetsByObjectPath.Num() - BackgroundDependencyResults.Num(),					// NumAssetsProcessedByAssetRegistry
-			NumFilesToSearch + BackgroundDependencyResults.Num(),								// NumAssetsPendingDataLoad
-			bIsDiscoveringFiles																	// bIsDiscoveringAssetFiles
+			HighestPending,					// NumTotalAssets
+			HighestPending - NumPending,	// NumAssetsProcessedByAssetRegistry
+			NumPending / 2,					// NumAssetsPendingDataLoad, divided by 2 because assets are double counted due to dependencies
+			bIsDiscoveringFiles				// bIsDiscoveringAssetFiles
 		);
 		FileLoadProgressUpdatedEvent.Broadcast(ProgressUpdateData);
 	}
 
 	// If completing an initial search, refresh the content browser
-	if (NumFilesToSearch == 0 && NumPathsToSearch == 0 && !bIsSearching && BackgroundPathResults.Num() == 0 && BackgroundAssetResults.Num() == 0 && BackgroundDependencyResults.Num() == 0 && BackgroundCookedPackageNamesWithoutAssetDataResults.Num() == 0)
+	if (!bIsSearching && NumPending == 0)
 	{
+		HighestPending = 0;
+
 		if (!bInitialSearchCompleted)
 		{
 #if WITH_EDITOR
@@ -1759,7 +1810,7 @@ void UAssetRegistryImpl::AssetSearchDataGathered(const double TickStartTime, TBa
 		// Check to see if we have run out of time in this tick
 		if (!bFlushFullBuffer && (FPlatformTime::Seconds() - TickStartTime) > MaxSecondsPerFrame)
 		{
-			break;
+			return;
 		}
 	}
 
@@ -1779,7 +1830,7 @@ void UAssetRegistryImpl::PathDataGathered(const double TickStartTime, TBackgroun
 		// Check to see if we have run out of time in this tick
 		if (!bFlushFullBuffer && (FPlatformTime::Seconds() - TickStartTime) > MaxSecondsPerFrame)
 		{
-			break;
+			return;
 		}
 	}
 
@@ -1923,7 +1974,7 @@ void UAssetRegistryImpl::DependencyDataGathered(const double TickStartTime, TBac
 		// Check to see if we have run out of time in this tick
 		if (!bFlushFullBuffer && (FPlatformTime::Seconds() - TickStartTime) > MaxSecondsPerFrame)
 		{
-			break;
+			return;
 		}
 	}
 
@@ -1945,7 +1996,7 @@ void UAssetRegistryImpl::CookedPackageNamesWithoutAssetDataGathered(const double
 		// Check to see if we have run out of time in this tick
 		if (!bFlushFullBuffer && (FPlatformTime::Seconds() - TickStartTime) > MaxSecondsPerFrame)
 		{
-			break;
+			return;
 		}
 	}
 

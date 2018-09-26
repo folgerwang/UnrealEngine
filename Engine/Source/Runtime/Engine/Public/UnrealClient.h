@@ -335,6 +335,7 @@ public:
 	virtual bool IsPenActive() { return false; }
 	virtual void SetMouse(int32 x, int32 y) = 0;
 	virtual bool IsFullscreen()	const { return WindowMode == EWindowMode::Fullscreen || WindowMode == EWindowMode::WindowedFullscreen; }
+	virtual bool IsExclusiveFullscreen() const { return WindowMode == EWindowMode::Fullscreen; }
 	virtual EWindowMode::Type GetWindowMode()	const { return WindowMode; }
 	virtual void ProcessInput( float DeltaTime ) = 0;
 
@@ -376,6 +377,12 @@ public:
 	 * @param bShouldPresent Whether the frame will be presented to the screen
 	 */
 	ENGINE_API virtual void	EnqueueBeginRenderFrame(const bool bShouldPresent);
+
+	/**
+	 *	Ends a rendering frame. Called from the game thread.
+	 *	@param bPresent		Whether the frame should be presented to the screen
+	 */
+	ENGINE_API virtual void EnqueueEndRenderFrame(const bool bLockToVsync, const bool bShouldPresent);
 
 	/**
 	 *	Starts a new rendering frame. Called from the rendering thread.

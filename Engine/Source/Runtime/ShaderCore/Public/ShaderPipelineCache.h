@@ -103,6 +103,9 @@ public:
     /** Returns the number of pipelines actively being precompiled this frame. */
     static uint32 NumPrecompilesActive();
 
+	/** Opens the shader pipeline cache file with either the LastOpened setting if available, or the project name otherwise */
+	static bool OpenPipelineFileCache(EShaderPlatform Platform);
+
 	/** Opens the shader pipeline cache file with the given name and shader platform. */
 	static bool OpenPipelineFileCache(FString const& Name, EShaderPlatform Platform);
 	
@@ -133,11 +136,21 @@ public:
 	
     /** Called by FShaderCodeLibrary to notify us that the shader code library state changed and shader availability will need to be re-evaluated */
     static void ShaderLibraryStateChanged(ELibraryState State, EShaderPlatform Platform, FString const& Name);
-    
+
+	/** Allows handlers of FShaderCacheOpenedDelegate to send state to begin and complete pre-compilation delegates */
+	class FShaderCachePrecompileContext
+	{
+		bool bSlowPrecompileTask;
+	public:
+		FShaderCachePrecompileContext() : bSlowPrecompileTask(false) {}
+		void SetPrecompilationIsSlowTask() { bSlowPrecompileTask = true; }
+		bool IsPrecompilationSlowTask() const { return bSlowPrecompileTask; }
+	};
+
     /**
      * Delegate signature for being notified when a pipeline cache is opened
      */
-    DECLARE_MULTICAST_DELEGATE_ThreeParams(FShaderCacheOpenedDelegate, FString const& /* Name */, EShaderPlatform /* Platform*/, uint32 /* Count */ );
+    DECLARE_MULTICAST_DELEGATE_FiveParams(FShaderCacheOpenedDelegate, FString const& /* Name */, EShaderPlatform /* Platform*/, uint32 /* Count */, const FGuid& /* CacheFileGuid */, FShaderCachePrecompileContext& /*ShaderCachePrecompileContext*/);
     
     /**
      * Gets the event delegate to register to to be notified when a pipeline cache is opened.
@@ -153,13 +166,23 @@ public:
      * Gets the event delegate to register to to be notified when a pipeline cache is closed.
      */
     static FShaderCacheClosedDelegate& GetCacheClosedDelegate() { return OnCachedClosed; }
-    
-    /**
+
+	/**
+	* Delegate signature for being notified when currently viable PSOs have started to be precompiled from the cache, and how many will be precompiled
+	*/
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FShaderPrecompilationBeginDelegate, uint32 /** Count */, const FShaderCachePrecompileContext& /*ShaderCachePrecompileContext*/);
+
+	/**
      * Delegate signature for being notified that all currently viable PSOs have been precompiled from the cache, how many that was and how long spent precompiling (in sec.)
      */
-    DECLARE_MULTICAST_DELEGATE_TwoParams(FShaderPrecompilationCompleteDelegate, uint32 /** Count */, double /** Seconds */);
-    
-    /**
+    DECLARE_MULTICAST_DELEGATE_ThreeParams(FShaderPrecompilationCompleteDelegate, uint32 /** Count */, double /** Seconds */, const FShaderCachePrecompileContext& /*ShaderCachePrecompileContext*/);
+
+	/**
+	* Gets the event delegate to register to to be notified when currently viable PSOs have started to be precompiled from the cache.
+	*/
+	static FShaderPrecompilationBeginDelegate& GetPrecompilationBeginDelegate() { return OnPrecompilationBegin; }
+
+	/**
      * Gets the event delegate to register to to be notified when all currently viable PSOs have been precompiled from the cache.
      */
     static FShaderPrecompilationCompleteDelegate& GetPrecompilationCompleteDelegate() { return OnPrecompilationComplete; }
@@ -193,20 +216,26 @@ private:
 	float BatchTime;
 	bool bPaused;
 	bool bOpened;
+	FShaderCachePrecompileContext ShaderCachePrecompileContext;
 	
     volatile int64 TotalActiveTasks;
     volatile int64 TotalWaitingTasks;
     volatile int64 TotalCompleteTasks;
     volatile int64 TotalPrecompileTime;
+	double PrecompileStartTime;
+
 	FCriticalSection Mutex;
 	TArray<FPipelineCachePSOHeader> PreFetchedTasks;
 	
+	FGraphEventRef LastPrecompileRHIFence;
+
 	TArray<CompileJob> ShutdownReadTasks;
 	TArray<FPipelineCacheFileFormatPSORead*> ShutdownFetchTasks;
     
     static FShaderCacheOpenedDelegate OnCachedOpened;
     static FShaderCacheClosedDelegate OnCachedClosed;
-    static FShaderPrecompilationCompleteDelegate OnPrecompilationComplete;
+	static FShaderPrecompilationBeginDelegate OnPrecompilationBegin;
+	static FShaderPrecompilationCompleteDelegate OnPrecompilationComplete;
 
 	double LastAutoSaveTime;
 	double LastAutoSaveTimeLogBoundPSO;

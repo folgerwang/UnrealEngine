@@ -262,17 +262,15 @@ int32 UEditorLevelUtils::MoveSelectedActorsToLevel(ULevel* DestLevel, bool bWarn
 	return 0;
 }
 
-ULevel* UEditorLevelUtils::AddLevelsToWorld(UWorld* InWorld, const TArray<FString>& LevelPackageNames, UClass* LevelStreamingClass)
+ULevel* UEditorLevelUtils::AddLevelsToWorld(UWorld* InWorld, TArray<FString> PackageNames, TSubclassOf<ULevelStreaming> LevelStreamingClass)
 {
 	if (!ensure(InWorld))
 	{
 		return nullptr;
 	}
 
-	FScopedSlowTask SlowTask(LevelPackageNames.Num(), LOCTEXT("AddLevelsToWorldTask", "Adding Levels to World"));
+	FScopedSlowTask SlowTask(PackageNames.Num(), LOCTEXT("AddLevelsToWorldTask", "Adding Levels to World"));
 	SlowTask.MakeDialog();
-
-	TArray<FString> PackageNames = LevelPackageNames;
 
 	// Sort the level packages alphabetically by name.
 	PackageNames.Sort();
@@ -286,7 +284,7 @@ ULevel* UEditorLevelUtils::AddLevelsToWorld(UWorld* InWorld, const TArray<FStrin
 	{
 		SlowTask.EnterProgressFrame();
 
-		if (ULevelStreaming* NewStreamingLevel = AddLevelToWorld(InWorld, *PackageName, LevelStreamingClass))
+		if (ULevelStreaming* NewStreamingLevel = AddLevelToWorld_Internal(InWorld, *PackageName, LevelStreamingClass))
 		{
 			NewLevel = NewStreamingLevel->GetLoadedLevel();
 			if (NewLevel)
@@ -311,16 +309,65 @@ ULevel* UEditorLevelUtils::AddLevelsToWorld(UWorld* InWorld, const TArray<FStrin
 		GLevelEditorModeTools().ActivateDefaultMode();
 	}
 
-	// refresh editor windows
-	FEditorDelegates::RefreshAllBrowsers.Broadcast();
+	// Broadcast the levels have changed (new style)
+	InWorld->BroadcastLevelsChanged();
+	FEditorDelegates::RefreshLevelBrowser.Broadcast();
 
 	// Update volume actor visibility for each viewport since we loaded a level which could potentially contain volumes
-	GUnrealEd->UpdateVolumeActorVisibility(NULL);
+	GUnrealEd->UpdateVolumeActorVisibility(nullptr);
 
 	return NewLevel;
 }
 
-ULevelStreaming* UEditorLevelUtils::AddLevelToWorld(UWorld* InWorld, const TCHAR* LevelPackageName, TSubclassOf<ULevelStreaming> LevelStreamingClass)
+ULevelStreaming* UEditorLevelUtils::AddLevelToWorld(UWorld* InWorld, const TCHAR* LevelPackageName, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FTransform& LevelTransform)
+{
+	if (!ensure(InWorld))
+	{
+		return nullptr;
+	}
+
+	FScopedSlowTask SlowTask(0, LOCTEXT("AddLevelsToWorldTask", "Adding Level to World"));
+	SlowTask.MakeDialog();
+
+	// Fire ULevel::LevelDirtiedEvent when falling out of scope.
+	FScopedLevelDirtied LevelDirtyCallback;
+
+	// Try to add the levels that were specified in the dialog.
+	ULevel* NewLevel = nullptr;
+
+	ULevelStreaming* NewStreamingLevel = AddLevelToWorld_Internal(InWorld, LevelPackageName, LevelStreamingClass, LevelTransform);
+	if (NewStreamingLevel)
+	{
+		NewLevel = NewStreamingLevel->GetLoadedLevel();
+		if (NewLevel)
+		{
+			LevelDirtyCallback.Request();
+
+			// Set the loaded level to be the current level
+			if (InWorld->SetCurrentLevel(NewLevel))
+			{
+				FEditorDelegates::NewCurrentLevel.Broadcast();
+			}
+		}
+	}
+
+	// For safety
+	if (GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_Landscape))
+	{
+		GLevelEditorModeTools().ActivateDefaultMode();
+	}
+
+	// Broadcast the levels have changed (new style)
+	InWorld->BroadcastLevelsChanged();
+	FEditorDelegates::RefreshLevelBrowser.Broadcast();
+
+	// Update volume actor visibility for each viewport since we loaded a level which could potentially contain volumes
+	GUnrealEd->UpdateVolumeActorVisibility(nullptr);
+
+	return NewStreamingLevel;
+}
+
+ULevelStreaming* UEditorLevelUtils::AddLevelToWorld_Internal(UWorld* InWorld, const TCHAR* LevelPackageName, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FTransform& LevelTransform)
 {
 	ULevel* NewLevel = nullptr;
 	ULevelStreaming* StreamingLevel = nullptr;
@@ -345,6 +392,8 @@ ULevelStreaming* UEditorLevelUtils::AddLevelToWorld(UWorld* InWorld, const TCHAR
 
 		// Associate a package name.
 		StreamingLevel->SetWorldAssetByPackageName(LevelPackageName);
+
+		StreamingLevel->LevelTransform = LevelTransform;
 
 		// Seed the level's draw color.
 		StreamingLevel->LevelColor = FLinearColor::MakeRandomColor();
@@ -476,7 +525,7 @@ void UEditorLevelUtils::MakeLevelCurrent(ULevelStreaming* InStreamingLevel)
 bool UEditorLevelUtils::PrivateRemoveInvalidLevelFromWorld(ULevelStreaming* InLevelStreaming)
 {
 	bool bRemovedLevelStreaming = false;
-	if (InLevelStreaming != NULL)
+	if (InLevelStreaming)
 	{
 		check(InLevelStreaming->GetLoadedLevel() == NULL); // This method is designed to be used to remove left over references to null levels 
 
@@ -495,7 +544,7 @@ bool UEditorLevelUtils::PrivateRemoveInvalidLevelFromWorld(ULevelStreaming* InLe
 		// Disassociate the volumes from the level.
 		InLevelStreaming->EditorStreamingVolumes.Empty();
 
-		if (UWorld* OwningWorld = Cast<UWorld>(InLevelStreaming->GetOuter()))
+		if (UWorld* OwningWorld = InLevelStreaming->GetWorld())
 		{
 			OwningWorld->RemoveStreamingLevel(InLevelStreaming);
 			OwningWorld->RefreshStreamingLevels();
@@ -513,8 +562,9 @@ bool UEditorLevelUtils::RemoveInvalidLevelFromWorld(ULevelStreaming* InLevelStre
 		// Redraw the main editor viewports.
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 
-		// refresh editor windows
-		FEditorDelegates::RefreshAllBrowsers.Broadcast();
+		// Broadcast the levels have changed (new style)
+		InLevelStreaming->GetWorld()->BroadcastLevelsChanged();
+		FEditorDelegates::RefreshLevelBrowser.Broadcast();
 
 		// Update selection for any selected actors that were in the level and are no longer valid
 		GEditor->NoteSelectionChange();
@@ -631,8 +681,9 @@ bool UEditorLevelUtils::RemoveLevelFromWorld(ULevel* InLevel)
 		// Redraw the main editor viewports.
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 
-		// refresh editor windows
-		FEditorDelegates::RefreshAllBrowsers.Broadcast();
+		// Broadcast the levels have changed (new style)
+		OwningWorld->BroadcastLevelsChanged();
+		FEditorDelegates::RefreshLevelBrowser.Broadcast();
 
 		// Reset transaction buffer and run GC to clear out the destroyed level
 		GEditor->Cleanse(true, false, LOCTEXT("RemoveLevelTransReset", "Removing Levels from World"));

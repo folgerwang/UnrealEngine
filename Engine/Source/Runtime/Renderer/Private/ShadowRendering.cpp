@@ -1486,8 +1486,29 @@ bool FDeferredShadingSceneRenderer::RenderShadowProjections(FRHICommandListImmed
 		{
 			bInjectedTranslucentVolume = true;
 			SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
+			
 			// Inject the shadowed light into the translucency lighting volumes
-			InjectTranslucentVolumeLighting(RHICmdList, *LightSceneInfo, ProjectedShadowInfo);
+			if(ProjectedShadowInfo->DependentView != nullptr)
+			{
+				int32 ViewIndex = -1;
+				for (int32 i = 0; i < Views.Num(); ++i)
+				{
+					if (ProjectedShadowInfo->DependentView == &Views[i])
+					{
+						ViewIndex = i;
+						break;
+					}
+				}
+
+				InjectTranslucentVolumeLighting(RHICmdList, *LightSceneInfo, ProjectedShadowInfo, *ProjectedShadowInfo->DependentView, ViewIndex);
+			}
+			else
+			{
+				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+				{
+					InjectTranslucentVolumeLighting(RHICmdList, *LightSceneInfo, ProjectedShadowInfo, Views[ViewIndex], ViewIndex);
+				}
+			}
 		}
 	}
 
@@ -1514,7 +1535,7 @@ bool FDeferredShadingSceneRenderer::RenderShadowProjections(FRHICommandListImmed
 
 void FMobileSceneRenderer::RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList)
 {
-	if (IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)) || !ViewFamily.EngineShowFlags.DynamicShadows || (!IsMobileHDR() && !IsHTML5Platform()))
+	if (IsSimpleForwardShadingEnabled(ShaderPlatform) || !ViewFamily.EngineShowFlags.DynamicShadows || (!IsMobileHDR() && !IsHTML5Platform()))
 	{
 		return;
 	}

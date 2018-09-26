@@ -613,8 +613,9 @@ private:
 	/** Hold a pointer to the test tables header row. */
 	TSharedPtr<SHeaderRow> TestTableHeaderRow;
 
-	TArray<FString> SavedEnabledTests;
+	/** List of expanded test items to preserve during a refresh */
 	TArray<FString> SavedExpandedItems;
+
 	// Saves the last selected test so that it can be unbinded from refreshing the log
 	TWeakPtr<IAutomationReport> PreviousSelection;
 };

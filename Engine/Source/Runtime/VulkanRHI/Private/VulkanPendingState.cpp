@@ -9,7 +9,7 @@
 #include "VulkanPipeline.h"
 #include "VulkanContext.h"
 
-FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& InLayout)
+FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& InLayout, uint32 MaxSetsAllocations)
 	: Device(InDevice)
 	, MaxDescriptorSets(0)
 	, NumAllocatedDescriptorSets(0)
@@ -18,9 +18,6 @@ FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVul
 	, DescriptorPool(VK_NULL_HANDLE)
 {
 	INC_DWORD_STAT(STAT_VulkanNumDescPools);
-
-	// Max number of descriptor sets layout allocations
-	const uint32 MaxSetsAllocations = 256;
 
 	// Descriptor sets number required to allocate the max number of descriptor sets layout.
 	// When we're hashing pools with types usage ID the descriptor pool can be used for different layouts so the initial layout does not make much sense.
@@ -43,6 +40,7 @@ FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVul
 
 	VkDescriptorPoolCreateInfo PoolInfo;
 	ZeroVulkanStruct(PoolInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+	// you don't need this flag because pool reset feature. Also this flag increase pool size in memory and vkResetDescriptorPool time.
 	//PoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	PoolInfo.poolSizeCount = Types.Num();
 	PoolInfo.pPoolSizes = Types.GetData();
@@ -119,11 +117,16 @@ FVulkanTypedDescriptorPoolSet::~FVulkanTypedDescriptorPoolSet()
 
 		Pool = Next;
 	}
+	PoolsCount = 0;
 }
 
 FVulkanDescriptorPool* FVulkanTypedDescriptorPoolSet::PushNewPool()
 {
-	auto* NewPool = new FVulkanDescriptorPool(Device, Layout);
+	// Max number of descriptor sets layout allocations
+	const uint32 MaxSetsAllocationsBase = 32;
+	const uint32 MaxSetsAllocations = FMath::Min((MaxSetsAllocationsBase << PoolsCount), 128u);
+
+	auto* NewPool = new FVulkanDescriptorPool(Device, Layout, MaxSetsAllocations);
 
 	if (PoolListCurrent)
 	{
@@ -134,6 +137,7 @@ FVulkanDescriptorPool* FVulkanTypedDescriptorPoolSet::PushNewPool()
 	{
 		PoolListCurrent = PoolListHead = new FPoolList(NewPool);
 	}
+	++PoolsCount;
 
 	return NewPool;
 }
@@ -259,6 +263,7 @@ FVulkanDescriptorPoolSetContainer& FVulkanDescriptorPoolsManager::AcquirePoolSet
 
 void FVulkanDescriptorPoolsManager::ReleasePoolSet(FVulkanDescriptorPoolSetContainer& PoolSet)
 {
+	PoolSet.Reset();
 	PoolSet.SetUsed(false);
 	PoolSet.Reset();
 }
@@ -469,7 +474,7 @@ void FVulkanPendingGfxState::PrepareForDraw(FVulkanCmdBuffer* CmdBuffer)
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in '%s' vertex shader"),
 							CurrBinding.binding,
-							*CurrentBSS->GetShader(ShaderStage::Vertex)->GetDebugName());
+							*CurrentPipeline->GetShader(SF_Vertex)->GetDebugName());
 #else
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in vertex shader"), CurrBinding.binding);
 #endif

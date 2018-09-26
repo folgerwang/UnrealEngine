@@ -31,6 +31,13 @@
 #include "IPersonaViewport.h"
 #include "EditorViewportClient.h"
 #include "AnimationEditorPreviewActor.h"
+#include "Misc/MessageDialog.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "ControlRigEditorStyle.h"
+#include "EditorFontGlyphs.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigEditor"
 
@@ -141,7 +148,24 @@ void FControlRigEditor::InitControlRigEditor(const EToolkitMode::Type Mode, cons
 
 void FControlRigEditor::BindCommands()
 {
+	GetToolkitCommands()->MapAction(
+		FControlRigBlueprintCommands::Get().ExecuteGraph,
+		FExecuteAction::CreateSP(this, &FControlRigEditor::ToggleExecuteGraph), 
+		FCanExecuteAction(), 
+		FIsActionChecked::CreateSP(this, &FControlRigEditor::IsExecuteGraphOn));
+}
 
+void FControlRigEditor::ToggleExecuteGraph()
+{
+	if (ControlRig)
+	{
+		ControlRig->bExecutionOn = !ControlRig->bExecutionOn;
+	}
+}
+
+bool FControlRigEditor::IsExecuteGraphOn() const
+{
+	return (ControlRig)? ControlRig->bExecutionOn : false;
 }
 
 void FControlRigEditor::ExtendToolbar()
@@ -169,6 +193,26 @@ void FControlRigEditor::ExtendToolbar()
 			AddToolbarExtender(ToolbarExtenderDelegate.Execute(GetToolkitCommands(), SharedThis(this)));
 		}
 	}
+
+	struct Local
+	{
+		static void FillToolbar(FToolBarBuilder& ToolbarBuilder)
+		{
+			ToolbarBuilder.BeginSection("Toolbar");
+			{
+				ToolbarBuilder.AddToolBarButton(FControlRigBlueprintCommands::Get().ExecuteGraph, 
+					NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FControlRigEditorStyle::Get().GetStyleSetName(), "ControlRig.ExecuteGraph"));
+			}
+			ToolbarBuilder.EndSection();
+		}
+	};
+
+	ToolbarExtender->AddToolBarExtension(
+		"Asset",
+		EExtensionHook::After,
+		GetToolkitCommands(),
+		FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar)
+	);
 }
 
 UBlueprint* FControlRigEditor::GetBlueprintObj() const
@@ -293,6 +337,8 @@ void FControlRigEditor::PostUndo(bool bSuccess)
 {
 	DocumentManager->CleanInvalidTabs();
 	DocumentManager->RefreshAllTabs();
+
+	OnHierarchyChanged();
 
 	FBlueprintEditor::PostUndo(bSuccess);
 }
@@ -502,8 +548,145 @@ void FControlRigEditor::OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIs
 
 void FControlRigEditor::HandleViewportCreated(const TSharedRef<class IPersonaViewport>& InViewport)
 {
-	// set default to be local 
-	InViewport->GetViewportClient().SetWidgetCoordSystemSpace(COORD_Local);
+	// TODO: this is duplicated code from FAnimBlueprintEditor, would be nice to consolidate. 
+	auto GetCompilationStateText = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			switch (Blueprint->Status)
+			{
+			case BS_UpToDate:
+			case BS_UpToDateWithWarnings:
+				// Fall thru and return empty string
+				break;
+			case BS_Dirty:
+				return LOCTEXT("ControlRigBP_Dirty", "Preview out of date");
+			case BS_Error:
+				return LOCTEXT("ControlRigBP_CompileError", "Compile Error");
+			default:
+				return LOCTEXT("ControlRigBP_UnknownStatus", "Unknown Status");
+			}
+		}
+
+		return FText::GetEmpty();
+	};
+
+	auto GetCompilationStateVisibility = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			const bool bUpToDate = (Blueprint->Status == BS_UpToDate) || (Blueprint->Status == BS_UpToDateWithWarnings);
+			return bUpToDate ? EVisibility::Collapsed : EVisibility::Visible;
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	auto GetCompileButtonVisibility = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			return (Blueprint->Status == BS_Dirty) ? EVisibility::Visible : EVisibility::Collapsed;
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	auto CompileBlueprint = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			if (!Blueprint->IsUpToDate())
+			{
+				Compile();
+			}
+		}
+
+		return FReply::Handled();
+	};
+
+	auto GetErrorSeverity = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			return (Blueprint->Status == BS_Error) ? EMessageSeverity::Error : EMessageSeverity::Warning;
+		}
+
+		return EMessageSeverity::Warning;
+	};
+
+	auto GetIcon = [this]()
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			return (Blueprint->Status == BS_Error) ? FEditorFontGlyphs::Exclamation_Triangle : FEditorFontGlyphs::Eye;
+		}
+
+		return FEditorFontGlyphs::Eye;
+	};
+
+	InViewport->AddNotification(MakeAttributeLambda(GetErrorSeverity),
+		false,
+		SNew(SHorizontalBox)
+		.Visibility_Lambda(GetCompilationStateVisibility)
+		+SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.Padding(4.0f, 4.0f)
+		[
+			SNew(SHorizontalBox)
+			.ToolTipText_Lambda(GetCompilationStateText)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+				.Text_Lambda(GetIcon)
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.FillWidth(1.0f)
+			[
+				SNew(STextBlock)
+				.Text_Lambda(GetCompilationStateText)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+			]
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 0.0f)
+		[
+			SNew(SButton)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+			.Visibility_Lambda(GetCompileButtonVisibility)
+			.ToolTipText(LOCTEXT("ControlRigBPViewportCompileButtonToolTip", "Compile this Animation Blueprint to update the preview to reflect any recent changes."))
+			.OnClicked_Lambda(CompileBlueprint)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+					.Text(FEditorFontGlyphs::Cog)
+				]
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Text(LOCTEXT("ControlRigBPViewportCompileButtonLabel", "Compile"))
+				]
+			]
+		]
+	);
 }
 
 void FControlRigEditor::HandlePreviewSceneCreated(const TSharedRef<IPersonaPreviewScene>& InPersonaPreviewScene)
@@ -594,6 +777,7 @@ FActionMenuContent FControlRigEditor::HandleCreateGraphActionMenu(UEdGraph* InGr
 
 void FControlRigEditor::SelectJoint(const FName& InJoint)
 {
+	// edit mode has to know
 	GetEditMode().SelectJoint(InJoint);
 	// copy locally, we use this for copying back to template when modified
 
@@ -624,45 +808,33 @@ FTransform FControlRigEditor::GetJointTransform(const FName& InJoint, bool bLoca
 
 void FControlRigEditor::SetJointTransform(const FName& InJoint, const FTransform& InTransform)
 {
+	// execution should be off
+	ensure(!ControlRig->bExecutionOn);
+
+	FScopedTransaction Transaction(LOCTEXT("Move Joint", "Move joint transform"));
+	UControlRigBlueprint* ControlRigBP = GetControlRigBlueprint();
+	ControlRigBP->Modify();
+
+	// moving ref pose warning
 	// update init/global transform
 	// @todo: this needs revision once we decide how we allow users to modify init/global transform
 	// for now, updating init/global of the joint from instances, but only modify init transform for archetype
+	// get local transform of current
+	// apply init based on parent init * current local 
+
 	ControlRig->Hierarchy.BaseHierarchy.SetInitialTransform(InJoint, InTransform);
 	ControlRig->Hierarchy.BaseHierarchy.SetGlobalTransform(InJoint, InTransform);
 
-	// update CDO  @todo - re-think about how we wrap around this nicer
-	UControlRigBlueprint* ControlRigBP = GetControlRigBlueprint();
 	ControlRigBP->Hierarchy.SetInitialTransform(InJoint, InTransform);
-}
-
-void FControlRigEditor::PostPasteNode(TSet<UEdGraphNode*>& PastedNodes)
-{
-	UControlRigBlueprint* ControlRigBP = GetControlRigBlueprint();
-	UControlRigBlueprintGeneratedClass* Class = ControlRigBP->GetControlRigBlueprintGeneratedClass();
-
-	if (Class->RigUnitProperties.Num() > 0)
+	
+	UControlRigSkeletalMeshComponent* EditorSkelComp = Cast<UControlRigSkeletalMeshComponent>(GetPersonaToolkit()->GetPreviewScene()->GetPreviewMeshComponent());
+	if (EditorSkelComp)
 	{
-		// once paste, we'd like to create duplicated property and replace it
-		for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
-		{
-			UControlRigGraphNode* ControlRigNode = Cast<UControlRigGraphNode>(*It);
-			if (ControlRigNode)
-			{
-				const FName PropName = ControlRigNode->GetPropertyName();
-
-				for (int32 UnitIndex = 0; UnitIndex < Class->RigUnitProperties.Num(); ++UnitIndex)
-				{
-					if (PropName == Class->RigUnitProperties[UnitIndex]->GetFName())
-					{
-						// it is rig unit
-						FName NewPropName = FControlRigBlueprintUtils::AddUnitMember(ControlRigBP, Class->RigUnitProperties[UnitIndex]->Struct);
-						ControlRigNode->SetPropertyName(NewPropName, true);
-						break;
-					}
-				}
-			}
-		}
+		EditorSkelComp->RebuildDebugDrawSkeleton();
 	}
+
+	// I don't think I have to mark dirty here. 
+	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
 }
 
 void FControlRigEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)
@@ -691,4 +863,27 @@ void FControlRigEditor::OnFinishedChangingProperties(const FPropertyChangedEvent
 	}
 }
 
+void FControlRigEditor::OnHierarchyChanged()
+{
+	ClearDetailObject();
+
+	FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
+
+	UControlRigSkeletalMeshComponent* EditorSkelComp = Cast<UControlRigSkeletalMeshComponent>(GetPersonaToolkit()->GetPreviewScene()->GetPreviewMeshComponent());
+	if (EditorSkelComp)
+	{
+		// restart animation 
+		EditorSkelComp->InitAnim(true);
+		UpdateControlRig();
+	}
+
+	// notification
+	FNotificationInfo Info(LOCTEXT("HierarchyChangeHelpMessage", "Hierarchy has been successfully modified. If you want to move the joint, compile and turn off execution mode."));
+	Info.bFireAndForget = true;
+	Info.FadeOutDuration = 10.0f;
+	Info.ExpireDuration = 0.0f;
+
+	TSharedPtr<SNotificationItem> NotificationPtr = FSlateNotificationManager::Get().AddNotification(Info);
+	NotificationPtr->SetCompletionState(SNotificationItem::CS_Success);
+}
 #undef LOCTEXT_NAMESPACE

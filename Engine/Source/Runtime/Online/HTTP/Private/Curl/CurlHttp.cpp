@@ -6,6 +6,7 @@
 #include "HttpModule.h"
 #include "Http.h"
 #include "Misc/EngineVersion.h"
+#include "Misc/Paths.h"
 #include "Curl/CurlHttpManager.h"
 #include "Misc/ScopeLock.h"
 
@@ -16,9 +17,38 @@ int32 FCurlHttpRequest::NumberOfInfoMessagesToCache = 50;
 #if WITH_SSL
 #include "Ssl.h"
 
+#include <openssl/ssl.h>
+
+static int SslCertVerify(int PreverifyOk, X509_STORE_CTX* Context)
+{
+	if (PreverifyOk == 1)
+	{
+		SSL* Handle = static_cast<SSL*>(X509_STORE_CTX_get_app_data(Context));
+		SSL_CTX* SslContext = SSL_get_SSL_CTX(Handle);
+		FCurlHttpRequest* Request = static_cast<FCurlHttpRequest*>(SSL_CTX_get_app_data(SslContext));
+		const FString Domain = FPlatformHttp::GetUrlDomain(Request->GetURL());
+
+		if (!FSslModule::Get().GetCertificateManager().VerifySslCertificates(Context, Domain))
+		{
+			PreverifyOk = 0;
+		}
+	}
+
+	return PreverifyOk;
+}
+
 static CURLcode sslctx_function(CURL * curl, void * sslctx, void * parm)
 {
-	FSslModule::Get().GetCertificateManager().AddCertificatesToSslContext((reinterpret_cast<SSL_CTX*>(sslctx)));
+	SSL_CTX* Context = static_cast<SSL_CTX*>(sslctx);
+	const ISslCertificateManager& CertificateManager = FSslModule::Get().GetCertificateManager();
+
+	CertificateManager.AddCertificatesToSslContext(Context);
+	if (FCurlHttpManager::CurlRequestOptions.bVerifyPeer)
+	{
+		FCurlHttpRequest* Request = static_cast<FCurlHttpRequest*>(parm);
+		SSL_CTX_set_verify(Context, SSL_CTX_get_verify_mode(Context), SslCertVerify);
+		SSL_CTX_set_app_data(Context, Request);
+	}
 
 	/* all set to go */
 	return CURLE_OK;
@@ -85,17 +115,40 @@ FCurlHttpRequest::FCurlHttpRequest()
 		curl_easy_setopt(EasyHandle, CURLOPT_FORBID_REUSE, 1L);
 	}
 
-	if (FCurlHttpManager::CurlRequestOptions.CertBundlePath)
-	{
-		curl_easy_setopt(EasyHandle, CURLOPT_CAINFO, FCurlHttpManager::CurlRequestOptions.CertBundlePath);
-	}
-	else
-	{
-		curl_easy_setopt(EasyHandle, CURLOPT_SSLCERTTYPE, "PEM");
+#if PLATFORM_LINUX && !WITH_SSL
+	static const char* const CertBundlePath = []() -> const char* {
+		static const char * KnownBundlePaths[] =
+		{
+			"/etc/pki/tls/certs/ca-bundle.crt",
+			"/etc/ssl/certs/ca-certificates.crt",
+			"/etc/ssl/ca-bundle.pem"
+		};
+
+		for (const char* BundlePath : KnownBundlePaths)
+		{
+			FString FileName(BundlePath);
+			UE_LOG(LogHttp, Log, TEXT(" Libcurl: checking if '%s' exists"), *FileName);
+
+			if (FPaths::FileExists(FileName))
+			{
+				return BundlePath;
+			}
+		}
+
+		return nullptr;
+	}();
+
+	// set CURLOPT_CAINFO to a bundle we know exists as the default may not be present
+	curl_easy_setopt(EasyHandle, CURLOPT_CAINFO, CertBundlePath);
+#endif
+
+	curl_easy_setopt(EasyHandle, CURLOPT_SSLCERTTYPE, "PEM");
 #if WITH_SSL
-		curl_easy_setopt(EasyHandle, CURLOPT_SSL_CTX_FUNCTION, *sslctx_function);
+	// unset CURLOPT_CAINFO as certs will be added via sslctx_function
+	curl_easy_setopt(EasyHandle, CURLOPT_CAINFO, nullptr);
+	curl_easy_setopt(EasyHandle, CURLOPT_SSL_CTX_FUNCTION, *sslctx_function);
+	curl_easy_setopt(EasyHandle, CURLOPT_SSL_CTX_DATA, this);
 #endif // #if WITH_SSL
-	}
 
 	InfoMessageCache.AddDefaulted(NumberOfInfoMessagesToCache);
 
@@ -434,7 +487,16 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 			{
 				// in this case DebugInfo is a C string (see http://curl.haxx.se/libcurl/c/debug.html)
 				// C string is not null terminated:  https://curl.haxx.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
-				auto ConvertedString = StringCast<TCHAR>(static_cast<const ANSICHAR*>(DebugInfo), DebugInfoSize);
+
+				// Truncate at 1023 characters. This is just an arbitrary number based on a buffer size seen in
+				// the libcurl code.
+				DebugInfoSize = FMath::Min(DebugInfoSize, (size_t)1023);
+
+				// Calculate the actual length of the string due to incorrect use of snprintf() in lib/vtls/openssl.c.
+				char* FoundNulPtr = (char*)memchr(DebugInfo, 0, DebugInfoSize);
+				int CalculatedSize = FoundNulPtr != nullptr ? FoundNulPtr - DebugInfo : DebugInfoSize;
+
+				auto ConvertedString = StringCast<TCHAR>(static_cast<const ANSICHAR*>(DebugInfo), CalculatedSize);
 				FString DebugText(ConvertedString.Length(), ConvertedString.Get());
 				DebugText.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
 				DebugText.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
@@ -454,11 +516,48 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 		case CURLINFO_HEADER_OUT:
 			{
 				// C string is not null terminated:  https://curl.haxx.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
-				auto ConvertedString = StringCast<TCHAR>(static_cast<const ANSICHAR*>(DebugInfo), DebugInfoSize);
-				FString DebugText(ConvertedString.Length(), ConvertedString.Get());
-				DebugText.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
-				DebugText.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
-				UE_LOG(LogHttp, VeryVerbose, TEXT("%p: Sent header (%d bytes) - %s"), this, DebugInfoSize, *DebugText);
+
+				// Scan for \r\n\r\n.  According to some code in tool_cb_dbg.c, special processing is needed for
+				// CURLINFO_HEADER_OUT blocks when containing both headers and data (which may be binary).
+				//
+				// Truncate at 1023 characters. This is just an arbitrary number based on a buffer size seen in
+				// the libcurl code.
+				int RecalculatedSize = FMath::Min(DebugInfoSize, (size_t)1023);
+				for (int Index = 0; Index <= RecalculatedSize - 4; ++Index)
+				{
+					if (DebugInfo[Index] == '\r' && DebugInfo[Index + 1] == '\n'
+							&& DebugInfo[Index + 2] == '\r' && DebugInfo[Index + 3] == '\n')
+					{
+						RecalculatedSize = Index;
+						break;
+					}
+				}
+
+				// As lib/http.c states that CURLINFO_HEADER_OUT may contain binary data, only print it if
+				// the header data is readable.
+				bool bIsPrintable = true;
+				for (int Index = 0; Index < RecalculatedSize; ++Index)
+				{
+					unsigned char Ch = DebugInfo[Index];
+					if (!isprint(Ch) && !isspace(Ch))
+					{
+						bIsPrintable = false;
+						break;
+					}
+				}
+
+				if (bIsPrintable)
+				{
+					auto ConvertedString = StringCast<TCHAR>(static_cast<const ANSICHAR*>(DebugInfo), RecalculatedSize);
+					FString DebugText(ConvertedString.Length(), ConvertedString.Get());
+					DebugText.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
+					DebugText.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+					UE_LOG(LogHttp, VeryVerbose, TEXT("%p: Sent header (%d bytes) - %s"), this, RecalculatedSize, *DebugText);
+				}
+				else
+				{
+					UE_LOG(LogHttp, VeryVerbose, TEXT("%p: Sent header (%d bytes) - contains binary data"), this, RecalculatedSize);
+				}
 			}
 			break;
 
@@ -679,6 +778,13 @@ bool FCurlHttpRequest::SetupRequest()
 		curl_easy_setopt(EasyHandle, CURLOPT_HTTPHEADER, HeaderList);
 	}
 
+	// Set connection timeout in seconds
+	int32 HttpConnectionTimeout = FHttpModule::Get().GetHttpConnectionTimeout();
+	if (HttpConnectionTimeout >= 0)
+	{
+		curl_easy_setopt(EasyHandle, CURLOPT_CONNECTTIMEOUT, HttpConnectionTimeout);
+	}
+
 	UE_LOG(LogHttp, Log, TEXT("%p: Starting %s request to URL='%s'"), this, *Verb, *URL);
 	return true;
 }
@@ -687,27 +793,46 @@ bool FCurlHttpRequest::ProcessRequest()
 {
 	check(EasyHandle);
 
-	if (!SetupRequest())
+	// Clear the info cache log so we don't output messages from previous requests when reusing/retrying a request
+	for (FString& Line : InfoMessageCache)
 	{
-		UE_LOG(LogHttp, Warning, TEXT("Could not set libcurl options for easy handle, processing HTTP request failed. Increase verbosity for additional information."));
-
-		// No response since connection failed
-		Response = NULL;
-		// Cleanup and call delegate
-		FinishedRequest();
-
-		return false;
+		Line.Reset();
 	}
 
-	// Mark as in-flight to prevent overlapped requests using the same object
-	CompletionStatus = EHttpRequestStatus::Processing;
-	// Response object to handle data that comes back after starting this request
-	Response = MakeShareable(new FCurlHttpResponse(*this));
-	// Add to global list while being processed so that the ref counted request does not get deleted
-	FHttpModule::Get().GetHttpManager().AddThreadedRequest(SharedThis(this));
-	
-	UE_LOG(LogHttp, Verbose, TEXT("%p: request (easy handle:%p) has been added to threaded queue for processing"), this, EasyHandle );
-	return true;
+	bool bStarted = false;
+	if (!FHttpModule::Get().GetHttpManager().IsDomainAllowed(URL))
+	{
+		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. URL '%s' is not using a whitelisted domain. %p"), *URL, this);
+	}
+	else if (!SetupRequest())
+	{
+		UE_LOG(LogHttp, Warning, TEXT("Could not set libcurl options for easy handle, processing HTTP request failed. Increase verbosity for additional information."));
+	}
+	else
+	{
+		bStarted = true;
+	}
+
+	if (!bStarted)
+	{
+		// No response since connection failed
+		Response = nullptr;
+		// Cleanup and call delegate
+		FinishedRequest();
+	}
+	else
+	{
+		// Mark as in-flight to prevent overlapped requests using the same object
+		CompletionStatus = EHttpRequestStatus::Processing;
+		// Response object to handle data that comes back after starting this request
+		Response = MakeShareable(new FCurlHttpResponse(*this));
+		// Add to global list while being processed so that the ref counted request does not get deleted
+		FHttpModule::Get().GetHttpManager().AddThreadedRequest(SharedThis(this));
+
+		UE_LOG(LogHttp, Verbose, TEXT("%p: request (easy handle:%p) has been added to threaded queue for processing"), this, EasyHandle);
+	}
+
+	return bStarted;
 }
 
 bool FCurlHttpRequest::StartThreadedRequest()

@@ -28,6 +28,7 @@ public:
 
 	// FDynamicRHI interface.
 	virtual void Init() final override;
+	virtual void PostInit() final override;
 	virtual void Shutdown() final override;;
 	virtual const TCHAR* GetName() final override { return TEXT("Vulkan"); }
 

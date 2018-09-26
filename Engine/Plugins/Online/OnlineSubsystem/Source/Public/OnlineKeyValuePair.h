@@ -351,6 +351,16 @@ public:
 	void GetValue(TSharedPtr<class FJsonObject>& OutData) const;
 
 	/**
+	 * Returns true if Type is numeric
+	 */
+	bool IsNumeric() const
+	{
+		return Type == EOnlineKeyValuePairDataType::Int32 || Type == EOnlineKeyValuePairDataType::Int64 ||
+				  Type == EOnlineKeyValuePairDataType::UInt32 || Type == EOnlineKeyValuePairDataType::UInt64 ||
+				  Type == EOnlineKeyValuePairDataType::Float || Type == EOnlineKeyValuePairDataType::Double;
+	}
+
+	/**
 	 * Increments the value by the specified amount
 	 * 
 	 * @param IncBy the amount to increment by
@@ -358,9 +368,7 @@ public:
 	template<typename TYPE, EOnlineKeyValuePairDataType::Type ENUM_TYPE>
 	FORCEINLINE void Increment(TYPE IncBy)
 	{
-		checkSlow(Type == EOnlineKeyValuePairDataType::Int32 || Type == EOnlineKeyValuePairDataType::Int64 ||
-				  Type == EOnlineKeyValuePairDataType::UInt32 || Type == EOnlineKeyValuePairDataType::UInt64 ||
-				  Type == EOnlineKeyValuePairDataType::Float || Type == EOnlineKeyValuePairDataType::Double);
+		checkSlow(IsNumeric());
 		if (Type == ENUM_TYPE)
 		{
 			*(TYPE*)&Value += IncBy;
@@ -375,9 +383,7 @@ public:
 	template<typename TYPE, EOnlineKeyValuePairDataType::Type ENUM_TYPE>
 	FORCEINLINE void Decrement(TYPE DecBy)
 	{
-		checkSlow(Type == EOnlineKeyValuePairDataType::Int32 || Type == EOnlineKeyValuePairDataType::Int64 ||
-				  Type == EOnlineKeyValuePairDataType::UInt32 || Type == EOnlineKeyValuePairDataType::UInt64 ||
-				  Type == EOnlineKeyValuePairDataType::Float || Type == EOnlineKeyValuePairDataType::Double);
+		checkSlow(IsNumeric());
 		if (Type == ENUM_TYPE)
 		{
 			*(TYPE*)&Value -= DecBy;
@@ -423,9 +429,10 @@ public:
 	* Insert variant data into json object
 	*
 	* @param JsonObject json object to insert data into
-	* @param Name field name for value. This will have a type suffix appended onto it that is used when converting back to variant data
+	* @param Name field name for value
+	* @param bWithTypeSuffix True if you would like the type suffix appended to the name
 	*/
-	void AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, const FString& Name) const;
+	void AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, const FString& Name, const bool bWithTypeSuffix = true) const;
 
 	/**
 	* Convert json object to variant data from Name_

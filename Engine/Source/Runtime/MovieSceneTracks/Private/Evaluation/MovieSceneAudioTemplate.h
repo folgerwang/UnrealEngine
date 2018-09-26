@@ -19,7 +19,7 @@ struct FMovieSceneAudioSectionTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieSceneAudioSectionTemplateData() : Sound(nullptr), AudioStartOffset(0.0f), RowIndex(0), bOverrideAttenuation(false), AttenuationSettings(nullptr) {}
+	FMovieSceneAudioSectionTemplateData() : Sound(nullptr), AudioStartOffset(0.0f), SectionStartTimeSeconds(0.0f), RowIndex(0), bOverrideAttenuation(false), AttenuationSettings(nullptr) {}
 	FMovieSceneAudioSectionTemplateData(const UMovieSceneAudioSection& Section);
 
 	/** Ensure that the sound is playing for the specified audio component and data */
@@ -73,8 +73,8 @@ USTRUCT()
 struct FMovieSceneAudioSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
-	
-	FMovieSceneAudioSectionTemplate() {}
+
+	FMovieSceneAudioSectionTemplate();
 	FMovieSceneAudioSectionTemplate(const UMovieSceneAudioSection& Section);
 
 	UPROPERTY()

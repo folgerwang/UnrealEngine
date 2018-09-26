@@ -375,7 +375,10 @@ namespace UnrealBuildTool
 	 * 	<!-- optional additions to the GameActivity after imports in GameActivity.java -->
 	 *  <gameActivityPostImportAdditions> </gameActivityPostImportAdditions>
 	 *  
-	 * 	<!-- optional additions to the GameActivity class in GameActivity.java -->
+	 * 	<!-- optional additions to the GameActivity class implements in GameActivity.java (end each line with a comma) -->
+	 * 	<gameActivityImplementsAdditions> </gameActivityImplementsAdditions>
+	 *
+	 * 	<!-- optional additions to the GameActivity class body in GameActivity.java -->
 	 * 	<gameActivityClassAdditions> </gameActivityOnClassAdditions>
 	 * 	
 	 * 	<!-- optional additions to GameActivity onCreate metadata reading in GameActivity.java -->
@@ -510,10 +513,13 @@ namespace UnrealBuildTool
 		private UPLContext GlobalContext;
 		private Dictionary<string, UPLContext> Contexts;
 		private int ContextIndex;
+		private String LastError;
 
 		public UnrealPluginLanguage(FileReference InProjectFile, List<string> InXMLFiles, List<string> InArchitectures, string InXMLNameSpace, string InRootDefinition, UnrealTargetPlatform InTargetPlatform)
 		{
 			ProjectFile = InProjectFile;
+
+			LastError = null;
 
 			Contexts = new Dictionary<string, UPLContext>();
 			GlobalContext = new UPLContext("", "");
@@ -540,16 +546,20 @@ namespace UnrealBuildTool
 					}
 					catch (Exception e)
 					{
-						Log.TraceError("\nUnreal Plugin file {0} parsing failed! {1}", Filename, e);
+						LastError = String.Format("Unreal Plugin file {0} parsing failed! {1}", Filename, e);
+						Log.TraceError("\n{0}", LastError);
 					}
 				}
 				else
 				{
-					Log.TraceError("\nUnreal Plugin file {0} missing!", Filename);
+					LastError = String.Format("Unreal Plugin file {0} missing!", Filename);
+					Log.TraceError("\n{0}", LastError);
 					Log.TraceInformation("\nCWD: {0}", Directory.GetCurrentDirectory());
 				}
 			}
 		}
+
+		public String GetLastError() { return LastError; }
 
 		public bool GetTrace() { return bGlobalTrace; }
 		public void SetTrace() { bGlobalTrace = true; }
@@ -1677,7 +1687,7 @@ namespace UnrealBuildTool
 						{
 							string Src = GetAttribute(CurrentContext, Node, "src");
 							string Dst = GetAttribute(CurrentContext, Node, "dst");
-							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false, "true"));
+							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "force", true, false, "true"));
 							if (Src != null && Dst != null)
 							{
 								if (File.Exists(Src))
@@ -1712,7 +1722,7 @@ namespace UnrealBuildTool
 						{
 							string Src = GetAttribute(CurrentContext, Node, "src");
 							string Dst = GetAttribute(CurrentContext, Node, "dst");
-							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false, "true"));
+							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "force", true, false, "true"));
 							if (Src != null && Dst != null)
 							{
 								CopyFileDirectory(Src, Dst, bForce);

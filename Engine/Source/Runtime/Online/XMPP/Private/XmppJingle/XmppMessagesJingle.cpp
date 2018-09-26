@@ -257,8 +257,8 @@ static void ConvertFromMessage(FXmppMessageJingle& OutMessageJingle, const FXmpp
 
 static void DebugPrintMessage(const FXmppMessage& Message)
 {
-	UE_LOG(LogXmpp, Log, TEXT("   FromJid = %s"), *Message.FromJid.GetFullPath());
-	UE_LOG(LogXmpp, Log, TEXT("   ToJid= %s"), *Message.ToJid.GetFullPath());
+	UE_LOG(LogXmpp, Log, TEXT("   FromJid = %s"), *Message.FromJid.ToDebugString());
+	UE_LOG(LogXmpp, Log, TEXT("   ToJid= %s"), *Message.ToJid.ToDebugString());
 	UE_LOG(LogXmpp, Log, TEXT("   Type= %s"), *Message.Type);
 	UE_LOG(LogXmpp, Log, TEXT("   Timestamp= %s"), *Message.Timestamp.ToString());
 	UE_LOG(LogXmpp, Log, TEXT("   Payload= %s"), *Message.Payload);
@@ -271,7 +271,7 @@ bool FXmppMessagesJingle::SendMessage(const FXmppUserJid& RecipientId, const FSt
 	{
 		if (!RecipientId.IsValid())
 		{
-			UE_LOG(LogXmpp, Warning, TEXT("Unable to send message. Invalid jid: %s"), *RecipientId.GetFullPath());
+			UE_LOG(LogXmpp, Warning, TEXT("Unable to send message. Invalid jid: %s"), *RecipientId.ToDebugString());
 			return false;
 		}
 

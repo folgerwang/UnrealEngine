@@ -82,7 +82,7 @@ void FPIEPreviewDevice::ComputeViewportSize(const bool bClampWindowSize)
 	if (bClampWindowSize)
 	{
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 		auto DesktopWidth = DisplayMetrics.VirtualDisplayRect.Right - DisplayMetrics.VirtualDisplayRect.Left;
 		auto DesktopHeight = DisplayMetrics.VirtualDisplayRect.Bottom - DisplayMetrics.VirtualDisplayRect.Top;
@@ -397,6 +397,7 @@ FString FPIEPreviewDevice::GetProfile() const
 				DeviceParameters.Add("AndroidVersion", AndroidProperties.AndroidVersion);
 				DeviceParameters.Add("DeviceMake", AndroidProperties.DeviceMake);
 				DeviceParameters.Add("DeviceModel", AndroidProperties.DeviceModel);
+				DeviceParameters.Add("DeviceBuildNumber", AndroidProperties.DeviceBuildNumber);
 				DeviceParameters.Add("UsingHoudini", AndroidProperties.UsingHoudini ? "true" : "false");
 
 				FString PIEProfileName = AndroidDeviceProfileSelector->GetDeviceProfileName(DeviceParameters);
@@ -405,18 +406,14 @@ FString FPIEPreviewDevice::GetProfile() const
 					Profile = PIEProfileName;
 				}
 			}
+			break;
 		}
-		break;
-
 		case EPIEPreviewDeviceType::IOS:
 		{
 			FPIEIOSDeviceProperties& IOSProperties = DeviceSpecs->IOSProperties;
 			Profile = IOSProperties.DeviceModel;
+			break;
 		}
-		break;
-
-		default:
-		break;
 	}
 
 	return Profile;

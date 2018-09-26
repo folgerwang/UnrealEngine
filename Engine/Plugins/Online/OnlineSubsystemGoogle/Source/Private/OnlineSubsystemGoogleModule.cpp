@@ -22,14 +22,14 @@ public:
 		{
 			if(!OnlineSub->Init())
 			{
-				UE_LOG(LogOnline, Warning, TEXT("Google API failed to initialize!"));
+				UE_LOG_ONLINE(Warning, TEXT("Google API failed to initialize!"));
 				OnlineSub->Shutdown();
 				OnlineSub = nullptr;
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Google API disabled!"));
+			UE_LOG_ONLINE(Warning, TEXT("Google API disabled!"));
 			OnlineSub->Shutdown();
 			OnlineSub = nullptr;
 		}
@@ -40,7 +40,7 @@ public:
 
 void FOnlineSubsystemGoogleModule::StartupModule()
 {
-	UE_LOG(LogOnline, Log, TEXT("Google Startup!"));
+	UE_LOG_ONLINE(Log, TEXT("Google Startup!"));
 
 	GoogleFactory = new FOnlineFactoryGoogle();
 
@@ -51,7 +51,7 @@ void FOnlineSubsystemGoogleModule::StartupModule()
 
 void FOnlineSubsystemGoogleModule::ShutdownModule()
 {
-	UE_LOG(LogOnline, Log, TEXT("Google Shutdown!"));
+	UE_LOG_ONLINE(Log, TEXT("Google Shutdown!"));
 
 	FOnlineSubsystemModule& OSS = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>("OnlineSubsystem");
 	OSS.UnregisterPlatformService(GOOGLE_SUBSYSTEM);

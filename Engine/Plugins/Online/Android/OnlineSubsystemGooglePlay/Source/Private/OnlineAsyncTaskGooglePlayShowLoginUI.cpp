@@ -25,7 +25,7 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::Start_OnTaskThread()
 {	
 	if(Subsystem->GetGameServices() == nullptr)
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: GameServicesPtr is null."));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: GameServicesPtr is null."));
 		bWasSuccessful = false;
 		bIsComplete = true;
 		return;
@@ -33,14 +33,14 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::Start_OnTaskThread()
 
 	if(Subsystem->GetGameServices()->IsAuthorized())
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: User authorized."));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: User authorized."));
 		// User is already authorized, nothing to do.
 		bWasSuccessful = true;
 		Subsystem->GetGameServices()->Players().FetchSelf([this](gpg::PlayerManager::FetchSelfResponse const &response) { OnFetchSelfResponse(response); });
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: User NOT authorized, start UI."));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: User NOT authorized, start UI."));
 		// The user isn't authorized, show the sign-in UI.
 		Subsystem->GetGameServices()->StartAuthorizationUI();
 	}
@@ -48,14 +48,14 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::Start_OnTaskThread()
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::Finalize()
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: Finalize."));
+	UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: Finalize."));
 	// Async task manager owns the task and is responsible for cleaning it up.
 	Subsystem->CurrentShowLoginUITask = nullptr;
 }
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::TriggerDelegates()
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: TriggerDelegates Success: %d."), WasSuccessful());
+	UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: TriggerDelegates Success: %d."), WasSuccessful());
 	TSharedPtr<const FUniqueNetIdGooglePlay> UserId = Subsystem->GetIdentityGooglePlay()->GetCurrentUserId();
 
 	if (bWasSuccessful && !UserId.IsValid())
@@ -74,7 +74,7 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::TriggerDelegates()
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::ProcessGoogleClientConnectResult(bool bInSuccessful, FString AccessToken)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::ProcessGoogleClientConnectResult %d %s"), bInSuccessful, *AccessToken);
+	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::ProcessGoogleClientConnectResult %d %s"), bInSuccessful, *AccessToken);
 
 	if (bInSuccessful)
 	{
@@ -90,23 +90,23 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::ProcessGoogleClientConnectResult(boo
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::OnAuthActionFinished(gpg::AuthOperation InOp, gpg::AuthStatus InStatus)
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::OnAuthActionFinished %d %d"), (int32)InOp, (int32)InStatus);
+	UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::OnAuthActionFinished %d %d"), (int32)InOp, (int32)InStatus);
 
 	gpg::GameServices* GameServices = Subsystem->GetGameServices();
 	const bool bIsAuthorized = GameServices ? GameServices->IsAuthorized() : false;
-	UE_LOG(LogOnline, Warning, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::Authorized %d"), bIsAuthorized);
+	UE_LOG_ONLINE(Warning, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::Authorized %d"), bIsAuthorized);
 
 	if (InOp == gpg::AuthOperation::SIGN_IN)
 	{
 		bWasSuccessful = (InStatus == gpg::AuthStatus::VALID);
 		if (bWasSuccessful)
 		{
-			UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI Fetching Self"));
+			UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI Fetching Self"));
 			Subsystem->GetGameServices()->Players().FetchSelf([this](gpg::PlayerManager::FetchSelfResponse const &response) { OnFetchSelfResponse(response); });
 		}
 		else
 		{
-			UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI Failure"));
+			UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI Failure"));
 			bIsComplete = true;
 		}
 	}
@@ -114,10 +114,10 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::OnAuthActionFinished(gpg::AuthOperat
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::OnFetchSelfResponse(const gpg::PlayerManager::FetchSelfResponse& SelfResponse)
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::OnFetchSelfResponse"));
+	UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI::OnFetchSelfResponse"));
 	if(gpg::IsSuccess(SelfResponse.status))
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI FetchSelf success"));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI FetchSelf success"));
 		Subsystem->GetIdentityGooglePlay()->SetPlayerDataFromFetchSelfResponse(SelfResponse.data);
 
 		bool bUseGetAccounts = false;
@@ -140,7 +140,7 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::OnFetchSelfResponse(const gpg::Playe
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("FetchSelf Response Status Not Successful"));
+		UE_LOG_ONLINE(Warning, TEXT("FetchSelf Response Status Not Successful"));
 		bIsComplete = true;
 	}
 }

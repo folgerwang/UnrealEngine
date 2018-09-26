@@ -226,9 +226,9 @@ void FStreamingLevelCustomization::OnSetLevelPosition( float NewValue, ETextComm
 				ULevelStreaming* LevelStreaming = LevelModel->GetLevelStreaming().Get();
 				// Create transform with new translation
 				FTransform LevelTransform = LevelStreaming->LevelTransform;
-				FVector LevelTraslation = LevelTransform.GetTranslation();
-				LevelTraslation[Axis] = NewValue;
-				LevelTransform.SetTranslation(LevelTraslation);
+				FVector LevelTranslation = LevelTransform.GetTranslation();
+				LevelTranslation[Axis] = NewValue;
+				LevelTransform.SetTranslation(LevelTranslation);
 				// Transform level
 				FLevelUtils::SetEditorTransform(LevelStreaming, LevelTransform);
 			}

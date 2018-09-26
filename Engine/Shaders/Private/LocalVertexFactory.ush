@@ -377,7 +377,7 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 half3x3 CalcTangentToWorldNoScale(in half3x3 TangentToLocal)
 {
 	half3x3 LocalToWorld = GetLocalToWorld3x3();
-	half3 InvScale = Primitive.InvNonUniformScale.xyz;
+	half3 InvScale = Primitive.InvNonUniformScaleAndDeterminantSign.xyz;
 	LocalToWorld[0] *= InvScale.x;
 	LocalToWorld[1] *= InvScale.y;
 	LocalToWorld[2] *= InvScale.z;
@@ -398,6 +398,12 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.InstanceLocalToWorld = mul(GetInstanceTransform(Intermediates), Primitive.LocalToWorld);
 	Result.InstanceLocalPosition = Input.Position.xyz;
 	Result.PerInstanceParams = Intermediates.PerInstanceParams;
+
+	// Assumes instance transform never change, which means per-instance
+	// motion will cause TAA and motion blur artifacts
+	Result.PrevFrameLocalToWorld = mul(GetInstanceTransform(Intermediates), PreviousLocalToWorld);
+#else
+	Result.PrevFrameLocalToWorld = PreviousLocalToWorld;
 #endif	// USE_INSTANCING
 
 	Result.PreSkinnedPosition = Input.Position.xyz;
@@ -646,7 +652,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float TangentSign;
 	Intermediates.TangentToLocal = CalcTangentToLocal(Input, TangentSign);
 	Intermediates.TangentToWorld = CalcTangentToWorld(Intermediates,Intermediates.TangentToLocal);
-	Intermediates.TangentToWorldSign = TangentSign * Primitive.LocalToWorldDeterminantSign;
+	Intermediates.TangentToWorldSign = TangentSign * Primitive.InvNonUniformScaleAndDeterminantSign.w;
 
 #if USE_INSTANCING
 	// x = per-instance random, y = per-instance fade out factor, z = zero or one depending of if it is shown at all, w is dither cutoff 

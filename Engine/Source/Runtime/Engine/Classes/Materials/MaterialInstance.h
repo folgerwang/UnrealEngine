@@ -54,6 +54,11 @@ public:
 	{
 		return !((*this) == Other);
 	}
+
+	FScalarParameterAtlasInstanceData()
+		: bIsUsedAsAtlasPosition(false)
+	{
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -337,6 +342,11 @@ class UMaterialInstance : public UMaterialInterface
 	UPROPERTY(EditAnywhere, Category=MaterialInstance)
 	struct FMaterialInstanceBasePropertyOverrides BasePropertyOverrides;
 
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+	// Relative offset to the beginning of the package containing this
+	uint32 OffsetToFirstResource;
+#endif
+
 	//Cached copies of the base property overrides or the value from the parent to avoid traversing the parent chain for each access.
 	float OpacityMaskClipValue;
 	TEnumAsByte<EBlendMode> BlendMode;
@@ -400,7 +410,9 @@ public:
 	virtual ENGINE_API FMaterialResource* AllocatePermutationResource();
 	virtual ENGINE_API FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) override;
 	virtual ENGINE_API const FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) const override;
+#if WITH_EDITOR
 	virtual ENGINE_API bool GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutSliderMin, float& OutSliderMax) const override;
+#endif
 	virtual ENGINE_API bool GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly = false) const override;
 	virtual ENGINE_API bool IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const override;
 	virtual ENGINE_API bool GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly = false) const override;
@@ -549,7 +561,9 @@ public:
 	ENGINE_API virtual bool GetStaticSwitchParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides = false) const override;
 	ENGINE_API virtual bool GetStaticComponentMaskParameterDefaultValue(const FMaterialParameterInfo& ParameterInfo, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid& OutExpressionGuid, bool bCheckOwnedGlobalOverrides = false) const override;
 
+#if WITH_EDITOR
 	ENGINE_API virtual bool GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const override;
+#endif
 
 	/** Appends textures referenced by expressions, including nested functions. */
 	ENGINE_API virtual void AppendReferencedTextures(TArray<UTexture*>& InOutTextures) const override;

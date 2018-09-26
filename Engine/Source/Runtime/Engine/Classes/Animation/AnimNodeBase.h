@@ -386,11 +386,11 @@ struct ENGINE_API FPoseLinkBase
 #endif
 
 protected:
-	/** The non serialized node pointer. */
-	struct FAnimNode_Base* LinkedNode;
-
 	/** Flag to prevent reentry when dealing with circular trees. */
 	bool bProcessed;
+
+	/** The non serialized node pointer. */
+	struct FAnimNode_Base* LinkedNode;
 
 public:
 	FPoseLinkBase()
@@ -398,8 +398,8 @@ public:
 #if WITH_EDITORONLY_DATA
 		, SourceLinkID(INDEX_NONE)
 #endif
-		, LinkedNode(NULL)
 		, bProcessed(false)
+		, LinkedNode(NULL)
 	{
 	}
 

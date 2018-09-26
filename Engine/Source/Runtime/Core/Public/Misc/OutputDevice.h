@@ -195,6 +195,14 @@ public:
 		return false;
 	}
 
+	/**
+	* @return whether this output device can be used from multiple threads simultaneously without any locking
+	*/
+	virtual bool CanBeUsedOnMultipleThreads() const
+	{
+		return false;
+	}
+
 	// Simple text printing.
 	void Log( const TCHAR* S );
 	void Log( ELogVerbosity::Type Verbosity, const TCHAR* S );

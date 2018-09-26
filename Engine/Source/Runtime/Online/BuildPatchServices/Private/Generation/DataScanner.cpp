@@ -9,33 +9,31 @@
 
 namespace BuildPatchServices
 {
-	const uint32 WindowSize = BuildPatchServices::ChunkDataSize;
-
 	class FDataScanner
 		: public IDataScanner
 	{
 	public:
-		FDataScanner(const TArray<uint8>& Data, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector);
+		FDataScanner(const TArray<uint32>& ChunkWindowSizes, const TArray<uint8>& Data, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector);
 		virtual ~FDataScanner();
 
 		virtual bool IsComplete() override;
 		virtual TArray<FChunkMatch> GetResultWhenComplete() override;
 
 	private:
-		uint32 ConsumeData(const uint8* Data, uint32 DataLen);
-		bool FindChunkDataMatch(FGuid& ChunkMatch, FSHAHash& ChunkSha);
+		uint32 ConsumeData(FRollingHash& RollingHash, const uint8* Data, uint32 DataLen);
+		bool FindChunkDataMatch(const TMap<uint64, TSet<FGuid>>& ChunkInventory, const TMap<FGuid, FSHAHash>& ChunkShaHashes, FRollingHash& RollingHash, FGuid& ChunkMatch, FSHAHash& ChunkSha);
+		int32 InsertMatch(TArray<FChunkMatch>& CurrentMatches, int32 SearchIdx, const uint64& InDataOffset, const FGuid& InChunkGuid, const uint32& InWindowSize);
 		TArray<FChunkMatch> ScanData();
 
 	private:
+		const bool bAllowSkipMatches;
+		const TArray<uint32>& ChunkWindowSizes;
 		const TArray<uint8>& Data;
 		ICloudEnumerationRef CloudEnumeration;
 		FStatsCollectorRef StatsCollector;
 		FThreadSafeBool bIsComplete;
 		FThreadSafeBool bShouldAbort;
 		TFuture<TArray<FChunkMatch>> FutureResult;
-		FRollingHash<WindowSize> RollingHash;
-		TMap<uint64, TSet<FGuid>> ChunkInventory;
-		TMap<FGuid, FSHAHash> ChunkShaHashes;
 		volatile FStatsCollector::FAtomicValue* StatCreatedScanners;
 		volatile FStatsCollector::FAtomicValue* StatRunningScanners;
 		volatile FStatsCollector::FAtomicValue* StatCompleteScanners;
@@ -51,8 +49,10 @@ namespace BuildPatchServices
 		static FThreadSafeCounter NumRunningScanners;
 	};
 
-	FDataScanner::FDataScanner(const TArray<uint8>& InData, const ICloudEnumerationRef& InCloudEnumeration, const FStatsCollectorRef& InStatsCollector)
-		: Data(InData)
+	FDataScanner::FDataScanner(const TArray<uint32>& InChunkWindowSizes, const TArray<uint8>& InData, const ICloudEnumerationRef& InCloudEnumeration, const FStatsCollectorRef& InStatsCollector)
+		: bAllowSkipMatches(true)
+		, ChunkWindowSizes(InChunkWindowSizes)
+		, Data(InData)
 		, CloudEnumeration(InCloudEnumeration)
 		, StatsCollector(InStatsCollector)
 		, bIsComplete(false)
@@ -99,7 +99,7 @@ namespace BuildPatchServices
 		return FutureResult.Get();
 	}
 
-	uint32 FDataScanner::ConsumeData(const uint8* DataPtr, uint32 DataLen)
+	uint32 FDataScanner::ConsumeData(FRollingHash& RollingHash, const uint8* DataPtr, uint32 DataLen)
 	{
 		uint32 NumDataNeeded = RollingHash.GetNumDataNeeded();
 		if (NumDataNeeded > 0 && NumDataNeeded <= DataLen)
@@ -111,9 +111,9 @@ namespace BuildPatchServices
 		return 0;
 	}
 
-	bool FDataScanner::FindChunkDataMatch(FGuid& ChunkMatch, FSHAHash& ChunkSha)
+	bool FDataScanner::FindChunkDataMatch(const TMap<uint64, TSet<FGuid>>& ChunkInventory, const TMap<FGuid, FSHAHash>& ChunkShaHashes, FRollingHash& RollingHash, FGuid& ChunkMatch, FSHAHash& ChunkSha)
 	{
-		TSet<FGuid>* PotentialMatches = ChunkInventory.Find(RollingHash.GetWindowHash());
+		const TSet<FGuid>* PotentialMatches = ChunkInventory.Find(RollingHash.GetWindowHash());
 		bool bFoundMatch = false;
 		if (PotentialMatches != nullptr)
 		{
@@ -121,7 +121,7 @@ namespace BuildPatchServices
 			// Always return first match in list however count all collisions.
 			for (const FGuid& PotentialMatch : *PotentialMatches)
 			{
-				FSHAHash* PotentialMatchSha = ChunkShaHashes.Find(PotentialMatch);
+				const FSHAHash* PotentialMatchSha = ChunkShaHashes.Find(PotentialMatch);
 				if (PotentialMatchSha != nullptr && *PotentialMatchSha == ChunkSha)
 				{
 					if (!bFoundMatch)
@@ -139,78 +139,130 @@ namespace BuildPatchServices
 		return bFoundMatch;
 	}
 
+	int32 FDataScanner::InsertMatch(TArray<FChunkMatch>& CurrentMatches, int32 SearchIdx, const uint64& DataFirst, const FGuid& ChunkGuid, const uint32& DataSize)
+	{
+		const uint64 DataLast = (DataFirst + DataSize) - 1;
+
+		// The rule is it can overlap anything before it, but the next item in the list must not be overlapped if it is bigger
+		// This is assuming a lot about the code calling it, but that is ok for now
+		// There are several places that need behavior like this, FBlockStructure should be extended to support merge-able meta, or no-merge, ignore/replace type behavior.
+
+		// Find where start sits between
+		for(int32 Idx = 0/*SearchIdx*/; Idx < CurrentMatches.Num(); ++Idx)
+		{
+			const uint64 ThisMatchFirst = CurrentMatches[Idx].DataOffset;
+			const uint64 ThisMatchLast = (ThisMatchFirst + CurrentMatches[Idx].WindowSize) - 1;
+			const uint64 ThisMatchSize = CurrentMatches[Idx].WindowSize;
+
+			// Can be inserted before?
+			if(DataFirst < ThisMatchFirst)
+			{
+				// Obv insert if we fit entirely before ThisMatch..
+				const bool bFitsInGap = DataLast < ThisMatchFirst;
+				if (bFitsInGap)
+				{
+					check(DataSize < ThisMatchSize);
+					CurrentMatches.EmplaceAt(Idx, DataFirst, ChunkGuid, DataSize);
+					return Idx;
+				}
+				return SearchIdx;
+			}
+			// No shits given based on assumptions...
+			else if (DataFirst == ThisMatchFirst)
+			{
+				return Idx;
+			}
+			// No shits given based on assumptions...
+			else if (DataLast <= ThisMatchLast)
+			{
+				return Idx;
+			}
+			// Otherwise may go after..
+		}
+
+		// If we did nothing in the loop, we add to end!
+		return CurrentMatches.Emplace(DataFirst, ChunkGuid, DataSize);
+	}
+
 	TArray<FChunkMatch> FDataScanner::ScanData()
 	{
 		static volatile FStatsCollector::FAtomicValue TempTimerValue;
-		// The return data.
-		TArray<FChunkMatch> DataScanResult;
 
 		// Count running scanners.
 		NumRunningScanners.Increment();
+		
+		// The return data.
+		TArray<FChunkMatch> DataScanResult;
 
-		// Get a copy of the chunk inventory.
-		ChunkInventory = CloudEnumeration->GetChunkInventory();
-		ChunkShaHashes = CloudEnumeration->GetChunkShaHashes();
+		// Get refs for the chunk inventory.
+		const TMap<uint64, TSet<FGuid>>& ChunkInventory = CloudEnumeration->GetChunkInventory();
+		const TMap<FGuid, FSHAHash>& ChunkShaHashes = CloudEnumeration->GetChunkShaHashes();
 
-		// Temp values.
-		FGuid ChunkMatch;
-		FSHAHash ChunkSha;
-		uint64 CpuTimer;
-
-		// Track last match so we know if we can start skipping data. This will also cover us for the overlap with previous scanner.
-		uint64 LastMatch = 0;
-
-		// Loop over and process all data.
-		uint32 NextByte = ConsumeData(&Data[0], Data.Num());
-		bool bScanningData = true;
+		for (const uint32 WindowSize : ChunkWindowSizes)
 		{
-			FStatsCollector::AccumulateTimeBegin(CpuTimer);
-			FStatsParallelScopeTimer ParallelScopeTimer(&TempTimerValue, StatRealTime, StatRunningScanners);
-			while (bScanningData && !bShouldAbort)
+			FRollingHash RollingHash(WindowSize);
+
+			// Temp values.
+			int32 TempMatchIdx = 0;
+			FGuid ChunkMatch;
+			FSHAHash ChunkSha;
+			uint64 CpuTimer;
+
+			// Track last match so we know if we can start skipping data. This will also cover us for the overlap with previous scanner.
+			uint64 LastMatch = 0;
+
+			// Loop over and process all data.
+			uint32 NextByte = ConsumeData(RollingHash, &Data[0], Data.Num());
+			bool bScanningData = true;
 			{
-				const uint32 DataStart = NextByte - WindowSize;
-				const bool bChunkOverlap = DataStart < (LastMatch + WindowSize);
-				// Check for a chunk match at this offset.
-				const bool bFoundChunkMatch = FindChunkDataMatch(ChunkMatch, ChunkSha);
-				if (bFoundChunkMatch)
+				FStatsCollector::AccumulateTimeBegin(CpuTimer);
+				FStatsParallelScopeTimer ParallelScopeTimer(&TempTimerValue, StatRealTime, StatRunningScanners);
+				while (bScanningData && !bShouldAbort)
 				{
-					LastMatch = DataStart;
-					DataScanResult.Emplace(DataStart, ChunkMatch);
-				}
-				// We can start skipping over the chunk that we matched if we have no overlap potential, i.e. we know this match will not be rejected.
-				if (bFoundChunkMatch && !bChunkOverlap)
-				{
-					RollingHash.Clear();
-					const bool bHasEnoughData = (NextByte + WindowSize - 1) < static_cast<uint32>(Data.Num());
-					if (bHasEnoughData)
+					const uint32 DataStart = NextByte - WindowSize;
+					const bool bChunkOverlap = DataStart < (LastMatch + WindowSize);
+					// Check for a chunk match at this offset.
+					const bool bFoundChunkMatch = FindChunkDataMatch(ChunkInventory, ChunkShaHashes, RollingHash, ChunkMatch, ChunkSha);
+					if (bFoundChunkMatch)
 					{
-						const uint32 Consumed = ConsumeData(&Data[NextByte], Data.Num() - NextByte);
-						FStatsCollector::Accumulate(StatSkippedData, Consumed);
-						NextByte += Consumed;
+						LastMatch = DataStart;
+						TempMatchIdx = InsertMatch(DataScanResult, TempMatchIdx, DataStart, ChunkMatch, WindowSize);
 					}
+					// We can start skipping over the chunk that we matched if we have no overlap potential, i.e. we know this match will not be rejected.
+					if (bAllowSkipMatches && bFoundChunkMatch && !bChunkOverlap)
+					{
+						RollingHash.Clear();
+						const bool bHasEnoughData = (NextByte + WindowSize - 1) < static_cast<uint32>(Data.Num());
+						if (bHasEnoughData)
+						{
+							const uint32 Consumed = ConsumeData(RollingHash, &Data[NextByte], Data.Num() - NextByte);
+							FStatsCollector::Accumulate(StatSkippedData, Consumed);
+							NextByte += Consumed;
+						}
+						else
+						{
+							bScanningData = false;
+						}
+					}
+					// Otherwise we only move forwards by one byte.
 					else
 					{
-						bScanningData = false;
+						const bool bHasMoreData = NextByte < static_cast<uint32>(Data.Num());
+						if (bHasMoreData)
+						{
+							// Roll over next byte.
+							RollingHash.RollForward(Data[NextByte++]);
+						}
+						else
+						{
+							bScanningData = false;
+						}
 					}
 				}
-				// Otherwise we only move forwards by one byte.
-				else
-				{
-					const bool bHasMoreData = NextByte < static_cast<uint32>(Data.Num());
-					if (bHasMoreData)
-					{
-						// Roll over next byte.
-						RollingHash.RollForward(Data[NextByte++]);
-					}
-					else
-					{
-						bScanningData = false;
-					}
-				}
+				FStatsCollector::AccumulateTimeEnd(StatCpuTime, CpuTimer);
+				FStatsCollector::Accumulate(StatTotalData, Data.Num());
+				FStatsCollector::Set(StatProcessingSpeed, *StatTotalData / FStatsCollector::CyclesToSeconds(ParallelScopeTimer.GetCurrentTime()));
 			}
-			FStatsCollector::AccumulateTimeEnd(StatCpuTime, CpuTimer);
-			FStatsCollector::Accumulate(StatTotalData, Data.Num());
-			FStatsCollector::Set(StatProcessingSpeed, *StatTotalData / FStatsCollector::CyclesToSeconds(ParallelScopeTimer.GetCurrentTime()));
 		}
 
 		// Count running scanners.
@@ -233,8 +285,8 @@ namespace BuildPatchServices
 		return FDataScanner::NumRunningScanners.GetValue();
 	}
 
-	IDataScannerRef FDataScannerFactory::Create(const TArray<uint8>& Data, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector)
+	IDataScannerRef FDataScannerFactory::Create(const TArray<uint32>& ChunkWindowSizes, const TArray<uint8>& Data, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector)
 	{
-		return MakeShareable(new FDataScanner(Data, CloudEnumeration, StatsCollector));
+		return MakeShareable(new FDataScanner(ChunkWindowSizes, Data, CloudEnumeration, StatsCollector));
 	}
 }

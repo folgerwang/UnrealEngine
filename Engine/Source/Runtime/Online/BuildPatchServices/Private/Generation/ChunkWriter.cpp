@@ -1,312 +1,254 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Generation/ChunkWriter.h"
-#include "HAL/FileManager.h"
-#include "HAL/RunnableThread.h"
-#include "Misc/ScopeLock.h"
+#include "Logging/LogMacros.h"
+#include "Containers/Queue.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/Paths.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Async/Async.h"
+#include "Core/AsyncHelpers.h"
+#include "Common/FileSystem.h"
 #include "Data/ChunkData.h"
 #include "BuildPatchUtil.h"
 
+DECLARE_LOG_CATEGORY_CLASS(LogChunkWriter, Log, All);
+
+/** Here lies stats that should be reimplemented where possible
+
+StatFileCreateTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Create Time"), EStatFormat::Timer);
+StatCheckExistsTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Check Exist Time"), EStatFormat::Timer);
+StatCompressTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Compress Time"), EStatFormat::Timer);
+StatSerlialiseTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Serialize Time"), EStatFormat::Timer);
+StatChunksSaved = StatsCollector->CreateStat(TEXT("Chunk Writer: Num Saved"), EStatFormat::Value);
+StatDataWritten = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Size Written"), EStatFormat::DataSize);
+StatDataWriteSpeed = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Write Speed"), EStatFormat::DataSpeed);
+StatCompressionRatio = StatsCollector->CreateStat(TEXT("Chunk Writer: Compression Ratio"), EStatFormat::Percentage);
+
+*/
+
 namespace BuildPatchServices
 {
-	static const int32 ChunkQueueSize = 50;
+	typedef TTuple<TArray<uint8>, FGuid, uint64, FSHAHash> FChunkDataJob;
+	typedef TTuple <FGuid, int64> FChunkOutputSize;
+	typedef TTuple <FGuid, uint64> FChunkOutputHash;
+	typedef TTuple <FGuid, FSHAHash> FChunkOutputSha;
 
-	/* FQueuedChunkWriter implementation
-	*****************************************************************************/
-	DECLARE_LOG_CATEGORY_EXTERN(LogChunkWriter, Log, All);
-	DEFINE_LOG_CATEGORY(LogChunkWriter);
-	FChunkWriter::FQueuedChunkWriter::FQueuedChunkWriter()
+	class FWriterChunkDataAccess
+		: public IChunkDataAccess
 	{
-		bMoreChunks = true;
-	}
-
-	FChunkWriter::FQueuedChunkWriter::~FQueuedChunkWriter()
-	{
-		for (auto QueuedIt = ChunkFileQueue.CreateConstIterator(); QueuedIt; ++QueuedIt)
+	public:
+		FWriterChunkDataAccess(TArray<uint8>& InDataRef, FChunkHeader& InHeaderRef)
+			: DataRef(InDataRef)
+			, HeaderRef(InHeaderRef)
 		{
-			IChunkDataAccess* ChunkFile = *QueuedIt;
-			delete ChunkFile;
 		}
-		ChunkFileQueue.Empty();
-	}
-
-	bool FChunkWriter::FQueuedChunkWriter::Init()
-	{
-		IFileManager::Get().MakeDirectory(*ChunkDirectory, true);
-		return IFileManager::Get().DirectoryExists(*ChunkDirectory);
-	}
-
-	uint32 FChunkWriter::FQueuedChunkWriter::Run()
-	{
-		StatFileCreateTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Create Time"), EStatFormat::Timer);
-		StatCheckExistsTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Check Exist Time"), EStatFormat::Timer);
-		StatCompressTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Compress Time"), EStatFormat::Timer);
-		StatSerlialiseTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Serialize Time"), EStatFormat::Timer);
-		StatChunksSaved = StatsCollector->CreateStat(TEXT("Chunk Writer: Num Saved"), EStatFormat::Value);
-		StatDataWritten = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Size Written"), EStatFormat::DataSize);
-		StatDataWriteSpeed = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Write Speed"), EStatFormat::DataSpeed);
-		StatCompressionRatio = StatsCollector->CreateStat(TEXT("Chunk Writer: Compression Ratio"), EStatFormat::Percentage);
-
-		// Loop until there's no more chunks
-		while (ShouldBeRunning())
+		// IChunkDataAccess interface begin.
+		virtual void GetDataLock(const uint8** OutChunkData, const FChunkHeader** OutChunkHeader) const override
 		{
-			TUniquePtr<IChunkDataAccess> ChunkFile(GetNextChunk());
-			if (ChunkFile.IsValid())
+			(*OutChunkData) = DataRef.GetData();
+			(*OutChunkHeader) = &HeaderRef;
+		}
+		virtual void GetDataLock(uint8** OutChunkData, FChunkHeader** OutChunkHeader) override
+		{
+			(*OutChunkData) = DataRef.GetData();
+			(*OutChunkHeader) = &HeaderRef;
+		}
+		virtual void ReleaseDataLock() const
+		{
+		}
+		// IChunkDataAccess interface end.
+
+	private:
+		TArray<uint8>& DataRef;
+		FChunkHeader& HeaderRef;
+	};
+
+	class FParallelChunkWriter
+		: public IParallelChunkWriter
+	{
+	public:
+		FParallelChunkWriter(FParallelChunkWriterConfig InConfig, IFileSystem* InFileSystem, IChunkDataSerialization* InChunkDataSerialization, FStatsCollector* InStatsCollector)
+			: Config(MoveTemp(InConfig))
+			, FileSystem(InFileSystem)
+			, ChunkDataSerialization(InChunkDataSerialization)
+			, StatsCollector(InStatsCollector)
+			, bMoreDataIsExpected(true)
+			, bShouldAbort(false)
+		{
+			FileSystem->MakeDirectory(*Config.ChunkDirectory);
+			if (!FileSystem->DirectoryExists(*Config.ChunkDirectory))
 			{
-				FScopeLockedChunkData LockedChunkData(ChunkFile.Get());
-				const FGuid& ChunkGuid = LockedChunkData.GetHeader()->Guid;
-				const uint64& ChunkHash = LockedChunkData.GetHeader()->RollingHash;
-				const FString NewChunkFilename = FBuildPatchUtils::GetChunkNewFilename(EBuildPatchAppManifestVersion::GetLatestVersion(), ChunkDirectory, ChunkGuid, ChunkHash);
-
-				// To be a bit safer, make a few attempts at writing chunks
-				int32 RetryCount = 5;
-				bool bChunkSaveSuccess = false;
-				while (RetryCount > 0)
+				UE_LOG(LogChunkWriter, Fatal, TEXT("Could not create cloud directory (%s)."), *Config.ChunkDirectory);
+			}
+			for (int32 ThreadIdx = 0; ThreadIdx < Config.NumberOfThreads; ++ThreadIdx)
+			{
+				WriterThreads.Add(Async<void>(EAsyncExecution::Thread, [this]()
 				{
-					// Write out chunks
-					bChunkSaveSuccess = WriteChunkData(NewChunkFilename, LockedChunkData, ChunkGuid);
+					WriterThread();
+				}));
+			}
+		}
 
-					// Check success
-					if (bChunkSaveSuccess)
+		~FParallelChunkWriter()
+		{
+			bShouldAbort = true;
+			for (const TFuture<void>& Thread : WriterThreads)
+			{
+				Thread.Wait();
+			}
+			WriterThreads.Empty();
+		}
+
+		// IParallelChunkWriter interface begin.
+		virtual void AddChunkData(TArray<uint8> ChunkData, const FGuid& ChunkGuid, const uint64& ChunkHash, const FSHAHash& ChunkSha) override
+		{
+			DebugCheckSingleProducer();
+			while (ChunkDataJobQueueCount.GetValue() >= Config.MaxQueueSize)
+			{
+				FPlatformProcess::Sleep(0);
+			}
+			ChunkDataJobQueueCount.Increment();
+			ChunkDataJobQueue.Enqueue(FChunkDataJob(MoveTemp(ChunkData), ChunkGuid, ChunkHash, ChunkSha));
+		}
+		virtual FParallelChunkWriterSummaries OnProcessComplete() override
+		{
+			bMoreDataIsExpected = false;
+			for (const TFuture<void>& Thread : WriterThreads)
+			{
+				Thread.Wait();
+			}
+			WriterThreads.Empty();
+			FChunkOutputSize ChunkOutputSize;
+			while (ChunkOutputSizeQueue.Dequeue(ChunkOutputSize))
+			{
+				ParallelChunkWriterSummaries.ChunkOutputSizes.Add(ChunkOutputSize.Get<0>(), ChunkOutputSize.Get<1>());
+			}
+			FChunkOutputHash ChunkOutputHash;
+			while (ChunkOutputHashQueue.Dequeue(ChunkOutputHash))
+			{
+				ParallelChunkWriterSummaries.ChunkOutputHashes.Add(ChunkOutputHash.Get<0>(), ChunkOutputHash.Get<1>());
+			}
+			FChunkOutputSha ChunkOutputSha;
+			while (ChunkOutputShaQueue.Dequeue(ChunkOutputSha))
+			{
+				ParallelChunkWriterSummaries.ChunkOutputShas.Add(ChunkOutputSha.Get<0>(), ChunkOutputSha.Get<1>());
+			}
+			return ParallelChunkWriterSummaries;
+		}
+		// IParallelChunkWriter interface end.
+
+	private:
+		void WriterThread()
+		{
+			bool bReceivedJob;
+			FChunkDataJob ChunkDataJob;
+			while (!bShouldAbort && (bMoreDataIsExpected || ChunkDataJobQueueCount.GetValue() > 0))
+			{
+				ChunkDataJobQueueConsumerCS.Lock();
+				bReceivedJob = ChunkDataJobQueue.Dequeue(ChunkDataJob);
+				ChunkDataJobQueueConsumerCS.Unlock();
+				if (bReceivedJob)
+				{
+					ChunkDataJobQueueCount.Decrement();
+					TArray<uint8>& ChunkData = ChunkDataJob.Get<0>();
+					FGuid& ChunkGuid = ChunkDataJob.Get<1>();
+					uint64& ChunkHash = ChunkDataJob.Get<2>();
+					FSHAHash& ChunkSha = ChunkDataJob.Get<3>();
+					FChunkHeader ChunkHeader;
+					ChunkHeader.Guid = ChunkGuid;
+					ChunkHeader.DataSizeCompressed = ChunkData.Num();
+					ChunkHeader.DataSizeUncompressed = ChunkData.Num();
+					ChunkHeader.StoredAs = EChunkStorageFlags::None;
+					ChunkHeader.HashType = EChunkHashFlags::RollingPoly64 | EChunkHashFlags::Sha1;
+					ChunkHeader.RollingHash = ChunkHash;
+					ChunkHeader.SHAHash = ChunkSha;
+					TUniquePtr<FWriterChunkDataAccess> ChunkDataAccess(new FWriterChunkDataAccess(ChunkData, ChunkHeader));
+					const FString NewChunkFilename = FBuildPatchUtils::GetChunkNewFilename(Config.FeatureLevel, Config.ChunkDirectory, ChunkGuid, ChunkHash);
+					if (!FileSystem->FileExists(*NewChunkFilename))
 					{
-						RetryCount = 0;
+						bool bSaveSuccess = false;
+						int32 RetryCount = Config.SaveRetryCount;
+						while (!bShouldAbort && !bSaveSuccess && RetryCount-- >= 0)
+						{
+							FileSystem->MakeDirectory(*FPaths::GetPath(NewChunkFilename));
+							TUniquePtr<FArchive> ChunkFileOut = FileSystem->CreateFileWriter(*NewChunkFilename);
+							if (!ChunkFileOut.IsValid())
+							{
+								UE_LOG(LogChunkWriter, Log, TEXT("Could not create chunk (%s)."), *NewChunkFilename);
+								FPlatformProcess::Sleep(Config.SaveRetryTime);
+								continue;
+							}
+							EChunkSaveResult ChunkSaveResult = ChunkDataSerialization->SaveToArchive(*ChunkFileOut.Get(), ChunkDataAccess.Get());
+							ChunkOutputSizeQueue.Enqueue(FChunkOutputSize(ChunkGuid, ChunkFileOut->TotalSize()));
+							ChunkOutputHashQueue.Enqueue(FChunkOutputHash(ChunkGuid, ChunkHash));
+							ChunkOutputShaQueue.Enqueue(FChunkOutputSha(ChunkGuid, ChunkSha));
+							if (ChunkFileOut->IsError() || ChunkSaveResult != EChunkSaveResult::Success)
+							{
+								UE_LOG(LogChunkWriter, Log, TEXT("Could not save chunk [%s] (%s)."), *ToString(ChunkSaveResult), *NewChunkFilename);
+								FPlatformProcess::Sleep(Config.SaveRetryTime);
+								continue;
+							}
+							bSaveSuccess = true;
+						}
+						if (!bSaveSuccess)
+						{
+							UE_LOG(LogChunkWriter, Fatal, TEXT("Chunk save failure (%s)."), *NewChunkFilename);
+						}
 					}
 					else
 					{
-						// Retry after a second if failed
-						--RetryCount;
-						FPlatformProcess::Sleep(1.0f);
+						UE_LOG(LogChunkWriter, Log, TEXT("Skipping already existing chunk file (%s)."), *NewChunkFilename);
 					}
 				}
-
-				// If we really could not save out chunk data successfully, this build will never work, so panic flush logs and then cause a hard error.
-				if (!bChunkSaveSuccess)
+				else
 				{
-					UE_LOG(LogChunkWriter, Error, TEXT("Could not save out new chunk file %s"), *NewChunkFilename);
-					GLog->PanicFlushThreadedLogs();
-					check(bChunkSaveSuccess);
+					FPlatformProcess::Sleep(1.0/10.0);
 				}
+			}
+		}
 
-				// Small sleep for next chunk
-				FPlatformProcess::Sleep(0.0f);
+		void DebugCheckSingleProducer()
+		{
+#if !UE_BUILD_SHIPPING
+			const uint32 CurrentThreadId = FPlatformTLS::GetCurrentThreadId();
+			if (ProducerThreadId.IsSet())
+			{
+				check(CurrentThreadId == ProducerThreadId.GetValue());
 			}
 			else
 			{
-				// Larger sleep for no work
-				FPlatformProcess::Sleep(0.1f);
+				ProducerThreadId = CurrentThreadId;
 			}
-			double TotalTime = FStatsCollector::CyclesToSeconds(*StatFileCreateTime + *StatSerlialiseTime);
-			if (TotalTime > 0.0)
-			{
-				FStatsCollector::Set(StatDataWriteSpeed, *StatDataWritten / TotalTime);
-			}
+#endif
 		}
-		return 0;
-	}
 
-	const bool FChunkWriter::FQueuedChunkWriter::WriteChunkData(const FString& ChunkFilename, FScopeLockedChunkData& LockedChunk, const FGuid& ChunkGuid)
+	private:
+		const FParallelChunkWriterConfig Config;
+		IFileSystem* const FileSystem;
+		IChunkDataSerialization* const ChunkDataSerialization;
+		FStatsCollector* const StatsCollector;
+
+		TArray<TFuture<void>> WriterThreads;
+		FThreadSafeBool bMoreDataIsExpected;
+		FThreadSafeBool bShouldAbort;
+
+		FCriticalSection ChunkDataJobQueueConsumerCS;
+		TQueue<FChunkDataJob, EQueueMode::Spsc> ChunkDataJobQueue;
+		FThreadSafeInt32 ChunkDataJobQueueCount;
+
+		TQueue<FChunkOutputSize, EQueueMode::Mpsc> ChunkOutputSizeQueue;
+		TQueue<FChunkOutputHash, EQueueMode::Mpsc> ChunkOutputHashQueue;
+		TQueue<FChunkOutputSha, EQueueMode::Mpsc> ChunkOutputShaQueue;
+		FParallelChunkWriterSummaries ParallelChunkWriterSummaries;
+
+#if !UE_BUILD_SHIPPING
+		TOptional<uint32> ProducerThreadId;
+#endif
+	};
+
+	IParallelChunkWriter* FParallelChunkWriterFactory::Create(FParallelChunkWriterConfig Config, IFileSystem* FileSystem, IChunkDataSerialization* ChunkDataSerialization, FStatsCollector* StatsCollector)
 	{
-		uint64 TempTimer;
-		// Chunks are saved with GUID, so if a file already exists it will never be different.
-		// Skip with return true if already exists
-		FStatsCollector::AccumulateTimeBegin(TempTimer);
-		const int64 ChunkFileSize = IFileManager::Get().FileSize(*ChunkFilename);
-		FStatsCollector::AccumulateTimeEnd(StatCheckExistsTime, TempTimer);
-		if (ChunkFileSize > 0)
-		{
-			ChunkFileSizesCS.Lock();
-			ChunkFileSizes.Add(ChunkGuid, ChunkFileSize);
-			ChunkFileSizesCS.Unlock();
-			UE_LOG(LogChunkWriter, Verbose, TEXT("Existing chunk file %s. Size:%lld."), *ChunkGuid.ToString(), ChunkFileSize);
-			return true;
-		}
-		FStatsCollector::AccumulateTimeBegin(TempTimer);
-		FArchive* FileOut = IFileManager::Get().CreateFileWriter(*ChunkFilename);
-		FStatsCollector::AccumulateTimeEnd(StatFileCreateTime, TempTimer);
-		bool bSuccess = FileOut != NULL;
-		if (bSuccess)
-		{
-			// Setup to handle compression
-			bool bDataIsCompressed = true;
-			uint8* ChunkDataSource = LockedChunk.GetData();
-			int32 ChunkDataSourceSize = BuildPatchServices::ChunkDataSize;
-			TArray< uint8 > TempCompressedData;
-			TempCompressedData.Empty(ChunkDataSourceSize);
-			TempCompressedData.AddUninitialized(ChunkDataSourceSize);
-			int32 CompressedSize = ChunkDataSourceSize;
-
-			// Compressed can increase in size, but the function will return as failure in that case
-			// we can allow that to happen since we would not keep larger compressed data anyway.
-			FStatsCollector::AccumulateTimeBegin(TempTimer);
-			bDataIsCompressed = FCompression::CompressMemory(
-				static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-				TempCompressedData.GetData(),
-				CompressedSize,
-				LockedChunk.GetData(),
-				BuildPatchServices::ChunkDataSize);
-			FStatsCollector::AccumulateTimeEnd(StatCompressTime, TempTimer);
-
-			// If compression succeeded, set data vars
-			if (bDataIsCompressed)
-			{
-				ChunkDataSource = TempCompressedData.GetData();
-				ChunkDataSourceSize = CompressedSize;
-			}
-
-			// Setup Header
-			FStatsCollector::AccumulateTimeBegin(TempTimer);
-			FChunkHeader& Header = *LockedChunk.GetHeader();
-			*FileOut << Header;
-			Header.HeaderSize = FileOut->Tell();
-			Header.StoredAs = bDataIsCompressed ? EChunkStorageFlags::Compressed : EChunkStorageFlags::None;
-			Header.DataSize = ChunkDataSourceSize;
-			Header.HashType = EChunkHashFlags::RollingPoly64;
-
-			// Write out files
-			FileOut->Seek(0);
-			*FileOut << Header;
-			FileOut->Serialize(ChunkDataSource, ChunkDataSourceSize);
-			const int64 NewChunkFileSize = FileOut->TotalSize();
-			FileOut->Close();
-			FStatsCollector::AccumulateTimeEnd(StatSerlialiseTime, TempTimer);
-			FStatsCollector::Accumulate(StatChunksSaved, 1);
-			FStatsCollector::Accumulate(StatDataWritten, NewChunkFileSize);
-			FStatsCollector::SetAsPercentage(StatCompressionRatio, *StatDataWritten / double(*StatChunksSaved * (Header.HeaderSize + BuildPatchServices::ChunkDataSize)));
-
-			ChunkFileSizesCS.Lock();
-			ChunkFileSizes.Add(ChunkGuid, NewChunkFileSize);
-			ChunkFileSizesCS.Unlock();
-
-			bSuccess = !FileOut->GetError();
-
-			if (bSuccess)
-			{
-				UE_LOG(LogChunkWriter, Verbose, TEXT("New chunk file saved %s. Compressed:%d, Size:%lld."), *ChunkGuid.ToString(), bDataIsCompressed, NewChunkFileSize);
-			}
-
-			delete FileOut;
-		}
-		// Log errors
-		if (!bSuccess)
-		{
-			UE_LOG(LogChunkWriter, Warning, TEXT("Attempt to save chunk file %s was not successful."), *ChunkFilename);
-		}
-		return bSuccess;
-	}
-
-	const bool FChunkWriter::FQueuedChunkWriter::ShouldBeRunning()
-	{
-		bool rtn;
-		MoreChunksCS.Lock();
-		rtn = bMoreChunks;
-		MoreChunksCS.Unlock();
-		rtn = rtn || HasQueuedChunk();
-		return rtn;
-	}
-
-	const bool FChunkWriter::FQueuedChunkWriter::HasQueuedChunk()
-	{
-		bool rtn;
-		ChunkFileQueueCS.Lock();
-		rtn = ChunkFileQueue.Num() > 0;
-		ChunkFileQueueCS.Unlock();
-		return rtn;
-	}
-
-	const bool FChunkWriter::FQueuedChunkWriter::CanQueueChunk()
-	{
-		bool rtn;
-		ChunkFileQueueCS.Lock();
-		rtn = ChunkFileQueue.Num() < BuildPatchServices::ChunkQueueSize;
-		ChunkFileQueueCS.Unlock();
-		return rtn;
-	}
-
-	IChunkDataAccess* FChunkWriter::FQueuedChunkWriter::GetNextChunk()
-	{
-		IChunkDataAccess* rtn = NULL;
-		ChunkFileQueueCS.Lock();
-		if (ChunkFileQueue.Num() > 0)
-		{
-			rtn = ChunkFileQueue.Pop();
-		}
-		ChunkFileQueueCS.Unlock();
-		return rtn;
-	}
-
-	void FChunkWriter::FQueuedChunkWriter::QueueChunk(const uint8* ChunkData, const FGuid& ChunkGuid, const uint64& ChunkHash)
-	{
-		// Create the IChunkDataAccess and copy data
-		IChunkDataAccess* NewChunk = FChunkDataAccessFactory::Create(BuildPatchServices::ChunkDataSize);
-		FScopeLockedChunkData LockedChunkData(NewChunk);
-		LockedChunkData.GetHeader()->Guid = ChunkGuid;
-		LockedChunkData.GetHeader()->RollingHash = ChunkHash;
-		FMemory::Memcpy(LockedChunkData.GetData(), ChunkData, BuildPatchServices::ChunkDataSize);
-		// Wait until we can fit this chunk in the queue
-		while (!CanQueueChunk())
-		{
-			FPlatformProcess::Sleep(0.01f);
-		}
-		// Queue the chunk
-		ChunkFileQueueCS.Lock();
-		ChunkFileQueue.Add(NewChunk);
-		ChunkFileQueueCS.Unlock();
-	}
-
-	void FChunkWriter::FQueuedChunkWriter::SetNoMoreChunks()
-	{
-		MoreChunksCS.Lock();
-		bMoreChunks = false;
-		MoreChunksCS.Unlock();
-	}
-
-	void FChunkWriter::FQueuedChunkWriter::GetChunkFilesizes(TMap<FGuid, int64>& OutChunkFileSizes)
-	{
-		FScopeLock ScopeLock(&ChunkFileSizesCS);
-		OutChunkFileSizes.Append(ChunkFileSizes);
-	}
-
-	/* FChunkWriter implementation
-	*****************************************************************************/
-	FChunkWriter::FChunkWriter(const FString& ChunkDirectory, FStatsCollectorRef StatsCollector)
-	{
-		QueuedChunkWriter.ChunkDirectory = ChunkDirectory;
-		QueuedChunkWriter.StatsCollector = StatsCollector;
-		WriterThread = FRunnableThread::Create(&QueuedChunkWriter, TEXT("QueuedChunkWriterThread"));
-	}
-
-	FChunkWriter::~FChunkWriter()
-	{
-		NoMoreChunks();
-		WaitForThread();
-		if (WriterThread != NULL)
-		{
-			delete WriterThread;
-			WriterThread = NULL;
-		}
-	}
-
-	void FChunkWriter::QueueChunk(const uint8* ChunkData, const FGuid& ChunkGuid, const uint64& ChunkHash)
-	{
-		QueuedChunkWriter.QueueChunk(ChunkData, ChunkGuid, ChunkHash);
-	}
-
-	void FChunkWriter::NoMoreChunks()
-	{
-		QueuedChunkWriter.SetNoMoreChunks();
-	}
-
-	void FChunkWriter::WaitForThread()
-	{
-		if (WriterThread != NULL)
-		{
-			WriterThread->WaitForCompletion();
-		}
-	}
-
-	void FChunkWriter::GetChunkFilesizes(TMap<FGuid, int64>& OutChunkFileSizes)
-	{
-		QueuedChunkWriter.GetChunkFilesizes(OutChunkFileSizes);
+		return new FParallelChunkWriter(MoveTemp(Config), FileSystem, ChunkDataSerialization, StatsCollector);
 	}
 }

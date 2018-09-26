@@ -85,7 +85,7 @@
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
 #include "Engine/LevelStreaming.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "EditorLevelUtils.h"
 #include "ActorGroupingUtils.h"
 #include "LevelUtils.h"
@@ -395,7 +395,7 @@ void FLevelEditorActionCallbacks::SaveCurrentAs()
 	UWorld* World = GetWorld();
 	ULevel* CurrentLevel = World->GetCurrentLevel();
 	
-	UClass* CurrentStreamingLevelClass = ULevelStreamingKismet::StaticClass();
+	UClass* CurrentStreamingLevelClass = ULevelStreamingDynamic::StaticClass();
 
 	for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 	{

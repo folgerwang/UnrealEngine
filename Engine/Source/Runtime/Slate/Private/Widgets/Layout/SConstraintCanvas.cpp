@@ -12,7 +12,7 @@
 SConstraintCanvas::SConstraintCanvas()
 	: Children(this)
 {
-	bCanTick = false;
+	SetCanTick(false);
 	bCanSupportFocus = false;
 }
 

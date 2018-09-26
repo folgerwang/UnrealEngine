@@ -209,6 +209,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	// 10.12.2+ for AMD/Nvidia
 	// 10.12.4+ for Intel
 	bool bSupportsSM5 = true;
+	bool bIsIntelHaswell = false;
 	if(GRHIAdapterName.Contains("Nvidia"))
 	{
 		bSupportsPointLights = true;
@@ -236,6 +237,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		GRHIVendorId = 0x8086;
 		bSupportsRHIThread = true;
 		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,12,2) >= 0);
+		bIsIntelHaswell = (GRHIAdapterName == TEXT("Intel HD Graphics 5000") || GRHIAdapterName == TEXT("Intel Iris Graphics") || GRHIAdapterName == TEXT("Intel Iris Pro Graphics"));
 	}
 
 	bool const bRequestedSM5 = (RequestedFeatureLevel == ERHIFeatureLevel::SM5 || (!bRequestedFeatureLevel && (FParse::Param(FCommandLine::Get(),TEXT("metalsm5")) || FParse::Param(FCommandLine::Get(),TEXT("metalmrt")))));
@@ -454,9 +456,18 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	if (IsRHIDeviceIntel() && FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
 	{
 		static auto CVarSGShadowQuality = IConsoleManager::Get().FindConsoleVariable((TEXT("sg.ShadowQuality")));
-		if(CVarSGShadowQuality && CVarSGShadowQuality->GetInt() != 0)
+		if (CVarSGShadowQuality && CVarSGShadowQuality->GetInt() != 0)
 		{
 			CVarSGShadowQuality->Set(0);
+		}
+	}
+
+	if (bIsIntelHaswell)
+	{
+		static auto CVarForceDisableVideoPlayback = IConsoleManager::Get().FindConsoleVariable((TEXT("Fort.ForceDisableVideoPlayback")));
+		if (CVarForceDisableVideoPlayback && CVarForceDisableVideoPlayback->GetInt() != 1)
+		{
+			CVarForceDisableVideoPlayback->Set(1);
 		}
 	}
 #endif

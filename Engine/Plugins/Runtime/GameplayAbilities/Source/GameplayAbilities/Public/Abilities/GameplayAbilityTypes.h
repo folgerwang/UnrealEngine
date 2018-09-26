@@ -250,15 +250,20 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityRepAnimMontage
 	UPROPERTY()
 	uint8 SkipPositionCorrection : 1;
 
+	/** Stops PlayRate from replicating to save bandwidth. PlayRate will be assumed to be 1.f. */
+	UPROPERTY()
+	uint8 bSkipPlayRate : 1;
+
 	FGameplayAbilityRepAnimMontage()
-		: AnimMontage(NULL),
+		: AnimMontage(nullptr),
 		PlayRate(0.f),
 		Position(0.f),
 		BlendTime(0.f),
 		NextSectionID(0),
 		IsStopped(true),
 		ForcePlayBit(0),
-		SkipPositionCorrection(false)
+		SkipPositionCorrection(false),
+		bSkipPlayRate(false)
 	{
 	}
 

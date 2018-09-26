@@ -708,13 +708,13 @@ public:
 
 
 	// Test if all components of the transforms are equal, within a tolerance.
-	inline bool Equals(const FTransform& Other, float Tolerance = KINDA_SMALL_NUMBER) const
+	FORCEINLINE bool Equals(const FTransform& Other, float Tolerance = KINDA_SMALL_NUMBER) const
 	{
 		return Private_TranslationEquals(Other.Translation, Tolerance) && Private_RotationEquals(Other.Rotation, Tolerance) && Private_Scale3DEquals(Other.Scale3D, Tolerance);
 	}
 
 	// Test if rotation and translation components of the transforms are equal, within a tolerance.
-	inline bool EqualsNoScale(const FTransform& Other, float Tolerance = KINDA_SMALL_NUMBER) const
+	FORCEINLINE bool EqualsNoScale(const FTransform& Other, float Tolerance = KINDA_SMALL_NUMBER) const
 	{
 		return Private_TranslationEquals(Other.Translation, Tolerance) && Private_RotationEquals(Other.Rotation, Tolerance);
 	}

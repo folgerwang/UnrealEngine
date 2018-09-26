@@ -1252,16 +1252,16 @@ void SAssetViewItem::CacheDisplayTags()
 			{
 				bHasSetDisplayValue = true;
 
-				FString ValueString = TagAndValuePair.Value;
-
 				// Since all we have at this point is a string, we can't be very smart here.
 				// We need to strip some noise off class paths in some cases, but can't load the asset to inspect its UPROPERTYs manually due to performance concerns.
-				const TCHAR StringToRemove[] = TEXT("Class'/Script/");
-				if (ValueString.StartsWith(StringToRemove) && ValueString.EndsWith(TEXT("'")))
+				FString ValueString = FPackageName::ExportTextPathToObjectPath(TagAndValuePair.Value);
+
+				const TCHAR StringToRemove[] = TEXT("/Script/");
+				if (ValueString.StartsWith(StringToRemove))
 				{
 					// Remove the class path for native classes, and also remove Engine. for engine classes
-					const int32 SizeOfPrefix = ARRAY_COUNT(StringToRemove);
-					ValueString = ValueString.Mid(SizeOfPrefix - 1, ValueString.Len() - SizeOfPrefix).Replace(TEXT("Engine."), TEXT(""));
+					const int32 SizeOfPrefix = ARRAY_COUNT(StringToRemove) - 1;
+					ValueString = ValueString.Mid(SizeOfPrefix, ValueString.Len() - SizeOfPrefix).Replace(TEXT("Engine."), TEXT(""));
 				}
 
 				if (TagField)

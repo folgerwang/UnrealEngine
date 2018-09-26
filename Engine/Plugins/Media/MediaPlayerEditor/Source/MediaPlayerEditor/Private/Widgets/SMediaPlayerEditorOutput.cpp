@@ -70,6 +70,7 @@ void SMediaPlayerEditorOutput::Construct(const FArguments& InArgs, UMediaPlayer&
 		if (SoundComponent != nullptr)
 		{
 			SoundComponent->bIsUISound = true;
+			SoundComponent->bIsPreviewSound = true;
 			SoundComponent->SetMediaPlayer(&InMediaPlayer);
 			SoundComponent->Initialize();
 			SoundComponent->AddToRoot();

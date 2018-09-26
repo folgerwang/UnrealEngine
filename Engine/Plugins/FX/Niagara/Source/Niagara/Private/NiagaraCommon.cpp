@@ -243,7 +243,7 @@ FNiagaraVariable FNiagaraUtilities::ConvertVariableToRapidIterationConstantName(
 		SplitName.Insert(TEXT("Constants"), 0);
 	}
 
-	FString OutVarStrName = FString::Join<FString>(SplitName, TEXT("."));
+	FString OutVarStrName = FString::Join(SplitName, TEXT("."));
 	Var.SetName(*OutVarStrName);
 	return Var;
 }

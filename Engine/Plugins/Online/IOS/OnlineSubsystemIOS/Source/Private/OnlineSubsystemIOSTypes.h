@@ -100,12 +100,13 @@ public:
 	 */
 	virtual FString ToDebugString() const override
 	{
-		return FString::Printf(TEXT("0%I64X"), UniqueNetId);
+		const FString UniqueNetIdStr = FString::Printf(TEXT("0%I64X"), UniqueNetId);
+		return OSS_UNIQUEID_REDACT(*this, UniqueNetIdStr);
 	}
 
 	/** Needed for TMap::GetTypeHash() */
 	friend uint32 GetTypeHash(const FUniqueNetIdGameCenter& A)
 	{
-		return (uint32)(A.UniqueNetId) + ((uint32)((A.UniqueNetId) >> 32 ) * 23);
+		return GetTypeHash(A.UniqueNetId);
 	}
 };

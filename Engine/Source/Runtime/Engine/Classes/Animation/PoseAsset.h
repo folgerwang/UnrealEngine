@@ -33,6 +33,7 @@ struct ENGINE_API FPoseData
 
 #if WITH_EDITORONLY_DATA
 	// source local space pose, this pose is always full pose
+	// the size this array matches Tracks in the pose container
 	UPROPERTY()
 	TArray<FTransform>		SourceLocalSpacePose;
 
@@ -41,17 +42,17 @@ struct ENGINE_API FPoseData
 	TArray<float>			SourceCurveData;
 #endif // WITH_EDITORONLY_DATA
 
-	// local space pose, # of array match with # of Tracks
+	// local space pose, # of array match with # of TrackToBufferIndex
+	// it only saves the one with delta as base pose or ref pose if full pose
 	UPROPERTY()
 	TArray<FTransform>		LocalSpacePose;
 
-	// whether or not, the joint contains delta transform from base pose
-	// it only blends if this is true 
-	// this allows per bone blend
+	// this is PoseContainer.Tracks to Buffer Index of LocalSpacePose
 	UPROPERTY()
-	TArray<bool>			LocalSpacePoseMask;
+	TMap<int32, int32>		TrackToBufferIndex;
 
 	// # of array match with # of Curves in PoseDataContainer
+	// curve data is not compressed
  	UPROPERTY()
  	TArray<float>			CurveData;
 };
@@ -68,21 +69,21 @@ struct ENGINE_API FPoseDataContainer
 
 private:
 	// pose names - horizontal data
-	// # of poses - there is no compression across tracks - 	
-	// unfortunately, tried TMap, but it is not great because it changes order whenever add/remove
-	// we need consistent array of names, so that it doesn't change orders
 	UPROPERTY()
 	TArray<FSmartName>						PoseNames;
 
-	UPROPERTY()
-	TArray<FPoseData>						Poses;
-
+	// this is list of tracks - vertical data
 	UPROPERTY()
 	TArray<FName>							Tracks;
 
-	// vertical data - the track names for bone position, and skeleton index 
+	// cache for the track names to skeleton index 
 	UPROPERTY(transient)
 	TMap<FName, int32>						TrackMap;
+	
+	// this is list of poses
+	UPROPERTY()
+	TArray<FPoseData>						Poses;
+	
 	
 	// curve meta data # of Curve UIDs should match with Poses.CurveValues.Num
 	UPROPERTY()
@@ -103,8 +104,7 @@ private:
 	// usually this may not be issue since once cooked, it should match
 	void DeleteTrack(int32 TrackIndex);
 	
-	// mark pose flag on any track that has delta transform, so that it's used in blending
-	void MarkPoseFlags(USkeleton* InSkeleton, FName& InRetargetSourceName);
+	// get default transform - it considers for retarget source if exists
 	FTransform GetDefaultTransform(int32 SkeletonIndex, USkeleton* InSkeleton, const FName& InRetargetSourceName) const;
 	FTransform GetDefaultTransform(const FName& InTrackName, USkeleton* InSkeleton, const FName& InRetargetSourceName) const;
 
@@ -118,8 +118,9 @@ private:
 	bool FillUpSkeletonPose(FPoseData* PoseData, USkeleton* InSkeleton);
 	void RetrieveSourcePoseFromExistingPose(bool bAdditive, int32 InBasePoseIndex, const TArray<FTransform>& InBasePose, const TArray<float>& InBaseCurve);
 
-	void ConvertToFullPose();
-	void ConvertToAdditivePose(int32 InBasePoseIndex, const TArray<FTransform>& InBasePose, const TArray<float>& InBaseCurve);
+	// editor features for full pose <-> additive pose
+	void ConvertToFullPose(USkeleton* InSkeleton, FName& InRetargetSourceName);
+	void ConvertToAdditivePose(const TArray<FTransform>& InBasePose, const TArray<float>& InBaseCurve);
 #endif // WITH_EDITOR
 	friend class UPoseAsset;
 };
@@ -189,12 +190,6 @@ public:
 	ENGINE_API const int32 GetTrackIndexByName(const FName& InTrackName) const;
 
 	/** 
-	 *	Get local space pose for a particular track (by name) in a particular pose (by index) 
-	 *	@return	Returns true if OutTransform is valid, false if not
-	 */
-	ENGINE_API bool GetLocalPoseForTrack(const int32 PoseIndex, const int32 TrackIndex, FTransform& OutTransform) const;
-
-	/** 
 	 *	Return value of a curve for a particular pose 
 	 *	@return	Returns true if OutValue is valid, false if not
 	 */
@@ -204,9 +199,7 @@ public:
 	ENGINE_API bool ContainsPose(const FName& InPoseName) const;
 
 #if WITH_EDITOR
-	ENGINE_API void AddOrUpdatePose(const FSmartName& PoseName, USkeletalMeshComponent* MeshComponent);
 	ENGINE_API bool AddOrUpdatePoseWithUniqueName(USkeletalMeshComponent* MeshComponent, FSmartName* OutPoseName = nullptr);
-	ENGINE_API void AddOrUpdatePose(const FSmartName& PoseName, const TArray<FName>& TrackNames, const TArray<FTransform>& LocalTransform, const TArray<float>& CurveValues);
 
 	ENGINE_API void CreatePoseFromAnimation(class UAnimSequence* AnimSequence, const TArray<FSmartName>* InPoseNames = nullptr);
 	ENGINE_API void UpdatePoseFromAnimation(class UAnimSequence* AnimSequence);
@@ -258,7 +251,6 @@ public:
 		OnPoseListChanged.Remove(Handle);
 	}
 
-
 protected:
 	virtual void RemapTracksToNewSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces) override;
 private: 
@@ -266,11 +258,17 @@ private:
 	// use same as retarget source system we have for animation
 	void CombineTracks(const TArray<FName>& NewTracks);
 
-	bool ConvertToFullPose();
-	bool ConvertToAdditivePose(int32 NewBasePoseIndex);
+	void ConvertToFullPose();
+	void ConvertToAdditivePose(int32 NewBasePoseIndex);
 	bool GetBasePoseTransform(TArray<FTransform>& OutBasePose, TArray<float>& OutCurve) const;
 	void Reinitialize();
+
+	// After any update to SourceLocalPoses, this does update runtime data
+	void AddOrUpdatePose(const FSmartName& PoseName, USkeletalMeshComponent* MeshComponent);
+	void AddOrUpdatePose(const FSmartName& PoseName, const TArray<FName>& TrackNames, const TArray<FTransform>& LocalTransform, const TArray<float>& CurveValues);
+	void PostProcessData();
 #endif // WITH_EDITOR	
 
+private:
 	void RecacheTrackmap();
 };

@@ -183,7 +183,15 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	const bool bError = (MsgSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0;
 	const bool bWarning = (MsgSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0;
 
-	if (!CallbackData->pMessageIdName)
+	if (CallbackData->pMessageIdName)
+	{
+		if (!FCStringAnsi::Strcmp(CallbackData->pMessageIdName, "UNASSIGNED-CoreValidation-Shader-OutputNotConsumed"))
+		{
+			// Warning: *** [Warning:Validation-1(UNASSIGNED-CoreValidation-Shader-OutputNotConsumed)] fragment shader writes to output location 0 with no matching attachment
+			return VK_FALSE;
+		}
+	}
+	else
 	{
 		if (MsgType == 2 && CallbackData->messageIdNumber == 5)
 		{
@@ -302,6 +310,7 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	return VK_FALSE;
 }
 
+#undef VULKAN_REPORT_LOG
 #endif
 
 void FVulkanDynamicRHI::SetupDebugLayerCallback()
@@ -375,11 +384,6 @@ void FVulkanDynamicRHI::SetupDebugLayerCallback()
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("GetProcAddr: Unable to find vkDbgCreateMsgCallback/vkGetInstanceProcAddr; debug reporting skipped!"));
 		}
-	}
-	else
-	{
-		UE_LOG(LogVulkanRHI, Warning, TEXT("Instance does not support 'VK_EXT_debug_report' extension; debug reporting skipped!"));
-		return;
 	}
 }
 

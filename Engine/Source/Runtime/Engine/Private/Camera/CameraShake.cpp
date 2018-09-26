@@ -13,7 +13,21 @@ float FFOscillator::UpdateOffset(FFOscillator const& Osc, float& CurrentOffset, 
 	if (Osc.Amplitude != 0.f)
 	{
 		CurrentOffset += DeltaTime * Osc.Frequency;
-		return Osc.Amplitude * FMath::Sin(CurrentOffset);
+
+		float WaveformSample;
+		switch(Osc.Waveform)
+		{
+			case EOscillatorWaveform::SineWave:
+			default:
+				WaveformSample = FMath::Sin(CurrentOffset);
+				break;
+
+			case EOscillatorWaveform::PerlinNoise:
+				WaveformSample = FMath::PerlinNoise1D(CurrentOffset);
+				break;
+		}
+
+		return Osc.Amplitude * WaveformSample;
 	}
 	return 0.f;
 }

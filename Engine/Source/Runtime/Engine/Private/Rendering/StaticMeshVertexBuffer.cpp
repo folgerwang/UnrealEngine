@@ -525,6 +525,18 @@ void FStaticMeshVertexBuffer::BindTexCoordVertexBuffer(const FVertexFactory* Ver
 void FStaticMeshVertexBuffer::BindLightMapVertexBuffer(const FVertexFactory* VertexFactory, FStaticMeshDataType& Data, int LightMapCoordinateIndex) const
 {
 	LightMapCoordinateIndex = LightMapCoordinateIndex < (int32)GetNumTexCoords() ? LightMapCoordinateIndex : (int32)GetNumTexCoords() - 1;
+
+	// Temp patch.
+	if (LightMapCoordinateIndex < 0)
+	{
+		static bool bOnce = false;
+		if (!bOnce)
+		{
+			UE_LOG(LogStaticMesh, Warning, TEXT("LightMapCoordinateIndex (%d)< 0, GetNumTexCoords: %d!"), LightMapCoordinateIndex, (int32)GetNumTexCoords());
+			bOnce = false;
+		}
+		return;
+	}
 	check(LightMapCoordinateIndex >= 0);
 
 	Data.LightMapCoordinateIndex = LightMapCoordinateIndex;
