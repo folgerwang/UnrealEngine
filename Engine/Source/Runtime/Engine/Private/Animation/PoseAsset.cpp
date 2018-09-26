@@ -1454,5 +1454,4 @@ bool UPoseAsset::GetBasePoseTransform(TArray<FTransform>& OutBasePose, TArray<fl
 }
 #endif // WITH_EDITOR
 
-PRAGMA_ENABLE_OPTIMIZATION
 #undef LOCTEXT_NAMESPACE 
