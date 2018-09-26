@@ -778,6 +778,14 @@ FTransform FPhysInterface_Apeiron::GetComTransform_AssumesLocked(const FPhysicsA
     return GlobalTransform * ComTransform;
 }
 
+FTransform FPhysInterface_Apeiron::GetComTransformLocal_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference)
+{
+	uint32 Index = UINT32_MAX;
+	const auto& LocalParticles = GetParticlesAndIndex(InActorReference, Index);
+	Apeiron::TRigidTransform<float, 3> ComTransform(LocalParticles.Geometry(Index) ? LocalParticles.Geometry(Index)->BoundingBox().Center() : Apeiron::TVector<float, 3>(0), Apeiron::TRotation<float, 3>(FQuat(0, 0, 0, 1)));
+	return ComTransform;
+}
+
 FVector FPhysInterface_Apeiron::GetLocalInertiaTensor_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference)
 {
     // @todo(mlentine): Just return directly once we implement DiagonalMatrix
