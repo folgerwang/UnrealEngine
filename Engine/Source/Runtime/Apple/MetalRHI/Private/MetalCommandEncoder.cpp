@@ -480,6 +480,7 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 	{
 		if(IsRenderCommandEncoderActive())
 		{
+
 			if (RenderCommandEncoder)
 			{
 				check(!bSupportsFences || EncoderFence || !CommandList.IsImmediate());

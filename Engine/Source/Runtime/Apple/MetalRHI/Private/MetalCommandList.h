@@ -73,6 +73,7 @@ public:
 	 */
 	bool IsParallel(void) const { return !bImmediate && Num > 0 && FMetalCommandQueue::SupportsFeature(EMetalFeaturesParallelRenderEncoders); }
 	
+
 	/**
 	 * The index of this command-list within the parallel pass.
 	 * @returns The index of this command-list within the parallel pass, 0 when IsImmediate() is true.
