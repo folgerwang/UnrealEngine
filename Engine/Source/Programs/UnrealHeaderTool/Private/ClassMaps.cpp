@@ -6,6 +6,7 @@
 
 TMap<FString, TSharedRef<FUnrealSourceFile> > GUnrealSourceFilesMap;
 TMap<UField*, TSharedRef<FUnrealTypeDefinitionInfo> > GTypeDefinitionInfoMap;
+TMap<const UPackage*, TArray<UField*>> GPackageSingletons;
 TMap<UClass*, FString> GClassStrippedHeaderTextMap;
 TMap<UClass*, FString> GClassHeaderNameWithNoPathMap;
 TSet<FUnrealSourceFile*> GPublicSourceFileSet;
