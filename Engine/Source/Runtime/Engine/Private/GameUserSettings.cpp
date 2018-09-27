@@ -753,7 +753,7 @@ void UGameUserSettings::SetResolutionScaleNormalized(float NewScaleNormalized)
 
 void UGameUserSettings::SetViewDistanceQuality(int32 Value)
 {
-	ScalabilityQuality.ViewDistanceQuality = Value;
+	ScalabilityQuality.SetViewDistanceQuality(Value);
 }
 
 int32 UGameUserSettings::GetViewDistanceQuality() const
@@ -763,7 +763,7 @@ int32 UGameUserSettings::GetViewDistanceQuality() const
 
 void UGameUserSettings::SetShadowQuality(int32 Value)
 {
-	ScalabilityQuality.ShadowQuality = Value;
+	ScalabilityQuality.SetShadowQuality(Value);
 }
 
 int32 UGameUserSettings::GetShadowQuality() const
@@ -773,7 +773,7 @@ int32 UGameUserSettings::GetShadowQuality() const
 
 void UGameUserSettings::SetAntiAliasingQuality(int32 Value)
 {
-	ScalabilityQuality.AntiAliasingQuality = Value;
+	ScalabilityQuality.SetAntiAliasingQuality(Value);
 }
 
 int32 UGameUserSettings::GetAntiAliasingQuality() const
@@ -783,7 +783,7 @@ int32 UGameUserSettings::GetAntiAliasingQuality() const
 
 void UGameUserSettings::SetTextureQuality(int32 Value)
 {
-	ScalabilityQuality.TextureQuality = Value;
+	ScalabilityQuality.SetTextureQuality(Value);
 }
 
 int32 UGameUserSettings::GetTextureQuality() const
@@ -793,7 +793,7 @@ int32 UGameUserSettings::GetTextureQuality() const
 
 void UGameUserSettings::SetVisualEffectQuality(int32 Value)
 {
-	ScalabilityQuality.EffectsQuality = Value;
+	ScalabilityQuality.SetEffectsQuality(Value);
 }
 
 int32 UGameUserSettings::GetVisualEffectQuality() const
@@ -803,7 +803,7 @@ int32 UGameUserSettings::GetVisualEffectQuality() const
 
 void UGameUserSettings::SetPostProcessingQuality(int32 Value)
 {
-	ScalabilityQuality.PostProcessQuality = Value;
+	ScalabilityQuality.SetPostProcessQuality(Value);
 }
 
 int32 UGameUserSettings::GetPostProcessingQuality() const
@@ -813,7 +813,7 @@ int32 UGameUserSettings::GetPostProcessingQuality() const
 
 void UGameUserSettings::SetFoliageQuality(int32 Value)
 {
-	ScalabilityQuality.FoliageQuality = FMath::Clamp(Value, 0, 3);
+	ScalabilityQuality.SetFoliageQuality(Value);
 }
 
 int32 UGameUserSettings::GetFoliageQuality() const
