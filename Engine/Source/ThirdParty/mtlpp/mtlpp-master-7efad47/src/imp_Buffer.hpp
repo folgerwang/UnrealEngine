@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLBuffer>, void> : public IMPTableResource<id<MTLBuffer>>
+struct MTLPP_EXPORT IMPTable<id<MTLBuffer>, void> : public IMPTableResource<id<MTLBuffer>>
 {
 	IMPTable()
 	{
@@ -34,7 +34,7 @@ struct IMPTable<id<MTLBuffer>, void> : public IMPTableResource<id<MTLBuffer>>
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLBuffer>, InterposeClass> : public IMPTable<id<MTLBuffer>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLBuffer>, InterposeClass> : public IMPTable<id<MTLBuffer>, void>
 {
 	IMPTable()
 	{

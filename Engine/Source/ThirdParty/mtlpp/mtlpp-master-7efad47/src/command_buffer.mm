@@ -5,6 +5,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
+#pragma clang visibility push(default)
+#import <Foundation/NSDictionary.h>
+#import <Foundation/NSError.h>
+#pragma clang visibility pop
+
 #include <Metal/MTLCommandBuffer.h>
 #include <Metal/MTLRenderPass.h>
 #include <Metal/MTLSampler.h>

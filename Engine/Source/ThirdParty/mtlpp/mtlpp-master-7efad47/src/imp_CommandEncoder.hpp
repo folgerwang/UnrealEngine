@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<typename ObjC>
-struct IMPTableCommandEncoder : public IMPTableBase<ObjC>
+struct MTLPP_EXPORT IMPTableCommandEncoder : public IMPTableBase<ObjC>
 {
 	IMPTableCommandEncoder()
 	{
