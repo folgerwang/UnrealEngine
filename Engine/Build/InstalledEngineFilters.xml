@@ -60,10 +60,6 @@
 	
 	<!-- Define Editor Filters -->
 	<Property Name="CopyEditorFilter">
-		<!-- Exclude the target files, since we're filtering the output binaries -->
-		Engine/Binaries/.../UE4Editor.target
-		Engine/Binaries/.../UE4Editor-Win64-DebugGame.target
-
 		<!-- This assembly is normally embedded into the UBT executable, but it can technically be rebuilt from an installed build -->
 		Engine/Binaries/ThirdParty/VisualStudio/...
 
@@ -154,6 +150,7 @@
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VirtualRealityBP/..." If="'$(HostPlatform)' != 'Linux'"/>
 		<!-- Define Editor Exceptions -->
 	<Property Name="CopyEditorExceptions">
+	
 		<!-- Content -->
 		Engine/Content/....psd
 		Engine/Content/....pdn
