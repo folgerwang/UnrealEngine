@@ -1266,29 +1266,31 @@ namespace AutomationTool
 						// Expand variables in the value
 						string ExpandedValue = ExpandProperties(Element, Attribute.Value);
 
-						// Parse it and assign it to the parameters object
-						object Value;
-						if (Parameter.ValueType.IsEnum)
+						// If it's a collection type, split it into separate values
+						if(Parameter.CollectionType == null)
 						{
-							Value = Enum.Parse(Parameter.ValueType, ExpandedValue);
-						}
-						else if (Parameter.ValueType == typeof(Boolean))
-						{
-							Value = Condition.Evaluate(ExpandedValue);
-						}
-						else if (Parameter.ValueType == typeof(FileReference))
-						{
-							Value = CustomTask.ResolveFile(ExpandedValue);
-						}
-						else if (Parameter.ValueType == typeof(DirectoryReference))
-						{
-							Value = CustomTask.ResolveDirectory(ExpandedValue);
+							// Parse it and assign it to the parameters object
+							object Value = ParseValue(ExpandedValue, Parameter.ValueType);
+							Parameter.FieldInfo.SetValue(ParametersObject, Value);
 						}
 						else
 						{
-							Value = Convert.ChangeType(ExpandedValue, Parameter.ValueType);
+							// Get the collection, or create one if necessary
+							object CollectionValue = Parameter.FieldInfo.GetValue(ParametersObject);
+							if(CollectionValue == null)
+							{
+								CollectionValue = Activator.CreateInstance(Parameter.FieldInfo.FieldType);
+								Parameter.FieldInfo.SetValue(ParametersObject, CollectionValue);
+							}
+
+							// Parse the values and add them to the collection
+							List<string> ValueStrings = CustomTask.SplitDelimitedList(ExpandedValue);
+							foreach(string ValueString in ValueStrings)
+							{
+								object Value = ParseValue(ValueString, Parameter.ValueType);
+								Parameter.CollectionType.InvokeMember("Add", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, CollectionValue, new object[]{ Value });
+							}
 						}
-						Parameter.FieldInfo.SetValue(ParametersObject, Value);
 					}
 				}
 
@@ -1330,6 +1332,37 @@ namespace AutomationTool
 						}
 					}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Parse a value of the given type
+		/// </summary>
+		/// <param name="ValueText">The text to parse</param>
+		/// <param name="ValueType">Type of the value to parse</param>
+		/// <returns>Value that was parsed</returns>
+		object ParseValue(string ValueText, Type ValueType)
+		{
+			// Parse it and assign it to the parameters object
+			if (ValueType.IsEnum)
+			{
+				return Enum.Parse(ValueType, ValueText);
+			}
+			else if (ValueType == typeof(Boolean))
+			{
+				return Condition.Evaluate(ValueText);
+			}
+			else if (ValueType == typeof(FileReference))
+			{
+				return CustomTask.ResolveFile(ValueText);
+			}
+			else if (ValueType == typeof(DirectoryReference))
+			{
+				return CustomTask.ResolveDirectory(ValueText);
+			}
+			else
+			{
+				return Convert.ChangeType(ValueText, ValueType);
 			}
 		}
 
