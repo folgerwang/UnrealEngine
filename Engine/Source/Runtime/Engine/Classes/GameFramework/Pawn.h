@@ -199,6 +199,13 @@ public:
 	/** Returns controller for this actor. */
 	UFUNCTION(BlueprintCallable, Category=Pawn)
 	AController* GetController() const;
+	
+	/** Returns controller for this actor cast to the template type. May return NULL is the cast fails. */
+	template < class T >
+	T* GetController() const
+	{
+		Cast<T>(GetController());
+	}
 
 	/** Get the rotation of the Controller, often the 'view' rotation of this Pawn. */
 	UFUNCTION(BlueprintCallable, Category=Pawn)
