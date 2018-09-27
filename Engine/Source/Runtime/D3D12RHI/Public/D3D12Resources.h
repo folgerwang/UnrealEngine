@@ -377,7 +377,7 @@ struct FD3D12BlockAllocatorPrivateData
 
 class FD3D12ResourceAllocator;
 // A very light-weight and cache friendly way of accessing a GPU resource
-class FD3D12ResourceLocation : public FD3D12DeviceChild
+class FD3D12ResourceLocation : public FD3D12DeviceChild, public FNoncopyable
 {
 public:
 
