@@ -40,7 +40,7 @@ namespace BuildGraph.Tasks
 		/// Directories to rebase the files relative to. If specified, the shortest path under a listed directory will be used for each file.
 		/// </summary>
 		[TaskParameter(Optional = true)]
-		public string RebaseDir;
+		public HashSet<DirectoryReference> RebaseDir;
 
 		/// <summary>
 		/// Script which gives the order of files
@@ -105,7 +105,7 @@ namespace BuildGraph.Tasks
 			HashSet<DirectoryReference> RebaseDirs = new HashSet<DirectoryReference>{ CommandUtils.RootDirectory };
 			if(Parameters.RebaseDir != null)
 			{
-				RebaseDirs.UnionWith(SplitDelimitedList(Parameters.RebaseDir).Select(x => ResolveDirectory(x)));
+				RebaseDirs.UnionWith(Parameters.RebaseDir);
 			}
 
 			// Get the output parameter
