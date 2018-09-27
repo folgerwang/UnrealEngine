@@ -1046,6 +1046,7 @@ FMetalFence* FMetalRenderPass::End(void)
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
 		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		LastPrologueEncoderFence = CurrentEncoderFence;
 	}
 	else if (PassStartFence)
 	{
@@ -1054,6 +1055,7 @@ FMetalFence* FMetalRenderPass::End(void)
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
 		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		LastPrologueEncoderFence = CurrentEncoderFence;
 	}
 	else if (ParallelPassEndFence)
 	{
@@ -1062,6 +1064,7 @@ FMetalFence* FMetalRenderPass::End(void)
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
 		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		LastPrologueEncoderFence = CurrentEncoderFence;
 	}
 	
 	ParallelPassEndFence = nullptr;
