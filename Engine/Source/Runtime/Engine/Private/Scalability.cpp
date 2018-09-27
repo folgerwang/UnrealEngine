@@ -686,6 +686,41 @@ int32 FQualityLevels::GetSingleQualityLevel() const
 	return -1;
 }
 
+void FQualityLevels::SetViewDistanceQuality(int32 Value)
+{
+	ViewDistanceQuality = FMath::Clamp(Value, 0, CVarViewDistanceQuality_NumLevels->GetInt() - 1);
+}
+
+void FQualityLevels::SetAntiAliasingQuality(int32 Value)
+{
+	AntiAliasingQuality = FMath::Clamp(Value, 0, CVarAntiAliasingQuality_NumLevels->GetInt() - 1);
+}
+
+void FQualityLevels::SetShadowQuality(int32 Value)
+{
+	ShadowQuality = FMath::Clamp(Value, 0, CVarShadowQuality_NumLevels->GetInt() - 1);
+}
+
+void FQualityLevels::SetPostProcessQuality(int32 Value)
+{
+	PostProcessQuality = FMath::Clamp(Value, 0, CVarPostProcessQuality_NumLevels->GetInt() - 1);
+}
+
+void FQualityLevels::SetTextureQuality(int32 Value)
+{
+	TextureQuality = FMath::Clamp(Value, 0, CVarTextureQuality_NumLevels->GetInt() - 1);
+}
+
+void FQualityLevels::SetEffectsQuality(int32 Value)
+{
+	EffectsQuality = FMath::Clamp(Value, 0, CVarEffectsQuality_NumLevels->GetInt() - 1);
+}
+
+void FQualityLevels::SetFoliageQuality(int32 Value)
+{
+	FoliageQuality = FMath::Clamp(Value, 0, CVarFoliageQuality_NumLevels->GetInt() - 1);
+}
+
 void LoadState(const FString& IniName)
 {
 	check(!IniName.IsEmpty());
