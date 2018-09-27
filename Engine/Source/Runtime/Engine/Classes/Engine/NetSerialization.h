@@ -1145,6 +1145,9 @@ bool WritePackedVector(FVector Value, FArchive& Ar)	// Note Value is intended to
 {
 	check(Ar.IsSaving());
 
+	// Scale vector by quant factor first
+	Value *= ScaleFactor;
+
 	// Nan Check
 	if( Value.ContainsNaN() )
 	{
@@ -1154,13 +1157,14 @@ bool WritePackedVector(FVector Value, FArchive& Ar)	// Note Value is intended to
 		return false;
 	}
 
-	// Scale vector by quant factor first
-	Value *= ScaleFactor;
+	// Some platforms have RoundToInt implementations that essentially reduces the allowed inputs to 2^31.
+	const FVector ClampedValue = ClampVector(Value, FVector(-1073741824.0f), FVector(1073741760.0f));
+	bool bClamp = ClampedValue != Value;
 
 	// Do basically FVector::SerializeCompressed
-	int32 IntX	= FMath::RoundToInt(Value.X);
-	int32 IntY	= FMath::RoundToInt(Value.Y);
-	int32 IntZ	= FMath::RoundToInt(Value.Z);
+	int32 IntX	= FMath::RoundToInt(ClampedValue.X);
+	int32 IntY	= FMath::RoundToInt(ClampedValue.Y);
+	int32 IntZ	= FMath::RoundToInt(ClampedValue.Z);
 			
 	uint32 Bits	= FMath::Clamp<uint32>( FMath::CeilLogTwo( 1 + FMath::Max3( FMath::Abs(IntX), FMath::Abs(IntY), FMath::Abs(IntZ) ) ), 1, MaxBitsPerComponent ) - 1;
 
@@ -1173,17 +1177,15 @@ bool WritePackedVector(FVector Value, FArchive& Ar)	// Note Value is intended to
 	uint32 DY	= IntY + Bias;
 	uint32 DZ	= IntZ + Bias;
 
-	bool clamp=false;
-	
-	if (DX >= Max) { clamp=true; DX = static_cast<int32>(DX) > 0 ? Max-1 : 0; }
-	if (DY >= Max) { clamp=true; DY = static_cast<int32>(DY) > 0 ? Max-1 : 0; }
-	if (DZ >= Max) { clamp=true; DZ = static_cast<int32>(DZ) > 0 ? Max-1 : 0; }
+	if (DX >= Max) { bClamp=true; DX = static_cast<int32>(DX) > 0 ? Max-1 : 0; }
+	if (DY >= Max) { bClamp=true; DY = static_cast<int32>(DY) > 0 ? Max-1 : 0; }
+	if (DZ >= Max) { bClamp=true; DZ = static_cast<int32>(DZ) > 0 ? Max-1 : 0; }
 	
 	Ar.SerializeInt( DX, Max );
 	Ar.SerializeInt( DY, Max );
 	Ar.SerializeInt( DZ, Max );
 
-	return !clamp;
+	return !bClamp;
 }
 
 template<uint32 ScaleFactor, int32 MaxBitsPerComponent>
