@@ -28,6 +28,7 @@ extern FString GetMetalBinaryPath(uint32 ShaderPlatform);
 extern FString GetMetalToolsPath(uint32 ShaderPlatform);
 extern FString GetMetalLibraryPath(uint32 ShaderPlatform);
 extern FString GetMetalCompilerVersion(uint32 ShaderPlatform);
+extern uint16 GetXcodeVersion(uint64& BuildVersion);
 extern EShaderPlatform MetalShaderFormatToLegacyShaderPlatform(FName ShaderFormat);
 extern void BuildMetalShaderOutput(
 	FShaderCompilerOutput& ShaderOutput,
@@ -205,16 +206,20 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 	{
 		CopyLocalFileToRemote(Job.InputFile, RemoteInputFile);
 
+		uint64 XcodeBuildVers = 0;
+		uint16 XcodeVers = GetXcodeVersion(XcodeBuildVers);
+		uint16 XcodeMajorVers = ((XcodeVers >> 8) & 0xff);
+		
 		// PCH 
 		bool bUseSharedPCH = Job.InputPCHFile.Len() && IFileManager::Get().FileExists(*Job.InputPCHFile);
 		if (bUseSharedPCH)
         {
             CopyLocalFileToRemote(Job.InputPCHFile, RemoteInputPCHFile);
-			MetalParams = FString::Printf(TEXT("-include-pch %s %s %s %s -c -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *RemoteInputPCHFile, *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
+			MetalParams = FString::Printf(TEXT("-include-pch %s %s %s %s %s -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *RemoteInputPCHFile, *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, XcodeMajorVers >= 10 ? TEXT("-c") : TEXT(""), *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
         }
         else
         {
-            MetalParams = FString::Printf(TEXT("%s %s %s -c -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
+            MetalParams = FString::Printf(TEXT("%s %s %s %s -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, XcodeMajorVers >= 10 ? TEXT("-c") : TEXT(""), *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
         }
 	}
 
