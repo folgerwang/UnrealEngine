@@ -236,30 +236,71 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VK_PRESENT_MODE_FIFO_KHR (%d)"), (int32)VK_PRESENT_MODE_FIFO_KHR);
 				break;
 			default:
-				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VkPresentModeKHR mode %d"), (int32)FoundPresentModes[i]);
+				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VkPresentModeKHR %d"), (int32)FoundPresentModes[i]);
 				break;
 			}
 		}
 
-		// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
-		const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
+		int32 RequestedPresentMode = -1;
+		if (FParse::Value(FCommandLine::Get(), TEXT("vulkanpresentmode="), RequestedPresentMode))
+		{
+			bool bRequestSuccessful = false;
+			switch (RequestedPresentMode)
+			{
+			case VK_PRESENT_MODE_MAILBOX_KHR:
+				if (bFoundPresentModeMailbox)
+				{
+					PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+					bRequestSuccessful = true;
+				}
+				break;
+			case VK_PRESENT_MODE_IMMEDIATE_KHR:
+				if (bFoundPresentModeImmediate)
+				{
+					PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+					bRequestSuccessful = true;
+				}
+				break;
+			case VK_PRESENT_MODE_FIFO_KHR:
+				if (bFoundPresentModeFIFO)
+				{
+					PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+					bRequestSuccessful = true;
+				}
+				break;
+			default:
+				break;
+			}
 
-		if (bFoundPresentModeMailbox)
-		{
-			PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			if (!bRequestSuccessful)
+			{
+				UE_LOG(LogVulkanRHI, Warning, TEXT("Requested PresentMode (%d) is not handled or available, ignoring..."), RequestedPresentMode);
+				RequestedPresentMode = -1;
+			}
 		}
-		else if (bFoundPresentModeImmediate && bDisableVsyncForHMD)
+
+		if (RequestedPresentMode == -1)
 		{
-			PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-		}
-		else if (bFoundPresentModeFIFO)
-		{
-			PresentMode = VK_PRESENT_MODE_FIFO_KHR;
-		}
-		else
-		{
-			UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired PresentMode! Using %d"), static_cast<int32>(FoundPresentModes[0]));
-			PresentMode = FoundPresentModes[0];
+			// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
+			const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
+
+			if (bFoundPresentModeMailbox)
+			{
+				PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			}
+			else if (bFoundPresentModeImmediate && bDisableVsyncForHMD)
+			{
+				PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+			}
+			else if (bFoundPresentModeFIFO)
+			{
+				PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+			}
+			else
+			{
+				UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired PresentMode! Using %d"), static_cast<int32>(FoundPresentModes[0]));
+				PresentMode = FoundPresentModes[0];
+			}
 		}
 
 		UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("Selected VkPresentModeKHR mode %d"), PresentMode);

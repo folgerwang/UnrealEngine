@@ -28,10 +28,6 @@ static FAutoConsoleVariableRef CVarVulkanProfileCmdBuffers(
 
 #define CMD_BUFFER_TIME_TO_WAIT_BEFORE_DELETING		10
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-extern TAutoConsoleVariable<int32> CVarVulkanDebugBarrier;
-#endif
-
 const uint32 GNumberOfFramesBeforeDeletingDescriptorPool = 300;
 
 FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool, bool bInIsUploadOnly)
@@ -343,10 +339,7 @@ void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(uint32 NumSignalSemaphor
 		check(UploadCmdBuffer->IsOutsideRenderPass());
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-		if (CVarVulkanDebugBarrier.GetValueOnAnyThread() & 4)
-		{
-			VulkanRHI::InsertHeavyWeightBarrier(UploadCmdBuffer->GetHandle());
-		}
+		VulkanRHI::DebugHeavyWeightBarrier(UploadCmdBuffer->GetHandle(), 4);
 #endif
 
 		UploadCmdBuffer->End();
@@ -370,12 +363,7 @@ void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(VulkanRHI::FSemaphore* S
 			ActiveCmdBuffer->EndRenderPass();
 		}
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-		if (CVarVulkanDebugBarrier.GetValueOnAnyThread() & 8)
-		{
-			VulkanRHI::InsertHeavyWeightBarrier(ActiveCmdBuffer->GetHandle());
-		}
-#endif
+		VulkanRHI::DebugHeavyWeightBarrier(ActiveCmdBuffer->GetHandle(), 8);
 
 		ActiveCmdBuffer->End();
 		if (SignalSemaphore)
