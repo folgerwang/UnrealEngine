@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -20,8 +20,8 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The directory to read compressed files from
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string FromDir;
+		[TaskParameter]
+		public DirectoryReference FromDir;
 
 		/// <summary>
 		/// List of file specifications separated by semicolons (eg. *.cpp;Engine/.../*.bat), or the name of a tag set. Relative paths are taken from FromDir.
@@ -32,8 +32,8 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The zip file to create
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
-		public string ZipFile;
+		[TaskParameter]
+		public FileReference ZipFile;
 
 		/// <summary>
 		/// Tag to be applied to the created zip file
@@ -70,31 +70,28 @@ namespace BuildGraph.Tasks
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			DirectoryReference FromDir = ResolveDirectory(Parameters.FromDir);
-
 			// Find all the input files
 			IEnumerable<FileReference> Files;
 			if(Parameters.Files == null)
 			{
-				Files = DirectoryReference.EnumerateFiles(FromDir, "*", System.IO.SearchOption.AllDirectories);
+				Files = DirectoryReference.EnumerateFiles(Parameters.FromDir, "*", System.IO.SearchOption.AllDirectories);
 			}
 			else
 			{
-				Files = ResolveFilespec(FromDir, Parameters.Files, TagNameToFileSet);
+				Files = ResolveFilespec(Parameters.FromDir, Parameters.Files, TagNameToFileSet);
 			}
 
 			// Create the zip file
-			FileReference ArchiveFile = ResolveFile(Parameters.ZipFile);
-			CommandUtils.ZipFiles(ArchiveFile, FromDir, Files);
+			CommandUtils.ZipFiles(Parameters.ZipFile, Parameters.FromDir, Files);
 
 			// Apply the optional tag to the produced archive
 			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
 			{
-				FindOrAddTagSet(TagNameToFileSet, TagName).Add(ArchiveFile);
+				FindOrAddTagSet(TagNameToFileSet, TagName).Add(Parameters.ZipFile);
 			}
 
 			// Add the archive to the set of build products
-			BuildProducts.Add(ArchiveFile);
+			BuildProducts.Add(Parameters.ZipFile);
 		}
 
 		/// <summary>

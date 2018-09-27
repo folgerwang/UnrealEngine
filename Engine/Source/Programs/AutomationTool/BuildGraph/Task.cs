@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,49 +24,14 @@ namespace AutomationTool
 		Default,
 
 		/// <summary>
-		/// A standard name; alphanumeric characters, plus underscore and space. Spaces at the start or end, or more than one in a row are prohibited.
-		/// </summary>
-		Name,
-
-		/// <summary>
-		/// A list of names separated by semicolons
-		/// </summary>
-		NameList,
-
-		/// <summary>
-		/// A tag name (a regular name with '#' prefix)
-		/// </summary>
-		Tag,
-
-		/// <summary>
 		/// A list of tag names separated by semicolons
 		/// </summary>
 		TagList,
 
 		/// <summary>
-		/// A standard node/aggregate/agent name or tag name
-		/// </summary>
-		Target,
-
-		/// <summary>
-		/// A list of standard name or tag names separated by semicolons
-		/// </summary>
-		TargetList,
-
-		/// <summary>
 		/// A file specification, which may contain tags and wildcards.
 		/// </summary>
 		FileSpec,
-
-		/// <summary>
-		/// A single file name
-		/// </summary>
-		FileName,
-
-		/// <summary>
-		/// A single directory name
-		/// </summary>
-		DirectoryName,
 	}
 
 	/// <summary>
