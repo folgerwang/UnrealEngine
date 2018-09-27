@@ -101,12 +101,12 @@ void FMetalRenderPass::Wait(FMetalFence* Fence)
 		if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 		{
 			PrologueEncoder.WaitForFence(Fence);
-			FMetalFence::ValidateUsage(Fence);
+			METAL_DEBUG_LAYER(EMetalDebugLevelValidation, FMetalFence::ValidateUsage(Fence));
 		}
 		else if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 		{
 			CurrentEncoder.WaitForFence(Fence);
-			FMetalFence::ValidateUsage(Fence);
+			METAL_DEBUG_LAYER(EMetalDebugLevelValidation, FMetalFence::ValidateUsage(Fence));
 		}
         else
         {

@@ -141,11 +141,14 @@ FMetalFence* FMetalFencePool::AllocateFence()
 	if (Fence)
 	{
 		FPlatformAtomics::InterlockedDecrement(&Count);
+#if METAL_DEBUG_OPTIONS
+		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
 		{
 			FScopeLock Lock(&Mutex);
 			check(Fences.Contains(Fence));
 			Fences.Remove(Fence);
 		}
+#endif
 	}
 	check(Fence);
 	Fence->Reset();
@@ -171,14 +174,15 @@ void FMetalFencePool::ReleaseFence(FMetalFence* const InFence)
 {
 	if (InFence)
 	{
-		FMetalFence::ValidateUsage(InFence);
-		
+#if METAL_DEBUG_OPTIONS
+		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
 		{
 			FScopeLock Lock(&Mutex);
+			FMetalFence::ValidateUsage(InFence);
 			check(!Fences.Contains(InFence));
 			Fences.Add(InFence);
 		}
-		
+#endif
 		FPlatformAtomics::InterlockedIncrement(&Count);
 		check(Count <= FMetalFencePool::NumFences);
 		Lifo.Push(InFence);

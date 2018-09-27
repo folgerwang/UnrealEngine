@@ -198,8 +198,10 @@ public:
 private:
 	int32 Count;
 	mtlpp::Device Device;
+#if METAL_DEBUG_OPTIONS
 	TSet<FMetalFence*> Fences;
 	FCriticalSection Mutex;
+#endif
 	TLockFreePointerListLIFO<FMetalFence> Lifo;
 	static FMetalFencePool sSelf;
 };
