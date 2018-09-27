@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Database.h"
 //Forward declarations
 struct sqlite3_stmt;
