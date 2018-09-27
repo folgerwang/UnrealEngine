@@ -184,7 +184,7 @@ void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup)
 			TUniquePtr<TArray<uint8>> ShaderData = MakeUnique<TArray<uint8>>();
 			FMemoryWriter Ar(*ShaderData);
 			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true, nullptr);
-			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
+			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders(false);
 			GGlobalShaderMap[ShaderPlatform]->Empty();
 			OutGlobalShaderBackup.FeatureLevelShaderData[i] = MoveTemp(ShaderData);
 		}
@@ -208,7 +208,7 @@ void RestoreGlobalShaderMap(const FGlobalShaderBackupData& GlobalShaderBackup)
 		{
 			FMemoryReader Ar(*GlobalShaderBackup.FeatureLevelShaderData[i]);
 			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true, nullptr);
-			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
+			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders(false);
 		}
 	}
 }

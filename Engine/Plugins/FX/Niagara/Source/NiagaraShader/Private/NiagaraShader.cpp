@@ -463,7 +463,7 @@ void FNiagaraShaderMap::LoadFromDerivedDataCache(const FNiagaraShaderScript* Scr
 
 				// Deserialize from the cached data
 				InOutShaderMap->Serialize(Ar);
-				InOutShaderMap->RegisterSerializedShaders();
+				InOutShaderMap->RegisterSerializedShaders(false);
 
 				checkSlow(InOutShaderMap->GetShaderMapId() == ShaderMapId);
 
@@ -498,7 +498,7 @@ TArray<uint8>* FNiagaraShaderMap::BackupShadersToMemory()
 	FMemoryWriter Ar(*SavedShaderData);
 
 	SerializeInline(Ar, true, true);
-	RegisterSerializedShaders();
+	RegisterSerializedShaders(false);
 	Empty();
 
 	return SavedShaderData;
@@ -508,7 +508,7 @@ void FNiagaraShaderMap::RestoreShadersFromMemory(const TArray<uint8>& ShaderData
 {
 	FMemoryReader Ar(ShaderData);
 	SerializeInline(Ar, true, true);
-	RegisterSerializedShaders();
+	RegisterSerializedShaders(false);
 }
 
 void FNiagaraShaderMap::SaveForRemoteRecompile(FArchive& Ar, const TMap<FString, TArray<TRefCountPtr<FNiagaraShaderMap> > >& CompiledShaderMaps, const TArray<FShaderResourceId>& ClientResourceIds)
@@ -1093,7 +1093,7 @@ void FNiagaraShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 	if (Ar.IsSaving())
 	{
 		TShaderMap<FNiagaraShaderType>::SerializeInline(Ar, bInlineShaderResources, false);
-		RegisterSerializedShaders();
+		RegisterSerializedShaders(false);
 	}
 
 	if (Ar.IsLoading())
@@ -1102,11 +1102,11 @@ void FNiagaraShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 	}
 }
 
-void FNiagaraShaderMap::RegisterSerializedShaders()
+void FNiagaraShaderMap::RegisterSerializedShaders(bool bCookedMaterial)
 {
 	check(IsInGameThread());
 
-	TShaderMap<FNiagaraShaderType>::RegisterSerializedShaders();
+	TShaderMap<FNiagaraShaderType>::RegisterSerializedShaders(bCookedMaterial);
 }
 
 void FNiagaraShaderMap::DiscardSerializedShaders()
