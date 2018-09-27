@@ -20,8 +20,8 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The project that this target belongs to
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
-		public string Project;
+		[TaskParameter(Optional = true)]
+		public FileReference Project;
 
 		/// <summary>
 		/// Name of the target to stage
@@ -51,7 +51,7 @@ namespace BuildGraph.Tasks
 		/// Directory the receipt files should be staged to
 		/// </summary>
 		[TaskParameter]
-		public string ToDir;
+		public DirectoryReference ToDir;
 
 		/// <summary>
 		/// Whether to overwrite existing files
@@ -95,14 +95,10 @@ namespace BuildGraph.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Get the project path, and check it exists
-			FileReference ProjectFile = null;
-			if(Parameters.Project != null)
+			FileReference ProjectFile = Parameters.Project;
+			if(Parameters.Project != null && !FileReference.Exists(ProjectFile))
 			{
-				ProjectFile = ResolveFile(Parameters.Project);
-				if(!FileReference.Exists(ProjectFile))
-				{
-					throw new AutomationException("Couldn't find project '{0}'", ProjectFile.FullName);
-				}
+				throw new AutomationException("Couldn't find project '{0}'", ProjectFile.FullName);
 			}
 
 			// Get the directories used for staging this project
@@ -110,7 +106,7 @@ namespace BuildGraph.Tasks
 			DirectoryReference SourceProjectDir = (ProjectFile == null)? SourceEngineDir : ProjectFile.Directory;
 
 			// Get the output directories. We flatten the directory structure on output.
-			DirectoryReference TargetDir = ResolveDirectory(Parameters.ToDir);
+			DirectoryReference TargetDir = Parameters.ToDir;
 			DirectoryReference TargetEngineDir = DirectoryReference.Combine(TargetDir, "Engine");
 			DirectoryReference TargetProjectDir = DirectoryReference.Combine(TargetDir, ProjectFile.GetFileNameWithoutExtension());
 

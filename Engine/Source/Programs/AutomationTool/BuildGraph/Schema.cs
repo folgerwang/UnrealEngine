@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -252,6 +252,8 @@ namespace AutomationTool
 			TypeToSchemaTypeName.Add(typeof(String), GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
 			TypeToSchemaTypeName.Add(typeof(Boolean), GetQualifiedTypeName(ScriptSchemaStandardType.Boolean));
 			TypeToSchemaTypeName.Add(typeof(Int32), GetQualifiedTypeName(ScriptSchemaStandardType.Integer));
+			TypeToSchemaTypeName.Add(typeof(FileReference), GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
+			TypeToSchemaTypeName.Add(typeof(DirectoryReference), GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
 			
 			// Create all the custom user types, and add them to the qualified name lookup
 			List<XmlSchemaType> UserTypes = new List<XmlSchemaType>();
@@ -395,18 +397,8 @@ namespace AutomationTool
 		{
 			switch(Type)
 			{
-				case TaskParameterValidationType.Name:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.Name);
-				case TaskParameterValidationType.NameList:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.NameList);
-				case TaskParameterValidationType.Tag:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.Tag);
 				case TaskParameterValidationType.TagList:
 					return GetQualifiedTypeName(ScriptSchemaStandardType.TagList);
-				case TaskParameterValidationType.Target:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.NameOrTag);
-				case TaskParameterValidationType.TargetList:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.NameOrTagList);
 			}
 			return null;
 		}

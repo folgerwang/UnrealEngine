@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -21,8 +21,8 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// Executable to spawn
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
-		public string Exe;
+		[TaskParameter]
+		public FileReference Exe;
 
 		/// <summary>
 		/// Arguments for the newly created process
@@ -65,10 +65,10 @@ namespace BuildGraph.Tasks
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			IProcessResult Result = CommandUtils.Run(Parameters.Exe, Parameters.Arguments);
+			IProcessResult Result = CommandUtils.Run(Parameters.Exe.FullName, Parameters.Arguments);
 			if(Result.ExitCode < 0 || Result.ExitCode >= Parameters.ErrorLevel)
 			{
-				throw new AutomationException("{0} terminated with an exit code indicating an error ({1})", Path.GetFileName(Parameters.Exe), Result.ExitCode);
+				throw new AutomationException("{0} terminated with an exit code indicating an error ({1})", Path.GetFileName(Parameters.Exe.FullName), Result.ExitCode);
 			}
 		}
 
