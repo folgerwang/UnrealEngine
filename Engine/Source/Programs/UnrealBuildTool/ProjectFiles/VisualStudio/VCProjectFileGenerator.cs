@@ -288,11 +288,11 @@ namespace UnrealBuildTool
 			if (ProjectFileFormat == VCProjectFileFormat.Default)
 			{
 				// Pick the best platform installed by default
-				if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2017))
+				if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2017) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2017))
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2017;
 				}
-				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015))
+				else if (WindowsPlatform.HasCompiler(WindowsCompiler.VisualStudio2015) && WindowsPlatform.HasIDE(WindowsCompiler.VisualStudio2015))
 				{
 					ProjectFileFormat = VCProjectFileFormat.VisualStudio2015;
 				}
