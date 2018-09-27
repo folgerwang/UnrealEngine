@@ -1353,4 +1353,3 @@ FSoftObjectPath FStreamableManager::HandleLoadedRedirector(UObjectRedirector* Lo
 	return NewPath;
 }
 
-PRAGMA_ENABLE_OPTIMIZATION

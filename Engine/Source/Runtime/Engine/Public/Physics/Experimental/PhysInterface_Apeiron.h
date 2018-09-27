@@ -313,6 +313,7 @@ public:
 	static ENGINE_API FVector GetWorldVelocityAtPoint_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InPoint);
 
 	static ENGINE_API FTransform GetComTransform_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
+	static ENGINE_API FTransform GetComTransformLocal_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
 
 	static ENGINE_API FVector GetLocalInertiaTensor_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
 	static ENGINE_API FBox GetBounds_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference);
