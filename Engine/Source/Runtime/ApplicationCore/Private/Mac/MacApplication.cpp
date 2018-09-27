@@ -122,6 +122,8 @@ FMacApplication::FMacApplication()
 	FCoreDelegates::PreSlateModal.AddRaw(this, &FMacApplication::StartScopedModalEvent);
     FCoreDelegates::PostSlateModal.AddRaw(this, &FMacApplication::EndScopedModalEvent);
 #endif
+
+	FMacApplication::OnDisplayReconfiguration(kCGNullDirectDisplay, kCGDisplayDesktopShapeChangedFlag, this);
 }
 
 FMacApplication::~FMacApplication()
