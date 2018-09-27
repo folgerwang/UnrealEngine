@@ -9,6 +9,10 @@
 #include "MetalLLM.h"
 #include "MetalCommandBuffer.h"
 
+#if METAL_STATISTICS
+extern int32 GMetalProfilerStatisticsTiming;
+#endif
+
 void FMetalQueryBufferPool::Allocate(FMetalQueryResult& NewQuery)
 {
 	FMetalQueryBuffer* QB = IsValidRef(CurrentBuffer) ? CurrentBuffer.GetReference() : GetCurrentQueryBuffer();
@@ -243,7 +247,7 @@ void FMetalRenderQuery::End(FMetalContext* Context)
 			
 #if METAL_STATISTICS
 			class IMetalStatistics* Stats = Context->GetCommandQueue().GetStatistics();
-			if (Stats)
+			if (Stats && GMetalProfilerStatisticsTiming)
 			{
 				id<IMetalStatisticsSamples> StatSample = Stats->GetLastStatisticsSample(Context->GetCurrentCommandBuffer().GetPtr());
 				if (!StatSample)
