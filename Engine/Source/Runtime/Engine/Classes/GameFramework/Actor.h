@@ -2693,7 +2693,10 @@ public:
 	 * May return NULL if the cast fails. 
 	 */
 	template< class T >
-	T* GetGameInstance() const;
+	T* GetGameInstance() const 
+	{ 
+		return Cast<T>(GetGameInstance()); 
+	}
 
 	/** Returns true if this is a replicated actor that was placed in the map */
 	bool IsNetStartupActor() const;
