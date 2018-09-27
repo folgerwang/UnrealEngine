@@ -1985,8 +1985,32 @@ public:
 	/** @return Returns an iterator for the player controller list. */
 	FConstPlayerControllerIterator GetPlayerControllerIterator() const;
 	
+	/** 
+	 * @return Returns the first player controller cast to the template type, or NULL if there is not one.
+	 *
+	 * May return NULL if the cast fails.
+	 */
+	template< class T >
+	T* GetFirstPlayerController() const
+	{
+		return Cast<T>(GetFirstPlayerController());
+	}
+	
 	/** @return Returns the first player controller, or NULL if there is not one. */	
 	APlayerController* GetFirstPlayerController() const;
+	
+	/*
+	 *	Get the first valid local player via the first player controller.
+	 *
+	 *  @return Pointer to the first valid ULocalPlayer cast to the template type, or NULL if there is not one.
+	 *
+	 *  May Return NULL if the cast fails.
+	 */	
+	template< class T >
+	T* GetFirstLocalPlayerFromController() const
+	{
+		return Cast<T>(GetFirstLocalPlayerFromController());
+	}
 
 	/*
 	 *	Get the first valid local player via the first player controller.

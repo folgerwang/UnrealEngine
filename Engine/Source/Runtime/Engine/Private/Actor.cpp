@@ -352,6 +352,12 @@ UGameInstance* AActor::GetGameInstance() const
 	return GetWorld()->GetGameInstance();
 }
 
+template< class T >
+T* AActor::GetGameInstance() const
+{
+	return GetWorld()->GetGameInstance<T>();
+}
+
 bool AActor::IsNetStartupActor() const
 {
 	return bNetStartup;
