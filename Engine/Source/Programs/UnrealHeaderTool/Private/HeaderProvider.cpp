@@ -19,9 +19,10 @@ FUnrealSourceFile* FHeaderProvider::Resolve()
 	{
 		if (Type == EHeaderProviderSourceType::ClassName)
 		{
+			FName IdName(*Id);
 			for (const auto& Pair : GTypeDefinitionInfoMap)
 			{
-				if (Pair.Key->GetFName() == *Id)
+				if (Pair.Key->GetFName() == IdName)
 				{
 					Cache = &Pair.Value->GetUnrealSourceFile();
 					break;
@@ -47,11 +48,6 @@ FString FHeaderProvider::ToString() const
 const FString& FHeaderProvider::GetId() const
 {
 	return Id;
-}
-
-EHeaderProviderSourceType FHeaderProvider::GetType() const
-{
-	return Type;
 }
 
 bool operator==(const FHeaderProvider& A, const FHeaderProvider& B)
