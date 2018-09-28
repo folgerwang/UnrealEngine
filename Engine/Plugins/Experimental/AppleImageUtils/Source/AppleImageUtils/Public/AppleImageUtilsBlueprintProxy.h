@@ -49,9 +49,10 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the JPEG is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before conversion, defaults to no scaling
 	 */
 	UFUNCTION(BlueprintCallable, Meta=(BlueprintInternalUseOnly="true", DisplayName="Convert To JPEG"), Category="Image Conversion")
-	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToJPEG(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true);
+	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToJPEG(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f);
 
 	/**
 	 * Converts a image to an array of HEIF data in a background task
@@ -60,9 +61,10 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the HEIF is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before conversion, defaults to no scaling
 	 */
 	UFUNCTION(BlueprintCallable, Meta=(BlueprintInternalUseOnly="true", DisplayName="Convert To HEIF"), Category="Image Conversion")
-	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToHEIF(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true);
+	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToHEIF(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f);
 
 	/**
 	 * Converts a image to an array of TIFF data in a background task
@@ -71,9 +73,10 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the TIFF is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before conversion, defaults to no scaling
 	 */
 	UFUNCTION(BlueprintCallable, Meta=(BlueprintInternalUseOnly="true", DisplayName="Convert To TIFF"), Category="Image Conversion")
-	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true);
+	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f);
 
 	/**
 	 * Converts a image to an array of TIFF data in a background task
@@ -82,9 +85,10 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the PNG is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before conversion, defaults to no scaling
 	 */
 	UFUNCTION(BlueprintCallable, Meta=(BlueprintInternalUseOnly="true", DisplayName="Convert To PNG"), Category="Image Conversion")
-	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToPNG(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true);
+	static UAppleImageUtilsBaseAsyncTaskBlueprintProxy* CreateProxyObjectForConvertToPNG(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f);
 
 	//~ Begin FTickableObject Interface
 	virtual void Tick(float DeltaTime) override;

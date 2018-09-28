@@ -85,10 +85,11 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the JPEG is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToJPEG(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToJPEG(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
 
 	/**
 	 * Converts a image to an array of HEIF data in a background task
@@ -100,7 +101,7 @@ public:
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToHEIF(UTexture* SourceImage, int32 Quality = 85,  bool bWantColor = true, bool bUseGpu = true) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToHEIF(UTexture* SourceImage, int32 Quality = 85,  bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
 
 	/**
 	 * Converts a image to an array of PNG data in a background task
@@ -112,7 +113,7 @@ public:
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToPNG(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToPNG(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
 
 	/**
 	 * Converts a image to an array of TIFF data in a background task
@@ -123,7 +124,7 @@ public:
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
 
 #if SUPPORTS_IMAGE_UTILS_1_0
 	/**
