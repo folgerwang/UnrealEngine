@@ -7,6 +7,8 @@
 #include "Modules/ModuleManager.h"
 #include "HAL/ThreadSafeBool.h"
 
+#include "AppleImageUtilsTypes.h"
+
 #include "AppleImageUtilsAvailability.h"
 
 #if SUPPORTS_IMAGE_UTILS_1_0
@@ -86,10 +88,11 @@ public:
 	 * @param bWantColor whether the JPEG is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
 	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToJPEG(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToJPEG(UTexture* SourceImage, int32 Quality = 85, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
 
 	/**
 	 * Converts a image to an array of HEIF data in a background task
@@ -98,10 +101,12 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the HEIF is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToHEIF(UTexture* SourceImage, int32 Quality = 85,  bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToHEIF(UTexture* SourceImage, int32 Quality = 85,  bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
 
 	/**
 	 * Converts a image to an array of PNG data in a background task
@@ -110,10 +115,12 @@ public:
 	 * @param Quality the quality level to compress to
 	 * @param bWantColor whether the PNG is color (true) or monochrome (false)
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToPNG(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToPNG(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
 
 	/**
 	 * Converts a image to an array of TIFF data in a background task
@@ -121,10 +128,12 @@ public:
 	 * @param SourceImage the image to compress (NOTE: must support UAppleImageInterface)
 	 * @param Quality the quality level to compress to
 	 * @param bUseGpu whether to use the GPU (true) or the CPU (false) to compress
+	 * @param Scale whether to scale the image before converting, defaults to no scale operation
+	 * @param Rotate a direction to rotate the image in during conversion, defaults to none
 	 *
 	 * @return the async task that is doing the conversion
 	 */
-	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f) = 0;
+	virtual TSharedPtr<FAppleImageUtilsConversionTaskBase, ESPMode::ThreadSafe> ConvertToTIFF(UTexture* SourceImage, bool bWantColor = true, bool bUseGpu = true, float Scale = 1.f, ETextureRotationDirection Rotate = ETextureRotationDirection::None) = 0;
 
 #if SUPPORTS_IMAGE_UTILS_1_0
 	/**
