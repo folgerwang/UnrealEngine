@@ -411,6 +411,16 @@ TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> UARBlueprintLibr
 	return TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>();
 }
 
+TArray<FVector> UARBlueprintLibrary::GetPointCloud()
+{
+	auto ARSystem = GetARSystem();
+	if (ARSystem.IsValid())
+	{
+		return ARSystem->GetPointCloud();
+	}
+	return TArray<FVector>();
+}
+
 TArray<FARVideoFormat> UARBlueprintLibrary::GetSupportedVideoFormats(EARSessionType SessionType)
 {
 	auto ARSystem = GetARSystem();

@@ -84,6 +84,7 @@ protected:
 	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const override;
 	virtual EARWorldMappingState OnGetWorldMappingStatus() const override;
 	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const override;
+	virtual TArray<FVector> OnGetPointCloud() const override;
 	//~IARSystemSupport
 
 private:
