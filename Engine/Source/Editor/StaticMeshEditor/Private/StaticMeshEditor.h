@@ -31,6 +31,7 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UStaticMeshSocket;
 struct FPropertyChangedEvent;
+struct FTabSpawnerEntry;
 
 /**
  * StaticMesh Editor class
@@ -43,6 +44,7 @@ public:
 		, MinPrimSize(0.5f)
 		, OverlapNudge(10.0f)
 		, CurrentViewedUVChannel(0)
+		, SecondaryToolbarEntry(nullptr)
 	{}
 
 	~FStaticMeshEditor();
@@ -124,6 +126,8 @@ public:
 	virtual TSet< int32 >& GetSelectedEdges() override;
 
 	virtual FEditorViewportClient& GetViewportClient() override;
+
+	virtual void SetSecondaryToolbarDisplayName(FText DisplayName) override;
 	// End of IStaticMeshEditor
 
 	/** Extends the toolbar menu to include static mesh editor options */
@@ -195,6 +199,7 @@ private:
 	TSharedRef<SDockTab> SpawnTab_SocketManager(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_Collision(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_PreviewSceneSettings(const FSpawnTabArgs& Args);
+	TSharedRef<SDockTab> SpawnTab_SecondaryToolbar(const FSpawnTabArgs& Args);
 
 private:
 	/** Binds commands associated with the Static Mesh Editor. */
@@ -340,6 +345,12 @@ private:
 	bool CanRemoveUVChannel();
 	void RemoveCurrentUVChannel();
 
+	/** Adds or removes extenders to the secondary toolbar */
+	void AddSecondaryToolbarExtender(TSharedPtr<FExtender> Extender);
+	void RemoveSecondaryToolbarExtender(TSharedPtr<FExtender> Extender);
+
+	void GenerateSecondaryToolbar();
+
 private:
 	/** List of open tool panels; used to ensure only one exists at any one time */
 	TMap< FName, TWeakPtr<class SDockableTab> > SpawnedToolPanels;
@@ -402,7 +413,23 @@ private:
 	static const FName SocketManagerTabId;
 	static const FName CollisionTabId;
 	static const FName PreviewSceneSettingsTabId;
+	static const FName SecondaryToolbarTabId;
 
 	/** Allow custom data for this editor */
 	TMap<int32, int32> CustomEditorData;
+
+	/** Static Mesh Editor Secondary Toolbar */
+	TSharedPtr<SWidget> SecondaryToolbar;
+
+	/** The widget that will house the secondary toolbar widget */
+	TSharedPtr<SBorder> SecondaryToolbarWidgetContent;
+
+	/** The extenders to populate the secondary toolbar with */
+	TArray<TSharedPtr<FExtender>> SecondaryToolbarExtenders;
+
+	/** Spawner entry for the secondary toolbar tab */
+	FTabSpawnerEntry* SecondaryToolbarEntry;
+
+	/** The text display name to override the default display name of the secondary toolbar*/
+	FText SecondaryToolbarDisplayName;
 };
