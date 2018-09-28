@@ -11,6 +11,8 @@ Texture2DStreamIn.cpp: Stream in helper for 2D textures using texture streaming 
 #include "Misc/Paths.h"
 #include "DerivedDataCacheInterface.h"
 #include "Serialization/MemoryReader.h"
+#include "Streaming/TextureStreamingHelpers.h"
+
 
 FTexture2DStreamIn_IO::FTexture2DStreamIn_IO(UTexture2D* InTexture, int32 InRequestedMips, bool InPrioritizedIORequest)
 	: FTexture2DStreamIn(InTexture, InRequestedMips)
@@ -24,14 +26,7 @@ FTexture2DStreamIn_IO::FTexture2DStreamIn_IO(UTexture2D* InTexture, int32 InRequ
 FTexture2DStreamIn_IO::~FTexture2DStreamIn_IO()
 {
 	// Work must be done here because derived destructors have been called now and so derived members are invalid.
-
 	check(!IOFileHandle);
-
-	if (AsyncCancelIORequestsTask)
-	{
-		ensure(AsyncCancelIORequestsTask->IsWorkDone());
-		AsyncCancelIORequestsTask->EnsureCompletion();
-	}
 
 #if DO_CHECK
 	for (IAsyncReadRequest* IORequest : IORequests)
@@ -180,6 +175,14 @@ void FTexture2DStreamIn_IO::SetAsyncFileCallback(const FContext& Context)
 			MarkAsCancelled();
 		}
 
+#if !UE_BUILD_SHIPPING
+		// On some platforms the IO is too fast to test cancelation requests timing issues.
+		if (FTextureStreamingSettings::ExtraIOLatency > 0 && TaskSynchronization.GetValue() == 0)
+		{
+			FPlatformProcess::Sleep(FTextureStreamingSettings::ExtraIOLatency * .001f); // Slow down the streaming.
+		}
+#endif
+
 		// The tick here is intended to schedule the success or cancel callback.
 		// Using TT_None ensure gets which could create a dead lock.
 		Tick(Context.Texture, FTexture2DUpdate::TT_None);
@@ -188,7 +191,7 @@ void FTexture2DStreamIn_IO::SetAsyncFileCallback(const FContext& Context)
 
 void FTexture2DStreamIn_IO::Abort()
 {
-	if (!IsCancelled())
+	if (!IsCancelled() && !IsCompleted())
 	{
 		FTexture2DStreamIn::Abort();
 
@@ -198,12 +201,7 @@ void FTexture2DStreamIn_IO::Abort()
 			// Prevent the update from being considered done before this is finished.
 			// By checking that it was not already cancelled, we make sure this doesn't get called twice.
 			FPlatformAtomics::InterlockedIncrement(&ScheduledTaskCount);
-			if (AsyncCancelIORequestsTask)
-			{
-				AsyncCancelIORequestsTask->EnsureCompletion();
-			}
-			AsyncCancelIORequestsTask = MakeUnique<FAsyncCancelIORequestsTask>(this);
-			AsyncCancelIORequestsTask->StartBackgroundTask();
+			(new FAsyncCancelIORequestsTask(this))->StartBackgroundTask();
 		}
 	}
 }

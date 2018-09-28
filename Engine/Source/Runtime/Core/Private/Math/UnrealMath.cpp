@@ -3332,3 +3332,62 @@ bool FRandomStream::ExportTextItem(FString& ValueStr, FRandomStream const& Defau
 	}
 	return false;
 }
+
+// Implementation of 1D Perlin noise based on Ken Perlin's original version (http://mrl.nyu.edu/~perlin/doc/oscar.html)
+// (See Random1.tps for additional third party software info.)
+float FMath::PerlinNoise1D(const float Value)
+{
+	const int32 B = 256;
+	static int32 p[B + B + 2];
+	static float g[B + B + 2];
+	const int32 BM = 255;
+
+	static bool bIsFirstCall = true;
+	if(bIsFirstCall)
+	{
+		bIsFirstCall = false;
+
+		int32 i;
+		for(i = 0; i < B; i++)
+		{
+			p[i] = i;
+
+			const int32 Random1 = FMath::RandRange(0, 0x3fffffff /* RAND_MAX */);
+			const int32 Random2 = FMath::RandRange(0, 0x3fffffff /* RAND_MAX */);
+			const int32 Random3 = FMath::RandRange(0, 0x3fffffff /* RAND_MAX */);
+
+			g[i] = (float)((Random1 % (B + B)) - B) / B;
+		}
+
+		while(--i)
+		{
+			const int32 k = p[i];
+
+			const int32 Random = FMath::RandRange(0, 0x3fffffff /* RAND_MAX */);
+
+			const int32 j = Random % B;
+			p[i] = p[j];
+			p[j] = k;
+		}
+
+		for(i = 0; i < B + 2; i++)
+		{
+			p[B + i] = p[i];
+			g[B + i] = g[i];
+		}
+	}
+
+	const int32 N = 4096;
+	const float t = Value + N;
+	const int32 bx0 = ((int32)t) & BM;
+	const int32 bx1 = (bx0 + 1) & BM;
+	const float rx0 = t - (int32)t;
+	const float rx1 = rx0 - 1.;
+
+	const float sx = (rx0 * rx0 * (3. - 2. * rx0));
+
+	const float u = rx0 * g[p[bx0]];
+	const float v = rx1 * g[p[bx1]];
+
+	return 2.0f * (u + sx * (v - u));
+}

@@ -564,6 +564,9 @@ class UAnimMontage : public UAnimCompositeBase
 	UPROPERTY(EditAnywhere, Category = BlendOption)
 	float BlendOutTriggerTime;
 
+	UFUNCTION(BlueprintCallable, Category = "Montage")
+	float GetDefaultBlendOutTime() const { return BlendOut.GetBlendTime(); }
+
 	/** If you're using marker based sync for this montage, make sure to add sync group name. For now we only support one group */
 	UPROPERTY(EditAnywhere, Category = SyncGroup)
 	FName SyncGroup;

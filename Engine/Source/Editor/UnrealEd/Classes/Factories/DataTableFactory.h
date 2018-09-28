@@ -7,6 +7,8 @@
 #include "Factories/Factory.h"
 #include "DataTableFactory.generated.h"
 
+class UDataTable;
+
 UCLASS(hidecategories=Object)
 class UNREALED_API UDataTableFactory : public UFactory
 {
@@ -19,7 +21,7 @@ class UNREALED_API UDataTableFactory : public UFactory
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
 	//~ Begin UFactory Interface
+
+protected:
+	virtual UDataTable* MakeNewDataTable(UObject* InParent, FName Name, EObjectFlags Flags);
 };
-
-
-

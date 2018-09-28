@@ -19,6 +19,8 @@
 #include "ProfilingDebugging/Histogram.h"
 #include "Containers/ArrayView.h"
 #include "ReplicationDriver.h"
+#include "Analytics/EngineNetAnalytics.h"
+#include "PacketTraits.h"
 
 #include "NetConnection.generated.h"
 
@@ -41,13 +43,6 @@ enum { MAX_CHSEQUENCE = 1024 }; // Power of 2 >RELIABLE_BUFFER, covering loss/mi
 enum { MAX_BUNCH_HEADER_BITS = 64 };
 enum { MAX_PACKET_HEADER_BITS = 15 }; // = FMath::CeilLogTwo(MAX_PACKETID) + 1 (IsAck)
 enum { MAX_PACKET_TRAILER_BITS = 1 };
-
-class UNetDriver;
-
-//
-// Whether to support net lag and packet loss testing.
-//
-#define DO_ENABLE_NET_TEST !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 // 
 // State of a connection.
@@ -171,17 +166,23 @@ struct DelayedPacket
 	/** The size of the packet in bits */
 	int32 SizeBits;
 
+	/** The traits applied to the packet */
+	FOutPacketTraits Traits;
+
 	/** The time at which to send the packet */
 	double SendTime;
 
 public:
-	FORCEINLINE DelayedPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits)
+	FORCEINLINE DelayedPacket(uint8* InData, int32 InSizeBits, FOutPacketTraits& InTraits)
 		: Data()
 		, SizeBits(InSizeBits)
+		, Traits(InTraits)
 		, SendTime(0.0)
 	{
-		Data.AddUninitialized(InSizeBytes);
-		FMemory::Memcpy(Data.GetData(), InData, InSizeBytes);
+		int32 SizeBytes = FMath::DivideAndRoundUp(SizeBits, 8);
+
+		Data.AddUninitialized(SizeBytes);
+		FMemory::Memcpy(Data.GetData(), InData, SizeBytes);
 	}
 };
 #endif
@@ -358,6 +359,14 @@ public:
 	/** total packets lost on this connection */
 	int32 InTotalPacketsLost, OutTotalPacketsLost;
 
+	/** Net Analytics */
+
+	/** The locally cached/updated analytics variables, for the NetConnection - aggregated upon connection Close */
+	FNetConnAnalyticsVars							AnalyticsVars;
+
+	/** The net analytics data holder for the NetConnection analytics, which is where analytics variables are aggregated upon Close */
+	TNetAnalyticsDataPtr<FNetConnAnalyticsData>		NetAnalyticsData;
+
 	// Packet.
 	FBitWriter		SendBuffer;						// Queued up bits waiting to send
 	double			OutLagTime[256];				// For lag measuring.
@@ -452,6 +461,15 @@ public:
 	void SetReplicationConnectionDriver(UReplicationConnectionDriver* NewReplicationConnectionDriver)
 	{
 		ReplicationConnectionDriver = NewReplicationConnectionDriver;
+	}
+
+	void TearDownReplicationConnectionDriver()
+	{
+		if (ReplicationConnectionDriver)
+		{
+			ReplicationConnectionDriver->TearDown();
+			ReplicationConnectionDriver = nullptr;
+		}
 	}
 
 private:
@@ -633,11 +651,11 @@ public:
 	 * Sends a byte stream to the remote endpoint using the underlying socket
 	 *
 	 * @param Data			The byte stream to send
-	 * @param CountBytes	The length of the stream to send, in bytes
 	 * @param CountBits		The length of the stream to send, in bits (to support bit-level additions to packets, from PacketHandler's)
+	 * @param Traits		Special traits for the packet, passed down from the NetConnection through the PacketHandler
 	 */
-	// @todo: Deprecate 'CountBytes' eventually
-	ENGINE_API virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+	// @todo: Traits should be passed within bit readers/writers, eventually
+	ENGINE_API virtual void LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 		PURE_VIRTUAL(UNetConnection::LowLevelSend,);
 
 	/** Validates the FBitWriter to make sure it's not in an error state */
@@ -749,10 +767,8 @@ public:
 
 	/**
 	 * Initializes the PacketHandler
-	 *
-	 * @param InProvider Analytics provider that's passed in to the packet handler
 	 */
-	ENGINE_API virtual void InitHandler(TSharedPtr<IAnalyticsProvider> InProvider = nullptr);
+	ENGINE_API virtual void InitHandler();
 
 	/**
 	 * Initializes the sequence numbers for the connection, usually from shared randomized data
@@ -761,6 +777,12 @@ public:
 	 * @param OutgoingSequence	The initial sequence number for outgoing packets
 	 */
 	ENGINE_API virtual void InitSequence(int32 IncomingSequence, int32 OutgoingSequence);
+
+	/**
+	 * Notification that the NetDriver analytics provider has been updated
+	 * NOTE: Can also mean disabled, e.g. during hotfix
+	 */
+	ENGINE_API virtual void NotifyAnalyticsProvider();
 
 	/**
 	 * Sets the encryption key and enables encryption.
@@ -954,6 +976,15 @@ public:
 	 */
 	void SetIgnoreAlreadyOpenedChannels(bool bInIgnoreAlreadyOpenedChannels);
 
+	/** Returns the OutgoingBunches array, only to be used by UChannel::SendBunch */
+	TArray<FOutBunch *>& GetOutgoingBunches() { return OutgoingBunches; }
+
+	/** Removes Actor and its replicated components from DormantReplicatorMap. */
+	void CleanupDormantReplicatorsForActor(AActor* Actor);
+
+	/** Removes stale entries from DormantReplicatorMap. */
+	void CleanupStaleDormantReplicators();
+
 protected:
 
 	void CleanupDormantActorState();
@@ -986,6 +1017,9 @@ private:
 	/** Updates entire cached LevelVisibility map */
 	void UpdateAllCachedLevelVisibility() const;
 
+	/** Returns true if an outgoing packet should be dropped due to packet simulation settings, including loss burst simulation. */
+	bool ShouldDropOutgoingPacketForLossSimulation() const;
+
 	/**
 	 * on the server, the world the client has told us it has loaded
 	 * used to make sure the client has traveled correctly, prevent replicating actors before level transitions are done, etc
@@ -998,6 +1032,9 @@ private:
 	/** Tracks channels that we should ignore when handling special demo data. */
 	TMap<int32, FNetworkGUID> IgnoringChannels;
 	bool bIgnoreAlreadyOpenedChannels;
+
+	/** This is only used in UChannel::SendBunch. It's a member so that we can preserve the allocation between calls, as an optimization, and in a thread-safe way to be compatible with demo.ClientRecordAsyncEndOfFrame */
+	TArray<FOutBunch*> OutgoingBunches;
 };
 
 
@@ -1065,7 +1102,7 @@ class ENGINE_API USimulatedClientNetConnection
 	GENERATED_UCLASS_BODY()
 public:
 
-	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override { }
+	virtual void LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits) override { }
 	void HandleClientPlayer( APlayerController* PC, UNetConnection* NetConnection ) override;
 	virtual FString LowLevelGetRemoteAddress(bool bAppendPort=false) override { return FString(); }
 	virtual bool ClientHasInitializedLevelFor(const AActor* TestActor) const { return true; }

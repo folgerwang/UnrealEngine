@@ -165,6 +165,7 @@ struct INTROTUTORIALS_API FTutorialWidgetContent
 		ContentWidth = 350.0f;
 		HorizontalAlignment = HAlign_Center;
 		VerticalAlignment = VAlign_Bottom;
+		Offset = FVector2D::ZeroVector;
 		bAutoFocus = false;
 	}
 

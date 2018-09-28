@@ -31,7 +31,6 @@ class ENGINE_API UCurveLinearColorAtlas : public UTexture2D
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 
-	virtual void PostLoad() override;
 	// How many slots are available per texture
 	FORCEINLINE uint32 MaxSlotsPerTexture()
 	{
@@ -45,7 +44,8 @@ class ENGINE_API UCurveLinearColorAtlas : public UTexture2D
 	void UpdateTextures();
 #endif
 
-	UFUNCTION(BlueprintCallable, Category = "Math|Curves")
+	virtual void PostLoad() override;
+
 	bool GetCurveIndex(UCurveLinearColor* InCurve, int32& Index);
 
 	UFUNCTION(BlueprintCallable, Category = "Math|Curves")
@@ -58,7 +58,7 @@ class ENGINE_API UCurveLinearColorAtlas : public UTexture2D
 	uint32	bHasAnyDirtyTextures : 1;
 	uint32	bShowDebugColorsForNullGradients : 1;	// Renders alternate blue/yellow lines for empty gradients. Good for debugging, but turns off optimization for selective updates to gradients.
 
-	TArray<FColor> SrcData;
+	TArray<FFloat16Color> SrcData;
 #endif
 	UPROPERTY(EditAnywhere, Category = "Curves")
 	uint32	TextureSize;						// Size of the lookup textures

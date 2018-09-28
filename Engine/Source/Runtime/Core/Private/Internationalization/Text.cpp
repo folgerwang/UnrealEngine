@@ -225,7 +225,7 @@ FText::FText()
 FText::FText( EInitToEmptyString )
 	: TextData(new TLocalizedTextData<FTextHistory_Base>(MakeShared<FString, ESPMode::ThreadSafe>()))
 	, Flags(0)
-{
+	{
 }
 
 #if PLATFORM_WINDOWS && defined(__clang__)

@@ -209,7 +209,7 @@ void UChatroom::LeaveChatRoom(const FUniqueNetIdRepl& LocalUserId, const FOnChat
 	}
 	else
 	{
-		UE_LOG(LogOnlineChat, Verbose, TEXT("[UChatroom::LeaveChatRoom] %s no chat room to leave."), *LocalUserId.ToString());
+		UE_LOG(LogOnlineChat, Verbose, TEXT("[UChatroom::LeaveChatRoom] %s no chat room to leave."), *LocalUserId.ToDebugString());
 	}
 }
 
@@ -218,7 +218,7 @@ void UChatroom::OnChatRoomLeft(const FUniqueNetId& LocalUserId, const FChatRoomI
 	if (ChatRoomIdCopy == RoomId)
 	{
 		// Not much to do failure or otherwise, just print logs here
-		UE_LOG(LogOnlineChat, Verbose, TEXT("[UChatroom::OnChatRoomLeft] %s left chat room %s Success: %d%s"), *LocalUserId.ToString(), *RoomId, bWasSuccessful, !Error.IsEmpty() ? *FString::Printf(TEXT(" %s"), *Error) : TEXT(""));
+		UE_LOG(LogOnlineChat, Verbose, TEXT("[UChatroom::OnChatRoomLeft] %s left chat room %s Success: %d%s"), *LocalUserId.ToDebugString(), *RoomId, bWasSuccessful, !Error.IsEmpty() ? *FString::Printf(TEXT(" %s"), *Error) : TEXT(""));
 
 		IOnlineChatPtr ChatInt = Online::GetChatInterface(GetWorld());
 		if (ensure(ChatInt.IsValid()))

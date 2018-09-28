@@ -29,9 +29,11 @@ class UBrushComponent : public UPrimitiveComponent
 	UPROPERTY()
 	class UBodySetup* BrushBodySetup;
 
+#if WITH_EDITORONLY_DATA
 	/** Local space translation */
 	UPROPERTY()
 	FVector PrePivot_DEPRECATED;
+#endif
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;

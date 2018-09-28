@@ -54,13 +54,13 @@ class ENGINE_API UCameraComponent : public USceneComponent
 
 	// If bConstrainAspectRatio is true, black bars will be added if the destination view has a different aspect ratio than this camera requested.
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
-	uint32 bConstrainAspectRatio : 1;
+	uint8 bConstrainAspectRatio : 1;
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetConstraintAspectRatio(bool bInConstrainAspectRatio) { bConstrainAspectRatio = bInConstrainAspectRatio; }
 
 	// If true, account for the field of view angle when computing which level of detail to use for meshes.
 	UPROPERTY(Interp, EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = CameraOptions)
-	uint32 bUseFieldOfViewForLOD : 1;
+	uint8 bUseFieldOfViewForLOD : 1;
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetUseFieldOfViewForLOD(bool bInUseFieldOfViewForLOD) { bUseFieldOfViewForLOD = bInUseFieldOfViewForLOD; }
 
@@ -72,18 +72,18 @@ class ENGINE_API UCameraComponent : public USceneComponent
 
 	/** True if the camera's orientation and position should be locked to the HMD */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
-	uint32 bLockToHmd : 1;
+	uint8 bLockToHmd : 1;
 
 	/**
 	 * If this camera component is placed on a pawn, should it use the view/control rotation of the pawn where possible?
 	 * @see APawn::GetViewRotation()
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
-	uint32 bUsePawnControlRotation : 1;
+	uint8 bUsePawnControlRotation : 1;
 
 protected:
 	/** True to enable the additive view offset, for adjusting the view without moving the component. */
-	uint32 bUseAdditiveOffset : 1;
+	uint8 bUseAdditiveOffset : 1;
 
 public:
 	// The type of camera
@@ -92,19 +92,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetProjectionMode(ECameraProjectionMode::Type InProjectionMode) { ProjectionMode = InProjectionMode; }
 
-	/** Indicates if PostProcessSettings should be used when using this Camera to view through. */
-	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = PostProcess, meta = (UIMin = "0.0", UIMax = "1.0"))
-	float PostProcessBlendWeight;
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetPostProcessBlendWeight(float InPostProcessBlendWeight) { PostProcessBlendWeight = InPostProcessBlendWeight; }
 
-	/** Post process settings to use for this camera. Don't forget to check the properties you want to override */
-	UPROPERTY(Interp, BlueprintReadWrite, Category = PostProcess)
-	struct FPostProcessSettings PostProcessSettings;
-
 	// UActorComponent interface
 	virtual void OnRegister() override;
-	virtual void PostLoad() override;
 	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport) override;
 #if WITH_EDITOR
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
@@ -122,8 +114,9 @@ public:
 #if WITH_EDITORONLY_DATA
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-#endif
+	virtual void PostLoad() override;
 	virtual void Serialize(FArchive& Ar) override;
+#endif
 	// End of UObject interface
 
 	/**
@@ -166,6 +159,13 @@ protected:
 	/** An optional extra transform to adjust the final view without moving the component, in the camera's local space */
 	FTransform AdditiveOffset;
 
+public:
+
+	/** Indicates if PostProcessSettings should be used when using this Camera to view through. */
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = PostProcess, meta = (UIMin = "0.0", UIMax = "1.0"))
+	float PostProcessBlendWeight;
+
+protected:
 	/** An optional extra FOV offset to adjust the final view without modifying the component */
 	float AdditiveFOVOffset;
 
@@ -196,16 +196,21 @@ public:
 	virtual void NotifyCameraCut();
 
 public:
+
+	/** Post process settings to use for this camera. Don't forget to check the properties you want to override */
+	UPROPERTY(Interp, BlueprintReadWrite, Category = PostProcess)
+	struct FPostProcessSettings PostProcessSettings;
+
 #if WITH_EDITORONLY_DATA
 	// Refreshes the visual components to match the component state
 	virtual void RefreshVisualRepresentation();
 
 	void OverrideFrustumColor(FColor OverrideColor);
 	void RestoreFrustumColor();
-#endif
 
 public:
 	/** DEPRECATED: use bUsePawnControlRotation instead */
 	UPROPERTY()
 	uint32 bUseControllerViewRotation_DEPRECATED:1;
+#endif
 };

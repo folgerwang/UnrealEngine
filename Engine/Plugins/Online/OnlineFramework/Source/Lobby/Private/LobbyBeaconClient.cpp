@@ -307,7 +307,7 @@ void ALobbyBeaconClient::ServerSetPartyOwner_Implementation(const FUniqueNetIdRe
 
 void ALobbyBeaconClient::ClientPlayerJoined_Implementation(const FText& NewPlayerName, const FUniqueNetIdRepl& InUniqueId)
 {
-	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientPlayerJoined %s %s."), *NewPlayerName.ToString(), *InUniqueId.ToString());
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientPlayerJoined %s %s."), *NewPlayerName.ToString(), *InUniqueId.ToDebugString());
 
 	if (GetNetMode() != NM_Standalone)
 	{
@@ -324,7 +324,7 @@ void ALobbyBeaconClient::ClientPlayerJoined_Implementation(const FText& NewPlaye
 
 void ALobbyBeaconClient::ClientPlayerLeft_Implementation(const FUniqueNetIdRepl& InUniqueId)
 {
-	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientPlayerLeft %s"), *InUniqueId.ToString());
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientPlayerLeft %s"), *InUniqueId.ToDebugString());
 
 	if (GetNetMode() != NM_Standalone)
 	{

@@ -35,6 +35,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "PacketHandler.h"
 #include "PacketHandlers/StatelessConnectHandlerComponent.h"
+#include "NetAnalytics.h"
 #include "Engine/NetDriver.h"
 #include "Engine/LocalPlayer.h"
 #include "Net/DataBunch.h"
@@ -147,6 +148,8 @@ int32 GNumSaturatedConnections; // Counter for how many connections are skipped/
 int32 GNumSharedSerializationHit;
 int32 GNumSharedSerializationMiss;
 
+extern int32 GNetRPCDebug;
+
 #if UE_BUILD_SHIPPING
 #define DEBUG_REMOTEFUNCTION(Format, ...)
 #else
@@ -154,16 +157,18 @@ int32 GNumSharedSerializationMiss;
 #endif
 
 // CVars
-static TAutoConsoleVariable<int32> CVarSetNetDormancyEnabled(
+int32 GSetNetDormancyEnabled = 1;
+static FAutoConsoleVariableRef CVarSetNetDormancyEnabled(
 	TEXT("net.DormancyEnable"),
-	1,
+	GSetNetDormancyEnabled,
 	TEXT("Enables Network Dormancy System for reducing CPU and bandwidth overhead of infrequently updated actors\n")
 	TEXT("1 Enables network dormancy. 0 disables network dormancy."),
 	ECVF_Default);
 
-static TAutoConsoleVariable<int32> CVarNetDormancyValidate(
+int32 GNetDormancyValidate = 0;
+static FAutoConsoleVariableRef CVarNetDormancyValidate(
 	TEXT("net.DormancyValidate"),
-	0,
+	GNetDormancyValidate,
 	TEXT("Validates that dormant actors do not change state while in a dormant state (on server only)")
 	TEXT("0: Dont validate. 1: Validate on wake up. 2: Validate on each net update"),
 	ECVF_Default);
@@ -192,6 +197,11 @@ TAutoConsoleVariable<int32> CVarNetAllowEncryption(
 	1,
 	TEXT("If true, the engine will attempt to load an encryption PacketHandler component and fill in the EncryptionToken parameter of the NMT_Hello message based on the ?EncryptionToken= URL option and call callbacks if it's non-empty."));
 
+static TAutoConsoleVariable<int32> CVarActorChannelPool(
+	TEXT("net.ActorChannelPool"),
+	1,
+	TEXT("If nonzero, actor channels will be pooled to save memory and object creation cost."));
+
 /*-----------------------------------------------------------------------------
 	UNetDriver implementation.
 -----------------------------------------------------------------------------*/
@@ -206,6 +216,8 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	MappedClientConnections()
 ,	ConnectionlessHandler()
 ,	StatelessConnectComponent()
+,	AnalyticsProvider()
+,	AnalyticsAggregator()
 ,   World(nullptr)
 ,   Notify(nullptr)
 ,	Time( 0.f )
@@ -213,17 +225,23 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,   bIsPeer(false)
 ,	bSkipLocalStats(false)
 ,	InBytes(0)
+,	InTotalBytes(0)
 ,	OutBytes(0)
+,	OutTotalBytes(0)
 ,	NetGUIDOutBytes(0)
 ,	NetGUIDInBytes(0)
 ,	InPackets(0)
+,	InTotalPackets(0)
 ,	OutPackets(0)
+,	OutTotalPackets(0)
 ,	InBunches(0)
 ,	OutBunches(0)
 ,	InTotalBunches(0)
 ,	OutTotalBunches(0)
 ,	InPacketsLost(0)
+,	InTotalPacketsLost(0)
 ,	OutPacketsLost(0)
+,	OutTotalPacketsLost(0)
 ,	InOutOfOrderPackets(0)
 ,	OutOutOfOrderPackets(0)
 ,	StatUpdateTime(0.0)
@@ -240,6 +258,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	NetworkObjects(new FNetworkObjectList)
 ,	LagState(ENetworkLagState::NotLagging)
 ,	DuplicateLevelID(INDEX_NONE)
+,	PacketLossBurstEndTime(-1.0f)
 {
 	ChannelClasses[CHTYPE_Control]	= UControlChannel::StaticClass();
 	ChannelClasses[CHTYPE_Actor]	= UActorChannel::StaticClass();
@@ -254,6 +273,15 @@ void UNetDriver::InitPacketSimulationSettings()
 	PacketSimulationSettings.LoadConfig(*NetDriverName.ToString());
 	PacketSimulationSettings.RegisterCommands();
 	PacketSimulationSettings.ParseSettings(FCommandLine::Get(), *NetDriverName.ToString());
+#endif
+}
+
+bool UNetDriver::IsSimulatingPacketLossBurst() const
+{
+#if DO_ENABLE_NET_TEST
+	return PacketLossBurstEndTime > Time;
+#else
+	return false;
 #endif
 }
 
@@ -388,10 +416,21 @@ TAutoConsoleVariable<int32> CVarFilterGuidRemapping( TEXT( "net.FilterGuidRemapp
 /** Accounts for the network time we spent in the game driver. */
 double GTickFlushGameDriverTimeSeconds = 0.0;
 
+bool ShouldEnableScopeSecondsTimers()
+{
+#if STATS
+	return true;
+#elif CSV_PROFILER
+	return FCsvProfiler::Get()->IsCapturing();
+#else
+	return false;
+#endif
+}
+
 void UNetDriver::TickFlush(float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NetTickFlush);
-	bool bEnableTimer = (NetDriverName == NAME_GameNetDriver);
+	bool bEnableTimer = (NetDriverName == NAME_GameNetDriver) && ShouldEnableScopeSecondsTimers();
 	if (bEnableTimer)
 	{
 		GTickFlushGameDriverTimeSeconds = 0.0;
@@ -742,10 +781,8 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 					}
 
 					PerfCounters->Set(TEXT("AvgPing"), AvgPing, IPerfCounters::Flags::Transient);
-					float CurrentMaxPing = PerfCounters->Get(TEXT("MaxPing"), MaxPing);
-					PerfCounters->Set(TEXT("MaxPing"), FMath::Max(MaxPing, CurrentMaxPing), IPerfCounters::Flags::Transient);
-					float CurrentMinPing = PerfCounters->Get(TEXT("MinPing"), MinPing);
-					PerfCounters->Set(TEXT("MinPing"), FMath::Min(MinPing, CurrentMinPing), IPerfCounters::Flags::Transient);
+					PerfCounters->Set(TEXT("MaxPing"), MaxPing, IPerfCounters::Flags::Transient);
+					PerfCounters->Set(TEXT("MinPing"), MinPing, IPerfCounters::Flags::Transient);
 
 					// update buckets
 					for (int BucketIdx = 0; BucketIdx < ARRAY_COUNT(Buckets); ++BucketIdx)
@@ -828,10 +865,13 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		// Queue up any voice packets the server has locally
 		ProcessLocalServerPackets();
 	}
-
-	for( int32 i=0; i<ClientConnections.Num(); i++ )
 	{
-		ClientConnections[i]->Tick();
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_NetDriver_TickClientConnections)
+
+		for( int32 i=0; i<ClientConnections.Num(); i++ )
+		{
+			ClientConnections[i]->Tick();
+		}
 	}
 
 	if (ConnectionlessHandler.IsValid())
@@ -1014,6 +1054,19 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 			{
 				It.RemoveCurrent();
 			}
+		}
+
+		for ( UNetConnection* const ClientConnection : ClientConnections )
+		{
+			if ( ClientConnection )
+			{
+				ClientConnection->CleanupStaleDormantReplicators();
+			}
+		}
+
+		if ( ServerConnection )
+		{
+			ServerConnection->CleanupStaleDormantReplicators();
 		}
 
 		LastCleanupTime = CurrentRealtimeSeconds;
@@ -1261,14 +1314,11 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 
 		DDoS.Init(FMath::Clamp(NetServerMaxTickRate, 1, 1000));
 
-		if (DDoS.IsDDoSDetectionEnabled() && DDoS.IsDDoSAnalyticsEnabled())
+		DDoS.NotifySeverityEscalation.BindLambda(
+			[this](FString SeverityCategory)
 		{
-			DDoS.NotifySeverityEscalation.BindLambda(
-				[this](FString SeverityCategory)
-				{
-					GEngine->BroadcastNetworkDDosSEscalation(this->GetWorld(), this, SeverityCategory);
-				});
-		}
+			GEngine->BroadcastNetworkDDosSEscalation(this->GetWorld(), this, SeverityCategory);
+		});
 	}
 
 	Notify = InNotify;
@@ -1284,11 +1334,12 @@ void UNetDriver::InitConnectionlessHandler()
 	if (!FParse::Param(FCommandLine::Get(), TEXT("NoPacketHandler")))
 #endif
 	{
-		ConnectionlessHandler = MakeUnique<PacketHandler>();
+		ConnectionlessHandler = MakeUnique<PacketHandler>(&DDoS);
 
 		if (ConnectionlessHandler.IsValid())
 		{
-			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, AnalyticsProvider, &DDoS);
+			ConnectionlessHandler->NotifyAnalyticsProvider(AnalyticsProvider, AnalyticsAggregator);
+			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true);
 
 			// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
 			TSharedPtr<HandlerComponent> NewComponent =
@@ -1312,7 +1363,7 @@ void UNetDriver::FlushHandler()
 
 	while (QueuedPacket != nullptr)
 	{
-		LowLevelSend(QueuedPacket->Address, QueuedPacket->Data, QueuedPacket->CountBits);
+		LowLevelSend(QueuedPacket->Address, QueuedPacket->Data, QueuedPacket->CountBits, QueuedPacket->Traits);
 
 		delete QueuedPacket;
 
@@ -1341,9 +1392,10 @@ void UNetDriver::RegisterTickEvents(class UWorld* InWorld)
 {
 	if (InWorld)
 	{
-		TickDispatchDelegateHandle  = InWorld->OnTickDispatch ().AddUObject(this, &UNetDriver::TickDispatch);
-		TickFlushDelegateHandle     = InWorld->OnTickFlush    ().AddUObject(this, &UNetDriver::TickFlush);
-		PostTickFlushDelegateHandle = InWorld->OnPostTickFlush().AddUObject(this, &UNetDriver::PostTickFlush);
+		TickDispatchDelegateHandle		= InWorld->OnTickDispatch	 ().AddUObject(this, &UNetDriver::TickDispatch);
+		PostTickDispatchDelegateHandle	= InWorld->OnPostTickDispatch().AddUObject(this, &UNetDriver::PostTickDispatch);
+		TickFlushDelegateHandle			= InWorld->OnTickFlush		 ().AddUObject(this, &UNetDriver::TickFlush);
+		PostTickFlushDelegateHandle		= InWorld->OnPostTickFlush	 ().AddUObject(this, &UNetDriver::PostTickFlush);
 	}
 }
 
@@ -1351,9 +1403,10 @@ void UNetDriver::UnregisterTickEvents(class UWorld* InWorld)
 {
 	if (InWorld)
 	{
-		InWorld->OnTickDispatch ().Remove(TickDispatchDelegateHandle);
-		InWorld->OnTickFlush    ().Remove(TickFlushDelegateHandle);
-		InWorld->OnPostTickFlush().Remove(PostTickFlushDelegateHandle);
+		InWorld->OnTickDispatch	   ().Remove(TickDispatchDelegateHandle);
+		InWorld->OnPostTickDispatch().Remove(PostTickDispatchDelegateHandle);
+		InWorld->OnTickFlush	   ().Remove(TickFlushDelegateHandle);
+		InWorld->OnPostTickFlush   ().Remove(PostTickFlushDelegateHandle);
 	}
 }
 
@@ -1409,6 +1462,9 @@ void UNetDriver::Shutdown()
 	RepLayoutMap.Empty();
 	ReplicationChangeListMap.Empty();
 
+	// Clean up the actor channel pool
+	ActorChannelPool.Empty();
+
 	ConnectionlessHandler.Reset(nullptr);
 
 #if DO_ENABLE_NET_TEST
@@ -1416,6 +1472,12 @@ void UNetDriver::Shutdown()
 #endif
 
 	SetReplicationDriver(nullptr);
+
+	if (AnalyticsAggregator.IsValid())
+	{
+		AnalyticsAggregator->SendAnalytics();
+		AnalyticsAggregator.Reset();
+	}
 }
 
 bool UNetDriver::IsServer() const
@@ -1424,6 +1486,73 @@ bool UNetDriver::IsServer() const
 	// @todo ONLINE improve this with a bool
 	return ServerConnection == NULL;
 }
+
+// ----------------------------------------------------------------------------------------
+//	RPC Tracking (receiving) via CSV profiler
+// ----------------------------------------------------------------------------------------
+CSV_DEFINE_CATEGORY(ReplicationRPCs, WITH_SERVER_CODE);
+
+#ifndef RPC_CSV_TRACKER	// Defines if RPC CSV tracking is compiled in. Default is only on server builds.
+#define RPC_CSV_TRACKER (CSV_PROFILER && WITH_SERVER_CODE)
+#endif
+
+/** Helper struct for tracking RPC (receive) timing */
+struct FRPCCSVTracker
+{
+	const double StatThreshold = 0.001; // 1MS minimum accumulated threshold for a stat to be dumped
+
+	void NotifyRPCProcessed(UFunction* Func, double Time)
+	{
+#if RPC_CSV_TRACKER
+		if (FItem* Item = FunctionMap.Find(Func))
+		{
+			Item->Time += Time;
+		}
+		else
+		{
+			FunctionMap.Emplace( Func, FItem(Func, Time) );
+		}
+#endif
+	}
+
+	void EndTickDispatch()
+	{
+#if RPC_CSV_TRACKER
+		FCsvProfiler* Profiler = FCsvProfiler::Get();
+		if (Profiler->IsCapturing())
+		{
+			// Record stat and reset accumulated time
+			for (auto& It : FunctionMap)
+			{
+				FItem& Item = It.Value;
+				if (Item.Time >= StatThreshold)
+				{
+					Profiler->RecordCustomStat(Item.Stat, CSV_CATEGORY_INDEX(ReplicationRPCs), static_cast<float>(Item.Time * 1000.0), ECsvCustomStatOp::Set);
+				}
+				Item.Time = 0.0;
+			}
+		}
+#endif
+	}
+
+	struct FItem
+	{
+		FItem(UFunction* Func, double InTime)
+		{
+#if RPC_CSV_TRACKER
+			Stat = FName(*(FString(CSV_STAT_NAME_PREFIX) + Func->GetName()));
+			Time = InTime;
+#endif
+		}
+		double Time;
+		FName Stat;
+	};
+
+	TMap<UFunction*, FItem>	FunctionMap;
+	
+} GRPCCSVTracker;
+
+// ----------------------------------------------------------------------------------------
 
 void UNetDriver::TickDispatch( float DeltaTime )
 {
@@ -1447,12 +1576,14 @@ void UNetDriver::TickDispatch( float DeltaTime )
 	// Get new time.
 	Time += DeltaTime;
 
-	// Checks for standby cheats if enabled
+	// Checks for standby cheats if enabled	
 	UpdateStandbyCheatStatus();
 
 	// Delete any straggler connections.
 	if( !ServerConnection )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(UNetDriver_TickDispatch_CheckClientConnectionCleanup)
+
 		for( int32 i=ClientConnections.Num()-1; i>=0; i-- )
 		{
 			if( ClientConnections[i]->State==USOCK_Closed )
@@ -1461,6 +1592,29 @@ void UNetDriver::TickDispatch( float DeltaTime )
 			}
 		}
 	}
+
+#if RPC_CSV_TRACKER
+	GReceiveRPCTimingEnabled = (NetDriverName == NAME_GameNetDriver && ShouldEnableScopeSecondsTimers()) && (ServerConnection==nullptr);
+#endif
+}
+
+void UNetDriver::PostTickDispatch()
+{
+	if (ReplicationDriver)
+	{
+		ReplicationDriver->PostTickDispatch();
+	}
+
+	if (GReceiveRPCTimingEnabled)
+	{
+		GRPCCSVTracker.EndTickDispatch();
+		GReceiveRPCTimingEnabled = false;
+	}
+}
+
+void UNetDriver::NotifyRPCProcessed(UFunction* Function, UNetConnection* Connection, double ElapsedTimeSeconds)
+{
+	GRPCCSVTracker.NotifyRPCProcessed(Function, ElapsedTimeSeconds);
 }
 
 bool UNetDriver::IsLevelInitializedForActor(const AActor* InActor, const UNetConnection* InConnection) const
@@ -1699,9 +1853,7 @@ void UNetDriver::ProcessRemoteFunctionForChannel(UActorChannel* Ch, const FClass
 		}
 	}
 
-	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("net.RPC.Debug"));
-	bool LogAsWarning = (CVar && CVar->GetValueOnAnyThread() == 1);
-
+	bool LogAsWarning = (GNetRPCDebug == 1);
 	if (LogAsWarning)
 	{
 		// Suppress spammy engine RPCs. This could be made a configable list in the future.
@@ -1709,7 +1861,6 @@ void UNetDriver::ProcessRemoteFunctionForChannel(UActorChannel* Ch, const FClass
 		if (Function->GetName().Contains(TEXT("ClientAckGoodMove"))) LogAsWarning = false;
 		if (Function->GetName().Contains(TEXT("ServerMove"))) LogAsWarning = false;
 	}
-
 
 	FNetBitWriter TempWriter( Bunch.PackageMap, 0 );
 
@@ -1829,6 +1980,8 @@ void UNetDriver::UpdateStandbyCheatStatus(void)
 	// Only the server needs to check
 	if (ServerConnection == NULL && ClientConnections.Num())
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(UNetDriver_TickDispatch_UpdateStandbyCheatStatus)
+
 		// Only check for cheats if enabled and one wasn't previously detected
 		if (bIsStandbyCheckingEnabled &&
 			bHasStandbyCheatTriggered == false &&
@@ -1910,6 +2063,46 @@ void UNetDriver::UpdateStandbyCheatStatus(void)
 		}
 	}
 #endif
+}
+
+
+void UNetDriver::SetAnalyticsProvider(TSharedPtr<IAnalyticsProvider> InProvider)
+{
+	AnalyticsProvider = InProvider;
+
+	if (AnalyticsProvider.IsValid())
+	{
+		if (AnalyticsAggregator.IsValid())
+		{
+			// If reinitializing an existing aggregator, hotfix its config
+			AnalyticsAggregator->InitConfig();
+
+			ensure(AnalyticsAggregator->GetAnalyticsProvider() == AnalyticsProvider);
+		}
+		else
+		{
+			AnalyticsAggregator = MakeShareable(new FNetAnalyticsAggregator(InProvider, NetDriverName));
+
+			AnalyticsAggregator->Init();
+		}
+	}
+	else
+	{
+		AnalyticsAggregator.Reset();
+	}
+
+	if (ConnectionlessHandler.IsValid())
+	{
+		ConnectionlessHandler->NotifyAnalyticsProvider(AnalyticsProvider, AnalyticsAggregator);
+	}
+
+	for (UNetConnection* CurConn : ClientConnections)
+	{
+		if (CurConn != nullptr)
+		{
+			CurConn->NotifyAnalyticsProvider();
+		}
+	}
 }
 
 void UNetDriver::Serialize( FArchive& Ar )
@@ -2246,12 +2439,22 @@ bool UNetDriver::HandleNetDumpDormancy(const TCHAR* Cmd, FOutputDevice& Ar)
 	Ar.Logf(TEXT(""));
 	return true;
 }
-
 #endif // !UE_BUILD_SHIPPING
+
+void UNetDriver::HandlePacketLossBurstCommand( int32 DurationInMilliseconds )
+{
+#if DO_ENABLE_NET_TEST
+	UE_LOG(LogNet, Log, TEXT("%s simulating packet loss burst. Dropping incoming and outgoing packets for %d milliseconds."), *GetName(), DurationInMilliseconds);
+
+	PacketLossBurstEndTime = Time + (DurationInMilliseconds / 1000.0f);
+#endif
+}
 
 bool UNetDriver::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
 #if !UE_BUILD_SHIPPING
+	int32 PacketLossBurstMilliseconds = 0;
+
 	if( FParse::Command(&Cmd,TEXT("SOCKETS")) )
 	{
 		return HandleSocketsCommand( Cmd, Ar );
@@ -2301,6 +2504,11 @@ bool UNetDriver::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	else if (FParse::Command(&Cmd, TEXT("DUMPDORMANCY")))
 	{
 		return HandleNetDumpDormancy(Cmd, Ar);
+	}
+	else if (FParse::Value(Cmd, TEXT("PKTLOSSBURST="), PacketLossBurstMilliseconds))
+	{
+		HandlePacketLossBurstCommand(PacketLossBurstMilliseconds);
+		return true;
 	}
 	else
 #endif // !UE_BUILD_SHIPPING
@@ -2404,11 +2612,15 @@ void UNetDriver::NotifyActorDestroyed( AActor* ThisActor, bool IsSeamlessTravel 
 					}
 				}
 			}
-						
 
-			// Remove it from any dormancy lists				
-			Connection->DormantReplicatorMap.Remove( ThisActor );
+			// Remove it from any dormancy lists
+			Connection->CleanupDormantReplicatorsForActor(ThisActor);
 		}
+	}
+
+	if (ServerConnection)
+	{
+		ServerConnection->CleanupDormantReplicatorsForActor(ThisActor);
 	}
 
 	// Remove this actor from the network object list
@@ -2586,7 +2798,7 @@ void UNetDriver::FlushActorDormancy(AActor* Actor, bool bWasDormInitial)
 	// Going out of dormancy can be event based like this since it only affects clients already joined. Its more efficient in this
 	// way too, since we dont have to check every dormant actor in ::ServerReplicateActor to see if it needs to go out of dormancy
 
-	if (CVarSetNetDormancyEnabled.GetValueOnAnyThread() == 0)
+	if (GSetNetDormancyEnabled == 0)
 		return;
 
 	check(Actor);
@@ -3370,7 +3582,7 @@ int32 UNetDriver::ServerReplicateActors_PrioritizeActors( UNetConnection* Connec
 					continue;
 				}
 			}
-			else if ( CVarSetNetDormancyEnabled.GetValueOnGameThread() != 0 )
+			else if ( GSetNetDormancyEnabled != 0 )
 			{
 				// Skip Actor if dormant
 				if ( IsActorDormant( ActorInfo, WeakConnection ) )
@@ -3643,14 +3855,11 @@ int32 UNetDriver::ServerReplicateActors_ProcessPrioritizedActors( UNetConnection
 // Replication CSV category is enabled by default in server builds
 CSV_DEFINE_CATEGORY(Replication, WITH_SERVER_CODE);
 
-extern int32 GNumReplicateActorCalls;
-extern double GReplicateActorTimeSeconds;
-extern uint32 GNetOutBytes;
-
 double GReplicationGatherPrioritizeTimeSeconds;
 double GServerReplicateActorTimeSeconds;
 
 int32 GNumClientConnections;
+int32 GNumClientUpdateLevelVisibility;
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Saturated Connections"), STAT_NumSaturatedConnections, STATGROUP_Net);
 
@@ -3707,62 +3916,75 @@ struct FReplicationAutoCapture
 };
 FReplicationAutoCapture GReplicationAutoCapture;
 
+#if CSV_PROFILER
 struct FScopedNetDriverStats
 {
-	FScopedNetDriverStats(uint32& OutBytesRef) : OutBytes(OutBytesRef)
+	FScopedNetDriverStats(uint32& OutBytesRef, UNetDriver* InNetDriver) : OutBytes(OutBytesRef), NetDriver(InNetDriver)
 	{
-		GReplicateActorTimeSeconds = 0;
-		GNumReplicateActorCalls = 0;
-		GNumSaturatedConnections = 0;
-
-		GReplicationGatherPrioritizeTimeSeconds = 0.f;
-		GServerReplicateActorTimeSeconds = 0.f;
-
-		// Whatever these values currently are were (mostly) set by RPCs (technically something else could have force ReplicateActor to be called but this is rare).
-		SET_DWORD_STAT(STAT_SharedSerializationRPCHit, GNumSharedSerializationHit);
-		SET_DWORD_STAT(STAT_SharedSerializationRPCMiss, GNumSharedSerializationMiss);
-
-		StartTime = FPlatformTime::Seconds();
-		StartOutBytes = GNetOutBytes;
-
 		GReplicationAutoCapture.DoFrame();
+
+		// Set GReplicateActorTimingEnabled for this frame. (This will determine if actor channels do cycle counting while replicating)
+		GReplicateActorTimingEnabled = ShouldEnableScopeSecondsTimers();
+		if (GReplicateActorTimingEnabled)
+		{
+			GReplicateActorTimeSeconds = 0;
+			GNumReplicateActorCalls = 0;
+			GNumSaturatedConnections = 0;
+
+			GReplicationGatherPrioritizeTimeSeconds = 0.f;
+			GServerReplicateActorTimeSeconds = 0.f;
+
+			// Whatever these values currently are were (mostly) set by RPCs (technically something else could have force ReplicateActor to be called but this is rare).
+			SET_DWORD_STAT(STAT_SharedSerializationRPCHit, GNumSharedSerializationHit);
+			SET_DWORD_STAT(STAT_SharedSerializationRPCMiss, GNumSharedSerializationMiss);
+
+			StartTime = FPlatformTime::Seconds();
+			StartOutBytes = GNetOutBytes;
+		}
 	}
 
 	~FScopedNetDriverStats()
 	{
-		const double TotalTime = FPlatformTime::Seconds() - StartTime;
+		if (GReplicateActorTimingEnabled)
+		{
+			const double TotalTime = FPlatformTime::Seconds() - StartTime;
 
-		GServerReplicateActorTimeSeconds = TotalTime;
-		GReplicationGatherPrioritizeTimeSeconds = TotalTime - GReplicateActorTimeSeconds;
+			GServerReplicateActorTimeSeconds = TotalTime;
+			GReplicationGatherPrioritizeTimeSeconds = TotalTime - GReplicateActorTimeSeconds;
 
-		uint32 FrameOutBytes = GNetOutBytes - StartOutBytes;
+			uint32 FrameOutBytes = GNetOutBytes - StartOutBytes;
 
-		SET_FLOAT_STAT(STAT_NetServerGatherPrioritizeRepActorsTime, GReplicationGatherPrioritizeTimeSeconds * 1000.0);
-		SET_DWORD_STAT(STAT_NumReplicatedActors, GNumReplicateActorCalls);
-		SET_DWORD_STAT(STAT_NumSaturatedConnections, GNumSaturatedConnections);
+			SET_FLOAT_STAT(STAT_NetServerGatherPrioritizeRepActorsTime, GReplicationGatherPrioritizeTimeSeconds * 1000.0);
+			SET_DWORD_STAT(STAT_NumReplicatedActors, GNumReplicateActorCalls);
+			SET_DWORD_STAT(STAT_NumSaturatedConnections, GNumSaturatedConnections);
 
-		CSV_CUSTOM_STAT(Replication, ServerReplicateActorTimeMS, (float)(GServerReplicateActorTimeSeconds * 1000.0), ECsvCustomStatOp::Set );
-		CSV_CUSTOM_STAT(Replication, GatherPrioritizeTimeMS, (float)(GReplicationGatherPrioritizeTimeSeconds * 1000.0), ECsvCustomStatOp::Set );
-		CSV_CUSTOM_STAT(Replication, ReplicateActorTimeMS, (float)(GReplicateActorTimeSeconds * 1000.0), ECsvCustomStatOp::Set );
-		CSV_CUSTOM_STAT(Replication, NumReplicateActorCallsPerConAvg, ((float)GNumReplicateActorCalls)/(float)GNumClientConnections, ECsvCustomStatOp::Set );
-		CSV_CUSTOM_STAT(Replication, Connections, (float)GNumClientConnections, ECsvCustomStatOp::Set );
-		CSV_CUSTOM_STAT(Replication, SatConnections, (float)GNumSaturatedConnections, ECsvCustomStatOp::Set );
-		CSV_CUSTOM_STAT(Replication, OutKBytes, ((float)FrameOutBytes) / 1000.f, ECsvCustomStatOp::Set );
-				
+			CSV_CUSTOM_STAT(Replication, ServerReplicateActorTimeMS, (float)(GServerReplicateActorTimeSeconds * 1000.0), ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, GatherPrioritizeTimeMS, (float)(GReplicationGatherPrioritizeTimeSeconds * 1000.0), ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, ReplicateActorTimeMS, (float)(GReplicateActorTimeSeconds * 1000.0), ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, NumReplicateActorCallsPerConAvg, ((float)GNumReplicateActorCalls)/(float)GNumClientConnections, ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, Connections, (float)GNumClientConnections, ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, SatConnections, (float)GNumSaturatedConnections, ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, OutKBytes, ((float)FrameOutBytes) / 1024.f, ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, OutNetGUIDKBytesSec, ((float)NetDriver->NetGUIDOutBytes / 1024.f), ECsvCustomStatOp::Set );
+			CSV_CUSTOM_STAT(Replication, NumClientUpdateLevelVisibility, ((float)GNumClientUpdateLevelVisibility), ECsvCustomStatOp::Set );
+			
 
-		SET_DWORD_STAT(STAT_SharedSerializationPropertyHit, GNumSharedSerializationHit);
-		SET_DWORD_STAT(STAT_SharedSerializationPropertyMiss, GNumSharedSerializationMiss);
+			SET_DWORD_STAT(STAT_SharedSerializationPropertyHit, GNumSharedSerializationHit);
+			SET_DWORD_STAT(STAT_SharedSerializationPropertyMiss, GNumSharedSerializationMiss);
 
-		// Note: we want to reset this at the end of the frame since the RPC stats are incremented at the top (recv)
-		GNumSharedSerializationHit = 0;
-		GNumSharedSerializationMiss = 0;
+			// Note: we want to reset this at the end of the frame since the RPC stats are incremented at the top (recv)
+			GNumSharedSerializationHit = 0;
+			GNumSharedSerializationMiss = 0;
+			GNumClientUpdateLevelVisibility = 0;
+		}
 	}
 	
 	uint32& OutBytes;
 	double StartTime;
 	uint32 StartOutBytes;
+	UNetDriver* NetDriver;
 };
-
+#endif
 
 // -------------------------------------------------------------------------------------------------------------------------
 //	ServerReplicateActors: this is main function to replicate actors to client connections. It can be "outsourced" to a Replication Driver.
@@ -3781,8 +4003,8 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 	SET_DWORD_STAT(STAT_NumReplicatedActors, 0);
 	SET_DWORD_STAT(STAT_NumReplicatedActorBytes, 0);
 
-#if !UE_BUILD_SHIPPING
-	FScopedNetDriverStats NetDriverStats(OutBytes);
+#if CSV_PROFILER
+	FScopedNetDriverStats NetDriverStats(OutBytes, this);
 	GNumClientConnections = ClientConnections.Num();
 #endif
 	
@@ -3834,7 +4056,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 		check(Connection);
 
 		// net.DormancyValidate can be set to 2 to validate all dormant actors against last known state before going dormant
-		if ( CVarNetDormancyValidate.GetValueOnAnyThread() == 2 )
+		if ( GNetDormancyValidate == 2 )
 		{
 			for ( auto It = Connection->DormantReplicatorMap.CreateIterator(); It; ++It )
 			{
@@ -3979,6 +4201,54 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 #else
 	return 0;
 #endif // WITH_SERVER_CODE
+}
+
+UChannel* UNetDriver::GetOrCreateChannel(EChannelType ChType)
+{
+	UChannel* RetVal = nullptr;
+	if (ChType == CHTYPE_Actor && CVarActorChannelPool.GetValueOnAnyThread() != 0)
+	{
+		while (ActorChannelPool.Num() > 0 && RetVal == nullptr)
+		{
+			RetVal = ActorChannelPool.Pop();
+			if (RetVal && RetVal->GetClass() != ChannelClasses[ChType])
+			{
+				// ChannelClasses[ChType] Changed since this channel was added to the pool. Throw it away.
+				RetVal->MarkPendingKill();
+				RetVal = nullptr;
+			}
+		}
+		if (RetVal)
+		{
+			check(RetVal->GetClass() == ChannelClasses[ChType]);
+			check(!RetVal->IsPendingKill());
+			RetVal->bPooled = false;
+		}
+	}
+
+	if (!RetVal)
+	{
+		RetVal = InternalCreateChannel(ChType);
+	}
+
+	return RetVal;
+}
+
+UChannel* UNetDriver::InternalCreateChannel(EChannelType ChType)
+{
+	return NewObject<UChannel>(GetTransientPackage(), ChannelClasses[ChType]);
+}
+
+void UNetDriver::ReleaseToChannelPool(UChannel* Channel)
+{
+	check(Channel);
+	check(!Channel->IsPendingKill());
+	if (Channel->ChType == CHTYPE_Actor && CVarActorChannelPool.GetValueOnAnyThread() != 0)
+	{
+		ActorChannelPool.Push(Channel);
+
+		Channel->AddedToChannelPool();
+	}
 }
 
 void UNetDriver::SetNetDriverName(FName NewNetDriverNamed)
@@ -4227,7 +4497,7 @@ void UNetDriver::CreateReplicatedStaticActorDestructionInfo(UNetDriver* NetDrive
 		return;
 	}
 
-	UE_LOG(LogNet, Verbose, TEXT("CreateReplicatedStaticActorDestructionInfo %s %s %s %s"), *NetDriver->GetName(), *Level->GetName(), *Info.PathName.ToString(), *NetGUID.ToString());
+	UE_LOG(LogNet, VeryVerbose, TEXT("CreateReplicatedStaticActorDestructionInfo %s %s %s %s"), *NetDriver->GetName(), *Level->GetName(), *Info.PathName.ToString(), *NetGUID.ToString());
 	
 	TUniquePtr<FActorDestructionInfo>& NewInfoPtr = NetDriver->DestroyedStartupOrDormantActors.FindOrAdd( NetGUID );
 	if (NewInfoPtr.IsValid() == false)
@@ -4331,7 +4601,8 @@ void UNetDriver::SetWorld(class UWorld* InWorld)
 
 	if (ReplicationDriver)
 	{
-		ReplicationDriver->SetWorld(InWorld);
+		ReplicationDriver->SetRepDriverWorld(InWorld);
+		ReplicationDriver->InitializeActorsInWorld(InWorld);
 	}
 }
 
@@ -4432,14 +4703,31 @@ void UNetDriver::SetReplicationDriver(UReplicationDriver* NewReplicationDriver)
 {
 	if (ReplicationDriver)
 	{
-		ReplicationDriver->MarkPendingKill();
+		ReplicationDriver->TearDown();
+
+		// Though the NetDriver does not set the ConnectionReplicationConnectionDriver,
+		// We are going to clear it here so that references to the old replication driver
+		// do not leak. (E.g, a new replication driver may not set ConnectionReplicationDriver)
+		for (UNetConnection* Connection : ClientConnections)
+		{
+			if (Connection)
+			{
+				Connection->TearDownReplicationConnectionDriver();
+			}		
+		}
+		if (ServerConnection)
+		{
+			// Clients shouldn't currently ever have a repdriver but this could change in the future
+			ServerConnection->TearDownReplicationConnectionDriver();
+		}
 	}
 
 	ReplicationDriver = NewReplicationDriver;
 	if (ReplicationDriver)
 	{
+		ReplicationDriver->SetRepDriverWorld( GetWorld() );
 		ReplicationDriver->InitForNetDriver(this);
-		ReplicationDriver->SetWorld( GetWorld() );
+		ReplicationDriver->InitializeActorsInWorld( GetWorld() );
 	}
 }
 
@@ -4665,6 +4953,19 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 	if (!bBlockSendRPC)
 #endif
 	{
+		const bool bIsServer = IsServer();
+		const bool bIsServerMulticast = bIsServer && (Function->FunctionFlags & FUNC_NetMulticast);
+
+		// Replicate any multicast RPCs to the replay net driver so that they can get saved in network replays
+		if (bIsServerMulticast)
+		{
+			UNetDriver* NetDriver = GEngine->FindNamedNetDriver(GetWorld(), NAME_DemoNetDriver);
+			if (NetDriver)
+			{
+				NetDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
+			}
+		}
+
 		// Forward to replication Driver if there is one
 		if (ReplicationDriver && ReplicationDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject))
 		{
@@ -4672,53 +4973,41 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 		}
 		
 		// RepDriver didn't handle it, default implementation
-		bool bIsServer = IsServer();
-
-		UNetConnection* Connection = NULL;
-		if (bIsServer)
+		UNetConnection* Connection = nullptr;
+		if (bIsServerMulticast)
 		{
-			if ((Function->FunctionFlags & FUNC_NetMulticast))
+			TSharedPtr<FRepLayout> RepLayout = GetFunctionRepLayout( Function );
+
+			// Multicast functions go to every client
+			TArray<UNetConnection*> UniqueRealConnections;
+			for (int32 i=0; i<ClientConnections.Num(); ++i)
 			{
-				TSharedPtr<FRepLayout> RepLayout = GetFunctionRepLayout( Function );
-
-				// Multicast functions go to every client
-				TArray<UNetConnection*> UniqueRealConnections;
-				for (int32 i=0; i<ClientConnections.Num(); ++i)
+				Connection = ClientConnections[i];
+				if (Connection && Connection->ViewTarget)
 				{
-					Connection = ClientConnections[i];
-					if (Connection && Connection->ViewTarget)
+					// Only send or queue multicasts if the actor is relevant to the connection
+					FNetViewer Viewer(Connection, 0.f);
+					if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation))
 					{
-						// Only send or queue multicasts if the actor is relevant to the connection
-						FNetViewer Viewer(Connection, 0.f);
-						if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation))
+						if (Connection->GetUChildConnection() != nullptr)
 						{
-							if (Connection->GetUChildConnection() != nullptr)
-							{
-								Connection = ((UChildConnection*)Connection)->Parent;
-							}
-
-							// We don't want to call this unless necessary, and it will internally handle being called multiple times before a clear
-							// Builds any shared serialization state for this rpc
-							RepLayout->BuildSharedSerializationForRPC(Parameters);
-
-							InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
+							Connection = ((UChildConnection*)Connection)->Parent;
 						}
+
+						// We don't want to call this unless necessary, and it will internally handle being called multiple times before a clear
+						// Builds any shared serialization state for this rpc
+						RepLayout->BuildSharedSerializationForRPC(Parameters);
+
+						InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
 					}
-				}			
-
-				// Replicate any RPCs to the replay net driver so that they can get saved in network replays
-				UNetDriver* NetDriver = GEngine->FindNamedNetDriver(GetWorld(), NAME_DemoNetDriver);
-				if (NetDriver)
-				{
-					NetDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
 				}
+			}			
 
-				// Finished sending this multicast rpc, clear any shared state
-				RepLayout->ClearSharedSerializationForRPC();
+			// Finished sending this multicast rpc, clear any shared state
+			RepLayout->ClearSharedSerializationForRPC();
 
-				// Return here so we don't call InternalProcessRemoteFunction again at the bottom of this function
-				return;
-			}
+			// Return here so we don't call InternalProcessRemoteFunction again at the bottom of this function
+			return;
 		}
 
 		// Send function data to remote.

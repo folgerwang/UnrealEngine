@@ -243,7 +243,7 @@ public:
 	 * Reestablish all party state and information upon returning to the main menu
 	 * Makes sure all data is proper and notifies the UI to reconstruct the party
 	 */
-	void RestorePersistentPartyState();
+	virtual void RestorePersistentPartyState();
 
 	/**
 	 * Do both LeavePersistentParty() and RestorePersistentPartyState() together
@@ -337,6 +337,8 @@ public:
 	 * @return Session name
 	 */
 	FName GetPlayerSessionName() const;
+
+	bool IsLeavingPersistentParty() const { return bLeavingPersistentParty; }
 
 protected:
 
@@ -556,7 +558,13 @@ private:
 
 	void LeavePersistentPartyForRejoin();
 	void OnLeavePersistentPartyForRejoinComplete(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult LeaveResult);
-	void OnRejoinPartyComplete(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const EJoinPartyCompletionResult Result, int32 DeniedResultCode);
+
+protected:
+
+	virtual void RejoinParty(const FUniqueNetId& InUserId, const UPartyDelegates::FOnJoinUPartyComplete& InCompletionDelegate);
+	void OnRejoinPartyComplete(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const EJoinPartyCompletionResult Result, int32 DeniedResultCode, UPartyDelegates::FOnJoinUPartyComplete InCompletionDelegate);
+
+private:
 
 	/**
 	 *

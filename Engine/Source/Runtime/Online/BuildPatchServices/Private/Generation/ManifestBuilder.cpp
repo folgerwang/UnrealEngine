@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-#include "Generation/ManifestBuilder.h"
 
+#include "Generation/ManifestBuilder.h"
+#include "Misc/Paths.h"
+#include "Algo/Accumulate.h"
+#include "Data/ManifestData.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogManifestBuilder, Log, All);
 DEFINE_LOG_CATEGORY(LogManifestBuilder);
@@ -49,16 +52,17 @@ namespace BuildPatchServices
 		: Manifest(MakeShareable(new FBuildPatchAppManifest()))
 		, FileAttributesMap(InDetails.FileAttributesMap)
 	{
-		Manifest->bIsFileData = false;
-		Manifest->AppID = InDetails.AppId;
-		Manifest->AppName = InDetails.AppName;
-		Manifest->BuildVersion = InDetails.BuildVersion;
-		Manifest->LaunchExe = InDetails.LaunchExe;
-		Manifest->LaunchCommand = InDetails.LaunchCommand;
-		Manifest->PrereqIds = InDetails.PrereqIds;
-		Manifest->PrereqName = InDetails.PrereqName;
-		Manifest->PrereqPath = InDetails.PrereqPath;
-		Manifest->PrereqArgs = InDetails.PrereqArgs;
+		Manifest->ManifestMeta.FeatureLevel = InDetails.FeatureLevel;
+		Manifest->ManifestMeta.bIsFileData = false;
+		Manifest->ManifestMeta.AppID = InDetails.AppId;
+		Manifest->ManifestMeta.AppName = InDetails.AppName;
+		Manifest->ManifestMeta.BuildVersion = InDetails.BuildVersion;
+		Manifest->ManifestMeta.LaunchExe = InDetails.LaunchExe;
+		Manifest->ManifestMeta.LaunchCommand = InDetails.LaunchCommand;
+		Manifest->ManifestMeta.PrereqIds = InDetails.PrereqIds;
+		Manifest->ManifestMeta.PrereqName = InDetails.PrereqName;
+		Manifest->ManifestMeta.PrereqPath = InDetails.PrereqPath;
+		Manifest->ManifestMeta.PrereqArgs = InDetails.PrereqArgs;
 		for (const auto& CustomField : InDetails.CustomFields)
 		{
 			EVariantTypes VarType = CustomField.Value.GetType();
@@ -101,31 +105,46 @@ namespace BuildPatchServices
 		for (const FFileSpan& FileSpan : FileSpans)
 		{
 			FFileAttributes FileAttributes = FileAttributesMap.FindRef(FileSpan.Filename);
-			Manifest->FileManifestList.AddDefaulted();
-			FFileManifest& FileManifest = Manifest->FileManifestList.Last();
+			Manifest->FileManifestList.FileList.AddDefaulted();
+			FFileManifest& FileManifest = Manifest->FileManifestList.FileList.Last();
 			FileManifest.Filename = FileSpan.Filename;
 			FMemory::Memcpy(FileManifest.FileHash.Hash, FileSpan.SHAHash.Hash, FSHA1::DigestSize);
 			FileManifest.InstallTags = FileAttributes.InstallTags.Array();
-			FileManifest.bIsUnixExecutable = FileAttributes.bUnixExecutable || FileSpan.IsUnixExecutable;
 			FileManifest.SymlinkTarget = FileSpan.SymlinkTarget;
-			FileManifest.bIsReadOnly = FileAttributes.bReadOnly;
-			FileManifest.bIsCompressed = FileAttributes.bCompressed;
-			FileManifest.FileChunkParts = GetChunkPartsForFile(FileSpan.StartIdx, FileSpan.Size, ReferencedChunks);
-			FileManifest.Init();
-			check(FileManifest.GetFileSize() == FileSpan.Size);
+			if (FileAttributes.bReadOnly)
+			{
+				FileManifest.FileMetaFlags |= EFileMetaFlags::ReadOnly;
+			}
+			if (FileAttributes.bCompressed)
+			{
+				FileManifest.FileMetaFlags |= EFileMetaFlags::Compressed;
+			}
+			if (FileAttributes.bUnixExecutable || FileSpan.IsUnixExecutable)
+			{
+				FileManifest.FileMetaFlags |= EFileMetaFlags::UnixExecutable;
+			}
+			FileManifest.ChunkParts = GetChunkPartsForFile(FileSpan.StartIdx, FileSpan.Size, ReferencedChunks);
 		}
 		UE_LOG(LogManifestBuilder, Verbose, TEXT("Manifest references %d chunks."), ReferencedChunks.Num());
 
 		// Setup chunk list, removing all that were not referenced.
-		Manifest->ChunkList = MoveTemp(ChunkInfo);
-		int32 TotalChunkListNum = Manifest->ChunkList.Num();
-		Manifest->ChunkList.RemoveAll([&](FChunkInfo& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
-		UE_LOG(LogManifestBuilder, Verbose, TEXT("Chunk info list trimmed from %d to %d."), TotalChunkListNum, Manifest->ChunkList.Num());
+		Manifest->ChunkDataList.ChunkList = MoveTemp(ChunkInfo);
+		int32 TotalChunkListNum = Manifest->ChunkDataList.ChunkList.Num();
+		Manifest->ChunkDataList.ChunkList.RemoveAll([&](FChunkInfo& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
+		UE_LOG(LogManifestBuilder, Verbose, TEXT("Chunk info list trimmed from %d to %d."), TotalChunkListNum, Manifest->ChunkDataList.ChunkList.Num());
 
+		// Call OnPostLoad for the file manifest list.
+		Manifest->FileManifestList.OnPostLoad();
 		// Init the manifest, and we are done.
 		Manifest->InitLookups();
 
-		// Sanity check all chunk info was provided
+		// Sanity check expected file sizes.
+		for (const FFileSpan& FileSpan : FileSpans)
+		{
+			check(Manifest->FileManifestLookup[FileSpan.Filename]->FileSize == FileSpan.Size);
+		}
+
+		// Sanity check all chunk info was provided.
 		bool bHasAllInfo = true;
 		for (const FGuid& ReferencedChunk : ReferencedChunks)
 		{
@@ -142,12 +161,12 @@ namespace BuildPatchServices
 		}
 
 		// Insert the legacy SHA-based prereq id if we have a prereq path specified but no prereq id.
-		if (Manifest->PrereqIds.Num() == 0 && !Manifest->PrereqPath.IsEmpty())
+		if (Manifest->ManifestMeta.PrereqIds.Num() == 0 && !Manifest->ManifestMeta.PrereqPath.IsEmpty())
 		{
 			UE_LOG(LogManifestBuilder, Log, TEXT("Setting PrereqIds to be the SHA hash of the PrereqPath."));
 			FSHAHash PrereqHash;
-			Manifest->GetFileHash(Manifest->PrereqPath, PrereqHash);
-			Manifest->PrereqIds.Add(PrereqHash.ToString());
+			Manifest->GetFileHash(Manifest->ManifestMeta.PrereqPath, PrereqHash);
+			Manifest->ManifestMeta.PrereqIds.Add(PrereqHash.ToString());
 		}
 
 		// Some sanity checks for build integrity.
@@ -172,9 +191,7 @@ namespace BuildPatchServices
 		checkf(BuildStructureAdded.GetHead() != nullptr && BuildStructureAdded.GetHead()->GetNext() == nullptr, TEXT("Build integrity check failed. No structure was added."));
 		checkf(BuildStructureAdded.GetHead()->GetSize() == Manifest->GetBuildSize(), TEXT("Build integrity check failed. Structure added is not the same size as the manifest data setup; did you call FinalizeData?"));
 
-		// Currently we only save out in JSON format
-		Manifest->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
-		return Manifest->SaveToFile(Filename, false);
+		return Manifest->SaveToFile(Filename, Manifest->ManifestMeta.FeatureLevel);
 	}
 
 	TArray<FChunkPart> FManifestBuilder::GetChunkPartsForFile(uint64 FileStart, uint64 FileSize, TSet<FGuid>& ReferencedChunks)

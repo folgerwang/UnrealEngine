@@ -162,7 +162,10 @@ struct FRigUnit_ToSwingAndTwist : public FRigUnit
 	FQuat	Twist;
 
 	FRigUnit_ToSwingAndTwist()
-		: TwistAxis(FVector(1.f, 0.f, 0.f))
+		: Input(ForceInitToZero)
+		, TwistAxis(FVector(1.f, 0.f, 0.f))
+		, Swing(ForceInitToZero)
+		, Twist(ForceInitToZero)
 	{
 	}
 

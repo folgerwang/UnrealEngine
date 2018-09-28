@@ -12,6 +12,11 @@
 #include "Factories/ImportSettings.h"
 #include "FbxImportUI.generated.h"
 
+namespace UnFbx
+{
+	class FFbxImporter;
+}
+
 /** Import mesh type */
 UENUM(BlueprintType)
 enum EFBXImportType
@@ -26,7 +31,58 @@ enum EFBXImportType
 	FBXIT_MAX,
 };
 
-DECLARE_DELEGATE(FOnResolveFbxReImport);
+DECLARE_DELEGATE(FOnUpdateCompareFbx);
+DECLARE_DELEGATE(FOnShowConflictDialog);
+
+namespace ImportCompareHelper
+{
+	struct FMaterialData
+	{
+		FName MaterialSlotName;
+		FName ImportedMaterialSlotName;
+		int32 MaterialIndex;
+	};
+
+	struct FMaterialCompareData
+	{
+		TArray<FMaterialData> CurrentAsset;
+		TArray<FMaterialData> ResultAsset;
+		void Empty()
+		{
+			CurrentAsset.Empty();
+			ResultAsset.Empty();
+			bHasConflict = false;
+		}
+		bool HasConflict() { return bHasConflict; }
+		bool bHasConflict;
+	};
+
+	struct FSkeletonTreeNode
+	{
+		FName JointName;
+		TArray<FSkeletonTreeNode> Childrens;
+		void Empty()
+		{
+			JointName = NAME_None;
+			Childrens.Empty();
+		}
+	};
+
+	struct FSkeletonCompareData
+	{
+		FSkeletonTreeNode CurrentAssetRoot;
+		FSkeletonTreeNode ResultAssetRoot;
+		void Empty()
+		{
+			CurrentAssetRoot.Empty();
+			ResultAssetRoot.Empty();
+			bHasConflict = false;
+		}
+		bool HasConflict() { return bHasConflict; }
+		bool bHasConflict;
+	};
+
+}
 
 UCLASS(config=EditorPerProjectUserSettings, AutoExpandCategories=(FTransform), HideCategories=Object, MinimalAPI)
 class UFbxImportUI : public UObject, public IImportSettingsParser
@@ -108,11 +164,11 @@ public:
 	int32 LodNumber;
 
 	/** True to import animations from the FBX File */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Animation, meta=(ImportType="SkeletalMesh|Animation"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Animation, meta=(ImportType="SkeletalMesh|Animation|RigOnly"))
 	uint32 bImportAnimations:1;
 
 	/** Override for the name of the animation to import. By default, it will be the name of FBX **/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Animation, meta=(editcondition="bImportAnimations", ImportType="SkeletalMesh"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Animation, meta=(editcondition="bImportAnimations", ImportType="SkeletalMesh|RigOnly"))
 	FString OverrideAnimationName;
 
 	/** Enables importing of 'rigid skeletalmesh' (unskinned, hierarchy-based animation) from this FBX file, no longer shown, used behind the scenes */
@@ -120,11 +176,11 @@ public:
 	uint32 bImportRigidMesh:1;
 
 	/** Whether to automatically create Unreal materials for materials found in the FBX scene */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = Material)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = Material, meta=(ImportType="GeoOnly"))
 	uint32 bImportMaterials:1;
 
 	/** The option works only when option "Import Material" is OFF. If "Import Material" is ON, textures are always imported. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Material)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Material, meta = (ImportType = "GeoOnly"))
 	uint32 bImportTextures:1;
 
 	/** Import data used when importing static meshes */
@@ -164,9 +220,22 @@ public:
 
 	/* Whether this UI is construct for a reimport */
 	bool bIsReimport;
+	
+	/* When we are reimporting, we need the current object to preview skeleton and materials match issues. */
+	UObject* ReimportMesh;
 
+	ImportCompareHelper::FMaterialCompareData MaterialCompareData;
+	ImportCompareHelper::FSkeletonCompareData SkeletonCompareData;
 
-	//////////////////////////////////////////////////////////////////////////
+	void UpdateCompareData(UnFbx::FFbxImporter* FbxImporter);
+
+	FOnUpdateCompareFbx OnUpdateCompareFbx;
+	FOnShowConflictDialog OnShowMaterialConflictDialog;
+	FOnShowConflictDialog OnShowSkeletonConflictDialog;
+
+	bool bAllowContentTypeImport;
+	
+//////////////////////////////////////////////////////////////////////////
 	// FBX file informations
 	// Transient value that are set everytime we show the options dialog. These are information only and should be string.
 
@@ -201,6 +270,7 @@ public:
 	/* The fbx animation end frame */
 	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "SkeletalMesh|Animation", DisplayName = "Animation End Frame"))
 	FString AnimEndFrame;
+
 };
 
 

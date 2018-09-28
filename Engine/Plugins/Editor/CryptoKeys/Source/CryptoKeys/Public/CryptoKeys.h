@@ -3,3 +3,8 @@
 #pragma once
 
 #include "Modules/ModuleManager.h"
+
+namespace CryptoKeys
+{
+	CRYPTOKEYS_API void GenerateEncryptionKey(FString& OutBase64Key);
+}

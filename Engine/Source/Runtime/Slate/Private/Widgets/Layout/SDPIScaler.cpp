@@ -6,7 +6,7 @@
 SDPIScaler::SDPIScaler()
 : ChildSlot(this)
 {
-	bCanTick = false;
+	SetCanTick(false);
 	bCanSupportFocus = false;
 }
 

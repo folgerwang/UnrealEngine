@@ -114,7 +114,22 @@ namespace EpicGames.MCP.Automation
 		/// <summary>
 		/// Android platform.
 		/// </summary>
-		Android
+		Android,
+
+		/// <summary>
+		/// WindowsCN Platform.
+		/// </summary>
+		WindowsCN,
+
+		/// <summary>
+		/// IOSCN Platform.
+		/// </summary>
+		IOSCN,
+
+		/// <summary>
+		/// AndroidCN Platform.
+		/// </summary>
+		AndroidCN,
 	}
 
     /// <summary>
@@ -162,11 +177,11 @@ namespace EpicGames.MCP.Automation
 		/// Metadata for the build consisting of arbitrary json data. Will be null if no metadata exists.
 		/// </summary>
 		public BuildMetadataBase Metadata;
-		/// <summary>
-		/// Directory where builds will be staged. Rooted at the BuildRootPath, using a subfolder passed in the ctor, 
-		/// and using BuildVersion/PlatformName to give each builds their own home.
-		/// </summary>
-		public readonly string StagingDir;
+        /// <summary>
+        /// Directory where builds will be staged. Rooted at the BuildRootPath, using a subfolder passed in the ctor, 
+        /// and using BuildVersion/PlatformName to give each builds their own home.
+        /// </summary>
+        public readonly string StagingDir;
         /// <summary>
         /// Path to the CloudDir where chunks will be written (relative to the BuildRootPath)
         /// This is used to copy to the web server, so it can use the same relative path to the root build directory.
@@ -466,6 +481,10 @@ namespace EpicGames.MCP.Automation
 			/// </summary>
 			Next,
 			/// <summary>
+			/// An experimental build, for use when one project needs early access or unique changes.
+			/// </summary>
+			Experimental,
+			/// <summary>
 			/// Use local build from source of BuildPatchTool.
 			/// </summary>
 			Source
@@ -515,6 +534,7 @@ namespace EpicGames.MCP.Automation
 			public PatchGenerationOptions()
 			{
 				DataAgeThreshold = DEFAULT_DATA_AGE_THRESHOLD;
+				ChunkWindowSize = 1048576;
 			}
 
 			/// <summary>
@@ -587,6 +607,14 @@ namespace EpicGames.MCP.Automation
 			/// two days less than the cleanup data age threshold.
 			/// </summary>
 			public int DataAgeThreshold;
+			/// <summary>
+			/// Specifies in bytes, the data window size that should be used when saving new chunks. Default is 1048576 (1MiB).
+			/// </summary>
+			public int ChunkWindowSize;
+			/// <summary>
+			/// Specifies the desired output FeatureLevel of BuildPatchTool, if this is not provided BPT will warn and default to LatestJson so that project scripts can be updated.
+			/// </summary>
+			public string FeatureLevel;
 			/// <summary>
 			/// Contains a list of custom string arguments to be embedded in the generated manifest file.
 			/// </summary>
@@ -1005,6 +1033,15 @@ namespace EpicGames.MCP.Automation
 		/// <param name="McpConfigName">Name of which MCP config to query.</param>
 		/// <returns>The manifest url.</returns>
 		abstract public string GetBuildManifestUrl(BuildPatchToolStagingInfo StagingInfo, string McpConfigName);
+
+		/// <summary>
+		/// Given a staging info defining our build, return the manifest url for that registered build
+		/// </summary>
+		/// <param name="AppName">Application name to check the label in</param>
+		/// <param name="BuildVersion">Build version to manifest for.</param>
+		/// <param name="McpConfigName">Name of which MCP config to query.</param>
+		/// <returns></returns>
+		abstract public string GetBuildManifestUrl(string AppName, string BuildVersionWithPlatform, string McpConfigName);
 
 		/// <summary>
 		/// Given a staging info defining our build, return the manifest hash for that registered build

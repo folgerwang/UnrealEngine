@@ -340,7 +340,7 @@ UPartyGameState* UParty::GetPersistentParty() const
 
 void UParty::PartyConfigChangedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const TSharedRef<FPartyConfiguration>& InPartyConfig)
 {
-	UE_LOG(LogParty, Log, TEXT("[%s] Party config changed"), *InPartyId.ToString());
+	UE_LOG(LogParty, Log, TEXT("[%s] Party config changed"), *InPartyId.ToDebugString());
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
@@ -349,13 +349,13 @@ void UParty::PartyConfigChangedInternal(const FUniqueNetId& InLocalUserId, const
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during config change"), *InPartyId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during config change"), *InPartyId.ToDebugString());
 	}
 }
 
 void UParty::PartyMemberJoinedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId)
 {
-	UE_LOG(LogParty, Log, TEXT("[%s] Player %s joined"), *InPartyId.ToString(), *InMemberId.ToString());
+	UE_LOG(LogParty, Log, TEXT("[%s] Player %s joined"), *InPartyId.ToString(), *InMemberId.ToDebugString());
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
@@ -364,13 +364,13 @@ void UParty::PartyMemberJoinedInternal(const FUniqueNetId& InLocalUserId, const 
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state player: %s"), *InPartyId.ToString(), *InMemberId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state player: %s"), *InPartyId.ToString(), *InMemberId.ToDebugString());
 	}
 }
 
 void UParty::PartyDataReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const TSharedRef<FOnlinePartyData>& InPartyData)
 {
-	UE_LOG(LogParty, Log, TEXT("[%s] party data received"), *InPartyId.ToString());
+	UE_LOG(LogParty, Log, TEXT("[%s] party data received"), *InPartyId.ToDebugString());
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
@@ -379,13 +379,13 @@ void UParty::PartyDataReceivedInternal(const FUniqueNetId& InLocalUserId, const 
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to apply data."), *InPartyId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to apply data."), *InPartyId.ToDebugString());
 	}
 }
 
 void UParty::PartyMemberDataReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InMemberId, const TSharedRef<FOnlinePartyData>& InPartyMemberData)
 {
-	UE_LOG(LogParty, Log, TEXT("[%s] Player %s data received"), *InPartyId.ToString(), *InMemberId.ToString());
+	UE_LOG(LogParty, Log, TEXT("[%s] Player %s data received"), *InPartyId.ToDebugString(), *InMemberId.ToDebugString());
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
@@ -394,7 +394,7 @@ void UParty::PartyMemberDataReceivedInternal(const FUniqueNetId& InLocalUserId, 
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to apply data for player %s"), *InPartyId.ToString(), *InMemberId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to apply data for player %s"), *InPartyId.ToDebugString(), *InMemberId.ToDebugString());
 	}
 }
 
@@ -407,7 +407,7 @@ void UParty::PartyJoinRequestReceivedInternal(const FUniqueNetId& InLocalUserId,
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to process join request."), *InPartyId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to process join request."), *InPartyId.ToDebugString());
 	}
 }
 
@@ -420,7 +420,7 @@ void UParty::PartyQueryJoinabilityReceivedInternal(const FUniqueNetId& InLocalUs
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to process join request."), *InPartyId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to process join request."), *InPartyId.ToDebugString());
 	}
 }
 
@@ -432,17 +432,17 @@ void UParty::PartyMemberPromotedInternal(const FUniqueNetId& InLocalUserId, cons
 {
 	if (InLocalUserId == InNewLeaderId)
 	{
-		UE_LOG(LogParty, Log, TEXT("[%s] [%s] local member promoted"), *InPartyId.ToString(), *InNewLeaderId.ToString());
+		UE_LOG(LogParty, Log, TEXT("[%s] [%s] local member promoted"), *InPartyId.ToDebugString(), *InNewLeaderId.ToDebugString());
 	}
 	else
 	{
-		UE_LOG(LogParty, Log, TEXT("[%s] [%s] remote member promoted"), *InPartyId.ToString(), *InNewLeaderId.ToString());
+		UE_LOG(LogParty, Log, TEXT("[%s] [%s] remote member promoted"), *InPartyId.ToDebugString(), *InNewLeaderId.ToDebugString());
 	}
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (!PartyState)
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during member change."), *InPartyId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during member change."), *InPartyId.ToDebugString());
 	}
 
 	if (PartyState)
@@ -463,11 +463,11 @@ void UParty::PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const 
 {
 	if (InLocalUserId == InMemberId)
 	{
-		UE_LOG(LogParty, Log, TEXT("[%s] [%s] local member removed. Reason: %s"), *InPartyId.ToString(), *InMemberId.ToString(), ToString(InReason));
+		UE_LOG(LogParty, Log, TEXT("[%s] [%s] local member removed. Reason: %s"), *InPartyId.ToDebugString(), *InMemberId.ToDebugString(), ToString(InReason));
 	}
 	else
 	{
-		UE_LOG(LogParty, Log, TEXT("[%s] [%s] remote member exited. Reason: %s"), *InPartyId.ToString(), *InMemberId.ToString(), ToString(InReason));
+		UE_LOG(LogParty, Log, TEXT("[%s] [%s] remote member exited. Reason: %s"), *InPartyId.ToDebugString(), *InMemberId.ToDebugString(), ToString(InReason));
 	}
 
 	if (InLocalUserId == InMemberId)
@@ -489,7 +489,7 @@ void UParty::PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const 
 			}
 			else
 			{
-				UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during local player exit."), *InPartyId.ToString());
+				UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during local player exit."), *InPartyId.ToDebugString());
 			}
 		}
 
@@ -505,7 +505,7 @@ void UParty::PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const 
 		UPartyGameState* PartyState = GetParty(InPartyId);
 		if (!PartyState)
 		{
-			UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during remote player exit."), *InPartyId.ToString());
+			UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during remote player exit."), *InPartyId.ToDebugString());
 		}
 
 		if (PartyState)
@@ -521,7 +521,7 @@ void UParty::PartyMemberExitedInternal(const FUniqueNetId& InLocalUserId, const 
 
 void UParty::PartyPromotionLockoutStateChangedInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const bool bLockoutState)
 {
-	UE_LOG(LogParty, Log, TEXT("[%s] party lockout state changed to %s"), *InPartyId.ToString(), bLockoutState ? TEXT("true") : TEXT("false"));
+	UE_LOG(LogParty, Log, TEXT("[%s] party lockout state changed to %s"), *InPartyId.ToDebugString(), bLockoutState ? TEXT("true") : TEXT("false"));
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
@@ -530,13 +530,13 @@ void UParty::PartyPromotionLockoutStateChangedInternal(const FUniqueNetId& Local
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during lockout call"), *InPartyId.ToString());
+		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during lockout call"), *InPartyId.ToDebugString());
 	}
 }
 
 void UParty::PartyExitedInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId)
 {
-	UE_LOG(LogParty, Log, TEXT("PartyExitedInternal: [%s] exited party %s"), *InPartyId.ToString(), *(InPartyId.ToDebugString()));
+	UE_LOG(LogParty, Log, TEXT("PartyExitedInternal: [%s] exited party %s"), *InPartyId.ToDebugString(), *(InPartyId.ToDebugString()));
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState != nullptr && (PartyState->OssParty->PartyTypeId == IOnlinePartySystem::GetPrimaryPartyTypeId()))
@@ -552,7 +552,7 @@ void UParty::PartyExitedInternal(const FUniqueNetId& LocalUserId, const FOnlineP
 	}
 	else
 	{
-		UE_LOG(LogParty, Display, TEXT("[%s]: Missing party state during exit"), *InPartyId.ToString());
+		UE_LOG(LogParty, Display, TEXT("[%s]: Missing party state during exit"), *InPartyId.ToDebugString());
 	}
 }
 
@@ -578,7 +578,7 @@ void UParty::OnPersistentPartyExitedInternalCompleted(const FUniqueNetId& LocalU
 
 void UParty::PartyStateChanged(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, EPartyState State)
 {
-	UE_LOG(LogParty, Verbose, TEXT("PartyStateChanged: [%s] state changed to %s"), *InPartyId.ToString(), ToString(State));
+	UE_LOG(LogParty, Verbose, TEXT("PartyStateChanged: [%s] state changed to %s"), *InPartyId.ToDebugString(), ToString(State));
 
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState != nullptr && (PartyState->OssParty->PartyTypeId == IOnlinePartySystem::GetPrimaryPartyTypeId()))
@@ -589,7 +589,7 @@ void UParty::PartyStateChanged(const FUniqueNetId& LocalUserId, const FOnlinePar
 			if (PartyConsoleVariables::CVarPartyEnableAutoRejoin.GetValueOnGameThread() &&
 				ShouldCacheDisconnectedPersistentPartyForRejoin(PartyState))
 			{
-				UE_LOG(LogParty, Log, TEXT("PartyStateChanged: [%s] Caching party for rejoin"), *InPartyId.ToString());
+				UE_LOG(LogParty, Log, TEXT("PartyStateChanged: [%s] Caching party for rejoin"), *InPartyId.ToDebugString());
 				TArray<TSharedRef<const FUniqueNetId>> MemberIds;
 				
 				TArray<UPartyMemberState*> PartyMembers;
@@ -679,6 +679,7 @@ void UParty::LeavePersistentPartyForRejoin()
 
 void UParty::OnLeavePersistentPartyForRejoinComplete(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult LeaveResult)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::OnLeavePersistentPartyForRejoinComplete"));
 	EJoinPartyCompletionResult JoinResult = EJoinPartyCompletionResult::UnknownClientFailure;
 	FString ErrorMsg;
 
@@ -687,10 +688,7 @@ void UParty::OnLeavePersistentPartyForRejoinComplete(const FUniqueNetId& LocalUs
 	{
 		if (RejoinableParty.IsValid())
 		{
-			FOnJoinPartyComplete CompletionDelegate;
-			CompletionDelegate.BindUObject(this, &ThisClass::OnRejoinPartyComplete);
-			// CODEREVIEW - don.eubanks - Not sure how to pipe the data here, this seems like a weird case 
-			PartyInt->RejoinParty(LocalUserId, *RejoinableParty->PartyId, IOnlinePartySystem::GetPrimaryPartyTypeId(), RejoinableParty->Members, CompletionDelegate);
+			RejoinParty(LocalUserId, UPartyDelegates::FOnJoinUPartyComplete());
 			JoinResult = EJoinPartyCompletionResult::Succeeded;
 		}
 		else
@@ -713,7 +711,22 @@ void UParty::OnLeavePersistentPartyForRejoinComplete(const FUniqueNetId& LocalUs
 	}
 }
 
-void UParty::OnRejoinPartyComplete(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const EJoinPartyCompletionResult Result, int32 DeniedResultCode)
+void UParty::RejoinParty(const FUniqueNetId& InUserId, const UPartyDelegates::FOnJoinUPartyComplete& InCompletionDelegate /*= UPartyDelegates::FOnJoinUPartyComplete()*/)
+{
+	IOnlinePartyPtr PartyInt = Online::GetPartyInterface(GetWorld());
+	if (ensure(PartyInt.IsValid()))
+	{
+		if (ensure(RejoinableParty.IsValid()))
+		{
+			FOnJoinPartyComplete CompletionDelegate;
+			CompletionDelegate.BindUObject(this, &ThisClass::OnRejoinPartyComplete, InCompletionDelegate);
+			// CODEREVIEW - don.eubanks - Not sure how to pipe the data here, this seems like a weird case 
+			PartyInt->RejoinParty(InUserId, *RejoinableParty->PartyId, IOnlinePartySystem::GetPrimaryPartyTypeId(), RejoinableParty->Members, CompletionDelegate);
+		}
+	}
+}
+
+void UParty::OnRejoinPartyComplete(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const EJoinPartyCompletionResult Result, int32 DeniedResultCode, UPartyDelegates::FOnJoinUPartyComplete InCompletionDelegate)
 {
 	if (Result != EJoinPartyCompletionResult::LoggedOut)
 	{
@@ -723,7 +736,7 @@ void UParty::OnRejoinPartyComplete(const FUniqueNetId& LocalUserId, const FOnlin
 	if (Result == EJoinPartyCompletionResult::Succeeded)
 	{
 		UPartyDelegates::FOnJoinUPartyComplete CompletionDelegate;
-		CompletionDelegate.BindUObject(this, &ThisClass::OnJoinPersistentPartyComplete, UPartyDelegates::FOnJoinUPartyComplete());
+		CompletionDelegate.BindUObject(this, &ThisClass::OnJoinPersistentPartyComplete, InCompletionDelegate);
 		OnJoinPartyInternalComplete(LocalUserId, PartyId, Result, DeniedResultCode, IOnlinePartySystem::GetPrimaryPartyTypeId(), CompletionDelegate);
 	}
 	else
@@ -734,6 +747,7 @@ void UParty::OnRejoinPartyComplete(const FUniqueNetId& LocalUserId, const FOnlin
 
 void UParty::CreatePartyInternal(const FUniqueNetId& InUserId, const FOnlinePartyTypeId InPartyTypeId, const FPartyConfiguration& InPartyConfig, const UPartyDelegates::FOnCreateUPartyComplete& InCompletionDelegate)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::CreatePartyInternal"));
 	ECreatePartyCompletionResult Result = ECreatePartyCompletionResult::UnknownClientFailure;
 	FString ErrorMsg;
 
@@ -813,6 +827,7 @@ void UParty::OnCreatePartyInternalComplete(const FUniqueNetId& LocalUserId, cons
 
 void UParty::JoinPartyInternal(const FUniqueNetId& InUserId, const FPartyDetails& InPartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& InCompletionDelegate)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::JoinPartyInternal"));
 	EJoinPartyCompletionResult Result = EJoinPartyCompletionResult::UnknownClientFailure;
 	FString ErrorMsg;
 
@@ -919,6 +934,7 @@ void UParty::OnJoinPartyInternalComplete(const FUniqueNetId& LocalUserId, const 
 
 void UParty::LeavePartyInternal(const FUniqueNetId& InUserId, const FOnlinePartyTypeId InPartyTypeId, const UPartyDelegates::FOnLeaveUPartyComplete& InCompletionDelegate)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::LeavePartyInternal"));
 	ELeavePartyCompletionResult Result = ELeavePartyCompletionResult::UnknownClientFailure;
 	FString ErrorMsg;
 
@@ -987,6 +1003,7 @@ void UParty::OnLeavePartyInternalComplete(const FUniqueNetId& LocalUserId, const
 
 void UParty::CreateParty(const FUniqueNetId& InUserId, const FOnlinePartyTypeId InPartyTypeId, const FPartyConfiguration& InPartyConfig, const UPartyDelegates::FOnCreateUPartyComplete& InCompletionDelegate)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::CreateParty"));
 	UPartyDelegates::FOnCreateUPartyComplete CompletionDelegate;
 	CompletionDelegate.BindUObject(this, &ThisClass::OnCreatePartyComplete, InPartyTypeId, InCompletionDelegate);
 	CreatePartyInternal(InUserId, InPartyTypeId, InPartyConfig, CompletionDelegate);
@@ -1283,6 +1300,7 @@ void UParty::HandleJoinPersistentPartyFailure()
 
 void UParty::LeavePersistentParty(const FUniqueNetId& InUserId, const UPartyDelegates::FOnLeaveUPartyComplete& InCompletionDelegate)
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::LeavePersistentParty"));
 	if (PersistentPartyId.IsValid())
 	{
 		if (!bLeavingPersistentParty)
@@ -1331,6 +1349,7 @@ void UParty::OnLeavePersistentPartyComplete(const FUniqueNetId& LocalUserId, con
 
 void UParty::RestorePersistentPartyState()
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::RestorePersistentPartyState"));
 	if (!GIsRequestingExit)
 	{
 		if (!bLeavingPersistentParty)
@@ -1452,6 +1471,7 @@ void UParty::KickFromPersistentParty(const UPartyDelegates::FOnLeaveUPartyComple
 
 void UParty::LeaveAndRestorePersistentParty()
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::LeaveAndRestorePersistentParty"));
 	if (!bLeavingPersistentParty)
 	{
 		bLeavingPersistentParty = true;
@@ -1469,6 +1489,7 @@ void UParty::LeaveAndRestorePersistentParty()
 
 void UParty::LeaveAndRestorePersistentPartyInternal()
 {
+	UE_LOG(LogParty, VeryVerbose, TEXT("UParty::LeaveAndRestorePersistentPartyInternal"));
 	const UGameInstance* const GameInstance = GetGameInstance();
 	check(GameInstance);
 

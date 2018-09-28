@@ -13,6 +13,7 @@
 #include "VulkanAndroidPlatform.h"
 #include "../VulkanRHIPrivate.h"
 #include <dlfcn.h>
+#include "Android/AndroidWindow.h"
 
 // Vulkan function pointers
 #define DEFINE_VK_ENTRYPOINTS(Type,Func) Type VulkanDynamicAPI::Func = NULL;
@@ -109,6 +110,20 @@ void FVulkanAndroidPlatform::FreeVulkanLibrary()
 
 void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {
+	// don't use cached window handle coming from VulkanViewport, as it could be gone by now
+	WindowHandle = FAndroidWindow::GetHardwareWindow();
+	if (WindowHandle == NULL)
+	{
+		// Sleep if the hardware window isn't currently available.
+		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
+		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in FVulkanAndroidPlatform::CreateSurface"));
+		while (WindowHandle == NULL)
+		{
+			FPlatformProcess::Sleep(0.001f);
+			WindowHandle = FAndroidWindow::GetHardwareWindow();
+		}
+	}
+
 	VkAndroidSurfaceCreateInfoKHR SurfaceCreateInfo;
 	ZeroVulkanStruct(SurfaceCreateInfo, VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR);
 	SurfaceCreateInfo.window = (ANativeWindow*)WindowHandle;
@@ -163,11 +178,13 @@ void FVulkanAndroidPlatform::OverridePlatformHandlers(bool bInit)
 		// Want to see the actual crash report on Android so unregister signal handlers
 		FPlatformMisc::SetCrashHandler((void(*)(const FGenericCrashContext& Context)) -1);
 		FPlatformMisc::SetOnReInitWindowCallback(FVulkanDynamicRHI::RecreateSwapChain);
+		FPlatformMisc::SetOnPauseCallback(FVulkanDynamicRHI::SavePipelineCache);
 	}
 	else
 	{
 		FPlatformMisc::SetCrashHandler(nullptr);
 		FPlatformMisc::SetOnReInitWindowCallback(nullptr);
+		FPlatformMisc::SetOnPauseCallback(nullptr);
 	}
 }
 

@@ -729,6 +729,118 @@ bool FPhysicsInterface::GeomSweepSingle(const UWorld* World, const struct FColli
 	return bHaveBlockingHit;
 }
 
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+static bool FirstNaNCheckPhysXCollision = true;
+
+void PrintSceneActors(PxScene* Scene)
+{
+	TArray<PxActor*> Actors;
+	PxU32 Size;
+	Size = Scene->getNbActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC | physx::PxActorTypeFlag::eRIGID_STATIC);
+	Actors.SetNum(Size);
+	Scene->getActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC | physx::PxActorTypeFlag::eRIGID_STATIC, Actors.GetData(), Size);
+	for (uint32 i = 0; i < Size; ++i)
+	{
+		PxRigidActor* RigidActor = Actors[i]->is<PxRigidActor>();
+		if (RigidActor)
+		{
+			UE_LOG(LogCollision, Warning, TEXT("Actor is %s with pointer %p"), RigidActor->getName() ? ANSI_TO_TCHAR(RigidActor->getName()) : TEXT(""), (void*)RigidActor);
+			PxU32 NumShapes = RigidActor->getNbShapes();
+			TArray<PxShape*> ShapeBuffer;
+			ShapeBuffer.SetNum(NumShapes);
+			RigidActor->getShapes(ShapeBuffer.GetData(), NumShapes);
+			for (uint32 j = 0; j < NumShapes; ++j)
+			{
+				if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::eBOX)
+				{
+					PxBoxGeometry Geometry;
+					check(ShapeBuffer[j]->getBoxGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is Box with Extents %f %f %f"), Geometry.halfExtents.x, Geometry.halfExtents.y, Geometry.halfExtents.z);
+				}
+				else if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::eCAPSULE)
+				{
+					PxCapsuleGeometry Geometry;
+					check(ShapeBuffer[j]->getCapsuleGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is Capsule with Height %f, Radius %f"), Geometry.halfHeight, Geometry.radius);
+				}
+				else if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::eCONVEXMESH)
+				{
+					PxConvexMeshGeometry Geometry;
+					check(ShapeBuffer[j]->getConvexMeshGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is Convex"));
+				}
+				else if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::eHEIGHTFIELD)
+				{
+					PxHeightFieldGeometry Geometry;
+					check(ShapeBuffer[j]->getHeightFieldGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is Height Field"));
+				}
+				else if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::ePLANE)
+				{
+					PxPlaneGeometry Geometry;
+					check(ShapeBuffer[j]->getPlaneGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is a Plane"));
+				}
+				else if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::eSPHERE)
+				{
+					PxSphereGeometry Geometry;
+					check(ShapeBuffer[j]->getSphereGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is a Sphere with radius %f"), Geometry.radius);
+				}
+				else if (ShapeBuffer[j]->getGeometryType() == PxGeometryType::eTRIANGLEMESH)
+				{
+					PxTriangleMeshGeometry Geometry;
+					check(ShapeBuffer[j]->getTriangleMeshGeometry(Geometry));
+					UE_LOG(LogCollision, Warning, TEXT("Shape is a Triangle Mesh"));
+				}
+				UE_LOG(LogCollision, Warning, TEXT("Collision Shape %d for Actor %d Translation %f %f %f"), j, i, P2UTransform(ShapeBuffer[j]->getLocalPose()).GetTranslation().X, P2UTransform(ShapeBuffer[j]->getLocalPose()).GetTranslation().Y, P2UTransform(ShapeBuffer[j]->getLocalPose()).GetTranslation().Z);
+			}
+		}
+		UE_LOG(LogCollision, Warning, TEXT("Actor %d Center %f %f %f"), i, Actors[i]->getWorldBounds().getCenter().x, Actors[i]->getWorldBounds().getCenter().y, Actors[i]->getWorldBounds().getCenter().z);
+		UE_LOG(LogCollision, Warning, TEXT("Actor %d Extents %f %f %f"), i, Actors[i]->getWorldBounds().getExtents(0), Actors[i]->getWorldBounds().getExtents(1), Actors[i]->getWorldBounds().getExtents(2));
+	}
+}
+
+#define PRINT_QUERY_INPUTS() \
+	UE_LOG(LogCollision, Warning, TEXT("Geometry Type is %d"), PGeom.getType()); \
+	UE_LOG(LogCollision, Warning, TEXT("Rotation is %f, %f, %f"), P2UQuat(PGeomRot).Euler().X, P2UQuat(PGeomRot).Euler().Y, P2UQuat(PGeomRot).Euler().Z); \
+	UE_LOG(LogCollision, Warning, TEXT("Start is %f, %f, %f"), Start.X, Start.Y, Start.Z); \
+	UE_LOG(LogCollision, Warning, TEXT("End is %f, %f, %f"), End.X, End.Y, End.Z); \
+	UE_LOG(LogCollision, Warning, TEXT("Trace Channel is %d"), TraceChannel); \
+	UE_LOG(LogCollision, Warning, TEXT("Collision Query Params %s"), *Params.ToString()); \
+	for (int32 ii = 0; ii < 32; ++ii) \
+	{ \
+		UE_LOG(LogCollision, Warning, TEXT("Collision Response Params %d %d"), ii, ResponseParams.CollisionResponse.GetResponse((ECollisionChannel)ii)); \
+	} \
+	UE_LOG(LogCollision, Warning, TEXT("Collision Object Query Params %d"), ObjectParams.ObjectTypesToQuery);
+
+#define CHECK_NAN(Val) \
+	if (FPlatformMath::IsNaN(Val) && FirstNaNCheckPhysXCollision) \
+	{ \
+        FirstNaNCheckPhysXCollision = false; \
+		PRINT_QUERY_INPUTS() \
+		logOrEnsureNanError(TEXT("Failed!")); \
+	}
+
+#define CHECK_NAN_SYNC(Val) \
+	if (FPlatformMath::IsNaN(Val) && FirstNaNCheckPhysXCollision) \
+	{ \
+        FirstNaNCheckPhysXCollision = false; \
+		PRINT_QUERY_INPUTS() \
+		PrintSceneActors(SyncScene); \
+		logOrEnsureNanError(TEXT("Failed!")); \
+	}
+
+#define CHECK_NAN_ASYNC(Val) \
+	if (FPlatformMath::IsNaN(Val) && FirstNaNCheckPhysXCollision) \
+	{ \
+        FirstNaNCheckPhysXCollision = false; \
+		PRINT_QUERY_INPUTS() \
+		PrintSceneActors(AsyncScene); \
+		logOrEnsureNanError(TEXT("Failed!")); \
+	}
+#endif
+
 #if WITH_PHYSX
 bool /*FPhysicsInterface::*/GeomSweepMulti_PhysX(const UWorld* World, const PxGeometry& PGeom, const PxQuat& PGeomRot, TArray<FHitResult>& OutHits, FVector Start, FVector End, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectParams)
 {
@@ -737,6 +849,15 @@ bool /*FPhysicsInterface::*/GeomSweepMulti_PhysX(const UWorld* World, const PxGe
 	FScopeCycleCounter Counter(Params.StatId);
 	STARTQUERYTIMER();
 	bool bBlockingHit = false;
+
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+	CHECK_NAN(Start.X);
+	CHECK_NAN(Start.Y);
+	CHECK_NAN(Start.Z);
+	CHECK_NAN(End.X);
+	CHECK_NAN(End.Y);
+	CHECK_NAN(End.Z);
+#endif
 
 	const int32 InitialHitCount = OutHits.Num();
 
@@ -771,6 +892,19 @@ bool /*FPhysicsInterface::*/GeomSweepMulti_PhysX(const UWorld* World, const PxGe
 				SyncScene->sweep(PGeom, PStartTM, PDir, DeltaMag, HitchRepeater.GetBuffer(), POutputFlags, PQueryFilterData, &PQueryCallbackSweep);
 			} while (HitchRepeater.RepeatOnHitch());
 		}
+
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+		for (int32 i = 0; i < PSweepBuffer.GetNumHits(); ++i)
+		{
+			PxSweepHit& PHit = PSweepBuffer.GetHits()[i];
+			if (PHit.flags & PxHitFlag::ePOSITION)
+			{
+				CHECK_NAN_SYNC(PHit.position.x);
+				CHECK_NAN_SYNC(PHit.position.y);
+				CHECK_NAN_SYNC(PHit.position.z);
+			}
+		}
+#endif
 				
 		bool bBlockingHitSync = PSweepBuffer.hasBlock;
 		PxI32 NumHits = PSweepBuffer.GetNumHits();
@@ -799,6 +933,19 @@ bool /*FPhysicsInterface::*/GeomSweepMulti_PhysX(const UWorld* World, const PxGe
 					AsyncScene->sweep(PGeom, PStartTM, PDir, MinBlockDistance, HitchRepeater.GetBuffer(), POutputFlags, PQueryFilterData, &PQueryCallbackSweep);
 				} while (HitchRepeater.RepeatOnHitch());
 			}
+
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+			for (int32 i = 0; i < PSweepBuffer.GetNumHits(); ++i)
+			{
+				PxSweepHit& PHit = PSweepBuffer.GetHits()[i];
+				if (PHit.flags & PxHitFlag::ePOSITION)
+				{
+					CHECK_NAN_ASYNC(PHit.position.x);
+					CHECK_NAN_ASYNC(PHit.position.y);
+					CHECK_NAN_ASYNC(PHit.position.z);
+				}
+			}
+#endif
 
 			bool bBlockingHitAsync = PSweepBuffer.hasBlock;
 			PxI32 NumAsyncHits = PSweepBuffer.GetNumHits() - NumHits;
@@ -955,7 +1102,7 @@ bool GeomOverlapMultiImp_PhysX(const UWorld* World, const PxGeometry& PGeom, con
 
 		// Enable scene locks, in case they are required
 		FScopedMultiSceneReadLock SceneLocks;
-		FPhysScene* PhysScene = World->GetPhysicsScene();
+		FPhysScene* PhysScene = World ? World->GetPhysicsScene() : nullptr;
 		// @todo(mlentine): Should this ever happen?
 		if (!PhysScene)
 		{

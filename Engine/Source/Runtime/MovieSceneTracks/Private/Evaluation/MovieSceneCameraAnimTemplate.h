@@ -58,8 +58,8 @@ USTRUCT()
 struct FMovieSceneCameraShakeSectionTemplate : public FMovieSceneAdditiveCameraAnimationTemplate
 {
 	GENERATED_BODY()
-	
-	FMovieSceneCameraShakeSectionTemplate() {}
+
+	FMovieSceneCameraShakeSectionTemplate();
 	FMovieSceneCameraShakeSectionTemplate(const UMovieSceneCameraShakeSection& Section);
 
 private:

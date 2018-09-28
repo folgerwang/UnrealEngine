@@ -93,6 +93,13 @@ public:
 	virtual UObject* GetUObject( ) const = 0;
 
 	/**
+	 * Returns a pointer to an object bound to this delegate instance, intended for quick lookup in the timer manager,
+	 *
+	 * @return A pointer to an object referenced by the delegate instance.
+	 */
+	virtual const void* GetObjectForTimerManager() const = 0;
+
+	/**
 	 * Returns true if this delegate is bound to the specified UserObject,
 	 *
 	 * Deprecated.

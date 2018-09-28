@@ -69,10 +69,10 @@ public:
 		PostprocessParameter.Bind(Initializer.ParameterMap);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FRenderingCompositePassContext& Context )
+	void SetParameters(FRHICommandList& RHICmdList, const FRenderingCompositePassContext& Context, const FMaterialRenderProxy* Proxy)
 	{
 		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
-		FMaterialShader::SetViewParameters(RHICmdList, ShaderRHI, Context.View, Context.View.ViewUniformBuffer);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Proxy, *Proxy->GetMaterial(Context.View.GetFeatureLevel()), Context.View, Context.View.ViewUniformBuffer, ESceneTextureSetupMode::All);
 		PostprocessParameter.SetVS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 	}
 
@@ -136,11 +136,11 @@ public:
 	}
 
 	template <typename TRHICmdList>
-	void SetParameters(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, const FMaterialRenderProxy* Material )
+	void SetParameters(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, const FMaterialRenderProxy* Proxy)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Material, *Material->GetMaterial(Context.View.GetFeatureLevel()), Context.View, Context.View.ViewUniformBuffer, ESceneTextureSetupMode::All);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Proxy, *Proxy->GetMaterial(Context.View.GetFeatureLevel()), Context.View, Context.View.ViewUniformBuffer, ESceneTextureSetupMode::All);
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 	}
 
@@ -256,8 +256,8 @@ void FRCPassPostProcessMaterial::Process(FRenderingCompositePassContext& Context
 
 		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-		VertexShader_Mobile->SetParameters(Context.RHICmdList, Context);
-		PixelShader_Mobile->SetParameters(Context.RHICmdList, Context, MaterialInterface->GetRenderProxy(false));
+		VertexShader_Mobile->SetParameters(Context.RHICmdList, Context, Proxy);
+		PixelShader_Mobile->SetParameters(Context.RHICmdList, Context, Proxy);
 		VertexShader = VertexShader_Mobile;
 	}
 	// Uses highend post process material that assumed ViewSize == BufferSize.
@@ -272,8 +272,8 @@ void FRCPassPostProcessMaterial::Process(FRenderingCompositePassContext& Context
 
 		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-		VertexShader_HighEnd->SetParameters(Context.RHICmdList, Context);
-		PixelShader_HighEnd->SetParameters(Context.RHICmdList, Context, MaterialInterface->GetRenderProxy(false));
+		VertexShader_HighEnd->SetParameters(Context.RHICmdList, Context, Proxy);
+		PixelShader_HighEnd->SetParameters(Context.RHICmdList, Context, Proxy);
 		VertexShader = VertexShader_HighEnd;
 	}
 	// Uses highend post process material that handle ViewSize != BufferSize.
@@ -288,8 +288,8 @@ void FRCPassPostProcessMaterial::Process(FRenderingCompositePassContext& Context
 
 		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-		VertexShader_HighEnd->SetParameters(Context.RHICmdList, Context);
-		PixelShader_HighEnd->SetParameters(Context.RHICmdList, Context, MaterialInterface->GetRenderProxy(false));
+		VertexShader_HighEnd->SetParameters(Context.RHICmdList, Context, Proxy);
+		PixelShader_HighEnd->SetParameters(Context.RHICmdList, Context, Proxy);
 		VertexShader = VertexShader_HighEnd;
 	}
 

@@ -961,7 +961,7 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 				.ToolTip(AdvancedDisplayTooltip)
 			];
 
-		TSharedPtr<SToolTip> MultilineTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VariableMultilineTooltip_Tooltip", "Allow the value of this variable to have newlines (use Ctrl+Enter to add one while editing)"), NULL, DocLink, TEXT("Multiline"));
+		TSharedPtr<SToolTip> MultilineTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VariableMultilineTooltip_Tooltip", "Allow the value of this variable to have newlines (use Shift+Enter to add one while editing)"), NULL, DocLink, TEXT("Multiline"));
 
 		Category.AddCustomRow(LOCTEXT("VariableMultilineTooltip", "Multi line"), true)
 			.Visibility(TAttribute<EVisibility>(this, &FBlueprintVarActionDetails::GetMultilineVisibility))
@@ -4084,8 +4084,12 @@ void FBaseBlueprintGraphActionDetails::OnParamsChanged(UK2Node_EditablePinBase* 
 
 		// Reconstruct the entry/exit definition and recompile the blueprint to make sure the signature has changed before any fixups
 		{
-			TGuardValue<ESaveOrphanPinMode> GuardSaveMode(TargetNode->OrphanedPinSaveMode, ESaveOrphanPinMode::SaveNone);
+			const bool bCurDisableOrphanSaving = TargetNode->bDisableOrphanPinSaving;
+			TargetNode->bDisableOrphanPinSaving = true;
+
 			TargetNode->ReconstructNode();
+
+			TargetNode->bDisableOrphanPinSaving = bCurDisableOrphanSaving;
 		}
 
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();

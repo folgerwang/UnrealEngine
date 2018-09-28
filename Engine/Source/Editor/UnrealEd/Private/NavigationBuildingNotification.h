@@ -39,6 +39,8 @@ private:
 	void ClearCompleteNotification();
 	FText GetNotificationText() const;
 
+	void CancelBuild();
+
 	bool bPreviouslyDetectedBuild;
 	double TimeOfStartedBuild;
 	double TimeOfStoppedBuild;

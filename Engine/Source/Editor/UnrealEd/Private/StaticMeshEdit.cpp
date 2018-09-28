@@ -1473,127 +1473,57 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	TArray<FName> RemapMaterialName;
 	RemapMaterialName.AddZeroed(NewMesh->StaticMaterials.Num());
 
-	bool bHasSomeUnmatchedMaterial = false;
-	for (int32 MaterialIndex = 0; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
+	//If user is attended, ask him to verify the match is good
+	UnFbx::EFBXReimportDialogReturnOption ReturnOption;
+	//Ask the user to match the materials conflict
+	UnFbx::FFbxImporter::PrepareAndShowMaterialConflictDialog<FStaticMaterial>(ExistingMeshDataPtr->ExistingMaterials, NewMesh->StaticMaterials, RemapMaterial, RemapMaterialName, bCanShowDialog, false, ReturnOption);
+	
+	if (ReturnOption != UnFbx::EFBXReimportDialogReturnOption::FBXRDRO_ResetToFbx)
 	{
-		RemapMaterial[MaterialIndex] = MaterialIndex;
-		RemapMaterialName[MaterialIndex] = NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName;
-		bool bFoundMatch = false;
+		//Build a ordered material list that try to keep intact the existing material list
+		TArray<FStaticMaterial> MaterialOrdered;
+		TArray<bool> MatchedNewMaterial;
+		MatchedNewMaterial.AddZeroed(NewMesh->StaticMaterials.Num());
 		for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
 		{
-			if (ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName == NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName)
+			int32 MaterialIndexOrdered = MaterialOrdered.Add(ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex]);
+			FStaticMaterial& OrderedMaterial = MaterialOrdered[MaterialIndexOrdered];
+			int32 NewMaterialIndex = INDEX_NONE;
+			if (RemapMaterial.Find(ExistMaterialIndex, NewMaterialIndex))
 			{
-				bFoundMatch = true;
-				RemapMaterial[MaterialIndex] = ExistMaterialIndex;
-				RemapMaterialName[MaterialIndex] = ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName;
-			}
-		}
-		if (!bFoundMatch)
-		{
-			RemapMaterial[MaterialIndex] = INDEX_NONE;
-			RemapMaterialName[MaterialIndex] = NAME_None;
-			bHasSomeUnmatchedMaterial = true;
-		}
-	}
-
-	if (bHasSomeUnmatchedMaterial)
-	{
-		TArray<bool> AutoRemapMaterials;
-		AutoRemapMaterials.AddZeroed(RemapMaterial.Num());
-
-		//Do a weighted remap of the material names
-		for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
-		{
-			if (RemapMaterial.Contains(ExistMaterialIndex))
-			{
-				//Already remapped
-				continue;
-			}
-			//Lets have a minimum similarity to declare a match (under 15% it is not consider a match string)
-			float BestWeight = 0.25f;
-			int32 BestMaterialIndex = INDEX_NONE;
-			for (int32 MaterialIndex = 0; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
-			{
-				if (RemapMaterial[MaterialIndex] != INDEX_NONE)
-				{
-					continue;
-				}				
-				float StringWeight = UnFbx::FFbxHelper::NameCompareWeight(ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName.ToString(), NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName.ToString());
-				if (StringWeight > BestWeight)
-				{
-					BestWeight = StringWeight;
-					BestMaterialIndex = MaterialIndex;
-				}
-			}
-			if (RemapMaterial.IsValidIndex(BestMaterialIndex))
-			{
-				RemapMaterial[BestMaterialIndex] = ExistMaterialIndex;
-				AutoRemapMaterials[BestMaterialIndex] = true;
+				MatchedNewMaterial[NewMaterialIndex] = true;
+				RemapMaterial[NewMaterialIndex] = MaterialIndexOrdered;
+				OrderedMaterial.ImportedMaterialSlotName = NewMesh->StaticMaterials[NewMaterialIndex].ImportedMaterialSlotName;
 			}
 			else
 			{
-				//Call the mesh section match
+				//Unmatched material must be conserve
 			}
 		}
 
-		//If user is attended, ask him to verify the match is good
-		bool bUserRemap = false;
-		if (bCanShowDialog)
+		//Add the new material entries (the one that do not match with any existing material)
+		for (int32 NewMaterialIndex = 0; NewMaterialIndex < MatchedNewMaterial.Num(); ++NewMaterialIndex)
 		{
-			bool bUserCancel = false;
-			//Ask the user to match the materials conflict
-			UnFbx::FFbxImporter::ShowFbxMaterialConflictWindowSM(ExistingMeshDataPtr->ExistingMaterials, NewMesh->StaticMaterials, RemapMaterial, AutoRemapMaterials, bUserCancel);
-			if (!bUserCancel)
+			if (MatchedNewMaterial[NewMaterialIndex] == false)
 			{
-				bUserRemap = true;
+				int32 NewMeshIndex = MaterialOrdered.Add(NewMesh->StaticMaterials[NewMaterialIndex]);
+				RemapMaterial[NewMaterialIndex] = NewMeshIndex;
 			}
 		}
-	}
 
-	//Build a ordered material list that try to keep intact the existing material list
-	TArray<FStaticMaterial> MaterialOrdered;
-	TArray<bool> MatchedNewMaterial;
-	MatchedNewMaterial.AddZeroed(NewMesh->StaticMaterials.Num());
-	for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
-	{
-		int32 MaterialIndexOrdered = MaterialOrdered.Add(ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex]);
-		FStaticMaterial& OrderedMaterial = MaterialOrdered[MaterialIndexOrdered];
-		int32 NewMaterialIndex = INDEX_NONE;
-		if (RemapMaterial.Find(ExistMaterialIndex, NewMaterialIndex))
+		//Set the RemapMaterialName array helper
+		for (int32 MaterialIndex = 0; MaterialIndex < RemapMaterial.Num(); ++MaterialIndex)
 		{
-			MatchedNewMaterial[NewMaterialIndex] = true;
-			RemapMaterial[NewMaterialIndex] = MaterialIndexOrdered;
-			OrderedMaterial.ImportedMaterialSlotName = NewMesh->StaticMaterials[NewMaterialIndex].ImportedMaterialSlotName;
+			int32 SourceMaterialMatch = RemapMaterial[MaterialIndex];
+			if (ExistingMeshDataPtr->ExistingMaterials.IsValidIndex(SourceMaterialMatch))
+			{
+				RemapMaterialName[MaterialIndex] = ExistingMeshDataPtr->ExistingMaterials[SourceMaterialMatch].ImportedMaterialSlotName;
+			}
 		}
-		else
-		{
-			//Unmatched material must be conserve
-		}
+
+		//Copy the re ordered materials (this ensure the material array do not change when we re-import)
+		NewMesh->StaticMaterials = MaterialOrdered;
 	}
-
-	//Add the new material entries (the one that do not match with any existing material)
-	for (int32 NewMaterialIndex = 0; NewMaterialIndex < MatchedNewMaterial.Num(); ++NewMaterialIndex)
-	{
-		if (MatchedNewMaterial[NewMaterialIndex] == false)
-		{
-			int32 NewMeshIndex = MaterialOrdered.Add(NewMesh->StaticMaterials[NewMaterialIndex]);
-			RemapMaterial[NewMaterialIndex] = NewMeshIndex;
-		}
-	}
-
-	//Set the RemapMaterialName array helper
-	for (int32 MaterialIndex = 0; MaterialIndex < RemapMaterial.Num(); ++MaterialIndex)
-	{
-		int32 SourceMaterialMatch = RemapMaterial[MaterialIndex];
-		if (ExistingMeshDataPtr->ExistingMaterials.IsValidIndex(SourceMaterialMatch))
-		{
-			RemapMaterialName[MaterialIndex] = ExistingMeshDataPtr->ExistingMaterials[SourceMaterialMatch].ImportedMaterialSlotName;
-		}
-	}
-
-	//Copy the re ordered materials (this ensure the material array do not change when we re-import)
-	NewMesh->StaticMaterials = MaterialOrdered;
-
 	int32 NumCommonLODs = FMath::Min<int32>(ExistingMeshDataPtr->ExistingLODData.Num(), NewMesh->SourceModels.Num());
 	for(int32 i=0; i<NumCommonLODs; i++)
 	{

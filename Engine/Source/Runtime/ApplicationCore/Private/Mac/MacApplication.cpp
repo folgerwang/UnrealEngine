@@ -55,6 +55,7 @@ FMacApplication::FMacApplication()
 ,	HIDInput(HIDInputInterface::Create(MessageHandler))
 ,   bHasLoadedInputPlugins(false)
 ,	DraggedWindow(nullptr)
+,	WindowUnderCursor(nullptr)
 ,	bSystemModalMode(false)
 ,	ModifierKeysFlags(0)
 ,	CurrentModifierFlags(0)
@@ -102,6 +103,8 @@ FMacApplication::FMacApplication()
 		CGDisplayRegisterReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
 		
 		CacheKeyboardInputSource();
+
+		WindowUnderCursor = FindSlateWindowUnderCursor();
 	}, NSDefaultRunLoopMode, true);
 
 #if WITH_EDITOR
@@ -275,19 +278,14 @@ FModifierKeysState FMacApplication::GetModifierKeys() const
 
 bool FMacApplication::IsCursorDirectlyOverSlateWindow() const
 {
-	SCOPED_AUTORELEASE_POOL;
-	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-	NSWindow* const Window = [NSApp windowWithWindowNumber:WindowNumber];
-	return Window && [Window isKindOfClass:[FCocoaWindow class]] && Window != DraggedWindow;
+	return WindowUnderCursor && WindowUnderCursor != DraggedWindow;
 }
 
 TSharedPtr<FGenericWindow> FMacApplication::GetWindowUnderCursor()
 {
-	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-	NSWindow* const Window = [NSApp windowWithWindowNumber:WindowNumber];
-	if (Window && [Window isKindOfClass:[FCocoaWindow class]] && Window != DraggedWindow)
+	if (WindowUnderCursor && WindowUnderCursor != DraggedWindow)
 	{
-		return StaticCastSharedPtr<FGenericWindow>(FindWindowByNSWindow((FCocoaWindow*)Window));
+		return StaticCastSharedPtr<FGenericWindow>(FindWindowByNSWindow(WindowUnderCursor));
 	}
 	return TSharedPtr<FMacWindow>(nullptr);
 }
@@ -357,6 +355,8 @@ void FMacApplication::CloseWindow(TSharedRef<FMacWindow> Window)
 void FMacApplication::DeferEvent(NSObject* Object)
 {
 	FDeferredMacEvent DeferredEvent;
+
+	WindowUnderCursor = FindSlateWindowUnderCursor();
 
 	if (Object && [Object isKindOfClass:[NSEvent class]])
 	{
@@ -552,7 +552,7 @@ void FMacApplication::OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisp
 
 		// Slate needs to know when desktop size changes.
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		App->BroadcastDisplayMetricsChanged(DisplayMetrics);
 	}
 
@@ -739,6 +739,7 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 		const EWindowZone::Type Zone = GetCurrentWindowZone(EventWindow.ToSharedRef());
 		bool IsMouseOverTitleBar = (Zone == EWindowZone::TitleBar);
 		const bool IsMovable = IsMouseOverTitleBar || IsEdgeZone(Zone);
+
 		FCocoaWindow* WindowHandle = EventWindow->GetWindowHandle();
 		MainThreadCall(^{
 			[WindowHandle setMovable:IsMovable];
@@ -1134,6 +1135,8 @@ bool FMacApplication::OnWindowDestroyed(TSharedRef<FMacWindow> DestroyedWindow)
 		WindowToActivate->SetWindowFocus();
 	}
 
+	MessageHandler->OnCursorSet();
+
 	return true;
 }
 
@@ -1180,6 +1183,8 @@ void FMacApplication::OnWindowActivationChanged(const TSharedRef<FMacWindow>& Wi
 		ActiveWindow = Window;
 		OnWindowOrderedFront(Window);
 	}
+
+	MessageHandler->OnCursorSet();
 }
 
 void FMacApplication::OnApplicationDidBecomeActive()
@@ -1234,6 +1239,17 @@ void FMacApplication::OnApplicationDidBecomeActive()
 		if (MacApplication)
 		{
 			MessageHandler->OnApplicationActivationChanged(true);
+
+			// Slate expects window activation call after the app activates, so we just call it for the top window again
+			NSWindow* NativeWindow = [NSApp keyWindow];
+			if (NativeWindow)
+			{
+				TSharedPtr<FMacWindow> TopWindow = FindWindowByNSWindow((FCocoaWindow*)NativeWindow);
+				if (TopWindow.IsValid())
+				{
+					MessageHandler->OnWindowActivationChanged(TopWindow.ToSharedRef(), EWindowActivation::Activate);
+				}
+			}
 		}
 	}, @[ NSDefaultRunLoopMode ], false);
 }
@@ -1425,9 +1441,6 @@ FCocoaWindow* FMacApplication::FindEventWindow(NSEvent* Event) const
 
 	if ([Event type] != NSEventTypeKeyDown && [Event type] != NSEventTypeKeyUp)
 	{
-		NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-		NSWindow* WindowUnderCursor = [NSApp windowWithWindowNumber:WindowNumber];
-
 		if ([Event type] == NSEventTypeMouseMoved && WindowUnderCursor == nullptr)
 		{
 			// Ignore windows owned by other applications
@@ -1437,13 +1450,21 @@ FCocoaWindow* FMacApplication::FindEventWindow(NSEvent* Event) const
 		{
 			EventWindow = DraggedWindow;
 		}
-		else if (WindowUnderCursor && [WindowUnderCursor isKindOfClass:[FCocoaWindow class]])
+		else if (WindowUnderCursor)
 		{
-			EventWindow = (FCocoaWindow*)WindowUnderCursor;
+			EventWindow = WindowUnderCursor;
 		}
 	}
 
 	return EventWindow;
+}
+
+FCocoaWindow* FMacApplication::FindSlateWindowUnderCursor() const
+{
+	SCOPED_AUTORELEASE_POOL;
+	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
+	const NSWindow* Window = [NSApp windowWithWindowNumber:WindowNumber];
+	return (Window && [Window isKindOfClass:[FCocoaWindow class]]) ? (FCocoaWindow*)Window : nil;
 }
 
 void FMacApplication::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)
@@ -1941,7 +1962,7 @@ void FMacApplication::RecordUsage(EGestureEvent Gesture)
 }
 #endif
 
-void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	SCOPED_AUTORELEASE_POOL;
 

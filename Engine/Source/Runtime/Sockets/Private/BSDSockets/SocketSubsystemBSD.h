@@ -80,7 +80,9 @@ public:
 	 * Translates an ESocketProtocolFamily code into a value usable by raw socket apis.
 	 */
 	virtual int32 GetProtocolFamilyValue(ESocketProtocolFamily InProtocol) const;
-
+	
+	virtual bool IsSocketWaitSupported() const override;
+	
 	/**
 	 * Translates an raw socket family type value into an enum that can be used by the network layer.
 	 */

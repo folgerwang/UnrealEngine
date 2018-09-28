@@ -20,7 +20,6 @@
 #include "Widgets/Layout/Anchors.h"
 #include "Logging/MessageLog.h"
 #include "Stats/Stats.h"
-#include "Stats/SlateStats.h"
 #include "EngineStats.h"
 #include "SlateGlobals.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
@@ -338,6 +337,14 @@ public:
 		return nullptr;
 	}
 
+	/** 
+	 * Called once only at game time on non-template instances.
+	 * While Construct/Destruct pertain to the underlying Slate, this is called only once for the UUserWidget.
+	 * If you have one-time things to establish up-front (like binding callbacks to events on BindWidget properties), do so here.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category="User Interface")
+	void OnInitialized();
+
 	/**
 	 * Called by both the game and the editor.  Allows users to run initial setup for their widgets to better preview
 	 * the setup in the designer and since generally that same setup code is required at runtime, it's called there
@@ -356,6 +363,7 @@ public:
 	/**
 	 * Called after the underlying slate widget is constructed.  Depending on how the slate object is used
 	 * this event may be called multiple times due to adding and removing from the hierarchy.
+	 * If you need a true called-once-when-created event, use OnInitialized.
 	 */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category="User Interface", meta=( Keywords="Begin Play" ))
 	void Construct();
@@ -693,6 +701,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Delay")
 	void StopAnimationsAndLatentActions();
 
+	/**
+	* Called when a touchpad force has changed (user pressed down harder or let up)
+	*
+	* @param MyGeometry    The geometry of the widget receiving the event.
+	* @param InTouchEvent	The touch event generated
+	*/
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category = "Touch Input")
+	FEventReply OnTouchForceChanged(FGeometry MyGeometry, const FPointerEvent& InTouchEvent);
+
 public:
 
 	/**
@@ -1027,9 +1044,10 @@ protected:
 
 	FMargin GetFullScreenOffset() const;
 
-	//native SObjectWidget methods
+	//native SObjectWidget methods (see the corresponding BlueprintImplementableEvent declarations above for more info on each)
 	friend class SObjectWidget;
 
+	virtual void NativeOnInitialized();
 	virtual void NativePreConstruct();
 	virtual void NativeConstruct();
 	virtual void NativeDestruct();
@@ -1079,6 +1097,7 @@ protected:
 	virtual FReply NativeOnTouchMoved( const FGeometry& InGeometry, const FPointerEvent& InGestureEvent );
 	virtual FReply NativeOnTouchEnded( const FGeometry& InGeometry, const FPointerEvent& InGestureEvent );
 	virtual FReply NativeOnMotionDetected( const FGeometry& InGeometry, const FMotionEvent& InMotionEvent );
+	virtual FReply NativeOnTouchForceChanged(const FGeometry& MyGeometry, const FPointerEvent& TouchEvent);
 	virtual FCursorReply NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent );
 	virtual FNavigationReply NativeOnNavigation(const FGeometry& InGeometry, const FNavigationEvent& InNavigationEvent);
 	DEPRECATED(4.20, "Please use NativeOnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")

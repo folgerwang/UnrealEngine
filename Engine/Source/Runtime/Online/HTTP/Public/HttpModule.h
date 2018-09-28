@@ -256,7 +256,7 @@ public:
 	/**
 	 * @returns The current proxy address.
 	 */
-	inline const FString& GetProxyAddress()
+	inline const FString& GetProxyAddress() const
 	{
 		return ProxyAddress;
 	}
@@ -277,6 +277,14 @@ public:
 	inline bool SupportsDynamicProxy() const
 	{
 		return bSupportsDynamicProxy;
+	}
+
+	/**
+	 * @returns the list of allowed domains for applying whitelist
+	 */
+	inline const TArray<FString>& GetAllowedDomains() const
+	{
+		return AllowedDomains;
 	}
 
 private:
@@ -343,4 +351,6 @@ private:
 	FString ProxyAddress;
 	/** Whether or not the http implementation we are using supports dynamic proxy setting. */
 	bool bSupportsDynamicProxy;
+	/** Whitelist for domains that can be accessed. If Empty then no whitelist is applied */
+	TArray<FString> AllowedDomains;
 };

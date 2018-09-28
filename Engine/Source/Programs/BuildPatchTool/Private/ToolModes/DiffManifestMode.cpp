@@ -29,23 +29,24 @@ public:
 		// Print help if requested.
 		if (bHelp)
 		{
-			UE_LOG(LogBuildPatchTool, Log, TEXT("DIFF MANIFEST MODE"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("This tool mode reports the changes between two existing manifest files."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Required arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=DiffManifests    Must be specified to launch the tool in diff manifests mode."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -ManifestA=\"\"          Specifies in quotes the file path to the base manifest."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -ManifestB=\"\"          Specifies in quotes the file path to the update manifest."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Optional arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -InstallTagsA=\"\"       Specifies in quotes a comma seperated list of install tags used on ManifestA. You should include empty string if you want to count untagged files."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("                           Leaving the parameter out will use all files."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("                           -InstallTagsA=\"\" will be untagged files only."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("                           -InstallTagsA=\",tag\" will be untagged files plus files tagged with 'tag'."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("                           -InstallTagsA=\"tag\" will be files tagged with 'tag' only."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -InstallTagsB=\"\"       Specifies in quotes a comma seperated list of install tags used on ManifestB. Same rules apply as InstallTagsA."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -OutputFile=\"\"         Specifies in quotes the file path where the diff will be exported as a JSON object."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("DIFF MANIFEST MODE"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("This tool mode reports the changes between two existing manifest files."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Required arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -mode=DiffManifests    Must be specified to launch the tool in diff manifests mode."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -ManifestA=\"\"          Specifies in quotes the file path to the base manifest."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -ManifestB=\"\"          Specifies in quotes the file path to the update manifest."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Optional arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -InstallTagsA=\"\"       Specifies in quotes a comma seperated list of install tags used on ManifestA. You should include empty string if you want to count untagged files."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("                           Leaving the parameter out will use all files."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("                           -InstallTagsA=\"\" will be untagged files only."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("                           -InstallTagsA=\",tag\" will be untagged files plus files tagged with 'tag'."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("                           -InstallTagsA=\"tag\" will be files tagged with 'tag' only."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -InstallTagsB=\"\"       Specifies in quotes a comma seperated list of install tags used on ManifestB. Same rules apply as InstallTagsA."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -CompareTagSet=\"\"      Specifies in quotes a comma seperated list of install tags used to calculate differential statistics betweeen the manifests. Multiple lists are allowed. Same rules apply as InstallTagsA."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -OutputFile=\"\"         Specifies in quotes the file path where the diff will be exported as a JSON object."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
 			return EReturnCode::OK;
 		}
 
@@ -60,8 +61,15 @@ public:
 			TagSetB = ProcessTagList(InstallTagsB);
 		}
 
+		TArray<TSet<FString>> CompareTagSets;
+
+		for (const FString& CompareTagsList : CompareTagsArray)
+		{
+			CompareTagSets.Add(ProcessTagList(CompareTagsList));
+		}
+
 		// Run the merge manifest routine.
-		bool bSuccess = BpsInterface.DiffManifests(ManifestA, TagSetA, ManifestB, TagSetB, OutputFile);
+		bool bSuccess = BpsInterface.DiffManifests(ManifestA, TagSetA, ManifestB, TagSetB, CompareTagSets, OutputFile);
 		return bSuccess ? EReturnCode::OK : EReturnCode::ToolFailure;
 	}
 
@@ -95,6 +103,8 @@ private:
 		PARSE_SWITCH(OutputFile);
 		FPaths::NormalizeDirectoryName(OutputFile);
 
+		ParseSwitches(TEXT("CompareTagSet="), CompareTagsArray, Switches);
+
 		return true;
 #undef PARSE_SWITCH
 	}
@@ -119,6 +129,7 @@ private:
 	bool bHelp;
 	FString ManifestA;
 	FString ManifestB;
+	TArray<FString> CompareTagsArray;
 	bool bHasTagsA;
 	bool bHasTagsB;
 	FString InstallTagsA;

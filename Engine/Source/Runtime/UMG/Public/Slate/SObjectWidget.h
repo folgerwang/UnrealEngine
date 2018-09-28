@@ -94,13 +94,11 @@ class UMG_API SObjectWidget : public SCompoundWidget, public FGCObject
 	virtual FReply OnTouchMoved(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent) override;
 	virtual FReply OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent) override;
 	virtual FReply OnMotionDetected(const FGeometry& MyGeometry, const FMotionEvent& InMotionEvent) override;
+	virtual FReply OnTouchForceChanged(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent) override;
 
 	virtual FNavigationReply OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent) override;
 
 	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
-
-	void SetCanTick(bool bInCanTick) { bCanTick = bInCanTick; }
-	bool GetCanTick() { return bCanTick; }
 protected:
 
 	/** The UWidget that created this SObjectWidget who needs to be kept alive. */

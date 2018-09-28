@@ -25,7 +25,7 @@ static const int32 NumCubeShadowDepthSurfaces = 5;
  * Allocate enough sets of translucent volume textures to cover all the cascades, 
  * And then one more which will be used as a scratch target when doing ping-pong operations like filtering. 
  */
-static const int32 NumTranslucentVolumeRenderTargetSets = TVC_MAX + 1;
+static const int32 NumTranslucentVolumeRenderTargetSets = (TVC_MAX + 1);
 
 /** Forward declaration of console variable controlling translucent volume blur */
 extern int32 GUseTranslucencyVolumeBlur;
@@ -112,7 +112,7 @@ static const int32 NumTranslucencyShadowSurfaces = 2;
 
 #define STENCIL_LIGHTING_CHANNELS_MASK(Value) uint8((Value & 0x7) << STENCIL_LIGHTING_CHANNELS_BIT_ID)
 
-#define PREVENT_RENDERTARGET_SIZE_THRASHING (PLATFORM_DESKTOP || PLATFORM_XBOXONE || PLATFORM_PS4)
+#define PREVENT_RENDERTARGET_SIZE_THRASHING (PLATFORM_DESKTOP || PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_ANDROID || PLATFORM_IOS)
 
 enum class ESceneColorFormatType
 {
@@ -393,13 +393,13 @@ public:
 	template<int32 NumRenderTargets>
 	static void ClearVolumeTextures(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, FTextureRHIParamRef* RenderTargets, const FLinearColor* ClearColors);	
 
-	void ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList);
+	void ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList, int32 ViewIndex);
 
 	/** Get the current translucent ambient lighting volume texture. Can vary depending on whether volume filtering is enabled */
-	IPooledRenderTarget* GetTranslucencyVolumeAmbient(ETranslucencyVolumeCascade Cascade) { return TranslucencyLightingVolumeAmbient[SelectTranslucencyVolumeTarget(Cascade)].GetReference(); }
+	IPooledRenderTarget* GetTranslucencyVolumeAmbient(ETranslucencyVolumeCascade Cascade, int32 ViewIndex = 0) { return TranslucencyLightingVolumeAmbient[SelectTranslucencyVolumeTarget(Cascade) + ViewIndex * NumTranslucentVolumeRenderTargetSets].GetReference(); }
 
 	/** Get the current translucent directional lighting volume texture. Can vary depending on whether volume filtering is enabled */
-	IPooledRenderTarget* GetTranslucencyVolumeDirectional(ETranslucencyVolumeCascade Cascade) { return TranslucencyLightingVolumeDirectional[SelectTranslucencyVolumeTarget(Cascade)].GetReference(); }
+	IPooledRenderTarget* GetTranslucencyVolumeDirectional(ETranslucencyVolumeCascade Cascade, int32 ViewIndex = 0) { return TranslucencyLightingVolumeDirectional[SelectTranslucencyVolumeTarget(Cascade) + ViewIndex * NumTranslucentVolumeRenderTargetSets].GetReference(); }
 
 	/** Returns the size of most screen space render targets e.g. SceneColor, SceneDepth, GBuffer, ... might be different from final RT or output Size because of ScreenPercentage use. */
 	FIntPoint GetBufferSizeXY() const { return BufferSize; }
@@ -549,8 +549,8 @@ public:
 	TRefCountPtr<IPooledRenderTarget> SkySHIrradianceMap;
 
 	/** Volume textures used for lighting translucency. */
-	TRefCountPtr<IPooledRenderTarget> TranslucencyLightingVolumeAmbient[NumTranslucentVolumeRenderTargetSets];
-	TRefCountPtr<IPooledRenderTarget> TranslucencyLightingVolumeDirectional[NumTranslucentVolumeRenderTargetSets];
+	TArray<TRefCountPtr<IPooledRenderTarget>, TInlineAllocator<NumTranslucentVolumeRenderTargetSets>> TranslucencyLightingVolumeAmbient;
+	TArray<TRefCountPtr<IPooledRenderTarget>, TInlineAllocator<NumTranslucentVolumeRenderTargetSets>> TranslucencyLightingVolumeDirectional;
 
 	/** Color and depth texture arrays for mobile multi-view */
 	TRefCountPtr<IPooledRenderTarget> MobileMultiViewSceneColor;
@@ -610,11 +610,11 @@ private:
 public:
 	/** Allocates render targets for use with the deferred shading path. */
 	// Temporarily Public to call from DefferedShaderRenderer to attempt recovery from a crash until cause is found.
-	void AllocateDeferredShadingPathRenderTargets(FRHICommandListImmediate& RHICmdList);
+	void AllocateDeferredShadingPathRenderTargets(FRHICommandListImmediate& RHICmdList, const int32 NumViews = 1);
 private:
 
 	/** Allocates render targets for use with the current shading path. */
-	void AllocateRenderTargets(FRHICommandListImmediate& RHICmdList);
+	void AllocateRenderTargets(FRHICommandListImmediate& RHICmdList, const int32 NumViews);
 
 	/** Allocates common depth render targets that are used by both mobile and deferred rendering paths */
 	void AllocateCommonDepthTargets(FRHICommandList& RHICmdList);

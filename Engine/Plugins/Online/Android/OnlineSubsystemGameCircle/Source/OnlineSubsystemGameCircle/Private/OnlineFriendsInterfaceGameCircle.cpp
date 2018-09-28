@@ -95,6 +95,11 @@ bool FOnlineFriendsInterfaceGameCircle::GetRecentPlayers(const FUniqueNetId& Use
 	return false;
 }
 
+void FOnlineFriendsInterfaceGameCircle::DumpRecentPlayers() const
+{
+
+}
+
 bool FOnlineFriendsInterfaceGameCircle::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
 {
 	return false;
@@ -165,7 +170,7 @@ void FOnlineFriendsInterfaceGameCircle::OnGetBatchFriendsCallback(const AmazonGa
 		AvatarURL = InFriendList->friends[Idx].avatarUrl;
 		PlayerIdStr = InFriendList->friends[Idx].playerId;
 		
-		UE_LOG_ONLINE(Log, TEXT("Friends[%d] - ID: %s  Alias: %s  AvatarURL: %s"), Idx, *PlayerIdStr, *Alias, *AvatarURL);
+		UE_LOG_ONLINE_FRIEND(Log, TEXT("Friends[%d] - ID: %s  Alias: %s  AvatarURL: %s"), Idx, *PlayerIdStr, *Alias, *AvatarURL);
 		FriendsList.Add( MakeShareable( new FOnlineFriendGameCircle(IdentityInterface->CreateUniquePlayerId(PlayerIdStr), Alias, AvatarURL) ) );
 	}
 

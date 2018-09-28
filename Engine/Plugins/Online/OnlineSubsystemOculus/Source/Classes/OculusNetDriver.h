@@ -35,7 +35,7 @@ public:
 	virtual bool InitConnect(FNetworkNotify* InNotify, const FURL& ConnectURL, FString& Error) override;
 	virtual bool InitListen(FNetworkNotify* InNotify, FURL& LocalURL, bool bReuseAddressAndPort, FString& Error) override;
 	virtual void TickDispatch(float DeltaTime) override;
-	virtual void LowLevelSend(FString Address, void* Data, int32 CountBits) override;
+	virtual void LowLevelSend(FString Address, void* Data, int32 CountBits, FOutPacketTraits& Traits) override;
 	virtual void Shutdown() override;
 	virtual bool IsNetResourceValid() override;
 

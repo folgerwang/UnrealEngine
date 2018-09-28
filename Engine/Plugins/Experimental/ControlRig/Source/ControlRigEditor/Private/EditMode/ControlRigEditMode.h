@@ -224,4 +224,6 @@ protected:
 	FOnSetJointTransform OnSetJointTransformDelegate;
 
 	bool AreJointSelected() const;
+
+	bool AreJointSelectedAndMovable() const;
 };

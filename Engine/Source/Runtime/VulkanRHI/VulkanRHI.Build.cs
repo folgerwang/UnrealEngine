@@ -31,8 +31,9 @@ public class VulkanRHI : ModuleRules
 				"ShaderCore",
 				"UtilityShaders",
 				"HeadMountedDisplay",
-			}
-		);
+                "PreLoadScreen"
+            }
+        );
 
 		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64
 			|| Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Lumin)

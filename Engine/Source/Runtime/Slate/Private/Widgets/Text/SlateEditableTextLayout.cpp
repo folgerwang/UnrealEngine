@@ -214,7 +214,8 @@ FSlateEditableTextLayout::~FSlateEditableTextLayout()
 		TextInputMethodSystem->UnregisterContext(TextInputMethodContextRef);
 	}
 
-	if(FSlateApplication::IsInitialized() && FPlatformApplicationMisc::RequiresVirtualKeyboard())
+	if(FSlateApplication::IsInitialized() && FPlatformApplicationMisc::RequiresVirtualKeyboard() && 
+	   OwnerWidget->GetSlateWidgetPtr().IsValid() && OwnerWidget->GetSlateWidgetPtr()->HasAnyUserFocus().IsSet())
 	{
 		FSlateApplication::Get().ShowVirtualKeyboard(false, 0);
 	}

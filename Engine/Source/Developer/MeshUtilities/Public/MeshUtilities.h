@@ -224,9 +224,9 @@ public:
 	virtual bool BuildSkeletalMesh( 
 		FSkeletalMeshLODModel& LODModel,
 		const FReferenceSkeleton& RefSkeleton,
-		const TArray<FVertInfluence>& Influences, 
-		const TArray<FMeshWedge>& Wedges, 
-		const TArray<FMeshFace>& Faces, 
+		const TArray<SkeletalMeshImportData::FVertInfluence>& Influences,
+		const TArray<SkeletalMeshImportData::FMeshWedge>& Wedges,
+		const TArray<SkeletalMeshImportData::FMeshFace>& Faces,
 		const TArray<FVector>& Points,
 		const TArray<int32>& PointToOriginalMap,
 		const MeshBuildOptions& BuildOptions = MeshBuildOptions(),

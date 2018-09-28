@@ -82,12 +82,12 @@ bool FOnlineLeaderboardsNull::ReadLeaderboardsForFriends(int32 LocalUserNum, FOn
 
 bool FOnlineLeaderboardsNull::ReadLeaderboardsAroundRank(int32 Rank, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsNull::ReadLeaderboardsAroundRank is currently not supported."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("FOnlineLeaderboardsNull::ReadLeaderboardsAroundRank is currently not supported."));
 	return false;
 }
 bool FOnlineLeaderboardsNull::ReadLeaderboardsAroundUser(TSharedRef<const FUniqueNetId> Player, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsNull::ReadLeaderboardsAroundUser is currently not supported."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("FOnlineLeaderboardsNull::ReadLeaderboardsAroundUser is currently not supported."));
 	return false;
 }
 

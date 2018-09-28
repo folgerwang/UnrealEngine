@@ -3,11 +3,8 @@
 #include "Fonts/FontMeasure.h"
 #include "Fonts/FontCache.h"
 #include "Fonts/FontCacheUtils.h"
-#include "Stats/SlateStats.h"
 
 #define USE_MEASURE_CACHING 1
-
-SLATE_DECLARE_CYCLE_COUNTER(GSlateMeasureStringTime, "Measure String");
 
 namespace FontMeasureConstants
 {

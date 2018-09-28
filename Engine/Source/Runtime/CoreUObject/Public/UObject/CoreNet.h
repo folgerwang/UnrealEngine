@@ -327,7 +327,7 @@ bool FORCEINLINE NetworkGuidSetsAreSame( const TSet< FNetworkGUID >& A, const TS
  * INetDeltaBaseState
  *	An abstract interface for the base state used in net delta serialization. See notes in NetSerialization.h
  */
-class INetDeltaBaseState
+class INetDeltaBaseState : public TSharedFromThis<INetDeltaBaseState>
 {
 public:
 	INetDeltaBaseState() { }

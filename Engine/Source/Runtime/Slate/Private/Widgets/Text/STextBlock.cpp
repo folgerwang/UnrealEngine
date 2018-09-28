@@ -13,7 +13,7 @@ DECLARE_CYCLE_STAT(TEXT("STextBlock::ComputeVolitility"), Stat_SlateTextBlockCV,
 
 STextBlock::STextBlock()
 {
-	bCanTick = false;
+	SetCanTick(false);
 	bCanSupportFocus = false;
 }
 
@@ -159,6 +159,14 @@ int32 STextBlock::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 	// OnPaint will also update the text layout cache if required
 	LayerId = TextLayoutCache->OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
 
+	// HACK: Due to the nature of wrapping and layout, we may have been arranged in a different box than what we were cached with.  Which
+	// might update wrapping, so make sure we always set the desired size to the current size of the text layout, which may have changed
+	// during paint.
+	if (TextLayoutCache->GetDesiredSize().Y > GetDesiredSize().Y)
+	{
+		const_cast<STextBlock*>(this)->Invalidate(EInvalidateWidget::Layout);
+	}
+
 	return LayerId;
 }
 
@@ -223,7 +231,8 @@ void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpa
 	if ( !ColorAndOpacity.IsSet() || !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
 	{
 		ColorAndOpacity = InColorAndOpacity;
-		Invalidate(EInvalidateWidget::PaintAndVolatility);
+		// HACK: Normally this would be Paint only, but textblocks need to recache layout.
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
@@ -295,7 +304,8 @@ void STextBlock::SetShadowColorAndOpacity(const TAttribute<FLinearColor>& InShad
 	if(!ShadowColorAndOpacity.IdenticalTo(InShadowColorAndOpacity))
 	{
 		ShadowColorAndOpacity = InShadowColorAndOpacity;
-		Invalidate(EInvalidateWidget::PaintAndVolatility);
+		// HACK: Normally this would be Paint only, but textblocks need to recache layout.
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 

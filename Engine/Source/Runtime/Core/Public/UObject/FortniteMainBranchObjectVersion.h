@@ -43,6 +43,21 @@ struct CORE_API FFortniteMainBranchObjectVersion
 
 		// Cache material quality node usage
 		CachedMaterialQualityNodeUsage,
+		
+		// Font outlines no longer apply to drop shadows for new objects but we maintain the opposite way for backwards compat
+		FontOutlineDropShadowFixup,
+
+		// New skeletal mesh import workflow (Geometry only or animation only re-import )
+		NewSkeletalMeshImporterWorkflow,
+
+		// Migrate data from previous data structure to new one to support materials per LOD on the Landscape
+		NewLandscapeMaterialPerLOD,
+
+		// New Pose Asset data type
+		RemoveUnnecessaryTracksFromPose, 
+
+		// Migrate Foliage TLazyObjectPtr to TSoftObjectPtr
+		FoliageLazyObjPtrToSoftObjPtr,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

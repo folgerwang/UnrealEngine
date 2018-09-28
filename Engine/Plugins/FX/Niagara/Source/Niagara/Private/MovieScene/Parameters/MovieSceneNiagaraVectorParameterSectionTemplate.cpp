@@ -5,7 +5,7 @@
 #include "NiagaraTypes.h"
 #include "IMovieScenePlayer.h"
 
-FMovieSceneNiagaraVectorParameterSectionTemplate::FMovieSceneNiagaraVectorParameterSectionTemplate()
+FMovieSceneNiagaraVectorParameterSectionTemplate::FMovieSceneNiagaraVectorParameterSectionTemplate() : ChannelsUsed(0)
 {
 }
 

@@ -317,9 +317,10 @@ public:
 	 * Parses Portable Object elements from a string.
 	 *
 	 * @param InStr	String representing a Portable Object file(.PO) or Portable Object Template file(.POT).
+	 * @param OutErrorMsg Optional Text to be filled with error information.
 	 * @return	Returns true if successful, false otherwise.
 	 */
-	bool FromString( const FString& InStr );
+	bool FromString( const FString& InStr, FText* OutErrorMsg = nullptr );
 
 	/** Creates a header entry based on the project and language info. */
 	void CreateNewHeader();

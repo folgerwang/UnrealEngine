@@ -596,7 +596,9 @@ void USceneCaptureComponent2D::Serialize(FArchive& Ar)
 
 	if (Ar.IsLoading())
 	{
+#if WITH_EDITORONLY_DATA
 		PostProcessSettings.OnAfterLoad();
+#endif
 
 		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MotionBlurAndTAASupportInSceneCapture2d)
 		{

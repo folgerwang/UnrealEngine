@@ -40,7 +40,7 @@ bool FOnlineSharingFacebook::RequestNewReadPermissions(int32 LocalUserNum, EOnli
 			{
 				PermissionsOpCompletionDelegate = FOnPermissionsOpComplete::CreateLambda([this, LocalUserNum](EFacebookLoginResponse InResponseCode, const FString& InAccessToken)
 				{
-					UE_LOG(LogOnline, Display, TEXT("RequestNewReadPermissions : %s"), ToString(InResponseCode));
+					UE_LOG_ONLINE(Display, TEXT("RequestNewReadPermissions : %s"), ToString(InResponseCode));
 					if (InResponseCode == EFacebookLoginResponse::RESPONSE_OK)
 					{
 						FOnRequestCurrentPermissionsComplete PermsDelegate = FOnRequestCurrentPermissionsComplete::CreateLambda([this](int32 InLocalUserNum, bool bWasSuccessful, const TArray<FSharingPermission>& Permissions)
@@ -77,7 +77,7 @@ bool FOnlineSharingFacebook::RequestNewReadPermissions(int32 LocalUserNum, EOnli
 	}
 	else
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Operation already in progress"));
+		UE_LOG_ONLINE_SHARING(Verbose, TEXT("Operation already in progress"));
 		TriggerOnRequestNewReadPermissionsCompleteDelegates(LocalUserNum, false);
 	}
 
@@ -115,7 +115,7 @@ bool FOnlineSharingFacebook::RequestNewPublishPermissions(int32 LocalUserNum, EO
 
 				PermissionsOpCompletionDelegate = FOnPermissionsOpComplete::CreateLambda([this, LocalUserNum](EFacebookLoginResponse InResponseCode, const FString& InAccessToken)
 				{
-					UE_LOG(LogOnline, Display, TEXT("RequestNewPublishPermissions : %s"), ToString(InResponseCode));
+					UE_LOG_ONLINE(Display, TEXT("RequestNewPublishPermissions : %s"), ToString(InResponseCode));
 					if (InResponseCode == EFacebookLoginResponse::RESPONSE_OK)
 					{
 						FOnRequestCurrentPermissionsComplete PermsDelegate = FOnRequestCurrentPermissionsComplete::CreateLambda([this](int32 InLocalUserNum, bool bWasSuccessful, const TArray<FSharingPermission>& Permissions)
@@ -152,7 +152,7 @@ bool FOnlineSharingFacebook::RequestNewPublishPermissions(int32 LocalUserNum, EO
 	}
 	else
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Operation already in progress"));
+		UE_LOG_ONLINE_SHARING(Verbose, TEXT("Operation already in progress"));
 		TriggerOnRequestNewPublishPermissionsCompleteDelegates(LocalUserNum, false);
 	}
 
@@ -161,7 +161,7 @@ bool FOnlineSharingFacebook::RequestNewPublishPermissions(int32 LocalUserNum, EO
 
 void FOnlineSharingFacebook::OnPermissionsOpComplete(EFacebookLoginResponse InResponseCode, const FString& InAccessToken)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("OnPermissionsOpComplete %s %s"), ToString(InResponseCode), *InAccessToken);
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("OnPermissionsOpComplete %s %s"), ToString(InResponseCode), *InAccessToken);
 	ensure(PermissionsOpCompletionDelegate.IsBound());
 	PermissionsOpCompletionDelegate.ExecuteIfBound(InResponseCode, InAccessToken);
 	PermissionsOpCompletionDelegate.Unbind();
@@ -171,7 +171,7 @@ void FOnlineSharingFacebook::OnPermissionsOpComplete(EFacebookLoginResponse InRe
 
 bool AndroidThunkCpp_Facebook_RequestReadPermissions(const TArray<FSharingPermission>& InNewPermissions)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Facebook_RequestReadPermissions"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("AndroidThunkCpp_Facebook_RequestReadPermissions"));
 	bool bSuccess = false;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
@@ -206,7 +206,7 @@ JNI_METHOD void Java_com_epicgames_ue4_FacebookLogin_nativeRequestReadPermission
 	FString AccessToken = FString(UTF8_TO_TCHAR(charsAccessToken));
 	jenv->ReleaseStringUTFChars(accessToken, charsAccessToken);
 
-	UE_LOG_ONLINE(VeryVerbose, TEXT("nativeRequestReadPermissionsComplete Response: %d Token: %s"), (int)LoginResponse, *AccessToken);
+	UE_LOG_ONLINE_SHARING(VeryVerbose, TEXT("nativeRequestReadPermissionsComplete Response: %d Token: %s"), (int)LoginResponse, *AccessToken);
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.ProcessFacebookReadPermissions"), STAT_FSimpleDelegateGraphTask_ProcessFacebookReadPermissions, STATGROUP_TaskGraphTasks);
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
@@ -230,7 +230,7 @@ JNI_METHOD void Java_com_epicgames_ue4_FacebookLogin_nativeRequestReadPermission
 
 bool AndroidThunkCpp_Facebook_RequestPublishPermissions(const TArray<FSharingPermission>& InNewPermissions)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Facebook_RequestPublishPermissions"));
+	UE_LOG_ONLINE_SHARING(Verbose, TEXT("AndroidThunkCpp_Facebook_RequestPublishPermissions"));
 	bool bSuccess = false;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
@@ -265,7 +265,7 @@ JNI_METHOD void Java_com_epicgames_ue4_FacebookLogin_nativeRequestPublishPermiss
 	FString AccessToken = FString(UTF8_TO_TCHAR(charsAccessToken));
 	jenv->ReleaseStringUTFChars(accessToken, charsAccessToken);
 
-	UE_LOG_ONLINE(VeryVerbose, TEXT("nativeRequestPublishPermissionsComplete Response: %d Token: %s"), (int)LoginResponse, *AccessToken);
+	UE_LOG_ONLINE_SHARING(VeryVerbose, TEXT("nativeRequestPublishPermissionsComplete Response: %d Token: %s"), (int)LoginResponse, *AccessToken);
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.ProcessFacebookPublishPermissions"), STAT_FSimpleDelegateGraphTask_ProcessFacebookPublishPermissions, STATGROUP_TaskGraphTasks);
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(

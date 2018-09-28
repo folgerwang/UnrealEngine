@@ -10,6 +10,7 @@
 #include "AnimationRuntime.h"
 
 FAnimNode_ControlRig::FAnimNode_ControlRig()
+	: ControlRig(nullptr)
 {
 }
 

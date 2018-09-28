@@ -720,198 +720,205 @@ private:
 
 	friend class FScene;
 
-	EComponentMobility::Type Mobility;
+	/** The translucency sort priority */
+	int16 TranslucencySortPriority;
+
+	TEnumAsByte<EComponentMobility::Type> Mobility;
 	ELightmapType LightmapType;
 
-	uint32 bIsLocalToWorldDeterminantNegative : 1;
-	uint32 DrawInGame : 1;
-	uint32 DrawInEditor : 1;
-	uint32 bRenderInMono : 1;
-	uint32 bReceivesDecals : 1;
-	uint32 bOnlyOwnerSee : 1;
-	uint32 bOwnerNoSee : 1;
-	uint32 bOftenMoving : 1;
+	/** Used for dynamic stats */
+	TStatId StatId;
+
+	uint8 bIsLocalToWorldDeterminantNegative : 1;
+	uint8 DrawInGame : 1;
+	uint8 DrawInEditor : 1;
+	uint8 bRenderInMono : 1;
+	uint8 bReceivesDecals : 1;
+	uint8 bOnlyOwnerSee : 1;
+	uint8 bOwnerNoSee : 1;
+	uint8 bOftenMoving : 1;
 	/** Parent Actor is selected */
-	uint32 bParentSelected : 1;
+	uint8 bParentSelected : 1;
 	/** Component is selected directly */
-	uint32 bIndividuallySelected : 1;
+	uint8 bIndividuallySelected : 1;
 	
 	/** true if the mouse is currently hovered over this primitive in a level viewport */
-	uint32 bHovered : 1;
+	uint8 bHovered : 1;
 
 	/** true if ViewOwnerDepthPriorityGroup should be used. */
-	uint32 bUseViewOwnerDepthPriorityGroup : 1;
+	uint8 bUseViewOwnerDepthPriorityGroup : 1;
 
 	/** true if the primitive has motion blur velocity meshes */
-	uint32 bHasMotionBlurVelocityMeshes : 1;
+	uint8 bHasMotionBlurVelocityMeshes : 1;
 
 	/** DPG this prim belongs to. */
-	uint32 StaticDepthPriorityGroup : SDPG_NumBits;
+	uint8 StaticDepthPriorityGroup : SDPG_NumBits;
 
 	/** DPG this primitive is rendered in when viewed by its owner. */
-	uint32 ViewOwnerDepthPriorityGroup : SDPG_NumBits;
+	uint8 ViewOwnerDepthPriorityGroup : SDPG_NumBits;
 
 	/** True if the primitive will cache static lighting. */
-	uint32 bStaticLighting : 1;
+	uint8 bStaticLighting : 1;
 
 	/** True if the primitive should be visible in reflection captures. */
-	uint32 bVisibleInReflectionCaptures : 1;
+	uint8 bVisibleInReflectionCaptures : 1;
 
 	/** If true this primitive Renders in the mainPass */
-	uint32 bRenderInMainPass : 1;
+	uint8 bRenderInMainPass : 1;
 
 	/** If true this primitive will render only after owning level becomes visible */
-	uint32 bRequiresVisibleLevelToRender : 1;
+	uint8 bRequiresVisibleLevelToRender : 1;
 
 	/** Whether component level is currently visible */
-	uint32 bIsComponentLevelVisible : 1;
+	uint8 bIsComponentLevelVisible : 1;
 	
 	/** Whether this component has any collision enabled */
-	uint32 bCollisionEnabled : 1;
+	uint8 bCollisionEnabled : 1;
 
 	/** Whether the primitive should be treated as part of the background for occlusion purposes. */
-	uint32 bTreatAsBackgroundForOcclusion : 1;
+	uint8 bTreatAsBackgroundForOcclusion : 1;
 
 	friend class FLightPrimitiveInteraction;
 	/** Whether the renderer needs us to temporarily use only the dynamic drawing path */
-	uint32 bDisableStaticPath : 1;
+	uint8 bDisableStaticPath : 1;
 
 protected:
 
 	/** Whether this proxy's mesh is unlikely to be constantly changing. */
-	uint32 bGoodCandidateForCachedShadowmap : 1;
+	uint8 bGoodCandidateForCachedShadowmap : 1;
 
 	/** Whether the primitive should be statically lit but has unbuilt lighting, and a preview should be used. */
-	uint32 bNeedsUnbuiltPreviewLighting : 1;
+	uint8 bNeedsUnbuiltPreviewLighting : 1;
 
 	/** True if the primitive wants to use static lighting, but has invalid content settings to do so. */
-	uint32 bHasValidSettingsForStaticLighting : 1;
+	uint8 bHasValidSettingsForStaticLighting : 1;
 
 	/** Can be set to false to skip some work only needed on lit primitives. */
-	uint32 bWillEverBeLit : 1;
+	uint8 bWillEverBeLit : 1;
 
 	/** True if the primitive casts dynamic shadows. */
-	uint32 bCastDynamicShadow : 1;
+	uint8 bCastDynamicShadow : 1;
 
 	/** True if the primitive casts Reflective Shadow Map shadows (meaning it affects Light Propagation Volumes). */
-	uint32 bAffectDynamicIndirectLighting : 1;
+	uint8 bAffectDynamicIndirectLighting : 1;
 
-	uint32 bAffectDistanceFieldLighting : 1;
+	uint8 bAffectDistanceFieldLighting : 1;
 
 	/** True if the primitive casts static shadows. */
-	uint32 bCastStaticShadow : 1;
+	uint8 bCastStaticShadow : 1;
 
 	/** 
 	 * Whether the object should cast a volumetric translucent shadow.
 	 * Volumetric translucent shadows are useful for primitives with smoothly changing opacity like particles representing a volume, 
 	 * But have artifacts when used on highly opaque surfaces.
 	 */
-	uint32 bCastVolumetricTranslucentShadow : 1;
+	uint8 bCastVolumetricTranslucentShadow : 1;
 
 	/** Whether the primitive should use capsules for direct shadowing, if present.  Forces inset shadows. */
-	uint32 bCastCapsuleDirectShadow : 1;
+	uint8 bCastCapsuleDirectShadow : 1;
 
 	/** Whether the primitive should use an inset indirect shadow from capsules or mesh distance fields. */
-	uint32 bCastsDynamicIndirectShadow : 1;
+	uint8 bCastsDynamicIndirectShadow : 1;
 
 	/** True if the primitive casts shadows even when hidden. */
-	uint32 bCastHiddenShadow : 1;
+	uint8 bCastHiddenShadow : 1;
 
 	/** Whether this primitive should cast dynamic shadows as if it were a two sided material. */
-	uint32 bCastShadowAsTwoSided : 1;
+	uint8 bCastShadowAsTwoSided : 1;
 
 	/** When enabled, the component will only cast a shadow on itself and not other components in the world.  This is especially useful for first person weapons, and forces bCastInsetShadow to be enabled. */
-	uint32 bSelfShadowOnly : 1;
+	uint8 bSelfShadowOnly : 1;
 
 	/** Whether this component should create a per-object shadow that gives higher effective shadow resolution. true if bSelfShadowOnly is true. */
-	uint32 bCastInsetShadow : 1;
+	uint8 bCastInsetShadow : 1;
 
 	/** 
 	 * Whether this component should create a per-object shadow that gives higher effective shadow resolution. 
 	 * Useful for cinematic character shadowing. Assumed to be enabled if bSelfShadowOnly is enabled.
 	 */
-	uint32 bCastCinematicShadow : 1;
+	uint8 bCastCinematicShadow : 1;
 
 	/* When enabled, the component will be rendering into the distant shadow cascades (only for directional lights). */
-	uint32 bCastFarShadow : 1;
+	uint8 bCastFarShadow : 1;
 
 	/** 
 	 * Whether to light this component and any attachments as a group.  This only has effect on the root component of an attachment tree.
 	 * When enabled, attached component shadowing settings like bCastInsetShadow, bCastVolumetricTranslucentShadow, etc, will be ignored.
 	 * This is useful for improving performance when multiple movable components are attached together.
 	 */
-	uint32 bLightAttachmentsAsGroup : 1;
+	uint8 bLightAttachmentsAsGroup : 1;
 
 	/** 
 	 * Whether the whole component should be shadowed as one from stationary lights, which makes shadow receiving much cheaper.
 	 * When enabled shadowing data comes from the volume lighting samples precomputed by Lightmass, which are very sparse.
 	 * This is currently only used on stationary directional lights.  
 	 */
-	uint32 bSingleSampleShadowFromStationaryLights : 1;
+	uint8 bSingleSampleShadowFromStationaryLights : 1;
 
 	/** 
 	 * Whether this proxy always uses UniformBuffer and no other uniform buffers.  
 	 * When true, a fast path for updating can be used that does not update static draw lists.
 	 */
-	uint32 bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer : 1;
+	uint8 bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer : 1;
 
 	/** Whether the primitive should always be considered to have velocities, even if it hasn't moved. */
-	uint32 bAlwaysHasVelocity : 1;
+	uint8 bAlwaysHasVelocity : 1;
 
 	/** Whether editor compositing depth testing should be used for this primitive.  Only matters for primitives with bUseEditorCompositing. */
-	uint32 bUseEditorDepthTest : 1;
+	uint8 bUseEditorDepthTest : 1;
 
 	/** Whether the primitive type supports a distance field representation.  Does not mean the primitive has a valid representation. */
-	uint32 bSupportsDistanceFieldRepresentation : 1;
+	uint8 bSupportsDistanceFieldRepresentation : 1;
 
 	/** Whether the primitive implements GetHeightfieldRepresentation() */
-	uint32 bSupportsHeightfieldRepresentation : 1;
+	uint8 bSupportsHeightfieldRepresentation : 1;
 
 	/** Whether this primitive requires notification when its level is added to the world and made visible for the first time. */
-	uint32 bNeedsLevelAddedToWorldNotification : 1;
+	uint8 bNeedsLevelAddedToWorldNotification : 1;
 
 	/** true by default, if set to false will make given proxy never drawn with selection outline */
-	uint32 bWantsSelectionOutline : 1;
+	uint8 bWantsSelectionOutline : 1;
 
-	uint32 bVerifyUsedMaterials : 1;
+	uint8 bVerifyUsedMaterials : 1;
 
 private:
 
 	/** If this is True, this primitive will be used to occlusion cull other primitives. */
-	uint32 bUseAsOccluder:1;
+	uint8 bUseAsOccluder:1;
 
 	/** If this is True, this primitive doesn't need exact occlusion info. */
-	uint32 bAllowApproximateOcclusion : 1;
+	uint8 bAllowApproximateOcclusion : 1;
 
 	/** If this is True, this primitive can be selected in the editor. */
-	uint32 bSelectable : 1;
+	uint8 bSelectable : 1;
 
 	/** If this primitive has per-instance hit proxies. */
-	uint32 bHasPerInstanceHitProxies : 1;
+	uint8 bHasPerInstanceHitProxies : 1;
 
 	/** Whether this primitive should be composited onto the scene after post processing (editor only) */
-	uint32 bUseEditorCompositing : 1;
+	uint8 bUseEditorCompositing : 1;
 
 	/** Whether this primitive receive CSM shadows (Mobile) */
-	uint32 bReceiveMobileCSMShadows : 1;
+	uint8 bReceiveMobileCSMShadows : 1;
 
 	/** This primitive has bRenderCustomDepth enabled */
-	uint32 bRenderCustomDepth : 1;
+	uint8 bRenderCustomDepth : 1;
 
 	/** Optionally write this stencil value during the CustomDepth pass */
 	uint8 CustomDepthStencilValue;
 
 	/** When writing custom depth stencil, use this write mask */
-	EStencilMask CustomDepthStencilWriteMask;
+	TEnumAsByte<EStencilMask> CustomDepthStencilWriteMask;
 
 	uint8 LightingChannelMask;
 
 protected:
-	/** The bias applied to LPV injection */
-	float LpvBiasMultiplier;
 
 	/** Quality of interpolated indirect lighting for Movable components. */
-	EIndirectLightingCacheQuality IndirectLightingCacheQuality;
+	TEnumAsByte<EIndirectLightingCacheQuality> IndirectLightingCacheQuality;
+
+	/** The bias applied to LPV injection */
+	float LpvBiasMultiplier;
 
 	/** Min visibility for capsule shadows. */
 	float DynamicIndirectShadowMinVisibility;
@@ -919,6 +926,9 @@ protected:
 	float DistanceFieldSelfShadowBias;
 
 private:
+	/** The hierarchy of owners of this primitive.  These must not be dereferenced on the rendering thread, but the pointer values can be used for identification.  */
+	TArray<const AActor*> Owners;
+
 	/** The primitive's local to world transform. */
 	FMatrix LocalToWorld;
 
@@ -931,17 +941,14 @@ private:
 	/** The component's actor's position. */
 	FVector ActorPosition;
 
-	/** The hierarchy of owners of this primitive.  These must not be dereferenced on the rendering thread, but the pointer values can be used for identification.  */
-	TArray<const AActor*> Owners;
+	/** 
+	* Id for the component this proxy belongs to.  
+	* This will stay the same for the lifetime of the component, so it can be used to identify the component across re-registers.
+	*/
+	FPrimitiveComponentId PrimitiveComponentId;
 
 	/** The scene the primitive is in. */
 	FSceneInterface* Scene;
-
-	/** 
-	 * Id for the component this proxy belongs to.  
-	 * This will stay the same for the lifetime of the component, so it can be used to identify the component across re-registers.
-	 */
-	FPrimitiveComponentId PrimitiveComponentId;
 
 	/** Pointer back to the PrimitiveSceneInfo that owns this Proxy. */
 	FPrimitiveSceneInfo* PrimitiveSceneInfo;
@@ -963,14 +970,8 @@ private:
 	uint32 DrawInVREditMode : 1;
 #endif
 
-	/** The translucency sort priority */
-	int16 TranslucencySortPriority;
-
 	/** Used for precomputed visibility */
 	int32 VisibilityId;
-
-	/** Used for dynamic stats */
-	TStatId StatId;
 
 	/** The primitive's cull distance. */
 	float MaxDrawDistance;

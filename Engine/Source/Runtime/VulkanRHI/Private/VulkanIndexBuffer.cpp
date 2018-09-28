@@ -81,7 +81,16 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 		BufferUsageFlags |= bUAV ? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bIndirect ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0;
 
-		if (!bVolatile)
+		if (bVolatile)
+		{
+			bool bRenderThread = IsInRenderingThread();
+
+			// Get a dummy buffer as sometimes the high-level misbehaves and tries to use SRVs off volatile buffers before filling them in...
+			void* Data = Lock(bRenderThread, RLM_WriteOnly, InSize, 0);
+			FMemory::Memzero(Data, InSize);
+			Unlock(bRenderThread);
+		}
+		else
 		{
 			VkDevice VulkanDevice = InDevice->GetInstanceHandle();
 

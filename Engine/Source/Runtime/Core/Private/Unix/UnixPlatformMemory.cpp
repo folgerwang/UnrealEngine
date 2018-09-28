@@ -45,6 +45,10 @@
 // Used in UnixPlatformStackwalk to skip the crash handling callstack frames.
 bool CORE_API GFullCrashCallstack = false;
 
+// Used to enable kernel shared memory from mmap'd memory
+bool CORE_API GUseKSM = false;
+bool CORE_API GKSMMergeAllPages = false;
+
 // Used to set the maximum number of file mappings.
 #if UE_EDITOR
 int32 CORE_API GMaxNumberFileMappingCache = 10000;
@@ -148,6 +152,16 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 				if (FCStringAnsi::Stricmp(Arg, "-fullcrashcallstack") == 0)
 				{
 					GFullCrashCallstack = true;
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-useksm") == 0)
+				{
+					GUseKSM = true;
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-ksmmergeall") == 0)
+				{
+					GKSMMergeAllPages = true;
 				}
 
 				const char FileMapCacheCmd[] = "-filemapcachesize=";

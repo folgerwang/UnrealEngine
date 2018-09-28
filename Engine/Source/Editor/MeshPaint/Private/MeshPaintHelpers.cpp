@@ -1692,7 +1692,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 				const FSkeletalMeshLODRenderData& BaseLOD = Resource->LODRenderData[0];
 				GeometryInfo.PreEdit();				
 
-				FBox BaseBounds(EForceInit::ForceInitToZero);
+				FBox BaseBounds(ForceInitToZero);
 
 				TArray<FPaintedMeshVertex> PaintedVertices;
 				PaintedVertices.Empty(BaseLOD.GetNumVertices());

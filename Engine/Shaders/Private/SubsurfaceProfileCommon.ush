@@ -25,9 +25,11 @@
 #define	SSSS_MAX_TRANSMISSION_PROFILE_DISTANCE	5.0f // See MaxTransmissionProfileDistance in ComputeTransmissionProfile(), SeparableSSS.cpp
 #define SSSS_MAX_DUAL_SPECULAR_ROUGHNESS		2.0f
 
-/** One profile per line, encoded using constants above. See FSubsurfaceProfileTexture::CreateTexture() in SubsurfaceProfile.cpp. */
+// One profile per line, encoded using constants above. See FSubsurfaceProfileTexture::CreateTexture() in SubsurfaceProfile.cpp.
+// By default, SSProfilesTexture is "Texture2D SSProfilesTexture", but it can be remapped as in BasePassCommon.usf.
+#ifndef SSProfilesTexture
 Texture2D SSProfilesTexture;
-
+#endif
 // Rename to allow the base pass to intercept with a value from its pass uniform buffer
 #ifndef ActualSSProfilesTexture
 #define ActualSSProfilesTexture SSProfilesTexture

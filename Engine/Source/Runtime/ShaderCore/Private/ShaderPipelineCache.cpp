@@ -251,6 +251,7 @@ FShaderPipelineCache* FShaderPipelineCache::ShaderPipelineCache = nullptr;
 
 FShaderPipelineCache::FShaderCacheOpenedDelegate FShaderPipelineCache::OnCachedOpened;
 FShaderPipelineCache::FShaderCacheClosedDelegate FShaderPipelineCache::OnCachedClosed;
+FShaderPipelineCache::FShaderPrecompilationBeginDelegate FShaderPipelineCache::OnPrecompilationBegin;
 FShaderPipelineCache::FShaderPrecompilationCompleteDelegate FShaderPipelineCache::OnPrecompilationComplete;
 
 static void PipelineStateCacheOnAppDeactivate()
@@ -358,6 +359,26 @@ uint32 FShaderPipelineCache::NumPrecompilesActive()
     return NumRemaining;
 }
 
+bool FShaderPipelineCache::OpenPipelineFileCache(EShaderPlatform Platform)
+{
+	bool bFileOpen = false;
+	if (GConfig)
+	{
+		FString LastOpenedName;
+		if ((GConfig->GetString(FShaderPipelineCacheConstants::SectionHeading, FShaderPipelineCacheConstants::LastOpenedKey, LastOpenedName, *GGameUserSettingsIni) || GConfig->GetString(FShaderPipelineCacheConstants::SectionHeading, FShaderPipelineCacheConstants::LastOpenedKey, LastOpenedName, *GGameIni)) && LastOpenedName.Len())
+		{
+			bFileOpen = OpenPipelineFileCache(LastOpenedName, Platform);
+		}
+	}
+
+	if (!bFileOpen)
+	{
+		bFileOpen = OpenPipelineFileCache(FApp::GetProjectName(), Platform);
+	}
+
+	return bFileOpen;
+}
+
 bool FShaderPipelineCache::OpenPipelineFileCache(FString const& Name, EShaderPlatform Platform)
 {
 	if (ShaderPipelineCache)
@@ -396,6 +417,22 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 	bool bOk = false;
 	
 	TArray<uint8> DummyCode;
+
+	TArray<FSHAHash> DeferredReleaseHashes;
+	bool bDeferRelease = GRHILazyShaderCodeLoading && IsRunningRHIInSeparateThread();
+
+	auto ReleaseShaderCode = [bDeferRelease, &DeferredReleaseHashes](const FSHAHash& DeferHash)
+	{
+		if (bDeferRelease)
+		{
+			DeferredReleaseHashes.Add(DeferHash);
+		}
+		else
+		{
+			FShaderCodeLibrary::ReleaseShaderCode(DeferHash);
+		}
+	};
+
 	
 	if(FPipelineCacheFileFormatPSO::DescriptorType::Graphics == PSO.Type)
 	{
@@ -410,7 +447,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 			VertexShader = FShaderCodeLibrary::CreateVertexShader(Platform, PSO.GraphicsDesc.VertexShader, DummyCode);
 			GraphicsInitializer.BoundShaderState.VertexShaderRHI = VertexShader;
             
-            FShaderCodeLibrary::ReleaseShaderCode(PSO.GraphicsDesc.VertexShader);
+            ReleaseShaderCode(PSO.GraphicsDesc.VertexShader);
 		}
 
 		FHullShaderRHIRef HullShader;
@@ -419,7 +456,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 			HullShader = FShaderCodeLibrary::CreateHullShader(Platform, PSO.GraphicsDesc.HullShader, DummyCode);
 			GraphicsInitializer.BoundShaderState.HullShaderRHI = HullShader;
             
-            FShaderCodeLibrary::ReleaseShaderCode(PSO.GraphicsDesc.HullShader);
+            ReleaseShaderCode(PSO.GraphicsDesc.HullShader);
 		}
 
 		FDomainShaderRHIRef DomainShader;
@@ -428,7 +465,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 			DomainShader = FShaderCodeLibrary::CreateDomainShader(Platform, PSO.GraphicsDesc.DomainShader, DummyCode);
 			GraphicsInitializer.BoundShaderState.DomainShaderRHI = DomainShader;
             
-            FShaderCodeLibrary::ReleaseShaderCode(PSO.GraphicsDesc.DomainShader);
+            ReleaseShaderCode(PSO.GraphicsDesc.DomainShader);
 		}
 
 		FPixelShaderRHIRef FragmentShader;
@@ -437,7 +474,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 			FragmentShader = FShaderCodeLibrary::CreatePixelShader(Platform, PSO.GraphicsDesc.FragmentShader, DummyCode);
 			GraphicsInitializer.BoundShaderState.PixelShaderRHI = FragmentShader;
             
-            FShaderCodeLibrary::ReleaseShaderCode(PSO.GraphicsDesc.FragmentShader);
+            ReleaseShaderCode(PSO.GraphicsDesc.FragmentShader);
 		}
 
 		FGeometryShaderRHIRef GeometryShader;
@@ -446,7 +483,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 			GeometryShader = FShaderCodeLibrary::CreateGeometryShader(Platform, PSO.GraphicsDesc.GeometryShader, DummyCode);
 			GraphicsInitializer.BoundShaderState.GeometryShaderRHI = GeometryShader;
             
-            FShaderCodeLibrary::ReleaseShaderCode(PSO.GraphicsDesc.GeometryShader);
+            ReleaseShaderCode(PSO.GraphicsDesc.GeometryShader);
 		}
 		
 		auto BlendState = RHICmdList.CreateBlendState(PSO.GraphicsDesc.BlendState);
@@ -475,6 +512,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 		GraphicsInitializer.StencilTargetStoreAction = PSO.GraphicsDesc.StencilStore;
 		
 		GraphicsInitializer.PrimitiveType = PSO.GraphicsDesc.PrimitiveType;
+		GraphicsInitializer.bFromPSOFileCache = true;
 		
 		// This indicates we do not want a fatal error if this compilation fails
 		// (ie, if this entry in the file cache is bad)
@@ -490,7 +528,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 		FComputePipelineState* ComputeResult = PipelineStateCache::GetAndOrCreateComputePipelineState(RHICmdList, ComputeInitializer);
 		bOk = ComputeResult != nullptr;
         
-        FShaderCodeLibrary::ReleaseShaderCode(PSO.ComputeDesc.ComputeShader);
+        ReleaseShaderCode(PSO.ComputeDesc.ComputeShader);
 	}
 	else
 	{
@@ -503,7 +541,16 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
         FPlatformAtomics::InterlockedIncrement(&TotalCompleteTasks);
         FPlatformAtomics::InterlockedAdd(&TotalPrecompileTime, TimeDelta);
     }
-	
+	if (DeferredReleaseHashes.Num())
+	{
+		RHICmdList.EnqueueLambda([DeferredReleaseHashes](FRHICommandListImmediate&)
+		{
+			for (const FSHAHash& DelHash : DeferredReleaseHashes)
+			{
+				FShaderCodeLibrary::ReleaseShaderCode(DelHash);
+			}
+		});
+	}
 	return bOk;
 }
 
@@ -694,7 +741,12 @@ bool FShaderPipelineCache::ReadyForPrecompile()
 			++i;
 		}
 	}
-	return (CompileTasks.Num() != 0);
+	if (LastPrecompileRHIFence.GetReference() && LastPrecompileRHIFence->IsComplete())
+	{
+		LastPrecompileRHIFence = nullptr;
+	}
+
+	return (CompileTasks.Num() != 0) && !LastPrecompileRHIFence.GetReference();
 }
 
 void FShaderPipelineCache::PrecompilePipelineBatch()
@@ -733,6 +785,14 @@ void FShaderPipelineCache::PrecompilePipelineBatch()
 	}
 	
     FPlatformAtomics::InterlockedAdd(&TotalActiveTasks, -NumToPrecompile);
+
+#if PLATFORM_ANDROID
+	if (NumToPrecompile > 0 && IsRunningRHIInSeparateThread())
+	{
+		LastPrecompileRHIFence = FRHICommandListExecutor::GetImmediateCommandList().RHIThreadFence(false);
+	}
+#endif
+
 	CompileTasks.RemoveAt(0, NumToPrecompile);
 }
 
@@ -902,6 +962,7 @@ FShaderPipelineCache::FShaderPipelineCache(EShaderPlatform Platform)
 , TotalWaitingTasks(0)
 , TotalCompleteTasks(0)
 , TotalPrecompileTime(0)
+, PrecompileStartTime(0.0)
 , LastAutoSaveTime(0)
 , LastAutoSaveTimeLogBoundPSO(0)
 , LastAutoSaveNum(-1)
@@ -914,21 +975,6 @@ FShaderPipelineCache::FShaderPipelineCache(EShaderPlatform Platform)
 	BatchTime = CVarPSOFileCacheBatchTime.GetValueOnAnyThread();
 	
 	FCoreDelegates::ApplicationWillDeactivateDelegate.AddStatic(&PipelineStateCacheOnAppDeactivate);
-	
-	bool bFileOpen = false;
-	if(GConfig)
-	{
-		FString LastOpenedName;
-		if ((GConfig->GetString(FShaderPipelineCacheConstants::SectionHeading, FShaderPipelineCacheConstants::LastOpenedKey, LastOpenedName, *GGameUserSettingsIni) || GConfig->GetString(FShaderPipelineCacheConstants::SectionHeading, FShaderPipelineCacheConstants::LastOpenedKey, LastOpenedName, *GGameIni)) && LastOpenedName.Len())
-		{
-			bFileOpen = Open(LastOpenedName, Platform);
-		}
-	}
-	
-	if(!bFileOpen)
-	{
-		Open(FApp::GetProjectName(), Platform);
-	}
 }
 
 FShaderPipelineCache::~FShaderPipelineCache()
@@ -991,12 +1037,22 @@ void FShaderPipelineCache::Tick( float DeltaTime )
 {
 	FScopeLock Lock(&Mutex);
     
-    if (FPlatformAtomics::AtomicRead(&TotalWaitingTasks) == 0 && FPlatformAtomics::AtomicRead(&TotalActiveTasks) == 0 && FPlatformAtomics::AtomicRead(&TotalCompleteTasks) != 0)
+	if (LastPrecompileRHIFence.GetReference() && LastPrecompileRHIFence->IsComplete())
+	{
+		LastPrecompileRHIFence = nullptr;
+	}
+
+    if (FPlatformAtomics::AtomicRead(&TotalWaitingTasks) == 0 && FPlatformAtomics::AtomicRead(&TotalActiveTasks) == 0 && FPlatformAtomics::AtomicRead(&TotalCompleteTasks) != 0 && !LastPrecompileRHIFence.GetReference())
     {
-        UE_LOG(LogRHI, Warning, TEXT("FShaderPipelineCache completed %u tasks in %.8f seconds."), (uint32)TotalCompleteTasks, FPlatformTime::ToSeconds64(TotalPrecompileTime));
+		float WallTime = 0.0f;
+		if (PrecompileStartTime > 0.0)
+		{
+			WallTime = float(FPlatformTime::Seconds() - PrecompileStartTime);
+		}
+		UE_LOG(LogRHI, Warning, TEXT("FShaderPipelineCache completed %u tasks in %.2fs (%.2fs wall time since intial open)."), (uint32)TotalCompleteTasks, FPlatformTime::ToSeconds64(TotalPrecompileTime), WallTime);
         if (OnPrecompilationComplete.IsBound())
         {
-            OnPrecompilationComplete.Broadcast((uint32)TotalCompleteTasks, FPlatformTime::ToSeconds64(TotalPrecompileTime));
+            OnPrecompilationComplete.Broadcast((uint32)TotalCompleteTasks, FPlatformTime::ToSeconds64(TotalPrecompileTime), ShaderCachePrecompileContext);
         }
         FPlatformAtomics::InterlockedExchange(&TotalCompleteTasks, 0);
         FPlatformAtomics::InterlockedExchange(&TotalPrecompileTime, 0);
@@ -1025,6 +1081,11 @@ void FShaderPipelineCache::Tick( float DeltaTime )
 	}
 
 	PollShutdownItems();
+
+	if (PrecompileStartTime == 0.0 && (PreFetchedTasks.Num() || FetchTasks.Num() || OrderedCompileTasks.Num()))
+	{
+		PrecompileStartTime = FPlatformTime::Seconds();
+	}
 	
 	// Copy any new items over to our 'internal' safe array
 	if (PreFetchedTasks.Num())
@@ -1046,13 +1107,21 @@ void FShaderPipelineCache::Tick( float DeltaTime )
 
 		if (BatchTime > 0.0f)
 		{
-			if (FPlatformTime::ToMilliseconds(End - Start) < BatchTime)
+			float ElapsedMs = FPlatformTime::ToMilliseconds(End - Start);
+			if (ElapsedMs < BatchTime)
 			{
 				BatchSize++;
 			}
-			else if (FPlatformTime::ToMilliseconds(End - Start) > BatchTime)
+			else if (ElapsedMs > BatchTime)
 			{
-				BatchSize--;
+				if (BatchSize > 1)
+				{
+					BatchSize--;
+				}
+				else
+				{
+					UE_LOG(LogRHI, Warning, TEXT("FShaderPipelineCache: Cannot reduce BatchSize below 1 to meet target of %f ms, elapsed time was %f ms)"), BatchTime, ElapsedMs);
+				}
 			}
 		}
 	}
@@ -1150,7 +1219,8 @@ bool FShaderPipelineCache::Open(FString const& Name, EShaderPlatform Platform)
 {
 	FileName = Name;
     CurrentPlatform = Platform;
-	bool bOK = FPipelineFileCache::OpenPipelineFileCache(Name, Platform);
+	FGuid CacheFileGuid;
+	bool bOK = FPipelineFileCache::OpenPipelineFileCache(Name, Platform, CacheFileGuid);
 	if (bOK)
 	{
 		FScopeLock Lock(&Mutex);
@@ -1166,11 +1236,9 @@ bool FShaderPipelineCache::Open(FString const& Name, EShaderPlatform Platform)
 
 		TArray<FPipelineCachePSOHeader> LocalPreFetchedTasks;
 		FPipelineFileCache::GetOrderedPSOHashes(LocalPreFetchedTasks, (FPipelineFileCache::PSOOrder)Order);
-		PreFetchedTasks = LocalPreFetchedTasks;
-
         // Iterate over all the tasks we haven't yet begun to read data for - these are the 'waiting' tasks
         int64 Count = 0;
-        for (auto const& Task : PreFetchedTasks)
+        for (auto const& Task : LocalPreFetchedTasks)
         {
             bool bHasShaders = true;
             for (FSHAHash const& Hash : Task.Shaders)
@@ -1182,19 +1250,29 @@ bool FShaderPipelineCache::Open(FString const& Name, EShaderPlatform Platform)
                 Count++;
             }
         }
-        
+
 		FPlatformAtomics::InterlockedAdd(&TotalWaitingTasks, Count);
-        
-        if (OnCachedOpened.IsBound())
-        {
-            OnCachedOpened.Broadcast(Name, Platform, PreFetchedTasks.Num());
-        }
+
+		if (OnCachedOpened.IsBound())
+		{
+			OnCachedOpened.Broadcast(Name, Platform, LocalPreFetchedTasks.Num(), CacheFileGuid, ShaderCachePrecompileContext);
+		}
+
+		PreFetchedTasks = LocalPreFetchedTasks;
+
+		UE_LOG(LogRHI, Display, TEXT("Opened pipeline cache and enqueued %d of %d tasks for precompile."), Count, PreFetchedTasks.Num());
 	}
 
 	UE_CLOG(!bOK, LogRHI, Display, TEXT("Failed to open default shader pipeline cache for %s using shader platform %d."), *Name, (uint32)Platform);
 	
 	bOpened = bOK;
-	
+
+	// OnPrecompilationBegin can bring up a modal loading screen, so we call it outside the scope lock to prevent deadlocks
+	if (bOK && OnPrecompilationBegin.IsBound())
+	{
+		OnPrecompilationBegin.Broadcast(PreFetchedTasks.Num(), ShaderCachePrecompileContext);
+	}
+
 	return bOK;
 }
 
@@ -1284,4 +1362,5 @@ void FShaderPipelineCache::OnShaderLibraryStateChanged(ELibraryState State, ESha
     
     // Set the new waiting count that we can actually process.
     FPlatformAtomics::InterlockedExchange(&TotalWaitingTasks, Count);
+	UE_LOG(LogRHI, Display, TEXT("Opened pipeline cache after state change and enqueued %d of %d tasks for precompile."), Count, OrderedCompileTasks.Num());
 }

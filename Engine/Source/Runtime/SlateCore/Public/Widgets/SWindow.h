@@ -767,6 +767,7 @@ public:
 
 	bool IsDrawingEnabled() const { return bIsDrawingEnabled; }
 
+	virtual bool Advanced_IsWindow() const { return true; }
 private:
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;

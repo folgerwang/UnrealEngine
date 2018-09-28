@@ -245,6 +245,9 @@ namespace WorldHierarchy
 		/** Is the item read-only? */
 		virtual bool IsReadOnly() const { return false; }
 
+		/** Is the item transient? */
+		virtual bool IsTransient() const { return false; }
+
 		/** Gets the draw color for the item */
 		virtual FLinearColor GetDrawColor() const { return FLinearColor::White; }
 		virtual void SetDrawColor(const FLinearColor& Color) {}

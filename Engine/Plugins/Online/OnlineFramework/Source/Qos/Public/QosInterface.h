@@ -53,7 +53,15 @@ public:
 	 *
 	 * If this list is empty, the client cannot play.
 	 */
-	const TArray<FQosRegionInfo>& GetRegionOptions() const;
+	const TArray<FRegionQosInstance>& GetRegionOptions() const;
+
+	/**
+	 * Get a sorted list of subregions within a region
+	 *
+	 * @param RegionId region of interest
+	 * @param OutSubregions list of subregions in sorted order
+	 */
+	void GetSubregionPreferences(const FString& RegionId, TArray<FString>& OutSubregions) const;
 
 	/**
 	 * @return true if this is a usable region, false otherwise
@@ -75,12 +83,19 @@ public:
 
 	/**
 	 * Get the datacenter id for this instance, checking ini and commandline overrides
-	 * This is only relevant for dedicated servers (so they can advertise). Client does
-	 * not search on this (but may choose to prioritize results later)
+	 * This is only relevant for dedicated servers (so they can advertise). 
+	 * Client does not search on this in any way
 	 *
 	 * @return the default datacenter identifier
 	 */
 	static FString GetDatacenterId();
+
+	/**
+	 * Get the subregion id for this instance, checking ini and commandline overrides
+	 * This is only relevant for dedicated servers (so they can advertise). Client does
+	 * not search on this (but may choose to prioritize results later)
+	 */
+	static FString GetAdvertisedSubregionId();
 
 	/**
 	 * Debug output for current region / datacenter information

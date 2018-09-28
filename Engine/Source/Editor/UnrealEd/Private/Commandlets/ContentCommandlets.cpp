@@ -68,6 +68,8 @@ DEFINE_LOG_CATEGORY(LogContentCommandlet);
 #include "GenericPlatform/GenericPlatformProcess.h"
 #include "HAL/ThreadManager.h"
 #include "ShaderCompiler.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -297,7 +299,7 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 	// This option will filter the package list and only save packages that are redirectors, or that reference redirectors
 	const bool bFixupRedirects = (Switches.Contains(TEXT("FixupRedirects")) || Switches.Contains(TEXT("FixupRedirectors")));
 
-	if (bResaveDirectRefsAndDeps || bFixupRedirects)
+	if (bResaveDirectRefsAndDeps || bFixupRedirects || bOnlyMaterials)
 	{
 		AssetRegistry.SearchAllAssets(true);
 
@@ -490,6 +492,55 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 	{
 		VerboseMessage(FString::Printf(TEXT("Skipping %s"), *Filename));
 		return;
+	}
+
+	if (CollectionFilter.Num())
+	{
+		FString PackageNameToCreate;
+		if (!FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageNameToCreate))
+		{
+			PackageNameToCreate = Filename;
+		}
+
+		FName PackageName(*PackageNameToCreate);
+		if (!CollectionFilter.Contains(PackageName))
+		{
+			return;
+		}
+	}
+
+	if (bOnlyMaterials)
+	{
+		FString PackageNameToCreate;
+		if (!FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageNameToCreate))
+		{
+			PackageNameToCreate = Filename;
+		}
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+		FName PackageName(*PackageNameToCreate);
+		TArray<FAssetData> PackageAssetData;
+		if (!AssetRegistry.GetAssetsByPackageName(PackageName, PackageAssetData, true))
+		{
+			return;
+		}
+
+		bool bAnyMaterialsPresent = false;
+		for (const FAssetData& AssetData : PackageAssetData)
+		{
+			UClass* AssetClass = AssetData.GetClass();
+			if (AssetClass && AssetClass->IsChildOf(UMaterialInterface::StaticClass()))
+			{
+				bAnyMaterialsPresent = true;
+				break;
+			}
+		}
+
+		if (!bAnyMaterialsPresent)
+		{
+			return;
+		}
 	}
 
 	bool bIsReadOnly = IFileManager::Get().IsReadOnly(*Filename);
@@ -840,11 +891,37 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildLighting = Switches.Contains(TEXT("buildlighting"));
 	/** determine if we are building reflection captures for the map packages on the pass. **/
-	bShouldBuildReflectionCaptures = Switches.Contains(TEXT("buildreflectioncaptures"));
-	/** determine if we are building lighting for the map packages on the pass. **/
-	bShouldBuildTextureStreaming = Switches.Contains(TEXT("buildtexturestreaming"));
+	bShouldBuildReflectionCaptures = Switches.Contains(TEXT("buildreflectioncaptures"));	/** rebuilds texture streaming data for all packages, rather than just maps. **/
+	bShouldBuildTextureStreamingForAll = Switches.Contains(TEXT("buildtexturestreamingforall"));
+	/** determine if we are building texture streaming data for the map packages on the pass. **/
+	bShouldBuildTextureStreaming = bShouldBuildTextureStreamingForAll || Switches.Contains(TEXT("buildtexturestreaming"));
 	/** determine if we can skip the version changelist check */
 	bIgnoreChangelist = Switches.Contains(TEXT("IgnoreChangelist"));
+	/** only process packages containing materials */
+	bOnlyMaterials = Switches.Contains(TEXT("onlymaterials"));
+
+	/** check for filtering packages by collection. **/
+	FString FilterByCollection;
+	FParse::Value(*Params, TEXT("FilterByCollection="), FilterByCollection);
+
+	CollectionFilter = TSet<FName>();
+	if (!FilterByCollection.IsEmpty())
+	{
+		ICollectionManager& CollectionManager = FCollectionManagerModule::GetModule().Get();
+		TArray<FName> CollectionAssets;
+		if (!CollectionManager.GetAssetsInCollection(FName(*FilterByCollection), ECollectionShareType::CST_All, CollectionAssets))
+		{
+			UE_LOG(LogContentCommandlet, Warning, TEXT("Could not get assets in collection '%s'. Skipping filter."), *FilterByCollection);
+		}
+		else
+		{
+			//insert all of the collection names into the set for fast filter checks
+			for (const FName &AssetName : CollectionAssets)
+			{
+				CollectionFilter.Add(FName(*FPackageName::ObjectPathToPackageName(AssetName.ToString())));
+			}
+		}
+	}
 
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildHLOD = Switches.Contains(TEXT("BuildHLOD"));
@@ -1215,6 +1292,30 @@ bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename, bool bAddF
 }
 
 
+bool UResavePackagesCommandlet::RevertFile(const FString& Filename)
+{
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(*Filename, EStateCacheUsage::ForceUpdate);
+	bool bSuccesfullyReverted = false;
+
+	if (SourceControlState.IsValid())
+	{
+		if (SourceControlState->CanRevert() && (SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), *Filename) == ECommandResult::Succeeded))
+		{
+			bSuccesfullyReverted = true;
+			UE_LOG(LogContentCommandlet, Display, TEXT("[REPORT] %s Reverted successfully"), *Filename);			
+		}
+		else
+		{
+			UE_LOG(LogContentCommandlet, Warning, TEXT("[REPORT] %s could not be reverted!"), *Filename);
+		}
+	}
+
+	return bSuccesfullyReverted;
+}
+
+
+
 bool UResavePackagesCommandlet::CanCheckoutFile(const FString& Filename, FString& CheckedOutUser)
 {
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
@@ -1247,7 +1348,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 	}
 	ABrush::OnRebuildDone();
 
-	if (bShouldBuildLighting || bShouldBuildTextureStreaming || bShouldBuildHLOD || bShouldBuildReflectionCaptures)
+	const bool bShouldBuildTextureStreamingForWorld = bShouldBuildTextureStreaming && !bShouldBuildTextureStreamingForAll;
+	if (bShouldBuildLighting || bShouldBuildTextureStreamingForWorld || bShouldBuildHLOD || bShouldBuildReflectionCaptures)
 	{
 		bool bShouldProceedWithRebuild = true;
 
@@ -1309,8 +1411,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			{
 				if (CanCheckoutFile(WorldPackageName, WorldPackageCheckedOutUser) || !bSkipCheckedOutFiles)
 				{
-				SublevelFilenames.Add(WorldPackageName);
-			}
+					SublevelFilenames.Add(WorldPackageName);
+				}
 				else 
 				{
 					bShouldProceedWithRebuild = false;
@@ -1358,8 +1460,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 						FString CurrentlyCheckedOutUser;
 						if (CanCheckoutFile(StreamingLevelPackageFilename, CurrentlyCheckedOutUser) || !bSkipCheckedOutFiles)
 						{
-						SublevelFilenames.Add(StreamingLevelPackageFilename);
-					}
+							SublevelFilenames.Add(StreamingLevelPackageFilename);
+						}
 						else 
 						{
 							UE_LOG(LogContentCommandlet, Warning, TEXT("[REPORT] Skipping %s as it is checked out by %s"), *StreamingLevelPackageFilename, *CurrentlyCheckedOutUser);
@@ -1406,7 +1508,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			// We need any deferred commands added when loading to be executed before we start building lighting.
 			GEngine->TickDeferredCommands();
 
-			if (bShouldBuildTextureStreaming)
+			if (bShouldBuildTextureStreamingForWorld)
 			{
 				FEditorBuildUtils::EditorBuildTextureStreaming(World);
 			}
@@ -1624,8 +1726,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			}
 			else
 			{
-			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to complete steps necessary to start a lightmass or texture streaming build of %s"), *World->GetName());
-		}
+				UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to complete steps necessary to start a lightmass or texture streaming build of %s"), *World->GetName());
+			}
 		}
 
 		if ((bShouldProceedWithRebuild == false)||(bSavePackage == false))
@@ -1679,6 +1781,14 @@ void UResavePackagesCommandlet::PerformAdditionalOperations( UPackage* Package, 
 	if( ( FParse::Param(FCommandLine::Get(), TEXT("CLEANCLASSES")) == true ) && ( CleanClassesFromContentPackages(Package) == true ) )
 	{
 		bShouldSavePackage = true;
+	}
+
+	if (bShouldBuildTextureStreamingForAll)
+	{
+		if (FEditorBuildUtils::EditorBuildMaterialTextureStreamingData(Package))
+		{
+			bSavePackage = true;
+		}
 	}
 
 	// add additional operations here

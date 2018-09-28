@@ -38,7 +38,7 @@ bool FDataTableExporterCSV::WriteTable(const UDataTable& InDataTable)
 	ExportedText += TEXT("\n");
 
 	// Write each row
-	for (auto RowIt = InDataTable.RowMap.CreateConstIterator(); RowIt; ++RowIt)
+	for (auto RowIt = InDataTable.GetRowMap().CreateConstIterator(); RowIt; ++RowIt)
 	{
 		FName RowName = RowIt.Key();
 		ExportedText += RowName.ToString();
@@ -159,7 +159,7 @@ bool FDataTableImporterCSV::ReadTable()
 		}
 
 		// Check its not a duplicate
-		if(DataTable->RowMap.Find(RowName) != NULL)
+		if(!DataTable->AllowDuplicateRowsOnImport() && DataTable->GetRowMap().Find(RowName) != nullptr)
 		{
 			ImportProblems.Add(FString::Printf(TEXT("Duplicate row name '%s'."), *RowName.ToString()));
 			continue;
@@ -171,7 +171,7 @@ bool FDataTableImporterCSV::ReadTable()
 		// And be sure to call DestroyScriptStruct later
 
 		// Add to row map
-		DataTable->RowMap.Add(RowName, RowData);
+		DataTable->AddRowInternal(RowName, RowData);
 
 		// Now iterate over cells (skipping first cell, that was row name)
 		for(int32 CellIdx=1; CellIdx<Cells.Num(); CellIdx++)
@@ -184,7 +184,7 @@ bool FDataTableImporterCSV::ReadTable()
 			// If we failed, output a problem string
 			if(Error.Len() > 0)
 			{
-				FString ColumnName = (ColumnProp != NULL) 
+				FString ColumnName = (ColumnProp != nullptr) 
 					? DataTableUtils::GetPropertyDisplayName(ColumnProp, ColumnProp->GetName())
 					: FString(TEXT("NONE"));
 				ImportProblems.Add(FString::Printf(TEXT("Problem assigning string '%s' to property '%s' on row '%s' : %s"), *CellValue, *ColumnName, *RowName.ToString(), *Error));

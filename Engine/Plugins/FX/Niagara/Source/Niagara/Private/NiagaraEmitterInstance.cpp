@@ -613,7 +613,7 @@ TOptional<FBox> FNiagaraEmitterInstance::CalculateDynamicBounds()
 	SizeAccessor.InitForAccess(true);
 	MeshScaleAccessor.InitForAccess(true);
 
-	FVector MaxSize(EForceInit::ForceInitToZero);
+	FVector MaxSize(ForceInitToZero);
 
 	if (SizeAccessor.IsValid() == false && MeshScaleAccessor.IsValid() == false)
 	{

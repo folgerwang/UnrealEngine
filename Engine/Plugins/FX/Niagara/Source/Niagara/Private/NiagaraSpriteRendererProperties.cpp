@@ -10,7 +10,7 @@
 UNiagaraSpriteRendererProperties::UNiagaraSpriteRendererProperties()
 	: Alignment(ENiagaraSpriteAlignment::Unaligned)
 	, FacingMode(ENiagaraSpriteFacingMode::FaceCamera)
-	, CustomFacingVectorMask(EForceInit::ForceInitToZero)
+	, CustomFacingVectorMask(ForceInitToZero)
 	, PivotInUVSpace(0.5f, 0.5f)
 	, SortMode(ENiagaraSortMode::ViewDistance)
 	, SubImageSize(1.0f, 1.0f)

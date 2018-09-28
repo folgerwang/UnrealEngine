@@ -2315,6 +2315,8 @@ public:
 	virtual void AddDecal(UDecalComponent* Component) override;
 	virtual void RemoveDecal(UDecalComponent* Component) override;
 	virtual void UpdateDecalTransform(UDecalComponent* Decal) override;
+	virtual void UpdateDecalFadeOutTime(UDecalComponent* Decal) override;
+	virtual void UpdateDecalFadeInTime(UDecalComponent* Decal) override;
 	virtual void AddReflectionCapture(UReflectionCaptureComponent* Component) override;
 	virtual void RemoveReflectionCapture(UReflectionCaptureComponent* Component) override;
 	virtual void GetReflectionCaptureData(UReflectionCaptureComponent* Component, class FReflectionCaptureData& OutCaptureData) override;

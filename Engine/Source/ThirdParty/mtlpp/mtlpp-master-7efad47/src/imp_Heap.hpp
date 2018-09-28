@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<MTLHeapDescriptor*, void> : public IMPTableBase<MTLHeapDescriptor*>
+struct MTLPP_EXPORT IMPTable<MTLHeapDescriptor*, void> : public IMPTableBase<MTLHeapDescriptor*>
 {
 	IMPTable()
 	{
@@ -34,7 +34,7 @@ struct IMPTable<MTLHeapDescriptor*, void> : public IMPTableBase<MTLHeapDescripto
 };
 
 template<>
-struct IMPTable<id<MTLHeap>, void> : public IMPTableBase<id<MTLHeap>>
+struct MTLPP_EXPORT IMPTable<id<MTLHeap>, void> : public IMPTableBase<id<MTLHeap>>
 {
 	IMPTable()
 	{
@@ -73,7 +73,7 @@ struct IMPTable<id<MTLHeap>, void> : public IMPTableBase<id<MTLHeap>>
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLHeap>, InterposeClass> : public IMPTable<id<MTLHeap>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLHeap>, InterposeClass> : public IMPTable<id<MTLHeap>, void>
 {
 	IMPTable()
 	{

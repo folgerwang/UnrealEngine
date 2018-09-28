@@ -4,8 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "UObject/CoreOnline.h"
-#include "OnlineSubsystemPackage.h"
 #include "OnlineSubsystemNames.h"  // can be removed once we have no more temporary FUniqueNetId subtypes
+#include "OnlineSubsystemPackage.h"
+
+
+#if UE_GAME && UE_BUILD_SHIPPING
+extern ONLINESUBSYSTEM_API bool IsUniqueIdLocal(const FUniqueNetId& UniqueId);
+#define OSS_UNIQUEID_REDACT(UniqueId, x) ( !IsUniqueIdLocal(UniqueId) ? ((x.Len() > 10) ? (x.Left(5) + TEXT("...") + x.Right(5)) : FString(TEXT("<Redacted>"))) : x)
+#endif
+
+#ifndef OSS_UNIQUEID_REDACT
+#define OSS_UNIQUEID_REDACT(UniqueId, x) (x)
+#endif
 
 #if UE_BUILD_SHIPPING
 #define OSS_REDACT(x) TEXT("<Redacted>")
@@ -24,29 +34,18 @@
 #define MAX_LOCAL_PLAYERS 1
 #endif
 
-/** TODO: Yuck. Public headers should not depend on redefining platform-specific macros like ERROR_SUCCESS below */
-#if PLATFORM_WINDOWS
-#include "Windows/WindowsHWrapper.h"
+#define DEDICATED_SERVER_USER_INDEX 0
+
+#ifndef ONLINE_SUCCESS
+#define ONLINE_SUCCESS 0
 #endif
 
-#ifndef ERROR_SUCCESS
-#define ERROR_SUCCESS 0
+#ifndef ONLINE_FAIL
+#define ONLINE_FAIL (uint32)-1
 #endif
 
-#ifndef E_FAIL
-#define E_FAIL (uint32)-1
-#endif
-
-#ifndef E_NOTIMPL
-#define E_NOTIMPL (uint32)-2
-#endif
-
-#ifndef ERROR_IO_PENDING
-#define ERROR_IO_PENDING 997
-#endif
-
-#ifndef S_OK
-#define S_OK 0
+#ifndef ONLINE_IO_PENDING
+#define ONLINE_IO_PENDING 997
 #endif
 
 /**
@@ -908,7 +907,7 @@ public:
 
 	virtual FString ToDebugString() const override
 	{
-		return UniqueNetIdStr;
+		return OSS_UNIQUEID_REDACT(*this, UniqueNetIdStr);
 	}
 
 	/** Needed for TMap::GetTypeHash() */
@@ -944,6 +943,12 @@ public: \
 	friend uint32 GetTypeHash(const SUBCLASSNAME& A) \
 	{ \
 		return ::GetTypeHash(A.UniqueNetIdStr); \
+	} \
+	static const TSharedRef<const SUBCLASSNAME>& GetInvalidId() \
+	{ \
+		static const TSharedRef<const SUBCLASSNAME> InvalidId = MakeShared<const SUBCLASSNAME>(FString()); \
+		return InvalidId; \
+		\
 	} \
 };
 
@@ -1150,6 +1155,7 @@ struct FCloudFile
  */
 #define USER_ATTR_REALNAME TEXT("realName")
 #define USER_ATTR_DISPLAYNAME TEXT("displayName")
+#define USER_ATTR_PREFERRED_DISPLAYNAME TEXT("prefDisplayName")
 #define USER_ATTR_ID TEXT("id")
 #define USER_ATTR_EMAIL TEXT("email")
 
@@ -1180,6 +1186,11 @@ public:
 	 * @return Any additional user data associated with a registered user
 	 */
 	virtual bool GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const = 0;
+
+	/**
+	 * @return Whether a local attribute for a user was successfully set.
+	 */
+	virtual bool SetUserLocalAttribute(const FString& AttrName, const FString& InAttrValue) { return false; /* Not Implemented by default */};
 };
 
 /**

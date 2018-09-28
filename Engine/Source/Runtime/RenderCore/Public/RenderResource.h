@@ -102,11 +102,11 @@ private:
 
 	ERHIFeatureLevel::Type FeatureLevel;
 
-	/** This resource's link in the global resource list. */
-	TLinkedList<FRenderResource*> ResourceLink;
-
 	/** True if the resource has been initialized. */
 	bool bInitialized;
+
+	/** This resource's link in the global resource list. */
+	TLinkedList<FRenderResource*> ResourceLink;
 };
 
 /**

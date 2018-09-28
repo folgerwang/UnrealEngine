@@ -12,7 +12,6 @@
 #include "Engine/NetworkObjectList.h"
 #include "Net/RepLayout.h"
 #include "GameFramework/SpectatorPawn.h"
-#include "Engine/LevelStreamingKismet.h"
 #include "GameFramework/SpectatorPawnMovement.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/NetworkProfiler.h"
@@ -162,6 +161,11 @@ private:
 			if (!ForPreAllocation)
 			{
 				UE_LOG(LogReplicationGraph, Warning, TEXT("No pool big enough for requested list size %d. Creating a new pool. (You may want to preallocate a pool of this size or investigate why this size is needed)"), ExpectedMaxSize);
+				if (UReplicationGraph::OnListRequestExceedsPooledSize)
+				{
+					// Rep graph can spew debug info but we don't really know who/why the list is being requested from this point
+					UReplicationGraph::OnListRequestExceedsPooledSize(ExpectedMaxSize);
+				}
 				ExpectedMaxSize = FMath::RoundUpToPowerOfTwo(ExpectedMaxSize); // Round up because this size was not preallocated
 			}
 			checkf(PoolTable.Num() < MaxNumPools, TEXT("You cannot allocate anymore pools! Consider preallocating a pool of the max list size you will need."));
@@ -217,6 +221,19 @@ void FActorRepListRefView::CopyContentsFrom(const FActorRepListRefView& Source)
 
 	CachedData = NewList->Data;
 	CachedMax = NewList->Max;
+	CachedNum = NewNum;
+}
+
+void FActorRepListRefView::AppendContentsFrom(const FActorRepListRefView& Source)
+{
+	const int32 NewNum = CachedNum + Source.CachedNum;
+	if (NewNum > CachedMax)
+	{
+		RequestNewList(NewNum, true);
+	}
+
+	FMemory::Memcpy((uint8*)&CachedData[CachedNum], (uint8*)Source.CachedData, Source.CachedNum * sizeof(FActorRepListType));
+	RepList->Num = NewNum;
 	CachedNum = NewNum;
 }
 

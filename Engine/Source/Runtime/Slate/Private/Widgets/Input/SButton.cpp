@@ -56,7 +56,7 @@ void SButton::Construct( const FArguments& InArgs )
 	// Only do this if we're exactly an SButton
 	if (GetType() == SButtonTypeName)
 	{
-		bCanTick = false;
+		SetCanTick(false);
 	}
 
 	ContentPadding = InArgs._ContentPadding;

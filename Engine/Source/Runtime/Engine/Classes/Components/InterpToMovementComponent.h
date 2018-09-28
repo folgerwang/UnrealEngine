@@ -38,6 +38,7 @@ public:
 
 	FInterpControlPoint()
 	{
+		PositionControlPoint = FVector::ZeroVector;
 		bPositionIsRelative = true;
 	}
 	FInterpControlPoint(FVector InPosition, bool bIsRelative)

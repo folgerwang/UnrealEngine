@@ -121,13 +121,9 @@ UScriptStruct* UK2Node_GetDataTableRow::GetDataTableRowStructType() const
 	UEdGraphPin* DataTablePin = GetDataTablePin();
 	if(DataTablePin && DataTablePin->DefaultObject != nullptr && DataTablePin->LinkedTo.Num() == 0)
 	{
-		if (DataTablePin->DefaultObject->IsA(UDataTable::StaticClass()))
+		if (const UDataTable* DataTable = Cast<const UDataTable>(DataTablePin->DefaultObject))
 		{
-			UDataTable* DataTable = (UDataTable*)DataTablePin->DefaultObject;
-			if (DataTable)
-			{
-				RowStructType = DataTable->RowStruct;
-			}
+			RowStructType = DataTable->RowStruct;
 		}
 	}
 
@@ -246,9 +242,9 @@ void UK2Node_GetDataTableRow::PinDefaultValueChanged(UEdGraphPin* ChangedPin)
 		UDataTable*  DataTable = Cast<UDataTable>(ChangedPin->DefaultObject);
 		if (RowNamePin)
 		{
-			if (DataTable && (RowNamePin->DefaultValue.IsEmpty() || !DataTable->RowMap.Contains(*RowNamePin->DefaultValue)))
+			if (DataTable && (RowNamePin->DefaultValue.IsEmpty() || !DataTable->GetRowMap().Contains(*RowNamePin->DefaultValue)))
 			{
-				if (auto Iterator = DataTable->RowMap.CreateConstIterator())
+				if (auto Iterator = DataTable->GetRowMap().CreateConstIterator())
 				{
 					RowNamePin->DefaultValue = Iterator.Key().ToString();
 				}

@@ -818,8 +818,11 @@ bool ULandscapeComponent::CanRenderGrassMap() const
 		return false;
 	}
 
+	UMaterialInstance* MaterialInstance = GetMaterialInstanceCount(false) > 0 ? GetMaterialInstance(0) : nullptr;
+	FMaterialResource* MaterialResource = MaterialInstance != nullptr ? MaterialInstance->GetMaterialResource(ComponentWorld->FeatureLevel) : nullptr;
+
 	// Check we can render the material
-	if (!GetMaterialInstance(0)->GetMaterialResource(ComponentWorld->FeatureLevel)->HasValidGameThreadShaderMap())
+	if (MaterialResource == nullptr || !MaterialResource->HasValidGameThreadShaderMap())
 	{
 		return false;
 	}
@@ -955,10 +958,6 @@ void ALandscapeProxy::RenderGrassMaps(const TArray<ULandscapeComponent*>& InLand
 	Exporter.ApplyResults();
 }
 
-void ALandscapeProxy::OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel)
-{
-	FlushGrassComponents();
-}
 #endif //WITH_EDITOR
 
 // the purpose of this class is to copy the lightmap from the terrain, and set the CoordinateScale and CoordinateBias to zero.

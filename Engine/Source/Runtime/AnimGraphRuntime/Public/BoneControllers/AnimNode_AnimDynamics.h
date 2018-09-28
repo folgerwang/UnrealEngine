@@ -16,6 +16,7 @@ class UAnimInstance;
 class USkeletalMeshComponent;
 
 extern TAutoConsoleVariable<int32> CVarEnableDynamics;
+extern ANIMGRAPHRUNTIME_API TAutoConsoleVariable<int32> CVarLODThreshold;
 extern TAutoConsoleVariable<int32> CVarEnableWind;
 
 #if ENABLE_ANIM_DRAW_DEBUG
@@ -90,13 +91,18 @@ struct FAnimPhysConstraintSetup
 	: LinearXLimitType(AnimPhysLinearConstraintType::Limited)
 	, LinearYLimitType(AnimPhysLinearConstraintType::Limited)
 	, LinearZLimitType(AnimPhysLinearConstraintType::Limited)
+	, LinearAxesMin(ForceInitToZero)
+	, LinearAxesMax(ForceInitToZero)
 	, AngularConstraintType(AnimPhysAngularConstraintType::Angular)
 	, TwistAxis(AnimPhysTwistAxis::AxisX)
 	, ConeAngle(0.0f)
 	, AngularXAngle_DEPRECATED(0.0f)
 	, AngularYAngle_DEPRECATED(0.0f)
 	, AngularZAngle_DEPRECATED(0.0f)
+	, AngularLimitsMin(ForceInitToZero)
+	, AngularLimitsMax(ForceInitToZero)
 	, AngularTargetAxis(AnimPhysTwistAxis::AxisX)
+	, AngularTarget(ForceInitToZero)
 	, bLinearFullyLocked(false)
 	{}
 
@@ -253,8 +259,16 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	FVector LocalJointOffset;
 
 	/** Scale for gravity, higher values increase forces due to gravity */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault, EditCondition = "!bUseGravityOverride"))
 	float GravityScale;
+
+	/** Gravity Override Value */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (PinHiddenByDefault, EditCondition = "bUseGravityOverride"))
+	FVector GravityOverride;
+
+	/** Use gravity override value vs gravity scale */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Setup, meta = (InlineEditConditionToggle))
+	bool bUseGravityOverride;
 
 	/** If true the body will attempt to spring back to its initial position */
 	UPROPERTY(EditAnywhere, Category = Setup)
@@ -282,6 +296,18 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	/** Scale to apply to calculated wind velocities in the solver */
 	UPROPERTY(EditAnywhere, Category = Wind)
 	float WindScale;
+
+	/** When using non-world-space sim, this controls how much of the components world-space acceleration is passed on to the local-space simulation. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector ComponentLinearAccScale;
+
+	/** When using non-world-space sim, this applies a 'drag' to the bodies in the local space simulation, based on the components world-space velocity. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector ComponentLinearVelScale;
+
+	/** When using non-world-space sim, this is an overall clamp on acceleration derived from ComponentLinearAccScale and ComponentLinearVelScale, to ensure it is not too large. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector	ComponentAppliedLinearAccClamp;
 
 	/** If true, the override value will be used for linear damping */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Setup)
@@ -476,6 +502,9 @@ private:
 	// Previous component & actor transforms, used to account for teleports
 	FTransform PreviousCompWorldSpaceTM;
 	FTransform PreviousActorWorldSpaceTM;
+	
+	// Previous linear velocity to resolve world accelerations when not using world space simulation
+	FVector PreviousComponentLinearVelocity;
 
 	//////////////////////////////////////////////////////////////////////////
 	// Live debug
@@ -485,4 +514,6 @@ private:
 
 	int32 FilteredBoneIndex;
 #endif
+public: 
+	static bool IsAnimDynamicsSystemEnabledFor(int32 InLOD);
 };

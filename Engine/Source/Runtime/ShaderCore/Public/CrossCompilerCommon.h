@@ -11,7 +11,7 @@
 
 namespace CrossCompiler
 {
-	enum
+	enum EShaderStage
 	{
 		SHADER_STAGE_VERTEX = 0,
 		SHADER_STAGE_PIXEL,

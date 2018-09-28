@@ -463,11 +463,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(DisplayName = "Override World Gravity"), Category = Physics)
 	uint32 bGlobalGravitySet:1;
 
+protected:
 	/** Holds parameters for NavigationSystem's creation. Set to Null will result
-	 *	in NavigationSystem instance not being created for this world */
+	 *	in NavigationSystem instance not being created for this world. Note that
+	 *	if set NavigationSystemConfigOverride will be used instead. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay, Instanced, NoClear, meta=(NoResetToDefault))
 	UNavigationSystemConfig* NavigationSystemConfig;
 
+	/** Overrides NavigationSystemConfig. */
+	UPROPERTY(Transient)
+	UNavigationSystemConfig* NavigationSystemConfigOverride;
+
+public:
 	// any actor falling below this level gets destroyed
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, meta=(editcondition = "bEnableWorldBoundsChecks"))
 	float KillZ;
@@ -745,7 +752,7 @@ public:
 	 */
 	virtual float GetGravityZ() const;
 
-	float GetEffectiveTimeDilation() const
+	virtual float GetEffectiveTimeDilation() const
 	{
 		return TimeDilation * MatineeTimeDilation * DemoPlayTimeDilation;
 	}
@@ -760,7 +767,9 @@ public:
 
 	/** @return configuration for NavigationSystem's creation. Null means 
 	 *	no navigation system will be created*/
-	UNavigationSystemConfig* const GetNavigationSystemConfig() const { return NavigationSystemConfig; }
+	UNavigationSystemConfig* const GetNavigationSystemConfig() const { return NavigationSystemConfigOverride ? NavigationSystemConfigOverride : NavigationSystemConfig; }
+
+	void SetNavigationSystemConfigOverride(UNavigationSystemConfig* NewConfig);
 
 	/** @return whether given world is configured to host any NavigationSystem */
 	bool IsNavigationSystemEnabled() const;

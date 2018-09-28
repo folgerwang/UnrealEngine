@@ -1664,6 +1664,8 @@ void ULandscapeComponent::DeleteLayer(ULandscapeLayerInfoObject* LayerInfo, FLan
 
 	// Update the shaders for this component
 	Component->UpdateMaterialInstances();
+	Component->EditToolRenderData.UpdateDebugColorMaterial(Component);
+	Component->UpdateEditToolRenderData();
 
 	// Update dominant layer info stored in collision component
 	TArray<FColor*> CollisionWeightmapMipData;
@@ -1843,6 +1845,8 @@ void ULandscapeComponent::FillLayer(ULandscapeLayerInfoObject* LayerInfo, FLands
 
 	// Update the shaders for this component
 	Component->UpdateMaterialInstances();
+	Component->EditToolRenderData.UpdateDebugColorMaterial(Component);
+	Component->UpdateEditToolRenderData();
 
 	Component->InvalidateLightingCache();
 
@@ -2096,6 +2100,9 @@ void ULandscapeComponent::ReplaceLayer(ULandscapeLayerInfoObject* FromLayerInfo,
 
 		// Update the shaders for this component
 		UpdateMaterialInstances();
+
+		EditToolRenderData.UpdateDebugColorMaterial(this);
+		UpdateEditToolRenderData();
 	}
 }
 
@@ -5202,21 +5209,31 @@ FLandscapeTextureDataInfo::FLandscapeTextureDataInfo(UTexture2D* InTexture)
 
 bool FLandscapeTextureDataInfo::UpdateTextureData()
 {
-	bool bNeedToWaitForUpdate = false;
+	const bool bCompressed = !Texture->CompressionNone;
 
+	bool bNeedToWaitForUpdate = false;
 	int32 DataSize = sizeof(FColor);
 	if (Texture->GetPixelFormat() == PF_G8)
 	{
 		DataSize = sizeof(uint8);
 	}
 
-	for( int32 i=0;i<MipInfo.Num();i++ )
+	for (int32 i = 0; i < MipInfo.Num(); i++)
 	{
-		if( MipInfo[i].MipData && MipInfo[i].MipUpdateRegions.Num()>0 )
+		if (MipInfo[i].MipData && MipInfo[i].MipUpdateRegions.Num() > 0)
 		{
-			Texture->UpdateTextureRegions( i, MipInfo[i].MipUpdateRegions.Num(), &MipInfo[i].MipUpdateRegions[0], ((Texture->Source.GetSizeX())>>i)*DataSize, DataSize, (uint8*)MipInfo[i].MipData);
 			bNeedToWaitForUpdate = true;
+			if (bCompressed)
+			{
+				// Cannot update regions on compressed textures so we will update the whole texture below.
+				break;
+			}
+			Texture->UpdateTextureRegions(i, MipInfo[i].MipUpdateRegions.Num(), &MipInfo[i].MipUpdateRegions[0], ((Texture->Source.GetSizeX()) >> i)*DataSize, DataSize, (uint8*)MipInfo[i].MipData);
 		}
+	}
+	if (bCompressed && bNeedToWaitForUpdate)
+	{
+		Texture->UpdateResource();
 	}
 
 	return bNeedToWaitForUpdate;

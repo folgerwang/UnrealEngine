@@ -4009,6 +4009,9 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 	const bool bSkipRefreshExternalBlueprintDependencyNodes = !!(InternalFlags & EInternalCompilerFlags::SkipRefreshExternalBlueprintDependencyNodes);
 	FKismetCompilerVMBackend Backend_VM(Blueprint, Schema, *this);
 
+	// Determine whether or not to skip generated class validation. This requires CDO value propagation to occur first.
+	bool bSkipGeneratedClassValidation = !bPropagateValuesToCDO;
+
 	if( bGenerateLocals )
 	{
 		for (int32 i = 0; i < FunctionList.Num(); ++i)
@@ -4164,6 +4167,11 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 					CopyDetails.bCopyDeprecatedProperties = Blueprint->bIsRegeneratingOnLoad;
 					UEditorEngine::CopyPropertiesForUnrelatedObjects(OldCDO, NewCDO, CopyDetails);
 					FBlueprintEditorUtils::PatchCDOSubobjectsIntoExport(OldCDO, NewCDO);
+				}
+				else
+				{
+					// Don't perform generated class validation since we didn't do any value propagation.
+					bSkipGeneratedClassValidation = true;
 				}
 
 				// >>> Backwards Compatibility: Propagate data from the skel CDO to the gen CDO if we haven't already done so for this blueprint
@@ -4357,7 +4365,8 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 
 	PostCompileDiagnostics();
 
-	if (bIsFullCompile && !Blueprint->bIsRegeneratingOnLoad)
+	// Perform validation only if CDO propagation was performed above, otherwise the new CDO will not yet be fully initialized.
+	if (bIsFullCompile && !bSkipGeneratedClassValidation && !Blueprint->bIsRegeneratingOnLoad)
 	{
 		bool Result = ValidateGeneratedClass(NewClass);
 		// TODO What do we do if validation fails?
@@ -4510,9 +4519,6 @@ void FKismetCompilerContext::SetNewClass(UBlueprintGeneratedClass* ClassToUse)
 
 bool FKismetCompilerContext::ValidateGeneratedClass(UBlueprintGeneratedClass* Class)
 {
-	// Our CDO should be properly constructed by this point and should always exist
-	FKismetCompilerUtilities::ValidateEnumProperties(NewClass->GetDefaultObject(), MessageLog);
-
 	return UBlueprint::ValidateGeneratedClass(Class);
 }
 

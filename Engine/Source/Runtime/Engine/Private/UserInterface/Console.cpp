@@ -36,7 +36,7 @@ static const FName NAME_Typing = FName(TEXT("Typing"));
 static const FName NAME_Open = FName(TEXT("Open"));
 
 UConsole::FRegisterConsoleAutoCompleteEntries UConsole::RegisterConsoleAutoCompleteEntries;
-
+UConsole::FOnConsoleActivationStateChanged UConsole::OnConsoleActivationStateChanged;
 namespace ConsoleDefs
 {
 	/** Colors */
@@ -1500,13 +1500,15 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 		}
 	}
 
+	const float DPIScale = Canvas->GetDPIScale();
+	const bool bDPIAwareStringMeasurement = true;
 	// determine the cursor position
 	const FString TypedInputTextUpToCursor = FString::Printf(TEXT("%s%s"), *ConsoleDefs::LeadingInputText, *TypedStr.Left(TypedStrPos));
-	Canvas->StrLen(Font, TypedInputTextUpToCursor,xl,yl);
+	Canvas->StrLen(Font, TypedInputTextUpToCursor, xl, yl, bDPIAwareStringMeasurement);
 	// draw the cursor
-	ConsoleText.SetColor( ConsoleDefs::CursorColor );
-	ConsoleText.Text = FText::FromString( FString(TEXT("_")) );
-	Canvas->DrawItem( ConsoleText, UserInputLinePos.X + xl, UserInputLinePos.Y-1.0f-yl );
+	ConsoleText.SetColor(ConsoleDefs::CursorColor);
+	ConsoleText.Text = FText::FromString(FString(TEXT("_")));
+	Canvas->DrawItem(ConsoleText, UserInputLinePos.X + xl / DPIScale, UserInputLinePos.Y - 1.0f - yl / DPIScale);
 
 }
 
@@ -1529,6 +1531,9 @@ void UConsole::FakeGotoState(FName NextStateName)
 	{
 		BeginState_Typing(ConsoleState);
 
+		// Console has opened
+		OnConsoleActivationStateChanged.Broadcast(true);
+
 		// Save the currently focused widget so that we can restore to it once the console is closed
 		PreviousFocusedWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
 
@@ -1539,6 +1544,9 @@ void UConsole::FakeGotoState(FName NextStateName)
 	{
 		BeginState_Open(ConsoleState);
 		FSlateApplication::Get().ResetToDefaultPointerInputSettings();
+
+		// Console has opened
+		OnConsoleActivationStateChanged.Broadcast(true);
 	}
 	else if( NextStateName == NAME_None )
 	{
@@ -1563,10 +1571,12 @@ void UConsole::FakeGotoState(FName NextStateName)
 		if (WidgetToFocus.IsValid())
 		{
 			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
-			FSlateApplication::Get().SetKeyboardFocus(WidgetToFocus);
+			FSlateApplication::Get().SetKeyboardFocus(WidgetToFocus, EFocusCause::Mouse);
 		}
-	}
 
+		// Console has closed
+		OnConsoleActivationStateChanged.Broadcast(false);
+	}
 	ConsoleState = NextStateName;
 }
 

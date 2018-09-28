@@ -11,13 +11,7 @@
 UOnlineEngineInterfaceImpl::UOnlineEngineInterfaceImpl(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, VoiceSubsystemNameOverride(NAME_None)
-	, DefaultSubsystemName(NAME_None)
 {
-	FString DefaultSubsystemNameString;
-	if (GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("DefaultPlatformService"), DefaultSubsystemNameString, GEngineIni))
-	{
-		DefaultSubsystemName = FName(*DefaultSubsystemNameString);
-	}
 }
 
 bool UOnlineEngineInterfaceImpl::IsLoaded(FName OnlineIdentifier)
@@ -67,7 +61,10 @@ void UOnlineEngineInterfaceImpl::DestroyOnlineSubsystem(FName OnlineIdentifier)
 
 FName UOnlineEngineInterfaceImpl::GetDefaultOnlineSubsystemName() const
 {
-	return DefaultSubsystemName;
+	// World context (PIE) isn't necessary here as it's just the name of the default
+	// no matter how many instances actually exist
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	return OnlineSub ? OnlineSub->GetSubsystemName() : NAME_None;
 }
 
 uint8 UOnlineEngineInterfaceImpl::GetReplicationHashForSubsystem(FName InSubsystemName) const
@@ -110,7 +107,9 @@ TSharedPtr<const FUniqueNetId> UOnlineEngineInterfaceImpl::CreateUniquePlayerId(
 	TSharedPtr<const FUniqueNetId> UniqueId = nullptr;
 	if (IsLoaded(Type))
 	{
-		IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(Type);
+		// No UWorld here, but ok since this is just a factory
+		UWorld* World = nullptr;
+		IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World, Type);
 		if (IdentityInt.IsValid())
 		{
 			UniqueId = IdentityInt->CreateUniquePlayerId(Str);

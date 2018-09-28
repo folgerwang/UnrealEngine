@@ -13,15 +13,7 @@ class FLandscapeEditorCommands : public TCommands<FLandscapeEditorCommands>
 {
 
 public:
-	FLandscapeEditorCommands() : TCommands<FLandscapeEditorCommands>
-	(
-		"LandscapeEditor", // Context name for fast lookup
-		NSLOCTEXT("Contexts", "LandscapeEditor", "Landscape Editor"), // Localized context name for displaying
-		NAME_None, //"LevelEditor" // Parent
-		FEditorStyle::GetStyleSetName() // Icon Style Set
-	)
-	{
-	}
+	FLandscapeEditorCommands();
 	
 
 	/**
@@ -30,6 +22,8 @@ public:
 	virtual void RegisterCommands() override;
 
 public:
+	static FName LandscapeContext;
+
 	// Mode Switch
 	TSharedPtr<FUICommandInfo> ManageMode;
 	TSharedPtr<FUICommandInfo> SculptMode;
@@ -79,6 +73,18 @@ public:
 	TSharedPtr<FUICommandInfo> ViewModeLayerDebug;
 	TSharedPtr<FUICommandInfo> ViewModeWireframeOnTop;
 	TSharedPtr<FUICommandInfo> ViewModeLayerUsage;
+
+	// Adjusting brushes
+	TSharedPtr<FUICommandInfo> IncreaseBrushSize;
+	TSharedPtr<FUICommandInfo> DecreaseBrushSize;
+	TSharedPtr<FUICommandInfo> IncreaseBrushFalloff;
+	TSharedPtr<FUICommandInfo> DecreaseBrushFalloff;
+	TSharedPtr<FUICommandInfo> IncreaseBrushStrength;
+	TSharedPtr<FUICommandInfo> DecreaseBrushStrength;
+
+	TSharedPtr<FUICommandInfo> DragBrushSize;
+	TSharedPtr<FUICommandInfo> DragBrushFalloff;
+	TSharedPtr<FUICommandInfo> DragBrushStrength;
 
 	// Map
 	TMap<FName, TSharedPtr<FUICommandInfo>> NameToCommandMap;

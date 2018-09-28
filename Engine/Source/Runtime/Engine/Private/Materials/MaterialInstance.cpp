@@ -52,6 +52,7 @@ void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialIn
 	}
 }
 
+#if WITH_EDITOR
 /**
  * Recaches uniform expressions for all material instances with a given parent.
  * WARNING: This function is a noop outside of the Editor!
@@ -81,6 +82,7 @@ void RecacheMaterialInstanceUniformExpressions(const UMaterialInterface* ParentM
 		}
 	}
 }
+#endif // #if WITH_EDITOR
 
 FFontParameterValue::ValueType FFontParameterValue::GetValue(const FFontParameterValue& Parameter)
 {
@@ -105,71 +107,27 @@ void FMaterialInstanceResource::GetMaterialWithFallback(ERHIFeatureLevel::Type I
 {
 	checkSlow(IsInParallelRenderingThread());
 
-	if (Parent)
+	FMaterialResource* MaterialResource = Owner->GetMaterialResource(InFeatureLevel);
+	if (MaterialResource && MaterialResource->GetRenderingThreadShaderMap())
 	{
-		if (Owner->bHasStaticPermutationResource)
-		{
-			EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
-			FMaterialResource* StaticPermutationResource = Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel];
-
-			if (StaticPermutationResource)
-			{
-				if (StaticPermutationResource->GetRenderingThreadShaderMap())
-				{
-					// Verify that compilation has been finalized, the rendering thread shouldn't be touching it otherwise
-					checkSlow(StaticPermutationResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
-					// The shader map reference should have been NULL'ed if it did not compile successfully
-					checkSlow(StaticPermutationResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
-					OutMaterialRenderProxy = this;
-					OutMaterial = StaticPermutationResource;
-					return;
-				}
-				else
-				{
-					EMaterialDomain Domain = (EMaterialDomain)StaticPermutationResource->GetMaterialDomain();
-					UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(Domain);
-					//there was an error, use the default material's resource
-					FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
-					return;
-				}
-			}
-		}
-		else
-		{
-			//use the parent's material resource
-			Parent->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
-			return;
-		}
+		// Verify that compilation has been finalized, the rendering thread shouldn't be touching it otherwise
+		checkSlow(MaterialResource->GetRenderingThreadShaderMap()->IsCompilationFinalized());
+		// The shader map reference should have been NULL'ed if it did not compile successfully
+		checkSlow(MaterialResource->GetRenderingThreadShaderMap()->CompiledSuccessfully());
+		OutMaterialRenderProxy = this;
+		OutMaterial = MaterialResource;
+		return;
 	}
 
 	// No Parent, or no StaticPermutationResource. This seems to happen if the parent is in the process of using the default material since it's being recompiled or failed to do so.
-	UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+	UMaterial* FallbackMaterial = UMaterial::GetDefaultMaterial(MaterialResource ? MaterialResource->GetMaterialDomain() : MD_Surface);
 	FallbackMaterial->GetRenderProxy(IsSelected(), IsHovered())->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 }
 
 FMaterial* FMaterialInstanceResource::GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const
 {
 	checkSlow(IsInParallelRenderingThread());
-
-	if (Parent)
-	{
-		if (Owner->bHasStaticPermutationResource)
-		{
-			EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
-			FMaterialResource* StaticPermutationResource = Owner->StaticPermutationMaterialResources[ActiveQualityLevel][InFeatureLevel];
-			return StaticPermutationResource;
-		}
-		else
-		{
-			FMaterialRenderProxy* ParentProxy = Parent->GetRenderProxy(IsSelected(), IsHovered());
-
-			if (ParentProxy)
-			{
-				return ParentProxy->GetMaterialNoFallback(InFeatureLevel);
-			}
-		}
-	}
-	return NULL;
+	return Owner->GetMaterialResource(InFeatureLevel);
 }
 
 UMaterialInterface* FMaterialInstanceResource::GetMaterialInterface() const
@@ -548,6 +506,7 @@ UMaterial* UMaterialInstance::GetMaterial()
 	}
 }
 
+#if WITH_EDITOR
 bool UMaterialInstance::GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutSliderMin, float& OutSliderMax) const
 {
 	if (GetReentrantFlag())
@@ -594,6 +553,7 @@ bool UMaterialInstance::GetScalarParameterSliderMinMax(const FMaterialParameterI
 
 	return false;
 }
+#endif // WITH_EDITOR
 
 bool UMaterialInstance::GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly) const
 {
@@ -1640,19 +1600,7 @@ void UMaterialInstance::CopyMaterialInstanceParameters(UMaterialInterface* Sourc
 
 FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel)
 {
-	if (QualityLevel == EMaterialQualityLevel::Num)
-	{
-		QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
-	}
-
-	if (bHasStaticPermutationResource)
-	{
-		//if there is a static permutation resource, use that
-		return StaticPermutationMaterialResources[QualityLevel][InFeatureLevel];
-	}
-
-	//there was no static permutation resource
-	return Parent ? Parent->GetMaterialResource(InFeatureLevel,QualityLevel) : NULL;
+	return const_cast<FMaterialResource*>(static_cast<const UMaterialInstance*>(this)->GetMaterialResource(InFeatureLevel, QualityLevel));
 }
 
 const FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel) const
@@ -1664,12 +1612,18 @@ const FMaterialResource* UMaterialInstance::GetMaterialResource(ERHIFeatureLevel
 
 	if (bHasStaticPermutationResource)
 	{
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+		return StaticPermutationMaterialResources[QualityLevel][InFeatureLevel] ?
+			StaticPermutationMaterialResources[QualityLevel][InFeatureLevel] :
+			StaticPermutationMaterialResources[EMaterialQualityLevel::High][InFeatureLevel];
+#else
 		//if there is a static permutation resource, use that
 		return StaticPermutationMaterialResources[QualityLevel][InFeatureLevel];
+#endif
 	}
 
 	//there was no static permutation resource
-	return Parent ? Parent->GetMaterialResource(InFeatureLevel,QualityLevel) : NULL;
+	return Parent ? Parent->GetMaterialResource(InFeatureLevel, QualityLevel) : nullptr;
 }
 
 FMaterialRenderProxy* UMaterialInstance::GetRenderProxy(bool Selected, bool bHovered) const
@@ -2291,6 +2245,7 @@ bool UMaterialInstance:: GetStaticComponentMaskParameterDefaultValue(const FMate
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterialInstance::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const
 {
 	if (GetReentrantFlag())
@@ -2338,6 +2293,7 @@ bool UMaterialInstance::GetGroupName(const FMaterialParameterInfo& ParameterInfo
 
 	return false;
 }
+#endif // WITH_EDITOR
 
 void UMaterialInstance::AppendReferencedTextures(TArray<UTexture*>& InOutTextures) const
 {
@@ -2488,6 +2444,34 @@ void UMaterialInstance::UpdatePermutationAllocations()
 	{
 		UMaterial* BaseMaterial = GetMaterial();
 
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+		EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
+		const ERHIFeatureLevel::Type ActiveFeatureLevel = GMaxRHIFeatureLevel;
+		if (!HasMaterialResource(BaseMaterial, ActiveFeatureLevel, ActiveQualityLevel))
+		{
+			ActiveQualityLevel = EMaterialQualityLevel::High;
+		}
+		for (int32 Feature = 0; Feature < ERHIFeatureLevel::Num; ++Feature)
+		{
+			for (int32 Quality = 0; Quality < EMaterialQualityLevel::Num; ++Quality)
+			{
+				FMaterialResource*& Resource = StaticPermutationMaterialResources[Quality][Feature];
+				if (Feature != ActiveFeatureLevel || Quality != ActiveQualityLevel)
+				{
+					delete Resource;
+					Resource = nullptr;
+				}
+				else
+				{
+					if (!Resource)
+					{
+						Resource = AllocatePermutationResource();
+					}
+					Resource->SetMaterial(BaseMaterial, ActiveQualityLevel, true, ActiveFeatureLevel, this);
+				}
+			}
+		}
+#else
 		for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 		{
 			EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevelIndex];
@@ -2507,6 +2491,7 @@ void UMaterialInstance::UpdatePermutationAllocations()
 				CurrentResource->SetMaterial(BaseMaterial, (EMaterialQualityLevel::Type)QualityLevelIndex, bQualityLevelHasDifferentNodes, (ERHIFeatureLevel::Type)FeatureLevelIndex, this);
 			}
 		}
+#endif
 	}
 }
 
@@ -2529,10 +2514,29 @@ void UMaterialInstance::CacheResourceShadersForRendering()
 		{
 			ERHIFeatureLevel::Type FeatureLevel = (ERHIFeatureLevel::Type)FBitSet::GetAndClearNextBit(FeatureLevelsToCompile); 
 			EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
+			EMaterialQualityLevel::Type LocalActiveQL = ActiveQualityLevel;
 
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+			if (!HasMaterialResource(GetMaterial(), FeatureLevel, ActiveQualityLevel))
+			{
+				LocalActiveQL = EMaterialQualityLevel::High;
+			}
+			FMaterialResource* MaterialResource = StaticPermutationMaterialResources[LocalActiveQL][FeatureLevel];
+			if (!MaterialResource->GetGameThreadShaderMap())
+			{
+				FMaterialResource Tmp;
+				if (ReloadMaterialResource(&Tmp, GetOutermost()->GetPathName(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
+				{
+					MaterialResource->SetInlineShaderMap(Tmp.GetGameThreadShaderMap());
+				}
+			}
+#endif
 			// Only cache shaders for the quality level that will actually be used to render
+			// In cooked build, there is no shader compilation but this is still needed to
+			// register the loaded shadermap
 			ResourcesToCache.Reset();
-			ResourcesToCache.Add(StaticPermutationMaterialResources[ActiveQualityLevel][FeatureLevel]);
+			check(StaticPermutationMaterialResources[LocalActiveQL][FeatureLevel]);
+			ResourcesToCache.Add(StaticPermutationMaterialResources[LocalActiveQL][FeatureLevel]);
 			CacheShadersForResources(ShaderPlatform, ResourcesToCache, true);
 		}
 	}
@@ -2553,24 +2557,22 @@ void UMaterialInstance::CacheResourceShadersForCooking(EShaderPlatform ShaderPla
 		ERHIFeatureLevel::Type TargetFeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
 
 		bool bAnyQualityLevelUsed = false;
-
 		for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 		{
-			bAnyQualityLevelUsed = bAnyQualityLevelUsed || QualityLevelsUsed[QualityLevelIndex];
+			bAnyQualityLevelUsed |= QualityLevelsUsed[QualityLevelIndex];
 		}
+		check(bAnyQualityLevelUsed);
 
 		for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 		{
-			// Cache all quality levels, unless they are all the same (due to using the same nodes), then just cache the high quality
-			if (bAnyQualityLevelUsed || QualityLevelIndex == EMaterialQualityLevel::High)
+			// Cache all quality levels actually used
+			if (QualityLevelsUsed[QualityLevelIndex])
 			{
 				FMaterialResource* NewResource = AllocatePermutationResource();
 				NewResource->SetMaterial(BaseMaterial, (EMaterialQualityLevel::Type)QualityLevelIndex, QualityLevelsUsed[QualityLevelIndex], (ERHIFeatureLevel::Type)TargetFeatureLevel, this);
 				ResourcesToCache.Add(NewResource);
 			}
 		}
-
-		check(ResourcesToCache.Num() > 0);
 
 		CacheShadersForResources(ShaderPlatform, ResourcesToCache, false);
 
@@ -2912,7 +2914,7 @@ void UMaterialInstance::ClearAllCachedCookedPlatformData()
 	CachedMaterialResourcesForCooking.Empty();
 }
 
-#endif 
+#endif
 
 void UMaterialInstance::Serialize(FArchive& Ar)
 {
@@ -2957,9 +2959,17 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 			}
 
 #if WITH_EDITOR
+			static_assert(!STORE_ONLY_ACTIVE_SHADERMAPS, "Only discard unused SMs in cooked build");
 			SerializeInlineShaderMaps(&CachedMaterialResourcesForCooking, Ar, LoadedMaterialResources);
 #else
-			SerializeInlineShaderMaps(NULL, Ar, LoadedMaterialResources);
+			SerializeInlineShaderMaps(
+				NULL,
+				Ar,
+				LoadedMaterialResources
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+				, &OffsetToFirstResource
+#endif
+			);
 #endif
 		}
 		else
@@ -3036,6 +3046,7 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 void UMaterialInstance::PostLoad()
 {
 	SCOPED_LOADTIMER(MaterialInstancePostLoad);
+
 	Super::PostLoad();
 
 	if (FApp::CanEverRender())
@@ -3763,7 +3774,10 @@ void UMaterialInstance::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSiz
 			for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 			{
 				FMaterialResource* CurrentResource = StaticPermutationMaterialResources[QualityLevelIndex][FeatureLevelIndex];
-				CurrentResource->GetResourceSizeEx(CumulativeResourceSize);
+				if (CurrentResource)
+				{
+					CurrentResource->GetResourceSizeEx(CumulativeResourceSize);
+				}
 			}
 		}
 	}
@@ -3805,12 +3819,25 @@ FPostProcessMaterialNode* IteratePostProcessMaterialNodes(const FFinalPostProces
 
 void UMaterialInstance::AllMaterialsCacheResourceShadersForRendering()
 {
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+	TArray<UMaterialInstance*> MaterialInstances;
+	for (TObjectIterator<UMaterialInstance> It; It; ++It)
+	{
+		MaterialInstances.Add(*It);
+	}
+	MaterialInstances.Sort([](const UMaterialInstance& A, const UMaterialInstance& B) { return A.OffsetToFirstResource < B.OffsetToFirstResource; });
+	for (UMaterialInstance* MaterialInstance : MaterialInstances)
+	{
+		MaterialInstance->CacheResourceShadersForRendering();
+	}
+#else
 	for (TObjectIterator<UMaterialInstance> It; It; ++It)
 	{
 		UMaterialInstance* MaterialInstance = *It;
 
 		MaterialInstance->CacheResourceShadersForRendering();
 	}
+#endif
 }
 
 

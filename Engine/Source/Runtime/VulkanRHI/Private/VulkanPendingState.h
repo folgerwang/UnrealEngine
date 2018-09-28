@@ -173,13 +173,22 @@ public:
 
 		CurrentPipeline = nullptr;
 		CurrentState = nullptr;
-		CurrentBSS = nullptr;
 		bDirtyVertexStreams = true;
 
 		PrimitiveType = PT_Num;
 
 		//#todo-rco: Would this cause issues?
 		//FMemory::Memzero(PendingStreams);
+	}
+
+	const FVulkanShader* GetCurrentShader(EShaderFrequency Frequency) const
+	{
+		return (CurrentPipeline ? CurrentPipeline->GetShader(Frequency) : nullptr);
+	}
+
+	const FVulkanShader* GetCurrentShader(ShaderStage::EStage Stage) const
+	{
+		return GetCurrentShader(ShaderStage::GetFrequencyForGfxStage(Stage));
 	}
 
 	void SetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ)
@@ -334,18 +343,6 @@ public:
 	{
 		if (InGfxPipeline != CurrentPipeline)
 		{
-			// note: BSS objects are cached so this should only be a lookup
-			CurrentBSS = ResourceCast(
-				RHICreateBoundShaderState(
-					InGfxPipeline->PipelineStateInitializer.BoundShaderState.VertexDeclarationRHI,
-					InGfxPipeline->PipelineStateInitializer.BoundShaderState.VertexShaderRHI,
-					InGfxPipeline->PipelineStateInitializer.BoundShaderState.HullShaderRHI,
-					InGfxPipeline->PipelineStateInitializer.BoundShaderState.DomainShaderRHI,
-					InGfxPipeline->PipelineStateInitializer.BoundShaderState.PixelShaderRHI,
-					InGfxPipeline->PipelineStateInitializer.BoundShaderState.GeometryShaderRHI
-				).GetReference()
-			);
-
 			CurrentPipeline = InGfxPipeline;
 			FVulkanGraphicsPipelineDescriptorState** Found = PipelineStates.Find(InGfxPipeline);
 			if (Found)
@@ -355,7 +352,7 @@ public:
 			}
 			else
 			{
-				CurrentState = new FVulkanGraphicsPipelineDescriptorState(Device, InGfxPipeline, CurrentBSS);
+				CurrentState = new FVulkanGraphicsPipelineDescriptorState(Device, InGfxPipeline);
 				PipelineStates.Add(CurrentPipeline, CurrentState);
 			}
 
@@ -403,7 +400,6 @@ protected:
 
 	FVulkanRHIGraphicsPipelineState* CurrentPipeline;
 	FVulkanGraphicsPipelineDescriptorState* CurrentState;
-	FVulkanBoundShaderState* CurrentBSS;
 
 	TMap<FVulkanRHIGraphicsPipelineState*, FVulkanGraphicsPipelineDescriptorState*> PipelineStates;
 

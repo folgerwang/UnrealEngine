@@ -1394,7 +1394,9 @@ void UPostProcessComponent::Serialize(FArchive& Ar)
 
 	if(Ar.IsLoading())
 	{
+#if WITH_EDITORONLY_DATA
 		Settings.OnAfterLoad();
+#endif
 	}
 }
 
@@ -1412,6 +1414,17 @@ void FViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 	});
 }
 
+
+void FViewport::EnqueueEndRenderFrame(const bool bLockToVsync, const bool bShouldPresent)
+{
+	FEndDrawingCommandParams Params = { this, (uint32)bLockToVsync, (uint32)GInputLatencyTimer.GameThreadTrigger, (uint32)(PresentAndStopMovieDelay > 0 ? 0 : bShouldPresent) };
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		EndDrawingCommand,
+		FEndDrawingCommandParams, Parameters, Params,
+		{
+			ViewportEndDrawing(RHICmdList, Parameters);
+		});
+}
 
 // true: The CompositionInspectur Slate UI requests it's data
 bool GCaptureCompositionNextFrame = false;
@@ -1509,15 +1522,7 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 	
 				// Slate doesn't present immediately. Tag the viewport as requiring vsync so that it happens.
 				SetRequiresVsync(bLockToVsync);
-
-				//@todo UE4: If Slate controls this viewport, we should not present
-				FEndDrawingCommandParams Params = { this, (uint32)bLockToVsync, (uint32)GInputLatencyTimer.GameThreadTrigger, (uint32)(PresentAndStopMovieDelay > 0 ? 0 : bShouldPresent) };
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					EndDrawingCommand,
-					FEndDrawingCommandParams,Parameters,Params,
-				{
-					ViewportEndDrawing(RHICmdList, Parameters);
-				});
+				EnqueueEndRenderFrame(bLockToVsync, bShouldPresent);
 
 				GInputLatencyTimer.GameThreadTrigger = false;
 			}

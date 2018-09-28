@@ -234,7 +234,7 @@ void FHTML5Application::PollGameDeviceState( const float TimeDelta )
 		emscripten_get_canvas_size(&canvas_w, &canvas_h, &canvas_fs);
 
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 		MessageHandler->OnSizeChanged(ApplicationWindow,canvas_w,canvas_h, false);
 		MessageHandler->OnResizingWindow(ApplicationWindow);
@@ -247,7 +247,7 @@ FPlatformRect FHTML5Application::GetWorkArea( const FPlatformRect& CurrentWindow
 	return FHTML5Window::GetScreenRect();
 }
 
-void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	OutDisplayMetrics.PrimaryDisplayWorkAreaRect = FHTML5Window::GetScreenRect();
 	OutDisplayMetrics.VirtualDisplayRect    =	OutDisplayMetrics.PrimaryDisplayWorkAreaRect;

@@ -126,7 +126,7 @@ struct FStructSerializerBuiltinTestStruct
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	FGuid Guid;
 
 	UPROPERTY()
@@ -147,6 +147,7 @@ struct FStructSerializerBuiltinTestStruct
 	/** Default constructor. */
 	FStructSerializerBuiltinTestStruct()
 		: Guid(FGuid::NewGuid())
+		, Name()
 		, String("Test String")
 		, Rotator(4096, 8192, 16384)
 		, Text(FText::FromString("Test Text"))
@@ -262,7 +263,7 @@ struct FStructSerializerTestStruct
 	UPROPERTY()
 	FStructSerializerObjectTestStruct Objects;
 
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	FStructSerializerBuiltinTestStruct Builtins;
 
 	UPROPERTY()

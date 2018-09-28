@@ -73,6 +73,8 @@ namespace FNavigationSystem
 
 	bool NAVIGATIONSYSTEM_API ShouldLoadNavigationOnClient(ANavigationData& NavData);
 	bool NAVIGATIONSYSTEM_API ShouldDiscardSubLevelNavData(ANavigationData& NavData);
+
+	void NAVIGATIONSYSTEM_API MakeAllComponentsNeverAffectNav(AActor& Actor);
 }
 
 struct FNavigationSystemExec: public FSelfRegisteringExec
@@ -660,6 +662,9 @@ public:
 	/** Triggers navigation building on all eligible navigation data. */
 	virtual void Build();
 
+	/** Cancels all currently running navigation builds */
+	virtual void CancelBuild();
+
 	// @todo document
 	void OnPIEStart();
 	// @todo document
@@ -1012,6 +1017,9 @@ protected:
 
 public:
 	UNavigationSystemModuleConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	virtual void PostInitProperties() override;
+
 	virtual UNavigationSystemBase* CreateAndConfigureNavigationSystem(UWorld& World) const override;
 
 #if WITH_EDITOR

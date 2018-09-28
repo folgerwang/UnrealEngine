@@ -336,12 +336,77 @@ bool FRecordingMessageHandler::OnTouchEnded(const FVector2D& Location, int32 Tou
 	return FProxyMessageHandler::OnTouchEnded(Location, TouchIndex, ControllerId);
 }
 
+
 void FRecordingMessageHandler::PlayOnTouchEnded(FArchive& Ar)
 {
 	ThreeParamMsg<FVector2D, int32, int32 > Msg(Ar);
 	FVector2D ScreenLocation = ConvertFromNormalizedScreenLocation(Msg.Param1);
 	OnTouchEnded(ScreenLocation, Msg.Param2, Msg.Param3);
 }
+
+bool FRecordingMessageHandler::OnTouchForceChanged(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+{
+	if (IsRecording())
+	{
+		FVector2D Normalized;
+
+		if (ConvertToNormalizedScreenLocation(Location, Normalized))
+		{
+			// note - force is serialized last for backwards compat - force was introduced in 4.20
+			FourParamMsg<FVector2D, int32, int32, float> Msg(Normalized, TouchIndex, ControllerId, Force);
+			OutputWriter->RecordMessage(TEXT("OnTouchForceChanged"), Msg.AsData());
+			bIsTouching = true;
+			LastTouchLocation = Location;
+		}
+	}
+
+	if (ConsumeInput)
+	{
+		return true;
+	}
+
+	return FProxyMessageHandler::OnTouchForceChanged(Location, Force, TouchIndex, ControllerId);
+}
+
+void FRecordingMessageHandler::PlayOnTouchForceChanged(FArchive& Ar)
+{
+	FourParamMsg<FVector2D, int32, int32, float > Msg(Ar);
+	FVector2D ScreenLocation = ConvertFromNormalizedScreenLocation(Msg.Param1);
+	OnTouchForceChanged(ScreenLocation, Msg.Param4, Msg.Param2, Msg.Param3);
+}
+
+bool FRecordingMessageHandler::OnTouchFirstMove(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+{
+	if (IsRecording())
+	{
+		FVector2D Normalized;
+
+		if (ConvertToNormalizedScreenLocation(Location, Normalized))
+		{
+			// note - force is serialized last for backwards compat - force was introduced in 4.20
+			FourParamMsg<FVector2D, int32, int32, float> Msg(Normalized, TouchIndex, ControllerId, Force);
+			OutputWriter->RecordMessage(TEXT("OnTouchFirstMove"), Msg.AsData());
+			bIsTouching = true;
+			LastTouchLocation = Location;
+		}
+	}
+
+	if (ConsumeInput)
+	{
+		return true;
+	}
+
+	return FProxyMessageHandler::OnTouchFirstMove(Location, Force, TouchIndex, ControllerId);
+}
+
+void FRecordingMessageHandler::PlayOnTouchFirstMove(FArchive& Ar)
+{
+	FourParamMsg<FVector2D, int32, int32, float > Msg(Ar);
+	FVector2D ScreenLocation = ConvertFromNormalizedScreenLocation(Msg.Param1);
+	// note - force is serialized last for backwards compat - force was introduced in 4.20
+	OnTouchFirstMove(ScreenLocation, Msg.Param4, Msg.Param2, Msg.Param3);
+}
+
 
 void FRecordingMessageHandler::OnBeginGesture()
 {

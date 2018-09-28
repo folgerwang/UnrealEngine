@@ -44,6 +44,14 @@ public:
 	{ }
 
 	/**
+	 * Shuts down the socket, making it unusable for reads and/or writes. This does not close the socket!
+	 *
+	 * @param Types
+	 * @return true if successful, false otherwise.
+	 */
+	virtual bool Shutdown(ESocketShutdownMode Mode) = 0;
+
+	/**
 	 * Closes the socket
 	 *
 	 * @return true if it closes without errors, false otherwise.

@@ -59,6 +59,7 @@ class ENGINE_API UChannel
 	uint32				bPendingDormancy:1;	// Channel wants to go dormant (it will check during tick if it can go dormant)
 	uint32				bPausedUntilReliableACK:1; // Unreliable property replication is paused until all reliables are ack'd.
 	uint32				SentClosingBunch:1;	// Set when sending closing bunch to avoid recursion in send-failure-close case.
+	uint32				bPooled:1;			// Set when placed in the actor channel pool
 	int32				ChIndex;			// Index of this channel.
 	int32				OpenedLocally;		// Whether channel was opened locally or by remote.
 	FPacketIdRange		OpenPacketId;		// If OpenedLocally is true, this is the packet we sent the bOpen bunch on. Otherwise, it's the packet we received the bOpen bunch on.
@@ -139,6 +140,9 @@ public:
 	virtual void StartBecomingDormant() { }
 
 	void PrintReliableBunchBuffer();
+
+	/* Notification that this channel has been placed in a channel pool and needs to reset to its original state so it can be used again like a new channel */
+	virtual void AddedToChannelPool();
 
 protected:
 

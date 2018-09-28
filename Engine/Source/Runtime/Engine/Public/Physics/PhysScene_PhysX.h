@@ -66,6 +66,14 @@ public:
 	virtual void Destroy(FContactModifyCallback* Callback) = 0;
 };
 
+/** Interface for the creation of ccd contact modify callbacks. */
+class ICCDContactModifyCallbackFactory
+{
+public:
+	virtual FCCDContactModifyCallback* Create(FPhysScene_PhysX* PhysScene, int32 SceneType) = 0;
+	virtual void Destroy(FCCDContactModifyCallback* Callback) = 0;
+};
+
 /** Container object for a physics engine 'scene'. */
 
 class FPhysScene_PhysX
@@ -171,8 +179,9 @@ public:
 
 	ENGINE_API int32 GetNumAwakeBodies();
 
-	/** Static factory used to override the simulation contact modify callback from other modules.*/
+	/** Static factories used to override the simulation contact modify callback from other modules.*/
 	ENGINE_API static TSharedPtr<IContactModifyCallbackFactory> ContactModifyCallbackFactory;
+	ENGINE_API static TSharedPtr<ICCDContactModifyCallbackFactory> CCDContactModifyCallbackFactory;
 
 	/** Static factory used to override the physics replication manager from other modules. This is useful for custom game logic.
 	If not set it defaults to using FPhysicsReplication. */
@@ -293,6 +302,7 @@ private:
 	/** Simulation event callback object */
 	physx::PxSimulationEventCallback*			SimEventCallback[PST_MAX];
 	FContactModifyCallback*			ContactModifyCallback[PST_MAX];
+	FCCDContactModifyCallback*			CCDContactModifyCallback[PST_MAX];
 	FPhysXMbpBroadphaseCallback* MbpBroadphaseCallbacks[PST_MAX];
 
 	struct FPendingCollisionData

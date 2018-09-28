@@ -13,6 +13,10 @@
 
 class Error;
 class UDataTable;
+struct FDataTableEditorUtils;
+class UGameplayTagTableManager;
+class FDataTableImporterCSV;
+class FDataTableImporterJSON;
 template <class CharType> struct TPrettyJsonPrintPolicy;
 
 // forward declare JSON writer
@@ -20,9 +24,6 @@ template <class CharType>
 struct TPrettyJsonPrintPolicy;
 template <class CharType, class PrintPolicy>
 class TJsonWriter;
-
-
-class UDataTable;
 
 
 /**
@@ -57,16 +58,41 @@ class UDataTable
 {
 	GENERATED_UCLASS_BODY()
 
+	DECLARE_MULTICAST_DELEGATE(FOnDataTableChanged);
+	
+	friend FDataTableEditorUtils;
+	friend UGameplayTagTableManager;
+	friend FDataTableImporterCSV;
+	friend FDataTableImporterJSON;
+
 	/** Structure to use for each row of the table, must inherit from FTableRowBase */
 	UPROPERTY()
 	UScriptStruct*			RowStruct;
-
+protected:
 	/** Map of name of row to row data structure. */
 	TMap<FName, uint8*>		RowMap;
 
+	// TODO: remove this, it is temporarily here to allow DataTableEditorUtils to compile until I get around to updating functions like RemoveRow and RenameRow
+	virtual TMap<FName, uint8*>& GetNonConstRowMap() { return RowMap; }
+
+	/** Called to add rows to the data table */
+	ENGINE_API virtual void AddRowInternal(FName RowName, uint8* RowDataPtr);
+public:
+	virtual const TMap<FName, uint8*>& GetRowMap() const { return RowMap; }
+	virtual const TMap<FName, uint8*>& GetRowMap() { return RowMap; }
+
+	const UScriptStruct* GetRowStruct() const { return RowStruct; }
+
+	/** Returns true if it is valid to import multiple table rows with the same name; returns false otherwise */
+	virtual bool AllowDuplicateRowsOnImport() const { return false; }
+
 	/** Set to true to not cook this data table into client builds. Useful for sensitive tables that only servers should know about. */
 	UPROPERTY(EditAnywhere, Category=DataTable)
-	bool bStripFromClientBuilds;
+	uint8 bStripFromClientBuilds : 1;
+
+#if WITH_EDITOR
+	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
 
 	//~ Begin UObject Interface.
 	ENGINE_API virtual void FinishDestroy() override;
@@ -102,8 +128,15 @@ private:
 	UPROPERTY(Transient)
 	TSet<UObject*> TemporarilyReferencedObjects;
 
-public:
 #endif	// WITH_EDITORONLY_DATA
+private:
+
+	/** A multicast delegate that is called any time the data table changes. */
+	FOnDataTableChanged OnDataTableChangedDelegate;
+
+public:
+	/** Gets a multicast delegate that is called any time the data table changes. */
+	FOnDataTableChanged& OnDataTableChanged() { return OnDataTableChangedDelegate; }
 
 	//~ Begin UDataTable Interface
 
@@ -121,7 +154,8 @@ public:
 		}
 		else
 		{
-			for (TMap<FName, uint8*>::TConstIterator RowMapIter(RowMap.CreateConstIterator()); RowMapIter; ++RowMapIter)
+			OutRowArray.Reserve(OutRowArray.Num() + GetRowMap().Num());
+			for (TMap<FName, uint8*>::TConstIterator RowMapIter(GetRowMap().CreateConstIterator()); RowMapIter; ++RowMapIter)
 			{
 				OutRowArray.Add(reinterpret_cast<T*>(RowMapIter.Value()));
 			}
@@ -156,7 +190,7 @@ public:
 			return nullptr;
 		}
 
-		uint8* const* RowDataPtr = RowMap.Find(RowName);
+		uint8* const* RowDataPtr = GetRowMap().Find(RowName);
 		if (RowDataPtr == nullptr)
 		{
 			if (bWarnIfRowMissing)
@@ -192,7 +226,7 @@ public:
 		}
 		else
 		{
-			for (TMap<FName, uint8*>::TConstIterator RowMapIter(RowMap.CreateConstIterator()); RowMapIter; ++RowMapIter)
+			for (TMap<FName, uint8*>::TConstIterator RowMapIter(GetRowMap().CreateConstIterator()); RowMapIter; ++RowMapIter)
 			{
 				T* Entry = reinterpret_cast<T*>(RowMapIter.Value());
 				Predicate(RowMapIter.Key(), *Entry);
@@ -223,7 +257,7 @@ public:
 			return nullptr;
 		}
 
-		uint8* const* RowDataPtr = RowMap.Find(RowName);
+		uint8* const* RowDataPtr = GetRowMap().Find(RowName);
 
 		if(RowDataPtr == nullptr)
 		{
@@ -237,15 +271,15 @@ public:
 	}
 
 	/** Empty the table info (will not clear RowStruct) */
-	ENGINE_API void EmptyTable();
+	ENGINE_API virtual void EmptyTable();
 
 	ENGINE_API TArray<FName> GetRowNames() const;
 
 	/** Removes a single row from the DataTable by name. Just returns if row is not found. */
-	ENGINE_API void RemoveRow(FName RowName);
+	ENGINE_API virtual void RemoveRow(FName RowName);
 
 	/** Copies RowData into table. That is: create Row if not found and copy data into the RowMap based on RowData. This is a "copy in" operation, so changing the passed in RowData after the fact does nothing. */
-	ENGINE_API void AddRow(FName RowName, const FTableRowBase& RowData);
+	ENGINE_API virtual void AddRow(FName RowName, const FTableRowBase& RowData);
 
 #if WITH_EDITOR
 	ENGINE_API void CleanBeforeStructChange();
@@ -336,7 +370,7 @@ struct ENGINE_API FDataTableRowHandle
 
 	/** Pointer to table we want a row from */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DataTableRowHandle)
-	const class UDataTable*	DataTable;
+	const UDataTable*	DataTable;
 
 	/** Name of row in the table that we want */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DataTableRowHandle)
@@ -394,7 +428,7 @@ struct TStructOpsTypeTraits< FDataTableRowHandle > : public TStructOpsTypeTraits
 	};
 };
 
-/** Handle to a particular row in a table*/
+/** Handle to a particular set of rows in a table */
 USTRUCT(BlueprintType)
 struct ENGINE_API FDataTableCategoryHandle
 {
@@ -459,7 +493,7 @@ struct ENGINE_API FDataTableCategoryHandle
 			return;
 		}
 
-		for (auto RowIt = DataTable->RowMap.CreateConstIterator(); RowIt; ++RowIt)
+		for (auto RowIt = DataTable->GetRowMap().CreateConstIterator(); RowIt; ++RowIt)
 		{
 			uint8* RowData = RowIt.Value();
 

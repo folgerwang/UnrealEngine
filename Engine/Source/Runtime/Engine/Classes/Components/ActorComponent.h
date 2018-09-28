@@ -87,7 +87,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FActorComponentGlobalDestroyPhysicsSignature
  * @see USceneComponent
  * @see UPrimitiveComponent
  */
-UCLASS(DefaultToInstanced, BlueprintType, abstract, meta=(ShortTooltip="An ActorComponent is a reusable component that can be added to any actor."))
+UCLASS(DefaultToInstanced, BlueprintType, abstract, meta=(ShortTooltip="An ActorComponent is a reusable component that can be added to any actor."), config=Engine)
 class ENGINE_API UActorComponent : public UObject, public IInterface_AssetUserData
 {
 	GENERATED_BODY()
@@ -199,7 +199,7 @@ public:
 
 protected:
 	/** Whether this component can potentially influence navigation */
-	UPROPERTY(EditAnywhere, Category = Collision, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category = Collision, AdvancedDisplay, config)
 	uint8 bCanEverAffectNavigation : 1;
 
 public:

@@ -583,6 +583,10 @@ public:
 
 	/** Returns the mass coordinate system to world space transform (position is world center of mass, rotation is world inertia orientation) */
 	FTransform GetMassSpaceToWorldSpace() const;
+	FTransform GetMassSpaceLocal() const;
+
+	/** TODO: this only works at runtime when the physics state has been created. Any changes that result in recomputing mass properties will not properly remember this */
+	void SetMassSpaceLocal(const FTransform& NewMassSpaceLocalTM);
 
 	/** Draws the center of mass as a wire star */
 	void DrawCOMPosition(class FPrimitiveDrawInterface* PDI, float COMRenderSize, const FColor& COMRenderColor);
@@ -670,10 +674,10 @@ public:
 	/** Add an impulse to this body and a particular world position */
 	void AddImpulseAtPosition(const FVector& Impulse, const FVector& Position);
 	/** Set the linear velocity of this body */
-	void SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent);
+	void SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent, bool bAutoWake = true);
 
 	/** Set the angular velocity of this body */
-	void SetAngularVelocityInRadians(const FVector& NewAngVel, bool bAddToCurrent);
+	void SetAngularVelocityInRadians(const FVector& NewAngVel, bool bAddToCurrent, bool bAutoWake = true);
 
 	/** Set the maximum angular velocity of this body */
 	void SetMaxAngularVelocityInRadians(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true);
@@ -712,7 +716,7 @@ public:
 	 *	Move the physics body to a new pose.
 	 *	@param	bTeleport	If true, no velocity is inferred on the kinematic body from this movement, but it moves right away.
 	 */
-	void SetBodyTransform(const FTransform& NewTransform, ETeleportType Teleport);
+	void SetBodyTransform(const FTransform& NewTransform, ETeleportType Teleport, bool bAutoWake = true);
 
 	/** Get current velocity in world space from physics body. */
 	FVector GetUnrealWorldVelocity() const;

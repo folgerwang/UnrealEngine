@@ -38,6 +38,8 @@
 #include "Modules/ModuleManager.h"
 #include "HAL/ThreadHeartBeat.h"
 
+#include "FramePro/FrameProProfiler.h"
+
 // define for glibc 2.12.2 and lower (which is shipped with CentOS 6.x and which we target by default)
 #define __secure_getenv getenv
 
@@ -103,6 +105,64 @@ void UnixPlatform_UpdateCacheLineSize()
 	}
 }
 
+// Defined in UnixPlatformMemory
+extern bool GUseKSM;
+extern bool GKSMMergeAllPages;
+
+static void UnixPlatForm_CheckIfKSMUsable()
+{
+	// https://www.kernel.org/doc/Documentation/vm/ksm.txt
+	if (GUseKSM)
+	{
+		int KSMRunEnabled = 0;
+		if (FILE* KSMRunFile = fopen("/sys/kernel/mm/ksm/run", "r"))
+		{
+			if (fscanf(KSMRunFile, "%d", &KSMRunEnabled) != 1)
+			{
+				KSMRunEnabled = 0;
+			}
+
+			fclose(KSMRunFile);
+		}
+
+		// The range for PagesToScan is 0 <--> max uint32_t
+		uint32_t PagesToScan = 0;
+		if (FILE* KSMPagesToScanFile = fopen("/sys/kernel/mm/ksm/pages_to_scan", "r"))
+		{
+			if (fscanf(KSMPagesToScanFile, "%u", &PagesToScan) != 1)
+			{
+				PagesToScan = 0;
+			}
+
+			fclose(KSMPagesToScanFile);
+		}
+
+		if (!KSMRunEnabled)
+		{
+			GUseKSM = 0;
+			UE_LOG(LogInit, Error, TEXT("Cannot run ksm when its disabled in the kernel. Please check /sys/kernel/mm/ksm/run"));
+		}
+		else
+		{
+			if (PagesToScan <= 0)
+			{
+				GUseKSM = 0;
+				UE_LOG(LogInit, Error, TEXT("KSM enabled but number of pages to be scanned is 0 which will implicitly disable KSM. Please check /sys/kernel/mm/ksm/pages_to_scan"));
+			}
+			else
+			{
+				UE_LOG(LogInit, Log, TEXT("KSM enabled. Number of pages to be scanned before ksmd goes to sleep: %u"), PagesToScan);
+			}
+		}
+	}
+
+	// Disable if GUseKSM is disabled from kernel settings
+	GKSMMergeAllPages = GUseKSM && GKSMMergeAllPages;
+}
+
+// Init'ed in UnixPlatformMemory for now. Once the old crash symbolicator is gone remove this
+extern bool CORE_API GUseNewCrashSymbolicator;
+
 void FUnixPlatformMisc::PlatformInit()
 {
 	// install a platform-specific signal handler
@@ -111,6 +171,8 @@ void FUnixPlatformMisc::PlatformInit()
 	// do not remove the below check for IsFirstInstance() - it is not just for logging, it actually lays the claim to be first
 	bool bFirstInstance = FPlatformProcess::IsFirstInstance();
 	bool bIsNullRHI = !FApp::CanEverRender();
+
+	UnixPlatForm_CheckIfKSMUsable();
 
 	UE_LOG(LogInit, Log, TEXT("Unix hardware info:"));
 	UE_LOG(LogInit, Log, TEXT(" - we are %sthe first instance of this executable"), bFirstInstance ? TEXT("") : TEXT("not "));
@@ -134,6 +196,8 @@ void FUnixPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT(" -jemalloc - use jemalloc for all memory allocation"));
 	UE_LOG(LogInit, Log, TEXT(" -binnedmalloc - use binned malloc  for all memory allocation"));
 	UE_LOG(LogInit, Log, TEXT(" -filemapcachesize=NUMBER - set the size for case-sensitive file mapping cache"));
+	UE_LOG(LogInit, Log, TEXT(" -useksm - uses kernel same-page mapping (KSM) for mapped memory (%s)"), GUseKSM ? TEXT("ON") : TEXT("OFF"));
+	UE_LOG(LogInit, Log, TEXT(" -ksmmergeall - marks all mmap'd memory pages suitable for KSM (%s)"), GKSMMergeAllPages ? TEXT("ON") : TEXT("OFF"));
 
 	// [RCL] FIXME: this should be printed in specific modules, if at all
 	UE_LOG(LogInit, Log, TEXT(" -httpproxy=ADDRESS:PORT - redirects HTTP requests to a proxy (only supported if compiled with libcurl)"));
@@ -813,6 +877,46 @@ bool FUnixPlatformMisc::IsRunningOnBattery()
 
 	return bIsOnBattery;
 }
+
+#if STATS || ENABLE_STATNAMEDEVENTS
+void FUnixPlatformMisc::BeginNamedEventFrame()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::FrameStart();
+#endif // FRAMEPRO_ENABLED
+}
+
+void FUnixPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif
+}
+
+void FUnixPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif
+}
+
+void FUnixPlatformMisc::EndNamedEvent()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PopEvent();
+#endif
+}
+
+void FUnixPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+}
+
+void FUnixPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+}
+#endif
 
 #if !UE_BUILD_SHIPPING
 CORE_API TFunction<void()> UngrabAllInputCallback;

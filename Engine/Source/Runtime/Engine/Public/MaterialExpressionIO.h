@@ -33,22 +33,26 @@ struct FExpressionInput
 	 */
 	FName						InputName;
 
+#if WITH_EDITORONLY_DATA
 	int32						Mask,
 								MaskR,
 								MaskG,
 								MaskB,
 								MaskA;
+#endif
 
 	/** Material expression name that this input is connected to, or None if not connected. Used only in cooked builds */
 	FName				ExpressionName;
 
 	FExpressionInput()
 		: OutputIndex(0)
+#if WITH_EDITORONLY_DATA
 		, Mask(0)
 		, MaskR(0)
 		, MaskG(0)
 		, MaskB(0)
 		, MaskA(0)
+#endif
 	{
 #if WITH_EDITORONLY_DATA
 		Expression = nullptr;
@@ -87,11 +91,13 @@ struct FExpressionInput
 	/** Helper for setting component mask. */
 	ENGINE_API void SetMask(int32 UseMask, int32 R, int32 G, int32 B, int32 A)
 	{
+#if WITH_EDITORONLY_DATA
 		Mask = UseMask;
 		MaskR = R;
 		MaskG = G;
 		MaskB = B;
 		MaskA = A;
+#endif
 	}
 };
 
@@ -112,37 +118,45 @@ struct TStructOpsTypeTraits<FExpressionInput>
 struct FExpressionOutput
 {
 	FName	OutputName;
+#if WITH_EDITORONLY_DATA
 	int32	Mask,
 		MaskR,
 		MaskG,
 		MaskB,
 		MaskA;
+#endif
 
-	FExpressionOutput(int32 InMask = 0, int32 InMaskR = 0, int32 InMaskG = 0, int32 InMaskB = 0, int32 InMaskA = 0) :
-		Mask(InMask),
-		MaskR(InMaskR),
-		MaskG(InMaskG),
-		MaskB(InMaskB),
-		MaskA(InMaskA)
+	FExpressionOutput(int32 InMask = 0, int32 InMaskR = 0, int32 InMaskG = 0, int32 InMaskB = 0, int32 InMaskA = 0)
+#if WITH_EDITORONLY_DATA
+		: Mask(InMask)
+		, MaskR(InMaskR)
+		, MaskG(InMaskG)
+		, MaskB(InMaskB)
+		, MaskA(InMaskA)
+#endif
 	{}
 
-	FExpressionOutput(FName InOutputName, int32 InMask = 0, int32 InMaskR = 0, int32 InMaskG = 0, int32 InMaskB = 0, int32 InMaskA = 0) :
-		OutputName(InOutputName),
-		Mask(InMask),
-		MaskR(InMaskR),
-		MaskG(InMaskG),
-		MaskB(InMaskB),
-		MaskA(InMaskA)
+	FExpressionOutput(FName InOutputName, int32 InMask = 0, int32 InMaskR = 0, int32 InMaskG = 0, int32 InMaskB = 0, int32 InMaskA = 0)
+		: OutputName(InOutputName)
+#if WITH_EDITORONLY_DATA
+		, Mask(InMask)
+		, MaskR(InMaskR)
+		, MaskG(InMaskG)
+		, MaskB(InMaskB)
+		, MaskA(InMaskA)
+#endif
 	{}
 
 	/** Helper for setting component mask. */
 	ENGINE_API void SetMask(int32 UseMask, int32 R, int32 G, int32 B, int32 A)
 	{
+#if WITH_EDITORONLY_DATA
 		Mask = UseMask;
 		MaskR = R;
 		MaskG = G;
 		MaskB = B;
 		MaskA = A;
+#endif
 	}
 };
 
@@ -152,8 +166,10 @@ struct FExpressionOutput
 
 template<class InputType> struct FMaterialInput : FExpressionInput
 {
+#if WITH_EDITORONLY_DATA
 	uint32	UseConstant : 1;
 	InputType	Constant;
+#endif
 };
 
 struct FColorMaterialInput : FMaterialInput<FColor>

@@ -17,22 +17,21 @@
 // @todo #JohnB: There is quite a lot of inefficient copying of packet data going on.
 //					Redo the whole packet parsing/modification pipeline.
 
-// @todo: There is no netcode stats tracking this low down in the pipeline. Should probably add some.
-
-
 IMPLEMENT_MODULE(FPacketHandlerComponentModuleInterface, PacketHandler);
 
 DEFINE_LOG_CATEGORY(PacketHandlerLog);
+
+DECLARE_CYCLE_STAT(TEXT("PacketHandler Incoming_Internal"), Stat_PacketHandler_Incoming_Internal, STATGROUP_Net);
+DECLARE_CYCLE_STAT(TEXT("PacketHandler Outgoing_Internal"), Stat_PacketHandler_Outgoing_Internal, STATGROUP_Net);
 
 /**
  * PacketHandler
  */
 
-PacketHandler::PacketHandler()
+PacketHandler::PacketHandler(FDDoSDetection* InDDoS/*=nullptr*/)
 	: Mode(Handler::Mode::Client)
-	, Time(0.f)
 	, bConnectionlessHandler(false)
-	, DDoS(nullptr)
+	, DDoS(InDDoS)
 	, LowLevelSendDel()
 	, HandshakeCompleteDel()
 	, OutgoingPacket()
@@ -48,6 +47,8 @@ PacketHandler::PacketHandler()
 	, QueuedConnectionlessPackets()
 	, ReliabilityComponent(nullptr)
 	, bRawSend(false)
+	, Provider()
+	, Aggregator()
 	, bBeganHandshaking(false)
 {
 	OutgoingPacket.SetAllowResize(true);
@@ -56,13 +57,13 @@ PacketHandler::PacketHandler()
 
 void PacketHandler::Tick(float DeltaTime)
 {
-	Time += DeltaTime;
-
-	for (int32 i=0; i<HandlerComponents.Num(); ++i)
+	for (const TSharedPtr<HandlerComponent>& Component : HandlerComponents)
 	{
-		HandlerComponents[i]->Tick(DeltaTime);
+		if (Component.IsValid())
+		{
+			Component->Tick(DeltaTime);
+		}
 	}
-
 
 	// Send off any queued handler packets
 	BufferedPacket* QueuedPacket = nullptr;
@@ -75,7 +76,7 @@ void PacketHandler::Tick(float DeltaTime)
 
 		OutPacket.SerializeBits(QueuedPacket->Data, QueuedPacket->CountBits);
 
-		SendHandlerPacket(QueuedPacket->FromComponent, OutPacket);
+		SendHandlerPacket(QueuedPacket->FromComponent, OutPacket, QueuedPacket->Traits);
 	}
 }
 
@@ -97,7 +98,7 @@ void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, boo
 
 		GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), Components, GEngineIni);
 
-		for (FString CurComponent : Components)
+		for (const FString& CurComponent : Components)
 		{
 			AddHandler(CurComponent, true);
 		}
@@ -124,11 +125,31 @@ void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, boo
 
 	if (bEnableReliability && !ReliabilityComponent.IsValid())
 	{
-		ReliabilityComponent = MakeShareable(new ReliabilityHandlerComponent);
-		AddHandler(ReliabilityComponent, true);
+		TSharedPtr<HandlerComponent> NewComponent = MakeShareable(new ReliabilityHandlerComponent);
+		ReliabilityComponent = StaticCastSharedPtr<ReliabilityHandlerComponent>(NewComponent);
+		AddHandler(NewComponent, true);
 	}
+}
 
+void PacketHandler::NotifyAnalyticsProvider(TSharedPtr<IAnalyticsProvider> InProvider, TSharedPtr<FNetAnalyticsAggregator> InAggregator)
+{
 	Provider = InProvider;
+	Aggregator = InAggregator;
+
+	if (State != Handler::State::Uninitialized)
+	{
+		// Hotfixes should never reach this code from NetConnection's, but we can't avoid it in the case of the stateless connect handler.
+		// The latter should be ok without special/expensive multithreaded handling, as the hotfix happens so early - but it's not ideal.
+		ensure(bConnectionlessHandler || HandlerComponents.Num() == 0);
+
+		for (const TSharedPtr<HandlerComponent>& CurComponent : HandlerComponents)
+		{
+			if (CurComponent->IsInitialized())
+			{
+				CurComponent->NotifyAnalyticsProvider();
+			}
+		}
+	}
 }
 
 void PacketHandler::InitializeComponents()
@@ -146,14 +167,12 @@ void PacketHandler::InitializeComponents()
 	}
 
 	// Trigger delayed-initialization for HandlerComponents
-	for (int32 i=0; i<HandlerComponents.Num(); i++)
+	for (TSharedPtr<HandlerComponent>& Component : HandlerComponents)
 	{
-		HandlerComponent& CurComponent = *HandlerComponents[i];
-
-		if (!CurComponent.IsInitialized())
+		if (Component.IsValid() && !Component->IsInitialized())
 		{
-			CurComponent.Initialize();
-			CurComponent.SetAnalyticsProvider(Provider);
+			Component->Initialize();
+			Component->NotifyAnalyticsProvider();
 		}
 	}
 
@@ -173,7 +192,7 @@ void PacketHandler::BeginHandshaking(FPacketHandlerHandshakeComplete InHandshake
 	{
 		HandlerComponent& CurComponent = *HandlerComponents[i];
 
-		if (CurComponent.bRequiresHandshake && !CurComponent.IsInitialized())
+		if (CurComponent.RequiresHandshake() && !CurComponent.IsInitialized())
 		{
 			CurComponent.NotifyHandshakeBegin();
 			break;
@@ -181,7 +200,7 @@ void PacketHandler::BeginHandshaking(FPacketHandlerHandshakeComplete InHandshake
 	}
 }
 
-void PacketHandler::AddHandler(TSharedPtr<HandlerComponent> NewHandler, bool bDeferInitialize/*=false*/)
+void PacketHandler::AddHandler(TSharedPtr<HandlerComponent>& NewHandler, bool bDeferInitialize/*=false*/)
 {
 	// This is never valid. Can end up silently changing maximum allow packet size, which could cause failure to send packets.
 	if (State != Handler::State::Uninitialized)
@@ -218,7 +237,7 @@ void PacketHandler::AddHandler(TSharedPtr<HandlerComponent> NewHandler, bool bDe
 	}
 }
 
-TSharedPtr<HandlerComponent> PacketHandler::AddHandler(FString ComponentStr, bool bDeferInitialize/*=false*/)
+TSharedPtr<HandlerComponent> PacketHandler::AddHandler(const FString& ComponentStr, bool bDeferInitialize/*=false*/)
 {
 	TSharedPtr<HandlerComponent> ReturnVal = nullptr;
 
@@ -352,10 +371,11 @@ TSharedPtr<HandlerComponent> PacketHandler::GetComponentByName(FName ComponentNa
 	return nullptr;
 }
 
-const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless, FString Address)
+const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless, const FString& Address)
 {
-	// @todo #JohnB: Try to optimize this function more, seeing as it will be a common codepath DoS attacks pass through
+	SCOPE_CYCLE_COUNTER(Stat_PacketHandler_Incoming_Internal);
 
+	// @todo #JohnB: Try to optimize this function more, seeing as it will be a common codepath DoS attacks pass through
 	// @todo #JohnB: Clean up returns.
 
 	int32 CountBits = CountBytes * 8;
@@ -444,8 +464,10 @@ const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 Coun
 	}
 }
 
-const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 CountBits, bool bConnectionless, FString Address)
+const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits, bool bConnectionless, const FString& Address)
 {
+	SCOPE_CYCLE_COUNTER(Stat_PacketHandler_Outgoing_Internal);
+
 	if (!bRawSend)
 	{
 		OutgoingPacket.Reset();
@@ -472,11 +494,11 @@ const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 Coun
 					{
 						if (bConnectionless)
 						{
-							CurComponent.OutgoingConnectionless(Address, OutgoingPacket);
+							CurComponent.OutgoingConnectionless(Address, OutgoingPacket, Traits);
 						}
 						else
 						{
-							CurComponent.Outgoing(OutgoingPacket);
+							CurComponent.Outgoing(OutgoingPacket, Traits);
 						}
 					}
 					else
@@ -502,7 +524,7 @@ const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 Coun
 			if (!bConnectionless && ReliabilityComponent.IsValid() && OutgoingPacket.GetNumBits() > 0)
 			{
 				// Let the reliability handler know about all processed packets, so it can record them for resending if needed
-				ReliabilityComponent->QueuePacketForResending(OutgoingPacket.GetData(), OutgoingPacket.GetNumBits());
+				ReliabilityComponent->QueuePacketForResending(OutgoingPacket.GetData(), OutgoingPacket.GetNumBits(), Traits);
 			}
 		}
 		// Buffer any packets being sent from game code until processors are initialized
@@ -510,11 +532,11 @@ const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 Coun
 		{
 			if (bConnectionless)
 			{
-				BufferedConnectionlessPackets.Add(new BufferedPacket(Address, Packet, CountBits));
+				BufferedConnectionlessPackets.Add(new BufferedPacket(Address, Packet, CountBits, Traits));
 			}
 			else
 			{
-				BufferedPackets.Add(new BufferedPacket(Packet, CountBits));
+				BufferedPackets.Add(new BufferedPacket(Packet, CountBits, Traits));
 			}
 
 			Packet = nullptr;
@@ -541,23 +563,19 @@ void PacketHandler::ReplaceIncomingPacket(FBitReader& ReplacementPacket)
 {
 	if (ReplacementPacket.GetPosBits() == 0 || ReplacementPacket.GetBitsLeft() == 0)
 	{
-		IncomingPacket = ReplacementPacket;
+		IncomingPacket = MoveTemp(ReplacementPacket);
 	}
 	else
 	{
 		// @todo #JohnB: Make this directly adjust and write into IncomingPacket's buffer, instead of copying - very inefficient
-		TArray<uint8> NewPacketData;
-		int32 NewPacketSizeBits = ReplacementPacket.GetBitsLeft();
+		TArray<uint8> TempPacketData;
+		TempPacketData.AddUninitialized(ReplacementPacket.GetBytesLeft());
+		TempPacketData[TempPacketData.Num()-1] = 0;
 
-		NewPacketData.AddUninitialized(ReplacementPacket.GetBytesLeft());
-		NewPacketData[NewPacketData.Num()-1] = 0;
+		int64 NewPacketSizeBits = ReplacementPacket.GetBitsLeft();
 
-		ReplacementPacket.SerializeBits(NewPacketData.GetData(), NewPacketSizeBits);
-
-
-		FBitReader NewPacket(NewPacketData.GetData(), NewPacketSizeBits);
-
-		IncomingPacket = NewPacket;
+		ReplacementPacket.SerializeBits(TempPacketData.GetData(), NewPacketSizeBits);
+		IncomingPacket.SetData(MoveTemp(TempPacketData), NewPacketSizeBits);
 	}
 }
 
@@ -570,23 +588,17 @@ void PacketHandler::RealignPacket(FBitReader& Packet)
 		if (BitsLeft > 0)
 		{
 			// @todo #JohnB: Based on above - when you optimize above, optimize this too
-			TArray<uint8> NewPacketData;
-			int32 NewPacketSizeBits = BitsLeft;
+			TArray<uint8> TempPacketData;
+			TempPacketData.AddUninitialized(Packet.GetBytesLeft());
+			TempPacketData[TempPacketData.Num()-1] = 0;
 
-			NewPacketData.AddUninitialized(Packet.GetBytesLeft());
-			NewPacketData[NewPacketData.Num()-1] = 0;
-
-			Packet.SerializeBits(NewPacketData.GetData(), NewPacketSizeBits);
-
-
-			FBitReader NewPacket(NewPacketData.GetData(), NewPacketSizeBits);
-
-			Packet = NewPacket;
+			Packet.SerializeBits(TempPacketData.GetData(), BitsLeft);
+			Packet.SetData(MoveTemp(TempPacketData), BitsLeft);
 		}
 	}
 }
 
-void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter& Writer)
+void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter& Writer, FOutPacketTraits& Traits)
 {
 	// @todo #JohnB: There is duplication between this function and others, it would be nice to reduce this.
 
@@ -616,7 +628,7 @@ void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter&
 			{
 				if (Writer.GetNumBits() <= CurComponent.MaxOutgoingBits)
 				{
-					CurComponent.Outgoing(Writer);
+					CurComponent.Outgoing(Writer, Traits);
 				}
 				else
 				{
@@ -641,7 +653,7 @@ void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter&
 			if (ReliabilityComponent.IsValid())
 			{
 				// Let the reliability handler know about all processed packets, so it can record them for resending if needed
-				ReliabilityComponent->QueueHandlerPacketForResending(InComponent, Writer.GetData(), Writer.GetNumBits());
+				ReliabilityComponent->QueueHandlerPacketForResending(InComponent, Writer.GetData(), Writer.GetNumBits(), Traits);
 			}
 
 			// Now finish off with a raw send (as we don't want to go through the PacketHandler chain again)
@@ -649,7 +661,7 @@ void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter&
 
 			bRawSend = true;
 
-			LowLevelSendDel.Execute(Writer.GetData(), Writer.GetNumBytes(), Writer.GetNumBits());
+			LowLevelSendDel.Execute(Writer.GetData(), Writer.GetNumBits(), Traits);
 
 			bRawSend = bOldRawSend;
 		}
@@ -692,9 +704,9 @@ void PacketHandler::HandlerInitialized()
 	// Quickly verify that, if reliability is required, that it is enabled
 	if (!ReliabilityComponent.IsValid())
 	{
-		for (int32 i=0; i<HandlerComponents.Num(); i++)
+		for(const TSharedPtr<HandlerComponent>& Component : HandlerComponents)
 		{
-			if (HandlerComponents[i]->bRequiresReliability)
+			if (Component.IsValid() && Component->RequiresReliability())
 			{
 				// Don't allow this to be missed in shipping - but allow it during development,
 				// as this is valid when developing new HandlerComponent's
@@ -756,8 +768,8 @@ void PacketHandler::HandlerComponentInitialized(HandlerComponent* InComponent)
 			{
 				// If the initialized component required a handshake, pass on notification to the next handshaking component
 				// (components closer to the Socket, perform their handshake first)
-				if (bBeganHandshaking && !CurComponent.IsInitialized() && InComponent->bRequiresHandshake && !bPassedHandshakeNotify &&
-						CurComponent.bRequiresHandshake)
+				if (bBeganHandshaking && !CurComponent.IsInitialized() && InComponent->RequiresHandshake() && !bPassedHandshakeNotify &&
+						CurComponent.RequiresHandshake())
 				{
 					CurComponent.NotifyHandshakeBegin();
 					bPassedHandshakeNotify = true;
@@ -891,7 +903,6 @@ bool HandlerComponent::IsInitialized() const
 {
 	return bInitialized;
 }
-
 
 /**
  * FPacketHandlerComponentModuleInterface

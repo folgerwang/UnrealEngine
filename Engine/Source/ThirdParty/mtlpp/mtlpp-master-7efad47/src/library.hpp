@@ -7,7 +7,6 @@
 
 #pragma once
 
-
 #include "declare.hpp"
 #include "imp_Library.hpp"
 #include "ns.hpp"
@@ -18,7 +17,7 @@ MTLPP_BEGIN
 namespace ue4
 {
 	template<>
-	struct ITable<id<MTLLibrary>, void> : public IMPTable<id<MTLLibrary>, void>, public ITableCacheRef
+	struct MTLPP_EXPORT ITable<id<MTLLibrary>, void> : public IMPTable<id<MTLLibrary>, void>, public ITableCacheRef
 	{
 		ITable()
 		{
@@ -31,7 +30,7 @@ namespace ue4
 	};
 	
 	template<>
-	struct ITable<id<MTLFunction>, void> : public IMPTable<id<MTLFunction>, void>, public ITableCacheRef
+	struct MTLPP_EXPORT ITable<id<MTLFunction>, void> : public IMPTable<id<MTLFunction>, void>, public ITableCacheRef
 	{
 		ITable()
 		{
@@ -86,7 +85,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_12, 10_0);
 
-    class VertexAttribute : public ns::Object<MTLVertexAttribute*>
+    class MTLPP_EXPORT VertexAttribute : public ns::Object<MTLVertexAttribute*>
     {
     public:
         VertexAttribute();
@@ -102,7 +101,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class Attribute : public ns::Object<MTLAttribute*>
+    class MTLPP_EXPORT Attribute : public ns::Object<MTLAttribute*>
     {
     public:
         Attribute();
@@ -126,7 +125,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class FunctionConstant : public ns::Object<MTLFunctionConstant*>
+    class MTLPP_EXPORT FunctionConstant : public ns::Object<MTLFunctionConstant*>
     {
     public:
         FunctionConstant();
@@ -140,7 +139,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_12, 10_0);
 
-    class Function : public ns::Object<ns::Protocol<id<MTLFunction>>::type>
+    class MTLPP_EXPORT Function : public ns::Object<ns::Protocol<id<MTLFunction>>::type>
     {
     public:
 		Function(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLFunction>>::type>(retain) { }
@@ -173,7 +172,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 9_0);
 
-    class CompileOptions : public ns::Object<MTLCompileOptions*>
+    class MTLPP_EXPORT CompileOptions : public ns::Object<MTLCompileOptions*>
     {
     public:
         CompileOptions();
@@ -210,7 +209,7 @@ namespace mtlpp
 
 	MTLPP_CLOSURE(FunctionHandler, void, const Function&, const ns::Error&);
 	
-    class Library : public ns::Object<ns::Protocol<id<MTLLibrary>>::type>
+    class MTLPP_EXPORT Library : public ns::Object<ns::Protocol<id<MTLLibrary>>::type>
     {
     public:
         Library() { }

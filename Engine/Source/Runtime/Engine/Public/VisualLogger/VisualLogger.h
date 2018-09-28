@@ -488,8 +488,11 @@ public:
 	/** internal check for each usage of visual logger */
 	static bool CheckVisualLogInputInternal(const UObject* Object, const FName& CategoryName, ELogVerbosity::Type Verbosity, UWorld **World, FVisualLogEntry **CurrentEntry);
 
-	typedef TMap<UObject*, TArray<TWeakObjectPtr<const UObject> > > RedirectionMapType;
-	static RedirectionMapType& GetRedirectionMap(const UObject* InObject);
+	typedef TMap<UObject*, TArray<TWeakObjectPtr<const UObject> > > FOwnerToChildrenRedirectionMap;
+	static FOwnerToChildrenRedirectionMap& GetRedirectionMap(const UObject* InObject);
+
+	typedef TMap<TWeakObjectPtr<const UObject>, TWeakObjectPtr<const UObject> > FChildToOwnerRedirectionMap;
+	FChildToOwnerRedirectionMap& GetChildToOwnerRedirectionMap() { return ChildToOwnerMap; }
 
 	typedef TMap<const UObject*, TWeakObjectPtr<const UWorld> > FObjectToWorldMapType;
 	FObjectToWorldMapType& GetObjectToWorldMap() { return ObjectToWorldMap; }
@@ -509,7 +512,7 @@ protected:
 	/** Array of output devices to redirect to */
 	TArray<FVisualLogDevice*> OutputDevices;
 	// Map for inter-objects redirections
-	static TMap<const UWorld*, RedirectionMapType> WorldToRedirectionMap;
+	static TMap<const UWorld*, FOwnerToChildrenRedirectionMap> WorldToRedirectionMap;
 
 	// white-listed classes - only instances of these classes will be logged. 
 	// if ClassWhitelist is empty (default) everything will log
@@ -536,6 +539,9 @@ protected:
 	TMap<const UObject*, TWeakObjectPtr<const UObject> > ObjectToPointerMap;
 	// Cached map to world information because it's just raw pointer and not real object
 	FObjectToWorldMapType ObjectToWorldMap;
+	// for any object that has requested redirection this map holds where we should
+	// redirect the trafic to
+	FChildToOwnerRedirectionMap ChildToOwnerMap;
 	// if set all categories are blocked from logging
 	int32 bBlockedAllCategories : 1;
 	// if set we are recording to file

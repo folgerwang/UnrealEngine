@@ -18,7 +18,10 @@ FHeartbeatManager::FHeartbeatManager() :
 FHeartbeatManager::	~FHeartbeatManager()
 {
 	Stop();
-	Thread->WaitForCompletion();
+	if (Thread)
+	{
+		Thread->WaitForCompletion();
+	}
 };
 
 FHeartbeatManager* FHeartbeatManager::Get()

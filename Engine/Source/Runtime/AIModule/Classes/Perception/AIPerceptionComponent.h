@@ -189,6 +189,8 @@ protected:
 	FPerceptionChannelWhitelist PerceptionFilter;
 
 private:
+	FPerceptionListenerID PerceptionListenerId;
+
 	FActorPerceptionContainer PerceptualData;
 		
 protected:	
@@ -332,8 +334,6 @@ protected:
 	virtual void HandleExpiredStimulus(FAIStimulus& StimulusStore);
 	
 private:
-	FPerceptionListenerID PerceptionListenerId;
-
 	friend UAIPerceptionSystem;
 
 	void StoreListenerId(FPerceptionListenerID InListenerId) { PerceptionListenerId = InListenerId; }

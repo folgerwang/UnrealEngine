@@ -126,7 +126,7 @@ namespace DetailedCookStats
 						{
 							StatAttrs.Emplace(Attr.Key, Attr.Value);
 						}
-						CookAnalytics->RecordEvent(StatName, StatAttrs);
+						CookAnalytics->RecordEvent(StatName, MoveTemp(StatAttrs));
 					};
 					FCookStatsManager::LogCookStats(SendCookStatsToAnalytics);
 				}

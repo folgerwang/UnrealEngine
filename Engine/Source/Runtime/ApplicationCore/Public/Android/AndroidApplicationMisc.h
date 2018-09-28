@@ -7,9 +7,11 @@
 struct APPLICATIONCORE_API FAndroidApplicationMisc : public FGenericPlatformApplicationMisc
 {
 	static void LoadPreInitModules();
+	static class FFeedbackContext* GetFeedbackContext();
 	static class FOutputDeviceError* GetErrorOutputDevice();
 	static class GenericApplication* CreateApplication();
 	static void RequestMinimize();
+	static bool IsScreensaverEnabled();
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);

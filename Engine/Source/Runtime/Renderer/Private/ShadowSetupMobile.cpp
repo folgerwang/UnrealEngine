@@ -231,7 +231,7 @@ static void VisualizeMobileDynamicCSMSubjectCapsules(FViewInfo& View, FLightScen
 			// Combined bounds
 			FVector CombinedCasterStart;
 			FVector CombinedCasterEnd;
-			FBoxSphereBounds CombinedBounds(EForceInit::ForceInitToZero);
+			FBoxSphereBounds CombinedBounds(ForceInitToZero);
 			for (auto& Caster : MobileCSMSubjectPrimitives.GetShadowSubjectPrimitives())
 			{
 				CombinedBounds = (CombinedBounds.SphereRadius > 0.0f) ? CombinedBounds + Caster->Proxy->GetBounds() : Caster->Proxy->GetBounds();
@@ -456,7 +456,7 @@ void FMobileSceneRenderer::BuildCSMVisibilityState(FLightSceneInfo* LightSceneIn
 					{
 						FVector CombinedCasterStart;
 						FVector CombinedCasterEnd;
-						FBoxSphereBounds CombinedBounds(EForceInit::ForceInitToZero);
+						FBoxSphereBounds CombinedBounds(ForceInitToZero);
 
 						// Calculate combined bounds
 						for (auto& Caster : ShadowSubjectPrimitives)

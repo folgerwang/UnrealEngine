@@ -41,25 +41,26 @@ void FAnimNode_PoseBlendNode::Evaluate_AnyThread(FPoseContext& Output)
 
 	bool bValidPose = false;
 
-	if (CurrentPoseAsset.IsValid() && (Output.AnimInstanceProxy->IsSkeletonCompatible(CurrentPoseAsset->GetSkeleton())))
+	if (CurrentPoseAsset.IsValid() && (PoseExtractContext.PoseCurves.Num() > 0) && (Output.AnimInstanceProxy->IsSkeletonCompatible(CurrentPoseAsset->GetSkeleton())))
 	{
+		const UPoseAsset* CachedPoseAsset = CurrentPoseAsset.Get();
 		FPoseContext CurrentPose(Output);
-		check(PoseExtractContext.PoseCurves.Num() == PoseUIDList.Num());
 		// only give pose curve, we don't set any more curve here
-		for (int32 PoseIdx = 0; PoseIdx < PoseUIDList.Num(); ++PoseIdx)
+		for (int32 PoseIdx = 0; PoseIdx < PoseExtractContext.PoseCurves.Num(); ++PoseIdx)
 		{
+			FPoseCurve& PoseCurve = PoseExtractContext.PoseCurves[PoseIdx];
 			// Get value of input curve
-			float InputValue = SourceData.Curve.Get(PoseUIDList[PoseIdx]);
+			float InputValue = SourceData.Curve.Get(PoseCurve.UID);
 			// Remap using chosen BlendOption
 			float RemappedValue = FAlphaBlend::AlphaToBlendOption(InputValue, BlendOption, CustomCurve);
 
-			PoseExtractContext.PoseCurves[PoseIdx] = RemappedValue;
+			PoseCurve.Value = RemappedValue;
 		}
 
-		if (CurrentPoseAsset.Get()->GetAnimationPose(CurrentPose.Pose, CurrentPose.Curve, PoseExtractContext))
+		if (CachedPoseAsset->GetAnimationPose(CurrentPose.Pose, CurrentPose.Curve, PoseExtractContext))
 		{
 			// once we get it, we have to blend by weight
-			if (CurrentPoseAsset->IsValidAdditive())
+			if (CachedPoseAsset->IsValidAdditive())
 			{
 				Output = SourceData;
 				FAnimationRuntime::AccumulateAdditivePose(Output.Pose, CurrentPose.Pose, Output.Curve, CurrentPose.Curve, 1.f, EAdditiveAnimationType::AAT_LocalSpaceBase);

@@ -79,7 +79,7 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 	HistogramLogMin = FMath::Min<float>(HistogramLogMin, HistogramLogMax - 1);
 
 	// Eye adaptation is disabled except for highend right now because the histogram is not computed.
-	if (!bDisableExposure)
+	if (!bDisableExposure && EngineShowFlags.Lighting && EngineShowFlags.EyeAdaptation && View.GetFeatureLevel() >= MinFeatureLevel)
 	{
 		if (View.Family->ExposureSettings.bFixed || Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Manual)
 		{

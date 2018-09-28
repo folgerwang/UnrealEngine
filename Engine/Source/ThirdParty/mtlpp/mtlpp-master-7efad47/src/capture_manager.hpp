@@ -21,11 +21,11 @@ namespace ue4
 
 namespace mtlpp
 {
-	class Device;
-	class CaptureScope;
-	class CommandQueue;
+	class MTLPP_EXPORT Device;
+	class MTLPP_EXPORT CaptureScope;
+	class MTLPP_EXPORT CommandQueue;
 	
-	class CaptureManager : public ns::Object<MTLCaptureManager*>
+	class MTLPP_EXPORT CaptureManager : public ns::Object<MTLCaptureManager*>
 	{
 		CaptureManager() { }
 		CaptureManager(MTLCaptureManager* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLCaptureManager*>(handle, retain) { }

@@ -32,6 +32,37 @@ static TAutoConsoleVariable<int32> CVarDefaultTextShapingMethod(
 	ECVF_Default
 	);
 
+static int32 InitialMaxAtlasPagesBeforeFlushRequest = 1;
+FAutoConsoleVariableRef CVarMaxAtlasPagesBeforeFlush(
+	TEXT("Slate.MaxFontAtlasPagesBeforeFlush"),
+	InitialMaxAtlasPagesBeforeFlushRequest,
+	TEXT("The number of font atlas textures created and used before we flush the font cache if a texture atlas is full"));
+
+static int32 InitialMaxNonAtlasedTexturesBeforeFlushRequest = 1;
+FAutoConsoleVariableRef CVarMaxFontNonAtlasPagesBeforeFlush(
+	TEXT("Slate.MaxFontNonAtlasTexturesBeforeFlush"),
+	InitialMaxNonAtlasedTexturesBeforeFlushRequest,
+	TEXT("The number of large glyph font textures initially."));
+
+static int32 GrowFontAtlasFrameWindow = 1;
+FAutoConsoleVariableRef CVarGrowFontAtlasFrameWindow(
+	TEXT("Slate.GrowFontAtlasFrameWindow"),
+	GrowFontAtlasFrameWindow,
+	TEXT("The number of frames within the font atlas will resize rather than flush."));
+
+static int32 GrowFontNonAtlasFrameWindow = 1;
+FAutoConsoleVariableRef CVarGrowFontNonAtlasFrameWindow(
+	TEXT("Slate.GrowFontNonAtlasFrameWindow"),
+	GrowFontNonAtlasFrameWindow,
+	TEXT("The number of frames within the large font glyph pool will resize rather than flush."));
+
+static int32 UnloadFreeTypeDataOnFlush = 1;
+FAutoConsoleVariableRef CVarUnloadFreeTypeDataOnFlush(
+	TEXT("Slate.UnloadFreeTypeDataOnFlush"),
+	UnloadFreeTypeDataOnFlush,
+	TEXT("Releases the free type data when the font cache is flushed"));
+
+
 ETextShapingMethod GetDefaultTextShapingMethod()
 {
 	const int32 DefaultTextShapingMethodAsInt = CVarDefaultTextShapingMethod.AsVariable()->GetInt();
@@ -729,8 +760,8 @@ FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlas
 	, TextShaper( new FSlateTextShaper( FTGlyphCache.Get(), FTAdvanceCache.Get(), FTKerningPairCache.Get(), CompositeFontCache.Get(), FontRenderer.Get(), this ) )
 	, FontAtlasFactory( InFontAtlasFactory )
 	, bFlushRequested( false )
-	, MaxAtlasPagesBeforeFlushRequest( 1 )
-	, MaxNonAtlasedTexturesBeforeFlushRequest( 1 )
+	, CurrentMaxAtlasPagesBeforeFlushRequest(InitialMaxAtlasPagesBeforeFlushRequest)
+	, CurrentMaxNonAtlasedTexturesBeforeFlushRequest(InitialMaxNonAtlasedTexturesBeforeFlushRequest)
 	, FrameCounterLastFlushRequest( 0 )
 {
 	FInternationalization::Get().OnCultureChanged().AddRaw(this, &FSlateFontCache::HandleCultureChanged);
@@ -788,6 +819,8 @@ bool FSlateFontCache::AddNewEntry(const FShapedGlyphEntry& InShapedGlyph, const 
 
 bool FSlateFontCache::AddNewEntry( const FCharacterRenderData InRenderData, uint8& OutTextureIndex, uint16& OutGlyphX, uint16& OutGlyphY, uint16& OutGlyphWidth, uint16& OutGlyphHeight )
 {
+	const uint64 LastFlushRequestFrameDelta = GFrameCounter - FrameCounterLastFlushRequest;
+
 	// Will this entry fit within any atlas texture?
 	if (InRenderData.MeasureInfo.SizeX > FontAtlasFactory->GetAtlasSize().X || InRenderData.MeasureInfo.SizeY > FontAtlasFactory->GetAtlasSize().Y)
 	{
@@ -808,19 +841,26 @@ bool FSlateFontCache::AddNewEntry( const FCharacterRenderData InRenderData, uint
 			OutGlyphWidth = InRenderData.MeasureInfo.SizeX;
 			OutGlyphHeight = InRenderData.MeasureInfo.SizeY;
 
-			if (NonAtlasedTextures.Num() > MaxNonAtlasedTexturesBeforeFlushRequest && !bFlushRequested)
+			if (NonAtlasedTextures.Num() > CurrentMaxNonAtlasedTexturesBeforeFlushRequest && !bFlushRequested)
 			{
-				// If we grew back up to this number of non-atlased textures within the same or next frame of the previous flush request, then we likely legitimately have 
-				// a lot of font data cached. We should update MaxNonAtlasedTexturesBeforeFlushRequest to give us a bit more flexibility before the next flush request
-				if (GFrameCounter == FrameCounterLastFlushRequest || GFrameCounter == FrameCounterLastFlushRequest + 1)
+				// The InitialMaxNonAtlasedTexturesBeforeFlushRequest may have changed since last flush,
+				// so double check that we're below the current max or initial, if we're under it,
+				// update the current to the initial.
+				if (NonAtlasedTextures.Num() <= InitialMaxNonAtlasedTexturesBeforeFlushRequest)
 				{
-					MaxNonAtlasedTexturesBeforeFlushRequest = NonAtlasedTextures.Num();
-					UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Setting the threshold to trigger a flush to %d non-atlased textures as there is a lot of font data being cached."), MaxNonAtlasedTexturesBeforeFlushRequest);
+					CurrentMaxNonAtlasedTexturesBeforeFlushRequest = InitialMaxNonAtlasedTexturesBeforeFlushRequest;
+				}
+				// If we grew back up to this number of non-atlased textures within the same or next frame of the previous flush request, then we likely legitimately have 
+				// a lot of font data cached. We should update CurrentMaxNonAtlasedTexturesBeforeFlushRequest to give us a bit more flexibility before the next flush request
+				else if (LastFlushRequestFrameDelta <= GrowFontNonAtlasFrameWindow)
+				{
+					CurrentMaxNonAtlasedTexturesBeforeFlushRequest = NonAtlasedTextures.Num();
+					UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Setting the threshold to trigger a flush to %d non-atlased textures as there is a lot of font data being cached."), CurrentMaxNonAtlasedTexturesBeforeFlushRequest);
 				}
 				else
 				{
 					// We've grown beyond our current stable limit - try and request a flush
-					RequestFlushCache();
+					RequestFlushCache(FString::Printf(TEXT("Large glyph font atlases out of space; %d/%d Textures; frames since last flush: %llu"), NonAtlasedTextures.Num(), CurrentMaxNonAtlasedTexturesBeforeFlushRequest, LastFlushRequestFrameDelta));
 				}
 			}
 
@@ -867,19 +907,26 @@ bool FSlateFontCache::AddNewEntry( const FCharacterRenderData InRenderData, uint
 
 	INC_DWORD_STAT_BY( STAT_SlateNumFontAtlases, 1 );
 
-	if( FontAtlases.Num() > MaxAtlasPagesBeforeFlushRequest && !bFlushRequested )
+	if( FontAtlases.Num() > CurrentMaxAtlasPagesBeforeFlushRequest && !bFlushRequested )
 	{
+		// The InitialMaxNonAtlasedTexturesBeforeFlushRequest may have changed since last flush,
+		// so double check that we're below the current max or initial, if we're under it,
+		// update the current to the initial.
+		if (FontAtlases.Num() <= InitialMaxAtlasPagesBeforeFlushRequest)
+		{
+			CurrentMaxAtlasPagesBeforeFlushRequest = InitialMaxAtlasPagesBeforeFlushRequest;
+		}
 		// If we grew back up to this number of atlas pages within the same or next frame of the previous flush request, then we likely legitimately have 
 		// a lot of font data cached. We should update MaxAtlasPagesBeforeFlushRequest to give us a bit more flexibility before the next flush request
-		if( GFrameCounter == FrameCounterLastFlushRequest || GFrameCounter == FrameCounterLastFlushRequest + 1 )
+		else if (LastFlushRequestFrameDelta <= GrowFontAtlasFrameWindow)
 		{
-			MaxAtlasPagesBeforeFlushRequest = FontAtlases.Num();
-			UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Setting the threshold to trigger a flush to %d atlas pages as there is a lot of font data being cached."), MaxAtlasPagesBeforeFlushRequest);
+			CurrentMaxAtlasPagesBeforeFlushRequest = FontAtlases.Num();
+			UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Setting the threshold to trigger a flush to %d atlas pages as there is a lot of font data being cached."), CurrentMaxAtlasPagesBeforeFlushRequest);
 		}
 		else
 		{
 			// We've grown beyond our current stable limit - try and request a flush
-			RequestFlushCache();
+			RequestFlushCache(FString::Printf(TEXT("Font Atlases Full; %d/%d Pages; frames since last flush: %llu"), FontAtlases.Num(), CurrentMaxAtlasPagesBeforeFlushRequest, LastFlushRequestFrameDelta));
 		}
 	}
 
@@ -1029,12 +1076,21 @@ uint16 FSlateFontCache::GetLocalizedFallbackFontRevision() const
 	return FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontRevision();
 }
 
-void FSlateFontCache::RequestFlushCache()
+void FSlateFontCache::RequestFlushCache(const FString& FlushReason)
 {
-	bFlushRequested = true;
-	MaxAtlasPagesBeforeFlushRequest = 1;
-	MaxNonAtlasedTexturesBeforeFlushRequest = 1;
-	FrameCounterLastFlushRequest = GFrameCounter;
+	if (!bFlushRequested)
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		UE_LOG(LogSlate, Log, TEXT("FontCache flush requested. Reason: %s"), *FlushReason);
+#else
+		UE_LOG(LogSlate, Warning, TEXT("FontCache flush requested. Reason: %s"), *FlushReason);
+#endif
+
+		bFlushRequested = true;
+		CurrentMaxAtlasPagesBeforeFlushRequest = InitialMaxAtlasPagesBeforeFlushRequest;
+		CurrentMaxNonAtlasedTexturesBeforeFlushRequest = InitialMaxNonAtlasedTexturesBeforeFlushRequest;
+		FrameCounterLastFlushRequest = GFrameCounter;
+	}
 }
 
 void FSlateFontCache::FlushObject( const UObject* const InObject )
@@ -1057,9 +1113,11 @@ bool FSlateFontCache::ConditionalFlushCache()
 	bool bFlushed = false;
 	if (bFlushRequested)
 	{
-		bFlushRequested = false;
-		FlushCache();
-		bFlushed = !bFlushRequested;
+		if (FlushCache())
+		{
+			bFlushRequested = false;
+			bFlushed = true;
+		}
 	}
 
 	if (!bFlushed && IsInGameThread())
@@ -1092,10 +1150,12 @@ void FSlateFontCache::ReleaseResources()
 	}
 }
 
-void FSlateFontCache::FlushCache()
+bool FSlateFontCache::FlushCache()
 {
 	if ( IsInGameThread() )
 	{
+		SCOPED_NAMED_EVENT(Slate_FlushFontCache, FColor::Red);
+
 		FlushData();
 		ReleaseResources();
 
@@ -1118,11 +1178,10 @@ void FSlateFontCache::FlushCache()
 		UE_LOG(LogSlate, Log, TEXT("Slate font cache was flushed"));
 #endif
 
+		return true;
 	}
-	else
-	{
-		RequestFlushCache();
-	}
+
+	return false;
 }
 
 void FSlateFontCache::FlushData()
@@ -1130,10 +1189,13 @@ void FSlateFontCache::FlushData()
 	// Ensure all invalidation panels are cleared of cached widgets
 	FSlateApplicationBase::Get().InvalidateAllWidgets();
 
-	FTGlyphCache->FlushCache();
-	FTAdvanceCache->FlushCache();
-	FTKerningPairCache->FlushCache();
-	CompositeFontCache->FlushCache();
+	if (GIsEditor || UnloadFreeTypeDataOnFlush)
+	{
+		FTGlyphCache->FlushCache();
+		FTAdvanceCache->FlushCache();
+		FTKerningPairCache->FlushCache();
+		CompositeFontCache->FlushCache();
+	}
 
 	FontToCharacterListCache.Empty();
 	ShapedGlyphToAtlasData.Empty();
@@ -1172,5 +1234,5 @@ void FSlateFontCache::HandleCultureChanged()
 {
 	// The culture has changed, so request the font cache be flushed once it is safe to do so
 	// We don't flush immediately as the request may come in from a different thread than the one that owns the font cache
-	RequestFlushCache();
+	RequestFlushCache(TEXT("Culture for localization was changed"));
 }

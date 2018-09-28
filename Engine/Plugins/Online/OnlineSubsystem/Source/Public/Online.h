@@ -16,6 +16,7 @@
 #include "Interfaces/OnlineTitleFileInterface.h"
 #include "Interfaces/OnlineAchievementsInterface.h"
 #include "Interfaces/OnlinePresenceInterface.h"
+#include "Interfaces/OnlineEntitlementsInterface.h"
 #include "Interfaces/OnlineUserCloudInterface.h"
 #include "Interfaces/OnlineUserInterface.h"
 

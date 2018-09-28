@@ -145,7 +145,11 @@ bool FGameplayAbilityTargetDataHandle::NetSerialize(FArchive& Ar, class UPackage
 	Ar << DataNum;
 	if (Ar.IsLoading())
 	{
-		Data.SetNumZeroed(DataNum);
+		Data.SetNum(DataNum);
+		if (DataNum > 32)
+		{
+			ABILITY_LOG(Warning, TEXT("FGameplayAbilityTargetDataHandle::NetSerialize received with large DataNum: %d"), DataNum);
+		}
 	}
 
 	for (int32 i = 0; i < DataNum && !Ar.IsError(); ++i)
@@ -198,16 +202,26 @@ bool FGameplayAbilityTargetDataHandle::NetSerialize(FArchive& Ar, class UPackage
 		}
 		else if (ScriptStruct.IsError())
 		{
-#if !UE_BUILD_SHIPPING
-			ABILITY_LOG(Error, TEXT("FGameplayAbilityTargetDataHandle::NetSerialize: Bad ScriptStruct serialized, can't recover."))
-#endif
-
+			ABILITY_LOG(Error, TEXT("FGameplayAbilityTargetDataHandle::NetSerialize: Bad ScriptStruct serialized, can't recover."));
 			Ar.SetError();
+			break;
 		}
 	}
 
-	//ABILITY_LOG(Warning, TEXT("FGameplayAbilityTargetDataHandle Serialized: %s"), ScriptStruct ? *ScriptStruct->GetName() : TEXT("NULL") );
-
+	if (Ar.IsError())
+	{
+		// Something bad happened, make sure to not return invalid shared ptrs
+		for (int32 i=Data.Num()-1; i >= 0; --i)
+		{
+			if (Data[i].IsValid() == false)
+			{
+				Data.RemoveAt(i);
+			}
+		}
+		bOutSuccess = false;
+		return false;
+	}
+	
 	bOutSuccess = true;
 	return true;
 }

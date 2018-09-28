@@ -14,6 +14,7 @@ struct ONLINESUBSYSTEM_API FOnlineError
 public:
 	FOnlineError();
 	explicit FOnlineError(bool bSucceeded);
+	explicit FOnlineError(const TCHAR* const ErrorCode);
 	explicit FOnlineError(const FString& ErrorCode);
 	explicit FOnlineError(FString&& ErrorCode);
 	explicit FOnlineError(const int32 ErrorCode);

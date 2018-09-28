@@ -156,7 +156,7 @@ public:
 	//~ End FExec Interface
 
 	//~ Begin UObject Interface
-	virtual class UWorld* GetWorld() const override;
+	virtual class UWorld* GetWorld() const final;
 	virtual void FinishDestroy() override;
 	//~ End UObject Interface
 
@@ -197,6 +197,9 @@ public:
 
 	/* Called to actually start the game when doing Play/Simulate In Editor */
 	virtual FGameInstancePIEResult StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params);
+
+	/** Called as soon as the game mode is spawned, to allow additional PIE setting validation prior to creating the local players / etc... (called on pure clients too, in which case the game mode is nullptr) */
+	virtual FGameInstancePIEResult PostCreateGameModeForPIE(const FGameInstancePIEParameters& Params, AGameModeBase* GameMode);
 
 	DEPRECATED(4.15, "Please override InitializeForPIE instead")
 	virtual bool InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, bool bRunAsDedicated);

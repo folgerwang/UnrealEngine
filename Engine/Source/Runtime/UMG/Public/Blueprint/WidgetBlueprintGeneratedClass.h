@@ -113,7 +113,6 @@ public:
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void Serialize(FArchive& Ar) override;
 
-	virtual UObject* CreateDefaultObject() override;
 	virtual void PostLoad() override;
 	virtual bool NeedsLoadForServer() const override;
 	// End UObject interface

@@ -6,7 +6,9 @@
 #include "Templates/UnrealTemplate.h"
 #include "Serialization/Archive.h"
 #include "Containers/Array.h"
+#include "Containers/Set.h"
 #include "Containers/UnrealString.h"
+#include "Containers/Set.h"
 #include "Misc/DateTime.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"
@@ -32,46 +34,10 @@
 typedef uint8 UTF8BOMType[3];
 static UTF8BOMType UTF8BOM = { 0xEF, 0xBB, 0xBF };
 
-/**
-* Thread heartbeat check class.
-* Used by crash handling code to check for hangs. 
-* [] tags identify which thread owns a variable or function
-*/
-class CORE_API FAsyncWriter : public FRunnable, public FArchive
-{
-	enum EConstants
-	{
-		InitialBufferSize = 128 * 1024
-	};
 
-	/** Thread to run the worker FRunnable on. Serializes the ring buffer to disk. */
-	volatile FRunnableThread* Thread;
-	/** Stops this thread */
-	FThreadSafeCounter StopTaskCounter;
-
-	/** Writer archive */
-	FArchive& Ar;
-	/** Data ring buffer */
-	TArray<uint8> Buffer;
-	/** [WRITER THREAD] Position where the unserialized data starts in the buffer */
-	TAtomic<int32> BufferStartPos;
-	/** [CLIENT THREAD] Position where the unserialized data ends in the buffer (such as if (BufferEndPos > BufferStartPos) Length = BufferEndPos - BufferStartPos; */
-	TAtomic<int32> BufferEndPos;
-	/** [CLIENT THREAD] Sync object for the buffer pos */
-	FCriticalSection BufferPosCritical;
-	/** [CLIENT/WRITER THREAD] Outstanding serialize request counter. This is to make sure we flush all requests. */
-	FThreadSafeCounter SerializeRequestCounter;
-	/** [CLIENT/WRITER THREAD] Tells the writer thread, the client requested flush. */
-	FThreadSafeCounter WantsArchiveFlush;
-
-	/** [WRITER THREAD] Last time the archive was flushed. used in threaded situations to flush the underlying archive at a certain maximum rate. */
-	double LastArchiveFlushTime;
-
-	/** [WRITER THREAD] Archive flush interval. */
-	double ArchiveFlushIntervalSec;
 
 	/** [WRITER THREAD] Flushes the archive and reset the flush timer. */
-	void FlushArchiveAndResetTimer()
+	void FAsyncWriter::FlushArchiveAndResetTimer()
 	{
 		// This should be the one and only place where we flush because we want the flush to happen only on the 
 		// async writer thread (if threading is enabled)
@@ -80,9 +46,14 @@ class CORE_API FAsyncWriter : public FRunnable, public FArchive
 	}
 
 	/** [WRITER THREAD] Serialize the contents of the ring buffer to disk */
-	void SerializeBufferToArchive()
+	void FAsyncWriter::SerializeBufferToArchive()
 	{
+		// Unix and PS4 use FPlatformMallocCrash during a crash, which means this function is not allowed to perform any allocations
+		// or else it will deadlock when flushing logs during crash handling. Ideally scoped named events would be disabled while crashing.
+		// GIsCriticalError is not always true when crashing (i.e. the case of a GPF) so there is no way to know to skip this behavior only when crashing
+#if !(PLATFORM_UNIX || PLATFORM_PS4)
 		SCOPED_NAMED_EVENT(FAsyncWriter_SerializeBufferToArchive, FColor::Cyan);
+#endif
 		while (SerializeRequestCounter.GetValue() > 0)
 		{
 			// Grab a local copy of the end pos. It's ok if it changes on the client thread later on.
@@ -130,7 +101,7 @@ class CORE_API FAsyncWriter : public FRunnable, public FArchive
 	}
 
 	/** [CLIENT THREAD] Flush the memory buffer (doesn't force the archive to flush). Can only be used from inside of BufferPosCritical lock. */
-	void FlushBuffer()
+	void FAsyncWriter::FlushBuffer()
 	{
 		SerializeRequestCounter.Increment();
 		if (!Thread)
@@ -145,9 +116,7 @@ class CORE_API FAsyncWriter : public FRunnable, public FArchive
 		check(SerializeRequestCounter.GetValue() == 0);
 	}
 
-public:
-
-	FAsyncWriter(FArchive& InAr)
+	FAsyncWriter::FAsyncWriter(FArchive& InAr)
 		: Thread(nullptr)
 		, Ar(InAr)
 		, BufferStartPos(0)
@@ -170,7 +139,7 @@ public:
 		}
 	}
 
-	virtual ~FAsyncWriter()
+	FAsyncWriter::~FAsyncWriter()
 	{
 		Flush();
 		delete Thread;
@@ -178,7 +147,7 @@ public:
 	}
 
 	/** [CLIENT THREAD] Serialize data to buffer that will later be saved to disk by the async thread */
-	virtual void Serialize(void* InData, int64 Length) override
+	void FAsyncWriter::Serialize(void* InData, int64 Length)
 	{
 		if (!InData || Length <= 0)
 		{
@@ -240,7 +209,7 @@ public:
 	}
 
 	/** Flush all buffers to disk */
-	void Flush()
+	void FAsyncWriter::Flush()
 	{
 		FScopeLock WriteLock(&BufferPosCritical);
 		WantsArchiveFlush.Increment();
@@ -248,11 +217,12 @@ public:
 	}
 
 	//~ Begin FRunnable Interface.
-	virtual bool Init() 
+	bool FAsyncWriter::Init()
 	{
 		return true;
 	}
-	virtual uint32 Run()
+	
+	uint32 FAsyncWriter::Run()
 	{
 		while (StopTaskCounter.GetValue() == 0)
 		{
@@ -271,12 +241,12 @@ public:
 		}
 		return 0;
 	}
-	virtual void Stop()
+
+	void FAsyncWriter::Stop()
 	{
 		StopTaskCounter.Increment();
 	}
-	//~ End FRunnable Interface
-};
+
 
 /**
 

@@ -7,7 +7,8 @@
 #include "Features/IModularFeature.h"
 
 #ifndef UE_EXTERNAL_PROFILING_ENABLED
-#define UE_EXTERNAL_PROFILING_ENABLED (!UE_BUILD_SHIPPING)
+// temporarily turn off profiler on Switch because of a compiler issue (?) with the thread_local init bools (switching 1 to int helped, 1 did not)
+#define UE_EXTERNAL_PROFILING_ENABLED (!UE_BUILD_SHIPPING && !PLATFORM_SWITCH)
 #endif
 
 #if UE_EXTERNAL_PROFILING_ENABLED
@@ -61,6 +62,7 @@ public:
 	/** Ends a scoped event specific to the profiler. */
 	virtual void EndScopedEvent() {};
 
+	virtual void SetThreadName(const TCHAR* Name) {}
 
 private:
 

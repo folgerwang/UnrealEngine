@@ -73,6 +73,52 @@ public:
 		return FenceSignaledCounter;
 	}
 
+	//#todo-rco: Temp to help find out where the crash is coming from!
+	inline volatile uint64 GetFenceSignaledCounterA() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterB() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterC() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterD() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterE() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterF() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterG() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterH() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterI() const
+	{
+		return FenceSignaledCounter;
+	}
+
 	inline volatile uint64 GetSubmittedFenceCounter() const
 	{
 		return SubmittedFenceCounter;

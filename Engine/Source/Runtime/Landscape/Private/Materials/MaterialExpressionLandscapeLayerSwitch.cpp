@@ -90,6 +90,22 @@ void UMaterialExpressionLandscapeLayerSwitch::GetCaption(TArray<FString>& OutCap
 	OutCaptions.Add(TEXT("Layer Switch"));
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+bool UMaterialExpressionLandscapeLayerSwitch::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
+}
+
 #endif // WITH_EDITOR
 
 void UMaterialExpressionLandscapeLayerSwitch::Serialize(FStructuredArchive::FRecord Record)

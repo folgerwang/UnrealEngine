@@ -2,7 +2,7 @@
 
 #include "BoneControllers/AnimNode_Trail.h"
 #include "Animation/AnimInstanceProxy.h"
-
+#include "AngularLimit.h"
 /////////////////////////////////////////////////////
 // FAnimNode_Trail
 
@@ -12,13 +12,26 @@ FAnimNode_Trail::FAnimNode_Trail()
 	: ChainLength(2)
 	, ChainBoneAxis(EAxis::X)
 	, bInvertChainBoneAxis(false)
-	, TrailRelaxation_DEPRECATED(10.f)
-	, RelaxationSpeedScale(1.f)
 	, bLimitStretch(false)
+	, bLimitRotation(false)
+	, bUsePlanarLimit(false)
+	, bActorSpaceFakeVel(false)
+	, bReorientParentToChild(true)
+	, bHadValidStrength(false)
+#if WITH_EDITORONLY_DATA
+	, bEnableDebug(false)
+	, bShowBaseMotion(true)
+	, bShowTrailLocation(false)
+	, bShowLimit(true)
+	, bEditorDebugEnabled(false)
+	, DebugLifeTime(0.f)
+	, TrailRelaxation_DEPRECATED(10.f)
+#endif// #if WITH_EDITORONLY_DATA
+	, UnwindingSize(3)
+	, RelaxationSpeedScale(1.f)
 	, StretchLimit(0)
 	, FakeVelocity(FVector::ZeroVector)
-	, bActorSpaceFakeVel(false)
-	, bHadValidStrength(false)
+	, TrailBoneRotationBlendAlpha(1.f)
 {
 	FRichCurve* TrailRelaxRichCurve = TrailRelaxationSpeed.GetRichCurve();
 	TrailRelaxRichCurve->AddKey(0.f, 10.f);
@@ -43,6 +56,7 @@ void FAnimNode_Trail::GatherDebugData(FNodeDebugData& DebugData)
 
 	ComponentPose.GatherDebugData(DebugData);
 }
+
 
 void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
@@ -133,13 +147,23 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 	OutBoneTransforms[0] = FBoneTransform(RootIndex, ChainTransform);
 	TrailBoneLocations[0] = ChainTransform.GetTranslation();
 
-	// Starting one below head of chain, move bones.
-	// this Parent/Child relationship is backward. From start joint (from bottom) to end joint(higher parent )
-	for(int32 i=1; i<ChainBoneIndices.Num(); i++)
+	TArray<FTransform> DebugPlaneTransforms;
+#if WITH_EDITORONLY_DATA
+	if (bUsePlanarLimit)
+	{
+		DebugPlaneTransforms.AddDefaulted(PlanarLimits.Num());
+	}
+#endif // WITH_EDITORONLY_DATA
+
+	checkSlow(RotationLimits.Num() == ChainLength);
+	checkSlow(RotationOffsets.Num() == ChainLength);
+
+	// first solve trail locations
+	for (int32 i = 1; i < ChainBoneIndices.Num(); i++)
 	{
 		// Parent bone position in component space.
 		FCompactPoseBoneIndex ParentIndex = BoneContainer.MakeCompactPoseIndex(FMeshPoseBoneIndex(ChainBoneIndices[i - 1]));
-		FVector ParentPos = TrailBoneLocations[i-1];
+		FVector ParentPos = TrailBoneLocations[i - 1];
 		FVector ParentAnimPos = Output.Pose.GetComponentSpaceTransform(ParentIndex).GetTranslation();
 
 		// Child bone position in component space.
@@ -155,7 +179,6 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 
 		// Find vector from child to target
 		FVector Error = (ChildTarget - ChildPos);
-
 		// Calculate how much to push the child towards its target
 		const float SpeedScale = RelaxationSpeedScaleInputProcessor.ApplyTo(RelaxationSpeedScale, TimeStep);
 		const float Correction = FMath::Clamp<float>(TimeStep * SpeedScale * PerJointTrailData[i].TrailRelaxationSpeedPerSecond, 0.f, 1.f);
@@ -163,18 +186,47 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 		// Scale correction vector and apply to get new world-space child position.
 		TrailBoneLocations[i] = ChildPos + (Error * Correction);
 
+		// Limit stretch first
 		// If desired, prevent bones stretching too far.
-		if(bLimitStretch)
+		if (bLimitStretch)
 		{
 			float RefPoseLength = TargetDelta.Size();
-			FVector CurrentDelta = TrailBoneLocations[i] - TrailBoneLocations[i-1];
+			FVector CurrentDelta = TrailBoneLocations[i] - TrailBoneLocations[i - 1];
 			float CurrentLength = CurrentDelta.Size();
 
 			// If we are too far - cut it back (just project towards parent particle).
-			if( (CurrentLength - RefPoseLength > StretchLimit) && CurrentLength > SMALL_NUMBER )
+			if ((CurrentLength - RefPoseLength > StretchLimit) && CurrentLength > SMALL_NUMBER)
 			{
 				FVector CurrentDir = CurrentDelta / CurrentLength;
-				TrailBoneLocations[i] = TrailBoneLocations[i-1] + (CurrentDir * (RefPoseLength + StretchLimit));
+				TrailBoneLocations[i] = TrailBoneLocations[i - 1] + (CurrentDir * (RefPoseLength + StretchLimit));
+			}
+		}
+		
+		// set planar limit if used
+		if (bUsePlanarLimit)
+		{
+			for (int32 Index = 0; Index<PlanarLimits.Num(); ++Index)
+			{
+				const FAnimPhysPlanarLimit& PlanarLimit = PlanarLimits[Index];
+				FTransform LimitPlaneTransform = PlanarLimit.PlaneTransform;
+
+				if (PlanarLimit.DrivingBone.IsValidToEvaluate(BoneContainer))
+				{
+					FCompactPoseBoneIndex DrivingBoneIndex = PlanarLimit.DrivingBone.GetCompactPoseIndex(BoneContainer);
+
+					FTransform DrivingBoneTransform = Output.Pose.GetComponentSpaceTransform(DrivingBoneIndex);
+					LimitPlaneTransform *= DrivingBoneTransform;
+				}
+
+				FPlane LimitPlane(LimitPlaneTransform.GetLocation(), LimitPlaneTransform.GetUnitAxis(EAxis::Z));
+#if WITH_EDITORONLY_DATA				
+				DebugPlaneTransforms[Index] = LimitPlaneTransform;
+#endif // #if WITH_EDITORONLY_DATA
+				float DistanceFromPlane = LimitPlane.PlaneDot(TrailBoneLocations[i]);
+				if (DistanceFromPlane < 0)
+				{
+					TrailBoneLocations[i] -= DistanceFromPlane*FVector(LimitPlane.X, LimitPlane.Y, LimitPlane.Z);
+				}
 			}
 		}
 
@@ -182,29 +234,132 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 		OutBoneTransforms[i] = FBoneTransform(ChildIndex, Output.Pose.GetComponentSpaceTransform(ChildIndex));
 		OutBoneTransforms[i].Transform.SetTranslation(TrailBoneLocations[i]);
 
-		// Modify rotation of parent matrix to point at this one.
+		// reorient parent to child 
+		if (bReorientParentToChild)
+		{
+			FVector CurrentBoneDir = OutBoneTransforms[i - 1].Transform.TransformVector(GetAlignVector(ChainBoneAxis, bInvertChainBoneAxis));
+			CurrentBoneDir = CurrentBoneDir.GetSafeNormal(SMALL_NUMBER);
 
-		// Calculate the direction that parent bone is currently pointing.
-		FVector CurrentBoneDir = OutBoneTransforms[i-1].Transform.TransformVector( GetAlignVector(ChainBoneAxis, bInvertChainBoneAxis) );
-		CurrentBoneDir = CurrentBoneDir.GetSafeNormal(SMALL_NUMBER);
+			// Calculate vector from parent to child.
+			FVector DeltaTranslation = OutBoneTransforms[i].Transform.GetTranslation() - OutBoneTransforms[i - 1].Transform.GetTranslation();
+			FVector NewBoneDir = FVector(DeltaTranslation).GetSafeNormal(SMALL_NUMBER);
 
-		// Calculate vector from parent to child.
-		FVector NewBoneDir = FVector(OutBoneTransforms[i].Transform.GetTranslation() - OutBoneTransforms[i - 1].Transform.GetTranslation()).GetSafeNormal(SMALL_NUMBER);
+			// Calculate a quaternion that gets us from our current rotation to the desired one.
+			FQuat DeltaLookQuat = FQuat::FindBetweenNormals(CurrentBoneDir, NewBoneDir);
+			FQuat ParentRotation = OutBoneTransforms[i - 1].Transform.GetRotation();
+			FQuat NewRotation = DeltaLookQuat * ParentRotation;
+			if (bLimitRotation)
+			{
+				// right now we're setting rotation of parent
+				// if we want to limit rotation, try limit parent rotation
+				FQuat GrandParentRotation = FQuat::Identity;
+				if (i == 1)
+				{
+					const FCompactPoseBoneIndex GrandParentIndex = BoneContainer.GetParentBoneIndex(ParentIndex);
+					if (GrandParentIndex != INDEX_NONE)
+					{
+						GrandParentRotation = Output.Pose.GetComponentSpaceTransform(GrandParentIndex).GetRotation();
+					}
+				}
+				else
+				{
+					// get local
+					GrandParentRotation = OutBoneTransforms[i - 2].Transform.GetRotation();
+				}
 
-		// Calculate a quaternion that gets us from our current rotation to the desired one.
-		FQuat DeltaLookQuat = FQuat::FindBetweenNormals(CurrentBoneDir, NewBoneDir);
-		FTransform DeltaTM( DeltaLookQuat, FVector(0.f) );
+				// we're fixing up parent local rotation here
+				FQuat NewLocalRotation = GrandParentRotation.Inverse() * NewRotation;
+				const FQuat& RefRotation = BoneContainer.GetRefPoseTransform(ParentIndex).GetRotation();
+				const FRotationLimit& RotationLimit = RotationLimits[i - 1];
+				// we limit to ref rotaiton
+				if (AnimationCore::ConstrainAngularRangeUsingEuler(NewLocalRotation, RefRotation, RotationLimit.LimitMin + RotationOffsets[i - 1], RotationLimit.LimitMax + RotationOffsets[i - 1]))
+				{
+					// if we changed rotaiton, let's find new tranlstion
+					NewRotation = GrandParentRotation * NewLocalRotation;
+					FVector NewTransltion = NewRotation.Vector() * DeltaTranslation.Size();
+					// we don't want to go to target, this creates very poppy motion. 
+					// @todo: to do this better, I feel we need alpha to blend into external limit and blend back to it
+					FVector AdjustedLocation = FMath::Lerp(DeltaTranslation, NewTransltion, Correction) + OutBoneTransforms[i - 1].Transform.GetTranslation();
+					OutBoneTransforms[i].Transform.SetTranslation(AdjustedLocation);
+					// update new trail location, so that next chain will use this info
+					TrailBoneLocations[i] = AdjustedLocation;
+				}
+			}
 
-		// Apply to the current parent bone transform.
-		FTransform TmpTransform = FTransform::Identity;
-		TmpTransform.CopyRotationPart(OutBoneTransforms[i - 1].Transform);
-		TmpTransform = TmpTransform * DeltaTM;
-		OutBoneTransforms[i - 1].Transform.CopyRotationPart(TmpTransform);
+			// clamp rotation, but translation is still there - should fix translation
+			OutBoneTransforms[i - 1].Transform.SetRotation(NewRotation);
+		}
 	}
 
 	// For the last bone in the chain, use the rotation from the bone above it.
-	OutBoneTransforms[ChainLength - 1].Transform.CopyRotationPart(OutBoneTransforms[ChainLength - 2].Transform);
+	FQuat LeafRotation = FQuat::FastLerp(OutBoneTransforms[ChainLength - 2].Transform.GetRotation(), OutBoneTransforms[ChainLength - 1].Transform.GetRotation(), TrailBoneRotationBlendAlpha);
+	LeafRotation.Normalize();
+	OutBoneTransforms[ChainLength - 1].Transform.SetRotation(LeafRotation);
 
+#if WITH_EDITORONLY_DATA
+	if (bEnableDebug || bEditorDebugEnabled)
+	{
+		if (bShowBaseMotion)
+		{
+			// draw new velocity on new base transform
+			FVector PreviousLoc = OldBaseTransform.GetLocation();
+			FVector NewLoc = BaseTransform.GetLocation();
+			Output.AnimInstanceProxy->AnimDrawDebugDirectionalArrow(PreviousLoc, NewLoc, 5.f, FColor::Red, false, DebugLifeTime);
+		}
+
+		if (bShowTrailLocation)
+		{
+			const int32 TrailNum = TrailBoneLocations.Num();
+			if (TrailDebugColors.Num() != TrailNum)
+			{
+				TrailDebugColors.Reset();
+				TrailDebugColors.AddUninitialized(TrailNum);
+
+				for (int32 Index = 0; Index < TrailNum; ++Index)
+				{
+					TrailDebugColors[Index] = FColor::MakeRandomColor();
+				}
+			}
+			// draw trail positions
+			for (int32 Index = 0; Index < TrailNum - 1; ++Index)
+			{
+				FVector PreviousLoc = ComponentTransform.TransformPosition(TrailBoneLocations[Index]);
+				FVector NewLoc = ComponentTransform.TransformPosition(TrailBoneLocations[Index + 1]);
+				Output.AnimInstanceProxy->AnimDrawDebugLine(PreviousLoc, NewLoc, TrailDebugColors[Index], false, DebugLifeTime);
+			}
+		}
+
+		// draw limits
+		if (bShowLimit)
+		{
+			if (bUsePlanarLimit)
+			{
+				const int32 PlaneLimitNum = DebugPlaneTransforms.Num();
+				if (PlaneDebugColors.Num() != PlaneLimitNum)
+				{
+					PlaneDebugColors.Reset();
+					PlaneDebugColors.AddUninitialized(PlaneLimitNum);
+
+					for (int32 Index = 0; Index < PlaneLimitNum; ++Index)
+					{
+						PlaneDebugColors[Index] = FColor::MakeRandomColor();
+					}
+				}
+
+				// draw plane info
+				for (int32 Index = 0; Index < PlaneLimitNum; ++Index)
+				{
+					const FTransform& PlaneTransform =  DebugPlaneTransforms[Index];
+					FTransform WorldPlaneTransform = PlaneTransform * ComponentTransform;
+					Output.AnimInstanceProxy->AnimDrawDebugPlane(WorldPlaneTransform, 40.f, PlaneDebugColors[Index], false, DebugLifeTime, 0.5);
+					Output.AnimInstanceProxy->AnimDrawDebugDirectionalArrow(WorldPlaneTransform.GetLocation(),
+						WorldPlaneTransform.GetLocation() + WorldPlaneTransform.GetRotation().RotateVector(FVector(0, 0, 40)), 10.f, PlaneDebugColors[Index], false, DebugLifeTime, 0.5f);
+				}
+				
+			}
+		}
+	}
+#endif //#if WITH_EDITORONLY_DATA
 	// Update OldBaseTransform
 	OldBaseTransform = BaseTransform;
 }
@@ -239,7 +394,7 @@ void FAnimNode_Trail::InitializeBoneReferences(const FBoneContainer& RequiredBon
 
 	// initialize chain bone indices
 	ChainBoneIndices.Reset();
-	if (ChainLength > 2 && TrailBone.IsValidToEvaluate(RequiredBones))
+	if (ChainLength > 1 && TrailBone.IsValidToEvaluate(RequiredBones))
 	{
 		ChainBoneIndices.AddZeroed(ChainLength);
 
@@ -263,6 +418,11 @@ void FAnimNode_Trail::InitializeBoneReferences(const FBoneContainer& RequiredBon
 				ChainBoneIndices[TransformIndex] = WalkBoneIndex;
 			}
 		}
+	}
+
+	for (FAnimPhysPlanarLimit& PlanarLimit : PlanarLimits)
+	{
+		PlanarLimit.DrivingBone.Initialize(RequiredBones);
 	}
 }
 
@@ -293,6 +453,7 @@ FVector FAnimNode_Trail::GetAlignVector(EAxis::Type AxisOption, bool bInvert)
 
 void FAnimNode_Trail::PostLoad()
 {
+#if WITH_EDITORONLY_DATA
 	if (TrailRelaxation_DEPRECATED != 10.f)
 	{
 		FRichCurve* TrailRelaxRichCurve = TrailRelaxationSpeed.GetRichCurve();
@@ -303,7 +464,10 @@ void FAnimNode_Trail::PostLoad()
 		// if default, the default constructor will take care of it. If not, we'll reset
 		TrailRelaxation_DEPRECATED = 10.f;
 	}
+	EnsureChainSize();
+#endif
 }
+
 void FAnimNode_Trail::Initialize_AnyThread(const FAnimationInitializeContext& Context)
 {
 	FAnimNode_SkeletalControlBase::Initialize_AnyThread(Context);
@@ -311,7 +475,7 @@ void FAnimNode_Trail::Initialize_AnyThread(const FAnimationInitializeContext& Co
 	// allocated all memory here in initialize
 	PerJointTrailData.Reset();
 	TrailBoneLocations.Reset();
-	if(ChainLength > 2)
+	if(ChainLength > 1)
 	{
 		PerJointTrailData.AddZeroed(ChainLength);
 		TrailBoneLocations.AddZeroed(ChainLength);
@@ -327,3 +491,24 @@ void FAnimNode_Trail::Initialize_AnyThread(const FAnimationInitializeContext& Co
 
 	RelaxationSpeedScaleInputProcessor.Reinitialize();
 }
+
+#if WITH_EDITOR
+void FAnimNode_Trail::EnsureChainSize()
+{
+	if (RotationLimits.Num() != ChainLength)
+	{
+		const int32 CurNum = RotationLimits.Num();
+		if (CurNum >= ChainLength)
+		{
+			RotationLimits.SetNum(ChainLength);
+			RotationOffsets.SetNum(ChainLength);
+		}
+		else
+		{
+			RotationLimits.AddDefaulted(ChainLength - CurNum);
+			RotationOffsets.AddZeroed(ChainLength - CurNum);
+		}
+	}
+}
+
+#endif // WITH_EDITOR

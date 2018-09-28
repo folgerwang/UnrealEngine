@@ -59,6 +59,12 @@ namespace UnrealBuildTool
 		[CommandLine("-EnableUBSan")]
 		[XmlConfigFile(Category = "BuildConfiguration", Name = "bEnableUndefinedBehaviorSanitizer")]
 		public bool bEnableUndefinedBehaviorSanitizer = false;
+
+		/// <summary>
+		/// Whether or not to preserve the portable symbol file produced by dump_syms
+		/// </summary>
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/LinuxPlatform.LinuxTargetSettings")]
+		public bool bPreservePSYM = false;
 	}
 
 	/// <summary>
@@ -88,6 +94,11 @@ namespace UnrealBuildTool
         #if !__MonoCS__
         #pragma warning disable CS1591
         #endif
+
+		public bool bPreservePSYM
+		{
+			get { return Inner.bPreservePSYM; }
+		}
 
 		public bool bEnableAddressSanitizer
 		{
@@ -337,7 +348,14 @@ namespace UnrealBuildTool
 			{
 				case UEBuildBinaryType.DynamicLinkLibrary:
 				case UEBuildBinaryType.Executable:
-					return new string[] {".sym", ".debug"};
+					if (InTarget.LinuxPlatform.bPreservePSYM)
+					{
+						return new string[] {".psym", ".sym", ".debug"};
+					}
+					else
+					{
+						return new string[] {".sym", ".debug"};
+					}
 			}
 			return new string [] {};
 		}
@@ -515,7 +533,7 @@ namespace UnrealBuildTool
 				Options |= LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer;
 			}
 
-			return new LinuxToolChain(Target.Architecture, SDK, Options);
+			return new LinuxToolChain(Target.Architecture, SDK, Target.LinuxPlatform.bPreservePSYM, Options);
 		}
 
 		/// <summary>

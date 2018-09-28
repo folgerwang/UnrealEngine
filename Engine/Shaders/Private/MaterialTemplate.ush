@@ -325,6 +325,10 @@ struct FMaterialVertexParameters
 	/** Per-particle properties. */
 	float4x4 InstanceLocalToWorld;
 #endif
+	// If either USE_INSTANCING or (IS_MESHPARTICLE_FACTORY && FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
+	// is true, PrevFrameLocalToWorld is a per-instance transform
+	float4x4 PrevFrameLocalToWorld;
+
 	float3 PreSkinnedPosition;
 	float3 PreSkinnedNormal;
 
@@ -418,7 +422,11 @@ float2 GetSceneTextureUV(FMaterialPixelParameters Parameters)
 
 float2 GetViewportUV(FMaterialVertexParameters Parameters)
 {
+#if POST_PROCESS_MATERIAL
+	return Parameters.WorldPosition.xy;
+#else
 	return BufferUVToViewportUV(GetSceneTextureUV(Parameters));
+#endif
 }
 
 float2 GetPixelPosition(FMaterialVertexParameters Parameters)
@@ -726,6 +734,12 @@ MaterialFloat3 TransformLocalVectorToWorld(FMaterialPixelParameters Parameters,M
 	return mul(InLocalVector, GetLocalToWorld3x3());
 }
 
+/** Transforms a vector from local space to previous frame world space (VS version) */
+MaterialFloat3 TransformLocalVectorToPrevWorld(FMaterialVertexParameters Parameters,MaterialFloat3 InLocalVector)
+{
+	return mul(InLocalVector, (MaterialFloat3x3)Parameters.PrevFrameLocalToWorld);
+}
+
 #if HAS_PRIMITIVE_UNIFORM_BUFFER
 
 /** Transforms a vector from world space to local space */
@@ -748,6 +762,12 @@ float3 TransformLocalPositionToWorld(FMaterialVertexParameters Parameters,float3
 	#else
 		return mul(float4(InLocalPosition, 1), Primitive.LocalToWorld).xyz;
 	#endif
+}
+
+/** Transforms a position from local space to previous frame absolute world space */
+float3 TransformLocalPositionToPrevWorld(FMaterialVertexParameters Parameters,float3 InLocalPosition)
+{
+	return mul(float4(InLocalPosition, 1), Parameters.PrevFrameLocalToWorld).xyz;
 }
 
 #endif
@@ -1339,27 +1359,15 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 {
 #if (FEATURE_LEVEL <= FEATURE_LEVEL_ES3_1)
 	
-	// For fetching SceneDepth and CustomDepth after tonemapper we need to switch OpenGL coordinates
-	// SceneColor will be transformed to OpenGL coordinates during tonemapping
-	#define NEEDTOSWITCHVERTICLEAXIS (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1) && (POST_PROCESS_MATERIAL && !POST_PROCESS_MATERIAL_BEFORE_TONEMAP)
-	
 	//PPI_SceneDepth
 	if (SceneTextureId == 1)
 	{
-		#if NEEDTOSWITCHVERTICLEAXIS
-		UV.y = 1.0 - UV.y; 
-		#endif
-		
 		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, UV).r);
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
 	//PPI_CustomDepth
 	else if (SceneTextureId == 13)
 	{
-		#if NEEDTOSWITCHVERTICLEAXIS
-		UV.y = 1.0 - UV.y; 
-		#endif
-
 		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.CustomDepthTexture, MobileSceneTextures.CustomDepthTextureSampler, UV).r);
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
@@ -1367,6 +1375,11 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 	else if (SceneTextureId == 14)
 	{
 #if POST_PROCESS_MATERIAL	
+		// SceneColor was transformed to OpenGL coordinates during tonemapping
+		#if !POST_PROCESS_MATERIAL_BEFORE_TONEMAP && (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1)
+		UV.y = 1.0 - UV.y; 
+		#endif
+
 		MaterialFloat4 Input0 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
 		#if POST_PROCESS_MATERIAL_BEFORE_TONEMAP
 		Input0 = Decode32BPPHDR(Input0);
@@ -1379,10 +1392,6 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 	// PPI_CustomStencil
 	else if (SceneTextureId == 24)
 	{
-		#if NEEDTOSWITCHVERTICLEAXIS
-		UV.y = 1.0 - UV.y; 
-		#endif
-
 		MaterialFloat Stencil = Texture2DSample(MobileSceneTextures.MobileCustomStencilTexture, MobileSceneTextures.MobileCustomStencilTextureSampler, UV).r*255.0;
 		Stencil = floor(Stencil + 0.5);
 		return MaterialFloat4(Stencil.rrr, 0.f);
@@ -2049,7 +2058,7 @@ void CalcMaterialParametersEx(
 	Parameters.SvPosition = SvPosition;
 	Parameters.ScreenPosition = ScreenPosition;
 
-#if COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1
+#if COMPILER_GLSL_ES2
 	// ES2 normalize isn't done accurately. This seems to fix it.
 	// Originally this was normalize(normalize(TranslatedWorldPosition.xyz)) but tegra4 appears to optimize that out.
 	Parameters.CameraVector = normalize(-0.01 * Parameters.WorldPosition_CamRelative.xyz);
@@ -2063,7 +2072,7 @@ void CalcMaterialParametersEx(
 	Parameters.TwoSidedSign = 1.0f;
 
 #if MATERIAL_TWOSIDED && HAS_PRIMITIVE_UNIFORM_BUFFER
-	Parameters.TwoSidedSign *= ResolvedView.CullingSign * Primitive.LocalToWorldDeterminantSign;
+	Parameters.TwoSidedSign *= ResolvedView.CullingSign * Primitive.InvNonUniformScaleAndDeterminantSign.w;
 
 	#if !MATERIAL_TWOSIDED_SEPARATE_PASS
 		Parameters.TwoSidedSign *= GetFloatFacingSign(bIsFrontFace);

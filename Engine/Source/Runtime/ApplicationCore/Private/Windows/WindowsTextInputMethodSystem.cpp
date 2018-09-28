@@ -7,8 +7,19 @@
 #include "Logging/LogCategory.h"
 #include "GenericPlatform/GenericWindow.h"
 #include "Windows/WindowsHWrapper.h"
+#include "Stats/Stats.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWindowsTextInputMethodSystem, Log, All);
+
+DECLARE_STATS_GROUP(TEXT("IME Windows"), STATGROUP_IMEWindows, STATCAT_Advanced);
+
+DECLARE_CYCLE_STAT(TEXT("IME ApplyDefaults"), STAT_IMEWindowsApplyDefaults, STATGROUP_IMEWindows);
+DECLARE_CYCLE_STAT(TEXT("IME RegisterContext"), STAT_IMEWindowsRegisterContext, STATGROUP_IMEWindows);
+DECLARE_CYCLE_STAT(TEXT("IME UnregisterContext"), STAT_IMEWindowsUnregisterContext, STATGROUP_IMEWindows);
+DECLARE_CYCLE_STAT(TEXT("IME ActivateContext"), STAT_IMEWindowsActivateContext, STATGROUP_IMEWindows);
+DECLARE_CYCLE_STAT(TEXT("IME DeactivateContext"), STAT_IMEWindowsDeactivateContext, STATGROUP_IMEWindows);
+DECLARE_CYCLE_STAT(TEXT("IME OnIMEActivationStateChanged"), STAT_IMEWindowsOnIMEActivationStateChanged, STATGROUP_IMEWindows);
+DECLARE_CYCLE_STAT(TEXT("IME ProcessMessage"), STAT_IMEWindowsProcessMessage, STATGROUP_IMEWindows);
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 
@@ -595,6 +606,7 @@ void FWindowsTextInputMethodSystem::ClearStaleWindowHandles()
 
 void FWindowsTextInputMethodSystem::ApplyDefaults(const TSharedRef<FGenericWindow>& InWindow)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsApplyDefaults);
 	ClearStaleWindowHandles();
 	KnownWindows.Add(InWindow);
 
@@ -630,6 +642,7 @@ void FWindowsTextInputMethodSystem::ApplyDefaults(const TSharedRef<FGenericWindo
 
 TSharedPtr<ITextInputMethodChangeNotifier> FWindowsTextInputMethodSystem::RegisterContext(const TSharedRef<ITextInputMethodContext>& Context)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsRegisterContext);
 	UE_LOG(LogWindowsTextInputMethodSystem, Verbose, TEXT("Registering context %p..."), &(Context.Get()));
 
 	HRESULT Result;
@@ -693,6 +706,7 @@ TSharedPtr<ITextInputMethodChangeNotifier> FWindowsTextInputMethodSystem::Regist
 
 void FWindowsTextInputMethodSystem::UnregisterContext(const TSharedRef<ITextInputMethodContext>& Context)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsUnregisterContext);
 	UE_LOG(LogWindowsTextInputMethodSystem, Verbose, TEXT("Unregistering context %p..."), &(Context.Get()));
 
 	HRESULT Result;
@@ -719,6 +733,7 @@ void FWindowsTextInputMethodSystem::UnregisterContext(const TSharedRef<ITextInpu
 
 void FWindowsTextInputMethodSystem::ActivateContext(const TSharedRef<ITextInputMethodContext>& Context)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsActivateContext);
 	UE_LOG(LogWindowsTextInputMethodSystem, Verbose, TEXT("Activating context %p..."), &(Context.Get()));
 	HRESULT Result;
 
@@ -755,6 +770,7 @@ void FWindowsTextInputMethodSystem::ActivateContext(const TSharedRef<ITextInputM
 
 void FWindowsTextInputMethodSystem::DeactivateContext(const TSharedRef<ITextInputMethodContext>& Context)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsDeactivateContext);
 	FInternalContext& InternalContext = ContextToInternalContextMap[Context];
 
 	if (InternalContext.WindowHandle)
@@ -802,6 +818,7 @@ bool FWindowsTextInputMethodSystem::IsActiveContext(const TSharedRef<ITextInputM
 
 void FWindowsTextInputMethodSystem::OnIMEActivationStateChanged(const bool bIsEnabled)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsOnIMEActivationStateChanged);
 	if(bIsEnabled)
 	{
 		// It seems that switching away from an IMM based IME doesn't generate a deactivation notification
@@ -837,6 +854,7 @@ void FWindowsTextInputMethodSystem::OnIMEActivationStateChanged(const bool bIsEn
 
 int32 FWindowsTextInputMethodSystem::ProcessMessage(HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam)
 {
+	SCOPE_CYCLE_COUNTER(STAT_IMEWindowsProcessMessage);
 	if(CurrentAPI != EAPI::IMM)
 	{
 		return DefWindowProc(hwnd, msg, wParam, lParam);

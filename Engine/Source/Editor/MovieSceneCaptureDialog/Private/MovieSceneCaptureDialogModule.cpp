@@ -502,7 +502,7 @@ void FInEditorCapture::OnPIEViewportStarted()
 				// Keep scaling down the window size while we're bigger than half the desktop width/height
 				{
 					FDisplayMetrics DisplayMetrics;
-					FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+					FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 						
 					while(PreviewWindowSize.X >= DisplayMetrics.PrimaryDisplayWidth*.5f || PreviewWindowSize.Y >= DisplayMetrics.PrimaryDisplayHeight*.5f)
 					{

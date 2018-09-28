@@ -5,6 +5,13 @@
 #include "OnlineError.h"
 #import "OnlineStoreKitHelper.h"
 
+/** Take successful transactions and route them through deferred pipeline */
+#define TEST_DEFERRED_TRANSACTIONS 0
+#define TEST_DEFERRED_DELAY 25.0f
+#if TEST_DEFERRED_TRANSACTIONS
+#include "Containers/Ticker.h"
+#endif // TEST_DEFERRED_TRANSACTIONS
+
 namespace OSSConsoleVariables
 {
 	// CVars
@@ -24,12 +31,12 @@ FOnlinePurchaseIOS::FOnlinePurchaseIOS(FOnlineSubsystemIOS* InSubsystem)
 	, bRestoringTransactions(false)
 	, Subsystem(InSubsystem)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlinePurchaseIOS::FOnlinePurchaseIOS" ));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT( "FOnlinePurchaseIOS::FOnlinePurchaseIOS" ));
 }
 
 FOnlinePurchaseIOS::FOnlinePurchaseIOS()
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlinePurchaseIOS::FOnlinePurchaseIOS" ));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT( "FOnlinePurchaseIOS::FOnlinePurchaseIOS" ));
 }
 
 FOnlinePurchaseIOS::~FOnlinePurchaseIOS()
@@ -63,7 +70,7 @@ void FOnlinePurchaseIOS::InitStoreKit(FStoreKitHelperV2* InStoreKit)
 bool FOnlinePurchaseIOS::IsAllowedToPurchase(const FUniqueNetId& UserId)
 {
 	bool bCanMakePurchases = [SKPaymentQueue canMakePayments];
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::IsAllowedToPurchase %s"), *LexToString(bCanMakePurchases));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::IsAllowedToPurchase %s"), *LexToString(bCanMakePurchases));
 	return bCanMakePurchases;
 }
 
@@ -148,7 +155,7 @@ void FOnlinePurchaseIOS::Checkout(const FUniqueNetId& UserId, const FPurchaseChe
 
 void FOnlinePurchaseIOS::FinalizePurchase(const FUniqueNetId& UserId, const FString& ReceiptId)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::FinalizePurchase %s %s"), *UserId.ToString(), *ReceiptId);
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::FinalizePurchase %s %s"), *UserId.ToString(), *ReceiptId);
 
 	const FString ReceiptIdCopy(ReceiptId);
 	dispatch_async(dispatch_get_main_queue(), ^
@@ -190,7 +197,7 @@ void FOnlinePurchaseIOS::QueryReceipts(const FUniqueNetId& UserId, bool bRestore
 		}
 		else
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::QueryReceipts already restoring transactions"));
+			UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::QueryReceipts already restoring transactions"));
 			bSuccess = false;
 		}
 	}
@@ -228,17 +235,26 @@ void FOnlinePurchaseIOS::GetReceipts(const FUniqueNetId& UserId, TArray<FPurchas
 
 void FOnlinePurchaseIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Response, const FOnQueryOnlineStoreOffersComplete& CompletionDelegate)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnProductPurchaseRequestResponse"));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::OnProductPurchaseRequestResponse"));
 }
 
 void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState Result, const FStoreKitTransactionData& TransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionCompleteResponse %d %s"), (int32)Result, *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionCompleteResponse %d %s"), (int32)Result, *TransactionData.ToDebugString());
 	
 	FString UserIdStr = IOSUSER;
 	const TSharedRef<FOnlinePurchasePendingTransactionIOS>* UserPendingTransactionPtr = PendingTransactions.Find(UserIdStr);
-	if(UserPendingTransactionPtr != nullptr)
+	if (UserPendingTransactionPtr != nullptr)
 	{
+#if TEST_DEFERRED_TRANSACTIONS
+		if (Result == EPurchaseTransactionState::Restored || Result == EPurchaseTransactionState::Purchased)
+		{
+			// Route a successful purchase to the deferred code
+			OnTransactionDeferred(TransactionData);
+			return;
+		}
+#endif // TEST_DEFERRED_TRANSACTIONS
+
 		const TSharedRef<FOnlinePurchasePendingTransactionIOS> UserPendingTransaction = *UserPendingTransactionPtr;
 		
 		UserPendingTransaction->AddCompletedOffer(Result, TransactionData);
@@ -265,7 +281,7 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 					FinalResult.bSucceeded = true;
 					break;
 				default:
-					UE_LOG(LogOnline, Warning, TEXT("Unexpected state after purchase %d"), (int)FinalState);
+					UE_LOG_ONLINE_PURCHASE(Warning, TEXT("Unexpected state after purchase %d"), (int)FinalState);
 					FinalResult.SetFromErrorCode(TEXT("com.epicgames.purchase.unexpected_state"));
 					FinalResult.ErrorMessage = !ErrorStr.IsEmpty() ? FText::FromString(ErrorStr) : LOCTEXT("UnexpectedState", "Unexpected purchase result");
 					UserPendingTransaction->PendingPurchaseInfo.TransactionState = EPurchaseTransactionState::Failed;
@@ -285,19 +301,30 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 	else
 	{
 		// Transactions that come in during login or other non explicit purchase moments are added to a receipts list for later redemption
-		UE_LOG(LogOnline, Log, TEXT("Pending transaction completed offline"));
-		
+		UE_LOG_ONLINE_PURCHASE(Log, TEXT("Pending transaction completed offline"));
 		if (Result == EPurchaseTransactionState::Restored || Result == EPurchaseTransactionState::Purchased)
 		{
 			TSharedRef<FPurchaseReceipt> OfflineReceipt = FOnlinePurchasePendingTransactionIOS::GenerateReceipt(Result, TransactionData);
 			OfflineTransactions.Add(OfflineReceipt);
+
+			// Queue this user to be updated about this next-tick on the game-thread, if they're not mid-purchase
+			TWeakPtr<FOnlinePurchaseIOS, ESPMode::ThreadSafe> WeakThis(AsShared());
+			Subsystem->ExecuteNextTick([WeakThis]()
+			{
+				FOnlinePurchaseIOSPtr StrongThis = WeakThis.Pin();
+				if (StrongThis.IsValid())
+				{
+					// No user id for app store
+					StrongThis->TriggerOnUnexpectedPurchaseReceiptDelegates(FOnlineIdentityIOS::GetEmptyUniqueId());
+				}
+			});
 		}
 	}
 }
 
 void FOnlinePurchaseIOS::OnTransactionRestored(const FStoreKitTransactionData& TransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionRestored %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionRestored %s"), *TransactionData.ToDebugString());
 
 	// Single item restored amongst a group of items
 	TSharedRef<FPurchaseReceipt> OfflineReceipt = FOnlinePurchasePendingTransactionIOS::GenerateReceipt(EPurchaseTransactionState::Restored, TransactionData);
@@ -324,7 +351,7 @@ void FOnlinePurchaseIOS::OnTransactionRestored(const FStoreKitTransactionData& T
 
 void FOnlinePurchaseIOS::OnRestoreTransactionsComplete(EPurchaseTransactionState Result)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnRestoreTransactionsComplete %d"), (int32)Result);
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::OnRestoreTransactionsComplete %d"), (int32)Result);
 	
 	// Full restore is complete
 	bRestoringTransactions = false;
@@ -338,12 +365,12 @@ void FOnlinePurchaseIOS::OnRestoreTransactionsComplete(EPurchaseTransactionState
 
 void FOnlinePurchaseIOS::OnTransactionInProgress(const FStoreKitTransactionData& TransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionInProgress %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionInProgress %s"), *TransactionData.ToDebugString());
 }
 
 void FOnlinePurchaseIOS::OnTransactionDeferred(const FStoreKitTransactionData& TransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionDeferred %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionDeferred %s"), *TransactionData.ToDebugString());
 	
 	FString UserIdStr = IOSUSER;
 	const TSharedRef<FOnlinePurchasePendingTransactionIOS>* UserPendingTransactionPtr = PendingTransactions.Find(UserIdStr);
@@ -362,11 +389,32 @@ void FOnlinePurchaseIOS::OnTransactionDeferred(const FStoreKitTransactionData& T
 		// Clear out the deferred transaction, it should get picked up in "offline" receipts
 		PendingTransactions.Remove(UserIdStr);
 		UserPendingTransaction->CheckoutCompleteDelegate.ExecuteIfBound(FinalResult, DeferredReceipt);
+
+#if TEST_DEFERRED_TRANSACTIONS
+		// Existing transactions emulating deferment will trigger as success shortly
+		TWeakPtr<FOnlinePurchaseIOS, ESPMode::ThreadSafe> WeakThis(AsShared());
+		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakThis, TransactionData](float) -> bool
+		{
+			FOnlinePurchaseIOSPtr StrongThis = WeakThis.Pin();
+			if (StrongThis.IsValid())
+			{
+				// Emulate redemption in a fixed time period
+				StrongThis->OnTransactionCompleteResponse(EPurchaseTransactionState::Purchased, TransactionData);
+			}
+			return false;
+		}), TEST_DEFERRED_DELAY);
+#endif // TEST_DEFERRED_TRANSACTIONS
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("Offline deferred transaction"));
+		UE_LOG_ONLINE_PURCHASE(Log, TEXT("Offline deferred transaction"));
 	}
+}
+
+void FOnlinePurchaseIOS::FinalizeReceiptValidationInfo(const FUniqueNetId& UserId, FString& InReceiptValidationInfo, const FOnFinalizeReceiptValidationInfoComplete& Delegate)
+{
+	FOnlineError DefaultSuccess(true);
+	Delegate.ExecuteIfBound(DefaultSuccess, InReceiptValidationInfo);
 }
 
 TSharedRef<FPurchaseReceipt> FOnlinePurchasePendingTransactionIOS::GenerateReceipt()
@@ -410,7 +458,7 @@ TSharedRef<FPurchaseReceipt> FOnlinePurchasePendingTransactionIOS::GenerateRecei
 		FPurchaseReceipt::FLineItemInfo& LineItem = ReceiptEntry.LineItems[Idx];
 		
 		LineItem.ItemName = Transaction.GetOfferId();
-		LineItem.UniqueId = Transaction.GetTransactionIdentifier();;
+		LineItem.UniqueId = Transaction.GetTransactionIdentifier();
 		LineItem.ValidationInfo = Transaction.GetReceiptData();
 
 		Receipt->AddReceiptOffer(ReceiptEntry);

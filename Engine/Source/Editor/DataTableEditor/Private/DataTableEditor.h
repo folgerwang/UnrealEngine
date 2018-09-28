@@ -14,6 +14,7 @@
 #include "EditorUndoClient.h"
 #include "Kismet2/StructureEditorUtils.h"
 #include "DataTableEditorUtils.h"
+#include "SRowEditor.h"
 
 class FJsonObject;
 
@@ -39,7 +40,7 @@ public:
 	 * @param	InitToolkitHost			When Mode is WorldCentric, this is the level editor instance to spawn this editor within
 	 * @param	Table					The table to edit
 	 */
-	void InitDataTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UDataTable* Table );
+	virtual void InitDataTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UDataTable* Table );
 
 	/** Constructor */
 	FDataTableEditor();
@@ -74,7 +75,7 @@ public:
 
 	void SetHighlightedRow(FName Name);
 
-private:
+protected:
 
 	void RefreshCachedDataTable(const FName InCachedSelection = NAME_None, const bool bUpdateEvenIfValid = false);
 
@@ -93,6 +94,7 @@ private:
 	TSharedRef<SVerticalBox> CreateContentBox();
 
 	TSharedRef<SWidget> CreateRowEditorBox();
+	virtual TSharedRef<SRowEditor> CreateRowEditor(UDataTable* Table);
 
 	/**	Spawns the tab with the data table inside */
 	TSharedRef<SDockTab> SpawnTab_DataTable( const FSpawnTabArgs& Args );
@@ -125,7 +127,13 @@ private:
 
 	void OnRowSelectionChanged(FDataTableEditorRowListViewDataPtr InNewSelection, ESelectInfo::Type InSelectInfo);
 
-private:
+	/** Helper function for creating and registering the tab containing the data table data */
+	virtual void CreateAndRegisterDataTableTab(const TSharedRef<class FTabManager>& InTabManager);
+
+	/** Helper function for creating and registering the tab containing the row editor */
+	virtual void CreateAndRegisterRowEditorTab(const TSharedRef<class FTabManager>& InTabManager);
+
+protected:
 
 	/** Struct holding information about the current column widths */
 	struct FColumnWidth

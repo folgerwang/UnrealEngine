@@ -10,6 +10,7 @@
 #include "GlobalShader.h"
 #include "Serialization/MemoryReader.h"
 #include "VulkanLLM.h"
+#include "Misc/ScopeRWLock.h"
 
 TAutoConsoleVariable<int32> GDynamicGlobalUBs(
 	TEXT("r.Vulkan.DynamicGlobalUBs"),
@@ -30,6 +31,72 @@ static TAutoConsoleVariable<int32> GDescriptorSetLayoutMode(
 	ECVF_ReadOnly | ECVF_RenderThreadSafe
 );
 
+int32 GCacheCreatedShaders = 1;
+FAutoConsoleVariableRef CVarCacheCreatedShaders(
+	TEXT("r.Vulkan.CacheShaders"),
+	GCacheCreatedShaders,
+	TEXT("Whether to cache created shaders to avoid shader duplication\n"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe
+	);
+
+FVulkanShaderFactory::~FVulkanShaderFactory()
+{
+	for (auto& Map : ShaderMap)
+	{
+		Map.Empty();
+	}
+}
+	
+template <typename ShaderType> 
+ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulkanDevice* Device)
+{
+	ShaderType* RetShader = nullptr;
+	if (GCacheCreatedShaders)
+	{
+		FVulkanShaderFactory::FKey ShaderKey; 
+		ShaderKey.CodeLen = Code.Num();
+		ShaderKey.CodeCRC = FCrc::MemCrc32(Code.GetData(), Code.Num());
+		FVulkanShader** FoundShaderPtr = nullptr;
+		{
+			FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
+			FoundShaderPtr = ShaderMap[ShaderType::StaticFrequency].Find(ShaderKey);
+		}
+		if (FoundShaderPtr)
+		{
+			RetShader = static_cast<ShaderType*>(*FoundShaderPtr);
+		}
+		else
+		{
+			RetShader = new ShaderType(Device);
+			RetShader->Setup(Code);
+			RetShader->ShaderCodeCRC = ShaderKey.CodeCRC;
+			RetShader->ShaderCodeLen = ShaderKey.CodeLen;
+			
+			FRWScopeLock ScopedLock(Lock, SLT_Write);
+			ShaderMap[ShaderType::StaticFrequency].Add(ShaderKey, RetShader);
+		}
+	}
+	else
+	{
+		RetShader = new ShaderType(Device);
+		RetShader->Setup(Code);
+	}
+
+	return RetShader;
+}
+	
+void FVulkanShaderFactory::OnDeleteShader(const FVulkanShader& Shader)
+{
+	if (GCacheCreatedShaders)
+	{
+		FRWScopeLock ScopedLock(Lock, SLT_Write);
+		FVulkanShaderFactory::FKey ShaderKey; 
+		ShaderKey.CodeLen = Shader.ShaderCodeLen;
+		ShaderKey.CodeCRC = Shader.ShaderCodeCRC;
+		ShaderMap[Shader.Frequency].Remove(ShaderKey);
+	}
+}
+
 void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode)
 {
 	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanShaders);
@@ -38,7 +105,7 @@ void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode)
 	FMemoryReader Ar(InShaderHeaderAndCode, true);
 
 	Ar << CodeHeader;
-
+	
 	Ar << Spirv;
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
 	checkf(Spirv.Num() != 0, TEXT("Empty SPIR-V!%s"), *CodeHeader.DebugName);
@@ -56,22 +123,8 @@ void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode)
 	}
 	check(CodeHeader.GlobalSpirvInfos.Num() == CodeHeader.Globals.Num());
 
-	// Create a default handle
-	VkShaderModuleCreateInfo ModuleCreateInfo;
-	ZeroVulkanStruct(ModuleCreateInfo, VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO);
-	ModuleCreateInfo.codeSize = Spirv.Num() * sizeof(uint32);
-	ModuleCreateInfo.pCode = Spirv.GetData();
-
-#if VULKAN_SUPPORTS_VALIDATION_CACHE
-	VkShaderModuleValidationCacheCreateInfoEXT ValidationInfo;
-	if (Device->GetOptionalExtensions().HasEXTValidationCache)
-	{
-		ZeroVulkanStruct(ValidationInfo, VK_STRUCTURE_TYPE_SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT);
-		ValidationInfo.validationCache = Device->GetValidationCache();
-		ModuleCreateInfo.pNext = &ValidationInfo;
-	}
-#endif
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateShaderModule(Device->GetInstanceHandle(), &ModuleCreateInfo, VULKAN_CPU_ALLOCATOR, &DefaultShaderModule));
+	static TAtomic<uint64> IdCounter{ 0 };
+	Id = ++IdCounter;
 }
 
 VkShaderModule FVulkanShader::CreateHandle(const FVulkanLayout* Layout, uint32 LayoutHash)
@@ -82,6 +135,12 @@ VkShaderModule FVulkanShader::CreateHandle(const FVulkanLayout* Layout, uint32 L
 }
 
 FVulkanShader::~FVulkanShader()
+{
+	PurgeShaderModules();
+	Device->GetShaderFactory().OnDeleteShader(*this);
+}
+
+void FVulkanShader::PurgeShaderModules()
 {
 	for (const auto& Pair : ShaderModules)
 	{
@@ -161,37 +220,27 @@ VkShaderModule FVulkanLayout::CreatePatchedPatchSpirvModule(TArray<uint32>& Spir
 
 FVertexShaderRHIRef FVulkanDynamicRHI::RHICreateVertexShader(const TArray<uint8>& Code)
 {
-	FVulkanVertexShader* Shader = new FVulkanVertexShader(Device);
-	Shader->Setup(Code);
-	return Shader;
+	return Device->GetShaderFactory().CreateShader<FVulkanVertexShader>(Code, Device);
 }
 
 FPixelShaderRHIRef FVulkanDynamicRHI::RHICreatePixelShader(const TArray<uint8>& Code)
 {
-	FVulkanPixelShader* Shader = new FVulkanPixelShader(Device);
-	Shader->Setup(Code);
-	return Shader;
+	return Device->GetShaderFactory().CreateShader<FVulkanPixelShader>(Code, Device);
 }
 
 FHullShaderRHIRef FVulkanDynamicRHI::RHICreateHullShader(const TArray<uint8>& Code) 
 { 
-	FVulkanHullShader* Shader = new FVulkanHullShader(Device);
-	Shader->Setup(Code);
-	return Shader;
+	return Device->GetShaderFactory().CreateShader<FVulkanHullShader>(Code, Device);
 }
 
 FDomainShaderRHIRef FVulkanDynamicRHI::RHICreateDomainShader(const TArray<uint8>& Code) 
 { 
-	FVulkanDomainShader* Shader = new FVulkanDomainShader(Device);
-	Shader->Setup(Code);
-	return Shader;
+	return Device->GetShaderFactory().CreateShader<FVulkanDomainShader>(Code, Device);
 }
 
 FGeometryShaderRHIRef FVulkanDynamicRHI::RHICreateGeometryShader(const TArray<uint8>& Code) 
 { 
-	FVulkanGeometryShader* Shader = new FVulkanGeometryShader(Device);
-	Shader->Setup(Code);
-	return Shader;
+	return Device->GetShaderFactory().CreateShader<FVulkanGeometryShader>(Code, Device);
 }
 
 FGeometryShaderRHIRef FVulkanDynamicRHI::RHICreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList,
@@ -203,9 +252,7 @@ FGeometryShaderRHIRef FVulkanDynamicRHI::RHICreateGeometryShaderWithStreamOutput
 
 FComputeShaderRHIRef FVulkanDynamicRHI::RHICreateComputeShader(const TArray<uint8>& Code) 
 { 
-	FVulkanComputeShader* Shader = new FVulkanComputeShader(Device);
-	Shader->Setup(Code);
-	return Shader;
+	return Device->GetShaderFactory().CreateShader<FVulkanComputeShader>(Code, Device);
 }
 
 
@@ -496,6 +543,7 @@ void FVulkanDescriptorSetsLayoutInfo::FinalizeBindings(const FUniformBufferGathe
 				}
 			}
 		}
+
 	}
 
 	// Validate no empty sets were made

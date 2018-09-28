@@ -43,6 +43,7 @@ private:
 	TSharedRef<FExtender> OnExtendContentBrowserPathSelectionMenu(const TArray<FString>& SelectedPaths);
 	void CreateDataValidationContentBrowserAssetMenu(FMenuBuilder& MenuBuilder, TArray<FAssetData> SelectedAssets);
 	void CreateDataValidationContentBrowserPathMenu(FMenuBuilder& MenuBuilder, TArray<FString> SelectedPaths);
+	void OnPackageSaved(const FString& PackageFileName, UObject* PackageObj);
 
 	// Adds Asset and any assets it depends on to the set DependentAssets
 	void FindAssetDependencies(const FAssetRegistryModule& AssetRegistryModule, const FAssetData& Asset, TSet<FAssetData>& DependentAssets);
@@ -83,12 +84,15 @@ void FDataValidationModule::StartupModule()
 
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+
+		// Add save callback
+		UPackage::PackageSavedEvent.AddRaw(this, &FDataValidationModule::OnPackageSaved);
 	}
 }
 
 void FDataValidationModule::ShutdownModule()
 {
-	if (!IsRunningCommandlet() && !IsRunningGame())
+	if (!IsRunningCommandlet() && !IsRunningGame() && !IsRunningDedicatedServer())
 	{
 		FContentBrowserModule* ContentBrowserModule = FModuleManager::GetModulePtr<FContentBrowserModule>(TEXT("ContentBrowser"));
 		if (ContentBrowserModule)
@@ -105,6 +109,8 @@ void FDataValidationModule::ShutdownModule()
 			LevelEditorModule->GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
 		}
 		MenuExtender = nullptr;
+
+		UPackage::PackageSavedEvent.RemoveAll(this);
 	}
 }
 
@@ -282,6 +288,15 @@ void FDataValidationModule::CreateDataValidationContentBrowserPathMenu(FMenuBuil
 		FSlateIcon(),
 		FUIAction(FExecuteAction::CreateRaw(this, &FDataValidationModule::ValidateFolders, SelectedPaths))
 	);
+}
+
+void FDataValidationModule::OnPackageSaved(const FString& PackageFileName, UObject* PackageObj)
+{
+	UDataValidationManager* DataValidationManager = UDataValidationManager::Get();
+	if (DataValidationManager && PackageObj)
+	{
+		DataValidationManager->ValidateSavedPackage(PackageObj->GetFName());
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

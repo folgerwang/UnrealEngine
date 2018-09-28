@@ -153,10 +153,21 @@ struct FSlateUpdateVertexAndIndexBuffers final : public FRHICommand<FSlateUpdate
 		uint32 RequiredIndexBufferSize = NumBatchedIndices*sizeof(SlateIndex);		
 		uint8* IndexBufferData = (uint8*)GDynamicRHI->RHILockIndexBuffer( IndexBufferRHI, 0, RequiredIndexBufferSize, RLM_WriteOnly );
 
-		BatchData.FillVertexAndIndexBuffer( VertexBufferData, IndexBufferData, bAbsoluteIndices );
+		//Early out if we have an invalid buffer (might have lost context and now have invalid buffers)
+		if ((nullptr != VertexBufferData) && (nullptr != IndexBufferData))
+		{
+			BatchData.FillVertexAndIndexBuffer(VertexBufferData, IndexBufferData, bAbsoluteIndices);
+		}
 
-		GDynamicRHI->RHIUnlockVertexBuffer( VertexBufferRHI );
-		GDynamicRHI->RHIUnlockIndexBuffer( IndexBufferRHI );
+		if (nullptr != VertexBufferData)
+		{
+			GDynamicRHI->RHIUnlockVertexBuffer(VertexBufferRHI);
+		}
+
+		if (nullptr != IndexBufferData)
+		{
+			GDynamicRHI->RHIUnlockIndexBuffer(IndexBufferRHI);
+		}
 	}
 };
 
@@ -202,11 +213,22 @@ void FSlateRHIRenderingPolicy::UpdateVertexAndIndexBuffers(FRHICommandListImmedi
 		{
 			uint8* VertexBufferData = (uint8*)VertexBuffer.LockBuffer_RenderThread(NumVertices);
 			uint8* IndexBufferData =  (uint8*)IndexBuffer.LockBuffer_RenderThread(NumIndices);
-									
-			InBatchData.FillVertexAndIndexBuffer( VertexBufferData, IndexBufferData, bAbsoluteIndices );
-	
-			VertexBuffer.UnlockBuffer_RenderThread();
-			IndexBuffer.UnlockBuffer_RenderThread();
+			
+			//Check if the LockBuffer failed for these threads (might have lost context)
+			if ((nullptr != VertexBufferData) && (nullptr != IndexBufferData))
+			{
+				InBatchData.FillVertexAndIndexBuffer(VertexBufferData, IndexBufferData, bAbsoluteIndices);
+			}
+
+			if (nullptr != VertexBufferData)
+			{
+				VertexBuffer.UnlockBuffer_RenderThread();
+			}
+			
+			if (nullptr != IndexBufferData)
+			{
+				IndexBuffer.UnlockBuffer_RenderThread();
+			}
 		}
 		else
 		{
@@ -224,6 +246,7 @@ void FSlateRHIRenderingPolicy::UpdateVertexAndIndexBuffers(FRHICommandListImmedi
 
 static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix )
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_CreateSceneView);
 	// In loading screens, the engine is NULL, so we skip out.
 	if (GEngine == nullptr)
 	{
@@ -271,7 +294,10 @@ static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, 
 
 	UpdateNoiseTextureParameters(ViewUniformShaderParameters);
 
-	View->ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformShaderParameters, UniformBuffer_SingleFrame);
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_CreateViewUniformBufferImmediate);
+		View->ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(ViewUniformShaderParameters, UniformBuffer_SingleFrame);
+	}
 
 	return View;
 }
@@ -1411,7 +1437,7 @@ FSlateMaterialShaderPS* FSlateRHIRenderingPolicy::GetMaterialPixelShader( const 
 		break;
 	}
 
-	return FoundShader ? (FSlateMaterialShaderPS*)FoundShader->GetShaderChecked() : nullptr;
+	return FoundShader ? (FSlateMaterialShaderPS*)FoundShader->GetShader() : nullptr;
 }
 
 FSlateMaterialShaderVS* FSlateRHIRenderingPolicy::GetMaterialVertexShader( const FMaterial* Material, bool bUseInstancing )
@@ -1428,7 +1454,7 @@ FSlateMaterialShaderVS* FSlateRHIRenderingPolicy::GetMaterialVertexShader( const
 		FoundShader = MaterialShaderMap->GetShader(&TSlateMaterialShaderVS<false>::StaticType);
 	}
 	
-	return FoundShader ? (FSlateMaterialShaderVS*)FoundShader->GetShaderChecked() : nullptr;
+	return FoundShader ? (FSlateMaterialShaderVS*)FoundShader->GetShader() : nullptr;
 }
 
 EPrimitiveType FSlateRHIRenderingPolicy::GetRHIPrimitiveType(ESlateDrawPrimitive::Type SlateType)

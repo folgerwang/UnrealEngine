@@ -27,7 +27,7 @@ SWindowTitleBarArea::SWindowTitleBarArea()
 	, bIsMaximizeRestoreButtonEnabled(true)
 	, bIsCloseButtonEnabled(true)
 {
-	bCanTick = false;
+	SetCanTick(false);
 	bCanSupportFocus = false;
 
 	static bool bButtonsStyleInitialized = false;

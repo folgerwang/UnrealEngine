@@ -19,6 +19,12 @@ UBTCompositeNode::UBTCompositeNode(const FObjectInitializer& ObjectInitializer) 
 	bUseDecoratorsFailedActivationCheck = false;
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+UBTCompositeNode::~UBTCompositeNode()
+{
+}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 void UBTCompositeNode::InitializeComposite(uint16 InLastExecutionIndex)
 {
 	LastExecutionIndex = InLastExecutionIndex;
@@ -587,9 +593,9 @@ int32 UBTCompositeNode::GetNextChild(FBehaviorTreeSearchData& SearchData, int32 
 		NodeMemory->OverrideChild = BTSpecialChild::NotInitialized;
 	}
 	// or use composite's logic
-	else if (OnNextChild.IsBound())
+	else 
 	{
-		NextChildIndex = OnNextChild.Execute(SearchData, LastChildIdx, LastResult);
+		NextChildIndex = GetNextChildHandler(SearchData, LastChildIdx, LastResult);
 	}
 
 	return NextChildIndex;

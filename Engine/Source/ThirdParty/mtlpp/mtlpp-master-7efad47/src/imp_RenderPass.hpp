@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<MTLRenderPassAttachmentDescriptor*, void>
+struct MTLPP_EXPORT IMPTable<MTLRenderPassAttachmentDescriptor*, void>
 {
 	IMPTable()
 	{
@@ -75,7 +75,7 @@ struct IMPTable<MTLRenderPassAttachmentDescriptor*, void>
 };
 
 template<>
-struct IMPTable<MTLRenderPassColorAttachmentDescriptor*, void> : public IMPTableBase<MTLRenderPassColorAttachmentDescriptor*>, public IMPTable<MTLRenderPassAttachmentDescriptor*, void>
+struct MTLPP_EXPORT IMPTable<MTLRenderPassColorAttachmentDescriptor*, void> : public IMPTableBase<MTLRenderPassColorAttachmentDescriptor*>, public IMPTable<MTLRenderPassAttachmentDescriptor*, void>
 {
 	IMPTable()
 	{
@@ -94,7 +94,7 @@ struct IMPTable<MTLRenderPassColorAttachmentDescriptor*, void> : public IMPTable
 };
 
 template<>
-struct IMPTable<MTLRenderPassDepthAttachmentDescriptor*, void> : public IMPTableBase<MTLRenderPassDepthAttachmentDescriptor*>, public IMPTable<MTLRenderPassAttachmentDescriptor*, void>
+struct MTLPP_EXPORT IMPTable<MTLRenderPassDepthAttachmentDescriptor*, void> : public IMPTableBase<MTLRenderPassDepthAttachmentDescriptor*>, public IMPTable<MTLRenderPassAttachmentDescriptor*, void>
 {
 	IMPTable()
 	{
@@ -122,7 +122,7 @@ struct IMPTable<MTLRenderPassDepthAttachmentDescriptor*, void> : public IMPTable
 };
 
 template<>
-struct IMPTable<MTLRenderPassStencilAttachmentDescriptor*, void> : public IMPTableBase<MTLRenderPassStencilAttachmentDescriptor*>, public IMPTable<MTLRenderPassAttachmentDescriptor*, void>
+struct MTLPP_EXPORT IMPTable<MTLRenderPassStencilAttachmentDescriptor*, void> : public IMPTableBase<MTLRenderPassStencilAttachmentDescriptor*>, public IMPTable<MTLRenderPassAttachmentDescriptor*, void>
 {
 	IMPTable()
 	{
@@ -141,7 +141,7 @@ struct IMPTable<MTLRenderPassStencilAttachmentDescriptor*, void> : public IMPTab
 };
 
 template<>
-struct IMPTable<MTLRenderPassDescriptor*, void> : public IMPTableBase<MTLRenderPassDescriptor*>
+struct MTLPP_EXPORT IMPTable<MTLRenderPassDescriptor*, void> : public IMPTableBase<MTLRenderPassDescriptor*>
 {
 	IMPTable()
 	{

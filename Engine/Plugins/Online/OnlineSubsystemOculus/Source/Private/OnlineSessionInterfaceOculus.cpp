@@ -68,13 +68,13 @@ FOnlineSessionOculus::~FOnlineSessionOculus()
 
 			if (!Session.IsUnique())
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Session pointer (room %llu) not unique during cleanup!"), RoomId);
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Session pointer (room %llu) not unique during cleanup!"), RoomId);
 			}
 			Session->SessionState = EOnlineSessionState::Destroying;
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Invalid session during shutdown!"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session during shutdown!"));
 		}
 	}
 	Sessions.Empty();
@@ -96,20 +96,20 @@ bool FOnlineSessionOculus::CreateSession(int32 HostingPlayerNum, FName SessionNa
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
 		return false;
 	}
 
 	IOnlineIdentityPtr Identity = OculusSubsystem.GetIdentityInterface();
 	if (!Identity.IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No valid oculus identity interface."));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No valid oculus identity interface."));
 		return false;
 	}
 
 	if (NewSessionSettings.NumPrivateConnections > 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Oculus does not support private connections"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Oculus does not support private connections"));
 		return false;
 	}
 
@@ -240,7 +240,7 @@ void FOnlineSessionOculus::OnCreateRoomComplete(ovrMessageHandle Message, bool b
 	{
 		auto Error = ovr_Message_GetError(Message);
 		auto ErrorMessage = ovr_Error_GetMessage(Error);
-		UE_LOG_ONLINE(Error, TEXT("%s"), *FString(ErrorMessage));
+		UE_LOG_ONLINE_SESSION(Error, TEXT("%s"), *FString(ErrorMessage));
 		RemoveNamedSession(SessionName);
 		TriggerOnCreateSessionCompleteDelegates(SessionName, false);
 		return;
@@ -249,14 +249,14 @@ void FOnlineSessionOculus::OnCreateRoomComplete(ovrMessageHandle Message, bool b
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Error, TEXT("Session '%s': not found."), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Error, TEXT("Session '%s': not found."), *SessionName.ToString());
 		TriggerOnCreateSessionCompleteDelegates(SessionName, false);
 		return;
 	}
 
 	if (Session->SessionState != EOnlineSessionState::Creating)
 	{
-		UE_LOG_ONLINE(Error, TEXT("Session '%s': already created."), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Error, TEXT("Session '%s': already created."), *SessionName.ToString());
 		TriggerOnCreateSessionCompleteDelegates(SessionName, false);
 		return;
 	}
@@ -296,7 +296,7 @@ bool FOnlineSessionOculus::StartSession(FName SessionName)
 	auto Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't start an online game for session (%s) that hasn't been created"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't start an online game for session (%s) that hasn't been created"), *SessionName.ToString());
 		return false;
 	}
 
@@ -304,7 +304,7 @@ bool FOnlineSessionOculus::StartSession(FName SessionName)
 	// Sessions can be started if they are pending or the last one has ended
 	if (Session->SessionState != EOnlineSessionState::Pending && Session->SessionState != EOnlineSessionState::Ended)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't start an online session (%s) in state %s"),
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't start an online session (%s) in state %s"),
 			*SessionName.ToString(),
 			EOnlineSessionState::ToString(Session->SessionState));
 		TriggerOnStartSessionCompleteDelegates(SessionName, false);
@@ -323,14 +323,14 @@ bool FOnlineSessionOculus::UpdateSession(FName SessionName, FOnlineSessionSettin
 	auto Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("There is no session (%s) to update"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("There is no session (%s) to update"), *SessionName.ToString());
 		return false;
 	}
 
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || *Session->OwningUserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Need to own session (%s) before updating.  Current Owner: %s"), *SessionName.ToString(), *Session->OwningUserName);
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Need to own session (%s) before updating.  Current Owner: %s"), *SessionName.ToString(), *Session->OwningUserName);
 		return false;
 	}
 
@@ -348,7 +348,7 @@ bool FOnlineSessionOculus::UpdateMatchmakingRoom(FName SessionName, FOnlineSessi
 	auto Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("There is no session (%s) to update"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("There is no session (%s) to update"), *SessionName.ToString());
 		return false;
 	}
 
@@ -377,7 +377,7 @@ bool FOnlineSessionOculus::UpdateMatchmakingRoom(FName SessionName, FOnlineSessi
 			{
 				auto Error = ovr_Message_GetError(Message);
 				auto ErrorMessage = ovr_Error_GetMessage(Error);
-				UE_LOG_ONLINE(Error, TEXT("%s"), *FString(ErrorMessage));
+				UE_LOG_ONLINE_SESSION(Error, TEXT("%s"), *FString(ErrorMessage));
 				TriggerOnUpdateSessionCompleteDelegates(SessionName, false);
 				return;
 			}
@@ -385,7 +385,7 @@ bool FOnlineSessionOculus::UpdateMatchmakingRoom(FName SessionName, FOnlineSessi
 			auto NewSession = GetNamedSession(SessionName);
 			if (NewSession == nullptr)
 			{
-				UE_LOG_ONLINE(Error, TEXT("Session (%s) no longer exists"), *SessionName.ToString());
+				UE_LOG_ONLINE_SESSION(Error, TEXT("Session (%s) no longer exists"), *SessionName.ToString());
 				TriggerOnUpdateSessionCompleteDelegates(SessionName, false);
 				return;
 			}
@@ -412,7 +412,7 @@ bool FOnlineSessionOculus::UpdateRoomDataStore(FName SessionName, FOnlineSession
 	auto Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("There is no session (%s) to update"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("There is no session (%s) to update"), *SessionName.ToString());
 		return false;
 	}
 
@@ -481,7 +481,7 @@ bool FOnlineSessionOculus::UpdateRoomDataStore(FName SessionName, FOnlineSession
 			{
 				auto Error = ovr_Message_GetError(Message);
 				auto ErrorMessage = ovr_Error_GetMessage(Error);
-				UE_LOG_ONLINE(Error, TEXT("%s"), *FString(ErrorMessage));
+				UE_LOG_ONLINE_SESSION(Error, TEXT("%s"), *FString(ErrorMessage));
 				TriggerOnUpdateSessionCompleteDelegates(SessionName, false);
 				return;
 			}
@@ -489,7 +489,7 @@ bool FOnlineSessionOculus::UpdateRoomDataStore(FName SessionName, FOnlineSession
 			auto NewSession = GetNamedSession(SessionName);
 			if (NewSession == nullptr)
 			{
-				UE_LOG_ONLINE(Error, TEXT("Session (%s) no longer exists"), *SessionName.ToString());
+				UE_LOG_ONLINE_SESSION(Error, TEXT("Session (%s) no longer exists"), *SessionName.ToString());
 				TriggerOnUpdateSessionCompleteDelegates(SessionName, false);
 				return;
 			}
@@ -520,14 +520,14 @@ bool FOnlineSessionOculus::EndSession(FName SessionName)
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't end an online game for session (%s) that hasn't been created"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't end an online game for session (%s) that hasn't been created"), *SessionName.ToString());
 		return false;
 	}
 
 	// Can't end a match multiple times
 	if (Session->SessionState != EOnlineSessionState::InProgress)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't end an online session (%s) in state %s"),
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't end an online session (%s) in state %s"),
 			*SessionName.ToString(),
 			EOnlineSessionState::ToString(Session->SessionState));
 		TriggerOnStartSessionCompleteDelegates(SessionName, false);
@@ -546,7 +546,7 @@ bool FOnlineSessionOculus::DestroySession(FName SessionName, const FOnDestroySes
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't leave an online game for session (%s) that doesn't exist"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't leave an online game for session (%s) that doesn't exist"), *SessionName.ToString());
 		return false;
 	}
 
@@ -563,7 +563,7 @@ bool FOnlineSessionOculus::DestroySession(FName SessionName, const FOnDestroySes
 		{
 			auto Error = ovr_Message_GetError(Message);
 			auto ErrorMessage = ovr_Error_GetMessage(Error);
-			UE_LOG_ONLINE(Error, TEXT("%s"), *FString(ErrorMessage));
+			UE_LOG_ONLINE_SESSION(Error, TEXT("%s"), *FString(ErrorMessage));
 			CompletionDelegate.ExecuteIfBound(SessionName, false);
 			TriggerOnDestroySessionCompleteDelegates(SessionName, false);
 			return;
@@ -601,14 +601,14 @@ bool FOnlineSessionOculus::StartMatchmaking(const TArray< TSharedRef<const FUniq
 {
 	if (LocalPlayers.Num() > 1)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Oculus does not support more than one player for matchmaking"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Oculus does not support more than one player for matchmaking"));
 		return false;
 	}
 
 	FString Pool;
 	if (!SearchSettings->QuerySettings.Get(SETTING_OCULUS_POOL, Pool))
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No oculus pool specified. %s is required in SearchSettings->QuerySettings"), *SETTING_OCULUS_POOL.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No oculus pool specified. %s is required in SearchSettings->QuerySettings"), *SETTING_OCULUS_POOL.ToString());
 		// Fall back to using the map name as the pool name
 		if (!SearchSettings->QuerySettings.Get(SETTING_MAPNAME, Pool))
 		{
@@ -618,7 +618,7 @@ bool FOnlineSessionOculus::StartMatchmaking(const TArray< TSharedRef<const FUniq
 
 	if (NewSessionSettings.NumPrivateConnections > 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Oculus does not support private connections"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Oculus does not support private connections"));
 		return false;
 	}
 
@@ -684,7 +684,7 @@ bool FOnlineSessionOculus::FindSessions(int32 SearchingPlayerNum, const TSharedR
 {
 	if (SearchSettings->MaxSearchResults <= 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Invalid MaxSearchResults"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid MaxSearchResults"));
 		SearchSettings->SearchState = EOnlineAsyncTaskState::Failed;
 		TriggerOnFindSessionsCompleteDelegates(false);
 		return false;
@@ -741,7 +741,7 @@ bool FOnlineSessionOculus::FindModeratedRoomSessions(const TSharedRef<FOnlineSes
 		else if (bHasPaging)
 		{
 			// Log warning if there was still more moderated rooms that could be returned
-			UE_LOG_ONLINE(Warning, TEXT("Truncated moderated rooms results returned from the server"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Truncated moderated rooms results returned from the server"));
 		}
 
 		SearchSettings->SearchResults.Reset(SearchResultsSize);
@@ -757,7 +757,7 @@ bool FOnlineSessionOculus::FindModeratedRoomSessions(const TSharedRef<FOnlineSes
 			int32 ServerBuildId = GetRoomBuildUniqueId(Room);
 			if (ServerBuildId != 0 && ServerBuildId != BuildUniqueId)
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
 					ServerBuildId, BuildUniqueId);
 				continue;
 			}
@@ -824,7 +824,7 @@ bool FOnlineSessionOculus::FindMatchmakingSessions(const FString Pool, const TSh
 			int32 ServerBuildId = GetRoomBuildUniqueId(Room);
 			if (ServerBuildId != BuildUniqueId)
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
 					ServerBuildId, BuildUniqueId);
 				continue;
 			}
@@ -848,13 +848,13 @@ bool FOnlineSessionOculus::FindSessionById(const FUniqueNetId& SearchingUserId, 
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || SearchingUserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only search session with logged in player"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can only search session with logged in player"));
 		return false;
 	}
 
 	if (FriendId.IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Optional FriendId param not supported.  Use FindFriendSession() instead."));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Optional FriendId param not supported.  Use FindFriendSession() instead."));
 		return false;
 	}
 
@@ -887,7 +887,7 @@ bool FOnlineSessionOculus::FindSessionById(const FUniqueNetId& SearchingUserId, 
 		int32 ServerBuildId = GetRoomBuildUniqueId(Room);
 		if (ServerBuildId != BuildUniqueId)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
 				ServerBuildId, BuildUniqueId);
 			CompletionDelegate.ExecuteIfBound(0, false, SearchResult);
 			return;
@@ -916,7 +916,7 @@ bool FOnlineSessionOculus::JoinSession(int32 PlayerNum, FName SessionName, const
 	// Don't join a session if already in one or hosting one
 	if (Session)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Session (%s) already exists, can't join twice"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Session (%s) already exists, can't join twice"), *SessionName.ToString());
 		TriggerOnJoinSessionCompleteDelegates(SessionName, EOnJoinSessionCompleteResult::AlreadyInSession);
 		return false;
 	}
@@ -924,7 +924,7 @@ bool FOnlineSessionOculus::JoinSession(int32 PlayerNum, FName SessionName, const
 	// Don't join a session without any sessioninfo
 	if (!DesiredSession.Session.SessionInfo.IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No valid SessionInfo in the DesiredSession passed in"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No valid SessionInfo in the DesiredSession passed in"));
 		TriggerOnJoinSessionCompleteDelegates(SessionName, EOnJoinSessionCompleteResult::SessionDoesNotExist);
 		return false;
 	}
@@ -1013,7 +1013,7 @@ bool FOnlineSessionOculus::FindFriendSession(int32 LocalUserNum, const FUniqueNe
 		int32 ServerBuildId = GetRoomBuildUniqueId(Room);
 		if (ServerBuildId != BuildUniqueId)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
 				ServerBuildId, BuildUniqueId);
 			TriggerOnFindFriendSessionCompleteDelegates(LocalUserNum, false, SearchResult);
 			return;
@@ -1036,7 +1036,7 @@ bool FOnlineSessionOculus::FindFriendSession(const FUniqueNetId& LocalUserId, co
 
 bool FOnlineSessionOculus::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionOculus::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList) - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionOculus::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList) - not implemented"));
 	TArray<FOnlineSessionSearchResult> EmptyResult;
 	TriggerOnFindFriendSessionCompleteDelegates(0, false, EmptyResult);
 	return false;
@@ -1061,14 +1061,14 @@ bool FOnlineSessionOculus::SendSessionInviteToFriends(int32 LocalUserNum, FName 
 	// Cannot invite friends to session that doesn't exist
 	if (!Session)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Session (%s) doesn't exist"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Session (%s) doesn't exist"), *SessionName.ToString());
 		return false;
 	}
 
 	IOnlineFriendsPtr FriendsInterface = OculusSubsystem.GetFriendsInterface();
 	if (!FriendsInterface.IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Cannot get invite tokens for friends"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Cannot get invite tokens for friends"));
 		return false;
 	}
 
@@ -1082,7 +1082,7 @@ bool FOnlineSessionOculus::SendSessionInviteToFriends(int32 LocalUserNum, FName 
 
 		if (!bWasSuccessful)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Cannot get invite tokens for friends: %s"), *ErrorName);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Cannot get invite tokens for friends: %s"), *ErrorName);
 			return;
 		}
 
@@ -1268,7 +1268,7 @@ void FOnlineSessionOculus::OnRoomNotificationUpdate(ovrMessageHandle Message, bo
 {
 	if (bIsError)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Error on getting a room notification update"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Error on getting a room notification update"));
 		return;
 	}
 	
@@ -1289,7 +1289,7 @@ void FOnlineSessionOculus::OnRoomNotificationUpdate(ovrMessageHandle Message, bo
 			}
 		}
 	}
-	UE_LOG_ONLINE(Warning, TEXT("Session was gone before the notif update came back"));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Session was gone before the notif update came back"));
 
 }
 
@@ -1301,7 +1301,7 @@ void FOnlineSessionOculus::OnRoomInviteAccepted(ovrMessageHandle Message, bool b
 	FOnlineSessionSearchResult SearchResult;
 	if (bIsError)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Error on accepting room invite"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Error on accepting room invite"));
 		TriggerOnSessionUserInviteAcceptedDelegates(false, 0, PlayerId, SearchResult);
 		return;
 	}
@@ -1312,7 +1312,7 @@ void FOnlineSessionOculus::OnRoomInviteAccepted(ovrMessageHandle Message, bool b
 
 	if (!ovrID_FromString(&RoomId, RoomIdString))
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Could not parse the room id"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Could not parse the room id"));
 		TriggerOnSessionUserInviteAcceptedDelegates(false, 0, PlayerId, SearchResult);
 		return;
 	}
@@ -1329,7 +1329,7 @@ void FOnlineSessionOculus::OnRoomInviteAccepted(ovrMessageHandle Message, bool b
 
 		if (bInIsError)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Could not get room details"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Could not get room details"));
 			TriggerOnSessionUserInviteAcceptedDelegates(false, 0, PlayerId, LocalSearchResult);
 			return;
 		}
@@ -1354,7 +1354,7 @@ void FOnlineSessionOculus::OnMatchmakingNotificationMatchFound(ovrMessageHandle 
 {
 	if (!InProgressMatchmakingSearch.IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No matchmaking searches in progress"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No matchmaking searches in progress"));
 		return;
 	}
 

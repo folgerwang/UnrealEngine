@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "OnlineSessionSettings.h"
 
 #include "QosRegionManager.generated.h"
 
@@ -16,7 +15,7 @@ class UQosEvaluator;
 
 /** Enum for single region QoS return codes */
 UENUM()
-enum class EQosRegionResult : uint8
+enum class EQosDatacenterResult : uint8
 {
 	/** Incomplete, invalid result */
 	Invalid,
@@ -64,64 +63,111 @@ struct FQosDatacenterInfo
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Localized name of the datacenter */
+	/** Id for this datacenter */
 	UPROPERTY()
-	FText DisplayName;
-	/** RegionId for this datacenter */
+	FString Id;
+	/** Parent Region */
 	UPROPERTY()
 	FString RegionId;
-	/** Is this region tested */
+	/** Is this region tested (only valid if region is enabled) */
 	UPROPERTY()
 	bool bEnabled;
-	/** Is this region visible in the UI */
-	UPROPERTY()
-	bool bVisible;
-	/** Is this region "beta" */
-	UPROPERTY()
-	bool bBeta;
 	/** Addresses of ping servers */
 	UPROPERTY()
 	TArray<FQosPingServerInfo> Servers;
 
 	FQosDatacenterInfo()
-		: RegionId()
-		, bEnabled(true)
-		, bVisible(true)
-		, bBeta(false)
+		: bEnabled(true)
 	{
+	}
+
+	bool IsValid() const
+	{
+		return !Id.IsEmpty() && !RegionId.IsEmpty();
 	}
 
 	bool IsPingable() const
 	{
-		return !RegionId.IsEmpty() && bEnabled;
+		return bEnabled && IsValid();
 	}
 
+	FString ToDebugString() const
+	{
+		return FString::Printf(TEXT("[%s][%s]"), *RegionId, *Id);
+	}
+};
+
+/**
+ * Metadata about regions made up of datacenters
+ */
+USTRUCT()
+struct FQosRegionInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Localized name of the region */
+	UPROPERTY()
+	FText DisplayName;
+	/** Id for the region, all datacenters must reference one of these */
+	UPROPERTY()
+	FString RegionId;
+	/** Is this region tested at all (if false, overrides individual datacenters) */
+	UPROPERTY()
+	bool bEnabled;
+	/** Is this region visible in the UI (can be saved by user, replaced with auto if region disappears */
+	UPROPERTY()
+	bool bVisible;
+	/** Can this region be considered for auto detection */
+	UPROPERTY()
+	bool bAutoAssignable;
+
+	FQosRegionInfo()
+		: bEnabled(true)
+		, bVisible(true)
+		, bAutoAssignable(true)
+	{
+	}
+
+	bool IsValid() const
+	{
+		return !RegionId.IsEmpty();
+	}
+
+	/** @return true if this region is supposed to be tested */
+	bool IsPingable() const
+	{
+		return bEnabled;
+	}
+
+	/** @return true if a user can select this region in game */
 	bool IsUsable() const
 	{
-		return IsPingable() && bVisible;
+		return bVisible && IsPingable();
+	}
+
+	/** @return true if this region can be auto assigned */
+	bool IsAutoAssignable() const
+	{
+		return bAutoAssignable && IsUsable();
 	}
 };
 
 /** Runtime information about a given region */
 USTRUCT()
-struct QOS_API FQosRegionInfo
+struct QOS_API FDatacenterQosInstance
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Information about the region */
+	/** Information about the datacenter */
 	UPROPERTY(Transient)
-	FQosDatacenterInfo Region;
-
+	FQosDatacenterInfo Definition;
 	/** Success of the qos evaluation */
 	UPROPERTY(Transient)
-	EQosRegionResult Result;
+	EQosDatacenterResult Result;
 	/** Avg ping times across all search results */
 	UPROPERTY(Transient)
 	int32 AvgPingMs;
-
-	/** Transient list of search results for a given region */
-	TArray<FOnlineSessionSearchResult> SearchResults;
-	/** Transient list of ping times for the above search results */
+	/** Transient list of ping times obtained for this datacenter */
 	UPROPERTY(Transient)
 	TArray<int32> PingResults;
 	/** Number of good results */
@@ -129,51 +175,91 @@ struct QOS_API FQosRegionInfo
 	/** Last time this datacenter was checked */
 	UPROPERTY(Transient)
 	FDateTime LastCheckTimestamp;
+	/** Is the parent region usable */
+	UPROPERTY(Transient)
+	bool bUsable;
 
-	FQosRegionInfo()
-		: Result(EQosRegionResult::Invalid)
+	FDatacenterQosInstance()
+		: Result(EQosDatacenterResult::Invalid)
 		, AvgPingMs(UNREACHABLE_PING)
 		, NumResponses(0)
 		, LastCheckTimestamp(0)
+		, bUsable(true)
 	{
 	}
 
-	FQosRegionInfo(const FQosDatacenterInfo& InMeta)
-		: Region(InMeta)
-		, Result(EQosRegionResult::Invalid)
+	FDatacenterQosInstance(const FQosDatacenterInfo& InMeta, bool bInUsable)
+		: Definition(InMeta)
+		, Result(EQosDatacenterResult::Invalid)
 		, AvgPingMs(UNREACHABLE_PING)
 		, NumResponses(0)
 		, LastCheckTimestamp(0)
+		, bUsable(bInUsable)
 	{
-	}
-
-	/** @return if this region data is usable externally */
-	bool IsUsable() const
-	{
-		return Region.IsUsable();
 	}
 
 	/** reset the data to its default state */
 	void Reset()
 	{
 		// Only the transient values get reset
-		Result = EQosRegionResult::Invalid;
+		Result = EQosDatacenterResult::Invalid;
 		AvgPingMs = UNREACHABLE_PING;
-		SearchResults.Empty();
 		PingResults.Empty();
+		NumResponses = 0;
 		LastCheckTimestamp = FDateTime(0);
+		bUsable = false;
 	}
 };
 
-/**
- * Generic settings a server runs when hosting a simple QoS response service
- */
-class QOS_API FOnlineSessionSettingsQos : public FOnlineSessionSettings
+USTRUCT()
+struct QOS_API FRegionQosInstance
 {
-public:
+	GENERATED_USTRUCT_BODY()
 
-	FOnlineSessionSettingsQos(bool bInIsDedicated = true);
-	virtual ~FOnlineSessionSettingsQos() {}
+	/** Information about the region */
+	UPROPERTY(Transient)
+	FQosRegionInfo Definition;
+
+	/** Array of all known datacenters and their status */
+	UPROPERTY()
+	TArray<FDatacenterQosInstance> DatacenterOptions;
+
+	FRegionQosInstance()
+	{
+	}
+
+	FRegionQosInstance(const FQosRegionInfo& InMeta)
+		: Definition(InMeta)
+	{
+	}
+
+	/** @return the region id for this region instance */
+	const FString& GetRegionId() const
+	{ 
+		return Definition.RegionId; 
+	}
+
+	/** @return if this region data is usable externally */
+	bool IsUsable() const
+	{
+		return Definition.IsUsable();
+	}
+
+	/** @return true if this region can be consider for auto detection */
+	bool IsAutoAssignable() const
+	{
+		bool bValidResults = (GetRegionResult() == EQosDatacenterResult::Success) || (GetRegionResult() == EQosDatacenterResult::Incomplete);
+		return Definition.IsAutoAssignable() && IsUsable() && bValidResults;
+	}
+
+	/** @return the result of this region ping request */
+	EQosDatacenterResult GetRegionResult() const;
+	/** @return the ping recorded in the best sub region */
+	int32 GetBestAvgPing() const;
+	/** @return the subregion with the best ping */
+	FString GetBestSubregion() const;
+	/** @return sorted list of subregions by best ping */
+	void GetSubregionPreferences(TArray<FString>& OutSubregions) const;
 };
 
 /**
@@ -215,7 +301,15 @@ public:
 	 *
 	 * If this list is empty, the client cannot play.
 	 */
-	const TArray<FQosRegionInfo>& GetRegionOptions() const;
+	const TArray<FRegionQosInstance>& GetRegionOptions() const;
+
+	/**
+	 * Get a sorted list of subregions within a region
+	 *
+	 * @param RegionId region of interest
+	 * @param OutSubregions list of subregions in sorted order
+	 */
+	void GetSubregionPreferences(const FString& RegionId, TArray<FString>& OutSubregions) const;
 
 	/**
 	 * @return true if this is a usable region, false otherwise
@@ -239,20 +333,27 @@ public:
 
 	/**
 	 * Get the datacenter id for this instance, checking ini and commandline overrides
-	 * This is only relevant for dedicated servers (so they can advertise). Client does 
-	 * not search on this (but may choose to prioritize results later)
+	 * This is only relevant for dedicated servers (so they can advertise). 
+	 * Client does not search on this in any way
 	 *
 	 * @return the default datacenter identifier
 	 */
 	static FString GetDatacenterId();
 
-    /** @return true if a reasonable enough number of results were returned from all known regions, false otherwise */
+	/**
+	 * Get the subregion id for this instance, checking ini and commandline overrides
+	 * This is only relevant for dedicated servers (so they can advertise). Client does
+	 * not search on this (but may choose to prioritize results later)
+	 */
+	static FString GetAdvertisedSubregionId();
+
+	/** @return true if a reasonable enough number of results were returned from all known regions, false otherwise */
 	bool AllRegionsFound() const;
 
 	/**
 	 * Debug output for current region / datacenter information
 	 */
-	void DumpRegionStats();
+	void DumpRegionStats() const;
 
 	void RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged);
 
@@ -264,7 +365,12 @@ public:
 
 private:
 
-	void OnQosEvaluationComplete(EQosCompletionResult Result, const TArray<FQosRegionInfo>& RegionInfo);
+	/**
+	 * Double check assumptions based on current region/datacenter definitions
+	 */
+	void SanityCheckDefinitions() const;
+
+	void OnQosEvaluationComplete(EQosCompletionResult Result, const TArray<FDatacenterQosInstance>& DatacenterInstances);
 
 	/**
 	 * Use the existing set value, or if it is currently invalid, set the next best region available
@@ -276,10 +382,6 @@ private:
 	 */
 	int32 GetMaxPingMs() const;
 
-	/** Use old server method */
-	UPROPERTY(Config)
-	bool bUseOldQosServers;
-
 	/** Number of times to ping a given region using random sampling of available servers */
 	UPROPERTY(Config)
 	int32 NumTestsPerRegion;
@@ -288,9 +390,13 @@ private:
 	UPROPERTY(Config)
 	float PingTimeout;
 
-	/** Expected datacenters metadata */
+	/** Metadata about existing regions */
 	UPROPERTY(Config)
-	TArray<FQosDatacenterInfo> Datacenters;
+	TArray<FQosRegionInfo> RegionDefinitions;
+
+	/** Metadata about datacenters within existing regions */
+	UPROPERTY(Config)
+	TArray<FQosDatacenterInfo> DatacenterDefinitions;
 
 	UPROPERTY()
 	FDateTime LastCheckTimestamp;
@@ -301,9 +407,9 @@ private:
 	/** Result of the last datacenter test */
 	UPROPERTY()
 	EQosCompletionResult QosEvalResult;
-	/** Array of all known datacenters and their status */
+	/** Array of all known regions and the datacenters in them */
 	UPROPERTY()
-	TArray<FQosRegionInfo> RegionOptions;
+	TArray<FRegionQosInstance> RegionOptions;
 
 	/** Value forced to be the region (development) */
 	UPROPERTY()

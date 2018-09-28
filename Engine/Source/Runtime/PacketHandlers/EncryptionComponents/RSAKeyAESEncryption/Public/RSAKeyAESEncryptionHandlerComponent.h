@@ -58,10 +58,12 @@ public:
 	virtual bool IsValid() const override;
 
 	virtual void Incoming(FBitReader& Packet) override;
+	virtual void Outgoing(FBitWriter& Packet) override, FOutPacketTraits& Traits;
 
-	virtual void Outgoing(FBitWriter& Packet) override;
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override {}
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override {}
 
-	virtual int32 GetReservedPacketBits() override;
+	virtual int32 GetReservedPacketBits() const override;
 
 protected:
 	/**

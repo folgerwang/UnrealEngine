@@ -70,6 +70,8 @@ void SWorldWidgetScreenLayer::RemoveComponent(USceneComponent* Component)
 
 void SWorldWidgetScreenLayer::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(SWorldWidgetScreenLayer_Tick);
+
 	TArray<USceneComponent*, TInlineAllocator<1>> DeadComponents;
 
 	if ( APlayerController* PlayerController = PlayerContext.GetPlayerController() )

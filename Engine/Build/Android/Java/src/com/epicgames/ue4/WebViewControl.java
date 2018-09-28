@@ -41,6 +41,7 @@ import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.SystemClock;
 import android.view.MotionEvent;
+import android.os.Message;
 
 
 
@@ -106,9 +107,9 @@ class WebViewControl
 			public void run()
 			{
 				// enable remote debugging if requested and supported by the current platform
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && bEnableRemoteDebugging)
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
 				{
-					WebView.setWebContentsDebuggingEnabled(true);
+					WebView.setWebContentsDebuggingEnabled(bEnableRemoteDebugging && !GameActivity._activity.nativeIsShippingBuild());
 				}
 				
 				// create the WebView
@@ -116,6 +117,7 @@ class WebViewControl
 				webView.setWebViewClient(new ViewClient());
 				webView.setWebChromeClient(new ChromeClient());
 				webView.getSettings().setJavaScriptEnabled(true);
+				webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
 				webView.getSettings().setAppCacheMaxSize( 10 * 1024 * 1024 );
 				webView.getSettings().setAppCachePath(GameActivity._activity.getApplicationContext().getCacheDir().getAbsolutePath() );
 				webView.getSettings().setAllowFileAccess( true );
@@ -123,6 +125,7 @@ class WebViewControl
 				webView.getSettings().setAllowContentAccess( true );
 				webView.getSettings().setAllowFileAccessFromFileURLs(true);
 				webView.getSettings().setAllowUniversalAccessFromFileURLs(true);
+				webView.getSettings().setSupportMultipleWindows(true);
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
 				{
 					webView.getSettings().setMixedContentMode(0); // 0 = MIXED_CONTENT_ALWAYS_ALLOW
@@ -1666,6 +1669,17 @@ class WebViewControl
 		public long GetNativePtr()
 		{
 			return WebViewControl.this.nativePtr;
+		}
+
+		@Override
+		public boolean onCreateWindow(WebView View, boolean isDialog, boolean isUserGesture, Message resultMsg)
+		{
+			WebView newView = new WebView(GameActivity._activity);
+			View.addView(newView);
+            WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+            transport.setWebView(newView);
+            resultMsg.sendToTarget();
+            return true;
 		}
 	}
 	public long GetNativePtr()

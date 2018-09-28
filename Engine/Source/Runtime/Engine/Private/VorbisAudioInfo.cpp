@@ -366,6 +366,7 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
  *
  * @return	bool		true if the end of the data was reached (for both single shot and looping sounds)
  */
+
 bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, uint32 BufferSize )
 {
 	if (!bDllLoaded)
@@ -373,13 +374,17 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 		return true;
 	}
 
-	SCOPED_NAMED_EVENT(FVorbisAudioInfo_ReadCompressedData, FColor::Blue);
 	bPerformingOperation = true;
 
 	bool		bLooped;
 	uint32		TotalBytesRead;
 
-	SCOPE_CYCLE_COUNTER( STAT_VorbisDecompressTime );
+#if PLATFORM_ANDROID
+	// Something on android spams threads, so we will only mark the GT and AT
+	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_VorbisDecompressTime, IsInGameThread() || IsInAudioThread());
+#else
+	SCOPE_CYCLE_COUNTER(STAT_VorbisDecompressTime);
+#endif
 
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
@@ -510,8 +515,12 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 	check( VFWrapper != NULL );
 	bPerformingOperation = true;
 
-	SCOPE_CYCLE_COUNTER( STAT_VorbisDecompressTime );
-
+#if PLATFORM_ANDROID
+	// Something on android spams threads, so we will only mark the GT and AT
+	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_VorbisDecompressTime, IsInGameThread() || IsInAudioThread());
+#else
+	SCOPE_CYCLE_COUNTER(STAT_VorbisDecompressTime);
+#endif
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	bool	bLooped = false;

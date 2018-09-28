@@ -113,6 +113,7 @@ FDefaultGameMoviePlayer::FDefaultGameMoviePlayer()
 	, bInitialized(false)
 {
 	FCoreDelegates::IsLoadingMovieCurrentlyPlaying.BindRaw(this, &FDefaultGameMoviePlayer::IsMovieCurrentlyPlaying);
+    FCoreDelegates::RegisterMovieStreamerDelegate.AddRaw(this, &FDefaultGameMoviePlayer::RegisterMovieStreamer);
 }
 
 FDefaultGameMoviePlayer::~FDefaultGameMoviePlayer()
@@ -149,7 +150,7 @@ void FDefaultGameMoviePlayer::RegisterMovieStreamer(TSharedPtr<IMovieStreamer> I
 	}
 }
 
-void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
+void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer, TSharedPtr<SWindow> TargetRenderWindow)
 {
 	if(bInitialized)
 	{
@@ -181,7 +182,8 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
 
 	FPlatformSplash::Hide();
 
-	TSharedRef<SWindow> GameWindow = UGameEngine::CreateGameWindow();
+    // Use the passed in RenderWindow if it was provided, create one otherwise
+    const TSharedRef<SWindow> GameWindow = TargetRenderWindow.IsValid() ? TargetRenderWindow.ToSharedRef() : UGameEngine::CreateGameWindow();
 
 	TSharedPtr<SViewport> MovieViewport;
 
@@ -295,8 +297,8 @@ void FDefaultGameMoviePlayer::SetupLoadingScreen(const FLoadingScreenAttributes&
 	}
 	else
 	{
-	LoadingScreenAttributes = InLoadingScreenAttributes;
-}
+	    LoadingScreenAttributes = InLoadingScreenAttributes;
+    }
 }
 
 bool FDefaultGameMoviePlayer::HasEarlyStartupMovie() const
@@ -410,9 +412,15 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 			LoadingIsDone.Set(1);
 		}
 		
-		// Transfer the content to the main window
-		MainWindow.Pin()->SetContent(LoadingScreenContents.ToSharedRef());
-		VirtualRenderWindow->SetContent(SNullWidget::NullWidget);
+        if (MainWindow.IsValid())
+        {
+            // Transfer the content to the main window
+            MainWindow.Pin()->SetContent(LoadingScreenContents.ToSharedRef());
+        }
+        if (VirtualRenderWindow.IsValid())
+        {
+            VirtualRenderWindow->SetContent(SNullWidget::NullWidget);
+        }
 
 		const bool bAutoCompleteWhenLoadingCompletes = LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes;
 		const bool bWaitForManualStop = LoadingScreenAttributes.bWaitForManualStop;

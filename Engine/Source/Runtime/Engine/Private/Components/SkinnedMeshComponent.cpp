@@ -24,6 +24,7 @@
 #include "Rendering/SkinWeightVertexBuffer.h"
 #include "SkeletalMeshTypes.h"
 #include "Animation/MorphTarget.h"
+#include "AnimationRuntime.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkinnedMeshComp, Log, All);
 
@@ -496,6 +497,18 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 		{
 			ERHIFeatureLevel::Type SceneFeatureLevel = GetWorld()->FeatureLevel;
 			FSkeletalMeshRenderData* SkelMeshRenderData = SkeletalMesh->GetResourceForRendering();
+
+#if DO_CHECK
+			for (int LODIndex = 0; LODIndex < SkelMeshRenderData->LODRenderData.Num(); LODIndex++)
+			{
+				FSkeletalMeshLODRenderData& LODData = SkelMeshRenderData->LODRenderData[LODIndex];
+				const FPositionVertexBuffer* PositionVertexBufferPtr = &LODData.StaticVertexBuffers.PositionVertexBuffer;
+				if (!PositionVertexBufferPtr || (PositionVertexBufferPtr->GetNumVertices() <= 0))
+				{
+					UE_LOG(LogSkinnedMeshComp, Warning, TEXT("Invalid Lod %i for Rendering Asset: %s"), LODIndex, *SkeletalMesh->GetFullName());
+				}
+			}
+#endif
 
 			// Also check if skeletal mesh has too many bones/chunk for GPU skinning.
 			const bool bIsCPUSkinned = SkelMeshRenderData->RequiresCPUSkinning(SceneFeatureLevel) || ShouldCPUSkin();
@@ -1035,7 +1048,7 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 			}
 			else
 			{
-				UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetBoneMatrix : ParentBoneIndex(%d) out of range of MasterPoseComponent->SpaceBases for %s"), BoneIdx, *GetPathName());
+				UE_LOG(LogSkinnedMeshComp, Verbose, TEXT("GetBoneMatrix : ParentBoneIndex(%d:%s) out of range of MasterPoseComponent->SpaceBases for %s(%s)"), BoneIdx, *GetNameSafe(MasterPoseComponentInst->SkeletalMesh), *GetNameSafe(SkeletalMesh), *GetPathName());
 				return FMatrix::Identity;
 			}
 		}
@@ -1096,7 +1109,7 @@ FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx, const FTransfo
 			}
 			else
 			{
-				UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetBoneTransform : ParentBoneIndex(%d) out of range of MasterPoseComponent->SpaceBases for %s"), BoneIdx, *this->GetFName().ToString() );
+				UE_LOG(LogSkinnedMeshComp, Verbose, TEXT("GetBoneTransform : ParentBoneIndex(%d) out of range of MasterPoseComponent->SpaceBases for %s"), BoneIdx, *this->GetFName().ToString() );
 				return FTransform::Identity;
 			}
 		}
@@ -1156,6 +1169,35 @@ FName USkinnedMeshComponent::GetParentBone( FName BoneName ) const
 	return Result;
 }
 
+FTransform USkinnedMeshComponent::GetDeltaTransformFromRefPose(FName BoneName, FName BaseName/* = NAME_None*/) const
+{
+	if (SkeletalMesh)
+	{
+		const FReferenceSkeleton& RefSkeleton = SkeletalMesh->RefSkeleton;
+		const int32 BoneIndex = GetBoneIndex(BoneName);
+		if (BoneIndex != INDEX_NONE)
+		{
+			FTransform CurrentTransform = GetBoneTransform(BoneIndex);
+			FTransform ReferenceTransform = FAnimationRuntime::GetComponentSpaceTransformRefPose(RefSkeleton, BoneIndex);
+			if (BaseName == NAME_None)
+			{
+				BaseName = GetParentBone(BoneName);
+			}
+
+			const int32 BaseIndex = GetBoneIndex(BaseName);
+			if (BaseIndex != INDEX_NONE)
+			{	
+				CurrentTransform = CurrentTransform.GetRelativeTransform(GetBoneTransform(BaseIndex));
+				ReferenceTransform = ReferenceTransform.GetRelativeTransform(FAnimationRuntime::GetComponentSpaceTransformRefPose(RefSkeleton, BaseIndex));
+			}
+
+			// get delta of two transform
+			return CurrentTransform.GetRelativeTransform(ReferenceTransform);
+		}
+	}
+
+	return FTransform::Identity;
+}
 
 void USkinnedMeshComponent::GetBoneNames(TArray<FName>& BoneNames)
 {
@@ -1367,8 +1409,8 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 		// if we have valid master pose, compare with input data and we warn users
 		if (ValidNewMasterPose)
 		{
-			// ensure if master is not same as input, which means it has changed. 
-			ensureMsgf(ValidNewMasterPose == NewMasterBoneComponent,
+			// Output if master is not same as input, which means it has changed. 
+			UE_CLOG(ValidNewMasterPose == NewMasterBoneComponent, LogSkinnedMeshComp, Verbose,
 				TEXT("MasterPoseComponent chain is detected (%s). We re-route to top-most MasterPoseComponent (%s)"),
 				*GetNameSafe(ValidNewMasterPose), *GetNameSafe(NewMasterBoneComponent));
 		}
@@ -1422,17 +1464,21 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 	if (ValidNewMasterPose)
 	{
 		// if I have master, but I also have slaves, they won't work anymore
-		// we have to reroute the slaves to new mastser
+		// we have to reroute the slaves to new master
 		if (SlavePoseComponents.Num() > 0)
 		{
-			ensureMsgf(false,
-				TEXT("MasterPoseComponent chain is detected (%s). We re-route all children to mew MasterPoseComponent (%s)"),
+			UE_LOG(LogSkinnedMeshComp, Verbose,
+				TEXT("MasterPoseComponent chain is detected (%s). We re-route all children to new MasterPoseComponent (%s)"),
 				*GetNameSafe(this), *GetNameSafe(ValidNewMasterPose));
 
-			for (auto Iter = SlavePoseComponents.CreateIterator(); Iter; ++Iter)
+			// Walk through array in reverse, as changing the Slaves' MasterPoseComponent will remove them from our SlavePoseComponents array.
+			const int32 NumSlaves = SlavePoseComponents.Num();
+			for (int32 SlaveIndex = NumSlaves - 1; SlaveIndex >= 0; SlaveIndex--)
 			{
-				USkinnedMeshComponent* SlaveComp = Iter->Get();
-				SlaveComp->SetMasterPoseComponent(ValidNewMasterPose);
+				if (USkinnedMeshComponent* SlaveComp = SlavePoseComponents[SlaveIndex].Get())
+				{
+					SlaveComp->SetMasterPoseComponent(ValidNewMasterPose);
+				}
 			}
 		}
 
@@ -1490,6 +1536,9 @@ void USkinnedMeshComponent::RefreshSlaveComponents()
 			TWeakObjectPtr<USkinnedMeshComponent> MeshComp = (*Iter);
 			if (MeshComp.IsValid())
 			{
+				// Update any children of the slave components if they are using sockets
+				MeshComp->UpdateChildTransforms(EUpdateTransformFlags::OnlyUpdateIfUsingSocket);
+
 				MeshComp->MarkRenderDynamicDataDirty();
 			}
 		}
@@ -2765,6 +2814,19 @@ void USkinnedMeshComponent::BeginDestroy()
 	{
 		delete RefPoseOverride;
 		RefPoseOverride = nullptr;
+	}
+
+	// Disconnect slave components from this component if present.
+	// They will currently have no transforms allocated so will be
+	// in an invalid state when this component is destroyed
+	// Walk backwards as we'll be removing from this array
+	const int32 NumSlaveComponents = SlavePoseComponents.Num();
+	for(int32 SlaveIndex = NumSlaveComponents - 1; SlaveIndex >= 0; --SlaveIndex)
+	{
+		if(USkinnedMeshComponent* Slave = SlavePoseComponents[SlaveIndex].Get())
+		{
+			Slave->SetMasterPoseComponent(nullptr);
+		}
 	}
 }
 

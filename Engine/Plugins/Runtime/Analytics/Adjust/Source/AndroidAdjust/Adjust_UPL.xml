@@ -307,14 +307,14 @@ import com.adjust.sdk.AdjustSessionSuccess;
 
 		<if condition="bNoDefaultTracker">
 			<false>
-				<insert value="        config.setDefaultTracker(&quot;$S(DefaultTracker)&quot;);"/>
+				<insertValue value="        config.setDefaultTracker(&quot;$S(DefaultTracker)&quot;);"/>
 				<insertNewline/>
 			</false>
 		</if>
 		
 		<if condition="bNoProcessName">
 			<false>
-				<insert value="        config.setProcessName(&quot;$S(ProcessName)&quot;);"/>
+				<insertValue value="        config.setProcessName(&quot;$S(ProcessName)&quot;);"/>
 				<insertNewline/>
 			</false>
 		</if>

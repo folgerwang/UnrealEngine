@@ -1639,14 +1639,29 @@ void USceneComponent::GetChildrenComponents(bool bIncludeAllDescendants, TArray<
 	}
 	else
 	{
-		Children.Append(GetAttachChildren());
+		const TArray<USceneComponent*>& AttachedChildren = GetAttachChildren();
+		Children.Reserve(AttachedChildren.Num());
+		for (USceneComponent* Child : AttachedChildren)
+		{
+			if (Child)
+			{
+				Children.Add(Child);
+			}
+		}
 	}
 }
 
 void USceneComponent::AppendDescendants(TArray<USceneComponent*>& Children) const
 {
 	const TArray<USceneComponent*>& AttachedChildren = GetAttachChildren();
-	Children.Append(AttachedChildren);
+	Children.Reserve(Children.Num() + AttachedChildren.Num());
+	for (USceneComponent* Child : AttachedChildren)
+	{
+		if (Child)
+		{
+			Children.Add(Child);
+		}
+	}
 
 	for (USceneComponent* Child : AttachedChildren)
 	{
@@ -2517,9 +2532,9 @@ bool USceneComponent::IsAnySimulatingPhysics() const
 
 APhysicsVolume* USceneComponent::GetPhysicsVolume() const
 {
-	if (PhysicsVolume.IsValid())
+	if (APhysicsVolume* MyVolume = PhysicsVolume.Get())
 	{
-		return PhysicsVolume.Get();
+		return MyVolume;
 	}
 	else if (const UWorld* MyWorld = GetWorld())
 	{
@@ -2539,43 +2554,46 @@ void USceneComponent::UpdatePhysicsVolume( bool bTriggerNotifiers )
 
 			APhysicsVolume* NewVolume = MyWorld->GetDefaultPhysicsVolume();
 			// Avoid doing anything if there are no other physics volumes in the world.
-			if (MyWorld->GetNonDefaultPhysicsVolumeCount() > 0)
+			const int32 NumVolumes = MyWorld->GetNonDefaultPhysicsVolumeCount();
+			if (NumVolumes > 0)
 			{
 				// Avoid a full overlap query if we can do some quick bounds tests against the volumes.
-				static uint32 MaxVolumesToCheck = 100;
-				uint32 VolumeIndex = 0;
-				bool bAnyPotentialOverlap = false;
-				for (auto VolumeIter = MyWorld->GetNonDefaultPhysicsVolumeIterator(); VolumeIter && !bAnyPotentialOverlap; ++VolumeIter, ++VolumeIndex)
+				static int32 MaxVolumesToCheck = 20;
+				bool bAnyPotentialOverlap = true;
+
+				// Only check volumes manually if there are fewer than our limit, otherwise skip ahead to the query.
+				if (NumVolumes <= MaxVolumesToCheck)
 				{
-					const APhysicsVolume* Volume = VolumeIter->Get();
-					if (Volume != nullptr)
+					//QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdatePhysicsVolume_Iterate);
+					bAnyPotentialOverlap = false;
+					for (auto VolumeIter = MyWorld->GetNonDefaultPhysicsVolumeIterator(); VolumeIter; ++VolumeIter)
 					{
-						const USceneComponent* VolumeRoot = Volume->GetRootComponent();
-						if (VolumeRoot)
+						const APhysicsVolume* Volume = VolumeIter->Get();
+						if (Volume != nullptr)
 						{
-							if (FBoxSphereBounds::SpheresIntersect(VolumeRoot->Bounds, Bounds))
+							const USceneComponent* VolumeRoot = Volume->GetRootComponent();
+							if (VolumeRoot)
 							{
-								if (FBoxSphereBounds::BoxesIntersect(VolumeRoot->Bounds, Bounds))
+								if (FBoxSphereBounds::SpheresIntersect(VolumeRoot->Bounds, Bounds))
 								{
-									bAnyPotentialOverlap = true;
+									if (FBoxSphereBounds::BoxesIntersect(VolumeRoot->Bounds, Bounds))
+									{
+										bAnyPotentialOverlap = true;
+										break;
+									}
 								}
 							}
 						}
-					}
-
-					// Bail if too many volumes. Later we'll probably convert to using an octree so this wouldn't be a concern.
-					if (VolumeIndex >= MaxVolumesToCheck)
-					{
-						bAnyPotentialOverlap = true;
-						break;
 					}
 				}
 
 				if (bAnyPotentialOverlap)
 				{
+					//QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdatePhysicsVolume_OverlapQuery);
 					// check for all volumes that overlap the component
 					TArray<FOverlapResult> Hits;
 					FComponentQueryParams Params(SCENE_QUERY_STAT(UpdatePhysicsVolume),  GetOwner());
+					Params.bIgnoreBlocks = true; // Only care about overlaps
 
 					bool bOverlappedOrigin = false;
 					const UPrimitiveComponent* SelfAsPrimitive = Cast<UPrimitiveComponent>(this);
@@ -2604,10 +2622,7 @@ void USceneComponent::UpdatePhysicsVolume( bool bTriggerNotifiers )
 				}
 			}
 
-			if (PhysicsVolume != NewVolume)
-			{
-				SetPhysicsVolume(NewVolume, bTriggerNotifiers);
-			}
+			SetPhysicsVolume(NewVolume, bTriggerNotifiers);
 		}
 	}
 }
@@ -2619,18 +2634,19 @@ void USceneComponent::SetPhysicsVolume( APhysicsVolume * NewVolume,  bool bTrigg
 	// Still the delegate should be still called
 	if( bTriggerNotifiers )
 	{
-		if( NewVolume != PhysicsVolume )
+		APhysicsVolume* OldPhysicsVolume = PhysicsVolume.Get();
+		if (NewVolume != OldPhysicsVolume)
 		{
 			AActor *A = GetOwner();
-			if( PhysicsVolume.IsValid() )
+			if (OldPhysicsVolume)
 			{
-				PhysicsVolume->ActorLeavingVolume(A);
+				OldPhysicsVolume->ActorLeavingVolume(A);
 			}
 			PhysicsVolumeChangedDelegate.Broadcast(NewVolume);
 			PhysicsVolume = NewVolume;
-			if( PhysicsVolume.IsValid() )
+			if (IsValid(NewVolume))
 			{
-				PhysicsVolume->ActorEnteredVolume(A);
+				NewVolume->ActorEnteredVolume(A);
 			}
 		}
 	}
@@ -2731,7 +2747,10 @@ bool USceneComponent::InternalSetWorldLocationAndRotation(FVector NewLocation, c
 		UpdateComponentToWorldWithParent(GetAttachParent(),GetAttachSocketName(), SkipPhysicsToEnum(bNoPhysics), RelativeRotationCache.GetCachedQuat(), Teleport);
 
 		// we need to call this even if this component itself is not navigation relevant
-		PostUpdateNavigationData();
+		if (IsRegistered() && bCanEverAffectNavigation)
+		{
+			PostUpdateNavigationData();
+		}
 
 		return true;
 	}
@@ -3364,7 +3383,7 @@ FScopedMovementUpdate::~FScopedMovementUpdate()
 
 bool FScopedMovementUpdate::IsTransformDirty() const
 {
-	if (IsValid(Owner))
+	if (Owner)
 	{
 		return !InitialTransform.Equals(Owner->GetComponentToWorld(), SMALL_NUMBER);
 	}
@@ -3608,11 +3627,7 @@ void USceneComponent::UpdateNavigationData()
 void USceneComponent::PostUpdateNavigationData()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ComponentPostUpdateNavData);
-
-	if (IsRegistered())
-	{
-		FNavigationSystem::OnComponentTransformChanged(*this);
-	}
+	FNavigationSystem::OnComponentTransformChanged(*this);
 }
 
 

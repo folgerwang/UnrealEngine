@@ -176,7 +176,7 @@ FString FOnlineSubsystemTwitch::GetAppId() const
 		if (!bWarned)
 		{
 			bWarned = true;
-			UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemTwitch] of DefaultEngine.ini"));
+			UE_LOG_ONLINE(Warning, TEXT("Missing ClientId= in [OnlineSubsystemTwitch] of DefaultEngine.ini"));
 		}
 	}
 	return ClientId;

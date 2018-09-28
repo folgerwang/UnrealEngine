@@ -99,10 +99,16 @@ void UEnvQueryTest_Dot::RunTest(FEnvQueryInstance& QueryInstance) const
 						break;
 				}
 				
-				if (bAbsoluteValue)
+				// invalid LineADirs, LineBDirs? 
+				if (FMath::IsNaN(DotValue))
+				{
+					DotValue = 0.f;
+				}
+				else if (bAbsoluteValue)
 				{
 					DotValue = FMath::Abs(DotValue);
 				}
+
 				It.SetScore(TestPurpose, FilterType, DotValue, MinThresholdValue, MaxThresholdValue);
 			}
 		}

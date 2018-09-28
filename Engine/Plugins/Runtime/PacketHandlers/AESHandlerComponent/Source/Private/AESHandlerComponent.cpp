@@ -74,14 +74,15 @@ void FAESHandlerComponent::Incoming(FBitReader& Packet)
 			if (Key.Num() == 0)
 			{
 				UE_LOG(PacketHandlerLog, Log, TEXT("FAESHandlerComponent::Incoming: received encrypted packet before key was set, ignoring."));
-				FBitReader EmptyPacket(nullptr, 0);
-				Packet = EmptyPacket;
+				Packet.SetData(nullptr, 0);
 				return;
 			}
 
 			// Copy remaining bits to a TArray so that they are byte-aligned.
-			TArray<uint8> Ciphertext;
-			Ciphertext.AddZeroed(Packet.GetBytesLeft());
+			Ciphertext.Reset();
+			Ciphertext.AddUninitialized(Packet.GetBytesLeft());
+			Ciphertext[Ciphertext.Num()-1] = 0;
+
 			Packet.SerializeBits(Ciphertext.GetData(), Packet.GetBitsLeft());
 
 			UE_LOG(PacketHandlerLog, VeryVerbose, TEXT("AES packet handler received %ld bytes before decryption."), Ciphertext.Num());
@@ -95,38 +96,41 @@ void FAESHandlerComponent::Incoming(FBitReader& Packet)
 				Packet.SetError();
 				return;
 			}
+
+			if (Plaintext.Num() == 0)
+			{
+				Packet.SetData(nullptr, 0);
+				return;
+			}
+
+			// Look for the termination bit that was written in Outgoing() to determine the exact bit size.
+			uint8 LastByte = Plaintext.Last();
+
+			if (LastByte != 0)
+			{
+				int32 BitSize = (Plaintext.Num() * 8) - 1;
+
+				// Bit streaming, starts at the Least Significant Bit, and ends at the MSB.
+				while (!(LastByte & 0x80))
+				{
+					LastByte *= 2;
+					BitSize--;
+				}
+
+				UE_LOG(PacketHandlerLog, VeryVerbose, TEXT("  Have %d bits after decryption."), BitSize);
+
+				Packet.SetData(MoveTemp(Plaintext), BitSize);
+			}
 			else
 			{
-				// Look for the termination bit that was written in Outgoing() to determine the exact bit size.
-				uint8 LastByte = Plaintext.Last();
-
-				if (LastByte != 0)
-				{
-					int32 BitSize = (Plaintext.Num() * 8) - 1;
-
-					// Bit streaming, starts at the Least Significant Bit, and ends at the MSB.
-					while (!(LastByte & 0x80))
-					{
-						LastByte *= 2;
-						BitSize--;
-					}
-
-					UE_LOG(PacketHandlerLog, VeryVerbose, TEXT("  Have %d bits after decryption."), BitSize);
-
-					FBitReader OutPacket(Plaintext.GetData(), BitSize);
-					Packet = OutPacket;
-				}
-				else
-				{
-					UE_LOG(PacketHandlerLog, Log, TEXT("FAESHandlerComponent::Incoming: malformed packet, last byte was 0."));
-					Packet.SetError();
-				}
+				UE_LOG(PacketHandlerLog, Log, TEXT("FAESHandlerComponent::Incoming: malformed packet, last byte was 0."));
+				Packet.SetError();
 			}
 		}
 	}
 }
 
-void FAESHandlerComponent::Outgoing(FBitWriter& Packet)
+void FAESHandlerComponent::Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("PacketHandler AES Encrypt"), STAT_PacketHandler_AES_Encrypt, STATGROUP_Net);
 
@@ -159,7 +163,7 @@ void FAESHandlerComponent::Outgoing(FBitWriter& Packet)
 			}
 
 			EPlatformCryptoResult EncryptResult = EPlatformCryptoResult::Failure;
-			TArray<uint8> Ciphertext = EncryptionContext->Encrypt_AES_256_ECB(TArrayView<uint8>(Packet.GetData(), Packet.GetNumBytes()), Key, EncryptResult);
+			TArray<uint8> OutCiphertext = EncryptionContext->Encrypt_AES_256_ECB(TArrayView<uint8>(Packet.GetData(), Packet.GetNumBytes()), Key, EncryptResult);
 
 			if (EncryptResult == EPlatformCryptoResult::Failure)
 			{
@@ -169,7 +173,7 @@ void FAESHandlerComponent::Outgoing(FBitWriter& Packet)
 			}
 			else
 			{
-				NewPacket.Serialize(Ciphertext.GetData(), Ciphertext.Num());
+				NewPacket.Serialize(OutCiphertext.GetData(), OutCiphertext.Num());
 
 				if (NewPacket.IsError())
 				{
@@ -186,20 +190,19 @@ void FAESHandlerComponent::Outgoing(FBitWriter& Packet)
 			NewPacket.SerializeBits(Packet.GetData(), Packet.GetNumBits());
 		}
 
-		Packet.Reset();
-		Packet.SerializeBits(NewPacket.GetData(), NewPacket.GetNumBits());
+		Packet = MoveTemp(NewPacket);
 	}
 }
 
-void FAESHandlerComponent::IncomingConnectionless(FString Address, FBitReader& Packet)
+void FAESHandlerComponent::IncomingConnectionless(const FString& Address, FBitReader& Packet)
 {
 }
 
-void FAESHandlerComponent::OutgoingConnectionless(FString Address, FBitWriter& Packet)
+void FAESHandlerComponent::OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 }
 
-int32 FAESHandlerComponent::GetReservedPacketBits()
+int32 FAESHandlerComponent::GetReservedPacketBits() const
 {
 	// Worst case includes the encryption enabled bit, the termination bit, padding up to the next whole byte, and a block of padding.
 	return 2 + 7 + (BlockSizeInBytes * 8);

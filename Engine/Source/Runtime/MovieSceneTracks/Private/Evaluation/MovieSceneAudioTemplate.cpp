@@ -362,6 +362,11 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 	}
 }
 
+FMovieSceneAudioSectionTemplate::FMovieSceneAudioSectionTemplate()
+	: AudioData()
+{
+}
+
 FMovieSceneAudioSectionTemplate::FMovieSceneAudioSectionTemplate(const UMovieSceneAudioSection& Section)
 	: AudioData(Section)
 {

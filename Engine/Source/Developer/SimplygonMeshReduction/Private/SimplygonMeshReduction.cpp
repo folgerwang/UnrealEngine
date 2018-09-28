@@ -1899,9 +1899,9 @@ private:
 	 */
 	struct FSkeletalMeshData
 	{
-		TArray<FVertInfluence> Influences;
-		TArray<FMeshWedge> Wedges;
-		TArray<FMeshFace> Faces;
+		TArray<SkeletalMeshImportData::FVertInfluence> Influences;
+		TArray<SkeletalMeshImportData::FMeshWedge> Wedges;
+		TArray<SkeletalMeshImportData::FMeshFace> Faces;
 		TArray<FVector> Points;
 		uint32 TexCoordCount;
 	};
@@ -2009,7 +2009,7 @@ private:
 				const float BoneWeight = sgBoneWeights[InfluenceIndex];
 				if ( InfluenceIndex == 0 || BoneWeight > 0.0f )
 				{
-					FVertInfluence* VertInfluence = new(MeshData.Influences) FVertInfluence;
+					SkeletalMeshImportData::FVertInfluence* VertInfluence = new(MeshData.Influences) SkeletalMeshImportData::FVertInfluence;
 					VertInfluence->BoneIndex = BoneIndex;
 					VertInfluence->Weight = BoneWeight;
 					VertInfluence->VertIndex = VertexIndex;
@@ -2021,7 +2021,7 @@ private:
 		for ( uint32 TriIndex = 0; TriIndex < TriCount; ++TriIndex )
 		{
 			// Per-triangle data.
-			FMeshFace& Face = MeshData.Faces[ TriIndex ];
+			SkeletalMeshImportData::FMeshFace& Face = MeshData.Faces[ TriIndex ];
 			
 			Face.MeshMaterialIndex = MaterialIndices ? MaterialIndices->GetItem( TriIndex ) : 0;
 			 
@@ -2094,7 +2094,7 @@ private:
 						int32 InfluenceIndex = PointInfluenceMap[ BasePointIndex ];
 						while ( MeshData.Influences[ InfluenceIndex ].VertIndex == BasePointIndex )
 						{
-							FVertInfluence* NewVertInfluence = new( MeshData.Influences ) FVertInfluence;
+							SkeletalMeshImportData::FVertInfluence* NewVertInfluence = new( MeshData.Influences ) SkeletalMeshImportData::FVertInfluence;
 							NewVertInfluence->BoneIndex = MeshData.Influences[ InfluenceIndex ].BoneIndex;
 							NewVertInfluence->Weight = MeshData.Influences[ InfluenceIndex ].Weight;
 							NewVertInfluence->VertIndex = PointIndex;
@@ -2110,7 +2110,7 @@ private:
 				check( PointIndex != INDEX_NONE );
 				check( ( MeshData.Points[ PointIndex ] - MeshData.Points[ BasePointIndex ] ).SizeSquared() == 0.0f );
 
-				FMeshWedge& Wedge = MeshData.Wedges[ WedgeIndex ];
+				SkeletalMeshImportData::FMeshWedge& Wedge = MeshData.Wedges[ WedgeIndex ];
 				Wedge.iVertex = PointIndex;
 				for( uint32 TexCoordIndex = 0; TexCoordIndex < TexCoordCount; ++TexCoordIndex )
 				{
@@ -2159,7 +2159,7 @@ private:
 
 		for (int32 FaceIndex = 0; FaceIndex < MeshData.Faces.Num(); ++FaceIndex)
 		{
-			FMeshFace& Face = MeshData.Faces[FaceIndex];
+			SkeletalMeshImportData::FMeshFace& Face = MeshData.Faces[FaceIndex];
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				Face.TangentX[CornerIndex] = GetConversionMatrix().InverseTransformVector(Face.TangentX[CornerIndex]);
@@ -2287,6 +2287,8 @@ private:
 		BoneSettings->SetBoneReductionTargets( SimplygonSDK::SG_BONEREDUCTIONTARGET_BONERATIO );
 		BoneSettings->SetBoneRatio ( 1.f );
 		BoneSettings->SetMaxBonePerVertex( Settings.MaxBonesPerVertex );
+		BoneSettings->SetLimitBonesPerVertex(true);
+		BoneSettings->SetUseBoneReducer(true);
 	}
 
 	/**

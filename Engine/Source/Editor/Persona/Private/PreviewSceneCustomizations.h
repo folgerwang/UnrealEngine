@@ -71,6 +71,10 @@ private:
 
 	ECheckBoxState HandleAllowDifferentSkeletonsIsChecked() const;
 
+	void HandleUseCustomAnimBPCheckedStateChanged(ECheckBoxState CheckState);
+
+	ECheckBoxState HandleUseCustomAnimBPIsChecked() const;
+
 private:
 	/** Cached skeleton name to check for asset registry tags */
 	FString SkeletonName;
@@ -95,6 +99,8 @@ private:
 
 	// Our layout builder (cached so we can refresh)
 	IDetailLayoutBuilder* MyDetailLayout;
+
+	TWeakObjectPtr<UDataAsset>	DataAssetToDisplay;
 };
 
 class FPreviewMeshCollectionEntryCustomization : public IPropertyTypeCustomization

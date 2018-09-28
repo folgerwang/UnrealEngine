@@ -10,14 +10,6 @@
 #include "Interfaces/IAnalyticsProvider.h"
 #include "Interfaces/IProjectManager.h"
 
-// @TODO: abstract this away into a PLATFORM_ define or something
-#if PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_SWITCH
-static bool GUserSettingsOverrideCVarPriority = false;
-#else
-static bool GUserSettingsOverrideCVarPriority = true;
-#endif
-
-
 static TAutoConsoleVariable<float> CVarResolutionQuality(
 	TEXT("sg.ResolutionQuality"),
 	100.0f,
@@ -126,6 +118,9 @@ static TAutoConsoleVariable<int32> CVarFoliageQuality_NumLevels(
 
 namespace Scalability
 {
+static FQualityLevels GScalabilityBackupQualityLevels;
+static bool GScalabilityUsingTemporaryQualityLevels = false;
+
 // Select a the correct quality level for the given benchmark value and thresholds
 int32 ComputeOptionFromPerfIndex(const FString& GroupName, float CPUPerfIndex, float GPUPerfIndex)
 {
@@ -361,6 +356,11 @@ void InitScalabilitySystem()
 	CVarTextureQuality.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeTextureQuality));
 	CVarEffectsQuality.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeEffectsQuality));
 	CVarFoliageQuality.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeFoliageQuality));
+
+	// Set defaults
+	SetQualityLevels(FQualityLevels());
+	GScalabilityBackupQualityLevels = FQualityLevels();
+	GScalabilityUsingTemporaryQualityLevels = false;
 }
 
 /** Get the percentage scale for a given quality level */
@@ -531,37 +531,43 @@ void ProcessCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 
 void SetQualityLevels(const FQualityLevels& QualityLevels, bool bForce/* = false*/)
 {
-	const int32 NewViewDistanceQuality = FMath::Clamp(QualityLevels.ViewDistanceQuality, 0, CVarViewDistanceQuality_NumLevels->GetInt() - 1);
-	const int32 NewAntiAliasingQuality = FMath::Clamp(QualityLevels.AntiAliasingQuality, 0, CVarAntiAliasingQuality_NumLevels->GetInt() - 1);
-	const int32 NewShadowQuality = FMath::Clamp(QualityLevels.ShadowQuality, 0, CVarShadowQuality_NumLevels->GetInt() - 1);
-	const int32 NewPostProcessQuality = FMath::Clamp(QualityLevels.PostProcessQuality, 0, CVarPostProcessQuality_NumLevels->GetInt() - 1);
-	const int32 NewTextureQuality = FMath::Clamp(QualityLevels.TextureQuality, 0, CVarTextureQuality_NumLevels->GetInt() - 1);
-	const int32 NewEffectsQuality = FMath::Clamp(QualityLevels.EffectsQuality, 0, CVarEffectsQuality_NumLevels->GetInt() - 1);
-	const int32 NewFoliageQuality = FMath::Clamp(QualityLevels.FoliageQuality, 0, CVarFoliageQuality_NumLevels->GetInt() - 1);
+	FQualityLevels ClampedLevels;
+	ClampedLevels.ResolutionQuality = QualityLevels.ResolutionQuality;
+	ClampedLevels.ViewDistanceQuality = FMath::Clamp(QualityLevels.ViewDistanceQuality, 0, CVarViewDistanceQuality_NumLevels->GetInt() - 1);
+	ClampedLevels.AntiAliasingQuality = FMath::Clamp(QualityLevels.AntiAliasingQuality, 0, CVarAntiAliasingQuality_NumLevels->GetInt() - 1);
+	ClampedLevels.ShadowQuality = FMath::Clamp(QualityLevels.ShadowQuality, 0, CVarShadowQuality_NumLevels->GetInt() - 1);
+	ClampedLevels.PostProcessQuality = FMath::Clamp(QualityLevels.PostProcessQuality, 0, CVarPostProcessQuality_NumLevels->GetInt() - 1);
+	ClampedLevels.TextureQuality = FMath::Clamp(QualityLevels.TextureQuality, 0, CVarTextureQuality_NumLevels->GetInt() - 1);
+	ClampedLevels.EffectsQuality = FMath::Clamp(QualityLevels.EffectsQuality, 0, CVarEffectsQuality_NumLevels->GetInt() - 1);
+	ClampedLevels.FoliageQuality = FMath::Clamp(QualityLevels.FoliageQuality, 0, CVarFoliageQuality_NumLevels->GetInt() - 1);
 
-	if (GUserSettingsOverrideCVarPriority || bForce)
+	if (GScalabilityUsingTemporaryQualityLevels && !bForce)
 	{
-		// set the cvars, but don't change their priority - there are issues with scalability and 
-		// device profiles conflicting in different combinations
-		CVarResolutionQuality.AsVariable()->SetWithCurrentPriority(QualityLevels.ResolutionQuality);
-		CVarViewDistanceQuality.AsVariable()->SetWithCurrentPriority(NewViewDistanceQuality);
-		CVarAntiAliasingQuality.AsVariable()->SetWithCurrentPriority(NewAntiAliasingQuality);
-		CVarShadowQuality.AsVariable()->SetWithCurrentPriority(NewShadowQuality);
-		CVarPostProcessQuality.AsVariable()->SetWithCurrentPriority(NewPostProcessQuality);
-		CVarTextureQuality.AsVariable()->SetWithCurrentPriority(NewTextureQuality);
-		CVarEffectsQuality.AsVariable()->SetWithCurrentPriority(NewEffectsQuality);
-		CVarFoliageQuality.AsVariable()->SetWithCurrentPriority(NewFoliageQuality);
+		// When temporary scalability is active, non-temporary sets are
+		// applied to the backup levels so we can restore them later
+		GScalabilityBackupQualityLevels = ClampedLevels;
+	}
+	else if (bForce)
+	{
+		CVarResolutionQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.ResolutionQuality);
+		CVarViewDistanceQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.ViewDistanceQuality);
+		CVarAntiAliasingQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.AntiAliasingQuality);
+		CVarShadowQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.ShadowQuality);
+		CVarPostProcessQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.PostProcessQuality);
+		CVarTextureQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.TextureQuality);
+		CVarEffectsQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.EffectsQuality);
+		CVarFoliageQuality.AsVariable()->SetWithCurrentPriority(ClampedLevels.FoliageQuality);
 	}
 	else
 	{
-		CVarResolutionQuality.AsVariable()->Set(QualityLevels.ResolutionQuality, ECVF_SetByScalability);
-		CVarViewDistanceQuality.AsVariable()->Set(NewViewDistanceQuality, ECVF_SetByScalability);
-		CVarAntiAliasingQuality.AsVariable()->Set(NewAntiAliasingQuality, ECVF_SetByScalability);
-		CVarShadowQuality.AsVariable()->Set(NewShadowQuality, ECVF_SetByScalability);
-		CVarPostProcessQuality.AsVariable()->Set(NewPostProcessQuality, ECVF_SetByScalability);
-		CVarTextureQuality.AsVariable()->Set(NewTextureQuality, ECVF_SetByScalability);
-		CVarEffectsQuality.AsVariable()->Set(NewEffectsQuality, ECVF_SetByScalability);
-		CVarFoliageQuality.AsVariable()->Set(NewFoliageQuality, ECVF_SetByScalability);
+		CVarResolutionQuality.AsVariable()->Set(ClampedLevels.ResolutionQuality, ECVF_SetByScalability);
+		CVarViewDistanceQuality.AsVariable()->Set(ClampedLevels.ViewDistanceQuality, ECVF_SetByScalability);
+		CVarAntiAliasingQuality.AsVariable()->Set(ClampedLevels.AntiAliasingQuality, ECVF_SetByScalability);
+		CVarShadowQuality.AsVariable()->Set(ClampedLevels.ShadowQuality, ECVF_SetByScalability);
+		CVarPostProcessQuality.AsVariable()->Set(ClampedLevels.PostProcessQuality, ECVF_SetByScalability);
+		CVarTextureQuality.AsVariable()->Set(ClampedLevels.TextureQuality, ECVF_SetByScalability);
+		CVarEffectsQuality.AsVariable()->Set(ClampedLevels.EffectsQuality, ECVF_SetByScalability);
+		CVarFoliageQuality.AsVariable()->Set(ClampedLevels.FoliageQuality, ECVF_SetByScalability);
 	}
 }
 
@@ -569,17 +575,46 @@ FQualityLevels GetQualityLevels()
 {
 	FQualityLevels Ret;
 
-	// only suggested way to get the current state - don't get CVars directly
-	Ret.ResolutionQuality = CVarResolutionQuality.GetValueOnGameThread();
-	Ret.ViewDistanceQuality = CVarViewDistanceQuality.GetValueOnGameThread();
-	Ret.AntiAliasingQuality = CVarAntiAliasingQuality.GetValueOnGameThread();
-	Ret.ShadowQuality = CVarShadowQuality.GetValueOnGameThread();
-	Ret.PostProcessQuality = CVarPostProcessQuality.GetValueOnGameThread();
-	Ret.TextureQuality = CVarTextureQuality.GetValueOnGameThread();
-	Ret.EffectsQuality = CVarEffectsQuality.GetValueOnGameThread();
-	Ret.FoliageQuality = CVarFoliageQuality.GetValueOnGameThread();
+	// Only suggested way to get the current state - don't get CVars directly
+	if (!GScalabilityUsingTemporaryQualityLevels)
+	{
+		Ret.ResolutionQuality = CVarResolutionQuality.GetValueOnGameThread();
+		Ret.ViewDistanceQuality = CVarViewDistanceQuality.GetValueOnGameThread();
+		Ret.AntiAliasingQuality = CVarAntiAliasingQuality.GetValueOnGameThread();
+		Ret.ShadowQuality = CVarShadowQuality.GetValueOnGameThread();
+		Ret.PostProcessQuality = CVarPostProcessQuality.GetValueOnGameThread();
+		Ret.TextureQuality = CVarTextureQuality.GetValueOnGameThread();
+		Ret.EffectsQuality = CVarEffectsQuality.GetValueOnGameThread();
+		Ret.FoliageQuality = CVarFoliageQuality.GetValueOnGameThread();
+	}
+	else
+	{
+		Ret = GScalabilityBackupQualityLevels;
+	}
 
 	return Ret;
+}
+
+void ToggleTemporaryQualityLevels(bool bEnable)
+{
+	if (bEnable != GScalabilityUsingTemporaryQualityLevels)
+	{
+		if (!GScalabilityUsingTemporaryQualityLevels)
+		{
+			GScalabilityBackupQualityLevels = GetQualityLevels();
+			GScalabilityUsingTemporaryQualityLevels = true;
+		}
+		else
+		{
+			GScalabilityUsingTemporaryQualityLevels = false;
+			SetQualityLevels(GScalabilityBackupQualityLevels, true);
+		}
+	}
+}
+
+bool IsTemporaryQualityLevelActive()
+{
+	return GScalabilityUsingTemporaryQualityLevels;
 }
 
 int32 GetEffectsQualityDirect(bool bGameThread)
@@ -658,7 +693,8 @@ void LoadState(const FString& IniName)
 	// todo: could be done earlier
 	InitScalabilitySystem();
 
-	FQualityLevels State;
+	// Use existing quality levels - Defaults with device profile customization
+	FQualityLevels State = GetQualityLevels();
 
 	const TCHAR* Section = TEXT("ScalabilityGroups");
 
@@ -672,14 +708,23 @@ void LoadState(const FString& IniName)
 	GConfig->GetInt(Section, TEXT("sg.EffectsQuality"), State.EffectsQuality, IniName);
 	GConfig->GetInt(Section, TEXT("sg.FoliageQuality"), State.FoliageQuality, IniName);
 
-	SetQualityLevels(State);
+	// If possible apply immediately, else store in backup so we can re-apply later
+	if (!GScalabilityUsingTemporaryQualityLevels)
+	{
+		SetQualityLevels(State);
+	}
+	else
+	{
+		GScalabilityBackupQualityLevels = State;
+	}
 }
 
 void SaveState(const FString& IniName)
 {
 	check(!IniName.IsEmpty());
 
-	FQualityLevels State = GetQualityLevels();
+	// Save the "real" settings if in a temporary state
+	FQualityLevels State = GScalabilityUsingTemporaryQualityLevels ? GScalabilityBackupQualityLevels : GetQualityLevels();
 
 	const TCHAR* Section = TEXT("ScalabilityGroups");
 

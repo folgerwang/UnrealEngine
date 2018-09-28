@@ -69,7 +69,11 @@ void FSoftObjectPath::SetPath(FString Path)
 	}
 }
 
-bool FSoftObjectPath::PreSavePath()
+#if WITH_EDITOR
+	extern bool* GReportSoftObjectPathRedirects;
+#endif
+
+bool FSoftObjectPath::PreSavePath(bool* bReportSoftObjectPathRedirects)
 {
 #if WITH_EDITOR
 	if (IsNull())
@@ -81,6 +85,10 @@ bool FSoftObjectPath::PreSavePath()
 
 	if (FoundRedirection != NAME_None)
 	{
+		if (AssetPathName != FoundRedirection && bReportSoftObjectPathRedirects)
+		{
+			*bReportSoftObjectPathRedirects = true;
+		}
 		AssetPathName = FoundRedirection;
 		return true;
 	}
@@ -122,7 +130,7 @@ void FSoftObjectPath::SerializePath(FArchive& Ar)
 #if WITH_EDITOR
 	if (Ar.IsSaving())
 	{
-		PreSavePath();
+		PreSavePath(false ? GReportSoftObjectPathRedirects : nullptr);
 	}
 
 	// Only read serialization options in editor as it is a bit slow
@@ -170,6 +178,15 @@ void FSoftObjectPath::SerializePath(FArchive& Ar)
 		if (Ar.IsPersistent())
 		{
 			PostLoadPath();
+
+			// If we think it's going to work, we try to do the pre-save fixup now. This is important because it helps with blueprint CDO save determinism with redirectors
+			// It's important that the entire CDO hierarchy gets fixed up before an instance in a map gets saved otherwise the delta serialization will save too much
+			// If the asset registry hasn't fully loaded this won't necessarily work, but it won't do any harm
+			// This will never work in -game builds or on initial load so don't try
+			if (GIsEditor && !GIsInitialLoad)
+			{
+				PreSavePath(nullptr);
+			}
 		}
 		if (Ar.GetPortFlags()&PPF_DuplicateForPIE)
 		{
@@ -422,17 +439,17 @@ bool FSoftObjectPath::FixupForPIE()
 #if WITH_EDITOR
 	if (GPlayInEditorID != INDEX_NONE && !IsNull())
 	{
-		FString Path = ToString();
+		const FString Path = ToString();
 
 		// Determine if this reference has already been fixed up for PIE
 		const FString ShortPackageOuterAndName = FPackageName::GetLongPackageAssetName(Path);
 		if (!ShortPackageOuterAndName.StartsWith(PLAYWORLD_PACKAGE_PREFIX))
 		{
 			// Name of the ULevel subobject of UWorld, set in InitializeNewWorld
-			bool bIsChildOfLevel = SubPathString.StartsWith(TEXT("PersistentLevel."));
+			const bool bIsChildOfLevel = SubPathString.StartsWith(TEXT("PersistentLevel."));
 
 			FString PIEPath = FString::Printf(TEXT("%s/%s_%d_%s"), *FPackageName::GetLongPackagePath(Path), PLAYWORLD_PACKAGE_PREFIX, GPlayInEditorID, *ShortPackageOuterAndName);
-			FName PIEPackage = FName(*FPackageName::ObjectPathToPackageName(PIEPath));
+			const FName PIEPackage = (!bIsChildOfLevel ? FName(*FPackageName::ObjectPathToPackageName(PIEPath)) : NAME_None);
 
 			// Duplicate if this an already registered PIE package or this looks like a level subobject reference
 			if (bIsChildOfLevel || PIEPackageNames.Contains(PIEPackage))

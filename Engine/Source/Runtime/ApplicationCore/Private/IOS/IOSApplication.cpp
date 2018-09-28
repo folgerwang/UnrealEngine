@@ -92,7 +92,7 @@ void FIOSApplication::PollGameDeviceState( const float TimeDelta )
 		GenericApplication::GetMessageHandler()->OnResizingWindow(Windows[0]);
 		CacheDisplayMetrics();
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		BroadcastDisplayMetricsChanged(DisplayMetrics);
 		FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
 		bOrientationChanged = false;
@@ -110,11 +110,11 @@ static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Right(TEXT("SafeZone.L
 static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Bottom(TEXT("SafeZone.Landscape.Bottom"), -1.0f, TEXT("Safe Zone - Landscape - Bottom"));
 
 #if !PLATFORM_TVOS
-UIDeviceOrientation CachedOrientation = UIDeviceOrientationPortrait;
+UIInterfaceOrientation CachedOrientation = UIInterfaceOrientationPortrait;
 UIEdgeInsets CachedInsets;
 #endif
 
-void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	// Get screen rect
 	OutDisplayMetrics.PrimaryDisplayWorkAreaRect = FIOSWindow::GetScreenRect();
@@ -136,12 +136,12 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 		TAutoConsoleVariable<float>* CVar_Bottom = &CVarSafeZone_Landscape_Bottom;
 
 		//making an assumption that the "normal" landscape mode is Landscape right
-		if (CachedOrientation == UIDeviceOrientationLandscapeLeft)
+		if (CachedOrientation == UIInterfaceOrientationLandscapeLeft)
 		{
 			CVar_Left = &CVarSafeZone_Landscape_Left;
 			CVar_Right = &CVarSafeZone_Landscape_Right;
 		}
-		else if (CachedOrientation == UIDeviceOrientationLandscapeRight)
+		else if (CachedOrientation == UIInterfaceOrientationLandscapeRight)
 		{
 			CVar_Left = &CVarSafeZone_Landscape_Right;
 			CVar_Right = &CVarSafeZone_Landscape_Left;
@@ -178,7 +178,7 @@ void FIOSApplication::CacheDisplayMetrics()
 	if (@available(iOS 11, *))
 	{
 		CachedInsets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
-		CachedOrientation = [[UIDevice currentDevice] orientation];
+		CachedOrientation = [[UIApplication sharedApplication] statusBarOrientation];
 	}
 #endif
 }

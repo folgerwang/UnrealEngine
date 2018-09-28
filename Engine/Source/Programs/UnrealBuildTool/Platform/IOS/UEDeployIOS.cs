@@ -160,17 +160,8 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					// get the changelist from version.h
-					string EngineVersionFile = Path.Combine(EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Version.h");
-					string[] EngineVersionLines = File.ReadAllLines(EngineVersionFile);
-					for (int i = 0; i < EngineVersionLines.Length; ++i)
-					{
-						if (EngineVersionLines[i].StartsWith("#define BUILT_FROM_CHANGELIST"))
-						{
-							CFBundleVersion = EngineVersionLines[i].Split(new char[] { ' ', '\t' })[2].Trim(' ');
-							break;
-						}
-					}
+                    // get the changelist
+                    CFBundleVersion = BuildVersion.ReadDefault().Changelist.ToString();
 
 				}
 
@@ -368,6 +359,10 @@ namespace UnrealBuildTool
 			// Add remote-notifications as background mode
 			bool bRemoteNotificationsSupported = false;
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableRemoteNotificationsSupport", out bRemoteNotificationsSupported);
+
+            // Add background fetch as background mode
+            bool bBackgroundFetch = false;
+            Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableBackgroundFetch", out bBackgroundFetch);
 
 			// Get any Location Services permission descriptions added
 			string LocationAlwaysUsageDescription = "";
@@ -674,11 +669,18 @@ namespace UnrealBuildTool
 			}
 
 			// Add remote-notifications as background mode
-			if (bRemoteNotificationsSupported)
+			if (bRemoteNotificationsSupported || bBackgroundFetch)
 			{
 				Text.AppendLine("\t<key>UIBackgroundModes</key>");
 				Text.AppendLine("\t<array>");
-				Text.AppendLine("\t\t<string>remote-notification</string>");
+                if (bRemoteNotificationsSupported)
+                {
+				    Text.AppendLine("\t\t<string>remote-notification</string>");
+                }
+                if (bBackgroundFetch)
+                {
+                    Text.AppendLine("\t\t<string>fetch</string>");
+                }
 				Text.AppendLine("\t</array>");
 			}
 
@@ -763,7 +765,7 @@ namespace UnrealBuildTool
 
 		protected virtual void CopyCloudResources(string InEngineDir, string AppDirectory)
 		{
-			CopyFiles(InEngineDir + "/Build/IOS/Cloud", AppDirectory, "*.json", true);
+			CopyFiles(InEngineDir + "/Build/IOS/Cloud", AppDirectory, "*.*", true);
 		}
 		protected virtual void CopyGraphicsResources(bool bSkipDefaultPNGs, bool bSkipIcons, string InEngineDir, string AppDirectory, string BuildDirectory, string IntermediateDir, bool bSupportsPortrait, bool bSupportsLandscape)
 		{

@@ -69,7 +69,8 @@ float2 CalculateNearestResolvedDepthScreenUV(float2 ScreenUV, float SceneDepth)
 
 float4 GetForwardDynamicShadowFactors(float2 ScreenUV)
 {
-	float4 Value = Texture2DSampleLevel(OpaqueBasePass.ForwardScreenSpaceShadowMaskTexture, OpaqueBasePass.ForwardScreenSpaceShadowMaskTextureSampler, ScreenUV, 0);
+	int2 IntScreenUV = int2(trunc(ScreenUV * View_BufferSizeAndInvSize.xy));
+	float4 Value = OpaqueBasePass.ForwardScreenSpaceShadowMaskTexture.Load(int3(IntScreenUV, 0));
 	return Square(Value);
 }
 
@@ -81,11 +82,12 @@ float4 UnpackShadowMapChannelMask(uint ShadowMapChannelMaskPacked)
 float GetIndirectOcclusion(float2 ScreenUV, FGBufferData GBufferData)
 {
 	float IndirectOcclusion;
-#if SUPPORTS_INDEPENDENT_SAMPLERS
-	IndirectOcclusion = Texture2DSampleLevel(OpaqueBasePass.IndirectOcclusionTexture, OpaqueBasePass.ForwardScreenSpaceShadowMaskTextureSampler, ScreenUV, 0).x;
-#else
-	IndirectOcclusion = Texture2DSampleLevel(OpaqueBasePass.IndirectOcclusionTexture, OpaqueBasePass.IndirectOcclusionTextureSampler, ScreenUV, 0).x;
-#endif
+
+	uint IndirectOcclusionWidth, IndirectOcclusionHeight;
+	OpaqueBasePass.IndirectOcclusionTexture.GetDimensions(IndirectOcclusionWidth, IndirectOcclusionHeight);
+
+    int2 IntScreenUV = int2(trunc(ScreenUV * float2(IndirectOcclusionWidth, IndirectOcclusionHeight)));
+	IndirectOcclusion = OpaqueBasePass.IndirectOcclusionTexture.Load(int3(IntScreenUV, 0)).x;
 
 	// Reduce self shadowing intensity on characters (reuse distance field bit, really should be HasCapsuleShadowRepresentation)
 	IndirectOcclusion = lerp(1, IndirectOcclusion, HasDynamicIndirectShadowCasterRepresentation(GBufferData) ? View.IndirectCapsuleSelfShadowingIntensity : 1);

@@ -11,8 +11,45 @@ DEFINE_LOG_CATEGORY(LogCurveTable);
 
 DECLARE_CYCLE_STAT(TEXT("CurveTableRowHandle Eval"),STAT_CurveTableRowHandleEval,STATGROUP_Engine);
 
-
 int32 UCurveTable::GlobalCachedCurveID = 1;
+
+
+namespace
+{
+	/** Used to trigger the trigger the data table changed delegate. This allows us to trigger the delegate once from more complex changes */
+	struct FScopedCurveTableChange
+	{
+		FScopedCurveTableChange(UCurveTable* InTable)
+			: Table(InTable)
+		{
+			int8* Count = ScopeCount.Find(Table);
+			if (!Count)
+			{
+				Count = &ScopeCount.Add(Table, 0);
+			}
+			++Count;
+		}
+		~FScopedCurveTableChange()
+		{
+			int8& Count = ScopeCount.FindChecked(Table);
+			--Count;
+			if (Count == 0)
+			{
+				Table->OnCurveTableChanged().Broadcast();
+				ScopeCount.Remove(Table);
+			}
+		}
+
+	private:
+		UCurveTable* Table;
+
+		static TMap<UCurveTable*, int8> ScopeCount;
+	};
+
+	TMap<UCurveTable*, int8> FScopedCurveTableChange::ScopeCount;
+
+#define CURVETABLE_CHANGE_SCOPE()	FScopedCurveTableChange ActiveScope(this);
+}
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -30,11 +67,11 @@ FName UCurveTable::MakeValidName(const FString& InString)
 	TArray<TCHAR>& FixedCharArray = FixedString.GetCharArray();
 
 	// Iterate over input string characters
-	for(int32 CharIdx=0; CharIdx<InString.Len(); CharIdx++)
+	for (int32 CharIdx=0; CharIdx<InString.Len(); CharIdx++)
 	{
 		// See if this char occurs in the InvalidChars string
-		FString Char = InString.Mid( CharIdx, 1 );
-		if( !InvalidChars.Contains(Char) )
+		FString Char = InString.Mid(CharIdx, 1);
+		if (!InvalidChars.Contains(Char))
 		{
 			// Its ok, add to result
 			FixedCharArray.Add(Char[0]);
@@ -45,16 +82,18 @@ FName UCurveTable::MakeValidName(const FString& InString)
 	return FName(*FixedString);
 }
 
-void UCurveTable::Serialize( FArchive& Ar )
+void UCurveTable::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar); // When loading, this should load our RowCurve!	
 
-	if(Ar.IsLoading())
+	if (Ar.IsLoading())
 	{
+		CURVETABLE_CHANGE_SCOPE();
+
 		int32 NumRows;
 		Ar << NumRows;
 
-		for(int32 RowIdx = 0; RowIdx < NumRows; RowIdx++)
+		for (int32 RowIdx = 0; RowIdx < NumRows; RowIdx++)
 		{
 			// Load row name
 			FName RowName;
@@ -62,19 +101,19 @@ void UCurveTable::Serialize( FArchive& Ar )
 
 			// Load row data
 			FRichCurve* NewCurve = new FRichCurve();
-			FRichCurve::StaticStruct()->SerializeTaggedProperties(Ar, (uint8*)NewCurve, FRichCurve::StaticStruct(), NULL);
+			FRichCurve::StaticStruct()->SerializeTaggedProperties(Ar, (uint8*)NewCurve, FRichCurve::StaticStruct(), nullptr);
 
 			// Add to map
 			RowMap.Add(RowName, NewCurve);
 		}
 	}
-	else if(Ar.IsSaving())
+	else if (Ar.IsSaving())
 	{
 		int32 NumRows = RowMap.Num();
 		Ar << NumRows;
 
 		// Now iterate over rows in the map
-		for ( auto RowIt = RowMap.CreateIterator(); RowIt; ++RowIt )
+		for (auto RowIt = RowMap.CreateIterator(); RowIt; ++RowIt)
 		{
 			// Save out name
 			FName RowName = RowIt.Key();
@@ -82,7 +121,7 @@ void UCurveTable::Serialize( FArchive& Ar )
 
 			// Save out data
 			FRichCurve* Curve = RowIt.Value();
-			FRichCurve::StaticStruct()->SerializeTaggedProperties(Ar, (uint8*)Curve, FRichCurve::StaticStruct(), NULL);
+			FRichCurve::StaticStruct()->SerializeTaggedProperties(Ar, (uint8*)Curve, FRichCurve::StaticStruct(), nullptr);
 		}
 	}
 	else if (Ar.IsCountingMemory())
@@ -102,6 +141,8 @@ void UCurveTable::Serialize( FArchive& Ar )
 
 void UCurveTable::FinishDestroy()
 {
+	CURVETABLE_CHANGE_SCOPE();
+
 	Super::FinishDestroy();
 
 	EmptyTable(); // Free memory when UObject goes away
@@ -112,7 +153,7 @@ void UCurveTable::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	if (AssetImportData)
 	{
-		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add(FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden));
 	}
 
 	Super::GetAssetRegistryTags(OutTags);
@@ -144,7 +185,7 @@ FString UCurveTable::GetTableAsString() const
 {
 	FString Result;
 
-	if(RowMap.Num() > 0)
+	if (RowMap.Num() > 0)
 	{
 		TArray<FName> Names;
 		TArray<FRichCurve*> Curves;
@@ -155,9 +196,9 @@ FString UCurveTable::GetTableAsString() const
 
 		// Determine the curve with the longest set of data, for headers
 		int32 LongestCurveIndex = 0;
-		for(int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); CurvesIdx++)
+		for (int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); CurvesIdx++)
 		{
-			if(Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
+			if (Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
 			{
 				LongestCurveIndex = CurvesIdx;
 			}
@@ -172,7 +213,7 @@ FString UCurveTable::GetTableAsString() const
 		Result += TEXT("\n");
 
 		// display all the curves
-		for(int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); CurvesIdx++)
+		for (int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); CurvesIdx++)
 		{
 			// show name of curve
 			Result += Names[CurvesIdx].ToString();
@@ -197,7 +238,7 @@ FString UCurveTable::GetTableAsCSV() const
 {
 	FString Result;
 
-	if(RowMap.Num() > 0)
+	if (RowMap.Num() > 0)
 	{
 		TArray<FName> Names;
 		TArray<FRichCurve*> Curves;
@@ -210,7 +251,7 @@ FString UCurveTable::GetTableAsCSV() const
 		int32 LongestCurveIndex = 0;
 		for (int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); CurvesIdx++)
 		{
-			if(Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
+			if (Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
 			{
 				LongestCurveIndex = CurvesIdx;
 			}
@@ -258,7 +299,7 @@ FString UCurveTable::GetTableAsJSON() const
 
 bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter, bool bAsArray) const
 {
-	if(RowMap.Num() <= 0)
+	if (RowMap.Num() <= 0)
 	{
 		return false;
 	}
@@ -271,9 +312,9 @@ bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJ
 
 	// Determine the curve with the longest set of data, for headers
 	int32 LongestCurveIndex = 0;
-	for(int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); CurvesIdx++)
+	for (int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); CurvesIdx++)
 	{
-		if(Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
+		if (Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
 		{
 			LongestCurveIndex = CurvesIdx;
 		}
@@ -285,7 +326,7 @@ bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJ
 	}
 
 	// display all the curves
-	for(int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); CurvesIdx++)
+	for (int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); CurvesIdx++)
 	{
 		if (bAsArray)
 		{
@@ -307,7 +348,7 @@ bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJ
 		JsonWriter->WriteObjectEnd();
 	}
 
-	if(bAsArray)
+	if (bAsArray)
 	{
 		JsonWriter->WriteArrayEnd();
 	}
@@ -316,8 +357,10 @@ bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJ
 
 void UCurveTable::EmptyTable()
 {
+	CURVETABLE_CHANGE_SCOPE();
+
 	// Iterate over all rows in table and free mem
-	for ( auto RowIt = RowMap.CreateIterator(); RowIt; ++RowIt )
+	for (auto RowIt = RowMap.CreateIterator(); RowIt; ++RowIt)
 	{
 		FRichCurve* RowData = RowIt.Value();
 		delete RowData;
@@ -336,18 +379,39 @@ void UCurveTable::EmptyTable()
 void GetCurveValues(const TArray<const TCHAR*>& Cells, TArray<float>* Values)
 {
 	// Need at least 2 columns, first column is skipped, will contain row names
-	if(Cells.Num() >= 2)
+	if (Cells.Num() >= 2)
 	{
 		// first element always NULL - as first column is row names
-		for(int32 ColIdx = 1; ColIdx < Cells.Num(); ColIdx++)
+		for (int32 ColIdx = 1; ColIdx < Cells.Num(); ColIdx++)
 		{
 			Values->Add(FCString::Atof(Cells[ColIdx]));
 		}
 	}
 }
 
+bool FindDuplicateXValues(const TArray<float>& XValues, const FString& ContextString, TArray<FString>& OutProblems)
+{
+	bool bDoesContainDuplicates = false;
+	int32 NumColumns = XValues.Num();
+	for (int32 ColIdx = 0; ColIdx < NumColumns; ++ColIdx)
+	{
+		for (int32 InnerIdx = ColIdx + 1; InnerIdx < NumColumns; ++InnerIdx)
+		{
+			if (XValues[ColIdx] == XValues[InnerIdx])
+			{
+				bDoesContainDuplicates = true;
+				OutProblems.Add(FString::Printf(TEXT("Found duplicate columns in %s. %f is used in columns %d and %d"), *ContextString, XValues[ColIdx], ColIdx, InnerIdx));
+			}
+		}
+	}
+
+	return bDoesContainDuplicates;
+}
+
 TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, ERichCurveInterpMode InterpMode)
 {
+	CURVETABLE_CHANGE_SCOPE();
+
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
@@ -355,7 +419,7 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 	const FCsvParser::FRows& Rows = Parser.GetRows();
 
 	// Must have at least 2 rows (x values + y values for at least one row)
-	if(Rows.Num() <= 1)
+	if (Rows.Num() <= 1)
 	{
 		OutProblems.Add(FString(TEXT("Too few rows.")));
 		return OutProblems;
@@ -367,13 +431,19 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 	TArray<float> XValues;
 	GetCurveValues(Rows[0], &XValues);
 
+	// check for duplicate Column values
+	if (FindDuplicateXValues(XValues, TEXT("UCurveTable::CreateTableFromCSVString"), OutProblems))
+	{
+		return OutProblems;
+	}
+
 	// Iterate over rows
-	for(int32 RowIdx = 1; RowIdx < Rows.Num(); RowIdx++)
+	for (int32 RowIdx = 1; RowIdx < Rows.Num(); RowIdx++)
 	{
 		const TArray<const TCHAR*>& Row = Rows[RowIdx];
 
 		// Need at least 1 cells (row name)
-		if(Row.Num() < 1)
+		if (Row.Num() < 1)
 		{
 			OutProblems.Add(FString::Printf(TEXT("Row '%d' has too few cells."), RowIdx));
 			continue;
@@ -383,14 +453,14 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 		FName RowName = MakeValidName(Row[0]);
 
 		// Check its not 'none'
-		if(RowName == NAME_None)
+		if (RowName == NAME_None)
 		{
 			OutProblems.Add(FString::Printf(TEXT("Row '%d' missing a name."), RowIdx));
 			continue;
 		}
 
 		// Check its not a duplicate
-		if(RowMap.Find(RowName) != NULL)
+		if (RowMap.Find(RowName) != nullptr)
 		{
 			OutProblems.Add(FString::Printf(TEXT("Duplicate row name '%s'."), *RowName.ToString()));
 			continue;
@@ -399,7 +469,7 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 		TArray<float> YValues;
 		GetCurveValues(Row, &YValues);
 
-		if(XValues.Num() != YValues.Num())
+		if (XValues.Num() != YValues.Num())
 		{
 			OutProblems.Add(FString::Printf(TEXT("Row '%s' does not have the right number of columns."), *RowName.ToString()));
 			continue;
@@ -407,7 +477,7 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 
 		FRichCurve* NewCurve = new FRichCurve();
 		// Now iterate over cells (skipping first cell, that was row name)
-		for(int32 ColumnIdx = 0; ColumnIdx < XValues.Num(); ColumnIdx++)
+		for (int32 ColumnIdx = 0; ColumnIdx < XValues.Num(); ColumnIdx++)
 		{
 			FKeyHandle KeyHandle = NewCurve->AddKey(XValues[ColumnIdx], YValues[ColumnIdx]);
 			NewCurve->SetKeyInterpMode(KeyHandle, InterpMode);
@@ -416,12 +486,18 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 		RowMap.Add(RowName, NewCurve);
 	}
 
+#if WITH_EDITORONLY_DATA
+	OnCurveTableChanged().Broadcast();
+#endif
 	Modify(true);
+
 	return OutProblems;
 }
 
 TArray<FString> UCurveTable::CreateTableFromOtherTable(const UCurveTable* InTable)
 {
+	CURVETABLE_CHANGE_SCOPE();
+
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
@@ -431,20 +507,44 @@ TArray<FString> UCurveTable::CreateTableFromOtherTable(const UCurveTable* InTabl
 		return OutProblems;
 	}
 
-	for (TMap<FName, FRichCurve*>::TConstIterator RowMapIter(InTable->RowMap.CreateConstIterator()); RowMapIter; ++RowMapIter)
+	// make a local copy of the rowmap so we have a snapshot of it
+	TMap<FName, FRichCurve*> InRowMapCopy = InTable->GetRowMap();
+
+	EmptyTable();
+
+	for (TMap<FName, FRichCurve*>::TConstIterator RowMapIter(InRowMapCopy.CreateConstIterator()); RowMapIter; ++RowMapIter)
 	{
 		FRichCurve* NewCurve = new FRichCurve();
 		FRichCurve* InCurve = RowMapIter.Value();
 		TArray<FRichCurveKey> CurveKeys = InCurve->GetCopyOfKeys();
 		NewCurve->SetKeys(CurveKeys);
+
+#if WITH_EDITOR
+		// check for duplicate key entries
+		TArray<float> XValues;
+		XValues.Reserve(CurveKeys.Num());
+		for (const FRichCurveKey& Key : CurveKeys)
+		{
+			XValues.Add(Key.Time);
+		}
+		FString ContextString = FString::Printf(TEXT("UCurveTable::CreateTableFromOtherTable (row=%s)"), *RowMapIter.Key().ToString());
+
+		if (FindDuplicateXValues(XValues, ContextString, OutProblems))
+		{
+			continue;
+		}
+#endif
+
 		RowMap.Add(RowMapIter.Key(), NewCurve);
 	}
-	
+
 	return OutProblems;
 }
 
 TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, ERichCurveInterpMode InterpMode)
 {
+	CURVETABLE_CHANGE_SCOPE();
+
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
@@ -490,7 +590,7 @@ TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, 
 		}
 
 		// Check its not a duplicate
-		if (RowMap.Find(RowName) != NULL)
+		if (RowMap.Find(RowName) != nullptr)
 		{
 			OutProblems.Add(FString::Printf(TEXT("Duplicate row name '%s'."), *RowName.ToString()));
 			continue;
@@ -526,10 +626,29 @@ TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, 
 			NewCurve->SetKeyInterpMode(KeyHandle, InterpMode);
 		}
 
+		// check for duplicate key entries
+		const TArray<FRichCurveKey>& CurveKeys = NewCurve->GetConstRefOfKeys();
+		TArray<float> XValues;
+		XValues.Reserve(CurveKeys.Num());
+		for (const FRichCurveKey& Key : CurveKeys)
+		{
+			XValues.Add(Key.Time);
+		}
+		FString ContextString = FString::Printf(TEXT("UCurveTable::CreateTableFromJSONString (row=%s)"), *RowName.ToString());
+
+		if (FindDuplicateXValues(XValues, ContextString, OutProblems))
+		{
+			continue;
+		}
+
 		RowMap.Add(RowName, NewCurve);
 	}
 
+#if WITH_EDITORONLY_DATA
+	OnCurveTableChanged().Broadcast();
+#endif
 	Modify(true);
+
 	return OutProblems;
 }
 
@@ -569,7 +688,7 @@ void UCurveTable::MakeTransactional()
 
 void UCurveTable::OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos)
 {
-
+	CURVETABLE_CHANGE_SCOPE();
 }
 
 bool UCurveTable::IsValidCurve(FRichCurveEditInfo CurveInfo)
@@ -599,18 +718,28 @@ TArray<const UObject*> UCurveTable::GetOwners() const
 	return Owners;
 }
 
+#if WITH_EDITOR
+void UCurveTable::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	OnCurveTableChanged().Broadcast();
+}
+#endif
+
+
 //////////////////////////////////////////////////////////////////////////
 
 
 FRichCurve* FCurveTableRowHandle::GetCurve(const FString& ContextString, bool WarnIfNotFound) const
 {
-	if(CurveTable == NULL)
+	if (CurveTable == nullptr)
 	{
 		if (RowName != NAME_None)
 		{
 			UE_CLOG(WarnIfNotFound, LogCurveTable, Warning, TEXT("FCurveTableRowHandle::FindRow : No CurveTable for row %s (%s)."), *RowName.ToString(), *ContextString);
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	return CurveTable->FindCurve(RowName, ContextString, WarnIfNotFound);
@@ -621,7 +750,7 @@ float FCurveTableRowHandle::Eval(float XValue,const FString& ContextString) cons
 	SCOPE_CYCLE_COUNTER(STAT_CurveTableRowHandleEval); 
 
 	FRichCurve* Curve = GetCurve(ContextString);
-	if(Curve != NULL)
+	if (Curve != nullptr)
 	{
 		return Curve->Eval(XValue);
 	}
@@ -634,7 +763,7 @@ bool FCurveTableRowHandle::Eval(float XValue, float* YValue, const FString& Cont
 	SCOPE_CYCLE_COUNTER(STAT_CurveTableRowHandleEval); 
 
 	FRichCurve* Curve = GetCurve(ContextString);
-	if(Curve != NULL && YValue != NULL)
+	if (Curve != nullptr && YValue != nullptr)
 	{
 		*YValue = Curve->Eval(XValue);
 		return true;
