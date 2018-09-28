@@ -21,13 +21,13 @@
 
 #define LOCTEXT_NAMESPACE "PluginWarden"
 
-void SAuthorizingPlugin::Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId, TFunction<void()> InAuthorizedCallback)
+void SAuthorizingPlugin::Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FPluginInfo& InPluginInfo, const EEntitlementCacheLevelRequest InCacheLevel, TFunction<void()> InAuthorizedCallback)
 {
 	ParentWindow = InParentWindow;
 	AuthorizedCallback = InAuthorizedCallback;
 	UnauthorizedErrorHandling = IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessageOpenStore;
 
-	Authorizer = MakeShared<FPluginWardenAuthorizer>(InPluginFriendlyName, InPluginItemId, InPluginOfferId);
+	Authorizer = MakeShared<FPluginWardenAuthorizer>(InPluginInfo.FriendlyName, InPluginInfo.ItemId, InPluginInfo.OfferId, InCacheLevel);
 
 	InParentWindow->SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SAuthorizingPlugin::OnWindowClosed));
 	bUserInterrupted = true;

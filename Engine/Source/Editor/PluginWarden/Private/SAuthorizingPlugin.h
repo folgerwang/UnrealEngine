@@ -10,6 +10,7 @@
 #include "IPluginWardenModule.h"
 #include "PluginWardenAuthorizer.h"
 
+enum class EEntitlementCacheLevelRequest : uint8;
 class FPluginWardenAuthorizer;
 
 extern TSet<FString> AuthorizedPlugins;
@@ -24,7 +25,21 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId, TFunction<void()> InAuthorizedCallback);
+	struct FPluginInfo
+	{
+		FPluginInfo( const FText& InFriendlyName, const FString& InItemId, const FString& InOfferId )
+			: FriendlyName( InFriendlyName )
+			, ItemId( InItemId )
+			, OfferId( InOfferId )
+		{
+		}
+
+		const FText& FriendlyName;
+		const FString& ItemId;
+		const FString& OfferId;
+	};
+
+	void Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FPluginInfo& PluginInfo, const EEntitlementCacheLevelRequest CacheLevel, TFunction<void()> InAuthorizedCallback);
 
 	/**
 	 * Override the default message and behavior in the case where the plugin is unauthorized.
