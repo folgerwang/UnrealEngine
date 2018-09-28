@@ -279,7 +279,7 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumCl
 
 	// Draw a fullscreen quad without a hole
 	RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+	RHICmdList.DrawPrimitive(0, 2, 1);
 
 	if (ClearQuadCallbacks.PostClear)
 	{

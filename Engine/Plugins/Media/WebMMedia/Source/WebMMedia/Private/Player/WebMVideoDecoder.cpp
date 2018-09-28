@@ -232,7 +232,7 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		// draw full-size quad
 		CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
 		CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
-		CommandList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		CommandList.DrawPrimitive(0, 2, 1);
 		CommandList.CopyToResolveTarget(RenderTarget, RenderTarget, FResolveParams());
 
 		Samples->AddVideo(VideoSample.ToSharedRef());

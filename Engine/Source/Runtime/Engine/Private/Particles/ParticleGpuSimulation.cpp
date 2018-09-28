@@ -1437,7 +1437,6 @@ static void DrawParticleTiles(FRHICommandList& RHICmdList, FParticleBufferParamR
 	// Draw tiles.
 	RHICmdList.DrawIndexedPrimitive(
 		GParticleIndexBuffer.IndexBufferRHI,
-		PT_TriangleList,
 		/*BaseVertexIndex=*/0,
 		/*MinIndex=*/ 0,
 		/*NumVertices=*/ 4,
