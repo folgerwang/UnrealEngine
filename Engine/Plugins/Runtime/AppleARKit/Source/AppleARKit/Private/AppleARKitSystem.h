@@ -16,7 +16,7 @@
 #endif
 
 
-DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("ARKit"), STATGROUP_ARKIT, STATCAT_Advanced);
 
 //
 //  FAppleARKitSystem
@@ -136,6 +136,9 @@ private:
 
 	/** Creates or clears the face ar support object if face ar has been requested */
 	void CheckForFaceARSupport(UARSessionConfig* InSessionConfig);
+	
+	/** Updates the ARKit perf counters */
+	void UpdateARKitPerfStats();
 	
 	/** The orientation of the device; see EScreenOrientation */
 	EScreenOrientation::Type DeviceOrientation;
