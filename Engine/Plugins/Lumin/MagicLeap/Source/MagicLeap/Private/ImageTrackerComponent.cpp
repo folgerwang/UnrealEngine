@@ -451,7 +451,7 @@ UImageTrackerComponent::~UImageTrackerComponent()
 
 void UImageTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-#if WITH_MLSDK
+#if WITH_MLSDK && PLATFORM_LUMIN
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	const FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFrameworkConst();
