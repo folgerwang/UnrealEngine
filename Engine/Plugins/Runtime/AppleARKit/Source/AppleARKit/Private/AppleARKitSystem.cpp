@@ -843,6 +843,7 @@ TArray<FVector> FAppleARKitSystem::OnGetPointCloud() const
 {
 	TArray<FVector> PointCloud;
 	
+#if SUPPORTS_ARKIT_1_0
 	if (GameThreadFrame.IsValid())
 	{
 		ARFrame* InARFrame = (ARFrame*)GameThreadFrame->NativeFrame;
@@ -858,6 +859,7 @@ TArray<FVector> FAppleARKitSystem::OnGetPointCloud() const
 			}
 		}
 	}
+#endif
 	return PointCloud;
 }
 
