@@ -193,7 +193,7 @@ void FSequencerEntityWalker::HandleSingleNode(const ISequencerEntityVisitor& Vis
 	//  - Sections that have no key areas
 	const bool bIterateKeyGroupings = Visitor.CheckEntityMask(ESequencerEntity::Key) &&
 		!bNodeHasKeyArea &&
-		(!InNode->IsExpanded() || InNode->GetChildNodes().Num() == 0);
+		(!InNode->IsExpanded() || InNode->GetChildNodes().Num() != 0);
 
 	if (bIterateKeyGroupings)
 	{
