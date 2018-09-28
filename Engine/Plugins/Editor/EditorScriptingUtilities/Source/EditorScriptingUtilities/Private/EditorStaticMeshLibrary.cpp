@@ -229,11 +229,11 @@ int32 UEditorStaticMeshLibrary::SetLods(UStaticMesh* StaticMesh, const FEditorSc
 	return LODIndex;
 }
 
-int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex)
+int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex, bool bReuseExistingMaterialSlots)
 {
 	TGuardValue<bool> UnattendedScriptGuard( GIsRunningUnattendedScript, true );
 
-	if ( !EditorScriptingUtils::CheckIfInEditorAndPIE( ))
+	if ( !EditorScriptingUtils::CheckIfInEditorAndPIE() )
 	{
 		return -1;
 	}
@@ -278,7 +278,75 @@ int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationSta
 	FRawMesh SourceRawMesh;
 	SourceStaticMesh->SourceModels[ SourceLodIndex ].LoadRawMesh( SourceRawMesh );
 
+	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].BuildSettings = SourceStaticMesh->SourceModels[ SourceLodIndex ].BuildSettings;
 	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].SaveRawMesh( SourceRawMesh );
+
+	// Assign materials for the destination LOD
+	{
+		auto FindMaterialIndex = []( UStaticMesh* StaticMesh, const UMaterialInterface* Material ) -> int32
+		{
+			for ( int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex )
+			{
+				if ( StaticMesh->GetMaterial( MaterialIndex ) == Material )
+				{
+					return MaterialIndex;
+				}
+			}
+
+			return INDEX_NONE;
+		};
+
+		TMap< int32, int32 > LodSectionMaterialMapping; // LOD section index -> destination material index
+
+		int32 NumDestinationMaterial = DestinationStaticMesh->StaticMaterials.Num();
+
+		const int32 SourceLodNumSections = SourceStaticMesh->SectionInfoMap.GetSectionNumber( SourceLodIndex );
+
+		for ( int32 SourceLodSectionIndex = 0; SourceLodSectionIndex < SourceLodNumSections; ++SourceLodSectionIndex )
+		{
+			const FMeshSectionInfo& SourceMeshSectionInfo = SourceStaticMesh->SectionInfoMap.Get( SourceLodIndex, SourceLodSectionIndex );
+
+			const UMaterialInterface* SourceMaterial = SourceStaticMesh->GetMaterial( SourceMeshSectionInfo.MaterialIndex );
+
+			int32 DestinationMaterialIndex = INDEX_NONE;
+			
+			if ( bReuseExistingMaterialSlots )
+			{
+				DestinationMaterialIndex = FindMaterialIndex( DestinationStaticMesh, SourceMaterial );
+			}
+			
+			if ( DestinationMaterialIndex == INDEX_NONE )
+			{
+				DestinationMaterialIndex = NumDestinationMaterial++;
+			}
+			
+			LodSectionMaterialMapping.Add( SourceLodSectionIndex, DestinationMaterialIndex );
+		}
+
+		for ( TMap< int32, int32 >::TConstIterator It = LodSectionMaterialMapping.CreateConstIterator(); It; ++It )
+		{
+			const int32 SectionIndex = It->Key;
+		
+			const FMeshSectionInfo& SourceSectionInfo = SourceStaticMesh->SectionInfoMap.Get( SourceLodIndex, SectionIndex );
+
+			UMaterialInterface* SourceMaterial = SourceStaticMesh->GetMaterial( SourceSectionInfo.MaterialIndex );
+
+			const int32 SourceMaterialIndex = SourceSectionInfo.MaterialIndex;
+			const int32 DestinationMaterialIndex = It->Value;
+
+			if ( !DestinationStaticMesh->StaticMaterials.IsValidIndex( DestinationMaterialIndex ) )
+			{
+				DestinationStaticMesh->StaticMaterials.Add( SourceStaticMesh->StaticMaterials[ SourceSectionInfo.MaterialIndex ] );
+
+				ensure( DestinationStaticMesh->StaticMaterials.Num() == DestinationMaterialIndex + 1 ); // We assume that we are not creating holes in StaticMaterials
+			}
+
+			FMeshSectionInfo DestinationSectionInfo = SourceSectionInfo;
+			DestinationSectionInfo.MaterialIndex = DestinationMaterialIndex;
+
+			DestinationStaticMesh->SectionInfoMap.Set( DestinationLodIndex, SectionIndex, MoveTemp( DestinationSectionInfo ) );
+		}
+	}
 
 	DestinationStaticMesh->PostEditChange();
 
