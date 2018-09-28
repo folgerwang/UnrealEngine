@@ -381,3 +381,15 @@ void FMovieSceneAudioSectionTemplate::Evaluate(const FMovieSceneEvaluationOperan
 		ExecutionTokens.Add(FAudioSectionExecutionToken(AudioData));
 	}
 }
+
+void FMovieSceneAudioSectionTemplate::TearDown(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
+{
+	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_AudioTrack_Teardown)
+
+	if (GEngine && GEngine->UseSound())
+	{
+		FCachedAudioTrackData& TrackData = PersistentData.GetOrAddTrackData<FCachedAudioTrackData>();
+
+		TrackData.StopAllSounds();
+	}
+}
