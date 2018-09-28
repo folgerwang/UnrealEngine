@@ -404,10 +404,16 @@ namespace UnrealBuildTool
 				Log.TraceInformation("[Remote] Uploading {0}", MobileProvisionFile);
 				UploadFile(MobileProvisionFile);
 
-				// Extract the certificate for the project
+				// Extract the certificate for the project. Try to avoid calling IPP if we already have it.
 				FileReference CertificateFile = FileReference.Combine(TempDir, "Certificate.p12");
-				if(!FileReference.Exists(CertificateFile))
+
+				FileReference CertificateInfoFile = FileReference.Combine(TempDir, "Certificate.txt");
+				string CertificateInfoContents = String.Format("{0}\n{1}", ProvisioningData.MobileProvisionFile, FileReference.GetLastWriteTimeUtc(ProvisioningData.MobileProvisionFile).Ticks);
+
+				if(!FileReference.Exists(CertificateFile) || !FileReference.Exists(CertificateInfoFile) || FileReference.ReadAllText(CertificateInfoFile) != CertificateInfoContents)
 				{
+					Log.TraceInformation("[Remote] Exporting certificate for {0}...", ProvisioningData.MobileProvisionFile);
+
 					StringBuilder Arguments = new StringBuilder("ExportCertificate");
 					if(TargetDesc.ProjectFile == null)
 					{
@@ -417,12 +423,12 @@ namespace UnrealBuildTool
 					{
 						Arguments.AppendFormat(" \"{0}\"", TargetDesc.ProjectFile.Directory);
 					}
+					Arguments.AppendFormat(" -provisionfile \"{0}\"", ProvisioningData.MobileProvisionFile);
+					Arguments.AppendFormat(" -outputcertificate \"{0}\"", CertificateFile);
 					if(TargetDesc.Platform == UnrealTargetPlatform.TVOS)
 					{
 						Arguments.Append(" -tvos");
 					}
-					Arguments.AppendFormat(" -outputcertificate \"{0}\"", CertificateFile);
-					Arguments.AppendFormat(" -provisioninguuid {0}", ProvisioningData.MobileProvisionUUID);
 
 					ProcessStartInfo StartInfo = new ProcessStartInfo();
 					StartInfo.FileName = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Binaries", "DotNET", "IOS", "IPhonePackager.exe").FullName;
@@ -431,6 +437,8 @@ namespace UnrealBuildTool
 					{
 						throw new BuildException("IphonePackager failed.");
 					}
+
+					FileReference.WriteAllText(CertificateInfoFile, CertificateInfoContents);
 				}
 
 				// Upload the certificate to the remote
