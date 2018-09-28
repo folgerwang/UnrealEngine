@@ -128,6 +128,7 @@ public:
 	}
 #else //STEAMVR_SUPPORTED_PLATFORMS
 		: VRSystem(nullptr)
+		, VRInput(nullptr)
 	{
 		LoadOpenVRModule();
 	}
@@ -151,6 +152,11 @@ public:
 		return VRSystem;
 	}
 	
+	virtual vr::IVRInput* GetVRInput() const override
+	{
+		return VRInput;
+	}
+
 	bool LoadOpenVRModule()
 	{
 #if PLATFORM_WINDOWS
@@ -229,6 +235,7 @@ public:
 	virtual void Reset() override
 	{
 		VRSystem = nullptr;
+		VRInput = nullptr;
 	}
 	
 	uint64 GetGraphicsAdapterLuid() override
@@ -349,7 +356,8 @@ public:
 
 private:
 	vr::IVRSystem* VRSystem;
-	
+	vr::IVRInput* VRInput;
+
 	void* OpenVRDLLHandle;
 #endif // STEAMVR_SUPPORTED_PLATFORMS
 };
@@ -363,6 +371,7 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FSteamVRPlugin::Creat
 	if( SteamVRHMD->IsInitialized() )
 	{
 		VRSystem = SteamVRHMD->GetVRSystem();
+		VRInput = SteamVRHMD->GetVRInput();
 		return SteamVRHMD;
 	}
 #endif//STEAMVR_SUPPORTED_PLATFORMS
@@ -1539,6 +1548,7 @@ bool FSteamVRHMD::Startup()
 		return false;
 	}
 
+	
 	// attach to the compositor	
 	//VRCompositor = (vr::IVRCompositor*)vr::VR_GetGenericInterface(vr::IVRCompositor_Version, &HmdErr);
 	int CompositorConnectRetries = 10;
@@ -1611,6 +1621,14 @@ bool FSteamVRHMD::Startup()
 
 		vr::EVRInitError RenderModelsErr = vr::VRInitError_None;
 		VRRenderModels = (vr::IVRRenderModels*)(*VRGetGenericInterfaceFn)(vr::IVRRenderModels_Version, &RenderModelsErr);
+
+		vr::EVRInitError InputErr = vr::VRInitError_None;
+		VRInput = (vr::IVRInput*)(*VRGetGenericInterfaceFn)(vr::IVRInput_Version, &InputErr);
+		if ((VRInput == nullptr) || (InputErr != vr::VRInitError_None))
+		{
+			UE_LOG(LogHMD, Log, TEXT("Failed to initialize VRInput.  Error: %d"), (int32)InputErr);
+		}
+
 
 #if PLATFORM_MAC
 		if (IsMetalPlatform(GMaxRHIShaderPlatform))
