@@ -1098,7 +1098,7 @@ bool UEditorStaticMeshLibrary::RemoveUVChannel(UStaticMesh* StaticMesh, int32 LO
 	return StaticMesh->RemoveUVChannel(LODIndex, UVChannelIndex);
 }
 
-bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector2D& Tiling)
 {
 	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
@@ -1114,13 +1114,15 @@ bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, 
 
 	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 
+	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling );
+
 	TArray<FVector2D> TexCoords;
-	FMeshDescriptionOperations::GeneratePlanarUV(*MeshDescription, UVSettings, TexCoords);
+	FMeshDescriptionOperations::GeneratePlanarUV(*MeshDescription, UVParameters, TexCoords);
 
 	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
 }
 
-bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector2D& Tiling)
 {
 	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
@@ -1136,13 +1138,15 @@ bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticM
 
 	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 
+	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling);
+
 	TArray<FVector2D> TexCoords;
-	FMeshDescriptionOperations::GenerateCylindricalUV(*MeshDescription, UVSettings, TexCoords);
+	FMeshDescriptionOperations::GenerateCylindricalUV(*MeshDescription, UVParameters, TexCoords);
 
 	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
 }
 
-bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector& Size)
 {
 	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
@@ -1158,8 +1162,10 @@ bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int
 
 	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 
+	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), Size, FVector::OneVector, FVector2D::UnitVector);
+
 	TArray<FVector2D> TexCoords;
-	FMeshDescriptionOperations::GenerateBoxUV(*MeshDescription, UVSettings, TexCoords);
+	FMeshDescriptionOperations::GenerateBoxUV(*MeshDescription, UVParameters, TexCoords);
 
 	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
 }
