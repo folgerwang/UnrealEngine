@@ -204,7 +204,7 @@ namespace EditorScriptingUtils
 		}
 
 		// Get the object name
-		FString ObjectName = FPackageName::ObjectPathToPackageName(AssetFullName);
+		FString ObjectName = FPackageName::ObjectPathToObjectName(AssetFullName);
 		if (ObjectName.IsEmpty())
 		{
 			OutFailureReason = FString::Printf(TEXT("Can't convert the path '%s' because it doesn't contain an asset name."), *AnyAssetPath);
