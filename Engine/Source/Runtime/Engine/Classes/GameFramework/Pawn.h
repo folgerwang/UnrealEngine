@@ -204,7 +204,7 @@ public:
 	template < class T >
 	T* GetController() const
 	{
-		Cast<T>(GetController());
+		return Cast<T>(GetController());
 	}
 
 	/** Get the rotation of the Controller, often the 'view' rotation of this Pawn. */
