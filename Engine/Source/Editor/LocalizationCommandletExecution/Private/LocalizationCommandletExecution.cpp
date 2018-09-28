@@ -698,7 +698,7 @@ namespace
 
 	FText SLocalizationCommandletExecutor::GetCloseButtonText() const
 	{
-		return HasCompleted() ? LOCTEXT("OkayButtonText", "Okay") : LOCTEXT("CancelButtonText", "Cancel");
+		return HasCompleted() ? LOCTEXT("OkButtonText", "OK") : LOCTEXT("CancelButtonText", "Cancel");
 	}
 
 	FReply SLocalizationCommandletExecutor::OnCloseButtonClicked()
