@@ -32,8 +32,9 @@ enum
 
 #define LOCTEXT_NAMESPACE "PluginWardenAuthorization"
 
-FPluginWardenAuthorizer::FPluginWardenAuthorizer(const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId)
+FPluginWardenAuthorizer::FPluginWardenAuthorizer(const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId, const EEntitlementCacheLevelRequest InCacheLevel)
 	: CurrentState(EPluginAuthorizationState::Initializing)
+	, CacheLevel(InCacheLevel)
 	, WaitingTime(0)
 	, PluginFriendlyName(InPluginFriendlyName)
 	, PluginItemId(InPluginItemId)
@@ -116,7 +117,7 @@ EPluginAuthorizationState FPluginWardenAuthorizer::UpdateAuthorizationState(floa
 		case EPluginAuthorizationState::AuthorizePlugin:
 		{
 			WaitingTime = 0;
-			EntitlementResult = PortalUserService->IsEntitledToItem(PluginItemId, EEntitlementCacheLevelRequest::Memory);
+			EntitlementResult = PortalUserService->IsEntitledToItem(PluginItemId, CacheLevel);
 			NewState = EPluginAuthorizationState::AuthorizePlugin_Waiting;
 			break;
 		}
