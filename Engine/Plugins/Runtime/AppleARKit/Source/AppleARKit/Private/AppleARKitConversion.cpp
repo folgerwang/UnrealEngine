@@ -103,9 +103,7 @@ NSSet* FAppleARKitConversion::InitImageDetection(UARSessionConfig* SessionConfig
 			if (ConvertedImage != nullptr)
 			{
 				float ImageWidth = (float)Candidate->GetPhysicalWidth() / 100.f;
-				CGImagePropertyOrientation Orientation = Candidate->GetOrientation() == EARCandidateImageOrientation::Landscape ? kCGImagePropertyOrientationRight : kCGImagePropertyOrientationUp;
-
-				ARReferenceImage* ReferenceImage = [[[ARReferenceImage alloc] initWithCGImage: ConvertedImage orientation: Orientation physicalWidth: ImageWidth] autorelease];
+				ARReferenceImage* ReferenceImage = [[[ARReferenceImage alloc] initWithCGImage: ConvertedImage orientation: kCGImagePropertyOrientationUp physicalWidth: ImageWidth] autorelease];
 				ReferenceImage.name = Candidate->GetFriendlyName().GetNSString();
 				[ConvertedImageSet addObject: ReferenceImage];
 			}
