@@ -191,6 +191,11 @@ public:
 	EARCandidateImageOrientation GetOrientation() const { return Orientation; }
 
 private:
+#if WITH_EDITOR
+	/** Used to enforce physical sizes matching the aspect ratio of the images */
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+	
 	/** The image to detect in scenes */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	UTexture2D* CandidateTexture;
