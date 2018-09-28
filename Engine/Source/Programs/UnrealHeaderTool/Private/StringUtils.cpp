@@ -117,7 +117,7 @@ FORCEINLINE uint64 GenerateTextHash64(const TCHAR* Str)
 	}
 }
 
-uint32 GenerateTextCRC(const TCHAR* Data)
+uint32 GenerateTextHash(const TCHAR* Data)
 {
 	uint64 Hash = GenerateTextHash64(Data);
 	return static_cast<uint32>(Hash) + static_cast<uint32>(Hash >> 32);
