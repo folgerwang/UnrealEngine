@@ -56,6 +56,16 @@ struct FMovieSceneObjectCache
 	MOVIESCENE_API FGuid FindObjectId(UObject& InObject, IMovieScenePlayer& Player);
 
 	/**
+	* Attempt deduce the posessable or spawnable that relates to the specified object
+	* @note Does not clear the existing cache
+	*
+	* @param InObject			The object whose binding ID is to be find
+	* @param Player			The movie scene player that is playing back the sequence
+	* @return The object's spawnable or possessable GUID, or a zero GUID if it was not found
+	*/
+	MOVIESCENE_API FGuid FindCachedObjectId(UObject& InObject, IMovieScenePlayer& Player);
+
+	/**
 	 * Invalidate any object bindings for objects that have been destroyed
 	 */
 	MOVIESCENE_API void InvalidateExpiredObjects();
@@ -157,6 +167,16 @@ struct FMovieSceneEvaluationState
 	 * @return The object's spawnable or possessable GUID, or a zero GUID if it was not found
 	 */
 	MOVIESCENE_API FGuid FindObjectId(UObject& Object, FMovieSceneSequenceIDRef InSequenceID, IMovieScenePlayer& Player);
+
+	/**
+	* Attempt deduce the posessable or spawnable that relates to the specified object
+	* @note Does not clear the existing cache
+	*
+	* @param InObject			The object whose binding ID is to be find
+	* @param Player			The movie scene player that is playing back the sequence
+	* @return The object's spawnable or possessable GUID, or a zero GUID if it was not found
+	*/
+	MOVIESCENE_API FGuid FindCachedObjectId(UObject& Object, FMovieSceneSequenceIDRef InSequenceID, IMovieScenePlayer& Player);
 
 	/**
 	 * Find an object cache pertaining to the specified sequence
