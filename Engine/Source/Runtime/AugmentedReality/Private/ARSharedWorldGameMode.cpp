@@ -6,7 +6,7 @@
 
 AARSharedWorldGameMode::AARSharedWorldGameMode(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, BufferSizePerChunk(16 * 1024)
+	, BufferSizePerChunk(512)
 {
 	GameStateClass = AARSharedWorldGameState::StaticClass();
 	PlayerControllerClass = AARSharedWorldPlayerController::StaticClass();
