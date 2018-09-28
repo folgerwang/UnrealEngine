@@ -93,15 +93,17 @@ public:
 
 	/**
 	 * Adds or create a LOD at DestinationLodIndex using the geometry from SourceStaticMesh SourceLodIndex
-	 * @param	DestinationStaticMesh	The static mesh to set the LOD in.
-	 * @param	DestinationLodIndex		The index of the LOD to set.
-	 * @param	SourceStaticMesh		The static mesh to get the LOD from.
-	 * @param	SourceLodIndex			The index of the LOD to get.
+	 * @param	DestinationStaticMesh		The static mesh to set the LOD in.
+	 * @param	DestinationLodIndex			The index of the LOD to set.
+	 * @param	SourceStaticMesh			The static mesh to get the LOD from.
+	 * @param	SourceLodIndex				The index of the LOD to get.
+	 * @param	bReuseExistingMaterialSlots	If true, sections from SourceStaticMesh will be remapped to match the material slots of DestinationStaticMesh
+											when they have the same material assigned. If false, all material slots of SourceStaticMesh will be appended in DestinationStaticMesh.
 	 * @return	The index of the LOD that was set. It can be different than DestinationLodIndex if it wasn't a valid index.
 	 *			A negative value indicates that the LOD was not set. See log for explanation.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
-	static int32 SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex);
+	static int32 SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex, bool bReuseExistingMaterialSlots);
 
 	/**
 	 * Get number of LODs present on a static mesh.
