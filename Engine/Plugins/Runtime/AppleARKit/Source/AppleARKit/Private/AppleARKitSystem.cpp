@@ -839,6 +839,28 @@ TArray<FARVideoFormat> FAppleARKitSystem::OnGetSupportedVideoFormats(EARSessionT
 	return TArray<FARVideoFormat>();
 }
 
+TArray<FVector> FAppleARKitSystem::OnGetPointCloud() const
+{
+	TArray<FVector> PointCloud;
+	
+	if (GameThreadFrame.IsValid())
+	{
+		ARFrame* InARFrame = (ARFrame*)GameThreadFrame->NativeFrame;
+		ARPointCloud* InARPointCloud = InARFrame.rawFeaturePoints;
+		if (InARPointCloud != nullptr)
+		{
+			const int32 Count = InARPointCloud.count;
+			PointCloud.Empty(Count);
+			PointCloud.AddUninitialized(Count);
+			for (int32 Index = 0; Index < Count; Index++)
+			{
+				PointCloud[Index] = FAppleARKitConversion::ToFVector(InARPointCloud.points[Index]);
+			}
+		}
+	}
+	return PointCloud;
+}
+
 #if SUPPORTS_ARKIT_2_0
 /** Since both the object extraction and world saving need to get the world map async, use a common chunk of code for this */
 class FAppleARKitGetWorldMapObjectAsyncTask
