@@ -22,6 +22,14 @@ class AUGMENTEDREALITY_API UARPointCloudComponent :
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AR|Point Cloud")
 	bool bAutoBindToARSystem;
 	
+	/**	If true, each tick the component will render its point cloud */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AR|Point Cloud")
+	bool bIsVisible;
+	
+	/** Changes the visibility setting */
+	UFUNCTION(BlueprintCallable, Category = "AR|Point Cloud")
+	void SetIsVisible(bool bNewVisibility);
+
 	/** Point cloud data that will be used for rendering, assumes each point is in world space */
 	UPROPERTY(BlueprintReadOnly, Category = "AR|Point Cloud")
 	TArray<FVector> PointCloud;
@@ -55,6 +63,14 @@ class AUGMENTEDREALITY_API UARPointCloudComponent :
 	/** Allows you to change the size of the points being rendered */
 	UFUNCTION(BlueprintCallable, Category = "AR|Point Cloud")
 	void SetPointSize(float Size);
+
+	/** Determines which points are within the box and returns those to the caller */
+	UFUNCTION(BlueprintPure, Category = "AR|Point Cloud")
+	TArray<FVector> GetPointsInBox(const FBox& WorldSpaceBox) const;
+
+	/** Determines which points are outside the box and returns those to the caller */
+	UFUNCTION(BlueprintPure, Category = "AR|Point Cloud")
+	TArray<FVector> GetPointsOutsideBox(const FBox& WorldSpaceBox) const;
 	
 private:
 	virtual FMatrix GetRenderMatrix() const override;

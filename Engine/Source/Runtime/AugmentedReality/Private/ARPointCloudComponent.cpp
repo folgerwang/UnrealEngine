@@ -38,6 +38,7 @@ public:
 		, Points(Component->PointCloud)
 		, Color(Component->PointColor)
 		, Size(Component->PointSize)
+		, bIsVisible(Component->bIsVisible)
 		, MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 	{
 	}
@@ -49,6 +50,11 @@ public:
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_PointCloud_GetMeshElements);
+		
+		if (!bIsVisible)
+		{
+			return;
+		}
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
@@ -67,7 +73,7 @@ public:
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const
 	{
 		FPrimitiveViewRelevance Result;
-		Result.bDrawRelevance = IsShown(View);
+		Result.bDrawRelevance = IsShown(View) && bIsVisible;
 		Result.bShadowRelevance = false;
 		Result.bDynamicRelevance = true;
 		Result.bRenderInMainPass = true;
@@ -96,6 +102,7 @@ private:
 	TArray<FVector> Points;
 	FLinearColor Color;
 	float Size;
+	bool bIsVisible;
 	FMaterialRelevance MaterialRelevance;
 };
 
@@ -174,4 +181,48 @@ void UARPointCloudComponent::TickComponent(float DeltaTime, ELevelTick, FActorCo
 	}
 	// Ask the ar system for updated point cloud
 	SetPointCloud(UARBlueprintLibrary::GetPointCloud());
+}
+
+TArray<FVector> UARPointCloudComponent::GetPointsInBox(const FBox& WorldSpaceBox) const
+{
+	TArray<FVector> OutPoints;
+	// Miminize the number of allocations by presizing the max
+	OutPoints.Empty(PointCloud.Num());
+
+	for (const FVector& Point : PointCloud)
+	{
+		if (WorldSpaceBox.IsInsideOrOn(Point))
+		{
+			OutPoints.Add(Point);
+		}
+	}
+
+	return OutPoints;
+}
+
+TArray<FVector> UARPointCloudComponent::GetPointsOutsideBox(const FBox& WorldSpaceBox) const
+{
+	TArray<FVector> OutPoints;
+	// Miminize the number of allocations by presizing the max
+	OutPoints.Empty(PointCloud.Num());
+	
+	for (const FVector& Point : PointCloud)
+	{
+		if (!WorldSpaceBox.IsInsideOrOn(Point))
+		{
+			OutPoints.Add(Point);
+		}
+	}
+	
+	return OutPoints;
+}
+
+void UARPointCloudComponent::SetIsVisible(bool bNewVisibity)
+{
+	if (bNewVisibity != bIsVisible)
+	{
+		bIsVisible = bNewVisibity;
+		
+		MarkRenderStateDirty();
+	}
 }
