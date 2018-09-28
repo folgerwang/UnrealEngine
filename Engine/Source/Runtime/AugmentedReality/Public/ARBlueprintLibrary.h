@@ -179,7 +179,7 @@ public:
 	static bool AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent);
 
 	/** @return the current world mapping status for the AR world */
-	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (DisplayName="Get AR World Mapping Status", Keywords = "ar augmentedreality augmented reality tracking anchor"))
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Tracking", meta = (DisplayName="Get AR World Mapping Status", Keywords = "ar augmentedreality augmented reality tracking anchor"))
 	static EARWorldMappingState GetWorldMappingStatus();
 	
 	/** @return The list of supported video formats for this device */
