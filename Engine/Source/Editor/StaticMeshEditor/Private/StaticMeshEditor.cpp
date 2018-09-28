@@ -1180,6 +1180,24 @@ TSharedRef<SWidget> FStaticMeshEditor::GenerateUVChannelComboList()
 		);
 	}
 
+	// Add UV editing functions
+	{
+		MenuBuilder.AddMenuSeparator();
+
+		FUIAction MenuAction;
+		MenuAction.ExecuteAction.BindSP(this, &FStaticMeshEditor::RemoveCurrentUVChannel);
+		MenuAction.CanExecuteAction.BindSP(this, &FStaticMeshEditor::CanRemoveUVChannel);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("Remove_UVChannel", "Remove Selected"),
+			LOCTEXT("Remove_UVChannel_ToolTip", "Remove currently selected UV channel from the static mesh"),
+			FSlateIcon(),
+			MenuAction,
+			NAME_None,
+			EUserInterfaceActionType::Button
+		);
+	}
+
 	MenuBuilder.EndSection();
 
 	return MenuBuilder.MakeWidget();
@@ -2091,5 +2109,51 @@ TStatId FStaticMeshEditor::GetStatId() const
 	RETURN_QUICK_DECLARE_CYCLE_STAT(FStaticMeshEditor, STATGROUP_TaskGraphTasks);
 }
 
+bool FStaticMeshEditor::CanRemoveUVChannel()
+{
+	// Can remove UV channel if there's one that is currently being selected and displayed
+	return Viewport->GetViewportClient().IsDrawUVOverlayChecked();
+}
+
+void FStaticMeshEditor::RemoveCurrentUVChannel()
+{
+	if (!StaticMesh)
+	{
+		return;
+	}
+
+	int32 UVChannelIndex = GetCurrentUVChannel();
+	int32 LODIndex = GetCurrentLODIndex();
+
+	FText RemoveUVChannelText = FText::Format(LOCTEXT("ConfirmRemoveUVChannel", "Please confirm removal of UV Channel {0} from LOD {1} of {2}?"), UVChannelIndex, LODIndex, FText::FromString(StaticMesh->GetName()));
+	if (FMessageDialog::Open(EAppMsgType::YesNo, RemoveUVChannelText) == EAppReturnType::Yes)
+	{
+		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LODIndex].BuildSettings;
+
+		if (LODBuildSettings.bGenerateLightmapUVs)
+		{
+			FText LightmapText;
+			if (UVChannelIndex == LODBuildSettings.SrcLightmapIndex)
+			{
+				LightmapText = FText::Format(LOCTEXT("ConfirmDisableSourceLightmap", "UV Channel {0} is currently used as source for lightmap UVs. Please change the \"Source Lightmap Index\" value or disable \"Generate Lightmap UVs\" in the Build Settings."), UVChannelIndex);
+			}
+			else if (UVChannelIndex == LODBuildSettings.DstLightmapIndex)
+			{
+				LightmapText = FText::Format(LOCTEXT("ConfirmDisableDestLightmap", "UV Channel {0} is currently used as destination for lightmap UVs. Please change the \"Destination Lightmap Index\" value or disable \"Generate Lightmap UVs\" in the Build Settings."), UVChannelIndex);
+			}
+
+			if (!LightmapText.IsEmpty())
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, LightmapText);
+				return;
+			}
+		}
+
+		if (StaticMesh->RemoveUVChannel(LODIndex, UVChannelIndex))
+		{
+			RefreshTool();
+		}
+	}
+}
 
 #undef LOCTEXT_NAMESPACE
