@@ -127,6 +127,12 @@ void FSplineMeshSceneProxy::InitVertexFactory(USplineMeshComponent* InComponent,
 	FStaticMeshLODResources* RenderData2 = &InComponent->GetStaticMesh()->RenderData->LODResources[InLODIndex];
 	FStaticMeshVertexFactories* VertexFactories = &InComponent->GetStaticMesh()->RenderData->LODVertexFactories[InLODIndex];
 
+	// Skip LODs that have their render data stripped (eg. platform MinLod settings)
+	if (RenderData2->VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() == 0)
+	{
+		return;
+	}
+
 	UStaticMesh* Parent = InComponent->GetStaticMesh();
 	bool bOverrideColorVertexBuffer = !!InOverrideColorVertexBuffer;
 	ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();

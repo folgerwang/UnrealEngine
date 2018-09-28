@@ -3,6 +3,7 @@
 #include "Data/ChunkData.h"
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
+#include "Misc/CommandLine.h"
 #include "Common/FileSystem.h"
 #include "BuildPatchHash.h"
 #include "BuildPatchManifest.h"
@@ -63,6 +64,37 @@ namespace BuildPatchServices
 		}
 	}
 
+	/**
+	 * Enum which describes the chunk header version.
+	 */
+	enum class EChunkVersion : uint32
+	{
+		Invalid = 0,
+		Original,
+		StoresShaAndHashType,
+		StoresDataSizeUncompressed,
+
+		// Always after the latest version, signifies the latest version plus 1 to allow initialization simplicity.
+		LatestPlusOne,
+		Latest = (LatestPlusOne - 1)
+	};
+
+	// The constant minimum sizes for each version of a header struct. Must be updated.
+	// If new member variables are added the version MUST be bumped and handled properly here,
+	// and these values must never change.
+	static const uint32 ChunkHeaderVersionSizes[(uint32)EChunkVersion::LatestPlusOne] =
+	{
+		// Dummy for indexing.
+		0,
+		// Original is 41 bytes (32b Magic, 32b Version, 32b HeaderSize, 32b DataSizeCompressed, 4x32b GUID, 64b Hash, 8b StoredAs).
+		41,
+		// StoresShaAndHashType is 62 bytes (328b Original, 160b SHA1, 8b HashType).
+		62,
+		// StoresDataSizeUncompressed is 66 bytes (496b StoresShaAndHashType, 32b DataSizeUncompressed).
+		66
+	};
+	static_assert((uint32)EChunkVersion::LatestPlusOne == 4, "Please adjust ChunkHeaderVersionSizes values accordingly.");
+
 	namespace HeaderHelpers
 	{
 		void ZeroHeader(FChunkHeader& Header)
@@ -77,49 +109,54 @@ namespace BuildPatchServices
 			Header.DataSize = 0;
 			Header.Contents.Empty();
 		}
+
+		EChunkVersion FeatureLevelToChunkVersion(EFeatureLevel FeatureLevel)
+		{
+			switch (FeatureLevel)
+			{
+				case BuildPatchServices::EFeatureLevel::Original:
+				case BuildPatchServices::EFeatureLevel::CustomFields:
+				case BuildPatchServices::EFeatureLevel::StartStoringVersion:
+				case BuildPatchServices::EFeatureLevel::DataFileRenames:
+				case BuildPatchServices::EFeatureLevel::StoresIfChunkOrFileData:
+				case BuildPatchServices::EFeatureLevel::StoresDataGroupNumbers:
+				case BuildPatchServices::EFeatureLevel::ChunkCompressionSupport:
+				case BuildPatchServices::EFeatureLevel::StoresPrerequisitesInfo:
+				case BuildPatchServices::EFeatureLevel::StoresChunkFileSizes:
+				case BuildPatchServices::EFeatureLevel::StoredAsCompressedUClass:
+				case BuildPatchServices::EFeatureLevel::UNUSED_0:
+				case BuildPatchServices::EFeatureLevel::UNUSED_1:
+					return EChunkVersion::Original;
+				case BuildPatchServices::EFeatureLevel::StoresChunkDataShaHashes:
+				case BuildPatchServices::EFeatureLevel::StoresPrerequisiteIds:
+					return EChunkVersion::StoresShaAndHashType;
+				case BuildPatchServices::EFeatureLevel::StoredAsBinaryData:
+				case BuildPatchServices::EFeatureLevel::VariableSizeChunks:
+					return EChunkVersion::StoresDataSizeUncompressed;
+			}
+			checkf(false, TEXT("Unhandled FeatureLevel %s"), FeatureLevelToString(FeatureLevel));
+			return EChunkVersion::Invalid;
+		}
 	}
-
-	/**
-	 * Enum which describes the chunk header version.
-	 */
-	enum class EChunkVersion : uint32
-	{
-		Invalid = 0,
-		Original,
-		StoresShaAndHashType,
-
-		// Always after the latest version, signifies the latest version plus 1 to allow initialization simplicity
-		LatestPlusOne,
-		Latest = (LatestPlusOne - 1)
-	};
-
-	// The constant minimum sizes for each version of a header struct. Must be updated.
-	// If new member variables are added the version MUST be bumped and handled properly here,
-	// and these values must never change.
-	static const uint32 ChunkHeaderVersionSizes[(uint32)EChunkVersion::LatestPlusOne] =
-	{
-		// Dummy for indexing.
-		0,
-		// Version 1 is 41 bytes (32b Magic, 32b Version, 32b HeaderSize, 32b DataSize, 4x32b GUID, 64b Hash, 8b StoredAs).
-		41,
-		// Version 2 is 62 bytes (328b Version1, 160b SHA1, 8b HashType).
-		62
-	};
+	static_assert((uint32)EFeatureLevel::Latest == 15, "Please adjust HeaderHelpers::FeatureLevelToChunkVersion for new feature levels.");
 
 	FChunkHeader::FChunkHeader()
 		: Version((uint32)EChunkVersion::Latest)
-		, Guid()
 		, HeaderSize(ChunkHeaderVersionSizes[(uint32)EChunkVersion::Latest])
-		, DataSize(0)
+		, DataSizeCompressed(0)
+		, DataSizeUncompressed(1048576)
 		, StoredAs(EChunkStorageFlags::None)
-		, HashType(EChunkHashFlags::None)
+		, HashType(EChunkHashFlags::RollingPoly64)
 		, RollingHash(0)
-		, SHAHash()
 	{
 	}
 
 	FArchive& operator<<(FArchive& Ar, FChunkHeader& Header)
 	{
+		if (Ar.IsError())
+		{
+			return Ar;
+		}
 		// Calculate how much space left in the archive for reading data ( will be 0 when writing ).
 		const int64 StartPos = Ar.Tell();
 		const int64 ArchiveSizeLeft = Ar.TotalSize() - StartPos;
@@ -128,12 +165,13 @@ namespace BuildPatchServices
 		bool bSuccess = Ar.IsSaving() || (ArchiveSizeLeft >= ChunkHeaderVersionSizes[(uint32)EChunkVersion::Original]);
 		if (bSuccess)
 		{
+			Header.HeaderSize = ChunkHeaderVersionSizes[Header.Version];
 			uint32 Magic = CHUNK_HEADER_MAGIC;
 			uint8 StoredAs = (uint8)Header.StoredAs;
 			Ar << Magic
 			   << Header.Version
 			   << Header.HeaderSize
-			   << Header.DataSize
+			   << Header.DataSizeCompressed
 			   << Header.Guid
 			   << Header.RollingHash
 			   << StoredAs;
@@ -155,6 +193,18 @@ namespace BuildPatchServices
 				}
 				ExpectedSerializedBytes = ChunkHeaderVersionSizes[(uint32)EChunkVersion::StoresShaAndHashType];
 			}
+
+			// From version 3, we have an uncompressed data size. Previous versions default to 1 MiB (1048576 B).
+			if (bSuccess && Header.Version >= (uint32)EChunkVersion::StoresDataSizeUncompressed)
+			{
+				bSuccess = Ar.IsSaving() || (ArchiveSizeLeft >= ChunkHeaderVersionSizes[(uint32)EChunkVersion::StoresDataSizeUncompressed]);
+				if (bSuccess)
+				{
+					Ar << Header.DataSizeUncompressed;
+					bSuccess = !Ar.IsError();
+				}
+				ExpectedSerializedBytes = ChunkHeaderVersionSizes[(uint32)EChunkVersion::StoresDataSizeUncompressed];
+			}
 		}
 
 		// Make sure the expected number of bytes were serialized. In practice this will catch errors where type
@@ -168,14 +218,75 @@ namespace BuildPatchServices
 		}
 		else
 		{
-			// If we had a serialization error, zero out the header values.
+			// If we had a serialization error when loading, zero out the header values.
 			if (Ar.IsLoading())
 			{
 				HeaderHelpers::ZeroHeader(Header);
 			}
+			Ar.SetError();
 		}
 
 		return Ar;
+	}
+
+	/* FChunkInfo implementation
+	*****************************************************************************/
+	FChunkInfo::FChunkInfo()
+		: Guid()
+		, Hash(0)
+		, ShaHash()
+		, GroupNumber(0)
+		, WindowSize(1048576)
+		, FileSize(0)
+	{
+	}
+
+	/* FChunkPart implementation
+	*****************************************************************************/
+	FChunkPart::FChunkPart()
+		: Guid()
+		, Offset(0)
+		, Size(0)
+	{
+	}
+
+	FArchive& operator<<(FArchive& Ar, FChunkPart& ChunkPart)
+	{
+		if (Ar.IsError())
+		{
+			return Ar;
+		}
+
+		const int64 StartPos = Ar.Tell();
+		uint32 DataSize = 0;
+
+		Ar << DataSize;
+		Ar << ChunkPart.Guid;
+		Ar << ChunkPart.Offset;
+		Ar << ChunkPart.Size;
+
+		// If saving, we need to go back and set the data size.
+		if (!Ar.IsError() && Ar.IsSaving())
+		{
+			const int64 EndPos = Ar.Tell();
+			DataSize = EndPos - StartPos;
+			Ar.Seek(StartPos);
+			Ar << DataSize;
+			Ar.Seek(EndPos);
+		}
+
+		// We must always make sure to seek the archive to the correct end location.
+		Ar.Seek(StartPos + DataSize);
+		return Ar;
+	}
+
+	/* FFileChunkPart implementation
+	*****************************************************************************/
+	FFileChunkPart::FFileChunkPart()
+		: Filename()
+		, FileOffset(0)
+		, ChunkPart()
+	{
 	}
 
 	/**
@@ -211,6 +322,10 @@ namespace BuildPatchServices
 
 	FArchive& operator<<(FArchive& Ar, FChunkDatabaseHeader& Header)
 	{
+		if (Ar.IsError())
+		{
+			return Ar;
+		}
 		// Calculate how much space left in the archive for reading data (will be 0 when writing).
 		const int64 StartPos = Ar.Tell();
 		const int64 ArchiveSizeLeft = Ar.TotalSize() - StartPos;
@@ -350,8 +465,9 @@ namespace BuildPatchServices
 	class FChunkDataSerialization : public IChunkDataSerialization
 	{
 	public:
-		FChunkDataSerialization(IFileSystem* InFileSystem)
+		FChunkDataSerialization(IFileSystem* InFileSystem, EFeatureLevel InFeatureLevel)
 			: FileSystem(InFileSystem)
+			, FeatureLevel(InFeatureLevel)
 		{
 		}
 
@@ -434,13 +550,21 @@ namespace BuildPatchServices
 
 		virtual void InjectShaToChunkData(TArray<uint8>& Memory, const FSHAHash& ShaHashData) const override
 		{
+			const uint32 StoresShaAndHashTypeUint = (uint32)EChunkVersion::StoresShaAndHashType;
+			const uint32 StoresShaAndHashTypeHeaderSize = ChunkHeaderVersionSizes[StoresShaAndHashTypeUint];
 			FMemoryReader MemoryReader(Memory);
 			FMemoryWriter MemoryWriter(Memory);
 
 			FChunkHeader Header;
 			MemoryReader << Header;
-			Header.HashType |= EChunkHashFlags::Sha1;
+			Header.HashType |= BuildPatchServices::EChunkHashFlags::Sha1;
 			Header.SHAHash = ShaHashData;
+			if (Header.Version < StoresShaAndHashTypeUint)
+			{
+				check(Header.HeaderSize <= StoresShaAndHashTypeHeaderSize);
+				Header.Version = StoresShaAndHashTypeUint;
+				Memory.InsertZeroed(0, StoresShaAndHashTypeHeaderSize - Header.HeaderSize);
+			}
 			MemoryWriter << Header;
 		}
 
@@ -462,13 +586,13 @@ namespace BuildPatchServices
 			Reader << HeaderCheck;
 
 			// Get file size.
-			const int64 FileSize = HeaderCheck.HeaderSize + HeaderCheck.DataSize;
+			const int64 FileSize = HeaderCheck.HeaderSize + HeaderCheck.DataSizeCompressed;
 
 			if (HeaderCheck.Guid.IsValid())
 			{
 				if (HeaderCheck.HashType != EChunkHashFlags::None)
 				{
-					if ((HeaderCheck.HeaderSize + HeaderCheck.DataSize) <= AvailableSize)
+					if ((HeaderCheck.HeaderSize + HeaderCheck.DataSizeCompressed) <= AvailableSize)
 					{
 						if ((HeaderCheck.StoredAs & EChunkStorageFlags::Encrypted) == EChunkStorageFlags::None)
 						{
@@ -482,7 +606,7 @@ namespace BuildPatchServices
 							*Header = HeaderCheck;
 
 							// Read the data.
-							Reader.Serialize(Data, Header->DataSize);
+							Reader.Serialize(Data, Header->DataSizeCompressed);
 							if (Reader.IsError() == false)
 							{
 								OutLoadResult = EChunkLoadResult::Success;
@@ -490,7 +614,7 @@ namespace BuildPatchServices
 								if ((Header->StoredAs & EChunkStorageFlags::Compressed) != EChunkStorageFlags::None)
 								{
 									// Create a new data instance.
-									IChunkDataAccess* NewChunkData = FChunkDataAccessFactory::Create(BuildPatchServices::ChunkDataSize);
+									IChunkDataAccess* NewChunkData = FChunkDataAccessFactory::Create(Header->DataSizeUncompressed);
 									// Lock data.
 									FChunkHeader* NewHeader;
 									uint8* NewData;
@@ -499,15 +623,15 @@ namespace BuildPatchServices
 									bool bSuccess = FCompression::UncompressMemory(
 										static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
 										NewData,
-										BuildPatchServices::ChunkDataSize,
+										Header->DataSizeUncompressed,
 										Data,
-										Header->DataSize);
+										Header->DataSizeCompressed);
 									// If successful, switch over to new data.
 									if (bSuccess)
 									{
 										FMemory::Memcpy(*NewHeader, *Header);
 										NewHeader->StoredAs = EChunkStorageFlags::None;
-										NewHeader->DataSize = BuildPatchServices::ChunkDataSize;
+										NewHeader->DataSizeCompressed = Header->DataSizeUncompressed;
 										ChunkData->ReleaseDataLock();
 										delete ChunkData;
 										ChunkData = NewChunkData;
@@ -526,7 +650,7 @@ namespace BuildPatchServices
 								// Verify.
 								if (OutLoadResult == EChunkLoadResult::Success && (Header->HashType & EChunkHashFlags::RollingPoly64) != EChunkHashFlags::None)
 								{
-									if (Header->DataSize != BuildPatchServices::ChunkDataSize || Header->RollingHash != FRollingHash<BuildPatchServices::ChunkDataSize>::GetHashForDataSet(Data))
+									if (Header->DataSizeCompressed != Header->DataSizeUncompressed || Header->RollingHash != FRollingHash::GetHashForDataSet(Data, Header->DataSizeUncompressed))
 									{
 										OutLoadResult = EChunkLoadResult::HashCheckFailed;
 									}
@@ -534,7 +658,7 @@ namespace BuildPatchServices
 								FSHAHash ShaHashCheck;
 								if (OutLoadResult == EChunkLoadResult::Success && (Header->HashType & EChunkHashFlags::Sha1) != EChunkHashFlags::None)
 								{
-									FSHA1::HashBuffer(Data, Header->DataSize, ShaHashCheck.Hash);
+									FSHA1::HashBuffer(Data, Header->DataSizeUncompressed, ShaHashCheck.Hash);
 									if (!(ShaHashCheck == Header->SHAHash))
 									{
 										OutLoadResult = EChunkLoadResult::HashCheckFailed;
@@ -589,36 +713,42 @@ namespace BuildPatchServices
 			const FChunkHeader* ChunkAccessHeader;
 			ChunkDataAccess->GetDataLock(&ChunkDataSource, &ChunkAccessHeader);
 			// Setup to handle compression.
-			bool bDataIsCompressed = true;
-			int32 ChunkDataSourceSize = BuildPatchServices::ChunkDataSize;
+			bool bDataIsCompressed = false;
 			TArray<uint8> TempCompressedData;
-			TempCompressedData.Empty(ChunkDataSourceSize);
-			TempCompressedData.AddUninitialized(ChunkDataSourceSize);
-			int32 CompressedSize = ChunkDataSourceSize;
-
-			// Compression can increase data size, too. This call will return false in that case.
-			bDataIsCompressed = FCompression::CompressMemory(
-				static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-				TempCompressedData.GetData(),
-				CompressedSize,
-				ChunkDataSource,
-				BuildPatchServices::ChunkDataSize);
+			int32 CompressedSize = ChunkAccessHeader->DataSizeUncompressed;
+			if (FeatureLevel >= EFeatureLevel::ChunkCompressionSupport)
+			{
+				TempCompressedData.Empty(ChunkAccessHeader->DataSizeUncompressed);
+				TempCompressedData.AddUninitialized(ChunkAccessHeader->DataSizeUncompressed);
+				// Compression can increase data size, too. This call will return false in that case.
+				bDataIsCompressed = FCompression::CompressMemory(
+					static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+					TempCompressedData.GetData(),
+					CompressedSize,
+					ChunkDataSource,
+					ChunkAccessHeader->DataSizeUncompressed);
+			}
 
 			// If compression succeeded, set data vars.
 			if (bDataIsCompressed)
 			{
 				ChunkDataSource = TempCompressedData.GetData();
-				ChunkDataSourceSize = CompressedSize;
+			}
+			else
+			{
+				CompressedSize = ChunkAccessHeader->DataSizeUncompressed;
 			}
 
 			// Setup Header.
 			FChunkHeader Header;
 			FMemory::Memcpy(Header, *ChunkAccessHeader);
+			Header.Version = (uint32)HeaderHelpers::FeatureLevelToChunkVersion(FeatureLevel);
 			const int64 StartPos = Writer.Tell();
 			Writer << Header;
 			Header.HeaderSize = Writer.Tell() - StartPos;
 			Header.StoredAs = bDataIsCompressed ? EChunkStorageFlags::Compressed : EChunkStorageFlags::None;
-			Header.DataSize = ChunkDataSourceSize;
+			Header.DataSizeCompressed = CompressedSize;
+			Header.DataSizeUncompressed = ChunkAccessHeader->DataSizeUncompressed;
 			// Make sure we at least have rolling hash.
 			if ((Header.HashType & EChunkHashFlags::RollingPoly64) == EChunkHashFlags::None)
 			{
@@ -629,7 +759,7 @@ namespace BuildPatchServices
 			Writer.Seek(StartPos);
 			Writer << Header;
 			// We must use const_cast here due to FArchive::Serialize supporting both read and write. We created a writer.
-			Writer.Serialize(const_cast<uint8*>(ChunkDataSource), ChunkDataSourceSize);
+			Writer.Serialize(const_cast<uint8*>(ChunkDataSource), CompressedSize);
 			if (!Writer.IsError())
 			{
 				SaveResult = EChunkSaveResult::Success;
@@ -643,12 +773,13 @@ namespace BuildPatchServices
 		}
 
 	private:
-		IFileSystem* FileSystem;
+		IFileSystem* const FileSystem;
+		const EFeatureLevel FeatureLevel;
 	};
 
-	IChunkDataSerialization* FChunkDataSerializationFactory::Create(IFileSystem* FileSystem)
+	IChunkDataSerialization* FChunkDataSerializationFactory::Create(IFileSystem* FileSystem, EFeatureLevel FeatureLevel)
 	{
 		check(FileSystem != nullptr);
-		return new FChunkDataSerialization(FileSystem);
+		return new FChunkDataSerialization(FileSystem, FeatureLevel);
 	}
 }

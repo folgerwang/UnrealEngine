@@ -19,12 +19,12 @@ bool FOnlineLeaderboardsGameCircle::ReadLeaderboards(const TArray< TSharedRef<co
 {
 	if(PlayersToQuery.Num() > 0 || PlayerReadObject.IsValid() || Subsystem->GetIdentityGameCircle()->GetLoginStatus(0) != ELoginStatus::LoggedIn)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Leaderboards Query Already In Progress"));
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Leaderboards Query Already In Progress"));
 		return false;
 	}
 	else if(Players.Num() == 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No players passed in for ReadLeaderboards"));
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("No players passed in for ReadLeaderboards"));
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool FOnlineLeaderboardsGameCircle::ReadLeaderboardsForFriends(int32 LocalUserNu
 {
 	ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
 
-	UE_LOG_ONLINE(Display, TEXT("Requesting Friend Ids From AmazonGames Interface"));
+	UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Requesting Friend Ids From AmazonGames Interface"));
 	FriendReadObject = MakeShareable(&ReadObject.Get());
 	FString EmptyString;
 
@@ -59,12 +59,12 @@ bool FOnlineLeaderboardsGameCircle::ReadLeaderboardsForFriends(int32 LocalUserNu
 
 bool FOnlineLeaderboardsGameCircle::ReadLeaderboardsAroundRank(int32 Rank, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsGameCircle::ReadLeaderboardsAroundRank is currently not supported."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("FOnlineLeaderboardsGameCircle::ReadLeaderboardsAroundRank is currently not supported."));
 	return false;
 }
 bool FOnlineLeaderboardsGameCircle::ReadLeaderboardsAroundUser(TSharedRef<const FUniqueNetId> Player, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsGameCircle::ReadLeaderboardsAroundUser is currently not supported."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("FOnlineLeaderboardsGameCircle::ReadLeaderboardsAroundUser is currently not supported."));
 	return false;
 }
 
@@ -80,14 +80,14 @@ bool FOnlineLeaderboardsGameCircle::WriteLeaderboards(const FName& SessionName, 
 	for(int32 LeaderboardIdx = 0; LeaderboardIdx < WriteObject.LeaderboardNames.Num(); ++LeaderboardIdx)
 	{
 		FString LeaderboardName = WriteObject.LeaderboardNames[LeaderboardIdx].ToString();
-		UE_LOG_ONLINE(Display, TEXT("Going through stats for leaderboard :  %s "), *LeaderboardName);
+		UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Going through stats for leaderboard :  %s "), *LeaderboardName);
 		
 		for(FStatPropertyArray::TConstIterator It(WriteObject.Properties); It; ++It)
 		{
 			const FVariantData& Stat = It.Value();
 			uint64 Score;
 
-			UE_LOG_ONLINE(Display, TEXT("Here's a stat"));
+			UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Here's a stat"));
 
 			//Google leaderboard stats are always a long/int64
 			if(Stat.GetType() == EOnlineKeyValuePairDataType::Int64)
@@ -97,7 +97,7 @@ bool FOnlineLeaderboardsGameCircle::WriteLeaderboards(const FName& SessionName, 
 				FOnlinePendingLeaderboardWrite* UnreportedScore = new (UnreportedScores) FOnlinePendingLeaderboardWrite();
 				UnreportedScore->LeaderboardName = LeaderboardName;
 				UnreportedScore->Score = Score;
-				UE_LOG_ONLINE(Display, TEXT("FOnlineLeaderboardsAndroid::WriteLeaderboards() Int64 value Score: %d"), UnreportedScore->Score);
+				UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("FOnlineLeaderboardsAndroid::WriteLeaderboards() Int64 value Score: %d"), UnreportedScore->Score);
 
 				bWroteAnyLeaderboard = true;
 			}
@@ -111,7 +111,7 @@ bool FOnlineLeaderboardsGameCircle::WriteLeaderboards(const FName& SessionName, 
 				FOnlinePendingLeaderboardWrite* UnreportedScore = new (UnreportedScores) FOnlinePendingLeaderboardWrite();
 				UnreportedScore->LeaderboardName = LeaderboardName;
 				UnreportedScore->Score = Score;
-				UE_LOG_ONLINE(Display, TEXT("FOnlineLeaderboardsAndroid::WriteLeaderboards() Int32 value Score: %d "), UnreportedScore->Score);
+				UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("FOnlineLeaderboardsAndroid::WriteLeaderboards() Int32 value Score: %d "), UnreportedScore->Score);
 
 				bWroteAnyLeaderboard = true;
 			}
@@ -153,7 +153,7 @@ void FOnlineLeaderboardsGameCircle::OnGetPlayerScoreCallback(AmazonGames::ErrorC
 {
 	if(InErrorCode != AmazonGames::ErrorCode::NO_ERROR)
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(/*UE_LOG_ONLINE(Error, */TEXT("AmazonGames::LeaderboardClientInterface::getScoreForPlayer returned ErrorCode %d"), InErrorCode);
+		FPlatformMisc::LowLevelOutputDebugStringf(/*UE_LOG_ONLINE_LEADERBOARD(Error, */TEXT("AmazonGames::LeaderboardClientInterface::getScoreForPlayer returned ErrorCode %d"), InErrorCode);
 		PlayerReadObject->ReadState = EOnlineAsyncTaskState::Failed;
 		TriggerReadDelegatesOnGameThread(false);
 	}
@@ -177,7 +177,7 @@ void FOnlineLeaderboardsGameCircle::OnGetFriendsScoresCallback(AmazonGames::Erro
 {
 	if(InErrorCode != AmazonGames::ErrorCode::NO_ERROR)
 	{
-		UE_LOG_ONLINE(Error, TEXT("getScores FRIENDS_ALL_TIME returned error code %d"), InErrorCode);
+		UE_LOG_ONLINE_LEADERBOARD(Error, TEXT("getScores FRIENDS_ALL_TIME returned error code %d"), InErrorCode);
 		FriendReadObject->ReadState = EOnlineAsyncTaskState::Failed;
 		TriggerReadDelegatesOnGameThread(false);
 		FriendReadObject = nullptr;
@@ -214,7 +214,7 @@ void FOnlineLeaderboardsGameCircle::OnGetFriendsScoresCallback(AmazonGames::Erro
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Did not find matching alias in AmazonFriendList - %s"), *ScoreAlias);
+			UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Did not find matching alias in AmazonFriendList - %s"), *ScoreAlias);
 		}
 	}
 
@@ -227,7 +227,7 @@ void FOnlineLeaderboardsGameCircle::OnSubmitScoreCallback(AmazonGames::ErrorCode
 {
 	if(InErrorCode != AmazonGames::ErrorCode::NO_ERROR)
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(/* UE_LOG_ONLINE(Warning, */TEXT("Submit Score Callback Received Error Code %d"), InErrorCode);
+		FPlatformMisc::LowLevelOutputDebugStringf(/* UE_LOG_ONLINE_LEADERBOARD(Warning, */TEXT("Submit Score Callback Received Error Code %d"), InErrorCode);
 		bFlushInProgress = false;
 		TriggerFlushDelegatesOnGameThread(FlushSession, false);
 		return;
@@ -252,7 +252,7 @@ void FOnlineLeaderboardsGameCircle::OnReadFriendsListComplete(int32 LocalPlayer,
 		FriendReadObject->ReadState = EOnlineAsyncTaskState::Failed;
 		TriggerReadDelegatesOnGameThread(false);
 		FriendReadObject = nullptr;
-		UE_LOG_ONLINE(Warning, TEXT("ReadFriendsList was unsuccessful - %s"), *ErrorStr);
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("ReadFriendsList was unsuccessful - %s"), *ErrorStr);
 		return;
 	}
 
@@ -266,7 +266,7 @@ void FOnlineLeaderboardsGameCircle::GetScoreForNextPlayer(const char *const Lead
 	check(PlayersToQuery.Num() > 0);
 	const FUniqueNetIdGameCircle NetIdString(PlayersToQuery[0]->ToString());
 
-	UE_LOG_ONLINE(Display, TEXT("Getting Score for Player Id - %s . %s"), *PlayersToQuery[0]->ToString(), *NetIdString.UniqueNetIdStr);
+	UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Getting Score for Player Id - %s . %s"), *PlayersToQuery[0]->ToString(), *NetIdString.UniqueNetIdStr);
 
 	AmazonGames::LeaderboardsClientInterface::getScoreForPlayer(LeaderboardID, 
 																FOnlineSubsystemGameCircle::ConvertFStringToStdString(NetIdString.UniqueNetIdStr).c_str(),
@@ -279,7 +279,7 @@ void FOnlineLeaderboardsGameCircle::SubmitNextUnreportedScore()
 	check(UnreportedScores.Num() > 0);
 	std::string ConvertedId;
 
-	UE_LOG_ONLINE(Display, TEXT("Submitting an unreported score to \"%s\" . Value: %d "), *UnreportedScores[0].LeaderboardName, UnreportedScores[0].Score);
+	UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Submitting an unreported score to \"%s\" . Value: %d "), *UnreportedScores[0].LeaderboardName, UnreportedScores[0].Score);
 
 	ConvertedId = FOnlineSubsystemGameCircle::ConvertFStringToStdString(UnreportedScores[0].LeaderboardName);
 	AmazonGames::LeaderboardsClientInterface::submitScore(ConvertedId.c_str(), UnreportedScores[0].Score, new FOnlineSubmitScoreCallback(Subsystem));
@@ -315,7 +315,7 @@ void FOnlineLeaderboardsGameCircle::WriteRowForUIDToReadObject(TSharedRef<const 
 
 		default:
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Unsupported key value pair during retrieval from Game Circle %s"), *ColumnMeta.ColumnName.ToString());
+				UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Unsupported key value pair during retrieval from Game Circle %s"), *ColumnMeta.ColumnName.ToString());
 				break;
 			}
 		}

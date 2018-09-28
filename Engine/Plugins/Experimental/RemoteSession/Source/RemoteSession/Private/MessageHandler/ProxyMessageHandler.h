@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Launch/Resources/Version.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 class FProxyMessageHandler : public FGenericApplicationMessageHandler
@@ -62,6 +61,10 @@ public:
 	virtual bool OnTouchMoved(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override;
 
 	virtual bool OnTouchEnded(const FVector2D& Location, int32 TouchIndex, int32 ControllerId) override;
+
+	virtual bool OnTouchForceChanged(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId);
+
+	virtual bool OnTouchFirstMove(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId);
 
 	virtual void ShouldSimulateGesture(EGestureEvent Gesture, bool bEnable) override;
 

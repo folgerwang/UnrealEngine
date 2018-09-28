@@ -21,7 +21,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 #include "HAL/PlatformProcess.h"
-
+#include "HAL/PlatformOutputDevices.h"
 
 #define LOCTEXT_NAMESPACE "SessionManager"
 
@@ -38,6 +38,7 @@ namespace SessionManagerDefs
 	static const FString RunningSessionToken(TEXT("Running"));
 	static const FString ShutdownSessionToken(TEXT("Shutdown"));
 	static const FString CrashSessionToken(TEXT("Crashed"));
+	static const FString TerminatedSessionToken(TEXT("Terminated"));
 	static const FString DebuggerSessionToken(TEXT("Debugger"));
 	static const FString AbnormalSessionToken(TEXT("AbnormalShutdown"));
 	static const FString PS4SessionToken(TEXT("AbnormalShutdownPS4"));
@@ -134,9 +135,9 @@ void FEngineSessionManager::InitializeRecords(bool bFirstAttempt)
 			{
 				FTimespan RecordAge = FDateTime::UtcNow() - Record.Timestamp;
 
-				if (Record.bCrashed)
+				if (Record.bCrashed || Record.bIsTerminating)
 				{
-					// Crashed sessions
+					// Crashed / terminated sessions
 					SessionRecordsToReport.Add(Record);
 					SessionRecordsToDelete.Add(Record);
 				}
@@ -218,13 +219,13 @@ void FEngineSessionManager::Tick(float DeltaTime)
 				}
 			}
 
-			CurrentSession.Timestamp = FDateTime::UtcNow();
-			FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, CurrentSessionSectionName, SessionManagerDefs::TimestampStoreKey, TimestampToString(CurrentSession.Timestamp));
+			const FString TimestampString = TimestampToString(FDateTime::UtcNow());
+			FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, CurrentSessionSectionName, SessionManagerDefs::TimestampStoreKey, TimestampString);
 
 #if PLATFORM_SUPPORTS_WATCHDOG
 			if (!WatchdogSectionName.IsEmpty())
 			{
-				FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::TimestampStoreKey, TimestampToString(CurrentSession.Timestamp));
+				FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::TimestampStoreKey, TimestampString);
 			}
 #endif
 		}
@@ -240,7 +241,11 @@ void FEngineSessionManager::Shutdown()
 	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.RemoveAll(this);
 	FCoreDelegates::ApplicationWillTerminateDelegate.RemoveAll(this);
 	FCoreDelegates::IsVanillaProductChanged.RemoveAll(this);
-	FSlateApplication::Get().GetOnModalLoopTickEvent().RemoveAll(this);
+
+	if (!CurrentSession.bIsTerminating) // Skip Slate if terminating, since we can't guarantee which thread called us.
+	{
+		FSlateApplication::Get().GetOnModalLoopTickEvent().RemoveAll(this);
+	}
 
 	// Clear the session record for this session
 	if (bInitializedRecords)
@@ -264,9 +269,10 @@ void FEngineSessionManager::Shutdown()
 #if PLATFORM_SUPPORTS_WATCHDOG
 			if (!WatchdogSectionName.IsEmpty())
 			{
-				FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::StatusStoreKey, SessionManagerDefs::ShutdownSessionToken);
+				const FString& ShutdownType = CurrentSession.bIsTerminating ? SessionManagerDefs::TerminatedSessionToken : SessionManagerDefs::ShutdownSessionToken;
+				FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::StatusStoreKey, ShutdownType);
 				FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::TimestampStoreKey, TimestampToString(FDateTime::UtcNow()));
-				WatchdogSectionName = FString();
+				WatchdogSectionName.Empty();
 			}
 #endif
 		}
@@ -418,7 +424,7 @@ void FEngineSessionManager::DeleteStoredRecord(const FSessionRecord& Record)
  *
  * @Trigger Fired only by the engine during startup, once for each "abnormal shutdown" detected that has not already been sent.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -428,14 +434,14 @@ void FEngineSessionManager::DeleteStoredRecord(const FSessionRecord& Record)
  * @EventParam EngineVersion - EngineVersion of the session that abnormally terminated.
  * @EventParam ShutdownType - one of Crashed, Debugger, or AbormalShutdown
  *               * Crashed - we definitely detected a crash (whether or not a debugger was attached)
+ *               * Terminated - the application was terminated from within or by the OS.
  *               * Debugger - the session crashed or shutdown abnormally, but we had a debugger attached at startup, so abnormal termination is much more likely because the user was debugging.
  *               * AbnormalShutdown - this happens when we didn't detect a normal shutdown, but none of the above cases is the cause. A session record simply timed-out without being closed.
  * @EventParam Timestamp - the UTC time of the last known time the abnormally terminated session was running, within 5 minutes.
  * @EventParam CurrentUserActivity - If one was set when the session abnormally terminated, this is the activity taken from the FUserActivityTracking API.
  * @EventParam IsVanilla - Value from the engine's IsVanillaProduct() method. Basically if this is a Epic-distributed Editor with zero third party plugins or game code modules.
+ * @EventParam WasDebugged - True if this session was attached to debugger at any time.
  * @EventParam GPUCrash - A GPU Hang or Crash was detected before the final assert, fatal log, or other exit.
- * @EventParam Terminating - The RequestExit() function was called on the process; it may have been forcibly terminated or in the process of shutting down.
- 
  *
  * @TODO: Debugger should be a completely separate flag, since it's orthogonal to whether we detect a crash or shutdown.
  *
@@ -485,17 +491,14 @@ void FEngineSessionManager::SendAbnormalShutdownReport(const FSessionRecord& Rec
 
 #if !PLATFORM_PS4
 	FString ShutdownTypeString = Record.bCrashed ? SessionManagerDefs::CrashSessionToken :
-		(Record.bWasEverDebugger ? SessionManagerDefs::DebuggerSessionToken : SessionManagerDefs::AbnormalSessionToken);
+		(Record.bWasEverDebugger ? SessionManagerDefs::DebuggerSessionToken :
+		(Record.bIsTerminating ? SessionManagerDefs::TerminatedSessionToken : SessionManagerDefs::AbnormalSessionToken));
 #else
 	// PS4 cannot set the crash flag so report abnormal shutdowns with a specific token meaning "crash or abnormal shutdown".
 	FString ShutdownTypeString = Record.bWasEverDebugger ? SessionManagerDefs::DebuggerSessionToken : SessionManagerDefs::PS4SessionToken;
 #endif
 
-	FString RunTypeString = Record.Mode == EEngineSessionManagerMode::Editor ? SessionManagerDefs::EditorValueString : SessionManagerDefs::GameValueString;
-	FString IsVanillaString = Record.bIsVanilla ? SessionManagerDefs::TrueValueString : SessionManagerDefs::FalseValueString;
-	FString WasDebuggedString = Record.bWasEverDebugger ? SessionManagerDefs::TrueValueString : SessionManagerDefs::FalseValueString;
-	FString GPUCrashedString = Record.bGPUCrashed ? SessionManagerDefs::TrueValueString : SessionManagerDefs::FalseValueString;
-	FString TerminatingString = Record.bIsTerminating ? SessionManagerDefs::TrueValueString : SessionManagerDefs::FalseValueString;
+	const FString& RunTypeString = Record.Mode == EEngineSessionManagerMode::Editor ? SessionManagerDefs::EditorValueString : SessionManagerDefs::GameValueString;
 
 	TArray< FAnalyticsEventAttribute > AbnormalShutdownAttributes;
 	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("RunType"), RunTypeString));
@@ -506,10 +509,9 @@ void FEngineSessionManager::SendAbnormalShutdownReport(const FSessionRecord& Rec
 	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("ShutdownType"), ShutdownTypeString));
 	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("Timestamp"), Record.Timestamp.ToIso8601()));
 	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("CurrentUserActivity"), Record.CurrentUserActivity));
-	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("IsVanilla"), IsVanillaString));
-	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("WasDebugged"), WasDebuggedString));
-	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("GPUCrash"), GPUCrashedString));
-	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("Terminating"), TerminatingString));
+	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("IsVanilla"), Record.bIsVanilla));
+	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("WasDebugged"), Record.bWasEverDebugger));
+	AbnormalShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("GPUCrash"), Record.bGPUCrashed));
 
 	FEngineAnalytics::GetProvider().RecordEvent(TEXT("Engine.AbnormalShutdown"), AbnormalShutdownAttributes);
 
@@ -635,6 +637,20 @@ void FEngineSessionManager::OnTerminate()
 	{
 		CurrentSession.bIsTerminating = true;
 		FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, CurrentSessionSectionName, SessionManagerDefs::TerminatingKey, SessionManagerDefs::TrueValueString);
+
+		if (GIsRequestingExit)
+		{
+			// Certain terminations are routine (such as closing a log window to quit the editor).
+			// In these cases, shut down the engine session so it won't send an abnormal shutdown report.
+			Shutdown();
+		}
+#if PLATFORM_SUPPORTS_WATCHDOG
+		else if (!WatchdogSectionName.IsEmpty())
+		{
+			FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::StatusStoreKey, SessionManagerDefs::TerminatedSessionToken);
+			FPlatformMisc::SetStoredValue(SessionManagerDefs::StoreId, WatchdogSectionName, SessionManagerDefs::TimestampStoreKey, TimestampToString(FDateTime::UtcNow()));
+		}
+#endif
 	}
 }
 
@@ -699,7 +715,7 @@ FString FEngineSessionManager::GetUserActivityString() const
  *
  * @Trigger Event raised by EngineSessionManager as part of MTBF tracking. Records an attempt to start the UnrealWatchdog process.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -717,10 +733,12 @@ void FEngineSessionManager::StartWatchdog(const FString& RunType, const FString&
 	uint32 ProcessId =  FPlatformProcess::GetCurrentProcessId();
 	const int SuccessfulRtnCode = 0;	// hardcode this for now, zero might not always be correct
 
+	FString LogFilePath = FPaths::ConvertRelativePathToFull(FPlatformOutputDevices::GetAbsoluteLogFilename());
+
 	FString WatchdogClientArguments =
 		FString::Printf(TEXT(
-			"-PID=%u -RunType=%s -ProjectName=\"%s\" -Platform=%s -SessionId=%s -EngineVersion=%s -SuccessfulRtnCode=%d"),
-			ProcessId, *RunType, *ProjectName, *PlatformName, *SessionId, *EngineVersion, SuccessfulRtnCode);
+			"-PID=%u -RunType=%s -ProjectName=\"%s\" -Platform=%s -SessionId=%s -EngineVersion=%s -SuccessfulRtnCode=%d -LogPath=\"%s\""),
+			ProcessId, *RunType, *ProjectName, *PlatformName, *SessionId, *EngineVersion, SuccessfulRtnCode, *LogFilePath);
 
 	bool bAllowWatchdogDetectHangs = false;
 	GConfig->GetBool(TEXT("EngineSessionManager"), TEXT("AllowWatchdogDetectHangs"), bAllowWatchdogDetectHangs, GEngineIni);
@@ -788,7 +806,7 @@ void FEngineSessionManager::StartWatchdog(const FString& RunType, const FString&
 	else
 	{
 		WatchdogStartedAttributes.Add(FAnalyticsEventAttribute(TEXT("Outcome"), TEXT("MissingBinaryFailed")));
-		UE_LOG(LogEngineSessionManager, Warning, TEXT("Unable to start UnrealWatchdog.exe. File not found."));
+		UE_LOG(LogEngineSessionManager, Log, TEXT("Unable to start UnrealWatchdog.exe. File not found."));
 	}
 
 	FEngineAnalytics::GetProvider().RecordEvent(TEXT("Engine.StartWatchdog"), WatchdogStartedAttributes);

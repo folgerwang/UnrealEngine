@@ -26,6 +26,23 @@ DECLARE_DELEGATE_OneParam(FOnGameplayCueNotifySetLoaded, TArray<FSoftObjectPath>
 DECLARE_DELEGATE_OneParam(FGameplayCueProxyTick, float);
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FShouldLoadGCNotifyDelegate, const FAssetData&, FName);
 
+/** Options to specify what parts of gameplay cue execution should be skipped */
+enum class EGameplayCueExecutionOptions : int32
+{
+	// Default options, check everything
+	Default = 0,
+	// Skip gameplay cue interface check
+	IgnoreInterfaces	= 0x00000001,
+	// Skip spawning notifies
+	IgnoreNotifies		= 0x00000002,
+	// Skip tag translation step
+	IgnoreTranslation	= 0x00000004,
+	// Ignores suppression check, always spawns
+	IgnoreSuppression	= 0x00000008,
+	// Don't show debug visualizations
+	IgnoreDebug			= 0x00000010
+};
+ENUM_CLASS_FLAGS(EGameplayCueExecutionOptions);
 
 /** An ObjectLibrary for the GameplayCue Notifies. Wraps 2 underlying UObjectLibraries plus options/delegates for how they are loaded */ 
 USTRUCT()
@@ -129,8 +146,8 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	// -------------------------------------------------------------
 
 	/** Main entry point for handling a gameplaycue event. These functions will call the 3 functions below to handle gameplay cues */
-	virtual void HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
-	virtual void HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
+	virtual void HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters, EGameplayCueExecutionOptions Options = EGameplayCueExecutionOptions::Default);
+	virtual void HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters, EGameplayCueExecutionOptions Options = EGameplayCueExecutionOptions::Default);
 
 	/** 1. returns true to ignore gameplay cues */
 	virtual bool ShouldSuppressGameplayCues(AActor* TargetActor);
@@ -139,7 +156,7 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	void TranslateGameplayCue(FGameplayTag& Tag, AActor* TargetActor, const FGameplayCueParameters& Parameters);
 
 	/** 3. Actually routes the gameplaycue event to the right place.  */
-	virtual void RouteGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
+	virtual void RouteGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters, EGameplayCueExecutionOptions Options = EGameplayCueExecutionOptions::Default);
 
 	// -------------------------------------------------------------
 
@@ -260,7 +277,7 @@ public:
 
 	static UWorld* GetCachedWorldForGameplayCueNotifies();
 
-	DECLARE_EVENT_FourParams(UGameplayCueManager, FOnRouteGameplayCue, AActor*, FGameplayTag, EGameplayCueEvent::Type, const FGameplayCueParameters&);
+	DECLARE_EVENT_FiveParams(UGameplayCueManager, FOnRouteGameplayCue, AActor*, FGameplayTag, EGameplayCueEvent::Type, const FGameplayCueParameters&, EGameplayCueExecutionOptions);
 	FOnRouteGameplayCue& OnGameplayCueRouted() { return OnRouteGameplayCue; }
 
 #if WITH_EDITOR

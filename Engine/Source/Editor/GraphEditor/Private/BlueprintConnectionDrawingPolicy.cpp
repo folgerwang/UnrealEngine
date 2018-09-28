@@ -547,7 +547,7 @@ void FKismetConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin
 
 		// If either end of the connection is not enabled (and not a passthru to something else), draw the wire differently
 		bool bWireIsOnDisabledNodeAndNotPassthru = false;
-		if (OutputNode && !OutputNode->IsNodeEnabled())
+		if (OutputNode && (OutputNode->IsDisplayAsDisabledForced() || !OutputNode->IsNodeEnabled()))
 		{
 			if (OutputNode->GetPassThroughPin(OutputPin) == nullptr)
 			{
@@ -555,7 +555,7 @@ void FKismetConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin
 			}
 		}
 		
-		if (InputNode && !InputNode->IsNodeEnabled())
+		if (InputNode && (InputNode->IsDisplayAsDisabledForced() || !InputNode->IsNodeEnabled()))
 		{
 			if (InputNode->GetPassThroughPin(InputPin) == nullptr)
 			{

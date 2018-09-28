@@ -82,8 +82,11 @@ extern SHADERCORE_API void InitializeShaderTypes();
 /** Uninitializes cached shader type data.  This is needed before unloading modules that contain FShaderTypes. */
 extern SHADERCORE_API void UninitializeShaderTypes();
 
-/** Returns true if debug viewmodes are allowed for the given platform. */
+/** Returns true if debug viewmodes are allowed for the current platform. */
 extern SHADERCORE_API bool AllowDebugViewmodes();
+
+/** Returns true if debug viewmodes are allowed for the given platform. */
+extern SHADERCORE_API bool AllowDebugViewmodes(EShaderPlatform Platform);
 
 struct FShaderTarget
 {
@@ -155,7 +158,9 @@ enum ECompilerFlags
 	// Prepare the shader for archiving in the native binary shader cache format
 	CFLAG_Archive,
 	// Shaders uses external texture so may need special runtime handling
-	CFLAG_UsesExternalTexture
+	CFLAG_UsesExternalTexture,
+	// Use emulated uniform buffers on supported platforms
+	CFLAG_UseEmulatedUB
 };
 
 /**
@@ -399,6 +404,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	TMap<FString,FResourceTableEntry> ResourceTableMap;
 	TMap<FString,uint32> ResourceTableLayoutHashes;
 	TMap<FString, FString> RemoteServerData;
+	TMap<FString, FString> ShaderFormatCVars;
 
 	/** Default constructor. */
 	FShaderCompilerEnvironment()
@@ -448,6 +454,8 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		Ar << Environment.ResourceTableMap;
 		Ar << Environment.ResourceTableLayoutHashes;
 		Ar << Environment.RemoteServerData;
+		Ar << Environment.ShaderFormatCVars;
+
 		return Ar;
 	}
 	
@@ -477,6 +485,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		Definitions.Merge(Other.Definitions);
 		RenderTargetOutputFormatsMap.Append(Other.RenderTargetOutputFormatsMap);
 		RemoteServerData.Append(Other.RemoteServerData);
+		ShaderFormatCVars.Append(Other.ShaderFormatCVars);
 	}
 
 private:
@@ -969,6 +978,8 @@ struct FShaderCompilerOutput
 
 	FString OptionalFinalShaderSource;
 
+	TArray<uint8> PlatformDebugData;
+
 	/** Generates OutputHash from the compiler output. */
 	SHADERCORE_API void GenerateOutputHash();
 
@@ -978,6 +989,7 @@ struct FShaderCompilerOutput
 		Ar << Output.ParameterMap << Output.Errors << Output.Target << Output.ShaderCode << Output.NumInstructions << Output.NumTextureSamplers << Output.bSucceeded;
 		Ar << Output.bFailedRemovingUnused << Output.bSupportsQueryingUsedAttributes << Output.UsedAttributes;
 		Ar << Output.OptionalFinalShaderSource;
+		Ar << Output.PlatformDebugData;
 
 		return Ar;
 	}

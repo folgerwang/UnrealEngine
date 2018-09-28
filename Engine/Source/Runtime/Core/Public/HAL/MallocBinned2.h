@@ -11,6 +11,7 @@
 #include "HAL/CriticalSection.h"
 #include "HAL/PlatformTLS.h"
 #include "HAL/Allocators/CachedOSPageAllocator.h"
+#include "HAL/Allocators/PooledVirtualMemoryAllocator.h"
 #include "HAL/PlatformMath.h"
 #include "HAL/LowLevelMemTracker.h"
 
@@ -237,7 +238,11 @@ class CORE_API FMallocBinned2 final : public FMalloc
 	PoolHashBucket* HashBucketFreeList;
 	uint64 NumPoolsPerPage;
 
+#if !PLATFORM_UNIX
 	TCachedOSPageAllocator<BINNED2_MAX_CACHED_OS_FREES, BINNED2_MAX_CACHED_OS_FREES_BYTE_LIMIT> CachedOSPageAllocator;
+#else
+	FPooledVirtualMemoryAllocator CachedOSPageAllocator;
+#endif
 
 	FCriticalSection Mutex;
 

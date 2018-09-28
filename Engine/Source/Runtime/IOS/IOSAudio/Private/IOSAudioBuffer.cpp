@@ -40,6 +40,8 @@ FIOSAudioSoundBuffer::FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoun
 	BufferSize = AudioCallbackFrameSize * sizeof(uint16) * NumChannels;
 	SampleData = static_cast<int16*>(FMemory::Malloc(BufferSize));
 	check(SampleData != nullptr);
+    FMemory::Memzero(SampleData, BufferSize);
+    
 	
 	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
 	check(AudioDeviceManager != nullptr);

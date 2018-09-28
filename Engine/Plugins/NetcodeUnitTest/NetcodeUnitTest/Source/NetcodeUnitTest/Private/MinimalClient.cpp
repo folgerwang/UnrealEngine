@@ -843,9 +843,9 @@ void UMinimalClient::SendInitialJoin()
 				*ControlChanBunch << MessageType;
 				*ControlChanBunch << BeaconType;
 
-				int32 UIDSize = JoinUID.Len();
+				uint8 EncType = 0;
 
-				*ControlChanBunch << UIDSize;
+				*ControlChanBunch << EncType;
 				*ControlChanBunch << JoinUID;
 
 				// Also immediately ack the beacon GUID setup; we're just going to let the server setup the client beacon,
@@ -889,8 +889,8 @@ void UMinimalClient::WriteControlLogin(FOutBunch* ControlChanBunch)
 {
 	uint8 MessageType = NMT_Login;
 	FString BlankStr = TEXT("");
-	int32 UIDSize = JoinUID.Len();
 	FString OnlinePlatformName = TEXT("Dud");
+	uint8 EncType = 0;
 
 	// @todo #JohnB: It would be nice to remove this last UnitTest dependency (may be opportune to, when doing MCP connect URL)
 	// @todo #JohnB: Update the existing environments that use this, to use a UnitTask with AlterMinClient instead, like Fortnite,
@@ -904,7 +904,7 @@ void UMinimalClient::WriteControlLogin(FOutBunch* ControlChanBunch)
 	*ControlChanBunch << MessageType;
 	*ControlChanBunch << BlankStr;
 	*ControlChanBunch << ConnectURL;
-	*ControlChanBunch << UIDSize;
+	*ControlChanBunch << EncType;
 	*ControlChanBunch << JoinUID;
 	*ControlChanBunch << OnlinePlatformName;
 }

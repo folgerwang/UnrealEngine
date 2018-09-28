@@ -16,6 +16,12 @@ ENUM_VK_ENTRYPOINTS_ALL(DEFINE_VK_ENTRYPOINTS)
 void* FVulkanLinuxPlatform::VulkanLib = nullptr;
 bool FVulkanLinuxPlatform::bAttemptedLoad = false;
 
+bool FVulkanLinuxPlatform::IsSupported()
+{
+	// just attempt to load the library
+	return LoadVulkanLibrary();
+}
+
 bool FVulkanLinuxPlatform::LoadVulkanLibrary()
 {
 	if (bAttemptedLoad)

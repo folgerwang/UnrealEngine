@@ -678,7 +678,7 @@ static bool ShaderPlatformCanPrebindBoundShaderState(EShaderPlatform Platform)
 
 static inline bool ShaderPlatformPrebindRequiresResource(EShaderPlatform Platform)
 {
-	return IsOpenGLPlatform(Platform);
+	return IsOpenGLPlatform(Platform) || IsSwitchPlatform(Platform);
 }
 
 static inline bool ShaderPlatformPSOOnly(EShaderPlatform Platform)
@@ -2351,7 +2351,7 @@ void FShaderCache::InternalPrebindShader(FShaderCacheKey const& Key, FShaderCach
 		CacheState->bIsPreBind = true;
 		
 		// This only applies to OpenGL.
-		if(IsOpenGLPlatform(CurrentPlatform))
+		if(IsOpenGLPlatform(CurrentPlatform) || IsSwitchPlatform(CurrentPlatform))
 		{
 			TSet<FShaderPipelineKey> const* ShaderPipelines = Pipelines.Find(Key);
 			if(ShaderPipelines && bCanPreBind)

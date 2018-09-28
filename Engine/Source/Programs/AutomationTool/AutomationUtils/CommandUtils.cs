@@ -114,7 +114,7 @@ namespace AutomationTool
 		/// <param name="Format">Format string</param>
 		/// <param name="Args">Parameters</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		[Obsolete("CommandUtils.LogInformation() has been deprecated. Use CommandUtils.LogInformation() instead.", false)]
+		[Obsolete("CommandUtils.Log() has been deprecated. Use CommandUtils.LogInformation() instead.", false)]
 		public static void Log(string Format, params object[] Args)
 		{
 			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Format, Args);
@@ -125,7 +125,7 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Message">Text</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		[Obsolete("CommandUtils.LogInformation() has been deprecated. Use CommandUtils.LogInformation() instead.", false)]
+		[Obsolete("CommandUtils.Log() has been deprecated. Use CommandUtils.LogInformation() instead.", false)]
 		public static void Log(string Message)
 		{
 			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Message);
@@ -1327,6 +1327,25 @@ namespace AutomationTool
 				return false;
 			}
 			return InternalUtils.SafeCopyFile(Source, Dest, bQuiet);
+		}
+
+		/// <summary>
+		/// Checks if the given target file is up to date with the source file (ie. it exists, and the timestamp matches)
+		/// </summary>
+		/// <param name="Target">The target file to check</param>
+		/// <param name="Source">The source file to check</param>
+		/// <returns>True if the files have the same timestamp, false otherwise.</returns>
+		public static bool IsTargetFileUpToDate(FileReference Target, FileReference Source)
+		{
+			if(FileReference.Exists(Target))
+			{
+				TimeSpan Diff = FileReference.GetLastWriteTimeUtc(Target) - FileReference.GetLastWriteTimeUtc(Source);
+				if (Math.Abs(Diff.TotalSeconds) < 1)
+				{
+					return true;
+				}
+			}
+			return false;
 		}
 
 		/// <summary>

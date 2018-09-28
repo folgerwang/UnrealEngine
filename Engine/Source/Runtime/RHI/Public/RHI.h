@@ -133,7 +133,9 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 		&& IsMetalPlatform(Platform) && (FPlatformMisc::MacOSXVersionCompare(10, 13, 0) >= 0) && (!IsRHIDeviceIntel() || FPlatformMisc::MacOSXVersionCompare(10, 13, 2) >= 0)
 #endif
 		// @todo marksatt iOS Desktop Forward needs more work internally
-		&& Platform != SP_METAL_MRT;
+		&& Platform != SP_METAL_MRT
+		// @todo optimise MSAA for XboxOne, currently uses significant eRAM.
+		&& Platform != SP_XBOXONE_D3D12;
 }
 
 inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
@@ -324,6 +326,12 @@ extern RHI_API bool GRHINeedsExtraDeletionLatency;
 /** The maximum size allowed for a computeshader dispatch. */
 extern RHI_API TRHIGlobal<int32> GMaxComputeDispatchDimension;
 
+/** If true, then avoiding loading shader code and instead force the "native" path, which sends a library and a hash instead. */
+extern RHI_API bool GRHILazyShaderCodeLoading;
+
+/** If true, then it is possible to turn on GRHILazyShaderCodeLoading. */
+extern RHI_API bool GRHISupportsLazyShaderCodeLoading;
+
 /** The maximum size to allow for the shadow depth buffer in the X dimension.  This must be larger or equal to GMaxShadowDepthBufferSizeY. */
 extern RHI_API TRHIGlobal<int32> GMaxShadowDepthBufferSizeX;
 /** The maximum size to allow for the shadow depth buffer in the Y dimension. */
@@ -466,8 +474,10 @@ extern RHI_API bool GRHISupportsGPUFence;
 /** Called once per frame only from within an RHI. */
 extern RHI_API void RHIPrivateBeginFrame();
 
+
 RHI_API FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform);
 RHI_API EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat);
+RHI_API FName ShaderPlatformToPlatformName(EShaderPlatform Platform);
 
 /**
  * Adjusts a projection matrix to output in the correct clip space for the
@@ -506,6 +516,17 @@ inline EShaderPlatform GetFeatureLevelShaderPlatform(ERHIFeatureLevel::Type InFe
 {
 	return GShaderPlatformForFeatureLevel[InFeatureLevel];
 }
+
+
+/** Finds a corresponding ERHIShadingPath::Type given an FName, or returns false if one could not be found. */
+extern RHI_API bool GetShadingPathFromName(FName Name, ERHIShadingPath::Type& OutShadingPath);
+
+/** Creates a string for the given shading path. */
+extern RHI_API void GetShadingPathName(ERHIShadingPath::Type InShadingPath, FString& OutName);
+
+/** Creates an FName for the given shading path. */
+extern RHI_API void GetShadingPathName(ERHIShadingPath::Type InShadingPath, FName& OutName);
+
 
 inline FArchive& operator <<(FArchive& Ar, EResourceLockMode& LockMode)
 {
@@ -1534,6 +1555,11 @@ extern RHI_API void RHIExit();
 #define GETSAFERHISHADER_DOMAIN(Shader) ((Shader) ? (Shader)->GetDomainShader() : (FDomainShaderRHIParamRef)FDomainShaderRHIRef())
 #define GETSAFERHISHADER_GEOMETRY(Shader) ((Shader) ? (Shader)->GetGeometryShader() : (FGeometryShaderRHIParamRef)FGeometryShaderRHIRef())
 #define GETSAFERHISHADER_COMPUTE(Shader) ((Shader) ? (Shader)->GetComputeShader() : (FComputeShaderRHIParamRef)FComputeShaderRHIRef())
+
+
+// Panic delegate is called when when a fatal condition is encountered within RHI function.
+DECLARE_DELEGATE_OneParam(FRHIPanicEvent, const FName&);
+extern RHI_API FRHIPanicEvent& RHIGetPanicDelegate();
 
 // RHI utility functions that depend on the RHI definitions.
 #include "RHIUtilities.h"

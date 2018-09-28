@@ -100,4 +100,9 @@ public:
 	*/
 	typedef TFunction<void(const FString& EventName, const TArray<FAnalyticsEventAttribute>& Attrs, bool bJson)> OnEventRecorded;
 	virtual void SetEventCallback(const OnEventRecorded& Callback) = 0;
+
+	/**
+	* Blocks execution in the thread until all events have been flushed to the network.
+	*/
+	virtual void BlockUntilFlushed(float InTimeoutSec) = 0;
 };

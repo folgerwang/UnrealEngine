@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "Stats/Stats.h"
 #include "Modules/ModuleManager.h"
 #include "OnlineSubsystemModule.h"
-#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 #include "OnlineSubsystemNames.h"
@@ -39,8 +39,8 @@ class IOnlineUser;
 class IOnlineUserCloud;
 class IOnlineVoice;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnline, Display, All);
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineGame, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnline, Log, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineGame, Log, All);
 
 /** Online subsystem stats */
 DECLARE_STATS_GROUP(TEXT("Online"), STATGROUP_Online, STATCAT_Advanced);
@@ -53,7 +53,10 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("SessionInt"), STAT_Session_Interface, STATGROUP_
 /** Total time to process both local/remote voice */
 DECLARE_CYCLE_STAT_EXTERN(TEXT("VoiceInt"), STAT_Voice_Interface, STATGROUP_Online, ONLINESUBSYSTEM_API);
 
+#ifndef ONLINE_LOG_PREFIX
 #define ONLINE_LOG_PREFIX TEXT("OSS: ")
+#endif
+
 #define UE_LOG_ONLINE(Verbosity, Format, ...) \
 { \
 	UE_LOG(LogOnline, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
@@ -164,6 +167,25 @@ public:
 		{
 			FOnlineSubsystemModule& OSSModule = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>(OnlineSubsystemModuleName);
 			return OSSModule.GetNativeSubsystem(bAutoLoad);
+		}
+		return nullptr;
+	}
+
+	/**
+	* Get the online subsystem associated with the given config string
+	*
+	* @param ConfigString - Key to query for
+	* @param bAutoLoad - load the module if not already loaded
+	*
+	* @return pointer to the appropriate online subsystem
+	*/
+	static IOnlineSubsystem* GetByConfig(const FString& ConfigString, bool bAutoLoad = true)
+	{
+		static const FName OnlineSubsystemModuleName = TEXT("OnlineSubsystem");
+		if (bAutoLoad || FModuleManager::Get().IsModuleLoaded(OnlineSubsystemModuleName))
+		{
+			FOnlineSubsystemModule& OSSModule = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>(OnlineSubsystemModuleName);
+			return OSSModule.GetSubsystemByConfig(ConfigString, bAutoLoad);
 		}
 		return nullptr;
 	}
@@ -608,6 +630,15 @@ ONLINESUBSYSTEM_API int32 GetBuildUniqueId();
  * @return true if unique id found in session, false otherwise
  */
 ONLINESUBSYSTEM_API bool IsPlayerInSessionImpl(class IOnlineSession* SessionInt, FName SessionName, const FUniqueNetId& UniqueId);
+
+/**
+ * Is the unique id local to this instance
+ *
+ * @param UniqueId unique to query
+ *
+ * @return true if unique id is found and logged in locally, false otherwise
+ */
+ONLINESUBSYSTEM_API bool IsUniqueIdLocal(const FUniqueNetId& UniqueId);
 
 /**
  * Retrieve the beacon port from the specified session settings

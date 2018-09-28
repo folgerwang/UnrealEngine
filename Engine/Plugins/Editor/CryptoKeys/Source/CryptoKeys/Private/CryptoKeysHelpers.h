@@ -2,10 +2,23 @@
 
 #pragma once
 
-class UCryptoKeysSettings;
+class FString;
 
 namespace CryptoKeysHelpers
 {
-	bool GenerateNewEncryptionKey(UCryptoKeysSettings* InSettings);
-	bool GenerateNewSigningKeys(UCryptoKeysSettings* InSettings);
+	/**
+	Generates a new AES key
+	@param OutEncryptionKey - Assigned the base64 encoded representation of the new key
+	@returns true if key generation succeeded, false otherwise
+	*/
+	bool GenerateEncryptionKey(FString& OutEncryptionKey);
+
+	/**
+	Generates a new RSA signing key
+	@param OutPublicExponent 	- Assigned the base64 encoded representation of the RSA public exponent
+	@param OutPrivateExponent 	- Assigned the base64 encoded representation of the RSA private exponent
+	@param OutModulus 		- Assigned the base64 encoded representation of the RSA modulus
+	@returns true if key generation succeeded, false otherwise
+	*/
+	bool GenerateSigningKey(FString& OutPublicExponent, FString& OutPrivateExponent, FString& OutModulus);
 }

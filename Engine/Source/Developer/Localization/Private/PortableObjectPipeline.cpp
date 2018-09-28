@@ -308,9 +308,10 @@ namespace
 			return false;
 		}
 
-		if (!OutPortableObject.FromString(POFileContents))
+		FText POErrorMsg;
+		if (!OutPortableObject.FromString(POFileContents, &POErrorMsg))
 		{
-			UE_LOG(LogPortableObjectPipeline, Error, TEXT("Failed to parse Portable Object file %s."), *POFilePath);
+			UE_LOG(LogPortableObjectPipeline, Error, TEXT("Failed to parse Portable Object file %s: %s"), *POFilePath, *POErrorMsg.ToString());
 			return false;
 		}
 

@@ -90,17 +90,17 @@ public:
 	/**
 	 * Flushes all cached data from the font cache for the current thread
 	 */
-	void FlushFontCache();
+	void FlushFontCache(const FString& FlushReason);
 
 	/**
 	 * Flushes all cached data from the font cache for the game thread
 	 */
-	void FlushGameThreadFontCache();
+	void FlushGameThreadFontCache(const FString& FlushReason);
 
 	/**
 	 * Flushes all cached data from the font cache for the render thread
 	 */
-	void FlushRenderThreadFontCache();
+	void FlushRenderThreadFontCache(const FString& FlushReason);
 
 	/**
 	 * Release any rendering resources owned by this font service
@@ -339,9 +339,9 @@ public:
 	/**
 	 * Flushes all cached data from the font cache for the current thread
 	 */
-	void FlushFontCache()
+	void FlushFontCache(const FString& FlushReason)
 	{
-		SlateFontServices->FlushFontCache();
+		SlateFontServices->FlushFontCache(FlushReason);
 	}
 
 	/**

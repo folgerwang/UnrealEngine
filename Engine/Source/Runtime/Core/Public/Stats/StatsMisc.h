@@ -17,7 +17,7 @@ class FSimpleScopeSecondsCounter
 public:
 	/** Ctor, capturing start time. */
 	FSimpleScopeSecondsCounter(double& InSeconds, bool bInEnabled = true)
-		: StartTime(FPlatformTime::Seconds())
+		: StartTime(bInEnabled ? FPlatformTime::Seconds() : 0.0)
 		, Seconds(InSeconds)
 		, bEnabled(bInEnabled)
 		, RecursionDepth(nullptr)

@@ -334,6 +334,11 @@ public:
 	 * @param DeltaTime time since last tick
 	 */
 	virtual bool Tick(float DeltaTime) override;
+
+	/**
+	 * Waiting on a socket is not supported.
+	 */
+	virtual bool IsSocketWaitSupported() const override { return false; }
 };
 
 /**

@@ -166,6 +166,16 @@ public:
 	/** Create component mask node */
 	TSharedPtr< FUICommandInfo > PromoteToParameter;
 
+	TSharedPtr< FUICommandInfo > QualityLevel_All;
+	TSharedPtr< FUICommandInfo > QualityLevel_High;
+	TSharedPtr< FUICommandInfo > QualityLevel_Medium;
+	TSharedPtr< FUICommandInfo > QualityLevel_Low;
+
+	TSharedPtr< FUICommandInfo > FeatureLevel_All;
+	TSharedPtr< FUICommandInfo > FeatureLevel_ES2;
+	TSharedPtr< FUICommandInfo > FeatureLevel_ES31;
+	TSharedPtr< FUICommandInfo > FeatureLevel_SM4;
+	TSharedPtr< FUICommandInfo > FeatureLevel_SM5;
 
 	/**
 	 * Initialize commands

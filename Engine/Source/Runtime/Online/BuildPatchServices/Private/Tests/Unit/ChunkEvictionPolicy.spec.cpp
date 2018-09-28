@@ -9,6 +9,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 BEGIN_DEFINE_SPEC(FChunkEvictionPolicySpec, "BuildPatchServices.Unit", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+const uint32 TestChunkSize = 128 * 1024;
 // Unit
 TUniquePtr<BuildPatchServices::IChunkEvictionPolicy> ChunkEvictionPolicy;
 // Mock
@@ -40,7 +41,7 @@ void FChunkEvictionPolicySpec::Define()
 		ReferencedChunks.Add(NextReference);
 		++ReferenceCounts.FindOrAdd(NextReference);
 	}
-	ChunkData.SetNumUninitialized(BuildPatchServices::ChunkDataSize);
+	ChunkData.SetNumUninitialized(TestChunkSize);
 	MockChunkDataAccess.Reset(new FFakeChunkDataAccess());
 	MockChunkDataAccess->ChunkData = ChunkData.GetData();
 

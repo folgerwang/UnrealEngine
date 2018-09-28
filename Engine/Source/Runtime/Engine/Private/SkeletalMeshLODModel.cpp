@@ -16,6 +16,8 @@
 #include "Rendering/SkinWeightVertexBuffer.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "UObject/RenderingObjectVersion.h"
+#include "Rendering/SkeletalMeshLODImporterData.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 /*-----------------------------------------------------------------------------
 FSoftSkinVertex
@@ -552,6 +554,7 @@ void FSkeletalMeshLODModel::Serialize(FArchive& Ar, UObject* Owner, int32 Idx)
 	FStripDataFlags StripFlags(Ar, Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::Tessellation) ? LodAdjacencyStripFlag : 0);
 
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	if (StripFlags.IsDataStrippedForServer())
 	{
@@ -640,6 +643,10 @@ void FSkeletalMeshLODModel::Serialize(FArchive& Ar, UObject* Owner, int32 Idx)
 	if (!StripFlags.IsEditorDataStripped())
 	{
 		RawPointIndices.Serialize(Ar, Owner);
+		if (Ar.IsSaving() || (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::NewSkeletalMeshImporterWorkflow))
+		{
+			RawSkeletalMeshBulkData.Serialize(Ar, Owner);
+		}
 	}
 
 	if (StripFlags.IsDataStrippedForServer())

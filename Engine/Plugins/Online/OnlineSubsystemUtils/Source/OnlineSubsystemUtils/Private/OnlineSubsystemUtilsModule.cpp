@@ -39,7 +39,7 @@ public:
 		return Subsystem;
 	}
 
-	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) const override
+	virtual FName GetOnlineIdentifier(const UWorld* World, const FName Subsystem = NAME_None) const override
 	{
 #if WITH_EDITOR
 		if (const FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(World))

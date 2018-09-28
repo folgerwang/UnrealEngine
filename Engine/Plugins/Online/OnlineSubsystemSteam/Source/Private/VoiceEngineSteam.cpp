@@ -148,7 +148,7 @@ void FVoiceEngineSteam::VoiceCaptureUpdate() const
 		// If no data is available, we have finished capture the last (post-StopRecording) half-second of voice data
 		if (RecordingState == EVoiceCaptureState::NotCapturing)
 		{
-			UE_LOG(LogVoiceEngine, Log, TEXT("Internal voice capture complete."));
+			UE_LOG_ONLINE_VOICEENGINE(Log, TEXT("Internal voice capture complete."));
 
 			bPendingFinalCapture = false;
 
@@ -168,7 +168,7 @@ void FVoiceEngineSteam::VoiceCaptureUpdate() const
 
 void FVoiceEngineSteam::StartRecording() const
 {
-	UE_LOG(LogVoiceEngine, VeryVerbose, TEXT("VOIP StartRecording"));
+	UE_LOG_ONLINE_VOICEENGINE(VeryVerbose, TEXT("VOIP StartRecording"));
 	if (VoiceCapture.IsValid())
 	{
 		if (!VoiceCapture->Start())
@@ -183,7 +183,7 @@ void FVoiceEngineSteam::StartRecording() const
 
 void FVoiceEngineSteam::StopRecording() const
 {
-	UE_LOG(LogVoiceEngine, VeryVerbose, TEXT("VOIP StopRecording"));
+	UE_LOG_ONLINE_VOICEENGINE(VeryVerbose, TEXT("VOIP StopRecording"));
 	if (VoiceCapture.IsValid())
 	{
 		VoiceCapture->Stop();
@@ -192,7 +192,7 @@ void FVoiceEngineSteam::StopRecording() const
 
 void FVoiceEngineSteam::StoppedRecording() const
 {
-	UE_LOG(LogVoiceEngine, VeryVerbose, TEXT("VOIP StoppedRecording"));
+	UE_LOG_ONLINE_VOICEENGINE(VeryVerbose, TEXT("VOIP StoppedRecording"));
 	if (SteamFriendsPtr)
 	{
 		SteamFriendsPtr->SetInGameVoiceSpeaking(SteamUserPtr->GetSteamID(), false);
@@ -239,7 +239,7 @@ bool FVoiceEngineSteam::Init(int32 MaxLocalTalkers, int32 MaxRemoteTalkers)
 
 uint32 FVoiceEngineSteam::StartLocalVoiceProcessing(uint32 LocalUserNum)
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 	if (IsOwningUser(LocalUserNum))
 	{
 		if (!bIsCapturing)
@@ -255,11 +255,11 @@ uint32 FVoiceEngineSteam::StartLocalVoiceProcessing(uint32 LocalUserNum)
 			bIsCapturing = true;
 		}
 
-		Return = S_OK;
+		Return = ONLINE_SUCCESS;
 	}
 	else
 	{
-		UE_LOG(LogVoiceEngine, Error, TEXT("StartLocalVoiceProcessing(): Device is currently owned by another user"));
+		UE_LOG_ONLINE_VOICEENGINE(Error, TEXT("StartLocalVoiceProcessing(): Device is currently owned by another user"));
 	}
 
 	return Return;
@@ -267,7 +267,7 @@ uint32 FVoiceEngineSteam::StartLocalVoiceProcessing(uint32 LocalUserNum)
 
 uint32 FVoiceEngineSteam::StopLocalVoiceProcessing(uint32 LocalUserNum)
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 	if (IsOwningUser(LocalUserNum))
 	{
 		if (bIsCapturing)
@@ -282,11 +282,11 @@ uint32 FVoiceEngineSteam::StopLocalVoiceProcessing(uint32 LocalUserNum)
 			VoiceCaptureUpdate();
 		}
 
-		Return = S_OK;
+		Return = ONLINE_SUCCESS;
 	}
 	else
 	{
-		UE_LOG(LogVoiceEngine, Error, TEXT("StopLocalVoiceProcessing: Ignoring stop request for non-owning user"));
+		UE_LOG_ONLINE_VOICEENGINE(Error, TEXT("StopLocalVoiceProcessing: Ignoring stop request for non-owning user"));
 	}
 
 	return Return;
@@ -302,7 +302,7 @@ uint32 FVoiceEngineSteam::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
 		RemoteTalkerBuffers.Remove(FUniqueNetIdWrapper(UniqueId.AsShared()));
 	}
 
-	return S_OK;
+	return ONLINE_SUCCESS;
 }
 
 uint32 FVoiceEngineSteam::GetVoiceDataReadyFlags() const
@@ -338,15 +338,15 @@ uint32 FVoiceEngineSteam::ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, u
 		EVoiceCaptureState::Type VoiceResult = VoiceCapture->GetCaptureState(NewVoiceDataBytes);
 		if (VoiceResult != EVoiceCaptureState::Ok && VoiceResult != EVoiceCaptureState::NoData)
 		{
-			UE_LOG(LogVoiceEngine, Warning, TEXT("ReadLocalVoiceData: GetAvailableVoice failure: VoiceResult: %s"), EVoiceCaptureState::ToString(VoiceResult));
-			return E_FAIL;
+			UE_LOG_ONLINE_VOICEENGINE(Warning, TEXT("ReadLocalVoiceData: GetAvailableVoice failure: VoiceResult: %s"), EVoiceCaptureState::ToString(VoiceResult));
+			return ONLINE_FAIL;
 		}
 
 		if (NewVoiceDataBytes == 0)
 		{
-			UE_LOG(LogVoiceEngine, VeryVerbose, TEXT("ReadLocalVoiceData: No Data: VoiceResult: %s"), EVoiceCaptureState::ToString(VoiceResult));
+			UE_LOG_ONLINE_VOICEENGINE(VeryVerbose, TEXT("ReadLocalVoiceData: No Data: VoiceResult: %s"), EVoiceCaptureState::ToString(VoiceResult));
 			*Size = 0;
-			return S_OK;
+			return ONLINE_SUCCESS;
 		}
 
 		// Make space for new and any previously remaining data
@@ -420,25 +420,25 @@ uint32 FVoiceEngineSteam::ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, u
 				FMemory::Memcpy(Data, CompressedVoiceBuffer.GetData(), *Size);
 
 				UE_LOG(LogVoiceEngine, VeryVerbose, TEXT("ReadLocalVoiceData: Size: %d"), *Size);
-				return S_OK;
+				return ONLINE_SUCCESS;
 			}
 			else
 			{
 				*Size = 0;
 				CompressedVoiceBuffer.Empty(UVOIPStatics::GetMaxCompressedVoiceDataSize());
 
-				UE_LOG(LogVoiceEngine, Warning, TEXT("ReadLocalVoiceData: GetVoice failure: VoiceResult: %s"), EVoiceCaptureState::ToString(VoiceResult));
-				return E_FAIL;
+				UE_LOG_ONLINE_VOICEENGINE(Warning, TEXT("ReadLocalVoiceData: GetVoice failure: VoiceResult: %s"), EVoiceCaptureState::ToString(VoiceResult));
+				return ONLINE_FAIL;
 			}
 		}
 	}
 
-	return E_FAIL;
+	return ONLINE_FAIL;
 }
 
 uint32 FVoiceEngineSteam::SubmitRemoteVoiceData(const FUniqueNetIdWrapper& RemoteTalkerId, uint8* Data, uint32* Size, uint64& InSampleCount)
 {
-	UE_LOG(LogVoiceEngine, VeryVerbose, TEXT("SubmitRemoteVoiceData(%s) Size: %d received!"), *RemoteTalkerId.ToDebugString(), *Size);
+	UE_LOG_ONLINE_VOICEENGINE(VeryVerbose, TEXT("SubmitRemoteVoiceData(%s) Size: %d received!"), *RemoteTalkerId.ToDebugString(), *Size);
 
 	FRemoteTalkerDataSteam& QueuedData = RemoteTalkerBuffers.FindOrAdd(RemoteTalkerId);
 
@@ -455,7 +455,7 @@ uint32 FVoiceEngineSteam::SubmitRemoteVoiceData(const FUniqueNetIdWrapper& Remot
 	if (BytesWritten <= 0)
 	{
 		*Size = 0;
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	bool bAudioComponentCreated = false;
@@ -508,7 +508,7 @@ uint32 FVoiceEngineSteam::SubmitRemoteVoiceData(const FUniqueNetIdWrapper& Remot
 		QueuedData.VoipSynthComponent->SubmitPacket((float*)DecompressedVoiceBuffer.GetData(), BytesWritten, InSampleCount, EVoipStreamDataFormat::Int16);
 	}
 
-	return S_OK;
+	return ONLINE_SUCCESS;
 }
 
 void FVoiceEngineSteam::TickTalkers(float DeltaTime)
@@ -568,7 +568,7 @@ void FVoiceEngineSteam::GenerateVoiceData(USoundWaveProcedural* InProceduralWave
 			const int32 AvailableSamples = QueuedData->CurrentUncompressedDataQueueSize / SampleSize;
 			if (AvailableSamples >= SamplesRequired)
 			{
-				UE_LOG(LogVoiceEngine, Verbose, TEXT("GenerateVoiceData %d / %d"), AvailableSamples, SamplesRequired);
+				UE_LOG_ONLINE_VOICEENGINE(Verbose, TEXT("GenerateVoiceData %d / %d"), AvailableSamples, SamplesRequired);
 				const int32 SamplesBytesTaken = AvailableSamples * SampleSize;
 				InProceduralWave->QueueAudio(QueuedData->UncompressedDataQueue.GetData(), SamplesBytesTaken);
 				QueuedData->UncompressedDataQueue.RemoveAt(0, SamplesBytesTaken, false);
@@ -576,7 +576,7 @@ void FVoiceEngineSteam::GenerateVoiceData(USoundWaveProcedural* InProceduralWave
 			}
 			else
 			{
-				UE_LOG(LogVoiceEngine, Verbose, TEXT("Voice underflow"));
+				UE_LOG_ONLINE_VOICEENGINE(Verbose, TEXT("Voice underflow"));
 			}
 		}
 	}
@@ -589,7 +589,7 @@ void FVoiceEngineSteam::OnAudioFinished()
 		FRemoteTalkerDataSteam& RemoteData = It.Value();
 		if (RemoteData.VoipSynthComponent->IsIdling())
 		{
-			UE_LOG(LogVoiceEngine, Log, TEXT("Removing VOIP AudioComponent for Id: %s"), *It.Key().ToDebugString());
+			UE_LOG_ONLINE_VOICEENGINE( Log, TEXT("Removing VOIP AudioComponent for Id: %s"), *It.Key().ToDebugString());
 			RemoteData.VoipSynthComponent->Stop();
 			RemoteData.bIsActive = false;
 			break;

@@ -271,7 +271,7 @@ TSharedRef<SWidget> SPropertyBinding::OnGenerateDelegateMenu(UWidget* Widget, TS
 	}
 
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+	FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 
 	return
 		SNew(SVerticalBox)

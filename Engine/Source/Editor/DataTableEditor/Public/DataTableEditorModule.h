@@ -38,6 +38,10 @@ public:
 	static const FName DataTableEditorAppIdentifier;
 
 private:
+	TSharedRef<IDataTableEditor> CreateStandardDataTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UDataTable* Table);
+
+	TSharedRef<IDataTableEditor> CreateCompositeDataTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UDataTable* Table);
+
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 };
 

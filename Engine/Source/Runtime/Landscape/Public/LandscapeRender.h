@@ -333,7 +333,6 @@ public:
 //
 class FLandscapeNeighborInfo
 {
-	bool bRegistered;
 protected:
 	static const int8 NEIGHBOR_COUNT = 4;
 
@@ -386,18 +385,19 @@ protected:
 	UTexture2D*				HeightmapTexture; // PC : Heightmap, Mobile : Weightmap
 	int8					ForcedLOD;
 	int8					LODBias;
+	bool					bRegistered;
 	int32					PrimitiveCustomDataIndex;
 
 	friend class FLandscapeComponentSceneProxy;
 
 public:
 	FLandscapeNeighborInfo(const UWorld* InWorld, const FGuid& InGuid, const FIntPoint& InComponentBase, UTexture2D* InHeightmapTexture, int8 InForcedLOD, int8 InLODBias)
-	: bRegistered(false)
-	, LandscapeKey(InWorld, InGuid)
+	: LandscapeKey(InWorld, InGuid)
 	, ComponentBase(InComponentBase)
 	, HeightmapTexture(InHeightmapTexture)
 	, ForcedLOD(InForcedLOD)
 	, LODBias(InLODBias)
+	, bRegistered(false)
 	, PrimitiveCustomDataIndex(INDEX_NONE)
 	{
 		//       -Y       
@@ -512,18 +512,20 @@ public:
 
 protected:
 	int8						MaxLOD;		// Maximum LOD level, user override possible
+	bool						UseTessellationComponentScreenSizeFalloff:1;	// Tell if we should apply a Tessellation falloff
+	bool						bRequiresAdjacencyInformation:1;
+	int8						NumWeightmapLayerAllocations;
+	uint8						StaticLightingLOD;
+	float						WeightmapSubsectionOffset;
+	TArray<float>				LODScreenRatioSquared;		// Table of valid screen size -> LOD index
 	int32						FirstLOD;	// First LOD we have batch elements for
 	int32						LastLOD;	// Last LOD we have batch elements for
-	TArray<float>				LODScreenRatioSquared;		// Table of valid screen size -> LOD index
 	float						ComponentMaxExtend; 		// The max extend value in any axis
 	float						ComponentSquaredScreenSizeToUseSubSections; // Size at which we start to draw in sub lod if LOD are different per sub section
 	float						MinValidLOD;							// Min LOD Taking into account LODBias
 	float						MaxValidLOD;							// Max LOD Taking into account LODBias
 	float						TessellationComponentSquaredScreenSize;	// Screen size of the component at which we start to apply tessellation
-	bool						TessellationEnabledOnDefaultMaterial;	// Used to know if we have tessellation enabled on the material
-	bool						UseTessellationComponentScreenSizeFalloff;	// Tell if we should apply a Tessellation falloff
 	float						TessellationComponentScreenSizeFalloff;	// Min Component screen size before we start applying the tessellation falloff
-	TArray<FVector>				SubSectionScreenSizeTestingPosition;	// Precomputed sub section testing position for screen size calculation
 
 	/** 
 	 * Number of subsections within the component in each dimension, this can be 1 or 2.
@@ -541,11 +543,15 @@ protected:
 	 * Note: in the case of multiple subsections, this is not very useful, as there will be an internal duplicate row of heights in addition to the row at the end.
 	 */
 	int32						ComponentSizeVerts;
-	uint8						StaticLightingLOD;
 	float						StaticLightingResolution;
 	/** Address of the component within the parent Landscape in unique height texels. */
 	FIntPoint					SectionBase;
+
+	const ULandscapeComponent* LandscapeComponent;
+
 	FMatrix						LocalToWorldNoScaling;
+
+	TArray<FVector>				SubSectionScreenSizeTestingPosition;	// Precomputed sub section testing position for screen size calculation
 
 	// Storage for static draw list batch params
 	TArray<FLandscapeBatchElementParams> StaticBatchParamArray;
@@ -557,12 +563,10 @@ protected:
 #endif
 
 	FVector4 WeightmapScaleBias;
-	float WeightmapSubsectionOffset;
 	TArray<UTexture2D*> WeightmapTextures;
 #if WITH_EDITOR
 	TArray<FLinearColor> LayerColors;
 #endif
-	int8 NumWeightmapLayerAllocations;
 	UTexture2D* NormalmapTexture; // PC : Heightmap, Mobile : Weightmap
 	UTexture2D* BaseColorForGITexture;
 	FVector4 HeightmapScaleBias;
@@ -571,13 +575,30 @@ protected:
 
 	UTexture2D* XYOffsetmapTexture;
 
-	bool						bRequiresAdjacencyInformation;
 	uint32						SharedBuffersKey;
 	FLandscapeSharedBuffers*	SharedBuffers;
 	FLandscapeVertexFactory*	VertexFactory;
 
-	TArray<UMaterialInterface*, TInlineAllocator<2>> AvailableMaterials;
-	FMaterialRelevance MaterialRelevance;
+	/** All available materials for non mobile, including LOD Material, Tessellation generated materials*/
+	TArray<UMaterialInterface*> AvailableMaterials;
+
+	/** A cache to know if the material stored in AvailableMaterials[X] has tessellation enabled */
+	TBitArray<> MaterialHasTessellationEnabled;
+
+	// FLightCacheInterface
+	TUniquePtr<FLandscapeLCI> ComponentLightInfo;
+
+	/** Mapping between LOD and Material Index*/
+	TArray<int8> LODIndexToMaterialIndex;
+	
+	/** Mapping between Material Index to associated generated disabled Tessellation Material*/
+	TArray<int8> MaterialIndexToDisabledTessellationMaterial;
+	
+	/** Mapping between Material Index to Static Mesh Batch */
+	TArray<int8> MaterialIndexToStaticMeshBatchLOD;
+
+	/** Material Relevance for each material in AvailableMaterials */
+	TArray<FMaterialRelevance> MaterialRelevances;
 
 	// Reference counted vertex and index buffer shared among all landscape scene proxies of the same component size
 	// Key is the component size and number of subsections.
@@ -588,12 +609,9 @@ protected:
 	FLandscapeEditToolRenderData EditToolRenderData;
 #endif
 
-	// FLightCacheInterface
-	TUniquePtr<FLandscapeLCI> ComponentLightInfo;
-
-	const ULandscapeComponent* LandscapeComponent;
-
+#if WITH_EDITORONLY_DATA
 	ELandscapeLODFalloff::Type LODFalloff_DEPRECATED;
+#endif
 
 	// data used in editor or visualisers
 #if WITH_EDITOR || !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -612,7 +630,7 @@ protected:
 
 	// Cached versions of these
 	FMatrix					WorldToLocal;
-	
+
 protected:
 	virtual ~FLandscapeComponentSceneProxy();
 	
@@ -631,8 +649,8 @@ protected:
 	FORCEINLINE FVector4 GetShaderLODBias() const;
 	FORCEINLINE FVector4 GetShaderLODValues(int8 BatchElementCurrentLOD) const;
 
-	bool GetMeshElement(bool UseSeperateBatchForShadow, bool ShadowOnly, bool HasTessellation, uint8 BatchLOD, UMaterialInterface* InMaterialInterface, FMeshBatch& OutMeshBatch, TArray<FLandscapeBatchElementParams>& OutStaticBatchParamArray) const;
-	void BuildDynamicMeshElement(const FViewCustomDataLOD* InPrimitiveCustomData, bool InToolMesh, UMaterialInterface* InMaterialInterface, FMeshBatch& OutMeshBatch, TArray<FLandscapeBatchElementParams, SceneRenderingAllocator>& OutStaticBatchParamArray) const;
+	bool GetMeshElement(bool UseSeperateBatchForShadow, bool ShadowOnly, bool HasTessellation, int8 InLODIndex, UMaterialInterface* InMaterialInterface, FMeshBatch& OutMeshBatch, TArray<FLandscapeBatchElementParams>& OutStaticBatchParamArray) const;
+	void BuildDynamicMeshElement(const FViewCustomDataLOD* InPrimitiveCustomData, bool InToolMesh, bool InHasTessellation, bool InDisableTessellation, FMeshBatch& OutMeshBatch, TArray<FLandscapeBatchElementParams, SceneRenderingAllocator>& OutStaticBatchParamArray) const;
 
 	float GetComponentScreenSize(const class FSceneView* View, const FVector& Origin,  float MaxExtend, float ElementRadius) const;
 
@@ -897,7 +915,13 @@ public:
 			FName(TEXT("Color6")),
 			FName(TEXT("Color7")),
 			FName(TEXT("Color8")),
-			FName(TEXT("Color9"))
+			FName(TEXT("Color9")),
+			FName(TEXT("Color10")),
+			FName(TEXT("Color11")),
+			FName(TEXT("Color12")),
+			FName(TEXT("Color13")),
+			FName(TEXT("Color14")),
+			FName(TEXT("Color15"))
 		};
 
 		for (int32 i = 0; i < ARRAY_COUNT(ColorNames) && i < LayerColors.Num(); i++)

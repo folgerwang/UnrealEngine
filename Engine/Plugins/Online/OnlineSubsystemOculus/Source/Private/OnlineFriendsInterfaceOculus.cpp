@@ -209,6 +209,11 @@ bool FOnlineFriendsOculus::GetRecentPlayers(const FUniqueNetId& UserId, const FS
 	return false;
 }
 
+void FOnlineFriendsOculus::DumpRecentPlayers() const
+{
+	/** Does not exist in LibOVRPlatform */
+}
+
 bool FOnlineFriendsOculus::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
 {
 	/** Does not exist in LibOVRPlatform */

@@ -5,6 +5,19 @@
 
 #define LOCTEXT_NAMESPACE "LandscapeEditorCommands"
 
+FName FLandscapeEditorCommands::LandscapeContext = TEXT("LandscapeEditor");
+
+FLandscapeEditorCommands::FLandscapeEditorCommands()
+	: TCommands<FLandscapeEditorCommands>
+(
+	FLandscapeEditorCommands::LandscapeContext, // Context name for fast lookup
+	NSLOCTEXT("Contexts", "LandscapeEditor", "Landscape Editor"), // Localized context name for displaying
+	NAME_None, //"LevelEditor" // Parent
+	FEditorStyle::GetStyleSetName() // Icon Style Set
+	)
+{
+}
+
 void FLandscapeEditorCommands::RegisterCommands()
 {
 	UI_COMMAND(ManageMode, "Mode - Manage", "", EUserInterfaceActionType::RadioButton, FInputChord());
@@ -87,6 +100,17 @@ void FLandscapeEditorCommands::RegisterCommands()
 	UI_COMMAND(ViewModeLayerDensity, "Layer Density", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(ViewModeLayerDebug, "Layer Debug", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(ViewModeWireframeOnTop, "Wireframe on Top", "", EUserInterfaceActionType::RadioButton, FInputChord());
+
+	UI_COMMAND(IncreaseBrushSize, "Increase Brush Size", "Press this key to increase brush size by a fixed increment.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::RightBracket));
+	UI_COMMAND(DecreaseBrushSize, "Decrease Brush Size", "Press this key to decrease brush size by a fixed increment.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::LeftBracket));
+	UI_COMMAND(IncreaseBrushFalloff, "Increase Brush Falloff", "Press this key to increase brush falloff by a fixed increment.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(DecreaseBrushFalloff, "Decrease Brush Falloff", "Press this key to decrease brush falloff by a fixed increment.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(IncreaseBrushStrength, "Increase Brush Strength", "Press this key to increase brush strength by a fixed increment.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(DecreaseBrushStrength, "Decrease Brush Strength", "Press this key to decrease brush strength by a fixed increment.", EUserInterfaceActionType::RadioButton, FInputChord());
+
+	UI_COMMAND(DragBrushSize, "Change Brush Size", "Hold this key and then click and drag to increase or decrease brush size.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(DragBrushFalloff, "Change Brush Falloff", "Hold this key and then click and drag to increase or decrease brush falloff.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(DragBrushStrength, "Change Brush Strength", "Hold this key and then click and drag to increase or decrease brush strength.", EUserInterfaceActionType::RadioButton, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE

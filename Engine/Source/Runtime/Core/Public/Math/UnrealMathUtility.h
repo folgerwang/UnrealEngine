@@ -1546,4 +1546,13 @@ struct FMath : public FPlatformMath
 		int32 CurrentGcd = GreatestCommonDivisor(a, b);
 		return CurrentGcd == 0 ? 0 : (a / CurrentGcd) * b;
 	}
+
+	/**
+	 * Generates a 1D Perlin noise from the given value.  Returns a continuous random value between -1.0 and 1.0.
+	 *
+	 * @param	Value	The input value that Perlin noise will be generated from.  This is usually a steadily incrementing time value.
+	 *
+	 * @return	Perlin noise in the range of -1.0 to 1.0
+	 */
+	static CORE_API float PerlinNoise1D(const float Value);
 };

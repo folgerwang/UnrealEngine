@@ -43,14 +43,14 @@ const FOnlineUserPresence& FOnlineFriendIOS::GetPresence() const
 
 FOnlineFriendsIOS::FOnlineFriendsIOS(FOnlineSubsystemIOS* InSubsystem)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsIOS::FOnlineFriendsIOS()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsIOS::FOnlineFriendsIOS()"));
 
 	IdentityInterface = (FOnlineIdentityIOS*)InSubsystem->GetIdentityInterface().Get();
 }
 
 bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListName, const FOnReadFriendsListComplete& Delegate /*= FOnReadFriendsListComplete()*/)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsIOS::ReadFriendsList()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsIOS::ReadFriendsList()"));
 	bool bSuccessfullyBeganReadFriends = false;
 
 	if( IdentityInterface->GetLocalGameCenterUser() != NULL && IdentityInterface->GetLocalGameCenterUser().isAuthenticated )
@@ -70,7 +70,7 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
                     if( Error )
                     {
                         FString ErrorStr(FString::Printf(TEXT("FOnlineFriendsIOS::ReadFriendsList() - Failed to read friends list with error: [%i]"), [Error code]));
-                        UE_LOG(LogOnline, Verbose, TEXT("%s"), *ErrorStr);
+                        UE_LOG_ONLINE_FRIEND(Verbose, TEXT("%s"), *ErrorStr);
                  
                         // Report back to the game thread whether this succeeded.
                         [FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
@@ -107,7 +107,7 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
                                     );
                                     CachedFriends.Add(FriendEntry);
                   
-                                    UE_LOG(LogOnline, Verbose, TEXT("GCFriend - Id:%s Alias:%s"), *FString(Friend.playerID),
+                                    UE_LOG_ONLINE_FRIEND(Verbose, TEXT("GCFriend - Id:%s Alias:%s"), *FString(Friend.playerID),
                                         *FriendEntry->GetDisplayName() );
                                 }
                   
@@ -134,7 +134,7 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
                     if( Error )
                     {
                         FString ErrorStr(FString::Printf(TEXT("FOnlineFriendsIOS::ReadFriendsList() - Failed to read friends list with error: [%i]"), [Error code]));
-                        UE_LOG(LogOnline, Verbose, TEXT("%s"), *ErrorStr);
+                        UE_LOG_ONLINE_FRIEND(Verbose, TEXT("%s"), *ErrorStr);
 
 						// Report back to the game thread whether this succeeded.
 						[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
@@ -171,7 +171,7 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
 										);
 									CachedFriends.Add(FriendEntry);
 
-									UE_LOG(LogOnline, Verbose, TEXT("GCFriend - Id:%s Alias:%s"), *FString(Friend.playerID), 
+									UE_LOG_ONLINE_FRIEND(Verbose, TEXT("GCFriend - Id:%s Alias:%s"), *FString(Friend.playerID), 
 										*FriendEntry->GetDisplayName() );
 								}
 
@@ -232,7 +232,7 @@ bool FOnlineFriendsIOS::DeleteFriend(int32 LocalUserNum, const FUniqueNetId& Fri
 
 bool FOnlineFriendsIOS::GetFriendsList(int32 LocalUserNum, const FString& ListName, TArray< TSharedRef<FOnlineFriend> >& OutFriends)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsIOS::GetFriendsList()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsIOS::GetFriendsList()"));
 
 	for (int32 Idx=0; Idx < CachedFriends.Num(); Idx++)
 	{
@@ -246,7 +246,7 @@ TSharedPtr<FOnlineFriend> FOnlineFriendsIOS::GetFriend(int32 LocalUserNum, const
 {
 	TSharedPtr<FOnlineFriend> Result;
 
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsIOS::GetFriend()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsIOS::GetFriend()"));
 
 	for (int32 Idx=0; Idx < CachedFriends.Num(); Idx++)
 	{
@@ -262,7 +262,7 @@ TSharedPtr<FOnlineFriend> FOnlineFriendsIOS::GetFriend(int32 LocalUserNum, const
 
 bool FOnlineFriendsIOS::IsFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsIOS::IsFriend()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsIOS::IsFriend()"));
 
 	TSharedPtr<FOnlineFriend> Friend = GetFriend(LocalUserNum,FriendId,ListName);
 	if (Friend.IsValid() &&
@@ -275,7 +275,7 @@ bool FOnlineFriendsIOS::IsFriend(int32 LocalUserNum, const FUniqueNetId& FriendI
 
 bool FOnlineFriendsIOS::QueryRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsIOS::QueryRecentPlayers()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsIOS::QueryRecentPlayers()"));
 
 	TriggerOnQueryRecentPlayersCompleteDelegates(UserId, Namespace, false, TEXT("not implemented"));
 
@@ -285,6 +285,11 @@ bool FOnlineFriendsIOS::QueryRecentPlayers(const FUniqueNetId& UserId, const FSt
 bool FOnlineFriendsIOS::GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers)
 {
 	return false;
+}
+
+void FOnlineFriendsIOS::DumpRecentPlayers() const
+{
+
 }
 
 bool FOnlineFriendsIOS::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)

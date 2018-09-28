@@ -59,9 +59,9 @@ void SetupFogUniformParameters(const FViewInfo& View, FFogUniformParameters& Out
 		OutParameters.ExponentialFogParameters3 = View.ExponentialFogParameters3;
 		OutParameters.SinCosInscatteringColorCubemapRotation = View.SinCosInscatteringColorCubemapRotation;
 		OutParameters.FogInscatteringTextureParameters = View.FogInscatteringTextureParameters;
-		OutParameters.InscatteringLightDirection = FVector4(View.InscatteringLightDirection, View.bUseDirectionalInscattering ? 1 : 0);
+		OutParameters.InscatteringLightDirection = View.InscatteringLightDirection;
+		OutParameters.InscatteringLightDirection.W = View.bUseDirectionalInscattering ? FMath::Max(0.f, View.DirectionalInscatteringStartDistance) : -1.f;
 		OutParameters.DirectionalInscatteringColor = FVector4(FVector(View.DirectionalInscatteringColor), FMath::Clamp(View.DirectionalInscatteringExponent, 0.000001f, 1000.0f));
-		OutParameters.DirectionalInscatteringStartDistance = View.DirectionalInscatteringStartDistance;
 		OutParameters.FogInscatteringColorCubemap = Cubemap->TextureRHI;
 		OutParameters.FogInscatteringColorSampler = TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 	}
@@ -428,7 +428,7 @@ bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdLi
 {
 	if (Scene->ExponentialFogs.Num() > 0 
 		// Fog must be done in the base pass for MSAA to work
-		&& !IsForwardShadingEnabled(FeatureLevel))
+		&& !IsForwardShadingEnabled(ShaderPlatform))
 	{
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 

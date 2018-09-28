@@ -154,6 +154,8 @@ FAnimPhysRigidBody::FAnimPhysRigidBody(TArray<FAnimPhysShape>& InShapes, const F
 , bLinearDampingOverriden(false)
 , LinearDamping(0.0f)
 , GravityScale(1.0f)
+, bUseGravityOverride(false)
+, GravityOverride(FVector::ZeroVector)
 , Shapes(InShapes)
 {
 	StartPosition = InPosition;
@@ -845,7 +847,7 @@ void FAnimPhys::InitializeBodyVelocity(float DeltaTime, FAnimPhysRigidBody *InBo
 	InBody->LinearMomentum *= LinearDampingLeftOver;
 	InBody->AngularMomentum *= AngularDampingLeftOver;
 
-	FVector Force = GravityDirection * FMath::Abs(UPhysicsSettings::Get()->DefaultGravityZ) * InBody->Mass * InBody->GravityScale;
+	FVector Force = InBody->bUseGravityOverride ? (InBody->GravityOverride * InBody->Mass) : (GravityDirection * FMath::Abs(UPhysicsSettings::Get()->DefaultGravityZ) * InBody->Mass * InBody->GravityScale);
 	FVector Torque(0.0f, 0.0f, 0.0f);
 
 	// Add wind forces
@@ -904,7 +906,7 @@ void FAnimPhys::UpdatePose(FAnimPhysRigidBody* InBody)
 	InBody->InverseWorldSpaceTensor = OrientAsMatrix * InBody->InverseTensorWithoutMass * InBody->InverseMass * OrientAsMatrix.GetTransposed();
 }
 
-void FAnimPhys::PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodies, TArray<FAnimPhysLinearLimit>& LinearLimits, TArray<FAnimPhysAngularLimit>& AngularLimits, TArray<FAnimPhysSpring>& Springs, const FVector& GravityDirection, const FVector& ExternalForce, int32 NumPreIterations, int32 NumPostIterations)
+void FAnimPhys::PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodies, TArray<FAnimPhysLinearLimit>& LinearLimits, TArray<FAnimPhysAngularLimit>& AngularLimits, TArray<FAnimPhysSpring>& Springs, const FVector& GravityDirection, const FVector& ExternalForce, const FVector& ExternalLinearAcc, int32 NumPreIterations, int32 NumPostIterations)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsUpdate);
 
@@ -919,6 +921,18 @@ void FAnimPhys::PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodi
 		for(FAnimPhysRigidBody* Body : Bodies)
 		{
 			Body->LinearMomentum += ExternalForce * DeltaTime;
+		}
+	}
+
+	// apply external acceleration
+	if (!ExternalLinearAcc.IsNearlyZero())
+	{
+		for (FAnimPhysRigidBody* Body : Bodies)
+		{
+			if (Body->InverseMass > KINDA_SMALL_NUMBER)
+			{
+				Body->LinearMomentum += ((ExternalLinearAcc / Body->InverseMass) * DeltaTime); // need to scale by mass to go from acc to momentum
+			}
 		}
 	}
 

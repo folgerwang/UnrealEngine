@@ -35,6 +35,7 @@
 #include "Styling/SlateIconFinder.h"
 #include "ClassIconFinder.h"
 #include "IVREditorModule.h"
+#include "Framework/Application/SlateApplication.h"
 
 class SAssetThumbnail : public SCompoundWidget
 {
@@ -76,7 +77,8 @@ public:
 		Label = InArgs._Label;
 		HintColorAndOpacity = InArgs._HintColorAndOpacity;
 		bAllowHintText = InArgs._AllowHintText;
-
+		ThumbnailBrush = nullptr;
+		ClassIconBrush = nullptr;
 		AssetThumbnail = InArgs._AssetThumbnail;
 		bHasRenderedThumbnail = false;
 		WidthLastFrame = 0;
@@ -109,6 +111,9 @@ public:
 		UpdateThumbnailClass();
 
 		ClassThumbnailBrushOverride = InArgs._ClassThumbnailBrushOverride;
+
+		AssetBackgroundBrushName = *(Style.ToString() + TEXT(".AssetBackground"));
+		ClassBackgroundBrushName = *(Style.ToString() + TEXT(".ClassBackground"));
 
 		// The generic representation of the thumbnail, for use before the rendered version, if it exists
 		OverlayWidget->AddSlot()
@@ -259,6 +264,14 @@ public:
 	{
 		const FAssetData& AssetData = AssetThumbnail->GetAssetData();
 		ThumbnailClass = MakeWeakObjectPtr(const_cast<UClass*>(FClassIconFinder::GetIconClassForAssetData(AssetData, &bIsClassType)));
+
+		// For non-class types, use the default based upon the actual asset class
+		// This has the side effect of not showing a class icon for assets that don't have a proper thumbnail image available
+		const FName DefaultThumbnail = (bIsClassType) ? NAME_None : FName(*FString::Printf(TEXT("ClassThumbnail.%s"), *AssetThumbnail->GetAssetData().AssetClass.ToString()));
+		ThumbnailBrush = FClassIconFinder::FindThumbnailForClass(ThumbnailClass.Get(), DefaultThumbnail);
+
+		ClassIconBrush = FSlateIconFinder::FindIconBrushForClass(ThumbnailClass.Get());
+
 	}
 
 	FSlateColor GetHintBackgroundColor() const
@@ -368,14 +381,13 @@ private:
 
 	const FSlateBrush* GetAssetBackgroundBrush() const
 	{
-		const FName BackgroundBrushName( *(Style.ToString() + TEXT(".AssetBackground")) );
-		return FEditorStyle::GetBrush(BackgroundBrushName);
+		return FEditorStyle::GetBrush(AssetBackgroundBrushName);
 	}
 
 	const FSlateBrush* GetClassBackgroundBrush() const
 	{
-		const FName BackgroundBrushName( *(Style.ToString() + TEXT(".ClassBackground")) );
-		return FEditorStyle::GetBrush(BackgroundBrushName);
+
+		return FEditorStyle::GetBrush(ClassBackgroundBrushName);
 	}
 
 	FSlateColor GetViewportBorderColorAndOpacity() const
@@ -409,10 +421,7 @@ private:
 	{
 		if (ClassThumbnailBrushOverride.IsNone())
 		{
-			// For non-class types, use the default based upon the actual asset class
-			// This has the side effect of not showing a class icon for assets that don't have a proper thumbnail image available
-			const FName DefaultThumbnail = (bIsClassType) ? NAME_None : FName(*FString::Printf(TEXT("ClassThumbnail.%s"), *AssetThumbnail->GetAssetData().AssetClass.ToString()));
-			return FClassIconFinder::FindThumbnailForClass(ThumbnailClass.Get(), DefaultThumbnail);
+			return ThumbnailBrush;
 		}
 		else
 		{
@@ -444,7 +453,7 @@ private:
 
 	const FSlateBrush* GetClassIconBrush() const
 	{
-		return FSlateIconFinder::FindIconBrushForClass(ThumbnailClass.Get());
+		return ClassIconBrush;
 	}
 
 	FMargin GetClassIconPadding() const
@@ -540,7 +549,7 @@ private:
 			if (ThumbnailPtr)
 			{
 				const FObjectThumbnail& ObjectThumbnail = *ThumbnailPtr;
-				return ObjectThumbnail.GetImageWidth() > 0 && ObjectThumbnail.GetImageHeight() > 0 && ObjectThumbnail.GetUncompressedImageData().Num() > 0;
+				return ObjectThumbnail.GetImageWidth() > 0 && ObjectThumbnail.GetImageHeight() > 0 && ObjectThumbnail.GetCompressedDataSize() > 0;
 			}
 		}
 
@@ -679,6 +688,14 @@ private:
 
 	/** The name of the thumbnail which should be used instead of the class thumbnail. */
 	FName ClassThumbnailBrushOverride;
+
+	FName AssetBackgroundBrushName;
+	FName ClassBackgroundBrushName;
+
+	const FSlateBrush* ThumbnailBrush;
+
+	const FSlateBrush* ClassIconBrush;
+
 	/** The class to use when finding the thumbnail. */
 	TWeakObjectPtr<UClass> ThumbnailClass;
 	/** Are we showing a class type? (UClass, UBlueprint) */
@@ -914,6 +931,12 @@ bool FAssetThumbnailPool::IsTickable() const
 
 void FAssetThumbnailPool::Tick( float DeltaTime )
 {
+	// If throttling do not tick unless drag dropping which could have a thumbnail as the cursor decorator
+	if (!FSlateApplication::Get().IsDragDropping() && !FSlateThrottleManager::Get().IsAllowingExpensiveTasks() && !FSlateApplication::Get().AnyMenusVisible())
+	{
+		return;
+	}
+
 	// If there were any assets loaded since last frame that we are currently displaying thumbnails for, push them on the render stack now.
 	if ( RecentlyLoadedAssets.Num() > 0 )
 	{
@@ -962,7 +985,7 @@ void FAssetThumbnailPool::Tick( float DeltaTime )
 			{
 				Info = ThumbnailsToRenderStack.Pop();
 			}
-			else if ( FSlateThrottleManager::Get().IsAllowingExpensiveTasks() && RealTimeThumbnailsToRender.Num() > 0 && NumRealTimeThumbnailsRenderedThisFrame < MaxRealTimeThumbnailsPerFrame )
+			else if (RealTimeThumbnailsToRender.Num() > 0 && NumRealTimeThumbnailsRenderedThisFrame < MaxRealTimeThumbnailsPerFrame )
 			{
 				Info = RealTimeThumbnailsToRender.Pop();
 				NumRealTimeThumbnailsRenderedThisFrame++;

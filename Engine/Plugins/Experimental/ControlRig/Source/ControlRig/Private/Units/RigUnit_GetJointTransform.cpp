@@ -42,4 +42,11 @@ void FRigUnit_GetJointTransform::Execute(const FRigUnitContext& InContext)
 			}
 		}
 	}
+	else
+	{
+		if (InContext.State == EControlRigState::Init)
+		{
+			UnitLogHelpers::PrintMissingHierarchy(RigUnitName);
+		}
+	}
 }

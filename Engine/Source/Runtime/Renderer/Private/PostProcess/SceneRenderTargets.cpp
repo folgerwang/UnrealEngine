@@ -202,6 +202,16 @@ static void SnapshotArray(TRefCountPtr<IPooledRenderTarget> (&Dest)[N], const TR
 	}
 }
 
+template <uint32 N>
+static void SnapshotArray(TArray<TRefCountPtr<IPooledRenderTarget>, TInlineAllocator<N>>(&Dest), const TArray<TRefCountPtr<IPooledRenderTarget>, TInlineAllocator<N>>(&Src))
+{
+	Dest.SetNum(Src.Num());
+	for (int32 Index = 0; Index < Src.Num(); Index++)
+	{
+		Dest[Index] = GRenderTargetPool.MakeSnapshot(Src[Index]);
+	}
+}
+
 FSceneRenderTargets::FSceneRenderTargets(const FViewInfo& View, const FSceneRenderTargets& SnapshotSource)
 	: LightAttenuation(GRenderTargetPool.MakeSnapshot(SnapshotSource.LightAttenuation))
 	, LightAccumulation(GRenderTargetPool.MakeSnapshot(SnapshotSource.LightAccumulation))
@@ -375,7 +385,7 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 		default:
 			checkNoEntry();
 	}
-	
+
 	const uint32 FrameNumber = ViewFamily.FrameNumber;
 	if (ThisFrameNumber != FrameNumber)
 	{
@@ -415,7 +425,7 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 		bAllowDelayResize = bAllowDelayResize && !bAspectRatioChanged;
 	}
 
-	if (bAllowDelayResize)
+	if(bAllowDelayResize)
 	{
 		for (int32 i = 0; i < FrameSizeHistoryCount; ++i)
 		{
@@ -435,7 +445,7 @@ uint16 FSceneRenderTargets::GetNumSceneColorMSAASamples(ERHIFeatureLevel::Type I
 		static IConsoleVariable* CVarDefaultAntiAliasing = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DefaultFeature.AntiAliasing"));
 		EAntiAliasingMethod Method = (EAntiAliasingMethod)CVarDefaultAntiAliasing->GetInt();
 
-		if (IsForwardShadingEnabled(InFeatureLevel) && Method == AAM_MSAA)
+		if (IsForwardShadingEnabled(GetFeatureLevelShaderPlatform(InFeatureLevel)) && Method == AAM_MSAA)
 		{
 			NumSamples = FMath::Max(1, CVarMSAACount.GetValueOnRenderThread());
 
@@ -594,7 +604,7 @@ void FSceneRenderTargets::Allocate(FRHICommandListImmediate& RHICmdList, const F
 
 	// Do allocation of render targets if they aren't available for the current shading path
 	CurrentFeatureLevel = NewFeatureLevel;
-	AllocateRenderTargets(RHICmdList);
+	AllocateRenderTargets(RHICmdList, ViewFamily.Views.Num());
 	if (ViewFamily.IsMonoscopicFarFieldEnabled() && ViewFamily.Views.Num() == 3)
 	{
 		AllocSceneMonoRenderTargets(RHICmdList, SceneRenderer->Views[2]);
@@ -623,7 +633,7 @@ int32 FSceneRenderTargets::GetGBufferRenderTargets(ERenderTargetLoadAction Color
 	OutRenderTargets[MRTCount++] = FRHIRenderTargetView(GBufferB->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
 	OutRenderTargets[MRTCount++] = FRHIRenderTargetView(GBufferC->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
 
-	// The velocity buffer needs to be bound before other optionnal rendertargets (when UseSelecUseSelectiveBasePassOutputs() is true).
+	// The velocity buffer needs to be bound before other optionnal rendertargets (when UseSelectiveBasePassOutputs() is true).
 	// Otherwise there is an issue on some AMD hardware where the target does not get updated. Seems to be related to the velocity buffer format as it works fine with other targets.
 	if (bAllocateVelocityGBuffer)
 	{
@@ -956,7 +966,7 @@ void FSceneRenderTargets::ReleaseGBufferTargets()
 
 void FSceneRenderTargets::PreallocGBufferTargets()
 {
-	bAllocateVelocityGBuffer = FVelocityRendering::OutputsToGBuffer();
+	bAllocateVelocityGBuffer = FVelocityRendering::BasePassCanOutputVelocity(CurrentFeatureLevel);
 }
 
 void FSceneRenderTargets::GetGBufferADesc(FPooledRenderTargetDesc& Desc) const
@@ -1792,18 +1802,31 @@ void FSceneRenderTargets::AllocateMobileRenderTargets(FRHICommandList& RHICmdLis
 	}
 }
 
+#define RETURN_VOLUME_TEXTURE_NAME(Index) case Index: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir"#Index) : (TCHAR*)TEXT("TranslucentVolume"#Index)
+
 // for easier use of "VisualizeTexture"
 static TCHAR* const GetVolumeName(uint32 Id, bool bDirectional)
 {
-	// (TCHAR*) for non VisualStudio
 	switch(Id)
 	{
-		case 0: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir0") : (TCHAR*)TEXT("TranslucentVolume0");
-		case 1: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir1") : (TCHAR*)TEXT("TranslucentVolume1");
-		case 2: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir2") : (TCHAR*)TEXT("TranslucentVolume2");
+		RETURN_VOLUME_TEXTURE_NAME(0);
+		RETURN_VOLUME_TEXTURE_NAME(1);
+		RETURN_VOLUME_TEXTURE_NAME(2);
 
+		RETURN_VOLUME_TEXTURE_NAME(3);
+		RETURN_VOLUME_TEXTURE_NAME(4);
+		RETURN_VOLUME_TEXTURE_NAME(5);
+
+		RETURN_VOLUME_TEXTURE_NAME(6);
+		RETURN_VOLUME_TEXTURE_NAME(7);
+		RETURN_VOLUME_TEXTURE_NAME(8);
+
+		RETURN_VOLUME_TEXTURE_NAME(9);
+		RETURN_VOLUME_TEXTURE_NAME(10);
+		RETURN_VOLUME_TEXTURE_NAME(11);
+	
 		default:
-			check(0);
+			check(0); // Add texture names up to what you need
 	}
 	return (TCHAR*)TEXT("InvalidName");
 }
@@ -1996,7 +2019,7 @@ void FSceneRenderTargets::AllocateLightingChannelTexture(FRHICommandList& RHICmd
 	}
 }
 
-void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandListImmediate& RHICmdList, const int32 NumViews)
 {
 	AllocateCommonDepthTargets(RHICmdList);
 
@@ -2034,7 +2057,10 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 				TranslucencyTargetFlags |= TexCreate_UAV;
 			}
 
-			for (int32 RTSetIndex = 0; RTSetIndex < NumTranslucentVolumeRenderTargetSets; RTSetIndex++)
+			TranslucencyLightingVolumeAmbient.SetNum(NumViews * NumTranslucentVolumeRenderTargetSets);
+			TranslucencyLightingVolumeDirectional.SetNum(NumViews * NumTranslucentVolumeRenderTargetSets);
+
+			for (int32 RTSetIndex = 0; RTSetIndex < NumTranslucentVolumeRenderTargetSets * NumViews; RTSetIndex++)
 			{
 				GRenderTargetPool.FindFreeElement(
 					RHICmdList,
@@ -2090,7 +2116,7 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 			//these get bound even with the CVAR off, make sure they aren't full of garbage.
 			if (!GUseTranslucentLightingVolumes)
 			{
-				ClearTranslucentVolumeLighting(RHICmdList);
+				ClearTranslucentVolumeLighting(RHICmdList, 0);
 			}
 		}
 	}
@@ -2151,7 +2177,7 @@ EPixelFormat FSceneRenderTargets::GetMobileSceneColorFormat() const
 	return CurrentMobileSceneColorFormat;
 }
 
-void FSceneRenderTargets::ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderTargets::ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList, int32 ViewIndex)
 {
 	if (GSupportsVolumeTextureRendering)
 	{
@@ -2168,8 +2194,8 @@ void FSceneRenderTargets::ClearTranslucentVolumeLighting(FRHICommandListImmediat
 
 		for (int32 Idx = 0; Idx < NumIterations; ++Idx)
 		{
-			RenderTargets[Idx << 1] = TranslucencyLightingVolumeAmbient[Idx]->GetRenderTargetItem().TargetableTexture;
-			RenderTargets[(Idx << 1) + 1] = TranslucencyLightingVolumeDirectional[Idx]->GetRenderTargetItem().TargetableTexture;
+			RenderTargets[Idx << 1] = TranslucencyLightingVolumeAmbient[Idx + NumTranslucentVolumeRenderTargetSets * ViewIndex]->GetRenderTargetItem().TargetableTexture;
+			RenderTargets[(Idx << 1) + 1] = TranslucencyLightingVolumeDirectional[Idx + NumTranslucentVolumeRenderTargetSets * ViewIndex]->GetRenderTargetItem().TargetableTexture;
 		}
 
 		static const FLinearColor ClearColors[Num3DTextures] = { FLinearColor::Transparent };
@@ -2278,7 +2304,7 @@ EPixelFormat FSceneRenderTargets::GetSceneColorFormat(ERHIFeatureLevel::Type InF
 	return SceneColorBufferFormat;
 }
 
-void FSceneRenderTargets::AllocateRenderTargets(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderTargets::AllocateRenderTargets(FRHICommandListImmediate& RHICmdList, const int32 NumViews)
 {
 	if (BufferSize.X > 0 && BufferSize.Y > 0 && (!AreShadingPathRenderTargetsAllocated(GetSceneColorFormatType()) || !AreRenderTargetClearsValid(GetSceneColorFormatType())))
 	{
@@ -2288,7 +2314,7 @@ void FSceneRenderTargets::AllocateRenderTargets(FRHICommandListImmediate& RHICmd
 		}
 		else
 		{
-			AllocateDeferredShadingPathRenderTargets(RHICmdList);
+			AllocateDeferredShadingPathRenderTargets(RHICmdList, NumViews);
 		}
 	}
 }
@@ -2347,7 +2373,8 @@ void FSceneRenderTargets::ReleaseAllTargets()
 
 	SkySHIrradianceMap.SafeRelease();
 
-	for (int32 RTSetIndex = 0; RTSetIndex < NumTranslucentVolumeRenderTargetSets; RTSetIndex++)
+	ensure(TranslucencyLightingVolumeAmbient.Num() == TranslucencyLightingVolumeDirectional.Num());
+	for (int32 RTSetIndex = 0; RTSetIndex < TranslucencyLightingVolumeAmbient.Num(); RTSetIndex++)
 	{
 		TranslucencyLightingVolumeAmbient[RTSetIndex].SafeRelease();
 		TranslucencyLightingVolumeDirectional[RTSetIndex].SafeRelease();

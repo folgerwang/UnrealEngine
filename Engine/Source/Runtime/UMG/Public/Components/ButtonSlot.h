@@ -55,5 +55,5 @@ public:
 private:
 
 	/** A pointer to the button to allow us to adjust the size, padding...etc at runtime. */
-	TSharedPtr<SButton> Button;
+	TWeakPtr<SButton> Button;
 };

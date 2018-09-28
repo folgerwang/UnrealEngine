@@ -139,6 +139,9 @@ bool FOpenGLES2::bSupportsStandardDerivativesExtension = false;
 /* This is a hack to remove the gl_FragCoord if shader will fail to link if exceeding the max varying on android platforms */
 bool FOpenGLES2::bRequiresGLFragCoordVaryingLimitHack = false;
 
+/* This indicates failure when attempting to retrieve driver's binary representation of the hack program  */
+bool FOpenGLES2::bBinaryProgramRetrievalFailed = false;
+
 /** Vertex attributes need remapping if GL_MAX_VERTEX_ATTRIBS < 16 */
 bool FOpenGLES2::bNeedsVertexAttribRemap = false;
 
@@ -247,10 +250,6 @@ void FOpenGLES2::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsStandardDerivativesExtension = ExtensionsString.Contains(TEXT("GL_OES_standard_derivatives"));
 	bSupportsRGB10A2 = ExtensionsString.Contains(TEXT("GL_OES_vertex_type_10_10_10_2"));
 	bSupportsProgramBinary = ExtensionsString.Contains(TEXT("GL_OES_get_program_binary"));
-	if (!bSupportsStandardDerivativesExtension)
-	{
-		UE_LOG(LogRHI, Warning, TEXT("GL_OES_standard_derivatives not supported. There may be rendering errors if materials depend on dFdx, dFdy, or fwidth."));
-	}
 
 	// Report shader precision
 	int Range[2];

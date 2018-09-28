@@ -1069,7 +1069,9 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 			bool bDone;
 			uint32 WaitTime = FMath::Clamp<uint32>(GTimeToBlockOnRenderFence, 0, 33);
 
-			const double StartTime = FPlatformTime::Seconds();
+			// Use a clamped clock to prevent taking into account time spent suspended.
+			FThreadHeartBeatClock RenderThreadTimeoutClock((4 * WaitTime) / 1000.0);
+			const double StartTime = RenderThreadTimeoutClock.Seconds();
 			const double EndTime = StartTime + (GTimeoutForBlockOnRenderFence / 1000.0);
 
 			bool bRenderThreadEnsured = FDebug::IsEnsuring();
@@ -1086,8 +1088,11 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 				}
 				bDone = Event->Wait(WaitTime);
 
+				RenderThreadTimeoutClock.Tick();
+
 				bool IsGpuAlive = true;
-				const bool bOverdue = FPlatformTime::Seconds() >= EndTime && FThreadHeartBeat::Get().IsBeating();
+				const bool bOverdue = RenderThreadTimeoutClock.Seconds() >= EndTime && FThreadHeartBeat::Get().IsBeating();
+
 				if (bOverdue)
 				{
 					if (GDynamicRHI)
@@ -1111,7 +1116,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 				{
 					if (bOverdue && !bDisabled)
 					{
-						UE_LOG(LogRendererCore, Fatal, TEXT("GameThread timed out waiting for RenderThread after %.02f secs"), FPlatformTime::Seconds() - StartTime);
+						UE_LOG(LogRendererCore, Fatal, TEXT("GameThread timed out waiting for RenderThread after %.02f secs"), RenderThreadTimeoutClock.Seconds() - StartTime);
 					}
 				}
 #endif

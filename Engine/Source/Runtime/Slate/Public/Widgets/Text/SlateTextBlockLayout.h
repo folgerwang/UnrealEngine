@@ -64,6 +64,11 @@ public:
 	FVector2D ComputeDesiredSize(const FWidgetArgs& InWidgetArgs, const float InScale, const FTextBlockStyle& InTextStyle);
 
 	/**
+	 * Gets the last computed desired size.
+	 */
+	FVector2D GetDesiredSize() const;
+
+	/**
 	 * Paint this layout, updating the internal cache as required
 	 */
 	int32 OnPaint(const FPaintArgs& InPaintArgs, const FGeometry& InAllottedGeometry, const FSlateRect& InClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled);
@@ -125,7 +130,7 @@ private:
 	bool IsStyleUpToDate(const FTextBlockStyle& NewStyle) const;
 
 	/** Calculate the wrapping width based on the given fixed wrap width, and whether we're auto-wrapping */
-	float CalculateWrappingWidth(const FWidgetArgs& InWidgetArgs) const;
+	float CalculateWrappingWidth() const;
 
 	/** In control of the layout and wrapping of the text */
 	TSharedPtr<FSlateTextLayout> TextLayout;
@@ -138,6 +143,12 @@ private:
 
 	/** The last known size of the layout from the previous OnPaint, used to guess at an auto-wrapping width in ComputeDesiredSize */
 	FVector2D CachedSize;
+
+	/** Cache where to wrap text at? */
+	float CachedWrapTextAt;
+
+	/** Cache the auto wrap text value */
+	bool bCachedAutoWrapText;
 
 	/** The state of the text the last time it was updated (used to allow updates when the text is changed) */
 	FTextSnapshot TextLastUpdate;

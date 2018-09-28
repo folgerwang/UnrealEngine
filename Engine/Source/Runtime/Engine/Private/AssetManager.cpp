@@ -14,6 +14,7 @@
 #include "Misc/Paths.h"
 #include "AssetRegistryState.h"
 #include "HAL/PlatformFilemanager.h"
+#include "IPlatformFilePak.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -108,6 +109,7 @@ UAssetManager::UAssetManager()
 	bShouldAcquireMissingChunksOnLoad = false;
 	bIsBulkScanning = false;
 	bIsManagementDatabaseCurrent = false;
+	bIsPrimaryAssetDirectoryCurrent = false;
 	bUpdateManagementDatabaseAfterScan = false;
 	bIncludeOnlyOnDiskAssets = true;
 	NumberOfSpawnedNotifications = 0;
@@ -1537,23 +1539,43 @@ bool UAssetManager::GetAssetBundleEntries(const FPrimaryAssetId& BundleScope, TA
 
 bool UAssetManager::FindMissingChunkList(const TArray<FSoftObjectPath>& AssetList, TArray<int32>& OutMissingChunkList, TArray<int32>& OutErrorChunkList) const
 {
-	IPlatformChunkInstall* ChunkInstall = FPlatformMisc::GetPlatformChunkInstall();
-
-	if (!ChunkInstall || !bIsLoadingFromPakFiles)
+	if (!bIsLoadingFromPakFiles)
 	{
 		return false;
 	}
+
+	// Cache of locations for chunk IDs
+	TMap<int32, EChunkLocation::Type> ChunkLocationCache;
+
+	// Grab chunk install
+	IPlatformChunkInstall* ChunkInstall = FPlatformMisc::GetPlatformChunkInstall();
+
+	// Grab pak platform file
+	FPakPlatformFile* Pak = (FPakPlatformFile*)FPlatformFileManager::Get().FindPlatformFile(TEXT("PakFile"));
+	check(Pak);
 
 	for (const FSoftObjectPath& Asset : AssetList)
 	{
 		FAssetData FoundData;
 		GetAssetDataForPath(Asset, FoundData);
-		
 		TSet<int32> FoundChunks, MissingChunks, ErrorChunks;
 
 		for (int32 ChunkId : FoundData.ChunkIDs)
 		{
-			EChunkLocation::Type ChunkLocation = ChunkInstall->GetChunkLocation(ChunkId);
+			if (!ChunkLocationCache.Contains(ChunkId))
+			{
+				EChunkLocation::Type Location = ChunkInstall->GetChunkLocation(ChunkId);
+
+				// If chunk install thinks the chunk is available, we need to double check with the pak system that it isn't
+				// pending decryption
+				if (Location >= EChunkLocation::LocalSlow && Pak->AnyChunksAvailable())
+				{
+					Location = Pak->GetPakChunkLocation(ChunkId);
+				}
+
+				ChunkLocationCache.Add(ChunkId, Location);
+			}
+			EChunkLocation::Type ChunkLocation = ChunkLocationCache[ChunkId];
 
 			switch (ChunkLocation)
 			{			
@@ -1758,6 +1780,19 @@ void UAssetManager::OnChunkDownloaded(uint32 ChunkId, bool bSuccess)
 
 				if (PendingChunkInstall.StalledStreamableHandle.IsValid())
 				{
+					// Now that this stalled load can resume, we need to clear all of it's requested assets
+					// from the known missing list, just in case we ever previously tried to load them from
+					// before the chunk was installed/decrypted
+					TArray<FSoftObjectPath> RequestedAssets;
+					PendingChunkInstall.StalledStreamableHandle->GetRequestedAssets(RequestedAssets);
+					for (const FSoftObjectPath& Path : RequestedAssets)
+					{
+						FName Name(*Path.GetLongPackageName());
+						if (FLinkerLoad::IsKnownMissingPackage(Name))
+						{
+							FLinkerLoad::RemoveKnownMissingPackage(Name);
+						}
+					}
 					PendingChunkInstall.StalledStreamableHandle->StartStalledHandle();
 				}
 
@@ -2339,6 +2374,8 @@ void UAssetManager::ScanPrimaryAssetTypesFromConfig()
 
 void UAssetManager::PostInitialAssetScan()
 {
+	bIsPrimaryAssetDirectoryCurrent = true;
+
 #if WITH_EDITOR
 	if (bUpdateManagementDatabaseAfterScan)
 	{
@@ -3024,33 +3061,41 @@ void UAssetManager::EndPIE(bool bStartSimulate)
 	}
 }
 
-void UAssetManager::RefreshPrimaryAssetDirectory()
+void UAssetManager::InvalidatePrimaryAssetDirectory()
 {
-	StartBulkScanning();
+	bIsPrimaryAssetDirectoryCurrent = false;
+}
 
-	for (TPair<FName, TSharedRef<FPrimaryAssetTypeData>>& TypePair : AssetTypeMap)
+void UAssetManager::RefreshPrimaryAssetDirectory(bool bForceRefresh)
+{
+	if (bForceRefresh || !bIsPrimaryAssetDirectoryCurrent)
 	{
-		FPrimaryAssetTypeData& TypeData = TypePair.Value.Get();
+		StartBulkScanning();
 
-		// Rescan the runtime data, the class may have gotten changed by hot reload
-		if (!TypeData.Info.FillRuntimeData())
+		for (TPair<FName, TSharedRef<FPrimaryAssetTypeData>>& TypePair : AssetTypeMap)
 		{
-			continue;
+			FPrimaryAssetTypeData& TypeData = TypePair.Value.Get();
+
+			// Rescan the runtime data, the class may have gotten changed by hot reload
+			if (!TypeData.Info.FillRuntimeData())
+			{
+				continue;
+			}
+
+			if (TypeData.Info.AssetScanPaths.Num())
+			{
+				// Clear old data
+				TypeData.AssetMap.Reset();
+
+				// Rescan all assets. We don't force synchronous here as in the editor it was already loaded async
+				ScanPathsForPrimaryAssets(TypePair.Key, TypeData.Info.AssetScanPaths, TypeData.Info.AssetBaseClassLoaded, TypeData.Info.bHasBlueprintClasses, TypeData.Info.bIsEditorOnly, false);
+			}
 		}
 
-		if (TypeData.Info.AssetScanPaths.Num())
-		{
-			// Clear old data
-			TypeData.AssetMap.Reset();
+		StopBulkScanning();
 
-			// Rescan all assets. We don't force synchronous here as in the editor it was already loaded async
-			ScanPathsForPrimaryAssets(TypePair.Key, TypeData.Info.AssetScanPaths, TypeData.Info.AssetBaseClassLoaded, TypeData.Info.bHasBlueprintClasses, TypeData.Info.bIsEditorOnly, false);
-		}
+		PostInitialAssetScan();
 	}
-
-	StopBulkScanning();
-
-	PostInitialAssetScan();
 }
 
 void UAssetManager::ReinitializeFromConfig()

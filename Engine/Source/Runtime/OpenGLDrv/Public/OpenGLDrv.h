@@ -344,6 +344,7 @@ public:
 	virtual FDepthStencilStateRHIRef RHICreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer) final override;
 	virtual FBlendStateRHIRef RHICreateBlendState(const FBlendStateInitializerRHI& Initializer) final override;
 	virtual FVertexDeclarationRHIRef RHICreateVertexDeclaration(const FVertexDeclarationElementList& Elements) final override;
+
 	virtual FPixelShaderRHIRef RHICreatePixelShader(const TArray<uint8>& Code) final override;
 	virtual FVertexShaderRHIRef RHICreateVertexShader(const TArray<uint8>& Code) final override;
 	virtual FHullShaderRHIRef RHICreateHullShader(const TArray<uint8>& Code) final override;
@@ -351,6 +352,16 @@ public:
 	virtual FGeometryShaderRHIRef RHICreateGeometryShader(const TArray<uint8>& Code) final override;
 	virtual FGeometryShaderRHIRef RHICreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) final override;
 	virtual FComputeShaderRHIRef RHICreateComputeShader(const TArray<uint8>& Code) final override;
+
+	virtual FPixelShaderRHIRef RHICreatePixelShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+	virtual FVertexShaderRHIRef RHICreateVertexShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+	virtual FHullShaderRHIRef RHICreateHullShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+	virtual FDomainShaderRHIRef RHICreateDomainShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+	virtual FGeometryShaderRHIRef RHICreateGeometryShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+	virtual FGeometryShaderRHIRef RHICreateGeometryShaderWithStreamOutput(const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream, FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+	virtual FComputeShaderRHIRef RHICreateComputeShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash) final override;
+
+
 	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) final override;
 	virtual FIndexBufferRHIRef RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override;
 	virtual void* RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer, uint32 Offset, uint32 Size, EResourceLockMode LockMode) final override;
@@ -423,6 +434,7 @@ public:
 	virtual void RHISetStreamOutTargets(uint32 NumTargets,const FVertexBufferRHIParamRef* VertexBuffers,const uint32* Offsets) final override;
 	virtual void RHIBlockUntilGPUIdle() final override;
 	virtual void RHISubmitCommandsAndFlushGPU() final override;
+	virtual void RHIPollOcclusionQueries() final override;
 	virtual bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate) final override;
 	virtual void RHIGetSupportedResolution(uint32& Width, uint32& Height) final override;
 	virtual void RHIVirtualTextureSetFirstMipInMemory(FTexture2DRHIParamRef Texture, uint32 FirstMip) final override;
@@ -456,13 +468,6 @@ public:
 	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) final override;
 	virtual void RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ) final override;
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) final override;
-	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) final override
-	{
-		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
-		IRHICommandContext::RHISetGraphicsPipelineState(GraphicsState);
-		// Store the PSO's primitive (after since IRHICommandContext::RHISetGraphicsPipelineState sets the BSS)
-		PrimitiveType = FallbackGraphicsState->Initializer.PrimitiveType;
-	}
 	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) final override;
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override;
 	virtual void RHISetShaderTexture(FHullShaderRHIParamRef HullShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override;
@@ -974,14 +979,46 @@ public:
 		GDynamicRHI->RHIUpdateTexture3D(Texture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData);
 		RHITHREAD_GLCOMMAND_EPILOGUE();
 	}
-	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(
+
+	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) final override
+	{
+		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
+
+		auto& PsoInit = FallbackGraphicsState->Initializer;
+
+		RHISetBoundShaderState(
+			RHICreateBoundShaderState_internal(
+				PsoInit.BoundShaderState.VertexDeclarationRHI,
+				PsoInit.BoundShaderState.VertexShaderRHI,
+				PsoInit.BoundShaderState.HullShaderRHI,
+				PsoInit.BoundShaderState.DomainShaderRHI,
+				PsoInit.BoundShaderState.PixelShaderRHI,
+				PsoInit.BoundShaderState.GeometryShaderRHI,
+				PsoInit.bFromPSOFileCache
+			).GetReference()
+		);
+
+		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, 0);
+		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
+		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
+		if (GSupportsDepthBoundsTest)
+		{
+			RHIEnableDepthBoundsTest(FallbackGraphicsState->Initializer.bDepthBounds);
+		}
+
+		// Store the PSO's primitive (after since IRHICommandContext::RHISetGraphicsPipelineState sets the BSS)
+		PrimitiveType = PsoInit.PrimitiveType;
+	}
+
+	FBoundShaderStateRHIRef RHICreateBoundShaderState_internal(
 		FVertexDeclarationRHIParamRef VertexDeclarationRHI,
 		FVertexShaderRHIParamRef VertexShaderRHI,
 		FHullShaderRHIParamRef HullShaderRHI,
 		FDomainShaderRHIParamRef DomainShaderRHI,
 		FPixelShaderRHIParamRef PixelShaderRHI,
-		FGeometryShaderRHIParamRef GeometryShaderRHI
-	) final override
+		FGeometryShaderRHIParamRef GeometryShaderRHI,
+		bool FromPSOFileCache
+	)
 	{
 		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 
@@ -991,11 +1028,32 @@ public:
 				HullShaderRHI,
 				DomainShaderRHI,
 				PixelShaderRHI,
-				GeometryShaderRHI);
+				GeometryShaderRHI,
+				FromPSOFileCache);
 		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FBoundShaderStateRHIRef);
 	}
 
-	FBoundShaderStateRHIRef RHICreateBoundShaderState_OnThisThread(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader);
+	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(
+		FVertexDeclarationRHIParamRef VertexDeclarationRHI,
+		FVertexShaderRHIParamRef VertexShaderRHI,
+		FHullShaderRHIParamRef HullShaderRHI,
+		FDomainShaderRHIParamRef DomainShaderRHI,
+		FPixelShaderRHIParamRef PixelShaderRHI,
+		FGeometryShaderRHIParamRef GeometryShaderRHI
+	) final override
+	{
+		return RHICreateBoundShaderState_internal(
+			VertexDeclarationRHI,
+			VertexShaderRHI,
+			HullShaderRHI,
+			DomainShaderRHI,
+			PixelShaderRHI,
+			GeometryShaderRHI,
+			false);
+	}
+
+
+	FBoundShaderStateRHIRef RHICreateBoundShaderState_OnThisThread(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader, bool FromPSOFileCache);
 	void RHIPerFrameRHIFlushComplete();
 
 	FOpenGLGPUProfiler& GetGPUProfilingData() {
@@ -1109,6 +1167,10 @@ public:
 	void InternalSetSamplerStates(GLint TextureIndex, FOpenGLSamplerState* SamplerState);
 
 private:
+
+	void RegisterSharedShaderCodeDelegates();
+	void UnregisterSharedShaderCodeDelegates();
+
 	void SetupRecursiveResources();
 
 	void ApplyTextureStage(FOpenGLContextState& ContextState, GLint TextureIndex, const FTextureStage& TextureStage, FOpenGLSamplerState* SamplerState);

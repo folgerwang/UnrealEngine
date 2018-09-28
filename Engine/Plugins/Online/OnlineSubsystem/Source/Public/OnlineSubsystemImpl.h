@@ -30,6 +30,7 @@ private:
 	 */
 	bool HandleFriendExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleSessionExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandlePresenceExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandlePurchaseExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
 	
 	/** Delegate fired when exec cheat related to receipts completes */
@@ -37,11 +38,13 @@ private:
 	
 	/** Dump purchase receipts for a given user id */
 	void DumpReceipts(const FUniqueNetId& UserId);
+	/** Finalize purchases known to the client, will wipe real money purchases without fulfillment */
+	void FinalizeReceipts(const FUniqueNetId& UserId);
 
 protected:
 
 	/** Hidden on purpose */
-	FOnlineSubsystemImpl();
+	FOnlineSubsystemImpl() = delete;
 	FOnlineSubsystemImpl(FName InSubsystemName, FName InInstanceName);
 
 	/** Name of the subsystem @see OnlineSubsystemNames.h */

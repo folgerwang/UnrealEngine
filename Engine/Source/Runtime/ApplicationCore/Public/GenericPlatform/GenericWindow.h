@@ -45,6 +45,17 @@ namespace EWindowMode
 	}
 }
 
+FORCEINLINE const TCHAR* LexToString(EWindowMode::Type WindowMode)
+{
+	switch (WindowMode)
+	{
+	case EWindowMode::Fullscreen: return TEXT("Fullscreen");
+	case EWindowMode::WindowedFullscreen: return TEXT("WindowedFullscreen");
+	case EWindowMode::Windowed: return TEXT("Windowed");
+	default: return TEXT("Unknown");
+	}
+}
+
 
 class APPLICATIONCORE_API FGenericWindow
 {

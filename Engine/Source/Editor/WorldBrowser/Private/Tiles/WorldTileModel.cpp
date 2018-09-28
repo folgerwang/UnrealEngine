@@ -5,7 +5,7 @@
 #include "HAL/FileManager.h"
 #include "UObject/Package.h"
 #include "Engine/LevelBounds.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Editor.h"
 #include "ScopedTransaction.h"
 #include "EditorLevelUtils.h"
@@ -668,7 +668,7 @@ ULevelStreaming* FWorldTileModel::GetAssociatedStreamingLevel()
 	if (AssociatedStreamingLevel == nullptr)
 	{
 		// Create new streaming level
-		AssociatedStreamingLevel = NewObject<ULevelStreamingKismet>(PersistentWorld, NAME_None, RF_Transient);
+		AssociatedStreamingLevel = NewObject<ULevelStreamingDynamic>(PersistentWorld, NAME_None, RF_Transient);
 
 		AssociatedStreamingLevel->SetWorldAssetByPackageName(PackageName);
 		AssociatedStreamingLevel->LevelColor		= GetLevelColor();

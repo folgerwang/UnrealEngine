@@ -63,6 +63,8 @@ public:
 
 	virtual ESocketErrors TranslateErrorCode( int32 Code ) override;
 
+	virtual bool IsSocketWaitSupported() const override;
+
 	//~ End ISocketSubsystem Interface
 
 

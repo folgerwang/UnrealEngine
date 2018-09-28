@@ -439,7 +439,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			bAnyViewUsesForwardLighting |= View.bTranslucentSurfaceLighting || ShouldRenderVolumetricFog();
 		}
 
-		const bool bCullLightsToGrid = GLightCullingQuality && ((IsForwardShadingEnabled(FeatureLevel) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting);
+		const bool bCullLightsToGrid = GLightCullingQuality && ((IsForwardShadingEnabled(ShaderPlatform) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting);
 
 		FSimpleLightArray SimpleLights;
 
@@ -827,6 +827,7 @@ void FDeferredShadingSceneRenderer::RenderForwardShadingShadowProjections(FRHICo
 		SceneRenderTargets.AllocateScreenShadowMask(RHICmdList, ForwardScreenSpaceShadowMask);
 
 		SCOPED_DRAW_EVENT(RHICmdList, ShadowProjectionOnOpaque);
+		SCOPED_GPU_STAT(RHICmdList, ShadowProjection);
 
 		// All shadows render with min blending
 		bool bClearToWhite = true;

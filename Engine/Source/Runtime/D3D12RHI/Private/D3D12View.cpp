@@ -181,10 +181,8 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FStructu
 		}
 		else if (bUINT8Access)
 		{
-			SRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			SRVDesc.Format = DXGI_FORMAT_R8_UINT;
 			Stride = 1;
-			SRVDesc.Buffer.StructureByteStride = Stride;
 		}
 		else
 		{

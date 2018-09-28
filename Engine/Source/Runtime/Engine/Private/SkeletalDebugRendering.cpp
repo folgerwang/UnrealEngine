@@ -7,10 +7,9 @@
 namespace SkeletalDebugRendering
 {
 
-void DrawWireBone(FPrimitiveDrawInterface* PDI, const FVector& InStart, const FVector& InEnd, const FLinearColor& InColor, ESceneDepthPriorityGroup InDepthPriority)
+void DrawWireBone(FPrimitiveDrawInterface* PDI, const FVector& InStart, const FVector& InEnd, const FLinearColor& InColor, ESceneDepthPriorityGroup InDepthPriority, const float SphereRadius)
 {
 #if ENABLE_DRAW_DEBUG
-	static const float SphereRadius = 1.0f;
 	static const int32 NumSphereSides = 10;
 	static const int32 NumConeSides = 4;
 
@@ -27,27 +26,26 @@ void DrawWireBone(FPrimitiveDrawInterface* PDI, const FVector& InStart, const FV
 #endif
 }
 
-void DrawAxes(FPrimitiveDrawInterface* PDI, const FTransform& Transform, ESceneDepthPriorityGroup InDepthPriority)
+void DrawAxes(FPrimitiveDrawInterface* PDI, const FTransform& Transform, ESceneDepthPriorityGroup InDepthPriority, const float Thickness, const float AxisLength)
 {
 #if ENABLE_DRAW_DEBUG
 	// Display colored coordinate system axes for this joint.
-	const float AxisLength = 4.0f;
 	const FVector Origin = Transform.GetLocation();
 
 	// Red = X
 	FVector XAxis = Transform.TransformVector(FVector(1.0f, 0.0f, 0.0f));
 	XAxis.Normalize();
-	PDI->DrawLine(Origin, Origin + XAxis * AxisLength, FColor(255, 80, 80), InDepthPriority, 0.0f, 1.0f);
+	PDI->DrawLine(Origin, Origin + XAxis * AxisLength, FColor(255, 80, 80), InDepthPriority, Thickness, 1.0f);
 
 	// Green = Y
 	FVector YAxis = Transform.TransformVector(FVector(0.0f, 1.0f, 0.0f));
 	YAxis.Normalize();
-	PDI->DrawLine(Origin, Origin + YAxis * AxisLength, FColor(80, 255, 80), InDepthPriority, 0.0f, 1.0f); 
+	PDI->DrawLine(Origin, Origin + YAxis * AxisLength, FColor(80, 255, 80), InDepthPriority, Thickness, 1.0f);
 
 	// Blue = Z
 	FVector ZAxis = Transform.TransformVector(FVector(0.0f, 0.0f, 1.0f));
 	ZAxis.Normalize();
-	PDI->DrawLine(Origin, Origin + ZAxis * AxisLength, FColor(80, 80, 255), InDepthPriority, 0.0f, 1.0f);
+	PDI->DrawLine(Origin, Origin + ZAxis * AxisLength, FColor(80, 80, 255), InDepthPriority, Thickness, 1.0f);
 #endif
 }
 

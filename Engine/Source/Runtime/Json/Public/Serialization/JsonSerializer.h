@@ -16,10 +16,16 @@ class FJsonSerializer
 public:
 
 	template <class CharType>
-	static bool Deserialize( const TSharedRef< TJsonReader<CharType> >& Reader, TArray< TSharedPtr<FJsonValue> >& OutArray )
+	static bool Deserialize(const TSharedRef<TJsonReader<CharType>>& Reader, TArray<TSharedPtr<FJsonValue>>& OutArray)
+	{
+		return Deserialize(*Reader, OutArray);
+	}
+
+	template <class CharType>
+	static bool Deserialize(TJsonReader<CharType>& Reader, TArray<TSharedPtr<FJsonValue>>& OutArray )
 	{
 		StackState State;
-		if ( !Deserialize( Reader, /*OUT*/State ) )
+		if (!Deserialize(Reader, /*OUT*/State))
 		{
 			return false;
 		}
@@ -36,15 +42,20 @@ public:
 	}
 
 	template <class CharType>
-	static bool Deserialize( const TSharedRef< TJsonReader<CharType> >& Reader, TSharedPtr<FJsonObject>& OutObject )
+	static bool Deserialize(const TSharedRef<TJsonReader<CharType>>& Reader, TSharedPtr<FJsonObject>& OutObject )
+	{
+		return Deserialize(*Reader, OutObject);
+	}
+	template <class CharType>
+	static bool Deserialize(TJsonReader<CharType>& Reader, TSharedPtr<FJsonObject>& OutObject)
 	{
 		StackState State;
-		if ( !Deserialize( Reader, /*OUT*/State ) )
+		if (!Deserialize(Reader, /*OUT*/State))
 		{
 			return false;
 		}
 
-		if ( !State.Object.IsValid() )
+		if (!State.Object.IsValid())
 		{
 			return false;
 		}
@@ -55,7 +66,13 @@ public:
 	}
 
 	template <class CharType>
-	static bool Deserialize(const TSharedRef< TJsonReader<CharType> >& Reader, TSharedPtr<FJsonValue>& OutValue)
+	static bool Deserialize(const TSharedRef<TJsonReader<CharType>>& Reader, TSharedPtr<FJsonValue>& OutValue)
+	{
+		return Deserialize(*Reader, OutValue);
+	}
+
+	template <class CharType>
+	static bool Deserialize(TJsonReader<CharType>& Reader, TSharedPtr<FJsonValue>& OutValue)
 	{
 		StackState State;
 		if (!Deserialize(Reader, /*OUT*/State))
@@ -70,10 +87,10 @@ public:
 			{
 				return false;
 			}
-			OutValue = MakeShareable(new FJsonValueObject(State.Object));
+			OutValue = MakeShared<FJsonValueObject>(State.Object);
 			break;
 		case EJson::Array:
-			OutValue = MakeShareable(new FJsonValueArray(State.Array));
+			OutValue = MakeShared<FJsonValueArray>(State.Array);
 			break;
 		default:
 			// FIXME: would be nice to handle non-composite root values but StackState Deserialize just drops them on the floor
@@ -82,25 +99,42 @@ public:
 		return true;
 	}
 
-	template <class CharType, class PrintPolicy >
-	static bool Serialize( const TArray< TSharedPtr<FJsonValue> >& Array, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer, bool bCloseWriter = true )
+	template <class CharType, class PrintPolicy>
+	static bool Serialize(const TArray<TSharedPtr<FJsonValue>>& Array, const TSharedRef<TJsonWriter<CharType, PrintPolicy>>& Writer, bool bCloseWriter = true)
 	{
-		TSharedRef< FElement > StartingElement = MakeShareable( new FElement( Array ) );
-		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer, bCloseWriter );
+		return Serialize(Array, *Writer, bCloseWriter);
 	}
 
-	template <class CharType, class PrintPolicy >
-	static bool Serialize( const TSharedRef< FJsonObject >& Object, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer, bool bCloseWriter = true )
+	template <class CharType, class PrintPolicy>
+	static bool Serialize(const TArray<TSharedPtr<FJsonValue>>& Array, TJsonWriter<CharType, PrintPolicy>& Writer, bool bCloseWriter = true )
 	{
-		TSharedRef< FElement > StartingElement = MakeShareable( new FElement( Object ) );
-		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer, bCloseWriter );
+		const TSharedRef<FElement> StartingElement = MakeShared<FElement>(Array);
+		return FJsonSerializer::Serialize<CharType, PrintPolicy>(StartingElement, Writer, bCloseWriter);
 	}
 
-	template <class CharType, class PrintPolicy >
-	static bool Serialize( const TSharedPtr<FJsonValue >& Value, const FString& Identifier, const TSharedRef< TJsonWriter< CharType, PrintPolicy > >& Writer, bool bCloseWriter = true )
+	template <class CharType, class PrintPolicy>
+	static bool Serialize(const TSharedRef<FJsonObject>& Object, const TSharedRef<TJsonWriter<CharType, PrintPolicy>>& Writer, bool bCloseWriter = true )
 	{
-		TSharedRef< FElement > StartingElement = MakeShareable( new FElement( Identifier, Value ) );
-		return FJsonSerializer::Serialize<CharType, PrintPolicy>( StartingElement, Writer, bCloseWriter );
+		return Serialize(Object, *Writer, bCloseWriter);
+	}
+
+	template <class CharType, class PrintPolicy>
+	static bool Serialize(const TSharedRef<FJsonObject>& Object, TJsonWriter<CharType, PrintPolicy>& Writer, bool bCloseWriter = true)
+	{
+		const TSharedRef<FElement> StartingElement = MakeShared<FElement>(Object);
+		return FJsonSerializer::Serialize<CharType, PrintPolicy>(StartingElement, Writer, bCloseWriter);
+	}
+
+	template <class CharType, class PrintPolicy>
+	static bool Serialize(const TSharedPtr<FJsonValue>& Value, const FString& Identifier, const TSharedRef<TJsonWriter<CharType, PrintPolicy>>& Writer, bool bCloseWriter = true)
+	{
+		return Serialize(Value, Identifier, *Writer, bCloseWriter);
+	}
+	template <class CharType, class PrintPolicy>
+	static bool Serialize(const TSharedPtr<FJsonValue>& Value, const FString& Identifier, TJsonWriter<CharType, PrintPolicy>& Writer, bool bCloseWriter = true)
+	{
+		const TSharedRef<FElement> StartingElement = MakeShared<FElement>(Identifier, Value);
+		return FJsonSerializer::Serialize<CharType, PrintPolicy>(StartingElement, Writer, bCloseWriter);
 	}
 
 private:
@@ -149,7 +183,7 @@ private:
 private:
 
 	template <class CharType>
-	static bool Deserialize( const TSharedRef< TJsonReader<CharType> >& Reader, StackState& OutStackState )
+	static bool Deserialize(TJsonReader<CharType>& Reader, StackState& OutStackState)
 	{
 		TArray<TSharedRef<StackState>> ScopeStack; 
 		TSharedPtr<StackState> CurrentState;
@@ -157,9 +191,9 @@ private:
 		TSharedPtr<FJsonValue> NewValue;
 		EJsonNotation Notation;
 
-		while (Reader->ReadNext(Notation))
+		while (Reader.ReadNext(Notation))
 		{
-			FString Identifier = Reader->GetIdentifier();
+			FString Identifier = Reader.GetIdentifier();
 			NewValue.Reset();
 
 			switch( Notation )
@@ -214,15 +248,15 @@ private:
 				break;
 
 			case EJsonNotation::Boolean:
-				NewValue = MakeShareable(new FJsonValueBoolean(Reader->GetValueAsBoolean()));
+				NewValue = MakeShareable(new FJsonValueBoolean(Reader.GetValueAsBoolean()));
 				break;
 
 			case EJsonNotation::String:
-				NewValue = MakeShareable(new FJsonValueString(Reader->GetValueAsString()));
+				NewValue = MakeShareable(new FJsonValueString(Reader.GetValueAsString()));
 				break;
 
 			case EJsonNotation::Number:
-				NewValue = MakeShareable(new FJsonValueNumber(Reader->GetValueAsNumber()));
+				NewValue = MakeShareable(new FJsonValueNumber(Reader.GetValueAsNumber()));
 				break;
 
 			case EJsonNotation::Null:
@@ -247,7 +281,7 @@ private:
 			}
 		}
 
-		if (!CurrentState.IsValid() || !Reader->GetErrorMessage().IsEmpty())
+		if (!CurrentState.IsValid() || !Reader.GetErrorMessage().IsEmpty())
 		{
 			return false;
 		}
@@ -258,7 +292,7 @@ private:
 	}
 
 	template <class CharType, class PrintPolicy>
-	static bool Serialize( const TSharedRef<FElement>& StartingElement, const TSharedRef<TJsonWriter<CharType, PrintPolicy>>& Writer, bool bCloseWriter )
+	static bool Serialize(const TSharedRef<FElement>& StartingElement, TJsonWriter<CharType, PrintPolicy>& Writer, bool bCloseWriter)
 	{
 		TArray<TSharedRef<FElement>> ElementStack;
 		ElementStack.Push(StartingElement);
@@ -274,11 +308,11 @@ private:
 				{
 					if (Element->Identifier.IsEmpty())
 					{
-						Writer->WriteValue(Element->Value->AsNumber());
+						Writer.WriteValue(Element->Value->AsNumber());
 					}
 					else
 					{
-						Writer->WriteValue(Element->Identifier, Element->Value->AsNumber());
+						Writer.WriteValue(Element->Identifier, Element->Value->AsNumber());
 					}
 				}
 				break;
@@ -287,11 +321,11 @@ private:
 				{
 					if (Element->Identifier.IsEmpty())
 					{
-						Writer->WriteValue(Element->Value->AsBool());
+						Writer.WriteValue(Element->Value->AsBool());
 					}
 					else
 					{
-						Writer->WriteValue(Element->Identifier, Element->Value->AsBool());
+						Writer.WriteValue(Element->Identifier, Element->Value->AsBool());
 					}
 				}
 				break;
@@ -300,11 +334,11 @@ private:
 				{
 					if (Element->Identifier.IsEmpty())
 					{
-						Writer->WriteValue(Element->Value->AsString());
+						Writer.WriteValue(Element->Value->AsString());
 					}
 					else
 					{
-						Writer->WriteValue(Element->Identifier, Element->Value->AsString());
+						Writer.WriteValue(Element->Identifier, Element->Value->AsString());
 					}
 				}
 				break;
@@ -313,11 +347,11 @@ private:
 				{
 					if (Element->Identifier.IsEmpty())
 					{
-						Writer->WriteNull();	
+						Writer.WriteNull();
 					}
 					else
 					{
-						Writer->WriteNull(Element->Identifier);
+						Writer.WriteNull(Element->Identifier);
 					}
 				}
 				break;
@@ -326,7 +360,7 @@ private:
 				{
 					if (Element->HasBeenProcessed)
 					{
-						Writer->WriteArrayEnd();
+						Writer.WriteArrayEnd();
 					}
 					else
 					{
@@ -335,18 +369,18 @@ private:
 
 						if (Element->Identifier.IsEmpty())
 						{
-							Writer->WriteArrayStart();
+							Writer.WriteArrayStart();
 						}
 						else
 						{
-							Writer->WriteArrayStart(Element->Identifier);
+							Writer.WriteArrayStart(Element->Identifier);
 						}
 
 						TArray<TSharedPtr<FJsonValue>> Values = Element->Value->AsArray();
 
 						for (int Index = Values.Num() - 1; Index >= 0; --Index)
 						{
-							ElementStack.Push(MakeShareable(new FElement(Values[Index])));
+							ElementStack.Push(MakeShared<FElement>(Values[Index]));
 						}
 					}
 				}
@@ -356,7 +390,7 @@ private:
 				{
 					if (Element->HasBeenProcessed)
 					{
-						Writer->WriteObjectEnd();
+						Writer.WriteObjectEnd();
 					}
 					else
 					{
@@ -365,11 +399,11 @@ private:
 
 						if (Element->Identifier.IsEmpty())
 						{
-							Writer->WriteObjectStart();
+							Writer.WriteObjectStart();
 						}
 						else
 						{
-							Writer->WriteObjectStart(Element->Identifier);
+							Writer.WriteObjectStart(Element->Identifier);
 						}
 
 						TArray<FString> Keys; 
@@ -395,7 +429,7 @@ private:
 
 		if (bCloseWriter)
 		{
-			return Writer->Close();
+			return Writer.Close();
 		}
 		else
 		{

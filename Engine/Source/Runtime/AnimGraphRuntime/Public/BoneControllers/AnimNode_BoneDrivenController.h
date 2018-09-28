@@ -68,18 +68,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_BoneDrivenController : public FAnimNode_Sk
 	bool bUseRange;
 
 	// Minimum limit of the input value (mapped to RemappedMin, only used when limiting the source range)
+	// If this is rotation, the unit is radian
 	UPROPERTY(EditAnywhere, Category=Mapping, meta=(EditCondition=bUseRange, DisplayName="Source Range Min"))
 	float RangeMin;
 
 	// Maximum limit of the input value (mapped to RemappedMax, only used when limiting the source range)
+	// If this is rotation, the unit is radian
 	UPROPERTY(EditAnywhere, Category=Mapping, meta=(EditCondition=bUseRange, DisplayName="Source Range Max"))
 	float RangeMax;
 
 	// Minimum value to apply to the destination (remapped from the input range)
+	// If this is rotation, the unit is radian
 	UPROPERTY(EditAnywhere, Category=Mapping, meta=(EditCondition=bUseRange, DisplayName="Mapped Range Min"))
 	float RemappedMin;
 
 	// Maximum value to apply to the destination (remapped from the input range)
+	// If this is rotation, the unit is radian
 	UPROPERTY(EditAnywhere, Category = Mapping, meta = (EditCondition = bUseRange, DisplayName="Mapped Range Max"))
 	float RemappedMax;
 

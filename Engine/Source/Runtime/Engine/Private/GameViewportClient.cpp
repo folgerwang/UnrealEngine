@@ -553,7 +553,7 @@ bool UGameViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, F
 		return false;
 	}
 
-	const int32 NumLocalPlayers = World->GetGameInstance()->GetNumLocalPlayers();
+	const int32 NumLocalPlayers = World ? World->GetGameInstance()->GetNumLocalPlayers() : 0;
 
 	if (NumLocalPlayers > 1 && Key.IsGamepadKey() && GetDefault<UGameMapsSettings>()->bOffsetPlayerGamepadIds)
 	{
@@ -820,7 +820,15 @@ bool UGameViewportClient::RequiresUncapturedAxisInput() const
 EMouseCursor::Type UGameViewportClient::GetCursor(FViewport* InViewport, int32 X, int32 Y)
 {
 	// If the viewport isn't active or the console is active we don't want to override the cursor
-	if (!FSlateApplication::Get().IsActive() || (!InViewport->HasMouseCapture() && !InViewport->HasFocus()) || (ViewportConsole && ViewportConsole->ConsoleActive()))
+	if (!FSlateApplication::Get().IsActive())
+	{
+		return EMouseCursor::Default;
+	}
+	else if (!InViewport->HasMouseCapture() && !InViewport->HasFocus())
+	{
+		return EMouseCursor::Default;
+	}
+	else if (ViewportConsole && ViewportConsole->ConsoleActive())
 	{
 		return EMouseCursor::Default;
 	}
@@ -993,6 +1001,16 @@ bool UGameViewportClient::IsFullScreenViewport() const
 	return false;
 }
 
+bool UGameViewportClient::IsExclusiveFullscreenViewport() const
+{
+	if (Viewport != nullptr)
+	{
+		return Viewport->IsExclusiveFullscreen();
+	}
+
+	return false;
+}
+
 bool UGameViewportClient::ShouldForceFullscreenViewport() const
 {
 	bool bResult = false;
@@ -1081,7 +1099,6 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		SceneCanvas->SetStereoRendering(bStereoRendering);
 	}
 
-	bool bUIDisableWorldRendering = false;
 	FGameViewDrawer GameViewDrawer;
 
 	UWorld* MyWorld = GetWorld();
@@ -1434,7 +1451,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	}
 
 	// Draw the player views.
-	if (!bDisableWorldRendering && !bUIDisableWorldRendering && PlayerViewMap.Num() > 0 && FSlateApplication::Get().GetPlatformApplication()->IsAllowedToRender()) //-V560
+	if (!bDisableWorldRendering && PlayerViewMap.Num() > 0 && FSlateApplication::Get().GetPlatformApplication()->IsAllowedToRender()) //-V560
 	{
 		GetRendererModule().BeginRenderingViewFamily(SceneCanvas,&ViewFamily);
 	}
@@ -1833,6 +1850,12 @@ void UGameViewportClient::CloseRequested(FViewport* InViewport)
 	CloseRequestedDelegate.Broadcast(InViewport);
 
 	SetViewportFrame(NULL);
+
+	TSharedPtr< IGameLayerManager > GameLayerManager(GameLayerManagerPtr.Pin());
+	if (GameLayerManager.IsValid())
+	{
+		GameLayerManager->SetSceneViewport(nullptr);
+	}
 
 	// If this viewport has a high res screenshot window attached to it, close it
 	if (HighResScreenshotDialog.IsValid())
@@ -2567,6 +2590,10 @@ bool UGameViewportClient::Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice&
 	else if (FParse::Command(&Cmd, TEXT("DISPLAYCLEAR")))
 	{
 		return HandleDisplayClearCommand( Cmd, Ar );
+	}
+	else if (FParse::Command(&Cmd, TEXT("GETALLLOCATION")))
+	{
+		return HandleGetAllLocationCommand(Cmd, Ar);
 	}
 	else if(FParse::Command(&Cmd, TEXT("TEXTUREDEFRAG")))
 	{
@@ -3463,6 +3490,34 @@ bool UGameViewportClient::HandleDisplayAllRotationCommand( const TCHAR* Cmd, FOu
 bool UGameViewportClient::HandleDisplayClearCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	DebugProperties.Empty();
+
+	return true;
+}
+
+bool UGameViewportClient::HandleGetAllLocationCommand(const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	// iterate through all actors of the specified class and log their location
+	TCHAR ClassName[256];
+	UClass* Class;
+
+	if (FParse::Token(Cmd, ClassName, ARRAY_COUNT(ClassName), 1) &&
+		(Class = FindObject<UClass>(ANY_PACKAGE, ClassName)) != NULL)
+	{
+		bool bShowPendingKills = FParse::Command(&Cmd, TEXT("SHOWPENDINGKILLS"));
+		int32 cnt = 0;
+		for (TObjectIterator<AActor> It; It; ++It)
+		{
+			if ((bShowPendingKills || !It->IsPendingKill()) && It->IsA(Class))
+			{
+				FVector ActorLocation = It->GetActorLocation();
+				Ar.Logf(TEXT("%i) %s (%f, %f, %f)"), cnt++, *It->GetFullName(), ActorLocation.X, ActorLocation.Y, ActorLocation.Z);
+			}
+		}
+	}
+	else
+	{
+		Ar.Logf(TEXT("Unrecognized class %s"), ClassName);
+	}
 
 	return true;
 }

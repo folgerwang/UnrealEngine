@@ -31,6 +31,10 @@ public:
 		return *PlatformInfo;
 	}
 
+	TARGETPLATFORM_API virtual bool UsesForwardShading() const override;
+
+	TARGETPLATFORM_API virtual bool UsesDBuffer() const override;
+
 #if WITH_ENGINE
 	virtual void GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const override
 	{
@@ -189,6 +193,11 @@ public:
 		return TPlatformProperties::RequiresCookedData();
 	}
 
+	virtual bool HasSecurePackageFormat() const override
+	{
+		return TPlatformProperties::HasSecurePackageFormat();
+	}
+
 	virtual bool RequiresUserCredentials() const override
 	{
 		return TPlatformProperties::RequiresUserCredentials();
@@ -213,6 +222,9 @@ public:
 
 		case ETargetPlatformFeatures::DistanceFieldShadows:
 			return TPlatformProperties::SupportsDistanceFieldShadows();
+
+		case ETargetPlatformFeatures::DistanceFieldAO:
+			return TPlatformProperties::SupportsDistanceFieldAO();
 
 		case ETargetPlatformFeatures::GrayscaleSRGB:
 			return TPlatformProperties::SupportsGrayscaleSRGB();
@@ -253,7 +265,6 @@ public:
 
 		return false;
 	}
-	
 
 #if WITH_ENGINE
 	virtual FName GetPhysicsFormat( class UBodySetup* Body ) const override

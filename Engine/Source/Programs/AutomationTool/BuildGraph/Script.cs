@@ -1021,7 +1021,15 @@ namespace AutomationTool
 					// Register all the output tags in the global name table.
 					foreach(NodeOutput Output in NewNode.Outputs)
 					{
-						Graph.TagNameToNodeOutput.Add(Output.TagName, Output);
+						NodeOutput ExistingOutput;
+						if(Graph.TagNameToNodeOutput.TryGetValue(Output.TagName, out ExistingOutput))
+						{
+							LogError(Element, "Node '{0}' already has an output called '{1}'", ExistingOutput.ProducingNode.Name, Output.TagName);
+						}
+						else
+						{
+							Graph.TagNameToNodeOutput.Add(Output.TagName, Output);
+						}
 					}
 
 					// Add all the tasks

@@ -200,6 +200,10 @@ void FPropertyTag::SerializeTaggedProperty(FStructuredArchive::FSlot Slot, UProp
 
 	if (!UnderlyingArchive.IsTextFormat() && Property->GetClass() == UBoolProperty::StaticClass())
 	{
+		// ensure that the property scope gets recorded for boolean properties even though the data is stored in the tag
+		FSerializedPropertyScope SerializedProperty(UnderlyingArchive, Property);
+		UnderlyingArchive.Serialize(nullptr, 0); 
+
 		UBoolProperty* Bool = (UBoolProperty*)Property;
 		if (UnderlyingArchive.IsLoading())
 		{

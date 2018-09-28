@@ -18,6 +18,7 @@
 #include "TickTaskManagerInterface.h"
 #include "Async/ParallelFor.h"
 #include "Misc/TimeGuard.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTick, Log, All);
 
@@ -34,6 +35,8 @@ DECLARE_CYCLE_STAT(TEXT("TG_NewlySpawned"), STAT_TG_NewlySpawned, STATGROUP_Tick
 DECLARE_CYCLE_STAT(TEXT("ReleaseTickGroup"), STAT_ReleaseTickGroup, STATGROUP_TickGroups);
 DECLARE_CYCLE_STAT(TEXT("ReleaseTickGroup Block"), STAT_ReleaseTickGroup_Block, STATGROUP_TickGroups);
 DECLARE_CYCLE_STAT(TEXT("CleanupTasksWait"), STAT_CleanupTasksWait, STATGROUP_TickGroups);
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 static TAutoConsoleVariable<float> CVarStallStartFrame(
 	TEXT("CriticalPathStall.TickStartFrame"),
@@ -70,6 +73,13 @@ static TAutoConsoleVariable<int32> CVarAllowAsyncTickCleanup(
 	1,
 	TEXT("If true, ticks are cleaned up in a task thread."));
 
+static float GTimeguardThresholdMS = 0.0f;
+static FAutoConsoleVariableRef CVarLightweightTimeguardThresholdMS(
+	TEXT("tick.LightweightTimeguardThresholdMS"), 
+	GTimeguardThresholdMS, 
+	TEXT("Threshold in milliseconds for the tick timeguard"),
+	ECVF_Default);
+
 FAutoConsoleTaskPriority CPrio_DispatchTaskPriority(
 	TEXT("TaskGraph.TaskPriorities.TickDispatchTaskPriority"),
 	TEXT("Task and thread priority for tick tasks dispatch."),
@@ -99,7 +109,6 @@ FAutoConsoleTaskPriority CPrio_HiPriAsyncTickTaskPriority(
 	ENamedThreads::NormalTaskPriority, // .. at normal task priority
 	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
 	);
-
 
 FORCEINLINE bool CanDemoteIntoTickGroup(ETickingGroup TickGroup)
 {
@@ -205,6 +214,11 @@ struct FTickContext
 	}
 };
 
+
+
+
+
+
 /**
  * Class that handles the actual tick tasks and starting and completing tick groups
  */
@@ -266,8 +280,9 @@ public:
 			FTimerNameDelegate NameFunction = FTimerNameDelegate::CreateLambda( [&]{ return FString::Printf(TEXT("Slowtick %s "), *Target->DiagnosticMessage()); } );
 			SCOPE_TIME_GUARD_DELEGATE_MS(NameFunction, 4);
 #endif
-
+			LIGHTWEIGHT_TIME_GUARD_BEGIN(FTickFunctionTask, GTimeguardThresholdMS);
 			Target->ExecuteTick(Target->CalculateDeltaTime(Context), Context.TickType, CurrentThread, MyCompletionGraphEvent);
+			LIGHTWEIGHT_TIME_GUARD_END(FTickFunctionTask, Target->DiagnosticMessage());
 		}
 		Target->TaskPointer = nullptr;  // This is stale and a good time to clear it for safety
 	}
@@ -1348,6 +1363,8 @@ public:
 	virtual void StartFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType, const TArray<ULevel*>& LevelsToTick) override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_QueueTicks);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_QueueTicks);
+
 #if !UE_BUILD_SHIPPING
 		if (CVarStallStartFrame.GetValueOnGameThread() > 0.0f)
 		{
@@ -1383,6 +1400,7 @@ public:
 				TotalTickFunctions += LevelList[LevelIndex]->StartFrame(Context);
 			}
 			INC_DWORD_STAT_BY(STAT_TicksQueued, TotalTickFunctions);
+			CSV_CUSTOM_STAT(Basic, TicksQueued, TotalTickFunctions, ECsvCustomStatOp::Accumulate);
 			for( int32 LevelIndex = 0; LevelIndex < LevelList.Num(); LevelIndex++ )
 			{
 				LevelList[LevelIndex]->QueueAllTicks();
@@ -1395,6 +1413,7 @@ public:
 				LevelList[LevelIndex]->StartFrameParallel(Context, AllTickFunctions);
 			}
 			INC_DWORD_STAT_BY(STAT_TicksQueued, AllTickFunctions.Num());
+			CSV_CUSTOM_STAT(Basic, TicksQueued, AllTickFunctions.Num(), ECsvCustomStatOp::Accumulate);
 			FTickTaskSequencer& TTS = FTickTaskSequencer::Get();
 			TTS.SetupAddTickTaskCompletionParallel(AllTickFunctions.Num());
 			for( int32 LevelIndex = 0; LevelIndex < LevelList.Num(); LevelIndex++ )

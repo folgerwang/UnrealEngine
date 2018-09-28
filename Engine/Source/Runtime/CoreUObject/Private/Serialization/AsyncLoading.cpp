@@ -40,6 +40,7 @@
 #include "Blueprint/BlueprintSupport.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "UObject/GCScopeLock.h"
 
 #define FIND_MEMORY_STOMPS (1 && (PLATFORM_WINDOWS || PLATFORM_UNIX) && !WITH_EDITORONLY_DATA)
 
@@ -1326,7 +1327,6 @@ void FEventLoadGraph::DoneAddingPrerequistesFireIfNone(FEventLoadNodePtr& NewNod
 	}
 }
 
-#if !UE_BUILD_SHIPPING
 bool FEventLoadGraph::CheckForCyclesInner(const TMultiMap<FEventLoadNodePtr, FEventLoadNodePtr>& Arcs, TSet<FEventLoadNodePtr>& Visited, TSet<FEventLoadNodePtr>& Stack, const FEventLoadNodePtr& Visit)
 {
 	bool bResult = false;
@@ -1351,70 +1351,109 @@ bool FEventLoadGraph::CheckForCyclesInner(const TMultiMap<FEventLoadNodePtr, FEv
 	UE_CLOG(bResult, LogStreaming, Error, TEXT("Cycle Node %s"), *Visit.HumanReadableStringForDebugging());
 	return bResult;
 }
-#endif
 
-void FEventLoadGraph::CheckForCycles()
+void FEventLoadGraph::CheckForCycles(bool bDoSlowTests)
 {
 	int32 NumWaitingBoot = 0;
-#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-	TMultiMap<FEventLoadNodePtr, FEventLoadNodePtr> Arcs;
-	TArray<FEventLoadNodePtr> AddedNodes;
-	for (FCheckedWeakAsyncPackagePtr &Ptr : PackagesWithNodes)
+	if (bDoSlowTests)
 	{
-		FAsyncPackage* Pkg = &Ptr.GetPackage();
-		Pkg->EventNodeArray.GetAddedNodes(AddedNodes, Pkg);
-	}
-	for (FEventLoadNodePtr &Ptr : AddedNodes)
-	{
-		FEventLoadNode& Node(GetNode(Ptr));
-
-		if (!Node.NumPrerequistes)
+		TMultiMap<FEventLoadNodePtr, FEventLoadNodePtr> Arcs;
+		TArray<FEventLoadNodePtr> AddedNodes;
+		for (FCheckedWeakAsyncPackagePtr &Ptr : PackagesWithNodes)
 		{
-			if (GIsInitialLoad && Node.bFired)
-			{
-				// this is something that is compiled in, but has not been finished yet
-				NumWaitingBoot++;
-			}
-			else
-			{
-			UE_LOG(LogStreaming, Fatal, TEXT("Node %s has zero prerequisites, but has not been queued."), *Ptr.HumanReadableStringForDebugging());
+			FAsyncPackage* Pkg = &Ptr.GetPackage();
+			Pkg->EventNodeArray.GetAddedNodes(AddedNodes, Pkg);
 		}
-		}
-		for (FEventLoadNodePtr Other : Node.NodesWaitingForMe)
-		{
-			Arcs.Add(Other, Ptr);
-		}
-#if USE_IMPLICIT_ARCS
-		int32 NumImplicitArcs = Ptr.NumImplicitArcs();
-		if (NumImplicitArcs)
-		{
-			check(NumImplicitArcs == 1); // would need different code otherwise
-			FEventLoadNodePtr Target = Ptr.GetImplicitArc();
-			Arcs.Add(Target, Ptr);
-		}
-#endif
-	}
-	TSet<FEventLoadNodePtr> Visited;
-	TSet<FEventLoadNodePtr> Stack;
-	for (FEventLoadNodePtr &Ptr : AddedNodes)
-	{
-		if (CheckForCyclesInner(Arcs, Visited, Stack, Ptr))
-		{
-			UE_LOG(LogStreaming, Fatal, TEXT("Async loading event graph contained a cycle, see above."));
-		}
-	}
-	if (AddedNodes.Num() - NumWaitingBoot != 0)
-	{
 		for (FEventLoadNodePtr &Ptr : AddedNodes)
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AddedNode: %s\r\n"), *Ptr.HumanReadableStringForDebugging());
-		}
-		UE_LOG(LogStreaming, Fatal, TEXT("No outstanding IO, no nodes in the queue, yet we still have %d 'AddedNodes' in the graph (with %d boot nodes)."), AddedNodes.Num(), NumWaitingBoot);
-	}
+			FEventLoadNode& Node(GetNode(Ptr));
+
+			if (!Node.NumPrerequistes)
+			{
+				if (GIsInitialLoad && Node.bFired)
+				{
+					// this is something that is compiled in, but has not been finished yet
+					NumWaitingBoot++;
+				}
+				else if (!Node.bFired) // this will be queued later
+				{
+					UE_LOG(LogStreaming, Fatal, TEXT("Node %s has zero prerequisites, but has not been queued."), *Ptr.HumanReadableStringForDebugging());
+				}
+				else 
+				{
+					UE_LOG(LogStreaming, Warning, TEXT("Node %s has zero prerequisites, but has not been queued (usually waiting for an extenal queue, like the package summary)."), *Ptr.HumanReadableStringForDebugging());
+				}
+			}
+			for (FEventLoadNodePtr Other : Node.NodesWaitingForMe)
+			{
+				Arcs.Add(Other, Ptr);
+			}
+#if USE_IMPLICIT_ARCS
+			int32 NumImplicitArcs = Ptr.NumImplicitArcs();
+			if (NumImplicitArcs)
+			{
+				check(NumImplicitArcs == 1); // would need different code otherwise
+				FEventLoadNodePtr Target = Ptr.GetImplicitArc();
+				Arcs.Add(Target, Ptr);
+			}
 #endif
+		}
+		TSet<FEventLoadNodePtr> Visited;
+		TSet<FEventLoadNodePtr> Stack;
+		for (FEventLoadNodePtr &Ptr : AddedNodes)
+		{
+			if (CheckForCyclesInner(Arcs, Visited, Stack, Ptr))
+			{
+				UE_LOG(LogStreaming, Fatal, TEXT("Async loading event graph contained a cycle, see above."));
+			}
+		}
+		if (AddedNodes.Num() - NumWaitingBoot != 0)
+		{
+			for (FEventLoadNodePtr &Ptr : AddedNodes)
+			{
+				UE_LOG(LogStreaming, Error, TEXT("      AddedNode: %s"), *Ptr.HumanReadableStringForDebugging());
+			}
+			UE_LOG(LogStreaming, Fatal, TEXT("No outstanding IO, no nodes in the queue, yet we still have %d 'AddedNodes' in the graph (with %d boot nodes)."), AddedNodes.Num(), NumWaitingBoot);
+		}
+	}
 	if (PackagesWithNodes.Num() && !NumWaitingBoot)
 	{
-		UE_LOG(LogStreaming, Fatal, TEXT("No outstanding IO, no nodes in the queue, yet we still have 'PackagesWithNodes' in the graph."));
+		if (!bDoSlowTests)
+		{
+			UE_LOG(LogStreaming, Error, TEXT("Doing slow test"));
+			CheckForCycles(true);
+		}
+		else
+		{
+			FString PackagesString;
+			int32 Index = 0;
+			for (FCheckedWeakAsyncPackagePtr &Ptr : PackagesWithNodes)
+			{
+				FAsyncPackage* Pkg = &Ptr.GetPackage();
+				if (Pkg)
+				{
+					UE_LOG(LogStreaming, Error, TEXT("No outstanding IO, no nodes in the queue, yet we still have %s in the graph."), *Pkg->GetPackageName().ToString());
+
+					if (Index < 5)
+					{
+						PackagesString += Pkg->GetPackageName().ToString();
+						PackagesString += TEXT(",");
+						Index++;
+					}
+					TArray<FEventLoadNodePtr> AddedNodes;
+					Pkg->EventNodeArray.GetAddedNodes(AddedNodes, Pkg);
+					for (FEventLoadNodePtr &NodePtr : AddedNodes)
+					{
+						UE_LOG(LogStreaming, Error, TEXT("      AddedNode: %s"), *NodePtr.HumanReadableStringForDebugging());
+					}
+				}
+				else
+				{
+					UE_LOG(LogStreaming, Error, TEXT("No outstanding IO, no nodes in the queue, yet we still have [null ptr] in the graph."));
+				}
+			}
+			UE_LOG(LogStreaming, Fatal, TEXT("No outstanding IO, no nodes in the queue, yet we still have %d 'PackagesWithNodes' in the graph: %s"), PackagesWithNodes.Num(), *PackagesString);
+		}
 	}
 }
 
@@ -1960,20 +1999,37 @@ void FAsyncPackage::Event_StartImportPackages()
 	DoneAddingPrerequistesFireIfNone(EEventLoadNode::Package_SetupImports, FPackageIndex(), true);
 }
 
+/** Makes sure the specified object reference is added to the package reference list by the time we exit a function (early or not) */
+struct FScopedAddObjectreference
+{
+	FAsyncPackage& Package;
+	UObject*& Reference;
+
+	FScopedAddObjectreference(FAsyncPackage& InPackage, UObject*& InReference)
+		: Package(InPackage)
+		, Reference(InReference)
+	{
+	}
+	~FScopedAddObjectreference()
+	{
+		if (Reference)
+		{
+			Package.AddObjectReference(Reference);
+		}
+	}
+};
+
 //@todoio we should sort the imports at cook time so this recursive procedure is not needed.
 FObjectImport* FAsyncPackage::FindExistingImport(int32 LocalImportIndex)
 {
 	FObjectImport* Import = &Linker->ImportMap[LocalImportIndex];
 	if (!Import->XObject && !Import->bImportSearchedFor)
 	{
+		FScopedAddObjectreference OnExitAddReference(*this, Import->XObject);
 		Import->bImportSearchedFor = true;
 		if (Import->OuterIndex.IsNull())
 		{
 			Import->XObject = StaticFindObjectFast(UPackage::StaticClass(), nullptr, Import->ObjectName, true);
-			if (Import->XObject)
-			{
-				AddObjectReference(Import->XObject);
-			}
 			check(!Import->XObject || CastChecked<UPackage>(Import->XObject));
 		}
 		else
@@ -2010,14 +2066,23 @@ FObjectImport* FAsyncPackage::FindExistingImport(int32 LocalImportIndex)
 							UE_LOG(LogStreaming, Error, TEXT("FAsyncPackage::FindExistingImport class mismatch %s != %s while reading package %s"), *ActualClass, *ImportClass, *PackageWithReference);
 
 						}
-
 					}
-					AddObjectReference(Import->XObject);
 				}
 			}
 		}
 	}
 	return Import;
+}
+
+static bool IsNativeCodePackage(UPackage* Package)
+{
+	if (!Package || !Package->HasAnyPackageFlags(PKG_CompiledIn))
+	{
+		return false;
+	}
+
+	// Make sure it isn't a dynamically loaded one, this check is slower
+	return !GetConvertedDynamicPackageNameToTypeName().Contains(Package->GetFName());
 }
 
 static bool IsFullyLoadedObj(UObject* Obj)
@@ -2152,8 +2217,7 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports_Event()
 			ExistingPackage = CastChecked<UPackage>(Import->XObject);
 			PendingPackage = ExistingPackage->LinkerLoad ? ExistingPackage->LinkerLoad->AsyncRoot : nullptr;
 		}
-		const bool bDynamicPackage = ExistingPackage && GetConvertedDynamicPackageNameToTypeName().Contains(ExistingPackage->GetFName());
-		const bool bCompiledInNotDynamic = ExistingPackage && ExistingPackage->HasAnyPackageFlags(PKG_CompiledIn) && !bDynamicPackage;
+		const bool bCompiledInNotDynamic = IsNativeCodePackage(ExistingPackage);
 		// Our import package name is the import name
 		const FName ImportPackageFName(Import->ObjectName);
 		check(!PendingPackage || !bCompiledInNotDynamic); // we should never have a pending package for something that is compiled in
@@ -2321,17 +2385,17 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 			if (!ImportPackage)
 			{
 				ImportPackage = FindObjectFast<UPackage>(NULL, Import.ObjectName, false, false);
-					if (!ImportPackage)
-					{
-						Import.bImportFailed = true;
-						UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(Import.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of package %s"), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
-					}
-					else
+				if (!ImportPackage)
 				{
-						Import.XObject = ImportPackage; 
+					Import.bImportFailed = true;
+					UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(Import.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of package %s"), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
+				}
+				else
+				{
+					Import.XObject = ImportPackage;
 					AddObjectReference(Import.XObject);
 				}
-				}
+			}
 
 			if (ImportPackage)
 			{
@@ -2378,7 +2442,7 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 				}
 				else
 				{
-				OuterMostImport.XObject = ImportPackage; // this is an optimization to avoid looking up import packages multiple times, also, later we assume these are already filled in
+					OuterMostImport.XObject = ImportPackage; // this is an optimization to avoid looking up import packages multiple times, also, later we assume these are already filled in
 					AddObjectReference(OuterMostImport.XObject);
 				}
 			}
@@ -2548,11 +2612,11 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 								{
 									check(!Import.XObject || Import.XObject == Export.Object);
 									Import.XObject = Export.Object;
-										AddObjectReference(Import.XObject);
-									}
+									AddObjectReference(Import.XObject);
+								}
 								if (!IsFullyLoadedObj(Export.Object))
 								{
-										bAnyImportArcsAdded = true;
+									bAnyImportArcsAdded = true;
 									FEventLoadNodePtr MyDependentNode;
 									MyDependentNode.WaitingPackage = WeakThis;
 									MyDependentNode.ImportOrExportIndex = FPackageIndex::FromImport(LocalImportIndex);
@@ -2869,6 +2933,7 @@ void FAsyncPackage::LinkImport(int32 LocalImportIndex)
 	FObjectImport& Import = Linker->ImportMap[LocalImportIndex];
 	if (!Import.XObject && !Import.bImportFailed)
 	{
+		FScopedAddObjectreference OnExitAddReference(*this, Import.XObject);
 		if (Linker->GetFArchiveAsync2Loader())
 		{
 			Linker->GetFArchiveAsync2Loader()->LogItem(TEXT("LinkImport"));
@@ -2942,10 +3007,6 @@ void FAsyncPackage::LinkImport(int32 LocalImportIndex)
 					}
 				}
 			}
-		}
-		if (Import.XObject)
-		{
-			AddObjectReference(Import.XObject);
 		}
 	}
 }
@@ -3127,6 +3188,8 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 	check(!Export.Object); // we should not have this yet
 	if (!Export.Object && !Export.bExportLoadFailed)
 	{
+		FScopedAddObjectreference OnExitAddReference(*this, Export.Object);
+
 		if (!Linker->FilterExport(Export)) // for some acceptable position, it was not "not for" 
 		{
 			SCOPED_ACCUM_LOADTIME(Construction, StaticGetNativeClassName(CastEventDrivenIndexToObject<UClass>(Export.ClassIndex, false)));
@@ -3389,11 +3452,7 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 			}
 		}
 	}
-	if (Export.Object)
-	{
-		AddObjectReference(Export.Object);
-	}
-	else
+	if (!Export.Object)
 	{
 		Export.bExportLoadFailed = true;
 	}
@@ -3729,7 +3788,7 @@ void FAsyncPackage::MakeNextPrecacheRequestCurrent()
 	{
 		RemoveNode(EEventLoadNode::Export_StartIO, FPackageIndex::FromExport(LocalExportIndex));
 	}
-
+	Read->WaitCompletion();
 	PrecacheRequests.Remove(Read);
 	delete Read;	
 }
@@ -4974,6 +5033,9 @@ FAsyncLoadingThread::FAsyncLoadingThreadSettings& FAsyncLoadingThread::GetAsyncL
 
 void FAsyncLoadingThread::StartThread()
 {
+	// Make sure the GC sync object is created before we start the thread (apparently this can happen before we call InitUObject())
+	FGCCSyncObject::Create();
+
 	if (!Thread && FAsyncLoadingThread::GetAsyncLoadingThreadSettings().bAsyncLoadingThreadEnabled)
 	{
 		UE_LOG(LogStreaming, Log, TEXT("Starting Async Loading Thread."));
@@ -4992,6 +5054,11 @@ uint32 FAsyncLoadingThread::Run()
 {
 	AsyncLoadingThreadID = FPlatformTLS::GetCurrentThreadId();
 
+	if (!IsInGameThread())
+	{
+		FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::GetAsyncLoadingThreadMask());
+	}
+
 	bool bWasSuspendedLastFrame = false;
 	while (StopTaskCounter.GetValue() == 0)
 	{
@@ -5005,7 +5072,7 @@ uint32 FAsyncLoadingThread::Run()
 			if (!IsGarbageCollectionWaiting())
 			{
 				bool bDidSomething = false;
-				TickAsyncThread(false, true, 0.0f, bDidSomething);
+				TickAsyncThread(true, false, 0.033f, bDidSomething);
 			}
 		}
 		else if (!bWasSuspendedLastFrame)
@@ -5024,6 +5091,11 @@ uint32 FAsyncLoadingThread::Run()
 
 void FAsyncLoadingThread::CheckForCycles()
 {
+	if (GPrecacheCallbackHandler.AnyIOOutstanding() || EventQueue.EventQueue.Num())
+	{
+		// we can't check for cycles if there is stuff in flight.
+		return;
+	}
 	// no outstanding IO, nothing was done in this iteration, we are done
 	FAsyncPackage::GlobalEventGraph.CheckForCycles();
 
@@ -5078,6 +5150,7 @@ EAsyncPackageState::Type FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimit
 				bDidSomething = bDidSomething || ProcessedRequests > 0;
 			}
 		}
+
 		if (ProcessedRequests == 0 && IsMultithreaded() && Result == EAsyncPackageState::Complete)
 		{
 			uint32 WaitTime = 30;
@@ -5096,7 +5169,7 @@ EAsyncPackageState::Type FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimit
 			}
 			const bool bIgnoreThreadIdleStats = true;
 			SCOPED_LOADTIMER(Package_Temp3);
-			QueuedRequestsEvent->Wait(30, bIgnoreThreadIdleStats);
+			QueuedRequestsEvent->Wait(WaitTime, bIgnoreThreadIdleStats);
 		}
 
 	}
@@ -5357,7 +5430,7 @@ void FAsyncPackage::AddObjectReference(UObject* InObject)
 				ReferencedObjects.Add(InObject);
 			}
 		}
-		UE_CLOG(InObject->HasAnyInternalFlags(EInternalObjectFlags::Unreachable), LogStreaming, Fatal, TEXT("Trying to add an object %s to FAsyncPackage referenced objects list that is unreachable."), *InObject->GetFullName());
+		UE_CLOG(InObject->HasAnyInternalFlags(EInternalObjectFlags::Unreachable), LogStreaming, Fatal, TEXT("Trying to add an object %s to FAsyncPackage %s referenced objects list that is unreachable."), *InObject->GetFullName(), *GetPackageName().ToString());
 	}
 }
 
@@ -5718,6 +5791,14 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 				bLoadHasFailed = true;
 				return EAsyncPackageState::TimeOut;
 			}
+
+			if (IsNativeCodePackage(Package))
+			{
+				// Client requested load of a compiled in package, silently fail early instead of trying and failing to load it off disk
+				bLoadHasFailed = true;
+				return EAsyncPackageState::TimeOut;
+			}
+
 			AddObjectReference(Package);
 			LinkerRoot = Package;
 		}
@@ -5763,12 +5844,11 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 				NameToLoad = NewPackageName.PackageName.ToString();
 			}
 
-			// Allow delegates to resolve this path
-			NameToLoad = FPackageName::GetDelegateResolvedPackagePath(NameToLoad);
-
 			// The editor must not redirect packages for localization.
 			if (!GIsEditor)
 			{
+				// Allow delegates to resolve this path
+				NameToLoad = FPackageName::GetDelegateResolvedPackagePath(NameToLoad);
 				NameToLoad = FPackageName::GetLocalizedPackagePath(NameToLoad);
 			}
 
@@ -6072,8 +6152,7 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports(FFlushTree* FlushTree)
 
 		// Handle circular dependencies - try to find existing packages.
 		UPackage* ExistingPackage = dynamic_cast<UPackage*>(StaticFindObjectFast(UPackage::StaticClass(), nullptr, ImportPackageFName, true));
-		if (ExistingPackage  && !ExistingPackage->bHasBeenFullyLoaded 
-			&& (!ExistingPackage->HasAnyPackageFlags(PKG_CompiledIn) || GetConvertedDynamicPackageNameToTypeName().Contains(ImportPackageFName)))//!ExistingPackage->HasAnyFlags(RF_WasLoaded))
+		if (ExistingPackage && !ExistingPackage->bHasBeenFullyLoaded && !IsNativeCodePackage(ExistingPackage))
 		{
 			// The import package already exists. Check if it's currently being streamed as well. If so, make sure
 			// we add all dependencies that don't yet have linkers created otherwise we risk that if the current package
@@ -6762,6 +6841,8 @@ void FAsyncPackage::CloseDelayedLinkers()
 
 void FAsyncPackage::CallCompletionCallbacks(bool bInternal, EAsyncLoadingResult::Type LoadingResult)
 {
+	checkSlow(bInternal || !IsInAsyncLoadingThread());
+
 	UPackage* LoadedPackage = (!bLoadHasFailed) ? LinkerRoot : nullptr;
 	for (FCompletionCallback& CompletionCallback : CompletionCallbacks)
 	{

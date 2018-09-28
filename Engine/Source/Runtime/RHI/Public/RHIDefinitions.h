@@ -159,6 +159,20 @@ namespace ERHIFeatureLevel
 	};
 };
 
+/**
+* The RHI's currently enabled shading path.
+*/
+namespace ERHIShadingPath
+{
+	enum Type
+	{
+		Deferred,
+		Forward,
+		Mobile,
+		Num
+	};
+}
+
 enum ESamplerFilter
 {
 	SF_Point,
@@ -808,7 +822,7 @@ inline bool IsOpenGLPlatform(const EShaderPlatform Platform)
 {
 	return Platform == SP_OPENGL_SM4 || Platform == SP_OPENGL_SM5 || Platform == SP_OPENGL_PCES2 || Platform == SP_OPENGL_PCES3_1
 		|| Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES2_WEBGL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES31_EXT
-		|| Platform == SP_OPENGL_ES3_1_ANDROID || Platform == SP_SWITCH || Platform == SP_SWITCH_FORWARD;
+		|| Platform == SP_OPENGL_ES3_1_ANDROID;
 }
 
 inline bool IsMetalPlatform(const EShaderPlatform Platform)

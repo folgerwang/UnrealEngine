@@ -38,7 +38,7 @@
 
 void SFbxMaterialConflictWindow::Construct(const FArguments& InArgs)
 {
-	UserHasCancel = false;
+	ReturnOption = UnFbx::EFBXReimportDialogReturnOption::FBXRDRO_Cancel;
 
 	WidgetWindow = InArgs._WidgetWindow;
 	check(InArgs._SourceMaterials != nullptr);
@@ -50,6 +50,7 @@ void SFbxMaterialConflictWindow::Construct(const FArguments& InArgs)
 	RemapMaterials = InArgs._RemapMaterials;
 	AutoRemapMaterials = InArgs._AutoRemapMaterials;
 	CustomRemapMaterials.AddZeroed(AutoRemapMaterials->Num());
+	bIsPreviewConflict = InArgs._bIsPreviewConflict;
 	
 	check(RemapMaterials->Num() == AutoRemapMaterials->Num());
 	check(RemapMaterials->Num() == ResultMaterials->Num());
@@ -64,7 +65,7 @@ void SFbxMaterialConflictWindow::Construct(const FArguments& InArgs)
 		.AlwaysShowScrollbar(false);
 
 	this->ChildSlot
-		[
+	[
 		SNew(SBox)
 		[
 			SNew(SVerticalBox)
@@ -100,18 +101,20 @@ void SFbxMaterialConflictWindow::Construct(const FArguments& InArgs)
 			.Padding(2)
 			[
 				SNew(SHorizontalBox)
-				/*+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(2.0f, 0.0f)
-				[
-					SNew(SButton)
-					.HAlign(HAlign_Center)
-					.Text(LOCTEXT("SFbxMaterialConflictWindow_Preview_Cancel", "Ignore"))
-					.OnClicked(this, &SFbxMaterialConflictWindow::OnCancel)
-				]*/
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
-				.Padding(2.0f, 0.0f)
+				.Padding(3.0f, 0.0f)
+				[
+					SNew(SButton)
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &SFbxMaterialConflictWindow::CollapsePreviewVisibility)))
+					.HAlign(HAlign_Center)
+					.ToolTipText(LOCTEXT("SFbxMaterialConflictWindow_Reset_Tooltip", "Change the material array to reflect the incoming FBX, match the one that fit, keep material instance from the existing data"))
+					.Text(LOCTEXT("SFbxMaterialConflictWindow_Reset", "Reset To Fbx"))
+					.OnClicked(this, &SFbxMaterialConflictWindow::OnReset)
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(3.0f, 0.0f)
 				[
 					SNew(SButton)
 					.HAlign(HAlign_Center)
@@ -125,6 +128,8 @@ void SFbxMaterialConflictWindow::Construct(const FArguments& InArgs)
 
 TSharedPtr<SWidget> SFbxMaterialConflictWindow::ConstructMaterialComparison()
 {
+	FText MaterialCompareInstruction = bIsPreviewConflict ? LOCTEXT("SFbxMaterialConflictWindow_MaterialCompareDocumentationPreview", "Material conflict preview mode") : LOCTEXT("SFbxMaterialConflictWindow_MaterialCompareDocumentation", "To fix a material match, right click on the reimport asset material.");
+	FText MaterialCompareInstructionTooltip = bIsPreviewConflict ? LOCTEXT("SFbxMaterialConflictWindow_MaterialCompareDocumentationPreviewTooltip", "This is only a conflict preview, the material conflict dialog will show up during import to allow you to fix those conflicts.") : LOCTEXT("SFbxMaterialConflictWindow_MaterialCompareDocumentationTooltip", "To fix a material match, right click on the reimport asset material.\nUse the [Clear] option in the context menu to clear a material match.");
 	return SNew(SBox)
 	.MaxDesiredHeight(500)
 	[
@@ -167,8 +172,8 @@ TSharedPtr<SWidget> SFbxMaterialConflictWindow::ConstructMaterialComparison()
 					.Padding(2)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("SFbxMaterialConflictWindow_MaterialCompareDocumentation", "To fix a material match, right click on the reimport asset material."))
-						.ToolTipText(LOCTEXT("SFbxMaterialConflictWindow_MaterialCompareDocumentationTooltip", "To fix a material match, right click on the reimport asset material.\nUse the [Clear] option in the context menu to clear a material match."))
+						.Text(MaterialCompareInstruction)
+						.ToolTipText(MaterialCompareInstructionTooltip)
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(1.0f)
@@ -315,6 +320,11 @@ FReply FMaterialConflictData::OnMouseButtonDown(const FGeometry& MyGeometry, con
 	{
 		return FReply::Unhandled();
 	}
+	
+	if (bIsPreviewConflict)
+	{
+		return FReply::Handled();
+	}
 
 	//Gather the possible match item
 	FMenuBuilder ContextMenu(true, TSharedPtr<const FUICommandList>());
@@ -441,7 +451,7 @@ void SFbxMaterialConflictWindow::FillMaterialListItem()
 	int32 MaterialCompareRowNumber = RemapMaterials->Num();
 	for (int32 RowIndex = 0; RowIndex < MaterialCompareRowNumber; ++RowIndex)
 	{
-		TSharedPtr<FMaterialConflictData> CompareRowData = MakeShareable(new FMaterialConflictData(*SourceMaterials, *ResultMaterials, *RemapMaterials, *AutoRemapMaterials, CustomRemapMaterials));
+		TSharedPtr<FMaterialConflictData> CompareRowData = MakeShareable(new FMaterialConflictData(*SourceMaterials, *ResultMaterials, *RemapMaterials, *AutoRemapMaterials, CustomRemapMaterials, bIsPreviewConflict));
 		CompareRowData->SourceMaterialIndex = RowIndex;
 		CompareRowData->ResultMaterialIndex = RowIndex;
 		CompareRowData->RowIndex = RowIndex;
@@ -456,7 +466,19 @@ FReply SFbxMaterialConflictWindow::OnCancel()
 		WidgetWindow.Pin()->RequestDestroyWindow();
 	}
 	
-	UserHasCancel = true;
+	ReturnOption = UnFbx::EFBXReimportDialogReturnOption::FBXRDRO_Cancel;
+
+	return FReply::Handled();
+}
+
+FReply SFbxMaterialConflictWindow::OnReset()
+{
+	if (WidgetWindow.IsValid())
+	{
+		WidgetWindow.Pin()->RequestDestroyWindow();
+	}
+
+	ReturnOption = UnFbx::EFBXReimportDialogReturnOption::FBXRDRO_ResetToFbx;
 
 	return FReply::Handled();
 }
@@ -468,7 +490,7 @@ FReply SFbxMaterialConflictWindow::OnDone()
 		WidgetWindow.Pin()->RequestDestroyWindow();
 	}
 	
-	UserHasCancel = false;
+	ReturnOption = UnFbx::EFBXReimportDialogReturnOption::FBXRDRO_Ok;
 
 	return FReply::Handled();
 }

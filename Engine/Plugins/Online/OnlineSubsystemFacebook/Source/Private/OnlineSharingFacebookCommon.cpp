@@ -81,12 +81,12 @@ bool FFacebookPermissions::RefreshPermissions(const FString& NewJsonStr)
 					}
 					else
 					{
-						UE_LOG(LogOnline, Warning, TEXT("Unknown permission status %s %s"), *Perm.Name, *Perm.Status);
+						UE_LOG_ONLINE_SHARING(Warning, TEXT("Unknown permission status %s %s"), *Perm.Name, *Perm.Status);
 					}
 				}
 				else
 				{
-					UE_LOG(LogOnline, Warning, TEXT("Permission not mapped to any category %s"), *Perm.Name);
+					UE_LOG_ONLINE_SHARING(Warning, TEXT("Permission not mapped to any category %s"), *Perm.Name);
 				}
 			}
 			return true;
@@ -104,7 +104,7 @@ bool FFacebookPermissions::HasPermission(EOnlineSharingCategory RequestedPermiss
 		if ((RequestedPermission & Category) != EOnlineSharingCategory::None)
 		{
 			const TArray<FString>& PermsReqd = It.Value();
-			UE_LOG(LogOnline, Display, TEXT("PermissionsMap[%s] - [%i]"), ToString(Category), PermsReqd.Num());
+			UE_LOG_ONLINE_SHARING(Display, TEXT("PermissionsMap[%s] - [%i]"), ToString(Category), PermsReqd.Num());
 			for (const FString& PermReqd : PermsReqd)
 			{
 				if (!GrantedPerms.ContainsByPredicate([PermReqd](FSharingPermission& PermToCheck) { return PermToCheck.Name == PermReqd; }))
@@ -129,7 +129,7 @@ FOnlineSharingFacebookCommon::FOnlineSharingFacebookCommon(FOnlineSubsystemFaceb
 {
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook.OnlineSharingFacebook"), TEXT("PermissionsURL"), PermissionsURL, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing PermissionsURL= in [OnlineSubsystemFacebook.OnlineSharingFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_SHARING(Warning, TEXT("Missing PermissionsURL= in [OnlineSubsystemFacebook.OnlineSharingFacebook] of DefaultEngine.ini"));
 	}
 
 	PermissionsURL.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
@@ -226,7 +226,7 @@ void FOnlineSharingFacebookCommon::Permissions_HttpComplete(FHttpRequestPtr Http
 #else
 			const FString URL = HttpRequest->GetURL();
 #endif
-			UE_LOG(LogOnline, Verbose, TEXT("Permissions request complete. url=%s code=%d response=%s"),
+			UE_LOG_ONLINE_SHARING(Verbose, TEXT("Permissions request complete. url=%s code=%d response=%s"),
 				*URL, HttpResponse->GetResponseCode(), *ResponseStr);
 
 			if (CurrentPermissions.RefreshPermissions(ResponseStr))
@@ -235,7 +235,7 @@ void FOnlineSharingFacebookCommon::Permissions_HttpComplete(FHttpRequestPtr Http
 			}
 			else
 			{
-				UE_LOG(LogOnline, Verbose, TEXT("Failed to parse permissions"));
+				UE_LOG_ONLINE_SHARING(Verbose, TEXT("Failed to parse permissions"));
 			}
 		}
 		else
@@ -244,7 +244,7 @@ void FOnlineSharingFacebookCommon::Permissions_HttpComplete(FHttpRequestPtr Http
 			Error.FromJson(ResponseStr);
 			if (Error.Error.Type == TEXT("OAuthException"))
 			{
-				UE_LOG_ONLINE(Warning, TEXT("OAuthError: %s"), *Error.ToDebugString());
+				UE_LOG_ONLINE_SHARING(Warning, TEXT("OAuthError: %s"), *Error.ToDebugString());
 				ErrorStr = FB_AUTH_EXPIRED_CREDS;
 			}
 			else
@@ -261,7 +261,7 @@ void FOnlineSharingFacebookCommon::Permissions_HttpComplete(FHttpRequestPtr Http
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Permissions request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_SHARING(Warning, TEXT("Permissions request failed. %s"), *ErrorStr);
 	}
 
 	TArray<FSharingPermission> Permissions;
@@ -311,12 +311,12 @@ bool FOnlineSharingFacebookCommon::ReadNewsFeed(int32 LocalUserNum, int32 NumPos
 EOnlineCachedResult::Type FOnlineSharingFacebookCommon::GetCachedNewsFeed(int32 LocalUserNum, int32 NewsFeedIdx, FOnlineStatusUpdate& OutNewsFeed)
 {
 	check(NewsFeedIdx >= 0);
-	UE_LOG(LogOnline, Error, TEXT("FOnlineSharingFacebookCommon::GetCachedNewsFeed not yet implemented"));
+	UE_LOG_ONLINE_SHARING(Error, TEXT("FOnlineSharingFacebookCommon::GetCachedNewsFeed not yet implemented"));
 	return EOnlineCachedResult::NotFound;
 }
 
 EOnlineCachedResult::Type FOnlineSharingFacebookCommon::GetCachedNewsFeeds(int32 LocalUserNum, TArray<FOnlineStatusUpdate>& OutNewsFeeds)
 {
-	UE_LOG(LogOnline, Error, TEXT("FOnlineSharingFacebookCommon::GetCachedNewsFeeds not yet implemented"));
+	UE_LOG_ONLINE_SHARING(Error, TEXT("FOnlineSharingFacebookCommon::GetCachedNewsFeeds not yet implemented"));
 	return EOnlineCachedResult::NotFound;
 }

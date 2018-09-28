@@ -10,6 +10,7 @@
 #include "Math/IntPoint.h"
 #include "MediaHelpers.h"
 #include "MediaSamples.h"
+#include "MediaPlayerOptions.h"
 #include "Misc/ScopeLock.h"
 
 #include "MfMediaAudioSample.h"
@@ -164,7 +165,7 @@ IMFSourceReader* FMfMediaTracks::GetSourceReader()
 }
 
 
-void FMfMediaTracks::Initialize(IMFMediaSource* InMediaSource, IMFSourceReaderCallback* InSourceReaderCallback, const TSharedRef<FMediaSamples, ESPMode::ThreadSafe>& InSamples)
+void FMfMediaTracks::Initialize(IMFMediaSource* InMediaSource, IMFSourceReaderCallback* InSourceReaderCallback, const TSharedRef<FMediaSamples, ESPMode::ThreadSafe>& InSamples, const FMediaPlayerOptions* PlayerOptions)
 {
 	Shutdown();
 
@@ -239,6 +240,21 @@ void FMfMediaTracks::Initialize(IMFMediaSource* InMediaSource, IMFSourceReaderCa
 	Algo::Reverse(AudioTracks);
 	Algo::Reverse(CaptionTracks);
 	Algo::Reverse(VideoTracks);
+
+	if (PlayerOptions)
+	{
+		// Select tracks based on the options provided
+		SelectTrack(EMediaTrackType::Audio, PlayerOptions->Tracks.Audio);
+		SelectTrack(EMediaTrackType::Caption, PlayerOptions->Tracks.Caption);
+		SelectTrack(EMediaTrackType::Video, PlayerOptions->Tracks.Video);
+	}
+	else
+	{
+		// Select default tracks
+		SelectTrack(EMediaTrackType::Audio, 0);
+		SelectTrack(EMediaTrackType::Caption, INDEX_NONE);
+		SelectTrack(EMediaTrackType::Video, 0);
+	}
 }
 
 

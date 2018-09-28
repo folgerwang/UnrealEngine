@@ -26,6 +26,7 @@
 
 #include "StereoRendering.h"
 #include "Debug/ReporterGraph.h"
+#include "Fonts/FontMeasure.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCanvas, Log, All);
 
@@ -1352,7 +1353,7 @@ void UCanvas::UpdateSafeZoneData()
 	{
 		FDisplayMetrics DisplayMetrics;
 
-		FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+		FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 
 		SafeZonePadX = FMath::CeilToInt(DisplayMetrics.TitleSafePaddingSize.X);
 		SafeZonePadY = FMath::CeilToInt(DisplayMetrics.TitleSafePaddingSize.Y);
@@ -1598,7 +1599,7 @@ int32 UCanvas::WrappedPrint(bool Draw, float X, float Y, int32& out_XL, int32& o
 	return WrappedStrings.Num();
 }
 
-void UCanvas::StrLen( const UFont* InFont, const FString& InText, float& XL, float& YL)
+void UCanvas::StrLen(const UFont* InFont, const FString& InText, float& XL, float& YL, bool bDPIAware)
 {
 	if (InFont == NULL)
 	{
@@ -1606,11 +1607,21 @@ void UCanvas::StrLen( const UFont* InFont, const FString& InText, float& XL, flo
 	}
 	else
 	{
-		FTextSizingParameters Parameters(InFont,1.0f,1.0f);
-		UCanvas::CanvasStringSize(Parameters, *InText);
-
-		XL = Parameters.DrawXL;
-		YL = Parameters.DrawYL;
+		if (InFont->FontCacheType == EFontCacheType::Offline || bDPIAware == false)
+		{
+			FTextSizingParameters Parameters(InFont, 1.0f, 1.0f);
+			UCanvas::CanvasStringSize(Parameters, *InText);
+			XL = Parameters.DrawXL;
+			YL = Parameters.DrawYL;
+		}
+		else
+		{
+			const FSlateFontInfo LegacyFontInfo = InFont->GetLegacySlateFontInfo();
+			const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+			const FVector2D MeasuredTextSize = FontMeasure->Measure(InText, LegacyFontInfo, Canvas->GetDPIScale());
+			XL = MeasuredTextSize.X;
+			YL = MeasuredTextSize.Y;
+		}
 	}
 }
 

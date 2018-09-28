@@ -96,6 +96,14 @@ int32 GuardedMain( const TCHAR* CmdLine, HINSTANCE hInInstance, HINSTANCE hPrevI
 int32 GuardedMain( const TCHAR* CmdLine )
 #endif
 {
+#if !(UE_BUILD_SHIPPING)
+	if (FParse::Param(CmdLine, TEXT("waitforattach")))
+	{
+		while (!FPlatformMisc::IsDebuggerPresent());
+		UE_DEBUG_BREAK();
+	}
+#endif
+
 	// Super early init code. DO NOT MOVE THIS ANYWHERE ELSE!
 	FCoreDelegates::GetPreMainInitDelegate().Broadcast();
 

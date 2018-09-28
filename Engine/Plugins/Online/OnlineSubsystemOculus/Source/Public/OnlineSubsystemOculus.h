@@ -29,9 +29,7 @@ class ONLINESUBSYSTEMOCULUS_API FOnlineSubsystemOculus :
 
 public:
 
-	virtual ~FOnlineSubsystemOculus()
-	{
-	}
+	virtual ~FOnlineSubsystemOculus() = default;
 
 	// IOnlineSubsystem
 
@@ -87,12 +85,10 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemOculus(FName InInstanceName) :
+	FOnlineSubsystemOculus() = delete;
+	explicit FOnlineSubsystemOculus(FName InInstanceName) :
 		FOnlineSubsystemImpl(OCULUS_SUBSYSTEM, InInstanceName),
 		bOculusInit(false)
-	{}
-
-	FOnlineSubsystemOculus()
 	{}
 
 	bool IsInitialized() const;

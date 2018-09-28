@@ -565,7 +565,7 @@ public:
 	/**
 	* Performs a photography camera tick even when the camera wouldn't normally be ticking.
 	*/
-	void UpdateCameraPhotographyOnly();
+	virtual void UpdateCameraPhotographyOnly();
 
 	/** 
 	 * Creates and initializes a new camera modifier of the specified class. 
@@ -646,11 +646,11 @@ public:
 	void GetCameraViewPoint(FVector& OutCamLoc, FRotator& OutCamRot) const;
 	
 	/** @return Returns camera's current rotation. */
-	UFUNCTION(BlueprintCallable, Category = "Camera")
+	UFUNCTION(BlueprintCallable, Category = "Camera", meta=(Keywords="View Direction"))
 	FRotator GetCameraRotation() const;
 
 	/** @return Returns camera's current location. */
-	UFUNCTION(BlueprintCallable, Category = "Camera")
+	UFUNCTION(BlueprintCallable, Category = "Camera", meta=(Keywords="View Position"))
 	FVector GetCameraLocation() const;
 	
 	/** 
@@ -897,10 +897,10 @@ protected:
 	virtual void UpdateViewTargetInternal(FTViewTarget& OutVT, float DeltaTime);
 
 private:
-	// Buried to prevent use; use GetCameraLocation instead
+	// Buried to prevent use; use GetCameraRotation instead
 	FRotator GetActorRotation() const { return Super::GetActorRotation(); }
 
-	// Buried to prevent use; use GetCameraRotation instead
+	// Buried to prevent use; use GetCameraLocation instead
 	FVector GetActorLocation() const { return Super::GetActorLocation(); }
 
 public:

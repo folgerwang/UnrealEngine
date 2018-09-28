@@ -603,7 +603,9 @@ public:
 		IRHICommandContext::RHIEndRenderPass();
 	}
 
-	void RHICalibrateTimers() override;
+	virtual void RHICalibrateTimers() override;
+
+	virtual bool RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat) override;
 
 	// Accessors.
 	ID3D11Device* GetDevice() const

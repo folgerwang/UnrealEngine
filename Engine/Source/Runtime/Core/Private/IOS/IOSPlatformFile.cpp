@@ -9,7 +9,7 @@
 #include "Misc/Parse.h"
 #include "Misc/CoreMisc.h"
 #include "Misc/CommandLine.h"
-
+#include "Misc/App.h"
 
 //#if PLATFORM_IOS
 //#include "IPlatformFileSandboxWrapper.h"
@@ -753,14 +753,28 @@ bool FIOSPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFun
 FString FIOSPlatformFile::ConvertToIOSPath(const FString& Filename, bool bForWrite)
 {
 	FString Result = Filename;
-    if (Result.Contains(TEXT("/OnDemandResources/")))
-    {
-        return Result;
-    }
+	if (Result.Contains(TEXT("/OnDemandResources/")) || Result.StartsWith(TEXT("/var/")))
+	{
+		return Result;
+	}
     
 	Result.ReplaceInline(TEXT("../"), TEXT(""));
 	Result.ReplaceInline(TEXT(".."), TEXT(""));
 	Result.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+
+	for (FString AdditionalRootDirectory : FPlatformMisc::GetAdditionalRootDirectories())
+	{
+        AdditionalRootDirectory.ReplaceInline(TEXT("../"), TEXT(""));
+        AdditionalRootDirectory.ReplaceInline(TEXT(".."), TEXT(""));
+		if (Result.StartsWith(AdditionalRootDirectory))
+		{
+			static FString ReadPathBase = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+
+			Result = ReadPathBase + Result.Mid(0,AdditionalRootDirectory.Len()) + TEXT("/") + Result.Mid(AdditionalRootDirectory.Len()+1).ToLower();
+            
+            return Result;
+        }
+	}
 
 	if(bForWrite)
 	{

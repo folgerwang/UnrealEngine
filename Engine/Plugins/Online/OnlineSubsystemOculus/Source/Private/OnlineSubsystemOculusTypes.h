@@ -92,7 +92,8 @@ public:
 
 	virtual FString ToDebugString() const override
 	{
-		return FString::Printf(TEXT("ovrID: %llu"), ID);
+		const FString UniqueNetIdStr = FString::Printf(TEXT("%llu"), ID);
+		return TEXT("ovrID:") + OSS_UNIQUEID_REDACT(*this, UniqueNetIdStr);
 	}
 
 	/** Needed for TMap::GetTypeHash() */

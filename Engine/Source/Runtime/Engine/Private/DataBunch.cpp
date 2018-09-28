@@ -76,7 +76,9 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
 
 	if (CopyBuffer)
+	{
 		FBitReader::operator=(InBunch);
+	}
 
 	Pos = 0;
 }

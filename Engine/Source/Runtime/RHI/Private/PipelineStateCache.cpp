@@ -8,7 +8,6 @@ PipelineStateCache.cpp: Pipeline state cache implementation.
 #include "PipelineFileCache.h"
 #include "Misc/ScopeRWLock.h"
 #include "Misc/ScopeLock.h"
-#include "Misc/CoreDelegates.h"
 #include "CoreGlobals.h"
 #include "Misc/TimeGuard.h"
 #include "Containers/DiscardableKeyValueCache.h"
@@ -585,28 +584,10 @@ public:
 */
 void PipelineStateCache::FlushResources()
 {
-	static bool PerformedOneTimeInit = false;
-
 	check(IsInRenderingThread());
 
 	GGraphicsPipelineCache.ConsolidateThreadedCaches();
 	GGraphicsPipelineCache.ProcessDelayedCleanup();
-	// Thread-safe one-time initialization of things we need to set up
-	if (PerformedOneTimeInit == false)
-	{
-		PerformedOneTimeInit = true;
-
-		// We don't trim, but we will dump out how much memory we're using..
-		FCoreDelegates::GetMemoryTrimDelegate().AddLambda([]()
-		{
-#if PSO_TRACK_CACHE_STATS
-			DumpPipelineCacheStats();
-#endif
-		});
-
-		PerformedOneTimeInit = true;
-
-	}
 
 	static double LastEvictionTime = FPlatformTime::Seconds();
 	double CurrentTime = FPlatformTime::Seconds();
@@ -653,7 +634,9 @@ void PipelineStateCache::FlushResources()
 
 static bool IsAsyncCompilationAllowed(FRHICommandList& RHICmdList)
 {
-	return GCVarAsyncPipelineCompile.GetValueOnAnyThread() && !RHICmdList.Bypass() && IsRunningRHIInSeparateThread();
+	return !IsOpenGLPlatform(GMaxRHIShaderPlatform) &&  // The PSO cache is a waste of time on OpenGL and async compilation is a double waste of time.
+		!IsSwitchPlatform(GMaxRHIShaderPlatform) &&
+		GCVarAsyncPipelineCompile.GetValueOnAnyThread() && !RHICmdList.Bypass() && IsRunningRHIInSeparateThread();
 }
 
 FComputePipelineState* PipelineStateCache::GetAndOrCreateComputePipelineState(FRHICommandList& RHICmdList, FRHIComputeShader* ComputeShader)

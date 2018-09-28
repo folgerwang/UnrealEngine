@@ -136,12 +136,13 @@ void FSkyLightSceneProxy::Initialize(
 FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightComponent)
 	: LightComponent(InLightComponent)
 	, ProcessedTexture(InLightComponent->ProcessedSkyTexture)
-	, BlendDestinationProcessedTexture(InLightComponent->BlendDestinationProcessedSkyTexture)
 	, SkyDistanceThreshold(InLightComponent->SkyDistanceThreshold)
+	, BlendDestinationProcessedTexture(InLightComponent->BlendDestinationProcessedSkyTexture)
 	, bCastShadows(InLightComponent->CastShadows)
 	, bWantsStaticShadowing(InLightComponent->Mobility == EComponentMobility::Stationary)
 	, bHasStaticLighting(InLightComponent->HasStaticLighting())
 	, bCastVolumetricShadow(InLightComponent->bCastVolumetricShadow)
+	, OcclusionCombineMode(InLightComponent->OcclusionCombineMode)
 	, LightColor(FLinearColor(InLightComponent->LightColor) * InLightComponent->Intensity)
 	, IndirectLightingIntensity(InLightComponent->IndirectLightingIntensity)
 	, VolumetricScatteringIntensity(FMath::Max(InLightComponent->VolumetricScatteringIntensity, 0.0f))
@@ -150,7 +151,6 @@ FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightCompon
 	, OcclusionExponent(FMath::Clamp(InLightComponent->OcclusionExponent, .1f, 10.0f))
 	, MinOcclusion(FMath::Clamp(InLightComponent->MinOcclusion, 0.0f, 1.0f))
 	, OcclusionTint(InLightComponent->OcclusionTint)
-	, OcclusionCombineMode(InLightComponent->OcclusionCombineMode)
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
 		FInitSkyProxy,

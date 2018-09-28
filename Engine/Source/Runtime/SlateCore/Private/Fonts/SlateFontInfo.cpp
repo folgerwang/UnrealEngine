@@ -5,12 +5,31 @@
 #include "SlateGlobals.h"
 #include "Fonts/FontProviderInterface.h"
 #include "Fonts/LegacySlateFontInfoCache.h"
-
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 /* FSlateFontInfo structors
  *****************************************************************************/
 
 FFontOutlineSettings FFontOutlineSettings::NoOutline;
+
+
+bool FFontOutlineSettings::Serialize(FArchive& Ar)
+{
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+
+	// Don't actually serialize, just write the custom version for PostSerialize
+	return false;
+}
+
+void FFontOutlineSettings::PostSerialize(const FArchive& Ar)
+{
+	if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::FontOutlineDropShadowFixup)
+	{
+		// Set the default for drop shadow outlines to match the legacy behavior that font outlines applied to drop shadows by default
+		// New assets will have the new default which is false
+		bApplyOutlineToDropShadows = true;
+	}
+}
 
 FSlateFontInfo::FSlateFontInfo( )
 	: FontObject(nullptr)

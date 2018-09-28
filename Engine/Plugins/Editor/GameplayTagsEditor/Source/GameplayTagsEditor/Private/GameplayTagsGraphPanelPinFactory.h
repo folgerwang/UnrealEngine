@@ -16,21 +16,27 @@ class FGameplayTagsGraphPanelPinFactory: public FGraphPanelPinFactory
 {
 	virtual TSharedPtr<class SGraphPin> CreatePin(class UEdGraphPin* InPin) const override
 	{
-		if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct && InPin->PinType.PinSubCategoryObject == FGameplayTag::StaticStruct())
+		if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct)
 		{
-			return SNew(SGameplayTagGraphPin, InPin);
+			if (UScriptStruct* PinStructType = Cast<UScriptStruct>(InPin->PinType.PinSubCategoryObject.Get()))
+			{
+				if (PinStructType->IsChildOf(FGameplayTag::StaticStruct()))
+				{
+					return SNew(SGameplayTagGraphPin, InPin);
+				}
+				else if (PinStructType->IsChildOf(FGameplayTagContainer::StaticStruct()))
+				{
+					return SNew(SGameplayTagContainerGraphPin, InPin);
+				}
+				else if (PinStructType->IsChildOf(FGameplayTagQuery::StaticStruct()))
+				{
+					return SNew(SGameplayTagQueryGraphPin, InPin);
+				}
+			}
 		}
-		if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct && InPin->PinType.PinSubCategoryObject == FGameplayTagContainer::StaticStruct())
+		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_String && InPin->PinType.PinSubCategory == TEXT("LiteralGameplayTagContainer"))
 		{
 			return SNew(SGameplayTagContainerGraphPin, InPin);
-		}
-		if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_String && InPin->PinType.PinSubCategory == TEXT("LiteralGameplayTagContainer"))
-		{
-			return SNew(SGameplayTagContainerGraphPin, InPin);
-		}
-		if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct && InPin->PinType.PinSubCategoryObject == FGameplayTagQuery::StaticStruct())
-		{
-			return SNew(SGameplayTagQueryGraphPin, InPin);
 		}
 
 		return nullptr;

@@ -19,6 +19,15 @@ struct FSlateMeshVertex
 	static const int32 MaxNumUVs = 6;
 
 	FSlateMeshVertex()
+		:
+		Position(FVector2D::ZeroVector)
+		, Color(ForceInitToZero)
+		, UV0(FVector2D::ZeroVector)
+		, UV1(FVector2D::ZeroVector)
+		, UV2(FVector2D::ZeroVector)
+		, UV3(FVector2D::ZeroVector)
+		, UV4(FVector2D::ZeroVector)
+		, UV5(FVector2D::ZeroVector)
 	{
 	}
 

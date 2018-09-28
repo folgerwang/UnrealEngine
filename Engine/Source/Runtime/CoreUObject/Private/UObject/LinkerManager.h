@@ -30,8 +30,8 @@ public:
 #if THREADSAFE_UOBJECTS
 		FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
 #endif
-		OutLoaders = ObjectLoaders;
-		OutLoaders.Empty();
+		OutLoaders = MoveTemp(ObjectLoaders);
+		check(ObjectLoaders.Num() == 0);
 	}
 
 	FORCEINLINE void AddLoader(FLinkerLoad* LinkerLoad)
@@ -42,28 +42,13 @@ public:
 		ObjectLoaders.Add(LinkerLoad);
 	}
 
-	FORCEINLINE void RemoveLoader(FLinkerLoad* LinkerLoad)
+	FORCEINLINE void RemoveLoaderFromObjectLoadersAndLoadersWithNewImports(FLinkerLoad* LinkerLoad)
 	{
 #if THREADSAFE_UOBJECTS
 		FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
 #endif
 		ObjectLoaders.Remove(LinkerLoad);
-	}
-
-	FORCEINLINE void EmptyLoaders(FLinkerLoad* LinkerLoad)
-	{
-#if THREADSAFE_UOBJECTS
-		FScopeLock ObjectLoadersLock(&ObjectLoadersCritical);
-#endif
-		ObjectLoaders.Empty();
-	}
-
-	FORCEINLINE void GetLoadersWithNewImports(TSet<FLinkerLoad*>& OutLoaders)
-	{
-#if THREADSAFE_UOBJECTS
-		FScopeLock ObjectLoadersLock(&LoadersWithNewImportsCritical);
-#endif
-		OutLoaders = LoadersWithNewImports;
+		LoadersWithNewImports.Remove(LinkerLoad);
 	}
 
 	FORCEINLINE void GetLoadersWithNewImportsAndEmpty(TSet<FLinkerLoad*>& OutLoaders)
@@ -82,23 +67,7 @@ public:
 		LoadersWithNewImports.Add(LinkerLoad);
 	}
 
-	FORCEINLINE void RemoveLoaderWithNewImports(FLinkerLoad* LinkerLoad)
-	{
-#if THREADSAFE_UOBJECTS
-		FScopeLock ObjectLoadersLock(&LoadersWithNewImportsCritical);
-#endif
-		LoadersWithNewImports.Remove(LinkerLoad);
-	}
-
-	FORCEINLINE void EmptyLoadersWithNewImports(FLinkerLoad* LinkerLoad)
-	{
-#if THREADSAFE_UOBJECTS
-		FScopeLock ObjectLoadersLock(&LoadersWithNewImportsCritical);
-#endif
-		LoadersWithNewImports.Empty();
-	}
-
-#if !UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
 	FORCEINLINE TArray<FLinkerLoad*>& GetLiveLinkers()
 	{
 		return LiveLinkers;
@@ -136,7 +105,7 @@ private:
 #if THREADSAFE_UOBJECTS
 	FCriticalSection LoadersWithNewImportsCritical;
 #endif
-#if !UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
 	/** List of all the existing linker loaders **/
 	TArray<FLinkerLoad*> LiveLinkers;
 #endif

@@ -935,25 +935,28 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		GeneratedClassVal = TEXT("None");
 	}
 
-	FString NativeParentClassName;
+	FString NativeParentClassName, ParentClassName;
 	if ( ParentClass )
 	{
+		ParentClassName = FString::Printf(TEXT("%s'%s'"), *ParentClass->GetClass()->GetName(), *ParentClass->GetPathName());
+
 		// Walk up until we find a native class (ie 'while they are BP classes')
 		UClass* NativeParentClass = ParentClass;
 		while (Cast<UBlueprintGeneratedClass>(NativeParentClass) != nullptr) // can't use IsA on UClass
 		{
 			NativeParentClass = NativeParentClass->GetSuperClass();
 		}
-		NativeParentClassName = FString::Printf(TEXT("%s'%s'"), *UClass::StaticClass()->GetName(), *NativeParentClass->GetPathName());
+		NativeParentClassName = FString::Printf(TEXT("%s'%s'"), *NativeParentClass->GetClass()->GetName(), *NativeParentClass->GetPathName());
 	}
 	else
 	{
-		NativeParentClassName = TEXT("None");
+		NativeParentClassName = ParentClassName = ("None");
 	}
 
 
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::BlueprintPathWithinPackage, GetPathName(GetOutermost()), FAssetRegistryTag::TT_Hidden));
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::GeneratedClassPath, GeneratedClassVal, FAssetRegistryTag::TT_Hidden));
+	OutTags.Add(FAssetRegistryTag(FBlueprintTags::ParentClassPath, ParentClassName, FAssetRegistryTag::TT_Alphabetical));
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::NativeParentClassPath, NativeParentClassName, FAssetRegistryTag::TT_Alphabetical));
 
 	// BlueprintGeneratedClass is not automatically traversed so we have to manually add NumReplicatedProperties
@@ -964,8 +967,6 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		NumReplicatedProperties = BlueprintClass->NumReplicatedProperties;
 	}
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::NumReplicatedProperties, FString::FromInt(NumReplicatedProperties), FAssetRegistryTag::TT_Numerical));
-
-	// This is explicit so it can be added as hidden
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::BlueprintDescription, BlueprintDescription, FAssetRegistryTag::TT_Hidden));
 
 	uint32 ClassFlagsTagged = 0;

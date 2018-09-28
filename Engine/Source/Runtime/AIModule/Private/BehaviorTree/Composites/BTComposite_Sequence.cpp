@@ -5,8 +5,6 @@
 UBTComposite_Sequence::UBTComposite_Sequence(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NodeName = "Sequence";
-
-	OnNextChild.BindUObject(this, &UBTComposite_Sequence::GetNextChildHandler);
 }
 
 int32 UBTComposite_Sequence::GetNextChildHandler(FBehaviorTreeSearchData& SearchData, int32 PrevChild, EBTNodeResult::Type LastResult) const

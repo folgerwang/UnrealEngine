@@ -70,11 +70,11 @@ void UOculusNetConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 	SetExpectedClientLoginMsgType(NMT_Hello);
 }
 
-void UOculusNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+void UOculusNetConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	if (bIsPassThrough)
 	{
-		UIpConnection::LowLevelSend(Data, CountBytes, CountBits);
+		UIpConnection::LowLevelSend(Data, CountBits, Traits);
 		return;
 	}
 
@@ -88,15 +88,17 @@ void UOculusNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 Coun
 	}
 
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
+	uint32 CountBytes = 0;
 
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
 	{
-		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
+		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits, Traits);
 
 		if (!ProcessedData.bError)
 		{
 			DataToSend = ProcessedData.Data;
+			CountBits = ProcessedData.CountBits;
 			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 		}
 		else

@@ -1968,8 +1968,9 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 
 			if (GBlueprintUseCompilationManager)
 			{
+				// Skip CDO validation in this case as we will not have yet propagated values to the new CDO.
 				FBlueprintCompilationManager::CompileSynchronously(
-					FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, nullptr)
+					FBPCompileRequest(Blueprint, EBlueprintCompileOptions::SkipDefaultObjectValidation, nullptr)
 				);
 			}
 			else
@@ -4402,6 +4403,9 @@ bool FBlueprintEditorUtils::AddMemberVariable(UBlueprint* Blueprint, const FName
 	NewVar.VarType.bIsConst       = false;
 	NewVar.VarType.bIsWeakPointer = false;
 	NewVar.VarType.bIsReference   = false;
+
+	// Text variables, etc. should default to multiline
+	NewVar.SetMetaData(TEXT("MultiLine"), TEXT("true"));
 
 	Blueprint->NewVariables.Add(NewVar);
 

@@ -7,36 +7,36 @@ DEFINE_LOG_CATEGORY_STATIC(LogTimeGuard, Log, All);
 
 #if DO_TIMEGUARD
 
-TMap<const TCHAR*, FLightweightTimeGuard::FGuardInfo>  FLightweightTimeGuard::HitchData;
-bool FLightweightTimeGuard::bEnabled;
-float FLightweightTimeGuard::FrameTimeThresholdMS = 1000.0 / 30.0;
-FCriticalSection FLightweightTimeGuard::ReportMutex;
-TSet<const TCHAR *> FLightweightTimeGuard::VolatileNames; // any names which come in volatile we allocate them to a static string and put them in this array
+TMap<const TCHAR*, FTimeGuard::FGuardInfo>  FTimeGuard::HitchData;
+bool FTimeGuard::bEnabled;
+float FTimeGuard::FrameTimeThresholdMS = 1000.0 / 30.0;
+FCriticalSection FTimeGuard::ReportMutex;
+TSet<const TCHAR *> FTimeGuard::VolatileNames; // any names which come in volatile we allocate them to a static string and put them in this array
 
 
-void FLightweightTimeGuard::SetEnabled(bool InEnable)
+void FTimeGuard::SetEnabled(bool InEnable)
 {
 	bEnabled = InEnable;
 }
 
-void FLightweightTimeGuard::SetFrameTimeThresholdMS(float InTimeMS)
+void FTimeGuard::SetFrameTimeThresholdMS(float InTimeMS)
 {
 	FrameTimeThresholdMS = InTimeMS;
 }
 
-void FLightweightTimeGuard::ClearData()
+void FTimeGuard::ClearData()
 {
 	FScopeLock Lock(&ReportMutex);
 	HitchData.Empty();
 }
 
-void FLightweightTimeGuard::GetData(TMap<const TCHAR*, FGuardInfo>& Dest)
+void FTimeGuard::GetData(TMap<const TCHAR*, FGuardInfo>& Dest)
 {
 	FScopeLock Lock(&ReportMutex);
 	Dest = HitchData;
 }
 
-void FLightweightTimeGuard::ReportHitch(const TCHAR* VolatileInName, const float TimeMS, bool VolatileName)
+void FTimeGuard::ReportHitch(const TCHAR* VolatileInName, const float TimeMS, bool VolatileName)
 {
 	FScopeLock lock(&ReportMutex);
 

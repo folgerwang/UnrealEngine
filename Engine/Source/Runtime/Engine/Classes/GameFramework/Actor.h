@@ -176,7 +176,7 @@ public:
 	uint8 bExchangedRoles:1;
 
 	/** This actor will be loaded on network clients during map load */
-	UPROPERTY(Category=Replication, EditDefaultsOnly)
+	UPROPERTY(Category=Replication, EditAnywhere)
 	uint8 bNetLoadOnClient:1;
 
 	/** If actor has valid Owner, call Owner's IsNetRelevantFor and GetNetPriority */
@@ -470,6 +470,12 @@ public:
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadWrite)
 	float NetPriority;
 
+private:
+
+	/** Caches the most recent last render time we've looked at for this actor */
+	mutable float CachedLastRenderTime;
+
+public:
 	/**
 	 * Set the name of the net driver associated with this actor.  Will move the actor out of the list of network actors from the old net driver and add it to the new list
 	 * @param NewNetDriverName name of the new net driver association
@@ -1509,6 +1515,9 @@ public:
 	virtual void PostEditImport() override;
 	virtual bool IsSelectedInEditor() const override;
 
+	/** When selected can this actor be deleted? */
+	virtual bool CanDeleteSelectedActor(FText& OutReason) const { return true; }
+
 	struct FActorRootComponentReconstructionData
 	{
 		// Struct to store info about attached actors
@@ -1945,6 +1954,9 @@ public:
 	
 	/** Always called immediately after properties are received from the remote. */
 	virtual void PostNetReceive() override;
+
+	/** Always called immediately after a new Role is received from the remote. */
+	virtual void PostNetReceiveRole();
 
 	/** IsNameStableForNetworking means an object can be referred to its path name (relative to outer) over the network */
 	virtual bool IsNameStableForNetworking() const override;
@@ -2623,8 +2635,8 @@ public:
 		return const_cast<AActor*>(this)->FindOrAddNetworkObjectInfo();
 	}
 
-	/** Force actor to be updated to clients */
-	UFUNCTION(BlueprintAuthorityOnly, BlueprintCallable, Category="Networking")
+	/** Force actor to be updated to clients/demo net drivers */
+	UFUNCTION( BlueprintCallable, Category="Networking")
 	virtual void ForceNetUpdate();
 
 	/**
@@ -2859,6 +2871,11 @@ public:
 		return ReplicatedComponents; 
 	}
 
+protected:
+
+	/** Set of replicated components, stored as an array to save space as this is generally not very large */
+	TArray<UActorComponent*> ReplicatedComponents;
+
 private:
 	/**
 	 * All ActorComponents owned by this Actor. Stored as a Set as actors may have a large number of components
@@ -2870,9 +2887,6 @@ private:
 	/** Maps natively-constructed components to properties that reference them. */
 	TMultiMap<FName, UObjectProperty*> NativeConstructedComponentToPropertyMap;
 #endif
-
-	/** Set of replicated components, stored as an array to save space as this is generally not very large */
-	TArray<UActorComponent*> ReplicatedComponents;
 
 	/** Array of ActorComponents that have been added by the user on a per-instance basis. */
 	UPROPERTY(Instanced)

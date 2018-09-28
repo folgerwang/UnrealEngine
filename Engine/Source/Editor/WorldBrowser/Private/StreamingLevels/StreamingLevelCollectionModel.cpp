@@ -7,7 +7,7 @@
 #include "Editor/EditorEngine.h"
 #include "Settings/LevelEditorMiscSettings.h"
 #include "Engine/LevelStreamingAlwaysLoaded.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Editor.h"
 #include "EditorDirectories.h"
 #include "FileHelpers.h"
@@ -28,7 +28,7 @@
 
 FStreamingLevelCollectionModel::FStreamingLevelCollectionModel()
 	: FLevelCollectionModel()
-	, AddedLevelStreamingClass(ULevelStreamingKismet::StaticClass())
+	, AddedLevelStreamingClass(ULevelStreamingDynamic::StaticClass())
 	, bAssetDialogOpen(false)
 {
 	const TSubclassOf<ULevelStreaming> DefaultLevelStreamingClass = GetDefault<ULevelEditorMiscSettings>()->DefaultLevelStreamingClass;
@@ -120,9 +120,9 @@ void FStreamingLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevel
 	}
 		
 	bool bHaveDirtyLevels = false;
-	for (auto It = InLevelList.CreateConstIterator(); It; ++It)
+	for (const TSharedPtr<FLevelModel>& LevelModel : InLevelList)
 	{
-		if ((*It)->IsDirty() && !(*It)->IsLocked() && !(*It)->IsPersistent())
+		if (LevelModel->IsDirty() && !LevelModel->IsLocked() && !LevelModel->IsPersistent())
 		{
 			// this level is dirty and can be removed from the world
 			bHaveDirtyLevels = true;
@@ -192,9 +192,9 @@ void FStreamingLevelCollectionModel::BindCommands()
 	
 	// new level streaming method
 	ActionList.MapAction( Commands.SetAddStreamingMethod_Blueprint,
-		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::SetAddedLevelStreamingClass_Executed, ULevelStreamingKismet::StaticClass()  ),
+		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::SetAddedLevelStreamingClass_Executed, ULevelStreamingDynamic::StaticClass()  ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &FStreamingLevelCollectionModel::IsNewStreamingMethodChecked, ULevelStreamingKismet::StaticClass()));
+		FIsActionChecked::CreateSP( this, &FStreamingLevelCollectionModel::IsNewStreamingMethodChecked, ULevelStreamingDynamic::StaticClass()));
 
 	ActionList.MapAction( Commands.SetAddStreamingMethod_AlwaysLoaded,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::SetAddedLevelStreamingClass_Executed, ULevelStreamingAlwaysLoaded::StaticClass()  ),
@@ -203,9 +203,9 @@ void FStreamingLevelCollectionModel::BindCommands()
 
 	// change streaming method
 	ActionList.MapAction( Commands.SetStreamingMethod_Blueprint,
-		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::SetStreamingLevelsClass_Executed, ULevelStreamingKismet::StaticClass()  ),
+		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::SetStreamingLevelsClass_Executed, ULevelStreamingDynamic::StaticClass()  ),
 		FCanExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::AreAllSelectedLevelsEditable ),
-		FIsActionChecked::CreateSP( this, &FStreamingLevelCollectionModel::IsStreamingMethodChecked, ULevelStreamingKismet::StaticClass()));
+		FIsActionChecked::CreateSP( this, &FStreamingLevelCollectionModel::IsStreamingMethodChecked, ULevelStreamingDynamic::StaticClass()));
 
 	ActionList.MapAction( Commands.SetStreamingMethod_AlwaysLoaded,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::SetStreamingLevelsClass_Executed, ULevelStreamingAlwaysLoaded::StaticClass()  ),
@@ -238,10 +238,10 @@ TSharedPtr<WorldHierarchy::FWorldBrowserDragDropOp> FStreamingLevelCollectionMod
 {
 	TArray<TWeakObjectPtr<ULevelStreaming>> LevelsToDrag;
 
-	for (auto It = InLevels.CreateConstIterator(); It; ++It)
+	for (const TSharedPtr<FLevelModel>& LevelModel : InLevels)
 	{
-		check(AllLevelsList.Contains(*It));
-		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(*It);
+		check(AllLevelsList.Contains(LevelModel));
+		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(LevelModel);
 
 		if (TargetModel->GetLevelStreaming().IsValid())
 		{
@@ -443,7 +443,7 @@ void FStreamingLevelCollectionModel::HandleAddExistingLevelSelected(const TArray
 	bAssetDialogOpen = false;
 
 	TArray<FString> PackageNames;
-	for (const auto& AssetData : SelectedAssets)
+	for (const FAssetData& AssetData : SelectedAssets)
 	{
 		PackageNames.Add(AssetData.PackageName.ToString());
 	}
@@ -451,7 +451,7 @@ void FStreamingLevelCollectionModel::HandleAddExistingLevelSelected(const TArray
 	// Save or selected list, adding a new level will clean it up
 	FLevelModelList SavedInvalidSelectedLevels = InvalidSelectedLevels;
 
-	EditorLevelUtils::AddLevelsToWorld(CurrentWorld.Get(), PackageNames, AddedLevelStreamingClass);
+	EditorLevelUtils::AddLevelsToWorld(CurrentWorld.Get(), MoveTemp(PackageNames), AddedLevelStreamingClass);
 
 	// Force a cached level list rebuild
 	PopulateLevelsList();
@@ -553,9 +553,9 @@ bool FStreamingLevelCollectionModel::IsNewStreamingMethodChecked(UClass* InClass
 
 bool FStreamingLevelCollectionModel::IsStreamingMethodChecked(UClass* InClass) const
 {
-	for (auto It = SelectedLevelsList.CreateConstIterator(); It; ++It)
+	for (const TSharedPtr<FLevelModel>& LevelModel : SelectedLevelsList)
 	{
-		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(*It);
+		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(LevelModel);
 		ULevelStreaming* LevelStreaming = TargetModel->GetLevelStreaming().Get();
 		
 		if (LevelStreaming && LevelStreaming->GetClass() == InClass)
@@ -575,9 +575,9 @@ void FStreamingLevelCollectionModel::SetStreamingLevelsClass_Executed(UClass* In
 	FLevelModelList SelectedLevelsCopy = GetSelectedLevels();
 
 	// Apply the new streaming method to the selected levels
-	for (auto It = SelectedLevelsCopy.CreateIterator(); It; ++It)
+	for (const TSharedPtr<FLevelModel>& LevelModel : SelectedLevelsCopy)
 	{
-		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(*It);
+		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(LevelModel);
 		TargetModel->SetStreamingClass(InClass);
 	}
 
@@ -592,16 +592,15 @@ void FStreamingLevelCollectionModel::SelectStreamingVolumes_Executed()
 {
 	// Iterate over selected levels and make a list of volumes to select.
 	TArray<ALevelStreamingVolume*> LevelStreamingVolumesToSelect;
-	for (auto It = SelectedLevelsList.CreateIterator(); It; ++It)
+	for (const TSharedPtr<FLevelModel>& LevelModel : SelectedLevelsList)
 	{
-		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(*It);
+		TSharedPtr<FStreamingLevelModel> TargetModel = StaticCastSharedPtr<FStreamingLevelModel>(LevelModel);
 		ULevelStreaming* StreamingLevel = TargetModel->GetLevelStreaming().Get();
 
 		if (StreamingLevel)
 		{
-			for (int32 i = 0; i < StreamingLevel->EditorStreamingVolumes.Num(); ++i)
+			for (ALevelStreamingVolume* LevelStreamingVolume : StreamingLevel->EditorStreamingVolumes)
 			{
-				ALevelStreamingVolume* LevelStreamingVolume = StreamingLevel->EditorStreamingVolumes[i];
 				if (LevelStreamingVolume)
 				{
 					LevelStreamingVolumesToSelect.Add(LevelStreamingVolume);
@@ -615,9 +614,8 @@ void FStreamingLevelCollectionModel::SelectStreamingVolumes_Executed()
 	GEditor->GetSelectedActors()->Modify();
 	GEditor->SelectNone(false, true);
 
-	for (int32 i = 0 ; i < LevelStreamingVolumesToSelect.Num() ; ++i)
+	for (ALevelStreamingVolume* LevelStreamingVolume : LevelStreamingVolumesToSelect)
 	{
-		ALevelStreamingVolume* LevelStreamingVolume = LevelStreamingVolumesToSelect[i];
 		GEditor->SelectActor(LevelStreamingVolume, /*bInSelected=*/ true, false, true);
 	}
 	

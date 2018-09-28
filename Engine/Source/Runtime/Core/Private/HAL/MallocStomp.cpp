@@ -53,8 +53,8 @@ void* FMallocStomp::Malloc(SIZE_T Size, uint32 Alignment)
 		Size = 1U;
 	}
 
-#if PLATFORM_APPLE
-	// Apple's libraries expect at least 16-byte alignment.
+#if PLATFORM_64BITS
+	// 64-bit ABIs on x86_64 expect a 16-byte alignment
 	Alignment = FMath::Max<uint32>(Alignment, 16U);
 #endif
 
@@ -63,7 +63,6 @@ void* FMallocStomp::Malloc(SIZE_T Size, uint32 Alignment)
 	const SIZE_T TotalAllocationSize = AllocFullPageSize + PageSize;
 
 #if PLATFORM_UNIX || PLATFORM_MAC
-	// Note: can't implement BinnedAllocFromOS as a mmap call. See Free() for the reason.
 	void *FullAllocationPointer = mmap(nullptr, TotalAllocationSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 #elif PLATFORM_WINDOWS && MALLOC_STOMP_KEEP_VIRTUAL_MEMORY
 	// Allocate virtual address space from current block using linear allocation strategy.
@@ -192,10 +191,6 @@ void FMallocStomp::Free(void* InPtr)
 	}
 
 #if PLATFORM_UNIX || PLATFORM_MAC
-	// Note: Can't wrap munmap inside BinnedFreeToOS() because the code doesn't
-	// expect the size of the allocation to be freed to be available, nor the 
-	// pointer be aligned with the page size. We can guarantee that here so that's
-	// why we can do it.
 	munmap(AllocDataPtr->FullAllocationPointer, AllocDataPtr->FullSize);
 #elif PLATFORM_WINDOWS && MALLOC_STOMP_KEEP_VIRTUAL_MEMORY
 	// Unmap physical memory, but keep virtual address range reserved to catch use-after-free errors.

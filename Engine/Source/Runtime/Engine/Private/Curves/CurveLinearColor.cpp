@@ -48,6 +48,9 @@ FLinearColor UCurveLinearColor::GetLinearColorValue( float InTime ) const
 	// Logic copied from .\Engine\Source\Developer\TextureCompressor\Private\TextureCompressorModule.cpp
 	const FLinearColor OriginalColor = GetUnadjustedLinearColorValue(InTime);
 
+	// Only clamp value if the color is RGB < 1
+	const bool bShouldClampValue = (OriginalColor.R <= 1.0f && OriginalColor.G <= 1.0f && OriginalColor.B <= 1.0f);
+
 	// Convert to HSV
 	FLinearColor HSVColor = OriginalColor.LinearRGBToHSV();
 	float& PixelHue = HSVColor.R;
@@ -93,7 +96,11 @@ FLinearColor UCurveLinearColor::GetLinearColorValue( float InTime ) const
 			PixelHue += 360.0f;
 		}
 		PixelSaturation = FMath::Clamp(PixelSaturation, 0.0f, 1.0f);
-		PixelValue = FMath::Clamp(PixelValue, 0.0f, 1.0f);
+
+		if (bShouldClampValue)
+		{
+			PixelValue = FMath::Clamp(PixelValue, 0.0f, 1.0f);
+		}
 	}
 
 	// Convert back to a linear color
@@ -192,7 +199,7 @@ void UCurveLinearColor::DrawThumbnail(FCanvas* Canvas, FVector2D StartXY, FVecto
 }
 
 
-void UCurveLinearColor::PushToSourceData(TArray<FColor> &SrcData, int32 StartXY, FVector2D SizeXY)
+void UCurveLinearColor::PushToSourceData(TArray<FFloat16Color> &SrcData, int32 StartXY, FVector2D SizeXY)
 {
 	int32 Start = StartXY;
 	for (uint32 y = 0; y < SizeXY.Y; y++)
@@ -200,9 +207,7 @@ void UCurveLinearColor::PushToSourceData(TArray<FColor> &SrcData, int32 StartXY,
 		// Create base mip for the texture we created.
 		for (uint32 x = 0; x < SizeXY.X; x++)
 		{
-			FLinearColor Color = GetLinearColorValue(x / SizeXY.X);
-			FColor Src = Color.ToFColor(false);
-			SrcData[Start + x + y*SizeXY.X] = Src;
+			SrcData[Start + x + y*SizeXY.X] = GetLinearColorValue(x / SizeXY.X);
 		}
 	}
 }

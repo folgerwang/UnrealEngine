@@ -51,6 +51,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
 	float FadeDuration;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
+	float FadeInDuration;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
+	float FadeInStartDelay;
+
 	/**
 	* Automatically destroys the owning actor after fully fading out.
 	*/
@@ -63,6 +69,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
 	float GetFadeDuration() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
+	float GetFadeInStartDelay() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
+	float GetFadeInDuration() const;
+
 	/**
 	* Sets the decal's fade start time, duration and if the owning actor should be destroyed after the decal is fully faded out.
 	* The default value of 0 for FadeStartDelay and FadeDuration makes the decal persistent. See DecalLifetimeOpacity material 
@@ -74,6 +86,9 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
 	void SetFadeOut(float StartDelay, float Duration, bool DestroyOwnerAfterFade = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
+	void SetFadeIn(float StartDelay, float Duaration);
 
 	/** Set the FadeScreenSize for this decal component */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")

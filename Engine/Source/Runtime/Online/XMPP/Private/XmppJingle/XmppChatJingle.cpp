@@ -241,8 +241,8 @@ static void ConvertFromMessage(FXmppChatMessageJingle& OutMessageJingle, const F
 
 static void DebugPrintChat(const FXmppChatMessage& ChatMessage)
 {
-	UE_LOG(LogXmpp, Log, TEXT("   FromJid = %s"), *ChatMessage.FromJid.GetFullPath());
-	UE_LOG(LogXmpp, Log, TEXT("   ToJid= %s"), *ChatMessage.ToJid.GetFullPath());
+	UE_LOG(LogXmpp, Log, TEXT("   FromJid = %s"), *ChatMessage.FromJid.ToDebugString());
+	UE_LOG(LogXmpp, Log, TEXT("   ToJid= %s"), *ChatMessage.ToJid.ToDebugString());
 	UE_LOG(LogXmpp, Log, TEXT("   Body= %s"), *ChatMessage.Body);
 }
 
@@ -250,7 +250,7 @@ bool FXmppChatJingle::SendChat(const FXmppUserJid& RecipientId, const FString& M
 {
 	if (!RecipientId.IsValid())
 	{
-		UE_LOG(LogXmpp, Warning, TEXT("Unable to send chat message. Invalid jid: %s"), *RecipientId.GetFullPath());
+		UE_LOG(LogXmpp, Warning, TEXT("Unable to send chat message. Invalid jid: %s"), *RecipientId.ToDebugString());
 		return false;
 	}
 

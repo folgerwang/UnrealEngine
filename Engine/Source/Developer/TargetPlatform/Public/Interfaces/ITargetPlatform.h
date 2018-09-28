@@ -24,6 +24,9 @@ enum class ETargetPlatformFeatures
 	/** Distance field shadows. */
 	DistanceFieldShadows,
 
+	/** Distance field AO. */
+	DistanceFieldAO,
+
 	/** Gray scale SRGB texture formats support. */
 	GrayscaleSRGB,
 
@@ -65,6 +68,9 @@ enum class ETargetPlatformFeatures
 
 	/* The platform supports half float vertex format */
 	HalfFloatVertexFormat,
+
+	/* The platform supports the experimental Device Output Log window */
+	DeviceOutputLog,
 };
 
 
@@ -277,6 +283,13 @@ public:
 	virtual bool RequiresCookedData() const = 0;
 
 	/**
+	* Checks whether this platform has a secure shippable package format, and therefore doesn't need any encryption or signing support
+	*
+	* @return true if this platform requires cooked data, false otherwise.
+	*/
+	virtual bool HasSecurePackageFormat() const = 0;
+
+	/**
 	 * Checks whether this platform requires user credentials (typically server platforms).
 	 *
 	 * @return true if this platform requires user credentials, false otherwise.
@@ -304,6 +317,16 @@ public:
 	 */
 	virtual bool SupportsFeature( ETargetPlatformFeatures Feature ) const = 0;
 
+	/**
+	 * Gets whether the platform should use forward shading or not.
+	 */
+	virtual bool UsesForwardShading() const = 0;
+
+	/**
+	* Gets whether the platform should use DBuffer for decals.
+	*/
+	virtual bool UsesDBuffer() const = 0;
+	
 #if WITH_ENGINE
 	/**
 	 * Gets the format to use for a particular body setup.

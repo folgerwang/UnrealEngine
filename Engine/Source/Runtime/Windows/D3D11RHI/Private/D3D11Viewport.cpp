@@ -7,6 +7,7 @@
 #include "D3D11RHIPrivate.h"
 #include "RenderCore.h"
 #include "Engine/RendererSettings.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #ifndef D3D11_WITH_DWMAPI
 #if WINVER > 0x502		// Windows XP doesn't support DWM
@@ -330,6 +331,8 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 		}
 	}
 
+	FThreadHeartBeat::Get().PresentFrame();
+
 	if (FAILED(Result))
 	{
 		DXGI_SWAP_CHAIN_DESC Desc;
@@ -353,6 +356,7 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.Flags %u"), Desc.Flags);
 		}
 	}
+	FThreadHeartBeat::Get().PresentFrame();
 
 	VERIFYD3D11RESULT_EX(Result, D3DRHI->GetDevice());
 	

@@ -256,7 +256,7 @@ static void RestoreExistingDestMeshData(ExistingDestMeshData* MeshData, UDestruc
 		// Restore old settings, but resize arrays to make sense with the new NxDestructibleAsset
 		if (MeshData->SkelMeshData != NULL)
 		{
-			RestoreExistingSkelMeshData(MeshData->SkelMeshData, DestructibleMesh, INDEX_NONE, false);
+			RestoreExistingSkelMeshData(MeshData->SkelMeshData, DestructibleMesh, INDEX_NONE, false, false);
 		}
 		DestructibleMesh->BodySetup =  MeshData->BodySetup;
 		DestructibleMesh->FractureEffects = MeshData->FractureEffects;
@@ -328,7 +328,7 @@ static void ImportMaterialsForSkelMesh(FSkeletalMeshImportData &ImportData, cons
 			if (!Materials.Contains(MaterialName))
 			{
 				Materials.Add(MaterialName);
-				ImportData.Materials.Add(VMaterial());
+				ImportData.Materials.Add(SkeletalMeshImportData::FMaterial());
 				ImportData.Materials.Last().Material = DefaultMaterial;
 				ImportData.Materials.Last().MaterialImportName = DefaultMaterial->GetName();
 			}
@@ -364,9 +364,9 @@ static void CreateBones(FSkeletalMeshImportData &ImportData, const apex::Destruc
 	// Turn parts into bones
 	for (uint32 BoneIndex=0; BoneIndex<BoneCount; ++BoneIndex)
 	{
-		ImportData.RefBonesBinary.Add( VBone() );
+		ImportData.RefBonesBinary.Add(SkeletalMeshImportData::FBone() );
 		// Set bone
-		VBone& Bone = ImportData.RefBonesBinary[BoneIndex];
+		SkeletalMeshImportData::FBone& Bone = ImportData.RefBonesBinary[BoneIndex];
 		if (BoneIndex == 0)
 		{
 			// Bone 0 is the required root bone
@@ -384,7 +384,7 @@ static void CreateBones(FSkeletalMeshImportData &ImportData, const apex::Destruc
 		}
 
 		// Set transform to identity
-		VJointPos& JointMatrix = Bone.BonePos;
+		SkeletalMeshImportData::FJointPos& JointMatrix = Bone.BonePos;
 		JointMatrix.Transform = FTransform::Identity;
 		JointMatrix.Length = 1.0f;
 		JointMatrix.XSize = 100.0f;
@@ -619,7 +619,7 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 #endif
 
 				// Fill triangle
-				VTriangle& Triangle = ImportData.Faces[TriangleIndex++];
+				SkeletalMeshImportData::FTriangle& Triangle = ImportData.Faces[TriangleIndex++];
 
 				// set the face smoothing by default. It could be any number, but not zero
 				Triangle.SmoothingGroups = 255; 
@@ -643,7 +643,7 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 
 					// Wedges
 					Triangle.WedgeIndex[V] = WedgeIndex;
-					VVertex& Wedge = ImportData.Wedges[WedgeIndex++];
+					SkeletalMeshImportData::FVertex& Wedge = ImportData.Wedges[WedgeIndex++];
 					Wedge.VertexIndex = VertexIndexBase + SubmeshVertexIndex[V];
 					Wedge.MatIndex = Triangle.MatIndex;
 					Wedge.Color = Colors[SubmeshVertexIndex[V]];
@@ -900,9 +900,9 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	{
 		// copy vertex data needed to generate skinning streams for LOD
 		TArray<FVector> LODPoints;
-		TArray<FMeshWedge> LODWedges;
-		TArray<FMeshFace> LODFaces;
-		TArray<FVertInfluence> LODInfluences;
+		TArray<SkeletalMeshImportData::FMeshWedge> LODWedges;
+		TArray<SkeletalMeshImportData::FMeshFace> LODFaces;
+		TArray<SkeletalMeshImportData::FVertInfluence> LODInfluences;
 		TArray<int32> LODPointToRawMap;
 		SkelMeshImportDataPtr->CopyLODImportData(LODPoints,LODWedges,LODFaces,LODInfluences,LODPointToRawMap);
 

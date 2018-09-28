@@ -55,10 +55,13 @@ void UTreeView::SetItemExpansion(UObject* Item, bool bExpandItem)
 
 void UTreeView::ExpandAll()
 {
-	//@todo DanH TreeView: Recursive expansion - as written this will only expand the root items
-	for (UObject* ListItem : GetListItems())
+	if (MyTreeView.IsValid())
 	{
-		MyTreeView->SetItemExpansion(ListItem, true);
+		//@todo DanH TreeView: Recursive expansion - as written this will only expand the root items
+		for (UObject* ListItem : GetListItems())
+		{
+			MyTreeView->SetItemExpansion(ListItem, true);
+		}
 	}
 }
 

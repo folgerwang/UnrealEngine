@@ -192,7 +192,7 @@ FString FPrimaryCrashProperties::EncodeArrayStringAsXMLString( const TArray<FStr
  *
  * @Trigger Sends just before the CrashReportClient attempts to upload an ensure (a non-fatal error NOT a crash) report
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam bHasPrimaryData - Whether the crash loaded data successfully from a crash context or legacy metadata file that was saved by the crashed process ("true" or "false")
@@ -224,7 +224,7 @@ void SendPreUploadEnsureAnalytics(const TArray<FAnalyticsEventAttribute>& InCras
  *
  * @Trigger Sends just before the CrashReportClient attempts to upload a crash report
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam bHasPrimaryData - Whether the crash loaded data successfully from a crash context or legacy metadata file that was saved by the crashed process ("true" or "false")
@@ -274,7 +274,7 @@ void FPrimaryCrashProperties::SendPreUploadAnalytics()
   *
   * @Trigger Sends after the CrashReportClient successfully uploads an ensure (a non-fatal error NOT a crash) report.
   *
-  * @Type Static
+  * @Type Client
   * @Owner Chris.Wood
   *
   * @EventParam bHasPrimaryData - Whether the crash loaded data successfully from a crash context or legacy metadata file that was saved by the crashed process ("true" or "false")
@@ -309,7 +309,7 @@ void SendPostUploadEnsureAnalytics(const TArray<FAnalyticsEventAttribute>& InCra
  *
  * @Trigger Sends after the CrashReportClient successfully uploads a crash report.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam bHasPrimaryData - Whether the crash loaded data successfully from a crash context or legacy metadata file that was saved by the crashed process ("true" or "false")

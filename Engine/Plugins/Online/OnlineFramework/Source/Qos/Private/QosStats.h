@@ -4,9 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "UObject/CoreOnline.h"
-#include "OnlineSessionSettings.h"
+#include "Serialization/JsonSerializerMacros.h"
+
+#include "QosRegionManager.h"
 
 class IAnalyticsProvider;
+struct FDatacenterQosInstance;
 
 /** Types of result determination types */
 
@@ -74,18 +77,34 @@ private:
 		{}
 	};
 
-	struct FQosStats_RegionInfo
+	class FQosStats_RegionInfo : public FJsonSerializable
 	{
+	public:
 		/** Region designation */
 		FString RegionId;
+		/** Parent region */
+		FString ParentRegionId;
 		/** Number of Qos servers pinged */
 		int32 NumResults;
 		/** Average ping across all results */
 		int32 AvgPing;
-		FQosStats_RegionInfo() :
-			NumResults(0),
-			AvgPing(MAX_QUERY_PING)
+		/** Is the region usable by the player */
+		bool bUsable;
+		FQosStats_RegionInfo()
+			: RegionId(TEXT("Unknown"))
+			, ParentRegionId(TEXT("Unknown"))
+			, NumResults(0)
+			, AvgPing(UNREACHABLE_PING)
+			, bUsable(false)
 		{}
+
+		BEGIN_JSON_SERIALIZER
+			JSON_SERIALIZE("RegionId", RegionId);
+			JSON_SERIALIZE("ParentRegionId", ParentRegionId);
+			JSON_SERIALIZE("bUsable", bUsable);
+			JSON_SERIALIZE("AvgPing", AvgPing);
+			JSON_SERIALIZE("NumResults", NumResults);
+		END_JSON_SERIALIZER
 	};
 
 	/** Stats representation of a single Qos search result */
@@ -148,7 +167,9 @@ private:
 	static const FString QosStats_RegionDetails;
 	static const FString QosStats_NumResults;
 	static const FString QosStats_NumSuccessCount;
-	static const FString QosStats_SearchDetails;
+	static const FString QosStats_NetworkType;
+	static const FString QosStats_BestRegionId;
+	static const FString QosStats_BestRegionPing;
 
 	/** Version of the stats for separation */
 	int32 StatsVersion;
@@ -199,19 +220,10 @@ public:
 	/**
 	 * Record a new region
 	 * 
-	 * @param Region region id
-	 * @param AvgPing average ping to the region
+	 * @param RegionInfo info obtained about a region
 	 * @param NumResults num results considered
 	 */
-	void RecordRegionInfo(const FString& Region, int32 AvgPing, int32 NumResults);
-
-	/**
-	 * Record a single ping attempt
-	 * 
-	 * @param SearchResult detailed information about the server
-	 * @param bSuccess was the attempt successful
-	 */
-	void RecordQosAttempt(const FOnlineSessionSearchResult& SearchResult, bool bSuccess);
+	void RecordRegionInfo(const FDatacenterQosInstance& RegionInfo, int32 NumResults);
 
 	/**
 	 * Record a single ping attempt

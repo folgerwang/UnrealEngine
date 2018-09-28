@@ -49,11 +49,11 @@ static UDataTable* CreateGameplayDataTable()
 	CSV.Append(TEXT("\r\n22,SpellDmg.Buff,"));
 	CSV.Append(TEXT("\r\n23,GameplayCue.Burning,"));
 
-	auto DataTable = NewObject<UDataTable>(GetTransientPackage(), FName(TEXT("TempDataTable")));
+	UDataTable* DataTable = NewObject<UDataTable>(GetTransientPackage(), FName(TEXT("TempDataTable")));
 	DataTable->RowStruct = FGameplayTagTableRow::StaticStruct();
 	DataTable->CreateTableFromCSVString(CSV);
 
-	FGameplayTagTableRow * Row = (FGameplayTagTableRow*)DataTable->RowMap["0"];
+	const FGameplayTagTableRow* Row = (const FGameplayTagTableRow*)DataTable->GetRowMap()["0"];
 	if (Row)
 	{
 		check(Row->Tag == TEXT("Damage"));

@@ -8,7 +8,7 @@
 template <typename ItemType, typename ItemBuilder>
 typename SMediaPermutationsSelector<ItemType, ItemBuilder>::FColumn::FArguments SMediaPermutationsSelector<ItemType, ItemBuilder>::Column(const FName& InColumnName)
 {
-	FColumn::FArguments NewArgs;
+	typename FColumn::FArguments NewArgs;
 	NewArgs._ColumnName = InColumnName;
 	return NewArgs;
 }

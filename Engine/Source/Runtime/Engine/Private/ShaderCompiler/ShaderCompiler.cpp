@@ -315,50 +315,11 @@ namespace SCWErrorCode
 	}
 }
 
-static const TArray<const IShaderFormat*>& GetShaderFormats()
-{
-	static bool bInitialized = false;
-	static TArray<const IShaderFormat*> Results;
-
-	if (!bInitialized)
-	{
-		bInitialized = true;
-		Results.Empty(Results.Num());
-
-		TArray<FName> Modules;
-		FModuleManager::Get().FindModules(SHADERFORMAT_MODULE_WILDCARD, Modules);
-
-		if (!Modules.Num())
-		{
-			UE_LOG(LogShaders, Error, TEXT("No target shader formats found!"));
-		}
-
-		for (int32 Index = 0; Index < Modules.Num(); Index++)
-		{
-			IShaderFormatModule* Module = FModuleManager::GetModulePtr<IShaderFormatModule>(Modules[Index]);
-			if (Module != nullptr)
-			{
-				IShaderFormat* Format = Module->GetShaderFormat();
-
-				if (Format != nullptr)
-				{
-					Results.Add(Format);
-				}
-			}
-			else
-			{
-				UE_LOG(LogShaders, Display, TEXT("Unable to load module %s, skipping its shader formats."), *Modules[Index].ToString());
-			}
-		}
-	}
-	return Results;
-}
-
 static inline void GetFormatVersionMap(TMap<FString, uint32>& OutFormatVersionMap)
 {
 	if (OutFormatVersionMap.Num() == 0)
 	{
-		const TArray<const class IShaderFormat*>& ShaderFormats = GetShaderFormats();
+		const TArray<const class IShaderFormat*>& ShaderFormats = GetTargetPlatformManagerRef().GetShaderFormats();
 		check(ShaderFormats.Num());
 		for (int32 Index = 0; Index < ShaderFormats.Num(); Index++)
 		{
@@ -2047,7 +2008,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 								FString ErrorMessage = Errors[ErrorIndex];
 								// Work around build machine string matching heuristics that will cause a cook to fail
 								ErrorMessage.ReplaceInline(TEXT("error "), TEXT("err0r "), ESearchCase::CaseSensitive);
-								UE_LOG(LogShaderCompilers, Log, TEXT("	%s"), *ErrorMessage);
+								UE_LOG(LogShaderCompilers, Display, TEXT("	%s"), *ErrorMessage);
 							}
 						}
 						else
@@ -3134,6 +3095,16 @@ void GlobalBeginCompileShader(
 		}
 	}
 
+	if (IsOpenGLPlatform((EShaderPlatform)Target.Platform) && 
+		IsMobilePlatform((EShaderPlatform)Target.Platform))
+	{
+		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("OpenGL.UseEmulatedUBs"));
+		if (CVar && CVar->GetInt() != 0)
+		{
+			Input.Environment.CompilerFlags.Add(CFLAG_UseEmulatedUB);
+		}
+	}
+
 	Input.Environment.SetDefine(TEXT("HAS_INVERTED_Z_BUFFER"), (bool)ERHIZBuffer::IsInverted);
 
 	{
@@ -3186,8 +3157,7 @@ void GlobalBeginCompileShader(
 	}
 
 	{
-		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DBuffer"));
-		Input.Environment.SetDefine(TEXT("USE_DBUFFER"), CVar ? CVar->GetInt() : 0);
+		Input.Environment.SetDefine(TEXT("USE_DBUFFER"), IsUsingDBuffers((EShaderPlatform)Target.Platform) ? 1 : 0);
 	}
 
 	{
@@ -3195,10 +3165,12 @@ void GlobalBeginCompileShader(
 		Input.Environment.SetDefine(TEXT("PROJECT_ALLOW_GLOBAL_CLIP_PLANE"), CVar ? (CVar->GetInt() != 0) : 0);
 	}
 
-	static IConsoleVariable* CVarForwardShading = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForwardShading"));
-	const bool bForwardShading = CVarForwardShading ? (CVarForwardShading->GetInt() != 0) : false;
-
-	Input.Environment.SetDefine(TEXT("FORWARD_SHADING"), bForwardShading);
+	bool bForwardShading = false;
+	{
+		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(ShaderPlatformToPlatformName(EShaderPlatform(Target.Platform)).ToString());
+		bForwardShading = TargetPlatform && TargetPlatform->UsesForwardShading();
+		Input.Environment.SetDefine(TEXT("FORWARD_SHADING"), bForwardShading);
+	}
 
 	{
 		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.EarlyZPassOnlyMaterialMasking"));
@@ -3218,6 +3190,14 @@ void GlobalBeginCompileShader(
 	{
 		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.UseLegacyShadingModel"));
 		Input.Environment.SetDefine(TEXT("PROJECT_MOBILE_USE_LEGACY_SHADING"), CVar ? (CVar->GetInt() != 0) : 0);
+	}
+
+	{
+		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.ForceFullPrecisionInPS"));
+		if (CVar && CVar->GetInt() != 0)
+		{
+			Input.Environment.CompilerFlags.Add(CFLAG_UseFullPrecisionInPS);
+		}
 	}
 
 	{
@@ -3243,6 +3223,12 @@ void GlobalBeginCompileShader(
 	{
 		Input.Environment.SetDefine(TEXT("PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK"), 0);
 	}
+
+	Input.Environment.SetDefine(TEXT("PLATFORM_SUPPORTS_PER_PIXEL_DBUFFER_MASK"), IsUsingPerPixelDBufferMask(EShaderPlatform(Target.Platform)) ? 1 : 0);
+
+	// Allow the target shader format to modify the shader input before we add it as a job
+	const IShaderFormat* Format = GetTargetPlatformManagerRef().FindShaderFormat(Input.ShaderFormat);
+	Format->ModifyShaderCompilerInput(Input);
 
 	NewJobs.Add(NewJob);
 }
@@ -3822,7 +3808,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			// TODO_OPENGL: Allow shaders to be compiled asynchronously.
 			// Metal also needs this when using RHI thread because it uses TOneColorVS very early in RHIPostInit()
 			!IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform) &&
-			!IsMetalPlatform(GMaxRHIShaderPlatform) &&
+			!IsMetalPlatform(GMaxRHIShaderPlatform) && !IsSwitchPlatform(GMaxRHIShaderPlatform) &&
 			GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 
 		if (!bAllowAsynchronousGlobalShaderCompiling)

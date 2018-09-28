@@ -315,6 +315,7 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	return VK_FALSE;
 }
 
+#undef VULKAN_REPORT_LOG
 #endif
 
 void FVulkanDynamicRHI::SetupDebugLayerCallback()

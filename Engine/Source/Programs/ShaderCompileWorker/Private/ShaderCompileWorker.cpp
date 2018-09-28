@@ -10,6 +10,7 @@
 #include "HAL/ExceptionHandling.h"
 #include "Interfaces/IShaderFormat.h"
 #include "Interfaces/IShaderFormatModule.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #include "RHIShaderFormatDefinitions.inl"
 
 #define DEBUG_USING_CONSOLE	0
@@ -134,6 +135,16 @@ static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompi
 	if (!Compiler)
 	{
 		ExitWithoutCrash(ESCWErrorCode::CantCompileForSpecificFormat, FString::Printf(TEXT("Can't compile shaders for format %s"), *Input.ShaderFormat.ToString()));
+	}
+
+	// Apply the console variable values from the input environment before calling the platform shader compiler
+	for (const auto& Pair : Input.Environment.ShaderFormatCVars)
+	{
+		IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*Pair.Key);
+		if (CVar)
+		{
+			CVar->Set(*Pair.Value, ECVF_SetByCode);
+		}
 	}
 
 	// Compile the shader directly through the platform dll (directly from the shader dir as the working directory)
@@ -814,22 +825,7 @@ static void DirectCompile(const TArray<const class IShaderFormat*>& ShaderFormat
 	Input.UsedOutputs = UsedOutputs;
 
 	FShaderCompilerOutput Output;
-
-	for (const IShaderFormat* Format : ShaderFormats)
-	{
-		TArray<FName> SupportedFormats;
-		Format->GetSupportedFormats(SupportedFormats);
-		for (FName SupportedName : SupportedFormats)
-		{
-			if (SupportedName == FormatName)
-			{
-				Format->CompileShader(FormatName, Input, Output, Dir);
-				return;
-			}
-		}
-	}
-
-	UE_LOG(LogShaders, Warning, TEXT("Unable to find shader compiler backend for format %s!"), *FormatName.ToString());
+	ProcessCompilationJob(Input, Output, Dir);
 }
 
 

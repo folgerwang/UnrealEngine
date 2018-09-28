@@ -13,7 +13,6 @@ UBTComposite_SimpleParallel::UBTComposite_SimpleParallel(const FObjectInitialize
 	bUseNodeDeactivationNotify = true;
 	bUseDecoratorsDeactivationCheck = true;
 	bApplyDecoratorScope = true;
-	OnNextChild.BindUObject(this, &UBTComposite_SimpleParallel::GetNextChildHandler);
 }
 
 int32 UBTComposite_SimpleParallel::GetNextChildHandler(FBehaviorTreeSearchData& SearchData, int32 PrevChild, EBTNodeResult::Type LastResult) const

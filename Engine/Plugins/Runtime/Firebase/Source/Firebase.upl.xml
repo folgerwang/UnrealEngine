@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Firebase plugin additions-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+	<!-- init section is always evaluated once per architecture -->
+	<init>
+		<log text="Firebase init"/>
+
+		<setBoolFromProperty result="bEnabled" ini="Engine" section="Firebase" property="FirebaseEnabled" default="false"/>
+		<if condition="bEnabled">
+			<true>
+				<log text="Firebase enabled!"/>
+
+				<!-- May need client sender ID for notification handling -->
+				<!-- setStringFromProperty result="firebase-client-sender-id" ini="Engine" section="Firebase" property="FirebaseClientSenderID" default="" /-->
+			</true>
+		</if>
+	</init>
+
+	<buildscriptGradleAdditions>
+		<if condition="bEnabled">
+			<true>
+				<insert>dependencies {
+	classpath 'com.google.gms:google-services:4.0.1' // google-services plugin
+}
+</insert>
+			</true>
+		</if>
+	</buildscriptGradleAdditions>
+
+	<buildGradleAdditions>
+		<if condition="bEnabled">
+			<true>
+				<!-- Needs to be same version number as play-services -->
+				<insert>dependencies {
+	implementation 'com.google.firebase:firebase-core:11.8.0'
+	implementation 'com.google.firebase:firebase-messaging:11.8.0'
+}
+
+// init firebase
+apply plugin: 'com.google.gms.google-services'
+</insert>
+			</true>
+		</if>
+	</buildGradleAdditions>
+
+	<!-- optional files or directories to copy or delete from Intermediate/Android/APK before ndk-build -->
+	<prebuildCopies>
+		<if condition="bEnabled">
+			<true>
+				<!-- Will need to revisit this if/when other plug-ins need to modify google-services.json -->
+				<copyFile src="$S(PluginDir)/Resources/google-services.json" dst="$S(BuildDir)/gradle/app/google-services.json" force="false"/>
+
+			</true>
+		</if>
+	</prebuildCopies>
+</root>

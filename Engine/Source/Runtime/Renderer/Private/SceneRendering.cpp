@@ -1800,6 +1800,7 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 	bHasRequestedToggleFreeze = const_cast<FRenderTarget*>(InViewFamily->RenderTarget)->HasToggleFreezeCommand();
 
 	FeatureLevel = Scene->GetFeatureLevel();
+	ShaderPlatform = Scene->GetShaderPlatform();
 }
 
 // static

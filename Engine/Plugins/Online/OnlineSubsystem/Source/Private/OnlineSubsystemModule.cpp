@@ -76,10 +76,11 @@ void FOnlineSubsystemModule::StartupModule()
 	LoadDefaultSubsystem();
 	
 	// Also load the console/platform specific OSS which might not necessarily be the default OSS instance
-
 	FString InterfaceString;
 	GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("NativePlatformService"), InterfaceString, GEngineIni);
 	NativePlatformService = FName(*InterfaceString);
+
+	ProcessConfigDefinedSubsystems();
 
 	IOnlineSubsystem::GetByPlatform();
 }
@@ -94,12 +95,44 @@ void FOnlineSubsystemModule::ShutdownModule()
 	ShutdownOnlineSubsystem();
 }
 
+void FOnlineSubsystemModule::ProcessConfigDefinedSubsystems()
+{
+	// Save off the names of the user defined platform services.
+	TArray<FString> TmpConfigDefinedSubsystems;
+	GConfig->GetArray(TEXT("OnlineSubsystem"), TEXT("ConfigDefinedPlatformServices"), TmpConfigDefinedSubsystems, GEngineIni);
+
+	// Takes on the pattern "(ServiceNameString=SubsystemName)"
+	// For example "(GameFeature=NULL)" to have OnlineSubsystemNull be the provider for "GameFeature"
+	for (const FString& ConfigEntry : TmpConfigDefinedSubsystems)
+	{
+		FString TrimmedConfigEntry = ConfigEntry.TrimStartAndEnd();
+		FString KeyString;
+		FString ValueString;
+
+		if (TrimmedConfigEntry.Left(1) == TEXT("("))
+		{
+			TrimmedConfigEntry = TrimmedConfigEntry.RightChop(1);
+		}
+		if (TrimmedConfigEntry.Right(1) == TEXT(")"))
+		{
+			TrimmedConfigEntry = TrimmedConfigEntry.LeftChop(1);
+		}
+		if (TrimmedConfigEntry.Split(TEXT("="), &KeyString, &ValueString))
+		{
+			KeyString.TrimStartAndEndInline();
+			ValueString.TrimStartAndEndInline();
+		}
+		UE_LOG(LogOnline, Verbose, TEXT("ConfigDefinedPlatformServices: Associating OnlineSubsystem %s with identifier %s"), *ValueString, *KeyString);
+		ConfigDefinedSubsystems.Add(KeyString, FName(*ValueString));
+	}
+}
+
 bool FOnlineSubsystemModule::TryLoadSubsystemAndSetDefault(FName ModuleName)
 {
 	// A module loaded with its factory method set for creation and a default instance of the online subsystem is required
 	if ((LoadSubsystemModule(ModuleName.ToString()) &&
 		OnlineFactories.Contains(ModuleName) &&
-		GetOnlineSubsystem(ModuleName) != NULL))
+		GetOnlineSubsystem(ModuleName) != nullptr))
 	{
 		DefaultPlatformService = ModuleName;
 		return true;
@@ -305,6 +338,21 @@ IOnlineSubsystem* FOnlineSubsystemModule::GetNativeSubsystem(bool bAutoLoad)
 	}
 	return nullptr;
 }
+
+IOnlineSubsystem* FOnlineSubsystemModule::GetSubsystemByConfig(const FString& ConfigString, bool bAutoLoad)
+{
+	const FName* const CachedConfig = ConfigDefinedSubsystems.Find(ConfigString);
+	if (CachedConfig && !CachedConfig->IsNone())
+	{
+		if (bAutoLoad || IOnlineSubsystem::IsLoaded(*CachedConfig))
+		{
+			return IOnlineSubsystem::Get(*CachedConfig);
+		}
+	}
+
+	return nullptr;
+}
+
 
 void FOnlineSubsystemModule::DestroyOnlineSubsystem(const FName InSubsystemName)
 {

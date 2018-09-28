@@ -69,7 +69,7 @@ public:
 private:
 
 	/** A pointer to the border to allow us to adjust the size, padding...etc at runtime. */
-	TSharedPtr<SBorder> Border;
+	TWeakPtr<SBorder> Border;
 
 	friend UBorder;
 };

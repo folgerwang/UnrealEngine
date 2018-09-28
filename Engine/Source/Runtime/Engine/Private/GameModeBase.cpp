@@ -36,8 +36,11 @@
 DEFINE_LOG_CATEGORY(LogGameMode);
 
 // Statically declared events for plugins to use
+FGameModeEvents::FGameModeInitializedEvent FGameModeEvents::GameModeInitializedEvent;
+FGameModeEvents::FGameModePreLoginEvent FGameModeEvents::GameModePreLoginEvent;
 FGameModeEvents::FGameModePostLoginEvent FGameModeEvents::GameModePostLoginEvent;
 FGameModeEvents::FGameModeLogoutEvent FGameModeEvents::GameModeLogoutEvent;
+FGameModeEvents::FGameModeMatchStateSetEvent FGameModeEvents::GameModeMatchStateSetEvent;
 
 AGameModeBase::AGameModeBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.DoNotCreateDefaultSubobject(TEXT("Sprite")))
@@ -70,6 +73,7 @@ void AGameModeBase::InitGame(const FString& MapName, const FString& Options, FSt
 	GameSession = World->SpawnActor<AGameSession>(GetGameSessionClass(), SpawnInfo);
 	GameSession->InitOptions(Options);
 
+	FGameModeEvents::GameModeInitializedEvent.Broadcast(this);
 	if (GetNetMode() != NM_Standalone)
 	{
 		// Attempt to login, returning true means an async login is in flight
@@ -105,15 +109,17 @@ void AGameModeBase::PreInitializeComponents()
 		GameStateClass = AGameStateBase::StaticClass();
 	}
 
-	GameState = GetWorld()->SpawnActor<AGameStateBase>(GameStateClass, SpawnInfo);
-	GetWorld()->SetGameState(GameState);
+	UWorld* World = GetWorld();
+	GameState = World->SpawnActor<AGameStateBase>(GameStateClass, SpawnInfo);
+	World->SetGameState(GameState);
 	if (GameState)
 	{
 		GameState->AuthorityGameMode = this;
 	}
 
 	// Only need NetworkManager for servers in net games
-	GetWorld()->NetworkManager = GetWorldSettings()->GameNetworkManagerClass ? GetWorld()->SpawnActor<AGameNetworkManager>(GetWorldSettings()->GameNetworkManagerClass, SpawnInfo) : nullptr;
+	AWorldSettings* WorldSettings = World->GetWorldSettings();
+	World->NetworkManager = WorldSettings->GameNetworkManagerClass ? World->SpawnActor<AGameNetworkManager>(WorldSettings->GameNetworkManagerClass, SpawnInfo) : nullptr;
 
 	InitGameState();
 }
@@ -628,41 +634,24 @@ void AGameModeBase::GameWelcomePlayer(UNetConnection* Connection, FString& Redir
 
 }
 
-void AGameModeBase::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
-{
-
-}
-
 void AGameModeBase::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	// Try calling deprecated version first
-	PreLogin(Options, Address, UniqueId.GetUniqueNetId(), ErrorMessage);
-	if (!ErrorMessage.IsEmpty())
+	// Login unique id must match server expected unique id type OR No unique id could mean game doesn't use them
+	const bool bUniqueIdCheckOk = (!UniqueId.IsValid() || (UniqueId.GetType() == UOnlineEngineInterface::Get()->GetDefaultOnlineSubsystemName()));
+	if (bUniqueIdCheckOk)
 	{
-		return;
+		ErrorMessage = GameSession->ApproveLogin(Options);
 	}
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	else
+	{
+		ErrorMessage = TEXT("incompatible_unique_net_id");
+	}
 
-	ErrorMessage = GameSession->ApproveLogin(Options);
-}
-
-APlayerController* AGameModeBase::Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
-{
-	return nullptr;
+	FGameModeEvents::GameModePreLoginEvent.Broadcast(this, UniqueId, ErrorMessage);
 }
 
 APlayerController* AGameModeBase::Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	// Try calling deprecated version first
-	APlayerController* DeprecatedController = Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId.GetUniqueNetId(), ErrorMessage);
-	if (DeprecatedController)
-	{
-		return DeprecatedController;
-	}
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
 	ErrorMessage = GameSession->ApproveLogin(Options);
 	if (!ErrorMessage.IsEmpty())
 	{
@@ -734,23 +723,8 @@ APlayerController* AGameModeBase::SpawnPlayerControllerCommon(ENetRole InRemoteR
 	return NewPC;
 }
 
-FString AGameModeBase::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
-{
-	return TEXT("DEPRECATED");
-}
-
 FString AGameModeBase::InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
 {
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	// Try calling deprecated version first
-	FString DeprecatedError = InitNewPlayer(NewPlayerController, UniqueId.GetUniqueNetId(), Options, Portal);
-	if (DeprecatedError != TEXT("DEPRECATED"))
-	{
-		// This means it was implemented in subclass
-		return DeprecatedError;
-	}
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
 	check(NewPlayerController);
 
 	FString ErrorMessage;
@@ -1066,7 +1040,8 @@ AActor* AGameModeBase::ChoosePlayerStart_Implementation(AController* Player)
 	APawn* PawnToFit = PawnClass ? PawnClass->GetDefaultObject<APawn>() : nullptr;
 	TArray<APlayerStart*> UnOccupiedStartPoints;
 	TArray<APlayerStart*> OccupiedStartPoints;
-	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	UWorld* World = GetWorld();
+	for (TActorIterator<APlayerStart> It(World); It; ++It)
 	{
 		APlayerStart* PlayerStart = *It;
 
@@ -1080,11 +1055,11 @@ AActor* AGameModeBase::ChoosePlayerStart_Implementation(AController* Player)
 		{
 			FVector ActorLocation = PlayerStart->GetActorLocation();
 			const FRotator ActorRotation = PlayerStart->GetActorRotation();
-			if (!GetWorld()->EncroachingBlockingGeometry(PawnToFit, ActorLocation, ActorRotation))
+			if (!World->EncroachingBlockingGeometry(PawnToFit, ActorLocation, ActorRotation))
 			{
 				UnOccupiedStartPoints.Add(PlayerStart);
 			}
-			else if (GetWorld()->FindTeleportSpot(PawnToFit, ActorLocation, ActorRotation))
+			else if (World->FindTeleportSpot(PawnToFit, ActorLocation, ActorRotation))
 			{
 				OccupiedStartPoints.Add(PlayerStart);
 			}

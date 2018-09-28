@@ -50,7 +50,7 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
     UFUNCTION(BlueprintCallable, CustomThunk, Category = "DataTable", meta=(CustomStructureParam = "OutRow", BlueprintInternalUseOnly="true"))
     static bool GetDataTableRowFromName(UDataTable* Table, FName RowName, FTableRowBase& OutRow);
     
-	static bool Generic_GetDataTableRowFromName(UDataTable* Table, FName RowName, void* OutRowPtr);
+	static bool Generic_GetDataTableRowFromName(const UDataTable* Table, FName RowName, void* OutRowPtr);
 
     /** Based on UDataTableFunctionLibrary::GetDataTableRow */
     DECLARE_FUNCTION(execGetDataTableRowFromName)
@@ -76,7 +76,7 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
 		else if(StructProp && OutRowPtr)
 		{
 			UScriptStruct* OutputType = StructProp->Struct;
-			UScriptStruct* TableType  = Table->RowStruct;
+			const UScriptStruct* TableType  = Table->GetRowStruct();
 		
 			const bool bCompatible = (OutputType == TableType) || 
 				(OutputType->IsChildOf(TableType) && FStructUtils::TheSameLayout(OutputType, TableType));

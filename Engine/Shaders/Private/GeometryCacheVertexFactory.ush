@@ -216,7 +216,7 @@ float3x3 CalcTangentToWorld(FVertexFactoryInput Input, float3x3 TangentToLocal)
 	float3x3 LocalToWorld = GetLocalToWorld3x3();
 
 	// Remove scaling.
-	half3 InvScale = Primitive.InvNonUniformScale.xyz;
+	half3 InvScale = Primitive.InvNonUniformScaleAndDeterminantSign.xyz;
 	LocalToWorld[0] *= InvScale.x;
 	LocalToWorld[1] *= InvScale.y;
 	LocalToWorld[2] *= InvScale.z;
@@ -283,7 +283,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
     //Packs the TangentToWorld matrix into the interpolants.    
-	float TangentToWorldSign = TangentBias(Input.TangentZ.w) * Primitive.LocalToWorldDeterminantSign;
+	float TangentToWorldSign = TangentBias(Input.TangentZ.w) * Primitive.InvNonUniformScaleAndDeterminantSign.w;
 	Interpolants.TangentToWorld0 = float4(Intermediates.TangentToWorld[0],0);
 	Interpolants.TangentToWorld2 = float4(Intermediates.TangentToWorld[2],TangentToWorldSign);
     

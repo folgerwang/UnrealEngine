@@ -6,7 +6,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineEntitlement, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineEntitlement, Log, All);
 
 #define UE_LOG_ONLINE_ENTITLEMENT(Verbosity, Format, ...) \
 { \

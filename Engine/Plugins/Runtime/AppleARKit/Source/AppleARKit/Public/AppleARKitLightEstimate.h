@@ -24,7 +24,11 @@ struct APPLEARKIT_API FAppleARKitLightEstimate
 	GENERATED_BODY()
 
 	// Default constructor
-	FAppleARKitLightEstimate() {};
+	FAppleARKitLightEstimate()
+		: bIsValid(false)
+		, AmbientIntensity(0.f)
+		, AmbientColorTemperatureKelvin(0.f)
+	{};
 
 #if SUPPORTS_ARKIT_1_0
 

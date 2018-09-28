@@ -7,10 +7,6 @@
 
 #include "Misc/ConfigCacheIni.h"
 
-FOnlineSubsystemGoogle::FOnlineSubsystemGoogle()
-{
-}
-
 FOnlineSubsystemGoogle::FOnlineSubsystemGoogle(FName InInstanceName)
 	: FOnlineSubsystemGoogleCommon(InInstanceName)
 {
@@ -22,7 +18,7 @@ FOnlineSubsystemGoogle::~FOnlineSubsystemGoogle()
 
 bool FOnlineSubsystemGoogle::Init()
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Init()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemGoogle::Init()"));
 	if (FOnlineSubsystemGoogleCommon::Init())
 	{
 		FOnlineIdentityGooglePtr TempPtr = MakeShareable(new FOnlineIdentityGoogle(this));
@@ -39,6 +35,6 @@ bool FOnlineSubsystemGoogle::Init()
 
 bool FOnlineSubsystemGoogle::Shutdown()
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
 	return FOnlineSubsystemGoogleCommon::Shutdown();
 }

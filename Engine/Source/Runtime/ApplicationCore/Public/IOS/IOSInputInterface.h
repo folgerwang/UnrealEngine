@@ -26,6 +26,8 @@ enum TouchType
 	TouchBegan,
 	TouchMoved,
 	TouchEnded,
+	ForceChanged,
+	FirstMove,
 };
 
 struct TouchInput

@@ -778,7 +778,7 @@ FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIPa
 void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
 	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = (FMetalVertexBuffer*)BackingBuffer;
+	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
 	uint8* BytePtr = nullptr;
 	if (VertexBuffer->CPUBuffer)
 	{
@@ -797,7 +797,7 @@ void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 void FMetalStagingBuffer::Unlock()
 {
 	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = (FMetalVertexBuffer*)BackingBuffer;
+	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
 	if (VertexBuffer->CPUBuffer && (VertexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static)))
 	{
 		LLM_SCOPE(ELLMTag::VertexBuffer);

@@ -40,10 +40,18 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FPreActorDestroyReplayScrub, AActor*);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FPreReplayScrub, UWorld*);
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnWriteGameSpecificDemoHeader, TArray<FString>& /*GameSpecificData*/);
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnProcessGameSpecificDemoHeader, const TArray<FString>& /*GameSpecificData*/, FString& /*Error*/);
+
 struct ENGINE_API FNetworkReplayDelegates
 {
 	/** global delegate called one time prior to scrubbing */
 	static FPreReplayScrub OnPreScrub;
+
+	/** Game specific demo headers */
+	static FOnWriteGameSpecificDemoHeader OnWriteGameSpecificDemoHeader;
+	static FOnProcessGameSpecificDemoHeader OnProcessGameSpecificDemoHeader;
 };
 
 /*-----------------------------------------------------------------------------

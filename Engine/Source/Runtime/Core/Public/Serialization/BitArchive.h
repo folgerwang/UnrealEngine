@@ -8,7 +8,7 @@
 /**
 * Base class for serializing bitstreams.
 */
-class FBitArchive : public FArchive
+class CORE_API FBitArchive : public FArchive
 {
 public:
 	virtual void SerializeBitsWithOffset( void* Src, int32 SourceBit, int64 LengthBits ) PURE_VIRTUAL(FBitArchive::SerializeBitsWithOffset,);

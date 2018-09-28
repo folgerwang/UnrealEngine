@@ -52,6 +52,20 @@ namespace BuildPatchServices
 		virtual ~IFileSystem() {}
 
 		/**
+		 * Checks whether a directory exists.
+		 * @param DirectoryPath     The directory to check.
+		 * @return true if directory exists.
+		 */
+		virtual bool DirectoryExists(const TCHAR* DirectoryPath) const = 0;
+
+		/**
+		 * Create a directory path.
+		 * @param DirectoryPath     The directory path to create.
+		 * @return true if successful.
+		 */
+		virtual bool MakeDirectory(const TCHAR* DirectoryPath) const = 0;
+
+		/**
 		 * Get the size of a file.
 		 * @param Filename          The filename for the request.
 		 * @param FileSize          Receives the file size in bytes or INDEX_NONE if the file didn't exist.

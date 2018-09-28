@@ -11,7 +11,7 @@
 
 - (instancetype)initSessionWithName:(NSString*) sessionName
 {
-	UE_LOG(LogOnline, Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
     self.Session = [[GKSession alloc] initWithSessionID:sessionName displayName:nil sessionMode:GKSessionModePeer];
     self.Session.delegate = self;
     self.Session.disconnectTimeout = 5.0f;
@@ -21,7 +21,7 @@
 
 - (void)shutdownSession
 {
-	UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)shutdownSession"));
 	[self.Session disconnectFromAllPeers];
 	self.Session.available = NO;
 	self.Session.delegate = nil;
@@ -41,7 +41,7 @@
 
 -(void)session:(GKSession *)session didReceiveConnectionRequestFromPeer:(NSString *)peerID
 {
-	UE_LOG(LogOnline, Display, TEXT("-(void)session:(GKSession *)session didReceiveConnectionRequestFromPeer:(NSString *)peerID - %s"), *FString([session displayNameForPeer:peerID]));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("-(void)session:(GKSession *)session didReceiveConnectionRequestFromPeer:(NSString *)peerID - %s"), *FString([session displayNameForPeer:peerID]));
 	[session acceptConnectionFromPeer:peerID error:nil];
 }
 
@@ -57,7 +57,7 @@
 	{
 		case GKPeerStateAvailable:
 		{
-			UE_LOG(LogOnline, Display, TEXT("Peer available: %s"), *PeerId);
+			UE_LOG_ONLINE_SESSION(Display, TEXT("Peer available: %s"), *PeerId);
 
 			[session connectToPeer:peerID withTimeout:5.0f];
 			break;
@@ -65,25 +65,25 @@
 
 		case GKPeerStateUnavailable:
 		{
-			UE_LOG(LogOnline, Display, TEXT("Peer unavailable: %s"), *PeerId);
+			UE_LOG_ONLINE_SESSION(Display, TEXT("Peer unavailable: %s"), *PeerId);
 			break;
 		}
 
 		case GKPeerStateConnected:
 		{
-			UE_LOG(LogOnline, Display, TEXT("Peer connected: %s"), *PeerId);
+			UE_LOG_ONLINE_SESSION(Display, TEXT("Peer connected: %s"), *PeerId);
 			break;
 		}
 
 		case GKPeerStateDisconnected:
 		{
-			UE_LOG(LogOnline, Display, TEXT("Peer disconnected: %s"), *PeerId);
+			UE_LOG_ONLINE_SESSION(Display, TEXT("Peer disconnected: %s"), *PeerId);
 			break;
 		}
 
 		case GKPeerStateConnecting:
 		{
-			UE_LOG(LogOnline, Display, TEXT("Peer connecting: %s"), *PeerId);
+			UE_LOG_ONLINE_SESSION(Display, TEXT("Peer connecting: %s"), *PeerId);
 			break;
 		}
 	}
@@ -92,7 +92,7 @@
 
 - (void)session:(GKSession *)session didFailWithError:(NSError *)error
 {
-	UE_LOG(LogOnline, Warning, TEXT("Session failed with error code %i"), [error code]);
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Session failed with error code %i"), [error code]);
 
 	[self shutdownSession];
 }
@@ -102,7 +102,7 @@
 {
 	NSString* ErrorString = [NSString stringWithFormat:@"connectionWithPeerFailed - Failed to connect to %@ with error code %d", [session displayNameForPeer:peerID], (uint32)[error code]];
 	const FString ConvertedErrorStr(ErrorString);
-	UE_LOG(LogOnline, Display, TEXT("%s"), *ConvertedErrorStr);
+	UE_LOG_ONLINE_SESSION(Display, TEXT("%s"), *ConvertedErrorStr);
 }
 
 @end
@@ -115,7 +115,7 @@
 
 - (instancetype)initSessionWithName:(NSString*) sessionName
 {
-    UE_LOG(LogOnline, Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
+    UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
 	self = [super init];
     self.PeerID = [[[MCPeerID alloc] initWithDisplayName:@""] autorelease];
     self.Session = [[[MCSession alloc] initWithPeer:self.PeerID] autorelease];
@@ -132,7 +132,7 @@
 
 - (void)shutdownSession
 {
-    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+    UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)shutdownSession"));
     [self.Session disconnect];
     self.Session.delegate = nil;
 }
@@ -172,13 +172,13 @@
     {
         case MCSessionStateConnected:
         {
-            UE_LOG(LogOnline, Display, TEXT("Peer connected: %s"), *PeerId);
+            UE_LOG_ONLINE_SESSION(Display, TEXT("Peer connected: %s"), *PeerId);
             break;
         }
             
         case MCSessionStateNotConnected:
         {
-            UE_LOG(LogOnline, Display, TEXT("Peer not connected: %s"), *PeerId);
+            UE_LOG_ONLINE_SESSION(Display, TEXT("Peer not connected: %s"), *PeerId);
             break;
         }
     }
@@ -197,7 +197,7 @@
 
 - (instancetype)initSessionWithName:(NSString*) sessionName
 {
-    UE_LOG(LogOnline, Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
+    UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
 	self = [super init];
 	// Create the session object
 #ifdef __IPHONE_7_0
@@ -228,7 +228,7 @@
 
 - (void)shutdownSession
 {
-    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+    UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)shutdownSession"));
 #ifdef __IPHONE_7_0
     if ([MCSession class])
     {
@@ -245,7 +245,7 @@
 
 - (bool)sessionsAvailable
 {
-    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+    UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)shutdownSession"));
 #ifdef __IPHONE_7_0
     if ([MCSession class])
     {
@@ -263,7 +263,7 @@
 
 - (void)joinSession
 {
-    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+    UE_LOG_ONLINE_SESSION(Display, TEXT("- (void)shutdownSession"));
 #ifdef __IPHONE_7_0
     if ([MCSession class])
     {
@@ -289,7 +289,7 @@ FOnlineSessionIOS::FOnlineSessionIOS() :
 	IOSSubsystem(NULL),
 	CurrentSessionSearch(NULL)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::FOnlineSessionIOS()"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::FOnlineSessionIOS()"));
 }
 
 
@@ -297,7 +297,7 @@ FOnlineSessionIOS::FOnlineSessionIOS(FOnlineSubsystemIOS* InSubsystem) :
 	IOSSubsystem(InSubsystem),
 	CurrentSessionSearch(NULL)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::FOnlineSessionIOS(FOnlineSubsystemIOS* InSubsystem)"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::FOnlineSessionIOS(FOnlineSubsystemIOS* InSubsystem)"));
 }
 
 
@@ -396,7 +396,7 @@ bool FOnlineSessionIOS::CreateSession(int32 HostingPlayerNum, FName SessionName,
 {
 	bool bSuccessfullyCreatedSession = false;
 #if !PLATFORM_TVOS
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::CreateSession"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::CreateSession"));
 	
 	// Check for an existing session
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -404,29 +404,29 @@ bool FOnlineSessionIOS::CreateSession(int32 HostingPlayerNum, FName SessionName,
 	{
 		Session = AddNamedSession(SessionName, NewSessionSettings);
 		Session->SessionState = EOnlineSessionState::Pending;
-		UE_LOG(LogOnline, Display, TEXT("Creating new session."));
+		UE_LOG_ONLINE_SESSION(Display, TEXT("Creating new session."));
 
 		// Create the session object
         FGameCenterSessionDelegate* NewGKSession = [FGameCenterSessionDelegate alloc];
 		if( NewGKSession != NULL )
 		{
-			UE_LOG(LogOnline, Display, TEXT("Created session delegate"));
+			UE_LOG_ONLINE_SESSION(Display, TEXT("Created session delegate"));
 			NSString* SafeSessionName = [NSString stringWithFString:SessionName.ToString()];
 			GKSessions.Add(SessionName, NewGKSession);
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Failed to create session delegate"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to create session delegate"));
 		}
 		
 		bSuccessfullyCreatedSession = true;
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Display, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
 	}
 	
-	UE_LOG(LogOnline, Display, TEXT("TriggerOnCreateSessionCompleteDelegates: %s, %d"), *SessionName.ToString(), bSuccessfullyCreatedSession);
+	UE_LOG_ONLINE_SESSION(Display, TEXT("TriggerOnCreateSessionCompleteDelegates: %s, %d"), *SessionName.ToString(), bSuccessfullyCreatedSession);
 	TriggerOnCreateSessionCompleteDelegates(SessionName, bSuccessfullyCreatedSession);
 #endif
 	
@@ -445,7 +445,7 @@ bool FOnlineSessionIOS::StartSession(FName SessionName)
 {
 	bool bSuccessfullyStartedSession = false;
 #if !PLATFORM_TVOS
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::StartSession"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::StartSession"));
 		
 	// Check for an existing session
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -462,7 +462,7 @@ bool FOnlineSessionIOS::StartSession(FName SessionName)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to create session delegate"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to create session delegate"));
 	}
 
 	TriggerOnStartSessionCompleteDelegates(SessionName, bSuccessfullyStartedSession);
@@ -475,7 +475,7 @@ bool FOnlineSessionIOS::UpdateSession(FName SessionName, FOnlineSessionSettings&
 {
 	bool bSuccessfullyUpdatedSession = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::UpdateSession - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::UpdateSession - not implemented"));
 	
 	TriggerOnUpdateSessionCompleteDelegates(SessionName, bSuccessfullyUpdatedSession);
 	
@@ -487,7 +487,7 @@ bool FOnlineSessionIOS::EndSession(FName SessionName)
 {
 	bool bSuccessfullyEndedSession = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::EndSession - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::EndSession - not implemented"));
 
 	TriggerOnEndSessionCompleteDelegates(SessionName, bSuccessfullyEndedSession);
 
@@ -527,7 +527,7 @@ bool FOnlineSessionIOS::IsPlayerInSession(FName SessionName, const FUniqueNetId&
 
 bool FOnlineSessionIOS::StartMatchmaking(const TArray< TSharedRef<const FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	UE_LOG(LogOnline, Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
@@ -535,7 +535,7 @@ bool FOnlineSessionIOS::StartMatchmaking(const TArray< TSharedRef<const FUniqueN
 
 bool FOnlineSessionIOS::CancelMatchmaking(int32 SearchingPlayerNum, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
@@ -543,7 +543,7 @@ bool FOnlineSessionIOS::CancelMatchmaking(int32 SearchingPlayerNum, FName Sessio
 
 bool FOnlineSessionIOS::CancelMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
@@ -586,7 +586,7 @@ bool FOnlineSessionIOS::CancelFindSessions()
 {
 	bool bSuccessfullyCancelledSession = false;
 
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::CancelSession - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::CancelSession - not implemented"));
 	
 	TriggerOnCancelFindSessionsCompleteDelegates(true);
 
@@ -598,7 +598,7 @@ bool FOnlineSessionIOS::PingSearchResults(const FOnlineSessionSearchResult& Sear
 {
 	bool bSuccessfullyPingedSearchResults = false;
 
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::PingSearchResults - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::PingSearchResults - not implemented"));
 	
 	return bSuccessfullyPingedSearchResults;
 }
@@ -608,7 +608,7 @@ bool FOnlineSessionIOS::JoinSession(int32 PlayerNum, FName SessionName, const FO
 {
 	EOnJoinSessionCompleteResult::Type JoinSessionResult = EOnJoinSessionCompleteResult::UnknownError;
 #if !PLATFORM_TVOS
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::JoinSession"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::JoinSession"));
 
 	FGameCenterSessionDelegate* SessionDelegate = *GKSessions.Find( SessionName );
 	if( SessionDelegate != NULL )
@@ -654,7 +654,7 @@ bool FOnlineSessionIOS::FindFriendSession(const FUniqueNetId& LocalUserId, const
 {
 	bool bSuccessfullyJoinedFriendSession = false;
 
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::FindFriendSession - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::FindFriendSession - not implemented"));
 
 	int32 LocalUserNum = IOSSubsystem->GetIdentityInterface()->GetPlatformUserIdFromUniqueNetId(LocalUserId);
 
@@ -668,7 +668,7 @@ bool FOnlineSessionIOS::SendSessionInviteToFriend(int32 LocalUserNum, FName Sess
 {
 	bool bSuccessfullySentSessionInviteToFriend = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriend - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriend - not implemented"));
 	
 	return bSuccessfullySentSessionInviteToFriend;
 }
@@ -676,7 +676,7 @@ bool FOnlineSessionIOS::SendSessionInviteToFriend(int32 LocalUserNum, FName Sess
 
 bool FOnlineSessionIOS::SendSessionInviteToFriend(const FUniqueNetId& LocalUserId, FName SessionName, const FUniqueNetId& Friend)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriend - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriend - not implemented"));
 	
 	return false;
 }
@@ -686,7 +686,7 @@ bool FOnlineSessionIOS::SendSessionInviteToFriends(int32 LocalUserNum, FName Ses
 {
 	bool bSuccessfullySentSessionInviteToFriends = false;
 
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriends - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriends - not implemented"));
 	
 	return bSuccessfullySentSessionInviteToFriends;
 }
@@ -694,7 +694,7 @@ bool FOnlineSessionIOS::SendSessionInviteToFriends(int32 LocalUserNum, FName Ses
 
 bool FOnlineSessionIOS::SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriends - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::SendSessionInviteToFriends - not implemented"));
 	
 	return false;
 }
@@ -704,7 +704,7 @@ bool FOnlineSessionIOS::GetResolvedConnectString(FName SessionName, FString& Con
 {
 	bool bSuccessfullyGotResolvedConnectString = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::GetResolvedConnectString - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::GetResolvedConnectString - not implemented"));
 	
 	return bSuccessfullyGotResolvedConnectString;
 }
@@ -731,7 +731,7 @@ bool FOnlineSessionIOS::RegisterPlayer(FName SessionName, const FUniqueNetId& Pl
 {
 	bool bSuccessfullyRegisteredPlayer = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::RegisterPlayer - not implemented"));	
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::RegisterPlayer - not implemented"));	
 	
 	TArray< TSharedRef<const FUniqueNetId> > Players;
 	Players.Add(MakeShareable(new FUniqueNetIdIOS(PlayerId)));
@@ -746,7 +746,7 @@ bool FOnlineSessionIOS::RegisterPlayers(FName SessionName, const TArray< TShared
 {
 	bool bSuccessfullyRegisteredPlayers = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::RegisterPlayers - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::RegisterPlayers - not implemented"));
 	
 	for (int32 PlayerIdx=0; PlayerIdx < Players.Num(); PlayerIdx++)
 	{
@@ -761,7 +761,7 @@ bool FOnlineSessionIOS::UnregisterPlayer(FName SessionName, const FUniqueNetId& 
 {
 	bool bSuccessfullyUnregisteredPlayer = false;
 	
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::UnregisterPlayer - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::UnregisterPlayer - not implemented"));
 	
 	TArray< TSharedRef<const FUniqueNetId> > Players;
 	Players.Add(MakeShareable(new FUniqueNetIdIOS(PlayerId)));
@@ -775,7 +775,7 @@ bool FOnlineSessionIOS::UnregisterPlayers(FName SessionName, const TArray< TShar
 {
 	bool bSuccessfullyUnregisteredPlayers = false;
 
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::UnregisterPlayers - not implemented"));
+	UE_LOG_ONLINE_SESSION(Display, TEXT("FOnlineSessionIOS::UnregisterPlayers - not implemented"));
 
 	for (int32 PlayerIdx=0; PlayerIdx < Players.Num(); PlayerIdx++)
 	{

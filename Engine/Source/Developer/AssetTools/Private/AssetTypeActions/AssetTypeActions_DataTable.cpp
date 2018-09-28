@@ -141,7 +141,7 @@ void FAssetTypeActions_DataTable::OpenAssetEditor( const TArray<UObject*>& InObj
 		UDataTable* Table = Cast<UDataTable>(Obj);
 		if (Table)
 		{
-			if (Table->RowStruct)
+			if (Table->GetRowStruct())
 			{
 				DataTablesToOpen.Add(Table);
 			}

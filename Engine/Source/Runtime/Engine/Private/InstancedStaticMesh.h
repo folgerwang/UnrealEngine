@@ -204,7 +204,16 @@ public:
 		}
 
 		OutEnvironment.SetDefine(TEXT("USE_INSTANCING"),TEXT("1"));
-		OutEnvironment.SetDefine(TEXT("USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED"), ALLOW_DITHERED_LOD_FOR_INSTANCED_STATIC_MESHES);
+		if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
+		{
+			OutEnvironment.SetDefine(TEXT("USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED"), ALLOW_DITHERED_LOD_FOR_INSTANCED_STATIC_MESHES);
+		}
+		else
+		{
+			// On mobile dithered LOD transition has to be explicitly enabled in material and project settings
+			OutEnvironment.SetDefine(TEXT("USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED"), Material->IsDitheredLODTransition() && ALLOW_DITHERED_LOD_FOR_INSTANCED_STATIC_MESHES);
+		}
+		
 		FLocalVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	}
 

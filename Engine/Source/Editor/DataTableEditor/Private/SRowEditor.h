@@ -45,7 +45,7 @@ public:
 
 	FOnRowSelected RowSelectedCallback;
 
-private:
+protected:
 
 	TArray<TSharedPtr<FName>> CachedRowNames;
 	TSharedPtr<FStructOnScope> CurrentRow;
@@ -59,21 +59,30 @@ private:
 	void CleanBeforeChange();
 	void Restore();
 
+	/** Functions for enabling, disabling, and hiding portions of the row editor */
+	virtual bool IsMoveRowUpEnabled() const;
+	virtual bool IsMoveRowDownEnabled() const;
+	virtual bool IsAddRowEnabled() const;
+	virtual bool IsRemoveRowEnabled() const;
+	virtual EVisibility GetRenameVisibility() const;
+
 	UScriptStruct* GetScriptStruct() const;
 
 	FName GetCurrentName() const;
 	FText GetCurrentNameAsText() const;
 	FString GetStructureDisplayName() const;
 	TSharedRef<SWidget> OnGenerateWidget(TSharedPtr<FName> InItem);
-	void OnSelectionChanged(TSharedPtr<FName> InItem, ESelectInfo::Type InSeletionInfo);
+	virtual void OnSelectionChanged(TSharedPtr<FName> InItem, ESelectInfo::Type InSeletionInfo);
 
-	FReply OnAddClicked();
-	FReply OnRemoveClicked();
-	FReply OnMoveRowClicked(FDataTableEditorUtils::ERowMoveDirection MoveDirection);
+	virtual FReply OnAddClicked();
+	virtual FReply OnRemoveClicked();
+	virtual FReply OnMoveRowClicked(FDataTableEditorUtils::ERowMoveDirection MoveDirection);
 	FReply OnMoveToExtentClicked(FDataTableEditorUtils::ERowMoveDirection MoveDirection);
 	void OnRowRenamed(const FText& Text, ETextCommit::Type CommitType);
 	FReply OnResetToDefaultClicked();
-	EVisibility GetResetToDefaultVisibility()const ;
+	EVisibility GetResetToDefaultVisibility() const ;
+
+	void ConstructInternal(UDataTable* Changed);
 
 public:
 
@@ -82,4 +91,5 @@ public:
 	void SelectRow(FName Name);
 
 	void HandleUndoRedo();
+
 };

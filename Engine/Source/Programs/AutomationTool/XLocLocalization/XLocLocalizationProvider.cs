@@ -303,18 +303,18 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		Binding.AllowCookies = false;
 		Binding.BypassProxyOnLocal = false;
 		Binding.HostNameComparisonMode = HostNameComparisonMode.StrongWildcard;
-		Binding.MaxBufferSize = 65536;
-		Binding.MaxBufferPoolSize = 524288;
-		Binding.MaxReceivedMessageSize = 65536;
+		Binding.MaxBufferSize = 2147483647;
+		Binding.MaxBufferPoolSize = 5242880;
+		Binding.MaxReceivedMessageSize = 2147483647;
 		Binding.MessageEncoding = WSMessageEncoding.Text;
 		Binding.TextEncoding = Encoding.UTF8;
 		Binding.TransferMode = TransferMode.Buffered;
 		Binding.UseDefaultWebProxy = true;
 		Binding.ReaderQuotas.MaxDepth = 32;
-		Binding.ReaderQuotas.MaxStringContentLength = 65536;
-		Binding.ReaderQuotas.MaxArrayLength = 16384;
+		Binding.ReaderQuotas.MaxStringContentLength = 2147483647;
+		Binding.ReaderQuotas.MaxArrayLength = 65536;
 		Binding.ReaderQuotas.MaxBytesPerRead = 4096;
-		Binding.ReaderQuotas.MaxNameTableCharCount = 16384;
+		Binding.ReaderQuotas.MaxNameTableCharCount = 65536;
 
 		var Endpoint = new EndpointAddress(new Uri(String.Format("http://{0}/api/XLocApiService.svc", Config.Server)));
 

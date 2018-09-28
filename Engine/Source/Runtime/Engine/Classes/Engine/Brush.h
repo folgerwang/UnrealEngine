@@ -151,12 +151,12 @@ public:
 
 	virtual bool NeedsLoadForClient() const override
 	{ 
-		return !IsNotForClientOrServer(); 
+		return !IsNotForClientOrServer() && Super::NeedsLoadForClient(); 
 	}
 
 	virtual bool NeedsLoadForServer() const override
 	{ 
-		return !IsNotForClientOrServer(); 
+		return !IsNotForClientOrServer() && Super::NeedsLoadForServer(); 
 	}
 
 public:

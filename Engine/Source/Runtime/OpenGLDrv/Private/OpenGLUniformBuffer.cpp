@@ -386,7 +386,7 @@ void FOpenGLUniformBuffer::SetGLUniformBufferParams(GLuint InResource, uint32 In
 	bStreamDraw = bInStreamDraw;
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-	LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::UniformBuffer, InAllocatedSize, ELLMTracker::Platform, ELLMAllocType::None);
+	LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::UniformBuffer, InAllocatedSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 }
 
@@ -426,7 +426,7 @@ FOpenGLUniformBuffer::~FOpenGLUniformBuffer()
 			Resource = 0; 
 		}
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::UniformBuffer, -(int64)AllocatedSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::UniformBuffer, -(int64)AllocatedSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 }

@@ -1639,8 +1639,8 @@ static void MikkGetTexCoord(const SMikkTSpaceContext* Context, float UV[2], cons
 class MikkTSpace_Skeletal_Mesh
 {
 public:
-	const TArray<FMeshWedge>	&wedges;			//Reference to wedge list.
-	const TArray<FMeshFace>		&faces;				//Reference to face list.	Also contains normal/tangent/bitanget/UV coords for each vertex of the face.
+	const TArray<SkeletalMeshImportData::FMeshWedge>	&wedges;			//Reference to wedge list.
+	const TArray<SkeletalMeshImportData::FMeshFace>		&faces;				//Reference to face list.	Also contains normal/tangent/bitanget/UV coords for each vertex of the face.
 	const TArray<FVector>		&points;			//Reference to position list.
 	bool						bComputeNormals;	//Copy of bComputeNormals.
 	TArray<FVector>				&TangentsX;			//Reference to newly created tangents list.
@@ -1648,8 +1648,8 @@ public:
 	TArray<FVector>				&TangentsZ;			//Reference to computed normals, will be empty otherwise.
 
 	MikkTSpace_Skeletal_Mesh(
-		const TArray<FMeshWedge>	&Wedges,
-		const TArray<FMeshFace>		&Faces,
+		const TArray<SkeletalMeshImportData::FMeshWedge>	&Wedges,
+		const TArray<SkeletalMeshImportData::FMeshFace>		&Faces,
 		const TArray<FVector>		&Points,
 		bool						bInComputeNormals,
 		TArray<FVector>				&VertexTangentsX,
@@ -3012,9 +3012,9 @@ public:
 	SkeletalMeshBuildData(
 		FSkeletalMeshLODModel& InLODModel,
 		const FReferenceSkeleton& InRefSkeleton,
-		const TArray<FVertInfluence>& InInfluences,
-		const TArray<FMeshWedge>& InWedges,
-		const TArray<FMeshFace>& InFaces,
+		const TArray<SkeletalMeshImportData::FVertInfluence>& InInfluences,
+		const TArray<SkeletalMeshImportData::FMeshWedge>& InWedges,
+		const TArray<SkeletalMeshImportData::FMeshFace>& InFaces,
 		const TArray<FVector>& InPoints,
 		const TArray<int32>& InPointToOriginalMap,
 		const IMeshUtilities::MeshBuildOptions& InBuildOptions,
@@ -3052,7 +3052,7 @@ public:
 				TangentZ.AddZeroed(Wedges.Num());
 			}
 
-			for (const FMeshFace& MeshFace : Faces)
+			for (const SkeletalMeshImportData::FMeshFace& MeshFace : Faces)
 			{
 				for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 				{
@@ -3157,9 +3157,9 @@ public:
 
 	FSkeletalMeshLODModel& LODModel;
 	const FReferenceSkeleton& RefSkeleton;
-	const TArray<FVertInfluence>& Influences;
-	const TArray<FMeshWedge>& Wedges;
-	const TArray<FMeshFace>& Faces;
+	const TArray<SkeletalMeshImportData::FVertInfluence>& Influences;
+	const TArray<SkeletalMeshImportData::FMeshWedge>& Wedges;
+	const TArray<SkeletalMeshImportData::FMeshFace>& Faces;
 	const TArray<FVector>& Points;
 	const TArray<int32>& PointToOriginalMap;
 };
@@ -3601,6 +3601,39 @@ public:
 		check(WedgeTangentZ.Num() == NumWedges);
 	}
 
+	bool IsTriangleMirror(IMeshBuildData* BuildData, const TArray<FVector>& TriangleTangentZ, const uint32 FaceIdxA, const uint32 FaceIdxB)
+	{
+		if (FaceIdxA == FaceIdxB)
+		{
+			return false;
+		}
+		for (int32 CornerA = 0; CornerA < 3; ++CornerA)
+		{
+			const FVector& CornerAPosition = BuildData->GetVertexPosition((FaceIdxA * 3) + CornerA);
+			bool bFoundMatch = false;
+			for (int32 CornerB = 0; CornerB < 3; ++CornerB)
+			{
+				const FVector& CornerBPosition = BuildData->GetVertexPosition((FaceIdxB * 3) + CornerB);
+				if (PointsEqual(CornerAPosition, CornerBPosition, BuildData->BuildOptions.OverlappingThresholds))
+				{
+					bFoundMatch = true;
+					break;
+				}
+			}
+
+			if (!bFoundMatch)
+			{
+				return false;
+			}
+		}
+		//Check if the triangles normals are opposite and parallel. Dot product equal -1.0f
+		if (FMath::IsNearlyEqual(FVector::DotProduct(TriangleTangentZ[FaceIdxA], TriangleTangentZ[FaceIdxB]), -1.0f, KINDA_SMALL_NUMBER))
+		{
+			return true;
+		}
+		return false;
+	}
+
 	void Skeletal_ComputeTangents_MikkTSpace(
 		IMeshBuildData* BuildData,
 		const FOverlappingCorners& OverlappingCorners
@@ -3700,7 +3733,12 @@ public:
 				}
 				for (int32 k = 0; k < DupVerts.Num(); k++)
 				{
-					AdjacentFaces.AddUnique(DupVerts[k] / 3);
+					int32 PotentialTriangleIndex = DupVerts[k] / 3;
+					//Do not add mirror triangle to the adjacentFaces
+					if (!IsTriangleMirror(BuildData, TriangleTangentZ, FaceIndex, PotentialTriangleIndex))
+					{
+						AdjacentFaces.AddUnique(PotentialTriangleIndex);
+					}
 				}
 			}
 
@@ -4005,13 +4043,13 @@ public:
 				UpdateSlowTask(FaceIndex, BuildData.Faces.Num());
 			}
 
-			const FMeshFace& Face = BuildData.Faces[FaceIndex];
+			const SkeletalMeshImportData::FMeshFace& Face = BuildData.Faces[FaceIndex];
 
 			for (int32 VertexIndex = 0; VertexIndex < 3; VertexIndex++)
 			{
 				FSoftSkinBuildVertex Vertex;
 				const uint32 WedgeIndex = BuildData.GetWedgeIndex(FaceIndex, VertexIndex);
-				const FMeshWedge& Wedge = BuildData.Wedges[WedgeIndex];
+				const SkeletalMeshImportData::FMeshWedge& Wedge = BuildData.Wedges[WedgeIndex];
 
 				Vertex.Position = BuildData.GetVertexPosition(FaceIndex, VertexIndex);
 
@@ -4162,7 +4200,7 @@ private:
 	EStage Stage;
 };
 
-bool FMeshUtilities::BuildSkeletalMesh(FSkeletalMeshLODModel& LODModel, const FReferenceSkeleton& RefSkeleton, const TArray<FVertInfluence>& Influences, const TArray<FMeshWedge>& Wedges, const TArray<FMeshFace>& Faces, const TArray<FVector>& Points, const TArray<int32>& PointToOriginalMap, const MeshBuildOptions& BuildOptions, TArray<FText> * OutWarningMessages, TArray<FName> * OutWarningNames)
+bool FMeshUtilities::BuildSkeletalMesh(FSkeletalMeshLODModel& LODModel, const FReferenceSkeleton& RefSkeleton, const TArray<SkeletalMeshImportData::FVertInfluence>& Influences, const TArray<SkeletalMeshImportData::FMeshWedge>& Wedges, const TArray<SkeletalMeshImportData::FMeshFace>& Faces, const TArray<FVector>& Points, const TArray<int32>& PointToOriginalMap, const MeshBuildOptions& BuildOptions, TArray<FText> * OutWarningMessages, TArray<FName> * OutWarningNames)
 {
 #if WITH_EDITORONLY_DATA
 
@@ -4329,9 +4367,9 @@ bool FMeshUtilities::BuildSkeletalMesh(FSkeletalMeshLODModel& LODModel, const FR
 //@TODO: The OutMessages has to be a struct that contains FText/FName, or make it Token and add that as error. Needs re-work. Temporary workaround for now. 
 bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 											, const FReferenceSkeleton& RefSkeleton
-											, const TArray<FVertInfluence>& Influences
-											, const TArray<FMeshWedge>& Wedges
-											, const TArray<FMeshFace>& Faces
+											, const TArray<SkeletalMeshImportData::FVertInfluence>& Influences
+											, const TArray<SkeletalMeshImportData::FMeshWedge>& Wedges
+											, const TArray<SkeletalMeshImportData::FMeshFace>& Faces
 											, const TArray<FVector>& Points
 											, const TArray<int32>& PointToOriginalMap
 											, const FOverlappingThresholds& OverlappingThresholds
@@ -4499,7 +4537,7 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 		// now create a map from vert indices to faces
 		for (int32 FaceIndex = 0; FaceIndex < Faces.Num(); FaceIndex++)
 		{
-			const FMeshFace&	Face = Faces[FaceIndex];
+			const SkeletalMeshImportData::FMeshFace&	Face = Faces[FaceIndex];
 			for (int32 VertexIndex = 0; VertexIndex < 3; VertexIndex++)
 			{
 				Vert2Faces.AddUnique(Wedges[Face.iWedge[VertexIndex]].iVertex, FaceIndex);
@@ -4529,7 +4567,7 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 			GWarn->StatusUpdate(FaceIndex, Faces.Num(), NSLOCTEXT("UnrealEd", "ProcessingSkeletalTriangles", "Processing Mesh Triangles"));
 		}
 
-		const FMeshFace&	Face = Faces[FaceIndex];
+		const SkeletalMeshImportData::FMeshFace&	Face = Faces[FaceIndex];
 
 		FVector	VertexTangentX[3],
 			VertexTangentY[3],
@@ -4574,7 +4612,7 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 			for (int32 AdjacentFaceIndex = 0; AdjacentFaceIndex < AdjacentFaces.Num(); AdjacentFaceIndex++)
 			{
 				int32 OtherFaceIndex = AdjacentFaces[AdjacentFaceIndex];
-				const FMeshFace&	OtherFace = Faces[OtherFaceIndex];
+				const SkeletalMeshImportData::FMeshFace&	OtherFace = Faces[OtherFaceIndex];
 				FVector		OtherTriangleNormal = FPlane(
 					Points[Wedges[OtherFace.iWedge[2]].iVertex],
 					Points[Wedges[OtherFace.iWedge[1]].iVertex],

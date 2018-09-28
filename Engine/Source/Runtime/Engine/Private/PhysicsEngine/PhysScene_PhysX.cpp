@@ -22,8 +22,8 @@
 #include "HAL/LowLevelMemTracker.h"
 
 #if WITH_PHYSX
-	#include "PhysXPublic.h"
-	#include "PhysicsEngine/PhysXSupport.h"
+#include "PhysXPublic.h"
+#include "PhysicsEngine/PhysXSupport.h"
 #endif
 
 #include "PhysicsEngine/PhysSubstepTasks.h"
@@ -109,7 +109,7 @@ FAutoConsoleTaskPriority CPrio_FPhysXTask(
 	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
 	ENamedThreads::NormalTaskPriority, // .. at normal task priority
 	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
-	);
+);
 
 
 int32 GPhysXOverrideMbpNumSubdivisions_Client = 0;
@@ -161,7 +161,7 @@ struct FPhysTaskScopedNamedEvent
 #if ENABLE_STATNAMEDEVENTS
 		check(InTask);
 		const char* TaskName = InTask->getName();
-		
+
 		bEmittedEvent = GCycleStatsShouldEmitNamedEvents != 0;
 
 		if(bEmittedEvent)
@@ -248,12 +248,12 @@ public:
 
 	static FORCEINLINE TStatId GetStatId()
 	{
-			RETURN_QUICK_DECLARE_CYCLE_STAT(FPhysXTask, STATGROUP_Physics);
-		}
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPhysXTask, STATGROUP_Physics);
+	}
 	static FORCEINLINE ENamedThreads::Type GetDesiredThread()
 	{
-			return CPrio_FPhysXTask.Get();
-		}
+		return CPrio_FPhysXTask.Get();
+	}
 	static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
 	{
 		return ESubsequentsMode::TrackSubsequents;
@@ -430,6 +430,7 @@ class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
 
 TSharedPtr<ISimEventCallbackFactory> FPhysScene_PhysX::SimEventCallbackFactory;
 TSharedPtr<IContactModifyCallbackFactory> FPhysScene_PhysX::ContactModifyCallbackFactory;
+TSharedPtr<ICCDContactModifyCallbackFactory> FPhysScene_PhysX::CCDContactModifyCallbackFactory;
 
 #endif // WITH_PHYSX
 
@@ -500,7 +501,7 @@ FPhysScene_PhysX::FPhysScene_PhysX(const AWorldSettings* Settings)
 	{
 		PhysXScenes[PST_Async] = nullptr;
 	}
-	
+
 	PreGarbageCollectDelegateHandle = FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FPhysScene_PhysX::WaitPhysScenes);
 
 #if WITH_PHYSX
@@ -669,7 +670,7 @@ FPhysScene_PhysX::~FPhysScene_PhysX()
 
 #if WITH_PHYSX
 	// Free the scratch buffers
- 	for(uint32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
+	for(uint32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
 	{
 		if(SimScratchBuffers[SceneType].Buffer != nullptr)
 		{
@@ -684,10 +685,10 @@ FPhysScene_PhysX::~FPhysScene_PhysX()
 namespace
 {
 
-bool UseSyncTime(uint32 SceneType)
-{
-	return (FrameLagAsync() && SceneType == PST_Async);
-}
+	bool UseSyncTime(uint32 SceneType)
+	{
+		return (FrameLagAsync() && SceneType == PST_Async);
+	}
 
 }
 
@@ -900,7 +901,7 @@ FAutoConsoleTaskPriority CPrio_PhysXStepSimulation(
 	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
 	ENamedThreads::NormalTaskPriority, // .. at normal task priority
 	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
-	);
+);
 
 bool FPhysScene_PhysX::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOutCompletionEvent)
 {
@@ -918,7 +919,7 @@ bool FPhysScene_PhysX::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOut
 		ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::SetTaskPriority(ENamedThreads::GameThread, ENamedThreads::HighTaskPriority);
 
 		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.SubstepSimulationImp"),
-			STAT_FSimpleDelegateGraphTask_SubstepSimulationImp,
+		STAT_FSimpleDelegateGraphTask_SubstepSimulationImp,
 			STATGROUP_TaskGraphTasks);
 
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
@@ -1046,9 +1047,9 @@ void FinishSceneStat(uint32 Scene)
 		switch(Scene)
 		{
 			case PST_Sync:
-			INC_FLOAT_STAT_BY(STAT_PhysSyncSim, SceneTime); break;
+				INC_FLOAT_STAT_BY(STAT_PhysSyncSim, SceneTime); break;
 			case PST_Async:
-			INC_FLOAT_STAT_BY(STAT_PhysAsyncSim, SceneTime); break;
+				INC_FLOAT_STAT_BY(STAT_PhysAsyncSim, SceneTime); break;
 		}
 	}
 }
@@ -1082,7 +1083,7 @@ void GatherClothingStats(const UWorld* World)
 void FPhysScene_PhysX::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletionEvent)
 {
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
-	CSV_SCOPED_TIMING_STAT(Basic, TotalPhysicsTime);
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_TotalPhysicsTime);
 
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime, SceneType == PST_Sync);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime_Async, SceneType == PST_Async);
@@ -1261,12 +1262,12 @@ void FPhysScene_PhysX::SceneCompletionTask(ENamedThreads::Type CurrentThread, co
 void FPhysScene_PhysX::ProcessPhysScene(uint32 SceneType)
 {
 	LLM_SCOPE(ELLMTag::PhysX);
-	
+
 	SCOPED_NAMED_EVENT(FPhysScene_ProcessPhysScene, FColor::Orange);
 	checkSlow(SceneType < PST_MAX);
 
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
-	CSV_SCOPED_TIMING_STAT(Basic, TotalPhysicsTime);
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_TotalPhysicsTime);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime, SceneType == PST_Sync);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime_Async, SceneType == PST_Async);
 
@@ -1490,11 +1491,11 @@ void FPhysScene_PhysX::DispatchPhysNotifications_AssumesLocked()
 		for (auto MapItr = PendingSleepEvents[SceneType].CreateIterator(); MapItr; ++MapItr)
 		{
 			FBodyInstance* BodyInstance = MapItr.Key();
-				if(UPrimitiveComponent* PrimitiveComponent = BodyInstance->OwnerComponent.Get())
-				{
-					PrimitiveComponent->DispatchWakeEvents(MapItr.Value(), BodyInstance->BodySetup->BoneName);
-				}
+			if(UPrimitiveComponent* PrimitiveComponent = BodyInstance->OwnerComponent.Get())
+			{
+				PrimitiveComponent->DispatchWakeEvents(MapItr.Value(), BodyInstance->BodySetup->BoneName);
 			}
+		}
 
 		PendingSleepEvents[SceneType].Empty();
 	}
@@ -1512,7 +1513,7 @@ void FPhysScene_PhysX::DispatchPhysNotifications_AssumesLocked()
 #endif // WITH_PHYSX 
 
 #if WITH_APEIRON
-    check(false);
+	check(false);
 #else
 	FPhysicsDelegates::OnPhysDispatchNotifications.Broadcast(this);
 #endif
@@ -1554,7 +1555,7 @@ FAutoConsoleTaskPriority CPrio_PhyXSceneCompletion(
 	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
 	ENamedThreads::HighTaskPriority, // .. at high task priority
 	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
-	);
+);
 
 
 
@@ -1582,7 +1583,7 @@ void FPhysScene_PhysX::StartFrame()
 			MainScenePrerequisites.Add(PhysicsSubsceneCompletion[PST_Sync]);
 
 			DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysScene_Sync"),
-				STAT_FDelegateGraphTask_ProcessPhysScene_Sync,
+			STAT_FDelegateGraphTask_ProcessPhysScene_Sync,
 				STATGROUP_TaskGraphTasks);
 
 			new (FinishPrerequisites)FGraphEventRef(
@@ -1601,7 +1602,7 @@ void FPhysScene_PhysX::StartFrame()
 		if (PhysicsSubsceneCompletion[PST_Async].GetReference())
 		{
 			DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysScene_Async"),
-				STAT_FDelegateGraphTask_ProcessPhysScene_Async,
+			STAT_FDelegateGraphTask_ProcessPhysScene_Async,
 				STATGROUP_TaskGraphTasks);
 
 			new (FinishPrerequisites)FGraphEventRef(
@@ -1620,7 +1621,7 @@ void FPhysScene_PhysX::StartFrame()
 		if (FinishPrerequisites.Num() > 1)  // we don't need to create a new task if we only have one prerequisite
 		{
 			DECLARE_CYCLE_STAT(TEXT("FNullGraphTask.ProcessPhysScene_Join"),
-				STAT_FNullGraphTask_ProcessPhysScene_Join,
+			STAT_FNullGraphTask_ProcessPhysScene_Join,
 				STATGROUP_TaskGraphTasks);
 
 			PhysicsSceneCompletion = TGraphTask<FNullGraphTask>::CreateTask(&FinishPrerequisites, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(
@@ -1653,7 +1654,7 @@ void FPhysScene_PhysX::StartAsync()
 		if (PhysicsSubsceneCompletion[PST_Async].GetReference())
 		{
 			DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysScene_Async"),
-				STAT_FDelegateGraphTask_ProcessPhysScene_Async,
+			STAT_FDelegateGraphTask_ProcessPhysScene_Async,
 				STATGROUP_TaskGraphTasks);
 
 			FrameLaggedPhysicsSubsceneCompletion[PST_Async] = FDelegateGraphTask::CreateAndDispatchWhenReady(
@@ -1684,7 +1685,7 @@ void FPhysScene_PhysX::EndFrame(ULineBatchComponent* InLineBatcher)
 #if ( WITH_PHYSX  && !(UE_BUILD_SHIPPING || WITH_PHYSX_RELEASE))
 	GatherPhysXStats_AssumesLocked(GetPxScene(PST_Sync), HasAsyncScene() ? GetPxScene(PST_Async) : nullptr);
 #endif
-	
+
 	// Perform any collision notification events
 	DispatchPhysNotifications_AssumesLocked();
 
@@ -1708,7 +1709,7 @@ void FPhysScene_PhysX::EndFrame(ULineBatchComponent* InLineBatcher)
 struct FHelpEnsureCollisionTreeIsBuilt
 {
 	FHelpEnsureCollisionTreeIsBuilt(PxScene* InPScene)
-	: PScene(InPScene)
+		: PScene(InPScene)
 	{
 		if(PScene)
 		{
@@ -2029,6 +2030,7 @@ void FPhysScene_PhysX::InitPhysScene(uint32 SceneType, const AWorldSettings* Set
 	// Create sim event callback
 	SimEventCallback[SceneType] = SimEventCallbackFactory.IsValid() ? SimEventCallbackFactory->Create(this, SceneType) : new FPhysXSimEventCallback(this, SceneType);
 	ContactModifyCallback[SceneType] = ContactModifyCallbackFactory.IsValid() ? ContactModifyCallbackFactory->Create(this, SceneType) : nullptr;
+	CCDContactModifyCallback[SceneType] = CCDContactModifyCallbackFactory.IsValid() ? CCDContactModifyCallbackFactory->Create(this, SceneType) : nullptr;
 
 	// Include scene descriptor in loop, so that we might vary it with scene type
 	PxSceneDesc PSceneDesc(GPhysXSDK->getTolerancesScale());
@@ -2042,6 +2044,7 @@ void FPhysScene_PhysX::InitPhysScene(uint32 SceneType, const AWorldSettings* Set
 	PSceneDesc.filterShader = GSimulationFilterShader ? GSimulationFilterShader : PhysXSimFilterShader;
 	PSceneDesc.simulationEventCallback = SimEventCallback[SceneType];
 	PSceneDesc.contactModifyCallback = ContactModifyCallback[SceneType];
+	PSceneDesc.ccdContactModifyCallback = CCDContactModifyCallback[SceneType];
 
 	if(UPhysicsSettings::Get()->bEnablePCM)
 	{
@@ -2140,7 +2143,7 @@ void FPhysScene_PhysX::InitPhysScene(uint32 SceneType, const AWorldSettings* Set
 	if(bUseMBP)
 	{
 		uint32 NumSubdivisions = BroadphaseSettings.MBPNumSubdivs;
-		
+
 		if(IsRunningDedicatedServer())
 		{
 			if(GPhysXOverrideMbpNumSubdivisions_Server > 0)
@@ -2223,7 +2226,7 @@ void FPhysScene_PhysX::InitPhysScene(uint32 SceneType, const AWorldSettings* Set
 #endif
 
 #if WITH_APEIRON
-    check(false);
+	check(false);
 #else
 	FPhysicsDelegates::OnPhysSceneInit.Broadcast(this, (EPhysicsSceneType)SceneType);
 #endif
@@ -2248,7 +2251,7 @@ void FPhysScene_PhysX::TermPhysScene(uint32 SceneType)
 #endif // #if WITH_APEX
 
 #if WITH_APEIRON
-        check(false);
+		check(false);
 #else
 		FPhysicsDelegates::OnPhysSceneTerm.Broadcast(this, (EPhysicsSceneType)SceneType);
 #endif

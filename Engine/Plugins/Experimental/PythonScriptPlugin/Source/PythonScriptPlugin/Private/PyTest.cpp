@@ -9,6 +9,9 @@ FPyTestStruct::FPyTestStruct()
 	Int = 0;
 	Float = 0.0f;
 	Enum = EPyTestEnum::One;
+	LegacyInt_DEPRECATED = 0;
+	BoolInstanceOnly = false;
+	BoolDefaultsOnly = false;
 }
 
 bool UPyTestStructLibrary::IsBoolSet(const FPyTestStruct& InStruct)

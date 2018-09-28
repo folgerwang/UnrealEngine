@@ -4,6 +4,7 @@
 #include "Misc/Attribute.h"
 #include "Misc/Guid.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
 #include "Factories/FbxAnimSequenceImportData.h"
 #include "Factories/FbxStaticMeshImportData.h"
 #include "Factories/FbxTextureImportData.h"
@@ -20,6 +21,8 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/STextComboBox.h"
 #include "Widgets/SToolTip.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
 #include "Editor.h"
 #include "IDetailGroup.h"
 
@@ -90,6 +93,94 @@ TSharedRef<IDetailCustomization> FFbxImportUIDetails::MakeInstance()
 	return MakeShareable( new FFbxImportUIDetails );
 }
 
+bool SkipImportProperty(TSharedPtr<IPropertyHandle> Handle, const FString &MetaData, const bool bImportGeoOnly, const bool bImportRigOnly)
+{
+	TArray<FString> Types;
+	MetaData.ParseIntoArray(Types, TEXT("|"), 1);
+	if (bImportRigOnly && Types.Contains(TEXT("GeoOnly")))
+	{
+		return true;
+	}
+	if (bImportGeoOnly && Types.Contains(TEXT("RigOnly")))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool FFbxImportUIDetails::ShowCompareResult()
+{
+	bool bHasMaterialConflict = false;
+	bool bHasSkeletonConflict = false;
+	bool bShowCompareResult = ImportUI->bIsReimport && ImportUI->ReimportMesh != nullptr && ImportUI->OnUpdateCompareFbx.IsBound();
+	if (bShowCompareResult)
+	{
+		//Always update the compare data with the current option
+		ImportUI->OnUpdateCompareFbx.Execute();
+		bHasMaterialConflict = ImportUI->MaterialCompareData.HasConflict();
+		bHasSkeletonConflict = ImportUI->SkeletonCompareData.HasConflict();
+		if (bHasMaterialConflict || bHasSkeletonConflict)
+		{
+			FName ConflictCategoryName = TEXT("Conflicts");
+			IDetailCategoryBuilder& CategoryBuilder = CachedDetailBuilder->EditCategory(ConflictCategoryName, LOCTEXT("CategoryConflictsName", "Conflicts"), ECategoryPriority::Important);
+			auto BuildConflictRow = [this, &CategoryBuilder](const FText& CategoryName, const FText& Conflict_NameContent, const FText& Conflict_ButtonTooltip, const FText& Conflict_ButtonText, ConflictDialogType DialogType)
+			{
+				CategoryBuilder.AddCustomRow(CategoryName).WholeRowContent()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("Icons.Error"))
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(Conflict_NameContent)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.ToolTipText(Conflict_ButtonTooltip)
+						.OnClicked(this, &FFbxImportUIDetails::ShowConflictDialog, DialogType)
+						.Content()
+						[
+							SNew(STextBlock)
+							.Text(Conflict_ButtonText)
+							.Font(IDetailLayoutBuilder::GetDetailFont())
+						]
+					]
+
+				];
+			};
+
+			if (bHasMaterialConflict)
+			{
+				BuildConflictRow(LOCTEXT("MaterialConflict_RowFilter", "Material conflict"),
+					LOCTEXT("MaterialConflict_NameContent", "Unmatched Materials"),
+					LOCTEXT("MaterialConflict_ButtonShowTooltip", "Show a detailed view of the materials conflict."),
+					LOCTEXT("MaterialConflict_ButtonShow", "Show Conflict"),
+					ConflictDialogType::Conflict_Material);
+			}
+
+			if (bHasSkeletonConflict)
+			{
+				BuildConflictRow(LOCTEXT("SkeletonConflict_RowFilter", "Skeleton conflict"),
+					LOCTEXT("SkeletonConflict_NameContent", "Unmatched Skeleton joints"),
+					LOCTEXT("SkeletonConflict_ButtonShowTooltip", "Show a detailed view of the skeleton joints conflict."),
+					LOCTEXT("SkeletonConflict_ButtonShow", "Show Conflict"),
+					ConflictDialogType::Conflict_Skeleton);
+			}
+		}
+	}
+	return bShowCompareResult;
+}
+
 void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	CachedDetailBuilder = &DetailBuilder;
@@ -98,6 +189,32 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	check(EditingObjects.Num() == 1);
 
 	ImportUI = Cast<UFbxImportUI>(EditingObjects[0].Get());
+	
+	bool bShowCompareResult = ShowCompareResult();
+
+	auto AddRefreshCustomDetailEvent = [this](TSharedPtr<IPropertyHandle> Handle)
+	{
+		Handle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::RefreshCustomDetail));
+	};
+
+	auto SetupRefreshForHandle = [this, &bShowCompareResult, &AddRefreshCustomDetailEvent](TSharedPtr<IPropertyHandle> Handle)
+	{
+		if (bShowCompareResult && Handle->GetProperty() != nullptr)
+		{
+			UProperty* Property = Handle->GetProperty();
+			if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxImportUI, Skeleton) ||
+				Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportRigidMesh) ||
+				Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, bImportMeshesInBoneHierarchy) ||
+				Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxStaticMeshImportData, bCombineMeshes)
+				)
+			{
+				AddRefreshCustomDetailEvent(Handle);
+			}
+		}
+	};
+	
+	bool bImportGeoOnly = false;
+	bool bImportRigOnly = false;
 
 	// Handle mesh category
 	IDetailCategoryBuilder& MeshCategory = DetailBuilder.EditCategory("Mesh", FText::GetEmpty(), ECategoryPriority::Important);
@@ -112,6 +229,9 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	DetailBuilder.HideProperty(StaticMeshDataProp);
 	DetailBuilder.HideProperty(SkeletalMeshDataProp);
 	DetailBuilder.HideProperty(AnimSequenceDataProp);
+
+	TSharedPtr<IPropertyHandle> SK_ImportContent_DataProp = SkeletalMeshDataProp->GetChildHandle(GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, ImportContentType));
+	AddRefreshCustomDetailEvent(SK_ImportContent_DataProp);
 
 	TSharedRef<IPropertyHandle> ImportMaterialsProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportMaterials));
 	ImportMaterialsProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ImportMaterialsChanged));
@@ -128,13 +248,17 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 			CollectChildPropertiesRecursive(StaticMeshDataProp, ExtraProperties);
 			break;
 		case FBXIT_SkeletalMesh:
-			if(ImportUI->bImportMesh)
 			{
-				CollectChildPropertiesRecursive(SkeletalMeshDataProp, ExtraProperties);
-			}
-			else
-			{
-				ImportUI->MeshTypeToImport = FBXIT_Animation;
+				bImportGeoOnly = ImportUI->SkeletalMeshImportData->ImportContentType == EFBXImportContentType::FBXICT_Geometry;
+				bImportRigOnly = ImportUI->SkeletalMeshImportData->ImportContentType == EFBXImportContentType::FBXICT_SkinningWeights;
+				if (ImportUI->bImportMesh)
+				{
+					CollectChildPropertiesRecursive(SkeletalMeshDataProp, ExtraProperties);
+				}
+				else
+				{
+					ImportUI->MeshTypeToImport = FBXIT_Animation;
+				}
 			}
 			break;
 		default:
@@ -163,7 +287,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	{
 		DetailBuilder.HideCategory(FName(TEXT("LodSettings")));
 	}
-	
 
 	if(ImportType != FBXIT_Animation)
 	{
@@ -199,6 +322,10 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 		{
 			DetailBuilder.HideProperty(Handle);
 		}
+		else
+		{
+			SetupRefreshForHandle(Handle);
+		}
 	}
 
 	TMap<FString, TArray<TSharedPtr<IPropertyHandle>>> SubCategoriesProperties;
@@ -207,10 +334,16 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 	for(TSharedPtr<IPropertyHandle> Handle : ExtraProperties)
 	{
+		UProperty* Property = Handle->GetProperty();
 		FString ImportTypeMetaData = Handle->GetMetaData(TEXT("ImportType"));
 		const FString& CategoryMetaData = Handle->GetMetaData(TEXT("ImportCategory"));
 		const FString& SubCategoryData = Handle->GetMetaData(TEXT("SubCategory"));
-		if(IsImportTypeMetaDataValid(ImportType, ImportTypeMetaData))
+		bool bSkip = (bImportGeoOnly || bImportRigOnly) && SkipImportProperty(Handle, ImportTypeMetaData, bImportGeoOnly, bImportRigOnly);
+		if (!ImportUI->bAllowContentTypeImport && Property != nullptr && Property == SK_ImportContent_DataProp->GetProperty())
+		{
+			bSkip = true;
+		}
+		if(!bSkip && IsImportTypeMetaDataValid(ImportType, ImportTypeMetaData))
 		{
 			// Decide on category
 			if(!CategoryMetaData.IsEmpty())
@@ -236,7 +369,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 				// No override, add to default mesh category
 				IDetailPropertyRow& PropertyRow = MeshCategory.AddProperty(Handle);
 
-				UProperty* Property = Handle->GetProperty();
 				if (Property != nullptr)
 				{
 					if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxStaticMeshImportData, StaticMeshLODGroup))
@@ -261,6 +393,8 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 					}
 				}
 			}
+			//Add refresh callback
+			SetupRefreshForHandle(Handle);
 		}
 	}
 
@@ -275,13 +409,14 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	for(TSharedRef<IPropertyHandle> Handle : CategoryDefaultProperties)
 	{
 		FString MetaData = Handle->GetMetaData(TEXT("ImportType"));
+		bool bSkip = (bImportGeoOnly || bImportRigOnly) && SkipImportProperty(Handle, MetaData, bImportGeoOnly, bImportRigOnly);
 		if(!IsImportTypeMetaDataValid(ImportType, MetaData))
 		{
 			DetailBuilder.HideProperty(Handle);
 		}
 	}
 
-	if(ImportType == FBXIT_Animation || ImportType == FBXIT_SkeletalMesh)
+	if(ImportType == FBXIT_Animation || (ImportType == FBXIT_SkeletalMesh && !bImportGeoOnly))
 	{
 		ExtraProperties.Empty();
 		CollectChildPropertiesRecursive(AnimSequenceDataProp, ExtraProperties);
@@ -330,7 +465,7 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 	// Material Category
 	IDetailCategoryBuilder& MaterialCategory = DetailBuilder.EditCategory("Material");
-	if(ImportType == FBXIT_Animation)
+	if(ImportType == FBXIT_Animation || bImportRigOnly)
 	{
 		// In animation-only mode, hide the material display
 		CategoryDefaultProperties.Empty();
@@ -794,6 +929,19 @@ void FFbxImportUIDetails::OnEmissiveColor(TSharedPtr<FString> Selection, ESelect
 }
 void FFbxImportUIDetails::OnSpecularTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
 	ImportUI->TextureImportData->BaseSpecularTextureName = *Selection.Get();
+}
+
+FReply FFbxImportUIDetails::ShowConflictDialog(ConflictDialogType DialogType)
+{
+	if (DialogType == Conflict_Material)
+	{
+		ImportUI->OnShowMaterialConflictDialog.ExecuteIfBound();
+	}
+	else if (DialogType == Conflict_Skeleton)
+	{
+		ImportUI->OnShowSkeletonConflictDialog.ExecuteIfBound();
+	}
+	return FReply::Handled();
 }
 
 #undef LOCTEXT_NAMESPACE

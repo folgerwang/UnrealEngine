@@ -61,8 +61,9 @@ public:
 	{
 	}
 
-	FReplayExternalData( const FBitReader& InReader, const float InTimeSeconds ) : Reader( InReader ), TimeSeconds( InTimeSeconds )
+	FReplayExternalData( FBitReader&& InReader, const float InTimeSeconds ) : TimeSeconds( InTimeSeconds )
 	{
+		Reader = MoveTemp(InReader);
 	}
 
 	FBitReader	Reader;
@@ -93,6 +94,8 @@ enum ENetworkVersionHistory
 	HISTORY_HEADER_FLAGS					= 9,			// Save out enum flags with demo header
 	HISTORY_LEVEL_STREAMING_FIXES			= 10,			// Optional level streaming fixes.
 	HISTORY_SAVE_FULL_ENGINE_VERSION		= 11,			// Now saving the entire FEngineVersion including branch name
+	HISTORY_HEADER_GUID						= 12,			// Save guid to demo header
+	HISTORY_CHARACTER_MOVEMENT				= 13,			// Change to using replicated movement and not interpolation
 	
 	// -----<new versions can be added before this line>-------------------------------------------------
 	HISTORY_PLUS_ONE,
@@ -152,6 +155,7 @@ struct FNetworkDemoHeader
 	uint32	NetworkChecksum;						// Network checksum
 	uint32	EngineNetworkProtocolVersion;			// Version of the engine internal network format
 	uint32	GameNetworkProtocolVersion;				// Version of the game internal network format
+	FGuid	Guid;									// Unique identifier
 
 	DEPRECATED(4.20, "Changelist is deprecated, use EngineVersion.GetChangelist() instead.")
 	uint32	Changelist;								// Engine changelist built from
@@ -167,6 +171,7 @@ struct FNetworkDemoHeader
 		NetworkChecksum( FNetworkVersion::GetLocalNetworkVersion() ),
 		EngineNetworkProtocolVersion( FNetworkVersion::GetEngineNetworkProtocolVersion() ),
 		GameNetworkProtocolVersion( FNetworkVersion::GetGameNetworkProtocolVersion() ),
+		Guid(),
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		Changelist( FEngineVersion::Current().GetChangelist() ),
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
@@ -208,6 +213,11 @@ struct FNetworkDemoHeader
 		Ar << Header.NetworkChecksum;
 		Ar << Header.EngineNetworkProtocolVersion;
 		Ar << Header.GameNetworkProtocolVersion;
+
+		if (Header.Version >= HISTORY_HEADER_GUID)
+		{
+			Ar << Header.Guid;
+		}
 
 		if (Header.Version >= HISTORY_SAVE_FULL_ENGINE_VERSION)
 		{
@@ -496,6 +506,10 @@ public:
 	virtual void ForceNetUpdate(AActor* Actor) override;
 	virtual bool IsServer() const override;
 
+protected:
+	virtual UChannel* InternalCreateChannel(EChannelType ChType) override;
+
+public:
 	/** Called when we are already recording but have traveled to a new map to start recording again */
 	bool ContinueListen(FURL& ListenURL);
 
@@ -594,14 +608,16 @@ public:
 	// In most cases, this is desirable over EnumerateEvents because it will explicitly use ActiveReplayName
 	// instead of letting the streamer decide.
 	void EnumerateEventsForActiveReplay(const FString& Group, const FEnumerateEventsCallback& Delegate);
+	void EnumerateEventsForActiveReplay(const FString& Group, const int32 UserIndex, const FEnumerateEventsCallback& Delegate);
 
 	DEPRECATED(4.20, "Please use a version of RequestEventData that accepts a FRequestEventDataCallback delegate.")
 	void RequestEventData(const FString& EventID, FOnRequestEventDataComplete& Delegate) { RequestEventData(EventID, UpgradeRequestEventDelegate(Delegate)); }
 	void RequestEventData(const FString& EventID, const FRequestEventDataCallback& Delegate);
 
-	// In most cases, this is desirable over EnumerateEvents because it will explicitly use ActiveReplayName
+	// In most cases, this is desirable over RequestEventData because it will explicitly use ActiveReplayName
 	// instead of letting the streamer decide.
 	void RequestEventDataForActiveReplay(const FString& EventID, const FRequestEventDataCallback& Delegate);
+	void RequestEventDataForActiveReplay(const FString& EventID, const int32 UserIndex, const FRequestEventDataCallback& Delegate);
 
 	bool IsFastForwarding() const { return bIsFastForwarding; }
 
@@ -695,6 +711,10 @@ public:
 	{
 		return ActiveReplayName;
 	}
+
+	uint32 GetPlaybackDemoVersion() const { return PlaybackDemoHeader.Version; }
+
+	FString GetDemoPath() const;
 
 private:
 
@@ -868,15 +888,12 @@ private:
 
 protected:
 	/** allows subclasses to write game specific data to demo header which is then handled by ProcessGameSpecificDemoHeader */
-	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData)
-	{}
+	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData);
+	
 	/** allows subclasses to read game specific data from demo
 	 * return false to cancel playback
 	 */
-	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
-	{
-		return true;
-	}
+	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error);
 
 	void ProcessClientTravelFunction(class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject);
 

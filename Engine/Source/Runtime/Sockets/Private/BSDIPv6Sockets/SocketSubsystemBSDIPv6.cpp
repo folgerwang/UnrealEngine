@@ -211,6 +211,11 @@ TSharedRef<FInternetAddr> FSocketSubsystemBSDIPv6::CreateInternetAddr(uint32 Add
 	return Result;
 }
 
+bool FSocketSubsystemBSDIPv6::IsSocketWaitSupported() const
+{
+	return true;
+}
+
 ESocketErrors FSocketSubsystemBSDIPv6::GetLastErrorCode()
 {
 	return TranslateErrorCode(errno);

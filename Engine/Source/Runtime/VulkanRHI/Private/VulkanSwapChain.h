@@ -17,7 +17,7 @@ class FVulkanSwapChain
 {
 public:
 	FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
-		uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages);
+		uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages, int8 bLockToVsync);
 
 	void Destroy();
 
@@ -31,6 +31,7 @@ public:
 	EStatus Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, VulkanRHI::FSemaphore* BackBufferRenderingDoneSemaphore);
 
 	void RenderThreadPacing();
+	inline int8 DoesLockToVsync() { return LockToVsync; }
 
 protected:
 	VkSwapchainKHR SwapChain;
@@ -47,6 +48,7 @@ protected:
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	TArray<VulkanRHI::FFence*> ImageAcquiredFences;
 #endif
+	int8 LockToVsync;
 
 #if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
 	struct FPresentData

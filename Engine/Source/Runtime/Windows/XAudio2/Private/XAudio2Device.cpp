@@ -68,6 +68,11 @@ XAUDIO2_DEVICE_DETAILS FXAudioDeviceProperties::DeviceDetails;
 
 #define DEBUG_XAUDIO2 0
 
+void FXAudio2Device::UpdateDeviceDeltaTime()
+{
+	DeviceDeltaTime = GetGameDeltaTime();
+}
+
 void FXAudio2Device::GetAudioDeviceList(TArray<FString>& OutAudioDeviceNames) const
 {
 	DeviceProperties->GetAudioDeviceList(OutAudioDeviceNames);
@@ -259,9 +264,6 @@ bool FXAudio2Device::InitializeHardware()
 		CommonAudioPoolFreeBytes = 0;
 	}
 
-	// Now initialize the audio clock voice after xaudio2 is initialized
-	DeviceProperties->InitAudioClockVoice();
-
 #if WITH_XMA2
 	FXMAAudioInfo::Initialize();
 #endif
@@ -321,22 +323,6 @@ void FXAudio2Device::UpdateHardware()
 		Sources.Reset();
 
 		InitSoundSources();
-	}
-}
-
-void FXAudio2Device::UpdateAudioClock()
-{
-	// Update the audio clock time
-	const double NewAudioClock = DeviceProperties->GetAudioClockTime();
-
-	// If the device properties failed at getting an audio clock, then fallback to using device delta time
-	if (NewAudioClock == 0.0)
-	{
-		AudioClock += GetDeviceDeltaTime();
-	}
-	else
-	{
-		AudioClock = NewAudioClock + CachedAudioClockStartTime;
 	}
 }
 

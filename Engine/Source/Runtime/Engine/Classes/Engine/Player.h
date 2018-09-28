@@ -62,5 +62,5 @@ public:
 	 *
 	 * @return The controller associated with this player in InWorld, if one exists.
 	 */
-	ENGINE_API APlayerController* GetPlayerController(UWorld* InWorld) const;
+	ENGINE_API APlayerController* GetPlayerController(const UWorld* const InWorld) const;
 };

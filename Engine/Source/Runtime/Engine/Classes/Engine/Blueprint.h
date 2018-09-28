@@ -155,6 +155,9 @@ public:
 	/** Whether or not to reinstance and stub if the blueprint fails to compile */
 	bool bReinstanceAndStubOnFailure;
 
+	/** Whether or not to skip class default object validation */
+	bool bSkipDefaultObjectValidation;
+
 	TSharedPtr<FString> OutHeaderSourceCode;
 	TSharedPtr<FString> OutCppSourceCode;
 	FCompilerNativizationOptions NativizationOptions;
@@ -183,6 +186,7 @@ public:
 		, bRegenerateSkelton(true)
 		, bIsDuplicationInstigated(false)
 		, bReinstanceAndStubOnFailure(true)
+		, bSkipDefaultObjectValidation(false)
 	{
 	};
 };
@@ -413,11 +417,11 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	uint32 bRecompileOnLoad:1;
 
 	/** 
-		Pointer to the parent class that the generated class should derive from. This *can* be null under rare circumstances, 
-		one such case can be created by creating a blueprint (A) based on another blueprint (B), shutting down the editor, and
-		deleting the parent blueprint.
-	*/
-	UPROPERTY(AssetRegistrySearchable)
+	 * Pointer to the parent class that the generated class should derive from. This *can* be null under rare circumstances, 
+	 * one such case can be created by creating a blueprint (A) based on another blueprint (B), shutting down the editor, and
+	 * deleting the parent blueprint. Exported as Alphabetical in GetAssetRegistryTags
+	 */
+	UPROPERTY()
 	TSubclassOf<class UObject> ParentClass;
 
 	UPROPERTY(transient)
@@ -459,7 +463,7 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	UPROPERTY(EditAnywhere, Category = ClassOptions, AdvancedDisplay)
 	uint32 bGenerateAbstractClass : 1;
 
-	/**shows up in the content browser when the blueprint is hovered */
+	/** Shows up in the content browser when the blueprint is hovered, exported as Hidden in GetAssetRegistryTags */
 	UPROPERTY(EditAnywhere, Category=BlueprintOptions, meta=(MultiLine=true))
 	FString BlueprintDescription;
 

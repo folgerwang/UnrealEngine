@@ -29,22 +29,22 @@ public:
 		// Print help if requested
 		if (bHelp)
 		{
-			UE_LOG(LogBuildPatchTool, Log, TEXT("MERGE MANIFEST MODE"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("This tool supports generating a hotfix manifest from two existing manifest files."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Required arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=MergeManifests    Must be specified to launch the tool in merge manifests mode."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -ManifestA=\"\"           Specifies in quotes the file path to the base manifest."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -ManifestB=\"\"           Specifies in quotes the file path to the update manifest."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -ManifestC=\"\"           Specifies in quotes the file path to the output manifest."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -BuildVersion=\"\"        Specifies in quotes the new version string for the build being produced."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Optional arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -MergeFileList=\"\"       Specifies in quotes, the path to a text file containing complete list of desired build root relative files followed by \\t character, followed by A or B to select the manifest to pull from. These should be seperated by \\r\\n line endings."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: If -MergeFileList is not specified, then union of all files will be selected, preferring ManifestB's version."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: With the exception of the new version string for the build, all meta will be copied from only ManifestB."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("MERGE MANIFEST MODE"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("This tool supports generating a hotfix manifest from two existing manifest files."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Required arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -mode=MergeManifests    Must be specified to launch the tool in merge manifests mode."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -ManifestA=\"\"           Specifies in quotes the file path to the base manifest."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -ManifestB=\"\"           Specifies in quotes the file path to the update manifest."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -ManifestC=\"\"           Specifies in quotes the file path to the output manifest."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -BuildVersion=\"\"        Specifies in quotes the new version string for the build being produced."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Optional arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -MergeFileList=\"\"       Specifies in quotes, the path to a text file containing complete list of desired build root relative files followed by \\t character, followed by A or B to select the manifest to pull from. These should be seperated by \\r\\n line endings."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If -MergeFileList is not specified, then union of all files will be selected, preferring ManifestB's version."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: With the exception of the new version string for the build, all meta will be copied from only ManifestB."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
 			return EReturnCode::OK;
 		}
 

@@ -30,13 +30,23 @@ FCoreDelegates::FOnMountAllPakFiles FCoreDelegates::OnMountAllPakFiles;
 FCoreDelegates::FOnMountPak FCoreDelegates::OnMountPak;
 FCoreDelegates::FOnUnmountPak FCoreDelegates::OnUnmountPak;
 FCoreDelegates::FPakFileMountedDelegate FCoreDelegates::PakFileMountedCallback;
-FCoreDelegates::FOnUserLoginChangedEvent FCoreDelegates::OnUserLoginChangedEvent; 
+FCoreDelegates::FNoPakFilesMountedDelegate FCoreDelegates::NoPakFilesMountedDelegate;
+FCoreDelegates::FOnUserLoginChangedEvent FCoreDelegates::OnUserLoginChangedEvent;
 FCoreDelegates::FOnUserControllerConnectionChange FCoreDelegates::OnControllerConnectionChange;
 FCoreDelegates::FOnUserControllerPairingChange FCoreDelegates::OnControllerPairingChange;
 FCoreDelegates::FOnSafeFrameChangedEvent FCoreDelegates::OnSafeFrameChangedEvent;
 FCoreDelegates::FOnHandleSystemEnsure FCoreDelegates::OnHandleSystemEnsure;
 FCoreDelegates::FOnHandleSystemError FCoreDelegates::OnHandleSystemError;
 FCoreDelegates::FOnActorLabelChanged FCoreDelegates::OnActorLabelChanged;
+
+FCoreDelegates::FRegisterMovieStreamerDelegate FCoreDelegates::RegisterMovieStreamerDelegate;
+FCoreDelegates::FUnRegisterMovieStreamerDelegate FCoreDelegates::UnRegisterMovieStreamerDelegate;
+
+FCoreDelegates::FRegisterEncryptionKeyDelegate& FCoreDelegates::GetRegisterEncryptionKeyDelegate()
+{
+	static FRegisterEncryptionKeyDelegate RegisterEncryptionKeyDelegate;
+	return RegisterEncryptionKeyDelegate;
+}
 
 FCoreDelegates::FPakEncryptionKeyDelegate& FCoreDelegates::GetPakEncryptionKeyDelegate()
 {
@@ -86,12 +96,17 @@ FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationShouldUn
 FCoreDelegates::FApplicationStartupArgumentsDelegate FCoreDelegates::ApplicationReceivedStartupArgumentsDelegate;
 
 FCoreDelegates::FUserMusicInterruptDelegate FCoreDelegates::UserMusicInterruptDelegate;
+FCoreDelegates::FAudioMuteDelegate FCoreDelegates::AudioMuteDelegate;
+FCoreDelegates::FApplicationRequestAudioState FCoreDelegates::ApplicationRequestAudioState;
 
 FCoreDelegates::FApplicationRegisteredForRemoteNotificationsDelegate FCoreDelegates::ApplicationRegisteredForRemoteNotificationsDelegate;
 FCoreDelegates::FApplicationRegisteredForUserNotificationsDelegate FCoreDelegates::ApplicationRegisteredForUserNotificationsDelegate;
 FCoreDelegates::FApplicationFailedToRegisterForRemoteNotificationsDelegate FCoreDelegates::ApplicationFailedToRegisterForRemoteNotificationsDelegate;
 FCoreDelegates::FApplicationReceivedRemoteNotificationDelegate FCoreDelegates::ApplicationReceivedRemoteNotificationDelegate;
 FCoreDelegates::FApplicationReceivedLocalNotificationDelegate FCoreDelegates::ApplicationReceivedLocalNotificationDelegate;
+
+FCoreDelegates::FApplicationPerformFetchDelegate FCoreDelegates::ApplicationPerformFetchDelegate;
+FCoreDelegates::FApplicationBackgroundSessionEventDelegate FCoreDelegates::ApplicationBackgroundSessionEventDelegate;
 
 FCoreDelegates::FCountPreLoadConfigFileRespondersDelegate FCoreDelegates::CountPreLoadConfigFileRespondersDelegate;
 FCoreDelegates::FPreLoadConfigFileDelegate FCoreDelegates::PreLoadConfigFileDelegate;
@@ -141,6 +156,14 @@ FCoreDelegates::FApplicationReceivedOnScreenOrientationChangedNotificationDelega
 FCoreDelegates::FConfigReadyForUse FCoreDelegates::ConfigReadyForUse;
 
 FCoreDelegates::FIsLoadingMovieCurrentlyPlaying FCoreDelegates::IsLoadingMovieCurrentlyPlaying;
+
+FCoreDelegates::FShouldLaunchUrl FCoreDelegates::ShouldLaunchUrl;
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+FCrashOverrideParameters::~FCrashOverrideParameters()
+{
+}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /**	 Implemented as a function to address global ctor issues */
 FSimpleMulticastDelegate& FCoreDelegates::GetMemoryTrimDelegate()

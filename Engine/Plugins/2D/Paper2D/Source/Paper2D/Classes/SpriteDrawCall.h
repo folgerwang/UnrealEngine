@@ -32,7 +32,8 @@ public:
 	void BuildFromSprite(const class UPaperSprite* Sprite);
 
 	FSpriteDrawCallRecord()
-		: BaseTexture(nullptr)
+		: Destination(ForceInitToZero)
+		, BaseTexture(nullptr)
 		, Color(FColor::White)
 	{
 	}

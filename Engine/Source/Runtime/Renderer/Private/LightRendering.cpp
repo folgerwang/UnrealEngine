@@ -386,6 +386,19 @@ private:
 IMPLEMENT_SHADER_TYPE(template<>, TDeferredLightOverlapPS<true>, TEXT("/Engine/Private/StationaryLightOverlapShaders.usf"), TEXT("OverlapRadialPixelMain"), SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>, TDeferredLightOverlapPS<false>, TEXT("/Engine/Private/StationaryLightOverlapShaders.usf"), TEXT("OverlapDirectionalPixelMain"), SF_Pixel);
 
+void FSceneRenderer::SplitSimpleLightsByView(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, const FSimpleLightArray& SimpleLights, FSimpleLightArray* SimpleLightsByView)
+{
+	for (int32 LightIndex = 0; LightIndex < SimpleLights.InstanceData.Num(); ++LightIndex)
+	{
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			FSimpleLightPerViewEntry PerViewEntry = SimpleLights.GetViewDependentData(LightIndex, ViewIndex, Views.Num());
+			SimpleLightsByView[ViewIndex].InstanceData.Add(SimpleLights.InstanceData[LightIndex]);
+			SimpleLightsByView[ViewIndex].PerViewData.Add(PerViewEntry);
+		}
+	}
+}
+
 /** Gathers simple lights from visible primtives in the passed in views. */
 void FSceneRenderer::GatherSimpleLights(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, FSimpleLightArray& SimpleLights)
 {
@@ -617,18 +630,30 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					SCOPED_DRAW_EVENT(RHICmdList, InjectNonShadowedTranslucentLighting);
 					InjectTranslucentVolumeLightingArray(RHICmdList, SortedLights, AttenuationLightStart);
 				}
-				
-				if (SimpleLights.InstanceData.Num() > 0)
+
+				if(SimpleLights.InstanceData.Num() > 0)
 				{
-					SCOPED_DRAW_EVENT(RHICmdList, InjectSimpleLightsTranslucentLighting);
-					InjectSimpleTranslucentVolumeLightingArray(RHICmdList, SimpleLights);
+					FSimpleLightArray* SimpleLightsByView = new FSimpleLightArray[Views.Num()];
+
+					SplitSimpleLightsByView(ViewFamily, Views, SimpleLights, SimpleLightsByView);
+
+					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+					{
+						if (SimpleLightsByView[ViewIndex].InstanceData.Num() > 0)
+						{
+							SCOPED_DRAW_EVENT(RHICmdList, InjectSimpleLightsTranslucentLighting);
+							InjectSimpleTranslucentVolumeLightingArray(RHICmdList, SimpleLightsByView[ViewIndex], Views[ViewIndex], ViewIndex);
+						}
+					}
+
+					delete[] SimpleLightsByView;
 				}
 			}
 		}
 
-		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel]; 
+		EShaderPlatform ShaderPlatformForFeatureLevel = GShaderPlatformForFeatureLevel[FeatureLevel]; 
 
-		if ( IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) )
+		if ( IsFeatureLevelSupported(ShaderPlatformForFeatureLevel, ERHIFeatureLevel::SM5) )
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, IndirectLighting);
 			bool bRenderedRSM = false;
@@ -799,9 +824,12 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			
 				if(bDirectLighting && !bInjectedTranslucentVolume)
 				{
-					SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
-					// Accumulate this light's unshadowed contribution to the translucency lighting volume
-					InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL);
+					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+					{
+						SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
+						// Accumulate this light's unshadowed contribution to the translucency lighting volume
+						InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL, Views[ViewIndex], ViewIndex);
+					}
 				}
 
 				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, ScreenShadowMaskTexture);

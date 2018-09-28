@@ -395,9 +395,11 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	/** 
 	 *	Exit the current game 
 	 * @param	SpecificPlayer	The specific player to quit the game. If not specified, player 0 will quit.
+	 * @param	QuitPreference	Form of quitting.
+	 * @param	bIgnorePlatformRestrictions	Ignores and best-practices based on platform (e.g PS4 games should never quit). Non-shipping only
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game",meta=(WorldContext="WorldContextObject"))
-	static void QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference);
+	static void QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions);
 
 	//=============================================================================
 	// Latent Actions
@@ -1544,6 +1546,13 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static bool IsLoggedIn(APlayerController* SpecificPlayer);
 
 	/**
+	 * Returns true if screen saver is enabled.
+	 *
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static bool IsScreensaverEnabled();
+
+	/**
 	 * Allows or inhibits screensaver
 	 * @param	bAllowScreenSaver		If false, don't allow screensaver if possible, otherwise allow default behavior
 	 */
@@ -1659,6 +1668,14 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities")
 	static FString GetCommandLine();
+
+	/**
+	 * Returns true if running unattended (-unattended is on the command line)
+	 *
+	 * @return	Unattended state
+	 */
+	UFUNCTION(BlueprintPure, Category = "Utilities")
+	static bool IsUnattended();
 
 	// --- Transactions ------------------------------
 

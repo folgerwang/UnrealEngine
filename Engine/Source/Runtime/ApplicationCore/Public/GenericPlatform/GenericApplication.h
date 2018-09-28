@@ -376,7 +376,10 @@ struct FDisplayMetrics
 	/** The safe area for less important spill over on TVs (see TitleSafePaddingSize) */
 	FVector4 ActionSafePaddingSize;
 
-	APPLICATIONCORE_API static void GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics);
+	DEPRECATED(4.21, "Please use RebuildDisplayMetrics - it is functionally the same but is clearer about the function cost")
+	APPLICATIONCORE_API static void GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics) { RebuildDisplayMetrics(OutDisplayMetrics); };
+
+	APPLICATIONCORE_API static void RebuildDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics);
 
 	/** Gets the monitor work area from a position in the global display rect */
 	APPLICATIONCORE_API FPlatformRect GetMonitorWorkAreaFromPoint(const FVector2D& Point) const;
@@ -491,7 +494,7 @@ public:
 	/** Notifies subscribers when any of the display metrics change: e.g. resolution changes or monitor sare re-arranged. */
 	FOnDisplayMetricsChanged& OnDisplayMetricsChanged(){ return OnDisplayMetricsChangedEvent; }
 
-	virtual void GetInitialDisplayMetrics( FDisplayMetrics& OutDisplayMetrics ) const { FDisplayMetrics::GetDisplayMetrics(OutDisplayMetrics); }
+	virtual void GetInitialDisplayMetrics( FDisplayMetrics& OutDisplayMetrics ) const { FDisplayMetrics::RebuildDisplayMetrics(OutDisplayMetrics); }
 
 	
 	/** Delegate for virtual keyboard being shown/hidden in case UI wants to slide out of the way */

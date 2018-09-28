@@ -262,8 +262,7 @@ MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Eva
 	else
 	{
 		//Use Quaternion Interpolation. This is complicated since unlike Matinee we may not have
-		//a key for each Euler angle at the same times. So we need a way to calculate which 'range'
-		//to perform the interpolation. To do this if finds the exclusive closest range of keys to encomposs
+		//to perform the interpolation. To do this if finds the exclusive closest range of keys to encompass
 		//the passed in time
 		auto SetFrameRange = [Time](TRange<FFrameNumber> &FrameRange, const TArrayView<const FFrameNumber> &Times)
 		{

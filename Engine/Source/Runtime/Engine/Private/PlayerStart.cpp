@@ -11,6 +11,7 @@ APlayerStart::APlayerStart(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	GetCapsuleComponent()->InitCapsuleSize(40.0f, 92.0f);
+	GetCapsuleComponent()->SetShouldUpdatePhysicsVolume(false);
 
 #if WITH_EDITORONLY_DATA
 	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("Arrow"));

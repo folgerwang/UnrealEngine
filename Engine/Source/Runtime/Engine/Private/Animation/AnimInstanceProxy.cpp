@@ -26,6 +26,10 @@
 
 #define LOCTEXT_NAMESPACE "AnimInstance"
 
+static const FName NAME_AnimBlueprintLog(TEXT("AnimBlueprintLog"));
+static const FName NAME_Evaluate(TEXT("Evaluate"));
+static const FName NAME_Update(TEXT("Update"));
+
 void FAnimInstanceProxy::UpdateAnimationNode(float DeltaSeconds)
 {
 #if WITH_EDITORONLY_DATA
@@ -310,7 +314,7 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 
 #if !NO_LOGGING
 	//Reset logged update messages
-	LoggedMessagesMap.FindOrAdd("Update").Reset();
+	LoggedMessagesMap.FindOrAdd(NAME_Update).Reset();
 #endif
 
 	ClearSlotNodeWeights();
@@ -439,8 +443,8 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 #endif
 
 #if !NO_LOGGING
-	FMessageLog MessageLog("AnimBlueprintLog");
-	const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find("Update");
+	FMessageLog MessageLog(NAME_AnimBlueprintLog);
+	const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find(NAME_Update);
 	if (ensureMsgf(Messages, TEXT("PreUpdate isn't called. This could potentially cause other issues.")))
 	{
 		for (const FLogMessageEntry& Message : *Messages)
@@ -456,8 +460,8 @@ void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 	ClearObjects();
 
 #if !NO_LOGGING
-	FMessageLog MessageLog("AnimBlueprintLog");
-	if(const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find("Evaluate"))
+	FMessageLog MessageLog(NAME_AnimBlueprintLog);
+	if(const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find(NAME_Evaluate))
 	{
 		for (const FLogMessageEntry& Message : *Messages)
 		{
@@ -1112,7 +1116,7 @@ void FAnimInstanceProxy::PreEvaluateAnimation(UAnimInstance* InAnimInstance)
 {
 	InitializeObjects(InAnimInstance);
 #if !NO_LOGGING
-	LoggedMessagesMap.FindOrAdd("Evaluate").Reset();
+	LoggedMessagesMap.FindOrAdd(NAME_Evaluate).Reset();
 #endif
 }
 
@@ -1496,6 +1500,37 @@ void FAnimInstanceProxy::AnimDrawDebugLine(const FVector& StartLoc, const FVecto
 	QueuedDrawDebugItems.Add(DrawDebugItem);
 }
 
+void FAnimInstanceProxy::AnimDrawDebugPlane(const FTransform& BaseTransform, float Radii, const FColor& Color, bool bPersistentLines /*= false*/, float LifeTime /*= -1.f*/, float Thickness /*= 0.f*/)
+{
+	// just draw two triangle from [-Radii,-Radii] to [Radii, Radii]
+	FQueuedDrawDebugItem DrawDebugItem;
+
+	DrawDebugItem.ItemType = EDrawDebugItemType::Line;
+	DrawDebugItem.Color = Color;
+	DrawDebugItem.bPersistentLines = bPersistentLines;
+	DrawDebugItem.LifeTime = LifeTime;
+	DrawDebugItem.Thickness = Thickness;
+
+	DrawDebugItem.StartLoc = BaseTransform.TransformPosition(FVector(-Radii, -Radii, 0));
+	DrawDebugItem.EndLoc = BaseTransform.TransformPosition(FVector(-Radii, Radii, 0));
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+
+	DrawDebugItem.StartLoc = BaseTransform.TransformPosition(FVector(-Radii, -Radii, 0));
+	DrawDebugItem.EndLoc = BaseTransform.TransformPosition(FVector(Radii, -Radii, 0));
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+
+	DrawDebugItem.StartLoc = BaseTransform.TransformPosition(FVector(-Radii, Radii, 0));
+	DrawDebugItem.EndLoc = BaseTransform.TransformPosition(FVector(-Radii, Radii, 0));
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+
+	DrawDebugItem.StartLoc = BaseTransform.TransformPosition(FVector(Radii, Radii, 0));
+	DrawDebugItem.EndLoc = BaseTransform.TransformPosition(FVector(-Radii, Radii, 0));
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+
+	DrawDebugItem.StartLoc = BaseTransform.TransformPosition(FVector(Radii, Radii, 0));
+	DrawDebugItem.EndLoc = BaseTransform.TransformPosition(FVector(Radii, -Radii, 0));
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+}
 #endif // ENABLE_ANIM_DRAW_DEBUG
 
 float FAnimInstanceProxy::GetInstanceAssetPlayerLength(int32 AssetPlayerIndex)

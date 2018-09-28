@@ -15,6 +15,7 @@
 #include "MoviePlayer.h"
 #include "TickableObjectRenderThread.h"
 
+#include "Misc/CoreDelegates.h"
 
 class FWidgetRenderer;
 class SVirtualWindow;
@@ -65,7 +66,7 @@ public:
 
 	/** IGameMoviePlayer Interface */
 	virtual void RegisterMovieStreamer(TSharedPtr<IMovieStreamer> InMovieStreamer) override;
-	virtual void Initialize(FSlateRenderer& InSlateRenderer) override;
+	virtual void Initialize(FSlateRenderer& InSlateRenderer, TSharedPtr<SWindow> TargetRenderWindow = nullptr) override;
 	virtual void Shutdown() override;
 	virtual void PassLoadingScreenWindowBackToGame() const override;
 	virtual void SetupLoadingScreen(const FLoadingScreenAttributes& LoadingScreenAttributes) override;
@@ -197,6 +198,4 @@ private:
 private:
 	/** Singleton handle */
 	static TSharedPtr<FDefaultGameMoviePlayer> MoviePlayer;
-
-
 };

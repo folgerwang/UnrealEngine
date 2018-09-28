@@ -15,10 +15,10 @@ FComputeFenceRHIRef FD3D12DynamicRHI::RHICreateComputeFence(const FName& Name)
 }
 
 FD3D12FenceCore::FD3D12FenceCore(FD3D12Adapter* Parent, uint64 InitialValue, uint32 InGPUIndex)
-	: hFenceCompleteEvent(INVALID_HANDLE_VALUE)
+	: FD3D12AdapterChild(Parent)
 	, FenceValueAvailableAt(0)
 	, GPUIndex(InGPUIndex)
-	, FD3D12AdapterChild(Parent)
+	, hFenceCompleteEvent(INVALID_HANDLE_VALUE)
 {
 	check(Parent);
 	hFenceCompleteEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -523,7 +523,7 @@ void FD3D12CommandListManager::ExecuteCommandLists(TArray<FD3D12CommandListHandl
 			Lists[i].LogResourceBarriers();
 		}
 		SignaledFenceValue = ExecuteAndIncrementFence(CurrentCommandListPayload, *CommandListFence);
-		check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
+		//check(CommandListType != D3D12_COMMAND_LIST_TYPE_COMPUTE);
 		SyncPoint = FD3D12SyncPoint(CommandListFence, SignaledFenceValue);
 		BarrierSyncPoint = SyncPoint;
 	}

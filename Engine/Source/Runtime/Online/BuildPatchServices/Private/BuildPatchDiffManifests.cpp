@@ -41,7 +41,7 @@ namespace DiffHelpers
 	}
 }
 
-bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const FString& OutputFilePath)
+bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath)
 {
 	bool bSuccess = true;
 	FCriticalSection UObjectAllocationLock;
@@ -111,8 +111,8 @@ bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const 
 		}
 	}
 
-	UE_LOG(LogDiffManifests, Log, TEXT("New chunks:  %lld"), NewChunksCount);
-	UE_LOG(LogDiffManifests, Log, TEXT("Total bytes: %lld"), TotalChunkSize);
+	UE_LOG(LogDiffManifests, Display, TEXT("New chunks:  %lld"), NewChunksCount);
+	UE_LOG(LogDiffManifests, Display, TEXT("Total bytes: %lld"), TotalChunkSize);
 
 	TSet<FString> NewFilePaths = TaggedFileSetB.Difference(TaggedFileSetA);
 	TSet<FString> RemovedFilePaths = TaggedFileSetA.Difference(TaggedFileSetB);
@@ -170,6 +170,27 @@ bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const 
 		TagDeltaImpact.Add(Tag, ManifestB->GetDeltaDownloadSize(TagSet, ManifestA.ToSharedRef(), TagsA));
 	}
 
+	//Compare tag sets
+	TMap<FString, int64> CompareTagSetDeltaImpact;
+	TMap<FString, int64> CompareTagSetBuildImpactA;
+	TMap<FString, int64> CompareTagSetDownloadSizeA;
+	TMap<FString, int64> CompareTagSetBuildImpactB;
+	TMap<FString, int64> CompareTagSetDownloadSizeB;
+	TSet<FString> CompareTagSetKeys;
+	for (const TSet<FString>& TagSet : CompareTagSets)
+	{
+		TArray<FString> TagArrayCompare = TagSet.Array();
+		Algo::Sort(TagArrayCompare);
+		FString TagSetString = FString::Join(TagArrayCompare, TEXT(", "));
+		CompareTagSetKeys.Add(TagSetString);
+		CompareTagSetDeltaImpact.Add(TagSetString, ManifestB->GetDeltaDownloadSize(TagSet, ManifestA.ToSharedRef(), TagSet));
+		CompareTagSetBuildImpactB.Add(TagSetString, ManifestB->GetBuildSize(TagSet));
+		CompareTagSetDownloadSizeB.Add(TagSetString, ManifestB->GetDownloadSize(TagSet));
+		CompareTagSetBuildImpactA.Add(TagSetString, ManifestA->GetBuildSize(TagSet));
+		CompareTagSetDownloadSizeA.Add(TagSetString, ManifestA->GetDownloadSize(TagSet));
+	}
+	//end compare tag sets
+
 	// Log the information.
 	TArray<FString> TagArrayB = TagsB.Array();
 	Algo::Sort(TagArrayB);
@@ -179,22 +200,32 @@ bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const 
 	{
 		TagLogList.InsertAt(0, UntaggedLog);
 	}
-	UE_LOG(LogDiffManifests, Log, TEXT("TagSet: %s"), *TagLogList);
-	UE_LOG(LogDiffManifests, Log, TEXT("%s %s:"), *ManifestA->GetAppName(), *ManifestA->GetVersionString());
-	UE_LOG(LogDiffManifests, Log, TEXT("    Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(DownloadSizeA).ToString(), *FText::AsMemory(DownloadSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(DownloadSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
-	UE_LOG(LogDiffManifests, Log, TEXT("    Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(BuildSizeA).ToString(), *FText::AsMemory(BuildSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(BuildSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
-	UE_LOG(LogDiffManifests, Log, TEXT("%s %s:"), *ManifestB->GetAppName(), *ManifestB->GetVersionString());
-	UE_LOG(LogDiffManifests, Log, TEXT("    Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(DownloadSizeB).ToString(), *FText::AsMemory(DownloadSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(DownloadSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
-	UE_LOG(LogDiffManifests, Log, TEXT("    Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(BuildSizeB).ToString(), *FText::AsMemory(BuildSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(BuildSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
-	UE_LOG(LogDiffManifests, Log, TEXT("%s %s -> %s %s:"), *ManifestA->GetAppName(), *ManifestA->GetVersionString(), *ManifestB->GetAppName(), *ManifestB->GetVersionString());
-	UE_LOG(LogDiffManifests, Log, TEXT("    Delta Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(DeltaDownloadSize).ToString(), *FText::AsMemory(DeltaDownloadSize, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(DeltaDownloadSize, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
-	UE_LOG(LogDiffManifests, Log, TEXT(""));
+	UE_LOG(LogDiffManifests, Display, TEXT("TagSet: %s"), *TagLogList);
+	UE_LOG(LogDiffManifests, Display, TEXT("%s %s:"), *ManifestA->GetAppName(), *ManifestA->GetVersionString());
+	UE_LOG(LogDiffManifests, Display, TEXT("    Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(DownloadSizeA).ToString(), *FText::AsMemory(DownloadSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(DownloadSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
+	UE_LOG(LogDiffManifests, Display, TEXT("    Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(BuildSizeA).ToString(), *FText::AsMemory(BuildSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(BuildSizeA, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
+	UE_LOG(LogDiffManifests, Display, TEXT("%s %s:"), *ManifestB->GetAppName(), *ManifestB->GetVersionString());
+	UE_LOG(LogDiffManifests, Display, TEXT("    Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(DownloadSizeB).ToString(), *FText::AsMemory(DownloadSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(DownloadSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
+	UE_LOG(LogDiffManifests, Display, TEXT("    Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(BuildSizeB).ToString(), *FText::AsMemory(BuildSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(BuildSizeB, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
+	UE_LOG(LogDiffManifests, Display, TEXT("%s %s -> %s %s:"), *ManifestA->GetAppName(), *ManifestA->GetVersionString(), *ManifestB->GetAppName(), *ManifestB->GetVersionString());
+	UE_LOG(LogDiffManifests, Display, TEXT("    Delta Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(DeltaDownloadSize).ToString(), *FText::AsMemory(DeltaDownloadSize, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(DeltaDownloadSize, &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
+	UE_LOG(LogDiffManifests, Display, TEXT(""));
+
 	for (const FString& Tag : TagArrayB)
 	{
-		UE_LOG(LogDiffManifests, Log, TEXT("%s Impact:"), *(Tag.IsEmpty() ? UntaggedLog : Tag));
-		UE_LOG(LogDiffManifests, Log, TEXT("    Individual Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(TagDownloadImpactB[Tag]).ToString(), *FText::AsMemory(TagDownloadImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(TagDownloadImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
-		UE_LOG(LogDiffManifests, Log, TEXT("    Individual Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(TagBuildImpactB[Tag]).ToString(), *FText::AsMemory(TagBuildImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(TagBuildImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
-		UE_LOG(LogDiffManifests, Log, TEXT("    Individual Delta Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(TagDeltaImpact[Tag]).ToString(), *FText::AsMemory(TagDeltaImpact[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(TagDeltaImpact[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
+		UE_LOG(LogDiffManifests, Display, TEXT("%s Impact:"), *(Tag.IsEmpty() ? UntaggedLog : Tag));
+		UE_LOG(LogDiffManifests, Display, TEXT("    Individual Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(TagDownloadImpactB[Tag]).ToString(), *FText::AsMemory(TagDownloadImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(TagDownloadImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
+		UE_LOG(LogDiffManifests, Display, TEXT("    Individual Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(TagBuildImpactB[Tag]).ToString(), *FText::AsMemory(TagBuildImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(TagBuildImpactB[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
+		UE_LOG(LogDiffManifests, Display, TEXT("    Individual Delta Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(TagDeltaImpact[Tag]).ToString(), *FText::AsMemory(TagDeltaImpact[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(TagDeltaImpact[Tag], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString())
+	}
+
+	for (const FString& TagSet : CompareTagSetKeys)
+	{
+		const FString& TagSetDisplay = TagSet.StartsWith(TEXT(",")) ? UntaggedLog + TagSet : TagSet;
+		UE_LOG(LogDiffManifests, Display, TEXT("Impact of TagSet: %s"), *TagSetDisplay);
+		UE_LOG(LogDiffManifests, Display, TEXT("    Download Size:  %20s bytes (%10s, %11s)"), *FText::AsNumber(CompareTagSetDownloadSizeB[TagSet]).ToString(), *FText::AsMemory(CompareTagSetDownloadSizeB[TagSet], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(CompareTagSetDownloadSizeB[TagSet], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
+		UE_LOG(LogDiffManifests, Display, TEXT("    Build Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(CompareTagSetBuildImpactB[TagSet]).ToString(), *FText::AsMemory(CompareTagSetBuildImpactB[TagSet], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(CompareTagSetBuildImpactB[TagSet], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
+		UE_LOG(LogDiffManifests, Display, TEXT("    Delta Size:     %20s bytes (%10s, %11s)"), *FText::AsNumber(CompareTagSetDeltaImpact[TagSet]).ToString(), *FText::AsMemory(CompareTagSetDeltaImpact[TagSet], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(CompareTagSetDeltaImpact[TagSet], &SizeFormattingOptions, nullptr, EMemoryUnitStandard::IEC).ToString());
 	}
 
 	// Save the output.
@@ -217,8 +248,20 @@ bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const 
 					Writer->WriteValue(Pair.Key, Pair.Value);
 				}
 				Writer->WriteObjectEnd();
+				Writer->WriteObjectStart("CompareTagSetDownloadSizes");
+				for (const TPair<FString, int64>& Pair : CompareTagSetDownloadSizeA)
+				{
+					Writer->WriteValue(Pair.Key, Pair.Value);
+				}
+				Writer->WriteObjectEnd();
 				Writer->WriteObjectStart(TEXT("IndividualTagBuildSizes"));
 				for (const TPair<FString, int64>& Pair : TagBuildImpactA)
+				{
+					Writer->WriteValue(Pair.Key, Pair.Value);
+				}
+				Writer->WriteObjectEnd();
+				Writer->WriteObjectStart("CompareTagSetBuildSizes");
+				for (const TPair<FString, int64>& Pair : CompareTagSetBuildImpactA)
 				{
 					Writer->WriteValue(Pair.Key, Pair.Value);
 				}
@@ -238,8 +281,20 @@ bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const 
 					Writer->WriteValue(Pair.Key, Pair.Value);
 				}
 				Writer->WriteObjectEnd();
+				Writer->WriteObjectStart("CompareTagSetDownloadSizes");
+				for (const TPair<FString, int64>& Pair : CompareTagSetDownloadSizeB)
+				{
+					Writer->WriteValue(Pair.Key, Pair.Value);
+				}
+				Writer->WriteObjectEnd();
 				Writer->WriteObjectStart(TEXT("IndividualTagBuildSizes"));
 				for (const TPair<FString, int64>& Pair : TagBuildImpactB)
+				{
+					Writer->WriteValue(Pair.Key, Pair.Value);
+				}
+				Writer->WriteObjectEnd();
+				Writer->WriteObjectStart("CompareTagSetBuildSizes");
+				for (const TPair<FString, int64>& Pair : CompareTagSetBuildImpactB)
 				{
 					Writer->WriteValue(Pair.Key, Pair.Value);
 				}
@@ -282,6 +337,12 @@ bool FBuildDiffManifests::DiffManifests(const FString& ManifestFilePathA, const 
 				Writer->WriteValue(TEXT("DeltaDownloadSize"), DeltaDownloadSize);
 				Writer->WriteObjectStart(TEXT("IndividualTagDeltaSizes"));
 				for (const TPair<FString, int64>& Pair : TagDeltaImpact)
+				{
+					Writer->WriteValue(Pair.Key, Pair.Value);
+				}
+				Writer->WriteObjectEnd();
+				Writer->WriteObjectStart(TEXT("CompareTagSetDeltaSizes"));
+				for (const TPair<FString, int64>& Pair : CompareTagSetDeltaImpact)
 				{
 					Writer->WriteValue(Pair.Key, Pair.Value);
 				}

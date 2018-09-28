@@ -17,6 +17,8 @@ UInterpToMovementComponent::UInterpToMovementComponent(const FObjectInitializer&
 	bForceSubStepping = false;
 
 	bWantsInitializeComponent = true;
+	bAutoRegisterPhysicsVolumeUpdates = false;
+	bComponentShouldUpdatePhysicsVolume = false;
 
 	MaxSimulationTimeStep = 0.05f;
 	MaxSimulationIterations = 8;

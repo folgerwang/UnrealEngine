@@ -577,10 +577,10 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, UnconstrainedViewRect(InitOptions.GetViewRect())
 	, MaxShadowCascades(10)
 	, ViewMatrices(InitOptions)
-	, ViewLocation(EForceInit::ForceInitToZero)
-	, ViewRotation(EForceInit::ForceInitToZero)
+	, ViewLocation(ForceInitToZero)
+	, ViewRotation(ForceInitToZero)
 	, BaseHmdOrientation(EForceInit::ForceInit)
-	, BaseHmdLocation(EForceInit::ForceInitToZero)
+	, BaseHmdLocation(ForceInitToZero)
 	, WorldToMetersScale(InitOptions.WorldToMetersScale)
 	, ShadowViewMatrices(InitOptions)
 	, ProjectionMatrixUnadjustedForRHI(InitOptions.ProjectionMatrix)
@@ -660,7 +660,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	// OpenGL Gamma space output in GLSL flips Y when rendering directly to the back buffer (so not needed on PC, as we never render directly into the back buffer)
 	auto ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
 	bool bUsingMobileRenderer = FSceneInterface::GetShadingPath(FeatureLevel) == EShadingPath::Mobile;
-	bool bPlatformRequiresReverseCulling = (IsOpenGLPlatform(ShaderPlatform) && bUsingMobileRenderer && !IsPCPlatform(ShaderPlatform) && !IsVulkanMobilePlatform(ShaderPlatform));
+	bool bPlatformRequiresReverseCulling = ((IsOpenGLPlatform(ShaderPlatform) || IsSwitchPlatform(ShaderPlatform)) && bUsingMobileRenderer && !IsPCPlatform(ShaderPlatform) && !IsVulkanMobilePlatform(ShaderPlatform));
 	static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
 	check(MobileHDRCvar);
 	bReverseCulling = (bPlatformRequiresReverseCulling && MobileHDRCvar->GetValueOnAnyThread() == 0) ? !bReverseCulling : bReverseCulling;
@@ -761,7 +761,9 @@ void FSceneView::SetupAntiAliasingMethod()
 	{
 		static IConsoleVariable* CVarMSAACount = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MSAACount"));
 
-		if (AntiAliasingMethod == AAM_MSAA && IsForwardShadingEnabled(FeatureLevel) && CVarMSAACount->GetInt() <= 0)
+		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
+
+		if (AntiAliasingMethod == AAM_MSAA && IsForwardShadingEnabled(ShaderPlatform) && CVarMSAACount->GetInt() <= 0)
 		{
 			// Fallback to temporal AA so we can easily toggle methods with r.MSAACount
 			AntiAliasingMethod = AAM_TemporalAA;
@@ -770,7 +772,7 @@ void FSceneView::SetupAntiAliasingMethod()
 		static const auto PostProcessAAQualityCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessAAQuality"));
 		static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
 		static auto* MobileMSAACvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-		static uint32 MobileMSAAValue = GShaderPlatformForFeatureLevel[FeatureLevel] == SP_OPENGL_ES2_IOS ? 1 : MobileMSAACvar->GetValueOnAnyThread();
+		static uint32 MobileMSAAValue = ShaderPlatform == SP_OPENGL_ES2_IOS ? 1 : MobileMSAACvar->GetValueOnAnyThread();
 
 		int32 Quality = FMath::Clamp(PostProcessAAQualityCVar->GetValueOnAnyThread(), 0, 6);
 		const bool bWillApplyTemporalAA = Family->EngineShowFlags.PostProcessing || bIsPlanarReflection;
@@ -1288,7 +1290,6 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(BloomDirtMaskTint);
 		LERP_PP(BloomConvolutionSize);
 		LERP_PP(BloomConvolutionCenterUV);
-		LERP_PP(BloomConvolutionPreFilter_DEPRECATED);
 		LERP_PP(BloomConvolutionPreFilterMin);
 		LERP_PP(BloomConvolutionPreFilterMax);
 		LERP_PP(BloomConvolutionPreFilterMult);
@@ -2087,6 +2088,7 @@ void FSceneView::SetupCommonViewUniformBufferParameters(
 	const FViewMatrices& InViewMatrices,
 	const FViewMatrices& InPrevViewMatrices) const
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_SetupCommonViewUniformBufferParameters);
 	FVector4 LocalDiffuseOverrideParameter = DiffuseOverrideParameter;
 	FVector2D LocalRoughnessOverrideParameter = RoughnessOverrideParameter;
 

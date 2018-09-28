@@ -108,6 +108,8 @@ void UKismetRenderingLibrary::DrawMaterialToRenderTarget(UObject* WorldContextOb
 	}
 	else
 	{
+		World->SendAllEndOfFrameUpdates();
+
 		UCanvas* Canvas = World->GetCanvasForDrawMaterialToRenderTarget();
 
 		FCanvas RenderCanvas(

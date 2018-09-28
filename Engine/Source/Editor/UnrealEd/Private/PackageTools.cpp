@@ -953,90 +953,6 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 
 		return IsPackagePathExternal( FileString );
 	}
-	/**
-	 * Checks if the passed in packages have any references to  externally loaded packages.  I.E Ones not found automatically in the content directory
-	 *
-	 * @param	PackagesToCheck					The packages to check
-	 * @param	OutPackagesWithExternalRefs		Optional list of packages that have external references
-	 * @param	LevelToCheck					The ULevel to check
-	 * @param	OutObjectsWithExternalRefs		List of objects gathered from within the given ULevel that have external references
-	 * @return	true if PackageToCheck has references to an externally loaded package
-	 */
-	bool UPackageTools::CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, ULevel* LevelToCheck/*=NULL*/, TArray<UObject*>* OutObjectsWithExternalRefs/*=NULL*/ )
-	{
-		bool bHasExternalPackageRefs = false;
-
-		// Find all external packages
-		TSet<UPackage*> FilteredPackageMap;
-		GetFilteredPackageList(FilteredPackageMap);
-
-		TArray< UPackage* > ExternalPackages;
-		ExternalPackages.Reserve(FilteredPackageMap.Num());
-		for (UPackage* Pkg : FilteredPackageMap)
-		{
-			FString OutFilename;
-			const FString PackageName = Pkg->GetName();
-			const FGuid PackageGuid = Pkg->GetGuid();
-
-			FPackageName::DoesPackageExist( PackageName, &PackageGuid, &OutFilename );
-
-			if( OutFilename.Len() > 0 && IsPackageExternal( *Pkg ) )
-			{
-				ExternalPackages.Add(Pkg);
-			}
-		}
-
-		// get all the objects in the external packages and make sure they aren't referenced by objects in a package being checked
-		TArray< UObject* > ObjectsInExternalPackages;
-		TArray< UObject* > ObjectsInPackageToCheck;
-		
-		if(PackagesToCheck)
-		{
-			GetObjectsInPackages( &ExternalPackages, ObjectsInExternalPackages );
-			GetObjectsInPackages( PackagesToCheck, ObjectsInPackageToCheck );
-		}
-		else
-		{
-			GetObjectsWithOuter(LevelToCheck, ObjectsInPackageToCheck);
-
-			// Gather all objects in any loaded external packages			
-			for (const UPackage* Package : ExternalPackages)
-			{
-				ForEachObjectWithOuter(Package,
-									   [&ObjectsInExternalPackages](UObject* Obj)
-									   {
-										   if (ObjectTools::IsObjectBrowsable(Obj))
-										   {
-											   ObjectsInExternalPackages.Add(Obj);
-										   }
-									   });
-			}
-		}
-
-		// only check objects which are in packages to be saved.  This should greatly reduce the overhead by not searching through objects we don't intend to save
-		for (UObject* CheckObject : ObjectsInPackageToCheck)
-		{
-			for (UObject* ExternalObject : ObjectsInExternalPackages)
-			{
-				FArchiveFindCulprit ArFind( ExternalObject, CheckObject, false );
-				if( ArFind.GetCount() > 0 )
-				{
-					if( OutPackagesWithExternalRefs )
-					{
-						OutPackagesWithExternalRefs->Add( CheckObject->GetOutermost() );
-					}
-					if(OutObjectsWithExternalRefs)
-					{
-						OutObjectsWithExternalRefs->Add( CheckObject );
-					}
-					bHasExternalPackageRefs = true;
-					break;
-				}
-			}
-		}
-
-		return bHasExternalPackageRefs;
-	}
 
 	bool UPackageTools::SavePackagesForObjects(const TArray<UObject*>& ObjectsToSave)
 	{
@@ -1047,25 +963,6 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 			if (Object->GetOutermost()->IsDirty())
 			{
 				PackagesToSave.AddUnique(Object->GetOutermost());
-			}
-		}
-
-		TArray< UPackage* > PackagesWithExternalRefs;
-		FString PackageNames;
-		if (UPackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
-		{
-			for (int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
-			{
-				PackageNames += FString::Printf(TEXT("%s\n"), *PackagesWithExternalRefs[PkgIdx]->GetName());
-			}
-			bool bProceed = EAppReturnType::Yes == FMessageDialog::Open(
-				EAppMsgType::YesNo,
-				FText::Format(
-					NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"),
-					FText::FromString(PackageNames)));
-			if (!bProceed)
-			{
-				return false;
 			}
 		}
 

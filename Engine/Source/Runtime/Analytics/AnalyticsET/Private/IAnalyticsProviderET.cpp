@@ -202,7 +202,7 @@ public:
 	virtual void SetEventCallback(const OnEventRecorded& Callback) override;
 
 	virtual void SetURLEndpoint(const FString& UrlEndpoint, const TArray<FString>& AltDomains) override;
-
+	virtual void BlockUntilFlushed(float InTimeoutSec) override;
 	virtual ~FAnalyticsProviderET();
 
 	FString GetAPIKey() const { return APIKey; }
@@ -241,7 +241,7 @@ private:
 	/** Min retry delay (in seconds) after a failure to submit. */
 	const float RetryDelaySecs;
 	/** Timecode of the last time a flush request failed to submit (for throttling). */
-	FDateTime LastFailedFlush;
+	double LastFailedFlush;
 	/** Allows events to not be cached when -AnalyticsDisableCaching is used. This should only be used for debugging as caching significantly reduces bandwidth overhead per event. */
 	bool bShouldCacheEvents;
 	/** Current countdown timer to keep track of MaxCachedElapsedTime push */
@@ -324,7 +324,7 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 	, MaxCachedNumEvents(20)
 	, MaxCachedElapsedTime(60.0f)
 	, RetryDelaySecs(120.0f)
-	, LastFailedFlush(FDateTime::MinValue())
+	, LastFailedFlush(0.0)
 	, bShouldCacheEvents(true)
 	, FlushEventsCountdown(MaxCachedElapsedTime)
 	, bInDestructor(false)
@@ -433,11 +433,11 @@ bool FAnalyticsProviderET::Tick(float DeltaSeconds)
 			}
 			else
 			{
-				LastFrameCounterFlushed = GFrameCounter;
-				FTimespan TimeSinceLastFailure = FDateTime::UtcNow() - LastFailedFlush;
-				if (TimeSinceLastFailure.GetTotalSeconds() >= RetryDelaySecs)
+				double TimeSinceLastFailure = FPlatformTime::Seconds() - LastFailedFlush;
+				if (TimeSinceLastFailure >= RetryDelaySecs)
 				{
 					FlushEvents();
+					LastFrameCounterFlushed = GFrameCounter;
 				}
 			}
 		}
@@ -905,7 +905,7 @@ void FAnalyticsProviderET::EventRequestComplete(FHttpRequestPtr HttpRequest, FHt
 	if (!bEventsDelivered)
 	{
 		// record the time (for throttling) so we don't retry again immediately
-		LastFailedFlush = FDateTime::UtcNow();
+		LastFailedFlush = FPlatformTime::Seconds();
 
 		// if FlushedEvents is passed, re-queue the events for next time
 		if (FlushedEvents.IsValid())
@@ -938,6 +938,7 @@ void FAnalyticsProviderET::EventRequestComplete(FHttpRequestPtr HttpRequest, FHt
 
 void FAnalyticsProviderET::SetURLEndpoint(const FString& UrlEndpoint, const TArray<FString>& AltDomains)
 {
+	FlushEvents();
 	APIServer = UrlEndpoint;
 
 	// Set the number of retries to the number of retry URLs that have been passed in.
@@ -962,4 +963,10 @@ void FAnalyticsProviderET::SetURLEndpoint(const FString& UrlEndpoint, const TArr
 	{
 		RetryServers.Reset();
 	}
+}
+
+void FAnalyticsProviderET::BlockUntilFlushed(float InTimeoutSec)
+{
+	FlushEvents();
+	HttpRetryManager->BlockUntilFlushed(InTimeoutSec);
 }

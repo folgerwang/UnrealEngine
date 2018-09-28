@@ -55,6 +55,7 @@ public:
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
+	virtual FIntPoint GetViewportSize() const override;
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -91,7 +92,6 @@ public:
 	virtual void SetIsDisabled(bool bValue) override;
 	virtual TSharedPtr<SWindow> GetParentWindow() const override;
 	virtual void SetParentWindow(TSharedPtr<SWindow> Window) override;
-	virtual FIntPoint GetViewportSize() const;
 
 	DECLARE_DERIVED_EVENT(FAndroidWebBrowserWindow, IWebBrowserWindow::FOnDocumentStateChanged, FOnDocumentStateChanged);
 	virtual FOnDocumentStateChanged& OnDocumentStateChanged() override

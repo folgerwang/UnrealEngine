@@ -17,7 +17,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Engine/AssetManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWorldComposition, Log, All);
@@ -327,7 +327,7 @@ bool UWorldComposition::DoesTileExists(const FName& InTilePackageName) const
 ULevelStreaming* UWorldComposition::CreateStreamingLevel(const FWorldCompositionTile& InTile) const
 {
 	UWorld* OwningWorld = GetWorld();
-	ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>(OwningWorld, NAME_None, RF_Transient);
+	ULevelStreamingDynamic* StreamingLevel = NewObject<ULevelStreamingDynamic>(OwningWorld, NAME_None, RF_Transient);
 		
 	// Associate a package name.
 	StreamingLevel->SetWorldAssetByPackageName(InTile.PackageName);

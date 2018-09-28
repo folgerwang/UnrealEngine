@@ -211,7 +211,7 @@ public: // JSON -> UStruct
 	 *
 	 * @return False if the property failed to serialize
 	 */
-	static bool JsonValueToUProperty(const TSharedPtr<FJsonValue> JsonValue, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags);
+	static bool JsonValueToUProperty(const TSharedPtr<FJsonValue>& JsonValue, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags);
 
 	/**
 	 * Converts from a json string containing an object to a UStruct

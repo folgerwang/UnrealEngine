@@ -47,10 +47,6 @@ class ENGINE_API APlayerState : public AInfo
 	UPROPERTY(replicatedUsing=OnRep_Score, BlueprintReadOnly, Category=PlayerState)
 	float Score;
 
-	/** Replicated compressed ping for this player (holds ping in msec divided by 4) */
-	UPROPERTY(replicated, BlueprintReadOnly, Category=PlayerState)
-	uint8 Ping;
-
 	/** Player name, or blank if none. */
 	DEPRECATED(4.19, "This property is now deprecated, please use GetPlayerName and SetPlayerName/SetPlayerNameInternal functions instead.")
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
@@ -64,34 +60,52 @@ class ENGINE_API APlayerState : public AInfo
 	UPROPERTY(replicatedUsing=OnRep_PlayerId, BlueprintReadOnly, Category=PlayerState)
 	int32 PlayerId;
 
+	/** Replicated compressed ping for this player (holds ping in msec divided by 4) */
+	UPROPERTY(replicated, BlueprintReadOnly, Category=PlayerState)
+	uint8 Ping;
+
+private:
+	/** The current PingBucket index that is being filled */
+	uint8			CurPingBucket;
+
+	/**
+	 * Whether or not this player's replicated Ping value is updated automatically.
+	 * Since player states are always relevant by default, in cases where there are many players replicating,
+	 * replicating the ping value can cause additional unnecessary overhead on servers if the value isn't
+	 * needed on clients.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category=PlayerState)
+	uint8 bShouldUpdateReplicatedPing:1;
+
+public:
 	/** Whether this player is currently a spectator */
 	UPROPERTY(replicated, BlueprintReadOnly, Category=PlayerState)
-	uint32 bIsSpectator:1;
+	uint8 bIsSpectator:1;
 
 	/** Whether this player can only ever be a spectator */
 	UPROPERTY(replicated)
-	uint32 bOnlySpectator:1;
+	uint8 bOnlySpectator:1;
 
 	/** True if this PlayerState is associated with an AIController */
 	UPROPERTY(replicated, BlueprintReadOnly, Category=PlayerState)
-	uint32 bIsABot:1;
+	uint8 bIsABot:1;
 
 	/** client side flag - whether this player has been welcomed or not (player entered message) */
-	uint32 bHasBeenWelcomed:1;
+	uint8 bHasBeenWelcomed:1;
 
 	/** Means this PlayerState came from the GameMode's InactivePlayerArray */
 	UPROPERTY(replicatedUsing=OnRep_bIsInactive)
-	uint32 bIsInactive:1;
+	uint8 bIsInactive:1;
 
 	/** indicates this is a PlayerState from the previous level of a seamless travel,
 	 * waiting for the player to finish the transition before creating a new one
 	 * this is used to avoid preserving the PlayerState in the InactivePlayerArray if the player leaves
 	 */
 	UPROPERTY(replicated)
-	uint32 bFromPreviousLevel:1;
+	uint8 bFromPreviousLevel:1;
 
 	/** if set, GetPlayerName() will call virtual GetPlayerNameCustom() to allow custom access */
-	uint32 bUseCustomPlayerNames : 1;
+	uint8 bUseCustomPlayerNames : 1;
 
 	/** Elapsed time on server when this PlayerState was first created.  */
 	UPROPERTY(replicated)
@@ -119,15 +133,19 @@ class ENGINE_API APlayerState : public AInfo
 	FName SessionName;
 
 private:
+
+	friend struct FSetPlayerStatePawn;
+
+	/** The pawn that is controlled by by this player state. */
+	UPROPERTY(BlueprintReadOnly, Category=PlayerState, meta=(AllowPrivateAccess="true"))
+	APawn* PawnPrivate;
+
 	/**
 	 * Stores the last 4 seconds worth of ping data (one second per 'bucket').
 	 * It is stored in this manner, to allow calculating a moving average,
 	 * without using up a lot of space, while also being tolerant of changes in ping update frequency
 	 */
 	PingAvgData		PingBucket[4];
-
-	/** The current PingBucket index that is being filled */
-	uint8			CurPingBucket;
 
 	/** The timestamp for when the current PingBucket began filling */
 	float			CurPingBucketTimestamp;
@@ -138,15 +156,6 @@ private:
 
 	/** Previous player name.  Saved on client-side to detect player name changes. */
 	FString OldNamePrivate;
-
-	/**
-	 * Whether or not this player's replicated Ping value is updated automatically.
-	 * Since player states are always relevant by default, in cases where there are many players replicating,
-	 * replicating the ping value can cause additional unnecessary overhead on servers if the value isn't
-	 * needed on clients.
-	 */
-	UPROPERTY(EditDefaultsOnly, Category=PlayerState)
-	bool bShouldUpdateReplicatedPing;
 
 public:
 	/** Replication Notification Callbacks */
@@ -172,6 +181,12 @@ public:
 	virtual FString GetHumanReadableName() const override;
 	//~ End AActor Interface
 
+	/** Return the pawn controlled by this Player State. */
+	APawn* GetPawn() const { return PawnPrivate; }
+
+	/** Convenience helper to return a cast version of the pawn controlled by this Player State. */
+	template<class T>
+	T* GetPawn() const { return Cast<T>(PawnPrivate); }
 
 	/** Called by Controller when its PlayerState is initially replicated. */
 	virtual void ClientInitialize(class AController* C);
@@ -279,4 +294,16 @@ protected:
 private:
 	// Hidden functions that don't make sense to use on this class.
 	HIDE_ACTOR_TRANSFORM_FUNCTIONS();
+};
+
+struct FSetPlayerStatePawn
+{
+private:
+
+	friend APawn;
+
+	FSetPlayerStatePawn(APlayerState* PlayerState, APawn* Pawn)
+	{
+		PlayerState->PawnPrivate = Pawn;
+	}
 };

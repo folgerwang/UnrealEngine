@@ -962,7 +962,7 @@ FVector FEditorModeTools::GetWidgetLocation() const
 		}
 	}
 	
-	return FVector(EForceInit::ForceInitToZero);
+	return FVector(ForceInitToZero);
 }
 
 /**
