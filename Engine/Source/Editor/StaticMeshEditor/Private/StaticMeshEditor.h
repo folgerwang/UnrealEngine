@@ -336,6 +336,10 @@ private:
 
 	ECheckBoxState GetUVChannelCheckState(int32 TestUVChannel) const;
 
+	/** Callbacks for UV edition */
+	bool CanRemoveUVChannel();
+	void RemoveCurrentUVChannel();
+
 private:
 	/** List of open tool panels; used to ensure only one exists at any one time */
 	TMap< FName, TWeakPtr<class SDockableTab> > SpawnedToolPanels;
