@@ -24,20 +24,8 @@ public:
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	TMap< TSubclassOf< class UDatasmithObjectTemplate >, UDatasmithObjectTemplate* > ObjectTemplates;
+
+	virtual bool IsPostLoadThreadSafe() const override;
+	virtual void PostLoad() override;
 #endif
-
-protected:
-	virtual bool IsPostLoadThreadSafe() const override
-	{
-		return true;
-	}
-
-	virtual void PostLoad() override
-	{
-		Super::PostLoad();
-
-		// Avoid possible crash with old data:
-		// RF_Transactional flag can cause a crash on serialization for Blueprint instances
-		ClearFlags(RF_Transactional);
-	}
 };
