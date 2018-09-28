@@ -2,9 +2,11 @@
 
 #include "PluginWardenModule.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "EngineAnalytics.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SWindow.h"
-#include "Framework/Application/SlateApplication.h"
 
 #include "PluginWardenAuthorizer.h"
 #include "SAuthorizingPlugin.h"
@@ -66,6 +68,8 @@ bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyNa
 	FPluginWardenAuthorizer Authorizer(PluginFriendlyName, PluginItemId, PluginOfferId);
 
 	EPluginAuthorizationState AuthorizationState = EPluginAuthorizationState::Initializing;
+	EPluginAuthorizationState PreviousState = AuthorizationState;
+
 	bool bAuthorizationCompleted = false;
 
 	double LastLoopTime = FPlatformTime::Seconds();
@@ -91,7 +95,7 @@ bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyNa
 		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 		FTicker::GetCoreTicker().Tick(DeltaTime);
 
-		const EPluginAuthorizationState PreviousState = AuthorizationState;
+		PreviousState = AuthorizationState;
 		AuthorizationState = Authorizer.UpdateAuthorizationState(DeltaTime);
 
 		switch ( AuthorizationState )
@@ -163,6 +167,15 @@ bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyNa
 			break;
 		}
 	}
+
+	TArray< FAnalyticsEventAttribute > EventAttributes;
+	EventAttributes.Emplace( TEXT("State"), (int32)AuthorizationState );
+	EventAttributes.Emplace( TEXT("PreviousState"), (int32)PreviousState );
+	EventAttributes.Emplace( TEXT("UnauthorizedErrorHandling"), (int32)IPluginWardenModule::EUnauthorizedErrorHandling::Silent );
+	EventAttributes.Emplace( TEXT("ItemId"), PluginItemId );
+	EventAttributes.Emplace( TEXT("OfferId"), PluginOfferId );
+
+	FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), EventAttributes );
 
 	return false;
 }

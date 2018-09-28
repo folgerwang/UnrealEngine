@@ -64,6 +64,9 @@ private:
 	/** The latest state of the plug-in authorization pipeline. */
 	EPluginAuthorizationState AuthorizationState;
 
+	/** The previous state of the plug-in authorization pipeline. */
+	EPluginAuthorizationState PreviousAuthorizationState;
+
 	/** If the user is authorized to us the plug-in, we'll call this function to alert the plug-in that everything is good to go. */
 	TFunction<void()> AuthorizedCallback;
 
