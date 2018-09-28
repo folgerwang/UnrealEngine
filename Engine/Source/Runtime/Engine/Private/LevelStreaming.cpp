@@ -429,7 +429,7 @@ bool ULevelStreaming::DetermineTargetState()
 		{
 			bContinueToConsider = false;
 		}
-		else if (!GUseBackgroundLevelStreaming)
+		else if (!GUseBackgroundLevelStreaming && ShouldBeLoaded())
 		{
 			TargetState = ETargetState::LoadedNotVisible;
 		}
