@@ -36,7 +36,7 @@ FSlateFontInfo::FSlateFontInfo( )
 	, FontMaterial(nullptr)
 	, CompositeFont()
 	, TypefaceFontName()
-	, Size(0)
+	, Size(24)
 	, FontFallback(EFontFallback::FF_Max)
 #if WITH_EDITORONLY_DATA
 	, Hinting_DEPRECATED(EFontHinting::Default)
