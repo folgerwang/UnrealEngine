@@ -143,6 +143,9 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 			GRHIDeviceId++;
 		}
 	}
+		
+	GSupportsVolumeTextureRendering = FMetalCommandQueue::SupportsFeature(EMetalFeaturesLayeredRendering);
+	bSupportsPointLights = GSupportsVolumeTextureRendering;
 #endif
 
     bool bProjectSupportsMRTs = false;

@@ -1020,11 +1020,6 @@ inline bool RHIHasTiledGPU(const EShaderPlatform Platform)
 	return Platform == SP_METAL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES3_1_ANDROID;
 }
 
-inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
-{
-	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && IsPCPlatform(Platform) && IsMetalPlatform(Platform);
-}
-
 inline bool RHISupportsMobileMultiView(const EShaderPlatform Platform)
 {
 	return (Platform == EShaderPlatform::SP_OPENGL_ES3_1_ANDROID || Platform == EShaderPlatform::SP_OPENGL_ES2_ANDROID);

@@ -122,6 +122,10 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 				{
 					Features |= EMetalFeaturesTextureBuffers;
 				}
+				if ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily5_v1])
+				{
+					Features |= EMetalFeaturesLayeredRendering;
+				}
 			}
         }
 		

@@ -154,6 +154,11 @@ inline bool RHISupportsVolumeTextures(ERHIFeatureLevel::Type FeatureLevel)
 	return FeatureLevel >= ERHIFeatureLevel::SM4;
 }
 
+inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
+{
+	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && IsMetalPlatform(Platform) && (IsPCPlatform(Platform) || (Platform == SP_METAL_MRT && RHIGetShaderLanguageVersion(Platform) >= 4));
+}
+
 inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 {
 	// Must match usf PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE
