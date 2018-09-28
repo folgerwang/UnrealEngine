@@ -4868,7 +4868,7 @@ void GetSourceFilesInDependencyOrderRecursive(TArray<FUnrealSourceFile*>& OutTes
 	}
 }
 
-TArray<FUnrealSourceFile*> GetSourceFilesInDependencyOrder(const UPackage* Package, const TArray<FUnrealSourceFile*>& SourceFiles, const TSet<FUnrealSourceFile*>& Ignore)
+TArray<FUnrealSourceFile*> GetSourceFilesInDependencyOrder(const UPackage* Package, const TSet<FUnrealSourceFile*>& SourceFiles, const TSet<FUnrealSourceFile*>& Ignore)
 {
 	TArray<FUnrealSourceFile*> Result;
 	TSet<const FUnrealSourceFile*>	VisitedSet;
@@ -4929,7 +4929,7 @@ static void RecordPackageSingletons(
 // Constructor.
 FNativeClassHeaderGenerator::FNativeClassHeaderGenerator(
 	const UPackage* InPackage,
-	const TArray<FUnrealSourceFile*>& SourceFiles,
+	const TSet<FUnrealSourceFile*>& SourceFiles,
 	FClasses& AllClasses,
 	bool InAllowSaveExportedHeaders
 )

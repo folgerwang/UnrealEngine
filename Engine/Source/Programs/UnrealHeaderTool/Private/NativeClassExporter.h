@@ -467,7 +467,7 @@ public:
 	// Constructor
 	FNativeClassHeaderGenerator(
 		const UPackage* InPackage,
-		const TArray<FUnrealSourceFile*>& SourceFiles,
+		const TSet<FUnrealSourceFile*>& SourceFiles,
 		FClasses& AllClasses,
 		bool InAllowSaveExportedHeaders
 	);

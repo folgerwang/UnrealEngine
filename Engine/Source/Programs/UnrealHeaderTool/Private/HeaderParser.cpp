@@ -7708,7 +7708,7 @@ bool FHeaderParser::DependentClassNameFromHeader(const TCHAR* HeaderFilename, FS
  *
  * @returns Array of source files.
  */
-TArray<FUnrealSourceFile*> GetSourceFilesWithInheritanceOrdering(UPackage* CurrentPackage, FClasses& AllClasses)
+TSet<FUnrealSourceFile*> GetSourceFilesWithInheritanceOrdering(UPackage* CurrentPackage, FClasses& AllClasses)
 {
 	TSet<FUnrealSourceFile*> SourceFiles;
 
@@ -7745,7 +7745,7 @@ TArray<FUnrealSourceFile*> GetSourceFilesWithInheritanceOrdering(UPackage* Curre
 		}
 	}
 
-	return SourceFiles.Array();
+	return SourceFiles;
 }
 
 // Begins the process of exporting C++ class declarations for native classes in the specified package
@@ -7760,7 +7760,7 @@ void FHeaderParser::ExportNativeHeaders(
 	TArray<FString>	ClassHeaderFilenames;
 	new (ClassHeaderFilenames) FString();
 
-	TArray<FUnrealSourceFile*> SourceFiles = GetSourceFilesWithInheritanceOrdering(CurrentPackage, AllClasses);
+	TSet<FUnrealSourceFile*> SourceFiles = GetSourceFilesWithInheritanceOrdering(CurrentPackage, AllClasses);
 	if (SourceFiles.Num() > 0)
 	{
 		if ( CurrentPackage != NULL )
