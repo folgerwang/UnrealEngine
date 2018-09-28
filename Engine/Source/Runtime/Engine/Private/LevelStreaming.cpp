@@ -1539,6 +1539,10 @@ void ULevelStreaming::PreEditUndo()
 void ULevelStreaming::PostEditUndo()
 {
 	FLevelUtils::ApplyEditorTransform(this, false);
+	if (UWorld* World = GetWorld())
+	{
+		World->UpdateStreamingLevelShouldBeConsidered(this);
+	}
 }
 
 const FName& ULevelStreaming::GetFolderPath() const
