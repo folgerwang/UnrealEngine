@@ -238,7 +238,8 @@ private:
 	/** Free lists for releasing objects only once it is safe to do so */
 	TSet<FMetalBuffer> UsedBuffers;
 	TSet<FMetalTexture> UsedTextures;
-	TSet<FMetalFence*> FenceFreeList;
+	TSet<FMetalFence*> UsedFences;
+	TLockFreePointerListLIFO<FMetalFence> FenceFreeList;
 	TSet<id> ObjectFreeList;
 	struct FMetalDelayedFreeList
 	{

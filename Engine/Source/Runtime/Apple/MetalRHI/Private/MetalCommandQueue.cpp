@@ -364,7 +364,11 @@ FMetalFence* FMetalCommandQueue::CreateFence(ns::String const& Label) const
 	if ((Features & EMetalFeaturesFences) != 0)
 	{
 		FMetalFence* InternalFence = FMetalFencePool::Get().AllocateFence();
-		NSString* String = [NSString stringWithFormat:@"%p: %@", InternalFence->GetPtr(), Label.GetPtr()];
+		NSString* String = nil;
+		if (GetEmitDrawEvents())
+		{
+			String = [NSString stringWithFormat:@"%p: %@", InternalFence->GetPtr(), Label.GetPtr()];
+		}
 #if METAL_DEBUG_OPTIONS
 		if (RuntimeDebuggingLevel >= EMetalDebugLevelValidation)
 		{
@@ -373,7 +377,7 @@ FMetalFence* FMetalCommandQueue::CreateFence(ns::String const& Label) const
 		}
 		else
 #endif
-		if(InternalFence && Label)
+		if(InternalFence && String)
 		{
 			InternalFence->SetLabel(String);
 		}

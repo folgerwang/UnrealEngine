@@ -128,7 +128,12 @@ void FMetalFencePool::Initialise(mtlpp::Device const& InDevice)
 #endif
 		{
 			FMetalFence* F = new FMetalFence(Device.NewFence());
-			Fences.Add(F);
+#if METAL_DEBUG_OPTIONS
+			if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
+			{
+				Fences.Add(F);
+			}
+#endif
 			Lifo.Push(F);
 		}
 	}

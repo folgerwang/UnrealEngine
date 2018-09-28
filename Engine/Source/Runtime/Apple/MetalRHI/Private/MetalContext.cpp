@@ -589,7 +589,16 @@ void FMetalDeviceContext::FlushFreeList(bool const bFlushFences)
 	NewList->ObjectFreeList = ObjectFreeList;
 	if (bFlushFences)
 	{
-		NewList->FenceFreeList = MoveTemp(FenceFreeList);
+		TArray<FMetalFence*> Fences;
+		FenceFreeList.PopAll(Fences);
+		for (FMetalFence* Fence : Fences)
+		{
+			if(!UsedFences.Contains(Fence))
+			{
+				UsedFences.Add(Fence);
+			}
+		}
+		NewList->FenceFreeList = MoveTemp(UsedFences);
 	}
 #if METAL_DEBUG_OPTIONS
 	if (FrameFences.Num())
@@ -702,12 +711,7 @@ void FMetalDeviceContext::ReleaseFence(FMetalFence* Fence)
 	if (GIsMetalInitialized) // @todo zebra: there seems to be some race condition at exit when the framerate is very low
 	{
 		check(Fence);
-		FreeListMutex.Lock();
-		if(!FenceFreeList.Contains(Fence))
-		{
-			FenceFreeList.Add(Fence);
-		}
-		FreeListMutex.Unlock();
+		FenceFreeList.Push(Fence);
 	}
 }
 
