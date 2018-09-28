@@ -21,7 +21,7 @@ public:
 	TEnumAsByte< EComponentMobility::Type > Mobility;
 
 	UPROPERTY()
-	class USceneComponent* AttachParent;
+	TSoftObjectPtr< USceneComponent > AttachParent;
 
 	UPROPERTY()
 	TSet<FName> Tags;

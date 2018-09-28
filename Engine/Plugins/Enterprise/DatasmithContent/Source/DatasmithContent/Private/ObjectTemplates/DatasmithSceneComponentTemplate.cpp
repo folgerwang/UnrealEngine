@@ -30,6 +30,8 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 		SceneComponent->SetMobility( Mobility );
 	}
 
+	bool bCanAttach = ( AttachParent && AttachParent->GetComponentLevel() == SceneComponent->GetComponentLevel() );
+
 	if ( !PreviousTemplate || PreviousTemplate->AttachParent == SceneComponent->GetAttachParent() )
 	{
 		FAttachmentTransformRules AttachmentTransformRules = FAttachmentTransformRules::KeepRelativeTransform;
@@ -44,14 +46,31 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 			AttachmentTransformRules = FAttachmentTransformRules::KeepWorldTransform;
 		}
 
-		SceneComponent->AttachToComponent( AttachParent, AttachmentTransformRules );
+		if ( bCanAttach )
+		{
+			SceneComponent->AttachToComponent( AttachParent.Get(), AttachmentTransformRules );
+		}
 	}
 
 	if ( !PreviousTemplate || AreTransformsEqual( PreviousTemplate->RelativeTransform, SceneComponent->GetRelativeTransform() ) )
 	{
-		SceneComponent->SetRelativeTransform( RelativeTransform );
-	}
+		if ( bCanAttach )
+		{
+			SceneComponent->SetRelativeTransform( RelativeTransform );
+		}
+		else
+		{
+			// We were unable to attach to our parent so we need to compute the desired world transform
+			FTransform WorldTransform = RelativeTransform;
 
+			if ( AttachParent )
+			{
+				WorldTransform *= AttachParent->GetComponentTransform();
+
+				SceneComponent->SetRelativeTransform( WorldTransform );
+			}
+		}
+	}
 
 	if ( !PreviousTemplate )
 	{
