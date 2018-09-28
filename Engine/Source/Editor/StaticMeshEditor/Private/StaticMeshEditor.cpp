@@ -65,7 +65,8 @@ const FName FStaticMeshEditor::ViewportTabId( TEXT( "StaticMeshEditor_Viewport" 
 const FName FStaticMeshEditor::PropertiesTabId( TEXT( "StaticMeshEditor_Properties" ) );
 const FName FStaticMeshEditor::SocketManagerTabId( TEXT( "StaticMeshEditor_SocketManager" ) );
 const FName FStaticMeshEditor::CollisionTabId( TEXT( "StaticMeshEditor_Collision" ) );
-const FName FStaticMeshEditor::PreviewSceneSettingsTabId(TEXT("StaticMeshEditor_PreviewScene"));
+const FName FStaticMeshEditor::PreviewSceneSettingsTabId( TEXT ("StaticMeshEditor_PreviewScene" ) );
+const FName FStaticMeshEditor::SecondaryToolbarTabId( TEXT( "StaticMeshEditor_SecondaryToolbar" ) );
 
 void FStaticMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
@@ -94,10 +95,19 @@ void FStaticMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>&
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "StaticMeshEditor.Tabs.ConvexDecomposition"));
 
-	InTabManager->RegisterTabSpawner(PreviewSceneSettingsTabId, FOnSpawnTab::CreateSP(this, &FStaticMeshEditor::SpawnTab_PreviewSceneSettings))
-		.SetDisplayName(LOCTEXT("PreviewSceneTab", "Preview Scene Settings"))
+	InTabManager->RegisterTabSpawner( PreviewSceneSettingsTabId, FOnSpawnTab::CreateSP(this, &FStaticMeshEditor::SpawnTab_PreviewSceneSettings) )
+		.SetDisplayName( LOCTEXT("PreviewSceneTab", "Preview Scene Settings") )
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
+
+	FTabSpawnerEntry& MenuEntry = InTabManager->RegisterTabSpawner( SecondaryToolbarTabId, FOnSpawnTab::CreateSP(this, &FStaticMeshEditor::SpawnTab_SecondaryToolbar) )
+		.SetDisplayName( LOCTEXT("ToolbarTab", "Secondary Toolbar") )
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Toolbar.Icon"));
+
+	// Hide the menu item by default. It will be enabled only if the secondary toolbar is populated with extensions
+	SecondaryToolbarEntry = &MenuEntry;
+	SecondaryToolbarEntry->SetMenuType( ETabSpawnerMenuType::Hidden );
 }
 
 void FStaticMeshEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
@@ -109,6 +119,7 @@ void FStaticMeshEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager
 	InTabManager->UnregisterTabSpawner( SocketManagerTabId );
 	InTabManager->UnregisterTabSpawner( CollisionTabId );
 	InTabManager->UnregisterTabSpawner( PreviewSceneSettingsTabId );
+	InTabManager->UnregisterTabSpawner( SecondaryToolbarTabId );
 }
 
 
@@ -170,7 +181,7 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 
 	BuildSubTools();
 
-	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_StaticMeshEditor_Layout_v4" )
+	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_StaticMeshEditor_Layout_v4.1" )
 	->AddArea
 	(
 		FTabManager::NewPrimaryArea() ->SetOrientation(Orient_Vertical)
@@ -180,6 +191,8 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 			->SetSizeCoefficient(0.1f)
 			->SetHideTabWell( true )
 			->AddTab(GetToolbarTabId(), ETabState::OpenedTab)
+			// Don't want the secondary toolbar tab to be opened if there's nothing in it
+			->AddTab(SecondaryToolbarTabId, ETabState::ClosedTab)
 		)
 		->Split
 		(
@@ -221,6 +234,90 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 	ExtendMenu();
 	ExtendToolBar();
 	RegenerateMenusAndToolbars();
+	GenerateSecondaryToolbar();
+}
+
+void FStaticMeshEditor::GenerateSecondaryToolbar()
+{
+	// Generate the secondary toolbar only if there are registered extensions
+	TSharedPtr<SDockTab> Tab = TabManager->FindExistingLiveTab(SecondaryToolbarTabId);
+
+	TSharedPtr<FExtender> Extender = FExtender::Combine(SecondaryToolbarExtenders);
+	if (Extender->NumExtensions() == 0)
+	{
+		// If the tab was previously opened, close it since it's now empty
+		if (Tab)
+		{
+			Tab->RemoveTabFromParent();
+		}
+		return;
+	}
+
+	const bool bIsFocusable = true;
+
+	FToolBarBuilder ToolbarBuilder(GetToolkitCommands(), FMultiBoxCustomization::AllowCustomization(GetToolkitFName()), Extender);
+	ToolbarBuilder.SetIsFocusable(bIsFocusable);
+	ToolbarBuilder.BeginSection("Extensions");
+	{
+		// The secondary toolbar itself is empty but will be populated by the extensions when EndSection is called.
+		// The section name helps in the extenders positioning.
+	}
+	ToolbarBuilder.EndSection();
+
+	// Setup the secondary toolbar menu entry
+	SecondaryToolbarEntry->SetMenuType(ETabSpawnerMenuType::Enabled);
+	SecondaryToolbarEntry->SetDisplayName(SecondaryToolbarDisplayName);
+
+	SecondaryToolbar =
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.VAlign(VAlign_Bottom)
+			[
+				ToolbarBuilder.MakeWidget()
+			]
+		];
+
+	if (SecondaryToolbarWidgetContent.IsValid())
+	{
+		SecondaryToolbarWidgetContent->SetContent(SecondaryToolbar.ToSharedRef());
+	}
+
+	if (!Tab)
+	{
+		// By default, the tab is closed but we want it to be opened when it is populated
+		Tab = TSharedPtr<SDockTab>(TabManager->InvokeTab(SecondaryToolbarTabId));
+	}
+
+	// Override the display name if it was set
+	if (!SecondaryToolbarDisplayName.IsEmpty())
+	{
+		Tab->SetLabel(SecondaryToolbarDisplayName);
+	}
+
+	// But have the focus on the default toolbar
+	TabManager->InvokeTab(GetToolbarTabId());
+}
+
+void FStaticMeshEditor::AddSecondaryToolbarExtender(TSharedPtr<FExtender> Extender)
+{
+	SecondaryToolbarExtenders.AddUnique(Extender);
+}
+
+void FStaticMeshEditor::RemoveSecondaryToolbarExtender(TSharedPtr<FExtender> Extender)
+{
+	SecondaryToolbarExtenders.Remove(Extender);
+}
+
+void FStaticMeshEditor::SetSecondaryToolbarDisplayName(FText DisplayName)
+{
+	SecondaryToolbarDisplayName = DisplayName;
 }
 
 TSharedRef<IDetailCustomization> FStaticMeshEditor::MakeStaticMeshDetails()
@@ -393,14 +490,36 @@ TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_Collision( const FSpawnTabArgs&
 		];
 }
 
-TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_PreviewSceneSettings(const FSpawnTabArgs& Args)
+TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_PreviewSceneSettings( const FSpawnTabArgs& Args )
 {
-	check(Args.GetTabId() == PreviewSceneSettingsTabId);
+	check( Args.GetTabId() == PreviewSceneSettingsTabId );
 	return SNew(SDockTab)
-		.Label(LOCTEXT("StaticMeshPreviewScene_TabTitle", "Preview Scene Settings"))
+		.Label( LOCTEXT("StaticMeshPreviewScene_TabTitle", "Preview Scene Settings") )
 		[
 			AdvancedPreviewSettingsWidget.ToSharedRef()
 		];
+}
+
+TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_SecondaryToolbar( const FSpawnTabArgs& Args )
+{
+	check( Args.GetTabId() == SecondaryToolbarTabId );
+
+	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
+		.Label( LOCTEXT("SecondaryToolbar_TabTitle", "Secondary Toolbar") )
+		.Icon( FEditorStyle::GetBrush("LevelEditor.Tabs.Toolbar") )
+		.ShouldAutosize( true )
+		[
+			SAssignNew(SecondaryToolbarWidgetContent, SBorder)
+			.Padding(0)
+			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
+		];
+
+	if ( SecondaryToolbar.IsValid() )
+	{
+		SecondaryToolbarWidgetContent->SetContent( SecondaryToolbar.ToSharedRef() );
+	}
+	
+	return SpawnedTab;
 }
 
 void FStaticMeshEditor::BindCommands()
@@ -615,6 +734,7 @@ void FStaticMeshEditor::ExtendToolBar()
 
 	IStaticMeshEditorModule* StaticMeshEditorModule = &FModuleManager::LoadModuleChecked<IStaticMeshEditorModule>( "StaticMeshEditor" );
 	AddToolbarExtender(StaticMeshEditorModule->GetToolBarExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
+	AddSecondaryToolbarExtender(StaticMeshEditorModule->GetSecondaryToolBarExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
 }
 
 void FStaticMeshEditor::BuildSubTools()
