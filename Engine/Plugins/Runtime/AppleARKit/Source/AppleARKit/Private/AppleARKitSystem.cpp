@@ -18,6 +18,7 @@
 #include "ARLightEstimate.h"
 #include "ARTraceResult.h"
 #include "ARPin.h"
+#include "HAL/ThreadSafeCounter.h"
 
 // To separate out the face ar library linkage from standard ar apps
 #include "AppleARKitFaceSupport.h"
@@ -32,6 +33,32 @@
 	#pragma clang diagnostic ignored "-Wpartial-availability"
 #endif
 
+// Copied from IOSPlatformProcess because it's not accessible by external code
+#define GAME_THREAD_PRIORITY 47
+#define RENDER_THREAD_PRIORITY 45
+
+#if PLATFORM_IOS && !PLATFORM_TVOS
+// Copied from IOSPlatformProcess because it's not accessible by external code
+static void SetThreadPriority(int32 Priority)
+{
+	struct sched_param Sched;
+	FMemory::Memzero(&Sched, sizeof(struct sched_param));
+	
+	// Read the current priority and policy
+	int32 CurrentPolicy = SCHED_RR;
+	pthread_getschedparam(pthread_self(), &CurrentPolicy, &Sched);
+	
+	// Set the new priority and policy (apple recommended FIFO for the two main non-working threads)
+	int32 Policy = SCHED_FIFO;
+	Sched.sched_priority = Priority;
+	pthread_setschedparam(pthread_self(), Policy, &Sched);
+}
+#else
+static void SetThreadPriority(int32 Priority)
+{
+	// Ignored
+}
+#endif
 
 //
 //  FAppleARKitXRCamera
@@ -44,6 +71,11 @@ public:
 	: FDefaultXRCamera( AutoRegister, &InTrackingSystem, InDeviceId )
 	, ARKitSystem( InTrackingSystem )
 	{}
+	
+	void AdjustThreadPriority(int32 NewPriority)
+	{
+		ThreadPriority.Set(NewPriority);
+	}
 	
 private:
 	//~ FDefaultXRCamera
@@ -84,6 +116,12 @@ private:
 	
 	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override
 	{
+		// Adjust our thread priority if requested
+		if (LastThreadPriority.GetValue() != ThreadPriority.GetValue())
+		{
+			SetThreadPriority(ThreadPriority.GetValue());
+			LastThreadPriority.Set(ThreadPriority.GetValue());
+		}
 		FDefaultXRCamera::PreRenderView_RenderThread(RHICmdList, InView);
 	}
 	
@@ -140,6 +178,10 @@ private:
 private:
 	FAppleARKitSystem& ARKitSystem;
 	FAppleARKitVideoOverlay VideoOverlay;
+	
+	// Thread priority support
+	FThreadSafeCounter ThreadPriority;
+	FThreadSafeCounter LastThreadPriority;
 };
 
 //
@@ -1197,6 +1239,23 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 			// Pass to session delegate to use for Metal texture creation
 			[Delegate setMetalTextureCache : MetalTextureCache];
 		}
+		
+#if PLATFORM_IOS && !PLATFORM_TVOS
+		// Check if we need to adjust the priorities to allow ARKit to have more CPU time
+		if (GetDefault<UAppleARKitSettings>()->bAdjustThreadPrioritiesDuringARSession)
+		{
+			int32 GameOverride = GetDefault<UAppleARKitSettings>()->GameThreadPriorityOverride;
+			int32 RenderOverride = GetDefault<UAppleARKitSettings>()->RenderThreadPriorityOverride;
+			SetThreadPriority(GameOverride);
+			if (XRCamera.IsValid())
+			{
+				FAppleARKitXRCamera* Camera = (FAppleARKitXRCamera*)XRCamera.Get();
+				Camera->AdjustThreadPriority(RenderOverride);
+			}
+			
+			UE_LOG(LogAppleARKit, Log, TEXT("Overriding thread priorities: Game Thread (%d), Render Thread (%d)"), GameOverride, RenderOverride);
+		}
+#endif
 
 		UE_LOG(LogAppleARKit, Log, TEXT("Starting session: %p with options %d"), this, options);
 
@@ -1247,6 +1306,21 @@ bool FAppleARKitSystem::Pause()
 			MetalTextureCache = nullptr;
 		}
 	}
+	
+#if PLATFORM_IOS && !PLATFORM_TVOS
+	// Check if we need to adjust the priorities to allow ARKit to have more CPU time
+	if (GetDefault<UAppleARKitSettings>()->bAdjustThreadPrioritiesDuringARSession)
+	{
+		SetThreadPriority(GAME_THREAD_PRIORITY);
+		if (XRCamera.IsValid())
+		{
+			FAppleARKitXRCamera* Camera = (FAppleARKitXRCamera*)XRCamera.Get();
+			Camera->AdjustThreadPriority(RENDER_THREAD_PRIORITY);
+		}
+		
+		UE_LOG(LogAppleARKit, Log, TEXT("Restoring thread priorities: Game Thread (%d), Render Thread (%d)"), GAME_THREAD_PRIORITY, RENDER_THREAD_PRIORITY);
+}
+#endif
 	
 #endif
 	
