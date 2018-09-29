@@ -3,21 +3,14 @@
 #pragma once
 
 #include "MovieSceneSequenceEditor.h"
-#include "LevelSequenceDirectorGeneratedClass.h"
-#include "LevelSequenceDirectorBlueprint.h"
+#include "LevelSequenceDirector.h"
+#include "EdGraphSchema_K2.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Tracks/MovieSceneEventTrack.h"
 #include "K2Node_FunctionEntry.h"
 
 struct FMovieSceneSequenceEditor_LevelSequence : FMovieSceneSequenceEditor
 {
-	FName BlueprintName;
-
-	FMovieSceneSequenceEditor_LevelSequence()
-	{
-		BlueprintName = "SequenceDirectorBlueprint";
-	}
-
 	virtual bool CanCreateEvents(UMovieSceneSequence* InSequence) const
 	{
 		return true;
@@ -39,11 +32,11 @@ struct FMovieSceneSequenceEditor_LevelSequence : FMovieSceneSequenceEditor
 
 		ULevelSequence* LevelSequence = CastChecked<ULevelSequence>(InSequence);
 
-		Blueprint = FKismetEditorUtilities::CreateBlueprint(ULevelSequenceDirector::StaticClass(), InSequence, NAME_None, BPTYPE_Normal, ULevelSequenceDirectorBlueprint::StaticClass(), ULevelSequenceDirectorGeneratedClass::StaticClass());
-		CastChecked<ULevelSequenceDirectorBlueprint>(Blueprint)->OwnerSequence = LevelSequence;
+		FName BlueprintName = "SequenceDirector";
+		Blueprint = FKismetEditorUtilities::CreateBlueprint(ULevelSequenceDirector::StaticClass(), InSequence, BlueprintName, BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
 
 		LevelSequence->DirectorBlueprint = Blueprint;
-		LevelSequence->DirectorClass = CastChecked<ULevelSequenceDirectorGeneratedClass>(Blueprint->GeneratedClass);
+		LevelSequence->DirectorClass = CastChecked<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
 		return Blueprint;
 	}
 

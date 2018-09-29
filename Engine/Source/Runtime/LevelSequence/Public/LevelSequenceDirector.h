@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
-
-#include "LevelSequenceDirectorGeneratedClass.generated.h"
+#include "LevelSequenceDirector.generated.h"
 
 class ULevelSequencePlayer;
 
-UCLASS()
+UCLASS(Blueprintable)
 class LEVELSEQUENCE_API ULevelSequenceDirector : public UObject
 {
 public:
@@ -26,9 +26,15 @@ public:
 	ULevelSequencePlayer* Player;
 };
 
+
 UCLASS()
-class LEVELSEQUENCE_API ULevelSequenceDirectorGeneratedClass : public UBlueprintGeneratedClass
+class ULegacyLevelSequenceDirectorBlueprint : public UBlueprint
 {
-public:
 	GENERATED_BODY()
+
+	ULegacyLevelSequenceDirectorBlueprint(const FObjectInitializer& ObjInit)
+		: Super(ObjInit)
+	{
+		ParentClass = ULevelSequenceDirector::StaticClass();
+	}
 };
