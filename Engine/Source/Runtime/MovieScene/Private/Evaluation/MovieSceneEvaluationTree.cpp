@@ -10,6 +10,7 @@
 #include "MovieSceneCommonHelpers.h"
 #include "UObject/Package.h"
 #include "Templates/Tuple.h"
+#include "MovieSceneTimeHelpers.h"
 
 
 FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree)
@@ -68,7 +69,7 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex);
 		}
-		else if (Children.IsValidIndex(ChildIndex-1) && Children[ChildIndex-1].Range.Overlaps(CompareRange))
+		else if (Children.IsValidIndex(ChildIndex-1) && MovieScene::DiscreteRangesOverlap(Children[ChildIndex-1].Range, CompareRange))
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex - 1);
 		}
@@ -84,7 +85,7 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 		}
 	}
 
-	check(CurrentRange.Overlaps(CompareRange));
+	check(MovieScene::DiscreteRangesOverlap(CurrentRange, CompareRange));
 }
 
 void FMovieSceneEvaluationTreeRangeIterator::Iter(bool bForwards)
@@ -219,7 +220,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 {
 	// Take a temporary copy of the node as the container may be reallocated in this function
 	FMovieSceneEvaluationTreeNode ThisNode = GetNode(InParent);
-	if (!ensure(ThisNode.Range.Overlaps(InTimeRange)))
+	if (!ensure(MovieScene::DiscreteRangesOverlap(ThisNode.Range, InTimeRange)))
 	{
 		return;
 	}
@@ -262,7 +263,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 				}
 			}
 
-			if (ChildNode.Range.Overlaps(InTimeRange))
+			if (MovieScene::DiscreteRangesOverlap(ChildNode.Range, InTimeRange))
 			{
 				// Find the node again since InsertNewChild may have re-allocated the nodes
 				AddTimeRange(InTimeRange, InOperator, FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex));
