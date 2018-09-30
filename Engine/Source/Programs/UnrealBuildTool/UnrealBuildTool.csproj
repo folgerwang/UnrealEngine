@@ -140,6 +140,7 @@
     </When>
   </Choose>
   <ItemGroup>
+    <Compile Include="Modes\ValidatePlatformsMode.cs" />
     <Compile Include="Modes\WriteDocumentationMode.cs" />
     <Compile Include="Configuration\ModuleRules.cs" />
     <Compile Include="Configuration\PlatformTargetRules.cs" />
