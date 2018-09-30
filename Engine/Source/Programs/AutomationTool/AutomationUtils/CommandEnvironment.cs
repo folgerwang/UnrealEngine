@@ -102,7 +102,7 @@ namespace AutomationTool
 			LogFolder = CommandUtils.GetEnvVar(EnvVarNames.LogFolder);
 			if (String.IsNullOrEmpty(LogFolder))
 			{
-				if (GlobalCommandLine.Installed)
+				if (CommandUtils.IsEngineInstalled())
 				{
 					LogFolder = GetInstalledLogFolder();
 				}

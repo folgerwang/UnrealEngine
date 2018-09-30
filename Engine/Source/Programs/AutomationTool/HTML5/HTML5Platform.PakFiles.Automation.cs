@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -290,7 +290,7 @@ public class HTMLPakAutomation
 		{
 			CmdLine += " -sign=" + CommandUtils.MakePathSafeToUseWithCommandLine(EncryptionKeys);
 		}
-		if (GlobalCommandLine.Installed)
+		if (CommandUtils.IsEngineInstalled())
 		{
 			CmdLine += " -installed";
 		}

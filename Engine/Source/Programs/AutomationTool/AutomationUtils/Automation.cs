@@ -116,7 +116,6 @@ namespace AutomationTool
 		public static CommandLineArg List = new CommandLineArg("-List");
 		public static CommandLineArg VS2015 = new CommandLineArg("-2015");
 		public static CommandLineArg NoKill = new CommandLineArg("-NoKill");
-		public static CommandLineArg Installed = new CommandLineArg("-Installed");
 		public static CommandLineArg UTF8Output = new CommandLineArg("-UTF8Output");
         public static CommandLineArg AllowStdOutLogVerbosity = new CommandLineArg("-AllowStdOutLogVerbosity");
         public static CommandLineArg NoAutoSDK = new CommandLineArg("-NoAutoSDK");
@@ -125,8 +124,6 @@ namespace AutomationTool
         /// Allows you to use local storage for your root build storage dir (default of P:\Builds (on PC) is changed to Engine\Saved\LocalBuilds). Used for local testing.
         /// </summary>
         public static CommandLineArg UseLocalBuildStorage = new CommandLineArg("-UseLocalBuildStorage");
-		public static CommandLineArg InstalledEngine = new CommandLineArg("-InstalledEngine");
-		public static CommandLineArg NotInstalledEngine = new CommandLineArg("-NotInstalledEngine");
 
 		/// <summary>
 		/// Force initialize static members by calling this.
@@ -464,26 +461,13 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 .
 			Log.TraceLog("Setting up command environment.");
 			CommandUtils.InitCommandEnvironment();
 
-			// Determine if the engine is installed
-			bIsEngineInstalled = GlobalCommandLine.Installed;
-			string InstalledBuildFile = Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine", "Build", "InstalledBuild.txt");
-			bIsEngineInstalled |= File.Exists(InstalledBuildFile);
-			if (bIsEngineInstalled.Value)
-			{
-				bIsEngineInstalled = !GlobalCommandLine.NotInstalledEngine;
-			}
-			else
-			{
-				bIsEngineInstalled = GlobalCommandLine.InstalledEngine;
-			}
-
 			// Create the log file, and flush the startup listener to it
 			TraceListener LogTraceListener = LogUtils.AddLogFileListener(CommandUtils.CmdEnv.LogFolder, CommandUtils.CmdEnv.FinalLogFolder);
 			StartupListener.CopyTo(LogTraceListener);
 			Trace.Listeners.Remove(StartupListener);
 
 			// Initialize UBT
-			if(!UnrealBuildTool.PlatformExports.Initialize(bIsEngineInstalled.Value))
+			if(!UnrealBuildTool.PlatformExports.Initialize())
 			{
 				Log.TraceInformation("Failed to initialize UBT");
 				return ExitCode.Error_Unknown;
@@ -640,16 +624,11 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 .
 		/// Returns true if AutomationTool is running using installed Engine components
 		/// </summary>
 		/// <returns>True if running using installed Engine components</returns>
+		[Obsolete("IsEngineInstalled() is deprecated in 4.22. Call CommandUtils.IsEngineInstalled instead.")]
 		static public bool IsEngineInstalled()
 		{
-			if (!bIsEngineInstalled.HasValue)
-			{
-				throw new AutomationException("IsEngineInstalled has not been initialized yet");
-			}
-
-			return bIsEngineInstalled.Value;
+			return CommandUtils.IsEngineInstalled();
 		}
-		static private bool? bIsEngineInstalled;
 
 		#endregion
 

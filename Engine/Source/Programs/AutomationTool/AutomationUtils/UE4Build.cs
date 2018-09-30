@@ -1429,7 +1429,7 @@ namespace AutomationTool
 		FileReference GetManifestFile(FileReference ProjectFile)
 		{
 			// Can't write to Engine directory on installed builds
-			if (Automation.IsEngineInstalled() && ProjectFile != null)
+			if (CommandUtils.IsEngineInstalled() && ProjectFile != null)
 			{
 				return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", "Manifest.xml");
 			}

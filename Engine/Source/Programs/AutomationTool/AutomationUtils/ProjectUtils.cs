@@ -217,7 +217,7 @@ namespace AutomationTool
 				bool RetVal = false;
 				foreach (UnrealTargetPlatform TargetPlatformType in TargetPlatforms)
 				{
-					if((!Automation.IsEngineInstalled() && !PlatformExports.HasDefaultBuildConfig(RawProjectPath, TargetPlatformType)) || PlatformExports.RequiresBuild(RawProjectPath, TargetPlatformType))
+					if((!CommandUtils.IsEngineInstalled() && !PlatformExports.HasDefaultBuildConfig(RawProjectPath, TargetPlatformType)) || PlatformExports.RequiresBuild(RawProjectPath, TargetPlatformType))
 					{
 						RetVal = true;
 						break;
@@ -438,7 +438,7 @@ namespace AutomationTool
 		private static string GetRulesAssemblyFolder()
 		{
 			string RulesFolder;
-			if (GlobalCommandLine.Installed.IsSet)
+			if (CommandUtils.IsEngineInstalled())
 			{
 				RulesFolder = CommandUtils.CombinePaths(Path.GetTempPath(), "UAT", CommandUtils.EscapePath(CommandUtils.CmdEnv.LocalRoot), "Rules"); 
 			}

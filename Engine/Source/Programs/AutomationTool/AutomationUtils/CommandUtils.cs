@@ -106,6 +106,21 @@ namespace AutomationTool
 
 		#endregion
 
+		/// <summary>
+		/// Returns true if AutomationTool is running using installed Engine components
+		/// </summary>
+		/// <returns>True if running using installed Engine components</returns>
+		static public bool IsEngineInstalled()
+		{
+			if (!bIsEngineInstalled.HasValue)
+			{
+				bIsEngineInstalled = FileReference.Exists(FileReference.Combine(CommandUtils.EngineDirectory, "Build", "InstalledBuild.txt"));
+			}
+			return bIsEngineInstalled.Value;
+		}
+
+		static private bool? bIsEngineInstalled;
+
 		#region Logging
 
 		/// <summary>

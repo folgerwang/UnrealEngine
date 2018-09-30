@@ -149,12 +149,9 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Initialize UBT in the context of another host process (presumably UAT)
 		/// </summary>
-		/// <param name="bIsEngineInstalled">Whether the engine is installed</param>
 		/// <returns>True if initialization was successful</returns>
-		public static bool Initialize(bool bIsEngineInstalled)
+		public static bool Initialize()
 		{
-			UnrealBuildTool.SetIsEngineInstalled(bIsEngineInstalled);
-
 			// Read the XML configuration files
 			if(!XmlConfig.ReadConfigFiles(false))
 			{

@@ -132,15 +132,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Sets the global flag indicating whether the engine is installed
-		/// </summary>
-		/// <param name="bInIsEngineInstalled">Whether the engine is installed or not</param>
-		public static void SetIsEngineInstalled(bool bInIsEngineInstalled)
-		{
-			bIsEngineInstalled = bInIsEngineInstalled;
-		}
-
-		/// <summary>
 		/// Returns true if UnrealBuildTool is running using installed Engine components
 		/// </summary>
 		/// <returns>True if running using installed Engine components</returns>
@@ -148,7 +139,7 @@ namespace UnrealBuildTool
 		{
 			if (!bIsEngineInstalled.HasValue)
 			{
-				throw new BuildException("IsEngineInstalled() called before being initialized.");
+				bIsEngineInstalled = FileReference.Exists(FileReference.Combine(EngineDirectory, "Build", "InstalledBuild.txt"));
 			}
 			return bIsEngineInstalled.Value;
 		}
@@ -451,24 +442,6 @@ namespace UnrealBuildTool
 					if (Directory.Exists(EngineSourceDirectory)) // only set the directory if it exists, this should only happen if we are launching the editor from an artist sync
 					{
 						Directory.SetCurrentDirectory(EngineSourceDirectory);
-					}
-
-					// Figure out if the engine is installed or not
-					foreach (string Argument in Arguments)
-					{
-						string LowercaseArg = Argument.ToLowerInvariant();
-						if (LowercaseArg == "-installed" || LowercaseArg == "-installedengine")
-						{
-							bIsEngineInstalled = true;
-						}
-						else if (LowercaseArg == "-notinstalledengine")
-						{
-							bIsEngineInstalled = false;
-						}
-					}
-					if (!bIsEngineInstalled.HasValue)
-					{
-						bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
 					}
 
 					// Read the XML configuration files
