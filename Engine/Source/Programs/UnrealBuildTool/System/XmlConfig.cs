@@ -49,7 +49,7 @@ namespace UnrealBuildTool
 		/// Initialize the config system with the given types
 		/// </summary>
 		/// <param name="bForceLoadCache">Force use of the cached XML config without checking if it's valid (useful for remote builds)</param>
-		public static bool ReadConfigFiles(bool bForceLoadCache)
+		public static void ReadConfigFiles(bool bForceLoadCache)
 		{
 			// Find all the configurable types
 			List<Type> ConfigTypes = FindConfigurableTypes();
@@ -112,8 +112,7 @@ namespace UnrealBuildTool
 					{
 						if(!TryReadFile(InputFile, CategoryToFields, TypeToValues, Schema))
 						{
-							Log.TraceError("Failed to properly read XML file : {0}", InputFile.FullName);
-							return false;
+							throw new BuildException("Failed to properly read XML file : {0}", InputFile.FullName);
 						}
 					}
 
@@ -138,7 +137,6 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-			return true;
 		}
 
 		/// <summary>

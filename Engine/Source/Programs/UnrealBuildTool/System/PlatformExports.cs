@@ -153,10 +153,7 @@ namespace UnrealBuildTool
 		public static bool Initialize()
 		{
 			// Read the XML configuration files
-			if(!XmlConfig.ReadConfigFiles(false))
-			{
-				return false;
-			}
+			XmlConfig.ReadConfigFiles(false);
 
 			// Register all the platform classes
 			UnrealBuildTool.RegisterAllUBTClasses(false);

@@ -92,7 +92,7 @@ public:
 			// amortize UBT cost by calling it once for all platforms, rather than once per platform.
 			if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess"))==false)
 			{
-				FString UBTParams(TEXT("-autosdkonly"));
+				FString UBTParams(TEXT("-SetupPlatforms"));
 				int32 UBTReturnCode = -1;
 				FString UBTOutput;
 				if (!FDesktopPlatformModule::Get()->InvokeUnrealBuildToolSync(UBTParams, *GLog, true, UBTReturnCode, UBTOutput))

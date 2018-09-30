@@ -335,10 +335,7 @@ namespace UnrealBuildTool
 				throw new BuildException("Environment could not be read");
 			}
 
-			bool bAutoSDKOnly = CmdLine.HasOption("-AutoSDKOnly");
-
-			SingleInstanceMutexType MutexType = bAutoSDKOnly? SingleInstanceMutexType.Global : SingleInstanceMutexType.PerBranch;
-			using(SingleInstanceMutex.Acquire(MutexType, CmdLine))
+			using(SingleInstanceMutex.Acquire(SingleInstanceMutexType.PerBranch, CmdLine))
 			{
 				string[] Arguments = CmdLine.GetRawArray();
 				try
@@ -350,10 +347,7 @@ namespace UnrealBuildTool
 
 					// Read the XML configuration files
 					bool bForceXmlConfigCache = Arguments.Any(x => x.Equals("-ForceXmlConfigCache", StringComparison.InvariantCultureIgnoreCase));
-					if (!XmlConfig.ReadConfigFiles(bForceXmlConfigCache))
-					{
-						return 1;
-					}
+					XmlConfig.ReadConfigFiles(bForceXmlConfigCache);
 
 					// Create the build configuration object, and read the settings
 					BuildConfiguration BuildConfiguration = new BuildConfiguration();
@@ -363,12 +357,6 @@ namespace UnrealBuildTool
 					// Copy some of the static settings that are being deprecated from BuildConfiguration
 					bPrintDebugInfo = BuildConfiguration.bPrintDebugInfo || Log.OutputLevel == LogEventType.Verbose || Log.OutputLevel == LogEventType.VeryVerbose;
 					bPrintPerformanceInfo = BuildConfiguration.bPrintPerformanceInfo;
-
-					// Don't run junk deleter if we're just setting up autosdks
-					if (bAutoSDKOnly)
-					{
-						BuildConfiguration.bIgnoreJunk = true;
-					}
 
 					// Then let the command lines override any configs necessary.
 					string LogSuffix = "";
@@ -707,11 +695,6 @@ namespace UnrealBuildTool
 								Result = ECompilationResult.OtherCompilationError;
 							}
 						}
-					}
-					else if (bAutoSDKOnly)
-					{
-						// RegisterAllUBTClasses has already done all the SDK setup.
-						Result = ECompilationResult.Succeeded;
 					}
 					else if (BuildConfiguration.DeployTargetFile != null)
 					{
