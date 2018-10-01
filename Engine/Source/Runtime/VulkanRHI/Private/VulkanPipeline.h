@@ -227,14 +227,6 @@ public:
 
 	void RebuildCache();
 
-#if VULKAN_ENABLE_GENERIC_PIPELINE_CACHE_FILE
-	enum
-	{
-		// Bump every time serialization changes
-		VERSION = 23,
-	};
-#endif
-
 	struct FDescriptorSetLayoutBinding
 	{
 		uint32 Binding;
@@ -985,29 +977,6 @@ private:
 
 		void Save(FArchive& Ar);
 		bool Load(FArchive& Ar);
-	};
-#endif
-
-#if VULKAN_ENABLE_GENERIC_PIPELINE_CACHE_FILE
-	struct FVulkanPipelineStateCacheFile
-	{
-		struct FFileHeader
-		{
-			int32 Version = -1;
-			int32 SizeOfGfxEntry = -1;
-			int32 SizeOfComputeEntry = -1;
-			int32 UncompressedSize = 0; // 0 == file is uncompressed
-		} Header;
-
-		FShaderUCodeCache::TDataMap* ShaderCache = nullptr;
-
-		TArray<FGfxPipelineEntry*> GfxPipelineEntries;
-		TArray<FComputePipelineEntry*> ComputePipelineEntries;
-
-		void Save(FArchive& Ar);
-		bool Load(FArchive& Ar, const TCHAR* Filename);
-
-		static const ECompressionFlags CompressionFlags = (ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed);
 	};
 #endif
 
