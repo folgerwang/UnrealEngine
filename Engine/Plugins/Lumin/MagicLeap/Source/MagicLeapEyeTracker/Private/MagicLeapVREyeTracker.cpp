@@ -192,7 +192,7 @@ bool FMagicLeapVREyeTracker::Tick(float DeltaTime)
 				bInitialized = CreateResult == MLResult_Ok && MLHandleIsValid(EyeTrackingHandle);
 				if (bInitialized)
 				{
-					UE_LOG(LogCore, Warning, TEXT("   VR Eye Tracker Created"));
+					//UE_LOG(LogCore, Log, TEXT("   VR Eye Tracker Created"));
 					// Needs to be called only once.
 					if (MLEyeTrackingGetStaticData(EyeTrackingHandle, &EyeTrackingStaticData) != MLResult_Ok)
 					{
