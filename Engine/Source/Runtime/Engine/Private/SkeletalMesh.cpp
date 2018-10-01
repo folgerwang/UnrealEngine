@@ -3150,8 +3150,8 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 	// Force inset shadows if capsule shadows are requested, as they can't be supported with full scene shadows
 	bCastInsetShadow = bCastInsetShadow || bCastCapsuleDirectShadow;
 
-	const USkeletalMeshComponent* SkeletalMeshComponent = Cast<const USkeletalMeshComponent>(Component);
-	if(SkeletalMeshComponent && SkeletalMeshComponent->bPerBoneMotionBlur)
+	const USkinnedMeshComponent* SkinnedMeshComponent = Cast<const USkinnedMeshComponent>(Component);
+	if(SkinnedMeshComponent && SkinnedMeshComponent->bPerBoneMotionBlur)
 	{
 		bAlwaysHasVelocity = true;
 	}
@@ -3251,22 +3251,22 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 	SetPropertyColor(NewPropertyColor);
 
 	// Copy out shadow physics asset data
-	if(SkeletalMeshComponent)
+	if(SkinnedMeshComponent)
 	{
-		UPhysicsAsset* ShadowPhysicsAsset = SkeletalMeshComponent->SkeletalMesh->ShadowPhysicsAsset;
+		UPhysicsAsset* ShadowPhysicsAsset = SkinnedMeshComponent->SkeletalMesh->ShadowPhysicsAsset;
 
 		if (ShadowPhysicsAsset
-			&& SkeletalMeshComponent->CastShadow
-			&& (SkeletalMeshComponent->bCastCapsuleDirectShadow || SkeletalMeshComponent->bCastCapsuleIndirectShadow))
+			&& SkinnedMeshComponent->CastShadow
+			&& (SkinnedMeshComponent->bCastCapsuleDirectShadow || SkinnedMeshComponent->bCastCapsuleIndirectShadow))
 		{
 			for (int32 BodyIndex = 0; BodyIndex < ShadowPhysicsAsset->SkeletalBodySetups.Num(); BodyIndex++)
 			{
 				UBodySetup* BodySetup = ShadowPhysicsAsset->SkeletalBodySetups[BodyIndex];
-				int32 BoneIndex = SkeletalMeshComponent->GetBoneIndex(BodySetup->BoneName);
+				int32 BoneIndex = SkinnedMeshComponent->GetBoneIndex(BodySetup->BoneName);
 
 				if (BoneIndex != INDEX_NONE)
 				{
-					const FMatrix& RefBoneMatrix = SkeletalMeshComponent->SkeletalMesh->GetComposedRefPoseMatrix(BoneIndex);
+					const FMatrix& RefBoneMatrix = SkinnedMeshComponent->SkeletalMesh->GetComposedRefPoseMatrix(BoneIndex);
 
 					const int32 NumSpheres = BodySetup->AggGeom.SphereElems.Num();
 					for (int32 SphereIndex = 0; SphereIndex < NumSpheres; SphereIndex++)
