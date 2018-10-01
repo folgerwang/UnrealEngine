@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	class WindowsProjectGenerator : UEPlatformProjectGenerator
+	class WindowsProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
 		/// Register the platform with the UEPlatformProjectGenerator class
@@ -22,8 +22,8 @@ namespace UnrealBuildTool
 			// Register this project generator for Win32 and Win64
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Win32.ToString());
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Win64.ToString());
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Win32, this);
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Win64, this);
+			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Win32, this);
+			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Win64, this);
 		}
 
 		///

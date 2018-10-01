@@ -240,7 +240,7 @@ namespace UnrealBuildTool
 				{
 					if (CheckType.IsClass && !CheckType.IsAbstract)
 					{
-						if (CheckType.IsSubclassOf(typeof(UEPlatformProjectGenerator)))
+						if (CheckType.IsSubclassOf(typeof(PlatformProjectGenerator)))
 						{
 							ProjectGeneratorList.Add(CheckType);
 						}
@@ -252,7 +252,7 @@ namespace UnrealBuildTool
 				foreach (Type ProjType in ProjectGeneratorList)
 				{
 					Log.TraceVerbose("    Registering project generator: {0}", ProjType.ToString());
-					UEPlatformProjectGenerator TempInst = (UEPlatformProjectGenerator)(UBTAssembly.CreateInstance(ProjType.FullName, true));
+					PlatformProjectGenerator TempInst = (PlatformProjectGenerator)(UBTAssembly.CreateInstance(ProjType.FullName, true));
 					TempInst.RegisterPlatformProjectGenerator();
 				}
 			}

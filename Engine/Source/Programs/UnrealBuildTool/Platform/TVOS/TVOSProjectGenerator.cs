@@ -18,7 +18,7 @@ namespace UnrealBuildTool
         {
             // Register this project generator for TVOS
             Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.TVOS.ToString());
-            UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.TVOS, this);
+            PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.TVOS, this);
         }
     }
 }

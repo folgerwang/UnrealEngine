@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	class HTML5ProjectGenerator : UEPlatformProjectGenerator
+	class HTML5ProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
 		/// Register the platform with the UEPlatformProjectGenerator class
@@ -21,7 +21,7 @@ namespace UnrealBuildTool
 		{
 			// Register this project generator for HTML5
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.HTML5.ToString());
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.HTML5, this);
+			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.HTML5, this);
 		}
 
 		///

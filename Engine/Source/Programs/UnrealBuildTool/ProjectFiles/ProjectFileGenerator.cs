@@ -2146,7 +2146,7 @@ namespace UnrealBuildTool
 					if (TargetRulesObject.Type == TargetType.Game || TargetRulesObject.Type == TargetType.Client || TargetRulesObject.Type == TargetType.Server)
 					{
 						// Allow platforms to generate stub projects here...
-						UEPlatformProjectGenerator.GenerateGameProjectStubs(
+						PlatformProjectGenerator.GenerateGameProjectStubs(
 							InGenerator: this,
 							InTargetName: TargetName,
 							InTargetFilepath: TargetFilePath.FullName,

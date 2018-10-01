@@ -167,6 +167,7 @@
     <Compile Include="ProjectFiles\Eddie\EddieProject.cs" />
     <Compile Include="ProjectFiles\KDevelop\KDevelopGenerator.cs" />
     <Compile Include="ProjectFiles\Make\MakefileGenerator.cs" />
+    <Compile Include="ProjectFiles\PlatformProjectGenerator.cs" />
     <Compile Include="ProjectFiles\Project.cs" />
     <Compile Include="ProjectFiles\ProjectFileGenerator.cs" />
     <Compile Include="ProjectFiles\QMake\QMakefileGenerator.cs" />
@@ -343,7 +344,6 @@
     <Compile Include="System\Plugins.cs" />
     <Compile Include="System\RulesCompiler.cs" />
     <Compile Include="System\SourceFileSearch.cs" />
-    <Compile Include="System\UEPlatformProjectGenerator.cs" />
     <Compile Include="System\Unity.cs" />
     <Compile Include="System\UProjectInfo.cs" />
     <Compile Include="System\Utils.cs" />

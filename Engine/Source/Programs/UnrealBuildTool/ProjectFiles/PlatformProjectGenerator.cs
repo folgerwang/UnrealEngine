@@ -12,16 +12,16 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	abstract class UEPlatformProjectGenerator
+	abstract class PlatformProjectGenerator
 	{
-		static Dictionary<UnrealTargetPlatform, UEPlatformProjectGenerator> ProjectGeneratorDictionary = new Dictionary<UnrealTargetPlatform, UEPlatformProjectGenerator>();
+		static Dictionary<UnrealTargetPlatform, PlatformProjectGenerator> ProjectGeneratorDictionary = new Dictionary<UnrealTargetPlatform, PlatformProjectGenerator>();
 
 		/// <summary>
 		/// Register the given platforms UEPlatformProjectGenerator instance
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform to register with</param>
 		/// <param name="InProjectGenerator">The UEPlatformProjectGenerator instance to use for the InPlatform</param>
-		public static void RegisterPlatformProjectGenerator(UnrealTargetPlatform InPlatform, UEPlatformProjectGenerator InProjectGenerator)
+		public static void RegisterPlatformProjectGenerator(UnrealTargetPlatform InPlatform, PlatformProjectGenerator InProjectGenerator)
 		{
 			// Make sure the build platform is legal
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(InPlatform, true);
@@ -50,7 +50,7 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">    The UnrealTargetPlatform being built</param>
 		/// <param name="bInAllowFailure">   If true, do not throw an exception and return null</param>
 		/// <returns>UEPlatformProjectGenerator The instance of the project generator</returns>
-		public static UEPlatformProjectGenerator GetPlatformProjectGenerator(UnrealTargetPlatform InPlatform, bool bInAllowFailure = false)
+		public static PlatformProjectGenerator GetPlatformProjectGenerator(UnrealTargetPlatform InPlatform, bool bInAllowFailure = false)
 		{
 			if (ProjectGeneratorDictionary.ContainsKey(InPlatform) == true)
 			{
@@ -76,9 +76,9 @@ namespace UnrealBuildTool
 		public static bool GenerateGameProjectStubs(ProjectFileGenerator InGenerator, string InTargetName, string InTargetFilepath, TargetRules InTargetRules,
 			List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
 		{
-			foreach (KeyValuePair<UnrealTargetPlatform, UEPlatformProjectGenerator> Entry in ProjectGeneratorDictionary)
+			foreach (KeyValuePair<UnrealTargetPlatform, PlatformProjectGenerator> Entry in ProjectGeneratorDictionary)
 			{
-				UEPlatformProjectGenerator ProjGen = Entry.Value;
+				PlatformProjectGenerator ProjGen = Entry.Value;
 				ProjGen.GenerateGameProjectStub(InGenerator, InTargetName, InTargetFilepath, InTargetRules, InPlatforms, InConfigurations);
 			}
 			return true;
@@ -106,11 +106,11 @@ namespace UnrealBuildTool
 		public static bool PlatformRequiresVSUserFileGeneration(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
 		{
 			bool bRequiresVSUserFileGeneration = false;
-			foreach (KeyValuePair<UnrealTargetPlatform, UEPlatformProjectGenerator> Entry in ProjectGeneratorDictionary)
+			foreach (KeyValuePair<UnrealTargetPlatform, PlatformProjectGenerator> Entry in ProjectGeneratorDictionary)
 			{
 				if (InPlatforms.Contains(Entry.Key))
 				{
-					UEPlatformProjectGenerator ProjGen = Entry.Value;
+					PlatformProjectGenerator ProjGen = Entry.Value;
 					bRequiresVSUserFileGeneration |= ProjGen.RequiresVSUserFileGeneration();
 				}
 			}

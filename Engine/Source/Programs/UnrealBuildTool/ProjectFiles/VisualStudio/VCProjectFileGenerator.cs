@@ -867,7 +867,7 @@ namespace UnrealBuildTool
 												VCSolutionFileContent.Append(
 														"		" + CurProjectGUID + "." + SolutionConfigCombination.VCSolutionConfigAndPlatformName + ".Build.0 = " + ProjectConfigAndPlatformPair + ProjectFileGenerator.NewLine);
 
-												UEPlatformProjectGenerator ProjGen = UEPlatformProjectGenerator.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
+												PlatformProjectGenerator ProjGen = PlatformProjectGenerator.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
 												if (MatchingProjectTarget.ProjectDeploys ||
 													((ProjGen != null) && (ProjGen.GetVisualStudioDeploymentEnabled(SolutionPlatform, SolutionConfiguration) == true)))
 												{

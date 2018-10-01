@@ -12,7 +12,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for platform-specific project generators
 	/// </summary>
-	class IOSProjectGenerator : UEPlatformProjectGenerator
+	class IOSProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
 		/// Register the platform with the UEPlatformProjectGenerator class
@@ -21,7 +21,7 @@ namespace UnrealBuildTool
 		{
 			// Register this project generator for Mac
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.IOS.ToString());
-			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.IOS, this);
+			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.IOS, this);
 		}
 
 		///
