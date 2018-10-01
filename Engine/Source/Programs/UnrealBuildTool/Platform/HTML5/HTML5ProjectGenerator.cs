@@ -15,13 +15,11 @@ namespace UnrealBuildTool
 	class HTML5ProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Enumerate all the platforms that this generator supports
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			// Register this project generator for HTML5
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.HTML5.ToString());
-			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.HTML5, this);
+			yield return UnrealTargetPlatform.HTML5;
 		}
 
 		///

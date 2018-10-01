@@ -372,9 +372,9 @@ namespace UnrealBuildTool
 		/// Writes the project files to disk
 		/// </summary>
 		/// <returns>True if successful</returns>
-		protected override bool WriteProjectFiles()
+		protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
-			if(!base.WriteProjectFiles())
+			if(!base.WriteProjectFiles(PlatformProjectGenerators))
 			{
 				return false;
 			}
@@ -406,7 +406,7 @@ namespace UnrealBuildTool
 		}
 
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			bool bSuccess = true;
 
@@ -622,7 +622,7 @@ namespace UnrealBuildTool
 												// Figure out the set of valid target configuration names
 												foreach (ProjectTarget ProjectTarget in CurProject.ProjectTargets)
 												{
-													if (VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, CurPlatform, CurConfiguration))
+													if (VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, CurPlatform, CurConfiguration, PlatformProjectGenerators))
 													{
 														PlatformsValidForProjects.Add(CurPlatform);
 
@@ -735,7 +735,7 @@ namespace UnrealBuildTool
 										ProjectTarget MatchingProjectTarget = null;
 										foreach (ProjectTarget ProjectTarget in CurProject.ProjectTargets)
 										{
-											bool IsMatchingCombination = VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration);
+											bool IsMatchingCombination = VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration, PlatformProjectGenerators);
 											if (ProjectTarget.TargetRules != null)
 											{
 												if (TargetConfigurationName != ProjectTarget.TargetRules.Type.ToString())
@@ -841,7 +841,7 @@ namespace UnrealBuildTool
 										}
 										else
 										{
-											CurProject.MakeProjectPlatformAndConfigurationNames(SolutionPlatform, SolutionConfiguration, TargetConfigurationName, out ProjectPlatformName, out ProjectConfigName);
+											CurProject.MakeProjectPlatformAndConfigurationNames(SolutionPlatform, SolutionConfiguration, TargetConfigurationName, PlatformProjectGenerators, out ProjectPlatformName, out ProjectConfigName);
 										}
 
 										string ProjectConfigAndPlatformPair = ProjectConfigName.ToString() + "|" + ProjectPlatformName.ToString();
@@ -867,7 +867,7 @@ namespace UnrealBuildTool
 												VCSolutionFileContent.Append(
 														"		" + CurProjectGUID + "." + SolutionConfigCombination.VCSolutionConfigAndPlatformName + ".Build.0 = " + ProjectConfigAndPlatformPair + ProjectFileGenerator.NewLine);
 
-												PlatformProjectGenerator ProjGen = PlatformProjectGenerator.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
+												PlatformProjectGenerator ProjGen = PlatformProjectGenerators.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
 												if (MatchingProjectTarget.ProjectDeploys ||
 													((ProjGen != null) && (ProjGen.GetVisualStudioDeploymentEnabled(SolutionPlatform, SolutionConfiguration) == true)))
 												{

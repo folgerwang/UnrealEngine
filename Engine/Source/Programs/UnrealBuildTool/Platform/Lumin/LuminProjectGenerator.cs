@@ -29,12 +29,11 @@ namespace UnrealBuildTool
 		}
 		
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Enumerate all the platforms that this generator supports
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Lumin.ToString());
-			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Lumin, this);
+			yield return UnrealTargetPlatform.Lumin;
 		}
 
 		/// <summary>

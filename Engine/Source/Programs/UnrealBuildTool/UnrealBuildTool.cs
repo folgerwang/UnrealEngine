@@ -235,26 +235,6 @@ namespace UnrealBuildTool
 						}
 					}
 				}
-				// register all the other classes
-				foreach (Type CheckType in AllTypes)
-				{
-					if (CheckType.IsClass && !CheckType.IsAbstract)
-					{
-						if (CheckType.IsSubclassOf(typeof(PlatformProjectGenerator)))
-						{
-							ProjectGeneratorList.Add(CheckType);
-						}
-					}
-				}
-
-				// We need to process the ProjectGenerators AFTER all BuildPlatforms have been 
-				// registered as they use the BuildPlatform to verify they are legitimate.
-				foreach (Type ProjType in ProjectGeneratorList)
-				{
-					Log.TraceVerbose("    Registering project generator: {0}", ProjType.ToString());
-					PlatformProjectGenerator TempInst = (PlatformProjectGenerator)(UBTAssembly.CreateInstance(ProjType.FullName, true));
-					TempInst.RegisterPlatformProjectGenerator();
-				}
 			}
 		}
 
@@ -745,21 +725,6 @@ namespace UnrealBuildTool
 				// Make sure we flush the logs however we exit
 				Trace.Close();
 			}
-		}
-
-		/// <summary>
-		/// Generates project files.  Can also be used to generate projects "in memory", to allow for building
-		/// targets without even having project files at all.
-		/// </summary>
-		/// <param name="Generator">Project generator to use</param>
-		/// <param name="Arguments">Command-line arguments</param>
-		/// <returns>True if successful</returns>
-		internal static bool GenerateProjectFiles(ProjectFileGenerator Generator, string[] Arguments)
-		{
-			ProjectFileGenerator.bGenerateProjectFiles = true;
-			bool bSuccess = Generator.GenerateProjectFiles(Arguments);
-			ProjectFileGenerator.bGenerateProjectFiles = false;
-			return bSuccess;
 		}
 
 		internal static ECompilationResult RunUBT(BuildConfiguration BuildConfiguration, string[] Arguments, FileReference ProjectFile, bool bCatchExceptions)

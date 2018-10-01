@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -380,8 +380,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatforms">The platforms to write the project files for</param>
 		/// <param name="InConfigurations">The configurations to add to the project files</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <returns>True on success</returns>
-		public virtual bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public virtual bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			throw new BuildException("UnrealBuildTool cannot automatically generate this project type because WriteProjectFile() was not overridden.");
 		}
@@ -391,8 +392,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatforms">The platforms to write the project files for</param>
 		/// <param name="InConfigurations">The configurations to add to the project files</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <returns>List of project files written</returns>
-		public virtual List<Tuple<ProjectFile, string>> WriteDebugProjectFiles(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public virtual List<Tuple<ProjectFile, string>> WriteDebugProjectFiles(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return null;
 		}

@@ -168,6 +168,7 @@
     <Compile Include="ProjectFiles\KDevelop\KDevelopGenerator.cs" />
     <Compile Include="ProjectFiles\Make\MakefileGenerator.cs" />
     <Compile Include="ProjectFiles\PlatformProjectGenerator.cs" />
+    <Compile Include="ProjectFiles\PlatformProjectGeneratorCollection.cs" />
     <Compile Include="ProjectFiles\Project.cs" />
     <Compile Include="ProjectFiles\ProjectFileGenerator.cs" />
     <Compile Include="ProjectFiles\QMake\QMakefileGenerator.cs" />

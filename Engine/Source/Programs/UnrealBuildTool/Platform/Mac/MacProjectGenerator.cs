@@ -17,11 +17,9 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEPlatformProjectGenerator class
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			// Register this project generator for Mac
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Mac.ToString());
-			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Mac, this);
+			yield return UnrealTargetPlatform.Mac;
 		}
 
 		///

@@ -24,7 +24,7 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public override bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public override bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return true;
 		}
@@ -240,7 +240,7 @@ namespace UnrealBuildTool
 			return new VSCodeProjectFolder(InitOwnerProjectFileGenerator, InitFolderName);
 		} 
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			VSCodeDir = DirectoryReference.Combine(MasterProjectPath, ".vscode");
 			DirectoryReference.CreateDirectory(VSCodeDir);
@@ -269,7 +269,7 @@ namespace UnrealBuildTool
 			}
 			Projects.Sort((A, B) => { return A.ProjectFilePath.GetFileName().CompareTo(B.ProjectFilePath.GetFileName()); });
 
-			ProjectData ProjectData = GatherProjectData(Projects);
+			ProjectData ProjectData = GatherProjectData(Projects, PlatformProjectGenerators);
 
 			WriteTasksFile(ProjectData);
 			WriteLaunchFile(ProjectData);
@@ -347,7 +347,7 @@ namespace UnrealBuildTool
 			public List<string> CombinedIncludePaths = new List<string>();
 		}
 
-		private ProjectData GatherProjectData(List<ProjectFile> InProjects)
+		private ProjectData GatherProjectData(List<ProjectFile> InProjects, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			ProjectData ProjectData = new ProjectData();
 
@@ -383,7 +383,7 @@ namespace UnrealBuildTool
 							{
 								foreach (UnrealTargetConfiguration Config in Configs)
 								{
-									if (MSBuildProjectFile.IsValidProjectPlatformAndConfiguration(Target, Platform, Config))
+									if (MSBuildProjectFile.IsValidProjectPlatformAndConfiguration(Target, Platform, Config, PlatformProjectGenerators))
 									{
 										NewTarget.BuildProducts.Add(new ProjectData.BuildProduct
 										{

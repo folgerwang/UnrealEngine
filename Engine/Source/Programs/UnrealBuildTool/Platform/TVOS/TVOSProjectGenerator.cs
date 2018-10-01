@@ -11,14 +11,12 @@ namespace UnrealBuildTool
 {
 	class TVOSProjectGenerator : IOSProjectGenerator
     {
-        /**
-         *	Register the platform with the UEPlatformProjectGenerator class
-         */
-        public override void RegisterPlatformProjectGenerator()
-        {
-            // Register this project generator for TVOS
-            Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.TVOS.ToString());
-            PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.TVOS, this);
-        }
+		/// <summary>
+		/// Enumerate all the platforms that this generator supports
+		/// </summary>
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
+		{
+			yield return UnrealTargetPlatform.TVOS;
+		}
     }
 }

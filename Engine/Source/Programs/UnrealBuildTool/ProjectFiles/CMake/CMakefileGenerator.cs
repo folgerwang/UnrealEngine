@@ -229,8 +229,9 @@ namespace UnrealBuildTool
 		/// Writes the master project file (e.g. Visual Studio Solution file)
 		/// </summary>
 		/// <param name="UBTProject">The UnrealBuildTool project</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <returns>True if successful</returns>
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return true;
 		}
@@ -780,7 +781,7 @@ namespace UnrealBuildTool
 
 		#region ProjectFileGenerator implementation
 
-		protected override bool WriteProjectFiles()
+		protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			WriteCLionIgnoreDirs();
 			return WriteCMakeLists();

@@ -142,12 +142,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Enumerate all the platforms that this generator supports
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Android.ToString());
-			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Android, this);
+			yield return UnrealTargetPlatform.Android;
 		}
 
 		/// <summary>
@@ -710,9 +709,10 @@ namespace UnrealBuildTool
 		/// <param name="Platform">Actual platform</param>
 		/// <param name="Configuration">Actual configuration</param>
 		/// <param name="TargetConfigurationName">The configuration name from the target rules, or null if we don't have one</param>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <param name="ProjectPlatformName">Name of platform string to use for Visual Studio project</param>
 		/// <param name="ProjectConfigurationName">Name of configuration string to use for Visual Studio project</param>
-		public override void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string TargetConfigurationName, out string ProjectPlatformName, out string ProjectConfigurationName)
+		public override void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string TargetConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators, out string ProjectPlatformName, out string ProjectConfigurationName)
 		{
 			ProjectConfigurationName = UnrealTargetConfiguration.Debug.ToString();
 			ProjectPlatformName = "ARM";

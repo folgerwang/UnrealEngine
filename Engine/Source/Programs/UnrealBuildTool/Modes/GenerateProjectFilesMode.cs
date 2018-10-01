@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
@@ -89,6 +90,21 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// Register all the platform project generators
+				PlatformProjectGeneratorCollection PlatformProjectGenerators = new PlatformProjectGeneratorCollection();
+				foreach (Type CheckType in Assembly.GetExecutingAssembly().GetTypes())
+				{
+					if (CheckType.IsClass && !CheckType.IsAbstract && CheckType.IsSubclassOf(typeof(PlatformProjectGenerator)))
+					{
+						PlatformProjectGenerator Generator = (PlatformProjectGenerator)Activator.CreateInstance(CheckType);
+						foreach(UnrealTargetPlatform Platform in Generator.GetPlatforms())
+						{
+							Log.TraceVerbose("Registering project generator {0} for {1}", CheckType, Platform);
+							PlatformProjectGenerators.RegisterPlatformProjectGenerator(Platform, Generator);
+						}
+					}
+				}
+
 				// Create each project generator and run it
 				List<ProjectFileGenerator> Generators = new List<ProjectFileGenerator>();
 				foreach (ProjectFileFormat ProjectFileFormat in ProjectFileFormats.Distinct())
@@ -165,7 +181,7 @@ namespace UnrealBuildTool
 				ProjectFileGenerator.bGenerateProjectFiles = true;
 				foreach(ProjectFileGenerator Generator in Generators)
 				{
-					if (!Generator.GenerateProjectFiles(Arguments.GetRawArray()))
+					if (!Generator.GenerateProjectFiles(PlatformProjectGenerators, Arguments.GetRawArray()))
 					{
 						return (int)ECompilationResult.OtherCompilationError;
 					}

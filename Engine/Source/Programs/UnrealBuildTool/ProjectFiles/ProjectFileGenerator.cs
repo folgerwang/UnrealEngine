@@ -573,8 +573,9 @@ namespace UnrealBuildTool
 		/// Generates a Visual Studio solution file and Visual C++ project files for all known engine and game targets.
 		/// Does not actually build anything.
 		/// </summary>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <param name="Arguments">Command-line arguments</param>
-		public virtual bool GenerateProjectFiles( String[] Arguments )
+		public virtual bool GenerateProjectFiles( PlatformProjectGeneratorCollection PlatformProjectGenerators, String[] Arguments )
 		{
 			bool bSuccess = true;
 
@@ -681,7 +682,7 @@ namespace UnrealBuildTool
 			Dictionary<DirectoryReference, ProjectFile> SampleGameProjects = null;
 			{
 				// Setup buildable projects for all targets
-				AddProjectsForAllTargets( AllGameProjects, out EngineProject, out EnterpriseProject, out GameProjects, out ModProjects, out ProgramProjects, out TemplateGameProjects, out SampleGameProjects );
+				AddProjectsForAllTargets( PlatformProjectGenerators, AllGameProjects, out EngineProject, out EnterpriseProject, out GameProjects, out ModProjects, out ProgramProjects, out TemplateGameProjects, out SampleGameProjects );
 
 				// Add all game projects and game config files
 				AddAllGameProjects(GameProjects, SupportedPlatformNames, RootFolder);
@@ -765,7 +766,7 @@ namespace UnrealBuildTool
 							AddEngineDocumentation( EngineProject );
 						}
 
-						List<Tuple<ProjectFile, string>> NewProjectFiles = EngineProject.WriteDebugProjectFiles(InPlatforms: SupportedPlatforms, InConfigurations: SupportedConfigurations);
+						List<Tuple<ProjectFile, string>> NewProjectFiles = EngineProject.WriteDebugProjectFiles(SupportedPlatforms, SupportedConfigurations, PlatformProjectGenerators);
 
 						if (NewProjectFiles != null)
 						{
@@ -816,7 +817,7 @@ namespace UnrealBuildTool
 							RootFolder.AddSubFolder( "Games" ).ChildProjects.Add( CurGameProject );
 						}
 
-						List<Tuple<ProjectFile, string>> NewProjectFiles = CurGameProject.WriteDebugProjectFiles(InPlatforms: SupportedPlatforms, InConfigurations: SupportedConfigurations);
+						List<Tuple<ProjectFile, string>> NewProjectFiles = CurGameProject.WriteDebugProjectFiles(SupportedPlatforms, SupportedConfigurations, PlatformProjectGenerators);
 
 						if (NewProjectFiles != null)
 						{
@@ -960,7 +961,7 @@ namespace UnrealBuildTool
 				// the targets so that we can extra the compiler defines, include paths, etc.
 				if(GenerateIntelliSenseData(Arguments, IntelliSenseTargetFiles))
 				{
-					WriteProjectFiles();
+					WriteProjectFiles(PlatformProjectGenerators);
 					Log.TraceVerbose( "Project generation complete ({0} generated, {1} imported)", GeneratedProjectFiles.Count, OtherProjectFiles.Count );
 				}
 			}
@@ -2014,6 +2015,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Creates project entries for all known targets (*.Target.cs files)
 		/// </summary>
+		/// <param name="PlatformProjectGenerators">The registered platform project generators</param>
 		/// <param name="AllGames">All game folders</param>
 		/// <param name="EngineProject">The engine project we created</param>
 		/// <param name="EnterpriseProject">The enterprise project we created</param>
@@ -2022,7 +2024,7 @@ namespace UnrealBuildTool
 		/// <param name="ProgramProjects">Map of program names to all of the program projects we created</param>
 		/// <param name="TemplateGameProjects">Set of template game projects we found.  These will also be in the GameProjects map</param>
 		/// <param name="SampleGameProjects">Set of sample game projects that were found</param>
-		private void AddProjectsForAllTargets( List<FileReference> AllGames, out ProjectFile EngineProject, out ProjectFile EnterpriseProject,
+		private void AddProjectsForAllTargets( PlatformProjectGeneratorCollection PlatformProjectGenerators, List<FileReference> AllGames, out ProjectFile EngineProject, out ProjectFile EnterpriseProject,
 			out Dictionary<DirectoryReference, ProjectFile> GameProjects, out Dictionary<DirectoryReference, ProjectFile> ModProjects,
 			out Dictionary<FileReference, ProjectFile> ProgramProjects, out Dictionary<DirectoryReference, ProjectFile> TemplateGameProjects, out Dictionary<DirectoryReference, ProjectFile> SampleGameProjects )
 		{
@@ -2146,7 +2148,7 @@ namespace UnrealBuildTool
 					if (TargetRulesObject.Type == TargetType.Game || TargetRulesObject.Type == TargetType.Client || TargetRulesObject.Type == TargetType.Server)
 					{
 						// Allow platforms to generate stub projects here...
-						PlatformProjectGenerator.GenerateGameProjectStubs(
+						PlatformProjectGenerators.GenerateGameProjectStubs(
 							InGenerator: this,
 							InTargetName: TargetName,
 							InTargetFilepath: TargetFilePath.FullName,
@@ -2466,7 +2468,7 @@ namespace UnrealBuildTool
 		/// Writes the project files to disk
 		/// </summary>
 		/// <returns>True if successful</returns>
-		protected virtual bool WriteProjectFiles()
+		protected virtual bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
             using(ProgressWriter Progress = new ProgressWriter("Writing project files...", true))
 			{
@@ -2475,9 +2477,7 @@ namespace UnrealBuildTool
 				for(int ProjectFileIndex = 0 ; ProjectFileIndex < GeneratedProjectFiles.Count; ++ProjectFileIndex )
 				{
 					ProjectFile CurProject = GeneratedProjectFiles[ ProjectFileIndex ];
-					if( !CurProject.WriteProjectFile(
-								InPlatforms: SupportedPlatforms,
-								InConfigurations: SupportedConfigurations ) )
+					if( !CurProject.WriteProjectFile(SupportedPlatforms, SupportedConfigurations, PlatformProjectGenerators) )
 					{
 						return false;
 					}
@@ -2485,7 +2485,7 @@ namespace UnrealBuildTool
 					Progress.Write(ProjectFileIndex + 1, TotalProjectFileCount);
 				}
 
-				WriteMasterProjectFile( UBTProject: UBTProject );
+				WriteMasterProjectFile( UBTProject, PlatformProjectGenerators );
 				Progress.Write(TotalProjectFileCount, TotalProjectFileCount);
 			}
 			return true;
@@ -2495,8 +2495,9 @@ namespace UnrealBuildTool
 		/// Writes the master project file (e.g. Visual Studio Solution file)
 		/// </summary>
 		/// <param name="UBTProject">The UnrealBuildTool project</param>
+		/// <param name="PlatformProjectGenerators">The platform project file generators</param>
 		/// <returns>True if successful</returns>
-		protected abstract bool WriteMasterProjectFile( ProjectFile UBTProject );
+		protected abstract bool WriteMasterProjectFile( ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators );
 
 
 		/// <summary>

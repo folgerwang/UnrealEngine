@@ -55,7 +55,7 @@ namespace UnrealBuildTool
 				return ".project";
 			}
 		}
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			string SolutionFileName = MasterProjectName + SolutionExtension;
 			string CodeCompletionFile = MasterProjectName + CodeCompletionFileName;

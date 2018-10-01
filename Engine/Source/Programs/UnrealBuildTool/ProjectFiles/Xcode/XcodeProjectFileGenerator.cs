@@ -193,7 +193,7 @@ namespace UnrealBuildTool
 			return bSuccess;
 		}
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return WriteXcodeWorkspace();
 		}

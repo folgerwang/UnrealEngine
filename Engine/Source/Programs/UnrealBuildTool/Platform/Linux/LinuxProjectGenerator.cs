@@ -15,13 +15,11 @@ namespace UnrealBuildTool
 	class LinuxProjectGenerator : PlatformProjectGenerator
 	{
 		/// <summary>
-		/// Register the platform with the UEPlatformProjectGenerator class
+		/// Enumerate all the platforms that this generator supports
 		/// </summary>
-		public override void RegisterPlatformProjectGenerator()
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
 		{
-			// Register this project generator for both Linux
-			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Linux.ToString());
-			PlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Linux, this);
+			yield return UnrealTargetPlatform.Linux;
 		}
 
 		///

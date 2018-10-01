@@ -39,7 +39,7 @@ namespace UnrealBuildTool
         /// Writes the project files to disk
         /// </summary>
         /// <returns>True if successful</returns>
-        protected override bool WriteProjectFiles()
+        protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
         {
             // This can be reset by higher level code when it detects that we don't have
             // VS2015 installed (TODO - add custom format for Mac?)
@@ -49,7 +49,7 @@ namespace UnrealBuildTool
             // write out OtherProjectFiles and AutomationProjectFiles
             GeneratedProjectFiles.Clear();
 
-            if (!base.WriteProjectFiles())
+            if (!base.WriteProjectFiles(PlatformProjectGenerators))
             {
                 return false;
             }
