@@ -222,6 +222,7 @@ public:
 	{
 		if (OpenVRDLLHandle != nullptr)
 		{
+			UE_LOG(LogHMD, Log, TEXT("Freeing OpenVRDLLHandle."));
 			FPlatformProcess::FreeDllHandle(OpenVRDLLHandle);
 			OpenVRDLLHandle = nullptr;
 		}
@@ -1706,6 +1707,8 @@ void FSteamVRHMD::Shutdown()
 {
 	if (VRSystem != nullptr)
 	{
+		UE_LOG(LogHMD, Log, TEXT("SteamVR Shutting down."));
+
 		SplashTicker->UnregisterForMapLoad();
 		SplashTicker = nullptr;
 
