@@ -13,32 +13,34 @@ struct FCapturedFrame;
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+
 typedef TCHAR* PTCHAR;
 
-#ifdef __clang__
+THIRD_PARTY_INCLUDES_START
+#if defined(__clang__)
 	#pragma clang diagnostic push
-	#pragma clang diagnostic ignored "-Wreorder"	// warning : field 'x' will be initialized after field 'y' [-Wreorder]
 	#pragma clang diagnostic ignored "-Woverloaded-virtual"	 // note: hidden overloaded virtual function 'x' declared here: different number of parameters
 #else
 	#pragma warning(push)
-	#pragma warning(disable : 4263) // 'function' : member function does not override any base class virtual member function
-	#pragma warning(disable : 4264) // 'virtual_function' : no override available for virtual member function from base 
-	#pragma warning(disable : 4265) // 'class' : class has virtual functions, but destructor is not virtual
+	#pragma warning(disable: 4263) // 'function' : member function does not override any base class virtual member function
+	#pragma warning(disable: 4264) // 'virtual_function' : no override available for virtual member function from base 
 	#if USING_CODE_ANALYSIS
-		#pragma warning(disable:6509)  // Invalid annotation: 'return' cannot be referenced in some contexts
-		#pragma warning(disable:6101)  // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
-		#pragma warning(disable:28204) // 'Func' has an override at 'file' and only the override is annotated for _Param_(N): when an override is annotated, the base (this function) should be similarly annotated.
-	#endif
-#endif
-#include "Windows/WindowsHWrapper.h"
-#include "Windows/AllowWindowsPlatformTypes.h"
+		#pragma warning(disable: 6101)  // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
+		#pragma warning(disable: 6509)  // Invalid annotation: 'return' cannot be referenced in some contexts
+		#pragma warning(disable: 28204) // 'Func' has an override at 'file' and only the override is annotated for _Param_(N): when an override is annotated, the base (this function) should be similarly annotated.
+	#endif // USING_CODE_ANALYSIS
+#endif // defined(__clang__)
 #include <streams.h>
-#include "Windows/HideWindowsPlatformTypes.h"
-#ifdef __clang__
+#if defined(__clang__)
 	#pragma clang diagnostic pop
 #else
 	#pragma warning(pop)
-#endif
+#endif // defined(__clang__)
+THIRD_PARTY_INCLUDES_END
+
+#include "Windows/HideWindowsPlatformTypes.h"
 
 class FAVIWriter;
 struct FCapturedFrame;

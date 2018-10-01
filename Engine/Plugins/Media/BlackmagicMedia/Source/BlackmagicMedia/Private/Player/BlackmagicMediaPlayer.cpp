@@ -78,13 +78,13 @@ protected:
 
 FBlackmagicMediaPlayer::FBlackmagicMediaPlayer(IMediaEventSink& InEventSink)
 	: Super(InEventSink)
-	, bUseFrameTimecode(false)
 	, bEncodeTimecodeInTexel(false)
+	, bUseFrameTimecode(false)
 	, bIsOpen(false)
 	, AudioSamplePool(new FBlackmagicMediaAudioSamplePool)
 	, CaptureStyle(EBlackmagicMediaCaptureStyle::AudioVideo)
-	, BmThread_AudioChannels(0)
 	, BmThread_AudioSampleRate(0)
+	, BmThread_AudioChannels(0)
 	, Device(nullptr)
 	, Port(nullptr)
 {

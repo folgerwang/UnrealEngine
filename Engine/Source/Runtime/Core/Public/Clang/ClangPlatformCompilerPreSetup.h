@@ -73,6 +73,17 @@
 		_Pragma("clang diagnostic pop")
 #endif // PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
 
+#ifndef PRAGMA_DISABLE_REORDER_WARNINGS
+	#define PRAGMA_DISABLE_REORDER_WARNINGS \
+		_Pragma("clang diagnostic push") \
+		_Pragma("clang diagnostic ignored \"-Wreorder\"")
+#endif // PRAGMA_DISABLE_REORDER_WARNINGS
+
+#ifndef PRAGMA_ENABLE_REORDER_WARNINGS
+	#define PRAGMA_ENABLE_REORDER_WARNINGS \
+		_Pragma("clang diagnostic pop")
+#endif // PRAGMA_ENABLE_REORDER_WARNINGS
+
 #ifndef PRAGMA_POP
 	#define PRAGMA_POP \
 		_Pragma("clang diagnostic pop")

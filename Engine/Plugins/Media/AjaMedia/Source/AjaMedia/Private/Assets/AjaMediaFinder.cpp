@@ -86,17 +86,17 @@ FAjaMediaDevice::FAjaMediaDevice()
 
 FAjaMediaPort::FAjaMediaPort()
 	: DeviceIndex(INDEX_NONE)
-	, PortIndex(INDEX_NONE)
 	, LinkType(EAjaLinkType::SingleLink)
 	, QuadLinkType(EAjaQuadLinkType::Square)
+	, PortIndex(INDEX_NONE)
 { }
 
 FAjaMediaPort::FAjaMediaPort(FName InDeviceName, int32 InDeviceIndex, int32 InPortIndex)
 	: DeviceName(InDeviceName)
 	, DeviceIndex(InDeviceIndex)
-	, PortIndex(InPortIndex)
 	, LinkType(EAjaLinkType::SingleLink)
 	, QuadLinkType(EAjaQuadLinkType::Square)
+	, PortIndex(InPortIndex)
 { }
 
 FString FAjaMediaPort::ToString() const

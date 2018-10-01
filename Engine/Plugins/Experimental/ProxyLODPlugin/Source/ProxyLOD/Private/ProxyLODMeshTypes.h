@@ -471,18 +471,18 @@ private:
 
 template <typename SimplifierVertexType>
 TAOSMesh<SimplifierVertexType>::TAOSMesh() :
-	NumVertexes(0),
-	NumIndexes(0),
 	Vertexes(NULL),
-	Indexes(NULL)
+	Indexes(NULL),
+	NumVertexes(0),
+	NumIndexes(0)
 {}
 
 template <typename SimplifierVertexType>
 TAOSMesh<SimplifierVertexType>::TAOSMesh(int32 VertCount, int32 FaceCount) :
-	NumVertexes(0),
-	NumIndexes(0),
 	Vertexes(NULL),
-	Indexes(NULL)
+	Indexes(NULL),
+	NumVertexes(0),
+	NumIndexes(0)
 {
 	this->Resize(VertCount, FaceCount);
 }

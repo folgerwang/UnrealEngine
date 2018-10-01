@@ -859,11 +859,11 @@ namespace WindowsMixedReality
 
 	FWindowsMixedRealityHMD::FWindowsMixedRealityHMD(const FAutoRegister& AutoRegister)
 		: FSceneViewExtensionBase(AutoRegister)
+		, ScreenScalePercentage(1.0f)
 		, mCustomPresent(nullptr)
+		, HMDTrackingOrigin(EHMDTrackingOrigin::Floor)
 		, CurrOrientation(FQuat::Identity)
 		, CurrPosition(FVector::ZeroVector)
-		, HMDTrackingOrigin(EHMDTrackingOrigin::Floor)
-		, ScreenScalePercentage(1.0f)
 	{
 		static const FName RendererModuleName("Renderer");
 		RendererModule = FModuleManager::GetModulePtr<IRendererModule>(RendererModuleName);

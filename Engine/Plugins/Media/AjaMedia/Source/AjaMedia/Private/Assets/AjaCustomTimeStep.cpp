@@ -42,11 +42,11 @@ UAjaCustomTimeStep::UAjaCustomTimeStep(const FObjectInitializer& ObjectInitializ
 	, bEnableOverrunDetection(false)
 	, SyncChannel(nullptr)
 	, SyncCallback(nullptr)
-	, State(ECustomTimeStepSynchronizationState::Closed)
 #if WITH_EDITORONLY_DATA
 	, InitializedEngine(nullptr)
 	, LastAutoSynchronizeInEditorAppTime(0.0)
 #endif
+	, State(ECustomTimeStepSynchronizationState::Closed)
 	, bDidAValidUpdateTimeStep(false)
 	, bWarnedAboutVSync(false)
 {

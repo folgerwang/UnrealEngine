@@ -64,17 +64,10 @@
 
 #if WITH_SPEEDTREE
 
-#ifdef __clang__ // @todo: ThirdParty/SpeedTree/SpeedTreeSDK-v7.0/Include/Core/RenderState_inl.h:52:2: warning: field 'm_eHueVariation' will be initialized after field 'm_eShaderGenerationMode' [-Wreorder]
-	#pragma clang diagnostic push
-	#pragma clang diagnostic ignored "-Wreorder"
-#endif
-
+THIRD_PARTY_INCLUDES_START
 #include "Core/Core.h"
 #include "TreeReader.h"
-
-#ifdef __clang__
-	#pragma clang diagnostic pop
-#endif
+THIRD_PARTY_INCLUDES_END
 
 #endif // WITH_SPEEDTREE
 #include "PhysicsEngine/SphereElem.h"

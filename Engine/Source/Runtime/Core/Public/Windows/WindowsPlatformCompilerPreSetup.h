@@ -4,52 +4,44 @@
 
 #if defined(__clang__)
 	#include "Clang/ClangPlatformCompilerPreSetup.h"
-#endif
 
-#ifndef DISABLE_DEPRECATION
-	#if !defined(__clang__)
-		#define DEPRECATED(VERSION, MESSAGE) __declspec(deprecated(MESSAGE " Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile."))
-
-		#define PRAGMA_DISABLE_DEPRECATION_WARNINGS \
-			__pragma (warning(push)) \
-			__pragma (warning(disable:4995)) \
-			__pragma (warning(disable:4996))
-
-		#define PRAGMA_ENABLE_DEPRECATION_WARNINGS \
-			__pragma (warning(pop))
-	#endif
-#endif // DISABLE_DEPRECATION
-
-#if defined(__clang__)
 	// Disable common CA warnings around SDK includes
 	#ifndef THIRD_PARTY_INCLUDES_START
 		#define THIRD_PARTY_INCLUDES_START \
+			PRAGMA_DISABLE_REORDER_WARNINGS \
 			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS \
 			PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS \
 			PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	#endif
+	#endif // THIRD_PARTY_INCLUDES_START
 
 	#ifndef THIRD_PARTY_INCLUDES_END
 		#define THIRD_PARTY_INCLUDES_END \
 			PRAGMA_ENABLE_DEPRECATION_WARNINGS \
 			PRAGMA_ENABLE_UNDEFINED_IDENTIFIER_WARNINGS \
-			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
-	#endif
+			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS \
+			PRAGMA_ENABLE_REORDER_WARNINGS
+	#endif // THIRD_PARTY_INCLUDES_END
 #else
-	// VC++
-	// 4456 - declaration of 'LocalVariable' hides previous local declaration
-	// 4457 - declaration of 'LocalVariable' hides function parameter
-	// 4458 - declaration of 'LocalVariable' hides class member
-	// 4459 - declaration of 'LocalVariable' hides global declaration
-	// 6244 - local declaration of <variable> hides previous declaration at <line> of <file>
+	#ifndef DISABLE_DEPRECATION
+		#define DEPRECATED(VERSION, MESSAGE) __declspec(deprecated(MESSAGE " Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile."))
+
+		#define PRAGMA_DISABLE_DEPRECATION_WARNINGS \
+			__pragma (warning(push)) \
+			__pragma (warning(disable: 4995)) /* 'function': name was marked as #pragma deprecated */ \
+			__pragma (warning(disable: 4996)) /* The compiler encountered a deprecated declaration. */
+
+		#define PRAGMA_ENABLE_DEPRECATION_WARNINGS \
+			__pragma (warning(pop))
+	#endif // DISABLE_DEPRECATION
+
 	#ifndef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 		#define PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS \
 			__pragma (warning(push)) \
-			__pragma (warning(disable:4456)) \
-			__pragma (warning(disable:4457)) \
-			__pragma (warning(disable:4458)) \
-			__pragma (warning(disable:4459)) \
-			__pragma (warning(disable:6244))
+			__pragma (warning(disable: 4456)) /* declaration of 'LocalVariable' hides previous local declaration */ \
+			__pragma (warning(disable: 4457)) /* declaration of 'LocalVariable' hides function parameter */ \
+			__pragma (warning(disable: 4458)) /* declaration of 'LocalVariable' hides class member */ \
+			__pragma (warning(disable: 4459)) /* declaration of 'LocalVariable' hides global declaration */ \
+			__pragma (warning(disable: 6244)) /* local declaration of <variable> hides previous declaration at <line> of <file> */
 	#endif // PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 	#ifndef PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
@@ -60,7 +52,7 @@
 	#ifndef PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS
 		#define PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS \
 			__pragma(warning(push)) \
-			__pragma(warning(disable: 4668))  /* 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives' */
+			__pragma(warning(disable: 4668)) /* 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives' */
 	#endif // PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS
 
 	#ifndef PRAGMA_ENABLE_UNDEFINED_IDENTIFIER_WARNINGS
@@ -71,13 +63,24 @@
 	#ifndef PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
 		#define PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
 			__pragma(warning(push)) \
-			__pragma(warning(disable:4265))
+			__pragma(warning(disable: 4265)) /* class' : class has virtual functions, but destructor is not virtual */
 	#endif // PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
 
 	#ifndef PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
 		#define PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
 			__pragma(warning(pop))
 	#endif // PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
+
+	#ifndef PRAGMA_DISABLE_REORDER_WARNINGS
+		#define PRAGMA_DISABLE_REORDER_WARNINGS \
+			__pragma(warning(push)) \
+			__pragma(warning(disable: 5038)) /* data member 'member1' will be initialized after data member 'member2' data member 'member' will be initialized after base class 'base_class' */
+	#endif // PRAGMA_DISABLE_REORDER_WARNINGS
+
+	#ifndef PRAGMA_ENABLE_REORDER_WARNINGS
+		#define PRAGMA_ENABLE_REORDER_WARNINGS \
+			__pragma(warning(pop))
+	#endif // PRAGMA_ENABLE_REORDER_WARNINGS
 
 	#ifndef PRAGMA_POP
 		#define PRAGMA_POP \
@@ -105,11 +108,12 @@
 			__pragma(warning(disable: 28252)) /* Inconsistent annotation for '<func>': return/function has '<annotation>' on the prior instance. */ \
 			__pragma(warning(disable: 28253)) /* Inconsistent annotation for '<func>': _Param_(<num>) has '<annotation>' on the prior instance. */ \
 			__pragma(warning(disable: 28301)) /* No annotations for first declaration of '<func>'. */ \
+			PRAGMA_DISABLE_REORDER_WARNINGS \
 			PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS \
 			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS \
 			PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
 			PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	#endif
+	#endif // THIRD_PARTY_INCLUDES_START
 
 	#ifndef THIRD_PARTY_INCLUDES_END
 		#define THIRD_PARTY_INCLUDES_END \
@@ -117,19 +121,10 @@
 			PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
 			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS \
 			PRAGMA_ENABLE_UNDEFINED_IDENTIFIER_WARNINGS \
+			PRAGMA_ENABLE_REORDER_WARNINGS \
 			__pragma(warning(pop))
-	#endif
-#endif
+	#endif // THIRD_PARTY_INCLUDES_END
 
-#if !defined(__clang__)
 	#define EMIT_CUSTOM_WARNING_AT_LINE(Line, Warning) \
 		__pragma(message(WARNING_LOCATION(Line) ": warning C4996: " Warning))
-#endif
-
-#if defined(__clang__)
-	// Make certain warnings always be warnings, even despite -Werror.
-	// Rationale: we don't want to suppress those as there are plans to address them (e.g. UE-12341), but breaking builds due to these warnings is very expensive
-	// since they cannot be caught by all compilers that we support. They are deemed to be relatively safe to be ignored, at least until all SDKs/toolchains start supporting them.
-	#pragma clang diagnostic warning "-Wreorder"
-#endif
-
+#endif // defined(__clang__)
