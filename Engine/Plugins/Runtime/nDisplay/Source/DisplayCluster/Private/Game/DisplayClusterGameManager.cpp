@@ -179,8 +179,6 @@ void FDisplayClusterGameManager::SetActiveCamera(int32 idx)
 		return;
 	}
 
-	check(idx < GDisplayCluster->GetPrivateConfigMgr()->GetCamerasAmount());
-
 	FDisplayClusterConfigCamera cam;
 	if (!GDisplayCluster->GetPrivateConfigMgr()->GetCamera(idx, cam))
 	{
@@ -234,11 +232,16 @@ TArray<UDisplayClusterSceneComponent*> FDisplayClusterGameManager::GetAllNodes()
 USceneComponent* FDisplayClusterGameManager::GetTranslationDirectionComponent() const
 {
 	if (!IsDisplayClusterActive())
+	{
 		return nullptr;
+	}
+
+	if (VRRootActor == nullptr)
+	{
+		return nullptr;
+	}
 
 	FScopeLock lock(&InternalsSyncScope);
-	check(VRRootActor);
-
 	UE_LOG(LogDisplayClusterGame, Verbose, TEXT("GetTranslationDirectionComponent: %s"), (VRRootActor->TranslationDirection ? *VRRootActor->TranslationDirection->GetName() : TEXT("nullptr")));
 	return VRRootActor->TranslationDirection;
 }
@@ -252,9 +255,12 @@ void FDisplayClusterGameManager::SetTranslationDirectionComponent(USceneComponen
 		return;
 	}
 
-	FScopeLock lock(&InternalsSyncScope);
-	check(VRRootActor);
+	if (VRRootActor == nullptr)
+	{
+		return;
+	}
 
+	FScopeLock lock(&InternalsSyncScope);
 	UE_LOG(LogDisplayClusterGame, Log, TEXT("New translation direction component set: %s"), (pComp ? *pComp->GetName() : TEXT("nullptr")));
 	VRRootActor->TranslationDirection = pComp;
 }
@@ -268,9 +274,6 @@ void FDisplayClusterGameManager::SetTranslationDirectionComponent(const FString&
 		return;
 	}
 
-	FScopeLock lock(&InternalsSyncScope);
-	check(VRRootActor);
-
 	UE_LOG(LogDisplayClusterGame, Log, TEXT("New translation direction node id requested: %s"), *id);
 	SetTranslationDirectionComponent(GetNodeById(id));
 }
@@ -282,9 +285,12 @@ USceneComponent* FDisplayClusterGameManager::GetRotateAroundComponent() const
 		return nullptr;
 	}
 
-	FScopeLock lock(&InternalsSyncScope);
-	check(VRRootActor);
+	if (VRRootActor == nullptr)
+	{
+		return nullptr;
+	}
 
+	FScopeLock lock(&InternalsSyncScope);
 	UE_LOG(LogDisplayClusterGame, Verbose, TEXT("GetRotateAroundComponent: %s"), (VRRootActor->RotationAround ? *VRRootActor->RotationAround->GetName() : TEXT("nullptr")));
 	return VRRootActor->RotationAround;
 }
@@ -298,9 +304,12 @@ void FDisplayClusterGameManager::SetRotateAroundComponent(USceneComponent* pComp
 		return;
 	}
 
+	if (VRRootActor == nullptr)
+	{
+		return;
+	}
+
 	FScopeLock lock(&InternalsSyncScope);
-	check(VRRootActor);
-	
 	UE_LOG(LogDisplayClusterGame, Log, TEXT("New rotate around component set: %s"), (pComp ? *pComp->GetName() : TEXT("nullptr")));
 	VRRootActor->RotationAround = pComp;
 }
@@ -314,9 +323,12 @@ void FDisplayClusterGameManager::SetRotateAroundComponent(const FString& id)
 		return;
 	}
 
-	FScopeLock lock(&InternalsSyncScope);
-	check(VRRootActor);
+	if (VRRootActor == nullptr)
+	{
+		return;
+	}
 
+	FScopeLock lock(&InternalsSyncScope);
 	UE_LOG(LogDisplayClusterGame, Log, TEXT("New rotate around node id requested: %s"), *id);
 	VRRootActor->RotationAround = GetNodeById(id);
 }
@@ -407,7 +419,6 @@ bool FDisplayClusterGameManager::CreateScreens()
 	}
 
 	// Check if local screen was found
-	check(ActiveScreenComponent);
 	if (!ActiveScreenComponent)
 	{
 		UE_LOG(LogDisplayClusterGame, Error, TEXT("Local screen not found"));
