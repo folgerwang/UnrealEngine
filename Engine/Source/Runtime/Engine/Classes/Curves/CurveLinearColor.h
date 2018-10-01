@@ -69,6 +69,8 @@ public:
 #endif
 	virtual void PostLoad() override;
 
+	virtual void Serialize(FArchive& Ar) override;
+
 public:
 	// Properties for adjusting the color of the gradient
 	UPROPERTY(EditAnywhere, Category="Color", meta = (ClampMin = "0.0", ClampMax = "359.0"))
