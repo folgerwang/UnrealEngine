@@ -180,7 +180,9 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawElement(
 			BoundShaderStateInput = DrawingPolicyLink->DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel());
 		}
 
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicyLink->DrawingPolicy, DrawRenderState, BoundShaderStateInput);
+		// This is needed as the mobile renderer ignores the MRP inside the DrawingPolicy, so we need the Mesh's one
+		const FMaterialRenderProxy* PipelineMaterialRenderProxy = DrawingPolicyLink->DrawingPolicy.GetPipelineMaterialRenderProxy(Element.Mesh->MaterialRenderProxy);
+		CommitGraphicsPipelineState(RHICmdList, DrawingPolicyLink->DrawingPolicy, DrawRenderState, BoundShaderStateInput, PipelineMaterialRenderProxy);
 		DrawingPolicyLink->DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, PolicyContext);
 
 		bDrawnShared = true;
