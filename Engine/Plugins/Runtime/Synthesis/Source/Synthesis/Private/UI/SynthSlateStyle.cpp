@@ -5,7 +5,37 @@
 #include "SynthesisModule.h"
 #include "Internationalization/Regex.h"
 #include "HAL/FileManager.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "Brushes/SlateDynamicImageBrush.h"
+
+
+
+TSharedPtr< FSlateStyleSet > FSynthSlateStyleSet::StyleInstance = NULL;
+
+void FSynthSlateStyleSet::Initialize()
+{
+	if (!StyleInstance.IsValid())
+	{
+		StyleInstance = MakeShareable(new FSlateStyleSet("SynthesisStyle"));
+		StyleInstance->SetContentRoot(IPluginManager::Get().FindPlugin("Synthesis")->GetBaseDir() / TEXT("Resources"));
+
+		FSlateStyleRegistry::RegisterSlateStyle(*StyleInstance);
+	}
+}
+
+void FSynthSlateStyleSet::Shutdown()
+{
+	FSlateStyleRegistry::UnRegisterSlateStyle(*StyleInstance);
+	ensure(StyleInstance.IsUnique());
+	StyleInstance.Reset();
+}
+
+TSharedPtr< class FSlateStyleSet > FSynthSlateStyleSet::Get()
+{
+	return StyleInstance; 
+}
+
+
 
 ISynthSlateResources::ISynthSlateResources()
 	: bResourcesLoaded(false)

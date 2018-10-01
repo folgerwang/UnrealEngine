@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 
+#include "UI/SynthSlateStyle.h"
+
 #include "UObject/ObjectMacros.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/SWidget.h"
@@ -31,6 +33,8 @@ struct SYNTHESIS_API FSynthKnobStyle : public FSlateWidgetStyle
 	FSynthKnobStyle();
 
 	virtual ~FSynthKnobStyle();
+
+	static void FSynthKnobStyle::Initialize();
 
 	static const FName TypeName;
 	virtual const FName GetTypeName() const override { return TypeName; };
