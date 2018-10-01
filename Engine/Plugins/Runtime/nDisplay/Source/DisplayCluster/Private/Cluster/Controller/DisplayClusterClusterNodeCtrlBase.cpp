@@ -50,16 +50,16 @@ bool FDisplayClusterClusterNodeCtrlBase::InitializeStereo()
 	IDisplayClusterStereoDevice* const StereoDevice = GDisplayCluster->GetPrivateRenderMgr()->GetStereoDevice();
 	if (StereoDevice)
 	{
-		
 		FDisplayClusterConfigStereo  StereoCfg  = GDisplayCluster->GetPrivateConfigMgr()->GetConfigStereo();
 		FDisplayClusterConfigGeneral GeneralCfg = GDisplayCluster->GetPrivateConfigMgr()->GetConfigGeneral();
-		//FDisplayClusterConfigRender  RenderCfg  = GDisplayCluster->GetPrivateConfigMgr()->GetConfigRender();
+		FDisplayClusterConfigClusterNode ClusterNodeCfg;
+		GDisplayCluster->GetPrivateConfigMgr()->GetLocalClusterNode(ClusterNodeCfg);
+		
 
 		// Configure the device
 		StereoDevice->SetViewportArea(ViewportCfg.Loc, ViewportCfg.Size);
-		StereoDevice->SetEyesSwap(StereoCfg.EyeSwap);
+		StereoDevice->SetEyesSwap(ClusterNodeCfg.EyeSwap);
 		StereoDevice->SetInterpupillaryDistance(StereoCfg.EyeDist);
-		StereoDevice->SetOutputFlip(ViewportCfg.FlipHorizontal, ViewportCfg.FlipVertical);
 		StereoDevice->SetSwapSyncPolicy((EDisplayClusterSwapSyncPolicy)GeneralCfg.SwapSyncPolicy);
 	}
 	else

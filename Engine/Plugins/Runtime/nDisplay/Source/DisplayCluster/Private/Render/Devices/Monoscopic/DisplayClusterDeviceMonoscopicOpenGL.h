@@ -15,6 +15,13 @@ public:
 	FDisplayClusterDeviceMonoscopicOpenGL();
 	virtual ~FDisplayClusterDeviceMonoscopicOpenGL();
 
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IStereoRendering
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual int32 GetDesiredNumberOfViews(bool bStereoRequested) const override
+	{ return 1; }
+
 protected:
 	virtual bool Present(int32& InOutSyncInterval) override;
 };

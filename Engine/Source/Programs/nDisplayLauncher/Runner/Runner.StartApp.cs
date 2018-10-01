@@ -51,10 +51,17 @@ namespace nDisplayLauncher
 		{
 			string commandCmd;
 
-			// Executable and mandatory arguments
-			commandCmd = string.Format("{0} {1} {2}", CommandStartApp, SelectedApplication, ArgMandatory);
+			// Executable
+			commandCmd = string.Format("{0} \"{1}\"", CommandStartApp, SelectedApplication);
+			// Custom common arguments
+			if (!string.IsNullOrWhiteSpace(CustomCommonParams))
+			{
+				commandCmd = string.Format("{0} {1}", commandCmd, CustomCommonParams.Trim());
+			}
+			// Mandatory arguments
+			commandCmd = string.Format("{0} {1}", commandCmd, ArgMandatory);
 			// Config file
-			commandCmd = string.Format("{0} {1}={2}", commandCmd, ArgConfig, SelectedConfig);
+			commandCmd = string.Format("{0} {1}=\"{2}\"", commandCmd, ArgConfig, SelectedConfig);
 			// Render API and mode
 			commandCmd = string.Format("{0} {1} {2}", commandCmd, SelectedRenderApiParam.Value, SelectedRenderModeParam.Value);
 			// Camera
@@ -73,15 +80,15 @@ namespace nDisplayLauncher
 			{
 				commandCmd = string.Format("{0} {1}", commandCmd, ArgUseAllAvailableCores);
 			}
-			// Custom common arguments
-			if (!string.IsNullOrWhiteSpace(CustomCommonParams))
-			{
-				commandCmd = string.Format("{0} {1}", commandCmd, CustomCommonParams.Trim());
-			}
 			// Fullscreen/windowed
 			commandCmd = string.Format("{0} {1}", commandCmd, Node.isWindowed ? ArgWindowed : ArgFullscreen);
-			// Window location and size
-			commandCmd = string.Format("{0} WinX={1} WinY={2} ResX={3} ResY={4}", commandCmd, Node.winX, Node.winY, Node.resX, Node.resY);
+			// Window mode, location and size
+			commandCmd = string.Format("{0} {1} {2} {3} {4}", 
+				commandCmd, 
+				string.IsNullOrEmpty(Node.winX) ? string.Empty : string.Format("WinX={0}", Node.winX),
+				string.IsNullOrEmpty(Node.winY) ? string.Empty : string.Format("WinY={0}", Node.winY),
+				string.IsNullOrEmpty(Node.resX) ? string.Empty : string.Format("ResX={0}", Node.resX),
+				string.IsNullOrEmpty(Node.resY) ? string.Empty : string.Format("ResY={0}", Node.resY));
 			// Node ID
 			commandCmd = string.Format("{0} {1}={2}", commandCmd, ArgNode, Node.id);
 
