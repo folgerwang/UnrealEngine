@@ -624,9 +624,13 @@ namespace UnrealBuildTool
 
 								// Get the text for this value
 								string ValueText;
-								if(FlagArguments.Get(Index))
+								if(Attribute.Value != null)
 								{
-									ValueText = Attribute.Value ?? "true";
+									ValueText = Attribute.Value;
+								}
+								else if(FlagArguments.Get(Index))
+								{
+									ValueText = "true";
 								}
 								else
 								{
@@ -733,13 +737,8 @@ namespace UnrealBuildTool
 		/// <returns>True if the value was assigned to the field, false otherwise</returns>
 		private static bool ApplyArgument(object TargetObject, FieldInfo Field, string ArgumentText, string ValueText, string PreviousArgumentText)
 		{
-			// Try to parse the value
-			object Value;
-			if(!TryParseValue(Field.FieldType, ValueText, out Value))
-			{
-				Log.TraceWarning("Unable to parse value for argument '{0}'.", ArgumentText);
-				return false;
-			}
+			// The value type for items of this field
+			Type ValueType = Field.FieldType;
 
 			// Check if the field type implements ICollection<>. If so, we can take multiple values.
 			Type CollectionType = null;
@@ -747,9 +746,18 @@ namespace UnrealBuildTool
 			{
 				if (InterfaceType.IsGenericType && InterfaceType.GetGenericTypeDefinition() == typeof(ICollection<>))
 				{
+					ValueType = InterfaceType.GetGenericArguments()[0];
 					CollectionType = InterfaceType;
 					break;
 				}
+			}
+
+			// Try to parse the value
+			object Value;
+			if(!TryParseValue(ValueType, ValueText, out Value))
+			{
+				Log.TraceWarning("Unable to parse value for argument '{0}'.", ArgumentText);
+				return false;
 			}
 
 			// Try to assign values to the target field
