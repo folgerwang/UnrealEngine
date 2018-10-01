@@ -24,7 +24,9 @@ static EPixelFormat GetHDRPixelFormat()
 // return Depth of Field Scale if Gaussian DoF mode is active. 0.0f otherwise.
 float GetMobileDepthOfFieldScale(const FViewInfo& View)
 {
-	return View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_Gaussian ? View.FinalPostProcessSettings.DepthOfFieldScale : 0.0f;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		return View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_Gaussian ? View.FinalPostProcessSettings.DepthOfFieldScale : 0.0f;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 //

@@ -97,11 +97,13 @@ public:
 		{
 			// a negative values disables the cross hair feature
 			FIntPoint CursorPosValue(-100,-100);
-			
+
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			if(Context.View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_CircleDOF)
 			{
 				CursorPosValue = Context.View.CursorPos;
 			}
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 			SetShaderValue(RHICmdList, ShaderRHI, CursorPos, CursorPosValue);
 		}
@@ -223,10 +225,13 @@ void FRCPassPostProcessVisualizeDOF::Process(FRenderingCompositePassContext& Con
 		Canvas.DrawShadowedString(20, Y += YStep, *Line, GetStatsFont(), FLinearColor(1, 1, 0));
 		Y += YStep;
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		EDepthOfFieldMethod MethodId = View.FinalPostProcessSettings.DepthOfFieldMethod;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if(MethodId == DOFM_BokehDOF)
 		{
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			Line = FString::Printf(TEXT("Method: BokehDOF (blue is far, green is near, black is in focus)"));
 			Canvas.DrawShadowedString(X, Y += YStep, *Line, GetStatsFont(), FLinearColor(1, 1, 1));
 			Y += YStep;
@@ -249,6 +254,7 @@ void FRCPassPostProcessVisualizeDOF::Process(FRenderingCompositePassContext& Con
 			Canvas.DrawShadowedString(X, Y += YStep, *Line, GetStatsFont(), FLinearColor(1, 1, 1));
 			Line = FString::Printf(TEXT("Occlusion: %.2f"), View.FinalPostProcessSettings.DepthOfFieldOcclusion);
 			Canvas.DrawShadowedString(X, Y += YStep, *Line, GetStatsFont(), FLinearColor(1, 1, 1));
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		}
 		else if(MethodId == DOFM_Gaussian)
 		{
@@ -665,7 +671,7 @@ public:
 
 			SetShaderValue(Context.RHICmdList, ShaderRHI, KernelSize, KernelSizeValue);
 		}
-
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		{
 			FVector4 Value(
 				Context.View.FinalPostProcessSettings.DepthOfFieldColorThreshold,
@@ -673,6 +679,7 @@ public:
 
 			SetShaderValue(Context.RHICmdList, ShaderRHI, DepthOfFieldThresholds, Value);
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		{
 			FVector4 DepthOfFieldParamValues[2];
@@ -751,10 +758,12 @@ public:
 				TextureRHI = GEngine->DefaultBokehTexture->Resource->TextureRHI;
 			}
 
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			if(Context.View.FinalPostProcessSettings.DepthOfFieldBokehShape)
 			{
 				TextureRHI = Context.View.FinalPostProcessSettings.DepthOfFieldBokehShape->Resource->TextureRHI;
 			}
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 			SetTextureParameter(Context.RHICmdList, ShaderRHI, LensTexture, LensTextureSampler, TStaticSamplerState<SF_Trilinear, AM_Border, AM_Border, AM_Clamp>::GetRHI(), TextureRHI);
 		}
@@ -817,9 +826,11 @@ void FRCPassPostProcessBokehDOF::ComputeDepthOfFieldParams(const FRenderingCompo
 		Context.View.FinalPostProcessSettings.DepthOfFieldOcclusion);
 
 	FIntPoint ViewSize = Context.View.ViewRect.Size();
-
-	float MaxBokehSizeInPixel = FMath::Max(0.0f, Context.View.FinalPostProcessSettings.DepthOfFieldMaxBokehSize) / 100.0f * ViewSize.X;
 	
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	float MaxBokehSizeInPixel = FMath::Max(0.0f, Context.View.FinalPostProcessSettings.DepthOfFieldMaxBokehSize) / 100.0f * ViewSize.X;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 	// Scale and offset to put two views in one texture with safety border
 	float UsedYDivTextureY = HalfRes / (float)BokehLayerSizeY;
 	float YOffsetInPixel = HalfRes + SafetyBorder;
@@ -887,7 +898,9 @@ void FRCPassPostProcessBokehDOF::Process(FRenderingCompositePassContext& Context
 
 	FIntPoint TileCount = LocalViewSize / TileSize;
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	float PixelKernelSize = Context.View.FinalPostProcessSettings.DepthOfFieldMaxBokehSize / 100.0f * LocalViewSize.X;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	FIntPoint LeftTop = LocalViewRect.Min;
 	

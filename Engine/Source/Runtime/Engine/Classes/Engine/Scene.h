@@ -571,9 +571,11 @@ struct FWeightedBlendables
 // Each property consists of a bool to enable it (by default off),
 // the variable declaration and further down the default value for it.
 // The comment should include the meaning and usable range.
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 USTRUCT(BlueprintType, meta=(HiddenByDefault))
 struct FPostProcessSettings
 {
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	GENERATED_USTRUCT_BODY()
 
 	// first all bOverride_... as they get grouped together into bitfields
@@ -975,6 +977,7 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldScale:1;
 
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldMaxBokehSize:1;
 
@@ -984,22 +987,26 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldFarBlurSize:1;
 
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldMethod:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_MobileHQGaussian:1;
 
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldBokehShape:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldOcclusion:1;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldColorThreshold:1;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldSizeThreshold:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
@@ -1030,7 +1037,7 @@ struct FPostProcessSettings
 	uint8 bOverride_ScreenSpaceReflectionMaxRoughness:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint8 bOverride_ScreenSpaceReflectionRoughnessScale:1;
+	uint8 bOverride_ScreenSpaceReflectionRoughnessScale:1; // TODO: look useless...
 
 	// -----------------------------------------------------------------------
 
@@ -1046,7 +1053,8 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Exposure", meta=(editcondition = "bOverride_AutoExposureMethod", DisplayName = "Metering Mode"))
     TEnumAsByte<enum EAutoExposureMethod> AutoExposureMethod;
 
-	/** BokehDOF, Simple gaussian, ... Mobile supports Gaussian only. */
+	/** DEPRECATED: BokehDOF, Simple gaussian, ... Mobile supports Gaussian only. Deferred shading renderer will only support CircleDOF. */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
 	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
 
@@ -1528,7 +1536,8 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(ClampMin = "0.0", ClampMax = "2.0", editcondition = "bOverride_DepthOfFieldScale", DisplayName = "Scale"))
 	float DepthOfFieldScale;
 
-	/** BokehDOF only: Maximum size of the Depth of Field blur (in percent of the view width) (note: performance cost scales with size*size) */
+	/** DEPRECATED: BokehDOF only: Maximum size of the Depth of Field blur (in percent of the view width) (note: performance cost scales with size*size) */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(UIMin = "0.0", UIMax = "32.0", editcondition = "bOverride_DepthOfFieldMaxBokehSize", DisplayName = "Max Bokeh Size"))
 	float DepthOfFieldMaxBokehSize;
 
@@ -1544,15 +1553,18 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldOcclusion", DisplayName = "Occlusion"))
 	float DepthOfFieldOcclusion;
 
-	/** Defines the shape of the Bokeh when object get out of focus, cannot be blended */
+	/** DEPRECATED: Defines the shape of the Bokeh when object get out of focus, cannot be blended */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldBokehShape", DisplayName = "Shape"))
 	class UTexture* DepthOfFieldBokehShape;
 
-	/** Color threshold to do full quality DOF (BokehDOF only) */
+	/** DEPRECATED: Color threshold to do full quality DOF (BokehDOF only) */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "10.0", editcondition = "bOverride_DepthOfFieldColorThreshold", DisplayName = "Color Threshold"))
 	float DepthOfFieldColorThreshold;
 
-	/** Size threshold to do full quality DOF (BokehDOF only) */
+	/** DEPRECATED: Size threshold to do full quality DOF (BokehDOF only) */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldSizeThreshold", DisplayName = "Size Threshold"))
 	float DepthOfFieldSizeThreshold;
 	
@@ -1696,6 +1708,18 @@ struct FPostProcessSettings
 			BloomConvolutionPreFilterMax = BloomConvolutionPreFilter_DEPRECATED.Y;
 			BloomConvolutionPreFilterMult = BloomConvolutionPreFilter_DEPRECATED.Z;
 		}
+
+		/** Actually delete settings related to BokehDOF, and mark the DepthOfFieldMethod to _DEPRECATED. To keep backward compatibility,
+		 * need to have depth of field disabled by default, which means for deferred shading renderer having redicously high aperture.
+		 *
+		 * The plan here is to change the default of DepthOfFieldFstop in FPostProcessSettings's constructor to this MyMagicHightFstopValue.
+		 * And here in this OnAfterLoad() method do:
+		 *
+		 * if (DepthOfFieldFstop == MyMagicHightFstopValue && DepthOfFieldMethod_DEPRECATED == DOFM_CircleDOF)
+		 * {
+		 *		DepthOfFieldFstop = 4.0f;
+		 * }
+		 */
 	}
 #endif
 
@@ -1743,6 +1767,8 @@ struct FPostProcessSettings
 	// good start values for a new volume, by default no value is overriding
 	ENGINE_API FPostProcessSettings();
 
+	ENGINE_API FPostProcessSettings(const FPostProcessSettings&);
+
 	/**
 		* Used to define the values before any override happens.
 		* Should be as neutral as possible.
@@ -1758,7 +1784,10 @@ struct FPostProcessSettings
 
 	// Default number of blade of the diaphragm to simulate in depth of field.
 	static constexpr int32 kDefaultDepthOfFieldBladeCount = 5;
+
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 UCLASS()
 class UScene : public UObject
