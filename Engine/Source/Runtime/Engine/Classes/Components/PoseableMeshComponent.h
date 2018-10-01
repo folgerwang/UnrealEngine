@@ -56,6 +56,7 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 	//~ Begin USkinnedMeshComponent Interface
 	virtual void RefreshBoneTransforms(FActorComponentTickFunction* TickFunction = NULL) override;
 	virtual bool AllocateTransformData() override;
+	virtual bool ShouldUpdateTransform(bool bLODHasChanged) const override;
 	//~ End USkinnedMeshComponent Interface
 
 	bool IsRunningParallelEvaluation() const { return false; }
@@ -65,6 +66,11 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 	 * This code also applies any per-bone rotators etc. as part of the composition process
 	 */
 	void FillComponentSpaceTransforms();
+
+private:
+	void MarkRefreshTransformDirty();
+	// this is marked if transform has to be updated
+	bool bNeedsRefreshTransform;
 };
 
 
