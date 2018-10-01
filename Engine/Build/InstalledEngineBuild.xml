@@ -882,7 +882,7 @@
 			<TagReceipt Files="#TargetReceipts" RuntimeDependencies="true" With="#Installed Mac"/>
 
 			<!-- Tag any additional dependencies -->
-			<Tag Files="#Installed Mac" Filter=".../DependencyList.txt" With="#DependencyLists"/>
+			<Tag Files="#Installed Mac" Filter=".../DependencyList.txt;.../DependencyList-AllModules.txt" With="#DependencyLists"/>
 			<Tag FileLists="#DependencyLists" With="#Installed Mac" />
 
 			<!-- Confidential Exceptions - done last to ensure they never get overwritten -->
@@ -974,7 +974,7 @@
 			<TagReceipt Files="#TargetReceipts" RuntimeDependencies="true" With="#Installed Linux"/>
 
 			<!-- Tag any additional dependencies -->
-			<Tag Files="#Installed Linux" Filter=".../DependencyList.txt" With="#DependencyLists"/>
+			<Tag Files="#Installed Linux" Filter=".../DependencyList.txt;.../DependencyList-AllModules.txt" With="#DependencyLists"/>
 			<Tag FileLists="#DependencyLists" With="#Installed Linux" />
 
 			<!-- Confidential Exceptions - done last to ensure they never get overwritten -->
