@@ -1054,7 +1054,7 @@ protected:
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime);
 
-	DEPRECATED(2.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
+	DEPRECATED(4.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
 	virtual void NativePaint(FPaintContext& InContext) const { }
 
 	/**
