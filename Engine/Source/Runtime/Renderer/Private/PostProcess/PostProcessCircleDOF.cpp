@@ -53,7 +53,9 @@ FVector4 CircleDofHalfCoc(const FViewInfo& View)
 
 	FVector4 Ret(0, 1, 0, 0);
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if(bDepthOfField && View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_CircleDOF)
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	{
 		float FocalLengthInMM = ComputeFocalLengthFromFov(View);
 	 
