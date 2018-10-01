@@ -21,9 +21,9 @@ namespace UnrealBuildTool
         /// Default constructor
         /// </summary>
         /// <param name="InOnlyGameProject">The single project to generate project files for, or null</param>
-        /// <param name="InOverrideCompiler">Override the compiler version to use</param>
-        public VCMacProjectFileGenerator(FileReference InOnlyGameProject, WindowsCompiler InOverrideCompiler)
-			: base(InOnlyGameProject, VCProjectFileFormat.Default, InOverrideCompiler)
+        /// <param name="InArguments">Additional command line arguments</param>
+        public VCMacProjectFileGenerator(FileReference InOnlyGameProject, CommandLineArguments InArguments)
+			: base(InOnlyGameProject, VCProjectFileFormat.Default, InArguments)
         {
             // no suo file, requires ole32
             bWriteSolutionOptionFile = false;

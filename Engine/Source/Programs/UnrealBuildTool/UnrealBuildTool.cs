@@ -258,6 +258,45 @@ namespace UnrealBuildTool
 			}
 		}
 
+		/// <summary>
+		/// Try to parse the project file from the command line
+		/// </summary>
+		/// <param name="Arguments">The command line arguments</param>
+		/// <param name="ProjectFile">The project file that was parsed</param>
+		/// <returns>True if the project file was parsed, false otherwise</returns>
+		public static bool TryParseProjectFileArgument(CommandLineArguments Arguments, out FileReference ProjectFile)
+		{
+			FileReference ExplicitProjectFile;
+			if(Arguments.TryGetValue("-Project=", out ExplicitProjectFile))
+			{
+				ProjectFile = ExplicitProjectFile;
+				return true;
+			}
+
+			for(int Idx = 0; Idx < Arguments.Count; Idx++)
+			{
+				if(Arguments[Idx][0] != '-' && Arguments[Idx].EndsWith(".uproject"))
+				{
+					Arguments.MarkAsUsed(Idx);
+					ProjectFile = new FileReference(Arguments[Idx]);
+					return true;
+				}
+			}
+
+			if(IsProjectInstalled())
+			{
+				FileReference InstalledProjectFile = FileReference.Combine(UnrealBuildTool.RootDirectory, "Engine", "Build", "InstalledProjectBuild.txt");
+				if (FileReference.Exists(InstalledProjectFile))
+				{
+					ProjectFile = FileReference.Combine(UnrealBuildTool.RootDirectory, File.ReadAllText(InstalledProjectFile.FullName).Trim());
+					return true;
+				}
+			}
+
+			ProjectFile = null;
+			return false;
+		}
+
 		private static bool ParseRocketCommandlineArg(string InArg, ref string OutGameName, ref FileReference ProjectFile)
 		{
 			string LowercaseArg = InArg.ToLowerInvariant();
@@ -460,9 +499,6 @@ namespace UnrealBuildTool
 						BuildConfiguration.bUseUBTMakefiles = false;
 					}
 
-					bool bGenerateProjectFiles = false;
-					WindowsCompiler OverrideWindowsCompiler = WindowsCompiler.Default;
-					List<ProjectFileFormat> ProjectFileFormats = new List<ProjectFileFormat>();
 					foreach (string Arg in Arguments)
 					{
 						string LowercaseArg = Arg.ToLowerInvariant();
@@ -470,87 +506,6 @@ namespace UnrealBuildTool
 						{
 							// Already handled at startup. Calling now just to properly set the game name
 							continue;
-						}
-						else if (LowercaseArg == "-projectfiles")
-						{
-							bGenerateProjectFiles = true;
-						}
-						else if (LowercaseArg.StartsWith("-projectfileformat="))
-						{
-							ProjectFileFormats.AddRange(ProjectFileGeneratorSettings.ParseFormatList(Arg.Substring("-projectfileformat=".Length)));
-							bGenerateProjectFiles = true;
-						}
-						else if (LowercaseArg == "-2012unsupported")
-						{
-							// May be for compiling; don't set bGenerateProjectFiles by default 
-							ProjectFileFormats.Add(ProjectFileFormat.VisualStudio2012);
-						}
-						else if (LowercaseArg == "-2013unsupported")
-						{
-							// May be for compiling; don't set bGenerateProjectFiles by default 
-							ProjectFileFormats.Add(ProjectFileFormat.VisualStudio2013);
-						}
-						else if (LowercaseArg == "-2015")
-						{
-							// May be for compiling; don't set bGenerateProjectFiles by default, but do override the compiler if it is.
-							ProjectFileFormats.Add(ProjectFileFormat.VisualStudio2015);
-							OverrideWindowsCompiler = WindowsCompiler.VisualStudio2015;
-						}
-						else if (LowercaseArg == "-2017")
-						{
-							// May be for compiling; don't set bGenerateProjectFiles by default, but do override the compiler if it is. 
-							ProjectFileFormats.Add(ProjectFileFormat.VisualStudio2017);
-							OverrideWindowsCompiler = WindowsCompiler.VisualStudio2017;
-						}
-						else if (LowercaseArg.StartsWith("-makefile"))
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.Make);
-						}
-						else if (LowercaseArg.StartsWith("-cmakefile"))
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.CMake);
-						}
-						else if (LowercaseArg.StartsWith("-qmakefile"))
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.QMake);
-						}
-						else if (LowercaseArg.StartsWith("-kdevelopfile"))
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.KDevelop);
-						}
-						else if (LowercaseArg == "-codelitefiles")
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.CodeLite);
-						}
-						else if (LowercaseArg == "-xcodeprojectfiles")
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.XCode);
-						}
-						else if (LowercaseArg == "-eddieprojectfiles")
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.Eddie);
-						}
-						else if (LowercaseArg == "-vscode")
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.VisualStudioCode);
-						}
-						else if (LowercaseArg == "-vsmac")
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.VisualStudioMac);
-						}
-						else if (LowercaseArg == "-clion")
-						{
-							bGenerateProjectFiles = true;
-							ProjectFileFormats.Add(ProjectFileFormat.CLion);
 						}
 						else if (LowercaseArg == "development" || LowercaseArg == "debug" || LowercaseArg == "shipping" || LowercaseArg == "test" || LowercaseArg == "debuggame")
 						{
@@ -568,10 +523,6 @@ namespace UnrealBuildTool
 						else if (LowercaseArg == "-define")
 						{
 							// Skip -define
-						}
-						else if (LowercaseArg == "-progress")
-						{
-							ProgressWriter.bWriteMarkup = true;
 						}
 						else if (CheckPlatform.ToString().ToLowerInvariant() == LowercaseArg)
 						{
@@ -610,93 +561,7 @@ namespace UnrealBuildTool
 						JunkDeleter.DeleteJunk();
 					}
 
-					if (bGenerateProjectFiles)
-					{
-						// If there aren't any formats set, read the default project file format from the config file
-						if (ProjectFileFormats.Count == 0)
-						{
-							// Read from the XML config
-							if (!String.IsNullOrEmpty(ProjectFileGeneratorSettings.Format))
-							{
-								ProjectFileFormats.AddRange(ProjectFileGeneratorSettings.ParseFormatList(ProjectFileGeneratorSettings.Format));
-							}
-
-							// Read from the editor config
-							ProjectFileFormat PreferredSourceCodeAccessor;
-							if (ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredSourceCodeAccessor))
-							{
-								ProjectFileFormats.Add(PreferredSourceCodeAccessor);
-							}
-
-							// If there's still nothing set, get the default project file format for this platform
-							if (ProjectFileFormats.Count == 0)
-							{
-								BuildHostPlatform.Current.GetDefaultProjectFileFormats(ProjectFileFormats);
-							}
-						}
-
-						// Create each project generator and run it
-						ProjectFileGenerator.bGenerateProjectFiles = true;
-						foreach (ProjectFileFormat ProjectFileFormat in ProjectFileFormats.Distinct())
-						{
-							ProjectFileGenerator Generator;
-							switch (ProjectFileFormat)
-							{
-								case ProjectFileFormat.Make:
-									Generator = new MakefileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.CMake:
-									Generator = new CMakefileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.QMake:
-									Generator = new QMakefileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.KDevelop:
-									Generator = new KDevelopGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.CodeLite:
-									Generator = new CodeLiteGenerator(ProjectFile, Arguments);
-									break;
-								case ProjectFileFormat.VisualStudio:
-									Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.Default, OverrideWindowsCompiler);
-									break;
-								case ProjectFileFormat.VisualStudio2012:
-									Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2012, OverrideWindowsCompiler);
-									break;
-								case ProjectFileFormat.VisualStudio2013:
-									Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2013, OverrideWindowsCompiler);
-									break;
-								case ProjectFileFormat.VisualStudio2015:
-									Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2015, OverrideWindowsCompiler);
-									break;
-								case ProjectFileFormat.VisualStudio2017:
-									Generator = new VCProjectFileGenerator(ProjectFile, VCProjectFileFormat.VisualStudio2017, OverrideWindowsCompiler);
-									break;
-								case ProjectFileFormat.XCode:
-									Generator = new XcodeProjectFileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.Eddie:
-									Generator = new EddieProjectFileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.VisualStudioCode:
-									Generator = new VSCodeProjectFileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.CLion:
-									Generator = new CLionGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.VisualStudioMac:
-									Generator = new VCMacProjectFileGenerator(ProjectFile, OverrideWindowsCompiler);
-									break;
-								default:
-									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
-							}
-							if (!Generator.GenerateProjectFiles(Arguments))
-							{
-								Result = ECompilationResult.OtherCompilationError;
-							}
-						}
-					}
-					else if (BuildConfiguration.DeployTargetFile != null)
+					if (BuildConfiguration.DeployTargetFile != null)
 					{
 						UEBuildDeployTarget DeployTarget = new UEBuildDeployTarget(BuildConfiguration.DeployTargetFile);
 						Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", DeployTarget.TargetName, DeployTarget.Platform, DeployTarget.Configuration);
@@ -769,9 +634,27 @@ namespace UnrealBuildTool
 			public bool bLogFromMsBuild = false;
 
 			/// <summary>
+			/// Whether to write progress markup in a format that can be parsed by other programs
+			/// </summary>
+			[CommandLine(Prefix = "-Progress")]
+			public bool bWriteProgressMarkup = false;
+
+			/// <summary>
 			/// The mode to execute
 			/// </summary>
 			[CommandLine]
+			[CommandLine("-ProjectFiles", Value="GenerateProjectFiles")]
+			[CommandLine("-ProjectFileFormat=", Value="GenerateProjectFiles")]
+			[CommandLine("-Makefile", Value="GenerateProjectFiles")]
+			[CommandLine("-CMakefile", Value="GenerateProjectFiles")]
+			[CommandLine("-QMakefile", Value="GenerateProjectFiles")]
+			[CommandLine("-KDevelopfile", Value="GenerateProjectFiles")]
+			[CommandLine("-CodeliteFiles", Value="GenerateProjectFiles")]
+			[CommandLine("-XCodeProjectFiles", Value="GenerateProjectFiles")]
+			[CommandLine("-EdditProjectFiles", Value="GenerateProjectFiles")]
+			[CommandLine("-VSCode", Value="GenerateProjectFiles")]
+			[CommandLine("-VSMac", Value="GenerateProjectFiles")]
+			[CommandLine("-CLion", Value="GenerateProjectFiles")]
 			public string Mode = "Default";
 
 			/// <summary>
@@ -803,6 +686,9 @@ namespace UnrealBuildTool
 				Log.OutputLevel = Options.LogOutputLevel;
 				Log.IncludeTimestamps = Options.bLogTimestamps;
 				Log.IncludeProgramNameWithSeverityPrefix = Options.bLogFromMsBuild;
+				
+				// Configure the progress writer
+				ProgressWriter.bWriteMarkup = Options.bWriteProgressMarkup;
 
 				// Add the log writer if requested. When building a target, we'll create the writer for the default log file later.
 				if(Options.LogFileName != null)

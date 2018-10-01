@@ -217,7 +217,7 @@ namespace UnrealBuildTool
 		/// Determines the default project file formats for this platform
 		/// </summary>
 		/// <returns>Sequence of project file formats</returns>
-		internal abstract void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats);
+		internal abstract IEnumerable<ProjectFileFormat> GetDefaultProjectFileFormats();
 	}
 
 	class WindowsBuildHostPlatform : BuildHostPlatform
@@ -312,9 +312,9 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		internal override void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats)
+		internal override IEnumerable<ProjectFileFormat> GetDefaultProjectFileFormats()
 		{
-			Formats.Add(ProjectFileFormat.VisualStudio);
+			yield return ProjectFileFormat.VisualStudio;
 		}
 	}
 
@@ -432,9 +432,9 @@ namespace UnrealBuildTool
 			}
 		}
 
-		internal override void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats)
+		internal override IEnumerable<ProjectFileFormat> GetDefaultProjectFileFormats()
 		{
-			Formats.Add(ProjectFileFormat.XCode);
+			yield return ProjectFileFormat.XCode;
 		}
 	}
 
@@ -475,14 +475,14 @@ namespace UnrealBuildTool
 			return new List<string>().ToArray();
 		}
 
-		internal override void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats)
+		internal override IEnumerable<ProjectFileFormat> GetDefaultProjectFileFormats()
 		{
-			Formats.Add(ProjectFileFormat.Make);
-			Formats.Add(ProjectFileFormat.VisualStudioCode);
-			Formats.Add(ProjectFileFormat.KDevelop);
-			Formats.Add(ProjectFileFormat.QMake);
-			Formats.Add(ProjectFileFormat.CMake);
-			Formats.Add(ProjectFileFormat.CodeLite);
+			yield return ProjectFileFormat.Make;
+			yield return ProjectFileFormat.VisualStudioCode;
+			yield return ProjectFileFormat.KDevelop;
+			yield return ProjectFileFormat.QMake;
+			yield return ProjectFileFormat.CMake;
+			yield return ProjectFileFormat.CodeLite;
 		}
 	}
 }

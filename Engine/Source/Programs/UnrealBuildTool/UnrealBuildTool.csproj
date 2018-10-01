@@ -140,6 +140,7 @@
     </When>
   </Choose>
   <ItemGroup>
+    <Compile Include="Modes\GenerateProjectFilesMode.cs" />
     <Compile Include="Modes\SetupPlatformsMode.cs" />
     <Compile Include="Modes\ValidatePlatformsMode.cs" />
     <Compile Include="Modes\WriteDocumentationMode.cs" />

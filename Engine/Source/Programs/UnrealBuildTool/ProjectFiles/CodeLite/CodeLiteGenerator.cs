@@ -32,19 +32,16 @@ namespace UnrealBuildTool
 		public string CodeCompletionPreProcessorFileName = "CodeLitePreProcessor.txt";
 		CodeliteProjectFileFormat ProjectFileFormat = CodeliteProjectFileFormat.CodeLite10;
 
-		public CodeLiteGenerator(FileReference InOnlyGameProject, string[] Arguments)
+		public CodeLiteGenerator(FileReference InOnlyGameProject, CommandLineArguments CommandLine)
 			: base(InOnlyGameProject)
 		{
-			foreach(string Argument in Arguments)
+			if(CommandLine.HasOption("-cl10"))
 			{
-				if(Argument.Equals("-cl10", StringComparison.InvariantCultureIgnoreCase))
-				{
-					ProjectFileFormat = CodeliteProjectFileFormat.CodeLite10;
-				}
-				else if (Argument.Equals("-cl9", StringComparison.InvariantCultureIgnoreCase))
-				{
-					ProjectFileFormat = CodeliteProjectFileFormat.CodeLite9;
-				}
+				ProjectFileFormat = CodeliteProjectFileFormat.CodeLite10;
+			}
+			else if (CommandLine.HasOption("-cl9"))
+			{
+				ProjectFileFormat = CodeliteProjectFileFormat.CodeLite9;
 			}
 		}
 

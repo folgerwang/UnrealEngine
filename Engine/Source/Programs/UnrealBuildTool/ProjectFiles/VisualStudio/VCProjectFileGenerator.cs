@@ -91,8 +91,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InOnlyGameProject">The single project to generate project files for, or null</param>
 		/// <param name="InProjectFileFormat">Override the project file format to use</param>
-		/// <param name="InOverrideCompiler">Override the compiler version to use</param>
-		public VCProjectFileGenerator(FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, WindowsCompiler InOverrideCompiler)
+		/// <param name="InArguments">Additional command line arguments</param>
+		public VCProjectFileGenerator(FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, CommandLineArguments InArguments)
 			: base(InOnlyGameProject)
 		{
 			XmlConfig.ApplyTo(this);
@@ -102,11 +102,11 @@ namespace UnrealBuildTool
 				ProjectFileFormat = InProjectFileFormat;
 			}
 
-			if(InOverrideCompiler == WindowsCompiler.VisualStudio2015)
+			if(InArguments.HasOption("-2015"))
 			{
 				BuildToolOverride = "-2015";
 			}
-			else if(InOverrideCompiler == WindowsCompiler.VisualStudio2017)
+			else if(InArguments.HasOption("-2017"))
 			{
 				BuildToolOverride = "-2017";
 			}
