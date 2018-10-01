@@ -442,6 +442,7 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 		NewMesh->ClearOriginalMeshDescription(LODIndex);
 		State.MeshDescription = NewMesh->CreateOriginalMeshDescription(LODIndex);
 		check(State.MeshDescription != nullptr);
+		NewMesh->RegisterMeshAttributes(*State.MeshDescription);
 
 		bool bRecomputeNormals = false;
 
