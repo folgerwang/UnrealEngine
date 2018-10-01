@@ -12,6 +12,7 @@
 #include "Styling/CoreStyle.h"
 #include "Framework/SlateDelegates.h"
 #include "Widgets/SLeafWidget.h"
+#include "Styling/SlateStyle.h"
 #include "UI/Synth2DSliderStyle.h"
 
 class FPaintArgs;
@@ -28,7 +29,7 @@ public:
 	SLATE_BEGIN_ARGS(SSynth2DSlider)
 		: _IndentHandle(true)
 		, _Locked(false)
-		, _Style(&FCoreStyle::Get().GetWidgetStyle<FSynth2DSliderStyle>("Synth2DSliderStyle"))
+		, _Style(&FSynthSlateStyleSet::Get()->GetWidgetStyle<FSynth2DSliderStyle>("Synth2DSliderStyle"))
 		, _StepSize(0.01f)
 		, _ValueX(1.f)
 		, _ValueY(1.f)
