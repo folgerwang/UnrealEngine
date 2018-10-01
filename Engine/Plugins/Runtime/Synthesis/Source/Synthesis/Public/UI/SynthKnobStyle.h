@@ -34,7 +34,7 @@ struct SYNTHESIS_API FSynthKnobStyle : public FSlateWidgetStyle
 
 	virtual ~FSynthKnobStyle();
 
-	static void FSynthKnobStyle::Initialize();
+	static void Initialize();
 
 	static const FName TypeName;
 	virtual const FName GetTypeName() const override { return TypeName; };
