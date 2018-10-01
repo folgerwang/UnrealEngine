@@ -1109,7 +1109,10 @@ void FMagicLeapHMD::LoadFromIni()
 	{
 		// This will be set later during Graphics Client initialization based on thje value in FrameTimingHint read from the config here.
 		ConfigFrameTimingHint = static_cast<ELuminFrameTimingHint>(FrameTimingEnum->GetValueByNameString(EnumVal));
-		SetFrameTimingHint(ConfigFrameTimingHint);
+		if (GraphicsClient != ML_INVALID_HANDLE)
+		{
+			SetFrameTimingHint(ConfigFrameTimingHint);
+		}
 	}
 #endif //PLATFORM_LUMIN
 }
