@@ -94,7 +94,7 @@ public:
 	 * @param NewLocalizedDisplayName	The new display name of the category (optional)
 	 * @param CategoryType				Category type to define sort order.  Category display order is sorted by this type (optional)
 	 */
-	virtual IDetailCategoryBuilder& EditCategory( FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default ) = 0;
+	virtual IDetailCategoryBuilder& EditCategory(FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default) = 0;
 
 	/** 
 	 * Adds the property to its given category automatically. Useful in detail customizations which want to preserve categories.
@@ -104,12 +104,22 @@ public:
 	virtual IDetailPropertyRow& AddPropertyToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle) = 0;
 
 	/**
-	* Adds a custom row to the property's category automatically. Useful in detail customizations which want to preserve categories.
-	* @param InPropertyHandle			The handle to the property that you want to add to its own category.
-	* @param InCustomSearchString		A string which is used to filter this custom row when a user types into the details panel search box.
-	* @return the detail widget that can be further customized. 
-	*/
+	 * Adds a custom row to the property's category automatically. Useful in detail customizations which want to preserve categories.
+	 * @param InPropertyHandle			The handle to the property that you want to add to its own category.
+	 * @param InCustomSearchString		A string which is used to filter this custom row when a user types into the details panel search box.
+	 * @return the detail widget that can be further customized.
+	 */
 	virtual FDetailWidgetRow& AddCustomRowToCategory(TSharedPtr<IPropertyHandle> InPropertyHandle, const FText& InCustomSearchString, bool bForAdvanced = false) = 0;
+
+	/**
+	 * Allows for the customization of a property row for a property that already exists on a class being edited in the details panel
+	 * The property will remain in the default location but the widget or other attributes for the property can be changed 
+	 * Note This cannot be used to customize other customizations
+
+	 * @param InPropertyHandle	The handle to the property that you want to add to its own category.
+	 * @return					The property row to edit or nullptr if the property row does not exist
+	 */
+	virtual IDetailPropertyRow* EditDefaultProperty(TSharedPtr<IPropertyHandle> InPropertyHandle) = 0;
 
 	/**
 	 * Hides an entire category

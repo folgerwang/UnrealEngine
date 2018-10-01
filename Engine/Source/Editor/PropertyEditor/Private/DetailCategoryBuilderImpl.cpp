@@ -29,6 +29,27 @@ void FDetailLayout::AddDefaultLayout(const FDetailLayoutCustomization& Layout, b
 	AddLayoutInternal(Layout, bAdvanced ? DefaultAdvancedLayouts : DefaultSimpleLayouts);
 }
 
+FDetailLayoutCustomization* FDetailLayout::GetDefaultLayout(const TSharedRef<FPropertyNode>& PropertyNode)
+{
+	FDetailLayoutCustomization* Customization = 
+		DefaultSimpleLayouts.FindByPredicate([&PropertyNode](const FDetailLayoutCustomization& TestCustomization)
+		{
+			return TestCustomization.GetPropertyNode() == PropertyNode;
+		});
+
+	// Didn't find it in the simple layouts, look in advanced layouts
+	if (!Customization)
+	{
+		Customization = 
+			DefaultAdvancedLayouts.FindByPredicate([&PropertyNode](const FDetailLayoutCustomization& TestCustomization)
+			{
+				return TestCustomization.GetPropertyNode() == PropertyNode;
+			});
+	}
+
+	return Customization;
+}
+
 void FDetailLayout::AddLayoutInternal(const FDetailLayoutCustomization& Layout, FCustomizationList& ListToUse)
 {
 	ListToUse.Add(Layout);
@@ -435,6 +456,18 @@ void FDetailCategoryImpl::OnAdvancedDropdownClicked()
 	RefreshTree(bRefilterCategory);
 }
 
+FDetailLayoutCustomization* FDetailCategoryImpl::GetDefaultCustomization(TSharedRef<FPropertyNode> PropertyNode)
+{
+	FDetailLayout& Layout = GetLayoutForInstance(GetParentLayoutImpl().GetCurrentCustomizationVariableName());
+	
+	FDetailLayoutCustomization* Customization = Layout.GetDefaultLayout(PropertyNode);
+	if (Customization)
+	{
+		return Customization;
+	}
+	return nullptr;
+}
+
 bool FDetailCategoryImpl::ShouldShowAdvanced() const
 {
 	return bUserShowAdvanced || bForceAdvanced;
@@ -793,10 +826,15 @@ void FDetailCategoryImpl::GenerateChildrenForLayouts()
 
 void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 {
+	GetGeneratedChildren(OutChildren, false, false);
+}
+
+void FDetailCategoryImpl::GetGeneratedChildren(FDetailNodeList& OutChildren, bool bIgnoreVisibility, bool bIgnoreAdvancedDropdown)
+{
 	for (int32 ChildIndex = 0; ChildIndex < SimpleChildNodes.Num(); ++ChildIndex)
 	{
 		TSharedRef<FDetailTreeNode>& Child = SimpleChildNodes[ChildIndex];
-		if (Child->GetVisibility() == ENodeVisibility::Visible)
+		if (bIgnoreVisibility || Child->GetVisibility() == ENodeVisibility::Visible)
 		{
 			if (Child->ShouldShowOnlyChildren())
 			{
@@ -809,7 +847,7 @@ void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 		}
 	}
 
-	if (ShouldShowAdvanced())
+	if (!bIgnoreAdvancedDropdown && ShouldShowAdvanced())
 	{
 		if (AdvancedDropdownNodeTop.IsValid())
 		{
@@ -820,7 +858,7 @@ void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 		{
 			TSharedRef<FDetailTreeNode>& Child = AdvancedChildNodes[ChildIndex];
 
-			if (Child->GetVisibility() == ENodeVisibility::Visible)
+			if (bIgnoreVisibility || Child->GetVisibility() == ENodeVisibility::Visible)
 			{
 				if (Child->ShouldShowOnlyChildren())
 				{
@@ -834,7 +872,7 @@ void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 		}
 	}
 
-	if (AdvancedDropdownNodeBottom.IsValid())
+	if (!bIgnoreAdvancedDropdown && AdvancedDropdownNodeBottom.IsValid())
 	{
 		OutChildren.Add(AdvancedDropdownNodeBottom.ToSharedRef());
 	}

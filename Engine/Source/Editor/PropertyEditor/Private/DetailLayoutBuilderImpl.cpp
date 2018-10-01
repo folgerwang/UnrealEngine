@@ -8,6 +8,7 @@
 #include "StructurePropertyNode.h"
 #include "DetailMultiTopLevelObjectRootNode.h"
 #include "ObjectEditorUtils.h"
+#include "DetailPropertyRow.h"
 
 FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(TSharedPtr<FComplexPropertyNode>& InRootNode, FClassToPropertyMap& InPropertyMap, const TSharedRef<IPropertyUtilities>& InPropertyUtilities, const TSharedRef<IPropertyGenerationUtilities>& InPropertyGenerationUtilities, const TSharedPtr< IDetailsViewPrivate >& InDetailsView, bool bIsExternal)
 	: RootNode( InRootNode )
@@ -97,6 +98,36 @@ FDetailWidgetRow& FDetailLayoutBuilderImpl::AddCustomRowToCategory(TSharedPtr<IP
 	return MyCategory.AddCustomRow(CustomSearchString, bForAdvanced);
 }
 
+IDetailPropertyRow* FDetailLayoutBuilderImpl::EditDefaultProperty(TSharedPtr<IPropertyHandle> InPropertyHandle)
+{
+	if (InPropertyHandle.IsValid() && InPropertyHandle->IsValidHandle())
+	{
+		TSharedPtr<FPropertyNode> PropertyNode = GetPropertyNode(InPropertyHandle);
+		if (PropertyNode.IsValid())
+		{
+			UProperty* Property = InPropertyHandle->GetProperty();
+
+			// Get the property's category name
+			FName CategoryFName = FObjectEditorUtils::GetCategoryFName(Property);
+
+			// Get the layout builder's category builder
+			TSharedPtr<FDetailCategoryImpl> DefaultCategory = DefaultCategoryMap.FindRef(CategoryFName);
+
+			if(DefaultCategory.IsValid())
+			{
+				FDetailLayoutCustomization* Customization = DefaultCategory->GetDefaultCustomization(PropertyNode.ToSharedRef());
+				if (Customization)
+				{
+					return Customization->PropertyRow.Get();
+				}
+			}
+		}
+
+	}
+
+	return nullptr;
+}
+
 TSharedRef<IPropertyHandle> FDetailLayoutBuilderImpl::GetProperty( const FName PropertyPath, const UClass* ClassOutermost, FName InInstanceName )
 {	
 	TSharedPtr<FPropertyHandleBase> PropertyHandle; 
@@ -161,22 +192,25 @@ FDetailCategoryImpl& FDetailLayoutBuilderImpl::DefaultCategory( FName CategoryNa
 	return *CategoryImpl;
 }
 
+TSharedPtr<FDetailCategoryImpl> FDetailLayoutBuilderImpl::GetSubCategoryImpl(FName CategoryName)
+{
+	return SubCategoryMap.FindRef(CategoryName);
+}
+
 bool FDetailLayoutBuilderImpl::HasCategory(FName CategoryName)
 {
 	return DefaultCategoryMap.Contains(CategoryName);
 }
 
 void FDetailLayoutBuilderImpl::BuildCategories( const FCategoryMap& CategoryMap, TArray< TSharedRef<FDetailCategoryImpl> >& OutSimpleCategories, TArray< TSharedRef<FDetailCategoryImpl> >& OutAdvancedCategories )
-{
+{		
 	for( FCategoryMap::TConstIterator It(CategoryMap); It; ++It )
 	{
 		TSharedRef<FDetailCategoryImpl> DetailCategory = It.Value().ToSharedRef();
-		//If there is a delimiter in the name it mean its a sub category, we dont show sub category at the root level
-		FString CategoryDelimiterString;
-		CategoryDelimiterString.AppendChar(FPropertyNodeConstants::CategoryDelimiterChar);
+
 		TSharedPtr<FComplexPropertyNode> RootPropertyNode = GetRootNode();
-		const bool bCategoryHidden = PropertyEditorHelpers::IsCategoryHiddenByClass(RootPropertyNode, DetailCategory->GetCategoryName()) 
-			|| ForceHiddenCategories.Contains(DetailCategory->GetCategoryName()) || DetailCategory->GetCategoryName().ToString().Contains(CategoryDelimiterString);
+		const bool bCategoryHidden = PropertyEditorHelpers::IsCategoryHiddenByClass(RootPropertyNode, DetailCategory->GetCategoryName())
+			|| ForceHiddenCategories.Contains(DetailCategory->GetCategoryName());
 
 		if( !bCategoryHidden )
 		{
@@ -208,22 +242,47 @@ void FDetailLayoutBuilderImpl::GenerateDetailLayout()
 	};
 
 	// Merge the two category lists and sort them based on priority
-	FCategoryMap AllCategories = CustomCategoryMap;
-	AllCategories.Append( DefaultCategoryMap );
+	//FCategoryMap AllCategories = CustomCategoryMap;
+	//AllCategories.Append( DefaultCategoryMap );
 
 	TArray< TSharedRef<FDetailCategoryImpl> > SimpleCategories;
 	TArray< TSharedRef<FDetailCategoryImpl> > AdvancedOnlyCategories;
 
-	// Customizations can add more categories while customizing so just keep doing this until the maps are empty
-	while(DefaultCategoryMap.Num() > 0 || CustomCategoryMap.Num() > 0)
+	//If there is a delimiter in the name it mean its a sub category, we dont show sub category at the root level
+	FString CategoryDelimiterString;
+	CategoryDelimiterString.AppendChar(FPropertyNodeConstants::CategoryDelimiterChar);
+
+	SubCategoryMap.Empty();
+	for (FCategoryMap::TIterator It(DefaultCategoryMap); It; ++It)
+	{
+		// Remove all subcategories
+		TSharedPtr<FDetailCategoryImpl> DetailCategory = It.Value();
+		// Note: Sub-categories are added later
+		int32 Index = INDEX_NONE;
+		if (DetailCategory->GetCategoryName().ToString().FindChar(FPropertyNodeConstants::CategoryDelimiterChar, Index))
+		{
+			SubCategoryMap.Add(It.Key(), DetailCategory);
+			It.RemoveCurrent();
+		}
+	}
+
+	// Build default categories
+	while (DefaultCategoryMap.Num() > 0)
 	{
 		FCategoryMap DefaultCategoryMapCopy = DefaultCategoryMap;
-		FCategoryMap CustomCategoryMapCopy = CustomCategoryMap;
 
 		DefaultCategoryMap.Empty();
-		CustomCategoryMap.Empty();
 
 		BuildCategories(DefaultCategoryMapCopy, SimpleCategories, AdvancedOnlyCategories);
+	}
+
+	// Customizations can add more categories while customizing so just keep doing this until the maps are empty
+	while(CustomCategoryMap.Num() > 0)
+	{
+		FCategoryMap CustomCategoryMapCopy = CustomCategoryMap;
+
+		CustomCategoryMap.Empty();
+
 		BuildCategories(CustomCategoryMapCopy, SimpleCategories, AdvancedOnlyCategories);
 	}
 

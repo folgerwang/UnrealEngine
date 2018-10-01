@@ -73,6 +73,8 @@ public:
 	const FCustomizationList& GetDefaultSimpleLayouts() const { return DefaultSimpleLayouts; }
 	const FCustomizationList& GetDefaultAdvancedLayouts() const { return DefaultAdvancedLayouts; }
 
+	FDetailLayoutCustomization* GetDefaultLayout(const TSharedRef<FPropertyNode>& PropertyNode);
+
 	bool HasAdvancedLayouts() const { return CustomAdvancedLayouts.Num() > 0 || DefaultAdvancedLayouts.Num() > 0; }
 
 	FName GetInstanceName() const { return InstanceName; }
@@ -127,6 +129,7 @@ public:
 	 * @return Gets a layout at a specific instance
 	 */
 	const FDetailLayout& operator[](int32 Index) const { return Layouts[Index]; }
+	FDetailLayout& operator[](int32 Index) { return Layouts[Index]; }
 
 	/**
 	 * @return Whether or not we need to display a group border around a list of details.
@@ -189,6 +192,11 @@ public:
 	virtual void Tick(float DeltaTime) override {}
 	virtual bool ShouldShowOnlyChildren() const override { return bShowOnlyChildren; }
 	virtual FName GetNodeName() const override { return GetCategoryName(); }
+
+	/**
+	 * Gets all generated children with options for ignoring current child visibility or advanced dropdowns
+	 */
+	void GetGeneratedChildren(FDetailNodeList& OutChildren, bool bIgnoreVisibility, bool bIgnoreAdvancedDropdown);
 
 	FCustomPropertyTypeLayoutMap GetCustomPropertyTypeLayoutMap() const;
 
@@ -301,6 +309,7 @@ public:
 	 */
 	void SetCategoryAsSpecialFavorite() { bFavoriteCategory = true; bForceAdvanced = true; }
 
+	FDetailLayoutCustomization* GetDefaultCustomization(TSharedRef<FPropertyNode> PropertyNode);
 private:
 	virtual void OnItemExpansionChanged(bool bIsExpanded, bool bShouldSaveState) override;
 
