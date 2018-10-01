@@ -12,14 +12,7 @@ namespace UnrealBuildTool.Rules
 				{
 					"Core",
 					"CoreUObject",
-					"Engine",
-					"MovieScene"
-				}
-			);
-
-			PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
+					"Engine"
 				}
 			);
 		}
