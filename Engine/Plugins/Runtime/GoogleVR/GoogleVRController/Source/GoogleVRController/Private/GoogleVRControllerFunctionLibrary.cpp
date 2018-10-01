@@ -30,18 +30,18 @@ EGoogleVRControllerAPIStatus UGoogleVRControllerFunctionLibrary::GetGoogleVRCont
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		return (EGoogleVRControllerAPIStatus) GVRController->CachedControllerState.GetApiStatus();
+		return (EGoogleVRControllerAPIStatus) GVRController->GetApiStatus();
 	}
 #endif
 	return EGoogleVRControllerAPIStatus::Unknown;
 }
 
-EGoogleVRControllerState UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerState()
+EGoogleVRControllerState UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerState(EControllerHand Hand)
 {
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		return GVRController->GetControllerState();
+		return GVRController->GetControllerState(Hand);
 	}
 
 	return EGoogleVRControllerState::Disconnected;
@@ -66,42 +66,50 @@ EGoogleVRControllerHandedness UGoogleVRControllerFunctionLibrary::GetGoogleVRCon
 	return HandednessPrefsEnum;
 }
 
-FVector UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerRawAccel()
+FVector UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerRawAccel(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		gvr_vec3f ControllerAccel = GVRController->CachedControllerState.GetAccel();
-		return FVector(ControllerAccel.x, ControllerAccel.y, ControllerAccel.z);
+		gvr::ControllerState* ControllerState = GVRController->GetCachedControllerState(Hand);
+		if (ControllerState)
+		{
+			gvr_vec3f ControllerAccel = ControllerState->GetAccel();
+			return FVector(ControllerAccel.x, ControllerAccel.y, ControllerAccel.z);
+		}
 	}
 #endif
 
 	return FVector::ZeroVector;
 }
 
-FVector UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerRawGyro()
+FVector UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerRawGyro(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		gvr_vec3f ControllerGyro = GVRController->CachedControllerState.GetGyro();
-		return FVector(ControllerGyro.x, ControllerGyro.y, ControllerGyro.z);
+		gvr::ControllerState* ControllerState = GVRController->GetCachedControllerState(Hand);
+		if (ControllerState)
+		{
+			gvr_vec3f ControllerGyro = ControllerState->GetGyro();
+			return FVector(ControllerGyro.x, ControllerGyro.y, ControllerGyro.z);
+		}
 	}
 #endif
 
 	return FVector::ZeroVector;
 }
 
-FRotator UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerOrientation()
+FRotator UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerOrientation(EControllerHand Hand)
 {
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
 		FRotator orientation;
 		FVector position;
-		GVRController->GetControllerOrientationAndPosition(0, EControllerHand::AnyHand, orientation, position, GVRController->GetWorldToMetersScale());
+		GVRController->GetControllerOrientationAndPosition(0, Hand, orientation, position, GVRController->GetWorldToMetersScale());
 		return orientation;
 	}
 	return FRotator::ZeroRotator;
@@ -416,39 +424,39 @@ float UGoogleVRControllerFunctionLibrary::GetTooltipAlphaValue()
 	return 0.0f;
 }
 
-bool UGoogleVRControllerFunctionLibrary::GetBatteryCharging()
+bool UGoogleVRControllerFunctionLibrary::GetBatteryCharging(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		return GVRController->GetBatteryCharging();
+		return GVRController->GetBatteryCharging(Hand);
 	}
 #endif
 
 	return false;
 }
 
-EGoogleVRControllerBatteryLevel UGoogleVRControllerFunctionLibrary::GetBatteryLevel()
+EGoogleVRControllerBatteryLevel UGoogleVRControllerFunctionLibrary::GetBatteryLevel(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		return GVRController->GetBatteryLevel();
+		return GVRController->GetBatteryLevel(Hand);
 	}
 #endif
 
 	return EGoogleVRControllerBatteryLevel::Unknown;
 }
 
-int64_t UGoogleVRControllerFunctionLibrary::GetLastBatteryTimestamp()
+int64_t UGoogleVRControllerFunctionLibrary::GetLastBatteryTimestamp(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	FGoogleVRController* GVRController = GetGoogleVRController();
 	if(GVRController != nullptr)
 	{
-		return GVRController->GetLastBatteryTimestamp();
+		return GVRController->GetLastBatteryTimestamp(Hand);
 	}
 #endif
 

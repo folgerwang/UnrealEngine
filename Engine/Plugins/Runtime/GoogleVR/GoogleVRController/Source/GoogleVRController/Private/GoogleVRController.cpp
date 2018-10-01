@@ -11,6 +11,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+#include "Misc/ConfigCacheIni.h"
 
 #include "GoogleVRAdbUtils.h"
 
@@ -64,6 +65,7 @@ class FGoogleVRControllerPlugin : public IGoogleVRControllerPlugin
 		options |= GVR_CONTROLLER_ENABLE_GYRO;
 		options |= GVR_CONTROLLER_ENABLE_TOUCH;
 		options |= GVR_CONTROLLER_ENABLE_ORIENTATION;
+		options |= GVR_CONTROLLER_ENABLE_POSITION;
 
 		bool success = false;
 #if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
@@ -129,7 +131,6 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 	: MessageHandler(InMessageHandler)
 #endif
 	, bUseArmModel(true)
-	, CurrentControllerState(EGoogleVRControllerState::Disconnected)
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
 	, BaseEmulatorOrientation(FRotator::ZeroRotator)
 #endif
@@ -137,7 +138,27 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 	, InstantPreviewControllerState()
 #endif
 {
-	UE_LOG(LogGoogleVRController, Log, TEXT("GoogleVR Controller Created"));
+	for (int32 i = 0; i < CONTROLLERS_PER_PLAYER; i++)
+	{
+		CurrentControllerStates[i] = EGoogleVRControllerState::Disconnected;
+	}
+
+#if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+	{
+		GoogleVRCaps = EGoogleVRCaps::Cardboard;
+		FString ValueString;
+		GConfig->GetString(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("GoogleVRCaps"), ValueString, GEngineIni);
+		UEnum* Enum = FindObject<UEnum>((UObject*)ANY_PACKAGE, TEXT("EGoogleVRCaps"), true);
+		if (Enum)
+		{
+			int64 Value = Enum->GetValueByName(FName(*ValueString));
+			if (Value != INDEX_NONE)
+			{
+				GoogleVRCaps = static_cast<EGoogleVRCaps::Type>(Value);
+			}
+		}
+	}
+#endif
 
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	// Register motion controller!
@@ -199,6 +220,7 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 	Buttons[(int32)EControllerHand::Left][EGoogleVRControllerButton::TouchPadPress] = FGamepadKeyNames::MotionController_Left_Thumbstick;
 	Buttons[(int32)EControllerHand::Right][EGoogleVRControllerButton::TouchPadPress] = FGamepadKeyNames::MotionController_Right_Thumbstick;
 
+	Buttons[(int32)EControllerHand::Left][EGoogleVRControllerButton::TouchPadTouch] = GoogleVRControllerKeyNames::Touch0;
 	Buttons[(int32)EControllerHand::Right][EGoogleVRControllerButton::TouchPadTouch] = GoogleVRControllerKeyNames::Touch0;
 
 	// Register callbacks for pause and resume
@@ -243,6 +265,7 @@ void FGoogleVRController::ApplicationResumeDelegate()
 void FGoogleVRController::PollController(float DeltaTime)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+
 #if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 	instant_preview::Session *session = ip_static_server_acquire_active_session(IpServerHandle);
 	if (NULL != session) {
@@ -250,37 +273,48 @@ void FGoogleVRController::PollController(float DeltaTime)
 	}
 	ip_static_server_release_active_session(IpServerHandle, session);
 #endif
+
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
-	int32_t PreviousConnectionState = CachedControllerState.GetConnectionState();
-	// If controller connection is requested but it is not connected, try resetup adb forward.
-	if(bKeepConnectingControllerEmulator
-	   && PreviousConnectionState != gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
 	{
-		double CurrentTime = FPlatformTime::Seconds();
-		if(CurrentTime - LastTimeTryAdbForward > ADB_FORWARD_RETRY_TIME)
+		gvr::ControllerState* ControllerState = GetCachedControllerState(EControllerHand::AnyHand);
+		check(ControllerState);
+		int32_t PreviousConnectionState = ControllerState->GetConnectionState();
+		// If controller connection is requested but it is not connected, try resetup adb forward.
+		if (bKeepConnectingControllerEmulator
+			&& PreviousConnectionState != gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
 		{
-			UE_LOG(LogGoogleVRController, Log, TEXT("Trying to connect to GoogleVR Controller"));
-			SetupAdbForward();
-			LastTimeTryAdbForward = CurrentTime;
+			double CurrentTime = FPlatformTime::Seconds();
+			if (CurrentTime - LastTimeTryAdbForward > ADB_FORWARD_RETRY_TIME)
+			{
+				UE_LOG(LogGoogleVRController, Log, TEXT("Trying to connect to GoogleVR Controller"));
+				SetupAdbForward();
+				LastTimeTryAdbForward = CurrentTime;
+			}
+		}
+
+		ControllerState->Update(*pController);
+
+		if (PreviousConnectionState != gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED
+			&& ControllerState->GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
+		{
+			UE_LOG(LogGoogleVRController, Log, TEXT("GoogleVR Controller Connected"));
+		}
+
+		if (PreviousConnectionState == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED
+			&& ControllerState->GetConnectionState() != gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
+		{
+			UE_LOG(LogGoogleVRController, Log, TEXT("GoogleVR Controller Disconnected"));
 		}
 	}
-
-	CachedControllerState.Update(*pController);
-
-	if(PreviousConnectionState != gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED
-	   && CachedControllerState.GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
-	{
-		UE_LOG(LogGoogleVRController, Log, TEXT("GoogleVR Controller Connected"));
-	}
-
-	if(PreviousConnectionState == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED
-	   && CachedControllerState.GetConnectionState() != gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
-	{
-		UE_LOG(LogGoogleVRController, Log, TEXT("GoogleVR Controller Disconnected"));
-	}
 #elif GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
-	CachedControllerState.Update(*pController);
+	for (int32 i = 0; i < CONTROLLERS_PER_PLAYER; i++)
+	{
+		CachedControllerStates[i].Update(*pController, i);
+	}
+
 #endif
+
+	// In a future google api hopefully we will have a better way to detect 3dof controllers, and we might want to avoid doing this work for 6dof controllers (where it will not be used).
 	if (bUseArmModel)
 	{
 		// Update the handedness. This could be changed in UserSettings at anytime so we poll for it.
@@ -316,20 +350,23 @@ void FGoogleVRController::PollController(float DeltaTime)
 		else
 #endif  // GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 		{
+			gvr::ControllerState* ControllerState = GetCachedControllerState(EControllerHand::AnyHand);
+			check(ControllerState);
+
 			// get acceleration data
-			gvr_vec3f GvrAccel = CachedControllerState.GetAccel();
+			gvr_vec3f GvrAccel = ControllerState->GetAccel();
 			UpdateData.acceleration = gvr_arm_model::Vector3(GvrAccel.x, GvrAccel.y, GvrAccel.z);
 
 			// Get orientation data
-			gvr_quatf GvrOrientation = CachedControllerState.GetOrientation();
+			gvr_quatf GvrOrientation = ControllerState->GetOrientation();
 			UpdateData.orientation = gvr_arm_model::Quaternion(GvrOrientation.qw, GvrOrientation.qx, GvrOrientation.qy, GvrOrientation.qz);
 
 			// Get gyroscope data
-			gvr_vec3f GvrGyro = CachedControllerState.GetGyro();
+			gvr_vec3f GvrGyro = ControllerState->GetGyro();
 			UpdateData.gyro = gvr_arm_model::Vector3(GvrGyro.x, GvrGyro.y, GvrGyro.z);
 
 			// Get connected status
-			UpdateData.connected = CachedControllerState.GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED;
+			UpdateData.connected = ControllerState->GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED;
 		}
 
 		// Get head direction and position of the HMD, used for FollowGaze options
@@ -363,16 +400,19 @@ void FGoogleVRController::PollController(float DeltaTime)
 #endif
 }
 
-void FGoogleVRController::ProcessControllerButtons()
+void FGoogleVRController::ProcessControllerButtons(int32 ControllerStateIndex)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+	const EControllerHand Hand = GetControllerHandFromStateIndex(ControllerStateIndex);
+	check(Hand == EControllerHand::Left || Hand == EControllerHand::Right);
+
 	// Capture our current button states
 	bool CurrentButtonStates[EGoogleVRControllerButton::TotalButtonCount] = {0};
 
 	FVector2D TranslatedLocation = FVector2D::ZeroVector;
 
 #if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
-	if (gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED == InstantPreviewControllerState.connection_state)
+	if (ControllerStateIndex == 0 && gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED == InstantPreviewControllerState.connection_state)
 	{
 		// Process our known set of buttons
 		CurrentButtonStates[EGoogleVRControllerButton::TouchPadPress] = InstantPreviewControllerState.click_button_state;
@@ -402,8 +442,10 @@ void FGoogleVRController::ProcessControllerButtons()
 	else
 #endif  // GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 	{
-		if (IsAvailable())
+		if (IsAvailable(ControllerStateIndex))
 		{
+			const gvr::ControllerState& CachedControllerState = CachedControllerStates[ControllerStateIndex];
+
 			// Process our known set of buttons
 			if (CachedControllerState.GetButtonState(gvr::ControllerButton::GVR_CONTROLLER_BUTTON_CLICK))
 			{
@@ -434,9 +476,23 @@ void FGoogleVRController::ProcessControllerButtons()
 				CurrentButtonStates[EGoogleVRControllerButton::ApplicationMenu] = false;
 			}
 
-			// Note: There is no Grip or Trigger button information from the CachedControllerState; so do nothing
-			// EGoogleVRControllerButton::TriggerPress - unhandled
-			// EGoogleVRControllerButton::Grip - unhandled
+			if (CachedControllerState.GetButtonState(gvr::ControllerButton::GVR_CONTROLLER_BUTTON_RESERVED0))
+			{
+				CurrentButtonStates[EGoogleVRControllerButton::TriggerPress] = true;
+			}
+			else if (CachedControllerState.GetButtonUp(gvr::ControllerButton::GVR_CONTROLLER_BUTTON_RESERVED0))
+			{
+				CurrentButtonStates[EGoogleVRControllerButton::TriggerPress] = false;
+			}
+
+			if (CachedControllerState.GetButtonState(gvr::ControllerButton::GVR_CONTROLLER_BUTTON_RESERVED1))
+			{
+				CurrentButtonStates[EGoogleVRControllerButton::Grip] = true;
+			}
+			else if (CachedControllerState.GetButtonUp(gvr::ControllerButton::GVR_CONTROLLER_BUTTON_RESERVED1))
+			{
+				CurrentButtonStates[EGoogleVRControllerButton::Grip] = false;
+			}
 
 			// Process touches and analog information
 			// OnDown
@@ -477,46 +533,46 @@ void FGoogleVRController::ProcessControllerButtons()
 		}
 	}
 
-	MessageHandler->OnControllerAnalog( FGamepadKeyNames::MotionController_Left_Thumbstick_X, 0, TranslatedLocation.X);
-	MessageHandler->OnControllerAnalog( FGamepadKeyNames::MotionController_Right_Thumbstick_X, 0, TranslatedLocation.X);
+	if (Hand == EControllerHand::Left)
+	{
+		MessageHandler->OnControllerAnalog( FGamepadKeyNames::MotionController_Left_Thumbstick_X, 0, TranslatedLocation.X);
+		MessageHandler->OnControllerAnalog(FGamepadKeyNames::MotionController_Left_Thumbstick_Y, 0, TranslatedLocation.Y);
+	}
+	if (Hand == EControllerHand::Right)
+	{
+		MessageHandler->OnControllerAnalog(FGamepadKeyNames::MotionController_Right_Thumbstick_X, 0, TranslatedLocation.X);
+		MessageHandler->OnControllerAnalog(FGamepadKeyNames::MotionController_Right_Thumbstick_Y, 0, TranslatedLocation.Y);
+	}
 
-	MessageHandler->OnControllerAnalog( FGamepadKeyNames::MotionController_Left_Thumbstick_Y, 0, TranslatedLocation.Y);
-	MessageHandler->OnControllerAnalog( FGamepadKeyNames::MotionController_Right_Thumbstick_Y, 0, TranslatedLocation.Y);
-
-	// Process buttons for both hands at the same time
+	// Process buttons
+	const int32 HandIndex = (int32)Hand;
+	check(HandIndex >= 0 && HandIndex < CONTROLLERS_PER_PLAYER);
 	for(int32 ButtonIndex = 0; ButtonIndex < (int32)EGoogleVRControllerButton::TotalButtonCount; ++ButtonIndex)
 	{
-		if(CurrentButtonStates[ButtonIndex] != LastButtonStates[ButtonIndex])
+		if(CurrentButtonStates[ButtonIndex] != LastButtonStates[ControllerStateIndex][ButtonIndex])
 		{
 			// OnDown
 			if(CurrentButtonStates[ButtonIndex])
 			{
-				if (ButtonIndex != EGoogleVRControllerButton::TouchPadTouch)
-				{
-					MessageHandler->OnControllerButtonPressed(Buttons[(int32)EControllerHand::Left][ButtonIndex], 0, false);
-				}
-				MessageHandler->OnControllerButtonPressed( Buttons[(int32)EControllerHand::Right][ButtonIndex], 0, false);
+				MessageHandler->OnControllerButtonPressed( Buttons[HandIndex][ButtonIndex], 0, false);
 			}
 			// On Up
 			else
 			{
-				if (ButtonIndex != EGoogleVRControllerButton::TouchPadTouch)
-				{
-					MessageHandler->OnControllerButtonReleased(Buttons[(int32)EControllerHand::Left][ButtonIndex], 0, false);
-				}
-				MessageHandler->OnControllerButtonReleased( Buttons[(int32)EControllerHand::Right][ButtonIndex], 0, false);
+				MessageHandler->OnControllerButtonReleased( Buttons[HandIndex][ButtonIndex], 0, false);
 			}
 		}
 
 		// update state for next time
-		LastButtonStates[ButtonIndex] = CurrentButtonStates[ButtonIndex];
+		LastButtonStates[ControllerStateIndex][ButtonIndex] = CurrentButtonStates[ButtonIndex];
 	}
 #endif // GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 }
 
-void FGoogleVRController::ProcessControllerEvents()
+void FGoogleVRController::ProcessControllerEvents(int32 ControllerStateIndex)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+	const gvr::ControllerState& CachedControllerState = CachedControllerStates[ControllerStateIndex];
 	if (CachedControllerState.GetRecentered())
 	{
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
@@ -535,36 +591,39 @@ void FGoogleVRController::ProcessControllerEvents()
 	}
 
 
-	EGoogleVRControllerState PreviousControllerState = CurrentControllerState;
+	EGoogleVRControllerState PreviousControllerState = CurrentControllerStates[ControllerStateIndex];
 #if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 	if (gvr::ControllerConnectionState::GVR_CONTROLLER_DISCONNECTED != InstantPreviewControllerState.connection_state) {
-		CurrentControllerState = (EGoogleVRControllerState)InstantPreviewControllerState.connection_state;
+		CurrentControllerStates[ControllerStateIndex] = (EGoogleVRControllerState)InstantPreviewControllerState.connection_state;
 	}
 	else
 #endif  // GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 	{
-		CurrentControllerState = (EGoogleVRControllerState) CachedControllerState.GetConnectionState();
+		CurrentControllerStates[ControllerStateIndex] = (EGoogleVRControllerState) CachedControllerState.GetConnectionState();
 	}
-	if (CurrentControllerState != PreviousControllerState)
+	if (CurrentControllerStates[ControllerStateIndex] != PreviousControllerState)
 	{
-		UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerEventManager()->OnControllerStateChangedDelegate.Broadcast(CurrentControllerState);
+		UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerEventManager()->OnControllerStateChangedDelegate.Broadcast(CurrentControllerStates[ControllerStateIndex]);
 	}
 #endif
 }
 
-bool FGoogleVRController::IsAvailable() const
+bool FGoogleVRController::IsAvailable(int32 ControllerStateIndex) const
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 #if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 	if (gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED == InstantPreviewControllerState.connection_state) {
-		return true;
+		return ControllerStateIndex == 0;
 	}
 	else
 #endif  // GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
-	if(CachedControllerState.GetApiStatus() == gvr::ControllerApiStatus::GVR_CONTROLLER_API_OK &&
-		CachedControllerState.GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED )
 	{
-		return true;
+		const gvr::ControllerState& ControllerState = CachedControllerStates[ControllerStateIndex];
+		if (ControllerState.GetApiStatus() == gvr::ControllerApiStatus::GVR_CONTROLLER_API_OK &&
+			ControllerState.GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED)
+		{
+			return true;
+		}
 	}
 #endif
 	return false;
@@ -589,9 +648,24 @@ int FGoogleVRController::GetGVRControllerHandedness() const
 #endif
 }
 
-EGoogleVRControllerState FGoogleVRController::GetControllerState() const
+EGoogleVRControllerAPIStatus FGoogleVRController::GetApiStatus() const
 {
-	return CurrentControllerState;
+#if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+	// Any controller would give the same result.
+	return (EGoogleVRControllerAPIStatus) CachedControllerStates[0].GetApiStatus();
+#else
+	return EGoogleVRControllerAPIStatus::Unknown;
+#endif
+}
+
+EGoogleVRControllerState FGoogleVRController::GetControllerState(EControllerHand Hand) const
+{
+	int32 ControllerIndex = GetControllerStateIndex(Hand);
+	if (ControllerIndex >= 0)
+	{
+		return CurrentControllerStates[ControllerIndex];
+	}
+	return EGoogleVRControllerState::Disconnected;
 }
 
 FVector FGoogleVRController::ConvertGvrVectorToUnreal(float x, float y, float z, float WorldToMetersScale) const
@@ -615,50 +689,62 @@ FQuat FGoogleVRController::ConvertGvrQuaternionToUnreal(float w, float x, float 
 	return Result;
 }
 
-bool FGoogleVRController::GetBatteryCharging()
+bool FGoogleVRController::GetBatteryCharging(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
-	return CachedControllerState.GetBatteryCharging();
-#else
-	return 0;
+	const gvr::ControllerState* ControllerState = GetCachedControllerState(Hand);
+	if (ControllerState)
+	{
+		return ControllerState->GetBatteryCharging();
+	}
 #endif
+
+	return false;
 }
 
-EGoogleVRControllerBatteryLevel FGoogleVRController::GetBatteryLevel()
+EGoogleVRControllerBatteryLevel FGoogleVRController::GetBatteryLevel(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
-	switch (CachedControllerState.GetBatteryLevel())
+	const gvr::ControllerState* ControllerState = GetCachedControllerState(Hand);
+	if (ControllerState)
 	{
-		case kControllerBatteryLevelCriticalLow:
-			return EGoogleVRControllerBatteryLevel::CriticalLow;
+		switch (ControllerState->GetBatteryLevel())
+		{
+			case kControllerBatteryLevelCriticalLow:
+				return EGoogleVRControllerBatteryLevel::CriticalLow;
 
-		case kControllerBatteryLevelLow:
-			return EGoogleVRControllerBatteryLevel::Low;
+			case kControllerBatteryLevelLow:
+				return EGoogleVRControllerBatteryLevel::Low;
 
-		case kControllerBatteryLevelMedium:
-			return EGoogleVRControllerBatteryLevel::Medium;
+			case kControllerBatteryLevelMedium:
+				return EGoogleVRControllerBatteryLevel::Medium;
 
-		case kControllerBatteryLevelAlmostFull:
-			return EGoogleVRControllerBatteryLevel::AlmostFull;
+			case kControllerBatteryLevelAlmostFull:
+				return EGoogleVRControllerBatteryLevel::AlmostFull;
 
-		case kControllerBatteryLevelFull:
-			return EGoogleVRControllerBatteryLevel::Full;
+			case kControllerBatteryLevelFull:
+				return EGoogleVRControllerBatteryLevel::Full;
 
-		default:
-			break;
-    }
+			default:
+				break;
+		}
+	}
 #endif
 
 	return EGoogleVRControllerBatteryLevel::Unknown;
 }
 
-int64_t FGoogleVRController::GetLastBatteryTimestamp()
+int64_t FGoogleVRController::GetLastBatteryTimestamp(EControllerHand Hand)
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
-	return CachedControllerState.GetLastBatteryTimestamp();
-#else
-	return 0;
+	const gvr::ControllerState* ControllerState = GetCachedControllerState(Hand);
+	if (ControllerState)
+	{
+		return ControllerState->GetLastBatteryTimestamp();
+	}
 #endif
+
+	return 0;
 }
 
 bool FGoogleVRController::GetUseArmModel() const
@@ -698,8 +784,11 @@ void FGoogleVRController::Tick(float DeltaTime)
 
 void FGoogleVRController::SendControllerEvents()
 {
-	ProcessControllerButtons();
-	ProcessControllerEvents();
+	for (int32 i = 0; i < CONTROLLERS_PER_PLAYER; ++i)
+	{
+		ProcessControllerButtons(i);
+		ProcessControllerEvents(i);
+	}
 }
 
 void FGoogleVRController::SetMessageHandler(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler)
@@ -729,14 +818,37 @@ bool FGoogleVRController::GetControllerOrientationAndPosition(const int32 Contro
 	{
 		return false;
 	}
-
-	if(IsAvailable())
+	if(IsAvailable(GetControllerStateIndex(DeviceHand)))
 	{
 		OutPosition = FVector::ZeroVector;
 		OutOrientation = FRotator::ZeroRotator;
 
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
-		if (bUseArmModel)
+
+		// Determine if we should actually use the arm model, or if we have 6dof controllers.
+		bool bUseArmModelHere = bUseArmModel;
+#if !GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
+#if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+		if (bUseArmModelHere && GoogleVRCaps == EGoogleVRCaps::Daydream66)
+		{
+			// HACK: checking for reported position of exactly 0,0,0 and assuming that means no position tracking.  A future API revision will hopefully provide this somehow.
+			// We have to check both controllers, because one could be tracked while the other is still connecting or something, and we don't want to use the arm model for that one.
+			bool b6DOFControllers = false;
+			for (int32 i = 0; i < CONTROLLERS_PER_PLAYER; i++)
+			{
+				const gvr_vec3f ControllerPosition = CachedControllerStates[i].GetPosition();
+				if (ControllerPosition.x != 0.0f || ControllerPosition.y != 0.0f || ControllerPosition.z != 0.0f)
+				{
+					b6DOFControllers = true;
+					break;
+				}
+			}
+			bUseArmModelHere &= !b6DOFControllers;
+		}
+#endif //GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+#endif
+
+		if (bUseArmModelHere)
 		{
 			const gvr_arm_model::Vector3& ControllerPosition = ArmModelController.GetControllerPosition();
 			const gvr_arm_model::Quaternion& ControllerRotation = ArmModelController.GetControllerRotation();
@@ -769,8 +881,15 @@ bool FGoogleVRController::GetControllerOrientationAndPosition(const int32 Contro
 			else
 #endif  // GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 			{
-				gvr_quatf ControllerOrientation = CachedControllerState.GetOrientation();
+				const gvr::ControllerState* ControllerState = GetCachedControllerState(DeviceHand);
+				check(ControllerState);  // IsAvailable check above should ensure this.
+				gvr_quatf ControllerOrientation = ControllerState->GetOrientation();
 				OutOrientation = FQuat(ControllerOrientation.qz, -ControllerOrientation.qx, -ControllerOrientation.qy, ControllerOrientation.qw).Rotator();
+#if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+// GetPosition does not link for the editor, I guess it doesnt' exist in the windows lib.  May be fixed in future api.
+				const gvr_vec3f ControllerPosition = ControllerState->GetPosition();
+				OutPosition = ConvertGvrVectorToUnreal(ControllerPosition.x, ControllerPosition.y, ControllerPosition.z, WorldToMetersScale);
+#endif //GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
 			}
 		}
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
@@ -786,6 +905,50 @@ bool FGoogleVRController::GetControllerOrientationAndPosition(const int32 Contro
 	return false;
 }
 
+int32 FGoogleVRController::GetControllerStateIndex(EControllerHand Hand) const
+{
+	switch (Hand)
+	{
+	case EControllerHand::Left:
+		return 1;
+	case EControllerHand::Right:
+	case EControllerHand::AnyHand:
+		return 0;
+	default:
+		return -1;
+	}
+}
+
+EControllerHand FGoogleVRController::GetControllerHandFromStateIndex(int32 StateIndex) const
+{
+	switch (StateIndex)
+	{
+	case 1:
+		return EControllerHand::Left;
+	case 0:
+		return EControllerHand::Right;
+	default:
+		check(false);
+		return EControllerHand::Right;
+	}
+}
+
+#if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+gvr::ControllerState* FGoogleVRController::GetCachedControllerState(EControllerHand Hand)
+{
+	const int32 i = GetControllerStateIndex(Hand);
+	check(i < 2);
+	return (i >= 0) ? &(CachedControllerStates[i]) : nullptr;
+}
+
+const gvr::ControllerState* FGoogleVRController::GetCachedControllerState(EControllerHand Hand) const
+{
+	const int32 i = GetControllerStateIndex(Hand);
+	check(i < 2);
+	return (i >= 0) ? &(CachedControllerStates[i]) : nullptr;
+}
+#endif
+
 float FGoogleVRController::GetWorldToMetersScale() const
 {
 	if (IsInGameThread() && GWorld != nullptr)
@@ -800,7 +963,7 @@ float FGoogleVRController::GetWorldToMetersScale() const
 ETrackingStatus FGoogleVRController::GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const
 {
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
-	if(IsAvailable())
+	if(IsAvailable(GetControllerStateIndex(DeviceHand)))
 	{
 		return ETrackingStatus::Tracked;
 	}

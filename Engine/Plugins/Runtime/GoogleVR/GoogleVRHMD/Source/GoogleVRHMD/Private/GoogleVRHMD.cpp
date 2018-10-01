@@ -397,6 +397,12 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
+	// set to identity
+	CachedHeadPose = 	{ { { 1.0f, 0.0f, 0.0f, 0.0f },
+						{ 0.0f, 1.0f, 0.0f, 0.0f },
+						{ 0.0f, 0.0f, 1.0f, 0.0f },
+						{ 0.0f, 0.0f, 0.0f, 1.0f } } };
+
 	// Get GVRAPI from java
 	GVRAPI = AndroidThunkCpp_GetNativeGVRApi();
 
