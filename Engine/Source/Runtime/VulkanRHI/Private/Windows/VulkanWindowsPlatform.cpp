@@ -123,6 +123,10 @@ void FVulkanWindowsPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExt
 	{
 		OutExtensions.Add(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
 	}
+
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	OutExtensions.Add(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
+#endif
 }
 
 void FVulkanWindowsPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)

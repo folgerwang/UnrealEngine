@@ -28,6 +28,7 @@ struct FOptionalVulkanDeviceExtensions
 	uint32 HasEXTValidationCache : 1;
 	uint32 HasAMDBufferMarker : 1;
 	uint32 HasGoogleDisplayTiming : 1;
+	uint32 HasYcbcrSampler : 1;
 };
 
 class FVulkanDevice
@@ -357,7 +358,9 @@ private:
 	FVulkanCommandListContextImmediate* ImmediateContext;
 	FVulkanCommandListContext* ComputeContext;
 	TArray<FVulkanCommandListContext*> CommandContexts;
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	TMap<uint32, VkSamplerYcbcrConversion> SamplerColorConversionMap;
+#endif
 
 	void GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 

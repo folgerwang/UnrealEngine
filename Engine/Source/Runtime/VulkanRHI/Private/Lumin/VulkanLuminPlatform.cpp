@@ -130,6 +130,7 @@ void FVulkanLuminPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 	{
 		OutExtensions.Add("VK_LAYER_NV_vgd");
 	}
+	OutExtensions.Add(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
 }
 
 bool FVulkanLuminPlatform::ForceEnableDebugMarkers()
