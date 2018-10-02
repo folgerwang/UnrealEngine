@@ -62,7 +62,7 @@ void FApplePlatformCrashContext::InitFromSignal(int32 InSignal, siginfo_t* InInf
 #undef HANDLE_CASE
 }
 
-int32 FApplePlatformCrashContext::ReportCrash()
+int32 FApplePlatformCrashContext::ReportCrash() const
 {
 	static bool GAlreadyCreatedMinidump = false;
 	// Only create a minidump the first time this function is called.
@@ -75,7 +75,7 @@ int32 FApplePlatformCrashContext::ReportCrash()
 		*StackBuffer = 0;
 		
 		// Generate the portable callstack for the crash xml
-		CapturePortableCallStack(IgnoreDepth, Context);		
+		const_cast<FApplePlatformCrashContext*>(this)->CapturePortableCallStack(IgnoreDepth, Context);		
 		// Walk the stack and dump it to the allocated memory (ignore first 2 callstack lines as those are in stack walking code)
 		FPlatformStackWalk::StackWalkAndDump( StackBuffer, ARRAY_COUNT(MinidumpCallstackInfo) - 1, IgnoreDepth, Context );
 		

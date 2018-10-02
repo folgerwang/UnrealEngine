@@ -1450,7 +1450,7 @@ void (* GCrashHandlerPointer)(const FGenericCrashContext& Context) = NULL;
 /**
  * Good enough default crash reporter.
  */
-static void DefaultCrashHandler(FMacCrashContext& Context)
+static void DefaultCrashHandler(FMacCrashContext const& Context)
 {
 	Context.ReportCrash();
 	if (GLog)
