@@ -380,8 +380,12 @@ void FSteamVRHMD::GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, F
 //=============================================================================
 IStereoLayers* FSteamVRHMD::GetStereoLayers ()
 {
-	check(VROverlay);
-	return this;
+	if (VROverlay)
+	{
+		return this;
+	}
+
+	return nullptr;
 }
 
 #endif //STEAMVR_SUPPORTED_PLATFORMS
