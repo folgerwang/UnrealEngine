@@ -143,7 +143,7 @@ bool SNiagaraStackModuleItem::CheckEnabledStatus(bool bIsEnabled)
 void SNiagaraStackModuleItem::FillRowContextMenu(FMenuBuilder& MenuBuilder)
 {
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("InsertModuleAbove", "Insert above"),
+		LOCTEXT("InsertModuleAbove", "Insert Above"),
 		LOCTEXT("InsertModuleAboveToolTip", "Insert a new module above this module in the stack."),
 		FSlateIcon(),
 		FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackModuleItem::InsertModuleAbove)));

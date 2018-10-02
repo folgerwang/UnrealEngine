@@ -133,12 +133,12 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 			MenuBuilder.BeginSection("EmitterInlineMenuActions", LOCTEXT("EmitterActions", "Emitter Actions"));
 			{
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("OpenAndFocusEmitter", "Open and focus source emitter"),
+					LOCTEXT("OpenAndFocusEmitter", "Open and Focus Source Emitter"),
 					LOCTEXT("OpenAndFocusEmitterToolTip", "Open the source emitter in emitter mode"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStack::OpenSourceEmitter), FCanExecuteAction::CreateSP(this, &SNiagaraStack::CanOpenSourceEmitter)));
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("ShowEmitterInContentBrowser", "Show in content browser"),
+					LOCTEXT("ShowEmitterInContentBrowser", "Show in Content Browser"),
 					LOCTEXT("ShowEmitterInContentBrowserToolTip", "Show the emitter in this stack in the Content Browser"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStack::ShowEmitterInContentBrowser))); 
@@ -198,7 +198,7 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 			if (StackViewModel->HasDismissedStackIssues())
 			{
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("UndismissIssues", "Undismiss all stack issues"),
+					LOCTEXT("UndismissIssues", "Undismiss All Stack Issues"),
 					LOCTEXT("ShowAssetInContentBrowserToolTip", "Undismiss all issues that were previously dismissed for this stack, if any"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateUObject(StackViewModel, &UNiagaraStackViewModel::UndismissAllIssues)));
@@ -507,7 +507,7 @@ TSharedRef<SWidget> SNiagaraStack::GetViewOptionsMenu() const
 	FMenuBuilder MenuBuilder(false, nullptr);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("ShowAllAdvancedLabel", "Show all advanced"),
+		LOCTEXT("ShowAllAdvancedLabel", "Show All Advanced"),
 		LOCTEXT("ShowAllAdvancedToolTip", "Forces all advanced items to be showing in the stack."),
 		FSlateIcon(),
 		FUIAction(
@@ -517,7 +517,7 @@ TSharedRef<SWidget> SNiagaraStack::GetViewOptionsMenu() const
 		NAME_None, EUserInterfaceActionType::Check);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("ShowOutputsLabel", "Show outputs"),
+		LOCTEXT("ShowOutputsLabel", "Show Outputs"),
 		LOCTEXT("ShowOutputsToolTip", "Whether or now to show module outputs in the stack."),
 		FSlateIcon(),
 		FUIAction(
