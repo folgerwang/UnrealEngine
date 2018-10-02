@@ -97,4 +97,7 @@ public:
 	
 	// Allow platforms to add extension features to the PresentInfo pNext chain
 	static void EnablePresentInfoExtensions(VkPresentInfoKHR& PresentInfo) {}
+
+	// Ensure the last frame completed on the GPU
+	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
 };

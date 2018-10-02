@@ -245,9 +245,38 @@ void FVulkanViewport::AdvanceBackBufferFrame()
 	}
 }
 
-//void FVulkanViewport::WaitForFrameEventCompletion()
-//{
-//}
+void FVulkanViewport::WaitForFrameEventCompletion()
+{
+	if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent())
+	{
+		static FCriticalSection CS;
+		FScopeLock ScopeLock(&CS);
+		if (LastFrameCommandBuffer && LastFrameCommandBuffer->IsSubmitted())
+		{
+			// If last frame's fence hasn't been signaled already, wait for it here
+			if (LastFrameFenceCounter == LastFrameCommandBuffer->GetFenceSignaledCounter())
+			{
+				if (!GWaitForIdleOnSubmit)
+				{
+					// The wait has already happened if GWaitForIdleOnSubmit is set
+					LastFrameCommandBuffer->GetOwner()->GetMgr().WaitForCmdBuffer(LastFrameCommandBuffer);
+				}
+			}
+		}
+	}
+}
+
+void FVulkanViewport::IssueFrameEvent()
+{
+	if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent())
+	{
+		// The fence we need to wait on next frame is already there in the command buffer
+		// that was just submitted in this frame's Present. Just grab that command buffer's
+		// info to use next frame in WaitForFrameEventCompletion.
+		FVulkanQueue* Queue = Device->GetGraphicsQueue();
+		Queue->GetLastSubmittedInfo(LastFrameCommandBuffer, LastFrameFenceCounter);
+	}
+}
 
 
 FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRenderTargetsInfo& InRTInfo, const FVulkanRenderTargetLayout& RTLayout, const FVulkanRenderPass& RenderPass)
@@ -696,19 +725,12 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 		RHIBackBuffer = nullptr;
 	}
 
-	//static const TConsoleVariableData<int32>* CFinishFrameVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FinishCurrentFrame"));
-	//if (!CFinishFrameVar->GetValueOnRenderThread())
-	//{
-	//	// Wait for the GPU to finish rendering the previous frame before finishing this frame.
-	//	WaitForFrameEventCompletion();
-	//	IssueFrameEvent();
-	//}
-	//else
-	//{
-	//	// Finish current frame immediately to reduce latency
-	//	IssueFrameEvent();
-	//	WaitForFrameEventCompletion();
-	//}
+	if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent() && !bHasCustomPresent)
+	{
+		// Wait for the GPU to finish rendering the previous frame before finishing this frame.
+		WaitForFrameEventCompletion();
+		IssueFrameEvent();
+	}
 
 	// If the input latency timer has been triggered, block until the GPU is completely
 	// finished displaying this frame and calculate the delta time.
