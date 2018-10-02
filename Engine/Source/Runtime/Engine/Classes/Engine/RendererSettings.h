@@ -144,11 +144,11 @@ namespace EDefaultBackBufferPixelFormat
 {
 	enum Type
 	{
-		DBBPF_B8G8R8A8 = 0	UMETA(DisplayName = "8bit RGBA"),
-		DBBPF_A16B16G16R16	UMETA(DisplayName = "16bit RGBA"),
-		DBBPF_FloatRGB		UMETA(DisplayName = "Float RGB"),
-		DBBPF_FloatRGBA		UMETA(DisplayName = "Float RGBA"),
-		DBBPF_A2B10G10R10	UMETA(DisplayName = "10bit RGB, 2bit Alpha"),
+		DBBPF_B8G8R8A8 = 0				UMETA(DisplayName = "8bit RGBA"),
+		DBBPF_A16B16G16R16_DEPRECATED	UMETA(DisplayName = "DEPRECATED - 16bit RGBA", Hidden),
+		DBBPF_FloatRGB_DEPRECATED		UMETA(DisplayName = "DEPRECATED - Float RGB", Hidden),
+		DBBPF_FloatRGBA					UMETA(DisplayName = "Float RGBA"),
+		DBBPF_A2B10G10R10				UMETA(DisplayName = "10bit RGB, 2bit Alpha"),
 		DBBPF_MAX,
 	};
 }
