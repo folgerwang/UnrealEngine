@@ -29,9 +29,8 @@ public:
 	{
 	}
 
-	void Insert()
+	void Insert(FRHICommandListImmediate& RHICmdList)
 	{
-		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 		RHICmdList.EnqueueStagedRead(StagingBuffer, Fence, 0, GPUVertexBuffer->GetSize());
 	}
 

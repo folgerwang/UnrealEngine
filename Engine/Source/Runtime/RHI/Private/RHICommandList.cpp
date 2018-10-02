@@ -2479,43 +2479,6 @@ void FDynamicRHI::RHICopySubTextureRegion_RenderThread(class FRHICommandListImme
 	return GDynamicRHI->RHICopySubTextureRegion(SourceTexture, DestinationTexture, SourceBox, DestinationBox);
 }
 
-struct FDynamicRHICommandEnqueueStagedRead : public FRHICommand<FDynamicRHICommandEnqueueStagedRead>
-{
-	FStagingBufferRHIParamRef Buffer;
-	FGPUFenceRHIParamRef Fence;
-	uint32 Offset;
-	uint32 NumBytes;
-	
-	FORCEINLINE_DEBUGGABLE FDynamicRHICommandEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef InFence, uint32 InOffset, uint32 InNumBytes)
-	: Buffer(StagingBuffer)
-	, Fence(InFence)
-	, Offset(InOffset)
-	, NumBytes(InNumBytes)
-	{
-	}
-	
-	virtual ~FDynamicRHICommandEnqueueStagedRead()
-	{
-	}
-	
-	void Execute(FRHICommandListBase& CmdList)
-	{
-		GDynamicRHI->RHIEnqueueStagedRead(Buffer, Fence, Offset, NumBytes);
-	}
-};
-
-void FDynamicRHI::RHIEnqueueStagedRead_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
-{
-	// When the RHI does not support GRHISupportsGPUFence then we assume the default implementation of FRHIGPUFence.
-	// The default FRHIGPUFence uses GFrameNumberRenderThread and thus does not need to be dispatched to the RHI thread.
-	if (!GRHISupportsGPUFence || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
-	{
-		GDynamicRHI->RHIEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
-		return;
-	}
-	new (RHICmdList.AllocCommand<FDynamicRHICommandEnqueueStagedRead>()) FDynamicRHICommandEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
-}
-
 void FDynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
 {
 	IRHICommandContext* Context = RHIGetDefaultContext();

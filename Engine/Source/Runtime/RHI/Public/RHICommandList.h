@@ -3991,7 +3991,8 @@ public:
 
 	FORCEINLINE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
 	{
-		GDynamicRHI->RHIEnqueueStagedRead_RenderThread(*this, StagingBuffer, Fence, Offset, NumBytes);
+		ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
+		GDynamicRHI->RHIEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
 	}
 	
 	FORCEINLINE void ExecuteCommandList(FRHICommandList* CmdList)

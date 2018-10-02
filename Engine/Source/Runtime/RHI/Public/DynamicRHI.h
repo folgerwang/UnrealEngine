@@ -212,7 +212,7 @@ public:
 
 	virtual FGPUFenceRHIRef RHICreateGPUFence(const FName &Name)
 	{
-		return new FRHIGPUFence(Name);
+		return new FGenericRHIGPUFence(Name);
 	}
 
 	/**
@@ -1055,7 +1055,6 @@ public:
      * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
      */
     virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes);
-    virtual void RHIEnqueueStagedRead_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes);
 	
 	virtual FRHIFlipDetails RHIWaitForFlip(double TimeoutInSeconds) { return FRHIFlipDetails(); }
 	virtual void RHISignalFlipEvent() { }

@@ -131,10 +131,10 @@ public:
 	operator ID3D12Resource&() { return *Resource; }
 	ID3D12Resource* GetResource() const { return Resource.GetReference(); }
 
-	inline void* Map()
+	inline void* Map(const D3D12_RANGE* ReadRange = nullptr)
 	{
 		check(Resource);
-		VERIFYD3D12RESULT(Resource->Map(0, nullptr, &ResourceBaseAddress));
+		VERIFYD3D12RESULT(Resource->Map(0, ReadRange, &ResourceBaseAddress));
 
 		return ResourceBaseAddress;
 	}

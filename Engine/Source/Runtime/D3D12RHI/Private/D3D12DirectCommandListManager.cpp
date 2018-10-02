@@ -14,6 +14,159 @@ FComputeFenceRHIRef FD3D12DynamicRHI::RHICreateComputeFence(const FName& Name)
 	return Fence;
 }
 
+// =============================================================================
+
+class FD3D12GPUFence : public FRHIGPUFence
+{
+public:
+
+	FD3D12GPUFence(FName InName, FD3D12Fence* InFence) 
+		: FRHIGPUFence(InName)
+		, Fence(InFence)
+		, Value(0)
+	{}
+
+	virtual void Write() final override
+	{
+		if (Fence)
+		{
+			Value = Fence->Signal(ED3D12CommandQueueType::Default);
+		}
+	}
+
+	virtual bool Poll() const final override
+	{
+		return !Value || (Fence && Fence->IsFenceComplete(Value));
+	}
+
+	virtual bool Wait(float TimeoutMs) const final override
+	{
+		if (Value && Fence)
+		{
+			Fence->WaitForFence(Value);
+		}
+		return Value != 0;
+	}
+
+protected:
+
+	TRefCountPtr<FD3D12Fence> Fence;
+	uint64 Value;
+};
+
+template<>
+struct TD3D12ResourceTraits<FRHIGPUFence>
+{
+	typedef FD3D12GPUFence TConcreteType;
+};
+
+
+FGPUFenceRHIRef FD3D12DynamicRHI::RHICreateGPUFence(const FName& Name)
+{
+	return new FD3D12GPUFence(Name, GetAdapter().GetStagingFence());
+}
+
+// =============================================================================
+
+class FD3D12StagingBuffer : public FRHIStagingBuffer
+{
+public:
+
+	FD3D12StagingBuffer(FVertexBufferRHIRef InBuffer)
+		: FRHIStagingBuffer(InBuffer)
+	{
+	}
+
+	TRefCountPtr<FD3D12Resource> StagedRead;
+};
+
+template<>
+struct TD3D12ResourceTraits<FRHIStagingBuffer>
+{
+	typedef FD3D12StagingBuffer TConcreteType;
+};
+
+
+FStagingBufferRHIRef FD3D12DynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
+{
+	return new FD3D12StagingBuffer(VertexBufferRHI);
+}
+
+void FD3D12DynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+{
+	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
+	check(StagingBuffer);
+
+	FD3D12VertexBuffer* VertexBuffer = FD3D12DynamicRHI::ResourceCast(StagingBuffer->GetBackingBuffer());
+	check(VertexBuffer);
+
+	// Only get data from the first gpu for now.
+	FD3D12Device* StagingDevice = VertexBuffer->GetParentDevice();
+	FRHIGPUMask StagingGPUMask = StagingDevice->GetGPUMask();
+	StagingBuffer->StagedRead.SafeRelease();
+	VERIFYD3D12RESULT(GetAdapter().CreateBuffer(D3D12_HEAP_TYPE_READBACK, StagingGPUMask, StagingGPUMask, Offset + NumBytes, StagingBuffer->StagedRead.GetInitReference()));
+	
+	FD3D12CommandContext& Context = StagingDevice->GetDefaultCommandContext();
+
+	{
+		FD3D12Resource* pSourceResource = VertexBuffer->ResourceLocation.GetResource();
+		D3D12_RESOURCE_DESC const& SourceBufferDesc = pSourceResource->GetDesc();
+
+		FD3D12Resource* pDestResource = StagingBuffer->StagedRead.GetReference();
+		D3D12_RESOURCE_DESC const& DestBufferDesc = pDestResource->GetDesc();
+
+		TransitionResource(Context.CommandListHandle, pSourceResource, D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+		// TransitionResource(Context.CommandListHandle, pDestResource, D3D12_RESOURCE_STATE_COPY_DEST, 0);
+		Context.CommandListHandle.FlushResourceBarriers();	// Must flush so the desired state is actually set.
+
+		Context.numCopies++;
+
+		Context.CommandListHandle->CopyBufferRegion(pDestResource->GetResource(), Offset, pSourceResource->GetResource(), Offset, NumBytes);
+		Context.CommandListHandle.UpdateResidency(pDestResource);
+		Context.CommandListHandle.UpdateResidency(pSourceResource);
+
+		Context.FlushCommands();
+
+}
+
+	// Signal the fence
+	FenceRHI->Write();
+}
+
+
+void* FD3D12DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
+{
+	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
+	check(StagingBuffer);
+
+	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
+	if (pResource)
+	{
+		D3D12_RANGE ReadRange;
+		ReadRange.Begin = Offset;
+		ReadRange.End = Offset + SizeRHI;
+		return reinterpret_cast<uint8*>(pResource->Map(&ReadRange)) + Offset;
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void FD3D12DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
+{
+	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
+	check(StagingBuffer);
+
+	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
+	if (pResource)
+	{
+		pResource->Unmap();
+	}
+}
+
+// =============================================================================
+
 FD3D12FenceCore::FD3D12FenceCore(FD3D12Adapter* Parent, uint64 InitialValue, uint32 InGPUIndex)
 	: FD3D12AdapterChild(Parent)
 	, FenceValueAvailableAt(0)
