@@ -39,6 +39,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogSteamVRController, Log, All);
 /** Total number of controllers in a set */
 #define CONTROLLERS_PER_PLAYER	2
 
+#define MAX_TRACKED_DEVICES (int32)EControllerHand::Special_9 - (int32)EControllerHand::Left + 1
+
 /** Player that generic trackers will be assigned to */
 #define GENERIC_TRACKER_PLAYER_NUM 0
 
@@ -132,8 +134,7 @@ public:
 	static const int32 MaxUnrealControllers = MAX_STEAMVR_CONTROLLER_PAIRS;
 
 	/** Total number of motion controllers we'll support */
-	// NOTE: This used to be MaxUnrealControllers * CONTROLLERS_PER_PLAYER, but we needed to support many more trackers than that
-	static const int32 MaxControllers = vr::k_unMaxTrackedDeviceCount;
+	static const int32 MaxControllers = MaxUnrealControllers * CONTROLLERS_PER_PLAYER;
 
 	/** The maximum number of Special hand designations available to use for generic trackers
 	 *  Casting enums directly, so if the input model changes, this won't silently be invalid
