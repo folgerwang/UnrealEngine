@@ -285,7 +285,7 @@ void FUnixCrashContext::CaptureStackTrace()
 		StackTrace[0] = 0;
 
 		int32 IgnoreCount = 0;
-		FGenericCrashContext::GeneratePortableCallStack(IgnoreCount, StackTraceSize, this);
+		CapturePortableCallStack(IgnoreCount, this);
 
 		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)
 		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, IgnoreCount, this);
