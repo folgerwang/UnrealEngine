@@ -148,35 +148,32 @@ public:
 	template<typename TAreaWeighted>
 	void RandomTriCoord(FVectorVMContext& Context);
 
-	template<typename TAreaWeighted, typename SectionIdxType>
+	template<typename TAreaWeighted>
 	void RandomTriCoordOnSection(FVectorVMContext& Context);
 
- 	template<typename InputType0, typename InputType1>
  	void RandomTriCoordVertexColorFiltered(FVectorVMContext& Context);
 	
-	template<typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	template<typename TransformHandlerType>
 	void GetTriCoordPosition(FVectorVMContext& Context);
 
-	template<typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	template<typename TransformHandlerType>
 	void GetTriCoordNormal(FVectorVMContext& Context);
 
-	template<typename VertexAccessorType, typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	template<typename VertexAccessorType, typename TransformHandlerType>
 	void GetTriCoordTangents(FVectorVMContext& Context);
 
-	template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordColor(FVectorVMContext& Context);
 
-	template<typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
+	template<typename VertexAccessorType>
 	void GetTriCoordUV(FVectorVMContext& Context);
 
-	template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordPositionAndVelocity(FVectorVMContext& Context);
 
 	void GetLocalToWorld(FVectorVMContext& Context);
 	void GetLocalToWorldInverseTransposed(FVectorVMContext& Context);
 	void GetWorldVelocity(FVectorVMContext& Context);
 
-	template<typename TransformHandlerType, typename VertexIndexType>
+	template<typename TransformHandlerType>
 	void GetVertexPosition(FVectorVMContext& Context);
 
 	FORCEINLINE_DEBUGGABLE bool UsesSectionFilter()const { return SectionFilter.CanEverReject(); }

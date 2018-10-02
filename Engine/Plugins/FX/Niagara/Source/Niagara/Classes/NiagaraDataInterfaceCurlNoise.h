@@ -32,7 +32,6 @@ public:
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return true; }
 	//UNiagaraDataInterface Interface End
 
-	template<typename XType, typename YType, typename ZType>
 	void SampleNoiseField(FVectorVMContext& Context);
 
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;

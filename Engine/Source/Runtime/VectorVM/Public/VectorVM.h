@@ -197,43 +197,11 @@ namespace VectorVM
 		FirstOutputRegister = FirstInputRegister + MaxInputRegisters,
 		MaxRegisters = NumTempRegisters + MaxInputRegisters + MaxOutputRegisters + MaxConstants,
 	};
+}
 
-	/** Get total number of op-codes */
-	VECTORVM_API uint8 GetNumOpCodes();
-
-#if WITH_EDITOR
-	VECTORVM_API FString GetOpName(EVectorVMOp Op);
-	VECTORVM_API FString GetOperandLocationName(EVectorVMOperandLocation Location);
-#endif
-
-	VECTORVM_API uint8 CreateSrcOperandMask(EVectorVMOperandLocation Type0, EVectorVMOperandLocation Type1 = EVectorVMOperandLocation::Register, EVectorVMOperandLocation Type2 = EVectorVMOperandLocation::Register);
-
-	/**
-	 * Execute VectorVM bytecode.
-	 */
-	VECTORVM_API void Exec(
-		uint8 const* Code,
-		uint8** InputRegisters,
-		int32 NumInputRegisters,
-		uint8** OutputRegisters,
-		int32 NumOutputRegisters,
-		uint8 const* ConstantTable,
-		TArray<FDataSetMeta> &DataSetMetaTable,
-		FVMExternalFunction* ExternalFunctionTable,
-		void** UserPtrTable,
-		int32 NumInstances
-#if STATS
-		, const TArray<TStatId>& StatScopes
-#endif
-		);
-
-	VECTORVM_API void Init();
-} // namespace VectorVM
-
-
-  /**
-  * Context information passed around during VM execution.
-  */
+/**
+* Context information passed around during VM execution.
+*/
 struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 {
 	/** Pointer to the next element in the byte code. */
@@ -293,153 +261,169 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 	}
 };
 
-FORCEINLINE uint8 DecodeU8(FVectorVMContext& Context)
+namespace VectorVM
 {
-	return *Context.Code++;
-}
+	/** Get total number of op-codes */
+	VECTORVM_API uint8 GetNumOpCodes();
 
-FORCEINLINE uint16 DecodeU16(FVectorVMContext& Context)
-{
-	return ((uint16)DecodeU8(Context) << 8) + DecodeU8(Context);
-}
+#if WITH_EDITOR
+	VECTORVM_API FString GetOpName(EVectorVMOp Op);
+	VECTORVM_API FString GetOperandLocationName(EVectorVMOperandLocation Location);
+#endif
 
-FORCEINLINE uint32 DecodeU32(FVectorVMContext& Context)
-{
-	return ((uint32)DecodeU8(Context) << 24) + (uint32)(DecodeU8(Context) << 16) + (uint32)(DecodeU8(Context) << 8) + DecodeU8(Context);
-}
+	VECTORVM_API uint8 CreateSrcOperandMask(EVectorVMOperandLocation Type0, EVectorVMOperandLocation Type1 = EVectorVMOperandLocation::Register, EVectorVMOperandLocation Type2 = EVectorVMOperandLocation::Register);
 
-/** Decode the next operation contained in the bytecode. */
-FORCEINLINE EVectorVMOp DecodeOp(FVectorVMContext& Context)
-{
-	return static_cast<EVectorVMOp>(DecodeU8(Context));
-}
+	/**
+	 * Execute VectorVM bytecode.
+	 */
+	VECTORVM_API void Exec(
+		uint8 const* Code,
+		uint8** InputRegisters,
+		int32 NumInputRegisters,
+		uint8** OutputRegisters,
+		int32 NumOutputRegisters,
+		uint8 const* ConstantTable,
+		TArray<FDataSetMeta> &DataSetMetaTable,
+		FVMExternalFunction* ExternalFunctionTable,
+		void** UserPtrTable,
+		int32 NumInstances
+#if STATS
+		, const TArray<TStatId>& StatScopes
+#endif
+	);
 
-FORCEINLINE uint8 DecodeSrcOperandTypes(FVectorVMContext& Context)
-{
-	return DecodeU8(Context);
-}
+	VECTORVM_API void Init();
 
-//////////////////////////////////////////////////////////////////////////
-/** Constant handler. */
-
-struct FConstantHandlerBase
-{
-	uint16 ConstantIndex;
-	FConstantHandlerBase(FVectorVMContext& Context)
-		: ConstantIndex(DecodeU16(Context))
-	{}
-
-	FORCEINLINE void Advance() { }
-};
-
-template<typename T>
-struct FConstantHandler : public FConstantHandlerBase
-{
-	T Constant;
-	FConstantHandler(FVectorVMContext& Context)
-		: FConstantHandlerBase(Context)
-		, Constant(*((T*)(Context.ConstantTable + ConstantIndex)))
-	{}
-	FORCEINLINE const T& Get() { return Constant; }
-	FORCEINLINE const T& GetAndAdvance() { return Constant; }
-};
-
-
-
-struct FDataSetOffsetHandler : FConstantHandlerBase
-{
-	uint32 Offset;
-	FDataSetOffsetHandler(FVectorVMContext& Context)
-		: FConstantHandlerBase(Context)
-		, Offset(Context.DataSetOffsetTable[ConstantIndex])
-	{}
-	FORCEINLINE const uint32 Get() { return Offset; }
-	FORCEINLINE const uint32 GetAndAdvance() { return Offset; }
-};
-
-
-
-template<>
-struct FConstantHandler<VectorRegister> : public FConstantHandlerBase
-{
-	VectorRegister Constant;
-	FConstantHandler(FVectorVMContext& Context)
-		: FConstantHandlerBase(Context)
-		, Constant(VectorLoadFloat1(&Context.ConstantTable[ConstantIndex]))
-	{}
-	FORCEINLINE const VectorRegister Get() { return Constant; }
-	FORCEINLINE const VectorRegister GetAndAdvance() { return Constant; }
-};
-
-template<>
-struct FConstantHandler<VectorRegisterInt> : public FConstantHandlerBase
-{
-	VectorRegisterInt Constant;
-	FConstantHandler(FVectorVMContext& Context)
-		: FConstantHandlerBase(Context)
-		, Constant(VectorIntLoad1(&Context.ConstantTable[ConstantIndex]))
-	{}
-	FORCEINLINE const VectorRegisterInt Get() { return Constant; }
-	FORCEINLINE const VectorRegisterInt GetAndAdvance() { return Constant; }
-};
-
-//////////////////////////////////////////////////////////////////////////
-// Register handlers.
-// Handle reading of a register, advancing the pointer with each read.
-
-struct FRegisterHandlerBase
-{
-	int32 RegisterIndex;
-	FORCEINLINE FRegisterHandlerBase(FVectorVMContext& Context)
-		: RegisterIndex(DecodeU16(Context))
-	{}
-
-	FORCEINLINE bool IsValid() const { return RegisterIndex != 0xFFFF; }
-};
-
-template<typename T>
-struct FUserPtrHandler
-{
-	int32 UserPtrIdx;
-	T* Ptr;
-	FUserPtrHandler(FVectorVMContext& Context)
-		: UserPtrIdx(*(int32*)(Context.ConstantTable + DecodeU16(Context)))
-		, Ptr((T*)Context.UserPtrTable[UserPtrIdx])
+	FORCEINLINE uint8 DecodeU8(FVectorVMContext& Context)
 	{
-		check(UserPtrIdx != INDEX_NONE);
+		return *Context.Code++;
 	}
-	FORCEINLINE T* Get() { return Ptr; }
-	FORCEINLINE T* operator->() { return Ptr; }
-	FORCEINLINE operator T*() { return Ptr; }
-};
 
-template<typename T>
-struct FRegisterHandler : public FRegisterHandlerBase
-{
-private:
-	T Dummy;
-	T* RESTRICT Register;
-	uint32 AdvanceOffset;
-public:
-	FORCEINLINE FRegisterHandler(FVectorVMContext& Context)
-		: FRegisterHandlerBase(Context)
-		, Register(IsValid() ? (T*)Context.RegisterTable[RegisterIndex] : &Dummy)
-		, AdvanceOffset(IsValid() ? 1 : 0)
-	{}
-	FORCEINLINE const T Get() { return *Register; }
-	FORCEINLINE T* GetDest() { return Register; }
-	FORCEINLINE void Advance() { Register += AdvanceOffset; }
-	FORCEINLINE const T GetAndAdvance()
+	FORCEINLINE uint16 DecodeU16(FVectorVMContext& Context)
 	{
-		T* Ret = Register;
-		Register += AdvanceOffset;
-		return *Ret;
+		return ((uint16)DecodeU8(Context) << 8) + DecodeU8(Context);
 	}
-	FORCEINLINE T* GetDestAndAdvance()
+
+	FORCEINLINE uint32 DecodeU32(FVectorVMContext& Context)
 	{
-		T* Ret = Register;
-		Register += AdvanceOffset;
-		return Ret;
+		return ((uint32)DecodeU8(Context) << 24) + (uint32)(DecodeU8(Context) << 16) + (uint32)(DecodeU8(Context) << 8) + DecodeU8(Context);
 	}
-};
+
+	/** Decode the next operation contained in the bytecode. */
+	FORCEINLINE EVectorVMOp DecodeOp(FVectorVMContext& Context)
+	{
+		return static_cast<EVectorVMOp>(DecodeU8(Context));
+	}
+
+	FORCEINLINE uint8 DecodeSrcOperandTypes(FVectorVMContext& Context)
+	{
+		return DecodeU8(Context);
+	}
+
+#define VVM_EXT_FUNC_INPUT_LOC_BIT (unsigned short)(1<<15)
+#define VVM_EXT_FUNC_INPUT_LOC_MASK (unsigned short)~VVM_EXT_FUNC_INPUT_LOC_BIT
+
+	template<typename T>
+	struct FUserPtrHandler
+	{
+		int32 UserPtrIdx;
+		T* Ptr;
+		FUserPtrHandler(FVectorVMContext& Context)
+			: UserPtrIdx(*(int32*)(Context.ConstantTable + (DecodeU16(Context))))
+			, Ptr((T*)Context.UserPtrTable[UserPtrIdx])
+		{
+			check(UserPtrIdx != INDEX_NONE);
+		}
+		FORCEINLINE T* Get() { return Ptr; }
+		FORCEINLINE T* operator->() { return Ptr; }
+		FORCEINLINE operator T*() { return Ptr; }
+	};
+
+	// A flexible handler that can deal with either constant or register inputs.
+	template<typename T>
+	struct FExternalFuncInputHandler
+	{
+	private:
+		/** Either byte offset into constant table or offset into register table deepening on VVM_INPUT_LOCATION_BIT */
+		uint32 InputOffset;
+		T* RESTRICT InputPtr;
+		uint32 AdvanceOffset;
+
+	public:
+		FORCEINLINE FExternalFuncInputHandler(FVectorVMContext& Context)
+			: InputOffset(DecodeU16(Context))
+			, InputPtr(IsConstant() ? (T*)(Context.ConstantTable + GetOffset()) : (T*)Context.RegisterTable[GetOffset()])
+			, AdvanceOffset(IsConstant() ? 0 : 1)
+		{}
+
+		FORCEINLINE bool IsConstant()const { return !IsRegister(); }
+		FORCEINLINE bool IsRegister()const { return InputOffset & VVM_EXT_FUNC_INPUT_LOC_BIT; }
+		FORCEINLINE int32 GetOffset()const { return InputOffset & VVM_EXT_FUNC_INPUT_LOC_MASK; }
+
+		FORCEINLINE const T Get() { return *InputPtr; }
+		FORCEINLINE T* GetDest() { return InputPtr; }
+		FORCEINLINE void Advance() { InputPtr += AdvanceOffset; }
+		FORCEINLINE const T GetAndAdvance()
+		{
+			T* Ret = InputPtr;
+			InputPtr += AdvanceOffset;
+			return *Ret;
+		}
+		FORCEINLINE T* GetDestAndAdvance()
+		{
+			T* Ret = InputPtr;
+			InputPtr += AdvanceOffset;
+			return Ret;
+		}
+	};
+	
+	template<typename T>
+	struct FExternalFuncRegisterHandler
+	{
+	private:
+		uint32 RegisterIndex;
+		uint32 AdvanceOffset;
+		T Dummy;
+		T* RESTRICT Register;
+	public:
+		FORCEINLINE FExternalFuncRegisterHandler(FVectorVMContext& Context)
+			: RegisterIndex(DecodeU16(Context) & VVM_EXT_FUNC_INPUT_LOC_MASK)
+			, AdvanceOffset(IsValid() ? 1 : 0)
+			, Register(IsValid() ? (T*)Context.RegisterTable[RegisterIndex] : &Dummy)
+		{}
+		FORCEINLINE bool IsValid() const { return RegisterIndex != (uint16)VVM_EXT_FUNC_INPUT_LOC_MASK; }
+
+		FORCEINLINE const T Get() { return *Register; }
+		FORCEINLINE T* GetDest() { return Register; }
+		FORCEINLINE void Advance() { Register += AdvanceOffset; }
+		FORCEINLINE const T GetAndAdvance()
+		{
+			T* Ret = Register;
+			Register += AdvanceOffset;
+			return *Ret;
+		}
+		FORCEINLINE T* GetDestAndAdvance()
+		{
+			T* Ret = Register;
+			Register += AdvanceOffset;
+			return Ret;
+		}
+	};
+
+	template<typename T>
+	struct FExternalFuncConstHandler
+	{
+		uint16 ConstantIndex;
+		T Constant;
+		FExternalFuncConstHandler(FVectorVMContext& Context)
+			: ConstantIndex(VectorVM::DecodeU16(Context) & VVM_EXT_FUNC_INPUT_LOC_MASK)
+			, Constant(*((T*)(Context.ConstantTable + ConstantIndex)))
+		{}
+		FORCEINLINE const T& Get() { return Constant; }
+		FORCEINLINE const T& GetAndAdvance() { return Constant; }
+		FORCEINLINE void Advance() { }
+	};
+} // namespace VectorVM
+
+
 
