@@ -1054,12 +1054,14 @@ namespace UnrealBuildTool
 		/// Additional arguments to pass to the compiler
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
+		[CommandLine("-CompilerArguments=")]
 		public string AdditionalCompilerArguments;
 
 		/// <summary>
 		/// Additional arguments to pass to the linker
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
+		[CommandLine("-LinkerArguments=")]
 		public string AdditionalLinkerArguments;
 
 		/// <summary>
