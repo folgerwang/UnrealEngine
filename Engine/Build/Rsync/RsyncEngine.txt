@@ -20,6 +20,8 @@ protect /Intermediate/Build/IOS/**
 protect /Intermediate/Build/TVOS/**
 protect /Intermediate/IOS/**
 protect /Intermediate/Remote/**
+protect /Intermediate/UnzippedFrameworks/**
+protect /Intermediate/ThirdPartyFrameworks/**
 protect /**/Binaries/Mac/**
 protect /**/Binaries/IOS/**
 protect /**/Binaries/TVOS/**
