@@ -114,6 +114,7 @@ void UK2Node_Timeline::AllocateDefaultPins()
 		// cache play status
 		bAutoPlay = Timeline->bAutoPlay;
 		bLoop = Timeline->bLoop;
+		bReplicated = Timeline->bReplicated;
 		bIgnoreTimeDilation = Timeline->bIgnoreTimeDilation;
 	}
 
@@ -181,6 +182,7 @@ void UK2Node_Timeline::PostPasteNode()
 		{
 			bAutoPlay = Template->bAutoPlay;
 			bLoop = Template->bLoop;
+			bReplicated = Template->bReplicated;
 			bIgnoreTimeDilation = Template->bIgnoreTimeDilation;
 		}
 	}
@@ -192,6 +194,7 @@ void UK2Node_Timeline::PostPasteNode()
 		UTimelineTemplate* Template = DuplicateObject<UTimelineTemplate>(OldTimeline, Blueprint->GeneratedClass, TimelineTemplateName);
 		bAutoPlay = Template->bAutoPlay;
 		bLoop = Template->bLoop;
+		bReplicated = Template->bReplicated;
 		bIgnoreTimeDilation = Template->bIgnoreTimeDilation;
 		Template->SetFlags(RF_Transactional);
 		Blueprint->Timelines.Add(Template);
@@ -597,6 +600,15 @@ void UK2Node_Timeline::ExpandNode(FKismetCompilerContext& CompilerContext, UEdGr
 FText UK2Node_Timeline::GetTooltipText() const
 {
 	return LOCTEXT("TimelineTooltip", "Timeline node allows values to be keyframed over time.\nDouble click to open timeline editor.");
+}
+
+FName UK2Node_Timeline::GetCornerIcon() const
+{
+	if (bReplicated)
+	{
+		return TEXT("Graph.Replication.Replicated");
+	}
+	return Super::GetCornerIcon();
 }
 
 FSlateIcon UK2Node_Timeline::GetIconAndTint(FLinearColor& OutColor) const
