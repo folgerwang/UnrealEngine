@@ -445,6 +445,12 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			PreparingPackagesForReloadSlowTask.EnterProgressFrame(1.0f);
 			ExistingPackages.Emplace(PackageReloadInternal::ValidateAndPreparePackageForReload(PackageToReloadData.PackageToReload));
 		}
+
+		if (ExistingPackages.Num() > 0)
+		{
+			// Run a GC before we start to clean-up any lingering objects that may reference things we're about to reload
+			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+		}
 	}
 
 	// Rename the existing packages, load the new packages, then fix-up any references
