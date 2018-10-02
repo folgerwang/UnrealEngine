@@ -103,6 +103,9 @@ namespace UE4Function_Private
 	template <typename T, bool bOnHeap>
 	struct TFunction_CopyableOwnedObject;
 
+	template <bool bUnique>
+	struct TFunctionStorage;
+
 	/**
 	 * Common interface to a callable object owned by TFunction.
 	 */
