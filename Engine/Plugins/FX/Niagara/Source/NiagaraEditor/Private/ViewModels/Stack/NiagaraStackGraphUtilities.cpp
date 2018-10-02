@@ -1315,6 +1315,22 @@ void FNiagaraStackGraphUtilities::GetAvailableParametersForScript(UNiagaraNodeOu
 			}
 		}
 	}
+
+	TOptional<FName> UsageNamespace = FNiagaraStackGraphUtilities::GetNamespaceForScriptUsage(ScriptOutputNode.GetUsage());
+	if (UsageNamespace.IsSet())
+	{
+		for (const TPair<FNiagaraVariable, FNiagaraGraphParameterReferenceCollection>& Entry : ScriptOutputNode.GetNiagaraGraph()->GetParameterMap())
+		{
+			// Pick up any params with 0 references from the Parameters window
+			bool bDoesParamHaveNoReferences = Entry.Value.ParameterReferences.Num() == 0;
+			bool bIsParamInUsageNamespace = Entry.Key.IsInNameSpace(UsageNamespace.GetValue().ToString());
+
+			if (bDoesParamHaveNoReferences && bIsParamInUsageNamespace)
+			{
+				OutAvailableParameters.AddUnique(Entry.Key);
+			}
+		}
+	}
 }
 
 TOptional<FName> FNiagaraStackGraphUtilities::GetNamespaceForScriptUsage(ENiagaraScriptUsage ScriptUsage)
