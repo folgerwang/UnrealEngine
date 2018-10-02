@@ -307,7 +307,7 @@ public:
 	{
 	}
 public:
-	UPROPERTY(EditAnywhere, Category = "Variable")
+	UPROPERTY(EditAnywhere, Category = "Variable", DisplayName = "Property Metadata", meta = (ToolTip = "Property Metadata"))
 	TMap<FName, FString> PropertyMetaData;
 
 	UPROPERTY(EditAnywhere, Category = "Variable", meta = (MultiLine = true))
