@@ -62,7 +62,7 @@ void FApplePlatformCrashContext::InitFromSignal(int32 InSignal, siginfo_t* InInf
 #undef HANDLE_CASE
 }
 
-int32 FApplePlatformCrashContext::ReportCrash() const
+int32 FApplePlatformCrashContext::ReportCrash()
 {
 	static bool GAlreadyCreatedMinidump = false;
 	// Only create a minidump the first time this function is called.
