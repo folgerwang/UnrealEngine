@@ -37,6 +37,7 @@ public:
 		, _OnCheckStateChanged()
 		, _IsChecked( ECheckBoxState::Unchecked )
 		, _HAlign( HAlign_Fill )
+		, _CheckBoxContentUsesAutoWidth(true)
 		, _Padding()
 		, _ClickMethod( EButtonClickMethod::DownAndUp )
 		, _ForegroundColor()
@@ -70,6 +71,9 @@ public:
 
 		/** How the content of the toggle button should align within the given space*/
 		SLATE_ARGUMENT( EHorizontalAlignment, HAlign )
+
+		/** Whether or not the content portion of the checkbox should layout using auto-width. When true the content will always be arranged at its desired size as opposed to resizing to the available space. */
+		SLATE_ARGUMENT(bool, CheckBoxContentUsesAutoWidth)
 
 		/** Spacing between the check box image and its content (set by the Style arg but the Style can be overridden with this) */
 		SLATE_ATTRIBUTE( FMargin, Padding )
@@ -277,6 +281,9 @@ protected:
 
 	/** Horiz align setting if in togglebox mode */
 	EHorizontalAlignment HorizontalAlignment;
+
+	/** Whether or not the checkbox content is arranged using auto-width when in checkbox mode. */
+	bool bCheckBoxContentUsesAutoWidth;
 
 	/** Sets whether a click should be triggered on mouse down, mouse up, or that both a mouse down and up are required. */
 	EButtonClickMethod::Type ClickMethod;
