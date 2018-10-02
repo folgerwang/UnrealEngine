@@ -770,64 +770,59 @@ public:
 //
 
 
-
 /* 
 * Generic GPU fence class used by FRHIGPUMemoryReadback
 * RHI specific fences derive from this to implement real GPU->CPU fencing.
 * The default implementation always returns false for Poll until the next frame from the frame the fence was inserted
 * because not all APIs have a GPU/CPU sync object, we need to fake it.
 */
-class FRHIGPUFence : public FRHIResource
+class RHI_API FRHIGPUFence : public FRHIResource
 {
 public:
-	FRHIGPUFence(FName InName)
-		: FenceName(InName)
-		, InsertedFrameNumber(0)
-	{}
-
-	virtual ~FRHIGPUFence()
-	{}
-
-    /* Convenience function to write InsertedFrameNumber, used to emulate true GPU fences, RHI's should override RHIInsertGPUFence and implement their own fence mechanism. */
-	void Write()
-	{
-		InsertedFrameNumber = GFrameNumberRenderThread;
-	}
+	FRHIGPUFence(FName InName) : FenceName(InName) {}
+	virtual ~FRHIGPUFence() {}
 
     /**
-     * Poll the fence to see if the GPU has signalled it.
-     * @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active.
+     * Signal this fence now, which completion can be tested with Poll or Wait.
+	 * RHI implementation might not need to implement this depending on how RHIInsertGPUFence is implemented.
+	 * Note also that RHIInsertGPUFence is currently only called by RHIEnqueueStagedRead.
+     */
+	virtual void Write();
+
+    /**
+     * Poll the fence to see if the GPU has signaled it.
      * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
      */
-	virtual bool Poll() const
-	{
-		if (GFrameNumberRenderThread > InsertedFrameNumber)
-		{
-			return true;
-		}
-		return false;
-	}
+	virtual bool Poll() const = 0;
 
     /**
      * Wait for the GPU to pass and signal the fence.
-     * @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active.
      * @param TimeoutMs The maximum time to wait for the fence in milliseconds.
      * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
      */
-	virtual bool Wait(float TimeoutMs) const
-	{
-		if (GFrameNumberRenderThread > InsertedFrameNumber)
-		{
-			return true;
-		}
-		return false;
-	}
+	virtual bool Wait(float TimeoutMs) const = 0;
 
 private:
 	FName FenceName;
-	uint32 InsertedFrameNumber;
 };
 
+// Generic implementation of FRHIGPUFence
+class RHI_API FGenericRHIGPUFence : public FRHIGPUFence
+{
+public:
+	FGenericRHIGPUFence(FName InName);
+
+	virtual void Write() final override;
+
+    /** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
+	virtual bool Poll() const final override;
+
+    /** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
+	virtual bool Wait(float TimeoutMs) const final override;
+
+private:
+	uint32 InsertedFrameNumber;
+};
 
 class FRHIRenderQuery : public FRHIResource {};
 

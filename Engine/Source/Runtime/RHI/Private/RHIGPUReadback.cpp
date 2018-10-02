@@ -8,3 +8,36 @@
 #include "RHIGPUReadback.h"
 
 
+void FRHIGPUFence::Write()
+{
+	UE_LOG(LogRHI, Warning, TEXT("FRHIGPUFence::Write is not implemented"));
+}
+
+FGenericRHIGPUFence::FGenericRHIGPUFence(FName InName)
+    : FRHIGPUFence(InName)
+    , InsertedFrameNumber(0)
+{}
+
+void FGenericRHIGPUFence::Write()
+{
+	// GPU generally overlap the game. This overlap increases when using AFR.
+	InsertedFrameNumber = GFrameNumberRenderThread + GNumAlternateFrameRenderingGroups;
+}
+
+bool FGenericRHIGPUFence::Poll() const
+{
+	if (GFrameNumberRenderThread > InsertedFrameNumber)
+	{
+		return true;
+	}
+	return false;
+}
+
+bool FGenericRHIGPUFence::Wait(float TimeoutMs) const
+{
+	if (GFrameNumberRenderThread > InsertedFrameNumber)
+	{
+		return true;
+	}
+	return false;
+}
