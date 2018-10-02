@@ -118,6 +118,7 @@ void SNiagaraStackTableRow::SetNameAndValueContent(TSharedRef<SWidget> InNameWid
 			.ForegroundColor(FSlateColor::UseForeground())
 			.ContentPadding(2)
 			.HAlign(HAlign_Center)
+			.IsFocusable(false)
 			[
 				SNew(SImage)
 				.Image(this, &SNiagaraStackTableRow::GetExpandButtonImage)
