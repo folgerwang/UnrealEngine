@@ -49,7 +49,7 @@
 class SHorizontalBox;
 
 template <typename ItemType>
-class MEDIAPLAYEREDITOR_API TMediaPermutationsSelectorBuilder
+class MEDIAIOEDITOR_API TMediaPermutationsSelectorBuilder
 {
 public:
 	static bool IdenticalProperty(FName ColumnName, ItemType Left, ItemType Right) { return Left == Right; }
@@ -141,6 +141,9 @@ public:
 
 	/** Create a column with a specified ColumnId */
 	static typename FColumn::FArguments Column(const FName& InColumnName);
+
+	/** Get a copy of the current selected item. */
+	ItemType GetSelectedItem() const;
 
 private:
 	/** Array of data items that we are displaying. */

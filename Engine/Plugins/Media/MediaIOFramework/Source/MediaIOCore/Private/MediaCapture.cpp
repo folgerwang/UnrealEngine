@@ -37,6 +37,24 @@ namespace MediaCaptureDetails
 	bool ValidateIsCapturing(const UMediaCapture& CaptureToBeValidated);
 }
 
+
+/* UMediaCapture::FCaptureBaseData
+*****************************************************************************/
+UMediaCapture::FCaptureBaseData::FCaptureBaseData()
+	: SourceFrameNumberRenderThread(0)
+{
+
+}
+
+/* UMediaCapture::FCaptureFrame
+*****************************************************************************/
+UMediaCapture::FCaptureFrame::FCaptureFrame()
+	: bResolvedTargetRequested(false)
+{
+
+}
+
+
 /* UMediaCapture
 *****************************************************************************/
 
@@ -337,8 +355,8 @@ void UMediaCapture::OnEndFrame_GameThread()
 		return;
 	}
 
+	int32 ReadyFrameIndex = (CurrentResolvedTargetIndex) % NumberOfCaptureFrame; // Next one in the buffer queue
 	CurrentResolvedTargetIndex = (CurrentResolvedTargetIndex + 1) % NumberOfCaptureFrame;
-	int32 ReadyFrameIndex = (CurrentResolvedTargetIndex + 1) % NumberOfCaptureFrame; // Next one in the buffer queue
 
 	FCaptureFrame* ReadyFrame = (CaptureFrames[ReadyFrameIndex].bResolvedTargetRequested) ? &CaptureFrames[ReadyFrameIndex] : nullptr;
 	FCaptureFrame* CapturingFrame = (GetState() != EMediaCaptureState::StopRequested) ? &CaptureFrames[CurrentResolvedTargetIndex] : nullptr;
@@ -352,8 +370,14 @@ void UMediaCapture::OnEndFrame_GameThread()
 
 	if (CapturingFrame)
 	{
+		//Verify if game thread is overrunning the render thread. 
+		if (CapturingFrame->bResolvedTargetRequested)
+		{
+			FlushRenderingCommands();
+		}
+
 		CapturingFrame->CaptureBaseData.SourceFrameTimecode = FApp::GetTimecode();
-		CapturingFrame->CaptureBaseData.SourceFrameNumberRenderThread = GFrameNumberRenderThread;
+		CapturingFrame->CaptureBaseData.SourceFrameNumberRenderThread = GFrameNumber;
 		CapturingFrame->UserData = GetCaptureFrameUserData_GameThread();
 	}
 

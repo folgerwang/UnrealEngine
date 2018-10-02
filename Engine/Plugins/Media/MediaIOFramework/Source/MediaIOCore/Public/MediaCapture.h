@@ -150,6 +150,8 @@ protected:
 
 	struct FCaptureBaseData
 	{
+		FCaptureBaseData();
+
 		FTimecode SourceFrameTimecode;
 		uint32 SourceFrameNumberRenderThread;
 	};
@@ -173,6 +175,8 @@ private:
 private:
 	struct FCaptureFrame
 	{
+		FCaptureFrame();
+
 		FTexture2DRHIRef ReadbackTexture;
 		FCaptureBaseData CaptureBaseData;
 		bool bResolvedTargetRequested;

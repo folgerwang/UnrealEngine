@@ -8,16 +8,14 @@
 /**
  * Implements a media binary data sample for AjaMedia.
  */
-class FMediaIOCoreBinarySampleBase
+class MEDIAIOCORE_API FMediaIOCoreBinarySampleBase
 	: public IMediaBinarySample
 	, public IMediaPoolable
 {
 public:
 
 	/** Default constructor. */
-	FMediaIOCoreBinarySampleBase()
-		: Time(FTimespan::Zero())
-	{ }
+	FMediaIOCoreBinarySampleBase();
 
 	/**
 	 * Initialize the sample.
@@ -27,21 +25,7 @@ public:
 	 * @param InTimecode The sample timecode if available.
 	 * @param InTime The sample time (in the player's own clock).
 	 */
-	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
-	{
-		if (InBinaryBuffer == nullptr)
-		{
-			Buffer.Reset();
-			return false;
-		}
-
-		Buffer.Reset(InBufferSize);
-		Buffer.Append(InBinaryBuffer, InBufferSize);
-		Time = InTime;
-		Timecode = InTimecode;
-
-		return true;
-	}
+	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
 	/**
 	 * Initialize the sample.
@@ -50,14 +34,7 @@ public:
 	 * @param InTimecode The sample timecode if available.
 	 * @param InTime The sample time (in the player's own clock).
 	 */
-	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
-	{
-		Buffer = MoveTemp(InBinaryBuffer);
-		Time = InTime;
-		Timecode = InTimecode;
-
-		return true;
-	}
+	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
 public:
 

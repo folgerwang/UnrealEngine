@@ -15,7 +15,7 @@ enum class MEDIAIOCORE_API EMediaIOCoreEncodePixelFormat
 class MEDIAIOCORE_API FMediaIOCoreEncodeTime
 {
 public:
-	FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InFormat, void* InBuffer, uint32 InWidth, uint32 InHeight);
+	FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InFormat, void* InBuffer, uint32 InPitch, uint32 InHeight);
 	void Render(uint32 InX, uint32 InY, uint32 InHours, uint32 InMinutes, uint32 InSeconds, uint32 InFrames) const;
 
 protected:
@@ -26,7 +26,7 @@ protected:
 
 	inline TColor& At(uint32 InX, uint32 InY) const
 	{
-		return *(reinterpret_cast<TColor*>(Buffer) + (Width * InY) + InX);
+		return *(reinterpret_cast<TColor*>(reinterpret_cast<char*>(Buffer) + (Pitch * InY)) + InX);
 	}
 
 protected:
@@ -36,8 +36,8 @@ protected:
 	/** Pointer to pixels */
 	void* Buffer;
 
-	/** Width of image */
-	uint32 Width;
+	/** Pitch of image */
+	uint32 Pitch;
 
 	/** Height of image */
 	uint32 Height;
