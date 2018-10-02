@@ -1241,9 +1241,8 @@ public partial class Project : CommandUtils
 
 		var UnrealPakResponseFile = CreatePakResponseFileFromStagingManifest(SC, SC.FilesToStage.UFSFiles);
 
-        EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
 		FileReference CryptoKeysCacheFilename = FileReference.Combine(SC.MetadataDir, "Crypto.json");
-		DirectoryReference.CreateDirectory(SC.MetadataDir);
 		PakCryptoSettings.Save(CryptoKeysCacheFilename);
 
 		List<CreatePakParams> PakInputs = new List<CreatePakParams>();
@@ -1870,7 +1869,6 @@ public partial class Project : CommandUtils
 		// Parse and cache crypto settings from INI file
 		EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
 		FileReference CryptoKeysCacheFilename = FileReference.Combine(SC.MetadataDir, "Crypto.json");
-		DirectoryReference.CreateDirectory(SC.MetadataDir);
 		PakCryptoSettings.Save(CryptoKeysCacheFilename);
 
 		// We still want to have a list of all files to stage. We will use the chunk manifests
