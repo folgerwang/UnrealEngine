@@ -165,13 +165,13 @@ void UNiagaraDataInterfaceTexture::GetFunctions(TArray<FNiagaraFunctionSignature
 		OutFunctions.Add(Sig);
 	}
 }
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceTexture, SampleTexture);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceTexture, SampleTexture);
 void UNiagaraDataInterfaceTexture::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	if (BindingInfo.Name == SampleTexture2DName)
 	{
 		check(BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 4);
-		TNDIParamBinder<0, float, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceTexture, SampleTexture)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceTexture, SampleTexture)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == SamplePseudoVolumeTextureName)
 	{
@@ -194,8 +194,8 @@ void UNiagaraDataInterfaceTexture::NoOp(FVectorVMContext& Context)
 
 void UNiagaraDataInterfaceTexture::GetTextureDimensions(FVectorVMContext& Context)
 {
-	FRegisterHandler<float> OutWidth(Context);
-	FRegisterHandler<float> OutHeight(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutWidth(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutHeight(Context);
 
 	if (Texture == nullptr)
 	{
@@ -217,15 +217,14 @@ void UNiagaraDataInterfaceTexture::GetTextureDimensions(FVectorVMContext& Contex
 	}
 }
 
-template<typename XType, typename YType>
 void UNiagaraDataInterfaceTexture::SampleTexture(FVectorVMContext& Context)
 {
-	XType XParam(Context);
-	YType YParam(Context);
-	FRegisterHandler<float> OutSampleR(Context);
-	FRegisterHandler<float> OutSampleG(Context);
-	FRegisterHandler<float> OutSampleB(Context);
-	FRegisterHandler<float> OutSampleA(Context);
+	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> YParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleR(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleG(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleB(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleA(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{

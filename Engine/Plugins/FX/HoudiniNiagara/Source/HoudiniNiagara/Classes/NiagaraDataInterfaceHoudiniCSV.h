@@ -129,7 +129,6 @@ public:
 	// EXPOSED FUNCTIONS
 
 	// Returns the float value at a given row and column in the CSV file
-	template<typename RowParamType, typename ColParamType>
 	void GetFloatValue(FVectorVMContext& Context);
 
 	/*
@@ -138,39 +137,30 @@ public:
 	*/
 
 	// Returns a Vector3 value for a given row in the CSV file
-	template<typename RowParamType, typename ColParamType>
 	void GetVectorValue(FVectorVMContext& Context);
 
 	// Returns a Vector3 value for a given row in the CSV file
-	template<typename RowParamType, typename ColParamType, typename DoSwapParamType, typename DoScaleParamType>
 	void GetVectorValueEx(FVectorVMContext& Context);
 
 	// Returns the positions for a given row in the CSV file
-	template<typename RowParamType>
 	void GetPosition(FVectorVMContext& Context);
 
 	// Returns the normals for a given row in the CSV file
-	template<typename RowParamType>
 	void GetNormal(FVectorVMContext& Context);
 
 	// Returns the time for a given row in the CSV file
-	template<typename RowParamType>
 	void GetTime(FVectorVMContext& Context);
 
 	// Returns the velocity for a given row in the CSV file
-	template<typename RowParamType>
 	void GetVelocity(FVectorVMContext& Context);
 
 	// Returns the color for a given row in the CSV file
-	template<typename RowParamType>
 	void GetColor(FVectorVMContext& Context);
 
 	// Returns the impulse value for a given row in the CSV file
-	template<typename RowParamType>
 	void GetImpulse(FVectorVMContext& Context);
 
 	// Returns the position and time for a given row in the CSV file
-	template<typename RowParamType>
 	void GetPositionAndTime(FVectorVMContext& Context);
 
 	// Returns the number of rows found in the CSV file
@@ -183,35 +173,27 @@ public:
 	void GetNumberOfPoints(FVectorVMContext& Context);
 
 	// Returns the last index of the points that should be spawned at time t
-	template<typename TimeParamType>
 	void GetLastRowIndexAtTime(FVectorVMContext& Context);
 
 	// Returns the indexes (min, max) and number of points that should be spawned at time t
-	template<typename TimeParamType>
 	void GetPointIDsToSpawnAtTime(FVectorVMContext& Context);
 
 	// Returns the position for a given point at a given time
-	template<typename PointIDParamType, typename TimeParamType>
 	void GetPointPositionAtTime(FVectorVMContext& Context);
 
 	// Returns a float value for a given point at a given time
-	template<typename PointIDParamType, typename ColParamType, typename TimeParamType>
 	void GetPointValueAtTime(FVectorVMContext& Context);
 
 	// Returns a Vector value for a given point at a given time
-	template<typename PointIDParamType, typename ColParamType, typename TimeParamType>
 	void GetPointVectorValueAtTime(FVectorVMContext& Context);
 
 	// Returns a Vector value for a given point at a given time
-	template<typename PointIDParamType, typename ColParamType, typename TimeParamType, typename DoSwapParamType, typename DoScaleParamType>
 	void GetPointVectorValueAtTimeEx(FVectorVMContext& Context);
 
 	// Returns the line indexes (previous, next) for reading values for a given point at a given time
-	template<typename PointIDParamType, typename TimeParamType>
 	void GetRowIndexesForPointAtTime(FVectorVMContext& Context);
 
 	// Return the life value for a given point
-	template<typename PointIDParamType>
 	void GetPointLife(FVectorVMContext& Context);
 
 	// Return the life of a given point at a given time
@@ -219,7 +201,6 @@ public:
 	//void GetPointLifeAtTime(FVectorVMContext& Context);
 
 	// Return the type value for a given point
-	template<typename PointIDParamType>
 	void GetPointType( FVectorVMContext& Context );
 	
 	//----------------------------------------------------------------------------

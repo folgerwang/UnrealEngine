@@ -51,6 +51,103 @@ static FAutoConsoleVariableRef CVarParallelVVMChunksPerBatch(
 );
 
 //////////////////////////////////////////////////////////////////////////
+//  Constant Handlers
+
+struct FConstantHandlerBase
+{
+	uint16 ConstantIndex;
+	FConstantHandlerBase(FVectorVMContext& Context)
+		: ConstantIndex(VectorVM::DecodeU16(Context))
+	{}
+
+	FORCEINLINE void Advance() { }
+};
+
+template<typename T>
+struct FConstantHandler : public FConstantHandlerBase
+{
+	T Constant;
+	FConstantHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Constant(*((T*)(Context.ConstantTable + ConstantIndex)))
+	{}
+	FORCEINLINE const T& Get() { return Constant; }
+	FORCEINLINE const T& GetAndAdvance() { return Constant; }
+};
+
+struct FDataSetOffsetHandler : FConstantHandlerBase
+{
+	uint32 Offset;
+	FDataSetOffsetHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Offset(Context.DataSetOffsetTable[ConstantIndex])
+	{}
+	FORCEINLINE const uint32 Get() { return Offset; }
+	FORCEINLINE const uint32 GetAndAdvance() { return Offset; }
+};
+
+template<>
+struct FConstantHandler<VectorRegister> : public FConstantHandlerBase
+{
+	VectorRegister Constant;
+	FConstantHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Constant(VectorLoadFloat1(&Context.ConstantTable[ConstantIndex]))
+	{}
+	FORCEINLINE const VectorRegister Get() { return Constant; }
+	FORCEINLINE const VectorRegister GetAndAdvance() { return Constant; }
+};
+
+template<>
+struct FConstantHandler<VectorRegisterInt> : public FConstantHandlerBase
+{
+	VectorRegisterInt Constant;
+	FConstantHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Constant(VectorIntLoad1(&Context.ConstantTable[ConstantIndex]))
+	{}
+	FORCEINLINE const VectorRegisterInt Get() { return Constant; }
+	FORCEINLINE const VectorRegisterInt GetAndAdvance() { return Constant; }
+};
+
+
+//////////////////////////////////////////////////////////////////////////
+// Register handlers.
+// Handle reading of a register, advancing the pointer with each read.
+
+struct FRegisterHandlerBase
+{
+	int32 RegisterIndex;
+	FORCEINLINE FRegisterHandlerBase(FVectorVMContext& Context)
+		: RegisterIndex(VectorVM::DecodeU16(Context))
+	{}
+
+};
+
+template<typename T>
+struct FRegisterHandler : public FRegisterHandlerBase
+{
+private:
+	T * RESTRICT Register;
+public:
+	FORCEINLINE FRegisterHandler(FVectorVMContext& Context)
+		: FRegisterHandlerBase(Context)
+		, Register((T*)Context.RegisterTable[RegisterIndex])
+	{}
+	FORCEINLINE const T Get() { return *Register; }
+	FORCEINLINE T* GetDest() { return Register; }
+	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE const T GetAndAdvance()
+	{
+		return *Register++;
+	}
+	FORCEINLINE T* GetDestAndAdvance()
+	{
+		return Register++;
+	}
+};
+
+//////////////////////////////////////////////////////////////////////////
 
 FVectorVMContext::FVectorVMContext()
 	: Code(nullptr)
@@ -211,7 +308,7 @@ struct TUnaryKernel
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TUnaryKernelHandler<Kernel, DstHandler, RegisterHandler, NumInstancesPerOp>::Exec(Context); break;
@@ -235,7 +332,7 @@ struct TBinaryKernel
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TBinaryKernelHandler<Kernel, DstHandler, RegisterHandler, RegisterHandler, NumInstancesPerOp>::Exec(Context); break;
@@ -259,7 +356,7 @@ struct TTrinaryKernel
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TTrinaryKernelHandler<Kernel, DstHandler, RegisterHandler, RegisterHandler, RegisterHandler, NumInstancesPerOp>::Exec(Context); break;
@@ -884,15 +981,15 @@ struct FScalarKernelAcquireID
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		int32 DataSetIndex = DecodeU16(Context);
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
 		TArray<int32>&RESTRICT FreeIDTable = *Context.DataSetMetaTable[DataSetIndex].FreeIDTable;
 
 		int32 Tag = Context.DataSetMetaTable[DataSetIndex].IDAcquireTag;
 
-		int32 IDIndexReg = DecodeU16(Context);
+		int32 IDIndexReg = VectorVM::DecodeU16(Context);
 		int32*RESTRICT IDIndex = (int32*)(Context.RegisterTable[IDIndexReg]);
 
-		int32 IDTagReg = DecodeU16(Context);
+		int32 IDTagReg = VectorVM::DecodeU16(Context);
 		int32*RESTRICT IDTag = (int32*)(Context.RegisterTable[IDTagReg]);
 
 		int32* NumFreeIDs = Context.DataSetMetaTable[DataSetIndex].NumFreeIDs;
@@ -916,10 +1013,10 @@ struct FScalarKernelUpdateID
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		int32 DataSetIndex = DecodeU16(Context);
-		int32 InstanceIDRegisterIndex = DecodeU16(Context);
-		int32 InstanceIndexRegisterIndex = DecodeU16(Context);
-		
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		int32 InstanceIDRegisterIndex = VectorVM::DecodeU16(Context);
+		int32 InstanceIndexRegisterIndex = VectorVM::DecodeU16(Context);
+
 		TArray<int32>&RESTRICT IDTable = *Context.DataSetMetaTable[DataSetIndex].IDTable;
 		TArray<int32>&RESTRICT FreeIDTable = *Context.DataSetMetaTable[DataSetIndex].FreeIDTable;
 		int32 InstanceOffset = Context.DataSetMetaTable[DataSetIndex].InstanceOffset;// +Context.StartInstance;
@@ -975,9 +1072,9 @@ struct FVectorKernelReadInput
 	{
 		static const int32 InstancesPerVector = sizeof(VectorRegister) / sizeof(T);
 
-		int32 DataSetIndex = DecodeU16(Context);
-		int32 InputRegisterIdx = DecodeU16(Context);
-		int32 DestRegisterIdx = DecodeU16(Context);
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		int32 InputRegisterIdx = VectorVM::DecodeU16(Context);
+		int32 DestRegisterIdx = VectorVM::DecodeU16(Context);
 		int32 Loops = Align(Context.NumInstances, InstancesPerVector) / InstancesPerVector;
 
 		VectorRegister* DestReg = (VectorRegister*)(Context.RegisterTable[DestRegisterIdx]);
@@ -1007,9 +1104,9 @@ struct FVectorKernelReadInputNoAdvance
 	{
 		static const int32 InstancesPerVector = sizeof(VectorRegister) / sizeof(T);
 
-		int32 DataSetIndex = DecodeU16(Context);
-		int32 InputRegisterIdx = DecodeU16(Context);
-		int32 DestRegisterIdx = DecodeU16(Context);
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		int32 InputRegisterIdx = VectorVM::DecodeU16(Context);
+		int32 DestRegisterIdx = VectorVM::DecodeU16(Context);
 		int32 Loops = Align(Context.NumInstances, InstancesPerVector) / InstancesPerVector;
 
 		VectorRegister* DestReg = (VectorRegister*)(Context.RegisterTable[DestRegisterIdx]);
@@ -1074,7 +1171,7 @@ struct FScalarKernelWriteOutputIndexed
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);		
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TTrinaryOutputKernelHandler<FScalarKernelWriteOutputIndexed, FOutputRegisterHandler<T>, FDataSetOffsetHandler, FRegisterHandler<int32>, FRegisterHandler<T>, 1>::Exec(Context); break;
@@ -1096,7 +1193,7 @@ struct FDataSetCounterHandler
 {
 	int32* Counter;
 	FDataSetCounterHandler(FVectorVMContext& Context)
-		: Counter(Context.DataSetIndexTable + DecodeU16(Context))
+		: Counter(Context.DataSetIndexTable + VectorVM::DecodeU16(Context))
 	{}
 
 	VM_FORCEINLINE void Advance() { }
@@ -1110,7 +1207,7 @@ struct FScalarKernelAcquireCounterIndex
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterHandler<int32>, FDataSetCounterHandler, FRegisterHandler<int32>, 1>::Exec(Context); break;
@@ -1165,7 +1262,7 @@ struct FKernelExternalFunctionCall
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 ExternalFuncIdx = DecodeU8(Context);
+		uint32 ExternalFuncIdx = VectorVM::DecodeU8(Context);
 		Context.ExternalFunctionTable[ExternalFuncIdx].Execute(Context);
 	}
 };

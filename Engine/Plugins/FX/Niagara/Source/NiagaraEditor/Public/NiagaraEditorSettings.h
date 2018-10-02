@@ -93,6 +93,7 @@ public:
 	/** Gets a multicast delegate which is called whenever one of the parameters in this settings object changes. */
 	static FOnNiagaraEditorSettingsChanged& OnSettingsChanged();
 
+	const TMap<FString, FString>& GetHLSLKeywordReplacementsMap()const { return HLSLKeywordReplacements; }
 protected:
 	static FOnNiagaraEditorSettingsChanged SettingsChangedDelegate;
 
@@ -115,4 +116,7 @@ private:
 
 	UPROPERTY(config)
 	TMap<FName, FNiagaraNewAssetDialogConfig> NewAssetDialogConfigMap;
+
+	UPROPERTY(config)
+	TMap<FString, FString> HLSLKeywordReplacements;
 };

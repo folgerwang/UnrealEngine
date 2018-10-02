@@ -82,23 +82,22 @@ void UNiagaraDataInterfaceCurlNoise::GetFunctions(TArray<FNiagaraFunctionSignatu
 	OutFunctions.Add(Sig);
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField);
 void UNiagaraDataInterfaceCurlNoise::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	check(BindingInfo.Name == SampleNoiseFieldName);
 	check(BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 3);
-	TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField)>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+	NDI_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField)::Bind(this, OutFunc);
 }
 
-template<typename XType, typename YType, typename ZType>
 void UNiagaraDataInterfaceCurlNoise::SampleNoiseField(FVectorVMContext& Context)
 {
-	XType XParam(Context);
-	YType YParam(Context);
-	ZType ZParam(Context);
-	FRegisterHandler<float> OutSampleX(Context);
-	FRegisterHandler<float> OutSampleY(Context);
-	FRegisterHandler<float> OutSampleZ(Context);
+	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> YParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> ZParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
 
 	const VectorRegister One = MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f);
 	const VectorRegister Zero = MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f);
