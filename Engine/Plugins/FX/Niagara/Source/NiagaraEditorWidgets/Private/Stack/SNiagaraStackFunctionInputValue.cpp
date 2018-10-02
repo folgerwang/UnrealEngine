@@ -533,7 +533,7 @@ void SNiagaraStackFunctionInputValue::CollectAllActions(FGraphActionListBuilderB
 			const FText MapInputFormat = LOCTEXT("LinkInputFormat", "Link this input to {0}");
 			for (const FNiagaraParameterHandle& Handle : Handles)
 			{
-				const FText DisplayName = FText::FromString(FName::NameToDisplayString(Handle.GetName().ToString(), false));
+				const FText DisplayName = FText::FromName(Handle.GetParameterHandleString());
 				const FText Tooltip = FText::Format(MapInputFormat, FText::FromName(Handle.GetParameterHandleString()));
 				TSharedPtr<FNiagaraMenuAction> LinkAction(new FNiagaraMenuAction(SectionDisplay, DisplayName, Tooltip, 0, FText(),
 					FNiagaraMenuAction::FOnExecuteStackAction::CreateSP(this, &SNiagaraStackFunctionInputValue::ParameterHandleSelected, Handle)));
