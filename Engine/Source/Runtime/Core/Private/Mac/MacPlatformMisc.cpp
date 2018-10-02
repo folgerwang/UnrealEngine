@@ -1001,7 +1001,6 @@ public:
 						}
 						IOObjectRelease(ServiceEntry);
 					}
-					CFRelease(MatchDictionary);
 				}
 				break;
 			}
