@@ -213,8 +213,8 @@ enum EClassFlags
 	/** all properties and functions in this class are const and should be exported as const */
 	CLASS_Const			      = 0x00010000u,
 
-	/** */
-	//CLASS_ = 0x00020000u,
+	/** Class flag indicating the class is having its layout changed, and therefore is not ready for a CDO to be created */
+	CLASS_LayoutChanging	  = 0x00020000u,
 	
 	/** Indicates that the class was created from blueprint source material */
 	CLASS_CompiledFromBlueprint  = 0x00040000u,
