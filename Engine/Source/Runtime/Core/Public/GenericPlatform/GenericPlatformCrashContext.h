@@ -65,6 +65,21 @@ enum class ECrashDumpMode : int32
 	FullDumpAlways = 2,
 };
 
+/** Portable stack frame */
+struct FCrashStackFrame
+{
+	FString ModuleName;
+	uint64 BaseAddress;
+	uint64 Offset;
+
+	FCrashStackFrame(const FString& ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+	{
+		ModuleName = ModuleNameIn;
+		BaseAddress = BaseAddressIn;
+		Offset = OffsetIn;
+	}
+};
+
 /**
  *	Contains a runtime crash's properties that are common for all platforms.
  *	This may change in the future.
@@ -189,7 +204,7 @@ public:
 	static void AddPlugin(const FString& PluginDesc);
 	
 	/** Generate raw call stack for crash report (image base + offset) */
-	static void GeneratePortableCallStack(int32 IgnoreCount, int32 MaxDepth = 100, void* Context = nullptr);
+	void CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context);
 
 	/**
 	 * @return whether this crash is a non-crash event
@@ -203,6 +218,7 @@ public:
 
 protected:
 	bool bIsEnsure;
+	TArray<FCrashStackFrame> CallStack;
 
 private:
 
@@ -211,9 +227,6 @@ private:
 
 	/** Add callstack information to the crash report xml */
 	void AddPortableCallStack() const;
-
-	/** Add a stack frame to the crash report call stack */
-	static void AddStackFrame(const FString& ModuleName, uint64 BaseAddress, uint64 Offset);
 
 	/** Writes header information to the buffer. */
 	void AddHeader() const;
@@ -243,8 +256,8 @@ private:
 	int32 CrashContextIndex;
 
 	// FNoncopyable
-	FGenericCrashContext( const FGenericCrashContext& );
-	FGenericCrashContext& operator=(const FGenericCrashContext&);
+	FGenericCrashContext( const FGenericCrashContext& ) = delete;
+	FGenericCrashContext& operator=(const FGenericCrashContext&) = delete;
 };
 
 struct CORE_API FGenericMemoryWarningContext
