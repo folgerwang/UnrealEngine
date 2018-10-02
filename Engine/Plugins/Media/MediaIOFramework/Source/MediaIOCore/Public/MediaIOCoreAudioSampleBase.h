@@ -8,19 +8,14 @@
 /*
  * Implements a media audio sample.
  */
-class FMediaIOCoreAudioSampleBase
+class MEDIAIOCORE_API FMediaIOCoreAudioSampleBase
 	: public IMediaAudioSample
 	, public IMediaPoolable
 {
 public:
 
 	/** Default constructor. */
-	FMediaIOCoreAudioSampleBase()
-		: Channels(0)
-		, Duration(0)
-		, SampleRate(0)
-		, Time(FTimespan::MinValue())
-	{ }
+	FMediaIOCoreAudioSampleBase();
 
 	/**
 	 * Initialize the sample.
@@ -32,24 +27,7 @@ public:
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(const int32* InAudioBuffer, uint32 InBufferSize, uint32 InNumberOfChannels, uint32 InSampleRate, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
-	{
-		if (InAudioBuffer == nullptr || InNumberOfChannels * InSampleRate <= 0)
-		{
-			FreeSample();
-			return false;
-		}
-
-		Buffer.Reset(InBufferSize);
-		Buffer.Append(InAudioBuffer, InBufferSize);
-		Time = InTime;
-		Timecode = InTimecode;
-		Channels = InNumberOfChannels;
-		SampleRate = InSampleRate;
-		Duration = (InBufferSize * ETimespan::TicksPerSecond) / (Channels * SampleRate);
-
-		return true;
-	}
+	bool Initialize(const int32* InAudioBuffer, uint32 InBufferSize, uint32 InNumberOfChannels, uint32 InSampleRate, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
 	/**
 	 * Initialize the sample.
@@ -60,23 +38,7 @@ public:
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(TArray<int32> InAudioBuffer, uint32 InNumberOfChannels, uint32 InSampleRate, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
-	{
-		if (InAudioBuffer.Num() == 0 || InNumberOfChannels * InSampleRate <= 0)
-		{
-			FreeSample();
-			return false;
-		}
-
-		Buffer = MoveTemp(InAudioBuffer);
-		Time = InTime;
-		Timecode = InTimecode;
-		Channels = InNumberOfChannels;
-		SampleRate = InSampleRate;
-		Duration = (InAudioBuffer.Num() * ETimespan::TicksPerSecond) / (Channels * SampleRate);
-
-		return true;
-	}
+	bool Initialize(TArray<int32> InAudioBuffer, uint32 InNumberOfChannels, uint32 InSampleRate, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
 public:
 

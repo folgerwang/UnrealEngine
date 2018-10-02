@@ -20,7 +20,7 @@ const FName FMediaIOCoreMediaOption::FrameRateNumerator("FrameRateNumerator");
 const FName FMediaIOCoreMediaOption::FrameRateDenominator("FrameRateDenominator");
 const FName FMediaIOCoreMediaOption::ResolutionWidth("ResolutionWidth");
 const FName FMediaIOCoreMediaOption::ResolutionHeight("ResolutionHeight");
-const FName FMediaIOCoreMediaOption::VideoStandard("VideoStandard");
+const FName FMediaIOCoreMediaOption::VideoModeName("VideoModeName");
 
 /* FMediaIOCorePlayerBase structors
  *****************************************************************************/
@@ -30,12 +30,10 @@ FMediaIOCorePlayerBase::FMediaIOCorePlayerBase(IMediaEventSink& InEventSink)
 	, CurrentState(EMediaState::Closed)
 	, CurrentTime(FTimespan::Zero())
 	, EventSink(InEventSink)
-	, LastVideoDim(FIntPoint::ZeroValue)
 	, VideoFrameRate(30, 1)
 	, LastFrameDropCount(0)
 	, Samples(new FMediaIOCoreSamples)
 	, bUseTimeSynchronization(false)
-	, VideoSampleFormat(EMediaTextureSampleFormat::CharBGRA)
 	, PreviousFrameTimespan(FTimespan::Zero())
 {
 }
@@ -53,7 +51,6 @@ void FMediaIOCorePlayerBase::Close()
 {
 	CurrentState = EMediaState::Closed;
 	CurrentTime = FTimespan::Zero();
-	LastVideoDim = FIntPoint::ZeroValue;
 	AudioTrackFormat.NumChannels = 0;
 	AudioTrackFormat.SampleRate = 0;
 
@@ -75,7 +72,7 @@ FString FMediaIOCorePlayerBase::GetInfo() const
 		Info += FString::Printf(TEXT("    Bits Per Sample: 32\n"));
 	}
 
-	if (LastVideoDim != FIntPoint::ZeroValue)
+	if (VideoTrackFormat.Dim != FIntPoint::ZeroValue)
 	{
 		if (!Info.IsEmpty())
 		{
@@ -83,7 +80,7 @@ FString FMediaIOCorePlayerBase::GetInfo() const
 		}
 		Info += FString::Printf(TEXT("Stream\n"));
 		Info += FString::Printf(TEXT("    Type: Video\n"));
-		Info += FString::Printf(TEXT("    Dimensions: %i x %i\n"), LastVideoDim.X, LastVideoDim.Y);
+		Info += FString::Printf(TEXT("    Dimensions: %i x %i\n"), VideoTrackFormat.Dim.X, VideoTrackFormat.Dim.Y);
 		Info += FString::Printf(TEXT("    Frame Rate: %g fps\n"), VideoFrameRate.AsDecimal());
 	}
 	return Info;
@@ -398,7 +395,7 @@ bool FMediaIOCorePlayerBase::ReadMediaOptions(const IMediaOptions* Options)
 		VideoTrackFormat.Dim = FIntPoint(ResolutionX, ResolutionY);
 		VideoTrackFormat.FrameRates = TRange<float>(VideoFrameRate.AsDecimal());
 		VideoTrackFormat.FrameRate = VideoFrameRate.AsDecimal();
-		VideoTrackFormat.TypeName = Options->GetMediaOption(FMediaIOCoreMediaOption::VideoStandard, FString(TEXT("1080p30fps")));
+		VideoTrackFormat.TypeName = Options->GetMediaOption(FMediaIOCoreMediaOption::VideoModeName, FString(TEXT("1080p30")));
 	}
 	return true;
 }

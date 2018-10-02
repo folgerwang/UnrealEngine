@@ -2,10 +2,10 @@
 
 #include "MediaIOCoreEncodeTime.h"
 
-FMediaIOCoreEncodeTime::FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InFormat, void* InBuffer, uint32 InWidth, uint32 InHeight)
+FMediaIOCoreEncodeTime::FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InFormat, void* InBuffer, uint32 InPitch, uint32 InHeight)
 	: Format(InFormat)
 	, Buffer(InBuffer)
-	, Width(InWidth)
+	, Pitch(InPitch)
 	, Height(InHeight)
 {
 	check(Buffer);
@@ -38,8 +38,8 @@ FMediaIOCoreEncodeTime::FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InF
 
 void FMediaIOCoreEncodeTime::Fill(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, TColor InColor) const
 {
-	check(InX < Width);
-	check(InX + InWidth <= Width);
+	check(InX < Pitch);
+	check(InX + InWidth <= Pitch);
 	check(InY < Height);
 	check(InY + InHeight <= Height);
 
@@ -54,8 +54,8 @@ void FMediaIOCoreEncodeTime::Fill(uint32 InX, uint32 InY, uint32  InWidth, uint3
 
 void FMediaIOCoreEncodeTime::FillChecker(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, TColor InColor0, TColor InColor1) const
 {
-	check(InX < Width);
-	check(InX + InWidth <= Width);
+	check(InX < Pitch);
+	check(InX + InWidth <= Pitch);
 	check(InY < Height);
 	check(InY + InHeight <= Height);
 
@@ -72,19 +72,21 @@ void FMediaIOCoreEncodeTime::DrawTime(uint32 InX, uint32 InY, uint32  InTime, TC
 {
 	uint32 Tenth = (InTime / 10);
 	uint32 Unit = (InTime % 10);
-	if (Tenth > 0)
-	{
-		At(InX + Tenth - 1, InY) = InColor;
-	}
+	At(InX + Tenth, InY) = InColor;
 	At(InX + Unit, InY + 1) = InColor;
 }
 
 void FMediaIOCoreEncodeTime::Render(uint32 InX, uint32 InY, uint32 InHours, uint32 InMinutes, uint32 InSeconds, uint32 InFrames) const
 {
+	if (InX + 12 >= Pitch/sizeof(TColor) || InY + 12 >= Height)
+	{
+		return;
+	}
+
 	// clear space
 	Fill(InX, InY, 12, 12, ColorBlack);
 
-	// render patern
+	// render pattern
 	FillChecker(InX, InY +  0,  2, 1, ColorRed, ColorBlack);
 	FillChecker(InX, InY +  1, 10, 1, ColorRed, ColorBlack);
 	FillChecker(InX, InY +  3,  6, 1, ColorRed, ColorBlack);

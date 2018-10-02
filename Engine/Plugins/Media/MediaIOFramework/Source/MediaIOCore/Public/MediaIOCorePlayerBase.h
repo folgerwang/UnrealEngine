@@ -26,7 +26,7 @@ struct MEDIAIOCORE_API FMediaIOCoreMediaOption
 	static const FName FrameRateDenominator;
 	static const FName ResolutionWidth;
 	static const FName ResolutionHeight;
-	static const FName VideoStandard;
+	static const FName VideoModeName;
 };
 
 
@@ -156,9 +156,6 @@ protected:
 	/** The media event handler. */
 	IMediaEventSink& EventSink;
 
-	/** Video dimensions in the last received sample. */
-	FIntPoint LastVideoDim;
-
 	/** Video frame rate in the last received sample. */
 	FFrameRate VideoFrameRate;
 	
@@ -170,9 +167,6 @@ protected:
 
 	/** Whether to use the Synchronization Time module as time source. */
 	bool bUseTimeSynchronization;
-
-	/** The current video sample format. */
-	EMediaTextureSampleFormat VideoSampleFormat;
 
 	/** Previous frame Timespan */
 	FTimespan PreviousFrameTimespan;

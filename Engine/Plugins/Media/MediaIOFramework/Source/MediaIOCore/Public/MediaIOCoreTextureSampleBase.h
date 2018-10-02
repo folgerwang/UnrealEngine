@@ -8,21 +8,13 @@
 /**
  * Implements the IMediaTextureSample/IMediaPoolable interface.
  */
-class FMediaIOCoreTextureSampleBase
+class MEDIAIOCORE_API FMediaIOCoreTextureSampleBase
 	: public IMediaTextureSample
 	, public IMediaPoolable
 {
 
-protected:
-	FMediaIOCoreTextureSampleBase()
-		: Duration(FTimespan::Zero())
-		, SampleFormat(EMediaTextureSampleFormat::Undefined)
-		, Time(FTimespan::Zero())
-		, Stride(0)
-		, Width(0)
-		, Height(0)
-	{
-	}
+public:
+	FMediaIOCoreTextureSampleBase();
 
 	/**
 	 * Initialize the sample.
@@ -36,27 +28,7 @@ protected:
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, int32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
-	{
-		FreeSample();
-
-		if ((InVideoBuffer == nullptr) || (InSampleFormat == EMediaTextureSampleFormat::Undefined))
-		{
-			return false;
-		}
-
-		Buffer.Reset(InBufferSize);
-		Buffer.Append(reinterpret_cast<uint8*>(InVideoBuffer), InBufferSize);
-		PixelBuffer = Buffer.GetData(); //@TODO: Temp for Blackmagic.
-		Stride = InStride;
-		Width = InWidth;
-		Height = InHeight;
-		SampleFormat = InSampleFormat;
-		Time = InTime;
-		Timecode = InTimecode;
-
-		return true;
-	}
+	bool Initialize(const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
 	/**
 	 * Initialize the sample.
@@ -69,33 +41,28 @@ protected:
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(TArray<uint8> InVideoBuffer, uint32 InStride, uint32 InWidth, int32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
-	{
-		FreeSample();
+	bool Initialize(TArray<uint8> InVideoBuffer, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
-		if ((InVideoBuffer.Num() == 0) || (InSampleFormat == EMediaTextureSampleFormat::Undefined))
-		{
-			return false;
-		}
-
-		Buffer = MoveTemp(InVideoBuffer);
-		PixelBuffer = Buffer.GetData(); //@TODO: Temp for Blackmagic.
-		Stride = InStride;
-		Width = InWidth;
-		Height = InHeight;
-		SampleFormat = InSampleFormat;
-		Time = InTime;
-		Timecode = InTimecode;
-
-		return true;
-	}
+	/**
+	 * Initialize the sample with half it's original height and take only the odd or even line.
+	 *
+	 * @param bUseEvenLine Should use the Even or the Odd line from the video buffer.
+	 * @param InVideoBuffer The audio frame data.
+	 * @param InStride The number of channel of the video buffer.
+	 * @param InWidth The sample rate of the video buffer.
+	 * @param InHeight The sample rate of the video buffer.
+	 * @param InSampleFormat The sample format of the video buffer.
+	 * @param InTime The sample time (in the player's own clock).
+	 * @param InTimecode The sample timecode if available.
+	 */
+	bool InitializeWithEvenOddLine(bool bUseEvenLine, const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
 
 public:
 	//~ IMediaTextureSample interface
 
 	virtual const void* GetBuffer() override
 	{
-		return PixelBuffer;
+		return Buffer.GetData();
 	}
 
 	virtual FIntPoint GetDim() const override
@@ -178,12 +145,11 @@ protected:
 	TOptional<FTimecode> Timecode;
 
 	/** Image dimensions */
-	uint32_t Stride;
-	uint32_t Width;
-	uint32_t Height;
+	uint32 Stride;
+	uint32 Width;
+	uint32 Height;
 
 	/** Pointer to raw pixels */
 	TArray<uint8> Buffer;
-	void* PixelBuffer; //@TODO: Temp for Blackmagic.
 };
 
