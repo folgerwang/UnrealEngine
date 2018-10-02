@@ -818,7 +818,7 @@ struct FNiagaraVariable
 		return Name != NAME_None && TypeDef.IsValid();
 	}
 
-	FORCEINLINE bool IsInNameSpace(FString Namespace) 
+	FORCEINLINE bool IsInNameSpace(FString Namespace) const
 	{
 		return Name.ToString().StartsWith(Namespace + TEXT("."));
 	}
