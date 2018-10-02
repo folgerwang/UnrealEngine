@@ -27,10 +27,9 @@ public:
 
 	FVulkanTexture2D* GetBackBuffer(FRHICommandList& RHICmdList);
 
-	//void WaitForFrameEventCompletion();
+	void WaitForFrameEventCompletion();
 
-	//#todo-rco
-	//void IssueFrameEvent() {}
+	void IssueFrameEvent();
 
 	inline FIntPoint GetSizeXY() const
 	{
@@ -83,6 +82,9 @@ protected:
 	VulkanRHI::FSemaphore* AcquiredSemaphore;
 
 	FCustomPresentRHIRef CustomPresent;
+
+	FVulkanCmdBuffer* LastFrameCommandBuffer = nullptr;
+	uint64 LastFrameFenceCounter = 0;
 
 	void CreateSwapchain();
 	void AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBackBuffer* NewBackBuffer);
