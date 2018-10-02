@@ -43,7 +43,7 @@ struct CORE_API FApplePlatformCrashContext : public FGenericCrashContext
 	void InitFromSignal(int32 InSignal, siginfo_t* InInfo, void* InContext);
 	
 	/** Initialise context for reporting crash. */
-	int32 ReportCrash(void) const;
+	int32 ReportCrash(void);
 	
 	/** Generates a string representation for the execption/signal Info. */
 	static void CreateExceptionInfoString(int32 Signal, siginfo_t* Info);
