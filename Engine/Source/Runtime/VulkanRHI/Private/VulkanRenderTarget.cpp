@@ -44,7 +44,8 @@ TAutoConsoleVariable<int32> CVarVulkanDebugBarrier(
 	TEXT(" 2: Enable heavy barriers after every dispatch\n")
 	TEXT(" 4: Enable heavy barriers after upload cmd buffers\n")
 	TEXT(" 8: Enable heavy barriers after active cmd buffers\n")
-	/*TEXT(" 8: Enable heavy barrier after swapchain\n")*/,
+	TEXT(" 16: Enable heavy buffer barrier after uploads\n")
+	TEXT(" 32: Enable heavy buffer barrier between acquiring back buffer and blitting into swapchain\n"),
 	ECVF_Default
 );
 #endif
@@ -222,12 +223,7 @@ void FTransitionAndLayoutManager::EndEmulatedRenderPass(FVulkanCmdBuffer* CmdBuf
 	CmdBuffer->EndRenderPass();
 	CurrentRenderPass = nullptr;
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 1)
-	{
-		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer->GetHandle());
-	}
-#endif
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer->GetHandle(), 1);
 }
 
 void FTransitionAndLayoutManager::BeginRealRenderPass(FVulkanCommandListContext& Context, FVulkanDevice& InDevice, FVulkanCmdBuffer* CmdBuffer, const FRHIRenderPassInfo& RPInfo, const FVulkanRenderTargetLayout& RTLayout, FVulkanRenderPass* RenderPass, FVulkanFramebuffer* Framebuffer)
@@ -431,12 +427,7 @@ void FTransitionAndLayoutManager::EndRealRenderPass(FVulkanCmdBuffer* CmdBuffer)
 	CurrentRenderPass = nullptr;
 	bInsideRealRenderPass = false;
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 1)
-	{
-		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer->GetHandle());
-	}
-#endif
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer->GetHandle(), 1);
 }
 
 void FTransitionAndLayoutManager::NotifyDeletedRenderTarget(FVulkanDevice& InDevice, VkImage Image)
@@ -1372,6 +1363,8 @@ void FVulkanCommandListContext::TransitionResources(const FPendingTransition& Pe
 	}
 	else
 	{
+		SCOPED_RHI_CONDITIONAL_DRAW_EVENTF(*this, RHITransitionResources, bShowTransitionEvents, TEXT("TransitionTo: %s: %i UAVs"), *FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)PendingTransition.TransitionType], PendingTransition.UAVs.Num());
+
 		const bool bIsRealAsyncComputeContext = Device->IsRealAsyncComputeContext(this);
 		ensure(IsImmediate() || bIsRealAsyncComputeContext);
 		check(PendingTransition.UAVs.Num() > 0);
