@@ -109,6 +109,24 @@ void SProjectLauncherPackagingSettings::Construct(const FArguments& InArgs, cons
 										.Text(LOCTEXT("ForDistributionCheckBoxText", "Is this build for distribution to the public"))
 									]
 							]
+
+
+						+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(0.0, 4.0, 0.0, 0.0)
+							[
+								SNew(SCheckBox)
+								.IsEnabled(this, &SProjectLauncherPackagingSettings::IsEditable)
+								.IsChecked(this, &SProjectLauncherPackagingSettings::HandleIncludePrerequisitesCheckBoxIsChecked)
+								.OnCheckStateChanged(this, &SProjectLauncherPackagingSettings::HandleIncludePrerequisitesCheckStateChanged)
+								.Padding(FMargin(4.0f, 0.0f))
+								.ToolTipText(LOCTEXT("IncludePrerequisitesCheckBoxTooltip", "If checked the build will include the prerequisites installer on platforms that support it."))
+								.Content()
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("IncludePrerequisitesCheckBoxText", "Include an installer for prerequisites of packaged games"))
+								]
+							]
 					]
 			]
 	];
@@ -150,6 +168,27 @@ ECheckBoxState SProjectLauncherPackagingSettings::HandleForDistributionCheckBoxI
 	return ECheckBoxState::Unchecked;
 }
 
+void SProjectLauncherPackagingSettings::HandleIncludePrerequisitesCheckStateChanged(ECheckBoxState NewState)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetIncludePrerequisites(NewState == ECheckBoxState::Checked);
+	}
+}
+
+ECheckBoxState SProjectLauncherPackagingSettings::HandleIncludePrerequisitesCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsIncludingPrerequisites())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+	return ECheckBoxState::Unchecked;
+}
 
 FText SProjectLauncherPackagingSettings::HandleDirectoryTitleText() const
 {
