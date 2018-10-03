@@ -357,7 +357,7 @@ namespace VectorVM
 		{}
 
 		FORCEINLINE bool IsConstant()const { return !IsRegister(); }
-		FORCEINLINE bool IsRegister()const { return InputOffset & VVM_EXT_FUNC_INPUT_LOC_BIT; }
+		FORCEINLINE bool IsRegister()const { return (InputOffset & VVM_EXT_FUNC_INPUT_LOC_BIT) != 0; }
 		FORCEINLINE int32 GetOffset()const { return InputOffset & VVM_EXT_FUNC_INPUT_LOC_MASK; }
 
 		FORCEINLINE const T Get() { return *InputPtr; }
