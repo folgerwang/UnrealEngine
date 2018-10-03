@@ -1016,7 +1016,7 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 		NewActorComp->SetFlags(RF_NeedPostLoad | RF_NeedPostLoadSubobjects);
 
 		// Load cached data into the new instance.
-		FBlueprintComponentInstanceDataLoader ComponentInstanceDataLoader(TemplateData->GetCachedPropertyDataForSerialization(), TemplateData->GetCachedPropertyListForSerialization());
+		FBlueprintComponentInstanceDataLoader ComponentInstanceDataLoader(TemplateData->GetCachedPropertyData(), TemplateData->GetCachedPropertyList());
 		NewActorComp->Serialize(ComponentInstanceDataLoader);
 
 		// Handle tasks that would normally occur post-duplication w/ SDO.
