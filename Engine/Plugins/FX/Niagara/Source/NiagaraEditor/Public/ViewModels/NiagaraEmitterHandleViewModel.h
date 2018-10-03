@@ -47,6 +47,12 @@ public:
 	/** Gets the text representation of the emitter handle name. */
 	NIAGARAEDITOR_API FText GetNameText() const;
 
+	/** Gets the text representation of the source emitter handle name. */
+	NIAGARAEDITOR_API FText GetSourceNameText() const;
+
+	/** Gets the text representation of the emitter handle name. */
+	NIAGARAEDITOR_API FText GetSourcePathNameText() const;
+
 	/** Called when the contents of the name text control is committed. */
 	NIAGARAEDITOR_API void OnNameTextComitted(const FText& InText, ETextCommit::Type CommitInfo);
 

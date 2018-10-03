@@ -34,7 +34,7 @@ class UNiagaraNodeFunctionCall;
 class FNiagaraEmitterViewModel;
 
 /** Defines different editing modes for this system view model. */
-enum class ENiagaraSystemViewModelEditMode
+NIAGARAEDITOR_API enum class ENiagaraSystemViewModelEditMode
 {
 	/** A system asset is being edited.  This assumes that emitters should be inheriting from a base version and that emitter editing will be restricted. */
 	SystemAsset,
@@ -126,7 +126,7 @@ public:
 	bool GetCanModifyEmittersFromTimeline() const;
 
 	/** Gets the current editing mode for this system view model. */
-	ENiagaraSystemViewModelEditMode GetEditMode() const;
+	NIAGARAEDITOR_API ENiagaraSystemViewModelEditMode GetEditMode() const;
 
 	/** Adds a new emitter to the System from an emitter asset data. */
 	void AddEmitterFromAssetData(const FAssetData& AssetData);
