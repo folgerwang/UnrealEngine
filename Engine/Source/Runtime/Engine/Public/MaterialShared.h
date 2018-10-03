@@ -811,13 +811,13 @@ public:
 	static const FMaterialShaderMap* GetShaderMapBeingCompiled(const FMaterial* Material);
 
 	/** Serializes the shader map. */
-	void Serialize(FArchive& Ar, bool bInlineShaderResources=true);
+	void Serialize(FArchive& Ar, bool bInlineShaderResources=true, bool bLoadedByCookedMaterial=false);
 
 	/** Saves this shader map to the derived data cache. */
 	void SaveToDerivedDataCache();
 
 	/** Registers all shaders that have been loaded in Serialize */
-	virtual void RegisterSerializedShaders() override;
+	virtual void RegisterSerializedShaders(bool bLoadedByCookedMaterial) override;
 	virtual void DiscardSerializedShaders() override;
 
 	/** Backs up any FShaders in this shader map to memory through serialization and clears FShader references. */
@@ -1170,7 +1170,7 @@ public:
 	void SerializeInlineShaderMap(FArchive& Ar);
 
 	/** Serializes the shader map inline in this material, including any shader dependencies. */
-	void RegisterInlineShaderMap();
+	void RegisterInlineShaderMap(bool bLoadedByCookedMaterial);
 
 	/** Releases this material's shader map.  Must only be called on materials not exposed to the rendering thread! */
 	void ReleaseShaderMap();
