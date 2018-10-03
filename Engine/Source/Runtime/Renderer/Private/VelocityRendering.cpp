@@ -813,15 +813,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 				DrawRenderState,
 				VelocityRT);
 
-			if (!View.IsInstancedStereoPass())
-			{
-				Scene->VelocityDrawList.DrawVisibleParallel(View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
-			}
-			else
-			{
-				const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshVelocityMap, Views[1].StaticMeshVelocityMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-				Scene->VelocityDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-			}
+			Scene->VelocityDrawList.DrawVisibleParallel(View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
 			
 			int32 NumPrims = View.DynamicMeshElements.Num();
 			int32 EffectiveThreads = FMath::Min<int32>(FMath::DivideAndRoundUp(NumPrims, ParallelCommandListSet.MinDrawsPerCommandList), ParallelCommandListSet.Width);
@@ -874,15 +866,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 			SetVelocitiesState(RHICmdList, View, this, DrawRenderState, VelocityRT);
 
 			// Draw velocities for movable static meshes.
-			if (!View.IsInstancedStereoPass())
-			{
-				Scene->VelocityDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility);
-			}
-			else
-			{
-				const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshVelocityMap, Views[1].StaticMeshVelocityMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-				Scene->VelocityDrawList.DrawVisibleInstancedStereo(RHICmdList, StereoView, DrawRenderState);
-			}
+			Scene->VelocityDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility);
 
 			RenderDynamicVelocitiesMeshElementsInner(RHICmdList, View, DrawRenderState, 0, View.DynamicMeshElements.Num() - 1);
 		}
