@@ -10,6 +10,7 @@
 #include "VulkanContext.h"
 #include "GlobalShader.h"
 #include "HAL/PlatformAtomics.h"
+#include "Engine/RendererSettings.h"
 
 //#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
@@ -476,22 +477,22 @@ void FVulkanViewport::Tick(float DeltaTime)
 		ENQUEUE_RENDER_COMMAND(UpdateVsync)(
 			[this](FRHICommandListImmediate& RHICmdList)
 		{
-			RecreateSwapchainFromRT();
+			RecreateSwapchainFromRT(PixelFormat);
 		});
 		FlushRenderingCommands();
 	}
 }
 
-void FVulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen)
+void FVulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
 	SizeX = InSizeX;
 	SizeY = InSizeY;
 	bIsFullscreen = bInIsFullscreen;
 
-	RecreateSwapchainFromRT();
+	RecreateSwapchainFromRT(PreferredPixelFormat);
 }
 
-void FVulkanViewport::RecreateSwapchainFromRT()
+void FVulkanViewport::RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat)
 {
 	check(IsInRenderingThread());
 	
@@ -525,6 +526,7 @@ void FVulkanViewport::RecreateSwapchainFromRT()
 		Device->GetDeferredDeletionQueue().ReleaseResources(true);
 	}
 
+	PixelFormat = PreferredPixelFormat;
 	CreateSwapchain();
 }
 
@@ -761,7 +763,40 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 FViewportRHIRef FVulkanDynamicRHI::RHICreateViewport(void* WindowHandle, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
 	check( IsInGameThread() );
+
+	// Use a default pixel format if none was specified	
+	if (PreferredPixelFormat == PF_Unknown)
+	{
+		static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnAnyThread()));
+	}
+
 	return new FVulkanViewport(this, Device, WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
+}
+
+void FVulkanDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+{
+	check(IsInGameThread());
+	FVulkanViewport* Viewport = ResourceCast(ViewportRHI);
+
+	// Use a default pixel format if none was specified	
+	if (PreferredPixelFormat == PF_Unknown)
+	{
+		static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnAnyThread()));
+	}
+
+	if (Viewport->GetSizeXY() != FIntPoint(SizeX, SizeY))
+	{
+		FlushRenderingCommands();
+
+		ENQUEUE_RENDER_COMMAND(ResizeViewport)(
+			[Viewport, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat](FRHICommandListImmediate& RHICmdList)
+			{
+				Viewport->Resize(SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
+			});
+		FlushRenderingCommands();
+	}
 }
 
 void FVulkanDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint32 SizeX, uint32 SizeY, bool bIsFullscreen)
@@ -776,7 +811,7 @@ void FVulkanDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint
 		ENQUEUE_RENDER_COMMAND(ResizeViewport)(
 			[Viewport, SizeX, SizeY, bIsFullscreen](FRHICommandListImmediate& RHICmdList)
 			{
-				Viewport->Resize(SizeX, SizeY, bIsFullscreen);
+				Viewport->Resize(SizeX, SizeY, bIsFullscreen, PF_Unknown);
 			});
 		FlushRenderingCommands();
 	}
