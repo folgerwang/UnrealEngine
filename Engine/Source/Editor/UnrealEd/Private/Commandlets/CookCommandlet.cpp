@@ -515,6 +515,8 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 			}
 
 			CookOnTheFlyGCController.ConditionallyCollectGarbage(CookOnTheFlyServer);
+
+			CookOnTheFlyServer->WaitForRequests(100 /* timeoutMs */);
 		}
 	}
 
