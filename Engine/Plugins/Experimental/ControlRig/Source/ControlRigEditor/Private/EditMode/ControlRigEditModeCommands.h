@@ -13,7 +13,7 @@ public:
 	FControlRigEditModeCommands() : TCommands<FControlRigEditModeCommands>
 	(
 		"ControlRigEditMode",
-		NSLOCTEXT("Contexts", "Animation", "Rig Animation"),
+		NSLOCTEXT("Contexts", "RigAnimation", "Rig Animation"),
 		NAME_None, // "MainFrame" // @todo Fix this crash
 		FControlRigEditorStyle::Get().GetStyleSetName() // Icon Style Set
 	)

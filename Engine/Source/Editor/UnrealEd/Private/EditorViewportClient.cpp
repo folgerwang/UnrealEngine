@@ -5206,7 +5206,7 @@ void FEditorViewportClient::TakeScreenshot(FViewport* InViewport, bool bInValida
 	bool bGeneratedFilename = FFileHelper::GenerateNextBitmapFilename(Directory / TEXT("ScreenShot"), TEXT("png"), ImageTask->Filename);
 	if (!bGeneratedFilename)
 	{
-		SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedBitmap", "Screenshot failed, too many screenshots in output directory" ));
+		SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailed_TooManyScreenshots", "Screenshot failed, too many screenshots in output directory" ));
 		return;
 	}
 
@@ -5231,7 +5231,7 @@ void FEditorViewportClient::TakeScreenshot(FViewport* InViewport, bool bInValida
 		}
 		else
 		{
-			SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedBitmap", "Screenshot failed, unable to save" ));
+			SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailed_CouldNotSave", "Screenshot failed, unable to save" ));
 			SaveMessagePtr->SetCompletionState(SNotificationItem::CS_Fail);
 		}
 	};

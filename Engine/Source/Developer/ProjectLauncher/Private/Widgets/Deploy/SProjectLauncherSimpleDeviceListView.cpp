@@ -152,7 +152,7 @@ FText SProjectLauncherSimpleDeviceListView::HandleDeviceListRowToolTipText(TShar
 				DeviceListStr.Append(*PhysicalDeviceProxy->GetName());
 			}
 		}
-		Builder.AppendLineFormat(LOCTEXT("DeviceListRowToolTipName", "Name: {0}\nDevices: {1}"), FText::FromString(DeviceProxy->GetName()), FText::FromString(DeviceListStr));
+		Builder.AppendLineFormat(LOCTEXT("DeviceListAggregatedRowToolTipName", "Name: {0}\nDevices: {1}"), FText::FromString(DeviceProxy->GetName()), FText::FromString(DeviceListStr));
 	}
 	else
 	{

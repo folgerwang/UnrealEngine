@@ -319,7 +319,7 @@ void FNVAnselCameraPhotographyPrivate::DoCustomUIControls(FPostProcessSettings& 
 			);
 			DeclareSlider(
 				control_doffocaldistance,
-				LOCTEXT("control_dofscale", "Focus Distance"),
+				LOCTEXT("control_doffocaldistance", "Focus Distance"),
 				0.f, 10000.f,
 				InOutPPSettings.DepthOfFieldFocalDistance
 			);

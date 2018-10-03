@@ -24,7 +24,7 @@ void UListViewBase::ValidateCompiledDefaults(FCompilerResultsLog& CompileLog) co
 {
 	if (!EntryWidgetClass)
 	{
-		CompileLog.Error(*FText::Format(LOCTEXT("Error_MissingEntryClass", "{0} has no EntryWidgetClass specified - required for any UListViewBase to function."), FText::FromString(GetName())).ToString());
+		CompileLog.Error(*FText::Format(LOCTEXT("Error_ListViewBase_MissingEntryClass", "{0} has no EntryWidgetClass specified - required for any UListViewBase to function."), FText::FromString(GetName())).ToString());
 	}
 }
 #endif
