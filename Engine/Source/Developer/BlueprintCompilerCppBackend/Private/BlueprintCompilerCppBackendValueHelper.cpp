@@ -690,6 +690,26 @@ bool FEmitDefaultValueHelper::SpecialStructureConstructor(const UStruct* Struct,
 		return true;
 	}
 
+	if (TBaseStructure<FSoftClassPath>::Get() == Struct)
+	{
+		if (OutResult)
+		{
+			const FSoftClassPath* SoftClassPath = reinterpret_cast<const FSoftClassPath*>(ValuePtr);
+			*OutResult = FString::Printf(TEXT("FSoftClassPath(TEXT(\"%s\"))"), *SoftClassPath->ToString());
+		}
+		return true;
+	}
+
+	if (TBaseStructure<FSoftObjectPath>::Get() == Struct)
+	{
+		if (OutResult)
+		{
+			const FSoftObjectPath* SoftObjectPath = reinterpret_cast<const FSoftObjectPath*>(ValuePtr);
+			*OutResult = FString::Printf(TEXT("FSoftObjectPath(TEXT(\"%s\"))"), *SoftObjectPath->ToString());
+		}
+		return true;
+	}
+
 	return false;
 }
 
