@@ -344,7 +344,7 @@ namespace UnrealBuildTool
 										" --sysroot=\"" + Path.Combine(NDKPath, "sysroot") + "\"" +
 										" -isystem " + Path.Combine(NDKPath, "sysroot/usr/include/i686-linux-android/") +
 										" -D__ANDROID_API__=" + NDKApiLevel32Int;
-				ToolchainParamsx86 = " -target x86_64-none-linux-android" +
+				ToolchainParamsx64 = " -target x86_64-none-linux-android" +
 										" --sysroot=\"" + Path.Combine(NDKPath, "sysroot") + "\"" +
 										" -isystem " + Path.Combine(NDKPath, "sysroot/usr/include/x86_64-linux-android/") +
 										" -D__ANDROID_API__=" + NDKApiLevel64Int;
