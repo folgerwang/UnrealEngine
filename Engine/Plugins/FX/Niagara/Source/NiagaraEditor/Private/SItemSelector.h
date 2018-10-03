@@ -370,7 +370,7 @@ private:
 		void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTree)
 		{
 			typename SItemSelectorTableRow::FArguments Arguments;
-			Arguments[InArgs._Content.Widget];
+			Arguments = Arguments[InArgs._Content.Widget];
 			SItemSelectorTableRow::Construct(Arguments,	OwnerTree);
 		}
 
