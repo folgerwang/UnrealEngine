@@ -194,9 +194,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	ULocalPlayer* GetOwnerPlayer() const;
 
-	/** @return The draw size of the quad in the world */
+	/** @return The "specified" draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	FVector2D GetDrawSize() const;
+
+	/** @return The "actual" draw size of the quad in the world */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	FVector2D GetCurrentDrawSize() const;
 
 	/** Sets the draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
