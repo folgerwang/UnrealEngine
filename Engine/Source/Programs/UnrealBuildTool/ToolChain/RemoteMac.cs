@@ -219,17 +219,6 @@ namespace UnrealBuildTool
 			RsyncAuthentication = ExpandVariables(RsyncAuthentication);
 			SshAuthentication = ExpandVariables(SshAuthentication);
 
-			// Get the remote base directory
-			RemoteBaseDir = String.Format("/Users/{0}/UE4/Builds/{1}", UserName, Environment.MachineName);
-
-			// Build the list of directory mappings between the local and remote machines
-			Mappings = new List<RemoteMapping>();
-			Mappings.Add(new RemoteMapping(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory)));
-			if(ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
-			{
-				Mappings.Add(new RemoteMapping(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory)));
-			}
-
 			// Build a list of arguments for SSH
 			CommonSshArguments = new List<string>();
 			CommonSshArguments.Add("-o BatchMode=yes");
@@ -248,6 +237,23 @@ namespace UnrealBuildTool
 			CommonRsyncArguments.Add("-m");
 			CommonRsyncArguments.Add("--chmod=ug=rwX,o=rxX");
 			CommonRsyncArguments.Add(String.Format("--rsh=\"{0} -p {1}\"", RsyncAuthentication, ServerPort));
+
+			// Get the remote base directory
+			StringBuilder Output;
+			if(ExecuteAndCaptureOutput("'echo ~'", out Output) != 0)
+			{
+				throw new BuildException("Unable to determine home directory for remote user");
+			}
+			RemoteBaseDir = String.Format("{0}/UE4/Builds/{1}", Output.ToString().Trim().TrimEnd('/'), Environment.MachineName);
+			Log.TraceInformation("[Remote] Using base directory '{0}'", RemoteBaseDir);
+
+			// Build the list of directory mappings between the local and remote machines
+			Mappings = new List<RemoteMapping>();
+			Mappings.Add(new RemoteMapping(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory)));
+			if(ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				Mappings.Add(new RemoteMapping(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory)));
+			}
 		}
 
 		/// <summary>
@@ -904,6 +910,39 @@ namespace UnrealBuildTool
 			{
 				string FormattedOutput = ConvertRemotePathsToLocal(Args.Data);
 				Log.TraceInformation("  {0}", FormattedOutput);
+			}
+		}
+
+		/// <summary>
+		/// Execute a remote command, capturing the output text
+		/// </summary>
+		/// <param name="Command">Command to be executed</param>
+		/// <param name="Output">Receives the output text</param>
+		/// <returns></returns>
+		protected int ExecuteAndCaptureOutput(string Command, out StringBuilder Output)
+		{
+			StringBuilder FullCommand = new StringBuilder();
+			foreach(string CommonSshArgument in CommonSshArguments)
+			{
+				FullCommand.AppendFormat("{0} ", CommonSshArgument);
+			}
+			FullCommand.Append(Command.Replace("\"", "\\\""));
+
+			using(Process SSHProcess = new Process())
+			{
+				Output = new StringBuilder();
+
+				StringBuilder OutputLocal = Output;
+				DataReceivedEventHandler OutputHandler = (E, Args) => { if(Args.Data != null){ OutputLocal.Append(Args.Data); } };
+
+				SSHProcess.StartInfo.FileName = SshExe.FullName;
+				SSHProcess.StartInfo.WorkingDirectory = SshExe.Directory.FullName;
+				SSHProcess.StartInfo.Arguments = FullCommand.ToString();
+				SSHProcess.OutputDataReceived += OutputHandler;
+				SSHProcess.ErrorDataReceived += OutputHandler;
+
+				Log.TraceLog("[SSH] {0} {1}", Utils.MakePathSafeToUseWithCommandLine(SSHProcess.StartInfo.FileName), SSHProcess.StartInfo.Arguments);
+				return Utils.RunLocalProcess(SSHProcess);
 			}
 		}
 

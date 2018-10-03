@@ -217,10 +217,14 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
 + /Binaries/ThirdParty/Mono/
 + /Binaries/ThirdParty/Mono/Mac/
 + /Binaries/ThirdParty/Mono/Mac/**
++ /Binaries/ThirdParty/**/
++ /Binaries/ThirdParty/**.dylib
 + /Build/
 + /Build/*
 + /Build/BatchFiles/
 + /Build/BatchFiles/**
++ /Build/Mac/
++ /Build/Mac/**
 + /Build/IOS/
 + /Build/IOS/**
 + /Config/
@@ -248,6 +252,7 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
 + /Plugins/**/Source/**.m
 + /Plugins/**/Source/**.cs
 + /Plugins/**/Source/**.inl
++ /Plugins/**/Source/**.dylib
 + /Plugins/**.a
 + /Plugins/**.embeddedframework.zip
 + /Plugins/**.xml
@@ -291,5 +296,6 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
 + /Source/ThirdParty/**.mm
 + /Source/ThirdParty/**.inl
 + /Source/ThirdParty/**.a
++ /Source/ThirdParty/**.dylib
 + /Source/ThirdParty/**.embeddedframework.zip
 + /Source/ThirdParty/libJPG/*.cpp
