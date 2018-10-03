@@ -701,9 +701,14 @@ void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMateri
 	UMaterial* OwnerMaterial = Cast<UMaterial>(Owner);
 	UMaterialInstance* OwnerMaterialInstance = Cast<UMaterialInstance>(Owner);
 
+#if WITH_EDITORONLY_DATA
+	const bool bLoadedByCookedMaterial = FPlatformProperties::RequiresCookedData() || Owner->GetOutermost()->bIsCookedForEditor;
+#else
+	const bool bLoadedByCookedMaterial = FPlatformProperties::RequiresCookedData();
+#endif
 	for (FMaterialResource& Resource : LoadedResources)
 	{
-		Resource.RegisterInlineShaderMap();
+		Resource.RegisterInlineShaderMap(bLoadedByCookedMaterial);
 	}
 	
 	if (CVarDiscardUnusedQualityLevels.GetValueOnAnyThread())

@@ -848,14 +848,14 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 			if (bValid)
 			{
 				TRefCountPtr<FMaterialShaderMap> LoadedShaderMap = new FMaterialShaderMap();
-				LoadedShaderMap->Serialize(Ar);
+				LoadedShaderMap->Serialize(Ar, true, bCooked && Ar.IsLoading());
 				GameThreadShaderMap = LoadedShaderMap;
 			}
 		}
 	}
 }
 
-void FMaterial::RegisterInlineShaderMap()
+void FMaterial::RegisterInlineShaderMap(bool bLoadedByCookedMaterial)
 {
 	if (GameThreadShaderMap)
 	{
@@ -865,7 +865,7 @@ void FMaterial::RegisterInlineShaderMap()
 		{
 			RenderingThreadShaderMap = GameThreadShaderMap;
 		}
-		GameThreadShaderMap->RegisterSerializedShaders();
+		GameThreadShaderMap->RegisterSerializedShaders(bLoadedByCookedMaterial);
 	}
 }
 
