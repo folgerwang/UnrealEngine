@@ -143,8 +143,6 @@ bool FTextLocalizationResource::LoadFromFile(const FString& FilePath)
 
 bool FTextLocalizationResource::LoadFromArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID)
 {
-	Archive.SetForceUnicode(true);
-
 	// Read magic number
 	FGuid MagicNumber;
 	
@@ -259,8 +257,6 @@ bool FTextLocalizationResource::SaveToFile(const FString& FilePath)
 
 bool FTextLocalizationResource::SaveToArchive(FArchive& Archive, const FTextLocalizationResourceId& LocResID)
 {
-	Archive.SetForceUnicode(true);
-
 	// Write the header
 	{
 		FGuid MagicNumber = FTextLocalizationResourceVersion::LocResMagic;
