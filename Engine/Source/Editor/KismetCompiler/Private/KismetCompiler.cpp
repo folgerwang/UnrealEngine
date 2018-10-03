@@ -4016,7 +4016,7 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 	FKismetCompilerVMBackend Backend_VM(Blueprint, Schema, *this);
 
 	// Determine whether or not to skip generated class validation. This requires CDO value propagation to occur first.
-	bool bSkipGeneratedClassValidation = !bPropagateValuesToCDO;
+	bool bSkipGeneratedClassValidation = !bPropagateValuesToCDO || CompileOptions.CompileType == EKismetCompileType::Cpp;
 
 	if( bGenerateLocals )
 	{
