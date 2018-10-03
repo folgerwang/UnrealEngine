@@ -137,7 +137,15 @@ TSharedRef< FSlateStyleSet > FNiagaraEditorStyle::Create()
 		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
 	
 	Style->Set("NiagaraEditor.AttributeSpreadsheetTabText", TabText);
+
+	FTextBlockStyle SubduedHeadingText = FTextBlockStyle(NormalText)
+		.SetFont(DEFAULT_FONT("Regular", 14))
+		.SetShadowOffset(FVector2D(0, 1))
+		.SetColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f)))
+		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
 	
+	Style->Set("NiagaraEditor.SubduedHeadingTextBox", SubduedHeadingText);
+
 	// Parameters
 	FSlateFontInfo ParameterFont = DEFAULT_FONT("Regular", 8);
 
