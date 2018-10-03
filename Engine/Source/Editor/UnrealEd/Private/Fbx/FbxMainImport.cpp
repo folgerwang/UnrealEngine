@@ -1099,7 +1099,7 @@ void FFbxImporter::EnsureNodeNameAreValid()
 			{
 				AddTokenizedErrorMessage(
 					FTokenizedMessage::Create(EMessageSeverity::Warning,
-					FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
+					FText::Format(LOCTEXT("FbxImport_NoNodeName", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
 					FFbxErrors::Generic_LoadingSceneFailed);
 			}
 		}

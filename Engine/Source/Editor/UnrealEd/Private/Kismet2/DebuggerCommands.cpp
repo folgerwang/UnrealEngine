@@ -1006,14 +1006,12 @@ static void MakeAllDevicesSubMenu(FMenuBuilder& InMenuBuilder, const PlatformInf
 		);
 
 		// generate display label
-		FFormatNamedArguments LabelArguments;
-		LabelArguments.Add(TEXT("PlatformName"), FText::FromString(PlatformVariantStr));
-		FText Label = FText::Format(LOCTEXT("LaunchDeviceLabel", "{PlatformName}"), LabelArguments);
+		FText Label = FText::FromString(PlatformVariantStr);
 
 		// generate tooltip text with the devices' list
 		FFormatNamedArguments TooltipArguments;
 		TooltipArguments.Add(TEXT("DeviceList"), FText::FromString(DeviceListStr));
-		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on:\n {DeviceList}"), TooltipArguments);
+		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_LaunchOn", "Launch the game on:\n {DeviceList}"), TooltipArguments);
 
 		// add a submenu entry
 		InMenuBuilder.AddMenuEntry(
@@ -1135,10 +1133,10 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 						FFormatNamedArguments TooltipArguments;
 						TooltipArguments.Add(TEXT("DeviceID"), FText::FromString(DeviceProxy->GetName()));
 						TooltipArguments.Add(TEXT("DisplayName"), VanillaPlatform.PlatformInfo->DisplayName);
-						FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on this {DisplayName} device ({DeviceID})"), TooltipArguments);
+						FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_ThisDevice", "Launch the game on this {DisplayName} device ({DeviceID})"), TooltipArguments);
 						if (!DeviceProxy->IsAuthorized())
 						{
-							Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "{DisplayName} device ({DeviceID}) is unauthorized or locked"), TooltipArguments);
+							Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_UnauthorizedOrLocked", "{DisplayName} device ({DeviceID}) is unauthorized or locked"), TooltipArguments);
 						}
 
 						FProjectStatus ProjectStatus;

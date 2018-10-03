@@ -326,7 +326,7 @@ ULevelStreaming* UEditorLevelUtils::AddLevelToWorld(UWorld* InWorld, const TCHAR
 		return nullptr;
 	}
 
-	FScopedSlowTask SlowTask(0, LOCTEXT("AddLevelsToWorldTask", "Adding Level to World"));
+	FScopedSlowTask SlowTask(0, LOCTEXT("AddLevelToWorldTask", "Adding Level to World"));
 	SlowTask.MakeDialog();
 
 	// Fire ULevel::LevelDirtiedEvent when falling out of scope.
