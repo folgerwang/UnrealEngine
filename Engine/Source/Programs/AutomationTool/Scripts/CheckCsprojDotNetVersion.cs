@@ -7,17 +7,19 @@ using AutomationTool;
 using UnrealBuildTool;
 using System.Text.RegularExpressions;
 using Tools.DotNETCommon;
+using System.Linq;
 
 class CheckCsprojDotNetVersion : BuildCommand
 {
 	public override void ExecuteBuild()
 	{
 		// just calling this DesiredTargetVersion because TargetVersion and TargetedVersion get super confusing.
-		string DesiredTargetVersion = this.ParseParamValue("TargetVersion", null);
-		if (string.IsNullOrEmpty(DesiredTargetVersion))
+		string DesiredTargetVersionList = this.ParseParamValue("TargetVersion", null);
+		if (string.IsNullOrEmpty(DesiredTargetVersionList))
 		{
 			throw new AutomationException("-TargetVersion was not specified.");
 		}
+		string[] DesiredTargetVersions = DesiredTargetVersionList.Split('+');
 		CommandUtils.LogInformation("Scanning for all csproj's...");
 		// Check for all csproj's in the engine dir
 		DirectoryReference EngineDir = CommandUtils.EngineDirectory;
@@ -53,9 +55,9 @@ class CheckCsprojDotNetVersion : BuildCommand
 			{
 				string TargetedVersion = Match.Groups[1].Value;
 				// make sure we match, throw warning otherwise
-				if (!DesiredTargetVersion.Equals(TargetedVersion, StringComparison.InvariantCultureIgnoreCase))
+				if (!DesiredTargetVersions.Any(x => x.Equals(TargetedVersion, StringComparison.InvariantCultureIgnoreCase)))
 				{
-					CommandUtils.LogWarning("Targeted Framework version for project: {0} was not {1}! Targeted Version: {2}", CsProj, DesiredTargetVersion, TargetedVersion);
+					CommandUtils.LogWarning("Targeted Framework version for project: {0} was not {1}! Targeted Version: {2}", CsProj, String.Join("/", DesiredTargetVersions), TargetedVersion);
 				}
 			}
 			// if we don't have a TargetFrameworkVersion, check for the existence of TargetFrameworkProfile.
@@ -108,9 +110,9 @@ class CheckCsprojDotNetVersion : BuildCommand
 				}
 
 				// make sure the versions match
-				if (!(DesiredTargetVersion.Equals(Version1String, StringComparison.InvariantCultureIgnoreCase)))
+				if (!DesiredTargetVersions.Any(x => x.Equals(Version1String, StringComparison.InvariantCultureIgnoreCase)))
 				{
-					CommandUtils.LogWarning("Targeted Framework version for project: {0} was not {1}! Targeted Version: {2}", CsProj, DesiredTargetVersion, Version1String);
+					CommandUtils.LogWarning("Targeted Framework version for project: {0} was not {1}! Targeted Version: {2}", CsProj, String.Join("/", DesiredTargetVersions), Version1String);
 				}
 			}
 		}
