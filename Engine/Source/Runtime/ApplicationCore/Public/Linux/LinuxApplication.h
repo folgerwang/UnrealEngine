@@ -331,6 +331,9 @@ private:
 	/** Used to check if the application is active or not. */
 	bool bActivateApp;
 
+	/** Time before deactivating the application if no FocusIn event happens on any of our Windows */
+	double FocusOutDeactivationTime;
+
 	/** Cached displays - to reduce costly communication with X server (may be better cached in SDL? avoids ugly 'mutable') */
 	mutable TArray<SDL_Rect>	CachedDisplays;
 
