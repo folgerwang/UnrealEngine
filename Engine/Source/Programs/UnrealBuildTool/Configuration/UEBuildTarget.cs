@@ -802,6 +802,11 @@ namespace UnrealBuildTool
 		public FileReference DeployTargetFile;
 
 		/// <summary>
+		/// Directories which are scanned for source files. The UBT makefile uses this to check for files being added/removed.
+		/// </summary>
+		public HashSet<DirectoryReference> SourceDirectories = new HashSet<DirectoryReference>();
+
+		/// <summary>
 		/// A list of the module filenames which were used to build this target.
 		/// </summary>
 		/// <returns></returns>
@@ -856,6 +861,7 @@ namespace UnrealBuildTool
 			PostBuildStepScripts = (FileReference[])Info.GetValue("po", typeof(FileReference[]));
 			DeployTargetFile = (FileReference)Info.GetValue("dt", typeof(FileReference));
 			bHasProjectScriptPlugin = Info.GetBoolean("sp");
+			SourceDirectories = (HashSet<DirectoryReference>)Info.GetValue("sd", typeof(HashSet<DirectoryReference>));
 		}
 
 		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
@@ -886,6 +892,7 @@ namespace UnrealBuildTool
 			Info.AddValue("po", PostBuildStepScripts);
 			Info.AddValue("dt", DeployTargetFile);
 			Info.AddValue("sp", bHasProjectScriptPlugin);
+			Info.AddValue("sd", SourceDirectories);
 		}
 
 		/// <summary>
@@ -4076,7 +4083,7 @@ namespace UnrealBuildTool
 					if (bDiscoverFiles && !RulesObject.bUsePrecompiled)
 					{
 						List<FileReference> SourceFilePaths = new List<FileReference>();
-						SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesObject.File);
+						SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesObject.File, SearchedDirectories: SourceDirectories);
 						FoundSourceFiles = GetCPlusPlusFilesToBuild(SourceFilePaths, ModuleDirectory, Platform);
 					}
 				}
