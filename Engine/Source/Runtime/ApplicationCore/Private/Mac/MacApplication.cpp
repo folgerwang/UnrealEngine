@@ -285,7 +285,7 @@ bool FMacApplication::IsCursorDirectlyOverSlateWindow() const
 
 TSharedPtr<FGenericWindow> FMacApplication::GetWindowUnderCursor()
 {
-	if (WindowUnderCursor)
+	if (WindowUnderCursor && WindowUnderCursor->bAcceptsInput)
 	{
 		return StaticCastSharedPtr<FGenericWindow>(FindWindowByNSWindow(WindowUnderCursor));
 	}
