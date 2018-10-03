@@ -692,8 +692,9 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			{
 				int32 PackageNameLengthForCooking = ContentBrowserUtils::GetPackageLengthForCooking(AssetData.PackageName.ToString(), FEngineBuildSettings::IsInternalBuild());
 
+				int32 MaxCookPathLen = ContentBrowserUtils::GetMaxCookPathLen();
 				AddToToolTipInfoBox(InfoBox, LOCTEXT("TileViewTooltipPathLengthForCookingKey", "Cooking Filepath Length"), FText::Format(LOCTEXT("TileViewTooltipPathLengthForCookingValue", "{0} / {1}"),
-					FText::AsNumber(PackageNameLengthForCooking), FText::AsNumber(ContentBrowserUtils::MaxCookPathLen)), PackageNameLengthForCooking > ContentBrowserUtils::MaxCookPathLen ? true : false);
+					FText::AsNumber(PackageNameLengthForCooking), FText::AsNumber(MaxCookPathLen)), PackageNameLengthForCooking > MaxCookPathLen ? true : false);
 			}
 			else
 			{
