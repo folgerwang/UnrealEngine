@@ -248,10 +248,23 @@ private:
 		FString Name;
 	};
 
-	class FCommandMacroDescriptor : public FMacroDescriptor
+	class FUICommandMacroDescriptor : public FMacroDescriptor
 	{
 	public:
-		FCommandMacroDescriptor() : FMacroDescriptor(TEXT("UI_COMMAND")) {}
+		FUICommandMacroDescriptor() : FMacroDescriptor(TEXT("UI_COMMAND")) {}
+
+		virtual void TryParse(const FString& Text, FSourceFileParseContext& Context) const override;
+
+	protected:
+		FUICommandMacroDescriptor(FString InName) : FMacroDescriptor(MoveTemp(InName)) {}
+
+		void TryParseArgs(const FString& Text, FSourceFileParseContext& Context, const TArray<FString>& Arguments, const int32 ArgIndexOffset) const;
+	};
+
+	class FUICommandExtMacroDescriptor : public FUICommandMacroDescriptor
+	{
+	public:
+		FUICommandExtMacroDescriptor() : FUICommandMacroDescriptor(TEXT("UI_COMMAND_EXT")) {}
 
 		virtual void TryParse(const FString& Text, FSourceFileParseContext& Context) const override;
 	};
