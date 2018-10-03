@@ -459,7 +459,6 @@ namespace Audio
 			}
 
 			FSoundEffectSource* NewEffect = static_cast<FSoundEffectSource*>(ChainEntry.Preset->CreateNewEffect());
-			NewEffect->RegisterWithPreset(ChainEntry.Preset);
 
 			// Get this source effect presets unique id so instances can identify their originating preset object
 			const uint32 PresetUniqueId = ChainEntry.Preset->GetUniqueID();
@@ -484,7 +483,7 @@ namespace Audio
 
 		for (int32 i = 0; i < SourceInfo.SourceEffects.Num(); ++i)
 		{
-			SourceInfo.SourceEffects[i]->UnregisterWithPreset();
+			SourceInfo.SourceEffects[i]->ClearPreset();
 			delete SourceInfo.SourceEffects[i];
 			SourceInfo.SourceEffects[i] = nullptr;
 		}
@@ -1984,7 +1983,7 @@ namespace Audio
 							const FSourceEffectChainEntry& ChainEntry = InSourceEffectChain[SourceEffectId];
 
 							FSoundEffectSource* SourceEffectInstance = ThisSourceEffectChain[SourceEffectId];
-							if (!SourceEffectInstance->IsParentPreset(ChainEntry.Preset))
+							if (!SourceEffectInstance->IsPreset(ChainEntry.Preset))
 							{
 								// As soon as one of the effects change or is not the same, then we need to rebuild the effect graph
 								bReset = true;
