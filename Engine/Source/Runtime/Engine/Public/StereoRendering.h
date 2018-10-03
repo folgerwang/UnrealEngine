@@ -64,6 +64,29 @@ public:
 		else
 			return EStereoscopicPass::eSSP_MONOSCOPIC_EYE;
 	}
+
+	/**
+	* For the specified stereoscopic pass type, assign a view index based on the extension's sorting
+	*/
+	virtual uint32 GetViewIndexForPass(EStereoscopicPass StereoPassType) const
+	{
+		switch (StereoPassType)
+		{
+		case eSSP_LEFT_EYE:
+		case eSSP_FULL:
+			return 0;
+
+		case eSSP_RIGHT_EYE:
+			return 1;
+
+		case eSSP_MONOSCOPIC_EYE:
+			return 2;
+
+		default:
+			check(0);
+			return -1;
+		}
+	}
 	
 	/**
 	* Return true if this pass is for a stereo eye view
