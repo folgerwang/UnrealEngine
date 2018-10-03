@@ -15,7 +15,7 @@ public:
 
 	/** Begin IMaterialBakingAdapter overrides */
 	virtual int32 GetNumberOfLODs() const override;
-	virtual void RetrieveRawMeshData(int32 LODIndex, FRawMesh& InOutRawMesh, bool bPropogateMeshData) const override;
+	virtual void RetrieveRawMeshData(int32 LODIndex, FMeshDescription& InOutRawMesh, bool bPropogateMeshData) const override;
 	virtual void RetrieveMeshSections(int32 LODIndex, TArray<FSectionInfo>& InOutSectionInfo) const override;
 	virtual int32 GetMaterialIndex(int32 LODIndex, int32 SectionIndex) const override;
 	virtual void ApplySettings(int32 LODIndex, FMeshData& InOutMeshData) const override {}

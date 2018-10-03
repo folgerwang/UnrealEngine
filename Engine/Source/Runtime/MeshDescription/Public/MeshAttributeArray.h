@@ -106,6 +106,11 @@ public:
 		Insert( ElementCount - 1, Default );
 	}
 
+	uint32 GetHash(uint32 Crc = 0) const
+	{
+		return FCrc::MemCrc32(Container.GetData(), Container.Num() * sizeof(AttributeType), Crc);
+	}
+
 	/** Expands the array if necessary so that the passed element index is valid. Newly created elements will be assigned the default value. */
 	void Insert( const int32 Index, const AttributeType& Default );
 
@@ -245,6 +250,7 @@ public:
 	virtual void Insert( const int32 Index ) = 0;
 	virtual void Remove( const int32 Index ) = 0;
 	virtual void Initialize( const int32 Count ) = 0;
+	virtual uint32 GetHash() const = 0;
 	virtual void Serialize( FArchive& Ar ) = 0;
 	virtual void Remap( const TSparseArray<int32>& IndexRemap ) = 0;
 	virtual int32 GetNumIndices() const = 0;
@@ -331,6 +337,16 @@ public:
 		{
 			ArrayForIndex.Initialize( Count, DefaultValue );
 		}
+	}
+
+	virtual uint32 GetHash() const
+	{
+		uint32 CrcResult = 0;
+		for (const TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices)
+		{
+			CrcResult = ArrayForIndex.GetHash(CrcResult);
+		}
+		return CrcResult;
 	}
 
 	/** Polymorphic serialization */
@@ -793,6 +809,15 @@ public:
 
 	/** Applies the given remapping to the attributes set */
 	void Remap( const TSparseArray<int32>& IndexRemap );
+
+	uint32 GetHash(const FName AttributeName) const
+	{
+		if (const FAttributesSetEntry* ArraySetPtr = Map.Find(AttributeName))
+		{
+			return (*ArraySetPtr)->GetHash();
+		}
+		return 0;
+	}
 
 	template <typename AttributeType>
 	DEPRECATED( 4.20, "Please use untemplated UnregisterAttribute() instead" )

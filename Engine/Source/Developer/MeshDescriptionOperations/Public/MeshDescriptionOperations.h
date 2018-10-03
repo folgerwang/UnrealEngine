@@ -13,6 +13,10 @@ struct FPolygonGroupID;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshDescriptionOperations, Log, All);
 
+typedef TMap<FPolygonGroupID, FPolygonGroupID> PolygonGroupMap;
+
+DECLARE_DELEGATE_ThreeParams(FAppendPolygonGroupsDelegate, const FMeshDescription& /*SourceMesh*/, FMeshDescription& /*TargetMesh*/, PolygonGroupMap& /*RemapPolygonGroup*/)
+
 //////////////////////////////////////////////////////////////////////////
 // Any operations on the mesh description that do not depend on engine module
 // should be implement here.
@@ -33,6 +37,19 @@ public:
 
 	/** Convert old FRawMesh format to MeshDescription. */
 	static void ConvertFromRawMesh(const FRawMesh& SourceRawMesh, FMeshDescription& DestinationMeshDescription, const TMap<int32, FName>& MaterialMap);
+
+	struct FAppendSettings
+	{
+		FAppendSettings()
+			: bMergeVertexColor(true)
+			, MergedAssetPivot(0.0f, 0.0f, 0.0f)
+		{}
+		FAppendPolygonGroupsDelegate PolygonGroupsDelegate;
+		bool bMergeVertexColor;
+		FVector MergedAssetPivot;
+	};
+
+	static void AppendMeshDescription(const FMeshDescription& SourceMesh, FMeshDescription& TargetMesh, FAppendSettings& AppendSettings);
 
 	/*
 	 * Check if all normals and tangents are valid, if not recompute them
@@ -62,7 +79,7 @@ public:
 		const FOverlappingCorners& OverlappingCorners);
 
 	/** Create some UVs from the specified mesh description data. */
-	static bool GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
+	static bool GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, bool bMergeIdenticalMaterials, TArray<FVector2D>& OutTexCoords);
 
 	/** Add a UV channel to the MeshDescription. */
 	static bool AddUVChannel(FMeshDescription& MeshDescription);
@@ -82,9 +99,22 @@ public:
 	/** Generate box UV mapping for the MeshDescription */
 	static void GenerateBoxUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
 
+	static void RemapPolygonGroups(FMeshDescription& MeshDescription, TMap<FPolygonGroupID, FPolygonGroupID>& Remap);
+
+	/*
+	 * Move some polygon to a new PolygonGroup(section)
+	 * SectionIndex: The target section we want to assign the polygon. See bRemoveEmptyPolygonGroup to know how its used
+	 * TriangleIndexStart: The triangle index is compute as follow: foreach polygon {TriangleIndex += Polygon->NumberTriangles}
+	 * TriangleIndexEnd: The triangle index is compute as follow: foreach polygon {TriangleIndex += Polygon->NumberTriangles}
+	 * bRemoveEmptyPolygonGroup: If true, any polygonGroup that is empty after moving a polygon will be delete.
+	 *                           This parameter impact how SectionIndex is use
+	 *                           If param is true  : PolygonGroupTargetID.GetValue() do not necessary equal SectionIndex in case there is less sections then SectionIndex
+	 *                           If param is false : PolygonGroupTargetID.GetValue() equal SectionIndex, we will add all necessary missing PolygonGroupID (this can generate empty PolygonGroupID)
+	 */
+	static void SwapPolygonPolygonGroup(FMeshDescription& MeshDescription, int32 SectionIndex, int32 TriangleIndexStart, int32 TriangleIndexEnd, bool bRemoveEmptyPolygonGroup);
+
 	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, TArray<uint32>& FaceSmoothingMasks);
 
 	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);
 
-	static void RemapPolygonGroups(FMeshDescription& MeshDescription, TMap<FPolygonGroupID, FPolygonGroupID>& Remap);
 };

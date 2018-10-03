@@ -30,7 +30,7 @@ public class MeshMergeUtilities : ModuleRules
         
         PublicDependencyModuleNames.AddRange(
 			new string [] {
-				"RawMesh",
+                "RawMesh",
                 "MeshDescription",
                 "MeshDescriptionOperations"
             }

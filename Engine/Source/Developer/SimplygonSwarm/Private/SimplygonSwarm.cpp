@@ -208,7 +208,7 @@ public:
 
 		for (auto Data : InData)
 		{
-			InputMeshes.Push(Data.GetMeshDescription());
+			InputMeshes.Push(Data.RawMesh);
 		}
 
 		bool bDiscardEmissive = true;
@@ -373,17 +373,7 @@ public:
 			//if is bound then execute
 			if (CompleteDelegate.IsBound())
 			{
-				FRawMesh ConvertedRawMesh;
-				TMap<FName, int32> MaterialMap;
-				TPolygonGroupAttributesConstRef<FName> PolygonGroupNames = OutProxyMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-				int32 MaterialIndex = 0;
-				for (const FPolygonGroupID PolygonGroupID : OutProxyMesh.PolygonGroups().GetElementIDs())
-				{
-					MaterialMap.Add(PolygonGroupNames[PolygonGroupID], MaterialIndex++);
-				}
-				FMeshDescriptionOperations::ConvertToRawMesh(OutProxyMesh, ConvertedRawMesh, MaterialMap);
-
-				CompleteDelegate.Execute(ConvertedRawMesh, OutMaterial, InSwarmTask.TaskData.ProcessorJobID);
+				CompleteDelegate.Execute(OutProxyMesh, OutMaterial, InSwarmTask.TaskData.ProcessorJobID);
 			}
 			else
 			{
@@ -593,7 +583,7 @@ private:
 			Count++;
 
 			//setup mesh data
-			ssf::pssfMeshData SsfMeshData = CreateSSFMeshDataFromRawMesh(*MergeData.GetMeshDescription(), MergeData.TexCoordBounds, MergeData.NewUVs);
+			ssf::pssfMeshData SsfMeshData = CreateSSFMeshDataFromRawMesh(*MergeData.RawMesh, MergeData.TexCoordBounds, MergeData.NewUVs);
 			SsfMesh->MeshDataList.push_back(SsfMeshData);
 
 			//setup mesh material information
@@ -602,7 +592,7 @@ private:
 			UniqueMaterialIds.Reserve(InputMaterials.Num());
 
 			//get unqiue material ids
-			GetUniqueMaterialIndices(*MergeData.GetMeshDescription(), UniqueMaterialIds);
+			GetUniqueMaterialIndices(*(MergeData.RawMesh), UniqueMaterialIds);
 
 			SsfMesh->MaterialIds->Items.reserve(UniqueMaterialIds.Num());
 

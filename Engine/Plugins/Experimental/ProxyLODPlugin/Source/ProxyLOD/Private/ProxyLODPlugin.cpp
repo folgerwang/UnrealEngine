@@ -1015,16 +1015,7 @@ void FVoxelizeMeshMerging::ProxyLOD(const FMeshMergeDataArray& InData, const FMe
 
 
 		// NB: FProxyGenerationProcessor::ProxyGenerationComplete
-		FRawMesh ConvertedRawMesh;
-		TMap<FName, int32> MaterialMap;
-		TPolygonGroupAttributesConstRef<FName> PolygonGroupNames = OutRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-		int32 MaterialIndex = 0;
-		for (const FPolygonGroupID PolygonGroupID : OutRawMesh.PolygonGroups().GetElementIDs())
-		{
-			MaterialMap.Add(PolygonGroupNames[PolygonGroupID], MaterialIndex++);
-		}
-		FMeshDescriptionOperations::ConvertToRawMesh(OutRawMesh, ConvertedRawMesh, MaterialMap);
-		CompleteDelegate.ExecuteIfBound(ConvertedRawMesh, OutMaterial, InJobGUID);
+		CompleteDelegate.ExecuteIfBound(OutRawMesh, OutMaterial, InJobGUID);
 	}
 	else
 	{

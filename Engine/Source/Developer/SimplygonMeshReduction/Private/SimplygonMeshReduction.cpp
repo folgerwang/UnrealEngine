@@ -1019,17 +1019,7 @@ public:
 				EdgeHardnesses[EdgeID] = false;
 			}
 
-			FRawMesh ConvertedRawMesh;
-			TMap<FName, int32> MaterialMap;
-			TPolygonGroupAttributesConstRef<FName> PolygonGroupNames = OutProxyMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-			int32 MaterialIndex = 0;
-			for (const FPolygonGroupID PolygonGroupID : OutProxyMesh.PolygonGroups().GetElementIDs())
-			{
-				MaterialMap.Add(PolygonGroupNames[PolygonGroupID], MaterialIndex++);
-			}
-			FMeshDescriptionOperations::ConvertToRawMesh(OutProxyMesh, ConvertedRawMesh, MaterialMap);
-
-			Delegate.ExecuteIfBound(ConvertedRawMesh, OutMaterial, JobGUID);
+			Delegate.ExecuteIfBound(OutProxyMesh, OutMaterial, JobGUID);
 
 			return 0;
 		}
@@ -1217,18 +1207,8 @@ public:
 		if (OutProxyMesh.Polygons().Num() == 0)
 		{
 			FailedDelegate.ExecuteIfBound(InJobGUID, TEXT("Simplygon failed to generate a valid proxy mesh"));
-		}
-		FRawMesh ConvertedRawMesh;
-		TMap<FName, int32> MaterialMap;
-		TPolygonGroupAttributesConstRef<FName> PolygonGroupNames = OutProxyMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-		int32 MaterialIndex = 0;
-		for (const FPolygonGroupID PolygonGroupID : OutProxyMesh.PolygonGroups().GetElementIDs())
-		{
-			MaterialMap.Add(PolygonGroupNames[PolygonGroupID], MaterialIndex++);
-		}
-		FMeshDescriptionOperations::ConvertToRawMesh(OutProxyMesh, ConvertedRawMesh, MaterialMap);
-				
-		CompleteDelegate.ExecuteIfBound(ConvertedRawMesh, OutMaterial, InJobGUID);
+		}				
+		CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InJobGUID);
 	}
 
 		EventHandler.Task = nullptr;

@@ -19,7 +19,7 @@ int32 FSkeletalMeshComponentAdapter::GetNumberOfLODs() const
 	return NumLODs;
 }
 
-void FSkeletalMeshComponentAdapter::RetrieveRawMeshData(int32 LODIndex, FRawMesh& InOutRawMesh, bool bPropogateMeshData) const
+void FSkeletalMeshComponentAdapter::RetrieveRawMeshData(int32 LODIndex, FMeshDescription& InOutRawMesh, bool bPropogateMeshData) const
 {
 	FMeshMergeHelpers::RetrieveMesh(SkeletalMeshComponent, LODIndex, InOutRawMesh, bPropogateMeshData);
 }

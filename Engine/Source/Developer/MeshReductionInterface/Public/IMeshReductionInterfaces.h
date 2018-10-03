@@ -70,7 +70,7 @@ public:
 	virtual bool IsSupported() const = 0;
 };
 
-DECLARE_DELEGATE_ThreeParams(FProxyCompleteDelegate, struct FRawMesh&, struct FFlattenMaterial&, const FGuid);
+DECLARE_DELEGATE_ThreeParams(FProxyCompleteDelegate, struct FMeshDescription&, struct FFlattenMaterial&, const FGuid);
 DECLARE_DELEGATE_TwoParams(FProxyFailedDelegate, const FGuid, const FString&);
 DECLARE_DELEGATE_TwoParams(FCreateProxyDelegate, const FGuid, TArray<UObject*>&);
 

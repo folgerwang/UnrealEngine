@@ -12,7 +12,8 @@ class USplineMeshComponent;
 class UBodySetup;
 class ALandscapeProxy;
 struct FSectionInfo;
-struct FRawMesh;
+struct FMeshDescription;
+struct FStaticMaterial;
 struct FRawMeshExt;
 struct FStaticMeshLODResources;
 struct FKAggregateGeom;
@@ -27,33 +28,34 @@ public:
 	static void ExtractSections(const UStaticMesh* StaticMesh, int32 LODIndex, TArray<FSectionInfo>& OutSections);
 
 	/** Expanding instance data from instanced static mesh components */
-	static void ExpandInstances(const UInstancedStaticMeshComponent* InInstancedStaticMeshComponent, FRawMesh& InOutRawMesh, TArray<FSectionInfo>& InOutSections);
+	static void ExpandInstances(const UInstancedStaticMeshComponent* InInstancedStaticMeshComponent, FMeshDescription& InOutRawMesh, TArray<FSectionInfo>& InOutSections);
 
-	/** Extracting mesh data in FRawMesh form from static, skeletal mesh (components) */
-	static void RetrieveMesh(const UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FRawMesh& RawMesh, bool bPropagateVertexColours);
-	static void RetrieveMesh(USkeletalMeshComponent* SkeletalMeshComponent, int32 LODIndex, FRawMesh& RawMesh, bool bPropagateVertexColours);
-	static void RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODIndex, FRawMesh& RawMesh);
+	/** Extracting mesh data in FMeshDescription form from static, skeletal mesh (components) */
+	static void RetrieveMesh(const UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FMeshDescription& RawMesh, bool bPropagateVertexColours);
+	static void RetrieveMesh(USkeletalMeshComponent* SkeletalMeshComponent, int32 LODIndex, FMeshDescription& RawMesh, bool bPropagateVertexColours);
+	static void RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODIndex, FMeshDescription& RawMesh);
 	
 	/** Exports static mesh LOD render data to a RawMesh */
-	static void ExportStaticMeshLOD(const FStaticMeshLODResources& StaticMeshLOD, FRawMesh& OutRawMesh);
+	static void ExportStaticMeshLOD(const FStaticMeshLODResources& StaticMeshLOD, FMeshDescription& OutRawMesh, const TArray<FStaticMaterial>& Materials);
 
 	/** Checks whether or not the texture coordinates are outside of 0-1 UV ranges */
 	static bool CheckWrappingUVs(const TArray<FVector2D>& UVs);
+	static bool CheckWrappingUVs(const FMeshDescription& MeshDescription, int32 UVChannelIndex);
 
 	/** Culls away triangles which are inside culling volumes or completely underneath the landscape */
-	static void CullTrianglesFromVolumesAndUnderLandscapes(const UWorld* World, const FBoxSphereBounds& Bounds, FRawMesh& InOutRawMesh);
+	static void CullTrianglesFromVolumesAndUnderLandscapes(const UWorld* World, const FBoxSphereBounds& Bounds, FMeshDescription& InOutRawMesh);
 	
 	/** Propagates deformation along spline to raw mesh data */
-	static void PropagateSplineDeformationToRawMesh(const USplineMeshComponent* InSplineMeshComponent, struct FRawMesh &OutRawMesh);
+	static void PropagateSplineDeformationToRawMesh(const USplineMeshComponent* InSplineMeshComponent, FMeshDescription &OutRawMesh);
 	
 	/** Propagates deformation along spline to physics geometry data */
 	static void PropagateSplineDeformationToPhysicsGeometry(USplineMeshComponent* SplineMeshComponent, FKAggregateGeom& InOutPhysicsGeometry);
 
 	/** Transforms raw mesh data using InTransform*/
-	static void TransformRawMeshVertexData(const FTransform& InTransform, FRawMesh &OutRawMesh);
+	static void TransformRawMeshVertexData(const FTransform& InTransform, FMeshDescription &OutRawMesh);
 
-	/** Retrieves all culling landscapes and volumes as FRawMesh structures */
-	static void RetrieveCullingLandscapeAndVolumes(UWorld* InWorld, const FBoxSphereBounds& EstimatedMeshProxyBounds, const TEnumAsByte<ELandscapeCullingPrecision::Type> PrecisionType, TArray<FRawMesh*>& CullingRawMeshes);
+	/** Retrieves all culling landscapes and volumes as FMeshDescription structures */
+	static void RetrieveCullingLandscapeAndVolumes(UWorld* InWorld, const FBoxSphereBounds& EstimatedMeshProxyBounds, const TEnumAsByte<ELandscapeCullingPrecision::Type> PrecisionType, TArray<FMeshDescription*>& CullingRawMeshes);
 
 	/** Transforms physics geometry data using InTransform */
 	static void TransformPhysicsGeometry(const FTransform& InTransform, const bool bBakeConvexTransform, struct FKAggregateGeom& AggGeom);
@@ -65,17 +67,17 @@ public:
 	static FVector2D GetValidUV(const FVector2D& UV);
 	
 	/** Calculates UV coordinates bounds for the given Raw Mesh	*/
-	static void CalculateTextureCoordinateBoundsForRawMesh(const FRawMesh& InRawMesh, TArray<FBox2D>& OutBounds);
+	static void CalculateTextureCoordinateBoundsForRawMesh(const FMeshDescription& InRawMesh, TArray<FBox2D>& OutBounds);
 
 	/** Propagates vertex painted colors from the StaticMeshComponent instance to RawMesh */
-	static bool PropagatePaintedColorsToRawMesh(const UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FRawMesh& RawMesh);
+	static bool PropagatePaintedColorsToRawMesh(const UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FMeshDescription& RawMesh);
 
 	/** Checks whether or not the landscape proxy is hit given a ray start and end */
 	static bool IsLandscapeHit(const FVector& RayOrigin, const FVector& RayEndPoint, const UWorld* World, const TArray<ALandscapeProxy*>& LandscapeProxies, FVector& OutHitLocation);
 	
-	/** Appends a FRawMesh to another instance */
-	static void AppendRawMesh(FRawMesh& InTarget, const FRawMesh& InSource);
+	/** Appends a FMeshDescription to another instance */
+	static void AppendRawMesh(FMeshDescription& InTarget, const FMeshDescription& InSource);
 
 	/** Merges imposter meshes into a raw mesh. */
-	static void MergeImpostersToRawMesh(TArray<const UStaticMeshComponent*> ImposterComponents, FRawMesh& InRawMesh, const FVector& InPivot, int32 BaseMaterialIndex, TArray<UMaterialInterface*>& OutImposterMaterials);
+	static void MergeImpostersToRawMesh(TArray<const UStaticMeshComponent*> ImposterComponents, FMeshDescription& InRawMesh, const FVector& InPivot, int32 BaseMaterialIndex, TArray<UMaterialInterface*>& OutImposterMaterials);
 };

@@ -48,22 +48,6 @@ void FMeshDescriptionAdapter::getIndexSpacePoint(size_t FaceNumber, size_t Corne
 
 
 // --- FMeshDescriptionArrayAdapter ----
-FMeshDescription* GetMeshDescriptionFromMeshMergeData(const FMeshMergeData* MergeData)
-{
-	FMeshDescription *MeshDescription = new FMeshDescription();
-	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
-	TMap<int32, FName> MaterialMap;
-	if (MergeData->SourceStaticMesh)
-	{
-		for (int32 MaterialIndex = 0; MaterialIndex < MergeData->SourceStaticMesh->StaticMaterials.Num(); ++MaterialIndex)
-		{
-			MaterialMap.Add(MaterialIndex, MergeData->SourceStaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
-		}
-	}
-	FMeshDescriptionOperations::ConvertFromRawMesh(*(MergeData->RawMesh), *MeshDescription, MaterialMap);
-	return MeshDescription;
-}
-
 FMeshDescriptionArrayAdapter::FMeshDescriptionArrayAdapter(const TArray<const FMeshMergeData*>& InMergeDataPtrArray)
 {
 	// Make a default transform.
@@ -76,7 +60,7 @@ FMeshDescriptionArrayAdapter::FMeshDescriptionArrayAdapter(const TArray<const FM
 	for (int32 MeshIdx = 0, MeshCount = InMergeDataPtrArray.Num(); MeshIdx < MeshCount; ++MeshIdx)
 	{
 		const FMeshMergeData* MergeData = InMergeDataPtrArray[MeshIdx];
-		FMeshDescription *RawMesh = GetMeshDescriptionFromMeshMergeData(MergeData);
+		FMeshDescription *RawMesh = MergeData->RawMesh;
 
 		PointCount += size_t(RawMesh->Vertices().Num());
 		for (const FPolygonID& PolygonID : RawMesh->Polygons().GetElementIDs())
@@ -107,7 +91,7 @@ FMeshDescriptionArrayAdapter::FMeshDescriptionArrayAdapter(const TArray<FMeshMer
 	{
 		const FMeshMergeData* MergeData = &InMergeDataArray[MeshIdx];
 		
-		FMeshDescription *RawMesh = GetMeshDescriptionFromMeshMergeData(MergeData);
+		FMeshDescription *RawMesh = MergeData->RawMesh;
 		PointCount += size_t(RawMesh->Vertices().Num());
 		for (const FPolygonID& PolygonID : RawMesh->Polygons().GetElementIDs())
 		{
@@ -135,7 +119,7 @@ FMeshDescriptionArrayAdapter::FMeshDescriptionArrayAdapter(const TArray<FMeshMer
 	{
 		const FMeshMergeData* MergeData = &InMergeDataArray[MeshIdx];
 		
-		FMeshDescription *RawMesh = GetMeshDescriptionFromMeshMergeData(MergeData);
+		FMeshDescription *RawMesh = MergeData->RawMesh;
 		PointCount += size_t(RawMesh->Vertices().Num());
 		for (const FPolygonID& PolygonID : RawMesh->Polygons().GetElementIDs())
 		{
@@ -213,23 +197,18 @@ void FMeshDescriptionArrayAdapter::UpdateMaterialsID()
 	{
 		FMeshDescription* MeshDescription = RawMeshArray[MeshIdx];
 
-		int32 FaceNum = MergeDataArray[MeshIdx]->RawMesh->FaceMaterialIndices.Num();
-		check(FaceNum == RawMeshArrayData[MeshIdx].TriangleCount);
+		check(MergeDataArray[MeshIdx]->RawMesh->Polygons().Num() == MeshDescription->Polygons().Num());
 		TMap<FPolygonGroupID, FPolygonGroupID> RemapGroup;
 		TArray<int32> UniqueMaterials;
-		int32 FaceIndex = 0;
 		for (const FPolygonID PolygonID : MeshDescription->Polygons().GetElementIDs())
 		{
-			int32 NewMaterialIndex = MergeDataArray[MeshIdx]->RawMesh->FaceMaterialIndices[FaceIndex];
-			if (!UniqueMaterials.Contains(NewMaterialIndex))
+			FPolygonGroupID NewPolygonGroupID = MergeDataArray[MeshIdx]->RawMesh->GetPolygonPolygonGroup(PolygonID);
+			if (!UniqueMaterials.Contains(NewPolygonGroupID.GetValue()))
 			{
-				UniqueMaterials.Add(NewMaterialIndex);
-				FPolygonGroupID NewPolygonGroupID = FPolygonGroupID(NewMaterialIndex);
+				UniqueMaterials.Add(NewPolygonGroupID.GetValue());
 				FPolygonGroupID OriginalPolygonGroupID = MeshDescription->GetPolygonPolygonGroup(PolygonID);
 				RemapGroup.Add(OriginalPolygonGroupID, NewPolygonGroupID);
 			}
-			//Update the face index
-			FaceIndex += MeshDescription->GetPolygonTriangles(PolygonID).Num();
 		}
 		//Remap the polygon group with the correct ID
 		FMeshDescriptionOperations::RemapPolygonGroups(*MeshDescription, RemapGroup);

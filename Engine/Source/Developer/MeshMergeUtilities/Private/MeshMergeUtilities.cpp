@@ -7,7 +7,6 @@
 
 #include "MaterialOptions.h"
 #include "IMaterialBakingModule.h"
-#include "RawMesh.h"
 
 #include "Misc/PackageName.h"
 #include "MaterialUtilities.h"
@@ -68,6 +67,12 @@
 #include "MaterialBakingHelpers.h"
 #include "IMeshMergeExtension.h"
 
+#include "RawMesh.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
+
 #if WITH_EDITOR
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
@@ -111,7 +116,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 	UMaterialMergeOptions* MaterialMergeOptions  = MaterialMergeOptionsObject ? Cast<UMaterialMergeOptions>(MaterialMergeOptionsObject->Get()) : nullptr;
 
 	// Mesh / LOD index	
-	TMap<uint32, FRawMesh> RawMeshLODs;
+	TMap<uint32, FMeshDescription> RawMeshLODs;
 
 	// LOD index, <original section index, unique section index>
 	TMultiMap<uint32, TPair<uint32, uint32>> UniqueSectionIndexPerLOD;
@@ -133,7 +138,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 		const bool bProcessedLOD = MaterialOptions->LODIndices.Contains(LODIndex);
 		if (bProcessedLOD)
 		{
-			FRawMesh& RawMesh = RawMeshLODs.Add(LODIndex);
+			FMeshDescription& RawMesh = RawMeshLODs.Add(LODIndex);
 			Adapter->RetrieveRawMeshData(LODIndex, RawMesh, MaterialOptions->bUseMeshData);
 		}
 
@@ -195,7 +200,10 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 				if (MeshSettings.MaterialIndices.Num())
 				{
 					// Retrieve raw mesh
-					MeshSettings.RawMesh = RawMeshLODs.Find(LODIndex);
+					const FMeshDescription* MeshDescription = RawMeshLODs.Find(LODIndex);
+					TMap<FName, int32> MaterialMap;
+					FMeshDescriptionOperations::ConvertToRawMesh(*MeshDescription, *(MeshSettings.RawMesh), MaterialMap);
+					
 
 					MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 					const bool bUseVertexColor = (MeshSettings.RawMesh->WedgeColors.Num() > 0);
@@ -1154,9 +1162,9 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 	SlowTask.EnterProgressFrame(5.0f, LOCTEXT("CreateProxyMesh_CollectingMeshes", "Collecting Input Static Meshes"));
 
 	// Mesh / LOD index	
-	TMap<uint32, FRawMesh*> RawMeshLODs;
+	TMap<uint32, FMeshDescription*> RawMeshLODs;
 
-	TArray<FRawMesh*> RawMeshData;
+	TArray<FMeshDescription*> RawMeshData;
 
 	// LOD index, <original section index, unique section index>
 	TMultiMap<uint32, TPair<uint32, uint32>> UniqueSectionIndexPerLOD;
@@ -1183,8 +1191,9 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 			const int32 LODIndex = InMeshProxySettings.bCalculateCorrectLODModel ? ScreenSizeBasedLODLevel : 0;
 			static const bool bPropagateVertexColours = true;
 
-			// Retrieve mesh data in FRawMesh form
-			FRawMesh* RawMesh = new FRawMesh();
+			// Retrieve mesh data in FMeshDescription form
+			FMeshDescription* RawMesh = new FMeshDescription();
+			UStaticMesh::RegisterMeshAttributes(*RawMesh);
 			FMeshMergeHelpers::RetrieveMesh(StaticMeshComponent, LODIndex, *RawMesh, bPropagateVertexColours);
 			const int32 MeshIndex = RawMeshData.Add(RawMesh);
 
@@ -1274,8 +1283,18 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 				for (uint32 MeshIndex : MeshIndices)
 				{
 					FMeshData MeshSettings;
-					// Add entries for each used mesh
-					MeshSettings.RawMesh = RawMeshData[MeshIndex];
+					// Retrieve raw mesh
+					FMeshDescription* MeshDescription = RawMeshData[MeshIndex];
+					TMap<FName, int32> MaterialMap;
+					int32 MeshMaterialIndex = 0;
+					TPolygonGroupAttributesConstRef<FName> TargetPolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+					for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
+					{
+						MaterialMap.Add(TargetPolygonGroupImportedMaterialSlotNames[PolygonGroupID], MeshMaterialIndex);
+						MeshMaterialIndex++;
+					}
+					FMeshDescriptionOperations::ConvertToRawMesh(*MeshDescription, *(MeshSettings.RawMesh), MaterialMap);
+					MeshSettings.RawMeshDescription = MeshDescription;
 
 					// If we already have lightmap uvs generated or the lightmap coordinate index != 0 and available we can reuse those instead of having to generate new ones
 					if (InMeshProxySettings.bReuseMeshLightmapUVs && (ComponentsToMerge[MeshIndex]->GetStaticMesh()->SourceModels[0].BuildSettings.bGenerateLightmapUVs || (ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex != 0 && MeshSettings.RawMesh->WedgeTexCoords[ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex].Num() != 0)))
@@ -1333,6 +1352,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 			// Add simple bake entry 
 			FMeshData MeshSettings;
 			MeshSettings.RawMesh = nullptr;
+			MeshSettings.RawMeshDescription = nullptr;
 			MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 			MeshSettings.TextureCoordinateIndex = 0;
 
@@ -1405,7 +1425,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 		// Now have the baked out material data, need to have a map or actually remap the raw mesh data to baked material indices
 		for (int32 MeshIndex = 0; MeshIndex < RawMeshData.Num(); ++MeshIndex)
 		{
-			FRawMesh& RawMesh = *RawMeshData[MeshIndex];
+			FMeshDescription& RawMesh = *RawMeshData[MeshIndex];
 
 			TArray<TPair<uint32, uint32>> SectionAndOutputIndices;
 			OutputMaterialsMap.MultiFind(MeshIndex, SectionAndOutputIndices);
@@ -1424,17 +1444,45 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 
 				Remap[SectionIndex] = NewIndex;
 			}
-
-			for (int32& FaceMaterialIndex : RawMesh.FaceMaterialIndices)
+			
+			TMap<FPolygonGroupID, FPolygonGroupID> RemapPolygonGroup;
+			int32 MaxRemapID = 0;
+			for (const FPolygonGroupID& PolygonGroupID : RawMesh.PolygonGroups().GetElementIDs())
 			{
-				checkf(Remap.IsValidIndex(FaceMaterialIndex), TEXT("Missing material bake output index entry for mesh(section)"));
-				FaceMaterialIndex = Remap[FaceMaterialIndex];
+				checkf(Remap.IsValidIndex(PolygonGroupID.GetValue()), TEXT("Missing material bake output index entry for mesh(section)"));
+				int32 RemapID = Remap[PolygonGroupID.GetValue()];
+				RemapPolygonGroup.Add(PolygonGroupID, FPolygonGroupID(RemapID));
+				MaxRemapID = FMath::Max(MaxRemapID, RemapID);
+			}
+
+			TSparseArray<int32> PolygonGroupRemap;
+			PolygonGroupRemap.Reserve(MaxRemapID);
+			for (int32 RemapID = 0; RemapID < MaxRemapID; ++RemapID)
+			{
+				PolygonGroupRemap.AddUninitialized();
+			}
+			//Set the polygon state
+			for (auto Kvp : RemapPolygonGroup)
+			{
+				PolygonGroupRemap[Kvp.Key.GetValue()] = Kvp.Value.GetValue();
+				FMeshPolygonGroup& PolygonGroup = RawMesh.GetPolygonGroup(Kvp.Key);
+				for (FPolygonID PolygonID : PolygonGroup.Polygons)
+				{
+					FMeshPolygon& Polygon = RawMesh.GetPolygon(PolygonID);
+					Polygon.PolygonGroupID = Kvp.Value;
+				}
+			}
+
+			//Remap the polygon groups
+			for (auto Kvp : RemapPolygonGroup)
+			{
+				RawMesh.PolygonGroups().Remap(PolygonGroupRemap);
 			}
 		}
 	};
 
 	// Landscape culling
-	TArray<FRawMesh*> CullingRawMeshes;
+	TArray<FMeshDescription*> CullingRawMeshes;
 	if (InMeshProxySettings.bUseLandscapeCulling)
 	{
 		SlowTask.EnterProgressFrame(5.0f, LOCTEXT("CreateProxyMesh_LandscapeCulling", "Applying Landscape Culling"));
@@ -1475,7 +1523,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 
 		FMeshData* MeshData = GlobalMeshSettings.FindByPredicate([&](const FMeshData& Entry)
 		{
-			return Entry.RawMesh == MergeData.RawMesh && (Entry.CustomTextureCoordinates.Num() || Entry.TextureCoordinateIndex != 0);
+			return Entry.RawMeshDescription == MergeData.RawMesh && (Entry.CustomTextureCoordinates.Num() || Entry.TextureCoordinateIndex != 0);
 		});
 
 		if (MeshData)
@@ -1494,7 +1542,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 	}
 
 	// Populate landscape clipping geometry
-	for (FRawMesh* RawMesh : CullingRawMeshes)
+	for (FMeshDescription* RawMesh : CullingRawMeshes)
 	{
 		FMeshMergeData ClipData;
 		ClipData.bIsClippingMesh = true;
@@ -1620,6 +1668,82 @@ void FMeshMergeUtilities::UnregisterExtension(IMeshMergeExtension* InExtension)
 	MeshMergeExtensions.Remove(InExtension);
 }
 
+bool RetrieveRawMeshData(FMeshMergeDataTracker& DataTracker
+	, const int32 ComponentIndex
+	, const int32 LODIndex
+	, UStaticMeshComponent* Component
+	, const bool bPropagateMeshData
+	, TArray<FSectionInfo>& Sections
+	, FStaticMeshComponentAdapter& Adapter
+	, const bool bMergeMaterialData
+	, const FMeshMergingSettings& InSettings)
+{
+	// Retrieve raw mesh data
+	FMeshDescription& RawMesh = DataTracker.AddAndRetrieveRawMesh(ComponentIndex, LODIndex, Component->GetStaticMesh());
+	Adapter.RetrieveRawMeshData(LODIndex, RawMesh, bPropagateMeshData);
+
+	// Reset section for reuse
+	Sections.SetNum(0, false);
+
+	// Extract sections for given LOD index from the mesh 
+	Adapter.RetrieveMeshSections(LODIndex, Sections);
+
+	TMap<FPolygonGroupID, FPolygonGroupID> RemapPolygonGroup;
+	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
+	{
+		const FSectionInfo& Section = Sections[SectionIndex];
+		// Unique section index for remapping
+		const int32 UniqueIndex = DataTracker.AddSection(Section);
+
+		// Store of original to unique section index entry for this component + LOD index
+		DataTracker.AddSectionRemapping(ComponentIndex, LODIndex, Section.MaterialIndex, UniqueIndex);
+		DataTracker.AddMaterialSlotName(Section.Material, Section.MaterialSlotName);
+
+		if (!bMergeMaterialData)
+		{
+			FMeshDescriptionOperations::SwapPolygonPolygonGroup(RawMesh, UniqueIndex, Section.StartIndex, Section.EndIndex, false);
+		}
+		else
+		{
+			RemapPolygonGroup.Add(FPolygonGroupID(SectionIndex), FPolygonGroupID(Section.MaterialIndex));
+		}
+	}
+	
+	if (bMergeMaterialData)
+	{
+		FMeshDescriptionOperations::RemapPolygonGroups(RawMesh, RemapPolygonGroup);
+	}
+	
+	//Compact the PolygonGroupID to make sure it follow the section index
+	FElementIDRemappings RemapInformation;
+	RawMesh.Compact(RemapInformation);
+
+	// If the component is an ISMC then we need to duplicate the vertex data
+	if (Component->GetClass() == UInstancedStaticMeshComponent::StaticClass())
+	{
+		const UInstancedStaticMeshComponent* InstancedStaticMeshComponent = Cast<UInstancedStaticMeshComponent>(Component);
+		FMeshMergeHelpers::ExpandInstances(InstancedStaticMeshComponent, RawMesh, Sections);
+	}
+
+	if (InSettings.bUseLandscapeCulling)
+	{
+		FMeshMergeHelpers::CullTrianglesFromVolumesAndUnderLandscapes(Component->GetWorld(), Adapter.GetBounds(), RawMesh);
+	}
+
+	// If the valid became invalid during retrieval remove it again
+	const bool bValidMesh = RawMesh.VertexInstances().Num() > 0;
+	if (!bValidMesh)
+	{
+		DataTracker.RemoveRawMesh(ComponentIndex, LODIndex);
+	}
+	else if (Component->GetStaticMesh() != nullptr)
+	{
+		// If the mesh is valid at this point, record the lightmap UV so we have a record for use later
+		DataTracker.AddLightmapChannelRecord(ComponentIndex, LODIndex, Component->GetStaticMesh()->LightMapCoordinateIndex);
+	}
+	return bValidMesh;
+}
+
 void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveComponent*>& ComponentsToMerge, UWorld* World, const FMeshMergingSettings& InSettings, UMaterialInterface* InBaseMaterial, UPackage* InOuter, const FString& InBasePackageName, TArray<UObject*>& OutAssetsToSync, FVector& OutMergedActorLocation, const float ScreenSize, bool bSilent /*= false*/) const
 {
 	// Use first mesh for naming and pivot
@@ -1702,52 +1826,19 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 
 			for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 			{
-				FRawMesh& RawMesh = DataTracker.AddAndRetrieveRawMesh(ComponentIndex, LODIndex, Component->GetStaticMesh());
-				Adapter.RetrieveRawMeshData(LODIndex, RawMesh, bPropagateMeshData);
-
-				// Reset section for reuse
-				Sections.SetNum(0, false);
-
-				// Extract sections for given LOD index from the mesh 
-				Adapter.RetrieveMeshSections(LODIndex, Sections);
-
-				for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
+				if (!RetrieveRawMeshData(DataTracker
+					, ComponentIndex
+					, LODIndex
+					, Component
+					, bPropagateMeshData
+					, Sections
+					, Adapter
+					, false
+					, InSettings))
 				{
-					const FSectionInfo& Section = Sections[SectionIndex];
-					const int32 UniqueIndex = DataTracker.AddSection(Section);
-					DataTracker.AddSectionRemapping(ComponentIndex, LODIndex, Section.MaterialIndex, UniqueIndex);
-					DataTracker.AddMaterialSlotName(Section.Material, Section.MaterialSlotName);
-					for (int32 StartIndex = Section.StartIndex; StartIndex < Section.EndIndex; ++StartIndex)
-					{
-						RawMesh.FaceMaterialIndices[StartIndex] = UniqueIndex;
-					}
-				}
-
-				// If the component is an ISMC then we need to duplicate the vertex data
-				if(Component->GetClass() == UInstancedStaticMeshComponent::StaticClass())
-				{
-					const UInstancedStaticMeshComponent* InstancedStaticMeshComponent = Cast<UInstancedStaticMeshComponent>(Component);
-					FMeshMergeHelpers::ExpandInstances(InstancedStaticMeshComponent, RawMesh, Sections);
-				}
-
-				if (InSettings.bUseLandscapeCulling)
-				{
-					FMeshMergeHelpers::CullTrianglesFromVolumesAndUnderLandscapes(Component->GetWorld(), Adapter.GetBounds(), RawMesh);
-				}
-
-				bool bValidMesh = RawMesh.IsValid();
-
-				if (!bValidMesh)
-				{
-					DataTracker.RemoveRawMesh(ComponentIndex, LODIndex);
+					//If the rawmesh was not retrieve properly break the loop
 					break;
 				}
-				else if(Component->GetStaticMesh() != nullptr)
-				{
-					// If the mesh is valid at this point, record the lightmap UV so we have a record for use later
-					DataTracker.AddLightmapChannelRecord(ComponentIndex, LODIndex, Component->GetStaticMesh()->LightMapCoordinateIndex);
-				}
-
 				DataTracker.AddLODIndex(LODIndex);
 			}
 		}
@@ -1799,58 +1890,15 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				}
 			}();
 
-			// Retrieve raw mesh data
-			FRawMesh& RawMesh = DataTracker.AddAndRetrieveRawMesh(ComponentIndex, LODIndex, Component->GetStaticMesh());
-			Adapter.RetrieveRawMeshData(LODIndex, RawMesh, bPropagateMeshData);
-
-			// Reset section for reuse
-			Sections.SetNum(0, false);
-
-			// Extract sections for given LOD index from the mesh 
-			Adapter.RetrieveMeshSections(LODIndex, Sections);
-
-			for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
-			{
-				const FSectionInfo& Section = Sections[SectionIndex];
-				// Unique section index for remapping
-				const int32 UniqueIndex = DataTracker.AddSection(Section);
-
-				// Store of original to unique section index entry for this component + LOD index
-				DataTracker.AddSectionRemapping(ComponentIndex, LODIndex, Section.MaterialIndex, UniqueIndex);
-				DataTracker.AddMaterialSlotName(Section.Material, Section.MaterialSlotName);
-
-				if (!bMergeMaterialData)
-				{
-					for (int32 StartIndex = Section.StartIndex; StartIndex < Section.EndIndex; ++StartIndex)
-					{
-						RawMesh.FaceMaterialIndices[StartIndex] = UniqueIndex;
-					}
-				}
-			}
-
-			// If the component is an ISMC then we need to duplicate the vertex data
-			if(Component->GetClass() == UInstancedStaticMeshComponent::StaticClass())
-			{
-				const UInstancedStaticMeshComponent* InstancedStaticMeshComponent = Cast<UInstancedStaticMeshComponent>(Component);
-				FMeshMergeHelpers::ExpandInstances(InstancedStaticMeshComponent, RawMesh, Sections);
-			}
-
-			if (InSettings.bUseLandscapeCulling)
-			{
-				FMeshMergeHelpers::CullTrianglesFromVolumesAndUnderLandscapes(Component->GetWorld(), Adapter.GetBounds(), RawMesh);
-			}
-
-			// If the valid became invalid during retrieval remove it again
-			const bool bValidMesh = RawMesh.IsValid();
-			if (!bValidMesh)
-			{
-				DataTracker.RemoveRawMesh(ComponentIndex, LODIndex);
-			}
-			else if(Component->GetStaticMesh() != nullptr)
-			{
-				// If the mesh is valid at this point, record the lightmap UV so we have a record for use later
-				DataTracker.AddLightmapChannelRecord(ComponentIndex, LODIndex, Component->GetStaticMesh()->LightMapCoordinateIndex);
-			}
+			RetrieveRawMeshData(DataTracker
+				, ComponentIndex
+				, LODIndex
+				, Component
+				, bPropagateMeshData
+				, Sections
+				, Adapter
+				, bMergeMaterialData
+				, InSettings);
 		}
 	}
 
@@ -1928,7 +1976,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		for (TConstRawMeshIterator RawMeshIterator = DataTracker.GetConstRawMeshIterator(); RawMeshIterator; ++RawMeshIterator)
 		{
 			const FMeshLODKey& Key = RawMeshIterator.Key();
-			const FRawMesh& RawMesh = RawMeshIterator.Value();
+			const FMeshDescription& RawMesh = RawMeshIterator.Value();
 			const bool bRequiresUniqueUVs = DataTracker.DoesMeshLODRequireUniqueUVs(Key);
 			UStaticMeshComponent* Component = StaticMeshComponentsToMerge[Key.GetMeshIndex()];
 
@@ -1969,10 +2017,14 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 
 				if (InSettings.bUseVertexDataForBakingMaterial && (bDoesMaterialUseVertexData || bRequiresUniqueUVs))
 				{
-					MeshData.RawMesh = DataTracker.GetRawMeshPtr(Key);
+					MeshData.RawMeshDescription = DataTracker.GetRawMeshPtr(Key);
+					TMap<FName, int32> MaterialMap;
+					MeshData.RawMesh = new FRawMesh();
+					FMeshDescriptionOperations::ConvertToRawMesh(*MeshData.RawMeshDescription, *(MeshData.RawMesh), MaterialMap);
+
 					// if it has vertex color/*WedgetColors.Num()*/, it should also use light map UV index
 					// we can't do this for all meshes, but only for the mesh that has vertex color.
-					if (bRequiresUniqueUVs || MeshData.RawMesh->WedgeColors.Num() > 0)
+					if (bRequiresUniqueUVs || MeshData.RawMeshDescription->VertexInstances().Num() > 0)
 					{
 						// Check if there are lightmap uvs available?
 						const int32 LightMapUVIndex = StaticMeshComponentsToMerge[Key.GetMeshIndex()]->GetStaticMesh()->LightMapCoordinateIndex;
@@ -1985,8 +2037,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 						{
 							if (!UniqueTextureCoordinates.Num())
 							{
-								IMeshUtilities& MeshUtilities = FModuleManager::LoadModuleChecked<IMeshUtilities>("MeshUtilities");
-								MeshUtilities.GenerateUniqueUVsForStaticMesh(*MeshData.RawMesh, MaterialOptions->TextureSize.GetMax(), UniqueTextureCoordinates);
+								FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(*MeshData.RawMeshDescription, MaterialOptions->TextureSize.GetMax(), false, UniqueTextureCoordinates);
 								ScaleTextureCoordinatesToBox(FBox2D(FVector2D::ZeroVector, FVector2D(1, 1)), UniqueTextureCoordinates);
 							}
 							MeshData.CustomTextureCoordinates = UniqueTextureCoordinates;
@@ -2044,6 +2095,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				else
 				{
 					MeshData.RawMesh = nullptr;
+					MeshData.RawMeshDescription = nullptr;
 					MeshData.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 
 					// This prevents baking out the same material multiple times, which would be wasteful when it does not use vertex data anyway
@@ -2085,13 +2137,12 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		const bool bGloballyRemapUVs = !bMergeAllLODs && !InSettings.bReuseMeshLightmapUVs;
 		if(bGloballyRemapUVs)
 		{
-			TArray<FRawMesh> MergedRawMeshes;
+			TArray<FMeshDescription> MergedRawMeshes;
 			CreateMergedRawMeshes(DataTracker, InSettings, StaticMeshComponentsToMerge, UniqueMaterials, CollapsedMaterialMap, OutputMaterialsMap, false, false, MergedAssetPivot, MergedRawMeshes);
 
 			// Create texture coords for the merged mesh
 			TArray<FVector2D> GlobalTextureCoordinates;
-			IMeshUtilities& MeshUtilities = FModuleManager::LoadModuleChecked<IMeshUtilities>("MeshUtilities");
-			MeshUtilities.GenerateUniqueUVsForStaticMesh(MergedRawMeshes[0], MaterialOptions->TextureSize.GetMax(), true, GlobalTextureCoordinates);
+			FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(MergedRawMeshes[0], MaterialOptions->TextureSize.GetMax(), true, GlobalTextureCoordinates);
 			ScaleTextureCoordinatesToBox(FBox2D(FVector2D::ZeroVector, FVector2D(1, 1)), GlobalTextureCoordinates);
 
 			// copy UVs back to the un-merged mesh's custom texture coords
@@ -2100,11 +2151,11 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			for (TConstRawMeshIterator RawMeshIterator = DataTracker.GetConstRawMeshIterator(); RawMeshIterator; ++RawMeshIterator)
 			{
 				const FMeshLODKey& Key = RawMeshIterator.Key();
-				const FRawMesh& RawMesh = RawMeshIterator.Value();
+				const FMeshDescription& RawMesh = RawMeshIterator.Value();
 
 				// Build a local array for this raw mesh
 				TArray<FVector2D> UniqueTextureCoordinates;
-				UniqueTextureCoordinates.SetNumUninitialized(RawMesh.WedgeIndices.Num());
+				UniqueTextureCoordinates.SetNumUninitialized(RawMesh.VertexInstances().Num());
 				for(FVector2D& UniqueTextureCoordinate : UniqueTextureCoordinates)
 				{
 					UniqueTextureCoordinate = GlobalTextureCoordinates[GlobalUVIndex++];
@@ -2113,7 +2164,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				// copy to mesh data
 				for(FMeshData& MeshData : GlobalMeshSettings)
 				{
-					if(MeshData.RawMesh == &RawMesh)
+					if(MeshData.RawMeshDescription == &RawMesh)
 					{
 						MeshData.CustomTextureCoordinates = UniqueTextureCoordinates;
 					}
@@ -2225,49 +2276,50 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 					// Found component entry
 
 					// Retrieve raw mesh data for this component and lod pair
-					FRawMesh* RawMesh = DataTracker.GetRawMeshPtr(MappingPair.Key);
+					FMeshDescription* RawMesh = DataTracker.GetRawMeshPtr(MappingPair.Key);
 
 					FMeshData& MeshData = GlobalMeshSettings[MappingPair.Value.Value];
 					const FUVOffsetScalePair& UVTransform = UVTransforms[MappingPair.Value.Value];
 
 					const uint32 MaterialIndex = MappingPair.Value.Key;
 					ProcessedMaterials.Add(MaterialIndex);
-					if (RawMesh->VertexPositions.Num())
+					if (RawMesh->Vertices().Num())
 					{
-						for (int32 UVChannelIdx = 0; UVChannelIdx < MAX_MESH_TEXTURE_COORDS; ++UVChannelIdx)
+						TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = RawMesh->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+						int32 NumUVChannel = FMath::Min(VertexInstanceUVs.GetNumIndices(), (int32)MAX_MESH_TEXTURE_COORDS);
+						for (int32 UVChannelIdx = 0; UVChannelIdx < NumUVChannel; ++UVChannelIdx)
 						{
-							TArray<FVector2D>* UVPtr = &RawMesh->WedgeTexCoords[UVChannelIdx];
-							if(UVChannelIdx == 0)
+							int32 VertexIndex = 0;
+							for (FVertexInstanceID VertexInstanceID : RawMesh->VertexInstances().GetElementIDs())
 							{
-								if (MeshData.CustomTextureCoordinates.Num())
+								FVector2D UV = VertexInstanceUVs.Get(VertexInstanceID, UVChannelIdx);
+								if (UVChannelIdx == 0)
 								{
-									UVPtr = &MeshData.CustomTextureCoordinates;
+									if (MeshData.CustomTextureCoordinates.Num())
+									{
+										UV = MeshData.CustomTextureCoordinates[VertexIndex];
+									}
+									else if (MeshData.TextureCoordinateIndex != 0)
+									{
+										check(MeshData.TextureCoordinateIndex < NumUVChannel);
+										UV = VertexInstanceUVs.Get(VertexInstanceID, MeshData.TextureCoordinateIndex);
+									}
 								}
-								else if (MeshData.TextureCoordinateIndex != 0)
-								{
-									UVPtr = &RawMesh->WedgeTexCoords[MeshData.TextureCoordinateIndex];
-								}
-							}
 
-							TArray<FVector2D>& UVs = *UVPtr;
-
-							if (RawMesh->WedgeTexCoords[UVChannelIdx].Num() > 0)
-							{
-								int32 UVIdx = 0;
-								for (const int32 FaceMaterialIndex : RawMesh->FaceMaterialIndices)
+								const TArray<FPolygonID>& Polygons = RawMesh->GetVertexInstanceConnectedPolygons(VertexInstanceID);
+								for (FPolygonID PolygonID : Polygons)
 								{
-									if (FaceMaterialIndex == MaterialIndex)
+									FPolygonGroupID PolygonGroupID = RawMesh->GetPolygonPolygonGroup(PolygonID);
+									if (PolygonGroupID.GetValue() == MaterialIndex)
 									{
 										if (UVTransform.Value != FVector2D::ZeroVector)
 										{
-											RawMesh->WedgeTexCoords[UVChannelIdx][UVIdx + 0] = UVs[UVIdx + 0] * UVTransform.Value + UVTransform.Key;
-											RawMesh->WedgeTexCoords[UVChannelIdx][UVIdx + 1] = UVs[UVIdx + 1] * UVTransform.Value + UVTransform.Key;
-											RawMesh->WedgeTexCoords[UVChannelIdx][UVIdx + 2] = UVs[UVIdx + 2] * UVTransform.Value + UVTransform.Key;
+											VertexInstanceUVs.Set(VertexInstanceID, UVChannelIdx, UV * UVTransform.Value + UVTransform.Key);
+											break;
 										}
 									}
-
-									UVIdx += 3;
 								}
+								VertexIndex++;
 							}
 						}
 					}
@@ -2277,12 +2329,14 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 
 		for (TRawMeshIterator Iterator = DataTracker.GetRawMeshIterator(); Iterator; ++Iterator)
 		{
-			FRawMesh& RawMesh = Iterator.Value();
+			FMeshDescription& RawMesh = Iterator.Value();
 			// Reset material indexes
-			for (int32& FaceMaterialIndex : RawMesh.FaceMaterialIndices)
+			TMap<FPolygonGroupID, FPolygonGroupID> RemapPolygonGroups;
+			for (FPolygonGroupID PolygonGroupID : RawMesh.PolygonGroups().GetElementIDs())
 			{
-				FaceMaterialIndex = 0;
+				RemapPolygonGroups.Add(PolygonGroupID, FPolygonGroupID(0));
 			}
+			FMeshDescriptionOperations::RemapPolygonGroups(RawMesh, RemapPolygonGroups);
 		}
 
 		UMaterialInterface* MergedMaterial = CreateProxyMaterial(InBasePackageName, MergedAssetPackageName, InBaseMaterial, InOuter, InSettings, OutMaterial, OutAssetsToSync);
@@ -2300,7 +2354,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		}
 	}
 
-	TArray<FRawMesh> MergedRawMeshes;
+	TArray<FMeshDescription> MergedRawMeshes;
 	TMultiMap<FMeshLODKey, MaterialRemapPair> OutputMaterialsMap;
 	CreateMergedRawMeshes(DataTracker, InSettings, StaticMeshComponentsToMerge, UniqueMaterials, CollapsedMaterialMap, OutputMaterialsMap, bMergeAllLODs, bMergeMaterialData, MergedAssetPivot, MergedRawMeshes);
 
@@ -2310,12 +2364,24 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 	{
 		const int32 LODIndex = *Iterator;
 		TArray<uint32> UniqueMaterialIndices;
-		const FRawMesh& TargetRawMesh = MergedRawMeshes[LODIndex];
-		for (uint32 MaterialIndex : TargetRawMesh.FaceMaterialIndices)
+		const FMeshDescription& TargetRawMesh = MergedRawMeshes[LODIndex];
+		uint32 MaterialIndex = 0;
+		for (FPolygonGroupID PolygonGroupID : TargetRawMesh.PolygonGroups().GetElementIDs())
 		{
-			UniqueMaterialIndices.AddUnique(MaterialIndex);
+			//Skip empty group
+			if (TargetRawMesh.GetPolygonGroupPolygons(PolygonGroupID).Num() > 0)
+			{
+				if (PolygonGroupID.GetValue() < DataTracker.NumberOfUniqueSections())
+				{
+					UniqueMaterialIndices.AddUnique(PolygonGroupID.GetValue());
+				}
+				else
+				{
+					UniqueMaterialIndices.AddUnique(MaterialIndex);
+				}
+				MaterialIndex++;
+			}
 		}
-
 		UniqueMaterialIndices.Sort();
 		for (int32 Index = 0; Index < UniqueMaterialIndices.Num(); ++Index)
 		{
@@ -2404,9 +2470,9 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		TArray<UMaterialInterface*> ImposterMaterials;
 		FBox ImposterBounds(EForceInit::ForceInit);
 		for (int32 LODIndex = 0; LODIndex < MergedRawMeshes.Num(); ++LODIndex)
-		{	
-			FRawMesh& MergedMeshLOD = MergedRawMeshes[LODIndex];
-			if (MergedMeshLOD.VertexPositions.Num() > 0)
+		{
+			FMeshDescription& MergedMeshLOD = MergedRawMeshes[LODIndex];
+			if (MergedMeshLOD.Vertices().Num() > 0)
 			{
 				FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 				// Don't allow the engine to recalculate normals
@@ -2439,8 +2505,9 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 						}
 					}
 				}
-
-				SrcModel.SaveRawMesh(MergedMeshLOD);
+				FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+				*MeshDescription = MergedMeshLOD;
+				StaticMesh->CommitOriginalMeshDescription(LODIndex);
 			}
 		}
 		
@@ -2537,7 +2604,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 	}
 }
 
-void FMeshMergeUtilities::CreateMergedRawMeshes(FMeshMergeDataTracker& InDataTracker, const FMeshMergingSettings& InSettings, const TArray<UStaticMeshComponent*>& InStaticMeshComponentsToMerge, const TArray<UMaterialInterface*>& InUniqueMaterials, const TMap<UMaterialInterface*, UMaterialInterface*>& InCollapsedMaterialMap, const TMultiMap<FMeshLODKey, MaterialRemapPair>& InOutputMaterialsMap, bool bInMergeAllLODs, bool bInMergeMaterialData, const FVector& InMergedAssetPivot, TArray<FRawMesh>& OutMergedRawMeshes) const
+void FMeshMergeUtilities::CreateMergedRawMeshes(FMeshMergeDataTracker& InDataTracker, const FMeshMergingSettings& InSettings, const TArray<UStaticMeshComponent*>& InStaticMeshComponentsToMerge, const TArray<UMaterialInterface*>& InUniqueMaterials, const TMap<UMaterialInterface*, UMaterialInterface*>& InCollapsedMaterialMap, const TMultiMap<FMeshLODKey, MaterialRemapPair>& InOutputMaterialsMap, bool bInMergeAllLODs, bool bInMergeMaterialData, const FVector& InMergedAssetPivot, TArray<FMeshDescription>& OutMergedRawMeshes) const
 {
 	if (bInMergeAllLODs)
 	{
@@ -2546,37 +2613,143 @@ void FMeshMergeUtilities::CreateMergedRawMeshes(FMeshMergeDataTracker& InDataTra
 		{
 			// Find meshes for each lod
 			const int32 LODIndex = *Iterator;
-			FRawMesh& MergedMesh = OutMergedRawMeshes[LODIndex];
+			FMeshDescription& MergedMesh = OutMergedRawMeshes[LODIndex];
+			UStaticMesh::RegisterMeshAttributes(MergedMesh);
+
 			for (int32 ComponentIndex = 0; ComponentIndex < InStaticMeshComponentsToMerge.Num(); ++ComponentIndex)
 			{
 				int32 RetrievedLODIndex = LODIndex;
-				FRawMesh* RawMeshPtr = InDataTracker.TryFindRawMeshForLOD(ComponentIndex, RetrievedLODIndex);
+				FMeshDescription* RawMeshPtr = InDataTracker.TryFindRawMeshForLOD(ComponentIndex, RetrievedLODIndex);
+
 
 				if (RawMeshPtr != nullptr)
 				{
-					MergedMesh.FaceSmoothingMasks.Append(RawMeshPtr->FaceSmoothingMasks);
+					InDataTracker.AddComponentToWedgeMapping(ComponentIndex, LODIndex, MergedMesh.VertexInstances().Num());
 
+					FMeshDescriptionOperations::FAppendSettings AppendSettings;
+
+					AppendSettings.PolygonGroupsDelegate = FAppendPolygonGroupsDelegate::CreateLambda([&bInMergeMaterialData, &InDataTracker, &InOutputMaterialsMap, &ComponentIndex, &LODIndex](const FMeshDescription& SourceMesh, FMeshDescription& TargetMesh, PolygonGroupMap& RemapPolygonGroups)
+					{
+						TPolygonGroupAttributesConstRef<FName> SourceImportedMaterialSlotNames = SourceMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+						TPolygonGroupAttributesRef<FName> TargetImportedMaterialSlotNames = TargetMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+						//Copy the polygon group
+						if (bInMergeMaterialData)
+						{
+							FPolygonGroupID PolygonGroupID(0);
+							if (!TargetMesh.PolygonGroups().IsValid(PolygonGroupID))
+							{
+								TargetMesh.CreatePolygonGroupWithID(PolygonGroupID);
+								TargetImportedMaterialSlotNames[PolygonGroupID] = SourceMesh.PolygonGroups().IsValid(PolygonGroupID) ? SourceImportedMaterialSlotNames[PolygonGroupID] : FName(TEXT("DefaultMaterialName"));
+							}
+							for (FPolygonGroupID SourcePolygonGroupID : SourceMesh.PolygonGroups().GetElementIDs())
+							{
+								RemapPolygonGroups.Add(SourcePolygonGroupID, PolygonGroupID);
+							}
+						}
+						else
+						{
+							TArray<SectionRemapPair> SectionMappings;
+							InDataTracker.GetMappingsForMeshLOD(FMeshLODKey(ComponentIndex, LODIndex), SectionMappings);
+							for (FPolygonGroupID SourcePolygonGroupID : SourceMesh.PolygonGroups().GetElementIDs())
+							{
+								// First map from original section index to unique material index
+								int32 UniqueIndex = INDEX_NONE;
+								// then map to the output material map, if any
+								if (InOutputMaterialsMap.Num() > 0)
+								{
+									TArray<MaterialRemapPair> MaterialMappings;
+									InOutputMaterialsMap.MultiFind(FMeshLODKey(ComponentIndex, LODIndex), MaterialMappings);
+									for (MaterialRemapPair& Pair : MaterialMappings)
+									{
+										if (Pair.Key == SourcePolygonGroupID.GetValue())
+										{
+											UniqueIndex = Pair.Value;
+											break;
+										}
+									}
+
+									// Note that at this point UniqueIndex is NOT a material index, but a unique section index!
+								}
+								else
+								{
+									UniqueIndex = SourcePolygonGroupID.GetValue();
+								}
+								FPolygonGroupID TargetPolygonGroupID(UniqueIndex);
+								if (!TargetMesh.PolygonGroups().IsValid(TargetPolygonGroupID))
+								{
+									while (TargetMesh.PolygonGroups().Num() <= UniqueIndex)
+									{
+										TargetPolygonGroupID = TargetMesh.CreatePolygonGroup();
+									}
+									check(TargetPolygonGroupID.GetValue() == UniqueIndex);
+									TargetImportedMaterialSlotNames[TargetPolygonGroupID] = SourceImportedMaterialSlotNames[SourcePolygonGroupID];
+								}
+								RemapPolygonGroups.Add(SourcePolygonGroupID, TargetPolygonGroupID);
+							}
+						}
+					});
+					AppendSettings.bMergeVertexColor = InSettings.bBakeVertexDataToMesh;
+					AppendSettings.MergedAssetPivot = InMergedAssetPivot;
+					FMeshDescriptionOperations::AppendMeshDescription(*RawMeshPtr, MergedMesh, AppendSettings);
+				}
+			}
+		}
+	}
+	else
+	{	
+		OutMergedRawMeshes.AddZeroed(1);
+		FMeshDescription& MergedMesh = OutMergedRawMeshes.Last();
+		UStaticMesh::RegisterMeshAttributes(MergedMesh);
+
+		for (int32 ComponentIndex = 0; ComponentIndex < InStaticMeshComponentsToMerge.Num(); ++ComponentIndex)
+		{
+			int32 LODIndex = 0;
+		
+			FMeshDescription* RawMeshPtr = InDataTracker.FindRawMeshAndLODIndex(ComponentIndex, LODIndex);
+
+			if (RawMeshPtr != nullptr)
+			{
+				FMeshDescription& RawMesh = *RawMeshPtr;
+
+				const int32 TargetLODIndex = 0;
+				InDataTracker.AddComponentToWedgeMapping(ComponentIndex, TargetLODIndex, MergedMesh.VertexInstances().Num());
+
+				FMeshDescriptionOperations::FAppendSettings AppendSettings;
+
+				AppendSettings.PolygonGroupsDelegate = FAppendPolygonGroupsDelegate::CreateLambda([&bInMergeMaterialData, &InDataTracker, &InOutputMaterialsMap, &ComponentIndex, &LODIndex](const FMeshDescription& SourceMesh, FMeshDescription& TargetMesh, PolygonGroupMap& RemapPolygonGroups)
+				{
+					TPolygonGroupAttributesConstRef<FName> SourceImportedMaterialSlotNames = SourceMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+					TPolygonGroupAttributesRef<FName> TargetImportedMaterialSlotNames = TargetMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+					//Copy the polygon group
 					if (bInMergeMaterialData)
 					{
-						MergedMesh.FaceMaterialIndices.AddZeroed(RawMeshPtr->FaceMaterialIndices.Num());
+						FPolygonGroupID PolygonGroupID(0);
+						if (!TargetMesh.PolygonGroups().IsValid(PolygonGroupID))
+						{
+							TargetMesh.CreatePolygonGroupWithID(PolygonGroupID);
+							TargetImportedMaterialSlotNames[PolygonGroupID] = SourceMesh.PolygonGroups().IsValid(PolygonGroupID) ? SourceImportedMaterialSlotNames[PolygonGroupID] : FName(TEXT("DefaultMaterialName"));
+						}
+						for (FPolygonGroupID SourcePolygonGroupID : SourceMesh.PolygonGroups().GetElementIDs())
+						{
+							RemapPolygonGroups.Add(SourcePolygonGroupID, PolygonGroupID);
+						}
 					}
 					else
 					{
 						TArray<SectionRemapPair> SectionMappings;
 						InDataTracker.GetMappingsForMeshLOD(FMeshLODKey(ComponentIndex, LODIndex), SectionMappings);
-	
-						for (const int32 FaceIndex : RawMeshPtr->FaceMaterialIndices)
+						for (FPolygonGroupID SourcePolygonGroupID : SourceMesh.PolygonGroups().GetElementIDs())
 						{
 							// First map from original section index to unique material index
 							int32 UniqueIndex = INDEX_NONE;
 							// then map to the output material map, if any
-							if(InOutputMaterialsMap.Num() > 0)
+							if (InOutputMaterialsMap.Num() > 0)
 							{
 								TArray<MaterialRemapPair> MaterialMappings;
 								InOutputMaterialsMap.MultiFind(FMeshLODKey(ComponentIndex, LODIndex), MaterialMappings);
-								for(MaterialRemapPair& Pair : MaterialMappings)
+								for (MaterialRemapPair& Pair : MaterialMappings)
 								{
-									if(Pair.Key == FaceIndex)
+									if (Pair.Key == SourcePolygonGroupID.GetValue())
 									{
 										UniqueIndex = Pair.Value;
 										break;
@@ -2587,193 +2760,25 @@ void FMeshMergeUtilities::CreateMergedRawMeshes(FMeshMergeDataTracker& InDataTra
 							}
 							else
 							{
-								UniqueIndex = FaceIndex;
+								UniqueIndex = SourcePolygonGroupID.GetValue();
 							}
-
-							MergedMesh.FaceMaterialIndices.Add(UniqueIndex);
-						}
-					}
-
-					InDataTracker.AddComponentToWedgeMapping(ComponentIndex, LODIndex, MergedMesh.WedgeIndices.Num());
-					const int32 VertexOffset = MergedMesh.VertexPositions.Num();
-					for (int32 WedgeIndex : RawMeshPtr->WedgeIndices)
-					{
-						MergedMesh.WedgeIndices.Add(WedgeIndex + VertexOffset);
-					}
-
-					for (FVector VertexPos : RawMeshPtr->VertexPositions)
-					{
-						MergedMesh.VertexPositions.Add(VertexPos - InMergedAssetPivot);
-					}
-
-					MergedMesh.WedgeTangentX.Append(RawMeshPtr->WedgeTangentX);
-					MergedMesh.WedgeTangentY.Append(RawMeshPtr->WedgeTangentY);
-					MergedMesh.WedgeTangentZ.Append(RawMeshPtr->WedgeTangentZ);
-
-					// Deal with vertex colors
-					// Some meshes may have it, in this case merged mesh will be forced to have vertex colors as well
-					if (InSettings.bBakeVertexDataToMesh)
-					{
-						if (InDataTracker.DoesLODContainVertexColors(0) && RawMeshPtr->WedgeColors.Num())
-						{
-							MergedMesh.WedgeColors.Append(RawMeshPtr->WedgeColors);
-						}
-						else
-						{
-							// In case this source mesh does not have vertex colors, fill target with 0xFF
-							int32 ColorsOffset = MergedMesh.WedgeColors.Num();
-							int32 ColorsNum = RawMeshPtr->WedgeIndices.Num();
-							MergedMesh.WedgeColors.AddUninitialized(ColorsNum);
-							FMemory::Memset(&MergedMesh.WedgeColors[ColorsOffset], 0xFF, ColorsNum*MergedMesh.WedgeColors.GetTypeSize());
-						}
-					}
-
-					// Merge all other UV channels 
-					for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
-					{
-						// Whether this channel has data
-						if (InDataTracker.DoesUVChannelContainData(ChannelIdx, RetrievedLODIndex))
-						{
-							const TArray<FVector2D>& SourceChannel = RawMeshPtr->WedgeTexCoords[ChannelIdx];
-							TArray<FVector2D>& TargetChannel = MergedMesh.WedgeTexCoords[ChannelIdx];
-
-							// Whether source mesh has data in this channel
-							if (SourceChannel.Num())
+							FPolygonGroupID TargetPolygonGroupID(UniqueIndex);
+							if (!TargetMesh.PolygonGroups().IsValid(TargetPolygonGroupID))
 							{
-								TargetChannel.Append(SourceChannel);
-							}
-							else
-							{
-								// Fill with zero coordinates if source mesh has no data for this channel
-								const int32 TexCoordNum = RawMeshPtr->WedgeIndices.Num();
-								for (int32 CoordIdx = 0; CoordIdx < TexCoordNum; ++CoordIdx)
+								while (TargetMesh.PolygonGroups().Num() <= UniqueIndex)
 								{
-									TargetChannel.Add(FVector2D::ZeroVector);
+									TargetPolygonGroupID = TargetMesh.CreatePolygonGroup();
 								}
+								check(TargetPolygonGroupID.GetValue() == UniqueIndex);
+								TargetImportedMaterialSlotNames[TargetPolygonGroupID] = SourceImportedMaterialSlotNames[SourcePolygonGroupID];
 							}
+							RemapPolygonGroups.Add(SourcePolygonGroupID, TargetPolygonGroupID);
 						}
 					}
-				}
-			}
-		}
-	}
-	else
-	{	
-		OutMergedRawMeshes.AddZeroed(1);
-		FRawMesh& MergedMesh = OutMergedRawMeshes.Last();
-		for (int32 ComponentIndex = 0; ComponentIndex < InStaticMeshComponentsToMerge.Num(); ++ComponentIndex)
-		{
-			int32 LODIndex = 0;
-		
-			FRawMesh* RawMeshPtr = InDataTracker.FindRawMeshAndLODIndex(ComponentIndex, LODIndex);
-
-			if (RawMeshPtr != nullptr)
-			{
-				FRawMesh& RawMesh = *RawMeshPtr;
-
-				MergedMesh.FaceSmoothingMasks.Append(RawMesh.FaceSmoothingMasks);
-
-				if (bInMergeMaterialData)
-				{
-					MergedMesh.FaceMaterialIndices.AddZeroed(RawMesh.FaceMaterialIndices.Num());
-				}
-				else
-				{
-					TArray<SectionRemapPair> SectionMappings;
-					InDataTracker.GetMappingsForMeshLOD(FMeshLODKey(ComponentIndex, LODIndex), SectionMappings);
-
-					for (const int32 FaceIndex : RawMesh.FaceMaterialIndices)
-					{
-						// First map from original section index to unique material index
-						int32 UniqueIndex = INDEX_NONE;
-
-						// then map to the output material map, if any
-						if(InOutputMaterialsMap.Num() > 0)
-						{
-							TArray<MaterialRemapPair> MaterialMappings;
-							InOutputMaterialsMap.MultiFind(FMeshLODKey(ComponentIndex, LODIndex), MaterialMappings);
-							for(MaterialRemapPair& Pair : MaterialMappings)
-							{
-								if(Pair.Key == FaceIndex)
-								{
-									UniqueIndex = Pair.Value;
-									break;
-								}
-							}
-
-							// Note that at this point UniqueIndex is NOT a material index, but a unique section index!
-						}
-						else
-						{
-							UniqueIndex = FaceIndex;
-						}
-
-						MergedMesh.FaceMaterialIndices.Add(UniqueIndex);
-					}
-				}
-
-				const int32 TargetLODIndex = 0;
-				InDataTracker.AddComponentToWedgeMapping(ComponentIndex, TargetLODIndex, MergedMesh.WedgeIndices.Num());
-
-				const int32 VertexOffset = MergedMesh.VertexPositions.Num();
-
-				for (int32 Index : RawMesh.WedgeIndices)
-				{
-					MergedMesh.WedgeIndices.Add(Index + VertexOffset);
-				}
-
-				for (FVector VertexPos : RawMesh.VertexPositions)
-				{
-					MergedMesh.VertexPositions.Add(VertexPos - InMergedAssetPivot);
-				}
-
-				MergedMesh.WedgeTangentX.Append(RawMesh.WedgeTangentX);
-				MergedMesh.WedgeTangentY.Append(RawMesh.WedgeTangentY);
-				MergedMesh.WedgeTangentZ.Append(RawMesh.WedgeTangentZ);
-
-				// Deal with vertex colors
-				// Some meshes may have it, in this case merged mesh will be forced to have vertex colors as well
-				if (InSettings.bBakeVertexDataToMesh)
-				{
-					if (InDataTracker.DoesAnyLODContainVertexColors() && RawMesh.WedgeColors.Num())
-					{
-						MergedMesh.WedgeColors.Append(RawMesh.WedgeColors);
-					}
-					else
-					{
-						// In case this source mesh does not have vertex colors, fill target with 0xFF
-						int32 ColorsOffset = MergedMesh.WedgeColors.Num();
-						int32 ColorsNum = RawMesh.WedgeIndices.Num();
-						MergedMesh.WedgeColors.AddUninitialized(ColorsNum);
-						FMemory::Memset(&MergedMesh.WedgeColors[ColorsOffset], 0xFF, ColorsNum*MergedMesh.WedgeColors.GetTypeSize());
-					}
-				}
-
-				// Merge all other UV channels 
-				for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
-				{
-					// Whether this channel has data
-					if (InDataTracker.DoesUVChannelContainData(ChannelIdx) && InSettings.OutputUVs[ChannelIdx] == EUVOutput::OutputChannel)
-					{
-						const TArray<FVector2D>& SourceChannel = RawMesh.WedgeTexCoords[ChannelIdx];
-						TArray<FVector2D>& TargetChannel = MergedMesh.WedgeTexCoords[ChannelIdx];
-
-						// Whether source mesh has data in this channel
-						if (SourceChannel.Num())
-						{
-							TargetChannel.Append(SourceChannel);
-						}
-						else
-						{
-							// Fill with zero coordinates if source mesh has no data for this channel
-							const int32 TexCoordNum = RawMesh.WedgeIndices.Num();
-							for (int32 CoordIdx = 0; CoordIdx < TexCoordNum; ++CoordIdx)
-							{
-								TargetChannel.Add(FVector2D::ZeroVector);
-							}
-						}
-					}
-				}
+				});
+				AppendSettings.bMergeVertexColor = InSettings.bBakeVertexDataToMesh;
+				AppendSettings.MergedAssetPivot = InMergedAssetPivot;
+				FMeshDescriptionOperations::AppendMeshDescription(*RawMeshPtr, MergedMesh, AppendSettings);
 			}
 		}
 	}

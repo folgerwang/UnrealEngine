@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Engine/StaticMesh.h"
-#include "RawMesh.h"
 #include "MeshDescription.h"
 #include "PhysicsEngine/AggregateGeom.h"
 
@@ -17,7 +16,6 @@ struct FMeshMergeData
 {
 	FMeshMergeData()
 		: RawMesh(nullptr)
-		, MeshDescription(nullptr)
 		, SourceStaticMesh(nullptr)
 		, bIsClippingMesh(false)
 	{}
@@ -29,19 +27,10 @@ struct FMeshMergeData
 			delete RawMesh;
 			RawMesh = nullptr;
 		}
-		if (MeshDescription != nullptr)
-		{
-			delete MeshDescription;
-			MeshDescription = nullptr;
-		}
 	}
 	
 	/** Raw mesh data from the source static mesh */
-	FRawMesh* RawMesh;
-	/** MeshDesciption pointer that get populated when we query it */
-	FMeshDescription* MeshDescription;
-	//MeshDescription getter
-	MESHMERGEUTILITIES_API FMeshDescription* GetMeshDescription();
+	FMeshDescription* RawMesh;	
 
 	/** Contains the original texture bounds, if the material requires baking down per-vertex data */
 	TArray<FBox2D> TexCoordBounds;
