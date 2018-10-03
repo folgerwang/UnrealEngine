@@ -409,6 +409,7 @@ public:
 	bool HasRecompileShaderRequests() const;
 
 	bool HasCookRequests() const;
+	void WaitForRequests(int TimeoutMs);
 
 	uint32 NumConnections() const;
 
