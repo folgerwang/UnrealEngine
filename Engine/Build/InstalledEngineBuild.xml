@@ -616,8 +616,11 @@
 	<Property Name="DDCPlatformsLinux" Value="Linux"/>
 	<Property Name="DDCPlatformsLinux" Value="$(DDCPlatformsLinux)+LinuxNoEditor" If="'$(WithLinux)' == true"/>
 
-	<Agent Name="DDC Group Linux" Type="Linux">
-		<Node Name="Build DDC Linux" Requires="#UE4Editor Linux;Build Tools Linux;#Build Tools CS Binaries" Produces="#CompressedDDCLinux">
+	<Agent Name="DDC Group Linux" Type="Linux;Win64">
+		<!-- Additionally require the Win64 editor binaries if building on win64 -->
+		<Property Name="DDCLinuxRequires" Value="#UE4Editor Linux;Build Tools Linux;#Build Tools CS Binaries"/>
+		<Property Name="DDCLinuxRequires" Value="$(DDCLinuxRequires);#UE4Editor Win64;#Build Tools Win64" If="'$(HostPlatform)' == 'Win64'"/>
+		<Node Name="Build DDC Linux" Requires="$(DDCLinuxRequires)" Produces="#CompressedDDCLinux">
 			<!-- Get our temp dir -->
 			<Property Name="DDCDir" Value="$(RootDir)/LocalBuilds/InstalledDDC"/>
 			<Property Name="SavedDir" Value="$(SavedOutput)/Installed/Linux"/>
@@ -626,6 +629,7 @@
 			<!-- Build up a list of files needed to build DDC -->
 			<CsCompile Project="Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj" Configuration="Development" Platform="AnyCPU" Tag="#ToCopy" TagReferences="#ToCopy" EnumerateOnly="true"/>
 			<Tag Files="#Compile UnrealHeaderTool $(HostPlatform);#UE4Editor Linux;#Build Tools Linux" With="#ToCopy"/>
+			<Tag Files="#UE4Editor Win64;#Build Tools Win64" With="#ToCopy" If="'$(HostPlatform)' == 'Win64'"/>
 			<Tag Files="#ToCopy" Filter="*.target" With="#TargetReceipts"/>
 			<TagReceipt Files="#TargetReceipts" RuntimeDependencies="true" With="#ToCopy"/>
 			<Tag Files="Engine/Content/..." Except="*.psd;*.pdn;*.fbx;*.po" With="#ToCopy"/>
@@ -647,7 +651,7 @@
 			<Copy From="$(RootDir)" To="$(DDCDir)" Files="#FilteredCopyList"/>
 			<Copy From="$(CsToolsDir)" To="$(DDCDir)" Files="#Build Tools CS Binaries"/>
 
-			<Command Name="BuildDerivedDataCache" Arguments="-TempDir=&quot;$(DDCDir)&quot; -FeaturePacks=$(ProjectsToBuildDDC) -TargetPlatforms=$(DDCPlatformsLinux) -HostPlatform=Linux -SavedDir=&quot;$(SavedDir)&quot;"/>
+			<Command Name="BuildDerivedDataCache" Arguments="-TempDir=&quot;$(DDCDir)&quot; -FeaturePacks=$(ProjectsToBuildDDC) -TargetPlatforms=$(DDCPlatformsLinux) -SavedDir=&quot;$(SavedDir)&quot;"/>
 
 			<Tag Files="$(SavedDir)/Engine/DerivedDataCache/Compressed.ddp" With="#CompressedDDCLinux"/>
 		</Node>
