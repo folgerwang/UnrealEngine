@@ -260,8 +260,8 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 		{
 			FStackIssue InvalidScriptError(
 				EStackIssueSeverity::Error,
-				LOCTEXT("MissingModuleShortDescription", "Invalid module script."),
-				LOCTEXT("MissingModuleShortDescription", "The script this module is supposed to execute is missing or invalid for other reasons.  If it depends on an external script that no longer exists there will be load errors in the log."),
+				LOCTEXT("InvalidModuleScriptErrorSummary", "Invalid module script."),
+				LOCTEXT("InvalidModuleScriptError", "The script this module is supposed to execute is missing or invalid for other reasons.  If it depends on an external script that no longer exists there will be load errors in the log."),
 				GetStackEditorDataKey(),
 				false);
 
@@ -306,7 +306,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 					FStackIssue DuplicateAssignmentTargetError(
 						EStackIssueSeverity::Error,
 						LOCTEXT("DuplicateAssignmentTargetErrorSummary", "Duplicate variables detected."),
-						LOCTEXT("InconsistentEnabledError", "This 'Set Variables' module is attempting to set the same variable more than once, which is unsupported."),
+						LOCTEXT("DuplicateAssignmentTargetError", "This 'Set Variables' module is attempting to set the same variable more than once, which is unsupported."),
 						GetStackEditorDataKey(),
 						false,
 						RemoveDuplicateFix);
