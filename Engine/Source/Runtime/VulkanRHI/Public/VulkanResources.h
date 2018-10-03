@@ -1152,7 +1152,13 @@ protected:
 	VkBufferUsageFlags BufferUsageFlags;
 	uint32 NumBuffers;
 	uint32 DynamicBufferIndex;
-	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_RENDER_BUFFERS];
+
+	enum
+	{
+		NUM_BUFFERS = 3,
+	};
+
+	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_BUFFERS];
 	struct
 	{
 		VulkanRHI::FBufferSuballocation* SubAlloc = nullptr;
