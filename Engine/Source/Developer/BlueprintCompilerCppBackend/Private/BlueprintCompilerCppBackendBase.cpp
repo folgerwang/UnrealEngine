@@ -986,17 +986,21 @@ void FBlueprintCompilerCppBackendBase::GenerateCodeFromEnum(UUserDefinedEnum* So
 	FCodeText Body;
 	
 	const FString PCHFilename = FEmitHelper::GetPCHFilename();
-	if (!PCHFilename.IsEmpty())
+	if (!NativizationOptions.bExcludeMonolithicHeaders)
 	{
-		Body.AddLine(FString::Printf(TEXT("#include \"%s\""), *PCHFilename));	
-	}
-	else
-	{
-		// Used when generated code is not in a separate module
-		const FString MainHeaderFilename = FEmitHelper::GetGameMainHeaderFilename();
-		if (!MainHeaderFilename.IsEmpty())
+		// If monolithic headers are not being excluded, then we are not IWYU-compliant, and thus we include the PCH file first.
+		if (!PCHFilename.IsEmpty())
 		{
-			Body.AddLine(FString::Printf(TEXT("#include \"%s\""), *MainHeaderFilename));
+			Body.AddLine(FString::Printf(TEXT("#include \"%s\""), *PCHFilename));
+		}
+		else
+		{
+			// Used when generated code is not in a separate module
+			const FString MainHeaderFilename = FEmitHelper::GetGameMainHeaderFilename();
+			if (!MainHeaderFilename.IsEmpty())
+			{
+				Body.AddLine(FString::Printf(TEXT("#include \"%s\""), *MainHeaderFilename));
+			}
 		}
 	}
 
@@ -1362,17 +1366,21 @@ void FBlueprintCompilerCppBackendBase::EmitFileBeginning(const FString& CleanNam
 	EmitterContext.Header.AddLine(TEXT("#pragma once"));
 
 	const FString PCHFilename = FEmitHelper::GetPCHFilename();
-	if (!PCHFilename.IsEmpty())
+	if (!EmitterContext.NativizationOptions.bExcludeMonolithicHeaders)
 	{
-		FIncludeHeaderHelper::EmitIncludeHeader(EmitterContext.Body, *PCHFilename, false);
-	}
-	else
-	{
-		// Used when generated code is not in a separate module
-		const FString MainHeaderFilename = FEmitHelper::GetGameMainHeaderFilename();
-		if (!MainHeaderFilename.IsEmpty())
+		// If monolithic headers are not being excluded, then we are not IWYU-compliant, and thus we include the PCH file first.
+		if (!PCHFilename.IsEmpty())
 		{
-			FIncludeHeaderHelper::EmitIncludeHeader(EmitterContext.Body, *MainHeaderFilename, false);
+			FIncludeHeaderHelper::EmitIncludeHeader(EmitterContext.Body, *PCHFilename, false);
+		}
+		else
+		{
+			// Used when generated code is not in a separate module
+			const FString MainHeaderFilename = FEmitHelper::GetGameMainHeaderFilename();
+			if (!MainHeaderFilename.IsEmpty())
+			{
+				FIncludeHeaderHelper::EmitIncludeHeader(EmitterContext.Body, *MainHeaderFilename, false);
+			}
 		}
 	}
 	
