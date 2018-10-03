@@ -8,6 +8,7 @@
 
 class UMaterialInterface;
 struct FRawMesh;
+struct FMeshDescription;
 
 /** Structure containing information about the material which is being baked out */
 struct FMaterialData
