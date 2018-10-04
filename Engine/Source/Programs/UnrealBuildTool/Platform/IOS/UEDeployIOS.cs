@@ -309,18 +309,19 @@ namespace UnrealBuildTool
 				switch (MinVersion)
 				{
 				case "IOS_61":
-					Log.TraceWarning("IOS 6 is no longer supported in UE4 as 4.11");
+					Log.TraceWarning("IOS 6 is no longer supported in UE4 as of 4.11");
 					MinVersion = "7.0";
 					break;
 				case "IOS_7":
-					Log.TraceWarning("IOS 7 is no longer supported in UE4 as 4.15");
+					Log.TraceWarning("IOS 7 is no longer supported in UE4 as of 4.15");
 					MinVersion = "7.0";
 					break;
 				case "IOS_8":
-					Log.TraceWarning("IOS 8 is no longer supported in UE4 as 4.18");
+					Log.TraceWarning("IOS 8 is no longer supported in UE4 as of 4.18");
 					MinVersion = "8.0";
 					break;
 				case "IOS_9":
+					Log.TraceWarning("IOS 9 is no longer supported in UE4 as of 4.21");
 					MinVersion = "9.0";
 					break;
 				case "IOS_10":
@@ -328,6 +329,9 @@ namespace UnrealBuildTool
 					break;
 				case "IOS_11":
 					MinVersion = "11.0";
+					break;
+				case "IOS_12":
+					MinVersion = "12.0";
 					break;
 				}
 			}
