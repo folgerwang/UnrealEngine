@@ -119,6 +119,32 @@ inline bool DiscreteRangesOverlap(const TRange<FFrameNumber>& A, const TRange<FF
 	}
 }
 
+/**
+ * Check whether the two specified lower bounds are equivalent in a discrete domain
+ */
+inline bool DiscreteLowerBoundsAreEquivalent(const TRangeBound<FFrameNumber>& A, const TRangeBound<FFrameNumber>& B)
+{
+	if (A.IsOpen() || B.IsOpen())
+	{
+		// Either bound is open
+		return A.IsOpen() && B.IsOpen();
+	}
+	else if (A.IsExclusive() == B.IsExclusive())
+	{
+		// Both inclusive or both exclusive
+		return A.GetValue() == B.GetValue();
+	}
+	else if (A.IsExclusive())
+	{
+		// A exclusive, B inclusive
+		return A.GetValue() == B.GetValue()-1;
+	}
+	else
+	{
+		// A inclusive, B exclusive
+		return B.GetValue() == A.GetValue()-1;
+	}
+}
 
 /**
  * Dilate the specified range by adding a specific size to the lower and upper bounds (if closed)
