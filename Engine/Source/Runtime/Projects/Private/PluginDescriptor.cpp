@@ -139,6 +139,12 @@ bool FPluginDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 	Object.TryGetBoolField(TEXT("RequiresBuildPlatform"), bRequiresBuildPlatform);
 	Object.TryGetBoolField(TEXT("Hidden"), bIsHidden);
 
+	bool bCanBeUsedWithUnrealHeaderTool;
+	if(Object.TryGetBoolField("CanBeUsedWithUnrealHeaderTool", bCanBeUsedWithUnrealHeaderTool) && bCanBeUsedWithUnrealHeaderTool)
+	{
+		SupportedPrograms.Add(TEXT("UnrealHeaderTool"));
+	}
+
 	PreBuildSteps.Read(Object, TEXT("PreBuildSteps"));
 	PostBuildSteps.Read(Object, TEXT("PostBuildSteps"));
 

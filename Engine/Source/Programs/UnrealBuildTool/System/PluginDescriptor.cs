@@ -150,11 +150,6 @@ namespace UnrealBuildTool
 		public bool bIsBetaVersion;
 
 		/// <summary>
-		/// Whether this plugin can be used by UnrealHeaderTool
-		/// </summary>
-		public bool bCanBeUsedWithUnrealHeaderTool;
-
-		/// <summary>
 		/// Set for plugins which are installed
 		/// </summary>
 		public bool bInstalled;
@@ -258,7 +253,14 @@ namespace UnrealBuildTool
 			RawObject.TryGetBoolField("CanContainContent", out bCanContainContent);
 			RawObject.TryGetBoolField("IsBetaVersion", out bIsBetaVersion);
 			RawObject.TryGetBoolField("Installed", out bInstalled);
-			RawObject.TryGetBoolField("CanBeUsedWithUnrealHeaderTool", out bCanBeUsedWithUnrealHeaderTool);
+
+			bool bCanBeUsedWithUnrealHeaderTool;
+			if(RawObject.TryGetBoolField("CanBeUsedWithUnrealHeaderTool", out bCanBeUsedWithUnrealHeaderTool) && bCanBeUsedWithUnrealHeaderTool)
+			{
+				Array.Resize(ref SupportedPrograms, (SupportedPrograms == null)? 1 : SupportedPrograms.Length + 1);
+				SupportedPrograms[SupportedPrograms.Length - 1] = "UnrealHeaderTool";
+			}
+
 			RawObject.TryGetBoolField("RequiresBuildPlatform", out bRequiresBuildPlatform);
 
 			CustomBuildSteps.TryRead(RawObject, "PreBuildSteps", out PreBuildSteps);

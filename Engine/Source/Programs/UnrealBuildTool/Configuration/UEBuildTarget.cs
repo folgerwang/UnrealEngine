@@ -3257,17 +3257,17 @@ namespace UnrealBuildTool
 				{
 					if(!Rules.EnablePlugins.Contains(PluginReference.Name, StringComparer.InvariantCultureIgnoreCase) && !Rules.DisablePlugins.Contains(PluginReference.Name, StringComparer.InvariantCultureIgnoreCase))
 					{
-					// Make sure we don't have multiple references to the same plugin
-					if(!ReferencedNames.Add(PluginReference.Name))
-					{
-						Log.TraceWarning("Plugin '{0}' is listed multiple times in project file '{1}'.", PluginReference.Name, ProjectFile);
-					}
-					else
-					{
-						AddPlugin(PluginReference, ProjectReferenceChain, ExcludeFolders, NameToInstance, NameToInfo);
+						// Make sure we don't have multiple references to the same plugin
+						if(!ReferencedNames.Add(PluginReference.Name))
+						{
+							Log.TraceWarning("Plugin '{0}' is listed multiple times in project file '{1}'.", PluginReference.Name, ProjectFile);
+						}
+						else
+						{
+							AddPlugin(PluginReference, ProjectReferenceChain, ExcludeFolders, NameToInstance, NameToInfo);
+						}
 					}
 				}
-			}
 			}
 
 			// Also synthesize references for plugins which are enabled by default
@@ -3277,15 +3277,15 @@ namespace UnrealBuildTool
 				{
 					if(Plugin.EnabledByDefault && !ReferencedNames.Contains(Plugin.Name))
 					{
-							ReferencedNames.Add(Plugin.Name);
+						ReferencedNames.Add(Plugin.Name);
 
-							PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(Plugin.Name, null, true);
-							PluginReference.bOptional = true;
+						PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(Plugin.Name, null, true);
+						PluginReference.bOptional = true;
 
-							AddPlugin(PluginReference, "default plugins", ExcludeFolders, NameToInstance, NameToInfo);
-						}
+						AddPlugin(PluginReference, "default plugins", ExcludeFolders, NameToInstance, NameToInfo);
 					}
 				}
+			}
 
 			// If this is a program, synthesize references for plugins which are enabled via the config file
 			if(TargetType == TargetType.Program)
@@ -3313,7 +3313,7 @@ namespace UnrealBuildTool
 			BuildPlugins = new List<UEBuildPlugin>(NameToInstance.Values);
 
 			// Determine if the project has a script plugin. We will always build UHT if there is a script plugin in the game folder.
-			bHasProjectScriptPlugin = EnabledPlugins.Any(x => x.Descriptor.bCanBeUsedWithUnrealHeaderTool && !x.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory));
+			bHasProjectScriptPlugin = EnabledPlugins.Any(x => x.Descriptor.SupportedPrograms != null && x.Descriptor.SupportedPrograms.Contains("UnrealHeaderTool") && !x.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory));
 		}
 
 		/// <summary>
