@@ -313,6 +313,17 @@ int32 ReportEnsureUsingCrashReportClient(HANDLE Thread, EXCEPTION_POINTERS* Exce
 }
 #endif
 
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	const bool bIsEnsure = true;
+
+	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
+	CrashContext.SetPortableCallStack(0, Stack);
+
+	EErrorReportUI ReportUI = IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode;
+	ReportCrashUsingCrashReportClient(CrashContext, nullptr, ErrorMessage, ReportUI, bIsEnsure);
+}
+
 // #CrashReport: 2015-05-28 This should be named EngineEnsureHandler
 /** 
  * Report an ensure to the crash reporting system
