@@ -139,6 +139,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 		if (bProcessedLOD)
 		{
 			FMeshDescription& RawMesh = RawMeshLODs.Add(LODIndex);
+			UStaticMesh::RegisterMeshAttributes(RawMesh);
 			Adapter->RetrieveRawMeshData(LODIndex, RawMesh, MaterialOptions->bUseMeshData);
 		}
 
@@ -187,6 +188,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 				UniqueSectionIndexPerLOD.MultiFind(LODIndex, IndexPairs);
 
 				FMeshData MeshSettings;
+				MeshSettings.RawMesh = new FRawMesh();
 
 				// Add material indices used for rendering out material
 				for (const TPair<uint32, uint32>& Pair : IndexPairs)
@@ -200,10 +202,9 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 				if (MeshSettings.MaterialIndices.Num())
 				{
 					// Retrieve raw mesh
-					const FMeshDescription* MeshDescription = RawMeshLODs.Find(LODIndex);
+					MeshSettings.RawMeshDescription = RawMeshLODs.Find(LODIndex);
 					TMap<FName, int32> MaterialMap;
-					FMeshDescriptionOperations::ConvertToRawMesh(*MeshDescription, *(MeshSettings.RawMesh), MaterialMap);
-					
+					FMeshDescriptionOperations::ConvertToRawMesh(*MeshSettings.RawMeshDescription, *(MeshSettings.RawMesh), MaterialMap);
 
 					MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 					const bool bUseVertexColor = (MeshSettings.RawMesh->WedgeColors.Num() > 0);
@@ -278,6 +279,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 			if (MeshSettings.MaterialIndices.Num())
 			{
 				MeshSettings.RawMesh = nullptr;
+				MeshSettings.RawMeshDescription = nullptr;
 				MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 				MeshSettings.TextureCoordinateIndex = 0;
 
@@ -437,6 +439,15 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 	}
 
 	Adapter->UpdateUVChannelData();
+	//Free the FRawMesh memory
+	for (FMeshData& MeshData : GlobalMeshSettings)
+	{
+		if (MeshData.RawMesh != nullptr)
+		{
+			delete MeshData.RawMesh;
+			MeshData.RawMesh = nullptr;
+		}
+	}
 }
 
 void FMeshMergeUtilities::BakeMaterialsForComponent(USkeletalMeshComponent* SkeletalMeshComponent) const

@@ -278,8 +278,22 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 	DestinationRawMesh.FaceMaterialIndices.AddZeroed(TriangleNumber);
 	DestinationRawMesh.FaceSmoothingMasks.AddZeroed(TriangleNumber);
 
+	bool bHasVertexColor = false;
+	FVector4 WhiteColor(FLinearColor::White);
+	for (const FVertexInstanceID& VertexInstanceID : SourceMeshDescription.VertexInstances().GetElementIDs())
+	{
+		if (VertexInstanceColors[VertexInstanceID] != WhiteColor)
+		{
+			bHasVertexColor = true;
+			break;
+		}
+	}
+
 	int32 WedgeIndexNumber = TriangleNumber * 3;
-	DestinationRawMesh.WedgeColors.AddZeroed(WedgeIndexNumber);
+	if (bHasVertexColor)
+	{
+		DestinationRawMesh.WedgeColors.AddZeroed(WedgeIndexNumber);
+	}
 	DestinationRawMesh.WedgeIndices.AddZeroed(WedgeIndexNumber);
 	DestinationRawMesh.WedgeTangentX.AddZeroed(WedgeIndexNumber);
 	DestinationRawMesh.WedgeTangentY.AddZeroed(WedgeIndexNumber);
@@ -312,7 +326,10 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 			{
 				const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
 
-				DestinationRawMesh.WedgeColors[WedgeIndex] = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
+				if (bHasVertexColor)
+				{
+					DestinationRawMesh.WedgeColors[WedgeIndex] = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
+				}
 				DestinationRawMesh.WedgeIndices[WedgeIndex] = RemapVerts[SourceMeshDescription.GetVertexInstanceVertex(VertexInstanceID).GetValue()];
 				DestinationRawMesh.WedgeTangentX[WedgeIndex] = VertexInstanceTangents[VertexInstanceID];
 				DestinationRawMesh.WedgeTangentY[WedgeIndex] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
