@@ -805,17 +805,49 @@ void FMetalRHICommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFen
 	}
 }
 
-void FMetalRHICommandContext::RHIInsertGPUFence(FGPUFenceRHIParamRef InFence)
+void FMetalGPUFence::WriteInternal(mtlpp::CommandBuffer& CmdBuffer)
+{
+	Fence = CmdBuffer.GetCompletionFence();
+	check(Fence);
+}
+
+void FMetalRHICommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef InFence, uint32 Offset, uint32 NumBytes)
 {
 	@autoreleasepool {
-	if (InFence)
-	{
-		FMetalGPUFence* Fence = ResourceCast(InFence);
-		Fence->Fence = Context->GetCurrentCommandBuffer().GetCompletionFence();
-		check(Fence->Fence);
-	}
+	
+		check(StagingBuffer);
+
+		FMetalStagingBuffer* StageBuffer = ResourceCast(StagingBuffer);
+		FMetalVertexBuffer* VertexBuffer = ResourceCast(StageBuffer->GetBackingBuffer());
+		switch (VertexBuffer->Buffer.GetStorageMode())
+		{
+	#if PLATFORM_MAC
+			case mtlpp::StorageMode::Managed:
+			{
+				GetMetalDeviceContext().SynchroniseResource(VertexBuffer->Buffer);
+				break;
+			}
+	#endif
+			case mtlpp::StorageMode::Private:
+			{
+				VertexBuffer->Alloc(VertexBuffer->Buffer.GetLength(), RLM_ReadOnly);
+				GetMetalDeviceContext().CopyFromBufferToBuffer(VertexBuffer->Buffer, Offset, VertexBuffer->CPUBuffer, Offset, NumBytes);
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+
+		if (InFence)
+		{
+			FMetalGPUFence* Fence = ResourceCast(InFence);
+			Fence->WriteInternal(Context->GetCurrentCommandBuffer());
+		}
 	}
 }
+
 
 FGPUFenceRHIRef FMetalDynamicRHI::RHICreateGPUFence(const FName &Name)
 {
@@ -834,14 +866,4 @@ bool FMetalGPUFence::Poll() const
 	{
 		return false;
 	}
-}
-
-bool FMetalGPUFence::Wait(float TimeoutMs) const
-{
-	if (Fence.GetPtr() == nil)
-	{
-		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThread);
-	}
-	check(Fence);
-	return Fence.Wait(TimeoutMs);
 }

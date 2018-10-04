@@ -1191,6 +1191,30 @@ void FVulkanCommandListContext::PrepareParallelFromBase(const FVulkanCommandList
 	TransitionAndLayoutManager.TempCopy(BaseContext.TransitionAndLayoutManager);
 }
 
+void FVulkanCommandListContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+{
+	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+
+	FVulkanGPUFence* Fence = ResourceCast(FenceRHI);
+	Fence->CmdBuffer = CmdBuffer;
+	Fence->FenceSignaledCounter = CmdBuffer->GetFenceSignaledCounter();
+
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
+	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
+	StagingBuffer->QueuedOffset = Offset;
+	StagingBuffer->QueuedNumBytes = NumBytes;
+
+	VkBufferCopy Region;
+	FMemory::Memzero(Region);
+	Region.size = NumBytes;
+	FVulkanVertexBuffer* VertexBuffer = ResourceCast(StagingBufferRHI->GetBackingBuffer());
+	Region.srcOffset = Offset + VertexBuffer->GetOffset();
+	//Region.dstOffset = 0;
+	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), ReadbackStagingBuffer->GetHandle(), 1, &Region);
+}
+
 
 FVulkanCommandContextContainer::FVulkanCommandContextContainer(FVulkanDevice* InDevice)
 	: VulkanRHI::FDeviceChild(InDevice)

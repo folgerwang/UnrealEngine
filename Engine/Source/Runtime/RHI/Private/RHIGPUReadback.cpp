@@ -32,12 +32,3 @@ bool FGenericRHIGPUFence::Poll() const
 	}
 	return false;
 }
-
-bool FGenericRHIGPUFence::Wait(float TimeoutMs) const
-{
-	if (GFrameNumberRenderThread > InsertedFrameNumber)
-	{
-		return true;
-	}
-	return false;
-}

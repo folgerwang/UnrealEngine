@@ -1480,13 +1480,12 @@ public:
 	}
 
 	virtual bool Poll() const final override;
-	virtual bool Wait(float TimeoutMs) const final override;
 
 protected:
 	FVulkanCmdBuffer*	CmdBuffer = nullptr;
 	uint64				FenceSignaledCounter = 0;
 
-	friend class FVulkanDynamicRHI;
+	friend class FVulkanCommandListContext;
 };
 
 template<class T>
