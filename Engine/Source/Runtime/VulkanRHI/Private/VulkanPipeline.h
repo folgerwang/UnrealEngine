@@ -677,13 +677,17 @@ public:
 			FGfxPipelineEntry* GfxEntry;
 
 		public:
+			enum
+			{
+				NUM_FRAMES = 3,
+			};
 			FEvictedVkPipeline(FVulkanDevice* InDevice, FVulkanGfxPipeline* InPipeline, FGfxPipelineEntry* InGfxEntry)
 				: Device(InDevice), GfxPipeline(InPipeline), GfxEntry(InGfxEntry)
 			{
 				check(InGfxEntry);
 				check(InGfxEntry->bConsumed);
 
-				GfxPipeline->DeleteVkPipeline(InPipeline->RecentFrame + NUM_RENDER_BUFFERS < GFrameNumberRenderThread);
+				GfxPipeline->DeleteVkPipeline(InPipeline->RecentFrame + NUM_FRAMES < GFrameNumberRenderThread);
 			}
 
 			void RestoreVkPipeline();
