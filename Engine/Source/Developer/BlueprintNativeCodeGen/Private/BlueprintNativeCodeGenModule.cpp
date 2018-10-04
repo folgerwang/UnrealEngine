@@ -900,7 +900,8 @@ EReplacementResult FBlueprintNativeCodeGenModule::IsTargetedForReplacement(const
 
 	auto ObjectGeneratesOnlyStub = [&]() -> bool
 	{
-		// ExcludedFolderPaths
+		// ExcludedFolderPaths - Only BPGCs are excluded by path.
+		if (BlueprintClass)
 		{
 			const FString ObjPathName = Object->GetPathName();
 			for (const FString& ExcludedPath : ExcludedFolderPaths)
