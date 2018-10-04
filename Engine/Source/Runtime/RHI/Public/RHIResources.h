@@ -795,13 +795,6 @@ public:
      */
 	virtual bool Poll() const = 0;
 
-    /**
-     * Wait for the GPU to pass and signal the fence.
-     * @param TimeoutMs The maximum time to wait for the fence in milliseconds.
-     * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
-     */
-	virtual bool Wait(float TimeoutMs) const = 0;
-
 private:
 	FName FenceName;
 };
@@ -816,9 +809,6 @@ public:
 
     /** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
 	virtual bool Poll() const final override;
-
-    /** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
-	virtual bool Wait(float TimeoutMs) const final override;
 
 private:
 	uint32 InsertedFrameNumber;
@@ -1033,7 +1023,6 @@ protected:
 
 typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;
 typedef TRefCountPtr<FRHIStagingBuffer>	FStagingBufferRHIRef;
-
 
 class FRHIRenderTargetView
 {

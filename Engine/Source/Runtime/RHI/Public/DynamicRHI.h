@@ -1045,17 +1045,7 @@ public:
 	/* Copy the source box pixels in the destination box texture, return true if implemented for the current platform*/
 	virtual void RHICopySubTextureRegion_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SourceTexture, FTexture2DRHIParamRef DestinationTexture, FBox2D SourceBox, FBox2D DestinationBox);
 	virtual void RHICopySubTextureRegion(FTexture2DRHIParamRef SourceTexture, FTexture2DRHIParamRef DestinationTexture, FBox2D SourceBox, FBox2D DestinationBox) { }
-	
-    /**
-     * Enqueues on the GPU timeline any necessary operations to make the contents of 'StagingBuffer' accessible to the CPU, flushing outstanding GPU writes and/or transferring from inaccessible non-unified GPU memory to local CPU memory.
-     * @discussion The RHI will call RHIInsertGPUFence on 'Fence', use FRHIGPUFence::Wait or FRHIGPUFence::Poll to determine when the fence has been signalled by the GPU. Only once this occurs may 'StagingBuffer' be locked.
-     * @param StagingBuffer The buffer to stage. Must not be null.
-     * @param Fence A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the StagedRead was completed. Must not be null.
-     * @param Offset The start of the data in 'StagingBuffer' to make available.
-     * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
-     */
-    virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes);
-	
+
 	virtual FRHIFlipDetails RHIWaitForFlip(double TimeoutInSeconds) { return FRHIFlipDetails(); }
 	virtual void RHISignalFlipEvent() { }
 

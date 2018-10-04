@@ -88,13 +88,11 @@ public:
 	{
 		CurQueueIndex ^= 0x1;
 
-		// @TODO : we can't use RHICmdList here because we call EnqueueStagingRead which 
-		// require to flush the simulation dispatch before sending the copy to staging buffer command.
-		ExecuteAll(FRHICommandListExecutor::GetImmediateCommandList(), ViewUniformBuffer);
+		ExecuteAll(RHICmdList, ViewUniformBuffer);
 	}
 
-	void ExecuteAll(FRHICommandListImmediate &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer);
-	void TickSingle(FNiagaraComputeExecutionContext *Context, FRHICommandListImmediate &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) const;
+	void ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer);
+	void TickSingle(FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) const;
 
 	void SetPrevDataStrideParams(const FNiagaraDataSet *Set, FNiagaraShader *Shader, FRHICommandList &RHICmdList) const;
 
@@ -114,7 +112,7 @@ public:
 	void RunEventHandlers(const FNiagaraComputeExecutionContext *Context, uint32 NumInstancesAfterSim, uint32 NumInstancesAfterSpawn, uint32 NumInstancesAfterNonEventSpawn, FRHICommandList &RhiCmdList) const;
 
 	void ClearIndexBufferCur(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context) const;
-	void ResolveDatasetWrites(FRHICommandListImmediate &RHICmdList, FNiagaraComputeExecutionContext *Context) const;
+	void ResolveDatasetWrites(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context) const;
 	void ResizeCurrentBuffer(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context, uint32 NewNumInstances, uint32 PrevNumInstances) const;
 private:
 	static NiagaraEmitterInstanceBatcher* BatcherSingleton;

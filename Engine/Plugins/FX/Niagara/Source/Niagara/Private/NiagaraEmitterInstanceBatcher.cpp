@@ -56,7 +56,7 @@ void NiagaraEmitterInstanceBatcher::Remove(FNiagaraComputeExecutionContext *InCo
 		});
 }
 
-void NiagaraEmitterInstanceBatcher::ExecuteAll(FRHICommandListImmediate &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
+void NiagaraEmitterInstanceBatcher::ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
 {
 	const uint32 TickedQueueIndex = (CurQueueIndex ^ 0x1);
 	const uint32 TickedQueueIndexMask = (1 << TickedQueueIndex);
@@ -76,7 +76,7 @@ void NiagaraEmitterInstanceBatcher::ExecuteAll(FRHICommandListImmediate &RHICmdL
 	WorkQueue.Empty();
 }
 
-void NiagaraEmitterInstanceBatcher::TickSingle(FNiagaraComputeExecutionContext *Context, FRHICommandListImmediate &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) const
+void NiagaraEmitterInstanceBatcher::TickSingle(FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraGPUSimTick_RT);
 
@@ -178,7 +178,7 @@ void NiagaraEmitterInstanceBatcher::ClearIndexBufferCur(FRHICommandList &RHICmdL
  *	overallocating a bit, and the CPU might think we have more particles alive than we actually do;
  *	since we use DrawIndirect with the GPU determining draw call parameters, that's not an issue
  */
-void NiagaraEmitterInstanceBatcher::ResolveDatasetWrites(FRHICommandListImmediate &RHICmdList, FNiagaraComputeExecutionContext *Context) const
+void NiagaraEmitterInstanceBatcher::ResolveDatasetWrites(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context) const
 {
 	FRWBuffer &DatasetIndexBufferWrite = Context->MainDataSet->GetCurDataSetIndices();
 	uint32 SpawnedThisFrame = Context->SpawnRateInstances + Context->EventSpawnTotal;

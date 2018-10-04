@@ -22,8 +22,6 @@ public:
 	
 	/** Get the profiler pointer */
 	FORCEINLINE class FMetalProfiler* GetProfiler() const { return Profiler; }
-	
-	virtual void RHIInsertGPUFence(FGPUFenceRHIParamRef Fence) final override;
 
 	/**
 	 *Sets the current compute shader.  Mostly for compliance with platforms
@@ -320,6 +318,8 @@ public:
 	 */
 	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFence) final override;
 	
+	virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef InFence, uint32 Offset, uint32 NumBytes) final override;
+
 	/**
 	 * Compute queue will wait for the fence to be written before continuing.
 	 */

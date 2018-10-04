@@ -848,6 +848,34 @@ private:
 	FD3D12ResourceLocation ResourceLocation;
 };
 
+class FD3D12StagingBuffer : public FRHIStagingBuffer
+{
+public:
+	FD3D12StagingBuffer(FVertexBufferRHIRef InBuffer)
+		: FRHIStagingBuffer(InBuffer)
+	{}
+
+	TRefCountPtr<FD3D12Resource> StagedRead;
+};
+
+class FD3D12GPUFence : public FRHIGPUFence
+{
+public:
+	FD3D12GPUFence(FName InName, FD3D12Fence* InFence) 
+		: FRHIGPUFence(InName)
+		, Fence(InFence)
+		, Value(0)
+	{}
+
+	void WriteInternal(ED3D12CommandQueueType QueueType);
+	virtual bool Poll() const final override;
+
+protected:
+
+	TRefCountPtr<FD3D12Fence> Fence;
+	uint64 Value;
+};
+
 template<class T>
 struct TD3D12ResourceTraits
 {
@@ -907,3 +935,14 @@ struct TD3D12ResourceTraits<FRHIComputePipelineState>
 {
 	typedef FD3D12ComputePipelineState TConcreteType;
 };
+template<>
+struct TD3D12ResourceTraits<FRHIGPUFence>
+{
+	typedef FD3D12GPUFence TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIStagingBuffer>
+{
+	typedef FD3D12StagingBuffer TConcreteType;
+};
+
