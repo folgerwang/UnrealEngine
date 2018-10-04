@@ -3522,7 +3522,7 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	PlayClient->SetGameLayerManager(GameLayerManager);
 
 	// Set the scene viewport on PIE
-	if (GameLayerManager.IsValid())
+	if (GameLayerManager.IsValid() && !bInSimulateInEditor)
 	{
 		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
 	}
