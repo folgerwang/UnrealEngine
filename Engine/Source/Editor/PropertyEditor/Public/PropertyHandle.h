@@ -605,6 +605,18 @@ public:
 	 * Sets an override for this property's reset to default behavior
 	 */
 	virtual void ExecuteCustomResetToDefault(const class FResetToDefaultOverride& OnCustomResetToDefault) = 0;
+
+	/**
+	 * Gets the category FName that a property is in at the default location defined by the class the property is in
+	 * It does not handle the property being moved to another category during customization
+	 */
+	virtual FName GetDefaultCategoryName() const = 0;
+
+	/**
+	* Gets the category display name that a property is in at the default location defined by the class the property is in
+	* It does not handle the property being moved to another category during customization
+	*/
+	virtual FText GetDefaultCategoryText() const = 0;
 };
 
 /**
