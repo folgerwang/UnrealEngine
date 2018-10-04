@@ -981,6 +981,7 @@ FMagicLeapHMD::FMagicLeapHMD(IMagicLeapPlugin* InMagicLeapPlugin, bool bEnableVD
 	bStereoEnabled(false),
 	bStereoDesired(false),
 #endif
+	bIsRenderingPaused(false),
 	bHmdPosTracking(true),
 	bHaveVisionTracking(false),
 	IPD(0.064f),
