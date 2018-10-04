@@ -39,6 +39,10 @@
 	"Plugins" :
 	[
 		{
+			"Name": "MediaIOFramework",
+			"Enabled": true
+		},
+		{
 			"Name" : "OpenCVLensDistortion",
 			"Enabled" : true
 		}
