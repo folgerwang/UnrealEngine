@@ -14,7 +14,7 @@ namespace UnrealGameSyncMetadataServer
 		{
 			try
 			{
-				string ConnectionString = System.Configuration.ConfigurationManager.AppSettings["ConnectionString"];
+				string ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString;
 				string FileName = Regex.Match(ConnectionString, "Data Source=(.+);.+").Groups[1].Value;
 				Directory.CreateDirectory(new FileInfo(FileName).Directory.FullName);
 				if (!File.Exists(FileName))
