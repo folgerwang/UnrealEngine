@@ -41,7 +41,7 @@ public:
 
 	bool IsReady()
 	{
-		return Fence->Poll();
+		return !Fence || Fence->Poll();
 	}
 
 	void *RetrieveData(uint32 NumBytes)
