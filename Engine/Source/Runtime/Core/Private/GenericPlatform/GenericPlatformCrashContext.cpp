@@ -639,6 +639,13 @@ void FGenericCrashContext::AddPlugin(const FString& PluginDesc)
 
 FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context)
 {
+	const int32 MaxDepth = 100;
+	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
+	return SetPortableCallStack(NumStackFramesToIgnore, Stack);
+}
+
+void FGenericCrashContext::SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
 	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
 
 	if (ModuleEntries)
@@ -646,9 +653,6 @@ FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStack
 		TArray<FStackWalkModuleInfo> ProcessModules;
 		ProcessModules.AddUninitialized(ModuleEntries);
 		FPlatformStackWalk::GetProcessModuleSignatures(ProcessModules.GetData(), ProcessModules.Max());
-
-		const int32 MaxDepth = 100;
-		TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
 
 		TMap<FString, uint64> ImageBases;
 		int32 ModuleIndex = 0;

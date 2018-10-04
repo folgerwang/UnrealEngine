@@ -6,6 +6,8 @@
 #include "HAL/PlatformMemory.h"
 #include "Containers/UnrealString.h"
 
+struct FProgramCounterSymbolInfo;
+
 /** 
  * Symbol information associated with a program counter. 
  * FString version.
@@ -205,6 +207,9 @@ public:
 	
 	/** Generate raw call stack for crash report (image base + offset) */
 	void CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context);
+	
+	/** Sets the portable callstack to a specified stack */
+	void SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack);
 
 	/**
 	 * @return whether this crash is a non-crash event
