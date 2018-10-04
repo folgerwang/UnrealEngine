@@ -239,22 +239,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Adds Extra files that are specific to Visual Studio projects
-		/// </summary>
-		/// <param name="EngineProject">Project to add files to</param>
-		protected override void AddEngineExtrasFiles(ProjectFile EngineProject)
-		{
-			base.AddEngineExtrasFiles(EngineProject);
-
-			// Add our UE4.natvis file
-			FileReference NatvisFilePath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Extras", "VisualStudioDebugging", "UE4.natvis");
-			if (FileReference.Exists(NatvisFilePath))
-			{
-				EngineProject.AddFileToProject(NatvisFilePath, UnrealBuildTool.EngineDirectory);
-			}
-		}
-
-		/// <summary>
 		/// Selects which platforms and build configurations we want in the project file
 		/// </summary>
 		/// <param name="IncludeAllPlatforms">True if we should include ALL platforms that are supported on this machine.  Otherwise, only desktop platforms will be included.</param>
