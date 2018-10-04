@@ -1169,12 +1169,9 @@ namespace UnrealBuildTool
 						UBTArguments.Append(" -ignorejunk");
 
 						// Add UHT plugins to UBT command line as external plugins
-						foreach(UEBuildPlugin EnabledPlugin in Target.EnabledPlugins)
+						if(Target.ProjectFile != null)
 						{
-							if (EnabledPlugin.Descriptor.bCanBeUsedWithUnrealHeaderTool)
-							{
-								UBTArguments.Append(" -PLUGIN=\"" + EnabledPlugin.Info.File + "\"");
-							}
+							UBTArguments.AppendFormat(" -project=\"{0}\"", Target.ProjectFile);
 						}
 
 						// Add any global override for the compiler
