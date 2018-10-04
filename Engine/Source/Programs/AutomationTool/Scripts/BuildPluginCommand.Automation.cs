@@ -239,6 +239,7 @@ class BuildPlugin : BuildCommand
 		Filter.Include("/Resources/...");
 		Filter.Include("/Content/...");
 		Filter.Include("/Intermediate/Build/.../Inc/...");
+		Filter.Include("/Shaders/...");
 		Filter.Include("/Source/...");
 
 		// Add custom rules for each platform
