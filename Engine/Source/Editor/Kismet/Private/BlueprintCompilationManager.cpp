@@ -220,6 +220,9 @@ void FBlueprintCompilationManagerImpl::CompileSynchronouslyImpl(const FBPCompile
 
 	if ( GEditor && !bRegenerateSkeletonOnly)
 	{
+		// Make sure clients know they're being reinstanced as part of blueprint compilation. After this point
+		// compilation is completely done:
+		TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
 		GEditor->BroadcastBlueprintReinstanced();
 	}
 	
