@@ -133,7 +133,7 @@ bool ReloadMaterialResource(
 	Tmp.SerializeInlineShaderMap(Ar);
 	if (Tmp.GetGameThreadShaderMap())
 	{
-		Tmp.GetGameThreadShaderMap()->RegisterSerializedShaders();
+		Tmp.GetGameThreadShaderMap()->RegisterSerializedShaders(false);
 		return true;
 	}
 	UE_LOG(LogMaterial, Warning, TEXT("Failed to reload material resources for package %s (file name: %s)."), *PackageName, *Filename);
