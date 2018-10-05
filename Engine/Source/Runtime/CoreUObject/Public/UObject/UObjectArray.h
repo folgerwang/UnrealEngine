@@ -322,7 +322,7 @@ class FChunkedFixedUObjectArray
 {
 	enum
 	{
-		NumElementsPerChunk = 65 * 1024,
+		NumElementsPerChunk = 64 * 1024,
 	};
 
 	/** Master table to chunks of pointers **/
@@ -349,7 +349,7 @@ class FChunkedFixedUObjectArray
 		while (ChunkIndex >= NumChunks)
 		{
 			// add a chunk, and make sure nobody else tries
-			FUObjectItem** Chunk = &Objects[ChunkIndex];
+			FUObjectItem** Chunk = &Objects[NumChunks];
 			FUObjectItem* NewChunk = new FUObjectItem[NumElementsPerChunk];
 			if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)Chunk, NewChunk, nullptr))
 			{
@@ -359,6 +359,7 @@ class FChunkedFixedUObjectArray
 			else
 			{
 				NumChunks++;
+				check(NumChunks <= MaxChunks);
 			}
 		}
 		check(ChunkIndex < NumChunks && Objects[ChunkIndex]); // should have a valid pointer now
