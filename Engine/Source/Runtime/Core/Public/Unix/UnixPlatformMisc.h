@@ -150,12 +150,10 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 	static bool HasNonoptionalCPUFeatures();
 	static bool NeedsNonoptionalCPUFeaturesCheck();
 
-#if !UE_BUILD_SHIPPING	// only in non-shipping because we break into the debugger in non-shipping builds only
 	/**
 	 * Ungrabs input (useful before breaking into debugging)
 	 */
 	static void UngrabAllInput();
-#endif // !UE_BUILD_SHIPPING
 
 	/**
 	 * Returns whether the program has been started remotely (e.g. over SSH)
