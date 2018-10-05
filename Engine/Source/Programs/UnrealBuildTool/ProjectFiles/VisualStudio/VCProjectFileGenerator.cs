@@ -312,17 +312,25 @@ namespace UnrealBuildTool
 		/// </summary>
 		class VCSolutionConfigCombination
 		{
+			/// <summary>
 			/// Visual Studio solution configuration name for this config+platform
+			/// </summary>
 			public string VCSolutionConfigAndPlatformName;
 
+			/// <summary>
 			/// Configuration name
+			/// </summary>
 			public UnrealTargetConfiguration Configuration;
 
+			/// <summary>
 			/// Platform name
+			/// </summary>
 			public UnrealTargetPlatform Platform;
 
-			/// The target configuration name
-			public string TargetConfigurationName;
+			/// <summary>
+			/// The target type
+			/// </summary>
+			public TargetType TargetConfigurationName;
 
 			public override string ToString()
 			{
@@ -335,18 +343,17 @@ namespace UnrealBuildTool
 		/// Composes a string to use for the Visual Studio solution configuration, given a build configuration and target rules configuration name
 		/// </summary>
 		/// <param name="Configuration">The build configuration</param>
-		/// <param name="TargetConfigurationName">The target rules configuration name</param>
+		/// <param name="TargetType">The type of target being built</param>
 		/// <returns>The generated solution configuration name</returns>
-		string MakeSolutionConfigurationName(UnrealTargetConfiguration Configuration, string TargetConfigurationName)
+		string MakeSolutionConfigurationName(UnrealTargetConfiguration Configuration, TargetType TargetType)
 		{
 			string SolutionConfigName = Configuration.ToString();
 
 			// Don't bother postfixing "Game" or "Program" -- that will be the default when using "Debug", "Development", etc.
 			// Also don't postfix "RocketGame" when we're building Rocket game projects.  That's the only type of game there is in that case!
-			if (!TargetConfigurationName.Equals(TargetType.Game.ToString(), StringComparison.InvariantCultureIgnoreCase) &&
-				!TargetConfigurationName.Equals(TargetType.Program.ToString(), StringComparison.InvariantCultureIgnoreCase))
+			if (TargetType != TargetType.Game && TargetType != TargetType.Program)
 			{
-				SolutionConfigName += " " + TargetConfigurationName;
+				SolutionConfigName += " " + TargetType.ToString();
 			}
 
 			return SolutionConfigName;
@@ -590,7 +597,7 @@ namespace UnrealBuildTool
 						VCSolutionFileContent.Append(
 							"	GlobalSection(SolutionConfigurationPlatforms) = preSolution" + ProjectFileGenerator.NewLine);
 
-						Dictionary<string, Tuple<UnrealTargetConfiguration, string>> SolutionConfigurationsValidForProjects = new Dictionary<string, Tuple<UnrealTargetConfiguration, string>>();
+						Dictionary<string, Tuple<UnrealTargetConfiguration, TargetType>> SolutionConfigurationsValidForProjects = new Dictionary<string, Tuple<UnrealTargetConfiguration, TargetType>>();
 						HashSet<UnrealTargetPlatform> PlatformsValidForProjects = new HashSet<UnrealTargetPlatform>();
 
 						foreach (UnrealTargetConfiguration CurConfiguration in SupportedConfigurations)
@@ -618,14 +625,14 @@ namespace UnrealBuildTool
 														PlatformsValidForProjects.Add(CurPlatform);
 
 														// Default to a target configuration name of "Game", since that will collapse down to an empty string
-														string TargetConfigurationName = TargetType.Game.ToString();
+														TargetType TargetType = TargetType.Game;
 														if (ProjectTarget.TargetRules != null)
 														{
-															TargetConfigurationName = ProjectTarget.TargetRules.Type.ToString();
+															TargetType = ProjectTarget.TargetRules.Type;
 														}
 
-														string SolutionConfigName = MakeSolutionConfigurationName(CurConfiguration, TargetConfigurationName);
-														SolutionConfigurationsValidForProjects[SolutionConfigName] = new Tuple<UnrealTargetConfiguration, string>(CurConfiguration, TargetConfigurationName);
+														string SolutionConfigName = MakeSolutionConfigurationName(CurConfiguration, TargetType);
+														SolutionConfigurationsValidForProjects[SolutionConfigName] = new Tuple<UnrealTargetConfiguration, TargetType>(CurConfiguration, TargetType);
 													}
 												}
 											}
@@ -637,12 +644,12 @@ namespace UnrealBuildTool
 
 						foreach (UnrealTargetPlatform CurPlatform in PlatformsValidForProjects)
 						{
-							foreach (KeyValuePair<string, Tuple<UnrealTargetConfiguration, string>> SolutionConfigKeyValue in SolutionConfigurationsValidForProjects)
+							foreach (KeyValuePair<string, Tuple<UnrealTargetConfiguration, TargetType>> SolutionConfigKeyValue in SolutionConfigurationsValidForProjects)
 							{
 								// e.g.  "Development|Win64 = Development|Win64"
 								string SolutionConfigName = SolutionConfigKeyValue.Key;
 								UnrealTargetConfiguration Configuration = SolutionConfigKeyValue.Value.Item1;
-								string TargetConfigurationName = SolutionConfigKeyValue.Value.Item2;
+								TargetType TargetType = SolutionConfigKeyValue.Value.Item2;
 
 								string SolutionPlatformName = CurPlatform.ToString();
 
@@ -653,7 +660,7 @@ namespace UnrealBuildTool
 											VCSolutionConfigAndPlatformName = SolutionConfigAndPlatformPair,
 											Configuration = Configuration,
 											Platform = CurPlatform,
-											TargetConfigurationName = TargetConfigurationName
+											TargetConfigurationName = TargetType
 										}
 									);
 							}
@@ -712,13 +719,13 @@ namespace UnrealBuildTool
 								{
 									// Handle aliasing of Program and Game target configuration names
 									if ((IsProgramProject && GameOrProgramConfigsAlreadyMapped.Add(SolutionConfigCombination.VCSolutionConfigAndPlatformName)) ||
-										IsProgramProject && SolutionConfigCombination.TargetConfigurationName != TargetType.Game.ToString() ||
-										!IsProgramProject && SolutionConfigCombination.TargetConfigurationName != TargetType.Program.ToString())
+										IsProgramProject && SolutionConfigCombination.TargetConfigurationName != TargetType.Game ||
+										!IsProgramProject && SolutionConfigCombination.TargetConfigurationName != TargetType.Program)
 									{
-										string TargetConfigurationName = SolutionConfigCombination.TargetConfigurationName;
+										TargetType TargetConfigurationName = SolutionConfigCombination.TargetConfigurationName;
 										if (IsProgramProject)
 										{
-											TargetConfigurationName = TargetType.Program.ToString();
+											TargetConfigurationName = TargetType.Program;
 										}
 
 										// Now, we want to find a target in this project that maps to the current solution config combination.  Only up to one target should
@@ -729,7 +736,7 @@ namespace UnrealBuildTool
 											bool IsMatchingCombination = VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration);
 											if (ProjectTarget.TargetRules != null)
 											{
-												if (TargetConfigurationName != ProjectTarget.TargetRules.Type.ToString())
+												if (TargetConfigurationName != ProjectTarget.TargetRules.Type)
 												{
 													// Solution configuration name for this combination doesn't match this target's configuration name.  It's not buildable.
 													IsMatchingCombination = false;
@@ -740,7 +747,7 @@ namespace UnrealBuildTool
 												// UBT gets a pass because it is a dependency of every single configuration combination
 												if (CurProject != UBTProject &&
 													!CurProject.ShouldBuildForAllSolutionTargets &&
-													TargetConfigurationName != TargetType.Game.ToString())
+													TargetConfigurationName != TargetType.Game)
 												{
 													// Can't build non-generated project in configurations except for the default (Game)
 													IsMatchingCombination = false;
@@ -786,11 +793,11 @@ namespace UnrealBuildTool
 
 											if (IsProgramProject)
 											{
-												TargetConfigurationName = TargetType.Program.ToString();
+												TargetConfigurationName = TargetType.Program;
 											}
 											else
 											{
-												TargetConfigurationName = TargetType.Game.ToString();
+												TargetConfigurationName = TargetType.Game;
 											}
 										}
 
@@ -807,7 +814,7 @@ namespace UnrealBuildTool
 										}
 
 										// Always allow SCW and UnrealLighmass to build in editor configurations
-										if (MatchingProjectTarget == null && SolutionConfigCombination.TargetConfigurationName == TargetType.Editor.ToString() && SolutionConfigCombination.Platform == UnrealTargetPlatform.Win64)
+										if (MatchingProjectTarget == null && SolutionConfigCombination.TargetConfigurationName == TargetType.Editor && SolutionConfigCombination.Platform == UnrealTargetPlatform.Win64)
 										{
 											if (CurProject == ShaderCompileWorkerProject)
 											{
@@ -988,7 +995,7 @@ namespace UnrealBuildTool
 					VCSolutionOptions Options = new VCSolutionOptions(ProjectFileFormat);
 
 					// Set the default configuration and startup project
-					VCSolutionConfigCombination DefaultConfig = SolutionConfigCombinations.Find(x => x.Configuration == UnrealTargetConfiguration.Development && x.Platform == UnrealTargetPlatform.Win64 && x.TargetConfigurationName == "Editor");
+					VCSolutionConfigCombination DefaultConfig = SolutionConfigCombinations.Find(x => x.Configuration == UnrealTargetConfiguration.Development && x.Platform == UnrealTargetPlatform.Win64 && x.TargetConfigurationName == TargetType.Editor);
 					if (DefaultConfig != null)
 					{
 						List<VCBinarySetting> Settings = new List<VCBinarySetting>();
