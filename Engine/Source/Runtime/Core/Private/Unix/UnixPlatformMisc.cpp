@@ -918,17 +918,22 @@ void FUnixPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const
 }
 #endif
 
-#if !UE_BUILD_SHIPPING
 CORE_API TFunction<void()> UngrabAllInputCallback;
 
+void FUnixPlatformMisc::UngrabAllInput()
+{
+	if(UngrabAllInputCallback)
+	{
+		UngrabAllInputCallback();
+	}
+}
+
+#if !UE_BUILD_SHIPPING
 void FUnixPlatformMisc::DebugBreakInternal()
 {
 	if( IsDebuggerPresent() )
 	{
-		if(UngrabAllInputCallback)
-		{
-			UngrabAllInputCallback();
-		}
+		UngrabAllInput();
 #if PLATFORM_CPU_X86_FAMILY
 		__asm__ volatile("int $0x03");
 #else
