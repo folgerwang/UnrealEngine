@@ -23,6 +23,7 @@ void SPropertyMenuAssetPicker::Construct( const FArguments& InArgs )
 	bAllowClear = InArgs._AllowClear;
 	bAllowCopyPaste = InArgs._AllowCopyPaste;
 	AllowedClasses = InArgs._AllowedClasses;
+	DisallowedClasses = InArgs._DisallowedClasses;
 	NewAssetFactories = InArgs._NewAssetFactories;
 	OnShouldFilterAsset = InArgs._OnShouldFilterAsset;
 	OnSet = InArgs._OnSet;
@@ -116,6 +117,12 @@ void SPropertyMenuAssetPicker::Construct( const FArguments& InArgs )
 				AssetPickerConfig.Filter.ClassNames.Add( AllowedClasses[i]->GetFName() );
 			}
 		}
+
+		for (int32 i = 0; i < DisallowedClasses.Num(); ++i)
+		{
+			AssetPickerConfig.Filter.RecursiveClassesExclusionSet.Add(DisallowedClasses[i]->GetFName());
+		}
+
 		// Allow child classes
 		AssetPickerConfig.Filter.bRecursiveClasses = true;
 		// Set a delegate for setting the asset from the picker
