@@ -3471,7 +3471,7 @@ void FEditorViewportClient::SetupViewForRendering(FSceneViewFamily& ViewFamily, 
 			(InspectViewportPos.X + 0.5f) / float(View.UnscaledViewRect.Width()),
 			(InspectViewportPos.Y + 0.5f) / float(View.UnscaledViewRect.Height()));
 
-		PixelInspectorModule.CreatePixelInspectorRequest(InspectViewportUV, View.State->GetViewKey(), SceneInterface, bInGameViewMode);
+		PixelInspectorModule.CreatePixelInspectorRequest(InspectViewportUV, View.State->GetViewKey(), SceneInterface, bInGameViewMode, View.State->GetPreExposure());
 	}
 	else if (!View.bUsePixelInspector && CurrentMousePos != FIntPoint(-1, -1))
 	{

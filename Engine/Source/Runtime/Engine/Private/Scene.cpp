@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/Scene.h"
-
+#include "HAL/IConsoleManager.h"
 
 void FColorGradingSettings::ExportToPostProcessSettings(FPostProcessSettings* OutPostProcessSettings) const
 {
@@ -158,6 +158,38 @@ void FLensSettings::ExportToPostProcessSettings(FPostProcessSettings* OutPostPro
 	OutPostProcessSettings->SceneFringeIntensity = ChromaticAberration;
 }
 
+FCameraExposureSettings::FCameraExposureSettings()
+{
+	static const auto VarDefaultAutoExposureExtendDefaultLuminanceRange = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"));
+	const bool bExtendedLuminanceRange = VarDefaultAutoExposureExtendDefaultLuminanceRange->GetValueOnAnyThread() == 1;
+
+	// next value might get overwritten by r.DefaultFeature.AutoExposure.Method
+	Method = AEM_Histogram;
+	LowPercent = 80.0f;
+	HighPercent = 98.3f;
+
+	if (bExtendedLuminanceRange)
+	{
+		// When this project setting is set, the following values are in EV100.
+		MinBrightness = -10.0f;
+		MaxBrightness = 20.0f;
+		HistogramLogMin = -10.0f;
+		HistogramLogMax = 20.0f;
+	}
+	else
+	{
+		MinBrightness = 0.03f;
+		MaxBrightness = 2.0f;
+		HistogramLogMin = -8.0f;
+		HistogramLogMax = 4.0f;
+	}
+
+	SpeedUp = 3.0f;
+	SpeedDown = 1.0f;
+	Bias = 0.0f;
+	CalibrationConstant	= 16.0;
+}
+
 void FCameraExposureSettings::ExportToPostProcessSettings(FPostProcessSettings* OutPostProcessSettings) const
 {
 	OutPostProcessSettings->bOverride_AutoExposureMethod = true;
@@ -311,7 +343,6 @@ static void DoPostProcessSettingsSanityCheck()
 
 #endif // DO_CHECK
 
-
 FPostProcessSettings::FPostProcessSettings()
 {
 	// to set all bOverride_.. by default to false
@@ -419,10 +450,25 @@ FPostProcessSettings::FPostProcessSettings()
 	AutoExposureMethod = AEM_Histogram;
 	AutoExposureLowPercent = 80.0f;
 	AutoExposureHighPercent = 98.3f;
+
 	// next value might get overwritten by r.DefaultFeature.AutoExposure
-	AutoExposureMinBrightness = 0.03f;
-	// next value might get overwritten by r.DefaultFeature.AutoExposure
-	AutoExposureMaxBrightness = 2.0f;
+	static const auto VarDefaultAutoExposureExtendDefaultLuminanceRange = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"));
+	if (VarDefaultAutoExposureExtendDefaultLuminanceRange->GetValueOnAnyThread() != 0)
+	{
+		// When this project setting is set, the following values are in EV100.
+		AutoExposureMinBrightness = -10.0f;
+		AutoExposureMaxBrightness = 20.0f;
+		HistogramLogMin = -10.0f;
+		HistogramLogMax = 20.0f;
+	}
+	else
+	{
+		AutoExposureMinBrightness = 0.03f;
+		AutoExposureMaxBrightness = 2.0f;
+		HistogramLogMin = -8.0f;
+		HistogramLogMax = 4.0f;
+	}
+
 	AutoExposureBias = 0.0f;
 	AutoExposureSpeedUp = 3.0f;
 	AutoExposureSpeedDown = 1.0f;
@@ -434,8 +480,7 @@ FPostProcessSettings::FPostProcessSettings()
 	LPVSpecularOcclusionIntensity = 1.0f;
 	LPVFadeRange = 0.0f;
 	LPVDirectionalOcclusionFadeRange = 0.0f;
-	HistogramLogMin = -8.0f;
-	HistogramLogMax = 4.0f;
+
 	// next value might get overwritten by r.DefaultFeature.LensFlare
 	LensFlareIntensity = 1.0f;
 	LensFlareTint = FLinearColor(1.0f, 1.0f, 1.0f);

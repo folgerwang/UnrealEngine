@@ -431,8 +431,7 @@ USTRUCT(BlueprintType)
 struct FCameraExposureSettings
 {
 	GENERATED_USTRUCT_BODY()
-
-
+		
 	/** Luminance computation method */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exposure", meta=(DisplayName = "Method"))
     TEnumAsByte<enum EAutoExposureMethod> Method;
@@ -504,24 +503,7 @@ struct FCameraExposureSettings
 	UPROPERTY(Interp, BlueprintReadWrite, Category = "Exposure", AdvancedDisplay, meta=(UIMin = "0", UIMax = "100.0", DisplayName = "Calibration Constant"))
 	float CalibrationConstant;
 
-
-	FCameraExposureSettings()
-	{
-		// next value might get overwritten by r.DefaultFeature.AutoExposure.Method
-		Method = AEM_Histogram;
-		LowPercent = 80.0f;
-		HighPercent = 98.3f;
-		// next value might get overwritten by r.DefaultFeature.AutoExposure
-		MinBrightness = 0.03f;
-		// next value might get overwritten by r.DefaultFeature.AutoExposure
-		MaxBrightness = 2.0f;
-		SpeedUp = 3.0f;
-		SpeedDown = 1.0f;
-		Bias = 0.0f;
-		HistogramLogMin = -8.0f;
-		HistogramLogMax = 4.0f;
-		CalibrationConstant	= 16.0;
-	}
+	ENGINE_API FCameraExposureSettings();
 
 	/* Exports to post process settings with overrides. */
 	ENGINE_API void ExportToPostProcessSettings(FPostProcessSettings* OutPostProcessSettings) const;
@@ -1335,7 +1317,7 @@ struct FPostProcessSettings
 	 * Logarithmic adjustment for the exposure. Only used if a tonemapper is specified.
 	 * 0: no adjustment, -1:2x darker, -2:4x darker, 1:2x brighter, 2:4x brighter, ...
 	 */
-	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Camera", meta = (UIMin = "-8.0", UIMax = "8.0", editcondition = "bOverride_AutoExposureBias", DisplayName = "Exposure Compensation "))
+	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Exposure", meta = (UIMin = "-8.0", UIMax = "8.0", editcondition = "bOverride_AutoExposureBias", DisplayName = "Exposure Compensation "))
 	float AutoExposureBias;
 
 	/**
@@ -1358,22 +1340,19 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "100.0", editcondition = "bOverride_AutoExposureHighPercent", DisplayName = "High Percent"))
 	float AutoExposureHighPercent;
 
+
 	/**
-	 * A good value should be positive near 0. This is the minimum brightness the auto exposure can adapt to.
-	 * It should be tweaked in a dark lighting situation (too small: image appears too bright, too large: image appears too dark).
-	 * Note: Tweaking emissive materials and lights or tweaking auto exposure can look the same. Tweaking auto exposure has global
-	 * effect and defined the HDR range - you don't want to change that late in the project development.
-	 * Eye Adaptation is disabled if MinBrightness = MaxBrightness
+	 * Auto-Exposure minimum adaptation. Eye Adaptation is disabled if Min = Max. 
+	 * Auto-exposure is implemented by choosing an exposure value for which the average luminance generates a pixel brightness equal to the Constant Calibration value.
+	 * The Min/Max are expressed in pixel luminance (cd/m2) or in EV100 when using ExtendDefaultLuminanceRange (see project settings).
 	 */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", meta=(ClampMin = "-10.0", UIMax = "20.0", editcondition = "bOverride_AutoExposureMinBrightness", DisplayName = "Min Brightness"))
 	float AutoExposureMinBrightness;
 
 	/**
-	 * A good value should be positive (2 is a good value). This is the maximum brightness the auto exposure can adapt to.
-	 * It should be tweaked in a bright lighting situation (too small: image appears too bright, too large: image appears too dark).
-	 * Note: Tweaking emissive materials and lights or tweaking auto exposure can look the same. Tweaking auto exposure has global
-	 * effect and defined the HDR range - you don't want to change that late in the project development.
-	 * Eye Adaptation is disabled if MinBrightness = MaxBrightness
+	 * Auto-Exposure maximum adaptation. Eye Adaptation is disabled if Min = Max. 
+	 * Auto-exposure is implemented by choosing an exposure value for which the average luminance generates a pixel brightness equal to the Constant Calibration value.
+	 * The Min/Max are expressed in pixel luminance (cd/m2) or in EV100 when using ExtendDefaultLuminanceRange (see project settings).
 	 */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", meta=(ClampMin = "-10.0", UIMax = "20.0", editcondition = "bOverride_AutoExposureMaxBrightness", DisplayName = "Max Brightness"))
 	float AutoExposureMaxBrightness;
@@ -1386,11 +1365,11 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", meta=(ClampMin = "0.02", UIMax = "20.0", editcondition = "bOverride_AutoExposureSpeedDown", DisplayName = "Speed Down"))
 	float AutoExposureSpeedDown;
 
-	/** temporary exposed until we found good values, -8: 1/256, -10: 1/1024 */
+	/** Histogram Min value. Expressed in Log2(Luminance) or in EV100 when using ExtendDefaultLuminanceRange (see project settings) */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", AdvancedDisplay, meta=(UIMin = "-16", UIMax = "0.0", editcondition = "bOverride_HistogramLogMin"))
 	float HistogramLogMin;
 
-	/** temporary exposed until we found good values 4: 16, 8: 256 */
+	/** Histogram Max value. Expressed in Log2(Luminance) or in EV100 when using ExtendDefaultLuminanceRange (see project settings) */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "16.0", editcondition = "bOverride_HistogramLogMax"))
 	float HistogramLogMax;
 
