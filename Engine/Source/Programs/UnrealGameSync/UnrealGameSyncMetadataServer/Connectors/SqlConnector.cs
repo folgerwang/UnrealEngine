@@ -12,7 +12,7 @@ namespace UnrealGameSyncMetadataServer.Connectors
 {
 	public static class SqlConnector
 	{
-		private static string ConnectionString = System.Configuration.ConfigurationManager.AppSettings["ConnectionString"];
+		private static string ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString;
 		public static LatestData GetLastIds(string Project = null)
 		{
 			// Get ids going back 432 builds for the project being asked for
