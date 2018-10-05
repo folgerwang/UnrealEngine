@@ -1993,6 +1993,8 @@ public:
 	void UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo);
 	void UpdateVisibilityStates(FViewInfo& View);
 
+	void ClearVisibilityState(FViewInfo& View);
+
 	bool IsActive() const { return (SceneNodes.Num() > 0); }
 
 private:
