@@ -2805,7 +2805,7 @@ void FBlueprintEditorUtils::RenameGraph(UEdGraph* Graph, const FString& NewNameS
 			}
 		}
 
-		if (!Blueprint->bIsRegeneratingOnLoad)
+		if (!Blueprint->bIsRegeneratingOnLoad && !Blueprint->bBeingCompiled)
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
