@@ -21,6 +21,8 @@ public:
 	//UObject Interface
 	virtual void PostInitProperties()override;
 	virtual void PostLoad() override;
+	virtual void BeginDestroy() override;
+	virtual bool IsReadyForFinishDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
@@ -41,6 +43,7 @@ public:
 	virtual void GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
 	virtual FNiagaraDataInterfaceParametersCS* ConstructComputeParameters()const override;
 
+	void ReleaseResource();
 	FRWBuffer& GetGPUBuffer();
 	static const FString CurlNoiseBufferName;
 protected:
@@ -52,7 +55,9 @@ protected:
 	template<typename T>
 	void ReplicateBorder(T* DestBuffer);
 
-	FRWBuffer GPUBuffer;
+	TUniquePtr<FRWBuffer> GPUBuffer;
+	/** A fence which is used to keep track of the rendering thread releasing RHI resources. */
+	FRenderCommandFence ReleaseResourcesFence;
 
 	static const FName SampleNoiseFieldName;
 };
