@@ -11,6 +11,7 @@ UNiagaraDataInterfaceCurlNoise::UNiagaraDataInterfaceCurlNoise(FObjectInitialize
 	: Super(ObjectInitializer)
 	, bGPUBufferDirty(true)
 	, Seed(0)
+	, GPUBuffer(new FRWBuffer)
 {
 
 }
@@ -29,6 +30,21 @@ void UNiagaraDataInterfaceCurlNoise::PostLoad()
 {
 	Super::PostLoad();
 	InitNoiseLUT();
+}
+
+void UNiagaraDataInterfaceCurlNoise::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject))
+	{
+		ReleaseResource();
+	}
+}
+
+bool UNiagaraDataInterfaceCurlNoise::IsReadyForFinishDestroy()
+{
+	return ReleaseResourcesFence.IsFenceComplete();
 }
 
 #if WITH_EDITOR
@@ -188,13 +204,24 @@ void UNiagaraDataInterfaceCurlNoise::GetParameterDefinitionHLSL(FNiagaraDataInte
 	OutHLSL += TEXT("Buffer<float4> ") + BufferName + TEXT(";\n");
 }
 
+void UNiagaraDataInterfaceCurlNoise::ReleaseResource()
+{
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(NiagaraCurlNoiseReleaseCommand,
+		FRWBuffer*,GPUBuffer,GPUBuffer.Get(),
+	{
+		GPUBuffer->Release();
+	});
+	// Insert a fence to signal when these commands completed
+	ReleaseResourcesFence.BeginFence();
+}
+
 FRWBuffer& UNiagaraDataInterfaceCurlNoise::GetGPUBuffer()
 {
 	check(IsInRenderingThread());
 
 	if (bGPUBufferDirty)
 	{
-		GPUBuffer.Release();
+		GPUBuffer->Release();
 		uint32 BufferSize = 17 * 17 * 17 * sizeof(float) * 4;
 		//int32 *BufferData = static_cast<int32*>(RHILockVertexBuffer(GPUBuffer.Buffer.Buffer, 0, BufferSize, EResourceLockMode::RLM_WriteOnly));
 		TResourceArray<FVector4> TempTable;
@@ -210,13 +237,13 @@ FRWBuffer& UNiagaraDataInterfaceCurlNoise::GetGPUBuffer()
 				}
 			}
 		}
-		GPUBuffer.Initialize(sizeof(float) * 4, 17 * 17 * 17, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
+		GPUBuffer->Initialize(sizeof(float) * 4, 17 * 17 * 17, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
 		//FPlatformMemory::Memcpy(BufferData, TempTable, BufferSize);
 		//RHIUnlockVertexBuffer(GPUBuffer.Buffer.Buffer);
 		bGPUBufferDirty = false;
 	}
 
-	return GPUBuffer;
+	return *GPUBuffer;
 }
 
 
