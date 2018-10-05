@@ -109,6 +109,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Arguments that are used by every Rsync call
 		/// </summary>
+		private List<string> BasicRsyncArguments;
+
+		/// <summary>
+		/// Arguments that are used by directory Rsync call
+		/// </summary>
 		private List<string> CommonRsyncArguments;
 
 		/// <summary>
@@ -227,16 +232,19 @@ namespace UnrealBuildTool
 			CommonSshArguments.Add(String.Format("\"{0}@{1}\"", UserName, ServerName));
 
 			// Build a list of arguments for Rsync
-			CommonRsyncArguments = new List<string>();
-			CommonRsyncArguments.Add("--compress");
+			BasicRsyncArguments = new List<string>();
+			BasicRsyncArguments.Add("--compress");
+			BasicRsyncArguments.Add("--verbose");
+			BasicRsyncArguments.Add(String.Format("--rsh=\"{0} -p {1}\"", RsyncAuthentication, ServerPort));
+
+			// Build a list of arguments for Rsync filters
+			CommonRsyncArguments = new List<string>(BasicRsyncArguments);
 			CommonRsyncArguments.Add("--recursive");
 			CommonRsyncArguments.Add("--delete"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--delete-excluded"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--times"); // Preserve modification times
-			CommonRsyncArguments.Add("--verbose");
-			CommonRsyncArguments.Add("-m");
+			CommonRsyncArguments.Add("--prune-empty-dirs"); // Remove empty directories from the file list
 			CommonRsyncArguments.Add("--chmod=ug=rwX,o=rxX");
-			CommonRsyncArguments.Add(String.Format("--rsh=\"{0} -p {1}\"", RsyncAuthentication, ServerPort));
 
 			// Get the remote base directory
 			StringBuilder Output;
@@ -458,7 +466,6 @@ namespace UnrealBuildTool
 			}
 
 			// Upload the workspace files
-			Log.TraceInformation("[Remote] Uploading workspace files");
 			UploadWorkspace(TempDir);
 
 			// Fixup permissions on any shell scripts
@@ -630,6 +637,27 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Upload a single file to the remote
+		/// </summary>
+		/// <param name="LocalDirectory">The base directory to copy</param>
+		/// <param name="RemoteDirectory">The remote directory</param>
+		/// <param name="LocalFileList">The file to upload</param>
+		void UploadFiles(DirectoryReference LocalDirectory, string RemoteDirectory, FileReference LocalFileList)
+		{
+			List<string> Arguments = new List<string>(BasicRsyncArguments);
+			Arguments.Add(String.Format("--files-from=\"{0}\"", GetLocalCygwinPath(LocalFileList)));
+			Arguments.Add(String.Format("\"{0}/\"", GetLocalCygwinPath(LocalDirectory)));
+			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
+			Arguments.Add("-q");
+
+			int Result = Rsync(String.Join(" ", Arguments));
+			if(Result != 0)
+			{
+				throw new BuildException("Error while running Rsync (exit code {0})", Result);
+			}
+		}
+
+		/// <summary>
 		/// Upload a single directory to the remote
 		/// </summary>
 		/// <param name="LocalDirectory">The local directory to upload</param>
@@ -688,7 +716,7 @@ namespace UnrealBuildTool
 			foreach(string Line in FileReference.ReadAllLines(ScriptPathsFileName))
 			{
 				string FileToUpload = Line.Trim();
-				if(FileToUpload.Length > 0 && FileToUpload[0] != ';')
+				if(FileToUpload.Length > 0 && FileToUpload[0] != '#')
 				{
 					ScriptPaths.Add(FileToUpload);
 				}
@@ -715,21 +743,6 @@ namespace UnrealBuildTool
 			}
 
 			// Write a file that protects all the scripts from being overridden by the standard engine filters
-			FileReference ScriptUploadList = FileReference.Combine(TempDir, "RsyncEngineScripts-Upload.txt");
-			using(StreamWriter Writer = new StreamWriter(ScriptUploadList.FullName))
-			{
-				foreach(string ScriptPath in ScriptPaths)
-				{
-					for(int SlashIdx = ScriptPath.IndexOf('/', 1); SlashIdx != -1; SlashIdx = ScriptPath.IndexOf('/', SlashIdx + 1))
-					{
-						Writer.WriteLine("+ {0}", ScriptPath.Substring(0, SlashIdx));
-					}
-					Writer.WriteLine("+ {0}", ScriptPath);
-				}
-				Writer.WriteLine("protect *");
-			}
-
-			// Write a file that protects all the scripts from being overridden by the standard engine filters
 			FileReference ScriptProtectList = FileReference.Combine(TempDir, "RsyncEngineScripts-Protect.txt");
 			using(StreamWriter Writer = new StreamWriter(ScriptProtectList.FullName))
 			{
@@ -740,14 +753,15 @@ namespace UnrealBuildTool
 			}
 
 			// Upload these files to the remote
-			List<FileReference> FilterLocations = new List<FileReference>();
-			FilterLocations.Add(ScriptUploadList);
-			UploadDirectory(TempDir, GetRemotePath(UnrealBuildTool.EngineDirectory), FilterLocations);
+			Log.TraceInformation("[Remote] Uploading scripts...");
+			UploadFiles(TempDir, GetRemotePath(UnrealBuildTool.EngineDirectory), ScriptPathsFileName);
 
 			// Upload the engine files
 			List<FileReference> EngineFilters = new List<FileReference>();
 			EngineFilters.Add(ScriptProtectList);
 			EngineFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncEngine.txt"));
+
+			Log.TraceInformation("[Remote] Uploading engine files...");
 			UploadDirectory(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory), EngineFilters);
 
 			// Upload the project files
@@ -762,6 +776,7 @@ namespace UnrealBuildTool
 				}
 				ProjectFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncProject.txt"));
 
+				Log.TraceInformation("[Remote] Uploading project files...");
 				UploadDirectory(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory), ProjectFilters);
 			}
 		}
