@@ -52,6 +52,12 @@ public:
 #endif
 	}
 
+	static bool SupportsRHIThread()
+	{
+		//#todo-rco: Workaround for suspected driver bug
+		return !IsRHIDeviceNVIDIA();
+	}
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

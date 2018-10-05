@@ -100,4 +100,6 @@ public:
 
 	// Ensure the last frame completed on the GPU
 	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
+
+	static bool SupportsRHIThread() { return true; }
 };

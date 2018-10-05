@@ -594,14 +594,17 @@ void FVulkanDynamicRHI::InitInstance()
 		GRHISupportsTextureStreaming = true;
 		GSupportsTimestampRenderQueries = FVulkanPlatform::SupportsTimestampRenderQueries();
 		GRHISupportsGPUFence = true;
+
+		bool bSupportsRHIThread = FVulkanPlatform::SupportsRHIThread();
 #if VULKAN_ENABLE_DUMP_LAYER
 		// Disable RHI thread by default if the dump layer is enabled
 		GRHISupportsRHIThread = false;
 		GRHISupportsParallelRHIExecute = false;
 #else
-		GRHISupportsRHIThread = GRHIThreadCvar->GetInt() != 0;
+		GRHISupportsRHIThread = GRHIThreadCvar->GetInt() != 0 && bSupportsRHIThread;
 		GRHISupportsParallelRHIExecute = GRHIThreadCvar->GetInt() > 1;
 #endif
+
 		// Some platforms might only have CPU for an RHI thread, but not for parallel tasks
 		GSupportsParallelRenderingTasksWithSeparateRHIThread = GRHISupportsRHIThread ? FVulkanPlatform::SupportParallelRenderingTasks() : false;
 
