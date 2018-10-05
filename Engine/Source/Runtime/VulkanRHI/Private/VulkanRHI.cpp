@@ -16,6 +16,7 @@
 #include "VulkanPipelineState.h"
 #include "Misc/FileHelper.h"
 #include "VulkanLLM.h"
+#include "Misc/EngineVersion.h"
 #include "GlobalShader.h"
 
 extern RHI_API bool GUseTexture3DBulkDataRHI;
@@ -300,12 +301,19 @@ void FVulkanDynamicRHI::CreateInstance()
 	auto* CVarDisableEngineAndAppRegistration = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DisableEngineAndAppRegistration"));
 	bool bDisableEngineRegistration = (CVarDisableEngineAndAppRegistration && CVarDisableEngineAndAppRegistration->GetValueOnAnyThread() != 0) ||
 		(CVarShaderDevelopmentMode && CVarShaderDevelopmentMode->GetValueOnAnyThread() != 0);
+
+	// EngineName will be of the form "UnrealEngine4.21", with the minor version ("21" in this example)
+	// updated with every quarterly release
+	FString EngineName = FApp::GetEpicProductIdentifier() + FEngineVersion::Current().ToString(EVersionComponent::Minor);
+	FTCHARToUTF8 EngineNameConverter(*EngineName);
+	FTCHARToUTF8 ProjectNameConverter(FApp::GetProjectName());
+
 	VkApplicationInfo AppInfo;
 	ZeroVulkanStruct(AppInfo, VK_STRUCTURE_TYPE_APPLICATION_INFO);
-	AppInfo.pApplicationName = bDisableEngineRegistration ? "" : "UE4";
-	//AppInfo.applicationVersion = 0;
-	AppInfo.pEngineName = bDisableEngineRegistration ? "" : "UE4";
-	AppInfo.engineVersion = 15;
+	AppInfo.pApplicationName = bDisableEngineRegistration ? nullptr : ProjectNameConverter.Get();
+	AppInfo.applicationVersion = 0;	// Do we want FApp::GetBuildVersion() ?
+	AppInfo.pEngineName = bDisableEngineRegistration ? nullptr : EngineNameConverter.Get();
+	AppInfo.engineVersion = FEngineVersion::Current().GetMinor();
 	AppInfo.apiVersion = UE_VK_API_VERSION;
 
 	VkInstanceCreateInfo InstInfo;
