@@ -966,6 +966,17 @@ void FMetalContext::InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mt
 FMetalContext* FMetalContext::GetCurrentContext()
 {
 	FMetalContext* Current = (FMetalContext*)FPlatformTLS::GetTlsValue(CurrentContextTLSSlot);
+	
+	if (!Current)
+	{
+		// If we are executing this outside of a pass we'll return the default.
+		// TODO This needs further investigation. We should fix all the cases that call this without
+		// a context set.
+		FMetalRHICommandContext* CmdContext = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
+		check(CmdContext);
+		Current = &CmdContext->GetInternalContext();
+	}
+	
 	check(Current);
 	return Current;
 }
