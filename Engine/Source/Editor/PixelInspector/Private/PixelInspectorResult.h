@@ -27,6 +27,8 @@ namespace PixelInspector
 			ViewUniqueId = -1;
 			ViewportUV = FVector2D(-1, -1);
 
+			PreExposure = 1.f;
+
 			Depth = 0.0f;
 			WorldPosition = FVector(0.0f);
 
@@ -58,6 +60,12 @@ namespace PixelInspector
 		// Data Identification
 		int32 ViewUniqueId;
 		FVector2D ViewportUV;
+
+
+		//////////////////////////////////////////////////////////////////////////
+		// PreExposure used to render this frame. See "r.UsePreExposure"
+		float PreExposure;
+		float OneOverPreExposure;
 
 		//////////////////////////////////////////////////////////////////////////
 		// Final color 3x3 grid
