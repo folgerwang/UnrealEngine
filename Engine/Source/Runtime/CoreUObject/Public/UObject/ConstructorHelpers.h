@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "Templates/SubclassOf.h"
 #include "UObject/Package.h"
+#include "UObject/GCObject.h"
 
 namespace ConstructorHelpersInternal
 {
