@@ -57,6 +57,12 @@ namespace AutomationTool.Tasks
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public bool RevertUnchanged;
+
+		/// <summary>
+		/// Force the submit to happen, even if a resolve is needed (always accept current version)
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public bool Force;
 	}
 
 	/// <summary>
@@ -144,7 +150,7 @@ namespace AutomationTool.Tasks
 
 				// Submit it
 				int SubmittedCL;
-				SubmitP4.Submit(NewCL, out SubmittedCL);
+				SubmitP4.Submit(NewCL, out SubmittedCL, Force: Parameters.Force);
 				if (SubmittedCL <= 0)
 				{
 					throw new AutomationException("Submit failed.");
