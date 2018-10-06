@@ -950,7 +950,8 @@ public:
 			CandidateObject->SetBoundingBox(BoundingBox);
 			
 			// Serialize the object into a byte array and stick that on the candidate object
-			NSData* RefObjData = [NSKeyedArchiver archivedDataWithRootObject: ReferenceObject];
+			NSError* ErrorObj = nullptr;
+			NSData* RefObjData = [NSKeyedArchiver archivedDataWithRootObject: ReferenceObject requiringSecureCoding: YES error: &ErrorObj];
 			uint32 SavedSize = RefObjData.length;
 			TArray<uint8> RawBytes;
 			RawBytes.AddUninitialized(SavedSize);
@@ -1020,28 +1021,36 @@ public:
 	{
 		if (bWasSuccessful)
 		{
-			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap];
-
-			int32 UncompressedSize = WorldNSData.length;
-
-			TArray<uint8> CompressedData;
-			CompressedData.AddUninitialized(WorldNSData.length + AR_SAVE_WORLD_HEADER_SIZE);
-			uint8* Buffer = (uint8*)CompressedData.GetData();
-			// Write our magic header into our buffer
-			FARWorldSaveHeader& Header = *(FARWorldSaveHeader*)Buffer;
-			Header = FARWorldSaveHeader();
-			Header.UncompressedSize = UncompressedSize;
-			
-			// Compress the data
-			uint8* CompressInto = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
-			int32 CompressedSize = UncompressedSize;
-			uint8* UncompressedData = (uint8*)[WorldNSData bytes];
-			verify(FCompression::CompressMemory((ECompressionFlags)COMPRESS_ZLIB, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
-			
-			// Only copy out the amount of compressed data and the header
-			int32 CompressedSizePlusHeader = CompressedSize + AR_SAVE_WORLD_HEADER_SIZE;
-			WorldData.AddUninitialized(CompressedSizePlusHeader);
-			FPlatformMemory::Memcpy(WorldData.GetData(), CompressedData.GetData(), CompressedSizePlusHeader);
+			NSError* ErrorObj = nullptr;
+			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap requiringSecureCoding: YES error: &ErrorObj];
+			if (ErrorObj == nullptr)
+			{
+				int32 UncompressedSize = WorldNSData.length;
+				
+				TArray<uint8> CompressedData;
+				CompressedData.AddUninitialized(WorldNSData.length + AR_SAVE_WORLD_HEADER_SIZE);
+				uint8* Buffer = (uint8*)CompressedData.GetData();
+				// Write our magic header into our buffer
+				FARWorldSaveHeader& Header = *(FARWorldSaveHeader*)Buffer;
+				Header = FARWorldSaveHeader();
+				Header.UncompressedSize = UncompressedSize;
+				
+				// Compress the data
+				uint8* CompressInto = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
+				int32 CompressedSize = UncompressedSize;
+				uint8* UncompressedData = (uint8*)[WorldNSData bytes];
+				verify(FCompression::CompressMemory((ECompressionFlags)COMPRESS_ZLIB, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
+				
+				// Only copy out the amount of compressed data and the header
+				int32 CompressedSizePlusHeader = CompressedSize + AR_SAVE_WORLD_HEADER_SIZE;
+				WorldData.AddUninitialized(CompressedSizePlusHeader);
+				FPlatformMemory::Memcpy(WorldData.GetData(), CompressedData.GetData(), CompressedSizePlusHeader);
+			}
+			else
+			{
+				Error = [ErrorObj localizedDescription];
+				bHadError = true;
+			}
 		}
 		else
 		{
