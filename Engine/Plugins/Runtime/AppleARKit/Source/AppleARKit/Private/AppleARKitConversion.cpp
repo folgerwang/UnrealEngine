@@ -329,14 +329,19 @@ ARConfiguration* FAppleARKitConversion::ToARConfiguration( UARSessionConfig* Ses
 		default:
 			return nullptr;
 	}
-	check(SessionConfiguration != nullptr);
-
-	// Copy / convert properties
-	SessionConfiguration.lightEstimationEnabled = SessionConfig->GetLightEstimationMode() != EARLightEstimationMode::None;
-	SessionConfiguration.providesAudioData = NO;
-	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
-
-	return SessionConfiguration;
+		if (SessionConfiguration != nullptr)
+        {
+            // Copy / convert properties
+            SessionConfiguration.lightEstimationEnabled = SessionConfig->GetLightEstimationMode() != EARLightEstimationMode::None;
+            SessionConfiguration.providesAudioData = NO;
+            SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
+        }
+        else
+        {
+            UE_LOG(LogAppleARKit, Error, TEXT("Failed to create the requested ARKit Session Type. Please check that the device supports this session type."));
+        }
+    
+    return SessionConfiguration;
 }
 
 #pragma clang diagnostic pop
