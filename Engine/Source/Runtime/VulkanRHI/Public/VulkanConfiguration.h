@@ -4,7 +4,7 @@
 	VulkanConfiguration.h: Control compilation of the runtime RHI.
 =============================================================================*/
 
-// Compiled with 1.0.65.1
+// Compiled with 1.1.82.1
 
 #pragma once
 
