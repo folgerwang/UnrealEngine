@@ -125,6 +125,9 @@ void FVulkanWindowsPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExt
 	}
 
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	// YCbCr requires BindMem2 and GetMemReqs2
+	OutExtensions.Add(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME);
 #endif
 }
