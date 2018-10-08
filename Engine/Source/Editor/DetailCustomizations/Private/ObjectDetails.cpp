@@ -15,6 +15,7 @@
 #include "DetailCategoryBuilder.h"
 #include "IDetailsView.h"
 #include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 #include "ObjectEditorUtils.h"
@@ -97,6 +98,18 @@ void FObjectDetails::AddCallInEditorMethods(IDetailLayoutBuilder& DetailBuilder)
 
 		if (TestFunction->GetBoolMetaData(FBlueprintMetadata::MD_CallInEditor) && (TestFunction->ParmsSize == 0))
 		{
+			if (UClass* TestFunctionOwnerClass = TestFunction->GetOwnerClass())
+			{
+				if (UBlueprint* Blueprint = Cast<UBlueprint>(TestFunctionOwnerClass->ClassGeneratedBy))
+				{
+					if (FBlueprintEditorUtils::IsBlutility(Blueprint))
+					{
+						// Skip Blutilities as these are handled by FEditorUtilityInstanceDetails
+						continue;
+					}
+				}
+			}
+
 			CallInEditorFunctions.Add(*FunctionIter);
 		}
 	}
