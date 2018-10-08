@@ -61,9 +61,6 @@ public:
 
 	~FKismetDebugUtilitiesData()
 	{
-		volatile int32 a = 0;
-		++a;
-		(void)a;
 	}
 
 	void Reset()
