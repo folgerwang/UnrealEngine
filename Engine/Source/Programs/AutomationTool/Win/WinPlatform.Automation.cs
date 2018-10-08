@@ -184,17 +184,31 @@ public abstract class BaseWinPlatform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
-        List<FileReference> ExeNames = GetExecutableNames(SC);
-
-        // Select target configurations based on the exe list returned from GetExecutableNames
-        List<UnrealTargetConfiguration> TargetConfigs = SC.StageTargetConfigurations.GetRange(0, ExeNames.Count);
-
-		if (!Params.HasDLCName)
+		// If this is a content-only project and there's a custom icon, update the executable
+		if (!Params.HasDLCName && !Params.IsCodeBasedProject)
 		{
-			WindowsExports.SetApplicationIcon(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, TargetConfigs, ExeNames, SC.EngineRoot);
+			FileReference IconFile = FileReference.Combine(Params.RawProjectPath.Directory, "Build", "Windows", "Application.ico");
+			if(FileReference.Exists(IconFile))
+			{
+				CommandUtils.LogInformation("Updating executable with custom icon from {0}", IconFile);
+
+				GroupIconResource GroupIcon = GroupIconResource.FromIco(IconFile.FullName);
+
+				List<FileReference> ExecutablePaths = GetExecutableNames(SC);
+				foreach (FileReference ExecutablePath in ExecutablePaths)
+				{
+					using (ModuleResourceUpdate Update = new ModuleResourceUpdate(ExecutablePath.FullName, false))
+					{
+						const int IconResourceId = 123; // As defined in Engine\Source\Runtime\Launch\Resources\Windows\resource.h
+						if (GroupIcon != null)
+						{
+							Update.SetIcons(IconResourceId, GroupIcon);
+						}
+					}
+				}
+			}
 		}
 
-		// package up the program, potentially with an installer for Windows
 		PrintRunTime();
 	}
 
