@@ -66,6 +66,13 @@ void UComboBoxString::ReleaseSlateResources(bool bReleaseChildren)
 	ComboBoxContent.Reset();
 }
 
+void UComboBoxString::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
+}
+
 void UComboBoxString::PostLoad()
 {
 	Super::PostLoad();
