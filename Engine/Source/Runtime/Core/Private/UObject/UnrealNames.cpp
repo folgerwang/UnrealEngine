@@ -1286,6 +1286,12 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 			Ar << E.NonCasePreservingHash;
 			Ar << E.CasePreservingHash;
 			E.bWereHashesLoaded = true;
+
+			if (Ar.UE4Ver() < VER_UE4_FIX_WIDE_STRING_CRC && E.IsWide())
+			{
+				// Regenerate hashes for packages saved before a fix to how hashes are generated
+				E.NonCasePreservingHash = GetRawNonCasePreservingHash(E.GetWideName());
+			}
 		}
 	}
 	else
