@@ -137,6 +137,8 @@ namespace Audio
 		});
 	}
 
+// MSVC 2017 15.8.4 is generating bad code where setting submix will crash
+MSVC_PRAGMA(optimize("", off))
 	void FMixerSubmix::AddChildSubmix(TWeakPtr<FMixerSubmix, ESPMode::ThreadSafe> SubmixWeakPtr)
 	{
 		SubmixCommand([this, SubmixWeakPtr]()
@@ -161,6 +163,7 @@ namespace Audio
 			}
 		});
 	}
+MSVC_PRAGMA(optimize("", on))
 
 	ESubmixChannelFormat FMixerSubmix::GetSubmixChannels() const
 	{
