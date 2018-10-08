@@ -198,7 +198,10 @@ protected:
 	void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12ComputePipelineStateDesc& Desc) final override;
 
 public:
-
+#if !D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
+	using FD3D12PipelineStateCacheBase::FindInLoadedCache;
+	using FD3D12PipelineStateCacheBase::CreateAndAdd;
+#endif
 	void RebuildFromDiskCache(ID3D12RootSignature* GraphicsRootSignature, ID3D12RootSignature* ComputeRootSignature);
 
 	void Close();
@@ -207,7 +210,7 @@ public:
 	bool IsInErrorState() const;
 
 	FD3D12PipelineStateCache(FD3D12Adapter* InParent);
-	~FD3D12PipelineStateCache();
+	virtual ~FD3D12PipelineStateCache();
 };
 
 template <typename TDesc> struct TPSOFunctionMap;

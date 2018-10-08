@@ -638,6 +638,7 @@ void FD3D12PipelineState::Create(const ComputePipelineCreationArgs& InCreationAr
 {
 	check(PipelineState.GetReference() == nullptr);
 	PipelineState = CreatePipelineStateWrapper(GetParentAdapter(), &InCreationArgs.Args);
+	PipelineState->Release();
 }
 
 void FD3D12PipelineState::CreateAsync(const ComputePipelineCreationArgs& InCreationArgs)
@@ -654,6 +655,7 @@ void FD3D12PipelineState::Create(const GraphicsPipelineCreationArgs& InCreationA
 {
 	check(PipelineState.GetReference() == nullptr);
 	PipelineState = CreatePipelineStateWrapper(GetParentAdapter(), &InCreationArgs.Args);
+	PipelineState->Release();
 }
 
 void FD3D12PipelineState::CreateAsync(const GraphicsPipelineCreationArgs& InCreationArgs)
@@ -676,6 +678,10 @@ void FD3D12PipelineStateWorker::DoWork()
 	{
 		PSO = CreatePipelineStateWrapper(GetParentAdapter(), &CreationArgs.ComputeArgs);
 	}
+	// Newly created d3d object has a ref-count of 1
+	// If we don't call Release here, its ref-count will not drop to 0
+	// even if we don't reference it anymore
+	PSO->Release();
 }
 
 #if LOG_PSO_CREATES
