@@ -386,17 +386,20 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 				FBlueprintEditorUtils::GetDependentBlueprints(CompileJob.BPToCompile, DependentBlueprints);
 				for(UBlueprint* DependentBlueprint : DependentBlueprints)
 				{
-					DependentBlueprint->bQueuedForCompilation = true;
-					CurrentlyCompilingBPs.Add(
-						FCompilerData(
-							DependentBlueprint, 
-							ECompilationManagerJobType::Normal, 
-							nullptr, 
-							EBlueprintCompileOptions::None, 
-							false // full compile
-						)
-					);
-					BlueprintsToRecompile.Add(DependentBlueprint);
+					if(!IsQueuedForCompilation(DependentBlueprint))
+					{
+						DependentBlueprint->bQueuedForCompilation = true;
+						CurrentlyCompilingBPs.Add(
+							FCompilerData(
+								DependentBlueprint, 
+								ECompilationManagerJobType::Normal, 
+								nullptr, 
+								EBlueprintCompileOptions::None, 
+								false // full compile
+							)
+						);
+						BlueprintsToRecompile.Add(DependentBlueprint);
+					}
 				}
 			}
 		}
