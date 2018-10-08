@@ -4017,6 +4017,10 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 
 		Package->SetPackageFlagsTo(OriginalPackageFlags);
 	}
+	else
+	{
+		SavePackageResults.Add(FSavePackageResultStruct(ESavePackageResult::MissingFile));
+	}
 
 	check(bIsSavingPackage == true);
 	bIsSavingPackage = false;
