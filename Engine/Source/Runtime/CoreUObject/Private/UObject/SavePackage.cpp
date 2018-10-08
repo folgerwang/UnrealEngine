@@ -1376,11 +1376,21 @@ FArchive& FArchiveSaveTagImports::operator<<(FSoftObjectPath& Value)
 	{
 		Value.SerializePath(*this);
 
-		FString Path = Value.ToString();
-		FName PackageName = FName(*FPackageName::ObjectPathToPackageName(Path));
+		FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
+		FName ReferencingPackageName, ReferencingPropertyName;
+		ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
+		ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
 
-		SavePackageState.MarkNameAsReferenced(PackageName);
-		Linker->SoftPackageReferenceList.AddUnique(PackageName);	
+		ThreadContext.GetSerializationOptions(ReferencingPackageName, ReferencingPropertyName, CollectType, SerializeType, this);
+
+		if (CollectType != ESoftObjectPathCollectType::NeverCollect)
+		{
+			// Don't track if this is a never collect path
+			FString Path = Value.ToString();
+			FName PackageName = FName(*FPackageName::ObjectPathToPackageName(Path));
+			SavePackageState.MarkNameAsReferenced(PackageName);
+			Linker->SoftPackageReferenceList.AddUnique(PackageName);
+		}
 	}
 	return *this;
 }
