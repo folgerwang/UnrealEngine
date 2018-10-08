@@ -830,6 +830,20 @@ X11_DispatchEvent(_THIS)
             mouse->last_x = xevent.xcrossing.x;
             mouse->last_y = xevent.xcrossing.y;
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+            {
+                SDL_WindowData* windowdata = (SDL_WindowData *) data->window->driverdata;
+                // Only create the barriers if we have input focus
+                if ((data->pointer_barrier_active == SDL_TRUE) && windowdata->window->flags & SDL_WINDOW_INPUT_FOCUS) {
+                    X11_ConfineCursor(_this, windowdata->window, &windowdata->barrier_rect, X11_BARRIER_HANDLED_BY_EVENT);
+                }
+            }
+#endif
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
             if (!mouse->relative_mode) {
                 SDL_SendMouseMotion(data->window, 0, 0, xevent.xcrossing.x, xevent.xcrossing.y);
             }
@@ -890,17 +904,6 @@ X11_DispatchEvent(_THIS)
                 data->pending_focus_time = SDL_GetTicks() + PENDING_FOCUS_TIME;
             }
             data->last_focus_event_time = SDL_GetTicks();
-
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-            /* Yaakuro: Re-enable confinement for the window if it was deactivated 
-             * by FocusOut. */
-            if ((data->pointer_barrier_active == SDL_TRUE)) {
-                SDL_WindowData* windowdata = (SDL_WindowData *) data->window->driverdata;
-                X11_ConfineCursor(_this, windowdata->window, &windowdata->barrier_rect, X11_BARRIER_HANDLED_BY_EVENT);
-            }
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
         }
         break;
 
@@ -1074,6 +1077,15 @@ X11_DispatchEvent(_THIS)
                 
             if (xevent.xconfigure.x != data->last_xconfigure.x ||
                 xevent.xconfigure.y != data->last_xconfigure.y) {
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+                SDL_WindowData* windowdata = (SDL_WindowData *) data->window->driverdata;
+                windowdata->barrier_rect.x = xevent.xconfigure.x;
+                windowdata->barrier_rect.y = xevent.xconfigure.y;
+#endif
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
                 SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_MOVED,
                                     xevent.xconfigure.x, xevent.xconfigure.y);
 #ifdef SDL_USE_IME
@@ -1085,6 +1097,15 @@ X11_DispatchEvent(_THIS)
             }
             if (xevent.xconfigure.width != data->last_xconfigure.width ||
                 xevent.xconfigure.height != data->last_xconfigure.height) {
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+                SDL_WindowData* windowdata = (SDL_WindowData *) data->window->driverdata;
+                windowdata->barrier_rect.w = xevent.xconfigure.width;
+                windowdata->barrier_rect.h = xevent.xconfigure.height;
+#endif
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
                 SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_RESIZED,
                                     xevent.xconfigure.width,
                                     xevent.xconfigure.height);
