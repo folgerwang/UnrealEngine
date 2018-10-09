@@ -59,10 +59,6 @@ public:
 	{
 	}
 
-	~FKismetDebugUtilitiesData()
-	{
-	}
-
 	void Reset()
 	{
 		TargetGraphNodes.Empty();
