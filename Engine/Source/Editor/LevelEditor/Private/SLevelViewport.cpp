@@ -3797,7 +3797,12 @@ void SLevelViewport::SwapViewportsForSimulateInEditor()
 	// Resize the viewport to be the same size the previously active viewport
 	// When starting in immersive mode its possible that the viewport has not been resized yet
 	ActiveViewport->OnPlayWorldViewportSwapped( *InactiveViewport );
-	
+
+	if (GameLayerManager.IsValid())
+	{
+		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+	}
+
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
 
 	// Kick off a quick transition effect (border graphics)
@@ -3832,6 +3837,11 @@ void SLevelViewport::SwapViewportsForPlayInEditor()
 	// Resize the viewport to be the same size the previously active viewport
 	// When starting in immersive mode its possible that the viewport has not been resized yet
 	ActiveViewport->OnPlayWorldViewportSwapped( *InactiveViewport );
+
+	if (GameLayerManager.IsValid())
+	{
+		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+	}
 
 	InactiveViewportWidgetEditorContent = ViewportWidget->GetContent();
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
