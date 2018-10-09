@@ -409,7 +409,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	* Parameter Name functions, this is requires as multiple class have ParameterName
 	* but are not UMaterialExpressionParameter due to class hierarchy. */
 	virtual bool HasAParameterName() const { return false; }
-	virtual void ValidateParameterName();
+	virtual void ValidateParameterName(const bool bAllowDuplicateName = true);
 
 	virtual FName GetParameterName() const { return NAME_None; }
 	virtual void SetParameterName(const FName& Name) {}

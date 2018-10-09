@@ -47,7 +47,7 @@ class UMaterialExpressionCollectionParameter : public UMaterialExpression
 	virtual bool HasAParameterName() const override { return true; }
 	virtual FName GetParameterName() const override { return ParameterName; }
 	virtual void SetParameterName(const FName& Name) override { ParameterName = Name; }
-	virtual void ValidateParameterName() override {};
+	virtual void ValidateParameterName(const bool bAllowDuplicateName) override {};
 
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 #endif
