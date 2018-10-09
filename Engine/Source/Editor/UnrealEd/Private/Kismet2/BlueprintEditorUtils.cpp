@@ -2697,8 +2697,6 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 		GraphToRemove->SetFlags(RF_Transient);
 	}
 
-	GraphToRemove->MarkPendingKill();
-
 	if (Flags & EGraphRemoveFlags::Recompile )
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
