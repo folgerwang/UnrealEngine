@@ -1409,13 +1409,13 @@ void FMetalShaderParameterCache::CommitPackedGlobals(FMetalStateCache* Cache, FM
 				uint8 const* Bytes = PackedGlobalUniforms[Index]->Data;
 				ns::AutoReleased<FMetalBuffer> Buffer(Encoder->GetRingBuffer().NewBuffer(Size, 0));
 				FMemory::Memcpy((uint8*)Buffer.GetContents(), Bytes, Size);
-				Cache->SetShaderBuffer(Frequency, Buffer, nil, 0, Size, UniformBufferIndex);
+				Cache->SetShaderBuffer(Frequency, Buffer, nil, 0, Size, UniformBufferIndex, mtlpp::ResourceUsage::Read);
 			}
 			else
 			{
 				PackedGlobalUniforms[Index]->Len = Size;
-				Cache->SetShaderBuffer(Frequency, nil, nil, 0, 0, UniformBufferIndex);
-				Cache->SetShaderBuffer(Frequency, nil, PackedGlobalUniforms[Index], 0, Size, UniformBufferIndex);
+				Cache->SetShaderBuffer(Frequency, nil, nil, 0, 0, UniformBufferIndex, mtlpp::ResourceUsage(0));
+				Cache->SetShaderBuffer(Frequency, nil, PackedGlobalUniforms[Index], 0, Size, UniformBufferIndex, mtlpp::ResourceUsage::Read);
 			}
 
 			// mark as clean

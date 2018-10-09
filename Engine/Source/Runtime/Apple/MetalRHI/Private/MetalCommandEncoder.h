@@ -308,8 +308,10 @@ public:
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Length The data length - caller is responsible for accounting for non-zero Offset.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage mask.
+	 * @param Format The Pixel format to reinterpret the resource as.
 	 */
-	void SetShaderBuffer(mtlpp::FunctionType const FunctionType, FMetalBuffer const& Buffer, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderBuffer(mtlpp::FunctionType const FunctionType, FMetalBuffer const& Buffer, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, mtlpp::ResourceUsage const Usage, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set an FMetalBufferData to the specified shader frequency at the given bind point index.
@@ -317,6 +319,7 @@ public:
 	 * @param Data The data to bind or nullptr to clear.
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Index The index to modify.
+	 * @param Format The pixel format to reinterpret the resource as.
 	 */
 	void SetShaderData(mtlpp::FunctionType const FunctionType, FMetalBufferData* Data, NSUInteger const Offset, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
 	
@@ -334,8 +337,9 @@ public:
 	 * @param FunctionType The shader function to modify.
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage mask.
 	 */
-	void SetShaderTexture(mtlpp::FunctionType const FunctionType, FMetalTexture const& Texture, NSUInteger const Index);
+	void SetShaderTexture(mtlpp::FunctionType const FunctionType, FMetalTexture const& Texture, NSUInteger const Index, mtlpp::ResourceUsage const Usage);
 	
 	/*
 	 * Set a global sampler for the specified shader frequency at the given bind point index.
@@ -390,6 +394,8 @@ private:
 	
 	void SetShaderBufferInternal(mtlpp::FunctionType Function, uint32 Index);
 	
+	void UseResource(mtlpp::Resource const& Resource, mtlpp::ResourceUsage const Usage);
+	
 #pragma mark - Private Type Declarations -
 private:
     /** A structure of arrays for the current buffer binding settings. */
@@ -403,6 +409,8 @@ private:
         FMetalBufferData* Bytes[ML_MaxBuffers];
         /** The bound buffer offsets or 0. */
         NSUInteger Offsets[ML_MaxBuffers];
+		/** The usage mask for the bound resource or 0 */
+		mtlpp::ResourceUsage Usage[ML_MaxBuffers];
 		/** The bound buffer lengths */
 		uint32 Lengths[ML_MaxBuffers*2];
         /** A bitmask for which buffers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
@@ -455,6 +463,8 @@ private:
     
 	TSet<ns::AutoReleased<FMetalBuffer>> BufferBindingHistory;
 	TSet<ns::AutoReleased<FMetalTexture>> TextureBindingHistory;
+	
+	TMap<mtlpp::Resource::Type, mtlpp::ResourceUsage> ResourceUsage;
 	
 	uint32 EncoderNum;
 };

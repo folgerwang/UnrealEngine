@@ -99,6 +99,8 @@ typedef NS_OPTIONS(uint64, EMetalFeatures)
 	EMetalFeaturesMaxThreadsPerThreadgroup = 1llu << 39llu,
 	/** Supports parallel render encoders */
 	EMetalFeaturesParallelRenderEncoders = 1llu << 40llu,
+	/** Supports indirect argument buffers */
+	EMetalFeaturesIABs = 1llu << 41llu,
 };
 
 /**

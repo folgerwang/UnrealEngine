@@ -212,6 +212,11 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		{
 			Features |= EMetalFeaturesHeaps;
 		}
+		
+		if (FParse::Param(FCommandLine::Get(),TEXT("metaliabs")))
+		{
+			Features |= EMetalFeaturesIABs;
+		}
     }
 	else
 	// Time query emulation breaks on AMD < 10.13 - disable by default until they can explain why, should work everywhere else.
