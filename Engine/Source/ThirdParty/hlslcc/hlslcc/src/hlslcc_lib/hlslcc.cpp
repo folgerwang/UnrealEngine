@@ -335,6 +335,7 @@ bool FHlslCrossCompilerContext::RunBackend(
 	}
 	//TIMER(gen_main);
 
+	//IRDump(ir);
 	if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
 	{
 		return false;
