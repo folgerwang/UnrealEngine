@@ -621,6 +621,8 @@ public:
 					}
 				}
 			}
+			// Remove from map as we could get GCd later
+			ClassToPlaceholderMap.Remove(ForClass);
 		}
 	}
 
