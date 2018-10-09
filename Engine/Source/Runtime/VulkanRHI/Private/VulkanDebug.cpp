@@ -75,11 +75,6 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 				// Attachment N not written by fragment shader
 				return VK_FALSE;
 			}
-			else if (MsgCode == 5)
-			{
-				// SPIR-V module not valid: MemoryBarrier: Vulkan specification requires Memory Semantics to have one of the following bits set: Acquire, Release, AcquireRelease or SequentiallyConsistent
-				return VK_FALSE;
-			}
 		}
 		if (!FCStringAnsi::Strcmp(LayerPrefix, "DS"))
 		{
