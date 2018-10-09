@@ -1699,6 +1699,9 @@ protected:
 
 	float DeviceDeltaTime;
 
+	/** Whether the device was initialized. */
+	FORCEINLINE bool IsInitialized() const { return bIsInitialized; }
+
 private:
 
 	/** Whether the value in HighestPriorityActivatedReverb should be used - Audio Thread owned */
