@@ -1733,7 +1733,7 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	{
 		TArray<FInstancedStaticMeshInstanceData_DEPRECATED> DeprecatedData;
 		DeprecatedData.BulkSerialize(Ar);
-		PerInstanceSMData.Reserve(DeprecatedData.Num());
+		PerInstanceSMData.Reset(DeprecatedData.Num());
 		Algo::Transform(DeprecatedData, PerInstanceSMData, [](const FInstancedStaticMeshInstanceData_DEPRECATED& OldData){ 
 			return FInstancedStaticMeshInstanceData(OldData.Transform);
 		});
