@@ -68,6 +68,7 @@ FMetalCommandEncoder::~FMetalCommandEncoder(void)
 	check(!IsComputeCommandEncoderActive());
 	check(!IsBlitCommandEncoderActive());
 	
+	SafeReleaseMetalRenderPassDescriptor(RenderPassDesc);
 	RenderPassDesc = nil;
 
 	if(DebugGroups)
@@ -99,6 +100,7 @@ void FMetalCommandEncoder::Reset(void)
 	
 	if(RenderPassDesc)
 	{
+		SafeReleaseMetalRenderPassDescriptor(RenderPassDesc);
 		RenderPassDesc = nil;
 	}
 	
@@ -957,6 +959,7 @@ void FMetalCommandEncoder::SetRenderPassDescriptor(mtlpp::RenderPassDescriptor R
 	
 	if(RenderPass.GetPtr() != RenderPassDesc.GetPtr())
 	{
+		SafeReleaseMetalRenderPassDescriptor(RenderPassDesc);
 		RenderPassDesc = RenderPass;
 		
 		static bool bDeferredStoreActions = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesDeferredStoreActions);

@@ -148,6 +148,9 @@ void SafeReleaseMetalBuffer(FMetalBuffer& Buffer);
 // Safely release a fence, correctly handling cases where fences aren't supported or the debug implementation is used.
 void SafeReleaseMetalFence(class FMetalFence* Object);
 
+// Safely release a render pass descriptor so that it may be reused.
+void SafeReleaseMetalRenderPassDescriptor(mtlpp::RenderPassDescriptor& Desc);
+
 // Access the underlying surface object from any kind of texture
 FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture);
 

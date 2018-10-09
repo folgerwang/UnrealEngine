@@ -1173,6 +1173,8 @@ mtlpp::RenderCommandEncoder FMetalRenderPass::GetParallelRenderCommandEncoder(ui
 
 void FMetalRenderPass::ConditionalSwitchToRender(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToRenderTime);
+	
 	check(bWithinRenderPass);
 	check(RenderPassDesc);
 	check(CmdList.IsParallel() || CurrentEncoder.GetCommandBuffer());
@@ -1192,6 +1194,8 @@ void FMetalRenderPass::ConditionalSwitchToRender(void)
 
 void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToTessellationTime);
+	
 	check(bWithinRenderPass);
 	check(RenderPassDesc);
 	check(CurrentEncoder.GetCommandBuffer());
@@ -1276,6 +1280,8 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 
 void FMetalRenderPass::ConditionalSwitchToCompute(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToComputeTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(!CurrentEncoder.IsParallel());
 	
@@ -1311,6 +1317,8 @@ void FMetalRenderPass::ConditionalSwitchToCompute(void)
 
 void FMetalRenderPass::ConditionalSwitchToBlit(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToBlitTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(!CurrentEncoder.IsParallel());
 	
@@ -1345,6 +1353,8 @@ void FMetalRenderPass::ConditionalSwitchToBlit(void)
 
 void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSwitchToAsyncBlitTime);
+	
 	if (PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
@@ -1411,6 +1421,8 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 
 void FMetalRenderPass::CommitRenderResourceTables(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalCommitRenderResourceTablesTime);
+	
 	State.CommitRenderResources(&CurrentEncoder);
 	
 	State.CommitResourceTable(SF_Vertex, mtlpp::FunctionType::Vertex, CurrentEncoder);
@@ -1467,6 +1479,8 @@ void FMetalRenderPass::CommitDispatchResourceTables(void)
 
 void FMetalRenderPass::PrepareToRender(uint32 PrimitiveType)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalPrepareToRenderTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(CurrentEncoder.IsRenderCommandEncoderActive());
 	
@@ -1481,6 +1495,8 @@ void FMetalRenderPass::PrepareToRender(uint32 PrimitiveType)
 
 void FMetalRenderPass::PrepareToTessellate(uint32 PrimitiveType)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalPrepareToTessellateTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(PrologueEncoder.GetCommandBuffer());
 	check(CurrentEncoder.IsRenderCommandEncoderActive());
@@ -1497,6 +1513,8 @@ void FMetalRenderPass::PrepareToTessellate(uint32 PrimitiveType)
 
 void FMetalRenderPass::PrepareToDispatch(void)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalPrepareToDispatchTime);
+	
 	check(CurrentEncoder.GetCommandBuffer());
 	check(CurrentEncoder.IsComputeCommandEncoderActive());
 	

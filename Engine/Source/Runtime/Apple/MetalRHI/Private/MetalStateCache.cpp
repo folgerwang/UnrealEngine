@@ -65,6 +65,77 @@ FORCEINLINE mtlpp::StoreAction GetConditionalMetalRTStoreAction(bool bMSAATarget
 	}	
 }
 
+class FMetalRenderPassDescriptorPool
+{
+public:
+	FMetalRenderPassDescriptorPool()
+	{
+		
+	}
+	
+	~FMetalRenderPassDescriptorPool()
+	{
+		
+	}
+	
+	mtlpp::RenderPassDescriptor CreateDescriptor()
+	{
+		MTLRenderPassDescriptor* Desc = Cache.Pop();
+		if (!Desc)
+		{
+			Desc = [MTLRenderPassDescriptor new];
+		}
+		return mtlpp::RenderPassDescriptor(Desc);
+	}
+	
+	void ReleaseDescriptor(mtlpp::RenderPassDescriptor& Desc)
+	{
+		mtlpp::Texture EmptyTex;
+		
+		ns::Array<mtlpp::RenderPassColorAttachmentDescriptor> Attachements = Desc.GetColorAttachments();
+		for (uint32 i = 0; i < MaxSimultaneousRenderTargets; i++)
+		{
+			mtlpp::RenderPassColorAttachmentDescriptor Color = Attachements[i];
+			Color.SetTexture(EmptyTex);
+			Color.SetResolveTexture(EmptyTex);
+		}
+		
+		mtlpp::RenderPassDepthAttachmentDescriptor Depth = Desc.GetDepthAttachment();
+		Depth.SetTexture(EmptyTex);
+		Depth.SetResolveTexture(EmptyTex);
+
+		mtlpp::RenderPassStencilAttachmentDescriptor Stencil = Desc.GetStencilAttachment();
+		Stencil.SetTexture(EmptyTex);
+		Stencil.SetResolveTexture(EmptyTex);
+
+		mtlpp::Buffer Empty;
+		Desc.SetVisibilityResultBuffer(Empty);
+		
+#if PLATFORM_MAC
+		Desc.SetRenderTargetArrayLength(1);
+#endif
+		
+		Cache.Push(Desc.GetPtr());
+	}
+	
+	static FMetalRenderPassDescriptorPool& Get()
+	{
+		static FMetalRenderPassDescriptorPool sSelf;
+		return sSelf;
+	}
+	
+private:
+	TLockFreePointerListLIFO<MTLRenderPassDescriptor> Cache;
+};
+
+void SafeReleaseMetalRenderPassDescriptor(mtlpp::RenderPassDescriptor& Desc)
+{
+	if (Desc.GetPtr())
+	{
+		FMetalRenderPassDescriptorPool::Get().ReleaseDescriptor(Desc);
+	}
+}
+
 FMetalStateCache::FMetalStateCache(bool const bInImmediate)
 : DepthStore(mtlpp::StoreAction::Unknown)
 , StencilStore(mtlpp::StoreAction::Unknown)
@@ -342,7 +413,7 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 		RenderTargetsInfo = InRenderTargets;
 		
 		// at this point, we need to fully set up an encoder/command buffer, so make a new one (autoreleased)
-		mtlpp::RenderPassDescriptor RenderPass;
+		mtlpp::RenderPassDescriptor RenderPass = FMetalRenderPassDescriptorPool::Get().CreateDescriptor();
 	
 		// if we need to do queries, write to the supplied query buffer
 		if (IsFeatureLevelSupported(GMaxRHIShaderPlatform, ERHIFeatureLevel::ES3_1))
@@ -1874,6 +1945,8 @@ void FMetalStateCache::FlushVisibilityResults(FMetalCommandEncoder& CommandEncod
 
 void FMetalStateCache::SetRenderState(FMetalCommandEncoder& CommandEncoder, FMetalCommandEncoder* PrologueEncoder)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSetRenderStateTime);
+	
 	if (RasterBits)
 	{
 		if (RasterBits & EMetalRenderFlagViewport)
@@ -1930,6 +2003,8 @@ void FMetalStateCache::SetRenderState(FMetalCommandEncoder& CommandEncoder, FMet
 
 void FMetalStateCache::SetRenderPipelineState(FMetalCommandEncoder& CommandEncoder, FMetalCommandEncoder* PrologueEncoder)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MetalSetRenderPipelineStateTime);
+	
     if ((PipelineBits & EMetalPipelineFlagRasterMask) != 0)
     {
     	// @todo Could optimise it so that we only re-evaluate the buffer hashes if the shader buffer binding mask changes when changing the PSO
