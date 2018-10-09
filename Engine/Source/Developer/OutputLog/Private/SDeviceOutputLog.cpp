@@ -238,10 +238,6 @@ void SDeviceOutputLog::AddDeviceEntry(ITargetDeviceRef TargetDevice)
 	{
 		return;
 	}
-	if (TargetDevice->IsPlatformAggregated())
-	{
-		return;
-	}
 	const FString DummyIOSDeviceName(FString::Printf(TEXT("All_iOS_On_%s"), FPlatformProcess::ComputerName()));
 	const FString DummyTVOSDeviceName(FString::Printf(TEXT("All_tvOS_On_%s"), FPlatformProcess::ComputerName()));
 	if (TargetDevice->GetId().GetDeviceName().Equals(DummyIOSDeviceName, ESearchCase::IgnoreCase) ||
