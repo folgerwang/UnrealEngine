@@ -66,6 +66,8 @@ class FRunnableThreadWin
 #endif
 	}
 
+	static void SetThreadDescription(HANDLE hThread, PCWSTR lpThreadDescription);
+
 	/**
 	 * The thread entry point. Simply forwards the call on to the right
 	 * thread main function
@@ -190,6 +192,8 @@ protected:
 		// Create a sync event to guarantee the Init() function is called first
 		ThreadInitSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
 
+		ThreadName = InThreadName ? InThreadName : TEXT("Unnamed UE4");
+
 		// Create the new thread
 		{
 			LLM_SCOPE(ELLMTag::ThreadStack);
@@ -209,12 +213,17 @@ protected:
 		}
 		else
 		{
+#if !PLATFORM_XBOXONE		
+			// We try to use the SetThreadDescription API where possible since this
+			// enables thread names in crashdumps and ETW traces
+			SetThreadDescription(Thread, *ThreadName);
+#endif
+
 			FThreadManager::Get().AddThread(ThreadID, this);
 			ResumeThread(Thread);
 
 			// Let the thread start up, then set the name for debug purposes.
 			ThreadInitSyncEvent->Wait(INFINITE);
-			ThreadName = InThreadName ? InThreadName : TEXT("Unnamed UE4");
 #if !PLATFORM_XBOXONE
 			SetThreadName( ThreadID, TCHAR_TO_ANSI( *ThreadName ) );
 #elif !UE_BUILD_SHIPPING
