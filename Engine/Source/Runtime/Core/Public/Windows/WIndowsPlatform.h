@@ -132,7 +132,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 // Pragmas
-#define MSVC_PRAGMA(Pragma) __pragma(Pragma)
+#if !defined(__clang__)
+	#define MSVC_PRAGMA(Pragma) __pragma(Pragma)
+#endif
 
 // Prefetch
 #define PLATFORM_CACHE_LINE_SIZE	128
