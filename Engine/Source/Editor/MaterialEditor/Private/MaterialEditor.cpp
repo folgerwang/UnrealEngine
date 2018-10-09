@@ -2966,7 +2966,7 @@ void FMaterialEditor::OnPromoteToParameter()
 		if (MaterialNode->MaterialExpression->HasAParameterName())
 		{
 			MaterialNode->MaterialExpression->SetParameterName(TargetPin->PinName);
-			MaterialNode->MaterialExpression->ValidateParameterName();
+			MaterialNode->MaterialExpression->ValidateParameterName(false);
 		}
 	}
 	if (MaterialEditorInstance != nullptr)
