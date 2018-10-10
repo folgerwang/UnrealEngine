@@ -389,9 +389,6 @@ TFuture<bool> FImageWriteQueue::Enqueue(TUniquePtr<IImageWriteTaskBase>&& InTask
 		return TFuture<bool>();
 	}
 
-	TPromise<bool> Promise;
-	TFuture<bool> Future = Promise.GetFuture();
-
 	// Block if the queue is at capacity
 	if (bBlockIfAtCapacity)
 	{
@@ -405,6 +402,9 @@ TFuture<bool> FImageWriteQueue::Enqueue(TUniquePtr<IImageWriteTaskBase>&& InTask
 		UE_LOG(LogImageWriteQueue, Warning, TEXT("Cannot issue a new image write command because the Queue is at max capacity."));
 		return TFuture<bool>();
 	}
+
+	TPromise<bool> Promise;
+	TFuture<bool> Future = Promise.GetFuture();
 
 	// Get the fence metrics for this task
 	uint32 ThisTaskFenceID;
