@@ -48,6 +48,11 @@ FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBuffer
 	, Timing(nullptr)
 	, LastValidTiming(0)
 {
+	if (FVulkanPlatform::SupportsTimestampRenderQueries())
+	{
+		TimestampQueryPool = new FVulkanTimestampQueryPool(InDevice, NUM_TIMESTAMP_QUERIES_PER_POOL);
+	}
+
 	FMemory::Memzero(CurrentViewport);
 	FMemory::Memzero(CurrentScissor);
 

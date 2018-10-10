@@ -175,7 +175,7 @@ public:
 	static const uint64 InvalidQueryResult = 0xFFFFFFFFFFFFFFFFull;
 
 public:
-	FRealtimeGPUProfilerEvent(const FName& InName, const FName& InStatName, FRenderQueryPool* RenderQueryPool)
+	FRealtimeGPUProfilerEvent(const FName& InName, const FName& InStatName, FRenderQueryPoolRHIParamRef RenderQueryPool, uint32& QueryCount)
 		: StartResultMicroseconds(InvalidQueryResult)
 		, EndResultMicroseconds(InvalidQueryResult)
 		, FrameNumber(-1)
@@ -189,10 +189,11 @@ public:
 		Name = InName;
 
 		const int MaxGPUQueries = CVarGPUStatsMaxQueriesPerFrame.GetValueOnRenderThread();
-		if ( MaxGPUQueries == -1 || RenderQueryPool->GetAllocatedQueryCount() < MaxGPUQueries )
+		if ( MaxGPUQueries == -1 || QueryCount < uint32(MaxGPUQueries) )
 		{
 			StartQuery = RenderQueryPool->AllocateQuery();
 			EndQuery = RenderQueryPool->AllocateQuery();
+			QueryCount += 2;
 		}
 	}
 
@@ -201,7 +202,7 @@ public:
 		return IsValidRef(StartQuery); 
 	}
 
-	void ReleaseQueries(FRenderQueryPool* RenderQueryPool, FRHICommandListImmediate* RHICmdListPtr)
+	void ReleaseQueries(FRenderQueryPoolRHIParamRef RenderQueryPool, FRHICommandListImmediate* RHICmdListPtr, uint32& QueryCount)
 	{
 		if ( HasQueriesAllocated() )
 		{
@@ -221,6 +222,7 @@ public:
 			}
 			RenderQueryPool->ReleaseQuery(StartQuery);
 			RenderQueryPool->ReleaseQuery(EndQuery);
+			QueryCount -= 2;
 		}
 	}
 
@@ -348,9 +350,11 @@ Container for a single frame's GPU stats
 -----------------------------------------------------------------------------*/
 class FRealtimeGPUProfilerFrame
 {
+	uint32& QueryCount;
 public:
-	FRealtimeGPUProfilerFrame(FRenderQueryPool* InRenderQueryPool)
-		: FrameNumber(-1)
+	FRealtimeGPUProfilerFrame(FRenderQueryPoolRHIRef InRenderQueryPool, uint32& InQueryCount)
+		: QueryCount(InQueryCount)
+		, FrameNumber(-1)
 		, RenderQueryPool(InRenderQueryPool)
 	{}
 
@@ -362,7 +366,7 @@ public:
 	void PushEvent(FRHICommandListImmediate& RHICmdList, const FName& Name, const FName& StatName)
 	{
 		// TODO: this should really use a pool / free list
-		FRealtimeGPUProfilerEvent* Event = new FRealtimeGPUProfilerEvent(Name, StatName, RenderQueryPool);
+		FRealtimeGPUProfilerEvent* Event = new FRealtimeGPUProfilerEvent(Name, StatName, RenderQueryPool, QueryCount);
 		const int32 EventIndex = GpuProfilerEvents.Num();
 
 		GpuProfilerEvents.Add(Event);
@@ -397,7 +401,7 @@ public:
 		{
 			if (GpuProfilerEvents[Index])
 			{
-				GpuProfilerEvents[Index]->ReleaseQueries(RenderQueryPool, RHICommandListPtr);
+				GpuProfilerEvents[Index]->ReleaseQueries(RenderQueryPool, RHICommandListPtr, QueryCount);
 				delete GpuProfilerEvents[Index];
 			}
 		}
@@ -564,7 +568,7 @@ private:
 	TArray<FGPUEventTimeAggregate> EventAggregates;
 
 	uint32 FrameNumber;
-	FRenderQueryPool* RenderQueryPool;
+	FRenderQueryPoolRHIRef RenderQueryPool;
 };
 
 /*-----------------------------------------------------------------------------
@@ -588,10 +592,11 @@ FRealtimeGPUProfiler::FRealtimeGPUProfiler()
 	, bStatGatheringPaused(false)
 	, bInBeginEndBlock(false)
 {
-	RenderQueryPool = new FRenderQueryPool(RQT_AbsoluteTime);
+	const int MaxGPUQueries = CVarGPUStatsMaxQueriesPerFrame.GetValueOnRenderThread();
+	RenderQueryPool = RHICreateRenderQueryPool(RQT_AbsoluteTime, (MaxGPUQueries > 0) ? MaxGPUQueries * 2 : 10240);
 	for (int Index = 0; Index < NumGPUProfilerBufferedFrames; Index++)
 	{
-		Frames.Add(new FRealtimeGPUProfilerFrame(RenderQueryPool));
+		Frames.Add(new FRealtimeGPUProfilerFrame(RenderQueryPool, QueryCount));
 	}
 }
 
@@ -602,8 +607,7 @@ void FRealtimeGPUProfiler::Release()
 		delete Frames[Index];
 	}
 	Frames.Empty();
-	delete RenderQueryPool;
-	RenderQueryPool = nullptr;
+	RenderQueryPool.SafeRelease();
 }
 
 void FRealtimeGPUProfiler::BeginFrame(FRHICommandListImmediate& RHICmdList)

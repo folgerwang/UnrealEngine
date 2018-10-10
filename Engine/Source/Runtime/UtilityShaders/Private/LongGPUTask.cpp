@@ -13,6 +13,7 @@ int32 NumMeasuredIterationsToAchieve100ms = 0;
 
 const int32 NumIterationsForMeasurement = 5;
 
+static bool HasRun = false;
 FRenderQueryRHIRef TimeQueryStart;
 FRenderQueryRHIRef TimeQueryEnd;
 
@@ -78,10 +79,8 @@ void IssueScalableLongGPUTask(FRHICommandListImmediate& RHICmdList, int32 NumIte
 
 void MeasureLongGPUTaskExecutionTime(FRHICommandListImmediate& RHICmdList)
 {
-	if (TimeQueryStart != nullptr && TimeQueryEnd != nullptr)
-	{
-		return;
-	}
+	if (HasRun) { return; }
+
 	check(TimeQueryStart == nullptr && TimeQueryEnd == nullptr);
 
 	TimeQueryStart = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);
@@ -94,7 +93,10 @@ void MeasureLongGPUTaskExecutionTime(FRHICommandListImmediate& RHICmdList)
 		IssueScalableLongGPUTask(RHICmdList, NumIterationsForMeasurement);
 
 		RHICmdList.EndRenderQuery(TimeQueryEnd);
+		HasRun = true;
 	}
+
+	ClearLongGPUTaskQueries();
 }
 
 void ClearLongGPUTaskQueries()

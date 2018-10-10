@@ -31,14 +31,13 @@ namespace VulkanRHI
 	class FDeviceMemoryAllocation;
 	class FOldResourceAllocation;
 	struct FPendingBufferLock;
-	class FStagingBuffer;
 }
 
 enum
 {
 	NUM_OCCLUSION_QUERIES_PER_POOL = 4096,
 
-	NUM_TIMESTAMP_QUERIES_PER_POOL = 1024,
+	NUM_TIMESTAMP_QUERIES_PER_POOL = 10240,
 };
 
 struct FSamplerYcbcrConversionInitializer
@@ -740,7 +739,6 @@ public:
 
 protected:
 	VkQueryPool QueryPool;
-	uint32 NumUsedQueries = 0;
 	const uint32 MaxQueries;
 	const VkQueryType QueryType;
 	TArray<uint64> QueryOutput;
@@ -823,6 +821,7 @@ public:
 	EState State = Undefined;
 
 protected:
+	uint32 NumUsedQueries = 0;
 	TArray<FVulkanOcclusionQuery*> AllocatedQueries;
 	TArray<uint64> AcquiredIndices;
 	bool InternalTryGetResults(bool bWait);
@@ -833,29 +832,37 @@ protected:
 	uint32 FrameNumber = UINT32_MAX;
 };
 
-/*
-class FVulkanTimestampQueryPool : public FVulkanQueryPool
+class FVulkanTimestampQueryPool final : public FRHIRenderQueryPool, public FVulkanQueryPool
 {
+	FRenderQueryRHIRef AllocateQuery() override;
+	virtual void ReleaseQuery(TRefCountPtr<FRHIRenderQuery> &Query) override;
+
+	uint32 QueueHead = 0;
+	uint32 QueueTail = 0;
+	TArray<class FVulkanTimingQuery*> QueryAllocation;
+
 public:
 	FVulkanTimestampQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries)
 		: FVulkanQueryPool(InDevice, InMaxQueries, VK_QUERY_TYPE_TIMESTAMP)
 	{
-		//const uint32 ElementSize = sizeof(decltype(HasResultsMask)::ElementType);
-		//HasResultsMask.AddZeroed((InMaxQueries + (ElementSize - 1)) / ElementSize);
+		QueryAllocation.AddDefaulted(InMaxQueries);
 	}
-		
-	bool GetResults(uint32 QueryIndex, bool bWait, uint64& OutResults);
 
-protected:
-	//TArray<uint64> HasResultsMask;
-	//uint32 LastPresentAllocation = 0;
+	uint32 AcquireIndex(class FVulkanTimingQuery* Query)
+	{
+		uint32 QueueIndex = QueueHead++;
+		QueueHead = (QueueHead < MaxQueries) ? QueueHead : 0;
+		ensure(QueueHead != QueueTail);
+		QueryAllocation[QueueIndex] = Query;
+		return QueueIndex;
+	}
 
-	//bool GetResults(uint32 QueryIndex, uint32 Word, uint32 Bit, bool bWait, uint64& OutResults);
+	bool TryGetResults(class FVulkanTimingQuery* Query, uint32 QueryIndex, bool bWait, uint64& OutResult);
 
-	friend class FVulkanDevice;
-	friend class FVulkanGPUTiming;
+private:
+	VkResult InternalGetQueryPoolResults(class FVulkanTimingQuery* Query, uint32 QueryIndex, uint64& OutResults);
 };
-*/
+
 class FVulkanRenderQuery : public FRHIRenderQuery
 {
 public:
@@ -888,60 +895,63 @@ public:
 	};
 
 	FVulkanOcclusionQueryPool* Pool = nullptr;
-	uint64 Result = 0;
 
 	void ReleaseFromPool();
 
 	EState State = EState::Undefined;
 };
-/*
-class FVulkanRenderQuery : public FRHIRenderQuery
+
+class FVulkanTimingQuery : public FVulkanRenderQuery
 {
 public:
-	FVulkanRenderQuery(FVulkanDevice* Device, ERenderQueryType InQueryType);
-	virtual ~FVulkanRenderQuery();
-
-	inline bool HasQueryBeenEmitted() const
+	FVulkanTimingQuery()
+		: FVulkanRenderQuery(RQT_AbsoluteTime)
 	{
-		return State == EState::InEnd;
 	}
 
-	uint32 LastPoolReset = 0;
-
-private:
-	int32 QueryIndex = INT32_MAX;
-
-	const ERenderQueryType QueryType;
-
-	FVulkanCmdBuffer* BeginCmdBuffer = nullptr;
-
-	friend class FVulkanDynamicRHI;
-	friend class FVulkanCommandListContext;
-	friend class FVulkanGPUTiming;
-
-	FVulkanQueryPool* Pool = nullptr;
-	enum class EState
+	virtual ~FVulkanTimingQuery()
 	{
-		Reset,
-		InBegin,
-		InEnd,
-		HasResults,
+	}
+
+	enum EState : uint8
+	{
+		Unused,
+		Written,
+		HasResult,
 	};
-	EState State = EState::Reset;
-	uint64 Result = 0;
 
-	void Reset(FVulkanQueryPool* InPool, int32 InQueryIndex)
+	bool GetResult(uint64& OutTime, bool bWait)
 	{
-		QueryIndex = InQueryIndex;
-		Pool = InPool;
-		State = EState::Reset;
+		if (State == EState::HasResult)
+		{
+			OutTime = Result;
+			return true;
+		}
+		else if (State != EState::Unused)
+		{
+			return InternalGetResult(OutTime, bWait);
+		}
+		else
+		{
+			ensure(State == EState::Unused);
+			return false;
+		}
 	}
-	void Begin(FVulkanCmdBuffer* InCmdBuffer);
-	void End(FVulkanCmdBuffer* InCmdBuffer);
 
-	bool GetResult(FVulkanDevice* Device, uint64& OutResult, bool bWait);
+#if UE_BUILD_DEBUG
+	uint64 StackFrames[16];
+#endif
+
+protected:
+	TRefCountPtr<FVulkanTimestampQueryPool> Pool;
+	EState State = EState::Unused;
+	bool IsPooledAtHighLevel = false;
+
+	bool InternalGetResult(uint64& OutTime, bool bWait);
+
+	friend class FVulkanTimestampQueryPool;
+	friend class FVulkanCommandListContext;
 };
-*/
 /*
 class FVulkanRenderQuery : public FRHIRenderQuery
 {

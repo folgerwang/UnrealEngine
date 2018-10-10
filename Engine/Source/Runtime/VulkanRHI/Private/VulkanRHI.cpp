@@ -113,9 +113,6 @@ FVulkanCommandListContext::FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, F
 	CommandBufferManager = new FVulkanCommandBufferManager(InDevice, this);
 	if (IsImmediate())
 	{
-		// Insert the Begin frame timestamp query. On EndDrawingViewport() we'll insert the End and immediately after a new Begin()
-		WriteBeginTimestamp(CommandBufferManager->GetActiveCmdBuffer());
-
 		// Flush the cmd buffer immediately to ensure a valid
 		// 'Last submitted' cmd buffer exists at frame 0.
 		CommandBufferManager->SubmitActiveCmdBuffer();
@@ -702,6 +699,8 @@ void FVulkanCommandListContext::RHIBeginFrame()
 	check(IsImmediate());
 	RHIPrivateBeginFrame();
 
+	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->HasPendingUploadCmdBuffer() ? CommandBufferManager->GetUploadCmdBuffer() : CommandBufferManager->GetActiveCmdBuffer();
+
 	extern uint32 GVulkanRHIDeletionFrameNumber;
 	++GVulkanRHIDeletionFrameNumber;
 
@@ -725,6 +724,10 @@ void FVulkanCommandListContext::RHIBeginDrawingViewport(FViewportRHIParamRef Vie
 	check(ViewportRHI);
 	FVulkanViewport* Viewport = ResourceCast(ViewportRHI);
 	RHI->DrawingViewport = Viewport;
+
+	check(IsImmediate());
+	// Insert the Begin frame timestamp query. On EndDrawingViewport() we'll insert the End and immediately after a new Begin()
+	WriteBeginTimestamp(CommandBufferManager->GetActiveCmdBuffer());
 }
 
 void FVulkanCommandListContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI, bool bPresent, bool bLockToVsync)

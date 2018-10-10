@@ -495,11 +495,15 @@ Buffers multiple frames to avoid waiting on the GPU so times are a little lagged
 */
 class FLatentGPUTimer
 {
+	FRenderQueryPoolRHIRef& TimerQueryPool;
+public:
 	static const int32 NumBufferedFrames = FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1;
 
-public:
-
-	FLatentGPUTimer(int32 InAvgSamples = 30);
+	FLatentGPUTimer(FRenderQueryPoolRHIRef& InTimerQueryPool, int32 InAvgSamples = 30);
+	~FLatentGPUTimer()
+	{
+		Release();
+	}
 
 	void Release();
 
@@ -526,6 +530,7 @@ private:
 	int32 SampleIndex;
 
 	int32 QueryIndex;
+	bool QueriesInFlight[NumBufferedFrames];
 	FRenderQueryRHIRef StartQueries[NumBufferedFrames];
 	FRenderQueryRHIRef EndQueries[NumBufferedFrames];
 	FGraphEventRef QuerySubmittedFences[NumBufferedFrames];
@@ -898,6 +903,7 @@ public:
 	FRWBuffer CapsuleTileIntersectionCountsBuffer;
 
 	/** Timestamp queries around separate translucency, used for auto-downsampling. */
+	FRenderQueryPoolRHIRef TimerQueryPool;
 	FLatentGPUTimer TranslucencyTimer;
 	FLatentGPUTimer SeparateTranslucencyTimer;
 

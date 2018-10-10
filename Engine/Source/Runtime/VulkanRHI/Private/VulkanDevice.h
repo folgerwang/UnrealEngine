@@ -250,9 +250,6 @@ public:
 	void SubmitCommandsAndFlushGPU();
 
 	FVulkanOcclusionQueryPool* AcquireOcclusionQueryPool(uint32 NumQueries);
-/*
-	FVulkanTimestampQueryPool* PrepareTimestampQueryPool(bool& bOutRequiresReset);
-*/
 
 	inline class FVulkanPipelineStateCacheManager* GetPipelineStateCache()
 	{
@@ -330,9 +327,6 @@ private:
 
 	TArray<FVulkanOcclusionQueryPool*> UsedOcclusionQueryPools;
 	TArray<FVulkanOcclusionQueryPool*> FreeOcclusionQueryPools;
-/*
-	FVulkanTimestampQueryPool* TimestampQueryPool = nullptr;
-*/
 
 	uint64 TimestampValidBitsMask = 0;
 

@@ -75,6 +75,28 @@ struct FRHIFlipDetails
 	{}
 };
 
+class FDynamicRHI;
+
+class RHI_API FDefaultRHIRenderQueryPool final : public FRHIRenderQueryPool
+{
+public:
+	FDefaultRHIRenderQueryPool(ERenderQueryType InQueryType, FDynamicRHI* InDynamicRHI, uint32 InNumQueries)
+		: DynamicRHI(InDynamicRHI)
+		, QueryType(InQueryType)
+		, NumQueries(InNumQueries)
+	{ }
+
+private:
+	virtual TRefCountPtr<FRHIRenderQuery> AllocateQuery() override;
+	virtual void ReleaseQuery(TRefCountPtr<FRHIRenderQuery> &Query) override;
+
+	FDynamicRHI* DynamicRHI = nullptr;
+	ERenderQueryType QueryType;
+	uint32 NumQueries = 0;
+	uint32 AllocatedQueries = 0;
+	TArray<TRefCountPtr<FRHIRenderQuery>> Queries;
+};
+
 /** The interface which is implemented by the dynamically bound RHI. */
 class RHI_API FDynamicRHI
 {
@@ -198,6 +220,17 @@ public:
 		return nullptr;
 	}
 	
+	/**
+	* Creates a pool for querys like timers or occlusion queries.
+	* @param QueryType The ype of the queries provided by this pool like RQT_Occlusion or RQT_AbsoluteTime.
+	* @return the Querypool.
+	*/
+	// FlushType: Must be Thread-Safe.
+	virtual FRenderQueryPoolRHIRef RHICreateRenderQueryPool(ERenderQueryType QueryType, uint32 NumQueries)
+	{
+		return new FDefaultRHIRenderQueryPool(QueryType, this, NumQueries);
+	}
+
 	/**
 	* Creates a compute fence.  Compute fences are named GPU fences which can be written to once before resetting.
 	* A command to write the fence must be enqueued before any commands to wait on them.  This is enforced on the CPU to avoid GPU hangs.
@@ -1235,6 +1268,8 @@ FORCEINLINE class IRHICommandContextContainer* RHIGetCommandContextContainer(int
 {
 	return GDynamicRHI->RHIGetCommandContextContainer(Index, Num, GPUMask);
 }
+
+RHI_API FRenderQueryPoolRHIRef RHICreateRenderQueryPool(ERenderQueryType QueryType, uint32 NumQueries);
 
 /**
 * Defragment the texture pool.

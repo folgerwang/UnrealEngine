@@ -9,8 +9,7 @@
 #include "GPUProfiler.h"
 
 class FVulkanCmdBuffer;
-class FVulkanRenderQuery;
-class FVulkanRenderQuery;
+class FVulkanTimingQuery;
 class FVulkanCommandListContext;
 
 class FVulkanGPUTiming : public FGPUTiming
@@ -88,10 +87,11 @@ private:
 		uint64 BeginFenceCounter = 0;
 		FVulkanCmdBuffer* EndCmdBuffer = nullptr;
 		uint64 EndFenceCounter = 0;
-		FVulkanRenderQuery* Begin;
-		FVulkanRenderQuery* End;
+		FVulkanTimingQuery* Begin = nullptr;
+		FVulkanTimingQuery* End = nullptr;
+		bool IssuedTimer = false;
 	};
-	FBeginEndPair Timers[MaxTimers];
+	FBeginEndPair Timers[MaxTimers] = {};
 };
 
 /** A single perf event node, which tracks information about a appBeginDrawEvent/appEndDrawEvent range. */
