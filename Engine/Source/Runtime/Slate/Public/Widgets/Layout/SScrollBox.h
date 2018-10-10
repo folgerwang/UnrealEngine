@@ -282,6 +282,8 @@ private:
 
 	void EndInertialScrolling();
 
+	TSharedPtr<SWidget> GetKeyboardFocusableWidget(TSharedPtr<SWidget> InWidget);
+
 private:
 
 	/** The panel which stacks the child slots */

@@ -997,8 +997,8 @@ FNavigationReply SScrollBox::OnNavigation(const FGeometry& MyGeometry, const FNa
 			// Search in the direction we need to move for the next focusable child of the scrollbox.
 			for ( int32 ChildIndex = FocusedChildIndex + FocusedChildDirection; ChildIndex >= 0 && ChildIndex < Children.Num(); ChildIndex += FocusedChildDirection )
 			{
-				TSharedRef<SWidget> PossiblyFocusableChild = Children[ChildIndex].GetWidget();
-				if ( PossiblyFocusableChild->SupportsKeyboardFocus() )
+				TSharedPtr<SWidget> PossiblyFocusableChild = GetKeyboardFocusableWidget(Children[ChildIndex].GetWidget());
+				if ( PossiblyFocusableChild.IsValid() )
 				{
 					NextFocusableChild = PossiblyFocusableChild;
 					break;
@@ -1015,6 +1015,28 @@ FNavigationReply SScrollBox::OnNavigation(const FGeometry& MyGeometry, const FNa
 	}
 
 	return SCompoundWidget::OnNavigation(MyGeometry, InNavigationEvent);
+}
+
+TSharedPtr<SWidget> SScrollBox::GetKeyboardFocusableWidget(TSharedPtr<SWidget> InWidget)
+{
+	if (InWidget->SupportsKeyboardFocus())
+	{
+		return InWidget;
+	}
+	else
+	{
+		FChildren* Children = InWidget->GetChildren();
+		for (int32 i = 0; i < Children->Num(); ++i)
+		{
+			TSharedPtr<SWidget> ChildWidget = Children->GetChildAt(i);
+			TSharedPtr<SWidget> FoucusableWidget = GetKeyboardFocusableWidget(ChildWidget);
+			if (FoucusableWidget.IsValid())
+			{
+				return FoucusableWidget;
+			}
+		}
+	}
+	return nullptr;
 }
 
 int32 SScrollBox::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
