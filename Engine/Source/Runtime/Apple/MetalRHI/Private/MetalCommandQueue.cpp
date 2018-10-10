@@ -60,17 +60,17 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 
 #if PLATFORM_TVOS
         Features &= ~(EMetalFeaturesSetBytes);
-		if([Device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v2])
+		if(Device.SupportsFeatureSet(mtlpp::FeatureSet::tvOS_GPUFamily1_v2))
 		{
 			Features |= EMetalFeaturesStencilView | EMetalFeaturesGraphicsUAVs;
 		}
 #else
-		if ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1])
+		if (Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v1))
 		{
 			Features |= EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesMSAADepthResolve;
 		}
 		
-		if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3])
+		if(Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v2) || Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily2_v3) || Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily1_v3))
 		{
 			Features |= EMetalFeaturesStencilView | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesMemoryLessResources;
 			
@@ -85,7 +85,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			}
 		}
 		
-		if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
+		if(Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v2))
 		{
 			Features |= EMetalFeaturesTessellation | EMetalFeaturesMSAAStoreAndResolve;
 		}
@@ -99,7 +99,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			//Features |= EMetalFeaturesEfficientBufferBlits;
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 			
-			if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3])
+			if(Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily3_v2) || Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily2_v3) || Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily1_v3))
 			{
 				Features |= EMetalFeaturesDeferredStoreActions | EMetalFeaturesCombinedDepthStencil;
 			}
@@ -118,7 +118,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 				{
 					Features |= EMetalFeaturesTextureBuffers;
 				}
-				if ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily5_v1])
+				if (Device.SupportsFeatureSet(mtlpp::FeatureSet::iOS_GPUFamily5_v1))
 				{
 					Features |= EMetalFeaturesLayeredRendering;
 				}
