@@ -104,7 +104,7 @@ public:
 	 */
 	template <typename OtherElementType, size_t Size,
 		typename = typename TEnableIf<TIsCompatibleElementType<const OtherElementType>::Value>::Type>
-		FORCEINLINE TArrayView(const OtherElementType (&Other)[Size])
+	FORCEINLINE TArrayView(const OtherElementType (&Other)[Size])
 		: DataPtr(Other)
 		, ArrayNum((int32)Size)
 	{
@@ -138,7 +138,7 @@ public:
 	 * @param List The initializer list to view.
 	 */
 	template <typename OtherElementType,
-		typename = typename TEnableIf<TIsCompatibleElementType<OtherElementType>::Value>::Type>
+		typename = typename TEnableIf<TIsCompatibleElementType<const OtherElementType>::Value>::Type>
 	FORCEINLINE TArrayView(std::initializer_list<OtherElementType> List)
 		: DataPtr(&*List.begin())
 		, ArrayNum(List.size())
