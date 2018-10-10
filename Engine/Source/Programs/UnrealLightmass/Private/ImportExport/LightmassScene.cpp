@@ -574,8 +574,8 @@ bool FLight::AffectsBounds(const FBoxSphereBounds& Bounds) const
 
 FSphere FLight::GetBoundingSphere() const
 {
-	// Directional lights will have a radius of WORLD_MAX
-	return FSphere(FVector(0, 0, 0), (float)WORLD_MAX);
+	// Directional lights will have a radius of FLT_MAX
+	return FSphere(FVector(0, 0, 0), (float)FLT_MAX);
 }
 
 /**

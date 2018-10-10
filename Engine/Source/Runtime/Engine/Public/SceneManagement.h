@@ -950,8 +950,8 @@ public:
 
 	virtual FSphere GetBoundingSphere() const
 	{
-		// Directional lights will have a radius of WORLD_MAX
-		return FSphere(FVector::ZeroVector, WORLD_MAX);
+		// Directional lights will have a radius of FLT_MAX
+		return FSphere(FVector::ZeroVector, FLT_MAX);
 	}
 
 	/** @return radius of the light */
