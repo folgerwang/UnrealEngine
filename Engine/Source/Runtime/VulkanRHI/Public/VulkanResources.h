@@ -938,7 +938,7 @@ public:
 		}
 	}
 
-#if UE_BUILD_DEBUG
+#if VULKAN_QUERY_CALLSTACK
 	uint64 StackFrames[16];
 #endif
 

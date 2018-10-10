@@ -9,8 +9,10 @@
 #include "VulkanContext.h"
 #include "VulkanCommandBuffer.h"
 #include "EngineGlobals.h"
-#include "Core.h"
 
+#if VULKAN_QUERY_CALLSTACK
+#include "HAL/PlatformStackwalk.h"
+#endif
 
 TAutoConsoleVariable<int32> GSubmitOcclusionBatchCmdBufferCVar(
 	TEXT("r.Vulkan.SubmitOcclusionBatchCmdBuffer"),
@@ -418,7 +420,6 @@ VkResult FVulkanTimestampQueryPool::InternalGetQueryPoolResults(FVulkanTimingQue
 		VkResult Result = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, QueueTail, NumQueries, sizeof(uint64) * NumQueries, &QueryOutput[QueueTail], sizeof(uint64), VK_QUERY_RESULT_64_BIT);
 		if (Result == VK_SUCCESS)
 		{
-			check(IsInRenderingThread());
 			check(Query->Pool == this);
 			FRHICommandListExecutor::GetImmediateCommandList().EnqueueLambda([NumQueries, QueueTail = QueueTail, QueryPool = Query->Pool]
 			(FRHICommandListImmediate& RHICommandList)
@@ -831,7 +832,7 @@ void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryR
 		Query->State = FVulkanTimingQuery::Written;
 
 		VulkanRHI::vkCmdWriteTimestamp(CmdBuffer->GetHandle(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, Query->Pool->GetHandle(), Query->IndexInPool);
-#if UE_BUILD_DEBUG
+#if VULKAN_QUERY_CALLSTACK
 		FPlatformStackWalk::CaptureStackBackTrace(Query->StackFrames, 16);
 #endif
 	}
