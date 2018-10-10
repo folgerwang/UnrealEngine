@@ -1113,6 +1113,33 @@ void FVulkanDescriptorSetsLayoutInfo::AddDescriptor(int32 DescriptorSetIndex, co
 	}
 }
 
+void FVulkanDescriptorSetsLayoutInfo::GenerateHash()
+{
+	const int32 LayoutCount = SetLayouts.Num();
+	Hash = FCrc::MemCrc32(&TypesUsageID, sizeof(uint32), LayoutCount);
+
+	for (int32 layoutIndex = 0; layoutIndex < LayoutCount; ++layoutIndex)
+	{
+		TArray<VkDescriptorSetLayoutBinding>& DescSetLayout = SetLayouts[layoutIndex].LayoutBindings;
+		Hash = FCrc::MemCrc32(DescSetLayout.GetData(), sizeof(VkDescriptorSetLayoutBinding) * DescSetLayout.Num(), Hash);
+	}
+
+	for (uint32 RemapingIndex = 0; RemapingIndex < ShaderStage::NumStages; ++RemapingIndex)
+	{
+		Hash = FCrc::MemCrc32(&RemappingInfo.StageInfos[RemapingIndex].PackedUBDescriptorSet, sizeof(uint16), Hash);
+		Hash = FCrc::MemCrc32(&RemappingInfo.StageInfos[RemapingIndex].Pad0, sizeof(uint16), Hash);
+
+		TArray<FDescriptorSetRemappingInfo::FRemappingInfo>& Globals = RemappingInfo.StageInfos[RemapingIndex].Globals;
+		Hash = FCrc::MemCrc32(Globals.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * Globals.Num(), Hash);
+
+		TArray<FDescriptorSetRemappingInfo::FUBRemappingInfo>& UniformBuffers = RemappingInfo.StageInfos[RemapingIndex].UniformBuffers;
+		Hash = FCrc::MemCrc32(UniformBuffers.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * UniformBuffers.Num(), Hash);
+
+		TArray<uint16>& PackedUBBindingIndices = RemappingInfo.StageInfos[RemapingIndex].PackedUBBindingIndices;
+		Hash = FCrc::MemCrc32(PackedUBBindingIndices.GetData(), sizeof(uint16) * PackedUBBindingIndices.Num(), Hash);
+	}
+}
+
 void FVulkanDescriptorSetsLayoutInfo::CompileTypesUsageID()
 {
 	static TMap<uint32, uint32> GTypesUsageHashMap;

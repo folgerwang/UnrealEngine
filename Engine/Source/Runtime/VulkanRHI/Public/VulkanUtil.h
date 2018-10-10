@@ -8,6 +8,8 @@
 
 #include "GPUProfiler.h"
 
+#include "Serialization/MemoryWriter.h"
+
 class FVulkanCmdBuffer;
 class FVulkanTimingQuery;
 class FVulkanCommandListContext;
@@ -230,3 +232,130 @@ inline bool CopyAndReturnNotEqual(T& A, T B)
 	A = B;
 	return bOut;
 }
+
+template <int Version>
+class TDataKeyBase;
+
+template <>
+class TDataKeyBase<0>
+{
+protected:
+	template <class TDataWriter>
+	void UpdateData(TDataWriter&& WriteToData)
+	{
+		TArray<uint8> TempData;
+		WriteToData(TempData);
+	}
+
+	void CopyDataDeep(TDataKeyBase& Result) const {}
+	void CopyDataShallow(TDataKeyBase& Result) const {}
+	bool IsDataEquals(const TDataKeyBase& Other) const { return true; }
+
+protected:
+	uint32 Hash = 0;
+};
+
+template <>
+class TDataKeyBase<1>
+{
+protected:
+	template <class TDataWriter>
+	void UpdateData(TDataWriter&& WriteToData)
+	{
+		if (!DataStorage)
+		{
+			DataStorage = MakeUnique<TArray<uint8>>();
+			Data = DataStorage.Get();
+		}
+		WriteToData(*Data);
+	}
+
+	void CopyDataDeep(TDataKeyBase& Result) const
+	{
+		check(Data);
+		Result.DataStorage = MakeUnique<TArray<uint8>>(*Data);
+		Result.Data = Result.DataStorage.Get();
+	}
+
+	void CopyDataShallow(TDataKeyBase& Result) const
+	{
+		check(Data);
+		Result.Data = Data;
+	}
+
+	bool IsDataEquals(const TDataKeyBase& Other) const
+	{
+		check(Data && Other.Data);
+		check(Data->Num() == Other.Data->Num());
+		check(FMemory::Memcmp(Data->GetData(), Other.Data->GetData(), Data->Num()) == 0);
+		return true;
+	}
+
+protected:
+	uint32 Hash = 0;
+	TArray<uint8> *Data = nullptr;
+private:
+	TUniquePtr<TArray<uint8>> DataStorage;
+};
+
+template <>
+class TDataKeyBase<2> : public TDataKeyBase<1>
+{
+protected:
+	bool IsDataEquals(const TDataKeyBase& Other) const
+	{
+		check(Data && Other.Data);
+		return ((Data->Num() == Other.Data->Num()) &&
+			(FMemory::Memcmp(Data->GetData(), Other.Data->GetData(), Data->Num()) == 0));
+	}
+};
+
+template <class TDerived, bool AlwaysCompareData = false>
+class TDataKey : private TDataKeyBase<AlwaysCompareData ? 2 : (DO_CHECK != 0)>
+{
+public:
+	template <class TArchiveWriter>
+	void Generate(TArchiveWriter&& WriteToArchive, int32 DataReserve = 0)
+	{
+		this->UpdateData([&](TArray<uint8>& InData)
+		{
+			FMemoryWriter Ar(InData);
+
+			InData.Reset(DataReserve);
+			WriteToArchive(Ar);
+
+			this->Hash = FCrc::MemCrc32(InData.GetData(), InData.Num());
+		});
+	}
+
+	uint32 GetHash() const
+	{
+		return this->Hash;
+	}
+
+	TDerived CopyDeep() const
+	{
+		TDerived Result;
+		Result.Hash = this->Hash;
+		this->CopyDataDeep(Result);
+		return Result;
+	}
+
+	TDerived CopyShallow() const
+	{
+		TDerived Result;
+		Result.Hash = this->Hash;
+		this->CopyDataShallow(Result);
+		return Result;
+	}
+
+	friend uint32 GetTypeHash(const TDerived& Key)
+	{
+		return Key.Hash;
+	}
+
+	friend bool operator==(const TDerived& A, const TDerived& B)
+	{
+		return ((A.Hash == B.Hash) && A.IsDataEquals(B));
+	}
+};

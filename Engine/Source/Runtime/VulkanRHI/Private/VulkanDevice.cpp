@@ -925,12 +925,12 @@ void FVulkanDevice::Destroy()
 
 	ResourceHeapManager.Deinit();
 
-	FRHIResource::FlushPendingDeletes();
-	DeferredDeletionQueue.Clear();
-
 	delete TransferQueue;
 	delete ComputeQueue;
 	delete GfxQueue;
+
+	FRHIResource::FlushPendingDeletes();
+	DeferredDeletionQueue.Clear();
 
 	FenceManager.Deinit();
 	MemoryManager.Deinit();
@@ -1051,7 +1051,7 @@ void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineSta
 
 void FVulkanDevice::NotifyDeletedComputePipeline(class FVulkanComputePipeline* Pipeline)
 {
-	if (ComputeContext != ImmediateContext)
+	if (ComputeContext && ComputeContext != ImmediateContext)
 	{
 		ComputeContext->PendingComputeState->NotifyDeletedPipeline(Pipeline);
 	}
