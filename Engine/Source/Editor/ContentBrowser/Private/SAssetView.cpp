@@ -3948,6 +3948,12 @@ TSharedPtr<SWidget> SAssetView::OnGetContextMenuContent()
 {
 	if ( CanOpenContextMenu() )
 	{
+		if (IsRenamingAsset())
+		{
+			RenamingAsset.Pin()->RenameCanceledEvent.ExecuteIfBound();
+			RenamingAsset.Reset();
+		}
+
 		const TArray<FString> SelectedFolders = GetSelectedFolders();
 		if(SelectedFolders.Num() > 0)
 		{
