@@ -322,8 +322,9 @@ public:
 	 * @param OutPackageName Package that this string asset belongs to
 	 * @param OutPropertyName Property that this string asset reference belongs to
 	 * @param OutCollectType Type of collecting that should be done
+	 * @param Archive The FArchive that is serializing this path if known. If null it will check FUObjectThreadContext
 	 */
-	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType) const;
+	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType, FArchive* Archive = nullptr) const;
 };
 
 /** Helper class to set and restore serialization options for string asset references */

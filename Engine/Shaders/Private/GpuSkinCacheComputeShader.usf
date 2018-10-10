@@ -49,6 +49,7 @@ void GetMorphBuffer(uint VertexIndex, out float3 DeltaPosition, out half3 DeltaT
 #if GPUSKIN_APEX_CLOTH
 Buffer<float4> ClothBuffer;
 Buffer<float2> ClothPositionsAndNormalsBuffer;
+uint ClothBufferOffset;
 float ClothBlendWeight;
 float4x4 ClothLocalToWorld;
 float4x4 ClothWorldToLocal;
@@ -216,9 +217,17 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
 	uint WeightOffset = InputWeightStart + (VertexIndex * (InputWeightStride/4));
 
 #if GPUSKIN_MORPH_BLEND
+#if GPUSKIN_APEX_CLOTH
+	FVertexUnpacked	Unpacked = UnpackedVertex(MorphBufferOffset + VertexIndex, ClothBufferOffset + VertexIndex, InputOffset, WeightOffset);
+#else
 	FVertexUnpacked	Unpacked = UnpackedVertex(MorphBufferOffset + VertexIndex, VertexIndex, InputOffset, WeightOffset);
+#endif
+#else
+#if GPUSKIN_APEX_CLOTH
+	FVertexUnpacked	Unpacked = UnpackedVertex(VertexIndex, ClothBufferOffset + VertexIndex, InputOffset, WeightOffset);
 #else
 	FVertexUnpacked	Unpacked = UnpackedVertex(VertexIndex, VertexIndex, InputOffset, WeightOffset);
+#endif
 #endif
 
 	// Perform the skinning

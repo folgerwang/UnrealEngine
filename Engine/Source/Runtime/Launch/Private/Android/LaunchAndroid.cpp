@@ -95,7 +95,7 @@ static const uint32 ValidGamepadKeyCodesList[] =
 	AKEYCODE_BUTTON_START,
 	AKEYCODE_MENU,
 	AKEYCODE_BUTTON_SELECT,
-	AKEYCODE_BACK,
+//	AKEYCODE_BACK,
 	AKEYCODE_BUTTON_THUMBL,
 	AKEYCODE_BUTTON_THUMBR,
 	AKEYCODE_BUTTON_L2,
@@ -993,6 +993,7 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 }
 
 static bool bShouldRestartFromInterrupt = false;
+static bool bIgnorePauseOnDownloaderStart = false;
 static bool IsStartupMoviePlaying()
 {
 	return GEngine && GEngine->IsInitialized() && GetMoviePlayer() && GetMoviePlayer()->IsStartupMoviePlaying();
@@ -1058,6 +1059,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 * input focus.
 		 */
 		// if the app lost focus, avoid unnecessary processing (like monitoring the accelerometer)
+
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_LOST_FOCUS"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_WINDOW_LOST_FOCUS, NULL);
 		break;
@@ -1159,7 +1161,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_PAUSE);
 
 		// Restart on resuming if did not complete engine initialization
-		if (!bDidCompleteEngineInit && bDidGainFocus)
+		if (!bDidCompleteEngineInit && bDidGainFocus && !bIgnorePauseOnDownloaderStart)
 		{
 			// only do this if early startup enabled
 			FString *EarlyRestart = FAndroidMisc::GetConfigRulesVariable(TEXT("earlyrestart"));
@@ -1168,6 +1170,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 				bShouldRestartFromInterrupt = true;
 			}
 		}
+		bIgnorePauseOnDownloaderStart = false;
 
 		/*
 		 * On the initial loading the pause method must be called immediately
@@ -1304,6 +1307,18 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetAndroidVersionInfor
 	jenv->ReleaseStringUTFChars(osLanguage, javaOSLanguage);
 
 	FAndroidMisc::SetVersionInfo( UEAndroidVersion, UEPhoneMake, UEPhoneModel, UEPhoneBuildNumber, UEOSLanguage );
+}
+
+//This function is declared in the Java-defined class, GameActivity.java: "public native void nativeOnInitialDownloadStarted();
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnInitialDownloadStarted(JNIEnv* jenv, jobject thiz)
+{
+	bIgnorePauseOnDownloaderStart = true;
+}
+
+//This function is declared in the Java-defined class, GameActivity.java: "public native void nativeOnInitialDownloadCompleted();
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnInitialDownloadCompleted(JNIEnv* jenv, jobject thiz)
+{
+	bIgnorePauseOnDownloaderStart = false;
 }
 
 bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds)

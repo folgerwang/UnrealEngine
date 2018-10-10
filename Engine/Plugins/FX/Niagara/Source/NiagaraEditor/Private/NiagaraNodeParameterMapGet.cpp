@@ -291,14 +291,14 @@ void UNiagaraNodeParameterMapGet::SynchronizeDefaultInputPin(UEdGraphPin* Defaul
 		DefaultPin->bDefaultValueIsIgnored = true;
 		DefaultPin->bNotConnectable = true;
 		DefaultPin->bHidden = true;
-		DefaultPin->PinToolTip = FText::Format(LOCTEXT("DefaultValueTooltip", "Default value for {0}. Disabled for Engine Parameters."), FText::FromName(OutputPin->PinName)).ToString();
+		DefaultPin->PinToolTip = FText::Format(LOCTEXT("DefaultValueTooltip_DisabledForEngineParameters", "Default value for {0}. Disabled for Engine Parameters."), FText::FromName(OutputPin->PinName)).ToString();
 	}
 	else
 	{
 		DefaultPin->bDefaultValueIsIgnored = false;
 		DefaultPin->bNotConnectable = false;
 		DefaultPin->bHidden = false;
-		DefaultPin->PinToolTip = FText::Format(LOCTEXT("DefaultValueTooltip", "Default value for {0} if no other module has set it previously in the stack."), FText::FromName(OutputPin->PinName)).ToString();
+		DefaultPin->PinToolTip = FText::Format(LOCTEXT("DefaultValueTooltip_UnlessOverridden", "Default value for {0} if no other module has set it previously in the stack."), FText::FromName(OutputPin->PinName)).ToString();
 	}
 }
 
@@ -508,7 +508,7 @@ void UNiagaraNodeParameterMapGet::GetPinHoverText(const UEdGraphPin& Pin, FStrin
 				}
 				else
 				{
-					FText Desc = FText::Format(LOCTEXT("GetVarTooltip", "Name: \"{0}\"\nType: {1}\nDesc: None"), FText::FromName(Pin.PinName),
+					FText Desc = FText::Format(LOCTEXT("GetVarTooltip_NoDesc", "Name: \"{0}\"\nType: {1}\nDesc: None"), FText::FromName(Pin.PinName),
 						TypeDef.GetNameText());
 					HoverTextOut = Desc.ToString();
 				}

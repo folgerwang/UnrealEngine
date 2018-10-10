@@ -578,7 +578,8 @@ public:
 		{
 			DataSetIndices[CurrBuffer].Release();
 		}
-		DataSetIndices[CurrBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_DrawIndirect | BUF_Static);	// always allocate for up to 64 data sets
+		// Use BUF_KeepCPUAccessible here since some platforms will lock it for readonly (depending on the implementation of RHIEnqueueStagedRead) after GPU simulation.
+		DataSetIndices[CurrBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_DrawIndirect | BUF_Static | BUF_KeepCPUAccessible);	// always allocate for up to 64 data sets
 	}
 
 	FORCEINLINE uint32 GetNumFloatComponents()const { return TotalFloatComponents; }

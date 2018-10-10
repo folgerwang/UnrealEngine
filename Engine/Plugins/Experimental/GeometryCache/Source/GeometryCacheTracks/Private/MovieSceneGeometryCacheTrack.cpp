@@ -9,7 +9,7 @@
 #include "Compilation/IMovieSceneTemplateGenerator.h"
 #include "MovieScene.h"
 
-#define LOCTEXT_NAMESPACE "MovieSceneSkeletalAnimationTrack"
+#define LOCTEXT_NAMESPACE "MovieSceneGeometryCacheTrack"
 
 
 /* UMovieSceneGeometryCacheTrack structors

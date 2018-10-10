@@ -97,33 +97,6 @@ FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIP
 	return new FVulkanStagingBuffer(BackingBuffer);
 }
 
-void FVulkanDynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
-{
-	FVulkanCommandListContext& Context = Device->GetImmediateContext();
-	FVulkanCmdBuffer* CmdBuffer = Context.GetCommandBufferManager()->GetActiveCmdBuffer();
-
-	FVulkanGPUFence* Fence = ResourceCast(FenceRHI);
-	Fence->CmdBuffer = CmdBuffer;
-	Fence->FenceSignaledCounter = CmdBuffer->GetFenceSignaledCounter();
-
-	ensure(CmdBuffer->IsOutsideRenderPass());
-	VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
-	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
-	StagingBuffer->QueuedOffset = Offset;
-	StagingBuffer->QueuedNumBytes = NumBytes;
-
-	VkBufferCopy Region;
-	FMemory::Memzero(Region);
-	Region.size = NumBytes;
-	FVulkanVertexBuffer* VertexBuffer = ResourceCast(StagingBufferRHI->GetBackingBuffer());
-	Region.srcOffset = Offset + VertexBuffer->GetOffset();
-	//Region.dstOffset = 0;
-	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), ReadbackStagingBuffer->GetHandle(), 1, &Region);
-
-	return FDynamicRHI::RHIEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
-}
-
 void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
 {
 	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);

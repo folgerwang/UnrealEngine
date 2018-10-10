@@ -22,7 +22,7 @@ public:
 	static const FString JSMessageTag;
 	static const FString JSMessageHandler;
 
-	FMobileJSScripting(bool bJSBindingToLoweringEnabled, TSharedRef<class IWebBrowserWindow> InWindow);
+	FMobileJSScripting(bool bJSBindingToLoweringEnabled);
 
 	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) override;
 	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) override;
@@ -44,6 +44,8 @@ public:
 	virtual void InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSParam Arguments[], bool bIsError=false) override;
 	virtual void InvokeJSErrorResult(FGuid FunctionId, const FString& Error) override;
 	void PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow); // Called on page load
+
+	void SetWindow(TSharedRef<class IWebBrowserWindow> InWindow);
 
 private:
 	void InitializeScript(TSharedRef<class IWebBrowserWindow> InWindow);

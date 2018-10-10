@@ -376,7 +376,7 @@ int32 FUniformMeshConverter::Convert(
 				FDrawingPolicyRenderState DrawRenderState(View);
 
 				DrawingPolicy.SetupPipelineState(DrawRenderState, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, FConvertToUniformMeshDrawingPolicy::ContextDataType());
 
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)

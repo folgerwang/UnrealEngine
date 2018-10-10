@@ -11,7 +11,8 @@
 	#import <ARKit/ARKit.h>
 #endif
 
-class UARSessionConfig;
+#include "ARSessionConfig.h"
+
 struct FAppleARKitAnchorData;
 struct FARVideoFormat;
 

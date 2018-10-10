@@ -453,8 +453,8 @@ static const uint kNeighborsCount = 9;
 
 //------------------------------------------------------- PARAMETERS
 
-// 1 / LastFrame.PreExposure
-float OneOverHistoryPreExposure;
+// (Pre-Exposure, 1 / Pre-exposure, LastFramePreExposure, 1 / LastFramePreExposure)
+float4 PreExposureSettings;
 
 float SampleWeights[9];
 float PlusWeights[5];
@@ -785,7 +785,7 @@ float4 TransformBackToRawLinearSceneColor(float4 SceneColor)
 float4 TransformCurrentFrameSceneColor(float4 RawSceneColorRGBA)
 {
 	#if USE_PREEXPOSURE
-		float4 RawLinearSceneColorRGBA = RawSceneColorRGBA * View.OneOverPreExposure;
+		float4 RawLinearSceneColorRGBA = RawSceneColorRGBA *  PreExposureSettings.y;
 	#else
 		float4 RawLinearSceneColorRGBA = RawSceneColorRGBA;
 	#endif
@@ -1832,7 +1832,7 @@ FTAAHistoryPayload SampleHistory(in float2 HistoryScreenPosition)
 	#endif
 
 	#if USE_PREEXPOSURE
-		HistoryPayload.Color.rgb *= OneOverHistoryPreExposure;
+		HistoryPayload.Color.rgb *= PreExposureSettings.w;
 	#endif
 
 	HistoryPayload.Color = TransformSceneColor(HistoryPayload.Color);
@@ -2213,7 +2213,7 @@ FTAAHistoryPayload TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint Gro
 	OutputPayload.Color = TransformBackToRawLinearSceneColor(OutputPayload.Color);
 	
 	#if USE_PREEXPOSURE
-		OutputPayload.Color.rgb *= View.PreExposure;
+		OutputPayload.Color.rgb *= PreExposureSettings.x;
 	#endif
 
 	#if AA_NAN

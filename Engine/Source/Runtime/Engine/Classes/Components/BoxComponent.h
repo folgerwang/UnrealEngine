@@ -23,6 +23,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape)
 	FVector BoxExtent;
 
+	/** Used to control the line thickness when rendering */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape)
+	float LineThickness;
+
 public:
 	/** 
 	 * Change the box extent size. This is the unscaled size, before component scale is applied.

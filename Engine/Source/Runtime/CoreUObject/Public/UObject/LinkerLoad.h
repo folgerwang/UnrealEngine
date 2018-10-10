@@ -80,6 +80,7 @@ class FLinkerLoad
 	friend class UObject;
 	friend class UPackageMap;
 	friend struct FAsyncPackage;
+	friend struct FResolvingExportTracker;
 protected:
 	/** Linker loading status. */
 	enum ELinkerStatus
@@ -1080,6 +1081,9 @@ private:
 	 * @param  LoadClass    A fully loaded/serialized class that may have property references to placeholder export objects (in need of fix-up).
 	 */
 	void ResolveDeferredExports(UClass* LoadClass);
+
+	/** Called when a class is loaded and its now safe to load deferred instances */
+	void ResolvePlaceholder(ULinkerPlaceholderExportObject* Placeholder);
 
 	/** Helper function to recursively resolve placeholders that were waiting for their outer */
 	void ResolvedDeferredSubobjects(ULinkerPlaceholderExportObject* OwningPlaceholder);

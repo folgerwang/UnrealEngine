@@ -483,7 +483,7 @@ void USceneCaptureComponent2D::OnRegister()
 
 void USceneCaptureComponent2D::SendRenderTransform_Concurrent()
 {	
-	if (bCaptureOnMovement)
+	if (bCaptureOnMovement && !bCaptureEveryFrame)
 	{
 		CaptureSceneDeferred();
 	}
@@ -888,7 +888,7 @@ void USceneCaptureComponentCube::OnRegister()
 
 void USceneCaptureComponentCube::SendRenderTransform_Concurrent()
 {	
-	if (bCaptureOnMovement)
+	if (bCaptureOnMovement && !bCaptureEveryFrame)
 	{
 		CaptureSceneDeferred();
 	}

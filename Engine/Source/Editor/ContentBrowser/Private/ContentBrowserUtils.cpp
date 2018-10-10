@@ -41,6 +41,7 @@
 #include "AssetToolsModule.h"
 #include "NativeClassHierarchy.h"
 #include "EmptyFolderVisibilityManager.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 #include "Toolkits/AssetEditorManager.h"
 #include "PackagesDialog.h"
@@ -1775,6 +1776,9 @@ bool ContentBrowserUtils::IsValidFolderPathForCreate(const FString& InFolderPath
 
 int32 ContentBrowserUtils::GetPackageLengthForCooking(const FString& PackageName, bool IsInternalBuild)
 {
+	// We assume the game name is 20 characters (the maximum allowed) to make sure that content can be ported between projects
+	static const int32 MaxGameNameLen = 20;
+
 	// Pad out the game name to the maximum allowed
 	const FString GameName = FApp::GetProjectName();
 	FString GameNamePadded = GameName;
@@ -1839,6 +1843,7 @@ bool ContentBrowserUtils::IsValidPackageForCooking(const FString& PackageName, F
 {
 	int32 AbsoluteCookPathToAssetLength = GetPackageLengthForCooking(PackageName, FEngineBuildSettings::IsInternalBuild());
 
+	int32 MaxCookPathLen = GetMaxCookPathLen();
 	if (AbsoluteCookPathToAssetLength > MaxCookPathLen)
 	{
 		// See TTP# 332328:
@@ -2281,6 +2286,20 @@ void ContentBrowserUtils::RemoveFavoriteFolder(const FString& FolderPath, bool b
 const TArray<FString>& ContentBrowserUtils::GetFavoriteFolders()
 {
 	return FContentBrowserSingleton::Get().FavoriteFolderPaths;
+}
+
+int32 ContentBrowserUtils::GetMaxCookPathLen()
+{
+	if (GetDefault<UEditorExperimentalSettings>()->bEnableLongPathsSupport)
+	{
+		// Allow the longest path allowed by the system
+		return FPlatformMisc::GetMaxPathLength();
+	}
+	else
+	{
+		// 260 characters is the limit on Windows, which is the shortest max path of any platforms that support cooking
+		return 260;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -2790,6 +2790,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 		else
 		{
+			nativeOnInitialDownloadStarted();
+
 			// Post the check activity handler here to run after onResume completes
 			Log.debug("==============> Posting request for downloader activity");
 			final Handler downloadHandler = new Handler();
@@ -4014,6 +4016,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				errorCode = DOWNLOAD_USER_QUIT;
 			}
 			
+			nativeOnInitialDownloadCompleted();
+
 			HasAllFiles = (errorCode == DOWNLOAD_FILES_PRESENT || errorCode == DOWNLOAD_COMPLETED_OK);
 			
 			if(errorCode == DOWNLOAD_NO_RETURN_CODE 
@@ -5395,6 +5399,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 	public native void nativeOnConfigurationChanged(boolean bPortrait);
 		
+	public native void nativeOnInitialDownloadStarted();
+	public native void nativeOnInitialDownloadCompleted();
+
 	static
 	{
 		System.loadLibrary("gnustl_shared");

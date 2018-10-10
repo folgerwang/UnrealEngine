@@ -3,7 +3,8 @@
         {
             "Info": {
                 "Types": {
-                    "ArResolver": {}
+                    "ArResolver": {},
+                    "ArPackageResolver": {}
                 }
             },
             "LibraryPath": "../../../../../Binaries/Win64/libar.dll", 

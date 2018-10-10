@@ -81,22 +81,6 @@ struct IDisplayClusterStereoDevice
 	virtual bool ToggleEyesSwap() = 0;
 
 	/**
-	* Configures output flipping
-	*
-	* @param flipH - enable horizontal output flip
-	* @param flipV - enable vertical output flip
-	*/
-	virtual void SetOutputFlip(bool flipH, bool flipV) = 0;
-
-	/**
-	* Returns current output flip settings
-	*
-	* @param flipH - (out) current horizontal output flip
-	* @param flipV - (out) current vertical output flip
-	*/
-	virtual void GetOutputFlip(bool& flipH, bool& flipV) const = 0;
-
-	/**
 	* Set swap synchronization policy
 	*
 	* @param policy - is swap sync enabled

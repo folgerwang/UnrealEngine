@@ -443,11 +443,6 @@ void F3DTransformTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuil
 {
 	if (ObjectClass != nullptr && (ObjectClass->IsChildOf(AActor::StaticClass()) || ObjectClass->IsChildOf(USceneComponent::StaticClass())))
 	{
-		if (MovieSceneToolHelpers::HasHiddenMobility(ObjectClass))
-		{
-			return;
-		}
-
 		MenuBuilder.AddMenuEntry(
 			NSLOCTEXT("Sequencer", "AddTransform", "Transform"),
 			NSLOCTEXT("Sequencer", "AddPTransformTooltip", "Adds a transform track."),
@@ -744,11 +739,6 @@ void F3DTransformTrackEditor::AddTransformKeysForObject( UObject* Object, EMovie
 	if ( Actor != nullptr && SceneComponent != nullptr )
 	{
 		FTransformData CurrentTransform( SceneComponent );
-
-		if (MovieSceneToolHelpers::HasHiddenMobility(Object->GetClass()))
-		{
-			return;
-		}
 
 		if(Object->GetClass()->IsChildOf(AActor::StaticClass()))
 		{

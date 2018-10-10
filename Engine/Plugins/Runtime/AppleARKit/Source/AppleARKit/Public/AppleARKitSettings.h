@@ -15,10 +15,13 @@ class APPLEARKIT_API UAppleARKitSettings : public UObject
 
 public:
 	UAppleARKitSettings()
-			: bEnableLiveLinkForFaceTracking(false)
-			, LiveLinkPublishingPort(11111)
-			, DefaultFaceTrackingLiveLinkSubjectName(FName("iPhoneXFaceAR"))
-			, DefaultFaceTrackingDirection(EARFaceTrackingDirection::FaceRelative)
+		: bEnableLiveLinkForFaceTracking(false)
+		, LiveLinkPublishingPort(11111)
+		, DefaultFaceTrackingLiveLinkSubjectName(FName("iPhoneXFaceAR"))
+		, DefaultFaceTrackingDirection(EARFaceTrackingDirection::FaceRelative)
+		, bAdjustThreadPrioritiesDuringARSession(false)
+		, GameThreadPriorityOverride(47)
+		, RenderThreadPriorityOverride(45)
 	{
 	}
 
@@ -37,4 +40,16 @@ public:
 	/** The default tracking to use when tracking face blend shapes (face relative or mirrored). Defaults to face relative */
 	UPROPERTY(Config, EditAnywhere, Category="AR Settings")
 	EARFaceTrackingDirection DefaultFaceTrackingDirection;
+
+	/** Whether to adjust thread priorities during an AR session or not */
+	UPROPERTY(Config, EditAnywhere, Category="AR Settings")
+	bool bAdjustThreadPrioritiesDuringARSession;
+	
+	/** The game thread priority to change to when an AR session is running, default is 47 */
+	UPROPERTY(Config, EditAnywhere, Category="AR Settings")
+	int32 GameThreadPriorityOverride;
+	
+	/** The render thread priority to change to when an AR session is running, default is 45 */
+	UPROPERTY(Config, EditAnywhere, Category="AR Settings")
+	int32 RenderThreadPriorityOverride;
 };

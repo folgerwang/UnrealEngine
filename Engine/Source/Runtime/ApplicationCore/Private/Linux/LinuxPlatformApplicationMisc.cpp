@@ -222,7 +222,6 @@ EAppReturnType::Type MessageBoxExtImpl(EAppMsgType::Type MsgType, const TCHAR* T
 	return Answer;
 }
 
-#if !UE_BUILD_SHIPPING
 void UngrabAllInputImpl()
 {
 	if (GInitializedSDL)
@@ -237,7 +236,6 @@ void UngrabAllInputImpl()
 		SDL_CaptureMouse(SDL_FALSE);
 	}
 }
-#endif // !UE_BUILD_SHIPPING
 
 uint32 FLinuxPlatformApplicationMisc::WindowStyle()
 {
@@ -260,9 +258,7 @@ void FLinuxPlatformApplicationMisc::Init()
 
 	FGenericPlatformApplicationMisc::Init();
 
-#if !UE_BUILD_SHIPPING
 	UngrabAllInputCallback = UngrabAllInputImpl;
-#endif
 }
 
 bool FLinuxPlatformApplicationMisc::InitSDL()
@@ -340,9 +336,7 @@ void FLinuxPlatformApplicationMisc::TearDown()
 		GInitializedSDL = false;
 
 		MessageBoxExtCallback = nullptr;
-#if !UE_BUILD_SHIPPING
 		UngrabAllInputCallback = nullptr;
-#endif
 	}
 }
 

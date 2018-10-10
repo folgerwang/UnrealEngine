@@ -1265,6 +1265,8 @@ struct FPackageTracker : public FUObjectArray::FUObjectCreateListener, public FU
 	// List of requested files
 	CookRequestQueue		CookRequests;
 
+	FEvent*					CookRequestEvent = nullptr;
+
 	FThreadSafeUnsolicitedPackagesList			UnsolicitedCookedPackages;
 	FThreadSafeQueue<struct FRecompileRequest*> RecompileRequests;
 
@@ -1598,6 +1600,8 @@ bool UCookOnTheFlyServer::StartNetworkFileServer( const bool BindAnyPort )
 		NetworkFileServers.Add( HttpFileServer );
 	}
 #endif
+
+	PackageTracker->CookRequestEvent = FPlatformProcess::GetSynchEventFromPool();
 
 	// loop while waiting for requests
 	GIsRequestingExit = false;
@@ -2009,6 +2013,14 @@ FString UCookOnTheFlyServer::GetContentDirecctoryForDLC() const
 }
 
 COREUOBJECT_API extern bool GOutputCookingWarnings;
+
+void UCookOnTheFlyServer::WaitForRequests(int TimeoutMs)
+{
+	if (PackageTracker->CookRequestEvent)
+	{
+		PackageTracker->CookRequestEvent->Wait(TimeoutMs, true);
+	}
+}
 
 bool UCookOnTheFlyServer::HasCookRequests() const 
 { 
@@ -4004,6 +4016,10 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 		}
 
 		Package->SetPackageFlagsTo(OriginalPackageFlags);
+	}
+	else
+	{
+		SavePackageResults.Add(FSavePackageResultStruct(ESavePackageResult::MissingFile));
 	}
 
 	check(bIsSavingPackage == true);
@@ -7090,12 +7106,11 @@ void UCookOnTheFlyServer::GetCookOnTheFlyUnsolicitedFiles(const FName& PlatformN
 	UPackage::WaitForAsyncFileWrites();
 }
 
-void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest( const FString& Filename, const FString &PlatformName, TArray<FString>& UnsolicitedFiles )
+void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest(const FString& Filename, const FString& PlatformName, TArray<FString>& UnsolicitedFiles)
 {
 	check(IsCookOnTheFlyMode());
 
-	bool bIsCookable = FPackageName::IsPackageExtension(*FPaths::GetExtension(Filename, true));
-
+	const bool bIsCookable = FPackageName::IsPackageExtension(*FPaths::GetExtension(Filename, true));
 
 	FName PlatformFname = FName(*PlatformName);
 
@@ -7122,7 +7137,9 @@ void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest( const FString& Fil
 	UE_LOG(LogCook, Display, TEXT("Requesting file from cooker %s"), *StandardFileName);
 
 	PackageTracker->CookRequests.EnqueueUnique(FileRequest, true);
-
+	
+	if (PackageTracker->CookRequestEvent)
+		PackageTracker->CookRequestEvent->Trigger();
 
 #if PROFILE_NETWORK
 	bool bFoundNetworkEventWait = true;
@@ -7139,7 +7156,6 @@ void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest( const FString& Fil
 			break;
 		}
 	}
-	
 
 	// wait for tick entry here
 	TimeTillRequestStarted += FPlatformTime::Seconds() - StartTime;

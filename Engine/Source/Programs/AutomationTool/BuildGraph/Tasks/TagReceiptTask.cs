@@ -26,14 +26,14 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Path to the Engine folder, used to expand $(EngineDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string EngineDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference EngineDir;
 
 		/// <summary>
 		/// Path to the project folder, used to expand $(ProjectDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string ProjectDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference ProjectDir;
 
 		/// <summary>
 		/// Whether to tag the Build Products listed in receipts
@@ -114,18 +114,10 @@ namespace AutomationTool.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Set the Engine directory
-			DirectoryReference EngineDir = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine");
-			if (!String.IsNullOrEmpty(Parameters.EngineDir))
-			{
-				EngineDir = DirectoryReference.Combine(CommandUtils.RootDirectory, Parameters.EngineDir);
-			}
+			DirectoryReference EngineDir = Parameters.EngineDir ?? CommandUtils.EngineDirectory;
 
 			// Set the Project directory
-			DirectoryReference ProjectDir = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine");
-			if (!String.IsNullOrEmpty(Parameters.ProjectDir))
-			{
-				ProjectDir = DirectoryReference.Combine(CommandUtils.RootDirectory, Parameters.ProjectDir);
-			}
+			DirectoryReference ProjectDir = Parameters.ProjectDir ?? EngineDir;
 
 			// Resolve the input list
 			IEnumerable<FileReference> TargetFiles = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
@@ -177,13 +169,13 @@ namespace AutomationTool.Tasks
 							continue;
 						}
 
-						// Only add files that exist as dependencies are assumed to always exist
+						// Check which files exist, and warn about any that don't. Ignore debug files, as they are frequently excluded for size (eg. UE4 on GitHub). This matches logic during staging.
 						FileReference DependencyPath = RuntimeDependency.Path;
 						if (FileReference.Exists(DependencyPath))
 						{
 							Files.Add(DependencyPath);
 						}
-						else
+						else if(RuntimeDependency.Type != UnrealBuildTool.StagedFileType.DebugNonUFS)
 						{
 							CommandUtils.LogWarning("File listed as RuntimeDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
 						}

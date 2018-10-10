@@ -18,8 +18,14 @@ namespace UnrealBuildTool
 	[Serializable]
 	class UBTMakefile : ISerializable
 	{
-		public const int CurrentVersion = 7;
+		/// <summary>
+		/// The version number to write
+		/// </summary>
+		public const int CurrentVersion = 8;
 
+		/// <summary>
+		/// The version number that was read
+		/// </summary>
 		public int Version;
 
 		/// <summary>
@@ -339,6 +345,17 @@ namespace UnrealBuildTool
 								return null;
 							}
 						}
+					}
+				}
+
+				foreach(DirectoryReference SourceDirectory in Target.SourceDirectories)
+				{
+					DirectoryInfo SourceDirectoryInfo = new DirectoryInfo(SourceDirectory.FullName);
+					if(!SourceDirectoryInfo.Exists || SourceDirectoryInfo.LastWriteTimeUtc > UBTMakefileInfo.LastWriteTimeUtc)
+					{
+						Log.TraceVerbose("Timestamp of {0} ({1}) is newer than makefile ({2})", SourceDirectory, SourceDirectoryInfo.LastWriteTimeUtc, UBTMakefileInfo.LastWriteTimeUtc);
+						ReasonNotLoaded = "source directory changed";
+						return null;
 					}
 				}
 			}

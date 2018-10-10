@@ -135,7 +135,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 			{
 				TLightMapDensityDrawingPolicy< TUniformLightMapPolicy<LMP_HQ_LIGHTMAP> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_HQ_LIGHTMAP>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
 				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy< FUniformLightMapPolicy >::ContextDataType());
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
@@ -151,7 +151,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 			{
 				TLightMapDensityDrawingPolicy< TUniformLightMapPolicy<LMP_LQ_LIGHTMAP> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_LQ_LIGHTMAP>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
 				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy< FUniformLightMapPolicy >::ContextDataType());
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
@@ -168,7 +168,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 		{
 			TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_DUMMY> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_DUMMY>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
 			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy<FUniformLightMapPolicy >::ContextDataType());
 			for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 			{
@@ -185,7 +185,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 	{
 		TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_NO_LIGHTMAP> > DrawingPolicy(View, Mesh.VertexFactory, MaterialRenderProxy, TUniformLightMapPolicy<LMP_NO_LIGHTMAP>(), BlendMode, ComputeMeshOverrideSettings(Mesh));
 		DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, TLightMapDensityDrawingPolicy<TUniformLightMapPolicy<LMP_NO_LIGHTMAP> >::ContextDataType());
 		for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 		{

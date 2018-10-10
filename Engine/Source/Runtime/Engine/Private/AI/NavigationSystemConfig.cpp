@@ -9,7 +9,7 @@
 UNavigationSystemConfig::UNavigationSystemConfig(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	if (GEngine && *GEngine->NavigationSystemClass != nullptr)
+	if (GEngine)
 	{
 		NavigationSystemClass = GEngine->NavigationSystemClassName;
 	}

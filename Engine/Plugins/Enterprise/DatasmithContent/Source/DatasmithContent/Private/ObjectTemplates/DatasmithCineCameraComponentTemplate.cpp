@@ -2,8 +2,6 @@
 
 #include "ObjectTemplates/DatasmithCineCameraComponentTemplate.h"
 
-#include "CineCameraComponent.h"
-
 void FDatasmithCameraFilmbackSettingsTemplate::Apply( FCameraFilmbackSettings* Destination, const FDatasmithCameraFilmbackSettingsTemplate* PreviousTemplate )
 {
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( SensorWidth, Destination, PreviousTemplate );
@@ -113,17 +111,20 @@ bool FDatasmithCameraLensSettingsTemplate::Equals( const FDatasmithCameraLensSet
 
 void FDatasmithCameraFocusSettingsTemplate::Apply( FCameraFocusSettings* Destination, const FDatasmithCameraFocusSettingsTemplate* PreviousTemplate )
 {
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( FocusMethod, Destination, PreviousTemplate );
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( ManualFocusDistance, Destination, PreviousTemplate );
 }
 
 void FDatasmithCameraFocusSettingsTemplate::Load( const FCameraFocusSettings& Source )
 {
+	FocusMethod = Source.FocusMethod;
 	ManualFocusDistance = Source.ManualFocusDistance;
 }
 
 bool FDatasmithCameraFocusSettingsTemplate::Equals( const FDatasmithCameraFocusSettingsTemplate& Other ) const
 {
-	bool bEquals = FMath::IsNearlyEqual( ManualFocusDistance, Other.ManualFocusDistance);
+	bool bEquals = ( FocusMethod == Other.FocusMethod );
+	bEquals = bEquals && FMath::IsNearlyEqual( ManualFocusDistance, Other.ManualFocusDistance);
 
 	return bEquals;
 }

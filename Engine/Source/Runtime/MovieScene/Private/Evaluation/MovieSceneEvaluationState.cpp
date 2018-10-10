@@ -75,6 +75,18 @@ FGuid FMovieSceneObjectCache::FindObjectId(UObject& InObject, IMovieScenePlayer&
 	// complete lookup from scratch. This is required for UMG as it interchanges content slots without notifying sequencer.
 	Clear(Player);
 
+	return FindCachedObjectId(InObject, Player);
+}
+
+FGuid FMovieSceneObjectCache::FindCachedObjectId(UObject& InObject, IMovieScenePlayer& Player)
+{
+	UMovieSceneSequence* Sequence = WeakSequence.Get();
+	UMovieScene* MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
+	if (!MovieScene)
+	{
+		return FGuid();
+	}
+
 	TWeakObjectPtr<> ObjectToFind(&InObject);
 
 	// Search all possessables
@@ -313,4 +325,10 @@ FGuid FMovieSceneEvaluationState::FindObjectId(UObject& Object, FMovieSceneSeque
 {
 	FMovieSceneObjectCache* Cache = ObjectCaches.Find(InSequenceID);
 	return Cache ? Cache->FindObjectId(Object, Player) : FGuid();
+}
+
+FGuid FMovieSceneEvaluationState::FindCachedObjectId(UObject& Object, FMovieSceneSequenceIDRef InSequenceID, IMovieScenePlayer& Player)
+{
+	FMovieSceneObjectCache* Cache = ObjectCaches.Find(InSequenceID);
+	return Cache ? Cache->FindCachedObjectId(Object, Player) : FGuid();
 }

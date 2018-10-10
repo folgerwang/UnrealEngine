@@ -11,7 +11,7 @@
 #include "LevelSequence.generated.h"
 
 class UMovieScene;
-class ULevelSequenceDirectorGeneratedClass;
+class UBlueprintGeneratedClass;
 
 /**
  * Movie scene animation for Actors.
@@ -69,7 +69,7 @@ public:
 	 * Director instances are allocated on-demand one per sequence during evaluation and are used by event tracks for triggering events.
 	 */
 	UPROPERTY()
-	ULevelSequenceDirectorGeneratedClass* DirectorClass;
+	UBlueprintGeneratedClass* DirectorClass;
 
 protected:
 

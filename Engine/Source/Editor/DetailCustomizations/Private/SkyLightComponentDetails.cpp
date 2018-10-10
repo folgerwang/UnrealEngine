@@ -37,7 +37,9 @@ void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLa
 	{
 		// Point lights need to override the ui min and max for units of lumens, so we have to undo that
 		LightIntensityProperty->SetInstanceMetaData("UIMin", TEXT("0.0f"));
-		LightIntensityProperty->SetInstanceMetaData("UIMax", TEXT("20.0f"));
+		LightIntensityProperty->SetInstanceMetaData("UIMax", TEXT("50000.0f"));
+		LightIntensityProperty->SetInstanceMetaData("SliderExponent", TEXT("10.0f"));
+		LightIntensityProperty->SetInstanceMetaData("Units", TEXT("CandelaPerMeter2"));
 	}
 
 	const TArray< TWeakObjectPtr<UObject> >& SelectedObjects = DetailLayout.GetSelectedObjects();

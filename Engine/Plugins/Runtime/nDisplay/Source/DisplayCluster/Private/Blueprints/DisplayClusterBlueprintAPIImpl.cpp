@@ -442,28 +442,6 @@ bool UDisplayClusterBlueprintAPIImpl::ToggleEyesSwap()
 	return false;
 }
 
-void UDisplayClusterBlueprintAPIImpl::SetOutputFlip(bool flipH, bool flipV)
-{
-	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
-	if (Manager)
-	{
-		return Manager->GetStereoDevice()->SetOutputFlip(flipH, flipV);
-	}
-
-	return;
-}
-
-void UDisplayClusterBlueprintAPIImpl::GetOutputFlip(bool& flipH, bool& flipV)
-{
-	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();
-	if (Manager)
-	{
-		return Manager->GetStereoDevice()->GetOutputFlip(flipH, flipV);
-	}
-
-	return;
-}
-
 void UDisplayClusterBlueprintAPIImpl::GetCullingDistance(float& NearClipPlane, float& FarClipPlane)
 {
 	IDisplayClusterRenderManager* const Manager = IDisplayCluster::Get().GetRenderMgr();

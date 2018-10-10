@@ -305,58 +305,28 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 
 	FFrameNumber RootOverrideTime = (Context.GetTime() * RootOverrideTransform).FloorToFrame();
 
-	// First off, attempt to find the evaluation group in the existing evaluation field data from the template
-	int32 TemplateFieldIndex = OverrideRootTemplate->EvaluationField.GetSegmentFromTime(RootOverrideTime);
 
-	if (TemplateFieldIndex != INDEX_NONE)
+
+	FMovieSceneEvaluationField& EvaluationField = OverrideRootTemplate->EvaluationField;
+
+	// Get the range that we are evaluating in the root's space
+	TRange<FFrameNumber> ContextRange = Context.GetTraversedFrameNumberRange() * RootOverrideTransform;
+
+	// Verify and update the evaluation field for this range, returning the bounds of the overlapping field entries
+	TRange<int32> FieldRange = EvaluationField.ConditionallyCompileRange(ContextRange, OverrideRootSequence, *TemplateStore);
+	if (FieldRange.IsEmpty())
 	{
-		const FMovieSceneEvaluationMetaData& FieldMetaData = OverrideRootTemplate->EvaluationField.GetMetaData(TemplateFieldIndex);
-
-		// Verify that this field entry is still valid (all its cached signatures are still the same)
-		TRange<FFrameNumber> InvalidatedSubSequenceRange = TRange<FFrameNumber>::Empty();
-		if (FieldMetaData.IsDirty(OverrideRootTemplate->Hierarchy, *TemplateStore, &InvalidatedSubSequenceRange))
-		{
-			TemplateFieldIndex = INDEX_NONE;
-
-			if (!InvalidatedSubSequenceRange.IsEmpty())
-			{
-				// Invalidate the evaluation field for the root template (it may not exist until we compile below)
-				OverrideRootTemplate->EvaluationField.Invalidate(InvalidatedSubSequenceRange);
-			}
-		}
+		return nullptr;
 	}
 
-	if (TemplateFieldIndex == INDEX_NONE)
-	{
-		// We need to compile an entry in the evaluation field
-		static bool bFullCompile = false;
-		if (bFullCompile)
-		{
-			FMovieSceneCompiler::Compile(*OverrideRootSequence, *TemplateStore);
-			TemplateFieldIndex = OverrideRootTemplate->EvaluationField.GetSegmentFromTime(RootOverrideTime);
-		}
-		else
-		{
-			TOptional<FCompiledGroupResult> CompileResult = FMovieSceneCompiler::CompileTime(RootOverrideTime, *OverrideRootSequence, *TemplateStore);
-
-			if (CompileResult.IsSet())
-			{
-				TRange<FFrameNumber> FieldRange = CompileResult->Range;
-				TemplateFieldIndex = OverrideRootTemplate->EvaluationField.Insert(
-					RootOverrideTime,
-					FieldRange,
-					MoveTemp(CompileResult->Group),
-					MoveTemp(CompileResult->MetaData)
-					);
-			}
-		}
-	}
-
+	// The one that we want to evaluate is either the first or last index in the range.
+	// FieldRange is always of the form [First, Last+1)
+	int32 TemplateFieldIndex = Context.GetDirection() == EPlayDirection::Forwards ? FieldRange.GetUpperBoundValue() - 1 : FieldRange.GetLowerBoundValue();
 	if (TemplateFieldIndex != INDEX_NONE)
 	{
 		// Set meta-data
-		ThisFrameMetaData = OverrideRootTemplate->EvaluationField.GetMetaData(TemplateFieldIndex);
-		return &OverrideRootTemplate->EvaluationField.GetGroup(TemplateFieldIndex);
+		ThisFrameMetaData = EvaluationField.GetMetaData(TemplateFieldIndex);
+		return &EvaluationField.GetGroup(TemplateFieldIndex);
 	}
 
 	return nullptr;
