@@ -825,11 +825,16 @@ void CreateOpaqueBasePassUniformBuffer(
 
 	// Forward shading
 	{
-		if (!ForwardScreenSpaceShadowMask)
+		if (ForwardScreenSpaceShadowMask)
 		{
-			ForwardScreenSpaceShadowMask = GSystemTextures.WhiteDummy.GetReference();
+			BasePassParameters.UseForwardScreenSpaceShadowMask = 1;
+			BasePassParameters.ForwardScreenSpaceShadowMaskTexture = ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture;
 		}
-		BasePassParameters.ForwardScreenSpaceShadowMaskTexture = ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture;
+		else
+		{
+			BasePassParameters.UseForwardScreenSpaceShadowMask = 0;
+			BasePassParameters.ForwardScreenSpaceShadowMaskTexture = GSystemTextures.WhiteDummy.GetReference()->GetRenderTargetItem().ShaderResourceTexture;
+		}
 
 		IPooledRenderTarget* IndirectOcclusion = SceneRenderTargets.ScreenSpaceAO;
 
