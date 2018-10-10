@@ -186,10 +186,15 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		// Turn on Texture Buffers! These are faster on the GPU as we don't need to do out-of-bounds tests but require Metal 2.1 and macOS 10.14
 		if (FPlatformMisc::MacOSXVersionCompare(10,14,0) >= 0)
 		{
-			Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
+			Features |= EMetalFeaturesMaxThreadsPerThreadgroup | EMetalFeaturesFences | EMetalFeaturesIABs;
 			if (MaxShaderVersion >= 4)
 			{
 				Features |= EMetalFeaturesTextureBuffers;
+			}
+			
+			if ([Device.GetName().GetPtr() rangeOfString:@"Intel" options:NSCaseInsensitiveSearch].location == NSNotFound)
+			{
+				Features |= EMetalFeaturesHeaps;
 			}
 		}
     }
@@ -279,7 +284,8 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			PermittedOptions |= mtlpp::ResourceOptions::StorageModeMemoryless;
 		}
 #endif
-		if ((Features & EMetalFeaturesFences) && FParse::Param(FCommandLine::Get(),TEXT("metaluntracktextures")))
+		// You can't use HazardUntracked under the validation layer due to bugs in the layer when trying to create linear-textures/texture-buffers
+		if ((Features & EMetalFeaturesFences) && !(Features & EMetalFeaturesValidation))
 		{
 			PermittedOptions |= mtlpp::ResourceOptions::HazardTrackingModeUntracked;
 		}
