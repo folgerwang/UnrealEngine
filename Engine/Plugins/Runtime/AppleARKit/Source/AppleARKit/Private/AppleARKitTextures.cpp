@@ -293,7 +293,6 @@ public:
 		[CubefaceImage release];
 		[CubeFaceMetalTexture release];
 		[OurCubeFaceMetalTexture release];
-		[Context release];
 	}
 	
 	virtual void ReleaseRHI() override

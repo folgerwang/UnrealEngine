@@ -623,8 +623,12 @@ void FMobileJSScripting::PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow
 	InWindow->ExecuteJavascript(Script);
 }
 
-FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled, TSharedRef<class IWebBrowserWindow> InWindow)
+FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled)
 	: FWebJSScripting(bJSBindingToLoweringEnabled)
+{
+}
+
+void FMobileJSScripting::SetWindow(TSharedRef<class IWebBrowserWindow> InWindow)
 {
 	WindowPtr = InWindow;
 }

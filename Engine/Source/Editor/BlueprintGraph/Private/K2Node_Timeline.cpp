@@ -114,6 +114,7 @@ void UK2Node_Timeline::AllocateDefaultPins()
 		// cache play status
 		bAutoPlay = Timeline->bAutoPlay;
 		bLoop = Timeline->bLoop;
+		bReplicated = Timeline->bReplicated;
 		bIgnoreTimeDilation = Timeline->bIgnoreTimeDilation;
 	}
 
@@ -181,6 +182,7 @@ void UK2Node_Timeline::PostPasteNode()
 		{
 			bAutoPlay = Template->bAutoPlay;
 			bLoop = Template->bLoop;
+			bReplicated = Template->bReplicated;
 			bIgnoreTimeDilation = Template->bIgnoreTimeDilation;
 		}
 	}
@@ -192,6 +194,7 @@ void UK2Node_Timeline::PostPasteNode()
 		UTimelineTemplate* Template = DuplicateObject<UTimelineTemplate>(OldTimeline, Blueprint->GeneratedClass, TimelineTemplateName);
 		bAutoPlay = Template->bAutoPlay;
 		bLoop = Template->bLoop;
+		bReplicated = Template->bReplicated;
 		bIgnoreTimeDilation = Template->bIgnoreTimeDilation;
 		Template->SetFlags(RF_Transactional);
 		Blueprint->Timelines.Add(Template);
@@ -201,7 +204,7 @@ void UK2Node_Timeline::PostPasteNode()
 			for( auto TrackIt = Template->FloatTracks.CreateIterator(); TrackIt; ++TrackIt )
 			{
 				FTTFloatTrack& Track = *TrackIt;
-				if(Track.CurveFloat->GetOuter()->IsA(UBlueprint::StaticClass()))
+				if (!Track.bIsExternalCurve && Track.CurveFloat->GetOuter()->IsA(UBlueprint::StaticClass()))
 				{
 					Track.CurveFloat->Rename(*Template->MakeUniqueCurveName(Track.CurveFloat, Track.CurveFloat->GetOuter()), Blueprint, REN_DontCreateRedirectors);
 				}
@@ -210,7 +213,7 @@ void UK2Node_Timeline::PostPasteNode()
 			for( auto TrackIt = Template->EventTracks.CreateIterator(); TrackIt; ++TrackIt )
 			{
 				FTTEventTrack& Track = *TrackIt;
-				if(Track.CurveKeys->GetOuter()->IsA(UBlueprint::StaticClass()))
+				if (!Track.bIsExternalCurve && Track.CurveKeys->GetOuter()->IsA(UBlueprint::StaticClass()))
 				{
 					Track.CurveKeys->Rename(*Template->MakeUniqueCurveName(Track.CurveKeys, Track.CurveKeys->GetOuter()), Blueprint, REN_DontCreateRedirectors);
 				}
@@ -219,7 +222,7 @@ void UK2Node_Timeline::PostPasteNode()
 			for( auto TrackIt = Template->VectorTracks.CreateIterator(); TrackIt; ++TrackIt )
 			{
 				FTTVectorTrack& Track = *TrackIt;
-				if(Track.CurveVector->GetOuter()->IsA(UBlueprint::StaticClass()))
+				if (!Track.bIsExternalCurve && Track.CurveVector->GetOuter()->IsA(UBlueprint::StaticClass()))
 				{
 					Track.CurveVector->Rename(*Template->MakeUniqueCurveName(Track.CurveVector, Track.CurveVector->GetOuter()), Blueprint, REN_DontCreateRedirectors);
 				}
@@ -228,7 +231,7 @@ void UK2Node_Timeline::PostPasteNode()
 			for( auto TrackIt = Template->LinearColorTracks.CreateIterator(); TrackIt; ++TrackIt )
 			{
 				FTTLinearColorTrack& Track = *TrackIt;
-				if(Track.CurveLinearColor->GetOuter()->IsA(UBlueprint::StaticClass()))
+				if (!Track.bIsExternalCurve && Track.CurveLinearColor->GetOuter()->IsA(UBlueprint::StaticClass()))
 				{
 					Track.CurveLinearColor->Rename(*Template->MakeUniqueCurveName(Track.CurveLinearColor, Track.CurveLinearColor->GetOuter()), Blueprint, REN_DontCreateRedirectors);
 				}
@@ -597,6 +600,15 @@ void UK2Node_Timeline::ExpandNode(FKismetCompilerContext& CompilerContext, UEdGr
 FText UK2Node_Timeline::GetTooltipText() const
 {
 	return LOCTEXT("TimelineTooltip", "Timeline node allows values to be keyframed over time.\nDouble click to open timeline editor.");
+}
+
+FName UK2Node_Timeline::GetCornerIcon() const
+{
+	if (bReplicated)
+	{
+		return TEXT("Graph.Replication.Replicated");
+	}
+	return Super::GetCornerIcon();
 }
 
 FSlateIcon UK2Node_Timeline::GetIconAndTint(FLinearColor& OutColor) const

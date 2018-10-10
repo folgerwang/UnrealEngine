@@ -107,7 +107,7 @@ void FPolyglotTextSource::LoadLocalizedResources(const ELocalizationLoadFlags In
 
 		if (ShouldLoadLocalizedText(PolyglotTextData))
 		{
-			if (PolyglotTextData.GetCategory() == ELocalizedTextSourceCategory::Game && !ShouldLoadLocalizedGameData(InLoadFlags))
+			if (PolyglotTextData.GetCategory() == ELocalizedTextSourceCategory::Game && ShouldLoadNativeGameData(InLoadFlags))
 			{
 				// The editor cheats and loads the native language's localizations for game data.
 				TSharedRef<FTextLocalizationResource> TextLocalizationResource = InOutLocalizedResources.EnsureResource(InPrioritizedCultures[0]);

@@ -242,4 +242,9 @@ public:
 	 * Returns true, if the app has VR focus, meaning if it is rendered in the HMD.
 	 */
 	virtual bool DoesAppHaveVRFocus() const;
+
+	/**
+	 * If true, scene rendering should be skipped.
+	 */
+	virtual bool IsRenderingPaused() const { return false; }
 };

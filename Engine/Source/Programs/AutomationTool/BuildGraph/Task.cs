@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,49 +24,14 @@ namespace AutomationTool
 		Default,
 
 		/// <summary>
-		/// A standard name; alphanumeric characters, plus underscore and space. Spaces at the start or end, or more than one in a row are prohibited.
-		/// </summary>
-		Name,
-
-		/// <summary>
-		/// A list of names separated by semicolons
-		/// </summary>
-		NameList,
-
-		/// <summary>
-		/// A tag name (a regular name with '#' prefix)
-		/// </summary>
-		Tag,
-
-		/// <summary>
 		/// A list of tag names separated by semicolons
 		/// </summary>
 		TagList,
 
 		/// <summary>
-		/// A standard node/aggregate/agent name or tag name
-		/// </summary>
-		Target,
-
-		/// <summary>
-		/// A list of standard name or tag names separated by semicolons
-		/// </summary>
-		TargetList,
-
-		/// <summary>
 		/// A file specification, which may contain tags and wildcards.
 		/// </summary>
 		FileSpec,
-
-		/// <summary>
-		/// A single file name
-		/// </summary>
-		FileName,
-
-		/// <summary>
-		/// A single directory name
-		/// </summary>
-		DirectoryName,
 	}
 
 	/// <summary>
@@ -426,13 +391,16 @@ namespace AutomationTool
 				{
 					FileFilter Filter = new FileFilter();
 					Filter.AddRule(IncludePattern, FileFilterType.Include);
-					Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);
+					if(ExcludePatterns != null && ExcludePatterns.Count > 0)
+					{
+						Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);
+					}
 					Files.UnionWith(Filter.ApplyToDirectory(BaseDir, BaseDir.FullName, true));
 				}
 			}
 
 			// If we have exclude rules, create and run a filter against all the output files to catch things that weren't added from an include
-			if(ExcludePatterns.Count > 0)
+			if(ExcludePatterns != null && ExcludePatterns.Count > 0)
 			{
 				FileFilter Filter = new FileFilter(FileFilterType.Include);
 				Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);

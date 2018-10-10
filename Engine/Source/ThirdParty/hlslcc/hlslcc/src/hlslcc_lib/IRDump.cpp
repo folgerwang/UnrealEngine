@@ -39,13 +39,7 @@
 #include "IRDump.h"
 #include "hlslcc_private.h"
 
-// Print to the debugger in visual studio?
-#define DUMP_TO_VISUAL_STUDIO 0
-#if DUMP_TO_VISUAL_STUDIO
-	#define irdump_printf dprintf
-#else
-	#define irdump_printf printf
-#endif
+#define irdump_printf(...)  dprintf(__VA_ARGS__)
 
 static inline void irdump_flush()
 {

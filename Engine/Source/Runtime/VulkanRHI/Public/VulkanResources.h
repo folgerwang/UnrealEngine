@@ -1152,7 +1152,13 @@ protected:
 	VkBufferUsageFlags BufferUsageFlags;
 	uint32 NumBuffers;
 	uint32 DynamicBufferIndex;
-	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_RENDER_BUFFERS];
+
+	enum
+	{
+		NUM_BUFFERS = 3,
+	};
+
+	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_BUFFERS];
 	struct
 	{
 		VulkanRHI::FBufferSuballocation* SubAlloc = nullptr;
@@ -1474,13 +1480,12 @@ public:
 	}
 
 	virtual bool Poll() const final override;
-	virtual bool Wait(float TimeoutMs) const final override;
 
 protected:
 	FVulkanCmdBuffer*	CmdBuffer = nullptr;
 	uint64				FenceSignaledCounter = 0;
 
-	friend class FVulkanDynamicRHI;
+	friend class FVulkanCommandListContext;
 };
 
 template<class T>

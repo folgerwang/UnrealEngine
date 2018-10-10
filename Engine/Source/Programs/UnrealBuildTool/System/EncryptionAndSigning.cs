@@ -130,6 +130,7 @@ namespace UnrealBuildTool
 			/// </summary>
 			public void Save(FileReference InFile)
 			{
+				DirectoryReference.CreateDirectory(InFile.Directory);
 				FileReference.WriteAllText(InFile, fastJSON.JSON.Instance.ToJSON(this, new fastJSON.JSONParameters {}));
 			}
 		}

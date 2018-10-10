@@ -283,6 +283,17 @@ namespace iPhonePackager
                                 return false;
                             }
                         }
+						else if (Arg == "-provisionfile")
+						{
+							if (Arguments.Length > ArgIndex + 1)
+							{
+								Config.ProvisionFile = Arguments [++ArgIndex];
+							}
+							else
+							{
+								return false;
+							}
+						}
 						else if (Arg == "-teamID")
 						{
 							// make sure there's at least one more arg

@@ -465,7 +465,7 @@ public:
 			);
 
 		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), Parameters.Mesh.MaterialRenderProxy);
 		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType());
 
 		for( int32 BatchElementIndex=0;BatchElementIndex<Parameters.Mesh.Elements.Num();BatchElementIndex++ )
@@ -584,13 +584,10 @@ EBasePassSort::Type GetSortMode()
 static void DrawVisibleFrontToBack(
 	FRHICommandListImmediate& RHICmdList,
 	FScene* const Scene,
-	const EBasePassDrawListType DrawListType, 
-	const FViewInfo& View, 
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const FMobileCSMVisibilityInfo* const MobileCSMVisibilityInfo, 
-	const StereoPair& StereoView, 
-	const StereoPair& StereoViewCSM, 
-	const StereoPair& StereoViewNonCSM, 
+	const EBasePassDrawListType DrawListType,
+	const FViewInfo& View,
+	FDrawingPolicyRenderState& DrawRenderState,
+	const FMobileCSMVisibilityInfo* const MobileCSMVisibilityInfo,
 	int32& MaxDraws)
 {
 #if FRAMEPRO_ENABLED
@@ -601,29 +598,14 @@ static void DrawVisibleFrontToBack(
 
 	const bool bIsCSM = MobileCSMVisibilityInfo != nullptr;
 	int32 NumDraws = 0;
-	if (View.bIsMobileMultiViewEnabled)
+	if (bIsCSM)
 	{
-		if (bIsCSM)
-		{
-			NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawListType].DrawVisibleFrontToBackMobileMultiView(RHICmdList, StereoViewCSM, DrawRenderState, MaxDraws);
-			NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleFrontToBackMobileMultiView(RHICmdList, StereoViewNonCSM, DrawRenderState, MaxDraws);
-		}
-		else
-		{
-			NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleFrontToBackMobileMultiView(RHICmdList, StereoView, DrawRenderState, MaxDraws);
-		}
+		NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawListType].DrawVisibleFrontToBack(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility, MaxDraws);
+		NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleFrontToBack(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility, MaxDraws);
 	}
 	else
 	{
-		if (bIsCSM)
-		{
-			NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawListType].DrawVisibleFrontToBack(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility, MaxDraws);
-			NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleFrontToBack(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility, MaxDraws);
-		}
-		else
-		{
-			NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleFrontToBack(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility, MaxDraws);
-		}
+		NumDraws += Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleFrontToBack(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility, MaxDraws);
 	}
 
 	MaxDraws -= NumDraws;
@@ -640,36 +622,18 @@ static void DrawVisible(
 	const EBasePassDrawListType DrawListType,
 	const FViewInfo& View,
 	const FDrawingPolicyRenderState& DrawRenderState,
-	const FMobileCSMVisibilityInfo* const MobileCSMVisibilityInfo,
-	const StereoPair& StereoView,
-	const StereoPair& StereoViewCSM,
-	const StereoPair& StereoViewNonCSM)
+	const FMobileCSMVisibilityInfo* const MobileCSMVisibilityInfo)
 {
 	SCOPE_CYCLE_COUNTER(STAT_StaticDrawListDrawTime);
 	const bool bIsCSM = MobileCSMVisibilityInfo != nullptr;
-	if (View.bIsMobileMultiViewEnabled)
+	if (bIsCSM)
 	{
-		if (bIsCSM)
-		{
-			Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawListType].DrawVisibleMobileMultiView(RHICmdList, StereoViewCSM, DrawRenderState);
-			Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleMobileMultiView(RHICmdList, StereoViewNonCSM, DrawRenderState);
-		}
-		else
-		{
-			Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisibleMobileMultiView(RHICmdList, StereoView, DrawRenderState);
-		}
+		Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawListType].DrawVisible(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility);
+		Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisible(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility);
 	}
 	else
 	{
-		if (bIsCSM)
-		{
-			Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawListType].DrawVisible(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility);
-			Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisible(RHICmdList, View, DrawRenderState, MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap, MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility);
-		}
-		else
-		{
-			Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility);
-		}
+		Scene->MobileBasePassUniformLightMapPolicyDrawList[DrawListType].DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility);
 	}
 }
 
@@ -739,52 +703,6 @@ void FMobileSceneRenderer::RenderMobileBasePassDynamicData(FRHICommandList& RHIC
 		}
 	}
 }
-
-struct FMobileBasePassViewInfo
-{
-	const FMobileCSMVisibilityInfo* MobileCSMVisibilityInfo;
-	const FMobileCSMVisibilityInfo* MobileCSMVisibilityInfoStereo;
-	StereoPair StereoView;
-	StereoPair StereoViewCSM;
-	StereoPair StereoViewNonCSM;
-
-
-	FMobileBasePassViewInfo(const FViewInfo& View, TArray<FViewInfo>& Views)
-	{
-		MobileCSMVisibilityInfo = View.MobileCSMVisibilityInfo.bMobileDynamicCSMInUse ? &View.MobileCSMVisibilityInfo : nullptr;
-		MobileCSMVisibilityInfoStereo = nullptr;
-
-		if (View.bIsMobileMultiViewEnabled)
-		{
-			checkSlow(Views.Num() > 1);
-			StereoView.LeftView = &Views[0];
-			StereoView.RightView = &Views[1];
-			StereoView.LeftViewVisibilityMap = &Views[0].StaticMeshVisibilityMap;
-			StereoView.LeftViewBatchVisibilityArray = &Views[0].StaticMeshBatchVisibility;
-			StereoView.RightViewVisibilityMap = &Views[1].StaticMeshVisibilityMap;
-			StereoView.RightViewBatchVisibilityArray = &Views[1].StaticMeshBatchVisibility;
-
-			if (MobileCSMVisibilityInfo)
-			{
-				MobileCSMVisibilityInfoStereo = &Views[1].MobileCSMVisibilityInfo;
-
-				StereoViewCSM.LeftView = &Views[0];
-				StereoViewCSM.RightView = &Views[1];
-				StereoViewCSM.LeftViewVisibilityMap = &MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap;
-				StereoViewCSM.LeftViewBatchVisibilityArray = &MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility;
-				StereoViewCSM.RightViewVisibilityMap = &MobileCSMVisibilityInfoStereo->MobileCSMStaticMeshVisibilityMap;
-				StereoViewCSM.RightViewBatchVisibilityArray = &MobileCSMVisibilityInfoStereo->MobileCSMStaticBatchVisibility;
-
-				StereoViewNonCSM.LeftView = &Views[0];
-				StereoViewNonCSM.RightView = &Views[1];
-				StereoViewNonCSM.LeftViewVisibilityMap = &MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap;
-				StereoViewNonCSM.LeftViewBatchVisibilityArray = &MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility;
-				StereoViewNonCSM.RightViewVisibilityMap = &MobileCSMVisibilityInfoStereo->MobileNonCSMStaticMeshVisibilityMap;
-				StereoViewNonCSM.RightViewBatchVisibilityArray = &MobileCSMVisibilityInfoStereo->MobileNonCSMStaticBatchVisibility;
-			}
-		}
-	}
-};
 
 static void SetupMobileBasePassView(FRHICommandList& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState)
 {
@@ -917,10 +835,9 @@ static void RenderMobileBasePassDynamicDataParallel(FMobileSceneRenderer& ThisRe
 void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& InViews, const FDrawingPolicyRenderState& DrawRenderState)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_RenderMobileBasePassViewParallel);
-	FMobileBasePassViewInfo VI(View, InViews);
 
 	bool bCreateContexts = false; // CVarRHICmdFlushRenderThreadTasksBasePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0;
-	const bool bIsCSM = VI.MobileCSMVisibilityInfo != nullptr;
+	const bool bIsCSM = View.MobileCSMVisibilityInfo.bMobileDynamicCSMInUse;
 	check(!View.bIsMobileMultiViewEnabled && GetSortMode() != EBasePassSort::SortPerMesh); // easy to support, just isn't supported yet
 
 	{
@@ -933,8 +850,8 @@ void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& Vie
 
 		if (bIsCSM)
 		{
-			Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Default].DrawVisibleParallel(VI.MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap, VI.MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility, ParallelSet);
-			Scene->MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Default].DrawVisibleParallel(VI.MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap, VI.MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility, ParallelSet);
+			Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Default].DrawVisibleParallel(View.MobileCSMVisibilityInfo.MobileCSMStaticMeshVisibilityMap, View.MobileCSMVisibilityInfo.MobileCSMStaticBatchVisibility, ParallelSet);
+			Scene->MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Default].DrawVisibleParallel(View.MobileCSMVisibilityInfo.MobileNonCSMStaticMeshVisibilityMap, View.MobileCSMVisibilityInfo.MobileNonCSMStaticBatchVisibility, ParallelSet);
 		}
 		else
 		{
@@ -957,8 +874,8 @@ void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& Vie
 
 		if (bIsCSM)
 		{
-			Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Masked].DrawVisibleParallel(VI.MobileCSMVisibilityInfo->MobileCSMStaticMeshVisibilityMap, VI.MobileCSMVisibilityInfo->MobileCSMStaticBatchVisibility, ParallelSet);
-			Scene->MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Masked].DrawVisibleParallel(VI.MobileCSMVisibilityInfo->MobileNonCSMStaticMeshVisibilityMap, VI.MobileCSMVisibilityInfo->MobileNonCSMStaticBatchVisibility, ParallelSet);
+			Scene->MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_Masked].DrawVisibleParallel(View.MobileCSMVisibilityInfo.MobileCSMStaticMeshVisibilityMap, View.MobileCSMVisibilityInfo.MobileCSMStaticBatchVisibility, ParallelSet);
+			Scene->MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Masked].DrawVisibleParallel(View.MobileCSMVisibilityInfo.MobileNonCSMStaticMeshVisibilityMap, View.MobileCSMVisibilityInfo.MobileNonCSMStaticBatchVisibility, ParallelSet);
 		}
 		else
 		{
@@ -1059,16 +976,14 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 
 			SetupMobileBasePassView(RHICmdList, View, DrawRenderState);
 
-			FMobileBasePassViewInfo VI(View, Views);
-
 			// Render the base pass static data
 			if (SortMode == EBasePassSort::SortPerMesh)
 			{
-				DrawVisibleFrontToBack(RHICmdList, Scene, EBasePass_Default, View, DrawRenderState, VI.MobileCSMVisibilityInfo, VI.StereoView, VI.StereoViewNonCSM, VI.StereoViewCSM, MaxDraws);
+				DrawVisibleFrontToBack(RHICmdList, Scene, EBasePass_Default, View, DrawRenderState, &View.MobileCSMVisibilityInfo, MaxDraws);
 			}
 			else
 			{
-				DrawVisible(RHICmdList, Scene, EBasePass_Default, View, DrawRenderState, VI.MobileCSMVisibilityInfo, VI.StereoView, VI.StereoViewNonCSM, VI.StereoViewCSM);
+				DrawVisible(RHICmdList, Scene, EBasePass_Default, View, DrawRenderState, &View.MobileCSMVisibilityInfo);
 			}
 			FRHICommandListExecutor::GetImmediateCommandList().PollOcclusionQueries();
 			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
@@ -1085,11 +1000,11 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 			// Issue static draw list masked draw calls last, as PVR wants it
 			if (SortMode == EBasePassSort::SortPerMesh)
 			{
-				DrawVisibleFrontToBack(RHICmdList, Scene, EBasePass_Masked, View, DrawRenderState, VI.MobileCSMVisibilityInfo, VI.StereoView, VI.StereoViewNonCSM, VI.StereoViewCSM, MaxDraws);
+				DrawVisibleFrontToBack(RHICmdList, Scene, EBasePass_Masked, View, DrawRenderState, &View.MobileCSMVisibilityInfo, MaxDraws);
 			}
 			else
 			{
-				DrawVisible(RHICmdList, Scene, EBasePass_Masked, View, DrawRenderState, VI.MobileCSMVisibilityInfo, VI.StereoView, VI.StereoViewNonCSM, VI.StereoViewCSM);
+				DrawVisible(RHICmdList, Scene, EBasePass_Masked, View, DrawRenderState, &View.MobileCSMVisibilityInfo);
 			}
 
 			FRHICommandListExecutor::GetImmediateCommandList().PollOcclusionQueries();

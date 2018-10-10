@@ -346,11 +346,11 @@ bool FSkeletalAnimationSection::CreatePoseAsset(const TArray<UObject*> NewAssets
 			FText NotificationText;
 			if (NewAssets.Num() == 1)
 			{
-				NotificationText = FText::Format(LOCTEXT("CreatePoseAsset", "{0} Pose assets created."), NewAssets.Num());
+				NotificationText = FText::Format(LOCTEXT("NumPoseAssetsCreated", "{0} Pose assets created."), NewAssets.Num());
 			}
 			else
 			{
-				NotificationText = FText::Format(LOCTEXT("CreatePoseAsset", "Pose asset created: '{0}'."), FText::FromString(NewAssets[0]->GetName()));
+				NotificationText = FText::Format(LOCTEXT("PoseAssetsCreated", "Pose asset created: '{0}'."), FText::FromString(NewAssets[0]->GetName()));
 			}
 						
 			FNotificationInfo Info(NotificationText);	

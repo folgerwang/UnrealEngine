@@ -479,7 +479,7 @@ public:
 
 		SetDepthStencilStateForBasePass(DrawRenderState, View, Parameters.Mesh, Parameters.PrimitiveSceneProxy, bEnableReceiveDecalOutput, DrawingPolicy.UseDebugViewPS(), nullptr);
 		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType(Parameters.bIsInstancedStereo));
 
 		for( int32 BatchElementIndex = 0, Num = Parameters.Mesh.Elements.Num(); BatchElementIndex < Num; BatchElementIndex++ )
@@ -825,11 +825,16 @@ void CreateOpaqueBasePassUniformBuffer(
 
 	// Forward shading
 	{
-		if (!ForwardScreenSpaceShadowMask)
+		if (ForwardScreenSpaceShadowMask)
 		{
-			ForwardScreenSpaceShadowMask = GSystemTextures.WhiteDummy.GetReference();
+			BasePassParameters.UseForwardScreenSpaceShadowMask = 1;
+			BasePassParameters.ForwardScreenSpaceShadowMaskTexture = ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture;
 		}
-		BasePassParameters.ForwardScreenSpaceShadowMaskTexture = ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture;
+		else
+		{
+			BasePassParameters.UseForwardScreenSpaceShadowMask = 0;
+			BasePassParameters.ForwardScreenSpaceShadowMaskTexture = GSystemTextures.WhiteDummy.GetReference()->GetRenderTargetItem().ShaderResourceTexture;
+		}
 
 		IPooledRenderTarget* IndirectOcclusion = SceneRenderTargets.ScreenSpaceAO;
 
@@ -960,32 +965,12 @@ bool FDeferredShadingSceneRenderer::RenderBasePassStaticDataType(FRHICommandList
 {
 	SCOPED_DRAW_EVENTF(RHICmdList, StaticType, TEXT("Static EBasePassDrawListType=%d"), DrawType);
 
-	bool bDirty = false;
-
-	if (!View.IsInstancedStereoPass())
-	{
-		bDirty |= Scene->BasePassUniformLightMapPolicyDrawList[DrawType].DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility);
-	}
-	else
-	{
-		const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshVisibilityMap, Views[1].StaticMeshVisibilityMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-		bDirty |= Scene->BasePassUniformLightMapPolicyDrawList[DrawType].DrawVisibleInstancedStereo(RHICmdList, StereoView, DrawRenderState);
-	}
-
-	return bDirty;
+	return Scene->BasePassUniformLightMapPolicyDrawList[DrawType].DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility);
 }
 
 void FDeferredShadingSceneRenderer::RenderBasePassStaticDataTypeParallel(FParallelCommandListSet& ParallelCommandListSet, const EBasePassDrawListType DrawType)
 {
-	if (!ParallelCommandListSet.View.IsInstancedStereoPass())
-	{
-		Scene->BasePassUniformLightMapPolicyDrawList[DrawType].DrawVisibleParallel(ParallelCommandListSet.View.StaticMeshVisibilityMap, ParallelCommandListSet.View.StaticMeshBatchVisibility, ParallelCommandListSet);
-	}
-	else
-	{
-		const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshVisibilityMap, Views[1].StaticMeshVisibilityMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-		Scene->BasePassUniformLightMapPolicyDrawList[DrawType].DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-	}
+	Scene->BasePassUniformLightMapPolicyDrawList[DrawType].DrawVisibleParallel(ParallelCommandListSet.View.StaticMeshVisibilityMap, ParallelCommandListSet.View.StaticMeshBatchVisibility, ParallelCommandListSet);
 }
 
 template<typename StaticMeshDrawList>

@@ -15,7 +15,17 @@ public:
 	FDisplayClusterDeviceMonoscopicD3D11();
 	virtual ~FDisplayClusterDeviceMonoscopicD3D11();
 
-	virtual bool ShouldUseSeparateRenderTarget() const override { return false; };
+public:
+	virtual bool ShouldUseSeparateRenderTarget() const override
+	{ return false; };
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IStereoRendering
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual int32 GetDesiredNumberOfViews(bool bStereoRequested) const override
+	{ return 1; }
+
 protected:
 	virtual bool Present(int32& InOutSyncInterval) override;
 };

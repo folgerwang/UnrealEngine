@@ -9,7 +9,7 @@
 #include "Materials/MaterialExpression.h"
 #include "MaterialExpressionCeil.generated.h"
 
-UCLASS(collapsecategories, hidecategories=Object)
+UCLASS(MinimalAPI, collapsecategories, hidecategories=Object)
 class UMaterialExpressionCeil : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()

@@ -365,25 +365,27 @@ public:
 	template<typename FilterMode, typename AreaWeightingMode>
 	void GetFilteredTriangleCount(FVectorVMContext& Context);
 
-	template<typename FilterMode, typename AreaWeightingMode, typename TriType>
+	template<typename FilterMode, typename AreaWeightingMode>
 	void GetFilteredTriangleAt(FVectorVMContext& Context);
 
 	template<typename FilterMode, typename AreaWeightingMode>
 	void RandomTriCoord(FVectorVMContext& Context);
 
-	template<typename FilterMode, typename AreaWeightingMode, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	template<typename FilterMode, typename AreaWeightingMode>
 	void IsValidTriCoord(FVectorVMContext& Context);
 
-	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType>
+	void GetTriCoordSkinnedData_Opt(FVectorVMContext& Context);
+
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType>
 	void GetTriCoordSkinnedData(FVectorVMContext& Context);
 
-	template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordColor(FVectorVMContext& Context);
 
-	template<typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
+	template<typename VertexAccessorType>
 	void GetTriCoordUV(FVectorVMContext& Context);
 
-	template<typename SkinningHandlerType, typename TriType>
+	template<typename SkinningHandlerType>
 	void GetTriCoordVertices(FVectorVMContext& Context);
 		
 private:
@@ -409,22 +411,21 @@ public:
 	template<typename FilterMode>
 	void GetFilteredVertexCount(FVectorVMContext& Context);
 
-	template<typename FilterMode, typename VertexType>
+	template<typename FilterMode>
 	void GetFilteredVertexAt(FVectorVMContext& Context);
 
 	template<typename FilterMode>
 	void RandomVertex(FVectorVMContext& Context);
 
-	template<typename FilterMode, typename VertexType>
+	template<typename FilterMode>
 	void IsValidVertex(FVectorVMContext& Context);
 
-	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType, typename VertexType>
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType>
 	void GetVertexSkinnedData(FVectorVMContext& Context);
 
-	template<typename VertexType>
 	void GetVertexColor(FVectorVMContext& Context);
 
-	template<typename VertexAccessorType, typename VertexType, typename UVSetType>
+	template<typename VertexAccessorType>
 	void GetVertexUV(FVectorVMContext& Context);
 
 private:
@@ -447,22 +448,19 @@ public:
 	void GetSkeletonSamplingFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions);
 	void BindSkeletonSamplingFunction(const FVMExternalFunctionBindingInfo& BindingInfo, FNDISkeletalMesh_InstanceData* InstData, FVMExternalFunction &OutFunc);
 
-	template<typename BoneType>
 	void IsValidBone(FVectorVMContext& Context);
 
 	void GetSpecificBoneCount(FVectorVMContext& Context);
 
-	template<typename BoneType>
 	void GetSpecificBoneAt(FVectorVMContext& Context);
 
 	void RandomSpecificBone(FVectorVMContext& Context);
 
-	template<typename SkinningHandlerType, typename TransformHandlerType, typename BoneType>
+	template<typename SkinningHandlerType, typename TransformHandlerType>
 	void GetSkinnedBoneData(FVectorVMContext& Context);
 	
 	void GetSpecificSocketCount(FVectorVMContext& Context);
 
-	template<typename SocketType>
 	void GetSpecificSocketBoneAt(FVectorVMContext& Context);
 
 	void RandomSpecificSocketBone(FVectorVMContext& Context);

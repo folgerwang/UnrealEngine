@@ -67,6 +67,22 @@ void UNiagaraEditorSettings::SetResimulateOnChangeWhilePaused(bool bInResimulate
 	}
 }
 
+FNiagaraNewAssetDialogConfig UNiagaraEditorSettings::GetNewAssetDailogConfig(FName InDialogConfigKey) const
+{
+	const FNiagaraNewAssetDialogConfig* Config = NewAssetDialogConfigMap.Find(InDialogConfigKey);
+	if (Config != nullptr)
+	{
+		return *Config;
+	}
+	return FNiagaraNewAssetDialogConfig();
+}
+
+void UNiagaraEditorSettings::SetNewAssetDialogConfig(FName InDialogConfigKey, const FNiagaraNewAssetDialogConfig& InNewAssetDialogConfig)
+{
+	NewAssetDialogConfigMap.Add(InDialogConfigKey, InNewAssetDialogConfig);
+	SaveConfig();
+}
+
 FName UNiagaraEditorSettings::GetCategoryName() const
 {
 	return TEXT("Plugins");

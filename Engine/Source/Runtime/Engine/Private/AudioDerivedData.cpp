@@ -848,16 +848,16 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 		return;
 	}
 
+#if WITH_EDITORONLY_DATA
+	FScopeLock ScopeLock(&SoundWave->RawDataCriticalSection);
+#endif
+
 	// check if there is any raw sound data
 	if( SoundWave->RawData.GetBulkDataSize() > 0 )
 	{
-		if (SoundWave->RawData.IsLocked())
-		{
-			UE_LOG(LogAudioDerivedData, Warning, TEXT("In CookSimpleWave: Raw PCM data already being written to. %s "), *SoundWave->GetFullName());
-		}
 
 		// Lock raw wave data.
-		uint8* RawWaveData = ( uint8* )SoundWave->RawData.Lock( LOCK_READ_ONLY );
+		const uint8* RawWaveData = ( const uint8* )SoundWave->RawData.LockReadOnly();
 		bWasLocked = true;
 		int32 RawDataSize = SoundWave->RawData.GetBulkDataSize();
 
@@ -969,10 +969,9 @@ static void CookSurroundWave( USoundWave* SoundWave, FName FormatName, const IAu
 	TArray<TArray<uint8> >	SourceBuffers;
 	TArray<int32>			RequiredChannels;
 
-	if (SoundWave->RawData.IsLocked())
-	{
-		UE_LOG(LogAudioDerivedData, Warning, TEXT("In CookSurroundWave: Raw PCM data already being written to. %s "), *SoundWave->GetFullName());
-	}
+#if WITH_EDITORONLY_DATA
+	FScopeLock ScopeLock(&SoundWave->RawDataCriticalSection);
+#endif
 
 	uint8* RawWaveData = ( uint8* )SoundWave->RawData.Lock( LOCK_READ_ONLY );
 	if (RawWaveData == nullptr)

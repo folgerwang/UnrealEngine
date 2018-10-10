@@ -404,6 +404,8 @@ bool FPropertyEditor::IsEditConst() const
 
 void FPropertyEditor::SetEditConditionState( bool bShouldEnable )
 {
+	const FScopedTransaction Transaction(FText::Format(LOCTEXT("SetEditConditionState", "Set {0} edit condition state "), PropertyNode->GetDisplayName()));
+
 	// Propagate the value change to any instances if we're editing a template object.
 	FObjectPropertyNode* ObjectNode = PropertyNode->FindObjectItemParent();
 

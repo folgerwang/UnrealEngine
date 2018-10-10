@@ -695,18 +695,18 @@ struct TTypedMeshAccessorBinder
 };
 
 //Final binders for all static mesh interface functions.
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomSection);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoord);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordVertexColorFiltered);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordOnSection);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPosition);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordNormal);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordTangents);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordColor);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordUV);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPositionAndVelocity);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomSection);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoord);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordVertexColorFiltered);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordOnSection);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPosition);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordNormal);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordTangents);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordColor);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordUV);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPositionAndVelocity);
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetVertexPosition);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetVertexPosition);
 
 void UNiagaraDataInterfaceStaticMesh::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
@@ -720,79 +720,79 @@ void UNiagaraDataInterfaceStaticMesh::GetVMExternalFunction(const FVMExternalFun
 	if (BindingInfo.Name == StaticMeshHelpers::RandomSectionName)
 	{
 		check(BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1);
-		TUsesAreaWeightingBinder<NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomSection)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TUsesAreaWeightingBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomSection)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::RandomTriCoordName)
 	{
 		check(BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4);
-		TUsesAreaWeightingBinder<NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoord)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TUsesAreaWeightingBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoord)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	//TODO: Vertex color filtering needs more work.
 	else if (BindingInfo.Name == StaticMeshHelpers::RandomTriCoordVCFilteredName)
 	{
 		InstData->InitVertexColorFiltering();
 		check(BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 4);
-		TNDIParamBinder<0, float, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordVertexColorFiltered)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordVertexColorFiltered)::Bind(this, OutFunc);
 	}	
 	else if (BindingInfo.Name == StaticMeshHelpers::RandomTriCoordOnSectionName)
 	{
 		check(BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 4);
-		TUsesAreaWeightingBinder<TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordOnSection)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TUsesAreaWeightingBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, RandomTriCoordOnSection)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriPositionName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 3);
 		bNeedsVertexPositions = true;
-		TNDIExplicitBinder<FNDITransformHandlerNoop, TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPosition)>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TNDIExplicitBinder<FNDITransformHandlerNoop, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPosition)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriPositionWSName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 3);
 		bNeedsVertexPositions = true;
-		TNDIExplicitBinder<FNDITransformHandler, TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPosition)>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TNDIExplicitBinder<FNDITransformHandler, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPosition)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriNormalName)
 	{
 		check(BindingInfo.GetNumInputs() == 6 && BindingInfo.GetNumOutputs() == 3);
 		bNeedsVertMain = true;
-		TNDIExplicitBinder<FNDITransformHandlerNoop, TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordNormal)>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TNDIExplicitBinder<FNDITransformHandlerNoop, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordNormal)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriNormalWSName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 3);
 		bNeedsVertMain = true;
-		TNDIExplicitBinder<FNDITransformHandler, TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordNormal)>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TNDIExplicitBinder<FNDITransformHandler, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordNormal)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriTangentsName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 9);
 		bNeedsVertMain = true;
-		TTypedMeshAccessorBinder<TNDIExplicitBinder<FNDITransformHandlerNoop, TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordTangents)>>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TTypedMeshAccessorBinder<TNDIExplicitBinder<FNDITransformHandlerNoop, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordTangents)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriTangentsWSName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 9);
 		bNeedsVertMain = true;
-		TTypedMeshAccessorBinder<TNDIExplicitBinder<FNDITransformHandler, TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordTangents)>>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TTypedMeshAccessorBinder<TNDIExplicitBinder<FNDITransformHandler, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordTangents)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriColorName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 4);
 		bNeedsVertexColors = true;
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordColor)>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordColor)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriUVName)
 	{
 		check(BindingInfo.GetNumInputs() == 6 && BindingInfo.GetNumOutputs() == 2);
 		bNeedsVertMain = true;
-		TTypedMeshAccessorBinder<TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, TNDIParamBinder<4, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordUV)>>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TTypedMeshAccessorBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordUV)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetTriPositionAndVelocityName)
 	{
 		check(BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 6);
 		bNeedsVertMain = true;
-		bNeedsVertexPositions = true;
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPositionAndVelocity)>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		bNeedsVertexPositions = true;  
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetTriCoordPositionAndVelocity)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetMeshLocalToWorldName)
 	{
@@ -813,13 +813,13 @@ void UNiagaraDataInterfaceStaticMesh::GetVMExternalFunction(const FVMExternalFun
 	{
 		check(BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 3);
 		bNeedsVertexPositions = true;
-		TNDIExplicitBinder<FNDITransformHandlerNoop, TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetVertexPosition)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TNDIExplicitBinder<FNDITransformHandlerNoop, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetVertexPosition)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else if (BindingInfo.Name == StaticMeshHelpers::GetVertexPositionWSName)
 	{
 		check(BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 3);
 		bNeedsVertexPositions = true;
-		TNDIExplicitBinder<FNDITransformHandler, TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetVertexPosition)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TNDIExplicitBinder<FNDITransformHandler, NDI_FUNC_BINDER(UNiagaraDataInterfaceStaticMesh, GetVertexPosition)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 
 	if (bNeedsVertexPositions && !InstData->MeshHasPositions())
@@ -944,8 +944,8 @@ FORCEINLINE int32 UNiagaraDataInterfaceStaticMesh::RandomSection<TIntegralConsta
 template<typename TAreaWeighted>
 void UNiagaraDataInterfaceStaticMesh::RandomSection(FVectorVMContext& Context)
 {
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
-	FRegisterHandler<int32> OutSection(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutSection(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	for (int32 i = 0; i < Context.NumInstances; ++i)
@@ -996,12 +996,12 @@ FORCEINLINE int32 UNiagaraDataInterfaceStaticMesh::RandomTriIndex<TIntegralConst
 template<typename TAreaWeighted>
 void UNiagaraDataInterfaceStaticMesh::RandomTriCoord(FVectorVMContext& Context)
 {
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<int32> OutTri(Context);
-	FRegisterHandler<float> OutBaryX(Context);
-	FRegisterHandler<float> OutBaryY(Context);
-	FRegisterHandler<float> OutBaryZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutTri(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryZ(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	FIndexArrayView Indices = Res.IndexBuffer.GetArrayView();
@@ -1020,17 +1020,16 @@ void UNiagaraDataInterfaceStaticMesh::RandomTriCoord(FVectorVMContext& Context)
 	}
 }
 
-template<typename InputType0, typename InputType1>
 void UNiagaraDataInterfaceStaticMesh::RandomTriCoordVertexColorFiltered(FVectorVMContext& Context)
 {
-	InputType0 MinValue(Context);
-	InputType1 RangeValue(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> MinValue(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> RangeValue(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<int32> OutTri(Context);
-	FRegisterHandler<float> OutBaryX(Context);
-	FRegisterHandler<float> OutBaryY(Context);
-	FRegisterHandler<float> OutBaryZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutTri(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryZ(Context);
 	
 	FDynamicVertexColorFilterData* VCFData = InstData->DynamicVertexColorSampler.Get();
 
@@ -1099,16 +1098,16 @@ FORCEINLINE int32 UNiagaraDataInterfaceStaticMesh::RandomTriIndexOnSection<TInte
 	return Sec.FirstIndex + Tri * 3;
 }
 
-template<typename TAreaWeighted, typename SectionIdxType>
+template<typename TAreaWeighted>
 void UNiagaraDataInterfaceStaticMesh::RandomTriCoordOnSection(FVectorVMContext& Context)
 {
-	SectionIdxType SectionIdxParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> SectionIdxParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<int32> OutTri(Context);
-	FRegisterHandler<float> OutBaryX(Context);
-	FRegisterHandler<float> OutBaryY(Context);
-	FRegisterHandler<float> OutBaryZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutTri(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBaryZ(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	FIndexArrayView Indices = Res.IndexBuffer.GetArrayView();
@@ -1129,19 +1128,19 @@ void UNiagaraDataInterfaceStaticMesh::RandomTriCoordOnSection(FVectorVMContext& 
 	}
 }
 
-template<typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+template<typename TransformHandlerType>
 void UNiagaraDataInterfaceStaticMesh::GetTriCoordPosition(FVectorVMContext& Context)
 {
 	TransformHandlerType TransformHandler;
-	TriType TriParam(Context);
-	BaryXType BaryXParam(Context);
-	BaryYType BaryYParam(Context);
-	BaryZType BaryZParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> TriParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryXParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryYParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryZParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutPosX(Context);
-	FRegisterHandler<float> OutPosY(Context);
-	FRegisterHandler<float> OutPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FIndexArrayView& Indices = Res.IndexBuffer.GetArrayView();
@@ -1171,20 +1170,20 @@ void UNiagaraDataInterfaceStaticMesh::GetTriCoordPosition(FVectorVMContext& Cont
 	}
 }
 
-template<typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+template<typename TransformHandlerType>
 void UNiagaraDataInterfaceStaticMesh::GetTriCoordNormal(FVectorVMContext& Context)
 {
 	TransformHandlerType TransformHandler;
 
-	TriType TriParam(Context);
-	BaryXType BaryXParam(Context);
-	BaryYType BaryYParam(Context);
-	BaryZType BaryZParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> TriParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryXParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryYParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryZParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutNormX(Context);
-	FRegisterHandler<float> OutNormY(Context);
-	FRegisterHandler<float> OutNormZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutNormX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutNormY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutNormZ(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FIndexArrayView& Indices = Res.IndexBuffer.GetArrayView();
@@ -1213,30 +1212,30 @@ void UNiagaraDataInterfaceStaticMesh::GetTriCoordNormal(FVectorVMContext& Contex
 	}
 }
 
-template<typename VertexAccessorType, typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+template<typename VertexAccessorType, typename TransformHandlerType>
 void UNiagaraDataInterfaceStaticMesh::GetTriCoordTangents(FVectorVMContext& Context)
 {
 	TransformHandlerType TransformHandler;	
 
-	TriType TriParam(Context);
-	BaryXType BaryXParam(Context);
-	BaryYType BaryYParam(Context);
-	BaryZType BaryZParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> TriParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryXParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryYParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryZParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FIndexArrayView& Indices = Res.IndexBuffer.GetArrayView();
 	const VertexAccessorType Verts(Res.VertexBuffers.StaticMeshVertexBuffer);
 
-	FRegisterHandler<float> OutTangentX(Context);
-	FRegisterHandler<float> OutTangentY(Context);
-	FRegisterHandler<float> OutTangentZ(Context);
-	FRegisterHandler<float> OutBinormX(Context);
-	FRegisterHandler<float> OutBinormY(Context);
-	FRegisterHandler<float> OutBinormZ(Context);
-	FRegisterHandler<float> OutNormX(Context);
-	FRegisterHandler<float> OutNormY(Context);
-	FRegisterHandler<float> OutNormZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutTangentX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutTangentY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutTangentZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBinormX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBinormY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutBinormZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutNormX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutNormY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutNormZ(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1276,19 +1275,18 @@ void UNiagaraDataInterfaceStaticMesh::GetTriCoordTangents(FVectorVMContext& Cont
 	}
 }
 
-template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 void UNiagaraDataInterfaceStaticMesh::GetTriCoordColor(FVectorVMContext& Context)
 {
-	TriType TriParam(Context);
-	BaryXType BaryXParam(Context);
-	BaryYType BaryYParam(Context);
-	BaryZType BaryZParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> TriParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryXParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryYParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryZParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutColorR(Context);
-	FRegisterHandler<float> OutColorG(Context);
-	FRegisterHandler<float> OutColorB(Context);
-	FRegisterHandler<float> OutColorA(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorR(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorG(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorB(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorA(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FIndexArrayView& Indices = Res.IndexBuffer.GetArrayView();
@@ -1342,18 +1340,18 @@ void UNiagaraDataInterfaceStaticMesh::GetTriCoordColor(FVectorVMContext& Context
 	}
 }
 
-template<typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
+template<typename VertexAccessorType>
 void UNiagaraDataInterfaceStaticMesh::GetTriCoordUV(FVectorVMContext& Context)
 {
-	TriType TriParam(Context);
-	BaryXType BaryXParam(Context);
-	BaryYType BaryYParam(Context);
-	BaryZType BaryZParam(Context);
-	UVSetType UVSetParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> TriParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryXParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryYParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryZParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> UVSetParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutU(Context);
-	FRegisterHandler<float> OutV(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutU(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutV(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FIndexArrayView& Indices = Res.IndexBuffer.GetArrayView();
@@ -1381,21 +1379,20 @@ void UNiagaraDataInterfaceStaticMesh::GetTriCoordUV(FVectorVMContext& Context)
 	}
 }
 
-template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 void UNiagaraDataInterfaceStaticMesh::GetTriCoordPositionAndVelocity(FVectorVMContext& Context)
 {
-	TriType TriParam(Context);
-	BaryXType BaryXParam(Context);
-	BaryYType BaryYParam(Context);
-	BaryZType BaryZParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> TriParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryXParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryYParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> BaryZParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutPosX(Context);
-	FRegisterHandler<float> OutPosY(Context);
-	FRegisterHandler<float> OutPosZ(Context);
-	FRegisterHandler<float> OutVelX(Context);
-	FRegisterHandler<float> OutVelY(Context);
-	FRegisterHandler<float> OutVelZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVelX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVelY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVelZ(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FIndexArrayView& Indices = Res.IndexBuffer.GetArrayView();
@@ -1436,22 +1433,22 @@ void UNiagaraDataInterfaceStaticMesh::GetTriCoordPositionAndVelocity(FVectorVMCo
 
 void UNiagaraDataInterfaceStaticMesh::WriteTransform(const FMatrix& ToWrite, FVectorVMContext& Context)
 {
-	FRegisterHandler<float> Out00(Context);
-	FRegisterHandler<float> Out01(Context);
-	FRegisterHandler<float> Out02(Context);
-	FRegisterHandler<float> Out03(Context);
-	FRegisterHandler<float> Out04(Context);
-	FRegisterHandler<float> Out05(Context);
-	FRegisterHandler<float> Out06(Context);
-	FRegisterHandler<float> Out07(Context);
-	FRegisterHandler<float> Out08(Context);
-	FRegisterHandler<float> Out09(Context);
-	FRegisterHandler<float> Out10(Context);
-	FRegisterHandler<float> Out11(Context);
-	FRegisterHandler<float> Out12(Context);
-	FRegisterHandler<float> Out13(Context);
-	FRegisterHandler<float> Out14(Context);
-	FRegisterHandler<float> Out15(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out00(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out01(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out02(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out03(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out04(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out05(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out06(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out07(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out08(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out09(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out10(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out11(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out12(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out13(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out14(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Out15(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1476,23 +1473,23 @@ void UNiagaraDataInterfaceStaticMesh::WriteTransform(const FMatrix& ToWrite, FVe
 
 void UNiagaraDataInterfaceStaticMesh::GetLocalToWorld(FVectorVMContext& Context)
 {
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 	WriteTransform(InstData->Transform, Context);
 }
 
 void UNiagaraDataInterfaceStaticMesh::GetLocalToWorldInverseTransposed(FVectorVMContext& Context)
 {
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 	WriteTransform(InstData->TransformInverseTransposed, Context);
 }
 
 void UNiagaraDataInterfaceStaticMesh::GetWorldVelocity(FVectorVMContext& Context)
 {
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutVelX(Context);
-	FRegisterHandler<float> OutVelY(Context);
-	FRegisterHandler<float> OutVelZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVelX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVelY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVelZ(Context);
 
 	FVector Velocity(0.0f, 0.0f, 0.0f);
 	float InvDeltaTime = 1.0f / InstData->DeltaSeconds;
@@ -1513,16 +1510,16 @@ void UNiagaraDataInterfaceStaticMesh::GetWorldVelocity(FVectorVMContext& Context
 	}
 }
 
-template<typename TransformHandlerType, typename VertexIndexType>
+template<typename TransformHandlerType>
 void UNiagaraDataInterfaceStaticMesh::GetVertexPosition(FVectorVMContext& Context)
 {
 	TransformHandlerType TransformHandler;
-	VertexIndexType VertexIndexParam(Context);
-	FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
+	VectorVM::FExternalFuncInputHandler<int32> VertexIndexParam(Context);
+	VectorVM::FUserPtrHandler<FNDIStaticMesh_InstanceData> InstData(Context);
 
-	FRegisterHandler<float> OutPosX(Context);
-	FRegisterHandler<float> OutPosY(Context);
-	FRegisterHandler<float> OutPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
 
 	FStaticMeshLODResources& Res = InstData->Mesh->RenderData->LODResources[0];
 	const FPositionVertexBuffer& Positions = Res.VertexBuffers.PositionVertexBuffer;

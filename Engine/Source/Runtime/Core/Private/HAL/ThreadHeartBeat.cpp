@@ -183,22 +183,26 @@ void FORCENOINLINE FThreadHeartBeat::OnHang(double HangDuration, uint32 ThreadTh
 
 #else // MINIMAL_FATAL_HANG_DETECTION == 0
 
-	const SIZE_T StackTraceSize = 65535;
-	ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
-	StackTrace[0] = 0;
-	// Walk the stack and dump it to the allocated memory. This process usually allocates a lot of memory.
-	FPlatformStackWalk::ThreadStackWalkAndDump(StackTrace, StackTraceSize, 0, ThreadThatHung);
+	// Capture the stack in the thread that hung
+	static const int32 MaxStackFrames = 100;
+	uint64 StackFrames[MaxStackFrames];
+	int32 NumStackFrames = FPlatformStackWalk::CaptureThreadStackBackTrace(ThreadThatHung, StackFrames, MaxStackFrames);
 
 	// First verify we're not reporting the same hang over and over again
-	uint32 CallstackCRC = FCrc::StrCrc32(StackTrace);
+	uint32 CallstackCRC = FCrc::MemCrc32(StackFrames, sizeof(StackFrames[0]) * NumStackFrames);
 	if (CallstackCRC != LastHangCallstackCRC || ThreadThatHung != LastHungThreadId)
 	{
 		LastHangCallstackCRC = CallstackCRC;
 		LastHungThreadId = ThreadThatHung;
 
-		FString StackTraceText(StackTrace);
+		// Convert the stack trace to text
 		TArray<FString> StackLines;
-		StackTraceText.ParseIntoArrayLines(StackLines);
+		for (int32 Idx = 0; Idx < NumStackFrames; Idx++)
+		{
+			ANSICHAR Buffer[1024];
+			FPlatformStackWalk::ProgramCounterToHumanReadableString(Idx, StackFrames[Idx], Buffer, sizeof(Buffer));
+			StackLines.Add(Buffer);
+		}
 
 		// Dump the callstack and the thread name to log
 		FString ThreadName(ThreadThatHung == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(ThreadThatHung));
@@ -207,9 +211,9 @@ void FORCENOINLINE FThreadHeartBeat::OnHang(double HangDuration, uint32 ThreadTh
 			ThreadName = FString::Printf(TEXT("unknown thread (%u)"), ThreadThatHung);
 		}
 		UE_LOG(LogCore, Error, TEXT("Hang detected on %s (thread hasn't sent a heartbeat for %.2f seconds):"), *ThreadName, HangDuration);
-		for (FString& StackLine : StackLines)
+		for (int32 Idx = 0; Idx < StackLines.Num(); Idx++)
 		{
-			UE_LOG(LogCore, Error, TEXT("  %s"), *StackLine);
+			UE_LOG(LogCore, Error, TEXT("  %s"), *StackLines[Idx]);
 		}
 
 		// Assert (on the current thread unfortunately) with a trimmed stack.
@@ -231,15 +235,20 @@ void FORCENOINLINE FThreadHeartBeat::OnHang(double HangDuration, uint32 ThreadTh
 		GLog->PanicFlushThreadedLogs();
 		// GErrorMessage here is very unfortunate but it's used internally by the crash context code.
 		FCString::Strcpy(GErrorMessage, ARRAY_COUNT(GErrorMessage), *ErrorMessage);
+
 		// Skip macros and FDebug, we always want this to fire
-		NewReportEnsure(*ErrorMessage);
+		TArray<FProgramCounterSymbolInfo> Stack;
+		for (int32 Idx = 0; Idx < NumStackFrames; Idx++)
+		{
+			FPlatformStackWalk::ProgramCounterToSymbolInfo(StackFrames[Idx], Stack.AddDefaulted_GetRef());
+		}
+		ReportHang(*ErrorMessage, Stack);
+
 		GErrorMessage[0] = '\0';
 #endif // PLATFORM_DESKTOP
 
 #endif // UE_ASSERT_ON_HANG == 0
 	}
-
-	GMalloc->Free(StackTrace);
 #endif // MINIMAL_FATAL_HANG_DETECTION == 0
 }
 

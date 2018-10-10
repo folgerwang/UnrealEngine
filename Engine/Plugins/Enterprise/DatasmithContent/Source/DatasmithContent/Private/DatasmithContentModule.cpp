@@ -10,6 +10,8 @@
 #include "Misc/Paths.h"
 #include "ShaderCore.h"
 
+DEFINE_LOG_CATEGORY(LogDatasmithContent)
+
 /**
  * DatasmithContent module implementation (private)
  */

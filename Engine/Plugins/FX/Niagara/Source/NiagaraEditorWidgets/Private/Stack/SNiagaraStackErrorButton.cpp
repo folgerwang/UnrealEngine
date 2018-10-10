@@ -7,7 +7,7 @@
 #include "Widgets/Layout/SBox.h"
 #include "EditorStyleSet.h"
 
-#define	LOCTEXT_NAMESPACE "SNiagaraStackErrorButton"
+#define LOCTEXT_NAMESPACE "SNiagaraStackErrorButton"
 
 void SNiagaraStackErrorButton::Construct(const FArguments& InArgs)
 {

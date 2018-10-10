@@ -126,6 +126,9 @@ public:
 	 */
 	static SLATE_API TSharedPtr<FExtender> Combine(const TArray< TSharedPtr<FExtender> >& Extenders);
 
+	/** Returns the number of extensions in the extender */
+	SLATE_API int32 NumExtensions() const { return Extensions.Num(); }
+
 private:
 
 	/** List of extensions to our menu.  The order of the list must be maintained. */

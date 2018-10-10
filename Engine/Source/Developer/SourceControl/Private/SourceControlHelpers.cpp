@@ -330,7 +330,7 @@ bool USourceControlHelpers::CheckOutFile(const FString& InFile, bool bSilent)
 	else if (SCState->IsCheckedOutOther(&(SimultaneousCheckoutUser)))
 	{
 		Arguments.Add(TEXT("SimultaneousCheckoutUser"), FText::FromString(SimultaneousCheckoutUser));
-		SourceControlHelpersInternal::LogError(FText::Format(LOCTEXT("SimultaneousCheckout", "File '{InFile}' is checked out by another ('{SimultaneousCheckoutUser}') ({SCFile})."), Arguments), bSilent);
+		SourceControlHelpersInternal::LogError(FText::Format(LOCTEXT("SimultaneousCheckout", "File '{InFile}' is checked out by another ({SimultaneousCheckoutUser}) ({SCFile})."), Arguments), bSilent);
 	}
 	else
 	{

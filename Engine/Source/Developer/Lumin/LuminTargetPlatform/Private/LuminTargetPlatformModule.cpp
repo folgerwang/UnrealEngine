@@ -7,11 +7,6 @@
 #include "LuminTargetPlatform.h"
 
 /**
- * Holds the target platform singleton.
- */
-static ITargetPlatform* LuminTargetSingleton = NULL;
-
-/**
  * Module for the Android target platform.
  */
 class FLuminTargetPlatformModule : public ITargetPlatformModule
@@ -21,9 +16,13 @@ public:
 	/**
 	 * Destructor.
 	 */
-	~FLuminTargetPlatformModule( )
+	virtual ~FLuminTargetPlatformModule( )
 	{
-		LuminTargetSingleton = NULL;
+		for (ITargetPlatform* TP : TargetPlatforms)
+		{
+			delete TP;
+		}
+		TargetPlatforms.Empty();
 	}
 
 
@@ -31,15 +30,15 @@ public:
 	
 	// Begin ITargetPlatformModule interface
 
-	virtual ITargetPlatform* GetTargetPlatform() override
+	virtual TArray<ITargetPlatform*> GetTargetPlatforms() override
 	{
-		if (LuminTargetSingleton == NULL)
+		if (TargetPlatforms.Num() == 0)
 		{
-			bool bClient = true;
-			LuminTargetSingleton = new FLuminTargetPlatform(bClient);
+			TargetPlatforms.Add(new FLuminTargetPlatform(false));
+			TargetPlatforms.Add(new FLuminTargetPlatform(true));
 		}
 		
-		return LuminTargetSingleton;
+		return TargetPlatforms;
 	}
 
 	// End ITargetPlatformModule interface
@@ -54,6 +53,10 @@ public:
 	{
 	}
 	// End IModuleInterface interface
+
+private:
+	/** Holds the target platforms. */
+	TArray<ITargetPlatform*> TargetPlatforms;
 };
 
 

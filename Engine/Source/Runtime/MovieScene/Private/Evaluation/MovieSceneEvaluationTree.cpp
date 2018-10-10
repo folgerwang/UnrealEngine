@@ -65,7 +65,7 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 
 		// Binary search children's lower bounds for the first that's >= the starting bound. That results in either ChildIndex or ChildIndex-1 being the overlapping range (if any).
 		int32 ChildIndex = Algo::LowerBoundBy(Children, StartingBound, GetLowerBound, MovieSceneHelpers::SortLowerBounds);
-		if (Children.IsValidIndex(ChildIndex) && Children[ChildIndex].Range.GetLowerBound() == StartingBound)
+		if (Children.IsValidIndex(ChildIndex) && MovieScene::DiscreteLowerBoundsAreEquivalent(Children[ChildIndex].Range.GetLowerBound(), StartingBound))
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex);
 		}

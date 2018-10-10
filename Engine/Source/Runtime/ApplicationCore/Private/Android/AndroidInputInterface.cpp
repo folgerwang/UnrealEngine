@@ -1017,7 +1017,7 @@ void FAndroidInputInterface::SendControllerEvents()
 			case MouseEventType::MouseMove:
 				if (Cursor.IsValid())
 				{
-					Cursor->SetPosition(mouse_data.AbsoluteX, mouse_data.AbsoluteX);
+					Cursor->SetPosition(mouse_data.AbsoluteX, mouse_data.AbsoluteY);
 					MessageHandler->OnMouseMove();
 				}
 				MessageHandler->OnRawMouseMove(mouse_data.DeltaX, mouse_data.DeltaY);

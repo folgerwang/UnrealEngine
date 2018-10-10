@@ -1250,6 +1250,11 @@ namespace VulkanRHI
 	protected:
 		uint32 BufferIndex;
 
+		enum
+		{
+			NUM_BUFFERS = 3,
+		};
+
 		struct FFrameEntry
 		{
 			TRefCountPtr<FBufferSuballocation> BufferSuballocation;
@@ -1263,7 +1268,7 @@ namespace VulkanRHI
 			void Reset();
 			bool TryAlloc(uint32 InSize, uint32 InAlignment, FTempAllocInfo& OutInfo);
 		};
-		FFrameEntry Entries[NUM_RENDER_BUFFERS];
+		FFrameEntry Entries[NUM_BUFFERS];
 		FCriticalSection CS;
 
 		friend class FVulkanCommandListContext;

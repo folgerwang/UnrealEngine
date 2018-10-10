@@ -926,6 +926,14 @@ namespace MeshDescriptionMikktSpaceInterface
 
 void FMeshDescriptionOperations::CreateMikktTangents(FMeshDescription& MeshDescription, FMeshDescriptionOperations::ETangentOptions TangentOptions)
 {
+	// The Mikkt interface does not handle properly polygon array with 'holes'
+	// Compact mesh description if this is the case
+	if (MeshDescription.Polygons().Num() != MeshDescription.Polygons().GetArraySize())
+	{
+		FElementIDRemappings Remappings;
+		MeshDescription.Compact(Remappings);
+	}
+
 	bool bIgnoreDegenerateTriangles = (TangentOptions & FMeshDescriptionOperations::ETangentOptions::IgnoreDegenerateTriangles) != 0;
 
 	// we can use mikktspace to calculate the tangents
@@ -1017,7 +1025,15 @@ void FMeshDescriptionOperations::FindOverlappingCorners(FOverlappingCorners& Out
 	const FVertexInstanceArray& VertexInstanceArray = MeshDescription.VertexInstances();
 	const FVertexArray& VertexArray = MeshDescription.Vertices();
 
-	const int32 NumWedges = VertexInstanceArray.Num();
+	int32 NumWedges = 0;
+	for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
+	{
+		const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
+		for (const FMeshTriangle MeshTriangle : Triangles)
+		{
+			NumWedges += 3;
+		}
+	}
 
 	// Empty the old data and reserve space for new
 	OutOverlappingCorners.Init(NumWedges);
@@ -1028,9 +1044,19 @@ void FMeshDescriptionOperations::FindOverlappingCorners(FOverlappingCorners& Out
 
 	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
-	for (const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs())
+	int32 WedgeIndex = 0;
+	for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 	{
-		new(VertIndexAndZ)MeshDescriptionOperationNamespace::FIndexAndZ(VertexInstanceID.GetValue(), VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstanceID)]);
+		const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
+		for (const FMeshTriangle MeshTriangle : Triangles)
+		{
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
+				new(VertIndexAndZ)MeshDescriptionOperationNamespace::FIndexAndZ(WedgeIndex, VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstanceID)]);
+				++WedgeIndex;
+			}
+		}
 	}
 
 	// Sort the vertices by z value
@@ -1251,37 +1277,18 @@ bool FMeshDescriptionOperations::RemoveUVChannel(FMeshDescription& MeshDescripti
 	return true;
 }
 
-void FMeshDescriptionOperations::GeneratePlanarUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords)
+void FMeshDescriptionOperations::GeneratePlanarUV(const FMeshDescription& MeshDescription, const FUVMapParameters& Params, TArray<FVector2D>& OutTexCoords)
 {
-	FVector U = FVector::ForwardVector;
+	// Project along X-axis (left view), UV along Z Y axes
+	FVector U = FVector::UpVector;
 	FVector V = FVector::RightVector;
-
-	switch (Settings.Axis)
-	{
-	case 0:
-		// Project along X-axis (left view), UV along Z Y axes
-		U = FVector::UpVector;
-		V = FVector::RightVector;
-		break;
-	case 1:
-		// Project along Y-axis (front view), UV along X -Z axes
-		U = FVector::ForwardVector;
-		V = -FVector::UpVector;
-		break;
-	case 2:
-		// Project along Z-axis (top view), UV along X Y axes
-		U = FVector::ForwardVector;
-		V = FVector::RightVector;
-		break;
-	}
 
 	TMeshAttributesConstRef<FVertexID, FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 	OutTexCoords.AddZeroed(MeshDescription.VertexInstances().Num());
 
-	FVector Size = Settings.Size * Settings.Scale;
-	FVector Offset = Settings.Position - Size / 2.f;
-	FQuat Rotation(Settings.RotationAxis, FMath::DegreesToRadians(Settings.RotationAngle));
+	FVector Size = Params.Size * Params.Scale;
+	FVector Offset = Params.Position - Size / 2.f;
 
 	int32 TextureCoordIndex = 0;
 	for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
@@ -1290,42 +1297,24 @@ void FMeshDescriptionOperations::GeneratePlanarUV(const FMeshDescription& MeshDe
 		FVector Vertex = VertexPositions[VertexID];
 
 		// Apply the gizmo transforms
-		Vertex = Rotation.RotateVector(Vertex);
+		Vertex = Params.Rotation.RotateVector(Vertex);
 		Vertex -= Offset;
 		Vertex /= Size;
 
-		float UCoord = FVector::DotProduct(Vertex, U) * Settings.UVTile.X;
-		float VCoord = FVector::DotProduct(Vertex, V) * Settings.UVTile.Y;
+		float UCoord = FVector::DotProduct(Vertex, U) * Params.UVTile.X;
+		float VCoord = FVector::DotProduct(Vertex, V) * Params.UVTile.Y;
 		OutTexCoords[TextureCoordIndex++] = FVector2D(UCoord, VCoord);
 	}
 }
 
-void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords)
+void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDescription, const FUVMapParameters& Params, TArray<FVector2D>& OutTexCoords)
 {
-	FVector Size = Settings.Size * Settings.Scale;
-	FVector Offset = Settings.Position;
+	FVector Size = Params.Size * Params.Scale;
+	FVector Offset = Params.Position;
 
-	FVector U;
-	FVector V;
-
-	switch (Settings.Axis)
-	{
-	case 0:
-		// Cylinder along Y-axis, counterclockwise from -Z axis as seen from back view
-		V = FVector::RightVector;
-		Offset.Y -= Size.Y / 2.f;
-		break;
-	case 1:
-		// Cylinder along X-axis, counterclockwise from -Y axis as seen from left view
-		V = FVector::ForwardVector;
-		Offset.X -= Size.X / 2.f;
-		break;
-	case 2:
-		// Cylinder along Z-axis, counterclockwise from -Y axis as seen from top view
-		V = -FVector::UpVector;
-		Offset.Z -= Size.Z / 2.f;
-		break;
-	}
+	// Cylinder along X-axis, counterclockwise from -Y axis as seen from left view
+	FVector V = FVector::ForwardVector;
+	Offset.X -= Size.X / 2.f;
 
 	TMeshAttributesConstRef<FVertexID, FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
@@ -1333,7 +1322,6 @@ void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDes
 
 	const float AngleOffset = PI; // offset to get the same result as in 3dsmax
 	int32 TextureCoordIndex = 0;
-	FQuat Rotation(Settings.RotationAxis, FMath::DegreesToRadians(Settings.RotationAngle));
 
 	for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
 	{
@@ -1341,29 +1329,17 @@ void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDes
 		FVector Vertex = VertexPositions[VertexID];
 
 		// Apply the gizmo transforms
-		Vertex = Rotation.RotateVector(Vertex);
+		Vertex = Params.Rotation.RotateVector(Vertex);
 		Vertex -= Offset;
 		Vertex /= Size;
 
-		float Angle = 0.f;
-		switch (Settings.Axis)
-		{
-		case 0:
-			Angle = FMath::Atan2(Vertex.X, Vertex.Z);
-			break;
-		case 1:
-			Angle = FMath::Atan2(Vertex.Z, Vertex.Y);
-			break;
-		case 2:
-			Angle = FMath::Atan2(Vertex.X, Vertex.Y);
-			break;
-		}
+		float Angle = FMath::Atan2(Vertex.Z, Vertex.Y);
 
 		Angle += AngleOffset;
-		Angle *= Settings.UVTile.X;
+		Angle *= Params.UVTile.X;
 
 		float UCoord = Angle / (2 * PI);
-		float VCoord = FVector::DotProduct(Vertex, V) * Settings.UVTile.Y;
+		float VCoord = FVector::DotProduct(Vertex, V) * Params.UVTile.Y;
 
 		OutTexCoords[TextureCoordIndex++] = FVector2D(UCoord, VCoord);
 	}
@@ -1387,7 +1363,7 @@ void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDes
 				FVector2D& EndUV = OutTexCoords[VertexInstances[EndIndex].GetValue()];
 
 				// TODO: Improve fix for UVTile other than 1
-				float Threshold = 0.5f / Settings.UVTile.X;
+				float Threshold = 0.5f / Params.UVTile.X;
 				if (FMath::Abs(EndUV.X - StartUV.X) > Threshold)
 				{
 					// Fix the U coordinate to get the texture go counterclockwise
@@ -1405,37 +1381,21 @@ void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDes
 	}
 }
 
-void FMeshDescriptionOperations::GenerateBoxUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords)
+void FMeshDescriptionOperations::GenerateBoxUV(const FMeshDescription& MeshDescription, const FUVMapParameters& Params, TArray<FVector2D>& OutTexCoords)
 {
-	FVector Size = Settings.Size * Settings.Scale;
+	FVector Size = Params.Size * Params.Scale;
 	FVector HalfSize = Size / 2.0f;
-	FVector Offset = Settings.Position - HalfSize;
+	FVector Offset = Params.Position - HalfSize;
 
-	FVector HintU;
-	FVector HintV;
-
-	switch (Settings.Axis)
-	{
-	case 0:
-		HintU = FVector::UpVector;
-		HintV = FVector::RightVector;
-		break;
-	case 1:
-		HintU = FVector::ForwardVector;
-		HintV = -FVector::UpVector;
-		break;
-	case 2:
-		HintU = FVector::ForwardVector;
-		HintV = FVector::RightVector;
-		break;
-	}
+	FVector HintU = FVector::UpVector;
+	FVector HintV = FVector::RightVector;
 
 	TMeshAttributesConstRef<FVertexID, FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 	OutTexCoords.AddZeroed(MeshDescription.VertexInstances().Num());
 
 	TArray<FPlane> BoxPlanes;
-	const FVector& Center = Settings.Position;
+	const FVector& Center = Params.Position;
 
 	BoxPlanes.Add(FPlane(Center + FVector(0, 0, HalfSize.Z), FVector::UpVector));		// Top plane
 	BoxPlanes.Add(FPlane(Center - FVector(0, 0, HalfSize.Z), -FVector::UpVector));		// Bottom plane
@@ -1443,8 +1403,6 @@ void FMeshDescriptionOperations::GenerateBoxUV(const FMeshDescription& MeshDescr
 	BoxPlanes.Add(FPlane(Center - FVector(HalfSize.X, 0, 0), -FVector::ForwardVector));	// Left plane
 	BoxPlanes.Add(FPlane(Center + FVector(0, HalfSize.Y, 0), FVector::RightVector));	// Front plane
 	BoxPlanes.Add(FPlane(Center - FVector(0, HalfSize.Y, 0), -FVector::RightVector));	// Back plane
-
-	FQuat Rotation(Settings.RotationAxis, FMath::DegreesToRadians(Settings.RotationAngle));
 
 	// For each polygon, find the box plane that best matches the polygon normal
 	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
@@ -1490,12 +1448,12 @@ void FMeshDescriptionOperations::GenerateBoxUV(const FMeshDescription& MeshDescr
 			FVector Vertex = VertexPositions[VertexID];
 
 			// Apply the gizmo transforms
-			Vertex = Rotation.RotateVector(Vertex);
+			Vertex = Params.Rotation.RotateVector(Vertex);
 			Vertex -= Offset;
 			Vertex /= Size;
 
-			float UCoord = FVector::DotProduct(Vertex, U) * Settings.UVTile.X;
-			float VCoord = FVector::DotProduct(Vertex, V) * Settings.UVTile.Y;
+			float UCoord = FVector::DotProduct(Vertex, U) * Params.UVTile.X;
+			float VCoord = FVector::DotProduct(Vertex, V) * Params.UVTile.Y;
 
 			OutTexCoords[VertexInstanceID.GetValue()] = FVector2D(UCoord, VCoord);
 		}

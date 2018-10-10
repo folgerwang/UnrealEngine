@@ -179,9 +179,13 @@ public:
 	static bool AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent);
 
 	/** @return the current world mapping status for the AR world */
-	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (DisplayName="Get AR World Mapping Status", Keywords = "ar augmentedreality augmented reality tracking anchor"))
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Tracking", meta = (DisplayName="Get AR World Mapping Status", Keywords = "ar augmentedreality augmented reality tracking anchor"))
 	static EARWorldMappingState GetWorldMappingStatus();
 	
+	/** @return the raw point cloud view of the AR scene */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Tracking", meta = (DisplayName="Get AR Point Cloud", Keywords = "ar augmentedreality augmented reality tracking point cloud"))
+	static TArray<FVector> GetPointCloud();
+
 	/** @return The list of supported video formats for this device */
 	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Capabilities", meta = (DisplayName="Get Supported AR Video Formats", Keywords = "ar augmentedreality augmented reality config video formats"))
 	static TArray<FARVideoFormat> GetSupportedVideoFormats(EARSessionType SessionType);

@@ -6,6 +6,7 @@
 #include "Components/SpotLightComponent.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
+#include "Engine/Scene.h"
 
 #define LOCTEXT_NAMESPACE "LocalLightComponentDetails"
 
@@ -37,6 +38,16 @@ void FLocalLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& Detail
 	LightIntensityProperty->SetInstanceMetaData("UIMin",TEXT("0.0f"));
 	LightIntensityProperty->SetInstanceMetaData("UIMax",  *FString::SanitizeFloat(100000.0f * ConversionFactor));
 	LightIntensityProperty->SetInstanceMetaData("SliderExponent", TEXT("2.0f"));
+	if (Component->IntensityUnits == ELightUnits::Lumens)
+	{
+		LightIntensityProperty->SetInstanceMetaData("Units", TEXT("lm"));
+		LightIntensityProperty->SetToolTipText(LOCTEXT("LightIntensityInLumensToolTipText", "Luminous power or flux in lumens"));
+	}
+	else if (Component->IntensityUnits == ELightUnits::Candelas)
+	{
+		LightIntensityProperty->SetInstanceMetaData("Units", TEXT("cd"));
+		LightIntensityProperty->SetToolTipText(LOCTEXT("LightIntensityInCandelasToolTipText", "Luminous intensity in candelas"));
+	}
 
 	// Make these come first
 	IDetailCategoryBuilder& LightCategory = DetailBuilder.EditCategory( "Light", FText::GetEmpty(), ECategoryPriority::TypeSpecific );

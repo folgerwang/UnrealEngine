@@ -1470,9 +1470,20 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	FEditorDelegates::BeginStandaloneLocalPlay.Broadcast(ProcessID);
 }
 
-static void HandleOutputReceived(const FString& InMessage)
+static void HandleOutputReceived  (const FString& InMessage)
 {
-	UE_LOG(LogPlayLevel, Log, TEXT("%s"), *InMessage);
+	if (InMessage.Contains(TEXT("Error:")))
+	{
+		UE_LOG(LogPlayLevel, Error, TEXT("%s"), *InMessage);
+	}
+	else if (InMessage.Contains(TEXT("Warning:")))
+	{
+		UE_LOG(LogPlayLevel, Warning, TEXT("%s"), *InMessage);
+	}
+	else 
+	{
+		UE_LOG(LogPlayLevel, Log, TEXT("%s"), *InMessage);
+	}
 }
 
 static void HandleCancelButtonClicked(ILauncherWorkerPtr LauncherWorker)

@@ -57,11 +57,21 @@ public:
 	UMediaSource* GetMediaSource(int32 Index) const;
 
 	/**
+	 * Get the number of media source.
+	 */
+	int32 NumMediaSources() const;
+
+	/**
 	 * Get the media output for the selected proxy.
 	 *
 	 * @return The media output, or nullptr if not set.
 	 */
 	UMediaOutput* GetMediaOutput(int32 Index) const;
+
+	/**
+	 * Get the number of media output.
+	 */
+	int32 NumMediaOutputs() const;
 
 	/**
 	 * Get the timecode provider.

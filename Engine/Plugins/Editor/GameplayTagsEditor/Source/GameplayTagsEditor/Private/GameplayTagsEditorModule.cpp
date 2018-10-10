@@ -389,7 +389,7 @@ public:
 							break;
 						}
 
-						ShowNotification(FText::Format(LOCTEXT("AddTagFailure", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
+						ShowNotification(FText::Format(LOCTEXT("AddTagFailure_RestrictedTag", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
 
 						return false;
 					}

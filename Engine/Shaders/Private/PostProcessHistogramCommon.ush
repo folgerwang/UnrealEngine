@@ -127,14 +127,8 @@ float ComputeAverageLuminaneWithoutOutlier(Texture2D HistogramTexture, float Min
 // requires EyeAdaptationParams to be set
 float ComputeEyeAdaptationExposure(Texture2D HistogramTexture)
 {
-#if USE_PREEXPOSURE
-	const float OneOverPreExposure = View.OneOverPreExposure;
-#else
-	const float OneOverPreExposure = 1.f;
-#endif
-
 	float HistogramSum = ComputeHistogramSum(HistogramTexture);
-	float UnclampedAdaptedLuminance = OneOverPreExposure * ComputeAverageLuminaneWithoutOutlier(HistogramTexture, HistogramSum * EyeAdaptationParams[0].x, HistogramSum * EyeAdaptationParams[0].y);
+	float UnclampedAdaptedLuminance = ComputeAverageLuminaneWithoutOutlier(HistogramTexture, HistogramSum * EyeAdaptationParams[0].x, HistogramSum * EyeAdaptationParams[0].y);
 	float ClampedAdaptedLuminance = clamp(UnclampedAdaptedLuminance, EyeAdaptationParams[0].z, EyeAdaptationParams[0].w);
 
 	return ClampedAdaptedLuminance;

@@ -780,6 +780,10 @@ void FSkeletalMeshLODModel::GetClothMappingData(TArray<FMeshToMeshVertData>& Map
 			OutClothIndexMapping.Add(KeyValue);
 			MappingData += Section.ClothMappingData;
 		}
+		else
+		{
+			OutClothIndexMapping.Add(0);
+		}
 	}
 }
 

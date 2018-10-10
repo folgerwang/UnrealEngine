@@ -272,6 +272,12 @@ void FSteamVRHMD::VulkanBridge::Reset()
 
 }
 
+void FSteamVRHMD::VulkanBridge::UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI)
+{
+	RenderTargetTexture = Viewport.GetRenderTargetTexture();
+	check(IsValidRef(RenderTargetTexture));
+}
+
 FSteamVRHMD::OpenGLBridge::OpenGLBridge(FSteamVRHMD* plugin):
 	BridgeBaseImpl(plugin),
 	RenderTargetTexture(0)

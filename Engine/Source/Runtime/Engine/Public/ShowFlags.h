@@ -393,6 +393,7 @@ private:
 		SetBones(false);
 		SetScreenPercentage(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
 		SetVREditing(InitMode == ESFIM_VREditing);
+		SetOcclusionMeshes(false);
 	}
 
 

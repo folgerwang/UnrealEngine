@@ -43,8 +43,8 @@ enum class EUnit : uint8
 	/** Data Size units */
 	Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes,
 
-	/** Luminous flux units */
-	Lumens,
+	/** Luminous flux units, luminous intensity, illuminance, luminance */
+	Lumens, Candela, Lux, CandelaPerMeter2,
 
 	/** Time units */
 	Milliseconds, Seconds, Minutes, Hours, Days, Months, Years,
@@ -62,7 +62,7 @@ enum class EUnit : uint8
 /** Enumeration that specifies particular classes of unit */
 enum class EUnitType
 {
-	Distance, Angle, Speed, Temperature, Mass, Force, Frequency, DataSize, LuminousFlux, Time, PixelDensity, Multipliers, Arbitrary,
+	Distance, Angle, Speed, Temperature, Mass, Force, Frequency, DataSize, LuminousFlux, LuminousIntensity, Illuminance, Luminance, Time, PixelDensity, Multipliers, Arbitrary,
 
 	// Symbolic entry - do not use directly
 	NumberOf,
