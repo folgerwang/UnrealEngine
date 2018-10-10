@@ -3,6 +3,7 @@
 #include "VariantObjectBinding.h"
 
 #include "UObject/LazyObjectPtr.h"
+#include "UObject/SoftObjectPath.h"
 #include "PropertyValue.h"
 #include "Variant.h"
 
@@ -68,6 +69,19 @@ UObject* UVariantObjectBinding::GetObject() const
 	}
 
 	return nullptr;
+}
+
+void UVariantObjectBinding::FixupForPIE()
+{
+	// For some reason calls from UMG blueprints hit FSoftObjectPaths while GPlayInEditorID is INDEX_NONE,
+	// so all object bindings would target the actors back in the editor world.
+	// Calls from the level blueprint or actor blueprints work fine, as they call FSoftObjectPath.ResolveObject()
+	// in a moment where the GPlayInEditorID is a valid index so that ResolveObject can internally call it's FixupForPIE()
+	// and update the path.
+	// We expose this here so that the ALevelVariantSets actor can call this on BeginPlay and update our path for PIE,
+	// as that is also an instant where GPlayInEditorID is valid.
+
+	ObjectPtr.FixupForPIE();
 }
 
 void UVariantObjectBinding::AddCapturedProperties(const TArray<UPropertyValue*>& NewProperties, int32 Index)

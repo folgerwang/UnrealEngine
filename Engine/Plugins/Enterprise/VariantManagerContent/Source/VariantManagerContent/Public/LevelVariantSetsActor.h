@@ -23,12 +23,9 @@ public:
 
 	ALevelVariantSetsActor(const FObjectInitializer& Init);
 
-public:
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="LevelVariantSets", meta=(AllowedClasses="LevelVariantSets"))
-	FSoftObjectPath LevelVariantSets;
-
-public:
+	// AActor interface
+	virtual void BeginPlay() override;
+	//~ End AActor interface
 
 	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
 	ULevelVariantSets* GetLevelVariantSets(bool bLoad = false) const;
@@ -41,4 +38,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
 	bool SwitchOnVariantByIndex(int32 VariantSetIndex, int32 VariantIndex);
+
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="LevelVariantSets", meta=(AllowedClasses="LevelVariantSets"))
+	FSoftObjectPath LevelVariantSets;
 };
