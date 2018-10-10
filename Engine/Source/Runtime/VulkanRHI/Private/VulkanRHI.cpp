@@ -185,6 +185,10 @@ void FVulkanDynamicRHI::Init()
 	LLM(VulkanLLM::Initialize());
 #endif
 
+
+	static const auto CVarStreamingTexturePoolSize = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Streaming.PoolSize"));
+	int32 StreamingPoolSizeValue = CVarStreamingTexturePoolSize->GetValueOnAnyThread();
+			
 	if (GPoolSizeVRAMPercentage > 0)
 	{
 		const uint64 TotalGPUMemory = Device->GetMemoryManager().GetTotalMemory(true);
@@ -198,6 +202,15 @@ void FVulkanDynamicRHI::Init()
 			GTexturePoolSize / 1024 / 1024,
 			GPoolSizeVRAMPercentage,
 			TotalGPUMemory / 1024 / 1024);
+	}
+	else if (StreamingPoolSizeValue > 0)
+	{
+		GTexturePoolSize = (int64)StreamingPoolSizeValue * 1024 * 1024;
+
+		const uint64 TotalGPUMemory = Device->GetMemoryManager().GetTotalMemory(true);
+		UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (of %llu MB total graphics mem)"),
+				GTexturePoolSize / 1024 / 1024,
+				TotalGPUMemory / 1024 / 1024);
 	}
 }
 

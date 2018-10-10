@@ -1943,6 +1943,19 @@ namespace VulkanRHI
 		}
 	}
 
+	void FDeferredDeletionQueue::OnCmdBufferDeleted(FVulkanCmdBuffer* DeletedCmdBuffer)
+	{
+		FScopeLock ScopeLock(&CS);
+		for (int32 Index = 0; Index < Entries.Num(); ++Index)
+		{
+			FEntry& Entry = Entries[Index];
+			if (Entry.CmdBuffer == DeletedCmdBuffer)
+			{
+				Entry.CmdBuffer = nullptr;
+			}
+		}
+	}
+
 	FTempFrameAllocationBuffer::FTempFrameAllocationBuffer(FVulkanDevice* InDevice)
 		: FDeviceChild(InDevice)
 		, BufferIndex(0)

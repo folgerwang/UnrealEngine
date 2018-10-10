@@ -484,30 +484,45 @@ FVulkanCmdBuffer* FVulkanCommandBufferManager::GetUploadCmdBuffer()
 struct FRHICommandFreeUnusedCmdBuffers final : public FRHICommand<FRHICommandFreeUnusedCmdBuffers>
 {
 	FVulkanCommandBufferPool* Pool;
+	FVulkanQueue* Queue;
 
-	FRHICommandFreeUnusedCmdBuffers(FVulkanCommandBufferPool* InPool)
+	FRHICommandFreeUnusedCmdBuffers(FVulkanCommandBufferPool* InPool, FVulkanQueue* InQueue)
 		: Pool(InPool)
+		, Queue(InQueue)
 	{
 	}
 
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		Pool->FreeUnusedCmdBuffers();
+		Pool->FreeUnusedCmdBuffers(Queue);
 	}
 };
 #endif
 
 
-void FVulkanCommandBufferPool::FreeUnusedCmdBuffers()
+void FVulkanCommandBufferPool::FreeUnusedCmdBuffers(FVulkanQueue* InQueue)
 {
 #if VULKAN_DELETE_STALE_CMDBUFFERS
 	FScopeLock ScopeLock(&CS);
 	const double CurrentTime = FPlatformTime::Seconds();
+	
+	// In case Queue stores pointer to a cmdbuffer, do not delete it 
+	FVulkanCmdBuffer* LastSubmittedCmdBuffer = nullptr;
+	uint64 LastSubmittedFenceCounter = 0;
+	InQueue->GetLastSubmittedInfo(LastSubmittedCmdBuffer, LastSubmittedFenceCounter);
+
+	// Deferred deletion queue caches pointers to cmdbuffers
+	FDeferredDeletionQueue& DeferredDeletionQueue = Device->GetDeferredDeletionQueue();
+	
 	for (int32 Index = CmdBuffers.Num() - 1; Index >= 0; --Index)
 	{
 		FVulkanCmdBuffer* CmdBuffer = CmdBuffers[Index];
-		if (CmdBuffer->State == FVulkanCmdBuffer::EState::ReadyForBegin && CurrentTime - CmdBuffer->SubmittedTime > CMD_BUFFER_TIME_TO_WAIT_BEFORE_DELETING)
+		if (CmdBuffer != LastSubmittedCmdBuffer &&
+			CmdBuffer->State == FVulkanCmdBuffer::EState::ReadyForBegin && 
+			(CurrentTime - CmdBuffer->SubmittedTime) > CMD_BUFFER_TIME_TO_WAIT_BEFORE_DELETING)
 		{
+			DeferredDeletionQueue.OnCmdBufferDeleted(CmdBuffer);
+			
 			delete CmdBuffer;
 			CmdBuffers.RemoveAtSwap(Index, 1, false);
 		}
@@ -521,12 +536,12 @@ void FVulkanCommandBufferManager::FreeUnusedCmdBuffers()
 	FRHICommandList& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 	if (!IsInRenderingThread() || (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread()))
 	{
-		Pool.FreeUnusedCmdBuffers();
+		Pool.FreeUnusedCmdBuffers(Queue);
 	}
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandFreeUnusedCmdBuffers>()) FRHICommandFreeUnusedCmdBuffers(&Pool);
+		new (RHICmdList.AllocCommand<FRHICommandFreeUnusedCmdBuffers>()) FRHICommandFreeUnusedCmdBuffers(&Pool, Queue);
 	}
 #endif
 }

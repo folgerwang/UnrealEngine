@@ -1170,6 +1170,8 @@ namespace VulkanRHI
 		{
 			ReleaseResources(true);
 		}
+
+		void OnCmdBufferDeleted(FVulkanCmdBuffer* CmdBuffer);
 /*
 		class FVulkanAsyncDeletionWorker : public FVulkanDeviceChild, FNonAbandonableTask
 		{

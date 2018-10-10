@@ -104,8 +104,11 @@ FVulkanPipeline::FVulkanPipeline(FVulkanDevice* InDevice)
 
 FVulkanPipeline::~FVulkanPipeline()
 {
-	Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Pipeline, Pipeline);
-	Pipeline = VK_NULL_HANDLE;
+	if (Pipeline != VK_NULL_HANDLE)
+	{
+		Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Pipeline, Pipeline);
+		Pipeline = VK_NULL_HANDLE;
+	}
 	/* we do NOT own Layout !*/
 }
 
@@ -167,7 +170,7 @@ static TAutoConsoleVariable<int32> GEnablePipelineCacheLoadCvar(
 
 static TAutoConsoleVariable<int32> GPipelineCacheFromShaderPipelineCacheCvar(
 	TEXT("r.Vulkan.PipelineCacheFromShaderPipelineCache"),
-	1,
+	PLATFORM_ANDROID && !(PLATFORM_LUMIN || PLATFORM_LUMINGL4),
 	TEXT("0 look for a pipeline cache in the normal locations with the normal names.")
 	TEXT("1 tie the vulkan pipeline cache to the shader pipeline cache, use the PSOFC guid as part of the filename, etc."),
 	ECVF_ReadOnly
@@ -496,7 +499,7 @@ void FVulkanPipelineStateCacheManager::OnShaderPipelineCachePrecompilationComple
 	if (!bLinkedToPSOFCSucessfulLoaded)
 	{
 		Save(LinkedToPSOFCCacheFolderFilename, true);
-#if PLATFORM_ANDROID && USE_ANDROID_JNI
+#if PLATFORM_ANDROID
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ProgramBinaryCache.RestartAndroidAfterPrecompile"));
 		const bool bRestart = CVar->GetValueOnAnyThread() != 0;
 		if (bRestart)
