@@ -321,6 +321,17 @@ public:
 	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFence) final override;
 	
 	/**
+	 * Explicitly transition a texture resource from readable -> writable by the GPU or vice versa.
+	 * We know rendertargets are only used as rendered targets on the Gfx pipeline, so these transitions are assumed to be implemented such
+	 * Gfx->Gfx and Gfx->Compute pipeline transitions are both handled by this call by the RHI implementation.  Hence, no pipeline parameter on this call.
+	 *
+	 * @param TransitionType - direction of the transition
+	 * @param InTextures - array of texture objects to transition
+	 * @param NumTextures - number of textures to transition
+	 */
+	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures) final override;
+	
+	/**
 	 * Compute queue will wait for the fence to be written before continuing.
 	 */
 	virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override;

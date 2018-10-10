@@ -807,6 +807,18 @@ void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess T
 	}
 }
 
+void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures)
+{
+	if (TransitionType == EResourceTransitionAccess::EReadable)
+	{
+		const FResolveParams ResolveParams;
+		for (int32 i = 0; i < NumTextures; ++i)
+		{
+			RHICopyToResolveTarget(InTextures[i], InTextures[i], ResolveParams);
+		}
+	}
+}
+
 void FMetalRHICommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFence)
 {
 	@autoreleasepool {
