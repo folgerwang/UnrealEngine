@@ -18,7 +18,8 @@ class ENGINE_API USoundEffectPreset : public UObject
 
 public:
 	USoundEffectPreset(const FObjectInitializer& ObjectInitializer);
-
+	virtual ~USoundEffectPreset();
+	
 	virtual FText GetAssetActionName() const PURE_VIRTUAL(USoundEffectPreset::GetAssetActionName, return FText(););
 	virtual UClass* GetSupportedClass() const PURE_VIRTUAL(USoundEffectPreset::GetSupportedClass, return nullptr;);
 	virtual USoundEffectPreset* CreateNewPreset(UObject* InParent, FName Name, EObjectFlags Flags) const PURE_VIRTUAL(USoundEffectPreset::CreateNewPreset, return nullptr;);

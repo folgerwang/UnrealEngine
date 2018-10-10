@@ -38,6 +38,17 @@ public:
 	 *@return True if the asset contains a blueprint, false otherwise
 	 */
 	virtual bool AssetContainsBlueprint(const FAssetData& InAssetData) const = 0;
+
+
+	/**
+	 * Check whether the specified asset supports nativization
+	 *
+	 *@param InAsset         The asset that is being queired for nativization support
+	 *@param InBlueprint     The blueprint that is contained within InAsset
+	 *@param OutReason       (Optional) An optional failure text to set
+	 *@return true if the specified asset supports nativization, false otherwise
+	 */
+	virtual bool SupportsNativization(const UObject* InAsset, const UBlueprint* InBlueprint, FText* OutReason) const { return true; }
 };
 
 

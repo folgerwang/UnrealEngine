@@ -210,6 +210,20 @@ public:
 	}
 
 	/**
+	* Attempt to find the object binding ID for the specified object, in the specified sequence
+	* @note: Does not clear the existing cache
+	*
+	* @param InObject 			The object to find a GUID for
+	* @param SequenceID 		The sequence ID to search within
+	*
+	* @return The guid of the object's binding, or zero guid if it was not found
+	*/
+	FGuid FindCachedObjectId(UObject& InObject, FMovieSceneSequenceIDRef SequenceID)
+	{
+		return State.FindCachedObjectId(InObject, SequenceID, *this);
+	}
+
+	/**
 	 * Attempt to save specific state for the specified token state before it animates an object.
 	 * @note: Will only call IMovieSceneExecutionToken::CacheExistingState if no state has been previously cached for the specified token type
 	 *

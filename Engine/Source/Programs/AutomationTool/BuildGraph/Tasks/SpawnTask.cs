@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -21,7 +21,7 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// Executable to spawn
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
+		[TaskParameter]
 		public string Exe;
 
 		/// <summary>

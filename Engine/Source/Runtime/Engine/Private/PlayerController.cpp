@@ -4548,7 +4548,8 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 			if (bIsClient && bIsLocallyControlled && GetPawn() && PlayerCameraManager->bUseClientSideCameraUpdates)
 			{
 				UPawnMovementComponent* PawnMovement = GetPawn()->GetMovementComponent();
-				if (!PawnMovement->IsMoveInputIgnored() &&
+				if (PawnMovement != nullptr &&
+					!PawnMovement->IsMoveInputIgnored() &&
 					(PawnMovement->GetLastInputVector() != FVector::ZeroVector || PawnMovement->Velocity != FVector::ZeroVector))
 				{
 					PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;

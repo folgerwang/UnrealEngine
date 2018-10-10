@@ -808,6 +808,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Determines if an IDE for the given compiler is installed.
+		/// </summary>
+		/// <param name="Compiler">Compiler to check for</param>
+		/// <returns>True if the given compiler is installed</returns>
+		public static bool HasIDE(WindowsCompiler Compiler)
+		{
+			return FindVSInstallDirs(Compiler).Count > 0;
+		}
+
+		/// <summary>
 		/// Determines if a given compiler is installed
 		/// </summary>
 		/// <param name="Compiler">Compiler to check for</param>
@@ -1319,12 +1329,24 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Return whether this platform has uniquely named binaries across multiple games
+		/// Gets the application icon for a given project
 		/// </summary>
-		public override bool HasUniqueBinaries()
+		/// <param name="ProjectFile">The project file</param>
+		/// <returns>The icon to use for this project</returns>
+		public static FileReference GetApplicationIcon(FileReference ProjectFile)
 		{
-			// Windows applications have many shared binaries between games
-			return false;
+			// Check if there's a custom icon
+			if(ProjectFile != null)
+			{
+				FileReference IconFile = FileReference.Combine(ProjectFile.Directory, "Build", "Windows", "Application.ico");
+				if(FileReference.Exists(IconFile))
+				{
+					return IconFile;
+				}
+			}
+
+			// Otherwise use the default
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Windows", "UE4.ico");
 		}
 
 		/// <summary>
@@ -1661,7 +1683,6 @@ namespace UnrealBuildTool
 		/// <param name="Target">Information about the target being deployed</param>
 		public override void Deploy(UEBuildDeployTarget Target)
 		{
-			new BaseWindowsDeploy().PrepTargetForDeployment(Target);
 		}
 	}
 

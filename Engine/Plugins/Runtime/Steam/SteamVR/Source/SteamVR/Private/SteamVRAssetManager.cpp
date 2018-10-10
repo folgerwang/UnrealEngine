@@ -286,6 +286,9 @@ bool FSteamVRModel::GetRawMeshData(float UEMeterScale, FSteamVRMeshData& MeshDat
 #if STEAMVR_SUPPORTED_PLATFORMS
 	if (RawResource)
 	{
+		// Logging to try to get info about a crash where the RawMeshData seems to be bad.
+		UE_LOG(LogSteamVR, Log, TEXT("FSteamVRModel::GetRawMeshData ResourceId %s rVertexData 0x%lx unVertexCount %i rIndexData 0x%lx unTriangleCount %i diffuseTextureId %i"), *ResourceId, RawResource->rVertexData, RawResource->unVertexCount, RawResource->rIndexData, RawResource->unTriangleCount, RawResource->diffuseTextureId);
+
 		const uint32 VertCount = RawResource->unVertexCount;
 		MeshDataOut.VertPositions.Empty(VertCount);
 		MeshDataOut.UVs.Empty(VertCount);

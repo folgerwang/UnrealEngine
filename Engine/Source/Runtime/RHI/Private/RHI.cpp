@@ -515,8 +515,6 @@ EPixelFormat GRHIHDRDisplayOutputFormat = PF_FloatRGBA;
 
 uint64 GRHIPresentCounter = 1;
 
-bool GRHISupportsGPUFence = false;
-
 /** Whether we are profiling GPU hitches. */
 bool GTriggerGPUHitchProfile = false;
 
@@ -686,8 +684,13 @@ FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
 	case SP_VULKAN_ES3_1_ANDROID:
 		return NAME_PLATFORM_ANDROID;
 	case SP_METAL:
+	case SP_METAL_MRT:
 		return NAME_PLATFORM_IOS;
 	case SP_METAL_SM5:
+	case SP_METAL_SM5_NOTESS:
+	case SP_METAL_MACES3_1:
+	case SP_METAL_MACES2:
+	case SP_METAL_MRT_MAC:
 		return NAME_PLATFORM_MAC;
 	case SP_SWITCH:
 	case SP_SWITCH_FORWARD:

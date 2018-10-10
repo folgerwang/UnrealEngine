@@ -103,9 +103,7 @@ NSSet* FAppleARKitConversion::InitImageDetection(UARSessionConfig* SessionConfig
 			if (ConvertedImage != nullptr)
 			{
 				float ImageWidth = (float)Candidate->GetPhysicalWidth() / 100.f;
-				CGImagePropertyOrientation Orientation = Candidate->GetOrientation() == EARCandidateImageOrientation::Landscape ? kCGImagePropertyOrientationRight : kCGImagePropertyOrientationUp;
-
-				ARReferenceImage* ReferenceImage = [[[ARReferenceImage alloc] initWithCGImage: ConvertedImage orientation: Orientation physicalWidth: ImageWidth] autorelease];
+				ARReferenceImage* ReferenceImage = [[[ARReferenceImage alloc] initWithCGImage: ConvertedImage orientation: kCGImagePropertyOrientationUp physicalWidth: ImageWidth] autorelease];
 				ReferenceImage.name = Candidate->GetFriendlyName().GetNSString();
 				[ConvertedImageSet addObject: ReferenceImage];
 			}
@@ -178,10 +176,12 @@ ARWorldMap* FAppleARKitConversion::ToARWorldMap(const TArray<uint8>& WorldMapDat
 	
 	// Serialize into the World map data
 	NSData* WorldNSData = [NSData dataWithBytesNoCopy: UncompressedData.GetData() length: UncompressedData.Num() freeWhenDone: NO];
-	ARWorldMap* WorldMap = [NSKeyedUnarchiver unarchiveObjectWithData: WorldNSData];
-	if (WorldMap == nullptr)
+	NSError* ErrorObj = nullptr;
+	ARWorldMap* WorldMap = [NSKeyedUnarchiver unarchivedObjectOfClass: ARWorldMap.class fromData: WorldNSData error: &ErrorObj];
+	if (ErrorObj != nullptr)
 	{
-		UE_LOG(LogAppleARKit, Log, TEXT("Failed to load the world map data from the session object"));
+		FString Error = [ErrorObj localizedDescription];
+		UE_LOG(LogAppleARKit, Log, TEXT("Failed to load the world map data from the session object with error string (%s)"), *Error);
 	}
 	return WorldMap;
 }
@@ -201,7 +201,8 @@ NSSet* FAppleARKitConversion::ToARReferenceObjectSet(const TArray<UARCandidateOb
 		if (Candidate != nullptr && Candidate->GetCandidateObjectData().Num() > 0)
 		{
 			NSData* CandidateData = [NSData dataWithBytesNoCopy: (uint8*)Candidate->GetCandidateObjectData().GetData() length: Candidate->GetCandidateObjectData().Num() freeWhenDone: NO];
-			ARReferenceObject* RefObject = [NSKeyedUnarchiver unarchiveObjectWithData: CandidateData];
+			NSError* ErrorObj = nullptr;
+			ARReferenceObject* RefObject = [NSKeyedUnarchiver unarchivedObjectOfClass: ARReferenceObject.class fromData: CandidateData error: &ErrorObj];
 			if (RefObject != nullptr)
 			{
 				// Store off so the session object can quickly match the anchor to our representation
@@ -331,14 +332,15 @@ ARConfiguration* FAppleARKitConversion::ToARConfiguration( UARSessionConfig* Ses
 		default:
 			return nullptr;
 	}
-	check(SessionConfiguration != nullptr);
-
-	// Copy / convert properties
-	SessionConfiguration.lightEstimationEnabled = SessionConfig->GetLightEstimationMode() != EARLightEstimationMode::None;
-	SessionConfiguration.providesAudioData = NO;
-	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
-
-	return SessionConfiguration;
+    if (SessionConfiguration != nullptr)
+    {
+        // Copy / convert properties
+        SessionConfiguration.lightEstimationEnabled = SessionConfig->GetLightEstimationMode() != EARLightEstimationMode::None;
+        SessionConfiguration.providesAudioData = NO;
+        SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
+    }
+    
+    return SessionConfiguration;
 }
 
 #pragma clang diagnostic pop

@@ -173,6 +173,16 @@ public:
 
 	UFUNCTION()
 	virtual void OnRep_PlayerState();
+	
+	/**
+	 * @return this controller's PlayerState cast to the template type, or NULL if there is not one.
+	 * May return null if the cast fails.
+	 */
+	template < class T >
+	T* GetPlayerState() const
+	{
+		return Cast<T>(PlayerState);
+	}
 
 	/** DEPRECATED! Use the standard "Cast To" node instead. Casts this Controller to a Player Controller, if possible. */
 	DEPRECATED(4.11, "CastToPlayerController has been replaced by the standard Cast To node.")

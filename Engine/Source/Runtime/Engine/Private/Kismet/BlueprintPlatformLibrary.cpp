@@ -163,4 +163,30 @@ void UBlueprintPlatformLibrary::GetLaunchNotification(bool& NotificationLaunched
 	platformService->GetLaunchNotification(NotificationLaunchedApp, ActivationEvent, FireDate);
 }
 
+EScreenOrientation::Type UBlueprintPlatformLibrary::GetDeviceOrientation()
+{
+	switch (FPlatformMisc::GetDeviceOrientation())
+	{
+		case EDeviceScreenOrientation::Portrait:
+			return EScreenOrientation::Portrait;
+			
+		case EDeviceScreenOrientation::PortraitUpsideDown:
+			return EScreenOrientation::PortraitUpsideDown;
+			
+		case EDeviceScreenOrientation::LandscapeLeft:
+			return EScreenOrientation::LandscapeLeft;
+
+		case EDeviceScreenOrientation::LandscapeRight:
+			return EScreenOrientation::LandscapeRight;
+
+		case EDeviceScreenOrientation::FaceUp:
+			return EScreenOrientation::FaceUp;
+			
+		case EDeviceScreenOrientation::FaceDown:
+			return EScreenOrientation::FaceDown;
+	}
+	return EScreenOrientation::Unknown;
+}
+
+
 ILocalNotificationService* UBlueprintPlatformLibrary::platformService = nullptr;

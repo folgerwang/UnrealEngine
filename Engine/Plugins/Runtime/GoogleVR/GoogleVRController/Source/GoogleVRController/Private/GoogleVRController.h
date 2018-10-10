@@ -5,6 +5,9 @@
 #include "GoogleVRControllerPrivate.h"
 #include "IInputDevice.h"
 #include "XRMotionControllerBase.h"
+#if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+#include "AndroidRuntimeSettings.h"
+#endif
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 #include "gvr_arm_model.h"
 #endif
@@ -84,30 +87,31 @@ public: // Helper Functions
 	void PollController(float DeltaTime);
 
 	/** Processes the controller buttons */
-	void ProcessControllerButtons();
+	void ProcessControllerButtons(int32 ControllerStateIndex);
 
 	/** Processes the controller events */
-	void ProcessControllerEvents();
+	void ProcessControllerEvents(int32 ControllerStateIndex);
 
 	/** Checks if the controller is available */
-	bool IsAvailable() const;
+	bool IsAvailable(int32 ControllerStateIndex) const;
 
 	int GetGVRControllerHandedness() const;
 
-	EGoogleVRControllerState GetControllerState() const;
+	EGoogleVRControllerAPIStatus GetApiStatus() const;
+	EGoogleVRControllerState GetControllerState(EControllerHand Hand) const;
 
 	FVector ConvertGvrVectorToUnreal(float x, float y, float z, float WorldToMetersScale) const;
 
 	FQuat ConvertGvrQuaternionToUnreal(float w, float x, float y, float z) const;
 
 	/** Checks if the controller battery is charging. */
-	bool GetBatteryCharging();
+	bool GetBatteryCharging(EControllerHand Hand);
 
 	/** Returns an approximate battery level. */
-	EGoogleVRControllerBatteryLevel GetBatteryLevel();
+	EGoogleVRControllerBatteryLevel GetBatteryLevel(EControllerHand Hand);
 
 	/** Returns the time stamp the battery information was last updated. */
-	int64_t GetLastBatteryTimestamp();
+	int64_t GetLastBatteryTimestamp(EControllerHand Hand);
 
 public: // Arm Model
 
@@ -163,9 +167,9 @@ public: // IMotionController
 	*/
 	virtual ETrackingStatus GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const;
 
-	/** Cached controller info */
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
-	gvr::ControllerState CachedControllerState;
+	gvr::ControllerState* GetCachedControllerState(EControllerHand Hand);
+	const gvr::ControllerState* GetCachedControllerState(EControllerHand Hand) const;
 #endif
 
 	float  GetWorldToMetersScale() const;
@@ -174,27 +178,36 @@ private:
 
 
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+	/** Cached controller info */
+	gvr::ControllerState CachedControllerStates[CONTROLLERS_PER_PLAYER];
+
 	/** GVR Controller client reference */
 	gvr::ControllerApi *pController;
 
 	/** Capture Button Press states */
-	bool LastButtonStates[EGoogleVRControllerButton::TotalButtonCount];
+	bool LastButtonStates[CONTROLLERS_PER_PLAYER][EGoogleVRControllerButton::TotalButtonCount];
 
-	/** Button mappings */
+	/** Button mappings.  Index is the hand, not the controller state index. */
 	FGamepadKeyNames::Type Buttons[CONTROLLERS_PER_PLAYER][EGoogleVRControllerButton::TotalButtonCount];
 #endif
-	bool bControllerReadyToPollState;
 
 	/** handler to send all messages to */
 	TSharedRef<FGenericApplicationMessageHandler> MessageHandler;
+
 
 	// TODO: Set controller handedness based on the value from gvr.
 	// When does the gvr value become available? Should we just poll for it?
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 	gvr_arm_model::Controller ArmModelController;
 #endif
+#if GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS
+	EGoogleVRCaps::Type GoogleVRCaps;
+#endif
 	bool bUseArmModel;
-	EGoogleVRControllerState CurrentControllerState;
+
+	int32 GetControllerStateIndex(const EControllerHand Hand) const;
+	EControllerHand GetControllerHandFromStateIndex(int32 StateIndex) const;
+	EGoogleVRControllerState CurrentControllerStates[CONTROLLERS_PER_PLAYER];
 
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
 	FRotator BaseEmulatorOrientation;

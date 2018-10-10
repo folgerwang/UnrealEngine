@@ -27,7 +27,7 @@ FLuminTargetPlatform::FLuminTargetPlatform(bool bIsClient)
 {
 #if WITH_ENGINE
 	// by using the FAndroidPlatformProperties, the PlatformInfo up in TTargetPlatformBase/FTargetPlatformBase would be Android
-	this->PlatformInfo = PlatformInfo::FindPlatformInfo("Lumin");
+	this->PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*PlatformName()));
 
 	RefreshSettings();
 #endif
@@ -86,12 +86,16 @@ void FLuminTargetPlatform::RefreshSettings()
 #if WITH_ENGINE
 	//UE_LOG(LogCore, Warning, TEXT("*** DIAGNOSE - REFRESH!!!"));
 
+	//the load above does not move settings from "SourceConfig" member to the object itself.  New loads will do that.
 	FConfigFile NewEngineSettings;
 	FConfigCacheIni::LoadLocalIniFile(NewEngineSettings, TEXT("Engine"), true, *IniPlatformName(), true);
-	//the load above does not move settings from "SourceConfig" member to the object itself.  New loads will do that.
 	LuminEngineSettings = NewEngineSettings;
+	//remove the source config as it is just a copied pointer
+	LuminEngineSettings.SourceConfigFile = nullptr;
 	//override the android version too
 	EngineSettings = NewEngineSettings;
+	//remove the source config as it is just a copied pointer
+	EngineSettings.SourceConfigFile = nullptr;
 
 	// Get the Target RHIs for this platform, we do not always want all those that are supported.
 	TArray<FName> TargetedShaderFormats;

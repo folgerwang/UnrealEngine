@@ -25,6 +25,12 @@ UMediaSource* UMediaProfile::GetMediaSource(int32 Index) const
 }
 
 
+int32 UMediaProfile::NumMediaSources() const
+{
+	return MediaSources.Num();
+}
+
+
 UMediaOutput* UMediaProfile::GetMediaOutput(int32 Index) const
 {
 	if (MediaOutputs.IsValidIndex(Index))
@@ -32,6 +38,12 @@ UMediaOutput* UMediaProfile::GetMediaOutput(int32 Index) const
 		return MediaOutputs[Index];
 	}
 	return nullptr;
+}
+
+
+int32 UMediaProfile::NumMediaOutputs() const
+{
+	return MediaOutputs.Num();
 }
 
 

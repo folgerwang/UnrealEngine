@@ -598,6 +598,11 @@ public:
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 		FullyResolvedLinkers.Remove(Linker);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+		// ClassToPlaceholderMap may have entries because instances of placeholder classes (which 
+		// will be resolved in ResolveDeferredExports()), will never have had ResolvePlaceholders
+		// for their class called. These entries are harmless and we can discard them here:
+		ClassToPlaceholderMap.Reset();
 	}
 
 	void AddLinkerPlaceholderObject(UClass* ClassWaitingFor, ULinkerPlaceholderExportObject* Placeholder)
@@ -612,12 +617,17 @@ public:
 		{
 			for(ULinkerPlaceholderExportObject* Placeholder : *Placeholders)
 			{
-				FLinkerLoad* Linker = Placeholder->GetLinker();
-				if(ensure(Linker))
+				if(!Placeholder->IsMarkedResolved())
 				{
-					Linker->ResolvePlaceholder( Placeholder );
+					FLinkerLoad* Linker = Placeholder->GetLinker();
+					if(ensure(Linker))
+					{
+						Linker->ResolvePlaceholder( Placeholder );
+					}
 				}
 			}
+			// Remove from map as we could get GCd later
+			ClassToPlaceholderMap.Remove(ForClass);
 		}
 	}
 
@@ -2056,7 +2066,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 				if (ensure(PlaceholderExport))
 				{
 					// replace the placeholder with the proper object instance
-					Export.Object = nullptr;
+					Export.ResetObject();
 					UObject* ExportObj = CreateExport(ExportIndex);
 
 					PlaceholderExport->ResolveAllPlaceholderReferences(ExportObj);

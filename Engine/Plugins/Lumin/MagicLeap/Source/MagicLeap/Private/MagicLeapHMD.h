@@ -83,7 +83,7 @@ public:
 
 	virtual void GetFieldOfView(float& OutHFOVInDegrees, float& OutVFOVInDegrees) const override;
 	virtual void UpdateScreenSettings(const FViewport* InViewport) override {}
-
+	virtual bool IsRenderingPaused() const override { return bIsRenderingPaused; }
 
 	/** IStereoRendering interface */
 	virtual bool IsStereoEnabled() const override
@@ -158,6 +158,7 @@ public:
 	/** Enables, or disables, local input. Returns the previous value of ignore input. */
 	bool SetIgnoreInput(bool Ignore);
 
+	void PauseRendering(const bool bIsPaused) { bIsRenderingPaused = bIsPaused; }
 
 	/** Utility class to scope guard enabling and disabling game viewport client input processing.
 	* On creation it will enable the input processing, and on exit it will restore it to its
@@ -282,6 +283,7 @@ private:
 #if !PLATFORM_LUMIN
 	bool bStereoDesired;
 #endif
+	bool bIsRenderingPaused;
 	bool bHmdPosTracking;
 	mutable bool bHaveVisionTracking;
 	float IPD;

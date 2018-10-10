@@ -4,9 +4,11 @@
 
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"		// For inline LoadModuleChecked()
+#include "Logging/LogMacros.h"
 
 #define DATASMITHCONTENT_MODULE_NAME TEXT("DatasmithContent")
 
+DECLARE_LOG_CATEGORY_EXTERN( LogDatasmithContent, Log, All );
 DECLARE_DELEGATE_OneParam( FOnSpawnDatasmithSceneActors, class ADatasmithSceneActor* );
 
 /**

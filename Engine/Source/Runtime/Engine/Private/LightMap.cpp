@@ -283,7 +283,8 @@ struct FLightMapAllocation
 				// Need to create per-LOD instance data to fix that
 				MeshBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
 
-				Component->InstanceUpdateCmdBuffer.SetLightMapData(InstanceIndex, MeshBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias);
+				int32 RenderIndex = Component->InstanceReorderTable.IsValidIndex(InstanceIndex) ? Component->InstanceReorderTable[InstanceIndex] : InstanceIndex;
+				Component->InstanceUpdateCmdBuffer.SetLightMapData(RenderIndex, MeshBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias);
 				Component->MarkRenderStateDirty();
 			}
 		}

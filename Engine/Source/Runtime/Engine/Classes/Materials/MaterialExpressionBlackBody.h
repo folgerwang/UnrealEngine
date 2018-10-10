@@ -9,7 +9,7 @@
 #include "Materials/MaterialExpression.h"
 #include "MaterialExpressionBlackBody.generated.h"
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UMaterialExpressionBlackBody : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()

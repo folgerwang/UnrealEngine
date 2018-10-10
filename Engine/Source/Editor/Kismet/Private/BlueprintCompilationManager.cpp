@@ -220,6 +220,9 @@ void FBlueprintCompilationManagerImpl::CompileSynchronouslyImpl(const FBPCompile
 
 	if ( GEditor && !bRegenerateSkeletonOnly)
 	{
+		// Make sure clients know they're being reinstanced as part of blueprint compilation. After this point
+		// compilation is completely done:
+		TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
 		GEditor->BroadcastBlueprintReinstanced();
 	}
 	
@@ -348,7 +351,7 @@ struct FReinstancingJob
 	TSharedPtr<FBlueprintCompileReinstancer> Reinstancer;
 	TSharedPtr<FKismetCompilerContext> Compiler;
 };
-	
+
 void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*>* ObjLoaded, bool bSuppressBroadcastCompiled, TArray<UBlueprint*>* BlueprintsCompiled, TArray<UBlueprint*>* BlueprintsCompiledOrSkeletonCompiled)
 {
 	TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
@@ -365,6 +368,43 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 
 		// STAGE I: Add any related blueprints that were not compiled, then add any children so that they will be relinked:
 		TArray<UBlueprint*> BlueprintsToRecompile;
+
+		// First add any dependents of macro libraries that are being compiled:
+		for(const FBPCompileRequest& CompileJob : QueuedRequests)
+		{
+			if ((CompileJob.CompileOptions & 
+				(	EBlueprintCompileOptions::RegenerateSkeletonOnly|
+					EBlueprintCompileOptions::IsRegeneratingOnLoad)
+				) != EBlueprintCompileOptions::None)
+			{
+				continue;
+			}
+			
+			if(CompileJob.BPToCompile->BlueprintType == BPTYPE_MacroLibrary)
+			{
+				TArray<UBlueprint*> DependentBlueprints;
+				FBlueprintEditorUtils::GetDependentBlueprints(CompileJob.BPToCompile, DependentBlueprints);
+				for(UBlueprint* DependentBlueprint : DependentBlueprints)
+				{
+					if(!IsQueuedForCompilation(DependentBlueprint))
+					{
+						DependentBlueprint->bQueuedForCompilation = true;
+						CurrentlyCompilingBPs.Add(
+							FCompilerData(
+								DependentBlueprint, 
+								ECompilationManagerJobType::Normal, 
+								nullptr, 
+								EBlueprintCompileOptions::None, 
+								false // full compile
+							)
+						);
+						BlueprintsToRecompile.Add(DependentBlueprint);
+					}
+				}
+			}
+		}
+
+		// then make sure any normal blueprints have their bytecode dependents recompiled, this is in case a function signature changes:
 		for(const FBPCompileRequest& CompileJob : QueuedRequests)
 		{
 			if ((CompileJob.CompileOptions & EBlueprintCompileOptions::RegenerateSkeletonOnly) != EBlueprintCompileOptions::None)
@@ -858,6 +898,11 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 						EBlueprintCompileReinstancerFlags::AutoInferSaveOnCompile | EBlueprintCompileReinstancerFlags::AvoidCDODuplication
 					)
 				);
+
+				if(BP->GeneratedClass)
+				{
+					BP->GeneratedClass->ClassFlags |= CLASS_LayoutChanging;
+				}
 			}
 		}
 
@@ -926,14 +971,16 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 		for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
 		{
 			UBlueprint* BP = CompilerData.BP;
+			UClass* BPGC = BP->GeneratedClass;
+
 			if(!CompilerData.ShouldCompileClassFunctions())
 			{
-				if( BP->GeneratedClass &&
-					(	BP->GeneratedClass->ClassDefaultObject == nullptr || 
-						BP->GeneratedClass->ClassDefaultObject->GetClass() != BP->GeneratedClass) )
+				if( BPGC &&
+					(	BPGC->ClassDefaultObject == nullptr || 
+						BPGC->ClassDefaultObject->GetClass() != BPGC) )
 				{
 					// relink, generate CDO:
-					UClass* BPGC = BP->GeneratedClass;
+					BPGC->ClassFlags &= ~CLASS_LayoutChanging;
 					BPGC->Bind();
 					BPGC->StaticLink(true);
 					BPGC->ClassDefaultObject = nullptr;
@@ -942,16 +989,33 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			}
 			else
 			{
-				ensure( BP->GeneratedClass == nullptr ||
-						BP->GeneratedClass->ClassDefaultObject == nullptr || 
-						BP->GeneratedClass->ClassDefaultObject->GetClass() != BP->GeneratedClass);
-				
 				// default value propagation occurrs below:
-				if(BP->GeneratedClass)
+				if(BPGC)
 				{
-					BP->GeneratedClass->ClassDefaultObject = nullptr;
-				
+					if( BPGC->ClassDefaultObject && 
+						BPGC->ClassDefaultObject->GetClass() == BPGC)
+					{
+						// the CDO has been created early, it is possible that the reflection data was still
+						// being mutated by CompileClassLayout. Warn the user and and move the CDO aside:
+						ensureAlwaysMsgf(false, 
+							TEXT("ClassDefaultObject for %s created at the wrong time - it may be corrupt. It is recommended that you save all data and restart the editor session"), 
+							*BP->GetName()
+						);
+
+						BPGC->ClassDefaultObject->Rename(
+							nullptr,
+							// destination - this is the important part of this call. Moving the object 
+							// out of the way so we can reuse its name:
+							GetTransientPackage(), 
+							// Rename options:
+							REN_DoNotDirty | REN_DontCreateRedirectors | REN_ForceNoResetLoaders
+						);
+					}
+					BPGC->ClassDefaultObject = nullptr;
 		
+					// class layout is ready, we can clear CLASS_LayoutChanging and CompileFunctions can create the CDO:
+					BPGC->ClassFlags &= ~CLASS_LayoutChanging;
+
 					FKismetCompilerContext& CompilerContext = *(CompilerData.Compiler);
 					CompilerContext.CompileFunctions(
 						EInternalCompilerFlags::PostponeLocalsGenerationUntilPhaseTwo
@@ -988,13 +1052,13 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 				}
 			}
 
-			if(BP->GeneratedClass)
+			if(BPGC)
 			{
-				BP->GeneratedClass->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
-				BP->GeneratedClass->SetUpRuntimeReplicationData();
+				BPGC->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
+				BPGC->SetUpRuntimeReplicationData();
 			}
 
-			ensure(BP->GeneratedClass == nullptr || BP->GeneratedClass->ClassDefaultObject->GetClass() == *(BP->GeneratedClass));
+			ensure(BPGC == nullptr || BPGC->ClassDefaultObject->GetClass() == BPGC);
 		}
 	} // end GTimeCompiling scope
 

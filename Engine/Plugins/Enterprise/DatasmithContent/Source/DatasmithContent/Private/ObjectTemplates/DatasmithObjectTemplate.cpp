@@ -63,7 +63,8 @@ TMap< TSubclassOf< UDatasmithObjectTemplate >, UDatasmithObjectTemplate* >* FDat
 
 	if (!UserData)
 	{
-		UserData = NewObject< UDatasmithAssetUserData >(Outer, NAME_None, RF_Public | RF_Transactional);
+		EObjectFlags Flags = RF_Public /*| RF_Transactional*/; // RF_Transactional Disabled as is can cause a crash in the transaction system for blueprints
+		UserData = NewObject< UDatasmithAssetUserData >(Outer, NAME_None, Flags);
 		AssetUserDataInterface->AddAssetUserData(UserData);
 	}
 

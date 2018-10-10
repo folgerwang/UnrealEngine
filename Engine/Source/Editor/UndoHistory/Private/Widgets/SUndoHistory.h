@@ -67,6 +67,9 @@ protected:
 
 private:
 
+	// Select the last transaction in the undo history.
+	void SelectLastTransaction();
+
 	// Callback for clicking the 'Discard History' button.
 	FReply HandleDiscardHistoryButtonClicked( );
 

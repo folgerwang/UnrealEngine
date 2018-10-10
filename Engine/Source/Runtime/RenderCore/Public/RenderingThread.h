@@ -244,9 +244,7 @@ FORCEINLINE_DEBUGGABLE void EnqueueUniqueRenderCommand(LAMBDA&& Lambda)
 #if 0 // UE_SERVER && UE_BUILD_DEBUG
 	UE_LOG(LogRHI, Warning, TEXT("Render command '%s' is being executed on a dedicated server."), TSTR::TStr())
 #endif
-	// always use a new task for devices that have GUseThreadedRendering=false
-	// even when the call is from the rendering thread
-	if (GUseThreadedRendering && IsInRenderingThread())
+	if (IsInRenderingThread())
 	{
 		FRHICommandListImmediate& RHICmdList = GetImmediateCommandList_ForRenderCommand();
 		Lambda(RHICmdList);

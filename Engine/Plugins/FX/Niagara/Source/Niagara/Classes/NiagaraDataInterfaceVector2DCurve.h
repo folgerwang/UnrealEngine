@@ -45,7 +45,7 @@ public:
 
 	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc) override;
 
-	template<typename UseLUT, typename XParamType>
+	template<typename UseLUT>
 	void SampleCurve(FVectorVMContext& Context);
 
 	//~ UNiagaraDataInterfaceCurveBase interface

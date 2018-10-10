@@ -25,7 +25,10 @@ FControlRigEditorObjectSpawner::FControlRigEditorObjectSpawner()
 FControlRigEditorObjectSpawner::~FControlRigEditorObjectSpawner()
 {
 #if WITH_EDITOR
-	GEditor->OnObjectsReplaced().RemoveAll(this);
+	if (GEditor)
+	{
+		GEditor->OnObjectsReplaced().RemoveAll(this);
+	}
 #endif
 }
 TSharedRef<IMovieSceneObjectSpawner> FControlRigEditorObjectSpawner::CreateObjectSpawner()

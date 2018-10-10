@@ -8,6 +8,7 @@
 
 #include "LocalNotification.h"
 #include "Logging/LogMacros.h"
+#include "Delegates/Delegate.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogIOSLocalNotification, Log, All);
 
@@ -57,6 +58,10 @@ public:
 	 * @param ActivationEvent The string passed into the Schedule call for the notification to be cancelled
 	*/
 	virtual void CancelLocalNotification(const FString& ActivationEvent);
+
+	// Check if notifications are allowed if min iOS version is > 10
+	DECLARE_DELEGATE_OneParam(FAllowedNotifications, bool);
+	static void CheckAllowedNotifications(const FAllowedNotifications& AllowedNotificationsDelegate);
 
 private:
 	bool	AppLaunchedWithNotification;

@@ -85,6 +85,8 @@ public:
 	//#todo-rco: Detect Mali? Doing a clear on ColorAtt layout on empty cmd buffer causes issues
 	static bool RequiresSwapchainGeneralInitialLayout() { return true; }
 
+	static bool RequiresWaitingForFrameCompletionEvent() { return false; }
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

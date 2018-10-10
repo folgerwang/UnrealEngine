@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/Scene.h"
-
+#include "HAL/IConsoleManager.h"
 
 void FColorGradingSettings::ExportToPostProcessSettings(FPostProcessSettings* OutPostProcessSettings) const
 {
@@ -158,6 +158,38 @@ void FLensSettings::ExportToPostProcessSettings(FPostProcessSettings* OutPostPro
 	OutPostProcessSettings->SceneFringeIntensity = ChromaticAberration;
 }
 
+FCameraExposureSettings::FCameraExposureSettings()
+{
+	static const auto VarDefaultAutoExposureExtendDefaultLuminanceRange = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"));
+	const bool bExtendedLuminanceRange = VarDefaultAutoExposureExtendDefaultLuminanceRange->GetValueOnAnyThread() == 1;
+
+	// next value might get overwritten by r.DefaultFeature.AutoExposure.Method
+	Method = AEM_Histogram;
+	LowPercent = 80.0f;
+	HighPercent = 98.3f;
+
+	if (bExtendedLuminanceRange)
+	{
+		// When this project setting is set, the following values are in EV100.
+		MinBrightness = -10.0f;
+		MaxBrightness = 20.0f;
+		HistogramLogMin = -10.0f;
+		HistogramLogMax = 20.0f;
+	}
+	else
+	{
+		MinBrightness = 0.03f;
+		MaxBrightness = 2.0f;
+		HistogramLogMin = -8.0f;
+		HistogramLogMax = 4.0f;
+	}
+
+	SpeedUp = 3.0f;
+	SpeedDown = 1.0f;
+	Bias = 0.0f;
+	CalibrationConstant	= 16.0;
+}
+
 void FCameraExposureSettings::ExportToPostProcessSettings(FPostProcessSettings* OutPostProcessSettings) const
 {
 	OutPostProcessSettings->bOverride_AutoExposureMethod = true;
@@ -311,7 +343,6 @@ static void DoPostProcessSettingsSanityCheck()
 
 #endif // DO_CHECK
 
-
 FPostProcessSettings::FPostProcessSettings()
 {
 	// to set all bOverride_.. by default to false
@@ -419,10 +450,25 @@ FPostProcessSettings::FPostProcessSettings()
 	AutoExposureMethod = AEM_Histogram;
 	AutoExposureLowPercent = 80.0f;
 	AutoExposureHighPercent = 98.3f;
+
 	// next value might get overwritten by r.DefaultFeature.AutoExposure
-	AutoExposureMinBrightness = 0.03f;
-	// next value might get overwritten by r.DefaultFeature.AutoExposure
-	AutoExposureMaxBrightness = 2.0f;
+	static const auto VarDefaultAutoExposureExtendDefaultLuminanceRange = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"));
+	if (VarDefaultAutoExposureExtendDefaultLuminanceRange->GetValueOnAnyThread() != 0)
+	{
+		// When this project setting is set, the following values are in EV100.
+		AutoExposureMinBrightness = -10.0f;
+		AutoExposureMaxBrightness = 20.0f;
+		HistogramLogMin = -10.0f;
+		HistogramLogMax = 20.0f;
+	}
+	else
+	{
+		AutoExposureMinBrightness = 0.03f;
+		AutoExposureMaxBrightness = 2.0f;
+		HistogramLogMin = -8.0f;
+		HistogramLogMax = 4.0f;
+	}
+
 	AutoExposureBias = 0.0f;
 	AutoExposureSpeedUp = 3.0f;
 	AutoExposureSpeedDown = 1.0f;
@@ -434,8 +480,7 @@ FPostProcessSettings::FPostProcessSettings()
 	LPVSpecularOcclusionIntensity = 1.0f;
 	LPVFadeRange = 0.0f;
 	LPVDirectionalOcclusionFadeRange = 0.0f;
-	HistogramLogMin = -8.0f;
-	HistogramLogMax = 4.0f;
+
 	// next value might get overwritten by r.DefaultFeature.LensFlare
 	LensFlareIntensity = 1.0f;
 	LensFlareTint = FLinearColor(1.0f, 1.0f, 1.0f);
@@ -462,6 +507,7 @@ FPostProcessSettings::FPostProcessSettings()
 	IndirectLightingColor = FLinearColor(1.0f, 1.0f, 1.0f);
 	IndirectLightingIntensity = 1.0f;
 	ColorGradingIntensity = 1.0f;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	DepthOfFieldFocalDistance = 1000.0f;
 	DepthOfFieldFstop = 4.0f;
 	DepthOfFieldMinFstop = 1.2f;
@@ -480,6 +526,7 @@ FPostProcessSettings::FPostProcessSettings()
 	DepthOfFieldColorThreshold = 1.0f;
 	DepthOfFieldSizeThreshold = 0.08f;
 	DepthOfFieldSkyFocusDistance = 0.0f;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	// 200 should be enough even for extreme aspect ratios to give the default no effect
 	DepthOfFieldVignetteSize = 200.0f;
 	LensFlareTints[0] = FLinearColor(1.0f, 0.8f, 0.4f, 0.6f);
@@ -508,6 +555,339 @@ FPostProcessSettings::FPostProcessSettings()
 		DoPostProcessSettingsSanityCheck();
 	}
 #endif // DO_CHECK
+}
+
+FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
+	: bOverride_WhiteTemp(Settings.bOverride_WhiteTemp)
+	, bOverride_WhiteTint(Settings.bOverride_WhiteTint)
+	, bOverride_ColorSaturation(Settings.bOverride_ColorSaturation)
+	, bOverride_ColorContrast(Settings.bOverride_ColorContrast)
+	, bOverride_ColorGamma(Settings.bOverride_ColorGamma)
+	, bOverride_ColorGain(Settings.bOverride_ColorGain)
+	, bOverride_ColorOffset(Settings.bOverride_ColorOffset)
+	, bOverride_ColorSaturationShadows(Settings.bOverride_ColorSaturationShadows)
+	, bOverride_ColorContrastShadows(Settings.bOverride_ColorContrastShadows)
+	, bOverride_ColorGammaShadows(Settings.bOverride_ColorGammaShadows)
+	, bOverride_ColorGainShadows(Settings.bOverride_ColorGainShadows)
+	, bOverride_ColorOffsetShadows(Settings.bOverride_ColorOffsetShadows)
+	, bOverride_ColorSaturationMidtones(Settings.bOverride_ColorSaturationMidtones)
+	, bOverride_ColorContrastMidtones(Settings.bOverride_ColorContrastMidtones)
+	, bOverride_ColorGammaMidtones(Settings.bOverride_ColorGammaMidtones)
+	, bOverride_ColorGainMidtones(Settings.bOverride_ColorGainMidtones)
+	, bOverride_ColorOffsetMidtones(Settings.bOverride_ColorOffsetMidtones)
+	, bOverride_ColorSaturationHighlights(Settings.bOverride_ColorSaturationHighlights)
+	, bOverride_ColorContrastHighlights(Settings.bOverride_ColorContrastHighlights)
+	, bOverride_ColorGammaHighlights(Settings.bOverride_ColorGammaHighlights)
+	, bOverride_ColorGainHighlights(Settings.bOverride_ColorGainHighlights)
+	, bOverride_ColorOffsetHighlights(Settings.bOverride_ColorOffsetHighlights)
+	, bOverride_ColorCorrectionShadowsMax(Settings.bOverride_ColorCorrectionShadowsMax)
+	, bOverride_ColorCorrectionHighlightsMin(Settings.bOverride_ColorCorrectionHighlightsMin)
+	, bOverride_BlueCorrection(Settings.bOverride_BlueCorrection)
+	, bOverride_ExpandGamut(Settings.bOverride_ExpandGamut)
+	, bOverride_FilmWhitePoint(Settings.bOverride_FilmWhitePoint)
+	, bOverride_FilmSaturation(Settings.bOverride_FilmSaturation)
+	, bOverride_FilmChannelMixerRed(Settings.bOverride_FilmChannelMixerRed)
+	, bOverride_FilmChannelMixerGreen(Settings.bOverride_FilmChannelMixerGreen)
+	, bOverride_FilmChannelMixerBlue(Settings.bOverride_FilmChannelMixerBlue)
+	, bOverride_FilmContrast(Settings.bOverride_FilmContrast)
+	, bOverride_FilmDynamicRange(Settings.bOverride_FilmDynamicRange)
+	, bOverride_FilmHealAmount(Settings.bOverride_FilmHealAmount)
+	, bOverride_FilmToeAmount(Settings.bOverride_FilmToeAmount)
+	, bOverride_FilmShadowTint(Settings.bOverride_FilmShadowTint)
+	, bOverride_FilmShadowTintBlend(Settings.bOverride_FilmShadowTintBlend)
+	, bOverride_FilmShadowTintAmount(Settings.bOverride_FilmShadowTintAmount)
+	, bOverride_FilmSlope(Settings.bOverride_FilmSlope)
+	, bOverride_FilmToe(Settings.bOverride_FilmToe)
+	, bOverride_FilmShoulder(Settings.bOverride_FilmShoulder)
+	, bOverride_FilmBlackClip(Settings.bOverride_FilmBlackClip)
+	, bOverride_FilmWhiteClip(Settings.bOverride_FilmWhiteClip)
+	, bOverride_SceneColorTint(Settings.bOverride_SceneColorTint)
+	, bOverride_SceneFringeIntensity(Settings.bOverride_SceneFringeIntensity)
+	, bOverride_ChromaticAberrationStartOffset(Settings.bOverride_ChromaticAberrationStartOffset)
+	, bOverride_AmbientCubemapTint(Settings.bOverride_AmbientCubemapTint)
+	, bOverride_AmbientCubemapIntensity(Settings.bOverride_AmbientCubemapIntensity)
+	, bOverride_BloomMethod(Settings.bOverride_BloomMethod)
+	, bOverride_BloomIntensity(Settings.bOverride_BloomIntensity)
+	, bOverride_BloomThreshold(Settings.bOverride_BloomThreshold)
+	, bOverride_Bloom1Tint(Settings.bOverride_Bloom1Tint)
+	, bOverride_Bloom1Size(Settings.bOverride_Bloom1Size)
+	, bOverride_Bloom2Size(Settings.bOverride_Bloom2Size)
+	, bOverride_Bloom2Tint(Settings.bOverride_Bloom2Tint)
+	, bOverride_Bloom3Tint(Settings.bOverride_Bloom3Tint)
+	, bOverride_Bloom3Size(Settings.bOverride_Bloom3Size)
+	, bOverride_Bloom4Tint(Settings.bOverride_Bloom4Tint)
+	, bOverride_Bloom4Size(Settings.bOverride_Bloom4Size)
+	, bOverride_Bloom5Tint(Settings.bOverride_Bloom5Tint)
+	, bOverride_Bloom5Size(Settings.bOverride_Bloom5Size)
+	, bOverride_Bloom6Tint(Settings.bOverride_Bloom6Tint)
+	, bOverride_Bloom6Size(Settings.bOverride_Bloom6Size)
+	, bOverride_BloomSizeScale(Settings.bOverride_BloomSizeScale)
+	, bOverride_BloomConvolutionTexture(Settings.bOverride_BloomConvolutionTexture)
+	, bOverride_BloomConvolutionSize(Settings.bOverride_BloomConvolutionSize)
+	, bOverride_BloomConvolutionCenterUV(Settings.bOverride_BloomConvolutionCenterUV)
+	//, bOverride_BloomConvolutionPreFilter_DEPRECATED(Settings.bOverride_BloomConvolutionPreFilter_DEPRECATED)
+	, bOverride_BloomConvolutionPreFilterMin(Settings.bOverride_BloomConvolutionPreFilterMin)
+	, bOverride_BloomConvolutionPreFilterMax(Settings.bOverride_BloomConvolutionPreFilterMax)
+	, bOverride_BloomConvolutionPreFilterMult(Settings.bOverride_BloomConvolutionPreFilterMult)
+	, bOverride_BloomConvolutionBufferScale(Settings.bOverride_BloomConvolutionBufferScale)
+	, bOverride_BloomDirtMaskIntensity(Settings.bOverride_BloomDirtMaskIntensity)
+	, bOverride_BloomDirtMaskTint(Settings.bOverride_BloomDirtMaskTint)
+	, bOverride_BloomDirtMask(Settings.bOverride_BloomDirtMask)
+	, bOverride_CameraShutterSpeed(Settings.bOverride_CameraShutterSpeed)
+	, bOverride_CameraISO(Settings.bOverride_CameraISO)
+	, bOverride_AutoExposureMethod(Settings.bOverride_AutoExposureMethod)
+	, bOverride_AutoExposureLowPercent(Settings.bOverride_AutoExposureLowPercent)
+	, bOverride_AutoExposureHighPercent(Settings.bOverride_AutoExposureHighPercent)
+	, bOverride_AutoExposureMinBrightness(Settings.bOverride_AutoExposureMinBrightness)
+	, bOverride_AutoExposureMaxBrightness(Settings.bOverride_AutoExposureMaxBrightness)
+	, bOverride_AutoExposureCalibrationConstant(Settings.bOverride_AutoExposureCalibrationConstant)
+	, bOverride_AutoExposureSpeedUp(Settings.bOverride_AutoExposureSpeedUp)
+	, bOverride_AutoExposureSpeedDown(Settings.bOverride_AutoExposureSpeedDown)
+	, bOverride_AutoExposureBias(Settings.bOverride_AutoExposureBias)
+	, bOverride_HistogramLogMin(Settings.bOverride_HistogramLogMin)
+	, bOverride_HistogramLogMax(Settings.bOverride_HistogramLogMax)
+	, bOverride_LensFlareIntensity(Settings.bOverride_LensFlareIntensity)
+	, bOverride_LensFlareTint(Settings.bOverride_LensFlareTint)
+	, bOverride_LensFlareTints(Settings.bOverride_LensFlareTints)
+	, bOverride_LensFlareBokehSize(Settings.bOverride_LensFlareBokehSize)
+	, bOverride_LensFlareBokehShape(Settings.bOverride_LensFlareBokehShape)
+	, bOverride_LensFlareThreshold(Settings.bOverride_LensFlareThreshold)
+	, bOverride_VignetteIntensity(Settings.bOverride_VignetteIntensity)
+	, bOverride_GrainIntensity(Settings.bOverride_GrainIntensity)
+	, bOverride_GrainJitter(Settings.bOverride_GrainJitter)
+	, bOverride_AmbientOcclusionIntensity(Settings.bOverride_AmbientOcclusionIntensity)
+	, bOverride_AmbientOcclusionStaticFraction(Settings.bOverride_AmbientOcclusionStaticFraction)
+	, bOverride_AmbientOcclusionRadius(Settings.bOverride_AmbientOcclusionRadius)
+	, bOverride_AmbientOcclusionFadeDistance(Settings.bOverride_AmbientOcclusionFadeDistance)
+	, bOverride_AmbientOcclusionFadeRadius(Settings.bOverride_AmbientOcclusionFadeRadius)
+	//, bOverride_AmbientOcclusionDistance_DEPRECATED(Settings.bOverride_AmbientOcclusionDistance_DEPRECATED)
+	, bOverride_AmbientOcclusionRadiusInWS(Settings.bOverride_AmbientOcclusionRadiusInWS)
+	, bOverride_AmbientOcclusionPower(Settings.bOverride_AmbientOcclusionPower)
+	, bOverride_AmbientOcclusionBias(Settings.bOverride_AmbientOcclusionBias)
+	, bOverride_AmbientOcclusionQuality(Settings.bOverride_AmbientOcclusionQuality)
+	, bOverride_AmbientOcclusionMipBlend(Settings.bOverride_AmbientOcclusionMipBlend)
+	, bOverride_AmbientOcclusionMipScale(Settings.bOverride_AmbientOcclusionMipScale)
+	, bOverride_AmbientOcclusionMipThreshold(Settings.bOverride_AmbientOcclusionMipThreshold)
+	, bOverride_LPVIntensity(Settings.bOverride_LPVIntensity)
+	, bOverride_LPVDirectionalOcclusionIntensity(Settings.bOverride_LPVDirectionalOcclusionIntensity)
+	, bOverride_LPVDirectionalOcclusionRadius(Settings.bOverride_LPVDirectionalOcclusionRadius)
+	, bOverride_LPVDiffuseOcclusionExponent(Settings.bOverride_WhiteTemp)
+	, bOverride_LPVSpecularOcclusionExponent(Settings.bOverride_LPVSpecularOcclusionExponent)
+	, bOverride_LPVDiffuseOcclusionIntensity(Settings.bOverride_LPVDiffuseOcclusionIntensity)
+	, bOverride_LPVSpecularOcclusionIntensity(Settings.bOverride_LPVSpecularOcclusionIntensity)
+	, bOverride_LPVSize(Settings.bOverride_LPVSize)
+	, bOverride_LPVSecondaryOcclusionIntensity(Settings.bOverride_LPVSecondaryOcclusionIntensity)
+	, bOverride_LPVSecondaryBounceIntensity(Settings.bOverride_LPVSecondaryBounceIntensity)
+	, bOverride_LPVGeometryVolumeBias(Settings.bOverride_LPVGeometryVolumeBias)
+	, bOverride_LPVVplInjectionBias(Settings.bOverride_LPVVplInjectionBias)
+	, bOverride_LPVEmissiveInjectionIntensity(Settings.bOverride_LPVEmissiveInjectionIntensity)
+	, bOverride_LPVFadeRange(Settings.bOverride_LPVFadeRange)
+	, bOverride_LPVDirectionalOcclusionFadeRange(Settings.bOverride_LPVDirectionalOcclusionFadeRange)
+	, bOverride_IndirectLightingColor(Settings.bOverride_IndirectLightingColor)
+	, bOverride_IndirectLightingIntensity(Settings.bOverride_IndirectLightingIntensity)
+	, bOverride_ColorGradingIntensity(Settings.bOverride_ColorGradingIntensity)
+	, bOverride_ColorGradingLUT(Settings.bOverride_ColorGradingLUT)
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	, bOverride_DepthOfFieldFocalDistance(Settings.bOverride_DepthOfFieldFocalDistance)
+	, bOverride_DepthOfFieldFstop(Settings.bOverride_DepthOfFieldFstop)
+	, bOverride_DepthOfFieldMinFstop(Settings.bOverride_DepthOfFieldMinFstop)
+	, bOverride_DepthOfFieldBladeCount(Settings.bOverride_DepthOfFieldBladeCount)
+	, bOverride_DepthOfFieldSensorWidth(Settings.bOverride_DepthOfFieldSensorWidth)
+	, bOverride_DepthOfFieldDepthBlurRadius(Settings.bOverride_DepthOfFieldDepthBlurRadius)
+	, bOverride_DepthOfFieldDepthBlurAmount(Settings.bOverride_DepthOfFieldDepthBlurAmount)
+	, bOverride_DepthOfFieldFocalRegion(Settings.bOverride_DepthOfFieldFocalRegion)
+	, bOverride_DepthOfFieldNearTransitionRegion(Settings.bOverride_DepthOfFieldNearTransitionRegion)
+	, bOverride_DepthOfFieldFarTransitionRegion(Settings.bOverride_DepthOfFieldFarTransitionRegion)
+	, bOverride_DepthOfFieldScale(Settings.bOverride_DepthOfFieldScale)
+	, bOverride_DepthOfFieldMaxBokehSize(Settings.bOverride_DepthOfFieldMaxBokehSize)
+	, bOverride_DepthOfFieldNearBlurSize(Settings.bOverride_DepthOfFieldNearBlurSize)
+	, bOverride_DepthOfFieldFarBlurSize(Settings.bOverride_DepthOfFieldFarBlurSize)
+	, bOverride_DepthOfFieldMethod(Settings.bOverride_DepthOfFieldMethod)
+	, bOverride_MobileHQGaussian(Settings.bOverride_MobileHQGaussian)
+	, bOverride_DepthOfFieldBokehShape(Settings.bOverride_DepthOfFieldBokehShape)
+	, bOverride_DepthOfFieldOcclusion(Settings.bOverride_DepthOfFieldOcclusion)
+	, bOverride_DepthOfFieldColorThreshold(Settings.bOverride_DepthOfFieldColorThreshold)
+	, bOverride_DepthOfFieldSizeThreshold(Settings.bOverride_DepthOfFieldSizeThreshold)
+	, bOverride_DepthOfFieldSkyFocusDistance(Settings.bOverride_DepthOfFieldSkyFocusDistance)
+	, bOverride_DepthOfFieldVignetteSize(Settings.bOverride_DepthOfFieldVignetteSize)
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	, bOverride_MotionBlurAmount(Settings.bOverride_MotionBlurAmount)
+	, bOverride_MotionBlurMax(Settings.bOverride_MotionBlurMax)
+	, bOverride_MotionBlurPerObjectSize(Settings.bOverride_MotionBlurPerObjectSize)
+	, bOverride_ScreenPercentage(Settings.bOverride_ScreenPercentage)
+	, bOverride_ScreenSpaceReflectionIntensity(Settings.bOverride_ScreenSpaceReflectionIntensity)
+	, bOverride_ScreenSpaceReflectionQuality(Settings.bOverride_ScreenSpaceReflectionQuality)
+	, bOverride_ScreenSpaceReflectionMaxRoughness(Settings.bOverride_ScreenSpaceReflectionMaxRoughness)
+	, bOverride_ScreenSpaceReflectionRoughnessScale(Settings.bOverride_ScreenSpaceReflectionRoughnessScale)
+
+	, bMobileHQGaussian(Settings.bMobileHQGaussian)
+	, BloomMethod(Settings.BloomMethod)
+	, AutoExposureMethod(Settings.AutoExposureMethod)
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	, DepthOfFieldMethod(Settings.DepthOfFieldMethod)
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	, WhiteTemp(Settings.WhiteTemp)
+	, WhiteTint(Settings.WhiteTint)
+	, ColorSaturation(Settings.ColorSaturation)
+	, ColorContrast(Settings.ColorContrast)
+	, ColorGamma(Settings.ColorGamma)
+	, ColorGain(Settings.ColorGain)
+	, ColorOffset(Settings.ColorOffset)
+	, ColorSaturationShadows(Settings.ColorSaturationShadows)
+	, ColorContrastShadows(Settings.ColorContrastShadows)
+	, ColorGammaShadows(Settings.ColorGammaShadows)
+	, ColorGainShadows(Settings.ColorGainShadows)
+	, ColorOffsetShadows(Settings.ColorOffsetShadows)
+	, ColorSaturationMidtones(Settings.ColorSaturationMidtones)
+	, ColorContrastMidtones(Settings.ColorContrastMidtones)
+	, ColorGammaMidtones(Settings.ColorGammaMidtones)
+	, ColorGainMidtones(Settings.ColorGainMidtones)
+	, ColorOffsetMidtones(Settings.ColorOffsetMidtones)
+	, ColorSaturationHighlights(Settings.ColorSaturationHighlights)
+	, ColorContrastHighlights(Settings.ColorContrastHighlights)
+	, ColorGammaHighlights(Settings.ColorGammaHighlights)
+	, ColorGainHighlights(Settings.ColorGainHighlights)
+	, ColorOffsetHighlights(Settings.ColorOffsetHighlights)
+	, ColorCorrectionHighlightsMin(Settings.ColorCorrectionHighlightsMin)
+	, ColorCorrectionShadowsMax(Settings.ColorCorrectionShadowsMax)
+	, BlueCorrection(Settings.BlueCorrection)
+	, ExpandGamut(Settings.ExpandGamut)
+	, FilmSlope(Settings.FilmSlope)
+	, FilmToe(Settings.FilmToe)
+	, FilmShoulder(Settings.FilmShoulder)
+	, FilmBlackClip(Settings.FilmBlackClip)
+	, FilmWhiteClip(Settings.FilmWhiteClip)
+	, FilmWhitePoint(Settings.FilmWhitePoint)
+	, FilmShadowTint(Settings.FilmShadowTint)
+	, FilmShadowTintBlend(Settings.FilmShadowTintBlend)
+	, FilmShadowTintAmount(Settings.FilmShadowTintAmount)
+	, FilmSaturation(Settings.FilmSaturation)
+	, FilmChannelMixerRed(Settings.FilmChannelMixerRed)
+	, FilmChannelMixerGreen(Settings.FilmChannelMixerGreen)
+	, FilmChannelMixerBlue(Settings.FilmChannelMixerBlue)
+	, FilmContrast(Settings.FilmContrast)
+	, FilmToeAmount(Settings.FilmToeAmount)
+	, FilmHealAmount(Settings.FilmHealAmount)
+	, FilmDynamicRange(Settings.FilmDynamicRange)
+	, SceneColorTint(Settings.SceneColorTint)
+	, SceneFringeIntensity(Settings.SceneFringeIntensity)
+	, ChromaticAberrationStartOffset(Settings.ChromaticAberrationStartOffset)
+	, BloomIntensity(Settings.BloomIntensity)
+	, BloomThreshold(Settings.BloomThreshold)
+	, BloomSizeScale(Settings.BloomSizeScale)
+	, Bloom1Size(Settings.Bloom1Size)
+	, Bloom2Size(Settings.Bloom2Size)
+	, Bloom3Size(Settings.Bloom3Size)
+	, Bloom4Size(Settings.Bloom4Size)
+	, Bloom5Size(Settings.Bloom5Size)
+	, Bloom6Size(Settings.Bloom6Size)
+	, Bloom1Tint(Settings.Bloom1Tint)
+	, Bloom2Tint(Settings.Bloom2Tint)
+	, Bloom3Tint(Settings.Bloom3Tint)
+	, Bloom4Tint(Settings.Bloom4Tint)
+	, Bloom5Tint(Settings.Bloom5Tint)
+	, Bloom6Tint(Settings.Bloom6Tint)
+	, BloomConvolutionSize(Settings.BloomConvolutionSize)
+	, BloomConvolutionTexture(Settings.BloomConvolutionTexture)
+	, BloomConvolutionCenterUV(Settings.BloomConvolutionCenterUV)
+	//, BloomConvolutionPreFilter_DEPRECATED(Settings.BloomConvolutionPreFilter_DEPRECATED)
+	, BloomConvolutionPreFilterMin(Settings.BloomConvolutionPreFilterMin)
+	, BloomConvolutionPreFilterMax(Settings.BloomConvolutionPreFilterMax)
+	, BloomConvolutionPreFilterMult(Settings.BloomConvolutionPreFilterMult)
+	, BloomConvolutionBufferScale(Settings.BloomConvolutionBufferScale)
+	, BloomDirtMask(Settings.BloomDirtMask)
+	, BloomDirtMaskIntensity(Settings.BloomDirtMaskIntensity)
+	, BloomDirtMaskTint(Settings.BloomDirtMaskTint)
+	, AmbientCubemapTint(Settings.AmbientCubemapTint)
+	, AmbientCubemapIntensity(Settings.AmbientCubemapIntensity)
+	, AmbientCubemap(Settings.AmbientCubemap)
+	, CameraShutterSpeed(Settings.CameraShutterSpeed)
+	, CameraISO(Settings.CameraISO)
+	, DepthOfFieldFstop(Settings.DepthOfFieldFstop)
+	, DepthOfFieldMinFstop(Settings.DepthOfFieldMinFstop)
+	, DepthOfFieldBladeCount(Settings.DepthOfFieldBladeCount)
+	, AutoExposureBias(Settings.AutoExposureBias)
+	, AutoExposureLowPercent(Settings.AutoExposureLowPercent)
+	, AutoExposureHighPercent(Settings.AutoExposureHighPercent)
+	, AutoExposureMinBrightness(Settings.AutoExposureMinBrightness)
+	, AutoExposureMaxBrightness(Settings.AutoExposureMaxBrightness)
+	, AutoExposureSpeedUp(Settings.AutoExposureSpeedUp)
+	, AutoExposureSpeedDown(Settings.AutoExposureSpeedDown)
+	, HistogramLogMin(Settings.HistogramLogMin)
+	, HistogramLogMax(Settings.HistogramLogMax)
+	, AutoExposureCalibrationConstant(Settings.AutoExposureCalibrationConstant)
+	, LensFlareIntensity(Settings.LensFlareIntensity)
+	, LensFlareTint(Settings.LensFlareTint)
+	, LensFlareBokehSize(Settings.LensFlareBokehSize)
+	, LensFlareThreshold(Settings.LensFlareThreshold)
+	, LensFlareBokehShape(Settings.LensFlareBokehShape)
+	, VignetteIntensity(Settings.VignetteIntensity)
+	, GrainJitter(Settings.GrainJitter)
+	, GrainIntensity(Settings.GrainIntensity)
+	, AmbientOcclusionIntensity(Settings.AmbientOcclusionIntensity)
+	, AmbientOcclusionStaticFraction(Settings.AmbientOcclusionStaticFraction)
+	, AmbientOcclusionRadius(Settings.AmbientOcclusionRadius)
+	, AmbientOcclusionRadiusInWS(Settings.AmbientOcclusionRadiusInWS)
+	, AmbientOcclusionFadeDistance(Settings.AmbientOcclusionFadeDistance)
+	, AmbientOcclusionFadeRadius(Settings.AmbientOcclusionFadeRadius)
+	//, AmbientOcclusionDistance_DEPRECATED(Settings.AmbientOcclusionDistance_DEPRECATED)
+	, AmbientOcclusionPower(Settings.AmbientOcclusionPower)
+	, AmbientOcclusionBias(Settings.AmbientOcclusionBias)
+	, AmbientOcclusionQuality(Settings.AmbientOcclusionQuality)
+	, AmbientOcclusionMipBlend(Settings.AmbientOcclusionMipBlend)
+	, AmbientOcclusionMipScale(Settings.AmbientOcclusionMipScale)
+	, AmbientOcclusionMipThreshold(Settings.AmbientOcclusionMipThreshold)
+	, IndirectLightingColor(Settings.IndirectLightingColor)
+	, IndirectLightingIntensity(Settings.IndirectLightingIntensity)
+	, ColorGradingIntensity(Settings.ColorGradingIntensity)
+	, ColorGradingLUT(Settings.ColorGradingLUT)
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	, DepthOfFieldSensorWidth(Settings.DepthOfFieldSensorWidth)
+	, DepthOfFieldFocalDistance(Settings.DepthOfFieldFocalDistance)
+	, DepthOfFieldDepthBlurAmount(Settings.DepthOfFieldDepthBlurAmount)
+	, DepthOfFieldDepthBlurRadius(Settings.DepthOfFieldDepthBlurRadius)
+	, DepthOfFieldFocalRegion(Settings.DepthOfFieldFocalRegion)
+	, DepthOfFieldNearTransitionRegion(Settings.DepthOfFieldNearTransitionRegion)
+	, DepthOfFieldFarTransitionRegion(Settings.DepthOfFieldFarTransitionRegion)
+	, DepthOfFieldScale(Settings.DepthOfFieldScale)
+	, DepthOfFieldMaxBokehSize(Settings.DepthOfFieldMaxBokehSize)
+	, DepthOfFieldNearBlurSize(Settings.DepthOfFieldNearBlurSize)
+	, DepthOfFieldFarBlurSize(Settings.DepthOfFieldFarBlurSize)
+	, DepthOfFieldOcclusion(Settings.DepthOfFieldOcclusion)
+	, DepthOfFieldBokehShape(Settings.DepthOfFieldBokehShape)
+	, DepthOfFieldColorThreshold(Settings.DepthOfFieldColorThreshold)
+	, DepthOfFieldSizeThreshold(Settings.DepthOfFieldSizeThreshold)
+	, DepthOfFieldSkyFocusDistance(Settings.DepthOfFieldSkyFocusDistance)
+	, DepthOfFieldVignetteSize(Settings.DepthOfFieldVignetteSize)
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	, MotionBlurAmount(Settings.MotionBlurAmount)
+	, MotionBlurMax(Settings.MotionBlurMax)
+	, MotionBlurPerObjectSize(Settings.MotionBlurPerObjectSize)
+	, LPVIntensity(Settings.LPVIntensity)
+	, LPVVplInjectionBias(Settings.LPVVplInjectionBias)
+	, LPVSize(Settings.LPVSize)
+	, LPVSecondaryOcclusionIntensity(Settings.LPVSecondaryOcclusionIntensity)
+	, LPVSecondaryBounceIntensity(Settings.LPVSecondaryBounceIntensity)
+	, LPVGeometryVolumeBias(Settings.LPVGeometryVolumeBias)
+	, LPVEmissiveInjectionIntensity(Settings.LPVEmissiveInjectionIntensity)
+	, LPVDirectionalOcclusionIntensity(Settings.LPVDirectionalOcclusionIntensity)
+	, LPVDirectionalOcclusionRadius(Settings.LPVDirectionalOcclusionRadius)
+	, LPVDiffuseOcclusionExponent(Settings.WhiteTemp)
+	, LPVSpecularOcclusionExponent(Settings.LPVSpecularOcclusionExponent)
+	, LPVDiffuseOcclusionIntensity(Settings.LPVDiffuseOcclusionIntensity)
+	, LPVSpecularOcclusionIntensity(Settings.LPVSpecularOcclusionIntensity)
+	, ScreenSpaceReflectionIntensity(Settings.ScreenSpaceReflectionIntensity)
+	, ScreenSpaceReflectionQuality(Settings.ScreenSpaceReflectionQuality)
+	, ScreenSpaceReflectionMaxRoughness(Settings.ScreenSpaceReflectionMaxRoughness)
+	, LPVFadeRange(Settings.LPVFadeRange)
+	, LPVDirectionalOcclusionFadeRange(Settings.LPVDirectionalOcclusionFadeRange)
+	, ScreenPercentage(Settings.ScreenPercentage)
+
+	, WeightedBlendables(Settings.WeightedBlendables)
+	//, Blendables_DEPRECATED(Settings.Blendables_DEPRECATED)
+{
+	for (int32 i = 0; i < ARRAY_COUNT(LensFlareTints); i++)
+		LensFlareTints[i] = Settings.LensFlareTints[i];
 }
 
 UScene::UScene(const FObjectInitializer& ObjectInitializer)

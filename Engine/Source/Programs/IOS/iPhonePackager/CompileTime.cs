@@ -213,10 +213,9 @@ namespace iPhonePackager
 		/// </summary>
 		static public void ExportCertificate()
 		{
-			string ProvisionWithPrefix;
-			if(!FindMobileProvision(Config.OverrideBundleName ?? "", out ProvisionWithPrefix, false))
+			if(Config.ProvisionFile == null)
 			{
-				Program.Error("Missing provision");
+				Program.Error("Missing -ProvisionFile=... argument");
 				return;
 			}
 
@@ -227,7 +226,7 @@ namespace iPhonePackager
 			}
 
 			// export the signing certificate to a file
-			MobileProvision Provision = MobileProvisionParser.ParseFile(ProvisionWithPrefix);
+			MobileProvision Provision = MobileProvisionParser.ParseFile(Config.ProvisionFile);
 			X509Certificate2 Certificate = CodeSignatureBuilder.FindCertificate(Provision);
             if (Certificate == null)
             {

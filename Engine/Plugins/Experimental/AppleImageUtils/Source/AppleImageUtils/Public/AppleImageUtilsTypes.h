@@ -12,6 +12,15 @@
 #include "AppleImageUtilsTypes.generated.h"
 
 UENUM(BlueprintType, Category="AppleImageUtils", meta=(Experimental))
+enum class ETextureRotationDirection : uint8
+{
+	None,
+	Left,
+	Right,
+	Down
+};
+
+UENUM(BlueprintType, Category="AppleImageUtils", meta=(Experimental))
 enum class EAppleTextureType : uint8
 {
 	Unknown,

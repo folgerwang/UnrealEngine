@@ -34,7 +34,7 @@ enum class EPluginAuthorizationState
 class FPluginWardenAuthorizer
 {
 public:
-	FPluginWardenAuthorizer(const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId);
+	FPluginWardenAuthorizer(const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId, const EEntitlementCacheLevelRequest InCacheLevel);
 
 	/** Returns new state after elapsed time */
 	EPluginAuthorizationState UpdateAuthorizationState(float DeltaTime);
@@ -46,6 +46,9 @@ public:
 private:
 	/** The current state of the plug-in authorization pipeline. */
 	EPluginAuthorizationState CurrentState;
+
+	/** Cache level to check for the entitlement */
+	EEntitlementCacheLevelRequest CacheLevel;
 
 	/** The amount of time we've been waiting for confirmation for a given step.  It's possible a problem may arise and we need to timeout. */
 	float WaitingTime;

@@ -230,6 +230,11 @@ void UPointLightComponent::Serialize(FArchive& Ar)
 	{
 		AddLocalRotation( FRotator(-90.f, 0.f, 0.f) );
 	}
+
+	if (Ar.IsLoading() && !bUseInverseSquaredFalloff)
+	{
+		IntensityUnits = ELightUnits::Unitless;
+	}
 }
 
 #if WITH_EDITOR
@@ -239,10 +244,13 @@ bool UPointLightComponent::CanEditChange(const UProperty* InProperty) const
 	if (InProperty)
 	{
 		FString PropertyName = InProperty->GetName();
-
-		if (FCString::Strcmp(*PropertyName, TEXT("LightFalloffExponent")) == 0)
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, LightFalloffExponent))
 		{
 			return !bUseInverseSquaredFalloff;
+		}
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(ULocalLightComponent, IntensityUnits))
+		{
+			return bUseInverseSquaredFalloff;
 		}
 	}
 
@@ -261,6 +269,11 @@ void UPointLightComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 	SourceRadius = FMath::Max(0.0f, SourceRadius);
 	SoftSourceRadius = FMath::Max(0.0f, SoftSourceRadius);
 	SourceLength = FMath::Max(0.0f, SourceLength);
+
+	if (!bUseInverseSquaredFalloff)
+	{
+		IntensityUnits = ELightUnits::Unitless;
+	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }

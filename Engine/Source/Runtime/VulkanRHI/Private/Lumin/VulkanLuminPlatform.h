@@ -64,6 +64,8 @@ public:
 
 	static void EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo);
 
+	static bool RequiresWaitingForFrameCompletionEvent() { return false; }
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

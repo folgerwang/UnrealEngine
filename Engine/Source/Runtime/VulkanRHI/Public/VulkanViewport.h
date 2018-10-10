@@ -27,10 +27,9 @@ public:
 
 	FVulkanTexture2D* GetBackBuffer(FRHICommandList& RHICmdList);
 
-	//void WaitForFrameEventCompletion();
+	void WaitForFrameEventCompletion();
 
-	//#todo-rco
-	//void IssueFrameEvent() {}
+	void IssueFrameEvent();
 
 	inline FIntPoint GetSizeXY() const
 	{
@@ -84,12 +83,15 @@ protected:
 
 	FCustomPresentRHIRef CustomPresent;
 
+	FVulkanCmdBuffer* LastFrameCommandBuffer = nullptr;
+	uint64 LastFrameFenceCounter = 0;
+
 	void CreateSwapchain();
 	void AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBackBuffer* NewBackBuffer);
 
 	void RecreateSwapchain(void* NewNativeWindow, bool bForce = false);
-	void RecreateSwapchainFromRT();
-	void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen);
+	void RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat);
+	void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
 
 	static int32 DoAcquireImageIndex(FVulkanViewport* Viewport);
 	bool DoCheckedSwapChainJob(TFunction<int32(FVulkanViewport*)> SwapChainJob);

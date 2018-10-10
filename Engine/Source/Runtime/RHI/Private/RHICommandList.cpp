@@ -2071,11 +2071,11 @@ void FDynamicRHI::UnlockIndexBuffer_RenderThread(class FRHICommandListImmediate&
 
 void* FDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI)
 {
-	return RHILockVertexBuffer(StagingBuffer->GetBackingBuffer(), Offset, SizeRHI, RLM_ReadOnly);
+	return GDynamicRHI->RHILockVertexBuffer(StagingBuffer->GetBackingBuffer(), Offset, SizeRHI, RLM_ReadOnly);
 }
 void FDynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer)
 {
-	RHIUnlockVertexBuffer(StagingBuffer->GetBackingBuffer());
+	GDynamicRHI->RHIUnlockVertexBuffer(StagingBuffer->GetBackingBuffer());
 }
 
 void* FDynamicRHI::LockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI)
@@ -2084,7 +2084,7 @@ void* FDynamicRHI::LockStagingBuffer_RenderThread(class FRHICommandListImmediate
 	check(IsInRenderingThread());
 
 	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-	return RHILockStagingBuffer(StagingBuffer, Offset, SizeRHI);
+	return GDynamicRHI->RHILockStagingBuffer(StagingBuffer, Offset, SizeRHI);
 }
 void FDynamicRHI::UnlockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer)
 {
@@ -2092,7 +2092,7 @@ void FDynamicRHI::UnlockStagingBuffer_RenderThread(class FRHICommandListImmediat
 	check(IsInRenderingThread());
 	
 	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-	RHIUnlockStagingBuffer(StagingBuffer);
+	GDynamicRHI->RHIUnlockStagingBuffer(StagingBuffer);
 }
 
 FTexture2DRHIRef FDynamicRHI::AsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
@@ -2478,49 +2478,3 @@ void FDynamicRHI::RHICopySubTextureRegion_RenderThread(class FRHICommandListImme
 	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 	return GDynamicRHI->RHICopySubTextureRegion(SourceTexture, DestinationTexture, SourceBox, DestinationBox);
 }
-
-struct FDynamicRHICommandEnqueueStagedRead : public FRHICommand<FDynamicRHICommandEnqueueStagedRead>
-{
-	FStagingBufferRHIParamRef Buffer;
-	FGPUFenceRHIParamRef Fence;
-	uint32 Offset;
-	uint32 NumBytes;
-	
-	FORCEINLINE_DEBUGGABLE FDynamicRHICommandEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef InFence, uint32 InOffset, uint32 InNumBytes)
-	: Buffer(StagingBuffer)
-	, Fence(InFence)
-	, Offset(InOffset)
-	, NumBytes(InNumBytes)
-	{
-	}
-	
-	virtual ~FDynamicRHICommandEnqueueStagedRead()
-	{
-	}
-	
-	void Execute(FRHICommandListBase& CmdList)
-	{
-		GDynamicRHI->RHIEnqueueStagedRead(Buffer, Fence, Offset, NumBytes);
-	}
-};
-
-void FDynamicRHI::RHIEnqueueStagedRead_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
-{
-	// When the RHI does not support GRHISupportsGPUFence then we assume the default implementation of FRHIGPUFence.
-	// The default FRHIGPUFence uses GFrameNumberRenderThread and thus does not need to be dispatched to the RHI thread.
-	if (!GRHISupportsGPUFence || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
-	{
-		GDynamicRHI->RHIEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
-		return;
-	}
-	new (RHICmdList.AllocCommand<FDynamicRHICommandEnqueueStagedRead>()) FDynamicRHICommandEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
-}
-
-void FDynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
-{
-	IRHICommandContext* Context = RHIGetDefaultContext();
-	check(Context);
-	check(Fence);
-	Context->RHIInsertGPUFence(Fence);
-}
-

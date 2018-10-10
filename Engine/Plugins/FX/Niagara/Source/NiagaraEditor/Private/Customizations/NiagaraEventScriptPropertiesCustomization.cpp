@@ -156,7 +156,7 @@ void FNiagaraEventScriptPropertiesCustomization::CustomizeChildren(TSharedRef<IP
 
 	// Add Spawn Number property
 	{
-		FText EventSrcTxt = LOCTEXT("SpawnNumber", "Minimum SpawnNumber");
+		FText EventSrcTxt = LOCTEXT("MinimumSpawnNumber", "Minimum SpawnNumber");
 		FDetailWidgetRow& SpawnRow = ChildBuilder.AddCustomRow(EventSrcTxt);
 		TSharedRef<SWidget> MinSpawnNumberValueWidget = HandleMinSpawnNumber->CreatePropertyValueWidget();
 		TAttribute<bool> EnabledAttribute(this, &FNiagaraEventScriptPropertiesCustomization::GetUseRandomSpawnNumber);

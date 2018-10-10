@@ -9,20 +9,29 @@
 #include "NiagaraSpawnShortcut.h"
 #include "NiagaraEditorSettings.generated.h"
 
+USTRUCT()
+struct FNiagaraNewAssetDialogConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	int32 SelectedOptionIndex;
+
+	UPROPERTY()
+	FVector2D WindowSize;
+
+	FNiagaraNewAssetDialogConfig()
+	{
+		SelectedOptionIndex = 0;
+		WindowSize = FVector2D(450, 600);
+	}
+};
 
 UCLASS(config = Niagara, defaultconfig, meta=(DisplayName="Niagara"))
 class UNiagaraEditorSettings : public UDeveloperSettings
 {
 public:
 	GENERATED_UCLASS_BODY()
-		
-	/** System to duplicate as the base of all new System assets created. */
-	UPROPERTY(config, EditAnywhere, Category = Niagara)
-	FSoftObjectPath DefaultSystem;
-
-	/** Emitter to duplicate as the base of all new emitter assets created. */
-	UPROPERTY(config, EditAnywhere, Category = Niagara)
-	FSoftObjectPath DefaultEmitter;
 
 	/** Niagara script to duplicate as the base of all new script assets created. */
 	UPROPERTY(config, EditAnywhere, Category = Niagara)
@@ -67,6 +76,10 @@ public:
 
 	/** Sets whether or not to rerun the simulation to the current time when making modifications while paused. */
 	void SetResimulateOnChangeWhilePaused(bool bInResimulateOnChangeWhilePaused);
+
+	FNiagaraNewAssetDialogConfig GetNewAssetDailogConfig(FName InDialogConfigKey) const;
+
+	void SetNewAssetDialogConfig(FName InDialogConfigKey, const FNiagaraNewAssetDialogConfig& InNewAssetDialogConfig);
 	
 	// Begin UDeveloperSettings Interface
 	virtual FName GetCategoryName() const override;
@@ -80,6 +93,7 @@ public:
 	/** Gets a multicast delegate which is called whenever one of the parameters in this settings object changes. */
 	static FOnNiagaraEditorSettingsChanged& OnSettingsChanged();
 
+	const TMap<FString, FString>& GetHLSLKeywordReplacementsMap()const { return HLSLKeywordReplacements; }
 protected:
 	static FOnNiagaraEditorSettingsChanged SettingsChangedDelegate;
 
@@ -99,4 +113,10 @@ private:
 	/** Whether or not to rerun the simulation to the current time when making modifications while paused. */
 	UPROPERTY(config, EditAnywhere, Category = SimulationOptions)
 	bool bResimulateOnChangeWhilePaused;
+
+	UPROPERTY(config)
+	TMap<FName, FNiagaraNewAssetDialogConfig> NewAssetDialogConfigMap;
+
+	UPROPERTY(config)
+	TMap<FString, FString> HLSLKeywordReplacements;
 };

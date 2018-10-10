@@ -987,7 +987,7 @@ void UControlRigGraphNode::AutowireNewNode(UEdGraphPin* FromPin)
 
 void UControlRigGraphNode::HandleAddArrayElement(FString InPropertyPath)
 {
-	const FScopedTransaction Transaction(LOCTEXT("AddArrayElement", "Add Array Element"));
+	const FScopedTransaction Transaction(LOCTEXT("AddArrayElementTransaction", "Add Array Element"));
 
 	if(PerformArrayOperation(InPropertyPath, [](FScriptArrayHelper& InArrayHelper, int32 InArrayIndex)
 	{
@@ -1001,7 +1001,7 @@ void UControlRigGraphNode::HandleAddArrayElement(FString InPropertyPath)
 
 void UControlRigGraphNode::HandleClearArray(FString InPropertyPath)
 {
-	const FScopedTransaction Transaction(LOCTEXT("ClearArray", "Clear Array"));
+	const FScopedTransaction Transaction(LOCTEXT("ClearArrayTransaction", "Clear Array"));
 
 	if(PerformArrayOperation(InPropertyPath, [](FScriptArrayHelper& InArrayHelper, int32 InArrayIndex)
 	{
@@ -1015,7 +1015,7 @@ void UControlRigGraphNode::HandleClearArray(FString InPropertyPath)
 
 void UControlRigGraphNode::HandleRemoveArrayElement(FString InPropertyPath)
 {
-	const FScopedTransaction Transaction(LOCTEXT("RemoveArrayElement", "Remove Array Element"));
+	const FScopedTransaction Transaction(LOCTEXT("RemoveArrayElementTransaction", "Remove Array Element"));
 
 	if(PerformArrayOperation(InPropertyPath, [](FScriptArrayHelper& InArrayHelper, int32 InArrayIndex)
 	{
@@ -1033,7 +1033,7 @@ void UControlRigGraphNode::HandleRemoveArrayElement(FString InPropertyPath)
 
 void UControlRigGraphNode::HandleInsertArrayElement(FString InPropertyPath)
 {
-	const FScopedTransaction Transaction(LOCTEXT("InsertArrayElement", "Insert Array Element"));
+	const FScopedTransaction Transaction(LOCTEXT("InsertArrayElementTransaction", "Insert Array Element"));
 
 	if(PerformArrayOperation(InPropertyPath, [](FScriptArrayHelper& InArrayHelper, int32 InArrayIndex)
 	{

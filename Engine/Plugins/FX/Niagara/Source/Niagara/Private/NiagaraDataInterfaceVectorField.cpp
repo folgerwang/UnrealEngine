@@ -378,12 +378,12 @@ void UNiagaraDataInterfaceVectorField::GetFunctions(TArray<FNiagaraFunctionSigna
 	}
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField);
 void UNiagaraDataInterfaceVectorField::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	if (BindingInfo.Name == SampleVectorFieldName && BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField)>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceVectorField, SampleVectorField)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetVectorDimsName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 3)
 	{
@@ -397,15 +397,15 @@ void UNiagaraDataInterfaceVectorField::GetVMExternalFunction(const FVMExternalFu
 
 void UNiagaraDataInterfaceVectorField::GetFieldDimensions(FVectorVMContext& Context)
 {
-	/*FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
+	/*VectorVM::FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
 	if (!InstData.Get())
 	{
 		UE_LOG(LogNiagara, Warning, TEXT("FNDIVectorField_InstanceData has invalid instance data. %s"), *GetPathName());
 	}*/
 
-	FRegisterHandler<float> OutSizeX(Context);	
-	FRegisterHandler<float> OutSizeY(Context);
-	FRegisterHandler<float> OutSizeZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeX(Context);	
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSizeZ(Context);
 	
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -421,18 +421,18 @@ void UNiagaraDataInterfaceVectorField::GetFieldDimensions(FVectorVMContext& Cont
 
 void UNiagaraDataInterfaceVectorField::GetFieldBounds(FVectorVMContext& Context)
 {
-	/*FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
+	/*VectorVM::FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
 	if (!InstData.Get())
 	{
 		UE_LOG(LogNiagara, Warning, TEXT("FNDIVectorField_InstanceData has invalid instance data. %s"), *GetPathName());
 	}*/
 
-	FRegisterHandler<float> OutMinX(Context);
-	FRegisterHandler<float> OutMinY(Context);
-	FRegisterHandler<float> OutMinZ(Context);
-	FRegisterHandler<float> OutMaxX(Context);
-	FRegisterHandler<float> OutMaxY(Context);
-	FRegisterHandler<float> OutMaxZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMinX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMinY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMinZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMaxX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMaxY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutMaxZ(Context);
 	
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -560,22 +560,20 @@ void UNiagaraDataInterfaceVectorField::Unlock()
 	}
 }
 
-
-template<typename XType, typename YType, typename ZType>
 void UNiagaraDataInterfaceVectorField::SampleVectorField(FVectorVMContext& Context)
 {
 	// Input arguments...
-	XType XParam(Context);
-	YType YParam(Context);
-	ZType ZParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> YParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> ZParam(Context);
 
 	// User pointer buffer (as requested)
-	//FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
+	//VectorVM::FUserPtrHandler<FNDIVectorField_InstanceData> InstData(Context);
 
 	// Outputs...
-	FRegisterHandler<float> OutSampleX(Context);
-	FRegisterHandler<float> OutSampleY(Context);
-	FRegisterHandler<float> OutSampleZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
 
 	/*UE_LOG(LogNiagara, Log, TEXT("Registers: In: %d %d %d %d Out: %d %d %d"),
 		XParam.RegisterIndex, YParam.RegisterIndex, ZParam.RegisterIndex, InstData.RegisterIndex,

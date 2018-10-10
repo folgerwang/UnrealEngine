@@ -708,7 +708,7 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(nullptr, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		FMeshDrawingPolicy(nullptr, nullptr, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
 		VertexDeclaration(InVertexFactory->GetDeclaration()),
 		LightMapPolicy(InLightMapPolicy),
 		NumMovablePointLights(InNumMovablePointLights),
@@ -822,6 +822,11 @@ public:
 	uint32 GetTypeHash() const
 	{
 		return PointerHash(VertexDeclaration, PointerHash(MaterialResource));
+	}
+
+	const FMaterialRenderProxy* GetPipelineMaterialRenderProxy(const FMaterialRenderProxy* ElementMaterialRenderProxy)
+	{
+		return ElementMaterialRenderProxy;
 	}
 
 	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)

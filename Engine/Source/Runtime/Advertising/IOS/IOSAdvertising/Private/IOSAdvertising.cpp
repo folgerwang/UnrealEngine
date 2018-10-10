@@ -12,6 +12,7 @@ DEFINE_LOG_CATEGORY_STATIC( LogAdvertising, Display, All );
 
 IMPLEMENT_MODULE( FIOSAdvertisingProvider, IOSAdvertising );
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 @interface IOSAdvertising : UIResponder <ADBannerViewDelegate>
 	/** iAd banner view, if open */
 	@property(retain) ADBannerView* BannerView;
@@ -185,23 +186,41 @@ completion:^(BOOL finished)
 	[self.BannerView cancelBannerViewAction];
 }
 @end
+#endif
 
 void FIOSAdvertisingProvider::ShowAdBanner( bool bShowOnBottomOfScreen, int32 /*AdID*/ ) 
 {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 	[[IOSAdvertising GetDelegate] performSelectorOnMainThread:@selector(ShowAdBanner:) withObject:[NSNumber numberWithBool : bShowOnBottomOfScreen] waitUntilDone : NO];
+#else
+    UE_LOG(LogIOS, Warning, TEXT("iAd has been deprecated as of IOS 10 and is this advertising provider is now deprecated in UE 4.21"));
+#endif
 }
 
 void FIOSAdvertisingProvider::HideAdBanner() 
 {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 	[[IOSAdvertising GetDelegate] performSelectorOnMainThread:@selector(UserHideAdBanner) withObject:nil waitUntilDone : NO];
+#else
+    UE_LOG(LogIOS, Warning, TEXT("iAd has been deprecated as of IOS 10 and is this advertising provider is now deprecated in UE 4.21"));
+#endif
 }
 
 void FIOSAdvertisingProvider::CloseAdBanner() 
 {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 	[[IOSAdvertising GetDelegate] performSelectorOnMainThread:@selector(CloseAd) withObject:nil waitUntilDone : NO];
+#else
+    UE_LOG(LogIOS, Warning, TEXT("iAd has been deprecated as of IOS 10 and is this advertising provider is now deprecated in UE 4.21"));
+#endif
 }
 
 int32 FIOSAdvertisingProvider::GetAdIDCount()
 {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 	return 1;
+#else
+    UE_LOG(LogIOS, Warning, TEXT("iAd has been deprecated as of IOS 10 and is this advertising provider is now deprecated in UE 4.21"));
+    return 0;
+#endif
 }

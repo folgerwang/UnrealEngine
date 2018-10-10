@@ -181,3 +181,7 @@ void FARSystemBase::AddReferencedObjects(FReferenceCollector& Collector)
 	}
 }
 
+TArray<FVector> FARSystemBase::GetPointCloud() const
+{
+	return OnGetPointCloud();
+}
