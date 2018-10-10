@@ -28,6 +28,11 @@ public:
 	FString GetObjectPath() const;
 	UObject* GetObject() const;
 
+	// Calls FixupForPIE on our ObjectPtr. It is necessary to call this from a moment where
+	// GPlayInEditorID has a valid ID (like an AActor's BeginPlay), as UMG blueprint function calls
+	// are not one of those. See the comment in the implementation of this function for more details
+	void FixupForPIE();
+
 	void AddCapturedProperties(const TArray<UPropertyValue*>& Properties, int32 Index = INDEX_NONE);
 	const TArray<UPropertyValue*>& GetCapturedProperties() const;
 	void RemoveCapturedProperties(const TArray<UPropertyValue*>& Properties);

@@ -5,6 +5,7 @@
 #include "LevelVariantSets.h"
 #include "VariantSet.h"
 #include "Variant.h"
+#include "VariantObjectBinding.h"
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
@@ -17,6 +18,25 @@ ALevelVariantSetsActor::ALevelVariantSetsActor(const FObjectInitializer& Init)
 {
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComp"));
 	RootComponent = SceneComponent;
+}
+
+void ALevelVariantSetsActor::BeginPlay()
+{
+	// See comment on UVariantObjectBinding->FixupForPIE for an explanation as to why we need to do this
+	ULevelVariantSets* LevelVarSets = GetLevelVariantSets(true);
+	if (LevelVarSets)
+	{
+		for (UVariantSet* VarSet : LevelVarSets->GetVariantSets())
+		{
+			for (UVariant* Var : VarSet->GetVariants())
+			{
+				for (UVariantObjectBinding* Binding : Var->GetBindings())
+				{
+					Binding->FixupForPIE();
+				}
+			}
+		}
+	}
 }
 
 ULevelVariantSets* ALevelVariantSetsActor::GetLevelVariantSets(bool bLoad) const
