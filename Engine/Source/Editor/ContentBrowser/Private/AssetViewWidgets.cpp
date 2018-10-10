@@ -1556,7 +1556,8 @@ void SAssetListItem::Construct( const FArguments& InArgs )
 
 	if(AssetItem.IsValid())
 	{
-		AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
+		AssetItem->RenamedRequestEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		AssetItem->RenameCanceledEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::ExitEditingMode);
 	}
 
 	SetForceMipLevelsToBeResident(true);
@@ -1695,7 +1696,8 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 
 	if(AssetItem.IsValid())
 	{
-		AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
+		AssetItem->RenamedRequestEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		AssetItem->RenameCanceledEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::ExitEditingMode);
 	}
 
 	SetForceMipLevelsToBeResident(true);
@@ -1913,7 +1915,8 @@ TSharedRef<SWidget> SAssetColumnItem::GenerateWidgetForColumn( const FName& Colu
 
 		if(AssetItem.IsValid())
 		{
-			AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
+			AssetItem->RenamedRequestEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+			AssetItem->RenameCanceledEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::ExitEditingMode);
 		}
 
 		return SNew(SBorder)
