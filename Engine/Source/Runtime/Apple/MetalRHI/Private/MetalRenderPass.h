@@ -89,6 +89,8 @@ public:
 	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
 	void AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler Scheduled, mtlpp::CommandBufferHandler Completion);
+	
+	void TransitionResources(mtlpp::Resource const& Resource);
 
 #pragma mark - Public Debug Support -
 	

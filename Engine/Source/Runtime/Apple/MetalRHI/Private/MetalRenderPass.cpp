@@ -1101,6 +1101,12 @@ void FMetalRenderPass::AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler
 	}
 }
 
+void FMetalRenderPass::TransitionResources(mtlpp::Resource const& Resource)
+{
+	PrologueEncoder.TransitionResources(Resource);
+	CurrentEncoder.TransitionResources(Resource);
+}
+
 #pragma mark - Public Debug Support -
 
 void FMetalRenderPass::InsertDebugEncoder()
@@ -1252,13 +1258,16 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 #if METAL_DEBUG_OPTIONS
 		if (GetEmitDrawEvents() && PrologueEncoderFence)
 		{
-			if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+			for (uint32 i = mtlpp::RenderStages::Vertex; i <= mtlpp::RenderStages::Fragment; i++)
 			{
-				(*PrologueEncoderFence).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()];
-			}
-			else
-			{
-				(*PrologueEncoderFence).SetLabel([NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()]);
+				if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()];
+				}
+				else
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).SetLabel([NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()]);
+				}
 			}
 		}
 #endif
@@ -1397,13 +1406,16 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 #if METAL_DEBUG_OPTIONS
 		if (GetEmitDrawEvents() && PrologueEncoderFence)
 		{
-			if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+			for (uint32 i = mtlpp::RenderStages::Vertex; i <= mtlpp::RenderStages::Fragment; i++)
 			{
-				(*PrologueEncoderFence).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()];
-			}
-			else
-			{
-				(*PrologueEncoderFence).SetLabel([NSString stringWithFormat:@"Prologue %@", (*PrologueEncoderFence).GetLabel().GetPtr()]);
+				if (CmdList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetPtr().label = [NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()];
+				}
+				else
+				{
+					PrologueEncoderFence->Get((mtlpp::RenderStages)i).SetLabel([NSString stringWithFormat:@"Prologue %@", PrologueEncoderFence->Get((mtlpp::RenderStages)i).GetLabel().GetPtr()]);
+				}
 			}
 		}
 #endif

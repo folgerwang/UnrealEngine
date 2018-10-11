@@ -356,6 +356,12 @@ public:
 	 */
 	void SetShaderSideTable(mtlpp::FunctionType const FunctionType, NSUInteger const Index);
 	
+	/*
+	 * Transition resource so that we can barrier fragment->vertex stages.
+	 * @param Resource The resource we are going to make readable having been written.
+	 */
+	void TransitionResources(mtlpp::Resource const& Resource);
+	
 #pragma mark - Public Compute State Mutators -
 	
 	/*
@@ -394,6 +400,9 @@ private:
 	
 	void SetShaderBufferInternal(mtlpp::FunctionType Function, uint32 Index);
 	
+	void FenceResource(mtlpp::Texture const& Resource);
+	void FenceResource(mtlpp::Buffer const& Resource);
+
 	void UseResource(mtlpp::Resource const& Resource, mtlpp::ResourceUsage const Usage);
 	
 #pragma mark - Private Type Declarations -
@@ -466,5 +475,11 @@ private:
 	
 	TMap<mtlpp::Resource::Type, mtlpp::ResourceUsage> ResourceUsage;
 	
+	TSet<mtlpp::Resource::Type> TransitionedResources;
+	TSet<mtlpp::Resource::Type> FenceResources;
+	
+	TSet<FMetalFence*> FragmentFences;
+	
+	mtlpp::RenderStages FenceStage;
 	uint32 EncoderNum;
 };

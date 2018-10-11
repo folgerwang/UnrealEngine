@@ -795,6 +795,10 @@ void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess T
 {
 	@autoreleasepool
 	{
+		if (TransitionType != EResourceTransitionAccess::EMetaData)
+		{
+			Context->TransitionResources(InUAVs, NumUAVs);
+		}
 		if (WriteComputeFence)
 		{
 			FMetalComputeFence* Fence = ResourceCast(WriteComputeFence);
@@ -809,12 +813,19 @@ void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess T
 
 void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures)
 {
-	if (TransitionType == EResourceTransitionAccess::EReadable)
+	@autoreleasepool
 	{
-		const FResolveParams ResolveParams;
-		for (int32 i = 0; i < NumTextures; ++i)
+		if (TransitionType != EResourceTransitionAccess::EMetaData)
 		{
-			RHICopyToResolveTarget(InTextures[i], InTextures[i], ResolveParams);
+			Context->TransitionResources(InTextures, NumTextures);
+		}
+		if (TransitionType == EResourceTransitionAccess::EReadable)
+		{
+			const FResolveParams ResolveParams;
+			for (int32 i = 0; i < NumTextures; ++i)
+			{
+				RHICopyToResolveTarget(InTextures[i], InTextures[i], ResolveParams);
+			}
 		}
 	}
 }

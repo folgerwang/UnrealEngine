@@ -1060,6 +1060,85 @@ void FMetalContext::FinishFrame()
 #endif
 }
 
+void FMetalContext::TransitionResources(FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs)
+{
+	for (uint32 i = 0; i < NumUAVs; i++)
+	{
+		FMetalUnorderedAccessView* UAV = (FMetalUnorderedAccessView*)InUAVs[i];
+		if (UAV)
+		{
+			ns::AutoReleased<mtlpp::Resource> Resource;
+			
+			// figure out which one of the resources we need to set
+			FMetalStructuredBuffer* StructuredBuffer = UAV->SourceView->SourceStructuredBuffer.GetReference();
+			FMetalVertexBuffer* VertexBuffer = UAV->SourceView->SourceVertexBuffer.GetReference();
+			FMetalIndexBuffer* IndexBuffer = UAV->SourceView->SourceIndexBuffer.GetReference();
+			FRHITexture* Texture = UAV->SourceView->SourceTexture.GetReference();
+			FMetalSurface* Surface = UAV->SourceView->TextureView;
+			if (StructuredBuffer)
+			{
+				check(StructuredBuffer->Buffer);
+				RenderPass.TransitionResources(StructuredBuffer->Buffer);
+			}
+			else if (VertexBuffer && VertexBuffer->Buffer)
+			{
+				RenderPass.TransitionResources(VertexBuffer->Buffer);
+			}
+			else if (IndexBuffer)
+			{
+				check(IndexBuffer->Buffer);
+				RenderPass.TransitionResources(IndexBuffer->Buffer);
+			}
+			else if (Surface)
+			{
+				RenderPass.TransitionResources(Surface->Texture.GetParentTexture());
+			}
+			else if (Texture)
+			{
+				if (!Surface)
+				{
+					Surface = GetMetalSurfaceFromRHITexture(Texture);
+				}
+				if (Surface != nullptr && Surface->Texture)
+				{
+					RenderPass.TransitionResources(Surface->Texture);
+					if (Surface->StencilTexture)
+					{
+						RenderPass.TransitionResources(Surface->StencilTexture);
+					}
+					if (Surface->MSAATexture)
+					{
+						RenderPass.TransitionResources(Surface->MSAATexture);
+					}
+				}
+			}
+		}
+	}
+}
+
+void FMetalContext::TransitionResources(FTextureRHIParamRef* InTextures, int32 NumTextures)
+{
+	for (uint32 i = 0; i < NumTextures; i++)
+	{
+		if (InTextures[i])
+		{
+			FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(InTextures[i]);
+			if (Surface != nullptr && Surface->Texture)
+			{
+				RenderPass.TransitionResources(Surface->Texture);
+				if (Surface->StencilTexture)
+				{
+					RenderPass.TransitionResources(Surface->StencilTexture);
+				}
+				if (Surface->MSAATexture)
+				{
+					RenderPass.TransitionResources(Surface->MSAATexture);
+				}
+			}
+		}
+	}
+}
+
 void FMetalContext::SubmitCommandsHint(uint32 const Flags)
 {
 	// When the command-buffer is submitted for a reason other than a break of a logical command-buffer (where one high-level command-sequence becomes more than one command-buffer).

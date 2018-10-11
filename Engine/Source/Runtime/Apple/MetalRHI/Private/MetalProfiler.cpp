@@ -1583,7 +1583,7 @@ void FMetalProfiler::EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TC
 {
 	if (MetalGPUProfilerIsInSafeThread() && Fence && bEnabled && StatisticsAPI && CmdBufStats->ActiveEncoderStats)
 	{
-		FMetalEventStats* Event = new FMetalEventStats(*FString::Printf(TEXT("%s: %s"), Name, *FString(Fence->GetLabel())), 1);
+		FMetalEventStats* Event = new FMetalEventStats(*FString::Printf(TEXT("%s: %s"), Name, *FString(Fence->Get(mtlpp::RenderStages::Vertex).GetLabel())), 1);
 		CmdBufStats->ActiveEncoderStats->EncodeFence(Event, Type);
 	}
 }

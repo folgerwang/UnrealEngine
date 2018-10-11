@@ -35,6 +35,7 @@ FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
 , UpdateCount(0)
 #endif
 , DebugGroups([NSMutableArray new])
+, FenceStage(mtlpp::RenderStages::Fragment)
 , EncoderNum(0)
 {
 	for (uint32 Frequency = 0; Frequency < uint32(mtlpp::FunctionType::Kernel)+1; Frequency++)
@@ -309,6 +310,8 @@ void FMetalCommandEncoder::BeginParallelRenderCommandEncoding(uint32 NumChildren
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
+	FenceResources.Append(TransitionedResources);
+	
 	ParallelRenderCommandEncoder = MTLPP_VALIDATE(mtlpp::CommandBuffer, CommandBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, ParallelRenderCommandEncoder(RenderPassDesc));
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ParallelEncoderDebug = FMetalParallelRenderCommandEncoderDebugging(ParallelRenderCommandEncoder, RenderPassDesc, CommandBufferDebug));
 	
@@ -350,6 +353,8 @@ void FMetalCommandEncoder::BeginRenderCommandEncoding(void)
 	check(RenderPassDesc);
 	check(CommandList.IsParallel() || CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
+	
+	FenceResources.Append(TransitionedResources);
 	
 	if (!CommandList.IsParallel())
 	{
@@ -404,6 +409,9 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(mtlpp::DispatchType Type)
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
+	FenceResources.Append(TransitionedResources);
+	TransitionedResources.Empty();
+	
 	if (Type == mtlpp::DispatchType::Serial)
 	{
 		ComputeCommandEncoder = MTLPP_VALIDATE(mtlpp::CommandBuffer, CommandBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, ComputeCommandEncoder());
@@ -446,6 +454,9 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
+	FenceResources.Append(TransitionedResources);
+	TransitionedResources.Empty();
+	
 	BlitCommandEncoder = MTLPP_VALIDATE(mtlpp::CommandBuffer, CommandBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, BlitCommandEncoder());
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug = FMetalBlitCommandEncoderDebugging(BlitCommandEncoder, CommandBufferDebug));
 	
@@ -485,7 +496,6 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 	{
 		if(IsRenderCommandEncoderActive())
 		{
-
 			if (RenderCommandEncoder)
 			{
 				check(!bSupportsFences || EncoderFence || !CommandList.IsImmediate());
@@ -516,6 +526,26 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 						check(Action != mtlpp::StoreAction::Unknown);
 						RenderCommandEncoder.SetStencilStoreAction((mtlpp::StoreAction)Action);
 					}
+				}
+				
+				for (FMetalFence* FragFence : FragmentFences)
+				{
+					if (FragFence->NeedsWait(mtlpp::RenderStages::Fragment))
+					{
+						mtlpp::Fence FragmentFence = FragFence->Get(mtlpp::RenderStages::Fragment);
+						mtlpp::Fence FragInnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)FragmentFence.GetPtr()).Inner) :) FragmentFence;
+						
+						RenderCommandEncoder.WaitForFence(FragInnerFence, FenceStage);
+						METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddWaitFence(FragmentFence));
+						FragFence->Wait(mtlpp::RenderStages::Fragment);
+					}
+				}
+				FragmentFences.Empty();
+				
+				if (FenceStage == mtlpp::RenderStages::Vertex)
+				{
+					FenceResources.Empty();
+					FenceStage = mtlpp::RenderStages::Fragment;
 				}
 				
 				if (EncoderFence && EncoderFence->NeedsWrite(mtlpp::RenderStages::Fragment))
@@ -622,6 +652,23 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 		else if(IsComputeCommandEncoderActive())
 		{
 			check(!bSupportsFences || EncoderFence);
+			
+			for (FMetalFence* FragFence : FragmentFences)
+			{
+				if (FragFence->NeedsWait(mtlpp::RenderStages::Fragment))
+				{
+					mtlpp::Fence FragmentFence = FragFence->Get(mtlpp::RenderStages::Fragment);
+					mtlpp::Fence FragInnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)FragmentFence.GetPtr()).Inner) :) FragmentFence;
+					
+					ComputeCommandEncoder.WaitForFence(FragInnerFence);
+					METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddWaitFence(FragmentFence));
+					FragFence->Wait(mtlpp::RenderStages::Fragment);
+				}
+			}
+			FragmentFences.Empty();
+			FenceResources.Empty();
+			FenceStage = mtlpp::RenderStages::Fragment;
+			
 			if (EncoderFence && EncoderFence->NeedsWrite(mtlpp::RenderStages::Fragment))
 			{
 				Fence = EncoderFence;
@@ -648,6 +695,23 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 		else if(IsBlitCommandEncoderActive())
 		{
 			// check(!bSupportsFences || EncoderFence);
+			
+			for (FMetalFence* FragFence : FragmentFences)
+			{
+				if (FragFence->NeedsWait(mtlpp::RenderStages::Fragment))
+				{
+					mtlpp::Fence FragmentFence = FragFence->Get(mtlpp::RenderStages::Fragment);
+					mtlpp::Fence FragInnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)FragmentFence.GetPtr()).Inner) :) FragmentFence;
+					
+					BlitCommandEncoder.WaitForFence(FragInnerFence);
+					METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddWaitFence(FragmentFence));
+					FragFence->Wait(mtlpp::RenderStages::Fragment);
+				}
+			}
+			FragmentFences.Empty();
+			FenceResources.Empty();
+			FenceStage = mtlpp::RenderStages::Fragment;
+			
 			if (EncoderFence && EncoderFence->NeedsWrite(mtlpp::RenderStages::Fragment))
 			{
 				Fence = EncoderFence;
@@ -713,38 +777,76 @@ void FMetalCommandEncoder::UpdateFence(FMetalFence* Fence)
 {
 	check(IsRenderCommandEncoderActive() || IsComputeCommandEncoderActive() || IsBlitCommandEncoderActive());
 	static bool bSupportsFences = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesFences);
-	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence && Fence->NeedsWrite(mtlpp::RenderStages::Fragment))
+	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence)
 	{
-#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
-		FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
-		if (Profiler)
-		{
-			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
-		}
-#endif
-		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
-		
-		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)Fence->GetPtr()).Inner) :) *Fence;
+		mtlpp::Fence VertexFence = Fence->Get(mtlpp::RenderStages::Vertex);
+		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)VertexFence.GetPtr()).Inner) :) VertexFence;
 		if (RenderCommandEncoder)
 		{
-//			Fence->Write(mtlpp::RenderStages::Vertex);
-			Fence->Write(mtlpp::RenderStages::Fragment);
-			RenderCommandEncoder.UpdateFence(InnerFence, (mtlpp::RenderStages)(/*mtlpp::RenderStages::Vertex |*/ mtlpp::RenderStages::Fragment));
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddUpdateFence(*Fence));
+			mtlpp::Fence FragmentFence = Fence->Get(mtlpp::RenderStages::Fragment);
+			mtlpp::Fence FragInnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)FragmentFence.GetPtr()).Inner) :) FragmentFence;
+			
+			if (Fence->NeedsWrite(mtlpp::RenderStages::Vertex))
+			{
+				RenderCommandEncoder.UpdateFence(InnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Vertex));
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddUpdateFence(VertexFence));
+				Fence->Write(mtlpp::RenderStages::Vertex);
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
+				
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
+				FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+				if (Profiler)
+				{
+					Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
+				}
+#endif
+			}
+
+			if (Fence->NeedsWrite(mtlpp::RenderStages::Fragment))
+			{
+				RenderCommandEncoder.UpdateFence(FragInnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Fragment));
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddUpdateFence(FragmentFence));
+				Fence->Write(mtlpp::RenderStages::Fragment);
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
+				
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
+				FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+				if (Profiler)
+				{
+					Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
+				}
+#endif
+			}
 		}
-		else if (ComputeCommandEncoder)
+		else if (ComputeCommandEncoder && Fence->NeedsWrite(mtlpp::RenderStages::Vertex))
 		{
-//			Fence->Write(mtlpp::RenderStages::Vertex);
-			Fence->Write(mtlpp::RenderStages::Fragment);
 			ComputeCommandEncoder.UpdateFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddUpdateFence(*Fence));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddUpdateFence(VertexFence));
+			Fence->Write(mtlpp::RenderStages::Vertex);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
+			
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
+			FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+			if (Profiler)
+			{
+				Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
+			}
+#endif
 		}
-		else if (BlitCommandEncoder)
+		else if (BlitCommandEncoder && Fence->NeedsWrite(mtlpp::RenderStages::Vertex))
 		{
-//			Fence->Write(mtlpp::RenderStages::Vertex);
-			Fence->Write(mtlpp::RenderStages::Fragment);
 			BlitCommandEncoder.UpdateFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddUpdateFence(*Fence));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddUpdateFence(VertexFence));
+			Fence->Write(mtlpp::RenderStages::Vertex);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
+			
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
+			FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+			if (Profiler)
+			{
+				Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
+			}
+#endif
 		}
 	}
 }
@@ -753,38 +855,51 @@ void FMetalCommandEncoder::WaitForFence(FMetalFence* Fence)
 {
 	check(IsRenderCommandEncoderActive() || IsComputeCommandEncoderActive() || IsBlitCommandEncoderActive());
 	static bool bSupportsFences = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesFences);
-	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence && Fence->NeedsWait(mtlpp::RenderStages::Fragment))
+	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence)
 	{
+		if (Fence->NeedsWait(mtlpp::RenderStages::Vertex))
+		{
 #if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
-		FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
-		if (Profiler)
-		{
-			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitForFence"), Fence, EMTLFenceTypeWait);
-		}
+			FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+			if (Profiler)
+			{
+				Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitForFence"), Fence, EMTLFenceTypeWait);
+			}
 #endif
-		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
-		
-		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)Fence->GetPtr()).Inner) :) *Fence;
-		if (RenderCommandEncoder)
-		{
-//			Fence->Wait(mtlpp::RenderStages::Vertex);
-			Fence->Wait(mtlpp::RenderStages::Fragment);
-			RenderCommandEncoder.WaitForFence(InnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Vertex /*| mtlpp::RenderStages::Fragment*/));
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddWaitFence(*Fence));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
+			
+			mtlpp::Fence VertexFence = Fence->Get(mtlpp::RenderStages::Vertex);
+			mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)VertexFence.GetPtr()).Inner) :) VertexFence;
+			if (RenderCommandEncoder)
+			{
+				RenderCommandEncoder.WaitForFence(InnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Vertex));
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddWaitFence(VertexFence));
+				Fence->Wait(mtlpp::RenderStages::Vertex);
+			}
+			else if (ComputeCommandEncoder)
+			{
+				ComputeCommandEncoder.WaitForFence(InnerFence);
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddWaitFence(VertexFence));
+				Fence->Wait(mtlpp::RenderStages::Vertex);
+			}
+			else if (BlitCommandEncoder)
+			{
+				BlitCommandEncoder.WaitForFence(InnerFence);
+				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddWaitFence(VertexFence));
+				Fence->Wait(mtlpp::RenderStages::Vertex);
+			}
 		}
-		else if (ComputeCommandEncoder)
+		if (Fence->NeedsWait(mtlpp::RenderStages::Fragment))
 		{
-//			Fence->Wait(mtlpp::RenderStages::Vertex);
-			Fence->Wait(mtlpp::RenderStages::Fragment);
-			ComputeCommandEncoder.WaitForFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddWaitFence(*Fence));
-		}
-		else if (BlitCommandEncoder)
-		{
-//			Fence->Wait(mtlpp::RenderStages::Vertex);
-			Fence->Wait(mtlpp::RenderStages::Fragment);
-			BlitCommandEncoder.WaitForFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddWaitFence(*Fence));
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
+			FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+			if (Profiler)
+			{
+				Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitForFence"), Fence, EMTLFenceTypeWait);
+			}
+#endif
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
+			FragmentFences.Add(Fence);
 		}
 	}
 }
@@ -806,36 +921,51 @@ void FMetalCommandEncoder::WaitAndUpdateFence(FMetalFence* Fence)
 		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
 		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
 		
-		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)Fence->GetPtr()).Inner) :) *Fence;
+		mtlpp::Fence VertexFence = Fence->Get(mtlpp::RenderStages::Vertex);
+		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)VertexFence.GetPtr()).Inner) :) VertexFence;
 		if (RenderCommandEncoder)
 		{
-			//			Fence->Wait(mtlpp::RenderStages::Vertex);
+			mtlpp::Fence FragmentFence = Fence->Get(mtlpp::RenderStages::Fragment);
+			mtlpp::Fence FragInnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)FragmentFence.GetPtr()).Inner) :) FragmentFence;
+			
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
+			
+			RenderCommandEncoder.WaitForFence(InnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Vertex));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddWaitFence(VertexFence));
+			Fence->Wait(mtlpp::RenderStages::Vertex);
+			
+			RenderCommandEncoder.WaitForFence(FragInnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Fragment));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddWaitFence(FragmentFence));
 			Fence->Wait(mtlpp::RenderStages::Fragment);
-			RenderCommandEncoder.WaitForFence(InnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Vertex /*| mtlpp::RenderStages::Fragment*/));
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddWaitFence(*Fence));
-			RenderCommandEncoder.UpdateFence(InnerFence, (mtlpp::RenderStages)(/*mtlpp::RenderStages::Vertex |*/ mtlpp::RenderStages::Fragment));
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddUpdateFence(*Fence));
+			
+			RenderCommandEncoder.UpdateFence(InnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Fragment));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddUpdateFence(VertexFence));
+			Fence->Write(mtlpp::RenderStages::Vertex);
+			
+			RenderCommandEncoder.UpdateFence(FragInnerFence, (mtlpp::RenderStages)(mtlpp::RenderStages::Vertex));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.AddUpdateFence(FragmentFence));
 			Fence->Write(mtlpp::RenderStages::Fragment);
 		}
 		else if (ComputeCommandEncoder)
 		{
-			//			Fence->Wait(mtlpp::RenderStages::Vertex);
-			Fence->Wait(mtlpp::RenderStages::Fragment);
 			ComputeCommandEncoder.WaitForFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddWaitFence(*Fence));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddWaitFence(VertexFence));
+			Fence->Wait(mtlpp::RenderStages::Vertex);
+			
 			ComputeCommandEncoder.UpdateFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddUpdateFence(*Fence));
-			Fence->Write(mtlpp::RenderStages::Fragment);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.AddUpdateFence(VertexFence));
+			Fence->Write(mtlpp::RenderStages::Vertex);
 		}
 		else if (BlitCommandEncoder)
 		{
-			//			Fence->Wait(mtlpp::RenderStages::Vertex);
-			Fence->Wait(mtlpp::RenderStages::Fragment);
 			BlitCommandEncoder.WaitForFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddWaitFence(*Fence));
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddWaitFence(VertexFence));
+			Fence->Wait(mtlpp::RenderStages::Vertex);
+			
 			BlitCommandEncoder.UpdateFence(InnerFence);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddUpdateFence(*Fence));
-			Fence->Write(mtlpp::RenderStages::Fragment);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, BlitEncoderDebug.AddUpdateFence(VertexFence));
+			Fence->Write(mtlpp::RenderStages::Vertex);
 		}
 	}
 }
@@ -1130,6 +1260,10 @@ void FMetalCommandEncoder::SetShaderBuffer(mtlpp::FunctionType const FunctionTyp
 		ShaderBuffers[uint32(FunctionType)].Usage[index] = Usage;
 		
 		UseResource(Buffer, Usage);
+		if (FunctionType == mtlpp::FunctionType::Vertex)
+		{
+			FenceResource(Buffer);
+		}
 	}
     else
     {
@@ -1296,6 +1430,7 @@ void FMetalCommandEncoder::SetShaderTexture(mtlpp::FunctionType FunctionType, FM
 			// MTLPP_VALIDATE(mtlpp::RenderCommandEncoder, RenderCommandEncoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, UseResource(Texture, mtlpp::ResourceUsage::Read));
 			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.SetTexture(EMetalShaderVertex, Texture, index));
 			RenderCommandEncoder.SetVertexTexture(Texture, index);
+			FenceResource(Texture);
 			break;
 		case mtlpp::FunctionType::Fragment:
 			check(RenderCommandEncoder);
@@ -1355,6 +1490,11 @@ void FMetalCommandEncoder::SetShaderSideTable(mtlpp::FunctionType const Function
 	}
 }
 
+void FMetalCommandEncoder::TransitionResources(mtlpp::Resource const& Resource)
+{
+	TransitionedResources.Add(Resource.GetPtr());
+}
+
 #pragma mark - Public Compute State Mutators -
 
 void FMetalCommandEncoder::SetComputePipelineState(FMetalShaderPipeline* State)
@@ -1387,6 +1527,28 @@ bool FMetalCommandEncoder::HasBufferBindingHistory(FMetalBuffer const& Buffer) c
 }
 
 #pragma mark - Private Functions -
+
+void FMetalCommandEncoder::FenceResource(mtlpp::Texture const& Resource)
+{
+	mtlpp::Resource::Type Res = Resource.GetPtr();
+	ns::AutoReleased<mtlpp::Texture> Parent = Resource.GetParentTexture();
+	ns::AutoReleased<mtlpp::Buffer> Buffer = Resource.GetBuffer();
+	if (Parent)
+	{
+		Res = Parent.GetPtr();
+	}
+	else if (Buffer)
+	{
+		Res = Buffer.GetPtr();
+	}
+	FenceStage = FenceResources.Contains(Res) ? mtlpp::RenderStages::Vertex : mtlpp::RenderStages::Fragment;
+}
+
+void FMetalCommandEncoder::FenceResource(mtlpp::Buffer const& Resource)
+{
+	mtlpp::Resource::Type Res = Resource.GetPtr();
+	FenceStage = FenceResources.Contains(Res) ? mtlpp::RenderStages::Vertex : mtlpp::RenderStages::Fragment;
+}
 
 void FMetalCommandEncoder::UseResource(mtlpp::Resource const& Resource, mtlpp::ResourceUsage const Usage)
 {
@@ -1443,6 +1605,7 @@ void FMetalCommandEncoder::SetShaderBufferInternal(mtlpp::FunctionType Function,
 				// MTLPP_VALIDATE(mtlpp::RenderCommandEncoder, RenderCommandEncoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, UseResource(Buffer, mtlpp::ResourceUsage::Read));
 				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, RenderEncoderDebug.SetBuffer(EMetalShaderVertex, Buffer, Offset, Index));
 				RenderCommandEncoder.SetVertexBuffer(Buffer, Offset, Index);
+				FenceResource(Buffer);
 				break;
 			case mtlpp::FunctionType::Fragment:
 				ShaderBuffers[uint32(Function)].Bound |= (1 << Index);

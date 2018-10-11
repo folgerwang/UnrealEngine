@@ -61,7 +61,7 @@
 -(void) waitForFence:(id <MTLFence>)fence beforeStages:(MTLRenderStages)stages;
 @end
 
-class FMetalFence : public mtlpp::Fence
+class FMetalFence
 {
 	enum
 	{
@@ -69,17 +69,6 @@ class FMetalFence : public mtlpp::Fence
 	};
 public:
 	FMetalFence()
-	: mtlpp::Fence(nil)
-	{
-		for (uint32 i = 0; i < NumFenceStages; i++)
-		{
-			Writes[i] = 0;
-			Waits[i] = 0;
-		}
-	}
-	
-	explicit FMetalFence(mtlpp::Fence Obj)
-	: mtlpp::Fence(Obj)
 	{
 		for (uint32 i = 0; i < NumFenceStages; i++)
 		{
@@ -101,27 +90,10 @@ public:
 	{
 		if (&Other != this)
 		{
-			mtlpp::Fence::operator=(Other);
-		}
-		return *this;
-	}
-	
-	FMetalFence& operator=(mtlpp::Fence const& Other)
-	{
-		if (Other.GetPtr() != GetPtr())
-		{
-			METAL_DEBUG_OPTION(Validate());
-			mtlpp::Fence::operator=(Other);
-		}
-		return *this;
-	}
-	
-	FMetalFence& operator=(mtlpp::Fence&& Other)
-	{
-		if (Other.GetPtr() != GetPtr())
-		{
-			METAL_DEBUG_OPTION(Validate());
-			mtlpp::Fence::operator=(Other);
+			for (uint32 i = 0; i < NumFenceStages; i++)
+			{
+				Fences[i] = Other.Fences[i];
+			}
 		}
 		return *this;
 	}
@@ -169,9 +141,20 @@ public:
 		return Waits[(uint32)Stage - 1u] == 0 || (Writes[(uint32)Stage - 1u] > Waits[(uint32)Stage - 1u]);
 	}
 	
+	mtlpp::Fence Get(mtlpp::RenderStages Stage) const
+	{
+		return Fences[(uint32)Stage - 1u];
+	}
+	
+	void Set(mtlpp::RenderStages Stage, mtlpp::Fence Fence)
+	{
+		Fences[(uint32)Stage - 1u] = Fence;
+	}
+	
 	static void ValidateUsage(FMetalFence* Fence);
 	
 private:
+	mtlpp::Fence Fences[NumFenceStages];
 	int8 Writes[NumFenceStages];
 	int8 Waits[NumFenceStages];
 };

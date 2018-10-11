@@ -375,22 +375,26 @@ FMetalFence* FMetalCommandQueue::CreateFence(ns::String const& Label) const
 	if ((Features & EMetalFeaturesFences) != 0)
 	{
 		FMetalFence* InternalFence = FMetalFencePool::Get().AllocateFence();
-		NSString* String = nil;
-		if (GetEmitDrawEvents())
+		for (uint32 i = mtlpp::RenderStages::Vertex; InternalFence && i <= mtlpp::RenderStages::Fragment; i++)
 		{
-			String = [NSString stringWithFormat:@"%p: %@", InternalFence->GetPtr(), Label.GetPtr()];
-		}
-#if METAL_DEBUG_OPTIONS
-		if (RuntimeDebuggingLevel >= EMetalDebugLevelValidation)
-		{
-			FMetalDebugFence* Fence = (FMetalDebugFence*)InternalFence->GetPtr();
-			Fence.label = String;
-		}
-		else
-#endif
-		if(InternalFence && String)
-		{
-			InternalFence->SetLabel(String);
+			mtlpp::Fence InnerFence = InternalFence->Get((mtlpp::RenderStages)i);
+			NSString* String = nil;
+			if (GetEmitDrawEvents())
+			{
+				String = [NSString stringWithFormat:@"%u %p: %@", i, InnerFence.GetPtr(), Label.GetPtr()];
+			}
+	#if METAL_DEBUG_OPTIONS
+			if (RuntimeDebuggingLevel >= EMetalDebugLevelValidation)
+			{
+				FMetalDebugFence* Fence = (FMetalDebugFence*)InnerFence.GetPtr();
+				Fence.label = String;
+			}
+			else
+	#endif
+			if(InnerFence && String)
+			{
+				InnerFence.SetLabel(String);
+			}
 		}
 		return InternalFence;
 	}
