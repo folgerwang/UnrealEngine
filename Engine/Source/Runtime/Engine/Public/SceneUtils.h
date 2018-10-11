@@ -227,8 +227,7 @@ private:
 	int32 WriteBufferIndex;
 	int32 ReadBufferIndex;
 	uint32 WriteFrameNumber;
-	uint32 QueryCount = 0;
-	FRenderQueryPoolRHIRef RenderQueryPool;
+	FRenderQueryPool* RenderQueryPool;
 	bool bStatGatheringPaused;
 	bool bInBeginEndBlock;
 };

@@ -840,6 +840,7 @@ void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryR
 	}
 }
 
+/*
 FRenderQueryRHIRef FVulkanTimestampQueryPool::AllocateQuery()
 {
 	FVulkanTimingQuery* Query = new FVulkanTimingQuery();
@@ -853,6 +854,7 @@ void FVulkanTimestampQueryPool::ReleaseQuery(TRefCountPtr<FRHIRenderQuery> &Quer
 {
 	Query.SafeRelease();
 }
+*/
 
 void FVulkanCommandListContext::WriteBeginTimestamp(FVulkanCmdBuffer* CmdBuffer)
 {

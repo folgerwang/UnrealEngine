@@ -314,26 +314,3 @@ void FDynamicRHI::EnableIdealGPUCaptureOptions(bool bEnabled)
 		RHICmdBypassVar->Set(bShouldRHICmdBypass ? 1 : 0, ECVF_SetByConsole);		
 	}	
 }
-
-TRefCountPtr<FRHIRenderQuery> FDefaultRHIRenderQueryPool::AllocateQuery()
-{
-	if (Queries.Num() > 0)
-	{
-		return Queries.Pop();
-	}
-	else
-	{
-		ensure(++AllocatedQueries <= NumQueries);
-		return DynamicRHI->RHICreateRenderQuery(QueryType);
-	}
-}
-
-void FDefaultRHIRenderQueryPool::ReleaseQuery(TRefCountPtr<FRHIRenderQuery> &Query)
-{
-	Queries.Push(Query);
-}
-
-FRenderQueryPoolRHIRef RHICreateRenderQueryPool(ERenderQueryType QueryType, uint32 NumQueries)
-{
-	return GDynamicRHI->RHICreateRenderQueryPool(QueryType, NumQueries);
-}

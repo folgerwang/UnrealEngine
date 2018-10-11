@@ -167,14 +167,14 @@ public:
 
 	bool AcquirePoolSetAndDescriptorsIfNeeded(const class FVulkanDescriptorSetsLayout& Layout, bool bNeedDescriptors, VkDescriptorSet* OutDescriptors);
 
-	TRefCountPtr<FVulkanTimestampQueryPool> PrepareTimestampQueryPool()
+	/*TRefCountPtr<*/FVulkanTimestampQueryPool* /*>*/ PrepareTimestampQueryPool()
 	{
 		return TimestampQueryPool;
 	}
 
 private:
 	FVulkanDevice* Device;
-	TRefCountPtr<FVulkanTimestampQueryPool> TimestampQueryPool = nullptr;
+	/*TRefCountPtr<*/FVulkanTimestampQueryPool* /*>*/ TimestampQueryPool = nullptr;
 	VkCommandBuffer CommandBufferHandle;
 	EState State;
 	double SubmittedTime = 0.0f;

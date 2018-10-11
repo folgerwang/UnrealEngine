@@ -831,13 +831,6 @@ private:
 
 class FRHIRenderQuery : public FRHIResource {};
 
-class FRHIRenderQueryPool : public FRHIResource 
-{
-public:
-	virtual TRefCountPtr<FRHIRenderQuery> AllocateQuery() = 0;
-	virtual void ReleaseQuery(TRefCountPtr<FRHIRenderQuery> &Query) = 0;
-};
-
 class FRHIComputeFence : public FRHIResource
 {
 public:
@@ -1008,9 +1001,6 @@ typedef TRefCountPtr<FRHITextureReference> FTextureReferenceRHIRef;
 
 typedef FRHIRenderQuery*              FRenderQueryRHIParamRef;
 typedef TRefCountPtr<FRHIRenderQuery> FRenderQueryRHIRef;
-
-typedef FRHIRenderQueryPool*              FRenderQueryPoolRHIParamRef;
-typedef TRefCountPtr<FRHIRenderQueryPool> FRenderQueryPoolRHIRef;
 
 typedef FRHIGPUFence*				FGPUFenceRHIParamRef;
 typedef TRefCountPtr<FRHIGPUFence>	FGPUFenceRHIRef;

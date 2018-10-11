@@ -94,9 +94,6 @@ struct FSpeedTreeWindComputation
 /** Default constructor. */
 FSceneViewState::FSceneViewState()
 	: OcclusionQueryPool(RQT_Occlusion)
-	, TimerQueryPool(RHICreateRenderQueryPool(RQT_AbsoluteTime, FLatentGPUTimer::NumBufferedFrames * 2 * 2 * 2))
-	, TranslucencyTimer(TimerQueryPool)
-	, SeparateTranslucencyTimer(TimerQueryPool)
 {
 	UniqueID = FSceneViewState_UniqueID.Increment();
 	OcclusionFrameCounter = 0;
@@ -3555,18 +3552,12 @@ bool FMotionBlurInfoData::GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* 
 
 //////////////////////////////////////////////////////////////////////////
 
-FLatentGPUTimer::FLatentGPUTimer(FRenderQueryPoolRHIRef& InTimerQueryPool, int32 InAvgSamples)
-: TimerQueryPool(InTimerQueryPool)
-, AvgSamples(InAvgSamples)
-, TotalTime(0.0f)
-, SampleIndex(0)
-, QueryIndex(0)
+FLatentGPUTimer::FLatentGPUTimer(int32 InAvgSamples)
+	: AvgSamples(InAvgSamples)
+	, TotalTime(0.0f)
+	, SampleIndex(0)
+	, QueryIndex(0)
 {
-	for (int i = 0; i < NumBufferedFrames; i++)
-	{
-		QueriesInFlight[i] = false;
-	}
-
 	TimeSamples.AddZeroed(AvgSamples);
 }
 
@@ -3579,57 +3570,43 @@ bool FLatentGPUTimer::Tick(FRHICommandListImmediate& RHICmdList)
 
 	QueryIndex = (QueryIndex + 1) % NumBufferedFrames;
 
-	for (int IndexOffset = 0; IndexOffset < NumBufferedFrames - 1; IndexOffset++)
+	if (StartQueries[QueryIndex] && EndQueries[QueryIndex])
 	{
-		int CollectedIndex = (QueryIndex + IndexOffset) % NumBufferedFrames;
-		if (!QueriesInFlight[CollectedIndex])
+		if (IsRunningRHIInSeparateThread())
 		{
-			continue;
+			// Block until the RHI thread has processed the previous query commands, if necessary
+			// Stat disabled since we buffer 2 frames minimum, it won't actually block
+			//SCOPE_CYCLE_COUNTER(STAT_TranslucencyTimestampQueryFence_Wait);
+			int32 BlockFrame = NumBufferedFrames - 1;
+			FRHICommandListExecutor::WaitOnRHIThreadFence(QuerySubmittedFences[BlockFrame]);
+			QuerySubmittedFences[BlockFrame] = nullptr;
 		}
 
-		if (StartQueries[CollectedIndex] && EndQueries[CollectedIndex])
+		uint64 StartMicroseconds;
+		uint64 EndMicroseconds;
+		bool bStartSuccess;
+		bool bEndSuccess;
+
 		{
-			if (IsRunningRHIInSeparateThread())
-			{
-				// Block until the RHI thread has processed the previous query commands, if necessary
-				// Stat disabled since we buffer 2 frames minimum, it won't actually block
-				//SCOPE_CYCLE_COUNTER(STAT_TranslucencyTimestampQueryFence_Wait);
-				int32 BlockFrame = NumBufferedFrames - 1;
-				FRHICommandListExecutor::WaitOnRHIThreadFence(QuerySubmittedFences[BlockFrame]);
-				QuerySubmittedFences[BlockFrame] = nullptr;
-			}
-
-			uint64 StartMicroseconds;
-			uint64 EndMicroseconds;
-			bool bStartSuccess;
-			bool bEndSuccess;
-
-			{
-				// Block on the GPU until we have the timestamp query results, if necessary
-				// Stat disabled since we buffer 2 frames minimum, it won't actually block
-				//SCOPE_CYCLE_COUNTER(STAT_TranslucencyTimestampQuery_Wait);
-				bStartSuccess = RHICmdList.GetRenderQueryResult(StartQueries[CollectedIndex], StartMicroseconds, false);
-				bEndSuccess = RHICmdList.GetRenderQueryResult(EndQueries[CollectedIndex], EndMicroseconds, false);
-				if (!bStartSuccess || !bEndSuccess)
-				{
-					return false;
-				}
-				QueriesInFlight[CollectedIndex] = false;
-			}
-
-			TotalTime -= TimeSamples[SampleIndex];
-			float LastFrameTranslucencyDurationMS = TimeSamples[SampleIndex];
-			if (bStartSuccess && bEndSuccess)
-			{
-				LastFrameTranslucencyDurationMS = (EndMicroseconds - StartMicroseconds) / 1000.0f;
-			}
-
-			TimeSamples[SampleIndex] = LastFrameTranslucencyDurationMS;
-			TotalTime += LastFrameTranslucencyDurationMS;
-			SampleIndex = (SampleIndex + 1) % AvgSamples;
-
-			return bStartSuccess && bEndSuccess;
+			// Block on the GPU until we have the timestamp query results, if necessary
+			// Stat disabled since we buffer 2 frames minimum, it won't actually block
+			//SCOPE_CYCLE_COUNTER(STAT_TranslucencyTimestampQuery_Wait);
+			bStartSuccess = RHICmdList.GetRenderQueryResult(StartQueries[QueryIndex], StartMicroseconds, true);
+			bEndSuccess = RHICmdList.GetRenderQueryResult(EndQueries[QueryIndex], EndMicroseconds, true);
 		}
+
+		TotalTime -= TimeSamples[SampleIndex];
+		float LastFrameTranslucencyDurationMS = TimeSamples[SampleIndex];
+		if (bStartSuccess && bEndSuccess)
+		{
+			LastFrameTranslucencyDurationMS = (EndMicroseconds - StartMicroseconds) / 1000.0f;
+		}
+
+		TimeSamples[SampleIndex] = LastFrameTranslucencyDurationMS;
+		TotalTime += LastFrameTranslucencyDurationMS;
+		SampleIndex = (SampleIndex + 1) % AvgSamples;
+
+		return bStartSuccess && bEndSuccess;
 	}
 
 	return false;
@@ -3644,10 +3621,9 @@ void FLatentGPUTimer::Begin(FRHICommandListImmediate& RHICmdList)
 	
 	if (!StartQueries[QueryIndex])
 	{		
-		StartQueries[QueryIndex] = TimerQueryPool->AllocateQuery();
+		StartQueries[QueryIndex] = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);
 	}
 
-	ensure(QueriesInFlight[QueryIndex] == false);
 	RHICmdList.EndRenderQuery(StartQueries[QueryIndex]);
 }
 
@@ -3660,12 +3636,10 @@ void FLatentGPUTimer::End(FRHICommandListImmediate& RHICmdList)
 	
 	if (!EndQueries[QueryIndex])
 	{
-		EndQueries[QueryIndex] = TimerQueryPool->AllocateQuery();
+		EndQueries[QueryIndex] = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);
 	}
 
-	ensure(QueriesInFlight[QueryIndex] == false);
 	RHICmdList.EndRenderQuery(EndQueries[QueryIndex]);
-	QueriesInFlight[QueryIndex] = true;
 	// Hint to the RHI to submit commands up to this point to the GPU if possible.  Can help avoid CPU stalls next frame waiting
 	// for these query results on some platforms.
 	RHICmdList.SubmitCommandsHint();
@@ -3687,8 +3661,8 @@ void FLatentGPUTimer::Release()
 {
 	for (int32 i = 0; i < NumBufferedFrames; ++i)
 	{
-		if(StartQueries[i].IsValid()) StartQueries[i].SafeRelease();
-		if(EndQueries[i].IsValid()) EndQueries[i].SafeRelease();
+		StartQueries[i].SafeRelease();
+		EndQueries[i].SafeRelease();
 	}
 }
 

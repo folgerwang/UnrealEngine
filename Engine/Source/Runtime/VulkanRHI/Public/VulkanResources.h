@@ -813,10 +813,13 @@ protected:
 	uint32 FrameNumber = UINT32_MAX;
 };
 
-class FVulkanTimestampQueryPool final : public FRHIRenderQueryPool, public FVulkanQueryPool
+
+class FVulkanTimestampQueryPool final : public FVulkanQueryPool
 {
+/*
 	FRenderQueryRHIRef AllocateQuery() override;
 	virtual void ReleaseQuery(TRefCountPtr<FRHIRenderQuery> &Query) override;
+*/
 
 	uint32 QueueHead = 0;
 	uint32 QueueTail = 0;
@@ -924,7 +927,7 @@ public:
 #endif
 
 protected:
-	TRefCountPtr<FVulkanTimestampQueryPool> Pool;
+	/*TRefCountPtr<*/FVulkanTimestampQueryPool* /*>*/ Pool;
 	EState State = EState::Unused;
 	bool IsPooledAtHighLevel = false;
 
