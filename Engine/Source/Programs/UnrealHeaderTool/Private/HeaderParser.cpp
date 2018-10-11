@@ -3135,7 +3135,7 @@ void FHeaderParser::GetVarType(
 	FScope*                         Scope,
 	FPropertyBase&                  VarProperty,
 	EPropertyFlags                  Disallow,
-	FToken*                         OuterPropertyType,
+	const FToken*                   OuterPropertyType,
 	EPropertyDeclarationStyle::Type PropertyDeclarationStyle,
 	EVariableCategory::Type         VariableCategory,
 	FIndexRange*                    ParsedVarIndexRange
@@ -7020,7 +7020,7 @@ bool FHeaderParser::IsBitfieldProperty()
 	return bIsBitfield;
 }
 
-void FHeaderParser::ValidatePropertyIsDeprecatedIfNecessary(FPropertyBase& VarProperty, FToken* OuterPropertyType)
+void FHeaderParser::ValidatePropertyIsDeprecatedIfNecessary(FPropertyBase& VarProperty, const FToken* OuterPropertyType)
 {
 	// check to see if we have a UClassProperty using a deprecated class
 	if ( VarProperty.MetaClass != NULL && VarProperty.MetaClass->HasAnyClassFlags(CLASS_Deprecated) && !(VarProperty.PropertyFlags & CPF_Deprecated) &&
