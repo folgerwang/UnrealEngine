@@ -905,79 +905,82 @@ namespace UnrealGameSync
 
 						Log.WriteLine(Step.StatusText);
 
-						switch(Step.Type)
+						if(Step.IsValid())
 						{
-							case BuildStepType.Compile:
-								using(TelemetryStopwatch StepStopwatch = new TelemetryStopwatch("Compile:" + Step.Target, TelemetryProjectPath))
-								{
-									string CommandLine = String.Format("{0} {1} {2} {3} -NoHotReloadFromIDE", Step.Target, Step.Platform, Step.Configuration, Utility.ExpandVariables(Step.Arguments, Context.Variables));
-									if(!Context.Options.HasFlag(WorkspaceUpdateOptions.UseIncrementalBuilds) || bForceClean)
+							switch(Step.Type)
+							{
+								case BuildStepType.Compile:
+									using(TelemetryStopwatch StepStopwatch = new TelemetryStopwatch("Compile:" + Step.Target, TelemetryProjectPath))
 									{
-										Log.WriteLine("ubt> Running {0} {1} -clean", UnrealBuildToolPath, CommandLine);
-										Utility.ExecuteProcess(UnrealBuildToolPath, null, CommandLine + " -clean", null, new ProgressTextWriter(Progress, new PrefixedTextWriter("ubt> ", Log)));
-									}
+										string CommandLine = String.Format("{0} {1} {2} {3} -NoHotReloadFromIDE", Step.Target, Step.Platform, Step.Configuration, Utility.ExpandVariables(Step.Arguments ?? "", Context.Variables));
+										if(!Context.Options.HasFlag(WorkspaceUpdateOptions.UseIncrementalBuilds) || bForceClean)
+										{
+											Log.WriteLine("ubt> Running {0} {1} -clean", UnrealBuildToolPath, CommandLine);
+											Utility.ExecuteProcess(UnrealBuildToolPath, null, CommandLine + " -clean", null, new ProgressTextWriter(Progress, new PrefixedTextWriter("ubt> ", Log)));
+										}
 
-									Log.WriteLine("ubt> Running {0} {1} -progress", UnrealBuildToolPath, CommandLine);
+										Log.WriteLine("ubt> Running {0} {1} -progress", UnrealBuildToolPath, CommandLine);
 
-									int ResultFromBuild = Utility.ExecuteProcess(UnrealBuildToolPath, null, CommandLine + " -progress", null, new ProgressTextWriter(Progress, new PrefixedTextWriter("ubt> ", Log)));
-									if(ResultFromBuild != 0)
-									{
-										StepStopwatch.Stop("Failed");
-										StatusMessage = String.Format("Failed to compile {0}.", Step.Target);
-										return (HasModifiedSourceFiles() || Context.UserBuildStepObjects.Count > 0)? WorkspaceUpdateResult.FailedToCompile : WorkspaceUpdateResult.FailedToCompileWithCleanWorkspace;
-									}
-
-									StepStopwatch.Stop("Success");
-								}
-								break;
-							case BuildStepType.Cook:
-								using(TelemetryStopwatch StepStopwatch = new TelemetryStopwatch("Cook/Launch: " + Path.GetFileNameWithoutExtension(Step.FileName), TelemetryProjectPath))
-								{
-									string LocalRunUAT = Path.Combine(LocalRootPath, "Engine", "Build", "BatchFiles", "RunUAT.bat");
-									string Arguments = String.Format("/C \"\"{0}\" -profile=\"{1}\"\"", LocalRunUAT, Path.Combine(LocalRootPath, Step.FileName));
-									Log.WriteLine("uat> Running {0} {1}", LocalRunUAT, Arguments);
-
-									int ResultFromUAT = Utility.ExecuteProcess(CmdExe, null, Arguments, null, new ProgressTextWriter(Progress, new PrefixedTextWriter("uat> ", Log)));
-									if(ResultFromUAT != 0)
-									{
-										StepStopwatch.Stop("Failed");
-										StatusMessage = String.Format("Cook failed. ({0})", ResultFromUAT);
-										return WorkspaceUpdateResult.FailedToCompile;
-									}
-
-									StepStopwatch.Stop("Success");
-								}
-								break;
-							case BuildStepType.Other:
-								using(TelemetryStopwatch StepStopwatch = new TelemetryStopwatch("Custom: " + Path.GetFileNameWithoutExtension(Step.FileName), TelemetryProjectPath))
-								{
-									string ToolFileName = Path.Combine(LocalRootPath, Utility.ExpandVariables(Step.FileName, Context.Variables));
-									string ToolWorkingDir = String.IsNullOrWhiteSpace(Step.WorkingDir) ? Path.GetDirectoryName(ToolFileName) : Utility.ExpandVariables(Step.WorkingDir, Context.Variables);
-									string ToolArguments = Utility.ExpandVariables(Step.Arguments, Context.Variables);
-									Log.WriteLine("tool> Running {0} {1}", ToolFileName, ToolArguments);
-
-									if(Step.bUseLogWindow)
-									{
-										int ResultFromTool = Utility.ExecuteProcess(ToolFileName, ToolWorkingDir, ToolArguments, null, new ProgressTextWriter(Progress, new PrefixedTextWriter("tool> ", Log)));
-										if(ResultFromTool != 0)
+										int ResultFromBuild = Utility.ExecuteProcess(UnrealBuildToolPath, null, CommandLine + " -progress", null, new ProgressTextWriter(Progress, new PrefixedTextWriter("ubt> ", Log)));
+										if(ResultFromBuild != 0)
 										{
 											StepStopwatch.Stop("Failed");
-											StatusMessage = String.Format("Tool terminated with exit code {0}.", ResultFromTool);
+											StatusMessage = String.Format("Failed to compile {0}.", Step.Target);
+											return (HasModifiedSourceFiles() || Context.UserBuildStepObjects.Count > 0)? WorkspaceUpdateResult.FailedToCompile : WorkspaceUpdateResult.FailedToCompileWithCleanWorkspace;
+										}
+
+										StepStopwatch.Stop("Success");
+									}
+									break;
+								case BuildStepType.Cook:
+									using(TelemetryStopwatch StepStopwatch = new TelemetryStopwatch("Cook/Launch: " + Path.GetFileNameWithoutExtension(Step.FileName), TelemetryProjectPath))
+									{
+										string LocalRunUAT = Path.Combine(LocalRootPath, "Engine", "Build", "BatchFiles", "RunUAT.bat");
+										string Arguments = String.Format("/C \"\"{0}\" -profile=\"{1}\"\"", LocalRunUAT, Path.Combine(LocalRootPath, Step.FileName));
+										Log.WriteLine("uat> Running {0} {1}", LocalRunUAT, Arguments);
+
+										int ResultFromUAT = Utility.ExecuteProcess(CmdExe, null, Arguments, null, new ProgressTextWriter(Progress, new PrefixedTextWriter("uat> ", Log)));
+										if(ResultFromUAT != 0)
+										{
+											StepStopwatch.Stop("Failed");
+											StatusMessage = String.Format("Cook failed. ({0})", ResultFromUAT);
 											return WorkspaceUpdateResult.FailedToCompile;
 										}
-									}
-									else
-									{
-										ProcessStartInfo StartInfo = new ProcessStartInfo(ToolFileName, ToolArguments);
-										StartInfo.WorkingDirectory = ToolWorkingDir;
-										using(Process.Start(StartInfo))
-										{
-										}
-									}
 
-									StepStopwatch.Stop("Success");
-								}
-								break;
+										StepStopwatch.Stop("Success");
+									}
+									break;
+								case BuildStepType.Other:
+									using(TelemetryStopwatch StepStopwatch = new TelemetryStopwatch("Custom: " + Path.GetFileNameWithoutExtension(Step.FileName), TelemetryProjectPath))
+									{
+										string ToolFileName = Path.Combine(LocalRootPath, Utility.ExpandVariables(Step.FileName, Context.Variables));
+										string ToolWorkingDir = String.IsNullOrWhiteSpace(Step.WorkingDir) ? Path.GetDirectoryName(ToolFileName) : Utility.ExpandVariables(Step.WorkingDir, Context.Variables);
+										string ToolArguments = Utility.ExpandVariables(Step.Arguments ?? "", Context.Variables);
+										Log.WriteLine("tool> Running {0} {1}", ToolFileName, ToolArguments);
+
+										if(Step.bUseLogWindow)
+										{
+											int ResultFromTool = Utility.ExecuteProcess(ToolFileName, ToolWorkingDir, ToolArguments, null, new ProgressTextWriter(Progress, new PrefixedTextWriter("tool> ", Log)));
+											if(ResultFromTool != 0)
+											{
+												StepStopwatch.Stop("Failed");
+												StatusMessage = String.Format("Tool terminated with exit code {0}.", ResultFromTool);
+												return WorkspaceUpdateResult.FailedToCompile;
+											}
+										}
+										else
+										{
+											ProcessStartInfo StartInfo = new ProcessStartInfo(ToolFileName, ToolArguments);
+											StartInfo.WorkingDirectory = ToolWorkingDir;
+											using(Process.Start(StartInfo))
+											{
+											}
+										}
+
+										StepStopwatch.Stop("Success");
+									}
+									break;
+							}
 						}
 
 						Log.WriteLine();

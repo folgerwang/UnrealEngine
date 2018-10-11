@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -101,6 +101,21 @@ namespace UnrealGameSync
 			if(!Boolean.TryParse(Object.GetValue("bShowAsTool", ""), out bShowAsTool))
 			{
 				bShowAsTool = false;
+			}
+		}
+
+		public bool IsValid()
+		{
+			switch(Type)
+			{
+				case BuildStepType.Compile:
+					return Target != null && Platform != null && Configuration != null;
+				case BuildStepType.Cook:
+					return FileName != null;
+				case BuildStepType.Other:
+					return FileName != null;
+				default:
+					return false;
 			}
 		}
 

@@ -3964,13 +3964,16 @@ namespace UnrealGameSync
 				List<ConfigObject> ModifiedBuildSteps = new List<ConfigObject>();
 				foreach(BuildStep Step in UserSteps)
 				{
-					ConfigObject DefaultObject;
-					ProjectBuildStepObjects.TryGetValue(Step.UniqueId, out DefaultObject);
-
-					ConfigObject UserConfigObject = Step.ToConfigObject(DefaultObject);
-					if(UserConfigObject != null)
+					if(Step.IsValid())
 					{
-						ModifiedBuildSteps.Add(UserConfigObject);
+						ConfigObject DefaultObject;
+						ProjectBuildStepObjects.TryGetValue(Step.UniqueId, out DefaultObject);
+
+						ConfigObject UserConfigObject = Step.ToConfigObject(DefaultObject);
+						if(UserConfigObject != null && UserConfigObject.Pairs.Any(x => x.Key != "UniqueId"))
+						{
+							ModifiedBuildSteps.Add(UserConfigObject);
+						}
 					}
 				}
 
