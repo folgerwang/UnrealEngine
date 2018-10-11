@@ -707,25 +707,17 @@ namespace UnrealBuildTool
 		{
 		}
 
-		// This is the GUID that Visual Studio uses to identify an Android project file in the solution
+		/// <summary>
+		/// This is the GUID that Visual Studio uses to identify an Android project file in the solution
+		/// </summary>
 		public override string ProjectTypeGUID
 		{
 			get { return "{39E2626F-3545-4960-A6E8-258AD8476CE5}"; }
 		}
 
-		/// <summary>
-		/// The only valid configuration for these to be run in is Debug|ARM
-		/// </summary>
-		/// <param name="Platform">Actual platform</param>
-		/// <param name="Configuration">Actual configuration</param>
-		/// <param name="TargetConfigurationName">The configuration name from the target rules, or null if we don't have one</param>
-		/// <param name="ProjectPlatformName">Name of platform string to use for Visual Studio project</param>
-		/// <param name="ProjectConfigurationName">Name of configuration string to use for Visual Studio project</param>
-		public override void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetType TargetConfigurationName, out string ProjectPlatformName, out string ProjectConfigurationName)
+		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform)
 		{
-			ProjectConfigurationName = UnrealTargetConfiguration.Debug.ToString();
-			ProjectPlatformName = "ARM";
+			return new MSBuildProjectContext("Debug", "ARM"){ bBuildByDefault = (SolutionPlatform == UnrealTargetPlatform.Android) };
 		}
-
 	}
 }
