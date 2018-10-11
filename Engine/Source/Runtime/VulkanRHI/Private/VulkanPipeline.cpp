@@ -1818,7 +1818,7 @@ bool FVulkanPipelineStateCacheManager::BinaryCacheMatches(FVulkanDevice* InDevic
 #if VULKAN_ENABLE_LRU_CACHE
 void FVulkanPipelineStateCacheManager::FVKPipelineLRU::DeleteVkPipeline(FVulkanGfxPipeline* GfxPipeline)
 {
-	GfxPipeline->DeleteVkPipeline(GfxPipeline->RecentFrame + NUM_RENDER_BUFFERS < GFrameNumberRenderThread);
+	GfxPipeline->DeleteVkPipeline(GfxPipeline->RecentFrame + NUM_BUFFERS < GFrameNumberRenderThread);
 }
 
 void FVulkanPipelineStateCacheManager::FVKPipelineLRU::EnsureVkPipelineAndAddToLRU(FVulkanRHIGraphicsPipelineState* Pipeline)

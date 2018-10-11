@@ -478,6 +478,11 @@ public:
 		const int LRUCapacity = 2048;
 		int32 LRUUsedPipelineSize;
 
+		enum
+		{
+			NUM_BUFFERS = 3,
+		};
+
 		static void DeleteVkPipeline(FVulkanGfxPipeline* GfxPipeline);
 
 		void EnsureVkPipelineAndAddToLRU(FVulkanRHIGraphicsPipelineState* Pipeline);
