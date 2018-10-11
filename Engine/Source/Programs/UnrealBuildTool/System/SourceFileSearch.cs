@@ -7,7 +7,6 @@ using System.IO;
 using System.Diagnostics;
 using System.Linq;
 using Tools.DotNETCommon;
-using DotNETUtilities;
 
 namespace UnrealBuildTool
 {

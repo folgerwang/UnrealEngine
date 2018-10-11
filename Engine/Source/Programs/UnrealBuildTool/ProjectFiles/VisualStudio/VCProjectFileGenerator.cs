@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using Tools.DotNETCommon;
-using DotNETUtilities;
 
 namespace UnrealBuildTool
 {
@@ -92,8 +91,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InOnlyGameProject">The single project to generate project files for, or null</param>
 		/// <param name="InProjectFileFormat">Override the project file format to use</param>
-		/// <param name="InOverrideCompiler">Override the compiler version to use</param>
-		public VCProjectFileGenerator(FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, WindowsCompiler InOverrideCompiler)
+		/// <param name="InArguments">Additional command line arguments</param>
+		public VCProjectFileGenerator(FileReference InOnlyGameProject, VCProjectFileFormat InProjectFileFormat, CommandLineArguments InArguments)
 			: base(InOnlyGameProject)
 		{
 			XmlConfig.ApplyTo(this);
@@ -103,11 +102,11 @@ namespace UnrealBuildTool
 				ProjectFileFormat = InProjectFileFormat;
 			}
 
-			if(InOverrideCompiler == WindowsCompiler.VisualStudio2015)
+			if(InArguments.HasOption("-2015"))
 			{
 				BuildToolOverride = "-2015";
 			}
-			else if(InOverrideCompiler == WindowsCompiler.VisualStudio2017)
+			else if(InArguments.HasOption("-2017"))
 			{
 				BuildToolOverride = "-2017";
 			}
@@ -360,9 +359,9 @@ namespace UnrealBuildTool
 		/// Writes the project files to disk
 		/// </summary>
 		/// <returns>True if successful</returns>
-		protected override bool WriteProjectFiles()
+		protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
-			if(!base.WriteProjectFiles())
+			if(!base.WriteProjectFiles(PlatformProjectGenerators))
 			{
 				return false;
 			}
@@ -394,7 +393,7 @@ namespace UnrealBuildTool
 		}
 
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			bool bSuccess = true;
 
@@ -594,7 +593,7 @@ namespace UnrealBuildTool
 												// Figure out the set of valid target configuration names
 												foreach (ProjectTarget ProjectTarget in CurProject.ProjectTargets)
 												{
-													if (VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, CurPlatform, CurConfiguration))
+													if (VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, CurPlatform, CurConfiguration, PlatformProjectGenerators))
 													{
 														PlatformsValidForProjects.Add(CurPlatform);
 
@@ -688,7 +687,7 @@ namespace UnrealBuildTool
 									string ProjectConfigAndPlatformPair;
 									if(CurProject is VCSharpProjectFile)
 									{
-										ProjectConfigAndPlatformPair = CurProject.MakeConfigurationAndPlatformPair(SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration, TargetType.Program);
+										ProjectConfigAndPlatformPair = CurProject.MakeConfigurationAndPlatformPair(SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration, TargetType.Program, PlatformProjectGenerators);
 									}
 									else
 									{
@@ -717,7 +716,7 @@ namespace UnrealBuildTool
 										List<ProjectTarget> MatchingProjectTargets = new List<ProjectTarget>();
 										foreach (ProjectTarget ProjectTarget in CurProject.ProjectTargets)
 										{
-											if(VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration))
+											if(VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration, PlatformProjectGenerators))
 											{
 												if (ProjectTarget.TargetRules != null)
 												{
@@ -781,7 +780,7 @@ namespace UnrealBuildTool
 											}
 											else
 											{
-												ProjectConfigAndPlatformPair = CurProject.MakeConfigurationAndPlatformPair(ProjectPlatform, ProjectConfiguration, TargetConfigurationName);
+												ProjectConfigAndPlatformPair = CurProject.MakeConfigurationAndPlatformPair(ProjectPlatform, ProjectConfiguration, TargetConfigurationName, PlatformProjectGenerators);
 											}
 
 											// Set whether this project configuration should be built when the user initiates "build solution"
@@ -798,7 +797,7 @@ namespace UnrealBuildTool
 												{
 													bBuildByDefault = true;
 
-													UEPlatformProjectGenerator ProjGen = UEPlatformProjectGenerator.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
+													PlatformProjectGenerator ProjGen = PlatformProjectGenerators.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
 													if (MatchingProjectTarget.ProjectDeploys ||
 														((ProjGen != null) && (ProjGen.GetVisualStudioDeploymentEnabled(ProjectPlatform, ProjectConfiguration) == true)))
 													{
