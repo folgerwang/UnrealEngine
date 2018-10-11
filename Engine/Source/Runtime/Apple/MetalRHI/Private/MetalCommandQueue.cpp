@@ -114,6 +114,10 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			if (Vers.majorVersion >= 12)
 			{
 				Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
+				Features |= EMetalFeaturesFences;
+				Features |= EMetalFeaturesHeaps;
+				Features |= EMetalFeaturesIABs;
+				
 				if (MaxShaderVersion >= 4)
 				{
 					Features |= EMetalFeaturesTextureBuffers;
