@@ -154,7 +154,8 @@ namespace EGoogleVRCaps
 	{
 		Cardboard = 0 UMETA(DisplayName = "Cardboard", ToolTip = "Head orientation, no controller."),
 		Daydream33 = 1 UMETA(DisplayName = "Daydream (3.3 DoF)", ToolTip = "Head orientation, controller orientation. Daydream without positional tracking."),
-		Daydream63 = 2 UMETA(DisplayName = "Daydream (6.3 DoF)", ToolTip = "Head position and orientation, controller orientation. Daydream with positional tracking.")
+		Daydream63 = 2 UMETA(DisplayName = "Daydream (6.3 DoF)", ToolTip = "Head position and orientation, controller orientation. Daydream with positional tracking."),
+		Daydream66 = 3 UMETA(DisplayName = "Daydream (6.6 DoF)", ToolTip = "Head position and orientation, 2 controllers with position and orientation. Daydream with positional tracking.")
 	};
 }
 

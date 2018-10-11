@@ -2697,8 +2697,6 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 		GraphToRemove->SetFlags(RF_Transient);
 	}
 
-	GraphToRemove->MarkPendingKill();
-
 	if (Flags & EGraphRemoveFlags::Recompile )
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
@@ -2805,7 +2803,7 @@ void FBlueprintEditorUtils::RenameGraph(UEdGraph* Graph, const FString& NewNameS
 			}
 		}
 
-		if (!Blueprint->bIsRegeneratingOnLoad)
+		if (!Blueprint->bIsRegeneratingOnLoad && !Blueprint->bBeingCompiled)
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
@@ -8923,6 +8921,10 @@ const FSlateBrush* FBlueprintEditorUtils::GetIconFromPin( const FEdGraphPinType&
 		{
 			IconBrush = FEditorStyle::GetBrush(TEXT("Kismet.VariableList.SetTypeIcon"));
 		}
+	}
+	else if (PinType.PinCategory == UEdGraphSchema_K2::PC_MCDelegate)
+	{
+		IconBrush = FEditorStyle::GetBrush(TEXT("GraphEditor.Delegate_16x"));
 	}
 	else if( PinSubObject )
 	{

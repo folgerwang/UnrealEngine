@@ -29,33 +29,25 @@ public:
 	{
 	}
 
-	void Insert()
+	void Insert(FRHICommandList& RHICmdList, uint32 NumBytes = 0)
 	{
-		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-		RHICmdList.EnqueueStagedRead(StagingBuffer, Fence, 0, GPUVertexBuffer->GetSize());
-	}
-
-	bool WaitForFence(float Timeout)
-	{
-		return Fence->Wait(Timeout);
+		RHICmdList.EnqueueStagedRead(StagingBuffer, Fence, 0, NumBytes ? NumBytes : GPUVertexBuffer->GetSize());
 	}
 
 	bool IsReady()
 	{
-		return Fence->Poll();
+		return !Fence || Fence->Poll();
 	}
 
 	void *RetrieveData(uint32 NumBytes)
 	{
 		ensure(Fence->Poll());
-		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-		return RHICmdList.LockStagingBuffer(StagingBuffer, 0, NumBytes);
+		return RHILockStagingBuffer(StagingBuffer, 0, NumBytes);
 	}
 
 	void Finish()
 	{
-		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-		RHICmdList.UnlockStagingBuffer(StagingBuffer);
+		RHIUnlockStagingBuffer(StagingBuffer);
 	}
 
 private:

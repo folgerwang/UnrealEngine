@@ -37,6 +37,9 @@ public:
 
 	virtual void SetTypeShape(EMouseCursor::Type InCursorType, void* CursorHandle) override { }
 
+	/** this function will compute the necessary position scale factor needed to transform the cursor in Slate space */
+	void ComputeUIScaleFactor();
+
 private:
 	bool UpdateCursorClipping(FVector2D& CursorPosition);
 
@@ -44,4 +47,7 @@ private:
 	FVector2D CurrentPosition;
 	FIntRect CursorClipRect;
 	bool bShow;
+
+	/** scale factor computed by ComputeUIScaleFactor() and used in SetPosition() */
+	float UIScaleFactor;
 };

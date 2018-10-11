@@ -707,36 +707,6 @@ FVertexBufferRHIRef FMetalDynamicRHI::CreateVertexBuffer_RenderThread(class FRHI
 	}
 }
 
-void FMetalDynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
-{
-	check(StagingBuffer && Fence);
-
-	FMetalStagingBuffer* StageBuffer = ResourceCast(StagingBuffer);
-	FMetalVertexBuffer* VertexBuffer = ResourceCast(StageBuffer->GetBackingBuffer());
-	switch (VertexBuffer->Buffer.GetStorageMode())
-	{
-#if PLATFORM_MAC
-		case mtlpp::StorageMode::Managed:
-		{
-			GetMetalDeviceContext().SynchroniseResource(VertexBuffer->Buffer);
-			break;
-		}
-#endif
-		case mtlpp::StorageMode::Private:
-		{
-			VertexBuffer->Alloc(VertexBuffer->Buffer.GetLength(), RLM_ReadOnly);
-			GetMetalDeviceContext().CopyFromBufferToBuffer(VertexBuffer->Buffer, Offset, VertexBuffer->CPUBuffer, Offset, NumBytes);
-			break;
-		}
-		default:
-		{
-			break;
-		}
-	}
-
-	RHIGetDefaultContext()->RHIInsertGPUFence(Fence);
-}
-
 void* FMetalDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI)
 {
 	FMetalStagingBuffer* Buffer = ResourceCast(StagingBuffer);

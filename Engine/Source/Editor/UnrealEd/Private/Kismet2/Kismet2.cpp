@@ -720,6 +720,9 @@ UBlueprint* FKismetEditorUtilities::ReplaceBlueprint(UBlueprint* Target, UBluepr
 
 	UPackage* BlueprintPackage = Target->GetOutermost();
 	check(BlueprintPackage != GetTransientPackage());
+	
+	// Need to close the editor now, it won't work once it's been garbage collected during the reload
+	FAssetEditorManager::Get().CloseAllEditorsForAsset(Target);
 
 	FBlueprintUnloader Unloader(Target);
 	Unloader.UnloadBlueprint(/*bResetPackage =*/false);

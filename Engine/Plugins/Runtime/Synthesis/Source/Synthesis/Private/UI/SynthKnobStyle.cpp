@@ -6,6 +6,7 @@
 #include "Internationalization/Regex.h"
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
+#include "UI/SynthSlateStyle.h"
 #include "Brushes/SlateDynamicImageBrush.h"
 
 struct FSynthKnobResources
@@ -75,6 +76,16 @@ FSynthKnobStyle::FSynthKnobStyle()
 FSynthKnobStyle::~FSynthKnobStyle()
 {
 }
+
+
+void FSynthKnobStyle::Initialize()
+{
+	//first make sure the style set is setup.  Need to make sure because some things happen before StartupModule
+	FSynthSlateStyleSet::Initialize();
+
+	FSynthSlateStyleSet::Get()->Set(FSynthKnobStyle::TypeName, FSynthKnobStyle::GetDefault());
+}
+
 
 const FSlateBrush* FSynthKnobStyle::GetBaseBrush() const
 {

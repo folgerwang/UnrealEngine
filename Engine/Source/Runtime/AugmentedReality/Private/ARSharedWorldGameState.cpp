@@ -97,7 +97,7 @@ void AARSharedWorldGameState::TriggerCompletionIfDone()
 {
 	if (!bFiredCompletionEvent && ARWorldBytesDelivered == ARWorldBytesTotal && PreviewImageBytesDelivered == PreviewImageBytesTotal)
 	{
-		UE_LOG(LogAR, Log, TEXT("Notifying client AW world data is ready"));
+		UE_LOG(LogAR, Log, TEXT("Notifying client AR world data is ready"));
 
 		bFiredCompletionEvent = true;
 		K2_OnARWorldMapIsReady();

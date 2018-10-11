@@ -98,9 +98,53 @@ inline TRange<FFrameNumber> MakeDiscreteRangeFromUpper(const TRangeBound<FFrameN
  */
 inline int32 DiscreteSize(const TRange<FFrameNumber>& InRange)
 {
-	return ( DiscreteExclusiveUpper(InRange) - DiscreteInclusiveLower(InRange) ).Value;
+	return (int64)DiscreteExclusiveUpper(InRange).Value - (int64)DiscreteInclusiveLower(InRange).Value;
 }
 
+/**
+ * Check whether the two specified discrete ranges share any common discrete values
+ * 
+ * @return The size of the range (considering inclusive and exclusive boundaries)
+ */
+inline bool DiscreteRangesOverlap(const TRange<FFrameNumber>& A, const TRange<FFrameNumber>& B)
+{
+	TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(A, B);
+	if (Intersection.GetLowerBound().IsOpen() || Intersection.GetUpperBound().IsOpen())
+	{
+		return true;
+	}
+	else
+	{
+		return DiscreteSize(Intersection) > 0;
+	}
+}
+
+/**
+ * Check whether the two specified lower bounds are equivalent in a discrete domain
+ */
+inline bool DiscreteLowerBoundsAreEquivalent(const TRangeBound<FFrameNumber>& A, const TRangeBound<FFrameNumber>& B)
+{
+	if (A.IsOpen() || B.IsOpen())
+	{
+		// Either bound is open
+		return A.IsOpen() && B.IsOpen();
+	}
+	else if (A.IsExclusive() == B.IsExclusive())
+	{
+		// Both inclusive or both exclusive
+		return A.GetValue() == B.GetValue();
+	}
+	else if (A.IsExclusive())
+	{
+		// A exclusive, B inclusive
+		return A.GetValue() == B.GetValue()-1;
+	}
+	else
+	{
+		// A inclusive, B exclusive
+		return B.GetValue() == A.GetValue()-1;
+	}
+}
 
 /**
  * Dilate the specified range by adding a specific size to the lower and upper bounds (if closed)

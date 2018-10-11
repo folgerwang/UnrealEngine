@@ -45,7 +45,7 @@ namespace Audio
 	{
 	public:
 		FMixerSubmix(FMixerDevice* InMixerDevice);
-		~FMixerSubmix();
+		virtual ~FMixerSubmix();
 
 		// Initialize the submix object with the USoundSubmix ptr. Sets up child and parent connects.
 		void Init(USoundSubmix* InSoundSubmix);

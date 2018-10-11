@@ -64,9 +64,6 @@ namespace Audio
 					// Create a new effect instance using the preset
 					FSoundEffectSubmix* SubmixEffect = static_cast<FSoundEffectSubmix*>(EffectPreset->CreateNewEffect());
 
-					// Register the submix effect instance with the preset so it can be updated dynamically
-					SubmixEffect->RegisterWithPreset(EffectPreset);
-
 					FSoundEffectSubmixInitData InitData;
 					InitData.SampleRate = MixerDevice->GetSampleRate();
 					InitData.PresetSettings = nullptr;
@@ -140,6 +137,8 @@ namespace Audio
 		});
 	}
 
+// MSVC 2017 15.8.4 is generating bad code where setting submix will crash. See https://developercommunity.visualstudio.com/content/problem/345511/bad-code-generation-in-vs-2017-v1585.html.
+MSVC_PRAGMA(optimize("", off))
 	void FMixerSubmix::AddChildSubmix(TWeakPtr<FMixerSubmix, ESPMode::ThreadSafe> SubmixWeakPtr)
 	{
 		SubmixCommand([this, SubmixWeakPtr]()
@@ -164,6 +163,7 @@ namespace Audio
 			}
 		});
 	}
+MSVC_PRAGMA(optimize("", on))
 
 	ESubmixChannelFormat FMixerSubmix::GetSubmixChannels() const
 	{
@@ -287,7 +287,7 @@ namespace Audio
 		{
 			if (Info.EffectInstance)
 			{
-				Info.EffectInstance->UnregisterWithPreset();
+				Info.EffectInstance->ClearPreset();
 
 				delete Info.EffectInstance;
 				Info.EffectInstance = nullptr;

@@ -298,6 +298,7 @@ void FNVAnselCameraPhotographyPrivate::DoCustomUIControls(FPostProcessSettings& 
 		UEPostProcessingOriginal = InOutPPSettings;
 
 		// add all relevant controls
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if (bEffectUIAllowed[DepthOfField] && (InOutPPSettings.DepthOfFieldMethod == DOFM_Gaussian || InOutPPSettings.DepthOfFieldScale > 0.f)) // 'Is DoF used?'
 		{
 			if (InOutPPSettings.DepthOfFieldMethod != DOFM_Gaussian) // scale irrelevant for gaussian
@@ -318,11 +319,12 @@ void FNVAnselCameraPhotographyPrivate::DoCustomUIControls(FPostProcessSettings& 
 			);
 			DeclareSlider(
 				control_doffocaldistance,
-				LOCTEXT("control_dofscale", "Focus Distance"),
+				LOCTEXT("control_doffocaldistance", "Focus Distance"),
 				0.f, 10000.f,
 				InOutPPSettings.DepthOfFieldFocalDistance
 			);
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if (bEffectUIAllowed[Bloom] &&
 			InOutPPSettings.BloomIntensity > 0.f)

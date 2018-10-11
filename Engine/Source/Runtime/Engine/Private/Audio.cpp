@@ -1029,7 +1029,7 @@ struct FExtendedFormatChunk
 //
 //	Figure out the WAVE file layout.
 //
-bool FWaveModInfo::ReadWaveInfo( uint8* WaveData, int32 WaveDataSize, FString* ErrorReason, bool InHeaderDataOnly, void** OutFormatHeader)
+bool FWaveModInfo::ReadWaveInfo( const uint8* WaveData, int32 WaveDataSize, FString* ErrorReason, bool InHeaderDataOnly, void** OutFormatHeader)
 {
 	FRiffFormatChunk* FmtChunk;
 	FExtendedFormatChunk* FmtChunkEx = nullptr;
@@ -1273,7 +1273,7 @@ bool FWaveModInfo::ReadWaveInfo( uint8* WaveData, int32 WaveDataSize, FString* E
 	return( true );
 }
 
-bool FWaveModInfo::ReadWaveHeader(uint8* RawWaveData, int32 Size, int32 Offset )
+bool FWaveModInfo::ReadWaveHeader(const uint8* RawWaveData, int32 Size, int32 Offset )
 {
 	if( Size == 0 )
 	{

@@ -542,6 +542,106 @@ struct FPreloadMembersHelper
 	}
 };
 
+/** 
+ * A helper utility for tracking exports whose classes we're currently running
+ * through ForceRegenerateClass(). This is primarily relied upon to help prevent
+ * infinite recursion since ForceRegenerateClass() doesn't do anything to 
+ * progress the state of the linker.
+ */
+struct FResolvingExportTracker : TThreadSingleton<FResolvingExportTracker>
+{
+public:
+	/**  */
+	void FlagLinkerExportAsResolving(FLinkerLoad* Linker, int32 ExportIndex)
+	{
+		ResolvingExports.FindOrAdd(Linker).Add(ExportIndex);
+	}
+
+	/**  */
+	bool IsLinkerExportBeingResolved(FLinkerLoad* Linker, int32 ExportIndex) const
+	{
+		if (const TSet<int32>* ExportIndices = ResolvingExports.Find(Linker))
+		{
+			return ExportIndices->Contains(ExportIndex);
+		}
+		return false;
+	}
+
+	/**  */
+	void FlagExportClassAsFullyResolved(FLinkerLoad* Linker, int32 ExportIndex)
+	{
+		if (TSet<int32>* ExportIndices = ResolvingExports.Find(Linker))
+		{
+			ExportIndices->Remove(ExportIndex);
+			if (ExportIndices->Num() == 0)
+			{
+				ResolvingExports.Remove(Linker);
+			}
+		}
+	}
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	void FlagFullExportResolvePassComplete(FLinkerLoad* Linker)
+	{
+		FullyResolvedLinkers.Add(Linker);
+	}
+
+	bool HasPerformedFullExportResolvePass(FLinkerLoad* Linker)
+	{
+		return FullyResolvedLinkers.Contains(Linker);
+	}
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+	void Reset(FLinkerLoad* Linker)
+	{
+		ResolvingExports.Remove(Linker);
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		FullyResolvedLinkers.Remove(Linker);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+		// ClassToPlaceholderMap may have entries because instances of placeholder classes (which 
+		// will be resolved in ResolveDeferredExports()), will never have had ResolvePlaceholders
+		// for their class called. These entries are harmless and we can discard them here:
+		ClassToPlaceholderMap.Reset();
+	}
+
+	void AddLinkerPlaceholderObject(UClass* ClassWaitingFor, ULinkerPlaceholderExportObject* Placeholder)
+	{
+		ClassToPlaceholderMap.FindOrAdd(ClassWaitingFor).Add(Placeholder);
+	}
+
+	void ResolvePlaceholders(UClass* ForClass)
+	{
+		TArray<ULinkerPlaceholderExportObject*>* Placeholders = ClassToPlaceholderMap.Find(ForClass);
+		if( Placeholders )
+		{
+			for(ULinkerPlaceholderExportObject* Placeholder : *Placeholders)
+			{
+				if(!Placeholder->IsMarkedResolved())
+				{
+					FLinkerLoad* Linker = Placeholder->GetLinker();
+					if(ensure(Linker))
+					{
+						Linker->ResolvePlaceholder( Placeholder );
+					}
+				}
+			}
+			// Remove from map as we could get GCd later
+			ClassToPlaceholderMap.Remove(ForClass);
+		}
+	}
+
+private:
+	/**  */
+	TMap< FLinkerLoad*, TSet<int32> > ResolvingExports;
+
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	TSet<FLinkerLoad*> FullyResolvedLinkers;
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+	TMap< UClass*, TArray<ULinkerPlaceholderExportObject*> > ClassToPlaceholderMap;
+};
+
 /**
  * Regenerates/Refreshes a blueprint class
  *
@@ -588,6 +688,9 @@ bool FLinkerLoad::RegenerateBlueprintClass(UClass* LoadClass, UObject* ExportObj
 
 		LoadClass->StaticLink(true);
 		Preload(CurrentCDO);
+
+		// CDO preloaded - we can now resolve placeholders:
+		FResolvingExportTracker::Get().ResolvePlaceholders(LoadClass);
 
 		// Make sure that we regenerate any parent classes first before attempting to build a child
 		TArray<UClass*> ClassChainOrdered;
@@ -1020,73 +1123,6 @@ bool FLinkerLoad::IsSuppressableBlueprintImportError(int32 ImportIndex) const
 #endif // WITH_EDITOR
 
 /** 
- * A helper utility for tracking exports whose classes we're currently running
- * through ForceRegenerateClass(). This is primarily relied upon to help prevent
- * infinite recursion since ForceRegenerateClass() doesn't do anything to 
- * progress the state of the linker.
- */
-struct FResolvingExportTracker : TThreadSingleton<FResolvingExportTracker>
-{
-public:
-	/**  */
-	void FlagLinkerExportAsResolving(FLinkerLoad* Linker, int32 ExportIndex)
-	{
-		ResolvingExports.FindOrAdd(Linker).Add(ExportIndex);
-	}
-
-	/**  */
-	bool IsLinkerExportBeingResolved(FLinkerLoad* Linker, int32 ExportIndex) const
-	{
-		if (const TSet<int32>* ExportIndices = ResolvingExports.Find(Linker))
-		{
-			return ExportIndices->Contains(ExportIndex);
-		}
-		return false;
-	}
-
-	/**  */
-	void FlagExportClassAsFullyResolved(FLinkerLoad* Linker, int32 ExportIndex)
-	{
-		if (TSet<int32>* ExportIndices = ResolvingExports.Find(Linker))
-		{
-			ExportIndices->Remove(ExportIndex);
-			if (ExportIndices->Num() == 0)
-			{
-				ResolvingExports.Remove(Linker);
-			}
-		}
-	}
-
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	void FlagFullExportResolvePassComplete(FLinkerLoad* Linker)
-	{
-		FullyResolvedLinkers.Add(Linker);
-	}
-
-	bool HasPerformedFullExportResolvePass(FLinkerLoad* Linker)
-	{
-		return FullyResolvedLinkers.Contains(Linker);
-	}
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-
-	void Reset(FLinkerLoad* Linker)
-	{
-		ResolvingExports.Remove(Linker);
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		FullyResolvedLinkers.Remove(Linker);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	}
-
-private:
-	/**  */
-	TMap< FLinkerLoad*, TSet<int32> > ResolvingExports;
-
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	TSet<FLinkerLoad*> FullyResolvedLinkers;
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-};
-
-/** 
  * A helper struct that adds and removes its linker/export combo from the 
  * thread's FResolvingExportTracker (based off the scope it was declared within).
  */
@@ -1141,6 +1177,7 @@ bool FLinkerLoad::DeferExportCreation(const int32 Index, UObject* Outer)
 		PlaceholderName = MakeUniqueObjectName(Outer, PlaceholderType, PlaceholderName);
 
 		ULinkerPlaceholderExportObject* Placeholder = NewObject<ULinkerPlaceholderExportObject>(Outer, PlaceholderType, PlaceholderName, RF_Public | RF_Transient);
+		Placeholder->SetLinker(this, Index, false);
 		Placeholder->PackageIndex = FPackageIndex::FromExport(Index);
 		
 		Export.Object = Placeholder;
@@ -1186,10 +1223,6 @@ bool FLinkerLoad::DeferExportCreation(const int32 Index, UObject* Outer)
 		ForceRegenerateClass(LoadClass);
 		return false;
 	}
-	// we haven't come across a scenario where this happens, but if this hits 
-	// then we're deferring exports that will NEVER be resolved (possibly 
-	// stemming from CDO serialization in FLinkerLoad::ResolveDeferredExports)
-	DEFERRED_DEPENDENCY_CHECK(!FResolvingExportTracker::Get().HasPerformedFullExportResolvePass(this));
 	
 	UPackage* PlaceholderOuter = LinkerRoot;
 	UClass*   PlaceholderType  = ULinkerPlaceholderExportObject::StaticClass();
@@ -1201,6 +1234,8 @@ bool FLinkerLoad::DeferExportCreation(const int32 Index, UObject* Outer)
 
 	ULinkerPlaceholderExportObject* Placeholder = NewObject<ULinkerPlaceholderExportObject>(PlaceholderOuter, PlaceholderType, PlaceholderName, RF_Public | RF_Transient);
 	Placeholder->PackageIndex = FPackageIndex::FromExport(Index);
+	Placeholder->SetLinker(this, Index, false);
+	FResolvingExportTracker::Get().AddLinkerPlaceholderObject(LoadClass, Placeholder);
 
 	Export.Object = Placeholder;
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -1932,6 +1967,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 				}
 
 				// replace the placeholder with the proper object instance
+				PlaceholderExport->SetLinker(nullptr, INDEX_NONE);
 				Export.ResetObject();
 				UObject* ExportObj = CreateExport(ExportIndex);
 
@@ -2030,6 +2066,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 				if (ensure(PlaceholderExport))
 				{
 					// replace the placeholder with the proper object instance
+					PlaceholderExport->SetLinker(nullptr, INDEX_NONE);
 					Export.ResetObject();
 					UObject* ExportObj = CreateExport(ExportIndex);
 
@@ -2064,6 +2101,30 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 }
 
+void FLinkerLoad::ResolvePlaceholder(ULinkerPlaceholderExportObject* Placeholder)
+{
+	int32 ExportIndex = Placeholder->PackageIndex.ToExport();
+
+	Placeholder->SetLinker(nullptr, INDEX_NONE);
+
+	FObjectExport& Export = ExportMap[ExportIndex];
+	Export.Object = nullptr;
+
+	UObject* ReplacementObject = CreateExport(ExportIndex);
+	Placeholder->ResolveAllPlaceholderReferences(ReplacementObject);
+	Placeholder->MarkPendingKill();
+	
+	// recurse:
+	ResolvedDeferredSubobjects(Placeholder);
+
+	// attempt to preload, we don't really care if this doesn't complete but we don't want to fail
+	// to serialize an object:
+	if (ReplacementObject != nullptr)
+	{
+		Preload(ReplacementObject);
+	}
+}
+
 void FLinkerLoad::ResolvedDeferredSubobjects(ULinkerPlaceholderExportObject* OwningPlaceholder)
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -2071,6 +2132,9 @@ void FLinkerLoad::ResolvedDeferredSubobjects(ULinkerPlaceholderExportObject* Own
 	for(ULinkerPlaceholderExportObject* PlaceholderSubobject : OwningPlaceholder->GetSubobjectPlaceholders() )
 	{
 		int32 ExportIndex = PlaceholderSubobject->PackageIndex.ToExport();
+	
+		PlaceholderSubobject->SetLinker(nullptr, INDEX_NONE);
+
 		FObjectExport& Export = ExportMap[ExportIndex];
 
 		Export.ResetObject();

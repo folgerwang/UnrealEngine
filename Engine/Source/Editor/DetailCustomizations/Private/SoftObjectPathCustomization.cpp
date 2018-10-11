@@ -11,24 +11,46 @@ void FSoftObjectPathCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> 
 {
 	StructPropertyHandle = InStructPropertyHandle;
 
-	const FString& ClassFilterString = StructPropertyHandle->GetMetaData("AllowedClasses");
-	if( !ClassFilterString.IsEmpty() )
+	const FString& AllowedClassFilterString = StructPropertyHandle->GetMetaData("AllowedClasses");
+	if (!AllowedClassFilterString.IsEmpty())
 	{
-		TArray<FString> CustomClassFilterNames;
-		ClassFilterString.ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
+		TArray<FString> AllowedClassFilterNames;
+		AllowedClassFilterString.ParseIntoArray(AllowedClassFilterNames, TEXT(","), true);
 
-		for(auto It = CustomClassFilterNames.CreateConstIterator(); It; ++It)
+		for(auto It = AllowedClassFilterNames.CreateConstIterator(); It; ++It)
 		{
 			const FString& ClassName = *It;
 
 			UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassName);
-			if(!Class)
+			if (!Class)
 			{
 				Class = LoadObject<UClass>(nullptr, *ClassName);
 			}
-			if(Class)
+			if (Class)
 			{
-				CustomClassFilters.Add(Class);
+				AllowedClassFilters.Add(Class);
+			}
+		}
+	}
+
+	const FString& DisallowedClassFilterString = StructPropertyHandle->GetMetaData("DisallowedClasses");
+	if (!DisallowedClassFilterString.IsEmpty())
+	{
+		TArray<FString> DisallowedClassFilterNames;
+		DisallowedClassFilterString.ParseIntoArray(DisallowedClassFilterNames, TEXT(","), true);
+
+		for (auto It = DisallowedClassFilterNames.CreateConstIterator(); It; ++It)
+		{
+			const FString& ClassName = *It;
+
+			UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassName);
+			if (!Class)
+			{
+				Class = LoadObject<UClass>(nullptr, *ClassName);
+			}
+			if (Class)
+			{
+				DisallowedClassFilters.Add(Class);
 			}
 		}
 	}
@@ -37,15 +59,15 @@ void FSoftObjectPathCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> 
 
 	FOnShouldFilterAsset AssetFilter;
 	UClass* ClassFilter = UObject::StaticClass();
-	if(CustomClassFilters.Num() == 1 && !bExactClass)
+	if (AllowedClassFilters.Num() == 1 && DisallowedClassFilters.Num() <= 0 && !bExactClass)
 	{
 		// If we only have one class to filter on, set it as the class type filter rather than use a filter callback
 		// We can only do this if we don't need an exact match, as the class filter also allows derived types
 		// The class filter is much faster than the callback as we're not performing two different sets of type tests
 		// (one against UObject, one against the actual type)
-		ClassFilter = CustomClassFilters[0];
+		ClassFilter = AllowedClassFilters[0];
 	}
-	else if(CustomClassFilters.Num() > 0)
+	else if (AllowedClassFilters.Num() > 0 || DisallowedClassFilters.Num() > 0)
 	{
 		// Only bind the filter if we have classes that need filtering
 		AssetFilter.BindSP(this, &FSoftObjectPathCustomization::OnShouldFilterAsset);
@@ -81,11 +103,21 @@ bool FSoftObjectPathCustomization::OnShouldFilterAsset( const FAssetData& InAsse
 {
 	// Only bound if we have classes to filter on, so we don't need to test for an empty array here
 	UClass* const AssetClass = InAssetData.GetClass();
-	for(auto It = CustomClassFilters.CreateConstIterator(); It; ++It)
+
+	for (auto It = DisallowedClassFilters.CreateConstIterator(); It; ++It)
+	{
+		UClass* const DisallowClass = *It;
+		if (AssetClass->IsChildOf(DisallowClass))
+		{
+			return true;
+		}
+	}
+
+	for(auto It = AllowedClassFilters.CreateConstIterator(); It; ++It)
 	{
 		UClass* const FilterClass = *It;
 		const bool bMatchesFilter = (bExactClass) ? AssetClass == FilterClass : AssetClass->IsChildOf(FilterClass);
-		if(bMatchesFilter)
+		if (bMatchesFilter)
 		{
 			return false;
 		}

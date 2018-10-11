@@ -15,22 +15,6 @@ namespace UnrealBuildTool
 	public static class WindowsExports
 	{
 		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="ProjectFile"></param>
-		/// <param name="ProjectName"></param>
-		/// <param name="ProjectDirectory"></param>
-		/// <param name="InTargetConfigurations"></param>
-		/// <param name="InExecutablePaths"></param>
-		/// <param name="EngineDirectory"></param>
-		/// <returns></returns>
-		public static bool SetApplicationIcon(FileReference ProjectFile, string ProjectName, DirectoryReference ProjectDirectory, List<UnrealTargetConfiguration> InTargetConfigurations, List<FileReference> InExecutablePaths, DirectoryReference EngineDirectory)
-		{
-	        BaseWindowsDeploy Deploy = new BaseWindowsDeploy();
-            return Deploy.SetApplicationIcon(ProjectFile, ProjectName, ProjectDirectory.FullName, InTargetConfigurations, InExecutablePaths.Select(x => x.FullName).ToList(), EngineDirectory.FullName);
-		}
-
-		/// <summary>
 		/// Tries to get the directory for an installed Visual Studio version
 		/// </summary>
 		/// <param name="Compiler">The compiler version</param>

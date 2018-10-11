@@ -260,8 +260,6 @@
     <Compile Include="ToolChain\RemoteMac.cs" />
     <Compile Include="UnrealBuildTool.cs" />
     <Compile Include="Platform\Windows\PVSToolChain.cs" />
-    <Compile Include="Platform\Windows\WindowsDeploy.cs" />
-    <Compile Include="Platform\Windows\WinResources.cs" />
   </ItemGroup>
   <Choose>
     <When Condition="Exists('Platform\IOS\UEBuildIOS.cs')">

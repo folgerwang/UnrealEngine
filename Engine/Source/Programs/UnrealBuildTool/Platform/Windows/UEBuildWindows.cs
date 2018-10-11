@@ -1329,6 +1329,27 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the application icon for a given project
+		/// </summary>
+		/// <param name="ProjectFile">The project file</param>
+		/// <returns>The icon to use for this project</returns>
+		public static FileReference GetApplicationIcon(FileReference ProjectFile)
+		{
+			// Check if there's a custom icon
+			if(ProjectFile != null)
+			{
+				FileReference IconFile = FileReference.Combine(ProjectFile.Directory, "Build", "Windows", "Application.ico");
+				if(FileReference.Exists(IconFile))
+				{
+					return IconFile;
+				}
+			}
+
+			// Otherwise use the default
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Windows", "UE4.ico");
+		}
+
+		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>
@@ -1662,7 +1683,6 @@ namespace UnrealBuildTool
 		/// <param name="Target">Information about the target being deployed</param>
 		public override void Deploy(UEBuildDeployTarget Target)
 		{
-			new BaseWindowsDeploy().PrepTargetForDeployment(Target);
 		}
 	}
 

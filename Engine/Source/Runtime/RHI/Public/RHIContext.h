@@ -127,16 +127,19 @@ public:
 	 */
 	virtual void RHIInvalidateCachedState() {};
 
-
-	/**
-	 * Insert a GPU-to-CPU fence into the GPU command-stream. 
-	 * The default implementation will simply write the current frame-number into the fence.
-	 * RHIs that can implement true GPU fences should override this to do so.
-	 */
-	virtual void RHIInsertGPUFence(FGPUFenceRHIParamRef Fence) 
-	{ 
-		check(Fence); 
-		Fence->Write(); 
+    /**
+     * Enqueues on the GPU timeline any necessary operations to make the contents of 'StagingBuffer' accessible to the CPU, flushing outstanding GPU writes and/or transferring from inaccessible non-unified GPU memory to local CPU memory.
+     * @param StagingBuffer The buffer to stage. Must not be null.
+     * @param Fence A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the StagedRead was completed. Must not be null.
+     * @param Offset The start of the data in 'StagingBuffer' to make available.
+     * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
+     */
+	virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 InOffset, uint32 InNumBytes)
+	{
+		if (Fence)
+		{
+			Fence->Write();
+		}
 	}
 };
 
@@ -257,7 +260,6 @@ public:
 	{
 		RHITransitionResources(TransitionType, TransitionPipeline, InUAVs, NumUAVs, nullptr);
 	}
-
 
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 

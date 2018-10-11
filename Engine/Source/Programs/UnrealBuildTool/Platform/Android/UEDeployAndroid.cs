@@ -432,7 +432,7 @@ namespace UnrealBuildTool
 			List<string> GoogleVRCaps = new List<string>();
 			if(Ini.GetArray("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "GoogleVRCaps", out GoogleVRCaps))
 			{
-				return GoogleVRCaps.Contains("Daydream33") || GoogleVRCaps.Contains("Daydream63");
+				return GoogleVRCaps.Contains("Daydream33") || GoogleVRCaps.Contains("Daydream63") || GoogleVRCaps.Contains("Daydream66");
 			}
 			else
 			{

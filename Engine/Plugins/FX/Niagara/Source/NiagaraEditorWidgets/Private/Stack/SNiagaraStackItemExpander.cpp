@@ -22,6 +22,7 @@ void SNiagaraStackItemExpander::Construct(const FArguments& InArgs, UNiagaraStac
 		.ContentPadding(2)
 		.ToolTipText(this, &SNiagaraStackItemExpander::GetToolTipText)
 		.OnClicked(this, &SNiagaraStackItemExpander::ExpandButtonClicked)
+		.IsFocusable(false)
 		.Content()
 		[
 			SNew(SImage)

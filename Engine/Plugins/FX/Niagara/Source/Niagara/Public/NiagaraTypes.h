@@ -307,7 +307,7 @@ public:
 	{
 	}
 public:
-	UPROPERTY(EditAnywhere, Category = "Variable")
+	UPROPERTY(EditAnywhere, Category = "Variable", DisplayName = "Property Metadata", meta = (ToolTip = "Property Metadata"))
 	TMap<FName, FString> PropertyMetaData;
 
 	UPROPERTY(EditAnywhere, Category = "Variable", meta = (MultiLine = true))
@@ -818,7 +818,7 @@ struct FNiagaraVariable
 		return Name != NAME_None && TypeDef.IsValid();
 	}
 
-	FORCEINLINE bool IsInNameSpace(FString Namespace) 
+	FORCEINLINE bool IsInNameSpace(FString Namespace) const
 	{
 		return Name.ToString().StartsWith(Namespace + TEXT("."));
 	}

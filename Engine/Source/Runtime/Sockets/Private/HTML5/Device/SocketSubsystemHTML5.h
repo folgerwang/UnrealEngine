@@ -60,4 +60,9 @@ public:
 	 * @return Whether the device has a properly configured network device or not
 	 */
 	virtual bool HasNetworkDevice() override;
+
+	/**
+	 * Translates an ESocketAddressInfoFlags into a value usable by getaddrinfo
+	 */
+	virtual int32 GetAddressInfoHintFlag(EAddressInfoFlags InFlags) const override;
 };

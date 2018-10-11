@@ -1869,6 +1869,18 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 		}
 	}
 
+	// Import mesh metadata to SkeletalMesh
+	for (FbxNode* MeshNode : ImportSkeletalMeshArgs.NodeArray)
+	{
+		ImportNodeCustomProperties(SkeletalMesh, MeshNode);
+	}
+
+	// Import bone metadata to Skeleton
+	for (FbxNode* SkeletonNode : ImportSkeletalMeshArgs.BoneNodeArray)
+	{
+		ImportNodeCustomProperties(SkeletalMesh->Skeleton, SkeletonNode);
+	}
+
 	// ComponentContexts will now go out of scope, causing components to be re-registered
 
 	if (RecreateExistingRenderStateContext)
@@ -2245,10 +2257,14 @@ USkeletalMesh* UnFbx::FFbxImporter::ReimportSkeletalMesh(USkeletalMesh* Mesh, UF
 			FSkeletalMeshImportData OutData;
 			if (LODIndex == 0)
 			{
+				TArray<FbxNode*> SkeletonNodeArray;
+				FillFbxSkeletonArray(Scene->GetRootNode(), SkeletonNodeArray);
+
 				ImportMeshLodData.AddZeroed();
 				UnFbx::FFbxImporter::FImportSkeletalMeshArgs ImportSkeletalMeshArgs;
 				ImportSkeletalMeshArgs.InParent = Mesh->GetOuter();
 				ImportSkeletalMeshArgs.NodeArray = SkelMeshNodeArray;
+				ImportSkeletalMeshArgs.BoneNodeArray = SkeletonNodeArray;
 				ImportSkeletalMeshArgs.Name = *Mesh->GetName();
 				ImportSkeletalMeshArgs.Flags = RF_Public | RF_Standalone;
 				ImportSkeletalMeshArgs.TemplateImportData = TemplateImportData;

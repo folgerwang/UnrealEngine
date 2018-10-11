@@ -72,6 +72,7 @@ namespace DisplayClusterStrings
 				static constexpr auto PortSS   = TEXT("port_ss");
 				static constexpr auto Master   = TEXT("master");
 				static constexpr auto Sound    = TEXT("sound");
+				static constexpr auto EyeSwap  = TEXT("eye_swap");
 				// + Id
 			}
 
@@ -91,8 +92,6 @@ namespace DisplayClusterStrings
 				static constexpr auto PosY   = TEXT("y");
 				static constexpr auto Width  = TEXT("width");
 				static constexpr auto Height = TEXT("height");
-				static constexpr auto FlipH  = TEXT("flip_h");
-				static constexpr auto FlipV  = TEXT("flip_v");
 				// + Id
 			}
 
@@ -148,7 +147,6 @@ namespace DisplayClusterStrings
 			namespace stereo
 			{
 				static constexpr auto Header  = TEXT("[stereo]");
-				static constexpr auto EyeSwap = TEXT("eye_swap");
 				static constexpr auto EyeDist = TEXT("eye_dist");
 			}
 
@@ -171,7 +169,6 @@ namespace DisplayClusterStrings
 			namespace custom
 			{
 				static constexpr auto Header     = TEXT("[custom]");
-				static constexpr auto SwapInt    = TEXT("swap_int");
 			}
 		}
 	};

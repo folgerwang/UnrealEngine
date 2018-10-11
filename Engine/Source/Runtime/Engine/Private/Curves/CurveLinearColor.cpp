@@ -6,6 +6,8 @@
 
 #include "Curves/CurveLinearColor.h"
 #include "CanvasItem.h"
+#include "UObject/ReleaseObjectVersion.h"
+#include "Logging/MessageLog.h"
 
 FLinearColor FRuntimeCurveLinearColor::GetLinearColorValue(float InTime) const
 {
@@ -50,6 +52,75 @@ FLinearColor UCurveLinearColor::GetLinearColorValue( float InTime ) const
 
 	// Only clamp value if the color is RGB < 1
 	const bool bShouldClampValue = (OriginalColor.R <= 1.0f && OriginalColor.G <= 1.0f && OriginalColor.B <= 1.0f);
+
+	// Convert to HSV
+	FLinearColor HSVColor = OriginalColor.LinearRGBToHSV();
+	float& PixelHue = HSVColor.R;
+	float& PixelSaturation = HSVColor.G;
+	float& PixelValue = HSVColor.B;
+
+	// Apply brightness adjustment
+	PixelValue *= AdjustBrightness;
+
+	// Apply brightness power adjustment
+	if (!FMath::IsNearlyEqual(AdjustBrightnessCurve, 1.0f, (float)KINDA_SMALL_NUMBER) && AdjustBrightnessCurve != 0.0f)
+	{
+		// Raise HSV.V to the specified power
+		PixelValue = FMath::Pow(PixelValue, AdjustBrightnessCurve);
+	}
+
+	// Apply "vibrancy" adjustment
+	if (!FMath::IsNearlyZero(AdjustVibrance, (float)KINDA_SMALL_NUMBER))
+	{
+		const float SatRaisePow = 5.0f;
+		const float InvSatRaised = FMath::Pow(1.0f - PixelSaturation, SatRaisePow);
+
+		const float ClampedVibrance = FMath::Clamp(AdjustVibrance, 0.0f, 1.0f);
+		const float HalfVibrance = ClampedVibrance * 0.5f;
+
+		const float SatProduct = HalfVibrance * InvSatRaised;
+
+		PixelSaturation += SatProduct;
+	}
+
+	// Apply saturation adjustment
+	PixelSaturation *= AdjustSaturation;
+
+	// Apply hue adjustment
+	PixelHue += AdjustHue;
+
+	// Clamp HSV values
+	{
+		PixelHue = FMath::Fmod(PixelHue, 360.0f);
+		if (PixelHue < 0.0f)
+		{
+			// Keep the hue value positive as HSVToLinearRGB prefers that
+			PixelHue += 360.0f;
+		}
+		PixelSaturation = FMath::Clamp(PixelSaturation, 0.0f, 1.0f);
+
+		if (bShouldClampValue)
+		{
+			PixelValue = FMath::Clamp(PixelValue, 0.0f, 1.0f);
+		}
+	}
+
+	// Convert back to a linear color
+	FLinearColor LinearColor = HSVColor.HSVToLinearRGB();
+
+	// Remap the alpha channel
+	LinearColor.A = FMath::Lerp(AdjustMinAlpha, AdjustMaxAlpha, OriginalColor.A);
+	return LinearColor;
+}
+
+
+FLinearColor UCurveLinearColor::GetClampedLinearColorValue(float InTime) const
+{
+	// Logic copied from .\Engine\Source\Developer\TextureCompressor\Private\TextureCompressorModule.cpp
+	const FLinearColor OriginalColor = GetUnadjustedLinearColorValue(InTime);
+
+	// Always clamp value
+	const bool bShouldClampValue = true;
 
 	// Convert to HSV
 	FLinearColor HSVColor = OriginalColor.LinearRGBToHSV();
@@ -218,6 +289,25 @@ void UCurveLinearColor::OnCurveChanged(const TArray<FRichCurveEditInfo>& Changed
 	PostEditChangeProperty(PropertyChangeStruct);
 }
 #endif
+
+void UCurveLinearColor::PostLoad()
+{
+	Super::PostLoad();
+
+#if WITH_EDITOR
+	if (GetLinkerCustomVersion(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::UnclampRGBColorCurves)
+	{
+		FMessageLog("LoadErrors").Warning(FText::Format(NSLOCTEXT("CurveEditor","CurveDataUpdate", "Linear color curves now accurately handle RGB values > 1. If you were relying on HSV clamping, please update {0}"),
+			FText::FromString(GetName())));
+	}
+#endif
+}
+
+void UCurveLinearColor::Serialize(FArchive& Ar)
+{
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+	Super::Serialize(Ar);
+}
 
 void UCurveLinearColor::WritePixel(uint8* Pixel, const FLinearColor& Color)
 {

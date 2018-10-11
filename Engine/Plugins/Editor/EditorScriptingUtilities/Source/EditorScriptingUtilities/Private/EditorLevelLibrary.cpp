@@ -779,7 +779,7 @@ void UEditorLevelLibrary::ReplaceMeshComponentsMeshes(const TArray<UStaticMeshCo
 		return;
 	}
 
-	FScopedTransaction ScopedTransaction(LOCTEXT("ReplaceMeshComponentsMaterials", "Replace components meshes"));
+	FScopedTransaction ScopedTransaction(LOCTEXT("ReplaceMeshComponentsMeshes", "Replace components meshes"));
 
 	int32 ChangeCounter = InternalEditorLevelLibrary::ReplaceMeshes(MeshComponents, MeshToBeReplaced, NewMesh);
 
@@ -801,7 +801,7 @@ void UEditorLevelLibrary::ReplaceMeshComponentsMeshesOnActors(const TArray<AActo
 		return;
 	}
 
-	FScopedTransaction ScopedTransaction(LOCTEXT("ReplaceMeshComponentsMaterials", "Replace components meshes"));
+	FScopedTransaction ScopedTransaction(LOCTEXT("ReplaceMeshComponentsMeshes", "Replace components meshes"));
 
 	int32 ChangeCounter = 0;
 	TInlineComponentArray<UStaticMeshComponent*> ComponentArray;

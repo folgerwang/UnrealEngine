@@ -1084,6 +1084,7 @@ int32 UTransBuffer::End()
 				{
 					check(UndoCount == 0);
 					UndoBuffer.Pop(false);
+					UndoBufferChangedDelegate.Broadcast();
 				}
 			}
 			GUndo = nullptr;
@@ -1127,6 +1128,7 @@ void UTransBuffer::Reset( const FText& Reason )
 		ResetReason = Reason;
 		ActiveCount = 0;
 		ActiveRecordCounts.Empty();
+		UndoBufferChangedDelegate.Broadcast();
 
 		CheckState();
 	}
@@ -1167,7 +1169,6 @@ void UTransBuffer::Cancel( int32 StartIndex /*=0*/ )
 
 			UndoCount = PreviousUndoCount;
 			PreviousUndoCount = INDEX_NONE;
-
 			UndoBufferChangedDelegate.Broadcast();
 		}
 		else
@@ -1346,6 +1347,8 @@ bool UTransBuffer::Undo(bool bCanRedo)
 		{
 			UndoBuffer.RemoveAt(UndoBuffer.Num() - UndoCount, UndoCount);
 			UndoCount = 0;
+
+			UndoBufferChangedDelegate.Broadcast();
 		}
 	}
 	GIsTransacting = false;

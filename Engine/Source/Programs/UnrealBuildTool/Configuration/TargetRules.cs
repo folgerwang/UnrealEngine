@@ -1575,7 +1575,7 @@ namespace UnrealBuildTool
 
 		public bool bForceBuildShaderFormats
 		{
-			get { return Inner.bForceBuildTargetPlatforms; }
+			get { return Inner.bForceBuildShaderFormats; }
 		}
 
 		public bool bCompileSimplygon

@@ -97,6 +97,8 @@ public class ConfigRulesTool
 				{
 					int eolIndex = versionLine.indexOf("\r");
 					int newIndex = versionLine.indexOf("\n");
+					eolIndex = (eolIndex < 0) ? 1000 : eolIndex;
+					newIndex = (newIndex < 0) ? 1000 : newIndex;
 					eolIndex = (eolIndex < newIndex) ? eolIndex : newIndex;
 					try
 					{

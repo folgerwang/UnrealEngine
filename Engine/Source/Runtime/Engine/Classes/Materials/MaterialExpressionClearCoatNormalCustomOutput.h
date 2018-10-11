@@ -9,7 +9,7 @@
 #include "Materials/MaterialExpressionCustomOutput.h"
 #include "MaterialExpressionClearCoatNormalCustomOutput.generated.h"
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UMaterialExpressionClearCoatNormalCustomOutput : public UMaterialExpressionCustomOutput
 {
 	GENERATED_UCLASS_BODY()

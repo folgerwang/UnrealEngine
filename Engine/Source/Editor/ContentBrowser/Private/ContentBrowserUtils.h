@@ -281,9 +281,7 @@ namespace ContentBrowserUtils
 
 	const TArray<FString>& GetFavoriteFolders();
 
-	// We assume the game name is 20 characters (the maximum allowed) to make sure that content can be ported between projects
-	// 260 characters is the limit on Windows, which is the shortest max path of any platforms that support cooking
-	static const int32 MaxGameNameLen = 20;
-	static const int32 MaxCookPathLen = 260;
+	/** Gets the maximum path length for a cooked file. Changes behavior based on whether the editor experimental setting for long paths is enabled. */
+	int32 GetMaxCookPathLen();
 }
 

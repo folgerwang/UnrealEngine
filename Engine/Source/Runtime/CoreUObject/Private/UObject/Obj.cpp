@@ -1180,7 +1180,11 @@ void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	{
 		OutDeps.Add(ObjClass);
 
-		if (!HasAnyFlags(RF_ClassDefaultObject) && ObjClass->GetDefaultsCount() > 0)
+		if (HasAnyFlags(RF_ClassDefaultObject))
+		{
+			ObjClass->GetDefaultObjectPreloadDependencies(OutDeps);
+		}
+		else if (ObjClass->GetDefaultsCount() > 0)
 		{
 			OutDeps.Add(ObjClass->GetDefaultObject());
 		}

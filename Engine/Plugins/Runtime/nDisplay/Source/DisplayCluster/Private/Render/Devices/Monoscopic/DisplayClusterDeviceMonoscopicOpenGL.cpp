@@ -5,7 +5,6 @@
 
 #include "Misc/DisplayClusterLog.h"
 
-#include <utility>
 
 
 FDisplayClusterDeviceMonoscopicOpenGL::FDisplayClusterDeviceMonoscopicOpenGL()
@@ -22,20 +21,13 @@ bool FDisplayClusterDeviceMonoscopicOpenGL::Present(int32& InOutSyncInterval)
 {
 	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("FDisplayClusterDeviceQuadBufferStereoOpenGL::Present"));
 
-	const int halfSizeY = BackBuffSize.Y / 2;
-	int dstX1 = 0;
-	int dstX2 = BackBuffSize.X;
+	const int halfSizeX = BackBuffSize.X / 2;
+	const int dstX1 = 0;
+	const int dstX2 = halfSizeX;
 
 	// Convert to left bottom origin and flip Y
-	int dstY1 = ViewportSize.Y;
-	int dstY2 = 0;
-
-	if (bFlipHorizontal)
-		std::swap(dstX1, dstX2);
-
-	if (bFlipVertical)
-		std::swap(dstY1, dstY2);
-
+	const int dstY1 = ViewportSize.Y;
+	const int dstY2 = 0;
 
 	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(CurrentViewport->GetViewportRHI().GetReference());
 	check(pOglViewport);
@@ -49,7 +41,7 @@ bool FDisplayClusterDeviceMonoscopicOpenGL::Present(int32& InOutSyncInterval)
 
 	glDrawBuffer(GL_BACK);
 	glBlitFramebuffer(
-		0, 0, BackBuffSize.X, halfSizeY,
+		0, 0, halfSizeX, BackBuffSize.Y,
 		dstX1, dstY1, dstX2, dstY2,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST);

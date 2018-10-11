@@ -136,8 +136,6 @@ public:
 	virtual void SetEyesSwap(bool swap) override;
 	virtual bool GetEyesSwap() const override;
 	virtual bool ToggleEyesSwap() override;
-	virtual void SetOutputFlip(bool flipH, bool flipV) override;
-	virtual void GetOutputFlip(bool& flipH, bool& flipV) const override;
 	virtual void SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy) override;
 	virtual EDisplayClusterSwapSyncPolicy GetSwapSyncPolicy() const override;
 	virtual void GetCullingDistance(float& NearDistance, float& FarDistance) const override;
@@ -184,10 +182,6 @@ protected:
 
 	// Viewport area settings
 	FDisplayClusterViewportArea ViewportArea;
-
-	// Render config
-	bool bFlipHorizontal = false;
-	bool bFlipVertical = false;
 
 	// Clipping plane
 	float NearClipPlane = GNearClippingPlane;

@@ -67,12 +67,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Return project configuration settings that must be included before the default props file
 		/// </summary>
-		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <param name="Platform">The UnrealTargetPlatform being built</param>
+		/// <param name="Configuration">The UnrealTargetConfiguration being built</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioPreDefaultString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+		public virtual void GetVisualStudioPreDefaultString(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, StringBuilder ProjectFileBuilder)
 		{
-			return "";
 		}
 
 		/// <summary>
@@ -81,10 +81,10 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
 		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat InProjectFileFormat)
+		public virtual void GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat InProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
-			return "";
 		}
 
 		/// <summary>
@@ -92,10 +92,10 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat)
+		public virtual void GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
-			return "";
 		}
 
 		/// <summary>
@@ -120,43 +120,41 @@ namespace UnrealBuildTool
 		/// <param name="ProjectFilePath"></param>
 		/// <param name="NMakeOutputPath"></param>
 		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>The custom path lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat)
+		public virtual void GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
 			// NOTE: We are intentionally overriding defaults for these paths with empty strings.  We never want Visual Studio's
 			//       defaults for these fields to be propagated, since they are version-sensitive paths that may not reflect
 			//       the environment that UBT is building in.  We'll set these environment variables ourselves!
 			// NOTE: We don't touch 'ExecutablePath' because that would result in Visual Studio clobbering the system "Path"
 			//       environment variable
-			string PathsLines =
-				"		<IncludePath />\n" +
-				"		<ReferencePath />\n" +
-				"		<LibraryPath />\n" +
-				"		<LibraryWPath />\n" +
-				"		<SourcePath />\n" +
-				"		<ExcludePath />\n";
-
-			return PathsLines;
+			ProjectFileBuilder.AppendLine("    <IncludePath />");
+			ProjectFileBuilder.AppendLine("    <ReferencePath />");
+			ProjectFileBuilder.AppendLine("    <LibraryPath />");
+			ProjectFileBuilder.AppendLine("    <LibraryWPath />");
+			ProjectFileBuilder.AppendLine("    <SourcePath />");
+			ProjectFileBuilder.AppendLine("    <ExcludePath />");
 		}
 
 		/// <summary>
 		/// Return any custom property settings. These will be included in the ImportGroup section
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioImportGroupProperties(UnrealTargetPlatform InPlatform)
+		public virtual void GetVisualStudioImportGroupProperties(UnrealTargetPlatform InPlatform, StringBuilder ProjectFileBuilder)
 		{
-			return "";
 		}
 
 		/// <summary>
 		/// Return any custom property settings. These will be included right after Global properties to make values available to all other imports.
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioGlobalProperties(UnrealTargetPlatform InPlatform)
+		public virtual void GetVisualStudioGlobalProperties(UnrealTargetPlatform InPlatform, StringBuilder ProjectFileBuilder)
 		{
-			return "";
 		}
 
 		/// <summary>
@@ -164,10 +162,10 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioTargetOverrides(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat)
+		public virtual void GetVisualStudioTargetOverrides(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
-			return "";
 		}
 
 		/// <summary>

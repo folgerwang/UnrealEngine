@@ -60,6 +60,12 @@ struct MOVIESCENE_API FMovieSceneEvaluationRange
 	}
 
 	/**
+	 * Get the range of frame numbers traversed over this evaluation range by flooring the lower bound, and ceiling the upper bound.
+	 * For example: a time range of [1.5, 5.6] will yield the equivalent of [1, 6). A time range of (2.0, 2.9) will yield the equivalent of [2,3).
+	 */
+	TRange<FFrameNumber> GetTraversedFrameNumberRange() const;
+
+	/**
 	 * Get the direction to evaluate our range
 	 */
 	FORCEINLINE EPlayDirection GetDirection() const 

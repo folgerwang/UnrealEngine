@@ -9,17 +9,100 @@
 #include "NiagaraEditorSettings.h"
 #include "AssetData.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
+#include "SNewSystemDialog.h"
+#include "Misc/MessageDialog.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraSystemFactory"
 
 UNiagaraSystemFactoryNew::UNiagaraSystemFactoryNew(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-
 	SupportedClass = UNiagaraSystem::StaticClass();
 	bCreateNew = false;
 	bEditAfterNew = true;
 	bCreateNew = true;
+}
+
+bool UNiagaraSystemFactoryNew::ConfigureProperties()
+{
+	IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+	TSharedPtr<SWindow>	ParentWindow = MainFrame.GetParentWindow();
+
+	TSharedRef<SNewSystemDialog> NewSystemDialog = SNew(SNewSystemDialog);
+	FSlateApplication::Get().AddModalWindow(NewSystemDialog, ParentWindow);
+
+	if (NewSystemDialog->GetUserConfirmedSelection() == false)
+	{
+		// User cancelled or closed the dialog so abort asset creation.
+		return false;
+	}
+
+	TOptional<FAssetData> SelectedSystemAsset = NewSystemDialog->GetSelectedSystemAsset();
+	TArray<FAssetData> EmitterAssetsToAddToNewSystem = NewSystemDialog->GetSelectedEmitterAssets();
+	if (SelectedSystemAsset.IsSet())
+	{
+		SystemToCopy = Cast<UNiagaraSystem>(SelectedSystemAsset.GetValue().GetAsset());
+		if (SystemToCopy == nullptr)
+		{
+			FText Title = LOCTEXT("FailedToLoadSystemTitle", "Create Default?");
+			EAppReturnType::Type DialogResult = FMessageDialog::Open(EAppMsgType::OkCancel, EAppReturnType::Cancel,
+				LOCTEXT("FailedToLoadEmitterMessage", "The selected system failed to load.\nWould you like to create an empty system?"),
+				&Title);
+			if (DialogResult == EAppReturnType::Cancel)
+			{
+				return false;
+			}
+			else
+			{
+				SystemToCopy = nullptr;
+				EmitterAssetsToAddToNewSystem.Empty();
+			}
+		}
+	}
+	else if (EmitterAssetsToAddToNewSystem.Num() > 0)
+	{
+		bool bAllEmittersLoaded = true;
+		for (const FAssetData& EmitterAssetToAdd : EmitterAssetsToAddToNewSystem)
+		{
+			UNiagaraEmitter* EmitterToAdd = Cast<UNiagaraEmitter>(EmitterAssetToAdd.GetAsset());
+			if (EmitterToAdd != nullptr)
+			{
+				EmittersToAddToNewSystem.Add(EmitterToAdd);
+			}
+			else
+			{
+				bAllEmittersLoaded = false;
+				break;
+			}
+		}
+
+		if(bAllEmittersLoaded == false)
+		{
+			FText Title = LOCTEXT("FailedToLoadEmitterTitle", "Create Default?");
+			EAppReturnType::Type DialogResult = FMessageDialog::Open(EAppMsgType::OkCancel, EAppReturnType::Cancel,
+				LOCTEXT("FailedToLoadMessage", "A selected emitter failed to load.\nWould you like to create an empty system system?"),
+				&Title);
+			if (DialogResult == EAppReturnType::Cancel)
+			{
+				return false;
+			}
+			else
+			{
+				EmittersToAddToNewSystem.Empty();
+			}
+		}
+	}
+	else
+	{
+		SystemToCopy = nullptr;
+		EmittersToAddToNewSystem.Empty();
+	}
+
+	return true;
 }
 
 UObject* UNiagaraSystemFactoryNew::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
@@ -31,17 +114,33 @@ UObject* UNiagaraSystemFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 
 	UNiagaraSystem* NewSystem;
 	
-	if (UNiagaraSystem* Default = Cast<UNiagaraSystem>(Settings->DefaultSystem.TryLoad()))
+	if (SystemToCopy != nullptr)
 	{
-		NewSystem = Cast<UNiagaraSystem>(StaticDuplicateObject(Default, InParent, Name, Flags, Class));
-		InitializeSystem(NewSystem, false);
+		NewSystem = Cast<UNiagaraSystem>(StaticDuplicateObject(SystemToCopy, InParent, Name, Flags, Class));
+		NewSystem->bIsTemplateAsset = false;
+		NewSystem->TemplateAssetDescription = FText();
+	}
+	else if (EmittersToAddToNewSystem.Num() > 0)
+	{
+		NewSystem = NewObject<UNiagaraSystem>(InParent, Class, Name, Flags | RF_Transactional);
+		InitializeSystem(NewSystem, true);
+
+		FNiagaraSystemViewModelOptions SystemViewModelOptions;
+		SystemViewModelOptions.bCanAutoCompile = false;
+		SystemViewModelOptions.bCanSimulate = false;
+		SystemViewModelOptions.EditMode = ENiagaraSystemViewModelEditMode::SystemAsset;
+
+		TSharedRef<FNiagaraSystemViewModel> NewSystemViewModel = MakeShared<FNiagaraSystemViewModel>(*NewSystem, SystemViewModelOptions);
+		for (UNiagaraEmitter* EmitterToAddToNewSystem : EmittersToAddToNewSystem)
+		{
+			NewSystemViewModel->AddEmitter(*EmitterToAddToNewSystem);
+		}
 	}
 	else
 	{
 		NewSystem = NewObject<UNiagaraSystem>(InParent, Class, Name, Flags | RF_Transactional);
 		InitializeSystem(NewSystem, true);
 	}
-
 
 	return NewSystem;
 }

@@ -251,7 +251,7 @@ protected:
 	/** Tracks the number of texture coordinates used by the vertex shader in this material. */
 	uint32 NumUserVertexTexCoords;
 
-	uint32 NumParticleDynamicParameters;
+	uint32 DynamicParticleParameterMask;
 public: 
 
 	FHLSLMaterialTranslator(FMaterial* InMaterial,
@@ -303,7 +303,7 @@ public:
 	,	bIsFullyRough(0)
 	,	NumUserTexCoords(0)
 	,	NumUserVertexTexCoords(0)
-	,	NumParticleDynamicParameters(0)
+	,	DynamicParticleParameterMask(0)
 	{
 		FMemory::Memzero(SharedPixelProperties);
 
@@ -991,10 +991,10 @@ public:
 			OutEnvironment.SetDefine(TEXT("NEEDS_PARTICLE_VELOCITY"), 1);
 		}
 
-		if (NumParticleDynamicParameters > 0)
+		if (DynamicParticleParameterMask)
 		{
 			OutEnvironment.SetDefine(TEXT("USE_DYNAMIC_PARAMETERS"), 1);
-			OutEnvironment.SetDefine(TEXT("NUM_DYNAMIC_PARAMETERS"), NumParticleDynamicParameters);
+			OutEnvironment.SetDefine(TEXT("DYNAMIC_PARAMETERS_MASK"), DynamicParticleParameterMask);
 		}
 
 		if (bNeedsParticleTime)
@@ -4964,7 +4964,7 @@ protected:
 			return NonVertexOrPixelShaderExpressionError();
 		}
 
-		NumParticleDynamicParameters = FMath::Max(NumParticleDynamicParameters, ParameterIndex + 1);
+		DynamicParticleParameterMask |= (1 << ParameterIndex);
 
 		int32 Default = Constant4(DefaultValue.R, DefaultValue.G, DefaultValue.B, DefaultValue.A);
 		return AddInlinedCodeChunk(
