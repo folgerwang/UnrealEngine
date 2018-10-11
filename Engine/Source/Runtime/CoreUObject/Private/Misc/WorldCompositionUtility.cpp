@@ -7,7 +7,6 @@
 #include "HAL/FileManager.h"
 #include "Templates/ScopedPointer.h"
 #include "UObject/PropertyPortFlags.h"
-#include "Serialization/ArchiveAsync.h"
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
 #include "Templates/UniquePtr.h"
