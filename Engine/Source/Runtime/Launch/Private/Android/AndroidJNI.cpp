@@ -27,7 +27,7 @@ jclass GGameActivityClassID;
 jobject GGameActivityThis;
 
 // Pointer to target widget for virtual keyboard contents
-static TWeakPtr<IVirtualKeyboardEntry, ESPMode::ThreadSafe> VirtualKeyboardWidget;
+static TWeakPtr<IVirtualKeyboardEntry> VirtualKeyboardWidget;
 
 //virtualKeyboard shown
 static volatile bool GVirtualKeyboardShown = false;
