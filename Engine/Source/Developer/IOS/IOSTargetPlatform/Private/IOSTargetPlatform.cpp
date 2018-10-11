@@ -147,6 +147,54 @@ bool FIOSTargetPlatform::IsSdkInstalled(bool bProjectHasCode, FString& OutTutori
 		biOSSDKInstalled = true;
 	}
 	
+	// Check for iTunes 12, Windows Store version
+	if (!biOSSDKInstalled)
+	{
+		HKEY hPackagesKey;
+		FString PackagesKeyName(TEXT("Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\PackageRepository\\Packages"));
+		if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, *PackagesKeyName, 0, KEY_READ, &hPackagesKey) == ERROR_SUCCESS)
+		{
+			DWORD NumSubKeys = 0;
+			DWORD LongestSubKeyLength;
+			if (RegQueryInfoKey(hPackagesKey, NULL, NULL, NULL, &NumSubKeys, &LongestSubKeyLength, NULL, NULL, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
+			{
+				static const uint32 MAX_SUBKEY_LENGTH = 512;
+				check(LongestSubKeyLength < MAX_SUBKEY_LENGTH);
+
+				for (uint32 i = 0; i < NumSubKeys; i++)
+				{
+					TCHAR SubKeyName[MAX_SUBKEY_LENGTH];
+					DWORD SubKeyLength = MAX_SUBKEY_LENGTH;
+					if (RegEnumKeyEx(hPackagesKey, i, SubKeyName, &SubKeyLength, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
+					{
+						check(SubKeyLength < MAX_SUBKEY_LENGTH);
+
+						if (FString(SubKeyName).Contains(TEXT("AppleInc.iTunes")) && (FString(SubKeyName).Contains(TEXT("_x64")) || FString(SubKeyName).Contains(TEXT("_x86"))))
+						{
+							HKEY iTunesKey;
+							TCHAR FullPackageSubKeyName[MAX_SUBKEY_LENGTH + MAX_SUBKEY_LENGTH + 1];
+							_stprintf_s(FullPackageSubKeyName, MAX_SUBKEY_LENGTH + MAX_SUBKEY_LENGTH + 1, TEXT("%s\\%s"), *PackagesKeyName, SubKeyName);
+							if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, FullPackageSubKeyName, 0, KEY_READ, &iTunesKey) == ERROR_SUCCESS)
+							{
+								if (RegQueryValueEx(iTunesKey, TEXT("Path"), NULL, NULL, (BYTE*)dllPath, &pathSize) == ERROR_SUCCESS)
+								{
+									TCHAR dllFullPath[MAX_SUBKEY_LENGTH + MAX_SUBKEY_LENGTH + 32];
+									_stprintf_s(dllFullPath, MAX_SUBKEY_LENGTH + MAX_SUBKEY_LENGTH + 32, TEXT("%s\\AMDS32\\MobileDevice.dll"), dllPath);
+
+									if (IFileManager::Get().FileSize(*FString(dllFullPath)) != INDEX_NONE)
+									{
+										biOSSDKInstalled = true;
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Check for iTunes 11
 	if(!biOSSDKInstalled
 		&& RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared"), 0, KEY_READ, &hKey) == ERROR_SUCCESS
