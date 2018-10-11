@@ -51,7 +51,6 @@ int main(int argc, const char *argv[])
 
 	FString SavedCommandLine;
 
-	setlocale(LC_CTYPE, "");
 	for (int32 Option = 1; Option < argc; Option++)
 	{
 		SavedCommandLine += TEXT(" ");
