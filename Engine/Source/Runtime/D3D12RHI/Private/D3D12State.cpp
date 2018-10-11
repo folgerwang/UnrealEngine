@@ -35,6 +35,16 @@ static D3D12_CULL_MODE TranslateCullMode(ERasterizerCullMode CullMode)
 	};
 }
 
+static ERasterizerCullMode ReverseTranslateCullMode(D3D12_CULL_MODE CullMode)
+{
+	switch (CullMode)
+	{
+	case D3D12_CULL_MODE_BACK: return CM_CW;
+	case D3D12_CULL_MODE_FRONT: return CM_CCW;
+	default: return CM_None;
+	}
+}
+
 static D3D12_FILL_MODE TranslateFillMode(ERasterizerFillMode FillMode)
 {
 	switch (FillMode)
@@ -42,6 +52,15 @@ static D3D12_FILL_MODE TranslateFillMode(ERasterizerFillMode FillMode)
 	case FM_Wireframe: return D3D12_FILL_MODE_WIREFRAME;
 	default: return D3D12_FILL_MODE_SOLID;
 	};
+}
+
+static ERasterizerFillMode ReverseTranslateFillMode(D3D12_FILL_MODE FillMode)
+{
+	switch (FillMode)
+	{
+	case D3D12_FILL_MODE_WIREFRAME: return FM_Wireframe;
+	default: return FM_Solid;
+	}
 }
 
 static D3D12_COMPARISON_FUNC TranslateCompareFunction(ECompareFunction CompareFunction)
@@ -57,6 +76,21 @@ static D3D12_COMPARISON_FUNC TranslateCompareFunction(ECompareFunction CompareFu
 	case CF_Never: return D3D12_COMPARISON_FUNC_NEVER;
 	default: return D3D12_COMPARISON_FUNC_ALWAYS;
 	};
+}
+
+static ECompareFunction ReverseTranslateCompareFunction(D3D12_COMPARISON_FUNC CompareFunction)
+{
+	switch (CompareFunction)
+	{
+	case D3D12_COMPARISON_FUNC_LESS: return CF_Less;
+	case D3D12_COMPARISON_FUNC_LESS_EQUAL: return CF_LessEqual;
+	case D3D12_COMPARISON_FUNC_GREATER: return CF_Greater;
+	case D3D12_COMPARISON_FUNC_GREATER_EQUAL: return CF_GreaterEqual;
+	case D3D12_COMPARISON_FUNC_EQUAL: return CF_Equal;
+	case D3D12_COMPARISON_FUNC_NOT_EQUAL: return CF_NotEqual;
+	case D3D12_COMPARISON_FUNC_NEVER: return CF_Never;
+	default: return CF_Always;
+	}
 }
 
 static D3D12_COMPARISON_FUNC TranslateSamplerCompareFunction(ESamplerCompareFunction SamplerComparisonFunction)
@@ -84,6 +118,21 @@ static D3D12_STENCIL_OP TranslateStencilOp(EStencilOp StencilOp)
 	};
 }
 
+static EStencilOp ReverseTranslateStencilOp(D3D12_STENCIL_OP StencilOp)
+{
+	switch (StencilOp)
+	{
+	case D3D12_STENCIL_OP_ZERO: return SO_Zero;
+	case D3D12_STENCIL_OP_REPLACE: return SO_Replace;
+	case D3D12_STENCIL_OP_INCR_SAT: return SO_SaturatedIncrement;
+	case D3D12_STENCIL_OP_DECR_SAT: return SO_SaturatedDecrement;
+	case D3D12_STENCIL_OP_INVERT: return SO_Invert;
+	case D3D12_STENCIL_OP_INCR: return SO_Increment;
+	case D3D12_STENCIL_OP_DECR: return SO_Decrement;
+	default: return SO_Keep;
+	};
+}
+
 static D3D12_BLEND_OP TranslateBlendOp(EBlendOperation BlendOp)
 {
 	switch (BlendOp)
@@ -93,6 +142,18 @@ static D3D12_BLEND_OP TranslateBlendOp(EBlendOperation BlendOp)
 	case BO_Max: return D3D12_BLEND_OP_MAX;
 	case BO_ReverseSubtract: return D3D12_BLEND_OP_REV_SUBTRACT;
 	default: return D3D12_BLEND_OP_ADD;
+	};
+}
+
+static EBlendOperation ReverseTranslateBlendOp(D3D12_BLEND_OP BlendOp)
+{
+	switch (BlendOp)
+	{
+	case D3D12_BLEND_OP_SUBTRACT: return BO_Subtract;
+	case D3D12_BLEND_OP_MIN: return BO_Min;
+	case D3D12_BLEND_OP_MAX: return BO_Max;
+	case D3D12_BLEND_OP_REV_SUBTRACT: return BO_ReverseSubtract;
+	default: return BO_Add;
 	};
 }
 
@@ -112,6 +173,25 @@ static D3D12_BLEND TranslateBlendFactor(EBlendFactor BlendFactor)
 	case BF_ConstantBlendFactor: return D3D12_BLEND_BLEND_FACTOR;
 	case BF_InverseConstantBlendFactor: return D3D12_BLEND_INV_BLEND_FACTOR;
 	default: return D3D12_BLEND_ZERO;
+	};
+}
+
+static EBlendFactor ReverseTranslateBlendFactor(D3D12_BLEND BlendFactor)
+{
+	switch (BlendFactor)
+	{
+	case D3D12_BLEND_ONE: return BF_One;
+	case D3D12_BLEND_SRC_COLOR: return BF_SourceColor;
+	case D3D12_BLEND_INV_SRC_COLOR: return BF_InverseSourceColor;
+	case D3D12_BLEND_SRC_ALPHA: return BF_SourceAlpha;
+	case D3D12_BLEND_INV_SRC_ALPHA: return BF_InverseSourceAlpha;
+	case D3D12_BLEND_DEST_ALPHA: return BF_DestAlpha;
+	case D3D12_BLEND_INV_DEST_ALPHA: return BF_InverseDestAlpha;
+	case D3D12_BLEND_DEST_COLOR: return BF_DestColor;
+	case D3D12_BLEND_INV_DEST_COLOR: return BF_InverseDestColor;
+	case D3D12_BLEND_BLEND_FACTOR: return BF_ConstantBlendFactor;
+	case D3D12_BLEND_INV_BLEND_FACTOR: return BF_InverseConstantBlendFactor;
+	default: return BF_Zero;
 	};
 }
 
@@ -225,6 +305,18 @@ FRasterizerStateRHIRef FD3D12DynamicRHI::RHICreateRasterizerState(const FRasteri
 	return RasterizerState;
 }
 
+bool FD3D12RasterizerState::GetInitializer(struct FRasterizerStateInitializerRHI& Init)
+{
+	Init.FillMode = ReverseTranslateFillMode(Desc.FillMode);
+	Init.CullMode = ReverseTranslateCullMode(Desc.CullMode);
+	Init.DepthBias = Desc.DepthBias / static_cast<float>(1 << 24);
+	check(Desc.DepthBias == FMath::FloorToInt(Init.DepthBias * static_cast<float>(1 << 24)));
+	Init.SlopeScaleDepthBias = Desc.SlopeScaledDepthBias;
+	Init.bAllowMSAA = Desc.MultisampleEnable;
+	Init.bEnableLineAA = false;
+	return true;
+}
+
 FDepthStencilStateRHIRef FD3D12DynamicRHI::RHICreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer)
 {
 	FD3D12DepthStencilState* DepthStencilState = new FD3D12DepthStencilState;
@@ -275,6 +367,30 @@ FDepthStencilStateRHIRef FD3D12DynamicRHI::RHICreateDepthStencilState(const FDep
 	return DepthStencilState;
 }
 
+bool FD3D12DepthStencilState::GetInitializer(struct FDepthStencilStateInitializerRHI& Init)
+{
+	Init.bEnableDepthWrite = Desc.DepthWriteMask != D3D12_DEPTH_WRITE_MASK_ZERO;
+	Init.DepthTest = ReverseTranslateCompareFunction(Desc.DepthFunc);
+	Init.bEnableFrontFaceStencil = Desc.StencilEnable;
+	Init.FrontFaceStencilTest = ReverseTranslateCompareFunction(Desc.FrontFace.StencilFunc);
+	Init.FrontFaceStencilFailStencilOp = ReverseTranslateStencilOp(Desc.FrontFace.StencilFailOp);
+	Init.FrontFaceDepthFailStencilOp = ReverseTranslateStencilOp(Desc.FrontFace.StencilDepthFailOp);
+	Init.FrontFacePassStencilOp = ReverseTranslateStencilOp(Desc.FrontFace.StencilPassOp);
+	Init.bEnableBackFaceStencil =
+		Desc.StencilEnable &&
+		(Desc.FrontFace.StencilFunc != Desc.BackFace.StencilFunc ||
+			Desc.FrontFace.StencilFailOp != Desc.BackFace.StencilFailOp ||
+			Desc.FrontFace.StencilDepthFailOp != Desc.BackFace.StencilDepthFailOp ||
+			Desc.FrontFace.StencilPassOp != Desc.BackFace.StencilPassOp);
+	Init.BackFaceStencilTest = ReverseTranslateCompareFunction(Desc.BackFace.StencilFunc);
+	Init.BackFaceStencilFailStencilOp = ReverseTranslateStencilOp(Desc.BackFace.StencilFailOp);
+	Init.BackFaceDepthFailStencilOp = ReverseTranslateStencilOp(Desc.BackFace.StencilDepthFailOp);
+	Init.BackFacePassStencilOp = ReverseTranslateStencilOp(Desc.BackFace.StencilPassOp);
+	Init.StencilReadMask = Desc.StencilReadMask;
+	Init.StencilWriteMask = Desc.StencilWriteMask;
+	return true;
+}
+
 FBlendStateRHIRef FD3D12DynamicRHI::RHICreateBlendState(const FBlendStateInitializerRHI& Initializer)
 {
 	FD3D12BlendState* BlendState = new FD3D12BlendState;
@@ -306,6 +422,29 @@ FBlendStateRHIRef FD3D12DynamicRHI::RHICreateBlendState(const FBlendStateInitial
 	}
 
 	return BlendState;
+}
+
+bool FD3D12BlendState::GetInitializer(class FBlendStateInitializerRHI& Init)
+{
+	for (int32 Idx = 0; Idx < MaxSimultaneousRenderTargets; ++Idx)
+	{
+		const D3D12_RENDER_TARGET_BLEND_DESC& Src = Desc.RenderTarget[Idx];
+		FBlendStateInitializerRHI::FRenderTarget& Dst = Init.RenderTargets[Idx];
+
+		Dst.ColorBlendOp = ReverseTranslateBlendOp(Src.BlendOp);
+		Dst.ColorSrcBlend = ReverseTranslateBlendFactor(Src.SrcBlend);
+		Dst.ColorDestBlend = ReverseTranslateBlendFactor(Src.DestBlend);
+		Dst.AlphaBlendOp = ReverseTranslateBlendOp(Src.BlendOpAlpha);
+		Dst.AlphaSrcBlend = ReverseTranslateBlendFactor(Src.SrcBlendAlpha);
+		Dst.AlphaDestBlend = ReverseTranslateBlendFactor(Src.DestBlendAlpha);
+		Dst.ColorWriteMask = TEnumAsByte<EColorWriteMask>(
+			((Src.RenderTargetWriteMask & D3D12_COLOR_WRITE_ENABLE_RED) ? CW_RED : 0)
+			| ((Src.RenderTargetWriteMask & D3D12_COLOR_WRITE_ENABLE_GREEN) ? CW_GREEN : 0)
+			| ((Src.RenderTargetWriteMask & D3D12_COLOR_WRITE_ENABLE_BLUE) ? CW_BLUE : 0)
+			| ((Src.RenderTargetWriteMask & D3D12_COLOR_WRITE_ENABLE_ALPHA) ? CW_ALPHA : 0));
+	}
+	Init.bUseIndependentRenderTargetBlendStates = Desc.IndependentBlendEnable;
+	return true;
 }
 
 FGraphicsPipelineStateRHIRef FD3D12DynamicRHI::RHICreateGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer)
