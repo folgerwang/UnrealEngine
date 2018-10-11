@@ -105,4 +105,6 @@ const FSlateBrush* SPIEPreviewWindowTitleBar::GetScreenRotationButtonImage() con
 	}
 }
 
+#undef LOCTEXT_NAMESPACE
+
 #endif

@@ -14,6 +14,63 @@ FComputeFenceRHIRef FD3D12DynamicRHI::RHICreateComputeFence(const FName& Name)
 	return Fence;
 }
 
+void FD3D12GPUFence::WriteInternal(ED3D12CommandQueueType QueueType)
+{
+	if (Fence)
+	{
+		Value = Fence->Signal(QueueType);
+	}
+}
+
+bool FD3D12GPUFence::Poll() const
+{
+	return !Value || (Fence && Fence->IsFenceComplete(Value));
+}
+
+
+FGPUFenceRHIRef FD3D12DynamicRHI::RHICreateGPUFence(const FName& Name)
+{
+	return new FD3D12GPUFence(Name, GetAdapter().GetStagingFence());
+}
+
+FStagingBufferRHIRef FD3D12DynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
+{
+	return new FD3D12StagingBuffer(VertexBufferRHI);
+}
+
+void* FD3D12DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
+{
+	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
+	check(StagingBuffer);
+
+	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
+	if (pResource)
+	{
+		D3D12_RANGE ReadRange;
+		ReadRange.Begin = Offset;
+		ReadRange.End = Offset + SizeRHI;
+		return reinterpret_cast<uint8*>(pResource->Map(&ReadRange)) + Offset;
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void FD3D12DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
+{
+	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
+	check(StagingBuffer);
+
+	FD3D12Resource* pResource = StagingBuffer->StagedRead.GetReference();
+	if (pResource)
+	{
+		pResource->Unmap();
+	}
+}
+
+// =============================================================================
+
 FD3D12FenceCore::FD3D12FenceCore(FD3D12Adapter* Parent, uint64 InitialValue, uint32 InGPUIndex)
 	: FD3D12AdapterChild(Parent)
 	, FenceValueAvailableAt(0)

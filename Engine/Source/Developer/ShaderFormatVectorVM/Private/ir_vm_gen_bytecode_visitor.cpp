@@ -545,6 +545,15 @@ void emit_short(unsigned short s, TArray<uint8>& bytecode)
 	bytecode.Add(s & 255);
 }
 
+void emit_external_func_input(variable_info_node* input, TArray<uint8>& bytecode)
+{
+	check((input->offset & VVM_EXT_FUNC_INPUT_LOC_BIT) == 0);//Ensure the offset isn't too large.
+
+	unsigned short offset = input->offset | (input->owner->location == EVectorVMOperandLocation::Constant ? 0 : VVM_EXT_FUNC_INPUT_LOC_BIT);
+	bytecode.Add(offset >> 8);
+	bytecode.Add(offset & 255);
+}
+
 struct op_base
 {
 	op_base()
@@ -571,7 +580,7 @@ struct op_base
 
 	static void validate_component_offset(_mesa_glsl_parse_state* parse_state, variable_info_node* component, unsigned op_idx)
 	{
-		if (component->offset == INDEX_NONE && component->last_read > (uint32)op_idx)
+		if (component->offset == INDEX_NONE && component->last_read >= (uint32)op_idx)
 		{
 			FString ErrorStr = FString::Printf(TEXT("Component %s of variable %s has no valid offset. Possibly uninitialized data being used."), ANSI_TO_TCHAR(component->name), ANSI_TO_TCHAR(component->owner->root->name));
 
@@ -1144,7 +1153,7 @@ struct op_external_func : public op_base
 
 		for (variable_info_node* input : inputs)
 		{
-			emit_short(input->offset, bytecode);
+			emit_external_func_input(input, bytecode);
 		}
 
 		for (variable_info_node* output : outputs)
@@ -1258,6 +1267,9 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 	/** Used when building ordered_ops. Keeps track of the current operands info node so we can generate it's op code and data location. */
 	variable_info_node* curr_node;
 
+	//currently handling an output param?
+	bool is_output_param;
+
 	TArray<ir_constant*> seen_constants;
 
 	explicit ir_gen_vvm_visitor(_mesa_glsl_parse_state *in_parse_state, FVectorVMCompilationOutput& InCompilationOutput)
@@ -1270,6 +1282,7 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		, constant_table_size_bytes(0)
 		, dest_component(0)
 		, curr_node(nullptr)
+		, is_output_param(false)
 	{
 	}
 
@@ -1388,6 +1401,7 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		check(constant->type->is_scalar());//We shouldn't ever have non scalar constants.
 		check(curr_node == nullptr);
 		check(varinfo == nullptr);
+		check(!is_output_param);
 
 		const glsl_type* type = constant->type;
 		int32 same_const = seen_constants.IndexOfByPredicate(
@@ -1494,7 +1508,10 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		check(var_info);
 		check(curr_node == nullptr);
 		curr_node = var_info->root->children[index->get_int_component(0)];
-		curr_node->last_read = ordered_ops.Num() - 1;
+		if (!is_output_param)
+		{
+			curr_node->last_read = ordered_ops.Num() - 1;
+		}
 
 		return visit_continue_with_parent;
 	}
@@ -1512,8 +1529,10 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		}
 
 		curr_node = var_info->root;
-		curr_node->last_read = ordered_ops.Num() - 1;
-
+		if (!is_output_param)
+		{
+			curr_node->last_read = ordered_ops.Num() - 1;
+		}
 		return visit_continue;
 	}
 
@@ -1546,7 +1565,10 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 			curr_node = curr_node->children[swiz_comp];
 		}
 
-		curr_node->last_read = ordered_ops.Num() - 1;
+		if (!is_output_param)
+		{
+			curr_node->last_read = ordered_ops.Num() - 1;
+		}
 
 		//swizzles must be the final entry in a deref chain so we have to have reached a scalar by now.
 		check(curr_node->is_scalar());
@@ -1572,7 +1594,10 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		}
 		check(prev_node != curr_node);//We have to find a child to move into.
 
-		curr_node->last_read = ordered_ops.Num() - 1;
+		if (!is_output_param)
+		{
+			curr_node->last_read = ordered_ops.Num() - 1;
+		}
 
 		return visit_continue;
 	}
@@ -1588,6 +1613,7 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 	{
 		check(curr_node == nullptr);
 		check(expression->type->is_scalar());
+		check(!is_output_param)
 
 		EVectorVMBaseTypes BaseType = EVectorVMBaseTypes::Num;
 		if (expression->type->is_float())
@@ -1708,11 +1734,16 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 		{
 			//Handle each param.
 			exec_node* curr = call->actual_parameters.get_head();
+			exec_node* curr_param = call->callee->parameters.get_head();
 			for (unsigned param_idx = 0; param_idx < num_operands; ++param_idx)
 			{
 				check(curr);
 				ir_rvalue* param = (ir_rvalue*)curr;
+				ir_variable* real_param = (ir_variable*)curr_param;
+
+				is_output_param = real_param->mode == ir_var_out;
 				param->accept(this);
+				is_output_param = false;
 
 				check(curr_node);
 				check(curr_node->is_scalar());
@@ -1721,6 +1752,7 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 				curr_node = nullptr;
 
 				curr = curr->get_next();
+				curr_param = curr_param->get_next();
 			}
 			standard->num_operands = num_operands;
 
@@ -1928,13 +1960,15 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 			foreach_iter(exec_list_iterator, iter, call->actual_parameters)
 			{
 				ir_rvalue* param = (ir_rvalue*)(iter.get());
-
-				check(curr_node == nullptr);
-				param->accept(this);
-				check(curr_node != nullptr);				
-
 				check(sig_param_node);
 				ir_variable* sig_param = (ir_variable*)sig_param_node;
+
+				check(curr_node == nullptr);
+				is_output_param = sig_param->mode == ir_var_out;
+				param->accept(this);
+				check(curr_node != nullptr);	
+				is_output_param = false;
+
 				if (sig_param->mode == ir_var_in)
 				{
 					func->inputs.Add(curr_node);

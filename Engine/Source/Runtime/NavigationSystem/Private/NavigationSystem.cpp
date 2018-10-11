@@ -4438,7 +4438,8 @@ void UNavigationSystemModuleConfig::PostInitProperties()
 
 void UNavigationSystemModuleConfig::UpdateWithNavSysCDO(const UNavigationSystemV1& NavSysCDO)
 {
-	if (NavigationSystemClass.ResolveClass() == NavSysCDO.GetClass())
+	UClass* MyClass = NavigationSystemClass.ResolveClass();
+	if (MyClass != nullptr && MyClass->IsChildOf(NavSysCDO.GetClass()))
 	{
 		bStrictlyStatic = NavSysCDO.bStaticRuntimeNavigation;
 		bCreateOnClient = NavSysCDO.bAllowClientSideNavigation;

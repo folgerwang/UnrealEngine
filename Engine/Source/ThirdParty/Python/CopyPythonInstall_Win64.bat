@@ -22,6 +22,7 @@ XCOPY /q "NoRedist\TPS\PythonWinBin.tps" "%python_dest_name%"
 XCOPY /q "NoRedist\TPS\VisualStudio2008.tps" "%python_dest_name%"
 XCOPY /q "%WINDIR%\System32\python27.dll" "%python_dest_name%"
 RMDIR "%python_dest_name%\Doc" /s /q
+DEL "%python_dest_name%\Lib\*.pyc" /s /q
 DEL "%python_dest_name%\w9xpopen.exe"
 
 :End

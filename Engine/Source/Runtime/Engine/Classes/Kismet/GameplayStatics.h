@@ -835,6 +835,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game")
 	static bool DoesSaveGameExist(const FString& SlotName, const int32 UserIndex);
 
+	/**
+	 *	Load the contents from a given array of bytes.
+	 *	@param InSaveData		The array containing the serialized USaveGame data to load
+	 *	@return SaveGameObject	Object containing loaded game state (NULL if load fails)
+	 */
+	static USaveGame* LoadGameFromMemory(const TArray<uint8>& InSaveData);
+
 	/** 
 	 *	Load the contents from a given slot.
 	 *	@param SlotName			Name of the save game slot to load from.

@@ -143,7 +143,7 @@ bool SNiagaraStackModuleItem::CheckEnabledStatus(bool bIsEnabled)
 void SNiagaraStackModuleItem::FillRowContextMenu(FMenuBuilder& MenuBuilder)
 {
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("InsertModuleAbove", "Insert above"),
+		LOCTEXT("InsertModuleAbove", "Insert Above"),
 		LOCTEXT("InsertModuleAboveToolTip", "Insert a new module above this module in the stack."),
 		FSlateIcon(),
 		FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackModuleItem::InsertModuleAbove)));
@@ -223,11 +223,17 @@ TSharedRef<SWidget> SNiagaraStackModuleItem::RaiseActionMenuClicked()
 					LOCTEXT("MergeToolTip", "If a Set Variables node precedes this one in the stack, merge this node (and all variable binding logic) into that stack."),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateUObject(AssignmentNode, &UNiagaraNodeAssignment::MergeUp)));*/
-				MenuBuilder.AddSubMenu(LOCTEXT("AddVariables", "Add Variable"),
+				MenuBuilder.AddSubMenu(LOCTEXT("AddVariables", "Add Variable"), 
 					LOCTEXT("AddVariablesTooltip", "Add another variable to the end of the list"),
 					FNewMenuDelegate::CreateLambda([OutputNode, AssignmentNode](FMenuBuilder& SubMenuBuilder)
 				{
-					AssignmentNode->BuildParameterMenu(SubMenuBuilder, OutputNode->GetUsage(), OutputNode);
+					AssignmentNode->BuildAddParameterMenu(SubMenuBuilder, OutputNode->GetUsage(), OutputNode);
+				}));
+				MenuBuilder.AddSubMenu(LOCTEXT("CreateVariables", "Create New Variable"),
+					LOCTEXT("CreateVariablesTooltip", "Create a new variable and set its value"),
+					FNewMenuDelegate::CreateLambda([OutputNode, AssignmentNode](FMenuBuilder& SubMenuBuilder)
+				{
+					AssignmentNode->BuildCreateParameterMenu(SubMenuBuilder, OutputNode->GetUsage(), OutputNode);
 				}));
 
 				return MenuBuilder.MakeWidget();

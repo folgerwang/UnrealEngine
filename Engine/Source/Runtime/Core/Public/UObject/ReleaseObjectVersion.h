@@ -65,6 +65,9 @@ struct CORE_API FReleaseObjectVersion
 		// Change to MeshDescription serialization
 		MeshDescriptionNewSerialization,
 
+		// Change to not clamp RGB values > 1 on linear color curves
+		UnclampRGBColorCurves,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

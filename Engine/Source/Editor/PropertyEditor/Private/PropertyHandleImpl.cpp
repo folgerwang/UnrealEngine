@@ -3718,6 +3718,25 @@ FPropertyAccess::Result FPropertyHandleObject::SetValueFromFormattedString(const
 				bSupportedObject = true;
 			}
 
+			if (bSupportedObject)
+			{
+				const FString& DisallowedClassesString = NodeProperty->GetMetaData("DisallowedClasses");
+				TArray<FString> DisallowedClassNames;
+				DisallowedClassesString.ParseIntoArray(DisallowedClassNames, TEXT(","), true);
+
+				for (const FString& DisallowedClassName : DisallowedClassNames)
+				{
+					UClass* DisallowedClass = FindObject<UClass>(ANY_PACKAGE, *DisallowedClassName);
+					const bool bIsInterface = DisallowedClass && DisallowedClass->HasAnyClassFlags(CLASS_Interface);
+
+					if ((DisallowedClass && QualifiedObject->IsA(DisallowedClass)) || (bIsInterface && QualifiedObject->GetClass()->ImplementsInterface(DisallowedClass)))
+					{
+						bSupportedObject = false;
+						break;
+					}
+				}
+			}
+
 			// Check required class
 			if (RequiredClass && !QualifiedClass->IsChildOf(RequiredClass))
 			{

@@ -20,8 +20,8 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Set the base directory to resolve relative paths and patterns against. If set, any absolute patterns (eg. /Engine/Build/...) are taken to be relative to this path. If not, they are taken to be truly absolute.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string BaseDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference BaseDir;
 
 		/// <summary>
 		/// Set of files to work from, including wildcards and tag names, separated by semicolons. Resolved relative to BaseDir if set, otherwise to the branch root directory.
@@ -84,7 +84,7 @@ namespace AutomationTool.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Get the base directory
-			DirectoryReference BaseDir = ResolveDirectory(Parameters.BaseDir);
+			DirectoryReference BaseDir = Parameters.BaseDir ?? CommandUtils.RootDirectory;
 
 			// Parse all the exclude rules
 			List<string> ExcludeRules = ParseRules(BaseDir, Parameters.Except ?? "", TagNameToFileSet);

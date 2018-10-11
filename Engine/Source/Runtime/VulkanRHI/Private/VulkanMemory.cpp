@@ -1936,7 +1936,7 @@ namespace VulkanRHI
 		: FDeviceChild(InDevice)
 		, BufferIndex(0)
 	{
-		for (int32 Index = 0; Index < NUM_RENDER_BUFFERS; ++Index)
+		for (int32 Index = 0; Index < NUM_BUFFERS; ++Index)
 		{
 			Entries[Index].InitBuffer(Device, ALLOCATION_SIZE);
 		}
@@ -1962,7 +1962,7 @@ namespace VulkanRHI
 
 	void FTempFrameAllocationBuffer::Destroy()
 	{
-		for (int32 Index = 0; Index < NUM_RENDER_BUFFERS; ++Index)
+		for (int32 Index = 0; Index < NUM_BUFFERS; ++Index)
 		{
 			Entries[Index].BufferSuballocation = nullptr;
 		}
@@ -2006,7 +2006,7 @@ namespace VulkanRHI
 	void FTempFrameAllocationBuffer::Reset()
 	{
 		FScopeLock ScopeLock(&CS);
-		BufferIndex = (BufferIndex + 1) % NUM_RENDER_BUFFERS;
+		BufferIndex = (BufferIndex + 1) % NUM_BUFFERS;
 		Entries[BufferIndex].Reset();
 	}
 

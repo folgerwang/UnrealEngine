@@ -28,10 +28,6 @@ static FAutoConsoleVariableRef CVarVulkanSubmitAfterEveryEndRenderPass(
 	ECVF_Default
 );
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-extern TAutoConsoleVariable<int32> CVarVulkanDebugBarrier;
-#endif
-
 // make sure what the hardware expects matches what we give it for indirect arguments
 static_assert(sizeof(FRHIDrawIndirectParameters) == sizeof(VkDrawIndirectCommand), "FRHIDrawIndirectParameters size is wrong.");
 static_assert(STRUCT_OFFSET(FRHIDrawIndirectParameters, VertexCountPerInstance) == STRUCT_OFFSET(VkDrawIndirectCommand, vertexCount), "Wrong offset of FRHIDrawIndirectParameters::VertexCountPerInstance.");
@@ -130,12 +126,7 @@ void FVulkanCommandListContext::RHIDispatchComputeShader(uint32 ThreadGroupCount
 		GpuProfiler.RegisterGPUWork(1);
 	}
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 2)
-	{
-		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
-	}
-#endif
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer, 2);
 }
 
 void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset) 
@@ -165,12 +156,7 @@ void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRH
 		GpuProfiler.RegisterGPUWork(1);
 	}
 
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 2)
-	{
-		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
-	}
-#endif
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer, 2);
 }
 
 void FVulkanCommandListContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderStateRHI)
@@ -1203,6 +1189,30 @@ void FVulkanCommandListContext::PrepareParallelFromBase(const FVulkanCommandList
 {
 	//#todo-rco: Temp
 	TransitionAndLayoutManager.TempCopy(BaseContext.TransitionAndLayoutManager);
+}
+
+void FVulkanCommandListContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+{
+	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+
+	FVulkanGPUFence* Fence = ResourceCast(FenceRHI);
+	Fence->CmdBuffer = CmdBuffer;
+	Fence->FenceSignaledCounter = CmdBuffer->GetFenceSignaledCounter();
+
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
+	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
+	StagingBuffer->QueuedOffset = Offset;
+	StagingBuffer->QueuedNumBytes = NumBytes;
+
+	VkBufferCopy Region;
+	FMemory::Memzero(Region);
+	Region.size = NumBytes;
+	FVulkanVertexBuffer* VertexBuffer = ResourceCast(StagingBufferRHI->GetBackingBuffer());
+	Region.srcOffset = Offset + VertexBuffer->GetOffset();
+	//Region.dstOffset = 0;
+	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), ReadbackStagingBuffer->GetHandle(), 1, &Region);
 }
 
 

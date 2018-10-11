@@ -79,6 +79,8 @@ public:
 			[
 				ContentWidget.ToSharedRef()
 			], &InWidgetObject);
+
+		SetCanTick(true);
 	}
 
 	virtual ~SObjectTableRow()

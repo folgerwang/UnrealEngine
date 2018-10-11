@@ -107,15 +107,17 @@ struct FSpectatorScreenModeTexturePlusEyeLayout
 		, TextureRectMin(0.125f, 0.125f)
 		, TextureRectMax(0.25f, 0.25f)
 		, bDrawEyeFirst(true)
+		, bUseAlpha(false)
 		, bClearBlack(false)
 	{}
 
-	FSpectatorScreenModeTexturePlusEyeLayout(FVector2D InEyeRectMin, FVector2D InEyeRectMax, FVector2D InTextureRectMin, FVector2D InTextureRectMax, bool InbDrawEyeFirst, bool InbClearBlack)
+	FSpectatorScreenModeTexturePlusEyeLayout(FVector2D InEyeRectMin, FVector2D InEyeRectMax, FVector2D InTextureRectMin, FVector2D InTextureRectMax, bool InbDrawEyeFirst, bool InbClearBlack, bool InbUseAlpha)
 		: EyeRectMin(InEyeRectMin)
 		, EyeRectMax(InEyeRectMax)
 		, TextureRectMin(InTextureRectMin)
 		, TextureRectMax(InTextureRectMax)
 		, bDrawEyeFirst(InbDrawEyeFirst)
+		, bUseAlpha(InbUseAlpha)
 		, bClearBlack(InbClearBlack)
 	{}
 
@@ -169,6 +171,7 @@ struct FSpectatorScreenModeTexturePlusEyeLayout
 	FVector2D TextureRectMin;
 	FVector2D TextureRectMax;
 	bool bDrawEyeFirst;
+	bool bUseAlpha;
 	bool bClearBlack;
 };
 

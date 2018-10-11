@@ -137,9 +137,3 @@ namespace EVulkanBindingType
 		return 0;
 	}
 }
-
-/** How many back buffers to cycle through */
-enum
-{
-	NUM_RENDER_BUFFERS = 3,
-};

@@ -1296,18 +1296,25 @@ void ULevelStreaming::BroadcastLevelLoadedStatus(UWorld* PersistentWorld, FName 
 	
 void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName LevelPackageName, bool bVisible)
 {
+	TArray<ULevelStreaming*, TInlineAllocator<1>> LevelsToBroadcast;
+
 	for (ULevelStreaming* StreamingLevel : PersistentWorld->GetStreamingLevels())
 	{
 		if (StreamingLevel->GetWorldAssetPackageFName() == LevelPackageName)
 		{
-			if (bVisible)
-			{
-				StreamingLevel->OnLevelShown.Broadcast();
-			}
-			else
-			{
-				StreamingLevel->OnLevelHidden.Broadcast();
-			}
+			LevelsToBroadcast.Add(StreamingLevel);
+		}
+	}
+
+	for (ULevelStreaming* StreamingLevel : LevelsToBroadcast)
+	{
+		if (bVisible)
+		{
+			StreamingLevel->OnLevelShown.Broadcast();
+		}
+		else
+		{
+			StreamingLevel->OnLevelHidden.Broadcast();
 		}
 	}
 }
@@ -1539,6 +1546,10 @@ void ULevelStreaming::PreEditUndo()
 void ULevelStreaming::PostEditUndo()
 {
 	FLevelUtils::ApplyEditorTransform(this, false);
+	if (UWorld* World = GetWorld())
+	{
+		World->UpdateStreamingLevelShouldBeConsidered(this);
+	}
 }
 
 const FName& ULevelStreaming::GetFolderPath() const

@@ -225,8 +225,8 @@ void FNiagaraEmitterTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilde
 					? LOCTEXT("RemoveFromIsolation", "Remove this from isolation.")
 					: LOCTEXT("AddToIsolation", "Add this to isolation"),
 				SystemViewModel.IsEmitterIsolated(EmitterTrack->GetEmitterHandleViewModel().ToSharedRef())
-					? LOCTEXT("RemoveFromIsolation", "Remove this emitter from isolation, without changing other emitters.")
-					: LOCTEXT("AddToIsolation", "Add this emitter to isolation, without changing other emitters."),
+					? LOCTEXT("RemoveFromIsolation_NoChangeOthers", "Remove this emitter from isolation, without changing other emitters.")
+					: LOCTEXT("AddToIsolation_NoChangeOthers", "Add this emitter to isolation, without changing other emitters."),
 				FSlateIcon(),
 				FUIAction(FExecuteAction::CreateRaw(&SystemViewModel, &FNiagaraSystemViewModel::ToggleEmitterIsolation, EmitterTrack->GetEmitterHandleViewModel().ToSharedRef())));
 			

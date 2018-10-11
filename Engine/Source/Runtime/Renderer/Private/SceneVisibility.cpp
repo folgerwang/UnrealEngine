@@ -2963,6 +2963,10 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 				QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_HLODUpdate);
 				HLODTree.UpdateVisibilityStates(View);
 			}
+			else
+			{
+				HLODTree.ClearVisibilityState(View);
+			}
 
 			int32 NumCulledPrimitivesForView;
 			if (View.CustomVisibilityQuery && View.CustomVisibilityQuery->Prepare())
@@ -3640,6 +3644,36 @@ void FLODSceneTree::UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitive
 	if (FLODSceneNode* Node = SceneNodes.Find(NodeId))
 	{
 		Node->SceneInfo = SceneInfo;
+	}
+}
+
+void FLODSceneTree::ClearVisibilityState(FViewInfo& View)
+{
+	if (FSceneViewState* ViewState = (FSceneViewState*)View.State)
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		// Skip update logic when frozen
+		if (ViewState->bIsFrozen)
+		{
+			return;
+		}
+#endif
+		FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
+
+		if(HLODState.IsValidPrimitiveIndex(0))
+		{
+			HLODState.PrimitiveFadingLODMap.Empty(0);
+			HLODState.PrimitiveFadingOutLODMap.Empty(0);
+			HLODState.ForcedVisiblePrimitiveMap.Empty(0);
+			HLODState.ForcedHiddenPrimitiveMap.Empty(0);
+		}
+
+		TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState>& VisibilityStates = ViewState->HLODSceneNodeVisibilityStates;
+
+		if(VisibilityStates.Num() > 0)
+		{
+			VisibilityStates.Empty(0);
+		}
 	}
 }
 

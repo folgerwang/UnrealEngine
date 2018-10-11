@@ -47,6 +47,12 @@
 #import <StoreKit/StoreKit.h>
 #import <DeviceCheck/DeviceCheck.h>
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+#import <UserNotifications/UserNotifications.h>
+#include "Async/TaskGraphInterfaces.h"
+#include "Misc/CoreDelegates.h"
+#endif
+
 //#include <libproc.h>
 // @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
 //#include <mach-o/dyld.h>
@@ -965,14 +971,31 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 {
     dispatch_async(dispatch_get_main_queue(), ^{
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+		UNUserNotificationCenter *Center = [UNUserNotificationCenter currentNotificationCenter];
+		[Center requestAuthorizationWithOptions:(UNAuthorizationOptionBadge | UNAuthorizationOptionSound | UNAuthorizationOptionAlert)
+							  completionHandler:^(BOOL granted, NSError * _Nullable error) {
+								  if (error)
+								  {
+									  UE_LOG(LogIOS, Log, TEXT("Failed to register for notifications."));
+								  }
+								  else
+								  {
+									  int32 types = (int32)granted;
+									  FFunctionGraphTask::CreateAndDispatchWhenReady([types]()
+																					 {
+																						 FCoreDelegates::ApplicationRegisteredForUserNotificationsDelegate.Broadcast(types);
+																					 }, TStatId(), NULL, ENamedThreads::GameThread);
+									  
+								  }
+							  }];
+#else
 	UIApplication* application = [UIApplication sharedApplication];
 	if ([application respondsToSelector : @selector(registerUserNotificationSettings:)])
 	{
 #ifdef __IPHONE_8_0
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		UIUserNotificationSettings * settings = [UIUserNotificationSettings settingsForTypes : (UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert) categories:nil];
 		[application registerUserNotificationSettings : settings];
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 	}
 	else
@@ -984,12 +1007,32 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 #endif
 	}
 #endif
+#endif
     });
 }
 
 bool FIOSPlatformMisc::IsRegisteredForRemoteNotifications()
 {
 	return false;
+}
+
+bool FIOSPlatformMisc::IsAllowedRemoteNotifications()
+{
+#if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+	checkf(false, TEXT("For min iOS version >= 10 use FIOSLocalNotificationService::CheckAllowedNotifications."));
+	return true;
+#elif defined(__IPHONE_8_0)
+	UIApplication* application = [UIApplication sharedApplication];
+	UIUserNotificationSettings* Settings = [application currentUserNotificationSettings];
+	int32 AllowedTypes = (int32)[Settings types];
+	return AllowedTypes != UIUserNotificationTypeNone;
+#else
+	return true;
+#endif
+#else
+	return true;
+#endif
 }
 
 void FIOSPlatformMisc::UnregisterForRemoteNotifications()

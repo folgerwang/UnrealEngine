@@ -123,7 +123,17 @@ void FDatasmithMeshSectionInfoMapTemplate::Apply( FMeshSectionInfoMap* Destinati
 {
 	for ( auto It = Map.CreateIterator(); It; ++It )
 	{
-		It->Value.Apply( &Destination->Map.FindOrAdd( It->Key ), PreviousTemplate ? PreviousTemplate->Map.Find( It->Key ) : nullptr );
+		FMeshSectionInfo* SectionInfo = Destination->Map.Find( It->Key );
+		if ( !SectionInfo )
+		{
+			//  If it wasn't found, must be added and the value forced on it
+			SectionInfo = &Destination->Map.Add( It->Key );
+			It->Value.Apply(SectionInfo, nullptr);
+		}
+		else
+		{
+			It->Value.Apply(SectionInfo, PreviousTemplate ? PreviousTemplate->Map.Find(It->Key) : nullptr);
+		}
 	}
 }
 
@@ -182,7 +192,14 @@ void UDatasmithStaticMeshTemplate::Apply( UObject* Destination, bool bForce )
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( LightMapResolution, StaticMesh, PreviousStaticMeshTemplate );
 
 	// Section info map
-	SectionInfoMap.Apply( &StaticMesh->SectionInfoMap, PreviousStaticMeshTemplate ? &PreviousStaticMeshTemplate->SectionInfoMap : nullptr );
+	bool bResetSectionInfoMap = false;
+	if ( PreviousStaticMeshTemplate )
+	{
+		// If the number of sections is different, their order might be different (eg. from mesh editing) so the SectionInfoMap must be reset
+		bResetSectionInfoMap = PreviousStaticMeshTemplate->SectionInfoMap.Map.Num() != StaticMesh->SectionInfoMap.Map.Num();
+	}
+
+	SectionInfoMap.Apply(&StaticMesh->SectionInfoMap, !bResetSectionInfoMap && PreviousStaticMeshTemplate ? &PreviousStaticMeshTemplate->SectionInfoMap : nullptr);
 
 	// Build settings
 	for ( int32 SourceModelIndex = 0; SourceModelIndex < BuildSettings.Num(); ++SourceModelIndex )
@@ -207,16 +224,20 @@ void UDatasmithStaticMeshTemplate::Apply( UObject* Destination, bool bForce )
 	// Materials
 	for ( int32 StaticMaterialIndex = 0; StaticMaterialIndex < StaticMaterials.Num(); ++StaticMaterialIndex )
 	{
+		// If the SectionInfoMap was reset, the materials must be reapplied to follow it
+		bool bIgnorePreviousTemplate = bResetSectionInfoMap;
 		if ( !StaticMesh->StaticMaterials.IsValidIndex( StaticMaterialIndex ) )
 		{
+			// If it's a new added material, the value must be force applied to it by ignoring the previous template
 			StaticMesh->StaticMaterials.AddDefaulted();
+			bIgnorePreviousTemplate = true;
 		}
 
 		FStaticMaterial& StaticMaterial = StaticMesh->StaticMaterials[ StaticMaterialIndex ];
 
 		FDatasmithStaticMaterialTemplate* PreviousStaticMaterialTemplate = nullptr;
 
-		if ( PreviousStaticMeshTemplate && PreviousStaticMeshTemplate->StaticMaterials.IsValidIndex( StaticMaterialIndex ) )
+		if ( !bIgnorePreviousTemplate && PreviousStaticMeshTemplate && PreviousStaticMeshTemplate->StaticMaterials.IsValidIndex( StaticMaterialIndex ) )
 		{
 			PreviousStaticMaterialTemplate = &PreviousStaticMeshTemplate->StaticMaterials[ StaticMaterialIndex ];
 		}

@@ -350,6 +350,11 @@ namespace iPhonePackager
 		/// </summary>
 		public static string ProvisionUUID = "";
 
+        /// <summary>
+		/// provision to extract certificate for
+		/// </summary>
+		public static string ProvisionFile;
+
 		/// <summary>
 		/// IOS Team ID to be used for automatic signing
 		/// </summary>

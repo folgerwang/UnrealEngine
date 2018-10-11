@@ -58,7 +58,7 @@ bool do_dead_code(exec_list *instructions, bool uniform_locations_assigned)
 	for (auto& VarListIter : v.Variables)
 	{
 		auto* entry = VarListIter.second;
-		/* Since each assignment is a reference, the refereneced count must be
+		/* Since each assignment is a reference, the referenced count must be
 		* greater than or equal to the assignment count.  If they are equal,
 		* then all of the references are assignments, and the variable is
 		* dead.
@@ -140,8 +140,16 @@ bool do_dead_code(exec_list *instructions, bool uniform_locations_assigned)
 		else if (entry->declaration && entry->last_assign != NULL &&
 			entry->var->mode != ir_var_out && entry->var->mode != ir_var_inout)
 		{
-			entry->last_assign->remove();
-			progress = true;
+			// Make sure this is not a UAV (otherwise single read and write to a UAV get deleted)
+			if (entry->var->type && entry->var->type->base_type == GLSL_TYPE_IMAGE)
+			{
+				// Nothing to do here!
+			}
+			else
+			{
+				entry->last_assign->remove();
+				progress = true;
+			}
 		}
 	}
 

@@ -777,12 +777,7 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 	{
 		FBlueprintEditorUtils::GetActorReferenceMap(InWorld, ClassTypesToIgnore, ReferencingActorsMap);
 
-		// For now, don't display the soft reference warning if we won't load packages to validate
-		// Re-evaluate this once we have control over rather less important soft references like foliage is tracked
-		const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
-		bool bLoadPackagesForSoftReferences = EditorProjectSettings->bValidateUnloadedSoftActorReferences;
-
-		if (bWarnAboutSoftReferences && bLoadPackagesForSoftReferences)
+		if (bWarnAboutSoftReferences)
 		{
 			FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
 

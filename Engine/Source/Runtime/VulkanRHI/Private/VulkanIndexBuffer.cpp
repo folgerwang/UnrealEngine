@@ -10,6 +10,7 @@
 #include "Containers/ResourceArray.h"
 #include "VulkanLLM.h"
 
+
 static TMap<FVulkanResourceMultiBuffer*, VulkanRHI::FPendingBufferLock> GPendingLockIBs;
 static FCriticalSection GPendingLockIBsMutex;
 
@@ -101,7 +102,7 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 				BufferMemFlags |= (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 			}
 
-			NumBuffers = bDynamic ? NUM_RENDER_BUFFERS : 1;
+			NumBuffers = bDynamic ? NUM_BUFFERS : 1;
 			check(NumBuffers <= ARRAY_COUNT(Buffers));
 
 			for (uint32 Index = 0; Index < NumBuffers; ++Index)
@@ -232,6 +233,8 @@ inline void FVulkanResourceMultiBuffer::InternalUnlock(FVulkanCommandListContext
 	}
 	ensure(Cmd->IsOutsideRenderPass());
 	VkCommandBuffer CmdBuffer = Cmd->GetHandle();
+
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer, 16);
 
 	VkBufferCopy Region;
 	FMemory::Memzero(Region);

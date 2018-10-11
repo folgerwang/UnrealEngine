@@ -33,7 +33,6 @@ public:
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return Target==ENiagaraSimTarget::GPUComputeSim; }
 	//UNiagaraDataInterface Interface End
 
-	template<typename XType, typename YType>
 	void SampleTexture(FVectorVMContext& Context);
 	void GetTextureDimensions(FVectorVMContext& Context);
 	void NoOp(FVectorVMContext& Context);

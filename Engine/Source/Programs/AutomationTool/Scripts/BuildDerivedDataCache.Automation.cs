@@ -17,7 +17,7 @@ public class BuildDerivedDataCache : BuildCommand
 		// Get the list of platform names
 		string[] FeaturePacks = ParseParamValue("FeaturePacks").Split(';');
 		string TempDir = ParseParamValue("TempDir");
-		UnrealTargetPlatform HostPlatform = (UnrealTargetPlatform)Enum.Parse(typeof(UnrealTargetPlatform), ParseParamValue("HostPlatform"));
+		UnrealTargetPlatform HostPlatform = BuildHostPlatform.Current.Platform;
 		string TargetPlatforms = ParseParamValue("TargetPlatforms");
 		string SavedDir = ParseParamValue("SavedDir");
 
@@ -72,10 +72,13 @@ public class BuildDerivedDataCache : BuildCommand
 						FilteredPlatforms.Add(TargetPlatform);
 					}
 				}
-
+				if(FilteredPlatforms.Count == 0)
+				{
+					LogInformation("Did not find any project specific platforms for FeaturePack {0} out of supplied TargetPlatforms {1}, skipping it!", GameName, ProjectSpecificPlatforms);
+					continue;
+				}
 				ProjectSpecificPlatforms = CommandUtils.CombineCommandletParams(FilteredPlatforms.Distinct().ToArray());
 			}
-
 			CommandUtils.LogInformation("Generating DDC data for {0} on {1}", GameName, ProjectSpecificPlatforms);
 			CommandUtils.DDCCommandlet(FileRef, EditorExe, null, ProjectSpecificPlatforms, "-fill -DDC=CreateInstalledEnginePak -ProjectOnly");
 

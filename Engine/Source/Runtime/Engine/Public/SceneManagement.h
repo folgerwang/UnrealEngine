@@ -195,6 +195,9 @@ public:
 	//
 	virtual uint32 GetFrameIndexMod8() const = 0;
 
+	/** Returns the current PreExposure value. PreExposure is a custom scale applied to the scene color to prevent buffer overflow. */
+	virtual float GetPreExposure() const = 0;
+
 	/** 
 	 * returns the occlusion frame counter 
 	 */

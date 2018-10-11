@@ -135,6 +135,9 @@ public:
 	/** @return The list of supported video formats for this device and session type */
 	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const = 0;
 	
+	/** @return the current point cloud data for the ar scene */
+	virtual TArray<FVector> OnGetPointCloud() const = 0;
+	
 public:
 	virtual ~IARSystemSupport(){}
 };
@@ -218,6 +221,9 @@ public:
 	/** \see UARBlueprintLibrary::GetSupportedVideoFormats() */
 	TArray<FARVideoFormat> GetSupportedVideoFormats(EARSessionType SessionType = EARSessionType::World) const;
 	
+	/** \see UARBlueprintLibrary::GetPointCloud() */
+	TArray<FVector> GetPointCloud() const;
+
 	virtual void* GetARSessionRawPointer() = 0;
 	virtual void* GetGameThreadARFrameRawPointer() = 0;
 	

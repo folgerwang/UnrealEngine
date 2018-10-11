@@ -638,7 +638,8 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 			{
 				Src++;
 				double Val = va_arg(ArgPtr, double);
-				ANSICHAR AnsiNum[30];
+				// doubles in the form of 1e+9999 can get quite large, make sure we have enough room for them
+				ANSICHAR AnsiNum[48];
 				ANSICHAR FmtBuf[30];
 
 				// Yes, this is lame.
@@ -652,6 +653,12 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 				FmtBuf[CpyIdx] = 0;
 
 				int RetCnt = snprintf(AnsiNum, sizeof (AnsiNum), FmtBuf, Val);
+				if (RetCnt >= ARRAY_COUNT(AnsiNum))
+				{
+					// We should print what we have written into AnsiNum but ensure we null terminate before printing
+					AnsiNum[ARRAY_COUNT(AnsiNum) - 1] = '\0';
+					checkf(0, TEXT("Attempting to read past the size our buffer. Buffer Size: %d Size to read: %d. Current contents: '%s'\n"), ARRAY_COUNT(AnsiNum), RetCnt, UTF8_TO_TCHAR(AnsiNum));
+				}
 				if (!DestIter.Write(AnsiNum, RetCnt))
 				{
 					return -1;

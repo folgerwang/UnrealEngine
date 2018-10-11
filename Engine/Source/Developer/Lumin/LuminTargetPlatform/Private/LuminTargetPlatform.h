@@ -51,7 +51,7 @@ public:
 
 	virtual FString PlatformName() const override
 	{
-		return TEXT("Lumin");
+		return IsClientOnly() ? TEXT("LuminClient") : TEXT("Lumin");
 	}
 
 	virtual FString IniPlatformName() const override

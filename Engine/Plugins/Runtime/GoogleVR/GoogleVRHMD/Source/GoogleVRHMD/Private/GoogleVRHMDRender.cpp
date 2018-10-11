@@ -418,6 +418,12 @@ FGoogleVRHMDCustomPresent::FGoogleVRHMDCustomPresent(FGoogleVRHMD* InHMD)
 	, CurrentFrameViewportList(nullptr)
 	, bSkipPresent(false)
 {
+	// set to identity
+	CurrentFrameRenderHeadPose =	{ { { 1.0f, 0.0f, 0.0f, 0.0f },
+									{ 0.0f, 1.0f, 0.0f, 0.0f },
+									{ 0.0f, 0.0f, 1.0f, 0.0f },
+									{ 0.0f, 0.0f, 0.0f, 1.0f } } };
+
 	CreateGVRSwapChain();
 }
 

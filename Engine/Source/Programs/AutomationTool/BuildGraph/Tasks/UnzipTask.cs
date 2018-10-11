@@ -20,14 +20,14 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// Path to the zip file to extract
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
 		public string ZipFile;
 
 		/// <summary>
 		/// Output directory for the extracted files
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string ToDir;
+		[TaskParameter]
+		public DirectoryReference ToDir;
 
 		/// <summary>
 		/// Tag to be applied to the extracted files
@@ -64,7 +64,7 @@ namespace BuildGraph.Tasks
 		/// <param name="TagNameToFileSet">Mapping from tag names \to the set of files they include</param>
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			DirectoryReference ToDir = ResolveDirectory(Parameters.ToDir);
+			DirectoryReference ToDir = Parameters.ToDir;
 
 			// Find all the zip files
 			IEnumerable<FileReference> ZipFiles = ResolveFilespec(CommandUtils.RootDirectory, Parameters.ZipFile, TagNameToFileSet);

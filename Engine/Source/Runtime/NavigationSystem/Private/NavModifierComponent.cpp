@@ -72,7 +72,8 @@ void UNavModifierComponent::CalcAndCacheBounds() const
 						const FKConvexElem& ElemInfo = BodySetup->AggGeom.ConvexElems[ConvexIdx];
 						FTransform ElemTM = ElemInfo.GetTransform();
 						ElemTM.ScaleTranslation(Scale3D);
-						ElemTM *= FTransform(ParentTM.GetLocation());
+						// no need to translate with ParentTM since FKConvexElem 
+						// we're getting are already translated
 
 						const FBox ConvexBounds = ElemInfo.CalcAABB(ElemTM, Scale3D);
 						ComponentBounds.Add(FRotatedBox(ConvexBounds, ElemTM.GetRotation() * ParentTM.GetRotation()));

@@ -23,7 +23,7 @@ struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalF
 		: QueueType(InQueueType)
 		, Fence(InFence)
 		, Value(InValue)
-	{
+	{ 
 	}
 
 	void Execute(FRHICommandListBase& CmdList)
@@ -41,7 +41,6 @@ FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
 	, RootSignatureManager(this)
 	, PipelineStateCache(this)
 	, FenceCorePool(this)
-	, FrameFence(nullptr)
 	, DeferredDeletionQueue(this)
 	, DefaultContextRedirector(this, true, false)
 	, DefaultAsyncComputeContextRedirector(this, false, true)
@@ -343,6 +342,9 @@ void FD3D12Adapter::InitializeDevices()
 		FrameFence = new FD3D12ManualFence(this, FRHIGPUMask::All(), L"Adapter Frame Fence");
 		FrameFence->CreateFence();
 
+		StagingFence = new FD3D12Fence(this, FRHIGPUMask::All(), L"Staging Fence");
+		StagingFence->CreateFence();
+
 		CreateSignatures();
 
 		//Create all of the FD3D12Devices
@@ -506,6 +508,13 @@ void FD3D12Adapter::Cleanup()
 		FrameFence->Destroy();
 		FrameFence.SafeRelease();
 	}
+
+	if (StagingFence)
+	{
+		StagingFence->Destroy();
+		StagingFence.SafeRelease();
+	}
+
 
 	PipelineStateCache.Close();
 	FenceCorePool.Destroy();

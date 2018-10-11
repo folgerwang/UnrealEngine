@@ -635,3 +635,20 @@ void NewReportEnsure(const TCHAR* ErrorMessage)
 	bReentranceGuard = false;
 	EnsureLock.Unlock();
 }
+
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	EnsureLock.Lock();
+	if (!bReentranceGuard)
+	{
+		bReentranceGuard = true;
+
+		const bool bIsEnsure = true;
+		FUnixCrashContext EnsureContext(bIsEnsure);
+		EnsureContext.SetPortableCallStack(0, Stack);
+		EnsureContext.GenerateCrashInfoAndLaunchReporter(true);
+
+		bReentranceGuard = false;
+	}
+	EnsureLock.Unlock();
+}

@@ -25,6 +25,7 @@
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "UObject/MetaData.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Package.h"
 #include "AssetRegistryModule.h"
@@ -1098,7 +1099,7 @@ void FFbxImporter::EnsureNodeNameAreValid()
 			{
 				AddTokenizedErrorMessage(
 					FTokenizedMessage::Create(EMessageSeverity::Warning,
-					FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
+					FText::Format(LOCTEXT("FbxImport_NoNodeName", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
 					FFbxErrors::Generic_LoadingSceneFailed);
 			}
 		}
@@ -1696,6 +1697,19 @@ void FFbxImporter::FillFbxMeshArray(FbxNode* Node, TArray<FbxNode*>& outMeshArra
 	for (ChildIndex=0; ChildIndex<Node->GetChildCount(); ++ChildIndex)
 	{
 		FillFbxMeshArray(Node->GetChild(ChildIndex), outMeshArray, FFbxImporter);
+	}
+}
+
+void FFbxImporter::FillFbxSkeletonArray(FbxNode* Node, TArray<FbxNode*>& OutMeshArray)
+{
+	if (Node->GetSkeleton())
+	{
+		OutMeshArray.Add(Node);
+	}
+
+	for (int32 ChildIndex = 0; ChildIndex < Node->GetChildCount(); ++ChildIndex)
+	{
+		FillFbxSkeletonArray(Node->GetChild(ChildIndex), OutMeshArray);
 	}
 }
 
@@ -2779,6 +2793,111 @@ FbxNode* FFbxImporter::RetrieveObjectFromName(const TCHAR* ObjectName, FbxNode* 
 		}
 	}
 	return nullptr;
+}
+
+FString GetFbxPropertyStringValue(const FbxProperty& Property)
+{
+	FString ValueStr(TEXT("Unsupported type"));
+
+	FbxDataType DataType = Property.GetPropertyDataType();
+	switch (DataType.GetType())
+	{
+	case eFbxBool:
+	{
+		FbxBool BoolValue = Property.Get<FbxBool>();
+		ValueStr = LexToString(BoolValue);
+	}
+	break;
+	case eFbxInt:
+	{
+		FbxInt IntValue = Property.Get<FbxInt>();
+		ValueStr = LexToString(IntValue);
+	}
+	break;
+	case eFbxEnum:
+	{
+		FbxEnum EnumValue = Property.Get<FbxEnum>();
+		ValueStr = LexToString(EnumValue);
+	}
+	break;
+	case eFbxFloat:
+	{
+		FbxFloat FloatValue = Property.Get<FbxFloat>();
+		ValueStr = LexToString(FloatValue);
+	}
+	break;
+	case eFbxDouble:
+	{
+		FbxDouble DoubleValue = Property.Get<FbxDouble>();
+		ValueStr = LexToString(DoubleValue);
+	}
+	break;
+	case eFbxDouble2:
+	{
+		FbxDouble2 Vec = Property.Get<FbxDouble2>();
+		ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1]);
+	}
+	break;
+	case eFbxDouble3:
+	{
+		FbxDouble3 Vec = Property.Get<FbxDouble3>();
+		ValueStr = FString::Printf(TEXT("(%f, %f, %f)"), Vec[0], Vec[1], Vec[2]);
+	}
+	break;
+	case eFbxDouble4:
+	{
+		FbxDouble4 Vec = Property.Get<FbxDouble4>();
+		ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1], Vec[2], Vec[3]);
+	}
+	break;
+	case eFbxString:
+	{
+		FbxString StringValue = Property.Get<FbxString>();
+		ValueStr = UTF8_TO_TCHAR(StringValue.Buffer());
+	}
+	break;
+	default:
+		break;
+	}
+	return ValueStr;
+}
+
+void FFbxImporter::ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
+{
+	if (!Object || !Node)
+	{
+		return;
+	}
+
+	// Import all custom user-defined FBX properties from the FBX node to the object metadata
+	FbxProperty CurrentProperty = Node->GetFirstProperty();
+	FString NodeName = UTF8_TO_TCHAR(Node->GetName());
+	static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+	while (CurrentProperty.IsValid())
+	{
+		if (CurrentProperty.GetFlag(FbxPropertyFlags::eUserDefined))
+		{
+			// Prefix the FBX metadata tag to make it distinguishable from other metadata
+			// so that it can be exportable through FBX export
+			FString MetadataTag = UTF8_TO_TCHAR(CurrentProperty.GetName());
+			if (!MetadataTag.StartsWith(NodeName))
+			{
+				// Append the node name in the tag since all the metadata will be flattened on the Object
+				MetadataTag = NodeName + TEXT(".") + MetadataTag;
+			}
+			MetadataTag = MetadataPrefix + MetadataTag;
+
+			FString MetadataValue = GetFbxPropertyStringValue(CurrentProperty);
+			Object->GetOutermost()->GetMetaData()->SetValue(Object, *MetadataTag, *MetadataValue);
+		}
+		CurrentProperty = Node->GetNextProperty(CurrentProperty);
+	}
+
+	int NumChildren = Node->GetChildCount();
+	for (int i = 0; i < NumChildren; ++i)
+	{
+		ImportNodeCustomProperties(Object, Node->GetChild(i));
+	}
 }
 
 } // namespace UnFbx

@@ -40,7 +40,6 @@ class FViewInfo;
 class SceneRenderingBitArrayAllocator;
 struct FDrawListStats;
 struct FMeshDrawingRenderState;
-struct StereoPair;
 enum class InstancedStereoPolicy;
 template<typename DrawingPolicyType> class TStaticMeshDrawList;
 template<typename DrawingPolicyType> struct TCompareStaticMeshDrawList;
@@ -141,7 +140,6 @@ void TStaticMeshDrawList<DrawingPolicyType>::FElementHandle::Remove(const bool b
 }
 
 template<typename DrawingPolicyType>
-template<InstancedStereoPolicy InstancedStereo>
 int32 TStaticMeshDrawList<DrawingPolicyType>::DrawElement(
 	FRHICommandList& RHICmdList,
 	const FViewInfo& View,
@@ -180,7 +178,9 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawElement(
 			BoundShaderStateInput = DrawingPolicyLink->DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel());
 		}
 
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicyLink->DrawingPolicy, DrawRenderState, BoundShaderStateInput);
+		// This is needed as the mobile renderer ignores the MRP inside the DrawingPolicy, so we need the Mesh's one
+		const FMaterialRenderProxy* PipelineMaterialRenderProxy = DrawingPolicyLink->DrawingPolicy.GetPipelineMaterialRenderProxy(Element.Mesh->MaterialRenderProxy);
+		CommitGraphicsPipelineState(RHICmdList, DrawingPolicyLink->DrawingPolicy, DrawRenderState, BoundShaderStateInput, PipelineMaterialRenderProxy);
 		DrawingPolicyLink->DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, PolicyContext);
 
 		bDrawnShared = true;
@@ -199,7 +199,7 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawElement(
 		if(BatchElementMask & 1)
 		{
 			const FPrimitiveSceneProxy* Proxy = Element.Mesh->PrimitiveSceneInfo->Proxy;			
-			if (InstancedStereo == InstancedStereoPolicy::Enabled)
+			if (View.IsInstancedStereoPass())
 			{
 			    // We draw instanced static meshes twice when rendering with instanced stereo. Once for each eye.
 			    const bool bIsInstancedMesh = Element.Mesh->Elements[BatchElementIndex].bIsInstancedMesh;
@@ -356,23 +356,17 @@ void TStaticMeshDrawList<DrawingPolicyType>::ReleaseRHI()
 }
 
 template<typename DrawingPolicyType>
-template<InstancedStereoPolicy InstancedStereo>
 bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 	FRHICommandList& RHICmdList,
 	const FViewInfo& View,
 	const typename DrawingPolicyType::ContextDataType PolicyContext,
 	FDrawingPolicyRenderState& DrawRenderState,
-	const TBitArray<SceneRenderingBitArrayAllocator>* const StaticMeshVisibilityMap,
-	const TArray<uint64, SceneRenderingAllocator>* const BatchVisibilityArray,
-	const StereoPair* const StereoView,
+	const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap,
+	const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray,
 	int32 FirstPolicy, int32 LastPolicy,
 	bool bUpdateCounts
 	)
 {
-	// We should have a single view's visibility data, or a stereo pair
-	check((StaticMeshVisibilityMap != nullptr && BatchVisibilityArray != nullptr) || StereoView != nullptr);
-	check((InstancedStereo != InstancedStereoPolicy::Disabled) == (StereoView != nullptr));
-
 	bool bDirty = false;
 	STAT(int32 StatInc = 0;)
 	uint32 NumDraws = 0;
@@ -387,53 +381,18 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 		uint32 Count = 0;
 		for (int32 ElementIndex = 0; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
 		{
-			// Single view
-			if (InstancedStereo == InstancedStereoPolicy::Disabled)
+			if (StaticMeshVisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
 			{
-				if (StaticMeshVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
+				const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
+				STAT(StatInc += Element.Mesh->GetNumPrimitives();)
+				int32 SubCount = Element.Mesh->Elements.Num();
+				// Avoid the cache miss looking up batch visibility if there is only one element.
+				uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? BatchVisibilityArray[Element.Mesh->BatchVisibilityId] : ((1ull << SubCount) - 1);
+				Count += DrawElement(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
+				if (++NumDraws % 16 == 0)
 				{
-					const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
-					STAT(StatInc += Element.Mesh->GetNumPrimitives();)
-					int32 SubCount = Element.Mesh->Elements.Num();
-					// Avoid the cache miss looking up batch visibility if there is only one element.
-					uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*BatchVisibilityArray)[Element.Mesh->BatchVisibilityId] : ((1ull << SubCount) - 1);
-					Count += DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
-					if (++NumDraws % 16 == 0)
-					{
-						// Periodically kick the RHI thread when some work has accumulated.
-						RHICmdList.MaybeDispatchToRHIThread();
-					}
-
-				}
-			}
-
-			// Stereo pair, we need to test both eyes
-			else
-			{
-				const TArray<uint64, SceneRenderingAllocator>* ResolvedBatchVisiblityArray = nullptr;
-
-				if (StereoView->LeftViewVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
-				{
-					ResolvedBatchVisiblityArray = StereoView->LeftViewBatchVisibilityArray;
-				}
-				else if (StereoView->RightViewVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
-				{
-					ResolvedBatchVisiblityArray = StereoView->RightViewBatchVisibilityArray;
-				}
-
-				if (ResolvedBatchVisiblityArray != nullptr)
-				{
-					const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
-					STAT(StatInc += Element.Mesh->GetNumPrimitives();)
-						int32 SubCount = Element.Mesh->Elements.Num();
-					// Avoid the cache miss looking up batch visibility if there is only one element.
-					uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*ResolvedBatchVisiblityArray)[Element.Mesh->BatchVisibilityId] : ((1ull << SubCount) - 1);
-					Count += DrawElement<InstancedStereo>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
-					if (++NumDraws % 16 == 0)
-					{
-						// Periodically kick the RHI thread when some work has accumulated.
-						RHICmdList.MaybeDispatchToRHIThread();
-					}
+					// Periodically kick the RHI thread when some work has accumulated.
+					RHICmdList.MaybeDispatchToRHIThread();
 				}
 			}
 		}
@@ -460,7 +419,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisible(
 	//moved out of the inner loop and only modified if bDrawnShared
 	FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
 
-	return DrawVisibleInner<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, DrawRenderStateLocal, &StaticMeshVisibilityMap, &BatchVisibilityArray, nullptr, 0, OrderedDrawingPolicies.Num() - 1, false);
+	return DrawVisibleInner(RHICmdList, View, PolicyContext, DrawRenderStateLocal, StaticMeshVisibilityMap, BatchVisibilityArray, 0, OrderedDrawingPolicies.Num() - 1, false);
 }
 
 template<typename DrawingPolicyType>
@@ -471,12 +430,11 @@ class FDrawVisibleAnyThreadTask : public FRenderTask
 	const FViewInfo& View;
 	FDrawingPolicyRenderState DrawRenderState;
 	const typename DrawingPolicyType::ContextDataType PolicyContext;
-	const TBitArray<SceneRenderingBitArrayAllocator>* StaticMeshVisibilityMap;
-	const TArray<uint64, SceneRenderingAllocator>* BatchVisibilityArray;
+	const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap;
+	const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray;
 	const int32 FirstPolicy;
 	const int32 LastPolicy;
 	const TArray<uint16, SceneRenderingAllocator>* PerDrawingPolicyCounts;
-	StereoPair StereoView;
 
 public:
 
@@ -486,9 +444,8 @@ public:
 		const FViewInfo& InView,
 		const FDrawingPolicyRenderState& InDrawRenderState,
 		const typename DrawingPolicyType::ContextDataType& InPolicyContext,
-		const TBitArray<SceneRenderingBitArrayAllocator>* InStaticMeshVisibilityMap,
-		const TArray<uint64, SceneRenderingAllocator>* InBatchVisibilityArray,
-		const StereoPair* const InStereoView,
+		const TBitArray<SceneRenderingBitArrayAllocator>& InStaticMeshVisibilityMap,
+		const TArray<uint64, SceneRenderingAllocator>& InBatchVisibilityArray,
 		int32 InFirstPolicy,
 		int32 InLastPolicy,
 		const TArray<uint16, SceneRenderingAllocator>* InPerDrawingPolicyCounts
@@ -504,10 +461,6 @@ public:
 		, LastPolicy(InLastPolicy)
 		, PerDrawingPolicyCounts(InPerDrawingPolicyCounts)
 	{
-		if (InStereoView != nullptr)
-		{
-			StereoView = *InStereoView;
-		}
 	}
 
 	FORCEINLINE TStatId GetStatId() const
@@ -539,14 +492,7 @@ public:
 					{
 						BatchEnd++;
 					}
-					if (!this->PolicyContext.bIsInstancedStereo)
-					{
-						this->Caller.template DrawVisibleInner<InstancedStereoPolicy::Disabled>(this->RHICmdList, this->View, this->PolicyContext, this->DrawRenderState, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, nullptr, Start, BatchEnd, true);
-					}
-					else
-					{
-						this->Caller.template DrawVisibleInner<InstancedStereoPolicy::Enabled>(this->RHICmdList, *this->StereoView.LeftView, this->PolicyContext, this->DrawRenderState, nullptr, nullptr, &StereoView, Start, BatchEnd, true);
-					}
+					this->Caller.DrawVisibleInner(this->RHICmdList, this->View, this->PolicyContext, this->DrawRenderState, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, Start, BatchEnd, true);
 					
 					Start = BatchEnd + 1;
 				}
@@ -554,31 +500,20 @@ public:
 		}
 		else
 		{
-			if (!this->PolicyContext.bIsInstancedStereo)
-			{
-				this->Caller.template DrawVisibleInner<InstancedStereoPolicy::Disabled>(this->RHICmdList, this->View, this->PolicyContext, this->DrawRenderState, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, nullptr, this->FirstPolicy, this->LastPolicy, true);
-			}
-			else
-			{
-				this->Caller.template DrawVisibleInner<InstancedStereoPolicy::Enabled>(this->RHICmdList, *this->StereoView.LeftView, this->PolicyContext, this->DrawRenderState, nullptr, nullptr, &StereoView, this->FirstPolicy, this->LastPolicy, true);
-			}
+			this->Caller.DrawVisibleInner(this->RHICmdList, this->View, this->PolicyContext, this->DrawRenderState, this->StaticMeshVisibilityMap, this->BatchVisibilityArray, this->FirstPolicy, this->LastPolicy, true);
 		}
 		this->RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };
 
 template<typename DrawingPolicyType>
-void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
+void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallel(
 	const typename DrawingPolicyType::ContextDataType PolicyContext,
-	const TBitArray<SceneRenderingBitArrayAllocator>* StaticMeshVisibilityMap,
-	const TArray<uint64, SceneRenderingAllocator>* BatchVisibilityArray,
-	const StereoPair* const StereoView,
+	const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap,
+	const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray,
 	FParallelCommandListSet& ParallelCommandListSet
 	)
 {
-	// We should have a single view's visibility data, or a stereo pair
-	check((StaticMeshVisibilityMap != nullptr && BatchVisibilityArray != nullptr) || StereoView != nullptr);
-
 	int32 NumPolicies = OrderedDrawingPolicies.Num();
 	int32 EffectiveThreads = FMath::Min<int32>(NumPolicies, ParallelCommandListSet.Width);
 	if (EffectiveThreads)
@@ -613,7 +548,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 			{
 				QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_DrawVisibleParallel_FullVisibilityScan);
 				ParallelForWithPreWork(NumPolicies, 
-					[this, &PerDrawingPolicyCounts, &StaticMeshVisibilityMap, &BatchVisibilityArray, StereoView](int32 Index)
+					[this, &PerDrawingPolicyCounts, &StaticMeshVisibilityMap, &BatchVisibilityArray](int32 Index)
 					{
 						int32 Count = 0;
 
@@ -622,27 +557,9 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 						FPlatformMisc::Prefetch(CompactElementPtr);
 						const int32 NumElements = DrawingPolicyLink->CompactElements.Num();
 						FPlatformMisc::Prefetch(&DrawingPolicyLink->CompactElements.GetData()->MeshId);
-						const bool bIsInstancedStereo = StereoView != nullptr;
 						for (int32 ElementIndex = 0; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
 						{
-							bool bIsVisible = false;
-
-							// Single view
-							if (!bIsInstancedStereo && StaticMeshVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
-							{
-								bIsVisible = true;
-							}
-
-							// Stereo pair, we need to test both eyes
-							else if (
-								bIsInstancedStereo &&
-								(StereoView->LeftViewVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)) ||
-								StereoView->RightViewVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId))))
-							{
-								bIsVisible = true;
-							}
-
-							if (bIsVisible)
+							if (StaticMeshVisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
 							{
 								const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
 								const int32 SubCount = Element.Mesh->Elements.Num();
@@ -652,15 +569,9 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 								{
 									Count += SubCount;
 								}
-								else if (!bIsInstancedStereo)
-								{
-									Count += FPlatformMath::CountBits((*BatchVisibilityArray)[Element.Mesh->BatchVisibilityId]);
-								}
 								else
 								{
-									const int32 LeftCount = FPlatformMath::CountBits((*StereoView->LeftViewBatchVisibilityArray)[Element.Mesh->BatchVisibilityId]);
-									const int32 RightCount = FPlatformMath::CountBits((*StereoView->RightViewBatchVisibilityArray)[Element.Mesh->BatchVisibilityId]);
-									Count += (LeftCount > RightCount) ? LeftCount : RightCount;
+									Count += FPlatformMath::CountBits(BatchVisibilityArray[Element.Mesh->BatchVisibilityId]);
 								}
 							}
 						}
@@ -750,7 +661,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 #endif
 								UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("    Index %d  BatchCount %d    (last merge)"), ParallelCommandListSet.NumParallelCommandLists(), PreviousBatchDraws + BatchCount);
 								FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), RenderThread)
-									.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, StereoView, PreviousBatchStart, LastNonZeroPolicy, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
+									.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, PreviousBatchStart, LastNonZeroPolicy, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
 								ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, FMath::Max<int32>(1, PreviousBatchDraws + BatchCount));
 								PreviousBatchStart = -1;
 								PreviousBatchEnd = -2;
@@ -764,7 +675,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 								// this is a decent sized batch, emit the previous batch and save this one for possible merging
 								UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("    Index %d  BatchCount %d    "), ParallelCommandListSet.NumParallelCommandLists(), PreviousBatchDraws);
 								FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), RenderThread)
-									.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, StereoView, PreviousBatchStart, PreviousBatchEnd, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
+									.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, PreviousBatchStart, PreviousBatchEnd, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
 								ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, FMath::Max<int32>(1, PreviousBatchDraws));
 								PreviousBatchStart = Start;
 								PreviousBatchEnd = LastNonZeroPolicy;
@@ -791,7 +702,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 				UE_CLOG(ParallelCommandListSet.bSpewBalance, LogTemp, Display, TEXT("    Index %d  BatchCount %d    (last)"), ParallelCommandListSet.NumParallelCommandLists(), PreviousBatchDraws);
 				FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
 				FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), RenderThread)
-					.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, StereoView, PreviousBatchStart, PreviousBatchEnd, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
+					.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, PreviousBatchStart, PreviousBatchEnd, bCountsAreAccurate ? &PerDrawingPolicyCounts : nullptr);
 				ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, FMath::Max<int32>(1, PreviousBatchDraws));
 			}
 #if DO_CHECK
@@ -817,7 +728,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 					FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
 
 						FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawVisibleAnyThreadTask<DrawingPolicyType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), RenderThread)
-							.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, StereoView, Start, Last, nullptr);
+							.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, PolicyContext, StaticMeshVisibilityMap, BatchVisibilityArray, Start, Last, nullptr);
 
 					ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
 				}
@@ -830,41 +741,22 @@ void TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleParallelInternal(
 }
 
 template<typename DrawingPolicyType>
-template<InstancedStereoPolicy InstancedStereo>
-int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
+int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBack(
 	FRHICommandList& RHICmdList,
 	const FViewInfo& View,
 	FDrawingPolicyRenderState& DrawRenderState,
 	const typename DrawingPolicyType::ContextDataType PolicyContext,
-	const TBitArray<SceneRenderingBitArrayAllocator>* const StaticMeshVisibilityMap,
-	const TArray<uint64, SceneRenderingAllocator>* const BatchVisibilityArray,
-	const StereoPair* const StereoView,
+	const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap,
+	const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray,
 	int32 MaxToDraw
 	)
 {
-	// We should have a single view's visibility data, or a stereo pair
-	check((StaticMeshVisibilityMap != nullptr && BatchVisibilityArray != nullptr) || StereoView != nullptr);
-	check((InstancedStereo != InstancedStereoPolicy::Disabled) == (StereoView != nullptr));
-	
-	if (InstancedStereo == InstancedStereoPolicy::Disabled)
-	{
-		ComputeVisiblePoliciesBounds(*StaticMeshVisibilityMap);
-	}
-	else
-	{
-		ComputeVisiblePoliciesBounds(*StereoView->LeftViewVisibilityMap);
-	}
+	ComputeVisiblePoliciesBounds(StaticMeshVisibilityMap);
 
 	int32 NumDraws = 0;
 	TArray<FDrawListSortKey,SceneRenderingAllocator> SortKeys;
 	const FVector ViewLocation = View.ViewMatrices.GetViewOrigin();
 	SortKeys.Reserve(128);
-
-	TArray<const TArray<uint64, SceneRenderingAllocator>*, SceneRenderingAllocator> ElementVisibility;
-	if (InstancedStereo != InstancedStereoPolicy::Disabled)
-	{
-		ElementVisibility.Reserve(64);
-	}
 
 	for (typename TDrawingPolicySet::TConstIterator PolicyIt(DrawingPolicySet); PolicyIt; ++PolicyIt)
 	{
@@ -876,28 +768,7 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 		const FElementCompact* CompactElementPtr = DrawingPolicyLink.CompactElements.GetData();
 		for(int32 ElementIndex = 0; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
 		{
-			bool bIsVisible = false;
-			if (InstancedStereo == InstancedStereoPolicy::Disabled)
-			{
-				// Single view
-				bIsVisible = StaticMeshVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId));
-			}
-			else
-			{
-				// Stereo pair, we need to test both eyes
-				if (StereoView->LeftViewVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
-				{
-					bIsVisible = true;
-					ElementVisibility.Add(StereoView->LeftViewBatchVisibilityArray);
-				}
-				else if (StereoView->RightViewVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
-				{
-					bIsVisible = true;
-					ElementVisibility.Add(StereoView->RightViewBatchVisibilityArray);
-				}
-			}
-
-			if (bIsVisible)
+			if (StaticMeshVisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
 			{
 				const FElement& Element = DrawingPolicyLink.Elements[ElementIndex];
 				const FBoxSphereBounds& Bounds = Element.Bounds;
@@ -932,11 +803,10 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 		CA_SUPPRESS(6011);
 		const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
 		STAT(StatInc +=  Element.Mesh->GetNumPrimitives();)
-		const TArray<uint64, SceneRenderingAllocator>* const ResolvedVisiblityArray = (InstancedStereo == InstancedStereoPolicy::Disabled) ? BatchVisibilityArray : ElementVisibility[SortedIndex];
 
 		// Avoid the cache miss looking up batch visibility if there is only one element.
-		uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*ResolvedVisiblityArray)[Element.Mesh->BatchVisibilityId] : ((1ull << Element.Mesh->Elements.Num()) - 1);
-		DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
+		uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? BatchVisibilityArray[Element.Mesh->BatchVisibilityId] : ((1ull << Element.Mesh->Elements.Num()) - 1);
+		DrawElement(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 		NumDraws++;
 
 		if (((uint32)NumDraws % 16) == 0)
