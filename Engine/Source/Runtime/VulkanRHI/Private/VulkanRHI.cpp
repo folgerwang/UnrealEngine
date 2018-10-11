@@ -16,6 +16,7 @@
 #include "VulkanPipelineState.h"
 #include "Misc/FileHelper.h"
 #include "VulkanLLM.h"
+#include "Misc/EngineVersion.h"
 #include "GlobalShader.h"
 
 extern RHI_API bool GUseTexture3DBulkDataRHI;
@@ -187,6 +188,10 @@ void FVulkanDynamicRHI::Init()
 	LLM(VulkanLLM::Initialize());
 #endif
 
+
+	static const auto CVarStreamingTexturePoolSize = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Streaming.PoolSize"));
+	int32 StreamingPoolSizeValue = CVarStreamingTexturePoolSize->GetValueOnAnyThread();
+			
 	if (GPoolSizeVRAMPercentage > 0)
 	{
 		const uint64 TotalGPUMemory = Device->GetMemoryManager().GetTotalMemory(true);
@@ -200,6 +205,15 @@ void FVulkanDynamicRHI::Init()
 			GTexturePoolSize / 1024 / 1024,
 			GPoolSizeVRAMPercentage,
 			TotalGPUMemory / 1024 / 1024);
+	}
+	else if (StreamingPoolSizeValue > 0)
+	{
+		GTexturePoolSize = (int64)StreamingPoolSizeValue * 1024 * 1024;
+
+		const uint64 TotalGPUMemory = Device->GetMemoryManager().GetTotalMemory(true);
+		UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (of %llu MB total graphics mem)"),
+				GTexturePoolSize / 1024 / 1024,
+				TotalGPUMemory / 1024 / 1024);
 	}
 }
 
@@ -300,12 +314,19 @@ void FVulkanDynamicRHI::CreateInstance()
 	auto* CVarDisableEngineAndAppRegistration = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DisableEngineAndAppRegistration"));
 	bool bDisableEngineRegistration = (CVarDisableEngineAndAppRegistration && CVarDisableEngineAndAppRegistration->GetValueOnAnyThread() != 0) ||
 		(CVarShaderDevelopmentMode && CVarShaderDevelopmentMode->GetValueOnAnyThread() != 0);
+
+	// EngineName will be of the form "UnrealEngine4.21", with the minor version ("21" in this example)
+	// updated with every quarterly release
+	FString EngineName = FApp::GetEpicProductIdentifier() + FEngineVersion::Current().ToString(EVersionComponent::Minor);
+	FTCHARToUTF8 EngineNameConverter(*EngineName);
+	FTCHARToUTF8 ProjectNameConverter(FApp::GetProjectName());
+
 	VkApplicationInfo AppInfo;
 	ZeroVulkanStruct(AppInfo, VK_STRUCTURE_TYPE_APPLICATION_INFO);
-	AppInfo.pApplicationName = bDisableEngineRegistration ? "" : "UE4";
-	//AppInfo.applicationVersion = 0;
-	AppInfo.pEngineName = bDisableEngineRegistration ? "" : "UE4";
-	AppInfo.engineVersion = 15;
+	AppInfo.pApplicationName = bDisableEngineRegistration ? nullptr : ProjectNameConverter.Get();
+	AppInfo.applicationVersion = 0;	// Do we want FApp::GetBuildVersion() ?
+	AppInfo.pEngineName = bDisableEngineRegistration ? nullptr : EngineNameConverter.Get();
+	AppInfo.engineVersion = FEngineVersion::Current().GetMinor();
 	AppInfo.apiVersion = UE_VK_API_VERSION;
 
 	VkInstanceCreateInfo InstInfo;
@@ -553,6 +574,7 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 		static_assert(sizeof(NvidiaVersion) == sizeof(Props.driverVersion), "Mismatched Nvidia pack driver version!");
 		NvidiaVersion.Packed = Props.driverVersion;
 		GRHIAdapterUserDriverVersion = FString::Printf(TEXT("%d.%d"), NvidiaVersion.Major, NvidiaVersion.Minor);
+		UE_LOG(LogVulkanRHI, Display, TEXT("Nvidia User Driver Version = %s"), *GRHIAdapterUserDriverVersion);
 
 		// Ignore GRHIAdapterInternalDriverVersion for now as the device name doesn't match
 	}
@@ -1084,6 +1106,33 @@ void FVulkanDescriptorSetsLayoutInfo::AddDescriptor(int32 DescriptorSetIndex, co
 	default:
 		checkf(0, TEXT("Unsupported descriptor type %d"), (int32)Descriptor.descriptorType);
 		break;
+	}
+}
+
+void FVulkanDescriptorSetsLayoutInfo::GenerateHash()
+{
+	const int32 LayoutCount = SetLayouts.Num();
+	Hash = FCrc::MemCrc32(&TypesUsageID, sizeof(uint32), LayoutCount);
+
+	for (int32 layoutIndex = 0; layoutIndex < LayoutCount; ++layoutIndex)
+	{
+		TArray<VkDescriptorSetLayoutBinding>& DescSetLayout = SetLayouts[layoutIndex].LayoutBindings;
+		Hash = FCrc::MemCrc32(DescSetLayout.GetData(), sizeof(VkDescriptorSetLayoutBinding) * DescSetLayout.Num(), Hash);
+	}
+
+	for (uint32 RemapingIndex = 0; RemapingIndex < ShaderStage::NumStages; ++RemapingIndex)
+	{
+		Hash = FCrc::MemCrc32(&RemappingInfo.StageInfos[RemapingIndex].PackedUBDescriptorSet, sizeof(uint16), Hash);
+		Hash = FCrc::MemCrc32(&RemappingInfo.StageInfos[RemapingIndex].Pad0, sizeof(uint16), Hash);
+
+		TArray<FDescriptorSetRemappingInfo::FRemappingInfo>& Globals = RemappingInfo.StageInfos[RemapingIndex].Globals;
+		Hash = FCrc::MemCrc32(Globals.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * Globals.Num(), Hash);
+
+		TArray<FDescriptorSetRemappingInfo::FUBRemappingInfo>& UniformBuffers = RemappingInfo.StageInfos[RemapingIndex].UniformBuffers;
+		Hash = FCrc::MemCrc32(UniformBuffers.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * UniformBuffers.Num(), Hash);
+
+		TArray<uint16>& PackedUBBindingIndices = RemappingInfo.StageInfos[RemapingIndex].PackedUBBindingIndices;
+		Hash = FCrc::MemCrc32(PackedUBBindingIndices.GetData(), sizeof(uint16) * PackedUBBindingIndices.Num(), Hash);
 	}
 }
 

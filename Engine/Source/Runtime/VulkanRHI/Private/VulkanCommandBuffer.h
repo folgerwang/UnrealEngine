@@ -230,7 +230,7 @@ public:
 		return &CS;
 	}
 
-	void FreeUnusedCmdBuffers();
+	void FreeUnusedCmdBuffers(FVulkanQueue* Queue);
 
 	inline FVulkanCommandBufferManager& GetMgr()
 	{
