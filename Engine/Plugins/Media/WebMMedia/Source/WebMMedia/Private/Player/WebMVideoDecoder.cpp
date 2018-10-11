@@ -69,13 +69,13 @@ FWebMVideoDecoder::FWebMVideoDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSa
 
 FWebMVideoDecoder::~FWebMVideoDecoder()
 {
-	// Make sure all compute shader decoding is done
-	FlushRenderingCommands();
-
 	if (VideoDecodingTask && !VideoDecodingTask->IsComplete())
 	{
 		FTaskGraphInterface::Get().WaitUntilTaskCompletes(VideoDecodingTask);
 	}
+
+	// Make sure all compute shader decoding is done
+	FlushRenderingCommands();
 
 	vpx_codec_destroy(&Context);
 }
