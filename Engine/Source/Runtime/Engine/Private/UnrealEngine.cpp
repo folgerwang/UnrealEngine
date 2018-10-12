@@ -2023,7 +2023,7 @@ void UEngine::ReinitializeCustomTimeStep()
 		CustomTimeStep->Shutdown(this);
 		if (!CustomTimeStep->Initialize(this))
 		{
-			UE_LOG(LogEngine, Error, TEXT("Failed reinitializing CustomTimeStep %s"), *GetPathName(CustomTimeStep));
+			UE_LOG(LogEngine, Warning, TEXT("Failed reinitializing CustomTimeStep %s"), *GetPathName(CustomTimeStep));
 		}
 	}
 }
@@ -2047,7 +2047,7 @@ bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
 			bResult = CurrentCustomTimeStep->Initialize(this);
 			if (!bResult)
 			{
-				UE_LOG(LogEngine, Error, TEXT("SetCustomTimeStep - Failed to intialize CustomTimeStep %s"), *GetPathName(CurrentCustomTimeStep));
+				UE_LOG(LogEngine, Warning, TEXT("SetCustomTimeStep - Failed to intialize CustomTimeStep %s"), *GetPathName(CurrentCustomTimeStep));
 				CurrentCustomTimeStep = nullptr;
 			}
 		}
@@ -2062,7 +2062,7 @@ void UEngine::ReinitializeTimecodeProvider()
 	Provider->Shutdown(this);
 	if (!Provider->Initialize(this))
 	{
-		UE_LOG(LogEngine, Error, TEXT("Failed reinitializing TimecodeProvider %s"), *GetPathName(Provider));
+		UE_LOG(LogEngine, Warning, TEXT("Failed reinitializing TimecodeProvider %s"), *GetPathName(Provider));
 	}
 }
 
@@ -2106,7 +2106,7 @@ bool UEngine::SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
 		{
 			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
 			{
-				UE_LOG(LogEngine, Error, TEXT("SetTimecodeProvider - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
+				UE_LOG(LogEngine, Warning, TEXT("SetTimecodeProvider - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
 			}
 		}
 	}
@@ -2449,7 +2449,7 @@ void UEngine::InitializeObjectReferences()
 			DefaultTimecodeProvider = NewObject<UTimecodeProvider>(this, DefaultTimecodeProviderClass);
 			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
 			{
-				UE_LOG(LogEngine, Error, TEXT("InitializeObjectReferences - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
+				UE_LOG(LogEngine, Warning, TEXT("InitializeObjectReferences - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
 			}
 
 			DefaultTimecodeProvider->AddToRoot();
