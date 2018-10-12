@@ -39,10 +39,6 @@ bool FDisplayClusterDeviceBase::Initialize()
 		return false;
 	}
 
-	{
-		return false;
-	}
-
 	UE_LOG(LogDisplayClusterRender, Log, TEXT("Use swap interval: %d"), SwapInterval);
 
 	return true;
