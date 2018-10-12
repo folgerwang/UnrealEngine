@@ -4788,115 +4788,103 @@ UProperty* FHeaderParser::GetVarNameAndDim
 	// create the FName for the property, splitting (ie Unnamed_3 -> Unnamed,3)
 	FName PropertyName(VarProperty.Identifier, FindFlag);
 
-	// Add property.
-	UProperty* NewProperty = nullptr;
-
+	UProperty* Prev = nullptr;
+	for (TFieldIterator<UProperty> It(Scope, EFieldIteratorFlags::ExcludeSuper); It; ++It)
 	{
-		UProperty* Prev = nullptr;
-	    for (TFieldIterator<UProperty> It(Scope, EFieldIteratorFlags::ExcludeSuper); It; ++It)
-		{
-			Prev = *It;
-		}
-
-		UArrayProperty* Array             = nullptr;
-		UMapProperty*   Map               = nullptr;
-		USetProperty*   Set               = nullptr; // TODO: Set Property
-		UProperty*      NewMapKeyProperty = nullptr;
-		UObject*        NewScope          = Scope;
-		int32           ArrayDim          = 1; // 1 = not a static array, 2 = static array
-		if (VarProperty.ArrayType == EArrayType::Dynamic)
-		{
-			Array       = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UArrayProperty(FObjectInitializer());
-			NewScope    = Array;
-			ObjectFlags = RF_Public;
-		}
-		else if (VarProperty.ArrayType == EArrayType::Static)
-		{
-			ArrayDim = 2;
-		}
-		else if (VarProperty.ArrayType == EArrayType::Set)
-		{
-			Set               = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) USetProperty(FObjectInitializer());
-			NewScope          = Set;
-			ObjectFlags       = RF_Public;
-		}
-		else if (VarProperty.MapKeyProp.IsValid())
-		{
-			Map               = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UMapProperty(FObjectInitializer());
-			NewScope          = Map;
-			ObjectFlags       = RF_Public;
-			NewMapKeyProperty = CreateVariableProperty(*VarProperty.MapKeyProp, NewScope, *(PropertyName.ToString() + TEXT("_Key")), ObjectFlags, VariableCategory, CurrentSrcFile);
-		}
-
-		NewProperty = CreateVariableProperty(VarProperty, NewScope, PropertyName, ObjectFlags, VariableCategory, CurrentSrcFile);
-
-		auto PropagateFlags = [](EPropertyFlags FlagsToPropagate, FPropertyBase& From, UProperty* To) {
-			// Copy some of the property flags to the inner property.
-			To->PropertyFlags |= (From.PropertyFlags & FlagsToPropagate);
-
-			// Copy some of the property flags to the array property.
-			if (To->PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference))
-			{
-				From.PropertyFlags |= CPF_ContainsInstancedReference;
-				From.PropertyFlags &= ~(CPF_InstancedReference | CPF_PersistentInstance); //this was propagated to the inner
-
-				if (To->PropertyFlags & CPF_PersistentInstance)
-				{
-					TMap<FName, FString> MetaData;
-					AddEditInlineMetaData(MetaData);
-					AddMetaDataToClassData(To, From.MetaData);
-				}
-			}
-		};
-
-		if( Array )
-		{
-			Array->Inner = NewProperty;
-
-			PropagateFlags(CPF_PropagateToArrayInner, VarProperty, NewProperty);
-
-			NewProperty = Array;
-		}
-
-		if (Map)
-		{
-			Map->KeyProp   = NewMapKeyProperty;
-			Map->ValueProp = NewProperty;
-
-			PropagateFlags(CPF_PropagateToMapKey,   *VarProperty.MapKeyProp, NewMapKeyProperty);
-			PropagateFlags(CPF_PropagateToMapValue, VarProperty,             NewProperty);
-
-			NewProperty = Map;
-		}
-
-		if (Set)
-		{
-			Set->ElementProp = NewProperty;
-
-			PropagateFlags(CPF_PropagateToSetElement, VarProperty, NewProperty);
-
-			NewProperty = Set;
-		}
-
-		NewProperty->ArrayDim = ArrayDim;
-		if (ArrayDim == 2)
-		{
-			GArrayDimensions.Add(NewProperty, Dimensions.String);
-		}
-		NewProperty->PropertyFlags = VarProperty.PropertyFlags;
-		if (Prev != nullptr)
-		{
-			NewProperty->Next = Prev->Next;
-			Prev->Next = NewProperty;
-		}
-		else
-		{
-			NewProperty->Next = Scope->Children;
-			Scope->Children = NewProperty;
-		}
+		Prev = *It;
 	}
 
-	VarProperty.TokenProperty = NewProperty;
+	auto PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata = [](EPropertyFlags& DestFlags, const TMap<FName, FString>& InMetaData, UProperty* Inner) {
+		// Copy some of the property flags to the container property.
+		if (Inner->PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference))
+		{
+			DestFlags |= CPF_ContainsInstancedReference;
+			DestFlags &= ~(CPF_InstancedReference | CPF_PersistentInstance); //this was propagated to the inner
+
+			if (Inner->PropertyFlags & CPF_PersistentInstance)
+			{
+				TMap<FName, FString> MetaData;
+				AddEditInlineMetaData(MetaData);
+				AddMetaDataToClassData(Inner, InMetaData);
+			}
+		}
+	};
+
+	UProperty* Result = nullptr;
+	if (VarProperty.ArrayType == EArrayType::Dynamic)
+	{
+		UArrayProperty* Array     = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UArrayProperty(FObjectInitializer());
+		UProperty*      InnerProp = CreateVariableProperty(VarProperty, Array, PropertyName, RF_Public, VariableCategory, CurrentSrcFile);
+
+		Array->Inner         = InnerProp;
+		Array->PropertyFlags = VarProperty.PropertyFlags;
+
+		// Propagate flags
+		InnerProp->PropertyFlags |= Array->PropertyFlags & CPF_PropagateToArrayInner;
+
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Array->PropertyFlags, VarProperty.MetaData, InnerProp);
+
+		Result = Array;
+	}
+	else if (VarProperty.ArrayType == EArrayType::Set)
+	{
+		USetProperty* Set       = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) USetProperty(FObjectInitializer());
+		UProperty*    InnerProp = CreateVariableProperty(VarProperty, Set, PropertyName, RF_Public, VariableCategory, CurrentSrcFile);
+
+		Set->ElementProp   = InnerProp;
+		Set->PropertyFlags = VarProperty.PropertyFlags;
+
+		// Propagate flags
+		InnerProp->PropertyFlags |= Set->PropertyFlags & CPF_PropagateToSetElement;
+
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Set->PropertyFlags, VarProperty.MetaData, InnerProp);
+
+		Result = Set;
+	}
+	else if (VarProperty.MapKeyProp.IsValid())
+	{
+		UMapProperty* Map       = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UMapProperty(FObjectInitializer());
+		UProperty*    KeyProp   = CreateVariableProperty(*VarProperty.MapKeyProp, Map, *(PropertyName.ToString() + TEXT("_Key")), RF_Public, VariableCategory, CurrentSrcFile);
+		UProperty*    ValueProp = CreateVariableProperty(VarProperty,             Map, PropertyName,                              RF_Public, VariableCategory, CurrentSrcFile);
+
+		Map->KeyProp       = KeyProp;
+		Map->ValueProp     = ValueProp;
+		Map->PropertyFlags = VarProperty.PropertyFlags;
+
+		// Propagate flags
+		KeyProp  ->PropertyFlags |= VarProperty.MapKeyProp->PropertyFlags & CPF_PropagateToMapKey;
+		ValueProp->PropertyFlags |= Map->PropertyFlags                    & CPF_PropagateToMapValue;
+
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Map->PropertyFlags, VarProperty.MapKeyProp->MetaData, KeyProp);
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Map->PropertyFlags, VarProperty.MetaData,             ValueProp);
+
+		Result = Map;
+	}
+	else
+	{
+		Result = CreateVariableProperty(VarProperty, Scope, PropertyName, ObjectFlags, VariableCategory, CurrentSrcFile);
+
+		if (VarProperty.ArrayType == EArrayType::Static)
+		{
+			Result->ArrayDim = 2; // 2 = static array
+			GArrayDimensions.Add(Result, Dimensions.String);
+		}
+
+		Result->PropertyFlags = VarProperty.PropertyFlags;
+	}
+
+	if (Prev != nullptr)
+	{
+		Result->Next = Prev->Next;
+		Prev->Next = Result;
+	}
+	else
+	{
+		Result->Next = Scope->Children;
+		Scope->Children = Result;
+	}
+
+	VarProperty.TokenProperty = Result;
 	VarProperty.StartLine = InputLine;
 	VarProperty.StartPos = InputPos;
 	FClassMetaData* ScopeData = GScriptHelper.FindClassData(Scope);
@@ -4905,7 +4893,8 @@ UProperty* FHeaderParser::GetVarNameAndDim
 
 	// if we had any metadata, add it to the class
 	AddMetaDataToClassData(VarProperty.TokenProperty, VarProperty.MetaData);
-	return NewProperty;
+
+	return Result;
 }
 
 /*-----------------------------------------------------------------------------
