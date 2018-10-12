@@ -1523,6 +1523,8 @@ public:
 		return ScreenPercentageInterface->Fork_GameThread(ForkedViewFamily);
 	}
 
+	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
+	
 protected:
 
 	/** Size of the family. */
@@ -1659,7 +1661,6 @@ protected:
 
 	/** Renders the scene's distortion */
 	void RenderDistortion(FRHICommandListImmediate& RHICmdList);
-	void RenderDistortionES2(FRHICommandListImmediate& RHICmdList);
 
 	/** Returns the scene color texture multi-view is targeting. */	
 	FTextureRHIParamRef GetMultiViewSceneColor(const FSceneRenderTargets& SceneContext) const;
@@ -1669,8 +1670,6 @@ protected:
 
 	/** Renders a depth mask into the monoscopic far field view to ensure we only render visible pixels. */
 	void RenderMonoscopicFarFieldMask(FRHICommandListImmediate& RHICmdList);
-
-	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
 
 	void UpdatePrimitivePrecomputedLightingBuffers();
 	void ClearPrimitiveSingleFramePrecomputedLightingBuffers();

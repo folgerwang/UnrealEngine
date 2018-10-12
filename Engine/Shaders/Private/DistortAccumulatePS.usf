@@ -30,6 +30,15 @@ void Main(
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;
 	CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, bIsFrontFace);
+
+#if (ES2_PROFILE || ES3_1_PROFILE) 
+	// Mobile specific: 
+	// distortion primtitives rendered without depth testing
+	// discard pixels that are hidden by comparing them to scene depth stored in SceneColor.A
+	float2 BufferUV = SvPositionToBufferUV(SvPosition);
+	float ClipDepth = CalcFullSceneColor(BufferUV).a - SvPosition.w;
+	clip(ClipDepth);
+#endif
 	
 	// material distortion offset
 	half3 Normal = GetMaterialNormal(MaterialParameters, PixelMaterialInputs);
@@ -73,7 +82,8 @@ void Main(
 	float2 DistortBufferUV = ScreenUV + BufferUVDistortion;
 
 #if (ES2_PROFILE || ES3_1_PROFILE) && (!WEBGL)
-	float DistortSceneDepth = ConvertFromDeviceZ(Texture2DSampleLevel(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, DistortBufferUV, 0).r); 
+	// sample depth from SceneColor.A on Mobile
+	float DistortSceneDepth = CalcFullSceneColor(DistortBufferUV).a; 
 #else
 	float DistortSceneDepth = CalcSceneDepth(DistortBufferUV);
 #endif // (ES2_PROFILE || ES3_1_PROFILE) 
@@ -86,11 +96,6 @@ void Main(
 	float InvWidth = 1.0f / max(1.0f, Range );
 	BufferUVDistortion *= saturate((Z - ZCompare) * InvWidth + Bias);
 
-#if (ES2_PROFILE || ES3_1_PROFILE)
-	// mobile path direclty outputs distorted colors
-	DistortBufferUV = ScreenUV + BufferUVDistortion;
-	OutColor = CalcFullSceneColor(DistortBufferUV);
-#else
 	//Scale up for better precision in low/subtle refractions at the expense of artefacts at higher refraction.
 	BufferUVDistortion*= DistortionScaleBias;
 
@@ -100,7 +105,6 @@ void Main(
 
 	// output positives in R|G channels and negatives in B|A channels
 	OutColor = float4(PosOffset.x,PosOffset.y,NegOffset.x,NegOffset.y);
-#endif // (ES2_PROFILE || ES3_1_PROFILE) 
 }
 
 
