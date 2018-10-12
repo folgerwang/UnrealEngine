@@ -319,6 +319,16 @@ public:
 	static void GetSafeZonePadding(UObject* WorldContextObject, FVector4& SafePadding, FVector2D& SafePaddingScale, FVector4& SpillOverPadding);
 
 	/**
+	* Apply color deficiency correction settings to the game window 
+	* @param Type The type of color deficiency correction to apply.
+	* @param Severity Intensity of the color deficiency correction effect, from 0 to 1.
+	* @param CorrectDeficiency Shifts the color spectrum to the visible range based on the current deficiency type.
+	* @param ShowCorrectionWithDeficiency If you're correcting the color deficiency, you can use this to visualize what the correction looks like with the deficiency.
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget|Accessibility", meta = (AdvancedDisplay = "3"))
+	static void SetColorVisionDeficiencyType(EColorVisionDeficiency Type, float Severity, bool CorrectDeficiency, bool ShowCorrectionWithDeficiency);
+
+	/**
 	 * Loads or sets a hardware cursor from the content directory in the game.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget|Hardware Cursor", meta=( WorldContext="WorldContextObject" ))

@@ -930,6 +930,18 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 		// Always resume the dynamic resolution state to ensure it is same state as in game builds when starting PIE.
 		GEngine->ResumeDynamicResolution();
+
+		if (FSlateApplication::IsInitialized())
+		{
+			//Reset color deficiency settings in case they have been modified during PIE
+			const UEditorStyleSettings* EditorSettings = GetDefault<UEditorStyleSettings>();
+			const EColorVisionDeficiency DeficiencyType = EditorSettings->ColorVisionDeficiencyPreviewType;
+			const int32 Severity = EditorSettings->ColorVisionDeficiencySeverity;
+			const bool bCorrectDeficiency = EditorSettings->bColorVisionDeficiencyCorrection;
+			const bool bShowCorrectionWithDeficiency = EditorSettings->bColorVisionDeficiencyCorrectionPreviewWithDeficiency;
+			FSlateApplication::Get().GetRenderer()->SetColorVisionDeficiencyType(DeficiencyType, Severity, bCorrectDeficiency, bShowCorrectionWithDeficiency);
+		}
+
 	});
 
 	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
