@@ -149,7 +149,8 @@ struct FCameraTrackingFocusSettings
 	uint8 bDrawDebugTrackingFocusPoint : 1;
 
 	FCameraTrackingFocusSettings()
-		: RelativeOffset(ForceInitToZero),
+		: ActorToTrack(nullptr),
+		RelativeOffset(ForceInitToZero),
 		bDrawDebugTrackingFocusPoint(false)
 	{}
 };
