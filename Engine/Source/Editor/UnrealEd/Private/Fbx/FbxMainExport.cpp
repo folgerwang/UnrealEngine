@@ -1464,7 +1464,7 @@ FString FFbxExporter::FLevelSequenceNodeNameAdapter::GetActorNodeName(const AAct
 		{
 			if (RuntimeObject.Get() == Actor)
 			{
-				NodeName = MovieSceneBinding.GetName();
+				NodeName = MovieScene->GetObjectDisplayName(MovieSceneBinding.GetObjectGuid()).ToString();
 			}
 		}
 	}
