@@ -42,6 +42,7 @@ void FOnlineAsyncTaskGooglePlayLogin::Start_OnTaskThread()
 					*FString(DebugString(LocalStatus).c_str()));
 				LocalSubsystem->OnAuthActionFinished(Op, LocalStatus);
 			})
+			.EnableSnapshots()
 			.AddOauthScope("https://www.googleapis.com/auth/plus.login")
 			.Create(Subsystem->PlatformConfiguration);
 	}
