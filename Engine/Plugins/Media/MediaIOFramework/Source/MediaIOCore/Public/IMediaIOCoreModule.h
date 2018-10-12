@@ -14,6 +14,7 @@ class IMediaIOCoreDeviceProvider;
 class MEDIAIOCORE_API IMediaIOCoreModule : public IModuleInterface
 {
 public:
+	static bool IsAvailable();
 	static IMediaIOCoreModule& Get();
 
 public:
