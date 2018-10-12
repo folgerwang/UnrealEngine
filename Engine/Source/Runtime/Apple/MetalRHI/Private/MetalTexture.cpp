@@ -214,7 +214,11 @@ void FMetalSurface::PrepareTextureView()
 {
 	// Recreate the texture to enable MTLTextureUsagePixelFormatView which must be off unless we definitely use this feature or we are throwing ~4% performance vs. Windows on the floor.
 	mtlpp::TextureUsage Usage = (mtlpp::TextureUsage)Texture.GetUsage();
-	if(!(Usage & mtlpp::TextureUsage::PixelFormatView))
+	bool bMemoryLess = false;
+#if PLATFORM_IOS
+	bMemoryLess = (Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless);
+#endif
+	if(!(Usage & mtlpp::TextureUsage::PixelFormatView) && !bMemoryLess)
 	{
 		check(!bTextureView);
 		check(ImageSurfaceRef == nullptr);
@@ -462,6 +466,14 @@ void FMetalSurface::MakeUnAliasable(void)
 
 void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange)
 {
+#if PLATFORM_IOS
+	// Mmeory;ess targets can't have texture views (SRVs or UAVs)
+	if (Source.Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless)
+	{
+		return;
+	}
+#endif
+	
 	mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PixelFormat].PlatformFormat;
 	
 	bool const bUseSourceTex = (Source.PixelFormat != PF_DepthStencil) && MipRange.location == 0 && MipRange.length == Source.Texture.GetMipmapLevelCount();
@@ -495,6 +507,13 @@ void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange)
 void FMetalSurface::Init(FMetalSurface& Source, NSRange MipRange, EPixelFormat Format)
 {
 	check(!Source.MSAATexture || Format == PF_X24_G8);
+#if PLATFORM_IOS
+	// Mmeory;ess targets can't have texture views (SRVs or UAVs)
+	if (Source.Texture.GetStorageMode() == mtlpp::StorageMode::Memoryless)
+	{
+		return;
+	}
+#endif
 	
 	mtlpp::PixelFormat MetalFormat = (mtlpp::PixelFormat)GPixelFormats[PixelFormat].PlatformFormat;
 	
@@ -855,9 +874,19 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 		else if (Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable))
 		{
 			check(!(Flags & TexCreate_CPUReadback));
-			Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::DefaultCache);
-			Desc.SetStorageMode(mtlpp::StorageMode::Private);
-			Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModePrivate));
+#if PLATFORM_IOS
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMemoryLessResources) && !(Flags & (TexCreate_ShaderResource|TexCreate_UAV)))
+			{
+				Desc.SetStorageMode(mtlpp::StorageMode::Memoryless);
+				Desc.SetResourceOptions(mtlpp::ResourceOptions::StorageModeMemoryless);
+			}
+			else
+#endif
+			{
+				Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::DefaultCache);
+				Desc.SetStorageMode(mtlpp::StorageMode::Private);
+				Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModePrivate));
+			}
 		}
 		else
 		{
@@ -968,6 +997,14 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 			// allow commandline to override
 			FParse::Value(FCommandLine::Get(), TEXT("msaa="), NumSamples);
 			Desc.SetSampleCount(NumSamples);
+			
+#if PLATFORM_IOS
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMemoryLessResources) && GMaxRHIShaderPlatform == SP_METAL)
+			{
+				Desc.SetStorageMode(mtlpp::StorageMode::Memoryless);
+				Desc.SetResourceOptions(mtlpp::ResourceOptions::StorageModeMemoryless);
+			}
+#endif
 			
 			MSAATexture = GetMetalDeviceContext().CreateTexture(this, Desc);
 			
