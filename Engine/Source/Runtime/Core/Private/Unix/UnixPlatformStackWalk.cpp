@@ -45,7 +45,7 @@ namespace
 			: SymbolFileFD(open(Path, O_RDONLY)),
 			  StartOffset(sizeof(RecordsHeader))
 		{
-			if (SymbolFileFD)
+			if (SymbolFileFD != -1)
 			{
 				// TODO check for EINTR
 				read(SymbolFileFD, static_cast<void*>(&RecordCount), sizeof(RecordsHeader));
