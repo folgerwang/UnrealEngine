@@ -2242,7 +2242,18 @@ void FMetalStateCache::DiscardRenderTargets(bool Depth, bool Stencil, uint32 Col
 {
 	if (Depth)
 	{
-		DepthStore = mtlpp::StoreAction::DontCare;
+		switch (DepthStore)
+		{
+			case mtlpp::StoreAction::Unknown:
+			case mtlpp::StoreAction::Store:
+				DepthStore = mtlpp::StoreAction::DontCare;
+				break;
+			case mtlpp::StoreAction::StoreAndMultisampleResolve:
+				DepthStore = mtlpp::StoreAction::MultisampleResolve;
+				break;
+			default:
+				break;
+		}
 	}
 
 	if (Stencil)
@@ -2254,7 +2265,18 @@ void FMetalStateCache::DiscardRenderTargets(bool Depth, bool Stencil, uint32 Col
 	{
 		if ((ColorBitMask & (1u << Index)) != 0)
 		{
-			ColorStore[Index] = mtlpp::StoreAction::DontCare;
+			switch (ColorStore[Index])
+			{
+				case mtlpp::StoreAction::Unknown:
+				case mtlpp::StoreAction::Store:
+					ColorStore[Index] = mtlpp::StoreAction::DontCare;
+					break;
+				case mtlpp::StoreAction::StoreAndMultisampleResolve:
+					ColorStore[Index] = mtlpp::StoreAction::MultisampleResolve;
+					break;
+				default:
+					break;
+			}
 		}
 	}
 }

@@ -998,9 +998,11 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 			FParse::Value(FCommandLine::Get(), TEXT("msaa="), NumSamples);
 			Desc.SetSampleCount(NumSamples);
 			
+			bool bMemoryless = false;
 #if PLATFORM_IOS
 			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMemoryLessResources) && GMaxRHIShaderPlatform == SP_METAL)
 			{
+				bMemoryless = true;
 				Desc.SetStorageMode(mtlpp::StorageMode::Memoryless);
 				Desc.SetResourceOptions(mtlpp::ResourceOptions::StorageModeMemoryless);
 			}
@@ -1018,7 +1020,7 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 				// we don't have the resolve texture, so we just update the memory size with the MSAA size
 				TotalTextureSize = TotalTextureSize * NumSamples;
 			}
-			else
+			else if (!bMemoryless)
 			{
 				// an MSAA render target takes NumSamples more space, in addition to the resolve texture
 				TotalTextureSize += TotalTextureSize * NumSamples;
