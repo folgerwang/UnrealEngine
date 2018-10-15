@@ -4,7 +4,6 @@
 
 #include "Templates/SharedPointer.h"
 #include "MediaShaders.h"
-#include "WebMMediaTextureSample.h"
 
 THIRD_PARTY_INCLUDES_START
 #include <vpx/vpx_decoder.h>
@@ -12,9 +11,11 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 
 class FMediaSamples;
+class FWebMMediaTextureSample;
+class FWebMMediaTextureSamplePool;
 struct FWebMFrame;
 
-class FWebMVideoDecoder
+class WEBMMEDIA_API FWebMVideoDecoder
 {
 public:
 	FWebMVideoDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples);

@@ -3,11 +3,12 @@
 #include "WebMVideoDecoder.h"
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
+#include "WebMMediaTextureSample.h"
 #include "MediaShaders.h"
 #include "MediaSamples.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
-# include "Containers/DynamicRHIResourceArray.h"
+#include "Containers/DynamicRHIResourceArray.h"
 
 namespace
 {
