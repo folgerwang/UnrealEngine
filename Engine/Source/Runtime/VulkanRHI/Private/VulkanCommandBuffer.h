@@ -134,7 +134,7 @@ public:
 	void Begin();
 	void End();
 
-	enum class EState
+	enum class EState : uint8
 	{
 		ReadyForBegin,
 		IsInsideBegin,
@@ -143,15 +143,16 @@ public:
 		Submitted,
 	};
 
-	bool bNeedsDynamicStateSet;
-	bool bHasPipeline;
-	bool bHasViewport;
-	bool bHasScissor;
-	bool bHasStencilRef;
-
 	VkViewport CurrentViewport;
 	VkRect2D CurrentScissor;
 	uint32 CurrentStencilRef;
+	EState State;
+	uint8 bNeedsDynamicStateSet	: 1;
+	uint8 bHasPipeline			: 1;
+	uint8 bHasViewport			: 1;
+	uint8 bHasScissor			: 1;
+	uint8 bHasStencilRef		: 1;
+	uint8 bIsUploadOnly			: 1;
 
 	// You never want to call Begin/EndRenderPass directly as it will mess up with the FTransitionAndLayoutManager
 	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, class FVulkanRenderPass* RenderPass, class FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues);
@@ -176,7 +177,6 @@ private:
 	FVulkanDevice* Device;
 	/*TRefCountPtr<*/FVulkanTimestampQueryPool* /*>*/ TimestampQueryPool = nullptr;
 	VkCommandBuffer CommandBufferHandle;
-	EState State;
 	double SubmittedTime = 0.0f;
 
 	TArray<VkPipelineStageFlags> WaitFlags;
@@ -202,7 +202,6 @@ private:
 	void RefreshFenceStatus();
 	void InitializeTimings(FVulkanCommandListContext* InContext);
 
-	bool bIsUploadOnly;
 	FVulkanCommandBufferPool* CommandBufferPool;
 
 	FVulkanGPUTiming* Timing;
