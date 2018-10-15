@@ -782,8 +782,12 @@ namespace UnrealBuildTool
 					}
 					else
 					{
+						// Get the intermediate directory
+						DirectoryReference ResourceIntermediateDirectory = ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory;
+
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
+						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, ResourceIntermediateDirectory, Target);
 
 						// @todo: This should be in some Windows code somewhere...
 						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
@@ -796,7 +800,7 @@ namespace UnrealBuildTool
 
 						// Otherwise compile the default resource file per-binary, so that it gets the correct ORIGINAL_FILE_NAME macro.
 						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
-						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(BinaryCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory, ActionGraph);
+						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(ResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ResourceIntermediateDirectory, ActionGraph);
 						BinaryLinkEnvironment.InputFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}
 				}
