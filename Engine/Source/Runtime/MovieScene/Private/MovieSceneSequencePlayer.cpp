@@ -394,11 +394,6 @@ bool UMovieSceneSequencePlayer::IsReversed() const
 	return bReversePlayback;
 }
 
-float UMovieSceneSequencePlayer::GetLength() const
-{
-	return GetDuration().AsSeconds();
-}
-
 float UMovieSceneSequencePlayer::GetPlayRate() const
 {
 	return PlaybackSettings.PlayRate;
@@ -407,11 +402,6 @@ float UMovieSceneSequencePlayer::GetPlayRate() const
 void UMovieSceneSequencePlayer::SetPlayRate(float PlayRate)
 {
 	PlaybackSettings.PlayRate = PlayRate;
-}
-
-void UMovieSceneSequencePlayer::SetPlaybackRange( float NewStartTime, float NewEndTime )
-{
-	SetTimeRange(NewStartTime, NewEndTime - NewStartTime);
 }
 
 FFrameTime UMovieSceneSequencePlayer::GetLastValidTime() const

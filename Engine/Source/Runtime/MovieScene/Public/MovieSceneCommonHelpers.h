@@ -243,17 +243,6 @@ public:
 		return PropertyName;
 	}
 
-	template<typename ValueType>
-	DEPRECATED(4.15, "Please use GetCurrentValue(const UObject&)")
-	ValueType GetCurrentValue(const UObject* Object) { check(Object) return GetCurrentValue<ValueType>(*Object); }
-	template <typename ValueType>
-	DEPRECATED(4.15, "Please use CallFunction(UObject&)")
-	void CallFunction( UObject* InRuntimeObject, ValueType* PropertyValue ) { CallFunction<ValueType>(*InRuntimeObject, *PropertyValue); }
-	DEPRECATED(4.15, "UpdateBindings is no longer necessary")
-	void UpdateBindings( const TArray<TWeakObjectPtr<UObject>>& InRuntimeObjects ){}
-	DEPRECATED(4.15, "UpdateBindings is no longer necessary")
-	void UpdateBinding( const TWeakObjectPtr<UObject>& InRuntimeObject ) {}
-
 private:
 
 	struct FPropertyAddress

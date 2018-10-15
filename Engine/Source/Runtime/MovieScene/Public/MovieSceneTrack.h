@@ -18,10 +18,6 @@ struct FMovieSceneTrackSegmentBlender;
 struct FMovieSceneTrackRowSegmentBlender;
 struct IMovieSceneTemplateGenerator;
 
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	typedef TInlineValue<FMovieSceneSegmentCompilerRules> FMovieSceneDeprecatedCompilerRulesPtr;
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
 /** Flags used to perform cook-time optimization of movie scene data */
 enum class ECookOptimizationFlags
 {
@@ -49,16 +45,6 @@ struct FMovieSceneTrackCompilerArgs
 
 	/** The generator responsible for generating the template */
 	IMovieSceneTemplateGenerator& Generator;
-
-	struct FMovieSceneSequenceTemplateStore {};
-
-	DEPRECATED(4.19, "Template store is no longer supplied as part of track compilation")
-	FMovieSceneSequenceTemplateStore SubSequenceStore;
-
-	struct FMovieSceneTrackCompilationParams { 	bool bForEditorPreview, bDuringBlueprintCompile; };
-
-	DEPRECATED(4.19, "Template store is no longer supplied as part of track compilation")
-	FMovieSceneTrackCompilationParams Params;
 };
 
 /** Generic evaluation options for any track */
@@ -153,12 +139,6 @@ public:
 	 * These define how to deal with overlapping sections and empty space at the track level
 	 */
 	MOVIESCENE_API virtual FMovieSceneTrackSegmentBlenderPtr GetTrackSegmentBlender() const;
-
-	DEPRECATED(4.19, "Please override GetRowSegmentBlender() instead.")
-	MOVIESCENE_API virtual FMovieSceneDeprecatedCompilerRulesPtr GetRowCompilerRules() const;
-
-	DEPRECATED(4.19, "Please override GetTrackSegmentBlender() instead.")
-	MOVIESCENE_API virtual FMovieSceneDeprecatedCompilerRulesPtr GetTrackCompilerRules() const;
 
 	/**
 	 * Generate a template for this track
@@ -276,14 +256,6 @@ public:
 	 * @return List of all the sections in the track.
 	 */
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const PURE_VIRTUAL(UMovieSceneTrack::GetAllSections, static TArray<UMovieSceneSection*> Empty; return Empty;);
-
-	/**
-	 * Gets the section boundaries of this track.
-	 * 
-	 * @return The range of time boundaries.
-	 */
-	DEPRECATED(4.20, "This function is no longer used.")
-	virtual TRange<FFrameNumber> GetSectionBoundaries() const PURE_VIRTUAL(UMovieSceneTrack::GetSectionBoundaries, return TRange<FFrameNumber>::Empty(););
 
 	/**
 	 * Checks to see if the section is in this track.
