@@ -80,7 +80,7 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	GENERATED_UCLASS_BODY()
 
 	/** The function to call. */
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionMaterialFunctionCall)
+	UPROPERTY(EditAnywhere, Category=MaterialExpressionMaterialFunctionCall, meta=(DisallowedClasses="MaterialFunctionInstance"))
 	class UMaterialFunctionInterface* MaterialFunction;
 
 #if WITH_EDITORONLY_DATA
