@@ -6063,6 +6063,13 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 {
 	SCOPE_CYCLE_COUNTER(STAT_ProcessMouseButtonUp);
 
+	// If in responsive mode throttle, leave it on mouse up.  Release this before dispatching the event to prevent being stuck in this mode
+	// until the next click if a modal dialog is opened.
+	if (MouseButtonDownResponsivnessThrottle.IsValid())
+	{
+		FSlateThrottleManager::Get().LeaveResponsiveMode(MouseButtonDownResponsivnessThrottle);
+	}
+
 	QueueSynthesizedMouseMove();
 	SetLastUserInteractionTime(this->GetCurrentTime());
 	LastUserInteractionTimeForThrottling = LastUserInteractionTime;
@@ -6077,12 +6084,6 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 	// An empty widget path is passed in.  As an optimization, one will be generated only if a captured mouse event isn't routed
 	FWidgetPath EmptyPath;
 	const bool bHandled = RoutePointerUpEvent( EmptyPath, MouseEvent ).IsEventHandled();
-
-	// If in responsive mode throttle, leave it on mouse up.
-	if( MouseButtonDownResponsivnessThrottle.IsValid() )
-	{
-		FSlateThrottleManager::Get().LeaveResponsiveMode( MouseButtonDownResponsivnessThrottle );
-	}
 
 	if ( PressedMouseButtons.Num() == 0 )
 	{
