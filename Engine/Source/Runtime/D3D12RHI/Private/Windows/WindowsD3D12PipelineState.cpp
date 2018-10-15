@@ -9,10 +9,9 @@
 #include "Misc/ScopeRWLock.h"
 #include "Stats/StatsMisc.h"
 
-// D3D12RHI PSO file cache doesn't work anymore. Use FPipelineFileCache instead
 static TAutoConsoleVariable<int32> CVarPipelineStateDiskCache(
 	TEXT("D3D12.PSO.DiskCache"),
-	0,
+	1,
 	TEXT("Enables a disk cache for Pipeline State Objects (PSOs).\n")
 	TEXT("PSO descs are cached to disk so subsequent runs can create PSOs at load-time instead of at run-time.\n")
 	TEXT("This cache contains data that is independent of hardware, driver, or machine that it was created on. It can be distributed with shipping content.\n")
@@ -22,7 +21,7 @@ static TAutoConsoleVariable<int32> CVarPipelineStateDiskCache(
 
 static TAutoConsoleVariable<int32> CVarDriverOptimizedPipelineStateDiskCache(
 	TEXT("D3D12.PSO.DriverOptimizedDiskCache"),
-	0,
+	1,
 	TEXT("Enables a disk cache for driver-optimized Pipeline State Objects (PSOs).\n")
 	TEXT("PSO descs are cached to disk so subsequent runs can create PSOs at load-time instead of at run-time.\n")
 	TEXT("This cache contains data specific to the hardware, driver, and machine that it was created on.\n")

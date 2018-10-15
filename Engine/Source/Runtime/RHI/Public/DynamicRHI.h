@@ -1271,7 +1271,3 @@ public:
 *	Called to create the instance of the dynamic RHI.
 */
 FDynamicRHI* PlatformCreateDynamicRHI();
-
-// Name of the RHI module that will be created when PlatformCreateDynamicRHI is called
-// NOTE: This function is very slow when called before RHIInit
-extern RHI_API const TCHAR* GetSelectedDynamicRHIModuleName(bool bCleanup = true);
