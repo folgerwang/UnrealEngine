@@ -351,7 +351,7 @@ namespace UnrealBuildTool
 			RemoteArguments.Add(TargetDesc.Platform.ToString());
 			RemoteArguments.Add(TargetDesc.Configuration.ToString());
 			RemoteArguments.Add("-SkipRulesCompile"); // Use the rules assembly built locally
-			RemoteArguments.Add("-ForceXmlConfigCache"); // Use the XML config cache built locally, since the remote won't have it
+			RemoteArguments.Add(String.Format("-XmlConfigCache={0}", GetRemotePath(XmlConfig.CacheFile))); // Use the XML config cache built locally, since the remote won't have it
 			RemoteArguments.Add(String.Format("-Log={0}", GetRemotePath(RemoteLogFile)));
 			RemoteArguments.Add(String.Format("-Manifest={0}", GetRemotePath(RemoteManifestFile)));
 
@@ -645,6 +645,7 @@ namespace UnrealBuildTool
 		void UploadFiles(DirectoryReference LocalDirectory, string RemoteDirectory, FileReference LocalFileList)
 		{
 			List<string> Arguments = new List<string>(BasicRsyncArguments);
+			Arguments.Add(String.Format("--rsync-path=\"mkdir -p {0} && rsync\"", RemoteDirectory));
 			Arguments.Add(String.Format("--files-from=\"{0}\"", GetLocalCygwinPath(LocalFileList)));
 			Arguments.Add(String.Format("\"{0}/\"", GetLocalCygwinPath(LocalDirectory)));
 			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
@@ -755,6 +756,10 @@ namespace UnrealBuildTool
 			// Upload these files to the remote
 			Log.TraceInformation("[Remote] Uploading scripts...");
 			UploadFiles(TempDir, GetRemotePath(UnrealBuildTool.EngineDirectory), ScriptPathsFileName);
+
+			// Upload the config files
+			Log.TraceInformation("[Remote] Uploading config files...");
+			UploadFile(XmlConfig.CacheFile);
 
 			// Upload the engine files
 			List<FileReference> EngineFilters = new List<FileReference>();

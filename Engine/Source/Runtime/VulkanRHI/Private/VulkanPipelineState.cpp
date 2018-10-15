@@ -419,10 +419,9 @@ void FVulkanCommandListContext::RHISetGraphicsPipelineState(FGraphicsPipelineSta
 		return; // this happens when we immediately evict an cached PSO...the thing is never actually created
 	}
 	FVulkanPipelineStateCacheManager* PipelineStateCache = Device->GetPipelineStateCache();
-	PipelineStateCache->PipelineLRU.Touch(Device, Pipeline->Pipeline, PipelineStateCache->GfxPipelineEntries);
-#else
-	check(Pipeline);
+	PipelineStateCache->PipelineLRU.Touch(Pipeline);
 #endif
+	check(Pipeline);
 
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 	if (PendingGfxState->SetGfxPipeline(Pipeline) || !CmdBuffer->bHasPipeline)

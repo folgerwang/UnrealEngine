@@ -148,7 +148,7 @@ public:
 public:
 
 	/** Initializes the IP endpoint functionality. */
-	static void Initialize();
+	static NETWORKING_API void Initialize();
 
 	/**
 	 * Converts a string to an IPv4 endpoint.

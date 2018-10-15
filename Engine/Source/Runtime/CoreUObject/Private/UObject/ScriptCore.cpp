@@ -1322,7 +1322,7 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 
 #if DO_BLUEPRINT_GUARD
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
-	BlueprintExceptionTracker.ScriptEntryTag++;
+	TGuardValue<int32> EntryCounter( BlueprintExceptionTracker.ScriptEntryTag, BlueprintExceptionTracker.ScriptEntryTag+1);
 
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_BlueprintTime, IsInGameThread() && BlueprintExceptionTracker.ScriptEntryTag == 1);
 #endif
@@ -1495,10 +1495,6 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 #if WITH_EDITORONLY_DATA
 	FBlueprintCoreDelegates::OnScriptExecutionEnd.Broadcast();
 #endif
-#endif
-
-#if DO_BLUEPRINT_GUARD
-	--BlueprintExceptionTracker.ScriptEntryTag;
 #endif
 }
 

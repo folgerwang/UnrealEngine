@@ -797,8 +797,7 @@ void FVulkanSurface::InitialClear(FVulkanCommandListContext& Context,const FClea
 	}
 
 	VkImageLayout FinalLayout = Barrier.GetDestLayout(BarrierIndex);
-	VkImageLayout ImageLayout = Context.FindOrAddLayout(Image, FinalLayout);
-	ensure(FinalLayout == ImageLayout);
+	Context.FindOrAddLayoutRW(Image, FinalLayout) = FinalLayout;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1526,6 +1525,7 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 
 	if (!CreateInfo.BulkData)
 	{
+		Device.GetImmediateContext().FindOrAddLayout(Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
 		return;
 	}
 

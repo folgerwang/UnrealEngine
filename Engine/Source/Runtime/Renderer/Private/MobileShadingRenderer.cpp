@@ -39,6 +39,7 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "MobileSeparateTranslucencyPass.h"
+#include "MobileDistortionPass.h"
 
 
 uint32 GetShadowQuality();
@@ -352,16 +353,6 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	if (ViewFamily.EngineShowFlags.Translucency)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_TranslucencyDrawTime);
-
-		// Note: Forward pass has no SeparateTranslucency, so refraction effect order with Translucency is different.
-		// Having the distortion applied between two different translucency passes would make it consistent with the deferred pass.
-		// This is not done yet.
-
-		if (GetRefractionQuality(ViewFamily) > 0)
-		{
-			// to apply refraction effect by distorting the scene color
-			RenderDistortionES2(RHICmdList);
-		}
 		RenderTranslucency(RHICmdList, ViewList, !bGammaSpace || bRenderToSceneColor);
 		FRHICommandListExecutor::GetImmediateCommandList().PollOcclusionQueries();
 		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
@@ -384,15 +375,14 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	}
 
 	static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-	bool bOnChipSunMask =
+	bool bOnChipPP =
 		GSupportsRenderTargetFormat_PF_FloatRGBA &&
 		GSupportsShaderFramebufferFetch &&
-		ViewFamily.EngineShowFlags.PostProcessing &&
-		((View.bLightShaftUse) || GetMobileDepthOfFieldScale(View) > 0.0 ||
-		((ViewFamily.GetShaderPlatform() == SP_METAL) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
-		);
+		ViewFamily.EngineShowFlags.PostProcessing;
+	bool bOnChipSunMask = bOnChipPP && (View.bLightShaftUse || GetMobileDepthOfFieldScale(View) > 0.0) && !IsMobileDistortionActive(View);
+	bool bOnChipPreResolveMSAA = bOnChipPP && (ViewFamily.GetShaderPlatform() == SP_METAL) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false);
 
-	if (!bGammaSpace && bOnChipSunMask)
+	if (!bGammaSpace && (bOnChipSunMask || bOnChipPreResolveMSAA))
 	{
 		// Convert alpha from depth to circle of confusion with sunshaft intensity.
 		// This is done before resolve on hardware with framebuffer fetch.

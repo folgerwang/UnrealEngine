@@ -52,6 +52,7 @@
 #include "NiagaraStackEditorData.h"
 #include "ScopedTransaction.h"
 #include "Widgets/Layout/SWrapBox.h"
+#include "Stack/SNiagaraStackSpacer.h"
 
 /** Contains data for a socket drag and drop operation in the StackEntry node. */
 class FNiagaraStackEntryDragDropOp : public FDecoratedDragDropOp
@@ -263,6 +264,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 					.ToolTipText(LOCTEXT("EnabledToolTip", "Toggles whether this emitter is enabled. Disabled emitters don't simulate or render."))
 					.IsChecked(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::GetIsEnabledCheckState)
 					.OnCheckStateChanged(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::OnIsEnabledCheckStateChanged)
+					.Visibility(this, &SNiagaraStack::GetEnableCheckboxVisibility) 
 				]
 				// Pin
 				+ SHorizontalBox::Slot()
@@ -276,6 +278,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 					.ForegroundColor(this, &SNiagaraStack::GetPinColor)
 					.ContentPadding(2)
 					.OnClicked(this, &SNiagaraStack::PinButtonPressed)
+					.Visibility(this, &SNiagaraStack::GetPinEmitterVisibility)
 					.Content()
 					[
 						SNew(STextBlock)
@@ -327,7 +330,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 					.ForegroundColor(this, &SNiagaraStack::GetPinColor)
 					.ContentPadding(2)
 					.OnClicked(this, &SNiagaraStack::OpenSourceEmitter)
-					.Visibility(CanOpenSourceEmitter() ? EVisibility::Visible : EVisibility::Collapsed)
+					.Visibility(this, &SNiagaraStack::GetOpenSourceEmitterVisibility)
 					// GoToSource icon is 30x30px so we scale it down to stay in line with other 12x12px UI
 					.DesiredSizeScale(FVector2D(0.55f, 0.55f))
 					.Content()
@@ -486,6 +489,21 @@ FReply SNiagaraStack::OpenSourceEmitter()
 	return FReply::Handled();
 }
 
+EVisibility SNiagaraStack::GetEnableCheckboxVisibility() const
+{
+	return StackViewModel->GetSystemViewModel()->GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SNiagaraStack::GetPinEmitterVisibility() const
+{
+	return StackViewModel->GetSystemViewModel()->GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SNiagaraStack::GetOpenSourceEmitterVisibility() const
+{
+	return CanOpenSourceEmitter() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
 bool SNiagaraStack::CanOpenSourceEmitter() const
 {
 	if (StackViewModel && StackViewModel->GetEmitterHandleViewModel().IsValid() && StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()
@@ -624,7 +642,6 @@ FReply SNiagaraStack::OnRowAcceptDrop(const FDragDropEvent& InDragDropEvent, EIt
 	TSharedPtr<FNiagaraStackEntryDragDropOp> DragDropOp = InDragDropEvent.GetOperationAs<FNiagaraStackEntryDragDropOp>();
 	if (DragDropOp.IsValid())
 	{
-
 		if (ensureMsgf(InTargetEntry->Drop(DragDropOp->GetDraggedEntries()).IsSet(), TEXT("Failed to drop stack entry when can drop returned true")))
 		{
 			return FReply::Handled();
@@ -810,8 +827,9 @@ SNiagaraStack::FRowWidgets SNiagaraStack::ConstructNameAndValueWidgetsForItem(UN
 	{
 		FMargin ContentPadding = Container->GetContentPadding();
 		Container->SetContentPadding(FMargin(ContentPadding.Left, 0, ContentPadding.Right, 0));
-		return FRowWidgets(SNew(SBox)
-			.HeightOverride(SpacerHeight * CastChecked<UNiagaraStackSpacer>(Item)->GetSpacerScale()));
+		UNiagaraStackSpacer* SpacerItem = CastChecked<UNiagaraStackSpacer>(Item); 
+		return FRowWidgets(SNew(SNiagaraStackSpacer, *SpacerItem)
+			.HeightOverride(SpacerHeight * SpacerItem->GetSpacerScale()));
 	}
 	else if (Item->IsA<UNiagaraStackItemGroup>())
 	{

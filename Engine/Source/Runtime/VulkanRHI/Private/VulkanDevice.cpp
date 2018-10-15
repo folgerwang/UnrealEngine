@@ -629,7 +629,6 @@ void FVulkanDevice::SetupFormats()
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo)
 {
-
 	const uint32 CreateInfoHash = FCrc::MemCrc32(&CreateInfo, sizeof(CreateInfo));
 	VkSamplerYcbcrConversion* const FindResult = SamplerColorConversionMap.Find(CreateInfoHash);
 	if (FindResult != nullptr)
@@ -639,7 +638,7 @@ VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSam
 	else
 	{
 		VkSamplerYcbcrConversion NewConversion;
-		VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(GetInstanceHandle(), &CreateInfo, nullptr, &NewConversion));
+		VERIFYVULKANRESULT(VulkanRHI::vkCreateSamplerYcbcrConversionKHR(GetInstanceHandle(), &CreateInfo, nullptr, &NewConversion));
 		SamplerColorConversionMap.Add(CreateInfoHash, NewConversion);
 		return NewConversion;
 	}
@@ -874,7 +873,7 @@ void FVulkanDevice::Destroy()
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	for (const auto& Pair : SamplerColorConversionMap)
 	{
-		vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, nullptr);
+		VulkanRHI::vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, nullptr);
 	}
 	SamplerColorConversionMap.Reset();
 #endif
@@ -926,12 +925,12 @@ void FVulkanDevice::Destroy()
 
 	ResourceHeapManager.Deinit();
 
-	FRHIResource::FlushPendingDeletes();
-	DeferredDeletionQueue.Clear();
-
 	delete TransferQueue;
 	delete ComputeQueue;
 	delete GfxQueue;
+
+	FRHIResource::FlushPendingDeletes();
+	DeferredDeletionQueue.Clear();
 
 	FenceManager.Deinit();
 	MemoryManager.Deinit();
@@ -1052,7 +1051,7 @@ void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineSta
 
 void FVulkanDevice::NotifyDeletedComputePipeline(class FVulkanComputePipeline* Pipeline)
 {
-	if (ComputeContext != ImmediateContext)
+	if (ComputeContext && ComputeContext != ImmediateContext)
 	{
 		ComputeContext->PendingComputeState->NotifyDeletedPipeline(Pipeline);
 	}

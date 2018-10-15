@@ -265,7 +265,6 @@ void FVulkanDescriptorPoolsManager::ReleasePoolSet(FVulkanDescriptorPoolSetConta
 {
 	PoolSet.Reset();
 	PoolSet.SetUsed(false);
-	PoolSet.Reset();
 }
 
 void FVulkanDescriptorPoolsManager::GC()
@@ -304,9 +303,9 @@ void FVulkanDescriptorPoolsManager::GC()
 
 FVulkanPendingComputeState::~FVulkanPendingComputeState()
 {
-	for (auto& Pair : PipelineStates)
+	for (auto It = PipelineStates.CreateIterator(); It; ++It)
 	{
-		FVulkanCommonPipelineDescriptorState* State = Pair.Value;
+		FVulkanCommonPipelineDescriptorState* State = It->Value;
 		delete State;
 	}
 }
@@ -474,7 +473,7 @@ void FVulkanPendingGfxState::PrepareForDraw(FVulkanCmdBuffer* CmdBuffer)
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in '%s' vertex shader"),
 							CurrBinding.binding,
-							*CurrentPipeline->GetShader(SF_Vertex)->GetDebugName());
+							*GetCurrentShader(ShaderStage::Vertex)->GetDebugName());
 #else
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in vertex shader"), CurrBinding.binding);
 #endif

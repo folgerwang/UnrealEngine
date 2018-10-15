@@ -73,6 +73,9 @@ private:
 	FSlateColor GetPinColor() const;
 	FReply PinButtonPressed();
 	FReply OpenSourceEmitter();
+	EVisibility GetEnableCheckboxVisibility() const;
+	EVisibility GetPinEmitterVisibility() const;
+	EVisibility GetOpenSourceEmitterVisibility() const;
 
 	// source name handling
 	FText GetSourceEmitterNameText() const;
