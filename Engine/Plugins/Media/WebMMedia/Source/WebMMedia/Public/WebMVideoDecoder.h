@@ -22,7 +22,7 @@ public:
 	~FWebMVideoDecoder();
 
 public:
-	void Initialize();
+	bool Initialize(const char* CodecName);
 	void DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames);
 
 private:
@@ -32,6 +32,7 @@ private:
 		const vpx_image_t* Image;
 	};
 
+	vpx_codec_ctx_t Context;
 	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TUniquePtr<FWebMMediaTextureSamplePool> VideoSamplePool;
 	TRefCountPtr<FRHITexture2D> DecodedY;
@@ -39,10 +40,10 @@ private:
 	TRefCountPtr<FRHITexture2D> DecodedV;
 	FGraphEventRef VideoDecodingTask;
 	bool bTexturesCreated;
-
-	vpx_codec_ctx_t Context;
+	bool bIsInitialized;
 
 	void ConvertYUVToRGBAndSubmit(const FConvertParams& Params);
 	void DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames);
 	void CreateTextures(const vpx_image_t* Image);
+	void Close();
 };

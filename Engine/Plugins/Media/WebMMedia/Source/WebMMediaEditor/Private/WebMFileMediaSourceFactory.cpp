@@ -13,7 +13,7 @@ UWebMPlatFileMediaSourceFactory::UWebMPlatFileMediaSourceFactory(const FObjectIn
 	: Super(ObjectInitializer)
 {
 	// add formats we support
-	Formats.Add(TEXT("mkv;Matroska Multimedia File"));
+	Formats.Add(TEXT("webm;WebM Multimedia File"));
 
 	SupportedClass = UFileMediaSource::StaticClass();
 

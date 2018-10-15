@@ -19,18 +19,31 @@ public:
 	~FWebMAudioDecoder();
 
 public:
-	void Initialize(int32 InSampleRate, int32 InChannels);
+	bool Initialize(const char* InCodec, int32 InSampleRate, int32 InChannels, const uint8* CodecPrivateData, size_t CodecPrivateDataSize);
 	void DecodeAudioFramesAsync(const TArray<TSharedPtr<FWebMFrame>>& AudioFrames);
 
 private:
+	enum ESupportedCodecs
+	{
+		Opus,
+		Vorbis,
+	};
+
+	struct FVorbisDecoder;
 	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TUniquePtr<FWebMMediaAudioSamplePool> AudioSamplePool;
+	TUniquePtr<FVorbisDecoder> VorbisDecoder;
 	FGraphEventRef AudioDecodingTask;
 	TArray<uint8> DecodeBuffer;
-	OpusDecoder* Decoder;
+	OpusDecoder* OpusDecoder;
+	ESupportedCodecs Codec;
 	int32 FrameSize;
 	int32 SampleRate;
 	int32 Channels;
 
+	void InitializeOpus();
+	bool InitializeVorbis(const uint8* CodecPrivateData, size_t CodecPrivateDataSize);
 	void DoDecodeAudioFrames(const TArray<TSharedPtr<FWebMFrame>>& AudioFrames);
+	int32 DecodeOpus(const TSharedPtr<FWebMFrame>& AudioFrame);
+	int32 DecodeVorbis(const TSharedPtr<FWebMFrame>& AudioFrame);
 };
