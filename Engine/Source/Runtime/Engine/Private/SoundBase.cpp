@@ -184,3 +184,13 @@ void USoundBase::PostLoad()
 #endif
 }
 
+bool USoundBase::CanBeClusterRoot() const
+{
+	return false;
+}
+
+bool USoundBase::CanBeInCluster() const
+{
+	return false;
+}
+
