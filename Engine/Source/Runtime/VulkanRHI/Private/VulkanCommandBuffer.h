@@ -128,7 +128,7 @@ public:
 	{
 		return (Timing != nullptr) && (FMath::Abs((int64)FenceSignaledCounter - (int64)LastValidTiming) < 3);
 	}
-	
+
 	void AddWaitSemaphore(VkPipelineStageFlags InWaitFlags, VulkanRHI::FSemaphore* InWaitSemaphore);
 
 	void Begin();
@@ -141,6 +141,7 @@ public:
 		IsInsideRenderPass,
 		HasEnded,
 		Submitted,
+		NotAllocated,
 	};
 
 	VkViewport CurrentViewport;
@@ -209,6 +210,9 @@ private:
 
 	void AcquirePoolSetContainer();
 
+	void AllocMemory();
+	void FreeMemory();
+
 public:
 	//#todo-rco: Hide this
 	TMap<uint32, class FVulkanTypedDescriptorPoolSet*> TypedDescriptorPoolSets;
@@ -246,6 +250,7 @@ private:
 	VkCommandPool Handle;
 
 	TArray<FVulkanCmdBuffer*> CmdBuffers;
+	TArray<FVulkanCmdBuffer*> FreeCmdBuffers;
 
 	FCriticalSection CS;
 	FVulkanDevice* Device;
