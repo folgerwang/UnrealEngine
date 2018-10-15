@@ -264,6 +264,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 					.ToolTipText(LOCTEXT("EnabledToolTip", "Toggles whether this emitter is enabled. Disabled emitters don't simulate or render."))
 					.IsChecked(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::GetIsEnabledCheckState)
 					.OnCheckStateChanged(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::OnIsEnabledCheckStateChanged)
+					.Visibility(this, &SNiagaraStack::GetEnableCheckboxVisibility) 
 				]
 				// Pin
 				+ SHorizontalBox::Slot()
@@ -277,6 +278,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 					.ForegroundColor(this, &SNiagaraStack::GetPinColor)
 					.ContentPadding(2)
 					.OnClicked(this, &SNiagaraStack::PinButtonPressed)
+					.Visibility(this, &SNiagaraStack::GetPinEmitterVisibility)
 					.Content()
 					[
 						SNew(STextBlock)
@@ -328,7 +330,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 					.ForegroundColor(this, &SNiagaraStack::GetPinColor)
 					.ContentPadding(2)
 					.OnClicked(this, &SNiagaraStack::OpenSourceEmitter)
-					.Visibility(CanOpenSourceEmitter() ? EVisibility::Visible : EVisibility::Collapsed)
+					.Visibility(this, &SNiagaraStack::GetOpenSourceEmitterVisibility)
 					// GoToSource icon is 30x30px so we scale it down to stay in line with other 12x12px UI
 					.DesiredSizeScale(FVector2D(0.55f, 0.55f))
 					.Content()
@@ -485,6 +487,21 @@ FReply SNiagaraStack::OpenSourceEmitter()
 		}
 	}
 	return FReply::Handled();
+}
+
+EVisibility SNiagaraStack::GetEnableCheckboxVisibility() const
+{
+	return StackViewModel->GetSystemViewModel()->GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SNiagaraStack::GetPinEmitterVisibility() const
+{
+	return StackViewModel->GetSystemViewModel()->GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SNiagaraStack::GetOpenSourceEmitterVisibility() const
+{
+	return CanOpenSourceEmitter() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 bool SNiagaraStack::CanOpenSourceEmitter() const
