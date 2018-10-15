@@ -4,13 +4,11 @@
 #include "Misc/SecureHash.h"
 #include "Misc/EnumClassFlags.h"
 #include "Misc/Guid.h"
+#include "BuildPatchFeatureLevel.h"
 
 namespace BuildPatchServices
 {
 	class IFileSystem;
-
-	// We are currently using fixed size of 1MB chunks for patching
-	static const int32 ChunkDataSize = 1048576;
 
 	/**
 	 * Declares flags for chunk headers which specify storage types.
@@ -19,10 +17,10 @@ namespace BuildPatchServices
 	{
 		None = 0x00,
 
-		// Flag for compressed data. If also encrypted, decrypt first.
+		// Flag for compressed data.
 		Compressed = 0x01,
 
-		// Flag for encrypted. If also compressed, decrypt first.
+		// Flag for encrypted. If also compressed, decrypt first. Encryption will ruin compressibility.
 		Encrypted = 0x02,
 	};
 	ENUM_CLASS_FLAGS(EChunkStorageFlags);
@@ -112,14 +110,24 @@ namespace BuildPatchServices
 	 */
 	struct FChunkHeader
 	{
+		FChunkHeader();
+		/**
+		 * Serialization operator.
+		 * @param Ar        Archive to serialize to.
+		 * @param Header    Header to serialize.
+		 * @return Passed in archive.
+		 */
+		friend FArchive& operator<< (FArchive& Ar, FChunkHeader& Header);
 		// The version of this header data.
 		uint32 Version;
-		// The GUID for this data.
-		FGuid Guid;
 		// The size of this header.
 		uint32 HeaderSize;
-		// The size of this data.
-		uint32 DataSize;
+		// The GUID for this data.
+		FGuid Guid;
+		// The size of this data compressed.
+		uint32 DataSizeCompressed;
+		// The size of this data uncompressed.
+		uint32 DataSizeUncompressed;
 		// How the chunk data is stored.
 		EChunkStorageFlags StoredAs;
 		// What type of hash we are using.
@@ -128,19 +136,61 @@ namespace BuildPatchServices
 		uint64 RollingHash;
 		// The FSHA hashed value for this chunk data.
 		FSHAHash SHAHash;
+	};
 
-		/**
-		 * Default constructor sets the version ready for writing out.
-		 */
-		FChunkHeader();
-
+	/**
+	 * A data structure describing the part of a chunk used to construct a file
+	 */
+	struct FChunkPart
+	{
+		FChunkPart();
 		/**
 		 * Serialization operator.
 		 * @param Ar        Archive to serialize to.
-		 * @param Header    Header to serialize.
+		 * @param ChunkPart FChunkPart to serialize.
 		 * @return Passed in archive.
 		 */
-		friend FArchive& operator<< (FArchive& Ar, FChunkHeader& Header);
+		friend FArchive& operator<<(FArchive& Ar, FChunkPart& ChunkPart);
+		// The GUID of the chunk containing this part.
+		FGuid Guid;
+		// The offset of the first byte into the chunk.
+		uint32 Offset;
+		// The size of this part.
+		uint32 Size;
+	};
+
+	/**
+	 * Declares a struct to store the info about a piece of a chunk that is inside a file
+	 */
+	struct FFileChunkPart
+	{
+		FFileChunkPart();
+		// The file containing this piece
+		FString Filename;
+		// The offset into the file of this piece
+		uint64 FileOffset;
+		// The FChunkPart that can be salvaged from this file
+		FChunkPart ChunkPart;
+	};
+
+	/**
+	 * A data structure describing a chunk file
+	 */
+	struct FChunkInfo
+	{
+		FChunkInfo();
+		// The GUID for this data.
+		FGuid Guid;
+		// The FRollingHash hashed value for this chunk data.
+		uint64 Hash;
+		// The FSHA hashed value for this chunk data.
+		FSHAHash ShaHash;
+		// The group number this chunk divides into.
+		uint8 GroupNumber;
+		// The window size for this chunk.
+		uint32 WindowSize;
+		// The file download size for this chunk.
+		int64 FileSize;
 	};
 
 	/**
@@ -158,6 +208,14 @@ namespace BuildPatchServices
 	 */
 	struct FChunkDatabaseHeader
 	{
+		FChunkDatabaseHeader();
+		/**
+		 * Serialization operator.
+		 * @param Ar        Archive to serialize to.
+		 * @param Header    Header to serialize.
+		 * @return Passed in archive.
+		 */
+		friend FArchive& operator<< (FArchive& Ar, FChunkDatabaseHeader& Header);
 		// The version of this header data.
 		uint32 Version;
 		// The size of this header.
@@ -166,19 +224,6 @@ namespace BuildPatchServices
 		uint64 DataSize;
 		// The table of contents.
 		TArray<FChunkLocation> Contents;
-
-		/**
-		 * Default constructor sets the version ready for writing out.
-		 */
-		FChunkDatabaseHeader();
-
-		/**
-		 * Serialization operator.
-		 * @param Ar        Archive to serialize to.
-		 * @param Header    Header to serialize.
-		 * @return Passed in archive.
-		 */
-		friend FArchive& operator<< (FArchive& Ar, FChunkDatabaseHeader& Header);
 	};
 
 	/**
@@ -316,6 +361,6 @@ namespace BuildPatchServices
 	class FChunkDataSerializationFactory
 	{
 	public:
-		static IChunkDataSerialization* Create(IFileSystem* FileSystem);
+		static IChunkDataSerialization* Create(IFileSystem* FileSystem, EFeatureLevel FeatureLevel = EFeatureLevel::Latest);
 	};
 }

@@ -692,8 +692,9 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			{
 				int32 PackageNameLengthForCooking = ContentBrowserUtils::GetPackageLengthForCooking(AssetData.PackageName.ToString(), FEngineBuildSettings::IsInternalBuild());
 
+				int32 MaxCookPathLen = ContentBrowserUtils::GetMaxCookPathLen();
 				AddToToolTipInfoBox(InfoBox, LOCTEXT("TileViewTooltipPathLengthForCookingKey", "Cooking Filepath Length"), FText::Format(LOCTEXT("TileViewTooltipPathLengthForCookingValue", "{0} / {1}"),
-					FText::AsNumber(PackageNameLengthForCooking), FText::AsNumber(ContentBrowserUtils::MaxCookPathLen)), PackageNameLengthForCooking > ContentBrowserUtils::MaxCookPathLen ? true : false);
+					FText::AsNumber(PackageNameLengthForCooking), FText::AsNumber(MaxCookPathLen)), PackageNameLengthForCooking > MaxCookPathLen ? true : false);
 			}
 			else
 			{
@@ -1252,16 +1253,16 @@ void SAssetViewItem::CacheDisplayTags()
 			{
 				bHasSetDisplayValue = true;
 
-				FString ValueString = TagAndValuePair.Value;
-
 				// Since all we have at this point is a string, we can't be very smart here.
 				// We need to strip some noise off class paths in some cases, but can't load the asset to inspect its UPROPERTYs manually due to performance concerns.
-				const TCHAR StringToRemove[] = TEXT("Class'/Script/");
-				if (ValueString.StartsWith(StringToRemove) && ValueString.EndsWith(TEXT("'")))
+				FString ValueString = FPackageName::ExportTextPathToObjectPath(TagAndValuePair.Value);
+
+				const TCHAR StringToRemove[] = TEXT("/Script/");
+				if (ValueString.StartsWith(StringToRemove))
 				{
 					// Remove the class path for native classes, and also remove Engine. for engine classes
-					const int32 SizeOfPrefix = ARRAY_COUNT(StringToRemove);
-					ValueString = ValueString.Mid(SizeOfPrefix - 1, ValueString.Len() - SizeOfPrefix).Replace(TEXT("Engine."), TEXT(""));
+					const int32 SizeOfPrefix = ARRAY_COUNT(StringToRemove) - 1;
+					ValueString = ValueString.Mid(SizeOfPrefix, ValueString.Len() - SizeOfPrefix).Replace(TEXT("Engine."), TEXT(""));
 				}
 
 				if (TagField)
@@ -1555,7 +1556,8 @@ void SAssetListItem::Construct( const FArguments& InArgs )
 
 	if(AssetItem.IsValid())
 	{
-		AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
+		AssetItem->RenamedRequestEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		AssetItem->RenameCanceledEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::ExitEditingMode);
 	}
 
 	SetForceMipLevelsToBeResident(true);
@@ -1694,7 +1696,8 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 
 	if(AssetItem.IsValid())
 	{
-		AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
+		AssetItem->RenamedRequestEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		AssetItem->RenameCanceledEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::ExitEditingMode);
 	}
 
 	SetForceMipLevelsToBeResident(true);
@@ -1912,7 +1915,8 @@ TSharedRef<SWidget> SAssetColumnItem::GenerateWidgetForColumn( const FName& Colu
 
 		if(AssetItem.IsValid())
 		{
-			AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
+			AssetItem->RenamedRequestEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+			AssetItem->RenameCanceledEvent.BindSP(InlineRenameWidget.Get(), &SInlineEditableTextBlock::ExitEditingMode);
 		}
 
 		return SNew(SBorder)

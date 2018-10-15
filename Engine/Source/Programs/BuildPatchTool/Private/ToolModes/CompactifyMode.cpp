@@ -29,20 +29,20 @@ public:
 		// Print help if requested
 		if (bHelp)
 		{
-			UE_LOG(LogBuildPatchTool, Log, TEXT("COMPACTIFY MODE"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("This tool supports the removal of redundant patch data from a cloud directory."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Required arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=Compactify           Must be specified to launch the tool in compactify mode."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -CloudDir=\"\"               Specifies in quotes the cloud directory where manifest files and chunks to be compactified can be found."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -DataAgeThreshold=2        The minimum age in days of chunk files that will be deleted. Any unreferenced chunks older than this will be deleted."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Optional arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -preview                   Log all the actions it will take to update internal structures, but don't actually execute them."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -DeletedChunkLogFile=\"\"    Log the list of paths of deleted chunk files to this specified filename. All paths are relative to CloudDir."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: If -DataAgeThreshold is not supplied, then all unreferenced existing data is eligible for deletion by the compactify process."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("COMPACTIFY MODE"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("This tool supports the removal of redundant patch data from a cloud directory."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Required arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -mode=Compactify           Must be specified to launch the tool in compactify mode."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -CloudDir=\"\"               Specifies in quotes the cloud directory where manifest files and chunks to be compactified can be found."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -DataAgeThreshold=2        The minimum age in days of chunk files that will be deleted. Any unreferenced chunks older than this will be deleted."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Optional arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -preview                   Log all the actions it will take to update internal structures, but don't actually execute them."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -DeletedChunkLogFile=\"\"    Log the list of paths of deleted chunk files to this specified filename. All paths are relative to CloudDir."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If -DataAgeThreshold is not supplied, then all unreferenced existing data is eligible for deletion by the compactify process."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
 			return EReturnCode::OK;
 		}
 

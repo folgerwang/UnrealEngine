@@ -162,6 +162,24 @@ FText FNiagaraEmitterHandleViewModel::GetNameText() const
 	return FText();
 }
 
+FText FNiagaraEmitterHandleViewModel::GetSourceNameText() const
+{
+	if (EmitterHandle && EmitterHandle->GetSource())
+	{
+		return FText::FromString(EmitterHandle->GetSource()->GetName()); 
+	}
+	return FText();
+}
+
+FText FNiagaraEmitterHandleViewModel::GetSourcePathNameText() const
+{
+	if (EmitterHandle && EmitterHandle->GetSource())
+	{
+		return FText::FromString(EmitterHandle->GetSource()->GetPathName());
+	}
+	return FText();
+}
+
 void FNiagaraEmitterHandleViewModel::OnNameTextComitted(const FText& InText, ETextCommit::Type CommitInfo)
 {
 	SetName(*InText.ToString());

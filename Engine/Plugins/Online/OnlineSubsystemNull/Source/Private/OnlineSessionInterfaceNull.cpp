@@ -179,7 +179,7 @@ public:
 
 bool FOnlineSessionNull::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 
 	// Check for an existing session
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -219,12 +219,12 @@ bool FOnlineSessionNull::CreateSession(int32 HostingPlayerNum, FName SessionName
 
 		Result = UpdateLANStatus();
 
-		if (Result != ERROR_IO_PENDING)
+		if (Result != ONLINE_IO_PENDING)
 		{
 			// Set the game state as pending (not started)
 			Session->SessionState = EOnlineSessionState::Pending;
 
-			if (Result != ERROR_SUCCESS)
+			if (Result != ONLINE_SUCCESS)
 			{
 				// Clean up the session info so we don't get into a confused state
 				RemoveNamedSession(SessionName);
@@ -237,15 +237,15 @@ bool FOnlineSessionNull::CreateSession(int32 HostingPlayerNum, FName SessionName
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Cannot create session '%s': session already exists."), *SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
-		TriggerOnCreateSessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		TriggerOnCreateSessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 	
-	return Result == ERROR_IO_PENDING || Result == ERROR_SUCCESS;
+	return Result == ONLINE_IO_PENDING || Result == ONLINE_SUCCESS;
 }
 
 bool FOnlineSessionNull::CreateSession(const FUniqueNetId& HostingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
@@ -312,7 +312,7 @@ bool FOnlineSessionNull::IsSessionJoinable(const FNamedOnlineSession& Session) c
 
 uint32 FOnlineSessionNull::UpdateLANStatus()
 {
-	uint32 Result = ERROR_SUCCESS;
+	uint32 Result = ONLINE_SUCCESS;
 
 	if ( NeedsToAdvertise() )
 	{
@@ -322,7 +322,7 @@ uint32 FOnlineSessionNull::UpdateLANStatus()
 			FOnValidQueryPacketDelegate QueryPacketDelegate = FOnValidQueryPacketDelegate::CreateRaw(this, &FOnlineSessionNull::OnValidQueryPacketReceived);
 			if (!LANSessionManager.Host(QueryPacketDelegate))
 			{
-				Result = E_FAIL;
+				Result = ONLINE_FAIL;
 
 				LANSessionManager.StopLANSession();
 			}
@@ -342,7 +342,7 @@ uint32 FOnlineSessionNull::UpdateLANStatus()
 
 bool FOnlineSessionNull::StartSession(FName SessionName)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	// Grab the session information by name
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
@@ -357,23 +357,23 @@ bool FOnlineSessionNull::StartSession(FName SessionName)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning,	TEXT("Can't start an online session (%s) in state %s"),
+			UE_LOG_ONLINE_SESSION(Warning,	TEXT("Can't start an online session (%s) in state %s"),
 				*SessionName.ToString(),
 				EOnlineSessionState::ToString(Session->SessionState));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't start an online game for session (%s) that hasn't been created"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't start an online game for session (%s) that hasn't been created"), *SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
 		// Just trigger the delegate
-		TriggerOnStartSessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		TriggerOnStartSessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 
-	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
+	return Result == ONLINE_SUCCESS || Result == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionNull::UpdateSession(FName SessionName, FOnlineSessionSettings& UpdatedSessionSettings, bool bShouldRefreshOnlineData)
@@ -394,7 +394,7 @@ bool FOnlineSessionNull::UpdateSession(FName SessionName, FOnlineSessionSettings
 
 bool FOnlineSessionNull::EndSession(FName SessionName)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 
 	// Grab the session information by name
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -410,33 +410,33 @@ bool FOnlineSessionNull::EndSession(FName SessionName)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Can't end session (%s) in state %s"),
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't end session (%s) in state %s"),
 				*SessionName.ToString(),
 				EOnlineSessionState::ToString(Session->SessionState));
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't end an online game for session (%s) that hasn't been created"),
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't end an online game for session (%s) that hasn't been created"),
 			*SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
 		if (Session)
 		{
 			Session->SessionState = EOnlineSessionState::Ended;
 		}
 
-		TriggerOnEndSessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		TriggerOnEndSessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 
-	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
+	return Result == ONLINE_SUCCESS || Result == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionNull::DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	// Find the session in question
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
@@ -448,16 +448,16 @@ bool FOnlineSessionNull::DestroySession(FName SessionName, const FOnDestroySessi
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't destroy a null online session (%s)"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't destroy a null online session (%s)"), *SessionName.ToString());
 	}
 
-	if (Result != ERROR_IO_PENDING)
+	if (Result != ONLINE_IO_PENDING)
 	{
-		CompletionDelegate.ExecuteIfBound(SessionName, (Result == ERROR_SUCCESS) ? true : false);
-		TriggerOnDestroySessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
+		CompletionDelegate.ExecuteIfBound(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
+		TriggerOnDestroySessionCompleteDelegates(SessionName, (Result == ONLINE_SUCCESS) ? true : false);
 	}
 
-	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
+	return Result == ONLINE_SUCCESS || Result == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionNull::IsPlayerInSession(FName SessionName, const FUniqueNetId& UniqueId)
@@ -467,28 +467,28 @@ bool FOnlineSessionNull::IsPlayerInSession(FName SessionName, const FUniqueNetId
 
 bool FOnlineSessionNull::StartMatchmaking(const TArray< TSharedRef<const FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	UE_LOG(LogOnline, Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionNull::CancelMatchmaking(int32 SearchingPlayerNum, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionNull::CancelMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionNull::FindSessions(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 
 	// Don't start another search while one is in progress
 	if (!CurrentSessionSearch.IsValid() && SearchSettings->SearchState != EOnlineAsyncTaskState::InProgress)
@@ -505,18 +505,18 @@ bool FOnlineSessionNull::FindSessions(int32 SearchingPlayerNum, const TSharedRef
 		// Check if its a LAN query
 		Return = FindLANSession();
 
-		if (Return == ERROR_IO_PENDING)
+		if (Return == ONLINE_IO_PENDING)
 		{
 			SearchSettings->SearchState = EOnlineAsyncTaskState::InProgress;
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Ignoring game search request while one is pending"));
-		Return = ERROR_IO_PENDING;
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Ignoring game search request while one is pending"));
+		Return = ONLINE_IO_PENDING;
 	}
 
-	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
+	return Return == ONLINE_SUCCESS || Return == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionNull::FindSessions(const FUniqueNetId& SearchingPlayerId, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
@@ -534,7 +534,7 @@ bool FOnlineSessionNull::FindSessionById(const FUniqueNetId& SearchingUserId, co
 
 uint32 FOnlineSessionNull::FindLANSession()
 {
-	uint32 Return = ERROR_IO_PENDING;
+	uint32 Return = ONLINE_IO_PENDING;
 
 	// Recreate the unique identifier for this client
 	GenerateNonce((uint8*)&LANSessionManager.LanNonce, 8);
@@ -546,7 +546,7 @@ uint32 FOnlineSessionNull::FindLANSession()
 	LANSessionManager.CreateClientQueryPacket(Packet, LANSessionManager.LanNonce);
 	if (LANSessionManager.Search(Packet, ResponseDelegate, TimeoutDelegate) == false)
 	{
-		Return = E_FAIL;
+		Return = ONLINE_FAIL;
 
 		FinalizeLANSearch();
 
@@ -560,11 +560,11 @@ uint32 FOnlineSessionNull::FindLANSession()
 
 bool FOnlineSessionNull::CancelFindSessions()
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 	if (CurrentSessionSearch.IsValid() && CurrentSessionSearch->SearchState == EOnlineAsyncTaskState::InProgress)
 	{
 		// Make sure it's the right type
-		Return = ERROR_SUCCESS;
+		Return = ONLINE_SUCCESS;
 
 		FinalizeLANSearch();
 
@@ -573,20 +573,20 @@ bool FOnlineSessionNull::CancelFindSessions()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can't cancel a search that isn't in progress"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't cancel a search that isn't in progress"));
 	}
 
-	if (Return != ERROR_IO_PENDING)
+	if (Return != ONLINE_IO_PENDING)
 	{
 		TriggerOnCancelFindSessionsCompleteDelegates(true);
 	}
 
-	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
+	return Return == ONLINE_SUCCESS || Return == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionNull::JoinSession(int32 PlayerNum, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
-	uint32 Return = E_FAIL;
+	uint32 Return = ONLINE_FAIL;
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	// Don't join a session if already in one or hosting one
 	if (Session == NULL)
@@ -604,9 +604,9 @@ bool FOnlineSessionNull::JoinSession(int32 PlayerNum, FName SessionName, const F
 		// turn off advertising on Join, to avoid clients advertising it over LAN
 		Session->SessionSettings.bShouldAdvertise = false;
 
-		if (Return != ERROR_IO_PENDING)
+		if (Return != ONLINE_IO_PENDING)
 		{
-			if (Return != ERROR_SUCCESS)
+			if (Return != ONLINE_SUCCESS)
 			{
 				// Clean up the session info so we don't get into a confused state
 				RemoveNamedSession(SessionName);
@@ -619,16 +619,16 @@ bool FOnlineSessionNull::JoinSession(int32 PlayerNum, FName SessionName, const F
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Session (%s) already exists, can't join twice"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Session (%s) already exists, can't join twice"), *SessionName.ToString());
 	}
 
-	if (Return != ERROR_IO_PENDING)
+	if (Return != ONLINE_IO_PENDING)
 	{
 		// Just trigger the delegate as having failed
-		TriggerOnJoinSessionCompleteDelegates(SessionName, Return == ERROR_SUCCESS ? EOnJoinSessionCompleteResult::Success : EOnJoinSessionCompleteResult::UnknownError);
+		TriggerOnJoinSessionCompleteDelegates(SessionName, Return == ONLINE_SUCCESS ? EOnJoinSessionCompleteResult::Success : EOnJoinSessionCompleteResult::UnknownError);
 	}
 
-	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
+	return Return == ONLINE_SUCCESS || Return == ONLINE_IO_PENDING;
 }
 
 bool FOnlineSessionNull::JoinSession(const FUniqueNetId& PlayerId, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
@@ -689,7 +689,7 @@ uint32 FOnlineSessionNull::JoinLANSession(int32 PlayerNum, FNamedOnlineSession* 
 {
 	check(Session != nullptr);
 
-	uint32 Result = E_FAIL;
+	uint32 Result = ONLINE_FAIL;
 	Session->SessionState = EOnlineSessionState::Pending;
 
 	if (Session->SessionInfo.IsValid() && SearchSession != nullptr && SearchSession->SessionInfo.IsValid())
@@ -700,7 +700,7 @@ uint32 FOnlineSessionNull::JoinLANSession(int32 PlayerNum, FNamedOnlineSession* 
 		SessionInfo->SessionId = SearchSessionInfo->SessionId;
 
 		SessionInfo->HostAddr = SearchSessionInfo->HostAddr->Clone();
-		Result = ERROR_SUCCESS;
+		Result = ONLINE_SUCCESS;
 	}
 
 	return Result;
@@ -755,12 +755,12 @@ bool FOnlineSessionNull::GetResolvedConnectString(FName SessionName, FString& Co
 
 		if (!bSuccess)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Invalid session info for session %s in GetResolvedConnectString()"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session info for session %s in GetResolvedConnectString()"), *SessionName.ToString());
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning,
+		UE_LOG_ONLINE_SESSION(Warning,
 			TEXT("Unknown session name (%s) specified to GetResolvedConnectString()"),
 			*SessionName.ToString());
 	}
@@ -789,7 +789,7 @@ bool FOnlineSessionNull::GetResolvedConnectString(const FOnlineSessionSearchResu
 	
 	if (!bSuccess || ConnectInfo.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Invalid session info in search result to GetResolvedConnectString()"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session info in search result to GetResolvedConnectString()"));
 	}
 
 	return bSuccess;
@@ -891,13 +891,13 @@ bool FOnlineSessionNull::RegisterPlayers(FName SessionName, const TArray< TShare
 			else
 			{
 				RegisterVoice(*PlayerId);
-				UE_LOG_ONLINE(Log, TEXT("Player %s already registered in session %s"), *PlayerId->ToDebugString(), *SessionName.ToString());
+				UE_LOG_ONLINE_SESSION(Log, TEXT("Player %s already registered in session %s"), *PlayerId->ToDebugString(), *SessionName.ToString());
 			}			
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No game present to join for session (%s)"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No game present to join for session (%s)"), *SessionName.ToString());
 	}
 
 	TriggerOnRegisterPlayersCompleteDelegates(SessionName, Players, bSuccess);
@@ -941,13 +941,13 @@ bool FOnlineSessionNull::UnregisterPlayers(FName SessionName, const TArray< TSha
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Player %s is not part of session (%s)"), *PlayerId->ToDebugString(), *SessionName.ToString());
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Player %s is not part of session (%s)"), *PlayerId->ToDebugString(), *SessionName.ToString());
 			}
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No game present to leave for session (%s)"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No game present to leave for session (%s)"), *SessionName.ToString());
 		bSuccess = false;
 	}
 
@@ -987,7 +987,7 @@ void FOnlineSessionNull::AppendSessionToPacket(FNboSerializeToBufferNull& Packet
 void FOnlineSessionNull::AppendSessionSettingsToPacket(FNboSerializeToBufferNull& Packet, FOnlineSessionSettings* SessionSettings)
 {
 #if DEBUG_LAN_BEACON
-	UE_LOG_ONLINE(Verbose, TEXT("Sending session settings to client"));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Sending session settings to client"));
 #endif 
 
 	// Members of the session settings class
@@ -1026,7 +1026,7 @@ void FOnlineSessionNull::AppendSessionSettingsToPacket(FNboSerializeToBufferNull
 			Packet << It.Key();
 			Packet << Setting;
 #if DEBUG_LAN_BEACON
-			UE_LOG_ONLINE(Verbose, TEXT("%s"), *Setting.ToString());
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("%s"), *Setting.ToString());
 #endif
 		}
 	}
@@ -1057,7 +1057,7 @@ void FOnlineSessionNull::OnValidQueryPacketReceived(uint8* PacketData, int32 Pac
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("LAN broadcast packet overflow, cannot broadcast on LAN"));
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("LAN broadcast packet overflow, cannot broadcast on LAN"));
 			}
 		}
 	}
@@ -1066,7 +1066,7 @@ void FOnlineSessionNull::OnValidQueryPacketReceived(uint8* PacketData, int32 Pac
 void FOnlineSessionNull::ReadSessionFromPacket(FNboSerializeFromBufferNull& Packet, FOnlineSession* Session)
 {
 #if DEBUG_LAN_BEACON
-	UE_LOG_ONLINE(Verbose, TEXT("Reading session information from server"));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Reading session information from server"));
 #endif
 
 	/** Owner of the session */
@@ -1091,7 +1091,7 @@ void FOnlineSessionNull::ReadSessionFromPacket(FNboSerializeFromBufferNull& Pack
 void FOnlineSessionNull::ReadSettingsFromPacket(FNboSerializeFromBufferNull& Packet, FOnlineSessionSettings& SessionSettings)
 {
 #if DEBUG_LAN_BEACON
-	UE_LOG_ONLINE(Verbose, TEXT("Reading game settings from server"));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Reading game settings from server"));
 #endif
 
 	// Clear out any old settings
@@ -1144,7 +1144,7 @@ void FOnlineSessionNull::ReadSettingsFromPacket(FNboSerializeFromBufferNull& Pac
 			SessionSettings.Set(Key, Setting);
 
 #if DEBUG_LAN_BEACON
-			UE_LOG_ONLINE(Verbose, TEXT("%s"), *Setting->ToString());
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("%s"), *Setting->ToString());
 #endif
 		}
 	}
@@ -1153,7 +1153,7 @@ void FOnlineSessionNull::ReadSettingsFromPacket(FNboSerializeFromBufferNull& Pac
 	if (Packet.HasOverflow())
 	{
 		SessionSettings.Settings.Empty();
-		UE_LOG_ONLINE(Verbose, TEXT("Packet overflow detected in ReadGameSettingsFromPacket()"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Packet overflow detected in ReadGameSettingsFromPacket()"));
 	}
 }
 
@@ -1179,7 +1179,7 @@ void FOnlineSessionNull::OnValidResponsePacketReceived(uint8* PacketData, int32 
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Failed to create new online game settings object"));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to create new online game settings object"));
 	}
 }
 

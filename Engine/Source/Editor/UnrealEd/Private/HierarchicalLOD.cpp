@@ -99,7 +99,7 @@ void FHierarchicalLODBuilder::Build()
 		FMessageLog MapCheck("HLODResults");
 		MapCheck.Warning()
 			->AddToken(FUObjectToken::Create(World->GetWorldSettings()))
-			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_NoBuildHLODHiddenLevels", "Certain levels are marked as hidden, Hierarchical LODs will not be build for hidden levels.")));
+			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_NoBuildHLODHiddenLevels", "Certain levels are marked as hidden, Hierarchical LODs will not be built for hidden levels.")));
 	}
 	
 }
@@ -141,6 +141,7 @@ void FHierarchicalLODBuilder::BuildClusters(ULevel* InLevel, const bool bCreateM
 	LODLevelLODActors.Empty();
 	ValidStaticMeshActorsInLevel.Empty();
 	HLODVolumeActors.Empty();
+	RejectedActorsInLevel.Empty();
 
 	// I'm using stack mem within this scope of the function
 	// so we need this
@@ -187,6 +188,39 @@ void FHierarchicalLODBuilder::BuildClusters(ULevel* InLevel, const bool bCreateM
 									{
 										FLODCluster ActorCluster(Actor);
 										PreviousActorCluster += ActorCluster;
+									}									
+								}
+
+								// Reassess whether or not objects that were excluded from the previous HLOD level should be included in this one
+								if (BuildLODLevelSettings[LODId - 1].bAllowSpecificExclusion)
+								{
+									for (AActor* Actor : RejectedActorsInLevel)
+									{
+										if (Actor && Volume->EncompassesPoint(Actor->GetActorLocation(), Volume->bIncludeOverlappingActors ? Actor->GetComponentsBoundingBox().GetSize().Size() : 0.0f, nullptr))
+										{
+											if (!ShouldGenerateCluster(Actor, !bCreateMeshes, LODId - 1) && ShouldGenerateCluster(Actor, !bCreateMeshes, LODId))
+											{
+												PreviousActorCluster += Actor;
+											}
+										}
+									}
+								}
+							}							
+						}
+						else
+						{
+							// Reassess whether or not objects that were excluded from the previous HLOD level should be included in this one
+							const FBoxSphereBounds ClusterBounds(PreviousLODActor->GetComponentsBoundingBox(true));
+							if (BuildLODLevelSettings[LODId - 1].bAllowSpecificExclusion)
+							{
+								for (AActor* Actor : RejectedActorsInLevel)
+								{
+									if (Actor && FBoxSphereBounds::SpheresIntersect(ClusterBounds, FSphere(Actor->GetActorLocation(), Actor->GetComponentsBoundingBox().GetSize().Size())))
+									{
+										if (!ShouldGenerateCluster(Actor, !bCreateMeshes, LODId - 1) && ShouldGenerateCluster(Actor, !bCreateMeshes, LODId))
+										{
+											PreviousActorCluster += Actor;
+										}
 									}
 								}
 							}
@@ -319,7 +353,6 @@ void FHierarchicalLODBuilder::InitializeClusters(ULevel* InLevel, const int32 LO
 		{
 			Clusters.Empty();
 
-			TArray<AActor*> GenerationActors;			
 			for (int32 ActorId = 0; ActorId < InLevel->Actors.Num(); ++ActorId)
 			{
 				AActor* Actor = InLevel->Actors[ActorId];
@@ -359,6 +392,10 @@ void FHierarchicalLODBuilder::InitializeClusters(ULevel* InLevel, const int32 LO
 							ValidStaticMeshActorsInLevel.Add(Actor);
 						}
 					}					
+				}
+				else
+				{
+					RejectedActorsInLevel.Add(Actor);
 				}
 			}
 			
@@ -924,6 +961,7 @@ void FHierarchicalLODBuilder::MergeClustersAndBuildActors(ULevel* InLevel, const
 						for (AActor* RemoveActor : Cluster.Actors)
 						{
 							ValidStaticMeshActorsInLevel.RemoveSingleSwap(RemoveActor, false);
+							RejectedActorsInLevel.RemoveSingleSwap(RemoveActor, false);
 						}
 					}
 				}				

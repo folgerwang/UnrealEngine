@@ -27,17 +27,23 @@ public class HTTP : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Win32 ||
             Target.Platform == UnrealTargetPlatform.Win64)
         {
-			AddEngineThirdPartyPrivateStaticDependencies(Target, "WinInet");
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "WinHttp");
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
 
 			bWithCurl = true;
         }
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
-				Target.IsInPlatformGroup(UnrealPlatformGroup.Android) ||
-				Target.Platform == UnrealTargetPlatform.Switch)
+				Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
             AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
+
+			bWithCurl = true;
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Switch)
+		{
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
 
 			bWithCurl = true;
 		}

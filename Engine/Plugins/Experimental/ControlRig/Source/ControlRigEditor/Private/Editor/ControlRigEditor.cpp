@@ -835,36 +835,15 @@ void FControlRigEditor::SetJointTransform(const FName& InJoint, const FTransform
 
 	// I don't think I have to mark dirty here. 
 	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
-}
 
-void FControlRigEditor::PostPasteNode(TSet<UEdGraphNode*>& PastedNodes)
-{
-	UControlRigBlueprint* ControlRigBP = GetControlRigBlueprint();
-	UControlRigBlueprintGeneratedClass* Class = ControlRigBP->GetControlRigBlueprintGeneratedClass();
-
-	if (Class->RigUnitProperties.Num() > 0)
+	// I don't think I have to mark dirty here. 
+	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
 	{
-		// once paste, we'd like to create duplicated property and replace it
-		for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
-		{
-			UControlRigGraphNode* ControlRigNode = Cast<UControlRigGraphNode>(*It);
-			if (ControlRigNode)
-			{
-				const FName PropName = ControlRigNode->GetPropertyName();
-
-				for (int32 UnitIndex = 0; UnitIndex < Class->RigUnitProperties.Num(); ++UnitIndex)
-				{
-					if (PropName == Class->RigUnitProperties[UnitIndex]->GetFName())
-					{
-						// it is rig unit
-						FName NewPropName = FControlRigBlueprintUtils::AddUnitMember(ControlRigBP, Class->RigUnitProperties[UnitIndex]->Struct);
-						ControlRigNode->SetPropertyName(NewPropName, true);
-						break;
-					}
-				}
-			}
-		}
+		EditorSkelComp->RebuildDebugDrawSkeleton();
 	}
+
+	// I don't think I have to mark dirty here. 
+	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
 }
 
 void FControlRigEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)

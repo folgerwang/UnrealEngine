@@ -386,8 +386,9 @@ public:
 	 * @param Text The string to calculate for.
 	 * @param XL out Horizontal length of string.
 	 * @param YL out Vertical length of string.
+	 * @param bDPUAware If true measures text considering the current DPI scale factor of the canvas.  Defaults to false for backwards compatibility
 	 */
-	void StrLen(const UFont* InFont, const FString& InText, float& XL, float& YL);
+	void StrLen(const UFont* InFont, const FString& InText, float& XL, float& YL, bool bDPIAware = false);
 
 	/** 
 	 * Calculates the horizontal and vertical size of a given string. This is used for clipped text as it does not take wrapping into account.
@@ -472,6 +473,9 @@ public:
 
 	/** Creates if necessary and returns ReporterGraph instance for 2d graph canvas drawing */
 	TWeakObjectPtr<class UReporterGraph>  GetReporterGraph();
+
+	/** @return the current DPI scale being applied to all canvas draw elements */
+	float GetDPIScale() const { return Canvas->GetDPIScale(); }
 
 	/**
 	 * Draws a line on the Canvas.

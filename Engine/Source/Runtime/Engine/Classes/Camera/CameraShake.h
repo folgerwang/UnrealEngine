@@ -15,14 +15,25 @@ class AActor;
  * Parameters for defining oscillating camera shakes
  ************************************************************/
 
+/** Types of waveforms that can be used for camera shake oscillators */
+UENUM(BlueprintType)
+enum class EOscillatorWaveform : uint8
+{
+	/** A sinusoidal wave */
+	SineWave,
+
+	/** Perlin noise */
+	PerlinNoise,
+};
+
 /** Shake start offset parameter */
 UENUM()
 enum EInitialOscillatorOffset
 {
 	/** Start with random offset (default). */
-	EOO_OffsetRandom,
+	EOO_OffsetRandom UMETA(DisplayName = "Random"),
 	/** Start with zero offset. */
-	EOO_OffsetZero,
+	EOO_OffsetZero UMETA(DisplayName = "Zero"),
 	EOO_MAX,
 };
 
@@ -44,10 +55,15 @@ struct ENGINE_API FFOscillator
 	UPROPERTY(EditAnywhere, Category=FOscillator)
 	TEnumAsByte<enum EInitialOscillatorOffset> InitialOffset;
 	
+	/** Type of waveform to use for oscillation. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FOscillator)
+	EOscillatorWaveform Waveform;
+
 	FFOscillator()
 		: Amplitude(0)
 		, Frequency(0)
 		, InitialOffset(0)
+		, Waveform( EOscillatorWaveform::SineWave ) 
 	{}
 
 	/** Advances the oscillation time and returns the current value. */
@@ -236,7 +252,7 @@ protected:
 
 public:
 	/** Overall intensity scale for this shake instance. */
-	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
+	UPROPERTY(transient, BlueprintReadWrite, Category = CameraShake)
 	float ShakeScale;
 
 	/** Time remaining for oscillation shakes. Less than 0.f means shake infinitely. */

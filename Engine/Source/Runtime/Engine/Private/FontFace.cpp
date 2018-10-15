@@ -104,7 +104,7 @@ void UFontFace::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 	CacheSubFaces();
 #endif // WITH_EDITORONLY_DATA
 
-	FSlateApplication::Get().GetRenderer()->FlushFontCache();
+	FSlateApplication::Get().GetRenderer()->FlushFontCache(TEXT("UFontFace::PostEditChangeProperty"));
 }
 
 void UFontFace::PostEditUndo()
@@ -115,7 +115,7 @@ void UFontFace::PostEditUndo()
 	CacheSubFaces();
 #endif // WITH_EDITORONLY_DATA
 
-	FSlateApplication::Get().GetRenderer()->FlushFontCache();
+	FSlateApplication::Get().GetRenderer()->FlushFontCache(TEXT("UFontFace::PostEditUndo"));
 }
 
 void UFontFace::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const

@@ -864,6 +864,22 @@ struct FSoftObjectPathRenameSerializer : public FArchiveUObject
 
 	FArchive& operator<<(FSoftObjectPath& Value)
 	{
+		// Ignore untracked references if just doing a search only. We still want to fix them up if they happen to be there
+		if (bSearchOnly)
+		{
+			FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
+			FName ReferencingPackageName, ReferencingPropertyName;
+			ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
+			ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
+
+			ThreadContext.GetSerializationOptions(ReferencingPackageName, ReferencingPropertyName, CollectType, SerializeType, this);
+
+			if (CollectType == ESoftObjectPathCollectType::NeverCollect)
+			{
+				return *this;
+			}
+		}
+
 		FString SubPath = Value.GetSubPathString();
 		for (const TPair<FSoftObjectPath, FSoftObjectPath>& Pair : RedirectorMap)
 		{

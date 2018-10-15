@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SQLiteSupport.h"
 #include "SQLiteResultSet.h"
 

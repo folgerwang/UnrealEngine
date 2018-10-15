@@ -57,7 +57,8 @@ public class UMGEditor : ModuleRules
                 "Settings",
 				"RenderCore",
                 "TargetPlatform",
-				"TimeManagement"
+				"TimeManagement",
+				"GameProjectGeneration"
 			}
 			);
 	}

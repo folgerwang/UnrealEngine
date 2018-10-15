@@ -21,6 +21,42 @@ SOCKET FSocketBSDIPv6::GetNativeSocket()
 
 //#include "Net/NetworkProfiler.h"
 
+bool FSocketBSDIPv6::Shutdown(ESocketShutdownMode Mode)
+{
+	int InternalMode = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	// Windows uses different constants than POSIX
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SD_RECEIVE;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SD_SEND;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SD_BOTH;
+			break;
+	}
+#else
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SHUT_RD;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SHUT_WR;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SHUT_RDWR;
+			break;
+	}
+#endif
+
+	return shutdown(Socket, InternalMode) == 0;
+}
+
 bool FSocketBSDIPv6::Close(void)
 {
 	if (Socket != INVALID_SOCKET)
@@ -70,18 +106,20 @@ EIPv6SocketInternalState::Return FSocketBSDIPv6::HasState(EIPv6SocketInternalSta
 	FD_ZERO(&SocketSet);
 	FD_SET(Socket, &SocketSet);
 
+	timeval* TimePointer = WaitTime.GetTicks() >= 0 ? &Time : nullptr;
+
 	// Check the status of the state
 	int32 SelectStatus = 0;
 	switch (State)
 	{
 		case EIPv6SocketInternalState::CanRead:
-			SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, &Time);
+			SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, TimePointer);
 			break;
 		case EIPv6SocketInternalState::CanWrite:
-			SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, &Time);
+			SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, TimePointer);
 			break;
 		case EIPv6SocketInternalState::HasError:
-			SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, &Time);
+			SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, TimePointer);
 			break;
 	}
 

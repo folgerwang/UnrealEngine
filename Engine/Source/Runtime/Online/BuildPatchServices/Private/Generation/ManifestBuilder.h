@@ -13,6 +13,8 @@ namespace BuildPatchServices
 	struct FManifestDetails
 	{
 	public:
+		// The feature level support the manifest should be serialised as.
+		EFeatureLevel FeatureLevel;
 		// The ID of the app of this build
 		uint32 AppId;
 		// The name of the app of this build

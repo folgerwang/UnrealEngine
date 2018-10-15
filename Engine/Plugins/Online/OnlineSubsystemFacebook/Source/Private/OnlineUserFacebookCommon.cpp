@@ -49,9 +49,9 @@ bool FOnlineUserFacebookCommon::QueryUserInfo(int32 LocalUserNum, const TArray<T
 	return bTriggeredRequest;
 }
 
-bool FOnlineUserFacebookCommon::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<class FOnlineUser> >& OutUsers)
+bool FOnlineUserFacebookCommon::GetAllUserInfo(int32 LocalUserNum, TArray< TSharedRef<FOnlineUser> >& OutUsers)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineUserFacebookCommon::GetAllUserInfo()"));
+	UE_LOG_ONLINE_USER(Verbose, TEXT("FOnlineUserFacebookCommon::GetAllUserInfo()"));
 	for (int32 Idx=0; Idx < CachedUsers.Num(); Idx++)
 	{
 		OutUsers.Add(CachedUsers[Idx]);
@@ -60,11 +60,11 @@ bool FOnlineUserFacebookCommon::GetAllUserInfo(int32 LocalUserNum, TArray< TShar
 	return true;
 }
 
-TSharedPtr<FOnlineUser> FOnlineUserFacebookCommon::GetUserInfo(int32 LocalUserNum, const class FUniqueNetId& UserId)
+TSharedPtr<FOnlineUser> FOnlineUserFacebookCommon::GetUserInfo(int32 LocalUserNum, const FUniqueNetId& UserId)
 {
 	TSharedPtr<FOnlineUser> Result;
 
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineUserFacebookCommon::GetUserInfo()"));
+	UE_LOG_ONLINE_USER(Verbose, TEXT("FOnlineUserFacebookCommon::GetUserInfo()"));
 
 	for (int32 Idx=0; Idx < CachedUsers.Num(); Idx++)
 	{

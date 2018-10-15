@@ -75,7 +75,7 @@ void FAppEventManager::Tick()
 				}
 				else
 				{
-					if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
+					if (GEngine != nullptr && GEngine->IsInitialized() && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
 					{
 						// delay the destruction until after the renderer teardown on Gear VR
 						bDestroyWindow = true;
@@ -114,6 +114,7 @@ void FAppEventManager::Tick()
 			bHaveGame = false;
 			break;
 		case APP_EVENT_STATE_ON_PAUSE:
+			FAndroidAppEntry::OnPauseEvent();
 			bHaveGame = false;
 			break;
 		case APP_EVENT_STATE_ON_RESUME:
@@ -455,8 +456,13 @@ void FAppEventManager::ExecDestroyWindow()
 
 void FAppEventManager::PauseAudio()
 {
-	bAudioPaused = true;
+	if (!GEngine || !GEngine->IsInitialized())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Engine not initialized, not pausing Android audio"));
+		return;
+	}
 
+	bAudioPaused = true;
 	UE_LOG(LogTemp, Log, TEXT("Android pause audio"));
 
 	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
@@ -481,8 +487,13 @@ void FAppEventManager::PauseAudio()
 
 void FAppEventManager::ResumeAudio()
 {
-	bAudioPaused = false;
+	if (!GEngine || !GEngine->IsInitialized())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Engine not initialized, not resuming Android audio"));
+		return;
+	}
 
+	bAudioPaused = false;
 	UE_LOG(LogTemp, Log, TEXT("Android resume audio"));
 
 	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();

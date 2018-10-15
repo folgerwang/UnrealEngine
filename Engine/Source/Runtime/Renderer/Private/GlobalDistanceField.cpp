@@ -709,8 +709,12 @@ void FHeightfieldLightingViewInfo::CompositeHeightfieldsIntoGlobalDistanceField(
 	const FVolumeUpdateRegion& UpdateRegion) const
 {
 	const int32 NumPrimitives = Scene->DistanceFieldSceneData.HeightfieldPrimitives.Num();
+	const FPooledRenderTarget* ClipmapRT = static_cast<const FPooledRenderTarget*>(
+		Clipmap.RenderTarget.GetReference());
+	const EPixelFormat ClipmapPixelFormat = ClipmapRT->GetDesc().Format;
 
 	if (GAOGlobalDistanceFieldRepresentHeightfields
+		&& GDynamicRHI->RHIIsTypedUAVLoadSupported(ClipmapPixelFormat)
 		&& NumPrimitives > 0
 		&& SupportsDistanceFieldAO(Scene->GetFeatureLevel(), Scene->GetShaderPlatform())
 		&& !IsMetalPlatform(Scene->GetShaderPlatform()))

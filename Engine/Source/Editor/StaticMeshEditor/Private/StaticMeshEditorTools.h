@@ -372,7 +372,9 @@ class FMeshMaterialsLayout : public TSharedFromThis<FMeshMaterialsLayout>
 public:
 	FMeshMaterialsLayout(IStaticMeshEditor& InStaticMeshEditor)
 		: StaticMeshEditor(InStaticMeshEditor)
-	{}
+	{
+		bDeleteWarningConsumed = false;
+	}
 
 	virtual ~FMeshMaterialsLayout();
 
@@ -432,40 +434,11 @@ private:
 	
 	/* This is to know if material are used by any LODs sections. */
 	TMap<int32, TArray<FSectionLocalizer>> MaterialUsedMap;
-};
 
-class FUVChannelsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FUVChannelsLayout>
-{
-public:
-	FUVChannelsLayout(IStaticMeshEditor& InStaticMeshEditor, int32 InLODIndex);
-	virtual ~FUVChannelsLayout();
-
-private:
-	/** IDetailCustomNodeBuilder Interface*/
-	virtual void SetOnRebuildChildren(FSimpleDelegate InOnRegenerateChildren) override {}
-	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
-	virtual void GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder) override;
-	virtual void Tick(float DeltaTime) override {}
-	virtual bool RequiresTick() const override { return false; }
-	virtual FName GetName() const override { static FName UVChannelsName("UVChannels"); return UVChannelsName; }
-	virtual bool InitiallyCollapsed() const override { return true; }
-
-	void UpdateNumUVChannels();
-	FText GetNumUVChannelsAsText() const;
-	TOptional<int32> GetMaxUVChannelIndex() const;
-	int32 GetUVChannelIndex() const;
-	void OnUVChannelIndexChanged(int32 NewValue);
-
-	FReply OnInsertUVChannel();
-	FReply OnRemoveUVChannel();
-	bool CanAddUVChannel() const;
-	bool CanRemoveUVChannel() const;
-
-private:
-	IStaticMeshEditor& StaticMeshEditor;
-	int32 LODIndex;
-	int32 NumUVChannels;
-	int32 UVChannelIndex;
+	/*
+	* This prevent showing the delete material slot warning dialog more then once per editor session
+	*/
+	bool bDeleteWarningConsumed;
 };
 
 /** 
@@ -566,7 +539,6 @@ private:
 	TSharedPtr<FMeshReductionSettingsLayout> ReductionSettingsWidgets[MAX_STATIC_MESH_LODS];
 	TSharedPtr<FMeshBuildSettingsLayout> BuildSettingsWidgets[MAX_STATIC_MESH_LODS];
 	TSharedPtr<FMeshSectionSettingsLayout> SectionSettingsWidgets[MAX_STATIC_MESH_LODS];
-	TSharedPtr<FUVChannelsLayout> UVChannelsWidgets[MAX_STATIC_MESH_LODS];
 
 	TSharedPtr<FMeshMaterialsLayout> MaterialsLayoutWidget;
 

@@ -675,7 +675,7 @@ bool FDepthDrawingPolicyFactory::DrawMesh(
 
 			FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
 			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FPositionOnlyDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bIsInstancedStereoEmulated));
 
 			int32 BatchElementIndex = 0;
@@ -742,7 +742,7 @@ bool FDepthDrawingPolicyFactory::DrawMesh(
 
 				FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
 				DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bIsInstancedStereoEmulated));
 
 				int32 BatchElementIndex = 0;
@@ -933,46 +933,24 @@ bool FDeferredShadingSceneRenderer::RenderPrePassView(FRHICommandList& RHICmdLis
 	SetupPrePassView(RHICmdList, View, this);
 
 	// Draw the static occluder primitives using a depth drawing policy.
-
-	if (!View.IsInstancedStereoPass())
 	{
-		{
-			// Draw opaque occluders which support a separate position-only
-			// vertex buffer to minimize vertex fetch bandwidth, which is
-			// often the bottleneck during the depth only pass.
-			SCOPED_DRAW_EVENT(RHICmdList, PosOnlyOpaque);
-			bDirty |= Scene->PositionOnlyDepthDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility);
-		}
-		{
-			// Draw opaque occluders, using double speed z where supported.
-			SCOPED_DRAW_EVENT(RHICmdList, Opaque);
-			bDirty |= Scene->DepthDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility);
-		}
-
-		if (EarlyZPassMode >= DDM_AllOccluders)
-		{
-			// Draw opaque occluders with masked materials
-			SCOPED_DRAW_EVENT(RHICmdList, Masked);
-			bDirty |= Scene->MaskedDepthDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility);
-		}
+		// Draw opaque occluders which support a separate position-only
+		// vertex buffer to minimize vertex fetch bandwidth, which is
+		// often the bottleneck during the depth only pass.
+		SCOPED_DRAW_EVENT(RHICmdList, PosOnlyOpaque);
+		bDirty |= Scene->PositionOnlyDepthDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility);
 	}
-	else
 	{
-		const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshOccluderMap, Views[1].StaticMeshOccluderMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-		{
-			SCOPED_DRAW_EVENT(RHICmdList, PosOnlyOpaque);
-			bDirty |= Scene->PositionOnlyDepthDrawList.DrawVisibleInstancedStereo(RHICmdList, StereoView, DrawRenderState);
-		}
-		{
-			SCOPED_DRAW_EVENT(RHICmdList, Opaque);
-			bDirty |= Scene->DepthDrawList.DrawVisibleInstancedStereo(RHICmdList, StereoView, DrawRenderState);
-		}
+		// Draw opaque occluders, using double speed z where supported.
+		SCOPED_DRAW_EVENT(RHICmdList, Opaque);
+		bDirty |= Scene->DepthDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility);
+	}
 
-		if (EarlyZPassMode >= DDM_AllOccluders)
-		{
-			SCOPED_DRAW_EVENT(RHICmdList, Masked);
-			bDirty |= Scene->MaskedDepthDrawList.DrawVisibleInstancedStereo(RHICmdList, StereoView, DrawRenderState);
-		}
+	if (EarlyZPassMode >= DDM_AllOccluders)
+	{
+		// Draw opaque occluders with masked materials
+		SCOPED_DRAW_EVENT(RHICmdList, Masked);
+		bDirty |= Scene->MaskedDepthDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility);
 	}
 
 	{
@@ -1063,34 +1041,19 @@ bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& V
 			CVarRHICmdFlushRenderThreadTasksPrePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0,
 			DrawRenderState);
 
-		if (!View.IsInstancedStereoPass())
-		{
-			// Draw the static occluder primitives using a depth drawing policy.
-			// Draw opaque occluders which support a separate position-only
-			// vertex buffer to minimize vertex fetch bandwidth, which is
-			// often the bottleneck during the depth only pass.
-			Scene->PositionOnlyDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
+		// Draw the static occluder primitives using a depth drawing policy.
+		// Draw opaque occluders which support a separate position-only
+		// vertex buffer to minimize vertex fetch bandwidth, which is
+		// often the bottleneck during the depth only pass.
+		Scene->PositionOnlyDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
 
-			// Draw opaque occluders, using double speed z where supported.
-			Scene->DepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
+		// Draw opaque occluders, using double speed z where supported.
+		Scene->DepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
 
-			// Draw opaque occluders with masked materials
-			if (EarlyZPassMode >= DDM_AllOccluders)
-			{			
-				Scene->MaskedDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
-			}
-		}
-		else
-		{
-			const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshOccluderMap, Views[1].StaticMeshOccluderMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-
-			Scene->PositionOnlyDepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-			Scene->DepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-
-			if (EarlyZPassMode >= DDM_AllOccluders)
-			{
-				Scene->MaskedDepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-			}
+		// Draw opaque occluders with masked materials
+		if (EarlyZPassMode >= DDM_AllOccluders)
+		{			
+			Scene->MaskedDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
 		}
 
 		if (!GStartPrepassParallelTranslatesImmediately)
@@ -1260,7 +1223,6 @@ void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandLis
 	bool bDirty = false;
 	if (!View.Family->EngineShowFlags.CompositeEditorPrimitives)
 	{
-		const auto ShaderPlatform = View.GetShaderPlatform();
 		const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
 
 		// Draw the base pass for the view's batched mesh elements.
@@ -1282,8 +1244,8 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_RenderPrePass, FColor::Emerald);
 	bool bDepthWasCleared = false;
 
-	extern const TCHAR* GetDepthPassReason(bool bDitheredLODTransitionsUseStencil, ERHIFeatureLevel::Type FeatureLevel);
-	SCOPED_DRAW_EVENTF(RHICmdList, PrePass, TEXT("PrePass %s %s"), GetDepthDrawingModeString(EarlyZPassMode), GetDepthPassReason(bDitheredLODTransitionsUseStencil, FeatureLevel));
+	extern const TCHAR* GetDepthPassReason(bool bDitheredLODTransitionsUseStencil, EShaderPlatform ShaderPlatform);
+	SCOPED_DRAW_EVENTF(RHICmdList, PrePass, TEXT("PrePass %s %s"), GetDepthDrawingModeString(EarlyZPassMode), GetDepthPassReason(bDitheredLODTransitionsUseStencil, ShaderPlatform));
 
 	SCOPE_CYCLE_COUNTER(STAT_DepthDrawTime);
 	SCOPED_GPU_STAT(RHICmdList, Prepass);

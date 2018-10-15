@@ -647,9 +647,18 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 
 		for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
 		{
-			FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
+			// Preserve the Sections order by finding the RenderingPolygonGroup with the RenderingSectionIndex that matches the PolygonGroupID
+			FPolygonGroupID RenderingGroupID = PolygonGroupID;
+			for ( const FPolygonGroupID RenderingPolygonGroupID : RenderingPolygonGroups.GetElementIDs() )
+			{
+				if ( RenderingPolygonGroups[ RenderingPolygonGroupID ].RenderingSectionIndex == PolygonGroupID.GetValue() )
+				{
+					RenderingGroupID = RenderingPolygonGroupID;
+					break;
+				}
+			}
 
-			RenderingPolygonGroup.RenderingSectionIndex = StaticMeshLOD.Sections.Num();
+			FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ RenderingGroupID ];
 
 			// Create new rendering section
 			StaticMeshLOD.Sections.Add( FStaticMeshSection() );
@@ -1689,6 +1698,15 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 			StaticMeshSection.bEnableCollision = PolygonGroupCollision[ PolygonGroupID ];
 			StaticMeshSection.bCastShadow = PolygonGroupCastShadow[ PolygonGroupID ];
 			StaticMeshSection.MaterialIndex = MaterialIndex;
+
+#if WITH_EDITORONLY_DATA
+			// SectionInfoMap must be synced with the info of the new Section
+			FMeshSectionInfo Info;
+			Info.bEnableCollision = StaticMeshSection.bEnableCollision;
+			Info.bCastShadow = StaticMeshSection.bCastShadow;
+			Info.MaterialIndex = StaticMeshSection.MaterialIndex;
+			StaticMesh->SectionInfoMap.Set( StaticMeshLODIndex, LODSectionIndex, Info );
+#endif
 		}
 
 		// Insert the rendering polygon group for keeping track of these index buffer properties
@@ -1801,10 +1819,29 @@ void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* Edi
 				if( StaticMeshSection.MaterialIndex > MaterialIndex )
 				{
 					StaticMeshSection.MaterialIndex--;
+
+#if WITH_EDITORONLY_DATA
+					// SectionInfoMap must be synced with the info of the modified Section
+					FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get( StaticMeshLODIndex, Index );
+					--SectionInfo.MaterialIndex;
+					StaticMesh->SectionInfoMap.Set( StaticMeshLODIndex, Index, SectionInfo );
+#endif
 				}
 			}
 
 			StaticMeshLOD.Sections.RemoveAt( RenderingSectionIndex );
+
+#if WITH_EDITORONLY_DATA
+			// SectionInfoMap must be re-indexed to account for the removed Section
+			uint32 NumSectionInfo = StaticMesh->SectionInfoMap.GetSectionNumber( StaticMeshLODIndex );
+			for ( uint32 Index = RenderingSectionIndex + 1; Index < NumSectionInfo; ++Index )
+			{
+				FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get( StaticMeshLODIndex, Index );
+				StaticMesh->SectionInfoMap.Set( StaticMeshLODIndex, Index - 1, SectionInfo );
+			}
+			// And remove the last SectionInfo from the map which is now invalid
+			StaticMesh->SectionInfoMap.Remove( StaticMeshLODIndex, NumSectionInfo - 1 );
+#endif
 		}
 
 		// Remove the rendering polygon group from the sparse array

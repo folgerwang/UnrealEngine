@@ -852,7 +852,7 @@ bool FXmppMultiUserChatStrophe::Tick(float DeltaTime)
 
 void FXmppMultiUserChatStrophe::OnReceiveMucPresence(FXmppMucPresence&& MemberPresence)
 {
-	UE_LOG(LogXmpp, VeryVerbose, TEXT("MUC: OnReceiveMucPresence: jid=%s nick=%s roomid=%s role=%s affiliation=%s"), *MemberPresence.UserJid.GetFullPath(), *MemberPresence.GetNickName(), *MemberPresence.GetRoomId(), *MemberPresence.Role, *MemberPresence.Affiliation);
+	UE_LOG(LogXmpp, VeryVerbose, TEXT("MUC: OnReceiveMucPresence: jid=%s nick=%s roomid=%s role=%s affiliation=%s"), *MemberPresence.UserJid.ToDebugString(), *MemberPresence.GetNickName(), *MemberPresence.GetRoomId(), *MemberPresence.Role, *MemberPresence.Affiliation);
 
 	FXmppRoomStrophe* RoomPtr = Chatrooms.Find(MemberPresence.GetRoomId());
 	if (RoomPtr != nullptr)

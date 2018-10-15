@@ -476,6 +476,14 @@ namespace SaveGameReplay
 			for (FString& ReplayFileName : ReplayFiles)
 			{
 				ReplayFileName.RemoveFromEnd(TEXT(".replay"));
+
+#if PLATFORM_PS4
+				if (ReplayFileName.Compare(ReplayFileName.ToLower(), ESearchCase::CaseSensitive) != 0)
+				{
+					UE_LOG(LogSaveGameReplay, Warning, TEXT("FSaveGameMoveFileHelper::MoveFilesLocalInternal - Replay file %s is not lowercase, import will fail."), *ReplayFileName);
+				}
+#endif
+
 				CopyFile(MoveContext, ReplayFileName);
 			}
 		}

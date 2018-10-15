@@ -63,12 +63,25 @@ class GAMEPLAYTASKS_API UGameplayTasksComponent : public UActorComponent, public
 {
 	GENERATED_BODY()
 
+private:
+
+	friend struct FEventLock;
+	int32 EventLockCounter;
+
+	uint8 bInEventProcessingInProgress : 1;
+
 public:
 	/** Set to indicate that GameplayTasksComponent needs immediate replication. @TODO could just use ForceReplication(), but this allows initial implementation to be game specific. */
 	UPROPERTY()
-	bool bIsNetDirty;
+	uint8 bIsNetDirty:1;
 
 protected:
+	/** Indicates what's the highest priority among currently running tasks */
+	uint8 TopActivePriority;
+
+	/** Resources used by currently active tasks */
+	FGameplayResourceSet CurrentlyClaimedResources;
+
 	/** Tasks that run on simulated proxies */
 	UPROPERTY(ReplicatedUsing = OnRep_SimulatedTasks)
 	TArray<UGameplayTask*> SimulatedTasks;
@@ -89,12 +102,6 @@ protected:
 	/** All known tasks (processed by this component) referenced for GC */
 	UPROPERTY(transient)
 	TArray<UGameplayTask*> KnownTasks;
-
-	/** Indicates what's the highest priority among currently running tasks */
-	uint8 TopActivePriority;
-
-	/** Resources used by currently active tasks */
-	FGameplayResourceSet CurrentlyClaimedResources;
 
 public:
 	UPROPERTY(BlueprintReadWrite, Category = "Gameplay Tasks")
@@ -180,10 +187,6 @@ private:
 
 	void AddTaskToPriorityQueue(UGameplayTask& NewTask);
 	void RemoveTaskFromPriorityQueue(UGameplayTask& Task);
-
-	friend struct FEventLock;
-	int32 EventLockCounter;
-	uint32 bInEventProcessingInProgress : 1;
 
 	FORCEINLINE bool CanProcessEvents() const { return !bInEventProcessingInProgress && (EventLockCounter == 0); }
 };

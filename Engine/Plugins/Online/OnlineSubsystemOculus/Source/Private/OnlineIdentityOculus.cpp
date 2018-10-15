@@ -72,7 +72,7 @@ bool FOnlineIdentityOculus::Login(int32 LocalUserNum, const FOnlineAccountCreden
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Failed Oculus login. %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Failed Oculus login. %s"), *ErrorStr);
 		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdOculus(), ErrorStr);
 	}
 
@@ -253,7 +253,7 @@ FString FOnlineIdentityOculus::GetAuthToken(int32 LocalUserNum) const
 
 void FOnlineIdentityOculus::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityOculus::RevokeAuthToken not implemented"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityOculus::RevokeAuthToken not implemented"));
 	TSharedRef<const FUniqueNetId> UserIdRef(UserId.AsShared());
 	OculusSubsystem.ExecuteNextTick([UserIdRef, Delegate]()
 	{
@@ -282,12 +282,12 @@ void FOnlineIdentityOculus::GetUserPrivilege(const FUniqueNetId& UserId, EUserPr
 			{
 				auto Error = ovr_Message_GetError(Message);
 				FString ErrorMessage(ovr_Error_GetMessage(Error));
-				UE_LOG_ONLINE(Error, TEXT("Failed the entitlement check: %s"), *ErrorMessage);
+				UE_LOG_ONLINE_IDENTITY(Error, TEXT("Failed the entitlement check: %s"), *ErrorMessage);
 				PrivilegeResults = static_cast<uint32>(IOnlineIdentity::EPrivilegeResults::UserNotFound);
 			}
 			else
 			{
-				UE_LOG_ONLINE(Verbose, TEXT("User is entitled to app"));
+				UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("User is entitled to app"));
 				PrivilegeResults = static_cast<uint32>(IOnlineIdentity::EPrivilegeResults::NoFailures);
 			}
 			Delegate.ExecuteIfBound(UserId, Privilege, PrivilegeResults);

@@ -36,48 +36,44 @@ FReferenceChainSearch::FGraphNode* FReferenceChainSearch::FindOrAddNode(TMap<UOb
 	return ObjectNode;
 }
 
-void FReferenceChainSearch::BuildReferenceChains(FGraphNode* TargetNode, FReferenceChain* Chain, TArray<FReferenceChain*>& AllChains, const int32 VisitCounter)
+int32 FReferenceChainSearch::BuildReferenceChains(FGraphNode* TargetNode, TArray<FReferenceChain*>& ProducedChains, int32 ChainDepth, const int32 VisitCounter)
 {
-	// Store the current Chain index in the list of all chains, if we end up splitting it, we can immediately delete it
-	const int32 ChainIndex = AllChains.Num() - 1;
-	// Always add TargetNode since we may use it later to try and complete incomplete chains
-	Chain->AddNode(TargetNode);
+	int32 ProducedChainsCount = 0;
 	if (TargetNode->Visited != VisitCounter)
-	{	
+	{
+		TargetNode->Visited = VisitCounter;
+
 		// Stop at root objects
 		if (!IsNonGCObject(TargetNode->Object))
-		{
-			bool bSplit = false;
+		{			
 			for (FGraphNode* ReferencedByNode : TargetNode->ReferencedByObjects)
-			{				
-				// For each of the referencers of this node, duplicate the current chain and continue processing
-				if (!Chain->Contains(ReferencedByNode))
-				{
-					FReferenceChain* SubChain = Chain->Split();
-					bSplit = true;
-					AllChains.Add(SubChain);
-					BuildReferenceChains(ReferencedByNode, SubChain, AllChains, VisitCounter);
-				}
-			}
-			// If the chain was split we can reject the current chain since we know it's going to be incomplete
-			// but there will be potentially up to ReferencedByObjects.Num() chains that have its nodes and are complete.
-			if (bSplit)
 			{
-				delete Chain;
-				AllChains.RemoveAtSwap(ChainIndex);
-			}
+				// For each of the referencers of this node, duplicate the current chain and continue processing
+				if (ReferencedByNode->Visited != VisitCounter)
+				{
+					int32 OldChainsCount = ProducedChains.Num();
+					int32 NewChainsCount = BuildReferenceChains(ReferencedByNode, ProducedChains, ChainDepth + 1, VisitCounter);
+					// Insert the current node to all chains produced recursively
+					for (int32 NewChainIndex = OldChainsCount; NewChainIndex < (NewChainsCount + OldChainsCount); ++NewChainIndex)
+					{
+						FReferenceChain* Chain = ProducedChains[NewChainIndex];
+						Chain->InsertNode(TargetNode);
+					}
+					ProducedChainsCount += NewChainsCount;
+				}
+			}			
 		}
 		else
 		{
-			// The first chain that gets to the root marks its nodes as visited.
-			// We don't mark nodes as visited immediately as we visit them as this would reject some of the more nested chains too early
-			// and we wouldn't be able to complete them later.
-			for (FGraphNode* Node : Chain->Nodes)
-			{
-				Node->Visited = VisitCounter;
-			}
+			// This is a root so we can construct a chain from this node up to the target node
+			FReferenceChain* Chain = new FReferenceChain(ChainDepth);
+			Chain->InsertNode(TargetNode);
+			ProducedChains.Add(Chain);
+			ProducedChainsCount = 1;
 		}
 	}
+
+	return ProducedChainsCount;
 }
 
 void FReferenceChainSearch::RemoveChainsWithDuplicatedRoots(TArray<FReferenceChain*>& AllChains)
@@ -130,98 +126,40 @@ void FReferenceChainSearch::RemoveDuplicatedChains(TArray<FReferenceChain*>& All
 	UniqueChains.GenerateValueArray(AllChains);
 }
 
-void FReferenceChainSearch::TryToCompleteChains(TArray<FReferenceChain*>& IncompleteChains, TArray<FReferenceChain*>& AllChains)
-{
-	// IcompleteChains are the chains we stopped processing because we ran across a node that has already been visited by one of the complete chains.
-	// Since that node has also been added to the incomplete chain, we know that the incomplete chain and the complete chain share it.
-	// We now need to find a chain that has the shared node and simply copy the remaining nodes (up to the root) to the incomplete chain.
-	for (int32 IncompleteChainIndex = IncompleteChains.Num() - 1; IncompleteChainIndex >= 0; --IncompleteChainIndex)
-	{
-		FReferenceChain* IncompleteChain = IncompleteChains[IncompleteChainIndex];
-		bool bCompleted = false;
-		for (FReferenceChain* CompleteChain : AllChains)
-		{
-			// Find if the last node in the incomplete chain is in the complete chain
-			int32 NodeIndex = -1;
-			if (CompleteChain->Nodes.Find(IncompleteChain->Nodes.Last(), NodeIndex))
-			{
-				// Copy the remaining nodes
-				const int32 NumNodesInIncompleteChain = IncompleteChain->Nodes.Num();
-				const int32 NumNodesToAdd = CompleteChain->Nodes.Num() - NodeIndex - 1;
-				IncompleteChain->Nodes.AddZeroed(NumNodesToAdd);
-				FMemory::Memcpy(&IncompleteChain->Nodes[NumNodesInIncompleteChain], &CompleteChain->Nodes[NodeIndex + 1], NumNodesToAdd * sizeof(FGraphNode*));
-				bCompleted = true;
-				break;
-			}
-		}
-		if (!bCompleted)
-		{
-			delete IncompleteChain;
-			IncompleteChains.RemoveAtSwap(IncompleteChainIndex);
-		}
-	}
-	AllChains.Append(IncompleteChains);
-	IncompleteChains.Empty();
-}
-
-void FReferenceChainSearch::FindCompleteChains(TArray<FReferenceChain*>& AllChains, TArray<FReferenceChain*>& CompleteChains, TArray<FReferenceChain*>& IncompleteChains, EReferenceChainSearchMode SearchMode)
-{
-	// Reject incomplete chains and filter based on search mode	
-	for (int32 ChainIndex = AllChains.Num() - 1; ChainIndex >= 0; --ChainIndex)
-	{
-		FReferenceChain* Chain = AllChains[ChainIndex];
-		UObject* RootObject = Chain->GetRootNode()->Object;
-		// Discard the chain if necessary
-		if (!IsNonGCObject(RootObject) || // Chains that do not end with a rooted object are incomplete ore represent cycles
-			(!!(SearchMode & EReferenceChainSearchMode::ExternalOnly) && !Chain->IsExternal())) // or we only care about external references
-		{
-			IncompleteChains.Add(Chain);
-		}
-		else
-		{
-			CompleteChains.Add(Chain);
-		}
-	}
-}
-
 void FReferenceChainSearch::BuildReferenceChains(FGraphNode* TargetNode, TArray<FReferenceChain*>& Chains, EReferenceChainSearchMode SearchMode)
 {	
 	TArray<FReferenceChain*> AllChains;
-	TArray<FReferenceChain*> IncompleChains;
-	TArray<FReferenceChain*> CompleteChains;
 
 	// Recursively construct reference chains	
 	int32 VisitCounter = 0;
 	for (FGraphNode* ReferencedByNode : TargetNode->ReferencedByObjects)
 	{
 		TargetNode->Visited = ++VisitCounter;
-		FReferenceChain* Chain = new FReferenceChain();
-		Chain->AddNode(TargetNode);
 		
 		AllChains.Reset();
-		AllChains.Add(Chain);
-		BuildReferenceChains(ReferencedByNode, Chain, AllChains, VisitCounter);
-
-		CompleteChains.Reset();
-		IncompleChains.Reset();		
-		FindCompleteChains(AllChains, CompleteChains, IncompleChains, SearchMode);
-
-		// Try to complete the incomplete chains and add them to all Chains
-		if (!(SearchMode & EReferenceChainSearchMode::Shortest))
+		const int32 MinChainDepth = 2; // The chain will contain at least the TargetNode and the ReferencedByNode
+		BuildReferenceChains(ReferencedByNode, AllChains, MinChainDepth, VisitCounter);
+		for (FReferenceChain* Chain : AllChains)
 		{
-			// But do this only if we're NOT looking for the shortest chains and we haven't found chains for all direct referencers already
-			// because incomplete chains will always produce longest chains when completed and THIS IS VERY SLOW.
-			CompleteChains.Sort([](const FReferenceChain& LHS, const FReferenceChain& RHS) { return LHS.Num() < RHS.Num(); });
-			TryToCompleteChains(IncompleChains, CompleteChains);
+			Chain->InsertNode(TargetNode);
 		}
-		else
+
+		// Filter based on search mode	
+		if (!!(SearchMode & EReferenceChainSearchMode::ExternalOnly))
 		{
-			for (FReferenceChain* IncompleteChain : IncompleChains)
+			for (int32 ChainIndex = AllChains.Num() - 1; ChainIndex >= 0; --ChainIndex)
 			{
-				delete IncompleteChain;
+				FReferenceChain* Chain = AllChains[ChainIndex];	
+				if (!Chain->IsExternal())
+				{
+					// Discard the chain
+					delete Chain;
+					AllChains.RemoveAtSwap(ChainIndex);
+				}
 			}
 		}
-		Chains.Append(CompleteChains);
+
+		Chains.Append(AllChains);
 	}
 
 	// Reject duplicates

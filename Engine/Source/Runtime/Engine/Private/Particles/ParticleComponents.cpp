@@ -109,6 +109,8 @@ DECLARE_CYCLE_STAT(TEXT("ParticleComponent QueueAsyncGT"), STAT_UParticleSystemC
 DECLARE_CYCLE_STAT(TEXT("ParticleComponent WaitForAsyncAndFinalize GT"), STAT_UParticleSystemComponent_WaitForAsyncAndFinalize, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("ParticleComponent CreateRenderState Concurrent GT"), STAT_ParticleSystemComponent_CreateRenderState_Concurrent, STATGROUP_Particles);
 
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+
 #include "InGamePerformanceTracker.h"
 
 #define LOCTEXT_NAMESPACE "ParticleComponents"
@@ -784,12 +786,12 @@ bool UParticleLODLevel::IsModuleEditable(UParticleModule* InModule)
 -----------------------------------------------------------------------------*/
 UParticleEmitter::UParticleEmitter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, QualityLevelSpawnRateScale(1.0f)
-	, DetailModeBitmask(PDM_DefaultValue)
-	, bDisabledLODsKeepEmitterAlive(false)
-	, bDisableWhenInsignficant(0)
 	, SignificanceLevel(EParticleSignificanceLevel::Critical)
 	, bUseLegacySpawningBehavior(false)
+	, bDisabledLODsKeepEmitterAlive(false)
+	, bDisableWhenInsignficant(0)
+	, QualityLevelSpawnRateScale(1.0f)
+	, DetailModeBitmask(PDM_DefaultValue)
 {
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
@@ -992,13 +994,13 @@ void UParticleEmitter::PostLoad()
 		}
 	}
 
+#if	WITH_EDITORONLY_DATA
 	// set up DetailModeFlags from deprecated DetailMode if needed
 	if (DetailModeBitmask == PDM_DefaultValue)
 	{
 		DetailModeBitmask = OldDetailModeToBitmask(DetailMode_DEPRECATED);
 	}
 
-#if	WITH_EDITORONLY_DATA
 	UpdateDetailModeDisplayString();
 #endif
 
@@ -4493,6 +4495,8 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_Particles);
+
 		Target->FinalizeTickComponent();
 	}
 };
@@ -4719,6 +4723,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 {
 	LLM_SCOPE(ELLMTag::Particles);
 	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_Particles);
 
 	if (Template == nullptr || Template->Emitters.Num() == 0)
 	{
@@ -5599,12 +5604,13 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 		return;
 	}
 
-	check(GetWorld());
+	UWorld* World = GetWorld();
+	check(World);
 	UE_LOG(LogParticles,Verbose,
-		TEXT("ActivateSystem @ %fs %s"), GetWorld()->TimeSeconds,
+		TEXT("ActivateSystem @ %fs %s"), World->TimeSeconds,
 		Template != NULL ? *Template->GetName() : TEXT("NULL"));
 
-	const bool bIsGameWorld = GetWorld()->IsGameWorld();
+	const bool bIsGameWorld = World->IsGameWorld();
 
 	if (UE_LOG_ACTIVE(LogParticles,VeryVerbose))
 	{
@@ -5669,7 +5675,7 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 
 		if (!bIsActive)
 		{
-			LastSignificantTime = GetWorld()->GetTimeSeconds();
+			LastSignificantTime = World->GetTimeSeconds();
 			RequiredSignificance = EParticleSignificanceLevel::Low;
 
 		//Call this now after any attachment has happened.
@@ -5677,7 +5683,7 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 		}
 
 		//We start this here as before the PreActivation call above, we don't know if this component is managing significance or not.
-		FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+		FInGameScopedCycleCounter InGameCycleCounter(World, EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
 
 		if (bFlagAsJustAttached)
 		{
@@ -5792,9 +5798,10 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 	// Mark render state dirty to ensure the scene proxy is added and registered with the scene.
 	MarkRenderStateDirty();
 
-	if(!bWasDeactivated && !bWasCompleted && ensure(GetWorld()))
+	World = GetWorld(); // refresh the world pointer as it may have changed by this point
+	if(!bWasDeactivated && !bWasCompleted && ensure(World))
 	{
-		LastRenderTime = GetWorld()->GetTimeSeconds();
+		LastRenderTime = World->GetTimeSeconds();
 	}
 }
 
@@ -5835,7 +5842,8 @@ void UParticleSystemComponent::Complete()
 
 void UParticleSystemComponent::DeactivateSystem()
 {
-	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
+	UWorld* World = GetWorld();
+	FInGameScopedCycleCounter InGameCycleCounter(World, EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
 
 	if (IsTemplate() == true)
 	{
@@ -5843,9 +5851,9 @@ void UParticleSystemComponent::DeactivateSystem()
 	}
 	ForceAsyncWorkCompletion(STALL);
 
-	check(GetWorld());
+	check(World);
 	UE_LOG(LogParticles,Verbose,
-		TEXT("DeactivateSystem @ %fs %s"), GetWorld()->TimeSeconds,
+		TEXT("DeactivateSystem @ %fs %s"), World->TimeSeconds,
 		Template != NULL ? *Template->GetName() : TEXT("NULL"));
 
 	if (bIsActive)
@@ -5897,7 +5905,7 @@ void UParticleSystemComponent::DeactivateSystem()
 	//TODO: What if there are immortal particles but bKillOnDeactivate is false? Need to mark emitters with currently immortal particles, kill them and warn the user.
 	SetComponentTickEnabled(true);
 
-	LastRenderTime = GetWorld()->GetTimeSeconds();
+	LastRenderTime = World->GetTimeSeconds();
 }
 
 void UParticleSystemComponent::CancelAutoAttachment(bool bDetachFromParent)

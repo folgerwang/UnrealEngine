@@ -48,12 +48,20 @@ struct FLiveLinkInterpolationSettings
 {
 	GENERATED_BODY()
 
-	FLiveLinkInterpolationSettings() : InterpolationOffset(0.5f) {}
+	FLiveLinkInterpolationSettings() 
+		: 
+#if WITH_EDITORONLY_DATA
+		bUseInterpolation_DEPRECATED(false), 
+#endif
+		InterpolationOffset(0.5f) 
+	{}
 
+#if WITH_EDITORONLY_DATA
 	// Unused
-	DEPRECATED(4.21, "Please use ULiveLinkSourceSettings::Mode to specify how the source will behave.")
+	//DEPRECATED(4.21, "Please use ULiveLinkSourceSettings::Mode to specify how the source will behave.")
 	UPROPERTY()
-	bool bUseInterpolation;
+	bool bUseInterpolation_DEPRECATED;
+#endif
 
 	// When interpolating: how far back from current time should we read the buffer (in seconds)
 	UPROPERTY(EditAnywhere, Category = Settings)

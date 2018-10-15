@@ -257,6 +257,10 @@ static bool CompareAttributesByPredicate( const TAttributesSet<ElementIDType>& A
 					}
 				}
 			}
+			else
+			{
+				bResult = false;
+			}
 		}
 	);
 

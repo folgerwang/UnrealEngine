@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLFence>, void> : public IMPTableState<id<MTLFence>>
+struct MTLPP_EXPORT IMPTable<id<MTLFence>, void> : public IMPTableState<id<MTLFence>>
 {
 	IMPTable()
 	{
@@ -24,7 +24,7 @@ struct IMPTable<id<MTLFence>, void> : public IMPTableState<id<MTLFence>>
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLFence>, InterposeClass> : public IMPTable<id<MTLFence>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLFence>, InterposeClass> : public IMPTable<id<MTLFence>, void>
 {
 	IMPTable()
 	{

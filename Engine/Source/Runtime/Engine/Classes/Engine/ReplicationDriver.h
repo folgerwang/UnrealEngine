@@ -61,9 +61,16 @@ public:
 
 	// -----------------------------------------------------------------------
 
+	/** Called to associate a world with a rep driver. This will be called before  InitForNetDriver */
+	virtual void SetRepDriverWorld(UWorld* InWorld) PURE_VIRTUAL(UReplicationDriver::SetRepDriverWorld, );
+
+	/** Called to associate a netdriver with a rep driver. The rep driver can "get itself ready" here. SetRepDriverWorld() will have already been caleld */
 	virtual void InitForNetDriver(UNetDriver* InNetDriver) PURE_VIRTUAL(UReplicationDriver::InitForNetDriver, );
 
-	virtual void SetWorld(UWorld* InWorld) PURE_VIRTUAL(UReplicationDriver::SetWorld, );
+	/** Called after World and NetDriver have been set. This is where RepDriver should possibly look at existing actors in the world */
+	virtual void InitializeActorsInWorld(UWorld* InWorld) PURE_VIRTUAL(UReplicationDriver::InitializeActorsInWorld, );
+
+	virtual void TearDown() { MarkPendingKill(); }
 
 	virtual void ResetGameWorldState() PURE_VIRTUAL(UReplicationDriver::ResetGameWorldState, );
 
@@ -90,6 +97,9 @@ public:
 
 	/** The main function that will actually replicate actors. Called every server tick. */
 	virtual int32 ServerReplicateActors(float DeltaSeconds) PURE_VIRTUAL(UReplicationDriver::ServerReplicateActors, return 0; );
+
+	/** Called after the netdriver has handled TickDispatch */
+	virtual void PostTickDispatch() { }
 };
 
 /** Class/interface for replication extension that is per connection. It is up to the replication driver to create and associate these with a UNetConnection */
@@ -115,4 +125,6 @@ public:
 	virtual void NotifyClientVisibleLevelNamesAdd(FName LevelName, UWorld* StreamingWorld) PURE_VIRTUAL(UReplicationConnectionDriver::NotifyClientVisibleLevelNamesAdd, );
 
 	virtual void NotifyClientVisibleLevelNamesRemove(FName LevelName) PURE_VIRTUAL(UReplicationConnectionDriver::NotifyClientVisibleLevelNamesRemove, );
+
+	virtual void TearDown() { MarkPendingKill(); }
 };

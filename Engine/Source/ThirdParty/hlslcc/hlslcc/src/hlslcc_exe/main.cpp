@@ -190,6 +190,7 @@ struct SCmdOptions
 	bool bPackIntoUBs;
 	bool bUseFullPrecision;
 	bool bUsesExternalTexture;
+	bool bExpandUBMemberArrays;
 	const char* OutFile;
 
 	SCmdOptions() 
@@ -210,6 +211,7 @@ struct SCmdOptions
 		bPackIntoUBs = false;
 		bUseFullPrecision = false;
 		bUsesExternalTexture = false;
+		bExpandUBMemberArrays = false;
 		OutFile = nullptr;
 	}
 };
@@ -319,6 +321,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			else if (!strcmp(*argv, "-usesexternaltexture"))
 			{
 				OutOptions.bUsesExternalTexture = true;
+			}
+			else if (!strcmp(*argv, "-expandubarrays"))
+			{
+				OutOptions.bExpandUBMemberArrays = true;
 			}
 			else
 			{
@@ -441,6 +447,7 @@ int main( int argc, char** argv)
 	Flags |= Options.bPackIntoUBs ? HLSLCC_PackUniformsIntoUniformBuffers : 0;
 	Flags |= Options.bUseFullPrecision ? HLSLCC_UseFullPrecisionInPS : 0;
 	Flags |= Options.bUsesExternalTexture ? HLSLCC_UsesExternalTexture : 0;
+	Flags |= Options.bExpandUBMemberArrays ? HLSLCC_ExpandUBMemberArrays : 0;
 
 	FGlslCodeBackend GlslCodeBackend(Flags, Options.Target);
 	FGlslLanguageSpec GlslLanguageSpec;//(Options.Target == HCT_FeatureLevelES2);

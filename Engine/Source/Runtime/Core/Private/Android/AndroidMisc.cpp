@@ -37,9 +37,25 @@
 #endif
 
 #include "Misc/CoreDelegates.h"
-
+#include "Async/TaskGraphInterfaces.h"
 
 #include "FramePro/FrameProProfiler.h"
+
+static int32 GAndroidTraceMarkersEnabled = 0;
+static FAutoConsoleVariableRef CAndroidTraceMarkersEnabled(
+	TEXT("android.tracemarkers"),
+	GAndroidTraceMarkersEnabled,
+	TEXT("Enable outputting named events to Android trace marker file.\n"),
+	ECVF_Default
+);
+
+static int32 GAndroidLowPowerBatteryThreshold = 15;
+static FAutoConsoleVariableRef CAndroidLowPowerBatteryThreshold(
+	TEXT("android.LowPowerBatteryThreshold"),
+	GAndroidLowPowerBatteryThreshold,
+	TEXT("The battery level below which the device is considered in a low power state."),
+	ECVF_Default
+);
 
 #if STATS || ENABLE_STATNAMEDEVENTS
 int32 FAndroidMisc::TraceMarkerFileDescriptor = -1;
@@ -49,6 +65,7 @@ int32 FAndroidMisc::TraceMarkerFileDescriptor = -1;
 FString FAndroidMisc::AndroidVersion; // version of android we are running eg "4.0.4"
 FString FAndroidMisc::DeviceMake; // make of the device we are running on eg. "samsung"
 FString FAndroidMisc::DeviceModel; // model of the device we are running on eg "SAMSUNG-SGH-I437"
+FString FAndroidMisc::DeviceBuildNumber; // platform image build number of device "R16NW.G960NKSU1ARD6"
 FString FAndroidMisc::OSLanguage; // language code the device is set to eg "deu"
 
 // Build/API level we are running.
@@ -57,7 +74,13 @@ int32 FAndroidMisc::AndroidBuildVersion = 0;
 // Whether or not the system handles the volume buttons (event will still be generated either way)
 bool FAndroidMisc::VolumeButtonsHandledBySystem = true;
 
+// Key/Value pair variables from the optional configuration.txt
+TMap<FString, FString> FAndroidMisc::ConfigRulesVariables;
+
 extern void AndroidThunkCpp_ForceQuit();
+
+// From AndroidFile.cpp
+extern FString GFontPathBase;
 
 void FAndroidMisc::RequestExit( bool Force )
 {
@@ -74,11 +97,6 @@ void FAndroidMisc::RequestExit( bool Force )
 	{
 		GIsRequestingExit = 1;
 	}
-}
-
-void FAndroidMisc::LowLevelOutputDebugString(const TCHAR *Message)
-{
-	LocalPrint(Message);
 }
 
 void FAndroidMisc::LocalPrint(const TCHAR *Message)
@@ -170,12 +188,26 @@ extern "C"
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("nativeBatteryEvent(stat = %i, lvl = %i %, temp = %3.2f \u00B0C)"), status, level, float(temperature)/10.f);
 
 		ReceiversLock.Lock();
+		const bool bWasInLowPowerMode = CurrentBatteryState.Level <= GAndroidLowPowerBatteryThreshold;
+
 		FAndroidMisc::FBatteryState state;
 		state.State = (FAndroidMisc::EBatteryState)status;
 		state.Level = level;
 		state.Temperature = float(temperature)/10.f;
 		CurrentBatteryState = state;
+
+		const bool bIsInLowPowerMode = CurrentBatteryState.Level <= GAndroidLowPowerBatteryThreshold;
 		ReceiversLock.Unlock();
+
+		// When we cross the low power battery level threshold, inform the active application
+		if (bIsInLowPowerMode != bWasInLowPowerMode)
+		{
+			FGraphEventRef LowPowerTask = FFunctionGraphTask::CreateAndDispatchWhenReady([=]()
+			{
+				UE_LOG(LogAndroid, Display, TEXT("Low Power Mode Changed: %d"), bIsInLowPowerMode);
+				FCoreDelegates::OnLowPowerMode.Broadcast(bIsInLowPowerMode);
+			}, TStatId(), NULL, ENamedThreads::GameThread);	
+		}
 	}
 }
 #endif
@@ -268,6 +300,52 @@ void EnableJavaEventReceivers(bool bEnableReceivers)
 static FDelegateHandle AndroidOnBackgroundBinding;
 static FDelegateHandle AndroidOnForegroundBinding;
 
+#if (STATS || ENABLE_STATNAMEDEVENTS)
+
+static void StartTraceMarkers()
+{
+	if (FAndroidMisc::TraceMarkerFileDescriptor != -1)
+	{
+		UE_LOG(LogAndroid, Warning, TEXT("Systrace event logging already open."));
+		return;
+	}
+
+	// Setup trace file descriptor
+	FAndroidMisc::TraceMarkerFileDescriptor = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
+	if (FAndroidMisc::TraceMarkerFileDescriptor == -1)
+	{
+		UE_LOG(LogAndroid, Warning, TEXT("Trace Marker failed to open; systrace support disabled"));
+	}
+	else
+	{
+		UE_LOG(LogAndroid, Display, TEXT("Started systrace events logging."));
+	}
+}
+
+static void StopTraceMarkers()
+{
+	// Tear down trace file descriptor
+	if (FAndroidMisc::TraceMarkerFileDescriptor != -1)
+	{
+		close(FAndroidMisc::TraceMarkerFileDescriptor);
+		FAndroidMisc::TraceMarkerFileDescriptor = -1;
+		UE_LOG(LogAndroid, Display, TEXT("Stopped systrace events logging."));
+	}
+}
+
+static void UpdateTraceMarkersEnable(IConsoleVariable* Var)
+{
+	if (!GAndroidTraceMarkersEnabled)
+	{
+		StopTraceMarkers();
+	}
+	else
+	{
+		StartTraceMarkers();
+	}
+}
+#endif
+
 void FAndroidMisc::PlatformInit()
 {
 	// Increase the maximum number of simultaneously open files
@@ -278,13 +356,19 @@ void FAndroidMisc::PlatformInit()
 	extern void AndroidSetupDefaultThreadAffinity();
 	AndroidSetupDefaultThreadAffinity();
 
-#if (STATS || ENABLE_STATNAMEDEVENTS) && !FRAMEPRO_ENABLED
-	// Setup trace file descriptor
-	TraceMarkerFileDescriptor = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
-	if (TraceMarkerFileDescriptor == -1)
+#if (STATS || ENABLE_STATNAMEDEVENTS)
+	if (FParse::Param(FCommandLine::Get(), TEXT("enablesystrace")))
 	{
-		UE_LOG(LogAndroid, Warning, TEXT("Trace Marker failed to open; trace support disabled"));
+		GAndroidTraceMarkersEnabled = 1;
 	}
+
+	if (GAndroidTraceMarkersEnabled)
+	{
+		StartTraceMarkers();
+	}
+
+	// Watch for CVar update
+	CAndroidTraceMarkersEnabled->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&UpdateTraceMarkersEnable));
 #endif
 
 #if USE_ANDROID_JNI
@@ -298,12 +382,8 @@ extern void AndroidThunkCpp_DismissSplashScreen();
 
 void FAndroidMisc::PlatformTearDown()
 {
-#if (STATS || ENABLE_STATNAMEDEVENTS) && !FRAMEPRO_ENABLED
-	// Tear down trace file descriptor
-	if (TraceMarkerFileDescriptor != -1)
-	{
-		close(TraceMarkerFileDescriptor);
-	}
+#if (STATS || ENABLE_STATNAMEDEVENTS)
+	StopTraceMarkers();
 #endif
 
 	auto RemoveBinding = [](FCoreDelegates::FApplicationLifetimeDelegate& ApplicationLifetimeDelegate, FDelegateHandle& DelegateBinding)
@@ -987,14 +1067,15 @@ void FAndroidMisc::ShareURL(const FString& URL, const FText& Description, int32 
 }
 
 
-void FAndroidMisc::SetVersionInfo( FString InAndroidVersion, FString InDeviceMake, FString InDeviceModel, FString InOSLanguage )
+void FAndroidMisc::SetVersionInfo( FString InAndroidVersion, FString InDeviceMake, FString InDeviceModel, FString InDeviceBuildNumber, FString InOSLanguage )
 {
 	AndroidVersion = InAndroidVersion;
 	DeviceMake = InDeviceMake;
 	DeviceModel = InDeviceModel;
+	DeviceBuildNumber = InDeviceBuildNumber;
 	OSLanguage = InOSLanguage;
 
-	UE_LOG(LogAndroid, Display, TEXT("Android Version Make Model Language: %s %s %s %s"), *AndroidVersion, *DeviceMake, *DeviceModel, *OSLanguage);
+	UE_LOG(LogAndroid, Display, TEXT("Android Version Make Model BuildNumber Language: %s %s %s %s %s"), *AndroidVersion, *DeviceMake, *DeviceModel, *DeviceBuildNumber, *OSLanguage);
 }
 
 const FString FAndroidMisc::GetAndroidVersion()
@@ -1010,6 +1091,11 @@ const FString FAndroidMisc::GetDeviceMake()
 const FString FAndroidMisc::GetDeviceModel()
 {
 	return DeviceModel;
+}
+
+const FString FAndroidMisc::GetDeviceBuildNumber()
+{
+	return DeviceBuildNumber;
 }
 
 const FString FAndroidMisc::GetOSLanguage()
@@ -1333,10 +1419,19 @@ typedef struct VkPhysicalDeviceProperties {
 	VkPhysicalDeviceSparseProperties	sparseProperties;
 } VkPhysicalDeviceProperties;
 
+#define VK_MAX_EXTENSION_NAME_SIZE        256
+#define VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME "VK_GOOGLE_display_timing"
+
+typedef struct VkExtensionProperties {
+	char        extensionName[VK_MAX_EXTENSION_NAME_SIZE];
+	uint32_t    specVersion;
+} VkExtensionProperties;
+
 typedef VkResult(VKAPI_PTR *PFN_vkCreateInstance)(const VkInstanceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkInstance* pInstance);
 typedef void (VKAPI_PTR *PFN_vkDestroyInstance)(VkInstance instance, const VkAllocationCallbacks* pAllocator);
 typedef VkResult(VKAPI_PTR *PFN_vkEnumeratePhysicalDevices)(VkInstance instance, uint32* pPhysicalDeviceCount, VkPhysicalDevice* pPhysicalDevices);
 typedef void (VKAPI_PTR *PFN_vkGetPhysicalDeviceProperties)(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties* pProperties);
+typedef VkResult(VKAPI_PTR *PFN_vkEnumerateDeviceExtensionProperties)(VkPhysicalDevice physicalDevice, const char* pLayerName, uint32_t* pPropertyCount, VkExtensionProperties* pProperties);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1364,9 +1459,11 @@ static EDeviceVulkanSupportStatus AttemptVulkanInit(void* VulkanLib)
 	PFN_vkDestroyInstance vkDestroyInstance = (PFN_vkDestroyInstance)dlsym(VulkanLib, "vkDestroyInstance");
 	PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices = (PFN_vkEnumeratePhysicalDevices)dlsym(VulkanLib, "vkEnumeratePhysicalDevices");
 	PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)dlsym(VulkanLib, "vkGetPhysicalDeviceProperties");
+	PFN_vkEnumerateDeviceExtensionProperties vkEnumerateDeviceExtensionProperties = (PFN_vkEnumerateDeviceExtensionProperties)dlsym(VulkanLib, "vkEnumerateDeviceExtensionProperties");
 
-	if (!vkCreateInstance || !vkDestroyInstance || !vkEnumeratePhysicalDevices || !vkGetPhysicalDeviceProperties)
+	if (!vkCreateInstance || !vkDestroyInstance || !vkEnumeratePhysicalDevices || !vkGetPhysicalDeviceProperties || !vkEnumerateDeviceExtensionProperties)
 	{
+		UE_LOG(LogAndroid, Log, TEXT("Vulkan not supported: vkCreateInstance: 0x%p, vkDestroyInstance: 0x%p, vkEnumeratePhysicalDevices: 0x%p, vkGetPhysicalDeviceProperties: 0x%p, vkEnumerateDeviceExtensionProperties: 0x%p"), vkCreateInstance, vkDestroyInstance, vkEnumeratePhysicalDevices, vkGetPhysicalDeviceProperties, vkEnumerateDeviceExtensionProperties);
 		return EDeviceVulkanSupportStatus::NotSupported;
 	}
 
@@ -1417,6 +1514,47 @@ static EDeviceVulkanSupportStatus AttemptVulkanInit(void* VulkanLib)
 	VkPhysicalDeviceProperties DeviceProperties;
 	vkGetPhysicalDeviceProperties(PhysicalDevices[0], &DeviceProperties);
 
+	//for now we are allowing devices without the timing extension to run with a basic CPU frame pacer.
+#if 0
+	bool bHasVKGoogleDisplayTiming = false;
+	{
+		TArray<VkExtensionProperties> ExtensionProps;
+		do
+		{
+			uint32 Count = 0;
+			Result = vkEnumerateDeviceExtensionProperties(PhysicalDevices[0], nullptr, &Count, nullptr);
+			check(Result >= VK_SUCCESS);
+
+			if (Count > 0)
+			{
+				ExtensionProps.Empty(Count);
+				ExtensionProps.AddUninitialized(Count);
+				Result = vkEnumerateDeviceExtensionProperties(PhysicalDevices[0], nullptr, &Count, ExtensionProps.GetData());
+				check(Result >= VK_SUCCESS);
+			}
+		} while (Result == VK_INCOMPLETE);		
+		check(Result >= VK_SUCCESS);
+
+		
+		for (int32 i = 0; i < ExtensionProps.Num(); ++i)
+		{
+			UE_LOG(LogAndroid, Log, TEXT("Checking extension: %s."), ANSI_TO_TCHAR(ExtensionProps[i].extensionName));
+			if (!FCStringAnsi::Strcmp(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME, ExtensionProps[i].extensionName))
+			{
+				bHasVKGoogleDisplayTiming = true;
+				break;
+			}
+		}
+	}
+	if (!bHasVKGoogleDisplayTiming)
+	{
+		vkDestroyInstance(Instance, nullptr);
+
+		UE_LOG(LogAndroid, Log, TEXT("Vulkan not supported, cannot find VK_GOOGLE_display_timing extension."));
+		return EDeviceVulkanSupportStatus::NotSupported;
+	}
+#endif
+
 	VulkanVersionString = FString::Printf(TEXT("%d.%d.%d"), VK_VERSION_MAJOR(DeviceProperties.apiVersion), VK_VERSION_MINOR(DeviceProperties.apiVersion), VK_VERSION_PATCH(DeviceProperties.apiVersion));
 	vkDestroyInstance(Instance, nullptr);
 
@@ -1443,7 +1581,7 @@ bool FAndroidMisc::HasVulkanDriverSupport()
 		void* VulkanLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
 		if (VulkanLib != nullptr)
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, checking for available driver"));
+			UE_LOG(LogAndroid, Log, TEXT("Vulkan library detected, checking for available driver"));
 
 			// if Nougat, we can check the Vulkan version
 			if (FAndroidMisc::GetAndroidBuildVersion() >= 24)
@@ -1466,17 +1604,17 @@ bool FAndroidMisc::HasVulkanDriverSupport()
 
 			if (VulkanSupport == EDeviceVulkanSupportStatus::Supported)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI is available, Vulkan capable device detected."));
+				UE_LOG(LogAndroid, Log, TEXT("VulkanRHI is available, Vulkan capable device detected."));
 				return true;
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver NOT available."));
+				UE_LOG(LogAndroid, Log, TEXT("Vulkan driver NOT available."));
 			}
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library NOT detected."));
+			UE_LOG(LogAndroid, Log, TEXT("Vulkan library NOT detected."));
 		}
 	}
 #endif
@@ -1507,6 +1645,11 @@ bool FAndroidMisc::IsVulkanAvailable()
 			bool bSupportsVulkan = false;
 			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan, GEngineIni);
 
+			// whether to detect Vulkan by default or require the -detectvulkan command line parameter
+			bool bDetectVulkanByDefault = true;
+			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bDetectVulkanByDefault"), bDetectVulkanByDefault, GEngineIni);
+			const bool bDetectVulkanCmdLine = FParse::Param(FCommandLine::Get(), TEXT("detectvulkan"));
+
 			// @todo Lumin: Double check all this stuff after merging general android Vulkan SM5 from main
 			const bool bSupportsVulkanSM5 = ShouldUseDesktopVulkan();
 
@@ -1514,15 +1657,19 @@ bool FAndroidMisc::IsVulkanAvailable()
 
 			if (!FModuleManager::Get().ModuleExists(TEXT("VulkanRHI")))
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan not available as VulkanRHI not present."));
+				UE_LOG(LogAndroid, Log, TEXT("Vulkan not available as VulkanRHI not present."));
 			}
 			else if (!(bSupportsVulkan || bSupportsVulkanSM5))
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan not available as project packaged without bSupportsVulkan or bSupportsVulkanSM5."));
+				UE_LOG(LogAndroid, Log, TEXT("Vulkan not available as project packaged without bSupportsVulkan or bSupportsVulkanSM5."));
 			}
 			else if (bVulkanDisabledCmdLine)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan is disabled by a command line option."));
+				UE_LOG(LogAndroid, Log, TEXT("Vulkan API detection is disabled by a command line option."));
+			}
+            else if (!bDetectVulkanByDefault && !bDetectVulkanCmdLine)
+			{
+				UE_LOG(LogAndroid, Log, TEXT("Vulkan available but detection disabled by bDetectVulkanByDefault=False in AndroidRuntimeSettings. Use -detectvulkan to override."));
 			}
 			else
 			{
@@ -1551,20 +1698,20 @@ bool FAndroidMisc::ShouldUseVulkan()
 		if (bVulkanAvailable && !bVulkanDisabledCVar)
 		{
 			CachedShouldUseVulkan = 1;
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI will be used!"));
+			UE_LOG(LogAndroid, Log, TEXT("VulkanRHI will be used!"));
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI will NOT be used:"));
+			UE_LOG(LogAndroid, Log, TEXT("VulkanRHI will NOT be used:"));
 			if (!bVulkanAvailable)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ** Vulkan support is not available (Driver, RHI or shaders are missing, or disabled by cmdline)"));
+				UE_LOG(LogAndroid, Log, TEXT(" ** Vulkan support is not available (Driver, RHI or shaders are missing, or disabled by cmdline, see above logging for details)"));
 			}
 			if (bVulkanDisabledCVar)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ** Vulkan is disabled via console variable."));
+				UE_LOG(LogAndroid, Log, TEXT(" ** Vulkan is disabled via console variable."));
 			}
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("OpenGL ES will be used."));
+			UE_LOG(LogAndroid, Log, TEXT("OpenGL ES will be used."));
 		}
 	}
 
@@ -1584,6 +1731,35 @@ FString FAndroidMisc::GetVulkanVersion()
 {
 	check(VulkanSupport != EDeviceVulkanSupportStatus::Uninitialized);
 	return VulkanVersionString;
+}
+
+TMap<FString, FString> FAndroidMisc::GetConfigRulesTMap()
+{
+	return ConfigRulesVariables;
+}
+
+FString* FAndroidMisc::GetConfigRulesVariable(const FString& Key)
+{
+	return ConfigRulesVariables.Find(Key);
+}
+
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetConfigRulesVariables(JNIEnv* jenv, jobject thiz, jobjectArray KeyValuePairs)
+{
+	int32 Count = jenv->GetArrayLength(KeyValuePairs);
+	int32 Index = 0;
+	while (Index < Count)
+	{
+		jstring javaKey = (jstring)(jenv->GetObjectArrayElement(KeyValuePairs, Index++));
+		jstring javaValue = (jstring)(jenv->GetObjectArrayElement(KeyValuePairs, Index++));
+
+		const char *nativeKey = jenv->GetStringUTFChars(javaKey, 0);
+		const char *nativeValue = jenv->GetStringUTFChars(javaValue, 0);
+
+		FAndroidMisc::ConfigRulesVariables.Add(FString(nativeKey), FString(nativeValue));
+
+		jenv->ReleaseStringUTFChars(javaKey, nativeKey);
+		jenv->ReleaseStringUTFChars(javaValue, nativeValue);
+	}
 }
 
 extern bool AndroidThunkCpp_HasMetaDataKey(const FString& Key);
@@ -1674,11 +1850,25 @@ void FAndroidMisc::BeginNamedEventFrame()
 #endif // FRAMEPRO_ENABLED
 }
 
+static void WriteTraceMarkerEvent(const ANSICHAR* Text, int32 TraceMarkerFileDescriptor)
+{
+	const int MAX_TRACE_EVENT_LENGTH = 256;
+
+	ANSICHAR EventBuffer[MAX_TRACE_EVENT_LENGTH];
+	int EventLength = snprintf(EventBuffer, MAX_TRACE_EVENT_LENGTH, "B|%d|%s", getpid(), Text);
+	write(TraceMarkerFileDescriptor, EventBuffer, EventLength);
+}
+
 void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
-#else
+#endif // FRAMEPRO_ENABLED
+	if (TraceMarkerFileDescriptor == -1)
+	{
+		return;
+	}
+
 	const int MAX_TRACE_MESSAGE_LENGTH = 256;
 
 	// not static since may be called by different threads
@@ -1693,36 +1883,39 @@ void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text
 	}
 	*WritePtr = '\0';
 
-	BeginNamedEvent(Color, TextBuffer);
-#endif // FRAMEPRO_ENABLED
+	WriteTraceMarkerEvent(TextBuffer, TraceMarkerFileDescriptor);
 }
 
 void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
-#else
-	const int MAX_TRACE_EVENT_LENGTH = 256;
-
-	ANSICHAR EventBuffer[MAX_TRACE_EVENT_LENGTH];
-	int EventLength = snprintf(EventBuffer, MAX_TRACE_EVENT_LENGTH, "B|%d|%s", getpid(), Text);
-	write(TraceMarkerFileDescriptor, EventBuffer, EventLength);
 #endif // FRAMEPRO_ENABLED
+	if (TraceMarkerFileDescriptor == -1)
+	{
+		return;
+	}
+
+	WriteTraceMarkerEvent(Text, TraceMarkerFileDescriptor);
 }
 
 void FAndroidMisc::EndNamedEvent()
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PopEvent();
-#else
+#endif // FRAMEPRO_ENABLED
+	if (TraceMarkerFileDescriptor == -1)
+	{
+		return;
+	}
+
 	const ANSICHAR EventTerminatorChar = 'E';
 	write(TraceMarkerFileDescriptor, &EventTerminatorChar, 1);
-#endif // FRAMEPRO_ENABLED
 }
 
 void FAndroidMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
 {
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
 }
 
 void FAndroidMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
@@ -1743,6 +1936,14 @@ int FAndroidMisc::GetVolumeState(double* OutTimeOfChangeInSec)
 	}
 	ReceiversLock.Unlock();
 	return v;
+}
+
+int32 FAndroidMisc::GetDeviceVolume()
+{
+	//FAndroidMisc::GetVolumeState returns 0-15, scale to 0-100
+	int32 BaseVolume = FAndroidMisc::GetVolumeState();
+	int32 ScaledVolume = (BaseVolume * 100) / 15;
+	return ScaledVolume;
 }
 
 #if USE_ANDROID_FILE
@@ -1834,6 +2035,12 @@ bool FAndroidMisc::IsRunningOnBattery()
 	return BatteryState.State == BATTERY_STATE_DISCHARGING;
 }
 
+bool FAndroidMisc::IsInLowPowerMode()
+{
+	FBatteryState BatteryState = GetBatteryState();
+	return BatteryState.Level <= GAndroidLowPowerBatteryThreshold;
+}
+
 float FAndroidMisc::GetDeviceTemperatureLevel()
 {
 	return GetBatteryState().Temperature;
@@ -1892,6 +2099,18 @@ void FAndroidMisc::SetOnReInitWindowCallback(FAndroidMisc::ReInitWindowCallbackT
 	OnReInitWindowCallback = InOnReInitWindowCallback;
 }
 
+static FAndroidMisc::OnPauseCallBackType OnPauseCallback;
+
+FAndroidMisc::OnPauseCallBackType FAndroidMisc::GetOnPauseCallback()
+{
+	return OnPauseCallback;
+}
+
+void FAndroidMisc::SetOnPauseCallback(FAndroidMisc::OnPauseCallBackType InOnPauseCallback)
+{
+	OnPauseCallback = InOnPauseCallback;
+}
+
 FString FAndroidMisc::GetCPUVendor()
 {
 	return DeviceMake;
@@ -1900,6 +2119,12 @@ FString FAndroidMisc::GetCPUVendor()
 FString FAndroidMisc::GetCPUBrand()
 {
 	return DeviceModel;
+}
+
+FString FAndroidMisc::GetCPUChipset()
+{
+	static FString *Chipset = FAndroidMisc::GetConfigRulesVariable(TEXT("hardware"));
+	return (Chipset == NULL) ? FGenericPlatformMisc::GetCPUChipset() : *Chipset;
 }
 
 FString FAndroidMisc::GetPrimaryGPUBrand()

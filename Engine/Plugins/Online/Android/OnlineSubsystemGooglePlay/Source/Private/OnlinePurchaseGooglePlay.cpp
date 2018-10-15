@@ -32,12 +32,12 @@ FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay(FOnlineSubsystemGooglePlay*
 	: bQueryingReceipts(false)
 	, Subsystem(InSubsystem)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay" ));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT( "FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay" ));
 }
 
 FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay()
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay" ));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT( "FOnlinePurchaseGooglePlay::FOnlinePurchaseGooglePlay" ));
 }
 
 FOnlinePurchaseGooglePlay::~FOnlinePurchaseGooglePlay()
@@ -51,7 +51,7 @@ FOnlinePurchaseGooglePlay::~FOnlinePurchaseGooglePlay()
 
 void FOnlinePurchaseGooglePlay::Init()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::Init"));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::Init"));
 
 	FOnGooglePlayProcessPurchaseCompleteDelegate PurchaseCompleteDelegate = FOnGooglePlayProcessPurchaseCompleteDelegate::CreateThreadSafeSP(this, &FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse);
 	ProcessPurchaseResultDelegateHandle = Subsystem->AddOnGooglePlayProcessPurchaseCompleteDelegate_Handle(PurchaseCompleteDelegate);
@@ -62,7 +62,7 @@ void FOnlinePurchaseGooglePlay::Init()
 
 bool FOnlinePurchaseGooglePlay::IsAllowedToPurchase(const FUniqueNetId& UserId)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::IsAllowedToPurchase"));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::IsAllowedToPurchase"));
 	extern bool AndroidThunkCpp_Iap_IsAllowedToMakePurchases();
 	return AndroidThunkCpp_Iap_IsAllowedToMakePurchases();
 }
@@ -92,13 +92,13 @@ void FOnlinePurchaseGooglePlay::Checkout(const FUniqueNetId& UserId, const FPurc
 
 					extern bool AndroidThunkCpp_Iap_BeginPurchase(const FString&);
 					bStarted = AndroidThunkCpp_Iap_BeginPurchase(Offer.OfferId);
-					UE_LOG(LogOnline, Display, TEXT("Created Transaction? - %s"),
+					UE_LOG_ONLINE_PURCHASE(Display, TEXT("Created Transaction? - %s"),
 						bStarted ? TEXT("Created a transaction.") : TEXT("Failed to create a transaction."));
 
 					RequestedTransaction->PendingPurchaseInfo.TransactionState = bStarted ? EPurchaseTransactionState::Processing : EPurchaseTransactionState::Failed;
 					if (NumOffers > 1)
 					{
-						UE_LOG(LogOnline, Warning, TEXT("GooglePlay supports purchasing one offer at a time, %d were requested and ignored"), NumOffers - 1);
+						UE_LOG_ONLINE_PURCHASE(Warning, TEXT("GooglePlay supports purchasing one offer at a time, %d were requested and ignored"), NumOffers - 1);
 					}
 				}
 				else
@@ -134,7 +134,7 @@ void FOnlinePurchaseGooglePlay::Checkout(const FUniqueNetId& UserId, const FPurc
 
 void FOnlinePurchaseGooglePlay::FinalizePurchase(const FUniqueNetId& UserId, const FString& ReceiptId)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::FinalizePurchase %s %s"), *UserId.ToString(), *ReceiptId);
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::FinalizePurchase %s %s"), *UserId.ToString(), *ReceiptId);
 	extern void AndroidThunkCpp_Iap_ConsumePurchase(const FString&);
 	AndroidThunkCpp_Iap_ConsumePurchase(ReceiptId);
 }
@@ -168,12 +168,12 @@ void FOnlinePurchaseGooglePlay::QueryReceipts(const FUniqueNetId& UserId, bool b
 		}
 		else
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::QueryReceipts failed to start query"));
+			UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::QueryReceipts failed to start query"));
 		}
 	}
 	else
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::QueryReceipts already in progress."));
+		UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::QueryReceipts already in progress."));
 	}
 
 	if (bTriggerDelegate)
@@ -213,8 +213,8 @@ void FOnlinePurchaseGooglePlay::GetReceipts(const FUniqueNetId& UserId, TArray<F
 
 void FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse(EGooglePlayBillingResponseCode InResponseCode, const FGoogleTransactionData& InTransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse %s"), ToString(InResponseCode));
-	UE_LOG(LogOnline, Verbose, TEXT("3... Transaction: %s"), *InTransactionData.ToDebugString());
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse %s"), ToString(InResponseCode));
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("3... Transaction: %s"), *InTransactionData.ToDebugString());
 	EPurchaseTransactionState Result = ConvertGPResponseCodeToPurchaseTransactionState(InResponseCode);
 
 	FString UserIdStr = GOOGLEPLAYUSER;
@@ -228,7 +228,7 @@ void FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse(EGooglePlayBilling
 		{
 			if (!UserPendingTransaction->AddCompletedOffer(Result, InTransactionData))
 			{
-				UE_LOG(LogOnline, Verbose, TEXT("Offer not found in pending transaction"));
+				UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("Offer not found in pending transaction"));
 				Result = EPurchaseTransactionState::Failed;
 			}
 		}
@@ -256,7 +256,7 @@ void FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse(EGooglePlayBilling
 				UserPendingTransaction->PendingPurchaseInfo.TransactionState = EPurchaseTransactionState::Invalid;
 				break;
 			default:
-				UE_LOG(LogOnline, Warning, TEXT("Unexpected state after purchase %d"), (int)Result);
+				UE_LOG_ONLINE_PURCHASE(Warning, TEXT("Unexpected state after purchase %d"), (int)Result);
 				FinalResult.SetFromErrorCode(TEXT("com.epicgames.purchase.unexpected_state"));
 				FinalResult.ErrorMessage = !ErrorStr.IsEmpty() ? FText::FromString(ErrorStr) : LOCTEXT("GooglePlayUnexpectedState", "Unexpected purchase result");
 				UserPendingTransaction->PendingPurchaseInfo.TransactionState = EPurchaseTransactionState::Failed;
@@ -274,13 +274,13 @@ void FOnlinePurchaseGooglePlay::OnTransactionCompleteResponse(EGooglePlayBilling
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("No pending transaction found associated with this purchase completion event"));
+		UE_LOG_ONLINE_PURCHASE(Log, TEXT("No pending transaction found associated with this purchase completion event"));
 	}
 }
 
 void FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete(EGooglePlayBillingResponseCode InResponseCode, const TArray<FGoogleTransactionData>& InExistingPurchases)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete Response: %s Num: %d"), ToString(InResponseCode), InExistingPurchases.Num());
+	UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete Response: %s Num: %d"), ToString(InResponseCode), InExistingPurchases.Num());
 
 	if (bQueryingReceipts)
 	{
@@ -290,14 +290,14 @@ void FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete(EGooglePlayBill
 			EPurchaseTransactionState Result = ConvertGPResponseCodeToPurchaseTransactionState(InResponseCode);
 			for (const FGoogleTransactionData& Purchase : InExistingPurchases)
 			{
-				UE_LOG(LogOnline, Verbose, TEXT("Adding existing receipt %s"), *Purchase.ToDebugString());
+				UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("Adding existing receipt %s"), *Purchase.ToDebugString());
 				TSharedRef<FPurchaseReceipt> OfflineReceipt = FOnlinePurchasePendingTransactionGooglePlay::GenerateReceipt(Purchase);
 				OfflineTransactions.Add(OfflineReceipt);
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("OnQueryExistingPurchasesComplete failed"));
+			UE_LOG_ONLINE_PURCHASE(Verbose, TEXT("OnQueryExistingPurchasesComplete failed"));
 		}
 
 		Subsystem->ExecuteNextTick([this, bSuccess]()
@@ -310,8 +310,14 @@ void FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete(EGooglePlayBill
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete unexpected call"));
+		UE_LOG_ONLINE_PURCHASE(Warning, TEXT("FOnlinePurchaseGooglePlay::OnQueryExistingPurchasesComplete unexpected call"));
 	}
+}
+
+void FOnlinePurchaseGooglePlay::FinalizeReceiptValidationInfo(const FUniqueNetId& UserId, FString& InReceiptValidationInfo, const FOnFinalizeReceiptValidationInfoComplete& Delegate)
+{
+	FOnlineError DefaultSuccess(true);
+	Delegate.ExecuteIfBound(DefaultSuccess, InReceiptValidationInfo);
 }
 
 TSharedRef<FPurchaseReceipt> FOnlinePurchasePendingTransactionGooglePlay::GenerateReceipt()

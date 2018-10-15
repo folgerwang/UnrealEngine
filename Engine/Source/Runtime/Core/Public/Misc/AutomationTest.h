@@ -783,6 +783,11 @@ public:
 	bool ExecuteNetworkCommands();
 
 	/**
+	 * Dequeue all latent and network commands
+	 */
+	void DequeueAllCommands();
+
+	/**
 	 * Load any modules that are not loaded by default and have test classes in them
 	 */
 	void LoadTestModules();
@@ -1303,7 +1308,7 @@ public:
 	{
 		if (A == B)
 		{
-			AddError(FString::Printf(TEXT("%s: The two values are not equal."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The two values are equal."), *Description), 1);
 		}
 	}
 

@@ -44,6 +44,16 @@ TAutoConsoleVariable<float> CVarEyeAdaptationFocus(
 	TEXT(">0: Center focus, 1 is a good number (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+FORCEINLINE float EV100ToLuminance(float EV100)
+{
+	return 1.2 * FMath::Pow(2.0f, EV100);
+}
+
+FORCEINLINE float EV100ToLog2(float EV100)
+{
+	return EV100 + 0.263f; // Where .263 is log2(1.2)
+}
+
 /**
  *   Shared functionality used in computing the eye-adaptation parameters
  *   Compute the parameters used for eye-adaptation.  These will default to values
@@ -51,6 +61,9 @@ TAutoConsoleVariable<float> CVarEyeAdaptationFocus(
  */
 inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFeatureLevel, const FViewInfo& View, FVector4 Out[EYE_ADAPTATION_PARAMS_SIZE])
 {
+	static const auto VarDefaultAutoExposureExtendDefaultLuminanceRange = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"));
+	const bool bExtendedLuminanceRange = VarDefaultAutoExposureExtendDefaultLuminanceRange->GetValueOnRenderThread() == 1;
+
 	const FPostProcessSettings& Settings = View.FinalPostProcessSettings;
 	const FEngineShowFlags& EngineShowFlags = View.Family->EngineShowFlags;
 
@@ -74,12 +87,12 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 	float AverageLuminanceScale = Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Basic ? (1.f / CalibrationConstant) : 1.f;
 
 	// example min/max: -8 .. 4   means a range from 1/256 to 4  pow(2,-8) .. pow(2,4)
-	float HistogramLogMin = Settings.HistogramLogMin;
-	float HistogramLogMax = Settings.HistogramLogMax;
+	float HistogramLogMin = bExtendedLuminanceRange ? EV100ToLog2(Settings.HistogramLogMin) : Settings.HistogramLogMin;
+	float HistogramLogMax = bExtendedLuminanceRange ? EV100ToLog2(Settings.HistogramLogMax) : Settings.HistogramLogMax;
 	HistogramLogMin = FMath::Min<float>(HistogramLogMin, HistogramLogMax - 1);
 
 	// Eye adaptation is disabled except for highend right now because the histogram is not computed.
-	if (!bDisableExposure)
+	if (!bDisableExposure && EngineShowFlags.Lighting && EngineShowFlags.EyeAdaptation && View.GetFeatureLevel() >= MinFeatureLevel)
 	{
 		if (View.Family->ExposureSettings.bFixed || Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Manual)
 		{
@@ -87,12 +100,20 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 									View.Family->ExposureSettings.FixedEV100 : 
 									FMath::Log2(FMath::Square(Settings.DepthOfFieldFstop) * Settings.CameraShutterSpeed * 100 / FMath::Max(1.f, Settings.CameraISO));
 
-			MinAverageLuminance = MaxAverageLuminance = 1.2f * FMath::Pow(2.0f, FixedEV100);
+			MinAverageLuminance = MaxAverageLuminance = EV100ToLuminance(FixedEV100);
 		}
 		else
 		{
-			MinAverageLuminance = Settings.AutoExposureMinBrightness;
-			MaxAverageLuminance = Settings.AutoExposureMaxBrightness;
+			if (bExtendedLuminanceRange)
+			{
+				MinAverageLuminance = EV100ToLuminance(Settings.AutoExposureMinBrightness);
+				MaxAverageLuminance = EV100ToLuminance(Settings.AutoExposureMaxBrightness);
+			}
+			else
+			{
+				MinAverageLuminance = Settings.AutoExposureMinBrightness;
+				MaxAverageLuminance = Settings.AutoExposureMaxBrightness;
+			}
 		}
 	}
 
@@ -414,7 +435,7 @@ void FSceneViewState::UpdatePreExposure(FViewInfo& View)
 	{
 		const FSceneViewFamily& ViewFamily = *View.Family;
 
-		if (!IsRichView(ViewFamily) && !ViewFamily.EngineShowFlags.VisualizeHDR && !ViewFamily.EngineShowFlags.VisualizeBloom && ViewFamily.EngineShowFlags.PostProcessing && ViewFamily.bResolveScene)
+		if (!IsRichView(ViewFamily) /*&& !ViewFamily.EngineShowFlags.VisualizeHDR */&& !ViewFamily.EngineShowFlags.VisualizeBloom && ViewFamily.EngineShowFlags.PostProcessing && ViewFamily.bResolveScene)
 		{
 			const float PreExposureOverride = CVarEyeAdaptationPreExposureOverride.GetValueOnRenderThread();
 			const float LastExposure = View.GetLastEyeAdaptationExposure();

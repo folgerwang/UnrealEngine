@@ -130,6 +130,7 @@ protected:
 
 				GUndo->BeginOperation();
 				TransactionStateChangedDelegate.Broadcast(GUndo->GetContext(), ETransactionStateEventType::TransactionStarted);
+				UndoBufferChangedDelegate.Broadcast();
 			}
 			const int32 PriorRecordsCount = (Result > 0 ? ActiveRecordCounts[Result - 1] : 0);
 			ActiveRecordCounts.Add(UndoBuffer.Last()->GetRecordCount() - PriorRecordsCount);

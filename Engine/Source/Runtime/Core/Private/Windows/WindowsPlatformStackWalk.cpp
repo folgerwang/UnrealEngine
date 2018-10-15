@@ -235,7 +235,7 @@ void FWindowsPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString,
 	FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 }
 
-TArray<FProgramCounterSymbolInfo> FWindowsPlatformStackWalk::GetStack(int32 IgnoreCount, int32 MaxDepth, void* Context)
+FORCENOINLINE TArray<FProgramCounterSymbolInfo> FWindowsPlatformStackWalk::GetStack(int32 IgnoreCount, int32 MaxDepth, void* Context)
 {
 	InitStackWalking();
 	return FGenericPlatformStackWalk::GetStack(IgnoreCount + 1, MaxDepth, Context);
@@ -766,7 +766,9 @@ int32 FWindowsPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo
 			FCString::Strcpy(Info.ImageName, ImageName);
 			Info.ImageSize = ModuleInfo.SizeOfImage;
 			FCString::Strcpy(Info.LoadedImageName, ImageName);
-			FCString::Strcpy(Info.ModuleName, ModuleName);
+
+			FString BaseModuleName = FPaths::GetBaseFilename(ModuleName);
+			FCString::Strncpy(Info.ModuleName, *BaseModuleName, 32);
 
 			UE_LOG(LogWindows, Verbose, TEXT("SymGetModuleInfoW64 failed, rich module information unavailable. Error Code: %u"), GetLastError());
 		}

@@ -286,6 +286,8 @@ public:
 	 */
 	virtual bool GetAllocationSize(void *Original, SIZE_T &SizeOut) override;
 
+	virtual SIZE_T QuantizeSize(SIZE_T Count, uint32 Alignment) override;
+
 	/**
 	 * Validates the allocator's heap
 	 */

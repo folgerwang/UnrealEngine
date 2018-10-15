@@ -692,8 +692,8 @@ namespace AutomationTool
 			}
 			CommandUtils.LogInformation("");
 
-			// Print out all the aggregates
-			string[] AggregateNames = AggregateNameToNodes.Keys.OrderBy(x => x).ToArray();
+			// Print out all the non-empty aggregates
+			string[] AggregateNames = AggregateNameToNodes.Where(x => x.Value.Length > 0).Select(x => x.Key).OrderBy(x => x).ToArray();
 			if(AggregateNames.Length > 0)
 			{
 				CommandUtils.LogInformation("Aggregates:");

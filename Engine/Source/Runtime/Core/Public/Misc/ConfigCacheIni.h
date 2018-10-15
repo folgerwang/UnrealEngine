@@ -20,7 +20,7 @@
 #include "Misc/Paths.h"
 #include "Serialization/StructuredArchiveFromArchive.h"
 
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogConfig, Warning, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogConfig, Log, All);
 
 // Server builds should be tweakable even in Shipping
 #define ALLOW_INI_OVERRIDE_FROM_COMMANDLINE			(UE_SERVER || !(UE_BUILD_SHIPPING))
@@ -399,6 +399,9 @@ public:
 
 	/** Generate a correctly escaped line to add to the config file for the given property */
 	static FString GenerateExportedPropertyLine(const FString& PropertyName, const FString& PropertyValue);
+	
+	/** Checks the command line for any overridden config settings */
+	CORE_API static void OverrideFromCommandline(FConfigFile* File, const FString& Filename);
 
 private:
 

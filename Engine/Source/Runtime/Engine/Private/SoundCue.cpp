@@ -20,6 +20,7 @@
 #include "Sound/SoundNodeRandom.h"
 #include "GameFramework/GameUserSettings.h"
 #include "AudioCompressionSettingsUtils.h"
+#include "AudioThread.h"
 #if WITH_EDITOR
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "SoundCueGraph/SoundCueGraphNode.h"
@@ -77,14 +78,11 @@ void USoundCue::CacheAggregateValues()
 
 		Duration = FirstNode->GetDuration();
 
+		MaxDistance = FirstNode->GetMaxDistance();
+		// If no sound cue nodes overrode the max distance, we need to check the base attenuation
 		if (MaxDistance == 0.0f)
 		{
-			MaxDistance = FirstNode->GetMaxDistance();
-			// If no sound cue nodes overrode the max distance, we need to check the base attenuation
-			if (MaxDistance == 0.0f)
-			{
-				MaxDistance = USoundBase::GetMaxDistance();
-			}
+			MaxDistance = USoundBase::GetMaxDistance();
 		}
 
 		bHasDelayNode = FirstNode->HasDelayNode();
@@ -300,18 +298,25 @@ bool USoundCue::FindPathToNode(const UPTRINT NodeHashToFind, TArray<USoundNode*>
 
 void USoundCue::StaticAudioQualityChanged(int32 NewQualityLevel)
 {
-	CachedQualityLevel = NewQualityLevel;
+	if (CachedQualityLevel != NewQualityLevel)
+	{
+		FAudioCommandFence AudioFence;
+		AudioFence.BeginFence();
+		AudioFence.Wait();
 
-	if (GEngine)
-	{
-		for (TObjectIterator<USoundCue> SoundCueIt; SoundCueIt; ++SoundCueIt)
+		CachedQualityLevel = NewQualityLevel;
+
+		if (GEngine)
 		{
-			SoundCueIt->AudioQualityChanged();
+			for (TObjectIterator<USoundCue> SoundCueIt; SoundCueIt; ++SoundCueIt)
+			{
+				SoundCueIt->AudioQualityChanged();
+			}
 		}
-	}
-	else
-	{
-		// PostLoad should have set up the delegate to fire EvaluateNodes once GEngine is initialized
+		else
+		{
+			// PostLoad should have set up the delegate to fire EvaluateNodes once GEngine is initialized
+		}
 	}
 }
 

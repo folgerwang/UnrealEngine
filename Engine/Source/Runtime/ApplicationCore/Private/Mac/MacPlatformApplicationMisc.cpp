@@ -44,6 +44,7 @@ bool FPlatformApplicationMisc::bChachedMacMenuStateNeedsUpdate = true;
 bool FPlatformApplicationMisc::bLanguageChanged = false;
 bool FPlatformApplicationMisc::bMacApplicationModalMode = false;
 bool FPlatformApplicationMisc::bIsHighResolutionCapable = true;
+bool FPlatformApplicationMisc::bDisplaySleepEnabled = true;
 
 id<NSObject> FPlatformApplicationMisc::CommandletActivity = nil;
 
@@ -368,10 +369,14 @@ bool FMacPlatformApplicationMisc::IsThisApplicationForeground()
 	return [NSApp isActive] && MacApplication && MacApplication->IsWorkspaceSessionActive();
 }
 
+bool FMacPlatformApplicationMisc::IsScreensaverEnabled()
+{
+	return bDisplaySleepEnabled;
+}
+
 bool FMacPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 {
 	static uint32 IOPMNoSleepAssertion = 0;
-	static bool bDisplaySleepEnabled = true;
 	
 	switch(Action)
 	{
@@ -413,7 +418,8 @@ FLinearColor FMacPlatformApplicationMisc::GetScreenPixelColor(const FVector2D& I
 {
 	SCOPED_AUTORELEASE_POOL;
 
-	CGImageRef ScreenImage = CGWindowListCreateImage(CGRectMake(InScreenPos.X, InScreenPos.Y, 1, 1), kCGWindowListOptionOnScreenBelowWindow, kCGNullWindowID, kCGWindowImageDefault);
+	const CGPoint Pt = FMacApplication::ConvertSlatePositionToCGPoint(InScreenPos.X, InScreenPos.Y);
+	CGImageRef ScreenImage = CGWindowListCreateImage(CGRectMake(Pt.x, Pt.y, 1, 1), kCGWindowListOptionOnScreenBelowWindow, kCGNullWindowID, kCGWindowImageDefault);
 	
 	CGDataProviderRef provider = CGImageGetDataProvider(ScreenImage);
 	NSData* data = (id)CGDataProviderCopyData(provider);

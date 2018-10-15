@@ -9,7 +9,7 @@
 UNavigationSystemConfig::UNavigationSystemConfig(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	if (GEngine && *GEngine->NavigationSystemClass != nullptr)
+	if (GEngine)
 	{
 		NavigationSystemClass = GEngine->NavigationSystemClassName;
 	}
@@ -17,13 +17,7 @@ UNavigationSystemConfig::UNavigationSystemConfig(const FObjectInitializer& Objec
 
 TSubclassOf<UNavigationSystemConfig> UNavigationSystemConfig::GetDefaultConfigClass()
 {
-	TSubclassOf<UNavigationSystemConfig> NavSysConfigClass;
-	if (GEngine && GEngine->NavigationSystemConfigClassName.IsValid())
-	{
-		GEngine->NavigationSystemConfigClassName.TryLoad();
-		NavSysConfigClass = GEngine->NavigationSystemConfigClassName.ResolveClass();
-	}
-	return NavSysConfigClass;
+	return GEngine ? GEngine->NavigationSystemConfigClass : nullptr;
 }
 
 UNavigationSystemBase* UNavigationSystemConfig::CreateAndConfigureNavigationSystem(UWorld& World) const

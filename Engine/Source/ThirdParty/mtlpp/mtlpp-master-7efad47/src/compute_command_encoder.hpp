@@ -40,7 +40,7 @@ namespace ue4
 
 namespace mtlpp
 {
-	class ComputeCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLComputeCommandEncoder>>::type>
+	class MTLPP_EXPORT ComputeCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLComputeCommandEncoder>>::type>
     {
     public:
         ComputeCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLComputeCommandEncoder>>::type>(retain) { }
@@ -75,7 +75,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedComputeCommandEncoder : public ns::AutoReleased<ComputeCommandEncoder>
+	class MTLPP_EXPORT ValidatedComputeCommandEncoder : public ns::AutoReleased<ComputeCommandEncoder>
 	{
 		CommandEncoderValidationTable Validator;
 		

@@ -11,7 +11,11 @@
 class FVulkanDescriptorPool;
 class FVulkanDescriptorPoolsManager;
 class FVulkanCommandListContextImmediate;
+#if VULKAN_USE_NEW_QUERIES
 class FVulkanOcclusionQueryPool;
+#else
+class FOLDVulkanQueryPool;
+#endif
 
 struct FOptionalVulkanDeviceExtensions
 {
@@ -190,6 +194,10 @@ public:
 		return SamplerMap;
 	}
 
+	inline FVulkanShaderFactory& GetShaderFactory()
+	{
+		return ShaderFactory;
+	}
 
 	FVulkanCommandListContextImmediate& GetImmediateContext();
 
@@ -301,6 +309,8 @@ private:
 
 	FVulkanDescriptorPoolsManager* DescriptorPoolsManager = nullptr;
 
+	FVulkanShaderFactory ShaderFactory;
+
 	FVulkanSamplerState* DefaultSampler;
 	FVulkanSurface* DefaultImage;
 	VkImageView DefaultImageView;
@@ -347,7 +357,9 @@ private:
 	FVulkanCommandListContextImmediate* ImmediateContext;
 	FVulkanCommandListContext* ComputeContext;
 	TArray<FVulkanCommandListContext*> CommandContexts;
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	TMap<uint32, VkSamplerYcbcrConversion> SamplerColorConversionMap;
+#endif
 
 	void GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 

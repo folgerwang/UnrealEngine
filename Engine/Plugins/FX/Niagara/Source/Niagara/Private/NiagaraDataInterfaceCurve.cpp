@@ -144,12 +144,12 @@ void %s(in float In_X, out float Out_Value) \n\
 	return true;
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCurve, SampleCurve);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceCurve, SampleCurve);
 void UNiagaraDataInterfaceCurve::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	if (BindingInfo.Name == SampleCurveName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
 	{
-		TCurveUseLUTBinder<TNDIParamBinder<0, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCurve, SampleCurve)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TCurveUseLUTBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceCurve, SampleCurve)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else
 	{
@@ -179,11 +179,11 @@ FORCEINLINE_DEBUGGABLE float UNiagaraDataInterfaceCurve::SampleCurveInternal<TIn
 	return Curve.Eval(X);
 }
 
-template<typename UseLUT, typename XParamType>
+template<typename UseLUT>
 void UNiagaraDataInterfaceCurve::SampleCurve(FVectorVMContext& Context)
 {
-	XParamType XParam(Context);
-	FRegisterHandler<float> OutSample(Context);
+	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSample(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{

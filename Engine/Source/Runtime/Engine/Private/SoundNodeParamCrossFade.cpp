@@ -24,3 +24,17 @@ bool USoundNodeParamCrossFade::AllowCrossfading(FActiveSound& ActiveSound) const
 	// Always allow parameter to control crossfading, even on 2D/preview sounds
 	return true;
 }
+
+float USoundNodeParamCrossFade::GetMaxDistance() const
+{
+	float MaxDistance = 0.0f;
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			ChildNode->ConditionalPostLoad();
+			MaxDistance = FMath::Max(ChildNode->GetMaxDistance(), MaxDistance);
+		}
+	}
+	return MaxDistance;
+}

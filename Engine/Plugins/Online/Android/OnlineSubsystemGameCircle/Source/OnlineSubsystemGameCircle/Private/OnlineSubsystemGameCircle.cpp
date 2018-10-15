@@ -4,15 +4,6 @@
 #include "Misc/ConfigCacheIni.h"
 #include <jni.h>
 
-FOnlineSubsystemGameCircle::FOnlineSubsystemGameCircle()
-	: IdentityInterface(nullptr)
-	, LeaderboardsInterface(nullptr)
-	, AchievementsInterface(nullptr)
-	, StoreInterface(nullptr)
-	, AGSCallbackManager(nullptr)
-{
-}
-
 FOnlineSubsystemGameCircle::FOnlineSubsystemGameCircle(FName InInstanceName)
 	: FOnlineSubsystemImpl(GAMECIRCLE_SUBSYSTEM, InInstanceName)
 	, IdentityInterface(nullptr)
@@ -135,7 +126,7 @@ bool FOnlineSubsystemGameCircle::Tick(float DeltaTime)
 
 bool FOnlineSubsystemGameCircle::Shutdown() 
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemAndroid::Shutdown()"));
+	UE_LOG_ONLINE(Log, TEXT("FOnlineSubsystemAndroid::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 
@@ -182,7 +173,7 @@ bool FOnlineSubsystemGameCircle::IsEnabled() const
 	// GameCircleRuntimeSettings holds a value for editor ease of use
 	if (!GConfig->GetBool(TEXT("/Script/GameCircleRuntimeSettings.GameCircleRuntimeSettings"), TEXT("bEnableAmazonGameCircleSupport"), bEnabled, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("The [/Script/GameCircleRuntimeSettings.GameCircleRuntimeSettings]:bEnableAmazonGameCircleSupport flag has not been set"));
+		UE_LOG_ONLINE(Warning, TEXT("The [/Script/GameCircleRuntimeSettings.GameCircleRuntimeSettings]:bEnableAmazonGameCircleSupport flag has not been set"));
 
 		// Fallback to regular OSS location
 		bEnabled = FOnlineSubsystemImpl::IsEnabled();
@@ -222,7 +213,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnAmazonGamesInitCallb
 	}
 	else
 	{
-		UE_LOG(LogOnline, Error, TEXT("Skipped request for local player info. ServiceIsReady = %s"), (bServiceIsReady == JNI_TRUE) ? TEXT("TRUE") : TEXT("FALSE"));
+		UE_LOG_ONLINE(Error, TEXT("Skipped request for local player info. ServiceIsReady = %s"), (bServiceIsReady == JNI_TRUE) ? TEXT("TRUE") : TEXT("FALSE"));
 	}
 }
 

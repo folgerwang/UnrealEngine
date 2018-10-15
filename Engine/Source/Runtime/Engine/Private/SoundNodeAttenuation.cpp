@@ -17,13 +17,22 @@ USoundNodeAttenuation::USoundNodeAttenuation(const FObjectInitializer& ObjectIni
 
 float USoundNodeAttenuation::GetMaxDistance() const 
 { 
+	float MaxDistance = WORLD_MAX;
 	const FSoundAttenuationSettings* Settings = GetAttenuationSettingsToApply();
 	if (Settings)
 	{
-		return Settings->GetMaxDimension();
+		MaxDistance = Settings->GetMaxDimension();
 	}
-	// if we have a sound node atten but no setting or value, treat as no attenuation value (i.e. max distance)
-	return WORLD_MAX;
+
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			ChildNode->ConditionalPostLoad();
+			MaxDistance = FMath::Max(ChildNode->GetMaxDistance(), MaxDistance);
+		}
+	}
+	return MaxDistance;
 }
 
 const FSoundAttenuationSettings* USoundNodeAttenuation::GetAttenuationSettingsToApply() const

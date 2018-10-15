@@ -73,11 +73,6 @@ void UInheritableComponentHandler::PostLoad()
 					Record.ComponentTemplate->MarkPendingKill(); // hack needed to be able to identify if NewObject returns this back to us in the future
 					Records.RemoveAtSwap(Index);
 				}
-				else if (Record.CookedComponentInstancingData.bIsValid)
-				{
-					// Generate "fast path" instancing data. This data may also be used to override components inherited from a nativized BP parent class.
-					Record.CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(Record.ComponentTemplate);
-				}
 			}
 		}
 	}
@@ -220,7 +215,7 @@ void UInheritableComponentHandler::ValidateTemplates()
 			}
 			else
 			{
-				UE_LOG(LogBlueprint, Warning, TEXT("ValidateTemplates '%s': overridden template is invalid and will be removed - component '%s' from '%s'"),
+				UE_LOG(LogBlueprint, Log, TEXT("ValidateTemplates '%s': overridden template is invalid and will be removed - component '%s' from '%s' (this can happen when a class was recently reparented)"),
 					*GetPathNameSafe(this), *VarName.ToString(), *GetPathNameSafe(ComponentKey.GetComponentOwner()));
 			}
 		}

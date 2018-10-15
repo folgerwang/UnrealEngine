@@ -485,7 +485,7 @@ private:
 #if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 				UnicodeChar = *((uint16*)(&Script[iCode]));
 #else
-				FMemory::Memcpy(&UnicodeChar, &Script[iCode], sizeof(uint16));
+				FMemory::Memcpy(&UnicodeChar, &Script[iCode], sizeof(uint16));				
 #endif
 				LastParsedString += (TCHAR)UnicodeChar;
 

@@ -744,11 +744,6 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 	struct IXAudio2MasteringVoice*		MasteringVoice;
 	HMODULE								XAudio2Dll;
 
-	// Audio clock info
-	struct IXAudio2SourceVoice*			AudioClockVoice;
-	XAUDIO2_BUFFER						AudioClockXAudio2Buffer;
-	TArray<int16>						AudioClockPCMBufferData;
-
 	// These variables are static because they are common across all audio device instances
 	static int32						NumSpeakers;
 	static const float*					OutputMixMatrix;
@@ -779,7 +774,6 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 		: XAudio2(nullptr)
 		, MasteringVoice(nullptr)
 		, XAudio2Dll(nullptr)
-		, AudioClockVoice(nullptr)
 		, NumActiveVoices(0)
 		, bDeviceChanged(false)
 		, bAllowNewVoices(true)
@@ -809,12 +803,6 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 		{
 			MasteringVoice->DestroyVoice();
 			MasteringVoice = nullptr;
-		}
-
-		if (AudioClockVoice)
-		{
-			AudioClockVoice->DestroyVoice();
-			AudioClockVoice = nullptr;
 		}
 
 		if (XAudio2)
@@ -865,53 +853,6 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 		bool bChanged = bDeviceChanged;
 		bDeviceChanged = false;
 		return bChanged;
-	}
-
-	void InitAudioClockVoice()
-	{
-		if (XAudio2)
-		{
-			WAVEFORMATEX PCMFormat;
-			PCMFormat.wFormatTag = WAVE_FORMAT_PCM;
-			PCMFormat.nChannels = 1;
-			PCMFormat.nSamplesPerSec = 44100;
-			PCMFormat.wBitsPerSample = 16;
-			PCMFormat.cbSize = 0;
-			PCMFormat.nBlockAlign = sizeof(int16);
-			PCMFormat.nAvgBytesPerSec = sizeof(int16) * 44100;
-
-			check(XAudio2 != nullptr);
-			bool bSuccess = Validate(TEXT("CreateSourceVoice, GetAudioClockTime"),
-				XAudio2->CreateSourceVoice(&AudioClockVoice, &PCMFormat));
-
-			if (bSuccess && AudioClockVoice)
-			{
-				// Setup the zeroed clock buffer
-				AudioClockPCMBufferData.Reset();
-				AudioClockPCMBufferData.AddZeroed(64);
-
-				// Setup the xaudio2 buffer of looping silence
-				FMemory::Memzero(&AudioClockXAudio2Buffer, sizeof(XAUDIO2_BUFFER));
-				AudioClockXAudio2Buffer.AudioBytes = AudioClockPCMBufferData.Num() * sizeof(int16);
-				AudioClockXAudio2Buffer.pAudioData = (uint8*)AudioClockPCMBufferData.GetData();
-				AudioClockXAudio2Buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
-
-				// Submit it and start the voice... basically an always looping silent sound
-				AudioClockVoice->SubmitSourceBuffer(&AudioClockXAudio2Buffer);
-				AudioClockVoice->Start(0);
-			}
-		}
-	}
-
-	double GetAudioClockTime()
-	{
-		if (AudioClockVoice && bAllowNewVoices)
-		{
-			XAUDIO2_VOICE_STATE VoiceState;
-			AudioClockVoice->GetState(&VoiceState);
-			return (double)VoiceState.SamplesPlayed / 44100;
-		}
-		return 0.0;
 	}
 
 	bool Validate(const TCHAR* Function, uint32 ErrorCode) const

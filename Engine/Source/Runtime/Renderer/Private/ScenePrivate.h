@@ -1270,6 +1270,12 @@ public:
 		MIDUsedCount = 0;
 	}
 
+	/** Returns the current PreExposure value. PreExposure is a custom scale applied to the scene color to prevent buffer overflow. */
+	virtual float GetPreExposure() const override
+	{
+		return PreExposure;
+	}
+
 	// Note: OnStartPostProcessing() needs to be called each frame for each view
 	virtual UMaterialInstanceDynamic* GetReusableMID(class UMaterialInterface* InSource) override
 	{		
@@ -1993,6 +1999,8 @@ public:
 	void UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo);
 	void UpdateVisibilityStates(FViewInfo& View);
 
+	void ClearVisibilityState(FViewInfo& View);
+
 	bool IsActive() const { return (SceneNodes.Num() > 0); }
 
 private:
@@ -2315,6 +2323,8 @@ public:
 	virtual void AddDecal(UDecalComponent* Component) override;
 	virtual void RemoveDecal(UDecalComponent* Component) override;
 	virtual void UpdateDecalTransform(UDecalComponent* Decal) override;
+	virtual void UpdateDecalFadeOutTime(UDecalComponent* Decal) override;
+	virtual void UpdateDecalFadeInTime(UDecalComponent* Decal) override;
 	virtual void AddReflectionCapture(UReflectionCaptureComponent* Component) override;
 	virtual void RemoveReflectionCapture(UReflectionCaptureComponent* Component) override;
 	virtual void GetReflectionCaptureData(UReflectionCaptureComponent* Component, class FReflectionCaptureData& OutCaptureData) override;

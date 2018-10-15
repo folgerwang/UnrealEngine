@@ -22,6 +22,7 @@ AGameNetworkManager::AGameNetworkManager(const FObjectInitializer& ObjectInitial
 	MAXNEARZEROVELOCITYSQUARED = 9.0f;
 	CLIENTADJUSTUPDATECOST = 180.0f;
 	MAXCLIENTUPDATEINTERVAL = 0.25f;
+	MaxClientForcedUpdateDuration=1.0f;
 	MaxMoveDeltaTime = 0.125f;
 	ClientNetSendMoveDeltaTime = 0.0166f;
 	ClientNetSendMoveDeltaTimeThrottled = 0.0222f;

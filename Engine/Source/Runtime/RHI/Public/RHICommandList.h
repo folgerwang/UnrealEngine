@@ -1459,12 +1459,18 @@ struct FRHICommandWaitComputeFence final : public FRHICommand<FRHICommandWaitCom
 };
 
 template<ECmdList CmdListType>
-struct FRHICommandInsertGPUFence final : public FRHICommand<FRHICommandInsertGPUFence<CmdListType>>
+struct FRHICommandEnqueueStagedRead final : public FRHICommand<FRHICommandEnqueueStagedRead<CmdListType>>
 {
+	FStagingBufferRHIParamRef StagingBuffer;
 	FGPUFenceRHIParamRef Fence;
+	uint32 Offset;
+	uint32 NumBytes;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandInsertGPUFence(FGPUFenceRHIParamRef InFence)
-		: Fence(InFence)
+	FORCEINLINE_DEBUGGABLE FRHICommandEnqueueStagedRead(FStagingBufferRHIParamRef InStagingBuffer, FGPUFenceRHIParamRef InFence, uint32 InOffset, uint32 InNumBytes)
+		: StagingBuffer(InStagingBuffer)
+		, Fence(InFence)
+		, Offset(InOffset)
+		, NumBytes(InNumBytes)
 	{		
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
@@ -1724,6 +1730,11 @@ struct FRHICommandSubmitCommandsHint final : public FRHICommand<FRHICommandSubmi
 	FORCEINLINE_DEBUGGABLE FRHICommandSubmitCommandsHint()
 	{
 	}
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandPollOcclusionQueries final : public FRHICommand<FRHICommandPollOcclusionQueries>
+{
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
@@ -2590,6 +2601,16 @@ public:
 		new (AllocCommand<FRHICommandSubmitCommandsHint<ECmdList::EGfx>>()) FRHICommandSubmitCommandsHint<ECmdList::EGfx>();
 	}
 
+	FORCEINLINE_DEBUGGABLE void PollOcclusionQueries()
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIPollOcclusionQueries)();
+			return;
+		}
+		new (AllocCommand<FRHICommandPollOcclusionQueries>()) FRHICommandPollOcclusionQueries();
+	}
+
 	FORCEINLINE_DEBUGGABLE void TransitionResource(EResourceTransitionAccess TransitionType, FTextureRHIParamRef InTexture)
 	{
 		FTextureRHIParamRef Texture = InTexture;
@@ -2688,14 +2709,14 @@ public:
 		new (AllocCommand<FRHICommandWaitComputeFence<ECmdList::EGfx>>()) FRHICommandWaitComputeFence<ECmdList::EGfx>(WaitFence);
 	}
 
-	FORCEINLINE_DEBUGGABLE void InsertGPUFence(FGPUFenceRHIParamRef Fence)
+	FORCEINLINE_DEBUGGABLE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
 	{
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIInsertGPUFence)(Fence);
+			CMD_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
 			return;
 		}
-		new (AllocCommand<FRHICommandInsertGPUFence<ECmdList::EGfx>>()) FRHICommandInsertGPUFence<ECmdList::EGfx>(Fence);
+		new (AllocCommand<FRHICommandEnqueueStagedRead<ECmdList::EGfx>>()) FRHICommandEnqueueStagedRead<ECmdList::EGfx>(StagingBuffer, Fence, Offset, NumBytes);
 	}
 
 	FORCEINLINE_DEBUGGABLE void BeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* Name)
@@ -3083,14 +3104,14 @@ public:
 		new (AllocCommand<FRHICommandWaitComputeFence<ECmdList::ECompute>>()) FRHICommandWaitComputeFence<ECmdList::ECompute>(WaitFence);
 	}
 
-	FORCEINLINE_DEBUGGABLE void InsertGPUFence(FGPUFenceRHIParamRef Fence)
+	FORCEINLINE_DEBUGGABLE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
 	{
 		if (Bypass())
 		{
-			COMPUTE_CONTEXT(RHIInsertGPUFence)(Fence);
+			CMD_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
 			return;
 		}
-		new (AllocCommand<FRHICommandInsertGPUFence<ECmdList::ECompute>>()) FRHICommandInsertGPUFence<ECmdList::ECompute>(Fence);
+		new (AllocCommand<FRHICommandEnqueueStagedRead<ECmdList::ECompute>>()) FRHICommandEnqueueStagedRead<ECmdList::ECompute>(StagingBuffer, Fence, Offset, NumBytes);
 	}
 };
 
@@ -3118,7 +3139,7 @@ public:
 class RHI_API FRHICommandListImmediate : public FRHICommandList
 {
 	template <typename LAMBDA>
-	struct TRHILambdaCommand : public FRHICommandBase
+	struct TRHILambdaCommand final : public FRHICommandBase
 	{
 		LAMBDA Lambda;
 
@@ -3973,11 +3994,6 @@ public:
 	{
 		GDynamicRHI->RHICopySubTextureRegion_RenderThread(*this, SourceTexture, DestinationTexture, SourceBox, DestinationBox);
 	}
-
-	FORCEINLINE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
-	{
-		GDynamicRHI->RHIEnqueueStagedRead_RenderThread(*this, StagingBuffer, Fence, Offset, NumBytes);
-	}
 	
 	FORCEINLINE void ExecuteCommandList(FRHICommandList* CmdList)
 	{
@@ -4565,6 +4581,16 @@ FORCEINLINE void RHIRecreateRecursiveBoundShaderStates()
 FORCEINLINE FRHIShaderLibraryRef RHICreateShaderLibrary(EShaderPlatform Platform, FString const& FilePath, FString const& Name)
 {
     return GDynamicRHI->RHICreateShaderLibrary(Platform, FilePath, Name);
+}
+
+FORCEINLINE void* RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 Size)
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().LockStagingBuffer(StagingBuffer, Offset, Size);
+}
+
+FORCEINLINE void RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer)
+{
+	 FRHICommandListExecutor::GetImmediateCommandList().UnlockStagingBuffer(StagingBuffer);
 }
 
 

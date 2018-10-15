@@ -18,6 +18,12 @@
 #define GAMECONTROLLER_RIGHT_THUMB_DEADZONE 8689
 #define GAMECONTROLLER_TRIGGER_THRESHOLD    30
 
+namespace
+{
+	// How long we wait from a FocusOut event to deactivate the application (100ms default)
+	double DeactivationThreadshold = 0.1;
+}
+
 float ShortToNormalFloat(short AxisVal)
 {
 	// normalize [-32768..32767] -> [-1..1]
@@ -72,6 +78,7 @@ FLinuxApplication::FLinuxApplication()
 	,	bInsideOwnWindow(false)
 	,	bIsDragWindowButtonPressed(false)
 	,	bActivateApp(false)
+	,	FocusOutDeactivationTime(0.0)
 	,	LastTimeCachedDisplays(-1.0)
 {
 	bUsingHighPrecisionMouseInput = false;
@@ -863,6 +870,8 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 							// Only do if the application is active.
 							if(bActivateApp)
 							{
+								FocusOutDeactivationTime = FPlatformTime::Seconds() + DeactivationThreadshold;
+
 								SDL_Event event;
 								event.type = SDL_USEREVENT;
 								event.user.code = CheckForDeactivation;
@@ -932,9 +941,17 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 		{
 			if(Event.user.code == CheckForDeactivation)
 			{
+				// We still havent hit our timeout limit, try again
+				if (FocusOutDeactivationTime > FPlatformTime::Seconds())
+				{
+					SDL_Event event;
+					event.type = SDL_USEREVENT;
+					event.user.code = CheckForDeactivation;
+					SDL_PushEvent(&event);
+				}
 				// If we don't use bIsDragWindowButtonPressed the draged window will be destroyed because we
 				// deactivate the whole appliacton. TODO Is that a bug? Do we have to do something?
-				if (!CurrentFocusWindow.IsValid() && !bIsDragWindowButtonPressed)
+				else if (!CurrentFocusWindow.IsValid() && !bIsDragWindowButtonPressed)
 				{
 					DeactivateApplication();
 				}
@@ -1430,7 +1447,7 @@ FPlatformRect FLinuxApplication::GetWorkArea( const FPlatformRect& CurrentWindow
 	return WorkArea;
 }
 
-void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	int NumDisplays = 0;
 

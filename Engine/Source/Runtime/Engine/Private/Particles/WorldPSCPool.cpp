@@ -345,15 +345,18 @@ void FWorldPSCPool::ReclaimActiveParticleSystems()
 	{
 		FPSCPool& Pool = Pair.Value;
 
-		for (UParticleSystemComponent* PSC : Pool.InUseComponents_Auto)
+		for(int32 i = Pool.InUseComponents_Auto.Num() - 1; i >= 0; --i)
 		{
+			UParticleSystemComponent* PSC = Pool.InUseComponents_Auto[i];
 			if (ensureAlways(PSC))
 			{
 				PSC->Complete();
 			}
 		}
-		for (UParticleSystemComponent* PSC : Pool.InUseComponents_Manual)
+
+		for(int32 i = Pool.InUseComponents_Manual.Num() - 1; i >= 0; --i)
 		{
+			UParticleSystemComponent* PSC = Pool.InUseComponents_Manual[i];
 			if (ensureAlways(PSC))
 			{
 				PSC->Complete();

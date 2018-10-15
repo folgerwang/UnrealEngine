@@ -222,7 +222,6 @@ EAppReturnType::Type MessageBoxExtImpl(EAppMsgType::Type MsgType, const TCHAR* T
 	return Answer;
 }
 
-#if !UE_BUILD_SHIPPING
 void UngrabAllInputImpl()
 {
 	if (GInitializedSDL)
@@ -237,7 +236,6 @@ void UngrabAllInputImpl()
 		SDL_CaptureMouse(SDL_FALSE);
 	}
 }
-#endif // !UE_BUILD_SHIPPING
 
 uint32 FLinuxPlatformApplicationMisc::WindowStyle()
 {
@@ -260,9 +258,7 @@ void FLinuxPlatformApplicationMisc::Init()
 
 	FGenericPlatformApplicationMisc::Init();
 
-#if !UE_BUILD_SHIPPING
 	UngrabAllInputCallback = UngrabAllInputImpl;
-#endif
 }
 
 bool FLinuxPlatformApplicationMisc::InitSDL()
@@ -322,7 +318,7 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 		{
 			// dump information about screens for debug
 			FDisplayMetrics DisplayMetrics;
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 			DisplayMetrics.PrintToLog();
 		}
 	}
@@ -340,9 +336,7 @@ void FLinuxPlatformApplicationMisc::TearDown()
 		GInitializedSDL = false;
 
 		MessageBoxExtCallback = nullptr;
-#if !UE_BUILD_SHIPPING
 		UngrabAllInputCallback = nullptr;
-#endif
 	}
 }
 
@@ -433,6 +427,11 @@ void FLinuxPlatformApplicationMisc::PumpMessages( bool bFromMainLoop )
 	}
 }
 
+bool FLinuxPlatformApplicationMisc::IsScreensaverEnabled()
+{
+	return SDL_IsScreenSaverEnabled();
+}
+
 bool FLinuxPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 {
 	if (Action == FGenericPlatformApplicationMisc::EScreenSaverAction::Disable)
@@ -463,7 +462,7 @@ float FLinuxPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y)
 	if ((GIsEditor || IS_PROGRAM) && IsHighDPIAwarenessEnabled())
 	{
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		// find the monitor
 		int32 XInt = static_cast<int32>(X);
 		int32 YInt = static_cast<int32>(Y);

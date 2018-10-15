@@ -11,9 +11,9 @@
 #include "EditorFramework/AssetImportData.h"
 #include "Engine/UserDefinedStruct.h"
 
-#if WITH_EDITORONLY_DATA
 namespace
 {
+#if WITH_EDITORONLY_DATA
 	void GatherDataTableForLocalization(const UObject* const Object, FPropertyLocalizationDataGatherer& PropertyLocalizationDataGatherer, const EPropertyLocalizationGathererTextFlags GatherTextFlags)
 	{
 		const UDataTable* const DataTable = CastChecked<UDataTable>(Object);
@@ -21,14 +21,47 @@ namespace
 		PropertyLocalizationDataGatherer.GatherLocalizationDataFromObject(DataTable, GatherTextFlags);
 
 		const FString PathToObject = DataTable->GetPathName();
-		for (const auto& Pair : DataTable->RowMap)
+		for (const auto& Pair : DataTable->GetRowMap())
 		{
 			const FString PathToRow = PathToObject + TEXT(".") + Pair.Key.ToString();
 			PropertyLocalizationDataGatherer.GatherLocalizationDataFromStructFields(PathToRow, DataTable->RowStruct, Pair.Value, nullptr, GatherTextFlags);
 		}
 	}
+#endif // WITH_EDITORONLY_DATA
+	/** Used to trigger the trigger the data table changed delegate. This allows us to trigger the delegate once from more complex changes */
+	struct FScopedDataTableChange
+	{
+		FScopedDataTableChange(UDataTable* InTable)
+			: Table(InTable)
+		{
+			int8* Count = ScopeCount.Find(Table);
+			if (!Count)
+			{
+				Count = &ScopeCount.Add(Table, 0);
+			}
+			++(*Count);
+		}
+		~FScopedDataTableChange()
+		{
+			int8& Count = ScopeCount.FindChecked(Table);
+			--Count;
+			if (Count == 0)
+			{
+				Table->OnDataTableChanged().Broadcast();
+				ScopeCount.Remove(Table);
+			}
+		}
+
+	private:
+		UDataTable* Table;
+
+		static TMap<UDataTable*, int8> ScopeCount;
+	};
+
+	TMap< UDataTable*, int8> FScopedDataTableChange::ScopeCount;
+
+#define DATATABLE_CHANGE_SCOPE()	FScopedDataTableChange ActiveScope(this);
 }
-#endif
 
 UDataTable::UDataTable(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -37,6 +70,17 @@ UDataTable::UDataTable(const FObjectInitializer& ObjectInitializer)
 	{ static const FAutoRegisterLocalizationDataGatheringCallback AutomaticRegistrationOfLocalizationGatherer(UDataTable::StaticClass(), &GatherDataTableForLocalization); }
 #endif
 }
+
+#if WITH_EDITOR
+void UDataTable::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+#if WITH_EDITORONLY_DATA
+	OnDataTableChanged().Broadcast();
+#endif
+}
+#endif
 
 void UDataTable::LoadStructData(FArchive& Ar)
 {
@@ -52,6 +96,8 @@ void UDataTable::LoadStructData(FArchive& Ar)
 
 	int32 NumRows;
 	Ar << NumRows;
+
+	DATATABLE_CHANGE_SCOPE();
 
 	for (int32 RowIdx = 0; RowIdx < NumRows; RowIdx++)
 	{
@@ -101,7 +147,6 @@ void UDataTable::SaveStructData(FArchive& Ar)
 	}
 }
 
-
 void UDataTable::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 {
 	Super::GetPreloadDependencies(OutDeps);
@@ -118,6 +163,10 @@ void UDataTable::OnPostDataImported(TArray<FString>& OutCollectedImportProblems)
 			CurRow->OnPostDataImport(this, TableRowPair.Key, OutCollectedImportProblems);
 		}
 	}
+
+#if WITH_EDITORONLY_DATA
+	OnDataTableChanged().Broadcast();
+#endif
 }
 
 void UDataTable::Serialize( FArchive& Ar )
@@ -143,6 +192,7 @@ void UDataTable::Serialize( FArchive& Ar )
 
 	if(Ar.IsLoading())
 	{
+		DATATABLE_CHANGE_SCOPE();
 		EmptyTable();
 		LoadStructData(Ar);
 	}
@@ -238,7 +288,7 @@ void UDataTable::PostLoad()
 		AssetImportData->SourceData = MoveTemp(Info);
 	}
 }
-#endif
+#endif // WITH_EDITORONLY_DATA
 
 UScriptStruct& UDataTable::GetEmptyUsingStruct() const
 {
@@ -257,6 +307,8 @@ UScriptStruct& UDataTable::GetEmptyUsingStruct() const
 
 void UDataTable::EmptyTable()
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	UScriptStruct& EmptyUsingStruct = GetEmptyUsingStruct();
 
 	// Iterate over all rows in table and free mem
@@ -273,6 +325,8 @@ void UDataTable::EmptyTable()
 
 void UDataTable::RemoveRow(FName RowName)
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	UScriptStruct& EmptyUsingStruct = GetEmptyUsingStruct();
 
 	uint8* RowData = nullptr;
@@ -288,6 +342,8 @@ void UDataTable::RemoveRow(FName RowName)
 	
 void UDataTable::AddRow(FName RowName, const FTableRowBase& RowData)
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	UScriptStruct& EmptyUsingStruct = GetEmptyUsingStruct();
 	RemoveRow(RowName);
 		
@@ -297,8 +353,12 @@ void UDataTable::AddRow(FName RowName, const FTableRowBase& RowData)
 	EmptyUsingStruct.CopyScriptStruct(NewRawRowData, &RowData);
 
 	// Add to map
-	RowMap.Add(RowName, NewRawRowData);
+	AddRowInternal(RowName, NewRawRowData);
+}
 
+void UDataTable::AddRowInternal(FName RowName, uint8* RowData)
+{
+	RowMap.Add(RowName, RowData);
 }
 
 /** Returns the column property where PropertyName matches the name of the column property. Returns NULL if no match is found or the match is not a supported table property */
@@ -365,6 +425,8 @@ void UDataTable::CleanBeforeStructChange()
 
 void UDataTable::RestoreAfterStructChange()
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	EmptyTable();
 	{
 		class FRawStructReader : public FObjectReader
@@ -373,7 +435,7 @@ void UDataTable::RestoreAfterStructChange()
 			FRawStructReader(TArray<uint8>& InBytes) : FObjectReader(InBytes) {}
 			virtual FArchive& operator<<(class UObject*& Res) override
 			{
-				UObject* Object = NULL;
+				UObject* Object = nullptr;
 				FObjectReader::operator<<(Object);
 				FWeakObjectPtr WeakObjectPtr = Object;
 				Res = WeakObjectPtr.Get();
@@ -392,7 +454,7 @@ FString UDataTable::GetTableAsString(const EDataTableExportFlags InDTExportFlags
 {
 	FString Result;
 
-	if(RowStruct != NULL)
+	if (RowStruct != nullptr)
 	{
 		Result += FString::Printf(TEXT("Using RowStruct: %s\n\n"), *RowStruct->GetPathName());
 
@@ -401,13 +463,13 @@ FString UDataTable::GetTableAsString(const EDataTableExportFlags InDTExportFlags
 		for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
 		{
 			UProperty* Prop = *It;
-			check(Prop != NULL);
+			check(Prop != nullptr);
 			StructProps.Add(Prop);
 		}
 
 		// First row, column titles, taken from properties
 		Result += TEXT("---");
-		for(int32 PropIdx=0; PropIdx<StructProps.Num(); PropIdx++)
+		for (int32 PropIdx=0; PropIdx<StructProps.Num(); PropIdx++)
 		{
 			Result += TEXT(",");
 			Result += StructProps[PropIdx]->GetName();
@@ -502,11 +564,11 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 
 				for (TFieldIterator<UProperty> It(InRowStruct); It && !ColumnProp; ++It)
 				{
-					ColumnProp = DataTableUtils::GetPropertyImportNames(*It).Contains(ColumnValue) ? *It : NULL;
+					ColumnProp = DataTableUtils::GetPropertyImportNames(*It).Contains(ColumnValue) ? *It : nullptr;
 				}
 
 				// Didn't find a property with this name, problem..
-				if(ColumnProp == NULL)
+				if(ColumnProp == nullptr)
 				{
 					OutProblems.Add(FString::Printf(TEXT("Cannot find Property for column '%s' in struct '%s'."), *PropName.ToString(), *InRowStruct->GetName()));
 				}
@@ -560,6 +622,8 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 
 TArray<FString> UDataTable::CreateTableFromCSVString(const FString& InString)
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
@@ -571,6 +635,8 @@ TArray<FString> UDataTable::CreateTableFromCSVString(const FString& InString)
 
 TArray<FString> UDataTable::CreateTableFromJSONString(const FString& InString)
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
@@ -582,6 +648,8 @@ TArray<FString> UDataTable::CreateTableFromJSONString(const FString& InString)
 
 TArray<FString> UDataTable::CreateTableFromOtherTable(const UDataTable* InTable)
 {
+	DATATABLE_CHANGE_SCOPE();
+
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
@@ -591,19 +659,22 @@ TArray<FString> UDataTable::CreateTableFromOtherTable(const UDataTable* InTable)
 		return OutProblems;
 	}
 
-	RowStruct = InTable->RowStruct;
-
 	EmptyTable();
 
+	RowStruct = InTable->RowStruct;
+
+	// make a local copy of the rowmap so we have a snapshot of it
+	TMap<FName, uint8*> InRowMapCopy = InTable->GetRowMap();
+
 	UScriptStruct& EmptyUsingStruct = GetEmptyUsingStruct();
-	for (TMap<FName, uint8*>::TConstIterator RowMapIter(InTable->RowMap.CreateConstIterator()); RowMapIter; ++RowMapIter)
+	for (TMap<FName, uint8*>::TConstIterator RowMapIter(InRowMapCopy.CreateConstIterator()); RowMapIter; ++RowMapIter)
 	{
 		uint8* NewRawRowData = (uint8*)FMemory::Malloc(EmptyUsingStruct.GetStructureSize());
 		EmptyUsingStruct.InitializeStruct(NewRawRowData);
 		EmptyUsingStruct.CopyScriptStruct(NewRawRowData, RowMapIter.Value());
 		RowMap.Add(RowMapIter.Key(), NewRawRowData);
 	}
-		
+
 	return OutProblems;
 }
 
@@ -616,7 +687,7 @@ TArray<FString> UDataTable::GetColumnTitles() const
 	for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
 	{
 		UProperty* Prop = *It;
-		check(Prop != NULL);
+		check(Prop != nullptr);
 		const FString DisplayName = DataTableUtils::GetPropertyDisplayName(Prop, Prop->GetName());
 		Result.Add(DisplayName);
 	}
@@ -630,7 +701,7 @@ TArray<FString> UDataTable::GetUniqueColumnTitles() const
 	for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
 	{
 		UProperty* Prop = *It;
-		check(Prop != NULL);
+		check(Prop != nullptr);
 		const FString DisplayName = Prop->GetName();
 		Result.Add(DisplayName);
 	}
@@ -648,7 +719,7 @@ TArray< TArray<FString> > UDataTable::GetTableData(const EDataTableExportFlags I
 	 for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
 	 {
 		 UProperty* Prop = *It;
-		 check(Prop != NULL);
+		 check(Prop != nullptr);
 		 StructProps.Add(Prop);
 	 }
 

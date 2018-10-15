@@ -9,7 +9,7 @@
 #include "OnlineDelegateMacros.h"
 #include "Interfaces/OnlineChatInterface.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Log, All);
 #define UE_LOG_ONLINE_PARTY(Verbosity, Format, ...) \
 { \
 	UE_LOG(LogOnlineParty, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
@@ -1387,10 +1387,6 @@ enum class EJoinPartyCompletionResult
 	/** Game specific reason, indicated by the NotApprovedReason parameter.  Message might or might not have been sent to party leader. */
 	GameSpecificReason,
 
-	/** DEPRECATED! */
-	PartyNotInPendingState,
-	/** DEPRECATED! */
-	ResponseFromUnexpectedUser,
 	/** DEPRECATED */
 	UnknownInternalFailure = 0,
 
@@ -1747,14 +1743,6 @@ inline const TCHAR* ToString(const EJoinPartyCompletionResult Value)
 	case EJoinPartyCompletionResult::Succeeded:
 	{
 		return TEXT("Succeeded");
-	}
-	case EJoinPartyCompletionResult::PartyNotInPendingState:
-	{
-		return TEXT("DeprecatedPartyNotInPendingState");
-	}
-	case EJoinPartyCompletionResult::ResponseFromUnexpectedUser:
-	{
-		return TEXT("DeprecatedResponseFromUnexpectedUser");
 	}
 	case EJoinPartyCompletionResult::UnknownInternalFailure:
 	{

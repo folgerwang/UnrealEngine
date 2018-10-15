@@ -3,6 +3,9 @@
 #include "LevelVariantSetsActor.h"
 
 #include "LevelVariantSets.h"
+#include "VariantSet.h"
+#include "Variant.h"
+#include "VariantObjectBinding.h"
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
@@ -15,6 +18,25 @@ ALevelVariantSetsActor::ALevelVariantSetsActor(const FObjectInitializer& Init)
 {
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComp"));
 	RootComponent = SceneComponent;
+}
+
+void ALevelVariantSetsActor::BeginPlay()
+{
+	// See comment on UVariantObjectBinding->FixupForPIE for an explanation as to why we need to do this
+	ULevelVariantSets* LevelVarSets = GetLevelVariantSets(true);
+	if (LevelVarSets)
+	{
+		for (UVariantSet* VarSet : LevelVarSets->GetVariantSets())
+		{
+			for (UVariant* Var : VarSet->GetVariants())
+			{
+				for (UVariantObjectBinding* Binding : Var->GetBindings())
+				{
+					Binding->FixupForPIE();
+				}
+			}
+		}
+	}
 }
 
 ULevelVariantSets* ALevelVariantSetsActor::GetLevelVariantSets(bool bLoad) const
@@ -47,4 +69,48 @@ ULevelVariantSets* ALevelVariantSetsActor::GetLevelVariantSets(bool bLoad) const
 void ALevelVariantSetsActor::SetLevelVariantSets(ULevelVariantSets* InVariantSets)
 {
     LevelVariantSets = InVariantSets;
+}
+
+bool ALevelVariantSetsActor::SwitchOnVariantByName(FString VariantSetName, FString VariantName)
+{
+	ULevelVariantSets* LevelVarSets = GetLevelVariantSets(true);
+	if (LevelVarSets)
+	{
+		for (UVariantSet* VarSet : LevelVarSets->GetVariantSets())
+		{
+			if (VarSet->GetDisplayText().ToString() == VariantSetName)
+			{
+				for (UVariant* Var : VarSet->GetVariants())
+				{
+					if (Var->GetDisplayText().ToString() == VariantName)
+					{
+						Var->SwitchOn();
+						return true;
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+bool ALevelVariantSetsActor::SwitchOnVariantByIndex(int32 VariantSetIndex, int32 VariantIndex)
+{
+	ULevelVariantSets* LevelVarSets = GetLevelVariantSets(true);
+	if (LevelVarSets)
+	{
+		UVariantSet* VarSet = LevelVarSets->GetVariantSet(VariantSetIndex);
+		if (VarSet)
+		{
+			UVariant* Var = VarSet->GetVariant(VariantIndex);
+			if (Var)
+			{
+				Var->SwitchOn();
+				return true;
+			}
+		}
+	}
+
+	return false;
 }

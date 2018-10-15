@@ -258,7 +258,7 @@ FReply SSlider::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEv
 
 FReply SSlider::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if ((MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) && HasMouseCapture())
+	if ((MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) && HasMouseCaptureByUser(MouseEvent.GetUserIndex(), MouseEvent.GetPointerIndex()))
 	{
 		SetCursor(EMouseCursor::Default);
 		OnMouseCaptureEnd.ExecuteIfBound();
@@ -274,7 +274,7 @@ FReply SSlider::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 
 FReply SSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if (this->HasMouseCapture() && !IsLocked())
+	if (HasMouseCaptureByUser(MouseEvent.GetUserIndex(), MouseEvent.GetPointerIndex()) && !IsLocked())
 	{
 		SetCursor((Orientation == Orient_Horizontal) ? EMouseCursor::ResizeLeftRight : EMouseCursor::ResizeUpDown);
 		CommitValue(PositionToValue(MyGeometry, MouseEvent.GetLastScreenSpacePosition()));
@@ -283,6 +283,53 @@ FReply SSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& M
 		ResetControllerState();
 
 		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply SSlider::OnTouchStarted(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	if (!IsLocked())
+	{
+		OnMouseCaptureBegin.ExecuteIfBound();
+		CommitValue(PositionToValue(MyGeometry, InTouchEvent.GetLastScreenSpacePosition()));
+
+		// Release capture for controller/keyboard when switching to mouse.
+		ResetControllerState();
+
+		return FReply::Handled().CaptureMouse(SharedThis(this));
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply SSlider::OnTouchMoved(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	if (HasMouseCaptureByUser(InTouchEvent.GetUserIndex(), InTouchEvent.GetPointerIndex()))
+	{
+		CommitValue(PositionToValue(MyGeometry, InTouchEvent.GetLastScreenSpacePosition()));
+
+		// Release capture for controller/keyboard when switching to mouse
+		ResetControllerState();
+
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply SSlider::OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	if (HasMouseCaptureByUser(InTouchEvent.GetUserIndex(), InTouchEvent.GetPointerIndex()))
+	{
+		SetCursor(EMouseCursor::Default);
+		OnMouseCaptureEnd.ExecuteIfBound();
+
+		// Release capture for controller/keyboard when switching to mouse.
+		ResetControllerState();
+
+		return FReply::Handled().ReleaseMouseCapture();
 	}
 
 	return FReply::Unhandled();

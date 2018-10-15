@@ -870,6 +870,9 @@ TSharedRef<SWidget> FWebBrowserWindow::CreateWidget()
 		.WebBrowserWindow(SharedThis(this));
 
 	BrowserWidget = BrowserWidgetRef;
+
+	Scripting->SetWindow(SharedThis(this));
+
 	return BrowserWidgetRef;
 }
 

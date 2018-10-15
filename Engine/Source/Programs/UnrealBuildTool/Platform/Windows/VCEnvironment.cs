@@ -519,7 +519,7 @@ namespace UnrealBuildTool
 			DirectoryReference SelectedWindowsSdkDir;
 			if(!WindowsPlatform.TryGetWindowsSdkDir(WindowsSdkVersion, out SelectedWindowsSdkVersion, out SelectedWindowsSdkDir))
 			{
-				throw new BuildException("Windows SDK{1} must be installed in order to build this target.", String.IsNullOrEmpty(WindowsSdkVersion)? "" : String.Format(" ({0})", WindowsSdkVersion));
+				throw new BuildException("Windows SDK{0} must be installed in order to build this target.", String.IsNullOrEmpty(WindowsSdkVersion) ? "" : String.Format(" ({0})", WindowsSdkVersion));
 			}
 
 			return new VCEnvironment(Platform, Compiler, SelectedCompilerDir, SelectedCompilerVersion, ToolChain, SelectedToolChainDir, SelectedToolChainVersion, SelectedWindowsSdkDir, SelectedWindowsSdkVersion);

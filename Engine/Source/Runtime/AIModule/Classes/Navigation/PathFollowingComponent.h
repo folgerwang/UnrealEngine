@@ -443,8 +443,10 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
 	bool HasReached(const AActor& TestGoal, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false, bool bUseNavAgentGoalLocation = true) const;
 
+#if WITH_EDITORONLY_DATA
 	// This delegate is now deprecated, please use OnRequestFinished instead
 	FMoveCompletedSignature OnMoveFinished_DEPRECATED;
+#endif
 
 protected:
 
@@ -458,9 +460,6 @@ protected:
 	/** navigation data for agent described in movement component */
 	UPROPERTY(transient)
 	ANavigationData* MyNavData;
-
-	/** current status */
-	EPathFollowingStatus::Type Status;
 
 	/** requested path */
 	FNavPathSharedPtr Path;
@@ -483,6 +482,9 @@ protected:
 
 	/** part of agent height used as min acceptable height difference */
 	float MinAgentHalfHeightPct;
+
+	/** timeout for Waiting state, negative value = infinite */
+	float WaitingTimeout;
 
 	/** game specific data */
 	FCustomMoveSharedPtr GameData;
@@ -519,38 +521,38 @@ protected:
 	 *	to acceptance radius */
 	int32 PreciseAcceptanceRadiusCheckStartNodeIndex;
 
+	/** current status */
+	TEnumAsByte<EPathFollowingStatus::Type> Status;
+
 	/** increase acceptance radius with agent's radius */
-	uint32 bReachTestIncludesAgentRadius : 1;
+	uint8 bReachTestIncludesAgentRadius : 1;
 
 	/** increase acceptance radius with goal's radius */
-	uint32 bReachTestIncludesGoalRadius : 1;
+	uint8 bReachTestIncludesGoalRadius : 1;
 
 	/** if set, target location will be constantly updated to match goal actor while following last segment of full path */
-	uint32 bMoveToGoalOnLastSegment : 1;
+	uint8 bMoveToGoalOnLastSegment : 1;
 
 	/** if set, movement block detection will be used */
-	uint32 bUseBlockDetection : 1;
+	uint8 bUseBlockDetection : 1;
 
 	/** set when agent collides with goal actor */
-	uint32 bCollidedWithGoal : 1;
+	uint8 bCollidedWithGoal : 1;
 
 	/** set when last move request was finished at goal */
-	uint32 bLastMoveReachedGoal : 1;
+	uint8 bLastMoveReachedGoal : 1;
 
 	/** if set, movement will be stopped on finishing path */
-	uint32 bStopMovementOnFinish : 1;
+	uint8 bStopMovementOnFinish : 1;
 
 	/** if set, path following is using FMetaNavMeshPath */
-	uint32 bIsUsingMetaPath : 1;
+	uint8 bIsUsingMetaPath : 1;
 
 	/** gets set when agent starts following a navigation link. Cleared after agent starts falling or changes segment to a non-link one */
-	uint32 bWalkingNavLinkStart : 1;
+	uint8 bWalkingNavLinkStart : 1;
 
 	/** True if pathfollowing is doing deceleration at the end of the path. @see FollowPathSegment(). */
-	uint32 bIsDecelerating : 1;
-
-	/** timeout for Waiting state, negative value = infinite */
-	float WaitingTimeout;
+	uint8 bIsDecelerating : 1;
 
 	/** detect blocked movement when distance between center of location samples and furthest one (centroid radius) is below threshold */
 	float BlockDetectionDistance;
@@ -715,9 +717,6 @@ private:
 	 *	Since it makes conceptual sense for GetCurrentNavLocation() to be const but we may 
 	 *	need to update the cached value, CurrentNavLocation is mutable. */
 	mutable FNavLocation CurrentNavLocation;
-
-	/** DEPRECATED, use bReachTestIncludesAgentRadius instead */
-	uint32 bStopOnOverlap : 1;
 
 public:
 	/** special float constant to symbolize "use default value". This does not contain 

@@ -21,6 +21,7 @@
 #include "Engine/CurveTable.h"
 #include "Engine/DataTable.h"
 #include "Curves/CurveFloat.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
 DEFINE_LOG_CATEGORY(LogHotfixManager);
 
@@ -891,6 +892,7 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 				if (PerObjectNameIndex == -1 || PerObjectNameIndex > EndIndex)
 				{
 					const TCHAR* ScriptHeader = TEXT("[/Script/");
+					const TCHAR* GameHeader = TEXT("[/Game/");
 					if (FCString::Strnicmp(*IniData + StartIndex, ScriptHeader, FCString::Strlen(ScriptHeader)) == 0)
 					{
 						const int32 ScriptSectionTag = 9;
@@ -904,6 +906,23 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 							Classes.Add(Class);
 							BackupFile.ClassesReloaded.AddUnique(Class->GetPathName());
 						}
+					}
+					else if (FCString::Strnicmp(*IniData + StartIndex, GameHeader, FCString::Strlen(GameHeader)) == 0)
+					{
+						const int32 GameSectionTag = 1;
+						// Snip the text out and try to find the class for that
+						const FString PackageClassName = IniData.Mid(StartIndex + GameSectionTag, EndIndex - StartIndex - GameSectionTag);
+						UBlueprintGeneratedClass* BPGeneratedClass = LoadObject<UBlueprintGeneratedClass>(nullptr, *PackageClassName);
+						if (BPGeneratedClass)
+						{
+							// Add this to the list to check against
+							Classes.Add(BPGeneratedClass);
+							BackupFile.ClassesReloaded.AddUnique(BPGeneratedClass->GetPathName());
+						}
+					}
+					else
+					{
+						UE_LOG(LogHotfixManager, Warning, TEXT("Neither ScriptHeader nor GameHeader were found in %s and was not a per object config, some settings will be lost."), *FileName);
 					}
 				}
 				// Handle the per object config case by finding the object for reload
@@ -1453,71 +1472,149 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 	if (DataTable != nullptr)
 	{
 		// Edit the row with the new value.
-		UProperty* DataTableRowProperty = DataTable->RowStruct->FindPropertyByName(FName(*ColumnName));
+		bool bWasDataTableChanged = false;
+		UProperty* DataTableRowProperty = DataTable->GetRowStruct()->FindPropertyByName(FName(*ColumnName));
 		if (DataTableRowProperty)
 		{
+			// See what type of property this is.
 			UNumericProperty* NumProp = Cast<UNumericProperty>(DataTableRowProperty);
-			if (NumProp)
+			UStrProperty* StrProp = Cast<UStrProperty>(DataTableRowProperty);
+			UNameProperty* NameProp = Cast<UNameProperty>(DataTableRowProperty);
+			USoftObjectProperty* SoftObjProp = Cast<USoftObjectProperty>(DataTableRowProperty);
+			
+			// Get the row data by name.
+			static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
+			FTableRowBase* DataTableRow = DataTable->FindRow<FTableRowBase>(FName(*RowName), Context);
+			if (DataTableRow)
 			{
-				if (NewValue.IsNumeric())
+				// Numeric property
+				if (NumProp)
 				{
-					// Get the row data by name.
-					static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
-					FTableRowBase* DataTableRow = DataTable->FindRow<FTableRowBase>(FName(*RowName), Context);
-
-					if (DataTableRow)
+					void* RowData = NumProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
+					if (RowData)
 					{
-						void* RowData = NumProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
-
-						if (RowData)
+						if (NewValue.IsNumeric())
 						{
+							// Integer
 							if (NumProp->IsInteger())
 							{
 								const int64 OldPropertyValue = NumProp->GetSignedIntPropertyValue(RowData);
 								const int64 NewPropertyValue = FCString::Atoi(*NewValue);
 								NumProp->SetIntPropertyValue(RowData, NewPropertyValue);
-								UE_LOG(LogHotfixManager, Display, TEXT("Data table %s row %s updated column %s from %i to %i."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+								bWasDataTableChanged = true;
+								UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %i to %i."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
 							}
+							// Float
 							else
 							{
 								const double OldPropertyValue = NumProp->GetFloatingPointPropertyValue(RowData);
 								const double NewPropertyValue = FCString::Atod(*NewValue);
 								NumProp->SetFloatingPointPropertyValue(RowData, NewPropertyValue);
-								UE_LOG(LogHotfixManager, Display, TEXT("Data table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+								bWasDataTableChanged = true;
+								UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
 							}
 						}
+						// Not a number.
 						else
 						{
-							const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
+							const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
 							ProblemStrings.Add(Problem);
 						}
 					}
+					// Row data wasn't found.
 					else
 					{
-						const FString Problem(FString::Printf(TEXT("The data table row %s was not found."), *RowName));
+						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
 						ProblemStrings.Add(Problem);
 					}
 				}
+				// String property
+				else if (StrProp)
+				{
+					void* RowData = StrProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
+					if (RowData)
+					{
+						const FString OldPropertyValue = StrProp->GetPropertyValue(RowData);
+						const FString NewPropertyValue = NewValue;
+						StrProp->SetPropertyValue(RowData, NewPropertyValue);
+						bWasDataTableChanged = true;
+						UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %s to %s."), *AssetPath, *RowName, *ColumnName, *OldPropertyValue, *NewPropertyValue);
+					}
+					// Row data wasn't found.
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				// FName property
+				else if (NameProp)
+				{
+					void* RowData = NameProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
+					if (RowData)
+					{
+						const FName OldPropertyValue = NameProp->GetPropertyValue(RowData);
+						const FName NewPropertyValue = FName(*NewValue);
+						NameProp->SetPropertyValue(RowData, NewPropertyValue);
+						bWasDataTableChanged = true;
+						UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %s to %s."), *AssetPath, *RowName, *ColumnName, *OldPropertyValue.ToString(), *NewPropertyValue.ToString());
+					}
+					// Row data wasn't found.
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				// Soft Object property
+				else if (SoftObjProp)
+				{
+					void* RowData = SoftObjProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
+					if (RowData)
+					{
+						const UObject* OldPropertyValue = SoftObjProp->GetObjectPropertyValue(RowData);
+						UObject* NewPropertyValue = LoadObject<UObject>(nullptr, *NewValue);
+						SoftObjProp->SetObjectPropertyValue(RowData, NewPropertyValue);
+						bWasDataTableChanged = true;
+						UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s row %s updated column %s from %s to %s."), *AssetPath, *RowName, *ColumnName, *OldPropertyValue->GetFullName(), *NewPropertyValue->GetFullName());
+					}
+					// Row data wasn't found.
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				// Not an expected property.
 				else
 				{
-					const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+					const FString Problem(FString::Printf(TEXT("The data table row property named %s is not a UNumericProperty, UStrProperty, UNameProperty, or USoftObjectProperty and it should be."), *ColumnName));
 					ProblemStrings.Add(Problem);
 				}
 			}
+			// Row wasn't found.
 			else
 			{
-				const FString Problem(FString::Printf(TEXT("The data table row property named %s is not a numeric property and it should be."), *ColumnName));
+				const FString Problem(FString::Printf(TEXT("The data table row %s was not found."), *RowName));
 				ProblemStrings.Add(Problem);
 			}
 		}
+		// Property wasn't found.
 		else
 		{
 			const FString Problem(FString::Printf(TEXT("Couldn't find the data table property named %s. Check the spelling."), *ColumnName));
 			ProblemStrings.Add(Problem);
 		}
+
+		if (bWasDataTableChanged)
+		{
+			DataTable->OnDataTableChanged().Broadcast();
+		}
 	}
 	else if (CurveTable)
 	{
+		bool bWasCurveTableChanged = false;
+
 		if (ColumnName.IsNumeric())
 		{
 			// Get the row data by name.
@@ -1536,8 +1633,9 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 						const float OldPropertyValue = CurveTableRow->GetKeyValue(Key);
 						const float NewPropertyValue = FCString::Atof(*NewValue);
 						CurveTableRow->SetKeyValue(Key, NewPropertyValue);
+						bWasCurveTableChanged = true;
 
-						UE_LOG(LogHotfixManager, Display, TEXT("Curve table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+						UE_LOG(LogHotfixManager, Verbose, TEXT("Curve table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
 					}
 					else
 					{
@@ -1562,6 +1660,11 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 			const FString Problem(FString::Printf(TEXT("The column name %s is not a number when it should be."), *ColumnName));
 			ProblemStrings.Add(Problem);
 		}
+
+		if (bWasCurveTableChanged)
+		{
+			CurveTable->OnCurveTableChanged().Broadcast();
+		}
 	}
 	else if (CurveFloat)
 	{
@@ -1578,7 +1681,7 @@ void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetP
 					const float NewPropertyValue = FCString::Atof(*NewValue);
 					CurveFloat->FloatCurve.SetKeyValue(Key, NewPropertyValue);
 
-					UE_LOG(LogHotfixManager, Display, TEXT("Curve float %s updated column %s from %.2f to %.2f."), *AssetPath, *ColumnName, OldPropertyValue, NewPropertyValue);
+					UE_LOG(LogHotfixManager, Verbose, TEXT("Curve float %s updated column %s from %.2f to %.2f."), *AssetPath, *ColumnName, OldPropertyValue, NewPropertyValue);
 				}
 				else
 				{
@@ -1623,12 +1726,12 @@ void UOnlineHotfixManager::HotfixTableUpdate(UObject* Asset, const FString& Asse
 	if (CurveTable != nullptr)
 	{
 		ProblemStrings.Append(CurveTable->CreateTableFromJSONString(JsonData));
-		UE_LOG(LogHotfixManager, Display, TEXT("Curve table %s updated."), *AssetPath);
+		UE_LOG(LogHotfixManager, Verbose, TEXT("Curve table %s updated."), *AssetPath);
 	}
 	else if (DataTable != nullptr)
 	{
 		ProblemStrings.Append(DataTable->CreateTableFromJSONString(JsonData));
-		UE_LOG(LogHotfixManager, Display, TEXT("Data table %s updated."), *AssetPath);
+		UE_LOG(LogHotfixManager, Verbose, TEXT("Data table %s updated."), *AssetPath);
 	}
 	else
 	{

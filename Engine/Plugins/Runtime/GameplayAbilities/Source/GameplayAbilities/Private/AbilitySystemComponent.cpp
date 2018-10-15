@@ -551,12 +551,6 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToTa
 
 	FActiveGameplayEffectHandle ReturnHandle;
 
-	if (!AbilitySystemGlobals.ShouldPredictTargetGameplayEffects())
-	{
-		// If we don't want to predict target effects, clear prediction key
-		PredictionKey = FPredictionKey();
-	}
-
 	if (Target)
 	{
 		ReturnHandle = Target->ApplyGameplayEffectSpecToSelf(Spec, PredictionKey);
@@ -1132,13 +1126,34 @@ void UAbilitySystemComponent::AddGameplayCue_Internal(const FGameplayTag Gamepla
 		GameplayCueContainer.AddCue(GameplayCueTag, ScopedPredictionKey, GameplayCueParameters);
 		
 		// For mixed minimal replication mode, we do NOT want the owning client to play the OnActive event through this RPC, since he will get the full replicated 
-		// GE in his AGE array. Generate a prediction key for him, which he will look for on the _Implementation function and ignore.
+		// GE in his AGE array. Generate a server-side prediction key for him, which he will look for on the _Implementation function and ignore. (<--- Original Hack)
 		{
-			FPredictionKey PredictionKeyForRPC = ScopedPredictionKey;
-			if (GameplayCueContainer.bMinimalReplication && (ReplicationMode == EGameplayEffectReplicationMode::Mixed) && ScopedPredictionKey.IsValidKey() == false)
+			FPredictionKey PredictionKeyForRPC = ScopedPredictionKey; // Key we send for RPC. Start with the regular old ScopedPredictionKey
+
+			// Special stuff for mixed replication mode
+			if (ReplicationMode == EGameplayEffectReplicationMode::Mixed)
 			{
-				PredictionKeyForRPC = FPredictionKey::CreateNewServerInitiatedKey(this);
+				if (GameplayCueContainer.bMinimalReplication)
+				{
+					// For *replicated to sim proxies only* container, Create a Server Initiated PK to avoid double playing on the auto proxy in mixed replication mode (Original Hack)
+					if (ScopedPredictionKey.IsValidKey())
+					{
+						PredictionKeyForRPC = FPredictionKey::CreateNewServerInitiatedKey(this);
+					}
+				}
+				else
+				{
+					// For "replicated to everyone" cue container, we need to clear server replicated prediction keys, or else they will trip the same absorption code that we added for the first hack above.
+					// Its ok to just throw out a server replicated prediction key because (outside of mixed replication mode) it will not affect what the client does in NetMulticast_InvokeGameplayCueAdded_WithParams_Implementation
+					// (E.g, the client only skips the InvokeCall if the key is locally generated, not for server generated ones anways)
+					if (ScopedPredictionKey.IsServerInitiatedKey())
+					{
+						PredictionKeyForRPC = FPredictionKey();
+					}
+				}
 			}
+			
+			// Finally, call the RPC to play the OnActive event
 			if (IAbilitySystemReplicationProxyInterface* ReplicationInterface = GetReplicationInterface())
 			{
 				ReplicationInterface->Call_InvokeGameplayCueAdded_WithParams(GameplayCueTag, PredictionKeyForRPC, GameplayCueParameters);
@@ -1418,7 +1433,7 @@ void UAbilitySystemComponent::ForceReplication()
 {
 	bIsNetDirty = true;
 	AActor *OwningActor = GetOwner();
-	if (OwningActor && OwningActor->Role == ROLE_Authority)
+	if (OwningActor)
 	{
 		OwningActor->ForceNetUpdate();
 	}
@@ -1426,7 +1441,7 @@ void UAbilitySystemComponent::ForceReplication()
 
 void UAbilitySystemComponent::ForceAvatarReplication()
 {
-	if (AvatarActor && AvatarActor->Role == ROLE_Authority)
+	if (AvatarActor)
 	{
 		AvatarActor->ForceNetUpdate();
 	}
@@ -1438,7 +1453,7 @@ bool UAbilitySystemComponent::ReplicateSubobjects(class UActorChannel *Channel, 
 
 	for (const UAttributeSet* Set : SpawnedAttributes)
 	{
-		if (Set)
+		if (Set && !Set->IsPendingKill())
 		{
 			WroteSomething |= Channel->ReplicateSubobject(const_cast<UAttributeSet*>(Set), *Bunch, *RepFlags);
 		}

@@ -90,7 +90,7 @@ public:
 				CompletionCallback = MoveTemp(Continuation);
 			}
 		}
-		if (bShouldJustRun)
+		if (bShouldJustRun && Continuation)
 		{
 			Continuation();
 		}

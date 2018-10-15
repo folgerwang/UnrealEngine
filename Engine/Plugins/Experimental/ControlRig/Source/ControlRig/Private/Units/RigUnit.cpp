@@ -9,7 +9,7 @@ namespace UnitLogHelpers
 {
 	void PrintMissingHierarchy(const FName& InputName)
 	{
-		UE_LOG(LogRigUnit, Warning, TEXT("%s: Input Hierarch Link is missing"), *InputName.ToString());
+		//UE_LOG(LogRigUnit, Warning, TEXT("%s: Input Hierarch Link is missing"), *InputName.ToString());
 	}
 
 	void PrintUnimplemented(const FName& InputName)

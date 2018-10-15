@@ -398,7 +398,8 @@ void FAnimNode_SingleNode::Evaluate_AnyThread(FPoseContext& Output)
 					const FSmartName& PoseName = PoseNames[PoseIndex];
 					if (PoseName.UID != SmartName::MaxUID)
 					{
-						ExtractContext.PoseCurves[PoseIndex] = Output.Curve.Get(PoseName.UID);
+						ExtractContext.PoseCurves[PoseIndex].PoseIndex = PoseIndex;
+						ExtractContext.PoseCurves[PoseIndex].Value = Output.Curve.Get(PoseName.UID);
 					}
 				}
 

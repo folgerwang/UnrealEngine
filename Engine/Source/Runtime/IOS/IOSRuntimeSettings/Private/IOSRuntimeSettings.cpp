@@ -19,7 +19,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
     FrameRateLock = EPowerUsageFrameRateLock::PUFRL_30;
 	bSupportsIPad = true;
 	bSupportsIPhone = true;
-	MinimumiOSVersion = EIOSVersion::IOS_9;
+	MinimumiOSVersion = EIOSVersion::IOS_10;
 	EnableRemoteShaderCompile = false;
 	bGeneratedSYMFile = false;
 	bGeneratedSYMBundle = false;
@@ -40,6 +40,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bUseRemoteAsVirtualJoystick = true;
 	bUseRemoteAbsoluteDpadValues = false;
     bEnableRemoteNotificationsSupport = false;
+    bEnableBackgroundFetch = false;
 	bSupportsOpenGLES2 = false;
 	bSupportsMetal = true;
 	bSupportsMetalMRT = false;
@@ -139,10 +140,10 @@ void UIOSRuntimeSettings::PostInitProperties()
 		}
 	}
 
-	// switch IOS_6.1, IOS_7, and IOS_8 to IOS_9
-	if (MinimumiOSVersion < EIOSVersion::IOS_9)
+	// switch IOS_6.1, IOS_7, IOS_8, and IOS_9 to IOS_10
+	if (MinimumiOSVersion < EIOSVersion::IOS_10)
 	{
-		MinimumiOSVersion = EIOSVersion::IOS_9;
+		MinimumiOSVersion = EIOSVersion::IOS_10;
 	}
 	if (bSupportsOpenGLES2)
 	{

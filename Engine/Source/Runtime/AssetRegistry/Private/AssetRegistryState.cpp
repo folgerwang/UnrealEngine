@@ -785,7 +785,15 @@ bool FAssetRegistryState::Serialize(FArchive& OriginalAr, FAssetRegistrySerializ
 			if (Options.bSerializePackageData)
 			{
 				FAssetPackageData& NewPackageData = PreallocatedPackageDataBuffer[PackageDataIndex];
-				NewPackageData.SerializeForCache(Ar);
+				if (Version < FAssetRegistryVersion::AddedCookedMD5Hash)
+				{
+					Ar << NewPackageData.DiskSize;
+					Ar << NewPackageData.PackageGuid;
+				}
+				else
+				{
+					NewPackageData.SerializeForCache(Ar);
+				}
 				CachedPackageData.Add(PackageName, &NewPackageData);
 			}
 			else

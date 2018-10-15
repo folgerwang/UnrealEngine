@@ -392,7 +392,7 @@ bool FADPCMAudioInfo::StreamCompressedData(uint8* Destination, bool bLooping, ui
 					{
 						// If we did not get it then just bail, CurrentChunkIndex will not get incremented on the next callback so in effect another attempt will be made to fetch the chunk
 						// Since audio streaming depends on the general data streaming mechanism used by other parts of the engine and new data is prefectched on the game tick thread its possible a game hickup can cause this
-						UE_LOG(LogAudio, Log, TEXT("Missed Deadline chunk %d"), CurrentChunkIndex);
+						UE_LOG(LogAudio, Verbose, TEXT("Missed Deadline chunk %d"), CurrentChunkIndex);
 						
 						// zero out remaining data and bail
 						memset(OutData, 0, BufferSize);

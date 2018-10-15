@@ -61,7 +61,7 @@ FIntPoint UGameUserSettings::GetDesktopResolution() const
 	{
 		if (FApp::CanEverRender())
 		{
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		}
 		else
 		{
@@ -193,8 +193,6 @@ void UGameUserSettings::ConfirmVideoMode()
 	LastConfirmedFullscreenMode = FullscreenMode;
 	LastUserConfirmedResolutionSizeX = ResolutionSizeX;
 	LastUserConfirmedResolutionSizeY = ResolutionSizeY;
-
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
 }
 
 void UGameUserSettings::RevertVideoMode()
@@ -408,6 +406,8 @@ void UGameUserSettings::ValidateSettings()
 	}
 #endif
 
+	LastConfirmedAudioQualityLevel = AudioQualityLevel;
+
 	// The user settings have now been validated for the current version.
 	UpdateVersion();
 }
@@ -496,13 +496,13 @@ void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrid
 
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
+	RequestUIUpdate();
 }
 
 void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
-	ApplyNonResolutionSettings();
 	ApplyResolutionSettings(bCheckForCommandLineOverrides);
+	ApplyNonResolutionSettings();
 
 	SaveSettings();
 }
@@ -591,7 +591,7 @@ void UGameUserSettings::PreloadResolutionSettings()
 		{
 			// Grab display metrics so we can get the primary display output size.
 			FDisplayMetrics DisplayMetrics;
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 			ResolutionX = DisplayMetrics.PrimaryDisplayWidth;
 			ResolutionY = DisplayMetrics.PrimaryDisplayHeight;
@@ -661,6 +661,9 @@ void UGameUserSettings::ResetToCurrentSettings()
 
 		// Reset the quality settings to the current levels
 		ScalabilityQuality = Scalability::GetQualityLevels();
+
+		// Reset the audio quality level
+		AudioQualityLevel = LastConfirmedAudioQualityLevel;
 
 		UpdateResolutionQuality();
 	}
@@ -750,7 +753,7 @@ void UGameUserSettings::SetResolutionScaleNormalized(float NewScaleNormalized)
 
 void UGameUserSettings::SetViewDistanceQuality(int32 Value)
 {
-	ScalabilityQuality.ViewDistanceQuality = Value;
+	ScalabilityQuality.SetViewDistanceQuality(Value);
 }
 
 int32 UGameUserSettings::GetViewDistanceQuality() const
@@ -760,7 +763,7 @@ int32 UGameUserSettings::GetViewDistanceQuality() const
 
 void UGameUserSettings::SetShadowQuality(int32 Value)
 {
-	ScalabilityQuality.ShadowQuality = Value;
+	ScalabilityQuality.SetShadowQuality(Value);
 }
 
 int32 UGameUserSettings::GetShadowQuality() const
@@ -770,7 +773,7 @@ int32 UGameUserSettings::GetShadowQuality() const
 
 void UGameUserSettings::SetAntiAliasingQuality(int32 Value)
 {
-	ScalabilityQuality.AntiAliasingQuality = Value;
+	ScalabilityQuality.SetAntiAliasingQuality(Value);
 }
 
 int32 UGameUserSettings::GetAntiAliasingQuality() const
@@ -780,7 +783,7 @@ int32 UGameUserSettings::GetAntiAliasingQuality() const
 
 void UGameUserSettings::SetTextureQuality(int32 Value)
 {
-	ScalabilityQuality.TextureQuality = Value;
+	ScalabilityQuality.SetTextureQuality(Value);
 }
 
 int32 UGameUserSettings::GetTextureQuality() const
@@ -790,7 +793,7 @@ int32 UGameUserSettings::GetTextureQuality() const
 
 void UGameUserSettings::SetVisualEffectQuality(int32 Value)
 {
-	ScalabilityQuality.EffectsQuality = Value;
+	ScalabilityQuality.SetEffectsQuality(Value);
 }
 
 int32 UGameUserSettings::GetVisualEffectQuality() const
@@ -800,7 +803,7 @@ int32 UGameUserSettings::GetVisualEffectQuality() const
 
 void UGameUserSettings::SetPostProcessingQuality(int32 Value)
 {
-	ScalabilityQuality.PostProcessQuality = Value;
+	ScalabilityQuality.SetPostProcessQuality(Value);
 }
 
 int32 UGameUserSettings::GetPostProcessingQuality() const
@@ -810,7 +813,7 @@ int32 UGameUserSettings::GetPostProcessingQuality() const
 
 void UGameUserSettings::SetFoliageQuality(int32 Value)
 {
-	ScalabilityQuality.FoliageQuality = FMath::Clamp(Value, 0, 3);
+	ScalabilityQuality.SetFoliageQuality(Value);
 }
 
 int32 UGameUserSettings::GetFoliageQuality() const

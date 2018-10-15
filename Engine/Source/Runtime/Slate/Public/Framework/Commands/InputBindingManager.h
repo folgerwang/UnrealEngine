@@ -133,21 +133,21 @@ public:
 		OnUserDefinedChordChanged.Remove(DelegateHandle);
 	}
 
+	/**
+	* Gets the user defined chord (if any) from the provided command name
+	*
+	* @param InBindingContext	The context in which the command is active
+	* @param InCommandName		The name of the command to get the chord from
+	* @param ChordIndex		The index of the key binding (in the multiple key bindings array)
+	*/
+	bool GetUserDefinedChord(const FName InBindingContext, const FName InCommandName, const EMultipleKeyBindingIndex InChordIndex, FInputChord& OutUserDefinedChord);
+
 private:
 
 	/**
 	 * Hidden default constructor.
 	 */
 	FInputBindingManager() { }
-
-	/**
-	 * Gets the user defined chord (if any) from the provided command name
-	 * 
-	 * @param InBindingContext	The context in which the command is active
-	 * @param InCommandName		The name of the command to get the chord from
-	 * @param ChordIndex		The index of the key binding (in the multiple key bindings array)
-	 */
-	bool GetUserDefinedChord( const FName InBindingContext, const FName InCommandName, const EMultipleKeyBindingIndex InChordIndex, FInputChord& OutUserDefinedChord );
 
 	/**
 	 *	Checks a binding context for duplicate chords 

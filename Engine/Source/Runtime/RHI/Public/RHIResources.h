@@ -770,64 +770,49 @@ public:
 //
 
 
-
 /* 
 * Generic GPU fence class used by FRHIGPUMemoryReadback
 * RHI specific fences derive from this to implement real GPU->CPU fencing.
 * The default implementation always returns false for Poll until the next frame from the frame the fence was inserted
 * because not all APIs have a GPU/CPU sync object, we need to fake it.
 */
-class FRHIGPUFence : public FRHIResource
+class RHI_API FRHIGPUFence : public FRHIResource
 {
 public:
-	FRHIGPUFence(FName InName)
-		: FenceName(InName)
-		, InsertedFrameNumber(0)
-	{}
-
-	virtual ~FRHIGPUFence()
-	{}
-
-    /* Convenience function to write InsertedFrameNumber, used to emulate true GPU fences, RHI's should override RHIInsertGPUFence and implement their own fence mechanism. */
-	void Write()
-	{
-		InsertedFrameNumber = GFrameNumberRenderThread;
-	}
+	FRHIGPUFence(FName InName) : FenceName(InName) {}
+	virtual ~FRHIGPUFence() {}
 
     /**
-     * Poll the fence to see if the GPU has signalled it.
-     * @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active.
-     * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
+     * Signal this fence now, which completion can be tested with Poll or Wait.
+	 * RHI implementation might not need to implement this depending on how RHIInsertGPUFence is implemented.
+	 * Note also that RHIInsertGPUFence is currently only called by RHIEnqueueStagedRead.
      */
-	virtual bool Poll() const
-	{
-		if (GFrameNumberRenderThread > InsertedFrameNumber)
-		{
-			return true;
-		}
-		return false;
-	}
+	virtual void Write();
 
     /**
-     * Wait for the GPU to pass and signal the fence.
-     * @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active.
-     * @param TimeoutMs The maximum time to wait for the fence in milliseconds.
+     * Poll the fence to see if the GPU has signaled it.
      * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
      */
-	virtual bool Wait(float TimeoutMs) const
-	{
-		if (GFrameNumberRenderThread > InsertedFrameNumber)
-		{
-			return true;
-		}
-		return false;
-	}
+	virtual bool Poll() const = 0;
 
 private:
 	FName FenceName;
-	uint32 InsertedFrameNumber;
 };
 
+// Generic implementation of FRHIGPUFence
+class RHI_API FGenericRHIGPUFence : public FRHIGPUFence
+{
+public:
+	FGenericRHIGPUFence(FName InName);
+
+	virtual void Write() final override;
+
+    /** @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active. */
+	virtual bool Poll() const final override;
+
+private:
+	uint32 InsertedFrameNumber;
+};
 
 class FRHIRenderQuery : public FRHIResource {};
 
@@ -1024,21 +1009,20 @@ typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 class FRHIStagingBuffer : public FRHIResource
 {
 public:
-	FRHIStagingBuffer(FVertexBufferRHIRef InBuffer)
+	FRHIStagingBuffer(FVertexBufferRHIParamRef InBuffer)
 		: BackingBuffer(InBuffer)
 	{
 	}
 
     /** Convenience function to access the vertex-buffer that acts as the backing-store. */
-	FVertexBufferRHIParamRef GetBackingBuffer() const { return BackingBuffer; }
+	FVertexBufferRHIParamRef GetBackingBuffer() const { return BackingBuffer.GetReference(); }
 
 protected:
-	FVertexBufferRHIParamRef BackingBuffer;
+	FVertexBufferRHIRef BackingBuffer;
 };
 
 typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;
 typedef TRefCountPtr<FRHIStagingBuffer>	FStagingBufferRHIRef;
-
 
 class FRHIRenderTargetView
 {
@@ -1590,7 +1574,7 @@ struct FImmutableSamplerState
 	TImmutableSamplers ImmutableSamplers;
 };
 
-class FGraphicsPipelineStateInitializer
+class FGraphicsPipelineStateInitializer final
 {
 public:
 	using TRenderTargetFormats		= TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
@@ -1613,6 +1597,7 @@ public:
 		, NumSamples(0)
 		, Flags(0)
 	{
+		FMemory::Memset(this, 0, sizeof(FGraphicsPipelineStateInitializer));
 	}
 
 	FGraphicsPipelineStateInitializer(
@@ -1654,6 +1639,25 @@ public:
 		, NumSamples(InNumSamples)
 		, Flags(InFlags)
 	{
+		FMemory::Memset(this, 0, sizeof(FGraphicsPipelineStateInitializer));
+		BoundShaderState = InBoundShaderState;
+		BlendState = InBlendState;
+		RasterizerState = InRasterizerState;
+		DepthStencilState = InDepthStencilState;
+		PrimitiveType = InPrimitiveType;
+		ImmutableSamplerState = InImmutableSamplerState;
+		RenderTargetsEnabled = InRenderTargetsEnabled;
+		RenderTargetFormats = InRenderTargetFormats;
+		RenderTargetFlags = InRenderTargetFlags;
+		DepthStencilTargetFormat = InDepthStencilTargetFormat;
+		DepthStencilTargetFlag = InDepthStencilTargetFlag;
+		DepthTargetLoadAction = InDepthTargetLoadAction;
+		DepthTargetStoreAction = InDepthTargetStoreAction;
+		StencilTargetLoadAction = InStencilTargetLoadAction;
+		StencilTargetStoreAction = InStencilTargetStoreAction;
+		DepthStencilAccess = InDepthStencilAccess;
+		NumSamples = InNumSamples;
+		Flags = InFlags;
 	}
 
 	bool operator==(const FGraphicsPipelineStateInitializer& rhs) const
@@ -1800,6 +1804,15 @@ public:
 	friend class FMeshDrawingPolicy;
 };
 
+// TIsTriviallyCopyable (a.k.a. std::is_trivially_copyable) should be used but
+// TIsTriviallyCopyable is not provided by the core module at the moment. Core's
+// implementation of TIsTrivial is actually equivalent to std::is_trivially_copyable
+// since std::is_trivial<T> requires T to have a trivial constructor but TIsTrivial
+// doesn't
+static_assert(
+	TIsTrivial<FGraphicsPipelineStateInitializer>::Value,
+	"Due to the use of memset in ctors, FGraphicsPipelineStateInitializer must have no v-table");
+
 // This PSO is used as a fallback for RHIs that dont support PSOs. It is used to set the graphics state using the legacy state setting APIs
 class FRHIGraphicsPipelineStateFallBack : public FRHIGraphicsPipelineState
 {
@@ -1885,6 +1898,11 @@ public:
 	
 	virtual TRefCountPtr<FShaderLibraryIterator> CreateIterator(void) = 0;
 	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) = 0;
+	virtual bool RequestEntry(const FSHAHash& Hash, TArray<uint8>& OutRaw)
+	{
+		check(!"This shader code library does not support raw reads!");
+		return false;
+	}
 	virtual bool ContainsEntry(const FSHAHash& Hash) = 0;
 	virtual uint32 GetShaderCount(void) const = 0;
 

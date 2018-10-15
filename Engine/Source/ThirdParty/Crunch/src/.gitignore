@@ -14,4 +14,3 @@
 /example3/x64
 /lib
 /bin/*
-!bin/crunch_x64.exe

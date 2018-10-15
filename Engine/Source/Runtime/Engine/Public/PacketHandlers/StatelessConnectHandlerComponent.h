@@ -43,6 +43,8 @@ public:
 	 */
 	StatelessConnectHandlerComponent();
 
+	virtual bool IsValid() const override { return true; }
+
 	virtual void NotifyHandshakeBegin() override;
 
 	/**
@@ -59,7 +61,7 @@ private:
 	 *
 	 * @param ClientAddress		The address of the client to send the challenge to.
 	 */
-	void SendConnectChallenge(FString ClientAddress);
+	void SendConnectChallenge(const FString& ClientAddress);
 
 	/**
 	 * Constructs and sends the handshake challenge response packet, from the client to the server
@@ -76,7 +78,7 @@ private:
 	 * @param ClientAddress		The address of the client to send the ack to.
 	 * @param InCookie			The cookie value to send
 	 */
-	void SendChallengeAck(FString ClientAddress, uint8 InCookie[COOKIE_BYTE_SIZE]);
+	void SendChallengeAck(const FString& ClientAddress, uint8 InCookie[COOKIE_BYTE_SIZE]);
 
 
 	/**
@@ -92,7 +94,7 @@ public:
 	 *
 	 * @param Address	The address (including port, for UIpNetDriver) being checked
 	 */
-	FORCEINLINE bool HasPassedChallenge(FString Address)
+	FORCEINLINE bool HasPassedChallenge(const FString& Address)
 	{
 		return LastChallengeSuccessAddress == Address;
 	}
@@ -123,20 +125,20 @@ protected:
 
 	virtual void Incoming(FBitReader& Packet) override;
 
-	virtual void Outgoing(FBitWriter& Packet) override;
+	virtual void Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits) override;
 
-	virtual void IncomingConnectionless(FString Address, FBitReader& Packet) override;
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override;
 
-	virtual void OutgoingConnectionless(FString Address, FBitWriter& Packet) override
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override
 	{
 	}
 
-	virtual bool CanReadUnaligned() override
+	virtual bool CanReadUnaligned() const override
 	{
 		return true;
 	}
 
-	virtual int32 GetReservedPacketBits() override;
+	virtual int32 GetReservedPacketBits() const override;
 
 	virtual void Tick(float DeltaTime) override;
 

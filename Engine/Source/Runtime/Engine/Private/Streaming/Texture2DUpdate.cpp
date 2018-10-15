@@ -49,14 +49,9 @@ FTexture2DUpdate::FTexture2DUpdate(UTexture2D* InTexture, int32 InRequestedMips)
 FTexture2DUpdate::~FTexture2DUpdate()
 {
 	// Work must be done here because derived destructors have been called now and so derived members are invalid.
-
 	ensure(ScheduledTaskCount <= 0);
 	ensure(!IntermediateTextureRHI);
 
-	if (AsyncMipUpdateTask)
-	{
-		AsyncMipUpdateTask->EnsureCompletion();
-	}
 }
 
 void FTexture2DUpdate::Tick(UTexture2D* InTexture, EThreadType InCurrentThread)
@@ -201,24 +196,10 @@ void FTexture2DUpdate::ScheduleTick(const FContext& Context, EThreadType InThrea
 	{
 		check(InThread == TT_Async);
 
-		// If there is already an async task not yet done, don't call EnsureCompletion since this thread currently has the lock.
-		if (!AsyncMipUpdateTask || AsyncMipUpdateTask->IsWorkDone())
-		{
-			FPlatformAtomics::InterlockedIncrement(&ScheduledTaskCount);
-			PendingTaskState = TS_Scheduled;
+		FPlatformAtomics::InterlockedIncrement(&ScheduledTaskCount);
+		PendingTaskState = TS_Scheduled;
 
-			// Shouldn't be pushing tasks if another one is pending.
-			if (AsyncMipUpdateTask)
-			{
-				AsyncMipUpdateTask->EnsureCompletion();
-			}
-			AsyncMipUpdateTask = MakeUnique<FAsyncMipUpdateTask>(Context.Texture, this);
-			AsyncMipUpdateTask->StartBackgroundTask();
-		}
-		else
-		{
-			PendingTaskState = TS_Pending;
-		}
+		(new FAsyncMipUpdateTask(Context.Texture, this))->StartBackgroundTask();
 	}
 }
 

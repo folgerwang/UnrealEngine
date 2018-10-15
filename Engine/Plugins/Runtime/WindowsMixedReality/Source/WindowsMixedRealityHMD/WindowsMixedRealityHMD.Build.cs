@@ -60,8 +60,9 @@ namespace UnrealBuildTool.Rules
 						"D3D11RHI",
 						"Slate",
 						"SlateCore",
-						"UtilityShaders"
-					}
+						"UtilityShaders",
+						"Projects",
+                    }
 					);
 
 				if (Target.bBuildEditor == true)

@@ -9,6 +9,7 @@
 #include "IMediaOptions.h"
 #include "MediaHelpers.h"
 #include "MediaSampleQueueDepths.h"
+#include "MediaPlayerOptions.h"
 #include "Misc/ScopeLock.h"
 #include "UObject/Class.h"
 
@@ -197,7 +198,7 @@ void FWmfMediaTracks::GetFlags(bool& OutMediaSourceChanged, bool& OutSelectionCh
 }
 
 
-void FWmfMediaTracks::Initialize(IMFMediaSource* InMediaSource, const FString& Url)
+void FWmfMediaTracks::Initialize(IMFMediaSource* InMediaSource, const FString& Url, const FMediaPlayerOptions* PlayerOptions)
 {
 	Shutdown();
 
@@ -259,6 +260,18 @@ void FWmfMediaTracks::Initialize(IMFMediaSource* InMediaSource, const FString& U
 	{
 		UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Not all available streams were added to the track collection"), this);
 	}
+
+	// Tracks must be selected before Session->SetTopology() is called
+	FMediaPlayerTrackOptions TrackOptions;
+	if (PlayerOptions)
+	{
+		TrackOptions = PlayerOptions->Tracks;
+	}
+
+	SelectTrack(EMediaTrackType::Audio, TrackOptions.Audio);
+	SelectTrack(EMediaTrackType::Caption, TrackOptions.Caption);
+	SelectTrack(EMediaTrackType::Metadata, TrackOptions.Metadata);
+	SelectTrack(EMediaTrackType::Video, TrackOptions.Video);
 }
 
 void FWmfMediaTracks::ReInitialize()
@@ -274,7 +287,7 @@ void FWmfMediaTracks::ReInitialize()
 		int32 cTrack = GetSelectedTrack(EMediaTrackType::Caption);
 		int32 cFormat = GetTrackFormat(EMediaTrackType::Caption, cTrack);
 
-		Initialize(lMediaSource, SourceUrl);
+		Initialize(lMediaSource, SourceUrl, nullptr);
 		SetTrackFormat(EMediaTrackType::Video, lTrack, lFormat);
 		SelectTrack(EMediaTrackType::Video, lTrack);
 		SetTrackFormat(EMediaTrackType::Audio, aTrack, aFormat);

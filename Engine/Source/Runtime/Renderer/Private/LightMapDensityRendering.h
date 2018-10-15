@@ -36,7 +36,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
+		return  AllowDebugViewmodes(Platform) 
+				&& (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
 				&& LightMapPolicyType::ShouldCompilePermutation(Platform,Material,VertexFactoryType)
 				&& IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
@@ -91,7 +92,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return FBaseHS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+		return AllowDebugViewmodes(Platform) 
+			&& FBaseHS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
 			&& TLightMapDensityVS<LightMapPolicyType>::ShouldCompilePermutation(Platform, Material, VertexFactoryType);
 	}
 
@@ -121,7 +123,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return FBaseDS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+		return AllowDebugViewmodes(Platform) 
+			&& FBaseDS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
 			&& TLightMapDensityVS<LightMapPolicyType>::ShouldCompilePermutation(Platform, Material, VertexFactoryType);		
 	}
 
@@ -152,7 +155,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
+		return	AllowDebugViewmodes(Platform) 
+				&& (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
 				&& LightMapPolicyType::ShouldCompilePermutation(Platform,Material,VertexFactoryType)
 				&& IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}

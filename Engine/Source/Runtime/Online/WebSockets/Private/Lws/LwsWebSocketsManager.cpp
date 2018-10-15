@@ -14,6 +14,7 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Stats/Stats.h"
+#include "HttpModule.h"
 
 namespace {
 	static const struct lws_extension LwsExtensions[] = {
@@ -97,10 +98,13 @@ void FLwsWebSocketsManager::InitWebSockets(TArrayView<const FString> Protocols)
 	ContextInfo.options |= LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED | LWS_SERVER_OPTION_DISABLE_OS_CA_CERTS | LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
 	
 	// HTTP proxy
-#if 0 // @todo implement
-	ContextInfo.http_proxy_address;
-	ContextInfo.http_proxy_port;
-#endif
+	const FString& ProxyAddress = FHttpModule::Get().GetProxyAddress();
+	TOptional<FTCHARToUTF8> Converter;
+	if (!ProxyAddress.IsEmpty())
+	{
+		Converter.Emplace(*ProxyAddress);
+		ContextInfo.http_proxy_address = Converter->Get();
+	}
 
 #if WITH_SSL
 	// SSL client options
@@ -296,6 +300,16 @@ int FLwsWebSocketsManager::CallbackWrapper(lws* Connection, lws_callback_reasons
 	{
 		FSslModule::Get().GetCertificateManager().AddCertificatesToSslContext(static_cast<SSL_CTX*>(UserData));
 		return 0;
+	}
+	case LWS_CALLBACK_OPENSSL_PERFORM_SERVER_CERT_VERIFICATION:
+	{
+		// LWS reuses the UserData param for the X509_STORE_CTX, so need to grab the socket from the lws connection user data
+		Socket = static_cast<FLwsWebSocket*>(lws_wsi_user(Connection));
+		// We only care about the X509_STORE_CTX* (UserData), and not the SSL* (Data)
+		Data = UserData;
+
+		// Call the socket's LwsCallback below
+		break;
 	}
 #endif
 	case LWS_CALLBACK_WSI_DESTROY:

@@ -11,7 +11,7 @@ FExternalTextureRegistry* FExternalTextureRegistry::Singleton = nullptr;
 
 FExternalTextureRegistry& FExternalTextureRegistry::Get()
 {
-	check(IsInRenderingThread());
+	check(IsInParallelRenderingThread());
 
 	if (Singleton == nullptr)
 	{
@@ -24,28 +24,34 @@ FExternalTextureRegistry& FExternalTextureRegistry::Get()
 
 void FExternalTextureRegistry::RegisterExternalTexture(const FGuid& InGuid, FTextureRHIRef& InTextureRHI, FSamplerStateRHIRef& InSamplerStateRHI, const FLinearColor& InCoordinateScaleRotation, const FLinearColor& InCoordinateOffset)
 {
+	check(IsInRenderingThread());
+	FScopeLock Lock(&CriticalSection);
 	TextureEntries.Add(InGuid, FExternalTextureEntry(InTextureRHI, InSamplerStateRHI, InCoordinateScaleRotation, InCoordinateOffset));
 
 	for (const FMaterialRenderProxy* MaterialRenderProxy : ReferencingMaterialRenderProxies)
 	{
-		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->CacheUniformExpressions();
+		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->InvalidateUniformExpressionCache();
 	}
 }
 
 
 void FExternalTextureRegistry::UnregisterExternalTexture(const FGuid& InGuid)
 {
+	check(IsInRenderingThread());
+	FScopeLock Lock(&CriticalSection);
 	TextureEntries.Remove(InGuid);
 
 	for (const FMaterialRenderProxy* MaterialRenderProxy : ReferencingMaterialRenderProxies)
 	{
-		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->CacheUniformExpressions();
+		const_cast<FMaterialRenderProxy*>(MaterialRenderProxy)->InvalidateUniformExpressionCache();
 	}
 }
 
 
 void FExternalTextureRegistry::RemoveMaterialRenderProxyReference(const FMaterialRenderProxy* MaterialRenderProxy)
 {
+	check(IsInRenderingThread());
+	FScopeLock Lock(&CriticalSection);
 	ReferencingMaterialRenderProxies.Remove(MaterialRenderProxy);
 }
 
@@ -55,6 +61,7 @@ bool FExternalTextureRegistry::GetExternalTexture(const FMaterialRenderProxy* Ma
 #if EXTERNALTEXTURE_TRACE_REGISTRY
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("GetExternalTexture: Guid = %s"), *InGuid.ToString());
 #endif
+	FScopeLock Lock(&CriticalSection);
 
 	// register material proxy if already initialized
 	if ((MaterialRenderProxy != nullptr) && MaterialRenderProxy->IsInitialized())
@@ -94,6 +101,8 @@ bool FExternalTextureRegistry::GetExternalTexture(const FMaterialRenderProxy* Ma
 
 bool FExternalTextureRegistry::GetExternalTextureCoordinateScaleRotation(const FGuid& InGuid, FLinearColor& OutCoordinateScaleRotation)
 {
+	FScopeLock Lock(&CriticalSection);
+
 	FExternalTextureEntry* Entry = TextureEntries.Find(InGuid);
 
 	if (Entry == nullptr)
@@ -109,6 +118,8 @@ bool FExternalTextureRegistry::GetExternalTextureCoordinateScaleRotation(const F
 
 bool FExternalTextureRegistry::GetExternalTextureCoordinateOffset(const FGuid& InGuid, FLinearColor& OutCoordinateOffset)
 {
+	FScopeLock Lock(&CriticalSection);
+
 	FExternalTextureEntry* Entry = TextureEntries.Find(InGuid);
 
 	if (Entry == nullptr)

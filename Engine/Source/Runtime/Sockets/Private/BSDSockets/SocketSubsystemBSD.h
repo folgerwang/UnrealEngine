@@ -41,7 +41,7 @@ public:
 	// ISocketSubsystem interface
 	virtual TSharedRef<FInternetAddr> CreateInternetAddr(uint32 Address = 0, uint32 Port = 0) override;
 	virtual class FSocket* CreateSocket( const FName& SocketType, const FString& SocketDescription, bool bForceUDP = false ) override;
-	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP = false);
+	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType) override;
 	virtual void DestroySocket( class FSocket* Socket ) override;
 
 	virtual FAddressInfoResult GetAddressInfo(const TCHAR* HostName, const TCHAR* ServiceName = nullptr,
@@ -80,7 +80,9 @@ public:
 	 * Translates an ESocketProtocolFamily code into a value usable by raw socket apis.
 	 */
 	virtual int32 GetProtocolFamilyValue(ESocketProtocolFamily InProtocol) const;
-
+	
+	virtual bool IsSocketWaitSupported() const override;
+	
 	/**
 	 * Translates an raw socket family type value into an enum that can be used by the network layer.
 	 */

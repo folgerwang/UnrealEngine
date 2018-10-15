@@ -735,7 +735,7 @@ public:
 		const FModifierKeysState& InModifierKeys = FModifierKeysState(),
 		uint32 InTouchpadIndex=0
 	)
-	: FPointerEvent(InUserIndex, InPointerIndex, InScreenSpacePosition, InLastScreenSpacePosition, 1.0f, bPressLeftMouseButton, InModifierKeys, InTouchpadIndex)
+	: FPointerEvent(InUserIndex, InPointerIndex, InScreenSpacePosition, InLastScreenSpacePosition, 1.0f, bPressLeftMouseButton, false, false, InModifierKeys, InTouchpadIndex)
 	{ }
 
 	FPointerEvent(
@@ -745,6 +745,8 @@ public:
 		const FVector2D& InLastScreenSpacePosition,
 		float InForce,
 		bool bPressLeftMouseButton,
+		bool bInIsForceChanged = false,
+		bool bInIsFirstMove = false,
 		const FModifierKeysState& InModifierKeys = FModifierKeysState(),
 		uint32 InTouchpadIndex=0
 		)
@@ -761,6 +763,8 @@ public:
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0.0f)
 		, bIsDirectionInvertedFromDevice(false)
+		, bIsTouchForceChanged(bInIsForceChanged)
+		, bIsTouchFirstMove(bInIsFirstMove)
 	{ }
 
 	/** A constructor for gesture events */
@@ -821,6 +825,12 @@ public:
 	/** @return Is this event a result from a touch (as opposed to a mouse) */
 	bool IsTouchEvent() const { return bIsTouchEvent; }
 
+	/** @return Is this event a special force-change touch event */
+	bool IsTouchForceChangedEvent() const { return bIsTouchForceChanged; }
+
+	/** @return Is this event a special first-move touch event */
+	bool IsTouchFirstMoveEvent() const { return bIsTouchFirstMove; }
+
 	/** @return The type of touch gesture */
 	EGestureEvent GetGestureType() const { return GestureType; }
 
@@ -850,6 +860,8 @@ public:
 		GestureType = Other.GestureType;
 		WheelOrGestureDelta = Other.WheelOrGestureDelta;
 		bIsDirectionInvertedFromDevice = Other.bIsDirectionInvertedFromDevice;
+		bIsTouchForceChanged = Other.bIsTouchForceChanged;
+		bIsTouchFirstMove = Other.bIsTouchFirstMove;
 	}
 
 	SLATECORE_API virtual FText ToText() const override;
@@ -880,6 +892,8 @@ private:
 	EGestureEvent GestureType;
 	FVector2D WheelOrGestureDelta;
 	bool bIsDirectionInvertedFromDevice;
+	bool bIsTouchForceChanged;
+	bool bIsTouchFirstMove;
 	// NOTE: If you add a new member, make sure you add it to the assignment operator.
 };
 

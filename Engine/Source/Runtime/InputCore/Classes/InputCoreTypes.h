@@ -64,12 +64,13 @@ struct INPUTCORE_API FKey
 	bool IsValid() const;
 	bool IsModifierKey() const;
 	bool IsGamepadKey() const;
+	bool IsTouch() const;
 	bool IsMouseButton() const;
 	bool IsFloatAxis() const;
 	bool IsVectorAxis() const;
 	bool IsBindableInBlueprints() const;
 	bool ShouldUpdateAxisWithoutSamples() const;
-	FText GetDisplayName() const;
+	FText GetDisplayName(bool bLongDisplayName = true) const;
 	FString ToString() const;
 	FName GetFName() const;
 	FName GetMenuCategory() const;
@@ -118,13 +119,14 @@ struct INPUTCORE_API FKeyDetails
 {
 	enum EKeyFlags
 	{
-		GamepadKey				= 0x01,
-		MouseButton				= 0x02,
-		ModifierKey				= 0x04,
-		NotBlueprintBindableKey	= 0x08,
-		FloatAxis				= 0x10,
-		VectorAxis				= 0x20,
-		UpdateAxisWithoutSamples = 0x40,
+		GamepadKey				 = 1 << 0,
+		Touch					 = 1 << 1,
+		MouseButton				 = 1 << 2,
+		ModifierKey				 = 1 << 3,
+		NotBlueprintBindableKey	 = 1 << 4,
+		FloatAxis				 = 1 << 5,
+		VectorAxis				 = 1 << 6,
+		UpdateAxisWithoutSamples = 1 << 7,
 
 		NoFlags                 = 0,
 	};
@@ -134,6 +136,7 @@ struct INPUTCORE_API FKeyDetails
 
 	FORCEINLINE bool IsModifierKey() const { return bIsModifierKey != 0; }
 	FORCEINLINE bool IsGamepadKey() const { return bIsGamepadKey != 0; }
+	FORCEINLINE bool IsTouch() const { return bIsTouch != 0; }
 	FORCEINLINE bool IsMouseButton() const { return bIsMouseButton != 0; }
 	FORCEINLINE bool IsFloatAxis() const { return AxisType == EInputAxisType::Float; }
 	FORCEINLINE bool IsVectorAxis() const { return AxisType == EInputAxisType::Vector; }
@@ -160,6 +163,7 @@ private:
 
 	uint8 bIsModifierKey : 1;
 	uint8 bIsGamepadKey : 1;
+	uint8 bIsTouch : 1;
 	uint8 bIsMouseButton : 1;
 	uint8 bIsBindableInBlueprints : 1;
 	uint8 bShouldUpdateAxisWithoutSamples : 1;
@@ -548,6 +552,8 @@ namespace ETouchType
 		Began,
 		Moved,
 		Stationary,
+		ForceChanged,
+		FirstMove,
 		Ended,
 
 		NumTypes

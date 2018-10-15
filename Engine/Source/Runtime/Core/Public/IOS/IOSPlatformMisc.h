@@ -42,22 +42,32 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static bool HasActiveWiFiConnection();
 	static const TCHAR* GamePersistentDownloadDir();
 
+	DEPRECATED(4.21, "Use GetDeviceVolume, it is now callable on all platforms.")
 	static int GetAudioVolume();
+
 	static bool AreHeadphonesPluggedIn();
 	static int GetBatteryLevel();
 	static bool IsRunningOnBattery();
 	static float GetDeviceTemperatureLevel();
 	static EDeviceScreenOrientation GetDeviceOrientation();
+	static int32 GetDeviceVolume();
 	static void SetBrightness(float Brightness);
 	static float GetBrightness();
 	static void ResetBrightness(); //reset brightness to original value the application started with
 	static bool SupportsBrightness() { return true; }
+    static bool IsInLowPowerMode();
 
+	//////// Notifications
 	static void RegisterForRemoteNotifications();
 	static bool IsRegisteredForRemoteNotifications();
 	static void UnregisterForRemoteNotifications();
-
+	// Check if notifications are allowed if min iOS version is < 10
+	DEPRECATED(4.21, "IsAllowedRemoteNotifications is deprecated. Use FIOSLocalNotificationService::CheckAllowedNotifications instead.")
+	static bool IsAllowedRemoteNotifications();
+	
 	static class IPlatformChunkInstall* GetPlatformChunkInstall();
+
+	static bool SupportsForceTouchInput();
 
 	static void PrepareMobileHaptics(EMobileHapticsType Type);
 	static void TriggerMobileHaptics();
@@ -192,7 +202,7 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 		return true;
 	}
 
-	static void RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc);
+	static bool RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QuerySucceededFunc, TFunction<void(const FString&, const FString&)> QueryFailedFunc);
 };
 
 typedef FIOSPlatformMisc FPlatformMisc;

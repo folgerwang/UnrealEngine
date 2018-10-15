@@ -61,16 +61,16 @@ struct FVertexFactoryInterpolantsVSToPS
 	// Last row of the tangent to world matrix in xyz
 	float4	TangentToWorld2	: TANGENTTOWORLD2;
 	
-#if NUM_DYNAMIC_PARAMETERS > 0
+#if (DYNAMIC_PARAMETERS_MASK & 1)
 	float4 DynamicParameter	: PARTICLE_DYNAMIC_PARAM0;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	float4 DynamicParameter1	: PARTICLE_DYNAMIC_PARAM1;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	float4 DynamicParameter2	: PARTICLE_DYNAMIC_PARAM2;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	float4 DynamicParameter3	: PARTICLE_DYNAMIC_PARAM3;
 #endif
 
@@ -160,13 +160,13 @@ struct FVertexFactoryIntermediates
 	float3 CustomAlignmentVector;
 
 	float4 DynamicParameter;
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	float4 DynamicParameter1;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	float4 DynamicParameter2;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	float4 DynamicParameter3;
 #endif
 
@@ -257,16 +257,16 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.Particle.Color = Interpolants.Color;
 #endif
 
-#if NUM_DYNAMIC_PARAMETERS > 0
+#if (DYNAMIC_PARAMETERS_MASK & 1)
 	Result.Particle.DynamicParameter = Interpolants.DynamicParameter;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	Result.Particle.DynamicParameter1 = Interpolants.DynamicParameter1;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	Result.Particle.DynamicParameter2 = Interpolants.DynamicParameter2;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	Result.Particle.DynamicParameter3 = Interpolants.DynamicParameter3;
 #endif
 
@@ -326,16 +326,20 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedPosition = Intermediates.Position.xyz;
 	Result.PreSkinnedNormal = TangentToLocal[2].xyz;
 
-#if NUM_DYNAMIC_PARAMETERS > 0
+	// Previous frame not handled deliberately. Lacks necessary information and
+	// primitives using this VF are usually transparent and hence don't output velocity
+	Result.PrevFrameLocalToWorld = Primitive.LocalToWorld;
+
+#if (DYNAMIC_PARAMETERS_MASK & 1)
 	Result.Particle.DynamicParameter = Intermediates.DynamicParameter;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	Result.Particle.DynamicParameter1 = Intermediates.DynamicParameter1;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	Result.Particle.DynamicParameter2 = Intermediates.DynamicParameter2;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	Result.Particle.DynamicParameter3 = Intermediates.DynamicParameter3;
 #endif
 
@@ -676,25 +680,25 @@ float GetNiagaraNormalizedAge(uint InstanceID)
 }
 #endif
 
-#if NUM_DYNAMIC_PARAMETERS > 0
+#if (DYNAMIC_PARAMETERS_MASK & 1)
 float4 GetNiagaraParticleDynamicParameters(uint InstanceID)
 {
 	return NiagaraSpriteVF.MaterialParamDataOffset != -1 ? GetVec4(NiagaraSpriteVF.MaterialParamDataOffset, InstanceID) : float4(1.0f, 1.0f, 1.0f, 1.0f);;
 }
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 float4 GetNiagaraParticleDynamicParameters1(uint InstanceID)
 {
 	return NiagaraSpriteVF.MaterialParam1DataOffset != -1 ? GetVec4(NiagaraSpriteVF.MaterialParam1DataOffset, InstanceID) : float4(1.0f, 1.0f, 1.0f, 1.0f);;
 }
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 float4 GetNiagaraParticleDynamicParameters2(uint InstanceID)
 {
 	return NiagaraSpriteVF.MaterialParam2DataOffset != -1 ? GetVec4(NiagaraSpriteVF.MaterialParam2DataOffset, InstanceID) : float4(1.0f, 1.0f, 1.0f, 1.0f);;
 }
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 float4 GetNiagaraParticleDynamicParameters3(uint InstanceID)
 {
 	return NiagaraSpriteVF.MaterialParam3DataOffset != -1 ? GetVec4(NiagaraSpriteVF.MaterialParam3DataOffset, InstanceID) : float4(1.0f, 1.0f, 1.0f, 1.0f);;
@@ -753,16 +757,16 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	Intermediates.CustomFacingVector = SafeNormalize(GetNiagaraParticleFacingVector(ParticleID));
 	Intermediates.CustomAlignmentVector = SafeNormalize(GetNiagaraParticleAlignmentVector(ParticleID));
 
-#if NUM_DYNAMIC_PARAMETERS > 0
+#if (DYNAMIC_PARAMETERS_MASK & 1)
 	Intermediates.DynamicParameter = GetNiagaraParticleDynamicParameters(ParticleID);
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	Intermediates.DynamicParameter1 = GetNiagaraParticleDynamicParameters1(ParticleID);
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	Intermediates.DynamicParameter2 = GetNiagaraParticleDynamicParameters2(ParticleID);
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	Intermediates.DynamicParameter3 = GetNiagaraParticleDynamicParameters3(ParticleID);
 #endif
 
@@ -935,16 +939,16 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.Color = Intermediates.Color;
 #endif
 
-#if NUM_DYNAMIC_PARAMETERS > 0
+#if (DYNAMIC_PARAMETERS_MASK & 1)
 	Interpolants.DynamicParameter = Intermediates.DynamicParameter;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	Interpolants.DynamicParameter1 = Intermediates.DynamicParameter1;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	Interpolants.DynamicParameter2 = Intermediates.DynamicParameter2;
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	Interpolants.DynamicParameter3 = Intermediates.DynamicParameter3;
 #endif
 

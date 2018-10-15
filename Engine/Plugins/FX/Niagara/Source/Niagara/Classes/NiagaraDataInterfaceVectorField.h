@@ -72,7 +72,6 @@ public:
 	virtual FNiagaraDataInterfaceParametersCS* ConstructComputeParameters()const override;
 	//~ UNiagaraDataInterface interface END
 
-	template<typename XType, typename YType, typename ZType>
 	void SampleVectorField(FVectorVMContext& Context);	
 
 	void GetFieldDimensions(FVectorVMContext& Context);

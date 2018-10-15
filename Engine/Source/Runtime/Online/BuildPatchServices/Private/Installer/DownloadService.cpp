@@ -473,7 +473,7 @@ namespace BuildPatchServices
 		RequestDelegatesCS.Lock();
 		for (const TPair<int32, int32>& FrameProgressUpdate : FrameProgressUpdates)
 		{
-			if (ensureMsgf(RequestDelegates.Contains(FrameProgressUpdate.Key), TEXT("Missing request delegates for %d"), FrameProgressUpdate.Key))
+			if (RequestDelegates.Contains(FrameProgressUpdate.Key))
 			{
 				RequestDelegates[FrameProgressUpdate.Key].OnProgressDelegate.ExecuteIfBound(FrameProgressUpdate.Key, FrameProgressUpdate.Value);
 			}

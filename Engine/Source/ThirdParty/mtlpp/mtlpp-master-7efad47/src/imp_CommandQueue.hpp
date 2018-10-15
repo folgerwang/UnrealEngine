@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLCommandQueue>, void> : public IMPTableBase<id<MTLCommandQueue>>
+struct MTLPP_EXPORT IMPTable<id<MTLCommandQueue>, void> : public IMPTableBase<id<MTLCommandQueue>>
 {
 	IMPTable()
 	{
@@ -35,7 +35,7 @@ struct IMPTable<id<MTLCommandQueue>, void> : public IMPTableBase<id<MTLCommandQu
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLCommandQueue>, InterposeClass> : public IMPTable<id<MTLCommandQueue>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLCommandQueue>, InterposeClass> : public IMPTable<id<MTLCommandQueue>, void>
 {
 	IMPTable()
 	{

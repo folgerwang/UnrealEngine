@@ -697,14 +697,25 @@ namespace VulkanRHI
 		bool bIsHostCachedSupported;
 		bool bIsLazilyAllocatedSupported;
 
+#if VULKAN_FREEPAGE_FOR_TYPE
+		uint32 DefaultPageSizeForImage;
+		uint32 DefaultPageSizeForBuffer;
+#endif
 		uint32 DefaultPageSize;
+
 		uint32 PeakPageSize;
 		uint64 UsedMemory;
 		uint32 PageIDCounter;
 
 		TArray<FOldResourceHeapPage*> UsedBufferPages;
 		TArray<FOldResourceHeapPage*> UsedImagePages;
+
+#if VULKAN_FREEPAGE_FOR_TYPE
+		TArray<FOldResourceHeapPage*> FreeBufferPages;
+		TArray<FOldResourceHeapPage*> FreeImagePages;
+#else
 		TArray<FOldResourceHeapPage*> FreePages;
+#endif
 
 		FOldResourceAllocation* AllocateResource(EType Type, uint32 Size, uint32 Alignment, bool bMapAllocation, const char* File, uint32 Line);
 
@@ -1239,6 +1250,11 @@ namespace VulkanRHI
 	protected:
 		uint32 BufferIndex;
 
+		enum
+		{
+			NUM_BUFFERS = 3,
+		};
+
 		struct FFrameEntry
 		{
 			TRefCountPtr<FBufferSuballocation> BufferSuballocation;
@@ -1252,7 +1268,7 @@ namespace VulkanRHI
 			void Reset();
 			bool TryAlloc(uint32 InSize, uint32 InAlignment, FTempAllocInfo& OutInfo);
 		};
-		FFrameEntry Entries[NUM_RENDER_BUFFERS];
+		FFrameEntry Entries[NUM_BUFFERS];
 		FCriticalSection CS;
 
 		friend class FVulkanCommandListContext;

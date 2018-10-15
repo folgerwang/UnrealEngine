@@ -32,9 +32,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape, meta=(ClampMin="0", UIMin="0"))
 	float CapsuleRadius;
 
-protected:
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	float CapsuleHeight_DEPRECATED;
+#endif
 
 public:
 	/** 
@@ -65,8 +66,10 @@ public:
 	void SetCapsuleHalfHeight(float HalfHeight, bool bUpdateOverlaps=true);
 
 	//~ Begin UObject Interface
-	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
+#if WITH_EDITORONLY_DATA
+	virtual void Serialize(FArchive& Ar) override;
+#endif
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
@@ -198,31 +201,30 @@ FORCEINLINE void UCapsuleComponent::SetCapsuleHalfHeight(float HalfHeight, bool 
 
 FORCEINLINE float UCapsuleComponent::GetScaledCapsuleRadius() const
 {
-	return CapsuleRadius * GetShapeScale();
+	const FVector& ComponentScale = GetComponentTransform().GetScale3D();
+	return CapsuleRadius * (ComponentScale.X < ComponentScale.Y ? ComponentScale.X : ComponentScale.Y);
 }
 
 FORCEINLINE float UCapsuleComponent::GetScaledCapsuleHalfHeight() const
 {
-	return CapsuleHalfHeight * GetShapeScale();
+	return CapsuleHalfHeight * GetComponentTransform().GetScale3D().Z;
 }
 
 FORCEINLINE float UCapsuleComponent::GetScaledCapsuleHalfHeight_WithoutHemisphere() const
 {
-	return (CapsuleHalfHeight - CapsuleRadius) * GetShapeScale();
+	return GetScaledCapsuleHalfHeight() - GetScaledCapsuleRadius();
 }
 
 FORCEINLINE void UCapsuleComponent::GetScaledCapsuleSize(float& OutRadius, float& OutHalfHeight) const
 {
-	const float Scale = GetShapeScale();
-	OutRadius = CapsuleRadius * Scale;
-	OutHalfHeight = CapsuleHalfHeight * Scale;
+	OutRadius = GetScaledCapsuleRadius();
+	OutHalfHeight = GetScaledCapsuleHalfHeight();
 }
 
 FORCEINLINE void UCapsuleComponent::GetScaledCapsuleSize_WithoutHemisphere(float& OutRadius, float& OutHalfHeightWithoutHemisphere) const
 {
-	const float Scale = GetShapeScale();
-	OutRadius = CapsuleRadius * Scale;
-	OutHalfHeightWithoutHemisphere = (CapsuleHalfHeight - CapsuleRadius) * Scale;
+	OutRadius = GetScaledCapsuleRadius();
+	OutHalfHeightWithoutHemisphere = GetScaledCapsuleHalfHeight_WithoutHemisphere();
 }
 
 

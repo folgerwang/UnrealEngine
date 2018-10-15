@@ -465,6 +465,11 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 			FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
 			{
 				FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
+
+				Line += TEXT("#if 0 /*DIRECT COMPILE*/\n");
+				Line += CreateShaderCompilerWorkerDirectCommandLine(Input);
+				Line += TEXT("\n#endif /*DIRECT COMPILE*/\n");
+
 				FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
 			}
 			FileWriter->Close();

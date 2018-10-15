@@ -19,7 +19,6 @@
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Views/SListView.h"
-#include "SRowEditor.h"
 #include "IDocumentation.h"
 #include "Widgets/SToolTip.h"
  
@@ -71,18 +70,10 @@ void FDataTableEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& 
 {
 	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_Data Table Editor", "Data Table Editor"));
 
-	DataTableTabWidget = CreateContentBox();
-	RowEditorTabWidget = CreateRowEditorBox();
-
 	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	InTabManager->RegisterTabSpawner(DataTableTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_DataTable))
-		.SetDisplayName(LOCTEXT("DataTableTab", "Data Table"))
-		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
-
-	InTabManager->RegisterTabSpawner(RowEditorTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_RowEditor))
-		.SetDisplayName(LOCTEXT("RowEditorTab", "Row Editor"))
-		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+	CreateAndRegisterDataTableTab(InTabManager);
+	CreateAndRegisterRowEditorTab(InTabManager);
 }
 
 void FDataTableEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
@@ -94,6 +85,24 @@ void FDataTableEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>
 
 	DataTableTabWidget.Reset();
 	RowEditorTabWidget.Reset();
+}
+
+void FDataTableEditor::CreateAndRegisterDataTableTab(const TSharedRef<class FTabManager>& InTabManager)
+{
+	DataTableTabWidget = CreateContentBox();
+
+	InTabManager->RegisterTabSpawner(DataTableTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_DataTable))
+		.SetDisplayName(LOCTEXT("DataTableTab", "Data Table"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
+}
+
+void FDataTableEditor::CreateAndRegisterRowEditorTab(const TSharedRef<class FTabManager>& InTabManager)
+{
+	RowEditorTabWidget = CreateRowEditorBox();
+
+	InTabManager->RegisterTabSpawner(RowEditorTabId, FOnSpawnTab::CreateSP(this, &FDataTableEditor::SpawnTab_RowEditor))
+		.SetDisplayName(LOCTEXT("RowEditorTab", "Row Editor"))
+		.SetGroup(WorkspaceMenuCategory.ToSharedRef());
 }
 
 FDataTableEditor::FDataTableEditor()
@@ -138,7 +147,7 @@ void FDataTableEditor::PreChange(const class UUserDefinedStruct* Struct, FStruct
 void FDataTableEditor::PostChange(const class UUserDefinedStruct* Struct, FStructureEditorUtils::EStructureEditorChangeInfo Info)
 {
 	const UDataTable* Table = GetDataTable();
-	if (Struct && Table && (Table->RowStruct == Struct))
+	if (Struct && Table && (Table->GetRowStruct() == Struct))
 	{
 		HandlePostChange();
 	}
@@ -169,6 +178,7 @@ void FDataTableEditor::PostChange(const UDataTable* Changed, FDataTableEditorUti
 	if (Changed == Table)
 	{
 		HandlePostChange();
+		const_cast<UDataTable*>(Table)->OnDataTableChanged().Broadcast();
 	}
 }
 
@@ -733,6 +743,11 @@ TSharedRef<SWidget> FDataTableEditor::CreateRowEditorBox()
 	CallbackOnRowHighlighted.BindSP(RowEditor, &SRowEditor::SelectRow);
 	CallbackOnDataTableUndoRedo.BindSP(RowEditor, &SRowEditor::HandleUndoRedo);
 	return RowEditor;
+}
+
+TSharedRef<SRowEditor> FDataTableEditor::CreateRowEditor(UDataTable* Table)
+{
+	return SNew(SRowEditor, Table);
 }
 
 TSharedRef<SDockTab> FDataTableEditor::SpawnTab_RowEditor(const FSpawnTabArgs& Args)

@@ -548,7 +548,11 @@ void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArra
 			}
 		}
 
-		if (SceneProxy)
+		if (bPositionsChanging)
+		{
+			MarkRenderStateDirty();
+		}
+		else if (SceneProxy)
 		{
 			// Create data to update section
 			FProcMeshSectionUpdateData* SectionData = new FProcMeshSectionUpdateData;

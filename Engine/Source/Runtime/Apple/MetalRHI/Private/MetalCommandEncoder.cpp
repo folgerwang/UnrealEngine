@@ -465,6 +465,7 @@ mtlpp::Fence FMetalCommandEncoder::EndEncoding(void)
 	{
 		if(IsRenderCommandEncoderActive())
 		{
+
 			if (RenderCommandEncoder)
 			{
 				check(!bSupportsFences || EncoderFence.IsValid());

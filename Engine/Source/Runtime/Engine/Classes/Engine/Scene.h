@@ -431,8 +431,7 @@ USTRUCT(BlueprintType)
 struct FCameraExposureSettings
 {
 	GENERATED_USTRUCT_BODY()
-
-
+		
 	/** Luminance computation method */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exposure", meta=(DisplayName = "Method"))
     TEnumAsByte<enum EAutoExposureMethod> Method;
@@ -504,24 +503,7 @@ struct FCameraExposureSettings
 	UPROPERTY(Interp, BlueprintReadWrite, Category = "Exposure", AdvancedDisplay, meta=(UIMin = "0", UIMax = "100.0", DisplayName = "Calibration Constant"))
 	float CalibrationConstant;
 
-
-	FCameraExposureSettings()
-	{
-		// next value might get overwritten by r.DefaultFeature.AutoExposure.Method
-		Method = AEM_Histogram;
-		LowPercent = 80.0f;
-		HighPercent = 98.3f;
-		// next value might get overwritten by r.DefaultFeature.AutoExposure
-		MinBrightness = 0.03f;
-		// next value might get overwritten by r.DefaultFeature.AutoExposure
-		MaxBrightness = 2.0f;
-		SpeedUp = 3.0f;
-		SpeedDown = 1.0f;
-		Bias = 0.0f;
-		HistogramLogMin = -8.0f;
-		HistogramLogMax = 4.0f;
-		CalibrationConstant	= 16.0;
-	}
+	ENGINE_API FCameraExposureSettings();
 
 	/* Exports to post process settings with overrides. */
 	ENGINE_API void ExportToPostProcessSettings(FPostProcessSettings* OutPostProcessSettings) const;
@@ -571,468 +553,492 @@ struct FWeightedBlendables
 // Each property consists of a bool to enable it (by default off),
 // the variable declaration and further down the default value for it.
 // The comment should include the meaning and usable range.
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 USTRUCT(BlueprintType, meta=(HiddenByDefault))
 struct FPostProcessSettings
 {
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	GENERATED_USTRUCT_BODY()
 
 	// first all bOverride_... as they get grouped together into bitfields
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_WhiteTemp:1;
+	uint8 bOverride_WhiteTemp:1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_WhiteTint:1;
+	uint8 bOverride_WhiteTint:1;
 
 	// Color Correction controls
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorSaturation:1;
+	uint8 bOverride_ColorSaturation:1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorContrast:1;
+	uint8 bOverride_ColorContrast:1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGamma:1;
+	uint8 bOverride_ColorGamma:1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGain:1;
+	uint8 bOverride_ColorGain:1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorOffset:1;
+	uint8 bOverride_ColorOffset:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorSaturationShadows : 1;
+	uint8 bOverride_ColorSaturationShadows : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorContrastShadows : 1;
+	uint8 bOverride_ColorContrastShadows : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGammaShadows : 1;
+	uint8 bOverride_ColorGammaShadows : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGainShadows : 1;
+	uint8 bOverride_ColorGainShadows : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorOffsetShadows : 1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorSaturationMidtones : 1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorContrastMidtones : 1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGammaMidtones : 1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGainMidtones : 1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorOffsetMidtones : 1;
+	uint8 bOverride_ColorOffsetShadows : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorSaturationHighlights : 1;
+	uint8 bOverride_ColorSaturationMidtones : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorContrastHighlights : 1;
+	uint8 bOverride_ColorContrastMidtones : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGammaHighlights : 1;
+	uint8 bOverride_ColorGammaMidtones : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGainHighlights : 1;
+	uint8 bOverride_ColorGainMidtones : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorOffsetHighlights : 1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorCorrectionShadowsMax : 1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorCorrectionHighlightsMin : 1;
+	uint8 bOverride_ColorOffsetMidtones : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BlueCorrection : 1;
+	uint8 bOverride_ColorSaturationHighlights : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ExpandGamut : 1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmWhitePoint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmSaturation:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmChannelMixerRed:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmChannelMixerGreen:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmChannelMixerBlue:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmContrast:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmDynamicRange:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmHealAmount:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmToeAmount:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmShadowTint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmShadowTintBlend:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmShadowTintAmount:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmSlope:1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmToe:1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmShoulder:1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmBlackClip:1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_FilmWhiteClip:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_SceneColorTint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_SceneFringeIntensity:1;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ChromaticAberrationStartOffset:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientCubemapTint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientCubemapIntensity:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomMethod : 1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomIntensity:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomThreshold:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom1Tint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom1Size:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom2Size:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom2Tint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom3Tint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom3Size:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom4Tint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom4Size:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom5Tint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom5Size:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom6Tint:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_Bloom6Size:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomSizeScale:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionTexture : 1;
+	uint8 bOverride_ColorContrastHighlights : 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_ColorGammaHighlights : 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_ColorGainHighlights : 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_ColorOffsetHighlights : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionSize : 1;
+	uint8 bOverride_ColorCorrectionShadowsMax : 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_ColorCorrectionHighlightsMin : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionCenterUV : 1;
+	uint8 bOverride_BlueCorrection : 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_ExpandGamut : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmWhitePoint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmSaturation:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmChannelMixerRed:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmChannelMixerGreen:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmChannelMixerBlue:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmContrast:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmDynamicRange:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmHealAmount:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmToeAmount:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmShadowTint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmShadowTintBlend:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmShadowTintAmount:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmSlope:1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmToe:1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmShoulder:1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmBlackClip:1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_FilmWhiteClip:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_SceneColorTint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_SceneFringeIntensity:1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_ChromaticAberrationStartOffset:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_AmbientCubemapTint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_AmbientCubemapIntensity:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomMethod : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomIntensity:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomThreshold:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom1Tint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom1Size:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom2Size:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom2Tint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom3Tint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom3Size:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom4Tint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom4Size:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom5Tint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom5Size:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom6Tint:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_Bloom6Size:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomSizeScale:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomConvolutionTexture : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomConvolutionSize : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_BloomConvolutionCenterUV : 1;
 
 	UPROPERTY()
-	uint32 bOverride_BloomConvolutionPreFilter_DEPRECATED : 1;
+	uint8 bOverride_BloomConvolutionPreFilter_DEPRECATED : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionPreFilterMin : 1;
+	uint8 bOverride_BloomConvolutionPreFilterMin : 1;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionPreFilterMax : 1;
+	uint8 bOverride_BloomConvolutionPreFilterMax : 1;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionPreFilterMult : 1;
+	uint8 bOverride_BloomConvolutionPreFilterMult : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomConvolutionBufferScale : 1;
+	uint8 bOverride_BloomConvolutionBufferScale : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomDirtMaskIntensity:1;
+	uint8 bOverride_BloomDirtMaskIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomDirtMaskTint:1;
+	uint8 bOverride_BloomDirtMaskTint:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_BloomDirtMask:1;
+	uint8 bOverride_BloomDirtMask:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-    uint32 bOverride_CameraShutterSpeed:1;
+    uint8 bOverride_CameraShutterSpeed:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-    uint32 bOverride_CameraISO:1;
+    uint8 bOverride_CameraISO:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-    uint32 bOverride_AutoExposureMethod:1;
+    uint8 bOverride_AutoExposureMethod:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureLowPercent:1;
+	uint8 bOverride_AutoExposureLowPercent:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureHighPercent:1;
+	uint8 bOverride_AutoExposureHighPercent:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureMinBrightness:1;
+	uint8 bOverride_AutoExposureMinBrightness:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureMaxBrightness:1;
+	uint8 bOverride_AutoExposureMaxBrightness:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureCalibrationConstant:1;
+	uint8 bOverride_AutoExposureCalibrationConstant:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureSpeedUp:1;
+	uint8 bOverride_AutoExposureSpeedUp:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureSpeedDown:1;
+	uint8 bOverride_AutoExposureSpeedDown:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AutoExposureBias:1;
+	uint8 bOverride_AutoExposureBias:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_HistogramLogMin:1;
+	uint8 bOverride_HistogramLogMin:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_HistogramLogMax:1;
+	uint8 bOverride_HistogramLogMax:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LensFlareIntensity:1;
+	uint8 bOverride_LensFlareIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LensFlareTint:1;
+	uint8 bOverride_LensFlareTint:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LensFlareTints:1;
+	uint8 bOverride_LensFlareTints:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LensFlareBokehSize:1;
+	uint8 bOverride_LensFlareBokehSize:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LensFlareBokehShape:1;
+	uint8 bOverride_LensFlareBokehShape:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LensFlareThreshold:1;
+	uint8 bOverride_LensFlareThreshold:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_VignetteIntensity:1;
+	uint8 bOverride_VignetteIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_GrainIntensity:1;
+	uint8 bOverride_GrainIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_GrainJitter:1;
+	uint8 bOverride_GrainJitter:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionIntensity:1;
+	uint8 bOverride_AmbientOcclusionIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionStaticFraction:1;
+	uint8 bOverride_AmbientOcclusionStaticFraction:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionRadius:1;
+	uint8 bOverride_AmbientOcclusionRadius:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionFadeDistance:1;
+	uint8 bOverride_AmbientOcclusionFadeDistance:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionFadeRadius:1;
+	uint8 bOverride_AmbientOcclusionFadeRadius:1;
 
 	UPROPERTY()
-	uint32 bOverride_AmbientOcclusionDistance_DEPRECATED:1;
+	uint8 bOverride_AmbientOcclusionDistance_DEPRECATED:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionRadiusInWS:1;
+	uint8 bOverride_AmbientOcclusionRadiusInWS:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionPower:1;
+	uint8 bOverride_AmbientOcclusionPower:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionBias:1;
+	uint8 bOverride_AmbientOcclusionBias:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionQuality:1;
+	uint8 bOverride_AmbientOcclusionQuality:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionMipBlend:1;
+	uint8 bOverride_AmbientOcclusionMipBlend:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionMipScale:1;
+	uint8 bOverride_AmbientOcclusionMipScale:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_AmbientOcclusionMipThreshold:1;
+	uint8 bOverride_AmbientOcclusionMipThreshold:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVIntensity:1;
+	uint8 bOverride_LPVIntensity:1;
 
 	UPROPERTY(EditAnywhere, Category=Overrides, meta=(InlineEditConditionToggle))
-	uint32 bOverride_LPVDirectionalOcclusionIntensity:1;
+	uint8 bOverride_LPVDirectionalOcclusionIntensity:1;
 
 	UPROPERTY(EditAnywhere, Category=Overrides, meta=(InlineEditConditionToggle))
-	uint32 bOverride_LPVDirectionalOcclusionRadius:1;
+	uint8 bOverride_LPVDirectionalOcclusionRadius:1;
 
 	UPROPERTY(EditAnywhere, Category=Overrides, meta=(InlineEditConditionToggle))
-	uint32 bOverride_LPVDiffuseOcclusionExponent:1;
+	uint8 bOverride_LPVDiffuseOcclusionExponent:1;
 
 	UPROPERTY(EditAnywhere, Category=Overrides, meta=(InlineEditConditionToggle))
-	uint32 bOverride_LPVSpecularOcclusionExponent:1;
+	uint8 bOverride_LPVSpecularOcclusionExponent:1;
 
 	UPROPERTY(EditAnywhere, Category=Overrides, meta=(InlineEditConditionToggle))
-	uint32 bOverride_LPVDiffuseOcclusionIntensity:1;
+	uint8 bOverride_LPVDiffuseOcclusionIntensity:1;
 
 	UPROPERTY(EditAnywhere, Category=Overrides, meta=(InlineEditConditionToggle))
-	uint32 bOverride_LPVSpecularOcclusionIntensity:1;
+	uint8 bOverride_LPVSpecularOcclusionIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVSize:1;
+	uint8 bOverride_LPVSize:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVSecondaryOcclusionIntensity:1;
+	uint8 bOverride_LPVSecondaryOcclusionIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVSecondaryBounceIntensity:1;
+	uint8 bOverride_LPVSecondaryBounceIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVGeometryVolumeBias:1;
+	uint8 bOverride_LPVGeometryVolumeBias:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVVplInjectionBias:1;
+	uint8 bOverride_LPVVplInjectionBias:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVEmissiveInjectionIntensity:1;
+	uint8 bOverride_LPVEmissiveInjectionIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVFadeRange : 1;
+	uint8 bOverride_LPVFadeRange : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_LPVDirectionalOcclusionFadeRange : 1;
+	uint8 bOverride_LPVDirectionalOcclusionFadeRange : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_IndirectLightingColor:1;
+	uint8 bOverride_IndirectLightingColor:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_IndirectLightingIntensity:1;
+	uint8 bOverride_IndirectLightingIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGradingIntensity:1;
+	uint8 bOverride_ColorGradingIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ColorGradingLUT:1;
+	uint8 bOverride_ColorGradingLUT:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldFocalDistance:1;
+	uint8 bOverride_DepthOfFieldFocalDistance:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldFstop:1;
+	uint8 bOverride_DepthOfFieldFstop:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldMinFstop : 1;
+	uint8 bOverride_DepthOfFieldMinFstop : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldBladeCount : 1;
+	uint8 bOverride_DepthOfFieldBladeCount : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldSensorWidth:1;
+	uint8 bOverride_DepthOfFieldSensorWidth:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldDepthBlurRadius:1;
+	uint8 bOverride_DepthOfFieldDepthBlurRadius:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldDepthBlurAmount:1;
+	uint8 bOverride_DepthOfFieldDepthBlurAmount:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldFocalRegion:1;
+	uint8 bOverride_DepthOfFieldFocalRegion:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldNearTransitionRegion:1;
+	uint8 bOverride_DepthOfFieldNearTransitionRegion:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldFarTransitionRegion:1;
+	uint8 bOverride_DepthOfFieldFarTransitionRegion:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldScale:1;
+	uint8 bOverride_DepthOfFieldScale:1;
+
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_DepthOfFieldMaxBokehSize:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldMaxBokehSize:1;
+	uint8 bOverride_DepthOfFieldNearBlurSize:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldNearBlurSize:1;
+	uint8 bOverride_DepthOfFieldFarBlurSize:1;
+
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_DepthOfFieldMethod:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldFarBlurSize:1;
+	uint8 bOverride_MobileHQGaussian:1;
+
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_DepthOfFieldBokehShape:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldMethod:1;
+	uint8 bOverride_DepthOfFieldOcclusion:1;
+
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_DepthOfFieldColorThreshold:1;
+
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_DepthOfFieldSizeThreshold:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_MobileHQGaussian:1;
+	uint8 bOverride_DepthOfFieldSkyFocusDistance:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldBokehShape:1;
+	uint8 bOverride_DepthOfFieldVignetteSize:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldOcclusion:1;
+	uint8 bOverride_MotionBlurAmount:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldColorThreshold:1;
+	uint8 bOverride_MotionBlurMax:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldSizeThreshold:1;
+	uint8 bOverride_MotionBlurPerObjectSize:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldSkyFocusDistance:1;
+	uint8 bOverride_ScreenPercentage:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_DepthOfFieldVignetteSize:1;
+	uint8 bOverride_ScreenSpaceReflectionIntensity:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_MotionBlurAmount:1;
+	uint8 bOverride_ScreenSpaceReflectionQuality:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_MotionBlurMax:1;
+	uint8 bOverride_ScreenSpaceReflectionMaxRoughness:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_MotionBlurPerObjectSize:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ScreenPercentage:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ScreenSpaceReflectionIntensity:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ScreenSpaceReflectionQuality:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ScreenSpaceReflectionMaxRoughness:1;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
-	uint32 bOverride_ScreenSpaceReflectionRoughnessScale:1;
+	uint8 bOverride_ScreenSpaceReflectionRoughnessScale:1; // TODO: look useless...
 
 	// -----------------------------------------------------------------------
+
+	/** Enable HQ Gaussian on high end mobile platforms. (ES3_1) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Depth of Field", meta = (editcondition = "bOverride_MobileHQGaussian", DisplayName = "High Quality Gaussian DoF on Mobile"))
+	uint8 bMobileHQGaussian:1;
+
+	/** Bloom algorithm */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Bloom", meta = (editcondition = "bOverride_BloomMethod", DisplayName = "Method"))
+	TEnumAsByte<enum EBloomMethod> BloomMethod;
+
+	/** Luminance computation method */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Exposure", meta=(editcondition = "bOverride_AutoExposureMethod", DisplayName = "Metering Mode"))
+    TEnumAsByte<enum EAutoExposureMethod> AutoExposureMethod;
+
+	/** DEPRECATED: BokehDOF, Simple gaussian, ... Mobile supports Gaussian only. Deferred shading renderer will only support CircleDOF. */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
+	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
 
 	UPROPERTY(interp, BlueprintReadWrite, Category="Color Grading|WhiteBalance", meta=(UIMin = "1500.0", UIMax = "15000.0", editcondition = "bOverride_WhiteTemp", DisplayName = "Temp"))
 	float WhiteTemp;
@@ -1061,8 +1067,6 @@ struct FPostProcessSettings
 	FVector4 ColorGainShadows;
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Color Grading|Shadows", meta = (UIMin = "-1.0", UIMax = "1.0", Delta = "0.001", ColorGradingMode = "offset", ShiftMouseMovePixelPerDelta = "20", SupportDynamicSliderMaxValue = "true", SupportDynamicSliderMinValue = "true", editcondition = "bOverride_ColorOffsetShadows", DisplayName = "Offset"))
 	FVector4 ColorOffsetShadows;
-	UPROPERTY(interp, BlueprintReadWrite, Category = "Color Grading|Shadows", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorCorrectionShadowsMax", DisplayName = "ShadowsMax"))
-	float ColorCorrectionShadowsMax;
 
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Color Grading|Midtones", meta = (UIMin = "0.0", UIMax = "2.0", Delta = "0.01", ColorGradingMode = "saturation", ShiftMouseMovePixelPerDelta = "10", SupportDynamicSliderMaxValue = "true", editcondition = "bOverride_ColorSaturationMidtones", DisplayName = "Saturation"))
 	FVector4 ColorSaturationMidtones;
@@ -1087,6 +1091,9 @@ struct FPostProcessSettings
 	FVector4 ColorOffsetHighlights;
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Color Grading|Highlights", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorCorrectionHighlightsMin", DisplayName = "HighlightsMin"))
 	float ColorCorrectionHighlightsMin;
+
+	UPROPERTY(interp, BlueprintReadWrite, Category = "Color Grading|Shadows", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorCorrectionShadowsMax", DisplayName = "ShadowsMax"))
+	float ColorCorrectionShadowsMax;
 
 	/** Correct for artifacts with "electric" blues due to the ACEScg color space. Bright blue desaturates instead of going to violet. */
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Color Grading|Misc", meta = (ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_BlueCorrection"))
@@ -1144,10 +1151,6 @@ struct FPostProcessSettings
 	/** A normalized distance to the center of the framebuffer where the effect takes place. */
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Chromatic Aberration", meta = (UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_ChromaticAberrationStartOffset", DisplayName = "Start Offset"))
 	float ChromaticAberrationStartOffset;
-
-	/** Bloom algorithm */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Bloom", meta = (editcondition = "bOverride_BloomMethod", DisplayName = "Method"))
-	TEnumAsByte<enum EBloomMethod> BloomMethod;
 
 	/** Multiplier for all bloom contributions >=0: off, 1(default), >1 brighter */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Bloom", meta=(ClampMin = "0.0", UIMax = "8.0", editcondition = "bOverride_BloomIntensity", DisplayName = "Intensity"))
@@ -1228,20 +1231,22 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Bloom", AdvancedDisplay, meta=(editcondition = "bOverride_Bloom6Tint", DisplayName = "#6 Tint", HideAlphaChannel))
 	FLinearColor Bloom6Tint;
 
-	/** Texture to replace default convolution bloom kernel */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Bloom", meta = (editcondition = "bOverride_BloomConvolutionTexture", DisplayName = "Convolution Kernel"))
-	class UTexture2D* BloomConvolutionTexture;
-
 	/** Relative size of the convolution kernel image compared to the minor axis of the viewport  */
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Bloom", AdvancedDisplay, meta = (ClampMin = "0.0", UIMax = "1.0", editcondition = "bOverride_BloomConvolutionSize", DisplayName = "Convolution Scale"))
 	float BloomConvolutionSize;
+
+	/** Texture to replace default convolution bloom kernel */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Bloom", meta = (editcondition = "bOverride_BloomConvolutionTexture", DisplayName = "Convolution Kernel"))
+	class UTexture2D* BloomConvolutionTexture;
 
 	/** The UV location of the center of the kernel.  Should be very close to (.5,.5) */
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Bloom", AdvancedDisplay, meta = (editcondition = "bOverride_BloomConvolutionCenterUV", DisplayName = "Convolution Center"))
 	FVector2D BloomConvolutionCenterUV;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FVector BloomConvolutionPreFilter_DEPRECATED;
+#endif
 	
 	/** Boost intensity of select pixels  prior to computing bloom convolution (Min, Max, Multiplier).  Max < Min disables */
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Bloom", AdvancedDisplay, meta = (editcondition = "bOverride_BloomConvolutionPreFilterMin", DisplayName = "Convolution Boost Min"))
@@ -1312,12 +1317,8 @@ struct FPostProcessSettings
 	 * Logarithmic adjustment for the exposure. Only used if a tonemapper is specified.
 	 * 0: no adjustment, -1:2x darker, -2:4x darker, 1:2x brighter, 2:4x brighter, ...
 	 */
-	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Camera", meta = (UIMin = "-8.0", UIMax = "8.0", editcondition = "bOverride_AutoExposureBias", DisplayName = "Exposure Compensation "))
+	UPROPERTY(interp, BlueprintReadWrite, Category = "Lens|Exposure", meta = (UIMin = "-8.0", UIMax = "8.0", editcondition = "bOverride_AutoExposureBias", DisplayName = "Exposure Compensation "))
 	float AutoExposureBias;
-
-	/** Luminance computation method */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Exposure", meta=(editcondition = "bOverride_AutoExposureMethod", DisplayName = "Metering Mode"))
-    TEnumAsByte<enum EAutoExposureMethod> AutoExposureMethod;
 
 	/**
 	 * The eye adaptation will adapt to a value extracted from the luminance histogram of the scene color.
@@ -1339,22 +1340,19 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "100.0", editcondition = "bOverride_AutoExposureHighPercent", DisplayName = "High Percent"))
 	float AutoExposureHighPercent;
 
+
 	/**
-	 * A good value should be positive near 0. This is the minimum brightness the auto exposure can adapt to.
-	 * It should be tweaked in a dark lighting situation (too small: image appears too bright, too large: image appears too dark).
-	 * Note: Tweaking emissive materials and lights or tweaking auto exposure can look the same. Tweaking auto exposure has global
-	 * effect and defined the HDR range - you don't want to change that late in the project development.
-	 * Eye Adaptation is disabled if MinBrightness = MaxBrightness
+	 * Auto-Exposure minimum adaptation. Eye Adaptation is disabled if Min = Max. 
+	 * Auto-exposure is implemented by choosing an exposure value for which the average luminance generates a pixel brightness equal to the Constant Calibration value.
+	 * The Min/Max are expressed in pixel luminance (cd/m2) or in EV100 when using ExtendDefaultLuminanceRange (see project settings).
 	 */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", meta=(ClampMin = "-10.0", UIMax = "20.0", editcondition = "bOverride_AutoExposureMinBrightness", DisplayName = "Min Brightness"))
 	float AutoExposureMinBrightness;
 
 	/**
-	 * A good value should be positive (2 is a good value). This is the maximum brightness the auto exposure can adapt to.
-	 * It should be tweaked in a bright lighting situation (too small: image appears too bright, too large: image appears too dark).
-	 * Note: Tweaking emissive materials and lights or tweaking auto exposure can look the same. Tweaking auto exposure has global
-	 * effect and defined the HDR range - you don't want to change that late in the project development.
-	 * Eye Adaptation is disabled if MinBrightness = MaxBrightness
+	 * Auto-Exposure maximum adaptation. Eye Adaptation is disabled if Min = Max. 
+	 * Auto-exposure is implemented by choosing an exposure value for which the average luminance generates a pixel brightness equal to the Constant Calibration value.
+	 * The Min/Max are expressed in pixel luminance (cd/m2) or in EV100 when using ExtendDefaultLuminanceRange (see project settings).
 	 */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", meta=(ClampMin = "-10.0", UIMax = "20.0", editcondition = "bOverride_AutoExposureMaxBrightness", DisplayName = "Max Brightness"))
 	float AutoExposureMaxBrightness;
@@ -1367,11 +1365,11 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", meta=(ClampMin = "0.02", UIMax = "20.0", editcondition = "bOverride_AutoExposureSpeedDown", DisplayName = "Speed Down"))
 	float AutoExposureSpeedDown;
 
-	/** temporary exposed until we found good values, -8: 1/256, -10: 1/1024 */
+	/** Histogram Min value. Expressed in Log2(Luminance) or in EV100 when using ExtendDefaultLuminanceRange (see project settings) */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", AdvancedDisplay, meta=(UIMin = "-16", UIMax = "0.0", editcondition = "bOverride_HistogramLogMin"))
 	float HistogramLogMin;
 
-	/** temporary exposed until we found good values 4: 16, 8: 256 */
+	/** Histogram Max value. Expressed in Log2(Luminance) or in EV100 when using ExtendDefaultLuminanceRange (see project settings) */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Exposure", AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "16.0", editcondition = "bOverride_HistogramLogMax"))
 	float HistogramLogMax;
 
@@ -1483,14 +1481,6 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Color Grading|Misc", meta=(editcondition = "bOverride_ColorGradingLUT", DisplayName = "Color Grading LUT"))
 	class UTexture* ColorGradingLUT;
 
-	/** BokehDOF, Simple gaussian, ... Mobile supports Gaussian only. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
-	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
-
-	/** Enable HQ Gaussian on high end mobile platforms. (ES3_1) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Depth of Field", meta = (editcondition = "bOverride_MobileHQGaussian", DisplayName = "High Quality Gaussian DoF on Mobile"))
-	uint32 bMobileHQGaussian : 1;
-
 	/** Width of the camera sensor to assume, in mm. */
 	UPROPERTY(BlueprintReadWrite, Category="Lens|Depth of Field", meta=(ForceUnits=mm, ClampMin = "0.1", UIMin="0.1", UIMax= "1000.0", editcondition = "bOverride_DepthOfFieldSensorWidth", DisplayName = "Sensor Width (mm)"))
 	float DepthOfFieldSensorWidth;
@@ -1525,7 +1515,8 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(ClampMin = "0.0", ClampMax = "2.0", editcondition = "bOverride_DepthOfFieldScale", DisplayName = "Scale"))
 	float DepthOfFieldScale;
 
-	/** BokehDOF only: Maximum size of the Depth of Field blur (in percent of the view width) (note: performance cost scales with size*size) */
+	/** DEPRECATED: BokehDOF only: Maximum size of the Depth of Field blur (in percent of the view width) (note: performance cost scales with size*size) */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(UIMin = "0.0", UIMax = "32.0", editcondition = "bOverride_DepthOfFieldMaxBokehSize", DisplayName = "Max Bokeh Size"))
 	float DepthOfFieldMaxBokehSize;
 
@@ -1537,19 +1528,22 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(UIMin = "0.0", UIMax = "32.0", editcondition = "bOverride_DepthOfFieldFarBlurSize", DisplayName = "Far Blur Size"))
 	float DepthOfFieldFarBlurSize;
 
-	/** Defines the shape of the Bokeh when object get out of focus, cannot be blended */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldBokehShape", DisplayName = "Shape"))
-	class UTexture* DepthOfFieldBokehShape;
-
 	/** Occlusion tweak factor 1 (0.18 to get natural occlusion, 0.4 to solve layer color leaking issues) */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldOcclusion", DisplayName = "Occlusion"))
 	float DepthOfFieldOcclusion;
-	
-	/** Color threshold to do full quality DOF (BokehDOF only) */
+
+	/** DEPRECATED: Defines the shape of the Bokeh when object get out of focus, cannot be blended */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldBokehShape", DisplayName = "Shape"))
+	class UTexture* DepthOfFieldBokehShape;
+
+	/** DEPRECATED: Color threshold to do full quality DOF (BokehDOF only) */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "10.0", editcondition = "bOverride_DepthOfFieldColorThreshold", DisplayName = "Color Threshold"))
 	float DepthOfFieldColorThreshold;
 
-	/** Size threshold to do full quality DOF (BokehDOF only) */
+	/** DEPRECATED: Size threshold to do full quality DOF (BokehDOF only) */
+	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldSizeThreshold", DisplayName = "Size Threshold"))
 	float DepthOfFieldSizeThreshold;
 	
@@ -1663,6 +1657,7 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Rendering Features", meta=( Keywords="PostProcess", DisplayName = "Post Process Materials" ))
 	FWeightedBlendables WeightedBlendables;
 
+#if WITH_EDITORONLY_DATA
 	// for backwards compatibility
 	UPROPERTY()
 	TArray<UObject*> Blendables_DEPRECATED;
@@ -1692,7 +1687,20 @@ struct FPostProcessSettings
 			BloomConvolutionPreFilterMax = BloomConvolutionPreFilter_DEPRECATED.Y;
 			BloomConvolutionPreFilterMult = BloomConvolutionPreFilter_DEPRECATED.Z;
 		}
+
+		/** Actually delete settings related to BokehDOF, and mark the DepthOfFieldMethod to _DEPRECATED. To keep backward compatibility,
+		 * need to have depth of field disabled by default, which means for deferred shading renderer having redicously high aperture.
+		 *
+		 * The plan here is to change the default of DepthOfFieldFstop in FPostProcessSettings's constructor to this MyMagicHightFstopValue.
+		 * And here in this OnAfterLoad() method do:
+		 *
+		 * if (DepthOfFieldFstop == MyMagicHightFstopValue && DepthOfFieldMethod_DEPRECATED == DOFM_CircleDOF)
+		 * {
+		 *		DepthOfFieldFstop = 4.0f;
+		 * }
+		 */
 	}
+#endif
 
 	// Adds an Blendable (implements IBlendableInterface) to the array of Blendables (if it doesn't exist) and update the weight
 	// @param InBlendableObject silently ignores if no object is referenced
@@ -1738,6 +1746,8 @@ struct FPostProcessSettings
 	// good start values for a new volume, by default no value is overriding
 	ENGINE_API FPostProcessSettings();
 
+	ENGINE_API FPostProcessSettings(const FPostProcessSettings&);
+
 	/**
 		* Used to define the values before any override happens.
 		* Should be as neutral as possible.
@@ -1753,7 +1763,10 @@ struct FPostProcessSettings
 
 	// Default number of blade of the diaphragm to simulate in depth of field.
 	static constexpr int32 kDefaultDepthOfFieldBladeCount = 5;
+
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 UCLASS()
 class UScene : public UObject

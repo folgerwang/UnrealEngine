@@ -56,7 +56,7 @@ void InitNullRHI()
 }
 
 #if PLATFORM_WINDOWS
-static void RHIDetectAndWarnOfBadDrivers()
+static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
 {
 	int32 CVarValue = CVarWarnOfBadDrivers.GetValueOnGameThread();
 
@@ -161,6 +161,24 @@ static void RHIDetectAndWarnOfBadDrivers()
 		}
 	}
 }
+#elif PLATFORM_MAC
+static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
+{
+	int32 CVarValue = CVarWarnOfBadDrivers.GetValueOnGameThread();
+
+	if(!GIsRHIInitialized || !CVarValue || GRHIVendorId == 0 || bHasEditorToken)
+	{
+		return;
+	}
+
+	if (FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
+	{
+		// this message can be suppressed with r.WarnOfBadDrivers=0
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Body", "Please update to the latest version of macOS for best performance and stability.").ToString(),
+									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
+	}
+}
 #endif // PLATFORM_WINDOWS
 
 void RHIInit(bool bHasEditorToken)
@@ -207,8 +225,8 @@ void RHIInit(bool bHasEditorToken)
 		check(GDynamicRHI);
 	}
 
-#if PLATFORM_WINDOWS
-	RHIDetectAndWarnOfBadDrivers();
+#if PLATFORM_WINDOWS || PLATFORM_MAC
+	RHIDetectAndWarnOfBadDrivers(bHasEditorToken);
 #endif
 }
 

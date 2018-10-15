@@ -782,7 +782,10 @@ namespace UnrealBuildTool
 
 		protected override bool WriteProjectFiles()
 		{
-			WriteCLionIgnoreDirs();
+			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win64)
+			{
+				WriteCLionIgnoreDirs();
+			}
 			return WriteCMakeLists();
 		}
 

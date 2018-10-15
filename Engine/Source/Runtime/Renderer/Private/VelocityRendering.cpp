@@ -18,6 +18,11 @@
 #include "ScenePrivate.h"
 #include "PostProcess/ScreenSpaceReflections.h"
 #include "UnrealEngine.h"
+#if WITH_EDITOR
+#include "Misc/CoreMisc.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#endif
 
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarBasePassOutputsVelocity(
@@ -107,7 +112,7 @@ public:
 			// or if the material modifies meshes
 			|| Material->MaterialMayModifyMeshPosition()))
 			&& IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) 
-			&& !FVelocityRendering::OutputsOnlyToGBuffer(VertexFactoryType->SupportsStaticLighting());
+			&& !FVelocityRendering::VertexFactoryOnlyOutputsVelocityInBasePass(Platform, VertexFactoryType->SupportsStaticLighting());
 	}
 
 protected:
@@ -221,7 +226,7 @@ public:
 			// or if the material modifies meshes
 			|| Material->MaterialMayModifyMeshPosition()))
 			&& IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && 
-			!FVelocityRendering::OutputsOnlyToGBuffer(VertexFactoryType->SupportsStaticLighting());
+			!FVelocityRendering::VertexFactoryOnlyOutputsVelocityInBasePass(Platform, VertexFactoryType->SupportsStaticLighting());
 	}
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
@@ -502,7 +507,7 @@ void FVelocityDrawingPolicyFactory::AddStaticMesh(FScene* Scene, FStaticMesh* St
 	const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
 
 	// When selective outputs are enable, only primitive with no static lighting output velocity in GBuffer.
-	const bool bVelocityInGBuffer = FVelocityRendering::OutputsToGBuffer() && (!UseSelectiveBasePassOutputs() || !StaticMesh->PrimitiveSceneInfo->Proxy->HasStaticLighting());
+	const bool bVelocityInGBuffer = FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel) && !(UseSelectiveBasePassOutputs() && StaticMesh->PrimitiveSceneInfo->Proxy->HasStaticLighting());
 
 	// Velocity only needs to be directly rendered for movable meshes
 	if (StaticMesh->PrimitiveSceneInfo->Proxy->IsMovable() && !bVelocityInGBuffer)
@@ -561,7 +566,7 @@ bool FVelocityDrawingPolicyFactory::DrawDynamicMesh(
 			FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
 			DrawRenderStateLocal.SetDitheredLODTransitionAlpha(Mesh.DitheredLODTransitionAlpha);
 			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FVelocityDrawingPolicy::ContextDataType(bIsInstancedStereo));
 			for (int32 BatchElementIndex = 0, BatchElementCount = Mesh.Elements.Num(); BatchElementIndex < BatchElementCount; ++BatchElementIndex)
 			{
@@ -612,6 +617,7 @@ bool IsMotionBlurEnabled(const FViewInfo& View)
 		&& View.FinalPostProcessSettings.MotionBlurMax > 0.001f
 		&& View.Family->bRealtimeUpdate
 		&& MotionBlurQuality > 0
+		&& !IsSimpleForwardShadingEnabled(GShaderPlatformForFeatureLevel[View.GetFeatureLevel()])
 		&& (CVarAllowMotionBlurInVR->GetInt() != 0 || !(View.Family->Views.Num() > 1));
 }
 
@@ -807,15 +813,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 				DrawRenderState,
 				VelocityRT);
 
-			if (!View.IsInstancedStereoPass())
-			{
-				Scene->VelocityDrawList.DrawVisibleParallel(View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
-			}
-			else
-			{
-				const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshVelocityMap, Views[1].StaticMeshVelocityMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-				Scene->VelocityDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-			}
+			Scene->VelocityDrawList.DrawVisibleParallel(View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
 			
 			int32 NumPrims = View.DynamicMeshElements.Num();
 			int32 EffectiveThreads = FMath::Min<int32>(FMath::DivideAndRoundUp(NumPrims, ParallelCommandListSet.MinDrawsPerCommandList), ParallelCommandListSet.Width);
@@ -868,15 +866,7 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 			SetVelocitiesState(RHICmdList, View, this, DrawRenderState, VelocityRT);
 
 			// Draw velocities for movable static meshes.
-			if (!View.IsInstancedStereoPass())
-			{
-				Scene->VelocityDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility);
-			}
-			else
-			{
-				const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshVelocityMap, Views[1].StaticMeshVelocityMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-				Scene->VelocityDrawList.DrawVisibleInstancedStereo(RHICmdList, StereoView, DrawRenderState);
-			}
+			Scene->VelocityDrawList.DrawVisible(RHICmdList, View, DrawRenderState, View.StaticMeshVelocityMap, View.StaticMeshBatchVisibility);
 
 			RenderDynamicVelocitiesMeshElementsInner(RHICmdList, View, DrawRenderState, 0, View.DynamicMeshElements.Num() - 1);
 		}
@@ -935,15 +925,8 @@ void FDeferredShadingSceneRenderer::RenderVelocities(FRHICommandListImmediate& R
 	}
 
 	{
-		if (FVelocityRendering::OutputsToGBuffer() && UseSelectiveBasePassOutputs())
-		{
-			// In this case, basepass also outputs some of the velocities, so append is already started, and don't clear the buffer.
-			BeginVelocityRendering(RHICmdList, VelocityRT, false);
-		}
-		else
-		{
-			BeginVelocityRendering(RHICmdList, VelocityRT, true);
-		}
+		// In this case, basepass also outputs some of the velocities, so append is already started, and don't clear the buffer.
+		BeginVelocityRendering(RHICmdList, VelocityRT, !FVelocityRendering::BasePassCanOutputVelocity(FeatureLevel));
 
 		if (IsParallelVelocity())
 		{
@@ -968,15 +951,20 @@ FPooledRenderTargetDesc FVelocityRendering::GetRenderTargetDesc()
 	return FPooledRenderTargetDesc(FPooledRenderTargetDesc::Create2DDesc(VelocityBufferSize, PF_G16R16, FClearValueBinding::Transparent, TexCreate_None, TexCreate_RenderTargetable, false));
 }
 
-bool FVelocityRendering::OutputsToGBuffer()
+bool FVelocityRendering::BasePassCanOutputVelocity(EShaderPlatform ShaderPlatform)
 {
-	return CVarBasePassOutputsVelocity.GetValueOnAnyThread() == 1;
+	return !IsForwardShadingEnabled(ShaderPlatform) && CVarBasePassOutputsVelocity.GetValueOnAnyThread() == 1;
 }
 
-bool FVelocityRendering::OutputsOnlyToGBuffer(bool bSupportsStaticLighting)
+bool FVelocityRendering::BasePassCanOutputVelocity(ERHIFeatureLevel::Type FeatureLevel)
 {
-	// With selective outputs, only primitive that have static lighting are rendered in the velocity pass.
-	// If the vertex factory does not support static lighting, then it must be rendered in the velocity pass.
-	return CVarBasePassOutputsVelocity.GetValueOnAnyThread() == 1 &&
-		   (!UseSelectiveBasePassOutputs() || !bSupportsStaticLighting);
+	EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
+	return BasePassCanOutputVelocity(ShaderPlatform);
+}
+
+
+
+bool FVelocityRendering::VertexFactoryOnlyOutputsVelocityInBasePass(EShaderPlatform ShaderPlatform, bool bVertexFactorySupportsStaticLighting)
+{
+	return BasePassCanOutputVelocity(ShaderPlatform) && !(UseSelectiveBasePassOutputs() && bVertexFactorySupportsStaticLighting);;
 }

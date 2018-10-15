@@ -589,6 +589,8 @@ void FPoseAssetDetails::CachePoseAssetData()
 		 UAnimSequence* AnimSequenceSelected = Cast<UAnimSequence>(ObjectSet);
 		 if (AnimSequenceSelected && AnimSequenceSelected->GetSkeleton() == PoseAsset->GetSkeleton())
 		 {
+			 FScopedTransaction Transaction(LOCTEXT("UpdatePoseSourceAnimation_Transaciton", "Update Pose"));
+			 PoseAsset->Modify();
 			 PoseAsset->UpdatePoseFromAnimation(AnimSequenceSelected);
 
 			 FFormatNamedArguments Args;

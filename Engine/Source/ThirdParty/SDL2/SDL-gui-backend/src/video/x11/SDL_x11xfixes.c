@@ -124,8 +124,8 @@ X11_ConfineCursor(_THIS, SDL_Window * window, const SDL_Rect * rect, int flags)
             /** Negative values are not allowed. Clip values relative to the specified window. */
             x1 = rect->x >= 0 ? rect->x : 0;
             y1 = rect->y >= 0 ? rect->y : 0;
-            x2 = (x1 + rect->w) <= bounds.w ? (x1 + rect->w) : bounds.w; /* Do we have to do this? */
-            y2 = (y1 + rect->h) <= bounds.h ? (y1 + rect->h) : bounds.h; /* Do we have to do this? */
+            x2 = (x1 + rect->w) <= bounds.x + bounds.w ? (x1 + rect->w) : bounds.x + bounds.w; /* Do we have to do this? */
+            y2 = (y1 + rect->h) <= bounds.y + bounds.h ? (y1 + rect->h) : bounds.y + bounds.h; /* Do we have to do this? */
 
             if ((wdata->barrier_rect.x != rect->x) ||
                 (wdata->barrier_rect.y != rect->y) ||
@@ -135,26 +135,26 @@ X11_ConfineCursor(_THIS, SDL_Window * window, const SDL_Rect * rect, int flags)
             }
             /** Create the left barrier */
             wdata->barrier[0] = X11_XFixesCreatePointerBarrier(data->display, wdata->xwindow,
-                                                 x1, 0,
-                                                 x1, bounds.h,
+                                                 x1, bounds.y,
+                                                 x1, bounds.y + bounds.h,
                                                  BarrierPositiveX,
                                                  0, NULL);
             /** Create the right barrier */
             wdata->barrier[1] = X11_XFixesCreatePointerBarrier(data->display, wdata->xwindow,
-                                                 x2, 0,
-                                                 x2, bounds.h,
+                                                 x2, bounds.y,
+                                                 x2, bounds.y + bounds.h,
                                                  BarrierNegativeX,
                                                  0, NULL);
             /** Create the top barrier */
             wdata->barrier[2] = X11_XFixesCreatePointerBarrier(data->display, wdata->xwindow,
-                                                 0, y1,
-                                                 bounds.w, y1,
+                                                 bounds.x, y1,
+                                                 bounds.x + bounds.w, y1,
                                                  BarrierPositiveY,
                                                  0, NULL);
             /** Create the bottom barrier */
             wdata->barrier[3] = X11_XFixesCreatePointerBarrier(data->display, wdata->xwindow,
-                                                 0, y2,
-                                                 bounds.w, y2,
+                                                 bounds.x, y2,
+                                                 bounds.x + bounds.w, y2,
                                                  BarrierNegativeY,
                                                  0, NULL);
             X11_XFlush(data->display);

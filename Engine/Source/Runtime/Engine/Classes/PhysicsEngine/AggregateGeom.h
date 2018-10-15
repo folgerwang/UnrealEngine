@@ -72,9 +72,9 @@ struct ENGINE_API FKAggregateGeom
 		FreeRenderInfo();
 	}
 
-
-
+#if WITH_EDITORONLY_DATA
 	void FixupDeprecated(FArchive& Ar);
+#endif
 
 	void GetAggGeom(const FTransform& Transform, const FColor Color, const FMaterialRenderProxy* MatInst, bool bPerHullColor, bool bDrawSolid, bool bUseEditorDepthTest, int32 ViewIndex, class FMeshElementCollector& Collector) const;
 

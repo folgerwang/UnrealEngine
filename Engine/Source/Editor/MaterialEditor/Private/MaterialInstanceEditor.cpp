@@ -616,7 +616,12 @@ FMaterialInstanceEditor::~FMaterialInstanceEditor()
 		}
 	}
 
-	MaterialEditorInstance = NULL;
+	if (MaterialEditorInstance)
+	{
+		MaterialEditorInstance->MarkPendingKill();
+		MaterialEditorInstance = nullptr;
+	}
+
 	MaterialParentList.Empty();
 	FunctionParentList.Empty();
 

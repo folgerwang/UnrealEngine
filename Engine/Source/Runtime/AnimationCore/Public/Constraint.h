@@ -443,6 +443,7 @@ struct ANIMATIONCORE_API FAimConstraintDescription : public FConstraintDescripti
 		: LookAt_Axis()
 		, LookUp_Axis(FVector::UpVector)
 		, bUseLookUp(false)
+		, LookUpTarget(ForceInitToZero)
 	{
 	}
 
@@ -633,11 +634,11 @@ public:
 		return false;
 	}
 
-	void ApplyConstraintTransform(const FTransform& TargetTransform, const FTransform& TargetParentTransform, const FTransform& CurrentTransform, float Weight, FMultiTransformBlendHelper& BlendHelperInLocalSpace) const
+	void ApplyConstraintTransform(const FTransform& TargetTransform, const FTransform& CurrentTransform, const FTransform& CurrentParentTransform, float Weight, FMultiTransformBlendHelper& BlendHelperInLocalSpace) const
 	{
 		if (ConstraintDescription)
 		{
-			return ConstraintDescription->AccumulateConstraintTransform(TargetTransform, TargetParentTransform, CurrentTransform, Weight, BlendHelperInLocalSpace);
+			return ConstraintDescription->AccumulateConstraintTransform(TargetTransform, CurrentTransform, CurrentParentTransform, Weight, BlendHelperInLocalSpace);
 		}
 	}
 };

@@ -229,11 +229,11 @@ int32 UEditorStaticMeshLibrary::SetLods(UStaticMesh* StaticMesh, const FEditorSc
 	return LODIndex;
 }
 
-int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex)
+int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex, bool bReuseExistingMaterialSlots)
 {
 	TGuardValue<bool> UnattendedScriptGuard( GIsRunningUnattendedScript, true );
 
-	if ( !EditorScriptingUtils::CheckIfInEditorAndPIE( ))
+	if ( !EditorScriptingUtils::CheckIfInEditorAndPIE() )
 	{
 		return -1;
 	}
@@ -278,7 +278,75 @@ int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationSta
 	FRawMesh SourceRawMesh;
 	SourceStaticMesh->SourceModels[ SourceLodIndex ].LoadRawMesh( SourceRawMesh );
 
+	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].BuildSettings = SourceStaticMesh->SourceModels[ SourceLodIndex ].BuildSettings;
 	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].SaveRawMesh( SourceRawMesh );
+
+	// Assign materials for the destination LOD
+	{
+		auto FindMaterialIndex = []( UStaticMesh* StaticMesh, const UMaterialInterface* Material ) -> int32
+		{
+			for ( int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex )
+			{
+				if ( StaticMesh->GetMaterial( MaterialIndex ) == Material )
+				{
+					return MaterialIndex;
+				}
+			}
+
+			return INDEX_NONE;
+		};
+
+		TMap< int32, int32 > LodSectionMaterialMapping; // LOD section index -> destination material index
+
+		int32 NumDestinationMaterial = DestinationStaticMesh->StaticMaterials.Num();
+
+		const int32 SourceLodNumSections = SourceStaticMesh->SectionInfoMap.GetSectionNumber( SourceLodIndex );
+
+		for ( int32 SourceLodSectionIndex = 0; SourceLodSectionIndex < SourceLodNumSections; ++SourceLodSectionIndex )
+		{
+			const FMeshSectionInfo& SourceMeshSectionInfo = SourceStaticMesh->SectionInfoMap.Get( SourceLodIndex, SourceLodSectionIndex );
+
+			const UMaterialInterface* SourceMaterial = SourceStaticMesh->GetMaterial( SourceMeshSectionInfo.MaterialIndex );
+
+			int32 DestinationMaterialIndex = INDEX_NONE;
+			
+			if ( bReuseExistingMaterialSlots )
+			{
+				DestinationMaterialIndex = FindMaterialIndex( DestinationStaticMesh, SourceMaterial );
+			}
+			
+			if ( DestinationMaterialIndex == INDEX_NONE )
+			{
+				DestinationMaterialIndex = NumDestinationMaterial++;
+			}
+			
+			LodSectionMaterialMapping.Add( SourceLodSectionIndex, DestinationMaterialIndex );
+		}
+
+		for ( TMap< int32, int32 >::TConstIterator It = LodSectionMaterialMapping.CreateConstIterator(); It; ++It )
+		{
+			const int32 SectionIndex = It->Key;
+		
+			const FMeshSectionInfo& SourceSectionInfo = SourceStaticMesh->SectionInfoMap.Get( SourceLodIndex, SectionIndex );
+
+			UMaterialInterface* SourceMaterial = SourceStaticMesh->GetMaterial( SourceSectionInfo.MaterialIndex );
+
+			const int32 SourceMaterialIndex = SourceSectionInfo.MaterialIndex;
+			const int32 DestinationMaterialIndex = It->Value;
+
+			if ( !DestinationStaticMesh->StaticMaterials.IsValidIndex( DestinationMaterialIndex ) )
+			{
+				DestinationStaticMesh->StaticMaterials.Add( SourceStaticMesh->StaticMaterials[ SourceSectionInfo.MaterialIndex ] );
+
+				ensure( DestinationStaticMesh->StaticMaterials.Num() == DestinationMaterialIndex + 1 ); // We assume that we are not creating holes in StaticMaterials
+			}
+
+			FMeshSectionInfo DestinationSectionInfo = SourceSectionInfo;
+			DestinationSectionInfo.MaterialIndex = DestinationMaterialIndex;
+
+			DestinationStaticMesh->SectionInfoMap.Set( DestinationLodIndex, SectionIndex, MoveTemp( DestinationSectionInfo ) );
+		}
+	}
 
 	DestinationStaticMesh->PostEditChange();
 
@@ -1030,7 +1098,7 @@ bool UEditorStaticMeshLibrary::RemoveUVChannel(UStaticMesh* StaticMesh, int32 LO
 	return StaticMesh->RemoveUVChannel(LODIndex, UVChannelIndex);
 }
 
-bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector2D& Tiling)
 {
 	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
@@ -1046,13 +1114,15 @@ bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, 
 
 	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 
+	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling );
+
 	TArray<FVector2D> TexCoords;
-	FMeshDescriptionOperations::GeneratePlanarUV(*MeshDescription, UVSettings, TexCoords);
+	FMeshDescriptionOperations::GeneratePlanarUV(*MeshDescription, UVParameters, TexCoords);
 
 	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
 }
 
-bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector2D& Tiling)
 {
 	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
@@ -1068,13 +1138,15 @@ bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticM
 
 	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 
+	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling);
+
 	TArray<FVector2D> TexCoords;
-	FMeshDescriptionOperations::GenerateCylindricalUV(*MeshDescription, UVSettings, TexCoords);
+	FMeshDescriptionOperations::GenerateCylindricalUV(*MeshDescription, UVParameters, TexCoords);
 
 	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
 }
 
-bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector& Size)
 {
 	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
@@ -1090,8 +1162,10 @@ bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int
 
 	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 
+	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), Size, FVector::OneVector, FVector2D::UnitVector);
+
 	TArray<FVector2D> TexCoords;
-	FMeshDescriptionOperations::GenerateBoxUV(*MeshDescription, UVSettings, TexCoords);
+	FMeshDescriptionOperations::GenerateBoxUV(*MeshDescription, UVParameters, TexCoords);
 
 	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
 }

@@ -120,7 +120,6 @@ protected:
 	virtual void OnSelectedNodesChangedImpl(const TSet<class UObject*>& NewSelection) override;
 	virtual void OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled) override;
 	virtual void SetupGraphEditorEvents(UEdGraph* InGraph, SGraphEditor::FGraphEditorEvents& InEvents) override;
-	virtual void PostPasteNode(TSet<UEdGraphNode*>& PastedNodes) override;
 
 	// FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;

@@ -483,7 +483,7 @@ void USceneCaptureComponent2D::OnRegister()
 
 void USceneCaptureComponent2D::SendRenderTransform_Concurrent()
 {	
-	if (bCaptureOnMovement)
+	if (bCaptureOnMovement && !bCaptureEveryFrame)
 	{
 		CaptureSceneDeferred();
 	}
@@ -596,7 +596,9 @@ void USceneCaptureComponent2D::Serialize(FArchive& Ar)
 
 	if (Ar.IsLoading())
 	{
+#if WITH_EDITORONLY_DATA
 		PostProcessSettings.OnAfterLoad();
+#endif
 
 		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MotionBlurAndTAASupportInSceneCapture2d)
 		{
@@ -886,7 +888,7 @@ void USceneCaptureComponentCube::OnRegister()
 
 void USceneCaptureComponentCube::SendRenderTransform_Concurrent()
 {	
-	if (bCaptureOnMovement)
+	if (bCaptureOnMovement && !bCaptureEveryFrame)
 	{
 		CaptureSceneDeferred();
 	}

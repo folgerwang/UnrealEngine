@@ -468,6 +468,9 @@ private:
 
 	/** Returns currently active FBX export options. Automation or UI diaog based options. */
 	UFbxExportOption* GetExportOptions();
+
+	/** Exports all the object's FBX metadata to the FBX node */
+	void ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node);
 };
 
 

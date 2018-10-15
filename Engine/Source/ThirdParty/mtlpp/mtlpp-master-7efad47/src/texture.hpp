@@ -55,7 +55,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 9_0);
 
 
-    class TextureDescriptor : public ns::Object<MTLTextureDescriptor*>
+    class MTLPP_EXPORT TextureDescriptor : public ns::Object<MTLTextureDescriptor*>
     {
     public:
         TextureDescriptor();
@@ -96,7 +96,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class Texture : public Resource
+    class MTLPP_EXPORT Texture : public Resource
     {
     public:
 		Texture(ns::Ownership const retain = ns::Ownership::Retain) : Resource(retain) { }
@@ -160,7 +160,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedTexture : public ns::AutoReleased<Texture>
+	class MTLPP_EXPORT ValidatedTexture : public ns::AutoReleased<Texture>
 	{
 		ResourceValidationTable Validator;
 		

@@ -6102,7 +6102,10 @@ namespace FramePro
 
 		p_framepro_tls->SendFrameStartPacket(0);
 
-		g_ConditionalScopeMinTime = (unsigned int)((((int64)FRAMEPRO_DEFAULT_COND_SCOPE_MIN_TIME) * m_ClockFrequency) / 1000000LL);
+		if (g_ConditionalScopeMinTime == UINT_MAX)
+		{
+			g_ConditionalScopeMinTime = (unsigned int)((((int64)FRAMEPRO_DEFAULT_COND_SCOPE_MIN_TIME) * m_ClockFrequency) / 1000000LL);
+		}
 
 		// Do this (almost) last. Threads will start sending data once this is set. This atomic flag also publishes all the above data.
 		std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -6288,6 +6291,7 @@ namespace FramePro
 	{
 #if FRAMEPRO_SOCKETS_ENABLED
 		CriticalSectionScope lock(m_SendFrameBufferCriticalSection);
+		CriticalSectionScope lock2(m_CriticalSection);
 
 		FRAMEPRO_ASSERT(!m_Interactive);
 
@@ -6334,6 +6338,8 @@ namespace FramePro
 	//------------------------------------------------------------------------
 	void FrameProSession::HandleDisconnect_NoLock()
 	{
+		FRAMEPRO_ASSERT(m_CriticalSection.Locked());
+
 #if FRAMEPRO_EVENT_TRACE_WIN32
 		if(mp_EventTraceWin32)
 			mp_EventTraceWin32->Stop();
@@ -6374,7 +6380,6 @@ namespace FramePro
 		m_InitialiseConnectionNextFrame = false;
 
         {
-            CriticalSectionScope lock2(m_CriticalSection);
             if(mp_RecordingFile)
             {
                 // START EPIC

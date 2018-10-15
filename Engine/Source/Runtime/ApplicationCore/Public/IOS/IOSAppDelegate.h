@@ -9,13 +9,39 @@
 #include "Logging/LogMacros.h"
 #include "Containers/UnrealString.h"
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+#import <UserNotifications/UserNotifications.h>
+#endif
+
+#define USE_MUTE_SWITCH_DETECTION 0
+
+// Predicate to decide whether a push notification message should be processed
+DECLARE_DELEGATE_RetVal_OneParam(bool, FPushNotificationFilter, NSDictionary*);
+
 class APPLICATIONCORE_API FIOSCoreDelegates
 {
 public:
 	// Broadcast when this application is opened from an external source.
 	DECLARE_MULTICAST_DELEGATE_FourParams(FOnOpenURL, UIApplication*, NSURL*, NSString*, id);
 	static FOnOpenURL OnOpenURL;
-	
+
+	/** Add a filter to decide whether each push notification should be processed */
+	static FDelegateHandle AddPushNotificationFilter(const FPushNotificationFilter& FilterDel);
+
+	/** Remove a previously processed push notification filter */
+	static void RemovePushNotificationFilter(FDelegateHandle Handle);
+
+	/** INTERNAL - check if a push notification payload passes all registered filters */
+	static bool PassesPushNotificationFilters(NSDictionary* Payload);
+
+private:
+	struct FFilterDelegateAndHandle
+	{
+		FPushNotificationFilter Filter;
+		FDelegateHandle Handle;
+	};
+
+	static TArray<FFilterDelegateAndHandle> PushNotificationFilters;
 };
 
 @class FIOSView;
@@ -33,8 +59,8 @@ namespace FAppEntry
 	void Tick();
     void SuspendTick();
 	void Shutdown();
-    void Suspend();
-    void Resume();
+    void Suspend(bool bIsInterrupt = false);
+    void Resume(bool bIsInterrupt = false);
 	bool IsStartupMoviePlaying();
 
 	extern bool	gAppLaunchedWithLocalNotification;
@@ -47,6 +73,9 @@ namespace FAppEntry
 	UIGestureRecognizerDelegate,
 #endif
 	GKGameCenterControllerDelegate,
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+	UNUserNotificationCenterDelegate,
+#endif
 UITextFieldDelegate>
 
 /** Window object */
@@ -109,11 +138,16 @@ UITextFieldDelegate>
 /** initial launch options */
 @property(retain) NSDictionary* launchOptions;
 
+@property (assign) NSProcessInfoThermalState ThermalState;
+@property (assign) bool bBatteryState;
+@property (assign) int BatteryLevel;
+
 /**
  * @return the single app delegate object
  */
 + (IOSAppDelegate*)GetDelegate;
 
+-(bool)IsIdleTimerEnabled;
 -(void)EnableIdleTimer:(bool)bEnable;
 
 -(void) ParseCommandLineOverrides;
@@ -122,10 +156,20 @@ UITextFieldDelegate>
 -(bool)AreHeadphonesPluggedIn;
 -(int)GetBatteryLevel;
 -(bool)IsRunningOnBattery;
+-(NSProcessInfoThermalState)GetThermalState;
 
 /** TRUE if the device is playing background music and we want to allow that */
 @property (assign) bool bUsingBackgroundMusic;
 @property (assign) bool bLastOtherAudioPlaying;
+@property (assign) bool bForceEmitOtherAudioPlaying;
+
+#if USE_MUTE_SWITCH_DETECTION
+@property (assign) bool bLastMutedState;
+@property (assign) bool bForceEmitMutedState;
+#endif
+
+@property (assign) float LastVolume;
+@property (assign) bool bForceEmitVolume;
 
 - (void)InitializeAudioSession;
 - (void)ToggleAudioSession:(bool)bActive force:(bool)bForce;

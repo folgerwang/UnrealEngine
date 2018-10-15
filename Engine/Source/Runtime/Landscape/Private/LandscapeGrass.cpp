@@ -462,7 +462,7 @@ public:
 
 				const int32 ShaderPass = (PassIdx >= FirstHeightMipsPassIndex) ? 0 : PassIdx;
 				DrawingPolicy.SetupPipelineState(DrawRenderState, *View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View->GetFeatureLevel()));
+				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View->GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, View, FLandscapeGrassWeightDrawingPolicy::ContextDataType(), ShaderPass, ComponentInfo.ViewOffset + FVector2D(PassOffsetX * PassIdx, 0));
 
 				// The first batch element contains the grass batch for the entire component
@@ -818,8 +818,11 @@ bool ULandscapeComponent::CanRenderGrassMap() const
 		return false;
 	}
 
+	UMaterialInstance* MaterialInstance = GetMaterialInstanceCount(false) > 0 ? GetMaterialInstance(0) : nullptr;
+	FMaterialResource* MaterialResource = MaterialInstance != nullptr ? MaterialInstance->GetMaterialResource(ComponentWorld->FeatureLevel) : nullptr;
+
 	// Check we can render the material
-	if (!GetMaterialInstance(0)->GetMaterialResource(ComponentWorld->FeatureLevel)->HasValidGameThreadShaderMap())
+	if (MaterialResource == nullptr || !MaterialResource->HasValidGameThreadShaderMap())
 	{
 		return false;
 	}
@@ -955,10 +958,6 @@ void ALandscapeProxy::RenderGrassMaps(const TArray<ULandscapeComponent*>& InLand
 	Exporter.ApplyResults();
 }
 
-void ALandscapeProxy::OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel)
-{
-	FlushGrassComponents();
-}
 #endif //WITH_EDITOR
 
 // the purpose of this class is to copy the lightmap from the terrain, and set the CoordinateScale and CoordinateBias to zero.

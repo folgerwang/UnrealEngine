@@ -822,6 +822,8 @@ void FPixelShaderInOut_MainPS(
 	#if PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK
 		DBufferMask = DecodeRTWriteMaskTexture(In.SvPosition.xy, OpaqueBasePass.DBufferRenderMask);
 		BRANCH
+	#elif PLATFORM_SUPPORTS_PER_PIXEL_DBUFFER_MASK
+		DBufferMask = GetDBufferMask(In.SvPosition.xy, OpaqueBasePass.DBufferRenderMask);
 	#endif
 		if(DBufferMask)
 		{

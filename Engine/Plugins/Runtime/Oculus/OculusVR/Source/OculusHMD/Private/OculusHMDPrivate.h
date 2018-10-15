@@ -116,25 +116,6 @@ namespace OculusHMD
 		return ovrpRecti { { rect.Min.X, rect.Min.Y }, { rect.Size().X, rect.Size().Y } };
 	}
 
-	FORCEINLINE int32 ViewIndexFromStereoPass(const EStereoscopicPass StereoPassType) {
-		switch (StereoPassType)
-		{
-		case eSSP_LEFT_EYE:
-		case eSSP_FULL:
-			return 0;
-
-		case eSSP_RIGHT_EYE:
-			return 1;
-
-		case eSSP_MONOSCOPIC_EYE:
-			return 2;
-
-		default:
-			check(0);
-			return -1;
-		}
-	}
-
 	/** Helper that converts ovrTrackedDeviceType to ETrackedDeviceType */
 	FORCEINLINE ETrackedDeviceType ToETrackedDeviceType(ovrpNode Source)
 	{

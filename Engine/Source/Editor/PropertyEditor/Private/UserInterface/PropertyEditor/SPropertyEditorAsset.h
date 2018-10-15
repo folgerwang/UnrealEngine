@@ -333,7 +333,10 @@ private:
 	UClass* ObjectClass;
 
 	/** Classes that can be used with this property */
-	TArray<const UClass*> CustomClassFilters;
+	TArray<const UClass*> AllowedClassFilters;
+
+	/** Classes that can NOT be used with this property */
+	TArray<const UClass*> DisallowedClassFilters;
 
 	/** A list of the factories we can use to create new assets */
 	TArray<UFactory*> NewAssetFactories;

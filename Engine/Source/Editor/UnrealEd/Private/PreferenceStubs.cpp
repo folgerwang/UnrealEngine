@@ -76,6 +76,22 @@ UCurveEdOptions::UCurveEdOptions(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+void FViewportConfigOptions::SetToDefault()
+{
+	ViewModeIndex = VMI_Lit;
+	ViewFOV = 53.43f;
+	CameraFollowMode = EAnimationViewportCameraFollowMode::None;
+	CameraFollowBoneName = NAME_None;
+}
+
+void FAssetEditorOptions::SetViewportConfigsToDefault()
+{
+	for (FViewportConfigOptions& ViewportConfig : ViewportConfigs)
+	{
+		ViewportConfig.SetToDefault();
+	}
+}
+
 UPersonaOptions::UPersonaOptions(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, DefaultLocalAxesSelection(2)
@@ -90,13 +106,7 @@ UPersonaOptions::UPersonaOptions(const FObjectInitializer& ObjectInitializer)
 
 	for(FAssetEditorOptions& EditorOptions : AssetEditorOptions)
 	{
-		for(FViewportConfigOptions& ViewportConfig : EditorOptions.ViewportConfigs)
-		{
-			ViewportConfig.ViewModeIndex = VMI_Lit;
-			ViewportConfig.ViewFOV = 53.43f;
-			ViewportConfig.CameraFollowMode = EAnimationViewportCameraFollowMode::None;
-			ViewportConfig.CameraFollowBoneName = NAME_None;
-		}
+		EditorOptions.SetViewportConfigsToDefault();
 	}
 
 	SectionTimingNodeColor = FLinearColor(0.0f, 1.0f, 0.0f);

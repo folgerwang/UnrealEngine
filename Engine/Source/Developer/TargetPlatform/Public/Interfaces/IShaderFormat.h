@@ -86,6 +86,7 @@ public:
 	* @returns Name of directory with platform specific shaders.
 	*/
 	virtual const TCHAR* GetPlatformIncludeDirectory() const = 0;
+	
 
 	/**
 	 * Called before a shader is compiled to allow the platform shader format to modify the shader compiler input,

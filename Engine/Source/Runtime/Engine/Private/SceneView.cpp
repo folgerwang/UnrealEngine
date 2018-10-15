@@ -146,6 +146,15 @@ static TAutoConsoleVariable<int32> CVarDefaultAutoExposureMethod(
 	TEXT(" 0: Histogram based (requires compute shader, default)\n")
 	TEXT(" 1: Basic AutoExposure"));
 
+static TAutoConsoleVariable<int32> CVarDefaultAutoExposureExtendDefaultLuminanceRange(
+	TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"),
+	0,
+	TEXT("Whether the default values for AutoExposure should support an extended range of scene luminance.\n")
+	TEXT("This also change the PostProcessSettings.Exposure.MinBrightness, MaxBrightness, HistogramLogMin and HisogramLogMax\n")
+	TEXT("to be expressed in EV100 values instead of in Luminance and Log2 Luminance.\n")
+	TEXT(" 0: Legacy range (default)\n")
+	TEXT(" 1: Extended range"));
+
 static TAutoConsoleVariable<int32> CVarDefaultMotionBlur(
 	TEXT("r.DefaultFeature.MotionBlur"),
 	1,
@@ -577,10 +586,10 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, UnconstrainedViewRect(InitOptions.GetViewRect())
 	, MaxShadowCascades(10)
 	, ViewMatrices(InitOptions)
-	, ViewLocation(EForceInit::ForceInitToZero)
-	, ViewRotation(EForceInit::ForceInitToZero)
+	, ViewLocation(ForceInitToZero)
+	, ViewRotation(ForceInitToZero)
 	, BaseHmdOrientation(EForceInit::ForceInit)
-	, BaseHmdLocation(EForceInit::ForceInitToZero)
+	, BaseHmdLocation(ForceInitToZero)
 	, WorldToMetersScale(InitOptions.WorldToMetersScale)
 	, ShadowViewMatrices(InitOptions)
 	, ProjectionMatrixUnadjustedForRHI(InitOptions.ProjectionMatrix)
@@ -660,7 +669,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	// OpenGL Gamma space output in GLSL flips Y when rendering directly to the back buffer (so not needed on PC, as we never render directly into the back buffer)
 	auto ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
 	bool bUsingMobileRenderer = FSceneInterface::GetShadingPath(FeatureLevel) == EShadingPath::Mobile;
-	bool bPlatformRequiresReverseCulling = (IsOpenGLPlatform(ShaderPlatform) && bUsingMobileRenderer && !IsPCPlatform(ShaderPlatform) && !IsVulkanMobilePlatform(ShaderPlatform));
+	bool bPlatformRequiresReverseCulling = ((IsOpenGLPlatform(ShaderPlatform) || IsSwitchPlatform(ShaderPlatform)) && bUsingMobileRenderer && !IsPCPlatform(ShaderPlatform) && !IsVulkanMobilePlatform(ShaderPlatform));
 	static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
 	check(MobileHDRCvar);
 	bReverseCulling = (bPlatformRequiresReverseCulling && MobileHDRCvar->GetValueOnAnyThread() == 0) ? !bReverseCulling : bReverseCulling;
@@ -761,7 +770,9 @@ void FSceneView::SetupAntiAliasingMethod()
 	{
 		static IConsoleVariable* CVarMSAACount = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MSAACount"));
 
-		if (AntiAliasingMethod == AAM_MSAA && IsForwardShadingEnabled(FeatureLevel) && CVarMSAACount->GetInt() <= 0)
+		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
+
+		if (AntiAliasingMethod == AAM_MSAA && IsForwardShadingEnabled(ShaderPlatform) && CVarMSAACount->GetInt() <= 0)
 		{
 			// Fallback to temporal AA so we can easily toggle methods with r.MSAACount
 			AntiAliasingMethod = AAM_TemporalAA;
@@ -770,7 +781,7 @@ void FSceneView::SetupAntiAliasingMethod()
 		static const auto PostProcessAAQualityCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessAAQuality"));
 		static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
 		static auto* MobileMSAACvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-		static uint32 MobileMSAAValue = GShaderPlatformForFeatureLevel[FeatureLevel] == SP_OPENGL_ES2_IOS ? 1 : MobileMSAACvar->GetValueOnAnyThread();
+		static uint32 MobileMSAAValue = ShaderPlatform == SP_OPENGL_ES2_IOS ? 1 : MobileMSAACvar->GetValueOnAnyThread();
 
 		int32 Quality = FMath::Clamp(PostProcessAAQualityCVar->GetValueOnAnyThread(), 0, 6);
 		const bool bWillApplyTemporalAA = Family->EngineShowFlags.PostProcessing || bIsPlanarReflection;
@@ -1288,7 +1299,6 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(BloomDirtMaskTint);
 		LERP_PP(BloomConvolutionSize);
 		LERP_PP(BloomConvolutionCenterUV);
-		LERP_PP(BloomConvolutionPreFilter_DEPRECATED);
 		LERP_PP(BloomConvolutionPreFilterMin);
 		LERP_PP(BloomConvolutionPreFilterMax);
 		LERP_PP(BloomConvolutionPreFilterMult);
@@ -1337,12 +1347,16 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(DepthOfFieldNearTransitionRegion);
 		LERP_PP(DepthOfFieldFarTransitionRegion);
 		LERP_PP(DepthOfFieldScale);
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldMaxBokehSize);
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldNearBlurSize);
 		LERP_PP(DepthOfFieldFarBlurSize);
 		LERP_PP(DepthOfFieldOcclusion);
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldColorThreshold);
 		LERP_PP(DepthOfFieldSizeThreshold);
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldSkyFocusDistance);
 		LERP_PP(DepthOfFieldVignetteSize);
 		LERP_PP(MotionBlurAmount);
@@ -1403,11 +1417,13 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			Dest.BloomConvolutionBufferScale = Src.BloomConvolutionBufferScale;
 		}
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		// actual texture cannot be blended but the intensity can be blended
 		IF_PP(DepthOfFieldBokehShape)
 		{
 			Dest.DepthOfFieldBokehShape = Src.DepthOfFieldBokehShape;
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		// actual texture cannot be blended but the intensity can be blended
 		IF_PP(LensFlareBokehShape)
@@ -1423,10 +1439,12 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			}
 		}
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if (Src.bOverride_DepthOfFieldMethod)
 		{
 			Dest.DepthOfFieldMethod = Src.DepthOfFieldMethod;
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if (Src.bOverride_MobileHQGaussian)
 		{
@@ -1789,12 +1807,14 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	}
 #endif
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if(FinalPostProcessSettings.DepthOfFieldMethod == DOFM_CircleDOF)
 	{
 		// We intentionally don't do the DepthOfFieldFocalRegion as it breaks realism.
 		// Doing this fixes DOF material expression.
 		FinalPostProcessSettings.DepthOfFieldFocalRegion = 0;
 	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	{
 		const bool bStereoEnabled = StereoPass != eSSP_FULL;
@@ -2087,6 +2107,7 @@ void FSceneView::SetupCommonViewUniformBufferParameters(
 	const FViewMatrices& InViewMatrices,
 	const FViewMatrices& InPrevViewMatrices) const
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_SetupCommonViewUniformBufferParameters);
 	FVector4 LocalDiffuseOverrideParameter = DiffuseOverrideParameter;
 	FVector2D LocalRoughnessOverrideParameter = RoughnessOverrideParameter;
 

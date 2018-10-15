@@ -608,12 +608,12 @@ private:
 		const UMaterialInterface* Material;
 	};
 
-	FMaterialRelevance MaterialRelevance;
 	FStaticMeshVertexBuffers VertexBuffers;
 	FDynamicMeshIndexBuffer16 IndexBuffer;
 	FLocalVertexFactory VertexFactory;
 	TArray<FTextBatch> TextBatches;
 	const FColor TextRenderColor;
+	FMaterialRelevance MaterialRelevance;
 	UMaterialInterface* TextMaterial;
 	UFont* Font;
 	FTextRenderComponentMIDCache::FMIDDataPtr FontMIDs;
@@ -622,8 +622,8 @@ private:
 	float YScale;
 	float HorizSpacingAdjust;
 	float VertSpacingAdjust;
-	EHorizTextAligment HorizontalAlignment;
-	EVerticalTextAligment VerticalAlignment;
+	TEnumAsByte<EHorizTextAligment> HorizontalAlignment;
+	TEnumAsByte<EVerticalTextAligment> VerticalAlignment;
 	bool bAlwaysRenderAsText;
 };
 
@@ -693,7 +693,7 @@ void FTextRenderSceneProxy::CreateRenderThreadResources()
 	{
 		VertexBuffers.InitFromDynamicVertex(&VertexFactory, OutVertices);
 		// Enqueue initialization of render resources
-		IndexBuffer.InitResource();
+		BeginInitResource(&IndexBuffer);
 	}
 }
 

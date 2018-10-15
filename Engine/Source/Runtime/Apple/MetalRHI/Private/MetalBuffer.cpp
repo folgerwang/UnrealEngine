@@ -155,6 +155,7 @@ FMetalSubBufferHeap::FMetalSubBufferHeap(NSUInteger Size, NSUInteger Alignment, 
 		Desc.SetSize(FullSize);
 		Desc.SetStorageMode(Storage);
 		ParentHeap = GetMetalDeviceContext().GetDevice().NewHeap(Desc);
+		check(ParentHeap.GetPtr());
 #if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
 		MetalLLM::LogAllocHeap(GetMetalDeviceContext().GetDevice(), ParentHeap);
 #endif
@@ -162,7 +163,8 @@ FMetalSubBufferHeap::FMetalSubBufferHeap(NSUInteger Size, NSUInteger Alignment, 
 	else
 	{
 		ParentBuffer = MTLPP_VALIDATE(mtlpp::Device, GetMetalDeviceContext().GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(FullSize, Options));
-		check(ParentBuffer.GetPtr() && ParentBuffer.GetLength() >= FullSize);
+		check(ParentBuffer.GetPtr());
+		check(ParentBuffer.GetLength() >= FullSize);
 #if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
 		MetalLLM::LogAllocBuffer(GetMetalDeviceContext().GetDevice(), ParentBuffer);
 #endif
@@ -451,7 +453,8 @@ FMetalSubBufferLinear::FMetalSubBufferLinear(NSUInteger Size, NSUInteger Alignme
 	
 	mtlpp::StorageMode Storage = (mtlpp::StorageMode)((Options & mtlpp::ResourceStorageModeMask) >> mtlpp::ResourceStorageModeShift);
 	ParentBuffer = MTLPP_VALIDATE(mtlpp::Device, GetMetalDeviceContext().GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(FullSize, Options));
-	check(ParentBuffer.GetPtr() && ParentBuffer.GetLength() >= FullSize);
+	check(ParentBuffer.GetPtr());
+	check(ParentBuffer.GetLength() >= FullSize);
 #if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
 	MetalLLM::LogAllocBuffer(GetMetalDeviceContext().GetDevice(), ParentBuffer);
 #endif
@@ -586,6 +589,7 @@ FMetalSubBufferMagazine::FMetalSubBufferMagazine(NSUInteger Size, NSUInteger Chu
 		Desc.SetSize(FullSize);
 		Desc.SetStorageMode(Storage);
 		ParentHeap = GetMetalDeviceContext().GetDevice().NewHeap(Desc);
+		check(ParentHeap.GetPtr());
 #if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
 		MetalLLM::LogAllocHeap(GetMetalDeviceContext().GetDevice(), ParentHeap);
 #endif
@@ -593,7 +597,8 @@ FMetalSubBufferMagazine::FMetalSubBufferMagazine(NSUInteger Size, NSUInteger Chu
 	else
 	{
 		ParentBuffer = MTLPP_VALIDATE(mtlpp::Device, GetMetalDeviceContext().GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(FullSize, Options));
-		check(ParentBuffer.GetPtr() && ParentBuffer.GetLength() >= FullSize);
+		check(ParentBuffer.GetPtr());
+		check(ParentBuffer.GetLength() >= FullSize);
 #if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
 		MetalLLM::LogAllocBuffer(GetMetalDeviceContext().GetDevice(), ParentBuffer);
 #endif
@@ -1274,27 +1279,27 @@ FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtl
 				FScopeLock Lock(&Mutex);
 
 				// Disabled Managed sub-allocation as it seems inexplicably slow on the GPU				
-//				if (!bForceUnique && BlockSize <= HeapSizes[NumHeapSizes - 1])
-//				{
-//					FMetalSubBufferLinear* Found = nullptr;
-//					for (FMetalSubBufferLinear* Heap : ManagedSubHeaps)
-//					{
-//						if (Heap->CanAllocateSize(BlockSize))
-//						{
-//							Found = Heap;
-//							break;
-//						}
-//					}
-//					if (!Found)
-//					{
-//						Found = new FMetalSubBufferLinear(HeapAllocSizes[NumHeapSizes - 1], BufferOffsetAlignment, mtlpp::ResourceOptions((NSUInteger)Options & (mtlpp::ResourceStorageModeMask)), Mutex);
-//						ManagedSubHeaps.Add(Found);
-//					}
-//					check(Found);
-//					
-//					return Found->NewBuffer(BlockSize);
-//				}
-//				else
+				if (!bForceUnique && BlockSize <= HeapSizes[NumHeapSizes - 1])
+				{
+					FMetalSubBufferLinear* Found = nullptr;
+					for (FMetalSubBufferLinear* Heap : ManagedSubHeaps)
+					{
+						if (Heap->CanAllocateSize(BlockSize))
+						{
+							Found = Heap;
+							break;
+						}
+					}
+					if (!Found)
+					{
+						Found = new FMetalSubBufferLinear(HeapAllocSizes[NumHeapSizes - 1], BufferOffsetAlignment, mtlpp::ResourceOptions((NSUInteger)Options & (mtlpp::ResourceStorageModeMask)), Mutex);
+						ManagedSubHeaps.Add(Found);
+					}
+					check(Found);
+					
+					return Found->NewBuffer(BlockSize);
+				}
+				else
 				{
 					Buffer = ManagedBuffers.CreatePooledResource(FMetalPooledBufferArgs(Queue->GetDevice(), BlockSize, StorageMode));
 					DEC_MEMORY_STAT_BY(STAT_MetalBufferUnusedMemory, Buffer.GetLength());

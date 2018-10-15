@@ -20,6 +20,7 @@
 #include "Templates/IsEnum.h"
 #include "Misc/Optional.h"
 #include "Misc/EnumClassFlags.h"
+#include "Misc/ScopeRWLock.h"
 
 struct FCustomPropertyListNode;
 struct FFrame;
@@ -1769,10 +1770,11 @@ public:
 	 * 
 	 * @param	Key			the metadata tag to find the value for
 	 * @param	NameIndex	if specified, will search the metadata linked for that enum value; otherwise, searches the metadata for the enum itself
+	 * @param	bAllowRemap	if true, the returned value may be remapped from a .ini if the value starts with ini: Pass false when you need the exact string, including any ini:
 	 *
 	 * @return	the value for the key specified, or an empty string if the key wasn't found or had no value.
 	 */
-	const FString& GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
+	FString GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE, bool bAllowRemap=true ) const;
 
 	/**
 	 * Set the metadata value associated with the specified key.
@@ -2222,6 +2224,9 @@ private:
 	/** A cache of all functions by name that exist in a parent (superclass or interface) context */
 	mutable TMap<FName, UFunction*> SuperFuncMap;
 
+	/** Scope lock to avoid the SuperFuncMap being read and written to simultaneously on multiple threads. */
+	mutable FRWLock SuperFuncMapLock;
+
 public:
 	/**
 	 * The list of interfaces which this class implements, along with the pointer property that is located at the offset of the interface's vtable.
@@ -2669,20 +2674,11 @@ public:
 	virtual UObject* GetArchetypeForCDO() const;
 
 	/**
-	 * On save, we order a package's exports in class dependency order (so that
-	 * on load, we create the class dependencies before we create the class).  
-	 * More often than not, the class doesn't require any non-struct objects 
-	 * before it is created/serialized (only super-classes, and its UField 
-	 * members, see FExportReferenceSorter::operator<<() for reference). 
-	 * However, in some special occasions, there might be an export that we 
-	 * would like force loaded prior to the class's serialization (like  
-	 * component templates for blueprint classes). This function returns a list
-	 * of those non-struct dependencies, so that FExportReferenceSorter knows to 
-	 * prioritize them earlier in the ExportMap.
-	 * 
-	 * @param  DependenciesOut	Will be filled with a list of dependencies that need to be created before this class is recreated (on load).
-	 */
-	virtual void GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut) {}
+	* Returns all objects that should be preloaded before the class default object is serialized at load time. Only used by the EDL.
+	*
+	* @param OutDeps		All objects that should be preloaded before the class default object is serialized at load time.
+	*/
+	virtual void GetDefaultObjectPreloadDependencies(TArray<UObject*>& OutDeps) {}
 
 	/**
 	 * Initializes the ClassReps and NetFields arrays used by replication.
@@ -3126,6 +3122,11 @@ struct FStructUtils
 
 	/** Locates a named structure in the package with the given name. Not expected to fail */
 	COREUOBJECT_API static UStruct* FindStructureInPackageChecked(const TCHAR* StructName, const TCHAR* PackageName);
+
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+	/** Looks for uninitialized script struct pointers. Returns the number found */
+	COREUOBJECT_API static int32 AttemptToFindUninitializedScriptStructMembers();
+#endif
 };
 
 /*-----------------------------------------------------------------------------

@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<MTLComputePipelineDescriptor*, void> : public IMPTableBase<MTLComputePipelineDescriptor*>
+struct MTLPP_EXPORT IMPTable<MTLComputePipelineDescriptor*, void> : public IMPTableBase<MTLComputePipelineDescriptor*>
 {
 	IMPTable()
 	{
@@ -54,7 +54,7 @@ struct IMPTable<MTLComputePipelineDescriptor*, void> : public IMPTableBase<MTLCo
 };
 
 template<>
-struct IMPTable<id<MTLComputePipelineState>, void> : public IMPTableState<id<MTLComputePipelineState>>
+struct MTLPP_EXPORT IMPTable<id<MTLComputePipelineState>, void> : public IMPTableState<id<MTLComputePipelineState>>
 {
 	IMPTable()
 	{

@@ -155,7 +155,7 @@ struct COREUOBJECT_API FSoftObjectPath
 	void SerializePath(FArchive& Ar);
 
 	/** Fixes up string asset reference for saving, call if saving with a method that skips SerializePath. This can modify the path, it will return true if it was modified */
-	bool PreSavePath();
+	bool PreSavePath(bool* bReportSoftObjectPathRedirects = nullptr);
 
 	/** Handles when a string asset reference has been loaded, call if loading with a method that skips SerializePath. This does not modify path but might call callbacks */
 	void PostLoadPath() const;
@@ -322,8 +322,9 @@ public:
 	 * @param OutPackageName Package that this string asset belongs to
 	 * @param OutPropertyName Property that this string asset reference belongs to
 	 * @param OutCollectType Type of collecting that should be done
+	 * @param Archive The FArchive that is serializing this path if known. If null it will check FUObjectThreadContext
 	 */
-	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType) const;
+	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType, FArchive* Archive = nullptr) const;
 };
 
 /** Helper class to set and restore serialization options for string asset references */

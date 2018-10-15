@@ -19,6 +19,7 @@ struct APPLICATIONCORE_API FLinuxPlatformApplicationMisc : public FGenericPlatfo
 	static class GenericApplication* CreateApplication();
 	static bool IsThisApplicationForeground();
 	static void PumpMessages(bool bFromMainLoop);
+	static bool IsScreensaverEnabled();
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static float GetDPIScaleFactorAtPoint(float X, float Y);
 	static void ClipboardCopy(const TCHAR* Str);

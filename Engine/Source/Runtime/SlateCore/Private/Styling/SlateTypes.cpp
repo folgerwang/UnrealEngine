@@ -70,6 +70,7 @@ FTextBlockStyle::FTextBlockStyle()
 , ShadowOffset(FVector2D::ZeroVector)
 , ShadowColorAndOpacity(FLinearColor::Black)
 , SelectedBackgroundColor(FSlateColor::UseForeground())
+, HighlightColor(ForceInitToZero)
 {
 }
 

@@ -532,9 +532,28 @@ void SetFilterShaders(
 		(SrcRect.Min.X + 0.5f) / SrcSize.X, (SrcRect.Min.Y + 0.5f) / SrcSize.Y,
 		(SrcRect.Max.X - 0.5f) / SrcSize.X, (SrcRect.Max.Y - 0.5f) / SrcSize.Y);
 
-	FVector4 AdditiveBufferUVMinMaxValue(
-		(AdditiveSrcRect.Min.X + 0.5f) / AdditiveSrcSize.X, (AdditiveSrcRect.Min.Y + 0.5f) / AdditiveSrcSize.Y,
-		(AdditiveSrcRect.Max.X - 0.5f) / AdditiveSrcSize.X, (AdditiveSrcRect.Max.Y - 0.5f) / AdditiveSrcSize.Y);
+	FVector4 AdditiveBufferUVMinMaxValue;
+	if (AdditiveSrcSize.X != 0.f)
+	{
+		AdditiveBufferUVMinMaxValue.X = (AdditiveSrcRect.Min.X + 0.5f) / AdditiveSrcSize.X;
+		AdditiveBufferUVMinMaxValue.Z = (AdditiveSrcRect.Max.X - 0.5f) / AdditiveSrcSize.X;
+	}
+	else
+	{
+		AdditiveBufferUVMinMaxValue.X = 0.f;
+		AdditiveBufferUVMinMaxValue.Z = 0.f;
+	}
+
+	if (AdditiveSrcSize.Y != 0.f)
+	{
+		AdditiveBufferUVMinMaxValue.Y = (AdditiveSrcRect.Min.Y + 0.5f) / AdditiveSrcSize.Y;
+		AdditiveBufferUVMinMaxValue.W = (AdditiveSrcRect.Max.Y - 0.5f) / AdditiveSrcSize.Y;
+	}
+	else
+	{
+		AdditiveBufferUVMinMaxValue.Y = 0.f;
+		AdditiveBufferUVMinMaxValue.W = 0.f;
+	}
 
 	bool DoManualClampUV = !(SrcRect.Min == FIntPoint::ZeroValue && SrcRect.Max == SrcSize);
 
@@ -964,6 +983,10 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		const FIntPoint AdditiveScaleFactor(AdditiveScaleFactorX, AdditiveScaleFactorY);
 
 		AdditiveSrcRect = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, AdditiveScaleFactor);
+	}
+	else
+	{
+		AdditiveSrcSize = FIntPoint::ZeroValue;
 	}
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum%s#%d%s %dx%d in %dx%d"),

@@ -16,6 +16,42 @@
 /* FSocket overrides
  *****************************************************************************/
 
+bool FSocketBSD::Shutdown(ESocketShutdownMode Mode)
+{
+	int InternalMode = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	// Windows uses different constants than POSIX
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SD_RECEIVE;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SD_SEND;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SD_BOTH;
+			break;
+	}
+#else
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SHUT_RD;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SHUT_WR;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SHUT_RDWR;
+			break;
+	}
+#endif
+
+	return shutdown(Socket, InternalMode) == 0;
+}
+
 bool FSocketBSD::Close(void)
 {
 	if (Socket != INVALID_SOCKET)
@@ -139,7 +175,7 @@ bool FSocketBSD::SendTo(const uint8* Data, int32 Count, int32& BytesSent, const 
 	bool Result = BytesSent >= 0;
 	if (Result)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 	return Result;
 }
@@ -154,7 +190,7 @@ bool FSocketBSD::Send(const uint8* Data, int32 Count, int32& BytesSent)
 	bool Result = BytesSent >= 0;
 	if (Result)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 	return Result;
 }
@@ -187,7 +223,7 @@ bool FSocketBSD::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInte
 
 	if (bSuccess)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 
 	return bSuccess;
@@ -217,7 +253,7 @@ bool FSocketBSD::Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketRe
 
 	if (bSuccess)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 
 	return bSuccess;
@@ -253,7 +289,7 @@ ESocketConnectionState FSocketBSD::GetConnectionState(void)
 	// look for an existing error
 	if (HasState(ESocketBSDParam::HasError) == ESocketBSDReturn::No)
 	{
-		if (FDateTime::UtcNow() - LastActivityTime > FTimespan::FromSeconds(5))
+		if (FPlatformTime::Seconds() - LastActivityTime > 5.0)
 		{
 			// get the write state
 			ESocketBSDReturn WriteState = HasState(ESocketBSDParam::CanWrite, FTimespan::FromMilliseconds(1));
@@ -263,7 +299,7 @@ ESocketConnectionState FSocketBSD::GetConnectionState(void)
 			if (WriteState == ESocketBSDReturn::Yes || ReadState == ESocketBSDReturn::Yes)
 			{
 				CurrentState = SCS_Connected;
-				LastActivityTime = FDateTime::UtcNow();
+				LastActivityTime = FPlatformTime::Seconds();
 			}
 			else if (WriteState == ESocketBSDReturn::No && ReadState == ESocketBSDReturn::No)
 			{
@@ -525,20 +561,22 @@ ESocketBSDReturn FSocketBSD::HasState(ESocketBSDParam State, FTimespan WaitTime)
 	FD_ZERO(&SocketSet);
 	FD_SET(Socket, &SocketSet);
 
+	timeval* TimePointer = WaitTime.GetTicks() >= 0 ? &Time : nullptr;
+
 	// Check the status of the state
 	int32 SelectStatus = 0;
 	switch (State)
 	{
 	case ESocketBSDParam::CanRead:
-		SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, &Time);
+		SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, TimePointer);
 		break;
 
 	case ESocketBSDParam::CanWrite:
-		SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, &Time);
+		SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, TimePointer);
 		break;
 
 	case ESocketBSDParam::HasError:
-		SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, &Time);
+		SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, TimePointer);
 		break;
 	}
 

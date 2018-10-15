@@ -28,8 +28,8 @@ class ONLINESUBSYSTEMAMAZON_API FOnlineSubsystemAmazon :
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemAmazon();
-	FOnlineSubsystemAmazon(FName InInstanceName);
+	FOnlineSubsystemAmazon() = delete;
+	explicit FOnlineSubsystemAmazon(FName InInstanceName);
 
 public:
 	// IOnlineSubsystem

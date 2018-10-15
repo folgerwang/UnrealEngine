@@ -324,6 +324,16 @@ FReply SViewport::OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchEnded(MyGeometry, InTouchEvent) : FReply::Unhandled();
 }
 
+FReply SViewport::OnTouchForceChanged(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchForceChanged(MyGeometry, InTouchEvent) : FReply::Unhandled();
+}
+
+FReply SViewport::OnTouchFirstMove(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchFirstMove(MyGeometry, InTouchEvent) : FReply::Unhandled();
+}
+
 FReply SViewport::OnTouchGesture( const FGeometry& MyGeometry, const FPointerEvent& GestureEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchGesture(MyGeometry, GestureEvent) : FReply::Unhandled();

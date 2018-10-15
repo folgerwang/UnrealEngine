@@ -52,6 +52,9 @@ struct ENGINE_API FStreamableHandle : public TSharedFromThis<FStreamableHandle, 
 		return bIsCombinedHandle;
 	}
 
+	/** Returns true if we've done all the loading we can now, ie all handles are either completed or stalled */
+	bool HasLoadCompletedOrStalled() const;
+
 	/** Returns the debug name for this handle. */
 	const FString& GetDebugName() const
 	{
@@ -90,9 +93,14 @@ struct ENGINE_API FStreamableHandle : public TSharedFromThis<FStreamableHandle, 
 	/** Bind delegate that is called periodically as delegate updates, only works if loading is in progress. This will overwrite any already bound delegate! */
 	bool BindUpdateDelegate(FStreamableUpdateDelegate NewDelegate);
 
-	/** Blocks until the requested assets have loaded. This pushes the requested asset to the top of the priority list, but does not flush all async loading, usually resulting
-	in faster completion than a LoadObject call. */
-	EAsyncPackageState::Type WaitUntilComplete(float Timeout = 0.0f);
+	/**
+	 * Blocks until the requested assets have loaded. This pushes the requested asset to the top of the priority list,
+	 * but does not flush all async loading, usually resulting in faster completion than a LoadObject call
+	 *
+	 * @param Timeout				Maximum time to wait, if this is 0 it will wait forever
+	 * @param StartStalledHandles	If true it will force all handles waiting on external resources to try and load right now
+	 */
+	EAsyncPackageState::Type WaitUntilComplete(float Timeout = 0.0f, bool bStartStalledHandles = true);
 
 	/** Gets list of assets references this load was started with. This will be the paths before redirectors, and not all of these are guaranteed to be loaded */
 	void GetRequestedAssets(TArray<FSoftObjectPath>& AssetList) const;

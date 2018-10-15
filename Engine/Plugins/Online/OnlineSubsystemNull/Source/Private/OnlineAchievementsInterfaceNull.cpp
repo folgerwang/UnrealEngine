@@ -191,7 +191,7 @@ bool FOnlineAchievementsNull::ResetAchievements(const FUniqueNetId& PlayerId)
 	if (!ReadAchievementsFromConfig())
 	{
 		// we don't have achievements
-		UE_LOG_ONLINE(Warning, TEXT("No achievements have been configured"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("No achievements have been configured"));
 		return false;
 	}
 
@@ -200,7 +200,7 @@ bool FOnlineAchievementsNull::ResetAchievements(const FUniqueNetId& PlayerId)
 	if (NULL == PlayerAch)
 	{
 		// achievements haven't been read for a player
-		UE_LOG_ONLINE(Warning, TEXT("Could not find achievements for player %s"), *PlayerId.ToString());
+		UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("Could not find achievements for player %s"), *PlayerId.ToString());
 		return false;
 	}
 

@@ -6,10 +6,9 @@
 #include "Interfaces/OnlineEntitlementsInterface.h"
 #include "Interfaces/OnlineStoreInterfaceV2.h"
 #include "OnlineJsonSerializer.h"
+#include "OnlineError.h"
 
-struct FOnlineError;
-
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlinePurchase, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlinePurchase, Log, All);
 
 #define UE_LOG_ONLINE_PURCHASE(Verbosity, Format, ...) \
 { \
@@ -216,6 +215,11 @@ DECLARE_DELEGATE_TwoParams(FOnPurchaseRedeemCodeComplete, const FOnlineError& /*
 DECLARE_DELEGATE_OneParam(FOnQueryReceiptsComplete, const FOnlineError& /*Result*/);
 
 /**
+* Delegate called when receipt validation completes
+*/
+DECLARE_DELEGATE_TwoParams(FOnFinalizeReceiptValidationInfoComplete, const FOnlineError& /*Result*/, const FString& /*ValidationInfo*/);
+
+/**
  * Delegate called when we are informed of a new receipt we did not initiate in-game
  */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnUnexpectedPurchaseReceipt, const FUniqueNetId& /*UserId*/);
@@ -281,6 +285,8 @@ public:
 	 * @param OutReceipts [out] list of receipts for the user 
 	 */
 	virtual void GetReceipts(const FUniqueNetId& UserId, TArray<FPurchaseReceipt>& OutReceipts) const = 0;
+
+	virtual void FinalizeReceiptValidationInfo(const FUniqueNetId& UserId, FString& InReceiptValidationInfo, const FOnFinalizeReceiptValidationInfoComplete& Delegate) = 0;
 
 	/**
 	 * Delegate fired when the local system tells us of a new completed purchase we may not have initiated in-game.

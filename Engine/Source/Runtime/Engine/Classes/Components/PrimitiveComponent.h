@@ -1147,7 +1147,7 @@ public:
 	 *  @param bAccelChange If true, Torque is taken as a change in angular acceleration instead of a physical torque (i.e. mass will have no effect).
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
-	void AddTorqueInRadians(FVector Torque, FName BoneName = NAME_None, bool bAccelChange = false);
+	virtual void AddTorqueInRadians(FVector Torque, FName BoneName = NAME_None, bool bAccelChange = false);
 
 	/**
 	 *	Add a torque to a single rigid body.
@@ -1170,7 +1170,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to modify velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
-	void SetPhysicsLinearVelocity(FVector NewVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
+	virtual void SetPhysicsLinearVelocity(FVector NewVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
 
 	/** 
 	 *	Get the linear velocity of a single body. 
@@ -1220,7 +1220,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to modify angular velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
-	void SetPhysicsAngularVelocityInRadians(FVector NewAngVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
+	virtual void SetPhysicsAngularVelocityInRadians(FVector NewAngVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
 
 	/**
 	 *	Set the angular velocity of a single body.
@@ -1279,7 +1279,7 @@ public:
 	 */
 	DEPRECATED(4.18, "Use GetPhysicsAngularVelocityInDegrees instead.")
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use GetPhysicsAngularVelocityInDegrees instead"))	
-	FVector GetPhysicsAngularVelocity(FName BoneName = NAME_None)
+	FVector GetPhysicsAngularVelocity(FName BoneName = NAME_None) const
 	{
 		return GetPhysicsAngularVelocityInDegrees(BoneName);
 	}
@@ -1289,7 +1289,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to get velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))	
-	FVector GetPhysicsAngularVelocityInDegrees(FName BoneName = NAME_None)
+	FVector GetPhysicsAngularVelocityInDegrees(FName BoneName = NAME_None) const
 	{
 		return FMath::RadiansToDegrees(GetPhysicsAngularVelocityInRadians(BoneName));
 	}
@@ -1299,7 +1299,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to get velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))	
-	FVector GetPhysicsAngularVelocityInRadians(FName BoneName = NAME_None);
+	FVector GetPhysicsAngularVelocityInRadians(FName BoneName = NAME_None) const;
 
 	/**
 	*	Get the center of mass of a single body. In the case of a welded body this will return the center of mass of the entire welded body (including its parent and children)
@@ -1817,13 +1817,15 @@ protected:
 	virtual void OnCreatePhysicsState() override;
 	virtual void OnDestroyPhysicsState() override;
 	virtual void OnActorEnableCollisionChanged() override;
+
+public:
 	/**
 	 * Called to get the Component To World Transform from the Root BodyInstance
 	 * This needs to be virtual since SkeletalMeshComponent Root has to undo its own transform
 	 * Without this, the root LocalToAtom is overridden by physics simulation, causing kinematic velocity to 
 	 * accelerate simulation
 	 *
-	 * @param : UseBI - root body instsance
+	 * @param : UseBI - root body instance
 	 * @return : New GetComponentTransform() to use
 	 */
 	virtual FTransform GetComponentTransformFromBodyInstance(FBodyInstance* UseBI);

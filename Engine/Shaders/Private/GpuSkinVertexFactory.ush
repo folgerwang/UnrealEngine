@@ -253,6 +253,9 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedPosition = Intermediates.UnpackedPosition.xyz;
 	Result.PreSkinnedNormal = Input.TangentZ.xyz;
 
+	// Assumes no instacing
+	Result.PrevFrameLocalToWorld = PreviousLocalToWorld;
+
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	for(int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
 	{
@@ -592,7 +595,7 @@ void CalcTangentToWorld(FVertexFactoryInput Input, FVertexFactoryIntermediates I
 	float3x3 LocalToWorld = GetLocalToWorld3x3();
 
 	// Remove scaling.
-	half3 InvScale = Primitive.InvNonUniformScale.xyz;
+	half3 InvScale = Primitive.InvNonUniformScaleAndDeterminantSign.xyz;
 	LocalToWorld[0] *= InvScale.x;
 	LocalToWorld[1] *= InvScale.y;
 	LocalToWorld[2] *= InvScale.z;
@@ -600,7 +603,7 @@ void CalcTangentToWorld(FVertexFactoryInput Input, FVertexFactoryIntermediates I
 	float3x3 TangentToWorld = mul(Intermediates.TangentToLocal, LocalToWorld);
 
 	TangentToWorld0 = TangentToWorld[0];
-	TangentToWorld2 = float4(TangentToWorld[2], Input.TangentZ.w * Primitive.LocalToWorldDeterminantSign);
+	TangentToWorld2 = float4(TangentToWorld[2], Input.TangentZ.w * Primitive.InvNonUniformScaleAndDeterminantSign.w);
 }
 
 FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)

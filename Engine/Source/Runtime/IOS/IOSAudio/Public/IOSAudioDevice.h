@@ -209,6 +209,9 @@ public:
 
 	static int32& GetSuspendCounter();
 
+
+	virtual void UpdateDeviceDeltaTime() override;
+
 protected:
 	/** Starts up any platform specific hardware/APIs */
 	virtual bool InitializeHardware() override;

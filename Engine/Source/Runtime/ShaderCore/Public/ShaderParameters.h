@@ -163,8 +163,7 @@ class FShaderUniformBufferParameter
 {
 public:
 	FShaderUniformBufferParameter()
-	:	SetParametersId(0)
-	,	BaseIndex(0)
+	:	BaseIndex(0)
 	,	bIsBound(false) 
 #if UE_BUILD_DEBUG
 	,	bInitialized(false)
@@ -211,9 +210,6 @@ public:
 	}
 
 	uint32 GetBaseIndex() const { return BaseIndex; }
-
-	/** Used to track when a parameter was set, to detect cases where a bound parameter is used for rendering without being set. */
-	mutable uint32 SetParametersId;
 
 private:
 	uint16 BaseIndex;

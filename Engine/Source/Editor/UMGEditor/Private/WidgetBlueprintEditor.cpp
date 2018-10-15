@@ -46,6 +46,8 @@
 
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "UMGEditorActions.h"
+#include "GameProjectGenerationModule.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -91,7 +93,6 @@ FWidgetBlueprintEditor::~FWidgetBlueprintEditor()
 	{
 		return SequencerAddTrackExtenderHandle == Extender.GetHandle();
 	});
-
 }
 
 void FWidgetBlueprintEditor::InitWidgetBlueprintEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode)
@@ -101,6 +102,8 @@ void FWidgetBlueprintEditor::InitWidgetBlueprintEditor(const EToolkitMode::Type 
 
 	TSharedPtr<FWidgetBlueprintEditor> ThisPtr(SharedThis(this));
 	WidgetToolbar = MakeShareable(new FWidgetBlueprintEditorToolbar(ThisPtr));
+
+	BindToolkitCommands();
 
 	InitBlueprintEditor(Mode, InitToolkitHost, InBlueprints, bShouldOpenInDefaultsMode);
 
@@ -138,6 +141,67 @@ void FWidgetBlueprintEditor::InitWidgetBlueprintEditor(const EToolkitMode::Type 
 		FExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::DuplicateSelectedWidgets),
 		FCanExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::CanDuplicateSelectedWidgets)
 		);
+}
+
+void FWidgetBlueprintEditor::InitalizeExtenders()
+{
+	FBlueprintEditor::InitalizeExtenders();
+
+	AddMenuExtender(CreateMenuExtender());
+}
+
+TSharedPtr<FExtender> FWidgetBlueprintEditor::CreateMenuExtender()
+{
+	TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
+
+	// Extend the File menu with asset actions
+	MenuExtender->AddMenuExtension(
+		"FileLoadAndSave",
+		EExtensionHook::After,
+		GetToolkitCommands(),
+		FMenuExtensionDelegate::CreateSP(this, &FWidgetBlueprintEditor::FillFileMenu));
+	
+	return MenuExtender;
+}
+
+void FWidgetBlueprintEditor::FillFileMenu(FMenuBuilder& MenuBuilder)
+{
+	MenuBuilder.BeginSection(TEXT("WidgetBlueprint"), LOCTEXT("WidgetBlueprint", "Widget Blueprint"));
+	MenuBuilder.AddMenuEntry(FUMGEditorCommands::Get().CreateNativeBaseClass);
+	MenuBuilder.EndSection();
+}
+
+void FWidgetBlueprintEditor::BindToolkitCommands()
+{
+	FUMGEditorCommands::Register();
+
+	GetToolkitCommands()->MapAction(FUMGEditorCommands::Get().CreateNativeBaseClass,
+		FUIAction(
+			FExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::OpenCreateNativeBaseClassDialog),
+			FCanExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::IsParentClassNative)
+		)
+	);
+}
+
+void FWidgetBlueprintEditor::OpenCreateNativeBaseClassDialog()
+{
+	FGameProjectGenerationModule::Get().OpenAddCodeToProjectDialog(
+		FAddToProjectConfig()
+		.DefaultClassPrefix(TEXT(""))
+		.DefaultClassName(GetWidgetBlueprintObj()->GetName() + TEXT("Base"))
+		.ParentClass(GetWidgetBlueprintObj()->ParentClass)
+		.ParentWindow(FGlobalTabmanager::Get()->GetRootWindow())
+		.OnAddedToProject(FOnAddedToProject::CreateSP(this, &FWidgetBlueprintEditor::OnCreateNativeBaseClassSuccessfully))
+	);
+}
+
+void FWidgetBlueprintEditor::OnCreateNativeBaseClassSuccessfully(const FString& InClassName, const FString& InClassPath, const FString& InModuleName)
+{
+	UClass* NewNativeClass = FindObject<UClass>(ANY_PACKAGE, *InClassName);
+	if (NewNativeClass)
+	{
+		ReparentBlueprint_NewParentChosen(NewNativeClass);
+	}
 }
 
 void FWidgetBlueprintEditor::RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated/* = false*/)
@@ -1203,22 +1267,25 @@ void FWidgetBlueprintEditor::ExtendSequencerAddTrackMenu( FMenuBuilder& AddTrack
 				AddTrackMenuBuilder.EndSection();
 			}
 
-			TArray<TArray<UProperty*>> MaterialBrushPropertyPaths;
+			TArray<FWidgetMaterialPropertyPath> MaterialBrushPropertyPaths;
 			WidgetMaterialTrackUtilities::GetMaterialBrushPropertyPaths( Widget, MaterialBrushPropertyPaths );
 			if ( MaterialBrushPropertyPaths.Num() > 0 )
 			{
 				AddTrackMenuBuilder.BeginSection( "Materials", LOCTEXT( "MaterialsSection", "Materials" ) );
 				{
-					for ( TArray<UProperty*>& MaterialBrushPropertyPath : MaterialBrushPropertyPaths )
+					for (FWidgetMaterialPropertyPath& MaterialBrushPropertyPath : MaterialBrushPropertyPaths )
 					{
-						FString DisplayName = MaterialBrushPropertyPath[0]->GetDisplayNameText().ToString();
-						for ( int32 i = 1; i < MaterialBrushPropertyPath.Num(); i++)
+						FString DisplayName = MaterialBrushPropertyPath.PropertyPath[0]->GetDisplayNameText().ToString();
+						for ( int32 i = 1; i < MaterialBrushPropertyPath.PropertyPath.Num(); i++)
 						{
 							DisplayName.AppendChar( '.' );
-							DisplayName.Append( MaterialBrushPropertyPath[i]->GetDisplayNameText().ToString() );
+							DisplayName.Append( MaterialBrushPropertyPath.PropertyPath[i]->GetDisplayNameText().ToString() );
 						}
+						DisplayName.AppendChar('.');
+						DisplayName.Append(MaterialBrushPropertyPath.DisplayName);
+
 						FText DisplayNameText = FText::FromString( DisplayName );
-						FUIAction AddMaterialAction( FExecuteAction::CreateRaw( this, &FWidgetBlueprintEditor::AddMaterialTrack, Widget, MaterialBrushPropertyPath, DisplayNameText ) );
+						FUIAction AddMaterialAction( FExecuteAction::CreateRaw( this, &FWidgetBlueprintEditor::AddMaterialTrack, Widget, MaterialBrushPropertyPath.PropertyPath, DisplayNameText ) );
 						FText AddMaterialLabel = DisplayNameText;
 						FText AddMaterialToolTip = FText::Format( LOCTEXT( "MaterialToolTipFormat", "Add a material track for the {0} property." ), DisplayNameText );
 						AddTrackMenuBuilder.AddMenuEntry( AddMaterialLabel, AddMaterialToolTip, FSlateIcon(), AddMaterialAction );
@@ -1385,7 +1452,7 @@ void FWidgetBlueprintEditor::AddMaterialTrack( UWidget* Widget, TArray<UProperty
 			UMovieSceneWidgetMaterialTrack* NewTrack = Cast<UMovieSceneWidgetMaterialTrack>( MovieScene->AddTrack( UMovieSceneWidgetMaterialTrack::StaticClass(), WidgetHandle ) );
 			NewTrack->Modify();
 			NewTrack->SetBrushPropertyNamePath( MaterialPropertyNamePath );
-			NewTrack->SetDisplayName( FText::Format( LOCTEXT( "TrackDisplayNameFormat", "{0} Material"), MaterialPropertyDisplayName ) );
+			NewTrack->SetDisplayName( FText::Format( LOCTEXT( "TrackDisplayNameFormat", "{0}"), MaterialPropertyDisplayName ) );
 
 			Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 		}

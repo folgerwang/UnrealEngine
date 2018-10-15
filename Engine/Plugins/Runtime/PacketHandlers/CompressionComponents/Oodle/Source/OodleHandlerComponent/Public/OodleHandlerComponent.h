@@ -18,6 +18,7 @@ DECLARE_LOG_CATEGORY_EXTERN(OodleHandlerComponentLog, Log, All);
 // The maximum compress/decompress buffer size - overkill, as buffers are statically allocated, and can't use Oodle runtime buffer calc
 #define MAX_OODLE_BUFFER	(MAX_OODLE_PACKET_BYTES * 2)
 
+#include "OodleAnalytics.h"
 #include "OodleArchives.h"
 
 #if HAS_OODLE_SDK
@@ -339,20 +340,19 @@ public:
 
 	virtual void Incoming(FBitReader& Packet) override;
 
-	virtual void Outgoing(FBitWriter& Packet) override;
+	virtual void Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits) override;
 
-	virtual void IncomingConnectionless(FString Address, FBitReader& Packet) override
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override
 	{
 	}
 
-	virtual void OutgoingConnectionless(FString Address, FBitWriter& Packet) override
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override
 	{
 	}
 
-	virtual int32 GetReservedPacketBits() override;
+	virtual int32 GetReservedPacketBits() const override;
 
-	/** Sets the analytics provider that's used for sending Oodle performance */
-	virtual void SetAnalyticsProvider(TSharedPtr<class IAnalyticsProvider> Provider);
+	virtual void NotifyAnalyticsProvider() override;
 
 protected:
 	/** Whether or not Oodle is enabled */
@@ -375,8 +375,11 @@ protected:
 	/** Cached reserved packet bits for Oodle */
 	uint32 OodleReservedPacketBits;
 
-	/** The analytics provider that's used for sending Oodle performance */
-	TSharedPtr<class FOodleAnalytics> Analytics;
+	/** The net analytics aggregator data, which will take the above locally tracked variables, once they are complete */
+	TNetAnalyticsDataPtr<FOodleNetAnalyticsData> NetAnalyticsData;
+
+	/** Whether or not Oodle analytics is enabled - cached from NetAnalyticsData, for fast checking */
+	bool bOodleAnalytics;
 
 #if !UE_BUILD_SHIPPING
 public:
@@ -387,19 +390,6 @@ public:
 
 	/** Client (Incoming - relative to server) dictionary data */
 	TSharedPtr<FOodleDictionary> ClientDictionary;
-
-	/** Input traffic compressed packet length */
-	uint32 TotalInCompressedLength;
-
-	/** Input traffic decompressed packet length */
-	uint32 TotalInDecompressedLength;
-
-	/** Output traffic compressed packet length */
-	uint32 TotalOutCompressedLength;
-
-	/** Output traffic uncompressed packet length */
-	uint32 TotalOutUncompressedLength;
-
 };
 #endif
 
@@ -415,7 +405,7 @@ private:
 
 public:
 	FOodleComponentModuleInterface()
-		: OodleDllHandle(NULL)
+		: OodleDllHandle(nullptr)
 	{
 	}
 

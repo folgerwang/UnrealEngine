@@ -27,6 +27,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=File, AssetRegistrySearchable)
 	FString FilePath;
 
+
 	/** Load entire media file into memory and play from there (if possible). */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=File, AdvancedDisplay)
 	bool PrecacheFile;
@@ -82,4 +83,9 @@ public:
 
 	/** Name of the PrecacheFile media option. */
 	static FName PrecacheFileOption;
+
+private:
+	void ResolveFullPath() const;
+	void ClearResolvedFullPath() const;
+	mutable FString ResolvedFullPath; // this is a cached variable updated in ResolveFullPath hence mutable
 };

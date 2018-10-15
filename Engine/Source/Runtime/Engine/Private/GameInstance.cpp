@@ -359,6 +359,12 @@ FGameInstancePIEResult UGameInstance::StartPlayInEditorGameInstance(ULocalPlayer
 			// Setting the game mode failed so bail 
 			return FGameInstancePIEResult::Failure(NSLOCTEXT("UnrealEd", "Error_FailedCreateEditorPreviewWorld", "Failed to create editor preview world."));
 		}
+
+		FGameInstancePIEResult PostCreateGameModeResult = PostCreateGameModeForPIE(Params, PlayWorld->GetAuthGameMode<AGameModeBase>());
+		if (!PostCreateGameModeResult.IsSuccess())
+		{
+			return PostCreateGameModeResult;
+		}
 		
 		// Make sure "always loaded" sub-levels are fully loaded
 		PlayWorld->FlushLevelStreaming(EFlushLevelStreamingType::Visibility);
@@ -415,6 +421,11 @@ FGameInstancePIEResult UGameInstance::StartPlayInEditorGameInstance(ULocalPlayer
 	}
 
 	return StartResult;
+}
+
+FGameInstancePIEResult UGameInstance::PostCreateGameModeForPIE(const FGameInstancePIEParameters& Params, AGameModeBase* GameMode)
+{
+	return FGameInstancePIEResult::Success();
 }
 
 bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode)

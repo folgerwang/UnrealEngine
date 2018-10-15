@@ -51,6 +51,7 @@
 #include "Stack/SNiagaraStackErrorItem.h"
 #include "NiagaraStackEditorData.h"
 #include "ScopedTransaction.h"
+#include "Widgets/Layout/SWrapBox.h"
 
 /** Contains data for a socket drag and drop operation in the StackEntry node. */
 class FNiagaraStackEntryDragDropOp : public FDecoratedDragDropOp
@@ -133,12 +134,13 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 			MenuBuilder.BeginSection("EmitterInlineMenuActions", LOCTEXT("EmitterActions", "Emitter Actions"));
 			{
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("OpenAndFocusEmitter", "Open and focus source emitter"),
-					LOCTEXT("OpenAndFocusEmitterToolTip", "Open the source emitter in emitter mode"),
+					LOCTEXT("RenameEmitter", "Rename Emitter"),
+					LOCTEXT("RenameEmitterToolTip", "Rename this emitter"), 
 					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStack::OpenSourceEmitter), FCanExecuteAction::CreateSP(this, &SNiagaraStack::CanOpenSourceEmitter)));
+					FUIAction(FExecuteAction::CreateSP(InlineEditableTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode)));
+
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("ShowEmitterInContentBrowser", "Show in content browser"),
+					LOCTEXT("ShowEmitterInContentBrowser", "Show in Content Browser"),
 					LOCTEXT("ShowEmitterInContentBrowserToolTip", "Show the emitter in this stack in the Content Browser"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStack::ShowEmitterInContentBrowser))); 
@@ -168,7 +170,8 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 					FUIAction(FExecuteAction::CreateUObject(StackViewModel, &UNiagaraStackViewModel::CollapseToHeaders)));
 			}
 			MenuBuilder.EndSection();
-			MenuBuilder.BeginSection("EmitterNavigateTo", LOCTEXT("EmitterNavigateTo", "Navigate to Section:"));
+			MenuBuilder.BeginSection("EmitterNavigateTo", 
+				FText::Format(LOCTEXT("EmitterNavigateTo", "Navigate to {0} Section:"), StackViewModel->GetEmitterHandleViewModel()->GetNameText()));
 			{
 				// Parse all children of root entries and if they are UNiagaraStackItemGroup then add a navigate menu entry
 				TArray<UNiagaraStackEntry*> EntriesToProcess(StackViewModel->GetRootEntries());
@@ -198,7 +201,7 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 			if (StackViewModel->HasDismissedStackIssues())
 			{
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("UndismissIssues", "Undismiss all stack issues"),
+					LOCTEXT("UndismissIssues", "Undismiss All Stack Issues"),
 					LOCTEXT("ShowAssetInContentBrowserToolTip", "Undismiss all issues that were previously dismissed for this stack, if any"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateUObject(StackViewModel, &UNiagaraStackViewModel::UndismissAllIssues)));
@@ -245,7 +248,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 	else
 	{
 		SAssignNew(HeaderWidget, SVerticalBox)
-			//~ Enabled check box rename text box, and external header controls.
+			//~ Enable check box, pin text box, view source emitter button, and external header controls.
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.HAlign(HAlign_Fill)
@@ -253,7 +256,6 @@ void SNiagaraStack::ConstructHeaderWidget()
 				//~ Enabled
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
 				.AutoWidth()
 				.Padding(2)
 				[
@@ -282,19 +284,58 @@ void SNiagaraStack::ConstructHeaderWidget()
 						.RenderTransformPivot(FVector2D(.5f, .5f))
 					]
 				]
-				//~ Name
+				// Name and Source Emitter Name
 				+ SHorizontalBox::Slot()
+				.Padding(2)
+				[
+					SNew(SWrapBox)
+					.Clipping(EWidgetClipping::ClipToBoundsAlways) 
+					.UseAllottedWidth(true)
+					+ SWrapBox::Slot()
+					.Padding(3, 0)
+					[						
+						SAssignNew(InlineEditableTextBlock, SInlineEditableTextBlock)
+						.ToolTipText(this, &SNiagaraStack::GetEmitterNameToolTip)
+						.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.HeadingInlineEditableText") 
+						.Clipping(EWidgetClipping::ClipToBoundsAlways)
+						.Text(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::GetNameText)
+						.OnTextCommitted(this, &SNiagaraStack::OnStackViewNameTextCommitted)
+						.OnVerifyTextChanged(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::VerifyNameTextChanged)
+					]
+					+ SWrapBox::Slot()
+					.Padding(3, 0)
+					[
+						SNew(STextBlock)
+						.ToolTipText(this, &SNiagaraStack::GetEmitterNameToolTip)
+						.TextStyle(FNiagaraEditorStyle::Get(), "NiagaraEditor.SubduedHeadingTextBox")
+						.Clipping(EWidgetClipping::ClipToBoundsAlways)
+						.Text(this, &SNiagaraStack::GetSourceEmitterNameText)
+						.Visibility(this, &SNiagaraStack::GetSourceEmitterNameVisibility) 
+					]
+ 				]
+				// Open and Focus Source Emitter
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Center)
 				.AutoWidth()
 				.Padding(2)
-				.HAlign(HAlign_Left)
 				[
-					SNew(SInlineEditableTextBlock)
-					.ToolTipText(NSLOCTEXT("NiagaraEmitterEditor", "NameTextToolTip", "Click to edit the emitter name."))
-					.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.HeadingInlineEditableText")
-					.WrapTextAt(150.0f)
-					.Text(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::GetNameText)
-					.OnTextCommitted(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::OnNameTextComitted)
-					.OnVerifyTextChanged(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::VerifyNameTextChanged)
+					SNew(SButton)
+					.IsFocusable(false)
+					.ToolTipText(LOCTEXT("OpenAndFocusSourceEmitterToolTip", "Open and Focus Source Emitter"))
+					.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+					.ForegroundColor(this, &SNiagaraStack::GetPinColor)
+					.ContentPadding(2)
+					.OnClicked(this, &SNiagaraStack::OpenSourceEmitter)
+					.Visibility(CanOpenSourceEmitter() ? EVisibility::Visible : EVisibility::Collapsed)
+					// GoToSource icon is 30x30px so we scale it down to stay in line with other 12x12px UI
+					.DesiredSizeScale(FVector2D(0.55f, 0.55f))
+					.Content()
+					[
+						SNew(SImage)
+						.Image(FNiagaraEditorWidgetsStyle::Get().GetBrush("NiagaraEditor.Stack.GoToSourceIcon"))
+						.ColorAndOpacity(FNiagaraEditorWidgetsStyle::Get().GetColor("NiagaraEditor.Stack.FlatButtonColor"))
+					]
 				]
 			]
 
@@ -307,7 +348,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 				SNew(STextBlock)
 				.Text(StackViewModel->GetEmitterHandleViewModel()->GetEmitterViewModel()->AsShared(), &FNiagaraEmitterViewModel::GetStatsText)
 			]
-
+			
 			//~ Search, view options
 			+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -432,7 +473,7 @@ bool SNiagaraStack::IsEntryFocusedInSearch(UNiagaraStackEntry* Entry) const
 	return false;
 }
 
-void SNiagaraStack::OpenSourceEmitter()
+FReply SNiagaraStack::OpenSourceEmitter() 
 {
 	if (StackViewModel && StackViewModel->GetEmitterHandleViewModel().IsValid() && StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle())
 	{
@@ -442,14 +483,15 @@ void SNiagaraStack::OpenSourceEmitter()
 			FAssetEditorManager::Get().OpenEditorForAsset(Emitter);
 		}
 	}
+	return FReply::Handled();
 }
 
 bool SNiagaraStack::CanOpenSourceEmitter() const
 {
-	if (StackViewModel && StackViewModel->GetEmitterHandleViewModel().IsValid() && StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle())
+	if (StackViewModel && StackViewModel->GetEmitterHandleViewModel().IsValid() && StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()
+		&& StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()->GetSource())
 	{
-		UNiagaraEmitter* Emitter = const_cast<UNiagaraEmitter*>(StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()->GetSource());
-		if (Emitter != nullptr)
+		if (StackViewModel->GetSystemViewModel()->GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset)
 		{
 			return true;
 		}
@@ -489,7 +531,7 @@ void CollapseEntriesRecursive(TArray<UNiagaraStackEntry*> Entries)
 		{
 			Entry->SetIsExpanded(false);
 		}
-
+		
 		TArray<UNiagaraStackEntry*> Children;
 		Entry->GetUnfilteredChildren(Children);
 		CollapseEntriesRecursive(Children);
@@ -507,7 +549,7 @@ TSharedRef<SWidget> SNiagaraStack::GetViewOptionsMenu() const
 	FMenuBuilder MenuBuilder(false, nullptr);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("ShowAllAdvancedLabel", "Show all advanced"),
+		LOCTEXT("ShowAllAdvancedLabel", "Show All Advanced"),
 		LOCTEXT("ShowAllAdvancedToolTip", "Forces all advanced items to be showing in the stack."),
 		FSlateIcon(),
 		FUIAction(
@@ -517,7 +559,7 @@ TSharedRef<SWidget> SNiagaraStack::GetViewOptionsMenu() const
 		NAME_None, EUserInterfaceActionType::Check);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("ShowOutputsLabel", "Show outputs"),
+		LOCTEXT("ShowOutputsLabel", "Show Outputs"),
 		LOCTEXT("ShowOutputsToolTip", "Whether or now to show module outputs in the stack."),
 		FSlateIcon(),
 		FUIAction(
@@ -942,9 +984,45 @@ void SNiagaraStack::OnContentColumnWidthChanged(float Width)
 
 void SNiagaraStack::StackStructureChanged()
 {
-	ConstructHeaderWidget();
 	PrimeTreeExpansion();
 	StackTree->RequestTreeRefresh();
+}
+
+FText SNiagaraStack::GetSourceEmitterNameText() const 
+{
+	return StackViewModel->GetEmitterHandleViewModel()->GetSourceNameText();
+}
+
+FText SNiagaraStack::GetEmitterNameToolTip() const
+{
+	if (CanOpenSourceEmitter())
+	{
+		// We are looking at this Emitter in a System Asset and it has a valid parent Emitter
+		TSharedPtr<FNiagaraEmitterHandleViewModel> ThisViewModel = StackViewModel->GetEmitterHandleViewModel();
+		return FText::Format(LOCTEXT("EmitterNameAndPath", "{0}\nParent: {1}"), ThisViewModel->GetNameText(), ThisViewModel->GetSourcePathNameText());
+	}
+	else
+	{
+		// We are looking at this Emitter in an Emitter Asset or we are looking at this Emitter in a System Asset and it does not have a valid parent Emitter
+		return StackViewModel->GetEmitterHandleViewModel()->GetNameText();
+	}
+}
+
+void SNiagaraStack::OnStackViewNameTextCommitted(const FText& InText, ETextCommit::Type CommitInfo) const
+{
+	StackViewModel->GetEmitterHandleViewModel()->OnNameTextComitted(InText, CommitInfo);
+}
+
+EVisibility SNiagaraStack::GetSourceEmitterNameVisibility() const
+{
+	return CanOpenSourceEmitter() && GetIsEmitterRenamed() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+bool SNiagaraStack::GetIsEmitterRenamed() const
+{
+	const FText CurrentNameText = StackViewModel->GetEmitterHandleViewModel()->GetNameText();
+	const FText SourceNameText = StackViewModel->GetEmitterHandleViewModel()->GetSourceNameText();
+	return !CurrentNameText.EqualTo(SourceNameText);
 }
 
 #undef LOCTEXT_NAMESPACE

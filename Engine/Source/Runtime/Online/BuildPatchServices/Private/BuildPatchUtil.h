@@ -36,24 +36,24 @@ struct FBuildPatchUtils
 {
 	/**
 	 * Gets the filename for a chunk generated from it's GUID and Hash, which is the new format.
-	 * @param ManifestVersion	The manifest version that references this chunk
-	 * @param RootDirectory		The root directory
-	 * @param ChunkGuid			The chunk Guid
-	 * @param ChunkHash			The chunk rolling hash value
-	 * @return	the chunk path
+	 * @param FeatureLevel   The manifest version that references this chunk.
+	 * @param RootDirectory  The root directory.
+	 * @param ChunkGuid      The chunk Guid.
+	 * @param ChunkHash      The chunk rolling hash value.
+	 * @return the chunk path.
 	 */
-	static FString GetChunkNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& ChunkGUID, const uint64& ChunkHash);
+	static FString GetChunkNewFilename(BuildPatchServices::EFeatureLevel FeatureLevel, const FString& RootDirectory, const FGuid& ChunkGUID, const uint64& ChunkHash);
 
 	/**
 	 * Gets the filename for a file chunk generated from it's GUID and Hash, which is the new format.
-	 * @param ManifestVersion	The manifest version that references this file
-	 * @param RootDirectory		The root directory
-	 * @param FileGUID			The file chunk Guid
-	 * @param FileHash			The file hash value
-	 * @return	The file chunk path
+	 * @param FeatureLevel   The manifest version that references this file.
+	 * @param RootDirectory  The root directory.
+	 * @param FileGUID       The file chunk Guid.
+	 * @param FileHash       The file hash value.
+	 * @return the file chunk path.
 	 */
-	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHash& FileHash);
-	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FilePartHash);
+	static FString GetFileNewFilename(BuildPatchServices::EFeatureLevel FeatureLevel, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHash& FileHash);
+	static FString GetFileNewFilename(BuildPatchServices::EFeatureLevel FeatureLevel, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FilePartHash);
 
 	/**
 	 * Gets the chunk GUID and Hash, from the filename, which is the new format.
@@ -113,13 +113,6 @@ struct FBuildPatchUtils
 	 * @return  True if successful, false otherwise
 	 */
 	static bool GetGUIDFromFilename(const FString& DataFilename, FGuid& DataGUID);
-
-	/**
-	 * Helper function to uncompress chunk file data. Can be called without knowing if needed and process will be just skipped.
-	 * @param ChunkFileArray	IN OUT		The data array, should contain full chunk - header plus data. Will be overwritten with uncompressed chunk version.
-	 * @return		true if no errors occurred and the data is not corrupted
-	 */
-	static bool UncompressChunkFile(TArray<uint8>& ChunkFileArray);
 
 	/**
 	 * Checks a file against SHA1 hashes. The function takes two so that it can return no match, match with Hash1, or match with Hash2, that way we can check the file for being the same as an old manifest or new manifest

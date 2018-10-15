@@ -16,6 +16,7 @@
 #include "VulkanPipelineState.h"
 #include "Misc/FileHelper.h"
 #include "VulkanLLM.h"
+#include "GlobalShader.h"
 
 extern RHI_API bool GUseTexture3DBulkDataRHI;
 
@@ -200,6 +201,12 @@ void FVulkanDynamicRHI::Init()
 			GPoolSizeVRAMPercentage,
 			TotalGPUMemory / 1024 / 1024);
 	}
+}
+
+void FVulkanDynamicRHI::PostInit()
+{
+	//work around layering violation
+	TShaderMapRef<FNULLPS>(GetGlobalShaderMap(GMaxRHIFeatureLevel))->GetPixelShader();
 }
 
 void FVulkanDynamicRHI::Shutdown()
@@ -390,6 +397,11 @@ void FVulkanDynamicRHI::CreateInstance()
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	SetupDebugLayerCallback();
+
+	if (!GRHISupportsRHIThread || GRenderDocFound)
+	{
+		EnableIdealGPUCaptureOptions(true);
+	}
 #endif
 }
 
@@ -581,7 +593,6 @@ void FVulkanDynamicRHI::InitInstance()
 		GSupportsRenderTargetFormat_PF_G8 = false;	// #todo-rco
 		GRHISupportsTextureStreaming = true;
 		GSupportsTimestampRenderQueries = FVulkanPlatform::SupportsTimestampRenderQueries();
-		GRHISupportsGPUFence = true;
 #if VULKAN_ENABLE_DUMP_LAYER
 		// Disable RHI thread by default if the dump layer is enabled
 		GRHISupportsRHIThread = false;
@@ -1353,7 +1364,7 @@ uint64 FVulkanRingBuffer::WrapAroundAllocateMemory(uint64 Size, uint32 Alignment
 	// Check to see if we can wrap around the ring buffer
 	if (FenceCmdBuffer)
 	{
-		if (FenceCounter == FenceCmdBuffer->GetFenceSignaledCounter())
+		if (FenceCounter == FenceCmdBuffer->GetFenceSignaledCounterI())
 		{
 			//if (FenceCounter == FenceCmdBuffer->GetSubmittedFenceCounter())
 			{

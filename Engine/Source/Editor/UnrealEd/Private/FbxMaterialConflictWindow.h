@@ -14,12 +14,13 @@
 #include "Widgets/SNullWidget.h"
 #include "EditorStyleSet.h"
 #include "FbxCompareWindow.h"
+#include "FbxImporter.h"
 
 class FMaterialConflictData : public FCompareRowData
 {
 public:
 
-	FMaterialConflictData(TArray<FCompMaterial>& InSourceMaterials, TArray<FCompMaterial>& InResultMaterials, TArray<int32>& InRemapMaterials, TArray<bool>& InAutoRemapMaterials, TArray<bool>& InCustomRemapMaterials)
+	FMaterialConflictData(TArray<FCompMaterial>& InSourceMaterials, TArray<FCompMaterial>& InResultMaterials, TArray<int32>& InRemapMaterials, TArray<bool>& InAutoRemapMaterials, TArray<bool>& InCustomRemapMaterials, bool InbIsPreviewConflict)
 		: SourceMaterialIndex(INDEX_NONE)
 		, ResultMaterialIndex(INDEX_NONE)
 		, SourceMaterials(InSourceMaterials)
@@ -27,6 +28,7 @@ public:
 		, RemapMaterials(InRemapMaterials)
 		, AutoRemapMaterials(InAutoRemapMaterials)
 		, CustomRemapMaterials(InCustomRemapMaterials)
+		, bIsPreviewConflict(InbIsPreviewConflict)
 	{}
 
 	virtual ~FMaterialConflictData() {}
@@ -50,6 +52,7 @@ public:
 	TArray<int32>& RemapMaterials;
 	TArray<bool>& AutoRemapMaterials;
 	TArray<bool>& CustomRemapMaterials;
+	bool bIsPreviewConflict;
 };
 
 class SFbxMaterialConflictWindow : public SCompoundWidget
@@ -61,6 +64,7 @@ public:
 		, _ResultMaterials(nullptr)
 		, _RemapMaterials(nullptr)
 		, _AutoRemapMaterials(nullptr)
+		, _bIsPreviewConflict(false)
 		{}
 
 		SLATE_ARGUMENT( TSharedPtr<SWindow>, WidgetWindow )
@@ -68,41 +72,53 @@ public:
 		SLATE_ARGUMENT( TArray<FCompMaterial>*, ResultMaterials)
 		SLATE_ARGUMENT( TArray<int32>*, RemapMaterials)
 		SLATE_ARGUMENT( TArray<bool>*, AutoRemapMaterials )
+		SLATE_ARGUMENT( bool, bIsPreviewConflict )
 			
 	SLATE_END_ARGS()
 
 public:
-	bool HasUserCancel() { return UserHasCancel; }
+	UnFbx::EFBXReimportDialogReturnOption GetReturnOption() { return ReturnOption; }
 
 	void Construct(const FArguments& InArgs);
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 
+	
+
 	FReply OnDone();
+	FReply OnReset();
 	FReply OnCancel();
+
+	EVisibility CollapsePreviewVisibility()
+	{
+		return bIsPreviewConflict ? EVisibility::Collapsed : EVisibility::All;
+	}
 
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
 		if( InKeyEvent.GetKey() == EKeys::Escape )
 		{
-			return OnDone();
+			return OnReset();
 		}
 
 		return FReply::Unhandled();
 	}
 
 	SFbxMaterialConflictWindow()
-	{}
+	{
+		ReturnOption = UnFbx::EFBXReimportDialogReturnOption::FBXRDRO_Cancel;
+	}
 		
 private:
 	TWeakPtr< SWindow > WidgetWindow;
 
-	bool UserHasCancel;
+	UnFbx::EFBXReimportDialogReturnOption ReturnOption;
 
 	TArray<FCompMaterial> *SourceMaterials;
 	TArray<FCompMaterial> *ResultMaterials;
 	TArray<int32>* RemapMaterials;
 	TArray<bool>* AutoRemapMaterials;
 	TArray<bool> CustomRemapMaterials;
+	bool bIsPreviewConflict;
 
 	TArray<TSharedPtr<FMaterialConflictData>> ConflictMaterialListItem;
 	

@@ -136,7 +136,7 @@ void FNiagaraShaderScript::RegisterShaderMap()
 {
 	if (GameThreadShaderMap)
 	{
-		GameThreadShaderMap->RegisterSerializedShaders();
+		GameThreadShaderMap->RegisterSerializedShaders(false);
 	}
 }
 

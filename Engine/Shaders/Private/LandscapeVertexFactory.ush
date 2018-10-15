@@ -411,6 +411,9 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedPosition = Intermediates.LocalPosition.xyz;
 	Result.PreSkinnedNormal = TangentToLocal[2].xyz;
 
+	// Assumes no instancing and landscape's transform never change
+	Result.PrevFrameLocalToWorld = Primitive.LocalToWorld;
+
 	FLandscapeTexCoords LandscapeTexCoords = GetLandscapeTexCoords(Input, Intermediates);
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX     // XY layer

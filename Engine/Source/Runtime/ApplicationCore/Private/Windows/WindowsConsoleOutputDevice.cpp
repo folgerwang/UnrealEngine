@@ -134,7 +134,7 @@ void FWindowsConsoleOutputDevice::Show( bool ShowWindow )
 				}
 
 				FDisplayMetrics DisplayMetrics;
-				FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+				FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 				// Make sure that the positions specified by INI/CMDLINE are proper
 				static const int32 ActualConsoleWidth = WindowRect.right - WindowRect.left;

@@ -140,6 +140,37 @@ struct FBlendFilter
 	}
 };
 
+/*
+ * Pose Curve container for extraction
+ * This is used by pose anim node
+ * Saves UID/PoseIndex/Value of the curve
+ */
+struct FPoseCurve
+{
+
+	// alignment is weird, but 4 here
+	// UID of the curve. Used to get curve value
+	// and also can be used to verify 
+	SmartName::UID_Type	UID;
+	// PoseIndex of pose asset it's dealing with
+	// used to extract pose value fast
+	int32				PoseIndex;
+	// Curve Value
+	float				Value;
+
+	FPoseCurve()
+		: UID(SmartName::MaxUID)
+		, PoseIndex(INDEX_NONE)
+		, Value(0.f)
+	{}
+
+	FPoseCurve(int32 InPoseIndex, SmartName::UID_Type	InUID, float  InValue )
+		: UID(InUID)
+		, PoseIndex(InPoseIndex)
+		, Value(InValue)
+	{}
+};
+
 /** Animation Extraction Context */
 struct FAnimExtractContext
 {
@@ -152,9 +183,8 @@ struct FAnimExtractContext
 	/** 
 	 * Pose Curve Values to extract pose from pose assets. 
 	 * This is used by pose asset extraction 
-	 * This always has to match with pose # in the asset it's extracting from
 	 */
-	TArray<float> PoseCurves;
+	TArray<FPoseCurve> PoseCurves;
 
 	FAnimExtractContext()
 		: bExtractRootMotion(false)
@@ -174,13 +204,6 @@ struct FAnimExtractContext
 	{
 	}
 
-	FAnimExtractContext(TArray<float>& InPoseCurves)
-		: bExtractRootMotion(false)
-		, CurrentTime(0.f)
-		, PoseCurves(InPoseCurves)
-	{
-		// @todo: no support on root motion
-	}
 };
 
 //Represent a current play position in an animation

@@ -14,6 +14,7 @@
 	#include "Mac/CocoaThread.h"
 #else
 	#include "IOS/IOSAsyncTask.h"
+    #include "HAL/FileManager.h"
 #endif
 
 #include "AvfMediaTracks.h"
@@ -241,18 +242,30 @@ void FAvfMediaPlayer::Close()
 		return;
 	}
 
-    if (ResumeHandle.IsValid())
+    if (EnteredForegroundHandle.IsValid())
     {
-        FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Remove(ResumeHandle);
-        ResumeHandle.Reset();
+        FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Remove(EnteredForegroundHandle);
+        EnteredForegroundHandle.Reset();
     }
-    
-    if (PauseHandle.IsValid())
+
+    if (HasReactivatedHandle.IsValid())
     {
-        FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Remove(PauseHandle);
-        PauseHandle.Reset();
+        FCoreDelegates::ApplicationHasReactivatedDelegate.Remove(HasReactivatedHandle);
+        HasReactivatedHandle.Reset();
     }
-    
+
+    if (EnteredBackgroundHandle.IsValid())
+    {
+        FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Remove(EnteredBackgroundHandle);
+        EnteredBackgroundHandle.Reset();
+    }
+
+    if (WillDeactivateHandle.IsValid())
+    {
+        FCoreDelegates::ApplicationWillDeactivateDelegate.Remove(WillDeactivateHandle);
+        WillDeactivateHandle.Reset();
+    }
+
 	CurrentTime = 0;
 	MediaUrl = FString();
 	
@@ -390,7 +403,7 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 #if !PLATFORM_MAC
 	if ([[nsMediaUrl scheme] isEqualToString:@"file"])
 	{
-		FString FullPath = AvfMedia::ConvertToIOSPath(Path, false);
+		FString FullPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*Path);
 		nsMediaUrl = [NSURL fileURLWithPath: FullPath.GetNSString() isDirectory:NO];
 	}
 #endif
@@ -462,20 +475,24 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 	MediaPlayer.rate = 0.0;
 	CurrentTime = FTimespan::Zero();
 
-	if (!ResumeHandle.IsValid())
+	if (!EnteredForegroundHandle.IsValid())
     {
-        FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationHasEnteredForeground);
-		FCoreDelegates::ApplicationHasReactivatedDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationActivate);
-        ResumeHandle.Reset();
+        EnteredForegroundHandle = FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationHasEnteredForeground);
     }
-    
-    if (!PauseHandle.IsValid())
+    if (!HasReactivatedHandle.IsValid())
     {
-        FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationWillEnterBackground);
-		FCoreDelegates::ApplicationWillDeactivateDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationDeactivate);
-        PauseHandle.Reset();
+        HasReactivatedHandle = FCoreDelegates::ApplicationHasReactivatedDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationActivate);
     }
-    
+
+    if (!EnteredBackgroundHandle.IsValid())
+    {
+        EnteredBackgroundHandle = FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationWillEnterBackground);
+    }
+    if (!WillDeactivateHandle.IsValid())
+    {
+        WillDeactivateHandle = FCoreDelegates::ApplicationWillDeactivateDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationDeactivate);
+    }
+
 	return true;
 }
 
@@ -665,6 +682,20 @@ bool FAvfMediaPlayer::SetRate(float Rate)
 
 	return true;
 }
+
+
+#if PLATFORM_IOS || PLATFORM_TVOS
+bool FAvfMediaPlayer::SetNativeVolume(float Volume)
+{
+	if (MediaPlayer != nil)
+	{
+		MediaPlayer.volume = Volume < 0.0f ? 0.0f : (Volume < 1.0f ? Volume : 1.0f);
+		return true;
+	}
+	return false;
+}
+#endif
+
 
 void FAvfMediaPlayer::HandleApplicationHasEnteredForeground()
 {

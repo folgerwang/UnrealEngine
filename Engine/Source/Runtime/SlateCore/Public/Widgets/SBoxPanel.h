@@ -234,7 +234,7 @@ public:
 	FORCENOINLINE SHorizontalBox()
 	: SBoxPanel( Orient_Horizontal )
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 
@@ -379,7 +379,7 @@ public:
 	FORCENOINLINE SVerticalBox()
 	: SBoxPanel( Orient_Vertical )
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 

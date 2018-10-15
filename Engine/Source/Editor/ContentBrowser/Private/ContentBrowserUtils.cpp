@@ -41,6 +41,7 @@
 #include "AssetToolsModule.h"
 #include "NativeClassHierarchy.h"
 #include "EmptyFolderVisibilityManager.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 #include "Toolkits/AssetEditorManager.h"
 #include "PackagesDialog.h"
@@ -681,25 +682,6 @@ void ContentBrowserUtils::GetAssetsInPaths(const TArray<FString>& InPaths, TArra
 
 bool ContentBrowserUtils::SavePackages(const TArray<UPackage*>& Packages)
 {
-	TArray< UPackage* > PackagesWithExternalRefs;
-	FString PackageNames;
-	if( UPackageTools::CheckForReferencesToExternalPackages( &Packages, &PackagesWithExternalRefs ) )
-	{
-		for(int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
-		{
-			PackageNames += FString::Printf(TEXT("%s\n"), *PackagesWithExternalRefs[ PkgIdx ]->GetName());
-		}
-		bool bProceed = EAppReturnType::Yes == FMessageDialog::Open(
-			EAppMsgType::YesNo,
-			FText::Format(
-				NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"),
-				FText::FromString(PackageNames) ) );
-		if(!bProceed)
-		{
-			return false;
-		}
-	}
-
 	const bool bCheckDirty = false;
 	const bool bPromptToSave = false;
 	const FEditorFileUtils::EPromptReturnCode Return = FEditorFileUtils::PromptForCheckoutAndSave(Packages, bCheckDirty, bPromptToSave);
@@ -1794,6 +1776,9 @@ bool ContentBrowserUtils::IsValidFolderPathForCreate(const FString& InFolderPath
 
 int32 ContentBrowserUtils::GetPackageLengthForCooking(const FString& PackageName, bool IsInternalBuild)
 {
+	// We assume the game name is 20 characters (the maximum allowed) to make sure that content can be ported between projects
+	static const int32 MaxGameNameLen = 20;
+
 	// Pad out the game name to the maximum allowed
 	const FString GameName = FApp::GetProjectName();
 	FString GameNamePadded = GameName;
@@ -1858,6 +1843,7 @@ bool ContentBrowserUtils::IsValidPackageForCooking(const FString& PackageName, F
 {
 	int32 AbsoluteCookPathToAssetLength = GetPackageLengthForCooking(PackageName, FEngineBuildSettings::IsInternalBuild());
 
+	int32 MaxCookPathLen = GetMaxCookPathLen();
 	if (AbsoluteCookPathToAssetLength > MaxCookPathLen)
 	{
 		// See TTP# 332328:
@@ -2300,6 +2286,20 @@ void ContentBrowserUtils::RemoveFavoriteFolder(const FString& FolderPath, bool b
 const TArray<FString>& ContentBrowserUtils::GetFavoriteFolders()
 {
 	return FContentBrowserSingleton::Get().FavoriteFolderPaths;
+}
+
+int32 ContentBrowserUtils::GetMaxCookPathLen()
+{
+	if (GetDefault<UEditorExperimentalSettings>()->bEnableLongPathsSupport)
+	{
+		// Allow the longest path allowed by the system
+		return FPlatformMisc::GetMaxPathLength();
+	}
+	else
+	{
+		// 260 characters is the limit on Windows, which is the shortest max path of any platforms that support cooking
+		return 260;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

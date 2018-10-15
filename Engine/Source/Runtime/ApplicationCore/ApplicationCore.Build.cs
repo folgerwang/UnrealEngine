@@ -71,6 +71,7 @@ public class ApplicationCore : ModuleRules
 		else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
 			PublicIncludePaths.AddRange(new string[] {"Runtime/ApplicationCore/Public/IOS"});
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "SoundSwitch");
 		}
 
 		if (!Target.bCompileAgainstApplicationCore)

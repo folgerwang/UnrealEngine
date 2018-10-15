@@ -104,6 +104,10 @@ class ULandscapeSplineControlPoint : public UObject
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	FVector MeshScale;
 
+	/** Whether to hide the mesh in game */
+	UPROPERTY(EditAnywhere, Category=Mesh, AdvancedDisplay)
+	uint8 bHiddenInGame:1;
+	
 	UPROPERTY()
 	uint32 bEnableCollision_DEPRECATED:1;
 

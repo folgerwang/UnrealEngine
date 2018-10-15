@@ -421,11 +421,11 @@ namespace UnrealBuildTool
 				DirectoryReference DependencyListDir;
 				if(RulesObject.ProjectFile == null)
 				{
-					DependencyListDir = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, RulesObject.Name, RulesObject.Configuration.ToString(), RulesObject.Platform.ToString());
+					DependencyListDir = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "DependencyLists", RulesObject.Name, RulesObject.Configuration.ToString(), RulesObject.Platform.ToString());
 				}
 				else
 				{
-					DependencyListDir = DirectoryReference.Combine(RulesObject.ProjectFile.Directory, RulesObject.Name, RulesObject.Configuration.ToString(), RulesObject.Platform.ToString());
+					DependencyListDir = DirectoryReference.Combine(RulesObject.ProjectFile.Directory, "Intermediate", "DependencyLists", RulesObject.Name, RulesObject.Configuration.ToString(), RulesObject.Platform.ToString());
 				}
 
 				FileReference DependencyListFile;
@@ -469,7 +469,9 @@ namespace UnrealBuildTool
 			}
 
 			// Include generated code plugin if not building an editor target and project is configured for nativization
-			if (RulesObject.ProjectFile != null && RulesObject.Type != TargetType.Editor && ShouldIncludeNativizedAssets(RulesObject.ProjectFile.Directory))
+			if (RulesObject.ProjectFile != null
+				&& (RulesObject.Type == TargetType.Game || RulesObject.Type == TargetType.Client || RulesObject.Type == TargetType.Server)
+				&& ShouldIncludeNativizedAssets(RulesObject.ProjectFile.Directory))
 			{
 				string PlatformName;
 				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64)
@@ -802,6 +804,11 @@ namespace UnrealBuildTool
 		public FileReference DeployTargetFile;
 
 		/// <summary>
+		/// Directories which are scanned for source files. The UBT makefile uses this to check for files being added/removed.
+		/// </summary>
+		public HashSet<DirectoryReference> SourceDirectories = new HashSet<DirectoryReference>();
+
+		/// <summary>
 		/// A list of the module filenames which were used to build this target.
 		/// </summary>
 		/// <returns></returns>
@@ -856,6 +863,7 @@ namespace UnrealBuildTool
 			PostBuildStepScripts = (FileReference[])Info.GetValue("po", typeof(FileReference[]));
 			DeployTargetFile = (FileReference)Info.GetValue("dt", typeof(FileReference));
 			bHasProjectScriptPlugin = Info.GetBoolean("sp");
+			SourceDirectories = (HashSet<DirectoryReference>)Info.GetValue("sd", typeof(HashSet<DirectoryReference>));
 		}
 
 		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
@@ -886,6 +894,7 @@ namespace UnrealBuildTool
 			Info.AddValue("po", PostBuildStepScripts);
 			Info.AddValue("dt", DeployTargetFile);
 			Info.AddValue("sp", bHasProjectScriptPlugin);
+			Info.AddValue("sd", SourceDirectories);
 		}
 
 		/// <summary>
@@ -1163,7 +1172,7 @@ namespace UnrealBuildTool
 			}
 
 			// Finally clean UnrealHeaderTool if this target uses CoreUObject modules and we're not cleaning UHT already and we want UHT to be cleaned.
-			if (bIncludeUnrealHeaderTool && !RulesAssembly.IsReadOnly(ExternalExecution.GetHeaderToolReceiptFile(UnrealTargetConfiguration.Development)) && TargetName != "UnrealHeaderTool")
+			if (bIncludeUnrealHeaderTool && !RulesAssembly.IsReadOnly(ExternalExecution.GetHeaderToolReceiptFile(ProjectFile, UnrealTargetConfiguration.Development, bHasProjectScriptPlugin)) && TargetName != "UnrealHeaderTool")
 			{
 				ExternalExecution.RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), String.Format("UnrealHeaderTool {0} {1} -NoMutex -Clean -IgnoreJunk -NoLog", BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development));
 			}
@@ -1175,14 +1184,40 @@ namespace UnrealBuildTool
 		/// Writes a list of all the externally referenced files required to use the precompiled data for this target
 		/// </summary>
 		/// <param name="Location">Path to the dependency list</param>
-		/// <param name="RuntimeDependencySourceFiles">All the source files for runtime dependencies. This is only evaluated at build time.</param>
-		void WriteDependencyList(FileReference Location, IEnumerable<FileReference> RuntimeDependencySourceFiles)
+		/// <param name="RuntimeDependencies">List of all the runtime dependencies for this target</param>
+		/// <param name="RuntimeDependencyTargetFileToSourceFile">Map of runtime dependencies to their location in the source tree, before they are staged</param>
+		void WriteDependencyList(FileReference Location, List<RuntimeDependency> RuntimeDependencies, Dictionary<FileReference, FileReference> RuntimeDependencyTargetFileToSourceFile)
 		{
-			HashSet<FileReference> Files = new HashSet<FileReference>(RuntimeDependencySourceFiles);
+			HashSet<FileReference> Files = new HashSet<FileReference>();
+
+			// Find all the runtime dependency files in their original location
+			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
+			{
+				FileReference SourceFile;
+				if(RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				{
+					Files.Add(SourceFile);
+				}
+				else
+				{
+					Files.Add(RuntimeDependency.Path);
+				}
+			}
+
+			// Figure out all the modules referenced by this target. This includes all the modules that are referenced, not just the ones compiled into binaries.
+			HashSet<UEBuildModule> Modules = new HashSet<UEBuildModule>();
+			foreach (UEBuildBinary Binary in Binaries)
+			{
+				foreach(UEBuildModule Module in Binary.Modules)
+				{
+					Modules.Add(Module);
+					Modules.UnionWith(Module.GetDependencies(true, true));
+				}
+			}
 
 			// Get the platform we're building for
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
-			foreach (UEBuildModule Module in Binaries.SelectMany(x => x.Modules))
+			foreach (UEBuildModule Module in Modules)
 			{
 				// Skip artificial modules
 				if(Module.RulesFile == null)
@@ -1765,6 +1800,23 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Removes any receipt files in the case of a failed build
+		/// </summary>
+		public void DeleteReceipts()
+		{
+			if (Receipt != null)
+			{
+				if (OnlyModules == null || OnlyModules.Count == 0)
+				{
+					if(!IsFileInstalled(ReceiptFileName) && FileReference.Exists(ReceiptFileName))
+					{
+						FileReference.Delete(ReceiptFileName);
+					}
+				}
+			}
+		}
+
+		/// <summary>
 		/// Checks whether the given file is under an installed directory, and should not be overridden
 		/// </summary>
 		/// <param name="File">File to test</param>
@@ -2196,10 +2248,10 @@ namespace UnrealBuildTool
 				return ECompilationResult.Canceled;
 			}
 
-			// Build a list of all the externally files
+			// Build a list of all the files required to build
 			foreach(FileReference DependencyListFileName in Rules.DependencyListFileNames)
 			{
-				WriteDependencyList(DependencyListFileName, RuntimeDependencyTargetFileToSourceFile.Values);
+				WriteDependencyList(DependencyListFileName, RuntimeDependencies, RuntimeDependencyTargetFileToSourceFile);
 			}
 
 			// If we're only generating the manifest, return now
@@ -3231,17 +3283,17 @@ namespace UnrealBuildTool
 				{
 					if(!Rules.EnablePlugins.Contains(PluginReference.Name, StringComparer.InvariantCultureIgnoreCase) && !Rules.DisablePlugins.Contains(PluginReference.Name, StringComparer.InvariantCultureIgnoreCase))
 					{
-					// Make sure we don't have multiple references to the same plugin
-					if(!ReferencedNames.Add(PluginReference.Name))
-					{
-						Log.TraceWarning("Plugin '{0}' is listed multiple times in project file '{1}'.", PluginReference.Name, ProjectFile);
-					}
-					else
-					{
-						AddPlugin(PluginReference, ProjectReferenceChain, ExcludeFolders, NameToInstance, NameToInfo);
+						// Make sure we don't have multiple references to the same plugin
+						if(!ReferencedNames.Add(PluginReference.Name))
+						{
+							Log.TraceWarning("Plugin '{0}' is listed multiple times in project file '{1}'.", PluginReference.Name, ProjectFile);
+						}
+						else
+						{
+							AddPlugin(PluginReference, ProjectReferenceChain, ExcludeFolders, NameToInstance, NameToInfo);
+						}
 					}
 				}
-			}
 			}
 
 			// Also synthesize references for plugins which are enabled by default
@@ -3251,15 +3303,15 @@ namespace UnrealBuildTool
 				{
 					if(Plugin.EnabledByDefault && !ReferencedNames.Contains(Plugin.Name))
 					{
-							ReferencedNames.Add(Plugin.Name);
+						ReferencedNames.Add(Plugin.Name);
 
-							PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(Plugin.Name, null, true);
-							PluginReference.bOptional = true;
+						PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(Plugin.Name, null, true);
+						PluginReference.bOptional = true;
 
-							AddPlugin(PluginReference, "default plugins", ExcludeFolders, NameToInstance, NameToInfo);
-						}
+						AddPlugin(PluginReference, "default plugins", ExcludeFolders, NameToInstance, NameToInfo);
 					}
 				}
+			}
 
 			// If this is a program, synthesize references for plugins which are enabled via the config file
 			if(TargetType == TargetType.Program)
@@ -3287,7 +3339,7 @@ namespace UnrealBuildTool
 			BuildPlugins = new List<UEBuildPlugin>(NameToInstance.Values);
 
 			// Determine if the project has a script plugin. We will always build UHT if there is a script plugin in the game folder.
-			bHasProjectScriptPlugin = EnabledPlugins.Any(x => x.Descriptor.bCanBeUsedWithUnrealHeaderTool && !x.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory));
+			bHasProjectScriptPlugin = EnabledPlugins.Any(x => x.Descriptor.SupportedPrograms != null && x.Descriptor.SupportedPrograms.Contains("UnrealHeaderTool") && !x.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory));
 		}
 
 		/// <summary>
@@ -4059,7 +4111,7 @@ namespace UnrealBuildTool
 					if (bDiscoverFiles && !RulesObject.bUsePrecompiled)
 					{
 						List<FileReference> SourceFilePaths = new List<FileReference>();
-						SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesObject.File);
+						SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesObject.File, SearchedDirectories: SourceDirectories);
 						FoundSourceFiles = GetCPlusPlusFilesToBuild(SourceFilePaths, ModuleDirectory, Platform);
 					}
 				}

@@ -157,6 +157,9 @@ void USynthComponent::Deactivate()
 
 void USynthComponent::Initialize(int32 SampleRateOverride)
 {
+	// This will try to create the audio component if it hasn't yet been created
+	CreateAudioComponent();
+
 	// Try to get a proper sample rate
 	int32 SampleRate = SampleRateOverride;
 	if (SampleRate == INDEX_NONE)
@@ -277,7 +280,7 @@ void USynthComponent::OnUnregister()
 bool USynthComponent::IsReadyForOwnerToAutoDestroy() const
 {
 	const bool bIsAudioComponentReadyForDestroy = !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
-	const bool bIsSynthSoundReadyForDestroy = !Synth || !Synth->GetNumSoundsActive();
+	const bool bIsSynthSoundReadyForDestroy = !Synth || !Synth->IsGenerating();
 	return bIsAudioComponentReadyForDestroy && bIsSynthSoundReadyForDestroy;
 }
 
@@ -348,16 +351,15 @@ void USynthComponent::Start()
 	{
 		return;
 	}
-		
-	// This will try to create the audio component if it hasn't yet been created
-	CreateAudioComponent();
 
 	// We will also ensure that this synth was initialized before attempting to play.
 	Initialize();
 
+	// If there is no Synth USoundBase, we can't start. This can happen if start is called in a cook, a server, or 
+	// if the audio engine is set to "noaudio".
+	// TODO: investigate if this should be handled elsewhere before this point
 	if (Synth == nullptr)
 	{
-		UE_LOG(LogAudio, Warning, TEXT("Warning: SynthComponent failed to start due to failiure in initialization."));
 		return;
 	}
 

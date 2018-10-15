@@ -10,6 +10,7 @@
 #include "Containers/ResourceArray.h"
 #include "VulkanLLM.h"
 
+
 static TMap<FVulkanResourceMultiBuffer*, VulkanRHI::FPendingBufferLock> GPendingLockIBs;
 static FCriticalSection GPendingLockIBsMutex;
 
@@ -81,7 +82,16 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 		BufferUsageFlags |= bUAV ? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bIndirect ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0;
 
-		if (!bVolatile)
+		if (bVolatile)
+		{
+			bool bRenderThread = IsInRenderingThread();
+
+			// Get a dummy buffer as sometimes the high-level misbehaves and tries to use SRVs off volatile buffers before filling them in...
+			void* Data = Lock(bRenderThread, RLM_WriteOnly, InSize, 0);
+			FMemory::Memzero(Data, InSize);
+			Unlock(bRenderThread);
+		}
+		else
 		{
 			VkDevice VulkanDevice = InDevice->GetInstanceHandle();
 
@@ -92,7 +102,7 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 				BufferMemFlags |= (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 			}
 
-			NumBuffers = bDynamic ? NUM_RENDER_BUFFERS : 1;
+			NumBuffers = bDynamic ? NUM_BUFFERS : 1;
 			check(NumBuffers <= ARRAY_COUNT(Buffers));
 
 			for (uint32 Index = 0; Index < NumBuffers; ++Index)
@@ -223,6 +233,8 @@ inline void FVulkanResourceMultiBuffer::InternalUnlock(FVulkanCommandListContext
 	}
 	ensure(Cmd->IsOutsideRenderPass());
 	VkCommandBuffer CmdBuffer = Cmd->GetHandle();
+
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer, 16);
 
 	VkBufferCopy Region;
 	FMemory::Memzero(Region);

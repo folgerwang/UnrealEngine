@@ -48,6 +48,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Skeletal Meshes")
 	TArray<FPreviewMeshCollectionEntry> SkeletalMeshes;
 
-	/** return list of preview skeletalmeshes */
-	virtual void GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList) const override;
+	/** return list of preview SkeletalMesh */
+	virtual void GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList, TArray<TSubclassOf<UAnimInstance>>& OutAnimBP) const override;
 };

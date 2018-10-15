@@ -46,7 +46,7 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateGAIErrorCode(int32 Code) const
 	return SE_NO_ERROR;
 }
 
-FSocket* FSocketSubsystemBSDIPv6::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
+FSocket* FSocketSubsystemBSDIPv6::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType)
 {
 	SOCKET Socket = INVALID_SOCKET;
 	FSocket* NewSocket = NULL;
@@ -209,6 +209,11 @@ TSharedRef<FInternetAddr> FSocketSubsystemBSDIPv6::CreateInternetAddr(uint32 Add
 	Result->SetIp(Address);
 	Result->SetPort(Port);
 	return Result;
+}
+
+bool FSocketSubsystemBSDIPv6::IsSocketWaitSupported() const
+{
+	return true;
 }
 
 ESocketErrors FSocketSubsystemBSDIPv6::GetLastErrorCode()

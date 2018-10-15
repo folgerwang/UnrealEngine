@@ -706,7 +706,7 @@ static void AddAndroidConfigExportSubMenus(FMenuBuilder& InMenuBuilder)
 		FString ModelName = DeviceInfo.Model + TEXT("(") + DeviceInfo.DeviceBrand + TEXT(")");
 
 		// lambda function called to open the save dialog and trigger device export
-		auto LambdaSaveConfigFile = [DeviceName = Pair.Key, DefaultFileName = ModelName]()
+		auto LambdaSaveConfigFile = [DeviceName = Pair.Key, DefaultFileName = ModelName, DeviceDetection]()
 		{
 			TArray<FString> OutputFileName;
 			FString DefaultFolder = FPaths::EngineContentDir() + TEXT("Editor/PIEPreviewDeviceSpecs/Android/");
@@ -722,12 +722,7 @@ static void AddAndroidConfigExportSubMenus(FMenuBuilder& InMenuBuilder)
 
 			if (bResult && OutputFileName.Num())
 			{
-				IAndroidDeviceDetection* DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();
-
-				if (DeviceDetection != nullptr)
-				{
-					DeviceDetection->ExportDeviceProfile(OutputFileName[0], DeviceName);
-				}
+				DeviceDetection->ExportDeviceProfile(OutputFileName[0], DeviceName);
 			}
 		};
 
@@ -1011,14 +1006,12 @@ static void MakeAllDevicesSubMenu(FMenuBuilder& InMenuBuilder, const PlatformInf
 		);
 
 		// generate display label
-		FFormatNamedArguments LabelArguments;
-		LabelArguments.Add(TEXT("PlatformName"), FText::FromString(PlatformVariantStr));
-		FText Label = FText::Format(LOCTEXT("LaunchDeviceLabel", "{PlatformName}"), LabelArguments);
+		FText Label = FText::FromString(PlatformVariantStr);
 
 		// generate tooltip text with the devices' list
 		FFormatNamedArguments TooltipArguments;
 		TooltipArguments.Add(TEXT("DeviceList"), FText::FromString(DeviceListStr));
-		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on:\n {DeviceList}"), TooltipArguments);
+		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_LaunchOn", "Launch the game on:\n {DeviceList}"), TooltipArguments);
 
 		// add a submenu entry
 		InMenuBuilder.AddMenuEntry(
@@ -1098,12 +1091,9 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 							FString AggregateDevicedName(FString::Printf(TEXT("  %s"), *DeviceProxy->GetName())); //align with the other menu entries
 							FSlateIcon AggregateDeviceIcon(FEditorStyle::GetStyleSetName(), VanillaPlatform.PlatformInfo->GetIconStyleName(PlatformInfo::EPlatformIconSize::Normal));
 
-							FString SubMenuKey(FString::Printf(TEXT("%s_SubMenu"), *DeviceProxy->GetName()));
-							FString SubMenuToolTip(FString::Printf(TEXT("%s_SubMenuToolTip"), *DeviceProxy->GetName()));
-
 							MenuBuilder.AddSubMenu(
-								FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*AggregateDevicedName, TEXT(LOCTEXT_NAMESPACE), *SubMenuKey),
-								FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*AggregateDevicedName, TEXT(LOCTEXT_NAMESPACE), *SubMenuToolTip),
+								FText::FromString(AggregateDevicedName),
+								FText::FromString(AggregateDevicedName),
 								FNewMenuDelegate::CreateStatic(&MakeAllDevicesSubMenu, VanillaPlatform.PlatformInfo, DeviceProxy),
 								false, AggregateDeviceIcon, true
 							);
@@ -1140,10 +1130,10 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 						FFormatNamedArguments TooltipArguments;
 						TooltipArguments.Add(TEXT("DeviceID"), FText::FromString(DeviceProxy->GetName()));
 						TooltipArguments.Add(TEXT("DisplayName"), VanillaPlatform.PlatformInfo->DisplayName);
-						FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on this {DisplayName} device ({DeviceID})"), TooltipArguments);
+						FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_ThisDevice", "Launch the game on this {DisplayName} device ({DeviceID})"), TooltipArguments);
 						if (!DeviceProxy->IsAuthorized())
 						{
-							Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "{DisplayName} device ({DeviceID}) is unauthorized or locked"), TooltipArguments);
+							Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_UnauthorizedOrLocked", "{DisplayName} device ({DeviceID}) is unauthorized or locked"), TooltipArguments);
 						}
 
 						FProjectStatus ProjectStatus;

@@ -14,6 +14,9 @@ struct FLightMapDensityVSToPS
 {
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
 	float4 WorldPosition	: TEXCOORD6;
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	float3 PixelPositionExcludingWPO : TEXCOORD7;
+#endif
 	float4 Position			: SV_POSITION;
 };
 
@@ -21,7 +24,10 @@ struct FLightMapDensityVSToPS
 	struct FLightMapDensityVSToDS
 	{
 		FVertexFactoryInterpolantsVSToDS FactoryInterpolants;
-		float4 Position	: TEXCOORD7;
+		float4 Position	: VS_To_DS_Position;
+		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+			float3 PixelPositionExcludingWPO : TEXCOORD7;
+		#endif
 		OPTIONAL_VertexID_VS_To_DS
 	};
 	
@@ -40,6 +46,10 @@ struct FLightMapDensityVSToPS
 		
 		O.FactoryInterpolants = VertexFactoryInterpolate(a.FactoryInterpolants, aInterp, b.FactoryInterpolants, bInterp);
 
+		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+			TESSELLATION_INTERPOLATE_MEMBER(PixelPositionExcludingWPO);
+		#endif
+
 		return O;
 	}
 
@@ -56,6 +66,10 @@ struct FLightMapDensityVSToPS
 		}
 
 		O.WorldPosition = WorldPosition;
+
+		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+			O.PixelPositionExcludingWPO = Interpolants.PixelPositionExcludingWPO.xyz;
+		#endif
 		
 		return O;
 	}
@@ -80,6 +94,7 @@ void MainVertexShader(
 
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float4 WorldPositionExcludingWPO = WorldPosition;
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
 
 	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPosition.xyz, TangentToLocal);
@@ -97,6 +112,10 @@ void MainVertexShader(
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, Output.WorldPosition);
 		Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
 	}
+
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	Output.PixelPositionExcludingWPO = WorldPositionExcludingWPO.xyz;
+#endif
 
 #if USE_GLOBAL_CLIP_PLANE
 	OutGlobalClipPlaneDistance = dot(ResolvedView.GlobalClippingPlane, float4(WorldPosition.xyz - ResolvedView.PreViewTranslation.xyz, 1));

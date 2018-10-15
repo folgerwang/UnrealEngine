@@ -421,6 +421,8 @@ public:
 
 	const TNavStatArray<FBox>& GetInclusionBounds() const { return InclusionBounds; }
 	
+	FVector GetRcNavMeshOrigin() const { return RcNavMeshOrigin; }
+
 	/** checks if any on InclusionBounds encapsulates given box.
 	 *	@return index to first item in InclusionBounds that meets expectations */
 	int32 FindInclusionBoundEncapsulatingBox(const FBox& Box) const;
@@ -543,6 +545,9 @@ private:
 	/** */
 	FRecastNavMeshCachedData AdditionalCachedData;
 
+	/** Use this if you don't want your tiles to start at (0,0,0) */
+	FVector RcNavMeshOrigin;
+	
 	uint32 bInitialized:1;
 
 	uint32 bRestrictBuildingToActiveTiles:1;

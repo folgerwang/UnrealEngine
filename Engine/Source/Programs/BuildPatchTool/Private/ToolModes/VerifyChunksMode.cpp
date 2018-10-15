@@ -30,17 +30,17 @@ public:
 		// Print help if requested.
 		if (bHelp)
 		{
-			UE_LOG(LogBuildPatchTool, Log, TEXT("VERIFY CHUNKS MODE"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("This tool mode allows you to verify the integrity of patch data. It will load chunk or chunkdb files to verify they are not corrupt."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Required arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=VerifyChunks  Must be specified to launch the tool in verify chunks mode."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -SearchPath=\"\"      Specifies in quotes the directory path which contains data to verify."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Optional arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -OutputFile=\"\"      When specified, full file path for each bad data will be saved to this file as \\r\\n seperated list."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: All checks are logged, normal log for good data, error log for any bad data found."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("VERIFY CHUNKS MODE"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("This tool mode allows you to verify the integrity of patch data. It will load chunk or chunkdb files to verify they are not corrupt."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Required arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -mode=VerifyChunks  Must be specified to launch the tool in verify chunks mode."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -SearchPath=\"\"      Specifies in quotes the directory path which contains data to verify."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Optional arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -OutputFile=\"\"      When specified, full file path for each bad data will be saved to this file as \\r\\n seperated list."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: All checks are logged, normal log for good data, error log for any bad data found."));
 			return EReturnCode::OK;
 		}
 

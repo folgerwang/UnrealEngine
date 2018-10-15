@@ -337,6 +337,9 @@ void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(uint32 NumSignalSemaphor
 	if (!UploadCmdBuffer->IsSubmitted() && UploadCmdBuffer->HasBegun())
 	{
 		check(UploadCmdBuffer->IsOutsideRenderPass());
+
+		VulkanRHI::DebugHeavyWeightBarrier(UploadCmdBuffer->GetHandle(), 4);
+
 		UploadCmdBuffer->End();
 		Queue->Submit(UploadCmdBuffer, NumSignalSemaphores, SignalSemaphores);
 		UploadCmdBuffer->SubmittedTime = FPlatformTime::Seconds();
@@ -357,6 +360,9 @@ void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(VulkanRHI::FSemaphore* S
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Forcing EndRenderPass() for submission"));
 			ActiveCmdBuffer->EndRenderPass();
 		}
+
+		VulkanRHI::DebugHeavyWeightBarrier(ActiveCmdBuffer->GetHandle(), 8);
+
 		ActiveCmdBuffer->End();
 		if (SignalSemaphore)
 		{

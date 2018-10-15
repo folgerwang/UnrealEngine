@@ -8,16 +8,14 @@
 #include "SceneView.h"
 #include "Engine/Engine.h"
 #include "Types/NavigationMetaData.h"
-
-
 #include "Engine/GameEngine.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "GeneralProjectSettings.h"
-
 #include "Widgets/LayerManager/STooltipPresenter.h"
 #include "Widgets/Layout/SDPIScaler.h"
 #include "Widgets/Layout/SPopup.h"
 #include "Widgets/Layout/SWindowTitleBarArea.h"
+#include "DebugCanvas.h"
 
 /* SGameLayerManager interface
  *****************************************************************************/
@@ -83,6 +81,12 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 						SAssignNew(TooltipPresenter, STooltipPresenter)
 					]
 				]
+				+ SOverlay::Slot()
+				[
+					SAssignNew(DebugCanvas, SDebugCanvas)
+					.SceneViewport(InArgs._SceneViewport)
+
+				]
 			]
 		];
 
@@ -116,6 +120,12 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 	SetWindowTitleBarState(nullptr, EWindowTitleBarMode::Overlay, false, false, false);
 
 	bIsGameUsingBorderlessWindow = GetDefault<UGeneralProjectSettings>()->bUseBorderlessWindow && PLATFORM_WINDOWS;
+}
+
+void SGameLayerManager::SetSceneViewport(FSceneViewport* InSceneViewport)
+{
+	SceneViewport = InSceneViewport;
+	DebugCanvas->SetSceneViewport(InSceneViewport);
 }
 
 const FGeometry& SGameLayerManager::GetViewportWidgetHostGeometry() const

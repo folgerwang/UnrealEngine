@@ -28,6 +28,7 @@ public:
 
 		MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
+		SecondaryToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 	}
 
 	/**
@@ -37,6 +38,7 @@ public:
 	{
 		MenuExtensibilityManager.Reset();
 		ToolBarExtensibilityManager.Reset();
+		SecondaryToolBarExtensibilityManager.Reset();
 	}
 
 	/**
@@ -52,10 +54,12 @@ public:
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override { return MenuExtensibilityManager; }
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() override { return ToolBarExtensibilityManager; }
+	virtual TSharedPtr<FExtensibilityManager> GetSecondaryToolBarExtensibilityManager() override { return SecondaryToolBarExtensibilityManager; }
 
 private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
+	TSharedPtr<FExtensibilityManager> SecondaryToolBarExtensibilityManager;
 };
 
 IMPLEMENT_MODULE( FStaticMeshEditorModule, StaticMeshEditor );

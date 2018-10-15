@@ -18,8 +18,8 @@
 FDebugRenderSceneProxy::FDebugRenderSceneProxy(const UPrimitiveComponent* InComponent)
 	: FPrimitiveSceneProxy(InComponent)
 	, ViewFlagIndex(uint32(FEngineShowFlags::FindIndexByName(TEXT("Game"))))
-	, ViewFlagName(TEXT("Game"))
 	, TextWithoutShadowDistance(1500)
+	, ViewFlagName(TEXT("Game"))
 	, DrawType(WireMesh)
 	, DrawAlpha(100)
 {
@@ -27,7 +27,7 @@ FDebugRenderSceneProxy::FDebugRenderSceneProxy(const UPrimitiveComponent* InComp
 
 void FDebugDrawDelegateHelper::RegisterDebugDrawDelgate()
 {
-	ensureMsgf(State != RegisteredState, TEXT("RegisterDebugDrawDelgate is already Registered!"));
+	ensureMsgf(State != RegisteredState, TEXT("RegisterDebugDrawDelegate is already Registered!"));
 	if (State == InitializedState)
 	{
 		DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FDebugDrawDelegateHelper::DrawDebugLabels);
@@ -38,7 +38,7 @@ void FDebugDrawDelegateHelper::RegisterDebugDrawDelgate()
 
 void FDebugDrawDelegateHelper::UnregisterDebugDrawDelgate()
 {
-	ensureMsgf(State != InitializedState, TEXT("UnegisterDebugDrawDelgate is in an invalid State: %i !"), State);
+	ensureMsgf(State != InitializedState, TEXT("UnregisterDebugDrawDelegate is in an invalid State: %i !"), State);
 	if (State == RegisteredState)
 	{
 		check(DebugTextDrawingDelegate.IsBound());
@@ -49,7 +49,7 @@ void FDebugDrawDelegateHelper::UnregisterDebugDrawDelgate()
 
 void  FDebugDrawDelegateHelper::ReregisterDebugDrawDelgate()
 {
-	ensureMsgf(State != UndefinedState, TEXT("ReregisterDebugDrawDelgate is in an invalid State: %i !"), State);
+	ensureMsgf(State != UndefinedState, TEXT("ReregisterDebugDrawDelgeate is in an invalid State: %i !"), State);
 	if (State == RegisteredState)
 	{
 		UnregisterDebugDrawDelgate();

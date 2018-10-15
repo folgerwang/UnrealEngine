@@ -269,7 +269,7 @@ FReply SNiagaraStackTableRow::OnMouseButtonUp(const FGeometry& MyGeometry, const
 		{
 			MenuBuilder.BeginSection("AssetActions", LOCTEXT("AssetActions", "Asset Actions"));
 			MenuBuilder.AddMenuEntry(
-				LOCTEXT("OpenAndFocusAsset", "Open and focus Asset"),
+				LOCTEXT("OpenAndFocusAsset", "Open and Focus Asset"),
 				FText::Format(LOCTEXT("OpenAndFocusAssetTooltip", "Open {0} in separate editor"), StackEntry->GetDisplayName()),
 				FSlateIcon(),
 				FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackTableRow::OpenSourceAsset)));
@@ -291,7 +291,7 @@ FReply SNiagaraStackTableRow::OnMouseButtonUp(const FGeometry& MyGeometry, const
 			{
 				MenuBuilder.BeginSection("StackRowNavigateTo", LOCTEXT("NavigateToSection", "Navigate to:"));
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("TopOfSection", "Top of section"),
+					LOCTEXT("TopOfSection", "Top of Section"),
 					FText::Format(LOCTEXT("NavigateToFormatted", "Navigate to {0}"), Parent->GetDisplayName()),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackTableRow::NavigateTo, Parent)));
@@ -299,7 +299,7 @@ FReply SNiagaraStackTableRow::OnMouseButtonUp(const FGeometry& MyGeometry, const
 			if (ItemParent != nullptr)
 			{
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("TopOfModule", "Top of module"),
+					LOCTEXT("TopOfModule", "Top of Module"),
 					FText::Format(LOCTEXT("NavigateToFormatted", "Navigate to {0}"), Parent->GetDisplayName()),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackTableRow::NavigateTo, Parent)));
@@ -312,12 +312,12 @@ FReply SNiagaraStackTableRow::OnMouseButtonUp(const FGeometry& MyGeometry, const
 
 		MenuBuilder.BeginSection("StackActions", LOCTEXT("StackActions", "Stack Actions"));
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("ExpandAllItems", "Expand all"),
+			LOCTEXT("ExpandAllItems", "Expand All"),
 			LOCTEXT("ExpandAllItemsToolTip", "Expand all items under this header."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackTableRow::ExpandChildren)));
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("CollapseAllItems", "Collapse all"),
+			LOCTEXT("CollapseAllItems", "Collapse All"),
 			LOCTEXT("CollapseAllItemsToolTip", "Collapse all items under this header."),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStackTableRow::CollapseChildren)));

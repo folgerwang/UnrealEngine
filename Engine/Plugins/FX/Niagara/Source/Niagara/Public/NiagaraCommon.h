@@ -220,7 +220,12 @@ struct NIAGARA_API FNiagaraFunctionSignature
 	FText Description;
 #endif
 
-	FNiagaraFunctionSignature() {}
+	FNiagaraFunctionSignature() 
+		: bRequiresContext(false)
+		, bMemberFunction(false)
+	{
+	}
+
 	FNiagaraFunctionSignature(FName InName, TArray<FNiagaraVariable>& InInputs, TArray<FNiagaraVariable>& InOutputs, FName InSource, bool bInRequiresContext, bool bInMemberFunction)
 		: Name(InName)
 		, Inputs(InInputs)

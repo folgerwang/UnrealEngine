@@ -792,6 +792,17 @@ FTlsAutoCleanup* FThreadSingletonInitializer::Get( TFunctionRef<FTlsAutoCleanup*
 	return ThreadSingleton;
 }
 
+FTlsAutoCleanup* FThreadSingletonInitializer::TryGet(uint32& TlsSlot)
+{
+	if (TlsSlot == 0xFFFFFFFF)
+	{
+		return nullptr;
+	}
+
+	FTlsAutoCleanup* ThreadSingleton = (FTlsAutoCleanup*)FPlatformTLS::GetTlsValue(TlsSlot);
+	return ThreadSingleton;
+}
+
 void FTlsAutoCleanup::Register()
 {
 	FRunnableThread* RunnableThread = FRunnableThread::GetRunnableThread();

@@ -40,7 +40,7 @@ UENUM()
 	IOS_8 = 8 UMETA(Hidden),
 
 	/** iOS 9 */
-	IOS_9 = 9 UMETA(DisplayName = "9.0"),
+	IOS_9 = 9 UMETA(Hidden),
 
 	/** iOS 10 */
 	IOS_10 = 10 UMETA(DisplayName = "10.0"),
@@ -208,6 +208,10 @@ public:
     // Should push/remote notifications support (iOS Online Subsystem) be enabled?
     UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
     uint32 bEnableRemoteNotificationsSupport : 1;
+    
+    // Should background fetch support be enabled?
+    UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+    uint32 bEnableBackgroundFetch : 1;
     
 	// Whether or not to compile iOS Metal shaders for the Mobile renderer (requires iOS 8+ and an A7 processor).
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Mobile Renderer"))

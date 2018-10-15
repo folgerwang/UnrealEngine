@@ -100,6 +100,11 @@ public:
 		__itt_task_end(Domain);
 	}
 
+	virtual void SetThreadName(const TCHAR* Name) override
+	{
+		__itt_thread_set_name(Name);
+	}
+
 	/**
 	 * Initializes profiler hooks. It is not valid to call pause/ resume on an uninitialized
 	 * profiler and the profiler implementation is free to assert or have other undefined

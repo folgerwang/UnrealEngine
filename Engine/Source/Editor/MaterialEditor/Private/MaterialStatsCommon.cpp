@@ -468,6 +468,9 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 			static auto* CVarPointLightsStaticBranch = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileDynamicPointLightsUseStaticBranch"));
 			const bool bPointLightsStaticBranch = CVarPointLightsStaticBranch->GetValueOnAnyThread() != 0;
 
+			static auto* CVarMobileSkyLightPermutation = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.SkyLightPermutation"));
+			const bool bOnlySkyPermutation = CVarMobileSkyLightPermutation->GetValueOnAnyThread() == 2;
+
 			const int32 NumPointLights = bPointLightsStaticBranch ? CVarPointLights->GetValueOnAnyThread() : 1;
 
 			if (TargetMaterial->IsUsedWithStaticLighting())
@@ -476,9 +479,13 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 				{
 					// distance field shadows only shaders
 					{
-						static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0HDRLinear64");
-						static FName Name_LDRGamma32 = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0LDRGamma32");
-						static FName ShaderName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
+						static const FName Name_HDRLinear64 = bOnlySkyPermutation ? 
+							TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0HDRLinear64Skylight") : 
+							TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0HDRLinear64");
+						static const FName Name_LDRGamma32 = bOnlySkyPermutation ? 
+							TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0LDRGamma32Skylight") : 
+							TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0LDRGamma32");
+						static const FName ShaderName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 
 						const FString Description = FString::Printf(TEXT("Mobile base pass shader with distance field shadows%s"), DescSuffix);
 						ShaderTypeNamesAndDescriptions.FindOrAdd(FLocalVertexFactoryName)
@@ -491,9 +498,13 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 					{
 						// distance field shadows & CSM shaders
 						{
-							static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0HDRLinear64");
-							static FName Name_LDRGamma32 = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0LDRGamma32");
-							static FName ShaderName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
+							static const FName Name_HDRLinear64 = bOnlySkyPermutation ? 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0HDRLinear64Skylight") : 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0HDRLinear64");
+							static const FName Name_LDRGamma32 = bOnlySkyPermutation ? 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0LDRGamma32Skylight") : 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0LDRGamma32");
+							static const FName ShaderName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 
 							const FString Description = FString::Printf(TEXT("Mobile base pass shader with distance field shadows and CSM%s"), DescSuffix);
 							ShaderTypeNamesAndDescriptions.FindOrAdd(FLocalVertexFactoryName)
@@ -502,13 +513,21 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 
 						if (bPointLights) // add point lights shaders + distance field shadows
 						{
-							static FName Name_HDRLinear64_OneLight = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy1HDRLinear64");
-							static FName Name_LDRGamma32_OneLight = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy1LDRGamma32");
+							static const FName Name_HDRLinear64_OneLight = bOnlySkyPermutation ? 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy1HDRLinear64Skylight") :
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy1HDRLinear64");
+							static const FName Name_LDRGamma32_OneLight = bOnlySkyPermutation ? 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy1LDRGamma32Skylight") : 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy1LDRGamma32");
 
-							static FName Name_HDRLinear64_NLights = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXHDRLinear64");
-							static FName Name_LDRGamma32_NLights = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXLDRGamma32");
+							static const FName Name_HDRLinear64_NLights = bOnlySkyPermutation ? 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXHDRLinear64Skylight") : 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXHDRLinear64");
+							static const FName Name_LDRGamma32_NLights = bOnlySkyPermutation ? 
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXLDRGamma32Skylight") :
+								TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXLDRGamma32");
 
-							static FName ShaderName = bMobileHDR ?
+							static const FName ShaderName = bMobileHDR ?
 								(bPointLightsStaticBranch ? Name_HDRLinear64_NLights : Name_HDRLinear64_OneLight) :
 								(bPointLightsStaticBranch ? Name_LDRGamma32_NLights : Name_LDRGamma32_OneLight);
 
@@ -525,9 +544,13 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 				}
 				else //no shadows & lightmapped
 				{
-					static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSTLightMapPolicyLQ0HDRLinear64");
-					static FName Name_LDRGamma32 = TEXT("TMobileBasePassPSTLightMapPolicyLQ0LDRGamma32");
-					static FName TSlateMaterialShaderVStrueName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
+					static const FName Name_HDRLinear64 = bOnlySkyPermutation ? 
+						TEXT("TMobileBasePassPSTLightMapPolicyLQ0HDRLinear64Skylight") :
+						TEXT("TMobileBasePassPSTLightMapPolicyLQ0HDRLinear64");
+					static const FName Name_LDRGamma32 = bOnlySkyPermutation ? 
+						TEXT("TMobileBasePassPSTLightMapPolicyLQ0LDRGamma32Skylight") : 
+						TEXT("TMobileBasePassPSTLightMapPolicyLQ0LDRGamma32");
+					static const FName TSlateMaterialShaderVStrueName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 
 					ShaderTypeNamesAndDescriptions.FindOrAdd(FLocalVertexFactoryName)
 						.Add(FRepresentativeShaderInfo(ERepresentativeShader::StationarySurface, TSlateMaterialShaderVStrueName,
@@ -535,13 +558,21 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 
 					if (bPointLights) // add point lights + lightmap
 					{
-						static FName Name_HDRLinear64_OneLight = TEXT("TMobileBasePassPSTLightMapPolicyLQ1HDRLinear64");
-						static FName Name_LDRGamma32_OneLight = TEXT("TMobileBasePassPSTLightMapPolicyLQ1LDRGamma32");
+						static const FName Name_HDRLinear64_OneLight = bOnlySkyPermutation ? 
+							TEXT("TMobileBasePassPSTLightMapPolicyLQ1HDRLinear64Skylight") : 
+							TEXT("TMobileBasePassPSTLightMapPolicyLQ1HDRLinear64");
+						static const FName Name_LDRGamma32_OneLight = bOnlySkyPermutation ? 
+							TEXT("TMobileBasePassPSTLightMapPolicyLQ1LDRGamma32Skylight") : 
+							TEXT("TMobileBasePassPSTLightMapPolicyLQ1LDRGamma32");
 
-						static FName Name_HDRLinear64_NLights = TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXHDRLinear64");
-						static FName Name_LDRGamma32_NLights = TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXLDRGamma32");
+						static const FName Name_HDRLinear64_NLights = bOnlySkyPermutation ? 
+							TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXHDRLinear64Skylight") :
+							TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXHDRLinear64");
+						static const FName Name_LDRGamma32_NLights = bOnlySkyPermutation ?  
+							TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXLDRGamma32Skylight") :
+							TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXLDRGamma32");
 
-						static FName ShaderName = bMobileHDR ?
+						static const FName ShaderName = bMobileHDR ?
 							(bPointLightsStaticBranch ? Name_HDRLinear64_NLights : Name_HDRLinear64_OneLight) :
 							(bPointLightsStaticBranch ? Name_LDRGamma32_NLights : Name_LDRGamma32_OneLight);
 
@@ -557,18 +588,26 @@ void FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(TMap<FName
 			}
 
 			// dynamically lit shader			
-			static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0HDRLinear64");
-			static FName Name_LDRGamma32 = TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0LDRGamma32");
-			const FName TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0Name = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
+			static const FName Name_HDRLinear64 = bOnlySkyPermutation ? 
+				TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0HDRLinear64Skylight") : 
+				TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0HDRLinear64");
+			static const FName Name_LDRGamma32 = bOnlySkyPermutation ? 
+				TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0LDRGamma32Skylight") : 
+				TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0LDRGamma32");
+			static const FName TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0Name = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
+			
 			ShaderTypeNamesAndDescriptions.FindOrAdd(FLocalVertexFactoryName)
 				.Add(FRepresentativeShaderInfo(ERepresentativeShader::DynamicallyLitObject, TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0Name,
 				FString::Printf(TEXT("Mobile base pass shader with only dynamic lighting%s"), DescSuffix)));
-		}
 
-		{
-			static FName Name_HDRLinear64 = TEXT("TMobileBasePassVSFNoLightMapPolicyHDRLinear64");
-			static FName Name_LDRGamma32 = TEXT("TMobileBasePassVSFNoLightMapPolicyLDRGamma32");
-			const FName TBasePassForForwardShadingVSFNoLightMapPolicyName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
+			static const FName Name_NoLM_HDRLinear64 = bOnlySkyPermutation ? 
+				TEXT("TMobileBasePassVSFNoLightMapPolicyHDRLinear64Skylight") : 
+				TEXT("TMobileBasePassVSFNoLightMapPolicyHDRLinear64");
+			static const FName Name_NoLM_LDRGamma32 = bOnlySkyPermutation ? 
+				TEXT("TMobileBasePassVSFNoLightMapPolicyLDRGamma32Skylight") : 
+				TEXT("TMobileBasePassVSFNoLightMapPolicyLDRGamma32");
+			static const FName TBasePassForForwardShadingVSFNoLightMapPolicyName = bMobileHDR ? Name_NoLM_HDRLinear64 : Name_NoLM_LDRGamma32;
+
 			ShaderTypeNamesAndDescriptions.FindOrAdd(FLocalVertexFactoryName)
 				.Add(FRepresentativeShaderInfo(ERepresentativeShader::StaticMesh, TBasePassForForwardShadingVSFNoLightMapPolicyName,
 				FString::Printf(TEXT("Mobile base pass vertex shader%s"), DescSuffix)));

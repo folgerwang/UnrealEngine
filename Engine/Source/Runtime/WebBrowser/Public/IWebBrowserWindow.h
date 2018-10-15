@@ -58,6 +58,13 @@ public:
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos = FIntPoint::NoneValue) = 0;
 
 	/**
+	* Gets the current size of the web browser viewport if available, FIntPoint::NoneValue otherwise
+	*
+	* @param WindowSize Desired viewport size
+	*/
+	virtual FIntPoint GetViewportSize() const = 0;
+
+	/**
 	 * Gets interface to the texture representation of the browser
 	 *
 	 * @param bISpopup Whether to return the popup menu texture instead of the main browser window.

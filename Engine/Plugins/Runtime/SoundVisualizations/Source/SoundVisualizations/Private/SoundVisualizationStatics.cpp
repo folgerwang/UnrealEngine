@@ -101,7 +101,7 @@ void USoundVisualizationStatics::GetAmplitude(USoundWave* SoundWave, const bool 
 				FirstSample = FMath::Min(SampleCount, FirstSample);
 				LastSample = FMath::Min(SampleCount, LastSample);
 
-				int16* SamplePtr = reinterpret_cast<int16*>(WaveInfo.SampleDataStart);
+				const int16* SamplePtr = reinterpret_cast<const int16*>(WaveInfo.SampleDataStart);
 				if (NumChannels <= 2)
 				{
 					SamplePtr += FirstSample;
@@ -305,7 +305,7 @@ void USoundVisualizationStatics::CalculateFrequencySpectrum(USoundWave* SoundWav
 					kiss_fftnd_cfg stf = kiss_fftnd_alloc(Dims, 1, 0, NULL, NULL);
 
 
-					int16* SamplePtr = reinterpret_cast<int16*>(WaveInfo.SampleDataStart);
+					const int16* SamplePtr = reinterpret_cast<const int16*>(WaveInfo.SampleDataStart);
 					if (NumChannels <= 2)
 					{
 						for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)

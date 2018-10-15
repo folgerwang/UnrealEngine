@@ -48,8 +48,6 @@ class FRunnableThreadWin
 			uint32 dwFlags;		// Reserved for future use, must be zero.
 		};
 
-		// on the xbox setting thread names messes up the XDK COM API that UnrealConsole uses so check to see if they have been
-		// explicitly enabled
 		Sleep(10);
 		THREADNAME_INFO ThreadNameInfo;
 		ThreadNameInfo.dwType		= 0x1000;
@@ -217,8 +215,13 @@ protected:
 			// Let the thread start up, then set the name for debug purposes.
 			ThreadInitSyncEvent->Wait(INFINITE);
 			ThreadName = InThreadName ? InThreadName : TEXT("Unnamed UE4");
+#if !PLATFORM_XBOXONE
 			SetThreadName( ThreadID, TCHAR_TO_ANSI( *ThreadName ) );
-#if PLATFORM_XBOXONE
+#elif !UE_BUILD_SHIPPING
+			if (FPlatformMisc::IsDebuggerPresent())
+			{
+				SetThreadName( ThreadID, TCHAR_TO_ANSI( *ThreadName ) );
+			}
 			::SetThreadName( Thread, *ThreadName );
 #endif
 			SetThreadPriority(InThreadPri);

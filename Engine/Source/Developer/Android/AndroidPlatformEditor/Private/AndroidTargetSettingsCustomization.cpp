@@ -386,7 +386,7 @@ void FAndroidTargetSettingsCustomization::OnGoogleVRCapsChange()
 
 	const TArray<TEnumAsByte<EGoogleVRCaps::Type>> &GoogleCaps = GetDefault<UAndroidRuntimeSettings>()->GoogleVRCaps;
 
-	bool bIsDaydream = GoogleCaps.Contains(EGoogleVRCaps::Daydream33) || GoogleCaps.Contains(EGoogleVRCaps::Daydream63);
+	bool bIsDaydream = GoogleCaps.Contains(EGoogleVRCaps::Daydream33) || GoogleCaps.Contains(EGoogleVRCaps::Daydream63) || GoogleCaps.Contains(EGoogleVRCaps::Daydream66);
 	if (bIsDaydream && GetDefault<UAndroidRuntimeSettings>()->bAllowIMU)
 	{
 		// turn off IMU for Daydream (but user can turn it back on

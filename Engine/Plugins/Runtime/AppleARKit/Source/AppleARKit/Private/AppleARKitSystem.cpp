@@ -18,6 +18,7 @@
 #include "ARLightEstimate.h"
 #include "ARTraceResult.h"
 #include "ARPin.h"
+#include "HAL/ThreadSafeCounter.h"
 
 // To separate out the face ar library linkage from standard ar apps
 #include "AppleARKitFaceSupport.h"
@@ -32,6 +33,39 @@
 	#pragma clang diagnostic ignored "-Wpartial-availability"
 #endif
 
+DECLARE_CYCLE_STAT(TEXT("SessionDidUpdateFrame_DelegateThread"), STAT_FAppleARKitSystem_SessionUpdateFrame, STATGROUP_ARKIT);
+DECLARE_CYCLE_STAT(TEXT("SessionDidAddAnchors_DelegateThread"), STAT_FAppleARKitSystem_SessionDidAddAnchors, STATGROUP_ARKIT);
+DECLARE_CYCLE_STAT(TEXT("SessionDidUpdateAnchors_DelegateThread"), STAT_FAppleARKitSystem_SessionDidUpdateAnchors, STATGROUP_ARKIT);
+DECLARE_CYCLE_STAT(TEXT("SessionDidRemoveAnchors_DelegateThread"), STAT_FAppleARKitSystem_SessionDidRemoveAnchors, STATGROUP_ARKIT);
+DECLARE_CYCLE_STAT(TEXT("UpdateARKitPerf"), STAT_FAppleARKitSystem_UpdateARKitPerf, STATGROUP_ARKIT);
+DECLARE_DWORD_COUNTER_STAT(TEXT("ARKit CPU %"), STAT_ARKitThreads, STATGROUP_ARKIT);
+
+// Copied from IOSPlatformProcess because it's not accessible by external code
+#define GAME_THREAD_PRIORITY 47
+#define RENDER_THREAD_PRIORITY 45
+
+#if PLATFORM_IOS && !PLATFORM_TVOS
+// Copied from IOSPlatformProcess because it's not accessible by external code
+static void SetThreadPriority(int32 Priority)
+{
+	struct sched_param Sched;
+	FMemory::Memzero(&Sched, sizeof(struct sched_param));
+	
+	// Read the current priority and policy
+	int32 CurrentPolicy = SCHED_RR;
+	pthread_getschedparam(pthread_self(), &CurrentPolicy, &Sched);
+	
+	// Set the new priority and policy (apple recommended FIFO for the two main non-working threads)
+	int32 Policy = SCHED_FIFO;
+	Sched.sched_priority = Priority;
+	pthread_setschedparam(pthread_self(), Policy, &Sched);
+}
+#else
+static void SetThreadPriority(int32 Priority)
+{
+	// Ignored
+}
+#endif
 
 //
 //  FAppleARKitXRCamera
@@ -44,6 +78,11 @@ public:
 	: FDefaultXRCamera( AutoRegister, &InTrackingSystem, InDeviceId )
 	, ARKitSystem( InTrackingSystem )
 	{}
+	
+	void AdjustThreadPriority(int32 NewPriority)
+	{
+		ThreadPriority.Set(NewPriority);
+	}
 	
 private:
 	//~ FDefaultXRCamera
@@ -84,6 +123,12 @@ private:
 	
 	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override
 	{
+		// Adjust our thread priority if requested
+		if (LastThreadPriority.GetValue() != ThreadPriority.GetValue())
+		{
+			SetThreadPriority(ThreadPriority.GetValue());
+			LastThreadPriority.Set(ThreadPriority.GetValue());
+		}
 		FDefaultXRCamera::PreRenderView_RenderThread(RHICmdList, InView);
 	}
 	
@@ -140,6 +185,10 @@ private:
 private:
 	FAppleARKitSystem& ARKitSystem;
 	FAppleARKitVideoOverlay VideoOverlay;
+	
+	// Thread priority support
+	FThreadSafeCounter ThreadPriority;
+	FThreadSafeCounter LastThreadPriority;
 };
 
 //
@@ -797,6 +846,30 @@ TArray<FARVideoFormat> FAppleARKitSystem::OnGetSupportedVideoFormats(EARSessionT
 	return TArray<FARVideoFormat>();
 }
 
+TArray<FVector> FAppleARKitSystem::OnGetPointCloud() const
+{
+	TArray<FVector> PointCloud;
+	
+#if SUPPORTS_ARKIT_1_0
+	if (GameThreadFrame.IsValid())
+	{
+		ARFrame* InARFrame = (ARFrame*)GameThreadFrame->NativeFrame;
+		ARPointCloud* InARPointCloud = InARFrame.rawFeaturePoints;
+		if (InARPointCloud != nullptr)
+		{
+			const int32 Count = InARPointCloud.count;
+			PointCloud.Empty(Count);
+			PointCloud.AddUninitialized(Count);
+			for (int32 Index = 0; Index < Count; Index++)
+			{
+				PointCloud[Index] = FAppleARKitConversion::ToFVector(InARPointCloud.points[Index]);
+			}
+		}
+	}
+#endif
+	return PointCloud;
+}
+
 #if SUPPORTS_ARKIT_2_0
 /** Since both the object extraction and world saving need to get the world map async, use a common chunk of code for this */
 class FAppleARKitGetWorldMapObjectAsyncTask
@@ -877,7 +950,8 @@ public:
 			CandidateObject->SetBoundingBox(BoundingBox);
 			
 			// Serialize the object into a byte array and stick that on the candidate object
-			NSData* RefObjData = [NSKeyedArchiver archivedDataWithRootObject: ReferenceObject];
+			NSError* ErrorObj = nullptr;
+			NSData* RefObjData = [NSKeyedArchiver archivedDataWithRootObject: ReferenceObject requiringSecureCoding: YES error: &ErrorObj];
 			uint32 SavedSize = RefObjData.length;
 			TArray<uint8> RawBytes;
 			RawBytes.AddUninitialized(SavedSize);
@@ -947,28 +1021,36 @@ public:
 	{
 		if (bWasSuccessful)
 		{
-			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap];
-
-			int32 UncompressedSize = WorldNSData.length;
-
-			TArray<uint8> CompressedData;
-			CompressedData.AddUninitialized(WorldNSData.length + AR_SAVE_WORLD_HEADER_SIZE);
-			uint8* Buffer = (uint8*)CompressedData.GetData();
-			// Write our magic header into our buffer
-			FARWorldSaveHeader& Header = *(FARWorldSaveHeader*)Buffer;
-			Header = FARWorldSaveHeader();
-			Header.UncompressedSize = UncompressedSize;
-			
-			// Compress the data
-			uint8* CompressInto = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
-			int32 CompressedSize = UncompressedSize;
-			uint8* UncompressedData = (uint8*)[WorldNSData bytes];
-			verify(FCompression::CompressMemory((ECompressionFlags)COMPRESS_ZLIB, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
-			
-			// Only copy out the amount of compressed data and the header
-			int32 CompressedSizePlusHeader = CompressedSize + AR_SAVE_WORLD_HEADER_SIZE;
-			WorldData.AddUninitialized(CompressedSizePlusHeader);
-			FPlatformMemory::Memcpy(WorldData.GetData(), CompressedData.GetData(), CompressedSizePlusHeader);
+			NSError* ErrorObj = nullptr;
+			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap requiringSecureCoding: YES error: &ErrorObj];
+			if (ErrorObj == nullptr)
+			{
+				int32 UncompressedSize = WorldNSData.length;
+				
+				TArray<uint8> CompressedData;
+				CompressedData.AddUninitialized(WorldNSData.length + AR_SAVE_WORLD_HEADER_SIZE);
+				uint8* Buffer = (uint8*)CompressedData.GetData();
+				// Write our magic header into our buffer
+				FARWorldSaveHeader& Header = *(FARWorldSaveHeader*)Buffer;
+				Header = FARWorldSaveHeader();
+				Header.UncompressedSize = UncompressedSize;
+				
+				// Compress the data
+				uint8* CompressInto = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
+				int32 CompressedSize = UncompressedSize;
+				uint8* UncompressedData = (uint8*)[WorldNSData bytes];
+				verify(FCompression::CompressMemory((ECompressionFlags)COMPRESS_ZLIB, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
+				
+				// Only copy out the amount of compressed data and the header
+				int32 CompressedSizePlusHeader = CompressedSize + AR_SAVE_WORLD_HEADER_SIZE;
+				WorldData.AddUninitialized(CompressedSizePlusHeader);
+				FPlatformMemory::Memcpy(WorldData.GetData(), CompressedData.GetData(), CompressedSizePlusHeader);
+			}
+			else
+			{
+				Error = [ErrorObj localizedDescription];
+				bHadError = true;
+			}
 		}
 		else
 		{
@@ -1197,6 +1279,23 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 			// Pass to session delegate to use for Metal texture creation
 			[Delegate setMetalTextureCache : MetalTextureCache];
 		}
+		
+#if PLATFORM_IOS && !PLATFORM_TVOS
+		// Check if we need to adjust the priorities to allow ARKit to have more CPU time
+		if (GetDefault<UAppleARKitSettings>()->bAdjustThreadPrioritiesDuringARSession)
+		{
+			int32 GameOverride = GetDefault<UAppleARKitSettings>()->GameThreadPriorityOverride;
+			int32 RenderOverride = GetDefault<UAppleARKitSettings>()->RenderThreadPriorityOverride;
+			SetThreadPriority(GameOverride);
+			if (XRCamera.IsValid())
+			{
+				FAppleARKitXRCamera* Camera = (FAppleARKitXRCamera*)XRCamera.Get();
+				Camera->AdjustThreadPriority(RenderOverride);
+			}
+			
+			UE_LOG(LogAppleARKit, Log, TEXT("Overriding thread priorities: Game Thread (%d), Render Thread (%d)"), GameOverride, RenderOverride);
+		}
+#endif
 
 		UE_LOG(LogAppleARKit, Log, TEXT("Starting session: %p with options %d"), this, options);
 
@@ -1248,6 +1347,21 @@ bool FAppleARKitSystem::Pause()
 		}
 	}
 	
+#if PLATFORM_IOS && !PLATFORM_TVOS
+	// Check if we need to adjust the priorities to allow ARKit to have more CPU time
+	if (GetDefault<UAppleARKitSettings>()->bAdjustThreadPrioritiesDuringARSession)
+	{
+		SetThreadPriority(GAME_THREAD_PRIORITY);
+		if (XRCamera.IsValid())
+		{
+			FAppleARKitXRCamera* Camera = (FAppleARKitXRCamera*)XRCamera.Get();
+			Camera->AdjustThreadPriority(RENDER_THREAD_PRIORITY);
+		}
+		
+		UE_LOG(LogAppleARKit, Log, TEXT("Restoring thread priorities: Game Thread (%d), Render Thread (%d)"), GAME_THREAD_PRIORITY, RENDER_THREAD_PRIORITY);
+}
+#endif
+	
 #endif
 	
 	// Set running state
@@ -1264,13 +1378,13 @@ void FAppleARKitSystem::OrientationChanged(const int32 NewOrientationRaw)
 						
 void FAppleARKitSystem::SessionDidUpdateFrame_DelegateThread(TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > Frame)
 {
-	// Thread safe swap buffered frame
-	DECLARE_CYCLE_STAT(TEXT("FAppleARKitSystem::SessionDidUpdateFrame_DelegateThread"),
-					   STAT_FAppleARKitSystem_SessionUpdateFrame,
-					   STATGROUP_APPLEARKIT);
-	
-	auto UpdateFrameTask = FSimpleDelegateGraphTask::FDelegate::CreateThreadSafeSP( this, &FAppleARKitSystem::SessionDidUpdateFrame_Internal, Frame.ToSharedRef() );
-	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(UpdateFrameTask, GET_STATID(STAT_FAppleARKitSystem_SessionUpdateFrame), nullptr, ENamedThreads::GameThread);
+	{
+		auto UpdateFrameTask = FSimpleDelegateGraphTask::FDelegate::CreateThreadSafeSP( this, &FAppleARKitSystem::SessionDidUpdateFrame_Internal, Frame.ToSharedRef() );
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(UpdateFrameTask, GET_STATID(STAT_FAppleARKitSystem_SessionUpdateFrame), nullptr, ENamedThreads::GameThread);
+	}
+	{
+		UpdateARKitPerfStats();
+	}
 }
 			
 void FAppleARKitSystem::SessionDidFailWithError_DelegateThread(const FString& Error)
@@ -1359,10 +1473,6 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 
 void FAppleARKitSystem::SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>* anchors )
 {
-	DECLARE_CYCLE_STAT(TEXT("FAppleARKitSystem::SessionDidAddAnchors_DelegateThread"),
-					   STAT_FAppleARKitSystem_SessionDidAddAnchors,
-					   STATGROUP_APPLEARKIT);
-
 	// If this object is valid, we are running a face session and need that code to process things
 	if (FaceARSupport != nullptr)
 	{
@@ -1392,10 +1502,6 @@ void FAppleARKitSystem::SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>*
 
 void FAppleARKitSystem::SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor*>* anchors )
 {
-	DECLARE_CYCLE_STAT(TEXT("FAppleARKitSystem::SessionDidUpdateAnchors_DelegateThread"),
-					   STAT_FAppleARKitSystem_SessionDidUpdateAnchors,
-					   STATGROUP_APPLEARKIT);
-	
 	// If this object is valid, we are running a face session and need that code to process things
 	if (FaceARSupport != nullptr)
 	{
@@ -1425,12 +1531,7 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor
 
 void FAppleARKitSystem::SessionDidRemoveAnchors_DelegateThread( NSArray<ARAnchor*>* anchors )
 {
-	DECLARE_CYCLE_STAT(TEXT("FAppleARKitSystem::SessionDidRemoveAnchors_DelegateThread"),
-					   STAT_FAppleARKitSystem_SessionDidRemoveAnchors,
-					   STATGROUP_APPLEARKIT);
-	
 	// Face AR Anchors are also removed this way, no need for special code since they are tracked geometry
-
 	for (ARAnchor* anchor in anchors)
 	{
 		// Convert to FGuid
@@ -1670,8 +1771,96 @@ void FAppleARKitSystem::SessionDidUpdateFrame_Internal( TSharedRef< FAppleARKitF
 	UpdateFrame();
 }
 
+#if STATS
+struct FARKitThreadTimes
+{
+	TArray<FString> ThreadNames;
+	int32 LastTotal;
+	int32 NewTotal;
+	
+	FARKitThreadTimes() :
+		LastTotal(0)
+		, NewTotal(0)
+	{
+		ThreadNames.Add(TEXT("com.apple.CoreMotion"));
+		ThreadNames.Add(TEXT("com.apple.arkit"));
+		ThreadNames.Add(TEXT("FilteringFrameDownsampleNodeWorkQueue"));
+		ThreadNames.Add(TEXT("FeatureDetectorNodeWorkQueue"));
+		ThreadNames.Add(TEXT("SurfaceDetectionNode"));
+		ThreadNames.Add(TEXT("VIOEngineNode"));
+		ThreadNames.Add(TEXT("ImageDetectionQueue"));
+	}
 
+	bool IsARKitThread(const FString& Name)
+	{
+		if (Name.Len() == 0)
+		{
+			return false;
+		}
+		
+		for (int32 Index = 0; Index < ThreadNames.Num(); Index++)
+		{
+			if (Name.StartsWith(ThreadNames[Index]))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	void FrameReset()
+	{
+		LastTotal = NewTotal;
+		NewTotal = 0;
+	}
+};
+#endif
 
+void FAppleARKitSystem::UpdateARKitPerfStats()
+{
+#if STATS && SUPPORTS_ARKIT_1_0
+	static FARKitThreadTimes ARKitThreadTimes;
+
+	SCOPE_CYCLE_COUNTER(STAT_FAppleARKitSystem_UpdateARKitPerf);
+	ARKitThreadTimes.FrameReset();
+	
+	thread_array_t ThreadArray;
+	mach_msg_type_number_t ThreadCount;
+	if (task_threads(mach_task_self(), &ThreadArray, &ThreadCount) != KERN_SUCCESS)
+	{
+		return;
+	}
+
+	for (int32 Index = 0; Index < (int32)ThreadCount; Index++)
+	{
+		mach_msg_type_number_t ThreadInfoCount = THREAD_BASIC_INFO_COUNT;
+		mach_msg_type_number_t ExtThreadInfoCount = THREAD_EXTENDED_INFO_COUNT;
+		thread_info_data_t ThreadInfo;
+		thread_extended_info_data_t ExtThreadInfo;
+		// Get the basic thread info for this thread
+		if (thread_info(ThreadArray[Index], THREAD_BASIC_INFO, (thread_info_t)ThreadInfo, &ThreadInfoCount) != KERN_SUCCESS)
+		{
+			continue;
+		}
+		// And the extended thread info for this thread
+		if (thread_info(ThreadArray[Index], THREAD_EXTENDED_INFO, (thread_info_t)&ExtThreadInfo, &ExtThreadInfoCount) != KERN_SUCCESS)
+		{
+			continue;
+		}
+		thread_basic_info_t BasicInfo = (thread_basic_info_t)ThreadInfo;
+		FString ThreadName(ExtThreadInfo.pth_name);
+		if (ARKitThreadTimes.IsARKitThread(ThreadName))
+		{
+			// CPU usage is reported as a scaled number, so convert to %
+			int32 ScaledPercent = FMath::RoundToInt((float)BasicInfo->cpu_usage / (float)TH_USAGE_SCALE * 100.f);
+			ARKitThreadTimes.NewTotal += ScaledPercent;
+		}
+//		UE_LOG(LogAppleARKit, Log, TEXT("Thread %s used cpu (%d), seconds (%d), microseconds (%d)"), *ThreadName, BasicInfo->cpu_usage, BasicInfo->user_time.seconds + BasicInfo->system_time.seconds, BasicInfo->user_time.microseconds + BasicInfo->system_time.microseconds);
+	}
+	vm_deallocate(mach_task_self(), (vm_offset_t)ThreadArray, ThreadCount * sizeof(thread_t));
+	SET_DWORD_STAT(STAT_ARKitThreads, ARKitThreadTimes.NewTotal);
+#endif
+}
 
 
 namespace AppleARKitSupport

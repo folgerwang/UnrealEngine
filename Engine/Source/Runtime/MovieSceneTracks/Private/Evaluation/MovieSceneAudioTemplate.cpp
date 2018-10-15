@@ -361,6 +361,11 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 	}
 }
 
+FMovieSceneAudioSectionTemplate::FMovieSceneAudioSectionTemplate()
+	: AudioData()
+{
+}
+
 FMovieSceneAudioSectionTemplate::FMovieSceneAudioSectionTemplate(const UMovieSceneAudioSection& Section)
 	: AudioData(Section)
 {
@@ -374,5 +379,17 @@ void FMovieSceneAudioSectionTemplate::Evaluate(const FMovieSceneEvaluationOperan
 	if (GEngine && GEngine->UseSound() && Context.GetStatus() != EMovieScenePlayerStatus::Jumping)
 	{
 		ExecutionTokens.Add(FAudioSectionExecutionToken(AudioData));
+	}
+}
+
+void FMovieSceneAudioSectionTemplate::TearDown(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
+{
+	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_AudioTrack_Teardown)
+
+	if (GEngine && GEngine->UseSound())
+	{
+		FCachedAudioTrackData& TrackData = PersistentData.GetOrAddTrackData<FCachedAudioTrackData>();
+
+		TrackData.StopAllSounds();
 	}
 }

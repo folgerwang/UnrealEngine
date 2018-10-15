@@ -27,8 +27,15 @@ static TAutoConsoleVariable<FString> CVarDeviceProfileOverride(
 	TEXT(" The commandline -dp option will override this on startup, but not when setting this at runtime\n"),
 	ECVF_Default);
 
+static TAutoConsoleVariable<int32> CVarAllowScalabilityGroupsToChangeAtRuntime(
+	TEXT("dp.AllowScalabilityGroupsToChangeAtRuntime"),
+	0,
+	TEXT("If true, device profile scalability bucket cvars will be set with scalability")
+	TEXT("priority which allows them to be changed at runtime. Off by default."),
+	ECVF_Default);
 
 FString UDeviceProfileManager::DeviceProfileFileName;
+TMap<FString, FString> UDeviceProfileManager::DeviceProfileScalabilityCVars;
 
 UDeviceProfileManager* UDeviceProfileManager::DeviceProfileManagerSingleton = nullptr;
 
@@ -93,12 +100,35 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile(bool bPushSett
 
 	// Next we need to create a hierarchy of CVars from the Selected Device Profile, to it's eldest parent
 	TMap<FString, FString> CVarsAlreadySetList;
+	DeviceProfileScalabilityCVars.Empty();
 	
 	// even if we aren't pushing new values, we should clear any old pushed values, as they are no longer valid after we run this loop
 	if (DeviceProfileManagerSingleton)
 	{
 		DeviceProfileManagerSingleton->PushedSettings.Empty();
 	}
+
+#if !UE_BUILD_SHIPPING
+#if PLATFORM_ANDROID
+	// allow ConfigRules to override cvars first
+	TMap<FString, FString> ConfigRules = FAndroidMisc::GetConfigRulesTMap();
+	for (const TPair<FString, FString>& Pair : ConfigRules)
+	{
+		FString Key = Pair.Key;
+		if (Key.StartsWith("cvar_"))
+		{
+			FString CVarKey = Key.RightChop(5);
+			FString CVarValue = Pair.Value;
+
+			UE_LOG(LogInit, Log, TEXT("Setting ConfigRules Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
+
+			// set it and remember it
+			OnSetCVarFromIniEntry(*DeviceProfileFileName, *CVarKey, *CVarValue, ECVF_SetByDeviceProfile);
+			CVarsAlreadySetList.Add(CVarKey, CVarValue);
+		}
+	}
+#endif
+#endif
 
 #if !UE_BUILD_SHIPPING
 	// pre-apply any -dpcvars= items, so that they override anything in the DPs
@@ -124,6 +154,21 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile(bool bPushSett
 	}
 #endif
 	
+	// Preload a cvar we rely on
+	if (GConfig)
+	{
+		if (FConfigSection* Section = GConfig->GetSectionPrivate(TEXT("ConsoleVariables"), false, true, *GEngineIni))
+		{
+			static FName AllowScalabilityAtRuntimeName = TEXT("dp.AllowScalabilityGroupsToChangeAtRuntime");
+			if (const FConfigValue* Value = Section->Find(AllowScalabilityAtRuntimeName))
+			{
+				const FString& KeyString = AllowScalabilityAtRuntimeName.ToString();
+				const FString& ValueString = Value->GetValue();
+				OnSetCVarFromIniEntry(*GEngineIni, *KeyString, *ValueString, ECVF_SetBySystemSettingsIni);
+			}
+		}
+	}
+
 	// For each device profile, starting with the selected and working our way up the BaseProfileName tree,
 	// Find all CVars and set them 
 	FString BaseDeviceProfileName = ActiveProfileName;
@@ -205,17 +250,26 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile(bool bPushSett
 									// indicate we are pushing, not setting
 									UE_LOG(LogInit, Log, TEXT("Pushing Device Profile CVar: [[%s:%s -> %s]]"), *CVarKey, *OldValue, *CVarValue);
 								}
-								else
-								{
-									UE_LOG(LogInit, Log, TEXT("Setting Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
-								}
 							}
 							else
 							{
 								UE_LOG(LogInit, Warning, TEXT("Creating unregistered Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
 							}
 
-							OnSetCVarFromIniEntry(*DeviceProfileFileName, *CVarKey, *CVarValue, ECVF_SetByDeviceProfile);
+							// General scalability bucket cvars are set as a suggested default but can be overridden by game settings.
+							bool bIsScalabilityBucket = false;
+							if (CVarAllowScalabilityGroupsToChangeAtRuntime.GetValueOnGameThread() > 0)
+							{
+								// Cache any scalability related cvars so we can conveniently reapply them later as a way to reset the device defaults
+								if (CVarKey.StartsWith(TEXT("sg.")))
+								{
+									DeviceProfileScalabilityCVars.Add(*CVarKey, *CVarValue);
+									bIsScalabilityBucket = true;
+								}
+							}
+
+							uint32 CVarPriority = bIsScalabilityBucket ? ECVF_SetByScalability : ECVF_SetByDeviceProfile;
+							OnSetCVarFromIniEntry(*DeviceProfileFileName, *CVarKey, *CVarValue, CVarPriority);
 							CVarsAlreadySetList.Add(CVarKey, CVarValue);
 						}
 					}
@@ -575,6 +629,27 @@ const FString UDeviceProfileManager::GetActiveProfileName()
 	return ActiveProfileName;
 }
 
+bool UDeviceProfileManager::GetScalabilityCVar(const FString& CVarName, int32& OutValue)
+{
+	if (const FString* CVarValue = DeviceProfileScalabilityCVars.Find(CVarName))
+	{
+		TTypeFromString<int32>::FromString(OutValue, **CVarValue);
+		return true;
+	}
+
+	return false;
+}
+
+bool UDeviceProfileManager::GetScalabilityCVar(const FString& CVarName, float& OutValue)
+{
+	if (const FString* CVarValue = DeviceProfileScalabilityCVars.Find(CVarName))
+	{
+		TTypeFromString<float>::FromString(OutValue, **CVarValue);
+		return true;
+	}
+
+	return false;
+}
 
 void UDeviceProfileManager::SetActiveDeviceProfile( UDeviceProfile* DeviceProfile )
 {

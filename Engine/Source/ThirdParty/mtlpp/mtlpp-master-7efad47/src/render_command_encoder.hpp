@@ -60,7 +60,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-	struct ScissorRect : public MTLPPScissorRect
+	struct MTLPP_EXPORT ScissorRect : public MTLPPScissorRect
     {
 		ScissorRect()
 		{
@@ -80,7 +80,7 @@ namespace mtlpp
 		{}
     };
 
-    struct Viewport : public MTLPPViewport
+    struct MTLPP_EXPORT Viewport : public MTLPPViewport
     {
 		Viewport()
 		{
@@ -177,7 +177,7 @@ namespace mtlpp
 
 	class Heap;
 	
-	class RenderCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>
+	class MTLPP_EXPORT RenderCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>
     {
     public:
         RenderCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLRenderCommandEncoder>>::type>(retain) { }
@@ -280,7 +280,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedRenderCommandEncoder : public ns::AutoReleased<RenderCommandEncoder>
+	class MTLPP_EXPORT ValidatedRenderCommandEncoder : public ns::AutoReleased<RenderCommandEncoder>
 	{
 		CommandEncoderValidationTable Validator;
 		

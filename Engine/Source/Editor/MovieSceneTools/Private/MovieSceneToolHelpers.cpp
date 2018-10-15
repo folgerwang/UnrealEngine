@@ -941,19 +941,20 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 					FFrameNumber KeyTime = (Key.Time * FrameRate).RoundToFrame();
 					FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
-						MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
+						MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), FrameRate, Key.TangentWeightMode,
 						Key.ArriveTangentWeight, Key.LeaveTangentWeight);
 
 				}
+
+				Channel->AutoSetTangents();
 
 				if (ImportFBXSettings->bReduceKeys)
 				{
 					FKeyDataOptimizationParams Params;
 					Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
-					using namespace MovieScene;
-					Optimize(Channel, Params);
+					Params.DisplayRate = FrameRate;
+					Channel->Optimize(Params);
 				}
-				Channel->AutoSetTangents();
 
 				return true;
 			}
@@ -995,21 +996,21 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 
 		FFrameNumber KeyTime = (Key.Time * DestFrameRate).RoundToFrame();
 		FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
-			MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
+			MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), DestFrameRate, Key.TangentWeightMode,
 			Key.ArriveTangentWeight, Key.LeaveTangentWeight);
 
 	}
 
+	Dest->AutoSetTangents();
 
 	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
 	if (ImportFBXSettings->bReduceKeys)
 	{
 		FKeyDataOptimizationParams Params;
 		Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
-		using namespace MovieScene;
-		Optimize(Dest, Params);
+		Params.DisplayRate = DestFrameRate;
+		Dest->Optimize(Params);
 	}
-	Dest->AutoSetTangents();
 }
 
 bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene)

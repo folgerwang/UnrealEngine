@@ -147,6 +147,15 @@ public:
 	 **/
 	virtual bool DebugStartNextChunk() = 0;
 
+	/**
+	 * Allow an external system to notify that a particular chunk ID has become available
+	 * Initial use-case is for dynamically encrypted pak files to signal to the outside world that
+	 * it has become available.
+	 *
+	 * @param InChunkID - ID of the chunk that has just become available
+	 */
+	virtual void ExternalNotifyChunkAvailable(uint32 InChunkID) = 0;
+
 	/** 
 	 * Request a delegate callback on chunk install completion or failure. Request may not be respected.
 	 * @param Delegate		The delegate to call when any chunk is installed or fails to install
@@ -240,6 +249,11 @@ public:
 	virtual bool DebugStartNextChunk() override
 	{
 		return true;
+	}
+
+	virtual void ExternalNotifyChunkAvailable(uint32 InChunkID) override
+	{
+		InstallDelegate.Broadcast(InChunkID, true);
 	}
 
 	virtual FDelegateHandle AddChunkInstallDelegate(FPlatformChunkInstallDelegate Delegate) override

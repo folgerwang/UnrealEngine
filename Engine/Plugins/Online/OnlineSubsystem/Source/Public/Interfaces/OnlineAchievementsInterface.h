@@ -5,7 +5,7 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineStats.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineAchievements, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineAchievements, Log, All);
 
 #define UE_LOG_ONLINE_ACHIEVEMENTS(Verbosity, Format, ...) \
 { \

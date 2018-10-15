@@ -79,7 +79,7 @@ void UAudioComponent::BeginDestroy()
 
 	if (bIsActive && Sound && Sound->IsLooping())
 	{
-		UE_LOG(LogAudio, Warning, TEXT("Audio Component is being destroyed without stopping looping sound '%s'"), *Sound->GetName());
+		UE_LOG(LogAudio, Warning, TEXT("Audio Component is being destroyed without stopping looping sound '%s'"), *Sound->GetFullName());
 		Stop();
 	}
 

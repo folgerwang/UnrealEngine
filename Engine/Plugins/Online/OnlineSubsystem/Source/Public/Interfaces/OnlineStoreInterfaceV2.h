@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineStoreV2, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineStoreV2, Log, All);
 
 #define UE_LOG_ONLINE_STOREV2(Verbosity, Format, ...) \
 { \
@@ -64,8 +64,8 @@ namespace EOnlineStoreOfferDiscount
 class FOnlineStoreOffer
 {
 public:
-	FOnlineStoreOffer() :
-	 RegularPrice(-1)
+	FOnlineStoreOffer()
+	: RegularPrice(-1)
 	, NumericPrice(-1)
 	, ReleaseDate(0)
 	, ExpirationDate(FDateTime::MaxValue())

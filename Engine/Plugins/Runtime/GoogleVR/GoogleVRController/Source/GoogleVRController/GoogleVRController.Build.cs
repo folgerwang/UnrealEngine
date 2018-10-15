@@ -34,13 +34,19 @@ namespace UnrealBuildTool.Rules
 					"GoogleVRHMD",
 					"UMG",
 					"Slate",
-					"SlateCore"
+					"SlateCore",
 				}
 				);
 
 			if (Target.Platform == UnrealTargetPlatform.Android)
 			{
-				PrivateDependencyModuleNames.Add("Launch");
+				PrivateDependencyModuleNames.AddRange(
+					new string[]
+					{
+						"Launch",
+						"AndroidRuntimeSettings",
+					}
+					);
 			}
 
 			if (Target.bBuildEditor == true)

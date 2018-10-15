@@ -3415,7 +3415,7 @@ FbxNode* FFbxExporter::ExportCollisionMesh(const UStaticMesh* StaticMesh, const 
 }
 #endif
 
-void ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node)
+void FFbxExporter::ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node)
 {
 	if (ObjectToExport && Node)
 	{
@@ -3431,6 +3431,9 @@ void ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node)
 				FString TagAsString = MetadataIt.Key.ToString();
 				if (TagAsString.RemoveFromStart(MetadataPrefix))
 				{
+					// Remaining tag follows the format NodeName.PropertyName, so replace '.' with '_'
+					TagAsString.ReplaceInline(TEXT("."), TEXT("_"));
+
 					FbxProperty Property = FbxProperty::Create(Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
 					FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
 

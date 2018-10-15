@@ -40,7 +40,7 @@ class ONLINESUBSYSTEMGOOGLEPLAY_API FOnlineSubsystemGooglePlay :
 {
 public:
 
-	virtual ~FOnlineSubsystemGooglePlay() {}
+	virtual ~FOnlineSubsystemGooglePlay() = default;
 
 	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
@@ -88,8 +88,8 @@ public:
 	
 PACKAGE_SCOPE:
 
-	FOnlineSubsystemGooglePlay();
-	FOnlineSubsystemGooglePlay(FName InInstanceName);
+	FOnlineSubsystemGooglePlay() = delete;
+	explicit FOnlineSubsystemGooglePlay(FName InInstanceName);
 
 	/** Return the async task manager owned by this subsystem */
 	class FOnlineAsyncTaskManagerGooglePlay* GetAsyncTaskManager() { return OnlineAsyncTaskThreadRunnable.Get(); }

@@ -396,7 +396,7 @@ bool LoadELF(const string& obj_file, MmapWrapper* map_wrapper,
   }
 
   FDWrapper obj_fd_wrapper(fd);
-  unsigned int Length = GetOSHandleSize(fd);
+  int64_t Length = GetOSHandleSize(fd);
   if (Length <= 0) {
     fprintf(stderr, "Unable to get length of ELF file\n");
     return false;
