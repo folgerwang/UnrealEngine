@@ -797,8 +797,7 @@ void FVulkanSurface::InitialClear(FVulkanCommandListContext& Context,const FClea
 	}
 
 	VkImageLayout FinalLayout = Barrier.GetDestLayout(BarrierIndex);
-	VkImageLayout ImageLayout = Context.FindOrAddLayout(Image, FinalLayout);
-	ensure(FinalLayout == ImageLayout);
+	Context.FindOrAddLayoutRW(Image, FinalLayout) = FinalLayout;
 }
 
 /*-----------------------------------------------------------------------------
