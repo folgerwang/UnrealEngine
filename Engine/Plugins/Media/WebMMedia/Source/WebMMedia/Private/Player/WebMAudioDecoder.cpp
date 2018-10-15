@@ -3,6 +3,7 @@
 #include "WebMAudioDecoder.h"
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
+#include "WebMMediaAudioSample.h"
 #include "MediaSamples.h"
 
 THIRD_PARTY_INCLUDES_START

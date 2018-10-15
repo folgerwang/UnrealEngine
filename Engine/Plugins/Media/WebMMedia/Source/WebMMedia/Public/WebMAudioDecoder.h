@@ -4,14 +4,15 @@
 
 #include "Async/TaskGraphInterfaces.h"
 #include "Templates/SharedPointer.h"
-#include "WebMMediaAudioSample.h"
+#include "Templates/UniquePtr.h"
 
 class FMediaSamples;
+class FWebMMediaAudioSample;
 class FWebMMediaAudioSamplePool;
 struct FWebMFrame;
 struct OpusDecoder;
 
-class FWebMAudioDecoder
+class WEBMMEDIA_API FWebMAudioDecoder
 {
 public:
 	FWebMAudioDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples);
