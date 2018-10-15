@@ -665,33 +665,12 @@ void UNiagaraStackModuleItem::NotifyModuleMoved()
 	ModifiedGroupItemsDelegate.ExecuteIfBound();
 }
 
-bool ParameterIsCompatibleWithScriptUsage(FNiagaraVariable Parameter, ENiagaraScriptUsage Usage)
-{
-	FNiagaraParameterHandle ParameterHandle(Parameter.GetName());
-	switch (Usage)
-	{
-	case ENiagaraScriptUsage::SystemSpawnScript:
-	case ENiagaraScriptUsage::SystemUpdateScript:
-		return ParameterHandle.IsSystemHandle();
-	case ENiagaraScriptUsage::EmitterSpawnScript:
-	case ENiagaraScriptUsage::EmitterUpdateScript:
-		return ParameterHandle.IsEmitterHandle();
-	case ENiagaraScriptUsage::ParticleSpawnScript:
-	case ENiagaraScriptUsage::ParticleSpawnScriptInterpolated:
-	case ENiagaraScriptUsage::ParticleUpdateScript:
-	case ENiagaraScriptUsage::ParticleEventScript:
-		return ParameterHandle.IsParticleAttributeHandle();
-	default:
-		return false;
-	}
-}
-
 bool UNiagaraStackModuleItem::CanAddInput(FNiagaraVariable InputParameter) const
 {
 	UNiagaraNodeAssignment* AssignmentModule = Cast<UNiagaraNodeAssignment>(FunctionCallNode);
 	return AssignmentModule != nullptr &&
 		AssignmentModule->GetAssignmentTargets().Contains(InputParameter) == false &&
-		ParameterIsCompatibleWithScriptUsage(InputParameter, OutputNode->GetUsage());
+		FNiagaraStackGraphUtilities::ParameterIsCompatibleWithScriptUsage(InputParameter, OutputNode->GetUsage());
 }
 
 void UNiagaraStackModuleItem::AddInput(FNiagaraVariable InputParameter)
