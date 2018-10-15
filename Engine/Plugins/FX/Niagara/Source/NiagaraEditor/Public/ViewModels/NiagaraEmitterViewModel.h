@@ -41,7 +41,7 @@ public:
 	void SetSimulation(TWeakPtr<FNiagaraEmitterInstance> InSimulation);
 
 	/** Gets the emitter represented by this view model. */
-	UNiagaraEmitter* GetEmitter();
+	NIAGARAEDITOR_API UNiagaraEmitter* GetEmitter();
 
 	/** Gets text representing stats for the emitter. */
 	//~ TODO: Instead of a single string here, we should probably have separate controls with tooltips etc.

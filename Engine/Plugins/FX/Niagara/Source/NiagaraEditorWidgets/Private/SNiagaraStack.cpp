@@ -52,6 +52,7 @@
 #include "NiagaraStackEditorData.h"
 #include "ScopedTransaction.h"
 #include "Widgets/Layout/SWrapBox.h"
+#include "Stack/SNiagaraStackSpacer.h"
 
 /** Contains data for a socket drag and drop operation in the StackEntry node. */
 class FNiagaraStackEntryDragDropOp : public FDecoratedDragDropOp
@@ -624,7 +625,6 @@ FReply SNiagaraStack::OnRowAcceptDrop(const FDragDropEvent& InDragDropEvent, EIt
 	TSharedPtr<FNiagaraStackEntryDragDropOp> DragDropOp = InDragDropEvent.GetOperationAs<FNiagaraStackEntryDragDropOp>();
 	if (DragDropOp.IsValid())
 	{
-
 		if (ensureMsgf(InTargetEntry->Drop(DragDropOp->GetDraggedEntries()).IsSet(), TEXT("Failed to drop stack entry when can drop returned true")))
 		{
 			return FReply::Handled();
@@ -810,8 +810,9 @@ SNiagaraStack::FRowWidgets SNiagaraStack::ConstructNameAndValueWidgetsForItem(UN
 	{
 		FMargin ContentPadding = Container->GetContentPadding();
 		Container->SetContentPadding(FMargin(ContentPadding.Left, 0, ContentPadding.Right, 0));
-		return FRowWidgets(SNew(SBox)
-			.HeightOverride(SpacerHeight * CastChecked<UNiagaraStackSpacer>(Item)->GetSpacerScale()));
+		UNiagaraStackSpacer* SpacerItem = CastChecked<UNiagaraStackSpacer>(Item); 
+		return FRowWidgets(SNew(SNiagaraStackSpacer, *SpacerItem)
+			.HeightOverride(SpacerHeight * SpacerItem->GetSpacerScale()));
 	}
 	else if (Item->IsA<UNiagaraStackItemGroup>())
 	{
