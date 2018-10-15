@@ -17,6 +17,7 @@ DECLARE_CYCLE_STAT(TEXT("Skel Mesh Vertex Sampling"), STAT_NiagaraSkel_Vertex_Sa
 DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, RandomVertex);
 DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexSkinnedData);
 DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexColor);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexColorFallback);
 DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexUV);
 DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, IsValidVertex);
 DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetFilteredVertexCount);
@@ -135,7 +136,6 @@ void UNiagaraDataInterfaceSkeletalMesh::GetVertexSamplingFunctions(TArray<FNiaga
 
 void UNiagaraDataInterfaceSkeletalMesh::BindVertexSamplingFunction(const FVMExternalFunctionBindingInfo& BindingInfo, FNDISkeletalMesh_InstanceData* InstanceData, FVMExternalFunction &OutFunc)
 {
-	bool bNeedsVertexColors = false;
 
 	if (BindingInfo.Name == RandomVertexName)
 	{
@@ -160,8 +160,14 @@ void UNiagaraDataInterfaceSkeletalMesh::BindVertexSamplingFunction(const FVMExte
 	else if (BindingInfo.Name == GetVertexColorName)
 	{
 		check(BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 4);
-		bNeedsVertexColors = true;
-		NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexColor)::Bind(this, OutFunc);
+		if (InstanceData->HasColorData())
+		{
+			NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexColor)::Bind(this, OutFunc);
+		}
+		else
+		{
+			NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetVertexColorFallback)::Bind(this, OutFunc);
+		}
 	}
 	else if (BindingInfo.Name == GetVertexUVName)
 	{
@@ -179,15 +185,6 @@ void UNiagaraDataInterfaceSkeletalMesh::BindVertexSamplingFunction(const FVMExte
 		TFilterModeBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceSkeletalMesh, GetFilteredVertexAt)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 
-	check(InstanceData->Mesh);
-	FSkinWeightVertexBuffer* SkinWeightBuffer;
-	FSkeletalMeshLODRenderData& LODData = InstanceData->GetLODRenderDataAndSkinWeights(SkinWeightBuffer);
-
-	if (bNeedsVertexColors && LODData.StaticVertexBuffers.ColorVertexBuffer.GetNumVertices() == 0)
-	{
-		UE_LOG(LogNiagara, Log, TEXT("Skeletal Mesh data interface is cannot run as it's reading color data on a mesh that does not provide it. - Mesh:%s  "), *InstanceData->Mesh->GetFullName());
-		OutFunc = FVMExternalFunction();
-	}
 }
 
 template<typename FilterMode>
@@ -432,6 +429,25 @@ void UNiagaraDataInterfaceSkeletalMesh::GetVertexColor(FVectorVMContext& Context
 		*OutColorG.GetDestAndAdvance() = Color.G;
 		*OutColorB.GetDestAndAdvance() = Color.B;
 		*OutColorA.GetDestAndAdvance() = Color.A;
+	}
+}
+
+void UNiagaraDataInterfaceSkeletalMesh::GetVertexColorFallback(FVectorVMContext& Context)
+{
+	VectorVM::FExternalFuncInputHandler<int32> VertParam(Context);
+	VectorVM::FUserPtrHandler<FNDISkeletalMesh_InstanceData> InstData(Context);
+
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorR(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorG(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorB(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutColorA(Context);
+
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		*OutColorR.GetDestAndAdvance() = 1.0f;
+		*OutColorG.GetDestAndAdvance() = 1.0f;
+		*OutColorB.GetDestAndAdvance() = 1.0f;
+		*OutColorA.GetDestAndAdvance() = 1.0f;
 	}
 }
 
