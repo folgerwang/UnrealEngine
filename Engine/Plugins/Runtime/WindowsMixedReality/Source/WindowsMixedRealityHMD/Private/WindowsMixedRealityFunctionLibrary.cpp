@@ -52,3 +52,14 @@ bool UWindowsMixedRealityFunctionLibrary::IsCurrentlyImmersive()
 
 	return hmd->IsCurrentlyImmersive();
 }
+
+void UWindowsMixedRealityFunctionLibrary::LockMouseToCenter(bool locked)
+{
+	WindowsMixedReality::FWindowsMixedRealityHMD* hmd = GetWindowsMixedRealityHMD();
+	if (hmd == nullptr)
+	{
+		return;
+	}
+
+	hmd->LockMouseToCenter(locked);
+}

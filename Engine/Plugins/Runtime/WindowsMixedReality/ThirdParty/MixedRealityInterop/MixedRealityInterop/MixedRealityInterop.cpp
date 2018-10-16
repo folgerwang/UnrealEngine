@@ -82,7 +82,8 @@ namespace WindowsMixedReality
 	winrt::event_token UserPresenceChangedToken;
 
 	MixedRealityInterop::UserPresence currentUserPresence = MixedRealityInterop::UserPresence::Unknown;
-	bool userPresenceChanged = false;
+	// Default to true to get worn state on first load.
+	bool userPresenceChanged = true;
 	std::mutex PresenceLock;
 
 	// Variables used from event handlers must be declared inside of the cpp.
@@ -490,6 +491,8 @@ namespace WindowsMixedReality
 
 	static MixedRealityInterop::UserPresence GetInteropUserPresence()
 	{
+		std::lock_guard<std::mutex> lock(poseLock);
+
 		if (!isUserPresenceSupported || holographicSpace == nullptr)
 		{
 			return MixedRealityInterop::UserPresence::Unknown;
@@ -609,8 +612,6 @@ namespace WindowsMixedReality
 
 		float width = Camera.RenderTargetSize().Width * 2.0f;
 		float height = Camera.RenderTargetSize().Height;
-
-		SetWindowPos(stereoWindowHandle, HWND_TOP, 0, 0, (int)width, (int)height, 0);
 
 		Camera.SetNearPlaneDistance(nearPlaneDistance);
 		Camera.SetFarPlaneDistance(farPlaneDistance);
@@ -890,6 +891,7 @@ namespace WindowsMixedReality
 		}
 
 		DestroyWindow(stereoWindowHandle);
+		stereoWindowHandle = (HWND)INVALID_HANDLE_VALUE;
 
 		if (Locator != nullptr && LocatabilityChangedToken.value != 0)
 		{
@@ -1016,6 +1018,22 @@ namespace WindowsMixedReality
 		return SUCCEEDED(hr);
 	}
 
+	void ForceAllowInput(HWND hWnd)
+	{
+		if (!IsWindow(hWnd))
+		{
+			return;
+		}
+
+		// Workaround to successfully route input to our new HWND.
+		AllocConsole();
+		HWND hWndConsole = GetConsoleWindow();
+		SetWindowPos(hWndConsole, 0, 0, 0, 0, 0, SWP_NOACTIVATE);
+		FreeConsole();
+
+		SetForegroundWindow(hWnd);
+	}
+
 	void MixedRealityInterop::EnableStereo(bool enableStereo)
 	{
 		if (enableStereo && holographicSpace == nullptr)
@@ -1027,11 +1045,9 @@ namespace WindowsMixedReality
 
 			// Show the window to go immersive.
 			ShowWindow(stereoWindowHandle, SW_SHOWNORMAL);
-			// Show again as SW_SHOWMAXIMIZED to get input focus.
-			ShowWindow(stereoWindowHandle, SW_SHOWMAXIMIZED);
 
-			BringWindowToTop(stereoWindowHandle);
-			
+			// Force this window into getting input focus.
+			ForceAllowInput(stereoWindowHandle);
 		}
 		else if (!enableStereo && holographicSpace != nullptr)
 		{
@@ -1053,8 +1069,6 @@ namespace WindowsMixedReality
 
 	MixedRealityInterop::UserPresence MixedRealityInterop::GetCurrentUserPresence()
 	{
-		std::lock_guard<std::mutex> lock(poseLock);
-
 		return GetInteropUserPresence();
 	}
 
