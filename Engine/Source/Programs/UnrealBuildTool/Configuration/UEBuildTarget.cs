@@ -1204,13 +1204,13 @@ namespace UnrealBuildTool
 			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
 			{
 				FileReference SourceFile;
-				if(RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				if(!RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				{
+					SourceFile = RuntimeDependency.Path;
+				}
+				if(RuntimeDependency.Type != StagedFileType.DebugNonUFS || FileReference.Exists(SourceFile))
 				{
 					Files.Add(SourceFile);
-				}
-				else
-				{
-					Files.Add(RuntimeDependency.Path);
 				}
 			}
 
