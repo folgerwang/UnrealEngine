@@ -21,6 +21,7 @@ UCompositeDataTable::UCompositeDataTable(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	bIsLoading = false;
+	bShouldNotClearParentTablesOnEmpty = false;
 }
 
 void UCompositeDataTable::GetPreloadDependencies(TArray<UObject*>& OutDeps)
@@ -148,14 +149,19 @@ const UCompositeDataTable* UCompositeDataTable::FindLoops(TArray<const UComposit
 
 void UCompositeDataTable::EmptyTable()
 {
-	if (!bIsLoading)
+	EmptyCompositeTable(!bIsLoading && !bShouldNotClearParentTablesOnEmpty);
+}
+
+void UCompositeDataTable::EmptyCompositeTable(bool bClearParentTables)
+{
+	if (bClearParentTables)
 	{
 		ParentTables.Empty();
 	}
 #if WITH_EDITORONLY_DATA
 	RowSourceMap.Empty();
 #endif
-	Super::EmptyTable();
+	UDataTable::EmptyTable();
 }
 
 void UCompositeDataTable::RemoveRow(FName RowName)
@@ -179,6 +185,22 @@ void UCompositeDataTable::Serialize(FArchive& Ar)
 }
 
 #if WITH_EDITOR
+void UCompositeDataTable::CleanBeforeStructChange()
+{
+	bShouldNotClearParentTablesOnEmpty = true;
+	Super::CleanBeforeStructChange();
+	bShouldNotClearParentTablesOnEmpty = false;
+}
+
+void UCompositeDataTable::RestoreAfterStructChange()
+{
+	bShouldNotClearParentTablesOnEmpty = true;
+	Super::RestoreAfterStructChange();
+	bShouldNotClearParentTablesOnEmpty = false;
+
+	UpdateCachedRowMap();
+}
+
 void UCompositeDataTable::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	static FName Name_ParentTables = GET_MEMBER_NAME_CHECKED(UCompositeDataTable, ParentTables);

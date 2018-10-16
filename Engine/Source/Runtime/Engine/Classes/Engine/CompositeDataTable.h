@@ -52,6 +52,9 @@ class UCompositeDataTable
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 
 #if WITH_EDITOR
+	ENGINE_API virtual void CleanBeforeStructChange() override;
+	ENGINE_API virtual void RestoreAfterStructChange() override;
+
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 
@@ -61,12 +64,19 @@ protected:
 	// Returns a pointer to the first table found that depends on itself if a loop exists. Returns nullptr if no loops are found.
 	const UCompositeDataTable* FindLoops(TArray<const UCompositeDataTable*> AlreadySeenTables) const;
 
+	// Empties the table
+	// if bClearParentTables is false then the row map will be cleared but the parent table array won't be changed
+	void EmptyCompositeTable(bool bClearParentTables);
+
 	void UpdateCachedRowMap();
 
 	void OnParentTablesUpdated();
 
 	// true if this asset is currently being loaded; false otherwise
 	uint8 bIsLoading : 1;
+
+	// if this is true then the parent table array will not be cleared when EmptyTable is called
+	uint8 bShouldNotClearParentTablesOnEmpty : 1;
 
 	// temporary copy used to detect changes so we can update delegates correctly on removal
 	UPROPERTY(transient)
