@@ -19,6 +19,10 @@ class UMaterialFunctionMaterialLayerFactory : public UFactory
 	//~ Begin UFactory Interface
 	virtual bool CanCreateNew() const override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
+	FString GetDefaultNewAssetName() const override
+	{
+		return FString(TEXT("NewMaterialLayer"));
+	}
 	//~ Begin UFactory Interface	
 };
 
