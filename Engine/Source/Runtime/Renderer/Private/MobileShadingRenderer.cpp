@@ -78,7 +78,6 @@ FMobileSceneRenderer::FMobileSceneRenderer(const FSceneViewFamily* InViewFamily,
 	:	FSceneRenderer(InViewFamily, HitProxyConsumer)
 {
 	bModulatedShadowsInUse = false;
-	bPostProcessUsesDepthTexture = false;
 }
 
 TUniformBufferRef<FMobileDirectionalLightShaderParameters>& GetNullMobileDirectionalLightShaderParameters()
@@ -131,9 +130,6 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 	// Now that the indirect lighting cache is updated, we can update the primitive precomputed lighting buffers.
 	UpdatePrimitivePrecomputedLightingBuffers();
 
-	UpdatePostProcessUsageFlags();
-
-	
 	PostInitViewCustomData();
 	
 	OnStartFrame(RHICmdList);
@@ -408,7 +404,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		const bool bForceDepthResolve = CVarMobileForceDepthResolve.GetValueOnRenderThread() == 1;
 		const bool bSeparateTranslucencyActive = IsMobileSeparateTranslucencyActive(View);
 
-		bKeepDepthContent = bForceDepthResolve || bPostProcessUsesDepthTexture || bSeparateTranslucencyActive ||
+		bKeepDepthContent = bForceDepthResolve || bSeparateTranslucencyActive ||
 			(View.bIsSceneCapture && (ViewFamily.SceneCaptureSource == ESceneCaptureSource::SCS_SceneColorHDR || ViewFamily.SceneCaptureSource == ESceneCaptureSource::SCS_SceneColorSceneDepth));
 	}
 
@@ -806,34 +802,5 @@ void FMobileSceneRenderer::CopyMobileMultiViewSceneColor(FRHICommandListImmediat
 			TargetSize,
 			*VertexShader,
 			EDRF_UseTriangleOptimization);
-	}
-}
-
-void FMobileSceneRenderer::UpdatePostProcessUsageFlags()
-{
-	bPostProcessUsesDepthTexture = false;
-	// Find out whether post-process materials require SceneDepth lookups, otherwise renderer can discard depth buffer before starting post-processing pass
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-	{
-		const FBlendableManager& BlendableManager = Views[ViewIndex].FinalPostProcessSettings.BlendableManager;
-		FBlendableEntry* BlendableIt = nullptr;
-
-		while (FPostProcessMaterialNode* DataPtr = BlendableManager.IterateBlendables<FPostProcessMaterialNode>(BlendableIt))
-		{
-			if (DataPtr->IsValid())
-			{
-				FMaterialRenderProxy* Proxy = DataPtr->GetMaterialInterface()->GetRenderProxy(false);
-				check(Proxy);
-
-				const FMaterial* Material = Proxy->GetMaterial(Views[ViewIndex].GetFeatureLevel());
-				check(Material);
-
-				if (Material->MaterialUsesSceneDepthLookup_RenderThread())
-				{
-					bPostProcessUsesDepthTexture = true;
-					break;
-				}
-			}
-		}
 	}
 }
