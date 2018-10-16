@@ -640,7 +640,7 @@ void Main(
 			if (GetHDR32bppEncodeMode() == HDR_ENCODE_NONE)
 			{
 				// FP16 HDR stores Z in framebuffer alpha
-				OutColor.a = BasePassInterpolants.PixelPosition.w; 
+				OutColor.a = min(BasePassInterpolants.PixelPosition.w, 65500); 
 			}
 		#endif
 	#endif

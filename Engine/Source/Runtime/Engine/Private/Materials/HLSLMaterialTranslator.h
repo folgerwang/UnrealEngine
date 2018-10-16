@@ -3787,6 +3787,14 @@ protected:
 			// On mobile in post process material, there is no need to do ViewportUV->BufferUV conversion because ViewSize == BufferSize.
 			if (Material->GetMaterialDomain() == MD_PostProcess)
 			{
+				int32 BlendableLocation = Material->GetBlendableLocation();
+				if (SceneTextureId == PPI_SceneDepth && !(BlendableLocation == BL_BeforeTranslucency || BlendableLocation == BL_BeforeTonemapping))
+				{
+					// SceneDepth lookups are not available when using MSAA, but we can access depth stored in SceneColor.A channel
+					// SceneColor.A channel holds depth till BeforeTonemapping location, then it's gets overwritten
+					return Errorf(TEXT("SceneDepth lookups are only available when BlendableLocation is BeforeTranslucency or BeforeTonemapping"));
+				}
+				
 				if (ViewportUV == INDEX_NONE)
 				{
 					UV = TextureCoordinate(0, false, false);
