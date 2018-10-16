@@ -86,7 +86,7 @@ FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture)
 
 static bool IsRenderTarget(uint32 Flags)
 {
-	return (Flags & (TexCreate_RenderTargetable | TexCreate_ResolveTargetable | TexCreate_DepthStencilTargetable)) != 0;
+	return (Flags & (TexCreate_RenderTargetable | TexCreate_ResolveTargetable | TexCreate_DepthStencilTargetable | TexCreate_DepthStencilResolveTarget)) != 0;
 }
 
 static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
@@ -115,7 +115,7 @@ static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
 	//are likely to be used in a manual shader resolve by the high level and must be bindable as rendertargets.
 	const bool bSeparateResolveTargets = FMetalCommandQueue::SupportsSeparateMSAAAndResolveTarget();
 	const bool bResolveTarget = (Flags & TexCreate_ResolveTargetable);
-	if ((Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable)) || (bResolveTarget && bSeparateResolveTargets))
+	if ((Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable|TexCreate_DepthStencilResolveTarget)) || (bResolveTarget && bSeparateResolveTargets))
 	{
 		Usage |= mtlpp::TextureUsage::RenderTarget;
 		Usage |= mtlpp::TextureUsage::ShaderRead;
@@ -415,7 +415,7 @@ void FMetalSurface::MakeUnAliasable(void)
 	check(ImageSurfaceRef == nullptr);
 	
 	static bool bSupportsHeaps = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesHeaps);
-	if (bSupportsHeaps && Texture.GetStorageMode() == mtlpp::StorageMode::Private && Texture.GetHeap())
+	if (bSupportsHeaps && Texture.GetStorageMode() == mtlpp::StorageMode::Private && Texture.GetHeap() && Texture.IsAliasable())
 	{
 		FMetalTexture OldTexture = Texture;
 		Texture = Reallocate(Texture, mtlpp::TextureUsage::Unknown);
@@ -871,7 +871,7 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 			Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModeShared));
 #endif
 		}
-		else if (Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable))
+		else if (Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable|TexCreate_ResolveTargetable|TexCreate_DepthStencilResolveTarget))
 		{
 			check(!(Flags & TexCreate_CPUReadback));
 #if PLATFORM_IOS
@@ -1879,6 +1879,9 @@ struct FMetalRHICommandAsyncReallocateTexture2D final : public FRHICommand<FMeta
 		
 		// Like D3D mark this as complete immediately.
 		RequestStatus->Decrement();
+		
+		FMetalSurface* Source = GetMetalSurfaceFromRHITexture(OldTexture);
+		Source->MakeAliasable();
 	}
 };
 
@@ -2536,13 +2539,132 @@ struct FMetalRHICommandUnaliasTextures final : public FRHICommand<FMetalRHIComma
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
+		@autoreleasepool {
 		for (int32 i = 0; i < Textures.Num(); ++i)
 		{
 			FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Textures[i]);
 			Source->MakeUnAliasable();
 		}
+		}
 	}
 };
+
+void FMetalDynamicRHI::RHIAcquireTransientResource_RenderThread(FTextureRHIParamRef Texture)
+{
+	@autoreleasepool {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Texture);
+		Source->MakeUnAliasable();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandUnaliasTextures>()) FMetalRHICommandUnaliasTextures(&Texture, 1);
+	}
+	}
+}
+
+struct FMetalRHICommandAliasTextures final : public FRHICommand<FMetalRHICommandAliasTextures>
+{
+	TArray<FTextureRHIParamRef> Textures;
+	
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandAliasTextures(FTextureRHIParamRef* InTextures, int32 NumTextures)
+	{
+		check(InTextures && NumTextures);
+		Textures.Append(InTextures, NumTextures);
+	}
+	
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		@autoreleasepool {
+		for (int32 i = 0; i < Textures.Num(); ++i)
+		{
+			FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Textures[i]);
+			Source->MakeAliasable();
+		}
+		}
+	}
+};
+
+void FMetalDynamicRHI::RHIDiscardTransientResource_RenderThread(FTextureRHIParamRef Texture)
+{
+	@autoreleasepool {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		FMetalSurface* Source = GetMetalSurfaceFromRHITexture(Texture);
+		Source->MakeAliasable();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandAliasTextures>()) FMetalRHICommandAliasTextures(&Texture, 1);
+	}
+	}
+}
+
+struct FMetalRHICommandAliasBuffer final : public FRHICommand<FMetalRHICommandAliasBuffer>
+{
+	FMetalRHIBuffer* Buffer;
+	
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandAliasBuffer(FMetalRHIBuffer* InBuffer)
+	{
+		check(InBuffer);
+		Buffer = InBuffer;
+	}
+	
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		@autoreleasepool {
+		Buffer->Unalias();
+		}
+	}
+};
+
+void FMetalDynamicRHI::RHIAcquireTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalVertexBuffer* MetalBuffer = ResourceCast(Buffer);
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		MetalBuffer->Unalias();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandAliasBuffer>()) FMetalRHICommandAliasBuffer(MetalBuffer);
+	}
+	}
+}
+void FMetalDynamicRHI::RHIDiscardTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalVertexBuffer* MetalBuffer = ResourceCast(Buffer);
+	MetalBuffer->Alias();
+	}
+}
+void FMetalDynamicRHI::RHIAcquireTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalStructuredBuffer* MetalBuffer = ResourceCast(Buffer);
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		MetalBuffer->Unalias();
+	}
+	else
+	{
+		new (RHICmdList.AllocCommand<FMetalRHICommandAliasBuffer>()) FMetalRHICommandAliasBuffer(MetalBuffer);
+	}
+	}
+}
+void FMetalDynamicRHI::RHIDiscardTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer)
+{
+	@autoreleasepool {
+	FMetalStructuredBuffer* MetalBuffer = ResourceCast(Buffer);
+	MetalBuffer->Alias();
+	}
+}
 
 void FMetalDynamicRHI::RHISetResourceAliasability_RenderThread(class FRHICommandListImmediate& RHICmdList, EResourceAliasability AliasMode, FTextureRHIParamRef* InTextures, int32 NumTextures)
 {

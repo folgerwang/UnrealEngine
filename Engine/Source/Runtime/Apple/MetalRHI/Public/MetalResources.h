@@ -747,6 +747,16 @@ public:
 	virtual ~FMetalRHIBuffer();
 	
 	/**
+	 * Alias the buffer backing store allowing the memory to be reused by another resource.
+	 */
+	void Alias();
+
+	/**
+	 * Unalias the buffer backing store forcing the memory to be reserved for use by this resource.
+	 */
+	void Unalias();
+	
+	/**
 	 * Allocate the index buffer backing store.
 	 */
 	void Alloc(uint32 InSize, EResourceLockMode LockMode);

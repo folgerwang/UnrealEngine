@@ -137,6 +137,7 @@ void FMetalBuffer::Release()
 
 FMetalSubBufferHeap::FMetalSubBufferHeap(NSUInteger Size, NSUInteger Alignment, mtlpp::ResourceOptions Options, FCriticalSection& InPoolMutex)
 : PoolMutex(InPoolMutex)
+, OutstandingAllocs(0)
 , MinAlign(Alignment)
 , UsedSize(0)
 {
@@ -188,6 +189,7 @@ FMetalSubBufferHeap::~FMetalSubBufferHeap()
 
 void FMetalSubBufferHeap::FreeRange(ns::Range const& Range)
 {
+	FPlatformAtomics::InterlockedDecrement(&OutstandingAllocs);
 	if (ParentHeap)
 	{
 		SET_MEMORY_STAT(STAT_MetalBufferUnusedMemory, ParentHeap.GetSize() - ParentHeap.GetUsedSize());
@@ -329,6 +331,11 @@ NSUInteger FMetalSubBufferHeap::GetUsedSize() const
 	}
 }
 
+int64 FMetalSubBufferHeap::NumCurrentAllocations() const
+{
+	return OutstandingAllocs;
+}
+
 void FMetalSubBufferHeap::SetLabel(const ns::String& label)
 {
 	if (ParentHeap)
@@ -400,6 +407,7 @@ FMetalBuffer FMetalSubBufferHeap::NewBuffer(NSUInteger length)
 					if (Range.Length > Size)
 					{
 						ns::Range Split = ns::Range(Range.Location + Size, Range.Length - Size);
+						FPlatformAtomics::InterlockedIncrement(&OutstandingAllocs);
 						FreeRange(Split);
 						
 						Range.Length = Size;
@@ -421,6 +429,7 @@ FMetalBuffer FMetalSubBufferHeap::NewBuffer(NSUInteger length)
 			}
 		}
 	}
+	FPlatformAtomics::InterlockedIncrement(&OutstandingAllocs);
 	check(Result && Result.GetPtr());
 	return Result;
 }
@@ -569,6 +578,7 @@ mtlpp::PurgeableState FMetalSubBufferLinear::SetPurgeableState(mtlpp::PurgeableS
 
 FMetalSubBufferMagazine::FMetalSubBufferMagazine(NSUInteger Size, NSUInteger ChunkSize, mtlpp::ResourceOptions Options)
 : MinAlign(ChunkSize)
+, OutstandingAllocs(0)
 , UsedSize(0)
 {
 	NSUInteger FullSize = Align(Size, ChunkSize);
@@ -624,6 +634,7 @@ FMetalSubBufferMagazine::~FMetalSubBufferMagazine()
 
 void FMetalSubBufferMagazine::FreeRange(ns::Range const& Range)
 {
+	FPlatformAtomics::InterlockedDecrement(&OutstandingAllocs);
 	if (ParentHeap)
 	{
 		SET_MEMORY_STAT(STAT_MetalBufferUnusedMemory, ParentHeap.GetSize() - ParentHeap.GetUsedSize());
@@ -725,6 +736,11 @@ NSUInteger FMetalSubBufferMagazine::GetFreeSize() const
 	return GetSize() - GetUsedSize();
 }
 
+int64 FMetalSubBufferMagazine::NumCurrentAllocations() const
+{
+	return OutstandingAllocs;
+}
+
 void FMetalSubBufferMagazine::SetLabel(const ns::String& label)
 {
 	if (ParentHeap)
@@ -770,6 +786,7 @@ FMetalBuffer FMetalSubBufferMagazine::NewBuffer()
 		}
 	}
 
+	FPlatformAtomics::InterlockedIncrement(&OutstandingAllocs);
 	check(Result && Result.GetPtr());
 	return Result;
 }
@@ -1246,6 +1263,80 @@ uint32 FMetalResourceHeap::GetHeapIndex(uint32 Size)
 	return Lower;
 }
 
+FMetalResourceHeap::TextureHeapSize FMetalResourceHeap::TextureSizeToIndex(uint32 Size)
+{
+	unsigned long Lower = 0;
+	unsigned long Upper = NumTextureHeapSizes;
+	unsigned long Middle;
+	
+	do
+	{
+		Middle = ( Upper + Lower ) >> 1;
+		if( Size <= (HeapTextureHeapSizes[Middle-1] / MinTexturesPerHeap) )
+		{
+			Upper = Middle;
+		}
+		else
+		{
+			Lower = Middle;
+		}
+	}
+	while( Upper - Lower > 1 );
+	
+	check( Size <= (HeapTextureHeapSizes[Lower] / MinTexturesPerHeap) );
+	check( (Lower == 0 ) || ( Size > (HeapTextureHeapSizes[Lower-1] / MinTexturesPerHeap) ) );
+	
+	return (TextureHeapSize)Lower;
+}
+
+mtlpp::Heap FMetalResourceHeap::GetTextureHeap(mtlpp::TextureDescriptor Desc, mtlpp::SizeAndAlign Size)
+{
+	mtlpp::Heap Result;
+	static bool bTextureHeaps = FParse::Param(FCommandLine::Get(),TEXT("metaltextureheaps"));
+	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesHeaps) && bTextureHeaps && Size.Size <= HeapTextureHeapSizes[MaxTextureSize])
+	{
+		FMetalResourceHeap::TextureHeapSize HeapIndex = TextureSizeToIndex(Size.Size);
+
+		EMetalHeapTextureUsage UsageIndex = EMetalHeapTextureUsageNum;
+		mtlpp::StorageMode StorageMode = Desc.GetStorageMode();
+		mtlpp::CpuCacheMode CPUMode = Desc.GetCpuCacheMode();
+		if ((Desc.GetUsage() & mtlpp::TextureUsage::RenderTarget) && StorageMode == mtlpp::StorageMode::Private && CPUMode == mtlpp::CpuCacheMode::DefaultCache)
+		{
+			UsageIndex = PLATFORM_MAC ? EMetalHeapTextureUsageNum : EMetalHeapTextureUsageRenderTarget;
+		}
+		else if (StorageMode == mtlpp::StorageMode::Private && CPUMode == mtlpp::CpuCacheMode::WriteCombined)
+		{
+			UsageIndex = EMetalHeapTextureUsageResource;
+		}
+		
+		if (UsageIndex < EMetalHeapTextureUsageNum)
+		{
+			for (mtlpp::Heap& Heap : TextureHeaps[UsageIndex][HeapIndex])
+			{
+				if (Heap.MaxAvailableSizeWithAlignment(Size.Align) >= Size.Size)
+				{
+					Result = Heap;
+					break;
+				}
+			}
+			if (!Result)
+			{
+				mtlpp::HeapDescriptor HeapDesc;
+				HeapDesc.SetSize(HeapTextureHeapSizes[HeapIndex]);
+				HeapDesc.SetStorageMode(Desc.GetStorageMode());
+				HeapDesc.SetCpuCacheMode(Desc.GetCpuCacheMode());
+				Result = Queue->GetDevice().NewHeap(HeapDesc);
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+				MetalLLM::LogAllocHeap(Queue->GetDevice(), Result);
+#endif
+				TextureHeaps[UsageIndex][HeapIndex].Add(Result);
+			}
+			check(Result);
+		}
+	}
+	return Result;
+}
+
 FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtlpp::ResourceOptions Options, bool bForceUnique)
 {
 	LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
@@ -1440,7 +1531,18 @@ FMetalTexture FMetalResourceHeap::CreateTexture(mtlpp::TextureDescriptor Desc, F
 	LLM_SCOPE_METAL(ELLMTagMetal::Textures);
 	LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Textures);
 	
-	if (Desc.GetUsage() & mtlpp::TextureUsage::RenderTarget)
+	mtlpp::SizeAndAlign Res = Queue->GetDevice().HeapTextureSizeAndAlign(Desc);
+	mtlpp::Heap Heap = GetTextureHeap(Desc, Res);
+	if (Heap)
+	{
+		METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("AllocTexture: %s"), TEXT("")/**FString([Desc.GetPtr() description])*/)));
+		FMetalTexture Texture = Heap.NewTexture(Desc);
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+		MetalLLM::LogAllocTexture(Queue->GetDevice(), Desc, Texture);
+#endif
+		return Texture;
+	}
+	else if (Desc.GetUsage() & mtlpp::TextureUsage::RenderTarget)
 	{
 		return TargetPool.CreateTexture(Queue->GetDevice(), Desc);
 	}
@@ -1452,15 +1554,15 @@ FMetalTexture FMetalResourceHeap::CreateTexture(mtlpp::TextureDescriptor Desc, F
 
 void FMetalResourceHeap::ReleaseTexture(FMetalSurface* Surface, FMetalTexture& Texture)
 {
-	if (!Texture.GetBuffer() && !Texture.GetParentTexture())
+	if (!Texture.GetBuffer() && !Texture.GetParentTexture() && !Texture.GetHeap())
 	{
         if (Texture.GetUsage() & mtlpp::TextureUsage::RenderTarget)
         {
-            return TargetPool.ReleaseTexture(Texture);
+           	TargetPool.ReleaseTexture(Texture);
         }
         else
         {
-            return TexturePool.ReleaseTexture(Texture);
+            TexturePool.ReleaseTexture(Texture);
         }
 	}
 }
@@ -1475,7 +1577,7 @@ void FMetalResourceHeap::Compact(bool const bForce)
 			for (auto It = SmallBuffers[t][i].CreateIterator(); It; ++It)
 			{
 				FMetalSubBufferMagazine* Data = *It;
-				if (Data->GetUsedSize() == 0 || bForce)
+				if (Data->NumCurrentAllocations() == 0 || bForce)
 				{
 					It.RemoveCurrent();
 					delete Data;
@@ -1488,10 +1590,24 @@ void FMetalResourceHeap::Compact(bool const bForce)
 			for (auto It = BufferHeaps[t][i].CreateIterator(); It; ++It)
 			{
 				FMetalSubBufferHeap* Data = *It;
-				if (Data->GetUsedSize() == 0 || bForce)
+				if (Data->NumCurrentAllocations() == 0 || bForce)
 				{
 					It.RemoveCurrent();
 					delete Data;
+				}
+			}
+		}
+	}
+	
+	for (uint32 i = 0; i < EMetalHeapTextureUsageNum; i++)
+	{
+		for (uint32 j = 0; j < NumTextureHeapSizes; j++)
+		{
+			for (auto It = TextureHeaps[i][j].CreateIterator(); It; ++It)
+			{
+				if (It->GetUsedSize() == 0 || bForce)
+				{
+					It.RemoveCurrent();
 				}
 			}
 		}
@@ -1586,4 +1702,14 @@ uint32 FMetalResourceHeap::HeapAllocSizes[FMetalResourceHeap::NumHeapSizes] = {
 	2097152,
 	4194304,
 	4194304,
+};
+
+uint32 FMetalResourceHeap::HeapTextureHeapSizes[FMetalResourceHeap::NumTextureHeapSizes] = {
+	4194304,
+	8388608,
+	16777216,
+	33554432,
+	67108864,
+	134217728,
+	268435456
 };

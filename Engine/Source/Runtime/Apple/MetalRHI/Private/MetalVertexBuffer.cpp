@@ -202,7 +202,28 @@ FMetalRHIBuffer::~FMetalRHIBuffer()
 		SafeReleaseMetalObject(Data);
 	}
 }
-	
+
+void FMetalRHIBuffer::Alias()
+{
+	if (Buffer.GetStorageMode() == mtlpp::StorageMode::Private && Buffer.GetHeap() && !Buffer.IsAliasable())
+	{
+		Buffer.MakeAliasable();
+	}
+}
+
+void FMetalRHIBuffer::Unalias()
+{
+	if (Buffer.GetStorageMode() == mtlpp::StorageMode::Private && Buffer.GetHeap() && Buffer.IsAliasable())
+	{
+		uint32 Len = Buffer.GetLength();
+		METAL_INC_DWORD_STAT_BY(Type, MemFreed, Len);
+		SafeReleaseMetalBuffer(Buffer);
+		Buffer = nil;
+		
+		Alloc(Len, RLM_WriteOnly);
+	}
+}
+
 void FMetalRHIBuffer::Alloc(uint32 InSize, EResourceLockMode LockMode)
 {
 	METAL_LLM_BUFFER_SCOPE(Type);
@@ -388,6 +409,8 @@ void* FMetalRHIBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32 In
 		check(Data->Data);
 		return ((uint8*)Data->Data) + Offset;
 	}
+	
+	check(!Buffer.IsAliasable());
 	
     uint32 Len = Buffer.GetLength();
     
