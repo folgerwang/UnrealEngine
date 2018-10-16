@@ -493,7 +493,7 @@ static TMap<VkImage, FTrackingImage> GVulkanTrackingImageLayouts;
 static TMap<VkImageView, TTrackingResource<VkImageViewCreateInfo>> GVulkanTrackingImageViews;
 static VkImage GBreakOnTrackImage = VK_NULL_HANDLE;
 
-static inline void BreakOnTrackingImage(VkImage InImage)
+static FORCEINLINE void BreakOnTrackingImage(VkImage InImage)
 {
 	if (GBreakOnTrackImage != VK_NULL_HANDLE)
 	{
@@ -507,7 +507,7 @@ static VkImage FindTrackingImage(VkImageView InView)
 	return Found.CreateInfo.image;
 }
 
-static inline void BreakOnTrackingImage(VkImageView InView)
+static FORCEINLINE void BreakOnTrackingImageView(VkImageView InView)
 {
 	BreakOnTrackingImage(FindTrackingImage(InView));
 }
@@ -1551,7 +1551,7 @@ void FWrapLayer::CreateImageView(VkResult Result, VkDevice Device, const VkImage
 			CaptureCallStack(Found.CreateCallstack, 3);
 #endif
 		}
-		BreakOnTrackingImage(*ImageView);
+		BreakOnTrackingImageView(*ImageView);
 #endif
 	}
 }
@@ -2006,7 +2006,7 @@ void FWrapLayer::UpdateDescriptorSets(VkResult Result, VkDevice Device, uint32 D
 					for (uint32 SubIndex = 0; SubIndex < DescriptorWrites[Index].descriptorCount; ++SubIndex)
 					{
 #if VULKAN_ENABLE_IMAGE_TRACKING_LAYER
-						BreakOnTrackingImage(DescriptorWrites[Index].pImageInfo->imageView);
+						BreakOnTrackingImageView(DescriptorWrites[Index].pImageInfo->imageView);
 #endif
 #if VULKAN_ENABLE_DUMP_LAYER
 						DebugLog += FString::Printf(TEXT("%s\tpImageInfo[%d]: Sampler=0x%p, ImageView=0x%p(I:0x%p), imageLayout=%s\n"), Tabs, SubIndex,
@@ -3308,7 +3308,7 @@ void FWrapLayer::DestroyImageView(VkResult Result, VkDevice Device, VkImageView 
 #if VULKAN_ENABLE_IMAGE_TRACKING_LAYER
 		{
 			FScopeLock ScopeLock(&GTrackingCS);
-			BreakOnTrackingImage(ImageView);
+			BreakOnTrackingImageView(ImageView);
 			int32 NumRemoved = GVulkanTrackingImageViews.Remove(ImageView);
 			ensure(NumRemoved > 0);
 		}

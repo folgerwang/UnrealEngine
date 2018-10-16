@@ -713,8 +713,6 @@ void FVulkanCommandListContext::RHIBeginFrame()
 	check(IsImmediate());
 	RHIPrivateBeginFrame();
 
-	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->HasPendingUploadCmdBuffer() ? CommandBufferManager->GetUploadCmdBuffer() : CommandBufferManager->GetActiveCmdBuffer();
-
 	extern uint32 GVulkanRHIDeletionFrameNumber;
 	++GVulkanRHIDeletionFrameNumber;
 

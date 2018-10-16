@@ -725,7 +725,7 @@ namespace VulkanRHI
 			FScopeLock ScopeLock(&GOldResourceLock);
 
 #if VULKAN_FREEPAGE_FOR_TYPE
-			for (int32 Index = 1; Index < FreeBufferPages.Num(); ++Index)
+			for (int32 Index = (bImmediately ? 0 : 1); Index < FreeBufferPages.Num(); ++Index)
 			{
 				FOldResourceHeapPage* Page = FreeBufferPages[Index];
 				if (bImmediately || Page->FrameFreed + NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS < GFrameNumberRenderThread)
@@ -735,7 +735,7 @@ namespace VulkanRHI
 					break;
 				}
 			}
-			for (int32 Index = 1; Index < FreeImagePages.Num(); ++Index)
+			for (int32 Index = (bImmediately ? 0 : 1); Index < FreeImagePages.Num(); ++Index)
 			{
 				FOldResourceHeapPage* Page = FreeImagePages[Index];
 				if (bImmediately || Page->FrameFreed + NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS < GFrameNumberRenderThread)
@@ -751,7 +751,7 @@ namespace VulkanRHI
 			for (int32 Index = 0; Index < FreePages.Num(); ++Index)
 #else
 			// Leave a page not freed to avoid potential hitching
-			for (int32 Index = 1; Index < FreePages.Num(); ++Index)
+			for (int32 Index = (bImmediately ? 0 : 1); Index < FreePages.Num(); ++Index)
 #endif
 			{
 				FOldResourceHeapPage* Page = FreePages[Index];
@@ -806,7 +806,7 @@ namespace VulkanRHI
 				UE_LOG(LogVulkanRHI, Display, TEXT("\t\t%d: ID %4d %4d suballocs, %4d free chunks (%d used/%d free/%d max) DeviceMemory %p"), Index, UsedPages[Index]->GetID(), UsedPages[Index]->ResourceAllocations.Num(), UsedPages[Index]->FreeList.Num(), UsedPages[Index]->UsedSize, UsedPages[Index]->MaxSize - UsedPages[Index]->UsedSize, UsedPages[Index]->MaxSize, (void*)UsedPages[Index]->DeviceMemoryAllocation->GetHandle());
 			}
 
-			UE_LOG(LogVulkanRHI, Display, TEXT("%d Suballocations for Used/Total: %d/%d = %.2f%%"), NumSuballocations, SubAllocUsedMemory, SubAllocAllocatedMemory, 100.0f * (float)SubAllocUsedMemory / (float)SubAllocAllocatedMemory);
+			UE_LOG(LogVulkanRHI, Display, TEXT("%d Suballocations for Used/Total: %d/%d = %.2f%%"), NumSuballocations, SubAllocUsedMemory, SubAllocAllocatedMemory, SubAllocAllocatedMemory > 0 ? 100.0f * (float)SubAllocUsedMemory / (float)SubAllocAllocatedMemory : 0.0f);
 		};
 
 		DumpPages(UsedBufferPages, TEXT("Buffer"));
@@ -1352,8 +1352,8 @@ namespace VulkanRHI
 		}
 
 		UE_LOG(LogVulkanRHI, Display, TEXT("::Totals::"));
-		UE_LOG(LogVulkanRHI, Display, TEXT("Large Alloc Used/Max %d/%d %.2f%%"), UsedLargeTotal, AllocLargeTotal, 100.0f * (float)UsedLargeTotal / (float)AllocLargeTotal);
-		UE_LOG(LogVulkanRHI, Display, TEXT("Binned Alloc Used/Max %d/%d %.2f%%"), UsedBinnedTotal, AllocBinnedTotal, 100.0f * (float)UsedBinnedTotal / (float)AllocBinnedTotal);
+		UE_LOG(LogVulkanRHI, Display, TEXT("Large Alloc Used/Max %d/%d %.2f%%"), UsedLargeTotal, AllocLargeTotal, 100.0f * AllocLargeTotal > 0 ? (float)UsedLargeTotal / (float)AllocLargeTotal : 0.0f);
+		UE_LOG(LogVulkanRHI, Display, TEXT("Binned Alloc Used/Max %d/%d %.2f%%"), UsedBinnedTotal, AllocBinnedTotal, AllocBinnedTotal > 0 ? 100.0f * (float)UsedBinnedTotal / (float)AllocBinnedTotal : 0.0f);
 	}
 #endif
 
