@@ -31,7 +31,7 @@ struct FMovieSceneParticleChannel : public FMovieSceneByteChannel
 template<>
 struct TStructOpsTypeTraits<FMovieSceneParticleChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneParticleChannel>
 {
-	enum { WithSerializeFromMismatchedTag = true };
+	enum { WithStructuredSerializeFromMismatchedTag = true };
 };
 
 

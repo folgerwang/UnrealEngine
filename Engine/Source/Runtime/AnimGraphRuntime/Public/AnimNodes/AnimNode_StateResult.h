@@ -24,6 +24,6 @@ struct TStructOpsTypeTraits<FAnimNode_StateResult>
 {
 	enum
 	{
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
