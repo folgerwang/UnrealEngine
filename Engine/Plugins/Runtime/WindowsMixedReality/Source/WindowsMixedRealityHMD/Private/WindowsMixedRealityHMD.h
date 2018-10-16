@@ -7,7 +7,6 @@
 #include "XRTrackingSystemBase.h"
 #include "SceneViewExtension.h"
 #include "DefaultXRCamera.h"
-#include "Async/Async.h"
 
 #include "Windows/WindowsApplication.h"
 #include "Framework/Application/SlateApplication.h"
@@ -182,6 +181,13 @@ namespace WindowsMixedReality
 		virtual float GetPixelDenity() const override;
 		virtual void SetPixelDensity(const float NewDensity) override;
 		virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
+		virtual void RenderTexture_RenderThread
+		(
+			class FRHICommandListImmediate & RHICmdList,
+			class FRHITexture2D * BackBuffer,
+			class FRHITexture2D * SrcTexture,
+			FVector2D WindowSize
+		) const override;
 		virtual bool AllocateRenderTargetTexture(
 			uint32 index,
 			uint32 sizeX, uint32 sizeY,
@@ -210,6 +216,8 @@ namespace WindowsMixedReality
 
 		IRendererModule* RendererModule = nullptr;
 
+		EHMDWornState::Type currentWornState = EHMDWornState::Type::Unknown;
+		bool mouseLockedToCenter = true;
 	public:
 		// Spatial input
 		bool IsAvailable();
@@ -226,6 +234,10 @@ namespace WindowsMixedReality
 		void SubmitHapticValue(
 			MixedRealityInterop::HMDHand hand,
 			float value);
+		void LockMouseToCenter(bool locked)
+		{
+			mouseLockedToCenter = locked;
+		}
 	};
 }
 
