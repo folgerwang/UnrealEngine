@@ -120,7 +120,7 @@ public:
 	UPROPERTY()
 	FName RowStructName;
 
-private:
+protected:
 	/** When RowStruct is being modified, row data is stored serialized with tags */
 	UPROPERTY(Transient)
 	TArray<uint8> RowsSerializedWithTags;
@@ -282,8 +282,8 @@ public:
 	ENGINE_API virtual void AddRow(FName RowName, const FTableRowBase& RowData);
 
 #if WITH_EDITOR
-	ENGINE_API void CleanBeforeStructChange();
-	ENGINE_API void RestoreAfterStructChange();
+	ENGINE_API virtual void CleanBeforeStructChange();
+	ENGINE_API virtual void RestoreAfterStructChange();
 
 	/** Output entire contents of table as a string */
 	ENGINE_API FString GetTableAsString(const EDataTableExportFlags InDTExportFlags = EDataTableExportFlags::None) const;
@@ -338,7 +338,7 @@ public:
 
 	//~ End UDataTable Interface
 
-private:
+protected:
 	void SaveStructData(FArchive& Ar);
 	void LoadStructData(FArchive& Ar);
 
