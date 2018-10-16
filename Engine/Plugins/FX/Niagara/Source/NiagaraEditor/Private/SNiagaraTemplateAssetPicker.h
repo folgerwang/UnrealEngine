@@ -12,7 +12,11 @@ class FAssetThumbnailPool;
 class SNiagaraTemplateAssetPicker : public SCompoundWidget
 {
 public:
+	DECLARE_DELEGATE_OneParam(FOnTemplateAssetActivated, const FAssetData&);
+
+public:
 	SLATE_BEGIN_ARGS(SNiagaraTemplateAssetPicker) {}
+		SLATE_EVENT(FOnTemplateAssetActivated, OnTemplateAssetActivated);
 	SLATE_END_ARGS();
 
 	void Construct(const FArguments& InArgs, UClass* AssetClass);
@@ -36,9 +40,12 @@ private:
 
 	TSharedRef<SWidget> OnGenerateWidgetForItem(const FAssetData& Item);
 
+	void OnItemActivated(const FAssetData& Item);
+
 private:
 	TSharedPtr<SNiagaraAssetItemSelector> ItemSelector;
 	FText NiagaraPluginCategory;
 	FText ProjectCategory;
 	TSharedPtr<FAssetThumbnailPool> AssetThumbnailPool;
+	FOnTemplateAssetActivated OnTemplateAssetActivated;
 };
