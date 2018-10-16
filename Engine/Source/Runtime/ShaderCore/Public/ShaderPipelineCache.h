@@ -10,7 +10,6 @@
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
 #include "RHI.h"
-#include "TickableObjectRenderThread.h"
 #include "PipelineFileCache.h"
 #include "Delegates/DelegateCombinations.h"
 
@@ -65,15 +64,15 @@ class FShaderPipelineCacheArchive;
  * - FShaderCodeLibrary must be enabled via Project Settings > Packaging > "Share Material Shader Code".
  * - Enabling "Native Shader Libraries" is optional, but strongly preferred for Metal.
  */
-class SHADERCORE_API FShaderPipelineCache : public FTickableObjectRenderThread
+class SHADERCORE_API FShaderPipelineCache
 {
 	struct CompileJob
 	{
 		FPipelineCacheFileFormatPSO PSO;
 		FShaderPipelineCacheArchive* ReadRequests;
 	};
-
-public:
+	
+protected:
 	/**
 	 * Initializes the shader pipeline cache for the desired platform, called by the engine.
 	 * The shader platform is used only to load the initial pipeline cache and can be changed by closing & reopening the cache if necessary.
@@ -81,7 +80,8 @@ public:
 	static void Initialize(EShaderPlatform Platform);
 	/** Terminates the shader pipeline cache, called by the engine. */
 	static void Shutdown();
-	
+
+public:
 	/** Pauses precompilation. */
 	static void PauseBatching();
 	
@@ -120,13 +120,13 @@ public:
 	FShaderPipelineCache(EShaderPlatform Platform);
 	virtual ~FShaderPipelineCache();
 
-	virtual bool IsTickable() const override final;
+	bool IsTickable() const;
 	
-	virtual void Tick( float DeltaTime ) override final;
+	void Tick( float DeltaTime );
 	
-	virtual bool NeedsRenderingResumedForRenderingThreadTick() const override final;
+	bool NeedsRenderingResumedForRenderingThreadTick() const;
 	
-	virtual TStatId GetStatId() const override final;
+	TStatId GetStatId() const;
 	
 	enum ELibraryState
 	{

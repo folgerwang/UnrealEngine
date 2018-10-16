@@ -153,7 +153,7 @@
     #include "PreLoadScreenManager.h"
 
 	#include "ShaderCodeLibrary.h"
-	#include "ShaderPipelineCache.h"
+	#include "Rendering/ShaderPipelineStateCache.h"
 
 #if !UE_BUILD_SHIPPING
 	#include "STaskGraph.h"
@@ -1908,7 +1908,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			
 		// Initialize the pipeline cache system. Opening is deferred until the manual call to
 		// OpenPipelineFileCache below, after content pak's ShaderCodeLibraries are loaded.
-		FShaderPipelineCache::Initialize(GMaxRHIShaderPlatform);
+		FShaderPipelineStateCache::Initialize(GMaxRHIShaderPlatform);
 	}
 
 	FString Commandline = FCommandLine::Get();
@@ -3196,7 +3196,7 @@ void FEngineLoop::Exit()
 	StopRenderingThread();
 
 	// Disable the PSO cache
-	FShaderPipelineCache::Shutdown();
+	FShaderPipelineStateCache::Shutdown();
 
 	// Close shader code map, if any
 	FShaderCodeLibrary::Shutdown();
