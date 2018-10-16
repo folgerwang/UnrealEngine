@@ -54,6 +54,7 @@
 #include "DeferredShadingRenderer.h"
 #include "PostProcess/PostProcessFFTBloom.h"
 #include "MobileSeparateTranslucencyPass.h"
+#include "MobileDistortionPass.h"
 
 /** The global center for all post processing activities. */
 FPostProcessing GPostProcessing;
@@ -2365,6 +2366,18 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 
 			// Post is not supported on ES2 devices using mosaic.
 			bool bUsePost = bHDRModeAllowsPost && IsMobileHDR();
+			
+			if (bUsePost && IsMobileDistortionActive(View))
+			{
+				FRenderingCompositePass* AccumulatedDistortion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionAccumulatePassES2(SceneColorSize));
+				AccumulatedDistortion->SetInput(ePId_Input0, Context.FinalOutput); // unused atm
+				FRenderingCompositeOutputRef AccumulatedDistortionRef(AccumulatedDistortion);
+				
+				FRenderingCompositePass* PostProcessDistorsion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionMergePassES2(SceneColorSize));
+				PostProcessDistorsion->SetInput(ePId_Input0, Context.FinalOutput);
+				PostProcessDistorsion->SetInput(ePId_Input1, AccumulatedDistortionRef);
+				Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessDistorsion);
+			}
 
 			// Always evaluate custom post processes
 			if (bUsePost)

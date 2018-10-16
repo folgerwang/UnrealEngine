@@ -3859,6 +3859,31 @@ void FWrapLayer::CreateWin32SurfaceKHR(VkResult Result, VkInstance Instance, con
 }
 #endif
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+void FWrapLayer::CreateSamplerYcbcrConversionKHR(VkResult Result, VkDevice Device, const VkSamplerYcbcrConversionCreateInfo* CreateInfo, VkSamplerYcbcrConversion* YcbcrConversion)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+		DevicePrintfBeginResult(Device, FString::Printf(TEXT("vkCreateSamplerYcbcrConversionKHR(CreateInfo=0x%p, YcbcrConversion=0x%p)[...]"), CreateInfo, YcbcrConversion));
+	}
+	else
+	{
+		PrintResultAndNamedHandle(Result, TEXT("SamplerYcbcrConversionKHR"), *YcbcrConversion);
+	}
+	FlushDebugWrapperLog();
+}
+
+void FWrapLayer::DestroySamplerYcbcrConversionKHR(VkResult Result, VkDevice Device, VkSamplerYcbcrConversion YcbcrConversion)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		DevicePrintfBegin(Device, FString::Printf(TEXT("vkDestroySamplerYcbcrConversionKHR(YcbcrConversion=0x%p)"), YcbcrConversion));
+#endif
+	}
+}
+#endif
+
 #if VULKAN_ENABLE_IMAGE_TRACKING_LAYER
 namespace VulkanRHI
 {

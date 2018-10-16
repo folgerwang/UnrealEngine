@@ -710,6 +710,15 @@ bool FNDISkeletalMesh_InstanceData::Tick(UNiagaraDataInterfaceSkeletalMesh* Inte
 	}
 }
 
+bool FNDISkeletalMesh_InstanceData::HasColorData()
+{
+	check(Mesh);
+	FSkinWeightVertexBuffer* SkinWeightBuffer;
+	FSkeletalMeshLODRenderData& LODData = GetLODRenderDataAndSkinWeights(SkinWeightBuffer);
+
+	return LODData.StaticVertexBuffers.ColorVertexBuffer.GetNumVertices() != 0;
+}
+
 //Instance Data END
 //////////////////////////////////////////////////////////////////////////
 
@@ -987,7 +996,7 @@ void UNiagaraDataInterfaceSkeletalMesh::ValidateFunction(const FNiagaraFunctionS
 
 		if (SkinnedDataDeprecatedFunctions.Contains(Function))
 		{
-			OutValidationErrors.Add(FText::Format(LOCTEXT("SkinnedDataFunctionDeprecationMsgFmt", "Skeletal Mesh DI Function {0} has beend deprecated. Use GetSinnedTriangleData or GetSkinnedTriangleDataWS instead.\n"), FText::FromString(Function.GetName())));
+			OutValidationErrors.Add(FText::Format(LOCTEXT("SkinnedDataFunctionDeprecationMsgFmt", "Skeletal Mesh DI Function {0} has been deprecated. Use GetSinnedTriangleData or GetSkinnedTriangleDataWS instead.\n"), FText::FromString(Function.GetName())));
 		}
 		else
 		{

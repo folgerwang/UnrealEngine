@@ -64,7 +64,7 @@ FORCEINLINE VectorRegister MakeVectorRegister( float X, float Y, float Z, float 
  */
 FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, int32 W)
 {
-	return _mm_castps_si128(DirectX::XMVectorSet(X, Y, Z, W));
+	return _mm_castps_si128(DirectX::XMVectorSetInt(X, Y, Z, W));
 }
 
 /*=============================================================================

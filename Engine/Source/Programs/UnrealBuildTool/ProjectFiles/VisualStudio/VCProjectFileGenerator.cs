@@ -219,11 +219,6 @@ namespace UnrealBuildTool
 			return string.Empty;
 		}
 
-		/// This is the platform name that Visual Studio is always guaranteed to support.  We'll use this as
-		/// a platform for any project configurations where our actual platform is not supported by the
-		/// installed version of Visual Studio (e.g, "iOS")
-		public const string DefaultPlatformName = "Win32";
-
 		/// <summary>
 		/// Configures project generator based on command-line options
 		/// </summary>
@@ -684,140 +679,18 @@ namespace UnrealBuildTool
 
 								foreach (VCSolutionConfigCombination SolutionConfigCombination in SolutionConfigCombinations)
 								{
-									// Have to match every solution configuration combination to a project configuration (or use the invalid one) 
-									string ProjectConfigAndPlatformPair;
-									if(CurProject is VCSharpProjectFile)
-									{
-										ProjectConfigAndPlatformPair = CurProject.MakeConfigurationAndPlatformPair(SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration, TargetType.Program);
-									}
-									else
-									{
-										ProjectConfigAndPlatformPair = String.Format("Invalid|{0}", DefaultPlatformName);
-									}
+									// Get the context for the current solution context
+									MSBuildProjectContext ProjectContext = CurProject.GetMatchingProjectContext(SolutionConfigCombination.TargetConfigurationName, SolutionConfigCombination.Configuration, SolutionConfigCombination.Platform);
 
-									// Whether the configuration should be built automatically as part of the solution
-									bool bBuildByDefault = false;
-
-									// Whether this configuration should deploy by default (requires bBuildByDefault)
-									bool bDeployByDefault = false;
-
-									// Programs are built in editor configurations (since the editor is like a desktop program too) and game configurations (since we omit the "game" qualification in the configuration name).
-									bool IsProgramProject = CurProject.ProjectTargets[0].TargetRules != null && CurProject.ProjectTargets[0].TargetRules.Type == TargetType.Program;
-									if(!IsProgramProject || SolutionConfigCombination.TargetConfigurationName == TargetType.Game || SolutionConfigCombination.TargetConfigurationName == TargetType.Editor)
-									{
-										// Get the target type we expect to find for this project
-										TargetType TargetConfigurationName = SolutionConfigCombination.TargetConfigurationName;
-										if (IsProgramProject)
-										{
-											TargetConfigurationName = TargetType.Program;
-										}
-
-										// Now, we want to find a target in this project that maps to the current solution config combination.  Only up to one target should
-										// and every solution config combination should map to at least one target in one project (otherwise we shouldn't have added it!).
-										List<ProjectTarget> MatchingProjectTargets = new List<ProjectTarget>();
-										foreach (ProjectTarget ProjectTarget in CurProject.ProjectTargets)
-										{
-											if(VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionConfigCombination.Platform, SolutionConfigCombination.Configuration))
-											{
-												if (ProjectTarget.TargetRules != null)
-												{
-													if (TargetConfigurationName == ProjectTarget.TargetRules.Type)
-													{
-														MatchingProjectTargets.Add(ProjectTarget);
-													}
-												}
-												else
-												{
-													// UBT gets a pass because it is a dependency of every single configuration combination
-													if (CurProject == UBTProject || CurProject.ShouldBuildForAllSolutionTargets || TargetConfigurationName == TargetType.Game)
-													{
-														MatchingProjectTargets.Add(ProjectTarget);
-													}
-												}
-											}
-										}
-
-										// Always allow SCW and UnrealLighmass to build in editor configurations
-										if (MatchingProjectTargets.Count == 0 && SolutionConfigCombination.TargetConfigurationName == TargetType.Editor && SolutionConfigCombination.Platform == UnrealTargetPlatform.Win64)
-										{
-											if (CurProject == ShaderCompileWorkerProject)
-											{
-												MatchingProjectTargets.Add(ShaderCompileWorkerProject.ProjectTargets[0]);
-											}
-											else if (CurProject == UnrealLightmassProject)
-											{
-												MatchingProjectTargets.Add(UnrealLightmassProject.ProjectTargets[0]);
-											}
-										}
-
-										// Make sure there's only one matching project target
-										if(MatchingProjectTargets.Count > 1)
-										{
-											throw new BuildException("Not expecting more than one target for project " + CurProject.ProjectFilePath + " to match solution configuration " + SolutionConfigCombination.VCSolutionConfigAndPlatformName);
-										}
-
-										// If we found a matching project, get matching configuration
-										if(MatchingProjectTargets.Count == 1)
-										{
-											// Get the matching target
-											ProjectTarget MatchingProjectTarget = MatchingProjectTargets[0];
-
-											// If the project wants to always build in "Development", regardless of what the solution configuration is set to, then we'll do that here.
-											UnrealTargetConfiguration ProjectConfiguration = SolutionConfigCombination.Configuration;
-											if (MatchingProjectTarget.ForceDevelopmentConfiguration && SolutionConfigCombination.TargetConfigurationName != TargetType.Game)
-											{
-												ProjectConfiguration = UnrealTargetConfiguration.Development;
-											}
-
-											// Get the matching project configuration
-											UnrealTargetPlatform ProjectPlatform = SolutionConfigCombination.Platform;
-											if (CurProject.IsStubProject)
-											{
-												if (ProjectPlatform != UnrealTargetPlatform.Unknown || ProjectConfiguration != UnrealTargetConfiguration.Unknown)
-												{
-													throw new BuildException("Stub project was expecting platform and configuration type to be set to Unknown");
-												}
-												ProjectConfigAndPlatformPair = String.Format("{0}|{1}", MSBuildProjectFile.StubProjectConfigurationName, MSBuildProjectFile.StubProjectPlatformName);
-											}
-											else
-											{
-												ProjectConfigAndPlatformPair = CurProject.MakeConfigurationAndPlatformPair(ProjectPlatform, ProjectConfiguration, TargetConfigurationName);
-											}
-
-											// Set whether this project configuration should be built when the user initiates "build solution"
-											if (CurProject.ShouldBuildByDefaultForSolutionTargets)
-											{
-												// Some targets are "dummy targets"; they only exist to show user friendly errors in VS. Weed them out here, and don't set them to build by default.
-												List<UnrealTargetPlatform> SupportedPlatforms = null;
-												if (MatchingProjectTarget.TargetRules != null)
-												{
-													SupportedPlatforms = new List<UnrealTargetPlatform>();
-													SupportedPlatforms.AddRange(MatchingProjectTarget.SupportedPlatforms);
-												}
-												if (SupportedPlatforms == null || SupportedPlatforms.Contains(SolutionConfigCombination.Platform))
-												{
-													bBuildByDefault = true;
-
-													UEPlatformProjectGenerator ProjGen = UEPlatformProjectGenerator.GetPlatformProjectGenerator(SolutionConfigCombination.Platform, true);
-													if (MatchingProjectTarget.ProjectDeploys ||
-														((ProjGen != null) && (ProjGen.GetVisualStudioDeploymentEnabled(ProjectPlatform, ProjectConfiguration) == true)))
-													{
-														bDeployByDefault = true;
-													}
-												}
-											}
-										}
-									}
-
-									// e.g.  "{4232C52C-680F-4850-8855-DC39419B5E9B}.Debug|iOS.ActiveCfg = iOS_Debug|Win32"
+									// Write the solution mapping (e.g.  "{4232C52C-680F-4850-8855-DC39419B5E9B}.Debug|iOS.ActiveCfg = iOS_Debug|Win32")
 									string CurProjectGUID = CurProject.ProjectGUID.ToString("B").ToUpperInvariant();
-									VCSolutionFileContent.AppendLine("		{0}.{1}.ActiveCfg = {2}", CurProjectGUID, SolutionConfigCombination.VCSolutionConfigAndPlatformName, ProjectConfigAndPlatformPair);
-									if (bBuildByDefault)
+									VCSolutionFileContent.AppendLine("		{0}.{1}.ActiveCfg = {2}", CurProjectGUID, SolutionConfigCombination.VCSolutionConfigAndPlatformName, ProjectContext.Name);
+									if (ProjectContext.bBuildByDefault)
 									{
-										VCSolutionFileContent.AppendLine("		{0}.{1}.Build.0 = {2}", CurProjectGUID, SolutionConfigCombination.VCSolutionConfigAndPlatformName, ProjectConfigAndPlatformPair);
-										if(bDeployByDefault)
+										VCSolutionFileContent.AppendLine("		{0}.{1}.Build.0 = {2}", CurProjectGUID, SolutionConfigCombination.VCSolutionConfigAndPlatformName, ProjectContext.Name);
+										if(ProjectContext.bDeployByDefault)
 										{
-											VCSolutionFileContent.AppendLine("		{0}.{1}.Deploy.0 = {2}", CurProjectGUID, SolutionConfigCombination.VCSolutionConfigAndPlatformName, ProjectConfigAndPlatformPair);
+											VCSolutionFileContent.AppendLine("		{0}.{1}.Deploy.0 = {2}", CurProjectGUID, SolutionConfigCombination.VCSolutionConfigAndPlatformName, ProjectContext.Name);
 										}
 									}
 								}

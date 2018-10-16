@@ -70,9 +70,6 @@ static int32 GUnrechableObjectIndex = 0;
 
 /** Helpful constant for determining how many token slots we need to store a pointer **/
 static const uint32 GNumTokensPerPointer = sizeof(void*) / sizeof(uint32); //-V514
-/** Calls ConditionalBeginDestroy on unreachable objects */
-static bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit = 0.0f);
-
 
 FThreadSafeBool& FGCScopeLock::GetGarbageCollectingFlag()
 {
@@ -1613,6 +1610,11 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	FCoreUObjectDelegates::GetPostGarbageCollect().Broadcast();
 
 	STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, TEXT( "GarbageCollection - End" ) );
+}
+
+bool IsIncrementalUnhashPending()
+{
+	return GUnrechableObjectIndex < GUnreachableObjects.Num();
 }
 
 bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)

@@ -34,9 +34,9 @@ bool ACineCameraActor::ShouldTickIfViewportsOnly() const
 FVector ACineCameraActor::GetLookatLocation() const
 {
 	FVector FinalLookat;
-	if (AActor* ActorToTrack = LookatTrackingSettings.ActorToTrack.Get())
+	if (LookatTrackingSettings.ActorToTrack)
 	{
-		FTransform const BaseTransform = ActorToTrack->GetActorTransform();
+		FTransform const BaseTransform = LookatTrackingSettings.ActorToTrack->GetActorTransform();
 		FinalLookat = BaseTransform.TransformPosition(LookatTrackingSettings.RelativeOffset);
 	}
 	else

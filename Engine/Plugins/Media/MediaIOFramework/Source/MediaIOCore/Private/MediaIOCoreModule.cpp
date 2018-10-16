@@ -44,11 +44,17 @@ private:
 	TArray<IMediaIOCoreDeviceProvider*> DeviceProviders;
 };
 
+bool IMediaIOCoreModule::IsAvailable()
+{
+	return FModuleManager::Get().IsModuleLoaded("MediaIOCore");
+}
 
 IMediaIOCoreModule& IMediaIOCoreModule::Get()
 {
 	return FModuleManager::LoadModuleChecked<FMediaIOCoreModule>("MediaIOCore");
 }
+
+
 
 
 IMPLEMENT_MODULE(FMediaIOCoreModule, MediaIOCore);

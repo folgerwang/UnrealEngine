@@ -462,35 +462,32 @@ namespace UnrealBuildTool
 		public void GetBuildProducts(ReadOnlyTargetRules Target, UEToolChain ToolChain, Dictionary<FileReference, BuildProductType> BuildProducts, bool bCreateDebugInfo)
 		{
 			// Add all the precompiled outputs
-			if(Target.bPrecompile)
+			foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
 			{
-				foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
+				if(Module.Rules.bPrecompile)
 				{
-					if(Module.Rules.bPrecompile)
+					if(Module.GeneratedCodeDirectory != null && DirectoryReference.Exists(Module.GeneratedCodeDirectory))
 					{
-						if(Module.GeneratedCodeDirectory != null && DirectoryReference.Exists(Module.GeneratedCodeDirectory))
+						foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
 						{
-							foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
+							// Exclude timestamp files, since they're always updated and cause collisions between builds
+							if(!GeneratedCodeFile.GetFileName().Equals("Timestamp", StringComparison.OrdinalIgnoreCase) && !GeneratedCodeFile.HasExtension(".cpp"))
 							{
-								// Exclude timestamp files, since they're always updated and cause collisions between builds
-								if(!GeneratedCodeFile.GetFileName().Equals("Timestamp", StringComparison.OrdinalIgnoreCase))
-								{
-									BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
-								}
+								BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
 							}
 						}
-						if(Target.LinkType == TargetLinkType.Monolithic)
-						{
-							FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
-							BuildProducts.Add(PrecompiledManifestLocation, BuildProductType.BuildResource);
+					}
+					if(Target.LinkType == TargetLinkType.Monolithic)
+					{
+						FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
+						BuildProducts.Add(PrecompiledManifestLocation, BuildProductType.BuildResource);
 
-							PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
-							foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
+						PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
+						foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
+						{
+							if(!BuildProducts.ContainsKey(OutputFile))
 							{
-								if(!BuildProducts.ContainsKey(OutputFile))
-								{
-									BuildProducts.Add(OutputFile, BuildProductType.BuildResource);
-								}
+								BuildProducts.Add(OutputFile, BuildProductType.BuildResource);
 							}
 						}
 					}
