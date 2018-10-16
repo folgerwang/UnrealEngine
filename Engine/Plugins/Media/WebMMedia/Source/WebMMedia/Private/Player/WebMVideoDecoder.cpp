@@ -112,6 +112,11 @@ void FWebMVideoDecoder::DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFram
 	}, TStatId(), nullptr, ENamedThreads::AnyThread);
 }
 
+bool FWebMVideoDecoder::IsBusy() const
+{
+	return VideoDecodingTask && !VideoDecodingTask->IsComplete();
+}
+
 void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames)
 {
 	for (const TSharedPtr<FWebMFrame>& VideoFrame : VideoFrames)
