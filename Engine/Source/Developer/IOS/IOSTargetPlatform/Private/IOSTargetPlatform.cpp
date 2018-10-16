@@ -484,10 +484,8 @@ static bool CookASTC()
 
 static bool SupportsSoftwareOcclusion()
 {
-	// default to not support
-	int32 IntValue = 0;
-	GConfig->GetInt(TEXT("ConsoleVariables"), TEXT("r.Mobile.AllowSoftwareOcclusion"), IntValue, GEngineIni);
-	return (IntValue != 0);
+	static auto* CVarMobileAllowSoftwareOcclusion = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowSoftwareOcclusion"));
+	return CVarMobileAllowSoftwareOcclusion->GetValueOnAnyThread() != 0;
 }
 
 bool FIOSTargetPlatform::CanSupportXGEShaderCompile() const
