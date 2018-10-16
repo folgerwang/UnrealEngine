@@ -210,6 +210,6 @@ struct TStructOpsTypeTraits<FSlateColor>
 {
 	enum 
 	{
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };

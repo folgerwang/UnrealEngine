@@ -97,3 +97,8 @@ void FWebMMediaTextureSample::ShutdownPoolable()
 {
 	Time = FTimespan::Zero();
 }
+
+TRefCountPtr<FRHITexture2D> FWebMMediaTextureSample::GetTextureRef() const
+{
+	return Texture;
+}

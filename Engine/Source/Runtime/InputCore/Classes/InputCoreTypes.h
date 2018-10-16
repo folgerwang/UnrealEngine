@@ -105,7 +105,7 @@ struct TStructOpsTypeTraits<FKey> : public TStructOpsTypeTraitsBase2<FKey>
 {
 	enum
 	{
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 		WithExportTextItem = true,
 		WithImportTextItem = true,
 		WithPostSerialize = true,
