@@ -6521,20 +6521,6 @@ void FSlateApplication::ProcessTouchStartedEvent( const TSharedPtr< FGenericWind
 	FUserAndPointer UserAndIndex(InTouchEvent.GetUserIndex(), InTouchEvent.GetPointerIndex());
 	PointerIndexLastPositionMap.Add(UserAndIndex, InTouchEvent.GetScreenSpacePosition());
 
-	const FWeakWidgetPath& LastWidgetsUnderCursor = WidgetsUnderCursorLastEvent.FindRef(UserAndIndex);
-	if (LastWidgetsUnderCursor.IsValid())
-	{
-		FWidgetPath SafeWidgetPath = LastWidgetsUnderCursor.ToWidgetPath();
-
-		FEventRouter::Route<FNoReply>(this, FEventRouter::FBubblePolicy(SafeWidgetPath), InTouchEvent, [] (const FArrangedWidget& SomeWidget, const FPointerEvent& PointerEvent)
-		{
-			SomeWidget.Widget->OnMouseLeave(PointerEvent);
-			return FNoReply();
-		});
-
-		WidgetsUnderCursorLastEvent.Remove(UserAndIndex);
-	}
-
 	ProcessMouseButtonDownEvent(PlatformWindow, InTouchEvent);
 }
 
