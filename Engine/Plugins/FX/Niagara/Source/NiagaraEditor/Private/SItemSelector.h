@@ -18,6 +18,7 @@ public:
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnDoesItemMatchFilterText, const FText& /* Filter text */, const ItemType& /* Item */);
 	DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<SWidget>, FOnGenerateWidgetForCategory, const CategoryType& /* Category */);
 	DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<SWidget>, FOnGenerateWidgetForItem, const ItemType& /* Item */);
+	DECLARE_DELEGATE_OneParam(FOnItemActivated, const ItemType& /* Item */);
 
 public:
 	SLATE_BEGIN_ARGS(SItemSelector)
@@ -49,6 +50,9 @@ public:
 
 		/** The delegate which is used to generate widgets for the items to be selected. */
 		SLATE_EVENT(FOnGenerateWidgetForItem, OnGenerateWidgetForItem)
+
+		/** A delegate which is called when an item is activated by either double clicking on it or by pressing enter while it's selected. */
+		SLATE_EVENT(FOnItemActivated, OnItemActivated)
 	SLATE_END_ARGS();
 
 private:
@@ -391,6 +395,7 @@ public:
 		OnDoesItemMatchFilterText = InArgs._OnDoesItemMatchFilterText;
 		OnGenerateWidgetForCategory = InArgs._OnGenerateWidgetForCategory;
 		OnGenerateWidgetForItem = InArgs._OnGenerateWidgetForItem;
+		OnItemActivated = InArgs._OnItemActivated;
 
 		checkf(OnGetCategoriesForItem.IsBound() == false || OnCompareCategoriesForEquality.IsBound(), TEXT("OnCompareCategoriesForEquality must be bound if OnGenerateCategoriesForItem is bound."));
 		checkf(OnGetCategoriesForItem.IsBound() == false || OnGenerateWidgetForCategory.IsBound(), TEXT("OnGenerateWidgetForCategory must be bound if OnGenerateCategoriesForItem is bound."));
@@ -416,6 +421,7 @@ public:
 				.SelectionMode(InArgs._AllowMultiselect ? ESelectionMode::Multi : ESelectionMode::SingleToggle)
 				.OnGenerateRow(this, &SItemSelector::OnGenerateRow)
 				.OnGetChildren(this, &SItemSelector::OnGetChildren)
+				.OnMouseButtonDoubleClick(this, &SItemSelector::OnMouseDoubleClick)
 				.TreeItemsSource(ViewModel->GetRootItems())
 			]
 		];
@@ -438,6 +444,22 @@ public:
 			}
 		}
 		return SelectedItems;
+	}
+
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+	{
+		if (InKeyEvent.GetKey() == EKeys::Enter && OnItemActivated.IsBound())
+		{
+			TArray<TSharedRef<FItemSelectorItemViewModel>> SelectedItemViewModels;
+			ItemTree->GetSelectedItems(SelectedItemViewModels);
+			if (SelectedItemViewModels.Num() == 1 && SelectedItemViewModels[0]->GetType() == EItemSelectorItemViewModelType::Item)
+			{
+				TSharedRef<FItemSelectorItemContainerViewModel> ItemContainer = StaticCastSharedRef<FItemSelectorItemContainerViewModel>(SelectedItemViewModels[0]);
+				OnItemActivated.Execute(ItemContainer->GetItem());
+				return FReply::Handled();
+			}
+		}
+		return SCompoundWidget::OnKeyDown(MyGeometry, InKeyEvent);
 	}
 
 private:
@@ -488,6 +510,15 @@ private:
 		Item->GetChildren(OutChildren);
 	}
 
+	void OnMouseDoubleClick(TSharedRef<FItemSelectorItemViewModel> ItemDoubleClicked)
+	{
+		if (OnItemActivated.IsBound() && ItemDoubleClicked->GetType() == EItemSelectorItemViewModelType::Item)
+		{
+			TSharedRef<FItemSelectorItemContainerViewModel> ItemContainer = StaticCastSharedRef<FItemSelectorItemContainerViewModel>(ItemDoubleClicked);
+			OnItemActivated.Execute(ItemContainer->GetItem());
+		}
+	}
+
 	void ExpandTree()
 	{
 		TArray<TSharedRef<FItemSelectorItemViewModel>> ItemsToProcess;
@@ -511,6 +542,7 @@ private:
 	FOnDoesItemMatchFilterText OnDoesItemMatchFilterText;
 	FOnGenerateWidgetForCategory OnGenerateWidgetForCategory;
 	FOnGenerateWidgetForItem OnGenerateWidgetForItem;
+	FOnItemActivated OnItemActivated;
 
 	TSharedPtr<FItemSelectorViewModel> ViewModel;
 	TSharedPtr<SSearchBox> SearchBox;
