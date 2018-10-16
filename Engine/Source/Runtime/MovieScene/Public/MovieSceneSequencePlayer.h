@@ -111,7 +111,7 @@ struct FMovieSceneSequencePlaybackSettings
 
 template<> struct TStructOpsTypeTraits<FMovieSceneSequencePlaybackSettings> : public TStructOpsTypeTraitsBase2<FMovieSceneSequencePlaybackSettings>
 {
-	enum { WithCopy = true, WithSerializeFromMismatchedTag = true };
+	enum { WithCopy = true, WithStructuredSerializeFromMismatchedTag = true };
 };
 
 /**

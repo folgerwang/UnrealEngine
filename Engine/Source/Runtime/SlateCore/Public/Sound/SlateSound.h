@@ -84,6 +84,6 @@ struct TStructOpsTypeTraits<FSlateSound>
 {
 	enum 
 	{
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
