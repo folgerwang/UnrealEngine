@@ -835,7 +835,7 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 	}
 #endif
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	if (GpuProfiler.bTrackingGPUCrashData)
 	{
 		GpuProfiler.PushMarkerForCrash(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle(), Device->GetCrashMarkerBuffer(), Name);
@@ -869,7 +869,7 @@ void FVulkanCommandListContext::RHIPopEvent()
 	}
 #endif
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	if (GpuProfiler.bTrackingGPUCrashData)
 	{
 		GpuProfiler.PopMarkerForCrash(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle(), Device->GetCrashMarkerBuffer());

@@ -10,8 +10,10 @@
 #define VULKAN_SHOULD_DEBUG_IN_DEVELOPMENT			1
 #define VULKAN_SHOULD_ENABLE_DRAW_MARKERS			(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
 #define VULKAN_SIGNAL_UNIMPLEMENTED()				checkf(false, TEXT("Unimplemented vulkan functionality: %s"), __PRETTY_FUNCTION__)
+#define	VULKAN_SUPPORTS_DEDICATED_ALLOCATION		0
+#define VULKAN_SUPPORTS_AMD_BUFFER_MARKER			1
+#define VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT	1
 
-#define	VULKAN_SUPPORTS_DEDICATED_ALLOCATION				0
 
 #define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro) \
 	EnumMacro(PFN_vkGetPhysicalDeviceProperties2KHR, vkGetPhysicalDeviceProperties2KHR) \
@@ -51,6 +53,8 @@ public:
 		return GMaxRHIFeatureLevel >= ERHIFeatureLevel::ES3_1 ? bCodeHeaderUseRealUBs : false;
 #endif
 	}
+
+	static void WriteCrashMarker(const FOptionalVulkanDeviceExtensions& OptionalExtensions, VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding);
 
 protected:
 	static void* VulkanLib;
