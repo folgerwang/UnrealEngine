@@ -513,6 +513,12 @@ void FD3D12Adapter::Cleanup()
 	}
 
 	PipelineStateCache.Close();
+	RootSignatureManager.Destroy();
+
+	DrawIndirectCommandSignature.SafeRelease();
+	DrawIndexedIndirectCommandSignature.SafeRelease();
+	DispatchIndirectCommandSignature.SafeRelease();
+
 	FenceCorePool.Destroy();
 }
 
