@@ -12,6 +12,14 @@
 
 #define LOCTEXT_NAMESPACE "AddNewRestrictedGameplayTagWidget"
 
+SAddNewRestrictedGameplayTagWidget::~SAddNewRestrictedGameplayTagWidget()
+{
+	if (!GExitPurge)
+	{
+		IGameplayTagsModule::OnTagSettingsChanged.RemoveAll(this);
+	}
+}
+
 void SAddNewRestrictedGameplayTagWidget::Construct(const FArguments& InArgs)
 {
 	FText HintText = LOCTEXT("NewTagNameHint", "X.Y.Z");
