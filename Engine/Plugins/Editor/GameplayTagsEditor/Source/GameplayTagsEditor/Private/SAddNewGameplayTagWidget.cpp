@@ -9,6 +9,14 @@
 
 #define LOCTEXT_NAMESPACE "AddNewGameplayTagWidget"
 
+SAddNewGameplayTagWidget::~SAddNewGameplayTagWidget()
+{
+	if (!GExitPurge)
+	{
+		IGameplayTagsModule::OnTagSettingsChanged.RemoveAll(this);
+	}
+}
+
 void SAddNewGameplayTagWidget::Construct(const FArguments& InArgs)
 {
 	
