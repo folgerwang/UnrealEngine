@@ -1061,8 +1061,8 @@ inline int32 GetFeatureLevelMaxNumberOfBones(ERHIFeatureLevel::Type FeatureLevel
 	switch (FeatureLevel)
 	{
 	case ERHIFeatureLevel::ES2:
-		return 75;
 	case ERHIFeatureLevel::ES3_1:
+		return 75;
 	case ERHIFeatureLevel::SM4:
 	case ERHIFeatureLevel::SM5:
 		return 256;
