@@ -380,11 +380,16 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 
 	bool bAllocatedStorage = false;
 
+	GLenum Target = bCubeTexture ? ((FOpenGLTextureCube*)Texture)->Target : ((FOpenGLTexture2D*)Texture)->Target;
+	const uint32 NumSamplesTileMem = bCubeTexture ? 1 : ((FOpenGLTexture2D*)Texture)->GetNumSamplesTileMem();
+	const bool TileMemDepth = NumSamplesTileMem > 1 && (Flags & TexCreate_DepthStencilTargetable);
+
 	GLuint TextureID = 0;
-	FOpenGL::GenTextures(1, &TextureID);
-	
-	const GLenum Target = bCubeTexture ? ((FOpenGLTextureCube*)Texture)->Target : ((FOpenGLTexture2D*)Texture)->Target;
-	
+	if (!TileMemDepth)
+	{
+		FOpenGL::GenTextures(1, &TextureID);
+	}
+		
 	const bool bSRGB = (Flags&TexCreate_SRGB) != 0;
 	const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[Format];
 	if (GLFormat.InternalFormat[bSRGB] == GL_NONE)
@@ -403,7 +408,7 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 	// For client storage textures we allocate a single backing store buffer.
 	uint8* TextureRange = nullptr;
 	
-	if (NumSamples == 1)
+	if (NumSamples == 1 && !TileMemDepth)
 	{
 		if (Target == GL_TEXTURE_EXTERNAL_OES || !FMath::IsPowerOfTwo(SizeX) || !FMath::IsPowerOfTwo(SizeY))
 		{
@@ -613,6 +618,17 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 
 			BulkData->Discard();
 		}
+	}
+	else if (TileMemDepth)
+	{
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4		
+		Target = GL_RENDERBUFFER;
+		glGenRenderbuffers(1, &TextureID);
+		glBindRenderbuffer(GL_RENDERBUFFER, TextureID);
+		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, NumSamplesTileMem, FOpenGL::SupportsPackedDepthStencil() ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT24, SizeX, SizeY);
+		VERIFY_GL(glRenderbufferStorageMultisampleEXT);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+#endif
 	}
 	else
 	{
