@@ -288,6 +288,15 @@ namespace Audio
 		}
 	}
 
+	void IFilter::Reset()
+	{
+		ModQ = 0.0f;
+		ExternalModQ = 0.0f;
+		ExternalModFrequency = 0.0f;
+		ModFrequency = 0.0f;
+		bChanged = true;
+	}
+
 	void IFilter::SetFrequency(const float InCutoffFrequency)
 	{
 		if (BaseFrequency != InCutoffFrequency)
@@ -377,6 +386,8 @@ namespace Audio
 
 	void FOnePoleFilter::Reset()
 	{
+		IFilter::Reset();
+
 		FMemory::Memzero(Z1, sizeof(float)*NumChannels);
 	}
 
@@ -476,6 +487,8 @@ namespace Audio
 
 	void FStateVariableFilter::Reset()
 	{
+		IFilter::Reset();
+
 		FMemory::Memzero(FilterState.GetData(), sizeof(FFilterState) * NumChannels);
 	}
 
@@ -561,6 +574,8 @@ namespace Audio
 
 	void FLadderFilter::Reset()
 	{
+		IFilter::Reset();
+
 		for (int32 i = 0; i < 4; ++i)
 		{
 			OnePoleFilters[i].Reset();
