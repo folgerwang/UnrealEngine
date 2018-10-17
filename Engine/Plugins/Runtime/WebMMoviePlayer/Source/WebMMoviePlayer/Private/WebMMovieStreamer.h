@@ -3,6 +3,7 @@
 #pragma once
 
 #include "MoviePlayer.h"
+#include "WebMAudioBackend.h"
 
 class FWebMVideoDecoder;
 class FWebMAudioDecoder;
@@ -43,6 +44,7 @@ private:
 	TUniquePtr<FWebMVideoDecoder> VideoDecoder;
 	TUniquePtr<FWebMAudioDecoder> AudioDecoder;
 	TUniquePtr<FWebMContainer> Container;
+	TUniquePtr<FWebMAudioBackend> AudioBackend;
 	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TSharedPtr<FMovieViewport> Viewport;
 	float CurrentTime;
@@ -51,5 +53,6 @@ private:
 	bool StartNextMovie();
 	void ReleaseAcquiredResources();
 	bool DisplayFrames(float InDeltaTime);
+	bool SendAudio(float InDeltaTime);
 	bool DecodeMoreFrames();
 };

@@ -21,6 +21,7 @@ public:
 public:
 	bool Initialize(const char* InCodec, int32 InSampleRate, int32 InChannels, const uint8* CodecPrivateData, size_t CodecPrivateDataSize);
 	void DecodeAudioFramesAsync(const TArray<TSharedPtr<FWebMFrame>>& AudioFrames);
+	bool IsBusy() const;
 
 private:
 	enum ESupportedCodecs
