@@ -44,7 +44,7 @@ namespace UnrealBuildTool
 
 		public PVSToolChain(CppPlatform Platform, ReadOnlyTargetRules Target) : base(Platform)
 		{
-			EnvVars = VCEnvironment.Create(Target.WindowsPlatform.Compiler, Platform, Target.WindowsPlatform.CompilerVersion, Target.WindowsPlatform.WindowsSdkVersion);
+			EnvVars = Target.WindowsPlatform.Environment;
 
 			AnalyzerFile = FileReference.Combine(new DirectoryReference(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)), "PVS-Studio", "x64", "PVS-Studio.exe");
 			if(!FileReference.Exists(AnalyzerFile))
