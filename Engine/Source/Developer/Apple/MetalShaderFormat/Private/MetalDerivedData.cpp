@@ -98,10 +98,10 @@ bool FMetalShaderDebugInfoCooker::Build(TArray<uint8>& OutData)
 
 	uint32 CodeSize = FCStringAnsi::Strlen(TCHAR_TO_UTF8(*Job.MetalCode)) + 1;
 
-	int32 CompressedSize = FCompression::CompressMemoryBound(ECompressionFlags::COMPRESS_ZLIB, CodeSize);
+	int32 CompressedSize = FCompression::CompressMemoryBound(NAME_Zlib, CodeSize);
 	Output.CompressedData.SetNum(CompressedSize);
 
-	if (FCompression::CompressMemory(ECompressionFlags::COMPRESS_ZLIB, Output.CompressedData.GetData(), CompressedSize, TCHAR_TO_UTF8(*Job.MetalCode), CodeSize))
+	if (FCompression::CompressMemory(NAME_Zlib, Output.CompressedData.GetData(), CompressedSize, TCHAR_TO_UTF8(*Job.MetalCode), CodeSize))
 	{
 		Output.UncompressedSize = CodeSize;
 		Output.CompressedData.SetNum(CompressedSize);

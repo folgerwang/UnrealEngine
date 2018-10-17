@@ -250,7 +250,7 @@ bool FCrashUploadBase::CompressData(const TArray<FString>& InPendingFiles, FComp
 	OutCompressedData.FileCount = CurrentFileIndex;
 	OutCompressedData.CompressedSize = UncompressedSize;
 	OutCompressedData.UncompressedSize = UncompressedSize;
-	const bool bResult = FCompression::CompressMemory(COMPRESS_ZLIB, CompressedDataRaw, OutCompressedData.CompressedSize, UncompressedData.GetData(), OutCompressedData.UncompressedSize);
+	const bool bResult = FCompression::CompressMemory(NAME_Zlib, CompressedDataRaw, OutCompressedData.CompressedSize, UncompressedData.GetData(), OutCompressedData.UncompressedSize);
 	if (bResult)
 	{
 		// Copy compressed data into the array.

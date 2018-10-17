@@ -442,7 +442,7 @@ uint32 FMallocProfilerTagsTls::TlsSlot = 0;
 FMallocProfiler::FMallocProfiler(FMalloc* InMalloc)
 :	UsedMalloc( InMalloc )
 ,   bEndProfilingHasBeenCalled( false )
-,	CallStackInfoBuffer( 512 * 1024, COMPRESS_ZLIB )
+,	CallStackInfoBuffer( 512 * 1024, NAME_Zlib )
 ,	bOutputFileClosed(false)
 ,	TrackingDepth(0)
 ,	MemoryOperationCount( 0 )

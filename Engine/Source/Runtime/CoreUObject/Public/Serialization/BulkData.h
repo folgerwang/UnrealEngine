@@ -29,11 +29,11 @@ enum EBulkDataFlags
 	/** Flag to check if either compression mode is specified						*/
 	BULKDATA_SerializeCompressed				= (BULKDATA_SerializeCompressedZLIB),
 	/** Forces the payload to be always streamed, regardless of its size */
-	BULKDATA_ForceStreamPayload = 1 << 7,
+	BULKDATA_ForceStreamPayload					= 1 << 7,
 	/** If set, payload is stored in a .upack file alongside the uasset				*/
 	BULKDATA_PayloadInSeperateFile				= 1 << 8,
-	/** If set, payload is compressed using platform specific bit window			*/
-	BULKDATA_SerializeCompressedBitWindow		= 1<<9,
+	/** DEPRECATED: If set, payload is compressed using platform specific bit window	*/
+	BULKDATA_SerializeCompressedBitWindow		= 1 << 9,
 	/** There is a new default to inline unless you opt out */
 	BULKDATA_Force_NOT_InlinePayload			= 1 << 10,
 	/** This payload is optional and may not be on device */
@@ -244,9 +244,9 @@ public:
 	/**
 	 * Returns flags usable to decompress the bulk data
 	 * 
-	 * @return COMPRESS_NONE if the data was not compressed on disk, or valid flags to pass to FCompression::UncompressMemory for this data
+	 * @return NAME_None if the data was not compressed on disk, or valid format to pass to FCompression::UncompressMemory for this data
 	 */
-	ECompressionFlags GetDecompressionFlags() const;
+	FName GetDecompressionFormat() const;
 
 	/**
 	 * Returns whether the bulk data is currently loaded and resident in memory.
@@ -373,7 +373,9 @@ public:
 	 *
 	 * @param CompressionFlags	Flags to use for compressing the data. Use COMPRESS_NONE for no compression, or something like COMPRESS_ZLIB to compress the data
 	 */
+	DEPRECATED(4.21, "Use the FName version of StoreCompressedOnDisk")
 	void StoreCompressedOnDisk( ECompressionFlags CompressionFlags );
+	void StoreCompressedOnDisk( FName CompressionFormat );
 
 
 	/*-----------------------------------------------------------------------------

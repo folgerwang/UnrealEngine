@@ -16,7 +16,6 @@
 #include "Internationalization/Internationalization.h"
 #include "Misc/Guid.h"
 #include "Math/Color.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
@@ -814,12 +813,6 @@ const TCHAR* FGenericPlatformMisc::GetNullRHIShaderFormat()
 IPlatformChunkInstall* FGenericPlatformMisc::GetPlatformChunkInstall()
 {
 	static FGenericPlatformChunkInstall Singleton;
-	return &Singleton;
-}
-
-IPlatformCompression* FGenericPlatformMisc::GetPlatformCompression()
-{
-	static FGenericPlatformCompression Singleton;
 	return &Singleton;
 }
 

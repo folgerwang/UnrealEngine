@@ -3157,6 +3157,7 @@ class FPakAsyncReadFileHandle final : public IAsyncReadFileHandle
 	FAsyncFileCallBack ReadCallbackFunction;
 	FCriticalSection CriticalSection;
 	int32 NumLiveRawRequests;
+	FName CompressionMethod;
 	int64 CompressedChunkOffset;
 	FGuid EncryptionKeyGuid;
 
@@ -3185,7 +3186,8 @@ public:
 		OffsetInPak = FileEntry.Offset + FileEntry.GetSerializedSize(InPakFile->GetInfo().Version);
 		UncompressedFileSize = FileEntry.UncompressedSize;
 		int64 CompressedFileSize = FileEntry.UncompressedSize;
-		if (FileEntry.CompressionMethod != COMPRESS_None && UncompressedFileSize)
+		CompressionMethod = InPakFile->GetInfo().GetCompressionMethod(FileEntry.CompressionMethodIndex);
+		if (CompressionMethod != NAME_None && UncompressedFileSize)
 		{
 			check(FileEntry.CompressionBlocks.Num());
 			CompressedFileSize = FileEntry.CompressionBlocks.Last().CompressedEnd - FileEntry.CompressionBlocks[0].CompressedStart;
@@ -3235,7 +3237,7 @@ public:
 			BytesToRead = UncompressedFileSize - Offset;
 		}
 		check(Offset + BytesToRead <= UncompressedFileSize && Offset >= 0);
-		if (FileEntry.CompressionMethod == COMPRESS_None)
+		if (CompressionMethod == NAME_None)
 		{
 			check(Offset + BytesToRead + OffsetInPak <= PakFileSize);
 			check(!Blocks.Num());
@@ -3356,9 +3358,9 @@ public:
 			check(Block.ProcessedSize > 0);
 			INC_MEMORY_STAT_BY(STAT_AsyncFileMemory, Block.ProcessedSize);
 			Output = (uint8*)FMemory::Malloc(Block.ProcessedSize);
-			if( !FCompression::UncompressMemory((ECompressionFlags)FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow()) )
+			if( !FCompression::UncompressMemory(CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize) )
 			{
-				UE_LOG( LogPakFile, Fatal, TEXT("Pak Decompression failed. PakFile: %s. EntryOffset: %lld, EntrySize: %lld, CompressionMethod:%x Output:%p  ProcessedSize:%d  Buf:%p  RawSize:%d "), *PakFile.ToString(), FileEntry.Offset, FileEntry.Size, FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize );
+				UE_LOG( LogPakFile, Fatal, TEXT("Pak Decompression failed. PakFile: %s. EntryOffset: %lld, EntrySize: %lld, CompressionMethod:%s Output:%p  ProcessedSize:%d  Buf:%p  RawSize:%d "), *PakFile.ToString(), FileEntry.Offset, FileEntry.Size, *CompressionMethod.ToString(), Output, Block.ProcessedSize, Block.Raw, Block.RawSize );
 			}
 			FMemory::Free(Block.Raw);
 			Block.Raw = nullptr;
@@ -3733,7 +3735,7 @@ public:
 		int32				UncompressedSize;
 		uint8*				CompressedBuffer;
 		int32				CompressedSize;
-		ECompressionFlags	Flags;
+		FName				CompressionFormat;
 		void*				CopyOut;
 		int64				CopyOffset;
 		int64				CopyLength;
@@ -3744,7 +3746,7 @@ public:
 			// Decrypt and Uncompress from memory to memory.
 			int64 EncryptionSize = EncryptionPolicy::AlignReadRequest(CompressedSize);
 			EncryptionPolicy::DecryptBlock(CompressedBuffer, EncryptionSize, EncryptionKeyGuid);
-			FCompression::UncompressMemory(Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow());
+			FCompression::UncompressMemory(CompressionFormat, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize);
 			if (CopyOut)
 			{
 				FMemory::Memcpy(CopyOut, UncompressedBuffer + CopyOffset, CopyLength);
@@ -3788,7 +3790,18 @@ public:
 		FCompressionScratchBuffers& ScratchSpace = FCompressionScratchBuffers::Get();
 		bool bStartedUncompress = false;
 
-		int64 WorkingBufferRequiredSize = FCompression::CompressMemoryBound((ECompressionFlags)PakEntry.CompressionMethod, CompressionBlockSize, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow());
+		FName CompressionMethod = PakFile.GetInfo().GetCompressionMethod(PakEntry.CompressionMethodIndex);
+		checkf(FCompression::IsFormatValid(CompressionMethod), 
+			TEXT("Attempting to use compression format %s when loading a file from a .pak, but that compression format is not available.\n")
+			TEXT("If you are running a program (like UnrealPak) you may need to pass the .uproject on the commandline so the plugin can be found.\n"),
+			TEXT("It's also possible that a necessary compression plugin has not been loaded yet, and this file needs to be forced to use zlib compression.\n")
+			TEXT("Unfortunately, the code that can check this does not have the context of the filename that is being read. You will need to look in the callstack in a debugger.\n")
+			TEXT("See ExtensionsToNotUsePluginCompression in [Pak] section of Engine.ini to add more extensions."),
+			*CompressionMethod.ToString(), TEXT("Unknown"));
+
+		// an amount to extra allocate, in case one block's compressed size is bigger than CompressMemoryBound
+		float SlopMultiplier = 1.1f;
+		int64 WorkingBufferRequiredSize = FCompression::CompressMemoryBound(CompressionMethod, CompressionBlockSize) * SlopMultiplier;
 		WorkingBufferRequiredSize = EncryptionPolicy::AlignReadRequest(WorkingBufferRequiredSize);
 		ScratchSpace.EnsureBufferSpace(CompressionBlockSize, WorkingBufferRequiredSize * 2);
 		WorkingBuffers[0] = ScratchSpace.ScratchBuffer.Get();
@@ -3800,6 +3813,13 @@ public:
 			int64 Pos = CompressionBlockIndex * CompressionBlockSize;
 			int64 CompressedBlockSize = Block.CompressedEnd - Block.CompressedStart;
 			int64 UncompressedBlockSize = FMath::Min<int64>(PakEntry.UncompressedSize - Pos, PakEntry.CompressionBlockSize);
+
+			if (CompressedBlockSize > UncompressedBlockSize)
+			{
+				UE_LOG(LogPakFile, Display, TEXT("Bigger compressed? Block[%d]: %d -> %d > %d [%d min %d]"), CompressionBlockIndex, Block.CompressedStart, Block.CompressedEnd, UncompressedBlockSize, PakEntry.UncompressedSize - Pos, PakEntry.CompressionBlockSize);
+			}
+
+
 			int64 ReadSize = EncryptionPolicy::AlignReadRequest(CompressedBlockSize);
 			int64 WriteSize = FMath::Min<int64>(UncompressedBlockSize - DirectCopyStart, Length);
 			PakReader->Seek(Block.CompressedStart + (PakFile.GetInfo().HasRelativeCompressedChunkOffsets() ? PakEntry.Offset : 0));
@@ -3816,7 +3836,7 @@ public:
 			if (DirectCopyStart == 0 && Length >= CompressionBlockSize)
 			{
 				// Block can be decompressed directly into output buffer
-				TaskDetails.Flags = (ECompressionFlags)PakEntry.CompressionMethod;
+				TaskDetails.CompressionFormat = CompressionMethod;
 				TaskDetails.UncompressedBuffer = (uint8*)V;
 				TaskDetails.UncompressedSize = UncompressedBlockSize;
 				TaskDetails.CompressedBuffer = WorkingBuffers[CompressionBlockIndex & 1];
@@ -3826,7 +3846,7 @@ public:
 			else
 			{
 				// Block needs to be copied from a working buffer
-				TaskDetails.Flags = (ECompressionFlags)PakEntry.CompressionMethod;
+				TaskDetails.CompressionFormat = CompressionMethod;
 				TaskDetails.UncompressedBuffer = ScratchSpace.TempBuffer.Get();
 				TaskDetails.UncompressedSize = UncompressedBlockSize;
 				TaskDetails.CompressedBuffer = WorkingBuffers[CompressionBlockIndex & 1];
@@ -3871,9 +3891,9 @@ bool FPakEntry::VerifyPakEntriesMatch(const FPakEntry& FileEntryA, const FPakEnt
 		UE_LOG(LogPakFile, Error, TEXT("Pak header uncompressed file size mismatch, got: %lld, expected: %lld"), FileEntryB.UncompressedSize, FileEntryA.UncompressedSize);
 		bResult = false;
 	}
-	if (FileEntryA.CompressionMethod != FileEntryB.CompressionMethod)
+	if (FileEntryA.CompressionMethodIndex != FileEntryB.CompressionMethodIndex)
 	{
-		UE_LOG(LogPakFile, Error, TEXT("Pak header file compression method mismatch, got: %d, expected: %d"), FileEntryB.CompressionMethod, FileEntryA.CompressionMethod);
+		UE_LOG(LogPakFile, Error, TEXT("Pak header file compression method mismatch, got: %d, expected: %d"), FileEntryB.CompressionMethodIndex, FileEntryA.CompressionMethodIndex);
 		bResult = false;
 	}
 	if (FMemory::Memcmp(FileEntryA.Hash, FileEntryB.Hash, sizeof(FileEntryA.Hash)) != 0)
@@ -4018,46 +4038,43 @@ FArchive* FPakFile::SetupSignedPakReader(FArchive* ReaderArchive, const TCHAR* F
 void FPakFile::Initialize(FArchive* Reader)
 {
 	CachedTotalSize = Reader->TotalSize();
-	bool bShouldLoad = true;
 	int32 CompatibleVersion = FPakInfo::PakFile_Version_Latest;
-	if (CachedTotalSize > 0)
-	{
-		while (CompatibleVersion > 0 && (CachedTotalSize < Info.GetSerializedSize(CompatibleVersion)))
-		{
-			CompatibleVersion--;
-		}
 
-		if (CompatibleVersion < FPakInfo::PakFile_Version_Initial)
-		{
-			UE_LOG(LogPakFile, Fatal, TEXT("Corrupted pak file '%s' (too short). Verify your installation."), *PakFilename);
-			bShouldLoad = false;
-		}
-	}
-
-	if (bShouldLoad)
+	LLM_SCOPE(ELLMTag::FileSystem);
+		
+	// Serialize trailer and check if everything is as expected.
+	// start up one to offset the -- below
+	CompatibleVersion++;
+	do
 	{
-		LLM_SCOPE(ELLMTag::FileSystem);
-		// Serialize trailer and check if everything is as expected.
+		// try the next version down
+		CompatibleVersion--;
+		// go to start
 		Reader->Seek(CachedTotalSize - Info.GetSerializedSize(CompatibleVersion));
+		
+		// read it in (this will check size, etc, and is considered safe)
 		Info.Serialize(*Reader, CompatibleVersion);
-		UE_CLOG(Info.Magic != FPakInfo::PakFile_Magic, LogPakFile, Fatal, TEXT("Trailing magic number (%ud) in '%s' is different than the expected one. Verify your installation."), Info.Magic, *PakFilename);
-		UE_CLOG(!(Info.Version >= FPakInfo::PakFile_Version_Initial && Info.Version <= CompatibleVersion), LogPakFile, Fatal, TEXT("Invalid pak file version (%d) in '%s'. Verify your installation."), Info.Version, *PakFilename);
-		UE_CLOG(!(Info.IndexOffset >= 0 && Info.IndexOffset < CachedTotalSize), LogPakFile, Fatal, TEXT("Index offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset);
-		UE_CLOG(!((Info.IndexOffset + Info.IndexSize) >= 0 && (Info.IndexOffset + Info.IndexSize) <= CachedTotalSize), LogPakFile, Fatal, TEXT("Index end offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset + Info.IndexSize);
+	}
+	while (Info.Magic != FPakInfo::PakFile_Magic && CompatibleVersion >= FPakInfo::PakFile_Version_Initial);
 
-		// If we aren't using a dynamic encryption key, process the pak file using the embedded key
-		if (!Info.EncryptionKeyGuid.IsValid() || GRegisteredEncryptionKeys.HasKey(Info.EncryptionKeyGuid))
+	UE_CLOG(Info.Magic != FPakInfo::PakFile_Magic, LogPakFile, Fatal, TEXT("Trailing magic number (%ud) in '%s' is different than the expected one. Verify your installation."), Info.Magic, *PakFilename);
+	UE_CLOG(!(Info.Version >= FPakInfo::PakFile_Version_Initial && Info.Version <= CompatibleVersion), LogPakFile, Fatal, TEXT("Invalid pak file version (%d) in '%s'. Verify your installation."), Info.Version, *PakFilename);
+	UE_CLOG((Info.bEncryptedIndex == 1) && (!FCoreDelegates::GetPakEncryptionKeyDelegate().IsBound()), LogPakFile, Fatal, TEXT("Index of pak file '%s' is encrypted, but this executable doesn't have any valid decryption keys"), *PakFilename);
+	UE_CLOG(!(Info.IndexOffset >= 0 && Info.IndexOffset < CachedTotalSize), LogPakFile, Fatal, TEXT("Index offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset);
+	UE_CLOG(!((Info.IndexOffset + Info.IndexSize) >= 0 && (Info.IndexOffset + Info.IndexSize) <= CachedTotalSize), LogPakFile, Fatal, TEXT("Index end offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset + Info.IndexSize);
+
+	// If we aren't using a dynamic encryption key, process the pak file using the embedded key
+	if (!Info.EncryptionKeyGuid.IsValid() || GRegisteredEncryptionKeys.HasKey(Info.EncryptionKeyGuid))
+	{
+		LoadIndex(Reader);
+
+		if (FParse::Param(FCommandLine::Get(), TEXT("checkpak")))
 		{
-			LoadIndex(Reader);
-
-			if (FParse::Param(FCommandLine::Get(), TEXT("checkpak")))
-			{
-				ensure(Check());
-			}
-
-			// LoadIndex should crash in case of an error, so just assume everything is ok if we got here.
-			bIsValid = true;
+			ensure(Check());
 		}
+
+		// LoadIndex should crash in case of an error, so just assume everything is ok if we got here.
+		bIsValid = true;
 	}
 }
 
@@ -4203,7 +4220,7 @@ bool FPakFile::Check()
 		}
 		else
 		{
-			UE_LOG(LogPakFile, Display, TEXT("\"%s\" OK."), *It.Filename());
+			UE_LOG(LogPakFile, Display, TEXT("\"%s\" OK. [%s]"), *It.Filename(), *Info.GetCompressionMethod(Entry.CompressionMethodIndex).ToString());
 		}
 		FMemory::Free(FileContents);
 	}
@@ -4453,7 +4470,7 @@ void FPakFile::ShrinkPakEntriesMemoryUsage()
 
 		// This data fits into a bitfield (described below), and the data has
 		// to fit within a certain range of bits.
-		if (Entry.CompressionMethod >= (1 << 6))
+		if (Entry.CompressionMethodIndex >= (1 << 6))
 		{
 			bIsPossibleToShrink = false;
 			break;
@@ -4463,7 +4480,7 @@ void FPakFile::ShrinkPakEntriesMemoryUsage()
 			bIsPossibleToShrink = false;
 			break;
 		}
-		if (Entry.CompressionMethod != COMPRESS_None)
+		if (Entry.CompressionMethodIndex != 0)
 		{
 			if (Entry.CompressionBlockSize != Entry.UncompressedSize && ((Entry.CompressionBlockSize >> 11) > 0x3f))
 			{
@@ -4501,7 +4518,7 @@ void FPakFile::ShrinkPakEntriesMemoryUsage()
 		TotalSizeOfCompressedEntries += sizeof(uint32)
 			+ (bIsOffset32BitSafe ? sizeof(uint32) : sizeof(uint64))
 			+ (bIsUncompressedSize32BitSafe ? sizeof(uint32) : sizeof(uint64));
-		if (Entry.CompressionMethod != COMPRESS_None)
+		if (Entry.CompressionMethodIndex != 0)
 		{
 			TotalSizeOfCompressedEntries +=
 				(bIsSize32BitSafe ? sizeof(uint32) : sizeof(uint64));
@@ -4565,7 +4582,7 @@ void FPakFile::ShrinkPakEntriesMemoryUsage()
 			(bIsOffset32BitSafe ? (1 << 31) : 0)
 			| (bIsUncompressedSize32BitSafe ? (1 << 30) : 0)
 			| (bIsSize32BitSafe ? (1 << 29) : 0)
-			| (FullEntry->CompressionMethod << 23)
+			| (FullEntry->CompressionMethodIndex << 23)
 			| (FullEntry->IsEncrypted() ? (1 << 22) : 0)
 			| (FullEntry->CompressionBlocks.Num() << 6)
 			| (FullEntry->CompressionBlockSize >> 11)
@@ -4597,7 +4614,7 @@ void FPakFile::ShrinkPakEntriesMemoryUsage()
 		}
 
 		// Any additional data is for compressed file data.
-		if (FullEntry->CompressionMethod != COMPRESS_None)
+		if (FullEntry->CompressionMethodIndex != 0)
 		{
 			// Build the Compressed Size field.
 			if (bIsSize32BitSafe)
@@ -5128,7 +5145,7 @@ IFileHandle* FPakPlatformFile::CreatePakFileHandle(const TCHAR* Filename, FPakFi
 	FArchive* PakReader = PakFile->GetSharedReader(LowerLevel);
 
 	// Create the handle.
-	if (FileEntry->CompressionMethod != COMPRESS_None && PakFile->GetInfo().Version >= FPakInfo::PakFile_Version_CompressionEncryption)
+	if (FileEntry->CompressionMethodIndex != 0 && PakFile->GetInfo().Version >= FPakInfo::PakFile_Version_CompressionEncryption)
 	{
 		if (FileEntry->IsEncrypted())
 		{

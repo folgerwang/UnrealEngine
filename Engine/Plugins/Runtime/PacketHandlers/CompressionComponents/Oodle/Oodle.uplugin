@@ -14,6 +14,7 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
 	"Installed" : false,
+	"SupportedPrograms" : [	"UnrealPak" ],
 	"Modules" :
 	[
 		{
@@ -32,6 +33,24 @@
 				"IOS",
 				"Switch"
 			]
+		},
+		{
+			"Name" : "OodleCompressionFormat",
+			"Type" : "Runtime",
+			"LoadingPhase" : "EarliestPossible",
+			"WhitelistPlatforms" :
+			[
+				"Win32",
+				"Win64",
+				"Linux",
+				"Mac",
+				"PS4",
+				"XboxOne",
+				"Android",
+				"IOS",
+				"Switch"
+			],
+			"WhitelistPrograms" : [	"UnrealPak" ]
 		}
 	]
 }

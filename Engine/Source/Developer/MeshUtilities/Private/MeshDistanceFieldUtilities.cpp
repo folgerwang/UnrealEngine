@@ -681,11 +681,12 @@ void FMeshUtilities::GenerateSignedDistanceFieldVolumeData(
 					int32 CompressedSize = TempCompressedMemory.Num() * TempCompressedMemory.GetTypeSize();
 
 					verify(FCompression::CompressMemory(
-						(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory), 
+						NAME_Zlib, 
 						TempCompressedMemory.GetData(), 
 						CompressedSize, 
 						QuantizedDistanceFieldVolume.GetData(), 
-						UncompressedSize));
+						UncompressedSize,
+						COMPRESS_BiasMemory));
 
 					OutData.CompressedDistanceFieldVolume.Empty(CompressedSize);
 					OutData.CompressedDistanceFieldVolume.AddUninitialized(CompressedSize);

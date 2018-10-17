@@ -346,9 +346,9 @@ bool FUntypedBulkData::CanLoadFromDisk() const
  * 
  * @return COMPRESS_NONE if the data was not compressed on disk, or valid flags to pass to FCompression::UncompressMemory for this data
  */
-ECompressionFlags FUntypedBulkData::GetDecompressionFlags() const
+FName FUntypedBulkData::GetDecompressionFormat() const
 {
-	return (BulkDataFlags & BULKDATA_SerializeCompressedZLIB) ? COMPRESS_ZLIB : COMPRESS_None;
+	return (BulkDataFlags & BULKDATA_SerializeCompressedZLIB) ? NAME_Zlib: NAME_None;
 }
 
 /**
@@ -1126,28 +1126,27 @@ void FUntypedBulkData::DetachFromArchive( FArchive* Ar, bool bEnsureBulkDataIsLo
 }
 #endif // WITH_EDITOR
 
-/**
- * Sets whether we should store the data compressed on disk.
- *
- * @param CompressionFlags	Flags to use for compressing the data. Use COMPRESS_NONE for no compression, or something like COMPRESS_ZLIB to compress the data
- */
-void FUntypedBulkData::StoreCompressedOnDisk( ECompressionFlags CompressionFlags )
+void FUntypedBulkData::StoreCompressedOnDisk(ECompressionFlags CompressionFlags)
 {
-	if( CompressionFlags != GetDecompressionFlags() )
+	StoreCompressedOnDisk(FCompression::GetCompressionFormatFromDeprecatedFlags(CompressionFlags));
+}
+void FUntypedBulkData::StoreCompressedOnDisk( FName CompressionFormat )
+{
+	if( CompressionFormat != GetDecompressionFormat() )
 	{
 		//Need to force this to be resident so we don't try to load data as though it were compressed when it isn't.
 		ForceBulkDataResident();
 
-		if( CompressionFlags == COMPRESS_None )
+		if( CompressionFormat == NAME_None )
 		{
 			// clear all compression settings
 			BulkDataFlags &= ~BULKDATA_SerializeCompressed;
 		}
 		else
 		{
-			// make sure a valid compression format was specified
-			check(CompressionFlags & COMPRESS_ZLIB);
-			BulkDataFlags |= (CompressionFlags & COMPRESS_ZLIB) ? BULKDATA_SerializeCompressedZLIB : BULKDATA_None;
+			// right BulkData only knows zlib
+			check(CompressionFormat == NAME_Zlib);
+			BulkDataFlags |= (CompressionFormat == NAME_Zlib) ? BULKDATA_SerializeCompressedZLIB : BULKDATA_None;
 
 			// make sure we are not forcing the bulkdata to be stored inline if we use compression
 			BulkDataFlags &= ~BULKDATA_ForceInlinePayload;
@@ -1246,7 +1245,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 		// Serialize data compressed.
 		if( BulkDataFlags & BULKDATA_SerializeCompressed )
 		{
-			Ar.SerializeCompressed( Data, GetBulkDataSize(), GetDecompressionFlags(), false, !!(BulkDataFlags&BULKDATA_SerializeCompressedBitWindow) );
+			Ar.SerializeCompressed( Data, GetBulkDataSize(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
 		}
 		// Uncompressed/ regular serialization.
 		else
@@ -1273,7 +1272,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 				SerializedData.AddUninitialized( GetBulkDataSize() );
 
 				// Serialize data with passed in archive and compress.
-				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags(), false, !!(BulkDataFlags&BULKDATA_SerializeCompressedBitWindow) );
+				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
 				
 				// Initialize memory reader with uncompressed data array and propagate forced byte swapping
 				FMemoryReader MemoryReader( SerializedData, true );
@@ -1293,7 +1292,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 				SerializeElements(MemoryWriter, Data);
 
 				// Serialize data with passed in archive and compress.
-				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags(), false, !!(BulkDataFlags&BULKDATA_SerializeCompressedBitWindow) );
+				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
 			}
 		}
 		// Uncompressed/ regular serialization.

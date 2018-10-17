@@ -168,7 +168,7 @@ ARWorldMap* FAppleARKitConversion::ToARWorldMap(const TArray<uint8>& WorldMapDat
 	uint32 UncompressedSize = InHeader.UncompressedSize;
 	TArray<uint8> UncompressedData;
 	UncompressedData.AddUninitialized(UncompressedSize);
-	if (!FCompression::UncompressMemory((ECompressionFlags)COMPRESS_ZLIB, UncompressedData.GetData(), UncompressedSize, CompressedData, CompressedSize))
+	if (!FCompression::UncompressMemory(NAME_Zlib, UncompressedData.GetData(), UncompressedSize, CompressedData, CompressedSize))
 	{
 		UE_LOG(LogAppleARKit, Log, TEXT("Failed to load the world map data from the session object due to a decompression error"));
 		return nullptr;

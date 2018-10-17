@@ -39,7 +39,7 @@ FCustomVersionRegistration GRegisterShaderCacheGameVersion(FShaderCacheCustomVer
 
 #define SHADER_CACHE_ENABLED 0
 
-static const ECompressionFlags ShaderCacheCompressionFlag = ECompressionFlags::COMPRESS_ZLIB;
+static const FName ShaderCacheCompressionFormat = NAME_Zlib;
 
 // Only the Mac build defaults to using the shader cache for now, Editor uses a separate cache from the game to avoid ever-growing cache being propagated to the game.
 int32 FShaderCache::bUseShaderCaching = SHADER_CACHE_ENABLED;
@@ -154,7 +154,7 @@ uint8 FShaderCache::MaxResources = EShaderCacheMaxNumResources;
 static void FShaderCacheHelperUncompressCode(uint32 UncompressedSize, const TArray<uint8>& Code, TArray<uint8>& UncompressedCode)
 {
 	UncompressedCode.SetNum(UncompressedSize);
-	bool bSucceed = FCompression::UncompressMemory(ShaderCacheCompressionFlag, UncompressedCode.GetData(), UncompressedSize, Code.GetData(), Code.Num());
+	bool bSucceed = FCompression::UncompressMemory(ShaderCacheCompressionFormat, UncompressedCode.GetData(), UncompressedSize, Code.GetData(), Code.Num());
 	check(bSucceed);
 }
 
@@ -536,7 +536,7 @@ bool FShaderCacheLibrary::AddShader( uint8 Frequency, const FSHAHash& Hash, TArr
 		// Make sure Code is large enough just in case archiving actually increased the size somehow
 		CompressedCode.SetNum(CompressedSize);
 		
-		bool bCompressOK = FCompression::CompressMemory( ShaderCacheCompressionFlag, CompressedCode.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num() );
+		bool bCompressOK = FCompression::CompressMemory( ShaderCacheCompressionFormat, CompressedCode.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num() );
 		check(bCompressOK);
 		
 		// Reset array size to final compressed size

@@ -406,13 +406,13 @@ FCompressedPakFileDerivedDataBackend::FCompressedPakFileDerivedDataBackend(const
 void FCompressedPakFileDerivedDataBackend::PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists)
 {
 	int32 UncompressedSize = InData.Num();
-	int32 CompressedSize = FCompression::CompressMemoryBound(CompressionFlags, UncompressedSize);
+	int32 CompressedSize = FCompression::CompressMemoryBound(CompressionFormat, UncompressedSize, CompressionFlags);
 
 	TArray<uint8> CompressedData;
 	CompressedData.AddUninitialized(CompressedSize + sizeof(UncompressedSize));
 
 	FMemory::Memcpy(&CompressedData[0], &UncompressedSize, sizeof(UncompressedSize));
-	verify(FCompression::CompressMemory(CompressionFlags, CompressedData.GetData() + sizeof(UncompressedSize), CompressedSize, InData.GetData(), InData.Num()));
+	verify(FCompression::CompressMemory(CompressionFormat, CompressedData.GetData() + sizeof(UncompressedSize), CompressedSize, InData.GetData(), InData.Num(), CompressionFlags));
 	CompressedData.SetNum(CompressedSize + sizeof(UncompressedSize), false);
 
 	FPakFileDerivedDataBackend::PutCachedData(CacheKey, CompressedData, bPutEvenIfExists);
@@ -429,7 +429,7 @@ bool FCompressedPakFileDerivedDataBackend::GetCachedData(const TCHAR* CacheKey, 
 	int32 UncompressedSize;
 	FMemory::Memcpy(&UncompressedSize, &CompressedData[0], sizeof(UncompressedSize));
 	OutData.SetNum(UncompressedSize);
-	verify(FCompression::UncompressMemory(CompressionFlags, OutData.GetData(), UncompressedSize, CompressedData.GetData() + sizeof(UncompressedSize), CompressedData.Num() - sizeof(UncompressedSize)));
+	verify(FCompression::UncompressMemory(CompressionFormat, OutData.GetData(), UncompressedSize, CompressedData.GetData() + sizeof(UncompressedSize), CompressedData.Num() - sizeof(UncompressedSize), CompressionFlags));
 
 	return true;
 }

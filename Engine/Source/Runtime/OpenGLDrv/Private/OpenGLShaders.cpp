@@ -1943,7 +1943,7 @@ static bool UncompressCompressedBinaryProgram(const TArray<uint8>& CompressedPro
 		UncompressedProgramBinaryOUT.AddUninitialized(Header->UncompressedSize);
 
 		if (Header->UncompressedSize > 0
-			&& FCompression::UncompressMemory(COMPRESS_ZLIB, UncompressedProgramBinaryOUT.GetData(), UncompressedProgramBinaryOUT.Num(), CompressedProgramBinary.GetData() + sizeof(FCompressedProgramBinaryHeader), CompressedProgramBinary.Num() - sizeof(FCompressedProgramBinaryHeader)))
+			&& FCompression::UncompressMemory(NAME_Zlib, UncompressedProgramBinaryOUT.GetData(), UncompressedProgramBinaryOUT.Num(), CompressedProgramBinary.GetData() + sizeof(FCompressedProgramBinaryHeader), CompressedProgramBinary.Num() - sizeof(FCompressedProgramBinaryHeader)))
 		{
 			return true;
 		}
@@ -1994,10 +1994,10 @@ static bool GetCompressedProgramBinaryFromGLProgram(GLuint Program, TArray<uint8
 	TArray<uint8> UncompressedProgramBinary;
 	if (GetUncompressedProgramBinaryFromGLProgram(Program, UncompressedProgramBinary))
 	{
-		int32 CompressedSize = FCompression::CompressMemoryBound(ECompressionFlags::COMPRESS_ZLIB, UncompressedProgramBinary.Num());
+		int32 CompressedSize = FCompression::CompressMemoryBound(NAME_Zlib, UncompressedProgramBinary.Num());
 		uint32 CompressedHeaderSize = sizeof(FCompressedProgramBinaryHeader);
 		ProgramBinaryOUT.AddUninitialized(CompressedSize + CompressedHeaderSize);
-		FCompression::CompressMemory(COMPRESS_ZLIB, ProgramBinaryOUT.GetData() + CompressedHeaderSize, CompressedSize, UncompressedProgramBinary.GetData(), UncompressedProgramBinary.Num());
+		FCompression::CompressMemory(NAME_Zlib, ProgramBinaryOUT.GetData() + CompressedHeaderSize, CompressedSize, UncompressedProgramBinary.GetData(), UncompressedProgramBinary.Num());
 		ProgramBinaryOUT.SetNum(CompressedSize + CompressedHeaderSize);
 		ProgramBinaryOUT.Shrink();
 		FCompressedProgramBinaryHeader* Header = (FCompressedProgramBinaryHeader*)ProgramBinaryOUT.GetData();
@@ -4979,11 +4979,12 @@ void FOpenGLProgramBinaryCache::CompressShader(const TArray<ANSICHAR>& InGlslCod
 	OutCompressedShader.GlslCode.SetNum(CompressedSize);
 
 	OutCompressedShader.bCompressed = FCompression::CompressMemory(
-		(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+		NAME_Zlib,
 		(void*)OutCompressedShader.GlslCode.GetData(),
 		CompressedSize, 
 		(void*)InGlslCode.GetData(), 
-		UncompressedSize);
+		UncompressedSize,
+		COMPRESS_BiasMemory);
 
 	if (OutCompressedShader.bCompressed)
 	{
@@ -5011,7 +5012,7 @@ void FOpenGLProgramBinaryCache::UncompressShader(const FPendingShaderCode& InCom
 		OutGlslCode.SetNum(UncompressedSize);
 
 		bool bResult = FCompression::UncompressMemory(
-			(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+			NAME_Zlib,
 			(void*)OutGlslCode.GetData(),
 			UncompressedSize,
 			(void*)InCompressedShader.GlslCode.GetData(),

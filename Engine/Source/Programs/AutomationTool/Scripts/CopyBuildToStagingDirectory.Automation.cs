@@ -1428,6 +1428,20 @@ public partial class Project : CommandUtils
 
 		const string OutputFilenameExtension = ".pak";
 
+		// read some compression settings from the project (once, shared across all pak commands)
+		ConfigHierarchy PlatformGameConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		string CompressionFormats = "";
+		if (PlatformGameConfig.GetString("/Script/UnrealEd.ProjectPackagingSettings", "PakFileCompressionFormats", out CompressionFormats))
+		{
+			CompressionFormats = " -compressionformats=" + CompressionFormats;
+		}
+
+		// the game may want to control compression settings, but since it may be in a plugin that checks the commandline for the settings, we need to pass
+		// the settings directly on the UnrealPak commandline, and not put it into the batch file lines (plugins can't get the unrealpak command list, and
+		// there's not a great way to communicate random strings down into the plugins during plugin init time)
+		string AdditionalCompressionOptionsOnCommandLine = "";
+		PlatformGameConfig.GetString("/Script/UnrealEd.ProjectPackagingSettings", "PakFileAdditionalCompressionOptions", out AdditionalCompressionOptionsOnCommandLine);
+
 		List<string> Commands = new List<string>();
 
 		List<Tuple<FileReference, StagedFileReference, string>> Outputs = new List<Tuple<FileReference, StagedFileReference, string>>();
@@ -1501,7 +1515,7 @@ public partial class Project : CommandUtils
 					DirectoryReference PakOrderFileLocationBase = DirectoryReference.Combine(SC.ProjectRoot, "Build", OrderLocation, "FileOpenOrder");
     
 					FileReference FileLocation = FileReference.Combine(PakOrderFileLocationBase, OrderFileName);
-    
+
 					if (FileExists_NoExceptions(FileLocation.FullName))
 					{
 						PakOrderFileLocation = FileLocation;
@@ -1580,7 +1594,7 @@ public partial class Project : CommandUtils
 				}
 				if (!bCopiedExistingPak)
 				{
-					Commands.Add(GetUnrealPakArguments(PakParams.UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(Params, SC) + " " + Params.AdditionalPakOptions, PakParams.bCompressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath, PakParams.EncryptionKeyGuid));
+					Commands.Add(GetUnrealPakArguments(PakParams.UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(Params, SC) + CompressionFormats + " " + Params.AdditionalPakOptions, PakParams.bCompressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath, PakParams.EncryptionKeyGuid));
 				}
 			}
 
@@ -1593,7 +1607,7 @@ public partial class Project : CommandUtils
 			string CommandsFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.EngineSavedFolder, "UnrealPak-Commands"));
 			File.WriteAllLines(CommandsFile, Commands);
 
-			string Arguments = String.Format("{0} -batch={1}", MakePathSafeToUseWithCommandLine(Params.RawProjectPath.FullName), MakePathSafeToUseWithCommandLine(CommandsFile));
+			string Arguments = String.Format("{0} -batch={1} {2}", MakePathSafeToUseWithCommandLine(Params.RawProjectPath.FullName), MakePathSafeToUseWithCommandLine(CommandsFile), AdditionalCompressionOptionsOnCommandLine);
 			RunAndLog(CmdEnv, GetUnrealPakLocation().FullName, Arguments, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 		}
 

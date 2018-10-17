@@ -414,11 +414,12 @@ bool FManifestUObject::LoadFromMemory(const TArray<uint8>& DataInput, FBuildPatc
 			{
 				UncompressedData.AddUninitialized(Header.DataSizeUncompressed);
 				if (!FCompression::UncompressMemory(
-					static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+					NAME_Zlib,
 					UncompressedData.GetData(),
 					Header.DataSizeUncompressed,
 					&DataInput[Header.HeaderSize],
-					DataInput.Num() - Header.HeaderSize))
+					DataInput.Num() - Header.HeaderSize,
+					COMPRESS_BiasMemory))
 				{
 					return false;
 				}
@@ -469,11 +470,12 @@ bool FManifestUObject::SaveToArchive(FArchive& Ar, const FBuildPatchAppManifest&
 			TempCompressed.AddUninitialized(DataSize);
 			int32 CompressedSize = DataSize;
 			bool bDataIsCompressed = FCompression::CompressMemory(
-				static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+				NAME_Zlib,
 				TempCompressed.GetData(),
 				CompressedSize,
 				ManifestData.GetBytes().GetData(),
-				DataSize);
+				DataSize,
+				COMPRESS_BiasMemory);
 			TempCompressed.SetNum(CompressedSize);
 
 			TArray<uint8>& FileData = bDataIsCompressed ? TempCompressed : ManifestData.GetBytes();

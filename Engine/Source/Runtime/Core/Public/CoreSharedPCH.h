@@ -188,7 +188,6 @@
 #include "Async/AsyncWork.h"
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Serialization/BufferReader.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/FileManager.h"

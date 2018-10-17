@@ -3737,11 +3737,12 @@ void FLightmassProcessor::ApplyPrecomputedVisibility()
 						int32 CompressedSize = TempCompressionOutput.Num();
 						verify(FCompression::CompressMemory(
 							// Using zlib since it is supported on all platforms, otherwise we would need to compress on cook
-							(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory), 
+							NAME_Zlib, 
 							TempCompressionOutput.GetData(), 
 							CompressedSize, 
 							UncompressedVisibilityData.GetData(), 
-							UncompressedVisibilityData.Num()));
+							UncompressedVisibilityData.Num(),
+							COMPRESS_BiasMemory));
 
 						OutputBucket.CellDataChunks.AddZeroed();
 						FCompressedVisibilityChunk& NewChunk = OutputBucket.CellDataChunks.Last();
@@ -4365,7 +4366,7 @@ bool FLightmassProcessor::ImportLightMapData2DData(int32 Channel, FQuantizedLigh
 	Swarm.ReadChannel(Channel, CompressedBuffer, CompressedSize);
 
 	// decompress the temp buffer into another temp buffer 
-	if (!FCompression::UncompressMemory(COMPRESS_ZLIB, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
+	if (!FCompression::UncompressMemory(NAME_Zlib, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
 	{
 		checkf(false, TEXT("Uncompress failed, which is unexpected"));
 	}
@@ -4409,7 +4410,7 @@ bool FLightmassProcessor::ImportSignedDistanceFieldShadowMapData2D(int32 Channel
 		Swarm.ReadChannel(Channel, CompressedBuffer, CompressedSize);
 
 		// Decompress the temp buffer into another temp buffer 
-		if (!FCompression::UncompressMemory(COMPRESS_ZLIB, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
+		if (!FCompression::UncompressMemory(NAME_Zlib, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
 		{
 			checkf(false, TEXT("Uncompress failed, which is unexpected"));
 		}

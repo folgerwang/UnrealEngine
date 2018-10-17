@@ -4165,6 +4165,15 @@ bool FEngineLoop::AppInit( )
 		FConfigCacheIni::InitializeConfigSystem();
 	}
 
+	// Load "asap" plugin modules
+	IPluginManager&  PluginManager = IPluginManager::Get();
+	IProjectManager& ProjectManager = IProjectManager::Get();
+	if (!ProjectManager.LoadModulesForProject(ELoadingPhase::EarliestPossible) || !PluginManager.LoadModulesForEnabledPlugins(ELoadingPhase::EarliestPossible))
+	{
+		return false;
+	}
+
+
 	// Now that configs have been initialized, setup stack walking options
 	FPlatformStackWalk::Init();
 
@@ -4173,9 +4182,6 @@ bool FEngineLoop::AppInit( )
 #endif
 
 	CheckForPrintTimesOverride();
-
-	IPluginManager&  PluginManager  = IPluginManager::Get();
-	IProjectManager& ProjectManager = IProjectManager::Get();
 
 	// Check whether the project or any of its plugins are missing or are out of date
 #if UE_EDITOR && !IS_MONOLITHIC

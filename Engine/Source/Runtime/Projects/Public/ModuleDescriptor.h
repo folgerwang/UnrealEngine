@@ -15,6 +15,9 @@ namespace ELoadingPhase
 {
 	enum Type
 	{
+		/** As soon as possible - in other words, uplugin files are loadable from a pak file (as well as right after PlatformFile is set up in case pak files aren't used) Used for plugins needed to read files (compression formats, etc) */
+		EarliestPossible,
+
 		/** Loaded before the engine is fully initialized, immediately after the config system has been initialized.  Necessary only for very low-level hooks */
 		PostConfigInit,
 

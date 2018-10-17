@@ -383,15 +383,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
 
-
-			// if the project has an Oodle compression Dll, enable the decompressor on Android
-			DirectoryReference ProjectDir = Target.ProjectFile != null ? DirectoryReference.GetParentDirectory(Target.ProjectFile) : UnrealBuildTool.EngineDirectory;
-			string OodleDllPath = DirectoryReference.Combine(ProjectDir, "Binaries/ThirdParty/Oodle/Win64/UnrealPakPlugin.dll").FullName;
-			if (File.Exists(OodleDllPath))
-			{
-				CompileEnvironment.Definitions.Add("REGISTER_OODLE_CUSTOM_COMPRESSOR=1");
-			}
-
 			//@TODO: Tegra Gfx Debugger - standardize locations - for now, change the hardcoded paths and force this to return true to test
 			if (UseTegraGraphicsDebugger(Target))
 			{
@@ -551,11 +542,11 @@ namespace UnrealBuildTool
 				Dictionary<string, string> AndroidEnv = new Dictionary<string, string>();
 
 				Dictionary<string, string> EnvVarNames = new Dictionary<string, string> { 
-														 {"ANDROID_HOME", "SDKPath"}, 
-														 {"NDKROOT", "NDKPath"}, 
-														 {"ANT_HOME", "ANTPath"},
-														 {"JAVA_HOME", "JavaPath"}
-														 };
+                                                         {"ANDROID_HOME", "SDKPath"}, 
+                                                         {"NDKROOT", "NDKPath"}, 
+                                                         {"ANT_HOME", "ANTPath"},
+                                                         {"JAVA_HOME", "JavaPath"}
+                                                         };
 
 				string path;
 				foreach (KeyValuePair<string, string> kvp in EnvVarNames)

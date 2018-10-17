@@ -553,7 +553,8 @@ namespace BuildPatchServices
 			else
 			{
 				// Compression format selection - we only have one right now.
-				const ECompressionFlags CompressionFlags = static_cast<ECompressionFlags>(ECompressionFlags::COMPRESS_ZLIB | ECompressionFlags::COMPRESS_BiasMemory);
+				const FName CompressionFormat = NAME_Zlib;
+				const ECompressionFlags CompressionFlags = ECompressionFlags::COMPRESS_BiasMemory;
 				// Yay shiny new format!
 				TArray<uint8> ManifestRawData;
 				// Fill the array with loaded data.
@@ -570,11 +571,12 @@ namespace BuildPatchServices
 					TArray<uint8> CompressedData = MoveTemp(ManifestRawData);
 					ManifestRawData.AddUninitialized(Header.DataSizeUncompressed);
 					bSuccess = FCompression::UncompressMemory(
-						CompressionFlags,
+						CompressionFormat,
 						ManifestRawData.GetData(),
 						ManifestRawData.Num(),
 						CompressedData.GetData(),
-						CompressedData.Num());
+						CompressedData.Num(),
+						CompressionFlags);
 				}
 				// If loading, check the raw data SHA
 				if (bSuccess && Ar.IsLoading())
@@ -615,11 +617,12 @@ namespace BuildPatchServices
 					Header.DataSizeCompressed = ManifestRawData.Num();
 					TempCompressed.AddUninitialized(Header.DataSizeCompressed);
 					const bool bDataIsCompressed = FCompression::CompressMemory(
-						CompressionFlags,
+						CompressionFormat,
 						TempCompressed.GetData(),
 						(int32&)Header.DataSizeCompressed,
 						ManifestRawData.GetData(),
-						ManifestRawData.Num());
+						ManifestRawData.Num(),
+						CompressionFlags);
 					if (bDataIsCompressed)
 					{
 						const bool bAllowShrinking = false;

@@ -506,7 +506,7 @@ public:
 		void Add(FVulkanGfxPipeline* GfxPipeline);
 
 		void Touch(FVulkanRHIGraphicsPipelineState* Pipeline);
-	
+
 	private:
 		bool bUseLRU;
 		FVulkanPipelineLRUCache LRU;

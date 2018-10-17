@@ -3,7 +3,9 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "UObject/NameTypes.h"
 #include "Serialization/Archive.h"
+#include "Misc/Compression.h"
 
 /*----------------------------------------------------------------------------
 	FArchiveLoadCompressedProxy.
@@ -19,9 +21,11 @@ public:
 	 * Constructor, initializing all member variables and allocating temp memory.
 	 *
 	 * @param	InCompressedData	Array of bytes that is holding compressed data
-	 * @param	InCompressionFlags	Compression flags that were used to compress data
+	 * @param	InCompressionFormat	What format to compress with
 	 */
+	DEPRECATED(4.21, "Use the FName version of FArchiveLoadCompressedProxy constructor")
 	FArchiveLoadCompressedProxy( const TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags );
+	FArchiveLoadCompressedProxy(const TArray<uint8>& InCompressedData, FName CompressionFormat, ECompressionFlags InCompressionFlags=COMPRESS_NoFlags);
 
 	/** Destructor, freeing temporary memory. */
 	virtual ~FArchiveLoadCompressedProxy();
@@ -55,7 +59,7 @@ private:
 	/** Array to write compressed data to.						*/
 	const TArray<uint8>&	CompressedData;
 	/** Current index into compressed data array.				*/
-	int32				CurrentIndex;
+	int32			CurrentIndex;
 	/** Pointer to start of temporary buffer.					*/
 	uint8*			TmpDataStart;
 	/** Pointer to end of temporary buffer.						*/
@@ -65,7 +69,9 @@ private:
 	/** Whether to serialize from temporary buffer of array.	*/
 	bool			bShouldSerializeFromArray;
 	/** Number of raw (uncompressed) bytes serialized.			*/
-	int64		RawBytesSerialized;
+	int64			RawBytesSerialized;
+	/** Compression method										*/
+	FName			CompressionFormat;
 	/** Flags used for compression.								*/
 	ECompressionFlags CompressionFlags;
 };

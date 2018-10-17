@@ -263,4 +263,11 @@ struct FGenericPlatformProperties
 	{
 		return false;
 	}
+
+	// If this platform wants to replace Zlib with a platform-specific version, set the name of the compression format 
+	// plugin (matching its GetCompressionFormatName() function) in an override of this function
+	static FORCEINLINE const char* GetZlibReplacementFormat()
+	{
+		return nullptr;
+	}
 };

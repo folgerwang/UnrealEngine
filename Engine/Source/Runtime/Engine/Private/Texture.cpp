@@ -657,14 +657,14 @@ void FTextureSource::Compress()
 				BulkData.Unlock();
 				bPNGCompressed = true;
 
-				BulkData.StoreCompressedOnDisk(ECompressionFlags::COMPRESS_None);
+				BulkData.StoreCompressedOnDisk(NAME_None);
 			}
 		}
 	}
 	else
 	{
 		//Can't PNG compress so just zlib compress the lot when its serialized out to disk. 
-		BulkData.StoreCompressedOnDisk(ECompressionFlags::COMPRESS_ZLIB);
+		BulkData.StoreCompressedOnDisk(NAME_Zlib);
 	}
 }
 

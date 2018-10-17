@@ -2576,11 +2576,12 @@ void FLandscapeComponentDerivedData::InitializeFromUncompressedData(const TArray
 	int32 CompressedSize = TempCompressedMemory.Num() * TempCompressedMemory.GetTypeSize();
 
 	verify(FCompression::CompressMemory(
-		(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+		NAME_Zlib,
 		TempCompressedMemory.GetData(),
 		CompressedSize,
 		UncompressedData.GetData(),
-		UncompressedSize));
+		UncompressedSize,
+		COMPRESS_BiasMemory));
 
 	// Note: change LANDSCAPE_FULL_DERIVEDDATA_VER when modifying the serialization layout
 	FMemoryWriter FinalArchive(CompressedLandscapeData, true);

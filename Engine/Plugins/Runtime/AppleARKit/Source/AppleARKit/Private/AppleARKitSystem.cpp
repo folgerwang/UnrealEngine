@@ -1039,7 +1039,7 @@ public:
 				uint8* CompressInto = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
 				int32 CompressedSize = UncompressedSize;
 				uint8* UncompressedData = (uint8*)[WorldNSData bytes];
-				verify(FCompression::CompressMemory((ECompressionFlags)COMPRESS_ZLIB, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
+				verify(FCompression::CompressMemory(NAME_Zlib, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
 				
 				// Only copy out the amount of compressed data and the header
 				int32 CompressedSizePlusHeader = CompressedSize + AR_SAVE_WORLD_HEADER_SIZE;

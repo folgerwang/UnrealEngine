@@ -3,21 +3,19 @@
 using UnrealBuildTool;
 using System.IO;
 
-public class OodleHandlerComponent : ModuleRules
+public class OodleCompressionFormat : ModuleRules
 {
-    public OodleHandlerComponent(ReadOnlyTargetRules Target) : base(Target)
-    {
-		// @todo oodle: Clean this up with the compression format?
+	public OodleCompressionFormat(ReadOnlyTargetRules Target) : base(Target)
+	{
+		// @todo oodle: Clean this up with the handler component?
 
-
+		
 		// this needs to match the version in Oodle.Build.cs
 		string OodleVersion = "255";
 
-		ShortName = "OodleHC";
+		ShortName = "OodleFormat";
 
-        BinariesSubFolder = "NotForLicensees";
-		
-		PrivateIncludePaths.Add("OodleHandlerComponent/Private");
+		BinariesSubFolder = "NotForLicensees";
 
 		PublicDependencyModuleNames.AddRange(
 			new string[]
@@ -25,13 +23,7 @@ public class OodleHandlerComponent : ModuleRules
 				"PacketHandler",
 				"Core",
 				"CoreUObject",
-				"Engine",
-                "Analytics"
-			});
-
-		PrivateDependencyModuleNames.AddRange(
-			new string[] {
-				"Projects",
+				"Analytics"
 			});
 
 		string PlatformName = Target.Platform.ToString();
@@ -51,7 +43,8 @@ public class OodleHandlerComponent : ModuleRules
 		}
 
 		// Check the NotForLicensees folder first
-		string OodleNotForLicenseesLibDir = System.IO.Path.Combine(ModuleDirectory, "..", "ThirdParty", "NotForLicensees",
+		string OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
+			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
 			"Oodle", OodleVersion, PlatformName, "lib");
 
 		bool bHaveOodleSDK = false;
@@ -59,22 +52,22 @@ public class OodleHandlerComponent : ModuleRules
 		{
 			try
 			{
-				bHaveOodleSDK = System.IO.Directory.Exists( OodleNotForLicenseesLibDir );
+				bHaveOodleSDK = System.IO.Directory.Exists(OodleNotForLicenseesLibDir);
 			}
-			catch ( System.Exception )
+			catch (System.Exception)
 			{
 			}
-        }
+		}
 
-		if ( bHaveOodleSDK )
+		if (bHaveOodleSDK)
 		{
-	        AddEngineThirdPartyPrivateStaticDependencies(Target, "Oodle");
-	        PublicIncludePathModuleNames.Add("Oodle");
-			PublicDefinitions.Add( "HAS_OODLE_SDK=1" );
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "Oodle");
+			PublicIncludePathModuleNames.Add("Oodle");
+			PublicDefinitions.Add("HAS_OODLE_SDK=1");
 		}
 		else
 		{
-			PublicDefinitions.Add( "HAS_OODLE_SDK=0" );
+			PublicDefinitions.Add("HAS_OODLE_SDK=0");
 		}
-    }
+	}
 }

@@ -107,7 +107,7 @@ static void ExportGeomToOBJFile(const FString& InFileName, const TNavStatArray<f
 			FMemory::Memcpy(DestBuffer, &UncompressedSize, HeaderSize);
 			DestBuffer += HeaderSize;
 
-			FCompression::CompressMemory((ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory), (void*)DestBuffer, CompressedSize, (void*)UncompressedBuffer.GetData(), UncompressedSize);
+			FCompression::CompressMemory(NAME_Zlib, (void*)DestBuffer, CompressedSize, (void*)UncompressedBuffer.GetData(), UncompressedSize, COMPRESS_BiasMemory);
 			CompressedBuffer.SetNum(CompressedSize + HeaderSize, false);
 		}
 	};
@@ -1431,8 +1431,7 @@ struct FTileCacheCompressor : public dtTileCacheCompressor
 		uint8* DataPtr = compressed + HeaderSize;		
 		int32 DataSize = maxCompressedSize - HeaderSize;
 
-		FCompression::CompressMemory((ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-			(void*)DataPtr, DataSize, (const void*)buffer, bufferSize);
+		FCompression::CompressMemory(NAME_Zlib, (void*)DataPtr, DataSize, (const void*)buffer, bufferSize, COMPRESS_BiasMemory);
 
 		*compressedSize = DataSize + HeaderSize;
 		return DT_SUCCESS;
@@ -1449,8 +1448,7 @@ struct FTileCacheCompressor : public dtTileCacheCompressor
 		const uint8* DataPtr = compressed + HeaderSize;		
 		const int32 DataSize = compressedSize - HeaderSize;
 
-		FCompression::UncompressMemory((ECompressionFlags)(COMPRESS_ZLIB),
-			(void*)buffer, DataHeader.UncompressedSize, (const void*)DataPtr, DataSize);
+		FCompression::UncompressMemory(NAME_Zlib, (void*)buffer, DataHeader.UncompressedSize, (const void*)DataPtr, DataSize);
 
 		*bufferSize = DataHeader.UncompressedSize;
 		return DT_SUCCESS;

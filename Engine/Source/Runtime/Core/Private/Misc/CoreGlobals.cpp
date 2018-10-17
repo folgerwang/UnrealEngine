@@ -7,6 +7,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/CoreStats.h"
+#include "Misc/Compression.h"
 
 
 #define LOCTEXT_NAMESPACE "Core"

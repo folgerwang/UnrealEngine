@@ -17,7 +17,9 @@ struct CORE_API FCompressedGrowableBuffer
 	 * @param	MaxPendingBufferSize	Max chunk size to compress in uncompressed bytes
 	 * @param	CompressionFlags		Compression flags to compress memory with
 	 */
+	DEPRECATED(4.21, "Use FName version of FCompressedGrowableBuffer constructor")
 	FCompressedGrowableBuffer( int32 MaxPendingBufferSize, ECompressionFlags CompressionFlags );
+	FCompressedGrowableBuffer(int32 MaxPendingBufferSize, FName COmpressionFormat, ECompressionFlags CompressionFlags=COMPRESS_None);
 
 	/**
 	 * Locks the buffer for reading. Needs to be called before calls to Access and needs
@@ -86,6 +88,8 @@ private:
 
 	/** Maximum chunk size to compress in uncompressed bytes.				*/
 	int32					MaxPendingBufferSize;
+	/** Compression format used to compress the data.						*/
+	FName				CompressionFormat;
 	/** Compression flags used to compress the data.						*/
 	ECompressionFlags	CompressionFlags;
 	/** Current offset in uncompressed data.								*/
