@@ -8,6 +8,7 @@
 #include "Interfaces/IProjectManager.h"
 #include "InstalledPlatformInfo.h"
 #include "HAL/FileManager.h"
+#include "HAL/IConsoleManager.h"
 #include "Misc/Paths.h"
 #include "Misc/App.h"
 #include "Misc/MonitoredProcess.h"
