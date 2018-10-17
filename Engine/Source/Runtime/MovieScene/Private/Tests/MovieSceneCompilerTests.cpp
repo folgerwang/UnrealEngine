@@ -154,7 +154,7 @@ bool FMovieSceneCompilerRangeTest::RunTest(const FString& Parameters)
 
 	struct FTemplateStore : IMovieSceneSequenceTemplateStore
 	{
-		FMovieSceneEvaluationTemplate& AccessTemplate(UMovieSceneSequence& Sequence) override
+		FMovieSceneEvaluationTemplate& AccessTemplate(UMovieSceneSequence&) override
 		{
 			return Template;
 		}
