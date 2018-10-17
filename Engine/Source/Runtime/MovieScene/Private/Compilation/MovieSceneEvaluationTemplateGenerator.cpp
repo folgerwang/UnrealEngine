@@ -8,6 +8,7 @@
 #include "IMovieSceneModule.h"
 #include "Tracks/MovieSceneSubTrack.h"
 #include "Sections/MovieSceneSubSection.h"
+#include "MovieSceneTimeHelpers.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 
 FMovieSceneEvaluationTemplateGenerator::FMovieSceneEvaluationTemplateGenerator(UMovieSceneSequence& InSequence, FMovieSceneEvaluationTemplate& OutTemplate)
@@ -103,7 +104,7 @@ void FMovieSceneEvaluationTemplateGenerator::ProcessSubTrack(const UMovieSceneSu
 	for (int32 SectionIndex = 0; SectionIndex < AllSections.Num(); ++SectionIndex)
 	{
 		UMovieSceneSubSection* SubSection = CastChecked<UMovieSceneSubSection>(AllSections[SectionIndex]);
-		if (!SubSection || !SubSection->IsActive() || SubSection->GetRange().IsEmpty())
+		if (!SubSection || !SubSection->IsActive() || MovieScene::DiscreteRangeIsEmpty(SubSection->GetRange()))
 		{
 			continue;
 		}

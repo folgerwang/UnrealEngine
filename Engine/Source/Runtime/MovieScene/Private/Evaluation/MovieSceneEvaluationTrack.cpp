@@ -286,7 +286,7 @@ TArray<FMovieSceneSegmentIdentifier> FMovieSceneEvaluationTrack::GetSegmentsInRa
 {
 	TArray<FMovieSceneSegmentIdentifier> SegmentsInRange;
 
-	while (!InLocalRange.IsEmpty())
+	while (!MovieScene::DiscreteRangeIsEmpty(InLocalRange))
 	{
 		FMovieSceneSegmentIdentifier SegmentID = FindFirstSegment(InLocalRange);
 
@@ -470,7 +470,7 @@ namespace
 	bool IntersectSegmentRanges(const FMovieSceneSegment& Segment, TRange<FFrameNumber> TraversedRange, TMap<int32, TRange<FFrameNumber>>& ImplToAccumulatedRange)
 	{
 		TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(Segment.Range, TraversedRange);
-		if (Intersection.IsEmpty())
+		if (MovieScene::DiscreteRangeIsEmpty(Intersection))
 		{
 			return false;
 		}
