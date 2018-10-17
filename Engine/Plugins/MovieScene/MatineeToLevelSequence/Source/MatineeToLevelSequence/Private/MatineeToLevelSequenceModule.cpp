@@ -30,6 +30,8 @@
 #include "Matinee/InterpTrackColorScale.h"
 #include "Matinee/InterpTrackColorProp.h"
 #include "Matinee/InterpTrackFloatProp.h"
+#include "Matinee/InterpTrackFloatMaterialParam.h"
+#include "Matinee/InterpTrackVectorMaterialParam.h"
 #include "Matinee/InterpTrackMove.h"
 #include "Matinee/InterpTrackAnimControl.h"
 #include "Matinee/InterpTrackSound.h"
@@ -59,6 +61,7 @@
 #include "Tracks/MovieSceneBoolTrack.h"
 #include "Tracks/MovieSceneColorTrack.h"
 #include "Tracks/MovieSceneFloatTrack.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
 #include "Tracks/MovieSceneParticleTrack.h"
 #include "Tracks/MovieSceneSkeletalAnimationTrack.h"
@@ -73,6 +76,8 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "MovieSceneTimeHelpers.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/StaticMeshActor.h"
 
 #define LOCTEXT_NAMESPACE "MatineeToLevelSequence"
 
@@ -425,6 +430,104 @@ protected:
 		return PropertyTrack;
 	}
 
+	FGuid FindComponentGuid(AActor* GroupActor, UMovieSceneSequence* NewSequence, UMovieScene* NewMovieScene, FGuid PossessableGuid)
+	{
+		FGuid ComponentGUID;
+		// Skeletal and static mesh actors can both have material component tracks, and need to have their mesh component added to sequencer.
+		if (GroupActor->GetClass() == ASkeletalMeshActor::StaticClass())
+		{
+
+			ASkeletalMeshActor* SkelMeshActor = CastChecked<ASkeletalMeshActor>(GroupActor);
+			USkeletalMeshComponent* SkelMeshComponent = SkelMeshActor->GetSkeletalMeshComponent();
+			// In matinee a component may be referenced in multiple material tracks, so check to see if this one is already bound.
+			FGuid FoundGUID = NewSequence->FindPossessableObjectId(*SkelMeshComponent, SkelMeshActor);
+			if (FoundGUID != FGuid())
+			{
+				ComponentGUID = FoundGUID;
+			}
+			else
+			{
+				ComponentGUID = NewMovieScene->AddPossessable(SkelMeshComponent->GetName(), SkelMeshComponent->GetClass());
+				FMovieScenePossessable* ChildPossesable = NewMovieScene->FindPossessable(ComponentGUID);
+				ChildPossesable->SetParent(PossessableGuid);
+				NewSequence->BindPossessableObject(ComponentGUID, *SkelMeshComponent, GroupActor->GetWorld());
+			}
+		}
+		else if (GroupActor->GetClass() == AStaticMeshActor::StaticClass())
+		{
+			AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>(GroupActor);
+			UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
+			FGuid FoundGUID = NewSequence->FindPossessableObjectId(*StaticMeshComponent, StaticMeshActor);
+			if (FoundGUID != FGuid())
+			{
+				ComponentGUID = FoundGUID;
+			}
+			else
+			{
+				ComponentGUID = NewMovieScene->AddPossessable(StaticMeshComponent->GetName(), StaticMeshComponent->GetClass());
+				FMovieScenePossessable* ChildPossesable = NewMovieScene->FindPossessable(ComponentGUID);
+				ChildPossesable->SetParent(PossessableGuid);
+				NewSequence->BindPossessableObject(ComponentGUID, *StaticMeshComponent, GroupActor->GetWorld());
+			}
+		}
+		else
+		{
+			return FGuid();
+		}
+		return ComponentGUID;
+	}
+	
+	template<typename T>
+	void CopyMaterialsToComponents(int32 NumMaterials, FGuid ComponentGuid, UMovieScene* NewMovieScene, T* MatineeMaterialParamTrack)
+	{
+		// One matinee material track can change the same parameter for multiple materials, but sequencer binds them to individual tracks.
+		for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
+		{
+			UMovieSceneComponentMaterialTrack* MaterialTrack = nullptr;
+
+			TArray<UMovieSceneComponentMaterialTrack *> BoundTracks;
+
+			// Find all tracks bound to the component we added.
+			for (const FMovieSceneBinding& Binding : NewMovieScene->GetBindings())
+			{
+				if (Binding.GetObjectGuid() == ComponentGuid)
+				{
+					for (auto Track : Binding.GetTracks())
+					{
+						UMovieSceneComponentMaterialTrack * MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>(Track);
+						if (MaterialTrack)
+						{
+							BoundTracks.Add(MaterialTrack);
+						}
+					}
+					break;
+				}
+			}
+
+			// The material may have already been added to the component, so look first to see if there is a track with the current material index.
+			UMovieSceneComponentMaterialTrack** FoundTrack = BoundTracks.FindByPredicate([MaterialIndex](UMovieSceneComponentMaterialTrack* Track) -> bool { return Track && Track->GetMaterialIndex() == MaterialIndex; });
+			if (FoundTrack)
+			{
+				MaterialTrack = *FoundTrack;
+			}
+
+			if (MaterialTrack)
+			{
+				FMatineeImportTools::CopyInterpMaterialParamTrack(MatineeMaterialParamTrack, MaterialTrack);
+			}
+			else
+			{
+				UMovieSceneComponentMaterialTrack* MaterialTrack = NewMovieScene->AddTrack<UMovieSceneComponentMaterialTrack>(ComponentGuid);
+				if (MaterialTrack)
+				{
+					MaterialTrack->SetMaterialIndex(MaterialIndex);
+					FMatineeImportTools::CopyInterpMaterialParamTrack(MatineeMaterialParamTrack, MaterialTrack);
+				}
+			}
+			
+		}
+	}
+
 	/** Convert an interp group */
 	void ConvertInterpGroup(UInterpGroup* Group, AActor* GroupActor, IMovieScenePlayer& Player, UMovieSceneSequence* NewSequence, UMovieScene* NewMovieScene, int32& NumWarnings)
 	{
@@ -551,6 +654,38 @@ protected:
 					{
 						FMatineeImportTools::CopyInterpFloatTrack(MatineeFloatTrack, FloatTrack);
 					}
+				}
+			}
+			else if (Track->IsA(UInterpTrackFloatMaterialParam::StaticClass()))
+			{
+				UInterpTrackFloatMaterialParam* MatineeMaterialParamTrack = StaticCast<UInterpTrackFloatMaterialParam*>(Track);
+				if (MatineeMaterialParamTrack->GetNumKeyframes() != 0 && GroupActor && PossessableGuid.IsValid())
+				{
+					FGuid ComponentGuid = FindComponentGuid(GroupActor, NewSequence, NewMovieScene, PossessableGuid);
+
+					if (ComponentGuid == FGuid())
+					{
+						continue;
+					}
+
+					CopyMaterialsToComponents(MatineeMaterialParamTrack->TargetMaterials.Num(), ComponentGuid, NewMovieScene, MatineeMaterialParamTrack);
+					
+				}
+			}
+			else if (Track->IsA(UInterpTrackVectorMaterialParam::StaticClass()))
+			{
+				UInterpTrackVectorMaterialParam* MatineeMaterialParamTrack = StaticCast<UInterpTrackVectorMaterialParam*>(Track);
+				if (MatineeMaterialParamTrack->GetNumKeyframes() != 0 && GroupActor && PossessableGuid.IsValid())
+				{
+					FGuid ComponentGuid = FindComponentGuid(GroupActor, NewSequence, NewMovieScene, PossessableGuid);
+
+					if (ComponentGuid == FGuid())
+					{
+						continue;
+					}
+
+					CopyMaterialsToComponents(MatineeMaterialParamTrack->TargetMaterials.Num(), ComponentGuid, NewMovieScene, MatineeMaterialParamTrack);
+
 				}
 			}
 			else if (Track->IsA(UInterpTrackVectorProp::StaticClass()))

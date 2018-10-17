@@ -10,7 +10,7 @@
 class UInterpTrackInst;
 struct FPropertyChangedEvent;
 
-UCLASS(meta=( DisplayName = "Float Material Parameter Track" ) )
+UCLASS(MinimalAPI, meta=( DisplayName = "Float Material Parameter Track" ) )
 class UInterpTrackFloatMaterialParam : public UInterpTrackFloatBase
 {
 	GENERATED_UCLASS_BODY()
