@@ -35,7 +35,7 @@ public:
 
 	void SampleTexture(FVectorVMContext& Context);
 	void GetTextureDimensions(FVectorVMContext& Context);
-	void NoOp(FVectorVMContext& Context);
+	void SamplePseudoVolumeTexture(FVectorVMContext& Context);
 
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 
