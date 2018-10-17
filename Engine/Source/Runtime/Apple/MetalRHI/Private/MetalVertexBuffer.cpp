@@ -208,6 +208,9 @@ void FMetalRHIBuffer::Alias()
 	if (Buffer.GetStorageMode() == mtlpp::StorageMode::Private && Buffer.GetHeap() && !Buffer.IsAliasable())
 	{
 		Buffer.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+		MetalLLM::LogAliasBuffer(Buffer);
+#endif
 	}
 }
 

@@ -284,3 +284,14 @@ void MetalLLM::LogAllocHeap(mtlpp::Device& Device, mtlpp::Heap const& Heap)
 	}
 }
 
+void MetalLLM::LogAliasTexture(mtlpp::Texture const& Texture)
+{
+	objc_setAssociatedObject(Texture.GetPtr(), (void*)&MetalLLM::LogAllocTexture, nil, OBJC_ASSOCIATION_RETAIN);
+}
+
+void MetalLLM::LogAliasBuffer(mtlpp::Buffer const& Buffer)
+{
+	objc_setAssociatedObject(Buffer.GetPtr(), (void*)&MetalLLM::LogAllocBuffer, nil, OBJC_ASSOCIATION_RETAIN);
+}
+
+

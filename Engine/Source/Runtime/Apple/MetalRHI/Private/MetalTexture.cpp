@@ -10,6 +10,7 @@
 #include "RenderUtils.h"
 #include "Containers/ResourceArray.h"
 #include "Misc/ScopeRWLock.h"
+#include "MetalLLM.h"
 
 volatile int64 FMetalSurface::ActiveUploads = 0;
 
@@ -397,14 +398,23 @@ void FMetalSurface::MakeAliasable(void)
 		if (StencilTexture && (StencilTexture != Texture) && !StencilTexture.IsAliasable())
 		{
 			StencilTexture.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+			MetalLLM::LogAliasTexture(StencilTexture);
+#endif
 		}
 		if (MSAATexture && (MSAATexture != Texture) && !MSAATexture.IsAliasable())
 		{
 			MSAATexture.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+			MetalLLM::LogAliasTexture(MSAATexture);
+#endif
 		}
 		if (!Texture.IsAliasable())
 		{
 			Texture.MakeAliasable();
+#if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
+			MetalLLM::LogAliasTexture(Texture);
+#endif
 		}
 	}
 }
