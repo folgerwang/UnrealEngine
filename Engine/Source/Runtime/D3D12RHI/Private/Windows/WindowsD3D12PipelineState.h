@@ -148,11 +148,6 @@ private:
 	TRefCountPtr<ID3D12PipelineLibrary> PipelineLibrary;
 	bool bUseAPILibaries;
 
-
-	// Add_NoLock
-	void AddToDiskCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc, FD3D12PipelineState* PipelineState);
-	void AddToDiskCache(const FD3D12ComputePipelineStateDesc& Desc, FD3D12PipelineState* PipelineState);
-
 	void WriteOutShaderBlob(PSO_CACHE_TYPE Cache, ID3D12PipelineState* APIPso);
 
 	template<typename PipelineStateDescType>
@@ -197,6 +192,9 @@ protected:
 	void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12LowLevelGraphicsPipelineStateDesc& Desc) final override;
 	void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12ComputePipelineStateDesc& Desc) final override;
 
+	void AddToDiskCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc, FD3D12PipelineState* PipelineState);
+	void AddToDiskCache(const FD3D12ComputePipelineStateDesc& Desc, FD3D12PipelineState* PipelineState);
+
 public:
 #if !D3D12RHI_USE_HIGH_LEVEL_PSO_CACHE
 	using FD3D12PipelineStateCacheBase::FindInLoadedCache;
@@ -218,13 +216,11 @@ template<> struct TPSOFunctionMap < D3D12_GRAPHICS_PIPELINE_STATE_DESC >
 {
 	static decltype(&ID3D12Device::CreateGraphicsPipelineState) GetCreatePipelineState() { return &ID3D12Device::CreateGraphicsPipelineState; }
 	static decltype(&ID3D12PipelineLibrary::LoadGraphicsPipeline) GetLoadPipeline() { return &ID3D12PipelineLibrary::LoadGraphicsPipeline; }
-	static FString GetString() { return TEXT("Graphics"); }
 };
 template<> struct TPSOFunctionMap < D3D12_COMPUTE_PIPELINE_STATE_DESC >
 {
 	static decltype(&ID3D12Device::CreateComputePipelineState) GetCreatePipelineState() { return &ID3D12Device::CreateComputePipelineState; }
 	static decltype(&ID3D12PipelineLibrary::LoadComputePipeline) GetLoadPipeline() { return &ID3D12PipelineLibrary::LoadComputePipeline; }
-	static FString GetString() { return TEXT("Compute"); }
 };
 
 template <typename TDesc> struct TPSOStreamFunctionMap;
@@ -233,23 +229,12 @@ template<> struct TPSOStreamFunctionMap < GraphicsPipelineCreationArgs_POD >
 	static decltype(&FD3D12_GRAPHICS_PIPELINE_STATE_DESC::GraphicsDescV0) GetPipelineStateDescV0() { return &FD3D12_GRAPHICS_PIPELINE_STATE_DESC::GraphicsDescV0; }
 	typedef D3D12_GRAPHICS_PIPELINE_STATE_DESC D3D12PipelineStateDescV0Type;
 	typedef FD3D12_GRAPHICS_PIPELINE_STATE_STREAM D3D12PipelineStateStreamType;
-	static FString GetString() { return TEXT("Graphics Stream"); }
+	static TCHAR* GetString() { return TEXT("Graphics"); }
 };
 template<> struct TPSOStreamFunctionMap < ComputePipelineCreationArgs_POD >
 {
 	static decltype(&FD3D12_COMPUTE_PIPELINE_STATE_DESC::ComputeDescV0) GetPipelineStateDescV0() { return &FD3D12_COMPUTE_PIPELINE_STATE_DESC::ComputeDescV0; }
 	typedef D3D12_COMPUTE_PIPELINE_STATE_DESC D3D12PipelineStateDescV0Type;
 	typedef FD3D12_COMPUTE_PIPELINE_STATE_STREAM D3D12PipelineStateStreamType;
-	static FString GetString() { return TEXT("Compute Stream"); }
+	static TCHAR* GetString() { return TEXT("Compute"); }
 };
-
-// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
-template <typename TDesc>
-void CreatePipelineState(ID3D12PipelineState*&PSO, ID3D12Device* Device, const TDesc* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name);
-
-// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
-template <typename TDesc>
-void CreatePipelineStateFromStream(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name);
-
-template <typename TDesc>
-void CreatePipelineStateWrapper(ID3D12PipelineState** PSO, FD3D12Adapter* Adapter, const TDesc* CreationArgs);

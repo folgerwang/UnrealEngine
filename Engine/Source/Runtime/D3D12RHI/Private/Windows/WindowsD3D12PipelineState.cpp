@@ -109,8 +109,8 @@ void FD3D12PipelineStateCache::OnPSOCreated(FD3D12PipelineState* PipelineState, 
 	// Actually create the PSO.
 	PipelineState->Create(GraphicsPipelineCreationArgs(&Desc, PipelineLibrary.GetReference()));
 
-	// Indicate we should add this PSO to necessary disk caches.
-	PipelineState->MarkForDiskCacheAdd();
+	// Save this PSO to disk cache.
+	AddToDiskCache(Desc, PipelineState);
 }
 
 void FD3D12PipelineStateCache::OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12ComputePipelineStateDesc& Desc)
@@ -118,8 +118,8 @@ void FD3D12PipelineStateCache::OnPSOCreated(FD3D12PipelineState* PipelineState, 
 	// Actually create the PSO.
 	PipelineState->Create(ComputePipelineCreationArgs(&Desc, PipelineLibrary.GetReference()));
 
-	// Indicate we should add this PSO to necessary disk caches.
-	PipelineState->MarkForDiskCacheAdd();
+	// Save this PSO to disk cache.
+	AddToDiskCache(Desc, PipelineState);
 }
 
 void FD3D12PipelineStateCache::RebuildFromDiskCache(ID3D12RootSignature* GraphicsRootSignature, ID3D12RootSignature* ComputeRootSignature)
@@ -231,9 +231,6 @@ void FD3D12PipelineStateCache::RebuildFromDiskCache(ID3D12RootSignature* Graphic
 					// Actually create the PSO.
 					const GraphicsPipelineCreationArgs Args(&Desc, PipelineLibrary.GetReference());
 					(*PipelineState)->CreateAsync(Args);
-
-					// Sanity check that we won't add this back to the disk cache again.
-					check(!(*PipelineState)->ShouldAddToDiskCache())
 				});
 			}
 		}
@@ -286,9 +283,6 @@ void FD3D12PipelineStateCache::RebuildFromDiskCache(ID3D12RootSignature* Graphic
 					// Actually create the PSO.
 					const ComputePipelineCreationArgs Args(&Desc, PipelineLibrary.GetReference());
 					PipelineState->CreateAsync(Args);
-
-					// Sanity check that we won't add this back to the disk cache again.
-					check(!PipelineState->ShouldAddToDiskCache())
 				});
 			}
 		}
@@ -455,55 +449,6 @@ void FD3D12PipelineStateCache::Close()
 {
 	FScopeLock Lock(&DiskCachesCS);
 
-	FDiskCacheInterface& DiskGraphicsCache = DiskCaches[PSO_CACHE_GRAPHICS];
-	FDiskCacheInterface& DiskComputeCache = DiskCaches[PSO_CACHE_COMPUTE];
-
-	DiskGraphicsCache.Reset(FDiskCacheInterface::RESET_TO_AFTER_LAST_OBJECT);
-	DiskComputeCache.Reset(FDiskCacheInterface::RESET_TO_AFTER_LAST_OBJECT);
-	DiskBinaryCache.Reset(FDiskCacheInterface::RESET_TO_AFTER_LAST_OBJECT);
-
-	// Write graphics PSOs to the disk cache(s).
-	if (!DiskGraphicsCache.IsInErrorState())
-	{
-		const uint32 NumGraphicsPSOsBefore = DiskGraphicsCache.GetNumPSOs();
-		for (auto Iter = LowLevelGraphicsPipelineStateCache.CreateConstIterator(); Iter; ++Iter)
-		{
-			FD3D12PipelineState* const PipelineState = Iter.Value();
-			if (PipelineState->ShouldAddToDiskCache())
-			{
-				const FD3D12LowLevelGraphicsPipelineStateDesc& Desc = Iter.Key();
-				AddToDiskCache(Desc, PipelineState);
-			}
-		}
-
-		const uint32 NumGraphicsPSOsAfter = DiskGraphicsCache.GetNumPSOs();
-		const uint32 NumNewGraphicsPSOs = NumGraphicsPSOsAfter - NumGraphicsPSOsBefore;
-		UE_CLOG(NumNewGraphicsPSOs, LogD3D12RHI, Log, TEXT("Added %u new Graphics PSO(s) to the disk cache."), NumNewGraphicsPSOs);
-		UE_LOG(LogD3D12RHI, Log, TEXT("Closing Graphics PSO disk cache. Cache contains %u PSO(s)."), NumGraphicsPSOsAfter);
-		DiskGraphicsCache.Close(NumGraphicsPSOsAfter);
-	}
-
-	// Write compute PSOs to the disk cache(s).
-	if (!DiskComputeCache.IsInErrorState())
-	{
-		const uint32 NumComputePSOsBefore = DiskComputeCache.GetNumPSOs();
-		for (auto Iter = ComputePipelineStateCache.CreateConstIterator(); Iter; ++Iter)
-		{
-			FD3D12PipelineState* const PipelineState = Iter.Value();
-			if (PipelineState->ShouldAddToDiskCache())
-			{
-				const FD3D12ComputePipelineStateDesc& Desc = Iter.Key();
-				AddToDiskCache(Desc, PipelineState);
-			}
-		}
-
-		const uint32 NumComputePSOsAfter = DiskComputeCache.GetNumPSOs();
-		const uint32 NumNewComputePSOs = NumComputePSOsAfter - NumComputePSOsBefore;
-		UE_CLOG(NumNewComputePSOs, LogD3D12RHI, Log, TEXT("Added %u new Compute PSO(s) to the disk cache."), NumNewComputePSOs);
-		UE_LOG(LogD3D12RHI, Log, TEXT("Closing Compute PSO disk cache. Cache contains %u PSO(s)."), NumComputePSOsAfter);
-		DiskComputeCache.Close(NumComputePSOsAfter);
-	}
-
 	// Write driver-optimized PSOs to the disk cache.
 	TArray<BYTE> LibraryData;
 	const bool bOverwriteExistingPipelineLibrary = true;
@@ -529,6 +474,8 @@ void FD3D12PipelineStateCache::Close()
 	DiskBinaryCache.Close(0);
 
 	CleanupPipelineStateCaches();
+
+	PipelineLibrary.SafeRelease();
 }
 
 void FD3D12PipelineStateCache::Init(FString& GraphicsCacheFileName, FString& ComputeCacheFileName, FString& DriverBlobFileName)
@@ -609,14 +556,124 @@ FD3D12PipelineStateCache::~FD3D12PipelineStateCache()
 {
 }
 
-template void CreatePipelineStateWrapper<GraphicsPipelineCreationArgs_POD>(ID3D12PipelineState** PSO, FD3D12Adapter* Adapter, const GraphicsPipelineCreationArgs_POD* CreationArgs);
-template void CreatePipelineStateWrapper<ComputePipelineCreationArgs_POD>(ID3D12PipelineState** PSO, FD3D12Adapter* Adapter, const ComputePipelineCreationArgs_POD* CreationArgs);
+#if LOG_PSO_CREATES
+	/** Accumulative time spent creating pipeline states. */
+	FTotalTimeAndCount GD3D12CreatePSOTime;
+#endif
+
+DECLARE_CYCLE_STAT(TEXT("Create time"), STAT_PSOCreateTime, STATGROUP_D3D12PipelineState);
+
+// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
+template <typename TDesc>
+static void CreatePipelineState(ID3D12PipelineState*&PSO, ID3D12Device* Device, const TDesc* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name)
+{
+	if (Library)
+	{
+		// Try to load the PSO from the library.
+		check(Name);
+		HRESULT HResult = (Library->*TPSOFunctionMap<TDesc>::GetLoadPipeline())(Name, Desc, IID_PPV_ARGS(&PSO));
+		if (E_INVALIDARG == HResult)
+		{
+			// The name doesn't exist or the input desc doesn't match the data in the library, just create the PSO.
+			{
+				SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
+				VERIFYD3D12RESULT((Device->*TPSOFunctionMap<TDesc>::GetCreatePipelineState())(Desc, IID_PPV_ARGS(&PSO)));
+			}
+
+			// Try to save the PSO to the library for another time.
+			check(PSO);
+			HResult = Library->StorePipeline(Name, PSO);
+			if (E_INVALIDARG != HResult)
+			{
+				// E_INVALIDARG means the name already exists in the library. Since the name is based on the hash, this is a hash collision.
+				// We ignore E_INVALIDARG because we just create PSO's if they don't exist in the library.
+				VERIFYD3D12RESULT(HResult);
+			}
+		}
+		else
+		{
+			VERIFYD3D12RESULT(HResult);
+		}
+	}
+	else
+	{
+		SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
+		HRESULT r = (Device->*TPSOFunctionMap<TDesc>::GetCreatePipelineState())(Desc, IID_PPV_ARGS(&PSO));
+		if (FAILED(r))
+		{
+			UE_LOG(LogD3D12RHI, Error, TEXT("Failed to create PipelineState with hash %s"), Name);
+		}
+	}
+
+	check(PSO);
+}
+
+// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
+static void CreatePipelineStateFromStream(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name)
+{
+	if (Library)
+	{
+		// Try to load the PSO from the library.
+		check(Name);
+		HRESULT HResult = Library->LoadPipeline(Name, Desc, IID_PPV_ARGS(&PSO));
+		if (E_INVALIDARG == HResult)
+		{
+			// The name doesn't exist or the input desc doesn't match the data in the library, just create the PSO.
+			{
+				SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
+				VERIFYD3D12RESULT(Device->CreatePipelineState(Desc, IID_PPV_ARGS(&PSO)));
+			}
+
+			// Try to save the PSO to the library for another time.
+			check(PSO);
+			HResult = Library->StorePipeline(Name, PSO);
+			if (E_INVALIDARG != HResult)
+			{
+				// E_INVALIDARG means the name already exists in the library. Since the name is based on the hash, this is a hash collision.
+				// We ignore E_INVALIDARG because we just create PSO's if they don't exist in the library.
+				VERIFYD3D12RESULT(HResult);
+			}
+		}
+		else
+		{
+			VERIFYD3D12RESULT(HResult);
+		}
+	}
+	else
+	{
+		SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
+		HRESULT r = Device->CreatePipelineState(Desc, IID_PPV_ARGS(&PSO));
+
+		if (FAILED(r))
+		{
+			UE_LOG(LogD3D12RHI, Error, TEXT("Failed to create PipelineState with hash %s"), Name);
+		}
+	}
+
+	check(PSO);
+}
+
+static inline void FastHashName(wchar_t Name[9], uint32 Hash)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		Name[i] = (Hash & 0xF) + 'A';
+		Hash >>= 4;
+	}
+	Name[8] = 0;
+}
 
 template <typename TDesc>
-void CreatePipelineStateWrapper(ID3D12PipelineState** PSO, FD3D12Adapter* Adapter, const TDesc* CreationArgs)
+static void CreatePipelineStateWrapper(ID3D12PipelineState** PSO, FD3D12Adapter* Adapter, const TDesc* CreationArgs)
 {
 	// Get the pipeline state name, currently based on the hash.
-	FString Name = FString::Printf(TEXT("%llu"), CreationArgs->Desc->CombinedHash);
+	wchar_t Name[9];
+	FastHashName(Name, CreationArgs->Desc->CombinedHash);
+
+#if LOG_PSO_CREATES
+	const FString CreatePipelineStateMessage = FString::Printf(TEXT("CreatePipelineState (%s, Hash = %s)"), TPSOStreamFunctionMap<TDesc>::GetString(), Name);
+	SCOPE_LOG_TIME(*CreatePipelineStateMessage, &GD3D12CreatePSOTime);
+#endif
 
 	// Use pipeline streams if the system supports it.
 	ID3D12Device2* const pDevice2 = Adapter->GetD3DDevice2();
@@ -624,13 +681,13 @@ void CreatePipelineStateWrapper(ID3D12PipelineState** PSO, FD3D12Adapter* Adapte
 	{
 		typename TPSOStreamFunctionMap<TDesc>::D3D12PipelineStateStreamType Stream = CreationArgs->Desc->Desc.PipelineStateStream();
 		const D3D12_PIPELINE_STATE_STREAM_DESC StreamDesc = { sizeof(Stream), &Stream };
-		CreatePipelineStateFromStream<TDesc>(*PSO, pDevice2, &StreamDesc, static_cast<ID3D12PipelineLibrary1*>(CreationArgs->Library), *Name);	// Static cast to ID3D12PipelineLibrary1 since we already checked for ID3D12Device2.
+		CreatePipelineStateFromStream(*PSO, pDevice2, &StreamDesc, static_cast<ID3D12PipelineLibrary1*>(CreationArgs->Library), Name);	// Static cast to ID3D12PipelineLibrary1 since we already checked for ID3D12Device2.
 	}
 	else
 	{
 		// Use the older pipeline descs.
 		const typename TPSOStreamFunctionMap<TDesc>::D3D12PipelineStateDescV0Type Desc = (CreationArgs->Desc->Desc.*TPSOStreamFunctionMap<TDesc>::GetPipelineStateDescV0())();
-		CreatePipelineState(*PSO, Adapter->GetD3DDevice(), &Desc, CreationArgs->Library, *Name);
+		CreatePipelineState(*PSO, Adapter->GetD3DDevice(), &Desc, CreationArgs->Library, Name);
 	}
 }
 
@@ -676,118 +733,4 @@ void FD3D12PipelineStateWorker::DoWork()
 	{
 		CreatePipelineStateWrapper(PSO.GetInitReference(), GetParentAdapter(), &CreationArgs.ComputeArgs);
 	}
-}
-
-#if LOG_PSO_CREATES
-	/** Accumulative time spent creating pipeline states. */
-	FTotalTimeAndCount GD3D12CreatePSOTime;
-#endif
-
-DECLARE_CYCLE_STAT(TEXT("Create time"), STAT_PSOCreateTime, STATGROUP_D3D12PipelineState);
-
-template void CreatePipelineState<D3D12_GRAPHICS_PIPELINE_STATE_DESC>(ID3D12PipelineState*&PSO, ID3D12Device* Device, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name);
-template void CreatePipelineState<D3D12_COMPUTE_PIPELINE_STATE_DESC>(ID3D12PipelineState*&PSO, ID3D12Device* Device, const D3D12_COMPUTE_PIPELINE_STATE_DESC* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name);
-
-// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
-template <typename TDesc>
-void CreatePipelineState(ID3D12PipelineState*&PSO, ID3D12Device* Device, const TDesc* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name)
-{
-#if LOG_PSO_CREATES
-	const FString CreatePipelineStateMessage = FString::Printf(TEXT("CreatePipelineState (%s, Hash = %s)"), *TPSOFunctionMap<TDesc>::GetString(), Name);
-	SCOPE_LOG_TIME(*CreatePipelineStateMessage, &GD3D12CreatePSOTime);
-#endif
-
-	if (Library)
-	{
-		// Try to load the PSO from the library.
-		check(Name);
-		HRESULT HResult = (Library->*TPSOFunctionMap<TDesc>::GetLoadPipeline())(Name, Desc, IID_PPV_ARGS(&PSO));
-		if (E_INVALIDARG == HResult)
-		{
-			// The name doesn't exist or the input desc doesn't match the data in the library, just create the PSO.
-			{
-				SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
-				VERIFYD3D12RESULT((Device->*TPSOFunctionMap<TDesc>::GetCreatePipelineState())(Desc, IID_PPV_ARGS(&PSO)));
-			}
-
-			// Try to save the PSO to the library for another time.
-			check(PSO);
-			HResult = Library->StorePipeline(Name, PSO);
-			if (E_INVALIDARG != HResult)
-			{
-				// E_INVALIDARG means the name already exists in the library. Since the name is based on the hash, this is a hash collision.
-				// We ignore E_INVALIDARG because we just create PSO's if they don't exist in the library.
-				VERIFYD3D12RESULT(HResult);
-			}
-		}
-		else
-		{
-			VERIFYD3D12RESULT(HResult);
-		}
-	}
-	else
-	{
-		SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
-		HRESULT r = (Device->*TPSOFunctionMap<TDesc>::GetCreatePipelineState())(Desc, IID_PPV_ARGS(&PSO));
-		if (FAILED(r))
-		{
-			UE_LOG(LogD3D12RHI, Error, TEXT("Failed to create PipelineState %s with hash %s"), *TPSOFunctionMap<TDesc>::GetString(), Name);
-		}
-	}
-
-	check(PSO);
-}
-
-template void CreatePipelineStateFromStream<GraphicsPipelineCreationArgs_POD>(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name);
-template void CreatePipelineStateFromStream<ComputePipelineCreationArgs_POD>(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name);
-
-// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
-template <typename TDesc>
-void CreatePipelineStateFromStream(ID3D12PipelineState*& PSO, ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name)
-{
-#if LOG_PSO_CREATES
-	const FString CreatePipelineStateMessage = FString::Printf(TEXT("CreatePipelineState (%s, Hash = %s)"), *TPSOStreamFunctionMap<TDesc>::GetString(), Name);
-	SCOPE_LOG_TIME(*CreatePipelineStateMessage, &GD3D12CreatePSOTime);
-#endif
-
-	if (Library)
-	{
-		// Try to load the PSO from the library.
-		check(Name);
-		HRESULT HResult = Library->LoadPipeline(Name, Desc, IID_PPV_ARGS(&PSO));
-		if (E_INVALIDARG == HResult)
-		{
-			// The name doesn't exist or the input desc doesn't match the data in the library, just create the PSO.
-			{
-				SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
-				VERIFYD3D12RESULT(Device->CreatePipelineState(Desc, IID_PPV_ARGS(&PSO)));
-			}
-
-			// Try to save the PSO to the library for another time.
-			check(PSO);
-			HResult = Library->StorePipeline(Name, PSO);
-			if (E_INVALIDARG != HResult)
-			{
-				// E_INVALIDARG means the name already exists in the library. Since the name is based on the hash, this is a hash collision.
-				// We ignore E_INVALIDARG because we just create PSO's if they don't exist in the library.
-				VERIFYD3D12RESULT(HResult);
-			}
-		}
-		else
-		{
-			VERIFYD3D12RESULT(HResult);
-		}
-	}
-	else
-	{
-		SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
-		HRESULT r = Device->CreatePipelineState(Desc, IID_PPV_ARGS(&PSO));
-
-		if (FAILED(r))
-		{
-			UE_LOG(LogD3D12RHI, Error, TEXT("Failed to create PipelineState"));
-		}
-	}
-
-	check(PSO);
 }

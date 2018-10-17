@@ -232,7 +232,6 @@ FD3D12PipelineState::FD3D12PipelineState(FD3D12Adapter* Parent)
 	, FD3D12MultiNodeGPUObject(FRHIGPUMask::All(), FRHIGPUMask::All()) //Create on all, visible on all
 	, Worker(nullptr)
 	, PendingWaitOnWorkerCalls(0)
-	, bAddToDiskCache(false)
 {
 	INC_DWORD_STAT(STAT_D3D12NumPSOs);
 }
