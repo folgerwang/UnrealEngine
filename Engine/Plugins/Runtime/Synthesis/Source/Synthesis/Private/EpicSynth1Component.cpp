@@ -624,5 +624,6 @@ void UModularSynthLibrary::AddModularSynthPresetToBankAsset(UModularSynthPresetB
 		NewBankEntry.Preset = Preset;
 
 		InBank->Presets.Add(NewBankEntry);
+		InBank->MarkPackageDirty();
 	}
 }
