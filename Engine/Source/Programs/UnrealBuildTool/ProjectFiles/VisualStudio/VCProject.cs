@@ -368,6 +368,12 @@ namespace UnrealBuildTool
 		/// <returns>Project context matching the given solution context</returns>
 		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform)
 		{
+			// Stub projects always build in the same configuration
+			if(IsStubProject)
+			{
+				return new MSBuildProjectContext(StubProjectConfigurationName, StubProjectPlatformName);
+			}
+
 			// Have to match every solution configuration combination to a project configuration (or use the invalid one) 
 			string ProjectConfigurationName = "Invalid";
 
