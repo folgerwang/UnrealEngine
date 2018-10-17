@@ -281,23 +281,38 @@ void SAddNewRestrictedGameplayTagWidget::ValidateNewRestrictedTag()
 
 	if (bHasOwner)
 	{
-		FString StringToDisplay = TEXT("Do you have permission from ");
-		StringToDisplay.Append(TagSourceOwners[0]);
-		for (int Idx = 1; Idx < TagSourceOwners.Num(); ++Idx)
+		// check if we're one of the owners; if we are then we don't need to pop up the permission dialog
+		bool bRequiresPermission = true;
+		const FString& UserName = FPlatformProcess::UserName();
+		for (const FString& Owner : TagSourceOwners)
 		{
-			StringToDisplay.Append(TEXT(" or "));
-			StringToDisplay.Append(TagSourceOwners[Idx]);
+			if (Owner.Equals(UserName))
+			{
+				CreateNewRestrictedGameplayTag();
+				bRequiresPermission = false;
+			}
 		}
-		StringToDisplay.Append(TEXT(" to modify "));
-		StringToDisplay.Append(TagSource.ToString());
-		StringToDisplay.Append(TEXT("?"));
 
-		FNotificationInfo Info(FText::FromString(StringToDisplay));
-		Info.ExpireDuration = 10.f;
-		Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("RestrictedTagPopupButtonAccept", "Yes"), FText(), FSimpleDelegate::CreateSP(this, &SAddNewRestrictedGameplayTagWidget::CreateNewRestrictedGameplayTag), SNotificationItem::CS_None));
-		Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("RestrictedTagPopupButtonReject", "No"), FText(), FSimpleDelegate::CreateSP(this, &SAddNewRestrictedGameplayTagWidget::CancelNewTag), SNotificationItem::CS_None));
+		if (bRequiresPermission)
+		{
+			FString StringToDisplay = TEXT("Do you have permission from ");
+			StringToDisplay.Append(TagSourceOwners[0]);
+			for (int Idx = 1; Idx < TagSourceOwners.Num(); ++Idx)
+			{
+				StringToDisplay.Append(TEXT(" or "));
+				StringToDisplay.Append(TagSourceOwners[Idx]);
+			}
+			StringToDisplay.Append(TEXT(" to modify "));
+			StringToDisplay.Append(TagSource.ToString());
+			StringToDisplay.Append(TEXT("?"));
 
-		AddRestrictedGameplayTagDialog = FSlateNotificationManager::Get().AddNotification(Info);
+			FNotificationInfo Info(FText::FromString(StringToDisplay));
+			Info.ExpireDuration = 10.f;
+			Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("RestrictedTagPopupButtonAccept", "Yes"), FText(), FSimpleDelegate::CreateSP(this, &SAddNewRestrictedGameplayTagWidget::CreateNewRestrictedGameplayTag), SNotificationItem::CS_None));
+			Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("RestrictedTagPopupButtonReject", "No"), FText(), FSimpleDelegate::CreateSP(this, &SAddNewRestrictedGameplayTagWidget::CancelNewTag), SNotificationItem::CS_None));
+
+			AddRestrictedGameplayTagDialog = FSlateNotificationManager::Get().AddNotification(Info);
+		}
 	}
 	else
 	{
