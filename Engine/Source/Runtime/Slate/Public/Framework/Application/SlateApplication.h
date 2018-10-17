@@ -309,7 +309,7 @@ public:
 	static TSharedRef<class FGlobalTabmanager> GetGlobalTabManager();
 
 	/** Initializes high dpi support for the process */
-	static void InitHighDPI();
+	static void InitHighDPI(const bool bForceEnable);
 
 	/** @return the root style node, which is the entry point to the style graph representing all the current style rules. */
 	const class FStyleNode* GetRootStyle() const;
