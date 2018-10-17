@@ -250,14 +250,8 @@ bool FAndroidTargetPlatform::SupportsVulkan() const
 
 bool FAndroidTargetPlatform::SupportsSoftwareOcclusion() const
 {
-	// default to not supporting
-	bool bSupportsSoftwareOcclusion = false;
-#if WITH_ENGINE
-	int32 IntValue = 0;
-	GConfig->GetInt(TEXT("ConsoleVariables"), TEXT("r.Mobile.AllowSoftwareOcclusion"), IntValue, GEngineIni);
-	bSupportsSoftwareOcclusion = (IntValue != 0);
-#endif
-	return bSupportsSoftwareOcclusion;
+	static auto* CVarMobileAllowSoftwareOcclusion = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowSoftwareOcclusion"));
+	return CVarMobileAllowSoftwareOcclusion->GetValueOnAnyThread() != 0;
 }
 
 /* ITargetPlatform overrides

@@ -10,7 +10,7 @@
 
 class FRHITexture2D;
 
-class FWebMMediaTextureSample
+class WEBMMEDIA_API FWebMMediaTextureSample
 	: public IMediaTextureSample
 	, public IMediaPoolable
 {
@@ -37,6 +37,9 @@ public:
 public:
 	//~ IMediaPoolable interface
 	virtual void ShutdownPoolable() override;
+
+public:
+	TRefCountPtr<FRHITexture2D> GetTextureRef() const;
 
 private:
 	TRefCountPtr<FRHITexture2D> Texture;

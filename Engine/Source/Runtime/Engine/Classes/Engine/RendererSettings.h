@@ -202,6 +202,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip="Whether to support 'Dithered LOD Transition' material option on mobile platforms. Enabling this may degrade performance as rendering will not benefit from Early-Z optimization.",
 		ConfigRestartRequired=true))
 	uint32 bMobileAllowDitheredLODTransition:1;
+
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta=(
+		ConsoleVariable="r.Mobile.AllowSoftwareOcclusion", DisplayName="Support Software Occlusion Culling",
+		ToolTip="Whether to support 'Software Occlusion Culling' on mobile platforms. This this package occluder information and enable Software Occlusion Culling.",
+		ConfigRestartRequired=false))
+	uint32 bMobileAllowSoftwareOcclusionCulling:1;
 	
 	UPROPERTY(config, EditAnywhere, Category = Materials, meta = (
 		ConsoleVariable = "r.DiscardUnusedQuality", DisplayName = "Game Discards Unused Material Quality Levels",

@@ -1746,9 +1746,6 @@ protected:
 	/** Copy scene color from the mobile multi-view render targat array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
 
-	/** Gather information about post-processing pass, which can be used by render for optimizations. Called by InitViews */
-	void UpdatePostProcessUsageFlags();
-
 	/** Render inverse opacity for the dynamic meshes. */
 	bool RenderInverseOpacityDynamic(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
 
@@ -1756,9 +1753,7 @@ protected:
 	void PostInitViewCustomData();
 	
 private:
-
 	bool bModulatedShadowsInUse;
-	bool bPostProcessUsesDepthTexture;
 };
 
 // The noise textures need to be set in Slate too.
