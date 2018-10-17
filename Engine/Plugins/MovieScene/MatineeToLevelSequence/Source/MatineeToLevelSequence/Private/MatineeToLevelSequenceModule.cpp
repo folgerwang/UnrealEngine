@@ -494,7 +494,7 @@ protected:
 				{
 					for (auto Track : Binding.GetTracks())
 					{
-						UMovieSceneComponentMaterialTrack * MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>(Track);
+						MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>(Track);
 						if (MaterialTrack)
 						{
 							BoundTracks.Add(MaterialTrack);
@@ -517,7 +517,7 @@ protected:
 			}
 			else
 			{
-				UMovieSceneComponentMaterialTrack* MaterialTrack = NewMovieScene->AddTrack<UMovieSceneComponentMaterialTrack>(ComponentGuid);
+				MaterialTrack = NewMovieScene->AddTrack<UMovieSceneComponentMaterialTrack>(ComponentGuid);
 				if (MaterialTrack)
 				{
 					MaterialTrack->SetMaterialIndex(MaterialIndex);

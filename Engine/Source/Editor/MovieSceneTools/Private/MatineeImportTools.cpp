@@ -281,9 +281,9 @@ bool FMatineeImportTools::CopyInterpMaterialParamTrack(UInterpTrackFloatMaterial
 
 		for (const auto& Point : MatineeMaterialParamTrack->FloatTrack.Points)
 		{
-			FFrameNumber KeyTime = (Point.InVal * FrameRate).RoundToFrame();
+			FFrameNumber CurrentKeyTime = (Point.InVal * FrameRate).RoundToFrame();
 
-			FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Point.OutVal, Point.ArriveTangent, Point.LeaveTangent, Point.InterpMode, FrameRate);
+			FMatineeImportTools::SetOrAddKey(ChannelData, CurrentKeyTime, Point.OutVal, Point.ArriveTangent, Point.LeaveTangent, Point.InterpMode, FrameRate);
 		}
 
 		CleanupCurveKeys(Channel);
@@ -340,11 +340,11 @@ bool FMatineeImportTools::CopyInterpMaterialParamTrack(UInterpTrackVectorMateria
 
 		for (const auto& Point : MatineeMaterialParamTrack->VectorTrack.Points)
 		{
-			FFrameNumber KeyTime = (Point.InVal * FrameRate).RoundToFrame();
+			FFrameNumber CurrentKeyTime = (Point.InVal * FrameRate).RoundToFrame();
 
-			FMatineeImportTools::SetOrAddKey(ChannelData[0], KeyTime, Point.OutVal.X, Point.ArriveTangent.X, Point.LeaveTangent.X, Point.InterpMode, FrameRate);
-			FMatineeImportTools::SetOrAddKey(ChannelData[1], KeyTime, Point.OutVal.Y, Point.ArriveTangent.Y, Point.LeaveTangent.Y, Point.InterpMode, FrameRate);
-			FMatineeImportTools::SetOrAddKey(ChannelData[2], KeyTime, Point.OutVal.Z, Point.ArriveTangent.Z, Point.LeaveTangent.Z, Point.InterpMode, FrameRate);
+			FMatineeImportTools::SetOrAddKey(ChannelData[0], CurrentKeyTime, Point.OutVal.X, Point.ArriveTangent.X, Point.LeaveTangent.X, Point.InterpMode, FrameRate);
+			FMatineeImportTools::SetOrAddKey(ChannelData[1], CurrentKeyTime, Point.OutVal.Y, Point.ArriveTangent.Y, Point.LeaveTangent.Y, Point.InterpMode, FrameRate);
+			FMatineeImportTools::SetOrAddKey(ChannelData[2], CurrentKeyTime, Point.OutVal.Z, Point.ArriveTangent.Z, Point.LeaveTangent.Z, Point.InterpMode, FrameRate);
 		}
 
 		CleanupCurveKeys(Channels[0]);
