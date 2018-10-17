@@ -312,7 +312,7 @@ void FMovieSceneCompiler::CompileRange(TRange<FFrameNumber> InGlobalRange, UMovi
 
 		// If the range that we just compiled goes right up to the end of the gap, increment onto the
 		// next entry in the evaluation field iterator (which should be a populated range)
-		if (CompiledRange.GetUpperBound() == EmptySpaceRange.GetUpperBound())
+		if (MovieScene::DiscreteUpperBoundsAreEquivalent(CompiledRange.GetUpperBound(), EmptySpaceRange.GetUpperBound()))
 		{
 			++ExistingEvaluationFieldIter;
 		}
@@ -421,7 +421,7 @@ void FMovieSceneCompiler::GatherCompileOnTheFlyData(UMovieSceneSequence& InSeque
 	for ( ; SubSectionIt && SubSectionIt.Range().Overlaps(CompileClampIntersection); ++SubSectionIt)
 	{
 		TRange<FFrameNumber> ThisSegmentRangeRoot = Params.ClampRoot(SubSectionIt.Range() * Params.RootToSequenceTransform.Inverse());
-		if (ThisSegmentRangeRoot.IsEmpty())
+		if (MovieScene::DiscreteRangeIsEmpty(ThisSegmentRangeRoot))
 		{
 			continue;
 		}
@@ -569,7 +569,7 @@ void FMovieSceneCompiler::GatherCompileDataForTrack(FMovieSceneEvaluationTrack& 
 		Data.bRequiresInit = ThisSegment.Impls.ContainsByPredicate(RequiresInit);
 
 		TRange<FFrameNumber> IntersectionRange = Params.ClampRoot(ThisSegment.Range * SequenceToRootTransform);
-		if (!IntersectionRange.IsEmpty())
+		if (!MovieScene::DiscreteRangeIsEmpty(IntersectionRange))
 		{
 			OutData.Tracks.Add(IntersectionRange, Data);
 		}

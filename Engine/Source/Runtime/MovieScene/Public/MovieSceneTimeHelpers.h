@@ -147,6 +147,63 @@ inline bool DiscreteLowerBoundsAreEquivalent(const TRangeBound<FFrameNumber>& A,
 }
 
 /**
+ * Check whether the two specified upper bounds are equivalent in a discrete domain
+ */
+inline bool DiscreteUpperBoundsAreEquivalent(const TRangeBound<FFrameNumber>& A, const TRangeBound<FFrameNumber>& B)
+{
+	if (A.IsOpen() || B.IsOpen())
+	{
+		// Either bound is open
+		return A.IsOpen() && B.IsOpen();
+	}
+	else if (A.IsExclusive() == B.IsExclusive())
+	{
+		// Both inclusive or both exclusive
+		return A.GetValue() == B.GetValue();
+	}
+	else if (A.IsExclusive())
+	{
+		// A exclusive, B inclusive
+		return A.GetValue() == B.GetValue()+1;
+	}
+	else
+	{
+		// A inclusive, B exclusive
+		return B.GetValue() == A.GetValue()+1;
+	}
+}
+
+/**
+ * Check whether the specified range contains any integer frame numbers or not
+ */
+inline bool DiscreteRangeIsEmpty(const TRange<FFrameNumber>& InRange)
+{
+	if (InRange.GetLowerBound().IsOpen() || InRange.GetUpperBound().IsOpen())
+	{
+		return false;
+	}
+
+	// From here on we're handling ranges of the form [x,y], [x,y), (x,y] and (x,y)
+	const bool bLowerInclusive = InRange.GetLowerBound().IsInclusive();
+	const bool bUpperInclusive = InRange.GetUpperBound().IsInclusive();
+
+	if (bLowerInclusive)
+	{
+		// Lower is inclusive
+		return bUpperInclusive
+			? InRange.GetLowerBoundValue() >  InRange.GetUpperBoundValue()		// [x, y] - empty if x >  y
+			: InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue();		// [x, y) - empty if x >= y
+	}
+	else
+	{
+		// Lower is exclusive
+		return bUpperInclusive
+			? InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue()		// (x, y] - empty if x >= y
+			: InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue()-1;	// (x, y) - empty if x >= y-1
+	}
+}
+
+/**
  * Dilate the specified range by adding a specific size to the lower and upper bounds (if closed)
  */
 template<typename T>

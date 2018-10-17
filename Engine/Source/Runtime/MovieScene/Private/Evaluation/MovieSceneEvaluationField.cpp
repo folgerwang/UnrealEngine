@@ -59,7 +59,7 @@ TRange<int32> FMovieSceneEvaluationField::ConditionallyCompileRange(const TRange
 		{
 			bIsDirty = true;
 
-			if (!InvalidatedSubSequenceRange.IsEmpty())
+			if (!MovieScene::DiscreteRangeIsEmpty(InvalidatedSubSequenceRange))
 			{
 				// Invalidate this evaluation field
 				RangesToInvalidate.Add(InvalidatedSubSequenceRange);
