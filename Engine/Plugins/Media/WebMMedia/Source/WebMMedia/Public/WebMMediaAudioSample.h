@@ -99,6 +99,11 @@ public:
 		return Time;
 	}
 
+	const TArray<uint8>& GetDataBuffer() const
+	{
+		return Buffer;
+	}
+
 private:
 
 	/** The sample's data buffer. */

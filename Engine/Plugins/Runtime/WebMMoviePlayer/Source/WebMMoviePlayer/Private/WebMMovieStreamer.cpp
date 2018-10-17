@@ -13,6 +13,7 @@
 #include "WebMAudioDecoder.h"
 #include "WebMMediaFrame.h"
 #include "WebMContainer.h"
+#include "WebMMediaAudioSample.h"
 #include "WebMMediaTextureSample.h"
 
 DEFINE_LOG_CATEGORY(LogWebMMoviePlayer);
@@ -24,18 +25,27 @@ FWebMMovieStreamer::FWebMMovieStreamer()
 	, bPlaying(false)
 {
 	Viewport = MakeShareable(new FMovieViewport());
+
+	AudioBackend = MakeUnique<FWebMAudioBackend>();
+	AudioBackend->InitializePlatform();
 }
 
 FWebMMovieStreamer::~FWebMMovieStreamer()
 {
 	Cleanup();
+
+	AudioBackend->ShutdownPlatform();
 }
 
 void FWebMMovieStreamer::Cleanup()
 {
-	ForceCompletion();
+	VideoDecoder.Reset();
+	AudioDecoder.Reset();
+	Container.Reset();
 
 	ReleaseAcquiredResources();
+
+	AudioBackend->StopStreaming();
 }
 
 FTexture2DRHIRef FWebMMovieStreamer::GetTexture()
@@ -56,13 +66,14 @@ bool FWebMMovieStreamer::Init(const TArray<FString>& InMoviePaths, TEnumAsByte<E
 
 	// Play the next movie in the queue
 	return bPlaying;
-
 }
 
 bool FWebMMovieStreamer::StartNextMovie()
 {
 	if (MovieQueue.Num() > 0)
 	{
+		Cleanup();
+
 		MovieName = MovieQueue[0];
 
 		MovieQueue.RemoveAt(0);
@@ -98,6 +109,8 @@ bool FWebMMovieStreamer::StartNextMovie()
 		AudioDecoder->Initialize(DefaultAudioTrack.CodecName, DefaultAudioTrack.SampleRate, DefaultAudioTrack.NumOfChannels, DefaultAudioTrack.CodecPrivateData, DefaultAudioTrack.CodecPrivateDataSize);
 		VideoDecoder->Initialize(DefaultVideoTrack.CodecName);
 
+		AudioBackend->StartStreaming(DefaultAudioTrack.SampleRate, DefaultAudioTrack.NumOfChannels);
+
 		CurrentTime = 0;
 
 		return true;
@@ -126,8 +139,7 @@ bool FWebMMovieStreamer::Tick(float InDeltaTime)
 		bool bHaveThingsToDo = false;
 
 		bHaveThingsToDo |= DisplayFrames(InDeltaTime);
-
-		// TODO! Audio!
+		bHaveThingsToDo |= SendAudio(InDeltaTime);
 
 		bHaveThingsToDo |= DecodeMoreFrames();
 
@@ -179,10 +191,6 @@ void FWebMMovieStreamer::ReleaseAcquiredResources()
 	}
 
 	Viewport->SetTexture(nullptr);
-
-	VideoDecoder.Reset();
-	AudioDecoder.Reset();
-	Container.Reset();
 }
 
 bool FWebMMovieStreamer::DisplayFrames(float InDeltaTime)
@@ -208,6 +216,22 @@ bool FWebMMovieStreamer::DisplayFrames(float InDeltaTime)
 	}
 
 	return Samples->NumVideoSamples() > 0 || VideoDecoder->IsBusy();
+}
+
+bool FWebMMovieStreamer::SendAudio(float InDeltaTime)
+{
+	TSharedPtr<IMediaAudioSample, ESPMode::ThreadSafe> AudioSample;
+	TRange<FTimespan> TimeRange(FTimespan::Zero(), FTimespan::FromSeconds(CurrentTime));
+	bool bFoundSample = Samples->FetchAudio(TimeRange, AudioSample);
+
+	if (bFoundSample && AudioSample)
+	{
+		FWebMMediaAudioSample* WebMSample = StaticCast<FWebMMediaAudioSample*>(AudioSample.Get());
+
+		AudioBackend->SendAudio(WebMSample->GetDataBuffer().GetData(), WebMSample->GetDataBuffer().Num());
+	}
+
+	return Samples->NumAudio() > 0 || AudioDecoder->IsBusy();
 }
 
 bool FWebMMovieStreamer::DecodeMoreFrames()

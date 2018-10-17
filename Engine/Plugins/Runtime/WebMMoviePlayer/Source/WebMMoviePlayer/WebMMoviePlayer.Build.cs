@@ -21,6 +21,17 @@ namespace UnrealBuildTool.Rules
 					"MediaUtils",
 					"WebMMedia",
 				});
+
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+			{
+				PrivateDependencyModuleNames.Add("SDL2");
+
+				PrivateIncludePaths.Add("WebMMoviePlayer/Private/Audio/Unix");
+			}
+			else
+			{
+				PrivateIncludePaths.Add("WebMMoviePlayer/Private/Audio/Null");
+			}
 		}
 	}
 }
