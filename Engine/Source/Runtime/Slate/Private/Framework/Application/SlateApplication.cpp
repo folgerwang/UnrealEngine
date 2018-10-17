@@ -1110,7 +1110,7 @@ void FSlateApplication::SetupPhysicalSensitivities()
 	FGestureDetector::LongPressAllowedMovement = DragTriggerDistance;
 }
 
-void FSlateApplication::InitHighDPI()
+void FSlateApplication::InitHighDPI(const bool bForceEnable)
 {
 	IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("EnableHighDPIAwareness"));
 
@@ -1126,7 +1126,8 @@ void FSlateApplication::InitHighDPI()
 			GConfig->GetBool(TEXT("/Script/Engine.UserInterfaceSettings"), TEXT("bAllowHighDPIInGameMode"), bRequestEnableHighDPI, GEngineIni);
 		}
 
-		const bool bEnableHighDPI = bRequestEnableHighDPI && !FParse::Param(FCommandLine::Get(), TEXT("nohighdpi"));
+		bool bEnableHighDPI = bRequestEnableHighDPI && !FParse::Param(FCommandLine::Get(), TEXT("nohighdpi"));
+		bEnableHighDPI |= bForceEnable;
 
 		// Set the cvar here for other systems that need it.
 		CVar->Set(bEnableHighDPI);

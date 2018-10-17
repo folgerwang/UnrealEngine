@@ -24,6 +24,14 @@ FPIEPreviewDevice::FPIEPreviewDevice()
 	DeviceSpecs = MakeShareable(new FPIEPreviewDeviceSpecifications());
 }
 
+void FPIEPreviewDevice::ShutdownDevice()
+{
+	if (BezelTexture != nullptr && BezelTexture->IsValidLowLevel())
+	{
+		BezelTexture->RemoveFromRoot();
+	}
+}
+
 void FPIEPreviewDevice::ComputeViewportSize(const bool bClampWindowSize)
 {
 	int32 ScreenWidth, ScreenHeight;
@@ -124,11 +132,11 @@ void FPIEPreviewDevice::GetDeviceDefaultResolution(int32& Width, int32& Height)
 	Height = DeviceSpecs->ResolutionY;
 }
 
-void FPIEPreviewDevice::ComputeDeviceResolution(int32& Width, int32& Height)
+void FPIEPreviewDevice::ComputeContentScaledResolution(int32& Width, int32& Height)
 {
 	GetDeviceDefaultResolution(Width, Height);
 
-	if (!bIgnoreContentScaleFactor)
+	if (!GetIgnoreMobileContentScaleFactor())
 	{
 		switch (DeviceSpecs->DevicePlatform)
 		{
@@ -160,9 +168,14 @@ void FPIEPreviewDevice::ComputeDeviceResolution(int32& Width, int32& Height)
 			break;
 
 			default:
-				break;
+			break;
 		} //end switch
 	}// end if (!bIgnoreContentScaleFactor)
+}
+
+void FPIEPreviewDevice::ComputeDeviceResolution(int32& Width, int32& Height)
+{
+	ComputeContentScaledResolution(Width, Height);
 
 	Width *= ResolutionScaleFactor;
 	Height *= ResolutionScaleFactor;
@@ -268,7 +281,7 @@ void FPIEPreviewDevice::SetupDevice(const int32 InWindowTitleBarSize)
 	WindowTitleBarSize = InWindowTitleBarSize;
 
 	// set initial scale factor
-	ResolutionScaleFactor = 0.5f;
+	ResolutionScaleFactor = 1.0f;
 
 	// compute bezel file path
 	FString BezelPath = FPaths::EngineContentDir() + TEXT("Editor/PIEPreviewDeviceSpecs/");
@@ -284,6 +297,7 @@ void FPIEPreviewDevice::SetupDevice(const int32 InWindowTitleBarSize)
 
 	// load the bezel texture
 	BezelTexture = FImageUtils::ImportFileAsTexture2D(BezelPath);
+	BezelTexture->AddToRoot();
 	
 	// if we have invalid/uninitialized viewport values use the values provided as native device resolution
 	FPIEPreviewDeviceBezelViewportRect& ViewportRect = DeviceSpecs->BezelProperties.BezelViewportRect;
@@ -304,18 +318,11 @@ void FPIEPreviewDevice::SetupDevice(const int32 InWindowTitleBarSize)
 	// determine current orientation
 	bool bSwitchOrientation = bLandscape && DeviceSpecs->ResolutionY > DeviceSpecs->ResolutionX;
 	bSwitchOrientation |= !bLandscape && bPortrait && DeviceSpecs->ResolutionX > DeviceSpecs->ResolutionY;
+
 	if (bSwitchOrientation)
 	{
 		SwitchOrientation(true);
 	}
-	else
-	{
-		// finally compute needed window and viewport size
-		// the above branch will call it from SwitchOrientation()
-		ComputeViewportSize(true);
-	}
-
-	ApplyRHIOverrides();
 }
 
 void FPIEPreviewDevice::ApplyRHIPrerequisitesOverrides() const
@@ -421,5 +428,5 @@ FString FPIEPreviewDevice::GetProfile() const
 
 int32 FPIEPreviewDevice::GetWindowClientHeight() const
 {
-	return WindowHeight - WindowTitleBarSize;
+	return WindowHeight - WindowTitleBarSize * DPIScaleFactor;
 }
