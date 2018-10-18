@@ -129,6 +129,13 @@ void FVulkanLinuxPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 #endif
+
+	if (IsRHIDeviceNVIDIA())
+	{
+		//#todo-rco: Temporary workaround for some buffers not updating
+		extern FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit;
+		CVarVulkanWaitForIdleOnSubmit->Set(1);
+	}
 }
 
 void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
