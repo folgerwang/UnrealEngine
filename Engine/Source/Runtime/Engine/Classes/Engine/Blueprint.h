@@ -158,6 +158,9 @@ public:
 	/** Whether or not to skip class default object validation */
 	bool bSkipDefaultObjectValidation;
 
+	/** Whether or not to update Find-in-Blueprint search metadata */
+	bool bSkipFiBSearchMetaUpdate;
+
 	TSharedPtr<FString> OutHeaderSourceCode;
 	TSharedPtr<FString> OutCppSourceCode;
 	FCompilerNativizationOptions NativizationOptions;
@@ -187,6 +190,7 @@ public:
 		, bIsDuplicationInstigated(false)
 		, bReinstanceAndStubOnFailure(true)
 		, bSkipDefaultObjectValidation(false)
+		, bSkipFiBSearchMetaUpdate(false)
 	{
 	};
 };

@@ -255,14 +255,9 @@ struct FTemporarilyUseFriendlyNodeTitles
 		if (!bCacheShowFriendlyNames)
 		{
 			// Find all Schemas and force a visualization cache clear
-			for ( TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt )
+			for ( TObjectIterator<UEdGraphSchema> SchemaIt(RF_NoFlags); SchemaIt; ++SchemaIt)
 			{
-				UClass* CurrentClass = *ClassIt;
-
-				if (UEdGraphSchema* Schema = Cast<UEdGraphSchema>(CurrentClass->GetDefaultObject()))
-				{
-					Schema->ForceVisualizationCacheClear();
-				}
+				SchemaIt->ForceVisualizationCacheClear();
 			}
 		}
 	}
