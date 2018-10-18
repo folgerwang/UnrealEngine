@@ -312,6 +312,12 @@ private:
 			return (Curve == Other.Curve) && (KeyHandle == Other.KeyHandle);
 		}
 
+		/** Are the curve and the key different ?*/
+		bool			operator != (const FSelectedCurveKey& Other) const
+		{
+			return (Curve != Other.Curve) && (KeyHandle != Other.KeyHandle);
+		}
+
 		FRichCurve*		Curve;
 		FKeyHandle		KeyHandle;
 	};
@@ -432,6 +438,10 @@ private:
 	TOptional<int32> OnGetTimeInFrames() const;
 	void OnTimeInFramesComitted(int32 NewValue, ETextCommit::Type CommitType);
 	void OnTimeInFramesChanged(int32 NewValue);
+
+	void UpdateCurveTimeSingleKey(FSelectedCurveKey Key, float NewTime, bool bSetFromFrame = false);
+	void UpdateCurveTimeSingleKey(FSelectedCurveKey Key, int32 NewFrame);
+	void LogAndToastCurveTimeWarning(FRichCurve* Curve);
 
 	TOptional<float> OnGetValue() const;
 	void OnValueComitted(float NewValue, ETextCommit::Type CommitType);

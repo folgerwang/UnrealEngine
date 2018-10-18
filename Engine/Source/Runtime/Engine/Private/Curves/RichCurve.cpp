@@ -390,32 +390,47 @@ float FRichCurve::GetKeyTime(FKeyHandle KeyHandle) const
 
 FKeyHandle FRichCurve::FindKey(float KeyTime, float KeyTimeTolerance) const
 {
-	int32 Start = 0;
-	int32 End = Keys.Num()-1;
-
-	// Binary search since the keys are in sorted order
-	while (Start <= End)
+	int32 KeyPosition = FindKeyInternal(KeyTime, KeyTimeTolerance);
+	if (KeyPosition >= 0)
 	{
-		int32 TestPos = Start + (End-Start) / 2;
-		float TestKeyTime = Keys[TestPos].Time;
-
-		if (FMath::IsNearlyEqual(TestKeyTime, KeyTime, KeyTimeTolerance))
-		{
-			return GetKeyHandle(TestPos);
-		}
-		else if(TestKeyTime < KeyTime)
-		{
-			Start = TestPos+1;
-		}
-		else
-		{
-			End = TestPos-1;
-		}
+		return GetKeyHandle(KeyPosition);
 	}
 
 	return FKeyHandle();
 }
 
+bool FRichCurve::KeyExistsAtTime(float KeyTime, float KeyTimeTolerance) const
+{
+	return FindKeyInternal(KeyTime, KeyTimeTolerance) >= 0;
+}
+
+int32 FRichCurve::FindKeyInternal(float KeyTime, float KeyTimeTolerance) const
+{
+	int32 Start = 0;
+	int32 End = Keys.Num() - 1;
+
+	// Binary search since the keys are in sorted order
+	while (Start <= End)
+	{
+		int32 TestPos = Start + (End - Start) / 2;
+		float TestKeyTime = Keys[TestPos].Time;
+
+		if (FMath::IsNearlyEqual(TestKeyTime, KeyTime, KeyTimeTolerance))
+		{
+			return TestPos;
+		}
+		else if (TestKeyTime < KeyTime)
+		{
+			Start = TestPos + 1;
+		}
+		else
+		{
+			End = TestPos - 1;
+		}
+	}
+
+	return -1;
+}
 
 void FRichCurve::SetKeyValue(FKeyHandle KeyHandle, float NewValue, bool bAutoSetTangents)
 {

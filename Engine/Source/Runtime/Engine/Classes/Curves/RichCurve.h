@@ -273,8 +273,11 @@ public:
 	/** Get the time for the Key with the specified index. */
 	float GetKeyTime(FKeyHandle KeyHandle) const;
 
-	/** Finds a key a the specified time */
+	/** Finds a key a the specified time - if it doesn't exist, adds it */
 	FKeyHandle FindKey(float KeyTime, float KeyTimeTolerance = KINDA_SMALL_NUMBER) const;
+
+	/** True if a key exists already, false otherwise */
+	bool KeyExistsAtTime(float KeyTime, float KeyTimeTolerance = KINDA_SMALL_NUMBER) const;
 
 	/** Set the value of the specified key */
 	void SetKeyValue(FKeyHandle KeyHandle, float NewValue, bool bAutoSetTangents=true);
@@ -348,6 +351,7 @@ public:
 
 private:
 	void RemoveRedundantKeysInternal(float Tolerance, int32 InStartKeepKey, int32 InEndKeepKey);
+	int32 FindKeyInternal(float KeyTime, float KeyTimeTolerance) const;
 
 public:
 
