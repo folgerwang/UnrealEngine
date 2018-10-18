@@ -9,6 +9,7 @@ class FWebMVideoDecoder;
 class FWebMAudioDecoder;
 class FMediaSamples;
 class FWebMContainer;
+class FRunnableThread;
 
 class FWebMMovieStreamer : public IMovieStreamer
 {
@@ -30,7 +31,12 @@ public:
 	FOnCurrentMovieClipFinished OnCurrentMovieClipFinishedDelegate;
 	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() override { return OnCurrentMovieClipFinishedDelegate; }
 
+	bool DecodeMoreFramesInAnotherThread();
+	bool IsPlaying() const { return bPlaying; }
+
 private:
+	class FWebMBackgroundReader;
+
 	//Theoretically only need 2 buffered textures, but we have extra to avoid needing to make a copy of the AvPlayer data to pass to an RHI thread command.  Instead, we buffer deeper and update the textures on the Render thread.
 	static const int32 NumBufferedTextures = 4;
 
@@ -45,6 +51,8 @@ private:
 	TUniquePtr<FWebMAudioDecoder> AudioDecoder;
 	TUniquePtr<FWebMContainer> Container;
 	TUniquePtr<FWebMAudioBackend> AudioBackend;
+	TUniquePtr<FRunnableThread> BackgroundReaderThread;
+	TUniquePtr<FWebMBackgroundReader> BackgroundReader;
 	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TSharedPtr<FMovieViewport> Viewport;
 	float CurrentTime;
@@ -54,5 +62,4 @@ private:
 	void ReleaseAcquiredResources();
 	bool DisplayFrames(float InDeltaTime);
 	bool SendAudio(float InDeltaTime);
-	bool DecodeMoreFrames();
 };
