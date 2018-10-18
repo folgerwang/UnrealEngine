@@ -42,7 +42,6 @@ void FDiskCacheInterface::Init(FString &filename, bool bEnable)
 		}
 	}
 	bool fileFound = mCacheExists;
-	mCurrentFileMapSize = 1;
 	GrowMapping(64 * 1024, true);
 
 	if (fileFound && mFileStart)
@@ -69,12 +68,9 @@ void FDiskCacheInterface::GrowMapping(SIZE_T size, bool firstrun)
 		return;
 	}
 
-	if (mCurrentFileMapSize - mCurrentOffset < size)
+	if (mCurrentOffset + size > mCurrentFileMapSize)
 	{
-		while ((mCurrentFileMapSize - mCurrentOffset) < size)
-		{
-			mCurrentFileMapSize += mFileGrowSize;
-		}
+		mCurrentFileMapSize = Align(mCurrentOffset + size, mFileGrowSize);
 	}
 	else
 	{
