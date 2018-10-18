@@ -484,7 +484,7 @@ namespace mtlpp
 	ParallelEncoderValidationTable::ParallelEncoderValidationTable(ParallelRenderCommandEncoder& Encoder)
 	: ns::Object<ParallelEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>([[ParallelEncoderValidationTableImpl alloc] init], ns::Ownership::Assign)
 	{
-		
+		Encoder.SetAssociatedObject(ParallelEncoderValidationTable::kTableAssociationKey, *this);
 	}
 	ParallelEncoderValidationTable::ParallelEncoderValidationTable(ParallelEncoderValidationTableImpl* Table)
 	: ns::Object<ParallelEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>(Table)
@@ -705,6 +705,7 @@ namespace mtlpp
 	CommandEncoderValidationTable CommandBufferValidationTable::AddEncoderValidator(ParallelRenderCommandEncoder& Encoder)
 	{
 		ParallelEncoderValidationTable ParallelValidator(Encoder);
+		ParallelValidator.GetPtr()->CommandBufferValidator = m_ptr;
 		
 		CommandEncoderValidationTable Validator(Encoder);
 		m_ptr->EncoderValidators.push(Validator);
