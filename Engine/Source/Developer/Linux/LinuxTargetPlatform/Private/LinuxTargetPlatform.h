@@ -318,13 +318,22 @@ public:
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override
 	{
 		static FName NAME_OGG(TEXT("OGG"));
+		static FName NAME_OPUS(TEXT("OPUS"));
+
+		if (Wave->IsStreaming())
+		{
+			return NAME_OPUS;
+		}
+
 		return NAME_OGG;
 	}
 
 	virtual void GetAllWaveFormats(TArray<FName>& OutFormats) const override
 	{
 		static FName NAME_OGG(TEXT("OGG"));
+		static FName NAME_OPUS(TEXT("OPUS"));
 		OutFormats.Add(NAME_OGG);
+		OutFormats.Add(NAME_OPUS);
 	}
 
 	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override
