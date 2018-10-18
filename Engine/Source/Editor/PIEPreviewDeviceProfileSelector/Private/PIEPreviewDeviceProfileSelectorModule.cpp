@@ -28,11 +28,6 @@ IMPLEMENT_MODULE(FPIEPreviewDeviceModule, PIEPreviewDeviceProfileSelector);
 
 void FPIEPreviewDeviceModule::StartupModule()
 {
-	// the window size will be available after all data is loaded and we'll use this callback to display it
-	EngineInitCompleteDelegate = FCoreDelegates::OnFEngineLoopInitComplete.AddRaw(this, &FPIEPreviewDeviceModule::OnEngineInitComplete);
-
-	// to finish setup we need complete engine initialization
-	ViewportCreatedDelegate = UGameViewportClient::OnViewportCreated().AddRaw(this, &FPIEPreviewDeviceModule::OnViewportCreated);
 }
 
 void FPIEPreviewDeviceModule::ShutdownModule()
@@ -73,6 +68,12 @@ FString const FPIEPreviewDeviceModule::GetRuntimeDeviceProfileName()
 void FPIEPreviewDeviceModule::InitPreviewDevice()
 {
 	bInitialized = true;
+
+	// the window size will be available after all data is loaded and we'll use this callback to display it
+	EngineInitCompleteDelegate = FCoreDelegates::OnFEngineLoopInitComplete.AddRaw(this, &FPIEPreviewDeviceModule::OnEngineInitComplete);
+
+	// to finish setup we need complete engine initialization
+	ViewportCreatedDelegate = UGameViewportClient::OnViewportCreated().AddRaw(this, &FPIEPreviewDeviceModule::OnViewportCreated);
 
 	if (ReadDeviceSpecification())
 	{
