@@ -457,6 +457,11 @@ namespace UnrealBuildTool
 				RulesObject.bBuildRequiresCookedData = true;
 			}
 
+			if (!RulesObject.bAllowNonUFSIniWhenCooked)
+			{
+				RulesObject.GlobalDefinitions.Add("DISABLE_NONUFS_INI_WHEN_COOKED=1");
+			}
+
 			// Allow the platform to finalize the settings
 			UEBuildPlatform Platform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
 			Platform.ValidateTarget(RulesObject);

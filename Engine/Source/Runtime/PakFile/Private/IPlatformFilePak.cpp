@@ -30,6 +30,10 @@ DEFINE_LOG_CATEGORY(LogPakFile);
 DEFINE_STAT(STAT_PakFile_Read);
 DEFINE_STAT(STAT_PakFile_NumOpenHandles);
 
+#ifndef DISABLE_NONUFS_INI_WHEN_COOKED
+#define DISABLE_NONUFS_INI_WHEN_COOKED 0
+#endif
+
 int32 ParseChunkIDFromFilename(const FString& InFilename)
 {
 	FString ChunkIdentifier(TEXT("pakchunk"));
@@ -3896,6 +3900,13 @@ bool FPakPlatformFile::IsNonPakFilenameAllowed(const FString& InFilename)
 	}
 #endif
 
+#if DISABLE_NONUFS_INI_WHEN_COOKED
+	if (FPlatformProperties::RequiresCookedData() && InFilename.EndsWith(IniFileExtension) && !InFilename.EndsWith(GameUserSettingsIniFilename))
+	{
+		bAllowed = false;
+	}
+#endif
+
 	FFilenameSecurityDelegate& FilenameSecurityDelegate = GetFilenameSecurityDelegate();
 	if (bAllowed)
 	{
@@ -4937,6 +4948,11 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 	ExcludedNonPakExtensions.Add(TEXT("umap"));
 	ExcludedNonPakExtensions.Add(TEXT("ubulk"));
 	ExcludedNonPakExtensions.Add(TEXT("uexp"));
+#endif
+
+#if DISABLE_NONUFS_INI_WHEN_COOKED
+	IniFileExtension = TEXT(".ini");
+	GameUserSettingsIniFilename = TEXT("GameUserSettings.ini");
 #endif
 
 	FEncryptionKey DecryptionKey;
