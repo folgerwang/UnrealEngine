@@ -7,7 +7,6 @@
 #include "LightMap.h"
 
 class UMaterialInterface;
-struct FRawMesh;
 struct FMeshDescription;
 
 /** Structure containing information about the material which is being baked out */
@@ -29,12 +28,10 @@ struct FMaterialData
 struct FMeshData
 {
 	FMeshData()
-		: RawMesh(nullptr), RawMeshDescription(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr)
+		: RawMeshDescription(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr)
 	{}
 
 	/** Ptr to raw mesh data to use for baking out the material data, if nullptr a standard quad is used */
-	FRawMesh* RawMesh;
-
 	FMeshDescription* RawMeshDescription;
 
 	/** Ptr to original static mesh this mesh data came from */

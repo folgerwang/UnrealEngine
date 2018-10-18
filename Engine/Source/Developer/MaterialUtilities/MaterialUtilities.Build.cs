@@ -32,6 +32,7 @@ public class MaterialUtilities : ModuleRules
 			new string [] {
 				 "RawMesh",
                  "MeshDescription",
+                 "MeshDescriptionOperations",
 			}
 		);      
 

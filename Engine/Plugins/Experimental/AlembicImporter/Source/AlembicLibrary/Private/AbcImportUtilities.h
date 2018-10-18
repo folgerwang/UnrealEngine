@@ -22,7 +22,6 @@ THIRD_PARTY_INCLUDES_END
 #include "GeometryCacheComponent.h"
 
 #include "Async/ParallelFor.h"
-#include "RawMesh.h"
 #include "MeshUtilities.h"
 
 #include "AbcImportLogger.h"

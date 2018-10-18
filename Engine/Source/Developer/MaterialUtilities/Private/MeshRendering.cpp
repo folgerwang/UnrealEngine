@@ -18,7 +18,9 @@
 #include "Misc/App.h"
 #include "MaterialUtilities.h"
 #include "Misc/FileHelper.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
 #include "SceneView.h"
 #include "MeshBatch.h"
 #include "CanvasItem.h"
@@ -58,7 +60,7 @@ public:
 class FMeshMaterialRenderItem2 : public FCanvasBaseRenderItem
 {
 public:
-	FMeshMaterialRenderItem2(FSceneViewFamily* InViewFamily, const FRawMesh* InMesh, const FSkeletalMeshLODRenderData* InLODData, int32 LightMapIndex, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const FVector2D& InSize, const FMaterialRenderProxy* InMaterialRenderProxy, const FCanvas::FTransformEntry& InTransform /*= FCanvas::FTransformEntry(FMatrix::Identity)*/, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer) : Data(new FRenderData(
+	FMeshMaterialRenderItem2(FSceneViewFamily* InViewFamily, const FMeshDescription* InMesh, const FSkeletalMeshLODRenderData* InLODData, int32 LightMapIndex, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const FVector2D& InSize, const FMaterialRenderProxy* InMaterialRenderProxy, const FCanvas::FTransformEntry& InTransform /*= FCanvas::FTransformEntry(FMatrix::Identity)*/, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer) : Data(new FRenderData(
 		InViewFamily,
 		InMesh,
 		InLODData,
@@ -83,7 +85,7 @@ private:
 	public:
 		FRenderData(
 			FSceneViewFamily* InViewFamily,
-			const FRawMesh* InMesh,
+			const FMeshDescription* InMesh,
 			const FSkeletalMeshLODRenderData* InLODData,
 			int32 InLightMapIndex,
 			int32 InMaterialIndex,
@@ -107,7 +109,7 @@ private:
 
 		{}
 		FSceneViewFamily* ViewFamily;
-		const FRawMesh* StaticMesh;
+		const FMeshDescription* StaticMesh;
 		const FSkeletalMeshLODRenderData* SkeletalMesh;
 		int32 LightMapIndex;
 		int32 MaterialIndex;
@@ -122,7 +124,7 @@ private:
 	FRenderData* Data;
 public:
 
-	static void EnqueueMaterialRender(class FCanvas* InCanvas, FSceneViewFamily* InViewFamily, const FRawMesh* InMesh, const FSkeletalMeshLODRenderData* InLODRenderData, int32 LightMapIndex, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const FVector2D& InSize, const FMaterialRenderProxy* InMaterialRenderProxy, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer)
+	static void EnqueueMaterialRender(class FCanvas* InCanvas, FSceneViewFamily* InViewFamily, const FMeshDescription* InMesh, const FSkeletalMeshLODRenderData* InLODRenderData, int32 LightMapIndex, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const FVector2D& InSize, const FMaterialRenderProxy* InMaterialRenderProxy, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer)
 	{
 		// get sort element based on the current sort key from top of sort key stack
 		FCanvas::FCanvasSortElement& SortElement = InCanvas->GetSortElement(InCanvas->TopDepthSortKey());
@@ -146,16 +148,16 @@ public:
 		SortElement.RenderBatchArray.Add(RenderBatch);
 	}
 
-	static int32 FillStaticMeshData(bool bDuplicateTris, const FRawMesh& RawMesh, FRenderData& Data, TArray<FDynamicMeshVertex>& OutVerts, TArray<uint32>& OutIndices)
+	static int32 FillStaticMeshData(bool bDuplicateTris, const FMeshDescription& RawMesh, FRenderData& Data, TArray<FDynamicMeshVertex>& OutVerts, TArray<uint32>& OutIndices)
 	{
 		// count triangles for selected material
 		int32 NumTris = 0;
-		int32 TotalNumFaces = RawMesh.FaceMaterialIndices.Num();
-		for (int32 FaceIndex = 0; FaceIndex < TotalNumFaces; FaceIndex++)
+		for (const FPolygonID PolygonID : RawMesh.Polygons().GetElementIDs())
 		{
-			if (RawMesh.FaceMaterialIndices[FaceIndex] == Data.MaterialIndex)
+			const FPolygonGroupID PolygonGroupID = RawMesh.GetPolygonPolygonGroup(PolygonID);
+			if (PolygonGroupID.GetValue() == Data.MaterialIndex)
 			{
-				NumTris++;
+				NumTris += RawMesh.GetPolygonTriangles(PolygonID).Num();
 			}
 		}
 		if (NumTris == 0)
@@ -164,7 +166,13 @@ public:
 			return 0;
 		}
 
-		// vertices are not shared between triangles in FRawMesh, so NumVerts is NumTris * 3
+		TVertexAttributesConstRef<FVector> VertexPositions = RawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+		TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = RawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+
 		int32 NumVerts = NumTris * 3;
 
 		// reserve renderer data
@@ -179,68 +187,77 @@ public:
 		float ScaleY = (SizeV != 0) ? Data.Size.Y / SizeV : 1.0;
 
 		// count number of texture coordinates for this mesh
-		int32 NumTexcoords = 1;
-		for (NumTexcoords = 1; NumTexcoords < MAX_STATIC_TEXCOORDS; NumTexcoords++)
-		{
-			if (RawMesh.WedgeTexCoords[NumTexcoords].Num() == 0)
-				break;
-		}
+		int32 NumTexcoords = FMath::Min(VertexInstanceUVs.GetNumIndices(), (int32)MAX_STATIC_TEXCOORDS);
 
 		// check if we should use NewUVs or original UV set
 		bool bUseNewUVs = Data.TexCoords.Num() > 0;
 		if (bUseNewUVs)
 		{
-			check(Data.TexCoords.Num() == RawMesh.WedgeTexCoords[0].Num());
+			check(Data.TexCoords.Num() == VertexInstanceUVs.GetNumElements());
 			ScaleX = Data.Size.X;
 			ScaleY = Data.Size.Y;
 		}
 
 		// add vertices
 		int32 VertIndex = 0;
-		bool bHasVertexColor = (RawMesh.WedgeColors.Num() > 0);
-		for (int32 FaceIndex = 0; FaceIndex < TotalNumFaces; FaceIndex++)
+		int32 FaceIndex = 0;
+		for (const FPolygonID PolygonID : RawMesh.Polygons().GetElementIDs())
 		{
-			if (RawMesh.FaceMaterialIndices[FaceIndex] == Data.MaterialIndex)
+			const FPolygonGroupID PolygonGroupID = RawMesh.GetPolygonPolygonGroup(PolygonID);
+			const TArray<FMeshTriangle>& Triangles = RawMesh.GetPolygonTriangles(PolygonID);
+			for (const FMeshTriangle& Triangle : Triangles)
 			{
-				for (int32 Corner = 0; Corner < 3; Corner++)
+				if (PolygonGroupID.GetValue() == Data.MaterialIndex)
 				{
-					int32 SrcVertIndex = FaceIndex * 3 + Corner;
-					// add vertex
-					FDynamicMeshVertex* Vert = new(OutVerts)FDynamicMeshVertex();
-					if (!bUseNewUVs)
+					for (int32 Corner = 0; Corner < 3; Corner++)
 					{
-						// compute vertex position from original UV
-						const FVector2D& UV = RawMesh.WedgeTexCoords[0][SrcVertIndex];
-						Vert->Position.Set((UV.X - U) * ScaleX, (UV.Y - V) * ScaleY, 0);
+						const int32 SrcVertIndex = FaceIndex * 3 + Corner;
+						const FVertexInstanceID SrcVertexInstanceID = Triangle.GetVertexInstanceID(Corner);
+						const FVertexID SrcVertexID = RawMesh.GetVertexInstanceVertex(SrcVertexInstanceID);
+
+						// add vertex
+						FDynamicMeshVertex* Vert = new(OutVerts)FDynamicMeshVertex();
+						if (!bUseNewUVs)
+						{
+							// compute vertex position from original UV
+							const FVector2D& UV = VertexInstanceUVs.Get(SrcVertexInstanceID, 0);
+							Vert->Position.Set((UV.X - U) * ScaleX, (UV.Y - V) * ScaleY, 0);
+						}
+						else
+						{
+							const FVector2D& UV = Data.TexCoords[SrcVertIndex];
+							Vert->Position.Set(UV.X * ScaleX, UV.Y * ScaleY, 0);
+						}
+						FVector TangentX = VertexInstanceTangents[SrcVertexInstanceID];
+						FVector TangentZ = VertexInstanceNormals[SrcVertexInstanceID];
+						FVector TangentY = FVector::CrossProduct(TangentZ, TangentX).GetSafeNormal() * VertexInstanceBinormalSigns[SrcVertexInstanceID];
+						Vert->SetTangents(TangentX, TangentY, TangentZ);
+						for (int32 TexcoordIndex = 0; TexcoordIndex < NumTexcoords; TexcoordIndex++)
+						{
+							Vert->TextureCoordinate[TexcoordIndex] = VertexInstanceUVs.Get(SrcVertexInstanceID, TexcoordIndex);
+						}
+
+						// Store original vertex positions in texture coordinate data
+						Vert->TextureCoordinate[6].X = VertexPositions[SrcVertexID].X;
+						Vert->TextureCoordinate[6].Y = VertexPositions[SrcVertexID].Y;
+						Vert->TextureCoordinate[7].X = VertexPositions[SrcVertexID].Z;
+
+						Vert->Color = FLinearColor(VertexInstanceColors[SrcVertexInstanceID]).ToFColor(true);
+						// add index
+						OutIndices.Add(VertIndex);
+						VertIndex++;
 					}
-					else
+					if (bDuplicateTris)
 					{
-						const FVector2D& UV = Data.TexCoords[SrcVertIndex];
-						Vert->Position.Set(UV.X * ScaleX, UV.Y * ScaleY, 0);
+						// add the same triangle with opposite vertex order
+						OutIndices.Add(VertIndex - 3);
+						OutIndices.Add(VertIndex - 1);
+						OutIndices.Add(VertIndex - 2);
 					}
-					Vert->SetTangents(RawMesh.WedgeTangentX[SrcVertIndex], RawMesh.WedgeTangentY[SrcVertIndex], RawMesh.WedgeTangentZ[SrcVertIndex]);
-					for (int32 TexcoordIndex = 0; TexcoordIndex < NumTexcoords; TexcoordIndex++)
-						Vert->TextureCoordinate[TexcoordIndex] = RawMesh.WedgeTexCoords[TexcoordIndex][SrcVertIndex];
-
-					Vert->TextureCoordinate[6].X = RawMesh.VertexPositions[RawMesh.WedgeIndices[SrcVertIndex]].X;
-					Vert->TextureCoordinate[6].Y = RawMesh.VertexPositions[RawMesh.WedgeIndices[SrcVertIndex]].Y;
-					Vert->TextureCoordinate[7].X = RawMesh.VertexPositions[RawMesh.WedgeIndices[SrcVertIndex]].Z;
-
-					Vert->Color = bHasVertexColor ? RawMesh.WedgeColors[SrcVertIndex] : FColor::White;
-					// add index
-					OutIndices.Add(VertIndex);
-					VertIndex++;
 				}
-				if (bDuplicateTris)
-				{
-					// add the same triangle with opposite vertex order
-					OutIndices.Add(VertIndex - 3);
-					OutIndices.Add(VertIndex - 1);
-					OutIndices.Add(VertIndex - 2);
-				}
+				FaceIndex++;
 			}
 		}
-
 		return NumTris;
 	}
 

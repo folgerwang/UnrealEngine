@@ -26,11 +26,10 @@
 #include "Engine/MapBuildDataRegistry.h"
 #include "MeshAttributes.h"
 #include "MeshAttributeArray.h"
-#include "MeshDescription.h"
 #include "MeshDescriptionOperations.h"
 #include "MeshMergeModule.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
 #include "ScopedTransaction.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "UnrealEdGlobals.h"
@@ -275,10 +274,10 @@ int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationSta
 		DestinationLodIndex = DestinationStaticMesh->SourceModels.Num() - 1;
 	}
 
-	FRawMesh SourceRawMesh;
-	SourceStaticMesh->SourceModels[ SourceLodIndex ].LoadRawMesh( SourceRawMesh );
-
-	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].SaveRawMesh( SourceRawMesh );
+	const FMeshDescription& SourceRawMesh = *SourceStaticMesh->GetOriginalMeshDescription(SourceLodIndex);
+	FMeshDescription& DestRawMesh = *SourceStaticMesh->GetOriginalMeshDescription(DestinationLodIndex);
+	DestRawMesh = SourceRawMesh;
+	SourceStaticMesh->CommitOriginalMeshDescription(DestinationLodIndex);
 
 	DestinationStaticMesh->PostEditChange();
 

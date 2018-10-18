@@ -188,7 +188,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 				UniqueSectionIndexPerLOD.MultiFind(LODIndex, IndexPairs);
 
 				FMeshData MeshSettings;
-				MeshSettings.RawMesh = new FRawMesh();
+				MeshSettings.RawMeshDescription = new FMeshDescription();
 
 				// Add material indices used for rendering out material
 				for (const TPair<uint32, uint32>& Pair : IndexPairs)
@@ -203,11 +203,9 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 				{
 					// Retrieve raw mesh
 					MeshSettings.RawMeshDescription = RawMeshLODs.Find(LODIndex);
-					TMap<FName, int32> MaterialMap;
-					FMeshDescriptionOperations::ConvertToRawMesh(*MeshSettings.RawMeshDescription, *(MeshSettings.RawMesh), MaterialMap);
 
 					MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
-					const bool bUseVertexColor = (MeshSettings.RawMesh->WedgeColors.Num() > 0);
+					const bool bUseVertexColor = FMeshDescriptionOperations::HasVertexColor(*(MeshSettings.RawMeshDescription));
 					if (MaterialOptions->bUseSpecificUVIndex)
 					{
 						MeshSettings.TextureCoordinateIndex = MaterialOptions->TextureCoordinateIndex;
@@ -225,9 +223,11 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 					Adapter->ApplySettings(LODIndex, MeshSettings);
 					
 					// In case part of the UVs is not within the 0-1 range try to use the lightmap UVs
-					const bool bNeedsUniqueUVs = FMeshMergeHelpers::CheckWrappingUVs(MeshSettings.RawMesh->WedgeTexCoords[MeshSettings.TextureCoordinateIndex]);
+					const bool bNeedsUniqueUVs = FMeshMergeHelpers::CheckWrappingUVs(*(MeshSettings.RawMeshDescription), MeshSettings.TextureCoordinateIndex);
 					const int32 LightMapUVIndex = Adapter->LightmapUVIndex();
-					if (bNeedsUniqueUVs && MeshSettings.TextureCoordinateIndex != LightMapUVIndex && MeshSettings.RawMesh->WedgeTexCoords[LightMapUVIndex].Num())
+					
+					TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = MeshSettings.RawMeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+					if (bNeedsUniqueUVs && MeshSettings.TextureCoordinateIndex != LightMapUVIndex && VertexInstanceUVs.GetNumElements() > 0 && VertexInstanceUVs.GetNumIndices() > LightMapUVIndex)
 					{
 						MeshSettings.TextureCoordinateIndex = LightMapUVIndex;
 					}
@@ -278,7 +278,6 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 
 			if (MeshSettings.MaterialIndices.Num())
 			{
-				MeshSettings.RawMesh = nullptr;
 				MeshSettings.RawMeshDescription = nullptr;
 				MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 				MeshSettings.TextureCoordinateIndex = 0;
@@ -439,13 +438,13 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 	}
 
 	Adapter->UpdateUVChannelData();
-	//Free the FRawMesh memory
+	//Free the FMeshDescription memory
 	for (FMeshData& MeshData : GlobalMeshSettings)
 	{
-		if (MeshData.RawMesh != nullptr)
+		if (MeshData.RawMeshDescription != nullptr)
 		{
-			delete MeshData.RawMesh;
-			MeshData.RawMesh = nullptr;
+			delete MeshData.RawMeshDescription;
+			MeshData.RawMeshDescription = nullptr;
 		}
 	}
 }
@@ -1296,28 +1295,26 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 					FMeshData MeshSettings;
 					// Retrieve raw mesh
 					FMeshDescription* MeshDescription = RawMeshData[MeshIndex];
-					TMap<FName, int32> MaterialMap;
-					int32 MeshMaterialIndex = 0;
-					TPolygonGroupAttributesConstRef<FName> TargetPolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-					for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
-					{
-						MaterialMap.Add(TargetPolygonGroupImportedMaterialSlotNames[PolygonGroupID], MeshMaterialIndex);
-						MeshMaterialIndex++;
-					}
-					FMeshDescriptionOperations::ConvertToRawMesh(*MeshDescription, *(MeshSettings.RawMesh), MaterialMap);
 					MeshSettings.RawMeshDescription = MeshDescription;
 
+					TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshSettings.RawMeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 					// If we already have lightmap uvs generated or the lightmap coordinate index != 0 and available we can reuse those instead of having to generate new ones
-					if (InMeshProxySettings.bReuseMeshLightmapUVs && (ComponentsToMerge[MeshIndex]->GetStaticMesh()->SourceModels[0].BuildSettings.bGenerateLightmapUVs || (ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex != 0 && MeshSettings.RawMesh->WedgeTexCoords[ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex].Num() != 0)))
+					if (InMeshProxySettings.bReuseMeshLightmapUVs
+						&& (ComponentsToMerge[MeshIndex]->GetStaticMesh()->SourceModels[0].BuildSettings.bGenerateLightmapUVs
+							|| (ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex != 0 && VertexInstanceUVs.GetNumElements() > 0 && VertexInstanceUVs.GetNumIndices() > ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex)))
 					{
-						MeshSettings.CustomTextureCoordinates = MeshSettings.RawMesh->WedgeTexCoords[ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex];
+						MeshSettings.CustomTextureCoordinates.Reset(VertexInstanceUVs.GetNumElements());
+						int32 LightMapCoordinateIndex = ComponentsToMerge[MeshIndex]->GetStaticMesh()->LightMapCoordinateIndex;
+						for (const FVertexInstanceID VertexInstanceID : MeshSettings.RawMeshDescription->VertexInstances().GetElementIDs())
+						{
+							MeshSettings.CustomTextureCoordinates.Add(VertexInstanceUVs.Get(VertexInstanceID, LightMapCoordinateIndex));
+						}
 						ScaleTextureCoordinatesToBox(FBox2D(FVector2D::ZeroVector, FVector2D(1, 1)), MeshSettings.CustomTextureCoordinates);
 					}
 					else
 					{
-						IMeshUtilities& MeshUtilities = FModuleManager::LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 						// Generate unique UVs for mesh (should only be done if needed)
-						MeshUtilities.GenerateUniqueUVsForStaticMesh(*MeshSettings.RawMesh, Options->TextureSize.GetMax(), MeshSettings.CustomTextureCoordinates);
+						FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(*MeshDescription, Options->TextureSize.GetMax(), false, MeshSettings.CustomTextureCoordinates);
 						ScaleTextureCoordinatesToBox(FBox2D(FVector2D::ZeroVector, FVector2D(1, 1)), MeshSettings.CustomTextureCoordinates);
 					}
 
@@ -1362,7 +1359,6 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 		{
 			// Add simple bake entry 
 			FMeshData MeshSettings;
-			MeshSettings.RawMesh = nullptr;
 			MeshSettings.RawMeshDescription = nullptr;
 			MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 			MeshSettings.TextureCoordinateIndex = 0;
@@ -1545,7 +1541,12 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 			}
 			else
 			{
-				MergeData.NewUVs = MeshData->RawMesh->WedgeTexCoords[MeshData->TextureCoordinateIndex];
+				TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshData->RawMeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+				MergeData.NewUVs.Reset(MeshData->RawMeshDescription->VertexInstances().Num());
+				for (const FVertexInstanceID VertexInstanceID : MeshData->RawMeshDescription->VertexInstances().GetElementIDs())
+				{
+					MergeData.NewUVs.Add(VertexInstanceUVs.Get(VertexInstanceID, MeshData->TextureCoordinateIndex));
+				}
 			}
 			MergeData.TexCoordBounds[0] = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 		}
@@ -2029,9 +2030,6 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				if (InSettings.bUseVertexDataForBakingMaterial && (bDoesMaterialUseVertexData || bRequiresUniqueUVs))
 				{
 					MeshData.RawMeshDescription = DataTracker.GetRawMeshPtr(Key);
-					TMap<FName, int32> MaterialMap;
-					MeshData.RawMesh = new FRawMesh();
-					FMeshDescriptionOperations::ConvertToRawMesh(*MeshData.RawMeshDescription, *(MeshData.RawMesh), MaterialMap);
 
 					// if it has vertex color/*WedgetColors.Num()*/, it should also use light map UV index
 					// we can't do this for all meshes, but only for the mesh that has vertex color.
@@ -2040,7 +2038,8 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 						// Check if there are lightmap uvs available?
 						const int32 LightMapUVIndex = StaticMeshComponentsToMerge[Key.GetMeshIndex()]->GetStaticMesh()->LightMapCoordinateIndex;
 
-						if (InSettings.bReuseMeshLightmapUVs && MeshData.RawMesh->WedgeTexCoords[LightMapUVIndex].Num())
+						TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshData.RawMeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+						if (InSettings.bReuseMeshLightmapUVs && VertexInstanceUVs.GetNumElements() > 0 && VertexInstanceUVs.GetNumIndices() > LightMapUVIndex)
 						{
 							MeshData.TextureCoordinateIndex = LightMapUVIndex;
 						}
@@ -2105,7 +2104,6 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				}
 				else
 				{
-					MeshData.RawMesh = nullptr;
 					MeshData.RawMeshDescription = nullptr;
 					MeshData.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
 

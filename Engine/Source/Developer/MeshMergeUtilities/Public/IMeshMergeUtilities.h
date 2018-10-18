@@ -10,7 +10,6 @@
 
 struct FRawMeshExt;
 struct FStaticMeshLODResources;
-struct FRawMesh;
 struct FBakeOutput;
 struct FKAggregateGeom;
 struct FMaterialData;

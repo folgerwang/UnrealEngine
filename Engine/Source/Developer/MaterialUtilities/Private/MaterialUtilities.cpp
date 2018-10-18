@@ -43,7 +43,7 @@
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "MeshAttributeArray.h"
-//#include "MeshDescriptionOperations.h"
+#include "MeshDescriptionOperations.h"
 
 #if WITH_EDITOR
 #include "DeviceProfiles/DeviceProfile.h"
@@ -915,7 +915,12 @@ bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, FFlatten
 
 bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache)
 {
-	FMaterialMergeData MaterialData(InMaterial, InMesh, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
+	FMeshDescription MeshDescription;
+	UStaticMesh::RegisterMeshAttributes(MeshDescription);
+	TMap<int32, FName> MaterialMap;
+	FMeshDescriptionOperations::ConvertFromRawMesh(*InMesh, MeshDescription, MaterialMap);
+
+	FMaterialMergeData MaterialData(InMaterial, &MeshDescription, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
 
 	TArray<FMaterialMergeData*> MergeData{ &MaterialData };
 	TArray<FFlattenMaterial*> FlatMaterials{ &OutFlattenMaterial };
@@ -927,7 +932,12 @@ bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FR
 
 bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const int32 LightMapIndex, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache /*= NULL*/)
 {
-	FMaterialMergeData MaterialData(InMaterial, InMesh, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
+	FMeshDescription MeshDescription;
+	UStaticMesh::RegisterMeshAttributes(MeshDescription);
+	TMap<int32, FName> MaterialMap;
+	FMeshDescriptionOperations::ConvertFromRawMesh(*InMesh, MeshDescription, MaterialMap);
+
+	FMaterialMergeData MaterialData(InMaterial, &MeshDescription, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
 	MaterialData.LightMapIndex = 1;
 	MaterialData.LightMap = LightMap;
 	MaterialData.ShadowMap = ShadowMap;
@@ -2312,7 +2322,7 @@ bool FMaterialUtilities::ExportMaterials(TArray<FMaterialMergeData*>& MergeData,
 		FMaterialMergeData* CurrentMergeData = MergeData[MaterialIndex];
 
 		FMeshData* MeshSet = new FMeshData();
-		MeshSet->RawMesh = const_cast<FRawMesh*>(CurrentMergeData->Mesh);
+		MeshSet->RawMeshDescription = const_cast<FMeshDescription*>(CurrentMergeData->Mesh);
 		MeshSet->TextureCoordinateBox = CurrentMergeData->TexcoordBounds;
 		MeshSet->CustomTextureCoordinates = CurrentMergeData->TexCoords;
 		MeshSettings.Add(MeshSet);

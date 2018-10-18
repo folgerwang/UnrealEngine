@@ -278,16 +278,7 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 	DestinationRawMesh.FaceMaterialIndices.AddZeroed(TriangleNumber);
 	DestinationRawMesh.FaceSmoothingMasks.AddZeroed(TriangleNumber);
 
-	bool bHasVertexColor = false;
-	FVector4 WhiteColor(FLinearColor::White);
-	for (const FVertexInstanceID& VertexInstanceID : SourceMeshDescription.VertexInstances().GetElementIDs())
-	{
-		if (VertexInstanceColors[VertexInstanceID] != WhiteColor)
-		{
-			bHasVertexColor = true;
-			break;
-		}
-	}
+	bool bHasVertexColor = HasVertexColor(SourceMeshDescription);
 
 	int32 WedgeIndexNumber = TriangleNumber * 3;
 	if (bHasVertexColor)
@@ -1932,6 +1923,22 @@ void FMeshDescriptionOperations::SwapPolygonPolygonGroup(FMeshDescription& MeshD
 		}
 		TriangleIndex += TriangleCount;
 	}
+}
+
+bool FMeshDescriptionOperations::HasVertexColor(const FMeshDescription& MeshDescription)
+{
+	TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	bool bHasVertexColor = false;
+	FVector4 WhiteColor(FLinearColor::White);
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+	{
+		if (VertexInstanceColors[VertexInstanceID] != WhiteColor)
+		{
+			bHasVertexColor = true;
+			break;
+		}
+	}
+	return bHasVertexColor;
 }
 
 #undef LOCTEXT_NAMESPACE

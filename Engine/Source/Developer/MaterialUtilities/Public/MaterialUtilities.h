@@ -24,7 +24,7 @@ class UTexture2D;
 class UTextureRenderTarget2D;
 class UMaterialOptions;
 struct FMaterialProxySettings;
-struct FRawMesh;
+struct FMeshDescription;
 class FSkeletalMeshLODRenderData;
 struct FBakeOutput;
 struct FMeshData;
@@ -140,7 +140,7 @@ struct FMaterialMergeData
 	/** Material that is being baked out */
 	class UMaterialInterface* Material;
 	/** Raw mesh data used to bake out the material with, optional */
-	const struct FRawMesh* Mesh;
+	const struct FMeshDescription* Mesh;
 	/** LODModel data used to bake out the material with, optional */
 	const FSkeletalMeshLODRenderData* LODData;
 	/** Material index to use when the material is baked out using mesh data (face material indices) */
@@ -160,7 +160,7 @@ struct FMaterialMergeData
 
 	FMaterialMergeData(
 		UMaterialInterface* InMaterial,
-		const FRawMesh* InMesh,
+		const FMeshDescription* InMesh,
 		const FSkeletalMeshLODRenderData* InLODData,
 		int32 InMaterialIndex,
 		FBox2D InTexcoordBounds,

@@ -117,4 +117,5 @@ public:
 
 	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);
 
+	static bool HasVertexColor(const FMeshDescription& MeshDescription);
 };

@@ -2,8 +2,6 @@
 
 #pragma once
 
-struct FRawMesh;
-struct FSectionInfo;
 struct FMeshDescription;
 class UMaterialInterface;
 
