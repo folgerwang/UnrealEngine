@@ -156,6 +156,12 @@ FString FMaterialStatsUtils::ShaderPlatformTypeName(const EShaderPlatform Platfo
 		case SP_METAL_MRT:
 			return FString("METAL_MRT");
 		break;
+		case SP_METAL_TVOS:
+			return FString("METAL_TVOS");
+		break;
+		case SP_METAL_MRT_TVOS:
+			return FString("METAL_MRT_TVOS");
+		break;
 		case SP_OPENGL_ES31_EXT:
 			return FString("OPENGL_ES31_EXT");
 		break;
@@ -266,6 +272,8 @@ bool FMaterialStatsUtils::PlatformNeedsOfflineCompiler(const EShaderPlatform Sha
 		case SP_PCD3D_ES2:
 		case SP_METAL:
 		case SP_METAL_MRT:
+		case SP_METAL_TVOS:
+		case SP_METAL_MRT_TVOS:
 		case SP_PCD3D_ES3_1:
 		case SP_METAL_SM5:
 		case SP_METAL_SM5_NOTESS:
