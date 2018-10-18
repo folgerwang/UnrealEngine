@@ -917,7 +917,6 @@ public:
 		}
 		else
 		{
-			ensure(State == EState::Unused);
 			return false;
 		}
 	}
