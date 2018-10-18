@@ -74,7 +74,7 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 	float MaxAverageLuminance = 1;
 
 	// Disable exposure for buffer visualization. so it doesn't influence buffer visualization brightness.
-	const bool bDisableExposure = !(EngineShowFlags.Lighting && EngineShowFlags.EyeAdaptation && View.GetFeatureLevel() >= MinFeatureLevel)
+	const bool bDisableExposure = !(EngineShowFlags.Lighting && EngineShowFlags.EyeAdaptation)
 		|| (EngineShowFlags.VisualizeBuffer && View.CurrentBufferVisualizationMode != NAME_None)
 		|| View.Family->UseDebugViewPS();
 
