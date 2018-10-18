@@ -151,10 +151,6 @@ FMeshDescriptionArrayAdapter::FMeshDescriptionArrayAdapter(const FMeshDescriptio
 
 FMeshDescriptionArrayAdapter::~FMeshDescriptionArrayAdapter()
 {
-	for (FMeshDescription* MeshDescription : RawMeshArray)
-	{
-		delete MeshDescription;
-	}
 	RawMeshArray.clear();
 
 	RawMeshArrayData.clear();
