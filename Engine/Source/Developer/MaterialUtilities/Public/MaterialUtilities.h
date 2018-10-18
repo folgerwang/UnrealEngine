@@ -25,6 +25,7 @@ class UTextureRenderTarget2D;
 class UMaterialOptions;
 struct FMaterialProxySettings;
 struct FMeshDescription;
+struct FRawMesh;
 class FSkeletalMeshLODRenderData;
 struct FBakeOutput;
 struct FMeshData;
