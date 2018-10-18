@@ -59,6 +59,10 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 struct FPointerToUberGraphFrameCoreUObject
 {
 	uint8* RawPointer;
+
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	uint32 UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 };
 #endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
