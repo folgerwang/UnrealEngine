@@ -2151,3 +2151,71 @@ void FD3D11DynamicRHI::RHIFlushComputeShaderCache()
 
 	EndUAVOverlap();
 }
+
+//*********************** StagingBuffer Implementation ***********************//
+
+FStagingBufferRHIRef FD3D11DynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
+{
+	return new FD3D11StagingBuffer(VertexBufferRHI);
+}
+
+void FD3D11DynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
+{
+	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	FD3D11VertexBuffer* VertexBuffer = ResourceCast(StagingBuffer->GetBackingBuffer());
+	if (StagingBuffer && VertexBuffer)
+	{
+		// Free previously allocated buffer.
+		StagingBuffer->StagedRead.SafeRelease();
+
+		// If the static buffer is being locked for reading, create a staging buffer.
+		D3D11_BUFFER_DESC StagedReadDesc;
+		ZeroMemory( &StagedReadDesc, sizeof( D3D11_BUFFER_DESC ) );
+		StagedReadDesc.ByteWidth = NumBytes;
+		StagedReadDesc.Usage = D3D11_USAGE_STAGING;
+		StagedReadDesc.BindFlags = 0;
+		StagedReadDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		StagedReadDesc.MiscFlags = 0;
+		TRefCountPtr<ID3D11Buffer> StagingVertexBuffer;
+		VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&StagedReadDesc,NULL,StagingBuffer->StagedRead.GetInitReference()), Direct3DDevice);
+
+		// Copy the contents of the vertex buffer to the staging buffer.
+		D3D11_BOX SourceBox;
+		SourceBox.left = Offset;
+		SourceBox.right = NumBytes;
+		SourceBox.top = SourceBox.front = 0;
+		SourceBox.bottom = SourceBox.back = 1;
+		Direct3DDeviceIMContext->CopySubresourceRegion(StagingBuffer->StagedRead,0,0,0,0,VertexBuffer->Resource,0,&SourceBox);
+	}
+
+	if (Fence)
+	{
+		Fence->Write();
+	}
+}
+
+void* FD3D11DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
+{
+	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	if (StagingBuffer && StagingBuffer->StagedRead)
+	{
+		// Map the staging buffer's memory for reading.
+		D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+		VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(StagingBuffer->StagedRead ,0,D3D11_MAP_READ,0,&MappedSubresource), Direct3DDevice);
+
+		return (void*)((uint8*)MappedSubresource.pData + Offset);
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void FD3D11DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
+{
+	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
+	if (StagingBuffer && StagingBuffer->StagedRead)
+	{
+		Direct3DDeviceIMContext->Unmap(StagingBuffer->StagedRead,0);
+	}
+}
