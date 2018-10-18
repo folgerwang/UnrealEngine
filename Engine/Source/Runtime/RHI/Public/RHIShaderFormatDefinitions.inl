@@ -33,6 +33,8 @@ static FName NAME_GLSL_SWITCH_FORWARD(TEXT("GLSL_SWITCH_FORWARD"));
 
 static FName NAME_SF_METAL(TEXT("SF_METAL"));
 static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
+static FName NAME_SF_METAL_TVOS(TEXT("SF_METAL_TVOS"));
+static FName NAME_SF_METAL_MRT_TVOS(TEXT("SF_METAL_MRT_TVOS"));
 static FName NAME_SF_METAL_MRT_MAC(TEXT("SF_METAL_MRT_MAC"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
@@ -101,6 +103,10 @@ static FName ShaderPlatformToShaderFormatName(EShaderPlatform Platform)
 		return NAME_SF_METAL;
 	case SP_METAL_MRT:
 		return NAME_SF_METAL_MRT;
+	case SP_METAL_TVOS:
+		return NAME_SF_METAL_TVOS;
+	case SP_METAL_MRT_TVOS:
+		return NAME_SF_METAL_MRT_TVOS;
 	case SP_METAL_MRT_MAC:
 		return NAME_SF_METAL_MRT_MAC;
 	case SP_METAL_SM5:
@@ -183,6 +189,8 @@ static EShaderPlatform ShaderFormatNameToShaderPlatform(FName ShaderFormat)
 
 	if (ShaderFormat == NAME_SF_METAL)					return SP_METAL;
 	if (ShaderFormat == NAME_SF_METAL_MRT)				return SP_METAL_MRT;
+	if (ShaderFormat == NAME_SF_METAL_TVOS)				return SP_METAL_TVOS;
+	if (ShaderFormat == NAME_SF_METAL_MRT_TVOS)			return SP_METAL_MRT_TVOS;
 	if (ShaderFormat == NAME_SF_METAL_MRT_MAC)			return SP_METAL_MRT_MAC;
 	if (ShaderFormat == NAME_SF_METAL_SM5)				return SP_METAL_SM5;
 	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)		return SP_METAL_SM5_NOTESS;

@@ -313,7 +313,7 @@ public:
 	{
 		Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		// @todo MetalMRT: Remove this hack and implement proper atmospheric-fog solution for Metal MRT...
-		OutEnvironment.SetDefine(TEXT("BASEPASS_ATMOSPHERIC_FOG"), (Platform != SP_METAL_MRT && Platform != SP_METAL_MRT_MAC) ? bEnableAtmosphericFog : 0);
+		OutEnvironment.SetDefine(TEXT("BASEPASS_ATMOSPHERIC_FOG"), !IsMetalMRTPlatform(Platform) ? bEnableAtmosphericFog : 0);
 	}
 };
 
