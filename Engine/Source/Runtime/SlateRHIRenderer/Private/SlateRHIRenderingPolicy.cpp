@@ -1196,7 +1196,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 						LastClippingState,
 						ViewTranslation2D,
 						bSwitchVerticalAxis,
-						GraphicsPSOInit,
+						InGraphicsPSOInit,
 						Options.ViewProjectionMatrix,
 						true);
 				};
