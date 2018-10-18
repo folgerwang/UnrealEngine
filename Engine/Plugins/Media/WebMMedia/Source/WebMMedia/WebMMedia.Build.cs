@@ -7,37 +7,22 @@ namespace UnrealBuildTool.Rules
 	{
 		public WebMMedia(ReadOnlyTargetRules Target) : base(Target)
 		{
-			DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
-					"Media",
-				});
-
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
 					"WebMMediaFactory",
 					"Core",
 					"Engine",
+					"Media",
 					"MediaUtils",
 					"RenderCore",
 					"RHI",
 					"ShaderCore",
 					"UtilityShaders",
 					"libOpus",
-					//"UEOgg",
-					//"Vorbis",
+					"UEOgg",
+					"Vorbis",
 					"LibVpx",
 					"LibWebM",
-				});
-
-			PrivateIncludePathModuleNames.AddRange(
-				new string[] {
-					"Media",
-				});
-
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"WebMMedia/Private",
-					"WebMMedia/Private/Player",
 				});
 		}
 	}

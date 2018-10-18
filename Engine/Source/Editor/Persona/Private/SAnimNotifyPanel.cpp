@@ -3940,7 +3940,6 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs, const TSharedRef<clas
 					[
 						SAssignNew(NotifyTrackScrollBar, SScrollBar)
 						.Orientation(EOrientation::Orient_Horizontal)
-						.AlwaysShowScrollbar(true)
 						.OnUserScrolled(this, &SAnimNotifyPanel::OnNotifyTrackScrolled)
 					]
 					+SHorizontalBox::Slot()

@@ -142,6 +142,8 @@ public:
 	//~ Begin UObject Interface.
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
+	virtual bool CanBeClusterRoot() const override;
+	virtual bool CanBeInCluster() const override;
 	//~ End UObject interface.
 	
 	/** Returns whether the sound base is set up in a playable manner */

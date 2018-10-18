@@ -11,8 +11,12 @@
 			"Text": "트윈 스틱 슈팅"
 		},
 		{
+			"Language": "zh-CN",
+			"Text": "双摇杆射击类游戏"
+		},
+		{
 			"Language": "ja",
-			"Text": "スクロールシューター"
+			"Text": "ツインスティックシューター"
 		}
 	],
 	"Description":
@@ -23,11 +27,15 @@
 		},
 		{
 			"Language": "ko",
-			"Text": "트윈 스틱 슈팅 팩은 카메라가 거의 캐릭터에 붙어있는 플레이가능 캐릭터를 특징으로 합니다. 캐릭터 콘트롤은 키보드, 콘트롤러, 터치 디바이스의 가상 조이스틱 중 하나로 가능합니다. 이동과 발사 둘 다 X/Y 축에 있으며 독립적으로 제어되어 캐릭터가 향하는 방향과 다른 방향으로 발사할 수 있습니다. 레벨에는 프로젝타일에 영향받는 큐브 여럿, 받지 않는 큐브도 여럿 들어있습니다."
+			"Text": "트윈 스틱 슈팅 템플릿은 카메라가 플레이어 캐릭터에 거의 붙어있습니다. 캐릭터 제어는 키보드, 컨트롤러, 터치 디바이스의 가상 조이스틱 중 하나로 가능합니다. 이동과 발사가 X/Y 축으로 각각 독립 제어되어 캐릭터가 향하는 방향과 다른 방향으로 발사할 수 있습니다. 레벨에는 발사체에 영향받는 큐브도 받지 않는 큐브도 여럿 있습니다."
+		},
+		{
+			"Language": "zh-CN",
+			"Text": "双摇杆设计类游戏模板拥有一个可游玩角色，摄像机几乎位于角色的正后方。您可以通过键盘、手柄或触摸式设备的虚拟摇杆控制角色移动。角色可以在X/Y轴上移动和射击，且为独立控制，所以角色可以向自身面向之外的方向射击。关卡内还有一些可以被子弹影响或不能被子弹影响的立方体。"
 		},
 		{
 			"Language": "ja",
-			"Text": "The twin stick shooter pack features a playable character where the camera is positioned almost directly above the character. Control of the character is with either keyboard, controller or virtual joystick on a touch device. Movement and firing, which are both on the X/Y axis are controlled independantly allowing for firing in a different direction than which the character is facing. The level contains several cubes that are affected by the projectiles and several that are not."
+			"Text": "ツインスティックシューターテンプレートにはプレイアブルキャラクタが存在し、カメラはほぼキャラクタの真上にあります。キーボード、コントローラー、タッチデバイスでのバーチャルジョイスティックでこのキャラクタを操作できます。移動と弾の発射は、どちらも X と Y 軸で独立に操作します。キャラクタ向きと別の方向に弾を発射することもできます。弾の影響を受けるキューブと、影響を受けないキューブがレベルに含まれています。"
 		}
 	],
 	"AssetTypes":
@@ -35,14 +43,6 @@
 		{
 			"Language": "en",
 			"Text": "Sound Wave, Static Mesh"
-		},
-		{
-			"Language": "ko",
-			"Text": "사운드 웨이브, 스태틱 메시"
-		},
-		{
-			"Language": "ja",
-			"Text": "サウンドウェーブ・スタティックメッシュ"
 		}
 	],
 	"SearchTags":
@@ -50,10 +50,6 @@
 		{
 			"Language": "en",
 			"Text": "Twin,Stick,Fire,Shooter"
-		},
-		{
-			"Language": "ko",
-			"Text": "트윈,스틱,슈팅"
 		}
 	],
 	"ClassTypes": "GameMode, Pawn, Actor, StaticMeshComponent, ProjectileMovementComponent, StaticMeshComponent, PrimitiveComponent, CameraComponent, SpringArmComponent, InputComponent",

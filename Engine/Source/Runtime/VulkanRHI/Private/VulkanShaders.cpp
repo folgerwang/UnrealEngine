@@ -50,12 +50,13 @@ FVulkanShaderFactory::~FVulkanShaderFactory()
 template <typename ShaderType> 
 ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulkanDevice* Device)
 {
+	uint32 ShaderCodeLen = Code.Num();
+	uint32 ShaderCodeCRC = FCrc::MemCrc32(Code.GetData(), Code.Num());
+	uint64 ShaderKey = ((uint64)ShaderCodeLen | ((uint64)ShaderCodeCRC << 32));
+
 	ShaderType* RetShader = nullptr;
 	if (GCacheCreatedShaders)
 	{
-		FVulkanShaderFactory::FKey ShaderKey; 
-		ShaderKey.CodeLen = Code.Num();
-		ShaderKey.CodeCRC = FCrc::MemCrc32(Code.GetData(), Code.Num());
 		FVulkanShader** FoundShaderPtr = nullptr;
 		{
 			FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
@@ -68,9 +69,7 @@ ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulka
 		else
 		{
 			RetShader = new ShaderType(Device);
-			RetShader->Setup(Code);
-			RetShader->ShaderCodeCRC = ShaderKey.CodeCRC;
-			RetShader->ShaderCodeLen = ShaderKey.CodeLen;
+			RetShader->Setup(Code, ShaderKey);
 			
 			FRWScopeLock ScopedLock(Lock, SLT_Write);
 			ShaderMap[ShaderType::StaticFrequency].Add(ShaderKey, RetShader);
@@ -79,7 +78,7 @@ ShaderType* FVulkanShaderFactory::CreateShader(const TArray<uint8>& Code, FVulka
 	else
 	{
 		RetShader = new ShaderType(Device);
-		RetShader->Setup(Code);
+		RetShader->Setup(Code, ShaderKey);
 	}
 
 	return RetShader;
@@ -90,22 +89,22 @@ void FVulkanShaderFactory::OnDeleteShader(const FVulkanShader& Shader)
 	if (GCacheCreatedShaders)
 	{
 		FRWScopeLock ScopedLock(Lock, SLT_Write);
-		FVulkanShaderFactory::FKey ShaderKey; 
-		ShaderKey.CodeLen = Shader.ShaderCodeLen;
-		ShaderKey.CodeCRC = Shader.ShaderCodeCRC;
+		uint64 ShaderKey = Shader.GetShaderKey(); 
 		ShaderMap[Shader.Frequency].Remove(ShaderKey);
 	}
 }
 
-void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode)
+void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode, uint64 InShaderKey)
 {
 	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanShaders);
 	check(Device);
 
+	ShaderKey = InShaderKey;
+
 	FMemoryReader Ar(InShaderHeaderAndCode, true);
 
 	Ar << CodeHeader;
-	
+
 	Ar << Spirv;
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
 	checkf(Spirv.Num() != 0, TEXT("Empty SPIR-V!%s"), *CodeHeader.DebugName);
@@ -122,9 +121,6 @@ void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode)
 		checkSlow(CodeHeader.UniformBufferSpirvInfos.Num() == 0);
 	}
 	check(CodeHeader.GlobalSpirvInfos.Num() == CodeHeader.Globals.Num());
-
-	static TAtomic<uint64> IdCounter{ 0 };
-	Id = ++IdCounter;
 }
 
 VkShaderModule FVulkanShader::CreateHandle(const FVulkanLayout* Layout, uint32 LayoutHash)
@@ -543,8 +539,10 @@ void FVulkanDescriptorSetsLayoutInfo::FinalizeBindings(const FUniformBufferGathe
 				}
 			}
 		}
-
 	}
+
+	CompileTypesUsageID();
+	GenerateHash();
 
 	// Validate no empty sets were made
 	for (int32 Index = 0; Index < RemappingInfo.SetInfos.Num(); ++Index)
@@ -584,7 +582,7 @@ void FVulkanComputePipelineDescriptorInfo::Initialize(const FDescriptorSetRemapp
 	bInitialized = true;
 }
 
-void FVulkanGfxPipelineDescriptorInfo::Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo, FVulkanShader** Shaders)
+void FVulkanGfxPipelineDescriptorInfo::Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo)
 {
 	check(!bInitialized);
 

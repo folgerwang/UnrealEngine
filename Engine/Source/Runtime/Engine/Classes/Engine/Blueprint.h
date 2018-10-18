@@ -851,6 +851,11 @@ public:
 	 * @return						true if there were no status errors in any of the parent blueprints, otherwise false
 	 */
 	static bool GetBlueprintHierarchyFromClass(const UClass* InClass, TArray<UBlueprint*>& OutBlueprintParents);
+	
+#if WITH_EDITOR
+	/** returns true if the class hierarchy is error free */
+	static bool IsBlueprintHierarchyErrorFree(const UClass* InClass);
+#endif
 
 #if WITH_EDITOR
 	template<class TFieldType>

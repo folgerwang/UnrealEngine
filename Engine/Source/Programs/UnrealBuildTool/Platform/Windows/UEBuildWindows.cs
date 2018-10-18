@@ -1350,6 +1350,29 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Configures the resource compile environment for the given target
+		/// </summary>
+		/// <param name="ResourceCompileEnvironment">The compile environment</param>
+		/// <param name="IntermediateDirectory">The output directory for compiled files</param>
+		/// <param name="Target">The target being built</param>
+		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, DirectoryReference IntermediateDirectory, ReadOnlyTargetRules Target)
+		{
+			// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
+			FileReference IconFile;
+			if(Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			{
+				IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
+			}
+			else
+			{
+				IconFile = WindowsPlatform.GetApplicationIcon(null);
+			}
+
+			// Setup the compile environment, setting the icon to use via a macro. This is used in PCLaunch.rc2.
+			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
+		}
+
+		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>
