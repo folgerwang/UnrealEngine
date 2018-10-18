@@ -9,6 +9,8 @@
 USynthKnob::USynthKnob(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	FSynthKnobStyle::Initialize();
+
 	StepSize = 0.01f;
 	MouseSpeed = 1.0f;
 	MouseFineTuneSpeed = 0.2f;

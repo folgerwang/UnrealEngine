@@ -23,6 +23,7 @@
 			"WhitelistPlatforms" :
 			[
 				"IOS",
+				"TVOS",
 				"Mac"
 			]
 		}

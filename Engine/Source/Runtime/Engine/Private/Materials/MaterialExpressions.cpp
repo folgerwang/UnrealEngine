@@ -377,16 +377,16 @@ bool CanConnectMaterialValueTypes(uint32 InputType, uint32 OutputType)
 #if WITH_EDITOR
 
 
-void ValidateParameterNameInternal(class UMaterialExpression* ExpressionToValidate, class UMaterial* OwningMaterial)
+void ValidateParameterNameInternal(class UMaterialExpression* ExpressionToValidate, class UMaterial* OwningMaterial, const bool bAllowDuplicateName)
 {
 	if (OwningMaterial != nullptr)
 	{
 		int32 NameIndex = 1;
-		bool FoundValidName = false;
+		bool bFoundValidName = false;
 		FName PotentialName;
 
 		// Find an available unique name
-		while (!FoundValidName)
+		while (!bFoundValidName)
 		{
 			PotentialName = ExpressionToValidate->GetParameterName();
 
@@ -396,27 +396,34 @@ void ValidateParameterNameInternal(class UMaterialExpression* ExpressionToValida
 				PotentialName = UMaterialExpressionParameter::ParameterDefaultName;
 			}
 
-			if (NameIndex != 1)
+			if (!bAllowDuplicateName)
 			{
-				PotentialName.SetNumber(NameIndex);
-			}
-
-			FoundValidName = true;
-
-			for (UMaterialExpression* Expression : OwningMaterial->Expressions)
-			{
-				if (Expression != nullptr && Expression->HasAParameterName())
+				if (NameIndex != 1)
 				{
-					// Name are unique per class type
-					if (Expression != ExpressionToValidate && Expression->GetClass() == ExpressionToValidate->GetClass() && Expression->GetParameterName() == PotentialName)
+					PotentialName.SetNumber(NameIndex);
+				}
+
+				bFoundValidName = true;
+
+				for (UMaterialExpression* Expression : OwningMaterial->Expressions)
+				{
+					if (Expression != nullptr && Expression->HasAParameterName())
 					{
-						FoundValidName = false;
-						break;
+						// Name are unique per class type
+						if (Expression != ExpressionToValidate && Expression->GetClass() == ExpressionToValidate->GetClass() && Expression->GetParameterName() == PotentialName)
+						{
+							bFoundValidName = false;
+							break;
+						}
 					}
 				}
-			}
 
-			++NameIndex;
+				++NameIndex;
+			}
+			else
+			{
+				bFoundValidName = true;
+			}
 		}
 
 		ExpressionToValidate->SetParameterName(PotentialName);
@@ -1208,7 +1215,7 @@ void UMaterialExpression::SetEditableName(const FString& NewName)
 	check(false);
 }
 
-void UMaterialExpression::ValidateParameterName()
+void UMaterialExpression::ValidateParameterName(const bool bAllowDuplicateName)
 {
 	// Incrementing the name is now handled in UMaterialExpressionParameter::ValidateParameterName
 }
@@ -1886,9 +1893,9 @@ void UMaterialExpressionTextureSampleParameter::GetCaption(TArray<FString>& OutC
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
 
-void UMaterialExpressionTextureSampleParameter::ValidateParameterName()
+void UMaterialExpressionTextureSampleParameter::ValidateParameterName(const bool bAllowDuplicateName)
 {
-	ValidateParameterNameInternal(this, Material);
+	ValidateParameterNameInternal(this, Material, bAllowDuplicateName);
 }
 
 #endif // WITH_EDITOR
@@ -6073,9 +6080,9 @@ void UMaterialExpressionParameter::GetAllParameterInfo(TArray<FMaterialParameter
 }
 
 #if WITH_EDITOR
-void UMaterialExpressionParameter::ValidateParameterName()
+void UMaterialExpressionParameter::ValidateParameterName(const bool bAllowDuplicateName)
 {
-	ValidateParameterNameInternal(this, Material);
+	ValidateParameterNameInternal(this, Material, bAllowDuplicateName);
 }
 #endif
 
@@ -8887,9 +8894,9 @@ void UMaterialExpressionFontSampleParameter::GetCaption(TArray<FString>& OutCapt
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
 
-void UMaterialExpressionFontSampleParameter::ValidateParameterName()
+void UMaterialExpressionFontSampleParameter::ValidateParameterName(const bool bAllowDuplicateName)
 {
-	ValidateParameterNameInternal(this, Material);
+	ValidateParameterNameInternal(this, Material, bAllowDuplicateName);
 }
 #endif // WITH_EDITOR
 

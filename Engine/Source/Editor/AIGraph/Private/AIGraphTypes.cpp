@@ -17,7 +17,7 @@
 #include "AssetRegistryModule.h"
 #include "Misc/HotReloadInterface.h"
 
-#define LOCTEXT_NAMESPACE "SClassViewer"
+#define LOCTEXT_NAMESPACE "AIGraph"
 
 FGraphNodeClassData::FGraphNodeClassData(UClass* InClass, const FString& InDeprecatedMessage) :
 	bIsHidden(0),

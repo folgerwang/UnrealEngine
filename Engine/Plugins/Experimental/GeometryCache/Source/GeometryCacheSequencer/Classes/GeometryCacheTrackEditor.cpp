@@ -28,6 +28,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "GeometryCacheComponent.h"
 #include "GeometryCache.h"
+#include "Styling/SlateIconFinder.h"
 
 namespace GeometryCacheEditorConstants
 {
@@ -373,6 +374,11 @@ TSharedPtr<SWidget> FGeometryCacheTrackEditor::BuildOutlinerEditWidget(const FGu
 		return TSharedPtr<SWidget>();
 	}
 	
+}
+
+const FSlateBrush* FGeometryCacheTrackEditor::GetIconBrush() const
+{
+	return FSlateIconFinder::FindIconForClass(UGeometryCacheComponent::StaticClass()).GetIcon();
 }
 
 

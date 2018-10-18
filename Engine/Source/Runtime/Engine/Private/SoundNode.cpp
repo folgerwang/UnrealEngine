@@ -36,6 +36,16 @@ void USoundNode::Serialize(FArchive& Ar)
 #endif
 }
 
+bool USoundNode::CanBeClusterRoot() const
+{
+	return false;
+}
+
+bool USoundNode::CanBeInCluster() const
+{
+	return false;
+}
+
 #if WITH_EDITOR
 void USoundNode::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {

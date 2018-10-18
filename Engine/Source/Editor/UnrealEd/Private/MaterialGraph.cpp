@@ -300,23 +300,25 @@ void UMaterialGraph::LinkMaterialExpressionsFromGraph() const
 			else if (UMaterialGraphNode_Comment* CommentNode = Cast<UMaterialGraphNode_Comment>(Nodes[NodeIndex]))
 			{
 				UMaterialExpressionComment* Comment = CommentNode->MaterialExpressionComment;
-
-				if (Comment->MaterialExpressionEditorX != CommentNode->NodePosX
-					|| Comment->MaterialExpressionEditorY != CommentNode->NodePosY
-					|| Comment->Text != CommentNode->NodeComment
-					|| Comment->SizeX != CommentNode->NodeWidth
-					|| Comment->SizeY != CommentNode->NodeHeight
-					|| Comment->CommentColor != CommentNode->CommentColor)
+				if (Comment)
 				{
-					Comment->Modify();
+					if (Comment->MaterialExpressionEditorX != CommentNode->NodePosX
+						|| Comment->MaterialExpressionEditorY != CommentNode->NodePosY
+						|| Comment->Text != CommentNode->NodeComment
+						|| Comment->SizeX != CommentNode->NodeWidth
+						|| Comment->SizeY != CommentNode->NodeHeight
+						|| Comment->CommentColor != CommentNode->CommentColor)
+					{
+						Comment->Modify();
 
-					// Update positions and comments
-					Comment->MaterialExpressionEditorX = CommentNode->NodePosX;
-					Comment->MaterialExpressionEditorY = CommentNode->NodePosY;
-					Comment->Text = CommentNode->NodeComment;
-					Comment->SizeX = CommentNode->NodeWidth;
-					Comment->SizeY = CommentNode->NodeHeight;
-					Comment->CommentColor = CommentNode->CommentColor;
+						// Update positions and comments
+						Comment->MaterialExpressionEditorX = CommentNode->NodePosX;
+						Comment->MaterialExpressionEditorY = CommentNode->NodePosY;
+						Comment->Text = CommentNode->NodeComment;
+						Comment->SizeX = CommentNode->NodeWidth;
+						Comment->SizeY = CommentNode->NodeHeight;
+						Comment->CommentColor = CommentNode->CommentColor;
+					}
 				}
 			}
 		}

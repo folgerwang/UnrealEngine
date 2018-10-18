@@ -57,10 +57,14 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static bool SupportsBrightness() { return true; }
     static bool IsInLowPowerMode();
 
+	//////// Notifications
 	static void RegisterForRemoteNotifications();
 	static bool IsRegisteredForRemoteNotifications();
 	static void UnregisterForRemoteNotifications();
-
+	// Check if notifications are allowed if min iOS version is < 10
+	DEPRECATED(4.21, "IsAllowedRemoteNotifications is deprecated. Use FIOSLocalNotificationService::CheckAllowedNotifications instead.")
+	static bool IsAllowedRemoteNotifications();
+	
 	static class IPlatformChunkInstall* GetPlatformChunkInstall();
 
 	static bool SupportsForceTouchInput();

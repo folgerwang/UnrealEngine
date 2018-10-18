@@ -261,32 +261,20 @@ static const float	CurveHandleScale = 0.5f;
 void FSequencerEdMode::GetParents(TArray<const UObject *>& Parents, const UObject* InObject)
 {
 	const AActor* Actor = Cast<AActor>(InObject);
-	if (Actor != nullptr)
+	if (Actor)
 	{
-		Parents.Emplace(InObject);
-	}
-	else
-	{
-		const USceneComponent* SceneComponent = Cast<USceneComponent>(InObject);
-
-		if (SceneComponent != nullptr)
+		Parents.Emplace(Actor);
+		const AActor* ParentActor = Actor->GetAttachParentActor();
+		if (ParentActor)
 		{
-			Parents.Emplace(InObject);
-			if (SceneComponent->GetAttachParent() == SceneComponent->GetOwner()->GetRootComponent())
-			{
-				GetParents(Parents, SceneComponent->GetAttachParent()->GetOwner());
-			}
-			else
-			{
-				GetParents(Parents, SceneComponent->GetAttachParent());
-			}
+			GetParents(Parents, ParentActor);
 		}
 	}
 }
 /** This is not that scalable moving forward with stuff like the control rig , need a better caching solution there */
 bool FSequencerEdMode::GetParentTM(FTransform& CurrentRefTM, const TSharedPtr<FSequencer>& Sequencer, UObject* ParentObject, FFrameTime KeyTime)
 {
-	FGuid ObjectBinding = Sequencer->FindObjectId(*ParentObject, Sequencer->GetFocusedTemplateID());
+	FGuid ObjectBinding = Sequencer->FindCachedObjectId(*ParentObject, Sequencer->GetFocusedTemplateID());
 
 	if (ObjectBinding.IsValid())
 	{
@@ -427,7 +415,7 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 		// Check if our parent is animated in this Sequencer
 
 		UObject* ParentObject = SceneComponent->GetAttachParent() == SceneComponent->GetOwner()->GetRootComponent() ? static_cast<UObject*>(SceneComponent->GetOwner()) : SceneComponent->GetAttachParent();
-		FGuid ObjectBinding = Sequencer->FindObjectId(*ParentObject, Sequencer->GetFocusedTemplateID());
+		FGuid ObjectBinding = Sequencer->FindCachedObjectId(*ParentObject, Sequencer->GetFocusedTemplateID());
 
 		if (ObjectBinding.IsValid())
 		{
@@ -718,6 +706,38 @@ void FSequencerEdMode::DrawTracks3D(FPrimitiveDrawInterface* PDI)
 			}
 			TSharedRef<FSequencerObjectBindingNode> ObjectBindingNode = ObjectBinding.Value.ToSharedRef();
 			bool bSelected = Sequencer->GetSelection().IsSelected(ObjectBindingNode);
+
+			if (!bSelected)
+			{
+				TSet<TSharedRef<FSequencerDisplayNode> > DescendantNodes;
+				SequencerHelpers::GetDescendantNodes(ObjectBindingNode, DescendantNodes);
+
+				// If one of our child is selected, we're considered selected
+				for (auto& DescendantNode : DescendantNodes)
+				{
+					if (Sequencer->GetSelection().IsSelected(DescendantNode) ||
+						Sequencer->GetSelection().NodeHasSelectedKeysOrSections(DescendantNode))
+					{
+						bSelected = true;
+						break;
+					}
+				}
+			}
+
+			// If one of our parent is selected, we're considered selected
+			TSharedPtr<FSequencerDisplayNode> ParentNode = ObjectBindingNode->GetParent();
+
+			while (!bSelected && ParentNode.IsValid())
+			{
+				if (Sequencer->GetSelection().IsSelected(ParentNode.ToSharedRef()) ||
+					Sequencer->GetSelection().NodeHasSelectedKeysOrSections(ParentNode.ToSharedRef()))
+				{
+					bSelected = true;
+				}
+
+				ParentNode = ParentNode->GetParent();
+			}
+
 			ObjectBindingNodesSelectionMap.Add(ObjectBindingNode, bSelected);
 		}
 

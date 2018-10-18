@@ -28,7 +28,7 @@ FAndroidWebBrowserWindow::FAndroidWebBrowserWindow(FString InUrl, TOptional<FStr
 	, bUseTransparency(InUseTransparency)
 	, DocumentState(EWebBrowserDocumentState::NoDocument)
 	, ErrorCode(0)
-	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled, SharedThis(this)))
+	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled))
 	, AndroidWindowSize(FIntPoint(500, 500))
 	, bIsDisabled(false)
 	, bIsVisible(true)
@@ -60,6 +60,9 @@ TSharedRef<SWidget> FAndroidWebBrowserWindow::CreateWidget()
 		.WebBrowserWindow(SharedThis(this));
 
 	BrowserWidget = BrowserWidgetRef;
+
+	Scripting->SetWindow(SharedThis(this));
+		
 	return BrowserWidgetRef;
 }
 

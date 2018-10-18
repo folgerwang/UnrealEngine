@@ -213,8 +213,8 @@ enum EClassFlags
 	/** all properties and functions in this class are const and should be exported as const */
 	CLASS_Const			      = 0x00010000u,
 
-	/** */
-	//CLASS_ = 0x00020000u,
+	/** Class flag indicating the class is having its layout changed, and therefore is not ready for a CDO to be created */
+	CLASS_LayoutChanging	  = 0x00020000u,
 	
 	/** Indicates that the class was created from blueprint source material */
 	CLASS_CompiledFromBlueprint  = 0x00040000u,
@@ -1221,6 +1221,9 @@ namespace UM
 
 		/// [PropertyMetadata] Used for float and integer properties.  Specifies the highest that the value slider should represent.
 		UIMax,
+
+		/// [PropertyMetadata] Used for SoftObjectPtr/SoftObjectPath properties to specify a reference should not be tracked. This reference will not be automatically cooked or saved into the asset registry for redirector/delete fixup.
+		Untracked,
 	};
 
 	// Metadata usable in UPROPERTY for customizing the behavior of Persona and UMG

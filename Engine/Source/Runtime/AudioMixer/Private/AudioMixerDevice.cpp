@@ -911,7 +911,21 @@ namespace Audio
 
 	void FMixerDevice::FlushAudioRenderingCommands()
 	{
-		SourceManager.FlushCommandQueue();
+		if (IsInitialized() && FPlatformProcess::SupportsMultithreading())
+		{
+			SourceManager.FlushCommandQueue();
+		}
+		else
+		{
+			// Pump the audio device's command queue
+			PumpCommandQueue();
+
+			// And also directly pump the source manager command queue
+			SourceManager.PumpCommandQueue();
+			SourceManager.PumpCommandQueue();
+
+			SourceManager.UpdatePendingReleaseData(true);
+		}
 	}
 
 	bool FMixerDevice::IsMasterSubmixType(USoundSubmix* InSubmix) const

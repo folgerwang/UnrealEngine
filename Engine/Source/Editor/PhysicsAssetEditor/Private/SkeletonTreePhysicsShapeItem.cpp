@@ -36,7 +36,7 @@ FSkeletonTreePhysicsShapeItem::FSkeletonTreePhysicsShapeItem(USkeletalBodySetup*
 		break;
 	case EAggCollisionShape::TaperedCapsule:
 		ShapeBrush = FEditorStyle::GetBrush("PhysicsAssetEditor.Tree.TaperedCapsule");
-		DefaultLabel = *FText::Format(LOCTEXT("CapsuleLabel", "{0} Tapered Capsule {1}"), FText::FromName(InBoneName), FText::AsNumber(ShapeIndex)).ToString();
+		DefaultLabel = *FText::Format(LOCTEXT("TaperedCapsuleLabel", "{0} Tapered Capsule {1}"), FText::FromName(InBoneName), FText::AsNumber(ShapeIndex)).ToString();
 		break;
 	default:
 		check(false);

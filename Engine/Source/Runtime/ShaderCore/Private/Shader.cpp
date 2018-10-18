@@ -355,7 +355,7 @@ void FShaderType::Initialize(const TMap<FString, TArray<const TCHAR*> >& ShaderF
 				TArray<uint8> TempData;
 				FMemoryWriter Ar(TempData, true);
 				FShaderSaveArchive SaveArchive(Ar, Type->SerializationHistory);
-				TempShader->SerializeBase(SaveArchive, false);
+				TempShader->SerializeBase(SaveArchive, false, false);
 
 				// Destroy the temporary shader
 				delete TempShader;
@@ -483,7 +483,7 @@ void FShaderResource::Register()
 }
 
 
-void FShaderResource::Serialize(FArchive& Ar)
+void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 {
 	check(!(SpecificPermutationId != 0 && SpecificType == nullptr));
 
@@ -520,7 +520,10 @@ void FShaderResource::Serialize(FArchive& Ar)
 	}
 
 #if WITH_EDITORONLY_DATA
-	SerializePlatformDebugData(Ar);
+	if (!bLoadedByCookedMaterial)
+	{
+		SerializePlatformDebugData(Ar);
+	}
 #endif
 
 	if (Ar.IsLoading())
@@ -977,7 +980,7 @@ FShader::FShader(const CompiledShaderInitializerType& Initializer)
 	SetResource(Initializer.Resource);
 
 	// Register the shader now that it is valid, so that it can be reused
-	Register();
+	Register(false);
 }
 
 
@@ -1003,7 +1006,7 @@ EShaderPlatform FShader::GetShaderPlatform() const
 }
 
 
-bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
+bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline, bool bLoadedByCookedMaterial)
 {
 	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
@@ -1088,14 +1091,14 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		if (Ar.IsSaving())
 		{
 			check(Resource->Target == Target);
-			Resource->Serialize(Ar);
+			Resource->Serialize(Ar, false);
 		}
 
 		if (Ar.IsLoading())
 		{
 			// Load the inlined shader resource
 			SerializedResource = new FShaderResource();
-			SerializedResource->Serialize(Ar);
+			SerializedResource->Serialize(Ar, bLoadedByCookedMaterial);
 		}
 	}
 	else
@@ -1139,11 +1142,11 @@ void FShader::Release()
 }
 
 
-void FShader::Register()
+void FShader::Register(bool bLoadedByCookedMaterial)
 {
 	FShaderId ShaderId = GetId();
 	check(ShaderId.MaterialShaderMapHash != FSHAHash());
-	check(ShaderId.SourceHash != FSHAHash() || FPlatformProperties::RequiresCookedData());
+	check(ShaderId.SourceHash != FSHAHash() || FPlatformProperties::RequiresCookedData() || bLoadedByCookedMaterial);
 	check(Resource);
 	Type->AddToShaderIdMap(ShaderId, this);
 }

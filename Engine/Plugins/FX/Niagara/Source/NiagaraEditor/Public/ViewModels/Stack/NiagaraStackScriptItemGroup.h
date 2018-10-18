@@ -14,6 +14,7 @@ class UNiagaraNodeFunctionCall;
 class FScriptItemGroupAddUtilities;
 class UNiagaraStackModuleItem;
 class UEdGraph;
+class UNiagaraStackModuleSpacer;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackScriptItemGroup : public UNiagaraStackItemGroup
@@ -31,6 +32,14 @@ public:
 
 	ENiagaraScriptUsage GetScriptUsage() const { return ScriptUsage; }
 	FGuid GetScriptUsageId() const { return ScriptUsageId; }
+	UNiagaraNodeOutput* GetScriptOutputNode() const;
+
+	/**
+	 * Add a Set Variables module to the stack.
+	 * @InModuleSpacer: Target UNiagaraStackModuleSpacer which we use to derive the insertion index.
+	 * @InVariable: Initial FNiagaraVariable to populate the new Set Variables module.
+	 */
+	void AddParameterModuleToStack(const UNiagaraStackModuleSpacer* InModuleSpacer, const FNiagaraVariable& InVariable);
 
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;

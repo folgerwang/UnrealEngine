@@ -884,10 +884,12 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
     GShowSplashScreen = true;
 	
 #if !PLATFORM_TVOS
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+	UNUserNotificationCenter *Center = [UNUserNotificationCenter currentNotificationCenter];
+	Center.delegate = self;
+#else
 	// Save launch local notification so the app can check for it when it is ready
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	UILocalNotification *notification = [launchOptions objectForKey:UIApplicationLaunchOptionsLocalNotificationKey];
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	if ( notification != nullptr )
 	{
 		NSDictionary*	userInfo = [notification userInfo];
@@ -903,6 +905,7 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 			}
 		}
 	}
+#endif
 #endif
 	
     timer = [NSTimer scheduledTimerWithTimeInterval: 0.05f target:self selector:@selector(timerForSplashScreen) userInfo:nil repeats:YES];
@@ -1216,8 +1219,8 @@ FCriticalSection RenderSuspend;
 
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 #ifdef __IPHONE_8_0
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
 - (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings
 {
 	[application registerForRemoteNotifications];
@@ -1227,7 +1230,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		FCoreDelegates::ApplicationRegisteredForUserNotificationsDelegate.Broadcast(types);
     }, TStatId(), NULL, ENamedThreads::GameThread);
 }
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 #endif
 
 - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
@@ -1261,6 +1264,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
     }, TStatId(), NULL, ENamedThreads::GameThread);
 }
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0
 -(void)application : (UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void(^)(UIBackgroundFetchResult result))handler
 {
 	if (bEngineInit && FIOSCoreDelegates::PassesPushNotificationFilters(userInfo))
@@ -1306,11 +1310,115 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	//   notification.
 	handler(UIBackgroundFetchResultNoData);
 }
+#endif
 
 #endif
 
 #if !PLATFORM_TVOS
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+void HandleReceivedNotification(UNNotification* notification)
+{
+	bool IsLocal = false;
+	
+	if ([IOSAppDelegate GetDelegate].bEngineInit)
+	{
+		NSString* NotificationType = (NSString*)[notification.request.content.userInfo objectForKey: @"NotificationType"];
+		if(NotificationType != nullptr)
+		{
+			FString LocalOrRemote(NotificationType);
+			if(LocalOrRemote == FString(TEXT("Local")))
+			{
+				IsLocal = true;
+			}
+		}
+		
+		int AppState;
+		if ([UIApplication sharedApplication].applicationState == UIApplicationStateInactive)
+		{
+			AppState = 1; // EApplicationState::Inactive;
+		}
+		else if ([UIApplication sharedApplication].applicationState == UIApplicationStateBackground)
+		{
+			AppState = 2; // EApplicationState::Background;
+		}
+		else
+		{
+			AppState = 3; // EApplicationState::Active;
+		}
+		
+		if(IsLocal)
+		{
+			NSString*	activationEvent = (NSString*)[notification.request.content.userInfo objectForKey: @"ActivationEvent"];
+			if(activationEvent != nullptr)
+			{
+				FString	activationEventFString(activationEvent);
+				int32	fireDate = [notification.date timeIntervalSince1970];
+				
+				FFunctionGraphTask::CreateAndDispatchWhenReady([activationEventFString, fireDate, AppState]()
+															   {
+																   FCoreDelegates::ApplicationReceivedLocalNotificationDelegate.Broadcast(activationEventFString, fireDate, AppState);
+															   }, TStatId(), NULL, ENamedThreads::GameThread);
+			}
+		}
+		else
+		{
+			NSString* JsonString = @"{}";
+			NSError* JsonError;
+			NSData* JsonData = [NSJSONSerialization dataWithJSONObject : notification.request.content.userInfo
+															   options : 0
+																 error : &JsonError];
+			
+			if (JsonData)
+			{
+				JsonString = [[[NSString alloc] initWithData:JsonData encoding : NSUTF8StringEncoding] autorelease];
+			}
+			
+			FString	jsonFString(JsonString);
+			
+			FFunctionGraphTask::CreateAndDispatchWhenReady([jsonFString, AppState]()
+														   {
+															   FCoreDelegates::ApplicationReceivedRemoteNotificationDelegate.Broadcast(jsonFString, AppState);
+														   }, TStatId(), NULL, ENamedThreads::GameThread);
+		}
+	}
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+	   willPresentNotification:(UNNotification *)notification
+		 withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler
+{
+	// Received notification while app is in the foreground
+	HandleReceivedNotification(notification);
+	
+	completionHandler(UNNotificationPresentationOptionNone);
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+didReceiveNotificationResponse:(UNNotificationResponse *)response
+		 withCompletionHandler:(void (^)())completionHandler
+{
+	// Received notification while app is in the background or closed
+	
+	// Save launch local notification so the app can check for it when it is ready
+	NSDictionary* userInfo = response.notification.request.content.userInfo;
+	if(userInfo != nullptr)
+	{
+		NSString*	activationEvent = (NSString*)[userInfo objectForKey: @"ActivationEvent"];
+		
+		if(activationEvent != nullptr)
+		{
+			FAppEntry::gAppLaunchedWithLocalNotification = true;
+			FAppEntry::gLaunchLocalNotificationActivationEvent = FString(activationEvent);
+			FAppEntry::gLaunchLocalNotificationFireDate = [response.notification.date timeIntervalSince1970];
+		}
+	}
+	
+	HandleReceivedNotification(response.notification);
+	
+	completionHandler();
+}
+#else
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
 	NSString*	activationEvent = (NSString*)[notification.userInfo objectForKey: @"ActivationEvent"];
@@ -1344,7 +1452,8 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		NSLog(@"Warning: Missing local notification activation event");
 	}
 }
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
+
 #endif
 
 /**

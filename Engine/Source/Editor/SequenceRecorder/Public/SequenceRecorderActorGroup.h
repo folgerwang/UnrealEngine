@@ -51,10 +51,6 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Recording Groups", meta=(EditCondition = "bSpecifyTargetLevelSequence"))
 	bool bRecordTargetLevelSequenceLength;
 
-	/** Sequence actors to trigger playback on when recording starts (e.g. for recording synchronized sequences) */
-	UPROPERTY(EditAnywhere, Category = "Recording Groups")
-	TArray<class ALevelSequenceActor*> LevelSequenceActorsToTrigger;
-
 	/** A list of actor recordings in this group which contains both the actors to record as well as settings for each one. */
 	UPROPERTY(VisibleAnywhere, Category = "Recording Groups")
 	TArray<UActorRecording*> RecordedActors;

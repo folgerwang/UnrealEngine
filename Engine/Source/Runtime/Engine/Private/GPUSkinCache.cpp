@@ -205,6 +205,7 @@ public:
 		uint32 MorphBufferOffset = 0;
 
         // cloth input
+		uint32 ClothBufferOffset = 0;
         float ClothBlendWeight = 0.0f;
 
         FMatrix ClothLocalToWorld = FMatrix::Identity;
@@ -298,6 +299,10 @@ public:
 
 			Data.MorphBufferOffset = Section->BaseVertexIndex;
 		}
+		if (ClothVertexBuffer)
+		{
+			Data.ClothBufferOffset = (ClothVertexBuffer->GetClothIndexMapping()[SectionIndex] & 0xFFFFFFFF);
+		}
 
 		//INC_DWORD_STAT(STAT_GPUSkinCache_TotalNumChunks);
 
@@ -386,6 +391,7 @@ public:
 
 		ClothBuffer.Bind(Initializer.ParameterMap, TEXT("ClothBuffer"));
 		ClothPositionsAndNormalsBuffer.Bind(Initializer.ParameterMap, TEXT("ClothPositionsAndNormalsBuffer"));
+		ClothBufferOffset.Bind(Initializer.ParameterMap, TEXT("ClothBufferOffset"));
 		ClothBlendWeight.Bind(Initializer.ParameterMap, TEXT("ClothBlendWeight"));
 		ClothLocalToWorld.Bind(Initializer.ParameterMap, TEXT("ClothLocalToWorld"));
 		ClothWorldToLocal.Bind(Initializer.ParameterMap, TEXT("ClothWorldToLocal"));
@@ -428,6 +434,7 @@ public:
 		{
 			SetSRVParameter(RHICmdList, ShaderRHI, ClothBuffer, Entry->ClothBuffer);
 			SetSRVParameter(RHICmdList, ShaderRHI, ClothPositionsAndNormalsBuffer, Entry->ClothPositionsAndNormalsBuffer);
+			SetShaderValue(RHICmdList, ShaderRHI, ClothBufferOffset, DispatchData.ClothBufferOffset);
 			SetShaderValue(RHICmdList, ShaderRHI, ClothBlendWeight, DispatchData.ClothBlendWeight);
 			SetShaderValue(RHICmdList, ShaderRHI, ClothLocalToWorld, DispatchData.ClothLocalToWorld);
 			SetShaderValue(RHICmdList, ShaderRHI, ClothWorldToLocal, DispatchData.ClothWorldToLocal);
@@ -454,7 +461,7 @@ public:
 
 		Ar << InputWeightStart << InputWeightStride << InputWeightStream;
 
-        Ar << ClothBuffer << ClothPositionsAndNormalsBuffer << ClothBlendWeight << ClothLocalToWorld << ClothWorldToLocal;
+        Ar << ClothBuffer << ClothPositionsAndNormalsBuffer << ClothBufferOffset << ClothBlendWeight << ClothLocalToWorld << ClothWorldToLocal;
 
 		//Ar << DebugParameter;
 		return bShaderHasOutdatedParameters;
@@ -486,6 +493,7 @@ private:
 
 	FShaderResourceParameter ClothBuffer;
 	FShaderResourceParameter ClothPositionsAndNormalsBuffer;
+	FShaderParameter ClothBufferOffset;
 	FShaderParameter ClothBlendWeight;
 	FShaderParameter ClothLocalToWorld;
 	FShaderParameter ClothWorldToLocal;
@@ -1079,6 +1087,8 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
         // Copy the vertices into the buffer.
         checkSlow(Stride*VertexAndNormalData.GetNumVertices() == sizeof(FClothSimulEntry) * SimData->Positions.Num());
         check(sizeof(FClothSimulEntry) == 6 * sizeof(float));
+		
+		InOutEntry->DispatchData[Section].ClothBufferOffset = (ClothVertexBuffer->GetClothIndexMapping()[Section] & 0xFFFFFFFF);
 
         for (int32 Index = 0;Index < SimData->Positions.Num();Index++)
         {

@@ -96,7 +96,7 @@ private:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneFrameRange> : public TStructOpsTypeTraitsBase2<FMovieSceneFrameRange>
 {
-	enum { WithSerializeFromMismatchedTag = true, WithSerializer = true, WithIdenticalViaEquality = true,
+	enum { WithStructuredSerializeFromMismatchedTag = true, WithSerializer = true, WithIdenticalViaEquality = true,
 		   WithExportTextItem = true, WithImportTextItem = true};
 };
 

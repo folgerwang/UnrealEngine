@@ -194,7 +194,7 @@ public:
 
 	~FShaderResource();
 
-	SHADERCORE_API void Serialize(FArchive& Ar);
+	SHADERCORE_API void Serialize(FArchive& Ar, bool bLoadedByCookedMaterial);
 
 	// Reference counting.
 	SHADERCORE_API void AddRef();
@@ -638,7 +638,7 @@ public:
 */
 
 	/** Serializes the shader. */
-	bool SerializeBase(FArchive& Ar, bool bShadersInline);
+	bool SerializeBase(FArchive& Ar, bool bShadersInline, bool bLoadedByCookedMaterial);
 
 	virtual bool Serialize(FArchive& Ar) { return false; }
 
@@ -647,7 +647,7 @@ public:
 	void Release();
 
 	/** Registers this shader for lookup by ID. */
-	void Register();
+	void Register(bool bLoadedByCookedMaterial);
 
 	/** Removes this shader from the ID lookup map. */
 	void Deregister();
@@ -1760,7 +1760,7 @@ public:
 			Ar << SelfContainedKey;
 		}
 
-		CurrentShader->SerializeBase(Ar, bInlineShaderResource);
+		CurrentShader->SerializeBase(Ar, bInlineShaderResource, false);
 
 		// Get the offset to the end of the shader's serialized data
 		int64 EndOffset = Ar.Tell();
@@ -1772,7 +1772,7 @@ public:
 		Ar.Seek(EndOffset);
 	}
 
-	inline FShader* SerializeShaderForLoad(FShaderType* Type, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource)
+	inline FShader* SerializeShaderForLoad(FShaderType* Type, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource, bool bLoadedByCookedMaterial)
 	{
 		int64 EndOffset = 0;
 		Ar << EndOffset;
@@ -1792,7 +1792,7 @@ public:
 		{
 			Shader = Type->ConstructForDeserialization();
 			check(Shader != nullptr);
-			Shader->SerializeBase(Ar, bInlineShaderResource);
+			Shader->SerializeBase(Ar, bInlineShaderResource, bLoadedByCookedMaterial);
 		}
 		else
 		{
@@ -1809,7 +1809,7 @@ public:
 	 * @param bHandleShaderKeyChanges - whether to serialize the data necessary to detect and gracefully handle shader key changes between saving and loading
 	 * @param DependenciesToSave - array of specific ShaderTypeDepencies which should be saved.
 	 */
-	void SerializeInline(FArchive& Ar, bool bInlineShaderResource, bool bHandleShaderKeyChanges, const TArray<FShaderPrimaryKey>* ShaderKeysToSave = nullptr)
+	void SerializeInline(FArchive& Ar, bool bInlineShaderResource, bool bHandleShaderKeyChanges, bool bLoadedByCookedMaterial, const TArray<FShaderPrimaryKey>* ShaderKeysToSave = nullptr)
 	{
 		if (Ar.IsSaving())
 		{
@@ -1889,7 +1889,7 @@ public:
 				FShaderType* Type = nullptr;
 				Ar << Type;
 
-				FShader* Shader = SerializeShaderForLoad(Type, Ar, bHandleShaderKeyChanges, bInlineShaderResource);
+				FShader* Shader = SerializeShaderForLoad(Type, Ar, bHandleShaderKeyChanges, bInlineShaderResource, bLoadedByCookedMaterial);
 				if (Shader)
 				{
 					SerializedShaders.Add(Shader);
@@ -1910,7 +1910,7 @@ public:
 				{
 					FShaderType* Type = nullptr;
 					Ar << Type;
-					FShader* Shader = SerializeShaderForLoad(Type, Ar, bHandleShaderKeyChanges, bInlineShaderResource);
+					FShader* Shader = SerializeShaderForLoad(Type, Ar, bHandleShaderKeyChanges, bInlineShaderResource, bLoadedByCookedMaterial);
 					if (Shader)
 					{
 						ShaderStages.Add(Shader);
@@ -1930,7 +1930,7 @@ public:
 	}
 
 	/** Registered all shaders that have been serialized (maybe) on another thread */
-	virtual void RegisterSerializedShaders()
+	virtual void RegisterSerializedShaders(bool bCookedMaterial)
 	{
 		bHasBeenRegistered = true;
 		check(IsInGameThread());
@@ -1949,7 +1949,7 @@ public:
 			else
 			{
 				// Register the shader now that it is valid, so that it can be reused
-				Shader->Register();
+				Shader->Register(bCookedMaterial);
 			}
 			AddShader(Shader->GetType(), Shader->GetPermutationId(), Shader);
 		}

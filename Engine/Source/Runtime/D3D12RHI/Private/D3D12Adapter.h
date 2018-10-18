@@ -144,6 +144,8 @@ public:
 
 	FORCEINLINE FD3D12ManualFence& GetFrameFence()  { check(FrameFence); return *FrameFence; }
 
+	FORCEINLINE FD3D12Fence* GetStagingFence()  { return StagingFence.GetReference(); }
+
 	FORCEINLINE FD3D12Device* GetDevice(uint32 GPUIndex)
 	{
 		check(GPUIndex < GNumExplicitGPUsForRendering);
@@ -329,6 +331,9 @@ protected:
 
 	/** A Fence whos value increases every frame*/
 	TRefCountPtr<FD3D12ManualFence> FrameFence;
+
+	/** A Fence used to syncrhonize FD3D12GPUFence and FD3D12StagingBuffer */
+	TRefCountPtr<FD3D12Fence> StagingFence;
 
 	FD3D12DeferredDeletionQueue DeferredDeletionQueue;
 

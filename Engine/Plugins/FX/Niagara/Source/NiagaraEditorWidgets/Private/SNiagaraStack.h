@@ -10,6 +10,7 @@
 #include "Widgets/Views/STreeView.h"
 #include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 
 class UNiagaraStackViewModel;
@@ -71,6 +72,17 @@ private:
 	void ConstructHeaderWidget();
 	FSlateColor GetPinColor() const;
 	FReply PinButtonPressed();
+	FReply OpenSourceEmitter();
+	EVisibility GetEnableCheckboxVisibility() const;
+	EVisibility GetPinEmitterVisibility() const;
+	EVisibility GetOpenSourceEmitterVisibility() const;
+
+	// source name handling
+	FText GetSourceEmitterNameText() const;
+	FText GetEmitterNameToolTip() const;
+	void OnStackViewNameTextCommitted(const FText& InText, ETextCommit::Type CommitInfo) const;
+	EVisibility GetSourceEmitterNameVisibility() const; 
+	bool GetIsEmitterRenamed() const;
 
 	// ~stack search stuff
 	void OnSearchTextChanged(const FText& SearchText);
@@ -88,7 +100,6 @@ private:
 	bool IsEntryFocusedInSearch(UNiagaraStackEntry* Entry) const;
 	
 	// Inline menu commands
-	void OpenSourceEmitter();
 	bool CanOpenSourceEmitter() const;
 	void SetEmitterEnabled(bool bIsEnabled);
 	bool CheckEmitterEnabledStatus(bool bIsEnabled);
@@ -122,9 +133,13 @@ private:
 
 	FLinearColor CurrentPinColor;
 	
+	// emitter name textblock
+	TSharedPtr<SInlineEditableTextBlock> InlineEditableTextBlock;
+
 	// ~ search stuff
 	TSharedPtr<SSearchBox> SearchBox;
 	TSharedPtr<FActiveTimerHandle> SearchExpandTimer;
 	static const FText OccurencesFormat;
 	bool bNeedsJumpToNextOccurence;
+	
 };

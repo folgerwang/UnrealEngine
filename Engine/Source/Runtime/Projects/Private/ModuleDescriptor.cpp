@@ -80,6 +80,9 @@ const TCHAR* EHostType::ToString( const EHostType::Type Value )
 		case RuntimeNoCommandlet:
 			return TEXT( "RuntimeNoCommandlet" );
 
+		case RuntimeAndProgram:
+			return TEXT("RuntimeAndProgram");
+
 		case CookedOnly:
 			return TEXT("CookedOnly");
 
@@ -217,7 +220,7 @@ bool FModuleDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		}
 	}
 
-	// Read the supported programs
+	// Read the whitelisted programs
 	TSharedPtr<FJsonValue> WhitelistProgramsValue = Object.TryGetField(TEXT("WhitelistPrograms"));
 	if (WhitelistProgramsValue.IsValid() && WhitelistProgramsValue->Type == EJson::Array)
 	{
@@ -225,6 +228,17 @@ bool FModuleDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		for (int Idx = 0; Idx < ProgramsArray.Num(); Idx++)
 		{
 			WhitelistPrograms.Add(ProgramsArray[Idx]->AsString());
+		}
+	}
+
+	// Read the blacklisted programs
+	TSharedPtr<FJsonValue> BlacklistProgramsValue = Object.TryGetField(TEXT("BlacklistPrograms"));
+	if (BlacklistProgramsValue.IsValid() && BlacklistProgramsValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& ProgramsArray = BlacklistProgramsValue->AsArray();
+		for (int Idx = 0; Idx < ProgramsArray.Num(); Idx++)
+		{
+			BlacklistPrograms.Add(ProgramsArray[Idx]->AsString());
 		}
 	}
 
@@ -345,6 +359,15 @@ void FModuleDescriptor::Write(TJsonWriter<>& Writer) const
 		}
 		Writer.WriteArrayEnd();
 	}
+	if (BlacklistPrograms.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("BlacklistPrograms"));
+		for (int Idx = 0; Idx < BlacklistPrograms.Num(); Idx++)
+		{
+			Writer.WriteValue(BlacklistPrograms[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
 	if (AdditionalDependencies.Num() > 0)
 	{
 		Writer.WriteArrayStart(TEXT("AdditionalDependencies"));
@@ -414,8 +437,14 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 	}
 
 #if IS_PROGRAM
+	// Check the program is whitelisted. Note that the behavior is slightly different to other whitelist/blacklist pairs here; we will whitelist a module of any type if it's explicitly allowed for this program.
+	if (WhitelistPrograms.Num() > 0)
+	{
+		return WhitelistPrograms.Contains(UE_APP_NAME);
+	}
+
 	// Check the program is allowed
-	if (!WhitelistPrograms.Contains(UE_APP_NAME))
+	if (BlacklistPrograms.Num() > 0 && BlacklistPrograms.Contains(UE_APP_NAME))
 	{
 		return false;
 	}
@@ -426,6 +455,12 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 	{
 	case EHostType::Runtime:
 	case EHostType::RuntimeNoCommandlet:
+		#if !IS_PROGRAM
+			return true;
+		#endif
+		break;
+
+	case EHostType::RuntimeAndProgram:
 		return true;
 
 	case EHostType::CookedOnly:
@@ -480,14 +515,20 @@ bool FModuleDescriptor::IsLoadedInCurrentConfiguration() const
 	// Check that the runtime environment allows it to be loaded
 	switch (Type)
 	{
+	case EHostType::RuntimeAndProgram:
+		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT)
+			return true;
+		#endif
+		break;
+
 	case EHostType::Runtime:
-		#if WITH_ENGINE || WITH_PLUGIN_SUPPORT
+		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT) && !IS_PROGRAM
 			return true;
 		#endif
 		break;
 	
 	case EHostType::RuntimeNoCommandlet:
-		#if WITH_ENGINE || WITH_PLUGIN_SUPPORT
+		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT)  && !IS_PROGRAM
 			if(!IsRunningCommandlet()) return true;
 		#endif
 		break;

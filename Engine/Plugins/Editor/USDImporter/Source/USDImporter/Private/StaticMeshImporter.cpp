@@ -67,9 +67,9 @@ struct FUSDImportMaterialInfo
 struct FUSDStaticMeshImportState
 {
 public:
-	FUSDStaticMeshImportState(FUsdImportContext& ImportContext, TArray<FUSDImportMaterialInfo>& Materials) :
-		ImportContext(ImportContext),
-		Materials(Materials),
+	FUSDStaticMeshImportState(FUsdImportContext& InImportContext, TArray<FUSDImportMaterialInfo>& InMaterials) :
+		ImportContext(InImportContext),
+		Materials(InMaterials),
 		MeshDescription(nullptr)
 	{
 	}
@@ -442,6 +442,7 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 		NewMesh->ClearOriginalMeshDescription(LODIndex);
 		State.MeshDescription = NewMesh->CreateOriginalMeshDescription(LODIndex);
 		check(State.MeshDescription != nullptr);
+		NewMesh->RegisterMeshAttributes(*State.MeshDescription);
 
 		bool bRecomputeNormals = false;
 

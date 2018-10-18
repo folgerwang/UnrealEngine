@@ -996,13 +996,13 @@ public:
 
 	~FMetalGPUFence()
 	{
-
 	}
+
+	void WriteInternal(mtlpp::CommandBuffer& CmdBuffer);
 
 	virtual bool Poll() const override final;
 
-	virtual bool Wait(float TimeoutMs) const override final;
-
+private:
 	mtlpp::CommandBufferFence Fence;
 };
 

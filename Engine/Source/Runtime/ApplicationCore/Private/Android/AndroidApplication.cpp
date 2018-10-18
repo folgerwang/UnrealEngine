@@ -81,6 +81,14 @@ void FAndroidApplication::PollGameDeviceState( const float TimeDelta )
 		FDisplayMetrics DisplayMetrics;
 		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		BroadcastDisplayMetricsChanged(DisplayMetrics);
+
+		// the cursor needs to compute the proper slate scaling factor each time the display metrics change
+		TSharedPtr<FAndroidCursor> AndroidCursor = StaticCastSharedPtr<FAndroidCursor>(Cursor);
+		if (AndroidCursor.IsValid())
+		{
+			AndroidCursor->ComputeUIScaleFactor();
+		}
+
 		bWindowSizeChanged = false;
 	}
 }

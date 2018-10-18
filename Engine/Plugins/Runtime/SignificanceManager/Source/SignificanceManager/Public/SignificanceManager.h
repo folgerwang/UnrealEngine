@@ -20,6 +20,7 @@ class USignificanceManager;
 struct FAutoCompleteCommand;
 
 DECLARE_STATS_GROUP(TEXT("Significance Manager"), STATGROUP_SignificanceManager, STATCAT_Advanced);
+DECLARE_LOG_CATEGORY_EXTERN(LogSignificance, Log, All);
 
 /* Module definition for significance manager. Owns the references to created significance managers*/
 class SIGNIFICANCEMANAGER_API FSignificanceManagerModule : public FDefaultModuleImpl, public FGCObject

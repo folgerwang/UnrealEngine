@@ -90,12 +90,6 @@ void FAppFramework::ApplicationPauseDelegate()
 {
 	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP PAUSE ++++++"));
 
-	FMagicLeapHMD * hmd = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
-
-	if (hmd && hmd->GetActiveCustomPresent())
-	{
-		hmd->GetActiveCustomPresent()->Reset();
-	}
 
 	if (GEngine)
 	{
@@ -117,16 +111,10 @@ void FAppFramework::ApplicationPauseDelegate()
 	}
 
 	// Pause rendering
-	if (GUseThreadedRendering)
+	FMagicLeapHMD * const HMD = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
+	if (HMD)
 	{
-		if (GIsThreadedRendering)
-		{
-			StopRenderingThread(); 
-		}
-	}
-	else
-	{
-		RHIReleaseThreadOwnership();
+		HMD->PauseRendering(true);
 	}
 }
 
@@ -135,16 +123,10 @@ void FAppFramework::ApplicationResumeDelegate()
 	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP RESUME ++++++"));
 
 	// Resume rendering
-	if (GUseThreadedRendering)
+	FMagicLeapHMD * const HMD = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
+	if (HMD)
 	{
-		if (!GIsThreadedRendering)
-		{
-			StartRenderingThread();
-		}
-	}
-	else
-	{
-		RHIAcquireThreadOwnership();
+		HMD->PauseRendering(false);
 	}
 
 	if (GEngine)

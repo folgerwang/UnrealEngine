@@ -10,6 +10,8 @@
 USynth2DSlider::USynth2DSlider(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	FSynth2DSliderStyle::Initialize();
+
 	SliderHandleColor = FLinearColor::White;
 	StepSize = 0.01f;
 	SSynth2DSlider::FArguments Defaults;

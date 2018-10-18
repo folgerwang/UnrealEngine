@@ -146,6 +146,15 @@ static TAutoConsoleVariable<int32> CVarDefaultAutoExposureMethod(
 	TEXT(" 0: Histogram based (requires compute shader, default)\n")
 	TEXT(" 1: Basic AutoExposure"));
 
+static TAutoConsoleVariable<int32> CVarDefaultAutoExposureExtendDefaultLuminanceRange(
+	TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"),
+	0,
+	TEXT("Whether the default values for AutoExposure should support an extended range of scene luminance.\n")
+	TEXT("This also change the PostProcessSettings.Exposure.MinBrightness, MaxBrightness, HistogramLogMin and HisogramLogMax\n")
+	TEXT("to be expressed in EV100 values instead of in Luminance and Log2 Luminance.\n")
+	TEXT(" 0: Legacy range (default)\n")
+	TEXT(" 1: Extended range"));
+
 static TAutoConsoleVariable<int32> CVarDefaultMotionBlur(
 	TEXT("r.DefaultFeature.MotionBlur"),
 	1,
@@ -1338,12 +1347,16 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(DepthOfFieldNearTransitionRegion);
 		LERP_PP(DepthOfFieldFarTransitionRegion);
 		LERP_PP(DepthOfFieldScale);
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldMaxBokehSize);
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldNearBlurSize);
 		LERP_PP(DepthOfFieldFarBlurSize);
 		LERP_PP(DepthOfFieldOcclusion);
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldColorThreshold);
 		LERP_PP(DepthOfFieldSizeThreshold);
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		LERP_PP(DepthOfFieldSkyFocusDistance);
 		LERP_PP(DepthOfFieldVignetteSize);
 		LERP_PP(MotionBlurAmount);
@@ -1404,11 +1417,13 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			Dest.BloomConvolutionBufferScale = Src.BloomConvolutionBufferScale;
 		}
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		// actual texture cannot be blended but the intensity can be blended
 		IF_PP(DepthOfFieldBokehShape)
 		{
 			Dest.DepthOfFieldBokehShape = Src.DepthOfFieldBokehShape;
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		// actual texture cannot be blended but the intensity can be blended
 		IF_PP(LensFlareBokehShape)
@@ -1424,10 +1439,12 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			}
 		}
 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if (Src.bOverride_DepthOfFieldMethod)
 		{
 			Dest.DepthOfFieldMethod = Src.DepthOfFieldMethod;
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if (Src.bOverride_MobileHQGaussian)
 		{
@@ -1790,12 +1807,14 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	}
 #endif
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if(FinalPostProcessSettings.DepthOfFieldMethod == DOFM_CircleDOF)
 	{
 		// We intentionally don't do the DepthOfFieldFocalRegion as it breaks realism.
 		// Doing this fixes DOF material expression.
 		FinalPostProcessSettings.DepthOfFieldFocalRegion = 0;
 	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	{
 		const bool bStereoEnabled = StereoPass != eSSP_FULL;

@@ -48,6 +48,12 @@ public:
 		return FLinearColor::Black;
 	}
 
+	/** Evaluate this color curve at the specified time */
+	virtual FLinearColor GetClampedLinearColorValue(float InTime) const
+	{
+		return FLinearColor::Black;
+	}
+
 	/** @return True if the curve has any alpha keys */
 	virtual bool HasAnyAlphaKeys() const
 	{

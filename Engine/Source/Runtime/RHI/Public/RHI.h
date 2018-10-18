@@ -468,14 +468,6 @@ extern RHI_API EPixelFormat GRHIHDRDisplayOutputFormat;
 /** Counter incremented once on each frame present. Used to support game thread synchronization with swap chain frame flips. */
 extern RHI_API uint64 GRHIPresentCounter;
 
-/** Whether or not the RHI can support a real GPU-to-CPU fence or not. 
- * True if and only if the RHI implements:
- *  - RHICreateGPUFence
- *  - RHIInsertGPUFence
- * such that the implementation is *not* dependent upon GFrameNumber or GFrameNumberRenderThread.
- */
-extern RHI_API bool GRHISupportsGPUFence;
-
 /** Called once per frame only from within an RHI. */
 extern RHI_API void RHIPrivateBeginFrame();
 

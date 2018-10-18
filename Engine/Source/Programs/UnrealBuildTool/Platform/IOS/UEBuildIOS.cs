@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using Tools.DotNETCommon;
+using Microsoft.Win32;
 
 namespace UnrealBuildTool
 {
@@ -297,12 +298,12 @@ namespace UnrealBuildTool
 			{
 				switch (MinimumIOSVersion)
 				{
-					case "IOS_10":
-						return "10.0";
 					case "IOS_11":
 						return "11.0";
+					case "IOS_12":
+						return "12.0";
 					default:
-						return "9.0";
+						return "10.0";
 				}
 			}
 		}
@@ -993,17 +994,52 @@ namespace UnrealBuildTool
 			if (!Utils.IsRunningOnMono)
 			{
 				// check to see if iTunes is installed
-				string dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
+				string dllPath = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
 				if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 				{
-					dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
+					dllPath = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
 					if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 					{
-						return SDKStatus.Invalid;
+						dllPath = FindWindowsStoreITunesDLL();
+
+						if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
+						{
+							return SDKStatus.Invalid;
+						}
 					}
 				}
 			}
 			return SDKStatus.Valid;
+		}
+
+		static string FindWindowsStoreITunesDLL()
+		{
+			string InstallPath = null;
+
+			string PackagesKeyName = "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\PackageRepository\\Packages";
+
+			RegistryKey PackagesKey = Registry.LocalMachine.OpenSubKey(PackagesKeyName);
+			if (PackagesKey != null)
+			{
+				string[] PackageSubKeyNames = PackagesKey.GetSubKeyNames();
+
+				foreach (string PackageSubKeyName in PackageSubKeyNames)
+				{
+					if (PackageSubKeyName.Contains("AppleInc.iTunes") && (PackageSubKeyName.Contains("_x64") || PackageSubKeyName.Contains("_x86")))
+					{
+						string FullPackageSubKeyName = PackagesKeyName + "\\" + PackageSubKeyName;
+
+						RegistryKey iTunesKey = Registry.LocalMachine.OpenSubKey(FullPackageSubKeyName);
+						if (iTunesKey != null)
+						{
+							InstallPath = (string)iTunesKey.GetValue("Path") + "\\AMDS32\\MobileDevice.dll";
+							break;
+						}
+					}
+				}
+			}
+
+			return InstallPath;
 		}
 	}
 

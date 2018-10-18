@@ -604,7 +604,7 @@ public:
 	uint8 bIsEditorPreviewActor:1;
 
 	/** Whether this actor is hidden by the layer browser. */
-	UPROPERTY()
+	UPROPERTY(Transient)
 	uint8 bHiddenEdLayer:1;
 
 	/** Whether this actor is hidden by the level browser. */
@@ -2687,6 +2687,16 @@ public:
 
 	/** Gets the GameInstance that ultimately contains this actor. */
 	class UGameInstance* GetGameInstance() const;
+	
+	/** 
+	 * Gets the GameInstance that ultimately contains this actor cast to the template type.
+	 * May return NULL if the cast fails. 
+	 */
+	template< class T >
+	T* GetGameInstance() const 
+	{ 
+		return Cast<T>(GetGameInstance()); 
+	}
 
 	/** Returns true if this is a replicated actor that was placed in the map */
 	bool IsNetStartupActor() const;

@@ -12,6 +12,7 @@ UPixelInspectorView::UPixelInspectorView(const FObjectInitializer& ObjectInitial
 	}
 	FinalColor = FLinearColor::Green;
 	SceneColor = FLinearColor::Green;
+	PreExposure = 1.f;
 	Luminance = 0.0f;
 	HdrColor = FLinearColor::Black;
 	Normal = FVector(0.0f);
@@ -60,6 +61,7 @@ void UPixelInspectorView::SetFromResult(PixelInspector::PixelInspectorResult &Re
 	}
 	
 	SceneColor = Result.SceneColor;
+	PreExposure = Result.PreExposure;
 	Luminance = Result.HdrLuminance;
 	HdrColor = Result.HdrColor;
 	Normal = Result.Normal;

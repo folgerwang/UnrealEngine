@@ -1562,7 +1562,7 @@ void FConfigFile::SaveSourceToBackupFile()
 
 	if(!SaveConfigFileWrapper(*Filename, Text))
 	{
-		UE_LOG(LogConfig, Warning, TEXT("Failed to saved backup for config[%s]"), *Name.ToString());
+		UE_LOG(LogConfig, Warning, TEXT("Failed to saved backup for config[%s]"), *Filename);
 	}
 }
 

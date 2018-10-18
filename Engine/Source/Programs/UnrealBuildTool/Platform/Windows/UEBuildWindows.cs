@@ -808,6 +808,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Determines if an IDE for the given compiler is installed.
+		/// </summary>
+		/// <param name="Compiler">Compiler to check for</param>
+		/// <returns>True if the given compiler is installed</returns>
+		public static bool HasIDE(WindowsCompiler Compiler)
+		{
+			return FindVSInstallDirs(Compiler).Count > 0;
+		}
+
+		/// <summary>
 		/// Determines if a given compiler is installed
 		/// </summary>
 		/// <param name="Compiler">Compiler to check for</param>
@@ -1319,12 +1329,47 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Return whether this platform has uniquely named binaries across multiple games
+		/// Gets the application icon for a given project
 		/// </summary>
-		public override bool HasUniqueBinaries()
+		/// <param name="ProjectFile">The project file</param>
+		/// <returns>The icon to use for this project</returns>
+		public static FileReference GetApplicationIcon(FileReference ProjectFile)
 		{
-			// Windows applications have many shared binaries between games
-			return false;
+			// Check if there's a custom icon
+			if(ProjectFile != null)
+			{
+				FileReference IconFile = FileReference.Combine(ProjectFile.Directory, "Build", "Windows", "Application.ico");
+				if(FileReference.Exists(IconFile))
+				{
+					return IconFile;
+				}
+			}
+
+			// Otherwise use the default
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Windows", "UE4.ico");
+		}
+
+		/// <summary>
+		/// Configures the resource compile environment for the given target
+		/// </summary>
+		/// <param name="ResourceCompileEnvironment">The compile environment</param>
+		/// <param name="IntermediateDirectory">The output directory for compiled files</param>
+		/// <param name="Target">The target being built</param>
+		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, DirectoryReference IntermediateDirectory, ReadOnlyTargetRules Target)
+		{
+			// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
+			FileReference IconFile;
+			if(Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			{
+				IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
+			}
+			else
+			{
+				IconFile = WindowsPlatform.GetApplicationIcon(null);
+			}
+
+			// Setup the compile environment, setting the icon to use via a macro. This is used in PCLaunch.rc2.
+			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
 		}
 
 		/// <summary>
@@ -1661,7 +1706,6 @@ namespace UnrealBuildTool
 		/// <param name="Target">Information about the target being deployed</param>
 		public override void Deploy(UEBuildDeployTarget Target)
 		{
-			new BaseWindowsDeploy().PrepTargetForDeployment(Target);
 		}
 	}
 

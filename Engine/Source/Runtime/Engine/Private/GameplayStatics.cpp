@@ -1790,38 +1790,45 @@ bool UGameplayStatics::DeleteGameInSlot(const FString& SlotName, const int32 Use
 
 USaveGame* UGameplayStatics::LoadGameFromSlot(const FString& SlotName, const int32 UserIndex)
 {
-	USaveGame* OutSaveGameObject = NULL;
-
 	ISaveGameSystem* SaveSystem = IPlatformFeaturesModule::Get().GetSaveGameSystem();
 	// If we have a save system and a valid name..
-	if(SaveSystem && (SlotName.Len() > 0))
+	if (SaveSystem && (SlotName.Len() > 0))
 	{
 		// Load raw data from slot
 		TArray<uint8> ObjectBytes;
 		bool bSuccess = SaveSystem->LoadGame(false, *SlotName, UserIndex, ObjectBytes);
-		if(bSuccess)
+		if (bSuccess)
 		{
-			FMemoryReader MemoryReader(ObjectBytes, true);
-
-			FSaveGameHeader SaveHeader;
-			SaveHeader.Read(MemoryReader);
-
-			// Try and find it, and failing that, load it
-			UClass* SaveGameClass = FindObject<UClass>(ANY_PACKAGE, *SaveHeader.SaveGameClassName);
-			if(SaveGameClass == NULL)
-			{
-				SaveGameClass = LoadObject<UClass>(NULL, *SaveHeader.SaveGameClassName);
-			}
-
-			// If we have a class, try and load it.
-			if(SaveGameClass != NULL)
-			{
-				OutSaveGameObject = NewObject<USaveGame>(GetTransientPackage(), SaveGameClass);
-
-				FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
-				OutSaveGameObject->Serialize(Ar);
-			}
+			return LoadGameFromMemory(ObjectBytes);
 		}
+	}
+
+	return nullptr;
+}
+
+USaveGame* UGameplayStatics::LoadGameFromMemory(const TArray<uint8>& InSaveData)
+{
+	USaveGame* OutSaveGameObject = nullptr;
+
+	FMemoryReader MemoryReader(InSaveData, true);
+
+	FSaveGameHeader SaveHeader;
+	SaveHeader.Read(MemoryReader);
+
+	// Try and find it, and failing that, load it
+	UClass* SaveGameClass = FindObject<UClass>(ANY_PACKAGE, *SaveHeader.SaveGameClassName);
+	if (SaveGameClass == nullptr)
+	{
+		SaveGameClass = LoadObject<UClass>(nullptr, *SaveHeader.SaveGameClassName);
+	}
+
+	// If we have a class, try and load it.
+	if (SaveGameClass != nullptr)
+	{
+		OutSaveGameObject = NewObject<USaveGame>(GetTransientPackage(), SaveGameClass);
+
+		FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
+		OutSaveGameObject->Serialize(Ar);
 	}
 
 	return OutSaveGameObject;

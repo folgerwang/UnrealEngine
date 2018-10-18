@@ -552,11 +552,11 @@ bool FMobileJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString>
 
 			// Extract the result value from the serialized JSON object:
 			FString ResultJS = ReturnBackend.ToString();
-
+			/*
 			ResultJS.Append(TEXT("['"));
 			ResultJS.Append(GetBindingName(ReturnParam).ReplaceCharWithEscapedChar());
 			ResultJS.Append(TEXT("']"));
-
+			*/
 			InvokeJSFunctionRaw(ResultCallbackId, ResultJS, false);
 		}
 		else
@@ -623,8 +623,12 @@ void FMobileJSScripting::PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow
 	InWindow->ExecuteJavascript(Script);
 }
 
-FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled, TSharedRef<class IWebBrowserWindow> InWindow)
+FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled)
 	: FWebJSScripting(bJSBindingToLoweringEnabled)
+{
+}
+
+void FMobileJSScripting::SetWindow(TSharedRef<class IWebBrowserWindow> InWindow)
 {
 	WindowPtr = InWindow;
 }

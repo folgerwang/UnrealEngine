@@ -19,21 +19,13 @@ class UProxyMediaSource;
 /**
  * Settings for the media profile.
  */
-UCLASS(config=Game)
+UCLASS(config=Game, defaultconfig)
 class MEDIAFRAMEWORKUTILITIES_API UMediaProfileSettings
 	: public UObject
 {
-	GENERATED_BODY()
-
-	UMediaProfileSettings();		
+	GENERATED_BODY()	
 
 public:
-
-	/**
-	 * Display the media profile icon in the editor toolbar.
-	 */
-	UPROPERTY(Config, EditAnywhere, Category="MediaProfile")
-	bool bDisplayInToolbar;
 
 	/**
 	 * Apply the startup media profile even when we are running a commandlet.
@@ -90,6 +82,16 @@ class MEDIAFRAMEWORKUTILITIES_API UMediaProfileEditorSettings
 	: public UObject
 {
 	GENERATED_BODY()
+
+	UMediaProfileEditorSettings();
+
+public:
+
+	/**
+	 * Display the media profile icon in the editor toolbar.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "MediaProfile")
+	bool bDisplayInToolbar;
 
 private:
 

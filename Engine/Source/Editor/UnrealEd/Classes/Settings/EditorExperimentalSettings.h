@@ -125,6 +125,10 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Materials)
 	bool bExampleLayersAndBlends;
 
+	/** Allows creation of assets with paths longer than 260 characters. Note that this also requires the Windows 10 Anniversary Update (1607), and support for long paths to be enabled through the group policy editor. */
+	UPROPERTY(EditAnywhere, config, Category = "Content Browser", meta = (DisplayName = "Enable support for long paths (> 260 characters)"))
+	bool bEnableLongPathsSupport;
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *

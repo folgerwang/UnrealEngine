@@ -493,13 +493,13 @@ template struct FRHICommandWaitComputeFence<ECmdList::EGfx>;
 template struct FRHICommandWaitComputeFence<ECmdList::ECompute>;
 
 template<ECmdList CmdListType>
-void FRHICommandInsertGPUFence<CmdListType>::Execute(FRHICommandListBase& CmdList)
+void FRHICommandEnqueueStagedRead<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
-	RHISTAT(InsertGPUFence);
-	INTERNAL_DECORATOR_CONTEXT(RHIInsertGPUFence)(Fence);
+	RHISTAT(EnqueueStagedRead);
+	INTERNAL_DECORATOR_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
 }
-template struct FRHICommandInsertGPUFence<ECmdList::EGfx>;
-template struct FRHICommandInsertGPUFence<ECmdList::ECompute>;
+template struct FRHICommandEnqueueStagedRead<ECmdList::EGfx>;
+template struct FRHICommandEnqueueStagedRead<ECmdList::ECompute>;
 
 void FRHICommandBuildLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
 {

@@ -128,7 +128,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		if(Vers.majorVersion > 10 || (Vers.majorVersion == 10 && Vers.minorVersion >= 3))
         {
             Features |= EMetalFeaturesGPUCommandBufferTimes;
-			
+
 			Features |= EMetalFeaturesLinearTextures;
 			// InjectCurves() does not work with this
 			//Features |= EMetalFeaturesEfficientBufferBlits;

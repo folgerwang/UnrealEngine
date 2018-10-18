@@ -515,8 +515,6 @@ EPixelFormat GRHIHDRDisplayOutputFormat = PF_FloatRGBA;
 
 uint64 GRHIPresentCounter = 1;
 
-bool GRHISupportsGPUFence = false;
-
 /** Whether we are profiling GPU hitches. */
 bool GTriggerGPUHitchProfile = false;
 

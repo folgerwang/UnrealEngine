@@ -243,6 +243,8 @@ public:
 	/** Will apply current density scaling, if enabled **/
 	void UpdateDensityScaling();
 
+	virtual void PropagateLightingScenarioChange() override;
+
 protected:
 	void BuildTree();
 	void BuildTreeAsync();

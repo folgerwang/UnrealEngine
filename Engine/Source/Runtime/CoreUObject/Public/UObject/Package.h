@@ -38,6 +38,8 @@ enum class ESavePackageResult
 	GenerateStub,
 	/** [When cooking] When performing package diff, the package generated in memory was different to the one that existed on disk */
 	DifferentContent,
+	/** [When cooking] The file requested (when cooking on the fly) did not exist on disk */
+	MissingFile
 };
 
 /**

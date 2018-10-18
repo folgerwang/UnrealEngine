@@ -99,33 +99,33 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 		}
 		else
 		{
-			CustomClassFilters.Add(ObjectClass);
+			AllowedClassFilters.Add(ObjectClass);
 		}
 	}
 
 	// Account for the allowed classes specified in the property metadata
 	if (Property)
 	{
-		const FString* ClassFilterString;
+		const FString* AllowedClassesFilterString;
 		if (UArrayProperty* ArrayParent = Cast<UArrayProperty>(Property->GetOuter()))
 		{
-			ClassFilterString = &ArrayParent->GetMetaData("AllowedClasses");
+			AllowedClassesFilterString = &ArrayParent->GetMetaData("AllowedClasses");
 		}
 		else
 		{
-			ClassFilterString = &Property->GetMetaData("AllowedClasses");
+			AllowedClassesFilterString = &Property->GetMetaData("AllowedClasses");
 		}
 
-		if (ClassFilterString->IsEmpty())
+		if (AllowedClassesFilterString->IsEmpty())
 		{
-			CustomClassFilters.Add(ObjectClass);
+			AllowedClassFilters.Add(ObjectClass);
 		}
 		else
 		{
-			TArray<FString> CustomClassFilterNames;
-			ClassFilterString->ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
+			TArray<FString> AllowedClassFilterNames;
+			AllowedClassesFilterString->ParseIntoArray(AllowedClassFilterNames, TEXT(","), true);
 
-			for (auto It = CustomClassFilterNames.CreateIterator(); It; ++It)
+			for (auto It = AllowedClassFilterNames.CreateIterator(); It; ++It)
 			{
 				FString& ClassName = *It;
 				// User can potentially list class names with leading or trailing whitespace
@@ -148,13 +148,63 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 							UClass* const ClassWithInterface = (*ClassIt);
 							if (ClassWithInterface->ImplementsInterface(Class))
 							{
-								CustomClassFilters.Add(ClassWithInterface);
+								AllowedClassFilters.Add(ClassWithInterface);
 							}
 						}
 					}
 					else
 					{
-						CustomClassFilters.Add(Class);
+						AllowedClassFilters.Add(Class);
+					}
+				}
+			}
+		}
+
+		const FString* DisallowedClassesFilterString;
+		if (UArrayProperty* ArrayParent = Cast<UArrayProperty>(Property->GetOuter()))
+		{
+			DisallowedClassesFilterString = &ArrayParent->GetMetaData("DisallowedClasses");
+		}
+		else
+		{
+			DisallowedClassesFilterString = &Property->GetMetaData("DisallowedClasses");
+		}
+
+		if (!DisallowedClassesFilterString->IsEmpty())
+		{
+			TArray<FString> DisallowedClassFilterNames;
+			DisallowedClassesFilterString->ParseIntoArray(DisallowedClassFilterNames, TEXT(","), true);
+
+			for (auto It = DisallowedClassFilterNames.CreateIterator(); It; ++It)
+			{
+				FString& ClassName = *It;
+				// User can potentially list class names with leading or trailing whitespace
+				ClassName.TrimStartAndEndInline();
+
+				UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassName);
+
+				if (!Class)
+				{
+					Class = LoadObject<UClass>(nullptr, *ClassName);
+				}
+
+				if (Class)
+				{
+					// If the class is an interface, expand it to be all classes in memory that implement the class.
+					if (Class->HasAnyClassFlags(CLASS_Interface))
+					{
+						for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+						{
+							UClass* const ClassWithInterface = (*ClassIt);
+							if (ClassWithInterface->ImplementsInterface(Class))
+							{
+								DisallowedClassFilters.Add(ClassWithInterface);
+							}
+						}
+					}
+					else
+					{
+						DisallowedClassFilters.Add(Class);
 					}
 				}
 			}
@@ -165,9 +215,10 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 	{
 		NewAssetFactories = InArgs._NewAssetFactories.GetValue();
 	}
-	else if (CustomClassFilters.Num() > 1 || !CustomClassFilters.Contains(UObject::StaticClass()))
+	// If there are more allowed classes than just UObject 
+	else if (AllowedClassFilters.Num() > 1 || !AllowedClassFilters.Contains(UObject::StaticClass()))
 	{
-		NewAssetFactories = PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(CustomClassFilters);
+		NewAssetFactories = PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(AllowedClassFilters, DisallowedClassFilters);
 	}
 	
 	TSharedPtr<SHorizontalBox> ValueContentBox = nullptr;
@@ -609,7 +660,8 @@ TSharedRef<SWidget> SPropertyEditorAsset::OnGetMenuContent()
 	{
 		return PropertyCustomizationHelpers::MakeAssetPickerWithMenu(Value.AssetData,
 																	 bAllowClear,
-																	 CustomClassFilters,
+																	 AllowedClassFilters,
+																	 DisallowedClassFilters,
 																	 NewAssetFactories,
 																	 OnShouldFilterAsset,
 																	 FOnAssetSelected::CreateSP(this, &SPropertyEditorAsset::OnAssetSelected),
@@ -943,7 +995,7 @@ void SPropertyEditorAsset::OnActorSelected( AActor* InActor )
 
 void SPropertyEditorAsset::OnGetAllowedClasses(TArray<const UClass*>& AllowedClasses)
 {
-	AllowedClasses.Append(CustomClassFilters);
+	AllowedClasses.Append(AllowedClassFilters);
 }
 
 void SPropertyEditorAsset::OnOpenAssetEditor()
@@ -1008,7 +1060,7 @@ FText SPropertyEditorAsset::GetOnBrowseToolTip() const
 void SPropertyEditorAsset::OnUse()
 {
 	// Use the property editor path if it is valid and there is no custom filtering required
-	if(PropertyEditor.IsValid() && !OnShouldFilterAsset.IsBound() && CustomClassFilters.Num() == 0)
+	if(PropertyEditor.IsValid() && !OnShouldFilterAsset.IsBound() && AllowedClassFilters.Num() == 0 && DisallowedClassFilters.Num() == 0)
 	{
 		PropertyEditor->GetPropertyHandle()->SetObjectValueFromSelection();
 	}
@@ -1163,17 +1215,39 @@ bool SPropertyEditorAsset::CanEdit() const
 bool SPropertyEditorAsset::CanSetBasedOnCustomClasses( const FAssetData& InAssetData ) const
 {
 	bool bAllowedToSetBasedOnFilter = true;
-	if( InAssetData.IsValid() && CustomClassFilters.Num() > 0 )
+	if( InAssetData.IsValid() && AllowedClassFilters.Num() > 0 )
 	{
-		bAllowedToSetBasedOnFilter = false;
-		UClass* AssetClass = InAssetData.GetClass();
-		for( const UClass* AllowedClass : CustomClassFilters )
+		const int32 AllowedClassCount = AllowedClassFilters.Num();
+		const int32 DisallowedClassCount = DisallowedClassFilters.Num();
+
+		if (AllowedClassCount > 0 || DisallowedClassCount > 0)
 		{
-			const bool bAllowedClassIsInterface = AllowedClass->HasAnyClassFlags(CLASS_Interface);
-			if( AssetClass->IsChildOf( AllowedClass ) || (bAllowedClassIsInterface && AssetClass->ImplementsInterface(AllowedClass)) )
+			UClass* AssetClass = InAssetData.GetClass();
+			if (AllowedClassCount > 0)
 			{
-				bAllowedToSetBasedOnFilter = true;
-				break;
+				bAllowedToSetBasedOnFilter = false; 
+				for (const UClass* AllowedClass : AllowedClassFilters)
+				{
+					const bool bAllowedClassIsInterface = AllowedClass->HasAnyClassFlags(CLASS_Interface);
+					if (AssetClass->IsChildOf(AllowedClass) || (bAllowedClassIsInterface && AssetClass->ImplementsInterface(AllowedClass)))
+					{
+						bAllowedToSetBasedOnFilter = true;
+						break;
+					}
+				}
+			}
+
+			if (DisallowedClassCount > 0 && bAllowedToSetBasedOnFilter)
+			{
+				for (const UClass* DisallowedClass : DisallowedClassFilters)
+				{
+					const bool bDisallowedClassIsInterface = DisallowedClass->HasAnyClassFlags(CLASS_Interface);
+					if (AssetClass->IsChildOf(DisallowedClass) || (bDisallowedClassIsInterface && AssetClass->ImplementsInterface(DisallowedClass)))
+					{
+						bAllowedToSetBasedOnFilter = false;
+						break;
+					}
+				}
 			}
 		}
 	}

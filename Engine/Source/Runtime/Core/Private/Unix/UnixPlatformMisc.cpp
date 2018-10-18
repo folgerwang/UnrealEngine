@@ -914,21 +914,27 @@ void FUnixPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TC
 
 void FUnixPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
 {
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(ANSI_TO_TCHAR(Text)), Value, TCHAR_TO_WCHAR(ANSI_TO_TCHAR(Graph)), TCHAR_TO_WCHAR(ANSI_TO_TCHAR(Unit)));
 }
 #endif
 
-#if !UE_BUILD_SHIPPING
 CORE_API TFunction<void()> UngrabAllInputCallback;
 
+void FUnixPlatformMisc::UngrabAllInput()
+{
+	if(UngrabAllInputCallback)
+	{
+		UngrabAllInputCallback();
+	}
+}
+
+#if !UE_BUILD_SHIPPING
 void FUnixPlatformMisc::DebugBreakInternal()
 {
 	if( IsDebuggerPresent() )
 	{
-		if(UngrabAllInputCallback)
-		{
-			UngrabAllInputCallback();
-		}
+		UngrabAllInput();
+
 #if PLATFORM_CPU_X86_FAMILY
 		__asm__ volatile("int $0x03");
 #else

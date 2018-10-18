@@ -309,6 +309,7 @@ public:
 		VulkanBridge(FSteamVRHMD* plugin);
 
 		virtual void FinishRendering() override;
+		virtual void UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI) override;
 		virtual void Reset() override;
 
 	protected:
@@ -369,6 +370,7 @@ public:
 	bool IsInitialized() const;
 
 	vr::IVRSystem* GetVRSystem() const { return VRSystem; }
+	vr::IVRInput* GetVRInput() const { return VRInput; }
 	vr::IVRRenderModels* GetRenderModelManager() const { return VRRenderModels; }
 
 protected:
@@ -569,6 +571,7 @@ private:
 	vr::IVROverlay* VROverlay;
 	vr::IVRChaperone* VRChaperone;
 	vr::IVRRenderModels* VRRenderModels;
+	vr::IVRInput* VRInput;
 
 	FString DisplayId;
 

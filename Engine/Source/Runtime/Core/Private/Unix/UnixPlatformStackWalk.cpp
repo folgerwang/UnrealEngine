@@ -45,7 +45,7 @@ namespace
 			: SymbolFileFD(open(Path, O_RDONLY)),
 			  StartOffset(sizeof(RecordsHeader))
 		{
-			if (SymbolFileFD)
+			if (SymbolFileFD != -1)
 			{
 				// TODO check for EINTR
 				read(SymbolFileFD, static_cast<void*>(&RecordCount), sizeof(RecordsHeader));
@@ -633,5 +633,22 @@ void NewReportEnsure(const TCHAR* ErrorMessage)
 	EnsureContext.GenerateCrashInfoAndLaunchReporter(true);
 
 	bReentranceGuard = false;
+	EnsureLock.Unlock();
+}
+
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	EnsureLock.Lock();
+	if (!bReentranceGuard)
+	{
+		bReentranceGuard = true;
+
+		const bool bIsEnsure = true;
+		FUnixCrashContext EnsureContext(bIsEnsure);
+		EnsureContext.SetPortableCallStack(0, Stack);
+		EnsureContext.GenerateCrashInfoAndLaunchReporter(true);
+
+		bReentranceGuard = false;
+	}
 	EnsureLock.Unlock();
 }

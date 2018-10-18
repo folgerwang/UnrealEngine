@@ -200,17 +200,6 @@ namespace UnrealBuildTool
 		protected string GameProjectName = null;
 
 		/// <summary>
-		/// Global static that only adds platforms that are supported when generating a given target.
-		/// This was the old behavior, and it resulted in scenarios where having an unsupported platform selected
-		/// in the platform drop-down would silently 'switch' to building Win32.
-		/// The new behavior is to add all platforms when generating a target, and then check if it is supported
-		/// at build time. If it is not, then a BuildException is thrown informing the user of an unsupported platform.
-		/// NOTE: This only matters when using "-AllProjects".  It can increase the project file load times though, because of all
-		///       of the extra project configuration combinations we need to store
-		/// </summary>
-		public static bool bCreateDummyConfigsForUnsupportedPlatforms = true;
-
-		/// <summary>
 		/// Whether we should include configurations for "Test" and "Shipping" in generated projects (pass "-NoShippingConfigs" to disable this)
 		/// </summary>
 		public static bool bIncludeTestAndShippingConfigs = true;
@@ -415,7 +404,7 @@ namespace UnrealBuildTool
 				if (FileReference.Exists(ProjectFile))
 				{
 					VCSharpProjectFile Project = new VCSharpProjectFile(ProjectFile);
-					Project.ShouldBuildForAllSolutionTargets = true;
+					Project.ShouldBuildForAllSolutionTargets = false;//true;
 					AddExistingProjectFile(Project, bForceDevelopmentConfiguration: true);
                     AutomationProjectFiles.Add( Project );
 					Folder.ChildProjects.Add( Project );
@@ -1092,14 +1081,6 @@ namespace UnrealBuildTool
 
 						case "-NOSHIPPINGCONFIGS":
 							bIncludeTestAndShippingConfigs = false;
-							break;
-
-						case "-DUMMYCONFIGS":
-							bCreateDummyConfigsForUnsupportedPlatforms = true;
-							break;
-
-						case "-NODUMMYCONFIGS":
-							bCreateDummyConfigsForUnsupportedPlatforms = false;
 							break;
 
 						case "-ALLLANGUAGES":

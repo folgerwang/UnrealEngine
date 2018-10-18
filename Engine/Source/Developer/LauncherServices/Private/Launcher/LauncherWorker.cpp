@@ -777,6 +777,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	}
 	else
 	{
+		if (InProfile->IsIncludingPrerequisites())
+		{
+			UATCommand += TEXT(" -prereqs");
+		}
+
 		if (InProfile->GetPackagingMode() == ELauncherProfilePackagingModes::Locally)
 		{
 			UATCommand += TEXT(" -stage -package");

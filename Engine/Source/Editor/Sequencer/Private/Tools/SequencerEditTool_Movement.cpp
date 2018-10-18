@@ -163,6 +163,42 @@ TSharedPtr<ISequencerEditToolDragOperation> FSequencerEditTool_Movement::CreateD
 		}
 		else if (bIsDuplicateEvent)
 		{
+			if (HotspotType == ESequencerHotspot::Key)
+			{
+				TArrayView<const FSequencerSelectedKey> HoveredKeys = StaticCastSharedPtr<FKeyHotspot>(DelayedDrag->Hotspot)->Keys;
+
+				auto AnyUnselectedKey = [&Selection](const FSequencerSelectedKey& InKey)
+				{
+					return !Selection.IsSelected(InKey);
+				};
+
+				if (HoveredKeys.ContainsByPredicate(AnyUnselectedKey))
+				{
+					// If any are not selected, we'll treat this as a unique drag
+					Selection.EmptySelectedKeys();
+					Selection.EmptySelectedSections();
+					Selection.EmptyNodesWithSelectedKeysOrSections();
+					for (const FSequencerSelectedKey& Key : HoveredKeys)
+					{
+						Selection.AddToSelection(Key);
+					}
+					SequencerHelpers::UpdateHoveredNodeFromSelectedKeys(Sequencer);
+				}
+			}
+			else if (HotspotType == ESequencerHotspot::Section)
+			{
+				FSectionHotspot HoveredSection = StaticCastSharedPtr<FSectionHotspot>(DelayedDrag->Hotspot)->Section;
+
+				if (!Selection.IsSelected(HoveredSection.Section.GetSectionObject()))
+				{
+					Selection.EmptySelectedKeys();
+					Selection.EmptySelectedSections();
+					Selection.EmptyNodesWithSelectedKeysOrSections();
+					Selection.AddToSelection(HoveredSection.Section.GetSectionObject());
+					SequencerHelpers::UpdateHoveredNodeFromSelectedSections(Sequencer);
+				}
+			}
+
 			return MakeShareable(new FDuplicateKeysAndSections(Sequencer, Selection.GetSelectedKeys(), SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()), bHotspotIsSection));
 		}
 

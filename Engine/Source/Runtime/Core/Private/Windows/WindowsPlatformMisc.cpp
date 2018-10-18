@@ -1815,7 +1815,7 @@ HWND FWindowsPlatformMisc::GetTopLevelWindowHandle(uint32 ProcessId)
 	return Data.Handle;
 }
 
-void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
+FORCENOINLINE void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
 {
 	/** This is the last place to gather memory stats before exception. */
 	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();

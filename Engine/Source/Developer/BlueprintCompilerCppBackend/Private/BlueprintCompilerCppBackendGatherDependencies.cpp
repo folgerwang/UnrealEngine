@@ -77,6 +77,9 @@ struct FGatherConvertedClassDependenciesHelperBase : public FReferenceCollector
 		if (InBPGC && !Dependencies.ConvertedClasses.Contains(InBPGC))
 		{
 			Dependencies.ConvertedClasses.Add(InBPGC);
+
+			// Add the CDO in case we need to instance any subobjects at construction time, which makes the converted CDO a dependency.
+			Dependencies.Assets.AddUnique(InBPGC->GetDefaultObject());
 		}
 	}
 

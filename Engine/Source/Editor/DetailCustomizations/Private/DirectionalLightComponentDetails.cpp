@@ -37,7 +37,11 @@ void FDirectionalLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& 
 	TSharedPtr<IPropertyHandle> LightIntensityProperty = DetailBuilder.GetProperty("Intensity", ULightComponentBase::StaticClass());
 	// Point lights need to override the ui min and max for units of lumens, so we have to undo that
 	LightIntensityProperty->SetInstanceMetaData("UIMin",TEXT("0.0f"));
-	LightIntensityProperty->SetInstanceMetaData("UIMax",TEXT("20.0f"));
+	LightIntensityProperty->SetInstanceMetaData("UIMax",TEXT("120000.0f"));
+	LightIntensityProperty->SetInstanceMetaData("SliderExponent", TEXT("10.0f"));
+	LightIntensityProperty->SetInstanceMetaData("Units", TEXT("lux"));
+	LightIntensityProperty->SetToolTipText(LOCTEXT("DirectionalLightIntensityToolTipText", "Maximum illumination from the light in lux"));
+
 }
 
 bool FDirectionalLightComponentDetails::IsLightMovable() const

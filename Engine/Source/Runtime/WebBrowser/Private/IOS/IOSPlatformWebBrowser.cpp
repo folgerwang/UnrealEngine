@@ -838,7 +838,7 @@ FWebBrowserWindow::FWebBrowserWindow(FString InUrl, TOptional<FString> InContent
 	, bUseTransparency(InUseTransparency)
 	, DocumentState(EWebBrowserDocumentState::NoDocument)
 	, ErrorCode(0)
-	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled, SharedThis(this)))
+	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled))
 	, IOSWindowSize(FIntPoint(500, 500))
 	, bIsDisabled(false)
 	, bIsVisible(true)
@@ -870,6 +870,9 @@ TSharedRef<SWidget> FWebBrowserWindow::CreateWidget()
 		.WebBrowserWindow(SharedThis(this));
 
 	BrowserWidget = BrowserWidgetRef;
+
+	Scripting->SetWindow(SharedThis(this));
+
 	return BrowserWidgetRef;
 }
 

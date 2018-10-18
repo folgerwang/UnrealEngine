@@ -36,6 +36,7 @@
 #include "Curves/CurveBase.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "UObject/MetaData.h"
+#include "BlueprintAssetHandler.h"
 #endif
 #include "Engine/InheritableComponentHandler.h"
 
@@ -830,6 +831,21 @@ bool UBlueprint::SupportsNativization(FText* OutReason) const
 		}
 		return false;
 	}
+	else if (!GetOuter()->IsA<UPackage>())
+	{
+		// If this blueprint is not an asset itself, check whether the asset supports nativization
+		UObject* Asset = GetOuter();
+		while (Asset && !Asset->GetOuter()->IsA<UPackage>())
+		{
+			Asset = Asset->GetOuter();
+		}
+
+		const IBlueprintAssetHandler* Handler = Asset ? FBlueprintAssetHandler::Get().FindHandler(Asset->GetClass()) : nullptr;
+		if (Handler && !Handler->SupportsNativization(Asset, this, OutReason))
+		{
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -1454,6 +1470,33 @@ bool UBlueprint::GetBlueprintHierarchyFromClass(const UClass* InClass, TArray<UB
 
 	return bNoErrors;
 }
+
+#if WITH_EDITOR
+bool UBlueprint::IsBlueprintHierarchyErrorFree(const UClass* InClass)
+{
+	const UClass* CurrentClass = InClass;
+	while (UBlueprint* BP = UBlueprint::GetBlueprintFromClass(CurrentClass))
+	{
+		if(BP->Status == BS_Error)
+		{
+			return false;
+		}
+
+		// If valid, use stored ParentClass rather than the actual UClass::GetSuperClass(); handles the case when the class has not been recompiled yet after a reparent operation.
+		if(const UClass* ParentClass = BP->ParentClass)
+		{
+			CurrentClass = ParentClass;
+		}
+		else
+		{
+			check(CurrentClass);
+			CurrentClass = CurrentClass->GetSuperClass();
+		}
+	}
+
+	return true;
+}
+#endif
 
 ETimelineSigType UBlueprint::GetTimelineSignatureForFunctionByName(const FName& FunctionName, const FName& ObjectPropertyName)
 {

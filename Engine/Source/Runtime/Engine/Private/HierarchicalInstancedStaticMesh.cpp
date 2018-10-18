@@ -30,6 +30,7 @@
 #include "SceneManagement.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 static TAutoConsoleVariable<int32> CVarFoliageSplitFactor(
 	TEXT("foliage.SplitFactor"),
@@ -1560,15 +1561,23 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				for (int32 LODIndex = 1; LODIndex < InstanceParams.LODs; LODIndex++)
 				{
 					float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(View->GetFeatureLevel()), SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
-					InstanceParams.LODPlanesMin[LODIndex - 1] = Distance - LODRandom;
-					InstanceParams.LODPlanesMax[LODIndex - 1] = Distance;
+					InstanceParams.LODPlanesMin[LODIndex - 1] = FMath::Min(FinalCull - LODRandom, Distance - LODRandom);
+					InstanceParams.LODPlanesMax[LODIndex - 1] = FMath::Min(FinalCull, Distance);
 				}
 				InstanceParams.LODPlanesMin[InstanceParams.LODs - 1] = FinalCull - LODRandom;
 				InstanceParams.LODPlanesMax[InstanceParams.LODs - 1] = FinalCull;
+
+				// Added assert guard to track issue UE-53944
+				check(InstanceParams.LODs <= 8);
+				check(RenderData != nullptr);
 			
 				for (int32 LODIndex = 0; LODIndex < InstanceParams.LODs; LODIndex++)
 				{
 					InstanceParams.MinInstancesToSplit[LODIndex] = 2;
+
+					// Added assert guard to track issue UE-53944
+					check(RenderData->LODResources.IsValidIndex(LODIndex));
+
 					int32 NumVerts = RenderData->LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices();
 					if (NumVerts)
 					{
@@ -1728,11 +1737,11 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						for (int32 LODIndex = 1; LODIndex < NumLODs; LODIndex++)
 						{
 							float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(View->GetFeatureLevel()), SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
-							LODPlanesMin[LODIndex - 1] = Distance - LODRandom;
-							LODPlanesMax[LODIndex - 1] = Distance;
+							LODPlanesMin[LODIndex - 1] = FMath::Min(FinalCull - LODRandom, Distance - LODRandom);
+							LODPlanesMax[LODIndex - 1] = FMath::Min(FinalCull, Distance);
 						}
 						LODPlanesMin[NumLODs - 1] = FinalCull - LODRandom;
-						LODPlanesMax[NumLODs - 1] = FinalCull;				
+						LODPlanesMax[NumLODs - 1] = FinalCull;
 
 						// NOTE: in case of unbuilt we can't really apply the instance scales so the LOD won't be optimal until the build is completed
 
@@ -2129,7 +2138,7 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 	// if we are only updating rotation/scale we update the instance directly in the cluster tree
 	const bool bIsOmittedInstance = (RenderIndex == INDEX_NONE);
 	const bool bIsBuiltInstance = !bIsOmittedInstance && RenderIndex < NumBuiltRenderInstances;
-	const bool bDoInPlaceUpdate = bIsBuiltInstance && NewLocalLocation.Equals(OldTransform.GetOrigin());
+	const bool bDoInPlaceUpdate = bIsBuiltInstance && NewLocalLocation.Equals(OldTransform.GetOrigin()) && (PerInstanceRenderData.IsValid() && PerInstanceRenderData->InstanceBuffer.RequireCPUAccess);
 
 	bool Result = Super::UpdateInstanceTransform(InstanceIndex, NewInstanceTransform, bWorldSpace, bMarkRenderStateDirty, bTeleport);
 	
@@ -2150,7 +2159,10 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 			{
 				BuiltInstanceBounds += NewInstanceBounds;
 
-				MarkRenderStateDirty();
+				if (bMarkRenderStateDirty)
+				{
+					MarkRenderStateDirty();
+				}
 			}
 		}
 		else
@@ -2427,6 +2439,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>);
 		NumBuiltInstances = 0;
 		NumBuiltRenderInstances = 0;
+		InstanceCountToRender = 0;
 		InstanceReorderTable.Empty();
 		SortedInstances.Empty();
 
@@ -2695,12 +2708,38 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>);
 		NumBuiltInstances = 0;
 		NumBuiltRenderInstances = 0;
+		InstanceCountToRender = 0;
 		InstanceReorderTable.Empty();
 		SortedInstances.Empty();
 		CacheMeshExtendedBounds = FBoxSphereBounds(ForceInitToZero);
 
 		UnbuiltInstanceBoundsList.Empty();
 		BuiltInstanceBounds.Init();		
+	}
+}
+
+void UHierarchicalInstancedStaticMeshComponent::PropagateLightingScenarioChange()
+{
+	if (GIsEditor && PerInstanceRenderData.IsValid())
+	{
+		FComponentRecreateRenderStateContext Context(this);
+
+		const FMeshMapBuildData* MeshMapBuildData = nullptr;
+		if (LODData.Num() > 0)
+		{
+			MeshMapBuildData = GetMeshMapBuildData(LODData[0]);
+		}
+
+		if (MeshMapBuildData != nullptr)
+		{
+			for (int32 InstanceIndex = 0; InstanceIndex < PerInstanceSMData.Num(); ++InstanceIndex)
+			{
+				int32 RenderIndex = InstanceReorderTable.IsValidIndex(InstanceIndex) ? InstanceReorderTable[InstanceIndex] : InstanceIndex;
+
+				InstanceUpdateCmdBuffer.SetLightMapData(RenderIndex, MeshMapBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias);
+				InstanceUpdateCmdBuffer.SetShadowMapData(RenderIndex, MeshMapBuildData->PerInstanceLightmapData[InstanceIndex].ShadowmapUVBias);
+			}
+		}
 	}
 }
 
@@ -2732,9 +2771,9 @@ void UHierarchicalInstancedStaticMeshComponent::SetPerInstanceLightMapAndEditorD
 			{
 				LightmapUVBias = MeshMapBuildData->PerInstanceLightmapData[Index].LightmapUVBias;
 				ShadowmapUVBias = MeshMapBuildData->PerInstanceLightmapData[Index].ShadowmapUVBias;
-			}
 
-			PerInstanceData.SetInstanceLightMapData(RenderIndex, LightmapUVBias, ShadowmapUVBias);
+				PerInstanceData.SetInstanceLightMapData(RenderIndex, LightmapUVBias, ShadowmapUVBias);
+			}
 
 	#if WITH_EDITOR
 			if (GIsEditor)

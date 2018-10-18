@@ -28,11 +28,10 @@ EARWorldMappingState ToEARWorldMappingState(ARWorldMappingStatus MapStatus)
 {
 	switch (MapStatus)
 	{
+		// These both mean more data is needed
 		case ARWorldMappingStatusLimited:
-			return EARWorldMappingState::StillMappingNotRelocalizable;
-
 		case ARWorldMappingStatusExtending:
-			return EARWorldMappingState::StillMappingRelocalizable;
+			return EARWorldMappingState::StillMappingNotRelocalizable;
 
 		case ARWorldMappingStatusMapped:
 			return EARWorldMappingState::Mapped;

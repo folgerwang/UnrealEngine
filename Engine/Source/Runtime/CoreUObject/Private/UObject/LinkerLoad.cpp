@@ -75,6 +75,20 @@ FName FLinkerLoad::NAME_LoadErrors("LoadErrors");
 Helpers
 ----------------------------------------------------------------------------*/
 
+// Helper struct for getting the value of [Core.System] AllowCookedDataInEditorBuilds from ini
+struct FInitCookedDatataInEditorBuildsSupport
+{
+	bool bAllowCookedData;
+	FInitCookedDatataInEditorBuildsSupport()
+	{
+		if (!GConfig->GetBool(TEXT("Core.System"), TEXT("AllowCookedDataInEditorBuilds"), bAllowCookedData, GEngineIni))
+		{
+			bAllowCookedData = true;
+		}
+	}
+	FORCEINLINE operator bool() const { return bAllowCookedData; }
+};
+
 /**
 * Test whether the given package index is a valid import or export in this package
 */
@@ -984,7 +998,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 			else
 #endif
 			{
-				bool bCanUseFArchiveAsync2 = FPlatformProperties::RequiresCookedData();
+				// If want to be able to load cooked data in the editor we need to use FArchiveAsync2 which supports EDL cooked packages,
+				// otherwise the generic file reader is faster in the editor so use that
+				static FInitCookedDatataInEditorBuildsSupport AllowCookedDataInEditorBuilds;
+				bool bCanUseFArchiveAsync2 = FPlatformProperties::RequiresCookedData() || AllowCookedDataInEditorBuilds;
 				if (bCanUseFArchiveAsync2)
 				{
 					Loader = new FArchiveAsync2(*Filename
@@ -1178,18 +1195,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		if (FPlatformProperties::HasEditorOnlyData() && !!(Summary.PackageFlags & PKG_FilterEditorOnly))
 		{
 			// This warning can be disabled in ini with [Core.System] AllowCookedDataInEditorBuilds=False
-			static struct FInitCookedDatataInEditorBuildsSupport
-			{
-				bool bAllowCookedData;
-				FInitCookedDatataInEditorBuildsSupport()
-				{
-					if (!GConfig->GetBool(TEXT("Core.System"), TEXT("AllowCookedDataInEditorBuilds"), bAllowCookedData, GEngineIni))
-					{
-						bAllowCookedData = true;
-					}
-				}
-				FORCEINLINE operator bool() const { return bAllowCookedData; }
-			} AllowCookedDataInEditorBuilds;
+			static FInitCookedDatataInEditorBuildsSupport AllowCookedDataInEditorBuilds;
 			if (!AllowCookedDataInEditorBuilds)
 			{
 				UE_LOG(LogLinker, Warning, 
@@ -4335,6 +4341,13 @@ UObject* FLinkerLoad::CreateImport( int32 Index )
 	// later on (this will return true if the import was actually deferred)
 	DeferPotentialCircularImport(Index); 
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
+	if (Import.XObject != nullptr && Import.XObject->HasAnyInternalFlags(EInternalObjectFlags::Unreachable))
+	{
+		// This is just a safeguard to catch potential bugs that should have been fixed by calling UnhashUnreachableObjects in Async Loading code
+		UE_LOG(LogLinker, Warning, TEXT("Unreachable object found when creating import %s from linker %s"), *Import.XObject->GetFullName(), *GetArchiveName());
+		Import.XObject = nullptr;
+	}
 
 	// Imports can have no name if they were filtered out due to package redirects, skip in that case
 	if (Import.XObject == nullptr && Import.ObjectName != NAME_None)

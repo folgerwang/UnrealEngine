@@ -39,7 +39,7 @@ namespace
 			{
 				Count = &ScopeCount.Add(Table, 0);
 			}
-			++Count;
+			++(*Count);
 		}
 		~FScopedDataTableChange()
 		{

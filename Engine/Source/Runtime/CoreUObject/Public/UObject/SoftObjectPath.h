@@ -160,8 +160,11 @@ struct COREUOBJECT_API FSoftObjectPath
 	/** Handles when a string asset reference has been loaded, call if loading with a method that skips SerializePath. This does not modify path but might call callbacks */
 	void PostLoadPath() const;
 
-	/** Fixes up this SoftObjectPath to add or remove the PIE prefix depending on what is currently active, returns true if it was modified */
+	/** Fixes up this SoftObjectPath to add the PIE prefix depending on what is currently active, returns true if it was modified. The overload that takes an explicit PIE instance is preferred, if it's available. */
 	bool FixupForPIE();
+
+	/** Fixes up this SoftObjectPath to add the PIE prefix for the given PIEInstance index, returns true if it was modified */
+	bool FixupForPIE(int32 PIEInstance);
 
 	/** Fixes soft object path for CoreRedirects to handle renamed native objects, returns true if it was modified */
 	bool FixupCoreRedirects();
@@ -322,8 +325,9 @@ public:
 	 * @param OutPackageName Package that this string asset belongs to
 	 * @param OutPropertyName Property that this string asset reference belongs to
 	 * @param OutCollectType Type of collecting that should be done
+	 * @param Archive The FArchive that is serializing this path if known. If null it will check FUObjectThreadContext
 	 */
-	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType) const;
+	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType, FArchive* Archive = nullptr) const;
 };
 
 /** Helper class to set and restore serialization options for string asset references */

@@ -9,7 +9,7 @@
 #include "Materials/MaterialExpression.h"
 #include "MaterialExpressionSphereMask.generated.h"
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UMaterialExpressionSphereMask : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()

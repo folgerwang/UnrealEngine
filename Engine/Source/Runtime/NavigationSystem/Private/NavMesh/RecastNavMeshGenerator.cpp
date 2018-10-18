@@ -1582,6 +1582,8 @@ void FRecastTileGenerator::Setup(const FRecastNavMeshGenerator& ParentGenerator,
 	const FBox NavTotalBounds = ParentGenerator.GetTotalBounds();
 	const float TileCellSize = (TileConfig.tileSize * TileConfig.cs);
 
+	NavDataConfig = ParentGenerator.GetOwner()->GetConfig();
+
 	TileBB = CalculateTileBounds(TileX, TileY, RcNavMeshOrigin, NavTotalBounds, TileCellSize);
 	TileBBExpandedForAgent = TileBB.ExpandBy(NavDataConfig.AgentRadius * 2 + TileConfig.cs);
 	const FBox RCBox = Unreal2RecastBox(TileBB);
@@ -1788,7 +1790,6 @@ void FRecastTileGenerator::PrepareGeometrySources(const FRecastNavMeshGenerator&
 	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(ParentGenerator.GetWorld());
 	FNavigationOctree* NavOctreeInstance = NavSys ? NavSys->GetMutableNavOctree() : nullptr;
 	check(NavOctreeInstance);
-	NavDataConfig = ParentGenerator.GetOwner()->GetConfig();
 	NavigationRelevantData.Reset();
 	NavOctree = NavOctreeInstance->AsShared();
 	bUpdateGeometry = bGeometryChanged;

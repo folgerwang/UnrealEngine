@@ -3857,9 +3857,9 @@ static void SerializeGlobalShaders(FArchive& Ar, TShaderMap<FGlobalShaderType>* 
 	}
 
 	// Serialize the global shaders.
-	GlobalShaderMap->SerializeInline(Ar, true, false, ShaderKeysToSave);
+	GlobalShaderMap->SerializeInline(Ar, true, false, false, ShaderKeysToSave);
 	// And now register them.
-	GlobalShaderMap->RegisterSerializedShaders();
+	GlobalShaderMap->RegisterSerializedShaders(false);
 }
 
 /** Saves the platform's shader map to the DDC. */

@@ -52,6 +52,8 @@ FArchive& operator << (FArchive& Ar, FFoliageInstanceBaseInfo& BaseInfo)
 	}
 	else
 	{
+		// This is a cached reference, we don't want to warn about the target actor being deleted
+		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::NeverCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 		Ar << BaseInfo.BasePtr;
 	}
 
@@ -85,6 +87,9 @@ FArchive& operator << (FArchive& Ar, FFoliageInstanceBaseCache& InstanceBaseCach
 	}
 	else
 	{
+		// This is a cached reference, we don't want to warn about the target actor being deleted
+		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::NeverCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
+
 		Ar << InstanceBaseCache.InstanceBaseLevelMap;
 
 		if (Ar.IsTransacting())

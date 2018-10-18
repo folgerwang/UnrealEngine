@@ -7,32 +7,58 @@
 #  * Directories will not be recursed through unless their parent directories match a rule.
 #  * If directories match a protect rule, it applies to the entire directory and short-circuits traversal of the contents.
 
-# Don't remove build products from previous builds
-+ /Binaries/
-protect /Binaries/Mac/**
-protect /Binaries/IOS/**
-protect /Binaries/TVOS/**
-protect /Build/IOS/*.PackageVersionCounter
-+ /Intermediate/
-+ /Intermediate/Build/
-protect /Intermediate/Build/Mac/**
-protect /Intermediate/Build/IOS/**
-protect /Intermediate/Build/TVOS/**
-protect /Intermediate/IOS/**
-protect /Intermediate/Remote/**
-protect /**/Binaries/Mac/**
-protect /**/Binaries/IOS/**
-protect /**/Binaries/TVOS/**
-protect /**/Intermediate/Build/Mac/**
-protect /**/Intermediate/Build/IOS/**
-protect /**/Intermediate/Build/TVOS/**
-protect /Saved/**
-+ /Programs/
-protect /Programs/UnrealBuildTool/**
-protect /Programs/UnrealHeaderTool/Intermediate/**
-protect /Programs/UnrealHeaderTool/Saved/**
+# Exclude anything for platforms we don't care about
+- /**/Win32/
+- /**/Win64/
+- /**/Android/
+- /**/Linux/
+- /**/PS4/
+- /**/Switch/
+- /**/XboxOne/
 
-# Don't overwrite symlinks created by SetupMono.sh
+- /**/x64/
+- /**/win32/
+- /**/win64/
+- /**/Linux32/
+- /**/Linux64/
+- /**/linux32/
+- /**/linux64/
+
+# Also ignore tps files; we don't need them to build
+- *.tps
+
+# Binaries
++ /Binaries/
+
+# Binaries/DotNET: Include C# tools
++ /Binaries/DotNET/
++ /Binaries/DotNET/UnrealBuildTool.exe
++ /Binaries/DotNET/UnrealBuildTool.pdb
++ /Binaries/DotNET/DotNETUtilities.dll
++ /Binaries/DotNET/DotNETUtilities.pdb
++ /Binaries/DotNET/RPCUtility.exe
++ /Binaries/DotNET/RPCUtility.pdb
++ /Binaries/DotNET/Ionic.Zip.Reduced.dll
++ /Binaries/DotNET/IOS/
++ /Binaries/DotNET/IOS/**
+
+# Binaries/Mac: Include DsymExporter, ignore everything else
++ /Binaries/Mac/
++ /Binaries/Mac/DsymExporter
+protect /Binaries/Mac/**
+
+# Binaries/IOS
+protect /Binaries/IOS/
+
+# Binaries/TVOS
+protect /Binaries/TVOS/
+
+# Binaries/ThirdParty. Include Mono for Mac, but don't overwrite symlinks created by SetupMono.sh
++ /Binaries/ThirdParty/
++ /Binaries/ThirdParty/Mono/
++ /Binaries/ThirdParty/Mono/Mac/
++ /Binaries/ThirdParty/Mono/Mac/**
+- /Binaries/ThirdParty/Mono/**
 protect /Binaries/ThirdParty/Mono/Mac/bin/mono
 protect /Binaries/ThirdParty/Mono/Mac/lib/mono/4.5/Accessibility.dll
 protect /Binaries/ThirdParty/Mono/Mac/lib/mono/4.5/Commons.Xml.Relaxng.dll
@@ -181,113 +207,100 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/xbuild/14.0/bin/Microsoft.Build.T
 protect /Binaries/ThirdParty/Mono/Mac/lib/mono/xbuild/14.0/bin/Microsoft.Build.Utilities.Core.dll
 protect /Binaries/ThirdParty/Mono/Mac/lib/mono/xbuild/14.0/bin/Mono.XBuild.Tasks.dll
 protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
+- /Binaries/ThirdParty/ANGLE
+- /Binaries/ThirdParty/IntelISPCTexComp
++ /Binaries/ThirdParty/**
 
-# Exclude anything for platforms we don't care about
-- /**/Win32/
-- /**/Win64/
-- /**/Android/
-- /**/Linux/
-- /**/PS4/
-- /**/Switch/
-- /**/XboxOne/
-
-# Also exclude any C# intermediate directories
-- /Source/Programs/**/obj/
-
-# Add all the paths to sync
-+ /
-+ /Binaries/
-+ /Binaries/DotNET/
-+ /Binaries/DotNET/UnrealBuildTool.exe
-+ /Binaries/DotNET/UnrealBuildTool.pdb
-+ /Binaries/DotNET/DotNETUtilities.dll
-+ /Binaries/DotNET/DotNETUtilities.pdb
-+ /Binaries/DotNET/RPCUtility.exe
-+ /Binaries/DotNET/RPCUtility.pdb
-+ /Binaries/DotNET/Ionic.Zip.Reduced.dll
-+ /Binaries/DotNET/IOS/
-+ /Binaries/DotNET/IOS/**
-+ /Binaries/ThirdParty/
-+ /Binaries/ThirdParty/Ionic/
-+ /Binaries/ThirdParty/Ionic/Ionic.Zip.Reduced.dll
-+ /Binaries/ThirdParty/Ionic/Ionic.Zip.Reduced.Core.dll
-+ /Binaries/ThirdParty/Ionic/Ionic.Zip.Reduced.Core.pdb
-+ /Binaries/ThirdParty/Mono/
-+ /Binaries/ThirdParty/Mono/Mac/
-+ /Binaries/ThirdParty/Mono/Mac/**
+# Build
 + /Build/
 + /Build/*
 + /Build/BatchFiles/
 + /Build/BatchFiles/**
++ /Build/Mac/
++ /Build/Mac/**
 + /Build/IOS/
 + /Build/IOS/**
+protect /Build/IOS/*.PackageVersionCounter
+
+# Config: Include everything
 + /Config/
 + /Config/**
+
+# Content: Exclude everything except things we need to enumerate as runtime dependencies
 + /Content/
++ /Content/Internationalization/
++ /Content/Internationalization/**
 + /Content/Slate/
 + /Content/Slate/**
 + /Content/SlateDebug/
 + /Content/SlateDebug/**
+- /Content/**
+
+# Intermediate
 + /Intermediate/
 + /Intermediate/Build/
 + /Intermediate/Build/XmlConfigCache.bin
 + /Intermediate/Build/BuildRules/
 + /Intermediate/Build/BuildRules/*.dll
+protect /Intermediate/**
+
+# Plugins
++ /Plugins/
++ /Plugins/**/Binaries/Mac/
++ /Plugins/**/Binaries/IOS/
++ /Plugins/**/Binaries/TVOS/
+- /Plugins/**/Binaries/*/
+- /Plugins/**/Content/
+- /Plugins/**/Resources/
+protect /Plugins/**/Intermediate/
++ /Plugins/**
+
+# Programs
 + /Programs/
+protect /Programs/UnrealBuildTool/
 + /Programs/UnrealHeaderTool/
 + /Programs/UnrealHeaderTool/Config/
-+ /Programs/UnrealHeaderTool/Config/*.ini
-+ /Plugins/
-+ /Plugins/**/
-+ /Plugins/**.uplugin
-+ /Plugins/**/Source/**.h
-+ /Plugins/**/Source/**.cpp
-+ /Plugins/**/Source/**.mm
-+ /Plugins/**/Source/**.m
-+ /Plugins/**/Source/**.cs
-+ /Plugins/**/Source/**.inl
-+ /Plugins/**.a
-+ /Plugins/**.embeddedframework.zip
-+ /Plugins/**.xml
++ /Programs/UnrealHeaderTool/Config/**
+protect /Programs/UnrealHeaderTool/Intermediate/
+protect /Programs/UnrealHeaderTool/Saved/
+
+# Saved
+protect /Saved/
+
+# Source
 + /Source/
-+ /Source/*
-+ /Source/*.cs
-+ /Source/**.xml
-+ /Source/**/
-+ /Source/Runtime/**.h
-+ /Source/Runtime/**.cpp
-+ /Source/Runtime/**.mm
-+ /Source/Runtime/**.m
-+ /Source/Runtime/**.cs
-+ /Source/Runtime/**.inl
-+ /Source/Developer/**.h
-+ /Source/Developer/**.cpp
-+ /Source/Developer/**.mm
-+ /Source/Developer/**.m
-+ /Source/Developer/**.cs
-+ /Source/Developer/**.inl
-+ /Source/Editor/**.h
-+ /Source/Editor/**.cpp
-+ /Source/Editor/**.mm
-+ /Source/Editor/**.m
-+ /Source/Editor/**.cs
-+ /Source/Editor/**.inl
-+ /Source/Programs/**.h
-+ /Source/Programs/**.cpp
-+ /Source/Programs/**.mm
-+ /Source/Programs/**.m
-+ /Source/Programs/**.cs
-+ /Source/Programs/**.inl
-+ /Source/Programs/**.def
-+ /Source/Programs/**.csproj
-+ /Source/ThirdParty/
+
+# Source/Runtime: Blacklist specific folders
+- /Source/Runtime/Navmesh/RecastDemo/
+
+# Source/Programs: Whitelist specific programs
++ /Source/Programs/
++ /Source/Programs/AutomationTool/
++ /Source/Programs/DotNETCommon/
++ /Source/Programs/UnrealBuildTool/
++ /Source/Programs/UnrealPak/
++ /Source/Programs/UnrealHeaderTool/
++ /Source/Programs/UnrealHeaderTool/**.def
+- /Source/Programs/**/bin/
+- /Source/Programs/**/obj/
+- /Source/Programs/*/
+
+# Source/ThirdParty: Whitelist specific file types
 + /Source/ThirdParty/**/
 + /Source/ThirdParty/**.cs
 + /Source/ThirdParty/**.h
 + /Source/ThirdParty/**.hh
 + /Source/ThirdParty/**.hpp
++ /Source/ThirdParty/**.m
 + /Source/ThirdParty/**.mm
++ /Source/ThirdParty/**.cs
 + /Source/ThirdParty/**.inl
 + /Source/ThirdParty/**.a
++ /Source/ThirdParty/**.dylib
 + /Source/ThirdParty/**.embeddedframework.zip
 + /Source/ThirdParty/libJPG/*.cpp
+- /Source/ThirdParty/**
+
+# Source: Include everything else
++ /Source/**/
++ /Source/**

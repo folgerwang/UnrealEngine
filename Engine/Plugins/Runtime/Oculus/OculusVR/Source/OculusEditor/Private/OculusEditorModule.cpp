@@ -15,7 +15,6 @@
 
 #define LOCTEXT_NAMESPACE "OculusEditor"
 
-
 const FName FOculusEditorModule::OculusPerfTabName = FName("OculusPerfCheck");
 
 void FOculusEditorModule::StartupModule()
@@ -127,8 +126,6 @@ void FOculusEditorModule::AddToolbarExtension(FToolBarBuilder& Builder)
 {
 	Builder.AddToolBarButton(FOculusToolCommands::Get().OpenPluginWindow);
 }
-
-#undef LOCTEXT_NAMESPACE
 	
 //////////////////////////////////////////////////////////////////////////
 

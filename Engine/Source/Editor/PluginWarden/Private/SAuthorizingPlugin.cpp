@@ -21,16 +21,19 @@
 
 #define LOCTEXT_NAMESPACE "PluginWarden"
 
-void SAuthorizingPlugin::Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId, TFunction<void()> InAuthorizedCallback)
+void SAuthorizingPlugin::Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FPluginInfo& InPluginInfo, const EEntitlementCacheLevelRequest InCacheLevel, TFunction<void()> InAuthorizedCallback)
 {
 	ParentWindow = InParentWindow;
 	AuthorizedCallback = InAuthorizedCallback;
 	UnauthorizedErrorHandling = IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessageOpenStore;
 
-	Authorizer = MakeShared<FPluginWardenAuthorizer>(InPluginFriendlyName, InPluginItemId, InPluginOfferId);
+	Authorizer = MakeShared<FPluginWardenAuthorizer>(InPluginInfo.FriendlyName, InPluginInfo.ItemId, InPluginInfo.OfferId, InCacheLevel);
 
 	InParentWindow->SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SAuthorizingPlugin::OnWindowClosed));
 	bUserInterrupted = true;
+
+	AuthorizationState = EPluginAuthorizationState::Initializing;
+	PreviousAuthorizationState = AuthorizationState;
 
 	RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SAuthorizingPlugin::RefreshStatus));
 
@@ -122,6 +125,7 @@ EActiveTimerReturnType SAuthorizingPlugin::RefreshStatus(double InCurrentTime, f
 	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 	FTicker::GetCoreTicker().Tick(InDeltaTime);
 
+	PreviousAuthorizationState = AuthorizationState;
 	AuthorizationState = Authorizer->UpdateAuthorizationState(InDeltaTime);
 
 	switch ( AuthorizationState )
@@ -219,7 +223,14 @@ void SAuthorizingPlugin::OnWindowClosed(const TSharedRef<SWindow>& InWindow)
 			}
 		}
 
-		FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), FAnalyticsEventAttribute( TEXT("State"), (int32)AuthorizationState ) );
+		TArray< FAnalyticsEventAttribute > EventAttributes;
+		EventAttributes.Emplace( TEXT("State"), (int32)AuthorizationState );
+		EventAttributes.Emplace( TEXT("PreviousState"), (int32)PreviousAuthorizationState );
+		EventAttributes.Emplace( TEXT("UnauthorizedErrorHandling"), (int32)UnauthorizedErrorHandling );
+		EventAttributes.Emplace( TEXT("ItemId"), Authorizer->GetPluginItemId() );
+		EventAttributes.Emplace( TEXT("OfferId"), Authorizer->GetPluginOfferId() );
+
+		FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), EventAttributes );
 	}
 }
 

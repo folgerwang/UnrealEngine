@@ -3,6 +3,7 @@
 #include "SynthesisModule.h"
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
+#include "UI/SynthSlateStyle.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 
@@ -12,10 +13,12 @@ IMPLEMENT_MODULE(FSynthesisModule, Synthesis)
 
 void FSynthesisModule::StartupModule()
 {
+	FSynthSlateStyleSet::Initialize();
 }
 
 void FSynthesisModule::ShutdownModule()
 {
+	FSynthSlateStyleSet::Shutdown();
 }
 
 

@@ -5,7 +5,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
-#include "LevelSequenceDirectorGeneratedClass.h"
+#include "LevelSequenceDirector.h"
 #include "Engine/Engine.h"
 #include "MovieScene.h"
 #include "UObject/Package.h"
@@ -486,7 +486,7 @@ UObject* ULevelSequence::CreateDirectorInstance(IMovieScenePlayer& Player)
 	ULevelSequencePlayer* LevelSequencePlayer = Cast<ULevelSequencePlayer>(Player.AsUObject());
 	UObject*              DirectorOuter       = LevelSequencePlayer ? LevelSequencePlayer : Player.GetPlaybackContext();
 
-	if (DirectorClass && DirectorOuter)
+	if (DirectorClass && DirectorOuter && DirectorClass->IsChildOf(ULevelSequenceDirector::StaticClass()))
 	{
 		FName DirectorName = NAME_None;
 

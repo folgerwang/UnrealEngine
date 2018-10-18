@@ -24,7 +24,7 @@
 	[
 		{
 			"Name" : "UdpMessaging",
-			"Type" : "Runtime",
+			"Type" : "RuntimeAndProgram",
 			"LoadingPhase" : "PreDefault",
 			"BlacklistPlatforms" :
 			[

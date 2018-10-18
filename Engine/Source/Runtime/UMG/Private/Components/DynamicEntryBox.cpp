@@ -184,7 +184,7 @@ void UDynamicEntryBox::ValidateCompiledDefaults(class FCompilerResultsLog& Compi
 {
 	if (!EntryWidgetClass)
 	{
-		CompileLog.Error(*FText::Format(LOCTEXT("Error_MissingEntryClass", "{0} has no EntryWidgetClass specified - required for any Dynamic Entry Box to function."), FText::FromString(GetName())).ToString());
+		CompileLog.Error(*FText::Format(LOCTEXT("Error_DynamicEntryBox_MissingEntryClass", "{0} has no EntryWidgetClass specified - required for any Dynamic Entry Box to function."), FText::FromString(GetName())).ToString());
 	}
 }
 #endif
