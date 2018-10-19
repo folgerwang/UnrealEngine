@@ -733,7 +733,7 @@ void FUnixPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
 	}
 
 	// let any registered handlers go
-	FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
+	FCoreDelegates::GetOutOfMemoryDelegate().Broadcast();
 
 	UE_LOG(LogMemory, Fatal, TEXT("Ran out of memory allocating %llu bytes with alignment %u"), Size, Alignment);
 	// unreachable
