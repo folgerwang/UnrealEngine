@@ -11,67 +11,16 @@
 #include "RHIStaticStates.h"
 #include "WebMVideoDecoder.h"
 #include "WebMAudioDecoder.h"
-#include "WebMMediaFrame.h"
 #include "WebMContainer.h"
 #include "WebMMediaAudioSample.h"
 #include "WebMMediaTextureSample.h"
-#include "GenericPlatform/GenericPlatformProcess.h"
-#include "HAL/Runnable.h"
-#include "HAL/RunnableThread.h"
-#include "Misc/SingleThreadRunnable.h"
 
 DEFINE_LOG_CATEGORY(LogWebMMoviePlayer);
 
-class FWebMMovieStreamer::FWebMBackgroundReader : public FRunnable, private FSingleThreadRunnable
-{
-public:
-	FWebMBackgroundReader(FWebMMovieStreamer& InStreamer)
-		: Streamer(InStreamer)
-		, bIsFinished(false)
-	{
-	}
-
-	//~ FRunnable interface
-	virtual FSingleThreadRunnable* GetSingleThreadInterface() override
-	{
-		return this;
-	}
-
-	virtual uint32 Run() override
-	{
-		bIsFinished = false;
-
-		while (!bIsFinished && Streamer.IsPlaying())
-		{
-			if (Streamer.GetFramesCurrentlyProcessing() < 30)
-			{
-				bIsFinished = Streamer.DecodeMoreFramesInAnotherThread();
-			}
-		}
-
-		return 0;
-	}
-
-protected:
-	//~ FSingleThreadRunnable interface
-	virtual void Tick() override
-	{
-		if (!bIsFinished && Streamer.IsPlaying())
-		{
-			bIsFinished = Streamer.DecodeMoreFramesInAnotherThread();
-		}
-	}
-
-private:
-	FWebMMovieStreamer& Streamer;
-	bool bIsFinished;
-};
-
 FWebMMovieStreamer::FWebMMovieStreamer()
 	: AudioBackend(MakeUnique<FWebMAudioBackend>())
-	, BackgroundReader(MakeUnique<FWebMBackgroundReader>(*this))
 	, Viewport(MakeShareable(new FMovieViewport()))
-	, FramesCurrentlyProcessing(0)
+	, VideoFramesCurrentlyProcessing(0)
 	, CurrentTime(0)
 	, bPlaying(false)
 {
@@ -88,13 +37,7 @@ FWebMMovieStreamer::~FWebMMovieStreamer()
 void FWebMMovieStreamer::Cleanup()
 {
 	bPlaying = false;
-
-	if (BackgroundReaderThread)
-	{
-		BackgroundReaderThread->WaitForCompletion();
-		BackgroundReaderThread.Reset();
-	}
-
+	
 	Samples.Reset();
 	VideoDecoder.Reset();
 	AudioDecoder.Reset();
@@ -169,8 +112,6 @@ bool FWebMMovieStreamer::StartNextMovie()
 		CurrentTime = 0;
 		bPlaying = true;
 
-		BackgroundReaderThread.Reset(FRunnableThread::Create(BackgroundReader.Get(), TEXT("FWebMBackgroundReader"), 0, TPri_BelowNormal));
-
 		return true;
 	}
 	else
@@ -198,6 +139,8 @@ bool FWebMMovieStreamer::Tick(float InDeltaTime)
 
 		bHaveThingsToDo |= DisplayFrames(InDeltaTime);
 		bHaveThingsToDo |= SendAudio(InDeltaTime);
+
+		bHaveThingsToDo |= ReadMoreFrames();
 
 		CurrentTime += InDeltaTime;
 
@@ -258,7 +201,7 @@ bool FWebMMovieStreamer::DisplayFrames(float InDeltaTime)
 
 	if (bFoundSample && VideoSample)
 	{
-		FPlatformAtomics::InterlockedDecrement(&FramesCurrentlyProcessing);
+		VideoFramesCurrentlyProcessing--;
 
 		FWebMMediaTextureSample* WebMSample = StaticCast<FWebMMediaTextureSample*>(VideoSample.Get());
 
@@ -294,21 +237,25 @@ bool FWebMMovieStreamer::SendAudio(float InDeltaTime)
 	return Samples->NumAudio() > 0 || AudioDecoder->IsBusy();
 }
 
-bool FWebMMovieStreamer::DecodeMoreFramesInAnotherThread()
+bool FWebMMovieStreamer::ReadMoreFrames()
 {
-	FTimespan ReadBufferLength = FTimespan::FromSeconds(0.1);
+	FTimespan ReadBufferLength = FTimespan::FromSeconds(0.5);
 
 	TArray<TSharedPtr<FWebMFrame>> AudioFrames;
 	TArray<TSharedPtr<FWebMFrame>> VideoFrames;
 
 	Container->ReadFrames(ReadBufferLength, AudioFrames, VideoFrames);
 
-	// Trigger video decoding
-	if (VideoFrames.Num() > 0)
-	{
-		FPlatformAtomics::InterlockedAdd(&FramesCurrentlyProcessing, VideoFrames.Num());
+	VideoFramesToDecodeLater.Enqueue(VideoFrames);
 
-		VideoDecoder->DecodeVideoFramesAsync(VideoFrames);
+	// Trigger video decoding
+	while (!VideoFramesToDecodeLater.IsEmpty() && VideoFramesCurrentlyProcessing < 30)
+	{
+		if (VideoFramesToDecodeLater.Dequeue(VideoFrames))
+		{
+			VideoFramesCurrentlyProcessing += VideoFrames.Num();
+			VideoDecoder->DecodeVideoFramesAsync(VideoFrames);
+		}
 	}
 
 	// Trigger audio decoding
@@ -317,5 +264,5 @@ bool FWebMMovieStreamer::DecodeMoreFramesInAnotherThread()
 		AudioDecoder->DecodeAudioFramesAsync(AudioFrames);
 	}
 
-	return VideoFrames.Num() == 0 && AudioFrames.Num() == 0;
+	return VideoFrames.Num() > 0 || AudioFrames.Num() > 0;
 }
