@@ -21,16 +21,19 @@
 // Returns the position of the sample on the unit circle (radius = 1) for a given ring.
 float2 GetDiskSampleOnUnitCirle(uint RingId, uint RingSampleIteration, uint RingSampleId)
 {
-	#if 1
-		// Do not allign all j == 0 samples of the different ring on the X axus to increase minimal distance between all
-		// samples, that reduce variance to clean by post filtering.
-		float SampleAngle = PI * (RingSampleId + (RingId - 2 * (RingId / 2)) * 0.5) / float(RingSampleIteration);
-			
-	#else
-		// Alligns all j == 0 samples of the different ring on the X axus.
-		float SampleAngle = PI * RingSampleId / float(RingSampleIteration);
+	float SampleRingPos = RingSampleId;
 
+	// Do not allign all j == 0 samples of the different ring on the X axis to increase minimal distance between all
+	// samples, that reduce variance to clean by post filtering.
+	#if 1
+		SampleRingPos += (RingId - 2 * (RingId / 2)) * 0.5;
 	#endif
+
+	#if CONFIG_SLIGHT_RING_ROTATION
+		SampleRingPos += (RingId + 1) * 0.2;
+	#endif
+
+	float SampleAngle = PI * SampleRingPos / float(RingSampleIteration);
 			
 	return float2(cos(SampleAngle), sin(SampleAngle));
 }
