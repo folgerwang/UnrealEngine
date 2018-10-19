@@ -225,8 +225,8 @@ EMovieSceneCompileResult UMovieSceneTrack::Compile(FMovieSceneEvaluationTrack& O
 	{
 		for (const UMovieSceneSection* Section : GetAllSections())
 		{
-			const TRange<FFrameNumber> SectionRange = Section->GetRange();
-			if (!Section->IsActive() || MovieScene::DiscreteRangeIsEmpty(SectionRange))
+			const TRange<FFrameNumber> SectionRange = Section->GetTrueRange();
+			if (!Section->IsActive() || SectionRange.IsEmpty())
 			{
 				continue;
 			}
