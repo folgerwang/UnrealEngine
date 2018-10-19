@@ -75,11 +75,11 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 	// to finish setup we need complete engine initialization
 	ViewportCreatedDelegate = UGameViewportClient::OnViewportCreated().AddRaw(this, &FPIEPreviewDeviceModule::OnViewportCreated);
 
-	if (ReadDeviceSpecification())
-	{
-		Device->ApplyRHIPrerequisitesOverrides();
-		DeviceProfile = Device->GetProfile();
-	}
+	bool bReadSuccess = ReadDeviceSpecification();
+	checkf(bReadSuccess, TEXT("Unable to read device specifications"));
+
+	Device->ApplyRHIPrerequisitesOverrides();
+	DeviceProfile = Device->GetProfile();
 }
 
 void FPIEPreviewDeviceModule::OnEngineInitComplete()
