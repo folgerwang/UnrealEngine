@@ -297,7 +297,10 @@ void FPIEPreviewDevice::SetupDevice(const int32 InWindowTitleBarSize)
 
 	// load the bezel texture
 	BezelTexture = FImageUtils::ImportFileAsTexture2D(BezelPath);
-	BezelTexture->AddToRoot();
+	if (BezelTexture != nullptr)
+	{
+		BezelTexture->AddToRoot();
+	}
 	
 	// if we have invalid/uninitialized viewport values use the values provided as native device resolution
 	FPIEPreviewDeviceBezelViewportRect& ViewportRect = DeviceSpecs->BezelProperties.BezelViewportRect;
