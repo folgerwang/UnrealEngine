@@ -206,7 +206,7 @@ struct FMaterialTextureInfo
 	ENGINE_API bool IsValid(bool bCheckTextureIndex = false) const; 
 };
 
-UCLASS(abstract, BlueprintType,MinimalAPI)
+UCLASS(abstract, BlueprintType, MinimalAPI, HideCategories = (Thumbnail))
 class UMaterialInterface : public UObject, public IBlendableInterface, public IInterface_AssetUserData
 {
 	GENERATED_UCLASS_BODY()

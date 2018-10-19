@@ -25,7 +25,7 @@ class USceneThumbnailInfoWithPrimitive : public USceneThumbnailInfo
 	TEnumAsByte<EThumbnailPrimType> PrimitiveType;
 
 	/** The custom mesh used when the primitive type is TPT_None */
-	UPROPERTY(EditAnywhere, Category=Thumbnail)
+	UPROPERTY(EditAnywhere, Category=Thumbnail, meta = (AllowedClasses = "StaticMesh,SkeletalMesh", ExactClass = "true"))
 	FSoftObjectPath PreviewMesh;
 
 	UPROPERTY()
