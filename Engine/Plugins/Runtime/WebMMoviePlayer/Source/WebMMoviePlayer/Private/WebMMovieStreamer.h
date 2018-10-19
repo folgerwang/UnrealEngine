@@ -33,18 +33,10 @@ public:
 
 	bool DecodeMoreFramesInAnotherThread();
 	bool IsPlaying() const { return bPlaying; }
+	int32 GetFramesCurrentlyProcessing() { return FramesCurrentlyProcessing; }
 
 private:
 	class FWebMBackgroundReader;
-
-	//Theoretically only need 2 buffered textures, but we have extra to avoid needing to make a copy of the AvPlayer data to pass to an RHI thread command.  Instead, we buffer deeper and update the textures on the Render thread.
-	static const int32 NumBufferedTextures = 4;
-
-	/** Texture and viewport data for displaying to Slate.  SlateVideoTexture is always used by the viewport, but it's texture reference is swapped out when a new frame is available.
-	 Method assumes 1 Tick() call per frame, and that the Streamer Tick comes before Slate rendering */
-	TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> BufferedVideoTextures[NumBufferedTextures];
-	int32 CurrentTexture;
-
 	TArray<FString> MovieQueue;
 	FString MovieName;
 	TUniquePtr<FWebMVideoDecoder> VideoDecoder;
@@ -55,6 +47,8 @@ private:
 	TUniquePtr<FWebMBackgroundReader> BackgroundReader;
 	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TSharedPtr<FMovieViewport> Viewport;
+	TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> SlateVideoTexture;
+	int32 FramesCurrentlyProcessing;
 	float CurrentTime;
 	bool bPlaying;
 
