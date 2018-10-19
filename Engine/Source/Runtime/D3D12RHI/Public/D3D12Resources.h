@@ -565,6 +565,7 @@ struct FD3D12LockedResource : public FD3D12DeviceChild
 		, LockedPitch(0)
 		, bLocked(false)
 		, bLockedForReadOnly(false)
+		, bHasNeverBeenLocked(true)
 	{}
 
 	inline void Reset()
@@ -581,6 +582,7 @@ struct FD3D12LockedResource : public FD3D12DeviceChild
 	uint32 LockedPitch;
 	uint32 bLocked : 1;
 	uint32 bLockedForReadOnly : 1;
+	uint32 bHasNeverBeenLocked : 1;
 };
 
 /** The base class of resources that may be bound as shader resources. */
