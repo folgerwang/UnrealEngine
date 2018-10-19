@@ -43,7 +43,10 @@ public:
 
 		while (!bIsFinished && Streamer.IsPlaying())
 		{
-			bIsFinished = Streamer.DecodeMoreFramesInAnotherThread();
+			if (Streamer.GetFramesCurrentlyProcessing() < 30)
+			{
+				bIsFinished = Streamer.DecodeMoreFramesInAnotherThread();
+			}
 		}
 
 		return 0;
@@ -65,10 +68,10 @@ private:
 };
 
 FWebMMovieStreamer::FWebMMovieStreamer()
-	: CurrentTexture(0)
-	, AudioBackend(MakeUnique<FWebMAudioBackend>())
+	: AudioBackend(MakeUnique<FWebMAudioBackend>())
 	, BackgroundReader(MakeUnique<FWebMBackgroundReader>(*this))
 	, Viewport(MakeShareable(new FMovieViewport()))
+	, FramesCurrentlyProcessing(0)
 	, CurrentTime(0)
 	, bPlaying(false)
 {
@@ -104,7 +107,7 @@ void FWebMMovieStreamer::Cleanup()
 
 FTexture2DRHIRef FWebMMovieStreamer::GetTexture()
 {
-	return BufferedVideoTextures[CurrentTexture].IsValid() ? BufferedVideoTextures[CurrentTexture]->GetRHIRef() : nullptr;
+	return SlateVideoTexture.IsValid() ? SlateVideoTexture->GetRHIRef() : nullptr;
 }
 
 bool FWebMMovieStreamer::Init(const TArray<FString>& InMoviePaths, TEnumAsByte<EMoviePlaybackType> InPlaybackType)
@@ -238,43 +241,35 @@ void FWebMMovieStreamer::ForceCompletion()
 
 void FWebMMovieStreamer::ReleaseAcquiredResources()
 {
-	// NOTE: Called from the main thread
-	for (int32 i = 0; i < NumBufferedTextures; ++i)
-	{
-		TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe>& VideoTexture = BufferedVideoTextures[i];
-		if (VideoTexture.IsValid())
-		{
-			// Schedule the release of the video texture(s) and wait the release to complete before
-			// losing the reference to the texture
-			BeginReleaseResource(VideoTexture.Get());
-			FlushRenderingCommands();
-			VideoTexture.Reset();
-		}
-	}
-
+	SlateVideoTexture.Reset();
 	Viewport->SetTexture(nullptr);
 }
 
 bool FWebMMovieStreamer::DisplayFrames(float InDeltaTime)
 {
+	if (!SlateVideoTexture.IsValid())
+	{
+		SlateVideoTexture = MakeShareable(new FSlateTexture2DRHIRef(nullptr, 0, 0));
+	}
+
 	TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> VideoSample;
 	TRange<FTimespan> TimeRange(FTimespan::Zero(), FTimespan::FromSeconds(CurrentTime));
 	bool bFoundSample = Samples->FetchVideo(TimeRange, VideoSample);
 
 	if (bFoundSample && VideoSample)
 	{
-		CurrentTexture = (CurrentTexture + 1) % NumBufferedTextures;
+		FPlatformAtomics::InterlockedDecrement(&FramesCurrentlyProcessing);
 
 		FWebMMediaTextureSample* WebMSample = StaticCast<FWebMMediaTextureSample*>(VideoSample.Get());
 
-		if (!BufferedVideoTextures[CurrentTexture].IsValid())
+		if (SlateVideoTexture->IsValid())
 		{
-			BufferedVideoTextures[CurrentTexture] = MakeShareable(new FSlateTexture2DRHIRef(nullptr, 0, 0));
+			SlateVideoTexture->ReleaseDynamicRHI();
 		}
 
-		BufferedVideoTextures[CurrentTexture]->SetRHIRef(WebMSample->GetTextureRef(), WebMSample->GetDim().X, WebMSample->GetDim().Y);
+		SlateVideoTexture->SetRHIRef(WebMSample->GetTextureRef(), WebMSample->GetDim().X, WebMSample->GetDim().Y);
 
-		Viewport->SetTexture(BufferedVideoTextures[CurrentTexture]);
+		Viewport->SetTexture(SlateVideoTexture);
 	}
 
 	return Samples->NumVideoSamples() > 0 || VideoDecoder->IsBusy();
@@ -296,7 +291,6 @@ bool FWebMMovieStreamer::SendAudio(float InDeltaTime)
 		bFoundSample = Samples->FetchAudio(TimeRange, AudioSample);
 	}
 
-
 	return Samples->NumAudio() > 0 || AudioDecoder->IsBusy();
 }
 
@@ -312,6 +306,8 @@ bool FWebMMovieStreamer::DecodeMoreFramesInAnotherThread()
 	// Trigger video decoding
 	if (VideoFrames.Num() > 0)
 	{
+		FPlatformAtomics::InterlockedAdd(&FramesCurrentlyProcessing, VideoFrames.Num());
+
 		VideoDecoder->DecodeVideoFramesAsync(VideoFrames);
 	}
 
