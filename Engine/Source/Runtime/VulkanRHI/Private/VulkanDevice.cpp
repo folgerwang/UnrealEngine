@@ -718,7 +718,7 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 		return Info;
 	};
 
-	UE_LOG(LogVulkanRHI, Display, TEXT("Initializing Device %d: %s"), DeviceIndex, ANSI_TO_TCHAR(GpuProps.deviceName));
+	UE_LOG(LogVulkanRHI, Display, TEXT("Device %d: %s"), DeviceIndex, ANSI_TO_TCHAR(GpuProps.deviceName));
 	UE_LOG(LogVulkanRHI, Display, TEXT("- API 0x%x Driver 0x%x VendorId 0x%x"), GpuProps.apiVersion, GpuProps.driverVersion, GpuProps.vendorID);
 	UE_LOG(LogVulkanRHI, Display, TEXT("- DeviceID 0x%x Type %s"), GpuProps.deviceID, *GetDeviceTypeString());
 	UE_LOG(LogVulkanRHI, Display, TEXT("- Max Descriptor Sets Bound %d Timestamps %d"), GpuProps.limits.maxBoundDescriptorSets, GpuProps.limits.timestampComputeAndGraphics);

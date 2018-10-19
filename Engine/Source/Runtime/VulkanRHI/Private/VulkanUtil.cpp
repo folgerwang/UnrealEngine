@@ -9,7 +9,8 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "VulkanMemory.h"
-#include "PipelineStateCache.h"
+#include "Misc/OutputDeviceRedirector.h"
+
 
 extern CORE_API bool GIsGPUCrashed;
 
@@ -499,6 +500,8 @@ void FVulkanGPUProfiler::DumpCrashMarkers(void* BufferData)
 				const FString* Frame = CachedStrings.Find(Value);
 				UE_LOG(LogVulkanRHI, Error, TEXT("[VK_NV_device_diagnostic_checkpoints] %i: Stage 0x%x, %s (CRC 0x%x)"), Index, Data[Index].stage, Frame ? *(*Frame) : TEXT("<undefined>"), Value);
 			}
+			GLog->PanicFlushThreadedLogs();
+			GLog->Flush();
 		}
 #endif
 	}
