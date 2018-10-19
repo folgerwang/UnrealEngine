@@ -21,10 +21,12 @@
 #include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformFilemanager.h"
+#include "HAL/IConsoleManager.h"
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
 #include "Interfaces/IAndroidDeviceDetection.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/SecureHash.h"
+
 
 #if WITH_ENGINE
 #include "AudioCompressionSettings.h"
