@@ -65,11 +65,11 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 
 		// Binary search children's lower bounds for the first that's >= the starting bound. That results in either ChildIndex or ChildIndex-1 being the overlapping range (if any).
 		int32 ChildIndex = Algo::LowerBoundBy(Children, StartingBound, GetLowerBound, MovieSceneHelpers::SortLowerBounds);
-		if (Children.IsValidIndex(ChildIndex) && MovieScene::DiscreteLowerBoundsAreEquivalent(Children[ChildIndex].Range.GetLowerBound(), StartingBound))
+		if (Children.IsValidIndex(ChildIndex) && Children[ChildIndex].Range.GetLowerBound() == StartingBound)
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex);
 		}
-		else if (Children.IsValidIndex(ChildIndex-1) && MovieScene::DiscreteRangesOverlap(Children[ChildIndex-1].Range, CompareRange))
+		else if (Children.IsValidIndex(ChildIndex-1) && Children[ChildIndex-1].Range.Overlaps(CompareRange))
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex - 1);
 		}
@@ -85,7 +85,7 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 		}
 	}
 
-	check(MovieScene::DiscreteRangesOverlap(CurrentRange, CompareRange));
+	check(CurrentRange.Overlaps(CompareRange));
 }
 
 void FMovieSceneEvaluationTreeRangeIterator::Iter(bool bForwards)
@@ -104,7 +104,7 @@ void FMovieSceneEvaluationTreeRangeIterator::Iter(bool bForwards)
 		return;
 	}
 
-	TRangeBound<FFrameNumber> NewLeadingBound = MovieScene::DiscreteRangeIsEmpty(CurrentRange) ? TRangeBound<FFrameNumber>::Open() : TRangeBound<FFrameNumber>::FlipInclusion(GetTrailingBound(bForwards, CurrentRange));
+	TRangeBound<FFrameNumber> NewLeadingBound = CurrentRange.IsEmpty() ? TRangeBound<FFrameNumber>::Open() : TRangeBound<FFrameNumber>::FlipInclusion(GetTrailingBound(bForwards, CurrentRange));
 
 	// Iterate into children when possible (where the leading bound matches the current new leading bound)
 	FMovieSceneEvaluationTreeNodeHandle NextChildHandle = FindNextChild(CurrentNodeHandle, NewLeadingBound, bForwards);
@@ -220,7 +220,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 {
 	// Take a temporary copy of the node as the container may be reallocated in this function
 	FMovieSceneEvaluationTreeNode ThisNode = GetNode(InParent);
-	if (!ensure(MovieScene::DiscreteRangesOverlap(ThisNode.Range, InTimeRange)))
+	if (!ensure(ThisNode.Range.Overlaps(InTimeRange)))
 	{
 		return;
 	}
@@ -253,7 +253,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 				TRange<FFrameNumber> PrecedingSpace(LastBound, TRangeBound<FFrameNumber>::FlipInclusion(ChildNode.Range.GetLowerBound()));
 				TRange<FFrameNumber> PrecedingIntersection = TRange<FFrameNumber>::Intersection(PrecedingSpace, InTimeRange);
 
-				if (!MovieScene::DiscreteRangeIsEmpty(PrecedingIntersection))
+				if (!PrecedingIntersection.IsEmpty())
 				{
 					// Insert this child at the current child index
 					InsertNewChild(PrecedingIntersection, InOperator, ChildIndex, InParent);
@@ -263,7 +263,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 				}
 			}
 
-			if (MovieScene::DiscreteRangesOverlap(ChildNode.Range, InTimeRange))
+			if (ChildNode.Range.Overlaps(InTimeRange))
 			{
 				// Find the node again since InsertNewChild may have re-allocated the nodes
 				AddTimeRange(InTimeRange, InOperator, FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex));
@@ -278,7 +278,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 			TRange<FFrameNumber> ProceedingSpace(LastBound, ThisNode.Range.GetUpperBound());
 			TRange<FFrameNumber> ProceedingIntersection = TRange<FFrameNumber>::Intersection(ProceedingSpace, InTimeRange);
 
-			if (!MovieScene::DiscreteRangeIsEmpty(ProceedingIntersection))
+			if (!ProceedingIntersection.IsEmpty())
 			{
 				// Insert this child at the end
 				InsertNewChild(ProceedingIntersection, InOperator, ChildNodes.Get(ThisNode.ChildrenID).Num(), InParent);

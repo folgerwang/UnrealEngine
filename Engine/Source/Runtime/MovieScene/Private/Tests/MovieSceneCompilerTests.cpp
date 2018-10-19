@@ -92,7 +92,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieSceneCompilerRangeTest, "System.Engine.Se
 bool FMovieSceneCompilerRangeTest::RunTest(const FString& Parameters)
 {
 	FFrameNumber CompileAtTimes[] = {
-		-3, -2, -1, 0, 1, 2, 3, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+		-3, -2, -1, 0, 1, 2, 3, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
 	};
 	// Test each combination of inc/excl boundary conditions for adjacent and adjoining ranges
 	TRange<FFrameNumber> Ranges[] = {
@@ -140,6 +140,10 @@ bool FMovieSceneCompilerRangeTest::RunTest(const FString& Parameters)
 		MakeRange( 13, 18, ERangeBoundTypes::Inclusive, ERangeBoundTypes::Exclusive),
 		MakeRange( 13, 19, ERangeBoundTypes::Inclusive, ERangeBoundTypes::Inclusive),
 		MakeRange( 13, 18, ERangeBoundTypes::Inclusive, ERangeBoundTypes::Inclusive),
+
+		// Explicitly test two adjacent ranges that would produce effectively empty space in between them when iterating
+		MakeRange( 21, 22, ERangeBoundTypes::Inclusive, ERangeBoundTypes::Inclusive),
+		MakeRange( 23, 24, ERangeBoundTypes::Inclusive, ERangeBoundTypes::Inclusive),
 	};
 
 	UTestMovieSceneSequence* Sequence = NewObject<UTestMovieSceneSequence>(GetTransientPackage());
