@@ -4,12 +4,13 @@
 
 #include "MoviePlayer.h"
 #include "WebMAudioBackend.h"
+#include "WebMMediaFrame.h"
+#include "Containers/Queue.h"
 
 class FWebMVideoDecoder;
 class FWebMAudioDecoder;
 class FMediaSamples;
 class FWebMContainer;
-class FRunnableThread;
 
 class FWebMMovieStreamer : public IMovieStreamer
 {
@@ -31,24 +32,18 @@ public:
 	FOnCurrentMovieClipFinished OnCurrentMovieClipFinishedDelegate;
 	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() override { return OnCurrentMovieClipFinishedDelegate; }
 
-	bool DecodeMoreFramesInAnotherThread();
-	bool IsPlaying() const { return bPlaying; }
-	int32 GetFramesCurrentlyProcessing() { return FramesCurrentlyProcessing; }
-
 private:
-	class FWebMBackgroundReader;
 	TArray<FString> MovieQueue;
+	TQueue<TArray<TSharedPtr<FWebMFrame>>> VideoFramesToDecodeLater;
 	FString MovieName;
 	TUniquePtr<FWebMVideoDecoder> VideoDecoder;
 	TUniquePtr<FWebMAudioDecoder> AudioDecoder;
 	TUniquePtr<FWebMContainer> Container;
 	TUniquePtr<FWebMAudioBackend> AudioBackend;
-	TUniquePtr<FRunnableThread> BackgroundReaderThread;
-	TUniquePtr<FWebMBackgroundReader> BackgroundReader;
 	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TSharedPtr<FMovieViewport> Viewport;
 	TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> SlateVideoTexture;
-	int32 FramesCurrentlyProcessing;
+	int32 VideoFramesCurrentlyProcessing;
 	float CurrentTime;
 	bool bPlaying;
 
@@ -56,4 +51,5 @@ private:
 	void ReleaseAcquiredResources();
 	bool DisplayFrames(float InDeltaTime);
 	bool SendAudio(float InDeltaTime);
+	bool ReadMoreFrames();
 };
