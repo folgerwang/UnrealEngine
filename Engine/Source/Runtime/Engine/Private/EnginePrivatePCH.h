@@ -365,8 +365,6 @@
 #include "UniformBuffer.h"
 #include "PackedNormal.h"
 #include "RenderUtils.h"
-
-// From ShaderCore:
 #include "ShaderParameters.h"
 #include "ShaderCore.h"
 #include "Shader.h"

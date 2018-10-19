@@ -55,6 +55,21 @@ ENUM_CLASS_FLAGS(EShowMaterialDrawEventTypes)
 // Shortcut for the allocator used by scene rendering.
 typedef TMemStackAllocator<> SceneRenderingAllocator;
 
+class SceneRenderingBitArrayAllocator
+	: public TInlineAllocator<4,SceneRenderingAllocator>
+{
+};
+
+class SceneRenderingSparseArrayAllocator
+	: public TSparseArrayAllocator<SceneRenderingAllocator,SceneRenderingBitArrayAllocator>
+{
+};
+
+class SceneRenderingSetAllocator
+	: public TSetAllocator<SceneRenderingSparseArrayAllocator,TInlineAllocator<1,SceneRenderingAllocator> >
+{
+};
+
 /** All necessary data to create a render target from the pooled render targets. */
 struct FPooledRenderTargetDesc
 {

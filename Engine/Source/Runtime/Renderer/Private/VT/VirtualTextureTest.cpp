@@ -219,7 +219,7 @@ void FVirtualTextureTest::ProducePageData( FRHICommandList& RHICmdList, ERHIFeat
 
 	RHICmdList.CopyToResolveTarget( RenderTarget.TargetableTexture, RenderTarget.ShaderResourceTexture, false, FResolveParams() );
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PhysicalTexture );
+	GVisualizeTexture.SetCheckPoint( RHICmdList, PhysicalTexture );
 }
 
 void FVirtualTextureTest::DumpToConsole()

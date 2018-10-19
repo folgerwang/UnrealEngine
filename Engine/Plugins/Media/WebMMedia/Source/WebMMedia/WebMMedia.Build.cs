@@ -16,7 +16,6 @@ namespace UnrealBuildTool.Rules
 					"MediaUtils",
 					"RenderCore",
 					"RHI",
-					"ShaderCore",
 					"UtilityShaders",
 					"libOpus",
 					"UEOgg",

@@ -56,7 +56,7 @@ protected:
 	FHitProxyVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
 		FMeshMaterialShader(Initializer)
 	{
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 	FHitProxyVS() {}
 };
@@ -129,7 +129,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		HitProxyId.Bind(Initializer.ParameterMap,TEXT("HitProxyId"), SPF_Mandatory);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FHitProxyPS() {}
@@ -561,7 +561,7 @@ static void DoRenderHitProxies(FRHICommandListImmediate& RHICmdList, const FScen
 	RHICmdList.CopyToResolveTarget(SceneContext.GetSceneDepthSurface(), SceneContext.GetSceneDepthSurface(), FResolveParams());
 
 	// to be able to observe results with VisualizeTexture
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, HitProxyRT);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, HitProxyRT);
 
 	//
 	// Copy the hit proxy buffer into the view family's render target.

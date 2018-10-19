@@ -18,8 +18,13 @@
 class FResourceArrayInterface;
 class FResourceBulkDataInterface;
 
-/** Uniform buffer structs must be aligned to 16-byte boundaries. */
-#define UNIFORM_BUFFER_STRUCT_ALIGNMENT 16
+
+/** Alignment of the shader parameters struct is required to be 16-byte boundaries. */
+#define SHADER_PARAMETER_STRUCT_ALIGNMENT 16
+
+/** The alignment in bytes between elements of array shader parameters. */
+#define SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT 16
+
 
 /** RHI Logging. */
 RHI_API DECLARE_LOG_CATEGORY_EXTERN(LogRHI,Log,VeryVerbose);

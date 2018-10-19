@@ -21,43 +21,43 @@ class Error;
  * Note: The runtime verbosity is driven by the console variable 'r.ShaderDevelopmentMode'
  */
 #if UE_BUILD_DEBUG && (PLATFORM_UNIX)
-SHADERCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogShaders, Log, All);
+RENDERCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogShaders, Log, All);
 #else
-SHADERCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogShaders, Error, All);
+RENDERCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogShaders, Error, All);
 #endif
 
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Total Niagara Shaders"), STAT_ShaderCompiling_NumTotalNiagaraShaders, STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total Niagara Shader Compiling Time"), STAT_ShaderCompiling_NiagaraShaders, STATGROUP_ShaderCompiling, SHADERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Total Niagara Shaders"), STAT_ShaderCompiling_NumTotalNiagaraShaders, STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total Niagara Shader Compiling Time"), STAT_ShaderCompiling_NiagaraShaders, STATGROUP_ShaderCompiling, RENDERCORE_API);
 
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total Material Shader Compiling Time"),STAT_ShaderCompiling_MaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total Global Shader Compiling Time"),STAT_ShaderCompiling_GlobalShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("RHI Compile Time"),STAT_ShaderCompiling_RHI,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Loading Shader Files"),STAT_ShaderCompiling_LoadingShaderFiles,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("CRCing Shader Files"),STAT_ShaderCompiling_HashingShaderFiles,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("HLSL Translation"),STAT_ShaderCompiling_HLSLTranslation,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("DDC Loading"),STAT_ShaderCompiling_DDCLoading,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Material Loading"),STAT_ShaderCompiling_MaterialLoading,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Material Compiling"),STAT_ShaderCompiling_MaterialCompiling,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Total Material Shaders"),STAT_ShaderCompiling_NumTotalMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Special Material Shaders"),STAT_ShaderCompiling_NumSpecialMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Particle Material Shaders"),STAT_ShaderCompiling_NumParticleMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Skinned Material Shaders"),STAT_ShaderCompiling_NumSkinnedMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Lit Material Shaders"),STAT_ShaderCompiling_NumLitMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Unlit Material Shaders"),STAT_ShaderCompiling_NumUnlitMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Transparent Material Shaders"),STAT_ShaderCompiling_NumTransparentMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Opaque Material Shaders"),STAT_ShaderCompiling_NumOpaqueMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Masked Material Shaders"),STAT_ShaderCompiling_NumMaskedMaterialShaders,STATGROUP_ShaderCompiling, SHADERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total Material Shader Compiling Time"),STAT_ShaderCompiling_MaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total Global Shader Compiling Time"),STAT_ShaderCompiling_GlobalShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("RHI Compile Time"),STAT_ShaderCompiling_RHI,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Loading Shader Files"),STAT_ShaderCompiling_LoadingShaderFiles,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("CRCing Shader Files"),STAT_ShaderCompiling_HashingShaderFiles,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("HLSL Translation"),STAT_ShaderCompiling_HLSLTranslation,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("DDC Loading"),STAT_ShaderCompiling_DDCLoading,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Material Loading"),STAT_ShaderCompiling_MaterialLoading,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Material Compiling"),STAT_ShaderCompiling_MaterialCompiling,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Total Material Shaders"),STAT_ShaderCompiling_NumTotalMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Special Material Shaders"),STAT_ShaderCompiling_NumSpecialMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Particle Material Shaders"),STAT_ShaderCompiling_NumParticleMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Skinned Material Shaders"),STAT_ShaderCompiling_NumSkinnedMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Lit Material Shaders"),STAT_ShaderCompiling_NumLitMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Unlit Material Shaders"),STAT_ShaderCompiling_NumUnlitMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Transparent Material Shaders"),STAT_ShaderCompiling_NumTransparentMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Opaque Material Shaders"),STAT_ShaderCompiling_NumOpaqueMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Masked Material Shaders"),STAT_ShaderCompiling_NumMaskedMaterialShaders,STATGROUP_ShaderCompiling, RENDERCORE_API);
 
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shaders Loaded"),STAT_Shaders_NumShadersLoaded,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shader Resources Loaded"),STAT_Shaders_NumShaderResourcesLoaded,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shader Maps Registered"),STAT_Shaders_NumShaderMaps,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_CYCLE_STAT_EXTERN(TEXT("RT Shader Load Time"),STAT_Shaders_RTShaderLoadTime,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shaders Used"),STAT_Shaders_NumShadersUsedForRendering,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total RT Shader Init Time"),STAT_Shaders_TotalRTShaderInitForRenderingTime,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Frame RT Shader Init Time"),STAT_Shaders_FrameRTShaderInitForRenderingTime,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader Memory"),STAT_Shaders_ShaderMemory,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader Resource Mem"),STAT_Shaders_ShaderResourceMemory,STATGROUP_Shaders, SHADERCORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader MapMemory"),STAT_Shaders_ShaderMapMemory,STATGROUP_Shaders, SHADERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shaders Loaded"),STAT_Shaders_NumShadersLoaded,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shader Resources Loaded"),STAT_Shaders_NumShaderResourcesLoaded,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shader Maps Registered"),STAT_Shaders_NumShaderMaps,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("RT Shader Load Time"),STAT_Shaders_RTShaderLoadTime,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Shaders Used"),STAT_Shaders_NumShadersUsedForRendering,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total RT Shader Init Time"),STAT_Shaders_TotalRTShaderInitForRenderingTime,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Frame RT Shader Init Time"),STAT_Shaders_FrameRTShaderInitForRenderingTime,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader Memory"),STAT_Shaders_ShaderMemory,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader Resource Mem"),STAT_Shaders_ShaderResourceMemory,STATGROUP_Shaders, RENDERCORE_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader MapMemory"),STAT_Shaders_ShaderMapMemory,STATGROUP_Shaders, RENDERCORE_API);
 
 inline TStatId GetMemoryStatType(EShaderFrequency ShaderFrequency)
 {
@@ -71,22 +71,22 @@ inline TStatId GetMemoryStatType(EShaderFrequency ShaderFrequency)
 }
 
 /** Initializes shader hash cache from IShaderFormatModules. This must be called before reading any shader include. */
-extern SHADERCORE_API void InitializeShaderHashCache();
+extern RENDERCORE_API void InitializeShaderHashCache();
 
 /** Checks if shader include isn't skipped by a shader hash cache. */
-extern SHADERCORE_API void CheckShaderHashCacheInclude(const FString& VirtualFilePath, EShaderPlatform ShaderPlatform);
+extern RENDERCORE_API void CheckShaderHashCacheInclude(const FString& VirtualFilePath, EShaderPlatform ShaderPlatform);
 
 /** Initializes cached shader type data.  This must be called before creating any FShaderType. */
-extern SHADERCORE_API void InitializeShaderTypes();
+extern RENDERCORE_API void InitializeShaderTypes();
 
 /** Uninitializes cached shader type data.  This is needed before unloading modules that contain FShaderTypes. */
-extern SHADERCORE_API void UninitializeShaderTypes();
+extern RENDERCORE_API void UninitializeShaderTypes();
 
 /** Returns true if debug viewmodes are allowed for the current platform. */
-extern SHADERCORE_API bool AllowDebugViewmodes();
+extern RENDERCORE_API bool AllowDebugViewmodes();
 
 /** Returns true if debug viewmodes are allowed for the given platform. */
-extern SHADERCORE_API bool AllowDebugViewmodes(EShaderPlatform Platform);
+extern RENDERCORE_API bool AllowDebugViewmodes(EShaderPlatform Platform);
 
 struct FShaderTarget
 {
@@ -173,14 +173,14 @@ public:
 	FShaderParameterMap()
 	{}
 
-	SHADERCORE_API bool FindParameterAllocation(const TCHAR* ParameterName,uint16& OutBufferIndex,uint16& OutBaseIndex,uint16& OutSize) const;
-	SHADERCORE_API bool ContainsParameterAllocation(const TCHAR* ParameterName) const;
-	SHADERCORE_API void AddParameterAllocation(const TCHAR* ParameterName,uint16 BufferIndex,uint16 BaseIndex,uint16 Size);
-	SHADERCORE_API void RemoveParameterAllocation(const TCHAR* ParameterName);
+	RENDERCORE_API bool FindParameterAllocation(const TCHAR* ParameterName,uint16& OutBufferIndex,uint16& OutBaseIndex,uint16& OutSize) const;
+	RENDERCORE_API bool ContainsParameterAllocation(const TCHAR* ParameterName) const;
+	RENDERCORE_API void AddParameterAllocation(const TCHAR* ParameterName, uint16 BufferIndex, uint16 BaseIndex, uint16 Size);
+	RENDERCORE_API void RemoveParameterAllocation(const TCHAR* ParameterName);
 	/** Checks that all parameters are bound and asserts if any aren't in a debug build
 	* @param InVertexFactoryType can be 0
 	*/
-	SHADERCORE_API void VerifyBindingsAreComplete(const TCHAR* ShaderTypeName, FShaderTarget Target, class FVertexFactoryType* InVertexFactoryType) const;
+	RENDERCORE_API void VerifyBindingsAreComplete(const TCHAR* ShaderTypeName, FShaderTarget Target, class FVertexFactoryType* InVertexFactoryType) const;
 
 	/** Updates the hash state with the contents of this parameter map. */
 	void UpdateHash(FSHA1& HashState) const;
@@ -208,15 +208,13 @@ private:
 			bBound(false)
 		{}
 
-		friend FArchive& operator<<(FArchive& Ar,FParameterAllocation& Allocation)
+		friend FArchive& operator<<(FArchive& Ar, FParameterAllocation& Allocation)
 		{
 			return Ar << Allocation.BufferIndex << Allocation.BaseIndex << Allocation.Size << Allocation.bBound;
 		}
 	};
 
 	TMap<FString,FParameterAllocation> ParameterMap;
-public:
-
 };
 
 /** Container for shader compiler definitions. */
@@ -667,7 +665,7 @@ struct FShaderCompilerError
 	}
 
 	/** Returns the path of the underlying source file relative to the process base dir. */
-	FString SHADERCORE_API GetShaderSourceFilePath() const;
+	FString RENDERCORE_API GetShaderSourceFilePath() const;
 
 	friend FArchive& operator<<(FArchive& Ar,FShaderCompilerError& Error)
 	{
@@ -981,7 +979,7 @@ struct FShaderCompilerOutput
 	TArray<uint8> PlatformDebugData;
 
 	/** Generates OutputHash from the compiler output. */
-	SHADERCORE_API void GenerateOutputHash();
+	RENDERCORE_API void GenerateOutputHash();
 
 	friend FArchive& operator<<(FArchive& Ar, FShaderCompilerOutput& Output)
 	{
@@ -1000,7 +998,7 @@ struct FShaderCompilerOutput
  * Meant to be use as such: check(CheckVirtualShaderFilePath(VirtualFilePath));
  * CompileErrors output array is optional.
  */
-extern SHADERCORE_API bool CheckVirtualShaderFilePath(const FString& VirtualPath, TArray<FShaderCompilerError>* CompileErrors = nullptr);
+extern RENDERCORE_API bool CheckVirtualShaderFilePath(const FString& VirtualPath, TArray<FShaderCompilerError>* CompileErrors = nullptr);
 
 /**
  * Converts an absolute or relative shader filename to a filename relative to
@@ -1008,7 +1006,7 @@ extern SHADERCORE_API bool CheckVirtualShaderFilePath(const FString& VirtualPath
  * @param InFilename - The shader filename.
  * @returns a filename relative to the shaders directory.
  */
-extern SHADERCORE_API FString ParseVirtualShaderFilename(const FString& InFilename);
+extern RENDERCORE_API FString ParseVirtualShaderFilename(const FString& InFilename);
 
 /**
  * Loads the shader file with the given name.
@@ -1016,27 +1014,27 @@ extern SHADERCORE_API FString ParseVirtualShaderFilename(const FString& InFilena
  * @param OutFileContents - If true is returned, will contain the contents of the shader file.
  * @return True if the file was successfully loaded.
  */
-extern SHADERCORE_API bool LoadShaderSourceFile(const TCHAR* VirtualFilePath, FString& OutFileContents, TArray<FShaderCompilerError>* OutCompileErrors);
+extern RENDERCORE_API bool LoadShaderSourceFile(const TCHAR* VirtualFilePath, FString& OutFileContents, TArray<FShaderCompilerError>* OutCompileErrors);
 
 /** Loads the shader file with the given name.  If the shader file couldn't be loaded, throws a fatal error. */
-extern SHADERCORE_API void LoadShaderSourceFileChecked(const TCHAR* VirtualFilePath, FString& OutFileContents);
+extern RENDERCORE_API void LoadShaderSourceFileChecked(const TCHAR* VirtualFilePath, FString& OutFileContents);
 
 /**
  * Recursively populates IncludeFilenames with the include filenames from Filename
  */
-extern SHADERCORE_API void GetShaderIncludes(const TCHAR* EntryPointVirtualFilePath, const TCHAR* VirtualFilePath, TArray<FString>& IncludeVirtualFilePaths, EShaderPlatform ShaderPlatform, uint32 DepthLimit=100);
+extern RENDERCORE_API void GetShaderIncludes(const TCHAR* EntryPointVirtualFilePath, const TCHAR* VirtualFilePath, TArray<FString>& IncludeVirtualFilePaths, EShaderPlatform ShaderPlatform, uint32 DepthLimit=100);
 
 /**
  * Calculates a Hash for the given filename if it does not already exist in the Hash cache.
  * @param Filename - shader file to Hash
  * @param ShaderPlatform - shader platform to Hash
  */
-extern SHADERCORE_API const class FSHAHash& GetShaderFileHash(const TCHAR* VirtualFilePath, EShaderPlatform ShaderPlatform);
+extern RENDERCORE_API const class FSHAHash& GetShaderFileHash(const TCHAR* VirtualFilePath, EShaderPlatform ShaderPlatform);
 
 /**
  * Calculates a Hash for the list of filenames if it does not already exist in the Hash cache.
  */
-extern SHADERCORE_API const class FSHAHash& GetShaderFilesHash(const TArray<FString>& VirtualFilePaths, EShaderPlatform ShaderPlatform);
+extern RENDERCORE_API const class FSHAHash& GetShaderFilesHash(const TArray<FString>& VirtualFilePaths, EShaderPlatform ShaderPlatform);
 
 extern void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables);
 
@@ -1044,9 +1042,9 @@ extern void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*>
  * Flushes the shader file and CRC cache, and regenerates the binary shader files if necessary.
  * Allows shader source files to be re-read properly even if they've been modified since startup.
  */
-extern SHADERCORE_API void FlushShaderFileCache();
+extern RENDERCORE_API void FlushShaderFileCache();
 
-extern SHADERCORE_API void VerifyShaderSourceFiles(EShaderPlatform ShaderPlatform);
+extern RENDERCORE_API void VerifyShaderSourceFiles(EShaderPlatform ShaderPlatform);
 
 struct FCachedUniformBufferDeclaration
 {
@@ -1062,21 +1060,21 @@ extern void GenerateReferencedUniformBuffers(
 	TMap<const TCHAR*,FCachedUniformBufferDeclaration>& UniformBufferEntries);
 
 /** Records information about all the uniform buffer layouts referenced by UniformBufferEntries. */
-extern SHADERCORE_API void SerializeUniformBufferInfo(class FShaderSaveArchive& Ar, const TMap<const TCHAR*,FCachedUniformBufferDeclaration>& UniformBufferEntries);
+extern RENDERCORE_API void SerializeUniformBufferInfo(class FShaderSaveArchive& Ar, const TMap<const TCHAR*,FCachedUniformBufferDeclaration>& UniformBufferEntries);
 
 
 
 /**
  * Returns the map virtual shader directory path -> real shader directory path.
  */
-extern SHADERCORE_API const TMap<FString, FString>& AllShaderSourceDirectoryMappings();
+extern RENDERCORE_API const TMap<FString, FString>& AllShaderSourceDirectoryMappings();
 
 /** Hook for shader compile worker to reset the directory mappings. */
-extern SHADERCORE_API void ResetAllShaderSourceDirectoryMappings();
+extern RENDERCORE_API void ResetAllShaderSourceDirectoryMappings();
 
 /**
  * Maps a real shader directory existing on disk to a virtual shader directory.
  * @param VirtualShaderDirectory Unique absolute path of the virtual shader directory (ex: /Project).
  * @param RealShaderDirectory FPlatformProcess::BaseDir() relative path of the directory map.
  */
-extern SHADERCORE_API void AddShaderSourceDirectoryMapping(const FString& VirtualShaderDirectory, const FString& RealShaderDirectory);
+extern RENDERCORE_API void AddShaderSourceDirectoryMapping(const FString& VirtualShaderDirectory, const FString& RealShaderDirectory);

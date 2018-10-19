@@ -23,8 +23,6 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #endif
 
-FSHAHash GGlobalShaderMapHash;
-
 static TAutoConsoleVariable<int32> CVarShaderDevelopmentMode(
 	TEXT("r.ShaderDevelopmentMode"),
 	0,
@@ -50,30 +48,6 @@ void UpdateShaderDevelopmentMode()
 		}
 	}
 }
-
-class FShaderCoreModule : public FDefaultModuleImpl
-{
-public:
-
-	/**
-	 * Called right after the module DLL has been loaded and the module object has been created
-	 */
-	virtual void StartupModule()
-	{
-		// Create the global shader map hash
-		{
-			FSHA1 HashState;
-			const TCHAR* GlobalShaderString = TEXT("GlobalShaderMap");
-			HashState.UpdateWithString(GlobalShaderString, FCString::Strlen(GlobalShaderString));
-			HashState.Final();
-			HashState.GetHash(&GGlobalShaderMapHash.Hash[0]);
-		}
-
-		IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateStatic(&UpdateShaderDevelopmentMode));
-	}
-};
-
-IMPLEMENT_MODULE( FShaderCoreModule, ShaderCore );
 
 //
 // Shader stats
@@ -890,7 +864,7 @@ void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& Sha
 		};
 		// Cache each UB
 		TArray<FShaderVariable> SearchKeys;
-		for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+		for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 		{
 			SearchKeys.Add(FShaderVariable(StructIt->GetShaderVariableName()));
 		}
@@ -1031,13 +1005,13 @@ void SerializeUniformBufferInfo(FShaderSaveArchive& Ar, const TMap<const TCHAR*,
 {
 	for (TMap<const TCHAR*,FCachedUniformBufferDeclaration>::TConstIterator It(UniformBufferEntries); It; ++It)
 	{
-		for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+		for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 		{
 			if (It.Key() == StructIt->GetShaderVariableName())
 			{
 				// Serialize information about the struct layout so we can detect when it changes
-				const FUniformBufferStruct& Struct = **StructIt;
-				const TArray<FUniformBufferStruct::FMember>& Members = Struct.GetMembers();
+				const FShaderParametersMetadata& Struct = **StructIt;
+				const TArray<FShaderParametersMetadata::FMember>& Members = Struct.GetMembers();
 
 				int32 NumMembers = Members.Num();
 				// Serializing with NULL so that FShaderSaveArchive will record the length without causing an actual data serialization
@@ -1045,7 +1019,7 @@ void SerializeUniformBufferInfo(FShaderSaveArchive& Ar, const TMap<const TCHAR*,
 
 				for (int32 MemberIndex = 0; MemberIndex < Members.Num(); MemberIndex++)
 				{
-					const FUniformBufferStruct::FMember& Member = Members[MemberIndex];
+					const FShaderParametersMetadata::FMember& Member = Members[MemberIndex];
 
 					// Note: Only comparing number of floats used by each member and type, so this can be tricked (eg. swapping two equal size and type members)
 					int32 MemberSize = Member.GetNumColumns() * Member.GetNumRows();

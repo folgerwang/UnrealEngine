@@ -695,7 +695,7 @@ void FDeferredShadingSceneRenderer::RenderDistanceFieldAOScreenGrid(
 		ScreenGridResources->DiscardTransientResource();
 	}
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, DownsampledBentNormal);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, DownsampledBentNormal);
 
 	PostProcessBentNormalAOScreenGrid(
 		RHICmdList, 

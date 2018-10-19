@@ -127,7 +127,7 @@ TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
 /** Vertex declaration for vertex shaders that don't require any inputs (eg. generated via vertex ID). */
 TGlobalResource<FEmptyVertexDeclaration> GEmptyVertexDeclaration;
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDrawRectangleParameters,TEXT("DrawRectangleParameters"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FDrawRectangleParameters, "DrawRectangleParameters");
 
 typedef TUniformBufferRef<FDrawRectangleParameters> FDrawRectangleBufferRef;
 

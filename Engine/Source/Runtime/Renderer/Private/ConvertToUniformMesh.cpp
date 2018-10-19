@@ -25,7 +25,7 @@ protected:
 	FConvertToUniformMeshVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
 	{
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FConvertToUniformMeshVS()
@@ -110,7 +110,7 @@ protected:
 	FConvertToUniformMeshGS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
 	{
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FConvertToUniformMeshGS()
@@ -382,9 +382,14 @@ int32 FUniformMeshConverter::Convert(
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
 					//@todo - fix
-					OutPrimitiveUniformBuffer = IsValidRef(Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer) 
-						? Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer
-						: *Mesh.Elements[BatchElementIndex].PrimitiveUniformBufferResource;
+					if (Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer.IsValid())
+					{
+						OutPrimitiveUniformBuffer = Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer;
+					}
+					else
+					{
+						OutPrimitiveUniformBuffer = Mesh.Elements[BatchElementIndex].PrimitiveUniformBufferResource->GetUniformBufferRHI();
+					}
 
 					DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderState, FConvertToUniformMeshDrawingPolicy::ElementDataType(), FConvertToUniformMeshDrawingPolicy::ContextDataType());
 					DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex);

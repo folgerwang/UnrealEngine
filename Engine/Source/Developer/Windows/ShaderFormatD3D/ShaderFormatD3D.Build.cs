@@ -12,7 +12,7 @@ public class ShaderFormatD3D : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
-				"ShaderCore",
+				"RenderCore",
 				"ShaderPreprocessor",
 				"ShaderCompilerCommon",
 			}

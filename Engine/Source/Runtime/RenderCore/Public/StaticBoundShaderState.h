@@ -22,13 +22,13 @@ class FGlobalBoundShaderStateResource : public FRenderResource
 public:
 
 	/** @return The list of global bound shader states. */
-	SHADERCORE_API static TLinkedList<FGlobalBoundShaderStateResource*>*& GetGlobalBoundShaderStateList();
+	RENDERCORE_API static TLinkedList<FGlobalBoundShaderStateResource*>*& GetGlobalBoundShaderStateList();
 
 	/** Initialization constructor. */
-	SHADERCORE_API FGlobalBoundShaderStateResource();
+	RENDERCORE_API FGlobalBoundShaderStateResource();
 
 	/** Destructor. */
-	SHADERCORE_API virtual ~FGlobalBoundShaderStateResource();
+	RENDERCORE_API virtual ~FGlobalBoundShaderStateResource();
 
 	/**
 	 * If this global bound shader state hasn't been initialized yet, initialize it.
@@ -56,7 +56,7 @@ private:
 	TLinkedList<FGlobalBoundShaderStateResource*> GlobalListLink;
 
 	// FRenderResource interface.
-	SHADERCORE_API virtual void ReleaseRHI();
+	RENDERCORE_API virtual void ReleaseRHI();
 
 #if DO_CHECK
 	FVertexDeclarationRHIParamRef BoundVertexDeclaration;

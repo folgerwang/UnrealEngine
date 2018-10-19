@@ -13,7 +13,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogShaderLibrary, Log, All);
 
 class FShaderPipeline;
 
-struct SHADERCORE_API FShaderCodeLibraryPipeline
+struct RENDERCORE_API FShaderCodeLibraryPipeline
 {
 	FSHAHash VertexShader;
 	FSHAHash PixelShader;
@@ -48,7 +48,7 @@ struct SHADERCORE_API FShaderCodeLibraryPipeline
 	}
 };
 
-struct SHADERCORE_API FCompactFullName
+struct RENDERCORE_API FCompactFullName
 {
 	TArray<FName> ObjectClassAndPath;
 
@@ -59,11 +59,11 @@ struct SHADERCORE_API FCompactFullName
 
 	FString ToString() const;
 	void ParseFromString(const FString& Src);
-	friend SHADERCORE_API uint32 GetTypeHash(const FCompactFullName& A);
+	friend RENDERCORE_API uint32 GetTypeHash(const FCompactFullName& A);
 };
 
 
-struct SHADERCORE_API FStableShaderKeyAndValue
+struct RENDERCORE_API FStableShaderKeyAndValue
 {
 	FCompactFullName ClassNameAndObjectPath;
 	FName ShaderType;
@@ -133,7 +133,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FSharedShaderCodeRelease, const FSHAHash&);
 
 // Collection of unique shader code
 // Populated at cook time
-struct SHADERCORE_API FShaderCodeLibrary
+struct RENDERCORE_API FShaderCodeLibrary
 {
 	static void InitForRuntime(EShaderPlatform ShaderPlatform);
 	static void Shutdown();

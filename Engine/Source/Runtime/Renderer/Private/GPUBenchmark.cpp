@@ -16,11 +16,12 @@
 #include "RHIStaticStates.h"
 #include "Containers/DynamicRHIResourceArray.h"
 #include "GlobalShader.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "GPUProfiler.h"
 #include "PipelineStateCache.h"
 #include "LongGPUTask.h"
+#include "PostProcess/VisualizeTexture.h"
 
 static const uint32 GBenchmarkResolution = 512;
 static const uint32 GBenchmarkPrimitives = 200000;
@@ -573,7 +574,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 				// 0 / 1
 				const uint32 SrcRTIndex = 1 - DestRTIndex;
 
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RTItems[DestRTIndex]);
+				GVisualizeTexture.SetCheckPoint(RHICmdList, RTItems[DestRTIndex]);
 
 				SetRenderTarget(RHICmdList, RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), true);	
 

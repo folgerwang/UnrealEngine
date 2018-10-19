@@ -24,7 +24,6 @@ public class GoogleARCoreRendering : ModuleRules
 				"Engine",
 				"Renderer",
 				"RenderCore",
-				"ShaderCore",
 				// ... add private dependencies that you statically link with here ...
 			}
 			);

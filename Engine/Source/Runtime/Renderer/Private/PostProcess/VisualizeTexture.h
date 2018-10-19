@@ -8,15 +8,18 @@
 
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
+#include "RenderResource.h"
 
 class FSceneView;
 class FViewInfo;
 
-class FVisualizeTexture
+
+// TODO(RDG): Texture visualization needs to be totally rewritten cleanly with render graph in RenderCore module.
+class FVisualizeTexture : public FRenderResource
 {
 public:
 	FVisualizeTexture();
-	void Destroy();
+	virtual void ReleaseDynamicRHI() override;
 
 	/** renders the VisualizeTextureContent to the current render target */
 	void PresentContent(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
@@ -109,6 +112,8 @@ private:
 	void GenerateContent(FRHICommandListImmediate& RHICmdList, const FSceneRenderTargetItem& RenderTargetItem, const FPooledRenderTargetDesc& Desc);
 
 	FIntRect ComputeVisualizeTextureRect(FIntPoint InputTextureSize) const;
+
+	static uint32 ComputeEventDisplayHeight();
 };
 
 
@@ -133,3 +138,6 @@ struct FVisualizeTextureData
 	int32 ArrayIndex;
 	int32 CustomMip;
 };
+
+/** The global render targets for easy shading. */
+extern TGlobalResource<FVisualizeTexture> GVisualizeTexture;

@@ -32,7 +32,7 @@ void SetShaderValue(
 {
 	static_assert(!TIsPointer<ParameterType>::Value, "Passing by value is not valid.");
 
-	const uint32 AlignedTypeSize = Align(sizeof(ParameterType),ShaderArrayElementAlignBytes);
+	const uint32 AlignedTypeSize = Align(sizeof(ParameterType), SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT);
 	const int32 NumBytesToSet = FMath::Min<int32>(sizeof(ParameterType),Parameter.GetNumBytes() - ElementIndex * AlignedTypeSize);
 
 	// This will trigger if the parameter was not serialized
@@ -61,7 +61,7 @@ void SetShaderValueOnContext(
 {
 	static_assert(!TIsPointer<ParameterType>::Value, "Passing by value is not valid.");
 
-	const uint32 AlignedTypeSize = Align(sizeof(ParameterType), ShaderArrayElementAlignBytes);
+	const uint32 AlignedTypeSize = Align(sizeof(ParameterType), SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT);
 	const int32 NumBytesToSet = FMath::Min<int32>(sizeof(ParameterType), Parameter.GetNumBytes() - ElementIndex * AlignedTypeSize);
 
 	// This will trigger if the parameter was not serialized
@@ -125,7 +125,7 @@ void SetShaderValueArray(
 	uint32 BaseElementIndex = 0
 	)
 {
-	const uint32 AlignedTypeSize = Align(sizeof(ParameterType),ShaderArrayElementAlignBytes);
+	const uint32 AlignedTypeSize = Align(sizeof(ParameterType), SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT);
 	const int32 NumBytesToSet = FMath::Min<int32>(NumElements * AlignedTypeSize,Parameter.GetNumBytes() - BaseElementIndex * AlignedTypeSize);
 
 	// This will trigger if the parameter was not serialized
@@ -512,7 +512,7 @@ inline void SetUniformBufferParameterImmediate(
 		RHICmdList.SetShaderUniformBuffer(
 			Shader,
 			Parameter.GetBaseIndex(),
-			RHICreateUniformBuffer(&UniformBufferValue,TBufferStruct::StaticStruct.GetLayout(),UniformBuffer_SingleDraw)
+			RHICreateUniformBuffer(&UniformBufferValue,TBufferStruct::StaticStructMetadata.GetLayout(),UniformBuffer_SingleDraw)
 			);
 	}
 }
@@ -533,7 +533,7 @@ inline void SetUniformBufferParameterImmediate(
 		RHICmdList.SetShaderUniformBuffer(
 			Shader,
 			Parameter.GetBaseIndex(),
-			RHICreateUniformBuffer(&UniformBufferValue,TBufferStruct::StaticStruct.GetLayout(),UniformBuffer_SingleDraw)
+			RHICreateUniformBuffer(&UniformBufferValue,TBufferStruct::StaticStructMetadata.GetLayout(),UniformBuffer_SingleDraw)
 			);
 	}
 }

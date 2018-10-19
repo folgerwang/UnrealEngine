@@ -33,7 +33,6 @@ public class MaterialEditor : ModuleRules
 				"Slate",
 				"SlateCore",
                 "EditorStyle",
-				"ShaderCore",
 				"RenderCore",
 				"RHI",
                 "MaterialUtilities",

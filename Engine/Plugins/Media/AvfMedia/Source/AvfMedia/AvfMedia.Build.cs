@@ -16,7 +16,6 @@ namespace UnrealBuildTool.Rules
 					"AvfMediaFactory",
 					"Core",
 					"ApplicationCore",
-					"ShaderCore",
 					"MediaUtils",
 					"RenderCore",
 					"RHI",

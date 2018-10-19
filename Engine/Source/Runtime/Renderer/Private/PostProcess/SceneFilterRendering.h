@@ -15,11 +15,11 @@
 #include "ShaderParameterUtils.h"
 
 /** Uniform buffer for computing the vertex positional and UV adjustments in the vertex shader. */
-BEGIN_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters,)
-	UNIFORM_MEMBER( FVector4, PosScaleBias )
-	UNIFORM_MEMBER( FVector4, UVScaleBias )
-	UNIFORM_MEMBER( FVector4, InvTargetSizeAndTextureSize )
-END_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FDrawRectangleParameters,)
+	SHADER_PARAMETER( FVector4, PosScaleBias )
+	SHADER_PARAMETER( FVector4, UVScaleBias )
+	SHADER_PARAMETER( FVector4, InvTargetSizeAndTextureSize )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /**
  * Draws a quad with the given vertex positions and UVs in denormalized pixel/texel coordinates.

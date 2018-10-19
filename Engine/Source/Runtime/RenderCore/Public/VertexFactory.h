@@ -91,7 +91,7 @@ struct FVertexStreamComponent
 /**
  * An interface to the parameter bindings for the vertex factory used by a shader.
  */
-class SHADERCORE_API FVertexFactoryShaderParameters
+class RENDERCORE_API FVertexFactoryShaderParameters
 {
 public:
 	virtual ~FVertexFactoryShaderParameters() {}
@@ -116,12 +116,12 @@ public:
 	/**
 	 * @return The global shader factory list.
 	 */
-	static SHADERCORE_API TLinkedList<FVertexFactoryType*>*& GetTypeList();
+	static RENDERCORE_API TLinkedList<FVertexFactoryType*>*& GetTypeList();
 
 	/**
 	 * Finds a FVertexFactoryType by name.
 	 */
-	static SHADERCORE_API FVertexFactoryType* GetVFByName(const FString& VFName);
+	static RENDERCORE_API FVertexFactoryType* GetVFByName(const FString& VFName);
 
 	/** Initialize FVertexFactoryType static members, this must be called before any VF types are created. */
 	static void Initialize(const TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables);
@@ -134,7 +134,7 @@ public:
 	 * @param bInUsedWithMaterials - True if the vertex factory will be rendered in combination with a material.
 	 * @param bInSupportsStaticLighting - True if the vertex factory will be rendered with static lighting.
 	 */
-	SHADERCORE_API FVertexFactoryType(
+	RENDERCORE_API FVertexFactoryType(
 		const TCHAR* InName,
 		const TCHAR* InShaderFilename,
 		bool bInUsedWithMaterials,
@@ -148,7 +148,7 @@ public:
 		SupportsTessellationShadersType InSupportsTessellationShaders
 		);
 
-	SHADERCORE_API virtual ~FVertexFactoryType();
+	RENDERCORE_API virtual ~FVertexFactoryType();
 
 	// Accessors.
 	const TCHAR* GetName() const { return Name; }
@@ -176,7 +176,7 @@ public:
 	}
 
 	/** Calculates a Hash based on this vertex factory type's source code and includes */
-	SHADERCORE_API const FSHAHash& GetSourceHash(EShaderPlatform ShaderPlatform) const;
+	RENDERCORE_API const FSHAHash& GetSourceHash(EShaderPlatform ShaderPlatform) const;
 
 	/**
 	 * Should we cache the material's shadertype on this platform with this vertex factory? 
@@ -210,7 +210,7 @@ public:
 	}
 
 	/** Adds include statements for uniform buffers that this shader type references, and builds a prefix for the shader file with the include statements. */
-	SHADERCORE_API void AddReferencedUniformBufferIncludes(FShaderCompilerEnvironment& OutEnvironment, FString& OutSourceFilePrefix, EShaderPlatform Platform);
+	RENDERCORE_API void AddReferencedUniformBufferIncludes(FShaderCompilerEnvironment& OutEnvironment, FString& OutSourceFilePrefix, EShaderPlatform Platform);
 
 	void FlushShaderFileCache(const TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables)
 	{
@@ -225,7 +225,7 @@ public:
 	}
 
 private:
-	static SHADERCORE_API uint32 NextHashIndex;
+	static RENDERCORE_API uint32 NextHashIndex;
 
 	/** Tracks whether serialization history for all shader types has been initialized. */
 	static bool bInitializedSerializationHistory;
@@ -266,13 +266,13 @@ private:
 /**
  * Serializes a reference to a vertex factory type.
  */
-extern SHADERCORE_API FArchive& operator<<(FArchive& Ar,FVertexFactoryType*& TypeRef);
+extern RENDERCORE_API FArchive& operator<<(FArchive& Ar,FVertexFactoryType*& TypeRef);
 
 /**
  * Find the vertex factory type with the given name.
  * @return NULL if no vertex factory type matched, otherwise a vertex factory type with a matching name.
  */
-extern SHADERCORE_API FVertexFactoryType* FindVertexFactoryType(FName TypeName);
+extern RENDERCORE_API FVertexFactoryType* FindVertexFactoryType(FName TypeName);
 
 /**
  * A macro for declaring a new vertex factory type, for use in the vertex factory class's definition body.
@@ -349,7 +349,7 @@ public:
 /**
  * Encapsulates a vertex data source which can be linked into a vertex shader.
  */
-class SHADERCORE_API FVertexFactory : public FRenderResource
+class RENDERCORE_API FVertexFactory : public FRenderResource
 {
 public:
 	FVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) 
@@ -508,7 +508,7 @@ private:
  * An encapsulation of the vertex factory parameters for a shader.
  * Handles serialization and binding of the vertex factory parameters for the shader's vertex factory type.
  */
-class SHADERCORE_API FVertexFactoryParameterRef
+class RENDERCORE_API FVertexFactoryParameterRef
 {
 public:
 	FVertexFactoryParameterRef(FVertexFactoryType* InVertexFactoryType,const FShaderParameterMap& ParameterMap, EShaderFrequency InShaderFrequency, EShaderPlatform InShaderPlatform);
@@ -539,7 +539,7 @@ public:
 	/** Returns the shader platform that this shader was compiled with. */
 	EShaderPlatform GetShaderPlatform() const;
 
-	friend SHADERCORE_API bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref);
+	friend RENDERCORE_API bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref);
 
 	uint32 GetAllocatedSize() const
 	{

@@ -25,7 +25,7 @@
 
 DEFINE_LOG_CATEGORY(LogShaders);
 
-SHADERCORE_API bool UsePreExposure(EShaderPlatform Platform)
+RENDERCORE_API bool UsePreExposure(EShaderPlatform Platform)
 {
 	// Mobile platforms are excluded because they use a different pre-exposure logic in MobileBasePassPixelShader.usf
 	static const auto CVarUsePreExposure = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.UsePreExposure"));
@@ -966,12 +966,12 @@ FShader::FShader(const CompiledShaderInitializerType& Initializer)
 	}
 
 	// Bind uniform buffer parameters automatically 
-	for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+	for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 	{
 		if (Initializer.ParameterMap.ContainsParameterAllocation(StructIt->GetShaderVariableName()))
 		{
 			UniformBufferParameterStructs.Add(*StructIt);
-			UniformBufferParameters.Add(StructIt->ConstructTypedParameter());
+			UniformBufferParameters.Add(new FShaderUniformBufferParameter());
 			FShaderUniformBufferParameter* Parameter = UniformBufferParameters.Last();
 			Parameter->Bind(Initializer.ParameterMap, StructIt->GetShaderVariableName(), SPF_Mandatory);
 		}
@@ -1027,6 +1027,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline, bool bLoadedByCoo
 	Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, SourceHash);
 	Ar << Target;
 
+	// TODO(RDG): Kill that once all shaders are refactored.
 	if (Ar.IsLoading())
 	{
 		int32 NumUniformParameters;
@@ -1037,7 +1038,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline, bool bLoadedByCoo
 
 		for (int32 ParameterIndex = 0; ParameterIndex < NumUniformParameters; ParameterIndex++)
 		{
-			FUniformBufferStruct* Struct = nullptr;
+			FShaderParametersMetadata* Struct = nullptr;
 
 			if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
 			{
@@ -1054,7 +1055,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline, bool bLoadedByCoo
 				checkf(Struct, TEXT("Uniform Buffer Struct %s no longer exists, which shader of type %s was compiled with.  Modify ShaderVersion.ush to invalidate old shaders."), *StructFName.ToString(), Type->GetName());
 			}
 			
-			FShaderUniformBufferParameter* Parameter = Struct->ConstructTypedParameter();
+			FShaderUniformBufferParameter* Parameter = new FShaderUniformBufferParameter();
 
 			Ar << *Parameter;
 
@@ -1114,6 +1115,8 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline, bool bLoadedByCoo
 			SetResource(ExistingResource);
 		}
 	}
+
+	Ar << Bindings;
 
 	return false;
 }

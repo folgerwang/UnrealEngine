@@ -136,7 +136,7 @@ FForwardLightingViewResources* GetMinimalDummyForwardLightingResources()
 	return &GMinimalDummyForwardLightingResources->ForwardLightingResources;
 }
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData, TEXT("ForwardLightData"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FForwardLightData, "ForwardLightData");
 
 FForwardLightData::FForwardLightData()
 {

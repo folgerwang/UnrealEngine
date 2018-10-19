@@ -15,7 +15,7 @@ public class ShaderFormatOpenGL : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
-				"ShaderCore",
+				"RenderCore",
 				"ShaderCompilerCommon",
 				"ShaderPreprocessor"
 			}

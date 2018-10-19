@@ -51,7 +51,7 @@
 
 DEFINE_LOG_CATEGORY(LogShaderCompilers);
 
-SHADERCORE_API bool UsePreExposure(EShaderPlatform Platform);
+RENDERCORE_API bool UsePreExposure(EShaderPlatform Platform);
 
 #if ENABLE_COOK_STATS
 namespace GlobalShaderCookStats
@@ -2598,7 +2598,7 @@ bool FShaderCompilingManager::IsShaderCompilerWorkerRunning(FProcHandle & Worker
 }
 
 /* Generates a uniform buffer struct member hlsl declaration using the member's metadata. */
-static void GenerateUniformBufferStructMember(FString& Result, const FUniformBufferStruct::FMember& Member)
+static void GenerateUniformBufferStructMember(FString& Result, const FShaderParametersMetadata::FMember& Member)
 {
 	// Generate the base type name.
 	FString BaseTypeName;
@@ -2650,8 +2650,8 @@ static void GenerateUniformBufferStructMember(FString& Result, const FUniformBuf
 ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 {
 	// Find the InstancedView uniform buffer struct
-	const FUniformBufferStruct* InstancedView = nullptr;
-	for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+	const FShaderParametersMetadata* InstancedView = nullptr;
+	for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 	{
 		if (StructIt->GetShaderVariableName() == FString(TEXT("InstancedView")))
 		{
@@ -2660,14 +2660,14 @@ ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 		}
 	}
 	checkSlow(InstancedView != nullptr);
-	const TArray<FUniformBufferStruct::FMember>& StructMembers = InstancedView->GetMembers();
+	const TArray<FShaderParametersMetadata::FMember>& StructMembers = InstancedView->GetMembers();
 
 	// ViewState definition
 	Result =  "struct ViewState\r\n";
 	Result += "{\r\n";
 	for (int32 MemberIndex = 0; MemberIndex < StructMembers.Num(); ++MemberIndex)
 	{
-		const FUniformBufferStruct::FMember& Member = StructMembers[MemberIndex];
+		const FShaderParametersMetadata::FMember& Member = StructMembers[MemberIndex];
 		FString MemberDecl;
 		GenerateUniformBufferStructMember(MemberDecl, StructMembers[MemberIndex]);
 		Result += FString::Printf(TEXT("\t%s;\r\n"), *MemberDecl);
@@ -2680,7 +2680,7 @@ ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 	Result += "\tViewState Result;\r\n";
 	for (int32 MemberIndex = 0; MemberIndex < StructMembers.Num(); ++MemberIndex)
 	{
-		const FUniformBufferStruct::FMember& Member = StructMembers[MemberIndex];
+		const FShaderParametersMetadata::FMember& Member = StructMembers[MemberIndex];
 		Result += FString::Printf(TEXT("\tResult.%s = View.%s;\r\n"), Member.GetName(), Member.GetName());
 	}
 	Result += "\treturn Result;\r\n";
@@ -2692,7 +2692,7 @@ ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 	Result += "\tViewState Result;\r\n";
 	for (int32 MemberIndex = 0; MemberIndex < StructMembers.Num(); ++MemberIndex)
 	{
-		const FUniformBufferStruct::FMember& Member = StructMembers[MemberIndex];
+		const FShaderParametersMetadata::FMember& Member = StructMembers[MemberIndex];
 		Result += FString::Printf(TEXT("\tResult.%s = InstancedView.%s;\r\n"), Member.GetName(), Member.GetName());
 	}
 	Result += "\treturn Result;\r\n";
@@ -2705,7 +2705,7 @@ ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 	Result += "\tViewState Result;\r\n";
 	for (int32 MemberIndex = 0; MemberIndex < StructMembers.Num(); ++MemberIndex)
 	{
-		const FUniformBufferStruct::FMember& Member = StructMembers[MemberIndex];
+		const FShaderParametersMetadata::FMember& Member = StructMembers[MemberIndex];
 		Result += FString::Printf(TEXT("\tResult.%s = (ViewIndex == 0) ? View.%s : InstancedView.%s;\r\n"), Member.GetName(), Member.GetName(), Member.GetName());
 	}
 	Result += "\treturn Result;\r\n";
@@ -3349,12 +3349,6 @@ public:
 		// reload the global shaders
 		CompileGlobalShaderMap(true);
 
-		//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
-		for(TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList());It;It.Next())
-		{
-			BeginUpdateResourceRHI(*It);
-		}
-
 		// load all the mesh material shaders if any were sent back
 		if (MeshMaterialMaps.Num() > 0)
 		{
@@ -3408,12 +3402,6 @@ void RecompileGlobalShaders()
 		});
 
 		GShaderCompilingManager->ProcessAsyncResults(false, true);
-
-		//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
-		for (TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()); It; It.Next())
-		{
-			BeginUpdateResourceRHI(*It);
-		}
 	}
 }
 
@@ -3627,13 +3615,24 @@ FShader* FGlobalShaderTypeCompiler::FinishCompileShader(FGlobalShaderType* Shade
 			ShaderPipelineType = nullptr;
 		}
 
+
+		// Create the global shader map hash
+		FSHAHash GlobalShaderMapHash;
+		{
+			FSHA1 HashState;
+			const TCHAR* GlobalShaderString = TEXT("GlobalShaderMap");
+			HashState.UpdateWithString(GlobalShaderString, FCString::Strlen(GlobalShaderString));
+			HashState.Final();
+			HashState.GetHash(&GlobalShaderMapHash.Hash[0]);
+		}
+
 		// Find a shader with the same key in memory
-		Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(GGlobalShaderMapHash, ShaderPipelineType, nullptr, CurrentJob.ShaderType, CurrentJob.PermutationId, CurrentJob.Input.Target));
+		Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(GlobalShaderMapHash, ShaderPipelineType, nullptr, CurrentJob.ShaderType, CurrentJob.PermutationId, CurrentJob.Input.Target));
 
 		// There was no shader with the same key so create a new one with the compile output, which will bind shader parameters
 		if (!Shader)
 		{
-			Shader = (*(ShaderType->ConstructCompiledRef))(FGlobalShaderType::CompiledShaderInitializerType(ShaderType, CurrentJob.PermutationId, CurrentJob.Output, Resource, GGlobalShaderMapHash, ShaderPipelineType, nullptr));
+			Shader = (*(ShaderType->ConstructCompiledRef))(FGlobalShaderType::CompiledShaderInitializerType(ShaderType, CurrentJob.PermutationId, CurrentJob.Output, Resource, GlobalShaderMapHash, ShaderPipelineType, nullptr));
 			CurrentJob.Output.ParameterMap.VerifyBindingsAreComplete(ShaderType->GetName(), CurrentJob.Output.Target, CurrentJob.VFType);
 		}
 	}
@@ -4372,12 +4371,6 @@ void BeginRecompileGlobalShaders(const TArray<FShaderType*>& OutdatedShaderTypes
 					UE_LOG(LogShaders, Log, TEXT("Flushing Global Shader Pipeline %s"), ShaderPipelineType->GetName());
 					GlobalShaderMap->RemoveShaderPipelineType(ShaderPipelineType);
 				}
-			}
-
-			//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
-			for (TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()); It; It.Next())
-			{
-				BeginUpdateResourceRHI(*It);
 			}
 
 			VerifyGlobalShaders(ShaderPlatform, false);

@@ -32,9 +32,6 @@ class FShaderType;
 class FVertexFactoryParameterRef;
 class FVertexFactoryType;
 
-/** Used to identify the global shader map. */
-extern SHADERCORE_API FSHAHash GGlobalShaderMapHash;
-
 
 /** Define a shader permutation uniquely according to its type, and permutation id.*/
 template<typename MetaShaderType>
@@ -187,20 +184,20 @@ class FShaderResource : public FRenderResource, public FDeferredCleanupInterface
 public:
 
 	/** Constructor used for deserialization. */
-	SHADERCORE_API FShaderResource();
+	RENDERCORE_API FShaderResource();
 
 	/** Constructor used when creating a new shader resource from compiled output. */
 	FShaderResource(const FShaderCompilerOutput& Output, FShaderType* InSpecificType, int32 InSpecificPermutationId);
 
 	~FShaderResource();
 
-	SHADERCORE_API void Serialize(FArchive& Ar, bool bLoadedByCookedMaterial);
+	RENDERCORE_API void Serialize(FArchive& Ar, bool bLoadedByCookedMaterial);
 
 	// Reference counting.
-	SHADERCORE_API void AddRef();
-	SHADERCORE_API void Release();
+	RENDERCORE_API void AddRef();
+	RENDERCORE_API void Release();
 
-	SHADERCORE_API void Register();
+	RENDERCORE_API void Register();
 
 	/** @return the shader's vertex shader */
 	FORCEINLINE const FVertexShaderRHIParamRef GetVertexShader()
@@ -263,7 +260,7 @@ public:
 		return (FRHIComputeShader*)Shader.GetReference();
 	}
 
-	SHADERCORE_API FShaderResourceId GetId() const;
+	RENDERCORE_API FShaderResourceId GetId() const;
 
 	uint32 GetSizeBytes() const
 	{
@@ -275,19 +272,19 @@ public:
 	virtual void ReleaseRHI();
 
 	/** Finds a matching shader resource in memory if possible. */
-	SHADERCORE_API static FShaderResource* FindShaderResourceById(const FShaderResourceId& Id);
+	RENDERCORE_API static FShaderResource* FindShaderResourceById(const FShaderResourceId& Id);
 
 	/** 
 	 * Finds a matching shader resource in memory or creates a new one with the given compiler output.  
 	 * SpecificType can be NULL
 	 */
-	SHADERCORE_API static FShaderResource* FindOrCreateShaderResource(const FShaderCompilerOutput& Output, class FShaderType* SpecificType, int32 SpecificPermutationId);
+	RENDERCORE_API static FShaderResource* FindOrCreateShaderResource(const FShaderCompilerOutput& Output, class FShaderType* SpecificType, int32 SpecificPermutationId);
 
 	/** Return a list of all shader Ids currently known */
-	SHADERCORE_API static void GetAllShaderResourceId(TArray<FShaderResourceId>& Ids);
+	RENDERCORE_API static void GetAllShaderResourceId(TArray<FShaderResourceId>& Ids);
 
 	/** Returns true if and only if TargetPlatform is compatible for use with CurrentPlatform. */
-	SHADERCORE_API static bool ArePlatformsCompatible(EShaderPlatform CurrentPlatform, EShaderPlatform TargetPlatform);
+	RENDERCORE_API static bool ArePlatformsCompatible(EShaderPlatform CurrentPlatform, EShaderPlatform TargetPlatform);
 
 	void GetShaderCode(TArray<uint8>& OutCode) const
 	{
@@ -298,7 +295,7 @@ public:
 	* Passes back a zeroed out hash to serialize when saving out cooked data.
 	* The goal here is to ensure that source hash changes do not cause widespread binary differences in cooked data, resulting in bloated patch diffs.
 	*/
-	SHADERCORE_API static FSHAHash &FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
+	RENDERCORE_API static FSHAHash &FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
 
 private:
 	// compression functions
@@ -360,7 +357,7 @@ private:
 	bool bCodeInSharedLocationRequested;
 
 	/** Initialize the shader RHI resources. */
-	SHADERCORE_API void InitializeShaderRHI();
+	RENDERCORE_API void InitializeShaderRHI();
 
 	/** Tracks loaded shader resources by id. */
 	static TMap<FShaderResourceId, FShaderResource*> ShaderResourceIdMap;
@@ -496,7 +493,7 @@ public:
 	{}
 
 	/** Creates an Id for the given material, vertex factory, shader type and target. */
-	SHADERCORE_API FShaderId(const FSHAHash& InMaterialShaderMapHash, const FShaderPipelineType* InShaderPipeline, FVertexFactoryType* InVertexFactoryType, FShaderType* InShaderType, int32 PermutationId, FShaderTarget InTarget);
+	RENDERCORE_API FShaderId(const FSHAHash& InMaterialShaderMapHash, const FShaderPipelineType* InShaderPipeline, FVertexFactoryType* InVertexFactoryType, FShaderType* InShaderType, int32 PermutationId, FShaderTarget InTarget);
 
 	friend inline uint32 GetTypeHash( const FShaderId& Id )
 	{
@@ -567,19 +564,91 @@ public:
 	/** Shader platform and frequency. */
 	FShaderTarget Target;
 
-	SHADERCORE_API FSelfContainedShaderId();
+	RENDERCORE_API FSelfContainedShaderId();
 
-	SHADERCORE_API FSelfContainedShaderId(const FShaderId& InShaderId);
+	RENDERCORE_API FSelfContainedShaderId(const FShaderId& InShaderId);
 
-	SHADERCORE_API bool IsValid();
+	RENDERCORE_API bool IsValid();
 
-	SHADERCORE_API friend FArchive& operator<<(FArchive& Ar,class FSelfContainedShaderId& Ref);
+	RENDERCORE_API friend FArchive& operator<<(FArchive& Ar,class FSelfContainedShaderId& Ref);
 };
 
 class FMaterial;
 
+
+/**
+ * Stores all shader parameter bindings and their corresponding offset and size in the shader's parameters struct.
+ */
+class RENDERCORE_API FShaderParameterBindings
+{
+public:
+	struct FParameter
+	{
+		uint16 BufferIndex;
+		uint16 BaseIndex;
+		uint16 ByteOffset;
+		uint16 ByteSize;
+
+		friend FArchive& operator<<(FArchive& Ar, FParameter& ParameterBindingData)
+		{
+			Ar << ParameterBindingData.BufferIndex << ParameterBindingData.BaseIndex << ParameterBindingData.ByteOffset << ParameterBindingData.ByteSize;
+			return Ar;
+		}
+	};
+
+	struct FResourceParameter
+	{
+		uint16 BaseIndex;
+		uint16 NumResources;
+		uint16 ByteOffset;
+
+		friend FArchive& operator<<(FArchive& Ar, FResourceParameter& ParameterBindingData)
+		{
+			Ar << ParameterBindingData.BaseIndex << ParameterBindingData.NumResources << ParameterBindingData.ByteOffset;
+			return Ar;
+		}
+	};
+
+	struct FParameterStructReference
+	{
+		uint16 BufferIndex;
+		uint16 ByteOffset;
+
+		friend FArchive& operator<<(FArchive& Ar, FParameterStructReference& ParameterBindingData)
+		{
+			Ar << ParameterBindingData.BufferIndex << ParameterBindingData.ByteOffset;
+			return Ar;
+		}
+	};
+
+	TArray<FParameter> Parameters;
+	TArray<FResourceParameter> Textures;
+	TArray<FResourceParameter> SRVs;
+	TArray<FResourceParameter> Samplers;
+	TArray<FResourceParameter> GraphTextures;
+	TArray<FResourceParameter> GraphSRVs;
+	TArray<FResourceParameter> GraphUAVs;
+	TArray<FParameterStructReference> ParameterReferences;
+
+	friend FArchive& operator<<(FArchive& Ar, FShaderParameterBindings& ParametersBindingData)
+	{
+		Ar << ParametersBindingData.Parameters;
+		Ar << ParametersBindingData.Textures;
+		Ar << ParametersBindingData.SRVs;
+		Ar << ParametersBindingData.Samplers;
+		Ar << ParametersBindingData.GraphTextures;
+		Ar << ParametersBindingData.GraphSRVs;
+		Ar << ParametersBindingData.GraphUAVs;
+		Ar << ParametersBindingData.ParameterReferences;
+		return Ar;
+	}
+
+	void Bind(const FShaderParameterMap& ParameterMaps, const FShaderParametersMetadata& StructMetaData);
+}; // FShaderParameterBindings
+
+
 /** A compiled shader and its parameter bindings. */
-class SHADERCORE_API FShader : public FDeferredCleanupInterface
+class RENDERCORE_API FShader : public FDeferredCleanupInterface
 {
 	friend class FShaderType;
 public:
@@ -751,7 +820,7 @@ public:
 	template<typename UniformBufferStructType>
 	FORCEINLINE_DEBUGGABLE const TShaderUniformBufferParameter<UniformBufferStructType>& GetUniformBufferParameter() const
 	{
-		const FUniformBufferStruct* SearchStruct = &UniformBufferStructType::StaticStruct;
+		const FShaderParametersMetadata* SearchStruct = &UniformBufferStructType::StaticStructMetadata;
 		int32 FoundIndex = INDEX_NONE;
 
 		for (int32 StructIndex = 0, Count = UniformBufferParameterStructs.Num(); StructIndex < Count; StructIndex++)
@@ -780,7 +849,7 @@ public:
 	}
 
 	/** Finds an automatically bound uniform buffer matching the given uniform buffer struct if one exists, or returns an unbound parameter. */
-	const FShaderUniformBufferParameter& GetUniformBufferParameter(const FUniformBufferStruct* SearchStruct) const
+	const FShaderUniformBufferParameter& GetUniformBufferParameter(const FShaderParametersMetadata* SearchStruct) const
 	{
 		int32 FoundIndex = INDEX_NONE;
 
@@ -825,7 +894,7 @@ public:
 protected:
 
 	/** Indexed the same as UniformBufferParameters.  Packed densely for coherent traversal. */
-	TArray<FUniformBufferStruct*> UniformBufferParameterStructs;
+	TArray<FShaderParametersMetadata*> UniformBufferParameterStructs;
 	TArray<FShaderUniformBufferParameter*> UniformBufferParameters;
 
 private:
@@ -868,6 +937,10 @@ private:
 
 	/** The number of references to this shader. */
 	mutable uint32 NumRefs;
+
+public:
+	/** Shader parameter bindings. */
+	FShaderParameterBindings Bindings;
 };
 
 /**
@@ -876,7 +949,7 @@ private:
  * A shader type can manage multiple instance of FShader across mutiple dimensions such as EShaderPlatform, or permutation id.
  * The number of permutation of a shader type is simply given by GetPermutationCount().
  */
-class SHADERCORE_API FShaderType
+class RENDERCORE_API FShaderType
 {
 public:
 	enum class EShaderTypeForDynamicCast : uint32
@@ -937,7 +1010,7 @@ public:
 	const FSHAHash& GetSourceHash(EShaderPlatform ShaderPlatform) const;
 
 	/** Serializes a shader type reference by name. */
-	SHADERCORE_API friend FArchive& operator<<(FArchive& Ar,FShaderType*& Ref);
+	RENDERCORE_API friend FArchive& operator<<(FArchive& Ar,FShaderType*& Ref);
 	
 	/** Hashes a pointer to a shader type. */
 	friend uint32 GetTypeHash(FShaderType* Ref)
@@ -1074,7 +1147,7 @@ private:
 	TLinkedList<FShaderType*> GlobalListLink;
 
 	// DumpShaderStats needs to access ShaderIdMap.
-	friend void SHADERCORE_API DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
+	friend void RENDERCORE_API DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
 
 
 	/** 
@@ -1195,7 +1268,7 @@ protected:
 
 
 // Binding of a set of shader stages in a single pipeline
-class SHADERCORE_API FShaderPipelineType
+class RENDERCORE_API FShaderPipelineType
 {
 public:
 	// Set bShouldOptimizeUnusedOutputs to true if we want unique FShaders for each shader pipeline
@@ -1239,7 +1312,7 @@ public:
 	static TArray<const FShaderPipelineType*> GetShaderPipelineTypesByFilename(const TCHAR* Filename);
 
 	/** Serializes a shader type reference by name. */
-	SHADERCORE_API friend FArchive& operator<<(FArchive& Ar, const FShaderPipelineType*& Ref);
+	RENDERCORE_API friend FArchive& operator<<(FArchive& Ar, const FShaderPipelineType*& Ref);
 
 	/** Hashes a pointer to a shader type. */
 	friend uint32 GetTypeHash(FShaderPipelineType* Ref) { return Ref ? Ref->HashIndex : 0; }
@@ -1419,7 +1492,7 @@ public:
 };
 
 // A Shader Pipeline instance with compiled stages
-class SHADERCORE_API FShaderPipeline
+class RENDERCORE_API FShaderPipeline
 {
 public:
 	const FShaderPipelineType* PipelineType;
@@ -1617,6 +1690,13 @@ public:
 		const TRefCountPtr<FShader>* ShaderRef = Shaders.Find(FShaderPrimaryKey(&ShaderType::StaticType, PermutationId));
 		checkf(ShaderRef != NULL && *ShaderRef != nullptr, TEXT("Failed to find shader type %s in Platform %s"), ShaderType::StaticType.GetName(), *LegacyShaderPlatformToShaderFormat(Platform).ToString());
 		return (ShaderType*)((*ShaderRef)->GetShader());
+	}
+
+	/** Finds the shader with the given type.  Asserts on failure. */
+	template<typename ShaderType>
+	ShaderType* GetShader( const typename ShaderType::FPermutationDomain& PermutationVector ) const
+	{
+		return GetShader<ShaderType>( PermutationVector.ToDimensionValueId() );
 	}
 
 	/** Finds the shader with the given type.  May return NULL. */
@@ -2313,30 +2393,30 @@ private:
  * @param Platform  - Platform to dump shader info for, use SP_NumPlatforms for all
  * @param Frequency - Whether to dump PS or VS info, use SF_NumFrequencies to dump both
  */
-extern SHADERCORE_API void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
+extern RENDERCORE_API void DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
 
 /**
  * Dumps shader pipeline stats to the log. Does not include material (eg shader pipeline instance) information.
  * @param Platform  - Platform to dump shader info for, use SP_NumPlatforms for all
  */
-extern SHADERCORE_API void DumpShaderPipelineStats(EShaderPlatform Platform);
+extern RENDERCORE_API void DumpShaderPipelineStats(EShaderPlatform Platform);
 
 /**
  * Finds the shader type with a given name.
  * @param ShaderTypeName - The name of the shader type to find.
  * @return The shader type, or NULL if none matched.
  */
-extern SHADERCORE_API FShaderType* FindShaderTypeByName(FName ShaderTypeName);
+extern RENDERCORE_API FShaderType* FindShaderTypeByName(FName ShaderTypeName);
 
 /** Helper function to dispatch a compute shader while checking that parameters have been set correctly. */
-extern SHADERCORE_API void DispatchComputeShader(
+extern RENDERCORE_API void DispatchComputeShader(
 	FRHICommandList& RHICmdList,
 	FShader* Shader,
 	uint32 ThreadGroupCountX,
 	uint32 ThreadGroupCountY,
 	uint32 ThreadGroupCountZ);
 
-extern SHADERCORE_API void DispatchComputeShader(
+extern RENDERCORE_API void DispatchComputeShader(
 	FRHIAsyncComputeCommandListImmediate& RHICmdList,
 	FShader* Shader,
 	uint32 ThreadGroupCountX,
@@ -2344,11 +2424,11 @@ extern SHADERCORE_API void DispatchComputeShader(
 	uint32 ThreadGroupCountZ);
 
 /** Helper function to dispatch a compute shader indirectly while checking that parameters have been set correctly. */
-extern SHADERCORE_API void DispatchIndirectComputeShader(
+extern RENDERCORE_API void DispatchIndirectComputeShader(
 	FRHICommandList& RHICmdList,
 	FShader* Shader,
 	FVertexBufferRHIParamRef ArgumentBuffer,
 	uint32 ArgumentOffset);
 
 /** Appends to KeyString for all shaders. */
-extern SHADERCORE_API void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString);
+extern RENDERCORE_API void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString);

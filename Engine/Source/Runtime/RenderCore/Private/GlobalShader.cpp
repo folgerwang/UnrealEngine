@@ -5,7 +5,7 @@
 =============================================================================*/
 
 #include "GlobalShader.h"
-//
+
 #include "Misc/MessageDialog.h"
 #include "HAL/FileManager.h"
 #include "Serialization/NameAsStringProxyArchive.h"
@@ -171,8 +171,7 @@ void FGlobalShaderMapId::AppendKeyString(FString& KeyString, const TArray<FShade
 
 FGlobalShader::FGlobalShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 :	FShader(Initializer)
-{
-}
+{}
 
 void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup)
 {

@@ -1136,7 +1136,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		Scene->FXSystem->PostRenderOpaque(
 			RHICmdList,
 			Views[0].ViewUniformBuffer,
-			&FSceneTexturesUniformParameters::StaticStruct,
+			&FSceneTexturesUniformParameters::StaticStructMetadata,
 			SceneTextureUniformBuffer.GetReference()
 			);
 		ServiceLocalQueue();

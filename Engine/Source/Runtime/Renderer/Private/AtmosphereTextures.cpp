@@ -6,7 +6,7 @@
 
 #include "AtmosphereTextures.h"
 #include "Atmosphere/AtmosphericFogComponent.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "AtmosphereTextureParameters.h"
 #include "ShaderParameterUtils.h"
 

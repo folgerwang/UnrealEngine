@@ -29,7 +29,6 @@ namespace UnrealBuildTool.Rules
                     "RHI",
                     "Engine",
                     "RenderCore",
-                    "ShaderCore",
 					// ... add other public dependencies that you statically link with here ...
 				}
 				);

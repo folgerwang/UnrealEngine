@@ -10,12 +10,10 @@
 #include "RHI.h"
 #include "RenderResource.h"
 #include "RendererInterface.h"
-#include "VisualizeTexture.h"
 
-class FViewInfo;
 
 /** The reference to a pooled render target, use like this: TRefCountPtr<IPooledRenderTarget> */
-struct FPooledRenderTarget : public IPooledRenderTarget
+struct RENDERCORE_API FPooledRenderTarget : public IPooledRenderTarget
 {
 	FPooledRenderTarget(const FPooledRenderTargetDesc& InDesc, class FRenderTargetPool* InRenderTargetPool) 
 		: NumRefs(0)
@@ -107,7 +105,7 @@ enum ERenderTargetPoolEventType
 	ERTPE_Phase
 };
 
-struct FRenderTargetPoolEvent
+struct RENDERCORE_API FRenderTargetPoolEvent
 {
 	// constructor for ERTPE_Alloc
 	FRenderTargetPoolEvent(uint32 InPoolEntryId, uint32 InTimeStep, FPooledRenderTarget* InPointer)
@@ -211,7 +209,7 @@ enum class ERenderTargetTransience : uint8
 /**
  * Encapsulates the render targets pools that allows easy sharing (mostly used on the render thread side)
  */
-class FRenderTargetPool : public FRenderResource
+class RENDERCORE_API FRenderTargetPool : public FRenderResource
 {
 public:
 	FRenderTargetPool();
@@ -279,11 +277,6 @@ public:
 	bool IsEventRecordingEnabled() const;
 
 	void AddPhaseEvent(const TCHAR* InPhaseName);
-
-	/** renders the VisualizeTextureContent to the current render target */
-	void PresentContent(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
-
-	FVisualizeTexture VisualizeTexture;
 
 	void UpdateElementSize(const TRefCountPtr<IPooledRenderTarget>& Element, const uint32 OldSize);
 
@@ -356,8 +349,6 @@ private:
 	//
 	void AddAllocEventsFromCurrentState();
 
-	uint32 ComputeEventDisplayHeight();
-
 	// @return 0 if none was found
 	const FString* GetLastEventPhaseName();
 
@@ -368,7 +359,8 @@ private:
 	void GenerateVRamAllocationUsage(TArray<FVRamAllocation>& Out);
 
 	friend struct FPooledRenderTarget;
+	friend class FVisualizeTexture;
 };
 
 /** The global render targets for easy shading. */
-extern TGlobalResource<FRenderTargetPool> GRenderTargetPool;
+extern RENDERCORE_API TGlobalResource<FRenderTargetPool> GRenderTargetPool;

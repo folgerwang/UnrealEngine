@@ -22,7 +22,7 @@
 
 #include "SpeedTreeWind.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FSpeedTreeUniformParameters,TEXT("SpeedTreeData"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FSpeedTreeUniformParameters, "SpeedTreeData");
 
 
 ///////////////////////////////////////////////////////////////////////  

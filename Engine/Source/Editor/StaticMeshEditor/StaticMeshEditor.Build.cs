@@ -28,7 +28,6 @@ public class StaticMeshEditor : ModuleRules
 				"Slate",
 				"SlateCore",
                 "EditorStyle",
-				"ShaderCore",
 				"RenderCore",
 				"RHI",
 				"UnrealEd",

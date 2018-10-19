@@ -90,9 +90,9 @@ static TAutoConsoleVariable<int32> CVarSupportAllShaderPermutations(
 /** Whether to replace lightmap textures with solid colors to visualize the mip-levels. */
 bool GVisualizeMipLevels = false;
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters, TEXT("BasePass"));
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters, TEXT("OpaqueBasePass"));
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters, TEXT("TranslucentBasePass"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FSharedBasePassUniformParameters, "BasePass");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FOpaqueBasePassUniformParameters, "OpaqueBasePass");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FTranslucentBasePassUniformParameters, "TranslucentBasePass");
 
 // Typedef is necessary because the C preprocessor thinks the comma in the template parameter list is a comma in the macro parameter list.
 // BasePass Vertex Shader needs to include hull and domain shaders for tessellation, these only compile for D3D11

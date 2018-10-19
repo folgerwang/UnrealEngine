@@ -11,7 +11,7 @@
 #include "CanvasTypes.h"
 #include "UnrealEngine.h"
 #include "SceneUtils.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "RenderTargetTemp.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "PostProcess/SceneFilterRendering.h"
@@ -730,7 +730,7 @@ void FRCPassPostProcessSubsurface::Process(FRenderingCompositePassContext& Conte
 		check(PooledRT);
 
 		// for debugging
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, PooledRT);
+		GVisualizeTexture.SetCheckPoint(Context.RHICmdList, PooledRT);
 	}
 
 	const FViewInfo& View = Context.View;

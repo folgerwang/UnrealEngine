@@ -153,7 +153,7 @@
     #include "PreLoadScreenManager.h"
 
 	#include "ShaderCodeLibrary.h"
-	#include "Rendering/ShaderPipelineStateCache.h"
+	#include "ShaderPipelineCache.h"
 
 #if !UE_BUILD_SHIPPING
 	#include "STaskGraph.h"
@@ -1892,7 +1892,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	EnableEmitDrawEventsOnlyOnCommandlist();
 #endif
 
-	FUniformBufferStruct::InitializeStructs();
+	FShaderParametersMetadata::InitializeAllGlobalStructs();
 
 	// Initialize the RHI.
 	RHIInit(bHasEditorToken);
@@ -1908,8 +1908,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			
 		// Initialize the pipeline cache system. Opening is deferred until the manual call to
 		// OpenPipelineFileCache below, after content pak's ShaderCodeLibraries are loaded.
-		FShaderPipelineStateCache::Initialize(GMaxRHIShaderPlatform);
+		FShaderPipelineCache::Initialize(GMaxRHIShaderPlatform);
 	}
+
 
 	FString Commandline = FCommandLine::Get();
 	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
@@ -2711,7 +2712,7 @@ void FEngineLoop::LoadPreInitModules()
 
 	// Initialize ShaderCore before loading or compiling any shaders,
 	// But after Renderer and any other modules which implement shader types.
-	FModuleManager::Get().LoadModule(TEXT("ShaderCore"));
+	FModuleManager::Get().LoadModule(TEXT("RenderCore"));
 
 #if WITH_EDITORONLY_DATA
 	// Load the texture compressor module before any textures load. They may
@@ -3196,7 +3197,7 @@ void FEngineLoop::Exit()
 	StopRenderingThread();
 
 	// Disable the PSO cache
-	FShaderPipelineStateCache::Shutdown();
+	FShaderPipelineCache::Shutdown();
 
 	// Close shader code map, if any
 	FShaderCodeLibrary::Shutdown();

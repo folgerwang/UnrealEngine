@@ -15,8 +15,9 @@
 #include "Misc/Paths.h"
 #include "Misc/App.h"
 #include "CanvasTypes.h"
+#include "Engine/Canvas.h"
 #include "UnrealEngine.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "GlobalShader.h"
 #include "RenderTargetTemp.h"
@@ -37,6 +38,8 @@ enum class EVisualisePSType
 	Texture2DDepthStencilNoMSAA = 6,
 	Texture2DUINT8 = 7,
 };
+
+TGlobalResource<FVisualizeTexture> GVisualizeTexture;
 
 /** A pixel shader which filters a texture. */
 // @param TextureType 0:Cube, 1:1D(not yet supported), 2:2D no MSAA, 3:3D, 4:Cube[], 5:2D MSAA, 6:2D DepthStencil no MSAA (needed to avoid D3DDebug error)
@@ -333,7 +336,7 @@ FVisualizeTexture::FVisualizeTexture()
 	bEnabled = true;
 }
 
-void FVisualizeTexture::Destroy()
+void FVisualizeTexture::ReleaseDynamicRHI()
 {
 	VisualizeTextureContent.SafeRelease();
 	StencilSRV.SafeRelease();
@@ -544,8 +547,295 @@ void FVisualizeTexture::GenerateContent(FRHICommandListImmediate& RHICmdList, co
 	}
 }
 
+// draw a single pixel sized rectangle using 4 sub elements
+static void DrawBorder(FCanvas& Canvas, const FIntRect Rect, FLinearColor Color)
+{
+	// top
+	Canvas.DrawTile(Rect.Min.X, Rect.Min.Y, Rect.Max.X - Rect.Min.X, 1, 0, 0, 1, 1, Color);
+	// bottom
+	Canvas.DrawTile(Rect.Min.X, Rect.Max.Y - 1, Rect.Max.X - Rect.Min.X, 1, 0, 0, 1, 1, Color);
+	// left
+	Canvas.DrawTile(Rect.Min.X, Rect.Min.Y + 1, 1, Rect.Max.Y - Rect.Min.Y - 2, 0, 0, 1, 1, Color);
+	// right
+	Canvas.DrawTile(Rect.Max.X - 1, Rect.Min.Y + 1, 1, Rect.Max.Y - Rect.Min.Y - 2, 0, 0, 1, 1, Color);
+}
+
+// helper class to get a consistent layout in multiple functions
+// MaxX and Y are the output value that can be requested during or after iteration
+// Examples usages:
+//    FRenderTargetPoolEventIterator It(RenderTargetPoolEvents, OptionalStartIndex);
+//    while(FRenderTargetPoolEvent* Event = It.Iterate()) {}
+struct FRenderTargetPoolEventIterator
+{
+	int32 Index;
+	TArray<FRenderTargetPoolEvent>& RenderTargetPoolEvents;
+	bool bLineContent;
+	uint32 TotalWidth;
+	int32 Y;
+
+	// constructor
+	FRenderTargetPoolEventIterator(TArray<FRenderTargetPoolEvent>& InRenderTargetPoolEvents, int32 InIndex = 0)
+		: Index(InIndex)
+		, RenderTargetPoolEvents(InRenderTargetPoolEvents)
+		, bLineContent(false)
+		, TotalWidth(1)
+		, Y(0)
+	{
+		Touch();
+	}
+
+	FRenderTargetPoolEvent* operator*()
+	{
+		if (Index < RenderTargetPoolEvents.Num())
+		{
+			return &RenderTargetPoolEvents[Index];
+		}
+
+		return 0;
+	}
+
+	// @return 0 if end was reached
+	FRenderTargetPoolEventIterator& operator++()
+	{
+		if (Index < RenderTargetPoolEvents.Num())
+		{
+			++Index;
+		}
+
+		Touch();
+
+		return *this;
+	}
+
+	int32 FindClosingEventY() const
+	{
+		FRenderTargetPoolEventIterator It = *this;
+
+		const ERenderTargetPoolEventType StartType = (*It)->GetEventType();
+
+		if (StartType == ERTPE_Alloc)
+		{
+			int32 PoolEntryId = RenderTargetPoolEvents[Index].GetPoolEntryId();
+
+			++It;
+
+			// search for next Dealloc of the same PoolEntryId
+			for (; *It; ++It)
+			{
+				FRenderTargetPoolEvent* Event = *It;
+
+				if (Event->GetEventType() == ERTPE_Dealloc && Event->GetPoolEntryId() == PoolEntryId)
+				{
+					break;
+				}
+			}
+		}
+		else if (StartType == ERTPE_Phase)
+		{
+			++It;
+
+			// search for next Phase
+			for (; *It; ++It)
+			{
+				FRenderTargetPoolEvent* Event = *It;
+
+				if (Event->GetEventType() == ERTPE_Phase)
+				{
+					break;
+				}
+			}
+		}
+		else
+		{
+			check(0);
+		}
+
+		return It.Y;
+	}
+
+private:
+
+	void Touch()
+	{
+		if (Index < RenderTargetPoolEvents.Num())
+		{
+			const FRenderTargetPoolEvent& Event = RenderTargetPoolEvents[Index];
+
+			const ERenderTargetPoolEventType Type = Event.GetEventType();
+
+			if (Type == ERTPE_Alloc)
+			{
+				// for now they are all equal width
+				TotalWidth = FMath::Max(TotalWidth, Event.GetColumnX() + Event.GetColumnSize());
+			}
+			Y = Event.GetTimeStep();
+		}
+	}
+};
+uint32 FVisualizeTexture::ComputeEventDisplayHeight()
+{
+	FRenderTargetPoolEventIterator It(GRenderTargetPool.RenderTargetPoolEvents);
+
+	for (; *It; ++It)
+	{
+	}
+
+	return It.Y;
+}
+
 void FVisualizeTexture::PresentContent(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
+	if (GRenderTargetPool.RenderTargetPoolEvents.Num())
+	{
+		GRenderTargetPool.AddPhaseEvent(TEXT("FrameEnd"));
+
+		FIntPoint DisplayLeftTop(20, 50);
+		// on the right we leave more space to make the mouse tooltip readable
+		FIntPoint DisplayExtent(View.ViewRect.Width() - DisplayLeftTop.X * 2 - 140, View.ViewRect.Height() - DisplayLeftTop.Y * 2);
+
+		// if the area is not too small
+		if (DisplayExtent.X > 50 && DisplayExtent.Y > 50)
+		{
+			FRenderTargetPool::SMemoryStats MemoryStats = GRenderTargetPool.ComputeView();
+
+			SetRenderTarget(RHICmdList, View.Family->RenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
+			RHICmdList.SetViewport(0, 0, 0.0f, FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().X, FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().Y, 1.0f);
+
+
+			FRenderTargetTemp TempRenderTarget(View, View.UnscaledViewRect.Size());
+			FCanvas Canvas(&TempRenderTarget, NULL, View.Family->CurrentRealTime, View.Family->CurrentWorldTime, View.Family->DeltaWorldTime, View.GetFeatureLevel());
+
+			// TinyFont property
+			const int32 FontHeight = 12;
+
+			FIntPoint MousePos = View.CursorPos;
+
+			FLinearColor BackgroundColor = FLinearColor(0.0f, 0.0f, 0.0f, 0.7f);
+			FLinearColor PhaseColor = FLinearColor(0.2f, 0.1f, 0.05f, 0.8f);
+			FLinearColor ElementColor = FLinearColor(0.3f, 0.3f, 0.3f, 0.9f);
+			FLinearColor ElementColorVRam = FLinearColor(0.4f, 0.25f, 0.25f, 0.9f);
+
+			UTexture2D* GradientTexture = UCanvas::StaticClass()->GetDefaultObject<UCanvas>()->GradientTexture0;
+
+			// background rectangle
+			Canvas.DrawTile(DisplayLeftTop.X, DisplayLeftTop.Y - 1 * FontHeight - 1, DisplayExtent.X, DisplayExtent.Y + FontHeight, 0, 0, 1, 1, BackgroundColor);
+
+			{
+				uint32 MB = 1024 * 1024;
+				uint32 MBm1 = MB - 1;
+
+				FString Headline = *FString::Printf(TEXT("RenderTargetPool elements(x) over time(y) >= %dKB, Displayed/Total:%d/%dMB"),
+					GRenderTargetPool.EventRecordingSizeThreshold,
+					(uint32)((MemoryStats.DisplayedUsageInBytes + MBm1) / MB),
+					(uint32)((MemoryStats.TotalUsageInBytes + MBm1) / MB));
+				Canvas.DrawShadowedString(DisplayLeftTop.X, DisplayLeftTop.Y - 1 * FontHeight - 1, *Headline, GEngine->GetTinyFont(), FLinearColor(1, 1, 1));
+			}
+
+			uint32 EventDisplayHeight = FVisualizeTexture::ComputeEventDisplayHeight();
+
+			float ScaleX = DisplayExtent.X / (float)MemoryStats.TotalColumnSize;
+			float ScaleY = DisplayExtent.Y / (float)EventDisplayHeight;
+
+			// 0 if none
+			FRenderTargetPoolEvent* HighlightedEvent = 0;
+			FIntRect HighlightedRect;
+
+			// Phase events
+			for (FRenderTargetPoolEventIterator It(GRenderTargetPool.RenderTargetPoolEvents); *It; ++It)
+			{
+				FRenderTargetPoolEvent* Event = *It;
+
+				if (Event->GetEventType() == ERTPE_Phase)
+				{
+					int32 Y0 = It.Y;
+					int32 Y1 = It.FindClosingEventY();
+
+					FIntPoint PixelLeftTop((int32)(DisplayLeftTop.X), (int32)(DisplayLeftTop.Y + ScaleY * Y0));
+					FIntPoint PixelRightBottom((int32)(DisplayLeftTop.X + DisplayExtent.X), (int32)(DisplayLeftTop.Y + ScaleY * Y1));
+
+					bool bHighlight = MousePos.X >= PixelLeftTop.X && MousePos.X < PixelRightBottom.X && MousePos.Y >= PixelLeftTop.Y && MousePos.Y <= PixelRightBottom.Y;
+
+					if (bHighlight)
+					{
+						HighlightedEvent = Event;
+						HighlightedRect = FIntRect(PixelLeftTop, PixelRightBottom);
+					}
+
+					// UMax is 0.9f to avoid getting some wrap texture leaking in at the bottom
+					Canvas.DrawTile(PixelLeftTop.X, PixelLeftTop.Y, PixelRightBottom.X - PixelLeftTop.X, PixelRightBottom.Y - PixelLeftTop.Y, 0, 0, 1, 0.9f, PhaseColor, GradientTexture->Resource);
+				}
+			}
+
+			// Alloc / Dealloc events
+			for (FRenderTargetPoolEventIterator It(GRenderTargetPool.RenderTargetPoolEvents); *It; ++It)
+			{
+				FRenderTargetPoolEvent* Event = *It;
+
+				if (Event->GetEventType() == ERTPE_Alloc && Event->GetColumnSize())
+				{
+					int32 Y0 = It.Y;
+					int32 Y1 = It.FindClosingEventY();
+
+					int32 X0 = Event->GetColumnX();
+					// for now they are all equal width
+					int32 X1 = X0 + Event->GetColumnSize();
+
+					FIntPoint PixelLeftTop((int32)(DisplayLeftTop.X + ScaleX * X0), (int32)(DisplayLeftTop.Y + ScaleY * Y0));
+					FIntPoint PixelRightBottom((int32)(DisplayLeftTop.X + ScaleX * X1), (int32)(DisplayLeftTop.Y + ScaleY * Y1));
+
+					bool bHighlight = MousePos.X >= PixelLeftTop.X && MousePos.X < PixelRightBottom.X && MousePos.Y >= PixelLeftTop.Y && MousePos.Y <= PixelRightBottom.Y;
+
+					if (bHighlight)
+					{
+						HighlightedEvent = Event;
+						HighlightedRect = FIntRect(PixelLeftTop, PixelRightBottom);
+					}
+
+					FLinearColor Color = ElementColor;
+
+					// Highlight EDRAM/FastVRAM usage
+					if (Event->GetDesc().Flags & TexCreate_FastVRAM)
+					{
+						Color = ElementColorVRam;
+					}
+
+					Canvas.DrawTile(
+						PixelLeftTop.X, PixelLeftTop.Y,
+						PixelRightBottom.X - PixelLeftTop.X - 1, PixelRightBottom.Y - PixelLeftTop.Y - 1,
+						0, 0, 1, 1, Color);
+				}
+			}
+
+			if (HighlightedEvent)
+			{
+				DrawBorder(Canvas, HighlightedRect, FLinearColor(0.8f, 0, 0, 0.5f));
+
+				// Offset to not intersect with crosshair (in editor) or arrow (in game).
+				FIntPoint Pos = MousePos + FIntPoint(12, 4);
+
+				if (HighlightedEvent->GetEventType() == ERTPE_Phase)
+				{
+					FString PhaseText = *FString::Printf(TEXT("Phase: %s"), *HighlightedEvent->GetPhaseName());
+
+					Canvas.DrawShadowedString(Pos.X, Pos.Y + 0 * FontHeight, *PhaseText, GEngine->GetTinyFont(), FLinearColor(0.5f, 0.5f, 1));
+				}
+				else
+				{
+					FString SizeString = FString::Printf(TEXT("%d KB"), (HighlightedEvent->GetSizeInBytes() + 1024) / 1024);
+
+					Canvas.DrawShadowedString(Pos.X, Pos.Y + 0 * FontHeight, HighlightedEvent->GetDesc().DebugName, GEngine->GetTinyFont(), FLinearColor(1, 1, 0));
+					Canvas.DrawShadowedString(Pos.X, Pos.Y + 1 * FontHeight, *HighlightedEvent->GetDesc().GenerateInfoString(), GEngine->GetTinyFont(), FLinearColor(1, 1, 0));
+					Canvas.DrawShadowedString(Pos.X, Pos.Y + 2 * FontHeight, *SizeString, GEngine->GetTinyFont(), FLinearColor(1, 1, 0));
+				}
+			}
+
+			Canvas.Flush_RenderThread(RHICmdList);
+
+			GRenderTargetPool.CurrentEventRecordingTime = 0;
+			GRenderTargetPool.RenderTargetPoolEvents.Empty();
+		}
+	}
+
 	if(Mode != 0)
 	{
 		// old mode is used, lets copy the specified texture to do it similar to the new system
@@ -913,7 +1203,7 @@ void FVisualizeTexture::DebugLog(bool bExtended)
 		TArray<FString> Entries;
 				
 		// sorted by pointer for efficiency, now we want to print sorted alphabetically
-		for (TMap<const TCHAR*, uint32>:: TIterator It(GRenderTargetPool.VisualizeTexture.VisualizeTextureCheckpoints); It; ++It)
+		for (TMap<const TCHAR*, uint32>:: TIterator It(GVisualizeTexture.VisualizeTextureCheckpoints); It; ++It)
 		{
 			const TCHAR* Key = It.Key();
 			uint32 Value = It.Value();

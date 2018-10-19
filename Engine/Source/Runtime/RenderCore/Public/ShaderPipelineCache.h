@@ -10,6 +10,7 @@
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
 #include "RHI.h"
+#include "TickableObjectRenderThread.h"
 #include "PipelineFileCache.h"
 #include "Delegates/DelegateCombinations.h"
 
@@ -64,15 +65,15 @@ class FShaderPipelineCacheArchive;
  * - FShaderCodeLibrary must be enabled via Project Settings > Packaging > "Share Material Shader Code".
  * - Enabling "Native Shader Libraries" is optional, but strongly preferred for Metal.
  */
-class SHADERCORE_API FShaderPipelineCache
+class RENDERCORE_API FShaderPipelineCache : public FTickableObjectRenderThread
 {
 	struct CompileJob
 	{
 		FPipelineCacheFileFormatPSO PSO;
 		FShaderPipelineCacheArchive* ReadRequests;
 	};
-	
-protected:
+
+public:
 	/**
 	 * Initializes the shader pipeline cache for the desired platform, called by the engine.
 	 * The shader platform is used only to load the initial pipeline cache and can be changed by closing & reopening the cache if necessary.
@@ -81,7 +82,6 @@ protected:
 	/** Terminates the shader pipeline cache, called by the engine. */
 	static void Shutdown();
 
-public:
 	/** Pauses precompilation. */
 	static void PauseBatching();
 	

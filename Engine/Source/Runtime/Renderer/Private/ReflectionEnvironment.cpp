@@ -148,7 +148,7 @@ bool IsReflectionCaptureAvailable()
 	return (!AllowStaticLightingVar || AllowStaticLightingVar->GetInt() != 0);
 }
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FReflectionUniformParameters, TEXT("ReflectionStruct"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionUniformParameters, "ReflectionStruct");
 
 void SetupReflectionUniformParameters(const FViewInfo& View, FReflectionUniformParameters& OutParameters)
 {
@@ -477,7 +477,7 @@ struct FReflectionCaptureSortData
 	}
 };
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData,TEXT("ReflectionCapture"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionCaptureShaderData, "ReflectionCapture");
 
 /** Pixel shader that does tiled deferred culling of reflection captures, then sorts and composites them. */
 class FReflectionEnvironmentSkyLightingPS : public FGlobalShader

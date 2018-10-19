@@ -301,6 +301,10 @@ struct FRHIUniformBufferLayout
 
 	const FName GetDebugName() const { return Name; }
 
+	uint32 NumRenderTargets()	const { return 0; }
+	uint32 NumTextures()		const { return 0; }
+	uint32 NumUAVs()			const { return 0; }
+
 private:
 	// for debugging / error message
 	FName Name;
@@ -2247,6 +2251,5 @@ struct FRHIRenderPassInfo
 		return *this;
 	}
 
-private:
 	bool bIsMSAA = false;
 };

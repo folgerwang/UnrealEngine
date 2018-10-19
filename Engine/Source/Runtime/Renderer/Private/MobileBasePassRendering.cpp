@@ -35,7 +35,7 @@ static TAutoConsoleVariable<int32> CVarMobileSeparateMaskedPass(
 	1,
 	TEXT("Draw masked primitives in separate pass after all opaque (default)"),
 	ECVF_RenderThreadSafe);
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMobileBasePassUniformParameters, TEXT("MobileBasePass"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileBasePassUniformParameters, "MobileBasePass");
 
 static TAutoConsoleVariable<int32> CVarMobileParallelBasePass(
 	TEXT("r.Mobile.ParallelBasePass"),

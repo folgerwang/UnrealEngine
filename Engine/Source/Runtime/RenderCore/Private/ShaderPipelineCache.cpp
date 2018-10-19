@@ -6,6 +6,7 @@
  */
  
 #include "ShaderPipelineCache.h"
+#include "RenderingThread.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Serialization/MemoryWriter.h"
@@ -20,6 +21,7 @@
 #include "Misc/ScopeRWLock.h"
 #include "Misc/CoreDelegates.h"
 #include "ShaderCodeLibrary.h"
+#include "TickableObjectRenderThread.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Async/AsyncFileHandle.h"
 
@@ -952,7 +954,8 @@ void FShaderPipelineCache::Flush()
 }
 
 FShaderPipelineCache::FShaderPipelineCache(EShaderPlatform Platform)
-: BatchSize(0)
+: FTickableObjectRenderThread(true, false) // (RegisterNow, HighFrequency)
+, BatchSize(0)
 , BatchTime(0.0f)
 , bPaused(false)
 , TotalActiveTasks(0)

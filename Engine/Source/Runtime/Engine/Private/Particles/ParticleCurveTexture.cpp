@@ -38,12 +38,12 @@ Shaders used for uploading curves to the GPU.
 /**
 * Uniform buffer to hold parameters for particle curve injection.
 */
-BEGIN_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters, )
-UNIFORM_MEMBER(FVector2D, PixelScale)
-UNIFORM_MEMBER(FVector2D, CurveOffset)
-END_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleCurveInjectionParameters, )
+SHADER_PARAMETER(FVector2D, PixelScale)
+SHADER_PARAMETER(FVector2D, CurveOffset)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleCurveInjectionParameters, TEXT("ParticleCurveInjection"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleCurveInjectionParameters, "ParticleCurveInjection");
 
 typedef TUniformBufferRef<FParticleCurveInjectionParameters> FParticleCurveInjectionBufferRef;
 

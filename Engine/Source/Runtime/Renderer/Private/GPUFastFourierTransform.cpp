@@ -3,7 +3,7 @@
 #include "GPUFastFourierTransform.h"
 #include "SceneUtils.h"
 #include "GlobalShader.h"
-#include "PostProcess/RenderTargetPool.h" // used for on-the-fly acquisition of 
+#include "RenderTargetPool.h" // used for on-the-fly acquisition of 
 
 
 uint32 GPUFFT::MaxScanLineLength() 

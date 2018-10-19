@@ -1626,7 +1626,7 @@ struct FLocalUniformBufferWorkArea
 #endif
 	{
 		check(ContentsSize);
-		Contents = InCheckCmdList->Alloc(ContentsSize, UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+		Contents = InCheckCmdList->Alloc(ContentsSize, SHADER_PARAMETER_STRUCT_ALIGNMENT);
 		FMemory::Memcpy(Contents, InContents, ContentsSize);
 		ComputedUniformBuffer = new (InCheckCmdList->Alloc<FComputedUniformBuffer>()) FComputedUniformBuffer;
 	}

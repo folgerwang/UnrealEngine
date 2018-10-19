@@ -11,7 +11,7 @@
 #include "Shader.h"
 #include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "GlobalShader.h"
 #include "MaterialShaderType.h"
@@ -1133,7 +1133,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 				// Ideally we skip the EliminateFastClear since we don't need pixels with no stencil set to be cleared
 				RHICmdList.TransitionResource( EResourceTransitionAccess::EReadable, DistortionRT->GetRenderTargetItem().TargetableTexture );
 				// to be able to observe results with VisualizeTexture
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, DistortionRT);
+				GVisualizeTexture.SetCheckPoint(RHICmdList, DistortionRT);
 			}
 		}
 	}

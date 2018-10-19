@@ -15,6 +15,8 @@
 #include "PostProcess/PostProcessing.h"
 #include "PlanarReflectionSceneProxy.h"
 #include "PipelineStateCache.h"
+#include "ShaderParameterStruct.h"
+
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -1043,16 +1045,35 @@ void FHZBOcclusionTester::Submit(FRHICommandListImmediate& RHICmdList, const FVi
 			EDRF_UseTriangleOptimization);
 	}
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, ResultsTextureGPU);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, ResultsTextureGPU);
 
 	// Transfer memory GPU -> CPU
 	RHICmdList.CopyToResolveTarget(ResultsTextureGPU->GetRenderTargetItem().TargetableTexture, ResultsTextureCPU->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 }
 
-template< uint32 Stage >
-class THZBBuildPS : public FGlobalShader
+BEGIN_SHADER_PARAMETER_STRUCT(FHZBBuildPassParameters, )
+	RENDER_TARGET_BINDING_SLOTS()
+	SHADER_PARAMETER_GRAPH_SRV(Texture2D, Texture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, TextureSampler)
+END_SHADER_PARAMETER_STRUCT()
+
+class FHZBBuildPS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(THZBBuildPS, Global);
+	DECLARE_GLOBAL_SHADER(FHZBBuildPS);
+	SHADER_USE_PARAMETER_STRUCT(FHZBBuildPS, FGlobalShader)
+
+	class FStageDim : SHADER_PERMUTATION_BOOL("STAGE");
+	using FPermutationDomain = TShaderPermutationDomain<FStageDim>;
+	
+	BEGIN_SHADER_PARAMETER_STRUCT( FParameters, )
+		SHADER_PARAMETER( FVector2D,	InvSize )
+		SHADER_PARAMETER( FVector4,		InputUvFactorAndOffset )
+		SHADER_PARAMETER( FVector2D,	InputViewportMaxBound )
+
+		SHADER_PARAMETER_STRUCT_INCLUDE(FHZBBuildPassParameters, Pass)
+		SHADER_PARAMETER_STRUCT_REF(	FViewUniformShaderParameters,	View )
+		SHADER_PARAMETER_STRUCT_REF(	FSceneTexturesUniformParameters,SceneTextures )
+	END_SHADER_PARAMETER_STRUCT()
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
@@ -1061,93 +1082,19 @@ class THZBBuildPS : public FGlobalShader
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-		OutEnvironment.SetDefine( TEXT("STAGE"), Stage );
 		OutEnvironment.SetRenderTargetOutputFormat(0, PF_R32_FLOAT);
-	}
-
-	THZBBuildPS() {}
-
-public:
-	FShaderParameter				InvSizeParameter;
-	FShaderParameter				InputUvFactorAndOffsetParameter;
-	FShaderParameter				InputViewportMaxBoundParameter;
-	FSceneTextureShaderParameters	SceneTextureParameters;
-	FShaderResourceParameter		TextureParameter;
-	FShaderResourceParameter		TextureParameterSampler;
-
-	THZBBuildPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		: FGlobalShader(Initializer)
-	{
-		InvSizeParameter.Bind( Initializer.ParameterMap, TEXT("InvSize") );
-		InputUvFactorAndOffsetParameter.Bind( Initializer.ParameterMap, TEXT("InputUvFactorAndOffset") );
-		InputViewportMaxBoundParameter.Bind( Initializer.ParameterMap, TEXT("InputViewportMaxBound") );
-		SceneTextureParameters.Bind( Initializer );
-		TextureParameter.Bind( Initializer.ParameterMap, TEXT("Texture") );
-		TextureParameterSampler.Bind( Initializer.ParameterMap, TEXT("TextureSampler") );
-	}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FViewInfo& View)
-	{
-		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-
-		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		
-		const FIntPoint GBufferSize = SceneContext.GetBufferSizeXY();
-		const FVector2D InvSize( 1.0f / float(GBufferSize.X), 1.0f / float(GBufferSize.Y) );
-		const FVector4 InputUvFactorAndOffset (
-			float(2 * View.HZBMipmap0Size.X) / float(GBufferSize.X),
-			float(2 * View.HZBMipmap0Size.Y) / float(GBufferSize.Y),
-			float(View.ViewRect.Min.X) / float(GBufferSize.X),
-			float(View.ViewRect.Min.Y) / float(GBufferSize.Y)
-			);
-		const FVector2D InputViewportMaxBound (
-			float(View.ViewRect.Max.X) / float(GBufferSize.X) - 0.5f * InvSize.X,
-			float(View.ViewRect.Max.Y) / float(GBufferSize.Y) - 0.5f * InvSize.Y
-			);
-		SetShaderValue(RHICmdList, ShaderRHI, InvSizeParameter, InvSize );
-		SetShaderValue(RHICmdList, ShaderRHI, InputUvFactorAndOffsetParameter, InputUvFactorAndOffset );
-		SetShaderValue(RHICmdList, ShaderRHI, InputViewportMaxBoundParameter, InputViewportMaxBound );
-		
-		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::SceneDepth);
-	}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FIntPoint& Size, FShaderResourceViewRHIParamRef ShaderResourceView )
-	{
-		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-
-		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-
-		const FVector2D InvSize( 1.0f / Size.X, 1.0f / Size.Y );
-		SetShaderValue(RHICmdList, ShaderRHI, InvSizeParameter, InvSize );
-
-		//SetTextureParameter( ShaderRHI, TextureParameter, TextureParameterSampler, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(), Texture );
-
-		SetSRVParameter(RHICmdList, ShaderRHI, TextureParameter, ShaderResourceView );
-		SetSamplerParameter(RHICmdList, ShaderRHI, TextureParameterSampler, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI() );
-	}
-
-	virtual bool Serialize(FArchive& Ar) override
-	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << InvSizeParameter;
-		Ar << InputUvFactorAndOffsetParameter;
-		Ar << InputViewportMaxBoundParameter;
-		Ar << SceneTextureParameters;
-		Ar << TextureParameter;
-		Ar << TextureParameterSampler;
-		return bShaderHasOutdatedParameters;
 	}
 };
 
-IMPLEMENT_SHADER_TYPE(template<>,THZBBuildPS<0>,TEXT("/Engine/Private/HZBOcclusion.usf"),TEXT("HZBBuildPS"),SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>,THZBBuildPS<1>,TEXT("/Engine/Private/HZBOcclusion.usf"),TEXT("HZBBuildPS"),SF_Pixel);
+IMPLEMENT_GLOBAL_SHADER(FHZBBuildPS, "/Engine/Private/HZBOcclusion.usf", "HZBBuildPS", SF_Pixel);
 
-void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
+
+void BuildHZB(FRHICommandListImmediate& RHICmdList, FViewInfo& View)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildHZB);
 	
+	FRenderGraphBuilder GraphBuilder(RHICmdList);
+
 	// View.ViewRect.{Width,Height}() are most likely to be < 2^24, so the float
 	// conversion won't loss any precision (assuming float have 23bits for mantissa)
 	const int32 NumMipsX = FMath::Max(FPlatformMath::CeilToInt(FMath::Log2(float(View.ViewRect.Width()))) - 1, 1);
@@ -1158,63 +1105,87 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 	const FIntPoint HZBSize( 1 << NumMipsX, 1 << NumMipsY );
 	View.HZBMipmap0Size = HZBSize;
 
-	FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(HZBSize, PF_R16F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_NoFastClear, false, NumMips));
-	Desc.Flags |= GFastVRamConfig.HZB;
-	GRenderTargetPool.FindFreeElement(RHICmdList, Desc, View.HZB, TEXT("HZB") );
-	
-	FSceneRenderTargetItem& HZBRenderTarget = View.HZB->GetRenderTargetItem();
-	
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+	//@DW: Configure texture creation
+	FPooledRenderTargetDesc HZBDesc = FPooledRenderTargetDesc::Create2DDesc(HZBSize, PF_R16F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_NoFastClear, false, NumMips);
+	HZBDesc.Flags |= GFastVRamConfig.HZB;
 
-	FTextureRHIParamRef HZBRenderTargetRef = HZBRenderTarget.TargetableTexture.GetReference();
-	// Mip 0
+	//@DW: Explicit creation of graph resource handles - full support for everything the RHI supports
+	//@DW: Now that we've created a resource handle, it will have to be passed around to other passes for manual wiring or put into a Blackboard structure for automatic wiring
+	const FGraphTexture* HZBTexture = GraphBuilder.CreateTexture(HZBDesc, TEXT("HZB"));
+
 	{
-		SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB SetupMip 0 %dx%d"), HZBSize.X, HZBSize.Y);
+		FHZBBuildPassParameters* PassParameters;
+		GraphBuilder.CreateParameters(&PassParameters);
+		PassParameters->RenderTargets[0] = FRenderTargetBinding( HZBTexture, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
 
-		FRHIRenderPassInfo RPInfo(HZBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, 0);
-		RHICmdList.BeginRenderPass(RPInfo, TEXT("HZB_SetupMip0"));
+		//@DW - this pass only reads external textures, we don't have any graph inputs
+		GraphBuilder.AddPass(TEXT("HZB_SetupMip0"),
+			PassParameters,
+			ERenderGraphPassFlags::None,
+			[PassParameters, &View, HZBSize](FRHICommandListImmediate& RHICmdList)
+			{
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+				// Mip 0
+				SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB SetupMip 0 %dx%d"), HZBSize.X, HZBSize.Y);
 
-		TShaderMapRef< FPostProcessVS >	VertexShader(View.ShaderMap);
-		TShaderMapRef< THZBBuildPS<0> >	PixelShader(View.ShaderMap);
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+				FHZBBuildPS::FPermutationDomain PermutationVector;
+				PermutationVector.Set<FHZBBuildPS::FStageDim>(false);
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				auto VertexShader = View.ShaderMap->GetShader< FPostProcessVS >();
+				auto PixelShader  = View.ShaderMap->GetShader< FHZBBuildPS >( PermutationVector );
 
-		// Imperfect sampling, doesn't matter too much
-		PixelShader->SetParameters( RHICmdList, View );
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		RHICmdList.SetViewport(0, 0, 0.0f, HZBSize.X, HZBSize.Y, 1.0f);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		DrawRectangle(
-			RHICmdList,
-			0, 0,
-			HZBSize.X, HZBSize.Y,
-			View.ViewRect.Min.X, View.ViewRect.Min.Y,
-			View.ViewRect.Width(), View.ViewRect.Height(),
-			HZBSize,
-			FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
-		RHICmdList.EndRenderPass();
+				// Imperfect sampling, doesn't matter too much
+				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+				FIntPoint Size = SceneContext.GetBufferSizeXY();
+
+				FHZBBuildPS::FParameters Parameters;
+				Parameters.InvSize = FVector2D(1.0f / Size.X, 1.0f / Size.Y);
+				Parameters.InputUvFactorAndOffset = FVector4(
+					float(2 * HZBSize.X) / float(Size.X),
+					float(2 * HZBSize.Y) / float(Size.Y),
+					float(View.ViewRect.Min.X) / float(Size.X),
+					float(View.ViewRect.Min.Y) / float(Size.Y));
+				Parameters.InputViewportMaxBound = FVector2D(
+					float(View.ViewRect.Max.X) / float(Size.X) - 0.5f * Parameters.InvSize.X,
+					float(View.ViewRect.Max.Y) / float(Size.Y) - 0.5f * Parameters.InvSize.Y);
+		
+				Parameters.Pass = *PassParameters;
+				Parameters.View = View.ViewUniformBuffer;
+				Parameters.SceneTextures = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::SceneDepth, View.FeatureLevel);
+
+				SetShaderParameters(RHICmdList, PixelShader, PixelShader->GetPixelShader(), Parameters);
+
+				RHICmdList.SetViewport(0, 0, 0.0f, HZBSize.X, HZBSize.Y, 1.0f);
+
+				DrawRectangle(
+					RHICmdList,
+					0, 0,
+					HZBSize.X, HZBSize.Y,
+					View.ViewRect.Min.X, View.ViewRect.Min.Y,
+					View.ViewRect.Width(), View.ViewRect.Height(),
+					HZBSize,
+					FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
+					VertexShader,
+					EDRF_UseTriangleOptimization);
+			});
 	}
 
 	FIntPoint SrcSize = HZBSize;
 	FIntPoint DstSize = SrcSize / 2;
-
-	SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB SetupMips Mips:1..%d %dx%d"), NumMips - 1, DstSize.X, DstSize.Y);
-
-	TShaderMapRef< FPostProcessVS >	VertexShader(View.ShaderMap);
-	TShaderMapRef< THZBBuildPS<1> >	PixelShader(View.ShaderMap);
 
 	// Downsampling...
 	for (uint8 MipIndex = 1; MipIndex < NumMips; MipIndex++)
@@ -1222,44 +1193,70 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 		DstSize.X = FMath::Max(DstSize.X, 1);
 		DstSize.Y = FMath::Max(DstSize.Y, 1);
 
-		FRHIRenderPassInfo RPInfo(HZBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, nullptr, MipIndex);
-		RPInfo.bGeneratingMips = true;
-		RHICmdList.BeginRenderPass(RPInfo, TEXT("HZB_SetupSubMip"));
+		//@DW: Explicit creation of SRV, full configuration of SRV supported
+		FGraphSRVDesc Desc(HZBTexture, MipIndex - 1);
+		const FGraphSRV* ParentMipSRV = GraphBuilder.CreateSRV(Desc);
 
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FHZBBuildPassParameters* PassParameters;
+		GraphBuilder.CreateParameters(&PassParameters);
+		PassParameters->RenderTargets[0] = FRenderTargetBinding( HZBTexture, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore, MipIndex );
+		PassParameters->Texture = ParentMipSRV;
+		PassParameters->TextureSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphBuilder.AddPass(TEXT("HZB_Mip"),
+			PassParameters,
+			ERenderGraphPassFlags::None,
+			[PassParameters, SrcSize, DstSize, &View](FRHICommandListImmediate& RHICmdList)
+			{
+				SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB MipLevel %dx%d"), DstSize.X, DstSize.Y);
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				FHZBBuildPS::FPermutationDomain PermutationVector;
+				PermutationVector.Set<FHZBBuildPS::FStageDim>(true);
 
-		PixelShader->SetParameters(RHICmdList, View, SrcSize, HZBRenderTarget.MipSRVs[MipIndex - 1]);
+				auto VertexShader = View.ShaderMap->GetShader< FPostProcessVS >();
+				auto PixelShader  = View.ShaderMap->GetShader< FHZBBuildPS >( PermutationVector );
 
-		RHICmdList.SetViewport(0, 0, 0.0f, DstSize.X, DstSize.Y, 1.0f);
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		DrawRectangle(
-			RHICmdList,
-			0, 0,
-			DstSize.X, DstSize.Y,
-			0, 0,
-			SrcSize.X, SrcSize.Y,
-			DstSize,
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+				FHZBBuildPS::FParameters Parameters;
+				Parameters.InvSize = FVector2D(1.0f / SrcSize.X, 1.0f / SrcSize.Y);
+				Parameters.Pass = *PassParameters;
+				Parameters.View = View.ViewUniformBuffer;
+
+				SetShaderParameters(RHICmdList, PixelShader, PixelShader->GetPixelShader(), Parameters);
+
+				RHICmdList.SetViewport(0, 0, 0.0f, DstSize.X, DstSize.Y, 1.0f);
+
+				DrawRectangle(
+					RHICmdList,
+					0, 0,
+					DstSize.X, DstSize.Y,
+					0, 0,
+					SrcSize.X, SrcSize.Y,
+					DstSize,
+					SrcSize,
+					VertexShader,
+					EDRF_UseTriangleOptimization);
+			});
 
 		SrcSize /= 2;
 		DstSize /= 2;
-		RHICmdList.EndRenderPass();
 	}
 
-	// TODO: there is a lot of inconsistency in here. The manual ERWSubResBarrier as now be moved to within
-	// BeginRenderPass, as oposed to usual explicit resource transition.
-	RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, &HZBRenderTargetRef, 1);
-
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, View.HZB );
+	GraphBuilder.GetInternalTexture(HZBTexture, &View.HZB);
+	GraphBuilder.Execute();
 }
 
 struct FViewOcclusionQueries

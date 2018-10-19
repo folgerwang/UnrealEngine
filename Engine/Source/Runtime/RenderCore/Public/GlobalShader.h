@@ -11,12 +11,13 @@
 #include "Shader.h"
 #include "Templates/UniquePtr.h"
 #include "RHIResources.h"
+#include "Containers/Map.h"
 
 class FShaderCommonCompileJob;
 class FShaderCompileJob;
 
 /** Used to identify the global shader map in compile queues. */
-extern SHADERCORE_API const int32 GlobalShaderMapId;
+extern RENDERCORE_API const int32 GlobalShaderMapId;
 
 /** Class that encapsulates logic to create a DDC key for the global shader map. */
 class FGlobalShaderMapId
@@ -24,12 +25,12 @@ class FGlobalShaderMapId
 public:
 
 	/** Create a global shader map Id for the given platform. */
-	SHADERCORE_API FGlobalShaderMapId(EShaderPlatform Platform);
+	RENDERCORE_API FGlobalShaderMapId(EShaderPlatform Platform);
 
 	/** Append to a string that will be used as a DDC key. */
-	SHADERCORE_API void AppendKeyString(FString& KeyString, const TArray<FShaderTypeDependency>& Dependencies) const;
+	RENDERCORE_API void AppendKeyString(FString& KeyString, const TArray<FShaderTypeDependency>& Dependencies) const;
 
-	SHADERCORE_API const TMap<FString, TArray<FShaderTypeDependency>>& GetShaderFilenameToDependeciesMap() const { return ShaderFilenameToDependenciesMap; }
+	RENDERCORE_API const TMap<FString, TArray<FShaderTypeDependency>>& GetShaderFilenameToDependeciesMap() const { return ShaderFilenameToDependenciesMap; }
 
 private:
 	/** Shader types that this shader map is dependent on and their stored state. Mapped by shader filename, so every filename can have it's own DDC key. */
@@ -132,7 +133,8 @@ private:
 	ModifyCompilationEnvironmentType ModifyCompilationEnvironmentRef;
 };
 
-extern SHADERCORE_API TShaderMap<FGlobalShaderType>* GGlobalShaderMap[SP_NumPlatforms];
+extern RENDERCORE_API TShaderMap<FGlobalShaderType>* GGlobalShaderMap[SP_NumPlatforms];
+
 
 /**
  * FGlobalShader
@@ -146,7 +148,7 @@ public:
 
 	FGlobalShader() : FShader() {}
 
-	SHADERCORE_API FGlobalShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer);
+	RENDERCORE_API FGlobalShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer);
 	
 	template<typename TViewUniformShaderParameters, typename ShaderRHIParamRef, typename TRHICmdList>
 	inline void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FUniformBufferRHIParamRef ViewUniformBuffer)
@@ -158,8 +160,8 @@ public:
 	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform, FShaderCompilerEnvironment&);
 
 	// FShader interface.
-	SHADERCORE_API static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment) {}
-	SHADERCORE_API static bool ValidateCompiledResult(EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors) { return true; }
+	RENDERCORE_API static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment) {}
+	RENDERCORE_API static bool ValidateCompiledResult(EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors) { return true; }
 };
 
 /**
@@ -167,7 +169,7 @@ public:
  */
 class FNULLPS : public FGlobalShader
 {
-	DECLARE_EXPORTED_SHADER_TYPE(FNULLPS,Global, SHADERCORE_API);
+	DECLARE_EXPORTED_SHADER_TYPE(FNULLPS,Global, RENDERCORE_API);
 public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -192,10 +194,10 @@ struct FGlobalShaderBackupData
 };
 
 /** Backs up all global shaders to memory through serialization, and removes all references to FShaders from the global shader map. */
-extern SHADERCORE_API void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup);
+extern RENDERCORE_API void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup);
 
 /** Recreates shaders in the global shader map from the serialized memory. */
-extern SHADERCORE_API void RestoreGlobalShaderMap(const FGlobalShaderBackupData& GlobalShaderData);
+extern RENDERCORE_API void RestoreGlobalShaderMap(const FGlobalShaderBackupData& GlobalShaderData);
 
 /**
  * Accesses the global shader map.  This is a global TShaderMap<FGlobalShaderType> which contains an instance of each global shader type.
@@ -204,7 +206,7 @@ extern SHADERCORE_API void RestoreGlobalShaderMap(const FGlobalShaderBackupData&
  * @param bRefreshShaderMap If true, the existing global shader map will be tossed first
  * @return A reference to the global shader map.
  */
-extern SHADERCORE_API TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform);
+extern RENDERCORE_API TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform);
 
 /**
   * Overload for the above GetGlobalShaderMap which takes a feature level and translates to the appropriate shader platform

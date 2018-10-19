@@ -2819,7 +2819,7 @@ static void VerifyUniformLayout(const TCHAR* UniformName, const UniformData& GLS
 
 	if(!Uniforms.Num())
 	{
-		for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+		for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 		{
 #if ENABLE_UNIFORM_BUFFER_LAYOUT_DUMP
 			UE_LOG(LogRHI, Log, TEXT("UniformBufferStruct %s %s %d"),
@@ -2828,15 +2828,15 @@ static void VerifyUniformLayout(const TCHAR* UniformName, const UniformData& GLS
 				StructIt->GetSize()
 				);
 #endif  // #if ENABLE_UNIFORM_BUFFER_LAYOUT_DUMP
-			const TArray<FUniformBufferStruct::FMember>& StructMembers = StructIt->GetMembers();
+			const TArray<FShaderParametersMetadata::FMember>& StructMembers = StructIt->GetMembers();
 			for(int32 MemberIndex = 0;MemberIndex < StructMembers.Num();++MemberIndex)
 			{
-				const FUniformBufferStruct::FMember& Member = StructMembers[MemberIndex];
+				const FShaderParametersMetadata::FMember& Member = StructMembers[MemberIndex];
 
 				FString BaseTypeName;
 				switch(Member.GetBaseType())
 				{
-					case UBMT_STRUCT:  BaseTypeName = TEXT("struct");  break;
+					case UBMT_NESTED_STRUCT:  BaseTypeName = TEXT("struct");  break;
 					case UBMT_BOOL:    BaseTypeName = TEXT("bool"); break;
 					case UBMT_INT32:   BaseTypeName = TEXT("int"); break;
 					case UBMT_UINT32:  BaseTypeName = TEXT("uint"); break;
@@ -2890,12 +2890,12 @@ static void VerifyUniformLayout(const TCHAR* UniformName, const UniformData& GLS
 
 	const UniformData* FoundUniform = Uniforms.Find(RequestedUniformName);
 
-	// MaterialTemplate uniform buffer does not have an entry in the FUniformBufferStructs list, so skipping it here
+	// MaterialTemplate uniform buffer does not have an entry in the FShaderParametersMetadatas list, so skipping it here
 	if(!(RequestedUniformName.StartsWith("Material_") || RequestedUniformName.StartsWith("MaterialCollection")))
 	{
 		if(!FoundUniform || (*FoundUniform != GLSLUniform))
 		{
-			UE_LOG(LogRHI, Fatal, TEXT("uniform buffer member %s in the GLSL source doesn't match it's declaration in it's FUniformBufferStruct"), *RequestedUniformName);
+			UE_LOG(LogRHI, Fatal, TEXT("uniform buffer member %s in the GLSL source doesn't match it's declaration in it's FShaderParametersMetadata"), *RequestedUniformName);
 		}
 	}
 }
@@ -3010,7 +3010,7 @@ static void VerifyUniformBufferLayouts(GLuint Program)
 				const UniformData GLSLUniform
 				(
 					ActiveUniformOffsets[i], 
-					ActiveUniformArrayStrides[i] > 0 ? ActiveUniformSizes[i] : 0 // GLSL has 1 as array size for non-array uniforms, but FUniformBufferStruct assumes 0
+					ActiveUniformArrayStrides[i] > 0 ? ActiveUniformSizes[i] : 0 // GLSL has 1 as array size for non-array uniforms, but FShaderParametersMetadata assumes 0
 				);
 #if ENABLE_UNIFORM_BUFFER_LAYOUT_NAME_MANGLING_CL1862097
 				VerifyUniformLayout(BlockName, ANSI_TO_TCHAR(Buffer), GLSLUniform);

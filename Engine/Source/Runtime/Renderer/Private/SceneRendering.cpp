@@ -2515,7 +2515,7 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 				continue;
 			}
 
-			GRenderTargetPool.PresentContent(RHICmdList, View);
+			GVisualizeTexture.PresentContent(RHICmdList, View);
 		}
 	}
 #endif
@@ -2688,7 +2688,7 @@ void FSceneRenderer::OnStartFrame(FRHICommandListImmediate& RHICmdList)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
-	GRenderTargetPool.VisualizeTexture.OnStartFrame(Views[0]);
+	GVisualizeTexture.OnStartFrame(Views[0]);
 	CompositionGraph_OnStartFrame();
 	SceneContext.bScreenSpaceAOIsValid = false;
 	SceneContext.bCustomDepthIsValid = false;

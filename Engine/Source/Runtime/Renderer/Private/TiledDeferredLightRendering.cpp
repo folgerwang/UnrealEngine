@@ -59,21 +59,21 @@ static FAutoConsoleVariableRef CVarNumLightsBeforeUsingTiledDeferred(
  * First constant buffer of light data for tiled deferred. 
  * Light data is split into two constant buffers to allow more lights per pass before hitting the d3d11 max constant buffer size of 4096 float4's
  */
-BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,)
-	UNIFORM_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
-	UNIFORM_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
-END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData,)
+	SHADER_PARAMETER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
+	SHADER_PARAMETER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,TEXT("TiledDeferred"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData,"TiledDeferred");
 
 /** Second constant buffer of light data for tiled deferred. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,)
-	UNIFORM_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndSpecularScale,[GMaxNumTiledDeferredLights])
-	UNIFORM_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
-	UNIFORM_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
-END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData2,)
+	SHADER_PARAMETER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndSpecularScale,[GMaxNumTiledDeferredLights])
+	SHADER_PARAMETER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
+	SHADER_PARAMETER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,TEXT("TiledDeferred2"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FTiledDeferredLightData2,"TiledDeferred2");
 
 /** Compute shader used to implement tiled deferred lighting. */
 template <bool bVisualizeLightCulling>

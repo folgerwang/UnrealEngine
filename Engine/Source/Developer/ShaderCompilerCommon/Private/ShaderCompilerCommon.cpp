@@ -131,15 +131,17 @@ bool BuildResourceTableMapping(
 			switch( Entry.Type )
 			{
 			case UBMT_TEXTURE:
+			case UBMT_GRAPH_TRACKED_TEXTURE:
 				OutSRT.TextureMap.Add(ResourceMap);
 				break;
 			case UBMT_SAMPLER:
 				OutSRT.SamplerMap.Add(ResourceMap);
 				break;
 			case UBMT_SRV:
+			case UBMT_GRAPH_TRACKED_SRV:
 				OutSRT.ShaderResourceViewMap.Add(ResourceMap);
 				break;
-			case UBMT_UAV:
+			case UBMT_GRAPH_TRACKED_UAV:
 				OutSRT.UnorderedAccessViewMap.Add(ResourceMap);
 				break;
 			default:

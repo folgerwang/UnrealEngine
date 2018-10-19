@@ -133,7 +133,7 @@ int32 GDistanceFieldAOTileSizeY = 16;
 
 DEFINE_LOG_CATEGORY(LogDistanceField);
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FAOSampleData2,TEXT("AOSamples2"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FAOSampleData2,"AOSamples2");
 
 FDistanceFieldAOParameters::FDistanceFieldAOParameters(float InOcclusionMaxDistance, float InContrast)
 {
@@ -850,7 +850,7 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 				BuildTileObjectLists(RHICmdList, Scene, Views, DistanceFieldNormal->GetRenderTargetItem(), Parameters);
 			}
 
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, DistanceFieldNormal);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, DistanceFieldNormal);
 
 			TRefCountPtr<IPooledRenderTarget> BentNormalOutput;
 
@@ -872,7 +872,7 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 
 			RenderCapsuleShadowsForMovableSkylight(RHICmdList, BentNormalOutput);
 
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, BentNormalOutput);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, BentNormalOutput);
 
 			if (bVisualizeAmbientOcclusion)
 			{

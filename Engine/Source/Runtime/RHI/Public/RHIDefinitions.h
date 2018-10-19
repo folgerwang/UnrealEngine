@@ -382,15 +382,34 @@ enum EUniformBufferUsage
 enum EUniformBufferBaseType
 {
 	UBMT_INVALID,
+
+	// Parameter types.
 	UBMT_BOOL,
 	UBMT_INT32,
 	UBMT_UINT32,
 	UBMT_FLOAT32,
-	UBMT_STRUCT,
-	UBMT_SRV,
-	UBMT_UAV,
-	UBMT_SAMPLER,
+
+	// Untracked resources.
 	UBMT_TEXTURE,
+	UBMT_SRV,
+	UBMT_SAMPLER,
+
+	// Render graph tracked resources.
+	UBMT_GRAPH_TRACKED_TEXTURE,
+	UBMT_GRAPH_TRACKED_SRV,
+	UBMT_GRAPH_TRACKED_UAV,
+
+	// Nested structure.
+	UBMT_NESTED_STRUCT,
+
+	// Structure that is nested on C++ side, but included on shader side.
+	UBMT_INCLUDED_STRUCT,
+
+	// GPU Indirection reference of struct, like is currently named Uniform buffer.
+	UBMT_REFERENCED_STRUCT,
+
+	// Structure dedicated to setup render targets for a rasterizer pass.
+	UBMT_RENDER_TARGET_BINDING_SLOTS,
 
 	EUniformBufferBaseType_Num,
 	EUniformBufferBaseType_NumBits = 4,
@@ -1070,7 +1089,14 @@ inline int32 GetFeatureLevelMaxNumberOfBones(ERHIFeatureLevel::Type FeatureLevel
 
 inline bool IsUniformBufferResourceType(EUniformBufferBaseType BaseType)
 {
-	return BaseType == UBMT_SRV || BaseType == UBMT_UAV || BaseType == UBMT_SAMPLER || BaseType == UBMT_TEXTURE;
+	return
+		BaseType == UBMT_TEXTURE ||
+		BaseType == UBMT_SRV ||
+		BaseType == UBMT_SAMPLER ||
+		BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
+		BaseType == UBMT_GRAPH_TRACKED_SRV ||
+		BaseType == UBMT_GRAPH_TRACKED_UAV ||
+		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
 }
 
 inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bIncludePrefix = true)

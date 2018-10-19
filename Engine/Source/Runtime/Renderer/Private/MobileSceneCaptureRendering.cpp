@@ -21,7 +21,7 @@ MobileSceneCaptureRendering.cpp - Mobile specific scene capture code.
 #include "SceneRenderTargetParameters.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "SceneRendering.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "ScreenRendering.h"
 #include "ClearQuad.h"

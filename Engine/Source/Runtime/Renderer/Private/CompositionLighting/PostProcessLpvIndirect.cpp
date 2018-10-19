@@ -24,7 +24,7 @@
 #include "LightPropagationVolumeSettings.h"
 #include "PipelineStateCache.h"
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLpvReadUniformBufferParameters,TEXT("LpvRead"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FLpvReadUniformBufferParameters,"LpvRead");
 typedef TUniformBufferRef<FLpvReadUniformBufferParameters> FLpvReadUniformBufferRef;
 
 
@@ -349,7 +349,7 @@ void FRCPassPostProcessLpvIndirect::Process(FRenderingCompositePassContext& Cont
 
 	if ( LPVSettings.LPVDirectionalOcclusionIntensity > 0.0001f )
 	{
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.DirectionalOcclusion);
+		GVisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.DirectionalOcclusion);
 	}
 }
 

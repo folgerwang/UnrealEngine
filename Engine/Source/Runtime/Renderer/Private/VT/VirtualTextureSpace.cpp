@@ -10,6 +10,7 @@
 #include "PipelineStateCache.h"
 #include "HAL/IConsoleManager.h"
 #include "SceneUtils.h"
+#include "PostProcess/VisualizeTexture.h"
 
 static TAutoConsoleVariable<int32> CVarVTRefreshEntirePageTable(
 	TEXT("r.VT.RefreshEntirePageTable"),
@@ -243,7 +244,7 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 	{
 		if( PageTableUpdates.Num() == 0 )
 		{
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
+			GVisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
 			return;
 		}
 
@@ -373,5 +374,5 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 
 	RHICmdList.CopyToResolveTarget( PageTableTarget.TargetableTexture, PageTableTarget.ShaderResourceTexture, FResolveParams() );
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
+	GVisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
 }

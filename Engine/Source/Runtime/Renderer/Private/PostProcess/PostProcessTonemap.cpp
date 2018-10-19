@@ -445,12 +445,12 @@ void FilmPostSetConstants(FVector4* RESTRICT const Constants, const FPostProcess
 }
 
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FBloomDirtMaskParameters,)
-	UNIFORM_MEMBER(FVector4,Tint)
-	UNIFORM_MEMBER_TEXTURE(Texture2D,Mask)
-	UNIFORM_MEMBER_SAMPLER(SamplerState,MaskSampler)
-END_UNIFORM_BUFFER_STRUCT(FBloomDirtMaskParameters)
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FBloomDirtMaskParameters,TEXT("BloomDirtMask"));
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FBloomDirtMaskParameters,)
+	SHADER_PARAMETER(FVector4,Tint)
+	SHADER_PARAMETER_TEXTURE(Texture2D,Mask)
+	SHADER_PARAMETER_SAMPLER(SamplerState,MaskSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FBloomDirtMaskParameters,"BloomDirtMask");
 
 
 // ---------------------------------------------------- Shared parameters for desktop's PS and CS

@@ -200,7 +200,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		ShadowParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -279,7 +279,7 @@ public:
 		TranslInvMaxSubjectDepth.Bind(Initializer.ParameterMap,TEXT("TranslInvMaxSubjectDepth"));
 		TranslucentShadowStartOffset.Bind(Initializer.ParameterMap,TEXT("TranslucentShadowStartOffset"));
 		TranslucencyProjectionParameters.Bind(Initializer.ParameterMap);
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FTranslucencyShadowDepthPS() {}
@@ -1434,8 +1434,8 @@ static void InjectTranslucentLightArray(FRHICommandListImmediate& RHICmdList, co
 		const IPooledRenderTarget* RT0 = SceneContext.TranslucencyLightingVolumeAmbient[VolumeCascadeIndex + NumTranslucentVolumeRenderTargetSets * ViewIndex];
 		const IPooledRenderTarget* RT1 = SceneContext.TranslucencyLightingVolumeDirectional[VolumeCascadeIndex + NumTranslucentVolumeRenderTargetSets * ViewIndex];
 
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RT0);
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RT1);
+		GVisualizeTexture.SetCheckPoint(RHICmdList, RT0);
+		GVisualizeTexture.SetCheckPoint(RHICmdList, RT1);
 
 		FTextureRHIParamRef RenderTargets[2];
 		RenderTargets[0] = RT0->GetRenderTargetItem().TargetableTexture;
@@ -1645,8 +1645,8 @@ void FDeferredShadingSceneRenderer::InjectSimpleTranslucentVolumeLightingArray(F
 			const IPooledRenderTarget* RT0 = SceneContext.TranslucencyLightingVolumeAmbient[VolumeCascadeIndex + NumTranslucentVolumeRenderTargetSets * ViewIndex];
 			const IPooledRenderTarget* RT1 = SceneContext.TranslucencyLightingVolumeDirectional[VolumeCascadeIndex + NumTranslucentVolumeRenderTargetSets * ViewIndex];
 
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RT0);
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RT1);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, RT0);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, RT1);
 
 			FTextureRHIParamRef RenderTargets[2];
 			RenderTargets[0] = RT0->GetRenderTargetItem().TargetableTexture;
@@ -1749,8 +1749,8 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 				const IPooledRenderTarget* Input0 = SceneContext.TranslucencyLightingVolumeAmbient[VolumeCascadeIndex + NumTranslucentVolumeRenderTargetSets * ViewIndex];
 				const IPooledRenderTarget* Input1 = SceneContext.TranslucencyLightingVolumeDirectional[VolumeCascadeIndex + NumTranslucentVolumeRenderTargetSets * ViewIndex];
 
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RT0);
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RT1);
+				GVisualizeTexture.SetCheckPoint(RHICmdList, RT0);
+				GVisualizeTexture.SetCheckPoint(RHICmdList, RT1);
 
 				FTextureRHIParamRef RenderTargets[2];
 				RenderTargets[0] = RT0->GetRenderTargetItem().TargetableTexture;

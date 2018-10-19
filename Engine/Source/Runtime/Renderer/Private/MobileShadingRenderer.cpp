@@ -209,7 +209,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	FRHICommandListExecutor::GetImmediateCommandList().PollOcclusionQueries();
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
-	GRenderTargetPool.VisualizeTexture.OnStartFrame(Views[0]);
+	GVisualizeTexture.OnStartFrame(Views[0]);
 
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Shadows));
 
@@ -337,7 +337,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		TUniformBufferRef<FMobileSceneTextureUniformParameters> MobileSceneTextureUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(MobileSceneTextureParameters, UniformBuffer_SingleFrame);
 
 		// This is switching to another RT!
-		Scene->FXSystem->PostRenderOpaque(RHICmdList, View.ViewUniformBuffer, &FMobileSceneTextureUniformParameters::StaticStruct, MobileSceneTextureUniformBuffer.GetReference());
+		Scene->FXSystem->PostRenderOpaque(RHICmdList, View.ViewUniformBuffer, &FMobileSceneTextureUniformParameters::StaticStructMetadata, MobileSceneTextureUniformBuffer.GetReference());
 	}
 
 	if (!View.bIsPlanarReflection)

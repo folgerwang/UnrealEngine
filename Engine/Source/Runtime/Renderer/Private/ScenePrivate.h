@@ -25,7 +25,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "TextureLayout3d.h"
 #include "ScenePrivateBase.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "SceneCore.h"
 #include "PrimitiveSceneInfo.h"
 #include "LightSceneInfo.h"
@@ -41,6 +41,7 @@
 #include "MobileBasePassRendering.h"
 #include "VolumeRendering.h"
 #include "SceneSoftwareOcclusion.h"
+#include "PostProcess/VisualizeTexture.h"
 
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)

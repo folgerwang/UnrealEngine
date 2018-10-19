@@ -10,7 +10,7 @@
 #include "Async/Async.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "RendererModule.h"
 #include "HighResScreenshot.h"
 #include "IHeadMountedDisplay.h"
@@ -691,7 +691,7 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 			// use intermediate texture unless it's the last one where we render to the final output
 			if(PassOutput->PooledRenderTarget)
 			{
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, PassOutput->PooledRenderTarget);
+				GVisualizeTexture.SetCheckPoint(Context.RHICmdList, PassOutput->PooledRenderTarget);
 
 				// If this buffer was given a dump filename, write it out
 				const FString& Filename = Pass->GetOutputDumpFilename((EPassOutputId)OutputId);

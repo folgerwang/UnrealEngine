@@ -41,7 +41,7 @@ static TAutoConsoleVariable<int32> CVarFog(
 	ECVF_RenderThreadSafe | ECVF_Scalability);
 
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FFogUniformParameters, TEXT("FogStruct"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FFogUniformParameters, "FogStruct");
 
 void SetupFogUniformParameters(const FViewInfo& View, FFogUniformParameters& OutParameters)
 {

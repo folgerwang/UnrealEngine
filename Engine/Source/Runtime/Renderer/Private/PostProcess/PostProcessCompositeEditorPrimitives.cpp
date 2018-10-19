@@ -8,7 +8,7 @@
 #include "SceneRenderTargetParameters.h"
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "DynamicPrimitiveDrawing.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
@@ -526,7 +526,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 			}
 		}
 
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.EditorPrimitivesColor);
+		GVisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.EditorPrimitivesColor);
 
 		FTextureRHIParamRef EditorRenderTargets[2];
 		EditorRenderTargets[0] = EditorColorTarget;

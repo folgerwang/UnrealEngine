@@ -10,10 +10,10 @@
 #include "RHI.h"
 
 class FShaderParameterMap;
-class FUniformBufferStruct;
+class FShaderParametersMetadata;
 struct FShaderCompilerEnvironment;
 
-SHADERCORE_API void CacheUniformBufferIncludes(TMap<const TCHAR*, struct FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform);
+RENDERCORE_API void CacheUniformBufferIncludes(TMap<const TCHAR*, struct FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform);
 
 
 enum EShaderParameterFlags
@@ -37,8 +37,8 @@ public:
 #endif
 	{}
 
-	SHADERCORE_API void Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName, EShaderParameterFlags Flags = SPF_Optional);
-	friend SHADERCORE_API FArchive& operator<<(FArchive& Ar,FShaderParameter& P);
+	RENDERCORE_API void Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName, EShaderParameterFlags Flags = SPF_Optional);
+	friend RENDERCORE_API FArchive& operator<<(FArchive& Ar,FShaderParameter& P);
 	bool IsBound() const { return NumBytes > 0; }
 
 	inline bool IsInitialized() const 
@@ -77,8 +77,8 @@ public:
 #endif
 	{}
 
-	SHADERCORE_API void Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName,EShaderParameterFlags Flags = SPF_Optional);
-	friend SHADERCORE_API FArchive& operator<<(FArchive& Ar,FShaderResourceParameter& P);
+	RENDERCORE_API void Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName,EShaderParameterFlags Flags = SPF_Optional);
+	friend RENDERCORE_API FArchive& operator<<(FArchive& Ar,FShaderResourceParameter& P);
 	bool IsBound() const { return NumResources > 0; }
 
 	inline bool IsInitialized() const 
@@ -157,7 +157,7 @@ private:
 };
 
 /** Creates a shader code declaration of this struct for the given shader platform. */
-extern SHADERCORE_API void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBufferStruct& UniformBufferStruct, FString& OutDeclaration);
+extern RENDERCORE_API void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FShaderParametersMetadata& UniformBufferStruct, FString& OutDeclaration);
 
 class FShaderUniformBufferParameter
 {
@@ -170,9 +170,9 @@ public:
 #endif
 	{}
 
-	static SHADERCORE_API void ModifyCompilationEnvironment(const TCHAR* ParameterName,const FUniformBufferStruct& Struct,EShaderPlatform Platform,FShaderCompilerEnvironment& OutEnvironment);
+	static RENDERCORE_API void ModifyCompilationEnvironment(const TCHAR* ParameterName,const FShaderParametersMetadata& Struct,EShaderPlatform Platform,FShaderCompilerEnvironment& OutEnvironment);
 
-	SHADERCORE_API void Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName,EShaderParameterFlags Flags = SPF_Optional);
+	RENDERCORE_API void Bind(const FShaderParameterMap& ParameterMap,const TCHAR* ParameterName,EShaderParameterFlags Flags = SPF_Optional);
 
 	friend FArchive& operator<<(FArchive& Ar,FShaderUniformBufferParameter& P)
 	{

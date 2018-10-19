@@ -972,7 +972,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 					if (SceneContext.DBufferMask)
 					{
-						GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferMask);
+						GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferMask);
 						bHasValidDBufferMask = true;
 					}
 				}
@@ -993,9 +993,9 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		if (CurrentStage == DRS_BeforeBasePass && bNeedsDBufferTargets)
 		{
 			// before BasePass
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferA);
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferB);
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferC);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferA);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferB);
+			GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.DBufferC);
 		}
 	}
 

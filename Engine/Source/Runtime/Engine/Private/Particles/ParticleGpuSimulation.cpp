@@ -526,41 +526,41 @@ private:
 /**
  * Uniform buffer for GPU particle sprite emitters.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterUniformParameters,)
-	UNIFORM_MEMBER(FVector4, ColorCurve)
-	UNIFORM_MEMBER(FVector4, ColorScale)
-	UNIFORM_MEMBER(FVector4, ColorBias)
-	UNIFORM_MEMBER(FVector4, MiscCurve)
-	UNIFORM_MEMBER(FVector4, MiscScale)
-	UNIFORM_MEMBER(FVector4, MiscBias)
-	UNIFORM_MEMBER(FVector4, SizeBySpeed)
-	UNIFORM_MEMBER(FVector4, SubImageSize)
-	UNIFORM_MEMBER(FVector4, TangentSelector)
-	UNIFORM_MEMBER(FVector, CameraFacingBlend)
-	UNIFORM_MEMBER(float, RemoveHMDRoll)
-	UNIFORM_MEMBER(float, RotationRateScale)
-	UNIFORM_MEMBER(float, RotationBias)
-	UNIFORM_MEMBER(float, CameraMotionBlurAmount)
-	UNIFORM_MEMBER(FVector2D, PivotOffset)
-END_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FGPUSpriteEmitterUniformParameters,)
+	SHADER_PARAMETER(FVector4, ColorCurve)
+	SHADER_PARAMETER(FVector4, ColorScale)
+	SHADER_PARAMETER(FVector4, ColorBias)
+	SHADER_PARAMETER(FVector4, MiscCurve)
+	SHADER_PARAMETER(FVector4, MiscScale)
+	SHADER_PARAMETER(FVector4, MiscBias)
+	SHADER_PARAMETER(FVector4, SizeBySpeed)
+	SHADER_PARAMETER(FVector4, SubImageSize)
+	SHADER_PARAMETER(FVector4, TangentSelector)
+	SHADER_PARAMETER(FVector, CameraFacingBlend)
+	SHADER_PARAMETER(float, RemoveHMDRoll)
+	SHADER_PARAMETER(float, RotationRateScale)
+	SHADER_PARAMETER(float, RotationBias)
+	SHADER_PARAMETER(float, CameraMotionBlurAmount)
+	SHADER_PARAMETER(FVector2D, PivotOffset)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterUniformParameters,TEXT("EmitterUniforms"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FGPUSpriteEmitterUniformParameters, "EmitterUniforms");
 
 typedef TUniformBufferRef<FGPUSpriteEmitterUniformParameters> FGPUSpriteEmitterUniformBufferRef;
 
 /**
  * Uniform buffer to hold dynamic parameters for GPU particle sprite emitters.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FGPUSpriteEmitterDynamicUniformParameters, )
-	UNIFORM_MEMBER( FVector2D, LocalToWorldScale )
-	UNIFORM_MEMBER( float, EmitterInstRandom)
-	UNIFORM_MEMBER( FVector4, AxisLockRight )
-	UNIFORM_MEMBER( FVector4, AxisLockUp )
-	UNIFORM_MEMBER( FVector4, DynamicColor)
-	UNIFORM_MEMBER( FVector4, MacroUVParameters )
-END_UNIFORM_BUFFER_STRUCT( FGPUSpriteEmitterDynamicUniformParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FGPUSpriteEmitterDynamicUniformParameters, )
+	SHADER_PARAMETER( FVector2D, LocalToWorldScale )
+	SHADER_PARAMETER( float, EmitterInstRandom)
+	SHADER_PARAMETER( FVector4, AxisLockRight )
+	SHADER_PARAMETER( FVector4, AxisLockUp )
+	SHADER_PARAMETER( FVector4, DynamicColor)
+	SHADER_PARAMETER( FVector4, MacroUVParameters )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FGPUSpriteEmitterDynamicUniformParameters,TEXT("EmitterDynamicUniforms"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FGPUSpriteEmitterDynamicUniformParameters, "EmitterDynamicUniforms");
 
 typedef TUniformBufferRef<FGPUSpriteEmitterDynamicUniformParameters> FGPUSpriteEmitterDynamicUniformBufferRef;
 
@@ -822,31 +822,31 @@ IMPLEMENT_VERTEX_FACTORY_TYPE(FGPUSpriteVertexFactory,"/Engine/Private/ParticleG
 /**
  * Uniform buffer to hold parameters for particle simulation.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT(FParticleSimulationParameters,)
-	UNIFORM_MEMBER(FVector4, AttributeCurve)
-	UNIFORM_MEMBER(FVector4, AttributeCurveScale)
-	UNIFORM_MEMBER(FVector4, AttributeCurveBias)
-	UNIFORM_MEMBER(FVector4, AttributeScale)
-	UNIFORM_MEMBER(FVector4, AttributeBias)
-	UNIFORM_MEMBER(FVector4, MiscCurve)
-	UNIFORM_MEMBER(FVector4, MiscScale)
-	UNIFORM_MEMBER(FVector4, MiscBias)
-	UNIFORM_MEMBER(FVector, Acceleration)
-	UNIFORM_MEMBER(FVector, OrbitOffsetBase)
-	UNIFORM_MEMBER(FVector, OrbitOffsetRange)
-	UNIFORM_MEMBER(FVector, OrbitFrequencyBase)
-	UNIFORM_MEMBER(FVector, OrbitFrequencyRange)
-	UNIFORM_MEMBER(FVector, OrbitPhaseBase)
-	UNIFORM_MEMBER(FVector, OrbitPhaseRange)
-	UNIFORM_MEMBER(float, CollisionRadiusScale)
-	UNIFORM_MEMBER(float, CollisionRadiusBias)
-	UNIFORM_MEMBER(float, CollisionTimeBias)
-	UNIFORM_MEMBER(float, CollisionRandomSpread)
-	UNIFORM_MEMBER(float, CollisionRandomDistribution)
-	UNIFORM_MEMBER(float, OneMinusFriction)
-END_UNIFORM_BUFFER_STRUCT(FParticleSimulationParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleSimulationParameters,)
+	SHADER_PARAMETER(FVector4, AttributeCurve)
+	SHADER_PARAMETER(FVector4, AttributeCurveScale)
+	SHADER_PARAMETER(FVector4, AttributeCurveBias)
+	SHADER_PARAMETER(FVector4, AttributeScale)
+	SHADER_PARAMETER(FVector4, AttributeBias)
+	SHADER_PARAMETER(FVector4, MiscCurve)
+	SHADER_PARAMETER(FVector4, MiscScale)
+	SHADER_PARAMETER(FVector4, MiscBias)
+	SHADER_PARAMETER(FVector, Acceleration)
+	SHADER_PARAMETER(FVector, OrbitOffsetBase)
+	SHADER_PARAMETER(FVector, OrbitOffsetRange)
+	SHADER_PARAMETER(FVector, OrbitFrequencyBase)
+	SHADER_PARAMETER(FVector, OrbitFrequencyRange)
+	SHADER_PARAMETER(FVector, OrbitPhaseBase)
+	SHADER_PARAMETER(FVector, OrbitPhaseRange)
+	SHADER_PARAMETER(float, CollisionRadiusScale)
+	SHADER_PARAMETER(float, CollisionRadiusBias)
+	SHADER_PARAMETER(float, CollisionTimeBias)
+	SHADER_PARAMETER(float, CollisionRandomSpread)
+	SHADER_PARAMETER(float, CollisionRandomDistribution)
+	SHADER_PARAMETER(float, OneMinusFriction)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleSimulationParameters,TEXT("Simulation"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleSimulationParameters, "Simulation");
 
 typedef TUniformBufferRef<FParticleSimulationParameters> FParticleSimulationBufferRef;
 
@@ -949,16 +949,16 @@ FArchive& operator<<(FArchive& Ar, FParticlePerFrameSimulationShaderParameters& 
  * Uniform buffer to hold parameters for vector fields sampled during particle
  * simulation.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FVectorFieldUniformParameters,)
-	UNIFORM_MEMBER( int32, Count )
-	UNIFORM_MEMBER_ARRAY( FMatrix, WorldToVolume, [MAX_VECTOR_FIELDS] )
-	UNIFORM_MEMBER_ARRAY( FMatrix, VolumeToWorld, [MAX_VECTOR_FIELDS] )
-	UNIFORM_MEMBER_ARRAY( FVector4, IntensityAndTightness, [MAX_VECTOR_FIELDS] )
-	UNIFORM_MEMBER_ARRAY( FVector4, VolumeSize, [MAX_VECTOR_FIELDS] )
-	UNIFORM_MEMBER_ARRAY( FVector4, TilingAxes, [MAX_VECTOR_FIELDS] )
-END_UNIFORM_BUFFER_STRUCT( FVectorFieldUniformParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FVectorFieldUniformParameters,)
+	SHADER_PARAMETER( int32, Count )
+	SHADER_PARAMETER_ARRAY( FMatrix, WorldToVolume, [MAX_VECTOR_FIELDS] )
+	SHADER_PARAMETER_ARRAY( FMatrix, VolumeToWorld, [MAX_VECTOR_FIELDS] )
+	SHADER_PARAMETER_ARRAY( FVector4, IntensityAndTightness, [MAX_VECTOR_FIELDS] )
+	SHADER_PARAMETER_ARRAY( FVector4, VolumeSize, [MAX_VECTOR_FIELDS] )
+	SHADER_PARAMETER_ARRAY( FVector4, TilingAxes, [MAX_VECTOR_FIELDS] )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FVectorFieldUniformParameters,TEXT("VectorFields"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FVectorFieldUniformParameters, "VectorFields");
 
 typedef TUniformBufferRef<FVectorFieldUniformParameters> FVectorFieldUniformBufferRef;
 
@@ -1126,7 +1126,7 @@ public:
 		const FUniformBufferRHIParamRef ViewUniformBuffer,
 		ERHIFeatureLevel::Type FeatureLevel,
 		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 		)
 	{
@@ -1500,7 +1500,7 @@ void ExecuteSimulationCommands(
 	FParticleSimulationResources* ParticleSimulationResources,
 	const FUniformBufferRHIParamRef ViewUniformBuffer,
 	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 	FUniformBufferRHIParamRef SceneTexturesUniformBuffer,
 	bool bUseFixDT)
 {
@@ -1569,7 +1569,7 @@ void ExecuteSimulationCommands(
 	FParticleSimulationResources* ParticleSimulationResources,
 	const FUniformBufferRHIParamRef ViewUniformBuffer,
 	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 	FUniformBufferRHIParamRef SceneTexturesUniformBuffer,
 	EParticleSimulatePhase::Type Phase,
 	bool bUseFixDT)
@@ -1680,11 +1680,11 @@ void ClearTiles(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitializer& 
 /**
  * Uniform buffer to hold parameters for particle simulation.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FParticleInjectionParameters, )
-	UNIFORM_MEMBER( FVector2D, PixelScale )
-END_UNIFORM_BUFFER_STRUCT( FParticleInjectionParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FParticleInjectionParameters, )
+	SHADER_PARAMETER( FVector2D, PixelScale )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleInjectionParameters,TEXT("ParticleInjection"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleInjectionParameters, "ParticleInjection");
 
 typedef TUniformBufferRef<FParticleInjectionParameters> FParticleInjectionBufferRef;
 
@@ -1925,11 +1925,11 @@ void InjectNewParticles(FRHICommandList& RHICmdList, FGraphicsPipelineStateIniti
 /**
  * Uniform buffer to hold parameters for visualizing particle simulation.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FParticleSimVisualizeParameters, )
-	UNIFORM_MEMBER( FVector4, ScaleBias )
-END_UNIFORM_BUFFER_STRUCT( FParticleSimVisualizeParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FParticleSimVisualizeParameters, )
+	SHADER_PARAMETER( FVector4, ScaleBias )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleSimVisualizeParameters,TEXT("PSV"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleSimVisualizeParameters,"PSV");
 
 typedef TUniformBufferRef<FParticleSimVisualizeParameters> FParticleSimVisualizeBufferRef;
 
@@ -2186,13 +2186,13 @@ static void BuildParticleVertexBuffer( FVertexBufferRHIParamRef VertexBufferRHI,
 /**
  * Uniform buffer parameters for generating particle bounds.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FParticleBoundsParameters, )
-	UNIFORM_MEMBER( uint32, ChunksPerGroup )
-	UNIFORM_MEMBER( uint32, ExtraChunkCount )
-	UNIFORM_MEMBER( uint32, ParticleCount )
-END_UNIFORM_BUFFER_STRUCT( FParticleBoundsParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FParticleBoundsParameters, )
+	SHADER_PARAMETER( uint32, ChunksPerGroup )
+	SHADER_PARAMETER( uint32, ExtraChunkCount )
+	SHADER_PARAMETER( uint32, ParticleCount )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleBoundsParameters,TEXT("ParticleBounds"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleBoundsParameters,"ParticleBounds");
 
 typedef TUniformBufferRef<FParticleBoundsParameters> FParticleBoundsUniformBufferRef;
 
@@ -4686,7 +4686,7 @@ void FFXSystem::SimulateGPUParticles(
 	EParticleSimulatePhase::Type Phase,
 	const FUniformBufferRHIParamRef ViewUniformBuffer,
 	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	const FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
 	FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 	)
 {
