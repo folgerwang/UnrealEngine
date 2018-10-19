@@ -545,7 +545,6 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 	D3D11_SRV_DIMENSION ShaderResourceViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	uint32 CPUAccessFlags = 0;
 	D3D11_USAGE TextureUsage = D3D11_USAGE_DEFAULT;
-	uint32 BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	bool bCreateShaderResource = true;
 
 	uint32 ActualMSAACount = NumSamples;
@@ -581,7 +580,6 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 
 		CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 		TextureUsage = D3D11_USAGE_STAGING;
-		BindFlags = 0;
 		bCreateShaderResource = false;
 	}
 
@@ -589,7 +587,6 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 	{
 		CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		TextureUsage = D3D11_USAGE_STAGING;
-		BindFlags = 0;
 		bCreateShaderResource = false;
 	}
 
@@ -604,7 +601,7 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 	TextureDesc.SampleDesc.Count = ActualMSAACount;
 	TextureDesc.SampleDesc.Quality = ActualMSAAQuality;
 	TextureDesc.Usage = TextureUsage;
-	TextureDesc.BindFlags = BindFlags;
+	TextureDesc.BindFlags = bCreateShaderResource? D3D11_BIND_SHADER_RESOURCE : 0;
 	TextureDesc.CPUAccessFlags = CPUAccessFlags;
 	TextureDesc.MiscFlags = bCubeTexture ? D3D11_RESOURCE_MISC_TEXTURECUBE : 0;
 
@@ -659,6 +656,12 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 	{
 		TextureDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 		bPooledTexture = false;
+	}
+
+	if (bCreateDSV && !(Flags & TexCreate_ShaderResource))
+	{
+		TextureDesc.BindFlags &= ~D3D11_BIND_SHADER_RESOURCE;
+		bCreateShaderResource = false;
 	}
 
 	if (bCreateDSV || bCreateRTV || bCubeTexture || bTextureArray)
