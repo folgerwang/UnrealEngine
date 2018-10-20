@@ -20,7 +20,6 @@
 			"BlacklistPlatforms" :
 			[
 				"Win32",
-				"Mac",
 				"XboxOne",
 				"PS4",
 				"IOS",
