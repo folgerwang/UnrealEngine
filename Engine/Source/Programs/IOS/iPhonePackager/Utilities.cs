@@ -574,7 +574,7 @@ namespace iPhonePackager
 
 		static public string GetPrecompileSourcePListFilename()
 		{
-			// check for one in he project directory
+			// check for one in the project directory
 			string SourceName = FileOperations.FindPrefixedFile(Config.IntermediateDirectory, Program.GameName + "-Info.plist");
 
 			if (!File.Exists(SourceName))

@@ -151,11 +151,11 @@ namespace iPhonePackager
 			string NameDecoration;
 			if (Program.GameConfiguration == "Development")
 			{
-				NameDecoration = Program.Architecture;
+				NameDecoration = (Program.IsClient ? "Client" : "") + Program.Architecture;
 			}
 			else
 			{
-				NameDecoration = "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture;
+				NameDecoration = (Program.IsClient ? "Client" : "") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture;
 			}
 
 			// Copy and un-decorate the binary name
@@ -221,7 +221,7 @@ namespace iPhonePackager
 				return;
 			}
 
-			string ZipWorkingDir = String.Format("Payload/{0}{1}.app/", Program.GameName, Program.Architecture);
+			string ZipWorkingDir = String.Format("Payload/{0}{1}.app/", Program.GameName + (Program.IsClient ? "Client" : ""), Program.Architecture);
 
 			FileOperations.ZipFileSystem FileSystem = new FileOperations.ZipFileSystem(Zip, ZipWorkingDir);
 
@@ -313,7 +313,7 @@ namespace iPhonePackager
 					string RelativeFilename = AbsoluteFilename.Substring(SourceDir.Length + 1).Replace('\\', '/');
 
 					string ZipAbsolutePath = String.Format("Payload/{0}{1}.app/{2}",
-						Program.GameName,
+						Program.GameName + (Program.IsClient ? "Client" : ""),
 						Program.Architecture,
 						RelativeFilename);
 
