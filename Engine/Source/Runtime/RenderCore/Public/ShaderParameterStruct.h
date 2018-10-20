@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "Shader.h"
 #include "RHI.h"
+#include "RenderGraphResources.h"
 
 
 /** Instrument a shader class to use strutured shader parameters API.
