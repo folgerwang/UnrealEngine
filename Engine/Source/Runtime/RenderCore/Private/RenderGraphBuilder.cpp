@@ -23,7 +23,11 @@ static const int32 GRenderGraphImmediateMode = 0;
 
 void FRenderGraphBuilder::Execute()
 {
-	checkf(!bHasExecuted, TEXT("Render graph execution should only happen once."));
+	#if RENDER_GRAPH_DEBUGGING
+	{
+		checkf(!bHasExecuted, TEXT("Render graph execution should only happen once."));
+	}
+	#endif
 
 	if (!GRenderGraphImmediateMode)
 	{
@@ -40,8 +44,10 @@ void FRenderGraphBuilder::Execute()
 
 	DestructPasses();
 
-	#if DO_CHECK
+	#if RENDER_GRAPH_DEBUGGING
+	{
 		bHasExecuted = true;
+	}
 	#endif
 }
 
@@ -332,7 +338,7 @@ void FRenderGraphBuilder::ExecutePass( const FRenderGraphPass* Pass )
 		RHICmdList.EndRenderPass();
 	}
 
-	if (DO_CHECK)
+	if (RENDER_GRAPH_DEBUGGING)
 	{
 		WarnForUselessPassDependencies(Pass);
 	}
@@ -623,7 +629,7 @@ void FRenderGraphBuilder::ProcessDeferredInternalResourceQueries()
 
 void FRenderGraphBuilder::DestructPasses()
 {
-	#if DO_CHECK
+	#if RENDER_GRAPH_DEBUGGING
 	{
 		// Make sure all resource references have been released to ensure no leaks happen.
 		for (const FGraphResource* Resource : Resources)

@@ -43,10 +43,6 @@ IMPLEMENT_ALIGNED_TYPE(16);
 
 #if PLATFORM_64BITS
 
-/** Fixed 8bytes sized pointer for shader parameters. */
-template<typename PtrType>
-using TNonAlignedShaderParameterPtr = PtrType;
-
 /** Fixed 8bytes sized and aligned pointer for shader parameters. */
 template<typename PtrType>
 using TAlignedShaderParameterPtr = typename TAlignedTypedef<PtrType, SHADER_PARAMETER_POINTER_ALIGNMENT>::Type;
@@ -57,10 +53,30 @@ static_assert(sizeof(void*) == 8, "Wrong PLATFORM_64BITS settings.");
 
 /** Fixed 8bytes sized pointer for shader parameters. */
 template<typename PtrType>
-class TNonAlignedShaderParameterPtr
+class TAlignedShaderParameterPtr
 {
 public:
+	TAlignedShaderParameterPtr()
+	{ }
+
+	TAlignedShaderParameterPtr(const PtrType& Other)
+		: Ref(Other)
+	{ }
+
+	TAlignedShaderParameterPtr(nullptr_t Other)
+		: Ref(Other)
+	{ }
+
+	TAlignedShaderParameterPtr(const TAlignedShaderParameterPtr<PtrType>& Other)
+		: Ref(Other.Ref)
+	{ }
+
 	FORCEINLINE void operator=(const PtrType& Other)
+	{
+		Ref = Other;
+	}
+
+	FORCEINLINE void operator=(nullptr_t Other)
 	{
 		Ref = Other;
 	}
@@ -75,24 +91,20 @@ public:
 		return Ref;
 	}
 
-	FORCEINLINE PtrType& operator->() const
+	FORCEINLINE const PtrType& operator->() const
 	{
 		return Ref;
 	}
 
 private:
 	PtrType Ref;
-	uint32 _Padding;
+	#if !PLATFORM_64BITS
+		uint32 _Padding;
+		static_assert(sizeof(void*) == 4, "Wrong PLATFORM_64BITS settings.");
+	#endif
 
 	static_assert(sizeof(PtrType) == sizeof(void*), "T should be a pointer.");
 };
-
-/** Fixed 8bytes sized and aligned pointer for shader parameters. */
-template<typename PtrType>
-class alignas(SHADER_PARAMETER_POINTER_ALIGNMENT) TAlignedShaderParameterPtr : public TNonAlignedShaderParameterPtr
-{ };
-
-static_assert(sizeof(void*) == 4, "Wrong PLATFORM_64BITS settings.");
 
 #endif // !PLATFORM_64BITS
 
@@ -132,9 +144,11 @@ private:
 
 
 /** Render graph information about how to bind a render target. */
-struct FRenderTargetBinding
+struct alignas(SHADER_PARAMETER_STRUCT_ALIGNMENT) FRenderTargetBinding
 {
-	FRenderTargetBinding() = default;
+	FRenderTargetBinding()
+		: Texture(nullptr)
+	{ }
 	FRenderTargetBinding(const FRenderTargetBinding&) = default;
 
 	/** Creates a render target binding informations.
@@ -165,7 +179,7 @@ private:
 	/** All parameters required to bind a render target deferred. This are purposefully private to
 	 * force the user to call FRenderTargetBinding() constructor, forcing him to specify the load and store action.
 	 */
-	TNonAlignedShaderParameterPtr<const FGraphTexture*> Texture = nullptr;
+	TAlignedShaderParameterPtr<const FGraphTexture*> Texture;
 	ERenderTargetLoadAction		LoadAction		= ERenderTargetLoadAction::ENoAction;
 	ERenderTargetStoreAction	StoreAction		= ERenderTargetStoreAction::ENoAction;
 	uint8						MipIndex		= 0;
@@ -173,9 +187,14 @@ private:
 
 
 /** Render graph information about how to bind a depth-stencil render target. */
-struct FDepthStencilBinding
+struct alignas(SHADER_PARAMETER_STRUCT_ALIGNMENT) FDepthStencilBinding
 {
-	TNonAlignedShaderParameterPtr<const FGraphTexture*> Texture = nullptr;
+	FDepthStencilBinding()
+		: Texture(nullptr)
+	{ }
+	FDepthStencilBinding(const FDepthStencilBinding&) = default;
+
+	TAlignedShaderParameterPtr<const FGraphTexture*> Texture;
 	ERenderTargetLoadAction		DepthLoadAction		= ERenderTargetLoadAction::ENoAction;
 	ERenderTargetStoreAction	DepthStoreAction	= ERenderTargetStoreAction::ENoAction;
 	ERenderTargetLoadAction		StencilLoadAction	= ERenderTargetLoadAction::ENoAction;
