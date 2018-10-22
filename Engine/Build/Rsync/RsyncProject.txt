@@ -9,6 +9,8 @@
 + /Intermediate/Build/BuildRules/*.dll
 + /Intermediate/Source/
 + /Intermediate/Source/**
++ /Intermediate/TVOS/
++ /Intermediate/TVOS/**
 
 protect /Intermediate/**
 
