@@ -67,9 +67,11 @@ inline void SetShaderUAVs(TRHICmdList& RHICmdList, const TShaderClass* Shader, F
 			{
 				SetNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
 			}
-
-			// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
-			GraphUAV->bIsActuallyUsedByPass = true;
+			else
+			{
+				// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
+				GraphUAV->bIsActuallyUsedByPass = true;
+			}
 		}
 
 		RHICmdList.SetUAVParameter(ShadeRHI, ParameterBinding.BaseIndex, GraphUAV->GetRHIUnorderedAccessView());
@@ -157,9 +159,11 @@ inline void SetShaderParameters(TRHICmdList& RHICmdList, const TShaderClass* Sha
 			{
 				SetNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
 			}
-
-			// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
-			GraphTexture->bIsActuallyUsedByPass = true;
+			else
+			{
+				// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
+				GraphTexture->bIsActuallyUsedByPass = true;
+			}
 		}
 
 		RHICmdList.SetShaderTexture(ShadeRHI, ParameterBinding.BaseIndex, GraphTexture->GetRHITexture());
@@ -176,9 +180,11 @@ inline void SetShaderParameters(TRHICmdList& RHICmdList, const TShaderClass* Sha
 			{
 				SetNullShaderParameterFatalError(Shader, TShaderClass::FParameters::FTypeInfo::GetStructMetadata(), ParameterBinding.ByteOffset);
 			}
-
-			// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
-			GraphSRV->bIsActuallyUsedByPass = true;
+			else
+			{
+				// Mark this resource as used by the pass for inefficient pass resource dependency debugging purpose.
+				GraphSRV->bIsActuallyUsedByPass = true;
+			}
 		}
 
 		RHICmdList.SetShaderResourceViewParameter(ShadeRHI, ParameterBinding.BaseIndex, GraphSRV->GetRHIShaderResourceView());

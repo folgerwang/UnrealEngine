@@ -145,6 +145,11 @@ void FShaderParametersMetadata::InitializeLayout()
 				}
 			}
 
+			if (BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT)
+			{
+				check(ChildStruct);
+			}
+
 			if (UseCase == EUseCase::ShaderParameterStruct &&
 				(BaseType == UBMT_NESTED_STRUCT || BaseType == UBMT_INCLUDED_STRUCT) &&
 				ChildStruct->GetUseCase() != EUseCase::ShaderParameterStruct)

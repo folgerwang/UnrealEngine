@@ -132,7 +132,7 @@ struct FShaderParameterStructBindingContext
 					Bindings->GraphTextures.Add(Parameter);
 				else if (BaseType == UBMT_GRAPH_TRACKED_SRV)
 					Bindings->GraphSRVs.Add(Parameter);
-				else if (BaseType == UBMT_GRAPH_TRACKED_UAV)
+				else // if (BaseType == UBMT_GRAPH_TRACKED_UAV)
 					Bindings->GraphUAVs.Add(Parameter);
 			}
 			else

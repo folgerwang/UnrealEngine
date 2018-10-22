@@ -264,7 +264,7 @@ static void CreateHLSLUniformBufferStructMembersDeclaration(
 
 		if (IsUniformBufferResourceType(Member.GetBaseType()))
 		{
-			check(Member.GetBaseType() != UBMT_GRAPH_TRACKED_SRV || Member.GetBaseType() != UBMT_GRAPH_TRACKED_UAV);
+			check(Member.GetBaseType() != UBMT_GRAPH_TRACKED_SRV && Member.GetBaseType() != UBMT_GRAPH_TRACKED_UAV);
 			if (Member.GetBaseType() == UBMT_SRV)
 			{
 				// TODO: handle arrays?
