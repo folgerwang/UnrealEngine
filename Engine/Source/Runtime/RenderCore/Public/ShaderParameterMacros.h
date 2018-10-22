@@ -53,7 +53,7 @@ static_assert(sizeof(void*) == 8, "Wrong PLATFORM_64BITS settings.");
 
 /** Fixed 8bytes sized pointer for shader parameters. */
 template<typename PtrType>
-class TAlignedShaderParameterPtr
+class alignas(SHADER_PARAMETER_POINTER_ALIGNMENT) TAlignedShaderParameterPtr
 {
 public:
 	TAlignedShaderParameterPtr()
@@ -63,20 +63,11 @@ public:
 		: Ref(Other)
 	{ }
 
-	TAlignedShaderParameterPtr(nullptr_t Other)
-		: Ref(Other)
-	{ }
-
 	TAlignedShaderParameterPtr(const TAlignedShaderParameterPtr<PtrType>& Other)
 		: Ref(Other.Ref)
 	{ }
 
 	FORCEINLINE void operator=(const PtrType& Other)
-	{
-		Ref = Other;
-	}
-
-	FORCEINLINE void operator=(nullptr_t Other)
 	{
 		Ref = Other;
 	}
