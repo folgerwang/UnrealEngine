@@ -14,10 +14,23 @@
 /** Turn on Steam filter generation output */
 #define DEBUG_STEAM_FILTERS 1
 
-/** @TODO ONLINE Server values needed to advertise with Steam (NOTE: Steam expects UTF8) */
-#define STEAMPRODUCTNAME "unrealdk"
-#define STEAMGAMEDIR "unrealtest"
-#define STEAMGAMEDESC "Unreal Test!"
+/* Server values needed to advertise with Steam (NOTE: Steam expects UTF8)
+ *
+ * Specify these in your Target.cs files for your project.
+ * If these do not match the same values on the Steam partner backend, 
+ * matchmaking will not work for your dedicated server
+ */
+#ifndef UE4_PROJECT_STEAMPRODUCTNAME
+#define UE4_PROJECT_STEAMPRODUCTNAME "unrealdk"
+#endif
+
+#ifndef UE4_PROJECT_STEAMGAMEDIR
+#define UE4_PROJECT_STEAMGAMEDIR "unrealtest"
+#endif
+
+#ifndef UE4_PROJECT_STEAMGAMEDESC
+#define UE4_PROJECT_STEAMGAMEDESC "Unreal Test!"
+#endif
 
 /**
  * Get the engine unique build id as Steam key
@@ -337,9 +350,9 @@ void FOnlineAsyncTaskSteamCreateServer::Tick()
 			bool bWantsDedicated = Session->SessionSettings.bIsDedicated;
 			UE_LOG_ONLINE(Verbose, TEXT("Initializing Steam game server. Is dedicated? %d"), bWantsDedicated);
 
-			SteamGameServerPtr->SetModDir(STEAMGAMEDIR);
-			SteamGameServerPtr->SetProduct(STEAMPRODUCTNAME);
-			SteamGameServerPtr->SetGameDescription(STEAMGAMEDESC);
+			SteamGameServerPtr->SetModDir(UE4_PROJECT_STEAMGAMEDIR);
+			SteamGameServerPtr->SetProduct(UE4_PROJECT_STEAMPRODUCTNAME);
+			SteamGameServerPtr->SetGameDescription(UE4_PROJECT_STEAMGAMEDESC);
 			SteamGameServerPtr->SetDedicatedServer(bWantsDedicated);
 
 			if (!SteamGameServerPtr->BLoggedOn())
