@@ -44,7 +44,7 @@ private:
 	TSharedPtr<FMovieViewport> Viewport;
 	TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> SlateVideoTexture;
 	int32 VideoFramesCurrentlyProcessing;
-	float CurrentTime;
+	double StartTime;
 	bool bPlaying;
 
 	bool StartNextMovie();
