@@ -226,8 +226,8 @@ void FMediaRecorder::TickRecording()
 				{
 					UE_LOG(LogMediaUtils, Warning, TEXT("Texture Sample Format '%d' is not supported by Media Recorder."), (int32)Sample->GetFormat());
 					bUnsupportedWarningShowed = true;
-					continue;
 				}
+				continue;
 			}
 
 			bool bIsGammaCorrectionPreProcessingEnabled = false;
