@@ -106,6 +106,9 @@ void SetupWindowsEnvironment( void )
 	// don't fill buffers with 0xfd as we make assumptions for FNames st we only use a fraction of the entire buffer
 	_CrtSetDebugFillThreshold( 0 );
 #endif
+
+	// Register a handler for Ctrl-C so we've effective signal handling from the outset.
+	FWindowsPlatformMisc::SetGracefulTerminationHandler();
 }
 
 /**
