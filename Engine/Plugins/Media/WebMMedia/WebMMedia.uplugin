@@ -28,6 +28,10 @@
 				"TVOS",
 				"Switch",
 				"Lumin",
+			],
+			"BlacklistTargets" :
+			[
+				"Server",
 			]
 		},
 		{
@@ -56,6 +60,10 @@
 				"TVOS",
 				"Switch",
 				"Lumin",
+			],
+			"BlacklistTargets" :
+			[
+				"Server",
 			]
 		}
 	]
