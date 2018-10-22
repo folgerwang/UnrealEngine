@@ -1089,11 +1089,11 @@ class FHZBBuildPS : public FGlobalShader
 IMPLEMENT_GLOBAL_SHADER(FHZBBuildPS, "/Engine/Private/HZBOcclusion.usf", "HZBBuildPS", SF_Pixel);
 
 
-void BuildHZB(FRHICommandListImmediate& RHICmdList, FViewInfo& View)
+void BuildHZB(FRHICommandListImmediate& RHICmdListImmediate, FViewInfo& View)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildHZB);
 	
-	FRDGBuilder GraphBuilder(RHICmdList);
+	FRDGBuilder GraphBuilder(RHICmdListImmediate);
 
 	// View.ViewRect.{Width,Height}() are most likely to be < 2^24, so the float
 	// conversion won't loss any precision (assuming float have 23bits for mantissa)
