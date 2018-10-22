@@ -72,6 +72,8 @@ namespace Audio
 		StopAudioStream();
 		CloseAudioStream();
 
+		// this is refcounted
+		SDL_QuitSubSystem(SDL_INIT_AUDIO);
 		bInitialized = false;
 
 		return true;

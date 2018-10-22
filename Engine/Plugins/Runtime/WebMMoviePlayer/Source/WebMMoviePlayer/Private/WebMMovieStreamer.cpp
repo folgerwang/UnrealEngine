@@ -24,28 +24,19 @@ FWebMMovieStreamer::FWebMMovieStreamer()
 	, StartTime(0)
 	, bPlaying(false)
 {
-	AudioBackend->InitializePlatform();
 }
 
 FWebMMovieStreamer::~FWebMMovieStreamer()
 {
 	Cleanup();
-
-	AudioBackend->ShutdownPlatform();
 }
 
 void FWebMMovieStreamer::Cleanup()
 {
 	bPlaying = false;
-	
-	Samples.Reset();
-	VideoDecoder.Reset();
-	AudioDecoder.Reset();
-	Container.Reset();
 
 	ReleaseAcquiredResources();
-
-	AudioBackend->StopStreaming();
+	AudioBackend->ShutdownPlatform();
 }
 
 FTexture2DRHIRef FWebMMovieStreamer::GetTexture()
@@ -57,6 +48,7 @@ bool FWebMMovieStreamer::Init(const TArray<FString>& InMoviePaths, TEnumAsByte<E
 {
 	// Initializes the streamer for audio and video playback of the given path(s).
 	// NOTE: If multiple paths are provided, it is expect that they be played back seamlessly.
+	AudioBackend->InitializePlatform();
 
 	// Add the given paths to the movie queue
 	MovieQueue.Append(InMoviePaths);
@@ -69,7 +61,7 @@ bool FWebMMovieStreamer::StartNextMovie()
 {
 	if (MovieQueue.Num() > 0)
 	{
-		Cleanup();
+		ReleaseAcquiredResources();
 
 		MovieName = MovieQueue[0];
 
@@ -182,8 +174,15 @@ void FWebMMovieStreamer::ForceCompletion()
 
 void FWebMMovieStreamer::ReleaseAcquiredResources()
 {
+	Samples.Reset();
+	VideoDecoder.Reset();
+	AudioDecoder.Reset();
+	Container.Reset();
+
 	SlateVideoTexture.Reset();
 	Viewport->SetTexture(nullptr);
+
+	AudioBackend->StopStreaming();
 }
 
 bool FWebMMovieStreamer::DisplayFrames(float InDeltaTime)

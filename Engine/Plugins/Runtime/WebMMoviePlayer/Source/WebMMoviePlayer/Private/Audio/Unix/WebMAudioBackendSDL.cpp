@@ -36,7 +36,9 @@ void FWebMAudioBackendSDL::ShutdownPlatform()
 
 	if (bSDLInitialized)
 	{
-		SDL_Quit();
+		// this is refcounted
+		SDL_QuitSubSystem(SDL_INIT_AUDIO);
+		bSDLInitialized = false;
 	}
 }
 
