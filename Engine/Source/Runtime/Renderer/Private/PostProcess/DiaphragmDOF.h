@@ -122,7 +122,9 @@ inline bool IsSupported(EShaderPlatform ShaderPlatform)
 		ShaderPlatform == SP_XBOXONE_D3D12 ||
 		ShaderPlatform == SP_PS4 ||
 		IsVulkanSM5Platform(ShaderPlatform) ||
-		IsMetalSM5Platform(ShaderPlatform);
+		IsMetalSM5Platform(ShaderPlatform) ||
+		ShaderPlatform == SP_SWITCH ||
+		ShaderPlatform == SP_SWITCH_FORWARD;
 }
 
 
