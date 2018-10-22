@@ -9,7 +9,7 @@
 #include "ShaderCompiler.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
-
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNiagaraShaderCompiler, All, All);
 
@@ -357,7 +357,9 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 					}
 					else
 					{
-						if (CompletedShaderMap->IsComplete(Script, true))
+						// Can't call NotifyCompilationFinished() when post-loading. 
+						// This normally happens when compiled in-sync for which the callback is not required.
+						if (CompletedShaderMap->IsComplete(Script, true) && !FUObjectThreadContext::Get().IsRoutingPostLoad)
 						{
 							Script->NotifyCompilationFinished();
 						}
