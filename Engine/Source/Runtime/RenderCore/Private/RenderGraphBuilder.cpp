@@ -21,7 +21,7 @@ static const int32 GRenderGraphImmediateMode = 0;
 #endif
 
 
-void FRenderGraphBuilder::Execute()
+void FRDGBuilder::Execute()
 {
 	#if RENDER_GRAPH_DEBUGGING
 	{
@@ -33,7 +33,7 @@ void FRenderGraphBuilder::Execute()
 	{
 		WalkGraphDependencies();
 
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRenderGraphBuilder_Execute);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRDGBuilder_Execute);
 		for (const FRenderGraphPass* Pass : Passes)
 		{
 			ExecutePass(Pass);
@@ -51,7 +51,7 @@ void FRenderGraphBuilder::Execute()
 	#endif
 }
 
-void FRenderGraphBuilder::DebugPass(const FRenderGraphPass* Pass)
+void FRDGBuilder::DebugPass(const FRenderGraphPass* Pass)
 {
 	ValidatePass(Pass);
 
@@ -61,7 +61,7 @@ void FRenderGraphBuilder::DebugPass(const FRenderGraphPass* Pass)
 	}
 }
 
-void FRenderGraphBuilder::ValidatePass(const FRenderGraphPass* Pass) const
+void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 {
 	FRenderTargetBindingSlots* RESTRICT RenderTargets = nullptr;
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
@@ -79,7 +79,7 @@ void FRenderGraphBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 		{
 		case UBMT_GRAPH_TRACKED_UAV:
 		{
-			FGraphUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FGraphUAV*>(Offset);
+			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV && !bCanUseUAVs)
 			{
 				UE_LOG(LogRendererCore, Warning, TEXT("UAV can only been bound to compute shaders, therefore UAV %s is certainly useless for passs %s."), UAV->Name, Pass->GetName());
@@ -129,13 +129,13 @@ void FRenderGraphBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 	}
 }
 
-void FRenderGraphBuilder::WalkGraphDependencies()
+void FRDGBuilder::WalkGraphDependencies()
 {
 	for (const FRenderGraphPass* Pass : Passes)
 	{
 		FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 
-		/** Increments all the FGraphResource::ReferenceCount. */
+		/** Increments all the FRDGResource::ReferenceCount. */
 		for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 		{
 			uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
@@ -145,7 +145,7 @@ void FRenderGraphBuilder::WalkGraphDependencies()
 			{
 			case UBMT_GRAPH_TRACKED_TEXTURE:
 			{
-				FGraphTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FGraphTexture*>(Offset);
+				FRDGTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FRDGTexture*>(Offset);
 				if (Texture)
 				{
 					Texture->ReferenceCount++;
@@ -154,7 +154,7 @@ void FRenderGraphBuilder::WalkGraphDependencies()
 			break;
 			case UBMT_GRAPH_TRACKED_SRV:
 			{
-				FGraphSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FGraphSRV*>(Offset);
+				FRDGTextureSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureSRV*>(Offset);
 				if (SRV)
 				{
 					SRV->Desc.Texture->ReferenceCount++;
@@ -163,7 +163,7 @@ void FRenderGraphBuilder::WalkGraphDependencies()
 			break;
 			case UBMT_GRAPH_TRACKED_UAV:
 			{
-				FGraphUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FGraphUAV*>(Offset);
+				FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 				if (UAV)
 				{
 					UAV->Desc.Texture->ReferenceCount++;
@@ -217,7 +217,7 @@ void FRenderGraphBuilder::WalkGraphDependencies()
 	}
 }
 
-void FRenderGraphBuilder::AllocateRHITextureIfNeeded(const FGraphTexture* Texture, bool bComputePass)
+void FRDGBuilder::AllocateRHITextureIfNeeded(const FRDGTexture* Texture, bool bComputePass)
 {
 	check(Texture);
 
@@ -252,7 +252,7 @@ static EResourceTransitionPipeline CalcTransitionPipeline(bool bCurrentCompute, 
 	return static_cast< EResourceTransitionPipeline >( Table[ Bits ] );
 }
 
-void FRenderGraphBuilder::TransitionTexture( const FGraphTexture* Texture, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const
+void FRDGBuilder::TransitionTexture( const FRDGTexture* Texture, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const
 {
 	const bool bRequiredWritable = TransitionAccess != EResourceTransitionAccess::EReadable;
 
@@ -264,7 +264,7 @@ void FRenderGraphBuilder::TransitionTexture( const FGraphTexture* Texture, EReso
 	}
 }
 
-void FRenderGraphBuilder::TransitionUAV( const FGraphUAV* UAV, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const
+void FRDGBuilder::TransitionUAV( const FRDGTextureUAV* UAV, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const
 {
 	const bool bRequiredWritable = true;
 
@@ -277,7 +277,7 @@ void FRenderGraphBuilder::TransitionUAV( const FGraphUAV* UAV, EResourceTransiti
 	}
 }
 
-static bool IsBoundAsReadable( const FGraphTexture* Texture, FShaderParameterStructRef ParameterStruct )
+static bool IsBoundAsReadable( const FRDGTexture* Texture, FShaderParameterStructRef ParameterStruct )
 {
 	for( int i = 0, Num = ParameterStruct.Layout->Resources.Num(); i < Num; i++ )
 	{
@@ -288,7 +288,7 @@ static bool IsBoundAsReadable( const FGraphTexture* Texture, FShaderParameterStr
 		{
 			case UBMT_GRAPH_TRACKED_TEXTURE:
 			{
-				const FGraphTexture* InputTexture = *ParameterStruct.GetMemberPtrAtOffset<const FGraphTexture*>(Offset);
+				const FRDGTexture* InputTexture = *ParameterStruct.GetMemberPtrAtOffset<const FRDGTexture*>(Offset);
 				if( Texture == InputTexture)
 				{
 					return true;
@@ -297,7 +297,7 @@ static bool IsBoundAsReadable( const FGraphTexture* Texture, FShaderParameterStr
 			break;
 		case UBMT_GRAPH_TRACKED_SRV:
 			{
-				const FGraphSRV* InputSRV = *ParameterStruct.GetMemberPtrAtOffset<const FGraphSRV*>(Offset);
+				const FRDGTextureSRV* InputSRV = *ParameterStruct.GetMemberPtrAtOffset<const FRDGTextureSRV*>(Offset);
 				if (InputSRV && Texture == InputSRV->Desc.Texture)
 				{
 					return true;
@@ -312,9 +312,9 @@ static bool IsBoundAsReadable( const FGraphTexture* Texture, FShaderParameterStr
 	return false;
 }
 
-void FRenderGraphBuilder::ExecutePass( const FRenderGraphPass* Pass )
+void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 {
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_FRenderGraphBuilder_ExecutePass);
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FRDGBuilder_ExecutePass);
 
 	FRHIRenderPassInfo RPInfo;
 	bool bHasRenderTargets = false;
@@ -350,7 +350,7 @@ void FRenderGraphBuilder::ExecutePass( const FRenderGraphPass* Pass )
 	}
 }
 
-void FRenderGraphBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pass, struct FRHIRenderPassInfo* OutRPInfo, bool* bOutHasRenderTargets)
+void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pass, struct FRHIRenderPassInfo* OutRPInfo, bool* bOutHasRenderTargets)
 {
 	bool bIsCompute = Pass->IsCompute();
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
@@ -364,7 +364,7 @@ void FRenderGraphBuilder::AllocateAndTransitionPassResources(const FRenderGraphP
 		{
 		case UBMT_GRAPH_TRACKED_TEXTURE:
 		{
-			FGraphTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FGraphTexture*>(Offset);
+			FRDGTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FRDGTexture*>(Offset);
 			if (Texture)
 			{
 				AllocateRHITextureIfNeeded(Texture, bIsCompute);
@@ -374,12 +374,12 @@ void FRenderGraphBuilder::AllocateAndTransitionPassResources(const FRenderGraphP
 		break;
 		case UBMT_GRAPH_TRACKED_SRV:
 		{
-			FGraphSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FGraphSRV*>(Offset);
+			FRDGTextureSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureSRV*>(Offset);
 			if (SRV)
 			{
 				check(SRV->Desc.Texture);
 
-				const FGraphTexture* Texture = SRV->Desc.Texture;
+				const FRDGTexture* Texture = SRV->Desc.Texture;
 				AllocateRHITextureIfNeeded(Texture, bIsCompute);
 				TransitionTexture(Texture, EResourceTransitionAccess::EReadable, bIsCompute);
 			}
@@ -387,7 +387,7 @@ void FRenderGraphBuilder::AllocateAndTransitionPassResources(const FRenderGraphP
 		break;
 		case UBMT_GRAPH_TRACKED_UAV:
 		{
-			FGraphUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FGraphUAV*>(Offset);
+			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV)
 			{
 				AllocateRHITextureIfNeeded(UAV->Desc.Texture, bIsCompute);
@@ -463,7 +463,7 @@ void FRenderGraphBuilder::AllocateAndTransitionPassResources(const FRenderGraphP
 }
 
 // static 
-void FRenderGraphBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
+void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 {
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 
@@ -479,7 +479,7 @@ void FRenderGraphBuilder::WarnForUselessPassDependencies(const FRenderGraphPass*
 		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV)
 			continue;
 
-		const FGraphResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FGraphResource*>(Offset);
+		const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
 
 		if (!Resource)
 			continue;
@@ -500,7 +500,7 @@ void FRenderGraphBuilder::WarnForUselessPassDependencies(const FRenderGraphPass*
 			if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV)
 				continue;
 
-			const FGraphResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FGraphResource*>(Offset);
+			const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
 
 			if (!Resource)
 				continue;
@@ -518,7 +518,7 @@ void FRenderGraphBuilder::WarnForUselessPassDependencies(const FRenderGraphPass*
 		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV)
 			continue;
 
-		const FGraphResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FGraphResource*>(Offset);
+		const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
 
 		if (!Resource)
 			continue;
@@ -527,7 +527,7 @@ void FRenderGraphBuilder::WarnForUselessPassDependencies(const FRenderGraphPass*
 	}
 }
 
-void FRenderGraphBuilder::ReleaseRHITextureIfPossible(const FGraphTexture* Texture)
+void FRDGBuilder::ReleaseRHITextureIfPossible(const FRDGTexture* Texture)
 {
 	check(Texture->ReferenceCount > 0);
 	Texture->ReferenceCount--;
@@ -539,11 +539,11 @@ void FRenderGraphBuilder::ReleaseRHITextureIfPossible(const FGraphTexture* Textu
 	}
 }
 
-void FRenderGraphBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
+void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 {
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 
-	/** Increments all the FGraphResource::ReferenceCount. */
+	/** Increments all the FRDGResource::ReferenceCount. */
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
 		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
@@ -553,7 +553,7 @@ void FRenderGraphBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pas
 		{
 		case UBMT_GRAPH_TRACKED_TEXTURE:
 		{
-			FGraphTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FGraphTexture*>(Offset);
+			FRDGTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FRDGTexture*>(Offset);
 			if (Texture)
 			{
 				ReleaseRHITextureIfPossible(Texture);
@@ -562,7 +562,7 @@ void FRenderGraphBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pas
 		break;
 		case UBMT_GRAPH_TRACKED_SRV:
 		{
-			FGraphSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FGraphSRV*>(Offset);
+			FRDGTextureSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureSRV*>(Offset);
 			if (SRV)
 			{
 				ReleaseRHITextureIfPossible(SRV->Desc.Texture);
@@ -571,7 +571,7 @@ void FRenderGraphBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pas
 		break;
 		case UBMT_GRAPH_TRACKED_UAV:
 		{
-			FGraphUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FGraphUAV*>(Offset);
+			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV)
 			{
 				ReleaseRHITextureIfPossible(UAV->Desc.Texture);
@@ -606,7 +606,7 @@ void FRenderGraphBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pas
 	}
 }
 
-void FRenderGraphBuilder::ProcessDeferredInternalResourceQueries()
+void FRDGBuilder::ProcessDeferredInternalResourceQueries()
 {
 	for (const auto& Query : DeferredInternalTextureQueries)
 	{
@@ -627,12 +627,12 @@ void FRenderGraphBuilder::ProcessDeferredInternalResourceQueries()
 	}
 }
 
-void FRenderGraphBuilder::DestructPasses()
+void FRDGBuilder::DestructPasses()
 {
 	#if RENDER_GRAPH_DEBUGGING
 	{
 		// Make sure all resource references have been released to ensure no leaks happen.
-		for (const FGraphResource* Resource : Resources)
+		for (const FRDGResource* Resource : Resources)
 		{
 			check(Resource->ReferenceCount == 0);
 		}

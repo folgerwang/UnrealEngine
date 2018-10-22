@@ -20,13 +20,13 @@ struct FVolumetricFogIntegrationParameterData
 
 	bool bTemporalHistoryIsValid;
 	TArray<FVector4, TInlineAllocator<16>> FrameJitterOffsetValues;
-	const FGraphTexture* VBufferA;
-	const FGraphTexture* VBufferB;
-	const FGraphUAV* VBufferA_UAV;
-	const FGraphUAV* VBufferB_UAV;
+	const FRDGTexture* VBufferA;
+	const FRDGTexture* VBufferB;
+	const FRDGTextureUAV* VBufferA_UAV;
+	const FRDGTextureUAV* VBufferB_UAV;
 
-	const FGraphTexture* LightScattering;
-	const FGraphUAV* LightScatteringUAV;
+	const FRDGTexture* LightScattering;
+	const FRDGTextureUAV* LightScatteringUAV;
 };
 
 /**  */

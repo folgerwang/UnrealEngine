@@ -681,7 +681,7 @@ void VoxelizeVolumePrimitive(
 }
 
 void FDeferredShadingSceneRenderer::VoxelizeFogVolumePrimitives(
-	FRenderGraphBuilder& GraphBuilder,
+	FRDGBuilder& GraphBuilder,
 	const FViewInfo& View,
 	const FVolumetricFogIntegrationParameterData& IntegrationData,
 	FIntVector VolumetricFogGridSize,

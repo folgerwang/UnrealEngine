@@ -10,9 +10,9 @@
 #include "ShaderParameterMetadata.h"
 
 
-class FGraphTexture;
-class FGraphSRV;
-class FGraphUAV;
+class FRDGTexture;
+class FRDGTextureSRV;
+class FRDGTextureUAV;
 
 
 // RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
@@ -146,14 +146,14 @@ struct alignas(SHADER_PARAMETER_STRUCT_ALIGNMENT) FRenderTargetBinding
 	 *
 	 * Notes: Load and store action are on purpose without default values, to force the user to not forget one of these.
 	 */
-	FRenderTargetBinding(const FGraphTexture* InTexture, ERenderTargetLoadAction InLoadAction, ERenderTargetStoreAction InStoreAction, uint8 InMipIndex = 0)
+	FRenderTargetBinding(const FRDGTexture* InTexture, ERenderTargetLoadAction InLoadAction, ERenderTargetStoreAction InStoreAction, uint8 InMipIndex = 0)
 		: Texture(InTexture)
 		, LoadAction(InLoadAction)
 		, StoreAction(InStoreAction)
 		, MipIndex(InMipIndex)
 	{}
 
-	inline const FGraphTexture* GetTexture() const {
+	inline const FRDGTexture* GetTexture() const {
 		return Texture;
 	};
 	inline ERenderTargetLoadAction GetLoadAction() const {
@@ -170,7 +170,7 @@ private:
 	/** All parameters required to bind a render target deferred. This are purposefully private to
 	 * force the user to call FRenderTargetBinding() constructor, forcing him to specify the load and store action.
 	 */
-	TAlignedShaderParameterPtr<const FGraphTexture*> Texture;
+	TAlignedShaderParameterPtr<const FRDGTexture*> Texture;
 	ERenderTargetLoadAction		LoadAction		= ERenderTargetLoadAction::ENoAction;
 	ERenderTargetStoreAction	StoreAction		= ERenderTargetStoreAction::ENoAction;
 	uint8						MipIndex		= 0;
@@ -185,7 +185,7 @@ struct alignas(SHADER_PARAMETER_STRUCT_ALIGNMENT) FDepthStencilBinding
 	{ }
 	FDepthStencilBinding(const FDepthStencilBinding&) = default;
 
-	TAlignedShaderParameterPtr<const FGraphTexture*> Texture;
+	TAlignedShaderParameterPtr<const FRDGTexture*> Texture;
 	ERenderTargetLoadAction		DepthLoadAction		= ERenderTargetLoadAction::ENoAction;
 	ERenderTargetStoreAction	DepthStoreAction	= ERenderTargetStoreAction::ENoAction;
 	ERenderTargetLoadAction		StencilLoadAction	= ERenderTargetLoadAction::ENoAction;
@@ -521,7 +521,7 @@ struct TShaderParameterTypeInfo<FTextureRHIParamRef>
 static_assert(sizeof(TShaderParameterTypeInfo<FTextureRHIParamRef>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
 
 template<>
-struct TShaderParameterTypeInfo<const FGraphTexture*>
+struct TShaderParameterTypeInfo<const FRDGTexture*>
 {
 	static constexpr int32 NumRows = 1;
 	static constexpr int32 NumColumns = 1;
@@ -529,14 +529,14 @@ struct TShaderParameterTypeInfo<const FGraphTexture*>
 	static constexpr int32 Alignment = SHADER_PARAMETER_POINTER_ALIGNMENT;
 	static constexpr bool bIsStoredInConstantBuffer = false;
 
-	using TAlignedType = TAlignedShaderParameterPtr<const FGraphTexture*>;
+	using TAlignedType = TAlignedShaderParameterPtr<const FRDGTexture*>;
 
 	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
 };
-static_assert(sizeof(TShaderParameterTypeInfo<const FGraphTexture*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
+static_assert(sizeof(TShaderParameterTypeInfo<const FRDGTexture*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
 
 template<>
-struct TShaderParameterTypeInfo<const FGraphSRV*>
+struct TShaderParameterTypeInfo<const FRDGTextureSRV*>
 {
 	static constexpr int32 NumRows = 1;
 	static constexpr int32 NumColumns = 1;
@@ -544,14 +544,14 @@ struct TShaderParameterTypeInfo<const FGraphSRV*>
 	static constexpr int32 Alignment = SHADER_PARAMETER_POINTER_ALIGNMENT;
 	static constexpr bool bIsStoredInConstantBuffer = false;
 	
-	using TAlignedType = TAlignedShaderParameterPtr<const FGraphSRV*>;
+	using TAlignedType = TAlignedShaderParameterPtr<const FRDGTextureSRV*>;
 	
 	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
 };
-static_assert(sizeof(TShaderParameterTypeInfo<const FGraphSRV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
+static_assert(sizeof(TShaderParameterTypeInfo<const FRDGTextureSRV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
 
 template<>
-struct TShaderParameterTypeInfo<const FGraphUAV*>
+struct TShaderParameterTypeInfo<const FRDGTextureUAV*>
 {
 	static constexpr int32 NumRows = 1;
 	static constexpr int32 NumColumns = 1;
@@ -559,11 +559,11 @@ struct TShaderParameterTypeInfo<const FGraphUAV*>
 	static constexpr int32 Alignment = SHADER_PARAMETER_POINTER_ALIGNMENT;
 	static constexpr bool bIsStoredInConstantBuffer = false;
 	
-	using TAlignedType = TAlignedShaderParameterPtr<const FGraphUAV*>;
+	using TAlignedType = TAlignedShaderParameterPtr<const FRDGTextureUAV*>;
 	
 	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
 };
-static_assert(sizeof(TShaderParameterTypeInfo<const FGraphUAV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
+static_assert(sizeof(TShaderParameterTypeInfo<const FRDGTextureUAV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
 
 template<class UniformBufferStructType>
 struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
@@ -758,7 +758,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_GRAPH_TEXTURE(Texture2D, MyTexture)
  */
 #define SHADER_PARAMETER_GRAPH_TEXTURE(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_TEXTURE, TShaderParameterTypeInfo<const FGraphTexture*>, const FGraphTexture*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_TEXTURE, TShaderParameterTypeInfo<const FRDGTexture*>, const FRDGTexture*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a render graph tracked shader resource view.
  *
@@ -766,7 +766,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_GRAPH_SRV(Texture2D, MySRV)
  */
 #define SHADER_PARAMETER_GRAPH_SRV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_SRV, TShaderParameterTypeInfo<const FGraphSRV*>, const FGraphSRV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_SRV, TShaderParameterTypeInfo<const FRDGTextureSRV*>, const FRDGTextureSRV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Adds a render graph tracked unordered access view.
  *
@@ -774,7 +774,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
  *	SHADER_PARAMETER_GRAPH_UAV(RWTexture2D, MyUAV)
  */
 #define SHADER_PARAMETER_GRAPH_UAV(ShaderType,MemberName) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_UAV, TShaderParameterTypeInfo<const FGraphUAV*>, const FGraphUAV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_UAV, TShaderParameterTypeInfo<const FRDGTextureUAV*>, const FRDGTextureUAV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Nests a shader parameter structure into another one, in C++ and shader code.
  *

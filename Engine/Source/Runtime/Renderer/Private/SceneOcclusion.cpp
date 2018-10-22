@@ -1093,7 +1093,7 @@ void BuildHZB(FRHICommandListImmediate& RHICmdList, FViewInfo& View)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_BuildHZB);
 	
-	FRenderGraphBuilder GraphBuilder(RHICmdList);
+	FRDGBuilder GraphBuilder(RHICmdList);
 
 	// View.ViewRect.{Width,Height}() are most likely to be < 2^24, so the float
 	// conversion won't loss any precision (assuming float have 23bits for mantissa)
@@ -1111,7 +1111,7 @@ void BuildHZB(FRHICommandListImmediate& RHICmdList, FViewInfo& View)
 
 	//@DW: Explicit creation of graph resource handles - full support for everything the RHI supports
 	//@DW: Now that we've created a resource handle, it will have to be passed around to other passes for manual wiring or put into a Blackboard structure for automatic wiring
-	const FGraphTexture* HZBTexture = GraphBuilder.CreateTexture(HZBDesc, TEXT("HZB"));
+	const FRDGTexture* HZBTexture = GraphBuilder.CreateTexture(HZBDesc, TEXT("HZB"));
 
 	{
 		FHZBBuildPassParameters* PassParameters;
@@ -1194,8 +1194,8 @@ void BuildHZB(FRHICommandListImmediate& RHICmdList, FViewInfo& View)
 		DstSize.Y = FMath::Max(DstSize.Y, 1);
 
 		//@DW: Explicit creation of SRV, full configuration of SRV supported
-		FGraphSRVDesc Desc(HZBTexture, MipIndex - 1);
-		const FGraphSRV* ParentMipSRV = GraphBuilder.CreateSRV(Desc);
+		FRDGTextureSRVDesc Desc(HZBTexture, MipIndex - 1);
+		const FRDGTextureSRV* ParentMipSRV = GraphBuilder.CreateSRV(Desc);
 
 		FHZBBuildPassParameters* PassParameters;
 		GraphBuilder.CreateParameters(&PassParameters);

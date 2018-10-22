@@ -395,7 +395,7 @@ private:
 	void PostInitViewCustomData(FGraphEventArray& OutUpdateEvents);
 
 	void RenderLocalLightsForVolumetricFog(
-		FRenderGraphBuilder& GraphBuilder,
+		FRDGBuilder& GraphBuilder,
 		FViewInfo& View,
 		bool bUseTemporalReprojection,
 		const struct FVolumetricFogIntegrationParameterData& IntegrationData,
@@ -403,19 +403,19 @@ private:
 		FIntVector VolumetricFogGridSize,
 		FVector GridZParams,
 		const FPooledRenderTargetDesc& VolumeDesc,
-		const FGraphTexture*& OutLocalShadowedLightScattering);
+		const FRDGTexture*& OutLocalShadowedLightScattering);
 
 	void RenderLightFunctionForVolumetricFog(
-		FRenderGraphBuilder& GraphBuilder,
+		FRDGBuilder& GraphBuilder,
 		FViewInfo& View,
 		FIntVector VolumetricFogGridSize,
 		float VolumetricFogMaxDistance,
 		FMatrix& OutLightFunctionWorldToShadow,
-		const FGraphTexture*& OutLightFunctionTexture,
+		const FRDGTexture*& OutLightFunctionTexture,
 		bool& bOutUseDirectionalLightShadowing);
 
 	void VoxelizeFogVolumePrimitives(
-		FRenderGraphBuilder& GraphBuilder,
+		FRDGBuilder& GraphBuilder,
 		const FViewInfo& View,
 		const FVolumetricFogIntegrationParameterData& IntegrationData,
 		FIntVector VolumetricFogGridSize,

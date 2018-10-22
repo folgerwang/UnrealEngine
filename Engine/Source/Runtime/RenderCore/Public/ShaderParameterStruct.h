@@ -59,7 +59,7 @@ inline void SetShaderUAVs(TRHICmdList& RHICmdList, const TShaderClass* Shader, F
 	// Graph UAVs
 	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphUAVs)
 	{
-		auto GraphUAV = *reinterpret_cast<const FGraphUAV* const*>(Base + ParameterBinding.ByteOffset);
+		auto GraphUAV = *reinterpret_cast<const FRDGTextureUAV* const*>(Base + ParameterBinding.ByteOffset);
 
 		if (DO_CHECK)
 		{
@@ -149,7 +149,7 @@ inline void SetShaderParameters(TRHICmdList& RHICmdList, const TShaderClass* Sha
 	// Graph Textures
 	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphTextures)
 	{
-		auto GraphTexture = *reinterpret_cast<const FGraphTexture* const*>(Base + ParameterBinding.ByteOffset);
+		auto GraphTexture = *reinterpret_cast<const FRDGTexture* const*>(Base + ParameterBinding.ByteOffset);
 
 		if (DO_CHECK)
 		{
@@ -168,7 +168,7 @@ inline void SetShaderParameters(TRHICmdList& RHICmdList, const TShaderClass* Sha
 	// Graph SRVs
 	for (const FShaderParameterBindings::FResourceParameter& ParameterBinding : Bindings.GraphSRVs)
 	{
-		auto GraphSRV = *reinterpret_cast<const FGraphSRV* const*>(Base + ParameterBinding.ByteOffset);
+		auto GraphSRV = *reinterpret_cast<const FRDGTextureSRV* const*>(Base + ParameterBinding.ByteOffset);
 
 		if (DO_CHECK)
 		{

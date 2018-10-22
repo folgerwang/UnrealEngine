@@ -463,7 +463,7 @@ public:
 TGlobalResource<FCircleRasterizeIndexBuffer> GCircleRasterizeIndexBuffer;
 
 void FDeferredShadingSceneRenderer::RenderLocalLightsForVolumetricFog(
-	FRenderGraphBuilder& GraphBuilder,
+	FRDGBuilder& GraphBuilder,
 	FViewInfo& View,
 	bool bUseTemporalReprojection,
 	const FVolumetricFogIntegrationParameterData& IntegrationData,
@@ -471,7 +471,7 @@ void FDeferredShadingSceneRenderer::RenderLocalLightsForVolumetricFog(
 	FIntVector VolumetricFogGridSize, 
 	FVector GridZParams,
 	const FPooledRenderTargetDesc& VolumeDesc,
-	const FGraphTexture*& OutLocalShadowedLightScattering)
+	const FRDGTexture*& OutLocalShadowedLightScattering)
 {
 	TArray<const FLightSceneInfo*, SceneRenderingAllocator> LightsToInject;
 
@@ -1000,10 +1000,10 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 
 			FMatrix LightFunctionWorldToShadow;
 
-			FRenderGraphBuilder GraphBuilder(RHICmdList);
+			FRDGBuilder GraphBuilder(RHICmdList);
 
 			//@DW - register GWhiteTexture as a graph external for when there's no light function - later a shader is going to bind it whether we rendered to it or not
-			const FGraphTexture* LightFunctionTexture = GraphBuilder.RegisterExternalTexture(GSystemTextures.WhiteDummy);
+			const FRDGTexture* LightFunctionTexture = GraphBuilder.RegisterExternalTexture(GSystemTextures.WhiteDummy);
 			bool bUseDirectionalLightShadowing;
 
 			RenderLightFunctionForVolumetricFog(
@@ -1024,8 +1024,8 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 			//@DW - Passing these around in a struct to ease manual wiring
 			IntegrationData.VBufferA = GraphBuilder.CreateTexture(VolumeDescFastVRAM, TEXT("VBufferA"));
 			IntegrationData.VBufferB = GraphBuilder.CreateTexture(VolumeDescFastVRAM, TEXT("VBufferB"));
-			IntegrationData.VBufferA_UAV = GraphBuilder.CreateUAV(FGraphUAVDesc(IntegrationData.VBufferA));
-			IntegrationData.VBufferB_UAV = GraphBuilder.CreateUAV(FGraphUAVDesc(IntegrationData.VBufferB));
+			IntegrationData.VBufferA_UAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegrationData.VBufferA));
+			IntegrationData.VBufferB_UAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegrationData.VBufferB));
 
 			{
 				FVolumetricFogMaterialSetupCS::FParameters* PassParameters;
@@ -1072,11 +1072,11 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 					FogInfo.VolumetricFogDistance);
 			}
 
-			const FGraphTexture* LocalShadowedLightScattering = GraphBuilder.RegisterExternalTexture(GSystemTextures.VolumetricBlackDummy);
+			const FRDGTexture* LocalShadowedLightScattering = GraphBuilder.RegisterExternalTexture(GSystemTextures.VolumetricBlackDummy);
 			RenderLocalLightsForVolumetricFog(GraphBuilder, View, bUseTemporalReprojection, IntegrationData, FogInfo, VolumetricFogGridSize, GridZParams, VolumeDescFastVRAM, LocalShadowedLightScattering);
 
 			IntegrationData.LightScattering = GraphBuilder.CreateTexture(VolumeDesc, TEXT("LightScattering"));
-			IntegrationData.LightScatteringUAV = GraphBuilder.CreateUAV(FGraphUAVDesc(IntegrationData.LightScattering));
+			IntegrationData.LightScatteringUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegrationData.LightScattering));
 
 			{
 				TVolumetricFogLightScatteringCS::FParameters* PassParameters;
@@ -1137,8 +1137,8 @@ void FDeferredShadingSceneRenderer::ComputeVolumetricFog(FRHICommandListImmediat
 					});
 			}
 
-			const FGraphTexture* IntegratedLightScattering = GraphBuilder.CreateTexture(VolumeDesc, TEXT("IntegratedLightScattering"));
-			const FGraphUAV* IntegratedLightScatteringUAV = GraphBuilder.CreateUAV(FGraphUAVDesc(IntegratedLightScattering));
+			const FRDGTexture* IntegratedLightScattering = GraphBuilder.CreateTexture(VolumeDesc, TEXT("IntegratedLightScattering"));
+			const FRDGTextureUAV* IntegratedLightScatteringUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(IntegratedLightScattering));
 
 			{
 				FVolumetricFogFinalIntegrationCS::FParameters* PassParameters;

@@ -8,19 +8,19 @@
 
 
 /** Generic graph resource. */
-class RENDERCORE_API FGraphResource
+class RENDERCORE_API FRDGResource
 {
 public:
 	// Name of the resource for debugging purpose.
 	const TCHAR* const Name = nullptr;
 
-	FGraphResource(const TCHAR* InDebugName)
+	FRDGResource(const TCHAR* InDebugName)
 		: Name(InDebugName)
 	{ }
 
-	FGraphResource() = delete;
-	FGraphResource(const FGraphResource&) = delete;
-	void operator = (const FGraphResource&) = delete;
+	FRDGResource() = delete;
+	FRDGResource(const FRDGResource&) = delete;
+	void operator = (const FRDGResource&) = delete;
 
 private:
 	/** Number of references in passes and deferred queries. */
@@ -33,7 +33,7 @@ private:
 	/** Boolean to tracked whether a ressource is actually used by the lambda of a pass or not. */
 	mutable bool bIsActuallyUsedByPass = false;
 
-	friend class FRenderGraphBuilder;
+	friend class FRDGBuilder;
 
 
 	/** Friendship over parameter settings for bIsActuallyUsedByPass. It means only this parameter settings can be
@@ -47,7 +47,7 @@ private:
 };
 
 /** Render graph tracked Texture. */
-class RENDERCORE_API FGraphTexture : public FGraphResource
+class RENDERCORE_API FRDGTexture : public FRDGResource
 {
 public:
 	//TODO(RDG): using FDesc = FPooledRenderTargetDesc;
@@ -56,13 +56,13 @@ public:
 	const FPooledRenderTargetDesc Desc;
 
 private:
-	/** This is not a TRefCountPtr<> because FGraphTexture is allocated on the FMemStack
+	/** This is not a TRefCountPtr<> because FRDGTexture is allocated on the FMemStack
 	 * FGraphBuilder::AllocatedTextures is actually keeping the reference.
 	 */
 	mutable IPooledRenderTarget* PooledRenderTarget = nullptr;
 
-	FGraphTexture(const TCHAR* DebugName, const FPooledRenderTargetDesc& InDesc)
-		: FGraphResource(DebugName)
+	FRDGTexture(const TCHAR* DebugName, const FPooledRenderTargetDesc& InDesc)
+		: FRDGResource(DebugName)
 		, Desc(InDesc)
 	{ }
 
@@ -73,9 +73,9 @@ private:
 		return PooledRenderTarget->GetRenderTargetItem().ShaderResourceTexture;
 	}
 
-	friend class FRenderGraphBuilder;
-	friend class FGraphSRV;
-	friend class FGraphUAV;
+	friend class FRDGBuilder;
+	friend class FRDGTextureSRV;
+	friend class FRDGTextureUAV;
 
 	template<typename TRHICmdList, typename TShaderClass, typename TShaderRHI>
 	friend void SetShaderParameters(TRHICmdList&, const TShaderClass*, TShaderRHI*, const typename TShaderClass::FParameters&);
@@ -85,30 +85,30 @@ private:
 };
 
 /** Decsriptor for render graph tracked SRV. */
-class RENDERCORE_API FGraphSRVDesc
+class RENDERCORE_API FRDGTextureSRVDesc
 {
 public:
-	const FGraphTexture* Texture;
+	const FRDGTexture* Texture;
 	uint8 MipLevel = 0;
 
-	FGraphSRVDesc() {}
+	FRDGTextureSRVDesc() {}
 
-	FGraphSRVDesc(const FGraphTexture* InTexture, uint8 InMipLevel) :
+	FRDGTextureSRVDesc(const FRDGTexture* InTexture, uint8 InMipLevel) :
 		Texture(InTexture),
 		MipLevel(InMipLevel)
 	{}
 };
 
 /** Render graph tracked SRV. */
-class RENDERCORE_API FGraphSRV : public FGraphResource
+class RENDERCORE_API FRDGTextureSRV : public FRDGResource
 {
 public:
 	/** Descriptor of the graph tracked SRV. */
-	const FGraphSRVDesc Desc;
+	const FRDGTextureSRVDesc Desc;
 
 private:
-	FGraphSRV(const TCHAR* DebugName, const FGraphSRVDesc& InDesc)
-		: FGraphResource(DebugName)
+	FRDGTextureSRV(const TCHAR* DebugName, const FRDGTextureSRVDesc& InDesc)
+		: FRDGResource(DebugName)
 		, Desc(InDesc)
 	{ }
 
@@ -120,7 +120,7 @@ private:
 		return Desc.Texture->PooledRenderTarget->GetRenderTargetItem().MipSRVs[Desc.MipLevel];
 	}
 
-	friend class FRenderGraphBuilder;
+	friend class FRDGBuilder;
 
 	template<typename TRHICmdList, typename TShaderClass, typename TShaderRHI>
 	friend void SetShaderParameters(TRHICmdList&, const TShaderClass*, TShaderRHI*, const typename TShaderClass::FParameters&);
@@ -130,30 +130,30 @@ private:
 };
 
 /** Decsriptor for render graph tracked UAV. */
-class RENDERCORE_API FGraphUAVDesc
+class RENDERCORE_API FRDGTextureUAVDesc
 {
 public:
-	const FGraphTexture* Texture;
+	const FRDGTexture* Texture;
 	uint8 MipLevel = 0;
 
-	FGraphUAVDesc() {}
+	FRDGTextureUAVDesc() {}
 
-	FGraphUAVDesc(const FGraphTexture* InTexture, uint8 InMipLevel = 0) :
+	FRDGTextureUAVDesc(const FRDGTexture* InTexture, uint8 InMipLevel = 0) :
 		Texture(InTexture),
 		MipLevel(InMipLevel)
 	{}
 };
 
 /** Render graph tracked UAV. */
-class RENDERCORE_API FGraphUAV : public FGraphResource
+class RENDERCORE_API FRDGTextureUAV : public FRDGResource
 {
 public:
 	/** Descriptor of the graph tracked UAV. */
-	const FGraphUAVDesc Desc;
+	const FRDGTextureUAVDesc Desc;
 
 private:
-	FGraphUAV(const TCHAR* DebugName, const FGraphUAVDesc& InDesc)
-		: FGraphResource(DebugName)
+	FRDGTextureUAV(const TCHAR* DebugName, const FRDGTextureUAVDesc& InDesc)
+		: FRDGResource(DebugName)
 		, Desc(InDesc)
 	{ }
 
@@ -165,7 +165,7 @@ private:
 		return Desc.Texture->PooledRenderTarget->GetRenderTargetItem().MipUAVs[Desc.MipLevel];
 	}
 
-	friend class FRenderGraphBuilder;
+	friend class FRDGBuilder;
 
 	template<typename TRHICmdList, typename TShaderClass, typename TShaderRHI>
 	friend void SetShaderParameters(TRHICmdList&, const TShaderClass*, TShaderRHI*, const typename TShaderClass::FParameters&);

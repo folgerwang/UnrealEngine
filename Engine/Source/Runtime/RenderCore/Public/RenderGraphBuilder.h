@@ -84,7 +84,7 @@ struct TLambdaRenderPass final : public FRenderGraphPass
 	~TLambdaRenderPass()
 	{
 		// Manually call the destructor of the pass parameter, to make sure RHI references are released since the pass parameters are allocated on FMemStack.
-		// TODO(RDG): this may lead to RHI resource leaks if a struct allocated in FMemStack does not actually get used through FRenderGraphBuilder::AddPass().
+		// TODO(RDG): this may lead to RHI resource leaks if a struct allocated in FMemStack does not actually get used through FRDGBuilder::AddPass().
 		ParameterStructType* Struct = reinterpret_cast<ParameterStructType*>(const_cast<void*>(FRenderGraphPass::ParameterStruct.Contents));
 		Struct->~ParameterStructType();
 	}
@@ -102,28 +102,28 @@ struct TLambdaRenderPass final : public FRenderGraphPass
  * Resources must be created from the builder before they can be bound to Pass ResourceTables.
  * These resources are descriptors only until the graph is executed, where RHI resources are allocated as needed.
  */
-class RENDERCORE_API FRenderGraphBuilder
+class RENDERCORE_API FRDGBuilder
 {
 public:
 	/** A RHI cmd list is required, if using the immediate mode. */
-	FRenderGraphBuilder(FRHICommandListImmediate& InRHICmdList)
+	FRDGBuilder(FRHICommandListImmediate& InRHICmdList)
 		: RHICmdList(InRHICmdList)
 	{ }
 
-	~FRenderGraphBuilder()
+	~FRDGBuilder()
 	{
 		DestructPasses();
 	}
 
 	/** Register a external texture to be tracked by the render graph. */
-	inline const FGraphTexture* RegisterExternalTexture(const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture, const TCHAR* Name = TEXT("External"))
+	inline const FRDGTexture* RegisterExternalTexture(const TRefCountPtr<IPooledRenderTarget>& ExternalPooledTexture, const TCHAR* Name = TEXT("External"))
 	{
 		#if RENDER_GRAPH_DEBUGGING
 		{
 			ensureMsgf(ExternalPooledTexture.IsValid(), TEXT("Attempted to register NULL external texture: %s"), Name);
 		}
 		#endif
-		FGraphTexture* OutTexture = new(FMemStack::Get()) FGraphTexture(Name, ExternalPooledTexture->GetDesc());
+		FRDGTexture* OutTexture = new(FMemStack::Get()) FRDGTexture(Name, ExternalPooledTexture->GetDesc());
 		OutTexture->PooledRenderTarget = ExternalPooledTexture;
 		AllocatedTextures.Add(OutTexture, ExternalPooledTexture);
 		#if DO_CHECK
@@ -133,14 +133,14 @@ public:
 	}
 
 	/** Create graph tracked resource from a descriptor with a debug name. */
-	inline const FGraphTexture* CreateTexture(const FPooledRenderTargetDesc& Desc, const TCHAR* DebugName)
+	inline const FRDGTexture* CreateTexture(const FPooledRenderTargetDesc& Desc, const TCHAR* DebugName)
 	{
 		#if RENDER_GRAPH_DEBUGGING
 		{
 			ensureMsgf(!bHasExecuted, TEXT("Render graph texture %s needs to be created before the builder execution."), DebugName);
 		}
 		#endif
-		FGraphTexture* Texture = new(FMemStack::Get()) FGraphTexture(DebugName, Desc);
+		FRDGTexture* Texture = new(FMemStack::Get()) FRDGTexture(DebugName, Desc);
 		#if DO_CHECK
 			Resources.Add(Texture);
 		#endif
@@ -148,7 +148,7 @@ public:
 	}
 
 	/** Create graph tracked SRV from a descriptor. */
-	inline const FGraphSRV* CreateSRV(const FGraphSRVDesc& Desc)
+	inline const FRDGTextureSRV* CreateSRV(const FRDGTextureSRVDesc& Desc)
 	{
 		check(Desc.Texture);
 		#if RENDER_GRAPH_DEBUGGING
@@ -158,7 +158,7 @@ public:
 		}
 		#endif
 		
-		FGraphSRV* SRV = new(FMemStack::Get()) FGraphSRV(Desc.Texture->Name, Desc);
+		FRDGTextureSRV* SRV = new(FMemStack::Get()) FRDGTextureSRV(Desc.Texture->Name, Desc);
 		#if DO_CHECK
 			Resources.Add(SRV);
 		#endif
@@ -166,7 +166,7 @@ public:
 	}
 
 	/** Create graph tracked UAV from a descriptor. */
-	inline const FGraphUAV* CreateUAV(const FGraphUAVDesc& Desc)
+	inline const FRDGTextureUAV* CreateUAV(const FRDGTextureUAVDesc& Desc)
 	{
 		check(Desc.Texture);
 		#if RENDER_GRAPH_DEBUGGING
@@ -176,7 +176,7 @@ public:
 		}
 		#endif
 		
-		FGraphUAV* UAV = new(FMemStack::Get()) FGraphUAV(Desc.Texture->Name, Desc);
+		FRDGTextureUAV* UAV = new(FMemStack::Get()) FRDGTextureUAV(Desc.Texture->Name, Desc);
 		#if DO_CHECK
 			Resources.Add(UAV);
 		#endif
@@ -227,7 +227,7 @@ public:
 	/**
 	 * Extracts an internal texture by handle.  Must be called before Execute.
 	 */
-	inline void GetInternalTexture(const FGraphTexture* Texture, TRefCountPtr<IPooledRenderTarget>* OutTexturePtr, bool bTransitionToRead = true)
+	inline void GetInternalTexture(const FRDGTexture* Texture, TRefCountPtr<IPooledRenderTarget>* OutTexturePtr, bool bTransitionToRead = true)
 	{
 		check(Texture);
 		check(OutTexturePtr);
@@ -255,13 +255,13 @@ private:
 	/** Array of all pass created */
 	TArray<FRenderGraphPass*, SceneRenderingAllocator> Passes;
 
-	/** Keep the references over the pooled render target, since FGraphTexture is allocated on FMemStack. */
-	TMap<const FGraphTexture*, TRefCountPtr<IPooledRenderTarget>, SceneRenderingSetAllocator> AllocatedTextures;
+	/** Keep the references over the pooled render target, since FRDGTexture is allocated on FMemStack. */
+	TMap<const FRDGTexture*, TRefCountPtr<IPooledRenderTarget>, SceneRenderingSetAllocator> AllocatedTextures;
 
 	/** Array of all deferred access to internal textures. */
 	struct FDeferredInternalTextureQuery
 	{
-		const FGraphTexture* Texture;
+		const FRDGTexture* Texture;
 		TRefCountPtr<IPooledRenderTarget>* OutTexturePtr;
 		bool bTransitionToRead;
 	};
@@ -273,7 +273,7 @@ private:
 		bool bHasExecuted = false;
 
 		/** Lists of all created resources */
-		TArray<const FGraphResource*, SceneRenderingAllocator> Resources;
+		TArray<const FRDGResource*, SceneRenderingAllocator> Resources;
 	#endif
 
 	void DebugPass(const FRenderGraphPass* Pass);
@@ -281,17 +281,17 @@ private:
 
 	void WalkGraphDependencies();
 
-	void AllocateRHITextureIfNeeded(const FGraphTexture* Texture, bool bComputePass);
+	void AllocateRHITextureIfNeeded(const FRDGTexture* Texture, bool bComputePass);
 
-	void TransitionTexture( const FGraphTexture* Texture, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
-	void TransitionUAV( const FGraphUAV* UAV, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
+	void TransitionTexture( const FRDGTexture* Texture, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
+	void TransitionUAV( const FRDGTextureUAV* UAV, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
 
 	void ExecutePass( const FRenderGraphPass* Pass );
 	void AllocateAndTransitionPassResources(const FRenderGraphPass* Pass, struct FRHIRenderPassInfo* OutRPInfo, bool* bOutHasRenderTargets);
 	static void WarnForUselessPassDependencies(const FRenderGraphPass* Pass);
-	void ReleaseRHITextureIfPossible(const FGraphTexture* Texture);
+	void ReleaseRHITextureIfPossible(const FRDGTexture* Texture);
 	void ReleaseUnecessaryResources(const FRenderGraphPass* Pass);
 
 	void ProcessDeferredInternalResourceQueries();
 	void DestructPasses();
-}; // class FRenderGraphBuilder
+}; // class FRDGBuilder

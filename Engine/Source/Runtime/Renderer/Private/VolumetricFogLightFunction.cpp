@@ -97,12 +97,12 @@ private:
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FVolumetricFogLightFunctionPS,TEXT("/Engine/Private/VolumetricFogLightFunction.usf"),TEXT("Main"),SF_Pixel);
 
 void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
-	FRenderGraphBuilder& GraphBuilder,
+	FRDGBuilder& GraphBuilder,
 	FViewInfo& View, 
 	FIntVector VolumetricFogGridSize,
 	float VolumetricFogMaxDistance,
 	FMatrix& OutLightFunctionWorldToShadow,
-	const FGraphTexture*& OutLightFunctionTexture,
+	const FRDGTexture*& OutLightFunctionTexture,
 	bool& bOutUseDirectionalLightShadowing)
 {
 	OutLightFunctionWorldToShadow = FMatrix::Identity;
