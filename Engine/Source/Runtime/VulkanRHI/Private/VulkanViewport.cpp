@@ -20,7 +20,6 @@ FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
 	ECVF_ReadOnly
 );
 
-
 struct FRHICommandAcquireBackBuffer final : public FRHICommand<FRHICommandAcquireBackBuffer>
 {
 	FVulkanViewport* Viewport;
@@ -208,6 +207,9 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 {
 	check(IsInRenderingThread());
+
+	// make sure we aren't in the middle of swapchain recreation (which can happen on e.g. RHI thread)
+	FScopeLock LockSwapchain(&RecreatingSwapchain);
 
 	if (!RenderingBackBuffer && FVulkanPlatform::SupportsStandardSwapchain())
 	{
@@ -443,6 +445,7 @@ void FVulkanViewport::RecreateSwapchain(void* NewNativeWindow, bool bForce)
 		return;
 	}
 
+	FScopeLock LockSwapchain(&RecreatingSwapchain);
 	RenderingBackBuffer = nullptr;
 	RHIBackBuffer = nullptr;
 
