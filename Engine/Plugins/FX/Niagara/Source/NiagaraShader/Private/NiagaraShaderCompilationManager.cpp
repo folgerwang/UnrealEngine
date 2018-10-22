@@ -400,8 +400,12 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 					Script->SetRenderingThreadShaderMap(CompiledShaderMap);
 				});
 
-
-			Script->NotifyCompilationFinished();
+			// Can't call NotifyCompilationFinished() when post-loading. 
+			// This normally happens when compiled in-sync for which the callback is not required.
+			if (!FUObjectThreadContext::Get().IsRoutingPostLoad)
+			{
+				Script->NotifyCompilationFinished();
+			}
 		}
 	}
 }
