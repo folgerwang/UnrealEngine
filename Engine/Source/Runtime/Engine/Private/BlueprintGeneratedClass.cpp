@@ -812,8 +812,7 @@ UObject* UBlueprintGeneratedClass::FindArchetype(UClass* ArchetypeClass, const F
 			}
 		}
 	}
-
-	ensure(!Archetype || ArchetypeClass->IsChildOf(Archetype->GetClass()));
+	
 	return Archetype;
 }
 
