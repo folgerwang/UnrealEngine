@@ -183,11 +183,11 @@ public:
 	virtual FOnTargetPlatformsForCurrentProjectChangedEvent& OnTargetPlatformsForCurrentProjectChanged() = 0;
 
 	/**
-	 * Hack to checks whether the current project has a non-default plugin enabled (ie. one which is not included by default in UE4Game).
+	 * Checks whether the current project has default settings for plugins (ie. does not enable any new plugins, or disable any default plugins)
 	 * 
-	 * @return	True if the project has a non-default plugin enabled.
+	 * @return	True if the project has the default plugin settings.
 	 */
-	virtual bool IsNonDefaultPluginEnabled() const = 0;
+	virtual bool HasDefaultPluginSettings() const = 0;
 
 	/**
 	 * Sets whether a plugin is enabled, and updates the current project descriptor. Does not save to disk and may require restarting to load it.
