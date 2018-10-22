@@ -229,7 +229,7 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 			OutTutorialPath = FString("/Engine/Tutorial/Mobile/iOSonPCRestrictions.iOSonPCRestrictions");
 			bReadyToBuild |= ETargetPlatformReadyStatus::CodeUnsupported;
 		}
-		if (IProjectManager::Get().IsNonDefaultPluginEnabled())
+		if (!IProjectManager::Get().HasDefaultPluginSettings())
 		{
 			OutTutorialPath = FString("/Engine/Tutorial/Mobile/iOSonPCValidPlugins.iOSonPCValidPlugins");
 			bReadyToBuild |= ETargetPlatformReadyStatus::PluginsUnsupported;

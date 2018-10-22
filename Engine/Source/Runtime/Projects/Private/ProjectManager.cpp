@@ -249,7 +249,7 @@ void FProjectManager::ClearSupportedTargetPlatformsForCurrentProject()
 	OnTargetPlatformsForCurrentProjectChangedEvent.Broadcast();
 }
 
-bool FProjectManager::IsNonDefaultPluginEnabled() const
+bool FProjectManager::HasDefaultPluginSettings() const
 {
 	// Get settings for the plugins which are currently enabled or disabled by the project file
 	TMap<FString, bool> ConfiguredPlugins;
@@ -274,18 +274,15 @@ bool FProjectManager::IsNonDefaultPluginEnabled() const
 				bEnabled = *EnabledPtr;
 			}
 
-			if (bEnabled)
+			bool bEnabledInDefaultExe = (Plugin->GetLoadedFrom() == EPluginLoadedFrom::Engine && Plugin->IsEnabledByDefault() && !Plugin->GetDescriptor().bInstalled);
+			if(bEnabled != bEnabledInDefaultExe)
 			{
-				bool bEnabledInDefaultExe = (Plugin->GetLoadedFrom() == EPluginLoadedFrom::Engine && Plugin->IsEnabledByDefault() && !Plugin->GetDescriptor().bInstalled);
-				if(bEnabled != bEnabledInDefaultExe)
-				{
-					return true;
-				}
+				return false;
 			}
 		}
 	}
 
-	return false;
+	return true;
 }
 
 bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason)

@@ -219,7 +219,7 @@ public:
 				ReadyToBuild |= ETargetPlatformReadyStatus::CodeUnsupported;
 			}
 
-			if (IProjectManager::Get().IsNonDefaultPluginEnabled())
+			if (!IProjectManager::Get().HasDefaultPluginSettings())
 			{
 				ReadyToBuild |= ETargetPlatformReadyStatus::PluginsUnsupported;
 			}
