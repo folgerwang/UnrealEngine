@@ -336,6 +336,20 @@ namespace UnrealBuildTool
 			DirectoryReference TempDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Remote", TargetDesc.Name, TargetDesc.Platform.ToString(), TargetDesc.Configuration.ToString());
 			DirectoryReference.CreateDirectory(TempDir);
 
+			bool bLogIsMapped = false;
+			foreach (RemoteMapping Mapping in Mappings)
+			{
+				if (RemoteLogFile.Directory.FullName.Equals(Mapping.LocalDirectory.FullName, StringComparison.InvariantCultureIgnoreCase))
+				{
+					bLogIsMapped = true;
+					break;
+				}
+			}
+			if (!bLogIsMapped)
+			{
+				Mappings.Add(new RemoteMapping(RemoteLogFile.Directory, GetRemotePath(RemoteLogFile.Directory)));
+			}
+
 			// Compile the rules assembly
 			RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
 
