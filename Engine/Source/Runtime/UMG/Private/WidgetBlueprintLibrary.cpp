@@ -158,7 +158,7 @@ void UWidgetBlueprintLibrary::DrawBox(FPaintContext& Context, FVector2D Position
 	}
 }
 
-void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias, float Thickness)
 {
 	Context.MaxLayer++;
 
@@ -173,10 +173,11 @@ void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D Positio
 		Points,
 		ESlateDrawEffect::None,
 		Tint,
-		bAntiAlias);
+		bAntiAlias,
+		Thickness);
 }
 
-void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias, float Thickness)
 {
 	Context.MaxLayer++;
 
@@ -187,7 +188,8 @@ void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVe
 		Points,
 		ESlateDrawEffect::None,
 		Tint,
-		bAntiAlias);
+		bAntiAlias,
+		Thickness);
 }
 
 void UWidgetBlueprintLibrary::DrawText(FPaintContext& Context, const FString& InString, FVector2D Position, FLinearColor Tint)

@@ -76,21 +76,23 @@ public:
 	 *
 	 * @param PositionA		Starting position of the line in local space.
 	 * @param PositionB		Ending position of the line in local space.
-	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
+	 * @param bAntialias	Whether the line should be antialiased.
+	 * @param Thickness		How many pixels thick this line should be.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "4" ), Category="Painting" )
-	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "4"), Category = "Painting")
+	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true, float Thickness = 1.0f);
 
 	/**
 	 * Draws several line segments.
 	 *
 	 * @param Points		Line pairs, each line needs to be 2 separate points in the array.
-	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
+	 * @param bAntialias	Whether the line should be antialiased.
+	 * @param Thickness		How many pixels thick this line should be.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "3" ), Category="Painting" )
-	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "3"), Category = "Painting")
+	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true, float Thickness = 1.0f);
 
 	/**
 	 * Draws text.
