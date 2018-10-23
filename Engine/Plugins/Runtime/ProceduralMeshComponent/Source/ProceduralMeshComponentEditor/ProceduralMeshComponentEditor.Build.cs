@@ -20,7 +20,8 @@ namespace UnrealBuildTool.Rules
                     "ShaderCore",
                     "RHI",
                     "ProceduralMeshComponent",
-                    "RawMesh",
+                    "MeshDescription",
+                    "MeshDescriptionOperations",
                     "AssetTools",
                     "AssetRegistry"
                 }
