@@ -231,7 +231,7 @@ void FMacCursor::SetPosition(const int32 X, const int32 Y)
 
 	if (!bIsPositionInitialised || FIntVector(NewPos.X, NewPos.Y, 0) != FIntVector(CurrentPosition.X, CurrentPosition.Y, 0))
 	{
-		if (!bUseHighPrecisionMode || (CurrentCursor && bIsVisible))
+		if (!bUseHighPrecisionMode || (CurrentCursor && bIsVisible) || !bIsPositionInitialised)
 		{
 			WarpCursor(NewPos.X, NewPos.Y);
 		}
