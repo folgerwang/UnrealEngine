@@ -134,11 +134,14 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 			FMenuBuilder MenuBuilder(true, nullptr);
 			MenuBuilder.BeginSection("EmitterInlineMenuActions", LOCTEXT("EmitterActions", "Emitter Actions"));
 			{
-				MenuBuilder.AddMenuEntry(
-					LOCTEXT("RenameEmitter", "Rename Emitter"),
-					LOCTEXT("RenameEmitterToolTip", "Rename this emitter"), 
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateSP(InlineEditableTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode)));
+				if (!GetEmitterNameIsReadOnly()) // Only allow renaming local copies of Emitters in Systems
+				{
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("RenameEmitter", "Rename Emitter"),
+						LOCTEXT("RenameEmitterToolTip", "Rename this local emitter copy"),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateSP(InlineEditableTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode)));
+				}
 
 				MenuBuilder.AddMenuEntry(
 					LOCTEXT("ShowEmitterInContentBrowser", "Show in Content Browser"),
@@ -304,6 +307,7 @@ void SNiagaraStack::ConstructHeaderWidget()
 						.Text(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::GetNameText)
 						.OnTextCommitted(this, &SNiagaraStack::OnStackViewNameTextCommitted)
 						.OnVerifyTextChanged(StackViewModel->GetEmitterHandleViewModel()->AsShared(), &FNiagaraEmitterHandleViewModel::VerifyNameTextChanged)
+						.IsReadOnly(this, &SNiagaraStack::GetEmitterNameIsReadOnly)
 					]
 					+ SWrapBox::Slot()
 					.Padding(3, 0)
@@ -502,6 +506,15 @@ EVisibility SNiagaraStack::GetPinEmitterVisibility() const
 EVisibility SNiagaraStack::GetOpenSourceEmitterVisibility() const
 {
 	return CanOpenSourceEmitter() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+bool SNiagaraStack::GetEmitterNameIsReadOnly() const
+{
+	if (StackViewModel && StackViewModel->GetSystemViewModel().IsValid())
+	{
+		return StackViewModel->GetSystemViewModel()->GetEditMode() == ENiagaraSystemViewModelEditMode::EmitterAsset;
+	}
+	return true;
 }
 
 bool SNiagaraStack::CanOpenSourceEmitter() const
