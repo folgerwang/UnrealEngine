@@ -16,7 +16,6 @@
 #include "DetailCategoryBuilder.h"
 #include "IDetailsView.h"
 #include "ProceduralMeshComponent.h"
-//#include "RawMesh.h"
 
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
