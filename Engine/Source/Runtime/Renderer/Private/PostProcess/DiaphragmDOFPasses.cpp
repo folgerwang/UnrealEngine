@@ -241,11 +241,6 @@ class FPostProcessDiaphragmDOFShader : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		if (!IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5))
-		{
-			return false;
-		}
-
 		return DiaphragmDOF::IsSupported(Parameters.Platform);
 	}
 
@@ -856,7 +851,11 @@ class FPostProcessDiaphragmDOFScatterGroupPackCS : public FPostProcessDiaphragmD
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return FRCPassDiaphragmDOFHybridScatter::IsSupported(Parameters.Platform);
+		if (!FRCPassDiaphragmDOFHybridScatter::IsSupported(Parameters.Platform))
+		{
+			return false;
+		}
+		return FPostProcessDiaphragmDOFShader::ShouldCompilePermutation(Parameters);
 	}
 };
 
