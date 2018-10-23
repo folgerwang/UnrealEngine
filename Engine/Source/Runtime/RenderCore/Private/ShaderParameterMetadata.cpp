@@ -63,6 +63,16 @@ FShaderParametersMetadata::FShaderParametersMetadata(
 	, GlobalListLink(this)
 	, bLayoutInitialized(false)
 {
+	check(StructTypeName);
+	if (UseCase == EUseCase::ShaderParameterStruct)
+	{
+		check(ShaderVariableName == nullptr);
+	}
+	else
+	{
+		check(ShaderVariableName);
+	}
+
 	if (UseCase == EUseCase::GlobalShaderParameterStruct)
 	{
 		// Register this uniform buffer struct in global list.
@@ -79,11 +89,6 @@ FShaderParametersMetadata::FShaderParametersMetadata(
 		// Structs created during global initialization will have bRegisterForAutoBinding==false, and are initialized during startup.
 		// Structs created at runtime with bRegisterForAutoBinding==true can be initialized now.
 		InitializeLayout();
-	}
-
-	if (UseCase == EUseCase::ShaderParameterStruct)
-	{
-		check(ShaderVariableName == nullptr);
 	}
 }
 

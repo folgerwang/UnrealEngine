@@ -638,7 +638,7 @@ struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 	static FShaderParametersMetadata StaticStructMetadata(\
 		FShaderParametersMetadata::EUseCase::ShaderParameterStruct, \
 		FName(TEXT(#StructTypeName)), \
-		nullptr, \
+		TEXT(#StructTypeName), \
 		nullptr, \
 		sizeof(StructTypeName), \
 		StructTypeName::zzGetMembers()); \
