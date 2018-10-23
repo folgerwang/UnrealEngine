@@ -140,6 +140,14 @@ void FNiagaraShaderScript::RegisterShaderMap()
 	}
 }
 
+void  FNiagaraShaderScript::DiscardShaderMap()
+{
+	if (GameThreadShaderMap)
+	{
+		GameThreadShaderMap->DiscardSerializedShaders();
+	}
+}
+
 void FNiagaraShaderScript::ReleaseShaderMap()
 {
 	if (GameThreadShaderMap)
