@@ -241,6 +241,11 @@ class FPostProcessDiaphragmDOFShader : public FGlobalShader
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
+		if (!IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5))
+		{
+			return false;
+		}
+
 		return DiaphragmDOF::IsSupported(Parameters.Platform);
 	}
 
