@@ -87,6 +87,8 @@ public:
 		}
 	}
 
+	virtual void SerializeIntPacked(uint32& Value) override;
+
 	FORCEINLINE_DEBUGGABLE uint32 ReadInt(uint32 Max)
 	{
 		uint32 Value = 0;
