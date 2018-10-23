@@ -3,6 +3,7 @@
 #include "RenderGraphBuilder.h"
 #include "RenderCore.h"
 #include "RenderTargetPool.h"
+#include "RenderGraphResourcePool.h"
 
 
 #if RENDER_GRAPH_DEBUGGING
@@ -78,8 +79,9 @@ void FRDGBuilder::ValidatePass(const FRenderGraphPass* Pass) const
 		switch (Type)
 		{
 		case UBMT_GRAPH_TRACKED_UAV:
+		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
 		{
-			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
+			FRDGResource* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGResource*>(Offset);
 			if (UAV && !bCanUseUAVs)
 			{
 				UE_LOG(LogRendererCore, Warning, TEXT("UAV can only been bound to compute shaders, therefore UAV %s is certainly useless for passs %s."), UAV->Name, Pass->GetName());
@@ -144,11 +146,12 @@ void FRDGBuilder::WalkGraphDependencies()
 			switch (Type)
 			{
 			case UBMT_GRAPH_TRACKED_TEXTURE:
+			case UBMT_GRAPH_TRACKED_BUFFER:
 			{
-				FRDGTexture* RESTRICT Texture = *ParameterStruct.GetMemberPtrAtOffset<FRDGTexture*>(Offset);
-				if (Texture)
+				FRDGResource* RESTRICT Resource = *ParameterStruct.GetMemberPtrAtOffset<FRDGResource*>(Offset);
+				if (Resource)
 				{
-					Texture->ReferenceCount++;
+					Resource->ReferenceCount++;
 				}
 			}
 			break;
@@ -167,6 +170,24 @@ void FRDGBuilder::WalkGraphDependencies()
 				if (UAV)
 				{
 					UAV->Desc.Texture->ReferenceCount++;
+				}
+			}
+			break;
+			case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+			{
+				FRDGBufferSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferSRV*>(Offset);
+				if (SRV)
+				{
+					SRV->Desc.Buffer->ReferenceCount++;
+				}
+			}
+			break;
+			case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+			{
+				FRDGBufferUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferUAV*>(Offset);
+				if (UAV)
+				{
+					UAV->Desc.Buffer->ReferenceCount++;
 				}
 			}
 			break;
@@ -235,6 +256,126 @@ void FRDGBuilder::AllocateRHITextureIfNeeded(const FRDGTexture* Texture, bool bC
 	Texture->PooledRenderTarget = PooledRenderTarget;
 }
 
+void FRDGBuilder::AllocateRHITextureSRVIfNeeded(const FRDGTextureSRV* SRV, bool bComputePass)
+{
+	check(SRV);
+
+	if (SRV->CachedRHI.SRV)
+	{
+		return;
+	}
+
+	AllocateRHITextureIfNeeded(SRV->Desc.Texture, bComputePass);
+
+	SRV->CachedRHI.SRV = SRV->Desc.Texture->PooledRenderTarget->GetRenderTargetItem().MipSRVs[SRV->Desc.MipLevel];
+}
+
+void FRDGBuilder::AllocateRHITextureUAVIfNeeded(const FRDGTextureUAV* UAV, bool bComputePass)
+{
+	check(UAV);
+
+	if (UAV->CachedRHI.UAV)
+	{
+		return;
+	}
+
+	AllocateRHITextureIfNeeded(UAV->Desc.Texture, bComputePass);
+
+	UAV->CachedRHI.UAV = UAV->Desc.Texture->PooledRenderTarget->GetRenderTargetItem().MipUAVs[UAV->Desc.MipLevel];
+}
+
+void FRDGBuilder::AllocateRHIBufferIfNeeded(const FRDGBuffer* Buffer, bool bComputePass)
+{
+	check(Buffer);
+
+	if (Buffer->PooledBuffer)
+	{
+		return;
+	}
+
+	check(Buffer->ReferenceCount > 0 || GRenderGraphImmediateMode);
+
+	TRefCountPtr<FPooledRDGBuffer>& AllocatedBuffer = AllocatedBuffers.FindOrAdd(Buffer);
+	GRenderGraphResourcePool.FindFreeBuffer(RHICmdList, Buffer->Desc, AllocatedBuffer, Buffer->Name);
+
+	Buffer->PooledBuffer = AllocatedBuffer;
+}
+
+void FRDGBuilder::AllocateRHIBufferSRVIfNeeded(const FRDGBufferSRV* SRV, bool bComputePass)
+{
+	check(SRV);
+
+	if (SRV->CachedRHI.SRV)
+	{
+		return;
+	}
+
+	AllocateRHIBufferIfNeeded(SRV->Desc.Buffer, bComputePass);
+
+	if (SRV->Desc.Buffer->PooledBuffer->SRVs.Contains(SRV->Desc))
+	{
+		SRV->CachedRHI.SRV = SRV->Desc.Buffer->PooledBuffer->SRVs[SRV->Desc];
+		return;
+	}
+
+	FShaderResourceViewRHIRef RHIShaderResourceView;
+
+	if (SRV->Desc.Buffer->Desc.UnderlyingType == FRDGBufferDesc::EUnderlyingType::VertexBuffer)
+	{
+		RHIShaderResourceView = RHICreateShaderResourceView(SRV->Desc.Buffer->PooledBuffer->VertexBuffer, SRV->Desc.BytesPerElement, SRV->Desc.Format);
+	}
+	else if (SRV->Desc.Buffer->Desc.UnderlyingType == FRDGBufferDesc::EUnderlyingType::VertexBuffer)
+	{
+		RHIShaderResourceView = RHICreateShaderResourceView(SRV->Desc.Buffer->PooledBuffer->StructuredBuffer);
+	}
+	else
+	{
+		check(0);
+	}
+
+	SRV->CachedRHI.SRV = RHIShaderResourceView;
+	SRV->Desc.Buffer->PooledBuffer->SRVs.Add(SRV->Desc, RHIShaderResourceView);
+}
+
+void FRDGBuilder::AllocateRHIBufferUAVIfNeeded(const FRDGBufferUAV* UAV, bool bComputePass)
+{
+	check(UAV);
+
+	if (UAV->CachedRHI.UAV)
+	{
+		return;
+	}
+
+	AllocateRHIBufferIfNeeded(UAV->Desc.Buffer, bComputePass);
+
+	if (UAV->Desc.Buffer->PooledBuffer->UAVs.Contains(UAV->Desc))
+	{
+		UAV->CachedRHI.UAV = UAV->Desc.Buffer->PooledBuffer->UAVs[UAV->Desc];
+		return;
+	}
+
+	// Hack to make sure only one UAVs is arround.
+	UAV->Desc.Buffer->PooledBuffer->UAVs.Empty();
+
+	FUnorderedAccessViewRHIRef RHIUnorderedAccessView;
+
+	if (UAV->Desc.Buffer->Desc.UnderlyingType == FRDGBufferDesc::EUnderlyingType::VertexBuffer)
+	{
+		RHIUnorderedAccessView = RHICreateUnorderedAccessView(UAV->Desc.Buffer->PooledBuffer->VertexBuffer, UAV->Desc.Format);
+	}
+	else if (UAV->Desc.Buffer->Desc.UnderlyingType == FRDGBufferDesc::EUnderlyingType::VertexBuffer)
+	{
+		RHIUnorderedAccessView = RHICreateUnorderedAccessView(UAV->Desc.Buffer->PooledBuffer->StructuredBuffer, UAV->Desc.bSupportsAtomicCounter, UAV->Desc.bSupportsAppendBuffer);
+	}
+	else
+	{
+		check(0);
+	}
+
+	UAV->CachedRHI.UAV = RHIUnorderedAccessView;
+	UAV->Desc.Buffer->PooledBuffer->UAVs.Add(UAV->Desc, RHIUnorderedAccessView);
+}
+
 static EResourceTransitionPipeline CalcTransitionPipeline(bool bCurrentCompute, bool bTargetCompute)
 {
 	// TODO(RDG) convert table to math
@@ -264,16 +405,16 @@ void FRDGBuilder::TransitionTexture( const FRDGTexture* Texture, EResourceTransi
 	}
 }
 
-void FRDGBuilder::TransitionUAV( const FRDGTextureUAV* UAV, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const
+void FRDGBuilder::TransitionUAV(FUnorderedAccessViewRHIParamRef UAV, const FRDGResource* UnderlyingResource, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const
 {
 	const bool bRequiredWritable = true;
 
-	if( UAV->Desc.Texture->bWritable != bRequiredWritable || UAV->Desc.Texture->bCompute != bRequiredCompute )
+	if(UnderlyingResource->bWritable != bRequiredWritable || UnderlyingResource->bCompute != bRequiredCompute )
 	{
-		EResourceTransitionPipeline TransitionPipeline = CalcTransitionPipeline( UAV->Desc.Texture->bCompute, bRequiredCompute );
-		RHICmdList.TransitionResource( TransitionAccess, TransitionPipeline, UAV->GetRHIUnorderedAccessView());
-		UAV->Desc.Texture->bWritable = bRequiredWritable;
-		UAV->Desc.Texture->bCompute = bRequiredCompute;
+		EResourceTransitionPipeline TransitionPipeline = CalcTransitionPipeline(UnderlyingResource->bCompute, bRequiredCompute );
+		RHICmdList.TransitionResource( TransitionAccess, TransitionPipeline, UAV);
+		UnderlyingResource->bWritable = bRequiredWritable;
+		UnderlyingResource->bCompute = bRequiredCompute;
 	}
 }
 
@@ -379,9 +520,8 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			{
 				check(SRV->Desc.Texture);
 
-				const FRDGTexture* Texture = SRV->Desc.Texture;
-				AllocateRHITextureIfNeeded(Texture, bIsCompute);
-				TransitionTexture(Texture, EResourceTransitionAccess::EReadable, bIsCompute);
+				AllocateRHITextureSRVIfNeeded(SRV, bIsCompute);
+				TransitionTexture(SRV->Desc.Texture, EResourceTransitionAccess::EReadable, bIsCompute);
 			}
 		}
 		break;
@@ -390,8 +530,46 @@ void FRDGBuilder::AllocateAndTransitionPassResources(const FRenderGraphPass* Pas
 			FRDGTextureUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGTextureUAV*>(Offset);
 			if (UAV)
 			{
-				AllocateRHITextureIfNeeded(UAV->Desc.Texture, bIsCompute);
-				TransitionUAV(UAV, EResourceTransitionAccess::EWritable, bIsCompute);
+				AllocateRHITextureUAVIfNeeded(UAV, bIsCompute);
+				TransitionUAV(UAV->CachedRHI.UAV, UAV->Desc.Texture, EResourceTransitionAccess::EWritable, bIsCompute);
+			}
+		}
+		break;
+		case UBMT_GRAPH_TRACKED_BUFFER:
+		{
+			FRDGBuffer* RESTRICT Buffer = *ParameterStruct.GetMemberPtrAtOffset<FRDGBuffer*>(Offset);
+			if (Buffer)
+			{
+				AllocateRHIBufferIfNeeded(Buffer, bIsCompute);
+
+				// TODO(RDG): supper hacky, find the UAV and transition it. Hopefully there is one...
+				check(Buffer->PooledBuffer->UAVs.Num() == 1);
+				FUnorderedAccessViewRHIParamRef UAV = Buffer->PooledBuffer->UAVs.CreateIterator().Value();
+				TransitionUAV(UAV, Buffer, EResourceTransitionAccess::EReadable, bIsCompute);
+			}
+		}
+		break;
+		case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+		{
+			FRDGBufferSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferSRV*>(Offset);
+			if (SRV)
+			{
+				AllocateRHIBufferSRVIfNeeded(SRV, bIsCompute);
+
+				// TODO(RDG): supper hacky, find the UAV and transition it. Hopefully there is one...
+				check(SRV->Desc.Buffer->PooledBuffer->UAVs.Num() == 1);
+				FUnorderedAccessViewRHIParamRef UAV = SRV->Desc.Buffer->PooledBuffer->UAVs.CreateIterator().Value();
+				TransitionUAV(UAV, SRV->Desc.Buffer, EResourceTransitionAccess::EReadable, bIsCompute);
+			}
+		}
+		break;
+		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+		{
+			FRDGBufferUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferUAV*>(Offset);
+			if (UAV)
+			{
+				AllocateRHIBufferUAVIfNeeded(UAV, bIsCompute);
+				TransitionUAV(UAV->CachedRHI.UAV, UAV->Desc.Buffer, EResourceTransitionAccess::EWritable, bIsCompute);
 			}
 		}
 		break;
@@ -476,7 +654,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 		uint8 Type = ParameterStruct.Layout->Resources[ResourceIndex];
 		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
 
-		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV)
+		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
+			Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
 			continue;
 
 		const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
@@ -497,7 +676,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 			uint8 Type = ParameterStruct.Layout->Resources[ResourceIndex];
 			uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
 
-			if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV)
+			if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
+				Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
 				continue;
 
 			const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
@@ -505,7 +685,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 			if (!Resource)
 				continue;
 
-			UE_LOG(LogRendererCore, Warning, TEXT("	%s"), Resource->Name);
+			if (!Resource->bIsActuallyUsedByPass)
+				UE_LOG(LogRendererCore, Warning, TEXT("	%s"), Resource->Name);
 		}
 	}
 
@@ -515,7 +696,8 @@ void FRDGBuilder::WarnForUselessPassDependencies(const FRenderGraphPass* Pass)
 		uint8 Type = ParameterStruct.Layout->Resources[ResourceIndex];
 		uint16 Offset = ParameterStruct.Layout->ResourceOffsets[ResourceIndex];
 
-		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV)
+		if (Type != UBMT_GRAPH_TRACKED_TEXTURE && Type != UBMT_GRAPH_TRACKED_SRV && Type != UBMT_GRAPH_TRACKED_UAV &&
+			Type != UBMT_GRAPH_TRACKED_BUFFER && Type != UBMT_GRAPH_TRACKED_BUFFER_SRV && Type != UBMT_GRAPH_TRACKED_BUFFER_UAV)
 			continue;
 
 		const FRDGResource* Resource = *ParameterStruct.GetMemberPtrAtOffset<const FRDGResource*>(Offset);
@@ -539,11 +721,24 @@ void FRDGBuilder::ReleaseRHITextureIfPossible(const FRDGTexture* Texture)
 	}
 }
 
+void FRDGBuilder::ReleaseRHIBufferIfPossible(const FRDGBuffer* Buffer)
+{
+	check(Buffer->ReferenceCount > 0);
+	Buffer->ReferenceCount--;
+
+	if (Buffer->ReferenceCount == 0)
+	{
+		Buffer->PooledBuffer = nullptr;
+		AllocatedBuffers.FindChecked(Buffer) = nullptr;
+	}
+}
+
 void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 {
 	FShaderParameterStructRef ParameterStruct = Pass->GetParameters();
 
 	/** Increments all the FRDGResource::ReferenceCount. */
+	// TODO(RDG): Investigate the cost of branch miss-prediction.
 	for (int ResourceIndex = 0, Num = ParameterStruct.Layout->Resources.Num(); ResourceIndex < Num; ResourceIndex++)
 	{
 		uint8  Type = ParameterStruct.Layout->Resources[ResourceIndex];
@@ -575,6 +770,33 @@ void FRDGBuilder::ReleaseUnecessaryResources(const FRenderGraphPass* Pass)
 			if (UAV)
 			{
 				ReleaseRHITextureIfPossible(UAV->Desc.Texture);
+			}
+		}
+		break;
+		case UBMT_GRAPH_TRACKED_BUFFER:
+		{
+			FRDGBuffer* RESTRICT Buffer = *ParameterStruct.GetMemberPtrAtOffset<FRDGBuffer*>(Offset);
+			if (Buffer)
+			{
+				ReleaseRHIBufferIfPossible(Buffer);
+			}
+		}
+		break;
+		case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+		{
+			FRDGBufferSRV* RESTRICT SRV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferSRV*>(Offset);
+			if (SRV)
+			{
+				ReleaseRHIBufferIfPossible(SRV->Desc.Buffer);
+			}
+		}
+		break;
+		case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+		{
+			FRDGBufferUAV* RESTRICT UAV = *ParameterStruct.GetMemberPtrAtOffset<FRDGBufferUAV*>(Offset);
+			if (UAV)
+			{
+				ReleaseRHIBufferIfPossible(UAV->Desc.Buffer);
 			}
 		}
 		break;

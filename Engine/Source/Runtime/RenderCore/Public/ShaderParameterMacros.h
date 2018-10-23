@@ -13,6 +13,9 @@
 class FRDGTexture;
 class FRDGTextureSRV;
 class FRDGTextureUAV;
+class FRDGBuffer;
+class FRDGBufferSRV;
+class FRDGBufferUAV;
 
 
 // RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
@@ -565,6 +568,51 @@ struct TShaderParameterTypeInfo<const FRDGTextureUAV*>
 };
 static_assert(sizeof(TShaderParameterTypeInfo<const FRDGTextureUAV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
 
+template<>
+struct TShaderParameterTypeInfo<const FRDGBuffer*>
+{
+	static constexpr int32 NumRows = 1;
+	static constexpr int32 NumColumns = 1;
+	static constexpr int32 NumElements = 0;
+	static constexpr int32 Alignment = SHADER_PARAMETER_POINTER_ALIGNMENT;
+	static constexpr bool bIsStoredInConstantBuffer = false;
+
+	using TAlignedType = TAlignedShaderParameterPtr<const FRDGBuffer*>;
+
+	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
+};
+static_assert(sizeof(TShaderParameterTypeInfo<const FRDGBuffer*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
+
+template<>
+struct TShaderParameterTypeInfo<const FRDGBufferSRV*>
+{
+	static constexpr int32 NumRows = 1;
+	static constexpr int32 NumColumns = 1;
+	static constexpr int32 NumElements = 0;
+	static constexpr int32 Alignment = SHADER_PARAMETER_POINTER_ALIGNMENT;
+	static constexpr bool bIsStoredInConstantBuffer = false;
+
+	using TAlignedType = TAlignedShaderParameterPtr<const FRDGBufferSRV*>;
+
+	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
+};
+static_assert(sizeof(TShaderParameterTypeInfo<const FRDGBufferSRV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
+
+template<>
+struct TShaderParameterTypeInfo<const FRDGBufferUAV*>
+{
+	static constexpr int32 NumRows = 1;
+	static constexpr int32 NumColumns = 1;
+	static constexpr int32 NumElements = 0;
+	static constexpr int32 Alignment = SHADER_PARAMETER_POINTER_ALIGNMENT;
+	static constexpr bool bIsStoredInConstantBuffer = false;
+
+	using TAlignedType = TAlignedShaderParameterPtr<const FRDGBufferUAV*>;
+
+	static const FShaderParametersMetadata* GetStructMetadata() { return nullptr; }
+};
+static_assert(sizeof(TShaderParameterTypeInfo<const FRDGBufferUAV*>::TAlignedType) == SHADER_PARAMETER_POINTER_ALIGNMENT, "Uniform buffer layout must not be platform dependent.");
+
 template<class UniformBufferStructType>
 struct TShaderParameterTypeInfo<TUniformBufferRef<UniformBufferStructType>>
 {
@@ -760,7 +808,7 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
 #define SHADER_PARAMETER_GRAPH_TEXTURE(ShaderType,MemberName) \
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_TEXTURE, TShaderParameterTypeInfo<const FRDGTexture*>, const FRDGTexture*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
-/** Adds a render graph tracked shader resource view.
+/** Adds a shader resource view for a render graph tracked texture.
  *
  * Example:
  *	SHADER_PARAMETER_GRAPH_SRV(Texture2D, MySRV)
@@ -768,13 +816,37 @@ extern RENDERCORE_API FShaderParametersMetadata* FindUniformBufferStructByFName(
 #define SHADER_PARAMETER_GRAPH_SRV(ShaderType,MemberName) \
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_SRV, TShaderParameterTypeInfo<const FRDGTextureSRV*>, const FRDGTextureSRV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
-/** Adds a render graph tracked unordered access view.
+/** Adds a unordered access view for a render graph tracked texture.
  *
  * Example:
  *	SHADER_PARAMETER_GRAPH_UAV(RWTexture2D, MyUAV)
  */
 #define SHADER_PARAMETER_GRAPH_UAV(ShaderType,MemberName) \
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_UAV, TShaderParameterTypeInfo<const FRDGTextureUAV*>, const FRDGTextureUAV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+
+/** Adds a render graph tracked buffer.
+ *
+ * Example:
+ *	SHADER_PARAMETER_GRAPH_BUFFER(Texture2D, MyTexture)
+ */
+#define SHADER_PARAMETER_GRAPH_BUFFER(ShaderType,MemberName) \
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER, TShaderParameterTypeInfo<const FRDGBuffer*>, const FRDGBuffer*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+
+/** Adds a shader resource view for a render graph tracked buffer.
+ *
+ * Example:
+ *	SHADER_PARAMETER_GRAPH_BUFFER_SRV(Buffer<float4>, MySRV)
+ */
+#define SHADER_PARAMETER_GRAPH_BUFFER_SRV(ShaderType,MemberName) \
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER_SRV, TShaderParameterTypeInfo<const FRDGBufferSRV*>, const FRDGBufferSRV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
+
+/** Adds a unordered access view for a render graph tracked buffer.
+ *
+ * Example:
+ *	SHADER_PARAMETER_GRAPH_BUFFER_UAV(RWBuffer<float4>, MyUAV)
+ */
+#define SHADER_PARAMETER_GRAPH_BUFFER_UAV(ShaderType,MemberName) \
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EXPLICIT(UBMT_GRAPH_TRACKED_BUFFER_UAV, TShaderParameterTypeInfo<const FRDGBufferUAV*>, const FRDGBufferUAV*,MemberName,,EShaderPrecisionModifier::Float,TEXT(#ShaderType),false)
 
 /** Nests a shader parameter structure into another one, in C++ and shader code.
  *

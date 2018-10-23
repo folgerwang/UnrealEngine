@@ -127,6 +127,9 @@ void FShaderParametersMetadata::InitializeLayout()
 				BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
 				BaseType == UBMT_GRAPH_TRACKED_SRV ||
 				BaseType == UBMT_GRAPH_TRACKED_UAV ||
+				BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
+				BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
+				BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
 				BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS))
 			{
 				UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Graph resources are only allowed in shader parameter structs."), *CppName);

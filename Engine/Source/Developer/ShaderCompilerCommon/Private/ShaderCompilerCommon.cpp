@@ -139,9 +139,11 @@ bool BuildResourceTableMapping(
 				break;
 			case UBMT_SRV:
 			case UBMT_GRAPH_TRACKED_SRV:
+			case UBMT_GRAPH_TRACKED_BUFFER_SRV:
 				OutSRT.ShaderResourceViewMap.Add(ResourceMap);
 				break;
 			case UBMT_GRAPH_TRACKED_UAV:
+			case UBMT_GRAPH_TRACKED_BUFFER_UAV:
 				OutSRT.UnorderedAccessViewMap.Add(ResourceMap);
 				break;
 			default:

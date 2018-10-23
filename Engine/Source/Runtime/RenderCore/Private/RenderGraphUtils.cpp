@@ -24,7 +24,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 				continue;
 			}
 		}
-		else if (Type == UBMT_GRAPH_TRACKED_SRV)
+		else if (Type == UBMT_GRAPH_TRACKED_SRV || Type == UBMT_GRAPH_TRACKED_BUFFER_SRV)
 		{
 			if (GraphSRVId < ShaderBindings.GraphSRVs.Num() && ByteOffset == ShaderBindings.GraphSRVs[GraphSRVId].ByteOffset)
 			{
@@ -32,7 +32,7 @@ void ClearUnusedGraphResourcesImpl(const FShaderParameterBindings& ShaderBinding
 				continue;
 			}
 		}
-		else if (Type == UBMT_GRAPH_TRACKED_UAV)
+		else if (Type == UBMT_GRAPH_TRACKED_UAV || Type == UBMT_GRAPH_TRACKED_BUFFER_UAV)
 		{
 			if (GraphUAVId < ShaderBindings.GraphUAVs.Num() && ByteOffset == ShaderBindings.GraphUAVs[GraphUAVId].ByteOffset)
 			{

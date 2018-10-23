@@ -398,6 +398,9 @@ enum EUniformBufferBaseType
 	UBMT_GRAPH_TRACKED_TEXTURE,
 	UBMT_GRAPH_TRACKED_SRV,
 	UBMT_GRAPH_TRACKED_UAV,
+	UBMT_GRAPH_TRACKED_BUFFER,
+	UBMT_GRAPH_TRACKED_BUFFER_SRV,
+	UBMT_GRAPH_TRACKED_BUFFER_UAV,
 
 	// Nested structure.
 	UBMT_NESTED_STRUCT,
@@ -412,7 +415,7 @@ enum EUniformBufferBaseType
 	UBMT_RENDER_TARGET_BINDING_SLOTS,
 
 	EUniformBufferBaseType_Num,
-	EUniformBufferBaseType_NumBits = 4,
+	EUniformBufferBaseType_NumBits = 5,
 };
 static_assert(EUniformBufferBaseType_Num <= (1 << EUniformBufferBaseType_NumBits), "EUniformBufferBaseType_Num will not fit on EUniformBufferBaseType_NumBits");
 
@@ -1096,6 +1099,9 @@ inline bool IsUniformBufferResourceType(EUniformBufferBaseType BaseType)
 		BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
 		BaseType == UBMT_GRAPH_TRACKED_SRV ||
 		BaseType == UBMT_GRAPH_TRACKED_UAV ||
+		BaseType == UBMT_GRAPH_TRACKED_BUFFER ||
+		BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
+		BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV ||
 		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
 }
 

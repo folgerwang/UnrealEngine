@@ -126,7 +126,7 @@ public:
 		FRDGTexture* OutTexture = new(FMemStack::Get()) FRDGTexture(Name, ExternalPooledTexture->GetDesc());
 		OutTexture->PooledRenderTarget = ExternalPooledTexture;
 		AllocatedTextures.Add(OutTexture, ExternalPooledTexture);
-		#if DO_CHECK
+		#if RENDER_GRAPH_DEBUGGING
 			Resources.Add(OutTexture);
 		#endif
 		return OutTexture;
@@ -141,13 +141,28 @@ public:
 		}
 		#endif
 		FRDGTexture* Texture = new(FMemStack::Get()) FRDGTexture(DebugName, Desc);
-		#if DO_CHECK
+		#if RENDER_GRAPH_DEBUGGING
 			Resources.Add(Texture);
 		#endif
 		return Texture;
 	}
 
-	/** Create graph tracked SRV from a descriptor. */
+	/** Create graph tracked resource from a descriptor with a debug name. */
+	inline const FRDGBuffer* CreateBuffer(const FRDGBufferDesc& Desc, const TCHAR* DebugName)
+	{
+		#if RENDER_GRAPH_DEBUGGING
+		{
+			ensureMsgf(!bHasExecuted, TEXT("Render graph buffer %s needs to be created before the builder execution."), DebugName);
+		}
+		#endif
+		FRDGBuffer* Buffer = new(FMemStack::Get()) FRDGBuffer(DebugName, Desc);
+		#if RENDER_GRAPH_DEBUGGING
+			Resources.Add(Buffer);
+		#endif
+		return Buffer;
+	}
+
+	/** Create graph tracked SRV for a texture from a descriptor. */
 	inline const FRDGTextureSRV* CreateSRV(const FRDGTextureSRVDesc& Desc)
 	{
 		check(Desc.Texture);
@@ -159,13 +174,30 @@ public:
 		#endif
 		
 		FRDGTextureSRV* SRV = new(FMemStack::Get()) FRDGTextureSRV(Desc.Texture->Name, Desc);
-		#if DO_CHECK
+		#if RENDER_GRAPH_DEBUGGING
 			Resources.Add(SRV);
 		#endif
 		return SRV;
 	}
 
-	/** Create graph tracked UAV from a descriptor. */
+	/** Create graph tracked SRV for a buffer from a descriptor. */
+	inline const FRDGBufferSRV* CreateSRV(const FRDGBufferSRVDesc& Desc)
+	{
+		check(Desc.Buffer);
+		#if RENDER_GRAPH_DEBUGGING
+		{
+			ensureMsgf(!bHasExecuted, TEXT("Render graph SRV %s needs to be created before the builder execution."), Desc.Buffer->Name);
+		}
+		#endif
+		
+		FRDGBufferSRV* SRV = new(FMemStack::Get()) FRDGBufferSRV(Desc.Buffer->Name, Desc);
+		#if RENDER_GRAPH_DEBUGGING
+			Resources.Add(SRV);
+		#endif
+		return SRV;
+	}
+
+	/** Create graph tracked UAV for a texture from a descriptor. */
 	inline const FRDGTextureUAV* CreateUAV(const FRDGTextureUAVDesc& Desc)
 	{
 		check(Desc.Texture);
@@ -177,7 +209,24 @@ public:
 		#endif
 		
 		FRDGTextureUAV* UAV = new(FMemStack::Get()) FRDGTextureUAV(Desc.Texture->Name, Desc);
-		#if DO_CHECK
+		#if RENDER_GRAPH_DEBUGGING
+			Resources.Add(UAV);
+		#endif
+		return UAV;
+	}
+
+	/** Create graph tracked UAV for a buffer from a descriptor. */
+	inline const FRDGBufferUAV* CreateUAV(const FRDGBufferUAVDesc& Desc)
+	{
+		check(Desc.Buffer);
+		#if RENDER_GRAPH_DEBUGGING
+		{
+			ensureMsgf(!bHasExecuted, TEXT("Render graph UAV %s needs to be created before the builder execution."), Desc.Buffer->Name);
+		}
+		#endif
+		
+		FRDGBufferUAV* UAV = new(FMemStack::Get()) FRDGBufferUAV(Desc.Buffer->Name, Desc);
+		#if RENDER_GRAPH_DEBUGGING
 			Resources.Add(UAV);
 		#endif
 		return UAV;
@@ -258,6 +307,9 @@ private:
 	/** Keep the references over the pooled render target, since FRDGTexture is allocated on FMemStack. */
 	TMap<const FRDGTexture*, TRefCountPtr<IPooledRenderTarget>, SceneRenderingSetAllocator> AllocatedTextures;
 
+	/** Keep the references over the pooled render target, since FRDGTexture is allocated on FMemStack. */
+	TMap<const FRDGBuffer*, TRefCountPtr<FPooledRDGBuffer>, SceneRenderingSetAllocator> AllocatedBuffers;
+
 	/** Array of all deferred access to internal textures. */
 	struct FDeferredInternalTextureQuery
 	{
@@ -282,14 +334,22 @@ private:
 	void WalkGraphDependencies();
 
 	void AllocateRHITextureIfNeeded(const FRDGTexture* Texture, bool bComputePass);
+	void AllocateRHITextureSRVIfNeeded(const FRDGTextureSRV* SRV, bool bComputePass);
+	void AllocateRHITextureUAVIfNeeded(const FRDGTextureUAV* UAV, bool bComputePass);
+	void AllocateRHIBufferIfNeeded(const FRDGBuffer* Texture, bool bComputePass);
+	void AllocateRHIBufferSRVIfNeeded(const FRDGBufferSRV* SRV, bool bComputePass);
+	void AllocateRHIBufferUAVIfNeeded(const FRDGBufferUAV* UAV, bool bComputePass);
+
 
 	void TransitionTexture( const FRDGTexture* Texture, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
-	void TransitionUAV( const FRDGTextureUAV* UAV, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
+	void TransitionUAV(FUnorderedAccessViewRHIParamRef UAV, const FRDGResource* UnderlyingResource, EResourceTransitionAccess TransitionAccess, bool bRequiredCompute ) const;
 
 	void ExecutePass( const FRenderGraphPass* Pass );
 	void AllocateAndTransitionPassResources(const FRenderGraphPass* Pass, struct FRHIRenderPassInfo* OutRPInfo, bool* bOutHasRenderTargets);
 	static void WarnForUselessPassDependencies(const FRenderGraphPass* Pass);
+
 	void ReleaseRHITextureIfPossible(const FRDGTexture* Texture);
+	void ReleaseRHIBufferIfPossible(const FRDGBuffer* Buffer);
 	void ReleaseUnecessaryResources(const FRenderGraphPass* Pass);
 
 	void ProcessDeferredInternalResourceQueries();

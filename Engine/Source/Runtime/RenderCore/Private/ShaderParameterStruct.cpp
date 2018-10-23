@@ -47,6 +47,10 @@ struct FShaderParameterStructBindingContext
 				RenderTargetBindingSlotCppName = CppName;
 				continue;
 			}
+			else if (BaseType == UBMT_GRAPH_TRACKED_BUFFER)
+			{
+				continue;
+			}
 
 			// Compute the shader member name to look for according to nesting.
 			FString ShaderBindingName = FString::Printf(TEXT("%s%s"), MemberPrefix, Member.GetName());
@@ -113,7 +117,9 @@ struct FShaderParameterStructBindingContext
 				BaseType == UBMT_SAMPLER ||
 				BaseType == UBMT_GRAPH_TRACKED_TEXTURE ||
 				BaseType == UBMT_GRAPH_TRACKED_SRV ||
-				BaseType == UBMT_GRAPH_TRACKED_UAV)
+				BaseType == UBMT_GRAPH_TRACKED_UAV ||
+				BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV ||
+				BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV)
 			{
 				FShaderParameterBindings::FResourceParameter Parameter;
 				Parameter.BaseIndex = BaseIndex;
@@ -130,9 +136,9 @@ struct FShaderParameterStructBindingContext
 					Bindings->Samplers.Add(Parameter);
 				else if (BaseType == UBMT_GRAPH_TRACKED_TEXTURE)
 					Bindings->GraphTextures.Add(Parameter);
-				else if (BaseType == UBMT_GRAPH_TRACKED_SRV)
+				else if (BaseType == UBMT_GRAPH_TRACKED_SRV || BaseType == UBMT_GRAPH_TRACKED_BUFFER_SRV)
 					Bindings->GraphSRVs.Add(Parameter);
-				else // if (BaseType == UBMT_GRAPH_TRACKED_UAV)
+				else // if (BaseType == UBMT_GRAPH_TRACKED_UAV || BaseType == UBMT_GRAPH_TRACKED_BUFFER_UAV)
 					Bindings->GraphUAVs.Add(Parameter);
 			}
 			else
