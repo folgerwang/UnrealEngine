@@ -66,6 +66,9 @@ protected:
 	TRefCountPtr<FVulkanBackBuffer> RenderingBackBuffer;
 	TRefCountPtr<FVulkanBackBuffer> RHIBackBuffer;
 
+	/** narrow-scoped section that locks access to back buffer during its recreation*/
+	FCriticalSection RecreatingSwapchain;
+
 	FVulkanDynamicRHI* RHI;
 	uint32 SizeX;
 	uint32 SizeY;

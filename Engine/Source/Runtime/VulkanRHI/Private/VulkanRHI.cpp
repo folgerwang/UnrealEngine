@@ -515,12 +515,13 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 	{
 		if (DiscreteDevices.Num() > 0)
 		{
-			if (DiscreteDevices.Num() > 1)
+			int32 PreferredVendor = PreferAdapterVendor();
+			if (DiscreteDevices.Num() > 1 && PreferredVendor != -1)
 			{
 				// Check for preferred
 				for (int32 Index = 0; Index < DiscreteDevices.Num(); ++Index)
 				{
-					if (DiscreteDevices[Index].Device->GpuProps.vendorID == PreferAdapterVendor())
+					if (DiscreteDevices[Index].Device->GpuProps.vendorID == PreferredVendor)
 					{
 						DeviceIndex = DiscreteDevices[Index].DeviceIndex;
 						Device = DiscreteDevices[Index].Device;
@@ -537,12 +538,10 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 		}
 		else
 		{
-			Device = Devices[0];
+			checkf(0, TEXT("No devices found!"));
 			DeviceIndex = 0;
 		}
 	}
-
-	check(Device);
 
 	const VkPhysicalDeviceProperties& Props = Device->GetDeviceProperties();
 	GRHIVendorId = Props.vendorID;
