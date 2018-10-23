@@ -147,8 +147,8 @@ class FVolumetricFogMaterialSetupCS : public FGlobalShader
 		SHADER_PARAMETER_STRUCT_REF( FFogUniformParameters,			FogUniformParameters )
 		SHADER_PARAMETER_STRUCT_REF( FViewUniformShaderParameters,	View )
 		
-		SHADER_PARAMETER_GRAPH_UAV(	RWTexture3D<float4>, RWVBufferA )
-		SHADER_PARAMETER_GRAPH_UAV(	RWTexture3D<float4>, RWVBufferB )
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(	RWTexture3D<float4>, RWVBufferA )
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(	RWTexture3D<float4>, RWVBufferB )
 	END_SHADER_PARAMETER_STRUCT()
 
 public:
@@ -574,12 +574,12 @@ class TVolumetricFogLightScatteringCS : public FGlobalShader
 		FDistanceFieldSkyOcclusion >;
 
 	BEGIN_SHADER_PARAMETER_STRUCT( FParameters, )
-		SHADER_PARAMETER_GRAPH_TEXTURE( Texture2D, VBufferA )
-		SHADER_PARAMETER_GRAPH_TEXTURE( Texture2D, VBufferB )
-		SHADER_PARAMETER_GRAPH_TEXTURE( Texture2D, LocalShadowedLightScattering )
-		SHADER_PARAMETER_GRAPH_TEXTURE( Texture2D, LightFunctionTexture )
+		SHADER_PARAMETER_RDG_TEXTURE( Texture2D, VBufferA )
+		SHADER_PARAMETER_RDG_TEXTURE( Texture2D, VBufferB )
+		SHADER_PARAMETER_RDG_TEXTURE( Texture2D, LocalShadowedLightScattering )
+		SHADER_PARAMETER_RDG_TEXTURE( Texture2D, LightFunctionTexture )
 
-		SHADER_PARAMETER_GRAPH_UAV( RWTexture2D, RWLightScattering )
+		SHADER_PARAMETER_RDG_TEXTURE_UAV( RWTexture2D, RWLightScattering )
 	END_SHADER_PARAMETER_STRUCT()
 
 public:
@@ -761,8 +761,8 @@ class FVolumetricFogFinalIntegrationCS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FVolumetricFogFinalIntegrationCS,Global)
 
 	BEGIN_SHADER_PARAMETER_STRUCT( FParameters, )
-		SHADER_PARAMETER_GRAPH_TEXTURE(	Texture3D<float4>,		LightScattering )
-		SHADER_PARAMETER_GRAPH_UAV(		RWTexture3D<float4>,	RWIntegratedLightScattering )
+		SHADER_PARAMETER_RDG_TEXTURE(	Texture3D<float4>,		LightScattering )
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(		RWTexture3D<float4>,	RWIntegratedLightScattering )
 	END_SHADER_PARAMETER_STRUCT()
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
