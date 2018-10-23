@@ -1063,6 +1063,11 @@ namespace UnrealBuildTool
 		public string AdditionalLinkerArguments;
 
 		/// <summary>
+		/// When generating project files, specifies the name of the project file to use when there are multiple targets of the same type.
+		/// </summary>
+		public string GeneratedProjectName;
+
+		/// <summary>
 		/// Android-specific target settings.
 		/// </summary>
 		public AndroidTargetRules AndroidPlatform = new AndroidTargetRules();
@@ -2073,6 +2078,11 @@ namespace UnrealBuildTool
 		public string AdditionalLinkerArguments
 		{
 			get { return Inner.AdditionalLinkerArguments; }
+		}
+
+		public string GeneratedProjectName
+		{
+			get { return Inner.GeneratedProjectName; }
 		}
 
 		public ReadOnlyAndroidTargetRules AndroidPlatform
