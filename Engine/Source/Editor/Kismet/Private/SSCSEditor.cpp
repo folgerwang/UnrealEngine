@@ -1134,11 +1134,8 @@ void FSCSEditorTreeNodeInstanceAddedComponent::RemoveMeAsChild()
 
 void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InNewName)
 {
-	FScopedTransaction* TransactionContext = NULL;
-	if (!GetAndClearNonTransactionalRenameFlag())
-	{
-		TransactionContext = new FScopedTransaction(LOCTEXT("RenameComponentVariable", "Rename Component Variable"));
-	}
+	bool bIsNonTransactionalRename = GetAndClearNonTransactionalRenameFlag();
+	FScopedTransaction TransactionContext(LOCTEXT("RenameComponentVariable", "Rename Component Variable"), !bIsNonTransactionalRename);
 
 	UActorComponent* ComponentInstance = GetComponentTemplate();
 	if(ComponentInstance == nullptr)
@@ -1147,7 +1144,7 @@ void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InN
 	}
 
 	ERenameFlags RenameFlags = REN_DontCreateRedirectors;
-	if (!TransactionContext)
+	if (bIsNonTransactionalRename)
 	{
 		RenameFlags |= REN_NonTransactional;
 	}
@@ -1167,11 +1164,6 @@ void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InN
 			// use whatever name the ComponentInstance currently has:
 			InstancedComponentName = ComponentInstance->GetFName();
 		}
-	}
-
-	if (TransactionContext)
-	{
-		delete TransactionContext;
 	}
 }
 
