@@ -1385,18 +1385,14 @@ void SCollectionView::OnCollectionCheckStateChanged( ECheckBoxState NewState, TS
 {
 	if ( QuickAssetManagement.IsValid() )
 	{
-		switch(NewState)
+		FCollectionNameType CollectionKey(CollectionItem->CollectionName, CollectionItem->CollectionType);
+		if (QuickAssetManagement->GetCollectionCheckState(CollectionKey) == ECheckBoxState::Checked)
 		{
-		case ECheckBoxState::Checked:
-			QuickAssetManagement->AddCurrentAssetsToCollection(FCollectionNameType(CollectionItem->CollectionName, CollectionItem->CollectionType));
-			break;
-
-		case ECheckBoxState::Unchecked:
-			QuickAssetManagement->RemoveCurrentAssetsFromCollection(FCollectionNameType(CollectionItem->CollectionName, CollectionItem->CollectionType));
-			break;
-
-		default:
-			break;
+			QuickAssetManagement->RemoveCurrentAssetsFromCollection(CollectionKey);
+		}
+		else
+		{
+			QuickAssetManagement->AddCurrentAssetsToCollection(CollectionKey);
 		}
 	}
 }
