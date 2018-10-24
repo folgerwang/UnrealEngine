@@ -1033,6 +1033,13 @@ FArchive& operator << (FArchive& Ar, FVulkanPipelineStateCacheManager::FGfxPipel
 
 	Ar << Entry.RenderTargets;
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	for (uint32 Index = 0; Index < MaxImmutableSamplers; ++Index)
+	{
+		Ar << Entry.ImmutableSamplers[Index];
+	}
+#endif
+
 	return Ar;
 }
 

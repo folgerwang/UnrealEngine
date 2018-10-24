@@ -542,7 +542,7 @@ void FVulkanDescriptorSetsLayoutInfo::FinalizeBindings(const FUniformBufferGathe
 	}
 
 	CompileTypesUsageID();
-	GenerateHash();
+	GenerateHash(ImmutableSamplers);
 
 	// Validate no empty sets were made
 	for (int32 Index = 0; Index < RemappingInfo.SetInfos.Num(); ++Index)
