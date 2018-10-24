@@ -1209,6 +1209,7 @@ void CopyCameraProperties(FbxCamera* CameraNode, ACineCameraActor* CameraActor)
 	CineCameraComponent->SetFieldOfView(FieldOfView);
 	CineCameraComponent->FilmbackSettings.SensorWidth = FUnitConversion::Convert(ApertureWidth, EUnit::Inches, EUnit::Millimeters);
 	CineCameraComponent->FilmbackSettings.SensorHeight = FUnitConversion::Convert(ApertureHeight, EUnit::Inches, EUnit::Millimeters);
+	CineCameraComponent->FocusSettings.ManualFocusDistance = CameraNode->FocusDistance;
 	if (FocalLength < CineCameraComponent->LensSettings.MinFocalLength)
 	{
 		CineCameraComponent->LensSettings.MinFocalLength = FocalLength;
