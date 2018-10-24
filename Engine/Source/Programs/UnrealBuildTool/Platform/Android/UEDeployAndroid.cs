@@ -1298,6 +1298,21 @@ namespace UnrealBuildTool
 			}
 		}
 
+		void LogBuildSetup()
+		{
+			ConfigHierarchy Ini = GetConfigCacheIni(ConfigHierarchyType.Engine);
+			bool bBuildForES2 = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForES2", out bBuildForES2);
+			bool bBuildForES31 = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForES31", out bBuildForES31);
+			bool bSupportsVulkan = false;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSupportsVulkan", out bSupportsVulkan);
+
+			Log.TraceInformation("bBuildForES2: {0}", (bBuildForES2 ? "true" : "false"));
+			Log.TraceInformation("bBuildForES31: {0}", (bBuildForES31 ? "true" : "false"));
+			Log.TraceInformation("bSupportsVulkan: {0}", (bSupportsVulkan ? "true" : "false"));
+		}
+		
 		void CopyVulkanValidationLayers(string UE4BuildPath, string UE4Arch, string NDKArch, string Configuration)
 		{
 			bool bSupportsVulkan = false;
@@ -2907,6 +2922,8 @@ namespace UnrealBuildTool
 					throw new BuildException("Android SDK license file not found.  Please agree to license in Android project settings in the editor.");
 				}
 			}
+
+			LogBuildSetup();
 
 			bool bIsBuildMachine = Environment.GetEnvironmentVariable("IsBuildMachine") == "1";
 
