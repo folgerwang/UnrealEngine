@@ -10,6 +10,7 @@ struct FUVMapSettings;
 struct FOverlappingCorners;
 enum class ELightmapUVVersion : int32;
 struct FPolygonGroupID;
+struct FVertexID;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshDescriptionOperations, Log, All);
 
@@ -118,4 +119,6 @@ public:
 	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);
 
 	static bool HasVertexColor(const FMeshDescription& MeshDescription);
+
+	static void BuildWeldedVertexIDRemap(const FMeshDescription& MeshDescription, const float WeldingThreshold, TMap<FVertexID, FVertexID>& OutVertexIDRemap);
 };

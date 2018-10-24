@@ -449,40 +449,67 @@ struct FMaterialRemapIndex
 	TArray<int32> MaterialRemap;
 };
 
+struct FStaticMeshDescriptionConstAttributeGetter
+{
+	ENGINE_API FStaticMeshDescriptionConstAttributeGetter(const FMeshDescription* InMeshDescription)
+		: MeshDescription(InMeshDescription)
+	{}
+
+	const FMeshDescription* MeshDescription;
+
+	ENGINE_API TVertexAttributesConstRef<FVector> GetPositions() const { return MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position); }
+
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector> GetNormals() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal); }
+
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector> GetTangents() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent); }
+
+	ENGINE_API TVertexInstanceAttributesConstRef<float> GetBinormalSigns() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign); }
+
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector4> GetColors() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color); }
+
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector2D> GetUVs() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate); }
+
+	ENGINE_API TEdgeAttributesConstRef<bool> GetEdgeHardnesses() const { return MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard); }
+
+	ENGINE_API TEdgeAttributesConstRef<float> GetEdgeCreaseSharpnesses() const { return MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness); }
+
+	ENGINE_API TPolygonGroupAttributesConstRef<FName> GetPolygonGroupImportedMaterialSlotNames() { return MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName); }
+};
+
 struct FStaticMeshDescriptionAttributeGetter
 {
 	ENGINE_API FStaticMeshDescriptionAttributeGetter(FMeshDescription* InMeshDescription)
 		: MeshDescription(InMeshDescription)
 	{}
-
+	
 	FMeshDescription* MeshDescription;
 
-	TVertexAttributesRef<FVector> GetPositions() const { return MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position); }
-	TVertexAttributesConstRef<FVector> GetPositionsConst() const { return MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position); }
+	ENGINE_API TVertexAttributesRef<FVector> GetPositions() const { return MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position); }
+	ENGINE_API TVertexAttributesConstRef<FVector> GetPositionsConst() const { return MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position); }
 
-	TVertexInstanceAttributesRef<FVector> GetNormals() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal); }
-	TVertexInstanceAttributesConstRef<FVector> GetNormalsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal); }
+	ENGINE_API TVertexInstanceAttributesRef<FVector> GetNormals() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal); }
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector> GetNormalsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal); }
 
-	TVertexInstanceAttributesRef<FVector> GetTangents() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent); }
-	TVertexInstanceAttributesConstRef<FVector> GetTangentsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent); }
+	ENGINE_API TVertexInstanceAttributesRef<FVector> GetTangents() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent); }
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector> GetTangentsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent); }
 
-	TVertexInstanceAttributesRef<float> GetBinormalSigns() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign); }
-	TVertexInstanceAttributesConstRef<float> GetBinormalSignsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign); }
+	ENGINE_API TVertexInstanceAttributesRef<float> GetBinormalSigns() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign); }
+	ENGINE_API TVertexInstanceAttributesConstRef<float> GetBinormalSignsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign); }
 
-	TVertexInstanceAttributesRef<FVector4> GetColors() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color); }
-	TVertexInstanceAttributesConstRef<FVector4> GetColorsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color); }
+	ENGINE_API TVertexInstanceAttributesRef<FVector4> GetColors() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color); }
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector4> GetColorsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color); }
 
-	TVertexInstanceAttributesRef<FVector2D> GetUVs() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate); }
-	TVertexInstanceAttributesConstRef<FVector2D> GetUVsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate); }
+	ENGINE_API TVertexInstanceAttributesRef<FVector2D> GetUVs() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate); }
+	ENGINE_API TVertexInstanceAttributesConstRef<FVector2D> GetUVsConst() const { return MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate); }
 
-	TEdgeAttributesRef<bool> GetEdgeHardnesses() const { return MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard); }
-	TEdgeAttributesConstRef<bool> GetEdgeHardnessesConst() const { return MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard); }
+	ENGINE_API TEdgeAttributesRef<bool> GetEdgeHardnesses() const { return MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard); }
+	ENGINE_API TEdgeAttributesConstRef<bool> GetEdgeHardnessesConst() const { return MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard); }
 	
-	TEdgeAttributesRef<float> GetEdgeCreaseSharpnesses() const { return MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness); }
-	TEdgeAttributesConstRef<float> GetEdgeCreaseSharpnessesConst() const { return MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness); }
+	ENGINE_API TEdgeAttributesRef<float> GetEdgeCreaseSharpnesses() const { return MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness); }
+	ENGINE_API TEdgeAttributesConstRef<float> GetEdgeCreaseSharpnessesConst() const { return MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness); }
 
-	TPolygonGroupAttributesRef<FName> GetPolygonGroupImportedMaterialSlotNames() { return MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName); }
-	TPolygonGroupAttributesConstRef<FName> GetPolygonGroupImportedMaterialSlotNamesConst() { return MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName); }
+	ENGINE_API TPolygonGroupAttributesRef<FName> GetPolygonGroupImportedMaterialSlotNames() { return MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName); }
+	ENGINE_API TPolygonGroupAttributesConstRef<FName> GetPolygonGroupImportedMaterialSlotNamesConst() { return MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName); }
 };
 
 /**

@@ -5,7 +5,6 @@
 #include "Templates/ScopedPointer.h"
 #include "MeshUtilities.h"
 #include "MeshBuild.h"
-#include "RawMesh.h"
 #include "MeshSimplify.h"
 #include "OverlappingCorners.h"
 #include "Templates/UniquePtr.h"
@@ -14,6 +13,8 @@
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "RenderUtils.h"
+#include "Engine/StaticMesh.h"
+#include "MeshDescriptionOperations.h"
 
 class FQuadricSimplifierMeshReductionModule : public IMeshReductionModule
 {
@@ -190,6 +191,14 @@ public:
 
 		const uint32 NumTexCoords = MAX_STATIC_TEXCOORDS;
 		int32 InMeshNumTexCoords = 1;
+		
+		TMap<FVertexID, FVertexID> VertexIDRemap;
+
+		bool bWeldVertices = ReductionSettings.WeldingThreshold > 0.0f;
+		if (bWeldVertices)
+		{
+			FMeshDescriptionOperations::BuildWeldedVertexIDRemap(InMesh, ReductionSettings.WeldingThreshold, VertexIDRemap);
+		}
 
 		TArray< TVertSimp< NumTexCoords > >	Verts;
 		TArray< uint32 >					Indexes;
@@ -202,14 +211,14 @@ public:
 			NumFaces += InMesh.GetPolygonTriangles(PolygonID).Num();
 		}
 		int32 NumWedges = NumFaces * 3;
-
-		TVertexAttributesConstRef<FVector> InVertexPositions = InMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
-		TVertexInstanceAttributesConstRef<FVector> InVertexNormals = InMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
-		TVertexInstanceAttributesConstRef<FVector> InVertexTangents = InMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
-		TVertexInstanceAttributesConstRef<float> InVertexBinormalSigns = InMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
-		TVertexInstanceAttributesConstRef<FVector4> InVertexColors = InMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
-		TVertexInstanceAttributesConstRef<FVector2D> InVertexUVs = InMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-		TPolygonGroupAttributesConstRef<FName> InPolygonGroupMaterialNames = InMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		FStaticMeshDescriptionConstAttributeGetter InMeshAttribute(&InMesh);
+		TVertexAttributesConstRef<FVector> InVertexPositions = InMeshAttribute.GetPositions();
+		TVertexInstanceAttributesConstRef<FVector> InVertexNormals = InMeshAttribute.GetNormals();
+		TVertexInstanceAttributesConstRef<FVector> InVertexTangents = InMeshAttribute.GetTangents();
+		TVertexInstanceAttributesConstRef<float> InVertexBinormalSigns = InMeshAttribute.GetBinormalSigns();
+		TVertexInstanceAttributesConstRef<FVector4> InVertexColors = InMeshAttribute.GetColors();
+		TVertexInstanceAttributesConstRef<FVector2D> InVertexUVs = InMeshAttribute.GetUVs();
+		TPolygonGroupAttributesConstRef<FName> InPolygonGroupMaterialNames = InMeshAttribute.GetPolygonGroupImportedMaterialSlotNames();
 
 		TPolygonGroupAttributesRef<FName> OutPolygonGroupMaterialNames = OutReducedMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
@@ -230,7 +239,8 @@ public:
 				for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 				{
 					VertexInstanceIDs[CornerIndex] = MeshTriangle.GetVertexInstanceID(CornerIndex);
-					VertexIDs[CornerIndex] = InMesh.GetVertexInstanceVertex(VertexInstanceIDs[CornerIndex]);
+					FVertexID TmpVertexID = InMesh.GetVertexInstanceVertex(VertexInstanceIDs[CornerIndex]);
+					VertexIDs[CornerIndex] = bWeldVertices ? VertexIDRemap[TmpVertexID] : TmpVertexID;
 					Positions[CornerIndex] = InVertexPositions[VertexIDs[CornerIndex]];
 				}
 
@@ -567,54 +577,8 @@ public:
 	{
 		return new FQuadricSimplifierMeshReduction;
 	}
-private:
-	void WeldVertexPositions(const FRawMesh& InMesh, const float WeldingThreshold, TArray<FVector>& OutVertexPositions, TArray<uint32>& OutIndices)
-	{
-		//The remap use to fix the indices after welding the vertex position buffer
-		TArray<int32> VertexRemap;
-		//Initialize some arrays
-		VertexRemap.AddZeroed(InMesh.VertexPositions.Num());
-		for (int32 VertexIndexRef = 0; VertexIndexRef < InMesh.VertexPositions.Num(); ++VertexIndexRef)
-		{
-			VertexRemap[VertexIndexRef] = INDEX_NONE;
-		}
-		OutVertexPositions.Reserve(InMesh.VertexPositions.Num());
-		//Weld overlapping vertex position
-		for (int32 VertexIndexRef = 0; VertexIndexRef < InMesh.VertexPositions.Num(); ++VertexIndexRef)
-		{
-			//Skip already remap vertex
-			if (VertexRemap[VertexIndexRef] != INDEX_NONE)
-			{
-				continue;
-			}
-			const FVector& PositionA = InMesh.VertexPositions[VertexIndexRef];
-			//Add this vertex to the new vertex buffer
-			VertexRemap[VertexIndexRef] = OutVertexPositions.Add(InMesh.VertexPositions[VertexIndexRef]);
-			//Find vertex to weld, search forward VertexIndexRef
-			for (int32 VertexIndex = VertexIndexRef + 1; VertexIndex < InMesh.VertexPositions.Num(); ++VertexIndex)
-			{
-				//skip already remap vertex
-				if (VertexRemap[VertexIndex] != INDEX_NONE)
-				{
-					continue;
-				}
-				const FVector& PositionB = InMesh.VertexPositions[VertexIndex];
-				if (PositionA.Equals(PositionB, WeldingThreshold))
-				{
-					//Remap this vertex to the "reference remapped vertex"
-					VertexRemap[VertexIndex] = VertexRemap[VertexIndexRef];
-				}
-			}
-		}
-		//Remap the indices to the new vertex position buffer
-		OutIndices.AddZeroed(InMesh.WedgeIndices.Num());
-		for (int32 WedgeIndex = 0; WedgeIndex < InMesh.WedgeIndices.Num(); ++WedgeIndex)
-		{
-			int32 VertexIndex = InMesh.WedgeIndices[WedgeIndex];
-			OutIndices[WedgeIndex] = VertexRemap[VertexIndex] == INDEX_NONE ? VertexIndex : VertexRemap[VertexIndex];
-		}
-	}
 };
+
 TUniquePtr<FQuadricSimplifierMeshReduction> GQuadricSimplifierMeshReduction;
 
 void FQuadricSimplifierMeshReductionModule::StartupModule()

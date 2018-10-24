@@ -1941,4 +1941,49 @@ bool FMeshDescriptionOperations::HasVertexColor(const FMeshDescription& MeshDesc
 	return bHasVertexColor;
 }
 
+void FMeshDescriptionOperations::BuildWeldedVertexIDRemap(const FMeshDescription& MeshDescription, const float WeldingThreshold, TMap<FVertexID, FVertexID>& OutVertexIDRemap)
+{
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
+	int32 NumVertex = MeshDescription.Vertices().Num();
+	OutVertexIDRemap.Reserve(NumVertex);
+
+	// Create a list of vertex Z/index pairs
+	TArray<MeshDescriptionOperationNamespace::FIndexAndZ> VertIndexAndZ;
+	VertIndexAndZ.Reserve(NumVertex);
+
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
+	{
+		new(VertIndexAndZ)MeshDescriptionOperationNamespace::FIndexAndZ(VertexID.GetValue(), VertexPositions[VertexID]);
+	}
+
+	// Sort the vertices by z value
+	VertIndexAndZ.Sort(MeshDescriptionOperationNamespace::FCompareIndexAndZ());
+
+	// Search for duplicates, quickly!
+	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
+	{
+		FVertexID Index_i = FVertexID(VertIndexAndZ[i].Index);
+		if (OutVertexIDRemap.Contains(Index_i))
+		{
+			continue;
+		}
+		OutVertexIDRemap.FindOrAdd(Index_i) = Index_i;
+		// only need to search forward, since we add pairs both ways
+		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
+		{
+			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > WeldingThreshold)
+				break; // can't be any more dups
+
+			const FVector& PositionA = *(VertIndexAndZ[i].OriginalVector);
+			const FVector& PositionB = *(VertIndexAndZ[j].OriginalVector);
+
+			if (PositionA.Equals(PositionB, WeldingThreshold))
+			{
+				OutVertexIDRemap.FindOrAdd(FVertexID(VertIndexAndZ[j].Index)) = Index_i;
+			}
+		}
+	}
+}
+
 #undef LOCTEXT_NAMESPACE
