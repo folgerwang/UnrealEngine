@@ -31,7 +31,10 @@ FAnimNode_Trail::FAnimNode_Trail()
 	, RelaxationSpeedScale(1.f)
 	, StretchLimit(0)
 	, FakeVelocity(FVector::ZeroVector)
-	, TrailBoneRotationBlendAlpha(1.f)
+#if WITH_EDITORONLY_DATA
+	, TrailBoneRotationBlendAlpha_DEPRECATED(1.f)
+#endif // WITH_EDITORONLY_DATA
+	, LastBoneRotationAnimAlphaBlend(0.f)
 {
 	FRichCurve* TrailRelaxRichCurve = TrailRelaxationSpeed.GetRichCurve();
 	TrailRelaxRichCurve->AddKey(0.f, 10.f);
@@ -292,7 +295,7 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 	}
 
 	// For the last bone in the chain, use the rotation from the bone above it.
-	FQuat LeafRotation = FQuat::FastLerp(OutBoneTransforms[ChainLength - 2].Transform.GetRotation(), OutBoneTransforms[ChainLength - 1].Transform.GetRotation(), TrailBoneRotationBlendAlpha);
+	FQuat LeafRotation = FQuat::FastLerp(OutBoneTransforms[ChainLength - 2].Transform.GetRotation(), OutBoneTransforms[ChainLength - 1].Transform.GetRotation(), LastBoneRotationAnimAlphaBlend);
 	LeafRotation.Normalize();
 	OutBoneTransforms[ChainLength - 1].Transform.SetRotation(LeafRotation);
 
