@@ -443,6 +443,7 @@ private:
 	void SetupOcclusionMeshes();
 
 	bool bHmdEnabled;
+	bool bOcclusionMeshesBuilt;
 	EHMDWornState::Type HmdWornState;
 	bool bStereoDesired;
 	bool bStereoEnabled;
