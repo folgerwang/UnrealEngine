@@ -458,6 +458,102 @@ public:
 		}
 	}
 
+	virtual void OnAlignTop()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnAlignTop();
+		}
+	}
+
+	virtual void OnAlignMiddle()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnAlignMiddle();
+		}
+	}
+
+	virtual void OnAlignBottom()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnAlignBottom();
+		}
+	}
+
+	virtual void OnAlignLeft()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnAlignLeft();
+		}
+	}
+
+	virtual void OnAlignCenter()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnAlignCenter();
+		}
+	}
+
+	virtual void OnAlignRight()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnAlignRight();
+		}
+	}
+
+
+	virtual void OnStraightenConnections()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnStraightenConnections();
+		}
+	}
+
+
+	virtual void OnDistributeNodesH()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnDistributeNodesH();
+		}
+	}
+
+	virtual void OnDistributeNodesV()
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->OnDistributeNodesV();
+		}
+	}
+
+
+	virtual int32 GetNumberOfSelectedNodes() const
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->GetNumberOfSelectedNodes();
+		}
+		return 0;
+	}
+
+
+	/** Returns the currently selected node if there is a single node selected (if there are multiple nodes selected or none selected, it will return nullptr) */
+	virtual UEdGraphNode* GetSingleSelectedNode() const
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->GetSingleSelectedNode();
+		}
+		return nullptr;
+	}
+
+
 protected:
 	/** Invoked when the underlying Graph is being changed. */
 	virtual void OnGraphChanged(const struct FEdGraphEditAction& InAction)

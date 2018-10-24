@@ -18,8 +18,38 @@
 #include "ScopedTransaction.h"
 #include "SGraphEditorActionMenu.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "EdGraphSchema_K2.h"
 
 #define LOCTEXT_NAMESPACE "GraphEditorModule"
+
+FVector2D GetNodeSize(const SGraphEditor& GraphEditor, const UEdGraphNode* Node)
+{
+	FSlateRect Rect;
+	if (GraphEditor.GetBoundsForNode(Node, Rect, 0.f))
+	{
+		return FVector2D(Rect.Right - Rect.Left, Rect.Bottom - Rect.Top);
+	}
+
+	return FVector2D(Node->NodeWidth, Node->NodeHeight);
+}
+
+/////////////////////////////////////////////////////
+// FAlignmentHelper
+
+FAlignmentData FAlignmentHelper::GetAlignmentDataForNode(UEdGraphNode* Node)
+{
+	float PropertyOffset = 0.f;
+
+	const float NodeSize = Orientation == Orient_Horizontal ? GetNodeSize(*GraphEditor, Node).X : GetNodeSize(*GraphEditor, Node).Y;
+	switch (AlignType)
+	{
+	case EAlignType::Minimum:	PropertyOffset = 0.f;			break;
+	case EAlignType::Middle:	PropertyOffset = NodeSize * .5f;	break;
+	case EAlignType::Maximum:	PropertyOffset = NodeSize;		break;
+	}
+	int32* Property = Orientation == Orient_Horizontal ? &Node->NodePosX : &Node->NodePosY;
+	return FAlignmentData(Node, *Property, PropertyOffset);
+}
 
 /////////////////////////////////////////////////////
 // SGraphEditorImpl
@@ -808,6 +838,150 @@ void SGraphEditorImpl::SetNodeFactory(const TSharedRef<class FGraphNodeFactory>&
 	GraphPanel->SetNodeFactory(NewNodeFactory);
 }
 
+
+void SGraphEditorImpl::OnAlignTop()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().AlignNodesTop->GetLabel());
+
+	FAlignmentHelper Helper(SharedThis(this), Orient_Vertical, EAlignType::Minimum);
+	Helper.Align();
+}
+
+void SGraphEditorImpl::OnAlignMiddle()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().AlignNodesMiddle->GetLabel());
+
+	FAlignmentHelper Helper(SharedThis(this), Orient_Vertical, EAlignType::Middle);
+	Helper.Align();
+}
+
+void SGraphEditorImpl::OnAlignBottom()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().AlignNodesBottom->GetLabel());
+
+	FAlignmentHelper Helper(SharedThis(this), Orient_Vertical, EAlignType::Maximum);
+	Helper.Align();
+}
+
+void SGraphEditorImpl::OnAlignLeft()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().AlignNodesLeft->GetLabel());
+
+	FAlignmentHelper Helper(SharedThis(this), Orient_Horizontal, EAlignType::Minimum);
+	Helper.Align();
+}
+
+void SGraphEditorImpl::OnAlignCenter()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().AlignNodesCenter->GetLabel());
+
+	FAlignmentHelper Helper(SharedThis(this), Orient_Horizontal, EAlignType::Middle);
+	Helper.Align();
+}
+
+void SGraphEditorImpl::OnAlignRight()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().AlignNodesRight->GetLabel());
+
+	FAlignmentHelper Helper(SharedThis(this), Orient_Horizontal, EAlignType::Maximum);
+	Helper.Align();
+}
+
+void SGraphEditorImpl::OnStraightenConnections()
+{
+	const FScopedTransaction Transaction(FGraphEditorCommands::Get().StraightenConnections->GetLabel());
+
+	if (UEdGraphPin* Pin = GetGraphPinForMenu())
+	{
+		StraightenConnections(Pin, UEdGraphSchema_K2::GetAndResetStraightenDestinationPin());
+	}
+	else
+	{
+		StraightenConnections();
+	}
+}
+
+/** Distribute the specified array of node data evenly */
+void DistributeNodes(TArray<FAlignmentData>& InData)
+{
+	// Sort the data
+	InData.Sort([](const FAlignmentData& A, const FAlignmentData& B) {
+		return A.TargetProperty + A.TargetOffset / 2 < B.TargetProperty + B.TargetOffset / 2;
+	});
+
+	// Measure the available space
+	float TotalWidthOfNodes = 0.f;
+	for (int32 Index = 1; Index < InData.Num() - 1; ++Index)
+	{
+		TotalWidthOfNodes += InData[Index].TargetOffset;
+	}
+
+	const float SpaceToDistributeIn = InData.Last().TargetProperty - InData[0].GetTarget();
+	const float PaddingAmount = ((SpaceToDistributeIn - TotalWidthOfNodes) / (InData.Num() - 1));
+
+	float TargetPosition = InData[0].GetTarget() + PaddingAmount;
+
+	// Now set all the properties on the target
+	for (int32 Index = 1; Index < InData.Num() - 1; ++Index)
+	{
+		FAlignmentData& Entry = InData[Index];
+
+		Entry.Node->Modify();
+		Entry.TargetProperty = TargetPosition;
+
+		TargetPosition = Entry.GetTarget() + PaddingAmount;
+	}
+}
+
+void SGraphEditorImpl::OnDistributeNodesH()
+{
+	TArray<FAlignmentData> AlignData;
+	for (UObject* It : GetSelectedNodes())
+	{
+		if (UEdGraphNode* Node = Cast<UEdGraphNode>(It))
+		{
+			AlignData.Add(FAlignmentData(Node, Node->NodePosX, GetNodeSize(*this, Node).X));
+		}
+	}
+
+	if (AlignData.Num() > 2)
+	{
+		const FScopedTransaction Transaction(FGraphEditorCommands::Get().DistributeNodesHorizontally->GetLabel());
+		DistributeNodes(AlignData);
+	}
+}
+
+void SGraphEditorImpl::OnDistributeNodesV()
+{
+	TArray<FAlignmentData> AlignData;
+	for (UObject* It : GetSelectedNodes())
+	{
+		if (UEdGraphNode* Node = Cast<UEdGraphNode>(It))
+		{
+			AlignData.Add(FAlignmentData(Node, Node->NodePosY, GetNodeSize(*this, Node).Y));
+		}
+	}
+
+	if (AlignData.Num() > 2)
+	{
+		const FScopedTransaction Transaction(FGraphEditorCommands::Get().DistributeNodesVertically->GetLabel());
+		DistributeNodes(AlignData);
+	}
+}
+
+int32 SGraphEditorImpl::GetNumberOfSelectedNodes() const
+{
+	return GetSelectedNodes().Num();
+}
+
+UEdGraphNode* SGraphEditorImpl::GetSingleSelectedNode() const
+{
+	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
+	return (SelectedNodes.Num() == 1) ? Cast<UEdGraphNode>(*SelectedNodes.CreateConstIterator()) : nullptr;
+}
+
 /////////////////////////////////////////////////////
+
+
 
 #undef LOCTEXT_NAMESPACE 

@@ -20,6 +20,133 @@ struct FGraphContextMenuArguments;
 struct FNotificationInfo;
 struct Rect;
 
+
+/** Struct used for generically aligning nodes */
+struct FAlignmentData
+{
+	FAlignmentData(UEdGraphNode* InNode, int32& InTargetProperty, float InTargetOffset)
+		: Node(InNode), TargetProperty(InTargetProperty), TargetOffset(InTargetOffset)
+	{}
+
+	/** The node to position */
+	UEdGraphNode* Node;
+	/** The property within the node to read/write */
+	int32& TargetProperty;
+	/** The offset from the property to consider for alignment */
+	float TargetOffset;
+
+	/** Get the destination target from this alignment data (property + offset) */
+	float GetTarget() const
+	{
+		return float(TargetProperty) + TargetOffset;
+	}
+};
+
+enum class EAlignType : uint8
+{
+	Minimum, Middle, Maximum
+};
+
+/** Helper class for aligning nodes */
+struct FAlignmentHelper
+{
+	/** Construct from a graph editor, an orientation, and an alignment type */
+	FAlignmentHelper(TSharedRef<SGraphEditor> InGraphEditor, EOrientation InOrientation, EAlignType InAlignType)
+		: GraphEditor(MoveTemp(InGraphEditor))
+	{
+		// We align to the node that was clicked on, if available (not when invoked from a key shortcut)
+		CardinalNode = GraphEditor->GetGraphNodeForMenu();
+
+		Orientation = InOrientation;
+		AlignType = InAlignType;
+
+		// Collect all the alignment data for all the selected nodes
+		for (UObject* It : GraphEditor->GetSelectedNodes())
+		{
+			if (UEdGraphNode* Node = Cast<UEdGraphNode>(It))
+			{
+				AlignmentData.Add(GetAlignmentDataForNode(Node));
+			}
+		}
+
+		// Sort the data based on target - important for future algorithms
+		AlignmentData.Sort([](const FAlignmentData& A, const FAlignmentData& B) {
+			return A.GetTarget() < B.GetTarget();
+		});
+	}
+
+	/** Align all the nodes */
+	void Align()
+	{
+		if (AlignmentData.Num() > 1)
+		{
+			float Target = DetermineAlignmentTarget();
+
+			for (FAlignmentData& Entry : AlignmentData)
+			{
+				Entry.Node->Modify();
+				Entry.TargetProperty = Target - Entry.TargetOffset;
+			}
+		}
+	}
+
+private:
+
+	/** Collect alignment data for a given node, based on our settings */
+	FAlignmentData GetAlignmentDataForNode(UEdGraphNode* Node);
+
+	/** Determine the horizontal/vertical position that all nodes should align to */
+	float DetermineAlignmentTarget()
+	{
+		if (CardinalNode)
+		{
+			return GetAlignmentDataForNode(CardinalNode).GetTarget();
+		}
+
+		if (AlignType == EAlignType::Minimum)
+		{
+			float Target = TNumericLimits<float>::Max();
+			for (const FAlignmentData& Entry : AlignmentData)
+			{
+				Target = FMath::Min(Target, Entry.GetTarget());
+			}
+			return Target;
+		}
+		else if (AlignType == EAlignType::Maximum)
+		{
+			float Target = TNumericLimits<float>::Lowest();
+			for (const FAlignmentData& Entry : AlignmentData)
+			{
+				Target = FMath::Max(Target, Entry.GetTarget());
+			}
+			return Target;
+		}
+		else
+		{
+			// Use the mean
+			float SumTotal = 0.f;
+			for (const FAlignmentData& Entry : AlignmentData)
+			{
+				SumTotal += Entry.GetTarget();
+			}
+			return SumTotal / AlignmentData.Num();
+		}
+	}
+
+	/** The graph editor */
+	TSharedRef<SGraphEditor> GraphEditor;
+	/** Whether we are aligning horizontally/vertically */
+	EOrientation Orientation;
+	/** Whether we are aligning to the minimum/middle/maximum bounds */
+	EAlignType AlignType;
+	/** The cardinal node that all other nodes should align to (possibly null) */
+	UEdGraphNode* CardinalNode;
+	/** Generated alignment data */
+	TArray<FAlignmentData> AlignmentData;
+};
+
+
+
 /////////////////////////////////////////////////////
 // SGraphEditorImpl
 
@@ -159,6 +286,21 @@ public:
 	virtual void RefreshNode(UEdGraphNode& Node) override;
 	virtual void CaptureKeyboard() override;
 	virtual void SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory) override;
+	virtual void OnAlignTop() override;
+	virtual void OnAlignMiddle() override;
+	virtual void OnAlignBottom() override;
+	virtual void OnAlignLeft() override;
+	virtual void OnAlignCenter() override;
+	virtual void OnAlignRight() override;
+
+	virtual void OnStraightenConnections() override;
+
+	virtual void OnDistributeNodesH() override;
+	virtual void OnDistributeNodesV() override;
+
+	virtual int32 GetNumberOfSelectedNodes() const override;
+
+	virtual UEdGraphNode* GetSingleSelectedNode() const override;
 	// End of SGraphEditor interface
 protected:
 	//

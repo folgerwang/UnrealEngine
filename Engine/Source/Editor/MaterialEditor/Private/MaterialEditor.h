@@ -500,6 +500,18 @@ protected:
 	/** Called to redo the last undone action */
 	void RedoGraphAction();
 
+	void OnAlignTop();
+	void OnAlignMiddle();
+	void OnAlignBottom();
+	void OnAlignLeft();
+	void OnAlignCenter();
+	void OnAlignRight();
+
+	void OnStraightenConnections();
+
+	void OnDistributeNodesH();
+	void OnDistributeNodesV();
+
 private:
 	/** Builds the toolbar widget for the material editor */
 	void ExtendToolbar();
