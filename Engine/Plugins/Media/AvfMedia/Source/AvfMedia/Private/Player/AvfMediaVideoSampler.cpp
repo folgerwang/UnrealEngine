@@ -288,7 +288,8 @@ void FAvfMediaVideoSampler::Tick()
 				
 				PixelShader->SetParameters(RHICmdList, YTex, UVTex, MediaShaders::YuvToSrgbPs4, true);
 				
-				RHICmdList.SetStreamSource(0, CreateTempMediaVertexBuffer(), 0);
+				FVertexBufferRHIRef VertexBuffer = CreateTempMediaVertexBuffer();
+				RHICmdList.SetStreamSource(0, VertexBuffer, 0);
 				RHICmdList.SetViewport(0, 0, 0.0f, YWidth, YHeight, 1.0f);
 
 				RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
