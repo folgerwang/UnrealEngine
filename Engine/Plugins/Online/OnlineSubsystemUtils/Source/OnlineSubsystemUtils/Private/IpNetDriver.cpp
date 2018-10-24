@@ -119,7 +119,7 @@ bool UIpNetDriver::InitBase( bool bInitAsClient, FNetworkNotify* InNotify, const
 	if( Socket == NULL )
 	{
 		Socket = 0;
-		Error = FString::Printf( TEXT("WinSock: socket failed (%i)"), (int32)SocketSubsystem->GetLastErrorCode() );
+		Error = FString::Printf( TEXT("%s: socket failed (%i)"), SocketSubsystem->GetSocketAPIName(), (int32)SocketSubsystem->GetLastErrorCode() );
 		return false;
 	}
 	if (SocketSubsystem->RequiresChatDataBeSeparate() == false &&

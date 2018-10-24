@@ -163,7 +163,7 @@ FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FStr
 		if (SteamUserPtr != NULL)
 		{
 			FUniqueNetIdSteam ClientId(SteamUserPtr->GetSteamID());
-			NewSocket = new FSocketSteam(SteamNetworking(), ClientId, SocketDescription);
+			NewSocket = new FSocketSteam(SteamNetworking(), ClientId, SocketDescription, ProtocolType);
 
 			if (NewSocket)
 			{
@@ -180,12 +180,12 @@ FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FStr
 			// If the GameServer connection hasn't been created yet, mark the socket as invalid for now
 			if (SessionInt->bSteamworksGameServerConnected && SessionInt->GameServerSteamId->IsValid() && SessionInt->bPolicyResponseReceived)
 			{
-				NewSocket = new FSocketSteam(SteamGameServerNetworking(), *SessionInt->GameServerSteamId, SocketDescription);
+				NewSocket = new FSocketSteam(SteamGameServerNetworking(), *SessionInt->GameServerSteamId, SocketDescription, ProtocolType);
 			}
 			else
 			{
 				FUniqueNetIdSteam InvalidId(uint64(0));
-				NewSocket = new FSocketSteam(SteamGameServerNetworking(), InvalidId, SocketDescription);
+				NewSocket = new FSocketSteam(SteamGameServerNetworking(), InvalidId, SocketDescription, ProtocolType);
 			}
 
 			if (NewSocket)

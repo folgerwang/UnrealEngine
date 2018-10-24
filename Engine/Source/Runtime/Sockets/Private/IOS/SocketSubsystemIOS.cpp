@@ -12,10 +12,10 @@
 
 FSocketSubsystemIOS* FSocketSubsystemIOS::SocketSingleton = NULL;
 
-class FSocketBSD* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
+class FSocketBSD* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription, ESocketProtocolFamily SocketProtocol)
 {
 	UE_LOG(LogIOS, Log, TEXT(" FSocketSubsystemIOS::InternalBSDSocketFactory"));
-	return new FSocketBSDIOS(Socket, SocketType, SocketDescription, this);
+	return new FSocketBSDIOS(Socket, SocketType, SocketDescription, SocketProtocol, this);
 }
 
 FName CreateSocketSubsystem( FSocketSubsystemModule& SocketSubsystemModule )
