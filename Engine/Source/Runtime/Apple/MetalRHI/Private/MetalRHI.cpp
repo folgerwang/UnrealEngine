@@ -48,11 +48,11 @@ static void ValidateTargetedRHIFeatureLevelExists(EShaderPlatform Platform)
 		}
 	}
 #else
-	if (Platform == SP_METAL)
+	if (Platform == SP_METAL || Platform == SP_METAL_TVOS)
 	{
 		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetal"), bSupportsShaderPlatform, GEngineIni);
 	}
-	else if (Platform == SP_METAL_MRT)
+	else if (Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_TVOS)
 	{
 		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bSupportsShaderPlatform, GEngineIni);
 	}
@@ -153,10 +153,14 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
     // only allow GBuffers, etc on A8s (A7s are just not going to cut it)
     if (bProjectSupportsMRTs && bCanUseWideMRTs && bRequestedMetalMRT)
     {
+#if PLATFORM_TVOS
 		ValidateTargetedRHIFeatureLevelExists(SP_METAL_MRT);
-		
-        GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
+		GMaxRHIShaderPlatform = SP_METAL_MRT_TVOS;
+#else
+		ValidateTargetedRHIFeatureLevelExists(SP_METAL_MRT);
         GMaxRHIShaderPlatform = SP_METAL_MRT;
+#endif
+		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
 		
 		bSupportsRHIThread = FParse::Param(FCommandLine::Get(),TEXT("rhithread"));
     }
@@ -167,10 +171,14 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 			UE_LOG(LogMetal, Warning, TEXT("Metal MRT support requires an iOS or tvOS device with an A8 processor or later. Falling back to Metal ES 3.1."));
 		}
 		
+#if PLATFORM_TVOS
+		ValidateTargetedRHIFeatureLevelExists(SP_METAL_TVOS);
+		GMaxRHIShaderPlatform = SP_METAL_TVOS;
+#else
 		ValidateTargetedRHIFeatureLevelExists(SP_METAL);
-		
+		GMaxRHIShaderPlatform = SP_METAL;
+#endif
         GMaxRHIFeatureLevel = ERHIFeatureLevel::ES3_1;
-        GMaxRHIShaderPlatform = SP_METAL;
 	}
 		
 	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
@@ -180,8 +188,13 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	MemoryStats.DedicatedSystemMemory = 0;
 	MemoryStats.SharedSystemMemory = Stats.AvailablePhysical;
 	
+#if PLATFORM_TVOS
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL_TVOS;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_METAL_TVOS;
+#else
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_METAL;
+#endif
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 

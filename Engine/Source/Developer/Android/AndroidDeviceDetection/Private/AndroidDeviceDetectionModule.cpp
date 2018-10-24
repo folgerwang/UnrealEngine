@@ -689,7 +689,7 @@ public:
 			if (bOpenGL3x)
 			{
 				DeviceSpecs.AndroidProperties.GLES31RHIState.SupportsInstancing = true;
-				DeviceSpecs.AndroidProperties.GLES31RHIState.MaxTextureDimensions = 2048;
+				DeviceSpecs.AndroidProperties.GLES31RHIState.MaxTextureDimensions = 4096;
 				DeviceSpecs.AndroidProperties.GLES31RHIState.MaxShadowDepthBufferSizeX = 2048;
 				DeviceSpecs.AndroidProperties.GLES31RHIState.MaxShadowDepthBufferSizeY = 2048;
 				DeviceSpecs.AndroidProperties.GLES31RHIState.MaxCubeTextureDimensions = 2048;
@@ -701,7 +701,7 @@ public:
 			// OpenGL ES 2.0
 			{
 				DeviceSpecs.AndroidProperties.GLES2RHIState.SupportsInstancing = false;
-				DeviceSpecs.AndroidProperties.GLES2RHIState.MaxTextureDimensions = 1024;
+				DeviceSpecs.AndroidProperties.GLES2RHIState.MaxTextureDimensions = 2048;
 				DeviceSpecs.AndroidProperties.GLES2RHIState.MaxShadowDepthBufferSizeX = 1024;
 				DeviceSpecs.AndroidProperties.GLES2RHIState.MaxShadowDepthBufferSizeY = 1024;
 				DeviceSpecs.AndroidProperties.GLES2RHIState.MaxCubeTextureDimensions = 512;

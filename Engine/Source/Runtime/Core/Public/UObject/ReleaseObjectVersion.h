@@ -68,6 +68,12 @@ struct CORE_API FReleaseObjectVersion
 		// Change to not clamp RGB values > 1 on linear color curves
 		UnclampRGBColorCurves,
 
+		// Bugfix for FAnimObjectVersion::LinkTimeAnimBlueprintRootDiscovery.
+		LinkTimeAnimBlueprintRootDiscoveryBugFix,
+
+		// Change trail anim node variable deprecation
+		TrailNodeBlendVariableNameChange,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

@@ -78,6 +78,7 @@ private:
 	EVisibility GetOpenSourceEmitterVisibility() const;
 
 	// source name handling
+	bool GetEmitterNameIsReadOnly() const;
 	FText GetSourceEmitterNameText() const;
 	FText GetEmitterNameToolTip() const;
 	void OnStackViewNameTextCommitted(const FText& InText, ETextCommit::Type CommitInfo) const;

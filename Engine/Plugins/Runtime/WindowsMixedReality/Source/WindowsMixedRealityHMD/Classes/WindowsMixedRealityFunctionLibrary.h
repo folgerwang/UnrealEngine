@@ -38,4 +38,13 @@ public:
 	*/
 	UFUNCTION(BlueprintPure, Category = "WindowsMixedRealityHMD")
 	static bool IsCurrentlyImmersive();
+
+	/**
+	* Locks the mouse cursor to the center of the screen if the hmd is worn.
+	* Default is true to help guarantee mouse focus when the hmd is worn.
+	* Set this to false to override the default behavior if your application requires free mouse movement.
+	* locked: true to lock to center, false to not lock.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "WindowsMixedRealityHMD")
+	static void LockMouseToCenter(bool locked);
 };

@@ -58,6 +58,8 @@ class UMovieSceneNiagaraEmitterTrack
 public:
 	void Initialize(FNiagaraSystemViewModel& SystemViewModel, TSharedRef<FNiagaraEmitterHandleViewModel> InEmitterHandleViewModel, const FFrameRate& InFrameResolution);
 
+	virtual bool CanRename() const override;
+
 	FNiagaraSystemViewModel& GetSystemViewModel() const;
 
 	TSharedPtr<FNiagaraEmitterHandleViewModel> GetEmitterHandleViewModel() const;

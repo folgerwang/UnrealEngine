@@ -12,11 +12,15 @@ namespace UnrealBuildTool.Rules
 					"WebMMediaFactory",
 					"Core",
 					"Engine",
-					"Media",
-					"MediaUtils",
 					"RenderCore",
 					"RHI",
 					"ShaderCore",
+				});
+
+			PublicDependencyModuleNames.AddRange(
+				new string[] {
+					"Media",
+					"MediaUtils",
 					"UtilityShaders",
 					"libOpus",
 					"UEOgg",

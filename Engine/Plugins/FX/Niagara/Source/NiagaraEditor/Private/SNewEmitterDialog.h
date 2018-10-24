@@ -28,6 +28,10 @@ private:
 
 	TArray<FAssetData> GetSelectedProjectEmiterAssets();
 
+	void OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset);
+
+	void OnEmitterAssetsActivated(const TArray<FAssetData>& ActivatedAssets, EAssetTypeActivationMethod::Type ActivationMethod);
+
 private:
 	TSharedPtr<SNiagaraTemplateAssetPicker> TemplateAssetPicker;
 

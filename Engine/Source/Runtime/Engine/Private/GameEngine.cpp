@@ -185,17 +185,6 @@ void UGameEngine::CreateGameViewportWidget( UGameViewportClient* GameViewportCli
 {
 	bool bRenderDirectlyToWindow = (!StartupMovieCaptureHandle.IsValid() || IMovieSceneCaptureModule::Get().IsStereoAllowed()) && GIsDumpingMovie == 0;
 
-	// when we're running in a "device simulation" window, render the scene to an intermediate texture
-	// in the mobile device "emulation" case this is needed to properly position the viewport (as a widget) inside its bezel
-#if WITH_EDITOR
-	auto PIEPreviewDeviceModule = FModuleManager::LoadModulePtr<IPIEPreviewDeviceModule>("PIEPreviewDeviceProfileSelector");
-	if (PIEPreviewDeviceModule && FPIEPreviewDeviceModule::IsRequestingPreviewDevice())
-	{
-		bRenderDirectlyToWindow = false;
-	}
-#endif
-
-	const bool bStereoAllowed = bRenderDirectlyToWindow;
 	TSharedRef<SOverlay> ViewportOverlayWidgetRef = SNew( SOverlay );
 
 	TSharedRef<SGameLayerManager> GameLayerManagerRef = SNew(SGameLayerManager)
@@ -203,6 +192,19 @@ void UGameEngine::CreateGameViewportWidget( UGameViewportClient* GameViewportCli
 		[
 			ViewportOverlayWidgetRef
 		];
+
+	// when we're running in a "device simulation" window, render the scene to an intermediate texture
+	// in the mobile device "emulation" case this is needed to properly position the viewport (as a widget) inside its bezel
+#if WITH_EDITOR
+	auto PIEPreviewDeviceModule = FModuleManager::LoadModulePtr<IPIEPreviewDeviceModule>("PIEPreviewDeviceProfileSelector");
+	if (PIEPreviewDeviceModule && FPIEPreviewDeviceModule::IsRequestingPreviewDevice())
+	{
+		bRenderDirectlyToWindow = false;
+		PIEPreviewDeviceModule->SetGameLayerManagerWidget(GameLayerManagerRef);
+	}
+#endif
+
+	const bool bStereoAllowed = bRenderDirectlyToWindow;
 
 	TSharedRef<SViewport> GameViewportWidgetRef = 
 		SNew( SViewport )
@@ -583,7 +585,7 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 #if WITH_EDITOR
 	if (PIEPreviewDeviceModule && FPIEPreviewDeviceModule::IsRequestingPreviewDevice())
 	{
-		PIEPreviewDeviceModule->PrepareDeviceDisplay();
+		PIEPreviewDeviceModule->OnWindowReady(Window);
 	}
 #endif
 

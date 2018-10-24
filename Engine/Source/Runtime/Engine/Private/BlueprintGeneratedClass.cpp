@@ -39,6 +39,9 @@ static FAutoConsoleVariableRef CVarBlueprintClusteringEnabled(
 
 UBlueprintGeneratedClass::UBlueprintGeneratedClass(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	, UberGraphFunctionKey(0)
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 {
 	NumReplicatedProperties = 0;
 	bHasNativizedParent = false;
@@ -809,8 +812,7 @@ UObject* UBlueprintGeneratedClass::FindArchetype(UClass* ArchetypeClass, const F
 			}
 		}
 	}
-
-	ensure(!Archetype || ArchetypeClass->IsChildOf(Archetype->GetClass()));
+	
 	return Archetype;
 }
 
@@ -1240,6 +1242,9 @@ void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool
 					*GetPathNameSafe(UberGraphFunction), *GetPathNameSafe(Obj));
 			}
 			PointerToUberGraphFrame->RawPointer = FrameMemory;
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+			PointerToUberGraphFrame->UberGraphFunctionKey = UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 		}
 	}
 
@@ -1425,19 +1430,22 @@ void UBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties
 	Super::Link(Ar, bRelinkExistingProperties);
 
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
-	if (UsePersistentUberGraphFrame() && UberGraphFunction)
+	if(UsePersistentUberGraphFrame())
 	{
-		Ar.Preload(UberGraphFunction);
-
-		for (UStructProperty* Property : TFieldRange<UStructProperty>(this, EFieldIteratorFlags::ExcludeSuper))
+		if (UberGraphFunction)
 		{
-			if (Property->GetFName() == GetUberGraphFrameName())
+			Ar.Preload(UberGraphFunction);
+
+			for (UStructProperty* Property : TFieldRange<UStructProperty>(this, EFieldIteratorFlags::ExcludeSuper))
 			{
-				UberGraphFramePointerProperty = Property;
-				break;
+				if (Property->GetFName() == GetUberGraphFrameName())
+				{
+					UberGraphFramePointerProperty = Property;
+					break;
+				}
 			}
+			checkSlow(UberGraphFramePointerProperty);
 		}
-		checkSlow(UberGraphFramePointerProperty);
 	}
 #endif
 
@@ -1449,6 +1457,9 @@ void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 	Super::PurgeClass(bRecompilingOnLoad);
 
 	UberGraphFunction = NULL;
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	UberGraphFunctionKey = 0;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 #if WITH_EDITORONLY_DATA
 	OverridenArchetypeForCDO = NULL;
 
@@ -1482,6 +1493,15 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 				checkSlow(PointerToUberGraphFrame)
 				if (PointerToUberGraphFrame->RawPointer)
 				{
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+					ensureMsgf(
+						PointerToUberGraphFrame->UberGraphFunctionKey == BPGC->UberGraphFunctionKey,
+						TEXT("Detected key mismatch in uber graph frame for instance %s of type %s, iteration will be unsafe"),
+						*InThis->GetPathName(),
+						*BPGC->GetPathName()
+					);
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 					checkSlow(BPGC->UberGraphFunction);
 					FVerySlowReferenceCollectorArchiveScope CollectorScope(
 						Collector.GetInternalPersistentFrameReferenceCollectorArchive(),
@@ -1522,8 +1542,24 @@ bool UBlueprintGeneratedClass::UsePersistentUberGraphFrame()
 #endif
 }
 
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+static TAtomic<int32> GUberGraphSerialNumber(0);
+
+ENGINE_API int32 IncrementUberGraphSerialNumber()
+{
+	return ++GUberGraphSerialNumber;
+}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 void UBlueprintGeneratedClass::Serialize(FArchive& Ar)
 {
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	if (Ar.IsLoading() && 0 == (Ar.GetPortFlags() & PPF_Duplicate))
+	{
+		UberGraphFunctionKey = IncrementUberGraphSerialNumber();
+	}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 	Super::Serialize(Ar);
 
 	if (Ar.IsLoading() && 0 == (Ar.GetPortFlags() & PPF_Duplicate))

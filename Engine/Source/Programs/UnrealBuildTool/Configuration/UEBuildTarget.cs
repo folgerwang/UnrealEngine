@@ -457,6 +457,11 @@ namespace UnrealBuildTool
 				RulesObject.bBuildRequiresCookedData = true;
 			}
 
+			if (!RulesObject.bAllowNonUFSIniWhenCooked)
+			{
+				RulesObject.GlobalDefinitions.Add("DISABLE_NONUFS_INI_WHEN_COOKED=1");
+			}
+
 			// Allow the platform to finalize the settings
 			UEBuildPlatform Platform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
 			Platform.ValidateTarget(RulesObject);
@@ -1204,13 +1209,13 @@ namespace UnrealBuildTool
 			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
 			{
 				FileReference SourceFile;
-				if(RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				if(!RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				{
+					SourceFile = RuntimeDependency.Path;
+				}
+				if(RuntimeDependency.Type != StagedFileType.DebugNonUFS || FileReference.Exists(SourceFile))
 				{
 					Files.Add(SourceFile);
-				}
-				else
-				{
-					Files.Add(RuntimeDependency.Path);
 				}
 			}
 
@@ -1701,7 +1706,7 @@ namespace UnrealBuildTool
 				foreach (FileReference VersionManifestFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
 				{
 					// Make sure the file (and directory) exists before trying to delete it
-					if(FileReference.Exists(VersionManifestFile))
+					if(FileReference.Exists(VersionManifestFile) && !IsFileInstalled(VersionManifestFile))
 					{
 						FileReference.Delete(VersionManifestFile);
 					}

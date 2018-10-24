@@ -71,11 +71,11 @@ public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (Parameters.Platform != SP_METAL_MRT && Parameters.Platform != SP_METAL_MRT_MAC) )
+		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform) )
 		{
 			return true;
 		}
-		else if (Parameters.Platform == SP_METAL_MRT || Parameters.Platform == SP_METAL_MRT_MAC)
+		else if (IsMetalMRTPlatform(Parameters.Platform))
 		{
 			return CompileTimeNumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_IOS;
 		}
@@ -229,11 +229,11 @@ public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (Parameters.Platform != SP_METAL_MRT && Parameters.Platform != SP_METAL_MRT_MAC) )
+		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform) )
 		{
 			return true;
 		}
-		else if (Parameters.Platform == SP_METAL_MRT || Parameters.Platform == SP_METAL_MRT_MAC)
+		else if (IsMetalMRTPlatform(Parameters.Platform))
 		{
 			return NumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_IOS;
 		}
@@ -1307,7 +1307,7 @@ uint32 FRCPassPostProcessWeightedSampleSum::GetMaxNumSamples(ERHIFeatureLevel::T
 
 	uint32 MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES;
 
-	if (InPlatform == SP_METAL_MRT || InPlatform == SP_METAL_MRT_MAC)
+	if (IsMetalMRTPlatform(InPlatform))
 	{
 		MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES_IOS;
 	}

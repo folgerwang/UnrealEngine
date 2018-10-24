@@ -22,8 +22,8 @@
 	"Modules": [
 		{
 			"Name": "SequencerScripting",
-			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"Type": "Developer",
+			"LoadingPhase": "PostEngineInit"
 		}
 	]
 }

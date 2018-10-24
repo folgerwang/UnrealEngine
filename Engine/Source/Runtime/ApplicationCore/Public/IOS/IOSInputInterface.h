@@ -177,4 +177,6 @@ private:
 
 	/** Last value sent to mobile haptics */
 	float LastHapticValue;
+	
+	int HapticFeedbackSupportLevel;
 };

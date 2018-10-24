@@ -25,6 +25,8 @@ void SNiagaraTemplateAssetPicker::Construct(const FArguments& InArgs, UClass* As
 	ProjectCategory = LOCTEXT("ProjectCategory", "Project");
 
 	AssetThumbnailPool = MakeShareable(new FAssetThumbnailPool(24));
+
+	OnTemplateAssetActivated = InArgs._OnTemplateAssetActivated;
 		
 	TArray<FAssetData> EmittersToShow;
 	for (const FAssetData& EmitterAsset : EmitterAssets)
@@ -48,6 +50,7 @@ void SNiagaraTemplateAssetPicker::Construct(const FArguments& InArgs, UClass* As
 		.OnDoesItemMatchFilterText(this, &SNiagaraTemplateAssetPicker::OnDoesItemMatchFilterText)
 		.OnGenerateWidgetForCategory(this, &SNiagaraTemplateAssetPicker::OnGenerateWidgetForCategory)
 		.OnGenerateWidgetForItem(this, &SNiagaraTemplateAssetPicker::OnGenerateWidgetForItem)
+		.OnItemActivated(this, &SNiagaraTemplateAssetPicker::OnItemActivated)
 	];
 }
 
@@ -139,13 +142,13 @@ TSharedRef<SWidget> SNiagaraTemplateAssetPicker::OnGenerateWidgetForCategory(con
 		];
 }
 
-const int32 ThumbnailSize = 64;
+const int32 ThumbnailSize = 72;
 
 TSharedRef<SWidget> SNiagaraTemplateAssetPicker::OnGenerateWidgetForItem(const FAssetData& Item)
 {
 	TSharedRef<FAssetThumbnail> AssetThumbnail = MakeShared<FAssetThumbnail>(Item, ThumbnailSize, ThumbnailSize, AssetThumbnailPool);
 	FAssetThumbnailConfig ThumbnailConfig;
-	ThumbnailConfig.bAllowFadeIn = true;
+	ThumbnailConfig.bAllowFadeIn = false;
 
 	FText AssetDescription;
 	Item.GetTagValue("TemplateAssetDescription", AssetDescription);
@@ -182,6 +185,11 @@ TSharedRef<SWidget> SNiagaraTemplateAssetPicker::OnGenerateWidgetForItem(const F
 				.AutoWrapText(true)
 			]
 		];
+}
+
+void SNiagaraTemplateAssetPicker::OnItemActivated(const FAssetData& Item)
+{
+	OnTemplateAssetActivated.ExecuteIfBound(Item);
 }
 
 #undef LOCTEXT_NAMESPACE

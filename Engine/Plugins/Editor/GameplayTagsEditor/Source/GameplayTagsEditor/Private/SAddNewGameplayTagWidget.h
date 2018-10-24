@@ -25,6 +25,8 @@ public:
 		SLATE_ARGUMENT( FString, NewTagName ) // String that will initially populate the New Tag Name field
 	SLATE_END_ARGS();
 
+	virtual ~SAddNewGameplayTagWidget();
+
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	void Construct( const FArguments& InArgs);

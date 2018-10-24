@@ -7,6 +7,16 @@
 #include "Android/AndroidApplication.h"
 #endif
 
+// Matches return values from android.view.display.getRotation()
+enum class ARCoreDisplayRotation : int32
+{
+	Rotation0 = 0,
+	Rotation90 = 1,
+	Rotation180 = 2,
+	Rotation270 = 3,
+	Max = 3
+};
+
 /** Wrappers for accessing Android Java stuff */
 class FGoogleARCoreAndroidHelper
 {
@@ -20,7 +30,7 @@ public:
 	/**
 	 * Get Andriod display orientation.
 	 */
-	static int32 GetDisplayRotation();
+	static ARCoreDisplayRotation GetDisplayRotation();
 
 	static void QueueStartSessionOnUiThread();
 
@@ -36,5 +46,5 @@ public:
 #endif
 
 private:
-	static int32 CurrentDisplayRotation;
+	static ARCoreDisplayRotation CurrentDisplayRotation;
 };

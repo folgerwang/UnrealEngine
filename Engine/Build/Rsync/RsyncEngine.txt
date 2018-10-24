@@ -220,6 +220,8 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
 + /Build/Mac/**
 + /Build/IOS/
 + /Build/IOS/**
++ /Build/TVOS/
++ /Build/TVOS/**
 protect /Build/IOS/*.PackageVersionCounter
 
 # Config: Include everything

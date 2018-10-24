@@ -43,13 +43,9 @@ private:
 	/** when true r.MobileContentScaleFactor is ignored */
 	bool bIgnoreContentScaleFactor = false;
 
-	UPROPERTY()
 	class UTexture2D* BezelTexture = nullptr;
 
 private:
-	// utility function that computes the viewport resolution
-	void ComputeDeviceResolution(int32& ScreenWidth, int32& ScreenHeight);
-
 	// utility function that will attempt to determine the supported device orientations
 	void DetermineScreenOrientationRequirements(bool& bNeedPortrait, bool& bNeedLandscape);
 
@@ -57,6 +53,7 @@ private:
 	ERHIFeatureLevel::Type GetPreviewDeviceFeatureLevel() const;
 
 	// call this function to apply specific RHI settings as specified in the json file
+public:
 	void ApplyRHIOverrides() const;
 
 	// function that computes the viewport widget offset and needed window size
@@ -67,6 +64,8 @@ public:
 
 	// call this to run device setup -> load the bezel texture, compute appropriate orientation and apply device specific RHI settings
 	void SetupDevice(const int32 InWindowTitleBarSize);
+
+	void ShutdownDevice();
 
 	// call this before RHI creation to apply needed setup overrides
 	void ApplyRHIPrerequisitesOverrides() const;
@@ -106,6 +105,15 @@ public:
 
 	// call this to enable or disable mobile content scale factor effects
 	void SetIgnoreMobileContentScaleFactor(bool bIgnore);
+
+	// call to check if the mobile content scale factor is taken into account
+	bool GetIgnoreMobileContentScaleFactor() const;
+
+	// utility function that computes the viewport resolution
+	void ComputeDeviceResolution(int32& ScreenWidth, int32& ScreenHeight);
+
+	// utility function that computes the resolution after applying r.MobileContentScaleFactor
+	void ComputeContentScaledResolution(int32& ScreenWidth, int32& ScreenHeight);
 
 	FString GetProfile() const;
 
@@ -187,4 +195,9 @@ FORCEINLINE UTexture2D *FPIEPreviewDevice::GetBezelTexture()
 FORCEINLINE void FPIEPreviewDevice::SetIgnoreMobileContentScaleFactor(bool bIgnore)
 {
 	bIgnoreContentScaleFactor = bIgnore;
+}
+
+FORCEINLINE bool FPIEPreviewDevice::GetIgnoreMobileContentScaleFactor() const
+{
+	return bIgnoreContentScaleFactor;
 }
