@@ -173,7 +173,7 @@ void UHapticFeedbackEffect_SoundWave::PrepareSoundWaveBuffer()
 	{
 		return;
 	}
-	AD->Precache(SoundWave, true, false);
+	AD->Precache(SoundWave, true, false, true);
 	SoundWave->InitAudioResource(AD->GetRuntimeFormat(SoundWave));
 	uint8* PCMData = SoundWave->RawPCMData;
 	int32 RawPCMDataSize = SoundWave->RawPCMDataSize;
