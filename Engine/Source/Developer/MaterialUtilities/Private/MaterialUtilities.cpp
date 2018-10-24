@@ -913,42 +913,6 @@ bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, FFlatten
 	return true;
 }
 
-bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache)
-{
-	FMeshDescription MeshDescription;
-	UStaticMesh::RegisterMeshAttributes(MeshDescription);
-	TMap<int32, FName> MaterialMap;
-	FMeshDescriptionOperations::ConvertFromRawMesh(*InMesh, MeshDescription, MaterialMap);
-
-	FMaterialMergeData MaterialData(InMaterial, &MeshDescription, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
-
-	TArray<FMaterialMergeData*> MergeData{ &MaterialData };
-	TArray<FFlattenMaterial*> FlatMaterials{ &OutFlattenMaterial };
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	ExportMaterials(MergeData, FlatMaterials);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	return true;
-}
-
-bool FMaterialUtilities::ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const int32 LightMapIndex, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache /*= NULL*/)
-{
-	FMeshDescription MeshDescription;
-	UStaticMesh::RegisterMeshAttributes(MeshDescription);
-	TMap<int32, FName> MaterialMap;
-	FMeshDescriptionOperations::ConvertFromRawMesh(*InMesh, MeshDescription, MaterialMap);
-
-	FMaterialMergeData MaterialData(InMaterial, &MeshDescription, nullptr, InMaterialIndex, InTexcoordBounds, InTexCoords);
-	MaterialData.LightMapIndex = 1;
-	MaterialData.LightMap = LightMap;
-	MaterialData.ShadowMap = ShadowMap;
-	MaterialData.Buffer = Buffer;
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	ExportMaterial(MaterialData, OutFlattenMaterial, ProxyCache);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
-	return true;
-}
-
 bool FMaterialUtilities::ExportLandscapeMaterial(ALandscapeProxy* InLandscape, const TSet<FPrimitiveComponentId>& HiddenPrimitives, FFlattenMaterial& OutFlattenMaterial)
 {
 	check(InLandscape);

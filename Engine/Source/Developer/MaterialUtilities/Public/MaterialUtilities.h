@@ -25,7 +25,6 @@ class UTextureRenderTarget2D;
 class UMaterialOptions;
 struct FMaterialProxySettings;
 struct FMeshDescription;
-struct FRawMesh;
 class FSkeletalMeshLODRenderData;
 struct FBakeOutput;
 struct FMeshData;
@@ -288,23 +287,6 @@ public:
 
 	DEPRECATED(4.17, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterials(TArray<FMaterialMergeData*>& MergeData, TArray<FFlattenMaterial*>& OutFlattenMaterials);
-
-	/**
-	* Flattens specified material using mesh data	
-	*
-	* @param InMaterial			Target material
-	* @param InMesh				Mesh data to use for flattening
-	* @param InMaterialIndex	Material index
-	* @param InTexcoordBounds	Texture bounds 
-	* @param InTexCoords		Replacement non-overlapping texture coordinates
-	* @param OutFlattenMaterial Output flattened material
-	* @return					Whether operation was successful
-	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
-	static bool ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
-
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
-	static bool ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const int32 LightMapIndex, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
 	/**
 	 * Flattens specified landscape material
