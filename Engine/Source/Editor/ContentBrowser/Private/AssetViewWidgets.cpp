@@ -33,6 +33,7 @@
 #include "ContentBrowserLog.h"
 #include "ObjectTools.h"
 #include "AssetThumbnail.h"
+#include "Settings/ContentBrowserSettings.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -703,8 +704,7 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			// Add Collections
 			{
 				FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
-
-				const FString CollectionNames = CollectionManagerModule.Get().GetCollectionsStringForObject(AssetData.ObjectPath, ECollectionShareType::CST_All);
+				const FString CollectionNames = CollectionManagerModule.Get().GetCollectionsStringForObject(AssetData.ObjectPath, ECollectionShareType::CST_All, ECollectionRecursionFlags::Self, GetDefault<UContentBrowserSettings>()->bShowFullCollectionNameInToolTip);
 				if (!CollectionNames.IsEmpty())
 				{
 					AddToToolTipInfoBox(InfoBox, LOCTEXT("AssetToolTipKey_Collections", "Collections"), FText::FromString(CollectionNames), false);
@@ -951,6 +951,7 @@ void SAssetViewItem::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox
 			SNew(STextBlock) .Text( Value )
 			.ColorAndOpacity(bImportant ? ImportantStyle.GetForegroundColor() : FSlateColor::UseForeground())
 			.HighlightText((Key.ToString() == TEXT("Path")) ? HighlightText : FText())
+			.WrapTextAt(700.0f)
 		]
 	];
 }
