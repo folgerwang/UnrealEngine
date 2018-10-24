@@ -1109,7 +1109,7 @@ void FVulkanDescriptorSetsLayoutInfo::AddDescriptor(int32 DescriptorSetIndex, co
 	}
 }
 
-void FVulkanDescriptorSetsLayoutInfo::GenerateHash()
+void FVulkanDescriptorSetsLayoutInfo::GenerateHash(const TArrayView<const FSamplerStateRHIParamRef>& InImmutableSamplers)
 {
 	const int32 LayoutCount = SetLayouts.Num();
 	Hash = FCrc::MemCrc32(&TypesUsageID, sizeof(uint32), LayoutCount);
@@ -1134,6 +1134,18 @@ void FVulkanDescriptorSetsLayoutInfo::GenerateHash()
 		TArray<uint16>& PackedUBBindingIndices = RemappingInfo.StageInfos[RemapingIndex].PackedUBBindingIndices;
 		Hash = FCrc::MemCrc32(PackedUBBindingIndices.GetData(), sizeof(uint16) * PackedUBBindingIndices.Num(), Hash);
 	}
+
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	VkSampler ImmutableSamplers[MaxImmutableSamplers];
+	VkSampler* ImmutableSamplerPtr = ImmutableSamplers;
+	for (int32 Index = 0; Index < InImmutableSamplers.Num(); ++Index)
+	{
+		FRHISamplerState* SamplerState = InImmutableSamplers[Index];
+		*ImmutableSamplerPtr++ = SamplerState ? ResourceCast(SamplerState)->Sampler : VK_NULL_HANDLE;
+	}
+	FMemory::Memzero(ImmutableSamplerPtr, (MaxImmutableSamplers - InImmutableSamplers.Num()));
+	Hash = FCrc::MemCrc32(ImmutableSamplers, sizeof(VkSampler) * MaxImmutableSamplers, Hash);
+#endif
 }
 
 void FVulkanDescriptorSetsLayoutInfo::CompileTypesUsageID()
