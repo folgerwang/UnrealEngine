@@ -148,6 +148,8 @@ public:
 	FName GetIconOverrideBrushName() const { return CustomizationArgs.IconOverrideBrushName; }
 
 	int32 GetSortPriority() const { return CustomizationArgs.SortPriority; }
+
+	void AddReferencedObjects(FReferenceCollector& Collector);
 private:
 	TSubclassOf<UActorComponent> ComponentClass;
 	const UClass* IconClass;
