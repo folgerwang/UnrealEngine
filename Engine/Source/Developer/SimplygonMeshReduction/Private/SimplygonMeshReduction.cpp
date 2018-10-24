@@ -184,52 +184,6 @@ public:
 		return FString("SimplygonMeshReduction");
 	}
 
-	virtual void Reduce(
-		FRawMesh& OutReducedMesh,
-		float& OutMaxDeviation,
-		const FRawMesh& InMesh,
-		const FOverlappingCorners& InOverlappingCorners,
-		const FMeshReductionSettings& InSettings
-		) override
-	{
-		SimplygonSDK::spGeometryData GeometryData = CreateGeometryFromRawMesh(InMesh);
-		check(GeometryData);
-
-		SimplygonSDK::spScene Scene = SDK->CreateScene();
-
-		SimplygonSDK::spSceneMesh Mesh = SDK->CreateSceneMesh();
-		Mesh->SetGeometry(GeometryData);
-		Mesh->SetName(TCHAR_TO_ANSI(*FString::Printf(TEXT("UnrealMesh"))));
-		Scene->GetRootNode()->AddChild(Mesh);
-
-		SimplygonSDK::spReductionProcessor ReductionProcessor = SDK->CreateReductionProcessor();
-		ReductionProcessor->AddObserver(&EventHandler, SimplygonSDK::SG_EVENT_PROGRESS);
-		ReductionProcessor->SetScene(Scene);
-
-		SimplygonSDK::spRepairSettings RepairSettings = ReductionProcessor->GetRepairSettings();
-		RepairSettings->SetWeldDist(InSettings.WeldingThreshold);
-		RepairSettings->SetTjuncDist(InSettings.WeldingThreshold);
-
-		SimplygonSDK::spReductionSettings ReductionSettings = ReductionProcessor->GetReductionSettings();
-		SetReductionSettings(ReductionSettings, InSettings, GeometryData->GetTriangleCount());
-
-		//Set visibility settings
-		SimplygonSDK::spVisibilitySettings VisibilitySettings = ReductionProcessor->GetVisibilitySettings();
-		VisibilitySettings->SetCullOccludedGeometry(InSettings.bCullOccluded);
-		int32 TempAggressiveness = InSettings.VisibilityAggressiveness + 1; //+1 because there is an offset in aggressiveness options
-		VisibilitySettings->SetVisibilityWeightsPower(TempAggressiveness);
-		VisibilitySettings->SetUseVisibilityWeightsInReducer(InSettings.bVisibilityAided);
-
-		SimplygonSDK::spNormalCalculationSettings NormalSettings = ReductionProcessor->GetNormalCalculationSettings();
-		SetNormalSettings(NormalSettings, InSettings);
-
-		ReductionProcessor->RunProcessing();
-
-		SimplygonSDK::spSceneMesh ReducedMesh = SimplygonSDK::Cast<SimplygonSDK::ISceneMesh>(Scene->GetRootNode()->GetChild(0));
-		CreateRawMeshFromGeometry(OutReducedMesh, ReducedMesh->GetGeometry(), WINDING_Keep);
-		OutMaxDeviation = ReductionProcessor->GetResultDeviation();
-	}
-
 	bool ReduceLODModel(
 		FSkeletalMeshLODModel * SrcModel,
 		FSkeletalMeshLODModel *& OutModel,

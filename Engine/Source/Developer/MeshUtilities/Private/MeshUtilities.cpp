@@ -91,6 +91,9 @@
 #include "OverlappingCorners.h"
 #include "MeshUtilitiesCommon.h"
 
+#include "MeshDescription.h"
+#include "MeshDescriptionOperations.h"
+
 #if WITH_EDITOR
 #include "Editor.h"
 #include "UnrealEdMisc.h"
@@ -2578,8 +2581,16 @@ public:
 				FRawMesh& DestMesh = LODMeshes[NumValidLODs];
 				FOverlappingCorners& InOverlappingCorners = LODOverlappingCorners[ReductionSettings.BaseLODModel];
 				FOverlappingCorners& DestOverlappingCorners = LODOverlappingCorners[NumValidLODs];
+				FMeshDescription SrcMeshdescription;
+				UStaticMesh::RegisterMeshAttributes(SrcMeshdescription);
+				FMeshDescription DestMeshdescription;
+				UStaticMesh::RegisterMeshAttributes(DestMeshdescription);
+				TMap<int32, FName> FromMaterialMap;
+				FMeshDescriptionOperations::ConvertFromRawMesh(InMesh, SrcMeshdescription, FromMaterialMap);
+				MeshReduction->ReduceMeshDescription(DestMeshdescription, LODMaxDeviation[NumValidLODs], SrcMeshdescription, InOverlappingCorners, ReductionSettings);
+				TMap<FName, int32> ToMaterialMap;
+				FMeshDescriptionOperations::ConvertToRawMesh(DestMeshdescription, DestMesh, ToMaterialMap);
 
-				MeshReduction->Reduce(DestMesh, LODMaxDeviation[NumValidLODs], InMesh, InOverlappingCorners, ReductionSettings);
 				if (DestMesh.WedgeIndices.Num() > 0 && !DestMesh.IsValid())
 				{
 					UE_LOG(LogMeshUtilities, Error, TEXT("Mesh reduction produced a corrupt mesh for LOD%d"), LODIndex);
