@@ -22,6 +22,10 @@ public class LibVpx : ModuleRules
 		{
 			PublicAdditionalLibraries.Add(RootPath + "/lib/Unix" + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libvpx" : "/libvpx_fPIC") + ".a");
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicAdditionalLibraries.Add(RootPath + "/lib/Mac" + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libvpx" : "/libvpx_fPIC") + ".a");
+		}
 
 		string IncludePath = RootPath + "/include";
 		PublicIncludePaths.Add(IncludePath);

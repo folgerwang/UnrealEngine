@@ -75,8 +75,8 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrackSegments::Add(FMovieScene
 		InsertIndex = FMath::Clamp(InsertIndex, 0, SortedSegments.Num());
 	}
 
-	if (!ensureMsgf(   ( !SortedSegments.IsValidIndex(InsertIndex  ) || !MovieScene::DiscreteRangesOverlap(SortedSegments[InsertIndex  ].Range, Segment.Range) ) && 
-			           ( !SortedSegments.IsValidIndex(InsertIndex+1) || !MovieScene::DiscreteRangesOverlap(SortedSegments[InsertIndex+1].Range, Segment.Range) ), TEXT("Attempting to add overlapping segment to segment array. This is invalid.")))
+	if (!ensureMsgf(   ( !SortedSegments.IsValidIndex(InsertIndex  ) || !SortedSegments[InsertIndex  ].Range.Overlaps(Segment.Range) ) && 
+			           ( !SortedSegments.IsValidIndex(InsertIndex+1) || !SortedSegments[InsertIndex+1].Range.Overlaps(Segment.Range) ), TEXT("Attempting to add overlapping segment to segment array. This is invalid.")))
 	{
 		return FMovieSceneSegmentIdentifier();
 	}
@@ -274,7 +274,7 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::FindFirstSegment(TRange
 	{
 		return SortedSegments[SegmentIndex].ID;
 	}
-	else if (SortedSegments.IsValidIndex(SegmentIndex-1) && MovieScene::DiscreteRangesOverlap(SortedSegments[SegmentIndex-1].Range, InLocalRange))
+	else if (SortedSegments.IsValidIndex(SegmentIndex-1) && SortedSegments[SegmentIndex-1].Range.Overlaps(InLocalRange))
 	{
 		return SortedSegments[SegmentIndex-1].ID;
 	}

@@ -4,6 +4,7 @@
 #include "GoogleARCoreXRTrackingSystem.h"
 #include "SceneView.h"
 #include "GoogleARCorePassthroughCameraRenderer.h"
+#include "GoogleARCoreAndroidHelper.h"
 
 FGoogleARCoreXRCamera::FGoogleARCoreXRCamera(const FAutoRegister& AutoRegister, FGoogleARCoreXRTrackingSystem& InARCoreSystem, int32 InDeviceID)
 	: FDefaultXRCamera(AutoRegister, &InARCoreSystem, InDeviceID)
@@ -53,8 +54,7 @@ void FGoogleARCoreXRCamera::PostRenderBasePass_RenderThread(FRHICommandListImmed
 	{
 		TArray<float> TransformedUVs;
 		GoogleARCoreTrackingSystem.ARCoreDeviceInstance->GetPassthroughCameraImageUVs(PassthroughRenderer->OverlayQuadUVs, TransformedUVs);
-
-		PassthroughRenderer->UpdateOverlayUVCoordinate_RenderThread(TransformedUVs);
+		PassthroughRenderer->UpdateOverlayUVCoordinate_RenderThread(TransformedUVs, FGoogleARCoreAndroidHelper::GetDisplayRotation());
 		PassthroughRenderer->RenderVideoOverlay_RenderThread(RHICmdList, InView);
 	}
 }

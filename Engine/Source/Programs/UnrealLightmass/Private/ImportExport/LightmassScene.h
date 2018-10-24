@@ -463,17 +463,25 @@ protected:
 //----------------------------------------------------------------------------
 //	Rect light class
 //----------------------------------------------------------------------------
-class FRectLight : public FPointLight
+class FRectLight : public FPointLight, public FRectLightData
 {
 public:
+	virtual void			Import( class FLightmassImporter& Importer );
+
 	virtual FLinearColor	GetDirectIntensity(const FVector4& Point, bool bCalculateForIndirectLighting) const override;
+	int32					GetNumDirectPhotons(float DirectPhotonDensity) const override;
 	virtual void			ValidateSurfaceSample(const FVector4& Point, FLightSurfaceSample& Sample) const override;
 	virtual FVector4		LightCenterPosition(const FVector4& ReceivingPosition, const FVector4& ReceivingNormal) const override;
 	virtual bool			BehindSurface(const FVector4& TrianglePoint, const FVector4& TriangleNormal) const override;
 	virtual FVector4		GetDirectLightingDirection(const FVector4& Point, const FVector4& PointNormal) const override;
 
+	virtual void			SampleDirection(FLMRandomStream& RandomStream, FLightRay& SampleRay, FVector4& LightSourceNormal, FVector2D& LightSurfacePosition, float& RayPDF, FLinearColor& Power) const override;
+	virtual void			SampleDirection(const TArray<FIndirectPathRay>& IndirectPathRays, FLMRandomStream& RandomStream, FLightRay& SampleRay, float& RayPDF, FLinearColor& Power) const override;
+
 protected:
 	virtual void			SampleLightSurface(FLMRandomStream& RandomStream, FLightSurfaceSample& Sample) const override;
+
+	TArray< FFloat16Color >	SourceTexture;
 };
 
 

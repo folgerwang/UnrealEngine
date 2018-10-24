@@ -143,6 +143,14 @@ namespace UnrealBuildTool
 			protected set;
 		}
 
+		/// <summary>
+		/// The base directory for files within this project
+		/// </summary>
+		public DirectoryReference BaseDir
+		{
+			get;
+			set;
+		}
 
 		/// Returns true if this is a generated project (as opposed to an imported project)
 		public bool IsGeneratedProject

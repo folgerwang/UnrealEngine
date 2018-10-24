@@ -478,10 +478,17 @@ void FDuplicateKeysAndSections::OnBeginDrag(const FPointerEvent& MouseEvent, FVe
 
 	// Duplicate our selections as well.
 	bool bDelayedStructureRebuild = false;
+
+	TArray<UMovieSceneSection*> SectionsToDuplicate;
 	for (const FSectionHandle& SectionHandle : Sections)
 	{
-		UMovieSceneSection* DuplicatedSection = DuplicateObject<UMovieSceneSection>(SectionHandle.GetSectionObject(), SectionHandle.GetSectionObject()->GetOuter());
-		UMovieSceneTrack* OwningTrack = SectionHandle.GetSectionObject()->GetTypedOuter<UMovieSceneTrack>();
+		SectionsToDuplicate.Add(SectionHandle.GetSectionObject());
+	}
+
+	for (UMovieSceneSection* SectionToDuplicate : SectionsToDuplicate)
+	{
+		UMovieSceneSection* DuplicatedSection = DuplicateObject<UMovieSceneSection>(SectionToDuplicate, SectionToDuplicate->GetOuter());
+		UMovieSceneTrack* OwningTrack = SectionToDuplicate->GetTypedOuter<UMovieSceneTrack>();
 		OwningTrack->Modify();
 		OwningTrack->AddSection(*DuplicatedSection);
 

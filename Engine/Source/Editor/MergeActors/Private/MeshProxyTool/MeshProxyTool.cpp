@@ -136,7 +136,7 @@ bool FMeshProxyTool::RunMerge(const FString& PackageName)
 		for (const TSharedPtr<FMergeComponentData>& SelectedComponent : SelectedComponents)
 		{
 			// Determine whether or not this component should be incorporated according the user settings
-			if (SelectedComponent->bShouldIncorporate)
+			if (SelectedComponent->bShouldIncorporate && SelectedComponent->PrimComponent.IsValid())
 			{
 				if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(SelectedComponent->PrimComponent.Get()))
 					StaticMeshComponentsToMerge.Add(StaticMeshComponent);
@@ -144,8 +144,11 @@ bool FMeshProxyTool::RunMerge(const FString& PackageName)
 		}
 		StaticMeshComponentsToMerge.RemoveAll([](UStaticMeshComponent* Val) { return !((Val->GetClass() == UStaticMeshComponent::StaticClass() && Val->GetStaticMesh()) || Val->IsA(USplineMeshComponent::StaticClass())); });
 		
-		FGuid JobGuid = FGuid::NewGuid();
-		MeshMergeUtilities.CreateProxyMesh(StaticMeshComponentsToMerge, SettingsObject->Settings, nullptr, PackageName, JobGuid, ProxyDelegate);
+		if ( StaticMeshComponentsToMerge.Num())
+		{
+			FGuid JobGuid = FGuid::NewGuid();
+			MeshMergeUtilities.CreateProxyMesh(StaticMeshComponentsToMerge, SettingsObject->Settings, nullptr, PackageName, JobGuid, ProxyDelegate);
+		}
 
 		GEditor->EndTransaction();
 		GWarn->EndSlowTask();

@@ -111,7 +111,7 @@ public:
 	virtual void StartupModule() override
 	{
 		// supported file extensions
-		SupportedFileExtensions.Add(TEXT("mkv"));
+		SupportedFileExtensions.Add(TEXT("webm"));
 
 		// if the module got built and run succesfully on this platform, it means it's supported
 		SupportedPlatforms.Add(FPlatformMisc::GetUBTPlatform());

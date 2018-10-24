@@ -152,7 +152,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 
 		if ( FilesInPath.Num() == 0 )
 		{
-			UE_LOG(LogDerivedDataCacheCommandlet, Warning, TEXT("No files found."));
+			UE_LOG(LogDerivedDataCacheCommandlet, Display, TEXT("No files found."));
 		}
 
 		ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();

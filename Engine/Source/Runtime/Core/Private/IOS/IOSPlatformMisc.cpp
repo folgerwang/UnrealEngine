@@ -536,17 +536,32 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 				DeviceType = IOS_IPhoneX;
 			}
 		}
-		else if (Major >= 10)
+        else if (Major == 11)
+        {
+            if (Minor == 2)
+            {
+                DeviceType = IOS_IPhoneXS;
+            }
+            else if (Minor == 4 || Minor == 6)
+            {
+                DeviceType = IOS_IPhoneXSMax;
+            }
+            else if (Minor == 8)
+            {
+                DeviceType = IOS_IPhoneXR;
+            }
+        }
+		else if (Major >= 12)
 		{
 			// for going forward into unknown devices (like 8/8+?), we can't use Minor,
 			// so treat devices with a scale > 2.5 to be 6SPlus type devices, < 2.5 to be 6S type devices
 			if ([UIScreen mainScreen].scale > 2.5f)
 			{
-				DeviceType = IOS_IPhone8Plus;
+				DeviceType = IOS_IPhoneXSMax;
 			}
 			else
 			{
-				DeviceType = IOS_IPhone8;
+				DeviceType = IOS_IPhoneXS;
 			}
 		}
 	}

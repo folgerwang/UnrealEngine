@@ -128,6 +128,12 @@
 #   define __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_12_0(x)
 #endif
 
+// tvOS doesn't have versions less than 9.0
+#define __TVOS_8_0      80000
+#define __TVOS_8_1      80100
+#define __TVOS_8_2      80200
+#define __TVOS_8_3      80300
+
 #if MTLPP_CONFIG_USE_SDK_AVAILABILITY
 #	define MTLPP_IS_AVAILABLE_MAC(mac)  (0 || (defined(__MAC_##mac) && MTLPP_PLATFORM_MAC && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_##mac))
 #	define MTLPP_IS_AVAILABLE_IOS(ios)  (0 || (defined(__IPHONE_##ios) && MTLPP_PLATFORM_IOS && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_##ios))

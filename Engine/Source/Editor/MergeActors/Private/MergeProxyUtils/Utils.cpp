@@ -183,7 +183,27 @@ TSharedRef<ITableRow> FComponentSelectionControl::MakeComponentListItemWidget(TS
 				.AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(OwningActorName + " - " + ComponentInfo + " - " + ComponentName))
+					.Text_Lambda([ComponentData]() -> FText
+					{
+						if (ComponentData.IsValid() && ComponentData->PrimComponent.IsValid())
+						{
+							const FString OwningActorName = ComponentData->PrimComponent->GetOwner()->GetName();
+							const FString ComponentName = ComponentData->PrimComponent->GetName();
+							FString ComponentInfo;
+							if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(ComponentData->PrimComponent.Get()))
+							{
+								ComponentInfo = (StaticMeshComponent->GetStaticMesh() != nullptr) ? StaticMeshComponent->GetStaticMesh()->GetName() : TEXT("No Static Mesh Available");
+							}
+							else if (UShapeComponent* ShapeComponent = Cast<UShapeComponent>(ComponentData->PrimComponent.Get()))
+							{
+								ComponentInfo = ShapeComponent->GetClass()->GetName();
+							}
+
+							return FText::FromString(OwningActorName + " - " + ComponentInfo + " - " + ComponentName);
+						}
+
+						return FText::FromString("Invalid Actor");
+					})
 				]
 			]
 		];

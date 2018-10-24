@@ -14,118 +14,29 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Slate/SGameLayerManager.h"
+#include "UnrealEngine.h"
 
 
 #if WITH_EDITOR
-
-//***********************************************************************************
-//SPIEToolbar Implementation
-//***********************************************************************************
-
-/** Toolbar class used to add some menus to configure various device display settings */
-class SPIEToolbar : public SViewportToolBar
-{
-public:
-	SLATE_BEGIN_ARGS(SPIEToolbar) {}
-		SLATE_EVENT(FOnGetContent, OnGetMenuContent)
-	SLATE_END_ARGS()
-
-	void Construct(const FArguments& InArgs);
-	FReply OnMenuClicked();
-
-protected:
-	TSharedPtr<SMenuAnchor> MenuAnchor;
-};
-
-void SPIEToolbar::Construct(const FArguments& InArgs)
-{
-	SViewportToolBar::Construct(SViewportToolBar::FArguments());
-
-	const FSlateBrush* ImageBrush = FPIEPreviewWindowCoreStyle::Get().GetBrush("ComboButton.Arrow");
-
-	const float MenuIconSize = 16.0f;
-
-	TSharedPtr<SWidget> ButtonContent =
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(2.0f, 2.0f)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(MenuIconSize)
-				.HeightOverride(MenuIconSize)
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SImage)
-					.Image(ImageBrush)
-					.ColorAndOpacity(FSlateColor::UseForeground())
-				]
-			]
-		];
-
-	ChildSlot
-	[
-		SAssignNew(MenuAnchor, SMenuAnchor)
-		.Placement(MenuPlacement_BelowAnchor)
-		[
-			SNew(SButton)
-			// Allows users to drag with the mouse to select options after opening the menu */
-			.ClickMethod(EButtonClickMethod::MouseDown)
-			.ContentPadding(FMargin(2.0f, 2.0f))
-			.VAlign(VAlign_Center)
-			.ButtonStyle(FPIEPreviewWindowCoreStyle::Get(), "PIEWindow.MenuButton")
-			.OnClicked(this, &SPIEToolbar::OnMenuClicked)
-			[
-				ButtonContent.ToSharedRef()
-			]
-		]
-		.OnGetMenuContent(InArgs._OnGetMenuContent)
-	];
-}
-
-FReply SPIEToolbar::OnMenuClicked()
-{
-	// If the menu button is clicked toggle the state of the menu anchor which will open or close the menu
-	if (MenuAnchor->ShouldOpenDueToClick())
-	{
-		MenuAnchor->SetIsOpen(true);
-		SetOpenMenu(MenuAnchor);
-	}
-	else
-	{
-		MenuAnchor->SetIsOpen(false);
-		TSharedPtr<SMenuAnchor> NullAnchor;
-		SetOpenMenu(NullAnchor);
-	}
-
-	return FReply::Handled();
-}
-
 //***********************************************************************************
 //SPIEPreviewWindow Implementation
 //***********************************************************************************
 SPIEPreviewWindow::SPIEPreviewWindow()
 {
-
 }
 
-void SPIEPreviewWindow::Construct(const FArguments& InArgs, TSharedPtr<FPIEPreviewDevice> InDevice)
+SPIEPreviewWindow::~SPIEPreviewWindow()
 {
-	SWindow::Construct(InArgs);
-
-	SetDevice(InDevice);
+	PrepareShutdown();
 }
 
 TSharedRef<SWidget> SPIEPreviewWindow::MakeWindowTitleBar(const TSharedRef<SWindow>& Window, const TSharedPtr<SWidget>& CenterContent, EHorizontalAlignment CenterContentAlignment)
 {
-	TSharedRef<SPIEPreviewWindowTitleBar> WindowTitleBar = SNew(SPIEPreviewWindowTitleBar, Window, CenterContent, CenterContentAlignment)
+	/*TSharedRef<SPIEPreviewWindowTitleBar> */WindowTitleBar = SNew(SPIEPreviewWindowTitleBar, Window, CenterContent, EHorizontalAlignment::HAlign_Center)
 		.Visibility(EVisibility::SelfHitTestInvisible);
-	return WindowTitleBar;
+
+	return WindowTitleBar.ToSharedRef();
 }
 
 EHorizontalAlignment SPIEPreviewWindow::GetTitleAlignment()
@@ -133,20 +44,16 @@ EHorizontalAlignment SPIEPreviewWindow::GetTitleAlignment()
 	return EHorizontalAlignment::HAlign_Left;
 }
 
-void SPIEPreviewWindow::SetSceneViewportPadding(const FMargin& Margin)
-{
-	ContentSlot->SlotPadding = Margin;
-}
-
 void SPIEPreviewWindow::ComputeBezelOrientation()
 {
 	if (BezelImage.IsValid())
 	{
-		FVector2D WindowSize = GetClientSizeInScreen();
+ 		float Width = Device->GetWindowClientWidth();
+ 		float Height = Device->GetWindowClientHeight();
 
 		bool bBezelRotated = Device->IsDeviceFlipped();
 
-		float ScaleX = bBezelRotated ? WindowSize.X / WindowSize.Y : 1.0f;
+		float ScaleX = bBezelRotated ? Width / Height : 1.0f;
 		float ScaleY = bBezelRotated ? Inverse(ScaleX) : 1.0f;
 
 		FScale2D Scale = FScale2D(ScaleX, ScaleY);
@@ -155,18 +62,6 @@ void SPIEPreviewWindow::ComputeBezelOrientation()
 
 		BezelImage->SetRenderTransform(FSlateRenderTransform(ImageTransformationMatrix));
 	}
-}
-
-void SPIEPreviewWindow::CreateMenuToolBar()
-{
-	AddOverlaySlot()
-		.Padding(5.0f, 3.0f + SWindowDefs::DefaultTitleBarSize, 0, 0)
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Top)
-		[
-			SNew(SPIEToolbar)
-			.OnGetMenuContent(this, &SPIEPreviewWindow::BuildSettingsMenu)
-		];
 }
 
 TSharedRef<SWidget> SPIEPreviewWindow::BuildSettingsMenu()
@@ -190,14 +85,14 @@ TSharedRef<SWidget> SPIEPreviewWindow::BuildSettingsMenu()
 		auto IsCheckedFunction = [this, ScaleFactor]()
 		{
 			float WindowScaleFactor = GetWindowScaleFactor();
+			ECheckBoxState CheckState = FMath::IsNearlyEqual(ScaleFactor, WindowScaleFactor) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 
-			return FMath::IsNearlyEqual(ScaleFactor, WindowScaleFactor) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			return CheckState;
 		};
 
 		auto ExecuteActionFunction = [this, ScaleFactor]()
 		{
-			SetScaleWindowToDeviceSize(false);
-			ScaleWindow(ScaleFactor);
+			SetWindowScaleFactor(ScaleFactor);
 		};
 
 		CreateMenuEntry(MenuBuilder, MoveTemp(EntryText), MoveTemp(IsCheckedFunction), MoveTemp(ExecuteActionFunction));
@@ -209,13 +104,17 @@ TSharedRef<SWidget> SPIEPreviewWindow::BuildSettingsMenu()
 		FText EntryText = FText::FromString(TEXT("Scale to device size"));
 		auto IsCheckedFunction = [this]()
 		{
-			bool bScaleToDeviceSize = IsManualManageDPIChanges();
-			return bScaleToDeviceSize ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			float WindowScaleFactor = GetWindowScaleFactor();
+			float DeviceSizeFactor = GetScaleToDeviceSizeFactor();
+
+			ECheckBoxState CheckState = FMath::IsNearlyEqual(WindowScaleFactor, DeviceSizeFactor) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			return CheckState;
 		};
 
 		auto ExecuteActionFunction = [this]()
 		{
-			SetScaleWindowToDeviceSize(true);
+			float WindowScaleFactor = GetScaleToDeviceSizeFactor();
+			SetWindowScaleFactor(WindowScaleFactor);
 		};
 
 		CreateMenuEntry(MenuBuilder, MoveTemp(EntryText), MoveTemp(IsCheckedFunction), MoveTemp(ExecuteActionFunction));
@@ -257,7 +156,103 @@ TSharedRef<SWidget> SPIEPreviewWindow::BuildSettingsMenu()
 		CreateMenuEntry(MenuBuilder, MoveTemp(EntryText), MoveTemp(IsCheckedFunction), MoveTemp(ExecuteActionFunction));
 	}
 
+	MenuBuilder.AddMenuSeparator();
+	auto ResolutionDescriptionWidget = SNew(STextBlock)
+		.Text(FText::FromString(TEXT("Resolution")))
+		.Justification(ETextJustify::Center);
+
+	MenuBuilder.AddWidget(ResolutionDescriptionWidget, FText());
+
+	// Base resolution text
+	{
+		auto PrintLambda = [Device = Device]()
+		{
+			FString ResolutionText = TEXT("Device - ");
+			if (Device.IsValid())
+			{
+				int32 ResX, ResY;
+				Device->GetDeviceDefaultResolution(ResX, ResY);
+				if (Device->IsDeviceFlipped())
+				{
+					Swap(ResX, ResY);
+				}
+
+				ResolutionText += FString::FromInt(ResX) + TEXT("x") + FString::FromInt(ResY);
+			}
+
+			return FText::FromString(ResolutionText);
+		};
+
+		CreateTextMenuEntry(MenuBuilder, MoveTemp(PrintLambda));
+	}
+	// End Base resolution text
+
+	// Resolution with content scale
+	{
+		auto PrintLambda = [Device = Device]()
+		{
+			FString ResolutionText = TEXT("Content - ");
+			if (Device.IsValid())
+			{
+				int32 ResX, ResY;
+				bool bDeviceIgnoresContentFactor = Device->GetIgnoreMobileContentScaleFactor();
+				Device->SetIgnoreMobileContentScaleFactor(false);
+				Device->ComputeContentScaledResolution(ResX, ResY);
+				Device->SetIgnoreMobileContentScaleFactor(bDeviceIgnoresContentFactor);
+				if (Device->IsDeviceFlipped())
+				{
+					Swap(ResX, ResY);
+				}
+				ResolutionText += FString::FromInt(ResX) + TEXT("x") + FString::FromInt(ResY);
+			}
+
+			return FText::FromString(ResolutionText);
+		};
+
+		CreateTextMenuEntry(MenuBuilder, MoveTemp(PrintLambda));
+	}
+	// Resolution with content scale
+
+	// Displayed resolution
+	{
+		auto PrintLambda = [Device = Device]()
+		{
+			FString ResolutionText = TEXT("Window - ");
+			if (Device.IsValid())
+			{
+				int32 ResX, ResY;
+				Device->ComputeDeviceResolution(ResX, ResY);
+				if (Device->IsDeviceFlipped())
+				{
+					Swap(ResX, ResY);
+				}
+				ResolutionText += FString::FromInt(ResX) + TEXT("x") + FString::FromInt(ResY);
+			}
+
+			return FText::FromString(ResolutionText);
+		};
+
+		CreateTextMenuEntry(MenuBuilder, MoveTemp(PrintLambda));
+	}
+	// Resolution with content scale
+
 	return MenuBuilder.MakeWidget();
+}
+
+void SPIEPreviewWindow::CreateTextMenuEntry(class FMenuBuilder& MenuBuilder, TFunction<FText()>&& CreateTextFunction)
+{
+	auto Box = SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.HAlign(EHorizontalAlignment::HAlign_Fill)
+		[
+			SNew(STextBlock)
+			.Visibility(EVisibility::HitTestInvisible)
+			.Justification(ETextJustify::Center)
+			.Text_Lambda(MoveTemp(CreateTextFunction))
+		];
+
+	MenuBuilder.AddWidget(Box, FText());
 }
 
 void SPIEPreviewWindow::CreateMenuEntry(FMenuBuilder& MenuBuilder, FText&& TextEntry, TFunction<ECheckBoxState()>&& IsCheckedFunction, TFunction<void()>&& ExecuteActionFunction)
@@ -267,6 +262,7 @@ void SPIEPreviewWindow::CreateMenuEntry(FMenuBuilder& MenuBuilder, FText&& TextE
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.HAlign(EHorizontalAlignment::HAlign_Left)
+		.Padding(FMargin(5.0f, 0.0f))
 		[
 			SNew(STextBlock)
 			.Visibility(EVisibility::HitTestInvisible)
@@ -322,50 +318,109 @@ void SPIEPreviewWindow::CreatePIEPreviewBezelOverlay(UTexture2D* pBezelImage)
 	}
 }
 
-void SPIEPreviewWindow::ScaleWindow(const float ScreenFactor, const float DPIScaleFactor /*= 1.0f*/)
+void SPIEPreviewWindow::ValidatePosition(FVector2D& WindowPos)
+{
+	WindowPos.X = FMath::CeilToInt(WindowPos.X);
+	WindowPos.Y = FMath::CeilToInt(WindowPos.Y);
+
+	FDisplayMetrics DisplayMetrics;
+	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
+
+	const int32 Offset = 5;
+	if ((WindowPos.X - Offset > DisplayMetrics.VirtualDisplayRect.Right) ||
+		(WindowPos.X + Device->GetWindowWidth() + Offset < DisplayMetrics.VirtualDisplayRect.Left) ||
+		(WindowPos.Y - Offset > DisplayMetrics.VirtualDisplayRect.Bottom) ||
+		(WindowPos.Y + Device->GetWindowHeight() + Offset < DisplayMetrics.VirtualDisplayRect.Top))
+	{
+		WindowPos.X = (DisplayMetrics.PrimaryDisplayWorkAreaRect.Left + DisplayMetrics.PrimaryDisplayWorkAreaRect.Right) / 2;
+		WindowPos.Y = (DisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom + DisplayMetrics.PrimaryDisplayWorkAreaRect.Top) / 2;
+	}
+}
+
+void SPIEPreviewWindow::PrepareWindow(FVector2D WindowPosition, const float InitialScaleFactor, TSharedPtr<FPIEPreviewDevice> PreviewDevice)
+{
+	// we always manually handle DPI changes
+	SetManualManageDPIChanges(true);
+
+	SetDevice(PreviewDevice);
+
+	// place window to the required position and compute its size
+	ValidatePosition(WindowPosition);
+	MoveWindowTo(WindowPosition);
+	SetWindowScaleFactor(InitialScaleFactor, false);
+
+	// update display resolution
+	const int32 ClientWidth = Device->GetWindowWidth();
+	const int32 ClientHeight = Device->GetWindowHeight() - GetTitleBarSize().Get();
+	FSystemResolution::RequestResolutionChange(ClientWidth, ClientHeight, EWindowMode::Windowed);
+	IConsoleManager::Get().CallAllConsoleVariableSinks();
+
+	// the above call will reset the position of the window and set the wrong size (due to manual DPI) and we need to set it right
+	MoveWindowTo(WindowPosition);
+	UpdateWindow();
+
+	// set needed event callbacks
+	SetOnWindowMoved(FOnWindowMoved::CreateSP(this, &SPIEPreviewWindow::OnWindowMoved));
+	HandleDPIChange = FSlateApplication::Get().OnSystemSignalsDPIChanged().AddSP(this, &SPIEPreviewWindow::OnDisplayDPIChanged);
+}
+
+void SPIEPreviewWindow::SetWindowScaleFactor(const float ScaleFactor, const bool bStore/* = true*/)
+{
+	WindowScalingFactor = ScaleFactor;
+
+	// when required we will save the scaling value so it can be restored after session restart
+	if (bStore)
+	{
+		GConfig->SetFloat(TEXT("/Script/Engine.MobilePIE"), TEXT("DeviceScalingFactor"), WindowScalingFactor, GEngineIni);
+	}
+
+	ScaleWindow(ScaleFactor);
+}
+
+void SPIEPreviewWindow::ScaleWindow(float ScaleFactor)
 {
 	if (!Device.IsValid())
 	{
 		return;
 	}
 
-	if (FMath::IsNearlyEqual(ScreenFactor, CachedScaleToDeviceFactor) && FMath::IsNearlyEqual(DPIScaleFactor, CachedDPIScaleFactor))
+	bool bScaleToDeviceSize = IsScalingToDeviceSizeFactor(ScaleFactor);
+	Device->SetIgnoreMobileContentScaleFactor(bScaleToDeviceSize);
+
+	float DPIScaleFactor = ComputeDPIScaleFactor();
+
+	if (bScaleToDeviceSize)
+	{
+		ScaleFactor = ComputeScaleToDeviceSizeFactor();
+		ScaleFactor /= DPIScaleFactor;
+	}
+
+	if (FMath::IsNearlyEqual(ScaleFactor, CachedScaleToDeviceFactor) && FMath::IsNearlyEqual(DPIScaleFactor, CachedDPIScaleFactor))
 	{
 		return;
 	}
 
-	CachedScaleToDeviceFactor = ScreenFactor;
+	CachedScaleToDeviceFactor = ScaleFactor;
 	CachedDPIScaleFactor = DPIScaleFactor;
+
+	SetDPIScaleFactor(CachedDPIScaleFactor);
 
 	if (IsManualManageDPIChanges())
 	{
 		FSlateApplication::Get().HandleDPIScaleChanged(GetNativeWindow().ToSharedRef());
 	}
-
-	Device->ScaleResolution(ScreenFactor, DPIScaleFactor, bClampWindowSizeState);
+	
+	Device->ScaleResolution(ScaleFactor, DPIScaleFactor, bClampWindowSizeState);
 
 	UpdateWindow();
 }
 
-float SPIEPreviewWindow::GetWindowScaleFactor() const
-{
-	float ScaleFactor = 1.0f;
-
-	if (Device.IsValid())
-	{
-		ScaleFactor = Device->GetResolutionScale();
-	}
-
-	return ScaleFactor;
-}
-
 void SPIEPreviewWindow::OnWindowMoved(const TSharedRef<SWindow>& Window)
 {
-	if (IsManualManageDPIChanges())
-	{
-		ScaleDeviceToPhisicalSize();
-	}
+	float CurrentScaleFactor = GetWindowScaleFactor();
+	ScaleWindow(CurrentScaleFactor);
 
+	// save the position so we can restore it if the session is restarted
 	FVector2D WindowPos = GetPositionInScreen();
 	GConfig->SetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), FMath::CeilToInt(WindowPos.X), GEngineIni);
 	GConfig->SetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), FMath::CeilToInt(WindowPos.Y), GEngineIni);
@@ -373,59 +428,24 @@ void SPIEPreviewWindow::OnWindowMoved(const TSharedRef<SWindow>& Window)
 
 void SPIEPreviewWindow::OnDisplayDPIChanged(TSharedRef<SWindow> Window)
 {
-	if (IsManualManageDPIChanges())
-	{
-		ScaleDeviceToPhisicalSize();
-	}
+	float CurrentScaleFactor = GetWindowScaleFactor();
+	SetWindowScaleFactor(CurrentScaleFactor);
 }
 
-void SPIEPreviewWindow::SetScaleWindowToDeviceSize(const bool bScale)
+float SPIEPreviewWindow::ComputeDPIScaleFactor()
 {
-	if (bScale != IsManualManageDPIChanges())
-	{
-		SetManualManageDPIChanges(bScale);
+	FVector2D WindowPos = GetPositionInScreen();
+	int32 PointX = FMath::RoundToInt(WindowPos.X);
+	int32 PointY = FMath::RoundToInt(WindowPos.Y);
 
-		if (Device.IsValid())
-		{
-			Device->SetIgnoreMobileContentScaleFactor(bScale);
-		}
+	float DPIFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(PointX, PointY);
 
-		if (IsManualManageDPIChanges())
-		{
-			ScaleDeviceToPhisicalSize();
-
-			SetOnWindowMoved(FOnWindowMoved::CreateSP(this, &SPIEPreviewWindow::OnWindowMoved));
-			HandleDPIChange = FSlateApplication::Get().OnSystemSignalsDPIChanged().AddSP(this, &SPIEPreviewWindow::OnDisplayDPIChanged);
-		}
-		else
-		{
-			SetOnWindowMoved(nullptr);
-
-			if (HandleDPIChange.IsValid())
-			{
-				FSlateApplication::Get().OnSystemSignalsDPIChanged().Remove(HandleDPIChange);
-			}
-		}
-	}
+	return DPIFactor;
 }
 
-void SPIEPreviewWindow::ScaleDeviceToPhisicalSize()
+float SPIEPreviewWindow::ComputeScaleToDeviceSizeFactor() const
 {
-	if (Device.IsValid())
-	{
-		float ScreenFactor;
-		float DPIScaleFactor;
-		ComputeScaleToDeviceSizeFactor(ScreenFactor, DPIScaleFactor);
-
-		SetDPIScaleFactor(DPIScaleFactor);
-		ScaleWindow(ScreenFactor, DPIScaleFactor);
-	}
-}
-
-void SPIEPreviewWindow::ComputeScaleToDeviceSizeFactor(float& OutScreenFactor, float& OutDPIScaleFactor) const
-{
-	OutScreenFactor = 1.0f;
-	OutDPIScaleFactor = 1.0f;
+	float OutScreenFactor = 1.0f;
 
 	FDisplayMetrics DisplayMetrics;
 	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
@@ -469,11 +489,11 @@ void SPIEPreviewWindow::ComputeScaleToDeviceSizeFactor(float& OutScreenFactor, f
 		}
 	}
 
-	OutDPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(PointX, PointY);
-
 	const int32 DevicePPI = Device->GetDeviceSpecs()->PPI;
 	float PPIRatio = (!!DevicePPI && !!LocalPPI) ? (float)LocalPPI / (float)DevicePPI : 1.0f;
-	OutScreenFactor = PPIRatio * RatioMonitorResolution / OutDPIScaleFactor;
+	OutScreenFactor = PPIRatio * RatioMonitorResolution;
+
+	return OutScreenFactor;
 }
 
 void SPIEPreviewWindow::RotateWindow()
@@ -484,6 +504,8 @@ void SPIEPreviewWindow::RotateWindow()
 	}
 
 	Device->SwitchOrientation(bClampWindowSizeState);
+
+	UpdateGameLayerManagerDefaultViewport();
 
 	UpdateWindow();
 }
@@ -544,7 +566,7 @@ void SPIEPreviewWindow::UpdateWindow()
 	ReshapeWindow(FVector2D(PosX, PosY), FVector2D(Device->GetWindowWidth(), Device->GetWindowHeight()));
 
 	// offset the viewport widget into its correct location
-	SetSceneViewportPadding(Device->GetViewportMargin());
+	ContentSlot->SlotPadding = Device->GetViewportMargin();
 
 	// bezel orientation depends on the window size so we need to call it after ReshapeWindow()
 	ComputeBezelOrientation();
@@ -556,18 +578,59 @@ void SPIEPreviewWindow::SetDevice(TSharedPtr<FPIEPreviewDevice> InDevice)
 
 	if (Device.IsValid())
 	{
-		FMargin ViewportOffset = Device->GetViewportMargin();
-		SetSceneViewportPadding(ViewportOffset);
-
 		CreatePIEPreviewBezelOverlay(InDevice->GetBezelTexture());
-
-		CreateMenuToolBar();
 	}
+}
+
+void SPIEPreviewWindow::PrepareShutdown()
+{
+	SetOnWindowMoved(nullptr);
+
+	if (HandleDPIChange.IsValid())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().OnSystemSignalsDPIChanged().Remove(HandleDPIChange);
+		}
+	}
+
+	if (BezelImage.IsValid())
+	{
+		RemoveOverlaySlot(BezelImage.ToSharedRef());
+
+		BezelBrush.SetResourceObject(nullptr);
+		BezelImage = nullptr;
+	}
+
+	Device = nullptr;
 }
 
 int32 SPIEPreviewWindow::GetDefaultTitleBarSize()
 {
 	return SWindowDefs::DefaultTitleBarSize;
+}
+
+void SPIEPreviewWindow::SetGameLayerManagerWidget(TSharedPtr<class SGameLayerManager> GameLayerManager)
+{
+	GameLayerManagerWidget = GameLayerManager;
+
+	UpdateGameLayerManagerDefaultViewport();
+}
+
+void SPIEPreviewWindow::UpdateGameLayerManagerDefaultViewport()
+{
+	if (Device.IsValid() && GameLayerManagerWidget.IsValid())
+	{
+		FIntPoint DeviceResolution;
+		Device->GetDeviceDefaultResolution(DeviceResolution.X, DeviceResolution.Y);
+
+		if (Device->IsDeviceFlipped())
+		{
+			Swap(DeviceResolution.X, DeviceResolution.Y);
+		}
+
+		GameLayerManagerWidget->SetUseFixedDPIValue(true, DeviceResolution);
+	}
 }
 
 #endif

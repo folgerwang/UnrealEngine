@@ -226,8 +226,14 @@ void FMediaRecorder::TickRecording()
 				{
 					UE_LOG(LogMediaUtils, Warning, TEXT("Texture Sample Format '%d' is not supported by Media Recorder."), (int32)Sample->GetFormat());
 					bUnsupportedWarningShowed = true;
-					continue;
 				}
+				continue;
+			}
+
+			bool bIsGammaCorrectionPreProcessingEnabled = false;
+			if (TargetImageFormat == EImageFormat::EXR && Sample->IsOutputSrgb())
+			{
+				bIsGammaCorrectionPreProcessingEnabled = true;
 			}
 
 			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
@@ -248,7 +254,7 @@ void FMediaRecorder::TickRecording()
 				}
 
 				// Should we move the color buffer into a raw image data container.
-				bool bUseFMediaImagePixelData = bSetAlpha || (Sample->GetStride() != Size.X * NumChannels);
+				bool bUseFMediaImagePixelData = bSetAlpha || (Sample->GetStride() != Size.X * NumChannels) || bIsGammaCorrectionPreProcessingEnabled;
 
 				if (bUseFMediaImagePixelData)
 				{
@@ -286,6 +292,12 @@ void FMediaRecorder::TickRecording()
 						check(false);
 					}
 				}
+			}
+
+			if (bIsGammaCorrectionPreProcessingEnabled)
+			{
+				const float DefaultGammaValue = 2.2f;
+				ImageTask->PixelPreProcessors.Add(TAsyncGammaCorrect<FColor>(DefaultGammaValue));
 			}
 
 			ImageTask->Format = TargetImageFormat;

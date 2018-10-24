@@ -448,7 +448,9 @@ public class IOSPlatform : Platform
 				}
 
 				IPPArguments += (cookonthefly ? " -cookonthefly" : "");
-				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, PlatformName) + "\"";
+
+				string CookPlatformName = GetCookPlatform(Params.DedicatedServer, Params.Client);
+				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, CookPlatformName) + "\"";
 				IPPArguments += " -project \"" + Params.RawProjectPath + "\"";
 				if (Params.IterativeDeploy)
 				{
@@ -530,7 +532,7 @@ public class IOSPlatform : Platform
 		{
 			// project.xcodeproj doesn't exist, so generate temp project
 			string Arguments = "-project=\"" + RawProjectPath + "\"";
-			Arguments += " -platforms=" + PlatformName + " -game -nointellisense -" + PlatformName + "deployonly -ignorejunk";
+			Arguments += " -platforms=" + PlatformName + " -game -nointellisense -" + PlatformName + "deployonly -ignorejunk -projectfileformat=XCode";
 
 			// If engine is installed then UBT doesn't need to be built
 			if (CommandUtils.IsEngineInstalled())

@@ -261,25 +261,13 @@ static const float	CurveHandleScale = 0.5f;
 void FSequencerEdMode::GetParents(TArray<const UObject *>& Parents, const UObject* InObject)
 {
 	const AActor* Actor = Cast<AActor>(InObject);
-	if (Actor != nullptr)
+	if (Actor)
 	{
-		Parents.Emplace(InObject);
-	}
-	else
-	{
-		const USceneComponent* SceneComponent = Cast<USceneComponent>(InObject);
-
-		if (SceneComponent != nullptr)
+		Parents.Emplace(Actor);
+		const AActor* ParentActor = Actor->GetAttachParentActor();
+		if (ParentActor)
 		{
-			Parents.Emplace(InObject);
-			if (SceneComponent->GetAttachParent() == SceneComponent->GetOwner()->GetRootComponent())
-			{
-				GetParents(Parents, SceneComponent->GetAttachParent()->GetOwner());
-			}
-			else
-			{
-				GetParents(Parents, SceneComponent->GetAttachParent());
-			}
+			GetParents(Parents, ParentActor);
 		}
 	}
 }

@@ -263,8 +263,6 @@ void InjectShadowedLocalLightPS(
 			if( LightData.bRectLight )
 			{
 				FRect Rect = GetRect( ToLight, LightData );
-				// TODO Move CPU side
-				LightColor /= 2 * Rect.Extent.x * Rect.Extent.y;
 
 				Lighting = IntegrateLight( Rect );
 			}
@@ -595,8 +593,6 @@ void LightScatteringCS(
 				if( LightData.bRectLight )
 				{
 					FRect Rect = GetRect( ToLight, LightData );
-					// TODO Move CPU side
-					LightColor /= 2 * Rect.Extent.x * Rect.Extent.y;
 
 					Lighting = IntegrateLight( Rect );
 				}

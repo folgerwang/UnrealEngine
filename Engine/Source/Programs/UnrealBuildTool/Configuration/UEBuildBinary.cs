@@ -183,8 +183,8 @@ namespace UnrealBuildTool
 		/// <returns>Set of built products</returns>
 		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
 		{
-			// Return nothing if we're using precompiled binaries
-			if(bUsePrecompiled)
+			// Return nothing if we're using precompiled binaries. If we're not linking, we might want just one module to be compiled (eg. a foreign plugin), so allow any actions to run.
+			if (bUsePrecompiled && !Target.bDisableLinking)
 			{
 				return new List<FileItem>();
 			}
@@ -463,35 +463,32 @@ namespace UnrealBuildTool
 		public void GetBuildProducts(ReadOnlyTargetRules Target, UEToolChain ToolChain, Dictionary<FileReference, BuildProductType> BuildProducts, bool bCreateDebugInfo)
 		{
 			// Add all the precompiled outputs
-			if(Target.bPrecompile)
+			foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
 			{
-				foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
+				if(Module.Rules.bPrecompile)
 				{
-					if(Module.Rules.bPrecompile)
+					if(Module.GeneratedCodeDirectory != null && DirectoryReference.Exists(Module.GeneratedCodeDirectory))
 					{
-						if(Module.GeneratedCodeDirectory != null && DirectoryReference.Exists(Module.GeneratedCodeDirectory))
+						foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
 						{
-							foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
+							// Exclude timestamp files, since they're always updated and cause collisions between builds
+							if(!GeneratedCodeFile.GetFileName().Equals("Timestamp", StringComparison.OrdinalIgnoreCase) && !GeneratedCodeFile.HasExtension(".cpp"))
 							{
-								// Exclude timestamp files, since they're always updated and cause collisions between builds
-								if(!GeneratedCodeFile.GetFileName().Equals("Timestamp", StringComparison.OrdinalIgnoreCase))
-								{
-									BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
-								}
+								BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
 							}
 						}
-						if(Target.LinkType == TargetLinkType.Monolithic)
-						{
-							FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
-							BuildProducts.Add(PrecompiledManifestLocation, BuildProductType.BuildResource);
+					}
+					if(Target.LinkType == TargetLinkType.Monolithic)
+					{
+						FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
+						BuildProducts.Add(PrecompiledManifestLocation, BuildProductType.BuildResource);
 
-							PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
-							foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
+						PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
+						foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
+						{
+							if(!BuildProducts.ContainsKey(OutputFile))
 							{
-								if(!BuildProducts.ContainsKey(OutputFile))
-								{
-									BuildProducts.Add(OutputFile, BuildProductType.BuildResource);
-								}
+								BuildProducts.Add(OutputFile, BuildProductType.BuildResource);
 							}
 						}
 					}
@@ -786,8 +783,12 @@ namespace UnrealBuildTool
 					}
 					else
 					{
+						// Get the intermediate directory
+						DirectoryReference ResourceIntermediateDirectory = ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory;
+
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
+						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, ResourceIntermediateDirectory, Target);
 
 						// @todo: This should be in some Windows code somewhere...
 						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
@@ -800,7 +801,7 @@ namespace UnrealBuildTool
 
 						// Otherwise compile the default resource file per-binary, so that it gets the correct ORIGINAL_FILE_NAME macro.
 						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
-						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(BinaryCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory, ActionGraph);
+						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(ResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ResourceIntermediateDirectory, ActionGraph);
 						BinaryLinkEnvironment.InputFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}
 				}

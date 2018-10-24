@@ -364,9 +364,20 @@ namespace UnrealBuildTool
 					// This is critical to be done early so any code that relies on the current directory being Engine/Source will work.
 					DirectoryReference.SetCurrentDirectory(EngineSourceDirectory);
 
+					// Parse the argument for overriding the XML configuration file location (for remote builds)
+					FileReference XmlConfigCache = null;
+					foreach (string Argument in Arguments)
+					{
+						const string Prefix = "-XmlConfigCache=";
+						if(Argument.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+						{
+							XmlConfigCache = new FileReference(Argument.Substring(Prefix.Length));
+							break;
+						}
+					}
+
 					// Read the XML configuration files
-					bool bForceXmlConfigCache = Arguments.Any(x => x.Equals("-ForceXmlConfigCache", StringComparison.InvariantCultureIgnoreCase));
-					XmlConfig.ReadConfigFiles(bForceXmlConfigCache);
+					XmlConfig.ReadConfigFiles(XmlConfigCache);
 
 					// Create the build configuration object, and read the settings
 					BuildConfiguration BuildConfiguration = new BuildConfiguration();

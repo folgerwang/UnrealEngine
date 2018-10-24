@@ -14,8 +14,6 @@
 #include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
 #endif
 
-#include "WindowsMixedRealityDelegates.h"
-
 #include "Engine/GameEngine.h"
 
 //---------------------------------------------------
@@ -234,6 +232,14 @@ namespace WindowsMixedReality
 		return FString(hmd.GetDisplayName());
 	}
 
+	void CenterMouse(RECT windowRect)
+	{
+		int width = windowRect.right - windowRect.left;
+		int height = windowRect.bottom - windowRect.top;
+
+		SetCursorPos(windowRect.left + width / 2, windowRect.top + height / 2);
+	}
+
 	bool FWindowsMixedRealityHMD::OnStartGameFrame(FWorldContext & WorldContext)
 	{
 		if (this->bRequestRestart)
@@ -269,14 +275,45 @@ namespace WindowsMixedReality
 			SetupHolographicCamera();
 		}
 
-		// Broadcast presence changed event to subscribed delegates.
 		if (hmd.HasUserPresenceChanged())
 		{
-			AWindowsMixedRealityDelegates* WindowsMRDelegates = AWindowsMixedRealityDelegates::GetInstance();
-			if (WindowsMRDelegates != nullptr
-				&& WindowsMRDelegates->OnUserPresenceChanged.IsBound())
+			currentWornState = GetHMDWornState();
+
+			// Broadcast HMD worn/ not worn delegates.
+			if (currentWornState == EHMDWornState::Worn)
 			{
-				WindowsMRDelegates->OnUserPresenceChanged.Broadcast(GetHMDWornState());
+				FCoreDelegates::VRHeadsetPutOnHead.Broadcast();
+			}
+			else if (currentWornState == EHMDWornState::NotWorn)
+			{
+				FCoreDelegates::VRHeadsetRemovedFromHead.Broadcast();
+			}
+		}
+
+		// Restore windows focus to game window to preserve keyboard/mouse input.
+		if (currentWornState == EHMDWornState::Type::Worn)
+		{
+			HWND gameHWND = (HWND)GEngine->GameViewport->GetWindow()->GetNativeWindow()->GetOSWindowHandle();
+
+			// Set mouse focus to center of game window so any clicks interact with the game.
+			if (mouseLockedToCenter)
+			{
+				RECT windowRect;
+				GetWindowRect(gameHWND, &windowRect);
+
+				CenterMouse(windowRect);
+			}
+
+			if (GetCapture() != gameHWND)
+			{
+				// Keyboard input
+				SetForegroundWindow(gameHWND);
+
+				// Mouse input
+				SetCapture(gameHWND);
+				SetFocus(gameHWND);
+
+				FSlateApplication::Get().SetAllUserFocusToGameViewport();
 			}
 		}
 
@@ -524,6 +561,8 @@ namespace WindowsMixedReality
 
 			InitializeHolographic();
 
+			currentWornState = GetHMDWornState();
+
 			FApp::SetUseVRFocus(true);
 			FApp::SetHasVRFocus(true);
 		}
@@ -662,6 +701,60 @@ namespace WindowsMixedReality
 			hmd.SetScreenScaleFactor(ScreenScalePercentage);
 			mCustomPresent->UpdateViewport(Viewport, ViewportRHI);
 		}
+	}
+
+	void FWindowsMixedRealityHMD::RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const
+	{
+		const uint32 ViewportWidth = BackBuffer->GetSizeX();
+		const uint32 ViewportHeight = BackBuffer->GetSizeY();
+
+		const uint32 TextureWidth = SrcTexture->GetSizeX();
+		const uint32 TextureHeight = SrcTexture->GetSizeY();
+
+		const uint32 SourceWidth = TextureWidth / 2;
+		const uint32 SourceHeight = TextureHeight;
+		const float r1 = (float)ViewportWidth / (float)SourceWidth;
+		const float r2 = (float)ViewportHeight / (float)SourceHeight;
+		const float r = FMath::Min(r1, r2);
+		const uint32 width = (float)SourceWidth * r;
+		const uint32 height = (float)SourceHeight * r;
+		const uint32 x = (ViewportWidth - width) * 0.5f;
+		const uint32 y = (ViewportHeight - height) * 0.5f;
+
+		SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
+		DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f));
+		RHICmdList.SetViewport(x, y, 0, width + x, height + y, 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+		const auto FeatureLevel = GMaxRHIFeatureLevel;
+		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SrcTexture);
+
+		RendererModule->DrawRectangle(
+			RHICmdList,
+			0, 0,
+			ViewportWidth, ViewportHeight,
+			0.0f, 0.0f,
+			0.5f, 1.0f,
+			FIntPoint(ViewportWidth, ViewportHeight),
+			FIntPoint(1, 1),
+			*VertexShader,
+			EDRF_Default);
 	}
 
 	// Create a BGRA backbuffer for rendering.

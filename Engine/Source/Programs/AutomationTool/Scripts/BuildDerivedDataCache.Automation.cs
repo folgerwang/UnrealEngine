@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using UnrealBuildTool;
@@ -20,11 +20,13 @@ public class BuildDerivedDataCache : BuildCommand
 		UnrealTargetPlatform HostPlatform = BuildHostPlatform.Current.Platform;
 		string TargetPlatforms = ParseParamValue("TargetPlatforms");
 		string SavedDir = ParseParamValue("SavedDir");
+		string BackendName = ParseParamValue("BackendName", "CreateInstalledEnginePak");
+		string RelativePakPath = ParseParamValue("RelativePakPath", "Engine/DerivedDataCache/Compressed.ddp");
+		bool bSkipEngine = ParseParam("SkipEngine");
 
 
 		// Get paths to everything within the temporary directory
 		string EditorExe = CommandUtils.GetEditorCommandletExe(TempDir, HostPlatform);
-		string RelativePakPath = "Engine/DerivedDataCache/Compressed.ddp";
 		string OutputPakFile = CommandUtils.CombinePaths(TempDir, RelativePakPath);
 		string OutputCsvFile = Path.ChangeExtension(OutputPakFile, ".csv");
 
@@ -80,7 +82,7 @@ public class BuildDerivedDataCache : BuildCommand
 				ProjectSpecificPlatforms = CommandUtils.CombineCommandletParams(FilteredPlatforms.Distinct().ToArray());
 			}
 			CommandUtils.LogInformation("Generating DDC data for {0} on {1}", GameName, ProjectSpecificPlatforms);
-			CommandUtils.DDCCommandlet(FileRef, EditorExe, null, ProjectSpecificPlatforms, "-fill -DDC=CreateInstalledEnginePak -ProjectOnly");
+			CommandUtils.DDCCommandlet(FileRef, EditorExe, null, ProjectSpecificPlatforms, String.Format("-fill -DDC={0} -ProjectOnly", BackendName));
 
 			string ProjectPakFile = CommandUtils.CombinePaths(Path.GetDirectoryName(OutputPakFile), String.Format("Compressed-{0}.ddp", GameName));
 			CommandUtils.DeleteFile(ProjectPakFile);
@@ -96,7 +98,7 @@ public class BuildDerivedDataCache : BuildCommand
 
 		// Generate DDC for the editor, and merge all the other PAK files in
 		CommandUtils.LogInformation("Generating DDC data for engine content on {0}", TargetPlatforms);
-		CommandUtils.DDCCommandlet(null, EditorExe, null, TargetPlatforms, "-fill -DDC=CreateInstalledEnginePak " + CommandUtils.MakePathSafeToUseWithCommandLine("-MergePaks=" + String.Join("+", ProjectPakFiles)));
+		CommandUtils.DDCCommandlet(null, EditorExe, null, TargetPlatforms, String.Format("-fill -DDC={0} -MergePaks={1}{2}", BackendName, CommandUtils.MakePathSafeToUseWithCommandLine(String.Join("+", ProjectPakFiles)), bSkipEngine? " -projectonly" : ""));
 
 		string SavedPakFile = CommandUtils.CombinePaths(SavedDir, RelativePakPath);
 		CommandUtils.CopyFile(OutputPakFile, SavedPakFile);

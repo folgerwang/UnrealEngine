@@ -15,6 +15,63 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+	/// <summary>
+	/// Specifies the context for building an MSBuild project
+	/// </summary>
+	class MSBuildProjectContext
+	{
+		/// <summary>
+		/// Name of the configuration
+		/// </summary>
+		public string ConfigurationName;
+
+		/// <summary>
+		/// Name of the platform
+		/// </summary>
+		public string PlatformName;
+
+		/// <summary>
+		/// Whether this context should be built by default
+		/// </summary>
+		public bool bBuildByDefault;
+
+		/// <summary>
+		/// Whether this context should be deployed by default
+		/// </summary>
+		public bool bDeployByDefault;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="ConfigurationName">Name of this configuration</param>
+		/// <param name="PlatformName">Name of this platform</param>
+		public MSBuildProjectContext(string ConfigurationName, string PlatformName)
+		{
+			this.ConfigurationName = ConfigurationName;
+			this.PlatformName = PlatformName;
+		}
+
+		/// <summary>
+		/// The name of this context
+		/// </summary>
+		public string Name
+		{
+			get { return String.Format("{0}|{1}", ConfigurationName, PlatformName); }
+		}
+
+		/// <summary>
+		/// Serializes this context to a string for debugging
+		/// </summary>
+		/// <returns>Name of this context</returns>
+		public override string ToString()
+		{
+			return Name;
+		}
+	}
+
+	/// <summary>
+	/// Represents an arbitrary MSBuild project
+	/// </summary>
 	abstract class MSBuildProjectFile : ProjectFile
 	{
 		/// The project file version string
@@ -28,12 +85,6 @@ namespace UnrealBuildTool
 		/// The name of the Visual C++ platform to use for stub project configurations
 		/// NOTE: We always use Win32 for the stub project's platform, since that is guaranteed to be supported by Visual Studio
 		static public readonly string StubProjectPlatformName = "Win32";
-
-		/// override project configuration name for platforms visual studio doesn't natively support
-		public string ProjectConfigurationNameOverride = "";
-
-		/// override project platform for platforms visual studio doesn't natively support
-		public string ProjectPlatformNameOverride = "";
 
 		/// <summary>
 		/// The Guid representing the project type e.g. C# or C++
@@ -99,27 +150,15 @@ namespace UnrealBuildTool
 			}
 		}
 
-
 		/// <summary>
-		/// Given a target platform and configuration, generates a platform and configuration name string to use in Visual Studio projects.
-		/// Unlike with solution configurations, Visual Studio project configurations only support certain types of platforms, so we'll
-		/// generate a configuration name that has the platform "built in", and use a default platform type
+		/// Get the project context for the given solution context
 		/// </summary>
-		/// <param name="Platform">Actual platform</param>
-		/// <param name="Configuration">Actual configuration</param>
-		/// <param name="TargetConfigurationName">The configuration name from the target rules, or null if we don't have one</param>
+		/// <param name="SolutionTarget">The solution target type</param>
+		/// <param name="SolutionConfiguration">The solution configuration</param>
+		/// <param name="SolutionPlatform">The solution platform</param>
 		/// <param name="PlatformProjectGenerators">Set of platform project generators</param>
-		/// <param name="ProjectPlatformName">Name of platform string to use for Visual Studio project</param>
-		/// <param name="ProjectConfigurationName">Name of configuration string to use for Visual Studio project</param>
-		public abstract void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetType TargetConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators, out string ProjectPlatformName, out string ProjectConfigurationName);
-
-		public string MakeConfigurationAndPlatformPair(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetType TargetConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators)
-		{
-			string ProjectPlatformName;
-			string ProjectConfigName;
-			MakeProjectPlatformAndConfigurationNames(Platform, Configuration, TargetConfigurationName, PlatformProjectGenerators, out ProjectPlatformName, out ProjectConfigName);
-			return String.Format("{0}|{1}", ProjectConfigName, ProjectPlatformName);
-		}
+		/// <returns>Project context matching the given solution context</returns>
+		public abstract MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform, PlatformProjectGeneratorCollection PlatformProjectGenerators);
 
 		static UnrealTargetConfiguration[] GetSupportedConfigurations(TargetRules Rules)
 		{
@@ -249,6 +288,11 @@ namespace UnrealBuildTool
 		bool bUsePerFileIntellisense;
 		string BuildToolOverride;
 
+		/// This is the platform name that Visual Studio is always guaranteed to support.  We'll use this as
+		/// a platform for any project configurations where our actual platform is not supported by the
+		/// installed version of Visual Studio (e.g, "iOS")
+		public const string DefaultPlatformName = "Win32";
+
 		// This is the GUID that Visual Studio uses to identify a C++ project file in the solution
 		public override string ProjectTypeGUID
 		{
@@ -285,7 +329,7 @@ namespace UnrealBuildTool
 		/// <param name="PlatformProjectGenerators">Set of platform project generators</param>
 		/// <param name="ProjectPlatformName">Name of platform string to use for Visual Studio project</param>
 		/// <param name="ProjectConfigurationName">Name of configuration string to use for Visual Studio project</param>
-		public override void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetType TargetConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators, out string ProjectPlatformName, out string ProjectConfigurationName)
+		private void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetType TargetConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators, out string ProjectPlatformName, out string ProjectConfigurationName)
 		{
 			PlatformProjectGenerator PlatformProjectGenerator = PlatformProjectGenerators.GetPlatformProjectGenerator(Platform, bInAllowFailure: true);
 
@@ -308,11 +352,154 @@ namespace UnrealBuildTool
 				// Visual Studio doesn't natively support this platform, so we fake it by mapping it to
 				// a project configuration that has the platform name in that configuration as a suffix,
 				// and then using "Win32" as the actual VS platform name
-				ProjectConfigurationName = ProjectConfigurationNameOverride == "" ? Platform.ToString() + "_" + Configuration.ToString() : ProjectConfigurationNameOverride;
-				ProjectPlatformName = ProjectPlatformNameOverride == "" ? VCProjectFileGenerator.DefaultPlatformName : ProjectPlatformNameOverride;
+				ProjectConfigurationName = Platform.ToString() + "_" + Configuration.ToString();
+				ProjectPlatformName = DefaultPlatformName;
 			}
 
-			ProjectConfigurationName += "_" + TargetConfigurationName.ToString();
+			if(TargetConfigurationName != TargetType.Game)
+			{
+				ProjectConfigurationName += "_" + TargetConfigurationName.ToString();
+			}
+		}
+
+		/// <summary>
+		/// Get the project context for the given solution context
+		/// </summary>
+		/// <param name="SolutionTarget">The solution target type</param>
+		/// <param name="SolutionConfiguration">The solution configuration</param>
+		/// <param name="SolutionPlatform">The solution platform</param>
+		/// <param name="PlatformProjectGenerators">Set of platform project generations</param>
+		/// <returns>Project context matching the given solution context</returns>
+		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform, PlatformProjectGeneratorCollection PlatformProjectGenerators)
+		{
+			// Stub projects always build in the same configuration
+			if(IsStubProject)
+			{
+				return new MSBuildProjectContext(StubProjectConfigurationName, StubProjectPlatformName);
+			}
+
+			// Have to match every solution configuration combination to a project configuration (or use the invalid one) 
+			string ProjectConfigurationName = "Invalid";
+
+			// Get the default platform. If there were not valid platforms for this project, just use one that will always be available in VS.
+			string ProjectPlatformName = InvalidConfigPlatformNames[0];
+
+			// Whether the configuration should be built automatically as part of the solution
+			bool bBuildByDefault = false;
+
+			// Whether this configuration should deploy by default (requires bBuildByDefault)
+			bool bDeployByDefault = false;
+
+			// Programs are built in editor configurations (since the editor is like a desktop program too) and game configurations (since we omit the "game" qualification in the configuration name).
+			bool IsProgramProject = ProjectTargets[0].TargetRules != null && ProjectTargets[0].TargetRules.Type == TargetType.Program;
+			if(!IsProgramProject || SolutionTarget == TargetType.Game || SolutionTarget == TargetType.Editor)
+			{
+				// Get the target type we expect to find for this project
+				TargetType TargetConfigurationName = SolutionTarget;
+				if (IsProgramProject)
+				{
+					TargetConfigurationName = TargetType.Program;
+				}
+
+				// Now, we want to find a target in this project that maps to the current solution config combination.  Only up to one target should
+				// and every solution config combination should map to at least one target in one project (otherwise we shouldn't have added it!).
+				List<ProjectTarget> MatchingProjectTargets = new List<ProjectTarget>();
+				foreach (ProjectTarget ProjectTarget in ProjectTargets)
+				{
+					if(VCProjectFile.IsValidProjectPlatformAndConfiguration(ProjectTarget, SolutionPlatform, SolutionConfiguration, PlatformProjectGenerators))
+					{
+						if (ProjectTarget.TargetRules != null)
+						{
+							if (TargetConfigurationName == ProjectTarget.TargetRules.Type)
+							{
+								MatchingProjectTargets.Add(ProjectTarget);
+							}
+						}
+						else
+						{
+							if (ShouldBuildForAllSolutionTargets || TargetConfigurationName == TargetType.Game)
+							{
+								MatchingProjectTargets.Add(ProjectTarget);
+							}
+						}
+					}
+				}
+
+				// Always allow SCW and UnrealLighmass to build in editor configurations
+				if (MatchingProjectTargets.Count == 0 && SolutionTarget == TargetType.Editor && SolutionPlatform == UnrealTargetPlatform.Win64)
+				{
+					foreach(ProjectTarget ProjectTarget in ProjectTargets)
+					{
+						string TargetName = ProjectTargets[0].TargetRules.Name;
+						if(TargetName == "ShaderCompileWorker" || TargetName == "UnrealLightmass")
+						{
+							MatchingProjectTargets.Add(ProjectTarget);
+							break;
+						}
+					}
+				}
+
+				// Make sure there's only one matching project target
+				if(MatchingProjectTargets.Count > 1)
+				{
+					throw new BuildException("Not expecting more than one target for project {0} to match solution configuration {1} {2} {3}", ProjectFilePath, SolutionTarget, SolutionConfiguration, SolutionPlatform);
+				}
+
+				// If we found a matching project, get matching configuration
+				if(MatchingProjectTargets.Count == 1)
+				{
+					// Get the matching target
+					ProjectTarget MatchingProjectTarget = MatchingProjectTargets[0];
+
+					// If the project wants to always build in "Development", regardless of what the solution configuration is set to, then we'll do that here.
+					UnrealTargetConfiguration ProjectConfiguration = SolutionConfiguration;
+					if (MatchingProjectTarget.ForceDevelopmentConfiguration && SolutionTarget != TargetType.Game)
+					{
+						ProjectConfiguration = UnrealTargetConfiguration.Development;
+					}
+
+					// Get the matching project configuration
+					UnrealTargetPlatform ProjectPlatform = SolutionPlatform;
+					if (IsStubProject)
+					{
+						if (ProjectPlatform != UnrealTargetPlatform.Unknown || ProjectConfiguration != UnrealTargetConfiguration.Unknown)
+						{
+							throw new BuildException("Stub project was expecting platform and configuration type to be set to Unknown");
+						}
+						ProjectConfigurationName = StubProjectConfigurationName;
+						ProjectPlatformName = StubProjectPlatformName;
+					}
+					else
+					{
+						MakeProjectPlatformAndConfigurationNames(ProjectPlatform, ProjectConfiguration, TargetConfigurationName, PlatformProjectGenerators, out ProjectPlatformName, out ProjectConfigurationName);
+					}
+
+					// Set whether this project configuration should be built when the user initiates "build solution"
+					if (ShouldBuildByDefaultForSolutionTargets)
+					{
+						// Some targets are "dummy targets"; they only exist to show user friendly errors in VS. Weed them out here, and don't set them to build by default.
+						List<UnrealTargetPlatform> SupportedPlatforms = null;
+						if (MatchingProjectTarget.TargetRules != null)
+						{
+							SupportedPlatforms = new List<UnrealTargetPlatform>();
+							SupportedPlatforms.AddRange(MatchingProjectTarget.SupportedPlatforms);
+						}
+						if (SupportedPlatforms == null || SupportedPlatforms.Contains(SolutionPlatform))
+						{
+							bBuildByDefault = true;
+
+							PlatformProjectGenerator ProjGen = PlatformProjectGenerators.GetPlatformProjectGenerator(SolutionPlatform, true);
+							if (MatchingProjectTarget.ProjectDeploys ||
+								((ProjGen != null) && (ProjGen.GetVisualStudioDeploymentEnabled(ProjectPlatform, ProjectConfiguration) == true)))
+							{
+								bDeployByDefault = true;
+							}
+						}
+					}
+				}
+			}
+
+			return new MSBuildProjectContext(ProjectConfigurationName, ProjectPlatformName){ bBuildByDefault = bBuildByDefault, bDeployByDefault = bDeployByDefault };
 		}
 
 		class ProjectConfigAndTargetCombination
@@ -354,63 +541,74 @@ namespace UnrealBuildTool
 			}
 		}
 
-		List<ProjectConfigAndTargetCombination> ProjectConfigAndTargetCombinations = new List<ProjectConfigAndTargetCombination>();
+		List<string> InvalidConfigPlatformNames;
+		List<ProjectConfigAndTargetCombination> ProjectConfigAndTargetCombinations;
 
 		private void BuildProjectConfigAndTargetCombinations(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			//no need to do this more than once
-			if(ProjectConfigAndTargetCombinations.Count > 0)
+			if(ProjectConfigAndTargetCombinations == null)
 			{
-				return;
-			}
+				// Build up a list of platforms and configurations this project will support.  In this list, Unknown simply
+				// means that we should use the default "stub" project platform and configuration name.
 
-			// Build up a list of platforms and configurations this project will support.  In this list, Unknown simply
-			// means that we should use the default "stub" project platform and configuration name.
-
-			// If this is a "stub" project, then only add a single configuration to the project
-			if (IsStubProject)
-			{
-				ProjectConfigAndTargetCombination StubCombination = new ProjectConfigAndTargetCombination(UnrealTargetPlatform.Unknown, UnrealTargetConfiguration.Unknown, StubProjectPlatformName, StubProjectConfigurationName, null);
-				ProjectConfigAndTargetCombinations.Add(StubCombination);
-			}
-			else
-			{
-				// Figure out all the desired configurations
-				foreach (UnrealTargetConfiguration Configuration in InConfigurations)
+				// If this is a "stub" project, then only add a single configuration to the project
+				ProjectConfigAndTargetCombinations = new List<ProjectConfigAndTargetCombination>();
+				if (IsStubProject)
 				{
-					//@todo.Rocket: Put this in a commonly accessible place?
-					if (InstalledPlatformInfo.IsValidConfiguration(Configuration, EProjectType.Code) == false)
+					ProjectConfigAndTargetCombination StubCombination = new ProjectConfigAndTargetCombination(UnrealTargetPlatform.Unknown, UnrealTargetConfiguration.Unknown, StubProjectPlatformName, StubProjectConfigurationName, null);
+					ProjectConfigAndTargetCombinations.Add(StubCombination);
+				}
+				else
+				{
+					// Figure out all the desired configurations
+					foreach (UnrealTargetConfiguration Configuration in InConfigurations)
 					{
-						continue;
-					}
-					foreach (UnrealTargetPlatform Platform in InPlatforms)
-					{
-						if (InstalledPlatformInfo.IsValidPlatform(Platform, EProjectType.Code) == false)
+						//@todo.Rocket: Put this in a commonly accessible place?
+						if (InstalledPlatformInfo.IsValidConfiguration(Configuration, EProjectType.Code) == false)
 						{
 							continue;
 						}
-						UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
-						if ((BuildPlatform != null) && (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid))
+						foreach (UnrealTargetPlatform Platform in InPlatforms)
 						{
-							// Now go through all of the target types for this project
-							if (ProjectTargets.Count == 0)
+							if (InstalledPlatformInfo.IsValidPlatform(Platform, EProjectType.Code) == false)
 							{
-								throw new BuildException("Expecting at least one ProjectTarget to be associated with project '{0}' in the TargetProjects list ", ProjectFilePath);
+								continue;
 							}
-
-							foreach (ProjectTarget ProjectTarget in ProjectTargets)
+							UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
+							if ((BuildPlatform != null) && (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid))
 							{
-								if (IsValidProjectPlatformAndConfiguration(ProjectTarget, Platform, Configuration, PlatformProjectGenerators))
+								// Now go through all of the target types for this project
+								if (ProjectTargets.Count == 0)
 								{
-									string ProjectPlatformName, ProjectConfigurationName;
-									MakeProjectPlatformAndConfigurationNames(Platform, Configuration, ProjectTarget.TargetRules.Type, PlatformProjectGenerators, out ProjectPlatformName, out ProjectConfigurationName);
+									throw new BuildException("Expecting at least one ProjectTarget to be associated with project '{0}' in the TargetProjects list ", ProjectFilePath);
+								}
 
-									ProjectConfigAndTargetCombination Combination = new ProjectConfigAndTargetCombination(Platform, Configuration, ProjectPlatformName, ProjectConfigurationName, ProjectTarget);
-									ProjectConfigAndTargetCombinations.Add(Combination);
+								foreach (ProjectTarget ProjectTarget in ProjectTargets)
+								{
+									if (IsValidProjectPlatformAndConfiguration(ProjectTarget, Platform, Configuration, PlatformProjectGenerators))
+									{
+										string ProjectPlatformName, ProjectConfigurationName;
+										MakeProjectPlatformAndConfigurationNames(Platform, Configuration, ProjectTarget.TargetRules.Type, PlatformProjectGenerators, out ProjectPlatformName, out ProjectConfigurationName);
+
+										ProjectConfigAndTargetCombination Combination = new ProjectConfigAndTargetCombination(Platform, Configuration, ProjectPlatformName, ProjectConfigurationName, ProjectTarget);
+										ProjectConfigAndTargetCombinations.Add(Combination);
+									}
 								}
 							}
 						}
 					}
+				}
+
+				// Create a list of platforms for the "invalid" configuration. We always require at least one of these.
+				InvalidConfigPlatformNames = new List<string>();
+				if(ProjectConfigAndTargetCombinations.Count == 0)
+				{
+					InvalidConfigPlatformNames.Add(DefaultPlatformName);
+				}
+				else
+				{
+					InvalidConfigPlatformNames.AddRange(ProjectConfigAndTargetCombinations.Select(x => x.ProjectPlatformName));
 				}
 			}
 		}
@@ -548,10 +746,13 @@ namespace UnrealBuildTool
 			}
 
 			// Add the "invalid" configuration for each platform. We use this when the solution configuration does not match any project configuration.
-			VCProjectFileContent.AppendLine("    <ProjectConfiguration Include=\"Invalid|{0}\">", VCProjectFileGenerator.DefaultPlatformName);
-			VCProjectFileContent.AppendLine("      <Configuration>Invalid</Configuration>");
-			VCProjectFileContent.AppendLine("      <Platform>{0}</Platform>", VCProjectFileGenerator.DefaultPlatformName);
-			VCProjectFileContent.AppendLine("    </ProjectConfiguration>");
+			foreach(string InvalidConfigPlatformName in InvalidConfigPlatformNames)
+			{
+				VCProjectFileContent.AppendLine("    <ProjectConfiguration Include=\"Invalid|{0}\">", InvalidConfigPlatformName);
+				VCProjectFileContent.AppendLine("      <Configuration>Invalid</Configuration>");
+				VCProjectFileContent.AppendLine("      <Platform>{0}</Platform>", InvalidConfigPlatformName);
+				VCProjectFileContent.AppendLine("    </ProjectConfiguration>");
+			}
 
 			// Output ALL the project's config-platform permutations (project files MUST do this)
 			foreach (Tuple<string, UnrealTargetConfiguration> ConfigurationTuple in ProjectConfigurationNameAndConfigurations)
@@ -636,9 +837,12 @@ namespace UnrealBuildTool
 			VCProjectFileContent.AppendLine("  <Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.Default.props\" />");
 
 			// Write the invalid configuration data
-			VCProjectFileContent.AppendLine("  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Invalid|{0}'\" Label=\"Configuration\">", VCProjectFileGenerator.DefaultPlatformName);
-			VCProjectFileContent.AppendLine("    <ConfigurationType>Makefile</ConfigurationType>");
-			VCProjectFileContent.AppendLine("  </PropertyGroup>");
+			foreach(string InvalidConfigPlatformName in InvalidConfigPlatformNames)
+			{
+				VCProjectFileContent.AppendLine("  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Invalid|{0}'\" Label=\"Configuration\">", InvalidConfigPlatformName);
+				VCProjectFileContent.AppendLine("    <ConfigurationType>Makefile</ConfigurationType>");
+				VCProjectFileContent.AppendLine("  </PropertyGroup>");
+			}
 
 			// Write each project configuration PreDefaultProps section
 			foreach (Tuple<string, UnrealTargetConfiguration> ConfigurationTuple in ProjectConfigurationNameAndConfigurations)
@@ -658,12 +862,21 @@ namespace UnrealBuildTool
 			VCProjectFileContent.AppendLine("  <PropertyGroup Label=\"UserMacros\" />");
 
 			// Write the invalid configuration
-			const string InvalidMessage = "echo The selected platform/configuration is not valid for this target.";
-			VCProjectFileContent.AppendLine("  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Invalid|{0}'\">", VCProjectFileGenerator.DefaultPlatformName);
-			VCProjectFileContent.AppendLine("    <NMakeBuildCommandLine>{0}</NMakeBuildCommandLine>", InvalidMessage);
-			VCProjectFileContent.AppendLine("    <NMakeReBuildCommandLine>{0}</NMakeReBuildCommandLine>", InvalidMessage);
-			VCProjectFileContent.AppendLine("    <NMakeCleanCommandLine>{0}</NMakeCleanCommandLine>", InvalidMessage);
-			VCProjectFileContent.AppendLine("  </PropertyGroup>");
+			foreach(string InvalidConfigPlatformName in InvalidConfigPlatformNames)
+			{
+				const string InvalidMessage = "echo The selected platform/configuration is not valid for this target.";
+
+				string ProjectRelativeUnusedDirectory = NormalizeProjectPath(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Unused"));
+
+				VCProjectFileContent.AppendLine("  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Invalid|{0}'\">", InvalidConfigPlatformName);
+				VCProjectFileContent.AppendLine("    <NMakeBuildCommandLine>{0}</NMakeBuildCommandLine>", InvalidMessage);
+				VCProjectFileContent.AppendLine("    <NMakeReBuildCommandLine>{0}</NMakeReBuildCommandLine>", InvalidMessage);
+				VCProjectFileContent.AppendLine("    <NMakeCleanCommandLine>{0}</NMakeCleanCommandLine>", InvalidMessage);
+				VCProjectFileContent.AppendLine("    <NMakeOutput>Invalid Output</NMakeOutput>", InvalidMessage);
+				VCProjectFileContent.AppendLine("    <OutDir>{0}{1}</OutDir>", ProjectRelativeUnusedDirectory, Path.DirectorySeparatorChar);
+				VCProjectFileContent.AppendLine("    <IntDir>{0}{1}</IntDir>", ProjectRelativeUnusedDirectory, Path.DirectorySeparatorChar);
+				VCProjectFileContent.AppendLine("  </PropertyGroup>");
+			}
 
 			// Write each project configuration
 			foreach (ProjectConfigAndTargetCombination Combination in ProjectConfigAndTargetCombinations)
@@ -1395,20 +1608,18 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Given a target platform and configuration, generates a platform and configuration name string to use in Visual Studio projects.
-		/// Unlike with solution configurations, Visual Studio project configurations only support certain types of platforms, so we'll
-		/// generate a configuration name that has the platform "built in", and use a default platform type
+		/// Get the project context for the given solution context
 		/// </summary>
-		/// <param name="Platform">Actual platform</param>
-		/// <param name="Configuration">Actual configuration</param>
-		/// <param name="TargetConfigurationName">The configuration name from the target rules, or null if we don't have one</param>
+		/// <param name="SolutionTarget">The solution target type</param>
+		/// <param name="SolutionConfiguration">The solution configuration</param>
+		/// <param name="SolutionPlatform">The solution platform</param>
 		/// <param name="PlatformProjectGenerators">Set of platform project generators</param>
-		/// <param name="ProjectPlatformName">Name of platform string to use for Visual Studio project</param>
-		/// <param name="ProjectConfigurationName">Name of configuration string to use for Visual Studio project</param>
-		public override void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetType TargetConfigurationName, PlatformProjectGeneratorCollection PlatformProjectGenerators, out string ProjectPlatformName, out string ProjectConfigurationName)
+		/// <returns>Project context matching the given solution context</returns>
+		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			// Find the matching platform name
-			if(Platform == UnrealTargetPlatform.Win32 && Platforms.Contains("x86"))
+			string ProjectPlatformName;
+			if(SolutionPlatform == UnrealTargetPlatform.Win32 && Platforms.Contains("x86"))
 			{
 				ProjectPlatformName = "x86";
 			}
@@ -1422,10 +1633,10 @@ namespace UnrealBuildTool
 			}
 
 			// Find the matching configuration
-			string ConfigurationName = Configuration.ToString();
-			if(Configurations.Contains(ConfigurationName))
+			string ProjectConfigurationName;
+			if(Configurations.Contains(SolutionConfiguration.ToString()))
 			{
-				ProjectConfigurationName = ConfigurationName;
+				ProjectConfigurationName = SolutionConfiguration.ToString();
 			}
 			else if(Configurations.Contains("Development"))
 			{
@@ -1435,6 +1646,16 @@ namespace UnrealBuildTool
 			{
 				ProjectConfigurationName = "Release";
 			}
+
+			// Figure out whether to build it by default
+			bool bBuildByDefault = ShouldBuildByDefaultForSolutionTargets;
+			if(SolutionTarget == TargetType.Game || SolutionTarget == TargetType.Editor)
+			{
+				bBuildByDefault = true;
+			}
+			
+			// Create the context
+			return new MSBuildProjectContext(ProjectConfigurationName, ProjectPlatformName){ bBuildByDefault = bBuildByDefault };
 		}
 
 		/// <summary>
