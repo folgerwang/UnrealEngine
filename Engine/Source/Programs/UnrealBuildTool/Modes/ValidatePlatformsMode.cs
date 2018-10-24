@@ -45,7 +45,7 @@ namespace UnrealBuildTool
 				}
 
 				// Read all the config files
-				XmlConfig.ReadConfigFiles(false);
+				XmlConfig.ReadConfigFiles(null);
 				
 				// Register all the platforms
 				UnrealBuildTool.RegisterAllUBTClasses(true);

@@ -26,7 +26,7 @@ namespace UnrealBuildTool
 				Arguments.CheckAllArgumentsUsed();
 
 				// Read the XML configuration files
-				XmlConfig.ReadConfigFiles(false);
+				XmlConfig.ReadConfigFiles(null);
 
 				// Find and register all tool chains, build platforms, etc. that are present
 				UnrealBuildTool.RegisterAllUBTClasses(false);
