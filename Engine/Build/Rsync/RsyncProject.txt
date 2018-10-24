@@ -7,6 +7,9 @@
 + /Intermediate/Build/
 + /Intermediate/Build/BuildRules/
 + /Intermediate/Build/BuildRules/*.dll
++ /Intermediate/Plugins/
+protect /Intermediate/Plugins/**/Intermediate/
++ /Intermediate/Plugins/**
 + /Intermediate/Source/
 + /Intermediate/Source/**
 + /Intermediate/TVOS/
