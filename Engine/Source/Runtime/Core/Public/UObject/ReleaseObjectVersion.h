@@ -71,6 +71,9 @@ struct CORE_API FReleaseObjectVersion
 		// Bugfix for FAnimObjectVersion::LinkTimeAnimBlueprintRootDiscovery.
 		LinkTimeAnimBlueprintRootDiscoveryBugFix,
 
+		// Change trail anim node variable deprecation
+		TrailNodeBlendVariableNameChange,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1
