@@ -39,6 +39,7 @@ class UMaterialExpressionTextureCoordinate : public UMaterialExpression
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual FText GetKeywords() const override { return FText::FromString(TEXT("texcoord")); }
+	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;
 #endif
 	//~ End UMaterialExpression Interface
 };

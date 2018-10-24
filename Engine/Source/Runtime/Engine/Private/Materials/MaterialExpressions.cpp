@@ -2201,6 +2201,23 @@ uint32 UMaterialExpressionTextureProperty::GetInputType(int32 InputIndex)
 	return MCT_Unknown;
 }
 #undef IF_INPUT_RETURN
+
+
+bool UMaterialExpressionTextureProperty::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
+}
+
 #endif
 
 //
@@ -3230,6 +3247,22 @@ int32 UMaterialExpressionTextureCoordinate::Compile(class FMaterialCompiler* Com
 void UMaterialExpressionTextureCoordinate::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(FString::Printf(TEXT("TexCoord[%i]"), CoordinateIndex));
+}
+
+
+bool UMaterialExpressionTextureCoordinate::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
 }
 #endif // WITH_EDITOR
 
