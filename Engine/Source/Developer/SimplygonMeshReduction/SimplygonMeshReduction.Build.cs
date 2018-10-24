@@ -15,7 +15,6 @@ public class SimplygonMeshReduction : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"RenderCore",
-				"RawMesh",
                 "MeshDescription",
                 "MeshDescriptionOperations",
                 "MaterialUtilities",
