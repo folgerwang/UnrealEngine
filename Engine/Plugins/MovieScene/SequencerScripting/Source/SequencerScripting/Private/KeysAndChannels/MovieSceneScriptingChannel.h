@@ -12,7 +12,7 @@
 #include "KeyParams.h"
 #include "SequencerScriptingRange.h"
 #include "SequenceTimeUnit.h"
-#include "MovieSceneSequenceExtensions.h"
+#include "ExtensionLibraries/MovieSceneSequenceExtensions.h"
 
 #include "MovieSceneScriptingChannel.generated.h"
 

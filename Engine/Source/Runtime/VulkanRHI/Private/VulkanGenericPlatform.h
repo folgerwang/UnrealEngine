@@ -100,4 +100,7 @@ public:
 
 	// Ensure the last frame completed on the GPU
 	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
+
+	// Some platforms imitate fullscreen mode by using bigger window
+	static void UpdateWindowSize(void* WindowHandle, uint32& Width, uint32& Height) {}
 };

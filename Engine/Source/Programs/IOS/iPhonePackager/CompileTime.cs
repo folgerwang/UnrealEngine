@@ -54,14 +54,14 @@ namespace iPhonePackager
 		/** /MacStagingRootDir/Payload/GameName.app */
 		protected static string RemoteAppDirectory
 		{
-			get { return RemoteAppPayloadDirectory + "/" + Program.GameName + Program.Architecture + ".app"; }
+			get { return RemoteAppPayloadDirectory + "/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app"; }
 		}
 
 
 		/** /MacStagingRootDir/Payload/GameName.app/GameName */
 		protected static string RemoteExecutablePath
 		{
-			get { return RemoteAppDirectory + "/" + Program.GameName + Program.Architecture; }
+			get { return RemoteAppDirectory + "/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture; }
 		}
 
 		private static string CurrentBaseXCodeCommandLine;
@@ -524,7 +524,7 @@ namespace iPhonePackager
 
 				// NOTE: -y preserves symbolic links which is needed for iOS distro builds
 				// -x excludes a file (excluding the dSYM keeps sizes smaller, and it shouldn't be in the IPA anyways)
-				string dSYMName = "Payload/" + Program.GameName + Program.Architecture + ".app.dSYM";
+				string dSYMName = "Payload/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app.dSYM";
 				DisplayCommandLine = String.Format("zip -q -r -y -{0} -T {1} Payload iTunesArtwork -x {2}/ -x {2}/* " +
 					"-x {2}/Contents/ -x {2}/Contents/* -x {2}/Contents/Resources/ -x {2}/Contents/Resources/* " +
 					" -x {2}/Contents/Resources/DWARF/ -x {2}/Contents/Resources/DWARF/*",
@@ -539,8 +539,8 @@ namespace iPhonePackager
 			case "gendsym":
 				Program.Log( " ... generating DSYM" );
 
-				string ExePath  = "Payload/" + Program.GameName + ".app/" + Program.GameName;
-				string dSYMPath = Program.GameName + ".app.dSYM";
+				string ExePath  = "Payload/" + Program.GameName + (Program.IsClient ? "Client" : "") + ".app/" + Program.GameName + (Program.IsClient ? "Client" : "");
+				string dSYMPath = Program.GameName + (Program.IsClient ? "Client" : "") + ".app.dSYM";
 				DisplayCommandLine = String.Format("dsymutil -o {0} {1}", dSYMPath, ExePath);
 
 				CommandLine = "\"" + MacStagingRootDir + "\"" + DisplayCommandLine;

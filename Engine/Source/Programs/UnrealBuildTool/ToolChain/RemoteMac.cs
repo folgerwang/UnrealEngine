@@ -236,7 +236,7 @@ namespace UnrealBuildTool
 			BasicRsyncArguments.Add("--compress");
 			BasicRsyncArguments.Add("--verbose");
 			BasicRsyncArguments.Add(String.Format("--rsh=\"{0} -p {1}\"", RsyncAuthentication, ServerPort));
-			BasicRsyncArguments.Add("--chmod=ug=rwX,o=rxX");
+			BasicRsyncArguments.Add("--chmod=ugo=rwx");
 
 			// Build a list of arguments for Rsync filters
 			CommonRsyncArguments = new List<string>(BasicRsyncArguments);
@@ -336,6 +336,20 @@ namespace UnrealBuildTool
 			DirectoryReference TempDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Remote", TargetDesc.Name, TargetDesc.Platform.ToString(), TargetDesc.Configuration.ToString());
 			DirectoryReference.CreateDirectory(TempDir);
 
+			bool bLogIsMapped = false;
+			foreach (RemoteMapping Mapping in Mappings)
+			{
+				if (RemoteLogFile.Directory.FullName.Equals(Mapping.LocalDirectory.FullName, StringComparison.InvariantCultureIgnoreCase))
+				{
+					bLogIsMapped = true;
+					break;
+				}
+			}
+			if (!bLogIsMapped)
+			{
+				Mappings.Add(new RemoteMapping(RemoteLogFile.Directory, GetRemotePath(RemoteLogFile.Directory)));
+			}
+
 			// Compile the rules assembly
 			RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
 
@@ -400,6 +414,9 @@ namespace UnrealBuildTool
 			{
 				// Always generate a .stub
 				RemoteArguments.Add("-CreateStub");
+
+				// Cannot use makefiles, since we need PostBuildSync() to generate the IPA (and that requires a TargetRules instance)
+				RemoteArguments.Add("-NoUBTMakefiles");
 
 				// Get the provisioning data for this project
 				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile);
@@ -764,6 +781,10 @@ namespace UnrealBuildTool
 			// Upload the engine files
 			List<FileReference> EngineFilters = new List<FileReference>();
 			EngineFilters.Add(ScriptProtectList);
+			if(UnrealBuildTool.IsEngineInstalled())
+			{
+				EngineFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncEngineInstalled.txt"));
+			}
 			EngineFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncEngine.txt"));
 
 			Log.TraceInformation("[Remote] Uploading engine files...");

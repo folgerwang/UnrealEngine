@@ -232,7 +232,7 @@ void UNiagaraDataInterfaceSkeletalMesh::RandomVertex(FVectorVMContext& Context)
 	VectorVM::FExternalFuncRegisterHandler<int32> OutVert(Context);
 
 	FSkeletalMeshAccessorHelper MeshAccessor;
-	MeshAccessor.Init<FilterMode, TIntegralConstant<int32,0>>(InstData);
+	MeshAccessor.Init<FilterMode, TIntegralConstant<ENDISkelMesh_AreaWeightingMode, ENDISkelMesh_AreaWeightingMode::None>>(InstData);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{

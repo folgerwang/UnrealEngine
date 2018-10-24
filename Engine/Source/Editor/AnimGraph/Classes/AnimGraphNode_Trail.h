@@ -20,6 +20,7 @@ class UAnimGraphNode_Trail : public UAnimGraphNode_SkeletalControlBase
 public:
 	// UObject interface
 	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
 	// End of UObject interface
 
 	// UEdGraphNode interface

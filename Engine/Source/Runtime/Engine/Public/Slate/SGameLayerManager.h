@@ -136,6 +136,14 @@ public:
 	virtual bool OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent) override;
 	// End SWidget overrides
 
+	/**
+	 * Function will instruct internal DPI computations to use a provided reference viewport size instead of the actual viewport size.
+	 * After the DPI will be retrieved it will be scaled down with the ratio between the actual viewport size and the provided one.
+	 * Check GetGameViewportDPIScale() for more information.
+	 */
+	void SetUseFixedDPIValue(const bool bUseFixedDPI, const FIntPoint RefViewportSize = FIntPoint());
+	bool IsUsingFixedDPIValue() const;
+
 private:
 	float GetGameViewportDPIScale() const;
 	FOptionalSize GetDefaultWindowTitleBarHeight() const;
@@ -206,4 +214,7 @@ private:
 	TSharedPtr<SWidget> DefaultTitleBarContentWidget;
 	float DefaultWindowTitleBarHeight;
 	bool bIsGameUsingBorderlessWindow;
+
+	FIntPoint ScaledDPIViewportReference;
+	bool bUseScaledDPI;
 };

@@ -336,6 +336,10 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			{
 				Platforms += TEXT("+Mac");
 			}
+			else if (PlatformInfo->TargetPlatformName == FName("IOSClient"))
+			{
+				Platforms += TEXT("+IOS");
+			}
 			else
 			{
 				Platforms += TEXT("+");

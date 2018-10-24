@@ -120,7 +120,7 @@ TRange<int32> FMovieSceneEvaluationField::OverlapRange(const TRange<FFrameNumber
 	int32 StartIndex = Algo::UpperBoundBy(RangesToSearch, Range.GetLowerBound(), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
 
 	// StartIndex is always <= RangesToSearch.Num(). If the previous range overlaps the input range, include that
-	if (StartIndex > 0 && MovieScene::DiscreteRangesOverlap(RangesToSearch[StartIndex-1].Value, Range))
+	if (StartIndex > 0 && RangesToSearch[StartIndex-1].Value.Overlaps(Range))
 	{
 		StartIndex = StartIndex - 1;
 	}
@@ -138,7 +138,7 @@ TRange<int32> FMovieSceneEvaluationField::OverlapRange(const TRange<FFrameNumber
 	int32 Length = Range.GetUpperBound().IsOpen() ? RangesToSearch.Num() : Algo::UpperBoundBy(RangesToSearch, Range.GetUpperBound(), &FMovieSceneFrameRange::GetUpperBound, MovieSceneHelpers::SortUpperBounds);
 
 	// Length is always <= RangesToSearch.Num(). If the previous range overlaps the input range, include that
-	if (Length < RangesToSearch.Num() && MovieScene::DiscreteRangesOverlap(RangesToSearch[Length].Value, Range))
+	if (Length < RangesToSearch.Num() && RangesToSearch[Length].Value.Overlaps(Range))
 	{
 		Length = Length + 1;
 	}
@@ -166,8 +166,8 @@ int32 FMovieSceneEvaluationField::Insert(const TRange<FFrameNumber>& InRange, FM
 	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, InRange.GetLowerBound(), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
 
 	const bool bOverlapping = 
-		(Ranges.IsValidIndex(InsertIndex  ) && MovieScene::DiscreteRangesOverlap(Ranges[InsertIndex  ].Value, InRange)) ||
-		(Ranges.IsValidIndex(InsertIndex-1) && MovieScene::DiscreteRangesOverlap(Ranges[InsertIndex-1].Value, InRange));
+		(Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange)) ||
+		(Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Value.Overlaps(InRange));
 
 	if (!ensureAlwaysMsgf(!bOverlapping, TEXT("Attempting to insert an overlapping range into the evaluation field.")))
 	{
@@ -187,7 +187,7 @@ int32 FMovieSceneEvaluationField::Insert(const TRange<FFrameNumber>& InRange, FM
 
 void FMovieSceneEvaluationField::Add(const TRange<FFrameNumber>& InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
-	if (ensureAlwaysMsgf(!Ranges.Num() || !MovieScene::DiscreteRangesOverlap(Ranges.Last().Value, InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
+	if (ensureAlwaysMsgf(!Ranges.Num() || !Ranges.Last().Value.Overlaps(InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
 	{
 		Ranges.Add(InRange);
 		MetaData.Add(MoveTemp(InMetaData));

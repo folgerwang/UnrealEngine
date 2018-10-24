@@ -448,7 +448,9 @@ public class IOSPlatform : Platform
 				}
 
 				IPPArguments += (cookonthefly ? " -cookonthefly" : "");
-				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, PlatformName) + "\"";
+
+				string CookPlatformName = GetCookPlatform(Params.DedicatedServer, Params.Client);
+				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, CookPlatformName) + "\"";
 				IPPArguments += " -project \"" + Params.RawProjectPath + "\"";
 				if (Params.IterativeDeploy)
 				{

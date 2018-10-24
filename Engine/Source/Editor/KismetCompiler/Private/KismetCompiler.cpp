@@ -2147,12 +2147,23 @@ void FKismetCompilerContext::PostcompileFunction(FKismetFunctionContext& Context
 	FinishCompilingFunction(Context);
 }
 
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+extern ENGINE_API int32 IncrementUberGraphSerialNumber();
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 /**
  * Handles final post-compilation setup, flags, creates cached values that would normally be set during deserialization, etc...
  */
 void FKismetCompilerContext::FinishCompilingFunction(FKismetFunctionContext& Context)
 {
 	SetCalculatedMetaDataAndFlags( Context.Function, Context.EntryPoint, Schema );
+	
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	if( NewClass->UberGraphFunction == Context.Function )
+	{
+		NewClass->UberGraphFunctionKey = IncrementUberGraphSerialNumber();
+	}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 }
 
 void FKismetCompilerContext::SetCalculatedMetaDataAndFlags(UFunction* Function, UK2Node_FunctionEntry* EntryNode, const UEdGraphSchema_K2* K2Schema)

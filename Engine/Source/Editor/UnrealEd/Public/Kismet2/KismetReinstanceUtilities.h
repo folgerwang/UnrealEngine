@@ -36,6 +36,32 @@ public:
 	~FRecreateUberGraphFrameScope();
 };
 
+struct UNREALED_API FReplaceInstancesOfClassParameters
+{
+	FReplaceInstancesOfClassParameters(UClass* InOldClass, UClass* InNewClass);
+
+	/** The old class, instances of which will be replaced */
+	UClass* OldClass;
+
+	/** The new class, used to create new instances to replace instances of the old class */
+	UClass* NewClass;
+
+	/** OriginalCDO, use if OldClass->ClassDefaultObject has been overwritten */
+	UObject* OriginalCDO; 
+
+	/** Set of objects that should not have their references updated if they refer to instances that are replaced */
+	TSet<UObject*>* ObjectsThatShouldUseOldStuff;
+
+	/** Set of objects for which new objects should not be created, useful if client has created new instances themself */
+	const TSet<UObject*>* InstancesThatShouldUseOldClass;
+
+	/** Set to true if class object has been replaced*/
+	bool bClassObjectReplaced; 
+
+	/** Defaults to true, indicates whether root component should be preserved */
+	bool bPreserveRootComponent; 
+};
+
 class UNREALED_API FBlueprintCompileReinstancer : public TSharedFromThis<FBlueprintCompileReinstancer>, public FGCObject
 {
 protected:
@@ -123,7 +149,8 @@ public:
 	void UpdateBytecodeReferences();
 
 	/** Worker function to replace all instances of OldClass with a new instance of NewClass */
-	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = NULL, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
+	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = nullptr, TSet<UObject*>* ObjectsThatShouldUseOldStuff = nullptr, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
+	static void ReplaceInstancesOfClassEx(const FReplaceInstancesOfClassParameters& Parameters );
 
 	/** Batch replaces a mapping of one or more classes to their new class by leveraging ReplaceInstancesOfClass */
 	static void BatchReplaceInstancesOfClass(TMap<UClass*, UClass*>& InOldToNewClassMap, bool bArchetypesAreUpToDate);
@@ -188,5 +215,5 @@ protected:
 
 private:
 	/** Handles the work of ReplaceInstancesOfClass, handling both normal replacement of instances and batch */
-	static void ReplaceInstancesOfClass_Inner(TMap<UClass*, UClass*>& InOldToNewClassMap, UObject* InOriginalCDO, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true, bool bArchetypesAreUpToDate = false);
+	static void ReplaceInstancesOfClass_Inner(TMap<UClass*, UClass*>& InOldToNewClassMap, UObject* InOriginalCDO, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true, bool bArchetypesAreUpToDate = false, const TSet<UObject*>* InstancesThatShouldUseOldClass = nullptr);
 };

@@ -72,6 +72,8 @@ namespace Audio
 		StopAudioStream();
 		CloseAudioStream();
 
+		// this is refcounted
+		SDL_QuitSubSystem(SDL_INIT_AUDIO);
 		bInitialized = false;
 
 		return true;
@@ -328,13 +330,7 @@ namespace Audio
 		}
 
 		static FName NAME_OGG(TEXT("OGG"));
-		if (InSoundWave->HasCompressedData(NAME_OGG))
-		{
-			return NAME_OGG;
-		}
-
-		static FName NAME_ADPCM(TEXT("ADPCM"));
-		return NAME_ADPCM;
+		return NAME_OGG;
 	}
 
 	bool FMixerPlatformSDL::HasCompressedAudioInfoClass(USoundWave* InSoundWave)

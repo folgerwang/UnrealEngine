@@ -67,7 +67,9 @@ void FHighResScreenshotConfig::PopulateImageTaskParams(FImageWriteTask& InOutTas
 {
 	static const TConsoleVariableData<int32>* CVarDumpFramesAsHDR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.BufferVisualizationDumpFramesAsHDR"));
 
-	const bool bLocalCaptureHDR = bCaptureHDR || CVarDumpFramesAsHDR->GetValueOnAnyThread();
+	const bool bCaptureHDREnabledInUI = bCaptureHDR && bDumpBufferVisualizationTargets;
+
+	const bool bLocalCaptureHDR = bCaptureHDREnabledInUI || CVarDumpFramesAsHDR->GetValueOnAnyThread();
 
 	InOutTask.Format = bLocalCaptureHDR ? EImageFormat::EXR : EImageFormat::PNG;
 

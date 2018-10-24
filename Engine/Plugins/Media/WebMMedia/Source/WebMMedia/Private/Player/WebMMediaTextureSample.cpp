@@ -95,6 +95,9 @@ bool FWebMMediaTextureSample::IsOutputSrgb() const
 
 void FWebMMediaTextureSample::ShutdownPoolable()
 {
+	// Drop reference to the texture. It should be released by the outside system.
+	Texture = nullptr;
+	
 	Time = FTimespan::Zero();
 }
 

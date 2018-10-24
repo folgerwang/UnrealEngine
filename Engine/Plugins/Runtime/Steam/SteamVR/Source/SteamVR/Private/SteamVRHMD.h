@@ -446,6 +446,7 @@ private:
 	EHMDWornState::Type HmdWornState;
 	bool bStereoDesired;
 	bool bStereoEnabled;
+	bool bOcclusionMeshesBuilt;
 
 	// Current world to meters scale. Should only be used when refreshing poses.
 	// Everywhere else, use the current tracking frame's WorldToMetersScale.

@@ -1,0 +1,45 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Movie Player for WebM files",
+	"Description": "Movie Player for WebM files",
+	"Category": "Movie Players",
+	"CreatedBy": "Epic Games, Inc.",
+	"CreatedByURL": "http://epicgames.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "WebMMoviePlayer",
+			"Type": "RuntimeNoCommandlet",
+			"LoadingPhase": "PreLoadingScreen",
+			"BlacklistPlatforms": [
+				"Win32",
+				"XboxOne",
+				"PS4",
+				"IOS",
+				"Android",
+				"HTML5",
+				"TVOS",
+				"Switch",
+				"Lumin"
+			],
+			"BlacklistTargets" :
+			[
+				"Server",
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "WebMMedia",
+			"Enabled": true
+		}
+	]
+}

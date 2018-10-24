@@ -194,8 +194,10 @@ namespace Audio
 
 	void FAmp::Reset()
 	{
-		GainEnv = 0.0f;
+		GainEnv = 1.0f;
 		GainMod = 1.0f;
+		Pan = 0.0f;
+		PanMod = 0.0f;
 	}
 
 }

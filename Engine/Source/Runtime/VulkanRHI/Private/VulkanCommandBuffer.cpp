@@ -31,23 +31,36 @@ static FAutoConsoleVariableRef CVarVulkanProfileCmdBuffers(
 const uint32 GNumberOfFramesBeforeDeletingDescriptorPool = 300;
 
 FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool, bool bInIsUploadOnly)
-	: bNeedsDynamicStateSet(true)
-	, bHasPipeline(false)
-	, bHasViewport(false)
-	, bHasScissor(false)
-	, bHasStencilRef(false)
-	, CurrentStencilRef(0)
+	: CurrentStencilRef(0)
+	, State(EState::NotAllocated)
+	, bNeedsDynamicStateSet(1)
+	, bHasPipeline(0)
+	, bHasViewport(0)
+	, bHasScissor(0)
+	, bHasStencilRef(0)
+	, bIsUploadOnly(bInIsUploadOnly ? 1 : 0)
 	, Device(InDevice)
 	, CommandBufferHandle(VK_NULL_HANDLE)
-	, State(EState::ReadyForBegin)
 	, Fence(nullptr)
 	, FenceSignaledCounter(0)
 	, SubmittedFenceCounter(0)
-	, bIsUploadOnly(bInIsUploadOnly)
 	, CommandBufferPool(InCommandBufferPool)
 	, Timing(nullptr)
 	, LastValidTiming(0)
 {
+
+	{
+		FScopeLock ScopeLock(CommandBufferPool->GetCS());
+		AllocMemory();
+	}
+
+	Fence = Device->GetFenceManager().AllocateFence();
+}
+
+void FVulkanCmdBuffer::AllocMemory()
+{
+	// Assumes we are inside a lock for the pool
+	check(State == EState::NotAllocated);
 	FMemory::Memzero(CurrentViewport);
 	FMemory::Memzero(CurrentScissor);
 
@@ -57,12 +70,16 @@ FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBuffer
 	CreateCmdBufInfo.commandBufferCount = 1;
 	CreateCmdBufInfo.commandPool = CommandBufferPool->GetHandle();
 
-	{
-		FScopeLock ScopeLock(InCommandBufferPool->GetCS());
-		VERIFYVULKANRESULT(VulkanRHI::vkAllocateCommandBuffers(Device->GetInstanceHandle(), &CreateCmdBufInfo, &CommandBufferHandle));
-	}
+	VERIFYVULKANRESULT(VulkanRHI::vkAllocateCommandBuffers(Device->GetInstanceHandle(), &CreateCmdBufInfo, &CommandBufferHandle));
+
+	bNeedsDynamicStateSet = 1;
+	bHasPipeline = 0;
+	bHasViewport = 0;
+	bHasScissor = 0;
+	bHasStencilRef = 0;
+	State = EState::ReadyForBegin;
+
 	INC_DWORD_STAT(STAT_VulkanNumCmdBuffers);
-	Fence = Device->GetFenceManager().AllocateFence();
 }
 
 FVulkanCmdBuffer::~FVulkanCmdBuffer()
@@ -80,18 +97,27 @@ FVulkanCmdBuffer::~FVulkanCmdBuffer()
 		FenceManager.ReleaseFence(Fence);
 	}
 
+	if (State != EState::NotAllocated)
 	{
-		FScopeLock ScopeLock(CommandBufferPool->GetCS());
-		VulkanRHI::vkFreeCommandBuffers(Device->GetInstanceHandle(), CommandBufferPool->GetHandle(), 1, &CommandBufferHandle);
+		FreeMemory();
 	}
-	CommandBufferHandle = VK_NULL_HANDLE;
-
-	DEC_DWORD_STAT(STAT_VulkanNumCmdBuffers);
 
 	if (Timing)
 	{
 		Timing->Release();
 	}
+}
+
+void FVulkanCmdBuffer::FreeMemory()
+{
+	// Assumes we are inside a lock for the pool
+	check(State != EState::NotAllocated);
+	check(CommandBufferHandle != VK_NULL_HANDLE);
+	VulkanRHI::vkFreeCommandBuffers(Device->GetInstanceHandle(), CommandBufferPool->GetHandle(), 1, &CommandBufferHandle);
+	CommandBufferHandle = VK_NULL_HANDLE;
+
+	DEC_DWORD_STAT(STAT_VulkanNumCmdBuffers);
+	State = EState::NotAllocated;
 }
 
 void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, FVulkanRenderPass* RenderPass, FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues)
@@ -282,6 +308,13 @@ FVulkanCommandBufferPool::~FVulkanCommandBufferPool()
 	for (int32 Index = 0; Index < CmdBuffers.Num(); ++Index)
 	{
 		FVulkanCmdBuffer* CmdBuffer = CmdBuffers[Index];
+		CmdBuffer->FreeMemory();
+		delete CmdBuffer;
+	}
+
+	for (int32 Index = 0; Index < FreeCmdBuffers.Num(); ++Index)
+	{
+		FVulkanCmdBuffer* CmdBuffer = FreeCmdBuffers[Index];
 		delete CmdBuffer;
 	}
 
@@ -380,7 +413,21 @@ void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(VulkanRHI::FSemaphore* S
 
 FVulkanCmdBuffer* FVulkanCommandBufferPool::Create(bool bIsUploadOnly)
 {
-	check(Device);
+	// Assumes we are inside a lock for the pool
+	for (int32 Index = FreeCmdBuffers.Num() - 1; Index >= 0; --Index)
+	{
+		FVulkanCmdBuffer* CmdBuffer = FreeCmdBuffers[Index];
+#if VULKAN_USE_DIFFERENT_POOL_CMDBUFFERS
+		if (CmdBuffer->bIsUploadOnly == bIsUploadOnly)
+#endif
+		{
+			FreeCmdBuffers.RemoveAtSwap(Index);
+			CmdBuffer->AllocMemory();
+			CmdBuffers.Add(CmdBuffer);
+			return CmdBuffer;
+		}
+	}
+
 	FVulkanCmdBuffer* CmdBuffer = new FVulkanCmdBuffer(Device, this, bIsUploadOnly);
 	CmdBuffers.Add(CmdBuffer);
 	check(CmdBuffer);
@@ -518,8 +565,9 @@ void FVulkanCommandBufferPool::FreeUnusedCmdBuffers(FVulkanQueue* InQueue)
 		{
 			DeferredDeletionQueue.OnCmdBufferDeleted(CmdBuffer);
 			
-			delete CmdBuffer;
+			CmdBuffer->FreeMemory();
 			CmdBuffers.RemoveAtSwap(Index, 1, false);
+			FreeCmdBuffers.Add(CmdBuffer);
 		}
 	}
 #endif

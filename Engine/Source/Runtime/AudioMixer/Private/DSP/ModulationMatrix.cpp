@@ -93,6 +93,17 @@ namespace Audio
 		return true;
 	}
 
+	void FModulationMatrix::ResetPatchSourceState()
+	{
+		for (TArray<float>& SourceVoiceStates : Sources)
+		{
+			for (float& Value : SourceVoiceStates)
+			{
+				Value = 0.0f;
+			}
+		}
+	}
+
 	void FModulationMatrix::ClearPatches(const int32 VoiceId)
 	{
 		check(VoiceId < NumVoices);

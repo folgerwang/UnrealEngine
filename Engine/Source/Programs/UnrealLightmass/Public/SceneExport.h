@@ -1021,6 +1021,13 @@ struct FSkyLightData
 	FSHVectorRGB3 IrradianceEnvironmentMap;
 };
 
+struct FRectLightData
+{
+	uint32			SourceTextureSizeX;
+	uint32			SourceTextureSizeY;
+	FLinearColor	SourceTextureAvgColor;
+};
+
 //----------------------------------------------------------------------------
 //	Material
 //----------------------------------------------------------------------------

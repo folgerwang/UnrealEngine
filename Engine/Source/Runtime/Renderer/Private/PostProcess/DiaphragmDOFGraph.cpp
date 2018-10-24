@@ -272,6 +272,12 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 	bool bForegroundHybridScattering = FgdHybridScatteringMode != EHybridScatterMode::Disabled && AbsMaxForegroundCocRadius > MinScatteringCocRadius && MaxScatteringRatio > 0.0f;
 	bool bBackgroundHybridScattering = BgdHybridScatteringMode != EHybridScatterMode::Disabled && MaxBackgroundCocRadius > MinScatteringCocRadius && MaxScatteringRatio > 0.0f;
 
+	if (!FRCPassDiaphragmDOFHybridScatter::IsSupported(ShaderPlatform))
+	{
+		bForegroundHybridScattering = false;
+		bBackgroundHybridScattering = false;
+	}
+
 	// Compute the reference buffer size for PrefilteringResolutionDivisor.
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 	FIntPoint RefBufferSize = FIntPoint::DivideAndRoundUp(SceneContext.GetBufferSizeXY(), PrefilteringResolutionDivisor);

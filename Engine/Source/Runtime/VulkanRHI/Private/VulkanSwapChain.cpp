@@ -168,7 +168,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 					if (!GPixelFormatNotSupportedWarning.Contains(InOutPixelFormat))
 					{
 						GPixelFormatNotSupportedWarning.Add(InOutPixelFormat);
-						UE_LOG(LogVulkanRHI, Warning, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain format..."), (uint32)InOutPixelFormat);
+						UE_LOG(LogVulkanRHI, Display, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain format..."), (uint32)InOutPixelFormat);
 					}
 					InOutPixelFormat = PF_Unknown;
 				}
@@ -386,6 +386,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	uint32 SizeY = FVulkanPlatform::SupportsQuerySurfaceProperties() ? (SurfProperties.currentExtent.height == 0xFFFFFFFF ? Height : SurfProperties.currentExtent.height) : Height;
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Create swapchain: %ux%u \n"), SizeX, SizeY);
 
+	// Some platforms cheat with the window size. Allow them to update.
+	FVulkanPlatform::UpdateWindowSize(WindowHandle, SizeX, SizeY);
 
 	VkSwapchainCreateInfoKHR SwapChainInfo;
 	ZeroVulkanStruct(SwapChainInfo, VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
@@ -474,6 +476,10 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 void FVulkanSwapChain::Destroy()
 {
 	check(FVulkanPlatform::SupportsStandardSwapchain());
+
+	// We could be responding to an OUT_OF_DATE event and the GPU might not be done with swapchain image, so wait for idle.
+	// Alternatively could also check on the fence(s) for the image(s) from the swapchain but then timing out/waiting could become an issue.
+	Device.WaitUntilIdle();
 
 	VulkanRHI::vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, VULKAN_CPU_ALLOCATOR);
 	SwapChain = VK_NULL_HANDLE;
