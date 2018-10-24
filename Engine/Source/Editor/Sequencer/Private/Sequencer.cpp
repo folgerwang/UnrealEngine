@@ -2663,6 +2663,16 @@ FGuid FSequencer::GetHandleToObject( UObject* Object, bool bCreateHandleIfMissin
 
 		ObjectGuid = CreateBinding(*Object, PossessedActor != nullptr ? PossessedActor->GetActorLabel() : Object->GetName());
 
+		AActor* ActorAdded = PossessedActor ? PossessedActor : Object->GetTypedOuter<AActor>();
+		if (ActorAdded)
+		{
+			FGuid ActorAddedGuid = GetHandleToObject(ActorAdded);
+			if (ActorAddedGuid.IsValid())
+			{
+				OnActorAddedToSequencerEvent.Broadcast(ActorAdded, ActorAddedGuid);
+			}
+		}
+
 		NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 	}
 	
