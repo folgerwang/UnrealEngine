@@ -33,8 +33,7 @@ void FMaterialTexCoordScalePS::SetParameters(
 		SetShaderValue(RHICmdList, FMeshMaterialShader::GetPixelShader(), AccuracyColorsParameter, FLinearColor::Black, ColorIndex);
 	}
 
-	TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBufferValue = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View.FeatureLevel);
-	FMeshMaterialShader::SetParameters(RHICmdList, FMeshMaterialShader::GetPixelShader(), MaterialRenderProxy, Material, View, DrawRenderState.GetViewUniformBuffer(), PassUniformBufferValue);
+	FMeshMaterialShader::SetParameters(RHICmdList, FMeshMaterialShader::GetPixelShader(), MaterialRenderProxy, Material, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 }
 
 void FMaterialTexCoordScalePS::SetMesh(
