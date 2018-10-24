@@ -72,7 +72,9 @@
     <Compile Include="FilePattern.cs" />
     <Compile Include="FileReference.cs" />
     <Compile Include="FileSystemReference.cs" />
+    <Compile Include="Json.cs" />
     <Compile Include="JsonObject.cs" />
+    <Compile Include="JsonWriter.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="LogIndentScope.cs" />
     <Compile Include="LogStatusScope.cs" />
