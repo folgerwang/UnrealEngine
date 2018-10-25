@@ -66,7 +66,12 @@
 #include "Matinee/InterpGroupInst.h"
 #include "Matinee/MatineeActor.h"
 #include "FbxExporter.h"
-#include "RawMesh.h"
+
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
+
 #include "Components/BrushComponent.h"
 #include "CineCameraComponent.h"
 #include "Math/UnitConversion.h"
@@ -661,11 +666,12 @@ void FFbxExporter::ExportBrush(ABrush* Actor, UModel* InModel, bool bConvertToSt
 	}
 	else
 	{
-		FRawMesh Mesh;
+		FMeshDescription Mesh;
+		UStaticMesh::RegisterMeshAttributes(Mesh);
 		TArray<FStaticMaterial>	Materials;
 		GetBrushMesh(Actor,Actor->Brush,Mesh,Materials);
 
-		if( Mesh.VertexPositions.Num() )
+		if( Mesh.Vertices().Num() )
 		{
 			UStaticMesh* StaticMesh = CreateStaticMesh(Mesh,Materials,GetTransientPackage(),Actor->GetFName());
 			ExportStaticMesh( StaticMesh, &Materials );
@@ -907,8 +913,9 @@ void FFbxExporter::ExportStaticMesh(AActor* Actor, UStaticMeshComponent* StaticM
 
 struct FBSPExportData
 {
-	FRawMesh Mesh;
+	FMeshDescription Mesh;
 	TArray<FStaticMaterial> Materials;
+	TArray<uint32> SmoothGroups;
 	uint32 NumVerts;
 	uint32 NumFaces;
 	uint32 CurrentVertAddIndex;
@@ -944,8 +951,15 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			{
 				FBSPExportData& Data = BrushToMeshMap.FindOrAdd( BrushActor );
 
+				FPoly Poly;
+				GEditor->polyFindMaster(Model, Node.iSurf, Poly);
+
 				Data.NumVerts += Node.NumVertices;
 				Data.NumFaces += Node.NumVertices-2;
+				UMaterialInterface*	Material = Poly.Material;
+				FName MaterialName = Material != nullptr ? Material->GetFName() : NAME_None;
+				Data.Materials.AddUnique(FStaticMaterial(Material, MaterialName, MaterialName));
+				AllMaterials.AddUnique(FStaticMaterial(Material, MaterialName, MaterialName));
 			}
 		}
 	}
@@ -970,36 +984,53 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			}
 
 			TArray<FStaticMaterial>& Materials = ExportData->Materials;
-			FRawMesh& Mesh = ExportData->Mesh;
+			FMeshDescription& Mesh = ExportData->Mesh;
 
 			//Pre-allocate space for this mesh.
 			if( !ExportData->bInitialised )
 			{
-				ExportData->bInitialised = true;
-				Mesh.VertexPositions.Empty();
-				Mesh.VertexPositions.AddUninitialized(ExportData->NumVerts);
+				uint32 NumWedges = ExportData->NumFaces * 3;
 
-				Mesh.FaceMaterialIndices.Empty();
-				Mesh.FaceMaterialIndices.AddUninitialized(ExportData->NumFaces);
-				Mesh.FaceSmoothingMasks.Empty();
-				Mesh.FaceSmoothingMasks.AddUninitialized(ExportData->NumFaces);
-				
-				uint32 NumWedges = ExportData->NumFaces*3;
-				Mesh.WedgeIndices.Empty();
-				Mesh.WedgeIndices.AddUninitialized(NumWedges);
-				Mesh.WedgeTexCoords[0].Empty();
-				Mesh.WedgeTexCoords[0].AddUninitialized(NumWedges);
-				Mesh.WedgeColors.Empty();
-				Mesh.WedgeColors.AddUninitialized(NumWedges);
-				Mesh.WedgeTangentZ.Empty();
-				Mesh.WedgeTangentZ.AddUninitialized(NumWedges);
+				UStaticMesh::RegisterMeshAttributes(Mesh);
+				ExportData->bInitialised = true;
+				Mesh.Empty();
+				Mesh.ReserveNewVertices(ExportData->NumVerts);
+				Mesh.ReserveNewVertexInstances(NumWedges);
+				Mesh.ReserveNewPolygons(ExportData->NumFaces);
+				Mesh.ReserveNewEdges(ExportData->NumFaces * 2);
+				Mesh.ReserveNewPolygonGroups(Materials.Num());
+				//We need to get the PolygonGroupImportedMaterial
+				FStaticMeshDescriptionAttributeGetter InitMeshAttributes(&Mesh);
+				TPolygonGroupAttributesRef<FName> InitPolygonGroupNames = InitMeshAttributes.GetPolygonGroupImportedMaterialSlotNames();
+				for (const FStaticMaterial& StaticMaterial : Materials)
+				{
+					const FPolygonGroupID PolygonGroupID = Mesh.CreatePolygonGroup();
+					InitPolygonGroupNames[PolygonGroupID] = StaticMaterial.ImportedMaterialSlotName;
+				}
+				ExportData->SmoothGroups.Empty(ExportData->NumFaces);
 			}
 			
+			//Get the Attributes
+			FStaticMeshDescriptionAttributeGetter MeshAttributes(&Mesh);
+			TVertexAttributesRef<FVector> VertexPositions = MeshAttributes.GetPositions();
+			TVertexInstanceAttributesRef<FVector2D> UVs = MeshAttributes.GetUVs();
+			TVertexInstanceAttributesRef<FVector4> Colors = MeshAttributes.GetColors();
+			TVertexInstanceAttributesRef<FVector> Normals = MeshAttributes.GetNormals();
+			TEdgeAttributesRef<bool> EdgeHardnesses = MeshAttributes.GetEdgeHardnesses();
+			TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshAttributes.GetEdgeCreaseSharpnesses();
+
+			
 			UMaterialInterface*	Material = Poly.Material;
-
-			AllMaterials.AddUnique(FStaticMaterial(Material));
-
-			int32 MaterialIndex = ExportData->Materials.AddUnique(Material);
+			FName MaterialName = Material != nullptr ? Material->GetFName() : NAME_None;
+			
+			int32 MaterialIndex = INDEX_NONE;
+			if (!ExportData->Materials.Find(FStaticMaterial(Material, MaterialName, MaterialName), MaterialIndex))
+			{
+				MaterialIndex = 0;
+			}
+			const FPolygonGroupID CurrentPolygonGroupID(MaterialIndex);
+			//The material ID should follow the unique materials
+			check(Mesh.IsPolygonGroupValid(CurrentPolygonGroupID));
 
 			const FVector& TextureBase = Model->Points[Surf.pBase];
 			const FVector& TextureX = Model->Vectors[Surf.vTextureU];
@@ -1012,12 +1043,15 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			{
 				const FVert& Vert = Model->Verts[Node.iVertPool + VertexIndex];
 				const FVector& Vertex = Model->Points[Vert.pVertex];
-				Mesh.VertexPositions[ExportData->CurrentVertAddIndex+VertexIndex] = Vertex;
+				FVertexID VertexID = Mesh.CreateVertex();
+				VertexPositions[VertexID] = Vertex;
 			}
 			ExportData->CurrentVertAddIndex += Node.NumVertices;
 
 			for (int32 StartVertexIndex = 1; StartVertexIndex < Node.NumVertices - 1; ++StartVertexIndex)
 			{
+				FVertexInstanceID VertexInstanceIDs[3];
+				FVertexID VertexIDs[3];
 				// These map the node's vertices to the 3 triangle indices to triangulate the convex polygon.
 				int32 TriVertIndices[3] = {
 					Node.iVertPool + StartVertexIndex + 1,
@@ -1029,26 +1063,54 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 					StartIndex + StartVertexIndex,
 					StartIndex };
 
-				Mesh.FaceMaterialIndices[ExportData->CurrentFaceAddIndex] = MaterialIndex;
-				Mesh.FaceSmoothingMasks[ExportData->CurrentFaceAddIndex] =  ( 1 << ( Node.iSurf % 32 ) );
-
-				for (uint32 WedgeIndex = 0; WedgeIndex < 3; ++WedgeIndex)
+				for (uint32 Corner = 0; Corner < 3; ++Corner)
 				{
-					const FVert& Vert = Model->Verts[TriVertIndices[WedgeIndex]];
+					VertexIDs[Corner] = FVertexID(WedgeIndices[Corner]);
+					VertexInstanceIDs[Corner] = Mesh.CreateVertexInstance(VertexIDs[Corner]);
+					const FVert& Vert = Model->Verts[TriVertIndices[Corner]];
 					const FVector& Vertex = Model->Points[Vert.pVertex];
 
 					float U = ((Vertex - TextureBase) | TextureX) / UModel::GetGlobalBSPTexelScale();
 					float V = ((Vertex - TextureBase) | TextureY) / UModel::GetGlobalBSPTexelScale();
-
-					uint32 RealWedgeIndex = ( ExportData->CurrentFaceAddIndex * 3 ) + WedgeIndex;
-
-					Mesh.WedgeIndices[RealWedgeIndex] = WedgeIndices[WedgeIndex];
-					Mesh.WedgeTexCoords[0][RealWedgeIndex] = FVector2D(U,V);
+					UVs.Set(VertexInstanceIDs[Corner], 0, FVector2D(U, V));
 					//This is not exported when exporting the whole level via ExportModel so leaving out here for now. 
-					//Mesh.WedgeTexCoords[1][RealWedgeIndex] = Vert.ShadowTexCoord;
-					Mesh.WedgeColors[RealWedgeIndex] = FColor(255,255,255,255);
-					Mesh.WedgeTangentZ[RealWedgeIndex] = Normal;
+					//UVs.Set(VertexInstanceIDs[Corner], 1, Vert.ShadowTexCoord);
+					Colors[VertexInstanceIDs[Corner]] = FLinearColor::White;
+					Normals[VertexInstanceIDs[Corner]] = Normal;
 				}
+				//Add triangles
+				TArray<FMeshDescription::FContourPoint> Contours;
+				for (int32 Corner = 0; Corner < 3; ++Corner)
+				{
+					int32 ContourPointIndex = Contours.AddDefaulted();
+					FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+					//Find the matching edge ID
+					uint32 CornerIndices[2];
+					CornerIndices[0] = (Corner + 0) % 3;
+					CornerIndices[1] = (Corner + 1) % 3;
+
+					FVertexID EdgeVertexIDs[2];
+					EdgeVertexIDs[0] = VertexIDs[CornerIndices[0]];
+					EdgeVertexIDs[1] = VertexIDs[CornerIndices[1]];
+
+					FEdgeID MatchEdgeId = Mesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+					if (MatchEdgeId == FEdgeID::Invalid)
+					{
+						MatchEdgeId = Mesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+						EdgeHardnesses[MatchEdgeId] = false;
+						EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
+					}
+					ContourPoint.EdgeID = MatchEdgeId;
+					ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
+				}
+				// Insert a polygon into the mesh
+				const FPolygonID NewPolygonID = Mesh.CreatePolygon(CurrentPolygonGroupID, Contours);
+				//Triangulate the polygon
+				FMeshPolygon& Polygon = Mesh.GetPolygon(NewPolygonID);
+				Mesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+
+				//Add to the smoothGroup array so we can compute hard edge later
+				ExportData->SmoothGroups.Add((1 << (Node.iSurf % 32)));
 
 				++ExportData->CurrentFaceAddIndex;
 			}
@@ -1057,11 +1119,13 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 
 	for( TMap< ABrush*, FBSPExportData >::TIterator It(BrushToMeshMap); It; ++It )
 	{
-		if( It.Value().Mesh.VertexPositions.Num() )
+		if( It.Value().Mesh.Vertices().Num() )
 		{
+			FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(It.Value().SmoothGroups, It.Value().Mesh);
+
 			UStaticMesh* NewMesh = CreateStaticMesh( It.Value().Mesh, It.Value().Materials, GetTransientPackage(), It.Key()->GetFName() );
 
-			ExportStaticMesh( NewMesh, &AllMaterials );
+			ExportStaticMesh( NewMesh, &It.Value().Materials);
 		}
 	}
 }

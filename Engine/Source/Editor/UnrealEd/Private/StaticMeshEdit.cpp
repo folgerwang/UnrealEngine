@@ -585,7 +585,7 @@ void AddConvexGeomFromVertices( const TArray<FVector>& Verts, FKAggregateGeom* A
 /**
  * Creates a static mesh object from raw triangle data.
  */
-UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& Materials,UObject* InOuter,FName InName)
+UStaticMesh* CreateStaticMesh(FMeshDescription& RawMesh,TArray<FStaticMaterial>& Materials,UObject* InOuter,FName InName)
 {
 	// Create the UStaticMesh object.
 	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(InOuter,*InName.ToString()));
@@ -593,7 +593,9 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
-	SrcModel.SaveRawMesh(RawMesh);
+	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(0);
+	*MeshDescription = RawMesh;
+	StaticMesh->CommitOriginalMeshDescription(0);
 	StaticMesh->StaticMaterials = Materials;
 
 	int32 NumSections = StaticMesh->StaticMaterials.Num();
@@ -807,89 +809,6 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 				NewTriangle.SetVertexInstanceID(TriangleVertexIndex, VertexInstanceID);
 			}
 		}
-	}
-}
-
-void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<FStaticMaterial>& OutMaterials)
-{
-	// Calculate the local to world transform for the source brush.
-
-	FMatrix	ActorToWorld = Brush ? Brush->ActorToWorld().ToMatrixWithScale() : FMatrix::Identity;
-	bool	ReverseVertices = 0;
-	FVector4	PostSub = Brush ? FVector4(Brush->GetActorLocation()) : FVector4(0,0,0,0);
-
-
-	int32 NumPolys = Model->Polys->Element.Num();
-
-	// For each polygon in the model...
-	TArray<FVector> TempPositions;
-	for( int32 PolygonIndex = 0; PolygonIndex < NumPolys; ++PolygonIndex )
-	{
-		FPoly& Polygon = Model->Polys->Element[PolygonIndex];
-
-		UMaterialInterface*	Material = Polygon.Material;
-
-		// Find a material index for this polygon.
-
-		int32 MaterialIndex = OutMaterials.AddUnique(FStaticMaterial(Material));
-
-		// Cache the texture coordinate system for this polygon.
-
-		FVector	TextureBase = Polygon.Base - (Brush ? Brush->GetPivotOffset() : FVector::ZeroVector),
-				TextureX = Polygon.TextureU / UModel::GetGlobalBSPTexelScale(),
-				TextureY = Polygon.TextureV / UModel::GetGlobalBSPTexelScale();
-
-		// For each vertex after the first two vertices...
-		for(int32 VertexIndex = 2;VertexIndex < Polygon.Vertices.Num();VertexIndex++)
-		{
-			// Create a triangle for the vertex.
-			OutMesh.FaceMaterialIndices.Add(MaterialIndex);
-
-			// Generate different smoothing mask for each poly to give the mesh hard edges.  Note: only 32 smoothing masks supported.
-			OutMesh.FaceSmoothingMasks.Add(1<<(PolygonIndex%32));
-
-			FVector Positions[3];
-			FVector2D UVs[3];
-
-
-			Positions[ReverseVertices ? 0 : 2] = ActorToWorld.TransformPosition(Polygon.Vertices[0]) - PostSub;
-			UVs[ReverseVertices ? 0 : 2].X = (Positions[ReverseVertices ? 0 : 2] - TextureBase) | TextureX;
-			UVs[ReverseVertices ? 0 : 2].Y = (Positions[ReverseVertices ? 0 : 2] - TextureBase) | TextureY;
-
-			Positions[1] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex - 1]) - PostSub;
-			UVs[1].X = (Positions[1] - TextureBase) | TextureX;
-			UVs[1].Y = (Positions[1] - TextureBase) | TextureY;
-
-			Positions[ReverseVertices ? 2 : 0] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex]) - PostSub;
-			UVs[ReverseVertices ? 2 : 0].X = (Positions[ReverseVertices ? 2 : 0] - TextureBase) | TextureX;
-			UVs[ReverseVertices ? 2 : 0].Y = (Positions[ReverseVertices ? 2 : 0] - TextureBase) | TextureY;
-
-			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-			{
-				TempPositions.Add(Positions[CornerIndex]);
-				OutMesh.WedgeTexCoords[0].Add(UVs[CornerIndex]);
-			}
-		}
-	}
-
-	// Merge vertices within a certain distance of each other.
-	for (int32 i = 0; i < TempPositions.Num(); ++i)
-	{
-		FVector Position = TempPositions[i];
-		int32 FinalIndex = INDEX_NONE;
-		for (int32 VertexIndex = 0; VertexIndex < OutMesh.VertexPositions.Num(); ++VertexIndex)
-		{
-			if (FVerticesEqual(Position, OutMesh.VertexPositions[VertexIndex]))
-			{
-				FinalIndex = VertexIndex;
-				break;
-			}
-		}
-		if (FinalIndex == INDEX_NONE)
-		{
-			FinalIndex = OutMesh.VertexPositions.Add(Position);
-		}
-		OutMesh.WedgeIndices.Add(FinalIndex);
 	}
 }
 

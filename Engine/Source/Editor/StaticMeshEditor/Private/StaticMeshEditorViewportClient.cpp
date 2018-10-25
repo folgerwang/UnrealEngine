@@ -16,7 +16,6 @@
 #include "UnrealEngine.h"
 
 #include "StaticMeshResources.h"
-#include "RawMesh.h"
 #include "DistanceFieldAtlas.h"
 #include "SEditorViewport.h"
 #include "AdvancedPreviewScene.h"
@@ -1012,172 +1011,191 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 				FVector ClosestEdgeVertices[ 2 ];
 
 				const uint32 LODLevel = FMath::Clamp( StaticMeshComponent->ForcedLodModel - 1, 0, StaticMeshComponent->GetStaticMesh()->GetNumLODs() - 1 );
-				FRawMesh RawMesh;
-				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].LoadRawMesh(RawMesh);
-
-				const int32 RawEdgeCount = RawMesh.WedgeIndices.Num() - 1; 
-				const int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;
-				int32 NumBackFacingTriangles = 0;
-				for(int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
+				if (StaticMeshComponent->GetStaticMesh()->HasValidRenderData(true, LODLevel))
 				{
-					// We disable edge selection where all adjoining triangles are back face culled and the 
-					// material is not two-sided. This prevents edges that are back-face culled from being selected.
-					bool bIsBackFacing = false;
-					bool bIsTwoSided = false;
-					UMaterialInterface* Material = StaticMeshComponent->GetMaterial(RawMesh.FaceMaterialIndices[FaceIndex]);
-					if (Material && Material->GetMaterial())
-					{
-						bIsTwoSided = Material->IsTwoSided();
-					}
-					if(!bIsTwoSided)
-					{
-						// Check whether triangle if back facing 
-						const FVector A = RawMesh.GetWedgePosition( FaceIndex * 3);
-						const FVector B = RawMesh.GetWedgePosition( FaceIndex * 3 + 1);
-						const FVector C = RawMesh.GetWedgePosition( FaceIndex * 3 + 2);
-								
-						// Compute the per-triangle normal
-						const FVector BA = A - B;
-						const FVector CA = A - C;
-						const FVector TriangleNormal = (CA ^ BA).GetSafeNormal();
+					FStaticMeshLODResources& RenderData = StaticMeshComponent->GetStaticMesh()->RenderData->LODResources[LODLevel];
 
-						// Transform the view position from world to component space
-						const FVector ComponentSpaceViewOrigin = StaticMeshComponent->GetComponentTransform().InverseTransformPosition( View->ViewMatrices.GetViewOrigin());
-								
-						// Determine which side of the triangle's plane that the view position lies on.
-						bIsBackFacing = (FVector::PointPlaneDist( ComponentSpaceViewOrigin,  A, TriangleNormal)  < 0.0f);
-					}
-						
-					for( int32 VertIndex = 0; VertIndex < 3; ++VertIndex )
+					int32 NumBackFacingTriangles = 0;
+					uint32 IndexBufferIndex = 0;
+					for (int32 SectionIndex = 0; SectionIndex < RenderData.Sections.Num(); ++SectionIndex)
 					{
-						const int32 EdgeIndex = FaceIndex * 3 + VertIndex;
-						const int32 EdgeIndex2 = FaceIndex * 3 + ((VertIndex + 1) % 3);
-
-						FVector EdgeVertices[ 2 ];
-						EdgeVertices[0]	= RawMesh.GetWedgePosition(EdgeIndex);
-						EdgeVertices[1] = RawMesh.GetWedgePosition(EdgeIndex2);
-
-						// First check to see if this edge is already in our "closest to click" list.
-						// Most edges are shared by two faces in our raw triangle data set, so we want
-						// to select (or deselect) both of these edges that the user clicks on (what
-						// appears to be) a single edge
-						if( ClosestEdgeIndices.Num() > 0 &&
-							( ( EdgeVertices[ 0 ].Equals( ClosestEdgeVertices[ 0 ] ) && EdgeVertices[ 1 ].Equals( ClosestEdgeVertices[ 1 ] ) ) ||
-							( EdgeVertices[ 0 ].Equals( ClosestEdgeVertices[ 1 ] ) && EdgeVertices[ 1 ].Equals( ClosestEdgeVertices[ 0 ] ) ) ) )
+						const FStaticMeshSection& Section = RenderData.Sections[SectionIndex];
+						const int32 FaceMaterialIndex = Section.MaterialIndex;
+						const int32 NumFaces = Section.NumTriangles;
+						for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
 						{
-							// Edge overlaps the closest edge we have so far, so just add it to the list
-							ClosestEdgeIndices.Add( EdgeIndex );
-							// Increment the number of back facing triangles if the adjoining triangle 
-							// is back facing and isn't two-sided
-							if(bIsBackFacing && !bIsTwoSided)
+							FVector VertexPosition[3];
+							uint32 VertexIndex[3];
+							uint32 WedgeIndex[3];
+							for (int32 Corner = 0; Corner < 3; ++Corner)
 							{
-								++NumBackFacingTriangles;
+								WedgeIndex[Corner] = IndexBufferIndex;
+								VertexIndex[Corner] = RenderData.IndexBuffer.GetIndex(IndexBufferIndex);
+								VertexPosition[Corner] = RenderData.VertexBuffers.PositionVertexBuffer.VertexPosition(VertexIndex[Corner]);
+								IndexBufferIndex++;
 							}
-						}
-						else
-						{
-							FVector WorldSpaceEdgeStart( StaticMeshComponent->GetComponentTransform().TransformPosition( EdgeVertices[ 0 ] ) );
-							FVector WorldSpaceEdgeEnd( StaticMeshComponent->GetComponentTransform().TransformPosition( EdgeVertices[ 1 ] ) );
-
-							// Determine the mesh edge that's closest to the ray cast through the eye towards the click location
-							FVector ClosestPointToEdgeOnClickLine;
-							FVector ClosestPointToClickLineOnEdge;
-							FMath::SegmentDistToSegment(
-								ClickLineStart,
-								ClickLineEnd,
-								WorldSpaceEdgeStart,
-								WorldSpaceEdgeEnd,
-								ClosestPointToEdgeOnClickLine,
-								ClosestPointToClickLineOnEdge );
-
-							// Compute the minimum distance (squared)
-							const float MinDistanceToEdgeSquared = ( ClosestPointToClickLineOnEdge - ClosestPointToEdgeOnClickLine ).SizeSquared();
-
-							if( MinDistanceToEdgeSquared <= WorldSpaceMinClickDistance )
+							// We disable edge selection where all adjoining triangles are back face culled and the 
+							// material is not two-sided. This prevents edges that are back-face culled from being selected.
+							bool bIsBackFacing = false;
+							bool bIsTwoSided = false;
+							UMaterialInterface* Material = StaticMeshComponent->GetMaterial(FaceMaterialIndex);
+							if (Material && Material->GetMaterial())
 							{
-								if( MinDistanceToEdgeSquared <= ClosestEdgeDistance )
+								bIsTwoSided = Material->IsTwoSided();
+							}
+							if (!bIsTwoSided)
+							{
+								// Check whether triangle if back facing 
+								const FVector A = VertexPosition[0];
+								const FVector B = VertexPosition[1];
+								const FVector C = VertexPosition[2];
+
+								// Compute the per-triangle normal
+								const FVector BA = A - B;
+								const FVector CA = A - C;
+								const FVector TriangleNormal = (CA ^ BA).GetSafeNormal();
+
+								// Transform the view position from world to component space
+								const FVector ComponentSpaceViewOrigin = StaticMeshComponent->GetComponentTransform().InverseTransformPosition(View->ViewMatrices.GetViewOrigin());
+
+								// Determine which side of the triangle's plane that the view position lies on.
+								bIsBackFacing = (FVector::PointPlaneDist(ComponentSpaceViewOrigin, A, TriangleNormal) < 0.0f);
+							}
+
+							for (int32 Corner = 0; Corner < 3; ++Corner)
+							{
+								const int32 Corner2 = (Corner + 1) % 3;
+
+								FVector EdgeVertices[2];
+								EdgeVertices[0] = VertexPosition[Corner];
+								EdgeVertices[1] = VertexPosition[Corner2];
+
+								// First check to see if this edge is already in our "closest to click" list.
+								// Most edges are shared by two faces in our raw triangle data set, so we want
+								// to select (or deselect) both of these edges that the user clicks on (what
+								// appears to be) a single edge
+								if (ClosestEdgeIndices.Num() > 0 &&
+									((EdgeVertices[0].Equals(ClosestEdgeVertices[0]) && EdgeVertices[1].Equals(ClosestEdgeVertices[1])) ||
+									(EdgeVertices[0].Equals(ClosestEdgeVertices[1]) && EdgeVertices[1].Equals(ClosestEdgeVertices[0]))))
 								{
-									// This is the closest edge to the click line that we've found so far!
-									ClosestEdgeDistance = MinDistanceToEdgeSquared;
-									ClosestEdgeVertices[ 0 ] = EdgeVertices[ 0 ];
-									ClosestEdgeVertices[ 1 ] = EdgeVertices[ 1 ];
+									// Edge overlaps the closest edge we have so far, so just add it to the list
+									ClosestEdgeIndices.Add(WedgeIndex[Corner]);
+									// Increment the number of back facing triangles if the adjoining triangle 
+									// is back facing and isn't two-sided
+									if (bIsBackFacing && !bIsTwoSided)
+									{
+										++NumBackFacingTriangles;
+									}
+								}
+								else
+								{
+									FVector WorldSpaceEdgeStart(StaticMeshComponent->GetComponentTransform().TransformPosition(EdgeVertices[0]));
+									FVector WorldSpaceEdgeEnd(StaticMeshComponent->GetComponentTransform().TransformPosition(EdgeVertices[1]));
 
-									ClosestEdgeIndices.Reset();
-									ClosestEdgeIndices.Add( EdgeIndex );
+									// Determine the mesh edge that's closest to the ray cast through the eye towards the click location
+									FVector ClosestPointToEdgeOnClickLine;
+									FVector ClosestPointToClickLineOnEdge;
+									FMath::SegmentDistToSegment(
+										ClickLineStart,
+										ClickLineEnd,
+										WorldSpaceEdgeStart,
+										WorldSpaceEdgeEnd,
+										ClosestPointToEdgeOnClickLine,
+										ClosestPointToClickLineOnEdge);
 
-									// Reset the number of back facing triangles.
-									NumBackFacingTriangles = (bIsBackFacing && !bIsTwoSided) ? 1 : 0;
+									// Compute the minimum distance (squared)
+									const float MinDistanceToEdgeSquared = (ClosestPointToClickLineOnEdge - ClosestPointToEdgeOnClickLine).SizeSquared();
+
+									if (MinDistanceToEdgeSquared <= WorldSpaceMinClickDistance)
+									{
+										if (MinDistanceToEdgeSquared <= ClosestEdgeDistance)
+										{
+											// This is the closest edge to the click line that we've found so far!
+											ClosestEdgeDistance = MinDistanceToEdgeSquared;
+											ClosestEdgeVertices[0] = EdgeVertices[0];
+											ClosestEdgeVertices[1] = EdgeVertices[1];
+
+											ClosestEdgeIndices.Reset();
+											ClosestEdgeIndices.Add(WedgeIndex[Corner]);
+
+											// Reset the number of back facing triangles.
+											NumBackFacingTriangles = (bIsBackFacing && !bIsTwoSided) ? 1 : 0;
+										}
+									}
 								}
 							}
 						}
 					}
-				}
 
-				// Did the user click on an edge? Edges must also have at least one adjoining triangle 
-				// which isn't back face culled (for one-sided materials)
-				if( ClosestEdgeIndices.Num() > 0 && ClosestEdgeIndices.Num() > NumBackFacingTriangles)
-				{
-					for( int32 CurIndex = 0; CurIndex < ClosestEdgeIndices.Num(); ++CurIndex )
+
+					// Did the user click on an edge? Edges must also have at least one adjoining triangle 
+					// which isn't back face culled (for one-sided materials)
+					if (ClosestEdgeIndices.Num() > 0 && ClosestEdgeIndices.Num() > NumBackFacingTriangles)
 					{
-						const int32 CurEdgeIndex = ClosestEdgeIndices[ CurIndex ];
-
-						if( bCtrlDown )
+						for (int32 CurIndex = 0; CurIndex < ClosestEdgeIndices.Num(); ++CurIndex)
 						{
-							// Toggle selection
-							if( SelectedEdgeIndices.Contains( CurEdgeIndex ) )
+							const int32 CurEdgeIndex = ClosestEdgeIndices[CurIndex];
+
+							if (bCtrlDown)
 							{
-								SelectedEdgeIndices.Remove( CurEdgeIndex );
+								// Toggle selection
+								if (SelectedEdgeIndices.Contains(CurEdgeIndex))
+								{
+									SelectedEdgeIndices.Remove(CurEdgeIndex);
+								}
+								else
+								{
+									SelectedEdgeIndices.Add(CurEdgeIndex);
+								}
 							}
 							else
 							{
-								SelectedEdgeIndices.Add( CurEdgeIndex );
+								// Append to selection
+								SelectedEdgeIndices.Add(CurEdgeIndex);
 							}
 						}
-						else
+
+						// Reset cached vertices and uv coordinates.
+						SelectedEdgeVertices.Reset();
+						for (int32 TexCoordIndex = 0; TexCoordIndex < MAX_STATIC_TEXCOORDS; ++TexCoordIndex)
 						{
-							// Append to selection
-							SelectedEdgeIndices.Add( CurEdgeIndex );
+							SelectedEdgeTexCoords[TexCoordIndex].Reset();
 						}
-					}
 
-					// Reset cached vertices and uv coordinates.
-					SelectedEdgeVertices.Reset();
-					for(int32 TexCoordIndex = 0; TexCoordIndex < MAX_STATIC_TEXCOORDS; ++TexCoordIndex)
-					{
-						SelectedEdgeTexCoords[TexCoordIndex].Reset();
-					}
-
-					for(FSelectedEdgeSet::TIterator SelectionIt( SelectedEdgeIndices ); SelectionIt; ++SelectionIt)
-					{
-						const uint32 EdgeIndex = *SelectionIt;
-						const uint32 FaceIndex = EdgeIndex / 3;
-
-						const uint32 WedgeIndex = FaceIndex * 3 + (EdgeIndex % 3);
-						const uint32 WedgeIndex2 = FaceIndex * 3 + ((EdgeIndex + 1) % 3);
-
-						// Cache edge vertices in local space.
-						FVector EdgeVertices[ 2 ];
-						EdgeVertices[ 0 ] = RawMesh.GetWedgePosition(WedgeIndex);
-						EdgeVertices[ 1 ] = RawMesh.GetWedgePosition(WedgeIndex2);
-
-						SelectedEdgeVertices.Add(EdgeVertices[0]);
-						SelectedEdgeVertices.Add(EdgeVertices[1]);
-
-						// Cache UV
-						for(int32 TexCoordIndex = 0; TexCoordIndex < MAX_STATIC_TEXCOORDS; ++TexCoordIndex)
+						for (FSelectedEdgeSet::TIterator SelectionIt(SelectedEdgeIndices); SelectionIt; ++SelectionIt)
 						{
-							if( RawMesh.WedgeTexCoords[TexCoordIndex].Num() > 0)
+							const uint32 EdgeIndex = *SelectionIt;
+							const uint32 FaceIndex = EdgeIndex / 3;
+
+							const uint32 WedgeIndex = FaceIndex * 3 + (EdgeIndex % 3);
+							const uint32 WedgeIndex2 = FaceIndex * 3 + ((EdgeIndex + 1) % 3);
+
+							const uint32 VertexIndex = RenderData.IndexBuffer.GetIndex(WedgeIndex);
+							const uint32 VertexIndex2 = RenderData.IndexBuffer.GetIndex(WedgeIndex2);
+							// Cache edge vertices in local space.
+							FVector EdgeVertices[2];
+							EdgeVertices[0] = RenderData.VertexBuffers.PositionVertexBuffer.VertexPosition(VertexIndex);
+							EdgeVertices[1] = RenderData.VertexBuffers.PositionVertexBuffer.VertexPosition(VertexIndex2);
+
+							SelectedEdgeVertices.Add(EdgeVertices[0]);
+							SelectedEdgeVertices.Add(EdgeVertices[1]);
+
+							// Cache UV
+							for (uint32 TexCoordIndex = 0; TexCoordIndex < MAX_STATIC_TEXCOORDS; ++TexCoordIndex)
 							{
-								FVector2D UVIndex1, UVIndex2;
-								UVIndex1 = RawMesh.WedgeTexCoords[TexCoordIndex][WedgeIndex];
-								UVIndex2 = RawMesh.WedgeTexCoords[TexCoordIndex][WedgeIndex2];
-								SelectedEdgeTexCoords[TexCoordIndex].Add(UVIndex1);
-								SelectedEdgeTexCoords[TexCoordIndex].Add(UVIndex2);
+								if (RenderData.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords() > TexCoordIndex)
+								{
+									FVector2D UVIndex1, UVIndex2;
+									UVIndex1 = RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexCoordIndex);
+									UVIndex2 = RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex2, TexCoordIndex);
+									SelectedEdgeTexCoords[TexCoordIndex].Add(UVIndex1);
+									SelectedEdgeTexCoords[TexCoordIndex].Add(UVIndex2);
+								}
 							}
 						}
-					}
 
-					ClearSelectedEdges = false;
+						ClearSelectedEdges = false;
+					}
 				}
 			}
 		}
