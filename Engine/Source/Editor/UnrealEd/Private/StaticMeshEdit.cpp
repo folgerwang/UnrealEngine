@@ -18,7 +18,6 @@
 #include "Editor.h"
 #include "StaticMeshResources.h"
 #include "BSPOps.h"
-#include "RawMesh.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/SphereElem.h"
@@ -983,7 +982,6 @@ struct ExistingLODMeshData
 {
 	FMeshBuildSettings				ExistingBuildSettings;
 	FMeshReductionSettings			ExistingReductionSettings;
-	FRawMesh						ExistingRawMesh;
 	TUniquePtr<FMeshDescription>	ExistingMeshDescription;
 	TArray<FStaticMaterial>			ExistingMaterials;
 	FPerPlatformFloat				ExistingScreenSize;
@@ -1146,8 +1144,6 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 			{
 				ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = MakeUnique<FMeshDescription>(*MeshDescription);
 			}
-
-			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
 
 		ExistingMeshDataPtr->ExistingSockets = ExistingMesh->Sockets;
@@ -1232,7 +1228,8 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 			{
 				NewMesh->AddSourceModel();
 			}
-			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
+			FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(i);
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
 			bool bWasReduced = ExistingMesh->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
 			if (!bSwapFromGeneratedToImported && bWasReduced)
 			{
@@ -1248,7 +1245,8 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		//Just set the old configuration for the desired LODIndex
 		if(LODIndex >= 0 && LODIndex < CurrentNumLods && LODIndex < ExistingNumLods)
 		{
-			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty();
+			FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(LODIndex);
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
 			bool bWasReduced = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.MaxDeviation > 0.0f;
 			if (!bSwapFromGeneratedToImported && bWasReduced)
 			{
@@ -1447,8 +1445,9 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	for(int32 i=0; i<NumCommonLODs; i++)
 	{
 		NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
+		FMeshDescription* LODMeshDescription = NewMesh->GetOriginalMeshDescription(i);
 		//Restore the reduction settings only if the existing data was a using reduction. Because we can set some value if we reimport from existing rawmesh to auto generated.
-		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
+		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
 		bool bWasReduced = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
 		if ( !bSwapFromGeneratedToImported && bWasReduced)
 		{
@@ -1466,10 +1465,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 			FMeshDescription* MeshDescription = NewMesh->CreateOriginalMeshDescription(i);
 			*MeshDescription = MoveTemp(*ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription);
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.Reset();
-		}
-		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
-		{
-			SrcModel.RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
+			NewMesh->CommitOriginalMeshDescription(i);
 		}
 		SrcModel.BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 		SrcModel.ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;

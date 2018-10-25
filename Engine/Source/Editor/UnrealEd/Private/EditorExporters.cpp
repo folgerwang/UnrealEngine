@@ -59,7 +59,8 @@
 #include "Editor.h"
 #include "MatineeExporter.h"
 #include "FbxExporter.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
+#include "MeshDescriptionOperations.h"
 #include "MaterialUtilities.h"
 #include "InstancedFoliageActor.h"
 #include "LandscapeProxy.h"
@@ -1718,11 +1719,17 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 	UStaticMesh* StaticMesh = CastChecked<UStaticMesh>( Object );
 
 	{
+		// Currently, we only export LOD 0 of the static mesh. In the future, we could potentially export all available LODs
+		const FStaticMeshLODResources& RenderData = StaticMesh->GetLODForExport(0);
+		uint32 Count = RenderData.GetNumTriangles();
+
+		bool bHasUVLightMap = RenderData.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords() > 1;
+
 		// Create a new filename for the lightmap coordinate OBJ file (by adding "_UV1" to the end of the filename)
 		FString Filename = UExporter::CurrentFilename.Left( UExporter::CurrentFilename.Len() - 4 ) + "_UV1." + UExporter::CurrentFilename.Right( 3 );
 
 		// Open a second archive here so we can export lightmap coordinates at the same time we export the regular mesh
-		FArchive* UV1File = IFileManager::Get().CreateFileWriter( *Filename );
+		FArchive* UV1File = bHasUVLightMap ? IFileManager::Get().CreateFileWriter( *Filename ) : nullptr;
 
 		TArray<FVector> Verts;				// The verts in the mesh
 		TArray<FVector2D> UVs;				// UV coords from channel 0
@@ -1731,26 +1738,51 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 		TArray<uint32> SmoothingMasks;		// Complete collection of the smoothing groups from all triangles
 		TArray<uint32> UniqueSmoothingMasks;	// Collection of the unique smoothing groups (used when writing out the face info into the OBJ file so we can group by smoothing group)
 
-		UV1File->Logf( TEXT("# UnrealEd OBJ exporter\r\n") );
+		if (bHasUVLightMap)
+		{
+			UV1File->Logf(TEXT("# UnrealEd OBJ exporter\r\n"));
+		}
 		Ar.Log( TEXT("# UnrealEd OBJ exporter\r\n") );
 
-		// Currently, we only export LOD 0 of the static mesh. In the future, we could potentially export all available LODs
-		const FStaticMeshLODResources& RenderData = StaticMesh->GetLODForExport(0);
-		FRawMesh RawMesh;
-		StaticMesh->SourceModels[0].LoadRawMesh(RawMesh);
+		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+		if (MeshDescription != nullptr)
+		{
+			uint32 TriangleCount = 0;
+			for (const FPolygonID PolygonID : MeshDescription->Polygons().GetElementIDs())
+			{
+				TriangleCount += MeshDescription->GetPolygonTriangles(PolygonID).Num();
+			}
+			if (Count == TriangleCount)
+			{
+				SmoothingMasks.AddZeroed(TriangleCount);
 
-		uint32 Count = RenderData.GetNumTriangles();
+				FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(*MeshDescription, SmoothingMasks);
+				for (uint32 SmoothValue : SmoothingMasks)
+				{
+					UniqueSmoothingMasks.AddUnique(SmoothValue);
+				}
+			}
+		}
+
+		//This can happen in case the base LOD is reduce or the recompute normals has generate a different number of cases
+		//the count will be lower and in such a case the smooth group of the original mesh description cannot be used since it is out of sync with the render data.
+		if (SmoothingMasks.Num() != Count)
+		{
+			//Create one SmoothGroup with 0 values
+			SmoothingMasks.Empty(Count);
+			SmoothingMasks.AddZeroed(Count);
+			UniqueSmoothingMasks.Empty(1);
+			UniqueSmoothingMasks.Add(0);
+		}
 
 		// Collect all the data about the mesh
 		Verts.Reserve(3 * Count);
 		UVs.Reserve(3 * Count);
 		UVLMs.Reserve(3 * Count);
 		Normals.Reserve(3 * Count);
-		SmoothingMasks.Reserve(Count);
-		UniqueSmoothingMasks.Reserve(Count);
 
 		FIndexArrayView Indices = RenderData.IndexBuffer.GetArrayView();
-
+		
 		for( uint32 tri = 0 ; tri < Count ; tri++ )
 		{
 			uint32 Index1 = Indices[(tri * 3) + 0];
@@ -1772,51 +1804,60 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 			UVs.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index3, 0) );
 
 			// UVs from channel 1 (lightmap coords)
-			UVLMs.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index1, 1) );
-			UVLMs.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index2, 1) );
-			UVLMs.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index3, 1) );
+			if (bHasUVLightMap)
+			{
+				UVLMs.Add(RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index1, 1));
+				UVLMs.Add(RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index2, 1));
+				UVLMs.Add(RenderData.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(Index3, 1));
+			}
 
 			// Normals
 			Normals.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(Index1) );
 			Normals.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(Index2) );
 			Normals.Add( RenderData.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(Index3) );
-
-			// Smoothing groups
-			SmoothingMasks.Add( RawMesh.FaceSmoothingMasks[tri] );
-
-			// Unique smoothing groups
-			UniqueSmoothingMasks.AddUnique( RawMesh.FaceSmoothingMasks[tri] );
 		}
 
 		// Write out the vertex data
-
-		UV1File->Logf( TEXT("\r\n") );
+		if (bHasUVLightMap)
+		{
+			UV1File->Logf(TEXT("\r\n"));
+		}
 		Ar.Log( TEXT("\r\n") );
 		for( int32 v = 0 ; v < Verts.Num() ; ++v )
 		{
 			// Transform to Lightwave's coordinate system
-			UV1File->Logf( TEXT("v %f %f %f\r\n"), Verts[v].X, Verts[v].Z, Verts[v].Y );
+			if (bHasUVLightMap)
+			{
+				UV1File->Logf(TEXT("v %f %f %f\r\n"), Verts[v].X, Verts[v].Z, Verts[v].Y);
+			}
 			Ar.Logf( TEXT("v %f %f %f\r\n"), Verts[v].X, Verts[v].Z, Verts[v].Y );
 		}
 
 		// Write out the UV data (the lightmap file differs here in that it writes from the UVLMs array instead of UVs)
-
-		UV1File->Logf( TEXT("\r\n") );
+		if (bHasUVLightMap)
+		{
+			UV1File->Logf(TEXT("\r\n"));
+		}
 		Ar.Log( TEXT("\r\n") );
 		for( int32 uv = 0 ; uv < UVs.Num() ; ++uv )
 		{
 			// Invert the y-coordinate (Lightwave has their bitmaps upside-down from us).
-			UV1File->Logf( TEXT("vt %f %f\r\n"), UVLMs[uv].X, 1.0f - UVLMs[uv].Y );
+			if (bHasUVLightMap)
+			{
+				UV1File->Logf(TEXT("vt %f %f\r\n"), UVLMs[uv].X, 1.0f - UVLMs[uv].Y);
+			}
 			Ar.Logf( TEXT("vt %f %f\r\n"), UVs[uv].X, 1.0f - UVs[uv].Y );
 		}
 
 		// Write object header
-
-		UV1File->Logf( TEXT("\r\n") );
+		if (bHasUVLightMap)
+		{
+			UV1File->Logf(TEXT("\r\n"));
+			UV1File->Logf(TEXT("g UnrealEdObject\r\n"));
+			UV1File->Logf(TEXT("\r\n"));
+		}
 		Ar.Log( TEXT("\r\n") );
-		UV1File->Logf( TEXT("g UnrealEdObject\r\n") );
 		Ar.Log( TEXT("g UnrealEdObject\r\n") );
-		UV1File->Logf( TEXT("\r\n") );
 		Ar.Log( TEXT("\r\n") );
 
 		// Write out the face windings, sectioned by unique smoothing groups
@@ -1825,7 +1866,10 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 
 		for( int32 sm = 0 ; sm < UniqueSmoothingMasks.Num() ; ++sm )
 		{
-			UV1File->Logf( TEXT("s %i\r\n"), SmoothingGroup );
+			if (bHasUVLightMap)
+			{
+				UV1File->Logf(TEXT("s %i\r\n"), SmoothingGroup);
+			}
 			Ar.Logf( TEXT("s %i\r\n"), SmoothingGroup );
 			SmoothingGroup++;
 
@@ -1834,22 +1878,29 @@ bool UStaticMeshExporterOBJ::ExportText(const FExportObjectInnerContext* Context
 				if( SmoothingMasks[tri] == UniqueSmoothingMasks[sm]  )
 				{
 					int idx = 1 + (tri * 3);
-
-					UV1File->Logf( TEXT("f %d/%d %d/%d %d/%d\r\n"), idx, idx, idx+1, idx+1, idx+2, idx+2 );
+					if (bHasUVLightMap)
+					{
+						UV1File->Logf(TEXT("f %d/%d %d/%d %d/%d\r\n"), idx, idx, idx + 1, idx + 1, idx + 2, idx + 2);
+					}
 					Ar.Logf( TEXT("f %d/%d %d/%d %d/%d\r\n"), idx, idx, idx+1, idx+1, idx+2, idx+2 );
 				}
 			}
 		}
 
 		// Write out footer
-
-		UV1File->Logf( TEXT("\r\n") );
+		if (bHasUVLightMap)
+		{
+			UV1File->Logf(TEXT("\r\n"));
+			UV1File->Logf(TEXT("g\r\n"));
+		}
 		Ar.Log( TEXT("\r\n") );
-		UV1File->Logf( TEXT("g\r\n") );
 		Ar.Log( TEXT("g\r\n") );
 
-		// Clean up and finish
-		delete UV1File;
+		if (bHasUVLightMap)
+		{
+			// Clean up and finish
+			delete UV1File;
+		}
 	}
 
 	// ------------------------------------------------------

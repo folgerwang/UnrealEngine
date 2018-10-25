@@ -36,7 +36,6 @@ class USkeleton;
 class UStaticMesh;
 class UTexture;
 struct FExpressionInput;
-struct FRawMesh;
 struct FRichCurve;
 struct FStaticMaterial;
 struct FSkeletalMaterial;
