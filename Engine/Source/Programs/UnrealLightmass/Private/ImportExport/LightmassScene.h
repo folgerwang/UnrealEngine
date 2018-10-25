@@ -469,9 +469,10 @@ public:
 	virtual void			Import( class FLightmassImporter& Importer );
 
 	virtual FLinearColor	GetDirectIntensity(const FVector4& Point, bool bCalculateForIndirectLighting) const override;
-	int32					GetNumDirectPhotons(float DirectPhotonDensity) const override;
+	virtual int32			GetNumDirectPhotons(float DirectPhotonDensity) const override;
 	virtual void			ValidateSurfaceSample(const FVector4& Point, FLightSurfaceSample& Sample) const override;
 	virtual FVector4		LightCenterPosition(const FVector4& ReceivingPosition, const FVector4& ReceivingNormal) const override;
+	virtual bool			AffectsBounds(const FBoxSphereBounds& Bounds) const override;
 	virtual bool			BehindSurface(const FVector4& TrianglePoint, const FVector4& TriangleNormal) const override;
 	virtual FVector4		GetDirectLightingDirection(const FVector4& Point, const FVector4& PointNormal) const override;
 
