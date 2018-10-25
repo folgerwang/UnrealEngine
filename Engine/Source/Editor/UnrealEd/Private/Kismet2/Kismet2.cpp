@@ -1016,7 +1016,7 @@ bool FKismetEditorUtilities::GenerateBlueprintSkeleton(UBlueprint* BlueprintObj,
 }
 
 /** Recompiles the bytecode of a blueprint only.  Should only be run for recompiling dependencies during compile on load */
-void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj, TArray<UObject*>* ObjLoaded,  EBlueprintBytecodeRecompileOptions Flags)
+void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj,  EBlueprintBytecodeRecompileOptions Flags)
 {
 	FSecondsCounterScope Timer(BlueprintCompileAndLoadTimerData); 
 
@@ -1049,7 +1049,7 @@ void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj
 	{
 		FRecreateUberGraphFrameScope RecreateUberGraphFrameScope(BlueprintObj->GeneratedClass, true);
 		FCompilerResultsLog Results;
-		Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, NULL, ObjLoaded);
+		Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, NULL);
 	}
 	
 	if(!bSkipReinstancing)

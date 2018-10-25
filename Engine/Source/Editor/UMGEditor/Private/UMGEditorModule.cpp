@@ -148,11 +148,11 @@ public:
 		CompileCount++;
 	}
 
-	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override
+	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results) override
 	{
 		if ( UWidgetBlueprint* WidgetBlueprint = CastChecked<UWidgetBlueprint>(Blueprint) )
 		{
-			FWidgetBlueprintCompiler Compiler(WidgetBlueprint, Results, CompileOptions, ObjLoaded);
+			FWidgetBlueprintCompiler Compiler(WidgetBlueprint, Results, CompileOptions);
 			Compiler.Compile();
 			check(Compiler.NewClass);
 		}

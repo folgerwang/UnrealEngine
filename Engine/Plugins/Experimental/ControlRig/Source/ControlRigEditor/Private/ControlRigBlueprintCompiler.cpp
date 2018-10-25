@@ -22,9 +22,9 @@ bool FControlRigBlueprintCompiler::CanCompile(const UBlueprint* Blueprint)
 	return false;
 }
 
-void FControlRigBlueprintCompiler::Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded)
+void FControlRigBlueprintCompiler::Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results)
 {
-	FControlRigBlueprintCompilerContext Compiler(Blueprint, Results, CompileOptions, ObjLoaded);
+	FControlRigBlueprintCompilerContext Compiler(Blueprint, Results, CompileOptions);
 	Compiler.Compile();
 }
 

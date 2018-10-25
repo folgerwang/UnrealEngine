@@ -276,10 +276,11 @@ FArchive& FLinkerSave::operator<<( FName& InName )
 {
 	int32 Save = MapName(InName);
 
+	check(GetSerializeContext());
 	ensureMsgf(Save != INDEX_NONE, TEXT("Name \"%s\" is not mapped when saving %s (object: %s, property: %s)"), 
 		*InName.ToString(),
 		*GetArchiveName(),
-		*FUObjectThreadContext::Get().SerializedObject->GetFullName(),
+		*GetSerializeContext()->SerializedObject->GetFullName(),
 		*GetSerializedProperty()->GetFullName());
 
 	int32 Number = InName.GetNumber();
@@ -302,4 +303,18 @@ FArchive& FLinkerSave::operator<<(FLazyObjectPtr& LazyObjectPtr)
 	FUniqueObjectGuid ID;
 	ID = LazyObjectPtr.GetUniqueID();
 	return *this << ID;
+}
+
+void FLinkerSave::SetSerializeContext(FUObjectSerializeContext* InLoadContext)
+{
+	SaveContext = InLoadContext;
+	if (Saver)
+	{
+		Saver->SetSerializeContext(InLoadContext);
+	}
+}
+
+FUObjectSerializeContext* FLinkerSave::GetSerializeContext()
+{
+	return SaveContext;
 }

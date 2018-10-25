@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Serialization/LargeMemoryWriter.h"
 #include "Serialization/LargeMemoryReader.h"
+#include "Templates/RefCounting.h"
 
 class FUObjectThreadContext;
 class FLinkerLoad;
@@ -147,6 +148,8 @@ class COREUOBJECT_API FArchiveStackTrace : public FLargeMemoryWriter
 	ANSICHAR* LastSerializeCallstack;
 	/** Cached thread context */
 	FUObjectThreadContext& ThreadContext;
+	/** Current save/load context */
+	TRefCountPtr<FUObjectSerializeContext> LoadContext;
 
 #if WITH_EDITOR
 	/** Current debug name stack */
@@ -205,7 +208,7 @@ private:
 	void CompareWithInternal(const FPackageData& SourcePackage, const FPackageData& DestPackage, const TCHAR* AssetFilename, const TCHAR* CallstackCutoffText, const int64 MaxDiffsToLog, int32& InOutDiffsLogged, TMap<FName, FArchiveDiffStats>& OutStats);
 	bool GenerateDiffMapInternal(const FPackageData& SourcePackage, const FPackageData& DestPackage, int32 MaxDiffsToFind, FArchiveDiffMap& OutDiffMap);
 	void DumpPackageHeaderDiffs(const FPackageData& SourcePackage, const FPackageData& DestPackage, const FString& AssetFilename, const int32 MaxDiffsToLog);
-	static FLinkerLoad* CreateLinkerForPackage(const FString& InPackageName, const FString& InFilename, const FPackageData& PackageData);
+	static FLinkerLoad* CreateLinkerForPackage(FUObjectSerializeContext* LoadContext, const FString& InPackageName, const FString& InFilename, const FPackageData& PackageData);
 
 public:
 
@@ -214,6 +217,8 @@ public:
 
 	//~ Begin FArchive Interface
 	virtual void Serialize(void* Data, int64 Num) override;
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override;
+	virtual FUObjectSerializeContext* GetSerializeContext() override;
 #if WITH_EDITOR
 	virtual void PushDebugDataString(const FName& DebugData) override
 	{

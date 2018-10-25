@@ -221,6 +221,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #endif
 
 #include "HAL/FileManagerGeneric.h"
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogEngine);
 IMPLEMENT_MODULE( FEngineModule, Engine );
@@ -8575,20 +8576,22 @@ FGuid UEngine::GetPackageGuid(FName PackageName, bool bForPIE)
 {
 	FGuid Result(0,0,0,0);
 
-	BeginLoad(*PackageName.ToString());
+	TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+	BeginLoad(LoadContext, *PackageName.ToString());
 	uint32 LoadFlags = LOAD_NoWarn | LOAD_NoVerify;
 	if (bForPIE)
 	{
 		LoadFlags |= LOAD_PackageForPIE;
 	}
 	UPackage* PackageToReset = nullptr;
-	FLinkerLoad* Linker = GetPackageLinker(NULL, *PackageName.ToString(), LoadFlags, NULL, NULL);
-	if (Linker != NULL && Linker->LinkerRoot != NULL)
+	FLinkerLoad* Linker = GetPackageLinker(nullptr, *PackageName.ToString(), LoadFlags, nullptr, nullptr, nullptr, LoadContext);
+	check(Linker);
+	if (Linker != nullptr && Linker->LinkerRoot != nullptr)
 	{
 		Result = Linker->LinkerRoot->GetGuid();
 		PackageToReset = Linker->LinkerRoot;
 	}
-	EndLoad();
+	EndLoad(Linker->GetSerializeContext());
 
 	ResetLoaders(PackageToReset);
 	Linker = nullptr;

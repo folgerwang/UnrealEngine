@@ -1109,7 +1109,7 @@ public:
 	 * Called on the target when a class is loaded with ClassGeneratedBy is loaded.  Should regenerate the class if needed, and return the updated class
 	 * @return	Updated instance of the class, if needed, or NULL if no regeneration was necessary
 	 */
-	virtual UClass* RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded) { return NULL; };
+	virtual UClass* RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO) { return NULL; };
 
 	/** 
 	 * Returns whether this object is contained in or part of a blueprint object

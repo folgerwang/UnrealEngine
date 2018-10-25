@@ -144,43 +144,38 @@ void FLinkerManager::ResetLoaders(UObject* InPkg)
 
 void FLinkerManager::DissociateImportsAndForcedExports()
 {
-	int32& ImportCount = FUObjectThreadContext::Get().ImportCount;
-	if (ImportCount != 0)
 	{
 		// In cooked builds linkers don't stick around long enough to make this worthwhile
 		TSet<FLinkerLoad*> LocalLoadersWithNewImports;
 		GetLoadersWithNewImportsAndEmpty(LocalLoadersWithNewImports);
-		if (LocalLoadersWithNewImports.Num())
+
+		for (FLinkerLoad* Linker : LocalLoadersWithNewImports)
 		{
-			for (FLinkerLoad* Linker : LocalLoadersWithNewImports)
+			for (int32 ImportIndex = 0; ImportIndex < Linker->ImportMap.Num(); ImportIndex++)
 			{
-				for (int32 ImportIndex = 0; ImportIndex < Linker->ImportMap.Num(); ImportIndex++)
+				FObjectImport& Import = Linker->ImportMap[ImportIndex];
+				if (Import.XObject && !Import.XObject->IsNative())
 				{
-					FObjectImport& Import = Linker->ImportMap[ImportIndex];
-					if (Import.XObject && !Import.XObject->IsNative())
-					{
-						Import.XObject = nullptr;
-					}
-					Import.SourceLinker = nullptr;
-					// when the SourceLinker is reset, the SourceIndex must also be reset, or recreating
-					// an import that points to a redirector will fail to find the redirector
-					Import.SourceIndex = INDEX_NONE;
+					Import.XObject = nullptr;
 				}
+				Import.SourceLinker = nullptr;
+				// when the SourceLinker is reset, the SourceIndex must also be reset, or recreating
+				// an import that points to a redirector will fail to find the redirector
+				Import.SourceIndex = INDEX_NONE;
+			}
+			if (Linker->GetSerializeContext())
+			{
+				Linker->GetSerializeContext()->ResetImportCount();
 			}
 		}
-		ImportCount = 0;
 	}
 
-	int32& ForcedExportCount = FUObjectThreadContext::Get().ForcedExportCount;
-	if (ForcedExportCount)
 	{		
-		TSet<FLinkerLoad*> LocalLoaders;
-		GetLoaders(LocalLoaders);
-		for (FLinkerLoad* Linker : LocalLoaders)
+		TSet<FLinkerLoad*> LocalLoadersWithForcedExports;
+		GetLoadersWithForcedExportsAndEmpty(LocalLoadersWithForcedExports);
+		for (FLinkerLoad* Linker : LocalLoadersWithForcedExports)
 		{
-			//@todo optimization: only dissociate exports for loaders that had forced exports created
-			//@todo optimization: since the last time this function was called.
-			for (auto& Export : Linker->ExportMap)
+			for (FObjectExport& Export : Linker->ExportMap)
 			{
 				if (Export.Object && Export.bForcedExport)
 				{
@@ -188,9 +183,12 @@ void FLinkerManager::DissociateImportsAndForcedExports()
 					Export.ResetObject();
 				}
 			}
-		}	
-		ForcedExportCount = 0;
-	}	
+			if (Linker->GetSerializeContext())
+			{
+				Linker->GetSerializeContext()->ResetForcedExports();
+			}
+		}
+	}
 }
 
 void FLinkerManager::DeleteLinkers()

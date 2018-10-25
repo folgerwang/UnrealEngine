@@ -564,13 +564,11 @@ bool FSoftObjectPathThreadContext::GetSerializationOptions(FName& OutPackageName
 		bFoundAnything = true;
 	}
 	
-	
-	// Check UObject thread context as a backup, this only works for loads
-	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-	if (ThreadContext.SerializedObject)
+	// Check UObject serialize context as a backup
+	FUObjectSerializeContext* LoadContext = Archive ? Archive->GetSerializeContext() : nullptr;
+	if (LoadContext && LoadContext->SerializedObject)
 	{
-		FLinkerLoad* Linker = ThreadContext.SerializedObject->GetLinker();
-
+		FLinkerLoad* Linker = LoadContext->SerializedObject->GetLinker();
 		if (Linker)
 		{
 			if (CurrentPackageName == NAME_None)

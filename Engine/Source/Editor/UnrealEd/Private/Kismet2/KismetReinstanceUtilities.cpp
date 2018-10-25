@@ -882,7 +882,7 @@ void FBlueprintCompileReinstancer::ReinstanceObjects(bool bForceAlwaysReinstance
 				for (int I = 0; I != OrderedBytecodeRecompile.Num(); ++I)
 				{
 					UBlueprint* BP = OrderedBytecodeRecompile[I];
-					FKismetEditorUtilities::RecompileBlueprintBytecode(BP, nullptr, EBlueprintBytecodeRecompileOptions::BatchCompile);
+					FKismetEditorUtilities::RecompileBlueprintBytecode(BP, EBlueprintBytecodeRecompileOptions::BatchCompile);
 					ensure(0 == DependentBlueprintsToRecompile.Num());
 					CompiledBlueprints.Add(BP);
 

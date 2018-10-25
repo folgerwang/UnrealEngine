@@ -4246,7 +4246,6 @@ void CleanupCachedArchetypes();
 //
 void StaticExit()
 {
-	check(FUObjectThreadContext::Get().ObjLoaded.Num() == 0);
 	if (UObjectInitialized() == false)
 	{
 		return;
@@ -4336,7 +4335,6 @@ void StaticExit()
 
 	UObjectBaseShutdown();
 	// Empty arrays to prevent falsely-reported memory leaks.
-	FUObjectThreadContext::Get().ObjLoaded.Empty();
 	FDeferredMessageLog::Cleanup();
 	CleanupGCArrayPools();
 	CleanupLinkerAnnotations();

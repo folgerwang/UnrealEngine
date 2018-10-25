@@ -535,7 +535,6 @@ void UMaterialInterface::PostLoadDefaultMaterials()
 			UMaterial* Material = GDefaultMaterials[Domain];
 #if USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME
 			check(Material || (GIsInitialLoad && GEventDrivenLoaderEnabled));
-			check((GIsInitialLoad && GEventDrivenLoaderEnabled) || !Material->HasAnyFlags(RF_NeedLoad)); //-V595
 			if (Material && !Material->HasAnyFlags(RF_NeedLoad))
 #else
 			check(Material);

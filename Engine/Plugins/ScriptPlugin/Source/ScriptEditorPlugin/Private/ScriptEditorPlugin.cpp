@@ -60,7 +60,7 @@ public:
 	virtual bool CanCompile(const UBlueprint* Blueprint) override;
 
 	virtual void PreCompile(UBlueprint* Blueprint) override;
-	virtual void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override;
+	virtual void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results) override;
 	virtual void PostCompile(UBlueprint* Blueprint) override;
 };
 
@@ -90,11 +90,11 @@ void FScriptEditorPlugin::PreCompile(UBlueprint* Blueprint)
 
 }
 
-void FScriptEditorPlugin::Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded)
+void FScriptEditorPlugin::Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results)
 {
 	if ( UScriptBlueprint* ScriptBlueprint = Cast<UScriptBlueprint>(Blueprint) )
 	{
-		FScriptBlueprintCompiler Compiler(ScriptBlueprint, Results, CompileOptions, ObjLoaded);
+		FScriptBlueprintCompiler Compiler(ScriptBlueprint, Results, CompileOptions);
 		Compiler.Compile();
 		check(Compiler.NewClass);
 	}

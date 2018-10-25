@@ -124,11 +124,10 @@ namespace
 //////////////////////////////////////////////////////////////////////////
 // FKismetCompilerContext
 
-FKismetCompilerContext::FKismetCompilerContext(UBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
+FKismetCompilerContext::FKismetCompilerContext(UBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions)
 	: FGraphCompilerContext(InMessageLog)
 	, Schema(NULL)
 	, CompileOptions(InCompilerOptions)
-	, ObjLoaded(InObjLoaded)
 	, Blueprint(SourceSketch)
 	, NewClass(NULL)
 	, ConsolidatedEventGraph(NULL)
@@ -4167,17 +4166,10 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 				// Propagate the old CDO's properties to the new
 				if( OldCDO )
 				{
-					if (ObjLoaded)
+					if (OldLinker && OldGenLinkerIdx != INDEX_NONE)
 					{
-						if (OldLinker && OldGenLinkerIdx != INDEX_NONE)
-						{
-							// If we have a list of objects that are loading, patch our export table. This also fixes up load flags
-							FBlueprintEditorUtils::PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, *ObjLoaded);
-						}
-						else
-						{
-							UE_LOG(LogK2Compiler, Warning, TEXT("Failed to patch linker table for blueprint CDO %s"), *NewCDO->GetName());
-						}
+						// If we have a list of objects that are loading, patch our export table. This also fixes up load flags
+						FBlueprintEditorUtils::PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx);
 					}
 
 					UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
@@ -4684,7 +4676,7 @@ TSharedPtr<FKismetCompilerContext> FKismetCompilerContext::GetCompilerForBP(UBlu
 	// so I have simply hard-coded it:
 	if(UAnimBlueprint* AnimBP = Cast<UAnimBlueprint>(BP))
 	{
-		return TSharedPtr<FKismetCompilerContext>(new FAnimBlueprintCompilerContext(AnimBP, InMessageLog, InCompileOptions, nullptr));
+		return TSharedPtr<FKismetCompilerContext>(new FAnimBlueprintCompilerContext(AnimBP, InMessageLog, InCompileOptions));
 	}
 	else if(CompilerContextFactoryFunction* FactoryFunction = CustomCompilerMap.Find(BP->GetClass()))
 	{
@@ -4692,7 +4684,7 @@ TSharedPtr<FKismetCompilerContext> FKismetCompilerContext::GetCompilerForBP(UBlu
 	}
 	else
 	{
-		return TSharedPtr<FKismetCompilerContext>(new FKismetCompilerContext(BP, InMessageLog, InCompileOptions, nullptr));
+		return TSharedPtr<FKismetCompilerContext>(new FKismetCompilerContext(BP, InMessageLog, InCompileOptions));
 	}
 }
 

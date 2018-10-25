@@ -41,7 +41,7 @@ struct KISMET_API FBlueprintCompilationManager
 	 * of objects the compilation manager has loaded. The compilation manager
 	 * will not load data while processing the compilation queue)
 	 */
-	static void FlushCompilationQueue(TArray<UObject*>* ObjLoaded = nullptr);
+	static void FlushCompilationQueue();
 	
 	/**
 	 * Flushes the compilation queue and finishes reinstancing

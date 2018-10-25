@@ -14,6 +14,8 @@
 #include "UObject/Package.h"
 #include "Templates/Casts.h"
 #include "UObject/ObjectRedirector.h"
+#include "UObject/UObjectThreadContext.h"
+#include "Templates/RefCounting.h"
 
 class IAsyncReadRequest;
 struct FAsyncPackage;
@@ -924,6 +926,11 @@ private:
 	/** Add this time taken for object of class Class to have PostLoad called, to the stats we track. */
 	void TrackPostLoadTimeForClass(const UClass* Class, double Time);
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
+
+public:
+
+	/** Serialization context for this package */
+	TRefCountPtr<FUObjectSerializeContext> LoadContext;
 };
 
 struct FScopedAsyncPackageEvent

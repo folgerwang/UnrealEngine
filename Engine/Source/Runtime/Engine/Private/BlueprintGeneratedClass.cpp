@@ -216,11 +216,11 @@ struct FConditionalRecompileClassHepler
 extern UNREALED_API FSecondsCounterData BlueprintCompileAndLoadTimerData;
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
-void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLoaded)
+void UBlueprintGeneratedClass::ConditionalRecompileClass()
 {
 	if(GBlueprintUseCompilationManager)
 	{
-		FBlueprintCompilationManager::FlushCompilationQueue(ObjLoaded);
+		FBlueprintCompilationManager::FlushCompilationQueue();
 		return;
 	}
 	
@@ -255,7 +255,7 @@ void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLo
 			}
 			if ((GeneratingBP->Status != BS_Error) && (GeneratingBP->BlueprintType != EBlueprintType::BPTYPE_MacroLibrary))
 			{
-				FKismetEditorUtilities::RecompileBlueprintBytecode(GeneratingBP, ObjLoaded);
+				FKismetEditorUtilities::RecompileBlueprintBytecode(GeneratingBP);
 			}
 
 			GeneratingBP->bIsRegeneratingOnLoad = bWasRegenerating;

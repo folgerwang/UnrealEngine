@@ -9,6 +9,7 @@
 #include "UObject/PropertyHelper.h"
 #include "Misc/ScopeExit.h"
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
+#include "UObject/UObjectThreadContext.h"
 
 namespace UE4MapProperty_Private
 {

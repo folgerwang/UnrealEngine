@@ -40,6 +40,7 @@
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/GarbageCollection.h"
+#include "UObject/UObjectThreadContext.h"
 
 // This flag enables some expensive class tree validation that is meant to catch mutations of 
 // the class tree outside of SetSuperStruct. It has been disabled because loading blueprints 
@@ -579,16 +580,19 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 	{
 		// Preload everything before we calculate size, as the preload may end up recursively linking things
 		UStruct* InheritanceSuper = GetInheritanceSuper();
-		if (InheritanceSuper)
+		if (Ar.IsLoading())
 		{
-			Ar.Preload(InheritanceSuper);			
-		}
-
-		for (UField* Field = Children; Field; Field = Field->Next)
-		{
-			if (!GEventDrivenLoaderEnabled || !Cast<UFunction>(Field))
+			if (InheritanceSuper)
 			{
-				Ar.Preload(Field);
+				Ar.Preload(InheritanceSuper);
+			}
+
+			for (UField* Field = Children; Field; Field = Field->Next)
+			{
+				if (!GEventDrivenLoaderEnabled || !Cast<UFunction>(Field))
+				{
+					Ar.Preload(Field);
+				}
 			}
 		}
 

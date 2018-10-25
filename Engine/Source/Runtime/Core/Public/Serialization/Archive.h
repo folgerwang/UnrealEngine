@@ -28,7 +28,7 @@ struct FUntypedBulkData;
 struct FArchiveSerializedPropertyChain;
 template<class TEnum> class TEnumAsByte;
 typedef TFunction<bool (double RemainingTime)> FExternalReadCallback;
-
+struct FUObjectSerializeContext;
 
 // Temporary while we shake out the EDL at boot
 #define USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME (1)
@@ -1272,6 +1272,12 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	/** Returns true if the stack of currently serialized properties contains an editor-only property */
 	virtual bool IsEditorOnlyPropertyOnTheStack() const;
 #endif
+
+	/* Sets the current UObject serialization context for this archive */
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) {}
+
+	/* Gets the current UObject serialization context for this archive */
+	virtual FUObjectSerializeContext* GetSerializeContext() { return nullptr; }
 
 	/** 
 	 * Adds external read dependency 

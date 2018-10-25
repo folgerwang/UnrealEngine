@@ -183,7 +183,7 @@ public:
 	/** 
 	 * Helper function to patch the new CDO into the linker where the old one existed 
 	 */
-	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded);
+	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex);
 
 	/** 
 	 * Procedure used to remove old function implementations and child properties from data only blueprints.
@@ -201,7 +201,7 @@ public:
 	/**
 	 * Regenerates the class at class load time, and refreshes the blueprint
 	 */
-	static UClass* RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded);
+	static UClass* RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO);
 	
 	/**
 	 * Links external dependencies

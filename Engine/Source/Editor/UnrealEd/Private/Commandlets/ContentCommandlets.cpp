@@ -70,6 +70,7 @@ DEFINE_LOG_CATEGORY(LogContentCommandlet);
 #include "ShaderCompiler.h"
 #include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
+#include "UObject/UObjectThreadContext.h"
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -571,9 +572,10 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 		// Get the package linker.
 		VerboseMessage(TEXT("Pre GetPackageLinker"));
 
-		BeginLoad();
-		auto Linker = GetPackageLinker(NULL,*Filename,LOAD_NoVerify,NULL,NULL);
-		EndLoad();
+		TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+		BeginLoad(LoadContext);
+		FLinkerLoad* Linker = GetPackageLinker(NULL, *Filename, LOAD_NoVerify, nullptr, nullptr, nullptr, LoadContext);
+		EndLoad(Linker->GetSerializeContext());
 	
 		// Bail early if we don't have a valid linker (package was out of date, etc)
 		if( !Linker )
@@ -2169,11 +2171,12 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 	// or make sure that the following redirects marks the package dirty (which maybe it shouldn't do in the editor?)
 
 					// load the package fully
-					UPackage* Package = LoadPackage(NULL, *PackageFilename, LOAD_None);
+					UPackage* Package = LoadPackage(nullptr, *PackageFilename, LOAD_None);
 
-					BeginLoad();
-					auto Linker = GetPackageLinker( NULL, *PackageFilename, LOAD_Quiet|LOAD_NoWarn|LOAD_NoVerify, NULL, NULL );
-					EndLoad();
+					TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+					BeginLoad(LoadContext);
+					FLinkerLoad* Linker = GetPackageLinker(nullptr, *PackageFilename, LOAD_Quiet | LOAD_NoWarn | LOAD_NoVerify, nullptr, nullptr, nullptr, LoadContext);
+					EndLoad(Linker->GetSerializeContext());
 
 					// look for special package types
 					bool bIsMap = Linker->ContainsMap();
@@ -2325,9 +2328,10 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 				}
 			}
 
-			BeginLoad();
-			auto Linker = GetPackageLinker( NULL, *PackageFilename, LOAD_Quiet|LOAD_NoWarn|LOAD_NoVerify, NULL, NULL );
-			EndLoad();
+			TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+			BeginLoad(LoadContext);
+			FLinkerLoad* Linker = GetPackageLinker(nullptr, *PackageFilename, LOAD_Quiet | LOAD_NoWarn | LOAD_NoVerify, nullptr, nullptr, nullptr, LoadContext);
+			EndLoad(Linker->GetSerializeContext());
 
 			// go through the exports in the package, looking for public objects
 			for (int32 ExportIndex = 0; ExportIndex < Linker->ExportMap.Num(); ExportIndex++)

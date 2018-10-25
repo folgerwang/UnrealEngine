@@ -102,8 +102,8 @@ bool FAnimBlueprintCompilerContext::FEffectiveConstantRecord::Apply(UObject* Obj
 //////////////////////////////////////////////////////////////////////////
 // FAnimBlueprintCompiler
 
-FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions, TArray<UObject*>* InObjLoaded)
-	: FKismetCompilerContext(SourceSketch, InMessageLog, InCompileOptions, InObjLoaded)
+FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
+	: FKismetCompilerContext(SourceSketch, InMessageLog, InCompileOptions)
 	, AnimBlueprint(SourceSketch)
 	, bIsDerivedAnimBlueprint(false)
 {

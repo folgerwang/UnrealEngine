@@ -1149,7 +1149,7 @@ public:
 * @param	ImportLinker	Linker that requests this package through one of its imports
 * @return	Loaded package if successful, NULL otherwise
 */
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride)
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride, FUObjectSerializeContext* InLoadContext)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
 
@@ -1253,7 +1253,8 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	}
 
 	// Try to load.
-	BeginLoad(InLongPackageNameOrFilename);
+	TRefCountPtr<FUObjectSerializeContext> LoadContext(InLoadContext ? InLoadContext : new FUObjectSerializeContext());
+	BeginLoad(LoadContext, InLongPackageNameOrFilename);
 
 	bool bFullyLoadSkipped = false;
 
@@ -1279,11 +1280,11 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		}
 #endif
 
-		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride);
+		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride, LoadContext);
 		
 		if (!Linker)
 		{
-			EndLoad();
+			EndLoad(LoadContext);
 			return nullptr;
 		}
 
@@ -1292,7 +1293,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 
 		auto EndLoadAndCopyLocalizationGatherFlag = [&]
 		{
-			EndLoad();
+			EndLoad(Linker->GetSerializeContext());
 			// Set package-requires-localization flags from archive after loading. This reinforces flagging of packages that haven't yet been resaved.
 			Result->ThisRequiresLocalizationGather(Linker->RequiresLocalizationGather());
 		};
@@ -1399,7 +1400,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		}
 
 		// Only set time it took to load package if the above EndLoad is the "outermost" EndLoad.
-		if( Result && !IsLoading() && !(LoadFlags & LOAD_Verify) )
+		if( Result && !LoadContext->HasLoadedObjects() && !(LoadFlags & LOAD_Verify) )
 		{
 			Result->SetLoadTime( FPlatformTime::Seconds() - StartTime );
 		}
@@ -1421,7 +1422,8 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		{
 			if (!IsInAsyncLoadingThread())
 			{
-				if (FUObjectThreadContext::Get().ObjBeginLoadCount == 0)
+				check(Linker->GetSerializeContext());
+				if (!Linker->GetSerializeContext()->HasStartedLoading())
 				{
 					// Sanity check to make sure that Linker is the linker that loaded our Result package or the linker has already been detached
 					check(!Result || Result->LinkerLoad == Linker || Result->LinkerLoad == nullptr);
@@ -1440,12 +1442,14 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 				// Async loading removes delayed linkers on the game thread after streaming has finished
 				else
 				{
-					FUObjectThreadContext::Get().DelayedLinkerClosePackages.AddUnique(Linker);
+					check(Linker->GetSerializeContext());
+					Linker->GetSerializeContext()->AddDelayedLinkerClosePackage(Linker);
 				}
 			}
 			else
 			{
-				FUObjectThreadContext::Get().DelayedLinkerClosePackages.AddUnique(Linker);
+				check(Linker->GetSerializeContext());
+				Linker->GetSerializeContext()->AddDelayedLinkerClosePackage(Linker);
 			}
 		}
 	}
@@ -1474,8 +1478,10 @@ UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 
 	// since we are faking the object name, this is basically a duplicate of LLM_SCOPED_TAG_WITH_OBJECT_IN_SET
 	FString FakePackageName = FString(TEXT("Package ")) + InLongPackageName;
 	LLM_SCOPED_TAG_WITH_STAT_NAME_IN_SET(FLowLevelMemTracker::Get().IsTagSetActive(ELLMTagSet::Assets) ? FDynamicStats::CreateMemoryStatId<FStatGroup_STATGROUP_LLMAssets>(FName(*FakePackageName)).GetName() : NAME_None, ELLMTagSet::Assets, ELLMTracker::Default);
-	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr, InReaderOverride);
+	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr, InReaderOverride, nullptr);
 }
+
+static int32 GGameThreadLoadCounter = 0;
 
 /**
  * Returns whether we are currently loading a package (sync or async)
@@ -1484,18 +1490,17 @@ UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 
  */
 bool IsLoading()
 {
-	check(FUObjectThreadContext::Get().ObjBeginLoadCount >= 0);
-	return FUObjectThreadContext::Get().ObjBeginLoadCount > 0;
+	return GGameThreadLoadCounter > 0;
 }
 
 //
 // Begin loading packages.
 //warning: Objects may not be destroyed between BeginLoad/EndLoad calls.
 //
-void BeginLoad(const TCHAR* DebugContext)
+void BeginLoad(FUObjectSerializeContext* LoadContext, const TCHAR* DebugContext)
 {
-	auto& ThreadContext = FUObjectThreadContext::Get();
-	if (ThreadContext.ObjBeginLoadCount == 0 && !IsInAsyncLoadingThread())
+	check(LoadContext);
+	if (!LoadContext->HasStartedLoading() && !IsInAsyncLoadingThread())
 	{
 		if (IsAsyncLoading() && (DebugContext != nullptr))
 		{
@@ -1504,12 +1509,13 @@ void BeginLoad(const TCHAR* DebugContext)
 
 		// Make sure we're finishing up all pending async loads, and trigger texture streaming next tick if necessary.
 		FlushAsyncLoading();
-
-		// Validate clean load state.
-		check(ThreadContext.ObjLoaded.Num() == 0);
+	}
+	if (IsInGameThread() && !IsInAsyncLoadingThread())
+	{
+		GGameThreadLoadCounter++;
 	}
 
-	++ThreadContext.ObjBeginLoadCount;
+	LoadContext->IncrementBeginLoadCount();
 }
 
 // Sort objects by linker name and file offset
@@ -1552,15 +1558,19 @@ struct FCompareUObjectByLinkerAndOffset
 //
 // End loading packages.
 //
-void EndLoad()
+void EndLoad(FUObjectSerializeContext* LoadContext)
 {
-	auto& ThreadContext = FUObjectThreadContext::Get();
+	check(LoadContext);
 
-	check(ThreadContext.ObjBeginLoadCount > 0);
 	if (IsInAsyncLoadingThread())
 	{
-		ThreadContext.ObjBeginLoadCount--;
+		LoadContext->DecrementBeginLoadCount();
 		return;
+	}
+	else if (IsInGameThread())
+	{
+		GGameThreadLoadCounter--;
+		check(GGameThreadLoadCounter >= 0);
 	}
 
 #if WITH_EDITOR
@@ -1570,23 +1580,22 @@ void EndLoad()
 	TSet<UObject*> AssetsLoaded;
 #endif
 
-	while (--ThreadContext.ObjBeginLoadCount == 0 && (ThreadContext.ObjLoaded.Num() || ThreadContext.ImportCount || ThreadContext.ForcedExportCount))
+	while (LoadContext->DecrementBeginLoadCount() == 0 && (LoadContext->HasLoadedObjects() || LoadContext->HasPendingImportsOrForcedExports()))
 	{
 		// The time tracker keeps track of time spent in EndLoad.
 		FExclusiveLoadPackageTimeTracker::FScopedEndLoadTracker Tracker;
 
 		// Make sure we're not recursively calling EndLoad as e.g. loading a config file could cause
 		// BeginLoad/EndLoad to be called.
-		ThreadContext.ObjBeginLoadCount++;
+		LoadContext->IncrementBeginLoadCount();
 
 		// Temporary list of loaded objects as GObjLoaded might expand during iteration.
 		TArray<UObject*> ObjLoaded;
 		TSet<FLinkerLoad*> LoadedLinkers;
-		while (ThreadContext.ObjLoaded.Num())
+		while (LoadContext->HasLoadedObjects())
 		{
 			// Accumulate till GObjLoaded no longer increases.
-			ObjLoaded += ThreadContext.ObjLoaded;
-			ThreadContext.ObjLoaded.Empty();
+			LoadContext->AppendLoadedObjectsAndEmpty(ObjLoaded);
 
 			// Sort by Filename and Offset.
 			ObjLoaded.Sort(FCompareUObjectByLinkerAndOffset());
@@ -1605,7 +1614,7 @@ void EndLoad()
 
 			// Start over again as new objects have been loaded that need to have "Preload" called on them before
 			// we can safely PostLoad them.
-			if (ThreadContext.ObjLoaded.Num())
+			if (LoadContext->HasLoadedObjects())
 			{
 				continue;
 			}
@@ -1706,7 +1715,7 @@ void EndLoad()
 #endif	// WITH_EDITOR
 
 			// Empty array before next iteration as we finished postloading all objects.
-			ObjLoaded.Empty(ThreadContext.ObjLoaded.Num());
+			ObjLoaded.Reset();
 		}
 
 		if ( GIsEditor && LoadedLinkers.Num() > 0 )
@@ -1743,7 +1752,8 @@ void EndLoad()
 		FLinkerManager::Get().DissociateImportsAndForcedExports();
 
 		// close any linkers' loaders that were requested to be closed once GObjBeginLoadCount goes to 0
-		TArray<FLinkerLoad*> PackagesToClose = MoveTemp(ThreadContext.DelayedLinkerClosePackages);
+		TArray<FLinkerLoad*> PackagesToClose;
+		LoadContext->MoveDelayedLinkerClosePackages(PackagesToClose);
 		for (FLinkerLoad* Linker : PackagesToClose)
 		{
 			if (Linker)
@@ -1965,7 +1975,7 @@ FObjectDuplicationParameters::FObjectDuplicationParameters( UObject* InSourceObj
 
 UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const FName DestName, EObjectFlags FlagMask, UClass* DestClass, EDuplicateMode::Type DuplicateMode, EInternalObjectFlags InternalFlagsMask)
 {
-	if (!IsAsyncLoading() && !IsLoading() && SourceObject->HasAnyFlags(RF_ClassDefaultObject))
+	if (!IsAsyncLoading() && /*!IsLoading() &&*/ SourceObject->HasAnyFlags(RF_ClassDefaultObject))
 	{
 		// Detach linker for the outer if it already exists, to avoid problems with PostLoad checking the Linker version
 		ResetLoaders(DestOuter);
@@ -2100,8 +2110,9 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 		SerializedObjects.Add(Object);
 	};
 
-
-	FDuplicateDataReader	Reader(DuplicatedObjectAnnotation, ObjectData, Parameters.PortFlags, Parameters.DestOuter);
+	TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+	FDuplicateDataReader Reader(DuplicatedObjectAnnotation, ObjectData, Parameters.PortFlags, Parameters.DestOuter);
+	Reader.SetSerializeContext(LoadContext);
 	for(int32 ObjectIndex = 0;ObjectIndex < SerializedObjects.Num();ObjectIndex++)
 	{
 		UObject* SerializedObject = SerializedObjects[ObjectIndex];
@@ -2109,6 +2120,7 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 		FDuplicatedObject ObjectInfo = DuplicatedObjectAnnotation.GetAnnotation( SerializedObject );
 		checkSlow( !ObjectInfo.IsDefault() );
 
+		TGuardValue<UObject*> SerializedObjectGuard(LoadContext->SerializedObject, ObjectInfo.DuplicatedObject);
 		if ( !SerializedObject->HasAnyFlags(RF_ClassDefaultObject) )
 		{
 			ObjectInfo.DuplicatedObject->Serialize(Reader);

@@ -432,7 +432,7 @@ FScopedClassDependencyGather::~FScopedClassDependencyGather()
 		// BatchMasterClass and BatchClassDependencies entries
 		auto RecompileClassLambda = [&DependencyIter](UClass* Class)
 		{
-			Class->ConditionalRecompileClass(&FUObjectThreadContext::Get().ObjLoaded);
+			Class->ConditionalRecompileClass();
 
 			// because of the above call to ConditionalRecompileClass(), the 
 			// specified Class gets "cleaned and sanitized" (meaning its old 
@@ -475,7 +475,7 @@ FScopedClassDependencyGather::~FScopedClassDependencyGather()
 		}
 		else
 		{
-			BatchMasterClass->ConditionalRecompileClass(&FUObjectThreadContext::Get().ObjLoaded);
+			BatchMasterClass->ConditionalRecompileClass();
 		}
 
 		BatchMasterClass = NULL;
@@ -727,7 +727,7 @@ bool FLinkerLoad::RegenerateBlueprintClass(UClass* LoadClass, UObject* ExportObj
 			// Preload the blueprint to make sure it has all the data the class needs for regeneration
 			FPreloadMembersHelper::PreloadObject(BlueprintObject);
 
-			UClass* RegeneratedClass = BlueprintObject->RegenerateClass(LoadClass, CurrentCDO, FUObjectThreadContext::Get().ObjLoaded);
+			UClass* RegeneratedClass = BlueprintObject->RegenerateClass(LoadClass, CurrentCDO);
 			if (RegeneratedClass)
 			{
 				BlueprintObject->ClearFlags(RF_BeingRegenerated);
@@ -1261,7 +1261,7 @@ int32 FLinkerLoad::FindCDOExportIndex(UClass* LoadClass)
 	return INDEX_NONE;
 }
 
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride);
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride, FUObjectSerializeContext* InLoadContext);
 
 void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 {
@@ -1381,7 +1381,7 @@ void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 			{
 				uint32 InternalLoadFlags = LoadFlags & (LOAD_NoVerify | LOAD_NoWarn | LOAD_Quiet);
 				// make sure LoadAllObjects() is called for this package
-				LoadPackageInternal(/*Outer =*/nullptr, *SourceLinker->Filename, InternalLoadFlags, this, nullptr); //-V595
+				LoadPackageInternal(/*Outer =*/nullptr, *SourceLinker->Filename, InternalLoadFlags, this, nullptr, GetSerializeContext()); //-V595
 			}
 
 			DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() == 0);

@@ -27,8 +27,8 @@
 
 extern COREUOBJECT_API bool GMinimalCompileOnLoad;
 
-FWidgetBlueprintCompiler::FWidgetBlueprintCompiler(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
-	: Super(SourceSketch, InMessageLog, InCompilerOptions, InObjLoaded)
+FWidgetBlueprintCompiler::FWidgetBlueprintCompiler(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions)
+	: Super(SourceSketch, InMessageLog, InCompilerOptions)
 	, NewWidgetBlueprintClass(nullptr)
 	, WidgetSchema(nullptr)
 {

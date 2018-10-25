@@ -596,7 +596,7 @@ void UBlueprint::PostDuplicate(bool bDuplicateForPIE)
 
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
-UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded)
+UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO)
 {
 	LoadModulesRequiredForCompilation();
 
@@ -655,7 +655,7 @@ UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* Previous
 	}
 	else
 	{
-		return FBlueprintEditorUtils::RegenerateBlueprintClass(this, ClassToRegenerate, PreviousCDO, ObjLoaded);
+		return FBlueprintEditorUtils::RegenerateBlueprintClass(this, ClassToRegenerate, PreviousCDO);
 	}
 }
 

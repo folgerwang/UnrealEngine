@@ -15,8 +15,8 @@
 
 ///-------------------------------------------------------------
 
-FScriptBlueprintCompiler::FScriptBlueprintCompiler(UScriptBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
-	: Super(SourceSketch, InMessageLog, InCompilerOptions, InObjLoaded)
+FScriptBlueprintCompiler::FScriptBlueprintCompiler(UScriptBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions)
+	: Super(SourceSketch, InMessageLog, InCompilerOptions)
 	, NewScriptBlueprintClass(NULL)
 	, ContextProperty(NULL)
 {

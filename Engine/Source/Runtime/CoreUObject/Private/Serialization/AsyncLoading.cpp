@@ -438,8 +438,6 @@ void FAsyncLoadingThread::CancelAsyncLoadingInternal()
 
 	NotifyAsyncLoadingStateHasMaybeChanged();
 
-	FUObjectThreadContext::Get().ObjLoaded.Empty();
-
 	// Notify everyone streaming is canceled.
 	CancelLoadingEvent->Trigger();
 }
@@ -3124,11 +3122,10 @@ UObject* FAsyncPackage::EventDrivenIndexToObject(FPackageIndex Index, bool bChec
 		MyDependentNode.Phase = EEventLoadNode::ImportOrExport_Create;
 		if (EventNodeArray.GetNode(MyDependentNode, false).bAddedToGraph || !EventNodeArray.GetNode(MyDependentNode, false).bFired)
 		{
-			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-			UClass* SerClass = Cast<UClass>(ThreadContext.SerializedObject);
+			UClass* SerClass = Cast<UClass>(LoadContext->SerializedObject);
 			if (!SerClass || Linker->ImpExp(Index).ObjectName != SerClass->GetDefaultObjectName())
 			{
-				DumpDependencies(TEXT("Dependencies"), ThreadContext.SerializedObject);
+				DumpDependencies(TEXT("Dependencies"), LoadContext->SerializedObject);
 				UE_LOG(LogStreaming, Fatal, TEXT("Missing Dependency, request for %s but it was still waiting for creation."), *Linker->GetPathName(Index));
 			}
 		}
@@ -3142,8 +3139,7 @@ UObject* FAsyncPackage::EventDrivenIndexToObject(FPackageIndex Index, bool bChec
 
 		if (DumpIndex.IsNull())
 		{
-			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-			DumpDependencies(TEXT("Dependencies"), ThreadContext.SerializedObject);
+			DumpDependencies(TEXT("Dependencies"), LoadContext->SerializedObject);
 		}
 		else
 		{
@@ -3200,7 +3196,7 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 			LastTypeOfWorkPerformed = TEXT("EventDrivenCreateExport");
 			LastObjectWorkWasPerformedOn = nullptr;
 			check(Export.ObjectName != NAME_None || !(Export.ObjectFlags&RF_Public));
-			check(IsLoading());
+			check(LoadContext->HasStartedLoading());
 			if (Export.DynamicType == FObjectExport::EDynamicType::DynamicType)
 			{
 //native blueprint 
@@ -3558,9 +3554,8 @@ void FAsyncPackage::EventDrivenSerializeExport(int32 LocalExportIndex)
 
 		Object->ClearFlags(RF_NeedLoad);
 
-		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-		UObject* PrevSerializedObject = ThreadContext.SerializedObject;
-		ThreadContext.SerializedObject = Object;
+		UObject* PrevSerializedObject = LoadContext->SerializedObject;
+		LoadContext->SerializedObject = Object;
 		Linker->bForceSimpleIndexToObject = true;
 
 		// Find the Archetype object for the one we are loading. This is piped to GetArchetypeFromLoader
@@ -3585,7 +3580,7 @@ void FAsyncPackage::EventDrivenSerializeExport(int32 LocalExportIndex)
 		Linker->TemplateForGetArchetypeFromLoader = nullptr;
 
 		Object->SetFlags(RF_LoadCompleted);
-		ThreadContext.SerializedObject = PrevSerializedObject;
+		LoadContext->SerializedObject = PrevSerializedObject;
 		Linker->bForceSimpleIndexToObject = false;
 
 		if (FAA2->Tell() - Export.SerialOffset != Export.SerialSize)
@@ -4101,7 +4096,7 @@ void FAsyncPackage::Event_StartPostload()
 	AsyncPackageLoadingState = EAsyncPackageLoadingState::PostLoad_Etc;
 	EventDrivenLoadingComplete();
 	{
-		TArray<UObject*>& ObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+		TArray<UObject*>& ObjLoaded = LoadContext->GetObjectsLoaded();
 		ObjLoaded.Reserve(ObjLoaded.Num() + Linker->ExportMap.Num());
 		for (int32 LocalExportIndex = 0; LocalExportIndex < Linker->ExportMap.Num(); LocalExportIndex++)
 		{
@@ -5384,6 +5379,7 @@ FAsyncPackage::FAsyncPackage(const FAsyncPackageDesc& InDesc)
 , FinishObjectsTime(0.0)
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 {
+	LoadContext = new FUObjectSerializeContext();
 	AddRequestID(InDesc.RequestID);
 }
 
@@ -5573,7 +5569,7 @@ void FAsyncPackage::BeginAsyncLoad()
 	}
 
 	// this won't do much during async loading except increase the load count which causes IsLoading to return true
-	BeginLoad();
+	BeginLoad(LoadContext);
 }
 
 /**
@@ -5585,7 +5581,7 @@ void FAsyncPackage::EndAsyncLoad()
 	check(IsAsyncLoading());
 
 	// this won't do much during async loading except decrease the load count which causes IsLoading to return false
-	EndLoad();
+	EndLoad(LoadContext);
 
 	if (IsInGameThread())
 	{
@@ -5931,7 +5927,7 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 			{
 				FWeakAsyncPackagePtr WeakPtr(this);
 				check(Package);
-				Linker = FLinkerLoad::CreateLinkerAsync(Package, *PackageFileName, LinkerFlags
+				Linker = FLinkerLoad::CreateLinkerAsync(LoadContext, Package, *PackageFileName, LinkerFlags
 					, TFunction<void()>(
 						[WeakPtr]()
 				{
@@ -5951,7 +5947,7 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 			}
 			else
 			{
-				Linker = FLinkerLoad::CreateLinkerAsync(Package, *PackageFileName, LinkerFlags, TFunction<void()>([]() {}));
+				Linker = FLinkerLoad::CreateLinkerAsync(LoadContext, Package, *PackageFileName, LinkerFlags, TFunction<void()>([]() {}));
 			}
 		}
 
@@ -6378,7 +6374,7 @@ EAsyncPackageState::Type FAsyncPackage::PreLoadObjects()
 	// GC can't run in here
 	FGCScopeGuard GCGuard;
 
-	TArray<UObject*>& ThreadObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->GetObjectsLoaded();
 	PackageObjLoaded.Append(ThreadObjLoaded);
 	ThreadObjLoaded.Reset();
 
@@ -6477,7 +6473,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 	TGuardValue<bool> GuardIsRoutingPostLoad(ThreadContext.IsRoutingPostLoad, true);
 
-	TArray<UObject*>& ThreadObjLoaded = ThreadContext.ObjLoaded;
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->GetObjectsLoaded();
 	if (ThreadObjLoaded.Num())
 	{
 		// New objects have been loaded. They need to go through PreLoad first so exit now and come back after they've been preloaded.
@@ -6557,7 +6553,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 	TGuardValue<bool> GuardIsRoutingPostLoad(PackageScope.ThreadContext.IsRoutingPostLoad, true);
 	FAsyncLoadingTickScope InAsyncLoadingTick;
 
-	TArray<UObject*>& ObjLoadedInPostLoad = PackageScope.ThreadContext.ObjLoaded;
+	TArray<UObject*>& ObjLoadedInPostLoad = LoadContext->GetObjectsLoaded();
 	TArray<UObject*> ObjLoadedInPostLoadLocal;
 
 	STAT(double PostLoadStartTime = FPlatformTime::Seconds());
@@ -6745,8 +6741,9 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_FinishObjects);
 	LastObjectWorkWasPerformedOn	= nullptr;
 	LastTypeOfWorkPerformed			= TEXT("finishing all objects");
-		
-	TArray<UObject*>& ThreadObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+
+	check(!Linker || LoadContext == Linker->GetSerializeContext());		
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->GetObjectsLoaded();
 
 	EAsyncLoadingResult::Type LoadingResult;
 	if (!bLoadHasFailed)
@@ -6793,7 +6790,7 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	FinishExternalReadDependenciesIndex = 0;
 
 	// Keep the linkers to close until we finish loading and it's safe to close them too
-	DelayedLinkerClosePackages = MoveTemp(FUObjectThreadContext::Get().DelayedLinkerClosePackages);
+	LoadContext->MoveDelayedLinkerClosePackages(DelayedLinkerClosePackages);
 
 	if (Linker)
 	{

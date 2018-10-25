@@ -2166,7 +2166,7 @@ public:
 	 * Conditionally recompiles the class after loading, in case any dependencies were also newly loaded
 	 * @param ObjLoaded	If set this is the list of objects that are currently loading, usualy GObjLoaded
 	 */
-	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) {}
+	virtual void ConditionalRecompileClass() {}
 	virtual void FlushCompilationQueueForLevel() {}
 #endif //WITH_EDITOR
 

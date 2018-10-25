@@ -55,6 +55,7 @@
 #include "Serialization/ArchiveStackTrace.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/OutputDeviceFile.h"
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogPackageHelperFunctions);
 DEFINE_LOG_CATEGORY_STATIC(LogPackageUtilities, Log, All);
@@ -780,9 +781,10 @@ int32 ULoadPackageCommandlet::Main( const FString& Params )
 
 		if (bCheckForLegacyPackages)
 		{
-			BeginLoad();
-			auto Linker = GetPackageLinker(nullptr, *Filename,LOAD_NoVerify,NULL,NULL);
-			EndLoad();
+			TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+			BeginLoad(LoadContext);
+			auto Linker = GetPackageLinker(nullptr, *Filename, LOAD_NoVerify, nullptr, nullptr, nullptr, LoadContext);
+			EndLoad(Linker->GetSerializeContext());
 			MinVersion = FMath::Min<int32>(MinVersion, Linker->Summary.GetFileVersionUE4());
 		}
 		else
@@ -901,7 +903,7 @@ namespace
 }
 
 /** Given a package filename, creates a linker and a temporary package. The filename does not need to point to a package under the current project content folder */
-FLinkerLoad* CreateLinkerForFilename(const FString& InFilename)
+FLinkerLoad* CreateLinkerForFilename(FUObjectSerializeContext* LoadContext, const FString& InFilename)
 {
 	FString TempPackageName;
 	TempPackageName = FPaths::Combine(TEXT("/Temp"), *FPaths::GetPath(InFilename.Mid(InFilename.Find(TEXT(":"), ESearchCase::CaseSensitive) + 1)), *FPaths::GetBaseFilename(InFilename));
@@ -910,7 +912,7 @@ FLinkerLoad* CreateLinkerForFilename(const FString& InFilename)
 	{
 		Package = CreatePackage(nullptr, *TempPackageName);
 	}
-	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(Package, *InFilename, LOAD_NoVerify);
+	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(LoadContext, Package, *InFilename, LOAD_NoVerify);
 	return Linker;
 }
 
@@ -1554,9 +1556,10 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 		if (!bDumpProperties)
 		{
 			TGuardValue<bool> GuardAllowUnversionedContentInEditor(GAllowUnversionedContentInEditor, true);
-			BeginLoad();
-			Linker = CreateLinkerForFilename(Filename);
-			EndLoad();
+			TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+			BeginLoad(LoadContext);
+			Linker = CreateLinkerForFilename(LoadContext, Filename);
+			EndLoad(Linker->GetSerializeContext());
 		}
 		else
 		{

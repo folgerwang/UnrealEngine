@@ -507,8 +507,8 @@ COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit
 COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoadingUntilComplete(TFunctionRef<bool()> CompletionPredicate, float TimeLimit);
 
 /** UObjects are being loaded between these calls */
-COREUOBJECT_API void BeginLoad(const TCHAR* DebugContext = nullptr);
-COREUOBJECT_API void EndLoad();
+COREUOBJECT_API void BeginLoad(FUObjectSerializeContext* LoadContext, const TCHAR* DebugContext = nullptr);
+COREUOBJECT_API void EndLoad(FUObjectSerializeContext* LoadContext);
 
 /**
  * Find an existing package by name

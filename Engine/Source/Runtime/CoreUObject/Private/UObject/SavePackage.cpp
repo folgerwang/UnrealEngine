@@ -382,10 +382,14 @@ static void CheckObjectPriorToSave(FArchiveUObject& Ar, UObject* InObj, UPackage
 	{
 		return;
 	}
-	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	UObject* SerializedObject = nullptr;
+	FUObjectSerializeContext* SaveContext = Ar.GetSerializeContext();
+	check(SaveContext);
+	SerializedObject = SaveContext->SerializedObject;
+
 	if (!InObj->IsValidLowLevelFast() || !InObj->IsValidLowLevel())
 	{
-		UE_LOG(LogLinker, Fatal, TEXT("Attempt to save bogus object %p ThreadContext.SerializedObject=%s  SerializedProperty=%s"), (void*)InObj, *GetFullNameSafe(ThreadContext.SerializedObject), *GetFullNameSafe(Ar.GetSerializedProperty()));
+		UE_LOG(LogLinker, Fatal, TEXT("Attempt to save bogus object %p SaveContext.SerializedObject=%s  SerializedProperty=%s"), (void*)InObj, *GetFullNameSafe(SerializedObject), *GetFullNameSafe(Ar.GetSerializedProperty()));
 		return;
 	}
 	// if the object class is abstract or has been marked as deprecated, mark this
@@ -400,7 +404,7 @@ static void CheckObjectPriorToSave(FArchiveUObject& Ar, UObject* InObj, UPackage
 		{
 			TArray<UObject*> ComponentReferences;
 			FReferenceFinder ComponentCollector(ComponentReferences, InObj, false, true, true);
-			ComponentCollector.FindReferences(InObj, ThreadContext.SerializedObject, Ar.GetSerializedProperty());
+			ComponentCollector.FindReferences(InObj, SerializedObject, Ar.GetSerializedProperty());
 
 			for ( int32 Index = 0; Index < ComponentReferences.Num(); Index++ )
 			{
@@ -1006,7 +1010,14 @@ public:
 	void ProcessBaseObject(UObject* BaseObject);
 	virtual FArchive& operator<<(UObject*& Obj) override;
 	virtual FArchive& operator<<(FWeakObjectPtr& Value) override;
-
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override
+	{
+		LoadContext = InLoadContext;
+	}
+	virtual FUObjectSerializeContext* GetSerializeContext() override
+	{
+		return LoadContext;
+	}
 	/**
 	 * Package we're currently saving.  Only objects contained
 	 * within this package will be tagged for serialization.
@@ -1018,6 +1029,7 @@ public:
 private:
 
 	TArray<UObject*> TaggedObjects;
+	TRefCountPtr<FUObjectSerializeContext> LoadContext;
 
 	void ProcessTaggedObjects();
 };
@@ -1231,6 +1243,18 @@ public:
 	
 	virtual void MarkSearchableName(const UObject* TypeObject, const FName& ValueName) const override;
 	virtual FString GetArchiveName() const override;
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override
+	{
+		LoadContext = InLoadContext;
+	}
+	virtual FUObjectSerializeContext* GetSerializeContext() override
+	{
+		return LoadContext;
+	}
+
+private:
+
+	TRefCountPtr<FUObjectSerializeContext> LoadContext;
 };
 
 FString FArchiveSaveTagImports::GetArchiveName() const
@@ -2968,19 +2992,21 @@ static bool ValidateConformCompatibility(UPackage* NewPackage, FLinkerLoad* OldL
 	// unfortunately, to get at the classes and their properties we will also need to load the default objects
 	// but the remapped package won't be bound to its native instance, so we need to manually copy the constructors
 	// so that classes with their own Serialize() implementations are loaded correctly
-	BeginLoad();
-	for (int32 i = 0; i < OldLinker->ExportMap.Num(); i++)
 	{
-		UClass* NewClass = (UClass*)StaticFindObjectFast(UClass::StaticClass(), NewPackage, OldLinker->ExportMap[i].ObjectName, true, false);
-		UClass* OldClass = static_cast<UClass*>(OldLinker->Create(UClass::StaticClass(), OldLinker->ExportMap[i].ObjectName, OldLinker->LinkerRoot, LOAD_None, false));
-		if (OldClass != nullptr && NewClass != nullptr && OldClass->IsNative() && NewClass->IsNative())
+		BeginLoad(OldLinker->GetSerializeContext());
+		for (int32 i = 0; i < OldLinker->ExportMap.Num(); i++)
 		{
-			OldClass->ClassConstructor = NewClass->ClassConstructor;
-			OldClass->ClassVTableHelperCtorCaller = NewClass->ClassVTableHelperCtorCaller;
-			OldClass->ClassAddReferencedObjects = NewClass->ClassAddReferencedObjects;
+			UClass* NewClass = (UClass*)StaticFindObjectFast(UClass::StaticClass(), NewPackage, OldLinker->ExportMap[i].ObjectName, true, false);
+			UClass* OldClass = static_cast<UClass*>(OldLinker->Create(UClass::StaticClass(), OldLinker->ExportMap[i].ObjectName, OldLinker->LinkerRoot, LOAD_None, false));
+			if (OldClass != nullptr && NewClass != nullptr && OldClass->IsNative() && NewClass->IsNative())
+			{
+				OldClass->ClassConstructor = NewClass->ClassConstructor;
+				OldClass->ClassVTableHelperCtorCaller = NewClass->ClassVTableHelperCtorCaller;
+				OldClass->ClassAddReferencedObjects = NewClass->ClassAddReferencedObjects;
+			}
 		}
+		EndLoad(OldLinker->GetSerializeContext());
 	}
-	EndLoad();
 
 	bool bHadCompatibilityErrors = false;
 	// check for illegal change of networking flags on class fields
@@ -2989,9 +3015,9 @@ static bool ValidateConformCompatibility(UPackage* NewPackage, FLinkerLoad* OldL
 		if (OldLinker->GetExportClassName(i) == NAME_Class)
 		{
 			// load the object so we can analyze it
-			BeginLoad();
-			UClass* OldClass = static_cast<UClass*>(OldLinker->Create(UClass::StaticClass(), OldLinker->ExportMap[i].ObjectName, OldLinker->LinkerRoot, LOAD_None, false));
-			EndLoad();
+			BeginLoad(OldLinker->GetSerializeContext());
+			UClass* OldClass = static_cast<UClass*>(OldLinker->Create(UClass::StaticClass(), OldLinker->ExportMap[i].ObjectName, OldLinker->LinkerRoot, LOAD_None, false));			
+			EndLoad(OldLinker->GetSerializeContext());
 			if (OldClass != nullptr)
 			{
 				UClass* NewClass = FindObjectFast<UClass>(NewPackage, OldClass->GetFName(), true, false);
@@ -3519,6 +3545,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 	if (FPlatformProperties::HasEditorOnlyData())
 	{
+		TRefCountPtr<FUObjectSerializeContext> SaveContext(new FUObjectSerializeContext());
+
 #if WITH_EDITOR
 		struct FDiffSettings
 		{
@@ -3761,7 +3789,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 			FArchiveSaveTagExports ExportTaggerArchive( InOuter );
 			ExportTaggerArchive.SetPortFlags( ComparisonFlags );
 			ExportTaggerArchive.SetCookingTarget(TargetPlatform);
-			
+			ExportTaggerArchive.SetSerializeContext(SaveContext);
+
 			check( ExportTaggerArchive.IsCooking() == !!TargetPlatform );
 			check( ExportTaggerArchive.IsCooking() == bIsCooking );
 
@@ -3940,6 +3969,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 				FStructuredArchive* StructuredArchive = new FStructuredArchive(*Formatter);
 				FStructuredArchive::FRecord StructuredArchiveRoot = StructuredArchive->Open().EnterRecord();
+				StructuredArchiveRoot.GetUnderlyingArchive().SetSerializeContext(SaveContext);
 #if WITH_EDITOR
 				if (!!TargetPlatform)
 				{
@@ -4044,6 +4074,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						FArchiveSaveTagImports ImportTagger(Linker.Get(), SavePackageState);
 						ImportTagger.SetPortFlags(ComparisonFlags);
 						ImportTagger.SetFilterEditorOnly(FilterEditorOnly);
+						ImportTagger.SetSerializeContext(SaveContext);
 
 						UClass* Class = Obj->GetClass();
 
@@ -5454,7 +5485,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								TimingInfo.Value++;
 								FScopedDurationTimer SerializeTimer(TimingInfo.Key);
 #endif
-								TGuardValue<UObject*> GuardSerializedObject(ThreadContext.SerializedObject, Export.Object);
+								TGuardValue<UObject*> GuardSerializedObject(SaveContext->SerializedObject, Export.Object);
 
 								if (bSupportsText)
 								{

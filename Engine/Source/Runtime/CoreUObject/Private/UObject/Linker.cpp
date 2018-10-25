@@ -384,24 +384,28 @@ void DeleteLoader(FLinkerLoad* Loader)
 	FLinkerManager::Get().RemoveLinker(Loader);
 }
 
-static void LogGetPackageLinkerError(FArchive* LinkerArchive, const TCHAR* InFilename, const FText& InFullErrorMessage, const FText& InSummaryErrorMessage, UObject* InOuter, uint32 LoadFlags)
+static void LogGetPackageLinkerError(FArchive* LinkerArchive, FUObjectSerializeContext* LoadContext, const TCHAR* InFilename, const FText& InFullErrorMessage, const FText& InSummaryErrorMessage, UObject* InOuter, uint32 LoadFlags)
 {
 	static FName NAME_LoadErrors("LoadErrors");
 	struct Local
 	{
 		/** Helper function to output more detailed error info if available */
-		static void OutputErrorDetail(FArchive* InLinkerArchive, const FName& LogName)
+		static void OutputErrorDetail(FArchive* InLinkerArchive, FUObjectSerializeContext* InLoadContext, const FName& LogName)
 		{
-			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-			if (ThreadContext.SerializedObject && ThreadContext.SerializedImportLinker)
+			FUObjectSerializeContext* LoadContext = InLoadContext;
+			if (!LoadContext && InLinkerArchive)
+			{
+				LoadContext = InLinkerArchive->GetSerializeContext();
+			}
+			if (LoadContext && LoadContext->SerializedObject && LoadContext->SerializedImportLinker)
 			{
 				FMessageLog LoadErrors(LogName);
 
 				TSharedRef<FTokenizedMessage> Message = LoadErrors.Info();
 				Message->AddToken(FTextToken::Create(LOCTEXT("FailedLoad_Message", "Failed to load")));
-				Message->AddToken(FAssetNameToken::Create(ThreadContext.SerializedImportLinker->GetImportPathName(ThreadContext.SerializedImportIndex)));
+				Message->AddToken(FAssetNameToken::Create(LoadContext->SerializedImportLinker->GetImportPathName(LoadContext->SerializedImportIndex)));
 				Message->AddToken(FTextToken::Create(LOCTEXT("FailedLoad_Referenced", "Referenced by")));
-				Message->AddToken(FUObjectToken::Create(ThreadContext.SerializedObject));
+				Message->AddToken(FUObjectToken::Create(LoadContext->SerializedObject));
 				UProperty* SerializedProperty = InLinkerArchive ? InLinkerArchive->GetSerializedProperty() : nullptr;
 				if (SerializedProperty != nullptr)
 				{
@@ -455,14 +459,14 @@ static void LogGetPackageLinkerError(FArchive* LinkerArchive, const TCHAR* InFil
 				Message->AddToken(FAssetNameToken::Create(OuterPackageName));
 			}
 
-			Local::OutputErrorDetail(LinkerArchive, NAME_LoadErrors);
+			Local::OutputErrorDetail(LinkerArchive, LoadContext, NAME_LoadErrors);
 		}
 	}
 	else
 	{
 		if (!(LoadFlags & (LOAD_NoWarn | LOAD_Quiet)))
 		{
-			Local::OutputErrorDetail(LinkerArchive, NAME_LoadErrors);
+			Local::OutputErrorDetail(LinkerArchive, LoadContext, NAME_LoadErrors);
 		}
 
 		FFormatNamedArguments Arguments;
@@ -537,7 +541,8 @@ FLinkerLoad* GetPackageLinker
 	uint32			LoadFlags,
 	UPackageMap*	Sandbox,
 	FGuid*			CompatibleGuid,
-	FArchive*		InReaderOverride
+	FArchive*		InReaderOverride,
+	FUObjectSerializeContext* InExistingContext
 )
 {
 	// See if there is already a linker for this package.
@@ -560,7 +565,7 @@ FLinkerLoad* GetPackageLinker
 		{
 			// try to recover from this instead of throwing, it seems recoverable just by doing this
 			FText ErrorText(LOCTEXT("PackageResolveFailed", "Can't resolve asset name"));
-			LogGetPackageLinkerError(Result, InLongPackageName, ErrorText, ErrorText, InOuter, LoadFlags);
+			LogGetPackageLinkerError(Result, InExistingContext, InLongPackageName, ErrorText, ErrorText, InOuter, LoadFlags);
 			return nullptr;
 		}
 	
@@ -588,11 +593,11 @@ FLinkerLoad* GetPackageLinker
 			// In memory-only packages have no linker and this is ok.
 			if (!(LoadFlags & LOAD_AllowDll) && !InOuter->HasAnyPackageFlags(PKG_InMemoryOnly) && !FLinkerLoad::IsKnownMissingPackage(InOuter->GetFName()))
 			{
-				FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 				FFormatNamedArguments Arguments;
+				FLinkerLoad* SerializedPackageLinker = InExistingContext ? InExistingContext->SerializedPackageLinker : nullptr;
 				Arguments.Add(TEXT("AssetName"), FText::FromString(PackageNameToLoad));
-				Arguments.Add(TEXT("PackageName"), FText::FromString(ThreadContext.SerializedPackageLinker ? *(ThreadContext.SerializedPackageLinker->Filename) : TEXT("NULL")));
-				LogGetPackageLinkerError(Result, ThreadContext.SerializedPackageLinker ? *ThreadContext.SerializedPackageLinker->Filename : nullptr,
+				Arguments.Add(TEXT("PackageName"), FText::FromString(SerializedPackageLinker ? *SerializedPackageLinker->Filename : TEXT("NULL")));
+				LogGetPackageLinkerError(Result, InExistingContext, SerializedPackageLinker ? *SerializedPackageLinker->Filename : nullptr,
 											FText::Format(LOCTEXT("PackageNotFound", "Can't find file for asset '{AssetName}' while loading {PackageName}."), Arguments),
 											LOCTEXT("PackageNotFoundShort", "Can't find file for asset."),
 											InOuter,
@@ -609,7 +614,7 @@ FLinkerLoad* GetPackageLinker
 		{
 			// try to recover from this instead of throwing, it seems recoverable just by doing this
 			FText ErrorText(LOCTEXT("PackageResolveFailed", "Can't resolve asset name"));
-			LogGetPackageLinkerError(Result, InLongPackageName, ErrorText, ErrorText, InOuter, LoadFlags);
+			LogGetPackageLinkerError(Result, InExistingContext, InLongPackageName, ErrorText, ErrorText, InOuter, LoadFlags);
 			return nullptr;
 		}
 
@@ -648,7 +653,7 @@ FLinkerLoad* GetPackageLinker
 				Arguments.Add(TEXT("Filename"), FText::FromString(InLongPackageName));
 
 				// try to recover from this instead of throwing, it seems recoverable just by doing this
-				LogGetPackageLinkerError(Result, InLongPackageName, FText::Format(LOCTEXT("FileNotFound", "Can't find file '{Filename}'"), Arguments), LOCTEXT("FileNotFoundShort", "Can't find file"), InOuter, LoadFlags);
+				LogGetPackageLinkerError(Result, InExistingContext, InLongPackageName, FText::Format(LOCTEXT("FileNotFound", "Can't find file '{Filename}'"), Arguments), LOCTEXT("FileNotFoundShort", "Can't find file"), InOuter, LoadFlags);
 			}
 			return nullptr;
 		}
@@ -673,7 +678,7 @@ FLinkerLoad* GetPackageLinker
 			{
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("Filename"), FText::FromString(InLongPackageName));
-				LogGetPackageLinkerError(Result, InLongPackageName, FText::Format(LOCTEXT("FilenameToPackage", "Can't convert filename '{Filename}' to asset name"), Arguments), LOCTEXT("FilenameToPackageShort", "Can't convert filename to asset name"), InOuter, LoadFlags);
+				LogGetPackageLinkerError(Result, InExistingContext, InLongPackageName, FText::Format(LOCTEXT("FilenameToPackage", "Can't convert filename '{Filename}' to asset name"), Arguments), LOCTEXT("FilenameToPackageShort", "Can't convert filename to asset name"), InOuter, LoadFlags);
 				return nullptr;
 			}
 			InOuter = FilenamePkg;
@@ -694,7 +699,7 @@ FLinkerLoad* GetPackageLinker
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("AssetName"), FText::FromString(InOuter->GetName()));
 
-		LogGetPackageLinkerError(Result, InLongPackageName, FText::Format(LOCTEXT("Sandbox", "Asset '{AssetName}' is not accessible in this sandbox"), Arguments), LOCTEXT("SandboxShort", "Asset is not accessible in this sandbox"), InOuter, LoadFlags);
+		LogGetPackageLinkerError(Result, InExistingContext, InLongPackageName, FText::Format(LOCTEXT("Sandbox", "Asset '{AssetName}' is not accessible in this sandbox"), Arguments), LOCTEXT("SandboxShort", "Asset is not accessible in this sandbox"), InOuter, LoadFlags);
 		return nullptr;
 	}
 #endif
@@ -702,12 +707,17 @@ FLinkerLoad* GetPackageLinker
 	// Create new linker.
 	if( !Result )
 	{
-		check(IsLoading());
+		// @todo: RM so never create the context below?
+		check(InExistingContext && InExistingContext->HasStartedLoading());
 
 		// we will already have found the filename above
 		check(NewFilename.Len() > 0);
-
-		Result = FLinkerLoad::CreateLinker( InOuter, *NewFilename, LoadFlags, InReaderOverride);
+		TRefCountPtr<FUObjectSerializeContext> LoadContext(InExistingContext ? InExistingContext : new FUObjectSerializeContext());
+		Result = FLinkerLoad::CreateLinker(LoadContext, InOuter, *NewFilename, LoadFlags, InReaderOverride);
+	}
+	else if (InExistingContext)
+	{
+		Result->SetSerializeContext(InExistingContext);
 	}
 
 	if ( !Result && CreatedPackage )
@@ -728,7 +738,7 @@ FLinkerLoad* GetPackageLinker
 		Arguments.Add(TEXT("AssetName"), FText::FromString(InOuter->GetName()));
 
 		// This should never fire, because FindPackageFile should never return an incompatible file
-		LogGetPackageLinkerError(Result, InLongPackageName, FText::Format(LOCTEXT("PackageVersion", "Asset '{AssetName}' version mismatch"), Arguments), LOCTEXT("PackageVersionShort", "Asset version mismatch"), InOuter, LoadFlags);
+		LogGetPackageLinkerError(Result, InExistingContext, InLongPackageName, FText::Format(LOCTEXT("PackageVersion", "Asset '{AssetName}' version mismatch"), Arguments), LOCTEXT("PackageVersionShort", "Asset version mismatch"), InOuter, LoadFlags);
 		return nullptr;
 	}
 
