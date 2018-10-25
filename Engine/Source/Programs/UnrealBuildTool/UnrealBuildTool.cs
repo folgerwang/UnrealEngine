@@ -47,6 +47,11 @@ namespace UnrealBuildTool
 		/// Whether we're running with an installed project
 		/// </summary>
 		static private bool? bIsProjectInstalled;
+		
+		/// <summary>
+		/// If we are running with an installed project, specifies the path to it
+		/// </summary>
+		static FileReference InstalledProjectFile;
 
 		/// <summary>
 		/// The full name of the Root UE4 directory
@@ -165,9 +170,37 @@ namespace UnrealBuildTool
 		{
 			if (!bIsProjectInstalled.HasValue)
 			{
-				bIsProjectInstalled = FileReference.Exists(FileReference.Combine(EngineDirectory, "Build", "InstalledProjectBuild.txt"));
+				FileReference InstalledProjectLocationFile = FileReference.Combine(UnrealBuildTool.RootDirectory, "Engine", "Build", "InstalledProjectBuild.txt");
+				if (FileReference.Exists(InstalledProjectLocationFile))
+				{
+					InstalledProjectFile = FileReference.Combine(UnrealBuildTool.RootDirectory, File.ReadAllText(InstalledProjectLocationFile.FullName).Trim());
+					bIsProjectInstalled = true;
+				}
+				else
+				{
+					InstalledProjectFile = null;
+					bIsProjectInstalled = false;
+				}
 			}
 			return bIsProjectInstalled.Value;
+		}
+
+		/// <summary>
+		/// Checks whether the given file is under an installed directory, and should not be overridden
+		/// </summary>
+		/// <param name="File">File to test</param>
+		/// <returns>True if the file is part of the installed distribution, false otherwise</returns>
+		static public bool IsFileInstalled(FileReference File)
+		{
+			if(IsEngineInstalled() && File.IsUnderDirectory(EngineDirectory))
+			{
+				return true;
+			}
+			if(IsProjectInstalled() && File.IsUnderDirectory(InstalledProjectFile.Directory))
+			{
+				return true;
+			}
+			return false;
 		}
 
 		/// <summary>
@@ -265,12 +298,7 @@ namespace UnrealBuildTool
 
 			if(IsProjectInstalled())
 			{
-				FileReference InstalledProjectFile = FileReference.Combine(UnrealBuildTool.RootDirectory, "Engine", "Build", "InstalledProjectBuild.txt");
-				if (FileReference.Exists(InstalledProjectFile))
-				{
-					ProjectFile = FileReference.Combine(UnrealBuildTool.RootDirectory, File.ReadAllText(InstalledProjectFile.FullName).Trim());
-					return true;
-				}
+				ProjectFile = InstalledProjectFile;
 			}
 
 			ProjectFile = null;
@@ -337,6 +365,9 @@ namespace UnrealBuildTool
 		/// <param name="CmdLine">Cmdline arguments</param>
 		internal static int GuardedMain(CommandLineArguments CmdLine)
 		{
+			Console.WriteLine(IsFileInstalled(new FileReference(@"D:\P4 UE4\Templates\TP_Flying\Config\DefaultEditor.ini")));
+			Console.WriteLine(IsFileInstalled(new FileReference(@"D:\P4 UE4\Templates\TP_FlyingBP\Config\DefaultEditor.ini")));
+
 			DateTime StartTime = DateTime.UtcNow;
 			ECompilationResult Result = ECompilationResult.Succeeded;
 

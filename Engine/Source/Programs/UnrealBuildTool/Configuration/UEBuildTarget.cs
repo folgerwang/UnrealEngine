@@ -1706,7 +1706,7 @@ namespace UnrealBuildTool
 				foreach (FileReference VersionManifestFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
 				{
 					// Make sure the file (and directory) exists before trying to delete it
-					if(FileReference.Exists(VersionManifestFile) && !IsFileInstalled(VersionManifestFile))
+					if(FileReference.Exists(VersionManifestFile) && !UnrealBuildTool.IsFileInstalled(VersionManifestFile))
 					{
 						FileReference.Delete(VersionManifestFile);
 					}
@@ -1748,7 +1748,7 @@ namespace UnrealBuildTool
 				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
 				if (OnlyModules == null || OnlyModules.Count == 0)
 				{
-					if(!IsFileInstalled(ReceiptFileName))
+					if(!UnrealBuildTool.IsFileInstalled(ReceiptFileName))
 					{
 						DirectoryReference.CreateDirectory(ReceiptFileName.Directory);
 						Receipt.Write(ReceiptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
@@ -1757,7 +1757,7 @@ namespace UnrealBuildTool
 				if (ForceReceiptFileName != null)
 				{
 					FileReference ForceReceiptFile = new FileReference(ForceReceiptFileName);
-					if(!IsFileInstalled(ForceReceiptFile))
+					if(!UnrealBuildTool.IsFileInstalled(ForceReceiptFile))
 					{
 						DirectoryReference.CreateDirectory(ForceReceiptFile.Directory);
 						Receipt.Write(ForceReceiptFile, UnrealBuildTool.EngineDirectory, ProjectDirectory);
@@ -1765,7 +1765,7 @@ namespace UnrealBuildTool
 				}
 				if(VersionFile != null)
 				{
-					if(!IsFileInstalled(VersionFile))
+					if(!UnrealBuildTool.IsFileInstalled(VersionFile))
 					{
 						DirectoryReference.CreateDirectory(VersionFile.Directory);
 
@@ -1784,7 +1784,7 @@ namespace UnrealBuildTool
 			{
 				foreach (KeyValuePair<FileReference, ModuleManifest> FileNameToVersionManifest in FileReferenceToModuleManifestPairs)
 				{
-					if(!IsFileInstalled(FileNameToVersionManifest.Key))
+					if(!UnrealBuildTool.IsFileInstalled(FileNameToVersionManifest.Key))
 					{
 						if(!FileReference.Exists(FileNameToVersionManifest.Key))
 						{
@@ -1830,30 +1830,12 @@ namespace UnrealBuildTool
 			{
 				if (OnlyModules == null || OnlyModules.Count == 0)
 				{
-					if(!IsFileInstalled(ReceiptFileName) && FileReference.Exists(ReceiptFileName))
+					if(!UnrealBuildTool.IsFileInstalled(ReceiptFileName) && FileReference.Exists(ReceiptFileName))
 					{
 						FileReference.Delete(ReceiptFileName);
 					}
 				}
 			}
-		}
-
-		/// <summary>
-		/// Checks whether the given file is under an installed directory, and should not be overridden
-		/// </summary>
-		/// <param name="File">File to test</param>
-		/// <returns>True if the file is part of the installed distribution, false otherwise</returns>
-		bool IsFileInstalled(FileReference File)
-		{
-			if(UnrealBuildTool.IsEngineInstalled() && File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
-			{
-				return true;
-			}
-			if(UnrealBuildTool.IsProjectInstalled() && ProjectFile != null && File.IsUnderDirectory(ProjectFile.Directory))
-			{
-				return true;
-			}
-			return false;
 		}
 
 		/// <summary>
@@ -2229,7 +2211,7 @@ namespace UnrealBuildTool
 			}
 			foreach(KeyValuePair<FileReference, FileReference> Pair in RuntimeDependencyTargetFileToSourceFile)
 			{
-				if(!IsFileInstalled(Pair.Key))
+				if(!UnrealBuildTool.IsFileInstalled(Pair.Key))
 				{
 					OutputItems.Add(CreateCopyAction(Pair.Value, Pair.Key, ActionGraph));
 				}
