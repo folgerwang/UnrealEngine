@@ -92,6 +92,7 @@ namespace iPhonePackager
 		static public BackgroundWorker BGWorker = null;
 		static public int ProgressIndex = 0;
 		static public string AdditionalCommandline = "";
+		static public bool IsClient = false;
 
 		static public void UpdateStatus(string Line)
 		{
@@ -398,6 +399,11 @@ namespace iPhonePackager
 							if (Arguments.Length > ArgIndex + 1)
 							{
 								SchemeConfiguration = Arguments[++ArgIndex];
+
+								if(SchemeConfiguration.EndsWith("Client"))
+								{
+									IsClient = true;
+								}
 							}
 							else
 							{

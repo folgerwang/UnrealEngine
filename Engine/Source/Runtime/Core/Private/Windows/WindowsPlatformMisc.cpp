@@ -1012,6 +1012,7 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 {
 	UE_LOG(LogWindows, Log,  TEXT("FPlatformMisc::RequestExit(%i)"), Force );
 
+	GIsRequestingExit = 1;
 	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
 
 	if( Force )
@@ -1036,7 +1037,6 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 	{
 		// Tell the platform specific code we want to exit cleanly from the main loop.
 		PostQuitMessage( 0 );
-		GIsRequestingExit = 1;
 	}
 }
 

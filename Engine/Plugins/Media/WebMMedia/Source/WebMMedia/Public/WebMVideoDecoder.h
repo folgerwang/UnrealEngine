@@ -24,6 +24,7 @@ public:
 public:
 	bool Initialize(const char* CodecName);
 	void DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames);
+	bool IsBusy() const;
 
 private:
 	struct FConvertParams

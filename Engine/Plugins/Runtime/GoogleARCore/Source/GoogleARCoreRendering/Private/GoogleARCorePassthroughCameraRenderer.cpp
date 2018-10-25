@@ -17,6 +17,7 @@
 #include "MaterialShaderType.h"
 #include "ExternalTexture.h"
 #include "GoogleARCorePassthroughCameraExternalTextureGuid.h"
+#include "GoogleARCoreAndroidHelper.h"
 
 FGoogleARCorePassthroughCameraRenderer::FGoogleARCorePassthroughCameraRenderer()
 	: OverlayQuadUVs{ 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f }
@@ -96,20 +97,37 @@ void FGoogleARCorePassthroughCameraRenderer::InitializeRenderer_RenderThread(FTe
 	bInitialized = true;
 }
 
-void FGoogleARCorePassthroughCameraRenderer::UpdateOverlayUVCoordinate_RenderThread(TArray<float>& InOverlayUVs)
+void FGoogleARCorePassthroughCameraRenderer::UpdateOverlayUVCoordinate_RenderThread(TArray<float>& InOverlayUVs, ARCoreDisplayRotation DisplayRotation)
 {
 	check(InOverlayUVs.Num() == 8);
 
-	bool bNeedToFlipCameraImage = RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]) && !IsMobileHDR();
+	// It seems very likely that this is papering over up some underlying problem with the camera image orientation.
+	bool bIsLandscape = (DisplayRotation == ARCoreDisplayRotation::Rotation0 || DisplayRotation == ARCoreDisplayRotation::Rotation180);
+	bool bNeedToFlipCameraImageHorizontally = !bIsLandscape && RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]) && !IsMobileHDR();
+	bool bFlipCameraImageVertically = bIsLandscape && RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]) && !IsMobileHDR();
+	bool bDiagonalFlip = bIsLandscape && IsMobileHDR();
 
-	if (bNeedToFlipCameraImage)
+	if (bFlipCameraImageVertically)
+	{
+		InOverlayUVs.SwapMemory(0, 4);
+		InOverlayUVs.SwapMemory(1, 5);
+		InOverlayUVs.SwapMemory(2, 6);
+		InOverlayUVs.SwapMemory(3, 7);
+	}
+	else if (bNeedToFlipCameraImageHorizontally)
 	{
 		InOverlayUVs.SwapMemory(0, 2);
 		InOverlayUVs.SwapMemory(1, 3);
 		InOverlayUVs.SwapMemory(4, 6);
 		InOverlayUVs.SwapMemory(5, 7);
 	}
-
+	else if (bDiagonalFlip)
+	{
+		InOverlayUVs.SwapMemory(0, 6);
+		InOverlayUVs.SwapMemory(1, 7);
+		InOverlayUVs.SwapMemory(4, 2);
+		InOverlayUVs.SwapMemory(5, 3);
+	}
 	{
 		if (OverlayVertexBufferRHI.IsValid())
 		{
@@ -135,40 +153,6 @@ void FGoogleARCorePassthroughCameraRenderer::UpdateOverlayUVCoordinate_RenderThr
 		// Create vertex buffer. Fill buffer with initial data upon creation
 		FRHIResourceCreateInfo CreateInfo(&Vertices);
 		OverlayVertexBufferRHI = RHICreateVertexBuffer(Vertices.GetResourceDataSize(), BUF_Static, CreateInfo);
-	}
-
-	// Force swap vertical axis for the copy to texture UV
-	if (!bNeedToFlipCameraImage)
-	{
-		InOverlayUVs.SwapMemory(0, 2);
-		InOverlayUVs.SwapMemory(1, 3);
-		InOverlayUVs.SwapMemory(4, 6);
-		InOverlayUVs.SwapMemory(5, 7);
-	}
-	{
-		if (OverlayCopyVertexBufferRHI.IsValid())
-		{
-			OverlayCopyVertexBufferRHI.SafeRelease();
-		}
-
-		TResourceArray<FFilterVertex, VERTEXBUFFER_ALIGNMENT> Vertices;
-		Vertices.SetNumUninitialized(4);
-
-		Vertices[0].Position = FVector4(0, 1, 0, 1);
-		Vertices[0].UV = FVector2D(InOverlayUVs[0], InOverlayUVs[1]);
-
-		Vertices[1].Position = FVector4(0, 0, 0, 1);
-		Vertices[1].UV = FVector2D(InOverlayUVs[2], InOverlayUVs[3]);
-
-		Vertices[2].Position = FVector4(1, 1, 0, 1);
-		Vertices[2].UV = FVector2D(InOverlayUVs[4], InOverlayUVs[5]);
-
-		Vertices[3].Position = FVector4(1, 0, 0, 1);
-		Vertices[3].UV = FVector2D(InOverlayUVs[6], InOverlayUVs[7]);
-
-		// Create vertex buffer. Fill buffer with initial data upon creation
-		FRHIResourceCreateInfo CreateInfo(&Vertices);
-		OverlayCopyVertexBufferRHI = RHICreateVertexBuffer(Vertices.GetResourceDataSize(), BUF_Static, CreateInfo);
 	}
 }
 
@@ -339,50 +323,5 @@ void FGoogleARCorePassthroughCameraRenderer::RenderVideoOverlay_RenderThread(FRH
 			);
 		}
 	}
-#endif
-}
-
-void FGoogleARCorePassthroughCameraRenderer::CopyVideoTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef DstTexture, FIntPoint TargetSize)
-{
-#if PLATFORM_ANDROID
-	const auto FeatureLevel = GMaxRHIFeatureLevel;
-	auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
-
-	TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-	TShaderMapRef<FScreenPS_OSE> PixelShader(ShaderMap);
-
-	IRendererModule& RendererModule = GetRendererModule();
-
-	SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-	DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-
-	RHICmdList.SetViewport(0, 0, 0, TargetSize.X, TargetSize.Y, 1.0f);
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-	PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), VideoTexture.GetReference());
-
-	RendererModule.DrawRectangle(
-		RHICmdList,
-		0, 0,
-		TargetSize.X, TargetSize.Y,
-		0, 0,
-		1, 1,
-		FIntPoint(TargetSize.X, TargetSize.Y),
-		FIntPoint(1, 1),
-		*VertexShader,
-		EDRF_Default);
 #endif
 }

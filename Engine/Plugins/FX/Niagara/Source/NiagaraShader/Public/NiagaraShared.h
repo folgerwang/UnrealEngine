@@ -555,6 +555,8 @@ public:
 
 	NIAGARASHADER_API void RegisterShaderMap();
 
+	NIAGARASHADER_API void DiscardShaderMap();
+
 	/** Note: SetRenderingThreadShaderMap must also be called with the same value, but from the rendering thread. */
 	void SetGameThreadShaderMap(FNiagaraShaderMap* InShaderMap)
 	{

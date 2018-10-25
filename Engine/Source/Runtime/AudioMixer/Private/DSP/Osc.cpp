@@ -180,8 +180,12 @@ namespace Audio
 	{
 		Phase = 0.0f;
 		ExternalGainMod = 1.0f;
+		PulseWidthMod = 0.0f;
 		FreqData.PitchBend = 0.0f;
+		FreqData.Mod = 0.0f;
+		FreqData.ExternalMod = 0.0f;
 		FreqData.Detune = 0.0f;
+		bChanged = true;
 	}
 
 	FOsc::FOsc()

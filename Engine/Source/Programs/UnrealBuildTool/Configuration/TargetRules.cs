@@ -935,10 +935,15 @@ namespace UnrealBuildTool
 		[CommandLine("-ToolChain")]
 		public string ToolChainName = null;
 
-        /// <summary>
-        /// Whether to load generated ini files in cooked build
-        /// </summary>
-        public bool bAllowGeneratedIniWhenCooked = true;
+		/// <summary>
+		/// Whether to load generated ini files in cooked build, (GameUserSettings.ini loaded either way)
+		/// </summary>
+		public bool bAllowGeneratedIniWhenCooked = true;
+
+		/// <summary>
+		/// Whether to load non-ufs ini files in cooked build, (GameUserSettings.ini loaded either way)
+		/// </summary>
+		public bool bAllowNonUFSIniWhenCooked = true;
 
 		/// <summary>
 		/// Add all the public folders as include paths for the compile environment.
@@ -1058,6 +1063,11 @@ namespace UnrealBuildTool
 		[RequiresUniqueBuildEnvironment]
 		[CommandLine("-LinkerArguments=")]
 		public string AdditionalLinkerArguments;
+
+		/// <summary>
+		/// When generating project files, specifies the name of the project file to use when there are multiple targets of the same type.
+		/// </summary>
+		public string GeneratedProjectName;
 
 		/// <summary>
 		/// Android-specific target settings.
@@ -2070,6 +2080,11 @@ namespace UnrealBuildTool
 		public string AdditionalLinkerArguments
 		{
 			get { return Inner.AdditionalLinkerArguments; }
+		}
+
+		public string GeneratedProjectName
+		{
+			get { return Inner.GeneratedProjectName; }
 		}
 
 		public ReadOnlyAndroidTargetRules AndroidPlatform

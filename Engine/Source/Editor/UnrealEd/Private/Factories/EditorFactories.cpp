@@ -5299,7 +5299,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	{
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	//Prevent any UI for automation, unattended and commandlet
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)
@@ -5381,15 +5382,22 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 		{
 			FFbxImporter->ApplyTransformSettingsToFbxNode(FFbxImporter->Scene->GetRootNode(), ImportData);
+
+			// preserve the user data by doing a copy
 			const TArray<UAssetUserData*>* UserData = Mesh->GetAssetUserDataArray();
-			TArray<UAssetUserData*> UserDataCopy;
+			TMap<UAssetUserData*, bool> UserDataCopy;
 			if (UserData)
 			{
 				for (int32 Idx = 0; Idx < UserData->Num(); Idx++)
 				{
 					if ((*UserData)[Idx] != nullptr)
 					{
-						UserDataCopy.Add((UAssetUserData*)StaticDuplicateObject((*UserData)[Idx], GetTransientPackage()));
+						bool bAddDupToRoot = !((*UserData)[Idx]->IsRooted());
+						if (bAddDupToRoot)
+						{
+							(*UserData)[Idx]->AddToRoot();
+						}
+						UserDataCopy.Add((UAssetUserData*)StaticDuplicateObject((*UserData)[Idx], GetTransientPackage()), bAddDupToRoot);
 					}
 				}
 			}
@@ -5398,6 +5406,13 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 			UNavCollisionBase* NavCollision = Mesh->NavCollision ? 
 				(UNavCollisionBase*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
 				nullptr;
+
+			bool bAddedNavCollisionDupToRoot = false;
+			if (NavCollision && !NavCollision->IsRooted())
+			{
+				bAddedNavCollisionDupToRoot = true;
+				NavCollision->AddToRoot();
+			}
 
 			// preserve extended bound settings
 			const FVector PositiveBoundsExtension = Mesh->PositiveBoundsExtension;
@@ -5408,14 +5423,25 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 				UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully") );
 
 				// Copy user data to newly created mesh
-				for (int32 Idx = 0; Idx < UserDataCopy.Num(); Idx++)
+				for (auto Kvp : UserDataCopy)
 				{
-					UserDataCopy[Idx]->Rename(nullptr, Mesh, REN_DontCreateRedirectors | REN_DoNotDirty);
-					Mesh->AddAssetUserData(UserDataCopy[Idx]);
+					UAssetUserData* UserDataObject = Kvp.Key;
+					if (Kvp.Value)
+					{
+						//if the duplicated temporary UObject was add to root, we must remove it from the root
+						UserDataObject->RemoveFromRoot();
+					}
+					UserDataObject->Rename(nullptr, Mesh, REN_DontCreateRedirectors | REN_DoNotDirty);
+					Mesh->AddAssetUserData(UserDataObject);
 				}
 
 				if (NavCollision)
 				{
+					if (bAddedNavCollisionDupToRoot)
+					{
+						//if the duplicated temporary UObject was add to root, we must remove it from the root
+						NavCollision->RemoveFromRoot();
+					}
 					Mesh->NavCollision = NavCollision;
 					NavCollision->Rename(NULL, Mesh, REN_DontCreateRedirectors | REN_DoNotDirty);
 				}
@@ -5568,7 +5594,8 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	}
 
 	bool bSuccess = false;
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	//Prevent any UI for automation, unattended and commandlet
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)

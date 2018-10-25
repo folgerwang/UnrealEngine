@@ -1838,8 +1838,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 	InitEngineTextLocalization();
 
+	bool bForceEnableHighDPI = false;
+#if WITH_EDITOR
+	bForceEnableHighDPI = FPIEPreviewDeviceModule::IsRequestingPreviewDevice();
+#endif
+
 	// This must be called before any window (including the splash screen is created
-	FSlateApplication::InitHighDPI();
+	FSlateApplication::InitHighDPI(bForceEnableHighDPI);
 
 	UStringTable::InitializeEngineBridge();
 

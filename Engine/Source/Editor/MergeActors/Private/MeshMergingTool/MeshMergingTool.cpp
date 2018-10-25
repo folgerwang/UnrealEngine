@@ -105,16 +105,19 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 		for ( const TSharedPtr<FMergeComponentData>& SelectedComponent : SelectedComponents)
 		{
 			// Determine whether or not this component should be incorporated according the user settings
-			if (SelectedComponent->bShouldIncorporate)
+			if (SelectedComponent->bShouldIncorporate && SelectedComponent->PrimComponent.IsValid())
 			{
 				ComponentsToMerge.Add(SelectedComponent->PrimComponent.Get());
 			}
 		}
-		
-		UWorld* World = ComponentsToMerge[0]->GetWorld();	
-		checkf(World != nullptr, TEXT("Invalid World retrieved from Mesh components"));
-		const float ScreenAreaSize = TNumericLimits<float>::Max();
-		MeshUtilities.MergeComponentsToStaticMesh(ComponentsToMerge, World, SettingsObject->Settings, nullptr, nullptr, PackageName, AssetsToSync, MergedActorLocation, ScreenAreaSize, true);
+
+		if (ComponentsToMerge.Num())
+		{
+			UWorld* World = ComponentsToMerge[0]->GetWorld();
+			checkf(World != nullptr, TEXT("Invalid World retrieved from Mesh components"));
+			const float ScreenAreaSize = TNumericLimits<float>::Max();
+			MeshUtilities.MergeComponentsToStaticMesh(ComponentsToMerge, World, SettingsObject->Settings, nullptr, nullptr, PackageName, AssetsToSync, MergedActorLocation, ScreenAreaSize, true);
+		}
 	}
 
 	if (AssetsToSync.Num())

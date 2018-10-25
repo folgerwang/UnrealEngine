@@ -455,16 +455,30 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 			{
 				Src++;
 				int Val = va_arg(ArgPtr, int);
-				ANSICHAR AnsiNum[30];
-				ANSICHAR FmtBuf[30];
+				ANSICHAR AnsiNum[64];
+				ANSICHAR FmtBuf[30] = {0};
+
+				// limit width to the buffer size
+				FieldLen = FMath::Min(static_cast<int>(sizeof(AnsiNum)) - 1, FieldLen);
 
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
-					FmtBuf[CpyIdx] = (ANSICHAR)*Percent;
-					Percent++;
-					CpyIdx++;
+					if (LIKELY(*Percent != '*'))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+						++CpyIdx;
+					}
+					else
+					{
+						snprintf(&FmtBuf[CpyIdx], sizeof(FmtBuf) - CpyIdx, "%d", FieldLen);
+						while (CpyIdx < ARRAY_COUNT(FmtBuf) && FmtBuf[CpyIdx] != 0)
+						{
+							++CpyIdx;
+						}
+					}
+					++Percent;
 				}
 				FmtBuf[CpyIdx] = 0;
 
@@ -483,16 +497,30 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 
 				size_t Val = va_arg(ArgPtr, size_t);
 
-				ANSICHAR AnsiNum[30];
-				ANSICHAR FmtBuf[30];
+				ANSICHAR AnsiNum[64];
+				ANSICHAR FmtBuf[30] = {0};
+
+				// limit width to the buffer size
+				FieldLen = FMath::Min(static_cast<int>(sizeof(AnsiNum)) - 1, FieldLen);
 
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
-					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-					Percent++;
-					CpyIdx++;
+					if (LIKELY(*Percent != '*'))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+						++CpyIdx;
+					}
+					else
+					{
+						snprintf(&FmtBuf[CpyIdx], sizeof(FmtBuf) - CpyIdx, "%d", FieldLen);
+						while (CpyIdx < ARRAY_COUNT(FmtBuf) && FmtBuf[CpyIdx] != 0)
+						{
+							++CpyIdx;
+						}
+					}
+					++Percent;
 				}
 				FmtBuf[CpyIdx] = 0;
 
@@ -706,4 +734,3 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 }
 
 #endif
-

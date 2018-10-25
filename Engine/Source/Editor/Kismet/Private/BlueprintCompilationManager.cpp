@@ -314,6 +314,7 @@ struct FCompilerData
 		InternalOptions.bReinstanceAndStubOnFailure = false;
 		InternalOptions.bSaveIntermediateProducts = (UserOptions & EBlueprintCompileOptions::SaveIntermediateProducts) != EBlueprintCompileOptions::None;
 		InternalOptions.bSkipDefaultObjectValidation = (UserOptions & EBlueprintCompileOptions::SkipDefaultObjectValidation) != EBlueprintCompileOptions::None;
+		InternalOptions.bSkipFiBSearchMetaUpdate = (UserOptions & EBlueprintCompileOptions::SkipFiBSearchMetaUpdate) != EBlueprintCompileOptions::None;
 		InternalOptions.CompileType = bBytecodeOnly ? EKismetCompileType::BytecodeOnly : EKismetCompileType::Full;
 
 		Compiler = FKismetCompilerContext::GetCompilerForBP(BP, *ActiveResultsLog, InternalOptions);
@@ -333,6 +334,7 @@ struct FCompilerData
 	bool ShouldRegisterCompilerResults() const { return JobType == ECompilationManagerJobType::Normal; }
 	bool ShouldSkipIfDependenciesAreUnchanged() const { return InternalOptions.CompileType == EKismetCompileType::BytecodeOnly || JobType == ECompilationManagerJobType::RelinkOnly; }
 	bool ShouldValidateClassDefaultObject() const { return JobType == ECompilationManagerJobType::Normal && !InternalOptions.bSkipDefaultObjectValidation; }
+	bool ShouldUpdateBlueprintSearchMetadata() const { return JobType == ECompilationManagerJobType::Normal && !InternalOptions.bSkipFiBSearchMetaUpdate; }
 
 	UBlueprint* BP;
 	FCompilerResultsLog* ActiveResultsLog;
@@ -828,13 +830,16 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 				}
 			}
 
-			// Do not want to run this code without the editor present nor when running commandlets.
-			if (GEditor && GIsEditor)
+			if (CompilerData.ShouldUpdateBlueprintSearchMetadata())
 			{
-				// We do not want to regenerate a search Guid during loads, nothing has changed in the Blueprint and it is cached elsewhere
-				if (!BP->bIsRegeneratingOnLoad)
+				// Do not want to run this code without the editor present nor when running commandlets.
+				if (GEditor && GIsEditor)
 				{
-					FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(BP);
+					// We do not want to regenerate a search Guid during loads, nothing has changed in the Blueprint and it is cached elsewhere
+					if (!BP->bIsRegeneratingOnLoad)
+					{
+						FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(BP);
+					}
 				}
 			}
 

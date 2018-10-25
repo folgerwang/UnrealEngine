@@ -112,6 +112,11 @@ void FWebMVideoDecoder::DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFram
 	}, TStatId(), nullptr, ENamedThreads::AnyThread);
 }
 
+bool FWebMVideoDecoder::IsBusy() const
+{
+	return VideoDecodingTask && !VideoDecodingTask->IsComplete();
+}
+
 void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames)
 {
 	for (const TSharedPtr<FWebMFrame>& VideoFrame : VideoFrames)
@@ -140,7 +145,7 @@ void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>
 
 			TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> VideoSample = VideoSamplePool->AcquireShared();
 
-			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->stride[0], Image->d_h), VideoFrame->Time);
+			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time);
 
 			FConvertParams Params;
 			Params.VideoSample = VideoSample;
@@ -255,10 +260,10 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		}
 
 		SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
-		PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), MediaShaders::YuvToSrgbDefault, true);
+		PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), FIntPoint(Image->d_w, Image->d_h), MediaShaders::YuvToSrgbDefault, true);
 
 		// draw full-size quad
-		CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
+		CommandList.SetViewport(0, 0, 0.0f, Image->d_w, Image->d_h, 1.0f);
 		CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
 		CommandList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 		CommandList.CopyToResolveTarget(RenderTarget, RenderTarget, FResolveParams());

@@ -1419,6 +1419,10 @@ class PAKFILE_API FPakPlatformFile : public IPlatformFile
 	mutable FCriticalSection PakListCritical;
 	/** Cache of extensions that we automatically reject if not found in pak file */
 	TSet<FName> ExcludedNonPakExtensions;
+	/** The extension used for ini files, used for excluding ini files */
+	FString IniFileExtension;
+	/** The filename for the gameusersettings ini file, used for excluding ini files, but not gameusersettings */
+	FString GameUserSettingsIniFilename;
 
 	/**
 	 * Gets mounted pak files

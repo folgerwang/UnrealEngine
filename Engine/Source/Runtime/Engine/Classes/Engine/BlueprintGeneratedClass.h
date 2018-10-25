@@ -89,9 +89,18 @@ public:
 	// WARNING: This struct layout definition repeated in ScriptCore.cpp as
 	// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues:
 	uint8* RawPointer;
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	uint32 UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	// WARNING: This struct layout definition repeated in ScriptCore.cpp as
+	// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues
+	//////////////////////////////////////////////////////////////////////////
 
 	FPointerToUberGraphFrame()
 		: RawPointer(nullptr)
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+		, UberGraphFunctionKey(0)
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 	{}
 
 	~FPointerToUberGraphFrame()
@@ -626,6 +635,10 @@ public:
 
 	UPROPERTY()
 	UFunction* UberGraphFunction;
+
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	uint32 UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 
 #if WITH_EDITORONLY_DATA
 	// This is a list of event graph call function nodes that are simple (no argument) thunks into the event graph (typically used for animation delegates, etc...)

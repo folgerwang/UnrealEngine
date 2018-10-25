@@ -535,7 +535,26 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 		{
 			MacApplication->DeferEvent(Event);
 
-			if ([Event type] == NSEventTypeKeyDown || [Event type] == NSEventTypeKeyUp)
+			bool bShouldStopEventDispatch = false;
+			switch ([Event type])
+			{
+				case NSEventTypeKeyDown:
+				case NSEventTypeKeyUp:
+					bShouldStopEventDispatch = true;
+					break;
+					
+				case NSEventTypeLeftMouseDown:
+				case NSEventTypeRightMouseDown:
+				case NSEventTypeOtherMouseDown:
+				case NSEventTypeLeftMouseUp:
+				case NSEventTypeRightMouseUp:
+				case NSEventTypeOtherMouseUp:
+					// Make sure we don't stop receiving mouse dragged events if the cursor is over the edge of the screen and the cursor is locked
+					bShouldStopEventDispatch = ((FMacCursor*)MacApplication->Cursor.Get())->IsLocked();
+					break;
+			}
+			
+			if (bShouldStopEventDispatch)
 			{
 				ReturnEvent = nil;
 			}

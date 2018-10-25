@@ -277,7 +277,7 @@ void FMovieSceneCompiler::CompileRange(TRange<FFrameNumber> InGlobalRange, UMovi
 		// If the range we just compiled no longer overlaps the range we were asked to compile,
 		// Break out of the loop as all of our work is done. This will happen if there is a gap
 		// in the evaluation field that overlaps with the upper bound of InGlobalRange.
-		if (!MovieScene::DiscreteRangesOverlap(CompiledRange, InGlobalRange))
+		if (!CompiledRange.Overlaps(InGlobalRange))
 		{
 			break;
 		}

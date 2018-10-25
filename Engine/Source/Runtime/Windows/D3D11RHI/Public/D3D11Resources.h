@@ -782,6 +782,16 @@ public:
 	}
 };
 
+class FD3D11StagingBuffer : public FRHIStagingBuffer
+{
+public:
+	FD3D11StagingBuffer(FVertexBufferRHIRef InBuffer)
+		: FRHIStagingBuffer(InBuffer)
+	{}
+
+	TRefCountPtr<ID3D11Buffer> StagedRead;
+};
+
 /** Shader resource view class. */
 class FD3D11ShaderResourceView : public FRHIShaderResourceView
 {
@@ -908,6 +918,11 @@ template<>
 struct TD3D11ResourceTraits<FRHIVertexBuffer>
 {
 	typedef FD3D11VertexBuffer TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIStagingBuffer>
+{
+	typedef FD3D11StagingBuffer TConcreteType;
 };
 template<>
 struct TD3D11ResourceTraits<FRHIShaderResourceView>

@@ -3,6 +3,7 @@
 #include "AnimGraphNode_Trail.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/ReleaseObjectVersion.h"
 /////////////////////////////////////////////////////
 // UAnimGraphNode_TrailBone
 
@@ -55,6 +56,22 @@ void UAnimGraphNode_Trail::PostLoad()
 	Node.PostLoad();
 }
 
+void UAnimGraphNode_Trail::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::TrailNodeBlendVariableNameChange)
+	{
+		if (Node.TrailBoneRotationBlendAlpha_DEPRECATED != 1.f)
+		{
+			Node.LastBoneRotationAnimAlphaBlend = FMath::Clamp<float>(1.f - Node.TrailBoneRotationBlendAlpha_DEPRECATED, 0.f, 1.f);
+		}
+	}
+#endif // #if WITH_EDITORONLY_DATA
+}
 
 void UAnimGraphNode_Trail::CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex) const
 {

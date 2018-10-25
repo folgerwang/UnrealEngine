@@ -301,7 +301,7 @@ FArchive& operator<<(FArchive& Ar,FShaderType*& Ref)
 			}
 			else
 			{
-				UE_LOG(LogShaders, Warning, TEXT("ShaderType '%s' was not found!"), *ShaderTypeName.ToString());
+				UE_LOG(LogShaders, Verbose, TEXT("ShaderType '%s' dependency was not found."), *ShaderTypeName.ToString());
 			}
 		}
 	}

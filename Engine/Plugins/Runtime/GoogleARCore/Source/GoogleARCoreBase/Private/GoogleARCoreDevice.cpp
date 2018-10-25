@@ -249,7 +249,7 @@ void FGoogleARCoreDevice::OnWorldTickStart(ELevelTick TickType, float DeltaTime)
 		{
 			ViewportSize = GEngine->GameViewport->Viewport->GetSizeXY();
 		}
-		ARCoreSession->SetDisplayGeometry(FGoogleARCoreAndroidHelper::GetDisplayRotation(), ViewportSize.X, ViewportSize.Y);
+		ARCoreSession->SetDisplayGeometry(static_cast<int>(FGoogleARCoreAndroidHelper::GetDisplayRotation()), ViewportSize.X, ViewportSize.Y);
 		EGoogleARCoreAPIStatus Status = ARCoreSession->Update(WorldToMeterScale);
 		if (Status == EGoogleARCoreAPIStatus::AR_ERROR_FATAL)
 		{

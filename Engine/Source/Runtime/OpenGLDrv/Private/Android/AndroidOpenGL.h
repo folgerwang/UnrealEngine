@@ -519,7 +519,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static FORCEINLINE void VertexAttribIPointer(GLuint Index, GLint Size, GLenum Type, GLsizei Stride, const GLvoid* Pointer)
 	{
-		if (IsES31Usable() && glVertexAttribIPointer != nullptr)
+		if (IsES31Usable())
 		{
 			glVertexAttribIPointer(Index, Size, Type, Stride, Pointer);
 		}

@@ -19,6 +19,8 @@
 #include "PIEPreviewWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "UnrealEngine.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/UserInterfaceSettings.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPIEPreviewDevice, Log, All); 
 DEFINE_LOG_CATEGORY(LogPIEPreviewDevice);
@@ -30,6 +32,27 @@ void FPIEPreviewDeviceModule::StartupModule()
 
 void FPIEPreviewDeviceModule::ShutdownModule()
 {
+	// clear delegates set in StartupModule()
+	if (EngineInitCompleteDelegate.IsValid())
+	{
+		FCoreDelegates::OnFEngineLoopInitComplete.Remove(EngineInitCompleteDelegate);
+	}
+
+	if (ViewportCreatedDelegate.IsValid())
+	{
+		UGameViewportClient::OnViewportCreated().Remove(ViewportCreatedDelegate);
+	}
+
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+	if (WindowPtr.IsValid())
+	{
+		WindowPtr->PrepareShutdown();
+	}
+
+	if (Device.IsValid())
+	{
+		Device->ShutdownDevice();
+	}
 }
 
 FString const FPIEPreviewDeviceModule::GetRuntimeDeviceProfileName()
@@ -46,35 +69,70 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 {
 	bInitialized = true;
 
-	if (ReadDeviceSpecification())
+	// the window size will be available after all data is loaded and we'll use this callback to display it
+	EngineInitCompleteDelegate = FCoreDelegates::OnFEngineLoopInitComplete.AddRaw(this, &FPIEPreviewDeviceModule::OnEngineInitComplete);
+
+	// to finish setup we need complete engine initialization
+	ViewportCreatedDelegate = UGameViewportClient::OnViewportCreated().AddRaw(this, &FPIEPreviewDeviceModule::OnViewportCreated);
+
+	bool bReadSuccess = ReadDeviceSpecification();
+	checkf(bReadSuccess, TEXT("Unable to read device specifications"));
+
+	Device->ApplyRHIPrerequisitesOverrides();
+	DeviceProfile = Device->GetProfile();
+}
+
+void FPIEPreviewDeviceModule::OnEngineInitComplete()
+{
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+
+	// TODO: Localization
+	FString AppTitle = FGlobalTabmanager::Get()->GetApplicationTitle().ToString() + "Previewing: " + PreviewDevice;
+	FGlobalTabmanager::Get()->SetApplicationTitle(FText::FromString(AppTitle));
+
+	if (WindowPtr.IsValid())
 	{
-		Device->ApplyRHIPrerequisitesOverrides();
-		DeviceProfile = Device->GetProfile();
+		int32 TitleBarSize = SPIEPreviewWindow::GetDefaultTitleBarSize();
+		Device->SetupDevice(TitleBarSize);
+		
+		WindowPtr->PrepareWindow(InitialWindowPosition, InitialWindowScaleValue, Device);
+		WindowPtr->ShowWindow();
 	}
+}
+
+bool FPIEPreviewDeviceModule::ReadWindowConfig()
+{
+	InitialWindowScaleValue = 0.0f;
+	GConfig->GetFloat(TEXT("/Script/Engine.MobilePIE"), TEXT("DeviceScalingFactor"), InitialWindowScaleValue, GEngineIni);
+
+	// read window position
+	int32 WinX = 0, WinY = 0;
+	bool bFound = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), WinX, GEngineIni);
+	bFound &= GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), WinY, GEngineIni);
+	InitialWindowPosition.Set(WinX, WinY);
+
+	return bFound;
 }
 
 TSharedRef<SWindow> FPIEPreviewDeviceModule::CreatePIEPreviewDeviceWindow(FVector2D ClientSize, FText WindowTitle, EAutoCenter AutoCenterType, FVector2D ScreenPosition, TOptional<float> MaxWindowWidth, TOptional<float> MaxWindowHeight)
 {
-	if (ScreenPosition.IsNearlyZero())
+	bool bPosFound = ReadWindowConfig();
+
+	if (ScreenPosition.IsNearlyZero() && bPosFound)
 	{
-		int32 WinX, WinY;
-		bool bFoundX = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), WinX, GEngineIni);
-		bool bFoundY = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), WinY, GEngineIni);
-
-		if (bFoundX && bFoundY)
-		{
-			ScreenPosition.X = WinX;
-			ScreenPosition.Y = WinY;
-
-			AutoCenterType = EAutoCenter::None;
-		}
+		ScreenPosition = InitialWindowPosition;
+		AutoCenterType = EAutoCenter::None;
+	}
+	else
+	{
+		InitialWindowPosition = ScreenPosition;
 	}
 
 	FPIEPreviewWindowCoreStyle::InitializePIECoreStyle();
 
 	static FWindowStyle BackgroundlessStyle = FCoreStyle::Get().GetWidgetStyle<FWindowStyle>("Window");
 	BackgroundlessStyle.SetBackgroundBrush(FSlateNoResource());
-	TSharedRef<SPIEPreviewWindow> Window = SNew(SPIEPreviewWindow, Device)
+	TSharedRef<SPIEPreviewWindow> Window = SNew(SPIEPreviewWindow)
 		.Type(EWindowType::GameWindow)
 		.Style(&BackgroundlessStyle)
 		.ClientSize(ClientSize)
@@ -97,37 +155,41 @@ TSharedRef<SWindow> FPIEPreviewDeviceModule::CreatePIEPreviewDeviceWindow(FVecto
 
  	WindowWPtr = Window;
 
+	if (GameLayerManagerWidget.IsValid())
+	{
+		Window->SetGameLayerManagerWidget(GameLayerManagerWidget);
+	}
+
 	return Window;
 }
 
 void FPIEPreviewDeviceModule::UpdateDisplayResolution()
 {
-	if (!Device.IsValid())
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+
+	if (!Device.IsValid() || !WindowPtr.IsValid())
 	{
 		return;
 	}
 
-	const int32 ClientWidth = Device->GetWindowClientWidth();
-	const int32 ClientHeight = Device->GetWindowClientHeight();
+	const int32 ClientWidth = Device->GetWindowWidth();
+	const int32 ClientHeight = Device->GetWindowHeight() - WindowPtr->GetTitleBarSize().Get();
 
 	FSystemResolution::RequestResolutionChange(ClientWidth, ClientHeight, EWindowMode::Windowed);
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
-void FPIEPreviewDeviceModule::PrepareDeviceDisplay()
+void FPIEPreviewDeviceModule::OnWindowReady(TSharedRef<SWindow> Window)
 {
-	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = StaticCastSharedRef<SPIEPreviewWindow>(Window);
 
-	if (!WindowPtr.IsValid() && !Device.IsValid())
+	if (WindowPtr.IsValid())
 	{
-		return;
+		// the window will only be displayed after the loading is complete (OnEngineInitComplete)
+		WindowPtr->HideWindow();
 	}
 
 	FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
-
-	WindowPtr->SetScaleWindowToDeviceSize(true);
-
-	UpdateDisplayResolution();
 }
 
 void FPIEPreviewDeviceModule::ApplyPreviewDeviceState()
@@ -137,15 +199,17 @@ void FPIEPreviewDeviceModule::ApplyPreviewDeviceState()
 		return;
 	}
 
-	// TODO: Localization
-	FString AppTitle = FGlobalTabmanager::Get()->GetApplicationTitle().ToString() + "Previewing: "+ PreviewDevice;
-	FGlobalTabmanager::Get()->SetApplicationTitle(FText::FromString(AppTitle));
+	Device->ApplyRHIOverrides();
+}
 
-	int32 TitleBarSize = SPIEPreviewWindow::GetDefaultTitleBarSize();
-	Device->SetupDevice(TitleBarSize);
-
-	// need to call this before the actual window is created in order override the window mode to EWindowMode::Windowed
-	UpdateDisplayResolution();
+void FPIEPreviewDeviceModule::OnViewportCreated()
+{
+	// disable mouse viewport locking
+	if (GEngine->GameViewport != nullptr)
+	{
+		GEngine->GameViewport->SetCaptureMouseOnClick(EMouseCaptureMode::NoCapture);
+		GEngine->GameViewport->SetMouseLockMode(EMouseLockMode::DoNotLock);
+	}
 }
 
 const FPIEPreviewDeviceContainer& FPIEPreviewDeviceModule::GetPreviewDeviceContainer()
@@ -177,7 +241,6 @@ FString FPIEPreviewDeviceModule::FindDeviceSpecificationFilePath(const FString& 
 		}
 	}
 	return FoundPath;
-
 }
 
 bool FPIEPreviewDeviceModule::ReadDeviceSpecification()
@@ -216,4 +279,15 @@ bool FPIEPreviewDeviceModule::ReadDeviceSpecification()
 	}
 
 	return bValidDeviceSpec;
+}
+
+void FPIEPreviewDeviceModule::SetGameLayerManagerWidget(TSharedPtr<class SGameLayerManager> GameLayerManager)
+{
+	GameLayerManagerWidget = GameLayerManager;
+
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+	if (WindowPtr.IsValid())
+	{
+		WindowPtr->SetGameLayerManagerWidget(GameLayerManager);
+	}
 }

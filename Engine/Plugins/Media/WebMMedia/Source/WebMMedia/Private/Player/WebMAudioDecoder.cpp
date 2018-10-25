@@ -196,6 +196,11 @@ void FWebMAudioDecoder::DecodeAudioFramesAsync(const TArray<TSharedPtr<FWebMFram
 	}, TStatId(), nullptr, ENamedThreads::AnyThread);
 }
 
+bool FWebMAudioDecoder::IsBusy() const
+{
+	return AudioDecodingTask && !AudioDecodingTask->IsComplete();
+}
+
 void FWebMAudioDecoder::DoDecodeAudioFrames(const TArray<TSharedPtr<FWebMFrame>>& AudioFrames)
 {
 	for (const TSharedPtr<FWebMFrame>& AudioFrame : AudioFrames)

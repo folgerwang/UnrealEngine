@@ -27,7 +27,7 @@ float4x4 PreviousLocalToWorld;
 #endif
 
 #ifndef GPUSKIN_USE_BONES_SRV_BUFFER
-#define GPUSKIN_USE_BONES_SRV_BUFFER	0	// Use a Buffer<float4> if 1, otherwise a uniform buffer
+#define GPUSKIN_USE_BONES_SRV_BUFFER	0	// Use a Buffer<float4> if 1, otherwise a uniform buffer  
 #endif
 
 #define FIXED_VERTEX_INDEX 0xFFFF

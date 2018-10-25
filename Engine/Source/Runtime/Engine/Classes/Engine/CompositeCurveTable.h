@@ -26,6 +26,8 @@ class UCompositeCurveTable
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+
+	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
 
 	ENGINE_API virtual void EmptyTable() override;
