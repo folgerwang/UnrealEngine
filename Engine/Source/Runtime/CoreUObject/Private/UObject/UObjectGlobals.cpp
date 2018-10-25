@@ -1189,7 +1189,11 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 			}
 
 			int32 RequestID = LoadPackageAsync(InName, nullptr, *InPackageName);
-			FlushAsyncLoading(RequestID);
+
+			if (RequestID != INDEX_NONE)
+			{
+				FlushAsyncLoading(RequestID);
+			}
 		}
 
 		Result = FindObjectFast<UPackage>(nullptr, PackageFName);
