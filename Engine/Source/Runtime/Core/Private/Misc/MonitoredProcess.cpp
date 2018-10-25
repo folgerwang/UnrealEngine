@@ -8,6 +8,10 @@
  *****************************************************************************/
 
 FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InParams, bool InHidden, bool InCreatePipes )
+	: FMonitoredProcess(InURL, InParams, FPaths::RootDir(), InHidden, InCreatePipes)
+{ }
+
+FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InParams, const FString& InWorkingDir, bool InHidden, bool InCreatePipes )
 	: Canceling(false)
 	, EndTime(0)
 	, Hidden(InHidden)
@@ -19,6 +23,7 @@ FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InPar
 	, Thread(nullptr)
 	, bIsRunning(false)
 	, URL(InURL)
+	, WorkingDir(InWorkingDir)
 	, WritePipe(nullptr)
 	, bCreatePipes(InCreatePipes)
 	, SleepInterval(0.0f)
@@ -68,7 +73,7 @@ bool FMonitoredProcess::Launch()
 		return false;
 	}
 
-	ProcessHandle = FPlatformProcess::CreateProc(*URL, *Params, false, Hidden, Hidden, nullptr, 0, *FPaths::RootDir(), WritePipe);
+	ProcessHandle = FPlatformProcess::CreateProc(*URL, *Params, false, Hidden, Hidden, nullptr, 0, *WorkingDir, WritePipe);
 
 	if (!ProcessHandle.IsValid())
 	{
