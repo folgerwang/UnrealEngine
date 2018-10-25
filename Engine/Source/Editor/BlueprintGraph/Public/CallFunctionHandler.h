@@ -55,7 +55,7 @@ public:
 
 private:
 	// Get the name of the function to call from the node
-	virtual FString GetFunctionNameFromNode(UEdGraphNode* Node) const;
+	virtual FName GetFunctionNameFromNode(UEdGraphNode* Node) const;
 	UClass* GetCallingContext(FKismetFunctionContext& Context, UEdGraphNode* Node);
 	UClass* GetTrueCallingClass(FKismetFunctionContext& Context, UEdGraphPin* SelfPin);
 
