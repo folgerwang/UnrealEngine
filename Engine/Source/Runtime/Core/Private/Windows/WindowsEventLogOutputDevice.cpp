@@ -46,7 +46,7 @@ void FWindowsEventLogOutputDevice::Serialize(const TCHAR* Buffer, ELogVerbosity:
 		{
 		case ELogVerbosity::Error:
 			{
-				ReportEvent(EventLog,
+				ReportEventW(EventLog,
 					EVENTLOG_ERROR_TYPE,
 					NULL,
 					0xC0000001L,
@@ -59,7 +59,7 @@ void FWindowsEventLogOutputDevice::Serialize(const TCHAR* Buffer, ELogVerbosity:
 			}
 		case ELogVerbosity::Warning:
 			{
-				ReportEvent(EventLog,
+				ReportEventW(EventLog,
 					EVENTLOG_WARNING_TYPE,
 					NULL,
 					0x80000002L,

@@ -521,19 +521,7 @@ FPooledRenderTargetDesc FRCPassPostProcessCircleDOFDilate::ComputeOutputDesc(EPa
 
 /** Encapsulates the Circle DOF pixel shader. */
 
-static float TemporalHalton2( int32 Index, int32 Base )
-{
-	float Result = 0.0f;
-	float InvBase = 1.0f / Base;
-	float Fraction = InvBase;
-	while( Index > 0 )
-	{
-		Result += ( Index % Base ) * Fraction;
-		Index /= Base;
-		Fraction *= InvBase;
-	}
-	return Result;
-}
+extern float TemporalHalton2( int32 Index, int32 Base );
 
 static void TemporalRandom2(FVector2D* RESTRICT const Constant, uint32 FrameNumber)
 {

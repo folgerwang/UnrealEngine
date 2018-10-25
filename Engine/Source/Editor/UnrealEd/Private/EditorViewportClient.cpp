@@ -106,10 +106,10 @@ void PixelInspectorRealtimeManagement(FEditorViewportClient *CurrentViewport, bo
 	}
 }
 
-namespace {
+namespace EditorViewportClient
+{
 	static const float GridSize = 2048.0f;
 	static const int32 CellSize = 16;
-	static const float AutoViewportOrbitCameraTranslate = 256.0f;
 	static const float LightRotSpeed = 0.22f;
 }
 
@@ -410,8 +410,8 @@ FEditorViewportClient::FEditorViewportClient(FEditorModeTools* InModeTools, FPre
 	DrawHelper.GridColorAxis = FColor(160, 160, 160);
 	DrawHelper.GridColorMajor = FColor(144, 144, 144);
 	DrawHelper.GridColorMinor = FColor(128, 128, 128);
-	DrawHelper.PerspectiveGridSize = GridSize;
-	DrawHelper.NumCells = DrawHelper.PerspectiveGridSize / ( CellSize * 2 );
+	DrawHelper.PerspectiveGridSize = EditorViewportClient::GridSize;
+	DrawHelper.NumCells = DrawHelper.PerspectiveGridSize / ( EditorViewportClient::CellSize * 2 );
 
 	// Most editor viewports do not want motion blur.
 	EngineShowFlags.MotionBlur = 0;
@@ -4004,8 +4004,8 @@ bool FEditorViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId,
 		// Adjust the preview light direction
 		FRotator LightDir = PreviewScene->GetLightDirection();
 
-		LightDir.Yaw += -DragX * LightRotSpeed;
-		LightDir.Pitch += -DragY * LightRotSpeed;
+		LightDir.Yaw += -DragX * EditorViewportClient::LightRotSpeed;
+		LightDir.Pitch += -DragY * EditorViewportClient::LightRotSpeed;
 
 		PreviewScene->SetLightDirection( LightDir );
 		

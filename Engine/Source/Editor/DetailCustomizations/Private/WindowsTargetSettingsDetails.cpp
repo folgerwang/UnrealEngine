@@ -47,7 +47,7 @@ namespace WindowsTargetSettingsDetailsConstants
 	const FText DisabledTip = LOCTEXT("GitHubSourceRequiredToolTip", "This requires GitHub source.");
 }
 
-static FText GetFriendlyNameFromRHIName(const FString& InRHIName)
+static FText GetFriendlyNameFromWindowsRHIName(const FString& InRHIName)
 {
 	FText FriendlyRHIName;
 	if (InRHIName == TEXT("PCD3D_SM5"))
@@ -96,7 +96,7 @@ TSharedRef<IDetailCustomization> FWindowsTargetSettingsDetails::MakeInstance()
 	return MakeShareable(new FWindowsTargetSettingsDetails);
 }
 
-namespace EImageScope
+namespace EWindowsImageScope
 {
 	enum Type
 	{
@@ -106,11 +106,11 @@ namespace EImageScope
 }
 
 /* Helper function used to generate filenames for splash screens */
-static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
+static FString GetWindowsSplashFilename(EWindowsImageScope::Type Scope, bool bIsEditorSplash)
 {
 	FString Filename;
 
-	if (Scope == EImageScope::Engine)
+	if (Scope == EWindowsImageScope::Engine)
 	{
 		Filename = FPaths::EngineContentDir();
 	}
@@ -134,11 +134,11 @@ static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
 }
 
 /* Helper function used to generate filenames for icons */
-static FString GetIconFilename(EImageScope::Type Scope)
+static FString GetWindowsIconFilename(EWindowsImageScope::Type Scope)
 {
 	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatforms()[0]->PlatformName();
 
-	if (Scope == EImageScope::Engine)
+	if (Scope == EWindowsImageScope::Engine)
 	{
 		FString Filename = FPaths::EngineDir() / FString(TEXT("Source/Runtime/Launch/Resources")) / PlatformName / FString("UE4.ico");
 		return FPaths::ConvertRelativePathToFull(Filename);
@@ -178,8 +178,8 @@ void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Deta
 	IDetailCategoryBuilder& SplashCategoryBuilder = DetailBuilder.EditCategory(TEXT("Splash"));
 	FDetailWidgetRow& EditorSplashWidgetRow = SplashCategoryBuilder.AddCustomRow(EditorSplashDesc);
 
-	const FString EditorSplash_TargetImagePath = GetSplashFilename(EImageScope::GameOverride, true);
-	const FString EditorSplash_DefaultImagePath = GetSplashFilename(EImageScope::Engine, true);
+	const FString EditorSplash_TargetImagePath = GetWindowsSplashFilename(EWindowsImageScope::GameOverride, true);
+	const FString EditorSplash_DefaultImagePath = GetWindowsSplashFilename(EWindowsImageScope::Engine, true);
 
 	TArray<FString> ImageExtensions;
 	ImageExtensions.Add(TEXT("png"));
@@ -220,8 +220,8 @@ void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Deta
 
 	const FText GameSplashDesc(LOCTEXT("GameSplashLabel", "Game Splash"));
 	FDetailWidgetRow& GameSplashWidgetRow = SplashCategoryBuilder.AddCustomRow(GameSplashDesc);
-	const FString GameSplash_TargetImagePath = GetSplashFilename(EImageScope::GameOverride, false);
-	const FString GameSplash_DefaultImagePath = GetSplashFilename(EImageScope::Engine, false);
+	const FString GameSplash_TargetImagePath = GetWindowsSplashFilename(EWindowsImageScope::GameOverride, false);
+	const FString GameSplash_DefaultImagePath = GetWindowsSplashFilename(EWindowsImageScope::Engine, false);
 
 	GameSplashWidgetRow
 	.NameContent()
@@ -279,7 +279,7 @@ void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Deta
 		.FillWidth(1.0f)
 		.VAlign(VAlign_Center)
 		[
-			SNew(SExternalImageReference, GetIconFilename(EImageScope::Engine), GetIconFilename(EImageScope::GameOverride))
+			SNew(SExternalImageReference, GetWindowsIconFilename(EWindowsImageScope::Engine), GetWindowsIconFilename(EWindowsImageScope::GameOverride))
 			.FileDescription(GameSplashDesc)
 			.OnPreExternalImageCopy(FOnPreExternalImageCopy::CreateSP(this, &FWindowsTargetSettingsDetails::HandlePreExternalIconCopy))
 			.OnGetPickerPath(FOnGetPickerPath::CreateSP(this, &FWindowsTargetSettingsDetails::GetPickerPath))
@@ -483,7 +483,7 @@ void FTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView(
 
 	for (const FName& ShaderFormat : ShaderFormats)
 	{
-		FText FriendlyShaderFormatName = GetFriendlyNameFromRHIName(ShaderFormat.ToString());
+		FText FriendlyShaderFormatName = GetFriendlyNameFromWindowsRHIName(ShaderFormat.ToString());
 		// Skip explicitly removed entries
 		if (!FriendlyShaderFormatName.IsEmpty())
 		{

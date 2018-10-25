@@ -15,4 +15,7 @@ class UAudioTestCommandlet : public UCommandlet
 	//~ Begin UCommandlet Interface
 	virtual int32 Main(const FString& Params) override;
 	//~ End UCommandlet Interface
+
+private:
+	void PrintUsage();
 };

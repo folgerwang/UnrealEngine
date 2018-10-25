@@ -13,6 +13,7 @@
 #include "VectorField/VectorField.h"
 #include "Components/VectorFieldComponent.h"
 #include "SceneUtils.h"
+#include "Renderer/Private/SceneRendering.h" // needed for STATGROUP_CommandListMarkers
 
 /*-----------------------------------------------------------------------------
 	External FX system interface.
@@ -329,8 +330,6 @@ bool FFXSystem::UsesGlobalDistanceField() const
 
 	return false;
 }
-
-DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT(TEXT("FXPreRender_Prepare"), STAT_CLM_FXPreRender_Prepare, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("FXPreRender_Simulate"), STAT_CLM_FXPreRender_Simulate, STATGROUP_CommandListMarkers);

@@ -522,7 +522,7 @@ int32 USkeletalMeshComponent::FindRootBodyIndex() const
 }
 
 static int32 bAllowNotForDedServerPhysicsAssets = 1;
-static FAutoConsoleVariableRef CVarAllowCachedOverlaps(
+static FAutoConsoleVariableRef CVarAllowNotForDedServerPhysicsAssets(
 	TEXT("p.AllowNotForDedServerPhysicsAssets"),
 	bAllowNotForDedServerPhysicsAssets,
 	TEXT("Allow 'Not For Dedicated Server' flag on PhysicsAssets\n")

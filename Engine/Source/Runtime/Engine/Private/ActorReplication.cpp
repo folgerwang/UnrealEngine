@@ -26,10 +26,13 @@
 //
 // Static variables for networking.
 //
-static bool		SavedbHidden;
-static AActor*	SavedOwner;
-static bool		SavedbRepPhysics;
-static ENetRole SavedRole;
+namespace ActorReplication
+{
+	static bool		SavedbHidden;
+	static AActor*	SavedOwner;
+	static bool		SavedbRepPhysics;
+	static ENetRole SavedRole;
+}
 
 float AActor::GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth)
 {
@@ -125,10 +128,10 @@ bool AActor::GetNetDormancy(const FVector& ViewPos, const FVector& ViewDir, AAct
 
 void AActor::PreNetReceive()
 {
-	SavedbHidden = bHidden;
-	SavedOwner = Owner;
-	SavedbRepPhysics = ReplicatedMovement.bRepPhysics;
-	SavedRole = Role;
+	ActorReplication::SavedbHidden = bHidden;
+	ActorReplication::SavedOwner = Owner;
+	ActorReplication::SavedbRepPhysics = ReplicatedMovement.bRepPhysics;
+	ActorReplication::SavedRole = Role;
 }
 
 void AActor::PostNetReceive()
@@ -137,23 +140,23 @@ void AActor::PostNetReceive()
 	{
 		// Initially we need to sync the state regardless of whether bRepPhysics has "changed" since it may not currently match IsSimulatingPhysics().
 		SyncReplicatedPhysicsSimulation();
-		SavedbRepPhysics = ReplicatedMovement.bRepPhysics;
+		ActorReplication::SavedbRepPhysics = ReplicatedMovement.bRepPhysics;
 		bNetCheckedInitialPhysicsState = true;
 	}
 
-	ExchangeB( bHidden, SavedbHidden );
-	Exchange ( Owner, SavedOwner );
+	ExchangeB( bHidden, ActorReplication::SavedbHidden );
+	Exchange ( Owner, ActorReplication::SavedOwner );
 
-	if (bHidden != SavedbHidden)
+	if (bHidden != ActorReplication::SavedbHidden)
 	{
-		SetActorHiddenInGame(SavedbHidden);
+		SetActorHiddenInGame(ActorReplication::SavedbHidden);
 	}
-	if (Owner != SavedOwner)
+	if (Owner != ActorReplication::SavedOwner)
 	{
-		SetOwner(SavedOwner);
+		SetOwner(ActorReplication::SavedOwner);
 	}
 
-	if (Role != SavedRole)
+	if (Role != ActorReplication::SavedRole)
 	{
 		PostNetReceiveRole();
 	}
@@ -184,7 +187,7 @@ void AActor::OnRep_ReplicatedMovement()
 
 	if (RootComponent)
 	{
-		if (SavedbRepPhysics != ReplicatedMovement.bRepPhysics)
+		if (ActorReplication::SavedbRepPhysics != ReplicatedMovement.bRepPhysics)
 		{
 			// Turn on/off physics sim to match server.
 			SyncReplicatedPhysicsSimulation();

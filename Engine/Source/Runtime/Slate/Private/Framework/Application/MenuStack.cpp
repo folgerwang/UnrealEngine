@@ -67,7 +67,7 @@ public:
 };
 
 
-namespace
+namespace MenuStackInternal
 {
 	/** Widget that wraps any menu created in FMenuStack to provide default key handling, focus tracking and helps us spot menus in widget paths */
 	DECLARE_DELEGATE_RetVal_OneParam(FReply, FOnKeyDown, FKey)
@@ -656,8 +656,8 @@ TSharedRef<SWidget> FMenuStack::WrapContent(TSharedRef<SWidget> InContent, FOpti
 {
 	// Wrap menu content in a box that limits its maximum height
 	// and in a SMenuContentWrapper that handles key presses and focus changes.
-	return SNew(SMenuContentWrapper)
-		.OnKeyDown_Static(&OnMenuKeyDown)
+	return SNew(MenuStackInternal::SMenuContentWrapper)
+		.OnKeyDown_Static(&MenuStackInternal::OnMenuKeyDown)
 		.OnMenuLostFocus_Raw(this, &FMenuStack::OnMenuContentLostFocus)
 		.OptionalMinMenuWidth(OptionalMinWidth)
 		.OptionalMinMenuHeight(OptionalMinHeight)

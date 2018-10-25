@@ -2116,6 +2116,13 @@ public:
 	template<typename LightMapPolicyType>
 	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
 
+	/** Prototype explicit specializations to prevent instantiation */
+	template<>
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType);
+
+	template<>
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType);
+
 #if WITH_EDITOR
 	/** Draw list to use for selected static meshes in the editor only */
 	TStaticMeshDrawList<FEditorSelectionDrawingPolicy> EditorSelectionDrawList;

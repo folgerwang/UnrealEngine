@@ -14,8 +14,6 @@
 #include "Logging/MessageLog.h"
 
 
-using namespace ImmediatePhysics;
-
 //#pragma optimize("", off)
 
 /////////////////////////////////////////////////////
@@ -532,7 +530,7 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 	if(UsePhysicsAsset)
 	{
 		delete PhysicsSimulation;
-		PhysicsSimulation = new FSimulation();
+		PhysicsSimulation = new ImmediatePhysics::FSimulation();
 		const int32 NumBodies = UsePhysicsAsset->SkeletalBodySetups.Num();
 		Bodies.Empty(NumBodies);
 		ComponentsInSim.Reset();
@@ -544,15 +542,15 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 		TArray<FConstraintInstance*> HighLevelConstraintInstances;
 		SkeletalMeshComp->InstantiatePhysicsAssetRefPose(*UsePhysicsAsset, SimulationSpace == ESimulationSpace::WorldSpace ? SkeletalMeshComp->GetComponentToWorld().GetScale3D() : FVector(1.f), HighLevelBodyInstances, HighLevelConstraintInstances);
 
-		TMap<FName, FActorHandle*> NamesToHandles;
-		TArray<FActorHandle*> IgnoreCollisionActors;
+		TMap<FName, ImmediatePhysics::FActorHandle*> NamesToHandles;
+		TArray<ImmediatePhysics::FActorHandle*> IgnoreCollisionActors;
 
 		TArray<FBoneIndexType> InsertionOrder;
 		ComputeBodyInsertionOrder(InsertionOrder, *SkeletalMeshComp);
 
 		const int32 NumBonesLOD0 = InsertionOrder.Num();
 
-		TArray<FActorHandle*> BodyIndexToActorHandle;
+		TArray<ImmediatePhysics::FActorHandle*> BodyIndexToActorHandle;
 		BodyIndexToActorHandle.AddZeroed(NumBonesLOD0);
 
 		TArray<FBodyInstance*> BodiesSorted;
@@ -576,7 +574,7 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 					const bool bKinematic = BodySetup->PhysicsType != EPhysicsType::PhysType_Simulated;
 					const FTransform& LastTransform = SkeletalMeshComp->GetBoneTransform(InsertBone);	//This is out of date, but will still give our bodies an initial setup that matches the constraints (TODO: use refpose)
 
-					FActorHandle* NewBodyHandle = nullptr;
+					ImmediatePhysics::FActorHandle* NewBodyHandle = nullptr;
 					if (bSimulatedBodies && !bKinematic)
 					{
 #if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
@@ -660,8 +658,8 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 			for(int32 ConstraintIdx = 0; ConstraintIdx < HighLevelConstraintInstances.Num(); ++ConstraintIdx)
 			{
 				FConstraintInstance* CI = HighLevelConstraintInstances[ConstraintIdx];
-				FActorHandle* Body1Handle = NamesToHandles.FindRef(CI->ConstraintBone1);
-				FActorHandle* Body2Handle = NamesToHandles.FindRef(CI->ConstraintBone2);
+				ImmediatePhysics::FActorHandle* Body1Handle = NamesToHandles.FindRef(CI->ConstraintBone1);
+				ImmediatePhysics::FActorHandle* Body2Handle = NamesToHandles.FindRef(CI->ConstraintBone2);
 
 				if(Body1Handle && Body2Handle)
 				{
@@ -699,11 +697,11 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 		HighLevelBodyInstances.Empty();
 		BodiesSorted.Empty();
 
-		TArray<FSimulation::FIgnorePair> IgnorePairs;
+		TArray<ImmediatePhysics::FSimulation::FIgnorePair> IgnorePairs;
 		const TMap<FRigidBodyIndexPair, bool>& DisableTable = UsePhysicsAsset->CollisionDisableTable;
 		for(auto ConstItr = DisableTable.CreateConstIterator(); ConstItr; ++ConstItr)
 		{
-			FSimulation::FIgnorePair Pair;
+			ImmediatePhysics::FSimulation::FIgnorePair Pair;
 			Pair.A = BodyIndexToActorHandle[ConstItr.Key().Indices[0]];
 			Pair.B = BodyIndexToActorHandle[ConstItr.Key().Indices[1]];
 			IgnorePairs.Add(Pair);
@@ -759,20 +757,20 @@ void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, 
 		for (const USkeletalMeshComponent::FPendingRadialForces& PendingRadialForce : PendingRadialForces)
 		{
 			const FVector RadialForceOrigin = WorldPositionToSpace(SimulationSpace, PendingRadialForce.Origin, ComponentToWorld, BaseBoneTM);
-			for(FActorHandle* Body : Bodies)
+			for(ImmediatePhysics::FActorHandle* Body : Bodies)
 			{
 				const float InvMass = Body->GetInverseMass();
 				if(InvMass > 0.f)
 				{
 					const float StrengthPerBody = PendingRadialForce.bIgnoreMass ? PendingRadialForce.Strength : PendingRadialForce.Strength / (TotalMass * InvMass);
-					FSimulation::EForceType ForceType;
+					ImmediatePhysics::FSimulation::EForceType ForceType;
 					if (PendingRadialForce.Type == USkeletalMeshComponent::FPendingRadialForces::AddImpulse)
 					{
-						ForceType = PendingRadialForce.bIgnoreMass ? FSimulation::EForceType::AddVelocity : FSimulation::EForceType::AddImpulse;
+						ForceType = PendingRadialForce.bIgnoreMass ? ImmediatePhysics::FSimulation::EForceType::AddVelocity : ImmediatePhysics::FSimulation::EForceType::AddImpulse;
 					}
 					else
 					{
-						ForceType = PendingRadialForce.bIgnoreMass ? FSimulation::EForceType::AddAcceleration : FSimulation::EForceType::AddForce;
+						ForceType = PendingRadialForce.bIgnoreMass ? ImmediatePhysics::FSimulation::EForceType::AddAcceleration : ImmediatePhysics::FSimulation::EForceType::AddForce;
 					}
 					
 					Body->AddRadialForce(RadialForceOrigin, StrengthPerBody, PendingRadialForce.Radius, PendingRadialForce.Falloff, ForceType);
@@ -783,7 +781,7 @@ void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, 
 		if(!ExternalForce.IsNearlyZero())
 		{
 			const FVector ExternalForceInSimSpace = WorldVectorToSpaceNoScale(SimulationSpace, ExternalForce, ComponentToWorld, BaseBoneTM);
-			for (FActorHandle* Body : Bodies)
+			for (ImmediatePhysics::FActorHandle* Body : Bodies)
 			{
 				const float InvMass = Body->GetInverseMass();
 				if (InvMass > 0.f)

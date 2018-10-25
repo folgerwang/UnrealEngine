@@ -438,7 +438,7 @@ void FindOptimalPolygon(int32 TargetVertexCount, const TArray<int32>& ConvexHull
 	}
 }
 
-FIntPoint Neighbors[] = 
+FIntPoint GNeighbors[] = 
 {
 	FIntPoint(-1, -1),
 	FIntPoint(0, -1),
@@ -483,15 +483,15 @@ int32 ComputeNeighborCount(int32 X, int32 Y, int32 GlobalX, int32 GlobalY, int32
 {
 	int32 NeighborCount = 0;
 
-	for (int32 NeighborIndex = 0; NeighborIndex < ARRAY_COUNT(Neighbors); NeighborIndex++)
+	for (int32 NeighborIndex = 0; NeighborIndex < ARRAY_COUNT(GNeighbors); NeighborIndex++)
 	{
-		int32 NeighborX = X + Neighbors[NeighborIndex].X;
-		int32 NeighborY = Y + Neighbors[NeighborIndex].Y;
+		int32 NeighborX = X + GNeighbors[NeighborIndex].X;
+		int32 NeighborY = Y + GNeighbors[NeighborIndex].Y;
 
 		if (NeighborX >= 0 && NeighborX < SubImageSizeX 
 			&& NeighborY >= 0 && NeighborY < SubImageSizeY)
 		{
-			uint8 NeighborAlphaValue = ComputeOpacityValue(&MipData[((GlobalY + Neighbors[NeighborIndex].Y) * TextureSizeX + GlobalX + Neighbors[NeighborIndex].X) * 4], OpacitySourceMode);
+			uint8 NeighborAlphaValue = ComputeOpacityValue(&MipData[((GlobalY + GNeighbors[NeighborIndex].Y) * TextureSizeX + GlobalX + GNeighbors[NeighborIndex].X) * 4], OpacitySourceMode);
 
 			if (NeighborAlphaValue > AlphaThresholdByte)
 			{

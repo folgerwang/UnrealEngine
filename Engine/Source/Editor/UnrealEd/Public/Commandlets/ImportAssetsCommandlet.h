@@ -42,6 +42,9 @@ private:
 	/** Loads a level to be used for spawning actors from import factories */
 	bool LoadLevel(const FString& LevelToLoad);
 
+	/** Prints command line arguments */
+	void PrintUsage();
+
 	/**
 	 * Clears dirty flag from all packages
 	 */

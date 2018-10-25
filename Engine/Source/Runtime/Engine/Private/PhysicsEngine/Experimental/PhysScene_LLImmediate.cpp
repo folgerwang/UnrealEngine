@@ -4,8 +4,6 @@
 #include "Async/ParallelFor.h"
 
 
-using namespace ImmediatePhysics;
-
 FPhysScene_LLImmediate::FPhysScene_LLImmediate()
 	: Simulation(nullptr)
 	, SimulationTime(0)
@@ -30,7 +28,7 @@ void FPhysScene_LLImmediate::Init()
 		Simulation = nullptr;
 	}
 	
-	Simulation = new FSimulation();
+	Simulation = new ImmediatePhysics::FSimulation();
 }
 
 void FPhysScene_LLImmediate::Tick(float InDeltaSeconds)

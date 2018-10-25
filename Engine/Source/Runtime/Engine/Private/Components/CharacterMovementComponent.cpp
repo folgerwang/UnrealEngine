@@ -6822,9 +6822,9 @@ float UCharacterMovementComponent::GetAnalogInputModifier() const
 	return AnalogInputModifier;
 }
 
-static uint32 s_WarningCount = 0;
 float UCharacterMovementComponent::GetSimulationTimeStep(float RemainingTime, int32 Iterations) const
 {
+	static uint32 s_WarningCount = 0;
 	if (RemainingTime > MaxSimulationTimeStep)
 	{
 		if (Iterations < MaxSimulationIterations)

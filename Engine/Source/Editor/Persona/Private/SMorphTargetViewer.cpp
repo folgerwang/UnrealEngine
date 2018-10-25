@@ -23,7 +23,7 @@ static const FName ColumnID_MorphTargetWeightLabel( "Weight" );
 static const FName ColumnID_MorphTargetEditLabel( "Edit" );
 static const FName ColumnID_MorphTargetVertCountLabel( "NumberOfVerts" );
 
-const float MaxMorphWeight = 5.f;
+extern const float MaxMorphWeight;
 
 //////////////////////////////////////////////////////////////////////////
 // SMorphTargetListRow

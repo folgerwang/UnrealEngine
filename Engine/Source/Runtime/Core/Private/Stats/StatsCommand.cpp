@@ -1619,19 +1619,19 @@ bool FGroupFilter::IsRoot(const FName& MessageName) const
 	Dump...
 -----------------------------------------------------------------------------*/
 
-static int32 MaxDepth = MAX_int32;
-static FString NameFilter;
-static FString LeafFilter;
-static FDelegateHandle DumpFrameDelegateHandle;
-static FDelegateHandle DumpCPUDelegateHandle;
+static int32 GMaxDepth = MAX_int32;
+static FString GNameFilter;
+static FString GLeafFilter;
+static FDelegateHandle GDumpFrameDelegateHandle;
+static FDelegateHandle GDumpCPUDelegateHandle;
 
 static void DumpFrame(int64 Frame)
 {
 	FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
 	int64 Latest = Stats.GetLatestValidFrame();
 	check(Latest > 0);
-	DumpHistoryFrame(Stats, Latest, DumpCull, MaxDepth, *NameFilter);
-	Stats.NewFrameDelegate.Remove(DumpFrameDelegateHandle);
+	DumpHistoryFrame(Stats, Latest, DumpCull, GMaxDepth, *GNameFilter);
+	Stats.NewFrameDelegate.Remove(GDumpFrameDelegateHandle);
 	StatsMasterEnableSubtract();
 }
 
@@ -1641,7 +1641,7 @@ static void DumpCPU(int64 Frame)
 	int64 Latest = Stats.GetLatestValidFrame();
 	check(Latest > 0);
 	DumpCPUSummary(Stats, Latest);
-	Stats.NewFrameDelegate.Remove(DumpCPUDelegateHandle);
+	Stats.NewFrameDelegate.Remove(GDumpCPUDelegateHandle);
 	StatsMasterEnableSubtract();
 }
 
@@ -1695,17 +1695,17 @@ struct FDumpMultiple
 			{
 				Stack->CullByCycles( int64( DumpCull / FPlatformTime::ToMilliseconds( 1 ) ) );
 			}
-			if (!NameFilter.IsEmpty() && !LeafFilter.IsEmpty())
+			if (!GNameFilter.IsEmpty() && !GLeafFilter.IsEmpty())
 			{
 				UE_LOG(LogStats, Log, TEXT("You can't have both a root and a leaf filter (though this wouldn't be hard to add)."));
 			}
-			else if (!LeafFilter.IsEmpty())
+			else if (!GLeafFilter.IsEmpty())
 			{
-				Stack->DebugPrintLeafFilter(*LeafFilter);
+				Stack->DebugPrintLeafFilter(*GLeafFilter);
 			}
 			else
 			{
-				Stack->DebugPrint(*NameFilter, MaxDepth);
+				Stack->DebugPrint(*GNameFilter, GMaxDepth);
 			}
 			delete Stack;
 			Stack = NULL;
@@ -1860,18 +1860,18 @@ static void StatCmd(FString InCmd, bool bStatCommand, FOutputDevice* Ar /*= null
 #if STATS
 		FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
 		DumpCull = 1.0f;
-		MaxDepth = MAX_int32;
-		NameFilter.Empty();
-		LeafFilter.Empty();
+		GMaxDepth = MAX_int32;
+		GNameFilter.Empty();
+		GLeafFilter.Empty();
 
-		FParse::Value(Cmd, TEXT("ROOT="), NameFilter);
-		FParse::Value(Cmd, TEXT("LEAF="), LeafFilter);
+		FParse::Value(Cmd, TEXT("ROOT="), GNameFilter);
+		FParse::Value(Cmd, TEXT("LEAF="), GLeafFilter);
 		FParse::Value(Cmd, TEXT("MS="), DumpCull);
-		FParse::Value(Cmd, TEXT("DEPTH="), MaxDepth);
+		FParse::Value(Cmd, TEXT("DEPTH="), GMaxDepth);
 		if (FParse::Command(&Cmd, TEXT("DUMPFRAME")))
 		{
 			StatsMasterEnableAdd();
-			DumpFrameDelegateHandle = Stats.NewFrameDelegate.AddStatic(&DumpFrame);
+			GDumpFrameDelegateHandle = Stats.NewFrameDelegate.AddStatic(&DumpFrame);
 		}
 		else if (FParse::Command(&Cmd, TEXT("DUMPNONFRAME")))
 		{
@@ -1883,7 +1883,7 @@ static void StatCmd(FString InCmd, bool bStatCommand, FOutputDevice* Ar /*= null
 		else if (FParse::Command(&Cmd, TEXT("DUMPCPU")))
 		{
 			StatsMasterEnableAdd();
-			DumpCPUDelegateHandle = Stats.NewFrameDelegate.AddStatic(&DumpCPU);
+			GDumpCPUDelegateHandle = Stats.NewFrameDelegate.AddStatic(&DumpCPU);
 		}
 		else if (FParse::Command(&Cmd, TEXT("STOP")))
 		{

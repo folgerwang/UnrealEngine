@@ -6,6 +6,7 @@
 #include "Interfaces/IAudioFormat.h"
 #include "ContentStreaming.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "ADPCMAudioInfo.h"
 
 IStreamedCompressedInfo::IStreamedCompressedInfo()
 	: SrcBufferData(nullptr)
@@ -451,23 +452,6 @@ namespace ADPCM
 		};
 
 		FMemory::Memcpy(&OutAdaptationTable, AdaptationTable, sizeof(AdaptationTable));
-	}
-
-	template <typename T>
-	static void GetAdaptationCoefficients(T(&OutAdaptationCoefficient1)[NUM_ADAPTATION_COEFF], T(&OutAdaptationCoefficient2)[NUM_ADAPTATION_COEFF])
-	{
-		// Magic values as specified by standard
-		static T AdaptationCoefficient1[] =
-		{
-			256, 512, 0, 192, 240, 460, 392
-		};
-		static T AdaptationCoefficient2[] =
-		{
-			0, -256, 0, 64, 0, -208, -232
-		};
-
-		FMemory::Memcpy(&OutAdaptationCoefficient1, AdaptationCoefficient1, sizeof(AdaptationCoefficient1));
-		FMemory::Memcpy(&OutAdaptationCoefficient2, AdaptationCoefficient2, sizeof(AdaptationCoefficient2));
 	}
 
 	struct FAdaptationContext
