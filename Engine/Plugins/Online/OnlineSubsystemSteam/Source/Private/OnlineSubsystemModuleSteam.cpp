@@ -60,7 +60,7 @@ public:
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Steam API disabled!"));
+				UE_CLOG_ONLINE(IsRunningDedicatedServer() || IsRunningGame(), Warning, TEXT("Steam API disabled!"));
 				DestroySubsystem();
 			}
 
