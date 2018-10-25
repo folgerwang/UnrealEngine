@@ -28,9 +28,9 @@ public class QualcommTextureConverter : ModuleRules
             }
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				LibraryPath += "osx64";
-				LibraryExtension = ".dylib";
-				LibraryName = LibraryPath + "/lib" + LibraryName;
+				string DylibPath = Target.UEThirdPartyBinariesDirectory + "Qualcomm/Mac/libTextureConverter.dylib";
+				PublicDelayLoadDLLs.Add(DylibPath);
+				RuntimeDependencies.Add(DylibPath);
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
