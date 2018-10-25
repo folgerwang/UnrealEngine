@@ -42,8 +42,11 @@ public class QualcommTextureConverter : ModuleRules
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Qualcomm/Linux/libTextureConverter.so");
 			}
 
-			PublicLibraryPaths.Add(LibraryPath);
-			PublicAdditionalLibraries.Add(LibraryName + LibraryExtension);
+			if (Target.Platform != UnrealTargetPlatform.Mac)
+			{
+				PublicLibraryPaths.Add(LibraryPath);
+				PublicAdditionalLibraries.Add(LibraryName + LibraryExtension);
+			}
 		}
 	}
 }
