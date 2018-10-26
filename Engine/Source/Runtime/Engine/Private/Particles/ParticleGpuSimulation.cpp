@@ -2087,54 +2087,59 @@ static void VisualizeGPUSimulation(
 
 	// Setup render states.
 	FIntPoint TargetSize = RenderTarget->GetSizeXY();
-	SetRenderTarget(RHICmdList, RenderTarget->GetRenderTargetTexture(), FTextureRHIParamRef());
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	RHICmdList.SetViewport(0, 0, 0.0f, TargetSize.X, TargetSize.Y, 1.0f);
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+	FRHIRenderPassInfo RPInfo(RenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Load_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("VisualizeGPUSimulation"));
+	{
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	// Grab shaders.
-	TShaderMapRef<FParticleSimVisualizeVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
-	TShaderMapRef<FParticleSimVisualizePS> PixelShader(GetGlobalShaderMap(FeatureLevel));
+		RHICmdList.SetViewport(0, 0, 0.0f, TargetSize.X, TargetSize.Y, 1.0f);
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GParticleSimVisualizeVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		// Grab shaders.
+		TShaderMapRef<FParticleSimVisualizeVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
+		TShaderMapRef<FParticleSimVisualizePS> PixelShader(GetGlobalShaderMap(FeatureLevel));
 
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GParticleSimVisualizeVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	// Parameters for the visualization.
-	FParticleSimVisualizeParameters Parameters;
-	Parameters.ScaleBias.X = 2.0f * DisplaySizeX / (float)TargetSize.X;
-	Parameters.ScaleBias.Y = 2.0f * DisplaySizeY / (float)TargetSize.Y;
-	Parameters.ScaleBias.Z = 2.0f * DisplayOffsetX / (float)TargetSize.X - 1.0f;
-	Parameters.ScaleBias.W = 2.0f * DisplayOffsetY / (float)TargetSize.Y - 1.0f;
-	FParticleSimVisualizeBufferRef UniformBuffer = FParticleSimVisualizeBufferRef::CreateUniformBufferImmediate( Parameters, UniformBuffer_SingleDraw );
-	VertexShader->SetParameters(RHICmdList, UniformBuffer);
-	PixelShader->SetParameters(RHICmdList, VisualizationMode, StateTextures.PositionTextureRHI, CurveTextureRHI);
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	const int32 VertexStride = sizeof(FVector2D);
-	
-	// Bind vertex stream.
-	RHICmdList.SetStreamSource(
-		0,
-		GParticleTexCoordVertexBuffer.VertexBufferRHI,
-		/*VertexOffset=*/ 0
+		// Parameters for the visualization.
+		FParticleSimVisualizeParameters Parameters;
+		Parameters.ScaleBias.X = 2.0f * DisplaySizeX / (float)TargetSize.X;
+		Parameters.ScaleBias.Y = 2.0f * DisplaySizeY / (float)TargetSize.Y;
+		Parameters.ScaleBias.Z = 2.0f * DisplayOffsetX / (float)TargetSize.X - 1.0f;
+		Parameters.ScaleBias.W = 2.0f * DisplayOffsetY / (float)TargetSize.Y - 1.0f;
+		FParticleSimVisualizeBufferRef UniformBuffer = FParticleSimVisualizeBufferRef::CreateUniformBufferImmediate(Parameters, UniformBuffer_SingleDraw);
+		VertexShader->SetParameters(RHICmdList, UniformBuffer);
+		PixelShader->SetParameters(RHICmdList, VisualizationMode, StateTextures.PositionTextureRHI, CurveTextureRHI);
+
+		const int32 VertexStride = sizeof(FVector2D);
+
+		// Bind vertex stream.
+		RHICmdList.SetStreamSource(
+			0,
+			GParticleTexCoordVertexBuffer.VertexBufferRHI,
+			/*VertexOffset=*/ 0
 		);
 
-	// Draw.
-	RHICmdList.DrawIndexedPrimitive(
-		GParticleIndexBuffer.IndexBufferRHI,
-		/*BaseVertexIndex=*/ 0,
-		/*MinIndex=*/ 0,
-		/*NumVertices=*/ 4,
-		/*StartIndex=*/ 0,
-		/*NumPrimitives=*/ 2,
-		/*NumInstances=*/ 1
+		// Draw.
+		RHICmdList.DrawIndexedPrimitive(
+			GParticleIndexBuffer.IndexBufferRHI,
+			/*BaseVertexIndex=*/ 0,
+			/*MinIndex=*/ 0,
+			/*NumVertices=*/ 4,
+			/*StartIndex=*/ 0,
+			/*NumPrimitives=*/ 2,
+			/*NumInstances=*/ 1
 		);
+	}
+	RHICmdList.EndRenderPass();
 }
 
 /**
@@ -4712,9 +4717,12 @@ void FFXSystem::SimulateGPUParticles(
 			
 			RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[0]);
 			RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[1]);
-			
-			SetRenderTarget(RHICmdList, CurrentStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-			SetRenderTarget(RHICmdList, CurrentStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+
+			{
+				FRHIRenderPassInfo RenderPassInfo(2, CurrentStateRenderTargets, ERenderTargetActions::Clear_Store);
+				RHICmdList.BeginRenderPass(RenderPassInfo, TEXT("GPUParticlesClearStateTextures"));
+				RHICmdList.EndRenderPass();
+			}
 			
 			CurrentStateTextures.bTexturesCleared = true;
 			
@@ -4726,11 +4734,15 @@ void FFXSystem::SimulateGPUParticles(
 		{
 			RHICmdList.BeginUpdateMultiFrameResource(PreviousStateRenderTargets[0]);
 			RHICmdList.BeginUpdateMultiFrameResource(PreviousStateRenderTargets[1]);
-			
-			SetRenderTarget(RHICmdList, PrevStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-			RHICmdList.CopyToResolveTarget(PrevStateTextures.PositionTextureTargetRHI, PrevStateTextures.PositionTextureTargetRHI, FResolveParams());
-			SetRenderTarget(RHICmdList, PrevStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-			RHICmdList.CopyToResolveTarget(PrevStateTextures.VelocityTextureTargetRHI, PrevStateTextures.VelocityTextureTargetRHI, FResolveParams());
+
+			{
+				FRHIRenderPassInfo RPInfo(2, PreviousStateRenderTargets, ERenderTargetActions::Clear_Store);
+				RPInfo.ColorRenderTargets[0].ResolveTarget = PrevStateTextures.PositionTextureTargetRHI;
+				RPInfo.ColorRenderTargets[1].ResolveTarget = PrevStateTextures.VelocityTextureTargetRHI;
+
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("GPUParticlesClearPreviousStateTextures"));
+				RHICmdList.EndRenderPass();
+			}
 			
 			PrevStateTextures.bTexturesCleared = true;
 			
@@ -4884,44 +4896,48 @@ void FFXSystem::SimulateGPUParticles(
 	
 	if ( SimulationCommands.Num() || TilesToClear.Num())
 	{
-		SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_SimulateAndClear);
-
-		SetRenderTargets(RHICmdList, 2, CurrentStateRenderTargets, FTextureRHIParamRef(), 0, NULL);
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		
-		RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		
-		// Simulate particles in all active tiles.
-		if ( SimulationCommands.Num() )
+		FRHIRenderPassInfo RPInfo(2, CurrentStateRenderTargets, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("GPUParticles_SimulateAndClear"));
 		{
-			SCOPED_DRAW_EVENT(RHICmdList, ParticleSimulationCommands);
-			
-			ExecuteSimulationCommands(
-						RHICmdList,
-						GraphicsPSOInit,
-						FeatureLevel,
-						SimulationCommands,
-						ParticleSimulationResources,
-						ViewUniformBuffer,
-						GlobalDistanceFieldParameterData,
-						SceneTexturesUniformBufferStruct,
-						SceneTexturesUniformBuffer,
-						Phase,
-						FixDeltaSeconds > 0
-						);
-		}
+			SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_SimulateAndClear);
 
-		// Clear any newly allocated tiles.
-		if (TilesToClear.Num())
-		{
-			SCOPED_DRAW_EVENT(RHICmdList, ParticleTilesClear);
-			
-			ClearTiles(RHICmdList, GraphicsPSOInit, FeatureLevel, TilesToClear);
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+			RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+			// Simulate particles in all active tiles.
+			if (SimulationCommands.Num())
+			{
+				SCOPED_DRAW_EVENT(RHICmdList, ParticleSimulationCommands);
+
+				ExecuteSimulationCommands(
+					RHICmdList,
+					GraphicsPSOInit,
+					FeatureLevel,
+					SimulationCommands,
+					ParticleSimulationResources,
+					ViewUniformBuffer,
+					GlobalDistanceFieldParameterData,
+					SceneTexturesUniformBufferStruct,
+					SceneTexturesUniformBuffer,
+					Phase,
+					FixDeltaSeconds > 0
+				);
+			}
+
+			// Clear any newly allocated tiles.
+			if (TilesToClear.Num())
+			{
+				SCOPED_DRAW_EVENT(RHICmdList, ParticleTilesClear);
+
+				ClearTiles(RHICmdList, GraphicsPSOInit, FeatureLevel, TilesToClear);
+			}
 		}
+		RHICmdList.EndRenderPass();
 	}
 
 	// Inject any new particles that have spawned into the simulation.
@@ -4942,29 +4958,26 @@ void FFXSystem::SimulateGPUParticles(
 		RHICmdList.BeginUpdateMultiFrameResource(ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI);
 		RHICmdList.BeginUpdateMultiFrameResource(ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI);
 
-		SetRenderTargets(RHICmdList, 4, InjectRenderTargets, FTextureRHIParamRef(), 0, NULL, true);
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		
-		RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		FRHIRenderPassInfo RPInfo(4, InjectRenderTargets, ERenderTargetActions::Load_Store);
+		RPInfo.ColorRenderTargets[2].ResolveTarget = ParticleSimulationResources->RenderAttributesTexture.TextureRHI;
+		RPInfo.ColorRenderTargets[3].ResolveTarget = ParticleSimulationResources->SimulationAttributesTexture.TextureRHI;
+		{
+			TransitionRenderPassTargets(RHICmdList, RPInfo);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ParticleInjection"));
 
-		// Inject particles.
-		InjectNewParticles<false>(RHICmdList, GraphicsPSOInit, FeatureLevel, NewParticles);
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		// Resolve attributes textures. State textures are resolved later.
-		RHICmdList.CopyToResolveTarget(
-			ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI,
-			ParticleSimulationResources->RenderAttributesTexture.TextureRHI,
-			FResolveParams()
-			);
-		RHICmdList.CopyToResolveTarget(
-			ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI,
-			ParticleSimulationResources->SimulationAttributesTexture.TextureRHI,
-			FResolveParams()
-			);
+			RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+			// Inject particles.
+			InjectNewParticles<false>(RHICmdList, GraphicsPSOInit, this->FeatureLevel, NewParticles);
+
+			RHICmdList.EndRenderPass();
+		}
 
 		if (GNumAlternateFrameRenderingGroups > 1 && CVarGPUParticleAFRReinject.GetValueOnRenderThread() == 1)
 		{			
@@ -4988,38 +5001,40 @@ void FFXSystem::SimulateGPUParticles(
 		//will make this second step simulate an interpolated extra 7ms.  This second interpolated step is what we render on THIS frame, but it is NOT fed into the next frame's simulation.  Thus we do not need to transfer it between GPUs in AFR mode.
 		FParticleStateTextures& VisualizeStateTextures = ParticleSimulationResources->GetPreviousStateTextures();
 		FTextureRHIParamRef VisualizeStateRHIs[2] = { VisualizeStateTextures.PositionTextureTargetRHI, VisualizeStateTextures.VelocityTextureTargetRHI };
-		RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, VisualizeStateRHIs, 2);
-		
-		SetRenderTargets(RHICmdList, 2, VisualizeStateRHIs, FTextureRHIParamRef(), 0, NULL);
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		
-		ExecuteSimulationCommands(
-					RHICmdList,
-					GraphicsPSOInit,
-					FeatureLevel,
-					SimulationCommands,
-					ParticleSimulationResources,
-					ViewUniformBuffer,
-					GlobalDistanceFieldParameterData,
-					SceneTexturesUniformBufferStruct,
-					SceneTexturesUniformBuffer,
-					Phase,
-					false
-					);
+
+		FRHIRenderPassInfo RPInfo(2, VisualizeStateRHIs, ERenderTargetActions::Load_Store);
+		{
+			TransitionRenderPassTargets(RHICmdList, RPInfo);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ExecuteSimulationCommands"));
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+			ExecuteSimulationCommands(
+				RHICmdList,
+				GraphicsPSOInit,
+				FeatureLevel,
+				SimulationCommands,
+				ParticleSimulationResources,
+				ViewUniformBuffer,
+				GlobalDistanceFieldParameterData,
+				SceneTexturesUniformBufferStruct,
+				SceneTexturesUniformBuffer,
+				Phase,
+				false
+			);
+
+			RHICmdList.EndRenderPass();
+		}
 		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, VisualizeStateRHIs, 2);		
 	}
 
 	SimulationCommands.Reset();
 	TilesToClear.Reset();
 	NewParticles.Reset();
-
-	// Clear render targets so we can safely read from them.
-	SetRenderTarget(RHICmdList, FTextureRHIParamRef(), FTextureRHIParamRef());
 
 	// Stats.
 	if (Phase == GetLastParticleSimulationPhase(GetShaderPlatform()))
@@ -5042,29 +5057,26 @@ void FFXSystem::UpdateMultiGPUResources(FRHICommandListImmediate& RHICmdList)
 			ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI,
 			ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI
 		};
-		SetRenderTargets(RHICmdList, 2, InjectRenderTargets, FTextureRHIParamRef(), 0, NULL, true);
-		RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
-		// Inject particles.
-		InjectNewParticles<true>(RHICmdList, GraphicsPSOInit, FeatureLevel, LastFrameNewParticles);
+		FRHIRenderPassInfo RPInfo(2, InjectRenderTargets, ERenderTargetActions::Load_Store);
+		RPInfo.ColorRenderTargets[0].ResolveTarget = ParticleSimulationResources->RenderAttributesTexture.TextureRHI;
+		RPInfo.ColorRenderTargets[1].ResolveTarget = ParticleSimulationResources->SimulationAttributesTexture.TextureRHI;
+		{
+			TransitionRenderPassTargets(RHICmdList, RPInfo);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("UpdateMultiGPUResources"));
 
-		// Resolve attributes textures. State textures are resolved later.
-		RHICmdList.CopyToResolveTarget(
-			ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI,
-			ParticleSimulationResources->RenderAttributesTexture.TextureRHI,
-			FResolveParams()
-		);
-		RHICmdList.CopyToResolveTarget(
-			ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI,
-			ParticleSimulationResources->SimulationAttributesTexture.TextureRHI,
-			FResolveParams()
-		);
+			RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
+			// Inject particles.
+			InjectNewParticles<true>(RHICmdList, GraphicsPSOInit, this->FeatureLevel, this->LastFrameNewParticles);
+
+			RHICmdList.EndRenderPass();
+		}
 	}
 
 	// Clear out particles from last frame

@@ -188,106 +188,105 @@ static void InjectCurves(
 
 	RHICmdList.BeginUpdateMultiFrameResource(CurveTextureTargetRHI);
 
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
+
 	if (bFirstCall)
 	{
-		TransitionSetRenderTargetsHelper(RHICmdList, CurveTextureTargetRHI, FTextureRHIParamRef(), FExclusiveDepthStencil::DepthWrite_StencilWrite);
-
-		FRHIRenderTargetView View = FRHIRenderTargetView(CurveTextureTargetRHI, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::EClear;
 		bFirstCall = false;
 	}
-	else
+
+	FRHIRenderPassInfo RPInfo(CurveTextureTargetRHI, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), CurveTextureRHI);
+	TransitionRenderPassTargets(RHICmdList, RPInfo);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("InjectCurves"));
 	{
-		SetRenderTarget(RHICmdList, CurveTextureTargetRHI, FTextureRHIParamRef(), true);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+		RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+		RHICmdList.SetViewport(0, 0, 0.0f, GParticleCurveTextureSizeX, GParticleCurveTextureSizeY, 1.0f);
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+		// Grab shaders.
+		TShaderMapRef<FParticleCurveInjectionVS> VertexShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
+		TShaderMapRef<FParticleCurveInjectionPS> PixelShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GParticleCurveInjectionVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+		int32 PendingCurveCount = InPendingCurves.Num();
+
+		// get sum of size of all curve textures
+		//
+		int32 TotalSamples = 0;
+		for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)
+		{
+			FCurveSamples& Curve = InPendingCurves[CurveIndex];
+			check(Curve.Samples);
+			TotalSamples += Curve.TexelAllocation.Size;
+		}
+
+
+		// get a buffer for all curve textures at once, and copy curve data over
+		//
+		FColor* RESTRICT DestSamples = (FColor*)RHILockVertexBuffer(ScratchVertexBufferRHI, 0, TotalSamples * sizeof(FColor), RLM_WriteOnly);
+		int32 CurrOffset = 0;
+
+		for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)
+		{
+			FCurveSamples& Curve = InPendingCurves[CurveIndex];
+
+			// Copy curve samples in to the scratch vertex buffer.
+			const int32 SampleCount = Curve.TexelAllocation.Size;
+			FMemory::Memcpy(DestSamples + CurrOffset, Curve.Samples, SampleCount * sizeof(FColor));
+			FMemory::Free(Curve.Samples);
+			Curve.Samples = NULL;
+
+			CurrOffset += SampleCount;
+		}
+
+		RHICmdList.UnlockVertexBuffer(ScratchVertexBufferRHI);
+
+
+		// now draw the curves into the curve texture target, reading from the single buffer we just filled
+		//
+		int32 CurrSrcOffset = 0;
+		for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)
+		{
+			FCurveSamples& Curve = InPendingCurves[CurveIndex];
+			const int32 SampleCount = Curve.TexelAllocation.Size;
+
+			// Compute the offset in to the texture.
+			FVector2D CurveOffset((float)Curve.TexelAllocation.X / GParticleCurveTextureSizeX,
+				(float)Curve.TexelAllocation.Y / GParticleCurveTextureSizeY);
+
+			// Stream 0: New particles.
+			RHICmdList.SetStreamSource(0, ScratchVertexBufferRHI, CurrSrcOffset * sizeof(FColor));
+			// Stream 0: TexCoord.
+			RHICmdList.SetStreamSource(1, GParticleTexCoordVertexBuffer.VertexBufferRHI, 0);
+
+			VertexShader->SetParameters(RHICmdList, CurveOffset);
+
+			// Inject particles.
+			RHICmdList.DrawIndexedPrimitive(
+				GParticleIndexBuffer.IndexBufferRHI,
+				/*BaseVertexIndex=*/ 0,
+				/*MinIndex=*/ 0,
+				/*NumVertices=*/ 4,
+				/*StartIndex=*/ 0,
+				/*NumPrimitives=*/ 2,
+				/*NumInstances=*/ SampleCount
+			);
+			CurrSrcOffset += SampleCount;
+		}
 	}
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
-	RHICmdList.SetViewport(0, 0, 0.0f, GParticleCurveTextureSizeX, GParticleCurveTextureSizeY, 1.0f);
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-
-	// Grab shaders.
-	TShaderMapRef<FParticleCurveInjectionVS> VertexShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
-	TShaderMapRef<FParticleCurveInjectionPS> PixelShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
-
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GParticleCurveInjectionVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-	int32 PendingCurveCount = InPendingCurves.Num();
-
-	// get sum of size of all curve textures
-	//
-	int32 TotalSamples = 0;
-	for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)
-	{
-		FCurveSamples& Curve = InPendingCurves[CurveIndex];
-		check(Curve.Samples);
-		TotalSamples += Curve.TexelAllocation.Size;
-	}
-
-
-	// get a buffer for all curve textures at once, and copy curve data over
-	//
-	FColor* RESTRICT DestSamples = (FColor*)RHILockVertexBuffer(ScratchVertexBufferRHI, 0, TotalSamples * sizeof(FColor), RLM_WriteOnly);
-	int32 CurrOffset = 0;
-
-	for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)
-	{
-		FCurveSamples& Curve = InPendingCurves[CurveIndex];
-
-		// Copy curve samples in to the scratch vertex buffer.
-		const int32 SampleCount = Curve.TexelAllocation.Size;
-		FMemory::Memcpy(DestSamples + CurrOffset, Curve.Samples, SampleCount * sizeof(FColor));
-		FMemory::Free(Curve.Samples);
-		Curve.Samples = NULL;
-
-		CurrOffset += SampleCount;
-	}
-
-	RHICmdList.UnlockVertexBuffer(ScratchVertexBufferRHI);
-
-
-	// now draw the curves into the curve texture target, reading from the single buffer we just filled
-	//
-	int32 CurrSrcOffset = 0;
-	for (int32 CurveIndex = 0; CurveIndex < PendingCurveCount; ++CurveIndex)
-	{
-		FCurveSamples& Curve = InPendingCurves[CurveIndex];
-		const int32 SampleCount = Curve.TexelAllocation.Size;
-
-		// Compute the offset in to the texture.
-		FVector2D CurveOffset((float)Curve.TexelAllocation.X / GParticleCurveTextureSizeX,
-			(float)Curve.TexelAllocation.Y / GParticleCurveTextureSizeY);
-
-		// Stream 0: New particles.
-		RHICmdList.SetStreamSource(0, ScratchVertexBufferRHI, CurrSrcOffset*sizeof(FColor));
-		// Stream 0: TexCoord.
-		RHICmdList.SetStreamSource(1, GParticleTexCoordVertexBuffer.VertexBufferRHI, 0);
-
-		VertexShader->SetParameters(RHICmdList, CurveOffset);
-
-		// Inject particles.
-		RHICmdList.DrawIndexedPrimitive(
-			GParticleIndexBuffer.IndexBufferRHI,
-			/*BaseVertexIndex=*/ 0,
-			/*MinIndex=*/ 0,
-			/*NumVertices=*/ 4,
-			/*StartIndex=*/ 0,
-			/*NumPrimitives=*/ 2,
-			/*NumInstances=*/ SampleCount
-		);
-		CurrSrcOffset += SampleCount;
-	}
-	RHICmdList.CopyToResolveTarget(CurveTextureTargetRHI, CurveTextureRHI, FResolveParams());
+	RHICmdList.EndRenderPass();
 	RHICmdList.EndUpdateMultiFrameResource(CurveTextureTargetRHI);
 }
 
