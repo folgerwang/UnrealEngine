@@ -2792,7 +2792,7 @@ void FBlueprintGraphArgumentLayout::GenerateChildContent( IDetailChildrenBuilder
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("FunctionArgDetailsPassByReference", "Pass-by-Reference"))
-				.ToolTipText(LOCTEXT("FunctionArgDetailsPassByReferenceTooltip", "Pass this paremeter by reference?"))
+				.ToolTipText(LOCTEXT("FunctionArgDetailsPassByReferenceTooltip", "Pass this parameter by reference?"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			.ValueContent()
