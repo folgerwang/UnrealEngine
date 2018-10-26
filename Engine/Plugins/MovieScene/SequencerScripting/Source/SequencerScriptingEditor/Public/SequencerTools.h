@@ -13,7 +13,7 @@
  * gets wrapped by UObjects that have an easier API to work with. This UObject provides access to these wrapper UObjects where needed. 
  */
 UCLASS(Transient, meta=(ScriptName="SequencerTools"))
-class SEQUENCERSCRIPTING_API USequencerToolsFunctionLibrary : public UBlueprintFunctionLibrary
+class SEQUENCERSCRIPTINGEDITOR_API USequencerToolsFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 public:

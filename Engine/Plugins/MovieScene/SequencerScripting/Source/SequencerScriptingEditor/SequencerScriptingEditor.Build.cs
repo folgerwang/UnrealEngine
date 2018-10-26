@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class SequencerScripting : ModuleRules
+public class SequencerScriptingEditor : ModuleRules
 {
-	public SequencerScripting(ReadOnlyTargetRules Target) : base(Target)
+	public SequencerScriptingEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -15,9 +15,7 @@ public class SequencerScripting : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"SequencerScripting/Private",
-				"SequencerScripting/Private/ExtensionLibraries",
-                "SequencerScripting/Private/KeysAndChannels",
+				"SequencerScriptingEditor/Private",
             }
 		);
 
@@ -27,6 +25,7 @@ public class SequencerScripting : ModuleRules
 				"Core",
 				"TimeManagement",
 				"MovieScene",
+                "MovieSceneTools",
                 "MovieSceneTracks",
             }
 		);
@@ -37,8 +36,11 @@ public class SequencerScripting : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Kismet",
+				"PythonScriptPlugin",
 				"Slate",
 				"SlateCore",
+				"MovieSceneCaptureDialog",
+                "MovieSceneCapture",
                 "LevelSequence",
 			}
 		);

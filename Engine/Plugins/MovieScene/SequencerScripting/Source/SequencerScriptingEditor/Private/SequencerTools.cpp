@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerTools.h"
-#include "SequencerScripting.h"
+#include "SequencerScriptingEditor.h"
 #include "MovieSceneCapture.h"
 #include "MovieSceneCaptureDialogModule.h"
 #include "AutomatedLevelSequenceCapture.h"
