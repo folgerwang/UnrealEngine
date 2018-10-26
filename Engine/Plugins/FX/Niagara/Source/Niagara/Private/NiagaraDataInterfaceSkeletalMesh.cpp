@@ -862,17 +862,25 @@ bool UNiagaraDataInterfaceSkeletalMesh::PerInstanceTick(void* PerInstanceData, F
 TArray<FNiagaraDataInterfaceError> UNiagaraDataInterfaceSkeletalMesh::GetErrors()
 {
 	TArray<FNiagaraDataInterfaceError> Errors;
-	bool bHasError= false;
+	bool bHasCPUAccessError= false;
+	bool bHasNoMeshAssignedError = false;
+	
+	// Collect Errors
 	if (DefaultMesh != nullptr)
 	{
 		for (auto info : DefaultMesh->GetLODInfoArray())
 		{
 			if (!info.bAllowCPUAccess)
-				bHasError = true;
+				bHasCPUAccessError = true;
 		}
 	}
+	else
+	{
+		bHasNoMeshAssignedError = true;
+	}
 
-	if (Source == nullptr && bHasError)
+	// Report Errors
+	if (Source == nullptr && bHasCPUAccessError)
 	{
 		FNiagaraDataInterfaceError CPUAccessNotAllowedError(FText::Format(LOCTEXT("CPUAccessNotAllowedError", "This mesh needs CPU access in order to be used properly.({0})"), FText::FromString(DefaultMesh->GetName())),
 			LOCTEXT("CPUAccessNotAllowedErrorSummary", "CPU access error"),
@@ -890,6 +898,16 @@ TArray<FNiagaraDataInterfaceError> UNiagaraDataInterfaceSkeletalMesh::GetErrors(
 
 		Errors.Add(CPUAccessNotAllowedError);
 	}
+
+	if (Source == nullptr && bHasNoMeshAssignedError)
+	{
+		FNiagaraDataInterfaceError NoMeshAssignedError(LOCTEXT("NoMeshAssignedError", "This Data Interface must be assigned a skeletal mesh to operate."),
+			LOCTEXT("NoMeshAssignedErrorSummary", "No mesh assigned error"),
+			FNiagaraDataInterfaceFix());
+
+		Errors.Add(NoMeshAssignedError);
+	}
+
 	return Errors;
 }
 

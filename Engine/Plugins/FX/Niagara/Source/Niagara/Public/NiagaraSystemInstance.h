@@ -43,6 +43,7 @@ public:
 		None
 	};
 
+	FORCEINLINE bool GetAreDataInterfacesInitialized() const { return bDataInterfacesInitialized; }
 
 	/** Creates a new niagara System instance with the supplied component. */
 	explicit FNiagaraSystemInstance(UNiagaraComponent* InComponent);
@@ -199,6 +200,8 @@ public:
 	void Dump()const;
 
 private:
+	bool bDataInterfacesInitialized;
+
 	/** Builds the emitter simulations. */
 	void InitEmitters();
 
