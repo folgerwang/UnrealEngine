@@ -3351,18 +3351,6 @@ TStaticMeshDrawList<TBasePassDrawingPolicy<FUniformLightMapPolicy> >& FScene::Ge
 	return BasePassUniformLightMapPolicyDrawList[DrawType];
 }
 
-template<>
-TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return MobileBasePassUniformLightMapPolicyDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawType];
-}
-
 /*-----------------------------------------------------------------------------
 	MotionBlurInfoData
 -----------------------------------------------------------------------------*/

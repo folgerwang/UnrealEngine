@@ -2116,13 +2116,6 @@ public:
 	template<typename LightMapPolicyType>
 	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
 
-	/** Prototype explicit specializations to prevent instantiation */
-	template<>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType);
-
-	template<>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType);
-
 #if WITH_EDITOR
 	/** Draw list to use for selected static meshes in the editor only */
 	TStaticMeshDrawList<FEditorSelectionDrawingPolicy> EditorSelectionDrawList;
@@ -2648,6 +2641,18 @@ inline bool ShouldIncludeDomainInMeshPass(EMaterialDomain Domain)
 	// Non-Surface domains can be applied to static meshes for thumbnails or material editor preview
 	// Volume domain materials however must only be rendered in the voxelization pass
 	return Domain != MD_Volume;
+}
+
+template<>
+inline TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
+{
+	return MobileBasePassUniformLightMapPolicyDrawList[DrawType];
+}
+
+template<>
+inline TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
+{
+	return MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawType];
 }
 
 #include "BasePassRendering.inl"
