@@ -724,6 +724,11 @@ void UMediaPlayer::PostDuplicate(bool bDuplicateForPIE)
 	{
 		PlayerGuid = FGuid::NewGuid();
 		PlayerFacade->SetGuid(PlayerGuid);
+
+		if (!Playlist)
+		{
+			Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+		}
 	}
 }
 
