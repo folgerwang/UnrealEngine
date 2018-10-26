@@ -171,6 +171,15 @@ struct FDataSetMeta
 
 	int32 IDAcquireTag;
 
+	//Temporary lock we're using for thread safety when writing to the FreeIDTable.
+	//TODO: A lock free algorithm is possible here. We can create a specialized lock free list and reuse the IDTable slots for FreeIndices as Next pointers for our LFL.
+	//This would also work well on the GPU. 
+	//UE-65856 for tracking this work.
+	FCriticalSection FreeTableLock;
+
+	FORCEINLINE void LockFreeTable();
+	FORCEINLINE void UnlockFreeTable();
+
 	FDataSetMeta(uint32 DataSetSize, uint8 **Data, uint8 InNumVariables, int32 InInstanceOffset, TArray<int32>* InIDTable, TArray<int32>* InFreeIDTable, int32* InNumFreeIDs, int32* InMaxUsedID, int32 InIDAcquireTag)
 		: InputRegisters(Data), NumVariables(InNumVariables), DataSetSizeInBytes(DataSetSize), DataSetAccessIndex(INDEX_NONE), DataSetOffset(0), InstanceOffset(InInstanceOffset)
 		, IDTable(InIDTable), FreeIDTable(InFreeIDTable), NumFreeIDs(InNumFreeIDs), MaxUsedID(InMaxUsedID), IDAcquireTag(InIDAcquireTag)
@@ -181,6 +190,13 @@ struct FDataSetMeta
 		: InputRegisters(nullptr), NumVariables(0), DataSetSizeInBytes(0), DataSetAccessIndex(INDEX_NONE), DataSetOffset(0), InstanceOffset(0)
 		, IDTable(nullptr), FreeIDTable(nullptr), NumFreeIDs(nullptr), MaxUsedID(nullptr), IDAcquireTag(0)
 	{}
+
+private:
+	// Non-copyable and non-movable
+	FDataSetMeta(FDataSetMeta&&) = delete;
+	FDataSetMeta(const FDataSetMeta&) = delete;
+	FDataSetMeta& operator=(FDataSetMeta&&) = delete;
+	FDataSetMeta& operator=(const FDataSetMeta&) = delete;
 };
 
 namespace VectorVM
@@ -198,6 +214,22 @@ namespace VectorVM
 		MaxRegisters = NumTempRegisters + MaxInputRegisters + MaxOutputRegisters + MaxConstants,
 	};
 }
+
+//Data the VM will keep on each dataset locally per thread which is then thread safely pushed to it's destination at the end of execution.
+struct FDataSetThreadLocalTempData
+{
+	FDataSetThreadLocalTempData()
+		:MaxID(INDEX_NONE)
+	{}
+
+	TArray<int32> IDsToFree;
+	int32 MaxID;
+
+	//TODO: Possibly store output data locally and memcpy to the real buffers. Could avoid false sharing in parallel execution and so improve perf.
+	//using _mm_stream_ps on platforms that support could also work for this?
+	//TArray<TArray<float>> OutputFloatData;
+	//TArray<TArray<int32>> OutputIntData;
+};
 
 /**
 * Context information passed around during VM execution.
@@ -222,7 +254,9 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 	int32 StartInstance;
 
 	/** Array of meta data on data sets. TODO: This struct should be removed and all features it contains be handled by more general vm ops and the compiler's knowledge of offsets etc. */
-	FDataSetMeta*RESTRICT DataSetMetaTable;
+	TArray<FDataSetMeta>* RESTRICT DataSetMetaTable;
+
+	TArray<FDataSetThreadLocalTempData> ThreadLocalTempData;
 
 #if STATS
 	TArray<FCycleCounter, TInlineAllocator<64>> StatCounterStack;
@@ -247,11 +281,13 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 		int32 InNumSecondaryDatasets,
 		FVMExternalFunction* InExternalFunctionTable,
 		void** InUserPtrTable,
-		FDataSetMeta*RESTRICT InDataSetMetaTable
+		TArray<FDataSetMeta>& RESTRICT InDataSetMetaTable
 #if STATS
 		, const TArray<TStatId>* InStatScopes
 #endif
 	);
+
+	void FinishExec();
 
 	void PrepareForChunk(const uint8* InCode, int32 InNumInstances, int32 InStartInstance)
 	{
