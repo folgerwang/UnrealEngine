@@ -188,45 +188,46 @@ void FRCPassPostProcessLensBlur::Process(FRenderingCompositePassContext& Context
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store, DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("LensBlur"));
+	{
+		Context.SetViewportAndCallRHI(ViewRect);
 
-	Context.SetViewportAndCallRHI(ViewRect);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		// set the state (additive blending)
+		GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	// set the state (additive blending)
-	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		TShaderMapRef<FPostProcessLensBlurVS> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessLensBlurPS> PixelShader(Context.GetShaderMap());
 
-	TShaderMapRef<FPostProcessLensBlurVS> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessLensBlurPS> PixelShader(Context.GetShaderMap());
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		uint32 TileSize = 1;
 
-	uint32 TileSize = 1;
+		FIntPoint TileCount = ViewSize / TileSize;
 
-	FIntPoint TileCount = ViewSize / TileSize;
+		float PixelKernelSize = PercentKernelSize / 100.0f * ViewSize.X;
 
-	float PixelKernelSize = PercentKernelSize / 100.0f * ViewSize.X;
+		VertexShader->SetParameters(Context, TileCount, TileSize, PixelKernelSize, Threshold);
+		PixelShader->SetParameters(Context.RHICmdList, Context, PixelKernelSize);
 
-	VertexShader->SetParameters(Context, TileCount, TileSize, PixelKernelSize, Threshold);
-	PixelShader->SetParameters(Context.RHICmdList, Context, PixelKernelSize);
+		Context.RHICmdList.SetStreamSource(0, NULL, 0);
 
-	Context.RHICmdList.SetStreamSource(0, NULL, 0);
+		// needs to be the same on shader side (faster on NVIDIA and AMD)
+		int32 QuadsPerInstance = 4;
 
-	// needs to be the same on shader side (faster on NVIDIA and AMD)
-	int32 QuadsPerInstance = 4;
-
-	Context.RHICmdList.DrawPrimitive(0, 2, FMath::DivideAndRoundUp(TileCount.X * TileCount.Y, QuadsPerInstance));
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		Context.RHICmdList.DrawPrimitive(0, 2, FMath::DivideAndRoundUp(TileCount.X * TileCount.Y, QuadsPerInstance));
+	}
+	Context.RHICmdList.EndRenderPass();
 }
 
 

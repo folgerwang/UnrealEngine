@@ -999,7 +999,8 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 		DestRect = { DestRect.Min, DestRect.Min + DestSize };
 
 		// Common setup
-		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+		// #todo-renderpass remove once everything is renderpasses
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 
 		static FName AsyncEndFenceName(TEXT("AsyncTonemapEndFence"));
@@ -1049,6 +1050,8 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 			PostProcessTonemapUtil::ShaderTransitionResources<false>(Context);
 		}
 
+		ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
+
 		if (IsMobilePlatform(ShaderPlatform))
 		{
 			// clear target when processing first view in case of splitscreen
@@ -1057,84 +1060,79 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 			// Full clear to avoid restore
 			if ((View.StereoPass == eSSP_FULL && bFirstView) || View.StereoPass == eSSP_LEFT_EYE)
 			{
-				SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-			}
-			else
-			{
-				SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef());
+				LoadAction = ERenderTargetLoadAction::EClear;
 			}
 		}
 		else
 		{
-			ERenderTargetLoadAction LoadAction = Context.GetLoadActionForRenderTarget(DestRenderTarget);
+			LoadAction = Context.GetLoadActionForRenderTarget(DestRenderTarget);
 			if (Context.View.AntiAliasingMethod == AAM_FXAA)
 			{
 				check(LoadAction != ERenderTargetLoadAction::ELoad);
 				// needed to not have PostProcessAA leaking in content (e.g. Matinee black borders).
 				LoadAction = ERenderTargetLoadAction::EClear;
 			}
-
-			FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, LoadAction);
-			FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-			Context.RHICmdList.SetRenderTargetsAndClear(Info);
 		}
 
-		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
-
-		FShader* VertexShader;
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("Tonemap"));
 		{
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 
-			if (bDoEyeAdaptation)
+			FShader* VertexShader;
 			{
-				VertexShader = Context.GetShaderMap()->GetShader<TPostProcessTonemapVS<true>>();
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+				if (bDoEyeAdaptation)
+				{
+					VertexShader = Context.GetShaderMap()->GetShader<TPostProcessTonemapVS<true>>();
+				}
+				else
+				{
+					VertexShader = Context.GetShaderMap()->GetShader<TPostProcessTonemapVS<false>>();
+				}
+
+				TShaderMapRef<FPostProcessTonemapPS> PixelShader(Context.GetShaderMap(), DesktopPermutationVector);
+
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader->GetVertexShader();
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+				SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+				if (bDoEyeAdaptation)
+				{
+					TShaderMapRef<TPostProcessTonemapVS<true>> VertexShaderMapRef(Context.GetShaderMap());
+					VertexShaderMapRef->SetVS(Context);
+				}
+				else
+				{
+					TShaderMapRef<TPostProcessTonemapVS<false>> VertexShaderMapRef(Context.GetShaderMap());
+					VertexShaderMapRef->SetVS(Context);
+				}
+
+				PixelShader->SetPS(Context);
 			}
-			else
-			{
-				VertexShader = Context.GetShaderMap()->GetShader<TPostProcessTonemapVS<false>>();
-			}
 
-			TShaderMapRef<FPostProcessTonemapPS> PixelShader(Context.GetShaderMap(), DesktopPermutationVector);
-
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader->GetVertexShader();
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-			if (bDoEyeAdaptation)
-			{
-				TShaderMapRef<TPostProcessTonemapVS<true>> VertexShaderMapRef(Context.GetShaderMap());
-				VertexShaderMapRef->SetVS(Context);
-			}
-			else
-			{
-				TShaderMapRef<TPostProcessTonemapVS<false>> VertexShaderMapRef(Context.GetShaderMap());
-				VertexShaderMapRef->SetVS(Context);
-			}
-
-			PixelShader->SetPS(Context);
+			DrawPostProcessPass(
+				Context.RHICmdList,
+				0, 0,
+				DestRect.Width(), DestRect.Height(),
+				SrcRect.Min.X, SrcRect.Min.Y,
+				SrcRect.Width(), SrcRect.Height(),
+				DestRect.Size(),
+				SrcSize,
+				VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
+				EDRF_UseTriangleOptimization);
 		}
-
-		DrawPostProcessPass(
-			Context.RHICmdList,
-			0, 0,
-			DestRect.Width(), DestRect.Height(),
-			SrcRect.Min.X, SrcRect.Min.Y,
-			SrcRect.Width(), SrcRect.Height(),
-			DestRect.Size(),
-			SrcSize,
-			VertexShader,
-			View.StereoPass,
-			Context.HasHmdMesh(),
-			EDRF_UseTriangleOptimization);
-
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		Context.RHICmdList.EndRenderPass();
 
 		// We only release the SceneColor after the last view was processed (SplitScreen)
 		if(Context.View.Family->Views[Context.View.Family->Views.Num() - 1] == &Context.View && !GIsEditor)
@@ -1655,6 +1653,8 @@ void FRCPassPostProcessTonemapES2::Process(FRenderingCompositePassContext& Conte
 	FIntPoint SrcSize = InputDesc->Extent;
 	FIntPoint DstSize = OutputDesc.Extent;
 
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
+
 	// Set the view family's render target/viewport.
 	{
 		// clear target when processing first view in case of splitscreen
@@ -1663,53 +1663,52 @@ void FRCPassPostProcessTonemapES2::Process(FRenderingCompositePassContext& Conte
 		// Full clear to avoid restore
 		if ((View.StereoPass == eSSP_FULL && bFirstView) || View.StereoPass == eSSP_LEFT_EYE)
 		{
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-		}
-		else
-		{
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef());
+			LoadAction = ERenderTargetLoadAction::EClear;
 		}
 	}
 
-	Context.SetViewportAndCallRHI(DestRect);
-
-	auto PermutationVector = FPostProcessTonemapPS_ES2::BuildPermutationVector(View);
-
-	TShaderMapRef<FPostProcessTonemapVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessTonemapPS_ES2> PixelShader(Context.GetShaderMap(), PermutationVector);
-
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("TonemapES2"));
 	{
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		Context.SetViewportAndCallRHI(DestRect);
 
-		VertexShader->bUsedFramebufferFetch = bUsedFramebufferFetch;
+		auto PermutationVector = FPostProcessTonemapPS_ES2::BuildPermutationVector(View);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		TShaderMapRef<FPostProcessTonemapVS_ES2> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessTonemapPS_ES2> PixelShader(Context.GetShaderMap(), PermutationVector);
 
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		{
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		VertexShader->SetVS(Context);
-		PixelShader->SetPS(Context.RHICmdList, Context, PermutationVector, bSRGBAwareTarget);
+			VertexShader->bUsedFramebufferFetch = bUsedFramebufferFetch;
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			VertexShader->SetVS(Context);
+			PixelShader->SetPS(Context.RHICmdList, Context, PermutationVector, bSRGBAwareTarget);
+		}
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstSize.X, DstSize.Y,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DstSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstSize.X, DstSize.Y,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DstSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.EndRenderPass();
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessTonemapES2::ComputeOutputDesc(EPassOutputId InPassOutputId) const

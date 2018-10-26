@@ -917,7 +917,8 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 		FIntRect DestRect(0, 0, bUseVolumeTextureLUT ? GLUTSize : GLUTSize * GLUTSize, GLUTSize);
 	
 		// Common setup
-		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+		// #todo-renderpasses remove once everything is renderpasses
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 		
 		static FName AsyncEndFenceName(TEXT("AsyncCombineLUTsEndFence"));
@@ -946,45 +947,44 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 	else
 	{
 		// Set the view family's render target/viewport.
+		ERenderTargetActions LoadStoreAction = ERenderTargetActions::DontLoad_Store;
 		if (IsMobilePlatform(ShaderPlatform))
 		{
-			// Full clear to avoid restore
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget->TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+			LoadStoreAction = ERenderTargetActions::Clear_Store;
 		}
-		else
+
+		FRHIRenderPassInfo RPInfo(DestRenderTarget->TargetableTexture, LoadStoreAction, DestRenderTarget->ShaderResourceTexture);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CombineLUTs"));
 		{
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget->TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EUninitializedColorAndDepth);
+			Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+			const FVolumeBounds VolumeBounds(GLUTSize);
+
+			SetLUTBlenderShader(Context, Context.RHICmdList, LocalCount, LocalTextures, LocalWeights, VolumeBounds, bUseVolumeTextureLUT);
+
+			if (bUseVolumeTextureLUT)
+			{
+				// use volume texture 16x16x16
+				RasterizeToVolumeTexture(Context.RHICmdList, VolumeBounds);
+			}
+			else
+			{
+				// use unwrapped 2d texture 256x16
+				TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+				DrawRectangle(
+					Context.RHICmdList,
+					0, 0,										// XY
+					GLUTSize * GLUTSize, GLUTSize,				// SizeXY
+					0, 0,										// UV
+					GLUTSize * GLUTSize, GLUTSize,				// SizeUV
+					FIntPoint(GLUTSize * GLUTSize, GLUTSize),	// TargetSize
+					FIntPoint(GLUTSize * GLUTSize, GLUTSize),	// TextureSize
+					*VertexShader,
+					EDRF_UseTriangleOptimization);
+			}
 		}
-		
-		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
-
-		const FVolumeBounds VolumeBounds(GLUTSize);
-
-		SetLUTBlenderShader(Context, Context.RHICmdList, LocalCount, LocalTextures, LocalWeights, VolumeBounds, bUseVolumeTextureLUT);
-
-		if (bUseVolumeTextureLUT)
-		{
-			// use volume texture 16x16x16
-			RasterizeToVolumeTexture(Context.RHICmdList, VolumeBounds);
-		}
-		else
-		{
-			// use unwrapped 2d texture 256x16
-			TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-			DrawRectangle( 
-				Context.RHICmdList,
-				0, 0,										// XY
-				GLUTSize * GLUTSize, GLUTSize,				// SizeXY
-				0, 0,										// UV
-				GLUTSize * GLUTSize, GLUTSize,				// SizeUV
-				FIntPoint(GLUTSize * GLUTSize, GLUTSize),	// TargetSize
-				FIntPoint(GLUTSize * GLUTSize, GLUTSize),	// TextureSize
-				*VertexShader,
-				EDRF_UseTriangleOptimization);
-		}
-
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget->TargetableTexture, DestRenderTarget->ShaderResourceTexture, FResolveParams());
+		Context.RHICmdList.EndRenderPass();
 	}
 
 	Context.View.SetValidTonemappingLUT();

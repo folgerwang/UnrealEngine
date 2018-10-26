@@ -421,8 +421,8 @@ void ResizeAndCenterTexture(FRenderingCompositePassContext& Context,
 	// Get a pointer to the shader
 	FResizeAndCenterTextureCS* ComputeShader = ShaderMap.GetShader< FResizeAndCenterTextureCS >();
 
-	//
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -477,8 +477,8 @@ void CaptureKernelWeight(FRenderingCompositePassContext& Context,
 	// Get a pointer to the shader
 	FCaptureKernelWeightsCS* ComputeShader = ShaderMap.GetShader< FCaptureKernelWeightsCS >();
 
-
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -536,8 +536,8 @@ void BlendLowRes(FRenderingCompositePassContext& Context,
 	// Get a pointer to the shader
 	FBlendLowResCS* ComputeShader = ShaderMap.GetShader< FBlendLowResCS>();
 
-
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -584,7 +584,8 @@ void CopyImageRect(FRenderingCompositePassContext& Context, const FSceneRenderTa
 	// Get a pointer to the shader
 	FPassThroughCS* ComputeShader = ShaderMap.GetShader< FPassThroughCS >();
 
-	SetRenderTarget(Context.RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination

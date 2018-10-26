@@ -223,51 +223,52 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("MorpheusPostProcess"));
+	{
+		Context.SetViewportAndCallRHI(DestRect);
 
-	Context.SetViewportAndCallRHI(DestRect);
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
 #if defined(MORPHEUS_ENGINE_DISTORTION) && MORPHEUS_ENGINE_DISTORTION
-	TShaderMapRef<FPostProcessMorpheusVS> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessMorpheusPS> PixelShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessMorpheusVS> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessMorpheusPS> PixelShader(Context.GetShaderMap());
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	FMatrix QuadTexTransform;
-	FMatrix QuadPosTransform = FMatrix::Identity;
+		FMatrix QuadTexTransform;
+		FMatrix QuadPosTransform = FMatrix::Identity;
 
-	PixelShader->SetPS(Context.RHICmdList, Context, SrcRect, SrcSize, View.StereoPass, QuadTexTransform);
+		PixelShader->SetPS(Context.RHICmdList, Context, SrcRect, SrcSize, View.StereoPass, QuadTexTransform);
 
-	// Draw a quad mapping scene color to the view's render target
-	DrawTransformedRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width(), DestRect.Height(),
-		QuadPosTransform,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		QuadTexTransform,
-		DestRect.Size(),
-		SrcSize
+		// Draw a quad mapping scene color to the view's render target
+		DrawTransformedRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DestRect.Width(), DestRect.Height(),
+			QuadPosTransform,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			QuadTexTransform,
+			DestRect.Size(),
+			SrcSize
 		);
 #elif PLATFORM_PS4
-	checkf(false, TEXT("PS4 uses SDK distortion."));
+		checkf(false, TEXT("PS4 uses SDK distortion."));
 #else
-	checkf(false, TEXT("Unsupported path.  Morpheus should be disabled."));
+		checkf(false, TEXT("Unsupported path.  Morpheus should be disabled."));
 #endif
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	}
+	Context.RHICmdList.EndRenderPass();
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessMorpheus::ComputeOutputDesc(EPassOutputId InPassOutputId) const

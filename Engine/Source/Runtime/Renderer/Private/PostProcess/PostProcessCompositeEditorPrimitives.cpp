@@ -442,89 +442,112 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 	FIntPoint SrcSize = InputDesc->Extent;
 
 	{
-		ESimpleRenderTargetMode RTMode = bClearIsNeeded ? ESimpleRenderTargetMode::EClearColorAndDepth : ESimpleRenderTargetMode::EExistingColorAndDepth;
-
-		SetRenderTarget(Context.RHICmdList, EditorColorTarget, EditorDepthTarget, RTMode);
-		Context.SetViewportAndCallRHI(ViewRect);
-
-		// Populate depth from scene depth.
+		FRHIRenderPassInfo RPInfo;
+		RPInfo.ColorRenderTargets[0].RenderTarget = EditorColorTarget;
+		RPInfo.DepthStencilRenderTarget.DepthStencilTarget = EditorDepthTarget;
+		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 		if (bClearIsNeeded)
 		{
-			SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("PopulateEditorPrimitivesDepthBuffer %dx%d msaa=%d"),
-				ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
-
-			if (MSAASampleCount == 1)
-			{
-				SetPopulateSceneDepthForEditorPrimitivesShaderTempl<1>(Context);
-			}
-			else
-			{
-				SetPopulateSceneDepthForEditorPrimitivesShaderTempl<2>(Context);
-			}
-
-			TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-			// Draw a quad mapping our render targets to the view's render target
-			DrawRectangle(
-				Context.RHICmdList,
-				0, 0,
-				ViewRect.Width(), ViewRect.Height(),
-				Context.View.ViewRect.Min.X, Context.View.ViewRect.Min.Y,
-				Context.View.ViewRect.Width(), Context.View.ViewRect.Height(),
-				ViewRect.Size(),
-				SrcSize,
-				*VertexShader,
-				EDRF_UseTriangleOptimization);
-		}
-
-		TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
-		TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
-		FUniformBufferRHIParamRef BasePassUniformBuffer = nullptr;
-
-		if (bDeferredBasePass)
-		{
-			CreateOpaqueBasePassUniformBuffer(Context.RHICmdList, EditorView, nullptr, OpaqueBasePassUniformBuffer);
-			BasePassUniformBuffer = OpaqueBasePassUniformBuffer;
+			RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
+			RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::ClearDepthStencil_StoreDepthStencil;
 		}
 		else
 		{
-			CreateMobileBasePassUniformBuffer(Context.RHICmdList, EditorView, true, MobileBasePassUniformBuffer);
-			BasePassUniformBuffer = MobileBasePassUniformBuffer;
+			RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Load_Store;
+			RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::LoadDepthStencil_StoreDepthStencil;
 		}
 
-		FDrawingPolicyRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
-		DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
-		DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
-
-		// Draw editor primitives.
+		// It's possible to have no depth target here.
+		if (!EditorDepthTarget)
 		{
-			SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorPrimitives %dx%d msaa=%d"),
-				ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
-				
+			RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
+			RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		}
+
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CompositeEditorPrimitives"));
+		{
+			Context.SetViewportAndCallRHI(ViewRect);
+
+			// Populate depth from scene depth.
+			if (bClearIsNeeded)
+			{
+				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("PopulateEditorPrimitivesDepthBuffer %dx%d msaa=%d"),
+					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
+
+				if (MSAASampleCount == 1)
+				{
+					SetPopulateSceneDepthForEditorPrimitivesShaderTempl<1>(Context);
+				}
+				else
+				{
+					SetPopulateSceneDepthForEditorPrimitivesShaderTempl<2>(Context);
+				}
+
+				TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+				// Draw a quad mapping our render targets to the view's render target
+				DrawRectangle(
+					Context.RHICmdList,
+					0, 0,
+					ViewRect.Width(), ViewRect.Height(),
+					Context.View.ViewRect.Min.X, Context.View.ViewRect.Min.Y,
+					Context.View.ViewRect.Width(), Context.View.ViewRect.Height(),
+					ViewRect.Size(),
+					SrcSize,
+					*VertexShader,
+					EDRF_UseTriangleOptimization);
+			}
+
+			TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
+			TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
+			FUniformBufferRHIParamRef BasePassUniformBuffer = nullptr;
+
 			if (bDeferredBasePass)
 			{
-				RenderEditorPrimitives<FBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
+				CreateOpaqueBasePassUniformBuffer(Context.RHICmdList, EditorView, nullptr, OpaqueBasePassUniformBuffer);
+				BasePassUniformBuffer = OpaqueBasePassUniformBuffer;
 			}
 			else
 			{
-				RenderEditorPrimitives<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
+				CreateMobileBasePassUniformBuffer(Context.RHICmdList, EditorView, true, MobileBasePassUniformBuffer);
+				BasePassUniformBuffer = MobileBasePassUniformBuffer;
+			}
+
+			FDrawingPolicyRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
+			DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
+			DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
+
+			// Draw editor primitives.
+			{
+				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorPrimitives %dx%d msaa=%d"),
+					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
+
+				if (bDeferredBasePass)
+				{
+					RenderEditorPrimitives<FBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
+				}
+				else
+				{
+					RenderEditorPrimitives<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
+				}
+			}
+
+			// Draw foreground editor primitives.
+			{
+				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorForegroundPrimitives %dx%d msaa=%d"),
+					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
+
+				if (bDeferredBasePass)
+				{
+					RenderForegroundEditorPrimitives<FBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState, /* bIgnoreExistingDepth = */ true);
+				}
+				else
+				{
+					RenderForegroundEditorPrimitives<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState, /* bIgnoreExistingDepth = */ true);
+				}
 			}
 		}
-
-		// Draw foreground editor primitives.
-		{
-			SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorForegroundPrimitives %dx%d msaa=%d"),
-				ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
-
-			if (bDeferredBasePass)
-			{
-				RenderForegroundEditorPrimitives<FBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState, /* bIgnoreExistingDepth = */ true);
-			}
-			else
-			{
-				RenderForegroundEditorPrimitives<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState, /* bIgnoreExistingDepth = */ true);
-			}
-		}
+		Context.RHICmdList.EndRenderPass();
 
 		GVisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.EditorPrimitivesColor);
 
@@ -547,55 +570,56 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		FIntRect DestRect = Context.GetSceneColorDestRect(DestRenderTarget);
 
 		// Set the view family's render target/viewport.
-		SetRenderTarget(Context.RHICmdList, DestRenderTargetSurface, FTextureRHIRef());
-
-		Context.SetViewportAndCallRHI(DestRect);
-
-		// If clear is not needed, that mean already have something in MSAA buffers. Because not populating scene depth buffer
-		// into MSAA depth buffer, then force to compose any sample that have non null depth as if alpha channel was 1.
-		bool bComposeAnyNonNullDepth = !bClearIsNeeded;
-
-		if (!bDeferredBasePass)
+		FRHIRenderPassInfo RPInfo(DestRenderTargetSurface, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("ComposeEditorPrimitives"));
 		{
-			SetCompositePrimitivesShaderTempl<0>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 1)
-		{
-			SetCompositePrimitivesShaderTempl<1>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 2)
-		{
-			SetCompositePrimitivesShaderTempl<2>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 4)
-		{
-			SetCompositePrimitivesShaderTempl<4>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 8)
-		{
-			SetCompositePrimitivesShaderTempl<8>(Context, bComposeAnyNonNullDepth);
-		}
-		else
-		{
-			// not supported, internal error
-			check(0);
-		}
+			Context.SetViewportAndCallRHI(DestRect);
 
-		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+			// If clear is not needed, that mean already have something in MSAA buffers. Because not populating scene depth buffer
+			// into MSAA depth buffer, then force to compose any sample that have non null depth as if alpha channel was 1.
+			bool bComposeAnyNonNullDepth = !bClearIsNeeded;
 
-		// Draw a quad mapping our render targets to the view's render target
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			DestRect.Width(), DestRect.Height(),
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			DestRect.Size(),
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
+			if (!bDeferredBasePass)
+			{
+				SetCompositePrimitivesShaderTempl<0>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 1)
+			{
+				SetCompositePrimitivesShaderTempl<1>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 2)
+			{
+				SetCompositePrimitivesShaderTempl<2>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 4)
+			{
+				SetCompositePrimitivesShaderTempl<4>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 8)
+			{
+				SetCompositePrimitivesShaderTempl<8>(Context, bComposeAnyNonNullDepth);
+			}
+			else
+			{
+				// not supported, internal error
+				check(0);
+			}
 
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTargetSurface, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+			TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+			// Draw a quad mapping our render targets to the view's render target
+			DrawRectangle(
+				Context.RHICmdList,
+				0, 0,
+				DestRect.Width(), DestRect.Height(),
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				DestRect.Size(),
+				SrcSize,
+				*VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+		Context.RHICmdList.EndRenderPass();
 	}
 
 	// Clean up targets

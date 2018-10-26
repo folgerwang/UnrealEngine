@@ -47,8 +47,11 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// Set the render target/viewport.
-	FRHIDepthRenderTargetView DepthRT(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::ENoAction, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::ENoAction);
-	FRHISetRenderTargetsInfo RTInfo(0, nullptr, DepthRT);
+	FRHIRenderPassInfo RPInfo;
+	RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DestRenderTarget.TargetableTexture;
+	RPInfo.DepthStencilRenderTarget.ResolveTarget = DestRenderTarget.ShaderResourceTexture;
+	RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Clear_DontStore, ERenderTargetActions::Clear_DontStore);
+	RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 
 	if (GRHIRequiresRenderTargetForPixelShaderUAVs)
 	{
@@ -59,118 +62,118 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 		GRenderTargetPool.FindFreeElement(Context.RHICmdList, Desc, Dummy, TEXT("Dummy"));
 		FRHIRenderTargetView DummyRTView(Dummy->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::ENoAction);
 
-		RTInfo = FRHISetRenderTargetsInfo(1, &DummyRTView, DepthRT);
+		RPInfo.ColorRenderTargets[0].RenderTarget = Dummy->GetRenderTargetItem().TargetableTexture;
+		RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::DontLoad_Store;
 	}
 
-	Context.RHICmdList.SetRenderTargetsAndClear(RTInfo);
-
-	Context.SetViewportAndCallRHI(ViewRect);
-
-	WaitForInputPassComputeFences(Context.RHICmdList);
-
-	if (View.Family->EngineShowFlags.Selection)
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SelectionOutlineColor"));
 	{
-		FViewInfo& EditorView = *Context.View.CreateSnapshot();
+		Context.SetViewportAndCallRHI(ViewRect);
 
+		WaitForInputPassComputeFences(Context.RHICmdList);
+
+		if (View.Family->EngineShowFlags.Selection)
 		{
-			// Patch view rect.
-			EditorView.ViewRect = ViewRect;
+			FViewInfo& EditorView = *Context.View.CreateSnapshot();
 
-			// Override pre exposure to 1.0f, because rendering after tonemapper. 
-			EditorView.PreExposure = 1.0f;
-
-			// Kills material texture mipbias because after TAA.
-			EditorView.MaterialTextureMipBias = 0.0f;
-
-			if (EditorView.AntiAliasingMethod == AAM_TemporalAA)
 			{
-				EditorView.ViewMatrices.HackRemoveTemporalAAProjectionJitter();
-			}
+				// Patch view rect.
+				EditorView.ViewRect = ViewRect;
 
-			EditorView.CachedViewUniformShaderParameters = MakeUnique<FViewUniformShaderParameters>();
+				// Override pre exposure to 1.0f, because rendering after tonemapper. 
+				EditorView.PreExposure = 1.0f;
 
-			FBox VolumeBounds[TVC_MAX];
-			EditorView.SetupUniformBufferParameters(SceneContext, VolumeBounds, TVC_MAX, *EditorView.CachedViewUniformShaderParameters);
-			EditorView.ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(*EditorView.CachedViewUniformShaderParameters, UniformBuffer_SingleFrame);
-		}
+				// Kills material texture mipbias because after TAA.
+				EditorView.MaterialTextureMipBias = 0.0f;
 
-		FSceneTexturesUniformParameters SceneTextureParameters;
-		SetupSceneTextureUniformParameters(SceneContext, EditorView.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
-		TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
-
-		FDrawingPolicyRenderState DrawRenderState(EditorView, PassUniformBuffer);
-
-		FHitProxyDrawingPolicyFactory::ContextType FactoryContext;
-		DrawRenderState.ModifyViewOverrideFlags() |= EDrawingPolicyOverrideFlags::TwoSided;
-		DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI());
-		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-
-		// Note that the stencil value will overflow with enough selected objects
-		FEditorSelectionDrawingPolicy::ResetStencilValues();
-
-		// Run selection pass on static elements
-		FScene* Scene = View.Family->Scene->GetRenderScene();
-		if(Scene)
-		{	
-			Scene->EditorSelectionDrawList.DrawVisible(Context.RHICmdList, EditorView, DrawRenderState, View.StaticMeshEditorSelectionMap, View.StaticMeshBatchVisibility);
-		}
-	
-		for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
-		{
-			const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
-			const FPrimitiveSceneProxy* PrimitiveSceneProxy = MeshBatchAndRelevance.PrimitiveSceneProxy;
-
-			// Selected actors should be subdued if any component is individually selected
-			bool bActorSelectionColorIsSubdued = View.bHasSelectedComponents;
-
-			if (PrimitiveSceneProxy->IsSelected() && MeshBatchAndRelevance.Mesh->bUseSelectionOutline && PrimitiveSceneProxy->WantsSelectionOutline())
-			{
-				int32 StencilValue = 1;
-				if(PrimitiveSceneProxy->GetOwnerName() != NAME_BSP)
+				if (EditorView.AntiAliasingMethod == AAM_TemporalAA)
 				{
-					StencilValue = FEditorSelectionDrawingPolicy::GetStencilValue(View, PrimitiveSceneProxy);
-
+					EditorView.ViewMatrices.HackRemoveTemporalAAProjectionJitter();
 				}
 
-				// Note that the stencil value will overflow with enough selected objects
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI());
-				DrawRenderState.SetStencilRef(StencilValue);
+				EditorView.CachedViewUniformShaderParameters = MakeUnique<FViewUniformShaderParameters>();
 
-				const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(Context.RHICmdList, EditorView, FactoryContext, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
+				FBox VolumeBounds[TVC_MAX];
+				EditorView.SetupUniformBufferParameters(SceneContext, VolumeBounds, TVC_MAX, *EditorView.CachedViewUniformShaderParameters);
+				EditorView.ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(*EditorView.CachedViewUniformShaderParameters, UniformBuffer_SingleFrame);
+			}
+
+			FSceneTexturesUniformParameters SceneTextureParameters;
+			SetupSceneTextureUniformParameters(SceneContext, EditorView.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
+			TUniformBufferRef<FSceneTexturesUniformParameters> PassUniformBuffer = TUniformBufferRef<FSceneTexturesUniformParameters>::CreateUniformBufferImmediate(SceneTextureParameters, UniformBuffer_SingleFrame);
+
+			FDrawingPolicyRenderState DrawRenderState(EditorView, PassUniformBuffer);
+
+			FHitProxyDrawingPolicyFactory::ContextType FactoryContext;
+			DrawRenderState.ModifyViewOverrideFlags() |= EDrawingPolicyOverrideFlags::TwoSided;
+			DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI());
+			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+			// Note that the stencil value will overflow with enough selected objects
+			FEditorSelectionDrawingPolicy::ResetStencilValues();
+
+			// Run selection pass on static elements
+			FScene* Scene = View.Family->Scene->GetRenderScene();
+			if (Scene)
+			{
+				Scene->EditorSelectionDrawList.DrawVisible(Context.RHICmdList, EditorView, DrawRenderState, View.StaticMeshEditorSelectionMap, View.StaticMeshBatchVisibility);
+			}
+
+			for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
+			{
+				const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
+				const FPrimitiveSceneProxy* PrimitiveSceneProxy = MeshBatchAndRelevance.PrimitiveSceneProxy;
+
+				// Selected actors should be subdued if any component is individually selected
+				bool bActorSelectionColorIsSubdued = View.bHasSelectedComponents;
+
+				if (PrimitiveSceneProxy->IsSelected() && MeshBatchAndRelevance.Mesh->bUseSelectionOutline && PrimitiveSceneProxy->WantsSelectionOutline())
+				{
+					int32 StencilValue = 1;
+					if (PrimitiveSceneProxy->GetOwnerName() != NAME_BSP)
+					{
+						StencilValue = FEditorSelectionDrawingPolicy::GetStencilValue(View, PrimitiveSceneProxy);
+
+					}
+
+					// Note that the stencil value will overflow with enough selected objects
+					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI());
+					DrawRenderState.SetStencilRef(StencilValue);
+
+					const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
+					FHitProxyDrawingPolicyFactory::DrawDynamicMesh(Context.RHICmdList, EditorView, FactoryContext, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
+				}
+			}
+
+			// to get an outline around the objects if it's partly outside of the screen
+			{
+				FIntRect InnerRect = ViewRect;
+
+				// 1 as we have an outline that is that thick
+				InnerRect.InflateRect(-1);
+
+				// We could use Clear with InnerRect but this is just an optimization - on some hardware it might do a full clear (and we cannot disable yet)
+				//			RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, InnerRect);
+				// so we to 4 clears - one for each border.
+
+				// top
+				Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, ViewRect.Min.Y, ViewRect.Max.X, InnerRect.Min.Y);
+				DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
+				// bottom
+				Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, InnerRect.Max.Y, ViewRect.Max.X, ViewRect.Max.Y);
+				DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
+				// left
+				Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, ViewRect.Min.Y, InnerRect.Min.X, ViewRect.Max.Y);
+				DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
+				// right
+				Context.RHICmdList.SetScissorRect(true, InnerRect.Max.X, ViewRect.Min.Y, ViewRect.Max.X, ViewRect.Max.Y);
+				DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
+
+				Context.RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 			}
 		}
-
-		// to get an outline around the objects if it's partly outside of the screen
-		{
-			FIntRect InnerRect = ViewRect;
-
-			// 1 as we have an outline that is that thick
-			InnerRect.InflateRect(-1);
-
-			// We could use Clear with InnerRect but this is just an optimization - on some hardware it might do a full clear (and we cannot disable yet)
-			//			RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, InnerRect);
-			// so we to 4 clears - one for each border.
-
-			// top
-			Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, ViewRect.Min.Y, ViewRect.Max.X, InnerRect.Min.Y);
-			DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
-			// bottom
-			Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, InnerRect.Max.Y, ViewRect.Max.X, ViewRect.Max.Y);
-			DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
-			// left
-			Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, ViewRect.Min.Y, InnerRect.Min.X, ViewRect.Max.Y);
-			DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
-			// right
-			Context.RHICmdList.SetScissorRect(true, InnerRect.Max.X, ViewRect.Min.Y, ViewRect.Max.X, ViewRect.Max.Y);
-			DrawClearQuad(Context.RHICmdList, false, FLinearColor(), true, (float)ERHIZBuffer::FarPlane, true, 0, PassOutputs[0].RenderTargetDesc.Extent, FIntRect());
-
-			Context.RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
-		}
 	}
-	
-	// Resolve to the output
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.EndRenderPass();
 #endif	
 }
 
@@ -406,47 +409,49 @@ void FRCPassPostProcessSelectionOutline::Process(FRenderingCompositePassContext&
 	FIntPoint SrcSize = SceneColorInputDesc->Extent;
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.SetViewportAndCallRHI(DestRect);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SelectionOutline"));
+	{
+		Context.SetViewportAndCallRHI(DestRect);
 
-	const uint32 MSAASampleCount = FSceneRenderTargets::Get(Context.RHICmdList).GetEditorMSAACompositingSampleCount();
+		const uint32 MSAASampleCount = FSceneRenderTargets::Get(Context.RHICmdList).GetEditorMSAACompositingSampleCount();
 
-	if(MSAASampleCount == 1)
-	{
-		SetSelectionOutlineShaderTempl<1>(Context);
-	}
-	else if(MSAASampleCount == 2)
-	{
-		SetSelectionOutlineShaderTempl<2>(Context);
-	}
-	else if(MSAASampleCount == 4)
-	{
-		SetSelectionOutlineShaderTempl<4>(Context);
-	}
-	else if(MSAASampleCount == 8)
-	{
-		SetSelectionOutlineShaderTempl<8>(Context);
-	}
-	else
-	{
-		// not supported, internal error
-		check(0);
-	}
+		if (MSAASampleCount == 1)
+		{
+			SetSelectionOutlineShaderTempl<1>(Context);
+		}
+		else if (MSAASampleCount == 2)
+		{
+			SetSelectionOutlineShaderTempl<2>(Context);
+		}
+		else if (MSAASampleCount == 4)
+		{
+			SetSelectionOutlineShaderTempl<4>(Context);
+		}
+		else if (MSAASampleCount == 8)
+		{
+			SetSelectionOutlineShaderTempl<8>(Context);
+		}
+		else
+		{
+			// not supported, internal error
+			check(0);
+		}
 
-	// Draw a quad mapping scene color to the view's render target
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestRect.Size(),
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		// Draw a quad mapping scene color to the view's render target
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestRect.Size(),
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessSelectionOutline::ComputeOutputDesc(EPassOutputId InPassOutputId) const

@@ -270,29 +270,31 @@ void FRCPassPostProcessBufferInspector::Process(FRenderingCompositePassContext& 
 		Scene->PixelInspectorData.Requests.Remove(RequestKey);
 	}
 
-	FIntRect ViewRect = Context.SceneColorViewRect;
-	FIntPoint SrcSize = InputDesc->Extent;
-
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.SetViewportAndCallRHI(ViewRect);
-
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessBufferInspector"));
 	{
-		FShader* VertexShader = SetShaderTempl(Context.RHICmdList, Context);
+		FIntPoint SrcSize = InputDesc->Extent;
+		FIntRect ViewRect = Context.SceneColorViewRect;
+		Context.SetViewportAndCallRHI(ViewRect);
 
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Size(),
-			SrcSize,
-			VertexShader,
-			EDRF_UseTriangleOptimization);
+		{
+			FShader* VertexShader = SetShaderTempl(Context.RHICmdList, Context);
+
+			DrawRectangle(
+				Context.RHICmdList,
+				0, 0,
+				ViewRect.Width(), ViewRect.Height(),
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				ViewRect.Size(),
+				SrcSize,
+				VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
 	}
+	Context.RHICmdList.EndRenderPass();
 
 	FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 	FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
@@ -301,7 +303,7 @@ void FRCPassPostProcessBufferInspector::Process(FRenderingCompositePassContext& 
 	Canvas.Flush_RenderThread(Context.RHICmdList);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
-
+	
 	// AdjustGBufferRefCount(1) call is done in constructor
 	FSceneRenderTargets::Get(Context.RHICmdList).AdjustGBufferRefCount(Context.RHICmdList, -1);
 #endif

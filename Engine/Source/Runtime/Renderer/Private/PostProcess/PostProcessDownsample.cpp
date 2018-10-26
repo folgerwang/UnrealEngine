@@ -308,7 +308,8 @@ void FRCPassPostProcessDownsample::Process(FRenderingCompositePassContext& Conte
 		DestRect = {Context.SceneColorViewRect.Min, Context.SceneColorViewRect.Min + DestSize};
 
 		// Common setup
-		SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+		// #todo-renderpasses remove once everything is renderpasses
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 		
 		static FName AsyncEndFenceName(TEXT("AsyncDownsampleEndFence"));
@@ -365,82 +366,69 @@ void FRCPassPostProcessDownsample::Process(FRenderingCompositePassContext& Conte
 	}
 	else
 	{
-		// check if we have to clear the whole surface.
-		// Otherwise perform the clear when the dest rectangle has been computed.
-		auto FeatureLevel = Context.View.GetFeatureLevel();
-		if (FeatureLevel == ERHIFeatureLevel::ES2 || FeatureLevel == ERHIFeatureLevel::ES3_1)
+		// #todo-renderpasses only clear dest rectangle if it's been computed
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store, DestRenderTarget.ShaderResourceTexture);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessDownsample"));
 		{
-			// Set the view family's render target/viewport.
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
 			Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
-		}
-		else
-		{
-			// Set the view family's render target/viewport.
-			FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::ENoAction);
-			FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-			Context.RHICmdList.SetRenderTargetsAndClear(Info);
-			Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
-		}
+			// InflateSize increases the size of the source/dest rectangle to compensate for bilinear reads and UIBlur pass requirements.
+			int32 InflateSize;
+			// if second input is hooked up
 
-		// InflateSize increases the size of the source/dest rectangle to compensate for bilinear reads and UIBlur pass requirements.
-		int32 InflateSize;
-		// if second input is hooked up
-
-		if (bManuallyClampUV)
-		{
-			if (bIsDepthInputAvailable)
+			if (bManuallyClampUV)
 			{
-				// also put depth in alpha
-				InflateSize = 2;
-				SetShader<2, true>(Context, InputDesc, SrcSize, SrcRect);
-			}
-			else if (Quality == 0)
-			{
-				SetShader<0, true>(Context, InputDesc, SrcSize, SrcRect);
-				InflateSize = 1;
+				if (bIsDepthInputAvailable)
+				{
+					// also put depth in alpha
+					InflateSize = 2;
+					SetShader<2, true>(Context, InputDesc, SrcSize, SrcRect);
+				}
+				else if (Quality == 0)
+				{
+					SetShader<0, true>(Context, InputDesc, SrcSize, SrcRect);
+					InflateSize = 1;
+				}
+				else
+				{
+					SetShader<1, true>(Context, InputDesc, SrcSize, SrcRect);
+					InflateSize = 2;
+				}
 			}
 			else
 			{
-				SetShader<1, true>(Context, InputDesc, SrcSize, SrcRect);
-				InflateSize = 2;
+				if (bIsDepthInputAvailable)
+				{
+					// also put depth in alpha
+					InflateSize = 2;
+					SetShader<2, false>(Context, InputDesc, SrcSize, SrcRect);
+				}
+				else if (Quality == 0)
+				{
+					SetShader<0, false>(Context, InputDesc, SrcSize, SrcRect);
+					InflateSize = 1;
+				}
+				else
+				{
+					SetShader<1, false>(Context, InputDesc, SrcSize, SrcRect);
+					InflateSize = 2;
+				}
 			}
+
+			TShaderMapRef<FPostProcessDownsampleVS> VertexShader(Context.GetShaderMap());
+
+			SrcRect = DestRect * 2;
+			DrawRectangle(
+				Context.RHICmdList,
+				DestRect.Min.X, DestRect.Min.Y,
+				DestRect.Width(), DestRect.Height(),
+				SrcRect.Min.X, SrcRect.Min.Y,
+				SrcRect.Width(), SrcRect.Height(),
+				DestSize,
+				SrcSize,
+				*VertexShader,
+				EDRF_UseTriangleOptimization);
 		}
-		else
-		{
-			if (bIsDepthInputAvailable)
-			{
-				// also put depth in alpha
-				InflateSize = 2;
-				SetShader<2, false>(Context, InputDesc, SrcSize, SrcRect);
-			}
-			else if (Quality == 0)
-			{
-				SetShader<0, false>(Context, InputDesc, SrcSize, SrcRect);
-				InflateSize = 1;
-			}
-			else
-			{
-				SetShader<1, false>(Context, InputDesc, SrcSize, SrcRect);
-				InflateSize = 2;
-			}
-		}
-
-		TShaderMapRef<FPostProcessDownsampleVS> VertexShader(Context.GetShaderMap());
-
-		SrcRect = DestRect * 2;
-		DrawRectangle(
-			Context.RHICmdList,
-			DestRect.Min.X, DestRect.Min.Y,
-			DestRect.Width(), DestRect.Height(),
-			SrcRect.Min.X, SrcRect.Min.Y,
-			SrcRect.Width(), SrcRect.Height(),
-			DestSize,
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
-
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		Context.RHICmdList.EndRenderPass();
 	}
 }
 

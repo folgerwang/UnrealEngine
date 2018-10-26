@@ -158,53 +158,56 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		SetRenderTarget(RHICmdList, HCBRenderTarget.TargetableTexture, 0, NULL);
-		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FRHIRenderPassInfo RPInfo(HCBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, HCBRenderTarget.ShaderResourceTexture);
+		RPInfo.ResolveParameters = FResolveParams(FResolveRect(), CubeFace_PosX, 0);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("BuildHCB_0"));
+		{
+			Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-		
-		VertexShader->SetParameters(Context);
-		PixelShader->SetParameters(Context.RHICmdList, Context);
-			
-			
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			VertexShader->SetParameters(Context);
+			PixelShader->SetParameters(Context.RHICmdList, Context);
+
+
 #if 0
-		const FIntPoint DstDrawSize (
-			FMath::Min(FMath::CeilToInt(HCBUsedPercentage.X * float(HCBSize.X)) + 1, HCBSize.X),
-			FMath::Min(FMath::CeilToInt(HCBUsedPercentage.Y * float(HCBSize.Y)) + 1, HCBSize.Y)
+			const FIntPoint DstDrawSize(
+				FMath::Min(FMath::CeilToInt(HCBUsedPercentage.X * float(HCBSize.X)) + 1, HCBSize.X),
+				FMath::Min(FMath::CeilToInt(HCBUsedPercentage.Y * float(HCBSize.Y)) + 1, HCBSize.Y)
 			);
 
-		RHICmdList.SetViewport(0, 0, 0.0f, DstDrawSize.X, DstDrawSize.Y, 1.0f);
-		
-		DrawPostProcessPass(
-			RHICmdList,
-			0, 0,
-			HCBSize.X, HCBSize.Y,
-			View.ViewRect.Min.X, View.ViewRect.Min.Y,
-			View.ViewRect.Width(), View.ViewRect.Height(),
-			DstDrawSize,
-			SceneContext.GetBufferSizeXY(),
-			*VertexShader,
-			View.StereoPass,
-			Context.HasHmdMesh(),
-			EDRF_UseTriangleOptimization);
-#else
-		RHICmdList.SetViewport(0, 0, 0.0f, HCBSize.X, HCBSize.Y, 1.0f);
-			
-		DrawPostProcessPass(
-			RHICmdList,
-			0, 0,
-			HCBSize.X, HCBSize.Y,
-			View.ViewRect.Min.X, View.ViewRect.Min.Y,
-			View.ViewRect.Width(), View.ViewRect.Height(),
-			HCBSize,
-			SceneContext.GetBufferSizeXY(),
-			*VertexShader,
-			View.StereoPass,
-			Context.HasHmdMesh(),
-			EDRF_UseTriangleOptimization);
-#endif
+			RHICmdList.SetViewport(0, 0, 0.0f, DstDrawSize.X, DstDrawSize.Y, 1.0f);
 
-		RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, FResolveParams(FResolveRect(), CubeFace_PosX, 0));
+			DrawPostProcessPass(
+				RHICmdList,
+				0, 0,
+				HCBSize.X, HCBSize.Y,
+				View.ViewRect.Min.X, View.ViewRect.Min.Y,
+				View.ViewRect.Width(), View.ViewRect.Height(),
+				DstDrawSize,
+				SceneContext.GetBufferSizeXY(),
+				*VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
+				EDRF_UseTriangleOptimization);
+#else
+			RHICmdList.SetViewport(0, 0, 0.0f, HCBSize.X, HCBSize.Y, 1.0f);
+
+			DrawPostProcessPass(
+				RHICmdList,
+				0, 0,
+				HCBSize.X, HCBSize.Y,
+				View.ViewRect.Min.X, View.ViewRect.Min.Y,
+				View.ViewRect.Width(), View.ViewRect.Height(),
+				HCBSize,
+				SceneContext.GetBufferSizeXY(),
+				*VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
+				EDRF_UseTriangleOptimization);
+#endif
+		}
+		Context.RHICmdList.EndRenderPass();
 	}
 		
 	FIntPoint SrcSize = HCBSize;
@@ -213,62 +216,69 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 	// Downsampling...
 	for( uint8 MipIndex = 1; MipIndex < HCBMipCount; MipIndex++ )
 	{
-		DstSize.X = FMath::Max(DstSize.X, 1);
-		DstSize.Y = FMath::Max(DstSize.Y, 1);
+		TCHAR RenderPassLabel[13];
+		FCString::Snprintf(RenderPassLabel, 13, TEXT("BuildHCB_%u"), MipIndex);
 
-		SetRenderTarget(RHICmdList, HCBRenderTarget.TargetableTexture, MipIndex, NULL);
-		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FRHIRenderPassInfo RPInfo(HCBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, HCBRenderTarget.ShaderResourceTexture);
+		RPInfo.ColorRenderTargets[0].MipIndex = MipIndex;
+		RPInfo.ResolveParameters = FResolveParams(FResolveRect(), CubeFace_PosX, MipIndex);
+		RHICmdList.BeginRenderPass(RPInfo, RenderPassLabel);
+		{
+			DstSize.X = FMath::Max(DstSize.X, 1);
+			DstSize.Y = FMath::Max(DstSize.Y, 1);
 
-		TShaderMapRef< FPostProcessVS >	VertexShader(Context.GetShaderMap());
-		TShaderMapRef< TPostProcessBuildHCBPS<1> >	PixelShader(Context.GetShaderMap());
+			Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+			TShaderMapRef< FPostProcessVS >	VertexShader(Context.GetShaderMap());
+			TShaderMapRef< TPostProcessBuildHCBPS<1> >	PixelShader(Context.GetShaderMap());
 
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		PixelShader->SetParameters(RHICmdList, View, SrcSize, HCBRenderTarget.MipSRVs[ MipIndex - 1 ] );
-			
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			PixelShader->SetParameters(RHICmdList, View, SrcSize, HCBRenderTarget.MipSRVs[MipIndex - 1]);
+
 #if 0
-		const FIntPoint DstDrawSize (
-			FMath::Min(FMath::CeilToInt(HCBUsedPercentage.X * float(DstSize.X)) + 1, DstSize.X),
-			FMath::Min(FMath::CeilToInt(HCBUsedPercentage.Y * float(DstSize.Y)) + 1, DstSize.Y)
+			const FIntPoint DstDrawSize(
+				FMath::Min(FMath::CeilToInt(HCBUsedPercentage.X * float(DstSize.X)) + 1, DstSize.X),
+				FMath::Min(FMath::CeilToInt(HCBUsedPercentage.Y * float(DstSize.Y)) + 1, DstSize.Y)
 			);
 
-		RHICmdList.SetViewport(0, 0, 0.0f, DstDrawSize.X, DstDrawSize.Y, 1.0f);
+			RHICmdList.SetViewport(0, 0, 0.0f, DstDrawSize.X, DstDrawSize.Y, 1.0f);
 
-		DrawPostProcessPass(
-			RHICmdList,
-			0, 0,
-			DstSize.X, DstSize.Y,
-			0, 0,
-			SrcSize.X, SrcSize.Y,
-			DstDrawSize,
-			SrcSize,
-			*VertexShader,
-			View.StereoPass,
-			Context.HasHmdMesh(),
-			EDRF_UseTriangleOptimization);
+			DrawPostProcessPass(
+				RHICmdList,
+				0, 0,
+				DstSize.X, DstSize.Y,
+				0, 0,
+				SrcSize.X, SrcSize.Y,
+				DstDrawSize,
+				SrcSize,
+				*VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
+				EDRF_UseTriangleOptimization);
 #else
-		RHICmdList.SetViewport(0, 0, 0.0f, DstSize.X, DstSize.Y, 1.0f);
+			RHICmdList.SetViewport(0, 0, 0.0f, DstSize.X, DstSize.Y, 1.0f);
 
-		DrawPostProcessPass(
-			RHICmdList,
-			0, 0,
-			DstSize.X, DstSize.Y,
-			0, 0,
-			SrcSize.X, SrcSize.Y,
-			DstSize,
-			SrcSize,
-			*VertexShader,
-			View.StereoPass,
-			Context.HasHmdMesh(),
-			EDRF_UseTriangleOptimization);
+			DrawPostProcessPass(
+				RHICmdList,
+				0, 0,
+				DstSize.X, DstSize.Y,
+				0, 0,
+				SrcSize.X, SrcSize.Y,
+				DstSize,
+				SrcSize,
+				*VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
+				EDRF_UseTriangleOptimization);
 #endif
-
-		RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, FResolveParams(FResolveRect(), CubeFace_PosX, MipIndex));
+		}
+		Context.RHICmdList.EndRenderPass();
 
 		SrcSize /= 2;
 		DstSize /= 2;

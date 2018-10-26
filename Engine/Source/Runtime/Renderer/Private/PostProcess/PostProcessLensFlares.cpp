@@ -147,152 +147,151 @@ void FRCPassPostProcessLensFlares::Process(FRenderingCompositePassContext& Conte
 		return;
 	}
 
-	const FViewInfo& View = Context.View;
-	const FSceneViewFamily& ViewFamily = *(View.Family);
-
-	FIntPoint TexSize1 = InputDesc1->Extent;
-	FIntPoint TexSize2 = InputDesc2->Extent;
-
-	uint32 ScaleToFullRes1 = Context.ReferenceBufferSize.X / TexSize1.X;
-	uint32 ScaleToFullRes2 = Context.ReferenceBufferSize.X / TexSize2.X;
-
-	FIntRect ViewRect1 = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, ScaleToFullRes1);
-	FIntRect ViewRect2 = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, ScaleToFullRes2);
-
-	FIntPoint ViewSize1 = ViewRect1.Size();
-	FIntPoint ViewSize2 = ViewRect2.Size();
-
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::ENoAction);
-	FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-	Context.RHICmdList.SetRenderTargetsAndClear(Info);
-
-	Context.SetViewportAndCallRHI(ViewRect1);
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-	
-	// setup background (bloom), can be implemented to use additive blending to avoid the read here
-	if (bCompositeBloom)
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::DontLoad_Store, DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PassPostProcessLensFlares"));
 	{
-		TShaderMapRef<TPostProcessLensFlareBasePS<false>> PixelShader(Context.GetShaderMap());
+		const FViewInfo& View = Context.View;
+		const FSceneViewFamily& ViewFamily = *(View.Family);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		FIntPoint TexSize1 = InputDesc1->Extent;
+		FIntPoint TexSize2 = InputDesc2->Extent;
 
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		uint32 ScaleToFullRes1 = Context.ReferenceBufferSize.X / TexSize1.X;
+		uint32 ScaleToFullRes2 = Context.ReferenceBufferSize.X / TexSize2.X;
 
-		VertexShader->SetParameters(Context);
-		PixelShader->SetParameters(Context.RHICmdList, Context);
+		FIntRect ViewRect1 = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, ScaleToFullRes1);
+		FIntRect ViewRect2 = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, ScaleToFullRes2);
 
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			ViewSize1.X, ViewSize1.Y,
-			ViewRect1.Min.X, ViewRect1.Min.Y,
-			ViewSize1.X, ViewSize1.Y,
-			ViewSize1,
-			TexSize1,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
-	}
-	else
-	{
-		TShaderMapRef<TPostProcessLensFlareBasePS<true>> PixelShader(Context.GetShaderMap());
+		FIntPoint ViewSize1 = ViewRect1.Size();
+		FIntPoint ViewSize2 = ViewRect2.Size();
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		Context.SetViewportAndCallRHI(ViewRect1);
 
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		VertexShader->SetParameters(Context);
-		PixelShader->SetParameters(Context.RHICmdList, Context);
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			ViewSize1.X, ViewSize1.Y,
-			ViewRect1.Min.X, ViewRect1.Min.Y,
-			ViewSize1.X, ViewSize1.Y,
-			ViewSize1,
-			TexSize1,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
 
-	}
-
-	// additive blend
-	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
-
-	// add lens flares on top of that
-	{
-		TShaderMapRef<FPostProcessLensFlaresPS> PixelShader(Context.GetShaderMap());
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		FVector2D TexScaleValue = FVector2D(TexSize2) / ViewSize2;
-
-		VertexShader->SetParameters(Context);
-		PixelShader->SetParameters(Context.RHICmdList, Context, TexScaleValue);
-
-		// todo: expose
-		const uint32 Count = 8;
-
-		// we assume the center of the view is the center of the lens (would not be correct for tiled rendering)
-		FVector2D Center = FVector2D(ViewSize1) * 0.5f;
-
-		FLinearColor LensFlareHDRColor = Context.View.FinalPostProcessSettings.LensFlareTint * Context.View.FinalPostProcessSettings.LensFlareIntensity;
-	
-		// to get the same brightness with 4x more quads (TileSize=1 in LensBlur)
-		LensFlareHDRColor.R *= 0.25f;
-		LensFlareHDRColor.G *= 0.25f;
-		LensFlareHDRColor.B *= 0.25f;
-
-		for(uint32 i = 0; i < Count; ++i)
+		// setup background (bloom), can be implemented to use additive blending to avoid the read here
+		if (bCompositeBloom)
 		{
-			FLinearColor FlareColor = Context.View.FinalPostProcessSettings.LensFlareTints[i % 8];
-			float NormalizedAlpha = FlareColor.A;
-			float Alpha = NormalizedAlpha * 7.0f - 3.5f; 
+			TShaderMapRef<TPostProcessLensFlareBasePS<false>> PixelShader(Context.GetShaderMap());
 
-			// scale to blur outside of the view (only if we use LensBlur)
-			Alpha *= SizeScale;
-			
-			// set the individual flare color
-			SetShaderValue(Context.RHICmdList, PixelShader->GetPixelShader(), PixelShader->FlareColor, FlareColor * LensFlareHDRColor);
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			VertexShader->SetParameters(Context);
+			PixelShader->SetParameters(Context.RHICmdList, Context);
 
 			// Draw a quad mapping scene color to the view's render target
 			DrawRectangle(
 				Context.RHICmdList,
-				Center.X - 0.5f * ViewSize1.X * Alpha, Center.Y - 0.5f * ViewSize1.Y * Alpha,
-				ViewSize1.X * Alpha, ViewSize1.Y * Alpha,
-				ViewRect2.Min.X, ViewRect2.Min.Y,
-				ViewSize2.X, ViewSize2.Y,
+				0, 0,
+				ViewSize1.X, ViewSize1.Y,
+				ViewRect1.Min.X, ViewRect1.Min.Y,
+				ViewSize1.X, ViewSize1.Y,
 				ViewSize1,
-				TexSize2,
+				TexSize1,
 				*VertexShader,
-				EDRF_Default);
+				EDRF_UseTriangleOptimization);
+		}
+		else
+		{
+			TShaderMapRef<TPostProcessLensFlareBasePS<true>> PixelShader(Context.GetShaderMap());
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			VertexShader->SetParameters(Context);
+			PixelShader->SetParameters(Context.RHICmdList, Context);
+
+			// Draw a quad mapping scene color to the view's render target
+			DrawRectangle(
+				Context.RHICmdList,
+				0, 0,
+				ViewSize1.X, ViewSize1.Y,
+				ViewRect1.Min.X, ViewRect1.Min.Y,
+				ViewSize1.X, ViewSize1.Y,
+				ViewSize1,
+				TexSize1,
+				*VertexShader,
+				EDRF_UseTriangleOptimization);
+
+		}
+
+		// additive blend
+		GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
+
+		// add lens flares on top of that
+		{
+			TShaderMapRef<FPostProcessLensFlaresPS> PixelShader(Context.GetShaderMap());
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			FVector2D TexScaleValue = FVector2D(TexSize2) / ViewSize2;
+
+			VertexShader->SetParameters(Context);
+			PixelShader->SetParameters(Context.RHICmdList, Context, TexScaleValue);
+
+			// todo: expose
+			const uint32 Count = 8;
+
+			// we assume the center of the view is the center of the lens (would not be correct for tiled rendering)
+			FVector2D Center = FVector2D(ViewSize1) * 0.5f;
+
+			FLinearColor LensFlareHDRColor = Context.View.FinalPostProcessSettings.LensFlareTint * Context.View.FinalPostProcessSettings.LensFlareIntensity;
+
+			// to get the same brightness with 4x more quads (TileSize=1 in LensBlur)
+			LensFlareHDRColor.R *= 0.25f;
+			LensFlareHDRColor.G *= 0.25f;
+			LensFlareHDRColor.B *= 0.25f;
+
+			for (uint32 i = 0; i < Count; ++i)
+			{
+				FLinearColor FlareColor = Context.View.FinalPostProcessSettings.LensFlareTints[i % 8];
+				float NormalizedAlpha = FlareColor.A;
+				float Alpha = NormalizedAlpha * 7.0f - 3.5f;
+
+				// scale to blur outside of the view (only if we use LensBlur)
+				Alpha *= SizeScale;
+
+				// set the individual flare color
+				SetShaderValue(Context.RHICmdList, PixelShader->GetPixelShader(), PixelShader->FlareColor, FlareColor * LensFlareHDRColor);
+
+				// Draw a quad mapping scene color to the view's render target
+				DrawRectangle(
+					Context.RHICmdList,
+					Center.X - 0.5f * ViewSize1.X * Alpha, Center.Y - 0.5f * ViewSize1.Y * Alpha,
+					ViewSize1.X * Alpha, ViewSize1.Y * Alpha,
+					ViewRect2.Min.X, ViewRect2.Min.Y,
+					ViewSize2.X, ViewSize2.Y,
+					ViewSize1,
+					TexSize2,
+					*VertexShader,
+					EDRF_Default);
+			}
 		}
 	}
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.EndRenderPass();
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessLensFlares::ComputeOutputDesc(EPassOutputId InPassOutputId) const

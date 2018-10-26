@@ -149,45 +149,47 @@ void FRCPassPostProcessNoiseBlur::Process(FRenderingCompositePassContext& Contex
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-
-	if (View.StereoPass == eSSP_FULL)
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("NoiseBlur"));
 	{
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuad(Context.RHICmdList, true, FLinearColor(0, 0, 0, 0), false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
-	}
+		// #todo-renderpasses perhaps an optimization here. Use NoAction if this will clear the whole RT
+		if (View.StereoPass == eSSP_FULL)
+		{
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuad(Context.RHICmdList, true, FLinearColor(0, 0, 0, 0), false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
-	
-	if(Quality == 0)
-	{
-		SetNoiseBlurShader<0>(Context, Radius);
-	}
-	else if(Quality == 1)
-	{
-		SetNoiseBlurShader<1>(Context, Radius);
-	}
-	else
-	{
-		SetNoiseBlurShader<2>(Context, Radius);
-	}
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
 
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+		if (Quality == 0)
+		{
+			SetNoiseBlurShader<0>(Context, Radius);
+		}
+		else if (Quality == 1)
+		{
+			SetNoiseBlurShader<1>(Context, Radius);
+		}
+		else
+		{
+			SetNoiseBlurShader<2>(Context, Radius);
+		}
 
-	DrawPostProcessPass(
-		Context.RHICmdList,
-		DestRect.Min.X, DestRect.Min.Y,
-		DestRect.Width(), DestRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		View.StereoPass,
-		Context.HasHmdMesh(),
-		EDRF_UseTriangleOptimization);
+		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+		DrawPostProcessPass(
+			Context.RHICmdList,
+			DestRect.Min.X, DestRect.Min.Y,
+			DestRect.Width(), DestRect.Height(),
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 }
 
 

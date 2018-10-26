@@ -162,58 +162,61 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 		return;
 	}
 
-	const FViewInfo& View = Context.View;
-	const FSceneViewFamily& ViewFamily = *(View.Family);
-	
-	const FIntRect SrcRect = View.ViewRect;
-	const FIntRect DestRect = View.UnscaledViewRect;
-	const FIntPoint SrcSize = InputDesc->Extent;
-
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	// Set the view family's render target/viewport
-	if (!ensure(DestRenderTarget.TargetableTexture.IsValid()) || DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	bool bUseClearQuad = !(!ensure(DestRenderTarget.TargetableTexture.IsValid()) || DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black);
+
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
+	}
+	
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessHMD"));
+	{
+		const FViewInfo& View = Context.View;
+		const FSceneViewFamily& ViewFamily = *(View.Family);
+
+		const FIntRect SrcRect = View.ViewRect;
+		const FIntRect DestRect = View.UnscaledViewRect;
+		const FIntPoint SrcSize = InputDesc->Extent;
+
 		Context.SetViewportAndCallRHI(DestRect);
+
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+		FMatrix QuadTexTransform = FMatrix::Identity;
+		FMatrix QuadPosTransform = FMatrix::Identity;
+
+		check(GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice());
+
+		{
+			TShaderMapRef<FPostProcessHMDVS> VertexShader(Context.GetShaderMap());
+			TShaderMapRef<FPostProcessHMDPS> PixelShader(Context.GetShaderMap());
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GDistortionVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+			VertexShader->SetVS(Context);
+			PixelShader->SetPS(Context.RHICmdList, Context, SrcRect, SrcSize, View.StereoPass, QuadTexTransform);
+		}
+		GEngine->XRSystem->GetHMDDevice()->DrawDistortionMesh_RenderThread(Context, SrcSize);
 	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		Context.SetViewportAndCallRHI(DestRect);
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
-	}
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	FMatrix QuadTexTransform = FMatrix::Identity;
-	FMatrix QuadPosTransform = FMatrix::Identity;
-
-	check(GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice());
-
-	{
-		TShaderMapRef<FPostProcessHMDVS> VertexShader(Context.GetShaderMap());
-		TShaderMapRef<FPostProcessHMDPS> PixelShader(Context.GetShaderMap());
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GDistortionVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-		VertexShader->SetVS(Context);
-		PixelShader->SetPS(Context.RHICmdList, Context, SrcRect, SrcSize, View.StereoPass, QuadTexTransform);
-	}
-	GEngine->XRSystem->GetHMDDevice()->DrawDistortionMesh_RenderThread(Context, SrcSize);
-
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+	Context.RHICmdList.EndRenderPass();
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessHMD::ComputeOutputDesc(EPassOutputId InPassOutputId) const
