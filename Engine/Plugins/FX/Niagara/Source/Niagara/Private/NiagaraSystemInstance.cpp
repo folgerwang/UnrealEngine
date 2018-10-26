@@ -49,6 +49,7 @@ FNiagaraSystemInstance::FNiagaraSystemInstance(UNiagaraComponent* InComponent)
 	, bPaused(false)
 	, RequestedExecutionState(ENiagaraExecutionState::Complete)
 	, ActualExecutionState(ENiagaraExecutionState::Complete)
+	, bDataInterfacesInitialized(false)
 {
 	SystemBounds.Init();
 }
@@ -829,7 +830,7 @@ void FNiagaraSystemInstance::InitDataInterfaces()
 
 	DataInterfaceInstanceData.SetNumUninitialized(InstanceDataSize);
 
-	bool bOk = true;
+	bDataInterfacesInitialized = true;
 	for (TPair<TWeakObjectPtr<UNiagaraDataInterface>, int32>& Pair : DataInterfaceInstanceDataOffsets)
 	{
 		if (UNiagaraDataInterface* Interface = Pair.Key.Get())
@@ -838,7 +839,7 @@ void FNiagaraSystemInstance::InitDataInterfaces()
 
 			//Ideally when we make the batching changes, we can keep the instance data in big single type blocks that can all be updated together with a single virtual call.
 			bool bResult = Pair.Key->InitPerInstanceData(&DataInterfaceInstanceData[Pair.Value], this);
-			bOk &= bResult;
+			bDataInterfacesInitialized &= bResult;
 			if (!bResult)
 			{
 				UE_LOG(LogNiagara, Error, TEXT("Error initializing data interface \"%s\" for system. %u | %s"), *Interface->GetPathName(), Component, *Component->GetAsset()->GetName());
@@ -847,11 +848,11 @@ void FNiagaraSystemInstance::InitDataInterfaces()
 		else
 		{
 			UE_LOG(LogNiagara, Error, TEXT("A data interface currently in use by an System has been destroyed."));
-			bOk = false;
+			bDataInterfacesInitialized = false;
 		}
 	}
 
-	if (!bOk && (!IsComplete() && !IsPendingSpawn()))
+	if (!bDataInterfacesInitialized && (!IsComplete() && !IsPendingSpawn()))
 	{
 		//Some error initializing the data interfaces so disable until we're explicitly reinitialized.
 		UE_LOG(LogNiagara, Error, TEXT("Error initializing data interfaces. Completing system. %u | %s"), Component, *Component->GetAsset()->GetName());
