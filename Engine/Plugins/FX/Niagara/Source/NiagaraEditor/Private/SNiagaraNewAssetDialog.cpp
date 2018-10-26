@@ -195,11 +195,9 @@ void SNiagaraNewAssetDialog::ConfirmSelection()
 	if (SelectedOption.OnGetSelectedAssetsFromPicker.IsBound())
 	{
 		SelectedAssets.Append(SelectedOption.OnGetSelectedAssetsFromPicker.Execute());
+		ensureMsgf(SelectedAssets.Num() > 0, TEXT("No assets selected when dialog was confirmed."));
 	}
-	if (ensureMsgf(SelectedAssets.Num() > 0, TEXT("No assets selected when dialog was confirmed.")))
-	{
-		bUserConfirmedSelection = true;
-	}
+	bUserConfirmedSelection = true;
 	RequestDestroyWindow();
 }
 
