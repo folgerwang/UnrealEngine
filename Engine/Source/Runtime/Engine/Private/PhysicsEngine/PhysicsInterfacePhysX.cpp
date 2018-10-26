@@ -787,11 +787,13 @@ int32 GetAllShapesInternal_AssumedLocked(const FPhysicsActorHandle_PhysX& InActo
 	return NumSyncShapes;
 }
 
+template<>
 int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, TArray<FPhysicsShapeHandle_PhysX, FDefaultAllocator>& OutShapes, EPhysicsSceneType InSceneType)
 {
 	return GetAllShapesInternal_AssumedLocked(InActorHandle, OutShapes, InSceneType);
 }
 
+template<>
 int32 FPhysicsInterface_PhysX::GetAllShapes_AssumedLocked(const FPhysicsActorHandle_PhysX& InActorHandle, PhysicsInterfaceTypes::FInlineShapeArray& OutShapes, EPhysicsSceneType InSceneType)
 {
 	return GetAllShapesInternal_AssumedLocked(InActorHandle, OutShapes, InSceneType);

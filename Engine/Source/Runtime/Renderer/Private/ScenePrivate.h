@@ -2644,16 +2644,10 @@ inline bool ShouldIncludeDomainInMeshPass(EMaterialDomain Domain)
 }
 
 template<>
-inline TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return MobileBasePassUniformLightMapPolicyDrawList[DrawType];
-}
+TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType);
 
 template<>
-inline TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return MobileBasePassUniformLightMapPolicyDrawListWithCSM[DrawType];
-}
+TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>>& FScene::GetMobileBasePassCSMDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType);
 
 #include "BasePassRendering.inl"
 
