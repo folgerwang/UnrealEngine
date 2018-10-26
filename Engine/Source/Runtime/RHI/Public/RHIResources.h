@@ -2039,6 +2039,11 @@ struct FRHIRenderPassInfo
 	// Some RHIs need to know if this render pass is going to be reading and writing to the same texture in the case of generating mip maps for partial resource transitions
 	bool bGeneratingMips = false;
 
+	//#RenderPasses
+	int32 UAVIndex = -1;
+	int32 NumUAVs = 0;
+	FUnorderedAccessViewRHIRef UAVs[MaxSimultaneousUAVs];
+
 	// Color, no depth, optional resolve, optional mip, optional array slice
 	explicit FRHIRenderPassInfo(FRHITexture* ColorRT, ERenderTargetActions ColorAction, FRHITexture* ResolveRT = nullptr, uint32 InMipIndex = 0, int32 InArraySlice = -1)
 	{
@@ -2051,6 +2056,7 @@ struct FRHIRenderPassInfo
 		DepthStencilRenderTarget.DepthStencilTarget = nullptr;
 		DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
 		DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		DepthStencilRenderTarget.ResolveTarget = nullptr;
 		bIsMSAA = ColorRT->GetNumSamples() > 1;
 		FMemory::Memzero(&ColorRenderTargets[1], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - 1));
 	}
@@ -2071,6 +2077,7 @@ struct FRHIRenderPassInfo
 		DepthStencilRenderTarget.DepthStencilTarget = nullptr;
 		DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
 		DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		DepthStencilRenderTarget.ResolveTarget = nullptr;
 		if (NumColorRTs < MaxSimultaneousRenderTargets)
 		{
 			FMemory::Memzero(&ColorRenderTargets[NumColorRTs], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - NumColorRTs));
@@ -2093,6 +2100,7 @@ struct FRHIRenderPassInfo
 		DepthStencilRenderTarget.DepthStencilTarget = nullptr;
 		DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
 		DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		DepthStencilRenderTarget.ResolveTarget = nullptr;
 		if (NumColorRTs < MaxSimultaneousRenderTargets)
 		{
 			FMemory::Memzero(&ColorRenderTargets[NumColorRTs], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - NumColorRTs));
@@ -2212,6 +2220,16 @@ struct FRHIRenderPassInfo
 		FMemory::Memzero(&ColorRenderTargets[1], sizeof(FColorEntry) * (MaxSimultaneousRenderTargets - 1));
 	}
 
+	explicit FRHIRenderPassInfo(int32 InNumUAVs, FUnorderedAccessViewRHIParamRef* InUAVs)
+	{
+		FMemory::Memzero(*this);
+		NumUAVs = InNumUAVs;
+		for (int32 Index = 0; Index < InNumUAVs; Index++)
+		{
+			UAVs[Index] = InUAVs[Index];
+		}
+	}
+
 	inline int32 GetNumColorRenderTargets() const
 	{
 		int32 ColorIndex = 0;
@@ -2239,11 +2257,6 @@ struct FRHIRenderPassInfo
 
 	RHI_API void Validate() const;
 	RHI_API void ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& OutRTInfo) const;
-
-	//#RenderPasses
-	int32 UAVIndex = -1;
-	int32 NumUAVs = 0;
-	FUnorderedAccessViewRHIRef UAVs[MaxSimultaneousUAVs];
 
 	FRHIRenderPassInfo& operator = (const FRHIRenderPassInfo& In)
 	{

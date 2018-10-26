@@ -392,7 +392,33 @@ inline void TransitionSetRenderTargetsHelper(FRHICommandList& RHICmdList, uint32
 	RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, Transitions, TransitionIndex);
 }
 
+inline void TransitionRenderPassTargets(FRHICommandList& RHICmdList, const FRHIRenderPassInfo& RPInfo)
+{
+	FTextureRHIParamRef Transitions[MaxSimultaneousRenderTargets + 1];
+	int32 TransitionIndex = 0;
+	uint32 NumColorRenderTargets = RPInfo.GetNumColorRenderTargets();
+	for (uint32 Index = 0; Index < NumColorRenderTargets; Index++)
+	{
+		const FRHIRenderPassInfo::FColorEntry& ColorRenderTarget = RPInfo.ColorRenderTargets[Index];
+		if (ColorRenderTarget.RenderTarget != nullptr)
+		{
+			Transitions[TransitionIndex] = ColorRenderTarget.RenderTarget;
+			TransitionIndex++;
+		}
+	}
+
+	const FRHIRenderPassInfo::FDepthStencilEntry& DepthStencilTarget = RPInfo.DepthStencilRenderTarget;
+	if (DepthStencilTarget.DepthStencilTarget != nullptr && RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite())
+	{
+		Transitions[TransitionIndex] = DepthStencilTarget.DepthStencilTarget;
+		TransitionIndex++;
+	}
+
+	RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, Transitions, TransitionIndex);
+}
+
 /** Helper for the common case of using a single color and depth render target. */
+DEPRECATED(4.22, "Utility SetRenderTarget (Single Color, DepthStencil) is deprecated. Convert new code to use Render Passes.");
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad);
@@ -407,6 +433,7 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 }
 
 /** Helper for the common case of using a single color and depth render target. */
+DEPRECATED(4.22, "Utility SetRenderTarget (Single Color, DepthStencil, Simple Mode, DepthStencilAcess) is deprecated. Convert new code to use Render Passes.");
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, ESimpleRenderTargetMode Mode, FExclusiveDepthStencil DepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite, bool bWritableBarrier = false)
 {
 	ERenderTargetLoadAction ColorLoadAction, DepthLoadAction, StencilLoadAction;
@@ -426,6 +453,7 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
+DEPRECATED(4.22, "Utility SetRenderTarget (Single Color, Mip, DepthStencil) is deprecated. Convert new code to use Render Passes.");
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, int32 MipIndex, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad, MipIndex, -1);
@@ -440,6 +468,7 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
+DEPRECATED(4.22, "Utility SetRenderTarget (Single Color, Mip, Slice, DepthStencil) is deprecated. Convert new code to use Render Passes.");
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, int32 MipIndex, int32 ArraySliceIndex, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad, MipIndex, ArraySliceIndex);
@@ -454,6 +483,7 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
+DEPRECATED(4.22, "Utility SetRenderTargets (Colors, DepthStencil, UAVs) is deprecated. Convert new code to use Render Passes.");
 inline void SetRenderTargets(
 	FRHICommandList& RHICmdList,
 	uint32 NewNumSimultaneousRenderTargets, 
@@ -482,6 +512,7 @@ inline void SetRenderTargets(
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
+DEPRECATED(4.22, "Utility SetRenderTargets (Colors, DepthStencil, UAVs, Simple Mode, DepthStencil Access) is deprecated. Convert new code to use Render Passes.");
 inline void SetRenderTargets(
 	FRHICommandList& RHICmdList,
 	uint32 NewNumSimultaneousRenderTargets,
@@ -511,6 +542,14 @@ inline void SetRenderTargets(
 
 	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, DepthStencilAccess);
 	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, 0, nullptr);
+}
+
+DEPRECATED(4.22, "Utility to unset render targets. Should not be used in new code - use Render Passes instead");
+inline void UnbindRenderTargets(FRHICommandList& RHICmdList)
+{
+	check(RHICmdList.IsOutsideRenderPass());
+
+	SetRenderTarget(RHICmdList, nullptr, nullptr);
 }
 
 /**
