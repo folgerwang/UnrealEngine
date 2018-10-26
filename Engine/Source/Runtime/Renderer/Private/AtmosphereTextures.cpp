@@ -23,10 +23,11 @@ void FAtmosphereTextures::InitDynamicRHI()
 		FPooledRenderTargetDesc TransmittanceDesc(FPooledRenderTargetDesc::Create2DDesc(GTransmittanceTexSize, PF_FloatRGBA, FClearValueBinding::Black, TexCreate_None, TexCreate_RenderTargetable, false));
 		GRenderTargetPool.FindFreeElement(RHICmdList, TransmittanceDesc, AtmosphereTransmittance, TEXT("AtmosphereTransmittance"));
 		{
-			FRHIRenderTargetView View = FRHIRenderTargetView(AtmosphereTransmittance->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::EClear);
-			FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.CopyToResolveTarget(AtmosphereTransmittance->GetRenderTargetItem().TargetableTexture, AtmosphereTransmittance->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+			const FSceneRenderTargetItem& TransmittanceTarget = AtmosphereTransmittance->GetRenderTargetItem();
+
+			FRHIRenderPassInfo RPInfo(TransmittanceTarget.TargetableTexture, ERenderTargetActions::Clear_Store, TransmittanceTarget.ShaderResourceTexture);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearTransmittance"));
+			RHICmdList.EndRenderPass();
 		}
 
 		// Irradiance
@@ -34,10 +35,11 @@ void FAtmosphereTextures::InitDynamicRHI()
 		FPooledRenderTargetDesc IrradianceDesc(FPooledRenderTargetDesc::Create2DDesc(GIrradianceTexSize, PF_FloatRGBA, FClearValueBinding::Black, TexCreate_None, TexCreate_RenderTargetable, false));
 		GRenderTargetPool.FindFreeElement(RHICmdList, IrradianceDesc, AtmosphereIrradiance, TEXT("AtmosphereIrradiance"));
 		{
-			FRHIRenderTargetView View = FRHIRenderTargetView(AtmosphereIrradiance->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::EClear);
-			FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.CopyToResolveTarget(AtmosphereIrradiance->GetRenderTargetItem().TargetableTexture, AtmosphereIrradiance->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+			const FSceneRenderTargetItem& IrradianceTarget = AtmosphereIrradiance->GetRenderTargetItem();
+
+			FRHIRenderPassInfo RPInfo(IrradianceTarget.TargetableTexture, ERenderTargetActions::Clear_Store, IrradianceTarget.ShaderResourceTexture);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearIrradiance"));
+			RHICmdList.EndRenderPass();
 		}
 		// DeltaE
 		GRenderTargetPool.FindFreeElement(RHICmdList, IrradianceDesc, AtmosphereDeltaE, TEXT("AtmosphereDeltaE"));
