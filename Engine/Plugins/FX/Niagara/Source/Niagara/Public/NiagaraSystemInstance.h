@@ -200,7 +200,6 @@ public:
 	void Dump()const;
 
 private:
-	bool bDataInterfacesInitialized;
 
 	/** Builds the emitter simulations. */
 	void InitEmitters();
@@ -309,4 +308,6 @@ private:
 
 	/** Copy of simulations internal state so that it can be passed to emitters etc. */
 	ENiagaraExecutionState ActualExecutionState;
+
+	bool bDataInterfacesInitialized;
 };
