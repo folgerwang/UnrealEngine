@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UnrealBuildTool
+namespace Tools.DotNETCommon
 {
 	/// <summary>
 	/// Attribute to indicate the name of a command line argument

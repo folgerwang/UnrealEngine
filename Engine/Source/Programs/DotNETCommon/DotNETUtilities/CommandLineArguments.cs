@@ -6,9 +6,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using Tools.DotNETCommon;
 
-namespace UnrealBuildTool
+namespace Tools.DotNETCommon
 {
 	/// <summary>
 	/// Helper class to visualize an argument list
@@ -34,7 +33,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Exception thrown for invalid command line arguments
 	/// </summary>
-	class CommandLineArgumentException : Exception
+	public class CommandLineArgumentException : Exception
 	{
 		/// <summary>
 		/// Constructor
@@ -73,7 +72,7 @@ namespace UnrealBuildTool
 	/// </summary>
 	[DebuggerDisplay("Count = {Count}")]
 	[DebuggerTypeProxy(typeof(CommandLineArgumentListView))]
-	class CommandLineArguments : IReadOnlyList<string>, IReadOnlyCollection<string>, IEnumerable<string>, IEnumerable
+	public class CommandLineArguments : IReadOnlyList<string>, IReadOnlyCollection<string>, IEnumerable<string>, IEnumerable
 	{
 		/// <summary>
 		/// The raw array of arguments
@@ -672,7 +671,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					throw new CommandLineArgumentException(String.Format("Missing {0} arguments", Utils.FormatList(MissingArguments.Select(x => x.Replace("=", "=...")))));
+					throw new CommandLineArgumentException(String.Format("Missing {0} arguments", StringUtils.FormatList(MissingArguments.Select(x => x.Replace("=", "=...")))));
 				}
 			}
 		}
