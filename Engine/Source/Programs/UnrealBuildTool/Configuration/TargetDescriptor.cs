@@ -21,7 +21,6 @@ namespace UnrealBuildTool
 		public string Architecture;
 		public List<OnlyModule> OnlyModules;
 		public FileReference ForeignPlugin;
-		public string ForceReceiptFileName;
 		public string[] AdditionalArguments;
 
 		/// <summary>
@@ -60,7 +59,6 @@ namespace UnrealBuildTool
 			string Architecture = null;
 			List<OnlyModule> OnlyModules = new List<OnlyModule>();
 			FileReference ForeignPlugin = null;
-			string ForceReceiptFileName = null;
 			List<string> AdditionalArguments = new List<string>();
 
 			// Settings for creating/using static libraries for the engine
@@ -130,10 +128,6 @@ namespace UnrealBuildTool
 						}
 						ForeignPlugin = new FileReference(Value);
 					}
-					else if(ParseArgumentValue(Argument, "-Receipt=", out Value))
-					{
-						ForceReceiptFileName = Value;
-					}
 					else
 					{
 						switch (Arguments[ArgumentIndex].ToUpperInvariant())
@@ -195,7 +189,6 @@ namespace UnrealBuildTool
 				TargetDescriptor Target = new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, AdditionalArguments.ToArray());
 				Target.OnlyModules = OnlyModules;
 				Target.ForeignPlugin = ForeignPlugin;
-				Target.ForceReceiptFileName = ForceReceiptFileName;
 				Targets.Add(Target);
 			}
 

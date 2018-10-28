@@ -793,12 +793,6 @@ namespace UnrealBuildTool
 		private KeyValuePair<FileReference, ModuleManifest>[] FileReferenceToModuleManifestPairs;
 
 		/// <summary>
-		/// Force output of the receipt to an additional filename
-		/// </summary>
-		[NonSerialized]
-		private string ForceReceiptFileName;
-
-		/// <summary>
 		/// The name of the .Target.cs file, if the target was created with one
 		/// </summary>
 		public readonly FileReference TargetRulesFile;
@@ -932,7 +926,6 @@ namespace UnrealBuildTool
 			TargetType = Rules.Type;
 			bPrecompile = InRules.bPrecompile;
 			ForeignPlugin = InDesc.ForeignPlugin;
-			ForceReceiptFileName = InDesc.ForceReceiptFileName;
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
 			PlatformIntermediateFolder = Path.Combine("Intermediate", "Build", Platform.ToString(), UEBuildPlatform.GetBuildPlatform(Platform).GetFolderNameForArchitecture(Architecture));
@@ -1754,15 +1747,6 @@ namespace UnrealBuildTool
 						Receipt.Write(ReceiptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
 					}
 				}
-				if (ForceReceiptFileName != null)
-				{
-					FileReference ForceReceiptFile = new FileReference(ForceReceiptFileName);
-					if(!UnrealBuildTool.IsFileInstalled(ForceReceiptFile))
-					{
-						DirectoryReference.CreateDirectory(ForceReceiptFile.Directory);
-						Receipt.Write(ForceReceiptFile, UnrealBuildTool.EngineDirectory, ProjectDirectory);
-					}
-				}
 				if(VersionFile != null)
 				{
 					if(!UnrealBuildTool.IsFileInstalled(VersionFile))
@@ -1789,8 +1773,8 @@ namespace UnrealBuildTool
 						if(!FileReference.Exists(FileNameToVersionManifest.Key))
 						{
 							// If the file doesn't already exist, just write it out
-							Directory.CreateDirectory(Path.GetDirectoryName(FileNameToVersionManifest.Key.FullName));
-							FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key.FullName);
+							DirectoryReference.CreateDirectory(FileNameToVersionManifest.Key.Directory);
+							FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key);
 						}
 						else
 						{

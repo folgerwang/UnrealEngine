@@ -143,6 +143,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Makes sure path can be used as a command line param (adds quotes if it contains spaces)
+		/// </summary>
+		/// <param name="InPath">Path to convert</param>
+		/// <returns></returns>
+		public static string MakePathSafeToUseWithCommandLine(FileReference InPath)
+		{
+			return MakePathSafeToUseWithCommandLine(InPath.FullName);
+		}
+
+		/// <summary>
 		/// Escapes whitespace in the given command line argument with a backslash. Used on Unix-like platforms for command line arguments in shell commands.
 		/// </summary>
 		/// <param name="Argument">The argument to escape </param>
