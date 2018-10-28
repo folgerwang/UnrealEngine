@@ -152,7 +152,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					throw new BuildException("Missing {0} arguments", Utils.FormatList(MissingFieldToParameter.Values.Select(x => x.Prefix.Replace("=", "=..."))));
+					throw new BuildException("Missing {0} arguments", StringUtils.FormatList(MissingFieldToParameter.Values.Select(x => x.Prefix.Replace("=", "=..."))));
 				}
 			}
 		}

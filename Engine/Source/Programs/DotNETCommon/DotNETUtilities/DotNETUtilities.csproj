@@ -57,6 +57,8 @@
     <Compile Include="AssemblyUtils.cs" />
     <Compile Include="BinaryReaderExtensions.cs" />
     <Compile Include="BinaryWriterExtensions.cs" />
+    <Compile Include="CommandLineArguments.cs" />
+    <Compile Include="CommandLineAttribute.cs" />
     <Compile Include="CsProjectInfo.cs" />
     <Compile Include="DirectoryReference.cs" />
     <Compile Include="ExceptionUtils.cs" />

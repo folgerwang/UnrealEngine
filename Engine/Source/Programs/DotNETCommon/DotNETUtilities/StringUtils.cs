@@ -45,5 +45,42 @@ namespace Tools.DotNETCommon
 
 			return true;
 		}
+
+		/// <summary>
+		/// Formats a list of strings in the style "1, 2, 3 and 4"
+		/// </summary>
+		/// <param name="Arguments">List of strings to format</param>
+		/// <returns>Formatted list of strings</returns>
+		public static string FormatList(string[] Arguments)
+		{
+			StringBuilder Result = new StringBuilder();
+			if(Arguments.Length > 0)
+			{
+				Result.Append(Arguments[0]);
+				for(int Idx = 1; Idx < Arguments.Length; Idx++)
+				{
+					if(Idx == Arguments.Length - 1)
+					{
+						Result.Append(" and ");
+					}
+					else
+					{
+						Result.Append(", ");
+					}
+					Result.Append(Arguments[Idx]);
+				}
+			}
+			return Result.ToString();
+		}
+
+		/// <summary>
+		/// Formats a list of strings in the style "1, 2, 3 and 4"
+		/// </summary>
+		/// <param name="Arguments">List of strings to format</param>
+		/// <returns>Formatted list of strings</returns>
+		public static string FormatList(IEnumerable<string> Arguments)
+		{
+			return FormatList(Arguments.ToArray());
+		}
 	}
 }

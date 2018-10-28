@@ -180,7 +180,6 @@
     <Compile Include="ProjectFiles\Xcode\XcodeProjectFileGenerator.cs" />
     <Compile Include="System\Asn.cs" />
     <Compile Include="System\BuildVersion.cs" />
-    <Compile Include="System\CommandLineArguments.cs" />
     <Compile Include="System\CppCompileEnvironment.cs" />
     <Compile Include="System\CppIncludeParser.cs" />
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
@@ -198,7 +197,6 @@
     <Compile Include="Configuration\UEBuildModuleCPP.cs" />
     <Compile Include="System\PlatformExports.cs" />
     <Compile Include="System\CommandLine.cs" />
-    <Compile Include="System\CommandLineAttribute.cs" />
     <Compile Include="System\ConfigCache.cs" />
     <Compile Include="System\ConfigFile.cs" />
     <Compile Include="System\ConfigFileAttribute.cs" />
