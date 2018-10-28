@@ -106,7 +106,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		static bool ShouldInclude(FileSystemReference Reference, string[] InvariantExcludedSuffixes)
+		static bool ShouldInclude(FileSystemReference Reference, string[] ExcludedSuffixes)
 		{
 			// Ignore Mac resource fork files on non-HFS partitions
 			if (Path.GetFileName(Reference.FullName).StartsWith("._"))
@@ -114,9 +114,9 @@ namespace UnrealBuildTool
 				return false;
 			}
 			
-			foreach (string InvariantExcludedSuffix in InvariantExcludedSuffixes)
+			foreach (string ExcludedSuffix in ExcludedSuffixes)
 			{
-				if (StringUtils.FastEndsWith(Reference.FullName, InvariantExcludedSuffix))
+				if (Reference.FullName.EndsWith(ExcludedSuffix, FileSystemReference.Comparison))
 				{
 					return false;
 				}
