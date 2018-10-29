@@ -544,7 +544,6 @@ inline void SetRenderTargets(
 	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, 0, nullptr);
 }
 
-DEPRECATED(4.22, "Utility to unset render targets. Should not be used in new code - use Render Passes instead")
 inline void UnbindRenderTargets(FRHICommandList& RHICmdList)
 {
 	check(RHICmdList.IsOutsideRenderPass());
