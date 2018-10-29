@@ -65,6 +65,8 @@ struct CORE_API FFbxErrors
 
 	static FName Generic_Mesh_TangentsComputeError;
 
+	static FName Generic_Mesh_NoReductionModuleAvailable;
+
 	/** Static Mesh **/
 	static FName StaticMesh_TooManyMaterials;
 
