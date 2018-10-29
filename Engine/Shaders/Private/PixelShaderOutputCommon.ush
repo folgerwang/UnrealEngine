@@ -47,6 +47,9 @@ PixelShaderOutputCommon.usf: To allow PS input/output passed int functions throu
 
 // ---------------------------------------------------------------------------------
 
+#if LIGHTMAP_VT_ENABLED && (HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP)
+EARLYDEPTHSTENCIL
+#endif
 void MainPS
 	(
 #if PIXELSHADEROUTPUT_INTERPOLANTS || PIXELSHADEROUTPUT_BASEPASS

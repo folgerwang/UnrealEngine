@@ -60,6 +60,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Instance Spawn Time"), STAT_AnimSpawnTime, 
 DEFINE_STAT(STAT_AnimSpawnTime);
 DEFINE_STAT(STAT_PostAnimEvaluation);
 
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+
 FAutoConsoleTaskPriority CPrio_ParallelAnimationEvaluationTask(
 	TEXT("TaskGraph.TaskPriorities.ParallelAnimationEvaluationTask"),
 	TEXT("Task and thread priority for FParallelAnimationEvaluationTask"),
@@ -139,6 +141,7 @@ public:
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
 
 		if (USkeletalMeshComponent* Comp = SkeletalMeshComponent.Get())
 		{
@@ -245,6 +248,9 @@ USkeletalMeshComponent::USkeletalMeshComponent(const FObjectInitializer& ObjectI
 	bPostEvaluatingAnimation = false;
 	bAllowAnimCurveEvaluation = true;
 	bDisablePostProcessBlueprint = false;
+
+	// By default enable overlaps when blending physics - user can disable if they are sure it's unnecessary
+	bUpdateOverlapsOnAnimationFinalize = true;
 }
 
 void USkeletalMeshComponent::Serialize(FArchive& Ar)
@@ -396,7 +402,7 @@ void USkeletalMeshComponent::RegisterClothTick(bool bRegister)
 bool USkeletalMeshComponent::ShouldRunEndPhysicsTick() const
 {
 	return	(bEnablePhysicsOnDedicatedServer || !IsNetMode(NM_DedicatedServer)) && // Early out if we are on a dedicated server and not running physics.
-			(IsSimulatingPhysics() || ShouldBlendPhysicsBones());
+			((IsSimulatingPhysics() && RigidBodyIsAwake()) || ShouldBlendPhysicsBones());
 }
 
 void USkeletalMeshComponent::UpdateEndPhysicsTickRegisteredState()
@@ -1216,6 +1222,8 @@ static TAutoConsoleVariable<int32> CVarHiPriSkinnedMeshesTicks(
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
+
 	UpdateEndPhysicsTickRegisteredState();
 	UpdateClothTickRegisteredState();
 
@@ -2444,6 +2452,9 @@ FBoxSphereBounds USkeletalMeshComponent::CalcBounds(const FTransform& LocalToWor
 
 void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bReinitPose)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_SetSkeletalMesh);
+	SCOPE_CYCLE_UOBJECT(This, this);
+
 	if (InSkelMesh == SkeletalMesh)
 	{
 		// do nothing if the input mesh is the same mesh we're already using.
@@ -3366,7 +3377,7 @@ void USkeletalMeshComponent::ResumeClothingSimulation()
 	ForceClothNextUpdateTeleport();
 }
 
-bool USkeletalMeshComponent::IsClothingSimulationSuspended()
+bool USkeletalMeshComponent::IsClothingSimulationSuspended() const
 {
 	return bClothingSimulationSuspended;
 }

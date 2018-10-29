@@ -162,7 +162,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_12, 10_0);
 
-    class RenderPipelineColorAttachmentDescriptor : public ns::Object<MTLRenderPipelineColorAttachmentDescriptor*>
+    class MTLPP_EXPORT RenderPipelineColorAttachmentDescriptor : public ns::Object<MTLRenderPipelineColorAttachmentDescriptor*>
     {
     public:
         RenderPipelineColorAttachmentDescriptor();
@@ -191,7 +191,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 	
-	class RenderPipelineReflection : public ns::Object<MTLRenderPipelineReflection*>
+	class MTLPP_EXPORT RenderPipelineReflection : public ns::Object<MTLRenderPipelineReflection*>
 	{
 	public:
 		RenderPipelineReflection();
@@ -205,7 +205,7 @@ namespace mtlpp
 	MTLPP_AVAILABLE(10_11, 8_0);
 	typedef ns::AutoReleased<RenderPipelineReflection> AutoReleasedRenderPipelineReflection;
 
-    class RenderPipelineDescriptor : public ns::Object<MTLRenderPipelineDescriptor*>
+    class MTLPP_EXPORT RenderPipelineDescriptor : public ns::Object<MTLRenderPipelineDescriptor*>
     {
     public:
         RenderPipelineDescriptor();
@@ -258,7 +258,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class RenderPipelineState : public ns::Object<ns::Protocol<id<MTLRenderPipelineState>>::type>
+    class MTLPP_EXPORT RenderPipelineState : public ns::Object<ns::Protocol<id<MTLRenderPipelineState>>::type>
     {
     public:
         RenderPipelineState() { }
@@ -274,7 +274,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 	
-	class TileRenderPipelineColorAttachmentDescriptor : public ns::Object<MTLTileRenderPipelineColorAttachmentDescriptor*>
+	class MTLPP_EXPORT TileRenderPipelineColorAttachmentDescriptor : public ns::Object<MTLTileRenderPipelineColorAttachmentDescriptor*>
 	{
 	public:
 		TileRenderPipelineColorAttachmentDescriptor();
@@ -286,7 +286,7 @@ namespace mtlpp
 		void SetPixelFormat(PixelFormat pixelFormat) MTLPP_AVAILABLE_IOS(11_0);
 	};
 	
-	class TileRenderPipelineDescriptor : public ns::Object<MTLTileRenderPipelineDescriptor*>
+	class MTLPP_EXPORT TileRenderPipelineDescriptor : public ns::Object<MTLTileRenderPipelineDescriptor*>
 	{
 	public:
 		TileRenderPipelineDescriptor() MTLPP_AVAILABLE_IOS(11_0);

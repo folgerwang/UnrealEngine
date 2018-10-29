@@ -34,6 +34,8 @@ UMovementComponent::UMovementComponent(const FObjectInitializer& ObjectInitializ
 	bAutoUpdateTickRegistration = true;
 	bTickBeforeOwner = true;
 	bAutoRegisterUpdatedComponent = true;
+	bAutoRegisterPhysicsVolumeUpdates = true;
+	bComponentShouldUpdatePhysicsVolume = false;
 
 	PlaneConstraintNormal = FVector::ZeroVector;
 	PlaneConstraintAxisSetting = EPlaneConstraintAxisSetting::Custom;
@@ -51,12 +53,15 @@ void UMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponen
 {
 	if (UpdatedComponent && UpdatedComponent != NewUpdatedComponent)
 	{
-		UpdatedComponent->SetShouldUpdatePhysicsVolume(false);
-		if (!UpdatedComponent->IsPendingKill())
+		if (bAutoRegisterPhysicsVolumeUpdates)
 		{
-			UpdatedComponent->SetPhysicsVolume(NULL, true);
-			UpdatedComponent->PhysicsVolumeChangedDelegate.RemoveDynamic(this, &UMovementComponent::PhysicsVolumeChanged);
+			UpdatedComponent->SetShouldUpdatePhysicsVolume(false);
+			if (!UpdatedComponent->IsPendingKill())
+			{
+				UpdatedComponent->SetPhysicsVolume(NULL, true);
+			}
 		}
+		UpdatedComponent->PhysicsVolumeChangedDelegate.RemoveDynamic(this, &UMovementComponent::PhysicsVolumeChanged);
 
 		// remove from tick prerequisite
 		UpdatedComponent->PrimaryComponentTick.RemovePrerequisite(this, PrimaryComponentTick); 
@@ -69,13 +74,25 @@ void UMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponen
 	// Assign delegates
 	if (UpdatedComponent && !UpdatedComponent->IsPendingKill())
 	{
-		UpdatedComponent->SetShouldUpdatePhysicsVolume(true);
+		// Listen to events regardless of whether enabled, in case physics volume updates are later enabled.
 		UpdatedComponent->PhysicsVolumeChangedDelegate.AddUniqueDynamic(this, &UMovementComponent::PhysicsVolumeChanged);
 
-		if (!bInOnRegister && !bInInitializeComponent)
+		// Handle auto registration
+		if (bAutoRegisterPhysicsVolumeUpdates)
 		{
-			// UpdateOverlaps() in component registration will take care of this.
-			UpdatedComponent->UpdatePhysicsVolume(true);
+			UpdatedComponent->SetShouldUpdatePhysicsVolume(bComponentShouldUpdatePhysicsVolume);
+			if (bComponentShouldUpdatePhysicsVolume)
+			{
+				if (!bInOnRegister && !bInInitializeComponent)
+				{
+					// UpdateOverlaps() in component registration will take care of this.
+					UpdatedComponent->UpdatePhysicsVolume(true);
+				}
+			}
+			else
+			{
+				UpdatedComponent->SetPhysicsVolume(NULL, true);
+			}
 		}
 		
 		// force ticks after movement component updates

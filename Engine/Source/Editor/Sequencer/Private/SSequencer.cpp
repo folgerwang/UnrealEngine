@@ -2094,7 +2094,7 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 						}
 						if (Section->HasEndFrame())
 						{
-							AllTimes.Add(Section->GetExclusiveEndFrame()-1);
+							AllTimes.Add(Section->GetExclusiveEndFrame());
 						}
 					}
 				}

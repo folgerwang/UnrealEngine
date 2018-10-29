@@ -26,6 +26,10 @@ class UPixelInspectorView : public UObject
 	FLinearColor SceneColor;
 
 	/** HDR Luminance. */
+	UPROPERTY(VisibleAnywhere, category = SceneColor)
+	float PreExposure;
+
+	/** HDR Luminance. */
 	UPROPERTY(VisibleAnywhere, category = HDR)
 	float Luminance;
 

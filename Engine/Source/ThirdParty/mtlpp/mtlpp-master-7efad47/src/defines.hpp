@@ -50,6 +50,10 @@
 #define MTLPP_PLATFORM_AX (MTLPP_PLATFORM_IOS || MTLPP_PLATFORM_TVOS)
 #endif
 
+#ifndef MTLPP_EXPORT
+#define MTLPP_EXPORT __attribute__ ((visibility("default")))
+#endif
+
 #if MTLPP_CONFIG_USE_AVAILABILITY
 #   if __has_feature(attribute_availability_with_version_underscores) || (__has_feature(attribute_availability_with_message) && __clang__ && __clang_major__ >= 7)
 #		define MTLPP_AVAILABILITY(_os, _vers) 						__attribute__((availability(_os,introduced=_vers)))
@@ -102,6 +106,9 @@
 #ifndef __DARWIN_ALIAS_STARTING_MAC___MAC_10_13
 #   define __DARWIN_ALIAS_STARTING_MAC___MAC_10_13(x)
 #endif
+#ifndef __DARWIN_ALIAS_STARTING_MAC___MAC_10_14
+#   define __DARWIN_ALIAS_STARTING_MAC___MAC_10_14(x)
+#endif
 #ifndef __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_8_0
 #   define __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_8_0(x)
 #endif
@@ -117,6 +124,15 @@
 #ifndef __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_11_0
 #   define __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_11_0(x)
 #endif
+#ifndef __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_12_0
+#   define __DARWIN_ALIAS_STARTING_IPHONE___IPHONE_12_0(x)
+#endif
+
+// tvOS doesn't have versions less than 9.0
+#define __TVOS_8_0      80000
+#define __TVOS_8_1      80100
+#define __TVOS_8_2      80200
+#define __TVOS_8_3      80300
 
 #if MTLPP_CONFIG_USE_SDK_AVAILABILITY
 #	define MTLPP_IS_AVAILABLE_MAC(mac)  (0 || (defined(__MAC_##mac) && MTLPP_PLATFORM_MAC && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_##mac))

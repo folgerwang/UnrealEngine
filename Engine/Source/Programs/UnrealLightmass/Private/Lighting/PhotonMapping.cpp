@@ -28,7 +28,7 @@ void FStaticLightingSystem::InitializePhotonSettings()
 	const FBoxSphereBounds ImportanceBounds = GetImportanceBounds();
 
 	// Get direct photon counts from each light
-#if LIGHTMASS_NOPROCESSING
+#if !LIGHTMASS_DO_PROCESSING
 	const int32 MaxNumDirectPhotonsToEmit = 10;
 #else
 	// Maximum number of direct photons to emit, used to cap the memory and processing time for a given build
@@ -65,7 +65,7 @@ void FStaticLightingSystem::InitializePhotonSettings()
 	float ImportanceSurfaceAreaMillionUnitsEstimateDiff = ImportanceSurfaceAreaMillionUnitsEstimate > DELTA ? ( ImportanceSurfaceAreaMillionUnits / ImportanceSurfaceAreaMillionUnitsEstimate * 100.0f ) : 0.0f;
 	LogSolverMessage(FString::Printf(TEXT("Importance volume surface area calculated at %.3f million units (%.3f%% of the estimated %.3f million units)"), ImportanceSurfaceAreaMillionUnits, ImportanceSurfaceAreaMillionUnitsEstimateDiff, ImportanceSurfaceAreaMillionUnitsEstimate));
 
-#if LIGHTMASS_NOPROCESSING
+#if !LIGHTMASS_DO_PROCESSING
 	const int32 MaxNumIndirectPhotonPaths = 10;
 #else
 	const int32 MaxNumIndirectPhotonPaths = 20000;
@@ -91,7 +91,7 @@ void FStaticLightingSystem::InitializePhotonSettings()
 		LogSolverMessage(FString::Printf(TEXT("Clamped the number of indirect photon paths to %u."), MaxNumIndirectPhotonPaths));
 	}
 
-#if LIGHTMASS_NOPROCESSING
+#if !LIGHTMASS_DO_PROCESSING
 	const int32 MaxNumIndirectPhotons = 10;
 #else
 	const int32 MaxNumIndirectPhotons = 40000000;

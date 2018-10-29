@@ -76,6 +76,11 @@ public:
 		return (UObject*)UserObjectPtr.Get();
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObjectPtr.Get();
+	}
+
 	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override final
 	{
@@ -227,6 +232,11 @@ public:
 	virtual UObject* GetUObject() const override final
 	{
 		return nullptr;
+	}
+
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObject.Pin().Get();
 	}
 
 	// Deprecated
@@ -405,6 +415,11 @@ public:
 		return nullptr;
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObject;
+	}
+
 	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override final
 	{
@@ -551,6 +566,11 @@ public:
 	virtual UObject* GetUObject( ) const override final
 	{
 		return (UObject*)UserObject.Get();
+	}
+
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObject.Get();
 	}
 
 	// Deprecated
@@ -705,6 +725,11 @@ public:
 		return nullptr;
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return nullptr;
+	}
+
 	// Deprecated
 	virtual bool HasSameObject( const void* UserObject ) const override final
 	{
@@ -834,6 +859,11 @@ public:
 #endif
 
 	virtual UObject* GetUObject() const override final
+	{
+		return nullptr;
+	}
+
+	virtual const void* GetObjectForTimerManager() const override final
 	{
 		return nullptr;
 	}

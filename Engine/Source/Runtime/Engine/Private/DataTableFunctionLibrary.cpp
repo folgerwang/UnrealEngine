@@ -40,7 +40,7 @@ bool UDataTableFunctionLibrary::DoesDataTableRowExist(UDataTable* Table, FName R
 	{
 		return false;
 	}
-	return Table->RowMap.Find(RowName) != nullptr;
+	return Table->GetRowMap().Find(RowName) != nullptr;
 }
 
 TArray<FString> UDataTableFunctionLibrary::GetDataTableColumnAsString(const UDataTable* DataTable, FName PropertyName)
@@ -53,7 +53,7 @@ TArray<FString> UDataTableFunctionLibrary::GetDataTableColumnAsString(const UDat
 	return TArray<FString>();
 }
 
-bool UDataTableFunctionLibrary::Generic_GetDataTableRowFromName(UDataTable* Table, FName RowName, void* OutRowPtr)
+bool UDataTableFunctionLibrary::Generic_GetDataTableRowFromName(const UDataTable* Table, FName RowName, void* OutRowPtr)
 {
 	bool bFoundRow = false;
 
@@ -61,11 +61,11 @@ bool UDataTableFunctionLibrary::Generic_GetDataTableRowFromName(UDataTable* Tabl
 	{
 		void* RowPtr = Table->FindRowUnchecked(RowName);
 
-		if (RowPtr != NULL)
+		if (RowPtr != nullptr)
 		{
-			UScriptStruct* StructType = Table->RowStruct;
+			const UScriptStruct* StructType = Table->GetRowStruct();
 
-			if (StructType != NULL)
+			if (StructType != nullptr)
 			{
 				StructType->CopyScriptStruct(OutRowPtr, RowPtr);
 				bFoundRow = true;

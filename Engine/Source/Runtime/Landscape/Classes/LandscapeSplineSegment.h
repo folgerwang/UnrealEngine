@@ -46,7 +46,12 @@ struct FLandscapeSplineInterpPoint
 	float StartEndFalloff;
 
 	FLandscapeSplineInterpPoint()
-		: StartEndFalloff(0.0f)
+		: Center(ForceInitToZero)
+		, Left(ForceInitToZero)
+		, Right(ForceInitToZero)
+		, FalloffLeft(ForceInitToZero)
+		, FalloffRight(ForceInitToZero)
+		, StartEndFalloff(0.0f)
 	{
 	}
 
@@ -216,10 +221,14 @@ class ULandscapeSplineSegment : public UObject
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	int32 TranslucencySortPriority;
 
+	/** Whether to hide the mesh in game */
+	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
+	uint32 bHiddenInGame:1;
+
 	/** Whether spline meshes should be placed in landscape proxy streaming levels (true) or the spline's level (false) */
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	uint32 bPlaceSplineMeshesInStreamingLevels : 1;
-
+	
 	/** Mesh Collision Settings */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (ShowOnlyInnerProperties))
 	FBodyInstance BodyInstance;
@@ -271,7 +280,8 @@ public:
 	virtual void AutoFlipTangents();
 
 	TMap<ULandscapeSplinesComponent*, TArray<USplineMeshComponent*>> GetForeignMeshComponents();
-
+	TArray<USplineMeshComponent*> GetLocalMeshComponents() const;
+	
 	virtual void UpdateSplinePoints(bool bUpdateCollision = true);
 
 	void UpdateSplineEditorMesh();

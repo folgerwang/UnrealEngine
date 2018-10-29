@@ -99,7 +99,7 @@ namespace mtlpp
     };
 
 	template<typename T>
-    class RenderPassAttachmentDescriptor : public ns::Object<T>
+    class MTLPP_EXPORT RenderPassAttachmentDescriptor : public ns::Object<T>
     {
     public:
         inline RenderPassAttachmentDescriptor();
@@ -131,7 +131,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class RenderPassColorAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassColorAttachmentDescriptor*>
+    class MTLPP_EXPORT RenderPassColorAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassColorAttachmentDescriptor*>
     {
     public:
 		RenderPassColorAttachmentDescriptor(ns::Ownership const retain);
@@ -144,7 +144,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class RenderPassDepthAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassDepthAttachmentDescriptor*>
+    class MTLPP_EXPORT RenderPassDepthAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassDepthAttachmentDescriptor*>
     {
     public:
         RenderPassDepthAttachmentDescriptor(ns::Ownership const retain);
@@ -159,7 +159,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class RenderPassStencilAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassStencilAttachmentDescriptor*>
+    class MTLPP_EXPORT RenderPassStencilAttachmentDescriptor : public RenderPassAttachmentDescriptor<MTLRenderPassStencilAttachmentDescriptor*>
     {
     public:
         RenderPassStencilAttachmentDescriptor(ns::Ownership const retain);
@@ -172,7 +172,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class RenderPassDescriptor : public ns::Object<MTLRenderPassDescriptor*>
+    class MTLPP_EXPORT RenderPassDescriptor : public ns::Object<MTLRenderPassDescriptor*>
     {
     public:
         RenderPassDescriptor();

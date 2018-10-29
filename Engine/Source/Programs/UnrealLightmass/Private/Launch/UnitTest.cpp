@@ -160,7 +160,7 @@ void TestLightmass()
 
 	FString TestString = FString::Printf(TEXT("Copy has %d, Vector is [%.2f, %.2f, %.2f, %.2f]\n"), ArrayCopy[0], TestVector.X, TestVector.Y, TestVector.Z, TestVector.W);
 
-	wprintf(TEXT("%s"), *TestString);
+	printf("%s", TCHAR_TO_UTF8(*TestString));
 
 	FMemory::Free(Buf);
 

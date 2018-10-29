@@ -111,17 +111,17 @@ void FOnlineIdentityFacebook::Shutdown()
 
 void FOnlineIdentityFacebook::OnFacebookTokenChange(FBSDKAccessToken* OldToken, FBSDKAccessToken* NewToken)
 {
-	UE_LOG(LogOnline, Warning, TEXT("FOnlineIdentityFacebook::OnFacebookTokenChange Old: %p New: %p"), OldToken, NewToken);
+	UE_LOG_ONLINE_IDENTITY(Warning, TEXT("FOnlineIdentityFacebook::OnFacebookTokenChange Old: %p New: %p"), OldToken, NewToken);
 }
 
 void FOnlineIdentityFacebook::OnFacebookUserIdChange()
 {
-	UE_LOG(LogOnline, Warning, TEXT("FOnlineIdentityFacebook::OnFacebookUserIdChange"));
+	UE_LOG_ONLINE_IDENTITY(Warning, TEXT("FOnlineIdentityFacebook::OnFacebookUserIdChange"));
 }
 
 void FOnlineIdentityFacebook::OnFacebookProfileChange(FBSDKProfile* OldProfile, FBSDKProfile* NewProfile)
 {
-	UE_LOG(LogOnline, Warning, TEXT("FOnlineIdentityFacebook::OnFacebookProfileChange Old: %p New: %p"), OldProfile, NewProfile);
+	UE_LOG_ONLINE_IDENTITY(Warning, TEXT("FOnlineIdentityFacebook::OnFacebookProfileChange Old: %p New: %p"), OldProfile, NewProfile);
 }
 
 bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials)
@@ -155,24 +155,24 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 					fromViewController:nil
 					handler: ^(FBSDKLoginManagerLoginResult* result, NSError* error)
 					{
-						UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions]"));
+						UE_LOG_ONLINE_IDENTITY(Display, TEXT("[FBSDKLoginManager logInWithReadPermissions]"));
 						bool bSuccessfulLogin = false;
 
 						FString ErrorStr;
 						if(error)
 						{
 							ErrorStr = FString::Printf(TEXT("[%d] %s"), [error code], [error localizedDescription]);
-							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = %s]"), *ErrorStr);
+							UE_LOG_ONLINE_IDENTITY(Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = %s]"), *ErrorStr);
 
 						}
 						else if(result.isCancelled)
 						{
 							ErrorStr = LOGIN_CANCELLED;
-							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = cancelled"));
+							UE_LOG_ONLINE_IDENTITY(Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = cancelled"));
 						}						
 						else
 						{
-							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = true]"));
+							UE_LOG_ONLINE_IDENTITY(Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = true]"));
 							bSuccessfulLogin = true;
 						}
 
@@ -250,7 +250,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 {
 	if (LoginStatus == ELoginStatus::LoggedIn)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Facebook login was successful"));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Facebook login was successful"));
 		TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 		check(UserId.IsValid());
 		TriggerOnLoginCompleteDelegates(LocalUserNum, true, *UserId, ErrorStr);
@@ -268,7 +268,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 			[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 			 {
 				// Trigger this on the game thread
-				UE_LOG(LogOnline, Display, TEXT("Facebook login failed: %s"), *NewErrorStr);
+				UE_LOG_ONLINE_IDENTITY(Display, TEXT("Facebook login failed: %s"), *NewErrorStr);
 
 				TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 				if (UserId.IsValid())
@@ -330,7 +330,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 	{
 		ensure(LoginStatus == ELoginStatus::NotLoggedIn);
 
-		UE_LOG(LogOnline, Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
 		FacebookSubsystem->ExecuteNextTick([this, LocalUserNum](){
 			TriggerOnLogoutCompleteDelegates(LocalUserNum, false);
 		});

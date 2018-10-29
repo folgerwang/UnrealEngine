@@ -16,6 +16,8 @@ struct FMovieSceneImagePlateSectionParams
 {
 	GENERATED_BODY()
 
+	FMovieSceneImagePlateSectionParams();
+
 	UPROPERTY()
 	FFrameNumber SectionStartTime;
 
@@ -30,7 +32,8 @@ USTRUCT()
 struct FMovieSceneImagePlateSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
-	FMovieSceneImagePlateSectionTemplate() {}
+
+	FMovieSceneImagePlateSectionTemplate();
 	FMovieSceneImagePlateSectionTemplate(const UMovieSceneImagePlateSection& InSection, const UMovieSceneImagePlateTrack& InTrack);
 
 	virtual void SetupOverrides() override

@@ -52,7 +52,9 @@ bool FOnlineExternalUIGameCircle::ShowLeaderboardUI(const FString& LeaderboardNa
 
 bool FOnlineExternalUIGameCircle::ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate)
 {
-	return false;
+	FPlatformProcess::LaunchURL(*Url, nullptr, nullptr);
+
+	return true;
 }
 
 bool FOnlineExternalUIGameCircle::CloseWebURL()

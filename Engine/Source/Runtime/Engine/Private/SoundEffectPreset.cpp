@@ -13,6 +13,15 @@ USoundEffectPreset::USoundEffectPreset(const FObjectInitializer& ObjectInitializ
 	
 }
 
+USoundEffectPreset::~USoundEffectPreset()
+{
+	for (int32 i = 0; i < Instances.Num(); ++i)
+	{
+		Instances[i]->ClearPreset();
+	}
+}
+
+
 void USoundEffectPreset::EffectCommand(TFunction<void()> Command)
 {
 	for (int32 i = 0; i < Instances.Num(); ++i)

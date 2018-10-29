@@ -40,6 +40,7 @@ struct FDisplayClusterConfigClusterNode : public FDisplayClusterConfigBase
 	int32   Port_CS = -1;
 	int32   Port_SS = -1;
 	bool    SoundEnabled = false;
+	bool  EyeSwap = false;
 
 	virtual FString ToString() const override;
 	virtual bool    DeserializeFromString(const FString& line) override;
@@ -53,8 +54,6 @@ struct FDisplayClusterConfigViewport : public FDisplayClusterConfigBase
 	FString   Id;
 	FIntPoint Loc  = FIntPoint::ZeroValue;
 	FIntPoint Size = FIntPoint::ZeroValue;
-	bool FlipHorizontal = false;
-	bool FlipVertical = false;
 
 	virtual FString ToString() const override;
 	virtual bool    DeserializeFromString(const FString& line) override;
@@ -137,7 +136,6 @@ struct FDisplayClusterConfigRender : public FDisplayClusterConfigBase
 //////////////////////////////////////////////////////////////////////////////////////////////
 struct FDisplayClusterConfigStereo : public FDisplayClusterConfigBase
 {
-	bool  EyeSwap = false;
 	float EyeDist = 0.064f;
 
 	virtual FString ToString() const override;

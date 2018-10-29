@@ -13,14 +13,14 @@ FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2(FOnlineSubsystemGooglePlay* I
 	: bIsQueryInFlight(false)
 	, Subsystem(InSubsystem)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2" ));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT( "FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2" ));
 }
 
 FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2()
 	: bIsQueryInFlight(false)
 	, Subsystem(nullptr)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2 empty" ));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT( "FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2 empty" ));
 }
 
 FOnlineStoreGooglePlayV2::~FOnlineStoreGooglePlayV2()
@@ -33,7 +33,7 @@ FOnlineStoreGooglePlayV2::~FOnlineStoreGooglePlayV2()
 
 void FOnlineStoreGooglePlayV2::Init()
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreGooglePlayV2::Init"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreGooglePlayV2::Init"));
 
 	FOnGooglePlayAvailableIAPQueryCompleteDelegate Delegate = FOnGooglePlayAvailableIAPQueryCompleteDelegate::CreateThreadSafeSP(this, &FOnlineStoreGooglePlayV2::OnGooglePlayAvailableIAPQueryComplete);
 	AvailableIAPQueryDelegateHandle = Subsystem->AddOnGooglePlayAvailableIAPQueryCompleteDelegate_Handle(Delegate);
@@ -41,7 +41,7 @@ void FOnlineStoreGooglePlayV2::Init()
 	FString GooglePlayLicenseKey;
 	if (!GConfig->GetString(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("GooglePlayLicenseKey"), GooglePlayLicenseKey, GEngineIni) || GooglePlayLicenseKey.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Missing GooglePlayLicenseKey key in /Script/AndroidRuntimeSettings.AndroidRuntimeSettings of DefaultEngine.ini"));
+		UE_LOG_ONLINE_STOREV2(Warning, TEXT("Missing GooglePlayLicenseKey key in /Script/AndroidRuntimeSettings.AndroidRuntimeSettings of DefaultEngine.ini"));
 	}
 
 	extern void AndroidThunkCpp_Iap_SetupIapService(const FString&);
@@ -95,7 +95,7 @@ void FOnlineStoreGooglePlayV2::OnGooglePlayAvailableIAPQueryComplete(EGooglePlay
 		AddOffer(NewProductOffer);
 		OfferIds.Add(NewProductOffer->OfferId);
 
-		UE_LOG(LogOnline, Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %d"),
+		UE_LOG_ONLINE_STOREV2(Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %d"),
 			*NewProductOffer->OfferId,
 			*NewProductOffer->Title.ToString(),
 			*NewProductOffer->Description.ToString(),
@@ -113,7 +113,7 @@ void FOnlineStoreGooglePlayV2::OnGooglePlayAvailableIAPQueryComplete(EGooglePlay
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("OnGooglePlayAvailableIAPQueryComplete: No IAP query task in flight"));
+		UE_LOG_ONLINE_STOREV2(Log, TEXT("OnGooglePlayAvailableIAPQueryComplete: No IAP query task in flight"));
 	}
 
 	bIsQueryInFlight = false;
@@ -136,7 +136,7 @@ void FOnlineStoreGooglePlayV2::QueryOffersByFilter(const FUniqueNetId& UserId, c
 
 void FOnlineStoreGooglePlayV2::QueryOffersById(const FUniqueNetId& UserId, const TArray<FUniqueOfferId>& OfferIds, const FOnQueryOnlineStoreOffersComplete& Delegate)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreGooglePlayV2::QueryOffersById"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreGooglePlayV2::QueryOffersById"));
 
 	if (bIsQueryInFlight)
 	{

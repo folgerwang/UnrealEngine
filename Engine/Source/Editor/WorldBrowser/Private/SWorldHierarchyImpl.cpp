@@ -45,6 +45,11 @@ SWorldHierarchyImpl::~SWorldHierarchyImpl()
 	WorldModel->CollectionChanged.RemoveAll(this);
 	WorldModel->PreLevelsUnloaded.RemoveAll(this);
 
+	if (SearchBoxLevelFilter.IsValid())
+	{
+		WorldModel->RemoveFilter(SearchBoxLevelFilter.ToSharedRef());
+	}
+
 	if (FLevelFolders::IsAvailable())
 	{
 		FLevelFolders& LevelFolders = FLevelFolders::Get();

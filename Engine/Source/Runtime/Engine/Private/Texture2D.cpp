@@ -493,7 +493,8 @@ void UTexture2D::UpdateResource()
 	// Make sure there are no pending requests in flight.
 	while( UpdateStreamingStatus() == true )
 	{
-		// Give up timeslice.
+		// Force flush the RHI threads to execute all commands issued for texture streaming, and give up timeslice.
+		FlushRenderingCommands();
 		FPlatformProcess::Sleep(0);
 	}
 
@@ -553,7 +554,8 @@ void UTexture2D::WaitForStreaming()
 		// Make sure there are no pending requests in flight otherwise calling UpdateIndividualTexture could be prevented to defined a new requested mip.
 		while (	!IsReadyForStreaming() || UpdateStreamingStatus() ) 
 		{
-			// Give up timeslice.
+			// Force flush the RHI threads to execute all commands issued for texture streaming, and give up timeslice.
+			FlushRenderingCommands();
 			FPlatformProcess::Sleep(0);
 		}
 
@@ -564,7 +566,8 @@ void UTexture2D::WaitForStreaming()
 
 			while (	UpdateStreamingStatus() ) 
 			{
-				// Give up timeslice.
+				// Force flush the RHI threads to execute all commands issued for texture streaming, and give up timeslice.
+				FlushRenderingCommands();
 				FPlatformProcess::Sleep(0);
 			}
 		}
@@ -904,7 +907,7 @@ FTextureResource* UTexture2D::CreateResource()
 		{	
 			RequestedMips = FMath::Max( RequestedMips, ResourceMem->GetNumMips() );
 		}
-		RequestedMips	= FMath::Max( RequestedMips, 1 );
+		RequestedMips	= FMath::Max( RequestedMips, 0 );
 	}
 
 	FTexture2DResource* Texture2DResource = NULL;
@@ -1243,11 +1246,7 @@ void FTexture2DResource::InitRHI()
 
 	// Create the RHI texture.
 	uint32 TexCreateFlags = (Owner->SRGB ? TexCreate_SRGB : 0) | TexCreate_OfflineProcessed | TexCreate_Streamable;
-	// if no miptail is available then create the texture without a packed miptail
-	if( Owner->GetMipTailBaseIndex() == -1 )
-	{
-		TexCreateFlags |= TexCreate_NoMipTail;
-	}
+	ensure(Owner->GetMipTailBaseIndex() != -1); //TexCreate_NoMipTail is deprecated
 	// disable tiled format if needed
 	if( Owner->bNoTiling )
 	{

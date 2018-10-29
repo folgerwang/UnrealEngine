@@ -391,7 +391,45 @@ void FD3D12CommandContext::RHITransitionResources(EResourceTransitionAccess Tran
 		FD3D12Fence* Fence = FD3D12DynamicRHI::ResourceCast(WriteComputeFenceRHI);
 		Fence->WriteFence();
 
-		Fence->Signal(ED3D12CommandQueueType::Default);
+		Fence->Signal(bIsAsyncComputeContext ? ED3D12CommandQueueType::Async : ED3D12CommandQueueType::Default);
+	}
+}
+
+void FD3D12CommandContext::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
+{
+	FD3D12StagingBuffer* StagingBuffer = FD3D12DynamicRHI::ResourceCast(StagingBufferRHI);
+	check(StagingBuffer);
+
+	FD3D12VertexBuffer* VertexBuffer = FD3D12DynamicRHI::ResourceCast(StagingBuffer->GetBackingBuffer());
+	check(VertexBuffer);
+
+	// Only get data from the first gpu for now.
+	FD3D12Device* StagingDevice = VertexBuffer->GetParentDevice();
+	StagingBuffer->StagedRead.SafeRelease();
+	VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), Offset + NumBytes, StagingBuffer->StagedRead.GetInitReference()));
+	
+	{
+		FD3D12Resource* pSourceResource = VertexBuffer->ResourceLocation.GetResource();
+		D3D12_RESOURCE_DESC const& SourceBufferDesc = pSourceResource->GetDesc();
+
+		FD3D12Resource* pDestResource = StagingBuffer->StagedRead.GetReference();
+		D3D12_RESOURCE_DESC const& DestBufferDesc = pDestResource->GetDesc();
+
+		FD3D12DynamicRHI::TransitionResource(CommandListHandle, pSourceResource, D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+		CommandListHandle.FlushResourceBarriers();	// Must flush so the desired state is actually set.
+
+		numCopies++;
+
+		CommandListHandle->CopyBufferRegion(pDestResource->GetResource(), Offset, pSourceResource->GetResource(), Offset, NumBytes);
+		CommandListHandle.UpdateResidency(pDestResource);
+		CommandListHandle.UpdateResidency(pSourceResource);
+	}
+
+	if (FenceRHI)
+	{
+		RHISubmitCommandsHint();
+		FD3D12GPUFence* Fence = FD3D12DynamicRHI::ResourceCast(FenceRHI);
+		Fence->WriteInternal(ED3D12CommandQueueType::Default);
 	}
 }
 

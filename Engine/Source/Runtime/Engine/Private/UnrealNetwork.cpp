@@ -3,5 +3,7 @@
 #include "Net/UnrealNetwork.h"
 
 FPreReplayScrub FNetworkReplayDelegates::OnPreScrub;
+FOnWriteGameSpecificDemoHeader FNetworkReplayDelegates::OnWriteGameSpecificDemoHeader;
+FOnProcessGameSpecificDemoHeader FNetworkReplayDelegates::OnProcessGameSpecificDemoHeader;
 
 // ----------------------------------------------------------------

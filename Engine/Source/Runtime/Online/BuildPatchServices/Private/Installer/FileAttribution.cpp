@@ -123,14 +123,18 @@ namespace BuildPatchServices
 
 	void FFileAttribution::SetupFileAttributes(const FString& FilePath, const FFileManifest& FileManifest, bool bForce)
 	{
+		using namespace BuildPatchServices;
 		EAttributeFlags FileAttributes = EAttributeFlags::None;
 
 		// First check file attributes as it's much faster to read and do nothing
 		bool bKnownAttributes = FileSystem->GetAttributes(*FilePath, FileAttributes);
-		bool bIsReadOnly = (FileAttributes & EAttributeFlags::ReadOnly) != EAttributeFlags::None;
-		const bool bFileExists = (FileAttributes & EAttributeFlags::Exists) != EAttributeFlags::None;
-		const bool bIsCompressed = (FileAttributes & EAttributeFlags::Compressed) != EAttributeFlags::None;
-		const bool bIsUnixExecutable = (FileAttributes & EAttributeFlags::Executable) != EAttributeFlags::None;
+		const bool bFileExists = EnumHasAllFlags(FileAttributes, EAttributeFlags::Exists);
+		bool bIsReadOnly = EnumHasAllFlags(FileAttributes, EAttributeFlags::ReadOnly);
+		const bool bIsCompressed = EnumHasAllFlags(FileAttributes, EAttributeFlags::Compressed);
+		const bool bIsUnixExecutable = EnumHasAllFlags(FileAttributes, EAttributeFlags::Executable);
+		const bool bFileManifestIsReadOnly = EnumHasAllFlags(FileManifest.FileMetaFlags, EFileMetaFlags::ReadOnly);
+		const bool bFileManifestIsCompressed = EnumHasAllFlags(FileManifest.FileMetaFlags, EFileMetaFlags::Compressed);
+		const bool bFileManifestIsUnixExecutable = EnumHasAllFlags(FileManifest.FileMetaFlags, EFileMetaFlags::UnixExecutable);
 
 		// If we know the file is missing, skip out
 		if (bKnownAttributes && !bFileExists)
@@ -145,7 +149,7 @@ namespace BuildPatchServices
 		}
 
 		// Set compression attribute
-		if (!bKnownAttributes || bIsCompressed != FileManifest.bIsCompressed)
+		if (!bKnownAttributes || bIsCompressed != bFileManifestIsCompressed)
 		{
 			// Must make not readonly if required
 			if (!bKnownAttributes || bIsReadOnly)
@@ -153,11 +157,11 @@ namespace BuildPatchServices
 				bIsReadOnly = false;
 				FileSystem->SetReadOnly(*FilePath, false);
 			}
-			FileSystem->SetCompressed(*FilePath, FileManifest.bIsCompressed);
+			FileSystem->SetCompressed(*FilePath, bFileManifestIsCompressed);
 		}
 
 		// Set executable attribute
-		if (!bKnownAttributes || bIsUnixExecutable != FileManifest.bIsUnixExecutable)
+		if (!bKnownAttributes || bIsUnixExecutable != bFileManifestIsUnixExecutable)
 		{
 			// Must make not readonly if required
 			if (!bKnownAttributes || bIsReadOnly)
@@ -165,13 +169,13 @@ namespace BuildPatchServices
 				bIsReadOnly = false;
 				FileSystem->SetReadOnly(*FilePath, false);
 			}
-			FileSystem->SetExecutable(*FilePath, FileManifest.bIsUnixExecutable);
+			FileSystem->SetExecutable(*FilePath, bFileManifestIsUnixExecutable);
 		}
 
 		// Set readonly attribute
-		if (!bKnownAttributes || bIsReadOnly != FileManifest.bIsReadOnly)
+		if (!bKnownAttributes || bIsReadOnly != bFileManifestIsReadOnly)
 		{
-			FileSystem->SetReadOnly(*FilePath, FileManifest.bIsReadOnly);
+			FileSystem->SetReadOnly(*FilePath, bFileManifestIsReadOnly);
 		}
 	}
 

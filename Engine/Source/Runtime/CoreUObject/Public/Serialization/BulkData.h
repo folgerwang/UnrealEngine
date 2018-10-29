@@ -621,6 +621,8 @@ struct COREUOBJECT_API FFloatBulkData : public FUntypedBulkData
 
 class FFormatContainer
 {
+	friend class UBodySetup;
+
 	TSortedMap<FName, FByteBulkData*> Formats;
 	uint32 Alignment;
 public:

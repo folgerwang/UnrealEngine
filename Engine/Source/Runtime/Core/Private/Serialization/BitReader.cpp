@@ -138,6 +138,40 @@ FBitReader::FBitReader(uint8* Src, int64 CountBits)
 	}
 }
 
+void FBitReader::SetData( uint8* Src, int64 CountBits )
+{
+	Num			= CountBits;
+	Pos			= 0;
+	ArIsError	= 0;
+
+	Buffer.Empty();
+	Buffer.AddUninitialized( (Num+7)>>3 );
+	
+	if (Src != nullptr)
+	{
+		FMemory::Memcpy(Buffer.GetData(), Src, (Num + 7) >> 3);
+
+		if (Num & 7)
+		{
+			Buffer[Num >> 3] &= GMask[Num & 7];
+		}
+	}
+}
+
+void FBitReader::SetData( TArray<uint8>&& Src, int64 CountBits )
+{
+	Num			= CountBits;
+	Pos			= 0;
+	ArIsError	= 0;
+
+	Buffer = MoveTemp(Src);
+
+	if (Num & 7)
+	{
+		Buffer[Num >> 3] &= GMask[Num & 7];
+	}
+}
+
 void FBitReader::SetData( FBitReader& Src, int64 CountBits )
 {
 	Num			= CountBits;
@@ -152,6 +186,7 @@ void FBitReader::SetData( FBitReader& Src, int64 CountBits )
 	Buffer.AddUninitialized( (CountBits+7)>>3 );
 	Src.SerializeBits(Buffer.GetData(), CountBits);
 }
+
 /** This appends data from another BitReader. It checks that this bit reader is byte-aligned so it can just do a TArray::Append instead of a bitcopy.
  *	It is intended to be used by performance minded code that wants to ensure an appBitCpy is avoided.
  */

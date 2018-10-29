@@ -8,7 +8,7 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineStoreInterface.generated.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineStore, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineStore, Log, All);
 
 #define UE_LOG_ONLINE_STORE(Verbosity, Format, ...) \
 { \

@@ -55,6 +55,7 @@ FMacApplication::FMacApplication()
 ,	HIDInput(HIDInputInterface::Create(MessageHandler))
 ,   bHasLoadedInputPlugins(false)
 ,	DraggedWindow(nullptr)
+,	WindowUnderCursor(nullptr)
 ,	bSystemModalMode(false)
 ,	ModifierKeysFlags(0)
 ,	CurrentModifierFlags(0)
@@ -102,6 +103,8 @@ FMacApplication::FMacApplication()
 		CGDisplayRegisterReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
 		
 		CacheKeyboardInputSource();
+
+		WindowUnderCursor = FindSlateWindowUnderCursor();
 	}, NSDefaultRunLoopMode, true);
 
 #if WITH_EDITOR
@@ -119,6 +122,8 @@ FMacApplication::FMacApplication()
 	FCoreDelegates::PreSlateModal.AddRaw(this, &FMacApplication::StartScopedModalEvent);
     FCoreDelegates::PostSlateModal.AddRaw(this, &FMacApplication::EndScopedModalEvent);
 #endif
+
+	FMacApplication::OnDisplayReconfiguration(kCGNullDirectDisplay, kCGDisplayDesktopShapeChangedFlag, this);
 }
 
 FMacApplication::~FMacApplication()
@@ -275,19 +280,14 @@ FModifierKeysState FMacApplication::GetModifierKeys() const
 
 bool FMacApplication::IsCursorDirectlyOverSlateWindow() const
 {
-	SCOPED_AUTORELEASE_POOL;
-	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-	NSWindow* const Window = [NSApp windowWithWindowNumber:WindowNumber];
-	return Window && [Window isKindOfClass:[FCocoaWindow class]] && Window != DraggedWindow;
+	return WindowUnderCursor && WindowUnderCursor != DraggedWindow;
 }
 
 TSharedPtr<FGenericWindow> FMacApplication::GetWindowUnderCursor()
 {
-	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-	NSWindow* const Window = [NSApp windowWithWindowNumber:WindowNumber];
-	if (Window && [Window isKindOfClass:[FCocoaWindow class]] && Window != DraggedWindow)
+	if (WindowUnderCursor && WindowUnderCursor->bAcceptsInput)
 	{
-		return StaticCastSharedPtr<FGenericWindow>(FindWindowByNSWindow((FCocoaWindow*)Window));
+		return StaticCastSharedPtr<FGenericWindow>(FindWindowByNSWindow(WindowUnderCursor));
 	}
 	return TSharedPtr<FMacWindow>(nullptr);
 }
@@ -357,6 +357,8 @@ void FMacApplication::CloseWindow(TSharedRef<FMacWindow> Window)
 void FMacApplication::DeferEvent(NSObject* Object)
 {
 	FDeferredMacEvent DeferredEvent;
+
+	WindowUnderCursor = FindSlateWindowUnderCursor();
 
 	if (Object && [Object isKindOfClass:[NSEvent class]])
 	{
@@ -467,7 +469,11 @@ void FMacApplication::DeferEvent(NSObject* Object)
 				{
 					GameThreadCall(^{
 						TSharedPtr<FMacWindow> Window = FindWindowByNSWindow(DeferredEvent.Window);
-						OnWindowDidResize(Window.ToSharedRef()); }, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode ], true);
+						if (Window.IsValid())
+						{
+							OnWindowDidResize(Window.ToSharedRef());
+						}
+					}, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode ], true);
 				}
 				return;
 			}
@@ -529,7 +535,26 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 		{
 			MacApplication->DeferEvent(Event);
 
-			if ([Event type] == NSEventTypeKeyDown || [Event type] == NSEventTypeKeyUp)
+			bool bShouldStopEventDispatch = false;
+			switch ([Event type])
+			{
+				case NSEventTypeKeyDown:
+				case NSEventTypeKeyUp:
+					bShouldStopEventDispatch = true;
+					break;
+					
+				case NSEventTypeLeftMouseDown:
+				case NSEventTypeRightMouseDown:
+				case NSEventTypeOtherMouseDown:
+				case NSEventTypeLeftMouseUp:
+				case NSEventTypeRightMouseUp:
+				case NSEventTypeOtherMouseUp:
+					// Make sure we don't stop receiving mouse dragged events if the cursor is over the edge of the screen and the cursor is locked
+					bShouldStopEventDispatch = ((FMacCursor*)MacApplication->Cursor.Get())->IsLocked();
+					break;
+			}
+			
+			if (bShouldStopEventDispatch)
 			{
 				ReturnEvent = nil;
 			}
@@ -548,7 +573,7 @@ void FMacApplication::OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisp
 
 		// Slate needs to know when desktop size changes.
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		App->BroadcastDisplayMetricsChanged(DisplayMetrics);
 	}
 
@@ -667,6 +692,20 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 		}
 		else if (Event.NotificationName == NSDraggingUpdated)
 		{
+			// MouseMoved events are suspended during drag and drop operations, so we need to update the cursor position here
+			NSPoint CursorPos = [NSEvent mouseLocation];
+			FVector2D NewPosition = ConvertCocoaPositionToSlate(CursorPos.x, CursorPos.y);
+			FMacCursor* MacCursor = (FMacCursor*)Cursor.Get();
+			const FVector2D MouseDelta = NewPosition - MacCursor->GetPosition();
+			if (MacCursor->UpdateCursorClipping(NewPosition))
+			{
+				MacCursor->SetPosition(NewPosition.X, NewPosition.Y);
+			}
+			else
+			{
+				MacCursor->UpdateCurrentPosition(NewPosition);
+			}
+
 			MessageHandler->OnDragOver(EventWindow.ToSharedRef());
 		}
 		else if (Event.NotificationName == NSPrepareForDragOperation)
@@ -735,6 +774,7 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 		const EWindowZone::Type Zone = GetCurrentWindowZone(EventWindow.ToSharedRef());
 		bool IsMouseOverTitleBar = (Zone == EWindowZone::TitleBar);
 		const bool IsMovable = IsMouseOverTitleBar || IsEdgeZone(Zone);
+
 		FCocoaWindow* WindowHandle = EventWindow->GetWindowHandle();
 		MainThreadCall(^{
 			[WindowHandle setMovable:IsMovable];
@@ -1130,6 +1170,8 @@ bool FMacApplication::OnWindowDestroyed(TSharedRef<FMacWindow> DestroyedWindow)
 		WindowToActivate->SetWindowFocus();
 	}
 
+	MessageHandler->OnCursorSet();
+
 	return true;
 }
 
@@ -1176,6 +1218,8 @@ void FMacApplication::OnWindowActivationChanged(const TSharedRef<FMacWindow>& Wi
 		ActiveWindow = Window;
 		OnWindowOrderedFront(Window);
 	}
+
+	MessageHandler->OnCursorSet();
 }
 
 void FMacApplication::OnApplicationDidBecomeActive()
@@ -1230,6 +1274,17 @@ void FMacApplication::OnApplicationDidBecomeActive()
 		if (MacApplication)
 		{
 			MessageHandler->OnApplicationActivationChanged(true);
+
+			// Slate expects window activation call after the app activates, so we just call it for the top window again
+			NSWindow* NativeWindow = [NSApp keyWindow];
+			if (NativeWindow)
+			{
+				TSharedPtr<FMacWindow> TopWindow = FindWindowByNSWindow((FCocoaWindow*)NativeWindow);
+				if (TopWindow.IsValid())
+				{
+					MessageHandler->OnWindowActivationChanged(TopWindow.ToSharedRef(), EWindowActivation::Activate);
+				}
+			}
 		}
 	}, @[ NSDefaultRunLoopMode ], false);
 }
@@ -1421,9 +1476,6 @@ FCocoaWindow* FMacApplication::FindEventWindow(NSEvent* Event) const
 
 	if ([Event type] != NSEventTypeKeyDown && [Event type] != NSEventTypeKeyUp)
 	{
-		NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-		NSWindow* WindowUnderCursor = [NSApp windowWithWindowNumber:WindowNumber];
-
 		if ([Event type] == NSEventTypeMouseMoved && WindowUnderCursor == nullptr)
 		{
 			// Ignore windows owned by other applications
@@ -1433,13 +1485,21 @@ FCocoaWindow* FMacApplication::FindEventWindow(NSEvent* Event) const
 		{
 			EventWindow = DraggedWindow;
 		}
-		else if (WindowUnderCursor && [WindowUnderCursor isKindOfClass:[FCocoaWindow class]])
+		else if (WindowUnderCursor)
 		{
-			EventWindow = (FCocoaWindow*)WindowUnderCursor;
+			EventWindow = WindowUnderCursor;
 		}
 	}
 
 	return EventWindow;
+}
+
+FCocoaWindow* FMacApplication::FindSlateWindowUnderCursor() const
+{
+	SCOPED_AUTORELEASE_POOL;
+	const NSInteger WindowNumber = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
+	const NSWindow* Window = [NSApp windowWithWindowNumber:WindowNumber];
+	return (Window && [Window isKindOfClass:[FCocoaWindow class]]) ? (FCocoaWindow*)Window : nil;
 }
 
 void FMacApplication::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)
@@ -1937,7 +1997,7 @@ void FMacApplication::RecordUsage(EGestureEvent Gesture)
 }
 #endif
 
-void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	SCOPED_AUTORELEASE_POOL;
 
@@ -1965,11 +2025,41 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 
 		FMonitorInfo Info;
 		Info.ID = FString::Printf(TEXT("%u"), DisplayID);
-		Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
-		Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
+
+		CFArrayRef ArrDisplay = CGDisplayCopyAllDisplayModes(DisplayID, nullptr);
+
+		Info.NativeWidth = 0;
+		Info.NativeHeight = 0;
+		const CFIndex AppsCount = CFArrayGetCount(ArrDisplay);
+		for (CFIndex i = 0; i < AppsCount; ++i)
+		{
+			const CGDisplayModeRef Mode = (const CGDisplayModeRef)CFArrayGetValueAtIndex(ArrDisplay, i);
+			const int32 Width = (int32)CGDisplayModeGetWidth(Mode);
+			const int32 Height = (int32)CGDisplayModeGetHeight(Mode);
+
+			if (Width * Height > Info.NativeWidth * Info.NativeHeight)
+			{
+				Info.NativeWidth = Width;
+				Info.NativeHeight = Height;
+			}
+		}
+
+		if (!Info.NativeWidth || !Info.NativeHeight)
+		{
+			Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
+			Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
+		}
+
 		Info.DisplayRect = FPlatformRect(Screen->FramePixels.origin.x, Screen->FramePixels.origin.y, Screen->FramePixels.origin.x + Screen->FramePixels.size.width, Screen->FramePixels.origin.y + Screen->FramePixels.size.height);
 		Info.WorkArea = FPlatformRect(Screen->VisibleFramePixels.origin.x, Screen->VisibleFramePixels.origin.y, Screen->VisibleFramePixels.origin.x + Screen->VisibleFramePixels.size.width, Screen->VisibleFramePixels.origin.y + Screen->VisibleFramePixels.size.height);
 		Info.bIsPrimary = Screen->Screen == [NSScreen mainScreen];
+
+		// dpi computations
+		const CGSize DisplayPhysicalSize = CGDisplayScreenSize(DisplayID);
+		const float MilimetreInch = 25.4f;
+		float HorizontalDPI = MilimetreInch * (float)Info.NativeWidth / (float)DisplayPhysicalSize.width;
+		float VerticalDPI = MilimetreInch * (float)Info.NativeHeight / (float)DisplayPhysicalSize.height;
+		Info.DPI = FMath::CeilToInt((HorizontalDPI + VerticalDPI) / 2.0f);
 
 		// Monitor's name can only be obtained from IOKit
 		io_iterator_t IOIterator;

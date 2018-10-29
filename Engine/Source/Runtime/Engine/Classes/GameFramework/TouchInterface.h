@@ -39,6 +39,10 @@ struct FTouchInputControl
 	FTouchInputControl()
 		: Image1(nullptr)
 		, Image2(nullptr)
+		, Center(ForceInitToZero)
+		, VisualSize(ForceInitToZero)
+		, ThumbSize(ForceInitToZero)
+		, InteractionSize(ForceInitToZero)
 		, InputScale(1.f, 1.f)
 	{
 	}

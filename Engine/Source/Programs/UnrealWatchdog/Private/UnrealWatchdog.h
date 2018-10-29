@@ -14,6 +14,7 @@ struct FWatchdogCommandLine
 	FString PlatformName;
 	FString SessionId;
 	FString EngineVersion;
+	FString LogPath;
 	uint32 ParentProcessId;
 	int32 SuccessReturnCode;
 	bool bAllowDetectHangs;
@@ -29,6 +30,7 @@ struct FWatchdogCommandLine
 		FParse::Value(InCommandLine, TEXT("Platform="), PlatformName);
 		FParse::Value(InCommandLine, TEXT("SessionId="), SessionId);
 		FParse::Value(InCommandLine, TEXT("EngineVersion="), EngineVersion);
+		FParse::Value(InCommandLine, TEXT("LogPath="), LogPath);
 		bHasProcessId = FParse::Value(InCommandLine, TEXT("PID="), ParentProcessId);
 		SuccessReturnCode = 0;
 		FParse::Value(InCommandLine, TEXT("SuccessfulRtnCode="), SuccessReturnCode);

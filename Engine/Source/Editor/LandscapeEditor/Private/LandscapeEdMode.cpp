@@ -48,6 +48,9 @@
 #include "EngineUtils.h"
 #include "IVREditorModule.h"
 #include "Misc/ScopedSlowTask.h"
+#include "LandscapeEditorCommands.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "MouseDeltaTracker.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -234,6 +237,17 @@ FEdModeLandscape::FEdModeLandscape()
 
 	UISettings = NewObject<ULandscapeEditorObject>(GetTransientPackage(), TEXT("UISettings"), RF_Transactional);
 	UISettings->SetParent(this);
+
+	ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
+	TSharedPtr<FUICommandList> CommandList = LandscapeEditorModule.GetLandscapeLevelViewportCommandList();
+
+	const FLandscapeEditorCommands& LandscapeActions = FLandscapeEditorCommands::Get();
+	CommandList->MapAction(LandscapeActions.IncreaseBrushSize, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushSize, true), FCanExecuteAction(), FIsActionChecked());
+	CommandList->MapAction(LandscapeActions.DecreaseBrushSize, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushSize, false), FCanExecuteAction(), FIsActionChecked());
+	CommandList->MapAction(LandscapeActions.IncreaseBrushFalloff, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushFalloff, true), FCanExecuteAction(), FIsActionChecked());
+	CommandList->MapAction(LandscapeActions.DecreaseBrushFalloff, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushFalloff, false), FCanExecuteAction(), FIsActionChecked());
+	CommandList->MapAction(LandscapeActions.IncreaseBrushStrength, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushStrength, true), FCanExecuteAction(), FIsActionChecked());
+	CommandList->MapAction(LandscapeActions.DecreaseBrushStrength, FExecuteAction::CreateRaw(this, &FEdModeLandscape::ChangeBrushStrength, false), FCanExecuteAction(), FIsActionChecked());
 }
 
 
@@ -705,9 +719,13 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 		if (!Viewport->KeyState(EKeys::LeftMouseButton) ||
 			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(Viewport)))
 		{
-			CurrentTool->EndTool(ViewportClient);
-			Viewport->CaptureMouse(false);
-			ToolActiveViewport = nullptr;
+			// Don't end the current tool if we are just modifying it
+			if (!IsAdjustingBrush(Viewport))
+			{
+				CurrentTool->EndTool(ViewportClient);
+				Viewport->CaptureMouse(false);
+				ToolActiveViewport = nullptr;
+			}
 		}
 	}
 
@@ -1329,12 +1347,139 @@ bool FEdModeLandscape::HandleClick(FEditorViewportClient* InViewportClient, HHit
 	return false;
 }
 
+bool FEdModeLandscape::IsAdjustingBrush(FViewport* InViewport) const
+{
+	FInputChord CompareChord;
+	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushSize"), EMultipleKeyBindingIndex::Primary, CompareChord);
+	if (InViewport->KeyState(CompareChord.Key))
+	{
+		return true;
+	}
+	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushFalloff"), EMultipleKeyBindingIndex::Primary, CompareChord);
+	if (InViewport->KeyState(CompareChord.Key))
+	{
+		return true;
+	}
+	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushStrength"), EMultipleKeyBindingIndex::Primary, CompareChord);
+	if (InViewport->KeyState(CompareChord.Key))
+	{
+		return true;
+	}
+	return false;
+}
+
+void FEdModeLandscape::ChangeBrushSize(bool bIncrease)
+{
+	UISettings->Modify();
+	if (CurrentBrush->GetBrushType() == ELandscapeBrushType::Component)
+	{
+		int32 Radius = UISettings->BrushComponentSize;
+		if (bIncrease)
+		{
+			++Radius;
+		}
+		else
+		{
+			--Radius;
+		}
+		Radius = (int32)FMath::Clamp(Radius, 1, 64);
+		UISettings->BrushComponentSize = Radius;
+	}
+	else
+	{
+		float Radius = UISettings->BrushRadius;
+		const float SliderMin = 0.0f;
+		const float SliderMax = 8192.0f;
+		float Diff = 0.05f; //6.0f / SliderMax;
+		if (!bIncrease)
+		{
+			Diff = -Diff;
+		}
+
+		float NewValue = Radius * (1.0f + Diff);
+
+		if (bIncrease)
+		{
+			NewValue = FMath::Max(NewValue, Radius + 1.0f);
+		}
+		else
+		{
+			NewValue = FMath::Min(NewValue, Radius - 1.0f);
+		}
+
+		NewValue = (int32)FMath::Clamp(NewValue, SliderMin, SliderMax);
+		UISettings->BrushRadius = NewValue;
+	}
+}
+
+
+void FEdModeLandscape::ChangeBrushFalloff(bool bIncrease)
+{
+	UISettings->Modify();
+	float Falloff = UISettings->BrushFalloff;
+	const float SliderMin = 0.0f;
+	const float SliderMax = 1.0f;
+	float Diff = 0.05f; 
+	if (!bIncrease)
+	{
+		Diff = -Diff;
+	}
+
+	float NewValue = Falloff * (1.0f + Diff);
+
+	if (bIncrease)
+	{
+		NewValue = FMath::Max(NewValue, Falloff + 0.05f);
+	}
+	else
+	{
+		NewValue = FMath::Min(NewValue, Falloff - 0.05f);
+	}
+
+	NewValue = FMath::Clamp(NewValue, SliderMin, SliderMax);
+	UISettings->BrushFalloff = NewValue;
+}
+
+
+void FEdModeLandscape::ChangeBrushStrength(bool bIncrease)
+{
+	UISettings->Modify();
+	float Strength = UISettings->ToolStrength;
+	const float SliderMin = 0.01f;
+	const float SliderMax = 10.0f;
+	float Diff = 0.05f; //6.0f / SliderMax;
+	if (!bIncrease)
+	{
+		Diff = -Diff;
+	}
+
+	float NewValue = Strength * (1.0f + Diff);
+
+	if (bIncrease)
+	{
+		NewValue = FMath::Max(NewValue, Strength + 0.05f);
+	}
+	else
+	{
+		NewValue = FMath::Min(NewValue, Strength - 0.05f);
+	}
+
+	NewValue = FMath::Clamp(NewValue, SliderMin, SliderMax);
+	UISettings->ToolStrength = NewValue;
+}
+
+
 /** FEdMode: Called when a key is pressed */
 bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event)
 {
 	if (!IsEditingEnabled())
 	{
 		return false;
+	}
+
+	if(IsAdjustingBrush(Viewport))
+	{
+		return false; // false to let FEditorViewportClient.InputKey start mouse tracking and enable InputDelta() so we can use it
 	}
 
 	if (Event != IE_Released)
@@ -1489,58 +1634,6 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 			}
 		}
 
-		// Change Brush Size
-		if ((Event == IE_Pressed || Event == IE_Repeat) && (Key == EKeys::LeftBracket || Key == EKeys::RightBracket))
-		{
-			if (CurrentBrush->GetBrushType() == ELandscapeBrushType::Component)
-			{
-				int32 Radius = UISettings->BrushComponentSize;
-				if (Key == EKeys::LeftBracket)
-				{
-					--Radius;
-				}
-				else
-				{
-					++Radius;
-				}
-				Radius = (int32)FMath::Clamp(Radius, 1, 64);
-				UISettings->BrushComponentSize = Radius;
-			}
-			else
-			{
-				float Radius = UISettings->BrushRadius;
-				float SliderMin = 0.0f;
-				float SliderMax = 8192.0f;
-				float LogPosition = FMath::Clamp(Radius / SliderMax, 0.0f, 1.0f);
-				float Diff = 0.05f; //6.0f / SliderMax;
-				if (Key == EKeys::LeftBracket)
-				{
-					Diff = -Diff;
-				}
-
-				float NewValue = Radius*(1.0f + Diff);
-
-				if (Key == EKeys::LeftBracket)
-				{
-					NewValue = FMath::Min(NewValue, Radius - 1.0f);
-				}
-				else
-				{
-					NewValue = FMath::Max(NewValue, Radius + 1.0f);
-				}
-
-				NewValue = (int32)FMath::Clamp(NewValue, SliderMin, SliderMax);
-				// convert from Exp scale to linear scale
-				//float LinearPosition = 1.0f - FMath::Pow(1.0f - LogPosition, 1.0f / 3.0f);
-				//LinearPosition = FMath::Clamp(LinearPosition + Diff, 0.0f, 1.0f);
-				//float NewValue = FMath::Clamp((1.0f - FMath::Pow(1.0f - LinearPosition, 3.0f)) * SliderMax, SliderMin, SliderMax);
-				//float NewValue = FMath::Clamp((SliderMax - SliderMin) * LinearPosition + SliderMin, SliderMin, SliderMax);
-
-				UISettings->BrushRadius = NewValue;
-			}
-			return true;
-		}
-
 		// Prev tool
 		if (Event == IE_Pressed && Key == EKeys::Comma)
 		{
@@ -1585,6 +1678,38 @@ bool FEdModeLandscape::InputDelta(FEditorViewportClient* InViewportClient, FView
 	if (!IsEditingEnabled())
 	{
 		return false;
+	}
+
+	// Are we altering something about the brush?
+	FInputChord CompareChord;
+	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushSize"), EMultipleKeyBindingIndex::Primary, CompareChord);
+	if (InViewport->KeyState(CompareChord.Key))
+	{
+		const bool bSizeChange = FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().X) > FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().Y) ?
+			InViewportClient->GetMouseDeltaTracker()->GetDelta().X > 0 :
+			InViewportClient->GetMouseDeltaTracker()->GetDelta().Y > 0;
+		ChangeBrushSize(bSizeChange);
+		return true;
+	}
+
+	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushStrength"), EMultipleKeyBindingIndex::Primary, CompareChord);
+	if (InViewport->KeyState(CompareChord.Key))
+	{
+		const bool bSizeChange = FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().X) > FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().Y) ?
+			InViewportClient->GetMouseDeltaTracker()->GetDelta().X > 0 :
+		InViewportClient->GetMouseDeltaTracker()->GetDelta().Y > 0;
+		ChangeBrushStrength(bSizeChange);
+		return true;
+	}
+
+	FInputBindingManager::Get().GetUserDefinedChord(FLandscapeEditorCommands::LandscapeContext, TEXT("DragBrushFalloff"), EMultipleKeyBindingIndex::Primary, CompareChord);
+	if (InViewport->KeyState(CompareChord.Key))
+	{
+		const bool bSizeChange = FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().X) > FMath::Abs(InViewportClient->GetMouseDeltaTracker()->GetDelta().Y) ?
+			InViewportClient->GetMouseDeltaTracker()->GetDelta().X > 0 :
+		InViewportClient->GetMouseDeltaTracker()->GetDelta().Y > 0;
+		ChangeBrushFalloff(bSizeChange);
+		return true;
 	}
 
 	if (NewLandscapePreviewMode != ENewLandscapePreviewMode::None)
@@ -3433,6 +3558,7 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			Landscape->SetActorRelativeScale3D(FVector(OldScale.X * LandscapeScaleFactor, OldScale.Y * LandscapeScaleFactor, OldScale.Z));
 
 			Landscape->LandscapeMaterial = OldLandscapeProxy->LandscapeMaterial;
+			Landscape->LandscapeMaterialsOverride = OldLandscapeProxy->LandscapeMaterialsOverride;
 			Landscape->CollisionMipLevel = OldLandscapeProxy->CollisionMipLevel;
 			Landscape->Import(FGuid::NewGuid(), NewMinX, NewMinY, NewMaxX, NewMaxY, NumSubsections, SubsectionSizeQuads, HeightData.GetData(), *OldLandscapeProxy->ReimportHeightmapFilePath, ImportLayerInfos, ELandscapeImportAlphamapType::Additive);
 

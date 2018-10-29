@@ -32,7 +32,7 @@ void USizeBoxSlot::BuildSlot(TSharedRef<SBox> InSizeBox)
 
 	SynchronizeProperties();
 
-	SizeBox->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
+	SizeBox.Pin()->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
 }
 
 void USizeBoxSlot::SetPadding(FMargin InPadding)
@@ -40,7 +40,7 @@ void USizeBoxSlot::SetPadding(FMargin InPadding)
 	Padding = InPadding;
 	if ( SizeBox.IsValid() )
 	{
-		SizeBox->SetPadding(InPadding);
+		SizeBox.Pin()->SetPadding(InPadding);
 	}
 }
 
@@ -49,7 +49,7 @@ void USizeBoxSlot::SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlign
 	HorizontalAlignment = InHorizontalAlignment;
 	if ( SizeBox.IsValid() )
 	{
-		SizeBox->SetHAlign(InHorizontalAlignment);
+		SizeBox.Pin()->SetHAlign(InHorizontalAlignment);
 	}
 }
 
@@ -58,7 +58,7 @@ void USizeBoxSlot::SetVerticalAlignment(EVerticalAlignment InVerticalAlignment)
 	VerticalAlignment = InVerticalAlignment;
 	if ( SizeBox.IsValid() )
 	{
-		SizeBox->SetVAlign(InVerticalAlignment);
+		SizeBox.Pin()->SetVAlign(InVerticalAlignment);
 	}
 }
 

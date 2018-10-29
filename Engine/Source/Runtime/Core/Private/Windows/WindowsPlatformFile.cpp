@@ -18,13 +18,27 @@
 #include "Async/AsyncFileHandle.h"
 #include "Async/AsyncWork.h"
 #include "Misc/ScopeLock.h"
+#include "HAL/IConsoleManager.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 
 #include "WindowsAsyncIO.h"
 
 TLockFreePointerListUnordered<void, PLATFORM_CACHE_LINE_SIZE> WindowsAsyncIOEventPool;
+bool GTriggerFailedWindowsRead = false;
 
+#if !UE_BUILD_SHIPPING
+static void TriggerFailedWindowsRead(const TArray<FString>& Args)
+{
+	GTriggerFailedWindowsRead = true;
+}
+
+static FAutoConsoleCommand TriggerFailedWindowsReadCmd(
+	TEXT("TriggerFailedWindowsRead"),
+	TEXT("Tests low level IO errors on XB and Windows"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&TriggerFailedWindowsRead)
+);
+#endif
 
 
 	namespace FileConstants
@@ -724,9 +738,11 @@ public:
 		uint32  WinFlags = FILE_SHARE_READ;
 		uint32  Create = OPEN_EXISTING;
 
-		HANDLE Handle = CreateFileW(*NormalizeFilename(Filename), Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
+
+		FString NormalizedFilename = NormalizeFilename(Filename);
+		HANDLE Handle = CreateFileW(*NormalizedFilename, Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
 		// we can't really fail here because this is intended to be an async open
-		return new FWindowsAsyncReadFileHandle(Handle);
+		return new FWindowsAsyncReadFileHandle(Handle, *NormalizedFilename);
 
 	}
 #endif

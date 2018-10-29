@@ -280,7 +280,7 @@ struct FNamedNetDriver
  *  new worlds.
  *
  *	FWorldContext should remain internal to the UEngine classes. Outside code should not keep pointers or try to manage FWorldContexts directly.
- *	Outside code can steal deal with UWorld*, and pass UWorld*s into Engine level functions. The Engine code can look up the relevant context 
+ *	Outside code can still deal with UWorld*, and pass UWorld*s into Engine level functions. The Engine code can look up the relevant context 
  *	for a given UWorld*.
  *
  *  For convenience, FWorldContext can maintain outside pointers to UWorld*s. For example, PIE can tie UWorld* UEditorEngine::PlayWorld to the PIE
@@ -361,6 +361,9 @@ struct FWorldContext
 	/** The Prefix in front of PIE level names, empty is default */
 	FString	PIEPrefix;
 
+	/** The feature level that PIE world should use */
+	ERHIFeatureLevel::Type PIEWorldFeatureLevel;
+
 	/** Is this running as a dedicated server */
 	bool	RunAsDedicated;
 
@@ -410,6 +413,7 @@ struct FWorldContext
 		, GameViewport(nullptr)
 		, OwningGameInstance(nullptr)
 		, PIEInstance(INDEX_NONE)
+		, PIEWorldFeatureLevel(ERHIFeatureLevel::Num)
 		, RunAsDedicated(false)
 		, bWaitingOnOnlineSubsystem(false)
 		, AudioDeviceHandle(INDEX_NONE)
@@ -741,6 +745,10 @@ public:
 
 	UPROPERTY(globalconfig, noclear, meta = (MetaClass = "NavigationSystem", DisplayName = "Navigation System Config Class"))
 	FSoftClassPath NavigationSystemConfigClassName;
+
+	/** The class for NavigationSystem **/
+	UPROPERTY()
+	TSubclassOf<class UNavigationSystemConfig>  NavigationSystemConfigClass;
 	
 	/** Name of behavior tree manager class */
 	UPROPERTY(globalconfig, noclear, meta=(MetaClass="AvoidanceManager", DisplayName="Avoidance Manager Class"))
@@ -2644,10 +2652,8 @@ protected:
 
 	/**
 	 *	Initialize the audio device manager
-	 *
-	 *	@return	true on success, false otherwise.
 	 */
-	virtual bool InitializeAudioDeviceManager();
+	virtual void InitializeAudioDeviceManager();
 
 	/**
 	 *	Detects and initializes any attached HMD devices
@@ -2790,7 +2796,7 @@ public:
 	 *
 	 * @return A pointer to the UNetDriver that was found, or nullptr if it wasn't found.
 	 */
-	UNetDriver* FindNamedNetDriver(UWorld* InWorld, FName NetDriverName);
+	UNetDriver* FindNamedNetDriver(const UWorld* InWorld, FName NetDriverName);
 	UNetDriver* FindNamedNetDriver(const UPendingNetGame* InPendingNetGame, FName NetDriverName);
 
 	/**

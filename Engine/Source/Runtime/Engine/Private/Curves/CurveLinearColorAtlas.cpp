@@ -46,7 +46,7 @@ void UCurveLinearColorAtlas::PostEditChangeProperty(struct FPropertyChangedEvent
 				GradientCurves.RemoveAt(TextureSize, OldCurveCount - TextureSize);
 			}
 
-			Source.Init2DWithMipChain(TextureSize, TextureSize, TSF_BGRA8);
+			Source.Init(TextureSize, TextureSize, 1, 1, TSF_RGBA16F);
 
 			SizeXY = { (float)TextureSize, (float)GradientPixelSize };
 			UpdateTextures();
@@ -80,8 +80,11 @@ void UCurveLinearColorAtlas::PostEditChangeProperty(struct FPropertyChangedEvent
 		NotifyMaterials();
 	}
 }
+#endif
+
 void UCurveLinearColorAtlas::PostLoad()
 {
+#if WITH_EDITOR
 	for (int32 i = 0; i < GradientCurves.Num(); ++i)
 	{
 		if (GradientCurves[i] != nullptr)
@@ -89,12 +92,16 @@ void UCurveLinearColorAtlas::PostLoad()
 			GradientCurves[i]->OnUpdateGradient.AddUObject(this, &UCurveLinearColorAtlas::UpdateGradientSlot);
 		}
 	}
+	Source.Init(TextureSize, TextureSize, 1, 1, TSF_RGBA16F);
 	SizeXY = { (float)TextureSize, (float)GradientPixelSize };
 	UpdateTextures();
+#endif
+
 	Super::PostLoad();
 }
 
-static void RenderGradient(TArray<FColor>& InSrcData, UObject* Gradient, int32 StartXY, FVector2D SizeXY)
+#if WITH_EDITOR
+static void RenderGradient(TArray<FFloat16Color>& InSrcData, UObject* Gradient, int32 StartXY, FVector2D SizeXY)
 {
 	if (Gradient == nullptr)
 	{
@@ -104,8 +111,7 @@ static void RenderGradient(TArray<FColor>& InSrcData, UObject* Gradient, int32 S
 			// Create base mip for the texture we created.
 			for (uint32 x = 0; x < SizeXY.X; x++)
 			{
-				FColor Src = FLinearColor::White.ToFColor(false);
-				InSrcData[Start + x + y * SizeXY.X] = Src;
+				InSrcData[Start + x + y * SizeXY.X] = FLinearColor::White;
 			}
 		}
 	}
@@ -132,8 +138,10 @@ void UCurveLinearColorAtlas::UpdateGradientSlot(UCurveLinearColor* Gradient)
 		// Render the single gradient to the render target
 		RenderGradient(SrcData, Gradient, StartXY, SizeXY);
 
-		uint8* MipData = Source.LockMip(0);
-		FMemory::Memcpy(MipData, SrcData.GetData(), TextureSize*TextureSize*sizeof(FColor));
+		uint32* TextureData = (uint32*)Source.LockMip(0);
+		const int32 TextureDataSize = Source.CalcMipSize(0);
+		FMemory::Memcpy(TextureData, SrcData.GetData(), TextureDataSize);
+
 		Source.UnlockMip(0);
 
 		// Immediately update the texture
@@ -147,8 +155,9 @@ void UCurveLinearColorAtlas::UpdateTextures()
 {
 	// Save off the data needed to render each gradient.
 	// Callback into the section owner to get the Gradients array
+	const int32 TextureDataSize = Source.CalcMipSize(0);
 	SrcData.Empty();
-	SrcData.AddUninitialized(TextureSize*TextureSize);
+	SrcData.AddUninitialized(TextureDataSize);
 
 	int32 NumSlotsToRender = FMath::Min(GradientCurves.Num(), (int32)MaxSlotsPerTexture());
 	for (int32 i = 0; i < NumSlotsToRender; ++i)
@@ -164,15 +173,14 @@ void UCurveLinearColorAtlas::UpdateTextures()
 	for (uint32 y = 0; y < TextureSize; y++)
 	{
 		// Create base mip for the texture we created.
-		FColor Src = FLinearColor::White.ToFColor(false);
 		for (uint32 x = GradientCurves.Num(); x < TextureSize; x++)
 		{
-			SrcData[x*TextureSize + y] = Src;
+			SrcData[x*TextureSize + y] = FLinearColor::White;
 		}
 	}
 
-	uint8* MipData = Source.LockMip(0);
-	FMemory::Memcpy(MipData, SrcData.GetData(), TextureSize*TextureSize*sizeof(FColor));
+	uint32* TextureData = (uint32*)Source.LockMip(0);
+	FMemory::Memcpy(TextureData, SrcData.GetData(), TextureDataSize);
 	Source.UnlockMip(0);
 	UpdateResource();
 

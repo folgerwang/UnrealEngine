@@ -53,7 +53,7 @@ FAnimNode_RigidBody::FAnimNode_RigidBody():
 
 	ComponentLinearAccScale = FVector::ZeroVector;
 	ComponentLinearVelScale = FVector::ZeroVector;
-	ComponentAppliedLinearAccClamp = FVector(100000,100000,100000);
+	ComponentAppliedLinearAccClamp = FVector(10000,10000,10000);
 }
 
 FAnimNode_RigidBody::~FAnimNode_RigidBody()
@@ -615,8 +615,6 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 						{
 							IgnoreCollisionActors.Add(NewBodyHandle);
 						}
-
-						BodiesSorted[InsertBone] = nullptr;
 					}
 				}
 			}

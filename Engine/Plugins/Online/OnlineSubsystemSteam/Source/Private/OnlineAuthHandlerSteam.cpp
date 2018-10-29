@@ -245,7 +245,9 @@ void FSteamAuthHandlerComponent::SendPacket(FBitWriter& OutboundPacket)
 	}
 #endif
 
-	Handler->SendHandlerPacket(this, OutboundPacket);
+	FOutPacketTraits Traits;
+
+	Handler->SendHandlerPacket(this, OutboundPacket, Traits);
 	LastTimestamp = FPlatformTime::Seconds();
 }
 
@@ -257,7 +259,7 @@ void FSteamAuthHandlerComponent::RequestResend()
 	ResendWriter.WriteBit(1);
 
 	// Steam Auth is so simplistic that we really only have two messages we need to handle.
-	ResendingPacket.Type = (Handler->Mode == Handler::Server) ? 
+	ResendingPacket.Type = (Handler->Mode == Handler::Mode::Server) ? 
 		ESteamAuthMsgType::ResendKey : ESteamAuthMsgType::ResendResult;
 
 	ResendWriter << ResendingPacket;
@@ -357,7 +359,7 @@ void FSteamAuthHandlerComponent::Incoming(FBitReader& Packet)
 			SendAuthKey(false);
 		}
 	}
-	else if (Handler && Handler->Mode == Handler::Server && Header.Type == ESteamAuthMsgType::ResendResult)
+	else if (Handler && Handler->Mode == Handler::Mode::Server && Header.Type == ESteamAuthMsgType::ResendResult)
 	{
 		if (State == ESteamAuthHandlerState::Initialized)
 		{
@@ -372,7 +374,7 @@ void FSteamAuthHandlerComponent::Incoming(FBitReader& Packet)
 	}
 }
 
-void FSteamAuthHandlerComponent::Outgoing(FBitWriter& Packet)
+void FSteamAuthHandlerComponent::Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 #if !UE_BUILD_SHIPPING
 	if (AuthInterface.IsValid() && AuthInterface->bDropAll)
@@ -382,14 +384,13 @@ void FSteamAuthHandlerComponent::Outgoing(FBitWriter& Packet)
 	}
 #endif
 
-	FBitWriter NewPacket(Packet.GetNumBits() + 1);
+	FBitWriter NewPacket(Packet.GetNumBits() + 1, true);
 
 	// We want to specify this is not a Steam auth packet.
 	NewPacket.WriteBit(0);
 	NewPacket.SerializeBits(Packet.GetData(), Packet.GetNumBits());
 
-	Packet.Reset();
-	Packet.SerializeBits(NewPacket.GetData(), NewPacket.GetNumBits());
+	Packet = MoveTemp(NewPacket);
 }
 
 void FSteamAuthHandlerComponent::Tick(float DeltaTime)
@@ -408,7 +409,7 @@ void FSteamAuthHandlerComponent::Tick(float DeltaTime)
 	}
 }
 
-int32 FSteamAuthHandlerComponent::GetReservedPacketBits()
+int32 FSteamAuthHandlerComponent::GetReservedPacketBits() const
 {
 	// Add a singular bit to figure out if the message is for Steam Auth
 	return 1;

@@ -18,7 +18,7 @@ bool FOnlineExternalUIIOS::ShowLoginUI(const int ControllerIndex, bool bShowOnli
 	
 	if (IdentityInterface->GetLocalGameCenterUser() == nullptr)
 	{
-		UE_LOG(LogOnline, Log, TEXT("Game Center localPlayer is null."));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Game Center localPlayer is null."));
 		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
 		return true;
 	}
@@ -68,7 +68,9 @@ bool FOnlineExternalUIIOS::ShowLeaderboardUI( const FString& LeaderboardName )
 
 bool FOnlineExternalUIIOS::ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate)
 {
-	return false;
+	FPlatformProcess::LaunchURL(*Url, nullptr, nullptr);
+
+	return true;
 }
 
 bool FOnlineExternalUIIOS::CloseWebURL()

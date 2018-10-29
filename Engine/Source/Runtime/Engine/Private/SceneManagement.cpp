@@ -322,6 +322,62 @@ FLightMapInteraction FLightMapInteraction::Texture(
 	return Result;
 }
 
+FLightMapInteraction FLightMapInteraction::InitVirtualTexture(
+	const ULightMapVirtualTexture* VirtualTexture,
+	const FVector4* InCoefficientScales,
+	const FVector4* InCoefficientAdds,
+	const FVector2D& InCoordinateScale,
+	const FVector2D& InCoordinateBias,
+	bool bAllowHighQualityLightMaps)
+{
+	FLightMapInteraction Result;
+	Result.Type = LMIT_Texture;
+	check(bAllowHighQualityLightMaps == true);
+
+#if ALLOW_LQ_LIGHTMAPS && ALLOW_HQ_LIGHTMAPS
+	// however, if simple and directional are allowed, then we must use the value passed in,
+	// and then cache the number as well
+	Result.bAllowHighQualityLightMaps = bAllowHighQualityLightMaps;
+	if (bAllowHighQualityLightMaps)
+	{
+		Result.NumLightmapCoefficients = NUM_HQ_LIGHTMAP_COEF;
+	}
+	else
+	{
+		Result.NumLightmapCoefficients = NUM_LQ_LIGHTMAP_COEF;
+	}
+#endif
+
+	//copy over the appropriate textures and scales
+	if (bAllowHighQualityLightMaps)
+	{
+#if ALLOW_HQ_LIGHTMAPS
+		Result.VirtualTexture = VirtualTexture;
+		for (uint32 CoefficientIndex = 0; CoefficientIndex < NUM_HQ_LIGHTMAP_COEF; CoefficientIndex++)
+		{
+			Result.HighQualityCoefficientScales[CoefficientIndex] = InCoefficientScales[CoefficientIndex];
+			Result.HighQualityCoefficientAdds[CoefficientIndex] = InCoefficientAdds[CoefficientIndex];
+		}
+#endif
+	}
+
+	// NOTE: In PC editor we cache both Simple and Directional textures as we may need to dynamically switch between them
+	if (GIsEditor || !bAllowHighQualityLightMaps)
+	{
+#if ALLOW_LQ_LIGHTMAPS
+		for (uint32 CoefficientIndex = 0; CoefficientIndex < NUM_LQ_LIGHTMAP_COEF; CoefficientIndex++)
+		{
+			Result.LowQualityCoefficientScales[CoefficientIndex] = InCoefficientScales[LQ_LIGHTMAP_COEF_INDEX + CoefficientIndex];
+			Result.LowQualityCoefficientAdds[CoefficientIndex] = InCoefficientAdds[LQ_LIGHTMAP_COEF_INDEX + CoefficientIndex];
+		}
+#endif
+	}
+
+	Result.CoordinateScale = InCoordinateScale;
+	Result.CoordinateBias = InCoordinateBias;
+	return Result;
+}
+
 float ComputeBoundsScreenRadiusSquared(const FVector4& BoundsOrigin, const float SphereRadius, const FVector4& ViewOrigin, const FMatrix& ProjMatrix)
 {
 	const float DistSqr = FVector::DistSquared(BoundsOrigin, ViewOrigin);
@@ -522,19 +578,18 @@ FMobileDirectionalLightShaderParameters::FMobileDirectionalLightShaderParameters
 
 	// light, default to black
 	DirectionalLightColor = FLinearColor::Black;
-	DirectionalLightDirection = FVector::ZeroVector;
+	DirectionalLightDirectionAndShadowTransition = FVector4(EForceInit::ForceInitToZero);
 
 	// white texture should act like a shadowmap cleared to the farplane.
 	DirectionalLightShadowTexture = GWhiteTexture->TextureRHI;
 	DirectionalLightShadowSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-	DirectionalLightShadowTransition = 0.0f;
-	DirectionalLightShadowSize = FVector::ZeroVector;
+	DirectionalLightShadowSize = FVector4(EForceInit::ForceInitToZero);
+	DirectionalLightDistanceFadeMAD = FVector4(EForceInit::ForceInitToZero);
 	for (int32 i = 0; i < MAX_MOBILE_SHADOWCASCADES; ++i)
 	{
 		DirectionalLightScreenToShadow[i].SetIdentity();
 		DirectionalLightShadowDistances[i] = 0.0f;
 	}
-	DirectionalLightDistanceFadeMAD = FVector2D(0,0);
 }
 
 FViewUniformShaderParameters::FViewUniformShaderParameters()
@@ -719,7 +774,6 @@ void FReadOnlyCVARCache::Init()
 	static const auto CVarSupportPointLightWholeSceneShadows = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportPointLightWholeSceneShadows"));
 	static const auto CVarSupportAllShaderPermutations = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportAllShaderPermutations"));	
 	static const auto CVarVertexFoggingForOpaque = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VertexFoggingForOpaque"));	
-	static const auto CVarForwardShading = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForwardShading"));
 	static const auto CVarAllowStaticLighting = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 
 	static const auto CVarMobileAllowMovableDirectionalLights = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowMovableDirectionalLights"));
@@ -727,6 +781,7 @@ void FReadOnlyCVARCache::Init()
 	static const auto CVarMobileAllowDistanceFieldShadows = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowDistanceFieldShadows"));
 	static const auto CVarMobileNumDynamicPointLights = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
 	static const auto CVarMobileDynamicPointLightsUseStaticBranch = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileDynamicPointLightsUseStaticBranch"));
+	static const auto CVarMobileSkyLightPermutation = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.SkyLightPermutation"));
 
 	const bool bForceAllPermutations = CVarSupportAllShaderPermutations && CVarSupportAllShaderPermutations->GetValueOnAnyThread() != 0;
 
@@ -742,10 +797,7 @@ void FReadOnlyCVARCache::Init()
 	bMobileEnableStaticAndCSMShadowReceivers = CVarMobileEnableStaticAndCSMShadowReceivers->GetValueOnAnyThread() != 0;
 	NumMobileMovablePointLights = CVarMobileNumDynamicPointLights->GetValueOnAnyThread();
 	bMobileMovablePointLightsUseStaticBranch = CVarMobileDynamicPointLightsUseStaticBranch->GetValueOnAnyThread() != 0;
-
-	// Only enable VertexFoggingForOpaque if ForwardShading is enabled 
-	const bool bForwardShading = CVarForwardShading && CVarForwardShading->GetInt() != 0;
-	bEnableVertexFoggingForOpaque = bForwardShading && ( !CVarVertexFoggingForOpaque || CVarVertexFoggingForOpaque->GetValueOnAnyThread() != 0 );
+	MobileSkyLightPermutation = CVarMobileSkyLightPermutation->GetValueOnAnyThread();
 
 	const bool bShowMissmatchedLowQualityLightmapsWarning = (!bEnableLowQualityLightmaps) && (GEngine->bShouldGenerateLowQualityLightmaps_DEPRECATED);
 	if ( bShowMissmatchedLowQualityLightmapsWarning )

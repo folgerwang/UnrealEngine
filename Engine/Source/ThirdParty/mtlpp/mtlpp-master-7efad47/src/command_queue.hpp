@@ -36,7 +36,7 @@ namespace mtlpp
     class Device;
     class CommandBuffer;
 
-    class CommandQueue : public ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>
+    class MTLPP_EXPORT CommandQueue : public ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>
     {
     public:
 		CommandQueue(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLCommandQueue>>::type>(retain) { }
@@ -54,7 +54,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedCommandQueue : public ns::AutoReleased<CommandQueue>
+	class MTLPP_EXPORT ValidatedCommandQueue : public ns::AutoReleased<CommandQueue>
 	{
 	public:
 		ValidatedCommandQueue()

@@ -36,6 +36,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// The cache file that is being used
+		/// </summary>
+		public static FileReference CacheFile;
+
+		/// <summary>
 		/// Parsed config values
 		/// </summary>
 		static XmlConfigData Values;
@@ -48,26 +53,18 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Initialize the config system with the given types
 		/// </summary>
-		/// <param name="bForceLoadCache">Force use of the cached XML config without checking if it's valid (useful for remote builds)</param>
-		public static bool ReadConfigFiles(bool bForceLoadCache)
+		/// <param name="OverrideCacheFile">Force use of the cached XML config without checking if it's valid (useful for remote builds)</param>
+		public static bool ReadConfigFiles(FileReference OverrideCacheFile)
 		{
 			// Find all the configurable types
 			List<Type> ConfigTypes = FindConfigurableTypes();
 
-			// Get the path to the cache file
-			FileReference CacheFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "XmlConfigCache.bin");
-			if(UnrealBuildTool.IsEngineInstalled())
-			{
-				DirectoryReference UserSettingsDir = Utils.GetUserSettingDirectory();
-				if(UserSettingsDir != null)
-				{
-					CacheFile = FileReference.Combine(UserSettingsDir, "UnrealEngine", String.Format("XmlConfigCache-{0}.bin", UnrealBuildTool.RootDirectory.FullName.Replace(":", "").Replace(Path.DirectorySeparatorChar, '+')));
-				}
-			}
-
 			// Update the cache if necessary
-			if(bForceLoadCache)
+			if(OverrideCacheFile != null)
 			{
+				// Set the cache file to the overriden value
+				CacheFile = OverrideCacheFile;
+
 				// Never rebuild the cache; just try to load it.
 				if(!XmlConfigData.TryRead(CacheFile, ConfigTypes, out Values))
 				{
@@ -76,6 +73,17 @@ namespace UnrealBuildTool
 			}
 			else
 			{
+				// Get the default cache file
+				CacheFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "XmlConfigCache.bin");
+				if(UnrealBuildTool.IsEngineInstalled())
+				{
+					DirectoryReference UserSettingsDir = Utils.GetUserSettingDirectory();
+					if(UserSettingsDir != null)
+					{
+						CacheFile = FileReference.Combine(UserSettingsDir, "UnrealEngine", String.Format("XmlConfigCache-{0}.bin", UnrealBuildTool.RootDirectory.FullName.Replace(":", "").Replace(Path.DirectorySeparatorChar, '+')));
+					}
+				}
+
 				// Find all the input files
 				FileReference[] InputFiles = FindInputFiles().Select(x => x.Location).ToArray();
 

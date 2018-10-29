@@ -259,6 +259,10 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedPosition = Input.Position.xyz;
 	Result.PreSkinnedNormal = TangentToLocal[2].xyz;
 
+	// Previous frame not handled deliberately. Lacks necessary information and
+	// primitives using this VF are usually transparent and hence don't output velocity
+	Result.PrevFrameLocalToWorld = Primitive.LocalToWorld;
+
 #if USE_DYNAMIC_PARAMETERS
 	Result.Particle.DynamicParameter = Intermediates.DynamicParameter;
 #endif	//USE_DYNAMIC_PARAMETERS
@@ -425,7 +429,7 @@ float3x3 CalcTangentBasis(FVertexFactoryIntermediates Intermediates)
 }
 
 // Note: C++ geometry setup behavior has to match this define
-#define SUPPORTS_PARTICLE_CUTOUTS (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
+#define SUPPORTS_PARTICLE_CUTOUTS (FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1)
 #if SUPPORTS_PARTICLE_CUTOUTS
 
 /** Number of vertices in each SubUV frame of CutoutGeometry. */

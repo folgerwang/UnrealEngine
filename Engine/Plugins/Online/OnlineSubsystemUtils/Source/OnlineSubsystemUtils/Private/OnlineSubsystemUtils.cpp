@@ -229,7 +229,7 @@ int32 GetClientPeerIp(FName InstanceName, const FUniqueNetId& UserId)
 }
 
 #if WITH_ENGINE
-uint64 GetBaseVoiceChatTeamId(UWorld* World)
+uint64 GetBaseVoiceChatTeamId(const UWorld* World)
 {
 	uint64 VoiceChatIdBase = 0;
 
@@ -265,7 +265,7 @@ uint64 GetVoiceChatTeamId(uint64 VoiceChatIdBase, uint8 TeamIndex)
 }
 #endif
 
-bool HandleVoiceCommands(IOnlineSubsystem* InOnlineSub, UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+bool HandleVoiceCommands(IOnlineSubsystem* InOnlineSub, const UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	bool bWasHandled = true;
 

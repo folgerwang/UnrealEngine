@@ -71,11 +71,11 @@ public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (Parameters.Platform != SP_METAL_MRT && Parameters.Platform != SP_METAL_MRT_MAC) )
+		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform) )
 		{
 			return true;
 		}
-		else if (Parameters.Platform == SP_METAL_MRT || Parameters.Platform == SP_METAL_MRT_MAC)
+		else if (IsMetalMRTPlatform(Parameters.Platform))
 		{
 			return CompileTimeNumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_IOS;
 		}
@@ -229,11 +229,11 @@ public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (Parameters.Platform != SP_METAL_MRT && Parameters.Platform != SP_METAL_MRT_MAC) )
+		if( IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform) )
 		{
 			return true;
 		}
-		else if (Parameters.Platform == SP_METAL_MRT || Parameters.Platform == SP_METAL_MRT_MAC)
+		else if (IsMetalMRTPlatform(Parameters.Platform))
 		{
 			return NumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES_IOS;
 		}
@@ -532,9 +532,28 @@ void SetFilterShaders(
 		(SrcRect.Min.X + 0.5f) / SrcSize.X, (SrcRect.Min.Y + 0.5f) / SrcSize.Y,
 		(SrcRect.Max.X - 0.5f) / SrcSize.X, (SrcRect.Max.Y - 0.5f) / SrcSize.Y);
 
-	FVector4 AdditiveBufferUVMinMaxValue(
-		(AdditiveSrcRect.Min.X + 0.5f) / AdditiveSrcSize.X, (AdditiveSrcRect.Min.Y + 0.5f) / AdditiveSrcSize.Y,
-		(AdditiveSrcRect.Max.X - 0.5f) / AdditiveSrcSize.X, (AdditiveSrcRect.Max.Y - 0.5f) / AdditiveSrcSize.Y);
+	FVector4 AdditiveBufferUVMinMaxValue;
+	if (AdditiveSrcSize.X != 0.f)
+	{
+		AdditiveBufferUVMinMaxValue.X = (AdditiveSrcRect.Min.X + 0.5f) / AdditiveSrcSize.X;
+		AdditiveBufferUVMinMaxValue.Z = (AdditiveSrcRect.Max.X - 0.5f) / AdditiveSrcSize.X;
+	}
+	else
+	{
+		AdditiveBufferUVMinMaxValue.X = 0.f;
+		AdditiveBufferUVMinMaxValue.Z = 0.f;
+	}
+
+	if (AdditiveSrcSize.Y != 0.f)
+	{
+		AdditiveBufferUVMinMaxValue.Y = (AdditiveSrcRect.Min.Y + 0.5f) / AdditiveSrcSize.Y;
+		AdditiveBufferUVMinMaxValue.W = (AdditiveSrcRect.Max.Y - 0.5f) / AdditiveSrcSize.Y;
+	}
+	else
+	{
+		AdditiveBufferUVMinMaxValue.Y = 0.f;
+		AdditiveBufferUVMinMaxValue.W = 0.f;
+	}
 
 	bool DoManualClampUV = !(SrcRect.Min == FIntPoint::ZeroValue && SrcRect.Max == SrcSize);
 
@@ -965,6 +984,10 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 		AdditiveSrcRect = FIntRect::DivideAndRoundUp(Context.SceneColorViewRect, AdditiveScaleFactor);
 	}
+	else
+	{
+		AdditiveSrcSize = FIntPoint::ZeroValue;
+	}
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum%s#%d%s %dx%d in %dx%d"),
 		bIsComputePass?TEXT("Compute"):TEXT(""), NumSamples, FilterShape == EFS_Horiz ? TEXT("Horizontal") : TEXT("Vertical"),
@@ -1284,7 +1307,7 @@ uint32 FRCPassPostProcessWeightedSampleSum::GetMaxNumSamples(ERHIFeatureLevel::T
 
 	uint32 MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES;
 
-	if (InPlatform == SP_METAL_MRT || InPlatform == SP_METAL_MRT_MAC)
+	if (IsMetalMRTPlatform(InPlatform))
 	{
 		MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES_IOS;
 	}

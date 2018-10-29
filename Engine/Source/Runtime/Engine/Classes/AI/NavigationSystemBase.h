@@ -91,8 +91,11 @@ namespace FNavigationSystem
 	 *	function will be called on the new NavigationSystem instance.
 	 *	(@see UWorld.NavigationSystem)
 	 *	@param RunMode if set to a valid value (other than FNavigationSystemRunMode::InvalidMode) 
-	 *		will also configure the created NavigationSystem instance for that mode */
-	ENGINE_API void AddNavigationSystemToWorld(UWorld& WorldOwner, const FNavigationSystemRunMode RunMode = FNavigationSystemRunMode::InvalidMode, const bool bInitializeForWorld = true);
+	 *		will also configure the created NavigationSystem instance for that mode
+	 *	@param NavigationSystemConfig is used to pick the navigation system's class and set it up. If null
+	 *		then WorldOwner.WorldSettings.NavigationSystemConfig will be used
+	 */
+	ENGINE_API void AddNavigationSystemToWorld(UWorld& WorldOwner, const FNavigationSystemRunMode RunMode = FNavigationSystemRunMode::InvalidMode, UNavigationSystemConfig* NavigationSystemConfig = nullptr, const bool bInitializeForWorld = true);
 
 	/** Discards all navigation data chunks in all sub-levels */
 	ENGINE_API void DiscardNavigationDataChunks(UWorld& InWorld);
@@ -194,7 +197,7 @@ namespace FNavigationSystem
 }
 
 
-UCLASS(Abstract, config = Engine, defaultconfig)
+UCLASS(Abstract, config = Engine, defaultconfig, Transient)
 class ENGINE_API UNavigationSystemBase : public UObject
 {
 	GENERATED_BODY()

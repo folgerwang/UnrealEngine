@@ -7,6 +7,7 @@
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneTimeHelpers.h"
 
 #include "Algo/BinarySearch.h"
 

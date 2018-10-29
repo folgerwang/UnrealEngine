@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if USE_ANDROID_JNI
 
 #include "IWebBrowserWindow.h"
-#include "AndroidJSScripting.h"
 #include "Widgets/SWidget.h"
+#include "MobileJS/MobileJSScripting.h"
 
 class SAndroidWebBrowserWidget;
 class SWebBrowserView;
@@ -53,6 +55,7 @@ public:
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
+	virtual FIntPoint GetViewportSize() const override;
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -89,7 +92,6 @@ public:
 	virtual void SetIsDisabled(bool bValue) override;
 	virtual TSharedPtr<SWindow> GetParentWindow() const override;
 	virtual void SetParentWindow(TSharedPtr<SWindow> Window) override;
-	virtual FIntPoint GetViewportSize() const;
 
 	DECLARE_DERIVED_EVENT(FAndroidWebBrowserWindow, IWebBrowserWindow::FOnDocumentStateChanged, FOnDocumentStateChanged);
 	virtual FOnDocumentStateChanged& OnDocumentStateChanged() override
@@ -188,7 +190,17 @@ public:
 	/**
 	* Called from the WebBrowserSingleton tick event. Should test whether the widget got a tick from Slate last frame and set the state to hidden if not.
 	*/
-	//void CheckTickActivity();
+	void CheckTickActivity() override;
+
+	/**
+	* Signal from the widget, meaning that the widget is still active
+	*/
+	void SetTickLastFrame();
+
+	/**
+	* Browser's visibility
+	*/
+	bool IsVisible();
 
 private:
 
@@ -269,13 +281,22 @@ private:
 	EWebBrowserDocumentState DocumentState;
 	int ErrorCode;
 
-	FAndroidJSScriptingPtr Scripting;
+	FMobileJSScriptingPtr Scripting;
 
 	mutable TOptional<TFunction<void (const FString&)>> GetPageSourceCallback;
 
 	TSharedPtr<SWindow> ParentWindow;
 
 	FIntPoint AndroidWindowSize;
+
+	/** Tracks whether the widget is currently disabled or not*/
+	bool bIsDisabled;
+
+	/** Tracks whether the widget is currently visible or not*/
+	bool bIsVisible;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
 };
 
 typedef FAndroidWebBrowserWindow FWebBrowserWindow;

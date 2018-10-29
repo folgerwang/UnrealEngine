@@ -102,7 +102,7 @@ FArchive& FArchiveUObjectFromStructuredArchive::operator<<(FSoftObjectPath& Valu
 			ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
 			ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
 			FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
-			ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType);
+			ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType, this);
 
 			if (SerializeType == ESoftObjectPathSerializeType::AlwaysSerialize)
 			{

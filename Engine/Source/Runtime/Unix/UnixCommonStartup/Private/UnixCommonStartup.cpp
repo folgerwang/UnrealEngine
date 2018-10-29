@@ -129,20 +129,24 @@ static bool IncreasePerProcessLimits()
 	// - The rest set it to infinity unless -nocore is passed
 	// (in all scenarios user wish as expressed with -core or -nocore takes priority)
 	// Note that we used to have Test disable cores by default too. This has been changed around UE 4.15.
+	// Since 4.20, inability to change the limit is no longer a failure unless switches were used
+	bool bFailIfUnableToChange = false;
 	bool bDisableCore = (UE_BUILD_SHIPPING != 0);
 	if (FParse::Param(*GSavedCommandLine, TEXT("nocore")))
 	{
 		bDisableCore = true;
+		bFailIfUnableToChange = true;
 	}
 	if (FParse::Param(*GSavedCommandLine, TEXT("core")))
 	{
 		bDisableCore = false;
+		bFailIfUnableToChange = true;
 	}
 
 	if (bDisableCore)
 	{
 		printf("Disabling core dumps.\n");
-		if (!SetResourceLimit(RLIMIT_CORE, 0, false))
+		if (!SetResourceLimit(RLIMIT_CORE, 0, false) && bFailIfUnableToChange)
 		{
 			fprintf(stderr, "Could not set core file size to 0, error(%d): %s\n", errno, strerror(errno));
 			return false;
@@ -151,7 +155,7 @@ static bool IncreasePerProcessLimits()
 	else
 	{
 		printf("Increasing per-process limit of core file size to infinity.\n");
-		if (!SetResourceLimit(RLIMIT_CORE, RLIM_INFINITY, true))
+		if (!SetResourceLimit(RLIMIT_CORE, RLIM_INFINITY, true) && bFailIfUnableToChange)
 		{
 			fprintf(stderr, "Could not adjust core file size, consider changing \"core\" in /etc/security/limits.conf and relogin.\nerror(%d): %s\n", errno, strerror(errno));
 			fprintf(stderr, "Alternatively, pass -nocore if you are unable or unwilling to do that.\n");

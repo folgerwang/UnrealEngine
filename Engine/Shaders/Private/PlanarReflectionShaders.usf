@@ -13,7 +13,7 @@ SamplerState SceneColorInputSampler;
 
 float4 SampleSceneColorInput(float2 UV)
 {
-	return Texture2DSampleLevel(SceneColorInputTexture, SceneColorInputSampler, UV, 0);
+	return Decode32BPPHDR(Texture2DSampleLevel(SceneColorInputTexture, SceneColorInputSampler, UV, 0));
 }
 
 float GaussianWeight1d(float u, float KernelRadius)

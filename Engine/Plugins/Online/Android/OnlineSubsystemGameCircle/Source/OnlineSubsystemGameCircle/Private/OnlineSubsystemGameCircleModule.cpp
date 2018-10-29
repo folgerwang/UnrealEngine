@@ -42,13 +42,13 @@ public:
 			{
 				if(!GameCircleSingleton->Init())
 				{
-					UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemGameCircleModule failed to initialize!"));
+					UE_LOG_ONLINE(Warning, TEXT("FOnlineSubsystemGameCircleModule failed to initialize!"));
 					DestroySubsystem();
 				}
 			}
 			else
 			{
-				UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemGameCircleModule was disabled"));
+				UE_LOG_ONLINE(Warning, TEXT("FOnlineSubsystemGameCircleModule was disabled"));
 				DestroySubsystem();
 			}
 
@@ -65,7 +65,7 @@ FOnlineSubsystemGameCirclePtr FOnlineFactoryGameCircle::GameCircleSingleton = NU
 
 void FOnlineSubsystemGameCircleModule::StartupModule()
 {
-	UE_LOG(LogOnline, Display, TEXT("OnlineSubsystemGameCircleModule::StartupModule()"));
+	UE_LOG_ONLINE(Display, TEXT("OnlineSubsystemGameCircleModule::StartupModule()"));
 
 	GameCircleFactory = new FOnlineFactoryGameCircle();
 
@@ -76,7 +76,7 @@ void FOnlineSubsystemGameCircleModule::StartupModule()
 
 void FOnlineSubsystemGameCircleModule::ShutdownModule()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGameCircleModule::ShutdownModule()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemGameCircleModule::ShutdownModule()"));
 
 	delete GameCircleFactory;
 	GameCircleFactory = nullptr;

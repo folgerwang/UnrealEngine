@@ -286,11 +286,11 @@ void UOculusNetDriver::TickDispatch(float DeltaTime)
 	}
 }
 
-void UOculusNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits)
+void UOculusNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	if (bIsPassthrough)
 	{
-		return UIpNetDriver::LowLevelSend(Address, Data, CountBits);
+		return UIpNetDriver::LowLevelSend(Address, Data, CountBits, Traits);
 	}
 	FInternetAddrOculus OculusAddr(FURL(nullptr, *Address, ETravelType::TRAVEL_Absolute));
 	ovrID PeerID = OculusAddr.GetID();
@@ -301,7 +301,7 @@ void UOculusNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits
 		if (ConnectionlessHandler.IsValid())
 		{
 			const ProcessedPacket ProcessedData =
-				ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits);
+				ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits, Traits);
 
 			if (!ProcessedData.bError)
 			{

@@ -238,8 +238,8 @@ public:
 	TArray<FCapsule> Capsles;
 
 	uint32 ViewFlagIndex;
-	FString ViewFlagName;
 	float TextWithoutShadowDistance;
+	FString ViewFlagName;
 	FDebugDrawDelegate DebugTextDrawingDelegate;
 	FDelegateHandle DebugTextDrawingDelegateHandle;
 	EDrawType DrawType;

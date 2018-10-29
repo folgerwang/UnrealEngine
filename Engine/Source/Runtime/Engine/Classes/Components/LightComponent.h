@@ -341,6 +341,10 @@ public:
 
 	/** Compute current light brightness based on whether there is a valid IES profile texture attached, and whether IES brightness is enabled */
 	virtual float ComputeLightBrightness() const;
+#if WITH_EDITOR
+	/** Set the Intensity using the brightness. The unit of brightness depends on the light type. */
+	virtual void SetLightBrightness(float InBrightness);
+#endif
 
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;

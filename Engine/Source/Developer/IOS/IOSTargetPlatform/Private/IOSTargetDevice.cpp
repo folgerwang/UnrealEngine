@@ -7,7 +7,7 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "MessageEndpoint.h"
 #include "MessageEndpointBuilder.h"
-
+#include "IOSTargetDeviceOutput.h"
 
 FIOSTargetDevice::FIOSTargetDevice(const ITargetPlatform& InTargetPlatform)
 	: TargetPlatform(InTargetPlatform)
@@ -188,4 +188,14 @@ void FIOSTargetDevice::SetUserCredentials(const FString& UserName, const FString
 bool FIOSTargetDevice::GetUserCredentials(FString& OutUserName, FString& OutUserPassword)
 {
 	return false;
+}
+inline ITargetDeviceOutputPtr FIOSTargetDevice::CreateDeviceOutputRouter(FOutputDevice* Output) const
+{
+	FIOSTargetDeviceOutputPtr DeviceOutputPtr = MakeShareable(new FIOSTargetDeviceOutput());
+	if (DeviceOutputPtr->Init(*this, Output))
+	{
+		return DeviceOutputPtr;
+	}
+
+	return nullptr;
 }

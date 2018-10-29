@@ -36,6 +36,13 @@ struct FCameraFilmbackSettings
 		return (SensorWidth == Other.SensorWidth)
 			&& (SensorHeight == Other.SensorHeight);
 	}
+
+	FCameraFilmbackSettings()
+		: SensorWidth(24.89f)
+		, SensorHeight(18.67f)
+		, SensorAspectRatio(1.33f)
+	{
+	}
 };
 
 /** A named bundle of filmback settings used to implement filmback presets */
@@ -131,7 +138,7 @@ struct FCameraTrackingFocusSettings
 
 	/** Focus distance will be tied to this actor's location. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Tracking Focus")
-	TSoftObjectPtr<AActor> ActorToTrack;
+	AActor* ActorToTrack;
 
 	/** Offset from actor position to track. Relative to actor if tracking an actor, relative to world otherwise. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Tracking Focus")
@@ -142,7 +149,9 @@ struct FCameraTrackingFocusSettings
 	uint8 bDrawDebugTrackingFocusPoint : 1;
 
 	FCameraTrackingFocusSettings()
-		: bDrawDebugTrackingFocusPoint(false)
+		: ActorToTrack(nullptr),
+		RelativeOffset(ForceInitToZero),
+		bDrawDebugTrackingFocusPoint(false)
 	{}
 };
 
@@ -190,6 +199,7 @@ struct FCameraFocusSettings
 	FCameraFocusSettings() : 
 		FocusMethod(ECameraFocusMethod::Manual),
 		ManualFocusDistance(100000.f),
+		TrackingFocusSettings(),
 #if WITH_EDITORONLY_DATA
 		bDrawDebugFocusPlane(false),
 		DebugFocusPlaneColor(102, 26, 204, 153),		// purple

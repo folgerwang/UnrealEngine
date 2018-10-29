@@ -15,6 +15,12 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Internationalization/Culture.h"
 #include "PIEPreviewWindowStyle.h"
+#include "PIEPreviewDevice.h"
+#include "PIEPreviewWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "UnrealEngine.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/UserInterfaceSettings.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPIEPreviewDevice, Log, All); 
 DEFINE_LOG_CATEGORY(LogPIEPreviewDevice);
@@ -26,6 +32,27 @@ void FPIEPreviewDeviceModule::StartupModule()
 
 void FPIEPreviewDeviceModule::ShutdownModule()
 {
+	// clear delegates set in StartupModule()
+	if (EngineInitCompleteDelegate.IsValid())
+	{
+		FCoreDelegates::OnFEngineLoopInitComplete.Remove(EngineInitCompleteDelegate);
+	}
+
+	if (ViewportCreatedDelegate.IsValid())
+	{
+		UGameViewportClient::OnViewportCreated().Remove(ViewportCreatedDelegate);
+	}
+
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+	if (WindowPtr.IsValid())
+	{
+		WindowPtr->PrepareShutdown();
+	}
+
+	if (Device.IsValid())
+	{
+		Device->ShutdownDevice();
+	}
 }
 
 FString const FPIEPreviewDeviceModule::GetRuntimeDeviceProfileName()
@@ -42,215 +69,70 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 {
 	bInitialized = true;
 
-	if (ReadDeviceSpecification())
-	{
-		ERHIFeatureLevel::Type PreviewFeatureLevel = ERHIFeatureLevel::Num;
-		switch (DeviceSpecs->DevicePlatform)
-		{
-			case EPIEPreviewDeviceType::Android:
-			{
-				IDeviceProfileSelectorModule* AndroidDeviceProfileSelector = FModuleManager::LoadModulePtr<IDeviceProfileSelectorModule>("AndroidDeviceProfileSelector");
-				if (AndroidDeviceProfileSelector)
-				{
-					FPIEAndroidDeviceProperties& AndroidProperties = DeviceSpecs->AndroidProperties;
+	// the window size will be available after all data is loaded and we'll use this callback to display it
+	EngineInitCompleteDelegate = FCoreDelegates::OnFEngineLoopInitComplete.AddRaw(this, &FPIEPreviewDeviceModule::OnEngineInitComplete);
 
-					TMap<FString, FString> DeviceParameters;
-					DeviceParameters.Add("GPUFamily", AndroidProperties.GPUFamily);
-					DeviceParameters.Add("GLVersion", AndroidProperties.GLVersion);
-					DeviceParameters.Add("VulkanAvailable", AndroidProperties.VulkanAvailable ? "true" : "false");
-					DeviceParameters.Add("VulkanVersion", AndroidProperties.VulkanVersion);
-					DeviceParameters.Add("AndroidVersion", AndroidProperties.AndroidVersion);
-					DeviceParameters.Add("DeviceMake", AndroidProperties.DeviceMake);
-					DeviceParameters.Add("DeviceModel", AndroidProperties.DeviceModel);
-					DeviceParameters.Add("UsingHoudini", AndroidProperties.UsingHoudini ? "true" : "false");
+	// to finish setup we need complete engine initialization
+	ViewportCreatedDelegate = UGameViewportClient::OnViewportCreated().AddRaw(this, &FPIEPreviewDeviceModule::OnViewportCreated);
 
-					FString PIEProfileName = AndroidDeviceProfileSelector->GetDeviceProfileName(DeviceParameters);
-					if (!PIEProfileName.IsEmpty())
-					{
-						DeviceProfile = PIEProfileName;
-					}
-				}
-				break;
-			}
-			case EPIEPreviewDeviceType::IOS:
-			{
-				FPIEIOSDeviceProperties& IOSProperties = DeviceSpecs->IOSProperties;
-				DeviceProfile = IOSProperties.DeviceModel;
-				break;
-			}
-		}
-		RHISetMobilePreviewFeatureLevel(GetPreviewDeviceFeatureLevel());
-	}
+	bool bReadSuccess = ReadDeviceSpecification();
+	checkf(bReadSuccess, TEXT("Unable to read device specifications"));
+
+	Device->ApplyRHIPrerequisitesOverrides();
+	DeviceProfile = Device->GetProfile();
 }
 
-static void ApplyRHIOverrides(FPIERHIOverrideState* RHIOverrideState)
+void FPIEPreviewDeviceModule::OnEngineInitComplete()
 {
-	check(RHIOverrideState);
-	GMaxTextureDimensions.SetPreviewOverride(RHIOverrideState->MaxTextureDimensions);
-	GMaxShadowDepthBufferSizeX.SetPreviewOverride(RHIOverrideState->MaxShadowDepthBufferSizeX);
-	GMaxShadowDepthBufferSizeY.SetPreviewOverride(RHIOverrideState->MaxShadowDepthBufferSizeY);
-	GMaxCubeTextureDimensions.SetPreviewOverride(RHIOverrideState->MaxCubeTextureDimensions);
-	GRHISupportsInstancing.SetPreviewOverride(RHIOverrideState->SupportsInstancing);
-	GSupportsMultipleRenderTargets.SetPreviewOverride(RHIOverrideState->SupportsMultipleRenderTargets);
-	GSupportsRenderTargetFormat_PF_FloatRGBA.SetPreviewOverride(RHIOverrideState->SupportsRenderTargetFormat_PF_FloatRGBA);
-	GSupportsRenderTargetFormat_PF_G8.SetPreviewOverride(RHIOverrideState->SupportsRenderTargetFormat_PF_G8);
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+
+	// TODO: Localization
+	FString AppTitle = FGlobalTabmanager::Get()->GetApplicationTitle().ToString() + "Previewing: " + PreviewDevice;
+	FGlobalTabmanager::Get()->SetApplicationTitle(FText::FromString(AppTitle));
+
+	if (WindowPtr.IsValid())
+	{
+		int32 TitleBarSize = SPIEPreviewWindow::GetDefaultTitleBarSize();
+		Device->SetupDevice(TitleBarSize);
+		
+		WindowPtr->PrepareWindow(InitialWindowPosition, InitialWindowScaleValue, Device);
+		WindowPtr->ShowWindow();
+	}
 }
 
-const void FPIEPreviewDeviceModule::GetPreviewDeviceResolution(int32& ScreenWidth, int32& ScreenHeight)
+bool FPIEPreviewDeviceModule::ReadWindowConfig()
 {
-	if (!DeviceSpecs.IsValid()) 
-	{
-		return;
-	}
-	const int32 JSON_VALUE_NOT_SET = 0;
-	ScreenWidth = DeviceSpecs->ResolutionX;
-	if (DeviceSpecs->ResolutionYImmersiveMode != JSON_VALUE_NOT_SET)
-		DeviceSpecs->ResolutionY = DeviceSpecs->ResolutionYImmersiveMode;
-	ScreenHeight = DeviceSpecs->ResolutionY;
-	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
-	float RequestedContentScaleFactor = CVar->GetFloat();
-	switch (DeviceSpecs->DevicePlatform)
-	{
-		case EPIEPreviewDeviceType::Android:
-		{
-			/********************************************/
-			/**code from FAndroidWindow GetScreenRect()**/
-			/***GearVr and Daydream have been left out***/
-			/********************************************/
+	InitialWindowScaleValue = 0.0f;
+	GConfig->GetFloat(TEXT("/Script/Engine.MobilePIE"), TEXT("DeviceScalingFactor"), InitialWindowScaleValue, GEngineIni);
 
-			// CSF is a multiplier to 1280x720
-			// determine mosaic requirements:
-			static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
-			const bool bMobileHDR = (MobileHDRCvar && MobileHDRCvar->GetValueOnAnyThread() == 1);
+	// read window position
+	int32 WinX = 0, WinY = 0;
+	bool bFound = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), WinX, GEngineIni);
+	bFound &= GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), WinY, GEngineIni);
+	InitialWindowPosition.Set(WinX, WinY);
 
-			static auto* MobileHDR32bppModeCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR32bppMode"));
-			const int32 MobileHDR32Mode = MobileHDR32bppModeCvar->GetValueOnAnyThread();
-
-			bool bMosaicEnabled = false;
-			bool bHDR32ModeOverridden = false;
-			bool bDeviceRequiresHDR32bpp = false;
-			bool bDeviceRequiresMosaic = false;
-			
-			bDeviceRequiresHDR32bpp = GSupportsRenderTargetFormat_PF_FloatRGBA;// !FAndroidMisc::SupportsFloatingPointRenderTargets();
-			bDeviceRequiresMosaic = bDeviceRequiresHDR32bpp && GSupportsShaderFramebufferFetch/*&& !FAndroidMisc::SupportsShaderFramebufferFetch()*/;
-
-			bHDR32ModeOverridden = MobileHDR32Mode != 0;
-			bMosaicEnabled = bDeviceRequiresMosaic && (!bHDR32ModeOverridden || MobileHDR32Mode == 1);
-			
-			// get the aspect ratio of the physical screen
-			bool GAndroidIsPortrait = false;
-
-			// some phones gave it the other way (so, if swap if the app is landscape, but width < height)
-			if ((GAndroidIsPortrait && ScreenWidth > ScreenHeight) ||
-				(!GAndroidIsPortrait && ScreenWidth < ScreenHeight))
-			{
-				Swap(ScreenWidth, ScreenHeight);
-			}
-
-			// ensure the size is divisible by a specified amount
-			// do not convert to a surface size that is larger than native resolution
-			const int DividableBy = 8;
-			ScreenWidth = (ScreenWidth / DividableBy) * DividableBy;
-			ScreenHeight = (ScreenHeight / DividableBy) * DividableBy;
-			float AspectRatio = (float)ScreenWidth / (float)ScreenHeight;
-
-			int32 MaxWidth = ScreenWidth;
-			int32 MaxHeight = ScreenHeight;
-
-
-			UE_LOG(LogAndroid, Log, TEXT("Mobile HDR: %s"), bMobileHDR ? TEXT("YES") : TEXT("no"));
-			if (bMobileHDR)
-			{
-				UE_LOG(LogAndroid, Log, TEXT("Device requires 32BPP mode : %s"), bDeviceRequiresHDR32bpp ? TEXT("YES") : TEXT("no"));
-				UE_LOG(LogAndroid, Log, TEXT("Device requires mosaic: %s"), bDeviceRequiresMosaic ? TEXT("YES") : TEXT("no"));
-
-				if (bHDR32ModeOverridden)
-				{
-					UE_LOG(LogAndroid, Log, TEXT("--- Enabling 32 BPP override with 'r.MobileHDR32bppMode' = %d"), MobileHDR32Mode);
-					UE_LOG(LogAndroid, Log, TEXT("  32BPP mode : YES"));
-					UE_LOG(LogAndroid, Log, TEXT("  32BPP mode requires mosaic: %s"), bMosaicEnabled ? TEXT("YES") : TEXT("no"));
-					UE_LOG(LogAndroid, Log, TEXT("  32BPP mode requires RGBE: %s"), MobileHDR32Mode == 2 ? TEXT("YES") : TEXT("no"));
-				}
-
-				if (bMosaicEnabled)
-				{
-					UE_LOG(LogAndroid, Log, TEXT("Using mosaic rendering due to lack of Framebuffer Fetch support."));
-					if (GetPreviewDeviceFeatureLevel() == ERHIFeatureLevel::ES3_1)
-					{
-						const int32 OldMaxWidth = MaxWidth;
-						const int32 OldMaxHeight = MaxHeight;
-
-						if (GAndroidIsPortrait)
-						{
-							MaxHeight = FPlatformMath::Min(MaxHeight, 1024);
-							MaxWidth = MaxHeight * AspectRatio;
-						}
-						else
-						{
-							MaxWidth = FPlatformMath::Min(MaxWidth, 1024);
-							MaxHeight = MaxWidth / AspectRatio;
-						}
-
-						UE_LOG(LogAndroid, Log, TEXT("Limiting MaxWidth=%d and MaxHeight=%d due to mosaic rendering on ES2 device (was %dx%d)"), MaxWidth, MaxHeight, OldMaxWidth, OldMaxHeight);
-					}
-				}
-			}
-
-			// 0 means to use native size
-			int32 Width, Height;
-			if (RequestedContentScaleFactor == 0.0f)
-			{
-				Width = MaxWidth;
-				Height = MaxHeight;
-				UE_LOG(LogAndroid, Log, TEXT("Setting Width=%d and Height=%d (requested scale = 0 = auto)"), Width, Height);
-			}
-			else
-			{
-				if (GAndroidIsPortrait)
-				{
-					Height = 1280 * RequestedContentScaleFactor;
-				}
-				else
-				{
-					Height = 720 * RequestedContentScaleFactor;
-				}
-
-				// apply the aspect ration to get the width
-				Width = Height * AspectRatio;
-
-				// clamp to native resolution
-				Width = FPlatformMath::Min(Width, MaxWidth);
-				Height = FPlatformMath::Min(Height, MaxHeight);
-
-				UE_LOG(LogAndroid, Log, TEXT("Setting Width=%d and Height=%d (requested scale = %f)"), Width, Height, RequestedContentScaleFactor);
-			}
-
-			ScreenWidth = Width;
-			ScreenHeight = Height;
-			break;
-		}
-		case EPIEPreviewDeviceType::IOS:
-		{
-			bool GIOSIsPortrait = false;
-
-			// some phones gave it the other way (so, if swap if the app is landscape, but width < height)
-			if ((GIOSIsPortrait && ScreenWidth > ScreenHeight) ||
-				(!GIOSIsPortrait && ScreenWidth < ScreenHeight))
-			{
-				Swap(ScreenWidth, ScreenHeight);
-			}
-			break;
-		}
-	}
+	return bFound;
 }
-
 
 TSharedRef<SWindow> FPIEPreviewDeviceModule::CreatePIEPreviewDeviceWindow(FVector2D ClientSize, FText WindowTitle, EAutoCenter AutoCenterType, FVector2D ScreenPosition, TOptional<float> MaxWindowWidth, TOptional<float> MaxWindowHeight)
 {
+	bool bPosFound = ReadWindowConfig();
+
+	if (ScreenPosition.IsNearlyZero() && bPosFound)
+	{
+		ScreenPosition = InitialWindowPosition;
+		AutoCenterType = EAutoCenter::None;
+	}
+	else
+	{
+		InitialWindowPosition = ScreenPosition;
+	}
+
+	FPIEPreviewWindowCoreStyle::InitializePIECoreStyle();
+
 	static FWindowStyle BackgroundlessStyle = FCoreStyle::Get().GetWidgetStyle<FWindowStyle>("Window");
 	BackgroundlessStyle.SetBackgroundBrush(FSlateNoResource());
-
-	return SNew(SPIEPreviewWindow)
+	TSharedRef<SPIEPreviewWindow> Window = SNew(SPIEPreviewWindow)
 		.Type(EWindowType::GameWindow)
 		.Style(&BackgroundlessStyle)
 		.ClientSize(ClientSize)
@@ -268,89 +150,66 @@ TSharedRef<SWindow> FPIEPreviewDeviceModule::CreatePIEPreviewDeviceWindow(FVecto
 		.SizingRule(ESizingRule::FixedSize)
 		.HasCloseButton(true)
 		.SupportsMinimize(true)
-		.SupportsMaximize(true);
+		.SupportsMaximize(false)
+		.bManualManageDPI(false);
+
+ 	WindowWPtr = Window;
+
+	if (GameLayerManagerWidget.IsValid())
+	{
+		Window->SetGameLayerManagerWidget(GameLayerManagerWidget);
+	}
+
+	return Window;
+}
+
+void FPIEPreviewDeviceModule::UpdateDisplayResolution()
+{
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+
+	if (!Device.IsValid() || !WindowPtr.IsValid())
+	{
+		return;
+	}
+
+	const int32 ClientWidth = Device->GetWindowWidth();
+	const int32 ClientHeight = Device->GetWindowHeight() - WindowPtr->GetTitleBarSize().Get();
+
+	FSystemResolution::RequestResolutionChange(ClientWidth, ClientHeight, EWindowMode::Windowed);
+	IConsoleManager::Get().CallAllConsoleVariableSinks();
+}
+
+void FPIEPreviewDeviceModule::OnWindowReady(TSharedRef<SWindow> Window)
+{
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = StaticCastSharedRef<SPIEPreviewWindow>(Window);
+
+	if (WindowPtr.IsValid())
+	{
+		// the window will only be displayed after the loading is complete (OnEngineInitComplete)
+		WindowPtr->HideWindow();
+	}
+
+	FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
 }
 
 void FPIEPreviewDeviceModule::ApplyPreviewDeviceState()
 {
-	if (!DeviceSpecs.IsValid())
+	if (!Device.IsValid())
 	{
 		return;
 	}
-	FPIEPreviewWindowCoreStyle::InitializePIECoreStyle();
-	EShaderPlatform PreviewPlatform = SP_NumPlatforms;
-	ERHIFeatureLevel::Type PreviewFeatureLevel = GetPreviewDeviceFeatureLevel();
-	FPIERHIOverrideState* RHIOverrideState = nullptr;
-	switch (DeviceSpecs->DevicePlatform)
-	{
-		case EPIEPreviewDeviceType::Android:
-		{
-			if (PreviewFeatureLevel == ERHIFeatureLevel::ES2)
-			{
-				PreviewPlatform = SP_OPENGL_ES2_ANDROID;
-				RHIOverrideState = &DeviceSpecs->AndroidProperties.GLES2RHIState;
-			}
-			else
-			{
-				PreviewPlatform = SP_OPENGL_ES3_1_ANDROID;
-				RHIOverrideState = &DeviceSpecs->AndroidProperties.GLES31RHIState;
-			}
-		}
-		break;
-		case EPIEPreviewDeviceType::IOS:
-		{
-			if (PreviewFeatureLevel == ERHIFeatureLevel::ES2)
-			{
-				PreviewPlatform = SP_OPENGL_ES2_IOS;
-				RHIOverrideState = &DeviceSpecs->IOSProperties.GLES2RHIState;
-			}
-			else
-			{
-				PreviewPlatform = SP_METAL_MACES3_1;
-				RHIOverrideState = &DeviceSpecs->IOSProperties.MetalRHIState;
-			}
-		}
-		break;
-	}
 
-	if(PreviewPlatform != SP_NumPlatforms)
-	{
-		UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
-		FName QualityPreviewShaderPlatform = LegacyShaderPlatformToShaderFormat(PreviewPlatform);
-		MaterialShaderQualitySettings->GetShaderPlatformQualitySettings(QualityPreviewShaderPlatform);
-		MaterialShaderQualitySettings->SetPreviewPlatform(QualityPreviewShaderPlatform);
-	}
+	Device->ApplyRHIOverrides();
+}
 
-	ApplyRHIOverrides(RHIOverrideState);
-
-	// TODO: Localization
-	FString AppTitle = FGlobalTabmanager::Get()->GetApplicationTitle().ToString() + "Previewing: "+ PreviewDevice;
-	FGlobalTabmanager::Get()->SetApplicationTitle(FText::FromString(AppTitle));
-	
-	int32 ScreenWidth, ScreenHeight;
-	GetPreviewDeviceResolution(ScreenWidth, ScreenHeight);
-	EWindowMode::Type InWindowMode = EWindowMode::Windowed;
-	FString WindowModeSuffix;
-	switch (InWindowMode)
+void FPIEPreviewDeviceModule::OnViewportCreated()
+{
+	// disable mouse viewport locking
+	if (GEngine->GameViewport != nullptr)
 	{
-	case EWindowMode::Windowed:
-	{
-		WindowModeSuffix = TEXT("w");
-	} break;
-	case EWindowMode::WindowedFullscreen:
-	{
-		WindowModeSuffix = TEXT("wf");
-	} break;
-	case EWindowMode::Fullscreen:
-	{
-		WindowModeSuffix = TEXT("f");
-	} break;
+		GEngine->GameViewport->SetCaptureMouseOnClick(EMouseCaptureMode::NoCapture);
+		GEngine->GameViewport->SetMouseLockMode(EMouseLockMode::DoNotLock);
 	}
-	
-	FString NewValue = FString::Printf(TEXT("%dx%d%s"), ScreenWidth, ScreenHeight, *WindowModeSuffix);
-	static IConsoleVariable* CVarSystemRes = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SetRes"));
-	CVarSystemRes->Set(*NewValue, ECVF_SetByConsole);
-	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
 const FPIEPreviewDeviceContainer& FPIEPreviewDeviceModule::GetPreviewDeviceContainer()
@@ -386,7 +245,7 @@ FString FPIEPreviewDeviceModule::FindDeviceSpecificationFilePath(const FString& 
 
 bool FPIEPreviewDeviceModule::ReadDeviceSpecification()
 {
-	DeviceSpecs = nullptr;
+	Device = nullptr;
 
 	if (!FParse::Value(FCommandLine::Get(), GetPreviewDeviceCommandSwitch(), PreviewDevice))
 	{
@@ -405,70 +264,30 @@ bool FPIEPreviewDeviceModule::ReadDeviceSpecification()
 			// We need to initialize FPIEPreviewDeviceSpecifications early as device profiles need to be evaluated before ProcessNewlyLoadedUObjects can be called.
 			CreatePackage(nullptr, TEXT("/Script/PIEPreviewDeviceProfileSelector"));
 
-			DeviceSpecs = MakeShareable(new FPIEPreviewDeviceSpecifications());
+			Device = MakeShareable(new FPIEPreviewDevice());
 
-			if (!FJsonObjectConverter::JsonAttributesToUStruct(RootObject->Values, FPIEPreviewDeviceSpecifications::StaticStruct(), DeviceSpecs.Get(), 0, 0))
+			if (!FJsonObjectConverter::JsonAttributesToUStruct(RootObject->Values, FPIEPreviewDeviceSpecifications::StaticStruct(), Device->GetDeviceSpecs().Get(), 0, 0))
 			{
-				DeviceSpecs = nullptr;
+				Device = nullptr;
 			}
 		}
 	}
-	bool bValidDeviceSpec = DeviceSpecs.IsValid();
+	bool bValidDeviceSpec = Device.IsValid();
 	if (!bValidDeviceSpec)
 	{
 		UE_LOG(LogPIEPreviewDevice, Warning, TEXT("Could not load device specifications for preview target device '%s'"), *PreviewDevice);
 	}
+
 	return bValidDeviceSpec;
 }
 
-ERHIFeatureLevel::Type FPIEPreviewDeviceModule::GetPreviewDeviceFeatureLevel() const
+void FPIEPreviewDeviceModule::SetGameLayerManagerWidget(TSharedPtr<class SGameLayerManager> GameLayerManager)
 {
-	check(DeviceSpecs.IsValid());
+	GameLayerManagerWidget = GameLayerManager;
 
-	switch (DeviceSpecs->DevicePlatform)
+	TSharedPtr<SPIEPreviewWindow> WindowPtr = WindowWPtr.Pin();
+	if (WindowPtr.IsValid())
 	{
-		case EPIEPreviewDeviceType::Android:
-		{
-			FString SubVersion;
-			// Check for ES3.1+ support from GLVersion, TODO: check other ES31 feature level constraints, see android's PlatformInitOpenGL
-			const bool bDeviceSupportsES31 = DeviceSpecs->AndroidProperties.GLVersion.Split(TEXT("OpenGL ES 3."), nullptr, &SubVersion) && FCString::Atoi(*SubVersion) >= 1;
-
-			// check the project's gles support:
-			bool bProjectBuiltForES2 = false, bProjectBuiltForES31 = false;
-			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bProjectBuiltForES31, GEngineIni);
-			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bProjectBuiltForES2, GEngineIni);
-
-			// Android Preview Device is currently expected to work on gles.
-			check(bProjectBuiltForES2 || bProjectBuiltForES31);
-
-			// Projects without ES2 support can only expect to run on ES31 devices.
-			check(bProjectBuiltForES2 || bDeviceSupportsES31);
-
-			// ES3.1+ devices fallback to ES2 if the project itself doesn't support ES3.1
-			return bDeviceSupportsES31 && bProjectBuiltForES31 ? ERHIFeatureLevel::ES3_1 : ERHIFeatureLevel::ES2;
-		}
-		case EPIEPreviewDeviceType::IOS:
-		{
-			bool bProjectBuiltForES2 = false, bProjectBuiltForMetal = false, bProjectBuiltForMRTMetal = false;
-			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetal"), bProjectBuiltForMetal, GEngineIni);
-			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsOpenGLES2"), bProjectBuiltForES2, GEngineIni);
-			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bProjectBuiltForMRTMetal, GEngineIni);
-			
-			const bool bDeviceSupportsMetal = DeviceSpecs->IOSProperties.MetalRHIState.MaxTextureDimensions > 0;
-
-			// not supporting preview for MRT metal 
-			check(!bProjectBuiltForMRTMetal);
-
-			// atleast one of these should be valid!
-			check(bProjectBuiltForES2 || bProjectBuiltForMetal);
-
-			// if device doesnt support metal the project must have ES2 enabled.
-			check(bProjectBuiltForES2 || (bProjectBuiltForMetal && bDeviceSupportsMetal));
-
-			return (bDeviceSupportsMetal && bProjectBuiltForMetal) ? ERHIFeatureLevel::ES3_1 : ERHIFeatureLevel::ES2;
-		}
+		WindowPtr->SetGameLayerManagerWidget(GameLayerManager);
 	}
-
-	checkNoEntry();
-	return  ERHIFeatureLevel::Num;
 }

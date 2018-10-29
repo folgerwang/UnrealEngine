@@ -36,7 +36,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 // Base defines, defaults are commented out
 
 #define PLATFORM_LITTLE_ENDIAN								1
-#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS				1
+#define PLATFORM_SUPPORTS_UNALIGNED_LOADS					1
 #if defined(__clang__)
 	// @todo clang: Clang compiler on Windows doesn't support SEH exception handling yet (__try/__except)
 	#define PLATFORM_SEH_EXCEPTIONS_DISABLED				1
@@ -59,7 +59,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define PLATFORM_SUPPORTS_NAMED_PIPES						1
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
 #define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK				(!WITH_EDITOR) // movies will start before engine is initalized
-#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					WITH_EDITOR
+#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					0
 
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
 
@@ -132,7 +132,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 // Pragmas
-#define MSVC_PRAGMA(Pragma) __pragma(Pragma)
+#if !defined(__clang__)
+	#define MSVC_PRAGMA(Pragma) __pragma(Pragma)
+#endif
 
 // Prefetch
 #define PLATFORM_CACHE_LINE_SIZE	128

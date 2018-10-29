@@ -35,9 +35,10 @@ public:
 	 * @param Rate The current play rate.
 	 * @param Time The current play time.
 	 * @param SampleSource The object that provides more audio samples if needed.
+	 * @param JumpFrame Frame that a jump in time occured on.
 	 * @return The actual number of frames returned.
 	 */
-	uint32 Generate(float* Output, FTimespan& OutTime, const uint32 FramesRequested, float Rate, FTimespan Time, FMediaAudioSampleSource& SampleSource);
+	uint32 Generate(float* Output, FTimespan& OutTime, const uint32 FramesRequested, float Rate, FTimespan Time, FMediaAudioSampleSource& SampleSource, uint32& JumpFrame);
 
 	/**
 	 * Initialize the resampler.

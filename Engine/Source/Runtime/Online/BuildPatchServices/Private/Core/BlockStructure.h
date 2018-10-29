@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/BlockRange.h"
 
 namespace BuildPatchServices
 {
@@ -19,10 +20,10 @@ namespace BuildPatchServices
 
 	private:
 		void InsertBefore(FBlockEntry* NewEntry, FBlockEntry** Head);
-		void InsertAfter(FBlockEntry* NewEntry, FBlockEntry** Foot);
-		void Unlink(FBlockEntry** Head, FBlockEntry** Foot);
+		void InsertAfter(FBlockEntry* NewEntry, FBlockEntry** Tail);
+		void Unlink(FBlockEntry** Head, FBlockEntry** Tail);
 		void Merge(uint64 InOffset, uint64 InSize);
-		void Chop(uint64 InOffset, uint64 InSize, FBlockEntry** Head, FBlockEntry** Foot);
+		void Chop(uint64 InOffset, uint64 InSize, FBlockEntry** Head, FBlockEntry** Tail);
 
 	private:
 		uint64 Offset;
@@ -35,14 +36,15 @@ namespace BuildPatchServices
 	{
 	public:
 		FBlockStructure();
-		~FBlockStructure();
+		FBlockStructure(uint64 Offset, uint64 Size);
 		FBlockStructure(const FBlockStructure&);
 		FBlockStructure(FBlockStructure&&);
+		~FBlockStructure();
 		FBlockStructure& operator=(const FBlockStructure&);
 		FBlockStructure& operator=(FBlockStructure&&);
 
 		const FBlockEntry* GetHead() const;
-		const FBlockEntry* GetFoot() const;
+		const FBlockEntry* GetTail() const;
 
 		/**
 		 * Empty the structure of all blocks.
@@ -57,6 +59,14 @@ namespace BuildPatchServices
 		 *                      specify this explicitly.
 		 */
 		void Add(uint64 Offset, uint64 Size, ESearchDir::Type SearchDir = ESearchDir::FromStart);
+
+		/**
+		 * Add a block to this structure. Any overlap will be merged, growing existing blocks where necessary.
+		 * @param   BlockRange  The range of the block.
+		 * @param   SearchDir   The direction in which to search, default FromStart. If you know which is faster then
+		 *                      specify this explicitly.
+		 */
+		void Add(const FBlockRange& BlockRange, ESearchDir::Type SearchDir = ESearchDir::FromStart);
 
 		/**
 		 * Add another structure to this structure. Any overlap will be merged, growing existing blocks where necessary.
@@ -74,6 +84,14 @@ namespace BuildPatchServices
 		 *                      specify this explicitly.
 		 */
 		void Remove(uint64 Offset, uint64 Size, ESearchDir::Type SearchDir = ESearchDir::FromStart);
+
+		/**
+		 * Remove a block from this structure. Any overlap will shrink existing blocks, or remove where necessary.
+		 * @param   BlockRange  The range of the block.
+		 * @param   SearchDir   The direction in which to search, default FromStart. If you know which is faster then
+		 *                      specify this explicitly.
+		 */
+		void Remove(const FBlockRange& BlockRange, ESearchDir::Type SearchDir = ESearchDir::FromStart);
 
 		/**
 		 * Remove another structure from this structure. Any overlap will shrink existing blocks, or remove where necessary.
@@ -121,7 +139,14 @@ namespace BuildPatchServices
 
 	private:
 		FBlockEntry* Head;
-		FBlockEntry* Foot;
+		FBlockEntry* Tail;
 		void CollectOverlaps(FBlockEntry* First, ESearchDir::Type SearchDir);
 	};
+
+	namespace BlockStructureHelpers
+	{
+		uint64 CountSize(const FBlockStructure& Structure);
+		bool HasIntersection(const FBlockStructure& ByteStructure, const FBlockStructure& Intersection);
+		FBlockStructure SerializeIntersection(const FBlockStructure& ByteStructure, const FBlockStructure& Intersection);
+	}
 }

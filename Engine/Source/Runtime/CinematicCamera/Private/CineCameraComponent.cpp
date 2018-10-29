@@ -42,8 +42,10 @@ UCineCameraComponent::UCineCameraComponent()
 
 	bConstrainAspectRatio = true;
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// Default to CircleDOF, but allow the user to customize it
 	PostProcessSettings.DepthOfFieldMethod = DOFM_CircleDOF;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	RecalcDerivedData();
 
@@ -113,7 +115,7 @@ void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 #if ENABLE_DRAW_DEBUG
 	if (FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
 	{
-		AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack.Get();
+		AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack;
 
 		FVector FocusPoint;
 		if (TrackedActor)
@@ -304,7 +306,7 @@ float UCineCameraComponent::GetDesiredFocusDistance(const FVector& InLocation) c
 
 	case ECameraFocusMethod::Tracking:
 		{
-			AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack.Get();
+			AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack;
 
 			FVector FocusPoint;
 			if (TrackedActor)
@@ -387,7 +389,9 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 {
 	if (FocusSettings.FocusMethod == ECameraFocusMethod::None)
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMethod = false;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMinFstop = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldBladeCount = false;
@@ -398,8 +402,10 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 	{
 		// Update focus/DoF
 		DesiredView.PostProcessBlendWeight = 1.f;
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMethod = true;
 		DesiredView.PostProcessSettings.DepthOfFieldMethod = PostProcessSettings.DepthOfFieldMethod;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = true;
 		DesiredView.PostProcessSettings.DepthOfFieldFstop = CurrentAperture;

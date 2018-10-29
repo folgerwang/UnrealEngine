@@ -39,7 +39,7 @@ public:
 		return Subsystem;
 	}
 
-	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) const override
+	virtual FName GetOnlineIdentifier(const UWorld* World, const FName Subsystem = NAME_None) const override
 	{
 #if WITH_EDITOR
 		if (const FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(World))
@@ -218,6 +218,9 @@ private:
 
 		ensure(SubsystemNameToHash.Num() == (HashId - 1));
 		ensure(HashToSubsystemName.Num() == (HashId - 1));
+
+		// FUniqueNetIdRepl uses 5 bits to transmit the HashId and 31 is used for OnlineSubsystems not included in this list
+		check(HashId < 31);
 	}
 
 	/** If false it will not try to do online PIE at all */

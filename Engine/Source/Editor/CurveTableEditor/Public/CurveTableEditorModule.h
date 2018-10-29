@@ -38,6 +38,13 @@ public:
 	static const FName CurveTableEditorAppIdentifier;
 
 private:
+
+	/** Helper function to create the curve table editor for standard curve tables */
+	TSharedRef<ICurveTableEditor> CreateStandardCurveTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table);
+
+	/** Helper function to create the curve table editor for composite curve tables */
+	TSharedRef<ICurveTableEditor> CreateCompositeCurveTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table);
+
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 };
 

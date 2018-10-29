@@ -61,7 +61,7 @@ private:
 	 * @param HostingPlayerNum local index of the user initiating the request
      * @param Session newly allocated session to create
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 CreateLobbySession(int32 HostingPlayerNum, class FNamedOnlineSession* Session);
 
@@ -71,7 +71,7 @@ private:
 	 * @param HostingPlayerNum local index of the user initiating the request
      * @param Session newly allocated session to create
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 CreateInternetSession(int32 HostingPlayerNum, class FNamedOnlineSession* Session);
 
@@ -82,7 +82,7 @@ private:
 	 * @param Session newly allocated session with join information
 	 * @param SearchSession the desired session to join
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 JoinLobbySession(int32 PlayerNum, class FNamedOnlineSession* Session, const FOnlineSession* SearchSession);
 
@@ -93,7 +93,7 @@ private:
 	 * @param Session newly allocated session with join information
 	 * @param SearchSession the desired session to join
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 JoinInternetSession(int32 PlayerNum, FNamedOnlineSession* Session, const FOnlineSession* SearchSession);
 
@@ -103,7 +103,7 @@ private:
 	 * 
      * @param Session session to end
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 EndInternetSession(class FNamedOnlineSession* Session);
 
@@ -112,7 +112,7 @@ private:
 	 * 
 	 * @param Session session to destroy
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 DestroyLobbySession(class FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate);
 
@@ -121,7 +121,7 @@ private:
 	 * 
 	 * @param Session session to destroy
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 DestroyInternetSession(class FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate);
 
@@ -131,7 +131,7 @@ private:
 	 * @param HostingPlayerNum local index of the user initiating the request
      * @param Session newly allocated session to create
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 CreateLANSession(int32 HostingPlayerNum, class FNamedOnlineSession* Session);
 
@@ -142,7 +142,7 @@ private:
 	 * @param Session newly allocated session with join information
 	 * @param SearchSession the desired session to join
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 JoinLANSession(int32 PlayerNum, class FNamedOnlineSession* Session, const class FOnlineSession* SearchSession);
 
@@ -156,7 +156,7 @@ private:
 	/**
 	 * Builds a LAN search query and broadcasts it
 	 *
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 FindLANSession(const TSharedRef<FOnlineSessionSearch>& SearchSettings);
 

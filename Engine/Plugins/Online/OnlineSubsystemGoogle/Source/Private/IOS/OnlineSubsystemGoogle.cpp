@@ -20,17 +20,13 @@ static void OnGoogleOpenURL(UIApplication* application, NSURL* url, NSString* so
 	bool bResult = [[GIDSignIn sharedInstance] handleURL:url
 								       sourceApplication:sourceApplication
 									   annotation:annotation];
-	UE_LOG(LogOnline, Display, TEXT("OnGoogleOpenURL %s %d"), *FString(url.absoluteString), bResult);
+	UE_LOG_ONLINE(Display, TEXT("OnGoogleOpenURL %s %d"), *FString(url.absoluteString), bResult);
 }
 
 static void OnGoogleAppDidBecomeActive()
 {
-	UE_LOG(LogOnline, Display, TEXT("OnGoogleAppDidBecomeActive"));
+	UE_LOG_ONLINE(Display, TEXT("OnGoogleAppDidBecomeActive"));
 
-}
-
-FOnlineSubsystemGoogle::FOnlineSubsystemGoogle()
-{
 }
 
 FOnlineSubsystemGoogle::FOnlineSubsystemGoogle(FName InInstanceName)
@@ -64,6 +60,6 @@ bool FOnlineSubsystemGoogle::Init()
 
 bool FOnlineSubsystemGoogle::Shutdown()
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
 	return FOnlineSubsystemGoogleCommon::Shutdown();
 }

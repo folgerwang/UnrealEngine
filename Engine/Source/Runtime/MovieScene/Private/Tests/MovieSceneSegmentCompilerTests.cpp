@@ -298,7 +298,7 @@ bool FMovieSceneTrackCompilerTest::RunTest(const FString& Parameters)
 		UTestMovieSceneSection* Section1 = NewObject<UTestMovieSceneSection>(Track);
 		Section1->SetRange(TRange<FFrameNumber>(
 			TRangeBound<FFrameNumber>::Inclusive(20),
-			TRangeBound<FFrameNumber>::Inclusive(30)
+			TRangeBound<FFrameNumber>::Exclusive(30)
 		));
 		Section1->SetRowIndex(1);
 		
@@ -315,7 +315,7 @@ bool FMovieSceneTrackCompilerTest::RunTest(const FString& Parameters)
 			FMovieSceneSegment Expected[] = {
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(10),	TRangeBound<FFrameNumber>::Exclusive(20)), { FSectionEvaluationData(0) }),
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(20),	TRangeBound<FFrameNumber>::Exclusive(25)), { FSectionEvaluationData(0), FSectionEvaluationData(1) }),
-				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Inclusive(30)), { FSectionEvaluationData(1) }),
+				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Exclusive(30)), { FSectionEvaluationData(1) }),
 			};
 			AssertSegmentValues(this, Expected, EvalTrack.GetSortedSegments());
 		}
@@ -331,8 +331,8 @@ bool FMovieSceneTrackCompilerTest::RunTest(const FString& Parameters)
 				FMovieSceneSegment(TRange<FFrameNumber>(Inf,										TRangeBound<FFrameNumber>::Exclusive(10)),	{ FSectionEvaluationData(0, 10) }),
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(10),	TRangeBound<FFrameNumber>::Exclusive(20)),	{ FSectionEvaluationData(0) }),
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(20),	TRangeBound<FFrameNumber>::Exclusive(25)),	{ FSectionEvaluationData(0), FSectionEvaluationData(1) }),
-				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Inclusive(30)),	{ FSectionEvaluationData(1) }),
-				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Exclusive(30),	Inf), 										{ FSectionEvaluationData(1, 30) }),
+				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Exclusive(30)),	{ FSectionEvaluationData(1) }),
+				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(30),	Inf), 										{ FSectionEvaluationData(1, 30) }),
 			};
 			AssertSegmentValues(this, Expected, EvalTrack.GetSortedSegments());
 		}
@@ -347,7 +347,7 @@ bool FMovieSceneTrackCompilerTest::RunTest(const FString& Parameters)
 			FMovieSceneSegment Expected[] = {
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(10),	TRangeBound<FFrameNumber>::Exclusive(20)), { FSectionEvaluationData(0) }),
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(20),	TRangeBound<FFrameNumber>::Exclusive(25)), { FSectionEvaluationData(0), FSectionEvaluationData(1) }),
-				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Inclusive(30)), { FSectionEvaluationData(1) }),
+				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Exclusive(30)), { FSectionEvaluationData(1) }),
 			};
 			AssertSegmentValues(this, Expected, EvalTrack.GetSortedSegments());
 		}
@@ -362,7 +362,7 @@ bool FMovieSceneTrackCompilerTest::RunTest(const FString& Parameters)
 
 			FMovieSceneSegment Expected[] = {
 				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(10),	TRangeBound<FFrameNumber>::Exclusive(25)), { FSectionEvaluationData(0) }),
-				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Inclusive(30)), { FSectionEvaluationData(1) }),
+				FMovieSceneSegment(TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(25),	TRangeBound<FFrameNumber>::Exclusive(30)), { FSectionEvaluationData(1) }),
 			};
 			AssertSegmentValues(this, Expected, EvalTrack.GetSortedSegments());
 		}

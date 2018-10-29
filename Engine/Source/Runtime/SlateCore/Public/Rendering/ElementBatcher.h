@@ -56,13 +56,6 @@ public:
 private:
 	void AddElementsInternal(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize);
 
-	void BatchBoxElements();
-	void BatchBorderElements();
-	void BatchTextElements();
-	void BatchShapedTextElements();
-	void BatchLineElements();
-	void BatchCachedBuffers();
-	
 	FORCEINLINE FColor PackVertexColor(const FLinearColor& InLinearColor) const
 	{
 		//NOTE: Using pow(x,2) instead of a full sRGB conversion has been tried, but it ended up
@@ -80,19 +73,19 @@ private:
 	 * Creates vertices necessary to draw a 3x3 element
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddBoxElement( const FSlateDrawBox& DrawElement );
+	void AddBoxElement( const FSlateDrawElement& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a string (one quad per character)
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddTextElement( const FSlateDrawText& DrawElement );
+	void AddTextElement( const FSlateDrawElement& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a shaped glyph sequence (one quad per glyph)
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddShapedTextElement( const FSlateDrawShapedText& DrawElement );
+	void AddShapedTextElement( const FSlateDrawElement& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a gradient box (horizontal or vertical)
@@ -109,7 +102,7 @@ private:
 	 * Creates vertices necessary to draw a series of attached line segments
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddLineElement( const FSlateDrawLines& DrawElement );
+	void AddLineElement( const FSlateDrawElement& DrawElement );
 	
 	/** 
 	 * Creates vertices necessary to draw a viewport (just a textured quad)
@@ -121,7 +114,7 @@ private:
 	 * Creates vertices necessary to draw a border element
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddBorderElement( const FSlateDrawBox& DrawElement );
+	void AddBorderElement( const FSlateDrawElement& DrawElement );
 
 	/**
 	 * Batches a custom slate drawing element
@@ -137,7 +130,7 @@ private:
 
 	void AddCustomVerts( const FSlateDrawElement& DrawElement );
 
-	void AddCachedBuffer( const FSlateDrawCachedBuffer& DrawElement );
+	void AddCachedBuffer( const FSlateDrawElement& DrawElement );
 
 	void AddLayer(const FSlateDrawElement& DrawElement);
 

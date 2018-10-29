@@ -414,6 +414,7 @@ struct FCachedSystemScalabilityCVars
 	float ViewDistanceScale;
 	float ViewDistanceScaleSquared;
 	int32 FieldOfViewAffectsHLOD;
+	float StaticMeshLODDistanceScale;
 
 	float CalculateFieldOfViewDistanceScale(const float FieldOfView) const
 	{
@@ -428,6 +429,8 @@ struct FCachedSystemScalabilityCVars
 	}
 
 	FCachedSystemScalabilityCVars();
+
+	bool operator==(const FCachedSystemScalabilityCVars& Other);
 
 protected:
 	// This isn't public as it's only used to detect the change. Use ComputeAnisotropyRT()

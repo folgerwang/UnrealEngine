@@ -41,6 +41,9 @@
 	<!-- optional updates applied to AndroidManifest.xml -->
 	<androidManifestUpdates>
     <addPermission android:name="android.permission.INTERNET"/>
+      <addElements tag="application">
+        <meta-data android:name="com.google.vr.controllers.supportedConfigs" android:value="3dof|2x6dof"/>
+      </addElements>
 	</androidManifestUpdates>
 
   <gameActivityImportAdditions>

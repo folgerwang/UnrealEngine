@@ -49,6 +49,10 @@ void FRigUnit_TwoBoneIKFK::Execute(const FRigUnitContext& InContext)
 				}
 			}
 		}
+		else
+		{
+			UnitLogHelpers::PrintMissingHierarchy(RigUnitName);
+		}
 	}
 	else  if (InContext.State == EControlRigState::Update)
 	{

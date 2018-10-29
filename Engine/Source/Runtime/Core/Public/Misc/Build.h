@@ -277,11 +277,16 @@
 	#define LOOKING_FOR_PERF_ISSUES (0 && !(UE_BUILD_SHIPPING))
 #endif
 
-/** Enable the use of the network profiler as long as we are a build that includes stats */
-#define USE_NETWORK_PROFILER         STATS
+/** Enable the use of the network profiler as long as we are not a Shipping or Test build */
+#ifndef USE_NETWORK_PROFILER
+#define USE_NETWORK_PROFILER !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#endif
 
 /** Enable UberGraphPersistentFrame feature. It can speed up BP compilation (re-instancing) in editor, but introduce an unnecessary overhead in runtime. */
 #define USE_UBER_GRAPH_PERSISTENT_FRAME 1
+
+/** Enable validation of the Uber Graph's persistent frame's layout, this is useful to detect uber graph frame related corruption */
+#define VALIDATE_UBER_GRAPH_PERSISTENT_FRAME (!(UE_BUILD_SHIPPING || UE_BUILD_TEST)) && USE_UBER_GRAPH_PERSISTENT_FRAME
 
 /** Enable fast calls for event thunks into an event graph that have no parameters  */
 #define UE_BLUEPRINT_EVENTGRAPH_FASTCALLS 1

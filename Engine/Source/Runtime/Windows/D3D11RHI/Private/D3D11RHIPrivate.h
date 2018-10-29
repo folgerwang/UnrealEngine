@@ -25,7 +25,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D11RHI, Log, All);
 #include "D3D11Util.h"
 #include "D3D11State.h"
 #include "D3D11Resources.h"
-#include "D3D11GPUReadback.h"
 #include "D3D11Viewport.h"
 #include "D3D11ConstantBuffer.h"
 #include "D3D11StateCache.h"
@@ -39,6 +38,40 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D11RHI, Log, All);
 #include "GFSDK_Aftermath.h"
 #undef GFSDK_Aftermath_WITH_DX11
 extern bool GDX11NVAfterMathEnabled;
+#endif
+
+#if INTEL_METRICSDISCOVERY
+
+THIRD_PARTY_INCLUDES_START
+__pragma(warning(disable: 4263))
+__pragma(warning(disable: 4264))
+#include "metrics_discovery_helper_dx11.h"
+THIRD_PARTY_INCLUDES_END
+
+extern bool GDX11IntelMetricsDiscoveryEnabled;
+
+struct Intel_MetricsDiscovery_ContextData
+{
+	Intel_MetricsDiscovery_ContextData() :
+		MDMetricSet(nullptr),
+		MDConcurrentGroup(nullptr)
+	{
+		ReportInUse = 1;
+		LastGPUTime = 0.0;
+		bFrameBegun = false;
+	}
+
+	MDH_Context MDHContext;
+	MDH_RangeMetricsDX11 MDHRangeMetrics;
+	MetricsDiscovery::IMetricSet_1_0* MDMetricSet;
+	MetricsDiscovery::IConcurrentGroup_1_0* MDConcurrentGroup;
+
+	uint32 GPUTimeIndex;
+
+	uint32 ReportInUse;
+	uint64 LastGPUTime;
+	bool bFrameBegun;
+};
 #endif
 
 #if UE_BUILD_SHIPPING || UE_BUILD_TEST
@@ -362,6 +395,10 @@ public:
 	virtual FGeometryShaderRHIRef RHICreateGeometryShader(const TArray<uint8>& Code) final override;
 	virtual FGeometryShaderRHIRef RHICreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) final override;
 	virtual FComputeShaderRHIRef RHICreateComputeShader(const TArray<uint8>& Code) final override;
+	virtual FStagingBufferRHIRef RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer) final override;
+    virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes) final override;
+	virtual void* RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI) final override;
+    virtual void RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer) final override;
 	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader) final override;
 	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) final override;
 	virtual FIndexBufferRHIRef RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override;
@@ -444,9 +481,6 @@ public:
 	virtual void* RHIGetNativeDevice() final override;
 	virtual class IRHICommandContext* RHIGetDefaultContext() final override;
 	virtual class IRHICommandContextContainer* RHIGetCommandContextContainer(int32 Index, int32 Num) final override;
-
-	virtual FGPUFenceRHIRef RHICreateGPUFence(const FName &Name) final override;
-	virtual FStagingBufferRHIRef RHICreateStagingBuffer() final override;
 
 	virtual void RHISetComputeShader(FComputeShaderRHIParamRef ComputeShader) final override;
 	virtual void RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) final override;
@@ -573,7 +607,9 @@ public:
 		IRHICommandContext::RHIEndRenderPass();
 	}
 
-	void RHICalibrateTimers() override;
+	virtual void RHICalibrateTimers() override;
+
+	virtual bool RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat) override;
 
 	// Accessors.
 	ID3D11Device* GetDevice() const
@@ -682,6 +718,10 @@ protected:
 
 #if NV_AFTERMATH
 	GFSDK_Aftermath_ContextHandle NVAftermathIMContextHandle;
+#endif
+
+#if INTEL_METRICSDISCOVERY
+	TUniquePtr<Intel_MetricsDiscovery_ContextData> IntelMetricsDiscoveryHandle;
 #endif
 
 	/** The global D3D device's immediate context */
@@ -922,6 +962,18 @@ protected:
 	void StartNVAftermath();
 
 	void StopNVAftermath();
+#endif
+
+	void BeginUAVOverlap();
+	void EndUAVOverlap();
+
+#if INTEL_METRICSDISCOVERY
+	void CreateIntelMetricsDiscovery();
+	void StartIntelMetricsDiscovery();
+	void StopIntelMetricsDiscovery();
+	void IntelMetricsDicoveryBeginFrame();
+	void IntelMetricsDicoveryEndFrame();
+	double IntelMetricsDicoveryGetGPUTime();
 #endif
 
 	friend struct FD3DGPUProfiler;

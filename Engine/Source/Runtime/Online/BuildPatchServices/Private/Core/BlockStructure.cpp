@@ -31,7 +31,7 @@ namespace BuildPatchServices
 		Prev = NewEntry;
 	}
 
-	void FBlockEntry::InsertAfter(FBlockEntry* NewEntry, FBlockEntry** Foot)
+	void FBlockEntry::InsertAfter(FBlockEntry* NewEntry, FBlockEntry** Tail)
 	{
 		NewEntry->Prev = this;
 		NewEntry->Next = Next;
@@ -41,12 +41,12 @@ namespace BuildPatchServices
 		}
 		else
 		{
-			(*Foot) = NewEntry;
+			(*Tail) = NewEntry;
 		}
 		Next = NewEntry;
 	}
 
-	void FBlockEntry::Unlink(FBlockEntry** Head, FBlockEntry** Foot)
+	void FBlockEntry::Unlink(FBlockEntry** Head, FBlockEntry** Tail)
 	{
 		if (Prev != nullptr)
 		{
@@ -62,7 +62,7 @@ namespace BuildPatchServices
 		}
 		else
 		{
-			(*Foot) = Prev;
+			(*Tail) = Prev;
 		}
 		delete this;
 	}
@@ -77,7 +77,7 @@ namespace BuildPatchServices
 		Size = NewEnd - NewOffset;
 	}
 
-	void FBlockEntry::Chop(uint64 InOffset, uint64 InSize, FBlockEntry** Head, FBlockEntry** Foot)
+	void FBlockEntry::Chop(uint64 InOffset, uint64 InSize, FBlockEntry** Head, FBlockEntry** Tail)
 	{
 		const uint64 End = Offset + Size;
 		const uint64 InEnd = InOffset + InSize;
@@ -87,12 +87,12 @@ namespace BuildPatchServices
 		// Complete overlap.
 		if (InOffset <= Offset && InEnd >= End)
 		{
-			Unlink(Head, Foot);
+			Unlink(Head, Tail);
 		}
 		// Mid overlap
 		else if (InOffset > Offset && InEnd < End)
 		{
-			InsertAfter(new FBlockEntry(InEnd, End - InEnd), Foot);
+			InsertAfter(new FBlockEntry(InEnd, End - InEnd), Tail);
 			Size = InOffset - Offset;
 		}
 		// Trim start
@@ -132,22 +132,33 @@ namespace BuildPatchServices
 
 	FBlockStructure::FBlockStructure()
 		: Head(nullptr)
-		, Foot(nullptr)
+		, Tail(nullptr)
 	{}
+
+	FBlockStructure::FBlockStructure(uint64 Offset, uint64 Size)
+		: FBlockStructure()
+	{
+		Add(Offset, Size);
+	}
 
 	FBlockStructure::FBlockStructure(const FBlockStructure& CopyFrom)
 		: Head(nullptr)
-		, Foot(nullptr)
+		, Tail(nullptr)
 	{
 		Add(CopyFrom, ESearchDir::FromEnd);
 	}
 
 	FBlockStructure::FBlockStructure(FBlockStructure&& MoveFrom)
 		: Head(MoveFrom.Head)
-		, Foot(MoveFrom.Foot)
+		, Tail(MoveFrom.Tail)
 	{
 		MoveFrom.Head = nullptr;
-		MoveFrom.Foot = nullptr;
+		MoveFrom.Tail = nullptr;
+	}
+
+	FBlockStructure::~FBlockStructure()
+	{
+		Empty();
 	}
 
 	FBlockStructure& FBlockStructure::operator=(const FBlockStructure& CopyFrom)
@@ -161,15 +172,10 @@ namespace BuildPatchServices
 	{
 		Empty();
 		Head = MoveFrom.Head;
-		Foot = MoveFrom.Foot;
+		Tail = MoveFrom.Tail;
 		MoveFrom.Head = nullptr;
-		MoveFrom.Foot = nullptr;
+		MoveFrom.Tail = nullptr;
 		return *this;
-	}
-
-	FBlockStructure::~FBlockStructure()
-	{
-		Empty();
 	}
 
 	const FBlockEntry* FBlockStructure::GetHead() const
@@ -177,19 +183,19 @@ namespace BuildPatchServices
 		return Head;
 	}
 
-	const FBlockEntry* FBlockStructure::GetFoot() const
+	const FBlockEntry* FBlockStructure::GetTail() const
 	{
-		return Foot;
+		return Tail;
 	}
 
 	void FBlockStructure::Empty()
 	{
-		// Delete all entries, Foot can be used as temp
+		// Delete all entries, Tail can be used as temp
 		while (Head != nullptr)
 		{
-			Foot = Head->Next;
+			Tail = Head->Next;
 			delete Head;
-			Head = Foot;
+			Head = Tail;
 		}
 	}
 
@@ -217,7 +223,7 @@ namespace BuildPatchServices
 							// New block is last?
 							if (Entry == nullptr)
 							{
-								Foot->InsertAfter(new FBlockEntry(Offset, Size), &Foot);
+								Tail->InsertAfter(new FBlockEntry(Offset, Size), &Tail);
 							}
 						}
 						// New block overlaps?
@@ -231,13 +237,13 @@ namespace BuildPatchServices
 				}
 				else
 				{
-					FBlockEntry* Entry = Foot;
+					FBlockEntry* Entry = Tail;
 					while (Entry != nullptr)
 					{
 						// New block after this one?
 						if (Offset > (Entry->Offset + Entry->Size))
 						{
-							Entry->InsertAfter(new FBlockEntry(Offset, Size), &Foot);
+							Entry->InsertAfter(new FBlockEntry(Offset, Size), &Tail);
 							Entry = nullptr;
 						}
 						// New block before this one?
@@ -264,7 +270,7 @@ namespace BuildPatchServices
 			{
 				// If we are headless we have no data
 				Head = new FBlockEntry(Offset, Size);
-				Foot = Head;
+				Tail = Head;
 			}
 		}
 	}
@@ -279,6 +285,11 @@ namespace BuildPatchServices
 		}
 	}
 
+	void FBlockStructure::Add(const FBlockRange& BlockRange, ESearchDir::Type SearchDir /*= ESearchDir::FromStart*/)
+	{
+		Add(BlockRange.GetFirst(), BlockRange.GetSize(), SearchDir);
+	}
+
 	void FBlockStructure::Remove(uint64 Offset, uint64 Size, ESearchDir::Type SearchDir /*= ESearchDir::FromStart*/)
 	{
 		if (Size > 0)
@@ -286,7 +297,7 @@ namespace BuildPatchServices
 			if (Head != nullptr)
 			{
 				FBlockEntry* LastTest = nullptr;
-				FBlockEntry* Entry = (SearchDir == ESearchDir::FromStart) ? Head : Foot;
+				FBlockEntry* Entry = (SearchDir == ESearchDir::FromStart) ? Head : Tail;
 				while (Entry != nullptr)
 				{
 					// New block before this one?
@@ -313,7 +324,7 @@ namespace BuildPatchServices
 					else
 					{
 						FBlockEntry* Next = (SearchDir == ESearchDir::FromStart) ? Entry->Next : Entry->Prev;
-						Entry->Chop(Offset, Size, &Head, &Foot);
+						Entry->Chop(Offset, Size, &Head, &Tail);
 						Entry = Next;
 					}
 				}
@@ -329,6 +340,11 @@ namespace BuildPatchServices
 			Remove(Block->GetOffset(), Block->GetSize(), SearchDir);
 			Block = Block->GetNext();
 		}
+	}
+
+	void FBlockStructure::Remove(const FBlockRange& BlockRange, ESearchDir::Type SearchDir /*= ESearchDir::FromStart*/)
+	{
+		Remove(BlockRange.GetFirst(), BlockRange.GetSize(), SearchDir);
 	}
 
 	uint64 FBlockStructure::SelectSerialBytes(uint64 FirstByteIdx, uint64 Count, FBlockStructure& OutputStructure) const
@@ -369,8 +385,8 @@ namespace BuildPatchServices
 				Result.Remove(Offset, Size);
 				Block = Block->Next;
 			}
-			uint64 EndA = Foot->Offset + Foot->Size;
-			uint64 EndB = OtherStructure.Foot->Offset + OtherStructure.Foot->Size;
+			uint64 EndA = Tail->Offset + Tail->Size;
+			uint64 EndB = OtherStructure.Tail->Offset + OtherStructure.Tail->Size;
 			if (EndA < EndB)
 			{
 				Result.Remove(EndA, EndB - EndA);
@@ -429,7 +445,7 @@ namespace BuildPatchServices
 				if (Entry->Offset <= (From->Offset + From->Size))
 				{
 					From->Merge(Entry->Offset, Entry->Size);
-					Entry->Unlink(&Head, &Foot);
+					Entry->Unlink(&Head, &Tail);
 					Entry = From->Next;
 				}
 				else
@@ -448,7 +464,7 @@ namespace BuildPatchServices
 				if ((Entry->Offset + Entry->Size) >= From->Offset)
 				{
 					From->Merge(Entry->Offset, Entry->Size);
-					Entry->Unlink(&Head, &Foot);
+					Entry->Unlink(&Head, &Tail);
 					Entry = From->Prev;
 				}
 				else
@@ -459,4 +475,51 @@ namespace BuildPatchServices
 		}
 	}
 
+	uint64 BlockStructureHelpers::CountSize(const FBlockStructure& Structure)
+	{
+		uint64 Count = 0;
+		const FBlockEntry* Block = Structure.GetHead();
+		while (Block != nullptr)
+		{
+			Count += Block->GetSize();
+			Block = Block->GetNext();
+		}
+		return Count;
+	}
+
+	bool BlockStructureHelpers::HasIntersection(const FBlockStructure& ByteStructure, const FBlockStructure& Intersection)
+	{
+		return ByteStructure.Intersect(Intersection).GetHead() != nullptr;
+	}
+
+	FBlockStructure BlockStructureHelpers::SerializeIntersection(const FBlockStructure& ByteStructure, const FBlockStructure& Intersection)
+	{
+		FBlockStructure SerialByteRanges;
+		const FBlockStructure ActualIntersection = ByteStructure.Intersect(Intersection);
+		const FBlockEntry* ByteBlock = ByteStructure.GetHead();
+		const FBlockEntry* IntersectionBlock = ActualIntersection.GetHead();
+		uint64 ByteCount = 0;
+		while (ByteBlock != nullptr && IntersectionBlock != nullptr)
+		{
+			const FBlockRange ByteBlockRange(ByteBlock->GetOffset(), ByteBlock->GetSize());
+			const FBlockRange IntersectionBlockRange(IntersectionBlock->GetOffset(), IntersectionBlock->GetSize());
+			check(IntersectionBlockRange.GetFirst() >= ByteBlockRange.GetFirst());
+			if (ByteBlockRange.Overlaps(IntersectionBlockRange))
+			{
+				// Add the overlap.
+				const FBlockRange SerialByteRange(ByteCount + (IntersectionBlockRange.GetFirst() - ByteBlockRange.GetFirst()), IntersectionBlock->GetSize());
+				SerialByteRanges.Add(SerialByteRange);
+
+				// Next intersection.
+				IntersectionBlock = IntersectionBlock->GetNext();
+			}
+			else
+			{
+				// Count bytes.
+				ByteCount += ByteBlock->GetSize();
+				ByteBlock = ByteBlock->GetNext();
+			}
+		}
+		return SerialByteRanges;
+	}
 }

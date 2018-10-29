@@ -96,19 +96,28 @@ struct FNiagaraComputeExecutionContext
 		, GPUDataReadback(nullptr)
 		, AccumulatedSpawnRate(0)
 		, NumIndicesPerInstance(0)
-		, bPendingExecution(0)
+		, PendingExecutionQueueMask(0)
 	{
 	}
 
-	void Reset()
+	~FNiagaraComputeExecutionContext()
 	{
-		AccumulatedSpawnRate = 0;
-		bPendingExecution = 0;
+		checkf(IsInRenderingThread(), TEXT("Can only delete the gpu readback from the render thread"));
 		if (GPUDataReadback)
 		{
 			delete GPUDataReadback;
 		}
-		GPUDataReadback = nullptr;
+	}
+
+	void Reset()
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			ResetRT,
+			FNiagaraComputeExecutionContext*, Context, this,
+			{
+				Context->ResetInternal();
+			}
+		);
 	}
 
 	void InitParams(UNiagaraScript* InGPUComputeScript, UNiagaraScript* InSpawnScript, UNiagaraScript *InUpdateScript, ENiagaraSimTarget SimTarget)
@@ -171,6 +180,20 @@ struct FNiagaraComputeExecutionContext
 		return true;
 	}
 
+private:
+	void ResetInternal()
+	{
+		checkf(IsInRenderingThread(), TEXT("Can only reset the gpu context from the render thread"));
+		AccumulatedSpawnRate = 0;
+		PendingExecutionQueueMask = 0;
+		if (GPUDataReadback)
+		{
+			delete GPUDataReadback;
+		}
+		GPUDataReadback = nullptr;
+	}
+
+public:
 	const TArray<FNiagaraEventScriptProperties> &GetEventHandlers() const { return EventHandlerScriptProps; }
 
 	class FNiagaraDataSet *MainDataSet;
@@ -199,6 +222,6 @@ struct FNiagaraComputeExecutionContext
 	uint32 AccumulatedSpawnRate;
 	uint32 NumIndicesPerInstance;	// how many vtx indices per instance the renderer is going to have for its draw call
 
-	/** Ensures we only enqueue each context once before they're dispatched. */
-	uint32 bPendingExecution : 1;
+	/** Ensures we only enqueue each context once per queue before they're dispatched. See SIMULATION_QUEUE_COUNT */
+	uint32 PendingExecutionQueueMask;
 };

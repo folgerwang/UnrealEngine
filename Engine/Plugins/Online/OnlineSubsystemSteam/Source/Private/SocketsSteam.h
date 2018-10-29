@@ -71,6 +71,8 @@ public:
 		Close();
 	}
 
+	virtual bool Shutdown(ESocketShutdownMode Mode) override;
+
 	/**
 	 * Closes the socket
 	 *

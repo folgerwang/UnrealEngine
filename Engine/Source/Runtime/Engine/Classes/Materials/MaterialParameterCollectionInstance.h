@@ -63,8 +63,7 @@ protected:
 	UMaterialParameterCollection* Collection;
 
 	/** World that owns this instance. */
-	UPROPERTY()
-	UWorld* World;
+	TWeakObjectPtr<UWorld> World;
 
 	/** Overrides for scalar parameter values. */
 	TMap<FName, float> ScalarParameterValues;

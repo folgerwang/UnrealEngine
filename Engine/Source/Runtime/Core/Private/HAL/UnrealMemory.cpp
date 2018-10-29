@@ -8,6 +8,7 @@
 #include "Containers/LockFreeList.h"
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/CoreDelegates.h"
 
 #if USE_MALLOC_PROFILER && WITH_ENGINE && IS_MONOLITHIC
 	#include "Runtime/Engine/Public/MallocProfilerEx.h"
@@ -511,6 +512,11 @@ void FMemory::Trim()
 		CA_ASSUME(GMalloc != NULL);	// Don't want to assert, but suppress static analysis warnings about potentially NULL GMalloc
 	}
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMemory_Trim);
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FMemory_Trim_Broadcast);
+		FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
+	}
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMemory_Trim_GMalloc);
 	GMalloc->Trim();
 }
 

@@ -85,7 +85,7 @@ bool FXmppPrivateChatStrophe::SendChat(const FXmppUserJid& RecipientId, const FS
 
 	if (!RecipientId.IsValid())
 	{
-		UE_LOG(LogXmpp, Warning, TEXT("Unable to send chat message. Invalid jid: %s"), *RecipientId.GetFullPath());
+		UE_LOG(LogXmpp, Warning, TEXT("Unable to send chat message. Invalid jid: %s"), *RecipientId.ToDebugString());
 		return false;
 	}
 

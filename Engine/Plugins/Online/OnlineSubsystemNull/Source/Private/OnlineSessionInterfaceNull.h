@@ -64,7 +64,7 @@ private:
 	/**
 	 * Updates the status of LAN session (creates it if needed, shuts down if not)
 	 * 
-	 * @return ERROR_SUCCESS if everything went successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if everything went successful, an error code otherwise
 	 */
 	uint32 UpdateLANStatus();
 
@@ -75,21 +75,21 @@ private:
 	 * @param Session newly allocated session with join information
 	 * @param SearchSession the desired session to join
 	 * 
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 JoinLANSession(int32 PlayerNum, class FNamedOnlineSession* Session, const class FOnlineSession* SearchSession);
 
 	/**
 	 * Builds a LAN search query and broadcasts it
 	 *
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 FindLANSession();
 
 	/**
 	 * Finishes searching over LAN and returns to hosting (if needed)
 	 *
-	 * @return ERROR_SUCCESS if successful, an error code otherwise
+	 * @return ONLINE_SUCCESS if successful, an error code otherwise
 	 */
 	uint32 FinalizeLANSearch();
 

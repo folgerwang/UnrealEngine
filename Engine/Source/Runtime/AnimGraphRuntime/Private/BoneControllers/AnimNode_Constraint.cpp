@@ -58,19 +58,9 @@ void FAnimNode_Constraint::EvaluateSkeletalControl_AnyThread(FComponentSpacePose
 	if (ConstraintData.Num() > 0)
 	{
 		FTransform SourceTransform = Output.Pose.GetComponentSpaceTransform(BoneToModify.CachedCompactPoseIndex);
-		FTransform ParentTransform;
-		FCompactPoseBoneIndex ParentIndex = BoneContainer.GetParentBoneIndex(BoneToModify.CachedCompactPoseIndex);
-		if (ParentIndex != INDEX_NONE)
-		{
-			ParentTransform = Output.Pose.GetComponentSpaceTransform(ParentIndex);
-		}
-		else
-		{
-			ParentTransform = FTransform::Identity;
-		}
-		
-		FTransform ConstrainedTransform = AnimationCore::SolveConstraints(SourceTransform, ParentTransform, ConstraintData);
-		OutBoneTransforms.Add(FBoneTransform(BoneToModify.GetCompactPoseIndex(BoneContainer), ConstrainedTransform));
+		// for constraint anim node, we always use identity as base		
+		FTransform ConstrainedTransform = AnimationCore::SolveConstraints(SourceTransform, FTransform::Identity, ConstraintData);
+		OutBoneTransforms.Add(FBoneTransform(BoneToModify.CachedCompactPoseIndex, ConstrainedTransform));
 
 #if WITH_EDITOR
 		CachedOriginalTransform = SourceTransform;
@@ -108,17 +98,7 @@ void FAnimNode_Constraint::InitializeBoneReferences(const FBoneContainer& Requir
 	if (BoneToModify.IsValidToEvaluate(RequiredBones))
 	{
 		FTransform SourceTransform = FAnimationRuntime::GetComponentSpaceRefPose(BoneToModify.CachedCompactPoseIndex, RequiredBones);
-		FTransform ParentTransform;
-		FCompactPoseBoneIndex ParentIndex = RequiredBones.GetParentBoneIndex(BoneToModify.CachedCompactPoseIndex);
-		if (ParentIndex != INDEX_NONE)
-		{
-			ParentTransform = FAnimationRuntime::GetComponentSpaceRefPose(ParentIndex, RequiredBones);
-		}
-		else
-		{
-			ParentTransform = FTransform::Identity;
-		}
-
+		
 		for (int32 ConstraintIndex = 0; ConstraintIndex < ConstraintNum; ++ConstraintIndex)
 		{
 			FConstraint& Constraint = ConstraintSetup[ConstraintIndex];
@@ -131,8 +111,9 @@ void FAnimNode_Constraint::InitializeBoneReferences(const FBoneContainer& Requir
 				NewConstraintData.Constraint.ConstraintDescription->AxesFilterOption = Constraint.PerAxis;
 
 				FTransform TargetTransform = (NewConstraintData.bMaintainOffset) ? FAnimationRuntime::GetComponentSpaceRefPose(Constraint.TargetBone.CachedCompactPoseIndex, RequiredBones) : FTransform::Identity;
-
-				NewConstraintData.SaveInverseOffset(SourceTransform, TargetTransform, ParentTransform);
+				
+				// for constraint anim node, we always use identity as base	
+				NewConstraintData.SaveInverseOffset(SourceTransform, TargetTransform, FTransform::Identity);
 
 				Constraint.ConstraintDataIndex = ConstraintData.Add(NewConstraintData);
 			}

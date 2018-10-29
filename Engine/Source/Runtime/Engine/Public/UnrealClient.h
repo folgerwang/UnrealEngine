@@ -90,6 +90,11 @@ public:
 
 	ENGINE_API bool ReadLinearColorPixelsPtr(FLinearColor* OutImageBytes, FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(RCM_MinMax, CubeFace_MAX), FIntRect InRect = FIntRect(0, 0, 0, 0));
 
+	/**
+	 * Returns the GPU nodes on which to render this rendertarget.
+	 **/
+	ENGINE_API virtual FRHIGPUMask GetGPUMask(FRHICommandListImmediate& RHICmdList) const { return FRHIGPUMask::GPU0(); }
+
 protected:
 
 	FTexture2DRHIRef RenderTargetTextureRHI;
@@ -330,6 +335,7 @@ public:
 	virtual bool IsPenActive() { return false; }
 	virtual void SetMouse(int32 x, int32 y) = 0;
 	virtual bool IsFullscreen()	const { return WindowMode == EWindowMode::Fullscreen || WindowMode == EWindowMode::WindowedFullscreen; }
+	virtual bool IsExclusiveFullscreen() const { return WindowMode == EWindowMode::Fullscreen; }
 	virtual EWindowMode::Type GetWindowMode()	const { return WindowMode; }
 	virtual void ProcessInput( float DeltaTime ) = 0;
 
@@ -373,6 +379,12 @@ public:
 	ENGINE_API virtual void	EnqueueBeginRenderFrame(const bool bShouldPresent);
 
 	/**
+	 *	Ends a rendering frame. Called from the game thread.
+	 *	@param bPresent		Whether the frame should be presented to the screen
+	 */
+	ENGINE_API virtual void EnqueueEndRenderFrame(const bool bLockToVsync, const bool bShouldPresent);
+
+	/**
 	 *	Starts a new rendering frame. Called from the rendering thread.
 	 */
 	ENGINE_API virtual void	BeginRenderFrame(FRHICommandListImmediate& RHICmdList);
@@ -383,6 +395,11 @@ public:
 	 *	@param bLockToVsync	Whether the GPU should block until VSYNC before presenting
 	 */
 	ENGINE_API virtual void	EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool bPresent, bool bLockToVsync);
+
+	/**
+	 * Returns the GPU nodes on which to render this viewport.
+	 **/
+	ENGINE_API virtual FRHIGPUMask GetGPUMask(FRHICommandListImmediate& RHICmdList) const override;
 
 	/**
 	 * @return whether or not this Controller has a keyboard available to be used

@@ -11,7 +11,7 @@
 #include "AudioEditorModule.h"
 
 
-IMPLEMENT_MODULE(FSoundUtilitiesEditorModule, FSynthesisEditor)
+IMPLEMENT_MODULE(FSoundUtilitiesEditorModule, SoundUtilitiesEditor)
 
 void FSoundUtilitiesEditorModule::StartupModule()
 {

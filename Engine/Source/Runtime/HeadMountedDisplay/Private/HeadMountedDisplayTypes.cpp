@@ -7,8 +7,6 @@ DEFINE_LOG_CATEGORY(LogHMD);
 DEFINE_LOG_CATEGORY(LogLoadingSplash);
 
 FHMDViewMesh::FHMDViewMesh() :
-	pVertices(nullptr),
-	pIndices(nullptr),
 	NumVertices(0),
 	NumIndices(0),
 	NumTriangles(0)
@@ -16,38 +14,24 @@ FHMDViewMesh::FHMDViewMesh() :
 
 FHMDViewMesh::~FHMDViewMesh()
 {
-	if (pVertices)
-	{
-		delete[] pVertices;
-	}
-
-	if (pIndices)
-	{
-		delete[] pIndices;
-	}
 }
 
 void FHMDViewMesh::BuildMesh(const FVector2D Positions[], uint32 VertexCount, EHMDMeshType MeshType)
 {
-	if( pVertices != nullptr )
-	{
-		delete[] pVertices;
-		pVertices = nullptr;
-	}
-	if( pIndices != nullptr )
-	{
-		delete[] pIndices;
-		pIndices = nullptr;
-	}
-
 	check(VertexCount > 2 && VertexCount % 3 == 0);
 
 	NumVertices = VertexCount;
 	NumTriangles = NumVertices / 3;
 	NumIndices = NumVertices;
 
-	pVertices = new FFilterVertex[NumVertices];
-	pIndices = new uint16[NumIndices];
+	FRHIResourceCreateInfo CreateInfo;
+	VertexBufferRHI = RHICreateVertexBuffer(sizeof(FFilterVertex) * NumVertices, BUF_Static, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FFilterVertex) * NumVertices, RLM_WriteOnly);
+	FFilterVertex* pVertices = reinterpret_cast<FFilterVertex*>(VoidPtr);
+
+	IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), sizeof(uint16) * NumIndices, BUF_Static, CreateInfo);
+	void* VoidPtr2 = RHILockIndexBuffer(IndexBufferRHI, 0, sizeof(uint16) * NumIndices, RLM_WriteOnly);
+	uint16* pIndices = reinterpret_cast<uint16*>(VoidPtr2);
 
 	uint32 DataIndex = 0;
 	for (uint32 TriangleIter = 0; TriangleIter < NumTriangles; ++TriangleIter)
@@ -86,4 +70,7 @@ void FHMDViewMesh::BuildMesh(const FVector2D Positions[], uint32 VertexCount, EH
 			++DataIndex;
 		}
 	}
+
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+	RHIUnlockIndexBuffer(IndexBufferRHI);
 }

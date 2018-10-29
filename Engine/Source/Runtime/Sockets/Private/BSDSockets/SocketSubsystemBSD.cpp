@@ -48,7 +48,18 @@ FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const FStrin
 	int32 SocketTypeFlag = (bIsUDP) ? SOCK_DGRAM : SOCK_STREAM;
 
 	Socket = socket(GetProtocolFamilyValue(ProtocolType), SocketTypeFlag | PlatformSpecificTypeFlags, ((bIsUDP) ? IPPROTO_UDP : IPPROTO_TCP));
-	NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, ((bIsUDP) ? SOCKTYPE_Datagram : SOCKTYPE_Streaming), SocketDescription, ProtocolType) : nullptr;
+
+#if PLATFORM_ANDROID
+	// To avoid out of range in FD_SET
+	if (Socket != INVALID_SOCKET && Socket >= 1024)
+	{
+		closesocket(Socket);
+	}
+	else
+#endif
+	{
+		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, ((bIsUDP) ? SOCKTYPE_Datagram : SOCKTYPE_Streaming), SocketDescription, ProtocolType) : nullptr;
+	}
 
 	if (!NewSocket)
 	{
@@ -190,6 +201,11 @@ TSharedRef<FInternetAddr> FSocketSubsystemBSD::CreateInternetAddr(uint32 Address
 	ReturnAddr->SetIp(Address);
 	ReturnAddr->SetPort(Port);
 	return ReturnAddr;
+}
+
+bool FSocketSubsystemBSD::IsSocketWaitSupported() const
+{
+	return true;
 }
 
 ESocketErrors FSocketSubsystemBSD::GetLastErrorCode()

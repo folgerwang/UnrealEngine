@@ -42,21 +42,21 @@ void FOnlineUserCloudOculus::EnumerateUserFiles(const FUniqueNetId& UserId)
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only enumerate save data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only enumerate save data for logged in player"));
 		TriggerOnEnumerateUserFilesCompleteDelegates(false, *LoggedInPlayerId);
 		return;
 	}
 
 	if (EnumerateBucketsCounter >= 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("EnumerateUserFiles already in progress."));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("EnumerateUserFiles already in progress."));
 		TriggerOnEnumerateUserFilesCompleteDelegates(false, *LoggedInPlayerId);
 		return;
 	}
 
 	if (Buckets.Num() == 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No Oculus Cloud Storage buckets were defined in %s."), *GEngineIni);
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("No Oculus Cloud Storage buckets were defined in %s."), *GEngineIni);
 		TriggerOnEnumerateUserFilesCompleteDelegates(false, *LoggedInPlayerId);
 		return;
 	}
@@ -76,7 +76,7 @@ void FOnlineUserCloudOculus::RequestEnumeratePagedBuckets(TSharedPtr<const FUniq
 		{
 			// NOTE: this may be too harsh.  depending on the error we might be able to keep going.
 			// check when better error handling is enabled in t11136437
-			UE_LOG_ONLINE(Warning, TEXT("Failed to Enumerate bucket: %s"), *BucketName);
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Failed to Enumerate bucket: %s"), *BucketName);
 			EnumerateBucketsCounter = -1;
 			EnumerateCache.Reset();
 			TriggerOnEnumerateUserFilesCompleteDelegates(false, *UserId);
@@ -128,7 +128,7 @@ void FOnlineUserCloudOculus::GetUserFileList(const FUniqueNetId& UserId, TArray<
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can get file list for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can get file list for logged in player"));
 		return;
 	}
 
@@ -140,7 +140,7 @@ bool FOnlineUserCloudOculus::WriteUserFile(const FUniqueNetId& UserId, const FSt
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only save data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only save data for logged in player"));
 		return false;
 	}
 
@@ -161,7 +161,7 @@ bool FOnlineUserCloudOculus::WriteUserFile(const FUniqueNetId& UserId, const FSt
 		{
 			auto Error = ovr_Message_GetError(Message);
 			auto ErrorMessage = ovr_Error_GetMessage(Error);
-			UE_LOG_ONLINE(Warning, TEXT("Failed to Save: %s%s%s Error: %s"), *BucketName, *SEPARATOR, *Key, *FString(ErrorMessage));
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Failed to Save: %s%s%s Error: %s"), *BucketName, *SEPARATOR, *Key, *FString(ErrorMessage));
 		}
 		else
 		{
@@ -185,7 +185,7 @@ bool FOnlineUserCloudOculus::ReadUserFile(const FUniqueNetId& UserId, const FStr
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only read data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only read data for logged in player"));
 		return false;
 	}
 
@@ -203,7 +203,7 @@ bool FOnlineUserCloudOculus::ReadUserFile(const FUniqueNetId& UserId, const FStr
 	{
 		if (bIsError)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Failed to Load: %s%s%s"), *BucketName, *SEPARATOR, *Key);
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Failed to Load: %s%s%s"), *BucketName, *SEPARATOR, *Key);
 		}
 		else
 		{
@@ -230,13 +230,13 @@ bool FOnlineUserCloudOculus::GetFileContents(const FUniqueNetId& UserId, const F
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only read data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only read data for logged in player"));
 		return false;
 	}
 
 	if (!ReadCache.Contains(FileName))
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No data from ReadUserFile for: %s"), *FileName);
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("No data from ReadUserFile for: %s"), *FileName);
 		return false;
 	}
 
@@ -249,7 +249,7 @@ bool FOnlineUserCloudOculus::ClearFiles(const FUniqueNetId& UserId)
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only clear data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only clear data for logged in player"));
 		return false;
 	}
 
@@ -262,7 +262,7 @@ bool FOnlineUserCloudOculus::ClearFile(const FUniqueNetId& UserId, const FString
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only clear data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only clear data for logged in player"));
 		return false;
 	}
 
@@ -277,7 +277,7 @@ bool FOnlineUserCloudOculus::ClearFile(const FUniqueNetId& UserId, const FString
 
 void FOnlineUserCloudOculus::CancelWriteUserFile(const FUniqueNetId& UserId, const FString& FileName)
 {
-	UE_LOG_ONLINE(Warning, TEXT("CancelWriteUserFile not supported by API"));
+	UE_LOG_ONLINE_CLOUD(Warning, TEXT("CancelWriteUserFile not supported by API"));
 }
 
 bool FOnlineUserCloudOculus::DeleteUserFile(const FUniqueNetId& UserId, const FString& FileName, bool bShouldCloudDelete, bool bShouldLocallyDelete)
@@ -285,7 +285,7 @@ bool FOnlineUserCloudOculus::DeleteUserFile(const FUniqueNetId& UserId, const FS
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!LoggedInPlayerId.IsValid() || UserId != *LoggedInPlayerId)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Can only save data for logged in player"));
+		UE_LOG_ONLINE_CLOUD(Warning, TEXT("Can only save data for logged in player"));
 		return false;
 	}
 
@@ -308,7 +308,7 @@ bool FOnlineUserCloudOculus::DeleteUserFile(const FUniqueNetId& UserId, const FS
 		{
 			if (bIsError)
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Failed to Delete: %s%s%s"), *BucketName, *SEPARATOR, *Key);
+				UE_LOG_ONLINE_CLOUD(Warning, TEXT("Failed to Delete: %s%s%s"), *BucketName, *SEPARATOR, *Key);
 			}
 
 			TriggerOnDeleteUserFileCompleteDelegates(!bIsError, *LoggedInPlayerId, FileName);
@@ -328,16 +328,16 @@ bool FOnlineUserCloudOculus::DeleteUserFile(const FUniqueNetId& UserId, const FS
 
 bool FOnlineUserCloudOculus::RequestUsageInfo(const FUniqueNetId& UserId)
 {
-	UE_LOG_ONLINE(Warning, TEXT("RequestUsageInfo not supported by API"));
+	UE_LOG_ONLINE_CLOUD(Warning, TEXT("RequestUsageInfo not supported by API"));
 	return false;
 }
 
 void FOnlineUserCloudOculus::DumpCloudState(const FUniqueNetId& UserId)
 {
-	UE_LOG_ONLINE(Warning, TEXT("DumpCloudState not supported by API"));
+	UE_LOG_ONLINE_CLOUD(Warning, TEXT("DumpCloudState not supported by API"));
 }
 
 void FOnlineUserCloudOculus::DumpCloudFileState(const FUniqueNetId& UserId, const FString& FileName)
 {
-	UE_LOG_ONLINE(Warning, TEXT("DumpCloudFileState not supported by API"));
+	UE_LOG_ONLINE_CLOUD(Warning, TEXT("DumpCloudFileState not supported by API"));
 }

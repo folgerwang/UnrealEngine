@@ -154,10 +154,10 @@ public:
 		// We do so because we do not want to use the light's radius directly, which will make us overestimate the shadow map resolution greatly for a spot light
 
 		// In the correct form,
-		//   InscribedSpherePosition = GetOrigin() + GetDirection().Normalize() * GetRadius() / CosOuterCone
+		//   InscribedSpherePosition = GetOrigin() + GetDirection() * GetRadius() / CosOuterCone
 		//   InscribedSphereRadius = GetRadius() / SinOuterCone
 		// Do it incorrectly to avoid division which is more expensive and risks division by zero
-		const FVector InscribedSpherePosition = GetOrigin() + GetDirection().Normalize() * GetRadius() * CosOuterCone;
+		const FVector InscribedSpherePosition = GetOrigin() + GetDirection() * GetRadius() * CosOuterCone;
 		const float InscribedSphereRadius = GetRadius() * SinOuterCone;
 
 		const float SphereDistanceFromViewOrigin = (InscribedSpherePosition - ShadowViewMatrices.GetViewOrigin()).Size();
@@ -239,6 +239,32 @@ float USpotLightComponent::ComputeLightBrightness() const
 	}
 	return LightBrightness;
 }
+
+#if WITH_EDITOR
+void USpotLightComponent::SetLightBrightness(float InBrightness)
+{
+	if (bUseInverseSquaredFalloff)
+	{
+		if (IntensityUnits == ELightUnits::Candelas)
+		{
+			ULightComponent::SetLightBrightness(InBrightness / (100.f * 100.f)); // Conversion from cm2 to m2
+		}
+		else if (IntensityUnits == ELightUnits::Lumens)
+		{
+			ULightComponent::SetLightBrightness(InBrightness / (100.f * 100.f / 2.f / PI / (1.f - GetCosHalfConeAngle()))); // Conversion from cm2 to m2 and cone remapping
+		}
+		else
+		{
+			ULightComponent::SetLightBrightness(InBrightness / 16); // Legacy scale of 16
+		}
+	}
+	else
+	{
+		ULightComponent::SetLightBrightness(InBrightness);
+	}
+}
+#endif // WITH_EDITOR
+
 
 // Disable for now
 //void USpotLightComponent::SetLightShaftConeAngle(float NewLightShaftConeAngle)

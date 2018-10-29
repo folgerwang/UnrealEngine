@@ -188,6 +188,10 @@ protected:
 	/** Current float-width offset for custom vertex interpolators */
 	int32 CurrentCustomVertexInterpolatorOffset;
 
+	/** Used by interpolator pre-translation to hold potential errors until actually confirmed. */
+	TArray<FString>* CompileErrorsSink;
+	TArray<UMaterialExpression*>* CompileErrorExpressionsSink;
+
 	/** Whether the translation succeeded. */
 	uint32 bSuccess : 1;
 	/** Whether the compute shader material inputs were compiled. */
@@ -247,7 +251,7 @@ protected:
 	/** Tracks the number of texture coordinates used by the vertex shader in this material. */
 	uint32 NumUserVertexTexCoords;
 
-	uint32 NumParticleDynamicParameters;
+	uint32 DynamicParticleParameterMask;
 public: 
 
 	FHLSLMaterialTranslator(FMaterial* InMaterial,
@@ -267,6 +271,8 @@ public:
 	,	MaterialTemplateLineNumber(INDEX_NONE)
 	,	NextSymbolIndex(INDEX_NONE)
 	,	CurrentCustomVertexInterpolatorOffset(0)
+	,	CompileErrorsSink(nullptr)
+	,	CompileErrorExpressionsSink(nullptr)
 	,	bSuccess(false)
 	,	bCompileForComputeShader(false)
 	,	bUsesSceneDepth(false)
@@ -297,7 +303,7 @@ public:
 	,	bIsFullyRough(0)
 	,	NumUserTexCoords(0)
 	,	NumUserVertexTexCoords(0)
-	,	NumParticleDynamicParameters(0)
+	,	DynamicParticleParameterMask(0)
 	{
 		FMemory::Memzero(SharedPixelProperties);
 
@@ -363,11 +369,20 @@ public:
 				TArray<FShaderCodeChunk> CustomExpressionChunks;
 				CurrentScopeChunks = &CustomExpressionChunks;
 
+				// Errors are appended to a temporary pool as it's not known at this stage which interpolators are required
+				CompileErrorsSink = &Interpolator->CompileErrors;
+				CompileErrorExpressionsSink = &Interpolator->CompileErrorExpressions;
+
+				// Compile node and store those successfully translated
 				int32 Ret = Interpolator->CompileInput(this, CustomVertexInterpolators.Num());
 				if (Ret != INDEX_NONE)
 				{
 					CustomVertexInterpolators.Add(Interpolator);
 				}
+
+				// Restore error handling
+				CompileErrorsSink = nullptr;
+				CompileErrorExpressionsSink = nullptr;
 
 				// Each interpolator chain must be handled as an independent compile
 				for (FMaterialFunctionCompileState* FunctionStack : FunctionStacks[SF_Vertex])
@@ -733,8 +748,7 @@ public:
 				Errorf(TEXT("Only unlit materials can output negative emissive color."));
 			}
 
-			static IConsoleVariable* CDBufferVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DBuffer"));
-			bool bDBufferAllowed = CDBufferVar ? CDBufferVar->GetInt() != 0 : false;
+			bool bDBufferAllowed = IsUsingDBuffers(Platform);
 			bool bDBufferBlendMode = IsDBufferDecalBlendMode((EDecalBlendMode)Material->GetDecalBlendMode());
 
 			if (bDBufferBlendMode && !bDBufferAllowed)
@@ -977,10 +991,10 @@ public:
 			OutEnvironment.SetDefine(TEXT("NEEDS_PARTICLE_VELOCITY"), 1);
 		}
 
-		if (NumParticleDynamicParameters > 0)
+		if (DynamicParticleParameterMask)
 		{
 			OutEnvironment.SetDefine(TEXT("USE_DYNAMIC_PARAMETERS"), 1);
-			OutEnvironment.SetDefine(TEXT("NUM_DYNAMIC_PARAMETERS"), NumParticleDynamicParameters);
+			OutEnvironment.SetDefine(TEXT("DYNAMIC_PARAMETERS_MASK"), DynamicParticleParameterMask);
 		}
 
 		if (bNeedsParticleTime)
@@ -1043,7 +1057,7 @@ public:
 		}
 		
 		// @todo MetalMRT: Remove this hack and implement proper atmospheric-fog solution for Metal MRT...
-		OutEnvironment.SetDefine(TEXT("MATERIAL_ATMOSPHERIC_FOG"), (InPlatform != SP_METAL_MRT && InPlatform != SP_METAL_MRT_MAC) ? bUsesAtmosphericFog : 0);
+		OutEnvironment.SetDefine(TEXT("MATERIAL_ATMOSPHERIC_FOG"), !IsMetalMRTPlatform(InPlatform) ? bUsesAtmosphericFog : 0);
 		OutEnvironment.SetDefine(TEXT("INTERPOLATE_VERTEX_COLOR"), bUsesVertexColor);
 		OutEnvironment.SetDefine(TEXT("NEEDS_PARTICLE_COLOR"), bUsesParticleColor); 
 		OutEnvironment.SetDefine(TEXT("NEEDS_PARTICLE_TRANSFORM"), bUsesParticleTransform);
@@ -1065,6 +1079,9 @@ public:
 		{
 			// Add uniform buffer declarations for any parameter collections referenced
 			const FString CollectionName = FString::Printf(TEXT("MaterialCollection%u"), CollectionIndex);
+			// This can potentially become an issue for MaterialCollection Uniform Buffers if they ever get non-numeric resources (eg Textures), as
+			// OutEnvironment.ResourceTableMap has a map by name, and the N ParameterCollection Uniform Buffers ALL are names "MaterialCollection"
+			// (and the hlsl cbuffers are named MaterialCollection0, etc, so the names don't match the layout)
 			FShaderUniformBufferParameter::ModifyCompilationEnvironment(*CollectionName, ParameterCollections[CollectionIndex]->GetUniformBufferStruct(), InPlatform, OutEnvironment);
 		}
 		OutEnvironment.SetDefine(TEXT("IS_MATERIAL_SHADER"), TEXT("1"));
@@ -1951,7 +1968,14 @@ protected:
 
 	virtual int32 Error(const TCHAR* Text) override
 	{
+		// Optionally append errors into proxy arrays which allow pre-translation stages to selectively include errors later
+		bool bUsingErrorProxy = (CompileErrorsSink && CompileErrorExpressionsSink);	
+		TArray<FString>& CompileErrors = bUsingErrorProxy ? *CompileErrorsSink : Material->CompileErrors;
+		TArray<UMaterialExpression*>& ErrorExpressions = bUsingErrorProxy ? *CompileErrorExpressionsSink : Material->ErrorExpressions;
+
 		FString ErrorString;
+		UMaterialExpression* ExpressionToError = nullptr;
+
 		check(ShaderFrequency < SF_NumFrequencies);
 		auto& CurrentFunctionStack = FunctionStacks[ShaderFrequency];
 		if (CurrentFunctionStack.Num() > 1)
@@ -1960,8 +1984,8 @@ protected:
 			// Only add the function call node to ErrorExpressions, since we can't add a reference to the expressions inside the function as they are private objects.
 			// Add the first function node on the stack because that's the one visible in the material being compiled, the rest are all nested functions.
 			UMaterialExpressionMaterialFunctionCall* ErrorFunction = CurrentFunctionStack[1]->FunctionCall;
-			Material->ErrorExpressions.Add(ErrorFunction);
-			ErrorFunction->LastErrorText = Text;
+			check(ErrorFunction);
+			ExpressionToError = ErrorFunction;			
 			ErrorString = FString(TEXT("Function ")) + ErrorFunction->MaterialFunction->GetName() + TEXT(": ");
 		}
 
@@ -1975,8 +1999,7 @@ protected:
 				&& ErrorExpression->GetClass() != UMaterialExpressionFunctionOutput::StaticClass())
 			{
 				// Add the expression currently being compiled to ErrorExpressions so we can draw it differently
-				Material->ErrorExpressions.Add(ErrorExpression);
-				ErrorExpression->LastErrorText = Text;
+				ExpressionToError = ErrorExpression;
 
 				const int32 ChopCount = FCString::Strlen(TEXT("MaterialExpression"));
 				const FString ErrorClassName = ErrorExpression->GetClass()->GetName();
@@ -1988,11 +2011,39 @@ protected:
 			
 		ErrorString += Text;
 
-		//add the error string to the material's CompileErrors array
-		Material->CompileErrors.AddUnique(ErrorString);
-		bSuccess = false;
+		if (!bUsingErrorProxy)
+		{
+			// Standard error handling, immediately append one-off errors and signal failure
+			CompileErrors.AddUnique(ErrorString);
+	
+			if (ExpressionToError)
+			{
+				ErrorExpressions.Add(ExpressionToError);
+				ExpressionToError->LastErrorText = Text;
+			}
+
+			bSuccess = false;
+		}
+		else
+		{
+			// When a proxy is intercepting errors, ignore the failure and match arrays to allow later error type selection
+			CompileErrors.Add(ErrorString);
+			ErrorExpressions.Add(ExpressionToError);		
+		}
 		
 		return INDEX_NONE;
+	}
+
+	virtual void AppendExpressionError(UMaterialExpression* Expression, const TCHAR* Text) override
+	{
+		if (Expression && Text)
+		{
+			FString ErrorText(Text);
+
+			Material->ErrorExpressions.Add(Expression);
+			Expression->LastErrorText = ErrorText;
+			Material->CompileErrors.Add(ErrorText);
+		}
 	}
 
 	virtual int32 CallExpression(FMaterialExpressionKey ExpressionKey,FMaterialCompiler* Compiler) override
@@ -2084,6 +2135,11 @@ protected:
 	virtual ERHIFeatureLevel::Type GetFeatureLevel() override
 	{
 		return FeatureLevel;
+	}
+
+	virtual EShaderPlatform GetShaderPlatform() override
+	{
+		return Platform;
 	}
 
 	/** 
@@ -3118,7 +3174,19 @@ protected:
 
 	virtual int32 ActorWorldPosition() override
 	{
-		return AddInlinedCodeChunk(MCT_Float3,TEXT("GetActorWorldPosition()"));		
+		if (bCompilingPreviousFrame && ShaderFrequency == SF_Vertex)
+		{
+			// Decal VS doesn't have material code so FMaterialVertexParameters
+			// and primitve uniform buffer are guaranteed to exist if ActorPosition
+			// material node is used in VS
+			return AddInlinedCodeChunk(
+				MCT_Float3,
+				TEXT("mul(mul(float4(GetActorWorldPosition(), 1), Primitive.WorldToLocal), Parameters.PrevFrameLocalToWorld)"));
+		}
+		else
+		{
+			return AddInlinedCodeChunk(MCT_Float3, TEXT("GetActorWorldPosition()"));
+		}
 	}
 
 	virtual int32 If(int32 A,int32 B,int32 AGreaterThanB,int32 AEqualsB,int32 ALessThanB,int32 ThresholdArg) override
@@ -3421,10 +3489,12 @@ protected:
 		}
 		else if(MipValueMode == TMVM_MipLevel)
 		{
+			// WebGL 2/GLES3.0 (or browsers with the texture lod extension) it is possible to sample from specific mip levels
+			// GLSL >= 100 should support this in the vertex shader
+			bool bES2MipSupport = (Platform == SP_OPENGL_ES2_WEBGL) || (Platform == SP_OPENGL_ES2_ANDROID && ShaderFrequency == SF_Vertex);
 			// Mobile: Sampling of a particular level depends on an extension; iOS does have it by default but
 			// there's a driver as of 7.0.2 that will cause a GPU hang if used with an Aniso > 1 sampler, so show an error for now
-			if ((Platform != SP_OPENGL_ES2_WEBGL) && // WebGL 2/GLES3.0 (or browsers with the texture lod extension) it is possible to sample from specific mip levels
-				ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
+			if (!bES2MipSupport && ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
 			{
 				Errorf(TEXT("Sampling for a specific mip-level is not supported for ES2"));
 				return INDEX_NONE;
@@ -3647,6 +3717,7 @@ protected:
 		}
 
 		bUsesSceneDepth = true;
+		AddEstimatedTextureSample();
 
 		FString	UserDepthCode(TEXT("CalcSceneDepth(%s)"));
 		int32 TexCoordCode = GetScreenAlignedUV(Offset, ViewportUV, bUseOffset);
@@ -3716,6 +3787,14 @@ protected:
 			// On mobile in post process material, there is no need to do ViewportUV->BufferUV conversion because ViewSize == BufferSize.
 			if (Material->GetMaterialDomain() == MD_PostProcess)
 			{
+				int32 BlendableLocation = Material->GetBlendableLocation();
+				if (SceneTextureId == PPI_SceneDepth && !(BlendableLocation == BL_BeforeTranslucency || BlendableLocation == BL_BeforeTonemapping))
+				{
+					// SceneDepth lookups are not available when using MSAA, but we can access depth stored in SceneColor.A channel
+					// SceneColor.A channel holds depth till BeforeTonemapping location, then it's gets overwritten
+					return Errorf(TEXT("SceneDepth lookups are only available when BlendableLocation is BeforeTranslucency or BeforeTonemapping"));
+				}
+				
 				if (ViewportUV == INDEX_NONE)
 				{
 					UV = TextureCoordinate(0, false, false);
@@ -3815,13 +3894,14 @@ protected:
 			|| SceneTextureId == PPI_Roughness
 			|| SceneTextureId == PPI_MaterialAO
 			|| SceneTextureId == PPI_DecalMask
-			|| SceneTextureId == PPI_ShadingModel
+			|| SceneTextureId == PPI_ShadingModelColor
+			|| SceneTextureId == PPI_ShadingModelID
 			|| SceneTextureId == PPI_StoredBaseColor
 			|| SceneTextureId == PPI_StoredSpecular;
 
 		MaterialCompilationOutput.bNeedsGBuffer = MaterialCompilationOutput.bNeedsGBuffer || bNeedsGBuffer;
 
-		if (bNeedsGBuffer && IsForwardShadingEnabled(FeatureLevel))
+		if (bNeedsGBuffer && IsForwardShadingEnabled(Platform))
 		{
 			Errorf(TEXT("GBuffer scene textures not available with forward shading."));
 		}
@@ -4716,8 +4796,7 @@ protected:
 			{
 				if (DestCoordBasis == MCB_World)
 				{
-					 // TODO: need <PREV>
-					CodeStr = TEXT("TransformLocal<TO>World(Parameters, <A>.xyz)");
+					CodeStr = TEXT("TransformLocal<TO><PREV>World(Parameters, <A>.xyz)");
 				}
 				// else use MCB_World as intermediary basis
 				break;
@@ -4893,7 +4972,7 @@ protected:
 			return NonVertexOrPixelShaderExpressionError();
 		}
 
-		NumParticleDynamicParameters = FMath::Max(NumParticleDynamicParameters, ParameterIndex + 1);
+		DynamicParticleParameterMask |= (1 << ParameterIndex);
 
 		int32 Default = Constant4(DefaultValue.R, DefaultValue.G, DefaultValue.B, DefaultValue.A);
 		return AddInlinedCodeChunk(
@@ -5615,7 +5694,7 @@ protected:
 	*/
 	virtual int32 SpeedTree(int32 GeometryArg, int32 WindArg, int32 LODArg, float BillboardThreshold, bool bAccurateWindVelocities, bool bExtraBend, int32 ExtraBendArg) override
 	{ 
-		if (ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::SM4) == INDEX_NONE)
+		if (ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
 		{
 			return INDEX_NONE;
 		}
@@ -5692,6 +5771,30 @@ protected:
 
 	// The compiler can run in a different state and this affects caching of sub expression, Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values
 	virtual bool IsCurrentlyCompilingForPreviousFrame() const { return bCompilingPreviousFrame; }
+
+	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const override
+	{ 
+		if (FeatureName == NAME_SelectionColor)
+		{
+			// This is an editor-only feature (see FDefaultMaterialInstance::GetVectorValue).
+
+			// Determine if we're sure the editor will never run using the target shader platform.
+			// The list below may not be comprehensive enough, but it definitely includes platforms which won't use selection color for sure.
+			const bool bEditorMayUseTargetShaderPlatform = IsPCPlatform(Platform);
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.CompileShadersForDevelopment"));
+			const bool bCompileShadersForDevelopment = (CVar && CVar->GetValueOnAnyThread() != 0);
+
+			return
+				// Does the material explicitly forbid development features?
+				Material->GetAllowDevelopmentShaderCompile()
+				// Can the editor run using the current shader platform?
+				&& bEditorMayUseTargetShaderPlatform
+				// Are shader development features globally disabled?
+				&& bCompileShadersForDevelopment;
+		}
+
+		return true;
+	}
 };
 
 #endif

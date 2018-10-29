@@ -46,6 +46,7 @@ public:
 	virtual void Update() override;
 	virtual void OnDrop(const TSharedPtr<FLevelDragDropOp>& Op) override;
 	virtual bool IsGoodToDrop(const TSharedPtr<FLevelDragDropOp>& Op) const override;
+	virtual bool IsTransient() const override;
 	virtual UClass* GetStreamingClass() const override;
 	FName GetFolderPath() const override;
 	virtual void SetFolderPath(const FName& InFolderPath) override;

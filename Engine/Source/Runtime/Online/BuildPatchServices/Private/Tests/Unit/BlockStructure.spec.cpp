@@ -61,7 +61,7 @@ namespace
 	}
 
 	template<typename ElementType>
-	TArray<ElementType> ArrayFoot(const TArray<ElementType>& Array)
+	TArray<ElementType> ArrayTail(const TArray<ElementType>& Array)
 	{
 		return ArrayRight(Array, 2);
 	}
@@ -122,7 +122,7 @@ void FBlockStructureSpec::Define()
 				{
 					FBlockStructure NewBlockStructure(BlockStructure);
 					TEST_NULL(NewBlockStructure.GetHead());
-					TEST_NULL(NewBlockStructure.GetFoot());
+					TEST_NULL(NewBlockStructure.GetTail());
 				});
 			});
 
@@ -158,14 +158,14 @@ void FBlockStructureSpec::Define()
 				{
 					FBlockStructure NewBlockStructure(MoveTemp(BlockStructure));
 					TEST_NULL(NewBlockStructure.GetHead());
-					TEST_NULL(NewBlockStructure.GetFoot());
+					TEST_NULL(NewBlockStructure.GetTail());
 				});
 
 				It("should leave source as an empty structure.", [this]()
 				{
 					FBlockStructure NewBlockStructure(MoveTemp(BlockStructure));
 					TEST_NULL(BlockStructure.GetHead());
-					TEST_NULL(BlockStructure.GetFoot());
+					TEST_NULL(BlockStructure.GetTail());
 				});
 			});
 
@@ -182,10 +182,10 @@ void FBlockStructureSpec::Define()
 				It("should create a structure with same data.", [this]()
 				{
 					const FBlockEntry* HeadPtr = BlockStructure.GetHead();
-					const FBlockEntry* FootPtr = BlockStructure.GetFoot();
+					const FBlockEntry* TailPtr = BlockStructure.GetTail();
 					FBlockStructure NewBlockStructure(MoveTemp(BlockStructure));
 					TEST_EQUAL(NewBlockStructure.GetHead(), HeadPtr);
-					TEST_EQUAL(NewBlockStructure.GetFoot(), FootPtr);
+					TEST_EQUAL(NewBlockStructure.GetTail(), TailPtr);
 					TEST_EQUAL(ToArrayU64(NewBlockStructure), SetupBlocks);
 				});
 
@@ -193,7 +193,7 @@ void FBlockStructureSpec::Define()
 				{
 					FBlockStructure NewBlockStructure(MoveTemp(BlockStructure));
 					TEST_NULL(BlockStructure.GetHead());
-					TEST_NULL(BlockStructure.GetFoot());
+					TEST_NULL(BlockStructure.GetTail());
 				});
 			});
 		});
@@ -213,7 +213,7 @@ void FBlockStructureSpec::Define()
 				{
 					OtherStructure = BlockStructure;
 					TEST_NULL(OtherStructure.GetHead());
-					TEST_NULL(OtherStructure.GetFoot());
+					TEST_NULL(OtherStructure.GetTail());
 				});
 			});
 
@@ -256,14 +256,14 @@ void FBlockStructureSpec::Define()
 				{
 					OtherStructure = MoveTemp(BlockStructure);
 					TEST_NULL(OtherStructure.GetHead());
-					TEST_NULL(OtherStructure.GetFoot());
+					TEST_NULL(OtherStructure.GetTail());
 				});
 
 				It("should leave source as an empty structure.", [this]()
 				{
 					OtherStructure = MoveTemp(BlockStructure);
 					TEST_NULL(BlockStructure.GetHead());
-					TEST_NULL(BlockStructure.GetFoot());
+					TEST_NULL(BlockStructure.GetTail());
 				});
 			});
 
@@ -280,10 +280,10 @@ void FBlockStructureSpec::Define()
 				It("should take memory ownership.", [this]()
 				{
 					const FBlockEntry* HeadPtr = BlockStructure.GetHead();
-					const FBlockEntry* FootPtr = BlockStructure.GetFoot();
+					const FBlockEntry* TailPtr = BlockStructure.GetTail();
 					OtherStructure = MoveTemp(BlockStructure);
 					TEST_EQUAL(OtherStructure.GetHead(), HeadPtr);
-					TEST_EQUAL(OtherStructure.GetFoot(), FootPtr);
+					TEST_EQUAL(OtherStructure.GetTail(), TailPtr);
 				});
 
 				It("should become a structure with same data.", [this]()
@@ -296,7 +296,7 @@ void FBlockStructureSpec::Define()
 				{
 					OtherStructure = MoveTemp(BlockStructure);
 					TEST_NULL(BlockStructure.GetHead());
-					TEST_NULL(BlockStructure.GetFoot());
+					TEST_NULL(BlockStructure.GetTail());
 				});
 			});
 		});
@@ -338,14 +338,14 @@ void FBlockStructureSpec::Define()
 			});
 		});
 
-		Describe("GetFoot", [this]()
+		Describe("GetTail", [this]()
 		{
 			Describe("when currently an empty structure", [this]()
 			{
 				It("should return nullptr.", [this]()
 				{
-					const FBlockEntry* FootPtr = BlockStructure.GetFoot();
-					TEST_NULL(FootPtr);
+					const FBlockEntry* TailPtr = BlockStructure.GetTail();
+					TEST_NULL(TailPtr);
 				});
 			});
 
@@ -361,15 +361,15 @@ void FBlockStructureSpec::Define()
 
 				It("should return valid ptr.", [this]()
 				{
-					TEST_NOT_NULL(BlockStructure.GetFoot());
+					TEST_NOT_NULL(BlockStructure.GetTail());
 				});
 
 				It("should return the ptr to the head block.", [this]()
 				{
-					const FBlockEntry* FootPtr = BlockStructure.GetFoot();
-					if (FootPtr != nullptr)
+					const FBlockEntry* TailPtr = BlockStructure.GetTail();
+					if (TailPtr != nullptr)
 					{
-						TEST_EQUAL(ARRAYU64(FootPtr->GetOffset(), FootPtr->GetSize()), ArrayFoot(SetupBlocks));
+						TEST_EQUAL(ARRAYU64(TailPtr->GetOffset(), TailPtr->GetSize()), ArrayTail(SetupBlocks));
 					}
 				});
 			});
@@ -383,7 +383,7 @@ void FBlockStructureSpec::Define()
 				{
 					BlockStructure.Empty();
 					TEST_NULL(BlockStructure.GetHead());
-					TEST_NULL(BlockStructure.GetFoot());
+					TEST_NULL(BlockStructure.GetTail());
 				});
 			});
 
@@ -401,7 +401,7 @@ void FBlockStructureSpec::Define()
 				{
 					BlockStructure.Empty();
 					TEST_NULL(BlockStructure.GetHead());
-					TEST_NULL(BlockStructure.GetFoot());
+					TEST_NULL(BlockStructure.GetTail());
 				});
 			});
 		});
@@ -427,7 +427,7 @@ void FBlockStructureSpec::Define()
 							{
 								BlockStructure.Add(70, 0, Dir);
 								TEST_NULL(BlockStructure.GetHead());
-								TEST_NULL(BlockStructure.GetFoot());
+								TEST_NULL(BlockStructure.GetTail());
 							});
 						});
 
@@ -493,7 +493,7 @@ void FBlockStructureSpec::Define()
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should ignore zero size block right of foot.", [this, Dir]()
+						It("should ignore zero size block right of tail.", [this, Dir]()
 						{
 							BlockStructure.Add(100, 0, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
@@ -589,85 +589,85 @@ void FBlockStructureSpec::Define()
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should insert a new foot.", [this, Dir]()
+						It("should insert a new tail.", [this, Dir]()
 						{
 							BlockStructure.Add(50, 6, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks + ARRAYU64(50, 6));
 						});
 
-						It("should grow left an existing foot with adjacent block.", [this, Dir]()
+						It("should grow left an existing tail with adjacent block.", [this, Dir]()
 						{
 							BlockStructure.Add(38, 2, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(38, 7)));
 						});
 
-						It("should grow left an existing foot with partial overlapped block.", [this, Dir]()
+						It("should grow left an existing tail with partial overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Add(38, 4, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(38, 7)));
 						});
 
-						It("should grow left an existing foot with fully overlapped block.", [this, Dir]()
+						It("should grow left an existing tail with fully overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Add(38, 7, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(38, 7)));
 						});
 
-						It("should grow right an existing foot with adjacent block.", [this, Dir]()
+						It("should grow right an existing tail with adjacent block.", [this, Dir]()
 						{
 							BlockStructure.Add(45, 4, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(40, 9)));
 						});
 
-						It("should grow right an existing foot with partial overlapped block.", [this, Dir]()
+						It("should grow right an existing tail with partial overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Add(42, 7, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(40, 9)));
 						});
 
-						It("should grow right an existing foot with fully overlapped block.", [this, Dir]()
+						It("should grow right an existing tail with fully overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Add(40, 9, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(40, 9)));
 						});
 
-						It("should grow outwards an existing foot with fully overlapped block.", [this, Dir]()
+						It("should grow outwards an existing tail with fully overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Add(38, 9, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(38, 9)));
 						});
 
-						It("should combine an existing foot with second last block when exactly filling the gap.", [this, Dir]()
+						It("should combine an existing tail with second last block when exactly filling the gap.", [this, Dir]()
 						{
 							BlockStructure.Add(33, 7, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayChopRight(SetupBlocks, 4) + ARRAYU64(30, 15));
 						});
 
-						It("should combine an existing foot with second last block when overlapping the gap.", [this, Dir]()
+						It("should combine an existing tail with second last block when overlapping the gap.", [this, Dir]()
 						{
 							BlockStructure.Add(31, 11, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayChopRight(SetupBlocks, 4) + ARRAYU64(30, 15));
 						});
 
-						It("should swallow a block enclosed in existing foot from left edge to inside.", [this, Dir]()
+						It("should swallow a block enclosed in existing tail from left edge to inside.", [this, Dir]()
 						{
 							BlockStructure.Add(40, 2, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should swallow a block enclosed in existing foot from inside to right edge.", [this, Dir]()
+						It("should swallow a block enclosed in existing tail from inside to right edge.", [this, Dir]()
 						{
 							BlockStructure.Add(42, 3, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should swallow a block fully enclosed in existing foot.", [this, Dir]()
+						It("should swallow a block fully enclosed in existing tail.", [this, Dir]()
 						{
 							BlockStructure.Add(41, 3, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should swallow a block perfectly matching an existing foot.", [this, Dir]()
+						It("should swallow a block perfectly matching an existing tail.", [this, Dir]()
 						{
 							BlockStructure.Add(40, 5, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
@@ -724,13 +724,13 @@ void FBlockStructureSpec::Define()
 						It("should combine existing blocks when exactly filling the gap.", [this, Dir]()
 						{
 							BlockStructure.Add(27, 3, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine existing blocks when overlapping the gap.", [this, Dir]()
 						{
 							BlockStructure.Add(26, 5, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayTail(SetupBlocks));
 						});
 
 						It("should swallow a block enclosed in existing middle block from left edge to inside.", [this, Dir]()
@@ -760,43 +760,43 @@ void FBlockStructureSpec::Define()
 						It("should combine blocks when left of head up to edge of middle block.", [this, Dir]()
 						{
 							BlockStructure.Add(5, 25, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(5, 28) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(5, 28) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when start of head up to edge of middle block.", [this, Dir]()
 						{
 							BlockStructure.Add(10, 20, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(10, 23) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(10, 23) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when inside of head up to edge of middle block.", [this, Dir]()
 						{
 							BlockStructure.Add(12, 18, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(10, 23) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(10, 23) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when left of second block up to right of second last block.", [this, Dir]()
 						{
 							BlockStructure.Add(16, 23, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(16, 23) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(16, 23) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when start of second block up to end of second last block.", [this, Dir]()
 						{
 							BlockStructure.Add(20, 13, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when inside of second block up to inside of second last block.", [this, Dir]()
 						{
 							BlockStructure.Add(22, 10, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when end of second block up to start of second last block.", [this, Dir]()
 						{
 							BlockStructure.Add(27, 3, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 13) + ArrayTail(SetupBlocks));
 						});
 
 						It("should combine blocks when overlapping whole structure.", [this, Dir]()
@@ -875,7 +875,7 @@ void FBlockStructureSpec::Define()
 							{
 								BlockStructure.Remove(70, 0, Dir);
 								TEST_NULL(BlockStructure.GetHead());
-								TEST_NULL(BlockStructure.GetFoot());
+								TEST_NULL(BlockStructure.GetTail());
 							});
 						});
 
@@ -893,7 +893,7 @@ void FBlockStructureSpec::Define()
 							{
 								BlockStructure.Remove(OtherStructure, Dir);
 								TEST_NULL(BlockStructure.GetHead());
-								TEST_NULL(BlockStructure.GetFoot());
+								TEST_NULL(BlockStructure.GetTail());
 							});
 						});
 					});
@@ -914,7 +914,7 @@ void FBlockStructureSpec::Define()
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should ignore zero size block on foot.", [this, Dir]()
+						It("should ignore zero size block on tail.", [this, Dir]()
 						{
 							BlockStructure.Remove(41, 0, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
@@ -932,7 +932,7 @@ void FBlockStructureSpec::Define()
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
 						});
 
-						It("should ignore block after foot.", [this, Dir]()
+						It("should ignore block after tail.", [this, Dir]()
 						{
 							BlockStructure.Remove(45, 5, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), SetupBlocks);
@@ -974,31 +974,31 @@ void FBlockStructureSpec::Define()
 							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(10, 2) + ArrayClobber(SetupBlocks, 0, ARRAYU64(13, 2)));
 						});
 
-						It("should remove foot when exact match.", [this, Dir]()
+						It("should remove tail when exact match.", [this, Dir]()
 						{
 							BlockStructure.Remove(40, 5, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayChopRight(SetupBlocks, 2));
 						});
 
-						It("should remove foot when overlapping.", [this, Dir]()
+						It("should remove tail when overlapping.", [this, Dir]()
 						{
 							BlockStructure.Remove(39, 7, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayChopRight(SetupBlocks, 2));
 						});
 
-						It("should shrink start of foot.", [this, Dir]()
+						It("should shrink start of tail.", [this, Dir]()
 						{
 							BlockStructure.Remove(40, 2, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(42, 3)));
 						});
 
-						It("should shrink end of foot.", [this, Dir]()
+						It("should shrink end of tail.", [this, Dir]()
 						{
 							BlockStructure.Remove(43, 2, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(40, 3)));
 						});
 
-						It("should split foot.", [this, Dir]()
+						It("should split tail.", [this, Dir]()
 						{
 							BlockStructure.Remove(42, 1, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayClobber(SetupBlocks, SetupBlocks.Num() - 2, ARRAYU64(40, 2)) + ARRAYU64(43, 2));
@@ -1038,17 +1038,17 @@ void FBlockStructureSpec::Define()
 						{
 							BlockStructure.Remove(10, 35, Dir);
 							TEST_NULL(BlockStructure.GetHead());
-							TEST_NULL(BlockStructure.GetFoot());
+							TEST_NULL(BlockStructure.GetTail());
 						});
 
 						It("should remove all blocks with extra overlap.", [this, Dir]()
 						{
 							BlockStructure.Remove(0, 100, Dir);
 							TEST_NULL(BlockStructure.GetHead());
-							TEST_NULL(BlockStructure.GetFoot());
+							TEST_NULL(BlockStructure.GetTail());
 						});
 
-						It("should shrink semi overlapped head and foot, removing fully overlapped block.", [this, Dir]()
+						It("should shrink semi overlapped head and tail, removing fully overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Remove(12, 31, Dir);
 							TEST_EQUAL(ToArrayU64(BlockStructure), ARRAYU64(10, 2, 43, 2));
@@ -1057,7 +1057,7 @@ void FBlockStructureSpec::Define()
 						It("should shrink semi overlapped blocks, removing fully overlapped block.", [this, Dir]()
 						{
 							BlockStructure.Remove(21, 11, Dir);
-							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 1, 32, 1) + ArrayFoot(SetupBlocks));
+							TEST_EQUAL(ToArrayU64(BlockStructure), ArrayHead(SetupBlocks) + ARRAYU64(20, 1, 32, 1) + ArrayTail(SetupBlocks));
 						});
 
 						Describe("when removing another structure the same", [this, Dir]()
@@ -1074,7 +1074,7 @@ void FBlockStructureSpec::Define()
 							{
 								BlockStructure.Remove(OtherStructure, Dir);
 								TEST_NULL(BlockStructure.GetHead());
-								TEST_NULL(BlockStructure.GetFoot());
+								TEST_NULL(BlockStructure.GetTail());
 							});
 						});
 
@@ -1129,7 +1129,7 @@ void FBlockStructureSpec::Define()
 				{
 					BlockStructure.SelectSerialBytes(0, 100, OtherStructure);
 					TEST_NULL(OtherStructure.GetHead());
-					TEST_NULL(OtherStructure.GetFoot());
+					TEST_NULL(OtherStructure.GetTail());
 				});
 			});
 
@@ -1155,7 +1155,7 @@ void FBlockStructureSpec::Define()
 					TEST_EQUAL(ToArrayU64(OtherStructure), ARRAYU64(20, 7, 30, 3));
 				});
 
-				It("should supply partially selected serial blocks, shrinking head and foot.", [this]()
+				It("should supply partially selected serial blocks, shrinking head and tail.", [this]()
 				{
 					TEST_EQUAL(BlockStructure.SelectSerialBytes(2, 15, OtherStructure), 15);
 					TEST_EQUAL(ToArrayU64(OtherStructure), ARRAYU64(12, 3, 20, 7, 30, 3, 40, 2));
@@ -1183,14 +1183,14 @@ void FBlockStructureSpec::Define()
 				{
 					TEST_EQUAL(BlockStructure.SelectSerialBytes(5, 0, OtherStructure), 0);
 					TEST_NULL(OtherStructure.GetHead());
-					TEST_NULL(OtherStructure.GetFoot());
+					TEST_NULL(OtherStructure.GetTail());
 				});
 
 				It("should supply empty structure for selecting nothing, with blank index.", [this]()
 				{
 					TEST_EQUAL(BlockStructure.SelectSerialBytes(100, 0, OtherStructure), 0);
 					TEST_NULL(OtherStructure.GetHead());
-					TEST_NULL(OtherStructure.GetFoot());
+					TEST_NULL(OtherStructure.GetTail());
 				});
 			});
 
@@ -1234,7 +1234,7 @@ void FBlockStructureSpec::Define()
 				{
 					FBlockStructure NewBlockStructure = BlockStructure.Intersect(OtherStructure);
 					TEST_NULL(NewBlockStructure.GetHead());
-					TEST_NULL(NewBlockStructure.GetFoot());
+					TEST_NULL(NewBlockStructure.GetTail());
 				});
 			});
 
@@ -1270,7 +1270,7 @@ void FBlockStructureSpec::Define()
 				{
 					FBlockStructure NewBlockStructure = BlockStructure.Intersect(OtherStructure);
 					TEST_NULL(NewBlockStructure.GetHead());
-					TEST_NULL(NewBlockStructure.GetFoot());
+					TEST_NULL(NewBlockStructure.GetTail());
 				});
 			});
 
@@ -1302,17 +1302,17 @@ void FBlockStructureSpec::Define()
 				});
 			});
 
-			Describe("when given a structure with just the same foot", [this]()
+			Describe("when given a structure with just the same tail", [this]()
 			{
 				BeforeEach([this]()
 				{
-					OtherStructure.Add(ArrayFoot(SetupBlocks)[0], ArrayFoot(SetupBlocks)[1]);
+					OtherStructure.Add(ArrayTail(SetupBlocks)[0], ArrayTail(SetupBlocks)[1]);
 				});
 
-				It("should return a structure with just the same foot.", [this]()
+				It("should return a structure with just the same tail.", [this]()
 				{
 					FBlockStructure NewBlockStructure = BlockStructure.Intersect(OtherStructure);
-					TEST_EQUAL(ToArrayU64(NewBlockStructure), ArrayFoot(SetupBlocks));
+					TEST_EQUAL(ToArrayU64(NewBlockStructure), ArrayTail(SetupBlocks));
 				});
 			});
 
@@ -1432,8 +1432,8 @@ bool FBlockStructureSpec::IsLooping(const BuildPatchServices::FBlockStructure& S
 			return true;
 		}
 	}
-	Slow = Structure.GetFoot();
-	Fast = Structure.GetFoot();
+	Slow = Structure.GetTail();
+	Fast = Structure.GetTail();
 	while (Slow != nullptr && Fast != nullptr && Fast->GetPrevious() != nullptr)
 	{
 		Slow = Slow->GetPrevious();
@@ -1461,7 +1461,7 @@ bool FBlockStructureSpec::IsMirrored(const BuildPatchServices::FBlockStructure& 
 			Block = Block->GetNext();
 		}
 		TArray<const BuildPatchServices::FBlockEntry*> Backward;
-		Block = Structure.GetFoot();
+		Block = Structure.GetTail();
 		while (Block != nullptr)
 		{
 			Backward.Add(Block);

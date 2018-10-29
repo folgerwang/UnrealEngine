@@ -94,6 +94,7 @@ namespace nvidia
 
 struct FConstraintInstance;
 struct FContactModifyCallback;
+struct FCCDContactModifyCallback;
 struct FPhysXMbpBroadphaseCallback;
 class UPhysicsAsset;
 
@@ -194,6 +195,7 @@ namespace PhysCommand
 		DeleteCPUDispatcher,
 		DeleteSimEventCallback,
 		DeleteContactModifyCallback,
+		DeleteCCDContactModifyCallback,
 		DeleteMbpBroadphaseCallback,
 		Max
 	};
@@ -219,6 +221,7 @@ public:
 	void ENGINE_API DeferredRelease(physx::PxScene * PScene);
 	void ENGINE_API DeferredDeleteSimEventCallback(physx::PxSimulationEventCallback* SimEventCallback);
 	void ENGINE_API DeferredDeleteContactModifyCallback(FContactModifyCallback* ContactModifyCallback);
+	void ENGINE_API DeferredDeleteCCDContactModifyCallback(FCCDContactModifyCallback* CCDContactModifyCallback);
 	void ENGINE_API DeferredDeleteMbpBroadphaseCallback(FPhysXMbpBroadphaseCallback* MbpCallback);
 	void ENGINE_API DeferredDeleteCPUDispathcer(physx::PxCpuDispatcher * CPUDispatcher);
 #endif
@@ -239,6 +242,7 @@ private:
 			physx::PxCpuDispatcher* CPUDispatcher;
 			physx::PxSimulationEventCallback* SimEventCallback;
 			FContactModifyCallback* ContactModifyCallback;
+			FCCDContactModifyCallback* CCDContactModifyCallback;
 			FPhysXMbpBroadphaseCallback* MbpCallback;
 #endif
 		} Pointer;
@@ -255,6 +259,13 @@ private:
 	/** Array of commands waiting to execute once simulation is done */
 	TArray<FPhysPendingCommand> PendingCommands;
 };
+
+/** Clears all linear forces on the body */
+void ClearForces_AssumesLocked(FBodyInstance* BodyInstance, bool bAllowSubstepping);
+
+
+/** Clears all torques on the body */
+void ClearTorques_AssumesLocked(FBodyInstance* BodyInstance, bool bAllowSubstepping);
 
 /**
 * Return true if we should be running in single threaded mode, ala dedicated server

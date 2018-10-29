@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
+// ..
 
 #include "VulkanShaderFormat.h"
 #include "VulkanCommon.h"
@@ -270,6 +270,766 @@ static uint32 GetTypeComponents(const FString& Type)
 	return Components;
 }
 
+
+static bool ContainsBinding(const FVulkanBindingTable& BindingTable, const FString& Name)
+{
+	for (const FVulkanBindingTable::FBinding& Binding : BindingTable.GetBindings())
+	{
+		if (Binding.Name == Name)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static FString GetResourceEntryFromUBMember(const TMap<FString, FResourceTableEntry>& ResourceTableMap, const FString& UBName, uint16 ResourceIndex, FResourceTableEntry& OutEntry)
+{
+	for (const auto& Pair : ResourceTableMap)
+	{
+		if (Pair.Value.UniformBufferName == UBName && Pair.Value.ResourceIndex == ResourceIndex)
+		{
+			OutEntry = Pair.Value;
+			return Pair.Key;
+		}
+	}
+
+	check(0);
+	return "";
+}
+
+static FString FindTextureNameForSamplerState(const CrossCompiler::FHlslccHeader& CCHeader, const FString& InSamplerName)
+{
+	for (const auto& Sampler : CCHeader.Samplers)
+	{
+		for (const auto& SamplerState : Sampler.SamplerStates)
+		{
+			if (SamplerState == InSamplerName)
+			{
+				return Sampler.Name;
+			}
+		}
+	}
+	return TEXT("");
+}
+
+static uint16 GetCombinedSamplerStateAlias(const FString& ParameterName,
+											VkDescriptorType DescriptorType,
+											const FVulkanBindingTable& BindingTable,
+											const CrossCompiler::FHlslccHeader& CCHeader,
+											const TArray<FString>& GlobalNames)
+{
+	if (DescriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+	{
+		if (!ContainsBinding(BindingTable, ParameterName))
+		{
+			// Not found as a regular parameter, find corresponding Texture and return that ResourceEntryIndex
+			const FString& TextureName = FindTextureNameForSamplerState(CCHeader, ParameterName);
+			check(TextureName.Len() > 0);
+
+			int32 Found = GlobalNames.Find(TextureName);
+			check(Found >= 0);
+			return (uint16)Found;
+		}
+	}
+
+	return UINT16_MAX;
+}
+
+struct FPatchType
+{
+	int32	HeaderGlobalIndex;
+	uint16	CombinedAliasIndex;
+};
+
+
+class FVulkanShaderSerializedBindings : public CrossCompiler::FShaderBindings
+{
+public:
+	FVulkanShaderSerializedBindings()
+	{
+		InOutMask = 0;
+		NumSamplers = 0;
+		NumUniformBuffers = 0;
+		NumUAVs = 0;
+		bHasRegularUniformBuffers = 0;
+	}
+};
+
+struct FOLDVulkanCodeHeader
+{
+	FVulkanShaderSerializedBindings SerializedBindings;
+
+	struct FShaderDescriptorInfo
+	{
+		TArray<VkDescriptorType> DescriptorTypes;
+		uint16 NumImageInfos;
+		uint16 NumBufferInfos;
+	};
+	FShaderDescriptorInfo NEWDescriptorInfo;
+
+	struct FPackedUBToVulkanBindingIndex
+	{
+		CrossCompiler::EPackedTypeName	TypeName;
+		uint8							VulkanBindingIndex;
+	};
+	TArray<FPackedUBToVulkanBindingIndex> NEWPackedUBToVulkanBindingIndices;
+
+	// List of memory copies from RHIUniformBuffer to packed uniforms when emulating UB's
+	TArray<CrossCompiler::FUniformBufferCopyInfo> UniformBuffersCopyInfo;
+
+	FString ShaderName;
+	FSHAHash SourceHash;
+
+	uint64 UniformBuffersWithDescriptorMask;
+
+	// Number of uniform buffers (not including PackedGlobalUBs) UNUSED
+	uint32 UNUSED_NumNonGlobalUBs;
+
+	// (Separated to improve cache) if this is non-zero, then we can assume all UBs are emulated
+	TArray<uint32> NEWPackedGlobalUBSizes;
+
+	// Number of copies per emulated buffer source index (to skip searching among UniformBuffersCopyInfo). Upper uint16 is the index, Lower uint16 is the count
+	TArray<uint32> NEWEmulatedUBCopyRanges;
+};
+
+static void AddImmutable(FVulkanShaderHeader& OutHeader, int32 GlobalIndex)
+{
+	check(GlobalIndex < UINT16_MAX);
+	OutHeader.Globals[GlobalIndex].bImmutableSampler = true;
+}
+
+static int32 AddGlobal(FOLDVulkanCodeHeader& OLDHeader,
+						const FVulkanBindingTable& BindingTable,
+						const CrossCompiler::FHlslccHeader& CCHeader,
+						const FString& ParameterName,
+						uint16 BaseIndex,
+						const FSpirv& Spirv,
+						FVulkanShaderHeader& OutHeader,
+						const TArray<FString>& GlobalNames,
+						TArray<FPatchType>& OutTypePatch,
+						uint16 CombinedAliasIndex)
+{
+	int32 HeaderGlobalIndex = GlobalNames.Find(ParameterName);//OutHeader.Globals.AddZeroed();
+	check(HeaderGlobalIndex != INDEX_NONE);
+	check(GlobalNames[HeaderGlobalIndex] == ParameterName);
+
+	FVulkanShaderHeader::FGlobalInfo& GlobalInfo = OutHeader.Globals[HeaderGlobalIndex];
+	const FSpirv::FEntry* Entry = Spirv.GetEntry(ParameterName);
+	bool bIsCombinedSampler = false;
+	if (Entry)
+	{
+		if (Entry->Binding == -1)
+		{
+			// Texel buffers get put into a uniform block
+			Entry = Spirv.GetEntry(ParameterName + TEXT("_BUFFER"));
+			check(Entry);
+			check(Entry->Binding != -1);
+		}
+	}
+	else
+	{
+		Entry = CombinedAliasIndex == UINT16_MAX ? Spirv.GetEntryByBindingIndex(BaseIndex) : Spirv.GetEntry(GlobalNames[CombinedAliasIndex]);
+		check(Entry);
+		check(Entry->Binding != -1);
+		bIsCombinedSampler = true;
+	}
+
+	VkDescriptorType DescriptorType = bIsCombinedSampler ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER : OLDHeader.NEWDescriptorInfo.DescriptorTypes[Entry->Binding];
+
+	GlobalInfo.OriginalBindingIndex = Entry->Binding;
+	OutHeader.GlobalSpirvInfos[HeaderGlobalIndex] = FVulkanShaderHeader::FSpirvInfo(Entry->WordDescriptorSetIndex, Entry->WordBindingIndex);
+	if (bIsCombinedSampler)
+	{
+		uint16 NewCombinedAliasIndex = GetCombinedSamplerStateAlias(ParameterName, DescriptorType, BindingTable, CCHeader, GlobalNames);
+		check(NewCombinedAliasIndex != UINT16_MAX);
+
+		{
+			// Ideally we would set up the type index here, but we might not have processed the aliased texture yet:
+			//		GlobalInfo.TypeIndex = OutHeader.Globals[NewCombinedAliasIndex].TypeIndex;
+			// Instead postpone this patching
+			GlobalInfo.TypeIndex = UINT16_MAX;
+			OutTypePatch.Add({HeaderGlobalIndex, NewCombinedAliasIndex});
+		}
+
+		GlobalInfo.CombinedSamplerStateAliasIndex = CombinedAliasIndex == UINT16_MAX ? NewCombinedAliasIndex : CombinedAliasIndex;
+	}
+	else
+	{
+		int32 GlobalDescriptorTypeIndex = OutHeader.GlobalDescriptorTypes.Add(DescriptorType);
+		GlobalInfo.TypeIndex = GlobalDescriptorTypeIndex;
+		check(GetCombinedSamplerStateAlias(ParameterName, DescriptorType, BindingTable, CCHeader, GlobalNames) == UINT16_MAX);
+		GlobalInfo.CombinedSamplerStateAliasIndex = UINT16_MAX;
+	}
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+	GlobalInfo.DebugName = ParameterName;
+#endif
+
+	return HeaderGlobalIndex;
+}
+
+static int32 AddGlobalForUBEntry(FOLDVulkanCodeHeader& OLDHeader,
+									const FVulkanBindingTable& BindingTable,
+									const CrossCompiler::FHlslccHeader& CCHeader,
+									const FString& ParameterName,
+									uint16 BaseIndex,
+									const FSpirv& Spirv,
+									const TArray<FString>&
+									GlobalNames,
+									EUniformBufferBaseType UBEntryType,
+									TArray<FPatchType>& OutTypePatch,
+									FVulkanShaderHeader& OutHeader)
+{
+	uint16 CombinedAliasIndex = UINT16_MAX;
+	if (UBEntryType == UBMT_SAMPLER)
+	{
+		if (!ContainsBinding(BindingTable, ParameterName))
+		{
+			// Not found as a regular parameter, find corresponding Texture and return that ResourceEntryIndex
+			const FString& TextureName = FindTextureNameForSamplerState(CCHeader, ParameterName);
+			check(TextureName.Len() > 0);
+
+			int32 TextureGlobalIndex = GlobalNames.Find(TextureName);
+			check(TextureGlobalIndex >= 0);
+
+			CombinedAliasIndex = (uint16)TextureGlobalIndex;
+		}
+	}
+
+	return AddGlobal(OLDHeader, BindingTable, CCHeader, ParameterName, BaseIndex, Spirv, OutHeader, GlobalNames, OutTypePatch, CombinedAliasIndex);
+}
+
+static void AddUBResources(FOLDVulkanCodeHeader& OLDHeader,
+							const FString& UBName,
+							const TMap<FString, FResourceTableEntry>& ResourceTableMap,
+							uint32 BufferIndex,
+							const TArray<uint32>& BindingArray,
+							const FVulkanBindingTable& BindingTable,
+							const TArray<VkDescriptorType>& DescriptorTypes,
+							const FSpirv& Spirv,
+							const CrossCompiler::FHlslccHeader& CCHeader,
+							FVulkanShaderHeader::FUniformBufferInfo& OutUBInfo,
+							FVulkanShaderHeader& OutHeader,
+							TArray<FPatchType>& OutTypePatch,
+							TArray<FString>& GlobalNames)
+{
+	if (BindingArray.Num() > 0)
+	{
+		uint32 BufferOffset = BindingArray[BufferIndex];
+		if (BufferOffset > 0)
+		{
+			// Extract all resources related to the current BufferIndex
+			const uint32* ResourceInfos = &BindingArray[BufferOffset];
+			uint32 ResourceInfo = *ResourceInfos++;
+			do
+			{
+				// Verify that we have correct buffer index
+				check(FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+
+				// Extract binding index from ResourceInfo
+				const uint32 BindingIndex = FRHIResourceTableEntry::GetBindIndex(ResourceInfo);
+
+				// Extract index of the resource stored in the resource table from ResourceInfo
+				const uint16 ResourceIndex = FRHIResourceTableEntry::GetResourceIndex(ResourceInfo);
+
+				FResourceTableEntry ResourceTableEntry;
+				FString MemberName = GetResourceEntryFromUBMember(ResourceTableMap, UBName, ResourceIndex, ResourceTableEntry);
+
+				int32 HeaderUBResourceInfoIndex = OutUBInfo.ResourceEntries.AddZeroed();
+				FVulkanShaderHeader::FUBResourceInfo& UBResourceInfo = OutUBInfo.ResourceEntries[HeaderUBResourceInfoIndex];
+
+				int32 HeaderGlobalIndex = AddGlobalForUBEntry(OLDHeader, BindingTable, CCHeader, MemberName, ResourceIndex, Spirv, GlobalNames, (EUniformBufferBaseType)ResourceTableEntry.Type, OutTypePatch, OutHeader);
+				UBResourceInfo.SourceUBResourceIndex = ResourceIndex;
+				UBResourceInfo.OriginalBindingIndex = BindingIndex;
+				UBResourceInfo.GlobalIndex = HeaderGlobalIndex;
+				UBResourceInfo.UBBaseType = (EUniformBufferBaseType)ResourceTableEntry.Type;
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+				UBResourceInfo.DebugName = MemberName;
+#endif
+				// Iterate to next info
+				ResourceInfo = *ResourceInfos++;
+			}
+			while (FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+		}
+	}
+}
+
+static void AddUniformBuffer(FOLDVulkanCodeHeader& OLDHeader,
+	const FVulkanBindingTable& BindingTable,
+	const FShaderCompilerInput& ShaderInput,
+	const CrossCompiler::FHlslccHeader& CCHeader,
+	const FSpirv& Spirv,
+	const FString& UBName,
+	uint16 BindingIndex,
+	FShaderParameterMap& InOutParameterMap,
+	FVulkanShaderHeader& OutHeader,
+	TArray<FPatchType>& OutTypePatch,
+	TArray<FString>& GlobalNames,
+	bool bUseRealUBs)
+{
+	int32 HeaderUBIndex = -1;
+	if (bUseRealUBs)
+	{
+		HeaderUBIndex = OutHeader.UniformBuffers.AddZeroed();
+	}
+	else
+	{
+		if (BindingIndex >= OutHeader.UniformBuffers.Num())
+		{
+			OutHeader.UniformBuffers.SetNumZeroed(BindingIndex + 1);
+		}
+		HeaderUBIndex = BindingIndex;
+	}
+	FVulkanShaderHeader::FUniformBufferInfo& UBInfo = OutHeader.UniformBuffers[HeaderUBIndex];
+	const uint32* LayoutHash = ShaderInput.Environment.ResourceTableLayoutHashes.Find(UBName);
+	UBInfo.LayoutHash = LayoutHash ? *LayoutHash : 0;
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+	UBInfo.DebugName = UBName;
+#endif
+	const FSpirv::FEntry* Entry = Spirv.GetEntry(UBName);
+	if (Entry)
+	{
+		checkf(bUseRealUBs, TEXT("Internal error: Emulated should NOT have a binding!"));
+		UBInfo.bOnlyHasResources = false;
+		UBInfo.ConstantDataOriginalBindingIndex = BindingIndex;
+		if (bUseRealUBs)
+		{
+			// Only real UBs require an entry for SPIRV
+			int32 SpirvInfoIndex = OutHeader.UniformBufferSpirvInfos.Add(FVulkanShaderHeader::FSpirvInfo(Entry->WordDescriptorSetIndex, Entry->WordBindingIndex));
+			check(SpirvInfoIndex == HeaderUBIndex);
+		}
+	}
+	else
+	{
+		UBInfo.bOnlyHasResources = true;
+		UBInfo.ConstantDataOriginalBindingIndex = UINT16_MAX;
+		if (bUseRealUBs)
+		{
+			// Only real UBs require a dummy entry for SPIRV
+			int32 SpirvInfoIndex = OutHeader.UniformBufferSpirvInfos.Add(FVulkanShaderHeader::FSpirvInfo());
+			check(SpirvInfoIndex == HeaderUBIndex);
+		}
+	}
+
+	// Add used resources...
+	const FShaderCompilerResourceTable& SRT = OLDHeader.SerializedBindings.ShaderResourceTable;
+	if (SRT.ResourceTableBits & (1 << BindingIndex))
+	{
+		// Make sure to process in the same order as when gathering names below
+		AddUBResources(OLDHeader, UBName, ShaderInput.Environment.ResourceTableMap, BindingIndex, SRT.TextureMap, BindingTable, OLDHeader.NEWDescriptorInfo.DescriptorTypes, Spirv, CCHeader, UBInfo, OutHeader, OutTypePatch, GlobalNames);
+		AddUBResources(OLDHeader, UBName, ShaderInput.Environment.ResourceTableMap, BindingIndex, SRT.SamplerMap, BindingTable, OLDHeader.NEWDescriptorInfo.DescriptorTypes, Spirv, CCHeader, UBInfo, OutHeader, OutTypePatch, GlobalNames);
+		AddUBResources(OLDHeader, UBName, ShaderInput.Environment.ResourceTableMap, BindingIndex, SRT.ShaderResourceViewMap, BindingTable, OLDHeader.NEWDescriptorInfo.DescriptorTypes, Spirv, CCHeader, UBInfo, OutHeader, OutTypePatch, GlobalNames);
+		AddUBResources(OLDHeader, UBName, ShaderInput.Environment.ResourceTableMap, BindingIndex, SRT.UnorderedAccessViewMap, BindingTable, OLDHeader.NEWDescriptorInfo.DescriptorTypes, Spirv, CCHeader, UBInfo, OutHeader, OutTypePatch, GlobalNames);
+	}
+	else
+	{
+		// If we're using real uniform buffers we have to have resources at least
+		check(!bUseRealUBs || !UBInfo.bOnlyHasResources);
+	}
+
+	// Currently we don't support mismatched uniform buffer layouts/cbuffers with resources!
+	check(LayoutHash || UBInfo.ResourceEntries.Num() == 0);
+
+	InOutParameterMap.RemoveParameterAllocation(*UBName);
+	InOutParameterMap.AddParameterAllocation(*UBName, HeaderUBIndex, (uint16)FVulkanShaderHeader::UniformBuffer, 1);
+}
+
+static int32 DoAddGlobal(const FString& Name, FVulkanShaderHeader& OutHeader, TArray<FString>& OutGlobalNames)
+{
+	check(!OutGlobalNames.Contains(Name));
+	int32 NameIndex = OutGlobalNames.Add(Name);
+	int32 GlobalIndex = OutHeader.Globals.AddDefaulted();
+	check(NameIndex == GlobalIndex);
+	int32 GlobalSpirvIndex = OutHeader.GlobalSpirvInfos.AddDefaulted();
+	check(GlobalSpirvIndex == GlobalIndex);
+	return GlobalIndex;
+}
+
+struct FVulkanHlslccHeader : public CrossCompiler::FHlslccHeader
+{
+	virtual bool ParseCustomHeaderEntries(const ANSICHAR*& ShaderSource) override
+	{
+		if (FCStringAnsi::Strncmp(ShaderSource, "// @ExternalTextures: ", 22) == 0)
+		{
+			ShaderSource += 22;
+			while (*ShaderSource && *ShaderSource != '\n')
+			{
+				FString Name;
+				if (!CrossCompiler::ParseIdentifier(ShaderSource, Name))
+				{
+					return false;
+				}
+
+				ExternalTextures.Add(Name);
+
+				if (Match(ShaderSource, '\n'))
+				{
+					break;
+				}
+
+				if (Match(ShaderSource, ','))
+				{
+					continue;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	TArray<FString> ExternalTextures;
+};
+
+static void PrepareUBResourceEntryGlobals(const FVulkanHlslccHeader& CCHeader, const TArray<uint32>& BindingArray, const TMap<FString, FResourceTableEntry>& ResourceTableMap,
+	int32 BufferIndex, const FString& UBName, TArray<FString>& OutGlobalNames, FVulkanShaderHeader& OutHeader)
+{
+	if (BindingArray.Num() > 0)
+	{
+		uint32 BufferOffset = BindingArray[BufferIndex];
+		if (BufferOffset > 0)
+		{
+			// Extract all resources related to the current BufferIndex
+			const uint32* ResourceInfos = &BindingArray[BufferOffset];
+			uint32 ResourceInfo = *ResourceInfos++;
+			do
+			{
+				// Verify that we have correct buffer index
+				check(FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+
+				// Extract binding index from ResourceInfo
+				const uint32 BindingIndex = FRHIResourceTableEntry::GetBindIndex(ResourceInfo);
+
+				// Extract index of the resource stored in the resource table from ResourceInfo
+				const uint16 ResourceIndex = FRHIResourceTableEntry::GetResourceIndex(ResourceInfo);
+
+				FResourceTableEntry ResourceTableEntry;
+				FString MemberName = GetResourceEntryFromUBMember(ResourceTableMap, UBName, ResourceIndex, ResourceTableEntry);
+
+				int32 GlobalIndex = DoAddGlobal(MemberName, OutHeader, OutGlobalNames);
+				if (CCHeader.ExternalTextures.Contains(MemberName))
+				{
+					AddImmutable(OutHeader, GlobalIndex);
+				}
+
+				// Iterate to next info
+				ResourceInfo = *ResourceInfos++;
+			}
+			while (FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
+		}
+	}
+}
+
+static bool IsSamplerState(const CrossCompiler::FHlslccHeader& CCHeader, const FString& ParameterName)
+{
+	for (const auto& Sampler : CCHeader.Samplers)
+	{
+		if (Sampler.SamplerStates.Contains(ParameterName))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void PrepareGlobals(const FVulkanBindingTable& BindingTable, const FVulkanHlslccHeader& CCHeader, const FShaderCompilerResourceTable& SRT, const TMap<FString, FVulkanShaderHeader::EType>& EntryTypes, const FShaderCompilerInput& ShaderInput, const TArray<FString>& ParameterNames, FShaderParameterMap& ParameterMap, TArray<FString>& OutGlobalNames, FVulkanShaderHeader& OutHeader, bool bHasRealUBs)
+{
+	// First pass, gather names for all the Globals that are NOT Samplers
+	for (int32 ParameterIndex = 0; ParameterIndex < ParameterNames.Num(); ++ParameterIndex)
+	{
+		uint16 BufferIndex;
+		uint16 BaseIndex;
+		uint16 Size;
+		const FString& ParameterName = *ParameterNames[ParameterIndex];
+		ParameterMap.FindParameterAllocation(*ParameterName, BufferIndex, BaseIndex, Size);
+
+		auto AddGlobalNamesForUB = [&]()
+		{
+			// Add used resources...
+			if (SRT.ResourceTableBits & (1 << BufferIndex))
+			{
+				PrepareUBResourceEntryGlobals(CCHeader, SRT.TextureMap, ShaderInput.Environment.ResourceTableMap, BufferIndex, ParameterName, OutGlobalNames, OutHeader);
+				PrepareUBResourceEntryGlobals(CCHeader, SRT.ShaderResourceViewMap, ShaderInput.Environment.ResourceTableMap, BufferIndex, ParameterName, OutGlobalNames, OutHeader);
+				PrepareUBResourceEntryGlobals(CCHeader, SRT.UnorderedAccessViewMap, ShaderInput.Environment.ResourceTableMap, BufferIndex, ParameterName, OutGlobalNames, OutHeader);
+			}
+		};
+
+		const FVulkanShaderHeader::EType* FoundType = EntryTypes.Find(ParameterName);
+		if (FoundType)
+		{
+			switch (*FoundType)
+			{
+			case FVulkanShaderHeader::Global:
+				if (!IsSamplerState(CCHeader, ParameterName))
+				{
+					int32 GlobalIndex = DoAddGlobal(ParameterName, OutHeader, OutGlobalNames);
+					if (CCHeader.ExternalTextures.Contains(ParameterName))
+					{
+						AddImmutable(OutHeader, GlobalIndex);
+					}
+				}
+				break;
+			case FVulkanShaderHeader::UniformBuffer:
+				check(bHasRealUBs);
+				AddGlobalNamesForUB();
+				break;
+			case FVulkanShaderHeader::PackedGlobal:
+				if (bHasRealUBs || Size > 0)
+				{
+					// Ignore
+				}
+				else if (!bHasRealUBs)
+				{
+					AddGlobalNamesForUB();
+				}
+				break;
+			default:
+				check(0);
+				break;
+			}
+		}
+		else
+		{
+			AddGlobalNamesForUB();
+		}
+	}
+
+	// Second pass, add all samplers
+	for (int32 ParameterIndex = 0; ParameterIndex < ParameterNames.Num(); ++ParameterIndex)
+	{
+		uint16 BufferIndex;
+		uint16 BaseIndex;
+		uint16 Size;
+		const FString& ParameterName = *ParameterNames[ParameterIndex];
+		ParameterMap.FindParameterAllocation(*ParameterName, BufferIndex, BaseIndex, Size);
+
+		auto AddGlobalNamesForUB = [&]()
+		{
+			// Add used resources...
+			if (SRT.ResourceTableBits & (1 << BufferIndex))
+			{
+				PrepareUBResourceEntryGlobals(CCHeader, SRT.SamplerMap, ShaderInput.Environment.ResourceTableMap, BufferIndex, ParameterName, OutGlobalNames, OutHeader);
+			}
+		};
+
+		const FVulkanShaderHeader::EType* FoundType = EntryTypes.Find(ParameterName);
+		if (FoundType)
+		{
+			switch (*FoundType)
+			{
+			case FVulkanShaderHeader::Global:
+				if (IsSamplerState(CCHeader, ParameterName))
+				{
+					int32 GlobalIndex = DoAddGlobal(ParameterName, OutHeader, OutGlobalNames);
+					if (CCHeader.ExternalTextures.Contains(ParameterName))
+					{
+						AddImmutable(OutHeader, GlobalIndex);
+					}
+				}
+				break;
+			case FVulkanShaderHeader::UniformBuffer:
+				AddGlobalNamesForUB();
+				break;
+			case FVulkanShaderHeader::PackedGlobal:
+				if (bHasRealUBs || Size > 0)
+				{
+					// Ignore
+				}
+				else if (!bHasRealUBs)
+				{
+					AddGlobalNamesForUB();
+				}
+				break;
+			default:
+				check(0);
+				break;
+			}
+		}
+		else
+		{
+			AddGlobalNamesForUB();
+		}
+	}
+
+	// Now input attachments
+	for (int32 Index = 0; Index < BindingTable.InputAttachments.Num(); ++Index)
+	{
+		const FString& AttachmentName  = BindingTable.InputAttachments[Index];
+		DoAddGlobal(AttachmentName, OutHeader, OutGlobalNames);
+	}
+}
+
+static void ConvertToNEWHeader(FOLDVulkanCodeHeader& OLDHeader,
+	const FVulkanBindingTable& BindingTable,
+	const FSpirv& Spirv,
+	const TMap<FString, FVulkanShaderHeader::EType>& EntryTypes,
+	const FShaderCompilerInput& ShaderInput,
+	FVulkanHlslccHeader& CCHeader,
+	FShaderParameterMap& InOutParameterMap,
+	FVulkanShaderHeader& OutHeader,
+	bool bHasRealUBs)
+{
+	// Names that match the Header.Globals array
+	TArray<FString> GlobalNames;
+
+	TArray<FPatchType> TypePatchList;
+
+	TArray<FString> ParameterNames;
+	InOutParameterMap.GetAllParameterNames(ParameterNames);
+
+	const FShaderCompilerResourceTable& SRT = OLDHeader.SerializedBindings.ShaderResourceTable;
+
+	PrepareGlobals(BindingTable, CCHeader, SRT, EntryTypes, ShaderInput, ParameterNames, InOutParameterMap, GlobalNames, OutHeader, bHasRealUBs);
+
+	for (int32 ParameterIndex = 0; ParameterIndex < ParameterNames.Num(); ++ParameterIndex)
+	{
+		uint16 BufferIndex;
+		uint16 BaseIndex;
+		uint16 Size;
+		const FString& ParameterName = *ParameterNames[ParameterIndex];
+		InOutParameterMap.FindParameterAllocation(*ParameterName, BufferIndex, BaseIndex, Size);
+
+		const FVulkanShaderHeader::EType* FoundType = EntryTypes.Find(ParameterName);
+		if (FoundType)
+		{
+			switch (*FoundType)
+			{
+			case FVulkanShaderHeader::Global:
+				{
+					int32 HeaderGlobalIndex = AddGlobal(OLDHeader, BindingTable, CCHeader, ParameterName, BaseIndex, Spirv, OutHeader, GlobalNames, TypePatchList, UINT16_MAX);
+					InOutParameterMap.RemoveParameterAllocation(*ParameterName);
+					InOutParameterMap.AddParameterAllocation(*ParameterName, (uint16)FVulkanShaderHeader::Global, HeaderGlobalIndex, Size);
+				}
+				break;
+			case FVulkanShaderHeader::PackedGlobal:
+				{
+					if (bHasRealUBs || Size > 0)
+					{
+						int32 HeaderPackedGlobalIndex = OutHeader.PackedGlobals.AddZeroed();
+						FVulkanShaderHeader::FPackedGlobalInfo& PackedGlobalInfo = OutHeader.PackedGlobals[HeaderPackedGlobalIndex];
+						PackedGlobalInfo.PackedTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(OLDHeader.NEWPackedUBToVulkanBindingIndices[BufferIndex].TypeName);
+						PackedGlobalInfo.PackedUBIndex = BufferIndex;
+						check(Size > 0);
+						PackedGlobalInfo.ConstantDataSizeInFloats = Size / sizeof(float);
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+						PackedGlobalInfo.DebugName = ParameterName;
+#endif
+						// Keep the original parameter info from InOutParameterMap as it's a shortcut into the packed global array!
+					}
+					else if (!bHasRealUBs)
+					{
+						check(Size == 0);
+						check(EntryTypes.FindChecked(ParameterName) == FVulkanShaderHeader::PackedGlobal);
+						// Ignore, this is an empty param (Size == 0) for an emulated UB, but keep the original parameter info
+						// from InOutParameterMap as it's a shortcut into the packed global ub copies!
+						AddUniformBuffer(OLDHeader, BindingTable, ShaderInput, CCHeader, Spirv, ParameterName, BufferIndex, InOutParameterMap, OutHeader, TypePatchList, GlobalNames, bHasRealUBs);
+					}
+					else
+					{
+						check(0);
+					}
+				}
+				break;
+			case FVulkanShaderHeader::UniformBuffer:
+				check(bHasRealUBs);
+				AddUniformBuffer(OLDHeader, BindingTable, ShaderInput, CCHeader, Spirv, ParameterName, BufferIndex, InOutParameterMap, OutHeader, TypePatchList, GlobalNames, bHasRealUBs);
+				break;
+			default:
+				check(0);
+				break;
+			}
+		}
+		else
+		{
+			// Not found means it's a new resource-only UniformBuffer
+			AddUniformBuffer(OLDHeader, BindingTable, ShaderInput, CCHeader, Spirv, ParameterName, BufferIndex, InOutParameterMap, OutHeader, TypePatchList, GlobalNames, bHasRealUBs);
+		}
+	}
+
+	// Process the type patch list
+	for (const FPatchType& Patch : TypePatchList)
+	{
+		check(OutHeader.Globals[Patch.HeaderGlobalIndex].TypeIndex == UINT16_MAX);
+		OutHeader.Globals[Patch.HeaderGlobalIndex].TypeIndex = OutHeader.Globals[Patch.CombinedAliasIndex].TypeIndex;
+	}
+
+	// Add the packed global UBs
+	for (int32 Index = 0; Index < OLDHeader.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+	{
+		const FOLDVulkanCodeHeader::FPackedUBToVulkanBindingIndex& PackedArrayInfo = OLDHeader.NEWPackedUBToVulkanBindingIndices[Index];
+		FVulkanShaderHeader::FPackedUBInfo& PackedUB = OutHeader.PackedUBs[OutHeader.PackedUBs.AddZeroed()];
+		PackedUB.OriginalBindingIndex = PackedArrayInfo.VulkanBindingIndex;
+		PackedUB.PackedTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(PackedArrayInfo.TypeName);
+		PackedUB.SizeInBytes = OLDHeader.NEWPackedGlobalUBSizes[Index];
+
+		const FSpirv::FEntry* Entry = Spirv.GetEntryByBindingIndex(PackedArrayInfo.VulkanBindingIndex);
+		check(Entry);
+		check(Entry->Name.StartsWith(TEXT("HLSLCC_CB")));
+		PackedUB.SPIRVDescriptorSetOffset = Entry->WordDescriptorSetIndex;
+		PackedUB.SPIRVBindingIndexOffset = Entry->WordBindingIndex;
+	}
+
+	// Finally check for subpass/input attachments
+	if (BindingTable.InputAttachments.Num() > 0)
+	{
+		for (int32 Index = 0; Index < BindingTable.InputAttachments.Num(); ++Index)
+		{
+			const FString& AttachmentName  = BindingTable.InputAttachments[Index];
+			const FVulkanBindingTable::FBinding* Found = BindingTable.GetBindings().FindByPredicate([&AttachmentName](const FVulkanBindingTable::FBinding& Entry)
+				{
+					return Entry.Name == AttachmentName;
+				});
+			check(Found);
+			int32 BindingIndex = (int32)(Found - BindingTable.GetBindings().GetData());
+			check(BindingIndex >= 0 && BindingIndex <= BindingTable.GetBindings().Num());
+			const bool bIsFetch = AttachmentName == VULKAN_SUBPASS_FETCH_VAR_W;
+			const bool bIsDepthFetch = AttachmentName == VULKAN_SUBPASS_DEPTH_FETCH_VAR_W;
+			if (bIsFetch || bIsDepthFetch)
+			{
+				int32 HeaderGlobalIndex = GlobalNames.Find(AttachmentName);
+				check(HeaderGlobalIndex != INDEX_NONE);
+				check(GlobalNames[HeaderGlobalIndex] == AttachmentName);
+				FVulkanShaderHeader::FGlobalInfo& GlobalInfo = OutHeader.Globals[HeaderGlobalIndex];
+				const FSpirv::FEntry* Entry = Spirv.GetEntry(AttachmentName);
+				check(Entry);
+				check(Entry->Binding != -1);
+
+				VkDescriptorType DescriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+				GlobalInfo.OriginalBindingIndex = Entry->Binding;
+				OutHeader.GlobalSpirvInfos[HeaderGlobalIndex] = FVulkanShaderHeader::FSpirvInfo(Entry->WordDescriptorSetIndex, Entry->WordBindingIndex);
+				int32 GlobalDescriptorTypeIndex = OutHeader.GlobalDescriptorTypes.Add(DescriptorType);
+				GlobalInfo.TypeIndex = GlobalDescriptorTypeIndex;
+				GlobalInfo.CombinedSamplerStateAliasIndex = UINT16_MAX;
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+				GlobalInfo.DebugName = AttachmentName;
+#endif
+				int32 HeaderAttachmentIndex = OutHeader.InputAttachments.AddZeroed();
+				check(HeaderAttachmentIndex == Index);
+				FVulkanShaderHeader::FInputAttachment& AttachmentInfo = OutHeader.InputAttachments[HeaderAttachmentIndex];
+				AttachmentInfo.GlobalIndex = HeaderGlobalIndex;
+				ensure(bIsFetch != bIsDepthFetch);
+				AttachmentInfo.Type = bIsFetch ? FVulkanShaderHeader::EAttachmentType::Color : FVulkanShaderHeader::EAttachmentType::Depth;
+			}
+			else
+			{
+				ensureMsgf(0, TEXT("Unknown Attachment name '%s'!"), *AttachmentName);
+			}
+		}
+	}
+
+	check(!bHasRealUBs || OLDHeader.UniformBuffersCopyInfo.Num() == 0);
+	OutHeader.EmulatedUBsCopyInfo = OLDHeader.UniformBuffersCopyInfo;
+	OutHeader.EmulatedUBCopyRanges = OLDHeader.NEWEmulatedUBCopyRanges;
+	OutHeader.SourceHash = OLDHeader.SourceHash;
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+	OutHeader.DebugName = OLDHeader.ShaderName;
+#endif
+	OutHeader.InOutMask = OLDHeader.SerializedBindings.InOutMask;
+	OutHeader.bHasRealUBs = bHasRealUBs;
+}
+
+
 static void BuildShaderOutput(
 	FShaderCompilerOutput& ShaderOutput,
 	const FShaderCompilerInput& ShaderInput,
@@ -279,11 +1039,12 @@ static void BuildShaderOutput(
 	const ANSICHAR* InShaderSourceES,
 	int32 SourceLenES,
 	FSpirv& Spirv,
-	const FString& DebugName
+	const FString& DebugName,
+	bool bHasRealUBs
 	)
 {
 	const ANSICHAR* USFSource = InShaderSource;
-	CrossCompiler::FHlslccHeader CCHeader;
+	FVulkanHlslccHeader CCHeader;
 	if (!CCHeader.Read(USFSource, SourceLen))
 	{
 		UE_LOG(LogVulkanShaderCompiler, Error, TEXT("Bad hlslcc header found"));
@@ -296,7 +1057,7 @@ static void BuildShaderOutput(
 		return;
 	}
 
-	FVulkanCodeHeader Header;
+	FOLDVulkanCodeHeader OLDHeader;
 
 	FShaderParameterMap& ParameterMap = ShaderOutput.ParameterMap;
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
@@ -313,7 +1074,7 @@ static void BuildShaderOutput(
 		if (Frequency == SF_Vertex && Input.Name.StartsWith(AttributePrefix))
 		{
 			int32 AttributeIndex = ParseNumber(*Input.Name + AttributePrefix.Len());
-			Header.SerializedBindings.InOutMask |= (1 << AttributeIndex);
+			OLDHeader.SerializedBindings.InOutMask |= (1 << AttributeIndex);
 		}
 #if 0
 		// Record user-defined input varyings
@@ -336,12 +1097,12 @@ static void BuildShaderOutput(
 		if (Frequency == SF_Pixel && Output.Name.StartsWith(TargetPrefix))
 		{
 			uint8 TargetIndex = ParseNumber(*Output.Name + TargetPrefix.Len());
-			Header.SerializedBindings.InOutMask |= (1 << TargetIndex);
+			OLDHeader.SerializedBindings.InOutMask |= (1 << TargetIndex);
 		}
 		// Only depth writes for pixel shaders must be tracked.
 		else if (Frequency == SF_Pixel && Output.Name.Equals(GL_FragDepth))
 		{
-			Header.SerializedBindings.InOutMask |= 0x8000;
+			OLDHeader.SerializedBindings.InOutMask |= 0x8000;
 		}
 #if 0
 		// Record user-defined output varyings
@@ -355,6 +1116,9 @@ static void BuildShaderOutput(
 		}
 #endif
 	}
+
+
+	TMap<FString, FVulkanShaderHeader::EType> NEWEntryTypes;
 
 	// Then 'normal' uniform buffers.
 	const FString CBPrefix = "HLSLCC_CB";
@@ -373,18 +1137,19 @@ static void BuildShaderOutput(
 			check(!UsedUniformBufferSlots[VulkanBindingIndex]);
 			UsedUniformBufferSlots[VulkanBindingIndex] = true;
 			ParameterMap.AddParameterAllocation(*UniformBlock.Name, VulkanBindingIndex, 0, 0);
-			++Header.SerializedBindings.NumUniformBuffers;
+			++OLDHeader.SerializedBindings.NumUniformBuffers;
+			NEWEntryTypes.Add(*UniformBlock.Name, FVulkanShaderHeader::UniformBuffer);
 		}
 	}
 
 	const TArray<FVulkanBindingTable::FBinding>& HlslccBindings = BindingTable.GetBindings();
-	Header.NEWDescriptorInfo.NumBufferInfos = 0;
-	Header.NEWDescriptorInfo.NumImageInfos = 0;
+	OLDHeader.NEWDescriptorInfo.NumBufferInfos = 0;
+	OLDHeader.NEWDescriptorInfo.NumImageInfos = 0;
 	for (int32 Index = 0; Index < HlslccBindings.Num(); ++Index)
 	{
 		const FVulkanBindingTable::FBinding& Binding = HlslccBindings[Index];
 
-		Header.NEWDescriptorInfo.DescriptorTypes.Add(BindingToDescriptorType(Binding.Type));
+		OLDHeader.NEWDescriptorInfo.DescriptorTypes.Add(BindingToDescriptorType(Binding.Type));
 
 		switch (Binding.Type)
 		{
@@ -392,18 +1157,19 @@ static void BuildShaderOutput(
 		case EVulkanBindingType::CombinedImageSampler:
 		case EVulkanBindingType::Image:
 		case EVulkanBindingType::StorageImage:
-			++Header.NEWDescriptorInfo.NumImageInfos;
+		case EVulkanBindingType::InputAttachment:
+			++OLDHeader.NEWDescriptorInfo.NumImageInfos;
 			break;
 		case EVulkanBindingType::UniformBuffer:
 		case EVulkanBindingType::StorageBuffer:
-			++Header.NEWDescriptorInfo.NumBufferInfos;
+			++OLDHeader.NEWDescriptorInfo.NumBufferInfos;
 			break;
 		case EVulkanBindingType::PackedUniformBuffer:
 			{
-				FVulkanCodeHeader::FPackedUBToVulkanBindingIndex* New = new(Header.NEWPackedUBToVulkanBindingIndices) FVulkanCodeHeader::FPackedUBToVulkanBindingIndex;
+				FOLDVulkanCodeHeader::FPackedUBToVulkanBindingIndex* New = new(OLDHeader.NEWPackedUBToVulkanBindingIndices) FOLDVulkanCodeHeader::FPackedUBToVulkanBindingIndex;
 				New->TypeName = (CrossCompiler::EPackedTypeName)Binding.SubType;
 				New->VulkanBindingIndex = Index;
-				++Header.NEWDescriptorInfo.NumBufferInfos;
+				++OLDHeader.NEWDescriptorInfo.NumBufferInfos;
 			}
 			break;
 		case EVulkanBindingType::UniformTexelBuffer:
@@ -422,14 +1188,14 @@ static void BuildShaderOutput(
 	for (auto& PackedGlobal : CCHeader.PackedGlobals)
 	{
 		int32 Found = -1;
-		for (int32 Index = 0; Index < Header.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+		for (int32 Index = 0; Index < OLDHeader.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
 		{
-			if (Header.NEWPackedUBToVulkanBindingIndices[Index].TypeName == (CrossCompiler::EPackedTypeName)PackedGlobal.PackedType)
+			if (OLDHeader.NEWPackedUBToVulkanBindingIndices[Index].TypeName == (CrossCompiler::EPackedTypeName)PackedGlobal.PackedType)
 			{
 				Found = Index;
 				break;
-				}
 			}
+		}
 		check(Found != -1);
 
 		ParameterMap.AddParameterAllocation(
@@ -438,6 +1204,7 @@ static void BuildShaderOutput(
 			PackedGlobal.Offset * BytesPerComponent,
 			PackedGlobal.Count * BytesPerComponent
 			);
+		NEWEntryTypes.Add(*PackedGlobal.Name, FVulkanShaderHeader::PackedGlobal);
 
 		uint32& Size = PackedGlobalArraySize.FindOrAdd((CrossCompiler::EPackedTypeName)PackedGlobal.PackedType);
 		Size = FMath::Max<uint32>(BytesPerComponent * (PackedGlobal.Offset + PackedGlobal.Count), Size);
@@ -445,33 +1212,24 @@ static void BuildShaderOutput(
 
 	// Packed Uniform Buffers
 	TMap<int, TMap<CrossCompiler::EPackedTypeName, uint16> > PackedUniformBuffersSize;
-	Header.UNUSED_NumNonGlobalUBs = 0;
+	OLDHeader.UNUSED_NumNonGlobalUBs = 0;
 	for (auto& PackedUB : CCHeader.PackedUBs)
 	{
 		//check(PackedUB.Attribute.Index == Header.SerializedBindings.NumUniformBuffers);
-		check(!UsedUniformBufferSlots[Header.UNUSED_NumNonGlobalUBs]);
-		UsedUniformBufferSlots[Header.UNUSED_NumNonGlobalUBs] = true;
-		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.UNUSED_NumNonGlobalUBs++, PackedUB.Attribute.Index, 0);
+		check(!UsedUniformBufferSlots[OLDHeader.UNUSED_NumNonGlobalUBs]);
+		UsedUniformBufferSlots[OLDHeader.UNUSED_NumNonGlobalUBs] = true;
+		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, OLDHeader.UNUSED_NumNonGlobalUBs++, PackedUB.Attribute.Index, 0);
+		NEWEntryTypes.Add(PackedUB.Attribute.Name, FVulkanShaderHeader::PackedGlobal);
 	}
 
 	//#todo-rco: When using regular UBs, also set UsedUniformBufferSlots[] = 1
 
-	// Packed Uniform Buffers copy lists & setup sizes for each UB/Precision entry
-	enum EFlattenUBState
-	{
-		Unknown,
-		GroupedUBs,
-		FlattenedUBs,
-	};
-
-	EFlattenUBState UBState = Unknown;
-
 	// Remap the destination UB index into the packed global array index
-	auto RemapDestIndexIntoPackedUB = [&Header](int8 DestUBTypeName)
+	auto RemapDestIndexIntoPackedUB = [&OLDHeader](int8 DestUBTypeName)
 	{
-		for (int32 Index = 0; Index < Header.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+		for (int32 Index = 0; Index < OLDHeader.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
 		{
-			if (Header.NEWPackedUBToVulkanBindingIndices[Index].TypeName == (CrossCompiler::EPackedTypeName)DestUBTypeName)
+			if (OLDHeader.NEWPackedUBToVulkanBindingIndices[Index].TypeName == (CrossCompiler::EPackedTypeName)DestUBTypeName)
 			{
 				return Index;
 			}
@@ -482,6 +1240,8 @@ static void BuildShaderOutput(
 
 	for (auto& PackedUBCopy : CCHeader.PackedUBCopies)
 	{
+		// Not used: For flattening each UB into its own packed array (not a global one)
+		ensure(0);
 		CrossCompiler::FUniformBufferCopyInfo CopyInfo;
 		CopyInfo.SourceUBIndex = PackedUBCopy.SourceUB;
 		CopyInfo.SourceOffsetInFloats = PackedUBCopy.SourceOffset;
@@ -491,18 +1251,16 @@ static void BuildShaderOutput(
 		CopyInfo.DestOffsetInFloats = PackedUBCopy.DestOffset;
 		CopyInfo.SizeInFloats = PackedUBCopy.Count;
 
-		Header.UniformBuffersCopyInfo.Add(CopyInfo);
+		OLDHeader.UniformBuffersCopyInfo.Add(CopyInfo);
 
 		auto& UniformBufferSize = PackedUniformBuffersSize.FindOrAdd(CopyInfo.DestUBIndex);
 		uint16& Size = UniformBufferSize.FindOrAdd((CrossCompiler::EPackedTypeName)CopyInfo.DestUBTypeName);
 		Size = FMath::Max<uint16>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
-
-		check(UBState == Unknown || UBState == GroupedUBs);
-		UBState = GroupedUBs;
 	}
 
 	for (auto& PackedUBCopy : CCHeader.PackedUBGlobalCopies)
 	{
+		ensure(!bHasRealUBs);
 		CrossCompiler::FUniformBufferCopyInfo CopyInfo;
 		CopyInfo.SourceUBIndex = PackedUBCopy.SourceUB;
 		CopyInfo.SourceOffsetInFloats = PackedUBCopy.SourceOffset;
@@ -512,13 +1270,10 @@ static void BuildShaderOutput(
 		CopyInfo.DestOffsetInFloats = PackedUBCopy.DestOffset;
 		CopyInfo.SizeInFloats = PackedUBCopy.Count;
 
-		Header.UniformBuffersCopyInfo.Add(CopyInfo);
+		OLDHeader.UniformBuffersCopyInfo.Add(CopyInfo);
 
 		uint32& Size = PackedGlobalArraySize.FindOrAdd((CrossCompiler::EPackedTypeName)CopyInfo.DestUBTypeName);
 		Size = FMath::Max<uint32>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
-
-		check(UBState == Unknown || UBState == FlattenedUBs);
-		UBState = FlattenedUBs;
 	}
 
 	// Generate a shortcut table for the PackedUBGlobalCopies
@@ -529,7 +1284,7 @@ static void BuildShaderOutput(
 			// Verify table is sorted
 			int32 PrevSourceUB = -1;
 			int32 Index = 0;
-			for (auto& Copy : Header.UniformBuffersCopyInfo)
+			for (auto& Copy : OLDHeader.UniformBuffersCopyInfo)
 			{
 				if (PrevSourceUB < Copy.SourceUBIndex)
 				{
@@ -550,26 +1305,26 @@ static void BuildShaderOutput(
 			}
 		}
 
-		Header.NEWEmulatedUBCopyRanges.AddZeroed(MaxDestUBIndex + 1);
+		OLDHeader.NEWEmulatedUBCopyRanges.AddZeroed(MaxDestUBIndex + 1);
 		for (int32 Index = 0; Index <= MaxDestUBIndex; ++Index)
-	{
+		{
 			uint32* Found = PackedUBGlobalCopiesRanges.Find(Index);
 			if (Found)
 			{
-				Header.NEWEmulatedUBCopyRanges[Index] = *Found;
+				OLDHeader.NEWEmulatedUBCopyRanges[Index] = *Found;
 			}
 		}
 	}
 
 	// Update Packed global array sizes
-	Header.NEWPackedGlobalUBSizes.AddZeroed(Header.NEWPackedUBToVulkanBindingIndices.Num());
+	OLDHeader.NEWPackedGlobalUBSizes.AddZeroed(OLDHeader.NEWPackedUBToVulkanBindingIndices.Num());
 	for (auto& Pair : PackedGlobalArraySize)
 	{
 		CrossCompiler::EPackedTypeName TypeName = Pair.Key;
 		int32 PackedArrayIndex = -1;
-		for (int32 Index = 0; Index < Header.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+		for (int32 Index = 0; Index < OLDHeader.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
 		{
-			if (Header.NEWPackedUBToVulkanBindingIndices[Index].TypeName == TypeName)
+			if (OLDHeader.NEWPackedUBToVulkanBindingIndices[Index].TypeName == TypeName)
 			{
 				PackedArrayIndex = Index;
 				break;
@@ -577,7 +1332,7 @@ static void BuildShaderOutput(
 		}
 		check(PackedArrayIndex != -1);
 		// In bytes
-		Header.NEWPackedGlobalUBSizes[PackedArrayIndex] = Align((uint32)Pair.Value, (uint32)16);
+		OLDHeader.NEWPackedGlobalUBSizes[PackedArrayIndex] = Align((uint32)Pair.Value, (uint32)16);
 	}
 
 	TSet<FString> SharedSamplerStates;
@@ -597,6 +1352,7 @@ static void BuildShaderOutput(
 			BindingIndex,
 			1
 		);
+		NEWEntryTypes.Add(Name, FVulkanShaderHeader::Global);
 	}
 
 	for (auto& Sampler : CCHeader.Samplers)
@@ -609,9 +1365,10 @@ static void BuildShaderOutput(
 			VulkanBindingIndex,
 			Sampler.Count
 			);
+		NEWEntryTypes.Add(Sampler.Name, FVulkanShaderHeader::Global);
 
-		Header.SerializedBindings.NumSamplers = FMath::Max<uint8>(
-			Header.SerializedBindings.NumSamplers,
+		OLDHeader.SerializedBindings.NumSamplers = FMath::Max<uint8>(
+			OLDHeader.SerializedBindings.NumSamplers,
 			Sampler.Offset + Sampler.Count
 			);
 
@@ -627,6 +1384,7 @@ static void BuildShaderOutput(
 					VulkanBindingIndex,
 					Sampler.Count
 				);
+				NEWEntryTypes.Add(SamplerState, FVulkanShaderHeader::Global);
 			}
 		}
 	}
@@ -642,17 +1400,18 @@ static void BuildShaderOutput(
 			VulkanBindingIndex,
 			UAV.Count
 			);
+		NEWEntryTypes.Add(UAV.Name, FVulkanShaderHeader::Global);
 
-		Header.SerializedBindings.NumUAVs = FMath::Max<uint8>(
-			Header.SerializedBindings.NumUAVs,
+		OLDHeader.SerializedBindings.NumUAVs = FMath::Max<uint8>(
+			OLDHeader.SerializedBindings.NumUAVs,
 			UAV.Offset + UAV.Count
 			);
 	}
 
 	// Lats make sure that there is some type of name visible
-	Header.ShaderName = CCHeader.Name.Len() > 0 ? CCHeader.Name : DebugName;
+	OLDHeader.ShaderName = CCHeader.Name.Len() > 0 ? CCHeader.Name : DebugName;
 
-	FSHA1::HashBuffer(USFSource, FCStringAnsi::Strlen(USFSource), (uint8*)&Header.SourceHash);
+	FSHA1::HashBuffer(USFSource, FCStringAnsi::Strlen(USFSource), (uint8*)&OLDHeader.SourceHash);
 
 	TArray<FString> OriginalParameters;
 	ShaderOutput.ParameterMap.GetAllParameterNames(OriginalParameters);
@@ -668,22 +1427,22 @@ static void BuildShaderOutput(
 		}
 
 		// Copy over the bits indicating which resource tables are active.
-		Header.SerializedBindings.ShaderResourceTable.ResourceTableBits = GenericSRT.ResourceTableBits;
+		OLDHeader.SerializedBindings.ShaderResourceTable.ResourceTableBits = GenericSRT.ResourceTableBits;
 
-		Header.SerializedBindings.ShaderResourceTable.ResourceTableLayoutHashes = GenericSRT.ResourceTableLayoutHashes;
+		OLDHeader.SerializedBindings.ShaderResourceTable.ResourceTableLayoutHashes = GenericSRT.ResourceTableLayoutHashes;
 
 		// Now build our token streams.
-		BuildResourceTableTokenStream(GenericSRT.TextureMap, GenericSRT.MaxBoundResourceTable, Header.SerializedBindings.ShaderResourceTable.TextureMap, true);
-		BuildResourceTableTokenStream(GenericSRT.ShaderResourceViewMap, GenericSRT.MaxBoundResourceTable, Header.SerializedBindings.ShaderResourceTable.ShaderResourceViewMap, true);
-		BuildResourceTableTokenStream(GenericSRT.SamplerMap, GenericSRT.MaxBoundResourceTable, Header.SerializedBindings.ShaderResourceTable.SamplerMap, true);
-		BuildResourceTableTokenStream(GenericSRT.UnorderedAccessViewMap, GenericSRT.MaxBoundResourceTable, Header.SerializedBindings.ShaderResourceTable.UnorderedAccessViewMap, true);
+		BuildResourceTableTokenStream(GenericSRT.TextureMap, GenericSRT.MaxBoundResourceTable, OLDHeader.SerializedBindings.ShaderResourceTable.TextureMap, true);
+		BuildResourceTableTokenStream(GenericSRT.ShaderResourceViewMap, GenericSRT.MaxBoundResourceTable, OLDHeader.SerializedBindings.ShaderResourceTable.ShaderResourceViewMap, true);
+		BuildResourceTableTokenStream(GenericSRT.SamplerMap, GenericSRT.MaxBoundResourceTable, OLDHeader.SerializedBindings.ShaderResourceTable.SamplerMap, true);
+		BuildResourceTableTokenStream(GenericSRT.UnorderedAccessViewMap, GenericSRT.MaxBoundResourceTable, OLDHeader.SerializedBindings.ShaderResourceTable.UnorderedAccessViewMap, true);
 	}
 
 	TArray<FString> NewParameters;
 	ShaderOutput.ParameterMap.GetAllParameterNames(NewParameters);
 
 	// Mark all used uniform buffer indices; however some are empty (eg GBuffers) so gather those as NewParameters
-	Header.UniformBuffersWithDescriptorMask = *UsedUniformBufferSlots.GetData();
+	OLDHeader.UniformBuffersWithDescriptorMask = *UsedUniformBufferSlots.GetData();
 	uint16 NumParams = 0;
 	for (int32 Index = NewParameters.Num() - 1; Index >= 0; --Index)
 	{
@@ -702,16 +1461,15 @@ static void BuildShaderOutput(
 	{
 		uint16 OutIndex, OutBase, OutSize;
 		ShaderOutput.ParameterMap.FindParameterAllocation(*NewParameters[Index], OutIndex, OutBase, OutSize);
-		Header.UniformBuffersWithDescriptorMask = Header.UniformBuffersWithDescriptorMask & ~((uint64)1 << (uint64)OutIndex);
+		OLDHeader.UniformBuffersWithDescriptorMask = OLDHeader.UniformBuffersWithDescriptorMask & ~((uint64)1 << (uint64)OutIndex);
 	}
+
+	FVulkanShaderHeader NEWHeader(FVulkanShaderHeader::EZero);
+	ConvertToNEWHeader(OLDHeader, BindingTable, Spirv, NEWEntryTypes, ShaderInput, CCHeader, ShaderOutput.ParameterMap, NEWHeader, bHasRealUBs);
 
 	// Write out the header and shader source code.
 	FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
-	Ar << Header;
-
-	TArray<ANSICHAR> DebugNameArray;
-	AppendCString(DebugNameArray, TCHAR_TO_ANSI(*DebugName));
-	Ar << DebugNameArray;
+	Ar << NEWHeader;
 
 	check(Spirv.Data.Num() != 0);
 	Ar << Spirv.Data;
@@ -722,7 +1480,7 @@ static void BuildShaderOutput(
 	// ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
 
 	ShaderOutput.NumInstructions = 0;
-	ShaderOutput.NumTextureSamplers = Header.SerializedBindings.NumSamplers;
+	ShaderOutput.NumTextureSamplers = OLDHeader.SerializedBindings.NumSamplers;
 	ShaderOutput.bSucceeded = true;
 
 	if (ShaderInput.ExtraSettings.bExtractShaderSource)
@@ -959,7 +1717,7 @@ FCompilerInfo::FCompilerInfo(const FShaderCompilerInput& InInput, const FString&
 /**
  * Compile a shader using the internal shader compiling library
  */
-static bool CompileUsingInternal(FCompilerInfo& CompilerInfo, FVulkanBindingTable& BindingTable, TArray<ANSICHAR>& GlslSource, FString& EntryPointName, FShaderCompilerOutput& Output)
+static bool CompileUsingInternal(FCompilerInfo& CompilerInfo, FVulkanBindingTable& BindingTable, TArray<ANSICHAR>& GlslSource, FString& EntryPointName, FShaderCompilerOutput& Output, bool bHasRealUBs)
 {
 	FString Errors;
 	FSpirv Spirv;
@@ -970,7 +1728,7 @@ static bool CompileUsingInternal(FCompilerInfo& CompilerInfo, FVulkanBindingTabl
 		Output.Target = CompilerInfo.Input.Target;
 		BuildShaderOutput(Output, CompilerInfo.Input,
 			GlslSource.GetData(), GlslSource.Num(),
-			BindingTable, nullptr, 0, Spirv, DebugName);
+			BindingTable, nullptr, 0, Spirv, DebugName, bHasRealUBs);
 		return true;
 	}
 	else
@@ -1064,7 +1822,7 @@ static bool CallHlslcc(const FString& PreprocessedShader, FVulkanBindingTable& B
 }
 
 
-void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderCompilerOutput& Output, const class FString& WorkingDirectory, EVulkanShaderVersion Version)
+void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOutput& Output, const class FString& WorkingDirectory, EVulkanShaderVersion Version)
 {
 	check(IsVulkanPlatform((EShaderPlatform)Input.Target.Platform));
 
@@ -1075,6 +1833,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	//	return;
 	//}
 
+	const bool bHasRealUBs = HasRealUBs(Version);
 	const bool bIsSM5 = (Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::SM5_NOUB);
 	const bool bIsSM4 = (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM4_NOUB);
 
@@ -1105,11 +1864,10 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	EHlslCompileTarget HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	AdditionalDefines.SetDefine(TEXT("COMPILER_VULKAN"), 1);
-	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID)
+	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1_NOUB || Version == EVulkanShaderVersion::ES3_1_ANDROID_NOUB)
 	{
 		HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
 		HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
-		AdditionalDefines.SetDefine(TEXT("USE_LOWER_PRECISION"), 1);
 		AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
 		AdditionalDefines.SetDefine(TEXT("VULKAN_PROFILE"), 1);
 	}
@@ -1170,13 +1928,15 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 
 	CompilerInfo.CCFlags |= HLSLCC_PackUniforms;
 	CompilerInfo.CCFlags |= HLSLCC_PackUniformsIntoUniformBuffers;
-	if (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM5 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1)
+	if (bHasRealUBs)
 	{
+		// Only flatten structures inside UBs
 		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBufferStructures;
 	}
 	else
 	{
-		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBuffers;
+		// Flatten ALL UBs
+		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_ExpandUBMemberArrays;
 	}
 
 	if (bUseFullPrecisionInPS)
@@ -1217,11 +1977,6 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 
 		const FString BatchFileContents = CreateShaderCompileCommandLine(CompilerInfo, HlslCompilerTarget);
 		FFileHelper::SaveStringToFile(BatchFileContents, *(CompilerInfo.Input.DumpDebugInfoPath / TEXT("CompileSPIRV.bat")));
-
-		if (Input.bGenerateDirectCompileFile)
-		{
-			FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
-		}
 	}
 
 	TArray<ANSICHAR> GeneratedGlslSource;
@@ -1238,7 +1993,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 			// For debugging: if you hit an error from Glslang/Spirv, use the SourceNoHeader for line numbers
 			auto* SourceWithHeader = GeneratedGlslSource.GetData();
 			char* SourceNoHeader = strstr(SourceWithHeader, "#version");
-			bool bSuccess = CompileUsingInternal(CompilerInfo, BindingTable, GeneratedGlslSource, EntryPointName, Output);
+			bool bSuccess = CompileUsingInternal(CompilerInfo, BindingTable, GeneratedGlslSource, EntryPointName, Output, bHasRealUBs);
 			if (Input.bSkipPreprocessedCache)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Success: %d\n%s\n"), bSuccess, ANSI_TO_TCHAR(SourceWithHeader));

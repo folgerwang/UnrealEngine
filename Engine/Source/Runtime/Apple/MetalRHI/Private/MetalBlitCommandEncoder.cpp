@@ -51,7 +51,7 @@ FMetalBlitCommandEncoderDebugging::FMetalBlitCommandEncoderDebugging()
 	
 }
 FMetalBlitCommandEncoderDebugging::FMetalBlitCommandEncoderDebugging(mtlpp::BlitCommandEncoder& Encoder, FMetalCommandBufferDebugging& Buffer)
-: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[FMetalDebugBlitCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() andCommandBuffer:Buffer])
+: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[[FMetalDebugBlitCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() andCommandBuffer:Buffer] autorelease])
 {
 	Buffer.BeginBlitCommandEncoder([NSString stringWithFormat:@"Blit: %@", Encoder.GetLabel().GetPtr()]);
 	Encoder.SetAssociatedObject((void const*)&FMetalBlitCommandEncoderDebugging::Get, (FMetalCommandEncoderDebugging const&)*this);

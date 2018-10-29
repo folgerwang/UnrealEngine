@@ -672,7 +672,7 @@ FTransform FPhysInterface_Apeiron::GetGlobalPose_AssumesLocked(const FPhysicsAct
     return Apeiron::TRigidTransform<float, 3>(LocalParticles.X(Index), LocalParticles.R(Index));
 }
 
-void FPhysInterface_Apeiron::SetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewPose)
+void FPhysInterface_Apeiron::SetGlobalPose_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FTransform& InNewPose, bool bAutoWake)
 {
     TArray<RigidBodyId> BodiesToModify = { InActorReference.First };
     auto& Particles = InActorReference.Second->BeginUpdateRigidParticles(BodiesToModify);
@@ -723,7 +723,7 @@ FVector FPhysInterface_Apeiron::GetLinearVelocity_AssumesLocked(const FPhysicsAc
 	return Particles.V(Index);
 }
 
-void FPhysInterface_Apeiron::SetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity)
+void FPhysInterface_Apeiron::SetLinearVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
     TArray<RigidBodyId> BodiesToModify = { InActorReference.First };
     auto& Particles = InActorReference.Second->BeginUpdateRigidParticles(BodiesToModify);
@@ -736,7 +736,7 @@ FVector FPhysInterface_Apeiron::GetAngularVelocity_AssumesLocked(const FPhysicsA
     return InActorReference.Second->Scene.GetRigidParticles().W(InActorReference.Second->GetIndexFromId(InActorReference.First));
 }
 
-void FPhysInterface_Apeiron::SetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity)
+void FPhysInterface_Apeiron::SetAngularVelocity_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
     TArray<RigidBodyId> BodiesToModify = { InActorReference.First };
     auto& Particles = InActorReference.Second->BeginUpdateRigidParticles(BodiesToModify);
@@ -776,6 +776,14 @@ FTransform FPhysInterface_Apeiron::GetComTransform_AssumesLocked(const FPhysicsA
     Apeiron::TRigidTransform<float, 3> GlobalTransform(LocalParticles.X(Index), LocalParticles.R(Index));
     Apeiron::TRigidTransform<float, 3> ComTransform(LocalParticles.Geometry(Index) ? LocalParticles.Geometry(Index)->BoundingBox().Center() : Apeiron::TVector<float, 3>(0), Apeiron::TRotation<float, 3>(FQuat(0, 0, 0, 1)));
     return GlobalTransform * ComTransform;
+}
+
+FTransform FPhysInterface_Apeiron::GetComTransformLocal_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference)
+{
+	uint32 Index = UINT32_MAX;
+	const auto& LocalParticles = GetParticlesAndIndex(InActorReference, Index);
+	Apeiron::TRigidTransform<float, 3> ComTransform(LocalParticles.Geometry(Index) ? LocalParticles.Geometry(Index)->BoundingBox().Center() : Apeiron::TVector<float, 3>(0), Apeiron::TRotation<float, 3>(FQuat(0, 0, 0, 1)));
+	return ComTransform;
 }
 
 FVector FPhysInterface_Apeiron::GetLocalInertiaTensor_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorReference)

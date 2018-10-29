@@ -24,6 +24,9 @@ struct FKeyDataOptimizationParams
 
 	/** A range inside which to optimize keys */
 	TRange<FFrameNumber> Range = TRange<FFrameNumber>::All();
+
+	/** The display rate to use for calculating tangents in non-normalized space */
+	FFrameRate DisplayRate;
 };
 
 /**

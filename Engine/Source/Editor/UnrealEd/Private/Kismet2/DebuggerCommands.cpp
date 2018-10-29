@@ -58,6 +58,10 @@
 
 #include "InstalledPlatformInfo.h"
 #include "PIEPreviewDeviceProfileSelectorModule.h"
+#include "IDesktopPlatform.h"
+#include "DesktopPlatformModule.h"
+#include "IAndroidDeviceDetectionModule.h"
+#include "IAndroidDeviceDetection.h"
 
 
 #define LOCTEXT_NAMESPACE "DebuggerCommands"
@@ -680,6 +684,71 @@ void FPlayWorldCommands::BuildToolbar( FToolBarBuilder& ToolbarBuilder, bool bIn
 	ToolbarBuilder.AddToolBarButton(FPlayWorldCommands::Get().StepOut, NAME_None, TAttribute<FText>(), TAttribute<FText>(), TAttribute<FSlateIcon>(), FName(TEXT("StepOut")));
 }
 
+// function will enumerate available Android devices that can export their profile to a json file
+// called (below) from AddAndroidConfigExportMenu()
+static void AddAndroidConfigExportSubMenus(FMenuBuilder& InMenuBuilder)
+{
+	IAndroidDeviceDetection* DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();
+
+	TMap<FString, FAndroidDeviceInfo> AndroidDeviceMap;
+
+	// lock device map and copy its contents
+	{
+		FCriticalSection* DeviceLock = DeviceDetection->GetDeviceMapLock();
+		FScopeLock Lock(DeviceLock);
+		AndroidDeviceMap = DeviceDetection->GetDeviceMap();
+	}
+
+	for (auto& Pair : AndroidDeviceMap)
+	{
+		FAndroidDeviceInfo& DeviceInfo = Pair.Value;
+
+		FString ModelName = DeviceInfo.Model + TEXT("[") + DeviceInfo.DeviceBrand + TEXT("]");
+
+		// lambda function called to open the save dialog and trigger device export
+		auto LambdaSaveConfigFile = [DeviceName = Pair.Key, DefaultFileName = ModelName, DeviceDetection]()
+		{
+			TArray<FString> OutputFileName;
+			FString DefaultFolder = FPaths::EngineContentDir() + TEXT("Editor/PIEPreviewDeviceSpecs/Android/");
+
+			bool bResult = FDesktopPlatformModule::Get()->SaveFileDialog(
+				FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
+				LOCTEXT("PackagePluginDialogTitle", "Save platform configuration...").ToString(),
+				DefaultFolder,
+				DefaultFileName,
+				TEXT("Json config file (*.json)|*.json"),
+				0,
+				OutputFileName);
+
+			if (bResult && OutputFileName.Num())
+			{
+				DeviceDetection->ExportDeviceProfile(OutputFileName[0], DeviceName);
+			}
+		};
+
+		InMenuBuilder.AddMenuEntry(
+			FText::FromString(ModelName),
+			FText(),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "AssetEditor.SaveAsset"),
+			FUIAction(FExecuteAction::CreateLambda(LambdaSaveConfigFile))
+		);
+	}
+}
+
+// function adds a sub-menu that will enumerate Android devices whose profiles can be exported json files
+static void AddAndroidConfigExportMenu(FMenuBuilder& InMenuBuilder)
+{
+	InMenuBuilder.AddMenuSeparator();
+
+	InMenuBuilder.AddSubMenu(
+		LOCTEXT("loc_AddAndroidConfigExportMenu", "Export device settings"),
+		LOCTEXT("loc_tip_AddAndroidConfigExportMenu", "Export device settings to a Json file."),
+		FNewMenuDelegate::CreateStatic(&AddAndroidConfigExportSubMenus),
+		false,
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.SaveAll")
+	);
+}
+
 static void MakePreviewDeviceMenu(FMenuBuilder& MenuBuilder )
 {
 	struct FLocal
@@ -694,22 +763,32 @@ static void MakePreviewDeviceMenu(FMenuBuilder& MenuBuilder )
 				MenuBuilderIn.AddMenuEntry(TargetedMobilePreviewDeviceCommands[Device]);
 			}
 
-			FText AndroidCategory = FText::FromString(TEXT("Android"));
-			FText IOSCategory = FText::FromString(TEXT("IOS"));
+			static FText AndroidCategory = FText::FromString(TEXT("Android"));
+			static FText IOSCategory = FText::FromString(TEXT("IOS"));
+
+			// Android devices can export their profile to a json file which then can be used for PIE device simulations
+			const FText& CategoryDisplayName = PreviewDeviceCategory->GetCategoryDisplayName();
+			if (CategoryDisplayName.CompareToCaseIgnored(AndroidCategory) == 0)
+			{
+				// check to see if we have any connected devices
+				bool bHasAndroidDevices = false;
+				{
+					IAndroidDeviceDetection* DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();
+					FCriticalSection* DeviceLock = DeviceDetection->GetDeviceMapLock();
+
+					FScopeLock Lock(DeviceLock);
+					bHasAndroidDevices = DeviceDetection->GetDeviceMap().Num() > 0;
+				}
+
+				// add the config. export menu
+				if (bHasAndroidDevices)
+				{
+					AddAndroidConfigExportMenu(MenuBuilderIn);
+				}
+			}
 
 			for (TSharedPtr<FPIEPreviewDeviceContainerCategory> SubCategory : PreviewDeviceCategory->GetSubCategories())
 			{
-				FText CategoryDisplayName = SubCategory->GetCategoryDisplayName();
-				
-				if (CategoryDisplayName.CompareToCaseIgnored(AndroidCategory) == 0) 
-				{
-					CategoryDisplayName = FText(LOCTEXT("Android", "Android"));
-				}
-				else if (CategoryDisplayName.CompareToCaseIgnored(IOSCategory) == 0)
-				{
-					CategoryDisplayName = FText(LOCTEXT("IOS", "iOS"));
-				}
-
 				MenuBuilderIn.AddSubMenu(
 					SubCategory->GetCategoryDisplayName(),
 					SubCategory->GetCategoryToolTip(),
@@ -804,7 +883,7 @@ TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FU
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("TargetedMobilePreviewSubMenu", "Mobile Preview (PIE)"),
 				LOCTEXT("TargetedMobilePreviewSubMenu_ToolTip", "Play this level using a specified mobile device preview (runs in its own process)"),
-				FNewMenuDelegate::CreateStatic(&MakePreviewDeviceMenu), true,
+				FNewMenuDelegate::CreateStatic(&MakePreviewDeviceMenu), false,
 				FSlateIcon(FEditorStyle::GetStyleSetName(), "PlayWorld.PlayInMobilePreview")
 				);
 		}
@@ -927,14 +1006,12 @@ static void MakeAllDevicesSubMenu(FMenuBuilder& InMenuBuilder, const PlatformInf
 		);
 
 		// generate display label
-		FFormatNamedArguments LabelArguments;
-		LabelArguments.Add(TEXT("PlatformName"), FText::FromString(PlatformVariantStr));
-		FText Label = FText::Format(LOCTEXT("LaunchDeviceLabel", "{PlatformName}"), LabelArguments);
+		FText Label = FText::FromString(PlatformVariantStr);
 
 		// generate tooltip text with the devices' list
 		FFormatNamedArguments TooltipArguments;
 		TooltipArguments.Add(TEXT("DeviceList"), FText::FromString(DeviceListStr));
-		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on:\n {DeviceList}"), TooltipArguments);
+		FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_LaunchOn", "Launch the game on:\n {DeviceList}"), TooltipArguments);
 
 		// add a submenu entry
 		InMenuBuilder.AddMenuEntry(
@@ -1014,12 +1091,9 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 							FString AggregateDevicedName(FString::Printf(TEXT("  %s"), *DeviceProxy->GetName())); //align with the other menu entries
 							FSlateIcon AggregateDeviceIcon(FEditorStyle::GetStyleSetName(), VanillaPlatform.PlatformInfo->GetIconStyleName(PlatformInfo::EPlatformIconSize::Normal));
 
-							FString SubMenuKey(FString::Printf(TEXT("%s_SubMenu"), *DeviceProxy->GetName()));
-							FString SubMenuToolTip(FString::Printf(TEXT("%s_SubMenuToolTip"), *DeviceProxy->GetName()));
-
 							MenuBuilder.AddSubMenu(
-								FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*AggregateDevicedName, TEXT(LOCTEXT_NAMESPACE), *SubMenuKey),
-								FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*AggregateDevicedName, TEXT(LOCTEXT_NAMESPACE), *SubMenuToolTip),
+								FText::FromString(AggregateDevicedName),
+								FText::FromString(AggregateDevicedName),
 								FNewMenuDelegate::CreateStatic(&MakeAllDevicesSubMenu, VanillaPlatform.PlatformInfo, DeviceProxy),
 								false, AggregateDeviceIcon, true
 							);
@@ -1056,10 +1130,10 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 						FFormatNamedArguments TooltipArguments;
 						TooltipArguments.Add(TEXT("DeviceID"), FText::FromString(DeviceProxy->GetName()));
 						TooltipArguments.Add(TEXT("DisplayName"), VanillaPlatform.PlatformInfo->DisplayName);
-						FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Launch the game on this {DisplayName} device ({DeviceID})"), TooltipArguments);
+						FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_ThisDevice", "Launch the game on this {DisplayName} device ({DeviceID})"), TooltipArguments);
 						if (!DeviceProxy->IsAuthorized())
 						{
-							Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "{DisplayName} device ({DeviceID}) is unauthorized or locked"), TooltipArguments);
+							Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText_UnauthorizedOrLocked", "{DisplayName} device ({DeviceID}) is unauthorized or locked"), TooltipArguments);
 						}
 
 						FProjectStatus ProjectStatus;
@@ -1071,10 +1145,10 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 
 						// ... and add a menu entry
 						MenuBuilder.AddMenuEntry(
-							LaunchDeviceAction, 
+							LaunchDeviceAction,
 							ProjectTargetPlatformEditorModule.MakePlatformMenuItemWidget(*VanillaPlatform.PlatformInfo, true, Label),
-							NAME_None, 
-							Tooltip, 
+							NAME_None,
+							Tooltip,
 							EUserInterfaceActionType::Check
 							);
 					}
@@ -2468,6 +2542,7 @@ void FInternalPlayWorldCommandCallbacks::LaunchOnDevice( const FString& DeviceId
 
 		if (FModuleManager::LoadModuleChecked<IProjectTargetPlatformEditorModule>("ProjectTargetPlatformEditor").ShowUnsupportedTargetWarning(*TargetDeviceId.GetPlatformName()))
 		{
+			GUnrealEd->CancelPlayingViaLauncher();
 			GUnrealEd->RequestPlaySession(DeviceId, DeviceName);
 		}
 	}

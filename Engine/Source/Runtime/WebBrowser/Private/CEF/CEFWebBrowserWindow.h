@@ -139,6 +139,7 @@ public:
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
+	virtual FIntPoint GetViewportSize() const override { return FIntPoint::NoneValue; }
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -481,7 +482,7 @@ public:
 	/**
 	 * Called from the WebBrowserSingleton tick event. Should test wether the widget got a tick from Slate last frame and set the state to hidden if not.
 	 */
-	void CheckTickActivity();
+	void CheckTickActivity() override;
 
 	/**
 	* Called from the engine tick.

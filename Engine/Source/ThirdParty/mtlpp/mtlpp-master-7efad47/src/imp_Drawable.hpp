@@ -7,7 +7,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLDrawable>, void> : public IMPTableBase<id<MTLDrawable>>
+struct MTLPP_EXPORT IMPTable<id<MTLDrawable>, void> : public IMPTableBase<id<MTLDrawable>>
 {
 	IMPTable()
 	{
@@ -38,7 +38,7 @@ struct IMPTable<id<MTLDrawable>, void> : public IMPTableBase<id<MTLDrawable>>
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLDrawable>, InterposeClass> : public IMPTable<id<MTLDrawable>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLDrawable>, InterposeClass> : public IMPTable<id<MTLDrawable>, void>
 {
 	IMPTable()
 	{
@@ -64,7 +64,7 @@ struct IMPTable<id<MTLDrawable>, InterposeClass> : public IMPTable<id<MTLDrawabl
 };
 
 template<>
-struct IMPTable<CAMetalLayer*, void> : public IMPTableBase<CAMetalLayer*>
+struct MTLPP_EXPORT IMPTable<CAMetalLayer*, void> : public IMPTableBase<CAMetalLayer*>
 {
 	IMPTable()
 	{
@@ -120,7 +120,7 @@ struct IMPTable<CAMetalLayer*, void> : public IMPTableBase<CAMetalLayer*>
 };
 
 template<typename InterposeClass>
-struct IMPTable<CAMetalLayer*, InterposeClass> : public IMPTable<CAMetalLayer*, void>
+struct MTLPP_EXPORT IMPTable<CAMetalLayer*, InterposeClass> : public IMPTable<CAMetalLayer*, void>
 {
 	IMPTable()
 	{

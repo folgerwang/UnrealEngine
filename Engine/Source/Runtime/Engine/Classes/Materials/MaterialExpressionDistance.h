@@ -9,7 +9,7 @@
 #include "Materials/MaterialExpression.h"
 #include "MaterialExpressionDistance.generated.h"
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UMaterialExpressionDistance : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()

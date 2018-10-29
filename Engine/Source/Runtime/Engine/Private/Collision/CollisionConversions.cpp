@@ -421,9 +421,79 @@ static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRi
 	OutResult.FaceIndex = INDEX_NONE;
 }
 
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+static bool FirstNaNCheck = true;
+
+#define PRINT_CONVERSION_INPUTS() \
+	UE_LOG(LogCollision, Warning, TEXT("Start is %f, %f, %f"), StartLoc.X, StartLoc.Y, StartLoc.Z); \
+	UE_LOG(LogCollision, Warning, TEXT("End is %f, %f, %f"), EndLoc.X, EndLoc.Y, EndLoc.Z); \
+	UE_LOG(LogCollision, Warning, TEXT("Query Filter is %d, %d, %d, %d"), QueryFilter.word0, QueryFilter.word1, QueryFilter.word2, QueryFilter.word3); \
+	UE_LOG(LogCollision, Warning, TEXT("QueryTM Trans %f, %f, %f"), P2UTransform(QueryTM).GetTranslation().X, P2UTransform(QueryTM).GetTranslation().Y, P2UTransform(QueryTM).GetTranslation().Z); \
+	UE_LOG(LogCollision, Warning, TEXT("QueryTM Trans %f, %f, %f"), P2UTransform(QueryTM).GetRotation().Euler().X, P2UTransform(QueryTM).GetRotation().Euler().Y, P2UTransform(QueryTM).GetRotation().Euler().Z);
+
+#define CHECK_NAN1(Val) \
+	if (FPlatformMath::IsNaN(Val) && FirstNaNCheck) \
+	{ \
+        FirstNaNCheck = false; \
+		PRINT_CONVERSION_INPUTS() \
+		UE_LOG(LogCollision, Warning, TEXT("Length %f"), CheckLength); \
+		UE_LOG(LogCollision, Warning, TEXT("MaxDistance %f"), MaxDistance); \
+		UE_LOG(LogCollision, Warning, TEXT("Geometry Type is %d"), Geom.getType()); \
+		UE_LOG(LogCollision, Warning, TEXT("NumHits %d"), NumHits); \
+		for (int32_t ii = 0; ii < NumHits; ++ii) \
+		{ \
+			UE_LOG(LogCollision, Warning, TEXT("Hit %d at %f, %f, %f"), ii, Hits[ii].position.x, Hits[ii].position.y, Hits[ii].position.z); \
+			UE_LOG(LogCollision, Warning, TEXT("Hit %d normal %f, %f, %f"), ii, Hits[ii].normal.x, Hits[ii].normal.y, Hits[ii].normal.z); \
+			UE_LOG(LogCollision, Warning, TEXT("Hit %d flags %d, distance %f"), ii, (PxU16)Hits[ii].flags, Hits[ii].distance); \
+			UE_LOG(LogCollision, Warning, TEXT("Hit %d actor is %s with pointer %p"), ii, Hits[ii].actor ? Hits[ii].actor->getName() : "None", (void*)Hits[ii].actor); \
+		} \
+		logOrEnsureNanError(TEXT("Failed!")); \
+	}
+
+#define CHECK_NAN2(Val) \
+	if (FPlatformMath::IsNaN(Val) && FirstNaNCheck) \
+	{ \
+        FirstNaNCheck = false; \
+		PRINT_CONVERSION_INPUTS() \
+		UE_LOG(LogCollision, Warning, TEXT("Length %f"), CheckLength); \
+		UE_LOG(LogCollision, Warning, TEXT("Geometry Type is %d"), (Geom ? Geom->getType() : PxGeometryType::eINVALID)); \
+		UE_LOG(LogCollision, Warning, TEXT("Hit at %f, %f, %f"), PHit.position.x, PHit.position.y, PHit.position.z); \
+		UE_LOG(LogCollision, Warning, TEXT("Hit normal %f, %f, %f"), PHit.normal.x, PHit.normal.y, PHit.normal.z); \
+		UE_LOG(LogCollision, Warning, TEXT("Hit flags %d, distance %f"), (PxU16)PHit.flags, PHit.distance); \
+		logOrEnsureNanError(TEXT("Failed!")); \
+	}
+
+#define CHECK_NAN3(Val) \
+	if (FPlatformMath::IsNaN(Val) && FirstNaNCheck) \
+	{ \
+        FirstNaNCheck = false; \
+		PRINT_CONVERSION_INPUTS() \
+		UE_LOG(LogCollision, Warning, TEXT("Geometry Type is %d"), Geom.getType()); \
+		UE_LOG(LogCollision, Warning, TEXT("Hit at %f, %f, %f"), PHit.position.x, PHit.position.y, PHit.position.z); \
+		UE_LOG(LogCollision, Warning, TEXT("Hit normal %f, %f, %f"), PHit.normal.x, PHit.normal.y, PHit.normal.z); \
+		UE_LOG(LogCollision, Warning, TEXT("Hit flags %d, distance %f"), (PxU16)PHit.flags, PHit.distance); \
+		logOrEnsureNanError(TEXT("Failed!")); \
+	}
+#endif
+
 EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ConvertQueryImpactHit);
+
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+	if (PHit.flags & PxHitFlag::ePOSITION)
+	{
+		CHECK_NAN2(PHit.position.x);
+		CHECK_NAN2(PHit.position.y);
+		CHECK_NAN2(PHit.position.z);
+	}
+	CHECK_NAN2(StartLoc.X);
+	CHECK_NAN2(StartLoc.Y);
+	CHECK_NAN2(StartLoc.Z);
+	CHECK_NAN2(EndLoc.X);
+	CHECK_NAN2(EndLoc.Y);
+	CHECK_NAN2(EndLoc.Z);
+#endif
 
 #if WITH_EDITOR
 	if(bReturnFaceIndex && World->IsGameWorld())
@@ -583,6 +653,15 @@ EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UW
 
 EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat)
 {
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+	CHECK_NAN1(StartLoc.X);
+	CHECK_NAN1(StartLoc.Y);
+	CHECK_NAN1(StartLoc.Z);
+	CHECK_NAN1(EndLoc.X);
+	CHECK_NAN1(EndLoc.Y);
+	CHECK_NAN1(EndLoc.Z);
+#endif
+
 	OutHits.Reserve(OutHits.Num() + NumHits);
 	EConvertQueryResult ConvertResult = EConvertQueryResult::Valid;
 	bool bHadBlockingHit = false;
@@ -591,6 +670,14 @@ EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* 
 	for(int32 i=0; i<NumHits; i++)
 	{
 		PxSweepHit& PHit = Hits[i];
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+		if (PHit.flags & PxHitFlag::ePOSITION)
+		{
+			CHECK_NAN1(PHit.position.x);
+			CHECK_NAN1(PHit.position.y);
+			CHECK_NAN1(PHit.position.z);
+		}
+#endif
 		checkSlow(PHit.flags & PxHitFlag::eDISTANCE);
 		if(PHit.distance <= MaxDistance)
 		{
@@ -892,6 +979,21 @@ static bool ConvertOverlappedShapeToImpactHit(const UWorld* World, const PxLocat
 {
 	SCOPE_CYCLE_COUNTER(STAT_CollisionConvertOverlapToHit);
 
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+	if (PHit.flags & PxHitFlag::ePOSITION)
+	{
+		CHECK_NAN3(PHit.position.x);
+		CHECK_NAN3(PHit.position.y);
+		CHECK_NAN3(PHit.position.z);
+	}
+	CHECK_NAN3(StartLoc.X);
+	CHECK_NAN3(StartLoc.Y);
+	CHECK_NAN3(StartLoc.Z);
+	CHECK_NAN3(EndLoc.X);
+	CHECK_NAN3(EndLoc.Y);
+	CHECK_NAN3(EndLoc.Z);
+#endif
+
 	const PxShape* PShape = PHit.shape;
 	const PxRigidActor* PActor = PHit.actor;
 	const uint32 FaceIdx = PHit.faceIndex;
@@ -907,9 +1009,19 @@ static bool ConvertOverlappedShapeToImpactHit(const UWorld* World, const PxLocat
 	OutResult.Time = 0.f;
 	OutResult.Distance = 0.f;
 
+	const bool bFinitePosition = PHit.position.isFinite();
+	const bool bValidPosition = (PHit.flags & PxHitFlag::ePOSITION) && bFinitePosition;
+
 	// Return start location as 'safe location'
 	OutResult.Location = P2UVector(QueryTM.p);
-	OutResult.ImpactPoint = P2UVector(PHit.position);
+	if (bValidPosition)
+	{
+		OutResult.ImpactPoint = P2UVector(PHit.position);
+	}
+	else
+	{
+		OutResult.ImpactPoint = StartLoc;
+	}
 
 	OutResult.TraceStart = StartLoc;
 	OutResult.TraceEnd = EndLoc;

@@ -4,6 +4,8 @@
 #include "Modules/ModuleManager.h"
 #include "IDataTableEditor.h"
 #include "DataTableEditor.h"
+#include "CompositeDataTableEditor.h"
+#include "Engine/CompositeDataTable.h"
 
 IMPLEMENT_MODULE( FDataTableEditorModule, DataTableEditor );
 
@@ -22,10 +24,26 @@ void FDataTableEditorModule::ShutdownModule()
 }
 
 
-TSharedRef<IDataTableEditor> FDataTableEditorModule::CreateDataTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UDataTable* Table )
+TSharedRef<IDataTableEditor> FDataTableEditorModule::CreateDataTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UDataTable* Table)
+{
+	if (Cast<UCompositeDataTable>(Table) != nullptr)
+	{
+		return CreateCompositeDataTableEditor(Mode, InitToolkitHost, Table);
+	}
+
+	return CreateStandardDataTableEditor(Mode, InitToolkitHost, Table);
+}
+
+TSharedRef<IDataTableEditor> FDataTableEditorModule::CreateStandardDataTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UDataTable* Table)
 {
 	TSharedRef< FDataTableEditor > NewDataTableEditor( new FDataTableEditor() );
 	NewDataTableEditor->InitDataTableEditor( Mode, InitToolkitHost, Table );
 	return NewDataTableEditor;
 }
 
+TSharedRef<IDataTableEditor> FDataTableEditorModule::CreateCompositeDataTableEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UDataTable* Table)
+{
+	TSharedRef< FCompositeDataTableEditor > NewDataTableEditor(new FCompositeDataTableEditor());
+	NewDataTableEditor->InitDataTableEditor(Mode, InitToolkitHost, Table);
+	return NewDataTableEditor;
+}

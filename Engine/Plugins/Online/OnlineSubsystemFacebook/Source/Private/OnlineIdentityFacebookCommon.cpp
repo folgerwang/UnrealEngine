@@ -18,7 +18,7 @@ FOnlineIdentityFacebookCommon::FOnlineIdentityFacebookCommon(FOnlineSubsystemFac
 {
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("MeURL"), MeURL, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing MeURL= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing MeURL= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
 	}
 
 	MeURL.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
@@ -143,7 +143,7 @@ void FOnlineIdentityFacebookCommon::MeUser_HttpRequestComplete(FHttpRequestPtr H
 #else
 			const FString URL = HttpRequest->GetURL();
 #endif
-			UE_LOG(LogOnline, Verbose, TEXT("RegisterUser request complete. url=%s code=%d response=%s"),
+			UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("RegisterUser request complete. url=%s code=%d response=%s"),
 				*URL, HttpResponse->GetResponseCode(), *ResponseStr);
 
 			TSharedRef<FUserOnlineAccountFacebook> User = MakeShared<FUserOnlineAccountFacebook>();
@@ -168,7 +168,7 @@ void FOnlineIdentityFacebookCommon::MeUser_HttpRequestComplete(FHttpRequestPtr H
 			Error.FromJson(ResponseStr);
 			if (Error.Error.Type == TEXT("OAuthException"))
 			{
-				UE_LOG_ONLINE(Warning, TEXT("OAuthError: %s"), *Error.ToDebugString());
+				UE_LOG_ONLINE_IDENTITY(Warning, TEXT("OAuthError: %s"), *Error.ToDebugString());
 				ErrorStr = FB_AUTH_EXPIRED_CREDS;
 			}
 			else
@@ -185,7 +185,7 @@ void FOnlineIdentityFacebookCommon::MeUser_HttpRequestComplete(FHttpRequestPtr H
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("RegisterUser request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("RegisterUser request failed. %s"), *ErrorStr);
 	}
 
 	InCompletionDelegate.ExecuteIfBound(PendingRegisterUser.LocalUserNum, bResult, ErrorStr);
@@ -285,7 +285,7 @@ FString FOnlineIdentityFacebookCommon::GetAuthToken(int32 LocalUserNum) const
 
 void FOnlineIdentityFacebookCommon::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityFacebookCommon::RevokeAuthToken not implemented"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityFacebookCommon::RevokeAuthToken not implemented"));
 	TSharedRef<const FUniqueNetId> UserIdRef(UserId.AsShared());
 	FacebookSubsystem->ExecuteNextTick([UserIdRef, Delegate]()
 	{

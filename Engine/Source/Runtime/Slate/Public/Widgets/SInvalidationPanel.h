@@ -127,6 +127,7 @@ private:
 	mutable int32 CachedMaxChildLayer;
 	mutable bool bNeedsCaching;
 	mutable bool bNeedsCachePrepass;
+	mutable bool bPerformingCachePrepass;
 	mutable bool bIsInvalidating;
 	bool bCanCache;
 

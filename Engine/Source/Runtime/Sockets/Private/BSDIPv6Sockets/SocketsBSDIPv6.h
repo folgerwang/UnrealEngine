@@ -87,6 +87,8 @@ public:
 
 public:
 
+	virtual bool Shutdown(ESocketShutdownMode Mode) override;
+
 	virtual bool Close() override;
 
 	virtual bool Bind(const FInternetAddr& Addr) override;

@@ -17,23 +17,27 @@ class FSystemTextures : public FRenderResource
 {
 public:
 	FSystemTextures()
-	: FRenderResource()
-	, FeatureLevelInitializedTo(ERHIFeatureLevel::ES2)
-	, bTexturesInitialized(false)
+		: FRenderResource()
+		, FeatureLevelInitializedTo(ERHIFeatureLevel::Num)
 	{}
 
 	/**
 	 * Initialize/allocate textures if not already.
 	 */
-	inline void InitializeTextures(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type InFeatureLevel)
+	inline void InitializeTextures(FRHICommandListImmediate& RHICmdList, const ERHIFeatureLevel::Type InFeatureLevel)
 	{
-		if (bTexturesInitialized && FeatureLevelInitializedTo >= InFeatureLevel)
+		// if this is the first call initialize everything
+		if (FeatureLevelInitializedTo == ERHIFeatureLevel::Num)
 		{
-			// Already initialized up to at least the feature level we need, so do nothing
-			return;
+			InitializeCommonTextures(RHICmdList);
+			InitializeFeatureLevelDependentTextures(RHICmdList, InFeatureLevel);
 		}
-
-		InternalInitializeTextures(RHICmdList, InFeatureLevel);
+		// otherwise, if we request a higher feature level, we might need to initialize those textures that depend on the feature level
+		else if (InFeatureLevel > FeatureLevelInitializedTo)
+		{
+			InitializeFeatureLevelDependentTextures(RHICmdList, InFeatureLevel);
+		}
+		// there's no needed setup for those feature levels lower or identical to the current one
 	}
 
 	// FRenderResource interface.
@@ -80,9 +84,9 @@ public:
 protected:
 	/** Maximum feature level that the textures have been initialized up to */
 	ERHIFeatureLevel::Type FeatureLevelInitializedTo;
-	bool bTexturesInitialized;
 
-	void InternalInitializeTextures(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type InFeatureLevel);
+	void InitializeCommonTextures(FRHICommandListImmediate& RHICmdList);
+	void InitializeFeatureLevelDependentTextures(FRHICommandListImmediate& RHICmdList, const ERHIFeatureLevel::Type InFeatureLevel);
 };
 
 /** The global system textures used for scene rendering. */

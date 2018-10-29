@@ -13,7 +13,7 @@ struct FUdpMockMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	TArray<uint8> Data;
 
 	FUdpMockMessage()

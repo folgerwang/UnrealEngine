@@ -108,13 +108,15 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 	half3 DirectionalInscattering = 0;
 
 #if SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING
-	if (FogStruct.InscatteringLightDirection.w > 0 && FogStruct.ExponentialFogParameters3.z == 0)
+	// if InscatteringLightDirection.w is negative then it's disabled, otherwise it holds directional inscattering start distance
+	if (FogStruct.InscatteringLightDirection.w >= 0 && FogStruct.ExponentialFogParameters3.z == 0)
 	{
+		float DirectionalInscatteringStartDistance = FogStruct.InscatteringLightDirection.w;
 		// Setup a cosine lobe around the light direction to approximate inscattering from the directional light off of the ambient haze;
 		half3 DirectionalLightInscattering = FogStruct.DirectionalInscatteringColor.xyz * pow(saturate(dot(CameraToReceiverNormalized, FogStruct.InscatteringLightDirection.xyz)), FogStruct.DirectionalInscatteringColor.w);
 
 		// Calculate the line integral of the eye ray through the haze, using a special starting distance to limit the inscattering to the distance
-		float DirExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(RayLength - FogStruct.DirectionalInscatteringStartDistance, 0.0f);
+		float DirExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(RayLength - DirectionalInscatteringStartDistance, 0.0f);
 		// Calculate the amount of light that made it through the fog using the transmission equation
 		half DirectionalInscatteringFogFactor = saturate(exp2(-DirExponentialHeightLineIntegral));
 		// Final inscattering from the light

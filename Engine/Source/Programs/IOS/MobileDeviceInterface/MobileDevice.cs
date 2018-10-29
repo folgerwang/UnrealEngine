@@ -181,6 +181,56 @@ namespace Manzana
 		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
 	}
 	
+	public static class ITunesFinder
+	{
+		public static string FindWindowsStoreITunesInstallPath()
+		{
+			string InstallPath = null;
+			string PackagesKeyName = "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\PackageRepository\\Packages";
+
+			RegistryKey PackagesKey = Registry.LocalMachine.OpenSubKey(PackagesKeyName);
+
+			if (PackagesKey != null)
+			{
+				string[] PackageSubKeyNames = PackagesKey.GetSubKeyNames();
+
+				foreach (string PackageSubKeyName in PackageSubKeyNames)
+				{
+					if (PackageSubKeyName.Contains("AppleInc.iTunes") && (PackageSubKeyName.Contains("_x64") || PackageSubKeyName.Contains("_x86")))
+					{
+						string FullPackageSubKeyName = PackagesKeyName + "\\" + PackageSubKeyName;
+
+						RegistryKey iTunesKey = Registry.LocalMachine.OpenSubKey(FullPackageSubKeyName);
+						if (iTunesKey != null)
+						{
+							InstallPath = (string)iTunesKey.GetValue("Path");
+							break;
+						}
+					}
+				}
+			}
+
+			return InstallPath;
+		}
+
+		public static string FindWindowsStoreITunesDLL()
+		{
+			string DllPath = null;
+
+			string InstallPath = FindWindowsStoreITunesInstallPath();
+
+			if (InstallPath != null)
+			{
+				DllPath = InstallPath + "\\AMDS32\\MobileDevice.dll";
+
+				// There's also a 64-bit version here, but it seems that our c# programs are 32-bit
+				// DllPath = InstallPath + "\\AMDS64\\MobileDevice.dll";
+			}
+
+			return DllPath;
+		}
+	}
+
 	public class CoreFoundationRunLoop
 	{
 		static public ICoreFoundationRunLoop CoreImpl;
@@ -205,6 +255,18 @@ namespace Manzana
 					if (ApplicationSupportDirectory.Exists)
 					{
 						PathBits.Add(ApplicationSupportDirectory.FullName);
+					}
+				}
+
+				string ITunesInstallPath = ITunesFinder.FindWindowsStoreITunesInstallPath();
+				if(ITunesInstallPath != null)
+				{
+					DirectoryInfo iTunesInstallDirectory = new DirectoryInfo(ITunesInstallPath);
+
+					if (iTunesInstallDirectory.Exists)
+					{
+						PathBits.Add(iTunesInstallDirectory.FullName);
+						PathBits.Add(ITunesFinder.FindWindowsStoreITunesInstallPath() + "\\VFS\\ProgramFilesCommonX86\\Apple\\Apple Application Support");
 					}
 				}
 
@@ -1871,6 +1933,18 @@ namespace Manzana
 				}
 			}
 
+			string iTunesWindowsStoreRegistryDllPath = ITunesFinder.FindWindowsStoreITunesDLL();
+			if(iTunesWindowsStoreRegistryDllPath != null)
+			{
+				FileInfo iTunesMobileDeviceFile = new FileInfo(iTunesWindowsStoreRegistryDllPath);
+
+				if (iTunesMobileDeviceFile.Exists)
+				{
+					PathBits.Add(iTunesMobileDeviceFile.DirectoryName);
+					PathBits.Add(ITunesFinder.FindWindowsStoreITunesInstallPath() + "\\VFS\\ProgramFilesCommonX86\\Apple\\Apple Application Support");
+				}
+			}
+
 			object RegistrySupportDir = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Apple Inc.\Apple Application Support", "InstallDir", Environment.CurrentDirectory);
 			if (RegistrySupportDir != null)
 			{
@@ -2647,7 +2721,7 @@ namespace Manzana
     {
 		static public MobileDeviceImpl DeviceImpl = null;
 
-        static MobileDevice()
+		static MobileDevice()
         {
 			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
 			{
@@ -2657,7 +2731,9 @@ namespace Manzana
 			{
 				string dllPath11 = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
 				string dllPath12 = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
-				if (!String.IsNullOrEmpty(dllPath12) && File.Exists(dllPath12))
+				string dllPath12WindowsStore = ITunesFinder.FindWindowsStoreITunesDLL();
+
+				if ((!String.IsNullOrEmpty(dllPath12) && File.Exists(dllPath12)) || (!String.IsNullOrEmpty(dllPath12WindowsStore) && File.Exists(dllPath12WindowsStore)))
 				{
 					DeviceImpl = new MobileDeviceWiniTunes12();
 				}

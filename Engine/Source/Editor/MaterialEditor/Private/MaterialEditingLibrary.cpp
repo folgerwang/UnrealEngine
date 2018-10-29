@@ -389,7 +389,7 @@ UMaterialExpression* UMaterialEditingLibrary::CreateMaterialExpressionEx(UMateri
 
 		if (NewExpression->HasAParameterName())
 		{
-			NewExpression->ValidateParameterName();
+			NewExpression->ValidateParameterName(false);
 		}
 
 		UMaterialExpressionComponentMask* ComponentMaskExpression = Cast<UMaterialExpressionComponentMask>(NewExpression);

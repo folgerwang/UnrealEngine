@@ -1,19 +1,117 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PIEPreviewWindowTitleBar.h"
+#include "PIEPreviewWindow.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "SViewportToolBar.h"
 
 #if WITH_EDITOR
+
+/** Toolbar class used to add some menus to configure various device display settings */
+class SPIEToolbar : public SViewportToolBar
+{
+public:
+	SLATE_BEGIN_ARGS(SPIEToolbar) {}
+		SLATE_EVENT(FOnGetContent, OnGetMenuContent)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	FReply OnMenuClicked();
+
+protected:
+	TSharedPtr<SMenuAnchor> MenuAnchor;
+};
+
+void SPIEToolbar::Construct(const FArguments& InArgs)
+{
+	SViewportToolBar::Construct(SViewportToolBar::FArguments());
+
+	const FSlateBrush* ImageBrush = FPIEPreviewWindowCoreStyle::Get().GetBrush("ComboButton.Arrow");
+
+	TSharedPtr<SWidget> ButtonContent =
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 2.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				.IsEnabled(true)
+				.Cursor(EMouseCursor::Default)
+				[
+					SNew(SImage)
+					.Image(ImageBrush)
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			]
+		];
+
+	ChildSlot
+	[
+		SAssignNew(MenuAnchor, SMenuAnchor)
+		.Padding(0)
+		.Placement(MenuPlacement_BelowAnchor)
+		[
+			SNew(SButton)
+			// Allows users to drag with the mouse to select options after opening the menu */
+			.ClickMethod(EButtonClickMethod::MouseDown)
+			.ContentPadding(FMargin(2.0f, 2.0f))
+			.VAlign(VAlign_Center)
+			.ButtonStyle(FPIEPreviewWindowCoreStyle::Get(), "PIEWindow.MenuButton")
+			.OnClicked(this, &SPIEToolbar::OnMenuClicked)
+			[
+				ButtonContent.ToSharedRef()
+			]
+		]
+		.OnGetMenuContent(InArgs._OnGetMenuContent)
+	];
+}
+
+FReply SPIEToolbar::OnMenuClicked()
+{
+	// If the menu button is clicked toggle the state of the menu anchor which will open or close the menu
+	if (MenuAnchor->ShouldOpenDueToClick())
+	{
+		MenuAnchor->SetIsOpen(true);
+		SetOpenMenu(MenuAnchor);
+	}
+	else
+	{
+		MenuAnchor->SetIsOpen(false);
+		TSharedPtr<SMenuAnchor> NullAnchor;
+		SetOpenMenu(NullAnchor);
+	}
+
+	return FReply::Handled();
+}
+
 
 void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >& OutLeftContent, TSharedPtr< SWidget >& OutRightContent)
 {
 	TSharedPtr< SWidget > OutRightContentBaseWindow;
 	SWindowTitleBar::MakeTitleBarContentWidgets(OutLeftContent, OutRightContentBaseWindow);
-	
+
 	ScreenRotationButton = SNew(SButton)
 		.IsFocusable(false)
 		.IsEnabled(true)
 		.ContentPadding(0)
-		.OnClicked(this, &SPIEPreviewWindowTitleBar::ScreenRotationButton_OnClicked)
+		.OnClicked_Lambda
+		(
+			[this]()
+			{
+				TSharedPtr<SPIEPreviewWindow> PIEWindow = GetOwnerWindow();
+				check(PIEWindow.IsValid());
+				PIEWindow->RotateWindow();
+
+				return FReply::Handled();
+			}
+		)
 		.Cursor(EMouseCursor::Default)
 		.ButtonStyle(FCoreStyle::Get(), "NoBorder")
 		[
@@ -21,76 +119,45 @@ void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >
 			.Image(this, &SPIEPreviewWindowTitleBar::GetScreenRotationButtonImage)
 			.ColorAndOpacity(this, &SPIEPreviewWindowTitleBar::GetWindowTitleContentColor)
 		]
+		.IsEnabled_Lambda
+		(
+			[this]()
+			{
+				TSharedPtr<SPIEPreviewWindow> PIEWindow = GetOwnerWindow();
+				check(PIEWindow.IsValid());
+			
+				return PIEWindow->IsRotationAllowed();
+			}
+		)
 	;
-
-	QuarterMobileContentScaleFactorButton = SNew(SButton)
-		.IsFocusable(false)
-		.IsEnabled(true)
-		.ContentPadding(0)
-		.OnClicked(this, &SPIEPreviewWindowTitleBar::QuarterMobileContentScaleFactorButton_OnClicked)
-		.Cursor(EMouseCursor::Default)
-		.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-		[
-			SNew(SImage)
-			.Image(this, &SPIEPreviewWindowTitleBar::GetQuarterMobileContentScaleFactorImage)
-			.ColorAndOpacity(this, &SPIEPreviewWindowTitleBar::GetWindowTitleContentColor)
-		]
-	;
-
-	HalfMobileContentScaleFactorButton = SNew(SButton)
-		.IsFocusable(false)
-		.IsEnabled(true)
-		.ContentPadding(0.0f)
-		.OnClicked(this, &SPIEPreviewWindowTitleBar::HalfMobileContentScaleFactorButton_OnClicked)
-		.Cursor(EMouseCursor::Default)
-		.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-		[
-			SNew(SImage)
-			.Image(this, &SPIEPreviewWindowTitleBar::GetHalfMobileContentScaleFactorImage)
-			.ColorAndOpacity(this, &SPIEPreviewWindowTitleBar::GetWindowTitleContentColor)
-		]
-	;
-
-	FullMobileContentScaleFactorButton = SNew(SButton)
-		.IsFocusable(false)
-		.IsEnabled(true)
-		.ContentPadding(0.0f)
-		.OnClicked(this, &SPIEPreviewWindowTitleBar::FullMobileContentScaleFactorButton_OnClicked)
-		.Cursor(EMouseCursor::Default)
-		.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-		[
-			SNew(SImage)
-			.Image(this, &SPIEPreviewWindowTitleBar::GetFullMobileContentScaleFactorImage)
-			.ColorAndOpacity(this, &SPIEPreviewWindowTitleBar::GetWindowTitleContentColor)
-		];
-
-
 
 	TSharedRef< SHorizontalBox > WindowTitleBarButtons =
 	SNew(SHorizontalBox)
 	.Visibility(EVisibility::SelfHitTestInvisible);
 
 	WindowTitleBarButtons->AddSlot()
-	.AutoWidth()
-	[
-	ScreenRotationButton.ToSharedRef()
-	];
+		.AutoWidth()
+		[
+			ScreenRotationButton.ToSharedRef()
+		];
 
+	// Add the settings menu widget
 	WindowTitleBarButtons->AddSlot()
-	.AutoWidth()
-	[
-	QuarterMobileContentScaleFactorButton.ToSharedRef()
-	];
-	WindowTitleBarButtons->AddSlot()
-	.AutoWidth()
-	[
-	HalfMobileContentScaleFactorButton.ToSharedRef()
-	];
-	WindowTitleBarButtons->AddSlot()
-	.AutoWidth()
-	[
-	FullMobileContentScaleFactorButton.ToSharedRef()
-	];
+		.AutoWidth()
+		[
+			SNew(SPIEToolbar)
+			.OnGetMenuContent_Lambda
+			(
+				[this]()
+				{
+					TSharedPtr<SPIEPreviewWindow> PIEWindow = GetOwnerWindow();
+					check(PIEWindow.IsValid());
+
+					return PIEWindow->BuildSettingsMenu();
+				}
+			)
+		];
+
 	if (OutRightContentBaseWindow.IsValid())
 	{
 		WindowTitleBarButtons->AddSlot()
@@ -99,7 +166,6 @@ void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >
 				OutRightContentBaseWindow.ToSharedRef()
 			];
 	}
-	
 
 	OutRightContent = SNew(SBox)
 		.Visibility(EVisibility::SelfHitTestInvisible)
@@ -107,31 +173,6 @@ void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >
 		[
 			WindowTitleBarButtons
 		];
-}
-	
-void SPIEPreviewWindowTitleBar::ApplyWindowRotation(TSharedPtr<SWindow> OwnerWindow)
-{
-	FVector2D Size = OwnerWindow->GetInitialDesiredSizeInScreen() * ScaleFactor;
-	IsPortrait = !IsPortrait;
-
-	if (IsPortrait)
-		Swap(Size.X, Size.Y);
-
-	int x, y, w, h;
-	OwnerWindow->GetNativeWindow()->GetFullScreenInfo(x, y, w, h);
-	OwnerWindow->GetNativeWindow()->ReshapeWindow((w - Size.X) * 0.5f, (h - Size.Y) * 0.5f, Size.X, Size.Y);
-}
-
-void SPIEPreviewWindowTitleBar::ApplyWindowScaleFactor(TSharedPtr<SWindow> OwnerWindow)
-{
-	FVector2D Size = OwnerWindow->GetInitialDesiredSizeInScreen() * ScaleFactor;
-
-	if (IsPortrait)
-		Swap(Size.X, Size.Y);
-
-	int x, y, w, h;
-	OwnerWindow->GetNativeWindow()->GetFullScreenInfo(x, y, w, h);
-	OwnerWindow->GetNativeWindow()->ReshapeWindow((w - Size.X) * 0.5f, (h - Size.Y) * 0.5f, Size.X, Size.Y);
 }
 
 const FSlateBrush* SPIEPreviewWindowTitleBar::GetScreenRotationButtonImage() const
@@ -155,130 +196,6 @@ const FSlateBrush* SPIEPreviewWindowTitleBar::GetScreenRotationButtonImage() con
 	{
 		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").ScreenRotationButtonStyle.Normal;
 	}
-
-}
-
-const FSlateBrush* SPIEPreviewWindowTitleBar::GetQuarterMobileContentScaleFactorImage() const
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-	
-	if (!OwnerWindow.IsValid())
-	{
-		return nullptr;
-	}
-
-	if (QuarterMobileContentScaleFactorButton->IsPressed())
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").QuarterMobileContentScaleFactorButtonStyle.Pressed;
-	}
-	else if (QuarterMobileContentScaleFactorButton->IsHovered())
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").QuarterMobileContentScaleFactorButtonStyle.Hovered;
-	}
-	else
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").QuarterMobileContentScaleFactorButtonStyle.Normal;
-	}
-
-}
-
-const FSlateBrush* SPIEPreviewWindowTitleBar::GetHalfMobileContentScaleFactorImage() const
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-	
-	if (!OwnerWindow.IsValid())
-	{
-		return nullptr;
-	}
-
-	if (HalfMobileContentScaleFactorButton->IsPressed())
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").HalfMobileContentScaleFactorButtonStyle.Pressed;
-	}
-	else if (HalfMobileContentScaleFactorButton->IsHovered())
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").HalfMobileContentScaleFactorButtonStyle.Hovered;
-	}
-	else
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").HalfMobileContentScaleFactorButtonStyle.Normal;
-	}
-
-}
-
-const FSlateBrush* SPIEPreviewWindowTitleBar::GetFullMobileContentScaleFactorImage() const
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-	
-	if (!OwnerWindow.IsValid())
-	{
-		return nullptr;
-	}
-
-	if (FullMobileContentScaleFactorButton->IsPressed())
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").FullMobileContentScaleFactorButtonStyle.Pressed;
-	}
-	else if (FullMobileContentScaleFactorButton->IsHovered())
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").FullMobileContentScaleFactorButtonStyle.Hovered;
-	}
-	else
-	{
-		return &FPIEPreviewWindowCoreStyle::Get().GetWidgetStyle<FPIEPreviewWindowStyle>("PIEWindow").FullMobileContentScaleFactorButtonStyle.Normal;
-	}
-
-}
-
-FReply SPIEPreviewWindowTitleBar::ScreenRotationButton_OnClicked()
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-
-	if (OwnerWindow.IsValid())
-	{
-		ApplyWindowRotation(OwnerWindow);
-	}
-
-	return FReply::Handled();
-}
-
-FReply SPIEPreviewWindowTitleBar::QuarterMobileContentScaleFactorButton_OnClicked()
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-
-	if (OwnerWindow.IsValid())
-	{
-		ScaleFactor = 0.25f;
-		ApplyWindowScaleFactor(OwnerWindow);
-	}
-
-	return FReply::Handled();
-}
-
-FReply SPIEPreviewWindowTitleBar::HalfMobileContentScaleFactorButton_OnClicked()
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-
-	if (OwnerWindow.IsValid())
-	{
-		ScaleFactor = 0.5f;
-		ApplyWindowScaleFactor(OwnerWindow);
-	}
-
-	return FReply::Handled();
-}
-
-FReply SPIEPreviewWindowTitleBar::FullMobileContentScaleFactorButton_OnClicked()
-{
-	TSharedPtr<SWindow> OwnerWindow = OwnerWindowPtr.Pin();
-
-	if (OwnerWindow.IsValid())
-	{
-		ScaleFactor = 1.0f;
-		ApplyWindowScaleFactor(OwnerWindow);
-	}
-
-	return FReply::Handled();
 }
 
 #endif

@@ -15,6 +15,7 @@
 #include "IMediaTextureSample.h"
 #include "IMediaTracks.h"
 #include "IMediaView.h"
+#include "MediaPlayerOptions.h"
 #include "Math/NumericLimits.h"
 #include "Misc/CoreMisc.h"
 #include "Misc/ScopeLock.h"
@@ -422,9 +423,11 @@ bool FMediaPlayerFacade::IsReady() const
 }
 
 
-bool FMediaPlayerFacade::Open(const FString& Url, const IMediaOptions* Options)
+bool FMediaPlayerFacade::Open(const FString& Url, const IMediaOptions* Options, const FMediaPlayerOptions* PlayerOptions)
 {
 	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeOpen);
+
+	ActivePlayerOptions.Reset();
 
 	if (IsRunningDedicatedServer())
 	{
@@ -457,10 +460,16 @@ bool FMediaPlayerFacade::Open(const FString& Url, const IMediaOptions* Options)
 
 	CurrentUrl = Url;
 
+	if (PlayerOptions)
+	{
+		ActivePlayerOptions = *PlayerOptions;
+	}
+
 	// open the new media source
-	if (!Player->Open(Url, Options))
+	if (!Player->Open(Url, Options, PlayerOptions))
 	{
 		CurrentUrl.Empty();
+		ActivePlayerOptions.Reset();
 
 		return false;
 	}
@@ -502,6 +511,11 @@ bool FMediaPlayerFacade::Seek(const FTimespan& Time)
 	if (!Player.IsValid() || !Player->GetControls().Seek(Time))
 	{
 		return false;
+	}
+
+	if (Player.IsValid() && Player->FlushOnSeekStarted())
+	{
+		FlushSinks();
 	}
 
 	return true;
@@ -837,10 +851,16 @@ void FMediaPlayerFacade::ProcessEvent(EMediaEvent Event)
 	}
 
 	if ((Event == EMediaEvent::PlaybackEndReached) ||
-		(Event == EMediaEvent::SeekCompleted) ||
 		(Event == EMediaEvent::TracksChanged))
 	{
 		FlushSinks();
+	}
+	else if (Event == EMediaEvent::SeekCompleted)
+	{
+		if (!Player.IsValid() || Player->FlushOnSeekCompleted())
+		{
+			FlushSinks();
+		}
 	}
 
 	MediaEvent.Broadcast(Event);
@@ -858,11 +878,17 @@ void FMediaPlayerFacade::SelectDefaultTracks()
 
 	// @todo gmp: consider locale when selecting default media tracks
 
-	Tracks.SelectTrack(EMediaTrackType::Audio, 0);
-	Tracks.SelectTrack(EMediaTrackType::Caption, INDEX_NONE);
-	Tracks.SelectTrack(EMediaTrackType::Metadata, INDEX_NONE);
-	Tracks.SelectTrack(EMediaTrackType::Subtitle, INDEX_NONE);
-	Tracks.SelectTrack(EMediaTrackType::Video, 0);
+	FMediaPlayerTrackOptions TrackOptions;
+	if (ActivePlayerOptions.IsSet())
+	{
+		TrackOptions = ActivePlayerOptions.GetValue().Tracks;
+	}
+
+	Tracks.SelectTrack(EMediaTrackType::Audio, TrackOptions.Audio);
+	Tracks.SelectTrack(EMediaTrackType::Caption, TrackOptions.Caption);
+	Tracks.SelectTrack(EMediaTrackType::Metadata, TrackOptions.Metadata);
+	Tracks.SelectTrack(EMediaTrackType::Subtitle, TrackOptions.Subtitle);
+	Tracks.SelectTrack(EMediaTrackType::Video, TrackOptions.Video);
 }
 
 

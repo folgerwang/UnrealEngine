@@ -72,6 +72,9 @@ class ENGINE_API UPointLightComponent : public ULocalLightComponent
 public:
 
 	virtual float ComputeLightBrightness() const override;
+#if WITH_EDITOR
+	virtual void SetLightBrightness(float InBrightness) override;
+#endif
 
 	//~ Begin ULightComponent Interface.
 	virtual ELightComponentType GetLightType() const override;

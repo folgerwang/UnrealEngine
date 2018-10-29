@@ -459,7 +459,6 @@ namespace Audio
 			}
 
 			FSoundEffectSource* NewEffect = static_cast<FSoundEffectSource*>(ChainEntry.Preset->CreateNewEffect());
-			NewEffect->RegisterWithPreset(ChainEntry.Preset);
 
 			// Get this source effect presets unique id so instances can identify their originating preset object
 			const uint32 PresetUniqueId = ChainEntry.Preset->GetUniqueID();
@@ -484,7 +483,7 @@ namespace Audio
 
 		for (int32 i = 0; i < SourceInfo.SourceEffects.Num(); ++i)
 		{
-			SourceInfo.SourceEffects[i]->UnregisterWithPreset();
+			SourceInfo.SourceEffects[i]->ClearPreset();
 			delete SourceInfo.SourceEffects[i];
 			SourceInfo.SourceEffects[i] = nullptr;
 		}
@@ -553,6 +552,7 @@ namespace Audio
 
 			// Initialize the mixer source buffer decoder with the given mixer buffer
 			SourceInfo.MixerSourceBuffer = InitParams.MixerSourceBuffer;
+			SourceInfo.MixerSourceBuffer->Init();
 			SourceInfo.MixerSourceBuffer->OnBeginGenerate();
 
 			SourceInfo.bIsPlaying = false;
@@ -1400,6 +1400,12 @@ namespace Audio
 	{
 		if (BypassAudioPluginsCvar)
 		{
+			// If we're bypassing audio plugins, our pre- and post-effect channels are the same as the input channels
+			SourceInfo.NumPostEffectChannels = SourceInfo.NumInputChannels;
+
+			// Set the ptr to use for post-effect buffers:
+			SourceInfo.PostEffectBuffers = &SourceInfo.SourceBuffer;
+
 			return;
 		}
 
@@ -1977,7 +1983,7 @@ namespace Audio
 							const FSourceEffectChainEntry& ChainEntry = InSourceEffectChain[SourceEffectId];
 
 							FSoundEffectSource* SourceEffectInstance = ThisSourceEffectChain[SourceEffectId];
-							if (!SourceEffectInstance->IsParentPreset(ChainEntry.Preset))
+							if (!SourceEffectInstance->IsPreset(ChainEntry.Preset))
 							{
 								// As soon as one of the effects change or is not the same, then we need to rebuild the effect graph
 								bReset = true;
@@ -2128,6 +2134,16 @@ namespace Audio
 		Commands.SourceCommandQueue.Reset();
 
 		RenderThreadCommandBufferIndex.Set(!CurrentRenderThreadIndex);
+	}
+
+	void FMixerSourceManager::FlushCommandQueue()
+	{
+		bPumpQueue = true;
+		while (bPumpQueue)
+		{
+			FPlatformProcess::Sleep(0);
+		}
+		bPumpQueue = true;
 	}
 
 	void FMixerSourceManager::UpdatePendingReleaseData(bool bForceWait)

@@ -1059,7 +1059,7 @@ EReimportResult::Type UReimportFbxSceneFactory::ImportSkeletalMesh(void* VoidRoo
 	//}
 
 	TArray< TArray<FbxNode*>* > SkelMeshArray;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, GlobalImportSettings->bImportAsSkeletalGeometry || GlobalImportSettings->bImportAsSkeletalSkinning, true);
 	UObject* NewObject = nullptr;
 	for (int32 i = 0; i < SkelMeshArray.Num(); i++)
 	{

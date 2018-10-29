@@ -49,8 +49,8 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Root directory for the stream. If not specified, defaults to the current root directory.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string RootDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference RootDir;
 
 		/// <summary>
 		/// Whether to revert unchanged files before attempting to submit
@@ -107,7 +107,7 @@ namespace AutomationTool.Tasks
 					Client.Owner = CommandUtils.P4Env.User;
 					Client.Host = Environment.MachineName;
 					Client.Stream = Parameters.Stream ?? CommandUtils.P4Env.Branch;
-					Client.RootPath = Parameters.RootDir ?? CommandUtils.RootDirectory.FullName;
+					Client.RootPath = Parameters.RootDir.FullName ?? CommandUtils.RootDirectory.FullName;
 					Client.Name = Parameters.Workspace;
 					Client.Options = P4ClientOption.NoAllWrite | P4ClientOption.Clobber | P4ClientOption.NoCompress | P4ClientOption.Unlocked | P4ClientOption.NoModTime | P4ClientOption.RmDir;
 					Client.LineEnd = P4LineEnd.Local;

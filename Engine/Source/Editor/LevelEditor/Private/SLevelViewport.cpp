@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SLevelViewport.h"
 #include "Materials/MaterialInterface.h"
@@ -463,7 +463,7 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 	bShowFullToolbar = ViewportInstanceSettings.bShowFullToolbar;
 }
 
-const FSceneViewport* SLevelViewport::GetGameSceneViewport() const
+FSceneViewport* SLevelViewport::GetGameSceneViewport() const
 {
 	return ActiveViewport.Get();
 }
@@ -3521,6 +3521,12 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	PlayClient->SetViewportOverlayWidget(ParentWindow, PIEViewportOverlayWidget.ToSharedRef());
 	PlayClient->SetGameLayerManager(GameLayerManager);
 
+	// Set the scene viewport on PIE
+	if (GameLayerManager.IsValid() && !bInSimulateInEditor)
+	{
+		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+	}
+
 	// Our viewport widget should start rendering the new viewport for the play in editor scene
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
 
@@ -3736,6 +3742,9 @@ void SLevelViewport::EndPlayInEditorSession()
 		InactiveViewport->SetViewportClient( nullptr );
 	}
 
+	// Reset our game layer manager's active to that of the active editor viewport
+	GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+
 	// Reset the inactive viewport
 	InactiveViewport.Reset();
 
@@ -3788,7 +3797,12 @@ void SLevelViewport::SwapViewportsForSimulateInEditor()
 	// Resize the viewport to be the same size the previously active viewport
 	// When starting in immersive mode its possible that the viewport has not been resized yet
 	ActiveViewport->OnPlayWorldViewportSwapped( *InactiveViewport );
-	
+
+	if (GameLayerManager.IsValid())
+	{
+		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+	}
+
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
 
 	// Kick off a quick transition effect (border graphics)
@@ -3823,6 +3837,11 @@ void SLevelViewport::SwapViewportsForPlayInEditor()
 	// Resize the viewport to be the same size the previously active viewport
 	// When starting in immersive mode its possible that the viewport has not been resized yet
 	ActiveViewport->OnPlayWorldViewportSwapped( *InactiveViewport );
+
+	if (GameLayerManager.IsValid())
+	{
+		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+	}
 
 	InactiveViewportWidgetEditorContent = ViewportWidget->GetContent();
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
@@ -3906,14 +3925,17 @@ void SLevelViewport::RemoveActorPreview( int32 PreviewIndex, const bool bRemoveF
 		// Remove widget from viewport overlay
 		ActorPreviewHorizontalBox->RemoveSlot(ActorPreviews[PreviewIndex].PreviewWidget.ToSharedRef());
 	}
-	// Clean up our level viewport client
-	if( ActorPreviews[PreviewIndex].LevelViewportClient.IsValid() )
+	if (ActorPreviews.IsValidIndex(PreviewIndex))
 	{
-		ActorPreviews[PreviewIndex].LevelViewportClient->Viewport = NULL;
-	}
+		// Clean up our level viewport client
+		if (ActorPreviews[PreviewIndex].LevelViewportClient.IsValid())
+		{
+			ActorPreviews[PreviewIndex].LevelViewportClient->Viewport = NULL;
+		}
 
-	// Remove from our list of actor previews.  This will destroy our level viewport client and viewport widget.
-	ActorPreviews.RemoveAt( PreviewIndex );
+		// Remove from our list of actor previews.  This will destroy our level viewport client and viewport widget.
+		ActorPreviews.RemoveAt(PreviewIndex);
+	}
 }
 
 void SLevelViewport::AddOverlayWidget(TSharedRef<SWidget> OverlaidWidget)

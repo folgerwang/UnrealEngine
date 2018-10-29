@@ -4,7 +4,8 @@
 #include "CoreTypes.h"
 #include "Misc/Guid.h"
 
-// Custom serialization version for changes made in Dev-Core stream
+// Custom serialization version for changes made in Release streams.
+// NOTE: Beware of patch releases - do not bump this except in the latest Release stream!
 struct CORE_API FReleaseObjectVersion
 {
 	enum Type
@@ -63,6 +64,15 @@ struct CORE_API FReleaseObjectVersion
 
 		// Change to MeshDescription serialization
 		MeshDescriptionNewSerialization,
+
+		// Change to not clamp RGB values > 1 on linear color curves
+		UnclampRGBColorCurves,
+
+		// Bugfix for FAnimObjectVersion::LinkTimeAnimBlueprintRootDiscovery.
+		LinkTimeAnimBlueprintRootDiscoveryBugFix,
+
+		// Change trail anim node variable deprecation
+		TrailNodeBlendVariableNameChange,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

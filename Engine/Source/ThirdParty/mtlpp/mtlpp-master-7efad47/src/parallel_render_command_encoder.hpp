@@ -37,7 +37,7 @@ namespace mtlpp
 {
     class RenderCommandEncoder;
 
-    class ParallelRenderCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLParallelRenderCommandEncoder>>::type>
+    class MTLPP_EXPORT ParallelRenderCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLParallelRenderCommandEncoder>>::type>
     {
     public:
         ParallelRenderCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLParallelRenderCommandEncoder>>::type>(retain) { }
@@ -56,7 +56,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedParallelRenderCommandEncoder : public ns::AutoReleased<ParallelRenderCommandEncoder>
+	class MTLPP_EXPORT ValidatedParallelRenderCommandEncoder : public ns::AutoReleased<ParallelRenderCommandEncoder>
 	{
 		ParallelEncoderValidationTable Validator;
 		

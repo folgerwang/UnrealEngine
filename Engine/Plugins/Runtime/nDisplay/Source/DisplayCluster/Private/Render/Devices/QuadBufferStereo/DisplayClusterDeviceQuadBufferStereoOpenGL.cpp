@@ -6,8 +6,6 @@
 
 #include "Misc/DisplayClusterLog.h"
 
-#include <utility>
-
 
 FDisplayClusterDeviceQuadBufferStereoOpenGL::FDisplayClusterDeviceQuadBufferStereoOpenGL() :
 	FDisplayClusterDeviceQuadBufferStereoBase()
@@ -53,23 +51,12 @@ bool FDisplayClusterDeviceQuadBufferStereoOpenGL::Present(int32& InOutSyncInterv
 	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("FDisplayClusterDeviceQuadBufferStereoOpenGL::Present"));
 
 	const int halfSizeX = BackBuffSize.X / 2;
-	int dstX1 = 0;
-	int dstX2 = halfSizeX;
+	const int dstX1 = 0;
+	const int dstX2 = halfSizeX;
 
 	// Convert to left bottom origin and flip Y
-	int dstY1 = ViewportSize.Y;
-	int dstY2 = 0;
-
-	if (bFlipHorizontal)
-	{
-		std::swap(dstX1, dstX2);
-	}
-
-	if (bFlipVertical)
-	{
-		std::swap(dstY1, dstY2);
-	}
-
+	const int dstY1 = ViewportSize.Y;
+	const int dstY2 = 0;
 
 	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(CurrentViewport->GetViewportRHI().GetReference());
 	check(pOglViewport);

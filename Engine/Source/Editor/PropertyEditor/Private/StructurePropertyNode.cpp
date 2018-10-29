@@ -3,6 +3,7 @@
 
 #include "StructurePropertyNode.h"
 #include "ItemPropertyNode.h"
+#include "PropertyEditorHelpers.h"
 
 void FStructurePropertyNode::InitChildNodes()
 {
@@ -10,6 +11,8 @@ void FStructurePropertyNode::InitChildNodes()
 	const bool bShouldShowDisableEditOnInstance = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance);
 
 	const UStruct* Struct = StructData.IsValid() ? StructData->GetStruct() : NULL;
+
+	TArray<UProperty*> StructMembers;
 
 	for (TFieldIterator<UProperty> It(Struct); It; ++It)
 	{
@@ -24,21 +27,28 @@ void FStructurePropertyNode::InitChildNodes()
 
 			if (bShouldShowHiddenProperties || (bShowIfEditableProperty && !bOnlyShowAsInlineEditCondition && bShowIfDisableEditOnInstance))
 			{
-				TSharedPtr<FItemPropertyNode> NewItemNode(new FItemPropertyNode);//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
-
-				FPropertyNodeInitParams InitParams;
-				InitParams.ParentNode = SharedThis(this);
-				InitParams.Property = StructMember;
-				InitParams.ArrayOffset = 0;
-				InitParams.ArrayIndex = INDEX_NONE;
-				InitParams.bAllowChildren = true;
-				InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
-				InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
-				InitParams.bCreateCategoryNodes = false;
-
-				NewItemNode->InitNode(InitParams);
-				AddChildNode(NewItemNode);
+				StructMembers.Add(StructMember);
 			}
 		}
+	}
+
+	PropertyEditorHelpers::OrderPropertiesFromMetadata(StructMembers);
+
+	for (UProperty* StructMember : StructMembers)
+	{
+		TSharedPtr<FItemPropertyNode> NewItemNode(new FItemPropertyNode);//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
+
+		FPropertyNodeInitParams InitParams;
+		InitParams.ParentNode = SharedThis(this);
+		InitParams.Property = StructMember;
+		InitParams.ArrayOffset = 0;
+		InitParams.ArrayIndex = INDEX_NONE;
+		InitParams.bAllowChildren = true;
+		InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
+		InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
+		InitParams.bCreateCategoryNodes = false;
+
+		NewItemNode->InitNode(InitParams);
+		AddChildNode(NewItemNode);
 	}
 }

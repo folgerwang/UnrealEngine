@@ -356,6 +356,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 
 	FGameplayEffectContext()
 	: AbilityLevel(1)
+	, WorldOrigin(ForceInitToZero)
 	, bHasWorldOrigin(false)
 	, bReplicateSourceObject(false)
 	{
@@ -363,6 +364,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 
 	FGameplayEffectContext(AActor* InInstigator, AActor* InEffectCauser)
 	: AbilityLevel(1)
+	, WorldOrigin(ForceInitToZero)
 	, bHasWorldOrigin(false)
 	, bReplicateSourceObject(false)
 	{

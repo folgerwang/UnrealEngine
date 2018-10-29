@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "RHI.h"
 
 #define VULKAN_HAS_PHYSICAL_DEVICE_PROPERTIES2		1
-#define VULKAN_COMMANDWRAPPERS_ENABLE				0
 #define VULKAN_DYNAMICALLYLOADED					1
 #define VULKAN_SHOULD_DEBUG_IN_DEVELOPMENT			1
 #define VULKAN_SHOULD_ENABLE_DRAW_MARKERS			(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
@@ -20,6 +20,8 @@
 
 #define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro)
 
+#define ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro)
+
 #include "../VulkanLoader.h"
 
 // and now, include the GenericPlatform class
@@ -28,6 +30,8 @@
 class FVulkanLinuxPlatform : public FVulkanGenericPlatform
 {
 public:
+	static bool IsSupported();
+
 	static bool LoadVulkanLibrary();
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance);
 	static void FreeVulkanLibrary();
@@ -36,6 +40,19 @@ public:
 	static void GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 
 	static void CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface);
+
+	// Some platforms only support real or non-real UBs, so this function can optimize it out
+	static bool UseRealUBsOptimization(bool bCodeHeaderUseRealUBs)
+	{
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+		return (CVar && CVar->GetValueOnAnyThread() == 0) ? false : bCodeHeaderUseRealUBs;
+#else
+		return GMaxRHIFeatureLevel >= ERHIFeatureLevel::ES3_1 ? bCodeHeaderUseRealUBs : false;
+#endif
+	}
+
+	static void UpdateWindowSize(void* WindowHandle, uint32& Width, uint32& Height);
 
 protected:
 	static void* VulkanLib;

@@ -20,6 +20,9 @@
 #include "ShaderBaseClasses.h"
 #include "SceneRendering.h"
 #include "Engine/LightMapTexture2D.h"
+#include "Runtime/Engine/Classes/VT/VirtualTexture.h"
+#include "Runtime/Engine/Classes/VT/VirtualTextureSpace.h"
+
 
 /**
  * The base shader type for vertex shaders that render the emissive color, and light-mapped/ambient lighting of a mesh.
@@ -33,7 +36,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
+		return  AllowDebugViewmodes(Platform) 
+				&& (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
 				&& LightMapPolicyType::ShouldCompilePermutation(Platform,Material,VertexFactoryType)
 				&& IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
@@ -88,7 +92,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return FBaseHS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+		return AllowDebugViewmodes(Platform) 
+			&& FBaseHS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
 			&& TLightMapDensityVS<LightMapPolicyType>::ShouldCompilePermutation(Platform, Material, VertexFactoryType);
 	}
 
@@ -118,7 +123,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return FBaseDS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+		return AllowDebugViewmodes(Platform) 
+			&& FBaseDS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
 			&& TLightMapDensityVS<LightMapPolicyType>::ShouldCompilePermutation(Platform, Material, VertexFactoryType);		
 	}
 
@@ -149,7 +155,8 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
+		return	AllowDebugViewmodes(Platform) 
+				&& (Material->IsSpecialEngineMaterial() || Material->IsMasked() || Material->MaterialMayModifyMeshPosition())
 				&& LightMapPolicyType::ShouldCompilePermutation(Platform,Material,VertexFactoryType)
 				&& IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
@@ -369,11 +376,26 @@ public:
 
 		bool bTextureMapped = false;
 		if (Mesh.LCI &&
-			(Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetType() == LMIT_Texture) &&
-			Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps))
+			Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetType() == LMIT_Texture &&
+			(Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps) || Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetVirtualTexture()) )
 		{
-			LMResolutionScale.X = Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps)->GetSizeX();
-			LMResolutionScale.Y = Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps)->GetSizeY();
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+			if (CVar->GetValueOnRenderThread() == 1)
+			{
+				const ULightMapVirtualTexture* VT = Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetVirtualTexture();
+				if(VT && VT->Space)
+				{
+					// We use the total Space size here as the Lightmap Scale/Bias is transformed to VT space
+					LMResolutionScale.X = VT->Space->Size * VT->Space->TileSize;
+					LMResolutionScale.Y = (VT->Space->Size * VT->Space->TileSize) * 2.0f; // Compensates the VT specific math in GetLightMapCoordinates (used to pack more coefficients per texture)
+				}
+			}
+			else
+			{
+				LMResolutionScale.X = Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps)->GetSizeX();
+				LMResolutionScale.Y = Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetTexture(bHighQualityLightMaps)->GetSizeY();
+			}
+		
 			bTextureMapped = true;
 
 			BuiltLightingAndSelectedFlags.X = 1.0f;

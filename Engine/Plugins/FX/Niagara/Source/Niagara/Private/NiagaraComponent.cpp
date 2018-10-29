@@ -203,7 +203,7 @@ FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* V
 {
 	FPrimitiveViewRelevance Relevance;
 
-	if (bRenderingEnabled == false)
+	if (bRenderingEnabled == false || (View->GetFeatureLevel() != ERHIFeatureLevel::SM5 && View->GetFeatureLevel() != ERHIFeatureLevel::ES3_1))
 	{
 		return Relevance;
 	}
@@ -502,6 +502,11 @@ bool UNiagaraComponent::InitializeSystem()
 void UNiagaraComponent::Activate(bool bReset /* = false */)
 {
 	bAwaitingActivationDueToNotReady = false;
+
+	if (IsES2Platform(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]))
+	{
+		GbSuppressNiagaraSystems = 1;
+	}
 
 	if (GbSuppressNiagaraSystems != 0)
 	{

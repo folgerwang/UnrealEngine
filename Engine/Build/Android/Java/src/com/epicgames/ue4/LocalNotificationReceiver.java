@@ -4,7 +4,8 @@
  
  import android.app.Notification;
  import android.app.NotificationManager;
- import android.app.PendingIntent;
+ import android.app.NotificationChannel;
+ import android.app.PendingIntent; 
  import android.content.BroadcastReceiver;
  import android.content.Context;
  import android.content.Intent;
@@ -12,7 +13,10 @@
  
  public class LocalNotificationReceiver extends BroadcastReceiver
  {
- 
+	 private static boolean bChannelExists = false;
+	 private static final String NOTIFICATION_CHANNEL_ID = "ue4-push-notification-channel-id";
+	 private static final CharSequence NOTICATION_CHANNEL_NAME = "ue4-push-notification-channel";
+	 
 	 public void onReceive(Context context, Intent intent)
 	 {
 		int notificationID = intent.getIntExtra("local-notification-ID" , 0);
@@ -43,7 +47,8 @@
 		}
 		PendingIntent pendingNotificationIntent = PendingIntent.getActivity(context, notificationID, notificationIntent, 0);
 
-		NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
+		NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
 			.setSmallIcon(notificationIconID)
 			.setContentIntent(pendingNotificationIntent)
 			.setWhen(System.currentTimeMillis())
@@ -53,13 +58,23 @@
 		{
 			builder.setColor(0xff0e1e43);
 		}
+
+		if (android.os.Build.VERSION.SDK_INT >= 26)
+		{
+			if (!bChannelExists)
+			{
+				NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, NOTICATION_CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT);
+				channel.enableVibration(true);
+				channel.enableLights(true);
+				notificationManager.createNotificationChannel(channel);
+				bChannelExists = true;
+			}
+		}
 		Notification notification = builder.build();
 
 		// Stick with the defaults
 		notification.flags |= Notification.FLAG_AUTO_CANCEL;
 		notification.defaults |= Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE;
-
-		NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
 		// show the notification
 		notificationManager.notify(notificationID, notification); 

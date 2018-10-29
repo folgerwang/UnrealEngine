@@ -18,6 +18,7 @@ class UMaterialInstanceDynamic;
 class UMaterialInterface;
 class USlateBrushAsset;
 class UTexture2D;
+struct FStreamableHandle;
 
 /**
  * The image widget allows you to display a Slate Brush, or texture or material in the UI.
@@ -69,36 +70,40 @@ public:
 	void SetOpacity(float InOpacity);
 
 	/**  */
-	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetBrush(const FSlateBrush& InBrush);
-
-	/**  */
 	UFUNCTION(BlueprintCallable, Category = "Appearance")
 	void SetBrushSize(FVector2D DesiredSize);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category = "Appearance")
 	void SetBrushTintColor(FSlateColor TintColor);
+	
+	/**  */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	virtual void SetBrush(const FSlateBrush& InBrush);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetBrushFromAsset(USlateBrushAsset* Asset);
+	virtual void SetBrushFromAsset(USlateBrushAsset* Asset);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize = false);
+	virtual void SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize = false);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInterface> AtlasRegion, bool bMatchSize = false);
+	virtual void SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInterface> AtlasRegion, bool bMatchSize = false);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category = "Appearance")
-	void SetBrushFromTextureDynamic(UTexture2DDynamic* Texture, bool bMatchSize = false);
+	virtual void SetBrushFromTextureDynamic(UTexture2DDynamic* Texture, bool bMatchSize = false);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetBrushFromMaterial(UMaterialInterface* Material);
+	virtual void SetBrushFromMaterial(UMaterialInterface* Material);
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	virtual void SetBrushFromSoftTexture(TSoftObjectPtr<UTexture2D> SoftTexture, bool bMatchSize = false);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
@@ -132,10 +137,15 @@ protected:
 	/** Translates the bound brush data and assigns it to the cached brush used by this widget. */
 	const FSlateBrush* ConvertImage(TAttribute<FSlateBrush> InImageAsset) const;
 
+	//
+	void CancelTextureStreaming();
+
+	//
 	FReply HandleMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& MouseEvent);
 
 protected:
 	TSharedPtr<SImage> MyImage;
+	TSharedPtr<FStreamableHandle> StreamingHandle;
 
 protected:
 

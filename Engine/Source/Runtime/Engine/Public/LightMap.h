@@ -20,6 +20,11 @@ class UInstancedStaticMeshComponent;
 class UMapBuildDataRegistry;
 class UPrimitiveComponent;
 struct FQuantizedLightmapData;
+class UVirtualTexture;
+
+// When using virtual textures for the 2D lightmaps, use the 16bbp (1) or 32bbp (0) page table
+// 16bbp is limited to 64*64 pools
+#define LIGHTMAP_VT_16BIT 1
 
 /** Whether to use bilinear filtering on lightmaps */
 extern ENGINE_API bool GUseBilinearLightmaps;
@@ -236,6 +241,8 @@ public:
 
 	UTexture2D* GetAOMaterialMaskTexture() const;
 
+	ULightMapVirtualTexture* GetVirtualTexture() const { return VirtualTexture; }
+
 	/**
 	 * Returns whether the specified basis has a valid lightmap texture or not.
 	 * @param	BasisIndex - The basis index.
@@ -312,6 +319,9 @@ protected:
 	ULightMapTexture2D* SkyOcclusionTexture;
 
 	ULightMapTexture2D* AOMaterialMaskTexture;
+
+	/** The virtual textures containing the light-map data. */
+	ULightMapVirtualTexture *VirtualTexture;
 
 	/** A scale to apply to the coefficients. */
 	FVector4 ScaleVectors[NUM_STORED_LIGHTMAP_COEF];

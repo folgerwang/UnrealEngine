@@ -43,6 +43,9 @@ class ENGINE_API UCurveLinearColor : public UCurveBase
 	UFUNCTION(BlueprintCallable, Category="Math|Curves")
 	virtual FLinearColor GetLinearColorValue(float InTime) const override;
 
+	UFUNCTION(BlueprintCallable, Category = "Math|Curves")
+	virtual FLinearColor GetClampedLinearColorValue(float InTime) const override;
+
 	FLinearColor GetUnadjustedLinearColorValue(float InTime) const;
 
 	bool HasAnyAlphaKeys() const override { return FloatCurves[3].GetNumKeys() > 0; }
@@ -60,10 +63,14 @@ public:
 
 	void DrawThumbnail(class FCanvas* Canvas, FVector2D StartXY, FVector2D SizeXY);
 
-	void PushToSourceData(TArray<FColor> &SrcData, int32 StartXY, FVector2D SizeXY);
+	void PushToSourceData(TArray<FFloat16Color> &SrcData, int32 StartXY, FVector2D SizeXY);
 
 	virtual void OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos) override;
 #endif
+	virtual void PostLoad() override;
+
+	virtual void Serialize(FArchive& Ar) override;
+
 public:
 	// Properties for adjusting the color of the gradient
 	UPROPERTY(EditAnywhere, Category="Color", meta = (ClampMin = "0.0", ClampMax = "359.0"))

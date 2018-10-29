@@ -59,9 +59,9 @@ void SetupFogUniformParameters(const FViewInfo& View, FFogUniformParameters& Out
 		OutParameters.ExponentialFogParameters3 = View.ExponentialFogParameters3;
 		OutParameters.SinCosInscatteringColorCubemapRotation = View.SinCosInscatteringColorCubemapRotation;
 		OutParameters.FogInscatteringTextureParameters = View.FogInscatteringTextureParameters;
-		OutParameters.InscatteringLightDirection = FVector4(View.InscatteringLightDirection, View.bUseDirectionalInscattering ? 1 : 0);
+		OutParameters.InscatteringLightDirection = View.InscatteringLightDirection;
+		OutParameters.InscatteringLightDirection.W = View.bUseDirectionalInscattering ? FMath::Max(0.f, View.DirectionalInscatteringStartDistance) : -1.f;
 		OutParameters.DirectionalInscatteringColor = FVector4(FVector(View.DirectionalInscatteringColor), FMath::Clamp(View.DirectionalInscatteringExponent, 0.000001f, 1000.0f));
-		OutParameters.DirectionalInscatteringStartDistance = View.DirectionalInscatteringStartDistance;
 		OutParameters.FogInscatteringColorCubemap = Cubemap->TextureRHI;
 		OutParameters.FogInscatteringColorSampler = TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 	}
@@ -400,19 +400,6 @@ void SetFogShaders(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitialize
 
 void FDeferredShadingSceneRenderer::RenderViewFog(FRHICommandList& RHICmdList, const FViewInfo& View, const FLightShaftsOutput& LightShaftsOutput)
 {
-	static const FVector2D Vertices[4] =
-	{
-		FVector2D(-1,-1),
-		FVector2D(-1,+1),
-		FVector2D(+1,+1),
-		FVector2D(+1,-1),
-	};
-	static const uint16 Indices[6] =
-	{
-		0, 1, 2,
-		0, 2, 3
-	};
-
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
@@ -433,24 +420,15 @@ void FDeferredShadingSceneRenderer::RenderViewFog(FRHICommandList& RHICmdList, c
 	SetFogShaders(RHICmdList, GraphicsPSOInit, Scene, View, ShouldRenderVolumetricFog(), LightShaftsOutput);
 
 	// Draw a quad covering the view.
-	DrawIndexedPrimitiveUP(
-		RHICmdList,
-		PT_TriangleList,
-		0,
-		ARRAY_COUNT(Vertices),
-		2,
-		Indices,
-		sizeof(Indices[0]),
-		Vertices,
-		sizeof(Vertices[0])
-		);
+	RHICmdList.SetStreamSource(0, GScreenSpaceVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2, 1);
 }
 
 bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput)
 {
 	if (Scene->ExponentialFogs.Num() > 0 
 		// Fog must be done in the base pass for MSAA to work
-		&& !IsForwardShadingEnabled(FeatureLevel))
+		&& !IsForwardShadingEnabled(ShaderPlatform))
 	{
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 

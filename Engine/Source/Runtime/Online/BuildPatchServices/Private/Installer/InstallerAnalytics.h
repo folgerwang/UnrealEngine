@@ -24,7 +24,7 @@ namespace BuildPatchServices
 		 *
 		 * @Trigger Fires for the first 20 chunk download errors that occur. Deprecated: Not recommended for use.
 		 *
-		 * @Type Static
+		 * @Type Client
 		 *
 		 * @EventParam ChunkURL     (string) The url used to request the chunk.
 		 * @EventParam ResponseCode (int32)  The HTTP response code received, or OS error code for file operation.
@@ -39,7 +39,7 @@ namespace BuildPatchServices
 		 *
 		 * @Trigger Fires for chunks that were aborted as deemed failing. This is a prediction that the chunk is suffering from 0-byte TCP window issue. Deprecated: Not recommended for use.
 		 *
-		 * @Type Static
+		 * @Type Client
 		 *
 		 * @EventParam ChunkURL      (string) The url used to request the chunk.
 		 * @EventParam ChunkTime     (double) The amount of time the chunk has been downloading for in seconds.
@@ -56,7 +56,7 @@ namespace BuildPatchServices
 		 *
 		 * @Trigger Fires for the first 20 chunks which experienced a cache error. Deprecated: Not recommended for use.
 		 *
-		 * @Type Static
+		 * @Type Client
 		 *
 		 * @EventParam ChunkGuid   (string) The guid of the effected chunk.
 		 * @EventParam Filename    (string) The filename used if appropriate, or -1.
@@ -73,7 +73,7 @@ namespace BuildPatchServices
 		 *
 		 * @Trigger Fires for the first 20 errors experienced while constructing an installation file. Deprecated: Not recommended for use.
 		 *
-		 * @Type Static
+		 * @Type Client
 		 *
 		 * @EventParam Filename    (string) The filename of the installation file.
 		 * @EventParam LastError   (int32)  The OS error code if appropriate, or -1.
@@ -88,7 +88,7 @@ namespace BuildPatchServices
 		 *
 		 * @Trigger Fires for errors experienced while installing prerequisites. Deprecated: Not recommended for use.
 		 *
-		 * @Type Static
+		 * @Type Client
 		 *
 		 * @EventParam AppName     (string) The app name for the installation that is running.
 		 * @EventParam AppVersion  (string) The app version for the installation that is running.

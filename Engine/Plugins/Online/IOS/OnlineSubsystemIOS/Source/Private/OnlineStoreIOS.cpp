@@ -12,13 +12,13 @@ FOnlineStoreIOS::FOnlineStoreIOS(FOnlineSubsystemIOS* InSubsystem)
 	, bIsQueryInFlight(false)
 	, Subsystem(InSubsystem)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreIOS::FOnlineStoreIOS" ));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT( "FOnlineStoreIOS::FOnlineStoreIOS" ));
 }
 
 FOnlineStoreIOS::FOnlineStoreIOS()
 	: bIsQueryInFlight(false)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreIOS::FOnlineStoreIOS" ));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT( "FOnlineStoreIOS::FOnlineStoreIOS" ));
 }
 
 void FOnlineStoreIOS::InitStoreKit(FStoreKitHelperV2* InStoreKit)
@@ -61,7 +61,7 @@ void FOnlineStoreIOS::QueryOffersByFilter(const FUniqueNetId& UserId, const FOnl
 
 void FOnlineStoreIOS::QueryOffersById(const FUniqueNetId& UserId, const TArray<FUniqueOfferId>& OfferIds, const FOnQueryOnlineStoreOffersComplete& Delegate)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreIOS::QueryOffersById"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreIOS::QueryOffersById"));
 	
 	if (bIsQueryInFlight)
 	{
@@ -154,7 +154,7 @@ void FOnlineStoreIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Respo
 		int32 NumInvalidProducts = [Response.invalidProductIdentifiers count];
 		if ([Response.products count] == 0 && NumInvalidProducts == 0)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Wrong number of products [%d] in the response when trying to make a single purchase"), [Response.products count]);
+			UE_LOG_ONLINE_STOREV2(Warning, TEXT("Wrong number of products [%d] in the response when trying to make a single purchase"), [Response.products count]);
 		}
 		
 		TArray<FUniqueOfferId> OfferIds;
@@ -165,7 +165,7 @@ void FOnlineStoreIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Respo
 			AddOffer(NewProductOffer);
 			OfferIds.Add(NewProductOffer.Offer->OfferId);
 			
-			UE_LOG(LogOnline, Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %d"),
+			UE_LOG_ONLINE_STOREV2(Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %d"),
 				   *NewProductOffer.Offer->OfferId,
 				   *NewProductOffer.Offer->Title.ToString(),
 				   *NewProductOffer.Offer->Description.ToString(),
@@ -176,7 +176,7 @@ void FOnlineStoreIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Respo
 		
 		for (NSString *invalidProduct in Response.invalidProductIdentifiers)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Problem in iTunes connect configuration for product: %s"), *FString(invalidProduct));
+			UE_LOG_ONLINE_STOREV2(Warning, TEXT("Problem in iTunes connect configuration for product: %s"), *FString(invalidProduct));
 		}
 		
 		CompletionDelegate.ExecuteIfBound(bWasSuccessful, OfferIds, TEXT(""));
@@ -186,17 +186,17 @@ void FOnlineStoreIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Respo
 
 void FOnlineStoreIOS::OnTransactionCompleteResponse(EPurchaseTransactionState Result, const FStoreKitTransactionData& TransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreIOS::OnTransactionCompleteResponse"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreIOS::OnTransactionCompleteResponse"));
 }
 
 void FOnlineStoreIOS::OnTransactionRestored(const FStoreKitTransactionData& TransactionData)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreIOS::OnTransactionRestored"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreIOS::OnTransactionRestored"));
 }
 
 void FOnlineStoreIOS::OnRestoreTransactionsComplete(EPurchaseTransactionState Result)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreIOS::OnRestoreTransactionsComplete"));	
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FOnlineStoreIOS::OnRestoreTransactionsComplete"));	
 }
 
 void FOnlineStoreIOS::GetOffers(TArray<FOnlineStoreOfferRef>& OutOffers) const

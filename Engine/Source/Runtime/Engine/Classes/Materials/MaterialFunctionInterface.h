@@ -189,6 +189,7 @@ public:
 		return false;
 	}
 
+#if WITH_EDITOR
 	/** Finds the first matching parameter's group name */
 	bool GetParameterGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup)
 	{
@@ -233,7 +234,6 @@ public:
 		return false;
 	}
 
-#if WITH_EDITOR
 	/** Finds the first matching parameter's group name */
 	bool GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority)
 	{

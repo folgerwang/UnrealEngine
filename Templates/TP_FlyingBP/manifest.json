@@ -11,8 +11,12 @@
 			"Text": "비행"
 		},
 		{
+			"Language": "zh-CN",
+			"Text": "飞行类游戏"
+		},
+		{
 			"Language": "ja",
-			"Text": "飛行"
+			"Text": "フライング"
 		}
 	],
 	"Description":
@@ -23,37 +27,31 @@
 		},
 		{
 			"Language": "ko",
-			"Text": "비행 팩은 뒤에 카메라가 위치한 스태틱 메시로 표현되는 비행선을 특징으로 합니다. 키보드, 콘트롤러, 가상 조이스틱으로 비행선의 핏치와 요 뿐만 아니라, 비행선의 전방 이동 속도를 제어할 수도 있습니다. 레벨에는 비행선의 이동을 막는 박스 덩어리가 여럿 채워져 있습니다."
+			"Text": "비행 템플릿은 뒤에 카메라가 위치한 스태틱 메시로 표현되는 비행선을 특징으로 합니다. 키보드, 컨트롤러, 가상 조이스틱으로 비행선의 피치와 요 뿐만 아니라, 비행선의 전방 이동 속도를 제어할 수도 있습니다. 레벨에는 비행선의 이동을 막는 박스 덩어리가 여럿 있습니다."
+		},
+		{
+			"Language": "zh-CN",
+			"Text": "飞行类游戏模板里拥有一艘宇宙飞船，摄像机位于飞船后方，由静态网格体呈现。键盘、手柄或触摸式设备上的虚拟摇杆可控制飞船的纵倾和航向，并提供了控制飞船前进速度的方法。关卡中还有一些立方体集群，可阻挡飞船的移动。"
 		},
 		{
 			"Language": "ja",
-			"Text": "The flying pack features a spaceship with the camera positioned behind the ship represented by a static mesh. The keyboard, controller or virtual joystick controls the pitch and yaw of the ship as well as providing a means to allow speed control of the ships forward movement. The level is populated with several clusters of boxes that block the movement of the ship."
+			"Text": "フライングテンプレートには、スタティックメッシュで表現された宇宙船の背後にカメラがあります。キーボード、コントローラー、バーチャルジョイスティックで宇宙船のピッチとヨーのコントロールと、前進時の速度の調整ができます。レベルには積まれた箱があり、宇宙船の移動を邪魔しています。"
 		}
+
 	],
 	"AssetTypes":
 	[
 		{
 			"Language": "en",
 			"Text": "Static Mesh"
-		},
-		{
-			"Language": "ko",
-			"Text": "스태틱 메시"
-		},
-		{
-			"Language": "ja",
-			"Text": "スタティックメッシュ"
 		}
+
 	],	
 	"SearchTags":
 	[
 		{
 			"Language": "en",
 			"Text": "Flying,Hover,UFO"
-		},
-		{
-			"Language": "ko",
-			"Text": "비행,호버,UFO"
 		}
 	],	
 	"ClassTypes": "GameMode, Pawn, StaticMeshComponent, SpringArmComponent, CameraComponent, InputComponent, PrimitiveComponent",

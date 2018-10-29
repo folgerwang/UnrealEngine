@@ -51,6 +51,7 @@ public class OSVR : ModuleRules
     				        });
 
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
         }
     }
 }

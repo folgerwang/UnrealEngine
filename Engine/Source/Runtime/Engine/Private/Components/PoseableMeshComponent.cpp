@@ -11,6 +11,7 @@
 
 UPoseableMeshComponent::UPoseableMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bNeedsRefreshTransform (false)
 {
 
 }
@@ -69,6 +70,8 @@ void UPoseableMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* 
 	UpdateBounds();
 	MarkRenderTransformDirty();
 	MarkRenderDynamicDataDirty();
+
+	bNeedsRefreshTransform = false;
 }
 
 void UPoseableMeshComponent::FillComponentSpaceTransforms()
@@ -156,8 +159,7 @@ void UPoseableMeshComponent::SetBoneTransformByName(FName BoneName, const FTrans
 				BoneSpaceTransforms[BoneIndex].SetToRelativeTransform(CSPose.GetComponentSpaceTransform(ParentIndex));
 			}
 
-			// Need to send new state to render thread
-			RefreshBoneTransforms();
+			MarkRefreshTransformDirty();
 		}
 	}
 }
@@ -308,6 +310,18 @@ void UPoseableMeshComponent::CopyPoseFromSkeletalComponent(const USkeletalMeshCo
 				}
 			}
 		}
-		RefreshBoneTransforms();
+
+		MarkRefreshTransformDirty();
 	}
+}
+
+bool UPoseableMeshComponent::ShouldUpdateTransform(bool bLODHasChanged) const
+{
+	// we don't always update transform - each function when they changed will update
+	return Super::ShouldUpdateTransform(bLODHasChanged) && bNeedsRefreshTransform;
+}
+
+void UPoseableMeshComponent::MarkRefreshTransformDirty()
+{
+	bNeedsRefreshTransform = true;
 }

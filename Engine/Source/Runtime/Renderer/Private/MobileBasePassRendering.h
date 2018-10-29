@@ -243,10 +243,13 @@ public:
 		{
 			// MobileSkyReflectionValues.x == max sky cube mip.
 			// if >0 this will disable shader's RGBM decoding and enable sky light tinting of this envmap.
-			FTexture* ReflectionTexture;
+			FTexture* ReflectionTexture = GBlackTextureCube;
 			float AverageBrightness = 1.0f;
 			FVector4 MobileSkyReflectionValues(ForceInit);
-			GetSkyTextureParams(RenderScene, AverageBrightness, ReflectionTexture, MobileSkyReflectionValues.X);
+			if (View->GetFeatureLevel() > ERHIFeatureLevel::ES2) // not-supported on ES2 at the moment
+			{
+				GetSkyTextureParams(RenderScene, AverageBrightness, ReflectionTexture, MobileSkyReflectionValues.X);
+			}
 			FRHIPixelShader* PixelShader = GetPixelShader();
 			// Set the reflection cubemap
 			SetTextureParameter(RHICmdList, PixelShader, ReflectionCubemap, ReflectionSampler, ReflectionTexture);
@@ -443,6 +446,18 @@ public:
 	TMobileBasePassPSBaseType() {}
 };
 
+inline bool UseSkylightPermutation(bool bEnableSkyLight, int32 MobileSkyLightPermutationOptions)
+{
+	if (bEnableSkyLight)
+	{
+		return MobileSkyLightPermutationOptions == 0 || MobileSkyLightPermutationOptions == 2;
+	}
+	else
+	{
+		return MobileSkyLightPermutationOptions == 0 || MobileSkyLightPermutationOptions == 1;
+	}
+}
+
 template< typename LightMapPolicyType, EOutputFormat OutputFormat, bool bEnableSkyLight, int32 NumMovablePointLights>
 class TMobileBasePassPS : public TMobileBasePassPSBaseType<LightMapPolicyType>
 {
@@ -454,13 +469,20 @@ public:
 		// We compile the point light shader combinations based on the project settings
 		static auto* MobileDynamicPointLightsUseStaticBranchCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileDynamicPointLightsUseStaticBranch"));
 		static auto* MobileNumDynamicPointLightsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
+		static auto* MobileSkyLightPermutationCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.SkyLightPermutation"));
 		const bool bMobileDynamicPointLightsUseStaticBranch = (MobileDynamicPointLightsUseStaticBranchCVar->GetValueOnAnyThread() == 1);
 		const int32 MobileNumDynamicPointLights = MobileNumDynamicPointLightsCVar->GetValueOnAnyThread();
+		const int32 MobileSkyLightPermutationOptions = MobileSkyLightPermutationCVar->GetValueOnAnyThread();
 		const bool bIsUnlit = Material->GetShadingModel() == MSM_Unlit;
-
 
 		// Only compile skylight version for lit materials on ES2 (Metal) or higher
 		const bool bShouldCacheBySkylight = !bEnableSkyLight || !bIsUnlit;
+
+		// Only compile skylight permutations when they are enabled
+		if (!bIsUnlit && !UseSkylightPermutation(bEnableSkyLight, MobileSkyLightPermutationOptions))
+		{
+			return false;
+		}
 
 		const bool bShouldCacheByNumDynamicPointLights =
 			(NumMovablePointLights == 0 ||
@@ -686,7 +708,7 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(nullptr, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		FMeshDrawingPolicy(nullptr, nullptr, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
 		VertexDeclaration(InVertexFactory->GetDeclaration()),
 		LightMapPolicy(InLightMapPolicy),
 		NumMovablePointLights(InNumMovablePointLights),
@@ -699,7 +721,14 @@ public:
 		{
 			ImmutableSamplerState = InMaterialRenderProxy->ImmutableSamplerState;
 		}
-
+		
+		// use only existing sky-light permutation
+		bool bIsLit = (InMaterialResource.GetShadingModel() != MSM_Unlit);
+		if (bIsLit && !UseSkylightPermutation(bInEnableSkyLight, FReadOnlyCVARCache::Get().MobileSkyLightPermutation))	
+		{
+			bInEnableSkyLight = !bInEnableSkyLight;
+		}
+		
 		switch (NumMovablePointLights)
 		{
 		case INT32_MAX:
@@ -793,6 +822,11 @@ public:
 	uint32 GetTypeHash() const
 	{
 		return PointerHash(VertexDeclaration, PointerHash(MaterialResource));
+	}
+
+	const FMaterialRenderProxy* GetPipelineMaterialRenderProxy(const FMaterialRenderProxy* ElementMaterialRenderProxy)
+	{
+		return ElementMaterialRenderProxy;
 	}
 
 	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)

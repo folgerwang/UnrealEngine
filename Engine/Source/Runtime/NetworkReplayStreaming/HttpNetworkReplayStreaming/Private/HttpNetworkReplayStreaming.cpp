@@ -989,7 +989,7 @@ void FHttpNetworkReplayStreamer::FlushCheckpointInternal( uint32 TimeInMS )
 
 		HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpUploadCheckpointFinished);
 
-		HttpRequest->SetURL(FString::Printf(TEXT("%sreplay/%s/event?group=checkpoint&time1=%i&time2=%i&meta=%i&incrementSize=false"), *ServerURL, *SessionName, TimeInMS, TimeInMS, StreamChunkIndex));
+		HttpRequest->SetURL(FString::Printf(TEXT("%sreplay/%s/event?group=checkpoint&time1=%i&time2=%i&meta=%i&incrementSize=false"), *ServerURL, *SessionName, StreamTimeRangeEnd, StreamTimeRangeEnd, StreamChunkIndex));
 		HttpRequest->SetVerb(TEXT("POST"));
 		HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
 
@@ -2146,6 +2146,8 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 
 		// Set the next chunk to be right after this checkpoint (which was stored in the metadata)
 		StreamChunkIndex = FCString::Atoi( *CheckpointList.ReplayEvents[ DownloadCheckpointIndex ].Metadata );
+
+		LastChunkTime = 0;		// Force the next chunk to start downloading immediately
 
 		// If we want to fast forward past the end of a stream, clamp to the checkpoint
 		if ( LastGotoTimeInMS >= 0 && StreamChunkIndex >= NumTotalStreamChunks )

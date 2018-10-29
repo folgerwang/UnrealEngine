@@ -30,6 +30,11 @@ class UCurveTable
 {
 	GENERATED_UCLASS_BODY()
 
+	DECLARE_MULTICAST_DELEGATE(FOnCurveTableChanged);
+
+	virtual const TMap<FName, FRichCurve*>& GetRowMap() const { return RowMap; }
+	virtual const TMap<FName, FRichCurve*>& GetRowMap() { return RowMap; }
+
 	/** Map of name of row to row data structure. */
 	TMap<FName, FRichCurve*>	RowMap;
 
@@ -48,7 +53,7 @@ class UCurveTable
 	/** The filename imported to create this object. Relative to this object's package, BaseDir() or absolute */
 	UPROPERTY()
 	FString ImportPath_DEPRECATED;
-	
+
 #endif	// WITH_EDITORONLY_DATA
 
 	//~ End  UObject Interface
@@ -66,6 +71,9 @@ class UCurveTable
 		return RepointCurveOwnerAsset(InPackageReloadedEvent, this, OutNewCurveOwner);
 	}
 	//~ End FCurveOwnerInterface Interface.
+
+	/** Gets a multicast delegate that is called any time the curve table changes. */
+	FOnCurveTableChanged& OnCurveTableChanged() { return OnCurveTableChangedDelegate; }
 
 	//~ Begin UCurveTable Interface
 
@@ -126,7 +134,7 @@ class UCurveTable
 	ENGINE_API TArray<FString> CreateTableFromOtherTable(const UCurveTable* InTable);
 
 	/** Empty the table info (will not clear RowCurve) */
-	ENGINE_API void EmptyTable();
+	ENGINE_API virtual void EmptyTable();
 
 	ENGINE_API static void InvalidateAllCachedCurves();
 
@@ -135,7 +143,12 @@ class UCurveTable
 		return GlobalCachedCurveID;
 	}
 
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
+
 protected:
+
 	/** Util that removes invalid chars and then make an FName
 	 * @param InString The string to create a valid name from
 	 * @return A valid name from InString
@@ -143,6 +156,11 @@ protected:
 	static FName MakeValidName(const FString& InString);
 
 	static int32 GlobalCachedCurveID;
+
+private:
+
+	/** A multicast delegate that is called any time the curve table changes. */
+	FOnCurveTableChanged OnCurveTableChangedDelegate;
 };
 
 

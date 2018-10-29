@@ -582,6 +582,9 @@ public:
 	 */
 	void Flush(UWorld* WorldToFlush, bool bClearActivatedReverb = true);
 
+	/** Allows audio rendering command queue to flush during audio device flush. */
+	virtual void FlushAudioRenderingCommands() {}
+
 	/**
 	 * Stop any playing sounds that are using a particular SoundWave
 	 *
@@ -747,6 +750,9 @@ public:
 	* Pauses the active sound for the specified audio component
 	*/
 	void PauseActiveSound(uint64 AudioComponentID, const bool bInIsPaused);
+
+	/** Notify that a pending async occlusion trace finished on the active sound. */
+	void NotifyActiveSoundOcclusionTraceDone(FActiveSound* ActiveSound, bool bIsOccluded);
 
 	/**
 	* Finds the active sound for the specified audio component ID
@@ -1343,6 +1349,16 @@ public:
 		return Effects;
 	}
 
+	TMap<USoundMix *, FSoundMixState> GetSoundMixModifiers()
+	{
+		return SoundMixModifiers;
+	}
+
+	void SetSoundMixModifiers(TMap<USoundMix *, FSoundMixState>& InSoundMixModifiers)
+	{
+		SoundMixModifiers = InSoundMixModifiers;
+	}
+
 private:
 	/**
 	 * Internal helper function used by ParseSoundClasses to traverse the tree.
@@ -1407,7 +1423,7 @@ public:
 	float GetGameDeltaTime() const;
 
 	/** Sets the update delta time for the audio frame */
-	void UpdateDeviceDeltaTime()
+	virtual void UpdateDeviceDeltaTime()
 	{
 		const double CurrTime = FPlatformTime::Seconds();
 		DeviceDeltaTime = CurrTime - LastUpdateTime;
@@ -1681,6 +1697,11 @@ protected:
 	/** Whether or not we allow center channel panning (audio mixer only feature.) */
 	uint8 bAllowCenterChannel3DPanning : 1;
 
+	float DeviceDeltaTime;
+
+	/** Whether the device was initialized. */
+	FORCEINLINE bool IsInitialized() const { return bIsInitialized; }
+
 private:
 
 	/** Whether the value in HighestPriorityActivatedReverb should be used - Audio Thread owned */
@@ -1697,7 +1718,7 @@ private:
 	FAudioStats AudioStats;
 #endif
 	/** The audio thread update delta time for this audio thread update tick. */
-	float DeviceDeltaTime;
+	
 
 	TArray<FActiveSound*> ActiveSounds;
 	/** Array of sound waves to add references to avoid GC until gauranteed to be done with precache or decodes. */

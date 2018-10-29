@@ -126,7 +126,7 @@ namespace DetailedCookStats
 						{
 							StatAttrs.Emplace(Attr.Key, Attr.Value);
 						}
-						CookAnalytics->RecordEvent(StatName, StatAttrs);
+						CookAnalytics->RecordEvent(StatName, MoveTemp(StatAttrs));
 					};
 					FCookStatsManager::LogCookStats(SendCookStatsToAnalytics);
 				}
@@ -515,6 +515,8 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 			}
 
 			CookOnTheFlyGCController.ConditionallyCollectGarbage(CookOnTheFlyServer);
+
+			CookOnTheFlyServer->WaitForRequests(100 /* timeoutMs */);
 		}
 	}
 

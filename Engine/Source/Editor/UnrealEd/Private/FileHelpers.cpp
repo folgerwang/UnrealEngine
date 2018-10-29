@@ -2482,21 +2482,14 @@ bool FEditorFileUtils::SaveMap(UWorld* InWorld, const FString& Filename )
 	// Disallow the save if in interpolation editing mode and the user doesn't want to exit interpolation mode.
 	if ( !InInterpEditMode() )
 	{
-		double SaveStartTime = FPlatformTime::Seconds();
+		const double SaveStartTime = FPlatformTime::Seconds();
 
-		// Only save the world if GEditor is null, the Persistent Level is not using Externally referenced objects or the user wants to continue regardless
-		if ( !GEditor || 
-			!GEditor->PackageUsingExternalObjects(InWorld->PersistentLevel) || 
-			EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, EAppReturnType::No, NSLOCTEXT("UnrealEd", "Warning_UsingExternalPackage", "This map is using externally referenced packages which won't be found when in a game and all references will be broken. Perform a map check for more details.\n\nWould you like to continue?")) 
-			)
-		{
-			FString FinalFilename;
-			bLevelWasSaved = SaveWorld( InWorld, &Filename,
-										NULL, NULL,
-										true, false,
-										FinalFilename,
-										false, false );
-		}
+		FString FinalFilename;
+		bLevelWasSaved = SaveWorld( InWorld, &Filename,
+									nullptr, nullptr,
+									true, false,
+									FinalFilename,
+									false, false );
 
 		// Track time spent saving map.
 		UE_LOG(LogFileHelpers, Log, TEXT("Saving map '%s' took %.3f"), *FPaths::GetBaseFilename(Filename), FPlatformTime::Seconds() - SaveStartTime );
@@ -2626,15 +2619,34 @@ EAutosaveContentPackagesResult::Type FEditorFileUtils::AutosaveContentPackagesEx
 		// If the package is dirty and is not the transient package, we'd like to autosave it
 		if ( CurPackage && ( CurPackage != TransientPackage ) && CurPackage->IsDirty() && (bForceIfNotInList || DirtyPackagesForAutoSave.Contains(CurPackage)) )
 		{
-			UWorld* MapWorld = UWorld::FindWorldInPackage(CurPackage);
+			bool bSkipPackage = false;
+			TArray<UObject*> ObjectsInPackage;
+			GetObjectsWithOuter(CurPackage, ObjectsInPackage, false);
+			for (auto ObjIt = ObjectsInPackage.CreateConstIterator(); ObjIt; ++ObjIt)
+			{
+				// Also, make sure this is not a map package
+				if (Cast<UWorld>(*ObjIt))
+				{
+					bSkipPackage = true;
+					break;
+				}
+				else if (Cast<UMapBuildDataRegistry>(*ObjIt))
+				{
+					// Do not auto save generated map build data packages
+					bSkipPackage = true;
+					break;
+				}
+			}
 
-			// Also, make sure this is not a map package
-			const bool bIsMapPackage = MapWorld != NULL;
+			if (bSkipPackage)
+			{
+				continue;
+			}
 
 			// Ignore packages with long, invalid names. This culls out packages with paths in read-only roots such as /Temp.
 			const bool bInvalidLongPackageName = !FPackageName::IsShortPackageName(CurPackage->GetFName()) && !FPackageName::IsValidLongPackageName(CurPackage->GetName(), /*bIncludeReadOnlyRoots=*/false);
 				
-			if ( !bIsMapPackage && !bInvalidLongPackageName )
+			if ( !bInvalidLongPackageName )
 			{
 				PackagesToSave.Add(CurPackage);
 			}
@@ -4067,26 +4079,6 @@ UWorld* UEditorLoadingAndSavingUtils::LoadMapWithDialog()
 	return GEditor->GetEditorWorldContext().World();
 }
 
-static bool InternalCheckForReferencesToExternalPackages(const TArray<UPackage*>& PackagesToSave)
-{
-	TArray<UPackage*> PackagesWithExternalRefs;
-	if (UPackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
-	{
-		FString PackageNames;
-		for (UPackage* Package : PackagesWithExternalRefs)
-		{
-			PackageNames += FString::Printf(TEXT("%s\n"), *Package->GetName());
-		}
-
-		bool bProceed = EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, EAppReturnType::No, FText::Format(NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"), FText::FromString(PackageNames)));
-		if (!bProceed)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
 static bool InternalCheckoutAndSavePackages(const TArray<UPackage*>& PackagesToSave, bool bUseDialog)
 {
 	bool bResult = true;
@@ -4094,10 +4086,6 @@ static bool InternalCheckoutAndSavePackages(const TArray<UPackage*>& PackagesToS
 	{
 		if (bUseDialog)
 		{
-			if (!InternalCheckForReferencesToExternalPackages(PackagesToSave))
-			{
-				return false;
-			}
 			const bool bPromptUserToSave = true;
 			const bool bFastSave = false;
 			const bool bCanBeDeclined = true;
@@ -4108,11 +4096,6 @@ static bool InternalCheckoutAndSavePackages(const TArray<UPackage*>& PackagesToS
 			const FScopedBusyCursor BusyCursor;
 			// Prevent modal window if not requested.
 			TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
-
-			if (!InternalCheckForReferencesToExternalPackages(PackagesToSave))
-			{
-				return false;
-			}
 
 			const bool bErrorIfAlreadyCheckedOut = false;
 			const bool bShowDialogIfFailure = false;

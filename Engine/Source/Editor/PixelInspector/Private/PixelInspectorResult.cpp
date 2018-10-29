@@ -35,7 +35,7 @@ namespace PixelInspector
 			SceneColor = FLinearColor::Black;
 			return;
 		}
-		SceneColor = BufferSceneColorValue[0];
+		SceneColor = BufferSceneColorValue[0] * OneOverPreExposure;
 		//Set the alpha to 1.0 as the default value
 		SceneColor.A = 1.0f;
 	}
@@ -57,8 +57,8 @@ namespace PixelInspector
 			HdrColor = FLinearColor::Black;
 			return;
 		}
-		HdrLuminance = BufferHDRValue[0].GetLuminance();
-		HdrColor = BufferHDRValue[0];
+		HdrLuminance = BufferHDRValue[0].GetLuminance() * OneOverPreExposure;
+		HdrColor = BufferHDRValue[0] * OneOverPreExposure;
 	}
 
 	void PixelInspectorResult::DecodeBufferData(TArray<FColor> &BufferAValue, TArray<FColor> &BufferBCDEValue, bool AllowStaticLighting)

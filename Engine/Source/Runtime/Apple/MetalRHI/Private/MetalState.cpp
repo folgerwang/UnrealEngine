@@ -6,7 +6,6 @@
 
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
-#include "ShaderCache.h"
 
 static uint32 GetMetalMaxAnisotropy(ESamplerFilter Filter, uint32 MaxAniso)
 {
@@ -304,12 +303,11 @@ private:
 	FRWLock Mutex;
 };
 
-static FMetalStateObjectCache<FSamplerStateInitializerRHI, mtlpp::SamplerState> Samplers;
+static FMetalStateObjectCache<FSamplerStateInitializerRHI, FMetalSampler> Samplers;
 
-FMetalSamplerState::FMetalSamplerState(mtlpp::Device Device, const FSamplerStateInitializerRHI& Initializer)
+static FMetalSampler FindOrCreateSamplerState(mtlpp::Device Device, const FSamplerStateInitializerRHI& Initializer)
 {
-	State = Samplers.Find(Initializer);
-	
+	FMetalSampler State = Samplers.Find(Initializer);
 	if (!State.GetPtr())
 	{
 		mtlpp::SamplerDescriptor Desc;
@@ -352,6 +350,20 @@ FMetalSamplerState::FMetalSamplerState(mtlpp::Device Device, const FSamplerState
 		
 		Samplers.Add(Initializer, State);
 	}
+	return State;
+}
+
+FMetalSamplerState::FMetalSamplerState(mtlpp::Device Device, const FSamplerStateInitializerRHI& Initializer)
+{
+	State = FindOrCreateSamplerState(Device, Initializer);
+#if !PLATFORM_MAC
+	if (GetMetalMaxAnisotropy(Initializer.Filter, Initializer.MaxAnisotropy))
+	{
+		FSamplerStateInitializerRHI Init = Initializer;
+		Init.MaxAnisotropy = 1;
+		NoAnisoState = FindOrCreateSamplerState(Device, Init);
+	}
+#endif
 }
 
 FMetalSamplerState::~FMetalSamplerState()
@@ -558,26 +570,21 @@ bool FMetalBlendState::GetInitializer(FBlendStateInitializerRHI& Initializer)
 FSamplerStateRHIRef FMetalDynamicRHI::RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer)
 {
     @autoreleasepool {
-	FSamplerStateRHIRef State = new FMetalSamplerState(ImmediateContext.Context->GetDevice(), Initializer);
-	return State;
+	return new FMetalSamplerState(ImmediateContext.Context->GetDevice(), Initializer);
 	}
 }
 
 FRasterizerStateRHIRef FMetalDynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
 {
 	@autoreleasepool {
-    FRasterizerStateRHIRef State = new FMetalRasterizerState(Initializer);
-	FShaderCache::LogRasterizerState(ImmediateContext.Context->GetCurrentState().GetShaderCacheStateObject(), Initializer, State);
-	return State;
+    return new FMetalRasterizerState(Initializer);
 	}
 }
 
 FDepthStencilStateRHIRef FMetalDynamicRHI::RHICreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer)
 {
 	@autoreleasepool {
-	FDepthStencilStateRHIRef State = new FMetalDepthStencilState(ImmediateContext.Context->GetDevice(), Initializer);
-	FShaderCache::LogDepthStencilState(ImmediateContext.Context->GetCurrentState().GetShaderCacheStateObject(),Initializer, State);
-	return State;
+	return new FMetalDepthStencilState(ImmediateContext.Context->GetDevice(), Initializer);
 	}
 }
 
@@ -585,9 +592,7 @@ FDepthStencilStateRHIRef FMetalDynamicRHI::RHICreateDepthStencilState(const FDep
 FBlendStateRHIRef FMetalDynamicRHI::RHICreateBlendState(const FBlendStateInitializerRHI& Initializer)
 {
 	@autoreleasepool {
-	FBlendStateRHIRef State = new FMetalBlendState(Initializer);
-	FShaderCache::LogBlendState(ImmediateContext.Context->GetCurrentState().GetShaderCacheStateObject(), Initializer, State);
-	return State;
+	return new FMetalBlendState(Initializer);
 	}
 }
 

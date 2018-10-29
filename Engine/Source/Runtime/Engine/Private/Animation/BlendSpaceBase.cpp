@@ -25,6 +25,9 @@ UBlendSpaceBase::UBlendSpaceBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	SampleIndexWithMarkers = INDEX_NONE;
+
+	/** Use highest weighted animation as default */
+	NotifyTriggerMode = ENotifyTriggerMode::HighestWeightedAnimation;
 }
 
 void UBlendSpaceBase::PostLoad()

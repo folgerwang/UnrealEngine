@@ -93,6 +93,10 @@ typedef NS_OPTIONS(uint64, EMetalFeatures)
 	EMetalFeaturesBufferSubAllocation = 1llu << 36llu,
 	/** Supports private buffer sub-allocation */
 	EMetalFeaturesPrivateBufferSubAllocation = 1llu << 37llu,
+	/** Supports texture buffers */
+	EMetalFeaturesTextureBuffers = 1llu << 38llu,
+	/** Supports max. compute threads per threadgroup */
+	EMetalFeaturesMaxThreadsPerThreadgroup = 1llu << 39llu,
 };
 
 /**

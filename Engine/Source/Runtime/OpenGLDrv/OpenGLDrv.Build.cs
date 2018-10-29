@@ -17,7 +17,8 @@ public class OpenGLDrv : ModuleRules
 				"RHI",
 				"RenderCore",
 				"ShaderCore",
-				"UtilityShaders"
+				"UtilityShaders",
+				"PreLoadScreen"
 			}
 			);
 

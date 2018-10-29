@@ -17,9 +17,9 @@
 
 // Forward declarations
 class FBuildPatchAppManifest;
-struct FChunkPart;
 namespace BuildPatchServices
 {
+	struct FChunkPart;
 	class IFileSystem;
 	class IChunkSource;
 	class IChunkReferenceTracker;

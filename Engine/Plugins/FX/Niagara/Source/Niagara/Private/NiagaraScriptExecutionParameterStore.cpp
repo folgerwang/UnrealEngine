@@ -7,7 +7,7 @@
 #include "NiagaraSystemInstance.h"
 
 FNiagaraScriptExecutionParameterStore::FNiagaraScriptExecutionParameterStore()
-	: FNiagaraParameterStore(), bInitialized(false)
+	: FNiagaraParameterStore(), ParameterSize(0), PaddedParameterSize(0), bInitialized(false)
 {
 
 }

@@ -15,6 +15,7 @@
 #include "Common/HttpManager.h"
 #include "Common/FileSystem.h"
 #include "Common/SpeedRecorder.h"
+#include "Common/ChunkDataSizeProvider.h"
 #include "Generation/ChunkDatabaseWriter.h"
 #include "Installer/ChunkReferenceTracker.h"
 #include "Installer/ChunkEvictionPolicy.h"
@@ -290,10 +291,12 @@ bool FBuildPackageChunkData::PackageChunkData(const FString& ManifestFilePath, c
 				TSet<FGuid>(),
 				FileOperationTracker.Get()));
 			TUniquePtr<ISpeedRecorder> DownloadSpeedRecorder(FSpeedRecorderFactory::Create());
+			TUniquePtr<IChunkDataSizeProvider> ChunkDataSizeProvider(FChunkDataSizeProviderFactory::Create());
+			ChunkDataSizeProvider->AddManifestData(Manifest.Get());
 			TUniquePtr<IDownloadServiceStatistics> DownloadServiceStatistics(FDownloadServiceStatisticsFactory::Create(
 				DownloadSpeedRecorder.Get(),
-				InstallerAnalytics.Get(),
-				Manifest.Get()));
+				ChunkDataSizeProvider.Get(),
+				InstallerAnalytics.Get()));
 			TUniquePtr<ICloudChunkSourceStatistics> CloudChunkSourceStatistics(FCloudChunkSourceStatisticsFactory::Create(
 				InstallerAnalytics.Get(),
 				&BuildProgress,

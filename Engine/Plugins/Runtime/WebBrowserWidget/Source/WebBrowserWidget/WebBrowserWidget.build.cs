@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -37,7 +37,7 @@ namespace UnrealBuildTool.Rules
                 );
             }
 			
-			if (Target.bBuildEditor || Target.Platform == UnrealTargetPlatform.Android)
+			if (Target.bBuildEditor || Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.IOS)
 			{
                 // WebBrowserTexture required for cooking Android
                 PrivateIncludePathModuleNames.AddRange(

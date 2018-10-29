@@ -38,7 +38,7 @@ public:
 		return Parent->LowLevelDescribe();
 	}
 
-	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override
+	virtual void LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits) override
 	{
 	}
 

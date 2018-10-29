@@ -147,7 +147,6 @@ UPathFollowingComponent::UPathFollowingComponent(const FObjectInitializer& Objec
 	CachedBrakingMaxSpeed = 0.0f;
 	DecelerationSegmentIndex = INDEX_NONE;
 
-	bStopOnOverlap = true;
 	bReachTestIncludesAgentRadius = true;
 	bReachTestIncludesGoalRadius = true;
 	bMoveToGoalOnLastSegment = true;
@@ -394,7 +393,7 @@ FAIRequestID UPathFollowingComponent::RequestMove(const FAIMoveRequest& RequestD
 		if (CurrentRequestId == MoveId)
 		{
 			AcceptanceRadius = UseAcceptanceRadius;
-			bStopOnOverlap = bReachTestIncludesAgentRadius = RequestData.IsReachTestIncludingAgentRadius();
+			bReachTestIncludesAgentRadius = RequestData.IsReachTestIncludingAgentRadius();
 			bReachTestIncludesGoalRadius = RequestData.IsReachTestIncludingGoalRadius();
 			GameData = RequestData.GetUserData();
 			SetDestinationActor(RequestData.GetGoalActor());
@@ -743,7 +742,6 @@ void UPathFollowingComponent::Reset()
 	DestinationActor.Reset();
 	CurrentDestination.Clear();
 	AcceptanceRadius = MyDefaultAcceptanceRadius;
-	bStopOnOverlap = true;
 	bReachTestIncludesAgentRadius = true;
 	bReachTestIncludesGoalRadius = true;
 	bCollidedWithGoal = false;

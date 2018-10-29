@@ -100,6 +100,7 @@ enum ESaveFlags
 	SAVE_Concurrent		= 0x00000100,	// We are save packages in multiple threads at once and should not call non-threadsafe functions or rely on globals. GIsSavingPackage should be set and PreSave/Postsave functions should be called before/after the entire concurrent save.
 	SAVE_DiffOnly       = 0x00000200, // Serializes the package to a special memory archive that performs a diff with an existing file on disk
 	SAVE_DiffCallstack  = 0x00000400, // Serializes the package to a special memory archive that compares all differences against a file on disk and dumps relevant callstacks
+	SAVE_ComputeHash    = 0x00000800, // Compute the MD5 hash of the cooked data
 };
 
 //
@@ -212,8 +213,8 @@ enum EClassFlags
 	/** all properties and functions in this class are const and should be exported as const */
 	CLASS_Const			      = 0x00010000u,
 
-	/** */
-	//CLASS_ = 0x00020000u,
+	/** Class flag indicating the class is having its layout changed, and therefore is not ready for a CDO to be created */
+	CLASS_LayoutChanging	  = 0x00020000u,
 	
 	/** Indicates that the class was created from blueprint source material */
 	CLASS_CompiledFromBlueprint  = 0x00040000u,
@@ -1064,7 +1065,7 @@ namespace UM
 		HiddenByDefault,
 	};
 
-	// Metadata usable in UPROPERTY for customizing the behavior when displaying the property in a property panel
+	// Metadata usable in UPROPERTY
 	enum
 	{
 		/// [PropertyMetadata] Used for Subclass and SoftClass properties.  Indicates whether abstract class types should be shown in the class picker.
@@ -1075,6 +1076,9 @@ namespace UM
 
 		/// [PropertyMetadata] Used for FVector properties.  It causes a ratio lock to be added when displaying this property in details panels.
 		AllowPreserveRatio,
+
+		/// [PropertyMetadata] Indicates that a private member marked as BluperintReadOnly or BlueprintReadWrite should be accessible from blueprints
+		AllowPrivateAccess,
 
 		/// [PropertyMetadata] Used for integer properties.  Clamps the valid values that can be entered in the UI to be between 0 and the length of the array specified.
 		ArrayClamp,
@@ -1112,8 +1116,12 @@ namespace UM
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		//ScriptName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 
-		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
-		ScriptNoExport,
+		/// [PropertyMetadata] Indicates that the property should be displayed immediately after the property named in the metadata.
+		DisplayAfter,
+
+		/// [PropertyMetadata] The relative order within its category that the property should be displayed in where lower values are sorted first..
+		/// If used in conjunction with DisplayAfter, specifies the priority relative to other properties with same DisplayAfter specifier.
+		DisplayPriority,
 
 		/// [PropertyMetadata] Indicates that the property is an asset type and it should display the thumbnail of the selected asset.
 		DisplayThumbnail,	
@@ -1144,6 +1152,9 @@ namespace UM
 
 		/// [PropertyMetadata] Used for Subclass and SoftClass properties. Specifies to hide the ability to change view options in the class picker
 		HideViewOptions,
+
+		/// [PropertyMetadata] Used for bypassing property initialization tests when the property cannot be safely tested in a deterministic fashion. Example: random numbers, guids, etc.
+		IgnoreForMemberInitializationTest,
 
 		/// [PropertyMetadata] Signifies that the bool property is only displayed inline as an edit condition toggle in other properties, and should not be shown on its own row.
 		InlineEditConditionToggle,
@@ -1190,6 +1201,9 @@ namespace UM
 		/// [PropertyMetadata] Used by FDirectoryPath properties. Indicates that the directory dialog will output a path relative to the game content directory when setting the property.
 		RelativeToGameContentDir,
 
+		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
+		ScriptNoExport,
+
 		/// [PropertyMetadata] Used by struct properties. Indicates that the inner properties will not be shown inside an expandable struct, but promoted up a level.
 		ShowOnlyInnerProperties,
 
@@ -1199,11 +1213,17 @@ namespace UM
 		/// [PropertyMetadata] Used by numeric properties. Indicates how rapidly the value will grow when moving an unbounded slider.
 		SliderExponent,
 
+		/// [PropertyMetadata] Used by arrays of structs. Indicates a single property inside of the struct that should be used as a title summary when the array entry is collapsed.
+		TitleProperty,
+
 		/// [PropertyMetadata] Used for float and integer properties.  Specifies the lowest that the value slider should represent.
 		UIMin,
 
 		/// [PropertyMetadata] Used for float and integer properties.  Specifies the highest that the value slider should represent.
 		UIMax,
+
+		/// [PropertyMetadata] Used for SoftObjectPtr/SoftObjectPath properties to specify a reference should not be tracked. This reference will not be automatically cooked or saved into the asset registry for redirector/delete fixup.
+		Untracked,
 	};
 
 	// Metadata usable in UPROPERTY for customizing the behavior of Persona and UMG

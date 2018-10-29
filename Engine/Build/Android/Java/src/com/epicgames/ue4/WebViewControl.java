@@ -41,6 +41,7 @@ import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.SystemClock;
 import android.view.MotionEvent;
+import android.os.Message;
 
 
 
@@ -106,9 +107,9 @@ class WebViewControl
 			public void run()
 			{
 				// enable remote debugging if requested and supported by the current platform
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && bEnableRemoteDebugging)
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
 				{
-					WebView.setWebContentsDebuggingEnabled(true);
+					WebView.setWebContentsDebuggingEnabled(bEnableRemoteDebugging && !GameActivity._activity.nativeIsShippingBuild());
 				}
 				
 				// create the WebView
@@ -116,6 +117,7 @@ class WebViewControl
 				webView.setWebViewClient(new ViewClient());
 				webView.setWebChromeClient(new ChromeClient());
 				webView.getSettings().setJavaScriptEnabled(true);
+				webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
 				webView.getSettings().setAppCacheMaxSize( 10 * 1024 * 1024 );
 				webView.getSettings().setAppCachePath(GameActivity._activity.getApplicationContext().getCacheDir().getAbsolutePath() );
 				webView.getSettings().setAllowFileAccess( true );
@@ -123,6 +125,7 @@ class WebViewControl
 				webView.getSettings().setAllowContentAccess( true );
 				webView.getSettings().setAllowFileAccessFromFileURLs(true);
 				webView.getSettings().setAllowUniversalAccessFromFileURLs(true);
+				webView.getSettings().setSupportMultipleWindows(true);
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
 				{
 					webView.getSettings().setMixedContentMode(0); // 0 = MIXED_CONTENT_ALWAYS_ALLOW
@@ -168,6 +171,20 @@ class WebViewControl
 		});
 	}
 
+	boolean PendingSetVisibility;
+	public void SetVisibility(boolean InIsVisible)
+	{
+		PendingSetVisibility = InIsVisible;
+		GameActivity._activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				webView.setVisibility(PendingSetVisibility? View.VISIBLE: View.GONE);
+			}
+		});
+	}
+	
 	public boolean didResolutionChange()
 	{
 		if (null != mOESTextureRenderer)
@@ -326,7 +343,37 @@ class WebViewControl
 						else
 						if(NextURL != null)
 						{
-							if(!NextURL.contains("://") && !NextURL.startsWith("about:"))
+
+							int colPos = NextURL.indexOf(':');
+
+							boolean bNeedsPrefix = colPos < 0;;
+
+							if(!bNeedsPrefix  && !NextURL.equalsIgnoreCase("about:blank"))
+							{
+								try
+								{
+									String UrlAddress = NextURL.substring(colPos + 1);
+
+									//check if the address contains only numbers
+									bNeedsPrefix = UrlAddress.matches("[0-9]+"); // it's a port number, and URLs like "google.com:80" also need the "http://" prefix
+
+									//try to correct malformed protocols, like "http:www.google.com"
+									if(!bNeedsPrefix)
+									{
+										String UrlProtocol = NextURL.substring(0, colPos);
+																			
+										if((NextURL.equalsIgnoreCase("http") || NextURL.equalsIgnoreCase("https")) && !UrlAddress.startsWith("/"))
+										{
+											NextURL = UrlProtocol + "://" + UrlAddress;
+										}
+									}
+
+								}
+								catch(IndexOutOfBoundsException e)
+								{}
+							}
+
+							if(bNeedsPrefix)
 							{
 								//default scheme is http://
 								NextURL = "http://" + NextURL;
@@ -1622,6 +1669,17 @@ class WebViewControl
 		public long GetNativePtr()
 		{
 			return WebViewControl.this.nativePtr;
+		}
+
+		@Override
+		public boolean onCreateWindow(WebView View, boolean isDialog, boolean isUserGesture, Message resultMsg)
+		{
+			WebView newView = new WebView(GameActivity._activity);
+			View.addView(newView);
+            WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+            transport.setWebView(newView);
+            resultMsg.sendToTarget();
+            return true;
 		}
 	}
 	public long GetNativePtr()

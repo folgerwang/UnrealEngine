@@ -51,7 +51,23 @@ public:
 	 */
 	virtual EDataValidationResult IsAssetValid(FAssetData& AssetData, TArray<FText>& ValidationErrors) const;
 
-	virtual void ValidateAssets(TArray<FAssetData> AssetDataList, bool bSkipExcludedDirectories = true) const;
+	/**
+	 * Called to validate assets from either the UI or a commandlet
+	 * @param bSkipExcludedDirectories If true, will not validate files in excluded directories
+	 * @param bShowIfNoFailures If true, will add notifications for files with no validation and display even if everything passes
+	 * @returns Number of assets with validation failures
+	 */
+	virtual int32 ValidateAssets(TArray<FAssetData> AssetDataList, bool bSkipExcludedDirectories = true, bool bShowIfNoFailures = true) const;
+
+	/**
+	 * Called to validate from an interactive save
+	 */
+	virtual void ValidateOnSave(TArray<FAssetData> AssetDataList) const;
+
+	/**
+	 * Schedule a validation of a saved package, this will activate next frame by default so it can combine them
+	 */
+	virtual void ValidateSavedPackage(FName PackageName);
 
 protected:
 	/** 
@@ -60,10 +76,24 @@ protected:
 	virtual bool IsPathExcludedFromValidation(const FString& Path) const;
 
 	/**
+	 * Handles validating all pending save packages
+	 */
+	void ValidateAllSavedPackages();
+
+	/**
 	 * Directories to ignore for data validation. Useful for test assets
 	 */
 	UPROPERTY(config)
 	TArray<FDirectoryPath> ExcludedDirectories;
+
+	/**
+	 * Rather it should validate assets on save inside the editor
+	 */
+	UPROPERTY(config)
+	bool bValidateOnSave;
+
+	/** List of saved package names to validate next frame */
+	TArray<FName> SavedPackagesToValidate;
 
 private:
 

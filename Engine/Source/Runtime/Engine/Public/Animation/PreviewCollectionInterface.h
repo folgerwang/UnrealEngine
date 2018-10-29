@@ -6,8 +6,10 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "UObject/Interface.h"
+#include "Animation/AnimInstance.h"
 #include "PreviewCollectionInterface.generated.h"
 
+class UAnimInstance;
 class USkeletalMesh;
 
 UINTERFACE(meta = (CannotImplementInterfaceInBlueprint))
@@ -22,5 +24,11 @@ class ENGINE_API IPreviewCollectionInterface
 	GENERATED_IINTERFACE_BODY()
 
 	/** Returns nodes that needs for them to map */
-	virtual void GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList) const = 0;
+	DEPRECATED(4.21, "This interface no longer used. Use GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList, TArray<TSubclassOf<UAnimInstance>>& OutAnimBP).")
+	virtual void GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList) const;
+
+	/** If you want this to set base mesh also, please use this interface. If this returns nullptr, it will just use whatever set up right now */
+	virtual USkeletalMesh* GetPreviewBaseMesh() const { return nullptr; }
+	/** Returns nodes that needs for them to map */
+	virtual void GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList, TArray<TSubclassOf<UAnimInstance>>& OutAnimBP) const = 0;
 };

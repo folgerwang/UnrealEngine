@@ -25,6 +25,12 @@ UMediaSource* UMediaProfile::GetMediaSource(int32 Index) const
 }
 
 
+int32 UMediaProfile::NumMediaSources() const
+{
+	return MediaSources.Num();
+}
+
+
 UMediaOutput* UMediaProfile::GetMediaOutput(int32 Index) const
 {
 	if (MediaOutputs.IsValidIndex(Index))
@@ -32,6 +38,12 @@ UMediaOutput* UMediaProfile::GetMediaOutput(int32 Index) const
 		return MediaOutputs[Index];
 	}
 	return nullptr;
+}
+
+
+int32 UMediaProfile::NumMediaOutputs() const
+{
+	return MediaOutputs.Num();
 }
 
 
@@ -116,7 +128,7 @@ void UMediaProfile::Apply()
 			bool bResult = GEngine->SetTimecodeProvider(TimecodeProvider);
 			if (!bResult)
 			{
-				UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("The TimecodeProvider '%s' could not be initialized."), *TimecodeProvider->GetName());
+				UE_LOG(LogMediaFrameworkUtilities, Warning, TEXT("The TimecodeProvider '%s' could not be initialized."), *TimecodeProvider->GetName());
 			}
 		}
 		else
@@ -132,7 +144,7 @@ void UMediaProfile::Apply()
 			bool bResult = GEngine->SetCustomTimeStep(CustomTimeStep);
 			if (!bResult)
 			{
-				UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("The Custom Time Step '%s' could not be initialized."), *CustomTimeStep->GetName());
+				UE_LOG(LogMediaFrameworkUtilities, Warning, TEXT("The Custom Time Step '%s' could not be initialized."), *CustomTimeStep->GetName());
 			}
 		}
 		else

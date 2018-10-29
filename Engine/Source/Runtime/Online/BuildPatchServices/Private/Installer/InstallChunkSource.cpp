@@ -42,10 +42,9 @@ namespace BuildPatchServices
 		// IInstallChunkSource interface end.
 
 	private:
-		typedef FRollingHash<BuildPatchServices::ChunkDataSize> FChunkHash;
 		void FindChunkLocation(const FGuid& DataId, const FString** FoundInstallDirectory, const FBuildPatchAppManifest** FoundInstallManifest) const;
 		bool LoadFromBuild(const FGuid& DataId);
-		FSHAHash GetShaHashForDataSet(const uint8* ChunkData);
+		FSHAHash GetShaHashForDataSet(const uint8* ChunkData, const uint32 ChunkSize);
 
 	private:
 		// Configuration.
@@ -210,7 +209,7 @@ namespace BuildPatchServices
 		{
 			// Collect all chunks in this file.
 			TSet<FGuid> FileManifestChunks;
-			Algo::Transform(FileManifest->FileChunkParts, FileManifestChunks, &FChunkPart::Guid);
+			Algo::Transform(FileManifest->ChunkParts, FileManifestChunks, &FChunkPart::Guid);
 			// Select all chunks still required from this file.
 			TFunction<bool(const FGuid&)> SelectPredicate = [this, &FileManifestChunks](const FGuid& ChunkId)
 			{
@@ -288,13 +287,16 @@ namespace BuildPatchServices
 			LoadResult = FileChunkParts.Num() <= 0 ? IInstallChunkSourceStat::ELoadResult::MissingPartInfo : IInstallChunkSourceStat::ELoadResult::Success;
 			if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 			{
+				const int32 InitialDataSize = 1024*1024;
 				TArray<uint8> TempArray;
-				TempArray.AddUninitialized(BuildPatchServices::ChunkDataSize);
-				uint8* TempChunkConstruction = TempArray.GetData();
-				FMemory::Memzero(TempChunkConstruction, BuildPatchServices::ChunkDataSize);
+				uint8* TempChunkConstruction = nullptr;
+				uint32 LoadedChunkSize = 0;
 				for (int32 FileChunkPartsIdx = 0; FileChunkPartsIdx < FileChunkParts.Num() && LoadResult == IInstallChunkSourceStat::ELoadResult::Success && !bShouldAbort; ++FileChunkPartsIdx)
 				{
 					const FFileChunkPart& FileChunkPart = FileChunkParts[FileChunkPartsIdx];
+					LoadedChunkSize = FMath::Max<uint32>(LoadedChunkSize, FileChunkPart.ChunkPart.Offset + FileChunkPart.ChunkPart.Size);
+					TempArray.SetNumZeroed(FMath::Max<uint32>(LoadedChunkSize, InitialDataSize));
+					TempChunkConstruction = TempArray.GetData();
 					FString FullFilename = *FoundInstallDirectory / FileChunkPart.Filename;
 					// Close current build file ?
 					if (FileArchive.IsValid() && FileOpened != FullFilename)
@@ -345,7 +347,7 @@ namespace BuildPatchServices
 				if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 				{
 					const bool bUseSha = (HashType & EChunkHashFlags::Sha1) != EChunkHashFlags::None;
-					const bool bHashCheckOk = bUseSha ? GetShaHashForDataSet(TempChunkConstruction) == ChunkShaHash : FChunkHash::GetHashForDataSet(TempChunkConstruction) == ChunkHash;
+					const bool bHashCheckOk = bUseSha ? GetShaHashForDataSet(TempChunkConstruction, LoadedChunkSize) == ChunkShaHash : FRollingHash::GetHashForDataSet(TempChunkConstruction, LoadedChunkSize) == ChunkHash;
 					if (bHashCheckOk == false)
 					{
 						LoadResult = IInstallChunkSourceStat::ELoadResult::HashCheckFailed;
@@ -356,7 +358,7 @@ namespace BuildPatchServices
 				if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 				{
 					// Create the ChunkFile data structure
-					IChunkDataAccess* NewChunkFile = FChunkDataAccessFactory::Create(BuildPatchServices::ChunkDataSize);
+					IChunkDataAccess* NewChunkFile = FChunkDataAccessFactory::Create(LoadedChunkSize);
 
 					// Lock data
 					FChunkHeader* ChunkHeader;
@@ -365,12 +367,13 @@ namespace BuildPatchServices
 
 					// Copy the data
 					FMemoryReader MemReader(TempArray);
-					MemReader.Serialize(ChunkData, BuildPatchServices::ChunkDataSize);
+					MemReader.Serialize(ChunkData, LoadedChunkSize);
 
 					// Setup the header
 					ChunkHeader->Guid = DataId;
 					ChunkHeader->StoredAs = EChunkStorageFlags::None;
-					ChunkHeader->DataSize = BuildPatchServices::ChunkDataSize; // This would change if compressing/encrypting
+					ChunkHeader->DataSizeCompressed = LoadedChunkSize;
+					ChunkHeader->DataSizeUncompressed = LoadedChunkSize;
 					ChunkHeader->HashType = HashType;
 					ChunkHeader->RollingHash = ChunkHash;
 					FMemory::Memcpy(ChunkHeader->SHAHash.Hash, ChunkShaHash.Hash, FSHA1::DigestSize);
@@ -405,10 +408,10 @@ namespace BuildPatchServices
 		}
 	}
 
-	FSHAHash FInstallChunkSource::GetShaHashForDataSet(const uint8* ChunkData)
+	FSHAHash FInstallChunkSource::GetShaHashForDataSet(const uint8* ChunkData, const uint32 ChunkSize)
 	{
 		FSHAHash ShaHashCheck;
-		FSHA1::HashBuffer(ChunkData, BuildPatchServices::ChunkDataSize, ShaHashCheck.Hash);
+		FSHA1::HashBuffer(ChunkData, ChunkSize, ShaHashCheck.Hash);
 		return ShaHashCheck;
 	}
 

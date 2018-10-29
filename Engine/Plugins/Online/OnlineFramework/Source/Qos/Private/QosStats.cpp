@@ -6,27 +6,29 @@
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
 
-#define QOS_STATS_VERSION 1
+#define QOS_STATS_VERSION 2
 #define DEBUG_QOS_STATS 0
 
 // Events
 const FString FQosDatacenterStats::QosStats_DatacenterEvent = TEXT("QosStats_DatacenterEvent");
 
 // Common attribution
-const FString FQosDatacenterStats::QosStats_SessionId = TEXT("QosStats_SessionId");
-const FString FQosDatacenterStats::QosStats_Version = TEXT("QosStats_Version");
+const FString FQosDatacenterStats::QosStats_SessionId = TEXT("SessionId");
+const FString FQosDatacenterStats::QosStats_Version = TEXT("Version");
 
 // Header stats
-const FString FQosDatacenterStats::QosStats_Timestamp = TEXT("QosStats_Timestamp");
-const FString FQosDatacenterStats::QosStats_TotalTime = TEXT("QosStats_TotalTime");
+const FString FQosDatacenterStats::QosStats_Timestamp = TEXT("Timestamp");
+const FString FQosDatacenterStats::QosStats_TotalTime = TEXT("TotalTime");
 
 // Qos stats
-const FString FQosDatacenterStats::QosStats_DeterminationType = TEXT("QosStats_DeterminationType");
-const FString FQosDatacenterStats::QosStats_NumRegions = TEXT("QosStats_NumRegions");
-const FString FQosDatacenterStats::QosStats_RegionDetails = TEXT("QosStats_RegionDetails");
-const FString FQosDatacenterStats::QosStats_NumResults = TEXT("QosStats_NumResults");
-const FString FQosDatacenterStats::QosStats_NumSuccessCount = TEXT("QosStats_NumSuccessCount");
-const FString FQosDatacenterStats::QosStats_SearchDetails = TEXT("QosStats_SearchDetails");
+const FString FQosDatacenterStats::QosStats_DeterminationType = TEXT("DeterminationType");
+const FString FQosDatacenterStats::QosStats_NumRegions = TEXT("NumRegions");
+const FString FQosDatacenterStats::QosStats_RegionDetails = TEXT("RegionDetailsv2");
+const FString FQosDatacenterStats::QosStats_NumResults = TEXT("NumResults");
+const FString FQosDatacenterStats::QosStats_NumSuccessCount = TEXT("NumSuccessCount");
+const FString FQosDatacenterStats::QosStats_NetworkType = TEXT("NetworkType");
+const FString FQosDatacenterStats::QosStats_BestRegionId = TEXT("BestRegionId");
+const FString FQosDatacenterStats::QosStats_BestRegionPing = TEXT("BestRegionPing");
 
 /**
  * Debug output for the contents of a recorded stats event
@@ -79,34 +81,16 @@ void FQosDatacenterStats::StartQosPass()
 	}
 }
 
-void FQosDatacenterStats::RecordRegionInfo(const FString& Region, int32 AvgPing, int32 NumResults)
+void FQosDatacenterStats::RecordRegionInfo(const FDatacenterQosInstance& RegionInfo, int32 NumResults)
 {
 	if (bAnalyticsInProgress)
 	{
 		FQosStats_RegionInfo& NewRegion = *new (QosData.Regions) FQosStats_RegionInfo();
-		NewRegion.RegionId = Region;
-		NewRegion.AvgPing = AvgPing;
+		NewRegion.RegionId = RegionInfo.Definition.Id;
+		NewRegion.ParentRegionId = RegionInfo.Definition.RegionId;
+		NewRegion.AvgPing = RegionInfo.AvgPingMs;
+		NewRegion.bUsable = RegionInfo.bUsable;
 		NewRegion.NumResults = NumResults;
-	}
-}
-
-void FQosDatacenterStats::RecordQosAttempt(const FOnlineSessionSearchResult& SearchResult, bool bSuccess)
-{
-	if (bAnalyticsInProgress)
-	{
-		QosData.NumTotalSearches++;
-		QosData.NumSuccessAttempts += bSuccess ? 1 : 0;
-
-		FQosStats_QosSearchResult& NewSearchResult = *new (QosData.SearchResults) FQosStats_QosSearchResult();
-		NewSearchResult.OwnerId = SearchResult.Session.OwningUserId.IsValid() ? SearchResult.Session.OwningUserId->ToString() : TEXT("Unknown");
-		NewSearchResult.PingInMs = SearchResult.PingInMs;
-		NewSearchResult.bIsValid = SearchResult.IsValid();
-
-		FString TmpRegion;
-		if (SearchResult.Session.SessionSettings.Get(SETTING_REGION, TmpRegion))
-		{
-			NewSearchResult.DatacenterId = TmpRegion;
-		}
 	}
 }
 
@@ -157,67 +141,69 @@ void FQosDatacenterStats::Upload(TSharedPtr<IAnalyticsProvider>& AnalyticsProvid
 /**
  * @EventName QosStats_DatacenterEvent
  * @Trigger Attempt to determine a user datacenter from available QoS information
- * @Type static
- * @EventParam QosStats_SessionId string Guid of this attempt
- * @EventParam QosStats_Version integer Qos analytics version
- * @EventParam QosStats_Timestamp string Timestamp when this whole attempt started
- * @EventParam QosStats_TotalTime float Total time this complete attempt took, includes delay between all ping queries (ms)
- * @EventParam QosStats_DatacenterId string Data center selected
- * @EventParam QosStats_NumRegions integer Total number of regions considered or known at the time
- * @EventParam QosStats_NumResults integer Total number of results found for consideration
- * @EventParam QosStats_NumSuccessCount integer Total number of successful ping evaluations
- * @EventParam QosStats_RegionDetails string CSV details about the regions
- * @EventParam QosStats_SearchDetails string CSV details about the individual servers queried
-
+ * @Type Client
+ * @EventParam SessionId string Guid of this attempt
+ * @EventParam Version integer Qos analytics version
+ * @EventParam Timestamp string Timestamp when this whole attempt started
+ * @EventParam TotalTime float Total time this complete attempt took, includes delay between all ping queries (ms)
+ * @EventParam DeterminationType how the region data was determined @see EDatacenterResultType
+ * @EventParam NumRegions integer Total number of regions considered or known at the time
+ * @EventParam NumResults integer Total number of results found for consideration
+ * @EventParam NumSuccessCount integer Total number of successful ping evaluations
+ * @EventParam NetworkType string type of network the client is connected to. (Unknown, None, AirplaneMode, Cell, Wifi, Ethernet) are possible values. Will be Unknown on PC and Switch.
+ * @EventParam BestRegionId string RegionId with best ping (that is usable)
+ * @EventParam BestRegionPing integer ping in the best RegionId (that is usable)
+ * @EventParam RegionDetails json representation of ping details
  * @Comments Analytics data for a complete qos datacenter determination attempt
  * 
  * @Owner Josh.Markiewicz
  */
 void FQosDatacenterStats::ParseQosResults(TSharedPtr<IAnalyticsProvider>& AnalyticsProvider, FGuid& SessionId)
 {
-	TArray<FAnalyticsEventAttribute> QoSAttributes;
+	TArray<FAnalyticsEventAttribute> QoSAttributes = MakeAnalyticsEventAttributeArray(
+		QosStats_SessionId, SessionId.ToString(),
+		QosStats_Version, StatsVersion,
+		QosStats_Timestamp, QosData.Timestamp,
+		QosStats_TotalTime, QosData.SearchTime.MSecs,
+		QosStats_DeterminationType, ToString(QosData.DeterminationType),
+		QosStats_NumRegions, QosData.Regions.Num(),
+		QosStats_NumResults, QosData.NumTotalSearches,
+		QosStats_NumSuccessCount, QosData.NumSuccessAttempts,
+		QosStats_NetworkType, FPlatformMisc::GetNetworkConnectionType()
+	);
 
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_SessionId, SessionId.ToString()));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_Version, StatsVersion));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_Timestamp, QosData.Timestamp));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_TotalTime, QosData.SearchTime.MSecs));
-
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_DeterminationType, ToString(QosData.DeterminationType)));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_NumRegions, QosData.Regions.Num()));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_NumResults, QosData.NumTotalSearches));
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_NumSuccessCount, QosData.NumSuccessAttempts));
-
-	FString RegionDetails;
-	if (QosData.Regions.Num() > 0)
 	{
-		for (auto& Region : QosData.Regions)
+		FString BestRegionId(TEXT("Unknown"));
+		int32 BestPing = INT_MAX;
+		for (const FQosStats_RegionInfo& Region : QosData.Regions)
 		{
-			RegionDetails += FString::Printf(TEXT("{\"RegionId\":\"%s\", \"AvgPing\":\"%d\", \"NumResults\":%d},"),
-				!Region.RegionId.IsEmpty() ? *Region.RegionId : TEXT("Unknown"),
-				Region.AvgPing,
-				Region.NumResults
-				);
+			if (Region.AvgPing < BestPing && Region.bUsable)
+			{
+				BestRegionId = Region.RegionId;
+				BestPing = Region.AvgPing;
+			}
 		}
-		RegionDetails = RegionDetails.LeftChop(1);
+
+		BestPing = FMath::Clamp(BestPing, 0, UNREACHABLE_PING);
+
+		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionId, BestRegionId));
+		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionPing, BestPing));
 	}
 
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_RegionDetails, RegionDetails));
-
-	FString SearchDetails;
-	if (QosData.SearchResults.Num() > 0)
 	{
-		for (auto& SearchResult : QosData.SearchResults)
+		FString StatsJson;
+		TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy< TCHAR > > > JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy< TCHAR > >::Create(&StatsJson);
+		FJsonSerializerWriter<TCHAR, TCondensedJsonPrintPolicy< TCHAR > > Serializer(JsonWriter);
+		Serializer.StartArray();
+		for (FQosStats_RegionInfo& Region : QosData.Regions)
 		{
-			SearchDetails += FString::Printf(TEXT("{\"OwnerId\":\"%s\", \"RegionId\":\"%s\", \"PingInMs\":%d, \"bIsValid\":%s},"),
-				*SearchResult.OwnerId,
-				*SearchResult.DatacenterId,
-				SearchResult.PingInMs,
-				SearchResult.bIsValid ? TEXT("true") : TEXT("false")
-				);
+			Region.Serialize(Serializer, false);
 		}
-		SearchDetails = SearchDetails.LeftChop(1);
+		Serializer.EndArray();
+		JsonWriter->Close();
+
+		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_RegionDetails, FJsonFragment(MoveTemp(StatsJson))));
 	}
-	QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_SearchDetails, SearchDetails));
 
 	PrintEventAndAttributes(QosStats_DatacenterEvent, QoSAttributes);
 	if (AnalyticsProvider.IsValid())

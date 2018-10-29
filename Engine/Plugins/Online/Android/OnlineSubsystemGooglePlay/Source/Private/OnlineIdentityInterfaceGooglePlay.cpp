@@ -14,7 +14,7 @@ FOnlineIdentityGooglePlay::FOnlineIdentityGooglePlay(FOnlineSubsystemGooglePlay*
 	, bRegisteringUser(false)
 	, bLoggingInUser(false)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityGooglePlay::FOnlineIdentityGooglePlay()"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityGooglePlay::FOnlineIdentityGooglePlay()"));
 	check(MainSubsystem != nullptr);
 	PendingConnectRequest.ConnectionInterface = this;
 }
@@ -134,25 +134,25 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGooglePlay::CreateUniquePlayerId(c
 
 FString FOnlineIdentityGooglePlay::GetPlayerNickname(int32 LocalUserNum) const
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityGooglePlay::GetPlayerNickname"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityGooglePlay::GetPlayerNickname"));
 	return PlayerAlias;
 }
 
 FString FOnlineIdentityGooglePlay::GetPlayerNickname(const FUniqueNetId& UserId) const
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityGooglePlay::GetPlayerNickname"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityGooglePlay::GetPlayerNickname"));
 	return PlayerAlias;
 }
 
 FString FOnlineIdentityGooglePlay::GetAuthToken(int32 LocalUserNum) const
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityGooglePlay::GetAuthToken"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityGooglePlay::GetAuthToken"));
 	return AuthToken;
 }
 
 void FOnlineIdentityGooglePlay::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityGooglePlay::RevokeAuthToken not implemented"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityGooglePlay::RevokeAuthToken not implemented"));
 	TSharedRef<const FUniqueNetId> UserIdRef(UserId.AsShared());
 	MainSubsystem->ExecuteNextTick([UserIdRef, Delegate]()
 	{

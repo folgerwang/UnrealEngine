@@ -272,6 +272,8 @@ void FStaticLightingSystem::RadiositySetupTextureMapping(FStaticLightingTextureM
 	
 	FLMRandomStream RandomStream(0);
 
+#if LIGHTMASS_DO_PROCESSING
+
 	if (GeneralSettings.NumSkyLightingBounces > 0)
 	{
 		for (int32 Y = 0; Y < TextureMapping->SurfaceCacheSizeY; Y++)
@@ -436,6 +438,8 @@ void FStaticLightingSystem::RadiositySetupTextureMapping(FStaticLightingTextureM
 		TextureMapping->CompressedInfluencingRecords.Compress(InfluencingRecords);
 		InfluencingRecords = FInfluencingRecords();
 	}
+
+#endif
 }
 
 /** */

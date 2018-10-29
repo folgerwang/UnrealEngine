@@ -25,7 +25,7 @@ class ULandscapeLayerInfoObject : public UObject
 	float Hardness;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(VisibleAnywhere, Category=LandscapeLayerInfoObject)
+	UPROPERTY(EditAnywhere, Category=LandscapeLayerInfoObject)
 	uint32 bNoWeightBlend:1;
 
 	UPROPERTY(NonTransactional, Transient)

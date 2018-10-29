@@ -67,9 +67,9 @@ void URichTextBlock::UpdateStyleData()
 	{
 		StyleInstance = MakeShareable(new FSlateStyleSet(TEXT("RichTextStyle")));
 
-		if (TextStyleSet && TextStyleSet->RowStruct->IsChildOf(FRichTextStyleRow::StaticStruct()))
+		if (TextStyleSet && TextStyleSet->GetRowStruct()->IsChildOf(FRichTextStyleRow::StaticStruct()))
 		{
-			for (const auto& Entry : TextStyleSet->RowMap)
+			for (const auto& Entry : TextStyleSet->GetRowMap())
 			{
 				FName SubStyleName = Entry.Key;
 				FRichTextStyleRow* RichTextStyle = (FRichTextStyleRow*)Entry.Value;
@@ -87,8 +87,11 @@ void URichTextBlock::UpdateStyleData()
 		{
 			if (UClass* ResolvedClass = DecoratorClass.Get())
 			{
-				URichTextBlockDecorator* Decorator = NewObject<URichTextBlockDecorator>(this, ResolvedClass);
-				InstanceDecorators.Add(Decorator);
+				if (!ResolvedClass->HasAnyClassFlags(CLASS_Abstract))
+				{
+					URichTextBlockDecorator* Decorator = NewObject<URichTextBlockDecorator>(this, ResolvedClass);
+					InstanceDecorators.Add(Decorator);
+				}
 			}
 		}
 	}

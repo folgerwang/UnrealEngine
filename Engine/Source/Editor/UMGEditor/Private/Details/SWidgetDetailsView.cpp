@@ -375,14 +375,17 @@ FText SWidgetDetailsView::GetCategoryText() const
 
 const FSlateBrush* SWidgetDetailsView::GetNameIcon() const
 {
-	if ( SelectedObjects.Num() == 1 && SelectedObjects[0].IsValid())
+	if (SelectedObjects.Num() == 1)
 	{
-		UClass* WidgetClass = SelectedObjects[0].Get()->GetClass();
-		if (WidgetClass)
+		const UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
+		if (Widget)
 		{
-			return FSlateIconFinder::FindIconBrushForClass(WidgetClass);
+			const UClass* WidgetClass = Widget->GetClass();
+			if (WidgetClass)
+			{
+				return FSlateIconFinder::FindIconBrushForClass(WidgetClass);
+			}
 		}
-		return nullptr;
 	}
 
 	return nullptr;

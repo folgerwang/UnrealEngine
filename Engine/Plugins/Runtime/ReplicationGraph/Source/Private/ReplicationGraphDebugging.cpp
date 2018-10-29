@@ -417,7 +417,7 @@ void AReplicationGraphDebugActor::ServerSetCullDistanceForClass_Implementation(U
 		return;
 	}
 
-	const float CullDistSq = CullDistance;
+	const float CullDistSq = CullDistance * CullDistance;
 
 	FClassReplicationInfo& ClassInfo = ReplicationGraph->GlobalActorReplicationInfoMap.GetClassInfo(Class);
 	ClassInfo.CullDistanceSquared = CullDistSq;
@@ -469,6 +469,73 @@ FAutoConsoleCommandWithWorldAndArgs NetRepGraphSetClassCullDistance(TEXT("Net.Re
 		}
 	})
 );
+
+// -------------------------------------------------------------
+
+bool AReplicationGraphDebugActor::ServerSetPeriodFrameForClass_Validate(UClass* Class, int32 PeriodFrame)
+{
+	return true;
+}
+
+void AReplicationGraphDebugActor::ServerSetPeriodFrameForClass_Implementation(UClass* Class, int32 PeriodFrame)
+{
+	if (!Class)
+	{
+		UE_LOG(LogReplicationGraph, Display, TEXT("Invalid Class"));
+		return;
+	}
+
+	FClassReplicationInfo& ClassInfo = ReplicationGraph->GlobalActorReplicationInfoMap.GetClassInfo(Class);
+	ClassInfo.ReplicationPeriodFrame = PeriodFrame;
+	UE_LOG(LogReplicationGraph, Display, TEXT("Setting ReplicationPeriodFrame for class %s to %d"), *Class->GetName(), PeriodFrame);
+
+	for (TActorIterator<AActor> ActorIt(GetWorld(), Class); ActorIt; ++ActorIt)
+	{
+		AActor* Actor = *ActorIt;
+		if (FGlobalActorReplicationInfo* ActorInfo = ReplicationGraph->GlobalActorReplicationInfoMap.Find(Actor))
+		{
+			ActorInfo->Settings.ReplicationPeriodFrame = PeriodFrame;
+			UE_LOG(LogReplicationGraph, Display, TEXT("Setting GlobalActorInfo ReplicationPeriodFrame for %s to %d"), *Actor->GetName(), PeriodFrame);
+		}
+
+
+		if (FConnectionReplicationActorInfo* ConnectionActorInfo = ConnectionManager->ActorInfoMap.Find(Actor))
+		{
+			ConnectionActorInfo->ReplicationPeriodFrame = PeriodFrame;
+			UE_LOG(LogReplicationGraph, Display, TEXT("Setting Connection ReplicationPeriodFrame for %s to %d"), *Actor->GetName(), PeriodFrame);
+		}
+	}
+}
+
+FAutoConsoleCommandWithWorldAndArgs NetRepGraphSetPeriodFrame(TEXT("Net.RepGraph.SetPeriodFrame"),TEXT(""),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		if (Args.Num() <= 1)
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("Usage: Net.RepGraph.SetPeriodFrame <Class> <PeriodFrameNum>"));
+			return;
+		}
+
+		UClass* Class = FindObject<UClass>(ANY_PACKAGE, *Args[0]);
+		if (Class == nullptr)
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("Could not find Class: %s"), *Args[0]);
+			return;
+		}
+
+		float Distance = 0.f;
+		if (!LexTryParseString<float>(Distance, *Args[1]))
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("Could not parse %s as float."), *Args[1]);
+		}
+
+		for (TActorIterator<AReplicationGraphDebugActor> It(World); It; ++It)
+		{
+			It->ServerSetPeriodFrameForClass(Class, Distance);
+		}
+	})
+);
+
 
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
@@ -734,6 +801,11 @@ void LogGraphHelper(FOutputDevice& Ar, const TArray< FString >& Args)
 		DebugInfo.Flags = FReplicationGraphDebugInfo::ShowActors;
 	}
 
+	if (Args.FindByPredicate([](const FString& Str) { return Str.Contains(TEXT("empty")); }) )
+	{
+		DebugInfo.bShowEmptyNodes = true;
+	}
+
 	Graph->LogGraph(DebugInfo);
 }
 
@@ -779,7 +851,7 @@ FAutoConsoleCommand RepGraphDrawGraph(TEXT("Net.RepGraph.DrawGraph"), TEXT(""), 
 
 void FGlobalActorReplicationInfo::LogDebugString(FOutputDevice& Ar) const
 {
-	Ar.Logf(TEXT("  LastPreReplicationFrame: %d. ForceNetUpdateFrame: %d. WorldLocation: %s. bWantsToBeDormant %d"), LastPreReplicationFrame, ForceNetUpdateFrame, *WorldLocation.ToString(), bWantsToBeDormant);
+	Ar.Logf(TEXT("  LastPreReplicationFrame: %d. ForceNetUpdateFrame: %d. WorldLocation: %s. bWantsToBeDormant %d. LastFlushNetDormancyFrame: %d"), LastPreReplicationFrame, ForceNetUpdateFrame, *WorldLocation.ToString(), bWantsToBeDormant, LastFlushNetDormancyFrame);
 	Ar.Logf(TEXT("  Settings: %s"), *Settings.BuildDebugStringDelta());
 
 	if (DependentActorList.Num() > 0)
@@ -803,11 +875,20 @@ void FConnectionReplicationActorInfo::LogDebugString(FOutputDevice& Ar) const
 
 void UReplicationGraph::LogGraph(FReplicationGraphDebugInfo& DebugInfo) const
 {
+	LogGlobalGraphNodes(DebugInfo);
+	LogConnectionGraphNodes(DebugInfo);
+}
+
+void UReplicationGraph::LogGlobalGraphNodes(FReplicationGraphDebugInfo& DebugInfo) const
+{
 	for (const UReplicationGraphNode* Node : GlobalGraphNodes)
 	{
 		Node->LogNode(DebugInfo, Node->GetDebugString());
 	}
+}
 
+void UReplicationGraph::LogConnectionGraphNodes(FReplicationGraphDebugInfo& DebugInfo) const
+{
 	for (const UNetReplicationGraphConnection* ConnectionManager: Connections)
 	{
 		DebugInfo.Log(FString::Printf(TEXT("Connection: %s"), *ConnectionManager->NetConnection->GetPlayerOnlinePlatformName().ToString()));
@@ -828,6 +909,16 @@ void UReplicationGraphNode::LogNode(FReplicationGraphDebugInfo& DebugInfo, const
 	DebugInfo.PushIndent();
 	for (const UReplicationGraphNode* ChildNode : AllChildNodes)
 	{
+		if (DebugInfo.bShowEmptyNodes == false)
+		{
+			TArray<FActorRepListType> TempArray;
+			ChildNode->GetAllActorsInNode_Debugging(TempArray);
+			if (TempArray.Num() == 0)
+			{
+				continue;
+			}
+		}
+
 		ChildNode->LogNode(DebugInfo, ChildNode->GetDebugString());
 	}
 	DebugInfo.PopIndent();
@@ -884,8 +975,12 @@ void UReplicationGraphNode_GridCell::LogNode(FReplicationGraphDebugInfo& DebugIn
 	DebugInfo.Log(NodeName);
 
 	DebugInfo.PushIndent();
+	
+	DebugInfo.Log(TEXT("Static"));
+	DebugInfo.PushIndent();
+	LogActorList(DebugInfo);
+	DebugInfo.PopIndent();
 
-	Super::LogNode(DebugInfo, TEXT("Static"));
 	if (DynamicNode)
 	{
 		DynamicNode->LogNode(DebugInfo, TEXT("Dynamic"));
@@ -1144,51 +1239,3 @@ FAutoConsoleCommand RepGraphPrintAllCmd(TEXT("Net.RepGraph.PrintAll"), TEXT(""),
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 
-
-#if USE_REPCSVPROFILER
-void FReplicationGraphProfiler::OnClientConnect()
-{
-	if (bEnabled && !bStarted)
-	{
-		bStarted = true;
-		FCsvProfiler::Get()->BeginCapture();
-		GEngine->Exec(nullptr, TEXT("stat startfile"));
-		StartTime = FPlatformTime::Seconds();
-
-	}
-}
-
-void FReplicationGraphProfiler::End()
-{
-	if (bStarted)
-	{
-		bStarted = false;
-		GEngine->Exec(nullptr, TEXT("stat stopfile"));
-		FCsvProfiler::Get()->EndCapture();
-	}
-}
-
-void FReplicationGraphProfiler::StartRepFrame()
-{
-
-}
-
-void FReplicationGraphProfiler::EndRepFrame()
-{
-	if (bStarted)
-	{
-		double DeltaTime = FPlatformTime::Seconds() - StartTime;
-		if (DeltaTime > TimeLimit)
-		{
-			End();
-			KillFrame = 60;
-		}
-	}
-
-	if (KillFrame > 0 && --KillFrame == 0)
-	{
-		GLog->PanicFlushThreadedLogs();
-		FPlatformMisc::RequestExit(1);
-	}
-}
-#endif

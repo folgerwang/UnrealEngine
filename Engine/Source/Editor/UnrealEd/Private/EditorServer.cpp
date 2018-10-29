@@ -157,6 +157,7 @@
 #include "LauncherPlatformModule.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "AssetExportTask.h"
+#include "EditorBuildUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -3873,9 +3874,6 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 		Game_Map_Check_Actor(Str, Ar, bCheckDeprecatedOnly, Actor);
 	}
 	
-	// Check for externally reference actors and add them to the map check
-	PackageUsingExternalObjects(InWorld->PersistentLevel, true);
-
 	// Add a summary of the Map Check
 	const int32 ErrorCount = MapCheckLog.NumMessages( EMessageSeverity::Error );
 	const int32 WarningCount = MapCheckLog.NumMessages( EMessageSeverity::Warning );
@@ -6582,71 +6580,9 @@ bool UEditorEngine::HandleStartMovieCaptureCommand( const TCHAR* Cmd, FOutputDev
 	return false;
 }
 
-bool AreCloseToOnePercent(float A, float B)
-{
-	return FMath::Abs(A - B) / FMath::Max3(FMath::Abs(A), FMath::Abs(B), 1.f) < 0.01f;
-}
-
 bool UEditorEngine::HandleBuildMaterialTextureStreamingData( const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	const EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::High;
-	const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
-
-	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
-
-	TSet<UMaterialInterface*> Materials;
-	for (TObjectIterator<UMaterialInterface> MaterialIt; MaterialIt; ++MaterialIt)
-	{
-		UMaterialInterface* Material = *MaterialIt;
-		if (Material && Material->GetOutermost() != GetTransientPackage() && Material->HasAnyFlags(RF_Public) && Material->UseAnyStreamingTexture())
-		{
-			Materials.Add(Material);
-		}
-	}
-
-	FScopedSlowTask SlowTask(3.f); // { Sync Pending Shader, Wait for Compilation, Export }
-	SlowTask.MakeDialog(true);
-	const float OneOverNumMaterials = 1.f / FMath::Max(1.f, (float)Materials.Num());
-
-	if (CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, true, Materials, SlowTask))
-	{
-		FMaterialUtilities::FExportErrorManager ExportErrors(FeatureLevel);
-		for (UMaterialInterface* MaterialInterface : Materials)
-		{
-			SlowTask.EnterProgressFrame(OneOverNumMaterials);
-			if (MaterialInterface)
-			{
-				TArray<FMaterialTextureInfo> PreviousData = MaterialInterface->GetTextureStreamingData();
-				if (FMaterialUtilities::ExportMaterialUVDensities(MaterialInterface, QualityLevel, FeatureLevel, ExportErrors))
-				{
-					TArray<FMaterialTextureInfo> NewData = MaterialInterface->GetTextureStreamingData();
-				
-					bool bNeedsResave = PreviousData.Num() != NewData.Num();
-					if (!bNeedsResave)
-					{
-						for (int32 EntryIndex = 0; EntryIndex < NewData.Num(); ++EntryIndex)
-						{
-							if (NewData[EntryIndex].TextureName != PreviousData[EntryIndex].TextureName ||
-								!AreCloseToOnePercent(NewData[EntryIndex].SamplingScale, PreviousData[EntryIndex].SamplingScale) ||
-								NewData[EntryIndex].UVChannelIndex != PreviousData[EntryIndex].UVChannelIndex)
-							{
-								bNeedsResave = true;
-								break;
-							}
-						}
-					}
-
-					if (bNeedsResave)
-					{
-						MaterialInterface->MarkPackageDirty();
-					}
-				}
-			}
-		}
-		ExportErrors.OutputToLog();
-	}
-
-	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+	FEditorBuildUtils::EditorBuildMaterialTextureStreamingData(nullptr);
 	return true;
 }
 

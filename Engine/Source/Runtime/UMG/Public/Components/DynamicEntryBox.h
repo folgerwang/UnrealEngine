@@ -43,7 +43,7 @@ public:
 	{
 		if (EntryWidgetClass && EntryWidgetClass->IsChildOf<WidgetT>())
 		{
-			return Cast<WidgetT>(CreateEntryInternal());
+			return Cast<WidgetT>(CreateEntryInternal(EntryWidgetClass));
 		}
 		return nullptr;
 	}
@@ -81,13 +81,18 @@ public:
 
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 	virtual void SynchronizeProperties() override;
 
 	virtual void AddEntryChild(UUserWidget& ChildWidget);
 
 protected:
+	UUserWidget* CreateEntryInternal(TSubclassOf<UUserWidget> InEntryClass);
+
 	/** The type of box panel into which created entries are added. Some differences in functionality exist between each type. */
-	UPROPERTY(EditAnywhere, Category = DynamicEntryBox)
+	UPROPERTY(EditAnywhere, Category = DynamicEntryBox, meta = (DesignerRebuild))
 	EDynamicBoxType EntryBoxType;
 
 	/** 
@@ -119,7 +124,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = EntryLayout)
 	int32 MaxElementSize = 0;
 
-	// Can be a horizontal, vertical, or wrap box
+	// Can be a horizontal, vertical, wrap box, or overlay
 	TSharedPtr<SPanel> MyPanelWidget;
 
 private:
@@ -127,7 +132,10 @@ private:
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox, meta = (DisplayName = "Create Entry", AllowPrivateAccess = true))
 	UUserWidget* BP_CreateEntry();
 
-	UUserWidget* CreateEntryInternal();
+	/** Creates and establishes a new dynamic entry in the box using the specified class instead of the default. */
+	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox, meta = (DisplayName = "Create Entry of Class", AllowPrivateAccess = true))
+	UUserWidget* BP_CreateEntryOfClass(TSubclassOf<UUserWidget> EntryClass);
+
 	FMargin BuildEntryPadding(const FVector2D& DesiredSpacing);
 	
 	/**

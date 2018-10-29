@@ -20,6 +20,8 @@ struct CONTROLRIG_API FRigUnit_TwoBoneIKFK : public FRigUnit
 
 	FRigUnit_TwoBoneIKFK()
 		: bUsePoleTarget(true)
+		, PoleTarget(ForceInitToZero)
+		, Spin(0.f)
 		, IKBlend(1.f)
 		, PreviousFKIKBlend(1.f)
 		, StartJointIndex(INDEX_NONE)

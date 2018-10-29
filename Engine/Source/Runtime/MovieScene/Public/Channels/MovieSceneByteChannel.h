@@ -16,7 +16,10 @@ struct MOVIESCENE_API FMovieSceneByteChannel : public FMovieSceneChannel
 	GENERATED_BODY()
 
 	FMovieSceneByteChannel()
-		: DefaultValue(), bHasDefaultValue(false)
+		: DefaultValue()
+		, bHasDefaultValue(false)
+		, Enum(nullptr)
+		, KeyHandles()
 	{}
 
 	/**
@@ -152,7 +155,7 @@ private:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneByteChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneByteChannel>
 {
-	enum { WithSerializeFromMismatchedTag = true };
+	enum { WithStructuredSerializeFromMismatchedTag = true };
 };
 
 template<>

@@ -297,6 +297,13 @@ bool UPlayerInput::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSa
 
 bool UPlayerInput::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) 
 {
+	// if touch disabled from the command line, consume the input and do nothing
+	static bool bTouchDisabled = FParse::Param(FCommandLine::Get(), TEXT("DisableTouch"));
+	if (bTouchDisabled)
+	{
+		return true;
+	}
+
 	// get the current state of each finger
 	checkf(TouchpadIndex == 0, TEXT("We currently assume one touchpad in UPlayerInput::InputTouch. If this triggers, add support for multiple pads"));
 
@@ -367,20 +374,24 @@ bool UPlayerInput::InputTouch(uint32 Handle, ETouchType::Type Type, const FVecto
 bool UPlayerInput::InputMotion(const FVector& InTilt, const FVector& InRotationRate, const FVector& InGravity, const FVector& InAcceleration) 
 {
 	FKeyState& KeyStateTilt = KeyStateMap.FindOrAdd(EKeys::Tilt);
-	KeyStateTilt.RawValue = KeyStateTilt.Value = InTilt;
+	KeyStateTilt.RawValueAccumulator += InTilt;
 	KeyStateTilt.EventAccumulator[IE_Repeat].Add(++EventCount);
+	KeyStateTilt.SampleCountAccumulator++;
 
 	FKeyState& KeyStateRotationRate = KeyStateMap.FindOrAdd(EKeys::RotationRate);
-	KeyStateRotationRate.RawValue = KeyStateRotationRate.Value = InRotationRate;
+	KeyStateRotationRate.RawValueAccumulator += InRotationRate;
 	KeyStateRotationRate.EventAccumulator[IE_Repeat].Add(++EventCount);
+	KeyStateRotationRate.SampleCountAccumulator++;
 
 	FKeyState& KeyStateGravity = KeyStateMap.FindOrAdd(EKeys::Gravity);
-	KeyStateGravity.RawValue = KeyStateGravity.Value = InGravity;
+	KeyStateGravity.RawValueAccumulator += InGravity;
 	KeyStateGravity.EventAccumulator[IE_Repeat].Add(++EventCount);
+	KeyStateGravity.SampleCountAccumulator++;
 
 	FKeyState& KeyStateAcceleration = KeyStateMap.FindOrAdd(EKeys::Acceleration);
-	KeyStateAcceleration.RawValue = KeyStateAcceleration.Value = InAcceleration;
+	KeyStateAcceleration.RawValueAccumulator += InAcceleration;
 	KeyStateAcceleration.EventAccumulator[IE_Repeat].Add(++EventCount);
+	KeyStateAcceleration.SampleCountAccumulator++;
 
 	// for now, if we have a player, assume it sucks up all motion input
 	// @todo: Here we could look for game kismet, etc, and only return true if some non-Slate in-game handler used the touch
@@ -429,10 +440,10 @@ void UPlayerInput::SetAxisProperties(const FKey AxisKey, const FInputAxisPropert
 	AxisProperties.Reset();
 }
 
-float UPlayerInput::GetMouseSensitivity()
+float UPlayerInput::GetMouseSensitivityX()
 {
 	FInputAxisProperties MouseAxisProps;
-	if (GetAxisProperties(EKeys::MouseX, MouseAxisProps) || GetAxisProperties(EKeys::MouseY, MouseAxisProps))
+	if (GetAxisProperties(EKeys::MouseX, MouseAxisProps))
 	{
 		return MouseAxisProps.Sensitivity;
 	}
@@ -440,17 +451,28 @@ float UPlayerInput::GetMouseSensitivity()
 	return 1.f;
 }
 
-void UPlayerInput::SetMouseSensitivity(const float Sensitivity)
+float UPlayerInput::GetMouseSensitivityY()
+{
+	FInputAxisProperties MouseAxisProps;
+	if (GetAxisProperties(EKeys::MouseY, MouseAxisProps))
+	{
+		return MouseAxisProps.Sensitivity;
+	}
+
+	return 1.f;
+}
+
+void UPlayerInput::SetMouseSensitivity(const float SensitivityX, const float SensitivityY)
 {
 	FInputAxisProperties MouseAxisProps;
 	if (GetAxisProperties(EKeys::MouseX, MouseAxisProps))
 	{
-		MouseAxisProps.Sensitivity = Sensitivity;
+		MouseAxisProps.Sensitivity = SensitivityX;
 		SetAxisProperties(EKeys::MouseX, MouseAxisProps);
 	}
 	if (GetAxisProperties(EKeys::MouseY, MouseAxisProps))
 	{
-		MouseAxisProps.Sensitivity = Sensitivity;
+		MouseAxisProps.Sensitivity = SensitivityY;
 		SetAxisProperties(EKeys::MouseY, MouseAxisProps);
 	}
 }
@@ -630,7 +652,7 @@ void UPlayerInput::ForceRebuildingKeyMaps(const bool bRestoreDefaults)
 	bKeyMapsBuilt = false;
 }
 
-void UPlayerInput::ConditionalBuildKeyMappings_Internal()
+void UPlayerInput::ConditionalBuildKeyMappings_Internal() const
 {
 	if (ActionKeyMap.Num() == 0)
 	{
@@ -909,7 +931,14 @@ float UPlayerInput::DetermineAxisValue(const FInputAxisBinding& AxisBinding, con
 
 void UPlayerInput::ProcessNonAxesKeys(FKey InKey, FKeyState* KeyState)
 {
-	KeyState->Value.X = MassageAxisInput(InKey, KeyState->RawValue.X);
+	if (InKey.IsVectorAxis())
+	{
+		KeyState->Value = MassageVectorAxisInput(InKey, KeyState->RawValue);
+	}
+	else
+	{
+		KeyState->Value.X = MassageAxisInput(InKey, KeyState->RawValue.X);
+	}
 
 	int32 const PressDelta = KeyState->EventCounts[IE_Pressed].Num() - KeyState->EventCounts[IE_Released].Num();
 	if (PressDelta < 0)
@@ -1202,7 +1231,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 				{
 					if (!bGamePaused || VectorAxisBinding.bExecuteWhenPaused)
 					{
-						VectorAxisBinding.AxisValue = GetVectorKeyValue(VectorAxisBinding.AxisKey);
+						VectorAxisBinding.AxisValue = GetProcessedVectorKeyValue(VectorAxisBinding.AxisKey);
 					}
 					else
 					{
@@ -1598,11 +1627,18 @@ float UPlayerInput::GetRawKeyValue( FKey InKey ) const
 	return KeyState ? KeyState->RawValue.X : 0.f;
 }
 
-FVector UPlayerInput::GetVectorKeyValue( FKey InKey ) const
+FVector UPlayerInput::GetProcessedVectorKeyValue(FKey InKey) const
 {
-	UE_CLOG(InKey == EKeys::AnyKey, LogInput, Warning, TEXT("GetVectorKeyValue cannot return a meaningful result for AnyKey"));
+	UE_CLOG(InKey == EKeys::AnyKey, LogInput, Warning, TEXT("GetProcessedVectorKeyValue cannot return a meaningful result for AnyKey"));
 	FKeyState const* const KeyState = KeyStateMap.Find(InKey);
-	return KeyState ? KeyState->RawValue : FVector(0,0,0);
+	return KeyState ? KeyState->Value : FVector(0, 0, 0);
+}
+
+FVector UPlayerInput::GetRawVectorKeyValue(FKey InKey) const
+{
+	UE_CLOG(InKey == EKeys::AnyKey, LogInput, Warning, TEXT("GetRawVectorKeyValue cannot return a meaningful result for AnyKey"));
+	FKeyState const* const KeyState = KeyStateMap.Find(InKey);
+	return KeyState ? KeyState->RawValue : FVector(0, 0, 0);
 }
 
 bool UPlayerInput::IsPressed( FKey InKey ) const
@@ -1626,6 +1662,62 @@ bool UPlayerInput::IsPressed( FKey InKey ) const
 	return false;
 }
 
+FVector UPlayerInput::MassageVectorAxisInput(FKey Key, FVector RawValue)
+{
+	FVector NewVal = RawValue;
+
+	ConditionalInitAxisProperties();
+
+	// no massaging for buttons atm, might want to support it for things like pressure-sensitivity at some point
+
+	FInputAxisProperties const* const AxisProps = AxisProperties.Find(Key);
+	if (AxisProps)
+	{
+		// deal with axis deadzone
+		if (AxisProps->DeadZone > 0.f)
+		{
+			auto DeadZoneLambda = [AxisProps](const float AxisVal)
+			{
+				// We need to translate and scale the input to the +/- 1 range after removing the dead zone.
+				if (AxisVal > 0)
+				{
+					return FMath::Max(0.f, AxisVal - AxisProps->DeadZone) / (1.f - AxisProps->DeadZone);
+				}
+				else
+				{
+					return -FMath::Max(0.f, -AxisVal - AxisProps->DeadZone) / (1.f - AxisProps->DeadZone);
+				}
+			};
+
+			NewVal.X = DeadZoneLambda(NewVal.X);
+			NewVal.X = DeadZoneLambda(NewVal.Y);
+			NewVal.X = DeadZoneLambda(NewVal.Z);
+		}
+
+		// apply any exponent curvature while we're in the [0..1] range
+		if (AxisProps->Exponent != 1.f)
+		{
+			auto ExponentLambda = [AxisProps](const float AxisVal)
+			{
+				return FMath::Sign(AxisVal) * FMath::Pow(FMath::Abs(AxisVal), AxisProps->Exponent);
+			};
+
+			NewVal.X = ExponentLambda(NewVal.X);
+			NewVal.Y = ExponentLambda(NewVal.Y);
+			NewVal.Z = ExponentLambda(NewVal.Z);
+		}
+
+		// now apply any scaling (sensitivity)
+		NewVal *= AxisProps->Sensitivity;
+
+		if (AxisProps->bInvert)
+		{
+			NewVal *= -1.f;
+		}
+	}
+
+	return NewVal;
+}
 
 float UPlayerInput::MassageAxisInput(FKey Key, float RawValue)
 {
@@ -1808,7 +1900,7 @@ bool UPlayerInput::IsKeyHandledByAction( FKey Key ) const
 	return false;
 }
 
-const TArray<FInputActionKeyMapping>& UPlayerInput::GetKeysForAction(const FName ActionName)
+const TArray<FInputActionKeyMapping>& UPlayerInput::GetKeysForAction(const FName ActionName) const
 {
 	ConditionalBuildKeyMappings();
 
@@ -1821,7 +1913,7 @@ const TArray<FInputActionKeyMapping>& UPlayerInput::GetKeysForAction(const FName
 	return UPlayerInput::NoKeyMappings;
 }
 
-const TArray<FInputAxisKeyMapping>& UPlayerInput::GetKeysForAxis(const FName AxisName)
+const TArray<FInputAxisKeyMapping>& UPlayerInput::GetKeysForAxis(const FName AxisName) const
 {
 	ConditionalBuildKeyMappings();
 

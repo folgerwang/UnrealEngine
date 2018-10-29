@@ -44,8 +44,12 @@
 
 #include "glsl_symbol_table.h"
 
-typedef std::set<ir_variable*> TIRVarSet;
-typedef std::map<ir_variable*, TIRVarSet> TIRVarSetMap;
+struct ir_variable_compare {
+	bool operator() (const ir_variable* const& lhs, const ir_variable* const& rhs) const;
+};
+
+typedef std::set<ir_variable*, ir_variable_compare> TIRVarSet;
+typedef std::map<ir_variable*, TIRVarSet, ir_variable_compare> TIRVarSetMap;
 typedef std::set<std::string> TStringSet;
 typedef std::map<std::string, TStringSet> TStringToSetMap;
 

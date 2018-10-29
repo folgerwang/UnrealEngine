@@ -586,7 +586,7 @@ bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bChec
 	}
 
 	// If the base pass is allowed to render velocity in the GBuffer, only mesh with static lighting need the velocity pass.
-	if (FVelocityRendering::OutputsToGBuffer() && (!UseSelectiveBasePassOutputs() || !Proxy->HasStaticLighting()))
+	if (FVelocityRendering::BasePassCanOutputVelocity(Scene->GetFeatureLevel()) && !(UseSelectiveBasePassOutputs() && Proxy->HasStaticLighting()))
 	{
 		return false;
 	}

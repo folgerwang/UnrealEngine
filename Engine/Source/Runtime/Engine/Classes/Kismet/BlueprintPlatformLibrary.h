@@ -224,4 +224,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Platform|LocalNotification")
 	static void GetLaunchNotification(bool& NotificationLaunchedApp, FString& ActivationEvent, int32& FireDate);
 
+	/**
+	 * @return the current device orientation
+	 */
+	UFUNCTION(BlueprintPure, Category="Platform|LocalNotification")
+	static EScreenOrientation::Type GetDeviceOrientation();
 };

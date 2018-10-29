@@ -22,7 +22,7 @@ struct FTimerUnifiedDelegate
 	FTimerDelegate FuncDelegate;
 	/** Holds the dynamic delegate to call. */
 	FTimerDynamicDelegate FuncDynDelegate;
-	/** Holds the tfunction callback to call. */
+	/** Holds the TFunction callback to call. */
 	TFunction<void(void)> FuncCallback;
 
 	FTimerUnifiedDelegate() {};
@@ -60,18 +60,18 @@ struct FTimerUnifiedDelegate
 		return ( FuncDelegate.IsBound() || FuncDynDelegate.IsBound() || FuncCallback );
 	}
 
-	inline bool IsBoundToObject(void const* Object) const
+	inline const void* GetBoundObject() const
 	{
 		if (FuncDelegate.IsBound())
 		{
-			return FuncDelegate.IsBoundToObject(Object);
+			return FuncDelegate.GetObjectForTimerManager();
 		}
 		else if (FuncDynDelegate.IsBound())
 		{
-			return FuncDynDelegate.IsBoundToObject(Object);
+			return FuncDynDelegate.GetUObject();
 		}
 
-		return false;
+		return nullptr;
 	}
 
 	inline void Unbind()
@@ -90,7 +90,8 @@ enum class ETimerStatus : uint8
 	Pending,
 	Active,
 	Paused,
-	Executing
+	Executing,
+	ActivePendingRemoval
 };
 
 struct FTimerData
@@ -117,7 +118,11 @@ struct FTimerData
 	/** Holds the delegate to call. */
 	FTimerUnifiedDelegate TimerDelegate;
 
-	FTimerHandle TimerHandle;
+	/** Handle representing this timer */
+	FTimerHandle Handle;
+
+	/** This is the key to the TimerIndicesByObject map - this is kept so that we can look up even if the referenced object is expired */
+	const void* TimerIndicesByObjectKey;
 
 	/** The level collection that was active when this timer was created. Used to set the correct context before executing the timer's delegate. */
 	ELevelCollectionType LevelCollection;
@@ -130,18 +135,6 @@ struct FTimerData
 		, ExpireTime(0)
 		, LevelCollection(ELevelCollectionType::DynamicSourceLevels)
 	{}
-
-	/** Operator less, used to sort the heap based on time until execution. **/
-	bool operator<(const FTimerData& Other) const
-	{
-		return ExpireTime < Other.ExpireTime;
-	}
-
-	void Clear()
-	{
-		TimerDelegate.Unbind();
-		TimerHandle.Invalidate();
-	}
 };
 
 
@@ -168,13 +161,12 @@ public:
 
 	/**
 	 * Sets a timer to call the given native function at a set interval.  If a timer is already set
-	 * for this delegate, it will update the current timer to the new parameters and reset its
-	 * elapsed time to 0.
+	 * for this handle, it will replace the current timer.
 	 *
-	 * @param InOutHandle			Handle to identify this timer. If it is invalid when passed in it will be made into a valid handle.
+	 * @param InOutHandle			If the passed-in handle refers to an existing timer, it will be cleared before the new timer is added. A new handle to the new timer is returned in either case.
 	 * @param InObj					Object to call the timer function on.
 	 * @param InTimerMethod			Method to call when timer fires.
-	 * @param InRate					The amount of time between set and firing.  If <= 0.f, clears existing timers.
+	 * @param InRate				The amount of time between set and firing.  If <= 0.f, clears existing timers.
 	 * @param InbLoop				true to keep firing at Rate intervals, false to fire only once.
 	 * @param InFirstDelay			The time for the first iteration of a looping timer. If < 0.f inRate will be used.
 	 */
@@ -244,17 +236,6 @@ public:
 	}
 
 	/**
-	 * DEPRECATED: Clears a previously set timer, identical to calling SetTimer() with a <= 0.f rate.
-	 *
-	 * @param InHandle The handle of the timer to clear.
-	 */
-	DEPRECATED(4.12, "This function is deprecated to ensure that timers that are no longer valid are not persisted. Please call this function with a non-const reference.")
-	FORCEINLINE void ClearTimer(const FTimerHandle& InHandle)
-	{
-		InternalClearTimer(InHandle);
-	}
-
-	/**
 	* Clears a previously set timer, identical to calling SetTimer() with a <= 0.f rate.
 	* Invalidates the timer handle as it should no longer be used.
 	*
@@ -262,8 +243,11 @@ public:
 	*/
 	FORCEINLINE void ClearTimer(FTimerHandle& InHandle)
 	{
-		InternalClearTimer(InHandle);
-		InHandle.Invalidate();
+		if (const FTimerData* TimerData = FindTimer(InHandle))
+		{
+			InternalClearTimer(InHandle);
+			InHandle.Invalidate();
+		}
 	}
 
 	/** Clears all timers that are bound to functions on the given object. */
@@ -280,23 +264,14 @@ public:
 	 *
 	 * @param InHandle The handle of the timer to pause.
 	 */
-	FORCEINLINE void PauseTimer(FTimerHandle InHandle)
-	{
-		int32 TimerIdx;
-		FTimerData const* TimerToPause = FindTimer(InHandle, &TimerIdx);
-		InternalPauseTimer(TimerToPause, TimerIdx);
-	}
+	void PauseTimer(FTimerHandle InHandle);
 
 	/**
 	 * Unpauses a previously set timer
 	 *
 	 * @param InHandle The handle of the timer to unpause.
 	 */
-	FORCEINLINE void UnPauseTimer(FTimerHandle InHandle)
-	{
-		int32 TimerIdx = FindTimerInList(PausedTimerList, InHandle);
-		InternalUnPauseTimer(TimerIdx);
-	}
+	void UnPauseTimer(FTimerHandle InHandle);
 
 	/**
 	 * Gets the current rate (time between activations) for the specified timer.
@@ -399,51 +374,66 @@ public:
 	/** Debug command to output info on all timers currently set to the log. */
 	void ListTimers() const;
 
-	/** Get the current last assigned handle */
-	static void ValidateHandle(FTimerHandle& InOutHandle);
-
 	/** Used by the UGameInstance constructor to set this manager's owning game instance. */
 	void SetGameInstance(UGameInstance* InGameInstance) { OwningGameInstance = InGameInstance; }
 
+// This should be private, but needs to be public for testing.
+public:
+	/** Generates a handle for a timer at a given index */
+	FTimerHandle GenerateHandle(int32 Index);
+
+// These should be private, but need to be protected so IMPLEMENT_GET_PROTECTED_FUNC works for testing.
+protected:
+	/** Will find a timer in the active, paused, or pending list. */
+	FORCEINLINE FTimerData const* FindTimer(FTimerHandle const& InHandle) const
+	{
+		return const_cast<FTimerManager*>(this)->FindTimer(InHandle);
+	}
+	FTimerData* FindTimer( FTimerHandle const& InHandle );
+
 private:
 	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
-	void InternalSetTimer( FTimerData& NewTimerData, float InRate, bool InbLoop, float InFirstDelay );
 	void InternalSetTimerForNextTick( FTimerUnifiedDelegate const& InDelegate );
 	void InternalClearTimer( FTimerHandle const& InDelegate );
-	void InternalClearTimer( int32 TimerIdx, ETimerStatus TimerStatus );
 	void InternalClearAllTimers( void const* Object );
-
-	/** Will find a timer in the active, paused, or pending list. */
-	FTimerData const* FindTimer( FTimerHandle const& InHandle, int32* OutTimerIndex = nullptr ) const;
-
-	void InternalPauseTimer( FTimerData const* TimerToPause, int32 TimerIdx );
-	void InternalUnPauseTimer( int32 PausedTimerIdx );
-	
 	float InternalGetTimerRate( FTimerData const* const TimerData ) const;
 	float InternalGetTimerElapsed( FTimerData const* const TimerData ) const;
 	float InternalGetTimerRemaining( FTimerData const* const TimerData ) const;
 
-	/** Will find the given timer in the given TArray and return its index. */ 
-	int32 FindTimerInList( const TArray<FTimerData> &SearchArray, FTimerHandle const& InHandle ) const;
+	/** Will get a timer in the active, paused, or pending list.  Expected to be given a valid, non-stale handle */
+	FORCEINLINE const FTimerData& GetTimer(const FTimerHandle& InHandle) const
+	{
+		return const_cast<FTimerManager*>(this)->GetTimer(InHandle);
+	}
+	FTimerData& GetTimer(FTimerHandle const& InHandle);
 
+	/** Adds a timer from the Timers list, also updating the TimerIndicesByObject map.  Returns the insertion index. */
+	FTimerHandle AddTimer(FTimerData&& TimerData);
+	/** Removes a timer from the Timers list at the given index, also cleaning up the TimerIndicesByObject map */
+	void RemoveTimer(FTimerHandle Handle);
+
+	/** The array of timers - all other arrays will index into this */
+	TSparseArray<FTimerData> Timers;
 	/** Heap of actively running timers. */
-	TArray<FTimerData> ActiveTimerHeap;
-	/** Unordered list of paused timers. */
-	TArray<FTimerData> PausedTimerList;
-	/** List of timers added this frame, to be added after timer has been ticked */
-	TArray<FTimerData> PendingTimerList;
+	TArray<FTimerHandle> ActiveTimerHeap;
+	/** Set of paused timers. */
+	TSet<FTimerHandle> PausedTimerSet;
+	/** Set of timers added this frame, to be added after timer has been ticked */
+	TSet<FTimerHandle> PendingTimerSet;
+	/** A map of object pointers to timers with delegates bound to those objects, for quick lookup */
+	TMap<const void*, TSet<FTimerHandle>> ObjectToTimers;
 
 	/** An internally consistent clock, independent of World.  Advances during ticking. */
 	double InternalTime;
 
-	/** Timer delegate currently being executed.  Used to handle "timer delegates that manipulate timers" cases. */
-	FTimerData CurrentlyExecutingTimer;
+	/** Index to the timer delegate currently being executed, or INDEX_NONE if none are executing.  Used to handle "timer delegates that manipulate timers" cases. */
+	FTimerHandle CurrentlyExecutingTimer;
 
 	/** Set this to GFrameCounter when Timer is ticked. To figure out if Timer has been already ticked or not this frame. */
 	uint64 LastTickedFrame;
 
-	/** The last handle we assigned from this timer manager */
-	static uint64 LastAssignedHandle;
+	/** The last serial number we assigned from this timer manager */
+	static uint64 LastAssignedSerialNumber;
 
 	/** The game instance that created this timer manager. May be null if this timer manager wasn't created by a game instance. */
 	UGameInstance* OwningGameInstance;

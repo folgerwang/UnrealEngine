@@ -17,6 +17,7 @@
 class FWmfMediaSession;
 class FWmfMediaTracks;
 class IMediaEventSink;
+struct FMediaPlayerOptions;
 
 
 /**
@@ -54,6 +55,7 @@ public:
 	virtual FString GetUrl() const override;
 	virtual IMediaView& GetView() override;
 	virtual bool Open(const FString& Url, const IMediaOptions* Options) override;
+	virtual bool Open(const FString& Url, const IMediaOptions* Options, const FMediaPlayerOptions* PlayerOptions) override;
 	virtual bool Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, const IMediaOptions* Options) override;
 	virtual void TickFetch(FTimespan DeltaTime, FTimespan Timecode) override;
 	virtual void TickInput(FTimespan DeltaTime, FTimespan Timecode) override;
@@ -68,7 +70,7 @@ protected:
 	 * @param Precache Whether to precache media into RAM if InURL is a local file.
 	 * @return true on success, false otherwise.
 	 */
-	bool InitializePlayer(const TSharedPtr<FArchive, ESPMode::ThreadSafe>& Archive, const FString& Url, bool Precache);
+	bool InitializePlayer(const TSharedPtr<FArchive, ESPMode::ThreadSafe>& Archive, const FString& Url, bool Precache, const FMediaPlayerOptions* PlayerOptions);
 
 private:
 

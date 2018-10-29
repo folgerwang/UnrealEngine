@@ -83,6 +83,7 @@ FStropheWebsocketConnection::FStropheWebsocketConnection(FStropheContext& InCont
 	Websocket->OnClosed().AddRaw(this, &FStropheWebsocketConnection::OnWebsocketClosed);
 	Websocket->OnRawMessage().AddRaw(this, &FStropheWebsocketConnection::OnRawMessage);
 
+	checkf(Context.GetContextPtr() != nullptr, TEXT("xmpp_ctx_t is null"));
 	XmppConnectionPtr = xmpp_conn_new(Context.GetContextPtr());
 	const int32 IsWebsocket = 1;
 	xmpp_conn_extsock_t ExternalSocket = 

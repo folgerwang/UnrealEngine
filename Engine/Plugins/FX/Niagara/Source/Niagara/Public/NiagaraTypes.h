@@ -134,6 +134,7 @@ struct FNiagaraSpawnInfo
 		: Count(0)
 		, InterpStartDt(0.0f)
 		, IntervalDt(1.0f)
+		, SpawnGroup(0)
 	{}
 
 	/** How many particles to spawn. */
@@ -302,10 +303,11 @@ struct NIAGARA_API FNiagaraVariableMetaData
 public:
 	FNiagaraVariableMetaData()
 		:EditorSortPriority(0)
+		, CallSortPriority(0)
 	{
 	}
 public:
-	UPROPERTY(EditAnywhere, Category = "Variable")
+	UPROPERTY(EditAnywhere, Category = "Variable", DisplayName = "Property Metadata", meta = (ToolTip = "Property Metadata"))
 	TMap<FName, FString> PropertyMetaData;
 
 	UPROPERTY(EditAnywhere, Category = "Variable", meta = (MultiLine = true))
@@ -816,7 +818,7 @@ struct FNiagaraVariable
 		return Name != NAME_None && TypeDef.IsValid();
 	}
 
-	FORCEINLINE bool IsInNameSpace(FString Namespace) 
+	FORCEINLINE bool IsInNameSpace(FString Namespace) const
 	{
 		return Name.ToString().StartsWith(Namespace + TEXT("."));
 	}
@@ -842,7 +844,7 @@ struct FNiagaraVariable
 			}
 		}
 
-		OutVarStrName = FString::Join<FString>(SplitName, InJoinSeparator);
+		OutVarStrName = FString::Join(SplitName, InJoinSeparator);
 
 		OutVar.SetName(*OutVarStrName);
 		return OutVar;

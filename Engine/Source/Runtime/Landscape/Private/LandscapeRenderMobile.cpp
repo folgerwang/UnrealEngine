@@ -310,7 +310,7 @@ FLandscapeComponentSceneProxyMobile::FLandscapeComponentSceneProxyMobile(ULandsc
 {
 	check(InComponent);
 	
-	check(InComponent->MobileMaterialInterface);
+	check(InComponent->MobileMaterialInterfaces.Num() > 0);
 	check(InComponent->MobileWeightmapTextures.Num() > 0);
 
 	WeightmapTextures = InComponent->MobileWeightmapTextures;

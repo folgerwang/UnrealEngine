@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "Templates/SubclassOf.h"
 #include "UObject/Package.h"
+#include "UObject/GCObject.h"
 
 namespace ConstructorHelpersInternal
 {
@@ -96,7 +97,7 @@ struct COREUOBJECT_API ConstructorHelpers
 {
 public:
 	template<class T>
-	struct FObjectFinder
+	struct FObjectFinder : public FGCObject
 	{
 		T* Object;
 		FObjectFinder(const TCHAR* ObjectToFind)
@@ -112,10 +113,15 @@ public:
 		{
 			return !!Object;
 		}
+
+		virtual void AddReferencedObjects( FReferenceCollector& Collector )
+		{
+			Collector.AddReferencedObject(Object);
+		}
 	};
 
 	template<class T>
-	struct FObjectFinderOptional
+	struct FObjectFinderOptional : public FGCObject
 	{
 	private:
 		T* Object;
@@ -145,10 +151,15 @@ public:
 		{
 			return !!Get();
 		}
+
+		virtual void AddReferencedObjects( FReferenceCollector& Collector )
+		{
+			Collector.AddReferencedObject(Object);
+		}
 	};
 
 	template<class T>
-	struct FClassFinder
+	struct FClassFinder : public FGCObject
 	{
 		TSubclassOf<T> Class;
 		FClassFinder(const TCHAR* ClassToFind)
@@ -162,6 +173,13 @@ public:
 		bool Succeeded()
 		{
 			return !!*Class;
+		}
+		
+		virtual void AddReferencedObjects( FReferenceCollector& Collector )
+		{
+			UClass* ReferencedClass = Class.Get();
+			Collector.AddReferencedObject(ReferencedClass);
+			Class = ReferencedClass;
 		}
 	};
 

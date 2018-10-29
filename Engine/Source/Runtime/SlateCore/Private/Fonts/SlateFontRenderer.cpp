@@ -398,8 +398,8 @@ bool FSlateFontRenderer::GetRenderDataInternal(const FFreeTypeFaceGlyphData& InF
 
 			FT_Get_Glyph(Slot, &Glyph);
 
-			bool bInner = false;
-			FT_Glyph_StrokeBorder(&Glyph, Stroker, bInner ? 1 : 0, 0);
+			FT_Bool bInner = false;
+			FT_Glyph_StrokeBorder(&Glyph, Stroker, bInner, 0);
 
 			FT_Outline* Outline = &reinterpret_cast<FT_OutlineGlyph>(Glyph)->outline;
 

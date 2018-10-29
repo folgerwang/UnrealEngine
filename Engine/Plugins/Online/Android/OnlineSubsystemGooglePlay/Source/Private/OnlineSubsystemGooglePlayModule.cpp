@@ -42,13 +42,13 @@ public:
 			{
 				if(!GooglePlaySingleton->Init())
 				{
-					UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemGooglePlayModule failed to initialize!"));
+					UE_LOG_ONLINE(Warning, TEXT("FOnlineSubsystemGooglePlayModule failed to initialize!"));
 					DestroySubsystem();
 				}
 			}
 			else
 			{
-				UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemGooglePlayModule was disabled"));
+				UE_LOG_ONLINE(Warning, TEXT("FOnlineSubsystemGooglePlayModule was disabled"));
 				DestroySubsystem();
 			}
 
@@ -65,7 +65,7 @@ FOnlineSubsystemGooglePlayPtr FOnlineFactoryGooglePlay::GooglePlaySingleton = NU
 
 void FOnlineSubsystemGooglePlayModule::StartupModule()
 {
-	UE_LOG(LogOnline, Display, TEXT("OnlineSubsystemGooglePlayModule::StartupModule()"));
+	UE_LOG_ONLINE(Display, TEXT("OnlineSubsystemGooglePlayModule::StartupModule()"));
 
 	GooglePlayFactory = new FOnlineFactoryGooglePlay();
 
@@ -76,7 +76,7 @@ void FOnlineSubsystemGooglePlayModule::StartupModule()
 
 void FOnlineSubsystemGooglePlayModule::ShutdownModule()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGooglePlayModule::ShutdownModule()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemGooglePlayModule::ShutdownModule()"));
 
 	delete GooglePlayFactory;
 	GooglePlayFactory = nullptr;

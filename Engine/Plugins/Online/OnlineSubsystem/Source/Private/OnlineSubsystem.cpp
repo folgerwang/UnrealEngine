@@ -5,7 +5,6 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/IConsoleManager.h"
 #include "NboSerializer.h"
-#include "Online.h"
 #include "Misc/NetworkVersion.h"
 #include "Logging/LogMacros.h"
 #include "Misc/EngineVersion.h"
@@ -14,10 +13,18 @@
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineUserInterface.h"
 #include "Interfaces/OnlineEventsInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "Interfaces/OnlineStoreInterface.h"
 #include "Interfaces/OnlineStoreInterfaceV2.h"
 #include "Interfaces/OnlinePurchaseInterface.h"
 #include "Interfaces/OnlineSharingInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineUserCloudInterface.h"
+#include "Interfaces/OnlineTitleFileInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
+#include "Interfaces/VoiceInterface.h"
 #include "Interfaces/OnlineLeaderboardInterface.h"
 #include "Interfaces/OnlineTournamentInterface.h"
 
@@ -203,6 +210,17 @@ bool IsPlayerInSessionImpl(IOnlineSession* SessionInt, FName SessionName, const 
 	return bFound;
 }
 
+bool IsUniqueIdLocal(const FUniqueNetId& UniqueId)
+{
+	if (IOnlineSubsystem::DoesInstanceExist(UniqueId.GetType()))
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(UniqueId.GetType());
+		return OnlineSub ? OnlineSub->IsLocalPlayer(UniqueId) : false;
+	}
+
+	return false;
+}
+
 int32 GetBeaconPortFromSessionSettings(const FOnlineSessionSettings& SessionSettings)
 {
 	int32 BeaconListenPort = DEFAULT_BEACON_PORT;
@@ -218,7 +236,8 @@ int32 GetBeaconPortFromSessionSettings(const FOnlineSessionSettings& SessionSett
 
 static void ResetAchievements()
 {
-	auto IdentityInterface = Online::GetIdentityInterface();
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+	IOnlineIdentityPtr IdentityInterface = OnlineSub ? OnlineSub->GetIdentityInterface() : nullptr;
 	if (!IdentityInterface.IsValid())
 	{
 		UE_LOG_ONLINE(Warning, TEXT("ResetAchievements command: couldn't get the identity interface"));
@@ -232,7 +251,7 @@ static void ResetAchievements()
 		return;
 	}
 
-	auto AchievementsInterface = Online::GetAchievementsInterface();
+	IOnlineAchievementsPtr AchievementsInterface = OnlineSub ? OnlineSub->GetAchievementsInterface() : nullptr;
 	if (!AchievementsInterface.IsValid())
 	{
 		UE_LOG_ONLINE(Warning, TEXT("ResetAchievements command: couldn't get the achievements interface"));

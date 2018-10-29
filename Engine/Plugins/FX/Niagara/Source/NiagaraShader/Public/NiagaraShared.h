@@ -337,7 +337,7 @@ public:
 	void SaveToDerivedDataCache();
 
 	/** Registers all shaders that have been loaded in Serialize */
-	virtual void RegisterSerializedShaders() override;
+	virtual void RegisterSerializedShaders(bool bCookedMaterial) override;
 	virtual void DiscardSerializedShaders() override;
 
 	/** Backs up any FShaders in this shader map to memory through serialization and clears FShader references. */
@@ -554,6 +554,8 @@ public:
 	}
 
 	NIAGARASHADER_API void RegisterShaderMap();
+
+	NIAGARASHADER_API void DiscardShaderMap();
 
 	/** Note: SetRenderingThreadShaderMap must also be called with the same value, but from the rendering thread. */
 	void SetGameThreadShaderMap(FNiagaraShaderMap* InShaderMap)

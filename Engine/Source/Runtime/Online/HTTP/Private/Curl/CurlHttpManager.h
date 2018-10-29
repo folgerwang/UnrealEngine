@@ -26,7 +26,6 @@ public:
 			:	bVerifyPeer(true)
 			,	bDontReuseConnections(false)
 			,	bAcceptCompressedContent(true)
-			,	CertBundlePath(nullptr)
 			,	MaxHostConnections(0)
 			,	BufferSize(64*1024)
 		{}
@@ -42,9 +41,6 @@ public:
 
 		/** Allow servers to send compressed content.  Can have a very small cpu cost, and huge bandwidth and response time savings from correctly configured servers. */
 		bool bAcceptCompressedContent;
-
-		/** A path to certificate bundle */
-		const char * CertBundlePath;
 
 		/** The maximum number of connections to a particular host */
 		int32 MaxHostConnections;

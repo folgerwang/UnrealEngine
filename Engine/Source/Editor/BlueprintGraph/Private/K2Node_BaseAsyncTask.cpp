@@ -112,7 +112,9 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 	{
 		if (UMulticastDelegateProperty* Property = Cast<UMulticastDelegateProperty>(*PropertyIt))
 		{
-			CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, Property->GetFName());
+			UEdGraphPin* ExecPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, Property->GetFName());
+			ExecPin->PinToolTip = Property->GetToolTipText().ToString();
+
 			if (!DelegateSignatureFunction)
 			{
 				DelegateSignatureFunction = Property->SignatureFunction;
@@ -130,6 +132,8 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 			{
 				UEdGraphPin* Pin = CreatePin(EGPD_Output, NAME_None, Param->GetFName());
 				K2Schema->ConvertPropertyToPinType(Param, /*out*/ Pin->PinType);
+
+				Pin->PinToolTip = Param->GetToolTipText().ToString();
 			}
 		}
 	}
@@ -656,8 +660,11 @@ void UK2Node_BaseAsyncTask::GetPinHoverText(const UEdGraphPin& Pin, FString& Hov
 	{
 		for (UEdGraphPin* P : Pins)
 		{
-			P->PinToolTip.Reset();
-			GeneratePinTooltip(*P);
+			if (P->Direction == EGPD_Input)
+			{
+				P->PinToolTip.Reset();
+				GeneratePinTooltip(*P);
+			}
 		}
 
 		bPinTooltipsValid = true;

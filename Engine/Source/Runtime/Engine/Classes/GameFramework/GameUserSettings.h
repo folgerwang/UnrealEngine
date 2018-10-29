@@ -120,7 +120,7 @@ public:
 
 	/** Mark current video mode settings (fullscreenmode/resolution) as being confirmed by the user */
 	UFUNCTION(BlueprintCallable, Category=Settings)
-	void ConfirmVideoMode();
+	virtual void ConfirmVideoMode();
 
 	/** Revert video mode (fullscreenmode/resolution) back to the last user confirmed values */
 	UFUNCTION(BlueprintCallable, Category=Settings)
@@ -147,7 +147,7 @@ public:
 	float GetFrameRateLimit() const;
 
 	// Changes all scalability settings at once based on a single overall quality level
-	// @param Value 0:low, 1:medium, 2:high, 3:epic
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	virtual void SetOverallScalabilityLevel(int32 Value);
 
@@ -177,59 +177,66 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetResolutionScaleNormalized(float NewScaleNormalized);
 
-	// Sets the view distance quality (0..3, higher is better)
+	// Sets the view distance quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetViewDistanceQuality(int32 Value);
 
-	// Returns the view distance quality (0..3, higher is better)
+	// Returns the view distance quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetViewDistanceQuality() const;
 
-	// Sets the shadow quality (0..3, higher is better)
+	// Sets the shadow quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetShadowQuality(int32 Value);
 
-	// Returns the shadow quality (0..3, higher is better)
+	// Returns the shadow quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetShadowQuality() const;
 
-	// Sets the anti-aliasing quality (0..3, higher is better)
+	// Sets the anti-aliasing quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetAntiAliasingQuality(int32 Value);
 
-	// Returns the anti-aliasing quality (0..3, higher is better)
+	// Returns the anti-aliasing quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetAntiAliasingQuality() const;
 
-	// Sets the texture quality (0..3, higher is better)
+	// Sets the texture quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic  (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetTextureQuality(int32 Value);
 
-	// Returns the texture quality (0..3, higher is better)
+	// Returns the texture quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetTextureQuality() const;
 
-	// Sets the visual effects quality (0..3, higher is better)
+	// Sets the visual effects quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetVisualEffectQuality(int32 Value);
 
-	// Returns the visual effects quality (0..3, higher is better)
+	// Returns the visual effects quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetVisualEffectQuality() const;
 
-	// Sets the post-processing quality (0..3, higher is better)
+	// Sets the post-processing quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetPostProcessingQuality(int32 Value);
 
-	// Returns the post-processing quality (0..3, higher is better)
+	// Returns the post-processing quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetPostProcessingQuality() const;
 	
-	// Sets the post-processing quality (0..3, higher is better)
+	// Sets the foliage quality (0..4, higher is better)
+	// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	void SetFoliageQuality(int32 Value);
 
-	// Returns the post-processing quality (0..3, higher is better)
+	// Returns the foliage quality (0..4, higher is better)
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	int32 GetFoliageQuality() const;
 
@@ -376,6 +383,9 @@ protected:
 	UPROPERTY(config)
 	int32 AudioQualityLevel;
 
+	UPROPERTY(config)
+	int32 LastConfirmedAudioQualityLevel;
+
 	/** Frame rate cap */
 	UPROPERTY(config)
 	float FrameRateLimit;
@@ -464,6 +474,11 @@ public:
 	TArray<float> GetLastGPUBenchmarkSteps() const
 	{
 		return LastGPUBenchmarkSteps;
+	}
+
+	void RequestUIUpdate()
+	{
+		OnGameUserSettingsUINeedsUpdate.Broadcast();
 	}
 
 protected:

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebBrowser.h"
 #include "SWebBrowser.h"
@@ -13,14 +13,9 @@
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #include "Materials/MaterialFunction.h"
-#include "Materials/Material.h"
 #include "Factories/MaterialFactoryNew.h"
 #include "AssetRegistryModule.h"
 #include "PackageHelperFunctions.h"
-#endif
-
-#if WITH_EDITOR || PLATFORM_ANDROID
-#include "WebBrowserTexture.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "WebBrowser"
@@ -32,22 +27,6 @@ UWebBrowser::UWebBrowser(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bIsVariable = true;
-
-#if WITH_EDITOR || PLATFORM_ANDROID
-	struct FConstructorStatics
-	{
-		ConstructorHelpers::FObjectFinder<UObject>			DefaultTextureMaterial;
-		FConstructorStatics()
-			: DefaultTextureMaterial(TEXT("/WebBrowserWidget/WebTexture_M"))
-		{}
-	};
-	static FConstructorStatics ConstructorStatics;
-
-	// Add a hard reference to UWebBrowserTexture, without this the WebBrowserTexture DLL never gets loaded on Windows.
-	UWebBrowserTexture::StaticClass();
-
-	DefaultMaterial = (UMaterial*)ConstructorStatics.DefaultTextureMaterial.Object;
-#endif
 }
 
 void UWebBrowser::LoadURL(FString NewURL)
@@ -176,11 +155,6 @@ const FText UWebBrowser::GetPaletteCategory()
 }
 
 #endif
-
-UMaterial* UWebBrowser::GetDefaultMaterial() const
-{
-	return DefaultMaterial;
-}
 
 /////////////////////////////////////////////////////
 

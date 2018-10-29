@@ -285,13 +285,17 @@ protected:
 	class UPhysicsAsset* PhysicsAssetForDebug;
 
 	/** data copied for rendering */
-	uint32 bForceWireframe : 1;
-	uint32 bIsCPUSkinned : 1;
-	uint32 bCanHighlightSelectedSections : 1;
-	uint32 bRenderStatic:1;
+	uint8 bForceWireframe : 1;
+	uint8 bIsCPUSkinned : 1;
+	uint8 bCanHighlightSelectedSections : 1;
+	uint8 bRenderStatic:1;
+
+	TEnumAsByte<ERHIFeatureLevel::Type> FeatureLevel;
+
+	bool bMaterialsNeedMorphUsage_GameThread;
+
 	FMaterialRelevance MaterialRelevance;
 
-	ERHIFeatureLevel::Type FeatureLevel;
 
 	/** info for section element in an LOD */
 	struct FSectionElementInfo
@@ -337,7 +341,6 @@ protected:
 
 	/** Set of materials used by this scene proxy, safe to access from the game thread. */
 	TSet<UMaterialInterface*> MaterialsInUse_GameThread;
-	bool bMaterialsNeedMorphUsage_GameThread;
 	
 #if WITH_EDITORONLY_DATA
 	/** The component streaming distance multiplier */

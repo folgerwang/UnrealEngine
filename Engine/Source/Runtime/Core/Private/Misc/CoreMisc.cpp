@@ -374,6 +374,11 @@ FBlueprintExceptionTracker& FBlueprintExceptionTracker::Get()
 {
 	return TThreadSingleton<FBlueprintExceptionTracker>::Get();
 }
+
+const FBlueprintExceptionTracker* FBlueprintExceptionTracker::TryGet()
+{
+	return TThreadSingleton<FBlueprintExceptionTracker>::TryGet();
+}
 #endif // DO_BLUEPRINT_GUARD
 
 bool GIsRetrievingVTablePtr = false;

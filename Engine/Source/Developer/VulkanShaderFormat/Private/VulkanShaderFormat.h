@@ -16,7 +16,31 @@ enum class EVulkanShaderVersion
 	SM5,
 	SM5_NOUB,
 };
-extern void CompileShader_Windows_Vulkan(const struct FShaderCompilerInput& Input,struct FShaderCompilerOutput& Output,const class FString& WorkingDirectory, EVulkanShaderVersion Version);
+
+inline bool HasRealUBs(EVulkanShaderVersion Version)
+{
+	switch(Version)
+	{
+	case EVulkanShaderVersion::ES3_1:
+	case EVulkanShaderVersion::ES3_1_ANDROID:
+	case EVulkanShaderVersion::SM4:
+	case EVulkanShaderVersion::SM5:
+		return true;
+	case EVulkanShaderVersion::ES3_1_NOUB:
+	case EVulkanShaderVersion::ES3_1_ANDROID_NOUB:
+	case EVulkanShaderVersion::SM4_NOUB:
+	case EVulkanShaderVersion::SM5_NOUB:
+		return false;
+
+	default:
+		check(0);
+		break;
+	}
+
+	return true;
+}
+
+extern void DoCompileVulkanShader(const struct FShaderCompilerInput& Input,struct FShaderCompilerOutput& Output,const class FString& WorkingDirectory, EVulkanShaderVersion Version);
 
 
 // Hold information to be able to call the compilers
@@ -40,13 +64,11 @@ struct FSpirv
 	struct FEntry
 	{
 		FEntry() = default;
-
 		FEntry(const FString& InName, int32 InBinding)
 			: Name(InName)
 			, Binding(InBinding)
 		{
 		}
-
 		FString Name;
 		int32 Binding = -1;
 

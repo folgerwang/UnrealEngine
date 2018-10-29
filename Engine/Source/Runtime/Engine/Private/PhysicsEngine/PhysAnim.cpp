@@ -25,6 +25,8 @@
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
+
 
 /** Used for drawing pre-phys skeleton if bShowPrePhysBones is true */
 static const FColor AnimSkelDrawColor(255, 64, 64);
@@ -105,6 +107,8 @@ public:
 	{
 		SCOPED_NAMED_EVENT(FParallelBlendPhysicsCompletionTask_DoTask, FColor::Yellow);
 		SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
+
 		if (USkeletalMeshComponent* Comp = SkeletalMeshComponent.Get())
 		{
 			Comp->CompleteParallelBlendPhysics();
@@ -388,6 +392,7 @@ void USkeletalMeshComponent::FinalizeAnimationUpdate()
 	// Flip bone buffer and send 'post anim' notification
 	FinalizeBoneTransform();
 
+	if(!bSimulationUpdatesChildTransforms || !IsSimulatingPhysics() )	//If we simulate physics the call to MoveComponent already updates the children transforms. If we are confident that animation will not be needed this can be skipped. TODO: this should be handled at the scene component layer
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateChildTransforms);
 

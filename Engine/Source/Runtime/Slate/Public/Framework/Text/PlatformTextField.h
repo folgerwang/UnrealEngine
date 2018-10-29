@@ -14,6 +14,8 @@
 	#include "XboxOne/XboxOnePlatformTextField.h"
 #elif PLATFORM_SWITCH
 	#include "Switch/SwitchPlatformTextField.h"
+#elif PLATFORM_QUAIL
+	#include "Quail/QuailPlatformTextField.h"
 #else
 	#include "Framework/Text/GenericPlatformTextField.h"
 #endif

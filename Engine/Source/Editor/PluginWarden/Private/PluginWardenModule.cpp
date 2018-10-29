@@ -2,9 +2,11 @@
 
 #include "PluginWardenModule.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "EngineAnalytics.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SWindow.h"
-#include "Framework/Application/SlateApplication.h"
 
 #include "PluginWardenAuthorizer.h"
 #include "SAuthorizingPlugin.h"
@@ -25,7 +27,8 @@ void FPluginWardenModule::ShutdownModule()
 
 }
 
-void FPluginWardenModule::CheckEntitlementForPlugin(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId, const FText& UnauthorizedMessageOverride, EUnauthorizedErrorHandling UnauthorizedErrorHandling, TFunction<void()> AuthorizedCallback)
+void FPluginWardenModule::CheckEntitlementForPlugin(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId, const EEntitlementCacheLevelRequest CacheLevel,
+	const FText& UnauthorizedMessageOverride, EUnauthorizedErrorHandling UnauthorizedErrorHandling, TFunction<void()> AuthorizedCallback)
 {
 	// If we've previously authorized the plug-in, just immediately verify access.
 	if ( AuthorizedPlugins.Contains(PluginItemId) )
@@ -36,7 +39,7 @@ void FPluginWardenModule::CheckEntitlementForPlugin(const FText& PluginFriendlyN
 
 	if (IsRunningCommandlet() || GIsRunningUnattendedScript)
 	{
-		if (RunAuthorizationPipeline(PluginFriendlyName, PluginItemId, PluginOfferId))
+		if (RunAuthorizationPipeline(PluginFriendlyName, PluginItemId, PluginOfferId, CacheLevel))
 		{
 			AuthorizedPlugins.Add(PluginItemId);
 			AuthorizedCallback();
@@ -52,7 +55,7 @@ void FPluginWardenModule::CheckEntitlementForPlugin(const FText& PluginFriendlyN
 			.SizingRule(ESizingRule::Autosized)
 			.Title(FText::Format(LOCTEXT("EntitlementCheckFormat", "{0} - Entitlement Check"), PluginFriendlyName));
 
-		TSharedRef<SAuthorizingPlugin> PluginAuthPanel = SNew(SAuthorizingPlugin, AuthorizingPluginWindow, PluginFriendlyName, PluginItemId, PluginOfferId, AuthorizedCallback);
+		TSharedRef<SAuthorizingPlugin> PluginAuthPanel = SNew(SAuthorizingPlugin, AuthorizingPluginWindow, SAuthorizingPlugin::FPluginInfo( PluginFriendlyName, PluginItemId, PluginOfferId ), CacheLevel, AuthorizedCallback);
 		PluginAuthPanel->SetUnauthorizedOverride(UnauthorizedMessageOverride, UnauthorizedErrorHandling);
 
 		AuthorizingPluginWindow->SetContent(PluginAuthPanel);
@@ -61,11 +64,18 @@ void FPluginWardenModule::CheckEntitlementForPlugin(const FText& PluginFriendlyN
 	}
 }
 
-bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId)
+void FPluginWardenModule::CheckEntitlementForPlugin(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId, const FText& UnauthorizedMessageOverride, EUnauthorizedErrorHandling UnauthorizedErrorHandling, TFunction<void()> AuthorizedCallback)
 {
-	FPluginWardenAuthorizer Authorizer(PluginFriendlyName, PluginItemId, PluginOfferId);
+	CheckEntitlementForPlugin(PluginFriendlyName, PluginItemId, PluginOfferId, EEntitlementCacheLevelRequest::Memory, UnauthorizedMessageOverride, UnauthorizedErrorHandling, AuthorizedCallback);
+}
+
+bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId, const EEntitlementCacheLevelRequest CacheLevel)
+{
+	FPluginWardenAuthorizer Authorizer(PluginFriendlyName, PluginItemId, PluginOfferId, CacheLevel);
 
 	EPluginAuthorizationState AuthorizationState = EPluginAuthorizationState::Initializing;
+	EPluginAuthorizationState PreviousState = AuthorizationState;
+
 	bool bAuthorizationCompleted = false;
 
 	double LastLoopTime = FPlatformTime::Seconds();
@@ -91,7 +101,7 @@ bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyNa
 		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 		FTicker::GetCoreTicker().Tick(DeltaTime);
 
-		const EPluginAuthorizationState PreviousState = AuthorizationState;
+		PreviousState = AuthorizationState;
 		AuthorizationState = Authorizer.UpdateAuthorizationState(DeltaTime);
 
 		switch ( AuthorizationState )
@@ -163,6 +173,15 @@ bool FPluginWardenModule::RunAuthorizationPipeline(const FText& PluginFriendlyNa
 			break;
 		}
 	}
+
+	TArray< FAnalyticsEventAttribute > EventAttributes;
+	EventAttributes.Emplace( TEXT("State"), (int32)AuthorizationState );
+	EventAttributes.Emplace( TEXT("PreviousState"), (int32)PreviousState );
+	EventAttributes.Emplace( TEXT("UnauthorizedErrorHandling"), (int32)IPluginWardenModule::EUnauthorizedErrorHandling::Silent );
+	EventAttributes.Emplace( TEXT("ItemId"), PluginItemId );
+	EventAttributes.Emplace( TEXT("OfferId"), PluginOfferId );
+
+	FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), EventAttributes );
 
 	return false;
 }

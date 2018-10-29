@@ -218,6 +218,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromSample(UObject* InParent, const F
 			if (FaceSetNames.IsValidIndex(MaterialIndex))
 			{
 				Material = RetrieveMaterial(FaceSetNames[MaterialIndex], InParent, Flags);
+				Material->PostEditChange();
 			}
 
 			StaticMesh->StaticMaterials.Add((Material != nullptr) ? Material : DefaultMaterial);
@@ -475,6 +476,7 @@ UGeometryCache* FAbcImporter::ImportAsGeometryCache(UObject* InParent, EObjectFl
 				{
 					UMaterialInterface* Material = RetrieveMaterial(FaceSetName, InParent, Flags);
 					GeometryCache->Materials.Add((Material != nullptr) ? Material : DefaultMaterial);		
+					Material->PostEditChange();
 				}
 			}
 			else
@@ -502,6 +504,7 @@ UGeometryCache* FAbcImporter::ImportAsGeometryCache(UObject* InParent, EObjectFl
 							if (PolyMesh->FaceSetNames.IsValidIndex(MaterialIndex))
 							{
 								Material = RetrieveMaterial(PolyMesh->FaceSetNames[MaterialIndex], InParent, Flags);
+								Material->PostEditChange();
 							}
 
 							GeometryCache->Materials.Add((Material != nullptr) ? Material : DefaultMaterial);
@@ -755,6 +758,7 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 				const FString& MaterialName = CompressedData.MaterialNames[MaterialIndex];
 				UMaterialInterface* Material = RetrieveMaterial(MaterialName, InParent, Flags);
 				SkeletalMesh->Materials.Add(FSkeletalMaterial(Material, true));
+				Material->PostEditChange();
 			}
 
 			++ObjectIndex;
@@ -838,7 +842,7 @@ const bool FAbcImporter::CompressAnimationDataUsingPCA(const FAbcCompressionSett
 	TArray<FAbcPolyMesh*> ConstantPolyMeshObjects;
 	for (FAbcPolyMesh* PolyMesh : PolyMeshes)
 	{
-		if (PolyMesh->bShouldImport)
+		if (PolyMesh->bShouldImport && PolyMesh->bConstantTopology)
 		{
 			if (PolyMesh->IsConstant() && PolyMesh->bConstantTransformation)
 			{
@@ -1089,7 +1093,7 @@ const bool FAbcImporter::CompressAnimationDataUsingPCA(const FAbcCompressionSett
 	else
 	{
 		bResult = ConstantPolyMeshObjects.Num() > 0;
-		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(bResult ? EMessageSeverity::Warning : EMessageSeverity::Error, LOCTEXT("NoMeshesToProcess", "Unable to compress animation data, no meshes found with Vertex Animation and baked Matrix Animation is turned off."));
+		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(bResult ? EMessageSeverity::Warning : EMessageSeverity::Error, LOCTEXT("NoMeshesToProcess", "Unable to compress animation data, no meshes (with constant topology) found with Vertex Animation and baked Matrix Animation is turned off."));
 		FAbcImportLogger::AddImportMessage(Message);
 		
 	}
@@ -1448,7 +1452,7 @@ bool FAbcImporter::BuildSkeletalMesh( FSkeletalMeshLODModel& LODModel, const FRe
 
 	// Populate faces
 	const uint32 NumFaces = Sample->Indices.Num() / 3;
-	TArray<FMeshFace> Faces;
+	TArray<SkeletalMeshImportData::FMeshFace> Faces;
 	Faces.AddZeroed(NumFaces);
 
 	TArray<FMeshSection> MeshSections;

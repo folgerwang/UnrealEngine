@@ -69,7 +69,7 @@ public:
 	{
 		// Find the default centered screen position
 		FDisplayMetrics DisplayMetrics;
-		FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+		FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 		const FVector2D DisplayTopLeft(DisplayMetrics.PrimaryDisplayWorkAreaRect.Left, DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);
 		const FVector2D DisplaySize(DisplayMetrics.PrimaryDisplayWorkAreaRect.Right - DisplayMetrics.PrimaryDisplayWorkAreaRect.Left,
 									DisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom - DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);

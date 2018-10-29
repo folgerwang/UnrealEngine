@@ -29,7 +29,7 @@ void FCEFBrowserByteResource::Cancel()
 
 void FCEFBrowserByteResource::GetResponseHeaders(CefRefPtr<CefResponse> Response, int64& ResponseLength, CefString& RedirectUrl)
 {
-	Response->SetMimeType(*MimeType);
+	Response->SetMimeType(TCHAR_TO_WCHAR(*MimeType));
 	Response->SetStatus(200);
 	Response->SetStatusText("OK");
 	ResponseLength = Size;

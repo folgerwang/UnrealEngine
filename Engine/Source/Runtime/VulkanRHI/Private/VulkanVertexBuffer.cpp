@@ -5,7 +5,7 @@
 =============================================================================*/
 
 #include "VulkanRHIPrivate.h"
-
+#include "VulkanLLM.h"
 
 FVulkanVertexBuffer::FVulkanVertexBuffer(FVulkanDevice* InDevice, uint32 InSize, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, class FRHICommandListImmediate* InRHICmdList)
 	: FRHIVertexBuffer(InSize, InUsage)
@@ -15,12 +15,14 @@ FVulkanVertexBuffer::FVulkanVertexBuffer(FVulkanDevice* InDevice, uint32 InSize,
 
 FVertexBufferRHIRef FVulkanDynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanVertexBuffers);
 	FVulkanVertexBuffer* VertexBuffer = new FVulkanVertexBuffer(Device, Size, InUsage, CreateInfo, nullptr);
 	return VertexBuffer;
 }
 
 void* FVulkanDynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Offset, uint32 Size, EResourceLockMode LockMode)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanVertexBuffers);
 	FVulkanVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 	return VertexBuffer->Lock(false, LockMode, Size, Offset);
 }
@@ -41,6 +43,7 @@ void* FVulkanDynamicRHI::LockVertexBuffer_RenderThread(class FRHICommandListImme
 #endif
 void FVulkanDynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanVertexBuffers);
 	FVulkanVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 	VertexBuffer->Unlock(false);
 }

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DrawingPolicy.h: Drawing policy definitions.
@@ -270,7 +270,7 @@ FORCEINLINE_DEBUGGABLE FMeshDrawingPolicyOverrideSettings ComputeMeshOverrideSet
 * Creates and sets the base PSO so that resources can be set. Generally best to call during SetSharedState.
 */
 template<class DrawingPolicyType>
-void CommitGraphicsPipelineState(FRHICommandList& RHICmdList, const DrawingPolicyType& DrawingPolicy, const FDrawingPolicyRenderState& DrawRenderState, const FBoundShaderStateInput& BoundShaderStateInput)
+void CommitGraphicsPipelineState(FRHICommandList& RHICmdList, const DrawingPolicyType& DrawingPolicy, const FDrawingPolicyRenderState& DrawRenderState, const FBoundShaderStateInput& BoundShaderStateInput, const FMaterialRenderProxy* InMaterialRenderProxy)
 {
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 
@@ -278,10 +278,9 @@ void CommitGraphicsPipelineState(FRHICommandList& RHICmdList, const DrawingPolic
 	GraphicsPSOInit.BoundShaderState = BoundShaderStateInput;
 	GraphicsPSOInit.RasterizerState = DrawingPolicy.ComputeRasterizerState(DrawRenderState.GetViewOverrideFlags());
 
-	const FMaterialRenderProxy* const MaterialRenderProxy = DrawingPolicy.GetMaterialRenderProxy();
-	if (MaterialRenderProxy != nullptr)
+	if (InMaterialRenderProxy != nullptr)
 	{
-		GraphicsPSOInit.ImmutableSamplerState = MaterialRenderProxy->ImmutableSamplerState;
+		GraphicsPSOInit.ImmutableSamplerState = InMaterialRenderProxy->ImmutableSamplerState;
 	}
 
 	check(DrawRenderState.GetDepthStencilState());
@@ -348,6 +347,11 @@ public:
 	void ApplyDitheredLODTransitionState(FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& ViewInfo, const FStaticMesh& Mesh, const bool InAllowStencilDither)
 	{
 		OnlyApplyDitheredLODTransitionState(DrawRenderState, ViewInfo, Mesh, InAllowStencilDither);
+	}
+
+	const FMaterialRenderProxy* GetPipelineMaterialRenderProxy(const FMaterialRenderProxy* ElementMaterialRenderProxy)
+	{
+		return MaterialRenderProxy;
 	}
 
 	FDrawingPolicyMatchResult Matches(const FMeshDrawingPolicy& OtherDrawer, bool bForReals = false) const

@@ -38,6 +38,8 @@ struct FKeyboardConfig
 
 	// track the touches by pointer (which will stay the same for a given finger down) - note we don't deref the pointers in this array
 	UITouch* AllTouches[10];
+	float PreviousForces[10];
+	bool HasMoved[10];
 
 
 	//// GL MEMBERS

@@ -164,3 +164,59 @@ struct FGameplayCueTag
 		return GameplayCueTag.IsValid();
 	}
 };
+
+/** 
+ *	An alternative way to replicating gameplay cues. This does not use fast TArray serialization and does not serialize gameplaycue parameters. The parameters are created on the receiving side with default information.
+ *	This will be more efficient with server cpu but will take more bandwidth when the array changes.
+ *	
+ *	To use, put this on your replication proxy actor (such a the pawn). Call SetOwner, PreReplication and RemoveallCues in the appropriate places.
+ */
+USTRUCT()
+struct GAMEPLAYABILITIES_API FMinimalGameplayCueReplicationProxy
+{
+	GENERATED_BODY()
+
+	FMinimalGameplayCueReplicationProxy();
+
+	/** Set Owning ASC. This is what the GC callbacks are called on.  */
+	void SetOwner(UAbilitySystemComponent* ASC);
+
+	/** Copies data in from an FActiveGameplayCueContainer (such as the one of the ASC). You must call this manually from PreReplication. */
+	void PreReplication(const FActiveGameplayCueContainer& SourceContainer);
+
+	/** Custom NetSerialization to pack the entire array */
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+
+	/** Will broadcast the OnRemove event for all currently active cues */
+	void RemoveAllCues();
+
+	/** Called to init parameters */
+	TFunction<void(FGameplayCueParameters&, UAbilitySystemComponent*)> InitGameplayCueParametersFunc;
+
+	bool operator==(const FMinimalGameplayCueReplicationProxy& Other) const { return LastSourceArrayReplicationKey == Other.LastSourceArrayReplicationKey; }
+	bool operator!=(const FMinimalGameplayCueReplicationProxy& Other) const { return !(*this == Other); }
+
+private:
+
+	enum { NumInlineTags = 16 };
+
+	TArray< FGameplayTag, TInlineAllocator<NumInlineTags> >	ReplicatedTags;
+	TArray< FGameplayTag, TInlineAllocator<NumInlineTags> >	LocalTags;
+	TBitArray< TInlineAllocator<NumInlineTags> >			LocalBitMask;
+
+	UPROPERTY()
+	UAbilitySystemComponent* Owner = nullptr;
+
+	int32 LastSourceArrayReplicationKey = -1;
+};
+
+template<>
+struct TStructOpsTypeTraits< FMinimalGameplayCueReplicationProxy > : public TStructOpsTypeTraitsBase2< FMinimalGameplayCueReplicationProxy >
+{
+	enum
+	{
+		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
+		WithIdenticalViaEquality = true,
+	};
+};

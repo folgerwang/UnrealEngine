@@ -18,7 +18,12 @@ struct FOverlayLine
 {
 	GENERATED_BODY()
 
-	FOverlayLine() {}
+	FOverlayLine()
+		: Start(ForceInitToZero)
+		, End(ForceInitToZero)
+		, Color(ForceInitToZero)
+		, Thickness(0.f)
+	{}
 
 	FOverlayLine( const FVector& InStart, const FVector& InEnd, const FColor& InColor, const float InThickness )
 		: Start( InStart ),
@@ -47,7 +52,11 @@ struct FOverlayPoint
 {
 	GENERATED_BODY()
 
-	FOverlayPoint() {}
+	FOverlayPoint()
+		: Position(ForceInitToZero)
+		, Color(ForceInitToZero)
+		, Size(0.f)
+	{}
 
 	FOverlayPoint( const FVector& InPosition, const FColor& InColor, const float InSize )
 		: Position( InPosition ),
@@ -71,7 +80,12 @@ struct FOverlayTriangleVertex
 {
 	GENERATED_BODY()
 
-	FOverlayTriangleVertex() {}
+	FOverlayTriangleVertex()
+		: Position(ForceInitToZero)
+		, UV(ForceInitToZero)
+		, Normal(ForceInitToZero)
+		, Color(ForceInitToZero)
+	{}
 
 	FOverlayTriangleVertex( const FVector& InPosition, const FVector2D& InUV, const FVector& InNormal, const FColor& InColor )
 		: Position( InPosition ),
@@ -100,7 +114,12 @@ struct FOverlayTriangle
 {
 	GENERATED_BODY()
 
-	FOverlayTriangle() {}
+	FOverlayTriangle()
+		: Material(nullptr)
+		, Vertex0()
+		, Vertex1()
+		, Vertex2()
+	{}
 
 	FOverlayTriangle( UMaterialInterface* InMaterial, const FOverlayTriangleVertex& InVertex0, const FOverlayTriangleVertex& InVertex1, const FOverlayTriangleVertex& InVertex2 )
 		: Material( InMaterial ),

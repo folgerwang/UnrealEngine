@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using Tools.DotNETCommon;
+using Microsoft.Win32;
 
 namespace UnrealBuildTool
 {
@@ -214,6 +215,12 @@ namespace UnrealBuildTool
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableRemoteNotificationsSupport")]
         public readonly bool bNotificationsEnabled = false;
 
+        /// <summary>
+        /// true if notifications are enabled
+        /// </summary>
+        [ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableBackgroundFetch")]
+        public readonly bool bBackgroundFetchEnabled = false;
+
 		/// <summary>
 		/// The bundle identifier
 		/// </summary>
@@ -291,12 +298,12 @@ namespace UnrealBuildTool
 			{
 				switch (MinimumIOSVersion)
 				{
-					case "IOS_10":
-						return "10.0";
 					case "IOS_11":
 						return "11.0";
+					case "IOS_12":
+						return "12.0";
 					default:
-						return "9.0";
+						return "10.0";
 				}
 			}
 		}
@@ -777,7 +784,7 @@ namespace UnrealBuildTool
 				"bDevForArmV7", "bDevForArm64", "bDevForArmV7S", "bShipForArmV7", 
 				"bShipForArm64", "bShipForArmV7S", "bShipForBitcode", "bGeneratedSYMFile",
 				"bGeneratedSYMBundle", "bEnableRemoteNotificationsSupport", "bEnableCloudKitSupport",
-                "bGenerateCrashReportSymbols"
+                "bGenerateCrashReportSymbols", "bEnableBackgroundFetch"
             };
 			string[] StringKeys = new string[] {
 				"MinimumiOSVersion", 
@@ -894,13 +901,13 @@ namespace UnrealBuildTool
 		{
 			CompileEnvironment.Definitions.Add("PLATFORM_IOS=1");
 			CompileEnvironment.Definitions.Add("PLATFORM_APPLE=1");
+			CompileEnvironment.Definitions.Add("GLES_SILENCE_DEPRECATION=1");  // suppress GLES "deprecated" warnings until a proper solution is implemented (see UE-65643)
 
 			CompileEnvironment.Definitions.Add("WITH_TTS=0");
 			CompileEnvironment.Definitions.Add("WITH_SPEECH_RECOGNITION=0");
 			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
-			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 
 			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProjectSettings(Target.ProjectFile);
 			if (ProjectSettings.bNotificationsEnabled)
@@ -911,6 +918,14 @@ namespace UnrealBuildTool
 			{
 				CompileEnvironment.Definitions.Add("NOTIFICATIONS_ENABLED=0");
 			}
+            if (ProjectSettings.bBackgroundFetchEnabled)
+            {
+                CompileEnvironment.Definitions.Add("BACKGROUNDFETCH_ENABLED=1");
+            }
+            else
+            {
+                CompileEnvironment.Definitions.Add("BACKGROUNDFETCH_ENABLED=0");
+            }
 
 			CompileEnvironment.Definitions.Add("UE_DISABLE_FORCE_INLINE=" + (ProjectSettings.bDisableForceInline ? "1" : "0"));
 
@@ -921,6 +936,18 @@ namespace UnrealBuildTool
 			else
 			{
 				CompileEnvironment.Definitions.Add("WITH_SIMULATOR=0");
+			}
+
+			// if the project has an Oodle compression Dll, enable the decompressor on IOS
+			if (Target.ProjectFile != null)
+			{
+				DirectoryReference ProjectDir = DirectoryReference.GetParentDirectory(Target.ProjectFile);
+				string OodleDllPath = DirectoryReference.Combine(ProjectDir, "Binaries/ThirdParty/Oodle/Mac/libUnrealPakPlugin.dylib").FullName;
+				if (File.Exists(OodleDllPath))
+				{
+					Log.TraceVerbose("        Registering custom oodle compressor for {0}", UnrealTargetPlatform.IOS.ToString());
+					CompileEnvironment.Definitions.Add("REGISTER_OODLE_CUSTOM_COMPRESSOR=1");
+				}
 			}
 
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("GameKit"));
@@ -968,17 +995,52 @@ namespace UnrealBuildTool
 			if (!Utils.IsRunningOnMono)
 			{
 				// check to see if iTunes is installed
-				string dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
+				string dllPath = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
 				if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 				{
-					dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
+					dllPath = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
 					if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 					{
-						return SDKStatus.Invalid;
+						dllPath = FindWindowsStoreITunesDLL();
+
+						if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
+						{
+							return SDKStatus.Invalid;
+						}
 					}
 				}
 			}
 			return SDKStatus.Valid;
+		}
+
+		static string FindWindowsStoreITunesDLL()
+		{
+			string InstallPath = null;
+
+			string PackagesKeyName = "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\PackageRepository\\Packages";
+
+			RegistryKey PackagesKey = Registry.LocalMachine.OpenSubKey(PackagesKeyName);
+			if (PackagesKey != null)
+			{
+				string[] PackageSubKeyNames = PackagesKey.GetSubKeyNames();
+
+				foreach (string PackageSubKeyName in PackageSubKeyNames)
+				{
+					if (PackageSubKeyName.Contains("AppleInc.iTunes") && (PackageSubKeyName.Contains("_x64") || PackageSubKeyName.Contains("_x86")))
+					{
+						string FullPackageSubKeyName = PackagesKeyName + "\\" + PackageSubKeyName;
+
+						RegistryKey iTunesKey = Registry.LocalMachine.OpenSubKey(FullPackageSubKeyName);
+						if (iTunesKey != null)
+						{
+							InstallPath = (string)iTunesKey.GetValue("Path") + "\\AMDS32\\MobileDevice.dll";
+							break;
+						}
+					}
+				}
+			}
+
+			return InstallPath;
 		}
 	}
 

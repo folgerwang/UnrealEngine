@@ -65,11 +65,18 @@ struct ENGINE_API FLatentActionManager
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Map of UUID->Action(s). */ 
+	/** Map of UUID->Action(s). */
 	typedef TMultiMap<int32, class FPendingLatentAction*> FActionList;
+
+	struct FObjectActions
+	{
+		/** Map of UUID->Action(s). */
+		FActionList ActionList;
+		bool bProcessedThisFrame = false;
+	};
 	
 	/** Map to convert from object to FActionList. */
-	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<FActionList> > FObjectToActionListMap;
+	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<FObjectActions> > FObjectToActionListMap;
 	FObjectToActionListMap ObjectToActionListMap;
 
 	/** @return A delegate that will be broadcast when a latent action is added or removed from the manager */
@@ -97,10 +104,10 @@ public:
 	template<typename ActionType, typename PredicateType>
 	ActionType* FindExistingActionWithPredicate(UObject* InActionObject, int32 UUID, const PredicateType& FilterPredicate)
 	{
-		FActionList* ObjectActionList = GetActionListForObject(InActionObject);
-		if ((ObjectActionList != nullptr) && (ObjectActionList->Num(UUID) > 0))
+		FObjectActions* ObjectActionList = GetActionsForObject(InActionObject);
+		if ((ObjectActionList != nullptr) && (ObjectActionList->ActionList.Num(UUID) > 0))
 		{
-			for (auto It = ObjectActionList->CreateKeyIterator(UUID); It; ++It)
+			for (auto It = ObjectActionList->ActionList.CreateKeyIterator(UUID); It; ++It)
 			{
 				ActionType* Item = (ActionType*)(It.Value());
 				if (FilterPredicate(Item))
@@ -146,10 +153,7 @@ public:
 	void AddNewAction(UObject* InActionObject, int32 UUID, FPendingLatentAction* NewAction);
 
 	/** Resets the list of objects we have processed the latent action list for.	 */	
-	void BeginFrame()
-	{
-		ProcessedThisFrame.Reset();
-	}
+	void BeginFrame();
 
 	/** Returns the number of actions for a given object */
 	int32 GetNumActionsForObject(TWeakObjectPtr<UObject> InObject);
@@ -183,10 +187,10 @@ protected:
 	 * @param		InOject		ActionListType to check for pending actions.
 	 *
 	 */	
-	const FActionList* GetActionListForObject(const TWeakObjectPtr<UObject>& InObject) const
+	const FObjectActions* GetActionsForObject(const TWeakObjectPtr<UObject>& InObject) const
 	{
 		auto ObjectActionListPtr = ObjectToActionListMap.Find(InObject);
-		return ObjectActionListPtr ? ObjectActionListPtr->Get() : NULL;
+		return ObjectActionListPtr ? ObjectActionListPtr->Get() : nullptr;
 	}
 
 	/** 
@@ -195,10 +199,10 @@ protected:
 	 * @param		InOject		ActionListType to check for pending actions.
 	 *
 	 */	
-	FActionList* GetActionListForObject(const TWeakObjectPtr<UObject>& InObject)
+	FObjectActions* GetActionsForObject(const TWeakObjectPtr<UObject>& InObject)
 	{
 		auto ObjectActionListPtr = ObjectToActionListMap.Find(InObject);
-		return ObjectActionListPtr ? ObjectActionListPtr->Get() : NULL;
+		return ObjectActionListPtr ? ObjectActionListPtr->Get() : nullptr;
 	}
 
 	/** 
@@ -212,9 +216,6 @@ protected:
 	void TickLatentActionForObject(float DeltaTime, FActionList& ObjectActionList, UObject* InObject);
 
 protected:
-	/** list of objects we have processed the latent action list for this frame. */	
-	TSet<UObject*> ProcessedThisFrame;
-
 	/**List of actions that will be unconditionally removed at the begin of next tick */
 	typedef TPair<int32, class FPendingLatentAction*> FUuidAndAction;
 	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<TArray<FUuidAndAction>>> FActionsForObject;

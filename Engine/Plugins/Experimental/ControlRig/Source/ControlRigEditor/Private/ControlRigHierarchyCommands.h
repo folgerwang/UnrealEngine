@@ -12,7 +12,7 @@ public:
 	FControlRigHierarchyCommands() : TCommands<FControlRigHierarchyCommands>
 	(
 		"ControlRigHierarchy",
-		NSLOCTEXT("Contexts", "Animation", "Rig Hierarchy"),
+		NSLOCTEXT("Contexts", "RigHierarchy", "Rig Hierarchy"),
 		NAME_None, // "MainFrame" // @todo Fix this crash
 		FControlRigEditorStyle::Get().GetStyleSetName() // Icon Style Set
 	)

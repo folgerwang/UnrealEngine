@@ -322,7 +322,7 @@ void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowF
 	EngineShowFlags.SetHLODColoration(ViewModeIndex == VMI_HLODColoration);
 }
 
-void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, FName CurrentBufferVisualizationMode, bool bIsSplitScreen)
+void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, FName CurrentBufferVisualizationMode)
 {
 	if(ShowFlagInitMode == ESFIM_Game)
 	{
@@ -345,14 +345,6 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			EngineShowFlags.SetSelection(false);
 			EngineShowFlags.SetSelectionOutline(false);
 		}
-	}
-
-	if( bIsSplitScreen )
-	{
-		//Disabling some post processing effects in split screen for now as they don't work correctly.
-		EngineShowFlags.TemporalAA = 0;
-		EngineShowFlags.MotionBlur = 0;
-		EngineShowFlags.Bloom = 0;
 	}
 
 	{

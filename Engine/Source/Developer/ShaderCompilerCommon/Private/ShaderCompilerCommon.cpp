@@ -405,22 +405,28 @@ bool MatchStructMemberName(const FString& SymbolName, const TCHAR* SearchPtr, co
 	return true;
 }
 
-TCHAR* FindNextUniformBufferReference(TCHAR* SearchPtr, const TCHAR* SearchString, const TCHAR* SearchStringWithSpace)
+// Searches string SearchPtr for 'SearchString.' or 'SearchString .' and returns a pointer to the first character of the match.
+TCHAR* FindNextUniformBufferReference(TCHAR* SearchPtr, const TCHAR* SearchString, uint32 SearchStringLength)
 {
-	TCHAR* SearchPtrNoSpace = FCString::Strstr(SearchPtr, SearchString);
-	TCHAR* SearchPtrWithSpace = FCString::Strstr(SearchPtr, SearchStringWithSpace);
-
-	if (SearchPtrNoSpace != nullptr && SearchPtrWithSpace != nullptr)
+	TCHAR* FoundPtr = FCString::Strstr(SearchPtr, SearchString);
+	
+	while(FoundPtr)
 	{
-		return SearchPtrNoSpace < SearchPtrWithSpace ? SearchPtrNoSpace : SearchPtrWithSpace;
+		if (FoundPtr == nullptr)
+		{
+			return nullptr;
+		}
+		else if (FoundPtr[SearchStringLength] == '.' || (FoundPtr[SearchStringLength] == ' ' && FoundPtr[SearchStringLength+1] == '.'))
+		{
+			return FoundPtr;
+		}
+		
+		FoundPtr = FCString::Strstr(FoundPtr + SearchStringLength, SearchString);
 	}
-	else if (SearchPtrNoSpace != nullptr)
-	{
-		return SearchPtrNoSpace;
-	}
-
-	return SearchPtrWithSpace;
+	
+	return nullptr;
 }
+
 
 // The cross compiler doesn't yet support struct initializers needed to construct static structs for uniform buffers
 // Replace all uniform buffer struct member references (View.WorldToClip) with a flattened name that removes the struct dependency (View_WorldToClip)
@@ -461,7 +467,7 @@ void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environmen
 		FString UniformBufferAccessStringWithSpace = UniformBufferName + TEXT(" .");
 
 		// Search for the uniform buffer name first, as an optimization (instead of searching the entire source for every member)
-		TCHAR* SearchPtr = FindNextUniformBufferReference(&PreprocessedShaderSource[0], *UniformBufferAccessString, *UniformBufferAccessStringWithSpace);
+		TCHAR* SearchPtr = FindNextUniformBufferReference(&PreprocessedShaderSource[0], *UniformBufferName, UniformBufferName.Len());
 
 		while (SearchPtr)
 		{
@@ -506,7 +512,7 @@ void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environmen
 				}
 			}
 
-			SearchPtr = FindNextUniformBufferReference(SearchPtr + UniformBufferAccessString.Len(), *UniformBufferAccessString, *UniformBufferAccessStringWithSpace);
+			SearchPtr = FindNextUniformBufferReference(SearchPtr + UniformBufferAccessString.Len(), *UniformBufferName, UniformBufferName.Len());
 		}
 	}
 }

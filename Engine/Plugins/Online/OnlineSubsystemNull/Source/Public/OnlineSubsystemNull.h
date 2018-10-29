@@ -33,9 +33,7 @@ class ONLINESUBSYSTEMNULL_API FOnlineSubsystemNull :
 
 public:
 
-	virtual ~FOnlineSubsystemNull()
-	{
-	}
+	virtual ~FOnlineSubsystemNull() = default;
 
 	// IOnlineSubsystem
 
@@ -80,19 +78,9 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemNull(FName InInstanceName) :
+	FOnlineSubsystemNull() = delete;
+	explicit FOnlineSubsystemNull(FName InInstanceName) :
 		FOnlineSubsystemImpl(NULL_SUBSYSTEM, InInstanceName),
-		SessionInterface(nullptr),
-		VoiceInterface(nullptr),
-		bVoiceInterfaceInitialized(false),
-		LeaderboardsInterface(nullptr),
-		IdentityInterface(nullptr),
-		AchievementsInterface(nullptr),
-		OnlineAsyncTaskThreadRunnable(nullptr),
-		OnlineAsyncTaskThread(nullptr)
-	{}
-
-	FOnlineSubsystemNull() :
 		SessionInterface(nullptr),
 		VoiceInterface(nullptr),
 		bVoiceInterfaceInitialized(false),

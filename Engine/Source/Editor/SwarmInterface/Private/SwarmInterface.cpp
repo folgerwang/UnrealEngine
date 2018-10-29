@@ -71,12 +71,21 @@ public:
  */
 FSwarmInterface* FSwarmInterface::GInstance = NULL;
 
-void FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
+bool FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
 {
-	if( GInstance == NULL && FSwarmInterfaceImpl::InitSwarmInterfaceManaged(SwarmInterfacePath) )
+	if (GInstance == NULL)
 	{
-		GInstance = new FSwarmInterfaceImpl();
+		if (!FSwarmInterfaceImpl::InitSwarmInterfaceManaged(SwarmInterfacePath))
+		{
+			return false;
+		}
+		else
+		{
+			GInstance = new FSwarmInterfaceImpl();
+		}
 	}
+
+	return true;
 }
 
 FSwarmInterface& FSwarmInterface::Get( void )
@@ -222,7 +231,7 @@ int32 FSwarmInterfaceImpl::AddChannel( const TCHAR* FullPath, const TCHAR* Chann
 	int32 ReturnValue = SwarmAddChannel(FullPath, ChannelName);
 	if (ReturnValue < 0)
 	{
-		SendMessage(FInfoMessage(L"Error, fatal in AddChannel"));
+		SendMessage(FInfoMessage(TEXT("Error, fatal in AddChannel")));
 	}
 
 	return ReturnValue;
@@ -247,7 +256,7 @@ int32 FSwarmInterfaceImpl::TestChannel( const TCHAR* ChannelName )
 	if( ( ReturnValue < 0 ) &&
 		( ReturnValue != SWARM_ERROR_FILE_FOUND_NOT ) )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in TestChannel" ) );
+		SendMessage( FInfoMessage( TEXT( "Error, fatal in TestChannel" ) ) );
 	}
 
 	return( ReturnValue );
@@ -271,7 +280,7 @@ int32 FSwarmInterfaceImpl::OpenChannel( const TCHAR* ChannelName, TChannelFlags 
 	int32 ReturnValue = SwarmOpenChannel( ChannelName, ChannelFlags );
 	if( ReturnValue < 0 && (ChannelFlags & SWARM_CHANNEL_ACCESS_WRITE) )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in OpenChannel" ) );
+		SendMessage( FInfoMessage( TEXT( "Error, fatal in OpenChannel" ) ) );
 	}
 
 	return( ReturnValue );
@@ -294,7 +303,7 @@ int32 FSwarmInterfaceImpl::CloseChannel( int32 Channel )
 	int32 ReturnValue = SwarmCloseChannel( Channel );
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in CloseChannel" ) );
+		SendMessage( FInfoMessage( TEXT( "Error, fatal in CloseChannel" ) ) );
 	}
 
 	return( ReturnValue );
@@ -329,7 +338,7 @@ int32 FSwarmInterfaceImpl::WriteChannel( int32 Channel, const void* Data, int32 
 	int32 ReturnValue = SwarmWriteChannel( Channel, Data, DataSize );
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in WriteChannel" ) );
+		SendMessage( FInfoMessage( TEXT( "Error, fatal in WriteChannel" ) ) );
 	}
 
 	return( ReturnValue );
@@ -364,7 +373,7 @@ int32 FSwarmInterfaceImpl::ReadChannel( int32 Channel, void* Data, int32 DataSiz
 	int32 ReturnValue = SwarmReadChannel( Channel, Data, DataSize );
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in ReadChannel" ) );
+		SendMessage( FInfoMessage( TEXT( "Error, fatal in ReadChannel" ) ) );
 	}
 
 	return( ReturnValue );
@@ -384,7 +393,7 @@ int32 FSwarmInterfaceImpl::OpenJob( const FGuid& JobGuid )
 	int32 ReturnValue = SwarmOpenJob( &JobGuid );
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in OpenJob" ) );
+		SendMessage( FInfoMessage( TEXT(" Error, fatal in OpenJob" ) ) );
 	}
 
 	return( ReturnValue );
@@ -428,7 +437,7 @@ int32 FSwarmInterfaceImpl::BeginJobSpecification( const FJobSpecification& Speci
 	int32 ReturnValue = SwarmBeginJobSpecification( &Specification32, &Specification64 );
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in BeginJobSpecification" ) );
+		SendMessage( FInfoMessage( TEXT("Error, fatal in BeginJobSpecification" ) ) );
 	}
 
 	return( ReturnValue );
@@ -457,7 +466,7 @@ int32 FSwarmInterfaceImpl::AddTask( const FTaskSpecification& Specification )
 	int32 ReturnValue = SwarmAddTask( &Specification );
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in AddTask" ) );
+		SendMessage( FInfoMessage( TEXT( "Error, fatal in AddTask" ) ) );
 	}
 
 	return( ReturnValue );
@@ -475,7 +484,7 @@ int32 FSwarmInterfaceImpl::EndJobSpecification( void )
 	int32 ReturnValue = SwarmEndJobSpecification();
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in EndJobSpecification" ) );
+		SendMessage( FInfoMessage( TEXT("Error, fatal in EndJobSpecification" ) ) );
 	}
 
 	return( ReturnValue );
@@ -493,7 +502,7 @@ int32 FSwarmInterfaceImpl::CloseJob( void )
 	int32 ReturnValue = SwarmCloseJob();
 	if( ReturnValue < 0 )
 	{
-		SendMessage( FInfoMessage( L"Error, fatal in CloseJob" ) );
+		SendMessage( FInfoMessage( TEXT("Error, fatal in CloseJob" ) ) );
 	}
 
 	return( ReturnValue );
@@ -525,7 +534,8 @@ bool FSwarmInterfaceImpl::InitSwarmInterfaceManaged(const TCHAR* SwarmInterfaceD
 	ICLRRuntimeHost* RuntimeHost = NULL;
 
 	HRESULT Result = CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost, (LPVOID*)&MetaHost);
-	if (SUCCEEDED(Result))
+
+	if ( ensureMsgf(SUCCEEDED(Result), TEXT("Error creating the Swarm instance.") ))
 	{
 		TCHAR NetFrameworkVersion[255];
 		uint32 VersionLength = 255;
@@ -535,22 +545,29 @@ bool FSwarmInterfaceImpl::InitSwarmInterfaceManaged(const TCHAR* SwarmInterfaceD
 			SwarmInterfaceDLLPath = TEXT("SwarmInterface.dll");
 			Result = MetaHost->GetVersionFromFile(SwarmInterfaceDLLPath, NetFrameworkVersion, (unsigned long*)&VersionLength);
 		}
-		if (SUCCEEDED(Result))
+
+		if (ensureMsgf(SUCCEEDED(Result), TEXT("Invalid Swarm version.")))
 		{
 			ICLRRuntimeInfo *RuntimeInfo = NULL;
 			Result = MetaHost->GetRuntime(NetFrameworkVersion, IID_ICLRRuntimeInfo, (LPVOID*)&RuntimeInfo);
-			if (SUCCEEDED(Result))
+
+			if (ensureMsgf(SUCCEEDED(Result), TEXT("Error requesting Swarm runtime info.")))
 			{
 				Result = RuntimeInfo->GetInterface(CLSID_CLRRuntimeHost, IID_ICLRRuntimeHost, (LPVOID*)&RuntimeHost);
+				ensureMsgf( SUCCEEDED(Result), TEXT("Error requesting Swarm interface.") );
 			}
 		}
 	}
+
 	if (SUCCEEDED(Result))
 	{
 		Result = RuntimeHost->Start();
+		ensureMsgf(SUCCEEDED(Result), TEXT("Cannot start Swarm runtime host."));
 	}
+
 	if (FAILED(Result))
 	{
+		ensureMsgf( false, TEXT("Error initializing Swarm interface."));
 		return false;
 	}
 
@@ -559,8 +576,10 @@ bool FSwarmInterfaceImpl::InitSwarmInterfaceManaged(const TCHAR* SwarmInterfaceD
 
 	uint32 ReturnValue = 0;
 	Result = RuntimeHost->ExecuteInDefaultAppDomain(SwarmInterfaceDLLPath, TEXT("NSwarm.FSwarmInterface"), TEXT("InitCppBridgeCallbacks"), SwarmInterfaceDllName, (unsigned long*)&ReturnValue);
+
 	if (FAILED(Result))
 	{
+		ensureMsgf(false, TEXT("Error creating Swarm instance bridge."));
 		return false;
 	}
 #endif // PLATFORM_WINDOWS

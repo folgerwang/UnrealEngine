@@ -174,6 +174,10 @@ public:
 	DECLARE_DERIVED_EVENT( FCollectionManager, ICollectionManager::FCollectionUpdatedEvent, FCollectionUpdatedEvent );
 	virtual FCollectionUpdatedEvent& OnCollectionUpdated() override { return CollectionUpdatedEvent; }
 
+	/** Event for when collections is updated, or otherwise changed and we can't tell exactly how (eg, after updating from source control and merging) */
+	DECLARE_DERIVED_EVENT( FCollectionManager, ICollectionManager::FAddToCollectionCheckinDescriptionEvent, FAddToCollectionCheckinDescriptionEvent);
+	virtual FAddToCollectionCheckinDescriptionEvent& OnAddToCollectionCheckinDescriptionEvent() override { return AddToCollectionCheckinDescriptionEvent; }
+
 private:
 	/** Tick this collection manager so it can process any file cache events */
 	bool TickFileCache(float InDeltaTime);
@@ -198,6 +202,9 @@ private:
 
 	/** Replaces an object with another in any collections that contain it */
 	void ReplaceObjectInCollections(const FName& OldObjectPath, const FName& NewObjectPath, TArray<FCollectionNameType>& OutUpdatedCollections);
+
+	/** Internal common functionality for saving a collection */
+	bool InternalSaveCollection(const TSharedRef<FCollection>& CollectionRef, FText& OutError);
 
 private:
 	/** The folders that contain collections */
@@ -241,4 +248,7 @@ private:
 
 	/** Event for when collections are destroyed */
 	FCollectionDestroyedEvent CollectionDestroyedEvent;
+
+	/** When a collection checkin happens, use this event to add additional text to the changelist description */
+	FAddToCollectionCheckinDescriptionEvent AddToCollectionCheckinDescriptionEvent;
 };

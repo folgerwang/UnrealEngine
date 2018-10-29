@@ -265,6 +265,12 @@ chmod +x {0}
 		return true;
 	}
 
+	public override void GetTargetFile(string RemoteFilePath, string LocalFile, ProjectParams Params)
+	{
+		var SourceFile = FileReference.Combine(new DirectoryReference(Params.BaseStageDirectory), GetCookPlatform(Params.HasServerCookedTargets, Params.HasClientTargetDetected), RemoteFilePath);
+		CommandUtils.CopyFile(SourceFile.FullName, LocalFile);
+	}
+
 	/// <summary>
 	/// Allow the platform to alter the ProjectParams
 	/// </summary>

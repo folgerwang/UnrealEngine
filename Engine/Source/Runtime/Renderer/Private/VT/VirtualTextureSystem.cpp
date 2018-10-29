@@ -5,7 +5,7 @@
 #include "TexturePagePool.h"
 #include "VirtualTextureSpace.h"
 #include "VirtualTextureFeedback.h"
-#include "VirtualTexture.h"
+#include "VirtualTexturing.h"
 #include "UniquePageList.h"
 #include "Stats/Stats.h"
 #include "SceneUtils.h"
@@ -42,15 +42,33 @@ static TAutoConsoleVariable<int32> CVarVTNumMipsToExpandRequests(
 	ECVF_RenderThreadSafe
 	);
 
+static TAutoConsoleVariable<int32> CVarVTEnableFeedBack(
+	TEXT("r.VT.EnableFeedBack"),
+	1,
+	TEXT("process readback buffer? dev option."),
+	ECVF_RenderThreadSafe
+);
 
-IVirtualTexture::~IVirtualTexture()
-{}
+static TAutoConsoleVariable<int32> CVarVTVerbose(
+	TEXT("r.VT.Verbose"),
+	0,
+	TEXT("Be pedantic about certain things that shouln't occur unless something is wrong. This may cause a lot of logspam 100's of lines per frame."),
+	ECVF_RenderThreadSafe
+);
 
-
-FVirtualTextureSystem GVirtualTextureSystem;
+FVirtualTextureSystem *GetVirtualTextureSystem()
+{
+	static FVirtualTextureSystem VTSystem;
+	return &VTSystem;
+}
 
 FVirtualTextureSystem::FVirtualTextureSystem()
-	: Frame(0)
+	: Frame(0),
+	bFlushCaches(false),
+	FlushCachesCommand(TEXT("r.VT.Flush"), TEXT("Flush all the physical caches in the VT system."),
+		FConsoleCommandDelegate::CreateRaw(this, &FVirtualTextureSystem::FlushCachesFromConsole)),
+	DumpCommand(TEXT("r.VT.Dump"), TEXT("Lot a whole lot of info on the VT system state."),
+		FConsoleCommandDelegate::CreateRaw(this, &FVirtualTextureSystem::DumpFromConsole))
 {
 	for( int ID = 0; ID < 16; ID++ )
 	{
@@ -60,6 +78,23 @@ FVirtualTextureSystem::FVirtualTextureSystem()
 
 FVirtualTextureSystem::~FVirtualTextureSystem()
 {}
+
+void FVirtualTextureSystem::FlushCachesFromConsole()
+{
+	// We defer the actual flush to the render thread in the Update function
+	bFlushCaches = true;
+}
+
+void FVirtualTextureSystem::DumpFromConsole()
+{
+	for (int ID = 0; ID < 16; ID++)
+	{
+		FVirtualTextureSpace *Space = Spaces[ID];
+		if (Space == nullptr) continue;
+		UE_LOG(LogConsoleResponse, Display, TEXT("-= Space ID %i =-"), ID);
+		Space->Allocator.DumpToConsole();
+	}
+}
 
 void FVirtualTextureSystem::RegisterSpace( FVirtualTextureSpace* Space )
 {
@@ -157,6 +192,19 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 	SCOPE_CYCLE_COUNTER( STAT_VirtualTextureSystem_Update );
 	SCOPED_GPU_STAT( RHICmdList, VirtualTexture );
 
+	if (bFlushCaches)
+	{
+		for (uint32 ID = 0; ID < 16; ID++)
+		{
+			if (Spaces[ID])
+			{
+				Spaces[ID]->GetPool()->EvictAllPages();
+				Spaces[ID]->QueueUpdateEntirePageTable();
+			}
+		}
+		bFlushCaches = false;
+	}
+
 	FMemMark Mark( FMemStack::Get() );
 	FUniquePageList* RESTRICT RequestedPageList = new(FMemStack::Get()) FUniquePageList;
 
@@ -170,10 +218,14 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 	}
 	
 	int32 Pitch = 0;
+
 	const uint32* RESTRICT Buffer = GVirtualTextureFeedback.Map( RHICmdList, Pitch );
 	if( Buffer )
 	{
-		FeedbackAnalysis( RequestedPageList, Buffer, GVirtualTextureFeedback.Size.X, GVirtualTextureFeedback.Size.Y, Pitch );
+		if (CVarVTEnableFeedBack.GetValueOnRenderThread())
+		{
+			FeedbackAnalysis(RequestedPageList, Buffer, GVirtualTextureFeedback.Size.X, GVirtualTextureFeedback.Size.Y, Pitch);
+		}
 		GVirtualTextureFeedback.Unmap( RHICmdList );
 	}
 
@@ -203,8 +255,12 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 			uint32 ID, vLevel, vAddress;
 			DecodePage( (uint32)PageEncoded, ID, vLevel, vAddress );
 
-			FVirtualTextureSpace* RESTRICT	Space = Spaces[ ID ];	checkSlow( Space );
-			FTexturePagePool* RESTRICT		Pool = Space->Pool;
+			FVirtualTextureSpace* RESTRICT	Space = GetSpace(ID);
+			if (Space == nullptr)
+			{
+				continue;
+			}
+			FTexturePagePool* RESTRICT		Pool = Space->GetPool();
 
 			// Is this page already resident?
 			uint32 pAddress = Pool->FindPage( ID, vLevel, vAddress );
@@ -214,8 +270,14 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 				uint32 Parent_vLevel = vLevel + 1;
 				uint32 Parent_vAddress = vAddress & ( 0xffffffff << ( Space->Dimensions * Parent_vLevel ) );
 
+				// Adjust priority based on how far we are from the desired level
 				uint32 Ancestor_pAddress = Pool->FindNearestPage( ID, Parent_vLevel, Parent_vAddress );
-				uint32 Ancestor_vLevel = Ancestor_pAddress != ~0u ? Pool->GetPage( Ancestor_pAddress ).vLevel : Space->PageTableLevels - 1;
+				uint32 Ancestor_vLevel = Ancestor_pAddress != ~0u ? Pool->GetPage( Ancestor_pAddress ).vLevel : Space->PageTableLevels - 1;				
+
+				if (CVarVTVerbose.GetValueOnRenderThread() && Ancestor_pAddress == ~0u)
+				{
+					UE_LOG(LogConsoleResponse, Display, TEXT("Space %i, vAddr %i@%i is not resident and there is no data to fall back to. This may cause render artefacts"), ID, vAddress, vLevel);
+				}
 
 				uint32 Count = RequestedPageList->GetCount(i);
 				uint32 Priority = Count * ( 1 << ( Ancestor_vLevel - vLevel ) );
@@ -238,6 +300,8 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 	// Are all pages equal? Should there be different limits on different types of pages?
 	int32 NumUploadsLeft = CVarVTMaxUploadsPerFrame.GetValueOnRenderThread();
 
+	static TArray<IVirtualTextureProducer*> producers;
+
 	while( RequestHeap.Num() > 0 && NumUploadsLeft > 0 )
 	{
 		uint32 PageIndex = RequestHeap.Top();
@@ -250,11 +314,20 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 		DecodePage( (uint32)PageEncoded, ID, vLevel, vAddress );
 
 		FVirtualTextureSpace* RESTRICT	Space = Spaces[ ID ];	checkSlow( Space );
-		FTexturePagePool* RESTRICT		Pool = Space->Pool;
+		FTexturePagePool* RESTRICT		Pool = Space->GetPool();
 
 		// Find specific VT in Space
 		uint64 Local_vAddress = 0;
 		IVirtualTexture* RESTRICT VT = Space->Allocator.Find( vAddress, Local_vAddress );
+
+		if (VT == nullptr)
+		{
+			if (CVarVTVerbose.GetValueOnRenderThread())
+			{
+				UE_LOG(LogConsoleResponse, Display, TEXT("Space %i, vAddr %i@%i is not allocated to any VT but was still by the GPU feeback."), ID, vAddress, vLevel);
+			}
+			continue;
+		}
 
 		void* RESTRICT Location = nullptr;
 		bool bPageDataAvailable = VT->LocatePageData( vLevel, Local_vAddress, Location );
@@ -268,7 +341,8 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 
 			Pool->UnmapPage( pAddress );
 			
-			VT->ProducePageData( RHICmdList, FeatureLevel, vLevel, Local_vAddress, pAddress, Location );
+			IVirtualTextureProducer* VTProducder = VT->ProducePageData( RHICmdList, FeatureLevel, vLevel, Local_vAddress, pAddress, Location );
+			producers.AddUnique(VTProducder); // we expect the number of unique producer to be very limited. if this changes, we might have to do something better then gathering them every update
 			
 			Pool->MapPage( ID, vLevel, vAddress, pAddress );
 			Pool->Free( Frame, pAddress );
@@ -276,6 +350,11 @@ void FVirtualTextureSystem::Update( FRHICommandListImmediate& RHICmdList, ERHIFe
 			NumUploadsLeft--;
 			INC_DWORD_STAT( STAT_NumPageUploads );
 		}
+	}
+
+	for (auto producer : producers)
+	{
+		producer->Finalize();
 	}
 
 	SCOPE_CYCLE_COUNTER( STAT_PageTableUpdates );
