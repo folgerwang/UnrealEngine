@@ -426,6 +426,8 @@ void FDeferredShadingSceneRenderer::RenderViewFog(FRHICommandList& RHICmdList, c
 
 bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	if (Scene->ExponentialFogs.Num() > 0 
 		// Fog must be done in the base pass for MSAA to work
 		&& !IsForwardShadingEnabled(ShaderPlatform))
@@ -443,6 +445,8 @@ bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdLi
 				RenderViewFog(RHICmdList, View, LightShaftsOutput);
 			}
 		}
+
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
 
 		return true;
 	}
