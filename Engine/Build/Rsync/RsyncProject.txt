@@ -8,7 +8,11 @@
 + /Intermediate/Build/BuildRules/
 + /Intermediate/Build/BuildRules/*.dll
 + /Intermediate/Plugins/
-protect /Intermediate/Plugins/**/Intermediate/
++ /Intermediate/Plugins/**/Intermediate/
++ /Intermediate/Plugins/**/Intermediate/Build/
++ /Intermediate/Plugins/**/Intermediate/Build/BuildRules/
++ /Intermediate/Plugins/**/Intermediate/Build/BuildRules/*.dll
+protect /Intermediate/Plugins/**/Intermediate/**
 + /Intermediate/Plugins/**
 + /Intermediate/Source/
 + /Intermediate/Source/**
