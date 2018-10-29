@@ -4,6 +4,7 @@
 #include "Misc/CoreMisc.h"
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/BlueprintsObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 #include "UObject/UObjectHash.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 #include "UObject/UnrealType.h"
@@ -285,7 +286,6 @@ UBlueprintCore::UBlueprintCore(const FObjectInitializer& ObjectInitializer)
 	{ static const FAutoRegisterLocalizationDataGatheringCallback AutomaticRegistrationOfLocalizationGatherer(UBlueprintCore::StaticClass(), &GatherBlueprintForLocalization); }
 #endif
 
-	bLegacyGeneratedClassIsAuthoritative = false;
 	bLegacyNeedToPurgeSkelRefs = true;
 }
 
@@ -295,9 +295,15 @@ void UBlueprintCore::Serialize(FArchive& Ar)
 
 #if WITH_EDITOR
 	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
-#endif
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 
-	Ar << bLegacyGeneratedClassIsAuthoritative;	
+	if (Ar.IsLoading() && Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::BlueprintGeneratedClassIsAlwaysAuthoritative)
+	{
+		// No longer in use.
+		bool bLegacyGeneratedClassIsAuthoritative;
+		Ar << bLegacyGeneratedClassIsAuthoritative;
+	}
+#endif
 
 	if ((Ar.UE4Ver() < VER_UE4_BLUEPRINT_SKEL_CLASS_TRANSIENT_AGAIN)
 		&& (Ar.UE4Ver() != VER_UE4_BLUEPRINT_SKEL_TEMPORARY_TRANSIENT))

@@ -4149,15 +4149,6 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 		// Copy over the CDO properties if we're not already regenerating on load.  In that case, the copy will be done after compile on load is complete
 		FBlueprintEditorUtils::PropagateParentBlueprintDefaults(NewClass);
 
-		if (Blueprint->HasAnyFlags(RF_BeingRegenerated))
-		{
-			if (CompileOptions.CompileType == EKismetCompileType::Full)
-			{
-				check(Blueprint->PRIVATE_InnermostPreviousCDO == NULL);
-				Blueprint->PRIVATE_InnermostPreviousCDO = OldCDO;
-			}
-		}
-
 		if(bPropagateValuesToCDO)
 		{
 			if( !Blueprint->HasAnyFlags(RF_BeingRegenerated) )
@@ -4188,17 +4179,6 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 					// Don't perform generated class validation since we didn't do any value propagation.
 					bSkipGeneratedClassValidation = true;
 				}
-
-				// >>> Backwards Compatibility: Propagate data from the skel CDO to the gen CDO if we haven't already done so for this blueprint
-				if( !bIsSkeletonOnly && !Blueprint->IsGeneratedClassAuthoritative() )
-				{
-					UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
-					CopyDetails.bAggressiveDefaultSubobjectReplacement = false;
-					CopyDetails.bDoDelta = false;
-					UEditorEngine::CopyPropertiesForUnrelatedObjects(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), NewCDO, CopyDetails);
-					Blueprint->SetLegacyGeneratedClassIsAuthoritative();
-				}
-				// <<< End Backwards Compatibility
 			}
 
 			PropagateValuesToCDO(NewCDO, OldCDO);

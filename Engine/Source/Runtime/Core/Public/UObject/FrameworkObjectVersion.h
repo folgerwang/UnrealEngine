@@ -119,6 +119,9 @@ struct CORE_API FFrameworkObjectVersion
 		// Custom event and non-native interface event implementations add 'const' to reference parameters
 		EditableEventsUseConstRefParameters,
 
+		// No longer serialize the legacy flag that indicates this state, as it is now implied since we don't serialize the skeleton CDO
+		BlueprintGeneratedClassIsAlwaysAuthoritative,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

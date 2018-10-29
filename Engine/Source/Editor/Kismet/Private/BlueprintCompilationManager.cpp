@@ -485,7 +485,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			if(bSkipCompile)
 			{
 				CurrentlyCompilingBPs.Add(FCompilerData(QueuedBP, ECompilationManagerJobType::SkeletonOnly, QueuedJob.ClientResultsLog, QueuedJob.CompileOptions, false));
-				if (QueuedBP->IsGeneratedClassAuthoritative() && (QueuedBP->GeneratedClass != nullptr))
+				if (QueuedBP->GeneratedClass != nullptr)
 				{
 					// set bIsRegeneratingOnLoad so that we don't reset loaders:
 					QueuedBP->bIsRegeneratingOnLoad = true;
