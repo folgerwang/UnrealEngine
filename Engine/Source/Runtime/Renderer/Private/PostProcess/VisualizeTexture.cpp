@@ -386,9 +386,9 @@ void FVisualizeTexture::GenerateContent(FRHICommandListImmediate& RHICmdList, co
 	check(ViewRect != FIntRect(0, 0, 0, 0))
 
 
-	FTexture2DRHIRef VisTexture = (FTexture2DRHIRef&)RenderTargetItem.ShaderResourceTexture;
+		FTexture2DRHIRef VisTexture = (FTexture2DRHIRef&)RenderTargetItem.ShaderResourceTexture;
 
-	if(!IsValidRef(VisTexture) || !Desc.IsValid())
+	if (!IsValidRef(VisTexture) || !Desc.IsValid())
 	{
 		// todo: improve
 		return;
@@ -403,101 +403,104 @@ void FVisualizeTexture::GenerateContent(FRHICommandListImmediate& RHICmdList, co
 	Size.Y = FMath::Max(Size.Y, 1);
 
 	FPooledRenderTargetDesc OutputDesc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_B8G8R8A8, FClearValueBinding(FLinearColor(1, 1, 0, 1)), TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource, false));
-	
+
 	GRenderTargetPool.FindFreeElement(RHICmdList, OutputDesc, VisualizeTextureContent, TEXT("VisualizeTexture"));
 
-	if(!VisualizeTextureContent)
+	if (!VisualizeTextureContent)
 	{
 		return;
 	}
 
 	const FSceneRenderTargetItem& DestRenderTarget = VisualizeTextureContent->GetRenderTargetItem();
 
-	TransitionSetRenderTargetsHelper(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), FExclusiveDepthStencil::DepthWrite_StencilWrite);
-
-	FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-	FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-	RHICmdList.SetRenderTargetsAndClear(Info);
-
-	FIntPoint RTExtent = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
-
-	FVector2D Tex00 = FVector2D(0, 0);
-	FVector2D Tex11 = FVector2D(1, 1);
-
-	uint32 LocalVisualizeTextureInputMapping = UVInputMapping;
-
-	if(!Desc.Is2DTexture())
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store, DestRenderTarget.ShaderResourceTexture);
+	TransitionRenderPassTargets(RHICmdList, RPInfo);
+	
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("VisualizeTexture"));
 	{
-		LocalVisualizeTextureInputMapping = 1;
-	}
 
-	// set UV
-	switch(LocalVisualizeTextureInputMapping)
-	{
-		// UV in left top
+		FIntPoint RTExtent = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
+
+		FVector2D Tex00 = FVector2D(0, 0);
+		FVector2D Tex11 = FVector2D(1, 1);
+
+		uint32 LocalVisualizeTextureInputMapping = UVInputMapping;
+
+		if (!Desc.Is2DTexture())
+		{
+			LocalVisualizeTextureInputMapping = 1;
+		}
+
+		// set UV
+		switch (LocalVisualizeTextureInputMapping)
+		{
+			// UV in left top
 		case 0:
 			Tex11 = FVector2D((float)ViewRect.Width() / RTExtent.X, (float)ViewRect.Height() / RTExtent.Y);
 			break;
 
-		// whole texture
+			// whole texture
 		default:
 			break;
+		}
+
+		bool bIsDefault = StencilSRVSrc == GBlackTexture->TextureRHI;
+		bool bDepthStencil = Desc.Is2DTexture() && Desc.Format == PF_DepthStencil;
+
+		//clear if this is a new different Stencil buffer, or it's not a stencil buffer and we haven't switched to the default yet.
+		bool bNeedsClear = bDepthStencil && (StencilSRVSrc != RenderTargetItem.TargetableTexture);
+		bNeedsClear |= !bDepthStencil && !bIsDefault;
+		if (bNeedsClear)
+		{
+			StencilSRVSrc = nullptr;
+			StencilSRV.SafeRelease();
+		}
+
+		//always set something into the StencilSRV slot for platforms that require a full resource binding, even if
+		//dynamic branching will cause them not to be used.	
+		if (bDepthStencil && !StencilSRVSrc)
+		{
+			StencilSRVSrc = RenderTargetItem.TargetableTexture;
+			StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&)RenderTargetItem.TargetableTexture, 0, 1, PF_X24_G8);
+		}
+		else if (!StencilSRVSrc)
+		{
+			StencilSRVSrc = GBlackTexture->TextureRHI;
+			StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&)GBlackTexture->TextureRHI, 0, 1, PF_B8G8R8A8);
+		}
+
+		FVisualizeTextureData VisualizeTextureData(RenderTargetItem, Desc);
+
+		// distinguish between standard depth and shadow depth to produce more reasonable default value mapping in the pixel shader.
+		const bool bDepthTexture = (Desc.TargetableFlags & TexCreate_DepthStencilTargetable) != 0;
+		const bool bShadowDepth = (Desc.Format == PF_ShadowDepth);
+
+		VisualizeTextureData.RGBMul = RGBMul;
+		VisualizeTextureData.SingleChannelMul = SingleChannelMul;
+		VisualizeTextureData.SingleChannel = SingleChannel;
+		VisualizeTextureData.AMul = AMul;
+		VisualizeTextureData.Tex00 = Tex00;
+		VisualizeTextureData.Tex11 = Tex11;
+		VisualizeTextureData.bSaturateInsteadOfFrac = (Flags & 1) != 0;
+		VisualizeTextureData.InputValueMapping = bShadowDepth ? 2 : (bDepthTexture ? 1 : 0);
+		VisualizeTextureData.ArrayIndex = ArrayIndex;
+		VisualizeTextureData.CustomMip = CustomMip;
+		VisualizeTextureData.StencilSRV = StencilSRV;
+
+		if (!(Desc.Flags & TexCreate_CPUReadback))		// We cannot make a texture lookup on such elements
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, VisualizeTexture);
+			// continue rendering to HDR if necessary
+			RenderVisualizeTexture(RHICmdList, FeatureLevel, VisualizeTextureData);
+		}
 	}
 
-	bool bIsDefault = StencilSRVSrc == GBlackTexture->TextureRHI;
-	bool bDepthStencil = Desc.Is2DTexture() && Desc.Format == PF_DepthStencil;
+	RHICmdList.EndRenderPass();
 
-	//clear if this is a new different Stencil buffer, or it's not a stencil buffer and we haven't switched to the default yet.
-	bool bNeedsClear = bDepthStencil && (StencilSRVSrc != RenderTargetItem.TargetableTexture);
-	bNeedsClear |= !bDepthStencil && !bIsDefault;
-	if (bNeedsClear)
-	{
-		StencilSRVSrc = nullptr;
-		StencilSRV.SafeRelease();
-	}
-
-	//always set something into the StencilSRV slot for platforms that require a full resource binding, even if
-	//dynamic branching will cause them not to be used.	
-	if(bDepthStencil && !StencilSRVSrc)
-	{
-		StencilSRVSrc = RenderTargetItem.TargetableTexture;
-		StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&) RenderTargetItem.TargetableTexture, 0, 1, PF_X24_G8);
-	}
-	else if(!StencilSRVSrc)
-	{
-		StencilSRVSrc = GBlackTexture->TextureRHI;
-		StencilSRV = RHICreateShaderResourceView((FTexture2DRHIRef&) GBlackTexture->TextureRHI, 0, 1, PF_B8G8R8A8);
-	}	
-
-	FVisualizeTextureData VisualizeTextureData(RenderTargetItem, Desc);
-
-	// distinguish between standard depth and shadow depth to produce more reasonable default value mapping in the pixel shader.
-	const bool bDepthTexture = (Desc.TargetableFlags & TexCreate_DepthStencilTargetable) != 0;
-	const bool bShadowDepth = (Desc.Format == PF_ShadowDepth);
-
-	VisualizeTextureData.RGBMul = RGBMul;
-	VisualizeTextureData.SingleChannelMul = SingleChannelMul;
-	VisualizeTextureData.SingleChannel = SingleChannel;
-	VisualizeTextureData.AMul = AMul;
-	VisualizeTextureData.Tex00 = Tex00;
-	VisualizeTextureData.Tex11 = Tex11;
-	VisualizeTextureData.bSaturateInsteadOfFrac = (Flags & 1) != 0;
-	VisualizeTextureData.InputValueMapping = bShadowDepth ? 2 : (bDepthTexture ? 1 : 0);
-	VisualizeTextureData.ArrayIndex = ArrayIndex;
-	VisualizeTextureData.CustomMip = CustomMip;
-	VisualizeTextureData.StencilSRV = StencilSRV;
-
-	if(!(Desc.Flags & TexCreate_CPUReadback))		// We cannot make a texture lookup on such elements
-	{	
-		SCOPED_DRAW_EVENT(RHICmdList, VisualizeTexture);
-		// continue rendering to HDR if necessary
-		RenderVisualizeTexture(RHICmdList, FeatureLevel, VisualizeTextureData);
-	}
-
-	{
+	/*{
 		SCOPED_DRAW_EVENT(RHICmdList, VisCopy);
 		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
-	}
+	}*/
 
 	VisualizeTextureDesc = Desc;
 
@@ -697,10 +700,7 @@ void FVisualizeTexture::PresentContent(FRHICommandListImmediate& RHICmdList, con
 		if (DisplayExtent.X > 50 && DisplayExtent.Y > 50)
 		{
 			FRenderTargetPool::SMemoryStats MemoryStats = GRenderTargetPool.ComputeView();
-
-			SetRenderTarget(RHICmdList, View.Family->RenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
 			RHICmdList.SetViewport(0, 0, 0.0f, FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().X, FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().Y, 1.0f);
-
 
 			FRenderTargetTemp TempRenderTarget(View, View.UnscaledViewRect.Size());
 			FCanvas Canvas(&TempRenderTarget, NULL, View.Family->CurrentRealTime, View.Family->CurrentWorldTime, View.Family->DeltaWorldTime, View.GetFeatureLevel());
@@ -859,44 +859,49 @@ void FVisualizeTexture::PresentContent(FRHICommandListImmediate& RHICmdList, con
 	FPooledRenderTargetDesc Desc = VisualizeTextureDesc;
 
 	auto& RenderTarget = View.Family->RenderTarget->GetRenderTargetTexture();
-	SetRenderTarget(RHICmdList, RenderTarget, FTextureRHIRef(), true);
-	RHICmdList.SetViewport(0, 0, 0.0f, RenderTarget->GetSizeX(), RenderTarget->GetSizeY(), 1.0f);
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	auto ShaderMap = View.ShaderMap;
-	TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
-	TShaderMapRef<FVisualizeTexturePresentPS> PixelShader(ShaderMap);
-
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-	VertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
-	PixelShader->SetParameters(RHICmdList, View, *VisualizeTextureContent);
-
-	FIntRect VisualizeTextureRect = ComputeVisualizeTextureRect(Desc.Extent);
-
+	FRHIRenderPassInfo RPInfo(RenderTarget, ERenderTargetActions::Load_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("VisualizeTexture"));
 	{
-		SCOPED_DRAW_EVENT(RHICmdList, VisCopyToMain);
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle(
-			RHICmdList,
-			VisualizeTextureRect.Min.X, VisualizeTextureRect.Min.Y,
-			VisualizeTextureRect.Width(), VisualizeTextureRect.Height(),
-			0, 0,
-			VisualizeTextureRect.Width(), VisualizeTextureRect.Height(),
-			FIntPoint(RenderTarget->GetSizeX(), RenderTarget->GetSizeY()),
-			VisualizeTextureRect.Size(),
-			*VertexShader,
-			EDRF_Default);
+		RHICmdList.SetViewport(0, 0, 0.0f, RenderTarget->GetSizeX(), RenderTarget->GetSizeY(), 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+		auto ShaderMap = View.ShaderMap;
+		TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
+		TShaderMapRef<FVisualizeTexturePresentPS> PixelShader(ShaderMap);
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+		VertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
+		PixelShader->SetParameters(RHICmdList, View, *VisualizeTextureContent);
+
+		FIntRect VisualizeTextureRect = ComputeVisualizeTextureRect(Desc.Extent);
+
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, VisCopyToMain);
+			// Draw a quad mapping scene color to the view's render target
+			DrawRectangle(
+				RHICmdList,
+				VisualizeTextureRect.Min.X, VisualizeTextureRect.Min.Y,
+				VisualizeTextureRect.Width(), VisualizeTextureRect.Height(),
+				0, 0,
+				VisualizeTextureRect.Width(), VisualizeTextureRect.Height(),
+				FIntPoint(RenderTarget->GetSizeX(), RenderTarget->GetSizeY()),
+				VisualizeTextureRect.Size(),
+				*VertexShader,
+				EDRF_Default);
+		}
 	}
+	RHICmdList.EndRenderPass();
 
 	FRenderTargetTemp TempRenderTarget(View, View.UnscaledViewRect.Size());
 	FCanvas Canvas(&TempRenderTarget, NULL, View.Family->CurrentRealTime, View.Family->CurrentWorldTime, View.Family->DeltaWorldTime, View.GetFeatureLevel());
@@ -996,7 +1001,7 @@ void FVisualizeTexture::SetObserveTarget(const FString& InObservedDebugName, uin
 
 void FVisualizeTexture::SetCheckPoint(FRHICommandList& RHICmdList, const IPooledRenderTarget* PooledRenderTarget)
 {
-
+	check(RHICmdList.IsOutsideRenderPass());
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	check(IsInRenderingThread());
 	if (!PooledRenderTarget || !bEnabled)
