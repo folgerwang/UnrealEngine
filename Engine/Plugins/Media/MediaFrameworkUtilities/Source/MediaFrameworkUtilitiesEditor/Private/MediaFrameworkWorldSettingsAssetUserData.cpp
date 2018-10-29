@@ -5,7 +5,8 @@
 
 
 FMediaFrameworkCaptureCameraViewportCameraOutputInfo::FMediaFrameworkCaptureCameraViewportCameraOutputInfo()
-	: ViewMode(VMI_Unknown)
+	: MediaOutput(nullptr)
+	, ViewMode(VMI_Unknown)
 {
 }
 
