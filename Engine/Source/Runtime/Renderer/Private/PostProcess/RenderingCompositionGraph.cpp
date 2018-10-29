@@ -679,7 +679,9 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 	Context.SetViewportInvalid();
 
 	// then process the pass itself
+	check(!Context.RHICmdList.IsInsideRenderPass());
 	Pass->Process(Context);
+	check(!Context.RHICmdList.IsInsideRenderPass());
 
 	// for VisualizeTexture and output buffer dumping
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
