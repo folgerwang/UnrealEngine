@@ -162,6 +162,7 @@ namespace mtlpp
 	{
 	public:
 		ArgumentDescriptor();
+		ArgumentDescriptor(ns::Ownership const retain);
 		ArgumentDescriptor(MTLArgumentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLArgumentDescriptor*>(handle, retain) {}
 		
 		DataType GetDataType() const;
@@ -170,6 +171,13 @@ namespace mtlpp
 		ArgumentAccess GetAccess() const;
 		TextureType GetTextureType() const;
 		NSUInteger GetConstantBlockAlignment() const;
+		
+		void SetDataType(DataType Type);
+		void SetIndex(NSUInteger Index);
+		void SetArrayLength(NSUInteger Len);
+		void SetAccess(ArgumentAccess Access);
+		void SetTextureType(TextureType Type);
+		void SetConstantBlockAlignment(NSUInteger Align);
 	}
 	MTLPP_AVAILABLE(10_13, 11_0);
 	

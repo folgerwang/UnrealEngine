@@ -191,6 +191,7 @@ namespace ns
     public:
         static NSUInteger GetSize(NSArray<id<NSObject>>* const handle);
         static void* GetItem(NSArray<id<NSObject>>* const handle, NSUInteger index);
+		static bool EqualToArray(NSArray<id<NSObject>>* const Left, NSArray<id<NSObject>>* const Right);
     };
 
     template<typename T>
@@ -254,6 +255,11 @@ namespace ns
 		Iterator end() const
 		{
 			return Iterator(*this, GetSize());
+		}
+		
+		bool operator==(Array const& Other) const
+		{
+			return (this->m_ptr == Other.m_ptr || ArrayBase::EqualToArray(this->m_ptr, Other.m_ptr));
 		}
     };
 
