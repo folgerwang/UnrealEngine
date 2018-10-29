@@ -1345,7 +1345,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	{
 		if (PlayUsingMobilePreviewTargetDevice.IsEmpty() == false)
 		{
-			AdditionalParameters += TEXT(" -MobileTargetDevice=") + PlayUsingMobilePreviewTargetDevice;
+			AdditionalParameters += TEXT(" -MobileTargetDevice=\"") + PlayUsingMobilePreviewTargetDevice + TEXT("\"");
 		}
 		else
 		{
