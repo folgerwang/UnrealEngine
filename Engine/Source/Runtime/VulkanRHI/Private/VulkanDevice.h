@@ -27,8 +27,14 @@ struct FOptionalVulkanDeviceExtensions
 	uint32 HasKHRDedicatedAllocation : 1;
 	uint32 HasEXTValidationCache : 1;
 	uint32 HasAMDBufferMarker : 1;
+	uint32 HasNVDiagnosticCheckpoints : 1;
 	uint32 HasGoogleDisplayTiming : 1;
 	uint32 HasYcbcrSampler : 1;
+
+	inline bool HasGPUCrashDumpExtensions() const
+	{
+		return HasAMDBufferMarker || HasNVDiagnosticCheckpoints;
+	}
 };
 
 class FVulkanDevice
@@ -267,7 +273,7 @@ public:
 		return OptionalDeviceExtensions;
 	}
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	VkBuffer GetCrashMarkerBuffer() const
 	{
 		return CrashMarker.Buffer;
@@ -337,7 +343,7 @@ private:
 	bool bAsyncComputeQueue = false;
 	bool bPresentOnComputeQueue = false;
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	struct
 	{
 		VkBuffer Buffer = VK_NULL_HANDLE;
