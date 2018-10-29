@@ -57,6 +57,8 @@ public:
 #endif
 	}
 
+	static void UpdateWindowSize(void* WindowHandle, uint32& Width, uint32& Height);
+
 	static void WriteCrashMarker(const FOptionalVulkanDeviceExtensions& OptionalExtensions, VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding);
 
 protected:

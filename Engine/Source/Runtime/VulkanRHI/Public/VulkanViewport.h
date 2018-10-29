@@ -7,6 +7,7 @@
 #pragma once
 
 #include "VulkanResources.h"
+#include "HAL/CriticalSection.h"
 
 class FVulkanDynamicRHI;
 class FVulkanSwapChain;
