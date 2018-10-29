@@ -286,7 +286,7 @@ public:
 	template<bool bIsCompute>
 	void FinalizeBindings(const FUniformBufferGatherInfo& UBGatherInfo, const TArrayView<const FSamplerStateRHIParamRef>& ImmutableSamplers);
 
-	void GenerateHash();
+	void GenerateHash(const TArrayView<const FSamplerStateRHIParamRef>& ImmutableSamplers);
 
 	friend uint32 GetTypeHash(const FVulkanDescriptorSetsLayoutInfo& In)
 	{
