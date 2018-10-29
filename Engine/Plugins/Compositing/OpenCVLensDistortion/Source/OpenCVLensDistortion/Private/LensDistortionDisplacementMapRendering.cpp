@@ -124,39 +124,40 @@ static void DrawUVDisplacementToRenderTargetFromPreComputedDisplacementMap_Rende
 #endif
 
 	// Set render target.
-	SetRenderTarget(RHICmdList, OutTextureRenderTargetResource->GetRenderTargetTexture(), FTextureRHIRef(),	ESimpleRenderTargetMode::EClearColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop);
+	FRHIRenderPassInfo RPInfo(OutTextureRenderTargetResource->GetRenderTargetTexture(), ERenderTargetActions::Clear_Store, OutTextureRenderTargetResource->TextureRHI);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("DrawUVDisplacementFromPrecomputedDisplacementMap"));
+	{
 
-	// Update viewport.
-	const FIntPoint DisplacementMapResolution(OutTextureRenderTargetResource->GetSizeX(), OutTextureRenderTargetResource->GetSizeY());
-	RHICmdList.SetViewport(0, 0, 0.f, DisplacementMapResolution.X, DisplacementMapResolution.Y, 1.f);
-	
-	// Get shaders.
-	TShaderMap<FGlobalShaderType>* GlobalShaderMap = GetGlobalShaderMap(FeatureLevel);
-	TShaderMapRef< FLensDistortionDisplacementMapGenerationVS > VertexShader(GlobalShaderMap);
-	TShaderMapRef< FLensDistortionDisplacementMapGenerationPS > PixelShader(GlobalShaderMap);
+		// Update viewport.
+		const FIntPoint DisplacementMapResolution(OutTextureRenderTargetResource->GetSizeX(), OutTextureRenderTargetResource->GetSizeY());
+		RHICmdList.SetViewport(0, 0, 0.f, DisplacementMapResolution.X, DisplacementMapResolution.Y, 1.f);
 
-	// Set the graphic pipeline state.
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+		// Get shaders.
+		TShaderMap<FGlobalShaderType>* GlobalShaderMap = GetGlobalShaderMap(FeatureLevel);
+		TShaderMapRef< FLensDistortionDisplacementMapGenerationVS > VertexShader(GlobalShaderMap);
+		TShaderMapRef< FLensDistortionDisplacementMapGenerationPS > PixelShader(GlobalShaderMap);
 
-	// Update shader uniform parameters.
-	VertexShader->SetParameters(RHICmdList, VertexShader->GetVertexShader(), PreComputedDisplacementMap, DisplacementMapResolution);
-	PixelShader->SetParameters(RHICmdList, PixelShader->GetPixelShader(), PreComputedDisplacementMap, DisplacementMapResolution);
+		// Set the graphic pipeline state.
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	// Draw grid.
-	const uint32 PrimitiveCount = kGridSubdivisionX * kGridSubdivisionY * 2;
-	RHICmdList.DrawPrimitive(0, PrimitiveCount, 1);
+		// Update shader uniform parameters.
+		VertexShader->SetParameters(RHICmdList, VertexShader->GetVertexShader(), PreComputedDisplacementMap, DisplacementMapResolution);
+		PixelShader->SetParameters(RHICmdList, PixelShader->GetPixelShader(), PreComputedDisplacementMap, DisplacementMapResolution);
 
-	// Resolve render target.
-	RHICmdList.CopyToResolveTarget(OutTextureRenderTargetResource->GetRenderTargetTexture(), OutTextureRenderTargetResource->TextureRHI, FResolveParams());
+		// Draw grid.
+		const uint32 PrimitiveCount = kGridSubdivisionX * kGridSubdivisionY * 2;
+		RHICmdList.DrawPrimitive(0, PrimitiveCount, 1);
+	}
+	RHICmdList.EndRenderPass();
 #endif
 }
 
