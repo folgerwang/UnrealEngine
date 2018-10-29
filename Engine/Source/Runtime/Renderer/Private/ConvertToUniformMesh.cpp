@@ -351,7 +351,7 @@ int32 FUniformMeshConverter::Convert(
 			GUniformMeshTemporaryBuffers.Initialize();
 		}
 
-		RHICmdList.SetRenderTargets(0, (const FRHIRenderTargetView*)NULL, NULL, 0, (const FUnorderedAccessViewRHIParamRef*)NULL);
+		UnbindRenderTargets(RHICmdList);
 
 		uint32 Offsets[1] = {0};
 		const FVertexBufferRHIParamRef StreamOutTargets[1] = {GUniformMeshTemporaryBuffers.TriangleData.GetReference()};
