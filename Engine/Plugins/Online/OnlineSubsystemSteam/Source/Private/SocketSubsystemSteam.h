@@ -172,6 +172,20 @@ PACKAGE_SCOPE:
 	 */
 	void P2PRemove(FUniqueNetIdSteam& SessionId, int32 Channel = -1);
 
+	/**
+	 * Determines if the SocketSubsystemSteam should override the platform
+	 * socket subsystem. This means ISocketSubsystem::Get() will return this subsystem
+	 * by default. However, the platform subsystem will still be accessible by
+	 * specifying ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM) as well as via
+	 * passthrough operations.
+	 *
+	 * If the project does not want to use SteamNetworking features, add
+	 * bUseSteamNetworking=false to your OnlineSubsystemSteam configuration
+	 *
+	 * @return if SteamNetworking should be the default socketsubsystem.
+	 */
+	bool ShouldOverrideDefaultSubsystem() const;
+
 public:
 
 	FSocketSubsystemSteam() :

@@ -21,7 +21,7 @@ FName CreateSteamSocketSubsystem()
 	if (SocketSubsystem->Init(Error))
 	{
 		FSocketSubsystemModule& SSS = FModuleManager::LoadModuleChecked<FSocketSubsystemModule>("Sockets");
-		SSS.RegisterSocketSubsystem(STEAM_SUBSYSTEM, SocketSubsystem, true);
+		SSS.RegisterSocketSubsystem(STEAM_SUBSYSTEM, SocketSubsystem, SocketSubsystem->ShouldOverrideDefaultSubsystem());
 		return STEAM_SUBSYSTEM;
 	}
 	else
@@ -487,6 +487,28 @@ void FSocketSubsystemSteam::P2PRemove(FUniqueNetIdSteam& SessionId, int32 Channe
 
 	UE_LOG_ONLINE(Log, TEXT("Removing P2P Session Id: %s, IdleTime: %0.3f"), *SessionId.ToDebugString(), ConnectionInfo ? (FPlatformTime::Seconds() - ConnectionInfo->LastReceivedTime) : 9999.f);
 	AcceptedConnections.Remove(SessionId);
+}
+
+/**
+ * Determines if the SocketSubsystemSteam should override the platform
+ * socket subsystem. This means ISocketSubsystem::Get() will return this subsystem
+ * by default. However, the platform subsystem will still be accessible by
+ * specifying ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM) as well as via
+ * passthrough operations.
+ *
+ * If the project does not want to use SteamNetworking features, add
+ * bUseSteamNetworking=false to your OnlineSubsystemSteam configuration
+ *
+ * @return if SteamNetworking should be the default socketsubsystem.
+ */
+bool FSocketSubsystemSteam::ShouldOverrideDefaultSubsystem() const
+{
+	bool bOverrideSetting;
+	if (GConfig && GConfig->GetBool(TEXT("OnlineSubsystemSteam"), TEXT("bUseSteamNetworking"), bOverrideSetting, GEngineIni))
+	{
+		return bOverrideSetting;
+	}
+	return true;
 }
 
 /**
