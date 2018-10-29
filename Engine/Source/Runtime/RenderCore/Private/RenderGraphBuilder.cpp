@@ -469,7 +469,7 @@ void FRDGBuilder::ExecutePass( const FRenderGraphPass* Pass )
 	}
 	else
 	{
-		SetRenderTarget( RHICmdList, nullptr, nullptr );
+		UnbindRenderTargets(RHICmdList);
 	}
 	
 	Pass->Execute(RHICmdList);
