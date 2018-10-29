@@ -49,7 +49,7 @@ namespace AutomationTool
 			Trace.Listeners.Add(StartupListener);
 
 			// Configure log timestamps
-			Log.IncludeTimestamps = CommandUtils.ParseParam(Arguments, "Timestamps");
+			Log.IncludeTimestamps = CommandUtils.ParseParam(Arguments, "-Timestamps");
 
 			// Enter the main program section
             ExitCode ReturnCode = ExitCode.Success;
