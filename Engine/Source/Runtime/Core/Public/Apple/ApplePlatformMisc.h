@@ -20,11 +20,7 @@
 #define WITH_SIMULATOR 0
 #endif
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FApplePlatformMisc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() PLATFORM_BREAK()
 
 #ifdef __OBJC__
 
@@ -75,24 +71,6 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 		sysctl( Mib, sizeof( Mib ) / sizeof( *Mib ), &Info, &Size, NULL, 0 );
 
 		return ( Info.kp_proc.p_flag & P_TRACED ) != 0;
-	}
-	FORCEINLINE static void DebugBreakInternal()
-	{
-		if( IsDebuggerPresent() )
-		{
-			//Signal interupt to our process, this is caught by the main thread, this is not immediate but you can continue
-			//when triggered by check macros you will need to inspect other threads for the appFailAssert call.
-			//kill( getpid(), SIGINT );
-
-			//If you want an immediate break use the trap instruction, continued execuction is halted
-#if WITH_SIMULATOR || PLATFORM_MAC
-            __asm__ ( "int $3" );
-#elif PLATFORM_64BITS
-			__asm__ ( "svc 0" );
-#else
-            __asm__ ( "trap" );
-#endif
-		}
 	}
 #endif
 

@@ -927,19 +927,3 @@ void FUnixPlatformMisc::UngrabAllInput()
 		UngrabAllInputCallback();
 	}
 }
-
-#if !UE_BUILD_SHIPPING
-void FUnixPlatformMisc::DebugBreakInternal()
-{
-	if( IsDebuggerPresent() )
-	{
-		UngrabAllInput();
-
-#if PLATFORM_CPU_X86_FAMILY
-		__asm__ volatile("int $0x03");
-#else
-		raise(SIGTRAP);
-#endif
-	}
-}
-#endif // !UE_BUILD_SHIPPING

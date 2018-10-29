@@ -12,11 +12,7 @@
 #include "HTML5/HTML5SystemIncludes.h"
 #include <emscripten/emscripten.h>
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FHTML5Misc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() PLATFORM_BREAK()
 
 /**
  * HTML5 implementation of the misc OS functions
@@ -59,19 +55,6 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 	FORCEINLINE static bool IsDebuggerPresent()
 	{
 		return true;
-	}
-
-	/** Break into the debugger, if IsDebuggerPresent returns true, otherwise do nothing  */
-	FORCEINLINE static void DebugBreakInternal()
-	{
-		if (IsDebuggerPresent())
-		{
-			emscripten_log(255, "DebugBreak() called!");
-			EM_ASM(
-				var callstack = new Error;
-				throw callstack.stack;
-			);
-		}
 	}
 
 	static void LocalPrint(const TCHAR* Str);

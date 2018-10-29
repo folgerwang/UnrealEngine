@@ -47,6 +47,8 @@ typedef FMacPlatformTypes FPlatformTypes;
 
 #define PLATFORM_ENABLE_POPCNT_INTRINSIC 1
 
+#define PLATFORM_BREAK()							__asm__("int $3")
+
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
 #else

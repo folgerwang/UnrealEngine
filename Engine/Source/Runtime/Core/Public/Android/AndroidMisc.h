@@ -14,11 +14,15 @@
 template <typename FuncType>
 class TFunction;
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
+#if PLATFORM_ANDROID_ARM64
+	#define PLATFORM_BREAK()	__asm__(".inst 0xd4200000")
+#elif PLATFORM_ANDROID_ARM
+	#define PLATFORM_BREAK()	__asm__("trap")
 #else
-#define UE_DEBUG_BREAK() (FAndroidMisc::DebugBreakInternal())
+	#define PLATFORM_BREAK()	__asm__("int $3")
 #endif
+
+#define UE_DEBUG_BREAK_IMPL()	PLATFORM_BREAK()
 
 /**
  * Android implementation of the misc OS functions
@@ -198,20 +202,6 @@ public:
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
 
-	FORCEINLINE static void DebugBreakInternal()
-	{
-		if( IsDebuggerPresent() )
-		{
-#if PLATFORM_ANDROID_ARM64
-			__asm__(".inst 0xd4200000");
-#elif PLATFORM_ANDROID_ARM
-			__asm__("trap");
-#else
-			__asm__("int $3");
-#endif
-		}
-	}
-#endif
 	FORCEINLINE static void MemoryBarrier()
 	{
 		__sync_synchronize();

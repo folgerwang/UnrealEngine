@@ -63,6 +63,14 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define PLATFORM_UI_NEEDS_TOOLTIPS						0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES				0
 
+#if WITH_SIMULATOR
+	#define PLATFORM_BREAK()							__asm__("int $3")
+#elif PLATFORM_64BITS
+	#define PLATFORM_BREAK()							__asm__("svc 0")
+#else
+	#define PLATFORM_BREAK()							__asm__("trap")
+#endif
+
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
 #else

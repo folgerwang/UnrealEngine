@@ -18,6 +18,12 @@ struct FChunkTagID;
 template <typename FuncType>
 class TFunction;
 
+#if UE_BUILD_SHIPPING
+#define UE_DEBUG_BREAK() ((void)0)
+#else
+#define UE_DEBUG_BREAK() ((void)(FPlatformMisc::IsDebuggerPresent() && ([] () { UE_DEBUG_BREAK_IMPL(); } (), 1)))
+#endif
+
 namespace EBuildConfigurations
 {
 	/**

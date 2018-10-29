@@ -6,11 +6,7 @@
 #include "HAL/PlatformMemory.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() ((void)(FWindowsPlatformMisc::IsDebuggerPresent() && (__debugbreak(), 1)))
-#endif
+#define UE_DEBUG_BREAK_IMPL() PLATFORM_BREAK()
 
 class GenericApplication;
 struct FGuid;

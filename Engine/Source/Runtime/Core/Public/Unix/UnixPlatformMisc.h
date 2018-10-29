@@ -11,11 +11,7 @@
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Misc/Build.h"
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FUnixPlatformMisc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() FUnixPlatformMisc::UngrabAllInput(); PLATFORM_BREAK()
 
 class Error;
 struct FGenericCrashContext;
@@ -42,7 +38,6 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
-	static void DebugBreakInternal();
 #endif // !UE_BUILD_SHIPPING
 
 	static void LowLevelOutputDebugString(const TCHAR *Message);
