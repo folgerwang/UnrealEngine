@@ -1124,8 +1124,42 @@ namespace
 
 		return bSupportedType || (bIsSupportedMemberVariable && bMemberVariable);
 	}
+
+	void SkipAlignasIfNecessary(FBaseParser& Parser)
+	{
+		if (Parser.MatchIdentifier(TEXT("alignas")))
+		{
+			Parser.RequireSymbol(TEXT("("), TEXT("'alignas'"));
+			Parser.RequireAnyConstInt(TEXT("'alignas'"));
+			Parser.RequireSymbol(TEXT(")"), TEXT("'alignas'"));
+		}
+	}
+
+	void SkipDeprecatedMacroIfNecessary(FBaseParser& Parser)
+	{
+		if (!Parser.MatchIdentifier(TEXT("DEPRECATED")))
+		{
+			return;
+		}
+
+		FToken Token;
+		// DEPRECATED(Version, "Message")
+		Parser.RequireSymbol(TEXT("("), TEXT("DEPRECATED macro"));
+		if (Parser.GetToken(Token) && (Token.Type != CPT_Float || Token.TokenType != TOKEN_Const))
+		{
+			FError::Throwf(TEXT("Expected engine version in DEPRECATED macro"));
+		}
+
+		Parser.RequireSymbol(TEXT(","), TEXT("DEPRECATED macro"));
+		if (Parser.GetToken(Token) && (Token.Type != CPT_String || Token.TokenType != TOKEN_Const))
+		{
+			FError::Throwf(TEXT("Expected deprecation message in DEPRECATED macro"));
+		}
+
+		Parser.RequireSymbol(TEXT(")"), TEXT("DEPRECATED macro"));
+	}
 }
-	
+
 /////////////////////////////////////////////////////
 // FScriptLocation
 
@@ -1370,6 +1404,8 @@ UEnum* FHeaderParser::CompileEnum()
 	}
 	else if (EnumToken.Matches(TEXT("enum"), ESearchCase::CaseSensitive))
 	{
+		SkipAlignasIfNecessary(*this);
+
 		if (!GetIdentifier(EnumToken))
 		{
 			FError::Throwf(TEXT("Missing identifier after enum") );
@@ -1377,6 +1413,10 @@ UEnum* FHeaderParser::CompileEnum()
 
 		if (EnumToken.Matches(TEXT("class"), ESearchCase::CaseSensitive) || EnumToken.Matches(TEXT("struct"), ESearchCase::CaseSensitive))
 		{
+			// You can't actually have an alignas() before the class/struct keyword, but this
+			// makes the parsing easier and illegal syntax will be caught by the compiler anyway.
+			SkipAlignasIfNecessary(*this);
+
 			CppForm       = UEnum::ECppForm::EnumClass;
 			bReadEnumName = GetIdentifier(EnumToken);
 		}
@@ -1491,6 +1531,8 @@ UEnum* FHeaderParser::CompileEnum()
 		{
 			// Now handle the inner true enum portion
 			RequireIdentifier(TEXT("enum"), TEXT("'Enum'"));
+
+			SkipAlignasIfNecessary(*this);
 
 			FToken InnerEnumToken;
 			if (!GetIdentifier(InnerEnumToken))
@@ -2015,7 +2057,11 @@ UScriptStruct* FHeaderParser::CompileStructDeclaration(FClasses& AllClasses)
 	// The required API module for this struct, if any
 	FString RequiredAPIMacroIfPresent;
 
-	SkipDeprecatedMacroIfNecessary();
+	// alignas() can come before or after the deprecation macro.
+	// We can't have both, but the compiler will catch that anyway.
+	SkipAlignasIfNecessary(*this);
+	SkipDeprecatedMacroIfNecessary(*this);
+	SkipAlignasIfNecessary(*this);
 
 	// Read the struct name
 	ParseNameWithPotentialAPIMacroPrefix(/*out*/ StructNameInScript, /*out*/ RequiredAPIMacroIfPresent, TEXT("struct"));
@@ -5637,7 +5683,11 @@ UClass* FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 	// New style files have the class name / extends afterwards
 	RequireIdentifier(TEXT("class"), TEXT("Class declaration"));
 
-	SkipDeprecatedMacroIfNecessary();
+	// alignas() can come before or after the deprecation macro.
+	// We can't have both, but the compiler will catch that anyway.
+	SkipAlignasIfNecessary(*this);
+	SkipDeprecatedMacroIfNecessary(*this);
+	SkipAlignasIfNecessary(*this);
 
 	FString DeclaredClassName;
 	FString RequiredAPIMacroIfPresent;
@@ -8629,6 +8679,12 @@ void FHeaderPreParser::ParseClassDeclaration(const TCHAR* Filename, const TCHAR*
 	// Require 'class'
 	RequireIdentifier(TEXT("class"), *ErrorMsg);
 
+	// alignas() can come before or after the deprecation macro.
+	// We can't have both, but the compiler will catch that anyway.
+	SkipAlignasIfNecessary(*this);
+	SkipDeprecatedMacroIfNecessary(*this);
+	SkipAlignasIfNecessary(*this);
+
 	// Read the class name
 	FString RequiredAPIMacroIfPresent;
 	ParseNameWithPotentialAPIMacroPrefix(/*out*/ out_ClassName, /*out*/ RequiredAPIMacroIfPresent, StartingMatchID);
@@ -9167,30 +9223,6 @@ bool FHeaderParser::TryToMatchConstructorParameterList(FToken Token)
 	}
 
 	return true;
-}
-
-void FHeaderParser::SkipDeprecatedMacroIfNecessary()
-{
-	if (!MatchIdentifier(TEXT("DEPRECATED")))
-	{
-		return;
-	}
-
-	FToken Token;
-	// DEPRECATED(Version, "Message")
-	RequireSymbol(TEXT("("), TEXT("DEPRECATED macro"));
-	if (GetToken(Token) && (Token.Type != CPT_Float || Token.TokenType != TOKEN_Const))
-	{
-		FError::Throwf(TEXT("Expected engine version in DEPRECATED macro"));
-	}
-
-	RequireSymbol(TEXT(","), TEXT("DEPRECATED macro"));
-	if (GetToken(Token) && (Token.Type != CPT_String || Token.TokenType != TOKEN_Const))
-	{
-		FError::Throwf(TEXT("Expected deprecation message in DEPRECATED macro"));
-	}
-
-	RequireSymbol(TEXT(")"), TEXT("DEPRECATED macro"));
 }
 
 void FHeaderParser::CompileVersionDeclaration(UStruct* Struct)

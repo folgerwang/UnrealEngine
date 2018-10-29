@@ -24,6 +24,12 @@ struct FContainsInstancedProperty
 };
 
 UCLASS()
+class alignas(8) UAlignedObject : public UObject
+{
+	GENERATED_BODY()
+};
+
+UCLASS()
 class UTestObject : public UObject, public ITestObject
 {
 	GENERATED_BODY()

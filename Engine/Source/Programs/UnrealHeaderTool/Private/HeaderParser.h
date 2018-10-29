@@ -725,7 +725,6 @@ private:
 	 * @returns True if matched. False otherwise.
 	 */
 	bool TryToMatchConstructorParameterList(FToken Token);
-	void SkipDeprecatedMacroIfNecessary();
 
 	// Parses possible version declaration in generated code, e.g. GENERATED_BODY(<some_version>).
 	void CompileVersionDeclaration(UStruct* Struct);
