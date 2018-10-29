@@ -371,9 +371,11 @@ namespace UE4Asserts_Private
 #define logOrEnsureNanError(_FormatString_, ...) \
 	if (!GEnsureOnNANDiagnostic)\
 	{\
-		if (UE4Asserts_Private::TrueOnFirstCallOnly([]{}))\
+		static bool OnceOnly = false;\
+		if (!OnceOnly)\
 		{\
 			UE4Asserts_Private::InternalLogNANDiagnosticMessage(_FormatString_, ##__VA_ARGS__); \
+			OnceOnly = true;\
 		}\
 	}\
 	else\
