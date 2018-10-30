@@ -537,7 +537,6 @@ void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 
 		case EWindowMode::WindowedFullscreen:
 		{
 			SDL_SetWindowFullscreen( HWnd, 0 );
-			SDL_SetWindowSize( HWnd, NewWidth, NewHeight );
 			SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN_DESKTOP );
 			bWasFullscreen = true;
 		}
@@ -594,9 +593,25 @@ void FLinuxWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 			{
 				if ( bWasFullscreen != true )
 				{
-					SDL_SetWindowSize( HWnd, VirtualWidth, VirtualHeight );
+					TSharedPtr< FLinuxWindow > LinuxWindow = OwningApplication->FindWindowBySDLWindow(HWnd);
+					if ( LinuxWindow )
+					{
+						OwningApplication->GetMessageHandler()->OnResizingWindow( LinuxWindow.ToSharedRef() );
+					}
+
 					SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN_DESKTOP );
 					bWasFullscreen = true;
+
+					if ( LinuxWindow )
+					{
+						OwningApplication->GetMessageHandler()->OnSizeChanged(
+							LinuxWindow.ToSharedRef(),
+							VirtualWidth,
+							VirtualHeight,
+							//  bWasMinimized
+							false
+						);
+					}
 				}
 			}
 			break;
@@ -634,11 +649,16 @@ void FLinuxWindow::AdjustCachedSize( FVector2D& Size ) const
 	{
 		Size = FVector2D( VirtualWidth, VirtualHeight );
 	}
-	else
-	if	( HWnd )
+	else if	( HWnd )
 	{
 		int SizeW, SizeH;
 
+		SDL_GetWindowSize( HWnd, &SizeW, &SizeH );
+
+		/*
+		 * Currently we are not correctly supporting up-scaling on all RHIs. For now disable this
+		 * until all RHIs are working with up-scaling
+		 *
 		if ( WindowMode == EWindowMode::Windowed )
 		{
 			SDL_GetWindowSize( HWnd, &SizeW, &SizeH );
@@ -650,6 +670,7 @@ void FLinuxWindow::AdjustCachedSize( FVector2D& Size ) const
 
 			_GetBestFullscreenResolution( HWnd, &SizeW, &SizeH );
 		}
+		*/
 
 		Size = FVector2D( SizeW, SizeH );
 	}

@@ -689,7 +689,6 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 
 			uint32 WindowSizeX = SizeX;
 			uint32 WindowSizeY = SizeY;
-			FVulkanPlatform::UpdateWindowSize(WindowHandle, WindowSizeX, WindowSizeY);
 
 			Context->RHIPushEvent(TEXT("CopyImageToBackBuffer"), FColor::Blue);
 			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY, WindowSizeX, WindowSizeY);
