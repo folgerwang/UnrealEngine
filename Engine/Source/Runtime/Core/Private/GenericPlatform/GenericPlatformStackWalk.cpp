@@ -168,6 +168,12 @@ void FGenericPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString,
 	uint64 StackTrace[MAX_DEPTH];
 	FMemory::Memzero( StackTrace );
 
+	// If the callstack is for the executing thread, ignore this function and the FPlatformStackWalk::CaptureStackBackTrace call below
+	if(Context == nullptr)
+	{
+		IgnoreCount += 2;
+	}
+
 	// Capture stack backtrace.
 	uint32 Depth = FPlatformStackWalk::CaptureStackBackTrace( StackTrace, MAX_DEPTH, Context );
 
@@ -196,8 +202,11 @@ TArray<FProgramCounterSymbolInfo> FGenericPlatformStackWalk::GetStack(int32 Igno
 	uint64 StackTrace[MAX_DEPTH];
 	FMemory::Memzero(StackTrace);
 
-	// Add 2 to account for CaptureStackBackTrace and GetStack.
-	IgnoreCount += 2;
+	// If the callstack is for the executing thread, ignore this function and the FPlatformStackWalk::CaptureStackBackTrace call below
+	if(Context == nullptr)
+	{
+		IgnoreCount += 2;
+	}
 
 	MaxDepth = FMath::Min(MAX_DEPTH, IgnoreCount + MaxDepth);
 

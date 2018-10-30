@@ -1841,7 +1841,7 @@ void FIOSCrashContext::GenerateEnsureInfo() const
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure( const TCHAR* ErrorMessage )
+void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
     // Simple re-entrance guard.
     EnsureLock.Lock();
