@@ -124,13 +124,13 @@ enum EFindName
  */
 struct FNameEntry
 {
-private:
-	/** Index of name in hash. */
-	NAME_INDEX		Index;
-
 public:
 	/** Pointer to the next entry in this hash bin's linked list. */
 	TAtomic<FNameEntry*>		HashNext;
+
+private:
+	/** Index of name in hash. */
+	NAME_INDEX		Index;
 
 protected:
 	/** Name, variable-sized - note that AllocateNameEntry only allocates memory as needed. */
