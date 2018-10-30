@@ -385,8 +385,7 @@ namespace UnrealBuildTool
 
 			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(Desc.ProjectFile, Desc.Name, bSkipRulesCompile, bUsePrecompiled, Desc.ForeignPlugin);
 
-			FileReference TargetFileName;
-			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Version, Arguments, out TargetFileName);
+			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Version, Arguments);
 			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !GetSupportedPlatforms(RulesObject).Contains(Desc.Platform))
 			{
 				throw new BuildException("{0} does not support the {1} platform.", Desc.Name, Desc.Platform.ToString());
@@ -517,7 +516,7 @@ namespace UnrealBuildTool
 			}
 
 			// Generate a build target from this rules module
-			UEBuildTarget BuildTarget = new UEBuildTarget(Desc, new ReadOnlyTargetRules(RulesObject), RulesAssembly, TargetFileName);
+			UEBuildTarget BuildTarget = new UEBuildTarget(Desc, new ReadOnlyTargetRules(RulesObject), RulesAssembly);
 
 			if (UnrealBuildTool.bPrintPerformanceInfo)
 			{
@@ -880,8 +879,7 @@ namespace UnrealBuildTool
 		/// <param name="InDesc">Target descriptor</param>
 		/// <param name="InRules">The target rules, as created by RulesCompiler.</param>
 		/// <param name="InRulesAssembly">The chain of rules assemblies that this target was created with</param>
-		/// <param name="InTargetCsFilename">The name of the target </param>
-		public UEBuildTarget(TargetDescriptor InDesc, ReadOnlyTargetRules InRules, RulesAssembly InRulesAssembly, FileReference InTargetCsFilename)
+		public UEBuildTarget(TargetDescriptor InDesc, ReadOnlyTargetRules InRules, RulesAssembly InRulesAssembly)
 		{
 			ProjectFile = InDesc.ProjectFile;
 			AppName = InDesc.Name;
@@ -898,8 +896,7 @@ namespace UnrealBuildTool
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
 			PlatformIntermediateFolder = Path.Combine("Intermediate", "Build", Platform.ToString(), UEBuildPlatform.GetBuildPlatform(Platform).GetFolderNameForArchitecture(Architecture));
 
-			Debug.Assert(InTargetCsFilename == null || InTargetCsFilename.HasExtension(".Target.cs"));
-			TargetRulesFile = InTargetCsFilename;
+			TargetRulesFile = InRules.File;
 
 			bCompileMonolithic = (Rules.LinkType == TargetLinkType.Monolithic);
 
@@ -928,16 +925,13 @@ namespace UnrealBuildTool
 			{
 				ProjectDirectory = ProjectFile.Directory;
 			}
+			else if (Rules.File.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
+			{
+				ProjectDirectory = UnrealBuildTool.EnterpriseDirectory;
+			}
 			else
 			{
-				if (InTargetCsFilename.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
-				{
-					ProjectDirectory = UnrealBuildTool.EnterpriseDirectory;
-				}
-				else
-				{
-					ProjectDirectory = UnrealBuildTool.EngineDirectory;
-				}
+				ProjectDirectory = UnrealBuildTool.EngineDirectory;
 			}
 
 			// Build the project intermediate directory

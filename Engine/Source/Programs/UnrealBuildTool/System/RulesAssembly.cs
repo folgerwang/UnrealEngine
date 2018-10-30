@@ -440,6 +440,9 @@ namespace UnrealBuildTool
 				throw new BuildException(Ex, "Unable to instantiate instance of '{0}' object type from compiled assembly '{1}'.  Unreal Build Tool creates an instance of your module's 'Rules' object in order to find out about your module's requirements.  The CLR exception details may provide more information:  {2}", TypeName, Path.GetFileNameWithoutExtension(CompiledAssembly.Location), Ex.ToString());
 			}
 
+			// Return the target file name to the caller
+			Rules.File = TargetNameToTargetFile[TargetInfo.Name];
+
 			// Set the default overriddes for the configured target type
 			Rules.SetOverridesForTargetType();
 
@@ -530,32 +533,14 @@ namespace UnrealBuildTool
 		/// Creates a target rules object for the specified target name.
 		/// </summary>
 		/// <param name="TargetName">Name of the target</param>
-		/// <param name="Platform">The platform that the target is being built for</param>
-		/// <param name="Configuration">The configuration the target is being built for</param>
-		/// <param name="Architecture">The architecture the target is being built for</param>
-		/// <param name="ProjectFile">The project containing the target being built</param>
-		/// <param name="Arguments">Command line arguments for the target</param>
-		/// <param name="Version">The current build version</param>
-		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, string[] Arguments)
-		{
-			FileReference TargetFileName;
-			return CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, Arguments, out TargetFileName);
-		}
-
-		/// <summary>
-		/// Creates a target rules object for the specified target name.
-		/// </summary>
-		/// <param name="TargetName">Name of the target</param>
 		/// <param name="Platform">Platform being compiled</param>
 		/// <param name="Configuration">Configuration being compiled</param>
 		/// <param name="Architecture">Architecture being built</param>
 		/// <param name="ProjectFile">Path to the project file for this target</param>
 		/// <param name="Version">The current build version</param>
 		/// <param name="Arguments">Command line arguments for this target</param>
-		/// <param name="TargetFileName">The original source file name of the Target.cs file for this target</param>
 		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, string[] Arguments, out FileReference TargetFileName)
+		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, string[] Arguments)
 		{
 			bool bFoundTargetName = TargetNameToTargetFile.ContainsKey(TargetName);
 			if (bFoundTargetName == false)
@@ -581,12 +566,9 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					return Parent.CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, Arguments, out TargetFileName);
+					return Parent.CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, Arguments);
 				}
 			}
-
-			// Return the target file name to the caller
-			TargetFileName = TargetNameToTargetFile[TargetName];
 
 			// Currently, we expect the user's rules object type name to be the same as the module name + 'Target'
 			string TargetTypeName = TargetName + "Target";

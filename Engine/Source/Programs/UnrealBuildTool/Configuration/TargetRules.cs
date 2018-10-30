@@ -140,6 +140,11 @@ namespace UnrealBuildTool
 		public readonly string Name;
 
 		/// <summary>
+		/// File containing this target
+		/// </summary>
+		internal FileReference File;
+
+		/// <summary>
 		/// Platform that this target is being built for.
 		/// </summary>
 		public readonly UnrealTargetPlatform Platform;
@@ -1405,6 +1410,11 @@ namespace UnrealBuildTool
 		public string Name
 		{
 			get { return Inner.Name; }
+		}
+
+		internal FileReference File
+		{
+			get { return Inner.File; }
 		}
 
 		public UnrealTargetPlatform Platform
