@@ -64,18 +64,29 @@ TOptional<FAssetData> SNewEmitterDialog::GetSelectedEmitterAsset()
 	return TOptional<FAssetData>();
 }
 
-TArray<FAssetData> SNewEmitterDialog::GetSelectedEmitterTemplateAssets()
+void SNewEmitterDialog::GetSelectedEmitterTemplateAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return TemplateAssetPicker->GetSelectedAssets();
+	OutSelectedAssets.Append(TemplateAssetPicker->GetSelectedAssets());
+	if (ActivatedTemplateAsset.IsValid())
+	{
+		OutSelectedAssets.AddUnique(ActivatedTemplateAsset);
+	}
 }
 
-TArray<FAssetData> SNewEmitterDialog::GetSelectedProjectEmiterAssets()
+void SNewEmitterDialog::GetSelectedProjectEmiterAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return GetSelectedEmitterAssetsFromPicker.Execute();
+	OutSelectedAssets.Append(GetSelectedEmitterAssetsFromPicker.Execute());
+	if (ActivatedProjectAsset.IsValid())
+	{
+		OutSelectedAssets.AddUnique(ActivatedProjectAsset);
+	}
 }
 
-void SNewEmitterDialog::OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset)
+void SNewEmitterDialog::OnTemplateAssetActivated(const FAssetData& InActivatedTemplateAsset)
 {
+	// Input handling issues with the list view widget can allow items to be activated but not added to the selection so cache this here
+	// so it can be included in the selection set.
+	ActivatedTemplateAsset = InActivatedTemplateAsset;
 	ConfirmSelection();
 }
 
@@ -83,6 +94,9 @@ void SNewEmitterDialog::OnEmitterAssetsActivated(const TArray<FAssetData>& Activ
 {
 	if ((ActivationMethod == EAssetTypeActivationMethod::DoubleClicked || ActivationMethod == EAssetTypeActivationMethod::Opened) && ActivatedAssets.Num() == 1)
 	{
+		// Input handling issues with the list view widget can allow items to be activated but not added to the selection so cache this here
+		// so it can be included in the selection set.
+		ActivatedProjectAsset = ActivatedAssets[0];
 		ConfirmSelection();
 	}
 }
