@@ -3998,16 +3998,17 @@ namespace UnrealBuildTool
 		{
 			AndroidToolChain ToolChain = ((AndroidPlatform)UEBuildPlatform.GetBuildPlatform(InTarget.Platform)).CreateTempToolChainForProject(InTarget.ProjectFile) as AndroidToolChain;
 
-			// we need to strip architecture from any of the output paths
-			string BaseSoName = ToolChain.RemoveArchName(InTarget.OutputPaths[0].FullName);
-
 			// get the receipt
-			UnrealTargetPlatform Platform = InTarget.Platform;
-			UnrealTargetConfiguration Configuration = InTarget.Configuration;
-			string ProjectBaseName = Path.GetFileName(BaseSoName).Replace("-" + Platform, "").Replace("-" + Configuration, "").Replace(".so", "");
-			FileReference ReceiptFilename = TargetReceipt.GetDefaultPath(InTarget.ProjectDirectory, ProjectBaseName, Platform, Configuration, "");
+			FileReference ReceiptFilename = InTarget.BuildReceiptFileName;
 			Log.TraceInformation("Receipt Filename: {0}", ReceiptFilename);
-			SetAndroidPluginData(ToolChain.GetAllArchitectures(), CollectPluginDataPaths(TargetReceipt.Read(ReceiptFilename, UnrealBuildTool.EngineDirectory, InTarget.ProjectDirectory)));
+			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFilename, UnrealBuildTool.EngineDirectory, InTarget.ProjectDirectory);
+			SetAndroidPluginData(ToolChain.GetAllArchitectures(), CollectPluginDataPaths(Receipt));
+
+			// Get the output paths
+			List<FileReference> OutputPaths = Receipt.BuildProducts.Where(x => x.Type == BuildProductType.Executable).Select(x => x.Path).ToList();
+
+			// we need to strip architecture from any of the output paths
+			string BaseSoName = ToolChain.RemoveArchName(OutputPaths[0].FullName);
 
 			// make an apk at the end of compiling, so that we can run without packaging (debugger, cook on the fly, etc)
 			string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
@@ -4016,7 +4017,7 @@ namespace UnrealBuildTool
 				bMakeSeparateApks: ShouldMakeSeparateApks(), bIncrementalPackage: true, bDisallowPackagingDataInApk: false, bDisallowExternalFilesDir: true);
 
 			// if we made any non-standard .apk files, the generated debugger settings may be wrong
-			if (ShouldMakeSeparateApks() && (InTarget.OutputPaths.Count > 1 || !InTarget.OutputPaths[0].FullName.Contains("-armv7-es2")))
+			if (ShouldMakeSeparateApks() && (OutputPaths.Count > 1 || !OutputPaths[0].FullName.Contains("-armv7-es2")))
 			{
 				Log.TraceInformation("================================================================================================================================");
 				Log.TraceInformation("Non-default apk(s) have been made: If you are debugging, you will need to manually select one to run in the debugger properties!");

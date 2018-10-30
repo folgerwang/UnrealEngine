@@ -46,26 +46,6 @@ namespace UnrealBuildTool
 		public readonly UnrealTargetConfiguration Configuration;
 
 		/// <summary>
-		/// The output path
-		/// </summary>
-		public FileReference OutputPath
-		{
-			get
-			{
-				if (OutputPaths.Count != 1)
-				{
-					throw new BuildException("Attempted to use UEBuildDeployTarget.OutputPath property, but there are multiple (or no) OutputPaths. You need to handle multiple in the code that called this (size = {0})", OutputPaths.Count);
-				}
-				return OutputPaths[0];
-			}
-		}
-
-		/// <summary>
-		/// The full list of output paths, for platforms that support building multiple binaries simultaneously
-		/// </summary>
-		public readonly List<FileReference> OutputPaths;
-
-		/// <summary>
 		/// The project directory, or engine directory for targets without a project file.
 		/// </summary>
 		public readonly DirectoryReference ProjectDirectory;
@@ -112,7 +92,6 @@ namespace UnrealBuildTool
 			this.TargetType = Target.TargetType;
 			this.Platform = Target.Platform;
 			this.Configuration = Target.Configuration;
-			this.OutputPaths = new List<FileReference>(Target.OutputPaths);
 			this.ProjectDirectory = Target.ProjectDirectory;
 			this.BuildReceiptFileName = Target.ReceiptFileName;
 			this.bUseIncrementalLinking = Target.Rules.bUseIncrementalLinking;
@@ -136,7 +115,6 @@ namespace UnrealBuildTool
 				TargetType = (TargetType)Reader.ReadInt32();
 				Platform = (UnrealTargetPlatform)Reader.ReadInt32();
 				Configuration = (UnrealTargetConfiguration)Reader.ReadInt32();
-				OutputPaths = Reader.ReadList(() => Reader.ReadFileReference());
 				ProjectDirectory = Reader.ReadDirectoryReference();
 				BuildReceiptFileName = Reader.ReadFileReference();
 				bUseIncrementalLinking = Reader.ReadBoolean();
@@ -162,7 +140,6 @@ namespace UnrealBuildTool
 				Writer.Write((Int32)TargetType);
 				Writer.Write((Int32)Platform);
 				Writer.Write((Int32)Configuration);
-				Writer.Write(OutputPaths, Item => Writer.Write(Item));
 				Writer.Write(ProjectDirectory);
 				Writer.Write(BuildReceiptFileName);
 				Writer.Write(bUseIncrementalLinking);
