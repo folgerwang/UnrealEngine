@@ -247,7 +247,7 @@ void UStaticMeshComponent::OnRep_StaticMesh(class UStaticMesh *OldStaticMesh)
 	{
 		// We have to force a call to SetStaticMesh with a new StaticMesh
 		UStaticMesh *NewStaticMesh = StaticMesh;
-		StaticMesh = NULL;
+		StaticMesh = OldStaticMesh;
 		
 		SetStaticMesh(NewStaticMesh);
 	}
