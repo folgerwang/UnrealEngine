@@ -59,7 +59,6 @@ namespace UnrealGameSync
 			PendingMaxChangesValue = 100;
 			LastChangeByCurrentUser = -1;
 			LastCodeChangeByCurrentUser = -1;
-			OtherStreamNames = new List<string>();
 			bIsEnterpriseProject = bInIsEnterpriseProject;
 			LatestProjectConfigFile = InProjectConfigFile;
 			LocalConfigFiles = InLocalConfigFiles;
@@ -116,12 +115,6 @@ namespace UnrealGameSync
 			set { lock(this){ if(value != PendingMaxChangesValue){ PendingMaxChangesValue = value; RefreshEvent.Set(); } } }
 		}
 
-		public IReadOnlyList<string> OtherStreamNames
-		{
-			get;
-			private set;
-		}
-
 		void PollForUpdates()
 		{
 			string StreamName;
@@ -153,17 +146,6 @@ namespace UnrealGameSync
 						if(Perforce.GetActiveStream(out NewStreamName, LogWriter) && NewStreamName != StreamName)
 						{
 							OnStreamChange();
-						}
-
-						// Update the stream list
-						if(StreamName != null)
-						{
-							List<string> NewOtherStreamNames;
-							if(!Perforce.FindStreams(PerforceUtils.GetClientOrDepotDirectoryName(StreamName) + "/*", out NewOtherStreamNames, LogWriter))
-							{
-								NewOtherStreamNames = new List<string>();
-							}
-							OtherStreamNames = NewOtherStreamNames;
 						}
 
 						// Check for any p4 changes

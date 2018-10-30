@@ -2827,41 +2827,39 @@ namespace UnrealGameSync
 			bool bShownContextMenu = false;
 			if(StreamName != null)
 			{
-				IReadOnlyList<string> OtherStreamFilter = Workspace.ProjectStreamFilter;
-				if(OtherStreamFilter != null)
+				IReadOnlyList<string> OtherStreamNames = Workspace.ProjectStreamFilter;
+				if(OtherStreamNames != null)
 				{
-					IReadOnlyList<string> OtherStreamNames = PerforceMonitor.OtherStreamNames.Where(x => OtherStreamFilter.Any(y => y.Equals(x, StringComparison.InvariantCultureIgnoreCase)) || x.Equals(StreamName, StringComparison.InvariantCultureIgnoreCase)).ToList().AsReadOnly();
-					if(OtherStreamNames.Count > 0)
+					StreamContextMenu.Items.Clear();
+
+					ToolStripMenuItem CurrentStreamItem = new ToolStripMenuItem(StreamName, null, new EventHandler((S, E) => SelectStream(StreamName)));
+					CurrentStreamItem.Checked = true;
+					StreamContextMenu.Items.Add(CurrentStreamItem);
+					
+					StreamContextMenu.Items.Add(new ToolStripSeparator());
+
+					foreach (string OtherStreamName in OtherStreamNames.OrderBy(x => x).Where(x => !x.EndsWith("/Dev-Binaries")))
 					{
-						StreamContextMenu.Items.Clear();
-
-						foreach (string OtherStreamName in OtherStreamNames.OrderBy(x => x).Where(x => !x.EndsWith("/Dev-Binaries")))
+						string ThisStreamName = OtherStreamName; // Local for lambda capture
+						if(String.Compare(StreamName, OtherStreamName, StringComparison.InvariantCultureIgnoreCase) != 0)
 						{
-							string ThisStreamName = OtherStreamName; // Local for lambda capture
-
 							ToolStripMenuItem Item = new ToolStripMenuItem(ThisStreamName, null, new EventHandler((S, E) => SelectStream(ThisStreamName)));
-							if(String.Compare(StreamName, OtherStreamName, StringComparison.InvariantCultureIgnoreCase) == 0)
-							{
-								Item.Checked = true;
-								StreamContextMenu.Items.Insert(0, Item);
-								StreamContextMenu.Items.Insert(1, new ToolStripSeparator());
-							}
-							else
-							{
-								StreamContextMenu.Items.Add(Item);
-							}
+							StreamContextMenu.Items.Add(Item);
 						}
-
-						StreamContextMenu.Items.Add(new ToolStripSeparator());
-						StreamContextMenu.Items.Add(new ToolStripMenuItem("Select Other...", null, new EventHandler((S, E) => SelectOtherStreamDialog())));
-
-						int X = (Bounds.Left + Bounds.Right) / 2 + StreamContextMenu.Bounds.Width / 2;
-						int Y = Bounds.Bottom + 2;
-						StreamContextMenu.Show(StatusPanel, new Point(X, Y), ToolStripDropDownDirection.Left);
-
-						bShownContextMenu = true;
-
 					}
+
+					if(StreamContextMenu.Items.Count > 2)
+					{
+						StreamContextMenu.Items.Add(new ToolStripSeparator());
+					}
+
+					StreamContextMenu.Items.Add(new ToolStripMenuItem("Select Other...", null, new EventHandler((S, E) => SelectOtherStreamDialog())));
+
+					int X = (Bounds.Left + Bounds.Right) / 2 + StreamContextMenu.Bounds.Width / 2;
+					int Y = Bounds.Bottom + 2;
+					StreamContextMenu.Show(StatusPanel, new Point(X, Y), ToolStripDropDownDirection.Left);
+
+					bShownContextMenu = true;
 				}
 			}
 			if(!bShownContextMenu)
