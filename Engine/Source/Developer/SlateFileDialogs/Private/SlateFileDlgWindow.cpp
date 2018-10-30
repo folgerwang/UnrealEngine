@@ -845,6 +845,13 @@ void SSlateFileOpenDlg::Construct(const FArguments& InArgs)
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+SSlateFileOpenDlg::~SSlateFileOpenDlg()
+{
+	if (DirectoryWatcher && RegisteredPath.Len() > 0)
+	{
+		DirectoryWatcher->UnregisterDirectoryChangedCallback_Handle(RegisteredPath, OnDialogDirectoryChangedDelegateHandle);
+	}
+}
 
 void SSlateFileOpenDlg::BuildDirectoryPath()
 {

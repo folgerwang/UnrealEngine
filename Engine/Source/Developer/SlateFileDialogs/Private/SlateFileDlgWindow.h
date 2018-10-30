@@ -141,6 +141,8 @@ public:
 	SLATE_ARGUMENT(FSlateFileDialogsStyle*, StyleSet)
 	SLATE_END_ARGS()
 
+	~SSlateFileOpenDlg();
+
 	void Construct(const FArguments& InArgs);
 	FSlateFileDlgWindow::EResult GetResponse() { return UserResponse; }
 	void SetOutNames(TArray<FString>* Ptr) { OutNames = Ptr; }
