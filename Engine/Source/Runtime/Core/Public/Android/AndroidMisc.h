@@ -201,6 +201,7 @@ public:
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
+#endif
 
 	FORCEINLINE static void MemoryBarrier()
 	{
