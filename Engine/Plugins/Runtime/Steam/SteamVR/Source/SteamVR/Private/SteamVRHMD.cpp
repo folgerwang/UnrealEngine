@@ -1493,7 +1493,6 @@ bool FSteamVRHMD::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
 }
 
 FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSteamVRPlugin) :
-	FHeadMountedDisplayBase(nullptr),
 	FSceneViewExtensionBase(AutoRegister), 
 	bHmdEnabled(true),
 	HmdWornState(EHMDWornState::Unknown),
