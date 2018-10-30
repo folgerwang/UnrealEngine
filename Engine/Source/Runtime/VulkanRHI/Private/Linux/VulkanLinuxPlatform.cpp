@@ -147,6 +147,32 @@ void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance
 	}
 }
 
+void FVulkanLinuxPlatform::WriteCrashMarker(const FOptionalVulkanDeviceExtensions& OptionalExtensions, VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding)
+{
+	ensure(Entries.Num() <= GMaxCrashBufferEntries);
+
+	if (OptionalExtensions.HasAMDBufferMarker)
+	{
+		// AMD API only allows updating one entry at a time. Assume buffer has entry 0 as num entries
+		VulkanDynamicAPI::vkCmdWriteBufferMarkerAMD(CmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, DestBuffer, 0, Entries.Num());
+		if (bAdding)
+		{
+			int32 LastIndex = Entries.Num() - 1;
+			// +1 size as entries start at index 1
+			VulkanDynamicAPI::vkCmdWriteBufferMarkerAMD(CmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, DestBuffer, (1 + LastIndex) * sizeof(uint32), Entries[LastIndex]);
+		}
+	}
+	else if (OptionalExtensions.HasNVDiagnosticCheckpoints)
+	{
+		if (bAdding)
+		{
+			int32 LastIndex = Entries.Num() - 1;
+			uint32 Value = Entries[LastIndex];
+			VulkanDynamicAPI::vkCmdSetCheckpointNV(CmdBuffer, (void*)(size_t)Value);
+		}
+	}
+}
+
 void FVulkanLinuxPlatform::UpdateWindowSize(void* WindowHandle, uint32& Width, uint32& Height)
 {
 	SDL_Vulkan_GetDrawableSize((SDL_Window*) WindowHandle, (int32*) &Width, (int32*) &Height);

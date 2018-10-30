@@ -462,12 +462,13 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 	FVulkanDevice* HmdDevice = nullptr;
 	uint32 HmdDeviceIndex = 0;
 #endif
-	struct FDiscreteDevice
+	struct FDeviceInfo
 	{
 		FVulkanDevice* Device;
 		uint32 DeviceIndex;
 	};
-	TArray<FDiscreteDevice> DiscreteDevices;
+	TArray<FDeviceInfo> DiscreteDevices;
+	TArray<FDeviceInfo> IntegratedDevices;
 
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 	// Allow HMD to override which graphics adapter is chosen, so we pick the adapter where the HMD is connected
@@ -495,6 +496,10 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 		{
 			DiscreteDevices.Add({NewDevice, Index});
 		}
+		else
+		{
+			IntegratedDevices.Add({NewDevice, Index});
+		}
 	}
 
 	uint32 DeviceIndex = -1;
@@ -507,16 +512,20 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 	}
 #endif
 
+	// Add all integrated to the end of the list
+	DiscreteDevices.Append(IntegratedDevices);
+
 	if (DeviceIndex == -1)
 	{
 		if (DiscreteDevices.Num() > 0)
 		{
-			if (DiscreteDevices.Num() > 1)
+			int32 PreferredVendor = PreferAdapterVendor();
+			if (DiscreteDevices.Num() > 1 && PreferredVendor != -1)
 			{
 				// Check for preferred
 				for (int32 Index = 0; Index < DiscreteDevices.Num(); ++Index)
 				{
-					if (DiscreteDevices[Index].Device->GpuProps.vendorID == PreferAdapterVendor())
+					if (DiscreteDevices[Index].Device->GpuProps.vendorID == PreferredVendor)
 					{
 						DeviceIndex = DiscreteDevices[Index].DeviceIndex;
 						Device = DiscreteDevices[Index].Device;
@@ -533,12 +542,10 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 		}
 		else
 		{
-			Device = Devices[0];
+			checkf(0, TEXT("No devices found!"));
 			DeviceIndex = 0;
 		}
 	}
-
-	check(Device);
 
 	const VkPhysicalDeviceProperties& Props = Device->GetDeviceProperties();
 	GRHIVendorId = Props.vendorID;
@@ -834,7 +841,7 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 	}
 #endif
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	if (GpuProfiler.bTrackingGPUCrashData)
 	{
 		GpuProfiler.PushMarkerForCrash(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle(), Device->GetCrashMarkerBuffer(), Name);
@@ -868,7 +875,7 @@ void FVulkanCommandListContext::RHIPopEvent()
 	}
 #endif
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	if (GpuProfiler.bTrackingGPUCrashData)
 	{
 		GpuProfiler.PopMarkerForCrash(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle(), Device->GetCrashMarkerBuffer());
