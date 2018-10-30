@@ -4726,6 +4726,13 @@ void FBlueprintEditorUtils::ChangeMemberVariableType(UBlueprint* Blueprint, cons
 
 				if(bChangeVariableType)
 				{
+					const bool bBecameBoolean = Variable.VarType.PinCategory != UEdGraphSchema_K2::PC_Boolean && NewPinType.PinCategory == UEdGraphSchema_K2::PC_Boolean;
+					const bool bBecameNotBoolean = Variable.VarType.PinCategory == UEdGraphSchema_K2::PC_Boolean && NewPinType.PinCategory != UEdGraphSchema_K2::PC_Boolean;
+					if (bBecameBoolean || bBecameNotBoolean)
+					{
+						Variable.FriendlyName = FName::NameToDisplayString(Variable.VarName.ToString(), bBecameBoolean);
+					}
+
 					Variable.VarType = NewPinType;
 
 					if(Variable.VarType.IsSet() || Variable.VarType.IsMap())
