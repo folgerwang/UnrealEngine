@@ -83,6 +83,11 @@ FString UKismetSystemLibrary::GetClassDisplayName(UClass* Class)
 	return Class ? Class->GetName() : FString();
 }
 
+UObject* UKismetSystemLibrary::GetOuterObject(const UObject* Object)
+{
+	return Object ? Object->GetOuter() : nullptr;
+}
+
 FString UKismetSystemLibrary::GetEngineVersion()
 {
 	return FEngineVersion::Current().ToString();

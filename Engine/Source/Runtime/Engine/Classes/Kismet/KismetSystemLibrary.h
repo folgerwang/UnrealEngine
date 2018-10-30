@@ -113,6 +113,10 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "Utilities", meta = (DisplayName = "Get Display Name"))
 	static FString GetClassDisplayName(UClass* Class);
 
+	// Returns the outer object of an object.
+	UFUNCTION(BlueprintPure, Category = "Utilities")
+	static UObject* GetOuterObject(const UObject* Object);
+
 	// Engine build number, for displaying to end users.
 	UFUNCTION(BlueprintPure, Category="Development", meta=(BlueprintThreadSafe))
 	static FString GetEngineVersion();
