@@ -8,6 +8,7 @@
 #include "ISourceControlModule.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Engine/Engine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCompileAllBlueprintsCommandlet, Log, All);
 
@@ -131,6 +132,8 @@ void UCompileAllBlueprintsCommandlet::ParseWhitelist(const FString& WhitelistFil
 
 void UCompileAllBlueprintsCommandlet::BuildBlueprints()
 {
+	double LastGCTime = FPlatformTime::Seconds();
+
 	for (FAssetData const& Asset : BlueprintAssetList)
 	{
 		if (ShouldBuildAsset(Asset))
@@ -149,6 +152,14 @@ void UCompileAllBlueprintsCommandlet::BuildBlueprints()
 			else
 			{
 				CompileBlueprint(LoadedBlueprint);
+			}
+
+			const double TimeNow = FPlatformTime::Seconds();
+
+			if (TimeNow - LastGCTime >= 10.0)
+			{
+				GEngine->TrimMemory();
+				LastGCTime = TimeNow;
 			}
 		}
 	}

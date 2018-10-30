@@ -27,7 +27,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Sequence Info")
 	FString DisplayName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Sequence Info")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Sequence Info", meta = (IgnoreForMemberInitializationTest))
 	FDateTime LastEdited;
 
 	FLevelSequenceData(const FString InAssetPath = "", const FString InDisplayName = "", const FDateTime InLastEdited = FDateTime::Now())

@@ -782,7 +782,7 @@ uint32 UIpNetDriver::FReceiveThreadRunnable::Run()
 				IncomingPacket.Error = SocketSubsystem->GetLastErrorCode();
 
 				// Pass all other errors back to the Game Thread
-				if (IncomingPacket.Error == SE_EWOULDBLOCK || IncomingPacket.Error == SE_NO_ERROR)
+				if (IncomingPacket.Error == SE_EWOULDBLOCK || IncomingPacket.Error == SE_NO_ERROR || IncomingPacket.Error == SE_ECONNABORTED)
 				{
 					continue;
 				}

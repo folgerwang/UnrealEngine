@@ -306,16 +306,15 @@ public:
 
 			int32 RequiredIDs = FMath::Max(NumInstances, NumUsedIDs);
 			int32 ExistingNumIDs = PrevIDTable().Num();
-
-			//Free ID Table must always be at least as large as the data buffer + it's current size in the case all particles die this frame.
-			FreeIDsTable.SetNumUninitialized(NumInstances + NumFreeIDs);
+			int32 NumNewIDs = RequiredIDs - ExistingNumIDs;
 
 			if (RequiredIDs > ExistingNumIDs)
 			{
 				//UE_LOG(LogNiagara, Warning, TEXT("Growing ID Table! OldSize:%d | NewSize:%d"), ExistingNumIDs, RequiredIDs);
 				IDToIndexTable[CurrBuffer].SetNumUninitialized(RequiredIDs);
 
-				int32 NumNewIDs = RequiredIDs - ExistingNumIDs;
+				//Free ID Table must always be at least as large as the data buffer + it's current size in the case all particles die this frame.
+				FreeIDsTable.AddUninitialized(NumNewIDs);
 
 				//Free table should always have enough room for these new IDs.
 				check(NumFreeIDs + NumNewIDs <= FreeIDsTable.Num());
@@ -347,6 +346,9 @@ public:
 						++CheckedFreeID;
 					}
 				}
+
+				check(NumFreeIDs <= RequiredIDs);
+				FreeIDsTable.SetNumUninitialized(NumFreeIDs);
 			}
 			else
 			{

@@ -119,6 +119,15 @@ public:
 	static FSequencerScriptingRange GetPlaybackRange(UMovieSceneSequence* Sequence);
 
 	/**
+	* Get the timecode source of this sequence
+	*
+	* @param Sequence        The sequence within which to get the timecode source
+	* @return Timecode source of this sequence
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static FTimecode GetTimecodeSource(UMovieSceneSequence* Sequence);
+
+	/**
 	 * Attempt to locate a binding in this sequence by its name
 	 *
 	 * @param Sequence        The sequence within which to find the binding

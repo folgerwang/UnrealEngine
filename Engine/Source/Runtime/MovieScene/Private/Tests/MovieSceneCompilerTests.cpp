@@ -9,6 +9,7 @@
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Evaluation/MovieSceneEvaluationField.h"
 #include "Evaluation/MovieSceneSequenceTemplateStore.h"
+#include "Algo/Find.h"
 #include "UObject/Package.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -183,4 +184,151 @@ bool FMovieSceneCompilerRangeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieSceneCompilerEmptySpaceOnTheFlyTest, "System.Engine.Sequencer.Compiler.Empty Space On The Fly", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FMovieSceneCompilerEmptySpaceOnTheFlyTest::RunTest(const FString& Parameters)
+{
+	// Tests that compiling ranges that contain empty space works correctly by verifying that the result evaluation field entries are either populated or empty as expected
+
+	struct FResult
+	{
+		TRange<FFrameNumber> FieldRange;
+		bool                 bExpectEmpty;
+	};
+
+	struct FTest
+	{
+		TArray<TRange<FFrameNumber>> CompileRanges;
+		TArray<FResult>              ExpectedResults;
+	};
+
+	TRange<FFrameNumber> SectionRanges[] = {
+		TRange<FFrameNumber>(0,  10),
+		TRange<FFrameNumber>(20, 30),
+		TRange<FFrameNumber>(40, 50),
+		TRange<FFrameNumber>(60, 70),
+	};
+
+	FResult ExpectedResults[] = {
+		{ TRange<FFrameNumber>(0,  10), false },
+		{ TRange<FFrameNumber>(10, 20), true  },
+		{ TRange<FFrameNumber>(20, 30), false },
+		{ TRange<FFrameNumber>(30, 40), true  },
+		{ TRange<FFrameNumber>(40, 50), false },
+		{ TRange<FFrameNumber>(50, 60), true  },
+		{ TRange<FFrameNumber>(60, 70), false },
+	};
+
+	TArray<FTest> Tests;
+
+	// Test 0: Test that compiling a range that only overlaps a section results in only that section's time being compiled
+	{
+		Tests.Emplace();
+		Tests.Last().CompileRanges   = { TRange<FFrameNumber>(5, 6) };
+		Tests.Last().ExpectedResults = { ExpectedResults[0] };
+	}
+
+	// Test 1: Test that compiling a range that overlaps both a section and empty space results in an entry for the section and the empty space
+	{
+		Tests.Emplace();
+		Tests.Last().CompileRanges   = { TRange<FFrameNumber>(6, 15) };
+		Tests.Last().ExpectedResults = { ExpectedResults[0], ExpectedResults[1] };
+	}
+
+	// Test 2: Test that compiling a range that only overlaps empty space works as expected
+	{
+		Tests.Emplace();
+		Tests.Last().CompileRanges   = { TRange<FFrameNumber>(14, 15) };
+		Tests.Last().ExpectedResults = { ExpectedResults[1] };
+	}
+
+	// Test 3: Test that compiling a section range followed by a range that overlaps both that section, and subsequent empty space compiles the empty space correctly
+	{
+		Tests.Emplace();
+		Tests.Last().CompileRanges   = { TRange<FFrameNumber>(5, 6), TRange<FFrameNumber>(6, 15) };
+		Tests.Last().ExpectedResults = { ExpectedResults[0], ExpectedResults[1] };
+	}
+
+	// Test 4: Test that compiling section range followed by a range that overlaps empty space preceeding that section and the section itself, compiles correctly (reverse of Test3)
+	{
+		Tests.Emplace();
+		Tests.Last().CompileRanges   = { TRange<FFrameNumber>(24, 25), TRange<FFrameNumber>(15, 24), TRange<FFrameNumber>(5, 6) };
+		Tests.Last().ExpectedResults = { ExpectedResults[0], ExpectedResults[1], ExpectedResults[2] };
+	}
+
+	// Test 5: Test that compiling a range encomassing the entire track results in the correct field ranges
+	{
+		Tests.Emplace();
+		Tests.Last().CompileRanges   = { TRange<FFrameNumber>(0, 70) };
+		Tests.Last().ExpectedResults = TArray<FResult>(&ExpectedResults[0], ARRAY_COUNT(ExpectedResults));
+	}
+
+	UTestMovieSceneSequence* Sequence = NewObject<UTestMovieSceneSequence>(GetTransientPackage());
+	UTestMovieSceneTrack*    Track    = Sequence->MovieScene->AddMasterTrack<UTestMovieSceneTrack>();
+
+	for (TRange<FFrameNumber> Range : SectionRanges)
+	{
+		UTestMovieSceneSection* Section = NewObject<UTestMovieSceneSection>(Track);
+		Section->SetRange(Range);
+		Track->SectionArray.Add(Section);
+	}
+
+	struct FTemplateStore : IMovieSceneSequenceTemplateStore
+	{
+		FMovieSceneEvaluationTemplate& AccessTemplate(UMovieSceneSequence&) override
+		{
+			return Template;
+		}
+
+		FMovieSceneEvaluationTemplate Template;
+	} Store;
+
+
+	for (int32 Index = 0; Index < Tests.Num(); ++Index)
+	{
+		const FTest& Test = Tests[Index];
+
+		// Wipe the evaluation template before each test
+		Store.Template = FMovieSceneEvaluationTemplate();
+
+		// Compile all the ranges that the test demands
+		for (TRange<FFrameNumber> CompileRange : Test.CompileRanges)
+		{
+			FMovieSceneCompiler::CompileRange(CompileRange, *Sequence, Store);
+		}
+
+		// Verify that the resulting evaluation field is what we expect
+		TArrayView<const FMovieSceneFrameRange> FieldRanges = Store.Template.EvaluationField.GetRanges();
+		if (!FieldRanges.Num())
+		{
+			AddError(FString::Printf(TEXT("Test index %02d: No evaluation field entries were compiled."), Index));
+			continue;
+		}
+
+		for (const FResult& Result : Test.ExpectedResults)
+		{
+			// Find the field entry that exactly matches our expected result
+			const FMovieSceneFrameRange* FieldRange = Algo::FindBy(FieldRanges, Result.FieldRange, &FMovieSceneFrameRange::Value);
+			if (!FieldRange)
+			{
+				AddError(FString::Printf(TEXT("Test index %02d: Expected to find an evaluation field entry for range %s but did not."), Index, *LexToString(Result.FieldRange)));
+			}
+			else
+			{
+				// Verify that the field entry is either empty or populated as the test expects
+				const int32 FieldIndex       = FieldRange - FieldRanges.GetData();
+				const bool  FieldIsEmptyHere = (Store.Template.EvaluationField.GetGroup(FieldIndex).SegmentPtrLUT.Num() == 0);
+
+				if (Result.bExpectEmpty != FieldIsEmptyHere)
+				{
+					const TCHAR* ExpectedString = Result.bExpectEmpty ? TEXT("empty")     : TEXT("populated");
+					const TCHAR* ActualString   = FieldIsEmptyHere    ? TEXT("populated") : TEXT("empty");
+					AddError(FString::Printf(TEXT("Test index %02d: Expected evaluation field entry range %s to be %s but it was %s."), Index, ExpectedString, *LexToString(Result.FieldRange), ActualString));
+				}
+			}
+		}
+	}
+
+	return true;
+}
 #endif // WITH_DEV_AUTOMATION_TESTS

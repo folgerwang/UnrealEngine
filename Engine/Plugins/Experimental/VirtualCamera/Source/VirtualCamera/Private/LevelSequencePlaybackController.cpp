@@ -120,7 +120,7 @@ void ULevelSequencePlaybackController::GetLevelSequences(TArray<FLevelSequenceDa
 	}
 
 	// Sort the level sequence names alphabetically by Display Name
-	OutLevelSequenceNames.Sort([](const FLevelSequenceData LeftItem, const FLevelSequenceData RightItem)
+	OutLevelSequenceNames.Sort([](const FLevelSequenceData& LeftItem, const FLevelSequenceData& RightItem)
 	{
 		return LeftItem.DisplayName < RightItem.DisplayName;
 	});

@@ -280,7 +280,7 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 	bool IsParameterValueOverriddenLocally(const FName& InParamName);
-	void SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverridden);
+	void SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverridden, bool bRequiresSystemInstanceReset);
 	
 	FOnSystemInstanceChanged& OnSystemInstanceChanged() { return OnSystemInstanceChangedDelegate; }
 

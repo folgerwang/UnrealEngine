@@ -42,8 +42,13 @@ void FPIEPreviewDevice::ComputeViewportSize(const bool bClampWindowSize)
 	if (IsDeviceFlipped())
 	{
 		Swap(ScreenWidth, ScreenHeight);
-		Swap(ViewportRect.X, ViewportRect.Y);
 		Swap(ViewportRect.Width, ViewportRect.Height);
+		Swap(ViewportRect.X, ViewportRect.Y);
+		if (BezelTexture != nullptr)
+		{
+			// image is rotated counter-clockwise so the top coordinate is measured from what used to be the right edge.
+			ViewportRect.Y = BezelTexture->GetSizeX() - ViewportRect.Y - ViewportRect.Height;
+		}
 	}
 
 	float ScaleX = (float)ScreenWidth / (float)ViewportRect.Width;

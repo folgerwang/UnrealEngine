@@ -395,14 +395,6 @@ public:
 	TArray<FMovieSceneSegmentIdentifier> GetSegmentsInRange(TRange<FFrameNumber> InLocalRange);
 
 	/**
-	 * Get the smallest range of unique FSectionEvaluationData combinations that overlaps the specified lower bound
-	 *
-	 * @param InLowerBound 			The lower bound from which to start looking for a time range
-	 * @return The smallest time range of unique evaluation data entries that encompasses the specified lower bound
-	 */
-	TRange<FFrameNumber> GetUniqueRangeFromLowerBound(TRangeBound<FFrameNumber> InLowerBound) const;
-
-	/**
 	 * Set the source track from which this track originates
 	 */
 	void SetSourceTrack(const UMovieSceneTrack* InSourceTrack)
@@ -449,7 +441,15 @@ public:
 	}
 
 	/**
-	 * Iterate all this track's unique time ranges
+	 * Iterate all this track's unique time ranges starting from the specified lower bound
+	 */
+	FMovieSceneEvaluationTreeRangeIterator IterateFrom(TRangeBound<FFrameNumber> LowerBound) const
+	{
+		return FMovieSceneEvaluationTreeRangeIterator(EvaluationTree.Tree, LowerBound);
+	}
+
+	/**
+	 * Retrieve the section evaluation data for the specified node in this track's evaluation tree
 	 */
 	TMovieSceneEvaluationTreeDataIterator<FSectionEvaluationData> GetData(FMovieSceneEvaluationTreeNodeHandle TreeNodeHandle) const
 	{
