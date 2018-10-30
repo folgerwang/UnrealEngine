@@ -708,7 +708,10 @@ FTransform UOculusFunctionLibrary::GetPlayAreaTransform()
 
 			float metersScale = OculusHMD->GetWorldToMetersScale();
 
-			FQuat Rotation(FVector::UpVector, FMath::Acos((ConvertedPoints[1] - ConvertedPoints[0]).GetSafeNormal() | FVector::RightVector));
+			FVector Edge = ConvertedPoints[1] - ConvertedPoints[0];
+			float Angle = FMath::Acos((Edge).GetSafeNormal() | FVector::RightVector);
+			FQuat Rotation(FVector::UpVector, Edge.X < 0 ? Angle : -Angle);
+			
 			FVector Position = (ConvertedPoints[0] + ConvertedPoints[1] + ConvertedPoints[2] + ConvertedPoints[3]) / 4;
 			FVector Scale(FVector::Distance(ConvertedPoints[3], ConvertedPoints[0]) / metersScale, FVector::Distance(ConvertedPoints[1], ConvertedPoints[0]) / metersScale, 1.0);
 
