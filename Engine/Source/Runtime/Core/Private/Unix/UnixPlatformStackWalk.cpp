@@ -612,7 +612,7 @@ int32 FUnixPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo *M
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure(const TCHAR* ErrorMessage)
+void NewReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 {
 	// Simple re-entrance guard.
 	EnsureLock.Lock();
