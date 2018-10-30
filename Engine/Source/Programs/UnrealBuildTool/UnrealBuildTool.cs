@@ -1339,32 +1339,6 @@ namespace UnrealBuildTool
 									CppIncludeThread = new CppIncludeBackgroundThread(TargetToOutdatedPrerequisitesMap, TargetToHeaders);
 								}
 
-								// Check if we're allowed to modify manifests
-								bool bNoManifestChanges = Arguments.Any(x => x.Equals("-NoManifestChanges", StringComparison.OrdinalIgnoreCase));
-
-								// If we're not touching any shared files (ie. anything under Engine), allow the build ids to be recycled between applications.
-								HashSet<FileReference> OutputFiles = new HashSet<FileReference>(ActionsToExecute.SelectMany(x => x.ProducedItems.Select(y => y.Location)));
-								foreach (UEBuildTarget Target in Targets)
-								{
-									if (!Target.TryRecycleVersionManifests(OutputFiles, bNoManifestChanges))
-									{
-										if(bNoManifestChanges)
-										{
-											throw new BuildException("Stopping build due to manifest changes.");
-										}
-										else
-										{
-											Target.InvalidateVersionManifests();
-										}
-									}
-								}
-
-								// Remove the receipts, so we know the target is not valid if the compile fails
-								foreach (UEBuildTarget Target in Targets)
-								{
-									Target.DeleteReceipts();
-								}
-
 								// Execute the actions.
 								string TargetInfoForTelemetry = String.Join("|", Targets.Select(x => String.Format("{0} {1} {2}{3}", x.TargetName, x.Platform, x.Configuration, "")));
 								DateTime ExecutorStartTime = DateTime.UtcNow;
@@ -1384,7 +1358,6 @@ namespace UnrealBuildTool
 								{
 									foreach (UEBuildTarget Target in Targets)
 									{
-										Target.WriteReceipts(bNoManifestChanges);
 										UEBuildPlatform.GetBuildPlatform(Target.Platform).PostBuildSync(Target);
 									}
 									if (ActionsToExecute.Count == 0 && BuildConfiguration.bSkipLinkingWhenNothingToCompile)
@@ -1395,19 +1368,6 @@ namespace UnrealBuildTool
 								else
 								{
 									BuildResult = ECompilationResult.OtherCompilationError;
-								}
-							}
-
-							// Execute all the post-build steps
-						if (BuildResult.Succeeded() && !ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bXGEExport)
-							foreach (UEBuildTarget Target in Targets)
-							{
-								if (!Target.ExecuteCustomPostBuildSteps())
-								{
-									{
-										BuildResult = ECompilationResult.OtherCompilationError;
-										break;
-									}
 								}
 							}
 
@@ -1976,10 +1936,61 @@ namespace UnrealBuildTool
 				}
 			}
 
-			foreach (UEBuildTarget Target in Targets)
+			// Update the action that writes out the module manifests
+			foreach(Action Action in ActionGraph.AllActions)
 			{
-				Target.PatchModuleManifestsForHotReloadAssembling(OnlyModulesLocal);
-				Target.WriteReceipts(false);
+				if(Action.ActionType == ActionType.WriteMetadata)
+				{
+					string Arguments = Action.CommandArguments;
+
+					// Find the argument for the metadata file
+					const string InputArgument = "-Input=";
+
+					int InputIdx = Arguments.IndexOf(InputArgument);
+					if(InputIdx == -1)
+					{
+						throw new Exception("Missing -Input= argument to WriteMetadata command when patching action graph.");
+					}
+
+					int FileNameIdx = InputIdx + InputArgument.Length;
+					if(Arguments[FileNameIdx] == '\"')
+					{
+						FileNameIdx++;
+					}
+
+					int FileNameEndIdx = FileNameIdx;
+					while(FileNameEndIdx < Arguments.Length && (Arguments[FileNameEndIdx] != ' ' || Arguments[FileNameIdx - 1] == '\"') && Arguments[FileNameEndIdx] != '\"')
+					{
+						FileNameEndIdx++;
+					}
+
+					// Read the metadata file
+					FileReference TargetInfoFile = new FileReference(Arguments.Substring(FileNameIdx, FileNameEndIdx - FileNameIdx));
+					if(!FileReference.Exists(TargetInfoFile))
+					{
+						throw new Exception(String.Format("Unable to find metadata file to patch action graph ({0})", TargetInfoFile));
+					}
+
+					// Update the module names
+					WriteMetadataTargetInfo TargetInfo = BinaryFormatterUtils.Load<WriteMetadataTargetInfo>(TargetInfoFile);
+					foreach (KeyValuePair<FileReference, ModuleManifest> FileNameToVersionManifest in TargetInfo.FileToManifest)
+					{
+						foreach (KeyValuePair<string, string> Manifest in FileNameToVersionManifest.Value.ModuleNameToFileName)
+						{
+							string ModuleFilename = Manifest.Value;
+							if (UnrealBuildTool.ReplaceHotReloadFilenameSuffix(ref ModuleFilename, (ModuleName) => UnrealBuildTool.GetReplacementModuleSuffix(OnlyModules, ModuleName)))
+							{
+								FileNameToVersionManifest.Value.ModuleNameToFileName[Manifest.Key] = ModuleFilename;
+								break;
+							}
+						}
+					}
+
+					// Write the hot-reload metadata file and update the argument list
+					FileReference HotReloadTargetInfoFile = FileReference.Combine(TargetInfoFile.Directory, "Metadata-HotReload.dat");
+					BinaryFormatterUtils.Save(HotReloadTargetInfoFile, TargetInfo);
+					Arguments = Arguments.Substring(0, FileNameIdx) + HotReloadTargetInfoFile + Arguments.Substring(FileNameEndIdx);
+				}
 			}
 		}
 	}

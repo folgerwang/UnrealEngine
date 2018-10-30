@@ -639,13 +639,6 @@ namespace AutomationTool
 					}
 				}
 			}
-			foreach(XGEItem Item in Actions)
-			{
-				if(Item.Manifest.PostBuildScripts != null)
-				{
-					Utils.ExecuteCustomBuildSteps(Item.Manifest.PostBuildScripts.Select(x => new FileReference(x)).ToArray());
-				}
-			}
 			foreach (var Item in Actions)
 			{
 				XGEFinishBuildWithUBT(Item);

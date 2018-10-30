@@ -55,6 +55,7 @@
       <Link>Properties\MetaData.cs</Link>
     </Compile>
     <Compile Include="AssemblyUtils.cs" />
+    <Compile Include="BinaryFormatterUtils.cs" />
     <Compile Include="BinaryReaderExtensions.cs" />
     <Compile Include="BinaryWriterExtensions.cs" />
     <Compile Include="CommandLineArguments.cs" />

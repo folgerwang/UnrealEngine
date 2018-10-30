@@ -24,6 +24,10 @@ namespace UnrealBuildTool
 		GenerateDebugInfo,
 
 		Link,
+
+		WriteMetadata,
+
+		PostBuildStep,
 	}
 
 	/// <summary>
@@ -278,6 +282,14 @@ namespace UnrealBuildTool
 		{
 			Action NewAction = new Action(Type);
 			AllActions.Add(NewAction);
+			return NewAction;
+		}
+
+		public Action AddRecursiveCall(ActionType Type, string Arguments)
+		{
+			Action NewAction = Add(Type);
+			NewAction.CommandPath = UnrealBuildTool.GetUBTPath();
+			NewAction.CommandArguments = Arguments;
 			return NewAction;
 		}
 
@@ -883,7 +895,7 @@ namespace UnrealBuildTool
 					// If the produced file doesn't exist or has zero size, consider it outdated.  The zero size check is to detect cases
 					// where aborting an earlier compile produced invalid zero-sized obj files, but that may cause actions where that's
 					// legitimate output to always be considered outdated.
-					if (ProducedItem.bExists && (ProducedItem.Length > 0 || ProducedItem.IsDirectory))
+					if (ProducedItem.bExists && (RootAction.ActionType != ActionType.Compile || ProducedItem.Length > 0 || ProducedItem.IsDirectory))
 					{
 						// Use the oldest produced item's time as the last execution time.
 						if (ProducedItem.LastWriteTime < LastExecutionTime)

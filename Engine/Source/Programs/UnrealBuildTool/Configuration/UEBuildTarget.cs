@@ -221,11 +221,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		public readonly List<string> PostBuildScripts = new List<string>();
-
-		/// <summary>
-		/// 
-		/// </summary>
 		public BuildManifest()
 		{
 		}
@@ -770,15 +765,6 @@ namespace UnrealBuildTool
 		public List<FlatModuleCsDataType> FlatModuleCsData = new List<FlatModuleCsDataType>();
 
 		/// <summary>
-		/// The receipt for this target, which contains a record of this build.
-		/// </summary>
-		public TargetReceipt Receipt
-		{
-			get;
-			private set;
-		}
-
-		/// <summary>
 		/// Filename for the receipt for this target.
 		/// </summary>
 		public FileReference ReceiptFileName
@@ -786,11 +772,6 @@ namespace UnrealBuildTool
 			get;
 			private set;
 		}
-
-		/// <summary>
-		/// Module manifests to be written to each output folder
-		/// </summary>
-		private KeyValuePair<FileReference, ModuleManifest>[] FileReferenceToModuleManifestPairs;
 
 		/// <summary>
 		/// The name of the .Target.cs file, if the target was created with one
@@ -827,15 +808,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// A list of the module filenames which were used to build this target.
-		/// </summary>
-		/// <returns></returns>
-		public IEnumerable<string> GetAllModuleFolders()
-		{
-			return FlatModuleCsData.SelectMany(Data => Data.UHTHeaderNames);
-		}
-
-		/// <summary>
 		/// Whether this target should be compiled in monolithic mode
 		/// </summary>
 		/// <returns>true if it should, false if it shouldn't</returns>
@@ -864,9 +836,7 @@ namespace UnrealBuildTool
 			OnlyModules = (List<OnlyModule>)Info.GetValue("om", typeof(List<OnlyModule>));
 			bCompileMonolithic = Info.GetBoolean("cm");
 			FlatModuleCsData = (List<FlatModuleCsDataType>)Info.GetValue("fm", typeof(List<FlatModuleCsDataType>));
-			Receipt = (TargetReceipt)Info.GetValue("re", typeof(TargetReceipt));
 			ReceiptFileName = (FileReference)Info.GetValue("rf", typeof(FileReference));
-			FileReferenceToModuleManifestPairs = (KeyValuePair<FileReference, ModuleManifest>[])Info.GetValue("vm", typeof(KeyValuePair<FileReference, ModuleManifest>[]));
 			TargetRulesFile = (FileReference)Info.GetValue("tc", typeof(FileReference));
 			PreBuildStepScripts = (FileReference[])Info.GetValue("pr", typeof(FileReference[]));
 			PostBuildStepScripts = (FileReference[])Info.GetValue("po", typeof(FileReference[]));
@@ -895,9 +865,7 @@ namespace UnrealBuildTool
 			Info.AddValue("om", OnlyModules);
 			Info.AddValue("cm", bCompileMonolithic);
 			Info.AddValue("fm", FlatModuleCsData);
-			Info.AddValue("re", Receipt);
 			Info.AddValue("rf", ReceiptFileName);
-			Info.AddValue("vm", FileReferenceToModuleManifestPairs);
 			Info.AddValue("tc", TargetRulesFile);
 			Info.AddValue("pr", PreBuildStepScripts);
 			Info.AddValue("po", PostBuildStepScripts);
@@ -1372,19 +1340,6 @@ namespace UnrealBuildTool
 
 			if (!Rules.bDisableLinking)
 			{
-				// Also add the version file if it's been specified
-				if (VersionFile != null)
-				{
-					Manifest.BuildProducts.Add(VersionFile.FullName);
-				}
-
-				// Add all the version manifests to the receipt
-				foreach (FileReference VersionManifestFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
-				{
-					Manifest.BuildProducts.Add(VersionManifestFile.FullName);
-				}
-
-				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
 				if (OnlyModules.Count == 0)
 				{
 					Manifest.AddBuildProduct(ReceiptFileName.FullName);
@@ -1393,11 +1348,6 @@ namespace UnrealBuildTool
 				if (DeployTargetFile != null)
 				{
 					Manifest.DeployTargetFiles.Add(DeployTargetFile.FullName);
-				}
-
-				if(PostBuildStepScripts != null)
-				{
-					Manifest.PostBuildScripts.AddRange(PostBuildStepScripts.Select(x => x.FullName));
 				}
 			}
 
@@ -1410,10 +1360,44 @@ namespace UnrealBuildTool
 
 			Manifest.BuildProducts.Sort();
 			Manifest.DeployTargetFiles.Sort();
-			Manifest.PostBuildScripts.Sort();
 
 			Log.TraceInformation("Writing manifest to {0}", ManifestPath);
 			Utils.WriteClass<BuildManifest>(Manifest, ManifestPath.FullName, "");
+		}
+
+		/// <summary>
+		/// Prepare all the module manifests for this target
+		/// </summary>
+		/// <returns>Dictionary mapping from filename to module manifest</returns>
+		Dictionary<FileReference, ModuleManifest> PrepareModuleManifests()
+		{
+			Dictionary<FileReference, ModuleManifest> FileNameToModuleManifest = new Dictionary<FileReference, ModuleManifest>();
+			if (!bCompileMonolithic)
+			{
+				// Create the receipts for each folder
+				foreach (UEBuildBinary Binary in Binaries)
+				{
+					if(Binary.Type == UEBuildBinaryType.DynamicLinkLibrary)
+					{
+						DirectoryReference DirectoryName = Binary.OutputFilePath.Directory;
+						bool bIsGameDirectory = !DirectoryName.IsUnderDirectory(UnrealBuildTool.EngineDirectory);
+						FileReference ManifestFileName = FileReference.Combine(DirectoryName, ModuleManifest.GetStandardFileName(AppName, Platform, Configuration, Architecture, bIsGameDirectory));
+
+						ModuleManifest Manifest;
+						if (!FileNameToModuleManifest.TryGetValue(ManifestFileName, out Manifest))
+						{
+							Manifest = new ModuleManifest("");
+							FileNameToModuleManifest.Add(ManifestFileName, Manifest);
+						}
+
+						foreach (UEBuildModuleCPP Module in Binary.Modules.OfType<UEBuildModuleCPP>())
+						{
+							Manifest.ModuleNameToFileName[Module.Name] = Binary.OutputFilePath.GetFileName();
+						}
+					}
+				}
+			}
+			return FileNameToModuleManifest;
 		}
 
 		/// <summary>
@@ -1423,14 +1407,8 @@ namespace UnrealBuildTool
 		/// <param name="BuildProducts">Artifacts from the build</param>
 		/// <param name="RuntimeDependencies">Output runtime dependencies</param>
 		/// <param name="HotReload">The hot-reload mode</param>
-		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<RuntimeDependency> RuntimeDependencies, EHotReload HotReload)
+		TargetReceipt PrepareReceipt(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<RuntimeDependency> RuntimeDependencies, EHotReload HotReload)
 		{
-			// If linking is disabled, don't generate any receipt
-			if(Rules.bDisableLinking)
-			{
-				return;
-			}
-
 			// Read the version file
 			BuildVersion Version;
 			if (!BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
@@ -1456,20 +1434,11 @@ namespace UnrealBuildTool
 					{
 						Version = LastVersion;
 					}
-					else
-					{
-						Version.BuildId = "";
-					}
-				}
-				else
-				{
-					// Otherwise generate something randomly.
-					Version.BuildId = Guid.NewGuid().ToString();
 				}
 			}
 
 			// Create the receipt
-			Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
+			TargetReceipt Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
 
 			// Set the launch executable if there is one
 			if(!Rules.bShouldCompileAsDLL)
@@ -1524,302 +1493,10 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Also add the version file if it's been specified
-			if (VersionFile != null)
-			{
-				Receipt.BuildProducts.Add(new BuildProduct(VersionFile, BuildProductType.BuildResource));
-			}
-
-			// Prepare all the version manifests
-			Dictionary<FileReference, ModuleManifest> FileNameToModuleManifest = new Dictionary<FileReference, ModuleManifest>();
-			if (!bCompileMonolithic)
-			{
-				// Create the receipts for each folder
-				foreach (UEBuildBinary Binary in Binaries)
-				{
-					if(Binary.Type == UEBuildBinaryType.DynamicLinkLibrary)
-					{
-						DirectoryReference DirectoryName = Binary.OutputFilePath.Directory;
-						bool bIsGameDirectory = !DirectoryName.IsUnderDirectory(UnrealBuildTool.EngineDirectory);
-						FileReference ManifestFileName = FileReference.Combine(DirectoryName, ModuleManifest.GetStandardFileName(AppName, Platform, Configuration, Architecture, bIsGameDirectory));
-
-						ModuleManifest Manifest;
-						if (!FileNameToModuleManifest.TryGetValue(ManifestFileName, out Manifest))
-						{
-							Manifest = new ModuleManifest(Version.BuildId);
-
-							ModuleManifest ExistingManifest;
-							if (ModuleManifest.TryRead(ManifestFileName, out ExistingManifest) && Version.BuildId == ExistingManifest.BuildId)
-							{
-								if (OnlyModules.Count > 0)
-								{
-									// We're just building an existing module; reuse the existing manifest AND build id.
-									Manifest = ExistingManifest;
-								}
-								else if (Version.Changelist != 0)
-								{
-									// We're rebuilding at the same changelist. Keep all the existing binaries.
-									Manifest.ModuleNameToFileName = Manifest.ModuleNameToFileName.Union(ExistingManifest.ModuleNameToFileName).ToDictionary(x => x.Key, x => x.Value);
-								}
-							}
-
-							FileNameToModuleManifest.Add(ManifestFileName, Manifest);
-						}
-
-						foreach (UEBuildModuleCPP Module in Binary.Modules.OfType<UEBuildModuleCPP>())
-						{
-							Manifest.ModuleNameToFileName[Module.Name] = Binary.OutputFilePath.GetFileName();
-						}
-					}
-				}
-			}
-			FileReferenceToModuleManifestPairs = FileNameToModuleManifest.ToArray();
-
-			// Add all the version manifests to the receipt
-			foreach(FileReference VersionManifestFile in FileNameToModuleManifest.Keys)
-			{
-				Receipt.AddBuildProduct(VersionManifestFile, BuildProductType.RequiredResource);
-			}
-
 			// add the SDK used by the tool chain
 			Receipt.AdditionalProperties.Add(new ReceiptProperty("SDK", ToolChain.GetSDKVersion()));
-		}
 
-		/// <summary>
-		/// Try to recycle the build id from existing version manifests in the engine directory rather than generating a new one, if no engine binaries are being modified.
-		/// This allows sharing engine binaries when switching between projects and switching between UE4 and a game-specific project. Note that different targets may require
-		/// additional engine modules to be built, so we don't prohibit files being added or removed.
-		/// </summary>
-		/// <param name="OutputFiles">List of files being modified by this build</param>
-		/// <param name="bNoManifestChanges">Whether manifest changes are allowed. If a manifest has to be changed, an error will be output.</param>
-		/// <returns>True if the existing version manifests will remain valid during this build, false if they are invalidated</returns>
-		public bool TryRecycleVersionManifests(HashSet<FileReference> OutputFiles, bool bNoManifestChanges)
-		{
-			// Make sure we've got a list of version manifests to check against
-			if(FileReferenceToModuleManifestPairs == null)
-			{
-				Log.TraceLog("No file to version manifest mapping; unable to recycle version.");
-				return false;
-			}
-
-			// If there is no version file, don't bother trying to read it
-			if(VersionFile == null)
-			{
-				Log.TraceLog("Target is not using a version file.");
-				return false;
-			}
-
-			// Make sure we've got a file containing the last build id
-			BuildVersion CurrentVersion;
-			if(!BuildVersion.TryRead(VersionFile, out CurrentVersion))
-			{
-				Log.TraceLog("Unable to read version file from {0}.", VersionFile);
-				return false;
-			}
-
-			// Get the project directory. We will ignore any manifests under this directory (ie. anything not under engine/enterprise folders).
-			DirectoryReference ProjectDir = DirectoryReference.FromFile(ProjectFile);
-
-			// Read any the existing module manifests under the engine directory
-			Dictionary<FileReference, ModuleManifest> ExistingFileToManifest = new Dictionary<FileReference, ModuleManifest>();
-			foreach(FileReference ExistingFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
-			{
-				if(ProjectDir == null || !ExistingFile.IsUnderDirectory(ProjectDir))
-				{
-					ModuleManifest ExistingManifest;
-					if(ModuleManifest.TryRead(ExistingFile, out ExistingManifest))
-					{
-						ExistingFileToManifest.Add(ExistingFile, ExistingManifest);
-					}
-				}
-			}
-
-			// Check if we're modifying any files in an existing valid manifest. If the build id for a manifest doesn't match, we can behave as if it doesn't exist.
-			foreach(KeyValuePair<FileReference, ModuleManifest> ExistingPair in ExistingFileToManifest)
-			{
-				if(ExistingPair.Value.BuildId == CurrentVersion.BuildId)
-				{
-					DirectoryReference ExistingManifestDir = ExistingPair.Key.Directory;
-					foreach(FileReference ExistingFile in ExistingPair.Value.ModuleNameToFileName.Values.Select(x => FileReference.Combine(ExistingManifestDir, x)))
-					{
-						if(OutputFiles.Contains(ExistingFile))
-						{
-							if(bNoManifestChanges)
-							{
-								Log.TraceError("Previous build product would be overwritten: {0}.", ExistingFile);
-							}
-							else
-							{
-								Log.TraceLog("Unable to recycle manifests - modifying {0} invalidates {1}. Using build id {2}.", ExistingFile, ExistingPair.Key, Receipt.Version.BuildId);
-							}
-							return false;
-						}
-					}
-				}
-			}
-
-			// Allow the existing build id to be reused. Update the receipt.
-			Receipt.Version.BuildId = CurrentVersion.BuildId;
-
-			// Merge the existing manifests with the manifests in memory.
-			foreach(KeyValuePair<FileReference, ModuleManifest> NewPair in FileReferenceToModuleManifestPairs)
-			{
-				// Reuse the existing build id
-				ModuleManifest NewManifest = NewPair.Value;
-				NewManifest.BuildId = CurrentVersion.BuildId;
-
-				// Merge in the files from the existing manifest
-				ModuleManifest ExistingManifest;
-				if(ExistingFileToManifest.TryGetValue(NewPair.Key, out ExistingManifest) && ExistingManifest.BuildId == CurrentVersion.BuildId)
-				{
-					foreach(KeyValuePair<string, string> ModulePair in ExistingManifest.ModuleNameToFileName)
-					{
-						if(!NewManifest.ModuleNameToFileName.ContainsKey(ModulePair.Key))
-						{
-							NewManifest.ModuleNameToFileName.Add(ModulePair.Key, ModulePair.Value);
-						}
-					}
-				}
-			}
-
-			// Return success
-			Log.TraceLog("Recycled previous build ID ({0})", CurrentVersion.BuildId);
-			return true;
-		}
-
-		/// <summary>
-		/// Delete all the existing version manifests
-		/// </summary>
-		public void InvalidateVersionManifests()
-		{
-			// Delete all the existing manifests, so we don't try to recycle partial builds in future (the current build may fail after modifying engine files, 
-			// causing bModifyingEngineFiles to be incorrect on the next invocation).
-			if(FileReferenceToModuleManifestPairs != null)
-			{
-				foreach (FileReference VersionManifestFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
-				{
-					// Make sure the file (and directory) exists before trying to delete it
-					if(FileReference.Exists(VersionManifestFile) && !UnrealBuildTool.IsFileInstalled(VersionManifestFile))
-					{
-						FileReference.Delete(VersionManifestFile);
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Patches the manifests with the new module suffixes from the OnlyModules list.
-		/// </summary>
-		public void PatchModuleManifestsForHotReloadAssembling(List<OnlyModule> OnlyModules)
-		{
-			if (FileReferenceToModuleManifestPairs == null)
-			{
-				return;
-			}
-
-			foreach (KeyValuePair<FileReference, ModuleManifest> FileNameToVersionManifest in FileReferenceToModuleManifestPairs)
-			{
-				foreach (KeyValuePair<string, string> Manifest in FileNameToVersionManifest.Value.ModuleNameToFileName)
-				{
-					string ModuleFilename = Manifest.Value;
-					if (UnrealBuildTool.ReplaceHotReloadFilenameSuffix(ref ModuleFilename, (ModuleName) => UnrealBuildTool.GetReplacementModuleSuffix(OnlyModules, ModuleName)))
-					{
-						FileNameToVersionManifest.Value.ModuleNameToFileName[Manifest.Key] = ModuleFilename;
-						break;
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Writes out the version manifest
-		/// </summary>
-		public void WriteReceipts(bool bNoManifestChanges)
-		{
-			if (Receipt != null)
-			{
-				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
-				if (OnlyModules == null || OnlyModules.Count == 0)
-				{
-					if(!UnrealBuildTool.IsFileInstalled(ReceiptFileName))
-					{
-						DirectoryReference.CreateDirectory(ReceiptFileName.Directory);
-						Receipt.Write(ReceiptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
-					}
-				}
-				if(VersionFile != null)
-				{
-					if(!UnrealBuildTool.IsFileInstalled(VersionFile))
-					{
-						DirectoryReference.CreateDirectory(VersionFile.Directory);
-
-						StringWriter Writer = new StringWriter();
-						Receipt.Version.Write(Writer);
-
-						string Text = Writer.ToString();
-						if(!FileReference.Exists(VersionFile) || File.ReadAllText(VersionFile.FullName) != Text)
-						{
-							File.WriteAllText(VersionFile.FullName, Text);
-						}
-					}
-				}
-			}
-			if (FileReferenceToModuleManifestPairs != null)
-			{
-				foreach (KeyValuePair<FileReference, ModuleManifest> FileNameToVersionManifest in FileReferenceToModuleManifestPairs)
-				{
-					if(!UnrealBuildTool.IsFileInstalled(FileNameToVersionManifest.Key))
-					{
-						if(!FileReference.Exists(FileNameToVersionManifest.Key))
-						{
-							// If the file doesn't already exist, just write it out
-							DirectoryReference.CreateDirectory(FileNameToVersionManifest.Key.Directory);
-							FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key);
-						}
-						else
-						{
-							// Otherwise write it to a buffer first
-							string OutputText;
-							using (StringWriter Writer = new StringWriter())
-							{
-								FileNameToVersionManifest.Value.Write(Writer);
-								OutputText = Writer.ToString();
-							}
-
-							// And only write it to disk if it's been modified
-							string CurrentText = FileReference.ReadAllText(FileNameToVersionManifest.Key);
-							if(CurrentText != OutputText)
-							{
-								if(bNoManifestChanges)
-								{
-									Log.TraceError("Build modifies {0}. This is not permitted. Before:\n    {1}\nAfter:\n    {2}", FileNameToVersionManifest.Key, CurrentText.Replace("\n", "\n    "), OutputText.Replace("\n", "\n    "));
-								}
-								else
-								{
-									FileReference.WriteAllText(FileNameToVersionManifest.Key, OutputText);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/// <summary>
-		/// Removes any receipt files in the case of a failed build
-		/// </summary>
-		public void DeleteReceipts()
-		{
-			if (Receipt != null)
-			{
-				if (OnlyModules == null || OnlyModules.Count == 0)
-				{
-					if(!UnrealBuildTool.IsFileInstalled(ReceiptFileName) && FileReference.Exists(ReceiptFileName))
-					{
-						FileReference.Delete(ReceiptFileName);
-					}
-				}
-			}
+			return Receipt;
 		}
 
 		/// <summary>
@@ -2220,23 +1897,6 @@ namespace UnrealBuildTool
 			}
 			BuildProducts.AddRange(RuntimeDependencyTargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
 
-			// Also add any explicitly specified build products
-			if(Rules.AdditionalBuildProducts.Count > 0)
-			{
-				Dictionary<string, string> Variables = GetTargetVariables(null);
-				foreach(string AdditionalBuildProduct in Rules.AdditionalBuildProducts)
-				{
-					FileReference BuildProductFile = new FileReference(Utils.ExpandVariables(AdditionalBuildProduct, Variables));
-					BuildProducts.Add(new KeyValuePair<FileReference, BuildProductType>(BuildProductFile, BuildProductType.RequiredResource));
-				}
-			}
-
-			// Create a receipt for the target
-			if (!ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				PrepareReceipts(TargetToolChain, BuildProducts, RuntimeDependencies, HotReload);
-			}
-
 			// Make sure all the checked headers were valid
 			List<string> InvalidIncludeDirectiveMessages = Modules.Values.OfType<UEBuildModuleCPP>().Where(x => x.InvalidIncludeDirectiveMessages != null).SelectMany(x => x.InvalidIncludeDirectiveMessages).ToList();
 			if (InvalidIncludeDirectiveMessages.Count > 0)
@@ -2247,6 +1907,80 @@ namespace UnrealBuildTool
 				}
 				Log.TraceError("Build canceled.");
 				return ECompilationResult.Canceled;
+			}
+
+			// Finalize and generate metadata for this target
+			if(!ProjectFileGenerator.bGenerateProjectFiles && !Rules.bDisableLinking)
+			{
+				// Also add any explicitly specified build products
+				if(Rules.AdditionalBuildProducts.Count > 0)
+				{
+					Dictionary<string, string> Variables = GetTargetVariables(null);
+					foreach(string AdditionalBuildProduct in Rules.AdditionalBuildProducts)
+					{
+						FileReference BuildProductFile = new FileReference(Utils.ExpandVariables(AdditionalBuildProduct, Variables));
+						BuildProducts.Add(new KeyValuePair<FileReference, BuildProductType>(BuildProductFile, BuildProductType.RequiredResource));
+					}
+				}
+
+				// Also add the version file as a build product
+				if(VersionFile != null)
+				{
+					BuildProducts.Add(new KeyValuePair<FileReference, BuildProductType>(VersionFile, BuildProductType.RequiredResource));
+				}
+
+				// Prepare the module manifests, and add them to the list of build products
+				Dictionary<FileReference, ModuleManifest> FileNameToModuleManifest = PrepareModuleManifests();
+				BuildProducts.AddRange(FileNameToModuleManifest.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
+
+				// Prepare the receipt
+				TargetReceipt Receipt = PrepareReceipt(TargetToolChain, BuildProducts, RuntimeDependencies, HotReload);
+
+				// Create an action which to generate the receipts
+				WriteMetadataTargetInfo MetadataTargetInfo = new WriteMetadataTargetInfo(ProjectFile, VersionFile, ReceiptFileName, Receipt, FileNameToModuleManifest);
+				FileReference MetadataTargetFile = FileReference.Combine(ProjectIntermediateDirectory, "Metadata.dat");
+				BinaryFormatterUtils.Save(MetadataTargetFile, MetadataTargetInfo);
+
+				StringBuilder WriteMetadataArguments = new StringBuilder();
+				WriteMetadataArguments.AppendFormat("-Mode=WriteMetadata -Input={0}", Utils.MakePathSafeToUseWithCommandLine(MetadataTargetFile));
+				if(Rules.bNoManifestChanges)
+				{
+					WriteMetadataArguments.Append(" -NoManifestChanges");
+				}
+
+				Action WriteMetadataAction = ActionGraph.AddRecursiveCall(ActionType.WriteMetadata, WriteMetadataArguments.ToString());
+				WriteMetadataAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+				WriteMetadataAction.StatusDescription = "Writing receipt...";
+				WriteMetadataAction.bCanExecuteRemotely = false;
+				WriteMetadataAction.PrerequisiteItems.AddRange(OutputItems);
+				WriteMetadataAction.ProducedItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
+
+				OutputItems.AddRange(WriteMetadataAction.ProducedItems);
+
+				// Create actions to run the post build steps
+				foreach(FileReference PostBuildStepScript in PostBuildStepScripts)
+				{
+					FileReference OutputFile = new FileReference(PostBuildStepScript.FullName + ".ran");
+
+					Action PostBuildStepAction = ActionGraph.Add(ActionType.PostBuildStep);
+					if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+					{
+						PostBuildStepAction.CommandPath = "cmd.exe";
+						PostBuildStepAction.CommandArguments = String.Format("/C \"call \"{0}\" && type NUL >\"{1}\"\"", PostBuildStepScript, OutputFile);
+					}
+					else
+					{
+						PostBuildStepAction.CommandPath = "/bin/sh";
+						PostBuildStepAction.CommandArguments = String.Format("\"{0}\" && touch \"{1}\"", PostBuildStepScript, OutputFile);
+					}
+					PostBuildStepAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
+					PostBuildStepAction.StatusDescription = String.Format("Executing post build script ({0})", PostBuildStepScript.GetFileName());
+					PostBuildStepAction.bCanExecuteRemotely = false;
+					PostBuildStepAction.PrerequisiteItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
+					PostBuildStepAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));
+
+					OutputItems.AddRange(PostBuildStepAction.ProducedItems);
+				}
 			}
 
 			// Build a list of all the files required to build

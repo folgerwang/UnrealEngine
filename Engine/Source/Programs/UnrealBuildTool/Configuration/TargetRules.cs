@@ -951,6 +951,12 @@ namespace UnrealBuildTool
 		public bool bLegacyPublicIncludePaths = true;
 
 		/// <summary>
+		/// Do not allow manifest changes when building this target. Used to cause earlier errors when building multiple targets with a shared build environment.
+		/// </summary>
+		[CommandLine("-NoManifestChanges")]
+		internal bool bNoManifestChanges = false;
+
+		/// <summary>
 		/// The build version string
 		/// </summary>
 		[CommandLine("-BuildVersion")]
@@ -2020,6 +2026,11 @@ namespace UnrealBuildTool
 		public bool bLegacyPublicIncludePaths
 		{
 			get { return Inner.bLegacyPublicIncludePaths; }
+		}
+
+		internal bool bNoManifestChanges
+		{
+			get { return Inner.bNoManifestChanges; }
 		}
 
 		public string BuildVersion
