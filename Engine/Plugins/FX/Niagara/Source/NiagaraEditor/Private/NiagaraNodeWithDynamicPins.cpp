@@ -279,6 +279,7 @@ void UNiagaraNodeWithDynamicPins::PinNameTextCommitted(const FText& Text, ETextC
 		FString PinOldName = Pin->PinName.ToString();
 		Pin->PinName = *Text.ToString();
 		OnPinRenamed(Pin, PinOldName);
+		MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	}
 }
 

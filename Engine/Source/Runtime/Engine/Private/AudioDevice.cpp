@@ -4674,9 +4674,6 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 	// Immediately stop all pending active sounds
 	ProcessingPendingActiveSoundStops(WorldToFlush == nullptr || WorldToFlush->bIsTearingDown);
 
-	// Make sure any in-flight audio rendering commands get executed.
-	FlushAudioRenderingCommands();
-
 	// Anytime we flush, make sure to clear all the listeners.  We'll get the right ones soon enough.
 	Listeners.Reset();
 	Listeners.Add(FListener(this));
@@ -4721,6 +4718,9 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 	if (IsAudioMixerEnabled() && (WorldToFlush == nullptr || WorldToFlush->bIsTearingDown))
 	{
 		UpdateHardware();
+
+		// Make sure any in-flight audio rendering commands get executed.
+		FlushAudioRenderingCommands();
 	}
 }
 

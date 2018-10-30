@@ -17,6 +17,12 @@ DECLARE_CYCLE_STAT(TEXT("Execution"), STAT_VVMExec, STATGROUP_VectorVM);
 
 DEFINE_LOG_CATEGORY_STATIC(LogVectorVM, All, All);
 
+//#define FREE_TABLE_LOCK_CONTENTION_WARNINGS (!UE_BUILD_SHIPPING)
+#define FREE_TABLE_LOCK_CONTENTION_WARNINGS (0)
+
+//I don't expect us to ever be waiting long
+#define FREE_TABLE_LOCK_CONTENTION_WARN_THRESHOLD_MS (0.01)
+
 //#define VM_FORCEINLINE
 #define VM_FORCEINLINE FORCEINLINE
 
@@ -33,6 +39,30 @@ DEFINE_LOG_CATEGORY_STATIC(LogVectorVM, All, All);
 #define SRCOP_CRC (OP2_CONST | OP_REGISTER | OP0_CONST)
 #define SRCOP_CCR (OP2_CONST | OP1_CONST | OP_REGISTER)
 #define SRCOP_CCC (OP2_CONST | OP1_CONST | OP0_CONST)
+
+//Temporarily locking the free table until we can implement a lock free algorithm. UE-65856
+FORCEINLINE void FDataSetMeta::LockFreeTable()
+{
+#if FREE_TABLE_LOCK_CONTENTION_WARNINGS
+	uint64 StartCycles = FPlatformTime::Cycles64();
+#endif
+ 		
+	FreeTableLock.Lock();
+ 
+#if FREE_TABLE_LOCK_CONTENTION_WARNINGS
+	uint64 EndCylces = FPlatformTime::Cycles64();
+	double DurationMs = FPlatformTime::ToMilliseconds64(EndCylces - StartCycles);
+	if (DurationMs >= FREE_TABLE_LOCK_CONTENTION_WARN_THRESHOLD_MS)
+	{
+		UE_LOG(LogVectorVM, Warning, TEXT("VectorVM Stalled in LockFreeTable()! %g ms"), DurationMs);
+	}
+#endif
+}
+
+FORCEINLINE void FDataSetMeta::UnlockFreeTable()
+{
+ 	FreeTableLock.Unlock();
+}
 
 static int32 GbParallelVVM = 1;
 static FAutoConsoleVariableRef CVarbParallelVVM(
@@ -159,7 +189,6 @@ FVectorVMContext::FVectorVMContext()
 	, UserPtrTable(nullptr)
 	, NumInstances(0)
 	, StartInstance(0)
-	, DataSetMetaTable(nullptr)
 #if STATS
 	, StatScopes(nullptr)
 #endif
@@ -186,7 +215,7 @@ void FVectorVMContext::PrepareForExec(
 	int32 InNumSecondaryDatasets,
 	FVMExternalFunction* InExternalFunctionTable,
 	void** InUserPtrTable,
-	FDataSetMeta*RESTRICT InDataSetMetaTable
+	TArray<FDataSetMeta>& RESTRICT InDataSetMetaTable
 #if STATS
 	, const TArray<TStatId>* InStatScopes
 #endif
@@ -214,7 +243,53 @@ void FVectorVMContext::PrepareForExec(
 		RegisterTable[VectorVM::NumTempRegisters + VectorVM::MaxInputRegisters + i] = OutputRegisters[i];
 	}
 
-	DataSetMetaTable = InDataSetMetaTable;
+	DataSetMetaTable = &InDataSetMetaTable;
+
+	ThreadLocalTempData.SetNum(DataSetMetaTable->Num());
+}
+
+void FVectorVMContext::FinishExec()
+{
+	//At the end of executing each chunk we can push any thread local temporary data out to the main storage with locks or atomics.
+
+	TArray<FDataSetMeta>& MetaTable = *DataSetMetaTable;
+	check(ThreadLocalTempData.Num() == MetaTable.Num());
+	for(int32 DataSetIndex=0; DataSetIndex < MetaTable.Num(); ++DataSetIndex)
+	{
+		FDataSetThreadLocalTempData&RESTRICT Data = ThreadLocalTempData[DataSetIndex];
+
+		if (Data.IDsToFree.Num() > 0)
+		{
+			TArray<int32>&RESTRICT FreeIDTable = *MetaTable[DataSetIndex].FreeIDTable;
+			int32&RESTRICT NumFreeIDs = *MetaTable[DataSetIndex].NumFreeIDs;
+			check(FreeIDTable.Num() >= NumFreeIDs + Data.IDsToFree.Num());
+
+			//Temporarily locking the free table until we can implement something lock-free
+			MetaTable[DataSetIndex].LockFreeTable();
+			for (int32 IDToFree : Data.IDsToFree)
+			{
+				FreeIDTable[NumFreeIDs++] = IDToFree;
+			}
+			//Unlock the free table.
+			MetaTable[DataSetIndex].UnlockFreeTable();
+			Data.IDsToFree.Reset();
+		}
+
+		//Also update the max ID seen. This should be the ONLY place in the VM we update this max value.
+		volatile int32* MaxUsedID = MetaTable[DataSetIndex].MaxUsedID;
+		int32 LocalMaxUsedID;
+		do
+		{
+			LocalMaxUsedID = *MaxUsedID;
+			if (LocalMaxUsedID >= Data.MaxID)
+			{
+				break;
+			}
+		} while (FPlatformAtomics::InterlockedCompareExchange(MaxUsedID, Data.MaxID, LocalMaxUsedID) != LocalMaxUsedID);
+
+		*MaxUsedID = FMath::Max(*MaxUsedID, Data.MaxID);
+
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -982,9 +1057,10 @@ struct FScalarKernelAcquireID
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
 		int32 DataSetIndex = VectorVM::DecodeU16(Context);
-		TArray<int32>&RESTRICT FreeIDTable = *Context.DataSetMetaTable[DataSetIndex].FreeIDTable;
+		TArray<FDataSetMeta>& MetaTable = *Context.DataSetMetaTable;
+		TArray<int32>&RESTRICT FreeIDTable = *MetaTable[DataSetIndex].FreeIDTable;
 
-		int32 Tag = Context.DataSetMetaTable[DataSetIndex].IDAcquireTag;
+		int32 Tag = MetaTable[DataSetIndex].IDAcquireTag;
 
 		int32 IDIndexReg = VectorVM::DecodeU16(Context);
 		int32*RESTRICT IDIndex = (int32*)(Context.RegisterTable[IDIndexReg]);
@@ -992,19 +1068,31 @@ struct FScalarKernelAcquireID
 		int32 IDTagReg = VectorVM::DecodeU16(Context);
 		int32*RESTRICT IDTag = (int32*)(Context.RegisterTable[IDTagReg]);
 
-		int32* NumFreeIDs = Context.DataSetMetaTable[DataSetIndex].NumFreeIDs;
+		int32& NumFreeIDs = *MetaTable[DataSetIndex].NumFreeIDs;
+
+		//Temporarily using a lock to ensure thread safety for accessing the FreeIDTable until a lock free solution can be implemented.
+		MetaTable[DataSetIndex].LockFreeTable();
 	
 		check(FreeIDTable.Num() >= Context.NumInstances);
+		check(NumFreeIDs >= Context.NumInstances);
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
-			int32 FreeIDTableIndex = FPlatformAtomics::InterlockedDecrement(NumFreeIDs);
-			//UE_LOG(LogVectorVM, Warning, TEXT("AcquireID: InstanceID:%d | FreeTableIdx:%d | Tag:%d "), FreeIDTable[FreeIDTableIndex], FreeIDTableIndex, Tag);
-			*IDIndex = FreeIDTable[FreeIDTableIndex];
+			int32 FreeIDTableIndex = --NumFreeIDs;
+
+			//Grab the value from the FreeIDTable.
+			int32 AcquiredID = FreeIDTable[FreeIDTableIndex];
+			checkSlow(AcquiredID != INDEX_NONE);
+
+			//Mark this entry in the FreeIDTable as invalid.
 			FreeIDTable[FreeIDTableIndex] = INDEX_NONE;
+
+			*IDIndex = AcquiredID;
 			*IDTag = Tag;
 			++IDIndex;
 			++IDTag;
 		}
+
+		MetaTable[DataSetIndex].UnlockFreeTable();
 	}
 };
 
@@ -1017,16 +1105,17 @@ struct FScalarKernelUpdateID
 		int32 InstanceIDRegisterIndex = VectorVM::DecodeU16(Context);
 		int32 InstanceIndexRegisterIndex = VectorVM::DecodeU16(Context);
 
-		TArray<int32>&RESTRICT IDTable = *Context.DataSetMetaTable[DataSetIndex].IDTable;
-		TArray<int32>&RESTRICT FreeIDTable = *Context.DataSetMetaTable[DataSetIndex].FreeIDTable;
-		int32 InstanceOffset = Context.DataSetMetaTable[DataSetIndex].InstanceOffset;// +Context.StartInstance;
+		TArray<FDataSetMeta>& MetaTable = *Context.DataSetMetaTable;
+
+		TArray<int32>&RESTRICT IDTable = *MetaTable[DataSetIndex].IDTable;
+		int32 InstanceOffset = MetaTable[DataSetIndex].InstanceOffset + Context.StartInstance;
 
 		int32*RESTRICT IDRegister = (int32*)(Context.RegisterTable[InstanceIDRegisterIndex]);
 		int32*RESTRICT IndexRegister = (int32*)(Context.RegisterTable[InstanceIndexRegisterIndex]);
+		
+		FDataSetThreadLocalTempData& DataSetTempData = Context.ThreadLocalTempData[DataSetIndex];
 
-		volatile int32* MaxUsedID = Context.DataSetMetaTable[DataSetIndex].MaxUsedID;
-		int32* NumFreeIDs = Context.DataSetMetaTable[DataSetIndex].NumFreeIDs;
-
+		TArray<int32>&RESTRICT IDsToFree = DataSetTempData.IDsToFree;
 		check(IDTable.Num() >= InstanceOffset + Context.NumInstances);
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
@@ -1035,28 +1124,17 @@ struct FScalarKernelUpdateID
 
 			if (Index == INDEX_NONE)
 			{
-				//Instance not being written so release it's ID.
-				IDTable[InstanceId] = INDEX_NONE;
-				int32 FreeIDIndex = FPlatformAtomics::InterlockedIncrement(NumFreeIDs) - 1;
-				//UE_LOG(LogVectorVM, Warning, TEXT("UpdateID: Dead instance, Adding ID %d to free table at idx %d."), InstanceId, FreeIDIndex);
-				FreeIDTable[FreeIDIndex] = InstanceId;
+				//Add the ID to a thread local list of IDs to free which are actually added to the list safely at the end of this chunk's execution.
+				IDsToFree.Add(InstanceId);
 			}
 			else
 			{
-				int32 RealIdx = InstanceOffset + Index;
+				//Update the actual index for this ID. No thread safety is needed as this ID slot can only ever be written by this instance and so a single thread.
+				int32 RealIdx = InstanceOffset + Index;	
 				IDTable[InstanceId] = RealIdx;
 
-				//Update the MaxUsedID.
-				int32 LocalMaxUsedID;
-				do 
-				{
-					LocalMaxUsedID = *MaxUsedID;
-					if (LocalMaxUsedID >= InstanceId)
-					{
-						break;
-					}
-				} 
-				while (FPlatformAtomics::InterlockedCompareExchange(MaxUsedID, InstanceId, LocalMaxUsedID) != LocalMaxUsedID);
+				//Update thread local max ID seen. We push this to the real value at the end of execution.
+				DataSetTempData.MaxID = FMath::Max(DataSetTempData.MaxID, InstanceId);
 				
 				//UE_LOG(LogVectorVM, Warning, TEXT("UpdateID: RealIdx:%d | InstanceID:%d."), RealIdx, InstanceId);
 			}
@@ -1679,7 +1757,7 @@ void VectorVM::Exec(
 	{		
 		FVectorVMContext& Context = FVectorVMContext::Get();
 		Context.PrepareForExec(InputRegisters, OutputRegisters, NumInputRegisters, NumOutputRegisters, ConstantTable, DataSetIndexTable.GetData(), DataSetOffsetTable.GetData(), DataSetOffsetTable.Num(),
-			ExternalFunctionTable, UserPtrTable, DataSetMetaTable.GetData()
+			ExternalFunctionTable, UserPtrTable, DataSetMetaTable
 #if STATS
 			, &StatScopes
 #endif
@@ -1825,6 +1903,8 @@ void VectorVM::Exec(
 			InstancesLeft -= InstancesPerChunk;
 			++ChunkIdx;
 		}
+
+		Context.FinishExec();
 	};
 
 	ParallelFor(NumBatches, ExecChunkBatch, GbParallelVVM == 0 || !bParallel);

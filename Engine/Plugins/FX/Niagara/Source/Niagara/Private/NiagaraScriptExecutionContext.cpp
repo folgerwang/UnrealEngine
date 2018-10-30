@@ -152,9 +152,8 @@ bool FNiagaraScriptExecutionContext::Execute(uint32 NumInstances, TArray<FNiagar
 			DataSetInfo.DataSet->CheckForNaNs();
 #endif
 			check(DataSetInfo.DataSet);
-			FDataSetMeta SetMeta(DataSetInfo.DataSet->GetSizeBytes(), &InputRegisters[NumInputRegisters], NumInputRegisters, DataSetInfo.StartInstance, 
+			DataSetMetaTable.Emplace(DataSetInfo.DataSet->GetSizeBytes(), &InputRegisters[NumInputRegisters], NumInputRegisters, DataSetInfo.StartInstance,
 				&DataSetInfo.DataSet->CurrIDTable(), &DataSetInfo.DataSet->GetFreeIDTable(), &DataSetInfo.DataSet->GetNumFreeIDs(), &DataSetInfo.DataSet->GetMaxUsedID(), DataSetInfo.DataSet->GetIDAcquireTag());
-			DataSetMetaTable.Add(SetMeta);
 			if (DataSetInfo.bAllocate)
 			{
 				DataSetInfo.DataSet->Allocate(NumInstances);

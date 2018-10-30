@@ -224,7 +224,7 @@ void FMediaRecorder::TickRecording()
 			{
 				if (!bUnsupportedWarningShowed)
 				{
-					UE_LOG(LogMediaUtils, Warning, TEXT("Texture Sample Format '%d' is not supported by Media Recorder."), (int32)Sample->GetFormat());
+					UE_LOG(LogMediaUtils, Warning, TEXT("Texture Sample Format '%s' is not supported by Media Recorder."), MediaTextureSampleFormat::EnumToString(Sample->GetFormat()));
 					bUnsupportedWarningShowed = true;
 				}
 				continue;

@@ -269,8 +269,8 @@ namespace iPhonePackager
 					"Default", "Portrait", "{320, 480}",
 					"Default-568h", "Landscape", "{320, 568}",
 					"Default-568h", "Portrait", "{320, 568}",
-					"Default-IPhoneX-Landscape", "Landscape", "{375, 812}",
-					"Default-IPhoneX-Portrait", "Portrait", "{375, 812}",
+					"Default-IPhoneXS-Landscape", "Landscape", "{375, 812}",
+					"Default-IPhoneXS-Portrait", "Portrait", "{375, 812}",
 				};
 
 			StringBuilder NewLaunchImagesString = new StringBuilder("<key>UILaunchImages~iphone</key>\n\t\t<array>\n");

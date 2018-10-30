@@ -27,7 +27,6 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 	FAssetPickerConfig SystemAssetPickerConfig;
 	SystemAssetPickerConfig.SelectionMode = ESelectionMode::SingleToggle;
 	SystemAssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	SystemAssetPickerConfig.ThumbnailScale = .4f;
 	SystemAssetPickerConfig.Filter.ClassNames.Add(UNiagaraSystem::StaticClass()->GetFName());
 	SystemAssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedSystemAssetsFromPicker);
 	SystemAssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewSystemDialog::OnSystemAssetsActivated);
@@ -37,7 +36,6 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 	FAssetPickerConfig EmitterAssetPickerConfig;
 	EmitterAssetPickerConfig.SelectionMode = ESelectionMode::Multi;
 	EmitterAssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	EmitterAssetPickerConfig.ThumbnailScale = .4f;
 	EmitterAssetPickerConfig.Filter.ClassNames.Add(UNiagaraEmitter::StaticClass()->GetFName());
 	EmitterAssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedEmitterAssetsFromPicker);
 	EmitterAssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewSystemDialog::OnEmitterAssetsActivated);

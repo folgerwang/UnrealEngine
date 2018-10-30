@@ -558,7 +558,6 @@ const FMaterialShaderMap* FMaterial::GetShaderMapToUse() const
 	}
 	else 
 	{
-		check(IsInRenderingThread());
 		ShaderMapToUse = GetRenderingThreadShaderMap();
 	}
 
