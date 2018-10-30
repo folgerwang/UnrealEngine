@@ -398,6 +398,18 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 	// Suppress the user input dialog if we're running in unattended mode
 	bool bUnattended = FApp::IsUnattended() || (!IsInteractiveEnsureMode() && bReportingNonCrash) || IsRunningDedicatedServer();
 
+#if PLATFORM_LINUX
+	// On Linux, count not having a X11 display as also running unattended, because CRC will switch to the unattended mode in that case
+	if (!bUnattended)
+	{
+		// see CrashReportClientMainLinux.cpp
+		if (getenv("DISPLAY") == nullptr)
+		{
+			bUnattended = true;
+		}
+	}
+#endif
+
 	// By default we wont upload unless the *.ini has set this to true
 	bool bAgreedToCrashUpload = false;
 	GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bAgreeToCrashUpload"), bAgreedToCrashUpload, GEngineIni);
