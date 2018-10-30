@@ -1818,6 +1818,10 @@ namespace UnrealBuildTool
 			{
 				return true;
 			}
+			if(UnrealBuildTool.IsEnterpriseInstalled() && File.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
+			{
+				return true;
+			}
 			if(UnrealBuildTool.IsProjectInstalled() && ProjectFile != null && File.IsUnderDirectory(ProjectFile.Directory))
 			{
 				return true;
