@@ -9,6 +9,7 @@ public class GoogleARCoreRendering : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				"GoogleARCoreRendering/Private",
+				"GoogleARCoreBase/Private",
 				"../../../../Source/Runtime/Renderer/Private",
 				// ... add other private include paths required here ...
 			}

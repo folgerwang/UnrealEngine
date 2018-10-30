@@ -727,6 +727,12 @@ FString AGameModeBase::InitNewPlayer(APlayerController* NewPlayerController, con
 {
 	check(NewPlayerController);
 
+	// The player needs a PlayerState to register successfully
+	if (NewPlayerController->PlayerState == nullptr)
+	{
+		return FString(TEXT("PlayerState is null"));
+	}
+
 	FString ErrorMessage;
 
 	// Register the player with the session

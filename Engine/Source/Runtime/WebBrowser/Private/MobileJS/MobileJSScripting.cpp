@@ -552,11 +552,11 @@ bool FMobileJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString>
 
 			// Extract the result value from the serialized JSON object:
 			FString ResultJS = ReturnBackend.ToString();
-
+			/*
 			ResultJS.Append(TEXT("['"));
 			ResultJS.Append(GetBindingName(ReturnParam).ReplaceCharWithEscapedChar());
 			ResultJS.Append(TEXT("']"));
-
+			*/
 			InvokeJSFunctionRaw(ResultCallbackId, ResultJS, false);
 		}
 		else

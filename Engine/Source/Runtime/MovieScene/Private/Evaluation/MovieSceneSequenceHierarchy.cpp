@@ -30,11 +30,8 @@ FMovieSceneSubSequenceData::FMovieSceneSubSequenceData(const UMovieSceneSubSecti
 
 	TickResolution = MovieScenePtr->GetTickResolution();
 
-	TRange<FFrameNumber> SubRange = InSubSection.GetRange();
+	TRange<FFrameNumber> SubRange = InSubSection.GetTrueRange();
 	checkf(SubRange.GetLowerBound().IsClosed() && SubRange.GetUpperBound().IsClosed(), TEXT("Use of open (infinite) bounds with sub sections is not supported."));
-
-	const FFrameNumber OuterStartTime = MovieScene::DiscreteInclusiveLower(SubRange);
-	const FFrameNumber OuterEndTime   = MovieScene::DiscreteExclusiveUpper(SubRange);
 
 	OuterToInnerTransform = RootToSequenceTransform = InSubSection.OuterToInnerTransform();
 

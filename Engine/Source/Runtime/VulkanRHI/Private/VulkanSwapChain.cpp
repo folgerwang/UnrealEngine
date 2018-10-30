@@ -168,7 +168,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 					if (!GPixelFormatNotSupportedWarning.Contains(InOutPixelFormat))
 					{
 						GPixelFormatNotSupportedWarning.Add(InOutPixelFormat);
-						UE_LOG(LogVulkanRHI, Warning, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain format..."), (uint32)InOutPixelFormat);
+						UE_LOG(LogVulkanRHI, Display, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain format..."), (uint32)InOutPixelFormat);
 					}
 					InOutPixelFormat = PF_Unknown;
 				}
@@ -334,13 +334,13 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 			// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
 			const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
 
-			if (bFoundPresentModeMailbox && LockToVsync)
-			{
-				PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			}
-			else if (bFoundPresentModeImmediate && (bDisableVsyncForHMD || !LockToVsync))
+			if (bFoundPresentModeImmediate && (bDisableVsyncForHMD || !LockToVsync))
 			{
 				PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+			}
+			else if (bFoundPresentModeMailbox)
+			{
+				PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 			}
 			else if (bFoundPresentModeFIFO)
 			{
@@ -386,6 +386,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	uint32 SizeY = FVulkanPlatform::SupportsQuerySurfaceProperties() ? (SurfProperties.currentExtent.height == 0xFFFFFFFF ? Height : SurfProperties.currentExtent.height) : Height;
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Create swapchain: %ux%u \n"), SizeX, SizeY);
 
+	// Some platforms cheat with the window size. Allow them to update.
+	FVulkanPlatform::UpdateWindowSize(WindowHandle, SizeX, SizeY);
 
 	VkSwapchainCreateInfoKHR SwapChainInfo;
 	ZeroVulkanStruct(SwapChainInfo, VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
@@ -474,6 +476,10 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 void FVulkanSwapChain::Destroy()
 {
 	check(FVulkanPlatform::SupportsStandardSwapchain());
+
+	// We could be responding to an OUT_OF_DATE event and the GPU might not be done with swapchain image, so wait for idle.
+	// Alternatively could also check on the fence(s) for the image(s) from the swapchain but then timing out/waiting could become an issue.
+	Device.WaitUntilIdle();
 
 	VulkanRHI::vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, VULKAN_CPU_ALLOCATOR);
 	SwapChain = VK_NULL_HANDLE;
@@ -582,10 +588,10 @@ int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 void FVulkanSwapChain::RenderThreadPacing()
 {
 	check(IsInRenderingThread());
-	const int32 SyncInterval = RHIGetSyncInterval();
+	const int32 SyncInterval = LockToVsync ? RHIGetSyncInterval() : 0;
 
 	//very naive CPU side frame pacer.
-	if (GVulkanCPURenderThreadFramePacer)
+	if (GVulkanCPURenderThreadFramePacer && SyncInterval > 0)
 	{
 		static double PreviousFrameCPUTime = 0;
 		static double SampledDeltaTimeMS = 0;
@@ -658,7 +664,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 	Info.pSwapchains = &SwapChain;
 	Info.pImageIndices = (uint32*)&CurrentImageIndex;
 
-	const int32 SyncInterval = RHIGetSyncInterval();
+	const int32 SyncInterval = LockToVsync ? RHIGetSyncInterval() : 0;
 	ensureMsgf(SyncInterval <= 3 && SyncInterval >= 0, TEXT("Unsupported sync interval: %i"), SyncInterval);
 	FVulkanPlatform::EnablePresentInfoExtensions(Info);
 
@@ -848,7 +854,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 #endif
 
 	//very naive CPU side frame pacer.
-	if (GVulkanCPURHIFramePacer)
+	if (GVulkanCPURHIFramePacer && SyncInterval > 0)
 	{
 		static double PreviousFrameCPUTime = 0;
 		double NowCPUTime = FPlatformTime::Seconds();

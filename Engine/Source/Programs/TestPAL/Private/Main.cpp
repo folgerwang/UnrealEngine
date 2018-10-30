@@ -355,6 +355,14 @@ int32 StringPrecisionTest(const TCHAR* CommandLine)
 	UE_LOG(LogTestPAL, Display, TEXT("Begining of the line %*s"), Indent, *TestString);
 	UE_LOG(LogTestPAL, Display, TEXT("%*s end of the line"), Indent, *TestString);
 
+	int Width = 2;
+	for (uint32 Idx = 0; Idx < 10; ++Idx)
+	{
+		UE_LOG(LogTestPAL, Display, TEXT("DynSize: %d SignedDynFormat%0*d"), Width, Width, Idx);
+		UE_LOG(LogTestPAL, Display, TEXT("DynSize: %d Size_tDynFormat%0*zd"), Width, Width, static_cast<size_t>(Idx));
+		++Width;
+	}
+
 	FEngineLoop::AppPreExit();
 	FEngineLoop::AppExit();
 	return 0;

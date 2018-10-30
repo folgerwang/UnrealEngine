@@ -1376,7 +1376,7 @@ protected:
 				{
 					bool bIsStructuredBuffer = (inst->type->inner_type->is_record() || !strncmp(inst->type->name, "RWStructuredBuffer<", 19) || !strncmp(inst->type->name, "StructuredBuffer<", 17));
 					bool bIsByteAddressBuffer = (!strncmp(inst->type->name, "RWByteAddressBuffer", 19) || !strncmp(inst->type->name, "ByteAddressBuffer", 17));
-                	if (Buffers.AtomicVariables.find(inst) != Buffers.AtomicVariables.end() || bIsStructuredBuffer || bIsByteAddressBuffer || inst->invariant || (inst->type->components() == 3) || Backend.Version <= 2)
+					if (Buffers.AtomicVariables.find(inst) != Buffers.AtomicVariables.end() || bIsStructuredBuffer || bIsByteAddressBuffer || inst->invariant || (inst->type->components() == 3) || inst->type->inner_type->components() == 3 || Backend.Version <= 2)
 					{
 						bInsertSideTable |= true;
 					}
@@ -3441,6 +3441,13 @@ protected:
 				for (unsigned j = 0; j < s->length; j++)
 				{
 					ralloc_asprintf_append(buffer, "\t");
+					
+					// HLSL bool is 4 bytes we need to align ours to that as well in structures - do the same for half/short etc?
+					if(GLSL_TYPE_BOOL == s->fields.structure[j].type->base_type)
+					{
+						ralloc_asprintf_append(buffer, "alignas(4) ", "");
+					}
+					
 					print_type_pre(s->fields.structure[j].type);
 					ralloc_asprintf_append(buffer, " %s", s->fields.structure[j].name);
 					if (!s->fields.structure[j].semantic || strncmp(s->fields.structure[j].semantic, "[[", 2))

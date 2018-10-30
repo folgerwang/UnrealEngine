@@ -22,6 +22,10 @@ public class LibWebM : ModuleRules
 		{
 			PublicAdditionalLibraries.Add(RootPath + "/lib/Unix" + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libwebm" : "/libwebm_fPIC") + ".a");
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicAdditionalLibraries.Add(RootPath + "/lib/Mac" + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libwebm" : "/libwebm_fPIC") + ".a");
+		}
 
 		string IncludePath = RootPath + "/include";
 		PublicIncludePaths.Add(IncludePath);

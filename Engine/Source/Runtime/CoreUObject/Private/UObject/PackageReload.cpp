@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UObject/PackageReload.h"
-#include "UObject/StrongObjectPtr.h"
 #include "UObject/ReferenceChainSearch.h"
 #include "UObject/UObjectHash.h"
+#include "UObject/GCObject.h"
 #include "Misc/AssetRegistryInterface.h"
 #include "Misc/ScopedSlowTask.h"
 #include "UObject/Package.h"
@@ -15,25 +15,42 @@ namespace PackageReloadInternal
 {
 
 /**
- * Strong reference to an existing package that prevents it being GC'd while we're still using it.
+ * Reference to an existing package that prevents it being GC'd while we're still using it (via FExistingPackageReferences).
  * Once we're done with it, we clear out the strong reference and use the weak reference to verify that it was purged correctly via GC.
  */
 struct FExistingPackageReference
 {
 	FExistingPackageReference(UPackage* InPackage)
 		: RawRef(InPackage)
-		, WeakRef(InPackage)
 		, StrongRef(InPackage)
+		, WeakRef(InPackage)
 	{
 	}
 
 	UPackage* RawRef;
+	UPackage* StrongRef;
 	TWeakObjectPtr<UPackage> WeakRef;
-	TStrongObjectPtr<UPackage> StrongRef;
 };
 
 /**
- * Strong reference to an replacement package that prevents it being GC'd while we're still using it.
+ * Array wrapper that prevents the packages inside the FExistingPackageReference instances being GC'd while we're still using them.
+ */
+struct FExistingPackageReferences : public FGCObject
+{
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		for (FExistingPackageReference& Ref : Refs)
+		{
+			// Note: We deliberate don't ARO RawRef here
+			Collector.AddReferencedObject(Ref.StrongRef);
+		}
+	}
+
+	TArray<FExistingPackageReference> Refs;
+};
+
+/**
+ * Reference to an replacement package that prevents it being GC'd while we're still using it (via FNewPackageReferences).
  * This also includes the event data used when broadcasting package reload events for this package.
  */
 struct FNewPackageReference
@@ -44,8 +61,28 @@ struct FNewPackageReference
 	{
 	}
 
-	TStrongObjectPtr<UPackage> Package;
+	UPackage* Package;
 	TSharedPtr<FPackageReloadedEvent> EventData;
+};
+
+/**
+ * Array wrapper that prevents the packages inside the FNewPackageReferences instances being GC'd while we're still using them.
+ */
+struct FNewPackageReferences : public FGCObject
+{
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		for (FNewPackageReference& Ref : Refs)
+		{
+			Collector.AddReferencedObject(Ref.Package);
+			if(Ref.EventData)
+			{
+				Ref.EventData->AddReferencedObjects(Collector);
+			}
+		}
+	}
+
+	TArray<FNewPackageReference> Refs;
 };
 
 /**
@@ -446,18 +483,18 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 	}, false);
 
 	// Gather up the list of all packages to reload (note: this array may include null packages!)
-	TArray<PackageReloadInternal::FExistingPackageReference> ExistingPackages;
-	ExistingPackages.Reserve(InPackagesToReload.Num());
+	PackageReloadInternal::FExistingPackageReferences ExistingPackages;
+	ExistingPackages.Refs.Reserve(InPackagesToReload.Num());
 	{
 		FScopedSlowTask PreparingPackagesForReloadSlowTask(InPackagesToReload.Num(), NSLOCTEXT("CoreUObject", "PreparingPackagesForReload", "Preparing Packages for Reload"));
 
 		for (const FReloadPackageData& PackageToReloadData : InPackagesToReload)
 		{
 			PreparingPackagesForReloadSlowTask.EnterProgressFrame(1.0f);
-			ExistingPackages.Emplace(PackageReloadInternal::ValidateAndPreparePackageForReload(PackageToReloadData.PackageToReload));
+			ExistingPackages.Refs.Emplace(PackageReloadInternal::ValidateAndPreparePackageForReload(PackageToReloadData.PackageToReload));
 		}
 
-		if (ExistingPackages.Num() > 0)
+		if (ExistingPackages.Refs.Num() > 0)
 		{
 			// Run a GC before we start to clean-up any lingering objects that may reference things we're about to reload
 			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
@@ -465,30 +502,30 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 	}
 
 	// Rename the existing packages, load the new packages, then fix-up any references
-	TArray<PackageReloadInternal::FNewPackageReference> NewPackages;
-	NewPackages.Reserve(ExistingPackages.Num());
+	PackageReloadInternal::FNewPackageReferences NewPackages;
+	NewPackages.Refs.Reserve(ExistingPackages.Refs.Num());
 	{
 		// Process the packages in batches to avoid consuming too much memory due to a lack of GC
 		int32 PackageIndex = 0;
-		while (PackageIndex < ExistingPackages.Num())
+		while (PackageIndex < ExistingPackages.Refs.Num())
 		{
 			FCoreUObjectDelegates::OnPackageReloaded.Broadcast(EPackageReloadPhase::PreBatch, nullptr);
 
 			const int32 BatchStartIndex = PackageIndex;
-			for (; PackageIndex < ExistingPackages.Num(); ++PackageIndex)
+			for (; PackageIndex < ExistingPackages.Refs.Num(); ++PackageIndex)
 			{
-				UPackage* ExistingPackage = ExistingPackages[PackageIndex].RawRef;
+				UPackage* ExistingPackage = ExistingPackages.Refs[PackageIndex].RawRef;
 
 				const FText ProgressText = ExistingPackage 
 					? FText::Format(NSLOCTEXT("CoreUObject", "ReloadingPackagef", "Reloading {0}..."), FText::FromName(ExistingPackage->GetFName()))
 					: NSLOCTEXT("CoreUObject", "ReloadingPackages", "Reloading Packages");
 				ReloadingPackagesSlowTask.EnterProgressFrame(1, ProgressText);
 
-				check(NewPackages.Num() == PackageIndex);
-				NewPackages.Emplace(PackageReloadInternal::LoadReplacementPackage(ExistingPackage, InPackagesToReload[PackageIndex].LoadFlags));
+				check(NewPackages.Refs.Num() == PackageIndex);
+				NewPackages.Refs.Emplace(PackageReloadInternal::LoadReplacementPackage(ExistingPackage, InPackagesToReload[PackageIndex].LoadFlags));
 
-				UPackage* NewPackage = NewPackages[PackageIndex].Package.Get();
-				NewPackages[PackageIndex].EventData = PackageReloadInternal::GeneratePackageReloadEvent(ExistingPackage, NewPackage);
+				UPackage* NewPackage = NewPackages.Refs[PackageIndex].Package;
+				NewPackages.Refs[PackageIndex].EventData = PackageReloadInternal::GeneratePackageReloadEvent(ExistingPackage, NewPackage);
 
 				const bool bEndBatch = (PackageIndex == (BatchStartIndex + InNumPackagesPerBatch)) || (ExistingPackage && ExistingPackage->ContainsMap());
 				if (bEndBatch)
@@ -508,7 +545,7 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			{
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 
-				PackageReloadInternal::FNewPackageReference& NewPackageData = NewPackages[BatchPackageIndex];
+				PackageReloadInternal::FNewPackageReference& NewPackageData = NewPackages.Refs[BatchPackageIndex];
 				if (NewPackageData.EventData.IsValid())
 				{
 					FCoreUObjectDelegates::OnPackageReloaded.Broadcast(EPackageReloadPhase::PrePackageFixup, NewPackageData.EventData.Get());
@@ -531,7 +568,7 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 
-				PackageReloadInternal::FReplaceObjectReferencesArchive ReplaceRefsArchive(PotentialReferencer, OldObjectToNewData, ExistingPackages, NewPackages);
+				PackageReloadInternal::FReplaceObjectReferencesArchive ReplaceRefsArchive(PotentialReferencer, OldObjectToNewData, ExistingPackages.Refs, NewPackages.Refs);
 				PotentialReferencer->Serialize(ReplaceRefsArchive); // Deal with direct references during Serialization
 				PotentialReferencer->GetClass()->CallAddReferencedObjects(PotentialReferencer, ReplaceRefsArchive); // Deal with indirect references via AddReferencedObjects
 			}
@@ -541,7 +578,7 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			{
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 
-				ExistingPackages[BatchPackageIndex].StrongRef.Reset(ExistingPackages[BatchPackageIndex].RawRef);
+				ExistingPackages.Refs[BatchPackageIndex].StrongRef = ExistingPackages.Refs[BatchPackageIndex].RawRef;
 			}
 
 			// Final pass to clean-up any remaining references prior to GC
@@ -550,7 +587,7 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			{
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 
-				PackageReloadInternal::FNewPackageReference& NewPackageData = NewPackages[BatchPackageIndex];
+				PackageReloadInternal::FNewPackageReference& NewPackageData = NewPackages.Refs[BatchPackageIndex];
 				if (NewPackageData.EventData.IsValid())
 				{
 					FCoreUObjectDelegates::OnPackageReloaded.Broadcast(EPackageReloadPhase::PostPackageFixup, NewPackageData.EventData.Get());
@@ -564,14 +601,15 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			{
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 
-				UPackage* ExistingPackage = ExistingPackages[BatchPackageIndex].RawRef;
-				UPackage* NewPackage = NewPackages[BatchPackageIndex].Package.Get();
+				UPackage* ExistingPackage = ExistingPackages.Refs[BatchPackageIndex].RawRef;
+				UPackage* NewPackage = NewPackages.Refs[BatchPackageIndex].Package;
 
 				if (ExistingPackage && NewPackage)
 				{
 					// Allow the old package to be GC'd
 					PackageReloadInternal::MakePackagePurgeable(ExistingPackage);
-					ExistingPackages[BatchPackageIndex].StrongRef.Reset();
+					ExistingPackages.Refs[BatchPackageIndex].StrongRef = nullptr;
+					NewPackages.Refs[BatchPackageIndex].EventData.Reset();
 				}
 			}
 			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
@@ -591,11 +629,11 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 	}, false);
 
 	// Finalization and error reporting
-	OutReloadedPackages.Reserve(ExistingPackages.Num());
-	for (int32 PackageIndex = 0; PackageIndex < ExistingPackages.Num(); ++PackageIndex)
+	OutReloadedPackages.Reserve(ExistingPackages.Refs.Num());
+	for (int32 PackageIndex = 0; PackageIndex < ExistingPackages.Refs.Num(); ++PackageIndex)
 	{
-		UPackage* ExistingPackage = ExistingPackages[PackageIndex].WeakRef.Get();
-		UPackage* NewPackage = NewPackages[PackageIndex].Package.Get();
+		UPackage* ExistingPackage = ExistingPackages.Refs[PackageIndex].WeakRef.Get();
+		UPackage* NewPackage = NewPackages.Refs[PackageIndex].Package;
 
 		check(OutReloadedPackages.Num() == PackageIndex);
 		OutReloadedPackages.Emplace(NewPackage);

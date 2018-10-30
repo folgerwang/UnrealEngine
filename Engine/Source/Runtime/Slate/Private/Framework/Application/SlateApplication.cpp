@@ -1110,7 +1110,7 @@ void FSlateApplication::SetupPhysicalSensitivities()
 	FGestureDetector::LongPressAllowedMovement = DragTriggerDistance;
 }
 
-void FSlateApplication::InitHighDPI()
+void FSlateApplication::InitHighDPI(const bool bForceEnable)
 {
 	IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("EnableHighDPIAwareness"));
 
@@ -1126,7 +1126,8 @@ void FSlateApplication::InitHighDPI()
 			GConfig->GetBool(TEXT("/Script/Engine.UserInterfaceSettings"), TEXT("bAllowHighDPIInGameMode"), bRequestEnableHighDPI, GEngineIni);
 		}
 
-		const bool bEnableHighDPI = bRequestEnableHighDPI && !FParse::Param(FCommandLine::Get(), TEXT("nohighdpi"));
+		bool bEnableHighDPI = bRequestEnableHighDPI && !FParse::Param(FCommandLine::Get(), TEXT("nohighdpi"));
+		bEnableHighDPI |= bForceEnable;
 
 		// Set the cvar here for other systems that need it.
 		CVar->Set(bEnableHighDPI);
@@ -6063,6 +6064,13 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 {
 	SCOPE_CYCLE_COUNTER(STAT_ProcessMouseButtonUp);
 
+	// If in responsive mode throttle, leave it on mouse up.  Release this before dispatching the event to prevent being stuck in this mode
+	// until the next click if a modal dialog is opened.
+	if (MouseButtonDownResponsivnessThrottle.IsValid())
+	{
+		FSlateThrottleManager::Get().LeaveResponsiveMode(MouseButtonDownResponsivnessThrottle);
+	}
+
 	QueueSynthesizedMouseMove();
 	SetLastUserInteractionTime(this->GetCurrentTime());
 	LastUserInteractionTimeForThrottling = LastUserInteractionTime;
@@ -6077,12 +6085,6 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 	// An empty widget path is passed in.  As an optimization, one will be generated only if a captured mouse event isn't routed
 	FWidgetPath EmptyPath;
 	const bool bHandled = RoutePointerUpEvent( EmptyPath, MouseEvent ).IsEventHandled();
-
-	// If in responsive mode throttle, leave it on mouse up.
-	if( MouseButtonDownResponsivnessThrottle.IsValid() )
-	{
-		FSlateThrottleManager::Get().LeaveResponsiveMode( MouseButtonDownResponsivnessThrottle );
-	}
 
 	if ( PressedMouseButtons.Num() == 0 )
 	{
@@ -6510,20 +6512,6 @@ void FSlateApplication::ProcessTouchStartedEvent( const TSharedPtr< FGenericWind
 	// Add or Update the entry if the finger has been added to the surface.
 	FUserAndPointer UserAndIndex(InTouchEvent.GetUserIndex(), InTouchEvent.GetPointerIndex());
 	PointerIndexLastPositionMap.Add(UserAndIndex, InTouchEvent.GetScreenSpacePosition());
-
-	const FWeakWidgetPath& LastWidgetsUnderCursor = WidgetsUnderCursorLastEvent.FindRef(UserAndIndex);
-	if (LastWidgetsUnderCursor.IsValid())
-	{
-		FWidgetPath SafeWidgetPath = LastWidgetsUnderCursor.ToWidgetPath();
-
-		FEventRouter::Route<FNoReply>(this, FEventRouter::FBubblePolicy(SafeWidgetPath), InTouchEvent, [] (const FArrangedWidget& SomeWidget, const FPointerEvent& PointerEvent)
-		{
-			SomeWidget.Widget->OnMouseLeave(PointerEvent);
-			return FNoReply();
-		});
-
-		WidgetsUnderCursorLastEvent.Remove(UserAndIndex);
-	}
 
 	ProcessMouseButtonDownEvent(PlatformWindow, InTouchEvent);
 }

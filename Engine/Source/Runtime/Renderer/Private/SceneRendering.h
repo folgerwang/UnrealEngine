@@ -1523,6 +1523,8 @@ public:
 		return ScreenPercentageInterface->Fork_GameThread(ForkedViewFamily);
 	}
 
+	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
+	
 protected:
 
 	/** Size of the family. */
@@ -1659,7 +1661,6 @@ protected:
 
 	/** Renders the scene's distortion */
 	void RenderDistortion(FRHICommandListImmediate& RHICmdList);
-	void RenderDistortionES2(FRHICommandListImmediate& RHICmdList);
 
 	/** Returns the scene color texture multi-view is targeting. */	
 	FTextureRHIParamRef GetMultiViewSceneColor(const FSceneRenderTargets& SceneContext) const;
@@ -1669,8 +1670,6 @@ protected:
 
 	/** Renders a depth mask into the monoscopic far field view to ensure we only render visible pixels. */
 	void RenderMonoscopicFarFieldMask(FRHICommandListImmediate& RHICmdList);
-
-	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
 
 	void UpdatePrimitivePrecomputedLightingBuffers();
 	void ClearPrimitiveSingleFramePrecomputedLightingBuffers();
@@ -1747,9 +1746,6 @@ protected:
 	/** Copy scene color from the mobile multi-view render targat array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
 
-	/** Gather information about post-processing pass, which can be used by render for optimizations. Called by InitViews */
-	void UpdatePostProcessUsageFlags();
-
 	/** Render inverse opacity for the dynamic meshes. */
 	bool RenderInverseOpacityDynamic(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
 
@@ -1757,9 +1753,7 @@ protected:
 	void PostInitViewCustomData();
 	
 private:
-
 	bool bModulatedShadowsInUse;
-	bool bPostProcessUsesDepthTexture;
 };
 
 // The noise textures need to be set in Slate too.

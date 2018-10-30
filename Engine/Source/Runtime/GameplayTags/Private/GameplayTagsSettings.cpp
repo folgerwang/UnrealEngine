@@ -89,6 +89,10 @@ void UGameplayTagsSettings::PostEditChangeProperty(FPropertyChangedEvent& Proper
 			{
 				if (!Info.RestrictedConfigName.IsEmpty())
 				{
+					if (!Info.RestrictedConfigName.EndsWith(TEXT(".ini")))
+					{
+						Info.RestrictedConfigName.Append(TEXT(".ini"));
+					}
 					FGameplayTagSource* Source = Manager.FindOrAddTagSource(*Info.RestrictedConfigName, EGameplayTagSourceType::RestrictedTagList);
 					if (!Source)
 					{

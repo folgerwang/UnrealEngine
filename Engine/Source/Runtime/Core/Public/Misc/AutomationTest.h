@@ -1255,7 +1255,7 @@ public:
 
 	void TestEqual(const FString& Description, const TCHAR* A, const TCHAR* B)
 	{
-		if (A != B)
+		if (FCString::Strcmp(A,B) != 0)
 		{
 			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, A, B), 1);
 		}
@@ -1263,7 +1263,7 @@ public:
 
 	void TestEqual(const FString& Description, const TCHAR* A, const FString& B)
 	{
-		if (A != B)
+		if (FCString::Strcmp(A, *B) != 0)
 		{
 			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, A, *B), 1);
 		}

@@ -20,7 +20,7 @@ void SResetToDefaultPropertyEditor::Construct(const FArguments& InArgs, const TS
 	bValueDiffersFromDefault = false;
 	OptionalCustomResetToDefault = InArgs._CustomResetToDefault;
 
-	if (InPropertyHandle.IsValid())
+	if (InPropertyHandle.IsValid() && OptionalCustomResetToDefault.IsSet())
 	{
 		InPropertyHandle->MarkResetToDefaultCustomized();
 	}

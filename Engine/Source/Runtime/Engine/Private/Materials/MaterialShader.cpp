@@ -1440,7 +1440,7 @@ void FMaterialShaderMap::Compile(
 				*ShaderMapId.GetParameterSetLayerParametersKey()
 			);
   
-			UE_LOG(LogShaders, Warning, TEXT("	%s"), *DebugDescription);
+			UE_LOG(LogShaders, Display, TEXT("	%s"), *DebugDescription);
 #endif
 
 			uint32 NumShaders = 0;
@@ -2134,7 +2134,6 @@ void FMaterialShaderMap::Register(EShaderPlatform InShaderPlatform)
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderMapMemory, GetSizeBytes());
 	}
 
-	checkf(!bRegistered && !GIdToMaterialShaderMap[GetShaderPlatform()].Contains(ShaderMapId), TEXT("Hashcollision or inserting element twice in global ShaderMapTable. bRegistered: %s"), bRegistered ? TEXT("true") : TEXT("false"));
 	GIdToMaterialShaderMap[GetShaderPlatform()].Add(ShaderMapId,this);
 	bRegistered = true;
 }

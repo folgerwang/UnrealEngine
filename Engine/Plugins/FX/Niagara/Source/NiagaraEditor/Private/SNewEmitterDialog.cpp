@@ -22,6 +22,7 @@ void SNewEmitterDialog::Construct(const FArguments& InArgs)
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	AssetPickerConfig.Filter.ClassNames.Add(UNiagaraEmitter::StaticClass()->GetFName());
 	AssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedEmitterAssetsFromPicker);
+	AssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewEmitterDialog::OnEmitterAssetsActivated);
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 	TSharedRef<SWidget> AssetPicker = ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig);
@@ -32,7 +33,8 @@ void SNewEmitterDialog::Construct(const FArguments& InArgs)
 				LOCTEXT("CreateFromTemplateLabel", "Create a new emitter from an emitter template"),
 				LOCTEXT("TemplatesPickerHeader", "Select a Template Emitter"),
 				SNiagaraNewAssetDialog::FOnGetSelectedAssetsFromPicker::CreateSP(this, &SNewEmitterDialog::GetSelectedEmitterTemplateAssets),
-				SAssignNew(TemplateAssetPicker, SNiagaraTemplateAssetPicker, UNiagaraEmitter::StaticClass())),
+				SAssignNew(TemplateAssetPicker, SNiagaraTemplateAssetPicker, UNiagaraEmitter::StaticClass())
+				.OnTemplateAssetActivated(this, &SNewEmitterDialog::OnTemplateAssetActivated)),
 			SNiagaraNewAssetDialog::FNiagaraNewAssetDialogOption(
 				LOCTEXT("CreateFromOtherEmitterLabel", "Copy an existing emitter from your project content"),
 				LOCTEXT("ProjectEmitterPickerHeader", "Select a Project Emitter"),
@@ -70,6 +72,19 @@ TArray<FAssetData> SNewEmitterDialog::GetSelectedEmitterTemplateAssets()
 TArray<FAssetData> SNewEmitterDialog::GetSelectedProjectEmiterAssets()
 {
 	return GetSelectedEmitterAssetsFromPicker.Execute();
+}
+
+void SNewEmitterDialog::OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset)
+{
+	ConfirmSelection();
+}
+
+void SNewEmitterDialog::OnEmitterAssetsActivated(const TArray<FAssetData>& ActivatedAssets, EAssetTypeActivationMethod::Type ActivationMethod)
+{
+	if ((ActivationMethod == EAssetTypeActivationMethod::DoubleClicked || ActivationMethod == EAssetTypeActivationMethod::Opened) && ActivatedAssets.Num() == 1)
+	{
+		ConfirmSelection();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

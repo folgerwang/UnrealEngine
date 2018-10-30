@@ -52,6 +52,8 @@ public:
 #endif
 	}
 
+	static void UpdateWindowSize(void* WindowHandle, uint32& Width, uint32& Height);
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

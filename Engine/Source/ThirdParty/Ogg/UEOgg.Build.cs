@@ -38,7 +38,9 @@ public class UEOgg : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			PublicAdditionalLibraries.Add(OggPath + "macosx/libogg.dylib");
+			string DylibPath = Target.UEThirdPartyBinariesDirectory + "Ogg/Mac/libogg.dylib";
+			PublicDelayLoadDLLs.Add(DylibPath);
+			RuntimeDependencies.Add(DylibPath);
 		}
 		else if (Target.Platform == UnrealTargetPlatform.HTML5)
 		{

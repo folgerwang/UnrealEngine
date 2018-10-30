@@ -93,19 +93,21 @@ void FGoogleARCoreAndroidHelper::OnDisplayOrientationChanged()
 
 #endif
 
-int32 FGoogleARCoreAndroidHelper::CurrentDisplayRotation = 0;
+ARCoreDisplayRotation FGoogleARCoreAndroidHelper::CurrentDisplayRotation = ARCoreDisplayRotation::Rotation0;
 void FGoogleARCoreAndroidHelper::UpdateDisplayRotation()
 {
 #if PLATFORM_ANDROID
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GetDisplayRotation", "()I", false);
-		CurrentDisplayRotation = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, Method);
+		int32 IntCurrentDisplayRotation = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, Method);
+		CurrentDisplayRotation = static_cast<ARCoreDisplayRotation>(IntCurrentDisplayRotation);
+		check((CurrentDisplayRotation >= ARCoreDisplayRotation::Rotation0) || (CurrentDisplayRotation <= ARCoreDisplayRotation::Max));
 	}
 #endif
 }
 
-int32 FGoogleARCoreAndroidHelper::GetDisplayRotation()
+ARCoreDisplayRotation FGoogleARCoreAndroidHelper::GetDisplayRotation()
 {
 	return CurrentDisplayRotation;
 }

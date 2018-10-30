@@ -75,20 +75,6 @@ struct ENGINE_API TPerPlatformProperty
 		return true;
 	}
 
-	/* Load old properties that have been converted to FPerPlatformX */
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
-	{
-		if (Tag.Type == _BasePropertyName)
-		{
-			_StructType* This = StaticCast<_StructType*>(this);
-			_ValueType OldValue;
-			Slot << OldValue;
-			*This = _StructType(OldValue);
-			return true;
-		}
-		return false;
-	}
-
 	/* Serialization */
 	bool Serialize(FStructuredArchive::FSlot Slot)
 	{

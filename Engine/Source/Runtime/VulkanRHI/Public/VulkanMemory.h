@@ -1170,6 +1170,8 @@ namespace VulkanRHI
 		{
 			ReleaseResources(true);
 		}
+
+		void OnCmdBufferDeleted(FVulkanCmdBuffer* CmdBuffer);
 /*
 		class FVulkanAsyncDeletionWorker : public FVulkanDeviceChild, FNonAbandonableTask
 		{
@@ -1473,6 +1475,16 @@ namespace VulkanRHI
 		void InnerExecute(FVulkanCmdBuffer* CmdBuffer, bool bEnsure);
 
 	public:
+		inline int32 NumImageBarriers() const
+		{
+			return ImageBarriers.Num();
+		}
+
+		inline int32 NumBufferBarriers() const
+		{
+			return BufferBarriers.Num();
+		}
+
 		inline void ResetStages()
 		{
 			SourceStage = 0;

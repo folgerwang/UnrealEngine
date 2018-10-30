@@ -52,10 +52,9 @@ FAutoConsoleVariableRef CVarOcclusionCullCascadedShadowMaps(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
-int32 GMobileAllowSoftwareOcclusion = 0;
-FAutoConsoleVariableRef CVarMobileAllowSoftwareOcclusion(
+static TAutoConsoleVariable<int32> CVarMobileAllowSoftwareOcclusion(
 	TEXT("r.Mobile.AllowSoftwareOcclusion"),
-	GMobileAllowSoftwareOcclusion,
+	0,
 	TEXT("Whether to allow rasterizing scene on CPU for primitive occlusion.\n"),
 	ECVF_RenderThreadSafe
 	);
@@ -263,7 +262,8 @@ bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSc
 
 void FSceneViewState::ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel)
 {
-	bool bShouldBeEnabled = InFeatureLevel <= ERHIFeatureLevel::ES3_1 && GMobileAllowSoftwareOcclusion != 0;
+	bool bMobileAllowSoftwareOcclusion = CVarMobileAllowSoftwareOcclusion.GetValueOnAnyThread() != 0;
+	bool bShouldBeEnabled = InFeatureLevel <= ERHIFeatureLevel::ES3_1 && bMobileAllowSoftwareOcclusion;
 
 	if (bShouldBeEnabled && !SceneSoftwareOcclusion)
 	{

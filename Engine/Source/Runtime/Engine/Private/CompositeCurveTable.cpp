@@ -100,6 +100,13 @@ void UCompositeCurveTable::PostEditChangeProperty(FPropertyChangedEvent& Propert
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+
+void UCompositeCurveTable::PostEditUndo()
+{
+	Super::PostEditUndo();
+
+	OnParentTablesUpdated();
+}
 #endif // WITH_EDITOR
 
 void UCompositeCurveTable::OnParentTablesUpdated()

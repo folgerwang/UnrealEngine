@@ -794,7 +794,7 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 			[ImageString appendString : @"-Portrait"];
 		}
 	}
-	else if (Device == FPlatformMisc::IOS_IPhoneX)
+    else if (Device == FPlatformMisc::IOS_IPhoneX || Device == FPlatformMisc::IOS_IPhoneXS)
 	{
 		[ImageString appendString : @"-IPhoneX"];
 		if (!self.bDeviceInPortraitMode)
@@ -806,6 +806,30 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 			[ImageString appendString : @"-Portrait"];
 		}
 	}
+    else if (Device == FPlatformMisc::IOS_IPhoneXSMax)
+    {
+        [ImageString appendString : @"-IPhoneXSMax"];
+        if (!self.bDeviceInPortraitMode)
+        {
+            [ImageString appendString : @"-Landscape"];
+        }
+        else
+        {
+            [ImageString appendString : @"-Portrait"];
+        }
+    }
+    else if (Device == FPlatformMisc::IOS_IPhoneXR)
+    {
+        [ImageString appendString : @"-IPhoneXR"];
+        if (!self.bDeviceInPortraitMode)
+        {
+            [ImageString appendString : @"-Landscape"];
+        }
+        else
+        {
+            [ImageString appendString : @"-Portrait"];
+        }
+    }
 	else if (Device == FPlatformMisc::IOS_AppleTV)
 	{
 		// @todo tvos: Make an AppleTV one?

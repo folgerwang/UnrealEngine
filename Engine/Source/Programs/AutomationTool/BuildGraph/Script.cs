@@ -909,6 +909,7 @@ namespace AutomationTool
 			if (EvaluateCondition(Element) && TryReadObjectName(Element, out Name))
 			{
 				string[] RequiredNames = ReadListAttribute(Element, "Requires");
+				string[] TargetNames = ReadListAttribute(Element, "Targets");
 				string Project = ReadAttribute(Element, "Project");
 				int Change = ReadIntegerAttribute(Element, "Change", 0);
 
@@ -916,6 +917,11 @@ namespace AutomationTool
 				foreach (Node ReferencedNode in ResolveReferences(Element, RequiredNames))
 				{
 					NewBadge.Nodes.Add(ReferencedNode);
+				}
+				foreach (Node ReferencedNode in ResolveReferences(Element, TargetNames))
+				{
+					NewBadge.Nodes.Add(ReferencedNode);
+					NewBadge.Nodes.UnionWith(ReferencedNode.OrderDependencies);
 				}
 				Graph.Badges.Add(NewBadge);
 			}

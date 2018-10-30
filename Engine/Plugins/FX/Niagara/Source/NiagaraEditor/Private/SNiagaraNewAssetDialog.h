@@ -45,6 +45,8 @@ public:
 protected:
 	const TArray<FAssetData>& GetSelectedAssets() const;
 
+	void ConfirmSelection();
+
 private:
 	void OnWindowClosed(const TSharedRef<SWindow>& Window);
 

@@ -613,3 +613,17 @@ int32 UModularSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 	}
 	return NumSamples;
 }
+
+
+void UModularSynthLibrary::AddModularSynthPresetToBankAsset(UModularSynthPresetBank* InBank, const FModularSynthPreset& Preset, const FString& PresetName)
+{
+	if (GIsEditor)
+	{
+		FModularSynthPresetBankEntry NewBankEntry;
+		NewBankEntry.PresetName = PresetName;
+		NewBankEntry.Preset = Preset;
+
+		InBank->Presets.Add(NewBankEntry);
+		InBank->MarkPackageDirty();
+	}
+}

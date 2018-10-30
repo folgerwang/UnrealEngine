@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 # WARNING: connot build libs if absolute paths contains any space -- will revisit this in the future...

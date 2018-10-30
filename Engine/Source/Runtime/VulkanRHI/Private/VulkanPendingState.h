@@ -358,7 +358,7 @@ public:
 
 			CurrentState->Reset();
 
-			PrimitiveType = InGfxPipeline->PipelineStateInitializer.PrimitiveType;
+			PrimitiveType = InGfxPipeline->PrimitiveType;
 
 			return true;
 		}

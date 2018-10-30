@@ -496,9 +496,20 @@ namespace UnrealBuildTool
 						bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
 					}
 
+					// Parse the argument for overriding the XML configuration file location (for remote builds)
+					FileReference XmlConfigCache = null;
+					foreach (string Argument in Arguments)
+					{
+						const string Prefix = "-XmlConfigCache=";
+						if(Argument.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+						{
+							XmlConfigCache = new FileReference(Argument.Substring(Prefix.Length));
+							break;
+						}
+					}
+
 					// Read the XML configuration files
-					bool bForceXmlConfigCache = Arguments.Any(x => x.Equals("-ForceXmlConfigCache", StringComparison.InvariantCultureIgnoreCase));
-					if (!XmlConfig.ReadConfigFiles(bForceXmlConfigCache))
+					if (!XmlConfig.ReadConfigFiles(XmlConfigCache))
 					{
 						return 1;
 					}

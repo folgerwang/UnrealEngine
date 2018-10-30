@@ -668,6 +668,7 @@ static FName NAME_PLATFORM_ANDROID(TEXT("Android"));
 static FName NAME_PLATFORM_IOS(TEXT("IOS"));
 static FName NAME_PLATFORM_MAC(TEXT("Mac"));
 static FName NAME_PLATFORM_SWITCH(TEXT("Switch"));
+static FName NAME_PLATFORM_TVOS(TEXT("TVOS"));
 
 FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
 {
@@ -685,7 +686,10 @@ FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
 		return NAME_PLATFORM_ANDROID;
 	case SP_METAL:
 	case SP_METAL_MRT:
-		return NAME_PLATFORM_IOS;
+        return NAME_PLATFORM_IOS;
+	case SP_METAL_TVOS:
+	case SP_METAL_MRT_TVOS:
+		return NAME_PLATFORM_TVOS;
 	case SP_METAL_SM5:
 	case SP_METAL_SM5_NOTESS:
 	case SP_METAL_MACES3_1:
@@ -802,7 +806,7 @@ RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform)
 	{
 		return true;
 	}
-	else if (Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_MAC)
+	else if (IsMetalSM5Platform(Platform))
 	{
 		return (RHIGetShaderLanguageVersion(Platform) >= 2);
 	}

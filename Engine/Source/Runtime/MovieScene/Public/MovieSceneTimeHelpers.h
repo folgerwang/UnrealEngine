@@ -102,47 +102,32 @@ inline int32 DiscreteSize(const TRange<FFrameNumber>& InRange)
 }
 
 /**
- * Check whether the two specified discrete ranges share any common discrete values
- * 
- * @return The size of the range (considering inclusive and exclusive boundaries)
+ * Check whether the specified range contains any integer frame numbers or not
  */
-inline bool DiscreteRangesOverlap(const TRange<FFrameNumber>& A, const TRange<FFrameNumber>& B)
+inline bool DiscreteRangeIsEmpty(const TRange<FFrameNumber>& InRange)
 {
-	TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(A, B);
-	if (Intersection.GetLowerBound().IsOpen() || Intersection.GetUpperBound().IsOpen())
+	if (InRange.GetLowerBound().IsOpen() || InRange.GetUpperBound().IsOpen())
 	{
-		return true;
+		return false;
 	}
-	else
-	{
-		return DiscreteSize(Intersection) > 0;
-	}
-}
 
-/**
- * Check whether the two specified lower bounds are equivalent in a discrete domain
- */
-inline bool DiscreteLowerBoundsAreEquivalent(const TRangeBound<FFrameNumber>& A, const TRangeBound<FFrameNumber>& B)
-{
-	if (A.IsOpen() || B.IsOpen())
+	// From here on we're handling ranges of the form [x,y], [x,y), (x,y] and (x,y)
+	const bool bLowerInclusive = InRange.GetLowerBound().IsInclusive();
+	const bool bUpperInclusive = InRange.GetUpperBound().IsInclusive();
+
+	if (bLowerInclusive)
 	{
-		// Either bound is open
-		return A.IsOpen() && B.IsOpen();
-	}
-	else if (A.IsExclusive() == B.IsExclusive())
-	{
-		// Both inclusive or both exclusive
-		return A.GetValue() == B.GetValue();
-	}
-	else if (A.IsExclusive())
-	{
-		// A exclusive, B inclusive
-		return A.GetValue() == B.GetValue()-1;
+		// Lower is inclusive
+		return bUpperInclusive
+			? InRange.GetLowerBoundValue() >  InRange.GetUpperBoundValue()		// [x, y] - empty if x >  y
+			: InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue();		// [x, y) - empty if x >= y
 	}
 	else
 	{
-		// A inclusive, B exclusive
-		return B.GetValue() == A.GetValue()-1;
+		// Lower is exclusive
+		return bUpperInclusive
+			? InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue()		// (x, y] - empty if x >= y
+			: InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue()-1;	// (x, y) - empty if x >= y-1
 	}
 }
 

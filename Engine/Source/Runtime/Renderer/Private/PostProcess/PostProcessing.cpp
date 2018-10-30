@@ -54,6 +54,7 @@
 #include "DeferredShadingRenderer.h"
 #include "PostProcess/PostProcessFFTBloom.h"
 #include "MobileSeparateTranslucencyPass.h"
+#include "MobileDistortionPass.h"
 
 /** The global center for all post processing activities. */
 FPostProcessing GPostProcessing;
@@ -2335,7 +2336,7 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 		// incorrect UTexture::SRGB state. (UTexture::SRGB != HW texture state)
 		bool bSRGBAwareTarget = View.Family->RenderTarget->GetDisplayGamma() == 1.0f
 			&& View.bIsSceneCapture
-			&& View.GetShaderPlatform() == EShaderPlatform::SP_METAL;
+			&& IsMetalMobilePlatform(View.GetShaderPlatform());
 
 		// add the passes we want to add to the graph (commenting a line means the pass is not inserted into the graph) ---------
 		if( View.Family->EngineShowFlags.PostProcessing && bAllowFullPostProcess)
@@ -2365,6 +2366,18 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 
 			// Post is not supported on ES2 devices using mosaic.
 			bool bUsePost = bHDRModeAllowsPost && IsMobileHDR();
+			
+			if (bUsePost && IsMobileDistortionActive(View))
+			{
+				FRenderingCompositePass* AccumulatedDistortion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionAccumulatePassES2(SceneColorSize));
+				AccumulatedDistortion->SetInput(ePId_Input0, Context.FinalOutput); // unused atm
+				FRenderingCompositeOutputRef AccumulatedDistortionRef(AccumulatedDistortion);
+				
+				FRenderingCompositePass* PostProcessDistorsion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionMergePassES2(SceneColorSize));
+				PostProcessDistorsion->SetInput(ePId_Input0, Context.FinalOutput);
+				PostProcessDistorsion->SetInput(ePId_Input1, AccumulatedDistortionRef);
+				Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessDistorsion);
+			}
 
 			// Always evaluate custom post processes
 			if (bUsePost)

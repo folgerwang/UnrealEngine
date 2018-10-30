@@ -125,9 +125,5 @@ bool IsMoviePlayerEnabled()
 	bEnabled &= !FParse::Param(FCommandLine::Get(), TEXT("NoLoadingScreen"));
 #endif
 
-#if PLATFORM_UNIX
-	bEnabled = false;
-#endif
-
 	return bEnabled;
 }

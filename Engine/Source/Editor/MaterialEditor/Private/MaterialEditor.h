@@ -797,7 +797,7 @@ private:
 	TSharedPtr<class FMaterialStats> MaterialStatsManager;
 
 	/** Tab that holds the details panel */
-	TSharedPtr<SDockTab> SpawnedDetailsTab;
+	TWeakPtr<SDockTab> SpawnedDetailsTab;
 
 	/** Stores the quality level used to preview the material graph */
 	EMaterialQualityLevel::Type NodeQualityLevel;

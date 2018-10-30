@@ -286,6 +286,8 @@ struct FNDISkeletalMesh_InstanceData
 		}
 		return Ret;
 	}
+
+	bool HasColorData();
 };
 
 /** Data Interface allowing sampling of static meshes. */
@@ -382,6 +384,8 @@ public:
 
 	void GetTriCoordColor(FVectorVMContext& Context);
 
+	void GetTriCoordColorFallback(FVectorVMContext& Context);
+
 	template<typename VertexAccessorType>
 	void GetTriCoordUV(FVectorVMContext& Context);
 
@@ -424,6 +428,8 @@ public:
 	void GetVertexSkinnedData(FVectorVMContext& Context);
 
 	void GetVertexColor(FVectorVMContext& Context);
+
+	void GetVertexColorFallback(FVectorVMContext& Context);
 
 	template<typename VertexAccessorType>
 	void GetVertexUV(FVectorVMContext& Context);

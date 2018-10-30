@@ -138,7 +138,7 @@ struct FCameraTrackingFocusSettings
 
 	/** Focus distance will be tied to this actor's location. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Tracking Focus")
-	TSoftObjectPtr<AActor> ActorToTrack;
+	AActor* ActorToTrack;
 
 	/** Offset from actor position to track. Relative to actor if tracking an actor, relative to world otherwise. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Tracking Focus")
@@ -149,7 +149,8 @@ struct FCameraTrackingFocusSettings
 	uint8 bDrawDebugTrackingFocusPoint : 1;
 
 	FCameraTrackingFocusSettings()
-		: RelativeOffset(ForceInitToZero),
+		: ActorToTrack(nullptr),
+		RelativeOffset(ForceInitToZero),
 		bDrawDebugTrackingFocusPoint(false)
 	{}
 };

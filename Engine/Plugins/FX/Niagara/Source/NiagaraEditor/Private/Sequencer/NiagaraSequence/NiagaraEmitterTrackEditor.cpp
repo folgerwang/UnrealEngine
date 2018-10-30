@@ -51,6 +51,7 @@ public:
 				.ToolTipText(LOCTEXT("EnabledTooltip", "Toggle whether or not this emitter is enabled."))
 				.IsChecked(this, &SEmitterTrackWidget::GetEnabledCheckState)
 				.OnCheckStateChanged(this, &SEmitterTrackWidget::OnEnabledCheckStateChanged)
+				.Visibility(this, &SEmitterTrackWidget::GetEnableCheckboxVisibility)
 			]
 			// Isolate toggle
 			+ SHorizontalBox::Slot()
@@ -64,6 +65,7 @@ public:
 				.ContentPadding(1)
 				.ToolTipText(this, &SEmitterTrackWidget::GetToggleIsolateToolTip)
 				.OnClicked(this, &SEmitterTrackWidget::OnToggleIsolateButtonClicked)
+				.Visibility(this, &SEmitterTrackWidget::GetIsolateToggleVisibility)
 				.Content()
 				[
 					SNew(SImage)
@@ -168,6 +170,16 @@ private:
 	FReply OnRenderButtonClicked()
 	{
 		return FReply::Handled();
+	}
+
+	EVisibility GetEnableCheckboxVisibility() const
+	{
+		return EmitterTrack.IsValid() && EmitterTrack->GetSystemViewModel().GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	EVisibility GetIsolateToggleVisibility() const
+	{
+		return EmitterTrack.IsValid() && EmitterTrack->GetSystemViewModel().GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
 private:
