@@ -23,7 +23,12 @@
 		{
 			"Name": "SequencerScripting",
 			"Type": "Developer",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SequencerScriptingEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	]
 }

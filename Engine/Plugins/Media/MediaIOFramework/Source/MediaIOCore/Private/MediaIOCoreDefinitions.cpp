@@ -110,7 +110,10 @@ bool FMediaIOConnection::IsValid() const
  * FMediaIOMode
  */
 FMediaIOMode::FMediaIOMode()
-	: DeviceModeIdentifier(MediaIOCoreDefinitions::InvalidDeviceModeIdentifier)
+	: FrameRate(30, 1)
+	, Resolution(1920, 1080)
+	, Standard(EMediaIOStandardType::Progressive)
+	, DeviceModeIdentifier(MediaIOCoreDefinitions::InvalidDeviceModeIdentifier)
 {}
 
 
