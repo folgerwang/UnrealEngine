@@ -123,7 +123,8 @@ public:
 
 protected:
 
-	TQueue<USoundWave*> PendingStoppingSoundWaves;
+	UPROPERTY(Transient)
+	USoundWave* GranulatedSoundWave;
 
 	Audio::FGranularSynth GranularSynth;
 	Audio::FSoundWavePCMLoader SoundWaveLoader;
