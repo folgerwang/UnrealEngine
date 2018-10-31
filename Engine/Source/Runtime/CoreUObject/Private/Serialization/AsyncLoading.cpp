@@ -4096,8 +4096,7 @@ void FAsyncPackage::Event_StartPostload()
 	AsyncPackageLoadingState = EAsyncPackageLoadingState::PostLoad_Etc;
 	EventDrivenLoadingComplete();
 	{
-		TArray<UObject*>& ObjLoaded = LoadContext->GetObjectsLoaded();
-		ObjLoaded.Reserve(ObjLoaded.Num() + Linker->ExportMap.Num());
+		LoadContext->ReserveObjectsLoaded(LoadContext->GetNumObjectsLoaded() + Linker->ExportMap.Num());
 		for (int32 LocalExportIndex = 0; LocalExportIndex < Linker->ExportMap.Num(); LocalExportIndex++)
 		{
 			FObjectExport& Export = Linker->ExportMap[LocalExportIndex];
@@ -4106,7 +4105,7 @@ void FAsyncPackage::Event_StartPostload()
 			if (Object && (Object->HasAnyFlags(RF_NeedPostLoad) || Linker->bDynamicClassLinker || Object->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading)))
 			{
 				check(Object->IsValidLowLevelFast());
-				ObjLoaded.Add(Object);
+				LoadContext->AddLoadedObject(Object);
 			}
 		}
 	}
@@ -6383,7 +6382,7 @@ EAsyncPackageState::Type FAsyncPackage::PreLoadObjects()
 	// GC can't run in here
 	FGCScopeGuard GCGuard;
 
-	TArray<UObject*>& ThreadObjLoaded = LoadContext->GetObjectsLoaded();
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->PRIVATE_GetObjectsLoadedForFAsyncPackage();
 	PackageObjLoaded.Append(ThreadObjLoaded);
 	ThreadObjLoaded.Reset();
 
@@ -6482,7 +6481,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 	TGuardValue<bool> GuardIsRoutingPostLoad(ThreadContext.IsRoutingPostLoad, true);
 
-	TArray<UObject*>& ThreadObjLoaded = LoadContext->GetObjectsLoaded();
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->PRIVATE_GetObjectsLoadedForFAsyncPackage();
 	if (ThreadObjLoaded.Num())
 	{
 		// New objects have been loaded. They need to go through PreLoad first so exit now and come back after they've been preloaded.
@@ -6562,7 +6561,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 	TGuardValue<bool> GuardIsRoutingPostLoad(PackageScope.ThreadContext.IsRoutingPostLoad, true);
 	FAsyncLoadingTickScope InAsyncLoadingTick;
 
-	TArray<UObject*>& ObjLoadedInPostLoad = LoadContext->GetObjectsLoaded();
+	TArray<UObject*>& ObjLoadedInPostLoad = LoadContext->PRIVATE_GetObjectsLoadedForFAsyncPackage();
 	TArray<UObject*> ObjLoadedInPostLoadLocal;
 
 	STAT(double PostLoadStartTime = FPlatformTime::Seconds());
@@ -6752,7 +6751,7 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	LastTypeOfWorkPerformed			= TEXT("finishing all objects");
 
 	check(!Linker || LoadContext == Linker->GetSerializeContext());		
-	TArray<UObject*>& ThreadObjLoaded = LoadContext->GetObjectsLoaded();
+	TArray<UObject*>& ThreadObjLoaded = LoadContext->PRIVATE_GetObjectsLoadedForFAsyncPackage();
 
 	EAsyncLoadingResult::Type LoadingResult;
 	if (!bLoadHasFailed)

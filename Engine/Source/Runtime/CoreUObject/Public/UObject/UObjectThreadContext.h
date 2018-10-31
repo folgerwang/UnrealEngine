@@ -171,13 +171,24 @@ public:
 		return !!ObjectsLoaded.Num();
 	}
 
-	void PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject)
+	bool PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject)
 	{
 		const int32 ObjLoadedIdx = ObjectsLoaded.Find(OldObject);
 		if (ObjLoadedIdx != INDEX_NONE)
 		{
 			ObjectsLoaded[ObjLoadedIdx] = NewObject;
+			return true;
 		}
+		else
+		{
+			return false;
+		}
+	}
+
+	/** This is only meant to be used by FAsyncPackage for performance reasons. The ObjectsLoaded array should not be manipulated directly! */
+	TArray<UObject*>& PRIVATE_GetObjectsLoadedForFAsyncPackage()
+	{
+		return ObjectsLoaded;
 	}
 
 	void AppendLoadedObjectsAndEmpty(TArray<UObject*>& InLoadedObject)
@@ -186,9 +197,14 @@ public:
 		ObjectsLoaded.Reset();
 	}
 
-	TArray<UObject*>& GetObjectsLoaded()
+	void ReserveObjectsLoaded(int32 InReserveSize)
 	{
-		return ObjectsLoaded;
+		ObjectsLoaded.Reserve(InReserveSize);
+	}
+
+	int32 GetNumObjectsLoaded() const
+	{
+		return ObjectsLoaded.Num();
 	}
 
 	void AddDelayedLinkerClosePackage(class FLinkerLoad* InLinker)

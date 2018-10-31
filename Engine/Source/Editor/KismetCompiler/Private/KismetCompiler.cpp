@@ -4169,7 +4169,7 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 					if (OldLinker && OldGenLinkerIdx != INDEX_NONE)
 					{
 						// If we have a list of objects that are loading, patch our export table. This also fixes up load flags
-						FBlueprintEditorUtils::PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx);
+						FBlueprintEditorUtils::PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, nullptr);
 					}
 
 					UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;

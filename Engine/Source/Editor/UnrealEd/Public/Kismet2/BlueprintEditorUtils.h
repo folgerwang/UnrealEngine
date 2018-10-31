@@ -183,7 +183,7 @@ public:
 	/** 
 	 * Helper function to patch the new CDO into the linker where the old one existed 
 	 */
-	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex);
+	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, FUObjectSerializeContext* InLoadContext);
 
 	/** 
 	 * Procedure used to remove old function implementations and child properties from data only blueprints.

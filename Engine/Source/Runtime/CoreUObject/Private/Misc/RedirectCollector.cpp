@@ -17,7 +17,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogRedirectors, Log, All);
 
-void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
+void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath, FArchive* InArchive)
 {
 	if (InPath.IsNull() || !GIsEditor)
 	{
@@ -32,7 +32,7 @@ void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
 	ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
 	ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
 
-	ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType);
+	ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType, InArchive);
 
 	if (CollectType == ESoftObjectPathCollectType::NeverCollect)
 	{
@@ -59,7 +59,7 @@ void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
 void FRedirectCollector::OnStringAssetReferenceLoaded(const FString& InString)
 {
 	FSoftObjectPath Path(InString);
-	OnSoftObjectPathLoaded(Path);
+	OnSoftObjectPathLoaded(Path, nullptr);
 }
 
 FString FRedirectCollector::OnStringAssetReferenceSaved(const FString& InString)

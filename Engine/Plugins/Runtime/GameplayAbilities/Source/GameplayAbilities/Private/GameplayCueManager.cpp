@@ -690,7 +690,7 @@ static void SearchDynamicClassCues(const FName PropertyName, const TArray<FStrin
 				AssetsToLoad.Add(StringRef);
 
 				// Make sure core knows about this ref so it can be properly detected during cook.
-				StringRef.PostLoadPath();
+				StringRef.PostLoadPath(nullptr);
 			}
 			else
 			{
@@ -873,7 +873,7 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 				OutAssetsToLoad.Add(StringRef);
 
 				// Make sure core knows about this ref so it can be properly detected during cook.
-				StringRef.PostLoadPath();
+				StringRef.PostLoadPath(GetLinker());
 			}
 			else
 			{
@@ -1009,7 +1009,7 @@ void UGameplayCueManager::HandleAssetAdded(UObject *Object)
 				}
 
 				// Make sure core knows about this ref so it can be properly detected during cook.
-				StringRef.PostLoadPath();
+				StringRef.PostLoadPath(Object->GetLinker());
 
 				for (UGameplayCueSet* Set : GetGlobalCueSets())
 				{

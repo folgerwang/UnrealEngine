@@ -216,11 +216,11 @@ struct FConditionalRecompileClassHepler
 extern UNREALED_API FSecondsCounterData BlueprintCompileAndLoadTimerData;
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
-void UBlueprintGeneratedClass::ConditionalRecompileClass()
+void UBlueprintGeneratedClass::ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext)
 {
 	if(GBlueprintUseCompilationManager)
 	{
-		FBlueprintCompilationManager::FlushCompilationQueue();
+		FBlueprintCompilationManager::FlushCompilationQueue(InLoadContext);
 		return;
 	}
 	
@@ -277,7 +277,7 @@ void UBlueprintGeneratedClass::FlushCompilationQueueForLevel()
 	{
 		if(Cast<ULevelScriptBlueprint>(ClassGeneratedBy))
 		{
-			FBlueprintCompilationManager::FlushCompilationQueue();
+			FBlueprintCompilationManager::FlushCompilationQueue(nullptr);
 		}
 	}
 }

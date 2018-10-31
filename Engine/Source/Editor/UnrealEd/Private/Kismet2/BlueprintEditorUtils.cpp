@@ -716,7 +716,7 @@ void FBlueprintEditorUtils::PreloadConstructionScript(UBlueprint* Blueprint)
 	}
 }
 
-void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex)
+void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, FUObjectSerializeContext* InLoadContext)
 {
 	if( (CDO != nullptr) && (Linker != nullptr) && (ExportIndex != INDEX_NONE) )
 	{
@@ -731,18 +731,15 @@ void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Lin
 			// Copy flags from the old CDO.
 			CDO->SetFlags(OldObjectFlags);
 
-			FUObjectSerializeContext* LoadContext = Linker->GetSerializeContext();
-			TArray<UObject*>& ObjLoaded = LoadContext->GetObjectsLoaded();
+			FUObjectSerializeContext* LoadContext = InLoadContext ? InLoadContext : Linker->GetSerializeContext();
 
 			// Make sure the new CDO gets PostLoad called on it, so either add it to ObjLoaded list, or replace it if already present.
-			int32 ObjLoadedIdx = ObjLoaded.Find(OldCDO);
-			if (ObjLoadedIdx != INDEX_NONE)
+			if (!LoadContext->PRIVATE_PatchNewObjectIntoExport(OldCDO, CDO))
 			{
-				ObjLoaded[ObjLoadedIdx] = CDO;
-			}
-			else if (OldObjectFlags & RF_NeedPostLoad)
-			{
-				ObjLoaded.Add(CDO);
+				if (OldObjectFlags & RF_NeedPostLoad)
+				{
+					LoadContext->AddLoadedObject(CDO);
+				}
 			}
 		}
 
@@ -1457,11 +1454,11 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		// Patch the new CDOs to the old indices in the linker
 		if( Blueprint->SkeletonGeneratedClass )
 		{
-			PatchNewCDOIntoLinker(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), OldLinker, OldSkelLinkerIdx);
+			PatchNewCDOIntoLinker(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), OldLinker, OldSkelLinkerIdx, nullptr);
 		}
 		if( Blueprint->GeneratedClass )
 		{
-			PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx);
+			PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, nullptr);
 		}
 
 		// Success or failure, there's no point in trying to recompile this class again when other objects reference it

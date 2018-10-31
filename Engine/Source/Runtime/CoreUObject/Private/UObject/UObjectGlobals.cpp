@@ -1567,11 +1567,6 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 		LoadContext->DecrementBeginLoadCount();
 		return;
 	}
-	else if (IsInGameThread())
-	{
-		GGameThreadLoadCounter--;
-		check(GGameThreadLoadCounter >= 0);
-	}
 
 #if WITH_EDITOR
 	FScopedSlowTask SlowTask(0, NSLOCTEXT("Core", "PerformingPostLoad", "Performing post-load..."), ShouldReportProgress());
@@ -1766,7 +1761,17 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 			}
 		}
 
-		FBlueprintSupport::FlushReinstancingQueue();
+		// If this is the first LoadPackage call, flush the BP queue
+		if (GGameThreadLoadCounter < 2)
+		{
+			FBlueprintSupport::FlushReinstancingQueue();
+		}
+	}
+
+	if (IsInGameThread())
+	{
+		GGameThreadLoadCounter--;
+		check(GGameThreadLoadCounter >= 0);
 	}
 
 	// Loaded new objects, so allow reaccessing asset ptrs

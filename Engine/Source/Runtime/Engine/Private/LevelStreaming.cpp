@@ -291,7 +291,7 @@ void ULevelStreaming::PostLoad()
 			// Convert the FName reference to a TSoftObjectPtr, then broadcast that we loaded a reference
 			// so this reference is gathered by the cooker without having to resave the package.
 			SetWorldAssetByPackageName(PackageName_DEPRECATED);
-			WorldAsset.GetUniqueID().PostLoadPath();
+			WorldAsset.GetUniqueID().PostLoadPath(GetLinker());
 		}
 		else
 		{

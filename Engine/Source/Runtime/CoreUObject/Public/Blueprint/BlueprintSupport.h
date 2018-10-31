@@ -142,7 +142,7 @@ private:
 struct COREUOBJECT_API FScopedClassDependencyGather
 {
 public:
-	FScopedClassDependencyGather(UClass* ClassToGather);
+	FScopedClassDependencyGather(UClass* ClassToGather, FUObjectSerializeContext* InLoadContext);
 	~FScopedClassDependencyGather();
 
 	/**
@@ -163,6 +163,9 @@ private:
 
 	/** List of dependencies (i.e. UClasses that have been newly instantiated) in the scope of this dependency gather */
 	static TArray<UClass*> BatchClassDependencies;
+
+	/** Current load context */
+	FUObjectSerializeContext* LoadContext;
 
 	FScopedClassDependencyGather();
 };

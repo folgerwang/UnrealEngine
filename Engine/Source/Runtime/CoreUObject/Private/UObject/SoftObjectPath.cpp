@@ -101,10 +101,10 @@ bool FSoftObjectPath::PreSavePath(bool* bReportSoftObjectPathRedirects)
 	return false;
 }
 
-void FSoftObjectPath::PostLoadPath() const
+void FSoftObjectPath::PostLoadPath(FArchive* InArchive) const
 {
 #if WITH_EDITOR
-	GRedirectCollector.OnSoftObjectPathLoaded(*this);
+	GRedirectCollector.OnSoftObjectPathLoaded(*this, InArchive);
 #endif // WITH_EDITOR
 }
 
@@ -177,7 +177,7 @@ void FSoftObjectPath::SerializePath(FArchive& Ar)
 	{
 		if (Ar.IsPersistent())
 		{
-			PostLoadPath();
+			PostLoadPath(&Ar);
 
 			// If we think it's going to work, we try to do the pre-save fixup now. This is important because it helps with blueprint CDO save determinism with redirectors
 			// It's important that the entire CDO hierarchy gets fixed up before an instance in a map gets saved otherwise the delta serialization will save too much
@@ -274,13 +274,13 @@ bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObj
 		// We're probably reading config for an editor only object, we need to mark this reference as editor only
 		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::EditorOnlyCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 
-		PostLoadPath();
+		PostLoadPath(nullptr);
 	}
 	else
 #endif
 	{
 		// Consider this a load, so Config string references get cooked
-		PostLoadPath();
+		PostLoadPath(nullptr);
 	}
 
 	return true;
@@ -338,7 +338,7 @@ bool FSoftObjectPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag,
 	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		SetPath(MoveTemp(Path));
-		PostLoadPath();
+		PostLoadPath(&Slot.GetUnderlyingArchive());
 	}
 
 	return bReturn;
@@ -511,7 +511,7 @@ bool FSoftClassPath::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, 
 	if (Slot.GetUnderlyingArchive().IsLoading())
 	{
 		SetPath(MoveTemp(Path));
-		PostLoadPath();
+		PostLoadPath(&Slot.GetUnderlyingArchive());
 	}
 
 	return bReturn;

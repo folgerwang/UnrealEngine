@@ -4279,7 +4279,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 					// fully regenerated before another (there is no changing 
 					// that); so dependencies need to be recompiled later (with
 					// all the regenerated classes in place)
-					FScopedClassDependencyGather DependencyHelper(ClassObject);
+					FScopedClassDependencyGather DependencyHelper(ClassObject, GetSerializeContext());
 #endif //WITH_EDITOR
 
 					ClassObject->Bind();

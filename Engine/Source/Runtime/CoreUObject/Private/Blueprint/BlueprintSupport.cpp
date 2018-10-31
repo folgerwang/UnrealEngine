@@ -400,8 +400,9 @@ void FBlueprintSupport::ValidateNoExternalRefsToSkeletons()
 UClass* FScopedClassDependencyGather::BatchMasterClass = NULL;
 TArray<UClass*> FScopedClassDependencyGather::BatchClassDependencies;
 
-FScopedClassDependencyGather::FScopedClassDependencyGather(UClass* ClassToGather)
+FScopedClassDependencyGather::FScopedClassDependencyGather(UClass* ClassToGather, FUObjectSerializeContext* InLoadContext)
 	: bMasterClass(false)
+	, LoadContext(InLoadContext)
 {
 	// Do NOT track duplication dependencies, as these are intermediate products that we don't care about
 	if( !GIsDuplicatingClassForReinstancing )
@@ -430,9 +431,9 @@ FScopedClassDependencyGather::~FScopedClassDependencyGather()
 		auto DependencyIter = BatchClassDependencies.CreateIterator();
 		// implemented as a lambda, to prevent duplicated code between 
 		// BatchMasterClass and BatchClassDependencies entries
-		auto RecompileClassLambda = [&DependencyIter](UClass* Class)
+		auto RecompileClassLambda = [&DependencyIter](UClass* Class, FUObjectSerializeContext* InLoadContext)
 		{
-			Class->ConditionalRecompileClass();
+			Class->ConditionalRecompileClass(InLoadContext);
 
 			// because of the above call to ConditionalRecompileClass(), the 
 			// specified Class gets "cleaned and sanitized" (meaning its old 
@@ -466,16 +467,16 @@ FScopedClassDependencyGather::~FScopedClassDependencyGather()
 				UClass* Dependency = *DependencyIter;
 				if( Dependency->ClassGeneratedBy != BatchMasterClass->ClassGeneratedBy )
 				{
-					RecompileClassLambda(Dependency);
+					RecompileClassLambda(Dependency, LoadContext);
 				}
 			}
 
 			// Finally, recompile the master class to make sure it gets updated too
-			RecompileClassLambda(BatchMasterClass);
+			RecompileClassLambda(BatchMasterClass, LoadContext);
 		}
 		else
 		{
-			BatchMasterClass->ConditionalRecompileClass();
+			BatchMasterClass->ConditionalRecompileClass(LoadContext);
 		}
 
 		BatchMasterClass = NULL;
