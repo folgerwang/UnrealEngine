@@ -1191,7 +1191,7 @@ namespace UnrealBuildTool
 				ProjectDefinitions.Add("IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()=");
 			}
 
-			if (CryptoSettings.bEnablePakSigning)
+			if (CryptoSettings.IsPakSigningEnabled())
 			{
 				ProjectDefinitions.Add(String.Format("IMPLEMENT_SIGNING_KEY_REGISTRATION()=UE_REGISTER_SIGNING_KEY(UE_LIST_ARGUMENT({0}), UE_LIST_ARGUMENT({1}))", FormatHexBytes(CryptoSettings.SigningKey.PublicKey.Exponent), FormatHexBytes(CryptoSettings.SigningKey.PublicKey.Modulus)));
 			}
