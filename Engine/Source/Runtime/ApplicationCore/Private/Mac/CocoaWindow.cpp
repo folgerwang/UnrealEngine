@@ -207,7 +207,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 - (void)windowWillEnterFullScreen:(NSNotification*)Notification
 {
-	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+	FMacCursor* MacCursor = MacApplication ? (FMacCursor*)MacApplication->Cursor.Get() : nullptr;
 	if (MacCursor)
 	{
 		MacCursor->SetShouldIgnoreLocking(true);
@@ -242,7 +242,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 - (void)windowWillExitFullScreen:(NSNotification *)Notification
 {
-	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+	FMacCursor* MacCursor = MacApplication ? (FMacCursor*)MacApplication->Cursor.Get() : nullptr;
 	if (MacCursor)
 	{
 		MacCursor->SetShouldIgnoreLocking(true);
