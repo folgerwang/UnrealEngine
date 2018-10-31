@@ -448,16 +448,31 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 			{
 				DeviceType = IOS_IPadPro_105;
 			}
+			else if (Minor == 5 || Minor == 6)
+			{
+				DeviceType = IOS_IPad6;
+			}
 			else
 			{
 				DeviceType = IOS_IPadPro2_129;
 			}
 		}
+		else if (Major == 8)
+		{
+			if (Minor == 3 || Minor == 4)
+			{
+				DeviceType = IOS_IPadPro_11;
+			}
+			else
+			{
+				DeviceType = IOS_IPadPro3_129;
+			}
+		}
 
 		// Default to highest settings currently available for any future device
-		else if (Major >= 8)
+		else if (Major >= 9)
 		{
-			DeviceType = IOS_IPadPro2_129;
+			DeviceType = IOS_IPadPro3_129;
 		}
 	}
 	// iPhones

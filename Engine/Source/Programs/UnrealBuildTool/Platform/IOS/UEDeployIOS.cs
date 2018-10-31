@@ -598,6 +598,10 @@ namespace UnrealBuildTool
 				{
 					"Default-Landscape.png", "Landscape", "{768, 1024}", "7.0",
 					"Default-Portrait.png", "Portrait", "{768, 1024}",  "7.0",
+					"Default-Landscape-1112.png", "Landscape", "{834, 1112}",  "9.0",
+					"Default-Portrait-1112.png", "Portrait", "{834, 1112}",  "9.0",
+					"Default-Landscape-1194.png", "Landscape", "{834, 1194}",  "9.0",
+					"Default-Portrait-1194.png", "Portrait", "{834, 1194}",  "9.0",
 					"Default-Landscape-1336.png", "Landscape", "{1024, 1366}",  "9.0",
 					"Default-Portrait-1336.png", "Portrait", "{1024, 1366}",  "9.0",
 				};
@@ -796,9 +800,9 @@ namespace UnrealBuildTool
 				{
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhone6.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhone6Plus-Portrait.png", true);
-					//                   CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait@2x.png", true);
-					//                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait-1336.png", true);
+					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait-1112@2x.png", true);
+					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait-1194@2x.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait-1336@2x.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneXS-Portrait.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneXSMax-Portrait.png", true);
@@ -808,15 +812,14 @@ namespace UnrealBuildTool
 				{
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhone6-Landscape.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhone6Plus-Landscape.png", true);
-					//                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape@2x.png", true);
-					//                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape-1336.png", true);
+					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape-1112@2x.png", true);
+					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape-1194@2x.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape-1336@2x.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneXS-Landscape.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneXSMax-Landscape.png", true);
 					CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneXR-Landscape.png", true);
 				}
-				//                CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default.png", true);
 				CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default@2x.png", true);
 				CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-568h@2x.png", true);
 			}
@@ -832,9 +835,9 @@ namespace UnrealBuildTool
 				{
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhone6.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhone6Plus-Portrait.png", true);
-					//                    CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait@2x.png", true);
-					//                    CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait-1336.png", true);
+					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait-1112@2x.png", true);
+					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait-1194@2x.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait-1336@2x.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhoneXS-Portrait.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhoneXSMax-Portrait.png", true);
@@ -844,15 +847,14 @@ namespace UnrealBuildTool
 				{
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhone6-Landscape.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhone6Plus-Landscape.png", true);
-					//                    CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape@2x.png", true);
-					//                    CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape-1336.png", true);
+					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape-1112@2x.png", true);
+					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape-1194@2x.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape-1336@2x.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhoneXS-Landscape.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhoneXSMax-Landscape.png", true);
 					CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-IPhoneXR-Landscape.png", true);
 				}
-				//                CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default.png", true);
 				CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default@2x.png", true);
 				CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-568h@2x.png", true);
 			}
