@@ -455,7 +455,7 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 		}
 
 		// Default to highest settings currently available for any future device
-		else if (Major > 8)
+		else if (Major >= 8)
 		{
 			DeviceType = IOS_IPadPro2_129;
 		}
