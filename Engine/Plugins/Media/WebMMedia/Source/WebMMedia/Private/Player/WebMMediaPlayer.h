@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_WEBM_LIBS
+
 #include "CoreMinimal.h"
 #include "Containers/Array.h"
 #include "Containers/UnrealString.h"
@@ -104,3 +106,5 @@ private:
 	void MkvSeekToNextValidBlock();
 	void MkvSeekToTime(const FTimespan& Time);
 };
+
+#endif // WITH_WEBM_LIBS

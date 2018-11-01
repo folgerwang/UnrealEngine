@@ -215,14 +215,18 @@ void operator<<(FStructuredArchive::FSlot Slot, FPackageFileSummary& Sum)
 		Record << NAMED_ITEM("Guid", Sum.Guid) << NAMED_ITEM("GenerationCount", GenerationCount);
 		if (BaseArchive.IsLoading() && GenerationCount > 0)
 		{
-			Sum.Generations.Empty(1);
-			Sum.Generations.AddUninitialized(GenerationCount);
+			Sum.Generations.Reset(GenerationCount);
+			Sum.Generations.AddZeroed(GenerationCount);
 		}
 
 		FStructuredArchive::FStream GenerationsStream = Record.EnterStream(FIELD_NAME_TEXT("Generations"));
 		for (int32 i = 0; i<GenerationCount; i++)
 		{
 			Sum.Generations[i].Serialize(GenerationsStream.EnterElement(), Sum);
+			if (BaseArchive.IsLoading() && BaseArchive.IsError())
+			{
+				return;
+			}
 		}
 
 		if (Sum.GetFileVersionUE4() >= VER_UE4_ENGINE_VERSION_OBJECT)

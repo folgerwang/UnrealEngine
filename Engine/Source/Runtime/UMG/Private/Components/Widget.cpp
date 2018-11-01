@@ -461,7 +461,7 @@ void UWidget::SetKeyboardFocus()
 
 bool UWidget::HasUserFocus(APlayerController* PlayerController) const
 {
-	if ( PlayerController == nullptr || !PlayerController->IsLocalPlayerController() )
+	if (PlayerController == nullptr || PlayerController->Player == nullptr || !PlayerController->IsLocalPlayerController())
 	{
 		return false;
 	}

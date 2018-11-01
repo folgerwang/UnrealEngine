@@ -738,6 +738,7 @@ void UNiagaraComponent::OnUnregister()
 	if (SystemInstance)
 	{
 		SystemInstance->Deactivate(true);
+		SystemInstance = nullptr;
 	}
 }
 

@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMMediaPlayer.h"
+
+#if WITH_WEBM_LIBS
+
 #include "WebMMediaPrivate.h"
 
 #include "IMediaEventSink.h"
@@ -746,3 +749,5 @@ void FWebMMediaPlayer::Stop()
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // WITH_WEBM_LIBS

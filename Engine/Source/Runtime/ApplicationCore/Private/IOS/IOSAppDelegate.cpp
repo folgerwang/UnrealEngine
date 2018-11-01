@@ -796,7 +796,7 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 	}
     else if (Device == FPlatformMisc::IOS_IPhoneX || Device == FPlatformMisc::IOS_IPhoneXS)
 	{
-		[ImageString appendString : @"-IPhoneX"];
+		[ImageString appendString : @"-IPhoneXS"];
 		if (!self.bDeviceInPortraitMode)
 		{
 			[ImageString appendString : @"-Landscape"];
@@ -836,7 +836,7 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 		// use IPhone6 image for now
 		[ImageString appendString : @"-IPhone6Plus-Landscape"];
 	}
-	else if (Device == FPlatformMisc::IOS_IPadPro_129 || Device == FPlatformMisc::IOS_IPadPro2_129)
+	else if (Device == FPlatformMisc::IOS_IPadPro_129 || Device == FPlatformMisc::IOS_IPadPro2_129 || Device == FPlatformMisc::IOS_IPadPro3_129)
 	{
 		if (!self.bDeviceInPortraitMode)
 		{
@@ -851,6 +851,38 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
         {
             [ImageString appendString:@"@2x"];
         }
+	}
+	else if (Device == FPlatformMisc::IOS_IPadPro_105)
+	{
+		if (!self.bDeviceInPortraitMode)
+		{
+			[ImageString appendString : @"-Landscape-1112"];
+		}
+		else
+		{
+			[ImageString appendString : @"-Portrait-1112"];
+		}
+
+		if (NativeScale > 1.0f)
+		{
+			[ImageString appendString : @"@2x"];
+		}
+	}
+	else if (Device == FPlatformMisc::IOS_IPadPro_11)
+	{
+		if (!self.bDeviceInPortraitMode)
+		{
+			[ImageString appendString : @"-Landscape-1194"];
+		}
+		else
+		{
+			[ImageString appendString : @"-Portrait-1194"];
+		}
+
+		if (NativeScale > 1.0f)
+		{
+			[ImageString appendString : @"@2x"];
+		}
 	}
 	else
 	{

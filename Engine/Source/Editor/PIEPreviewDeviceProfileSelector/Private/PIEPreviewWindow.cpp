@@ -16,6 +16,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Slate/SGameLayerManager.h"
 #include "UnrealEngine.h"
+#include "PIEPreviewSettings.h"
 
 
 #if WITH_EDITOR
@@ -371,7 +372,9 @@ void SPIEPreviewWindow::SetWindowScaleFactor(const float ScaleFactor, const bool
 	// when required we will save the scaling value so it can be restored after session restart
 	if (bStore)
 	{
-		GConfig->SetFloat(TEXT("/Script/Engine.MobilePIE"), TEXT("DeviceScalingFactor"), WindowScalingFactor, GEngineIni);
+		auto* Settings = GetMutableDefault<UPIEPreviewSettings>();
+		Settings->WindowScalingFactor = ScaleFactor;
+		Settings->SaveConfig();
 	}
 
 	ScaleWindow(ScaleFactor);
@@ -422,8 +425,11 @@ void SPIEPreviewWindow::OnWindowMoved(const TSharedRef<SWindow>& Window)
 
 	// save the position so we can restore it if the session is restarted
 	FVector2D WindowPos = GetPositionInScreen();
-	GConfig->SetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), FMath::CeilToInt(WindowPos.X), GEngineIni);
-	GConfig->SetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), FMath::CeilToInt(WindowPos.Y), GEngineIni);
+
+	auto* Settings = GetMutableDefault<UPIEPreviewSettings>();
+	Settings->WindowPosX = FMath::CeilToInt(WindowPos.X);
+	Settings->WindowPosY = FMath::CeilToInt(WindowPos.Y);
+	Settings->SaveConfig();
 }
 
 void SPIEPreviewWindow::OnDisplayDPIChanged(TSharedRef<SWindow> Window)

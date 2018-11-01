@@ -21,6 +21,7 @@
 #include "UnrealEngine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/UserInterfaceSettings.h"
+#include "PIEPreviewSettings.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPIEPreviewDevice, Log, All); 
 DEFINE_LOG_CATEGORY(LogPIEPreviewDevice);
@@ -95,6 +96,7 @@ void FPIEPreviewDeviceModule::OnEngineInitComplete()
 		int32 TitleBarSize = SPIEPreviewWindow::GetDefaultTitleBarSize();
 		Device->SetupDevice(TitleBarSize);
 		
+		ReadWindowConfig();
 		WindowPtr->PrepareWindow(InitialWindowPosition, InitialWindowScaleValue, Device);
 		WindowPtr->ShowWindow();
 	}
@@ -102,31 +104,17 @@ void FPIEPreviewDeviceModule::OnEngineInitComplete()
 
 bool FPIEPreviewDeviceModule::ReadWindowConfig()
 {
-	InitialWindowScaleValue = 0.0f;
-	GConfig->GetFloat(TEXT("/Script/Engine.MobilePIE"), TEXT("DeviceScalingFactor"), InitialWindowScaleValue, GEngineIni);
+	auto* Settings = GetDefault<UPIEPreviewSettings>();
+	InitialWindowScaleValue = Settings->WindowScalingFactor;
 
-	// read window position
-	int32 WinX = 0, WinY = 0;
-	bool bFound = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), WinX, GEngineIni);
-	bFound &= GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), WinY, GEngineIni);
-	InitialWindowPosition.Set(WinX, WinY);
+	InitialWindowPosition.Set(Settings->WindowPosX, Settings->WindowPosY);
 
-	return bFound;
+	return Settings->WindowPosX > 0 &&  Settings->WindowPosY > 0;
 }
 
 TSharedRef<SWindow> FPIEPreviewDeviceModule::CreatePIEPreviewDeviceWindow(FVector2D ClientSize, FText WindowTitle, EAutoCenter AutoCenterType, FVector2D ScreenPosition, TOptional<float> MaxWindowWidth, TOptional<float> MaxWindowHeight)
 {
-	bool bPosFound = ReadWindowConfig();
-
-	if (ScreenPosition.IsNearlyZero() && bPosFound)
-	{
-		ScreenPosition = InitialWindowPosition;
-		AutoCenterType = EAutoCenter::None;
-	}
-	else
-	{
-		InitialWindowPosition = ScreenPosition;
-	}
+	InitialWindowPosition = ScreenPosition;
 
 	FPIEPreviewWindowCoreStyle::InitializePIECoreStyle();
 
