@@ -26,6 +26,16 @@ struct FQueuedDemoPacket
 	uint32 SeenLevelIndex;
 
 public:
+	FORCEINLINE FQueuedDemoPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits) 
+		: Data()
+		, SizeBits(InSizeBits)
+		, Traits()
+		, SeenLevelIndex(0)
+	{
+		Data.AddUninitialized(InSizeBytes);
+		FMemory::Memcpy(Data.GetData(), InData, InSizeBytes);
+	}
+
 	FORCEINLINE FQueuedDemoPacket(uint8* InData, int32 InSizeBits, FOutPacketTraits& InTraits)
 		: Data()
 		, SizeBits(InSizeBits)
