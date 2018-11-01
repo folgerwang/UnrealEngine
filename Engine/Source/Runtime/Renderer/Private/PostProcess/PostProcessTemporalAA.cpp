@@ -874,12 +874,11 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		
 		// Inform MultiGPU systems that we're starting to update this resource
 		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
-		FRHIRenderPassInfo RPInfo(DestRenderTarget[0]->TargetableTexture, ERenderTargetActions::DontLoad_Store, DestRenderTarget[0]->ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(DestRenderTarget[0]->TargetableTexture, ERenderTargetActions::DontLoad_Store);
 
 		if (RenderTargetCount == 2)
 		{
 			RPInfo.ColorRenderTargets[1].RenderTarget = DestRenderTarget[1]->TargetableTexture;
-			RPInfo.ColorRenderTargets[1].ResolveTarget = DestRenderTarget[1]->ShaderResourceTexture;
 			RPInfo.ColorRenderTargets[1].Action = ERenderTargetActions::DontLoad_Store;
 			RPInfo.ColorRenderTargets[1].ArraySlice = -1;
 			RPInfo.ColorRenderTargets[1].MipIndex = 0;
@@ -944,6 +943,12 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 			}
 		}
 		Context.RHICmdList.EndRenderPass();
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget[0]->TargetableTexture, DestRenderTarget[0]->ShaderResourceTexture, FResolveParams());
+
+		if (RenderTargetCount == 2)
+		{
+			Context.RHICmdList.CopyToResolveTarget(DestRenderTarget[1]->TargetableTexture, DestRenderTarget[1]->ShaderResourceTexture, FResolveParams());
+		}
 
 		if (IsDOFTAAConfig(Parameters.Pass))
 		{

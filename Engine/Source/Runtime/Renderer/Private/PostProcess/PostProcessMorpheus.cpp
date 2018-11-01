@@ -223,7 +223,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("MorpheusPostProcess"));
 	{
 		Context.SetViewportAndCallRHI(DestRect);
@@ -269,6 +269,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 #endif
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessMorpheus::ComputeOutputDesc(EPassOutputId InPassOutputId) const

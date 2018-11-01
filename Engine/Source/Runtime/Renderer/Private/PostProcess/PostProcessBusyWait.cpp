@@ -92,7 +92,7 @@ void FRCPassPostProcessBusyWait::Process(FRenderingCompositePassContext& Context
 	
 	const FSceneRenderTargetItem& DestRenderTarget = SceneContext.GetLightAttenuation()->GetRenderTargetItem();
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessBusyWait"));
 	{
 		const FViewInfo& View = Context.View;
@@ -133,6 +133,7 @@ void FRCPassPostProcessBusyWait::Process(FRenderingCompositePassContext& Context
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	SceneContext.SetLightAttenuation(0);
 }

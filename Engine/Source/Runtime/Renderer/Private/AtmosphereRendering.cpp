@@ -1132,6 +1132,7 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				DrawQuad(RHICmdList, ViewRect, *VertexShader);
 			}
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 		}
 		break;
 	case AP_Irradiance1:
@@ -1157,6 +1158,7 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				DrawQuad(RHICmdList, ViewRect, *VertexShader);
 			}
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 		}
 		break;
 	case AP_Inscatter1:
@@ -1170,13 +1172,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				};
 
 				FRHIRenderPassInfo RPInfo(2, RenderTargets, MakeRenderTargetActions(ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore));
-
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = AtmosphereTextures->AtmosphereDeltaSR->GetRenderTargetItem().ShaderResourceTexture;
-					RPInfo.ColorRenderTargets[1].ResolveTarget = AtmosphereTextures->AtmosphereDeltaSM->GetRenderTargetItem().ShaderResourceTexture;
-				}
-
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("AP_Inscatter"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1206,6 +1201,13 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
 				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(AtmosphereTextures->AtmosphereDeltaSR->GetRenderTargetItem().TargetableTexture,
+						AtmosphereTextures->AtmosphereDeltaSR->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+					RHICmdList.CopyToResolveTarget(AtmosphereTextures->AtmosphereDeltaSM->GetRenderTargetItem().TargetableTexture,
+						AtmosphereTextures->AtmosphereDeltaSM->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
+				}
 			}
 		}
 		break;
@@ -1214,9 +1216,10 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 			const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereIrradiance->GetRenderTargetItem();
 			ensure(DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black);
 
-			FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store, DestRenderTarget.ShaderResourceTexture);
+			FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store);
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("AP_ClearIrradiance"));
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 		}
 		break;
 	case AP_CopyInscatter1:
@@ -1226,12 +1229,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereInscatter->GetRenderTargetItem();
 
 				FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = DestRenderTarget.ShaderResourceTexture;
-				}
-
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("AP_CopyInscatter1"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1260,6 +1257,10 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
 				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+				}
 			}
 		}
 		break;
@@ -1270,10 +1271,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereDeltaJ->GetRenderTargetItem();
 
 				FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = DestRenderTarget.ShaderResourceTexture;
-				}
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("InscatterS"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1302,13 +1299,17 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
 				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+				}
 			}
 		}
 		break;
 	case AP_IrradianceN:
 		{
 			const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereDeltaE->GetRenderTargetItem();
-			FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+			FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("IrradianceN"));
 			{
 				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1328,6 +1329,7 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				DrawQuad(RHICmdList, ViewRect, *VertexShader);
 			}
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 		}
 		break;
 
@@ -1338,10 +1340,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereDeltaSR->GetRenderTargetItem();
 
 				FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = DestRenderTarget.ShaderResourceTexture;
-				}
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("InscatterN"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1370,6 +1368,10 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
 				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+				}
 			}
 		}
 		break;
@@ -1377,7 +1379,7 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 		{
 			const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereIrradiance->GetRenderTargetItem();
 
-			FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+			FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyIrradiance"));
 			{
 				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1399,6 +1401,7 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				DrawQuad(RHICmdList, ViewRect, *VertexShader);
 			}
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 		}
@@ -1411,11 +1414,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereInscatter->GetRenderTargetItem();
 				
 				FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = DestRenderTarget.ShaderResourceTexture;
-				}
-
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyInscatterN"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1446,6 +1444,10 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
 				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+				}
 			}
 
 			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
@@ -1459,10 +1461,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereDeltaSR->GetRenderTargetItem();
 				
 				FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = DestRenderTarget.ShaderResourceTexture;
-				}
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyInscatterF"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1490,7 +1488,11 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					PixelShader->SetParameters(RHICmdList, r, DhdH, Layer, AtmosphereTextures);
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
-				RHICmdList.EndRenderPass();				
+				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+				}
 			}
 		}
 		break;
@@ -1501,10 +1503,6 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 				const FSceneRenderTargetItem& DestRenderTarget = AtmosphereTextures->AtmosphereInscatter->GetRenderTargetItem();
 
 				FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
-				{
-					RPInfo.ColorRenderTargets[0].ResolveTarget = DestRenderTarget.ShaderResourceTexture;
-				}
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyInscatterFBack"));
 				{
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1533,6 +1531,10 @@ void FAtmosphericFogSceneInfo::RenderAtmosphereShaders(FRHICommandList& RHICmdLi
 					DrawQuad(RHICmdList, ViewRect, *VertexShader);
 				}
 				RHICmdList.EndRenderPass();
+				if (Atmosphere3DTextureIndex == Component->PrecomputeParams.InscatterAltitudeSampleNum - 1)
+				{
+					RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
+				}
 			}
 		}
 		break;

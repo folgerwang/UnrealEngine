@@ -413,7 +413,7 @@ void FVisualizeTexture::GenerateContent(FRHICommandListImmediate& RHICmdList, co
 
 	const FSceneRenderTargetItem& DestRenderTarget = VisualizeTextureContent->GetRenderTargetItem();
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Clear_Store);
 	TransitionRenderPassTargets(RHICmdList, RPInfo);
 	
 	RHICmdList.BeginRenderPass(RPInfo, TEXT("VisualizeTexture"));
@@ -497,10 +497,10 @@ void FVisualizeTexture::GenerateContent(FRHICommandListImmediate& RHICmdList, co
 
 	RHICmdList.EndRenderPass();
 
-	/*{
+	{
 		SCOPED_DRAW_EVENT(RHICmdList, VisCopy);
 		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
-	}*/
+	}
 
 	VisualizeTextureDesc = Desc;
 

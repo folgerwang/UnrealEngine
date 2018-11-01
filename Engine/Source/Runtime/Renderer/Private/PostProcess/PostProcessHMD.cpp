@@ -172,7 +172,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 	
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessHMD"));
 	{
 		const FViewInfo& View = Context.View;
@@ -217,6 +217,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 		GEngine->XRSystem->GetHMDDevice()->DrawDistortionMesh_RenderThread(Context, SrcSize);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessHMD::ComputeOutputDesc(EPassOutputId InPassOutputId) const

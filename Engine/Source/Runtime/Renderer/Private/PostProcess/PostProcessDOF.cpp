@@ -177,16 +177,7 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 		DestRenderTarget0.TargetableTexture,
 		DestRenderTarget1.TargetableTexture
 	};
-
-	FTextureRHIParamRef ResolveTargets[2] =
-	{
-		DestRenderTarget0.ShaderResourceTexture,
-		nullptr
-	};
-	if (DestRenderTarget1.TargetableTexture)
-	{
-		ResolveTargets[1] = DestRenderTarget1.ShaderResourceTexture;
-	}
+	
 	ERenderTargetActions LoadStoreAction = ERenderTargetActions::Load_Store;
 
 	//@todo Ronin find a way to use the same codepath for all platforms.
@@ -196,7 +187,7 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 		LoadStoreAction = ERenderTargetActions::Clear_Store;
 	}
 
-	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, LoadStoreAction, ResolveTargets);
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, LoadStoreAction);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DOFSetup"));
 	{
 		if (View.StereoPass == eSSP_FULL)
@@ -263,6 +254,12 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
+
+	if (DestRenderTarget1.TargetableTexture)
+	{
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, FResolveParams());
+	}
 
 	// #todo-rco: needed to avoid multiple resolves clearing the RT with VK.
 	// #todo mattc this is probably busted now since the resolves previously happened after this SetRenderTarget.
@@ -462,7 +459,7 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 		LoadStoreAction = ERenderTargetActions::Load_Store;
 	}
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DOFRecombine"));
 	{
 		if (View.StereoPass == eSSP_FULL)
@@ -508,6 +505,7 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessDOFRecombine::ComputeOutputDesc(EPassOutputId InPassOutputId) const

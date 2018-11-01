@@ -25,9 +25,10 @@ void FAtmosphereTextures::InitDynamicRHI()
 		{
 			const FSceneRenderTargetItem& TransmittanceTarget = AtmosphereTransmittance->GetRenderTargetItem();
 
-			FRHIRenderPassInfo RPInfo(TransmittanceTarget.TargetableTexture, ERenderTargetActions::Clear_Store, TransmittanceTarget.ShaderResourceTexture);
+			FRHIRenderPassInfo RPInfo(TransmittanceTarget.TargetableTexture, ERenderTargetActions::Clear_Store);
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearTransmittance"));
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(TransmittanceTarget.TargetableTexture, TransmittanceTarget.ShaderResourceTexture, FResolveParams());
 		}
 
 		// Irradiance
@@ -37,9 +38,10 @@ void FAtmosphereTextures::InitDynamicRHI()
 		{
 			const FSceneRenderTargetItem& IrradianceTarget = AtmosphereIrradiance->GetRenderTargetItem();
 
-			FRHIRenderPassInfo RPInfo(IrradianceTarget.TargetableTexture, ERenderTargetActions::Clear_Store, IrradianceTarget.ShaderResourceTexture);
+			FRHIRenderPassInfo RPInfo(IrradianceTarget.TargetableTexture, ERenderTargetActions::Clear_Store);
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearIrradiance"));
 			RHICmdList.EndRenderPass();
+			RHICmdList.CopyToResolveTarget(IrradianceTarget.TargetableTexture, IrradianceTarget.ShaderResourceTexture, FResolveParams());
 		}
 		// DeltaE
 		GRenderTargetPool.FindFreeElement(RHICmdList, IrradianceDesc, AtmosphereDeltaE, TEXT("AtmosphereDeltaE"));

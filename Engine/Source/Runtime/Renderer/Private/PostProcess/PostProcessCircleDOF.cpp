@@ -189,18 +189,7 @@ void FRCPassPostProcessCircleDOFSetup::Process(FRenderingCompositePassContext& C
 	};
 	uint32 NumRenderTargets = FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
 	
-	FTextureRHIParamRef ResolveTargets[2] =
-	{
-		DestRenderTarget0.ShaderResourceTexture,
-		nullptr,
-	};
-
-	if (DestRenderTarget1.TargetableTexture)
-	{
-		ResolveTargets[1] = DestRenderTarget1.ShaderResourceTexture;
-	}
-
-	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store, ResolveTargets);
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFSetup"));
 	{
 		const FViewInfo& View = Context.View;
@@ -279,6 +268,12 @@ void FRCPassPostProcessCircleDOFSetup::Process(FRenderingCompositePassContext& C
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
+
+	if (DestRenderTarget1.TargetableTexture)
+	{
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, FResolveParams());
+	}
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessCircleDOFSetup::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -412,18 +407,7 @@ void FRCPassPostProcessCircleDOFDilate::Process(FRenderingCompositePassContext& 
 		DestRenderTarget1.TargetableTexture
 	};
 
-	FTextureRHIParamRef ResolveTargets[2] =
-	{
-		DestRenderTarget0.ShaderResourceTexture,
-		nullptr,
-	};
-
-	if (DestRenderTarget1.TargetableTexture)
-	{
-		ResolveTargets[1] = DestRenderTarget1.ShaderResourceTexture;
-	}
-
-	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store, ResolveTargets);
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFDilate"));
 	{
 		const FViewInfo& View = Context.View;
@@ -502,6 +486,12 @@ void FRCPassPostProcessCircleDOFDilate::Process(FRenderingCompositePassContext& 
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
+
+	if (DestRenderTarget1.TargetableTexture)
+	{
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, FResolveParams());
+	}
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessCircleDOFDilate::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -704,18 +694,7 @@ void FRCPassPostProcessCircleDOF::Process(FRenderingCompositePassContext& Contex
 	};
 	uint32 NumRenderTargets = FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
 
-	FTextureRHIParamRef ResolveTargets[2] =
-	{
-		DestRenderTarget0.ShaderResourceTexture,
-		nullptr,
-	};
-
-	if (DestRenderTarget1.TargetableTexture)
-	{
-		ResolveTargets[1] = DestRenderTarget1.ShaderResourceTexture;
-	}
-
-	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store, ResolveTargets);
+	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFApply"));
 	{
 		const FViewInfo& View = Context.View;
@@ -776,6 +755,12 @@ void FRCPassPostProcessCircleDOF::Process(FRenderingCompositePassContext& Contex
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget0.TargetableTexture, DestRenderTarget0.ShaderResourceTexture, FResolveParams());
+
+	if (DestRenderTarget1.TargetableTexture)
+	{
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget1.TargetableTexture, DestRenderTarget1.ShaderResourceTexture, FResolveParams());
+	}
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessCircleDOF::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -948,7 +933,7 @@ void FRCPassPostProcessCircleDOFRecombine::Process(FRenderingCompositePassContex
 		LoadStoreAction = ERenderTargetActions::DontLoad_Store;
 	}
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CircleDOFRecombine"));
 	{
 		const FViewInfo& View = Context.View;
@@ -999,6 +984,7 @@ void FRCPassPostProcessCircleDOFRecombine::Process(FRenderingCompositePassContex
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessCircleDOFRecombine::ComputeOutputDesc(EPassOutputId InPassOutputId) const

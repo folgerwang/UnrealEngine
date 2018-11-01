@@ -281,11 +281,6 @@ void FRCPassPostProcessLpvIndirect::Process(FRenderingCompositePassContext& Cont
 	}
 
 	FRHIRenderPassInfo RPInfo(NumRenderTargets, RenderTargets, ERenderTargetActions::Load_Store);
-	RPInfo.ColorRenderTargets[0].ResolveTarget = DestColorRenderTarget.ShaderResourceTexture;
-	if (bApplySeparateSpecularRT)
-	{
-		RPInfo.ColorRenderTargets[1].ResolveTarget = DestSpecularRenderTarget.ShaderResourceTexture;
-	}
 
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("LPVIndirect"));
 	{
@@ -350,6 +345,12 @@ void FRCPassPostProcessLpvIndirect::Process(FRenderingCompositePassContext& Cont
 		}
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestColorRenderTarget.TargetableTexture, DestColorRenderTarget.ShaderResourceTexture, FResolveParams());
+
+	if (bApplySeparateSpecularRT)
+	{
+		Context.RHICmdList.CopyToResolveTarget(DestSpecularRenderTarget.TargetableTexture, DestSpecularRenderTarget.ShaderResourceTexture, FResolveParams());
+	}
 
 	if ( LPVSettings.LPVDirectionalOcclusionIntensity > 0.0001f )
 	{

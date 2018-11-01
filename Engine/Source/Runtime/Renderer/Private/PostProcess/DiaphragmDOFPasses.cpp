@@ -1669,7 +1669,7 @@ void FRCPassDiaphragmDOFHybridScatter::Process(FRenderingCompositePassContext& C
 		EResourceTransitionPipeline::EComputeToGfx,
 		DestRenderTarget.UAV);
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DOFHybridScatter"));
 	{
 		Context.SetViewportAndCallRHI(DestViewport, 0.0f, 1.0f);
@@ -1735,6 +1735,7 @@ void FRCPassDiaphragmDOFHybridScatter::Process(FRenderingCompositePassContext& C
 		}
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	{
 		FVertexShaderRHIParamRef ShaderRHI = VertexShader->GetVertexShader();

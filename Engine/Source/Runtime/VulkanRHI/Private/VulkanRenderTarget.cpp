@@ -1630,8 +1630,6 @@ void FVulkanCommandListContext::RHIEndRenderPass()
 		TransitionAndLayoutManager.EndRealRenderPass(CmdBuffer);
 	}
 
-	IRHICommandContext::RHIEndRenderPass();
-
 	RHIPopEvent();
 }
 

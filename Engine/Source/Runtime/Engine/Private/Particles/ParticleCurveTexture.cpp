@@ -196,7 +196,7 @@ static void InjectCurves(
 		bFirstCall = false;
 	}
 
-	FRHIRenderPassInfo RPInfo(CurveTextureTargetRHI, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), CurveTextureRHI);
+	FRHIRenderPassInfo RPInfo(CurveTextureTargetRHI, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
 	TransitionRenderPassTargets(RHICmdList, RPInfo);
 	RHICmdList.BeginRenderPass(RPInfo, TEXT("InjectCurves"));
 	{
@@ -287,6 +287,7 @@ static void InjectCurves(
 		}
 	}
 	RHICmdList.EndRenderPass();
+	RHICmdList.CopyToResolveTarget(CurveTextureTargetRHI, CurveTextureRHI, FResolveParams());
 	RHICmdList.EndUpdateMultiFrameResource(CurveTextureTargetRHI);
 }
 

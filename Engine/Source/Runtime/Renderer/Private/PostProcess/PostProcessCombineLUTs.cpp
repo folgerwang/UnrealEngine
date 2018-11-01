@@ -953,7 +953,7 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 			LoadStoreAction = ERenderTargetActions::Clear_Store;
 		}
 
-		FRHIRenderPassInfo RPInfo(DestRenderTarget->TargetableTexture, LoadStoreAction, DestRenderTarget->ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(DestRenderTarget->TargetableTexture, LoadStoreAction);
 		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CombineLUTs"));
 		{
 			Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
@@ -985,6 +985,7 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 			}
 		}
 		Context.RHICmdList.EndRenderPass();
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget->TargetableTexture, DestRenderTarget->ShaderResourceTexture, FResolveParams());
 	}
 
 	Context.View.SetValidTonemappingLUT();

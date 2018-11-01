@@ -149,7 +149,7 @@ void FRCPassPostProcessLensFlares::Process(FRenderingCompositePassContext& Conte
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::DontLoad_Store, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::DontLoad_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PassPostProcessLensFlares"));
 	{
 		const FViewInfo& View = Context.View;
@@ -292,6 +292,7 @@ void FRCPassPostProcessLensFlares::Process(FRenderingCompositePassContext& Conte
 		}
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessLensFlares::ComputeOutputDesc(EPassOutputId InPassOutputId) const

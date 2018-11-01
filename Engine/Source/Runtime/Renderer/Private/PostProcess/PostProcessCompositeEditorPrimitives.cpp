@@ -570,7 +570,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		FIntRect DestRect = Context.GetSceneColorDestRect(DestRenderTarget);
 
 		// Set the view family's render target/viewport.
-		FRHIRenderPassInfo RPInfo(DestRenderTargetSurface, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(DestRenderTargetSurface, ERenderTargetActions::Load_Store);
 		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("ComposeEditorPrimitives"));
 		{
 			Context.SetViewportAndCallRHI(DestRect);
@@ -620,6 +620,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 				EDRF_UseTriangleOptimization);
 		}
 		Context.RHICmdList.EndRenderPass();
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTargetSurface, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 
 	// Clean up targets

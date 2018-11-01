@@ -49,7 +49,6 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 	// Set the render target/viewport.
 	FRHIRenderPassInfo RPInfo;
 	RPInfo.DepthStencilRenderTarget.DepthStencilTarget = DestRenderTarget.TargetableTexture;
-	RPInfo.DepthStencilRenderTarget.ResolveTarget = DestRenderTarget.ShaderResourceTexture;
 	RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Clear_Store, ERenderTargetActions::Clear_Store);
 	RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 
@@ -174,6 +173,7 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 		}
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 #endif	
 }
 
@@ -409,7 +409,7 @@ void FRCPassPostProcessSelectionOutline::Process(FRenderingCompositePassContext&
 	FIntPoint SrcSize = SceneColorInputDesc->Extent;
 
 	// Set the view family's render target/viewport.
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SelectionOutline"));
 	{
 		Context.SetViewportAndCallRHI(DestRect);
@@ -452,6 +452,7 @@ void FRCPassPostProcessSelectionOutline::Process(FRenderingCompositePassContext&
 			EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessSelectionOutline::ComputeOutputDesc(EPassOutputId InPassOutputId) const

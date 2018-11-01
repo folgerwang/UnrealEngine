@@ -1045,7 +1045,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 			LoadAction = ERenderTargetLoadAction::EClear;
 		}
 
-		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
 		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("WeightedSampleSum"));
 		{
 			Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
@@ -1077,6 +1077,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 			DrawQuad(Context.RHICmdList, FeatureLevel, bDoFastBlur, SrcRect, DestRect, DestSize, SrcSize, VertexShader);
 		}
 		Context.RHICmdList.EndRenderPass();
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 }
 

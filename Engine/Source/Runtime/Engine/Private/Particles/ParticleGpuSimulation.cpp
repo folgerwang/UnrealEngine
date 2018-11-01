@@ -4737,11 +4737,11 @@ void FFXSystem::SimulateGPUParticles(
 
 			{
 				FRHIRenderPassInfo RPInfo(2, PreviousStateRenderTargets, ERenderTargetActions::Clear_Store);
-				RPInfo.ColorRenderTargets[0].ResolveTarget = PrevStateTextures.PositionTextureTargetRHI;
-				RPInfo.ColorRenderTargets[1].ResolveTarget = PrevStateTextures.VelocityTextureTargetRHI;
-
 				RHICmdList.BeginRenderPass(RPInfo, TEXT("GPUParticlesClearPreviousStateTextures"));
 				RHICmdList.EndRenderPass();
+
+				RHICmdList.CopyToResolveTarget(PreviousStateRenderTargets[0], PrevStateTextures.PositionTextureTargetRHI, FResolveParams());
+				RHICmdList.CopyToResolveTarget(PreviousStateRenderTargets[1], PrevStateTextures.VelocityTextureTargetRHI, FResolveParams());
 			}
 			
 			PrevStateTextures.bTexturesCleared = true;
@@ -4959,8 +4959,6 @@ void FFXSystem::SimulateGPUParticles(
 		RHICmdList.BeginUpdateMultiFrameResource(ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI);
 
 		FRHIRenderPassInfo RPInfo(4, InjectRenderTargets, ERenderTargetActions::Load_Store);
-		RPInfo.ColorRenderTargets[2].ResolveTarget = ParticleSimulationResources->RenderAttributesTexture.TextureRHI;
-		RPInfo.ColorRenderTargets[3].ResolveTarget = ParticleSimulationResources->SimulationAttributesTexture.TextureRHI;
 		{
 			TransitionRenderPassTargets(RHICmdList, RPInfo);
 			RHICmdList.BeginRenderPass(RPInfo, TEXT("ParticleInjection"));
@@ -4977,6 +4975,18 @@ void FFXSystem::SimulateGPUParticles(
 			InjectNewParticles<false>(RHICmdList, GraphicsPSOInit, this->FeatureLevel, NewParticles);
 
 			RHICmdList.EndRenderPass();
+
+			// Resolve attributes textures. State textures are resolved later.
+			RHICmdList.CopyToResolveTarget(
+				ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI,
+				ParticleSimulationResources->RenderAttributesTexture.TextureRHI,
+				FResolveParams()
+			);
+			RHICmdList.CopyToResolveTarget(
+				ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI,
+				ParticleSimulationResources->SimulationAttributesTexture.TextureRHI,
+				FResolveParams()
+			);
 		}
 
 		if (GNumAlternateFrameRenderingGroups > 1 && CVarGPUParticleAFRReinject.GetValueOnRenderThread() == 1)

@@ -407,7 +407,7 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 		LoadAction = ERenderTargetLoadAction::EClear;
 	}
 
-	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore), DestRenderTarget.ShaderResourceTexture);
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
 	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("Upscale"));
 	{
 		bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
@@ -471,6 +471,7 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 			bTessellatedQuad ? EDRF_UseTesselatedIndexBuffer : EDRF_UseTriangleOptimization);
 	}
 	Context.RHICmdList.EndRenderPass();
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	// Update scene color view rectangle for secondary upscale.
 	Context.SceneColorViewRect = DestRect;

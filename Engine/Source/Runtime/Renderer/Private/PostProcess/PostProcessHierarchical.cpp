@@ -158,7 +158,7 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-		FRHIRenderPassInfo RPInfo(HCBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, HCBRenderTarget.ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(HCBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 		RPInfo.ResolveParameters = FResolveParams(FResolveRect(), CubeFace_PosX, 0);
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("BuildHCB_0"));
 		{
@@ -208,6 +208,7 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 #endif
 		}
 		Context.RHICmdList.EndRenderPass();
+		Context.RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, FResolveRect());
 	}
 		
 	FIntPoint SrcSize = HCBSize;
@@ -219,7 +220,7 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 		TCHAR RenderPassLabel[13];
 		FCString::Snprintf(RenderPassLabel, 13, TEXT("BuildHCB_%u"), MipIndex);
 
-		FRHIRenderPassInfo RPInfo(HCBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, HCBRenderTarget.ShaderResourceTexture);
+		FRHIRenderPassInfo RPInfo(HCBRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
 		RPInfo.ColorRenderTargets[0].MipIndex = MipIndex;
 		RPInfo.ResolveParameters = FResolveParams(FResolveRect(), CubeFace_PosX, MipIndex);
 		RHICmdList.BeginRenderPass(RPInfo, RenderPassLabel);
@@ -279,6 +280,7 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 #endif
 		}
 		Context.RHICmdList.EndRenderPass();
+		Context.RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, FResolveParams());
 
 		SrcSize /= 2;
 		DstSize /= 2;
