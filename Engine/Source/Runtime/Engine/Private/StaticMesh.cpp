@@ -2266,6 +2266,24 @@ void UStaticMesh::SetNumSourceModels(const int32 Num)
 	SourceModels.SetNum(Num);
 	MeshDescriptions->SetNum(Num);
 
+	//Shrink the SectionInfoMap if some SourceModel are removed
+	if (OldNum > Num)
+	{
+		for (int32 RemoveLODIndex = Num; RemoveLODIndex < OldNum; ++RemoveLODIndex)
+		{
+			int32 SectionCount = SectionInfoMap.GetSectionNumber(RemoveLODIndex);
+			for (int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+			{
+				SectionInfoMap.Remove(RemoveLODIndex, SectionIndex);
+			}
+			SectionCount = OriginalSectionInfoMap.GetSectionNumber(RemoveLODIndex);
+			for (int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+			{
+				OriginalSectionInfoMap.Remove(RemoveLODIndex, SectionIndex);
+			}
+		}
+	}
+
 	for (int32 Index = OldNum; Index < Num; ++Index)
 	{
 		SourceModels[Index].StaticMeshOwner = this;
@@ -2277,6 +2295,44 @@ void UStaticMesh::RemoveSourceModel(const int32 Index)
 	LoadMeshDescriptions();
 	check(MeshDescriptions->Num() == SourceModels.Num());
 	check(SourceModels.IsValidIndex(Index));
+	
+	//Remove the SectionInfoMap of the LOD we remove
+	{
+		int32 SectionCount = SectionInfoMap.GetSectionNumber(Index);
+		for (int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+		{
+			SectionInfoMap.Remove(Index, SectionIndex);
+		}
+		SectionCount = OriginalSectionInfoMap.GetSectionNumber(Index);
+		for (int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+		{
+			OriginalSectionInfoMap.Remove(Index, SectionIndex);
+		}
+	}
+
+	//Move down all SectionInfoMap for the next LOD
+	if (Index < SourceModels.Num() - 1)
+	{
+		for (int32 MoveIndex = Index + 1; MoveIndex < SourceModels.Num(); ++MoveIndex)
+		{
+			int32 SectionCount = SectionInfoMap.GetSectionNumber(MoveIndex);
+			for (int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+			{
+				FMeshSectionInfo SectionInfo = SectionInfoMap.Get(MoveIndex, SectionIndex);
+				SectionInfoMap.Set(MoveIndex - 1, SectionIndex, SectionInfo);
+				SectionInfoMap.Remove(MoveIndex, SectionIndex);
+			}
+			SectionCount = OriginalSectionInfoMap.GetSectionNumber(MoveIndex);
+			for (int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
+			{
+				FMeshSectionInfo SectionInfo = OriginalSectionInfoMap.Get(MoveIndex, SectionIndex);
+				OriginalSectionInfoMap.Set(MoveIndex - 1, SectionIndex, SectionInfo);
+				OriginalSectionInfoMap.Remove(MoveIndex, SectionIndex);
+			}
+		}
+	}
+	
+	//Remove the LOD
 	SourceModels.RemoveAt(Index);
 	MeshDescriptions->RemoveAt(Index);
 }

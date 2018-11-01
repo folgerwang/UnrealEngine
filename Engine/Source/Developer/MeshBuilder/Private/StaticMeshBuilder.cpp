@@ -134,6 +134,8 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			//Create a reduced mesh from the base LOD
 			UStaticMesh::RegisterMeshAttributes(MeshDescriptions[LodIndex]);
 			
+			int32 OldSectionInfoMapCount = StaticMesh->SectionInfoMap.GetSectionNumber(LodIndex);
+
 			if (LodIndex == BaseLodIndex)
 			{
 				//When using LOD 0, we use a copy of the mesh description since reduce do not support inline reducing
@@ -167,11 +169,15 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 				}
 				UniqueMaterialIndex.AddUnique(MaterialIndex);
 			}
+
+			//If the reduce did not output the same number of section use the base LOD sectionInfoMap
+			bool bIsOldMappingInvalid = OldSectionInfoMapCount != UniqueMaterialIndex.Num();
+
 			//All used material represent a different section
 			for (int32 SectionIndex = 0; SectionIndex < UniqueMaterialIndex.Num(); ++SectionIndex)
 			{
 				//Keep the old data
-				bool bHasValidLODInfoMap = LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex);
+				bool bHasValidLODInfoMap = !bIsOldMappingInvalid && LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex);
 				//Section material index have to be remap with the ReductionSettings.BaseLODModel SectionInfoMap to create
 				//a valid new section info map for the reduced LOD.
 
@@ -182,7 +188,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 					for (int32 BaseLodSectionIndex = 0; BaseLodSectionIndex < LODModelSectionInfoMap.GetSectionNumber(BaseLodIndex); ++BaseLodSectionIndex)
 					{
 						FMeshSectionInfo SectionInfo = LODModelSectionInfoMap.Get(ReductionSettings.BaseLODModel, BaseLodSectionIndex);
-						if (SectionInfo.MaterialIndex == UniqueMaterialIndex[SectionIndex])
+						if (BaseLodSectionIndex == UniqueMaterialIndex[SectionIndex])
 						{
 							//Copy the BaseLODModel section info to the reduce LODIndex.
 							FMeshSectionInfo OriginalSectionInfo = LODModelOriginalSectionInfoMap.Get(ReductionSettings.BaseLODModel, BaseLodSectionIndex);
