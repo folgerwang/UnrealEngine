@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMVideoDecoder.h"
+
+#if WITH_WEBM_LIBS
+
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
 #include "WebMMediaTextureSample.h"
@@ -271,3 +274,5 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		Samples->AddVideo(VideoSample.ToSharedRef());
 	}
 }
+
+#endif // WITH_WEBM_LIBS
