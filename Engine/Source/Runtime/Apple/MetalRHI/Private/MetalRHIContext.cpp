@@ -139,9 +139,6 @@ FMetalRHIImmediateCommandContext::FMetalRHIImmediateCommandContext(class FMetalP
 
 void FMetalRHICommandContext::RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
 {
-	// Fallback...
-	InInfo.Validate();
-	
 	if (InInfo.bGeneratingMips)
 	{
 		FRHITexture* Textures[MaxSimultaneousRenderTargets];

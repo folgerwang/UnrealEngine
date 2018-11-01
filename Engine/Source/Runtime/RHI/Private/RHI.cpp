@@ -896,7 +896,7 @@ void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& Ou
 	}
 }
 
-
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 void FRHIRenderPassInfo::Validate() const
 {
 	int32 NumSamples = -1;	// -1 means nothing found yet
@@ -921,6 +921,11 @@ void FRHIRenderPassInfo::Validate() const
 			ensure(Store != ERenderTargetStoreAction::EMultisampleResolve || Entry.RenderTarget->GetNumSamples() > 1);
 			// Don't resolve to null
 			ensure(Store != ERenderTargetStoreAction::EMultisampleResolve || Entry.ResolveTarget);
+
+			if (Entry.ResolveTarget)
+			{
+				ensure(Store == ERenderTargetStoreAction::EMultisampleResolve);
+			}
 		}
 		else
 		{
@@ -963,8 +968,8 @@ void FRHIRenderPassInfo::Validate() const
 		// Don't resolve to null
 		//ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
 		// Don't write to depth if read-only
-		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
-		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);
+		ensure((DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() && DepthStore == ERenderTargetStoreAction::EStore) || DepthStore != ERenderTargetStoreAction::EStore);
+		ensure((DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() && StencilStore == ERenderTargetStoreAction::EStore) || StencilStore != ERenderTargetStoreAction::EStore);
 	}
 	else
 	{
@@ -972,6 +977,7 @@ void FRHIRenderPassInfo::Validate() const
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil == FExclusiveDepthStencil::DepthNop_StencilNop);
 	}
 }
+#endif
 
 static FRHIPanicEvent RHIPanicEvent;
 FRHIPanicEvent& RHIGetPanicDelegate()

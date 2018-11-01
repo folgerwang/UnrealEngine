@@ -2736,6 +2736,8 @@ public:
 		check(!IsInsideRenderPass());
 		check(!IsInsideComputePass());
 
+		InInfo.Validate();
+
 		if (Bypass())
 		{
 			CMD_CONTEXT(RHIBeginRenderPass)(InInfo, Name);
