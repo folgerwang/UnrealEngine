@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017 The Khronos Group Inc.
+# Copyright (c) 2014-2018 The Khronos Group Inc.
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and/or associated documentation files (the "Materials"),
@@ -41,8 +41,8 @@
 
 spv = {
     'MagicNumber' : 0x07230203,
-    'Version' : 0x00010100,
-    'Revision' : 8,
+    'Version' : 0x00010200,
+    'Revision' : 2,
     'OpCodeMask' : 0xffff,
     'WordCountShift' : 16,
 
@@ -113,6 +113,9 @@ spv = {
         'Finalizer' : 34,
         'SubgroupSize' : 35,
         'SubgroupsPerWorkgroup' : 36,
+        'SubgroupsPerWorkgroupId' : 37,
+        'LocalSizeId' : 38,
+        'LocalSizeHintId' : 39,
         'PostDepthCoverage' : 4446,
         'StencilRefReplacingEXT' : 5027,
     },
@@ -356,11 +359,15 @@ spv = {
         'InputAttachmentIndex' : 43,
         'Alignment' : 44,
         'MaxByteOffset' : 45,
+        'AlignmentId' : 46,
+        'MaxByteOffsetId' : 47,
         'ExplicitInterpAMD' : 4999,
         'OverrideCoverageNV' : 5248,
         'PassthroughNV' : 5250,
         'ViewportRelativeNV' : 5252,
         'SecondaryViewportRelativeNV' : 5256,
+        'HlslCounterBufferGOOGLE' : 5634,
+        'HlslSemanticGOOGLE' : 5635,
     },
 
     'BuiltIn' : {
@@ -936,6 +943,8 @@ spv = {
         'OpNamedBarrierInitialize' : 328,
         'OpMemoryNamedBarrier' : 329,
         'OpModuleProcessed' : 330,
+        'OpExecutionModeId' : 331,
+        'OpDecorateId' : 332,
         'OpSubgroupBallotKHR' : 4421,
         'OpSubgroupFirstInvocationKHR' : 4422,
         'OpSubgroupAllKHR' : 4428,
@@ -960,6 +969,8 @@ spv = {
         'OpSubgroupBlockWriteINTEL' : 5576,
         'OpSubgroupImageBlockReadINTEL' : 5577,
         'OpSubgroupImageBlockWriteINTEL' : 5578,
+        'OpDecorateStringGOOGLE' : 5632,
+        'OpMemberDecorateStringGOOGLE' : 5633,
     },
 
 }

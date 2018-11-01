@@ -86,10 +86,14 @@ public:
 	bool IsLoaded() const;
 
 protected:
+	void LoadSoundWaveInternal();
+
 	Audio::FSampleBufferReader SampleBufferReader;
 	Audio::TSampleBuffer<int16> SampleBuffer;
 	Audio::FSoundWavePCMLoader SoundWaveLoader;
 
 	float SampleDurationSec;
 	float SamplePlaybackProgressSec;
+
+	bool bIsLoaded;
 };

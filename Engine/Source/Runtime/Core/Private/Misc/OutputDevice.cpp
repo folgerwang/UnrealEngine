@@ -55,16 +55,17 @@ void FOutputDevice::Log( const FText& T )
 	Formatted printing and messages.
 -----------------------------------------------------------------------------*/
 
-void FOutputDevice::CategorizedLogfImpl(const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
+// Do not inline these functions, in case we need to capture a call stack in FOutputDeviceError::Serialize. We need to be certain of how many frames to ignore.
+FORCENOINLINE void FOutputDevice::CategorizedLogfImpl(const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
 {
 	GROWABLE_LOGF(Serialize(Buffer, Verbosity, Category))
 }
-void FOutputDevice::LogfImpl(ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
+FORCENOINLINE void FOutputDevice::LogfImpl(ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
 {
 	// call serialize with the final buffer
 	GROWABLE_LOGF(Serialize(Buffer, Verbosity, NAME_None))
 }
-void FOutputDevice::LogfImpl(const TCHAR* Fmt, ...)
+FORCENOINLINE void FOutputDevice::LogfImpl(const TCHAR* Fmt, ...)
 {
 	FScopedCategoryAndVerbosityOverride::FOverride* TLS = FScopedCategoryAndVerbosityOverride::GetTLSCurrent();
 	GROWABLE_LOGF(Serialize(Buffer, TLS->Verbosity, TLS->Category))

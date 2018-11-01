@@ -13,7 +13,7 @@ class SNiagaraTemplateAssetPicker;
 class SNiagaraNewAssetDialog : public SWindow
 {
 public:
-	DECLARE_DELEGATE_RetVal(TArray<FAssetData>, FOnGetSelectedAssetsFromPicker);
+	DECLARE_DELEGATE_OneParam(FOnGetSelectedAssetsFromPicker, TArray<FAssetData>& /* OutSelectedAssets */);
 
 public:
 	class FNiagaraNewAssetDialogOption

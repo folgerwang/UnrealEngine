@@ -1357,6 +1357,8 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 			AdditionalParameters += TEXT(" -opengl");
 		}
 		AdditionalParameters += TEXT(" -faketouches");
+
+		AdditionalParameters += TEXT(" -MultiprocessSaveConfig");
 	}
 
 	if (bPlayUsingVulkanPreview)

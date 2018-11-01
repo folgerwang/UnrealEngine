@@ -57,12 +57,12 @@ bool FPackageReader::OpenPackageFile(EOpenPackageResult* OutErrorCode)
 	}
 
 	// Read package file summary from the file
-	*this << PackageFileSummary;
+	*Loader << PackageFileSummary;
 
 	// Validate the summary.
 
 	// Make sure this is indeed a package
-	if( PackageFileSummary.Tag != PACKAGE_FILE_TAG )
+	if( PackageFileSummary.Tag != PACKAGE_FILE_TAG || Loader->IsError() )
 	{
 		// Unrecognized or malformed package file
 		SetPackageErrorCode(EOpenPackageResult::MalformedTag);
@@ -124,7 +124,7 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FAssetData*>& AssetDataList)
 	check(Loader);
 
 	// Does the package contain asset registry tags
-	if( PackageFileSummary.AssetRegistryDataOffset == 0 )
+	if( PackageFileSummary.AssetRegistryDataOffset <= 0 || PackageFileSummary.AssetRegistryDataOffset > PackageFileSize )
 	{
 		// No Tag Table!
 		return false;
@@ -218,7 +218,7 @@ bool FPackageReader::ReadAssetDataFromThumbnailCache(TArray<FAssetData*>& AssetD
 	check(Loader);
 
 	// Does the package contain a thumbnail table?
-	if( PackageFileSummary.ThumbnailTableOffset == 0 )
+	if( PackageFileSummary.ThumbnailTableOffset <= 0 || PackageFileSummary.ThumbnailTableOffset > PackageFileSize )
 	{
 		return false;
 	}

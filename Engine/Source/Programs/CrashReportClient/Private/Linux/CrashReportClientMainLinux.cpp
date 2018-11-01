@@ -58,6 +58,12 @@ int main(int argc, const char *argv[])
 		SavedCommandLine += UTF8_TO_TCHAR(argv[Option]);	// note: technically it depends on locale
 	}
 
+	// assume unattended if we don't have X11 display
+	if (getenv("DISPLAY") == nullptr)
+	{
+		SavedCommandLine += TEXT(" -unattended");
+	}
+
 	// Run the app
 	RunCrashReportClient(*SavedCommandLine);
 

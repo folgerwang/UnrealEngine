@@ -7,6 +7,7 @@
 #include "NiagaraConstants.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
+#include "NiagaraEditorWidgetsStyle.h"
 
 void SNiagaraStackSpacer::Construct(const FArguments& InArgs, UNiagaraStackSpacer& InStackSpacer) 
 {
@@ -19,6 +20,10 @@ void SNiagaraStackSpacer::Construct(const FArguments& InArgs, UNiagaraStackSpace
 		SNew(SDropTarget)
 		.OnAllowDrop(this, &SNiagaraStackSpacer::OnSStackSpacerAllowDrop)
 		.OnDrop(this, &SNiagaraStackSpacer::OnSStackSpacerDrop)
+		.HorizontalImage(FNiagaraEditorWidgetsStyle::Get().GetBrush("NiagaraEditor.Stack.DropTarget.BorderHorizontal"))
+		.VerticalImage(FNiagaraEditorWidgetsStyle::Get().GetBrush("NiagaraEditor.Stack.DropTarget.BorderVertical"))
+		.BackgroundColor(FNiagaraEditorWidgetsStyle::Get().GetColor("NiagaraEditor.Stack.DropTarget.BackgroundColor"))
+		.BackgroundColorHover(FNiagaraEditorWidgetsStyle::Get().GetColor("NiagaraEditor.Stack.DropTarget.BackgroundColorHover"))
 		.Content()
 		[
 			SNew(SBox)

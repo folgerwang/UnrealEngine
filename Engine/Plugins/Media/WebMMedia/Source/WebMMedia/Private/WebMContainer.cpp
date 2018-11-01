@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMContainer.h"
+
+#if WITH_WEBM_LIBS
+
 #include "Player/MkvFileReader.h"
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
@@ -261,3 +264,5 @@ void FWebMContainer::SeekToNextValidBlock()
 		return;
 	}
 }
+
+#endif // WITH_WEBM_LIBS

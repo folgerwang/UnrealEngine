@@ -571,7 +571,8 @@ void FMovieSceneCompiler::GatherCompileDataForTrack(FMovieSceneEvaluationTrack& 
 			Data.Track = &Track;
 			Data.bRequiresInit = ThisSegment.Impls.ContainsByPredicate(RequiresInit);
 
-			TRange<FFrameNumber> IntersectionRange = Params.ClampRoot(ThisSegment.Range * SequenceToRootTransform);
+			TRange<FFrameNumber> SegmentTrackIntersection = TRange<FFrameNumber>::Intersection(ThisSegment.Range, TrackIter.Range());
+			TRange<FFrameNumber> IntersectionRange        = Params.ClampRoot(SegmentTrackIntersection * SequenceToRootTransform);
 			if (!IntersectionRange.IsEmpty())
 			{
 				OutData.Tracks.Add(IntersectionRange, Data);
