@@ -347,11 +347,6 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::GetSegmentFromIterator(
 	return CompileSegment(Iterator);
 }
 
-TRange<FFrameNumber> FMovieSceneEvaluationTrack::GetUniqueRangeFromLowerBound(TRangeBound<FFrameNumber> InLowerBound) const
-{
-	return EvaluationTree.Tree.IterateFromLowerBound(InLowerBound).Range();
-}
-
 void FMovieSceneEvaluationTrack::ValidateSegments()
 {
 	// We don't remove segments as this may break ptrs that have been set up in the evaluation field. Instead we just remove invalid track indices.

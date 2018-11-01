@@ -249,7 +249,7 @@ bool FWebMMovieStreamer::ReadMoreFrames()
 	VideoFramesToDecodeLater.Enqueue(VideoFrames);
 
 	// Trigger video decoding
-	while (!VideoFramesToDecodeLater.IsEmpty() && VideoFramesCurrentlyProcessing < 30)
+	while (!VideoFramesToDecodeLater.IsEmpty() && VideoFramesCurrentlyProcessing < 5)
 	{
 		if (VideoFramesToDecodeLater.Dequeue(VideoFrames))
 		{
