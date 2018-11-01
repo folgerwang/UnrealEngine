@@ -130,10 +130,9 @@ bool FD3D11DynamicRHI::GetQueryData(ID3D11Query* Query,void* Data,SIZE_T DataSiz
 	{
 		return true;
 	}
-	else if((Result == S_FALSE || Result == DXGI_ERROR_INVALID_CALL) && !bWait)
+	else if(Result == S_FALSE && !bWait)
 	{
 		// Return failure if the query isn't complete, and waiting wasn't requested.
-		// HACK: Sometimes DXGI_ERROR_INVALID_CALL is returned instead of S_FALSE (UE-65122).
 		return false;
 	}
 	else
