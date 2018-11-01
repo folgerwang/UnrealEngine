@@ -924,7 +924,7 @@ void FRHIRenderPassInfo::Validate() const
 
 			if (Entry.ResolveTarget)
 			{
-				ensure(Store == ERenderTargetStoreAction::EMultisampleResolve);
+				//ensure(Store == ERenderTargetStoreAction::EMultisampleResolve);
 			}
 		}
 		else
