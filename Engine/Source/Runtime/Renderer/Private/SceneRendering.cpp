@@ -1433,10 +1433,11 @@ FViewInfo* FViewInfo::CreateSnapshot() const
 	for (size_t i = 0; i < ARRAY_COUNT(Result->MobileDirectionalLightUniformBuffers); i++)
 	{
 		// This memcpy is necessary to clear the reference from the memcpy of the whole of this -> Result without releasing the pointer
-		FMemory::Memcpy(Result->MobileDirectionalLightUniformBuffers[i], NullMobileDirectionalLightUniformBuffer);
-		
 		// But what we really want is the null buffer.
-		Result->MobileDirectionalLightUniformBuffers[i] = GetNullMobileDirectionalLightShaderParameters();
+		FMemory::Memcpy(
+			&Result->MobileDirectionalLightUniformBuffers[i],
+			&GetNullMobileDirectionalLightShaderParameters(),
+			sizeof(TUniformBufferRef<FMobileDirectionalLightShaderParameters>));
 	}
 
 	TUniquePtr<FViewUniformShaderParameters> NullViewParameters;

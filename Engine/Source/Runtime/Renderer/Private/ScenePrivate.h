@@ -1224,7 +1224,11 @@ public:
 		CapsuleTileIntersectionCountsBuffer.Release();
 		TranslucencyTimer.Release();
 		SeparateTranslucencyTimer.Release();
-		ForwardLightingResources.Release();
+		if (!!ForwardLightingResources)
+		{
+			ForwardLightingResources->Release();
+			ForwardLightingResources = nullptr;
+		}
 		ForwardLightingCullingResources.Release();
 		LightScatteringHistory.SafeRelease();
 	}
