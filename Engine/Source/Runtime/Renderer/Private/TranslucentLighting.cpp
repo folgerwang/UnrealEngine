@@ -174,9 +174,10 @@ void FViewInfo::CalcTranslucencyLightingVolumeBounds(FBox* InOutCascadeBoundsArr
 		FSphere SphereBounds(Center, FMath::Sqrt(RadiusSquared));
 
 		// Snap the center to a multiple of the volume dimension for stability
-		SphereBounds.Center.X = SphereBounds.Center.X - FMath::Fmod(SphereBounds.Center.X, SphereBounds.W * 2 / GTranslucencyLightingVolumeDim);
-		SphereBounds.Center.Y = SphereBounds.Center.Y - FMath::Fmod(SphereBounds.Center.Y, SphereBounds.W * 2 / GTranslucencyLightingVolumeDim);
-		SphereBounds.Center.Z = SphereBounds.Center.Z - FMath::Fmod(SphereBounds.Center.Z, SphereBounds.W * 2 / GTranslucencyLightingVolumeDim);
+		const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+		SphereBounds.Center.X = SphereBounds.Center.X - FMath::Fmod(SphereBounds.Center.X, SphereBounds.W * 2 / TranslucencyLightingVolumeDim);
+		SphereBounds.Center.Y = SphereBounds.Center.Y - FMath::Fmod(SphereBounds.Center.Y, SphereBounds.W * 2 / TranslucencyLightingVolumeDim);
+		SphereBounds.Center.Z = SphereBounds.Center.Z - FMath::Fmod(SphereBounds.Center.Z, SphereBounds.W * 2 / TranslucencyLightingVolumeDim);
 
 		InOutCascadeBoundsArray[CascadeIndex] = FBox(SphereBounds.Center - SphereBounds.W, SphereBounds.Center + SphereBounds.W);
 	}
@@ -645,7 +646,8 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 
-		SetShaderValue(RHICmdList, ShaderRHI, TexelSize, 1.0f / GTranslucencyLightingVolumeDim);
+		const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+		SetShaderValue(RHICmdList, ShaderRHI, TexelSize, 1.0f / TranslucencyLightingVolumeDim);
 
 		SetTextureParameter(
 			RHICmdList,
@@ -1010,10 +1012,12 @@ void FDeferredShadingSceneRenderer::ClearTranslucentVolumeLightingAsyncCompute(F
 		//write fence on the Gfx pipe so the async clear compute shader won't clear until the Gfx pipe is caught up.
 		RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, VolumeUAVs, NumUAVs, ClearBeginFence);
 
+		const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
 		//Grab the async compute commandlist.
 		FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
 		{
-			SCOPED_COMPUTE_EVENTF(RHICmdListComputeImmediate, ClearTranslucencyLightingVolume, TEXT("ClearTranslucencyLightingVolumeCompute %d"), GTranslucencyLightingVolumeDim);
+			SCOPED_COMPUTE_EVENTF(RHICmdListComputeImmediate, ClearTranslucencyLightingVolume, TEXT("ClearTranslucencyLightingVolumeCompute %d"), TranslucencyLightingVolumeDim);
 
 			//we must wait on the fence written from the Gfx pipe to let us know all our dependencies are ready.
 			RHICmdListComputeImmediate.WaitComputeFence(ClearBeginFence);
@@ -1023,7 +1027,7 @@ void FDeferredShadingSceneRenderer::ClearTranslucentVolumeLightingAsyncCompute(F
 
 			ComputeShader->SetParameters(RHICmdListComputeImmediate, VolumeUAVs, NumUAVs);
 		
-			int32 GroupsPerDim = GTranslucencyLightingVolumeDim / FClearTranslucentLightingVolumeCS::CLEAR_BLOCK_SIZE;
+			int32 GroupsPerDim = TranslucencyLightingVolumeDim / FClearTranslucentLightingVolumeCS::CLEAR_BLOCK_SIZE;
 			DispatchComputeShader(RHICmdListComputeImmediate, ComputeShader, GroupsPerDim, GroupsPerDim, GroupsPerDim);
 
 			ComputeShader->UnsetParameters(RHICmdListComputeImmediate);
@@ -1091,7 +1095,9 @@ void FDeferredShadingSceneRenderer::InjectAmbientCubemapTranslucentVolumeLightin
 		SCOPED_DRAW_EVENT(RHICmdList, InjectAmbientCubemapTranslucentVolumeLighting);
 		SCOPED_GPU_STAT(RHICmdList, TranslucentLighting);
 
-		const FVolumeBounds VolumeBounds(GTranslucencyLightingVolumeDim);
+		const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
+		const FVolumeBounds VolumeBounds(TranslucencyLightingVolumeDim);
 
 		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 		
@@ -1122,7 +1128,7 @@ void FDeferredShadingSceneRenderer::InjectAmbientCubemapTranslucentVolumeLightin
 									
 			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-			VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(GTranslucencyLightingVolumeDim));
+			VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(TranslucencyLightingVolumeDim));
 			if(GeometryShader.IsValid())
 			{
 				GeometryShader->SetParameters(RHICmdList, VolumeBounds.MinZ);
@@ -1168,11 +1174,13 @@ void FDeferredShadingSceneRenderer::ClearTranslucentVolumePerObjectShadowing(FRH
 /** Calculates volume texture bounds for the given light in the given translucent lighting volume cascade. */
 FVolumeBounds CalculateLightVolumeBounds(const FSphere& LightBounds, const FViewInfo& View, uint32 VolumeCascadeIndex, bool bDirectionalLight)
 {
+	const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
 	FVolumeBounds VolumeBounds;
 
 	if (bDirectionalLight)
 	{
-		VolumeBounds = FVolumeBounds(GTranslucencyLightingVolumeDim);
+		VolumeBounds = FVolumeBounds(TranslucencyLightingVolumeDim);
 	}
 	else
 	{
@@ -1184,9 +1192,9 @@ FVolumeBounds CalculateLightVolumeBounds(const FSphere& LightBounds, const FView
 		VolumeBounds.MinY = FMath::Max(FMath::TruncToInt(MinPosition.Y), 0);
 		VolumeBounds.MinZ = FMath::Max(FMath::TruncToInt(MinPosition.Z), 0);
 
-		VolumeBounds.MaxX = FMath::Min(FMath::TruncToInt(MaxPosition.X) + 1, GTranslucencyLightingVolumeDim);
-		VolumeBounds.MaxY = FMath::Min(FMath::TruncToInt(MaxPosition.Y) + 1, GTranslucencyLightingVolumeDim);
-		VolumeBounds.MaxZ = FMath::Min(FMath::TruncToInt(MaxPosition.Z) + 1, GTranslucencyLightingVolumeDim);
+		VolumeBounds.MaxX = FMath::Min(FMath::TruncToInt(MaxPosition.X) + 1, TranslucencyLightingVolumeDim);
+		VolumeBounds.MaxY = FMath::Min(FMath::TruncToInt(MaxPosition.Y) + 1, TranslucencyLightingVolumeDim);
+		VolumeBounds.MaxZ = FMath::Min(FMath::TruncToInt(MaxPosition.Z) + 1, TranslucencyLightingVolumeDim);
 	}
 
 	return VolumeBounds;
@@ -1251,7 +1259,9 @@ void FDeferredShadingSceneRenderer::AccumulateTranslucentVolumeObjectShadowing(F
 
 				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-				VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(GTranslucencyLightingVolumeDim));
+				const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
+				VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(TranslucencyLightingVolumeDim));
 				if(GeometryShader.IsValid())
 				{
 					GeometryShader->SetParameters(RHICmdList, VolumeBounds.MinZ);
@@ -1507,7 +1517,9 @@ static void InjectTranslucentLightArray(FRHICommandListImmediate& RHICmdList, co
 					}
 				}
 
-				VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(GTranslucencyLightingVolumeDim));
+				const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
+				VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(TranslucencyLightingVolumeDim));
 				if(GeometryShader.IsValid())
 				{
 					GeometryShader->SetParameters(RHICmdList, VolumeBounds.MinZ);
@@ -1688,7 +1700,9 @@ void FDeferredShadingSceneRenderer::InjectSimpleTranslucentVolumeLightingArray(F
 
 						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-						VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(GTranslucencyLightingVolumeDim));
+						const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
+						VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(TranslucencyLightingVolumeDim));
 						if(GeometryShader.IsValid())
 						{
 							GeometryShader->SetParameters(RHICmdList, VolumeBounds.MinZ);
@@ -1728,8 +1742,9 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 
 		if (GUseTranslucencyVolumeBlur)
 		{
+			const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
 			SCOPED_DRAW_EVENTF(RHICmdList, FilterTranslucentVolume, TEXT("FilterTranslucentVolume %dx%dx%d Cascades:%d"),
-				GTranslucencyLightingVolumeDim, GTranslucencyLightingVolumeDim, GTranslucencyLightingVolumeDim, TVC_MAX);
+				TranslucencyLightingVolumeDim, TranslucencyLightingVolumeDim, TranslucencyLightingVolumeDim, TVC_MAX);
 
 			SCOPED_GPU_STAT(RHICmdList, TranslucentLighting);
 
@@ -1772,7 +1787,7 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 				SetRenderTargets(RHICmdList, ARRAY_COUNT(RenderTargets), RenderTargets, FTextureRHIRef(), 0, NULL, true);
 				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-				const FVolumeBounds VolumeBounds(GTranslucencyLightingVolumeDim);
+				const FVolumeBounds VolumeBounds(TranslucencyLightingVolumeDim);
 				TShaderMapRef<FWriteToSliceVS> VertexShader(View.ShaderMap);
 				TOptionalShaderMapRef<FWriteToSliceGS> GeometryShader(View.ShaderMap);
 				TShaderMapRef<FFilterTranslucentVolumePS> PixelShader(View.ShaderMap);
@@ -1785,7 +1800,7 @@ void FDeferredShadingSceneRenderer::FilterTranslucentVolumeLighting(FRHICommandL
 
 				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-				VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(GTranslucencyLightingVolumeDim));
+				VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(TranslucencyLightingVolumeDim));
 				if(GeometryShader.IsValid())
 				{
 					GeometryShader->SetParameters(RHICmdList, VolumeBounds.MinZ);

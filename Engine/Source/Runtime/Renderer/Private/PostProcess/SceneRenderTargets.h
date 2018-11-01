@@ -30,8 +30,12 @@ static const int32 NumTranslucentVolumeRenderTargetSets = (TVC_MAX + 1);
 /** Forward declaration of console variable controlling translucent volume blur */
 extern int32 GUseTranslucencyVolumeBlur;
 
-/** Forward declaration of console variable controlling translucent lighting volume dimensions */
-extern int32 GTranslucencyLightingVolumeDim;
+/** Function returning current translucency lighting volume dimensions. */
+inline int32 GetTranslucencyLightingVolumeDim()
+{
+	extern int32 GTranslucencyLightingVolumeDim;
+	return FMath::Clamp(GTranslucencyLightingVolumeDim, 4, 2048);
+}
 
 /** Function to select the index of the volume texture that we will hold the final translucency lighting volume texture */
 inline int SelectTranslucencyVolumeTarget(ETranslucencyVolumeCascade InCascade)

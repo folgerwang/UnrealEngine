@@ -551,7 +551,7 @@ void FSceneRenderTargets::Allocate(FRHICommandListImmediate& RHICmdList, const F
 		}
 	}
 
-	int32 TranslucencyLightingVolumeDim = GTranslucencyLightingVolumeDim;
+	const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
 
 	uint32 Mobile32bpp = !IsMobileHDR() || IsMobileHDR32bpp();
 
@@ -2054,6 +2054,8 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 		}
 		
 		{
+			const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
 			// TODO: We can skip the and TLV allocations when rendering in forward shading mode
 			uint32 TranslucencyTargetFlags = TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_ReduceMemoryWithTilingMode;
 
@@ -2070,9 +2072,9 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 				GRenderTargetPool.FindFreeElement(
 					RHICmdList,
 					FPooledRenderTargetDesc(FPooledRenderTargetDesc::CreateVolumeDesc(
-						GTranslucencyLightingVolumeDim,
-						GTranslucencyLightingVolumeDim,
-						GTranslucencyLightingVolumeDim,
+						TranslucencyLightingVolumeDim,
+						TranslucencyLightingVolumeDim,
+						TranslucencyLightingVolumeDim,
 						PF_FloatRGBA,
 						FClearValueBinding::Transparent,
 						0,
@@ -2089,15 +2091,15 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 				//Tests to catch UE-31578, UE-32536 and UE-22073 crash (Defferred Render Targets not being allocated)
 				ensureMsgf(TranslucencyLightingVolumeAmbient[RTSetIndex], TEXT("Failed to allocate render target %s with dimension %i and flags %i"),
 					GetVolumeName(RTSetIndex, false),
-					GTranslucencyLightingVolumeDim,
+					TranslucencyLightingVolumeDim,
 					TranslucencyTargetFlags);
 
 				GRenderTargetPool.FindFreeElement(
 					RHICmdList,
 					FPooledRenderTargetDesc(FPooledRenderTargetDesc::CreateVolumeDesc(
-						GTranslucencyLightingVolumeDim,
-						GTranslucencyLightingVolumeDim,
-						GTranslucencyLightingVolumeDim,
+						TranslucencyLightingVolumeDim,
+						TranslucencyLightingVolumeDim,
+						TranslucencyLightingVolumeDim,
 						PF_FloatRGBA,
 						FClearValueBinding::Transparent,
 						0,
@@ -2114,7 +2116,7 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 				//Tests to catch UE-31578, UE-32536 and UE-22073 crash
 				ensureMsgf(TranslucencyLightingVolumeDirectional[RTSetIndex], TEXT("Failed to allocate render target %s with dimension %i and flags %i"),
 					GetVolumeName(RTSetIndex, true),
-					GTranslucencyLightingVolumeDim,
+					TranslucencyLightingVolumeDim,
 					TranslucencyTargetFlags);
 			}
 
@@ -2228,7 +2230,9 @@ void FSceneRenderTargets::ClearVolumeTextures(FRHICommandList& RHICmdList, ERHIF
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 
-	const FVolumeBounds VolumeBounds(GTranslucencyLightingVolumeDim);
+	const int32 TranslucencyLightingVolumeDim = GetTranslucencyLightingVolumeDim();
+
+	const FVolumeBounds VolumeBounds(TranslucencyLightingVolumeDim);
 	auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 	TShaderMapRef<FWriteToSliceVS> VertexShader(ShaderMap);
 	TOptionalShaderMapRef<FWriteToSliceGS> GeometryShader(ShaderMap);
@@ -2242,7 +2246,7 @@ void FSceneRenderTargets::ClearVolumeTextures(FRHICommandList& RHICmdList, ERHIF
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(GTranslucencyLightingVolumeDim));
+	VertexShader->SetParameters(RHICmdList, VolumeBounds, FIntVector(TranslucencyLightingVolumeDim));
 	if (GeometryShader.IsValid())
 	{
 		GeometryShader->SetParameters(RHICmdList, VolumeBounds.MinZ);
