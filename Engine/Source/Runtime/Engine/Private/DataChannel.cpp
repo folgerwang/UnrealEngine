@@ -3623,18 +3623,18 @@ bool UActorChannel::ReplicateSubobject(UObject *Obj, FOutBunch &Bunch, const FRe
 {
 	SCOPE_CYCLE_UOBJECT(ActorChannelRepSubObj, Obj);
 
+	TWeakObjectPtr<UObject> WeakObj(Obj);
+
 	// Hack for now: subobjects are SupportsObject==false until they are replicated via ::ReplicateSUbobject, and then we make them supported
 	// here, by forcing the packagemap to give them a NetGUID.
 	//
 	// Once we can lazily handle unmapped references on the client side, this can be simplified.
-	if ( !Connection->Driver->GuidCache->SupportsObject( Obj ) )
+	if ( !Connection->Driver->GuidCache->SupportsObject( Obj, &WeakObj ) )
 	{
-		FNetworkGUID NetGUID = Connection->Driver->GuidCache->AssignNewNetGUID_Server( Obj );	//Make sure he gets a NetGUID so that he is now 'supported'
+		Connection->Driver->GuidCache->AssignNewNetGUID_Server( Obj );	//Make sure he gets a NetGUID so that he is now 'supported'
 	}
 
 	bool NewSubobject = false;
-
-	TWeakObjectPtr<UObject> WeakObj(Obj);
 
 	if (!ObjectHasReplicator(WeakObj))
 	{
