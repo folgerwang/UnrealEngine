@@ -967,9 +967,28 @@ void FRHIRenderPassInfo::Validate() const
 		ensure(!bIsMSAAResolve || DepthStencilRenderTarget.DepthStencilTarget->GetNumSamples() > 1);
 		// Don't resolve to null
 		//ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
+
 		// Don't write to depth if read-only
-		ensure((DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() && DepthStore == ERenderTargetStoreAction::EStore) || DepthStore != ERenderTargetStoreAction::EStore);
-		ensure((DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() && StencilStore == ERenderTargetStoreAction::EStore) || StencilStore != ERenderTargetStoreAction::EStore);
+		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
+		// This is not true for stencil. VK and Metal specify that the DontCare store action MAY leave the attachment in an undefined state.
+		/*ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);*/
+
+		// If we have a depthstencil target we MUST Store it or it will be undefined after rendering.
+		if (DepthStencilRenderTarget.DepthStencilTarget->GetFormat() != PF_D24)
+		{
+			// If this is DepthStencil we must store it out unless we are absolutely sure it will never be used again.
+			ensure(StencilStore == ERenderTargetStoreAction::EStore);
+		}
+
+		if (DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite())
+		{
+			ensure(DepthStore == ERenderTargetStoreAction::EStore);
+		}
+
+		if (DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite())
+		{
+			ensure(StencilStore == ERenderTargetStoreAction::EStore);
+		}
 	}
 	else
 	{
