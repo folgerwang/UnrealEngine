@@ -321,7 +321,9 @@ private:
 
 		UUserWidget& EntryWidget = OnGenerateEntryWidgetInternal(Item, DesiredEntryClass, OwnerTable);
 		EntryWidget.SetPadding(GetDesiredEntryPadding(Item));
-		return StaticCastSharedPtr<SObjectTableRow<ItemType>>(EntryWidget.GetCachedWidget()).ToSharedRef();
+		TSharedPtr<SWidget> CachedWidget = EntryWidget.GetCachedWidget();
+		CachedWidget->SetCanTick(true); // this is a hack to force ticking to true so selection works (which should NOT require ticking! but currently does)
+		return StaticCastSharedPtr<SObjectTableRow<ItemType>>(CachedWidget).ToSharedRef();
 	}
 
 	void HandleItemClicked(ItemType Item)
