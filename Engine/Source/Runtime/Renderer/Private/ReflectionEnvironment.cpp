@@ -771,6 +771,8 @@ void FDeferredShadingSceneRenderer::SetupReflectionCaptureBuffers(FViewInfo& Vie
 
 void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	if (ViewFamily.EngineShowFlags.VisualizeLightCulling || !ViewFamily.EngineShowFlags.Lighting)
 	{
 		return;
@@ -807,6 +809,8 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			bApplySkyShadowing = RenderDistanceFieldLighting(RHICmdList, Parameters, VelocityRT, DynamicBentNormalAO, false, false);
 		}
 	}
+
+	check(RHICmdList.IsOutsideRenderPass());
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -913,6 +917,8 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 					SceneContext.GetBufferSizeXY(),
 					*VertexShader);
 			}
+
+			SceneContext.FinishRenderingSceneColor(RHICmdList);
 
 			ResolveSceneColor(RHICmdList);
 		}
