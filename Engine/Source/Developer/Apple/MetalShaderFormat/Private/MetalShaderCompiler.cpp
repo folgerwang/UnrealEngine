@@ -544,7 +544,8 @@ uint16 GetXcodeVersion(uint64& BuildVersion)
 	{
 		Version = 0; // No Xcode install is 0, so only text shaders will work
 		FString XcodePath = GetXcodePath();
-		if (XcodePath.Len() > 0)
+		// Because of where and when this is called you can't invoke it on Win->Mac builds
+		if (XcodePath.Len() > 0 && PLATFORM_MAC)
 		{
 			FString Path = FString::Printf(TEXT("%s/usr/bin/xcodebuild"), *XcodePath);
 			FString Result;
