@@ -61,6 +61,10 @@ UEngineCustomTimeStep* UMediaProfile::GetCustomTimeStep() const
 
 void UMediaProfile::Apply()
 {
+#if WITH_EDITORONLY_DATA
+	bNeedToBeReapplied = false;
+#endif
+
 	if (GEngine == nullptr)
 	{
 		UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("The MediaProfile '%s' could not be applied. The Engine is not initialized."), *GetName());
@@ -186,13 +190,25 @@ void UMediaProfile::Reset()
 		}
 	}
 
-	if (bOverrideTimecodeProvider)
 	{
-		GEngine->SetTimecodeProvider(nullptr);
+		const UTimecodeProvider* CurrentTimecodeProvider = GEngine->GetTimecodeProvider();
+		if (CurrentTimecodeProvider)
+		{
+			if (CurrentTimecodeProvider->GetOuter() == this)
+			{
+				GEngine->SetTimecodeProvider(nullptr);
+			}
+		}
 	}
 
-	if (bOverrideCustomTimeStep)
 	{
-		GEngine->SetCustomTimeStep(GEngine->GetDefaultCustomTimeStep());
+		const UEngineCustomTimeStep* CurrentCustomTimeStep = GEngine->GetCustomTimeStep();
+		if (CurrentCustomTimeStep)
+		{
+			if (CurrentCustomTimeStep->GetOuter() == this)
+			{
+				GEngine->SetCustomTimeStep(GEngine->GetDefaultCustomTimeStep());
+			}
+		}
 	}
 }

@@ -70,17 +70,6 @@ namespace
 
 
 
-/** Number of top function calls to hide when dumping the callstack as text. */
-#if PLATFORM_UNIX
-
-	// Rationale: check() and ensure() handlers have different depth - worse, ensure() can optionally end up calling the same path as check().
-	// It is better to show the full callstack as is than accidentaly ignore a part of the problem
-	#define CALLSTACK_IGNOREDEPTH 0
-
-#else
-	#define CALLSTACK_IGNOREDEPTH 2
-#endif // PLATFORM_UNIX
-
 CORE_API void (*GPrintScriptCallStackFn)() = nullptr;
 
 void PrintScriptCallstack()
@@ -96,7 +85,7 @@ void PrintScriptCallstack()
  *	prompts for the remote debugging if there is not debugger, breaks into the debugger 
  *	and copies the error into the global error message.
  */
-void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure )
+FORCENOINLINE void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure, int NumStackFramesToIgnore )
 {
 	// Print out the blueprint callstack
 	PrintScriptCallstack();
@@ -113,7 +102,7 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 		if (StackTrace != NULL)
 		{
 			StackTrace[0] = 0;
-			FPlatformStackWalk::StackWalkAndDump(StackTrace, ARRAY_COUNT(StackTrace), CALLSTACK_IGNOREDEPTH);
+			FPlatformStackWalk::StackWalkAndDump(StackTrace, ARRAY_COUNT(StackTrace), NumStackFramesToIgnore + 1);
 
 			FCString::Strncat(DescriptionAndTrace, TEXT("\n"), ARRAY_COUNT(DescriptionAndTrace) - 1);
 			FCString::Strncat(DescriptionAndTrace, ANSI_TO_TCHAR(StackTrace), ARRAY_COUNT(DescriptionAndTrace) - 1);
@@ -221,7 +210,7 @@ void FDebug::LogFormattedMessageWithCallstack(const FName& LogName, const ANSICH
 //warning: May be called at library startup time.
 //
 
-void FDebug::LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, ...)
+FORCENOINLINE void FDebug::LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, ...)
 {
 	va_list Args;
 	va_start(Args, Fmt);
@@ -240,7 +229,8 @@ void FDebug::LogAssertFailedMessageImplV(const ANSICHAR* Expr, const ANSICHAR* F
 		TCHAR ErrorString[MAX_SPRINTF];
 		FCString::Sprintf( ErrorString, TEXT( "Assertion failed: %s" ), ANSI_TO_TCHAR( Expr ) );
 
-		StaticFailDebug( ErrorString, File, Line, DescriptionString, false );
+		const int32 NumStackFramesToIgnore = 1;
+		StaticFailDebug( ErrorString, File, Line, DescriptionString, false, NumStackFramesToIgnore );
 	}
 }
 
@@ -251,8 +241,9 @@ void FDebug::LogAssertFailedMessageImplV(const ANSICHAR* Expr, const ANSICHAR* F
  * @param	File	File name ANSI string (__FILE__)
  * @param	Line	Line number (__LINE__)
  * @param	Msg		Informative error message text
+ * @param	NumStackFramesToIgnore	Number of stack frames to ignore in the callstack
  */
-void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg)
+FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg, int NumStackFramesToIgnore)
 {
 #if STATS
 	FString EnsureFailedPerfMessage = FString::Printf(TEXT("FDebug::EnsureFailed"));
@@ -275,7 +266,7 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 	TCHAR ErrorString[MAX_SPRINTF];
 	FCString::Sprintf(ErrorString,TEXT("Ensure condition failed: %s"),ANSI_TO_TCHAR(Expr));
 
-	StaticFailDebug( ErrorString, File, Line, Msg, true );
+	StaticFailDebug( ErrorString, File, Line, Msg, true, NumStackFramesToIgnore + 1 );
 
 	// Is there a debugger attached?  If not we'll submit an error report.
 	if (FPlatformMisc::IsDebuggerPresent())
@@ -310,8 +301,8 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 				FString StackWalkPerfMessage = FString::Printf(TEXT("FPlatformStackWalk::StackWalkAndDump"));
 				SCOPE_LOG_TIME_IN_SECONDS(*StackWalkPerfMessage, nullptr)
 #endif
-					StackTrace[0] = 0;
-				FPlatformStackWalk::StackWalkAndDumpEx(StackTrace, StackTraceSize, CALLSTACK_IGNOREDEPTH, FGenericPlatformStackWalk::EStackWalkFlags::FlagsUsedWhenHandlingEnsure);
+				StackTrace[0] = 0;
+				FPlatformStackWalk::StackWalkAndDumpEx(StackTrace, StackTraceSize, NumStackFramesToIgnore + 1, FGenericPlatformStackWalk::EStackWalkFlags::FlagsUsedWhenHandlingEnsure);
 			}
 
 			// Create a final string that we'll output to the log (and error history buffer)
@@ -396,9 +387,9 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 #endif
 
 #if PLATFORM_DESKTOP
-				FScopeLock Lock(&FailDebugCriticalSection);
+			FScopeLock Lock(&FailDebugCriticalSection);
 
-			NewReportEnsure(GErrorMessage);
+			NewReportEnsure(GErrorMessage, NumStackFramesToIgnore + 1);
 
 			GErrorHist[0] = 0;
 			GErrorMessage[0] = 0;
@@ -454,29 +445,32 @@ void VARARGS FDebug::AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, in
 }
 
 #if DO_CHECK || DO_GUARD_SLOW
-bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalseImpl( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
+FORCENOINLINE bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalseImpl( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
 {
 	if (bLog)
 	{
 		const int32 TempStrSize = 4096;
 		TCHAR TempStr[ TempStrSize ];
 		GET_VARARGS( TempStr, TempStrSize, TempStrSize - 1, FormattedMsg, FormattedMsg );
-		EnsureFailed( Expr, File, Line, TempStr );
+
+		const int32 NumStackFramesToIgnore = 1; // Just ignore this frame
+		EnsureFailed( Expr, File, Line, TempStr, NumStackFramesToIgnore );
 	}
 	
 	return false;
 }
 #endif
 
-void VARARGS LowLevelFatalErrorHandler(const ANSICHAR* File, int32 Line, const TCHAR* Format, ...)
+FORCENOINLINE void VARARGS LowLevelFatalErrorHandler(const ANSICHAR* File, int32 Line, const TCHAR* Format, ...)
 {
 	TCHAR DescriptionString[4096];
 	GET_VARARGS( DescriptionString, ARRAY_COUNT(DescriptionString), ARRAY_COUNT(DescriptionString)-1, Format, Format );
 
-	StaticFailDebug(TEXT("LowLevelFatalError"), File, Line, DescriptionString, false);
+	const int32 NumStackFramesToIgnore = 1; // Just ignore this frame
+	StaticFailDebug(TEXT("LowLevelFatalError"), File, Line, DescriptionString, false, NumStackFramesToIgnore);
 }
 
-void FDebug::DumpStackTraceToLog()
+FORCENOINLINE void FDebug::DumpStackTraceToLog()
 {
 #if !NO_LOGGING
 	// Walk the stack and dump it to the allocated memory.
@@ -489,7 +483,9 @@ void FDebug::DumpStackTraceToLog()
 		SCOPE_LOG_TIME_IN_SECONDS(*StackWalkPerfMessage, nullptr)
 #endif
 		StackTrace[0] = 0;
-		FPlatformStackWalk::StackWalkAndDumpEx(StackTrace, StackTraceSize, CALLSTACK_IGNOREDEPTH, FGenericPlatformStackWalk::EStackWalkFlags::FlagsUsedWhenHandlingEnsure);
+
+		const int32 NumStackFramesToIgnore = 1;
+		FPlatformStackWalk::StackWalkAndDumpEx(StackTrace, StackTraceSize, NumStackFramesToIgnore, FGenericPlatformStackWalk::EStackWalkFlags::FlagsUsedWhenHandlingEnsure);
 	}
 
 	// Dump the error and flush the log.

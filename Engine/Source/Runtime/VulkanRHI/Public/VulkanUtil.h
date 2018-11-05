@@ -195,7 +195,7 @@ struct FVulkanGPUProfiler : public FGPUProfiler
 	FVulkanDevice* Device;
 	FVulkanCommandListContext* CmdContext;
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	void PushMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TCHAR* Name);
 	void PopMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer);
 	void DumpCrashMarkers(void* BufferData);

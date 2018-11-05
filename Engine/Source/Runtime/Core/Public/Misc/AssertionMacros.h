@@ -59,10 +59,11 @@ public:
 	 * @param	File	File name ANSI string (__FILE__)
 	 * @param	Line	Line number (__LINE__)
 	 * @param	Msg		Informative error message text
+	 * @param	NumStackFramesToIgnore	Number of stack frames to ignore in the ensure message
 	 * 
 	 * Don't change the name of this function, it's used to detect ensures by the crash reporter.
 	 */
-	static void EnsureFailed( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg );
+	static void EnsureFailed( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg, int NumStackFramesToIgnore );
 
 private:
 	static bool VARARGS OptionallyLogFormattedEnsureMessageReturningFalseImpl(bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ...);

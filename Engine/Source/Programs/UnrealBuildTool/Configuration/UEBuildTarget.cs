@@ -484,41 +484,10 @@ namespace UnrealBuildTool
 			}
 
 			// Include generated code plugin if not building an editor target and project is configured for nativization
-			if (RulesObject.ProjectFile != null
-				&& (RulesObject.Type == TargetType.Game || RulesObject.Type == TargetType.Client || RulesObject.Type == TargetType.Server)
-				&& ShouldIncludeNativizedAssets(RulesObject.ProjectFile.Directory))
+			FileReference NativizedPluginFile = RulesObject.GetNativizedPlugin();
+			if(NativizedPluginFile != null)
 			{
-				string PlatformName;
-				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64)
-				{
-					PlatformName = "Windows";
-				}
-				else
-				{
-					PlatformName = RulesObject.Platform.ToString();
-				}
-
-				// Temp fix to force platforms that only support "Game" configurations at cook time to the correct path.
-				string ProjectTargetType;
-				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64
-					|| RulesObject.Platform == UnrealTargetPlatform.Linux || RulesObject.Platform == UnrealTargetPlatform.Mac)
-				{
-					ProjectTargetType = RulesObject.Type.ToString();
-				}
-				else
-				{
-					ProjectTargetType = "Game";
-				}
-
-				FileReference PluginFile = FileReference.Combine(RulesObject.ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
-				if (FileReference.Exists(PluginFile))
-				{
-					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, false, RulesAssembly, false);
-				}
-				else
-				{
-					Log.TraceWarning("{0} is configured for nativization, but is missing the generated code plugin at \"{1}\". Make sure to cook {2} data before attempting to build the {3} target. If data was cooked with nativization enabled, this can also mean there were no Blueprint assets that required conversion, in which case this warning can be safely ignored.", RulesObject.Name, PluginFile.FullName, RulesObject.Type.ToString(), RulesObject.Platform.ToString());
-				}
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(NativizedPluginFile, bSkipRulesCompile, RulesAssembly, false);
 			}
 
 			// Generate a build target from this rules module
@@ -1846,6 +1815,10 @@ namespace UnrealBuildTool
 		bool IsFileInstalled(FileReference File)
 		{
 			if(UnrealBuildTool.IsEngineInstalled() && File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				return true;
+			}
+			if(UnrealBuildTool.IsEnterpriseInstalled() && File.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
 			{
 				return true;
 			}
@@ -4350,23 +4323,5 @@ namespace UnrealBuildTool
 
 			return FilteredFileItems;
 		}
-
-        static bool ShouldIncludeNativizedAssets(DirectoryReference GameProjectDirectory)
-        {
-            ConfigHierarchy Config = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, GameProjectDirectory, BuildHostPlatform.Current.Platform);
-            if (Config != null)
-            {
-                // Determine whether or not the user has enabled nativization of Blueprint assets at cook time (default is 'Disabled')
-                string BlueprintNativizationMethod;
-                if (!Config.TryGetValue("/Script/UnrealEd.ProjectPackagingSettings", "BlueprintNativizationMethod", out BlueprintNativizationMethod))
-                {
-                    BlueprintNativizationMethod = "Disabled";
-                }
-
-                return BlueprintNativizationMethod != "Disabled";
-            }
-
-            return false;
-        }
 	}
 }

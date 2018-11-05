@@ -5,6 +5,8 @@
 #include "PixelFormat.h"
 #include "Containers/ArrayView.h"
 
+struct FOptionalVulkanDeviceExtensions;
+
 // the platform interface, and empty implementations for platforms that don't need em
 class FVulkanGenericPlatform 
 {
@@ -67,7 +69,7 @@ public:
 
 	static bool RegisterGPUWork() { return true; }
 
-	static void WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
+	static void WriteCrashMarker(const FOptionalVulkanDeviceExtensions& OptionalExtensions, VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
 
 	// Allow the platform code to restrict the device features
 	static void RestrictEnabledPhysicalDeviceFeatures(VkPhysicalDeviceFeatures& InOutFeaturesToEnable)
@@ -100,7 +102,4 @@ public:
 
 	// Ensure the last frame completed on the GPU
 	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
-
-	// Some platforms imitate fullscreen mode by using bigger window
-	static void UpdateWindowSize(void* WindowHandle, uint32& Width, uint32& Height) {}
 };
