@@ -688,7 +688,15 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 	OptionalDeviceExtensions.HasAMDBufferMarker = HasExtension(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
 #endif
 
+#if VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT
+	OptionalDeviceExtensions.HasNVDiagnosticCheckpoints = HasExtension(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
+#endif
+
 #if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
 	OptionalDeviceExtensions.HasGoogleDisplayTiming = HasExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
+#endif
+
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	OptionalDeviceExtensions.HasYcbcrSampler = HasExtension(VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME) && HasExtension(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME) && HasExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 #endif
 }

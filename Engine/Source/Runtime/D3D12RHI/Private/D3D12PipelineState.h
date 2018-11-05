@@ -287,22 +287,10 @@ public:
 		return *this;
 	}
 
-	// Indicates this PSO should be added to any disk caches.
-	void MarkForDiskCacheAdd()
-	{
-		bAddToDiskCache = PipelineState.GetReference() ? true : false;
-	}
-
-	bool ShouldAddToDiskCache() const
-	{
-		return bAddToDiskCache;
-	}
-
 protected:
 	TRefCountPtr<ID3D12PipelineState> PipelineState;
 	FAsyncTask<FD3D12PipelineStateWorker>* Worker;
 	volatile int32 PendingWaitOnWorkerCalls;
-	bool bAddToDiskCache;
 };
 
 struct FD3D12GraphicsPipelineState : public FRHIGraphicsPipelineState

@@ -125,7 +125,7 @@ void UPropertyValueMaterial::ApplyDataToResolvedObject()
 	ContainerObject->SetFlags(RF_Transactional);
 	ContainerObject->Modify();
 
-	UMaterialInterface* Mat = *((UMaterialInterface**)ValueBytes.GetData());
+	UMaterialInterface* Mat = *((UMaterialInterface**)GetRecordedData().GetData());
 
 	int32 NumIndices = PropertyIndices.Num();
 	if (Mat && Mat->IsValidLowLevel() && NumIndices > 0)

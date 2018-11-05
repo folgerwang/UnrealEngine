@@ -28,7 +28,7 @@ namespace UnrealBuildTool
 			: base(Platform)
 		{
 			this.Target = Target;
-			this.EnvVars = VCEnvironment.Create(Target.WindowsPlatform.Compiler, Platform, Target.WindowsPlatform.CompilerVersion, Target.WindowsPlatform.WindowsSdkVersion);
+			this.EnvVars = Target.WindowsPlatform.Environment;
 
 			if (Target.WindowsPlatform.ObjSrcMapFile != null)
 			{

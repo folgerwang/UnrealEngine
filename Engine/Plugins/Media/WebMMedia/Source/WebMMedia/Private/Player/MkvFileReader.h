@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_WEBM_LIBS
+
 #include "CoreMinimal.h"
 #include "HAL/PlatformFilemanager.h"
 #include "GenericPlatform/GenericPlatformFile.h"
@@ -23,3 +25,5 @@ public:
 private:
 	TUniquePtr<IFileHandle> m_file;
 };
+
+#endif // WITH_WEBM_LIBS

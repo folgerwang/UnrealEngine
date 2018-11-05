@@ -328,7 +328,7 @@ void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInf
 /** 
  * Report an ensure to the crash reporting system
  */
-FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage )
+FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
 	if (ReportCrashCallCount > 0)
 	{
@@ -358,8 +358,8 @@ FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage )
 
 	bReentranceGuard = true;
 	
-	// Three additional frames are skipped inside FWindowsPlatformStackWalk::GetStack() and FPlatformStackWalk::GetStack()
-	const int NumStackFramesToIgnore = 2;
+	// Ignore this function and the RaiseException() call below.
+	NumStackFramesToIgnore += 2;
 
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
 #if !PLATFORM_SEH_EXCEPTIONS_DISABLED
@@ -559,8 +559,13 @@ private:
 		// Thread context wrapper for stack operations
 		void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
 
-		// Generate the portable callstack, for non-Asserts pass in a negative IgnoreCount as need top of crash context record, and IgnoreCount is increased by stack walking methods
-		const int32 IgnoreCount = FDebug::HasAsserted() ? 1 : -3;
+		// Generate the portable callstack. For asserts, we ignore the following frames:
+		//     FDebug::AssertFailed()
+		//   [ FOutputDevice::Logf() ] - force-inlined; ignored
+		//     FOutputDevice::LogfImpl()
+		//     FWindowsErrorOutputDevice::Serialize()
+		//     RaiseException()
+		const int32 IgnoreCount = FDebug::HasAsserted() ? 4 : 0;
 		CrashContext.CapturePortableCallStack(IgnoreCount, ContextWrapper);
 
 		// First launch the crash reporter client.

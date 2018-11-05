@@ -125,4 +125,9 @@ public:
 
 	/** Saves the expansion state of property nodes for the selected object set */
 	virtual void SaveExpandedItems(TSharedRef<FPropertyNode> StartNode) = 0;
+
+	/**
+	* Restores the expansion state of property nodes for the selected object set
+	*/
+	virtual void RestoreExpandedItems(TSharedRef<FPropertyNode> StartNode) = 0;
 };

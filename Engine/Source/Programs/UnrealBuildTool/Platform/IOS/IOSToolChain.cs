@@ -919,9 +919,9 @@ namespace UnrealBuildTool
 			{
 				Arguments.Append(" --launch-image LaunchImage");
 				Arguments.Append(" --filter-for-device-model AppleTV5,3");
-				Arguments.Append(" --filter-for-device-os-version 9.2");
+				//Arguments.Append(" --filter-for-device-os-version 10.0");
 				Arguments.Append(" --target-device tv");
-				Arguments.Append(" --minimum-deployment-target 9.2");
+				Arguments.Append(" --minimum-deployment-target 10.0");
 				Arguments.Append(" --platform appletvos");
 			}
 			else
@@ -929,7 +929,7 @@ namespace UnrealBuildTool
 				Arguments.Append(" --product-type com.apple.product-type.application");
 				Arguments.Append(" --target-device iphone");
 				Arguments.Append(" --target-device ipad");
-				Arguments.Append(" --minimum-deployment-target 9.0");
+				Arguments.Append(" --minimum-deployment-target 10.0");
 				Arguments.Append(" --platform iphoneos");
 			}
             Arguments.Append(" --enable-on-demand-resources YES");
@@ -1168,89 +1168,68 @@ namespace UnrealBuildTool
 			string ResourcesDir = Path.Combine(IntermediateDir, "Resources");
             if (Platform == CppPlatform.TVOS)
             {
-                string[] Directories = { "Assets.xcassets",
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Back.imagestacklayer"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Back.imagestacklayer", "Content.imageset"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Front.imagestacklayer"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Front.imagestacklayer", "Content.imageset"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Middle.imagestacklayer"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Middle.imagestacklayer", "Content.imageset"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Back.imagestacklayer"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Back.imagestacklayer", "Content.imageset"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Front.imagestacklayer"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Front.imagestacklayer", "Content.imageset"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Middle.imagestacklayer"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Middle.imagestacklayer", "Content.imageset"),
-                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "TopShelf.imageset"),
-                                            Path.Combine("Assets.xcassets", "LaunchImage.launchimage"),
-                };
-                string[] Contents = { "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"assets\" : [\n\t\t{\n\t\t\t\"size\" : \"1280x768\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"AppIconLarge.imagestack\",\n\t\t\t\"role\" : \"primary-app-icon\"\n\t\t},\n\t\t{\n\t\t\t\"size\" : \"400x240\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"AppIconSmall.imagestack\",\n\t\t\t\"role\" : \"primary-app-icon\"\n\t\t},\n\t\t{\n\t\t\t\"size\" : \"1920x720\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"TopShelf.imageset\",\n\t\t\t\"role\" : \"top-shelf-image\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"layers\" : [\n\t\t{\n\t\t\t\"filename\" : \"Front.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Middle.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Back.imagestacklayer\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Large_Back.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Large_Front.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Large_Middle.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"layers\" : [\n\t\t{\n\t\t\t\"filename\" : \"Front.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Middle.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Back.imagestacklayer\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Small_Back.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Small_Front.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Small_Middle.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"TopShelf.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"orientation\" : \"landscape\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Launch.png\",\n\t\t\t\"extent\" : \"full-screen\",\n\t\t\t\"minimum-system-version\" : \"9.0\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
-                };
-                string[] Images = { null,
-                                null,
-                                null,
-                                null,
-                                "Icon_Large_Back.png",
-                                null,
-                                "Icon_Large_Front.png",
-                                null,
-                                "Icon_Large_Middle.png",
-                                null,
-                                null,
-                                "Icon_Small_Back.png",
-                                null,
-                                "Icon_Small_Front.png",
-                                null,
-                                "Icon_Small_Middle.png",
-                                "TopShelf.png",
-                                "Launch.png"
-                };
+				// copy the template asset catalog to the appropriate directory
+				string Dir = Path.Combine(ResourcesDir, "Assets.xcassets");
+				if (!Directory.Exists(Dir))
+				{
+					Directory.CreateDirectory(Dir);
+				}
+				// create the directories
+				foreach (string directory in Directory.EnumerateDirectories(Path.Combine(EngineDir, "Build", "TVOS", "Resources", "Assets.xcassets"), "*", SearchOption.AllDirectories))
+				{
+					Dir = directory.Replace(Path.Combine(EngineDir, "Build", "TVOS"), IntermediateDir);
+					if (!Directory.Exists(Dir))
+					{
+						Directory.CreateDirectory(Dir);
+					}
+				}
+				// copy the default files
+				foreach (string file in Directory.EnumerateFiles(Path.Combine(EngineDir, "Build", "TVOS", "Resources", "Assets.xcassets"), "*", SearchOption.AllDirectories))
+				{
+					Dir = file.Replace(Path.Combine(EngineDir, "Build", "TVOS"), IntermediateDir);
+					File.Copy(file, Dir, true);
+					FileInfo DestFileInfo = new FileInfo(Dir);
+					DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+				}
+				// copy the icons from the game directory if it has any
+				string[][] Images = {
+					new string []{ "Icon_Large_Back-1280x768.png", "AppIcon.brandassets/App Icon - Large.imagestack/Back.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Large_Front-1280x768.png", "AppIcon.brandassets/App Icon - Large.imagestack/Front.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Large_Middle-1280x768.png", "AppIcon.brandassets/App Icon - Large.imagestack/Middle.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Small_Back-400x240.png", "AppIcon.brandassets/App Icon - Small.imagestack/Back.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Small_Back-800x480.png", "AppIcon.brandassets/App Icon - Small.imagestack/Back.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Small_Front-400x240.png", "AppIcon.brandassets/App Icon - Small.imagestack/Front.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Small_Front-800x480.png", "AppIcon.brandassets/App Icon - Small.imagestack/Front.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Small_Middle-400x240.png", "AppIcon.brandassets/App Icon - Small.imagestack/Middle.imagestacklayer/Content.imageset" },
+					new string []{ "Icon_Small_Middle-800x480.png", "AppIcon.brandassets/App Icon - Small.imagestack/Middle.imagestacklayer/Content.imageset" },
+					//new string []{ "TopShelfMarketWide.png", "AppIcon.brandassets/Top Shelf Image Wide.imageset" },
+					//new string []{ "TopShelfMarketWide@2x.png", "AppIcon.brandassets/Top Shelf Image Wide.imageset" },
+					new string []{ "TopShelfWide-1920x720@2x.png", "AppIcon.brandassets/Top Shelf Image Wide.imageset" },
+					new string []{ "TopShelfWide-1920x720.png", "AppIcon.brandassets/Top Shelf Image Wide.imageset" },
+					//new string []{ "TopShelfMarket.png", "AppIcon.brandassets/Top Shelf Image.imageset" },
+					//new string []{ "TopShelfMarket@2x.png", "AppIcon.brandassets/Top Shelf Image.imageset" },
+					new string []{ "TopShelf.png", "AppIcon.brandassets/Top Shelf Image.imageset" },
+					new string []{ "TopShelf@2x.png", "AppIcon.brandassets/Top Shelf Image.imageset" },
+					new string []{ "Launch.png", "LaunchImage.launchimage" },
+					new string []{ "Launch@2x.png", "LaunchImage.launchimage" },
+				};
+				Dir = Path.Combine(IntermediateDir, "Resources", "Assets.xcassets");
 
-                // create asset catalog for images
-                for (int i = 0; i < Directories.Length; ++i)
-                {
-                    string Dir = Path.Combine(ResourcesDir, Directories[i]);
-                    if (!Directory.Exists(Dir))
-                    {
-                        Directory.CreateDirectory(Dir);
-                    }
-                    File.WriteAllText(Path.Combine(Dir, "Contents.json"), Contents[i]);
-                    if (Images[i] != null)
-                    {
-                        // This assumption might not be true, but we need the asset catalog process to fire anyway.
-                        bUserImagesExist = true;
+				string BuildResourcesGraphicsDir = Path.Combine(BuildDir, "Resources", "Graphics");
+				for (int Index = 0; Index < Images.Length; ++Index)
+				{
+					string Image = Path.Combine((Directory.Exists(Path.Combine(BuildDir, "Resources", "Graphics")) ? (BuildDir) : (Path.Combine(EngineDir, "Build", "TVOS"))), "Resources", "Graphics", Images[Index][0]);
+					if (File.Exists(Image))
+					{
+						bUserImagesExist |= Image.StartsWith(BuildResourcesGraphicsDir);
 
-                        string Image = Path.Combine((Directory.Exists(Path.Combine(BuildDir, "Resource", "Graphics")) ? (BuildDir) : (Path.Combine(EngineDir, "Build", "TVOS"))), "Resources", "Graphics", Images[i]);
-                        if (File.Exists(Image))
-                        {
-                            File.Copy(Image, Path.Combine(Dir, Images[i]), true);
-                            FileInfo DestFileInfo = new FileInfo(Path.Combine(Dir, Images[i]));
-                            DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
-                        }
-                    }
-                }
-            }
-            else
+						File.Copy(Image, Path.Combine(Dir, Images[Index][1], Images[Index][0]), true);
+						FileInfo DestFileInfo = new FileInfo(Path.Combine(Dir, Images[Index][1], Images[Index][0]));
+						DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+					}
+				}
+			}
+			else
             {
                 // copy the template asset catalog to the appropriate directory
                 string Dir = Path.Combine(ResourcesDir, "Assets.xcassets");
@@ -1521,7 +1500,7 @@ namespace UnrealBuildTool
 				else
 				{
 					UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(Target.ProjectFile), new string[] { "-platforms=" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "-NoIntellIsense", (Target.Platform == UnrealTargetPlatform.IOS ? "-iosdeployonly" : "-tvosdeployonly"), "-ignorejunk", String.Format("-project={0}", Target.ProjectFile), "-game" });
-					XcodeWorkspaceDir = DirectoryReference.Combine(Target.ProjectDirectory, String.Format("{0}_{1}.xcworkspace", AppName, (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS")));
+					XcodeWorkspaceDir = DirectoryReference.Combine(Target.ProjectDirectory, String.Format("{0}_{1}.xcworkspace", Target.ProjectFile.GetFileNameWithoutExtension(), (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS")));
 				}
 
 				// Make sure it exists
@@ -1630,7 +1609,7 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						SchemeName = AppName;
+						SchemeName = Target.ProjectFile.GetFileNameWithoutExtension();
 					}
 
 					// code sign the project

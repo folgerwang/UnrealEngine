@@ -256,7 +256,7 @@ struct TStructOpsTypeTraits< FGameplayTag > : public TStructOpsTypeTraitsBase2< 
 		WithNetSerializer = true,
 		WithNetSharedSerialization = true,
 		WithPostSerialize = true,
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 		WithImportTextItem = true,
 	};
 };

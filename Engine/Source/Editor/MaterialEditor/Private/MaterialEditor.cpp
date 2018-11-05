@@ -612,6 +612,7 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 						{
 							UMaterialEditingLibrary::ConnectMaterialExpressions(Input, FString(), SetMaterialAttributes, FString());
 							UMaterialEditingLibrary::ConnectMaterialExpressions(SetMaterialAttributes, FString(), Expression, FString());
+							bMaterialDirty = true;
 						}
 					}
 				}
@@ -643,6 +644,7 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 							UMaterialEditingLibrary::ConnectMaterialExpressions(InputBottom, FString(), BlendMaterialAttributes, FString(TEXT("A")));
 							UMaterialEditingLibrary::ConnectMaterialExpressions(InputTop, FString(), BlendMaterialAttributes, FString(TEXT("B")));
 							UMaterialEditingLibrary::ConnectMaterialExpressions(BlendMaterialAttributes, FString(), Expression, FString());
+							bMaterialDirty = true;
 						}
 					}
 				}
@@ -704,6 +706,11 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 
 		FSuppressableWarningDialog EditingDefaultMaterial( Info );
 		EditingDefaultMaterial.ShowModal();	
+	}
+
+	if (GetDefault<UEditorExperimentalSettings>()->bExampleLayersAndBlends && bMaterialDirty)
+	{
+		SaveAsset_Execute();
 	}
 }
 
@@ -3234,7 +3241,7 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_GraphCanvas(const FSpawnTabArgs& 
 
 TSharedRef<SDockTab> FMaterialEditor::SpawnTab_MaterialProperties(const FSpawnTabArgs& Args)
 {
-	SpawnedDetailsTab = SNew(SDockTab)
+	TSharedPtr<SDockTab> DetailsTab = SNew(SDockTab)
 		.Icon( FEditorStyle::GetBrush("LevelEditor.Tabs.Details") )
 		.Label( LOCTEXT("MaterialDetailsTitle", "Details") )
 		[
@@ -3246,8 +3253,8 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_MaterialProperties(const FSpawnTa
 		// Since we're initialising, make sure nothing is selected
 		GraphEditor->ClearSelectionSet();
 	}
-
-	return SpawnedDetailsTab.ToSharedRef();
+	SpawnedDetailsTab = DetailsTab;
+	return DetailsTab.ToSharedRef();
 }
 
 TSharedRef<SDockTab> FMaterialEditor::SpawnTab_Palette(const FSpawnTabArgs& Args)
@@ -4750,9 +4757,9 @@ void FMaterialEditor::NotifyExternalMaterialChange()
 
 void FMaterialEditor::FocusDetailsPanel()
 {
-	if (SpawnedDetailsTab && !SpawnedDetailsTab->IsForeground())
+	if (SpawnedDetailsTab.IsValid() && !SpawnedDetailsTab.Pin()->IsForeground())
 	{
-		SpawnedDetailsTab->DrawAttention();
+		SpawnedDetailsTab.Pin()->DrawAttention();
 	}
 }
 

@@ -65,11 +65,11 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 
 		// Binary search children's lower bounds for the first that's >= the starting bound. That results in either ChildIndex or ChildIndex-1 being the overlapping range (if any).
 		int32 ChildIndex = Algo::LowerBoundBy(Children, StartingBound, GetLowerBound, MovieSceneHelpers::SortLowerBounds);
-		if (Children.IsValidIndex(ChildIndex) && MovieScene::DiscreteLowerBoundsAreEquivalent(Children[ChildIndex].Range.GetLowerBound(), StartingBound))
+		if (Children.IsValidIndex(ChildIndex) && Children[ChildIndex].Range.GetLowerBound() == StartingBound)
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex);
 		}
-		else if (Children.IsValidIndex(ChildIndex-1) && MovieScene::DiscreteRangesOverlap(Children[ChildIndex-1].Range, CompareRange))
+		else if (Children.IsValidIndex(ChildIndex-1) && Children[ChildIndex-1].Range.Overlaps(CompareRange))
 		{
 			CurrentNodeHandle = FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex - 1);
 		}
@@ -85,7 +85,7 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 		}
 	}
 
-	check(MovieScene::DiscreteRangesOverlap(CurrentRange, CompareRange));
+	check(CurrentRange.Overlaps(CompareRange));
 }
 
 void FMovieSceneEvaluationTreeRangeIterator::Iter(bool bForwards)
@@ -220,7 +220,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 {
 	// Take a temporary copy of the node as the container may be reallocated in this function
 	FMovieSceneEvaluationTreeNode ThisNode = GetNode(InParent);
-	if (!ensure(MovieScene::DiscreteRangesOverlap(ThisNode.Range, InTimeRange)))
+	if (!ensure(ThisNode.Range.Overlaps(InTimeRange)))
 	{
 		return;
 	}
@@ -263,7 +263,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, c
 				}
 			}
 
-			if (MovieScene::DiscreteRangesOverlap(ChildNode.Range, InTimeRange))
+			if (ChildNode.Range.Overlaps(InTimeRange))
 			{
 				// Find the node again since InsertNewChild may have re-allocated the nodes
 				AddTimeRange(InTimeRange, InOperator, FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex));

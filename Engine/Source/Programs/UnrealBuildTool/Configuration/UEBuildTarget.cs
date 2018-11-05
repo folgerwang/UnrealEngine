@@ -457,6 +457,11 @@ namespace UnrealBuildTool
 				RulesObject.bBuildRequiresCookedData = true;
 			}
 
+			if (!RulesObject.bAllowNonUFSIniWhenCooked)
+			{
+				RulesObject.GlobalDefinitions.Add("DISABLE_NONUFS_INI_WHEN_COOKED=1");
+			}
+
 			// Allow the platform to finalize the settings
 			UEBuildPlatform Platform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
 			Platform.ValidateTarget(RulesObject);
@@ -468,42 +473,21 @@ namespace UnrealBuildTool
 				RulesObject.bDeployAfterCompile = false;
 			}
 
-			// Include generated code plugin if not building an editor target and project is configured for nativization
-			if (RulesObject.ProjectFile != null
-				&& (RulesObject.Type == TargetType.Game || RulesObject.Type == TargetType.Client || RulesObject.Type == TargetType.Server)
-				&& ShouldIncludeNativizedAssets(RulesObject.ProjectFile.Directory))
+			// If we're compiling a plugin, and this target is monolithic, just create the object files
+			if(Desc.ForeignPlugin != null && RulesObject.LinkType == TargetLinkType.Monolithic)
 			{
-				string PlatformName;
-				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64)
-				{
-					PlatformName = "Windows";
-				}
-				else
-				{
-					PlatformName = RulesObject.Platform.ToString();
-				}
+				// Don't actually want an executable
+				RulesObject.bDisableLinking = true;
 
-				// Temp fix to force platforms that only support "Game" configurations at cook time to the correct path.
-				string ProjectTargetType;
-				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64
-					|| RulesObject.Platform == UnrealTargetPlatform.Linux || RulesObject.Platform == UnrealTargetPlatform.Mac)
-				{
-					ProjectTargetType = RulesObject.Type.ToString();
-				}
-				else
-				{
-					ProjectTargetType = "Game";
-				}
+				// Don't allow using shared PCHs; they won't be distributed with the plugin
+				RulesObject.bUseSharedPCHs = false;
+			}
 
-				FileReference PluginFile = FileReference.Combine(RulesObject.ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
-				if (FileReference.Exists(PluginFile))
-				{
-					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, bSkipRulesCompile, RulesAssembly, false);
-				}
-				else
-				{
-					Log.TraceWarning("{0} is configured for nativization, but is missing the generated code plugin at \"{1}\". Make sure to cook {2} data before attempting to build the {3} target. If data was cooked with nativization enabled, this can also mean there were no Blueprint assets that required conversion, in which case this warning can be safely ignored.", RulesObject.Name, PluginFile.FullName, RulesObject.Type.ToString(), RulesObject.Platform.ToString());
-				}
+			// Include generated code plugin if not building an editor target and project is configured for nativization
+			FileReference NativizedPluginFile = RulesObject.GetNativizedPlugin();
+			if(NativizedPluginFile != null)
+			{
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(NativizedPluginFile, bSkipRulesCompile, RulesAssembly, false);
 			}
 
 			// Generate a build target from this rules module
@@ -1194,13 +1178,13 @@ namespace UnrealBuildTool
 			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
 			{
 				FileReference SourceFile;
-				if(RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				if(!RuntimeDependencyTargetFileToSourceFile.TryGetValue(RuntimeDependency.Path, out SourceFile))
+				{
+					SourceFile = RuntimeDependency.Path;
+				}
+				if(RuntimeDependency.Type != StagedFileType.DebugNonUFS || FileReference.Exists(SourceFile))
 				{
 					Files.Add(SourceFile);
-				}
-				else
-				{
-					Files.Add(RuntimeDependency.Path);
 				}
 			}
 
@@ -1391,6 +1375,13 @@ namespace UnrealBuildTool
 				{
 					Manifest.PostBuildScripts.AddRange(PostBuildStepScripts.Select(x => x.FullName));
 				}
+			}
+
+			// Remove anything that's not part of the plugin
+			if(ForeignPlugin != null)
+			{
+				DirectoryReference ForeignPluginDir = ForeignPlugin.Directory;
+				Manifest.BuildProducts.RemoveAll(x => !new FileReference(x).IsUnderDirectory(ForeignPluginDir));
 			}
 
 			Manifest.BuildProducts.Sort();
@@ -1684,7 +1675,7 @@ namespace UnrealBuildTool
 				foreach (FileReference VersionManifestFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
 				{
 					// Make sure the file (and directory) exists before trying to delete it
-					if(FileReference.Exists(VersionManifestFile))
+					if(FileReference.Exists(VersionManifestFile) && !IsFileInstalled(VersionManifestFile))
 					{
 						FileReference.Delete(VersionManifestFile);
 					}
@@ -1824,6 +1815,10 @@ namespace UnrealBuildTool
 		bool IsFileInstalled(FileReference File)
 		{
 			if(UnrealBuildTool.IsEngineInstalled() && File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				return true;
+			}
+			if(UnrealBuildTool.IsEnterpriseInstalled() && File.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
 			{
 				return true;
 			}
@@ -2172,8 +2167,10 @@ namespace UnrealBuildTool
 
 						FileItem DefaultResourceFile = FileItem.GetExistingItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
 						DefaultResourceFile.CachedIncludePaths = DefaultResourceCompileEnvironment.IncludePaths;
-						CPPOutput DefaultResourceOutput = TargetToolChain.CompileRCFiles(DefaultResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, EngineIntermediateDirectory, ActionGraph);
 
+						WindowsPlatform.SetupResourceCompileEnvironment(DefaultResourceCompileEnvironment, EngineIntermediateDirectory, Rules);
+
+						CPPOutput DefaultResourceOutput = TargetToolChain.CompileRCFiles(DefaultResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, EngineIntermediateDirectory, ActionGraph);
 						GlobalLinkEnvironment.DefaultResourceFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}
 				}
@@ -2214,7 +2211,7 @@ namespace UnrealBuildTool
 			// If we're just precompiling a plugin, only include output items which are under that directory
 			if(ForeignPlugin != null)
 			{
-				OutputItems.RemoveAll(x => x.Location.IsUnderDirectory(ForeignPlugin.Directory));
+				OutputItems.RemoveAll(x => !x.Location.IsUnderDirectory(ForeignPlugin.Directory));
 			}
 
 			// Allow the toolchain to modify the final output items
@@ -3230,12 +3227,6 @@ namespace UnrealBuildTool
 			// Find all the valid plugins
 			Dictionary<string, PluginInfo> NameToInfo = RulesAssembly.EnumeratePlugins().ToDictionary(x => x.Name, x => x, StringComparer.InvariantCultureIgnoreCase);
 
-			// Remove any foreign plugins; we will just precompile those
-			if(ForeignPlugin != null)
-			{
-				NameToInfo = NameToInfo.Where(x => !x.Value.File.IsUnderDirectory(ForeignPlugin.Directory)).ToDictionary(Pair => Pair.Key, Pair => Pair.Value, StringComparer.InvariantCultureIgnoreCase);
-			}
-
 			// Remove any plugins for platforms we don't have
 			List<UnrealTargetPlatform> MissingPlatforms = new List<UnrealTargetPlatform>();
 			foreach (UnrealTargetPlatform TargetPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
@@ -3254,6 +3245,13 @@ namespace UnrealBuildTool
 
 			// Map of plugin names to instances of that plugin
 			Dictionary<string, UEBuildPlugin> NameToInstance = new Dictionary<string, UEBuildPlugin>(StringComparer.InvariantCultureIgnoreCase);
+
+			// Set up the foreign plugin
+			if(ForeignPlugin != null)
+			{
+				PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(ForeignPlugin.GetFileNameWithoutExtension(), null, true);
+				AddPlugin(PluginReference, "command line", ExcludeFolders, NameToInstance, NameToInfo);
+			}
 
 			// Configure plugins explicitly enabled via target settings
 			foreach(string PluginName in Rules.EnablePlugins)
@@ -4011,6 +4009,7 @@ namespace UnrealBuildTool
 				// Clear the bUsePrecompiled flag if we're compiling a foreign plugin; since it's treated like an engine module, it will default to true in an installed build.
 				if(RulesObject.Plugin != null && RulesObject.Plugin.File == ForeignPlugin)
 				{
+					RulesObject.bPrecompile = true;
 					RulesObject.bUsePrecompiled = false;
 				}
 
@@ -4032,6 +4031,7 @@ namespace UnrealBuildTool
 				DirectoryReference GeneratedCodeDirectory = null;
 				if (RulesObject.Type != ModuleRules.ModuleType.External)
 				{
+					// Get the base directory
 					if (RulesObject.Plugin != null)
 					{
 						GeneratedCodeDirectory = RulesObject.Plugin.Directory;
@@ -4048,7 +4048,18 @@ namespace UnrealBuildTool
 					{
 						GeneratedCodeDirectory = ProjectDirectory;
 					}
-					GeneratedCodeDirectory = DirectoryReference.Combine(GeneratedCodeDirectory, PlatformIntermediateFolder, AppName, "Inc", ModuleName);
+
+					// Get the subfolder containing generated code
+					GeneratedCodeDirectory = DirectoryReference.Combine(GeneratedCodeDirectory, PlatformIntermediateFolder, AppName, "Inc");
+
+					// Append the binaries subfolder, if present. We rely on this to ensure that build products can be filtered correctly.
+					if(RulesObject.BinariesSubFolder != null)
+					{
+						GeneratedCodeDirectory = DirectoryReference.Combine(GeneratedCodeDirectory, RulesObject.BinariesSubFolder);
+					}
+
+					// Finally, append the module name.
+					GeneratedCodeDirectory = DirectoryReference.Combine(GeneratedCodeDirectory, ModuleName);
 				}
 
 				// For legacy modules, add a bunch of default include paths.
@@ -4312,23 +4323,5 @@ namespace UnrealBuildTool
 
 			return FilteredFileItems;
 		}
-
-        static bool ShouldIncludeNativizedAssets(DirectoryReference GameProjectDirectory)
-        {
-            ConfigHierarchy Config = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, GameProjectDirectory, BuildHostPlatform.Current.Platform);
-            if (Config != null)
-            {
-                // Determine whether or not the user has enabled nativization of Blueprint assets at cook time (default is 'Disabled')
-                string BlueprintNativizationMethod;
-                if (!Config.TryGetValue("/Script/UnrealEd.ProjectPackagingSettings", "BlueprintNativizationMethod", out BlueprintNativizationMethod))
-                {
-                    BlueprintNativizationMethod = "Disabled";
-                }
-
-                return BlueprintNativizationMethod != "Disabled";
-            }
-
-            return false;
-        }
 	}
 }

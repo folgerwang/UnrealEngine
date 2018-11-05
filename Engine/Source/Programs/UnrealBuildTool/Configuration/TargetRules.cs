@@ -935,10 +935,15 @@ namespace UnrealBuildTool
 		[CommandLine("-ToolChain")]
 		public string ToolChainName = null;
 
-        /// <summary>
-        /// Whether to load generated ini files in cooked build
-        /// </summary>
-        public bool bAllowGeneratedIniWhenCooked = true;
+		/// <summary>
+		/// Whether to load generated ini files in cooked build, (GameUserSettings.ini loaded either way)
+		/// </summary>
+		public bool bAllowGeneratedIniWhenCooked = true;
+
+		/// <summary>
+		/// Whether to load non-ufs ini files in cooked build, (GameUserSettings.ini loaded either way)
+		/// </summary>
+		public bool bAllowNonUFSIniWhenCooked = true;
 
 		/// <summary>
 		/// Add all the public folders as include paths for the compile environment.
@@ -1056,6 +1061,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
 		public string AdditionalLinkerArguments;
+
+		/// <summary>
+		/// When generating project files, specifies the name of the project file to use when there are multiple targets of the same type.
+		/// </summary>
+		public string GeneratedProjectName;
 
 		/// <summary>
 		/// Android-specific target settings.
@@ -1297,6 +1307,58 @@ namespace UnrealBuildTool
 				GlobalDefinitions.Add("UE_SERVER=1");
 				GlobalDefinitions.Add("USE_NULL_RHI=1");
 			}
+		}
+
+		/// <summary>
+		/// Checks whether nativization is enabled for this target, and determine the path for the nativized plugin
+		/// </summary>
+		/// <returns>The nativized plugin file, or null if nativization is not enabled</returns>
+		internal FileReference GetNativizedPlugin()
+		{
+			if (ProjectFile != null && (Type == TargetType.Game || Type == TargetType.Client || Type == TargetType.Server))
+			{
+				// Read the config files for this project
+				ConfigHierarchy Config = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, ProjectFile.Directory, BuildHostPlatform.Current.Platform);
+				if (Config != null)
+				{
+					// Determine whether or not the user has enabled nativization of Blueprint assets at cook time (default is 'Disabled')
+					string NativizationMethod;
+					if (Config.TryGetValue("/Script/UnrealEd.ProjectPackagingSettings", "BlueprintNativizationMethod", out NativizationMethod) && NativizationMethod != "Disabled")
+					{
+						string PlatformName;
+						if (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64)
+						{
+							PlatformName = "Windows";
+						}
+						else
+						{
+							PlatformName = Platform.ToString();
+						}
+
+						// Temp fix to force platforms that only support "Game" configurations at cook time to the correct path.
+						string ProjectTargetType;
+						if (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64 || Platform == UnrealTargetPlatform.Linux || Platform == UnrealTargetPlatform.Mac)
+						{
+							ProjectTargetType = Type.ToString();
+						}
+						else
+						{
+							ProjectTargetType = "Game";
+						}
+
+						FileReference PluginFile = FileReference.Combine(ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
+						if (FileReference.Exists(PluginFile))
+						{
+							return PluginFile;
+						}
+						else
+						{
+							Log.TraceWarning("{0} is configured for nativization, but is missing the generated code plugin at \"{1}\". Make sure to cook {2} data before attempting to build the {3} target. If data was cooked with nativization enabled, this can also mean there were no Blueprint assets that required conversion, in which case this warning can be safely ignored.", Name, PluginFile.FullName, Type.ToString(), Platform.ToString());
+						}
+					}
+				}
+			}
+			return null;
 		}
 
 		/// <summary>
@@ -2068,6 +2130,11 @@ namespace UnrealBuildTool
 		public string AdditionalLinkerArguments
 		{
 			get { return Inner.AdditionalLinkerArguments; }
+		}
+
+		public string GeneratedProjectName
+		{
+			get { return Inner.GeneratedProjectName; }
 		}
 
 		public ReadOnlyAndroidTargetRules AndroidPlatform

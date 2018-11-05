@@ -122,7 +122,7 @@ private:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneStringChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneStringChannel>
 {
-	enum { WithSerializeFromMismatchedTag = true };
+	enum { WithStructuredSerializeFromMismatchedTag = true };
 };
 
 

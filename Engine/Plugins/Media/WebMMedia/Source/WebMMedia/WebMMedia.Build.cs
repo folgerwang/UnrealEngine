@@ -7,38 +7,37 @@ namespace UnrealBuildTool.Rules
 	{
 		public WebMMedia(ReadOnlyTargetRules Target) : base(Target)
 		{
-			DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
-					"Media",
-				});
-
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
 					"WebMMediaFactory",
 					"Core",
 					"Engine",
-					"MediaUtils",
 					"RenderCore",
 					"RHI",
 					"ShaderCore",
-					"UtilityShaders",
-					"libOpus",
-					//"UEOgg",
-					//"Vorbis",
-					"LibVpx",
-					"LibWebM",
 				});
 
-			PrivateIncludePathModuleNames.AddRange(
+			PublicDependencyModuleNames.AddRange(
 				new string[] {
 					"Media",
+					"MediaUtils",
+					"UtilityShaders",
+					"libOpus",
+					"UEOgg",
+					"Vorbis",
 				});
 
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"WebMMedia/Private",
-					"WebMMedia/Private/Player",
-				});
+			// Some Linux architectures don't have the libs built yet
+			bool bHaveWebMlibs = (!Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) || Target.Architecture.StartsWith("x86_64"));
+			if (bHaveWebMlibs)
+			{
+				PublicDependencyModuleNames.AddRange(
+					new string[] {
+					"LibVpx",
+					"LibWebM",
+					});
+			}
+			PublicDefinitions.Add("WITH_WEBM_LIBS=" + (bHaveWebMlibs ? "1" : "0"));
 		}
 	}
 }

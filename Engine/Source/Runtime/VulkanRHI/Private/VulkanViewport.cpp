@@ -20,7 +20,6 @@ FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
 	ECVF_ReadOnly
 );
 
-
 struct FRHICommandAcquireBackBuffer final : public FRHICommand<FRHICommandAcquireBackBuffer>
 {
 	FVulkanViewport* Viewport;
@@ -208,6 +207,9 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 {
 	check(IsInRenderingThread());
+
+	// make sure we aren't in the middle of swapchain recreation (which can happen on e.g. RHI thread)
+	FScopeLock LockSwapchain(&RecreatingSwapchain);
 
 	if (!RenderingBackBuffer && FVulkanPlatform::SupportsStandardSwapchain())
 	{
@@ -443,6 +445,7 @@ void FVulkanViewport::RecreateSwapchain(void* NewNativeWindow, bool bForce)
 		return;
 	}
 
+	FScopeLock LockSwapchain(&RecreatingSwapchain);
 	RenderingBackBuffer = nullptr;
 	RHIBackBuffer = nullptr;
 
@@ -596,7 +599,7 @@ void FVulkanViewport::CreateSwapchain()
 	}
 }
 
-inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSourceReadOnly, VkImage SrcSurface, VkImage DstSurface, int32 SizeX, int32 SizeY)
+inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSourceReadOnly, VkImage SrcSurface, VkImage DstSurface, int32 SizeX, int32 SizeY, int32 WindowSizeX, int32 WindowSizeY)
 {
 	VulkanRHI::FPendingBarrier Barriers;
 	int32 SourceIndex = Barriers.AddImageBarrier(SrcSurface, VK_IMAGE_ASPECT_COLOR_BIT, 1);
@@ -611,23 +614,52 @@ inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSour
 
 	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer->GetHandle(), 32);
 
-	VkImageCopy Region;
-	FMemory::Memzero(Region);
-	Region.extent.width = SizeX;
-	Region.extent.height = SizeY;
-	Region.extent.depth = 1;
-	Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	//Region.srcSubresource.baseArrayLayer = 0;
-	Region.srcSubresource.layerCount = 1;
-	//Region.srcSubresource.mipLevel = 0;
-	Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	//Region.dstSubresource.baseArrayLayer = 0;
-	Region.dstSubresource.layerCount = 1;
-	//Region.dstSubresource.mipLevel = 0;
-	VulkanRHI::vkCmdCopyImage(CmdBuffer->GetHandle(),
-		SrcSurface, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1, &Region);
+	if (SizeX != WindowSizeX || SizeY != WindowSizeY)
+	{
+		VkImageBlit Region;
+		FMemory::Memzero(Region);
+		Region.srcOffsets[0].x = 0;
+		Region.srcOffsets[0].y = 0;
+		Region.srcOffsets[0].z = 0;
+		Region.srcOffsets[1].x = SizeX;
+		Region.srcOffsets[1].y = SizeY;
+		Region.srcOffsets[1].z = 1;
+		Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		Region.srcSubresource.layerCount = 1;
+		Region.dstOffsets[0].x = 0;
+		Region.dstOffsets[0].y = 0;
+		Region.dstOffsets[0].z = 0;
+		Region.dstOffsets[1].x = WindowSizeX;
+		Region.dstOffsets[1].y = WindowSizeY;
+		Region.dstOffsets[1].z = 1;
+		Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		Region.dstSubresource.baseArrayLayer = 0;
+		Region.dstSubresource.layerCount = 1;
+		VulkanRHI::vkCmdBlitImage(CmdBuffer->GetHandle(),
+			SrcSurface, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &Region, VK_FILTER_LINEAR);
+	}
+	else
+	{
+		VkImageCopy Region;
+		FMemory::Memzero(Region);
+		Region.extent.width = SizeX;
+		Region.extent.height = SizeY;
+		Region.extent.depth = 1;
+		Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		//Region.srcSubresource.baseArrayLayer = 0;
+		Region.srcSubresource.layerCount = 1;
+		//Region.srcSubresource.mipLevel = 0;
+		Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		//Region.dstSubresource.baseArrayLayer = 0;
+		Region.dstSubresource.layerCount = 1;
+		//Region.dstSubresource.mipLevel = 0;
+		VulkanRHI::vkCmdCopyImage(CmdBuffer->GetHandle(),
+			SrcSurface, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &Region);
+	}
 
 	// Prepare for present
 	Barriers.ResetStages();
@@ -655,8 +687,11 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 				UE_LOG(LogVulkanRHI, Fatal, TEXT("Swapchain acquire image index failed!"));
 			}
 
+			uint32 WindowSizeX = SizeX;
+			uint32 WindowSizeY = SizeY;
+
 			Context->RHIPushEvent(TEXT("CopyImageToBackBuffer"), FColor::Blue);
-			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY);
+			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY, WindowSizeX, WindowSizeY);
 			Context->RHIPopEvent();
 		}
 		else

@@ -2,6 +2,8 @@
 
 #include "MkvFileReader.h"
 
+#if WITH_WEBM_LIBS
+
 #include "HAL/PlatformFilemanager.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 
@@ -46,3 +48,5 @@ int FMkvFileReader::Length(long long* Total, long long* Available)
 
 	return 0 /* success */;
 }
+
+#endif // WITH_WEBM_LIBS

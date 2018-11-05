@@ -448,7 +448,9 @@ public class IOSPlatform : Platform
 				}
 
 				IPPArguments += (cookonthefly ? " -cookonthefly" : "");
-				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, PlatformName) + "\"";
+
+				string CookPlatformName = GetCookPlatform(Params.DedicatedServer, Params.Client);
+				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, CookPlatformName) + "\"";
 				IPPArguments += " -project \"" + Params.RawProjectPath + "\"";
 				if (Params.IterativeDeploy)
 				{
@@ -530,7 +532,7 @@ public class IOSPlatform : Platform
 		{
 			// project.xcodeproj doesn't exist, so generate temp project
 			string Arguments = "-project=\"" + RawProjectPath + "\"";
-			Arguments += " -platforms=" + PlatformName + " -game -nointellisense -" + PlatformName + "deployonly -ignorejunk";
+			Arguments += " -platforms=" + PlatformName + " -game -nointellisense -" + PlatformName + "deployonly -ignorejunk -projectfileformat=XCode";
 
 			// If engine is installed then UBT doesn't need to be built
 			if (Automation.IsEngineInstalled())
@@ -892,7 +894,7 @@ public class IOSPlatform : Platform
 				ImageFileNames.Add("Default-IPhone6Plus-Portrait.png");
 				ImageFileNames.Add("Default-Portrait@2x.png");
 				ImageFileNames.Add("Default-Portrait-1336@2x.png");
-				ImageFileNames.Add("Default-IPhoneX-Portrait.png");
+				ImageFileNames.Add("Default-IPhoneXS-Portrait.png");
 			}
 			if (bSupportsLandscape)
 			{
@@ -900,7 +902,7 @@ public class IOSPlatform : Platform
 				ImageFileNames.Add("Default-IPhone6Plus-Landscape.png");
 				ImageFileNames.Add("Default-Landscape@2x.png");
 				ImageFileNames.Add("Default-Landscape-1336@2x.png");
-				ImageFileNames.Add("Default-IPhoneX-Landscape.png");
+				ImageFileNames.Add("Default-IPhoneXS-Landscape.png");
 			}
 			ImageFileNames.Add("Default@2x.png");
 			ImageFileNames.Add("Default-568h@2x.png");

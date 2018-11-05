@@ -832,6 +832,14 @@ class FPostProcessDiaphragmDOFReduceCS : public FPostProcessDiaphragmDOFShader
 			return false;
 		}
 
+		if (!FRCPassDiaphragmDOFHybridScatter::IsSupported(Parameters.Platform))
+		{
+			if (PermutationVector.Get<FHybridScatterForeground>() || PermutationVector.Get<FHybridScatterBackground>())
+			{
+				return false;
+			}
+		}
+
 		return FPostProcessDiaphragmDOFShader::ShouldCompilePermutation(Parameters);
 	}
 };
@@ -840,6 +848,15 @@ class FPostProcessDiaphragmDOFScatterGroupPackCS : public FPostProcessDiaphragmD
 {
 	DECLARE_GLOBAL_SHADER(FPostProcessDiaphragmDOFScatterGroupPackCS);
 	SHADER_TYPE_PARAMETERS(FPostProcessDiaphragmDOFScatterGroupPackCS, FPostProcessDiaphragmDOFShader, REDUCE_SHADER_PARAMS);
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		if (!FRCPassDiaphragmDOFHybridScatter::IsSupported(Parameters.Platform))
+		{
+			return false;
+		}
+		return FPostProcessDiaphragmDOFShader::ShouldCompilePermutation(Parameters);
+	}
 };
 
 IMPLEMENT_GLOBAL_SHADER(FPostProcessDiaphragmDOFReduceCS, "/Engine/Private/DiaphragmDOF/DOFReduce.usf", "ReduceCS", SF_Compute);

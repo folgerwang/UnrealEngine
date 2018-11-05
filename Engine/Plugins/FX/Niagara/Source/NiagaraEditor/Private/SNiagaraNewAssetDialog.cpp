@@ -189,6 +189,18 @@ const TArray<FAssetData>& SNiagaraNewAssetDialog::GetSelectedAssets() const
 	return SelectedAssets;
 }
 
+void SNiagaraNewAssetDialog::ConfirmSelection()
+{
+	const FNiagaraNewAssetDialogOption& SelectedOption = Options[SelectedOptionIndex];
+	if (SelectedOption.OnGetSelectedAssetsFromPicker.IsBound())
+	{
+		SelectedOption.OnGetSelectedAssetsFromPicker.Execute(SelectedAssets);
+		ensureMsgf(SelectedAssets.Num() > 0, TEXT("No assets selected when dialog was confirmed."));
+	}
+	bUserConfirmedSelection = true;
+	RequestDestroyWindow();
+}
+
 void SNiagaraNewAssetDialog::OnWindowClosed(const TSharedRef<SWindow>& Window)
 {
 	SaveConfig();
@@ -234,19 +246,21 @@ EVisibility SNiagaraNewAssetDialog::GetAssetPickerVisibility(int32 OptionIndex) 
 bool SNiagaraNewAssetDialog::IsOkButtonEnabled() const
 {
 	const FNiagaraNewAssetDialogOption& SelectedOption = Options[SelectedOptionIndex];
-	return SelectedOption.OnGetSelectedAssetsFromPicker.IsBound() == false || SelectedOption.OnGetSelectedAssetsFromPicker.Execute().Num() > 0;
+	if (SelectedOption.OnGetSelectedAssetsFromPicker.IsBound())
+	{
+		TArray<FAssetData> TempSelectedAssets;
+		SelectedOption.OnGetSelectedAssetsFromPicker.Execute(TempSelectedAssets);
+		return TempSelectedAssets.Num() != 0;
+	}
+	else
+	{
+		return true;
+	}
 }
 
 FReply SNiagaraNewAssetDialog::OnOkButtonClicked()
 {
-	const FNiagaraNewAssetDialogOption& SelectedOption = Options[SelectedOptionIndex];
-	if (SelectedOption.OnGetSelectedAssetsFromPicker.IsBound())
-	{
-		SelectedAssets.Append(SelectedOption.OnGetSelectedAssetsFromPicker.Execute());
-	}
-	bUserConfirmedSelection = true;
-
-	RequestDestroyWindow();
+	ConfirmSelection();
 	return FReply::Handled();
 }
 

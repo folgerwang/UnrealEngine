@@ -45,7 +45,7 @@ namespace
 			: SymbolFileFD(open(Path, O_RDONLY)),
 			  StartOffset(sizeof(RecordsHeader))
 		{
-			if (SymbolFileFD)
+			if (SymbolFileFD != -1)
 			{
 				// TODO check for EINTR
 				read(SymbolFileFD, static_cast<void*>(&RecordCount), sizeof(RecordsHeader));
@@ -462,7 +462,6 @@ namespace
 			{
 				if (FirstCrashHandlerFrame == reinterpret_cast<uint64*>(BackTrace[i]))
 				{
-					i++;
 					uint64* OverwriteBackTrace = BackTrace;
 
 					for (int j = i; j < Size; j++)
@@ -612,7 +611,7 @@ int32 FUnixPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo *M
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure(const TCHAR* ErrorMessage)
+void NewReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 {
 	// Simple re-entrance guard.
 	EnsureLock.Lock();

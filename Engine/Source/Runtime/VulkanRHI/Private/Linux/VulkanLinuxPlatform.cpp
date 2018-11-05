@@ -18,6 +18,21 @@ bool FVulkanLinuxPlatform::bAttemptedLoad = false;
 
 bool FVulkanLinuxPlatform::IsSupported()
 {
+	// right now we do not provide an offscreen initialization path, so
+	// report as not supported if we're running without X11 or Wayland
+	bool bHasX11Display = getenv("DISPLAY") != nullptr;
+	bool bHasWaylandSession = false;
+	if (!bHasX11Display)
+	{
+		// check Wayland
+		bHasWaylandSession = getenv("WAYLAND_DISPLAY") != nullptr;
+	}
+
+	if (!bHasX11Display && !bHasWaylandSession)
+	{
+		return false;
+	}
+
 	// just attempt to load the library
 	return LoadVulkanLibrary();
 }
@@ -129,6 +144,13 @@ void FVulkanLinuxPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 #endif
+
+	if (IsRHIDeviceNVIDIA())
+	{
+		//#todo-rco: Temporary workaround for some buffers not updating
+		extern FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit;
+		CVarVulkanWaitForIdleOnSubmit->Set(1);
+	}
 }
 
 void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
@@ -137,5 +159,31 @@ void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance
 	{
 		UE_LOG(LogInit, Error, TEXT("Error initializing SDL Vulkan Surface: %s"), SDL_GetError());
 		check(0);
+	}
+}
+
+void FVulkanLinuxPlatform::WriteCrashMarker(const FOptionalVulkanDeviceExtensions& OptionalExtensions, VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding)
+{
+	ensure(Entries.Num() <= GMaxCrashBufferEntries);
+
+	if (OptionalExtensions.HasAMDBufferMarker)
+	{
+		// AMD API only allows updating one entry at a time. Assume buffer has entry 0 as num entries
+		VulkanDynamicAPI::vkCmdWriteBufferMarkerAMD(CmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, DestBuffer, 0, Entries.Num());
+		if (bAdding)
+		{
+			int32 LastIndex = Entries.Num() - 1;
+			// +1 size as entries start at index 1
+			VulkanDynamicAPI::vkCmdWriteBufferMarkerAMD(CmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, DestBuffer, (1 + LastIndex) * sizeof(uint32), Entries[LastIndex]);
+		}
+	}
+	else if (OptionalExtensions.HasNVDiagnosticCheckpoints)
+	{
+		if (bAdding)
+		{
+			int32 LastIndex = Entries.Num() - 1;
+			uint32 Value = Entries[LastIndex];
+			VulkanDynamicAPI::vkCmdSetCheckpointNV(CmdBuffer, (void*)(size_t)Value);
+		}
 	}
 }

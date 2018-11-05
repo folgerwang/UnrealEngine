@@ -51,7 +51,7 @@ public:
 private:
 	void CreateVideoEncoder(const FTexture2DRHIRef& FrameBuffer);
 	void SendSpsPpsHeader();
-	void UpdateEncoderSettings(const FTexture2DRHIRef& FrameBuffer);
+	void UpdateEncoderSettings(const FTexture2DRHIRef& FrameBuffer, int32 Fps = -1);
 	void Stream(uint64 Timestamp, PixelStreamingProtocol::EToProxyMsg, const uint8* Data, uint32 Size);
 	void SaveEncodedVideoToFile(PixelStreamingProtocol::EToProxyMsg PktType, const uint8* Data, uint32 Size);
 	void SubmitVideoFrame(uint64 Timestamp, bool KeyFrame, const uint8* Data, uint32 Size);

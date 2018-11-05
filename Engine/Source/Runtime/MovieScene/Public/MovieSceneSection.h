@@ -168,6 +168,28 @@ public:
 	}
 
 	/**
+	 * A true representation of this section's range with an inclusive start frame and an exclusive end frame.
+	 * The resulting range defines that the section lies between { lower <= time < upper }
+	 */
+	TRange<FFrameNumber> GetTrueRange() const
+	{
+		TRangeBound<FFrameNumber> SectionLower = SectionRange.Value.GetLowerBound();
+		TRangeBound<FFrameNumber> SectionUpper = SectionRange.Value.GetUpperBound();
+
+		// Make exclusive lower bounds inclusive on the next frame
+		if (SectionLower.IsExclusive())
+		{
+			SectionLower = TRangeBound<FFrameNumber>::Inclusive(SectionLower.GetValue() + 1);
+		}
+		// Make inclusive upper bounds exclusive on the next frame
+		if (SectionUpper.IsInclusive())
+		{
+			SectionUpper = TRangeBound<FFrameNumber>::Exclusive(SectionUpper.GetValue() + 1);
+		}
+		return TRange<FFrameNumber>(SectionLower, SectionUpper);
+	}
+
+	/**
 	 * Expands this section's range to include the specified time
 	 */
 	void ExpandToFrame(FFrameNumber InFrame)

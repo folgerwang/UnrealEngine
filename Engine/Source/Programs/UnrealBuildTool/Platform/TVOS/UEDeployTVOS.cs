@@ -143,8 +143,10 @@ namespace UnrealBuildTool
             Text.AppendLine("\t<key>TVTopShelfImage</key>");
             Text.AppendLine("\t<dict>");
             Text.AppendLine("\t\t<key>TVTopShelfPrimaryImage</key>");
-            Text.AppendLine("\t\t<string>TopShelf</string>");
-            Text.AppendLine("\t</dict>");
+            Text.AppendLine("\t\t<string>Top Shelf Image</string>");
+			Text.AppendLine("\t\t<key>TVTopShelfPrimaryImageWide</key>");
+			Text.AppendLine("\t\t<string>Top Shelf Image Wide</string>");
+			Text.AppendLine("\t</dict>");
             Text.AppendLine("\t<key>UILaunchImages</key>");
             Text.AppendLine("\t<array>");
             Text.AppendLine("\t\t<dict>");
@@ -161,7 +163,7 @@ namespace UnrealBuildTool
             Text.AppendLine("\t<key>CFBundleIcons</key>");
             Text.AppendLine("\t<dict>");
             Text.AppendLine("\t\t<key>CFBundlePrimaryIcon</key>");
-            Text.AppendLine("\t\t<string>AppIconSmall</string>");
+            Text.AppendLine("\t\t<string>App Icon - Small</string>");
             Text.AppendLine("\t</dict>");
 
             /*			Text.AppendLine("\t<key>CFBundleIcons</key>");

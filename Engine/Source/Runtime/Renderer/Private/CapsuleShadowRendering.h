@@ -17,7 +17,7 @@ inline bool DoesPlatformSupportCapsuleShadows(EShaderPlatform Platform)
 {
 	// Hasn't been tested elsewhere yet
 	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12
-		|| Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT_MAC || Platform == SP_METAL_MRT
+		|| IsMetalSM5Platform(Platform)
 		|| IsVulkanSM5Platform(Platform)
 		|| Platform == SP_SWITCH;
 }

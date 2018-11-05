@@ -814,7 +814,7 @@ void FNiagaraShaderMap::Compile(
 			{
 				TArray<int32> CurrentShaderMapId;
 				CurrentShaderMapId.Add(CompilingId);
-				//GNiagaraShaderCompilationManager->FinishCompilation(*FriendlyName, CurrentShaderMapId);
+				GNiagaraShaderCompilationManager.FinishCompilation(*FriendlyName, CurrentShaderMapId);
 			}
 		}
 	}

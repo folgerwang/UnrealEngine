@@ -109,7 +109,7 @@ static int32 GGPUSkinCacheFlushCounter = 0;
 
 static inline bool DoesPlatformSupportGPUSkinCache(EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5 || Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT_MAC || Platform == SP_METAL_MRT || IsVulkanSM5Platform(Platform) || Platform == SP_OPENGL_SM5;
+	return Platform == SP_PCD3D_SM5 || IsMetalSM5Platform(Platform) || IsVulkanSM5Platform(Platform) || Platform == SP_OPENGL_SM5;
 }
 
 ENGINE_API bool IsGPUSkinCacheAvailable()

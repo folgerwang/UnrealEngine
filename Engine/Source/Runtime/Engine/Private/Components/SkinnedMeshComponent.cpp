@@ -416,7 +416,8 @@ FPrimitiveSceneProxy* USkinnedMeshComponent::CreateSceneProxy()
 	{
 		// Only create a scene proxy if the bone count being used is supported, or if we don't have a skeleton (this is the case with destructibles)
 		int32 MaxBonesPerChunk = SkelMeshRenderData->GetMaxBonesPerSection();
-		if (MaxBonesPerChunk <= GetFeatureLevelMaxNumberOfBones(SceneFeatureLevel))
+		int32 MaxSupportedNumBones = MeshObject->IsCPUSkinned() ? MAX_int32 : GetFeatureLevelMaxNumberOfBones(SceneFeatureLevel);
+		if (MaxBonesPerChunk <= MaxSupportedNumBones)
 		{
 			Result = ::new FSkeletalMeshSceneProxy(this, SkelMeshRenderData);
 		}
@@ -511,19 +512,29 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 #endif
 
 			// Also check if skeletal mesh has too many bones/chunk for GPU skinning.
-			const bool bIsCPUSkinned = SkelMeshRenderData->RequiresCPUSkinning(SceneFeatureLevel) || ShouldCPUSkin();
 			if (bRenderStatic)
 			{
 				// GPU skin vertex buffer + LocalVertexFactory
 				MeshObject = ::new FSkeletalMeshObjectStatic(this, SkelMeshRenderData, SceneFeatureLevel); 
 			}
-			else if(bIsCPUSkinned)
+			else if(ShouldCPUSkin())
 			{
 				MeshObject = ::new FSkeletalMeshObjectCPUSkin(this, SkelMeshRenderData, SceneFeatureLevel);
 			}
-			else
+			// don't silently enable CPU skinning for unsupported meshes, just do not render them, so their absence can be noticed and fixed
+			else if (!SkelMeshRenderData->RequiresCPUSkinning(SceneFeatureLevel)) 
 			{
 				MeshObject = ::new FSkeletalMeshObjectGPUSkin(this, SkelMeshRenderData, SceneFeatureLevel);
+			}
+			else
+			{
+				int32 MaxBonesPerChunk = SkelMeshRenderData->GetMaxBonesPerSection();
+				int32 MaxSupportedGPUSkinBones = FMath::Min(GetFeatureLevelMaxNumberOfBones(SceneFeatureLevel), FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones());
+				bool bHasExtraBoneInfluences = SkelMeshRenderData->HasExtraBoneInfluences();
+				FString FeatureLevelName; GetFeatureLevelName(SceneFeatureLevel, FeatureLevelName);
+
+				UE_LOG(LogSkinnedMeshComp, Warning, TEXT("SkeletalMesh %s, is not supported for current feature level (%s) and will not be rendered. NumBones %d (supported %d), HasExtraBoneInfluences: %s"), 
+					*GetNameSafe(SkeletalMesh), *FeatureLevelName, MaxBonesPerChunk, MaxSupportedGPUSkinBones, bHasExtraBoneInfluences ? TEXT("true"):TEXT("false"));
 			}
 
 			//Allow the editor a chance to manipulate it before its added to the scene

@@ -155,7 +155,7 @@ private:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneByteChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneByteChannel>
 {
-	enum { WithSerializeFromMismatchedTag = true };
+	enum { WithStructuredSerializeFromMismatchedTag = true };
 };
 
 template<>

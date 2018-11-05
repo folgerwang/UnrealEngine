@@ -159,6 +159,16 @@ void USoundCue::PostLoad()
 	CacheAggregateValues();
 }
 
+bool USoundCue::CanBeClusterRoot() const
+{
+	return false;
+}
+
+bool USoundCue::CanBeInCluster() const
+{
+	return false;
+}
+
 void USoundCue::OnPostEngineInit()
 {
 	FCoreDelegates::OnPostEngineInit.Remove(OnPostEngineInitHandle);

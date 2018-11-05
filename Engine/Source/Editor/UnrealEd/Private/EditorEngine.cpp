@@ -727,7 +727,19 @@ void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageRel
 				{
 					if(NewObject && CastChecked<UBlueprint>(NewObject)->GeneratedClass)
 					{
-						FBlueprintCompileReinstancer::ReplaceInstancesOfClass(OldBlueprint->GeneratedClass, CastChecked<UBlueprint>(NewObject)->GeneratedClass);
+						// Don't change the class on instances that are being thrown away by the reload code. If we update
+						// the class and recompile the old class ::ReplaceInstancesOfClass will experience some crosstalk 
+						// with the compiler (both trying to create objects of the same class in the same location):
+						TArray<UObject*> OldInstances;
+						GetObjectsOfClass(OldBlueprint->GeneratedClass, OldInstances, false);
+						OldInstances.RemoveAllSwap(
+							[](UObject* Obj){ return !Obj->HasAnyFlags(RF_NewerVersionExists); }
+						);
+						
+						TSet<UObject*> InstancesToLeaveAlone(OldInstances);
+						FReplaceInstancesOfClassParameters ReplaceInstancesParameters(OldBlueprint->GeneratedClass, CastChecked<UBlueprint>(NewObject)->GeneratedClass);
+						ReplaceInstancesParameters.InstancesThatShouldUseOldClass = &InstancesToLeaveAlone;
+						FBlueprintCompileReinstancer::ReplaceInstancesOfClassEx(ReplaceInstancesParameters);
 					}
 					else
 					{
@@ -774,7 +786,7 @@ void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageRel
 				BlueprintToRecompile = ObjectReferencerPtr->GetTypedOuter<UBlueprint>();
 			}
 			
-			if (BlueprintToRecompile)
+			if (BlueprintToRecompile && !BlueprintToRecompile->HasAnyFlags(RF_NewerVersionExists))
 			{
 				BlueprintsToRecompileThisBatch.Add(BlueprintToRecompile);
 			}
@@ -6870,7 +6882,7 @@ FORCEINLINE bool NetworkRemapPath_local(FWorldContext& Context, FString& Str, bo
 		// First strip any source prefix, then add the appropriate prefix for this context
 		FSoftObjectPath Path = UWorld::RemovePIEPrefix(Str);
 		
-		Path.FixupForPIE();
+		Path.FixupForPIE(Context.PIEInstance);
 		FString Remapped = Path.ToString();
 		if (!Remapped.Equals(Str, ESearchCase::CaseSensitive))
 		{

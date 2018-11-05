@@ -7,6 +7,7 @@
 #pragma once
 
 #include "VulkanResources.h"
+#include "HAL/CriticalSection.h"
 
 class FVulkanDynamicRHI;
 class FVulkanSwapChain;
@@ -65,6 +66,9 @@ protected:
 	// 'Dummy' back buffer
 	TRefCountPtr<FVulkanBackBuffer> RenderingBackBuffer;
 	TRefCountPtr<FVulkanBackBuffer> RHIBackBuffer;
+
+	/** narrow-scoped section that locks access to back buffer during its recreation*/
+	FCriticalSection RecreatingSwapchain;
 
 	FVulkanDynamicRHI* RHI;
 	uint32 SizeX;

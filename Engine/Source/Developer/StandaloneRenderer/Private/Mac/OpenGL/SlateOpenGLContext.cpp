@@ -10,6 +10,7 @@
 #include "Mac/MacTextInputMethodSystem.h"
 #include "Mac/MacPlatformApplicationMisc.h"
 #include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 
@@ -193,22 +194,24 @@ void FSlateOpenGLContext::Initialize(void* InWindow, const FSlateOpenGLContext* 
 			[View setWantsBestResolutionOpenGLSurface:YES];
 		}
 
-		if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSWindowStyleMaskTexturedBackground))
-		{
-			NSView* SuperView = [[Window contentView] superview];
-			[SuperView addSubview:View];
-			[SuperView setWantsLayer:YES];
-			[SuperView addSubview:[Window standardWindowButton:NSWindowCloseButton]];
-			[SuperView addSubview:[Window standardWindowButton:NSWindowMiniaturizeButton]];
-			[SuperView addSubview:[Window standardWindowButton:NSWindowZoomButton]];
-		}
-		else
-		{
-			[View setWantsLayer:YES];
-			[Window setContentView:View];
-		}
+		MainThreadCall(^{
+			if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSWindowStyleMaskTexturedBackground))
+			{
+				NSView* SuperView = [[Window contentView] superview];
+				[SuperView addSubview:View];
+				[SuperView setWantsLayer:YES];
+				[SuperView addSubview:[Window standardWindowButton:NSWindowCloseButton]];
+				[SuperView addSubview:[Window standardWindowButton:NSWindowMiniaturizeButton]];
+				[SuperView addSubview:[Window standardWindowButton:NSWindowZoomButton]];
+			}
+			else
+			{
+				[View setWantsLayer:YES];
+				[Window setContentView:View];
+			}
 
-		[[Window standardWindowButton:NSWindowCloseButton] setAction:@selector(performClose:)];
+			[[Window standardWindowButton:NSWindowCloseButton] setAction:@selector(performClose:)];
+		}, NSDefaultRunLoopMode, true);
 
 		View.layer.magnificationFilter = kCAFilterNearest;
 		View.layer.minificationFilter = kCAFilterNearest;

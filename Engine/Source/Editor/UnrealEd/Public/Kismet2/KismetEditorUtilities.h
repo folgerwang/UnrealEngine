@@ -50,6 +50,8 @@ enum class EBlueprintCompileOptions
 	RegenerateSkeletonOnly = 0x80,
 	/** Skips class-specific validation of the default object - in some cases we may not have a fully-initialized CDO after reinstancing */
 	SkipDefaultObjectValidation = 0x100,
+	/** Skips Find-in-Blueprint search data update - in some cases (e.g. creating new assets) this is being deferred until after compilation */
+	SkipFiBSearchMetaUpdate = 0x200,
 };
 
 ENUM_CLASS_FLAGS(EBlueprintCompileOptions)

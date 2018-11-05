@@ -205,6 +205,17 @@ struct FArchetypeReinstanceHelper
 	}
 };
 
+FReplaceInstancesOfClassParameters::FReplaceInstancesOfClassParameters(UClass* InOldClass, UClass* InNewClass)
+	: OldClass(InOldClass)
+	, NewClass(InNewClass)
+	, OriginalCDO(nullptr)
+	, ObjectsThatShouldUseOldStuff(nullptr)
+	, InstancesThatShouldUseOldClass(nullptr)
+	, bClassObjectReplaced(false)
+	, bPreserveRootComponent(true)
+{
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 // FBlueprintCompileReinstancer
 
@@ -1183,7 +1194,8 @@ void FActorReplacementHelper::Finalize(const TMap<UObject*, UObject*>& OldToNewI
 	FEditorScriptExecutionGuard ScriptGuard;
 
 	// run the construction script, which will use the properties we just copied over
-	if (NewActor->CurrentTransactionAnnotation.IsValid())
+	bool bCanReRun = UBlueprint::IsBlueprintHierarchyErrorFree(NewActor->GetClass());
+	if (NewActor->CurrentTransactionAnnotation.IsValid() && bCanReRun)
 	{
 		NewActor->CurrentTransactionAnnotation->ComponentInstanceData.FindAndReplaceInstances(OldToNewInstanceMap);
 		NewActor->RerunConstructionScripts();
@@ -1458,6 +1470,13 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass(UClass* OldClass, UCl
 	TMap<UClass*, UClass*> OldToNewClassMap;
 	OldToNewClassMap.Add(OldClass, NewClass);
 	ReplaceInstancesOfClass_Inner(OldToNewClassMap, OriginalCDO, ObjectsThatShouldUseOldStuff, bClassObjectReplaced, bPreserveRootComponent);
+}
+
+void FBlueprintCompileReinstancer::ReplaceInstancesOfClassEx(const FReplaceInstancesOfClassParameters& Parameters )
+{
+	TMap<UClass*, UClass*> OldToNewClassMap;
+	OldToNewClassMap.Add(Parameters.OldClass, Parameters.NewClass);
+	ReplaceInstancesOfClass_Inner(OldToNewClassMap, Parameters.OriginalCDO, Parameters.ObjectsThatShouldUseOldStuff, Parameters.bClassObjectReplaced, Parameters.bPreserveRootComponent, /*bArchetypesAreUpToDate=*/false, Parameters.InstancesThatShouldUseOldClass);
 }
 
 void FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(TMap<UClass*, UClass*>& InOldToNewClassMap, bool bArchetypesAreUpToDate)
@@ -1838,7 +1857,7 @@ static void ReplaceActorHelper(UObject* OldObject, UClass* OldClass, UObject*& N
 	OldToNewInstanceMap.Add(OldActor, NewActor);
 }
 
-void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, UClass*>& InOldToNewClassMap, UObject* InOriginalCDO, TSet<UObject*>* ObjectsThatShouldUseOldStuff, bool bClassObjectReplaced, bool bPreserveRootComponent, bool bArchetypesAreUpToDate)
+void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, UClass*>& InOldToNewClassMap, UObject* InOriginalCDO, TSet<UObject*>* ObjectsThatShouldUseOldStuff, bool bClassObjectReplaced, bool bPreserveRootComponent, bool bArchetypesAreUpToDate, const TSet<UObject*>* InstancesThatShouldUseOldClass )
 {
 	// If there is an original CDO, we are only reinstancing a single class
 	check((InOriginalCDO != nullptr && InOldToNewClassMap.Num() == 1) || InOriginalCDO == nullptr); // (InOldToNewClassMap.Num() > 1 && InOriginalCDO == nullptr) || (InOldToNewClassMap.Num() == 1 && InOriginalCDO != nullptr));
@@ -1939,7 +1958,8 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 					const bool bIsComponent = NewClass->IsChildOf(UActorComponent::StaticClass());
 					const bool bIsChildActorTemplate = OldActor && OldActor->GetOuter()->IsA<UChildActorComponent>();
 					if (OldObject->IsPendingKill() || 
-						(!bIsComponent && !bIsChildActorTemplate && OldObject->IsTemplate()))
+						(!bIsComponent && !bIsChildActorTemplate && OldObject->IsTemplate()) ||
+						(InstancesThatShouldUseOldClass && InstancesThatShouldUseOldClass->Contains(OldObject)))
 					{
 						continue;
 					}
@@ -1980,12 +2000,15 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 				for (int32 OldObjIndex = 0; OldObjIndex < ObjectsToReplace.Num(); ++OldObjIndex)
 				{
 					UObject* OldObject = ObjectsToReplace[OldObjIndex];
-					if (!OldObject->IsPendingKill())
+					if(OldObject->IsPendingKill() || 
+						(InstancesThatShouldUseOldClass && InstancesThatShouldUseOldClass->Contains(OldObject)))
 					{
-						if (AActor* OldActor = Cast<AActor>(OldObject))
-						{
-							ActorAttachmentData.Add(OldObject, FActorAttachmentData(OldActor));
-						}
+						continue;
+					}
+
+					if (AActor* OldActor = Cast<AActor>(OldObject))
+					{
+						ActorAttachmentData.Add(OldObject, FActorAttachmentData(OldActor));
 					}
 				}
 
@@ -1997,7 +2020,9 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 
 					// Skip archetype instances, EXCEPT for child actor templates
 					const bool bIsChildActorTemplate = OldActor && OldActor->GetOuter()->IsA<UChildActorComponent>();
-					if (OldObject->IsPendingKill() || (!bIsChildActorTemplate && OldObject->IsTemplate()))
+					if (OldObject->IsPendingKill() || 
+						(!bIsChildActorTemplate && OldObject->IsTemplate()) ||
+						(InstancesThatShouldUseOldClass && InstancesThatShouldUseOldClass->Contains(OldObject)))
 					{
 						continue;
 					}

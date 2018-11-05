@@ -1968,9 +1968,14 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 
 			if (GBlueprintUseCompilationManager)
 			{
-				// Skip CDO validation in this case as we will not have yet propagated values to the new CDO.
+				// Skip CDO validation in this case as we will not have yet propagated values to the new CDO. Also skip
+				// Blueprint search data updates, as that will be handled by an OnAssetAdded() delegate in the FiB manager.
+				const EBlueprintCompileOptions BPCompileOptions =
+					EBlueprintCompileOptions::SkipDefaultObjectValidation |
+					EBlueprintCompileOptions::SkipFiBSearchMetaUpdate;
+
 				FBlueprintCompilationManager::CompileSynchronously(
-					FBPCompileRequest(Blueprint, EBlueprintCompileOptions::SkipDefaultObjectValidation, nullptr)
+					FBPCompileRequest(Blueprint, BPCompileOptions, nullptr)
 				);
 			}
 			else
