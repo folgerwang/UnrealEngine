@@ -1159,7 +1159,7 @@ struct FFakeImportTableHelper
 		UClass* SourceClass = Cast<UClass>(SourceStruct);
 		if (ensure(SourceStruct) && ensure(!SourceClass || OriginalClass))
 		{
-			auto GatherDependencies = [&](UStruct* InStruct)
+			auto GatherDependencies = [this](UStruct* InStruct)
 			{
 				SerializeBeforeSerializeStructDependencies.Add(InStruct->GetSuperStruct());
 
@@ -1217,7 +1217,7 @@ struct FFakeImportTableHelper
 				GatherDependencies(OriginalClass);
 			}
 
-			auto GetClassesOfSubobjects = [&](TMap<UObject*, FString>& SubobjectsMap)
+			auto GetClassesOfSubobjects = [this, &Context](TMap<UObject*, FString>& SubobjectsMap)
 			{
 				TArray<UObject*> Subobjects;
 				SubobjectsMap.GetKeys(Subobjects);
@@ -1225,8 +1225,21 @@ struct FFakeImportTableHelper
 				{
 					if (Subobject)
 					{
-						SerializeBeforeSerializeStructDependencies.Add(Subobject->GetClass());
-						SerializeBeforeCreateCDODependencies.Add(Subobject->GetClass()->GetDefaultObject());
+						UClass* SubobjectClass = Subobject->GetClass();
+						SerializeBeforeSerializeStructDependencies.Add(SubobjectClass);
+						SerializeBeforeCreateCDODependencies.Add(SubobjectClass->GetDefaultObject());
+
+						// This ensures that any nested asset dependencies will be serialized before attempting to instance a subobject that's a converted type when constructing the CDO.
+						if (UBlueprintGeneratedClass* SubobjectClassAsBPGC = Cast<UBlueprintGeneratedClass>(SubobjectClass))
+						{
+							if (Context.Dependencies.ConvertedClasses.Contains(SubobjectClassAsBPGC))
+							{
+								TSharedPtr<FGatherConvertedClassDependencies> SubobjectClassDependencies = FGatherConvertedClassDependencies::Get(SubobjectClassAsBPGC, Context.Dependencies.NativizationOptions);
+								
+								SerializeBeforeCreateCDODependencies.Append(SubobjectClassDependencies->Assets);
+								SubobjectClassDependencies->GatherAssetsReferencedByConvertedTypes(SerializeBeforeCreateCDODependencies);
+							}
+						}
 					}
 				}
 			};
@@ -1258,7 +1271,7 @@ struct FFakeImportTableHelper
 			//everything was created for class
 			CompactDataRef.CDODependency.bCreateBeforeCreateDependency = false; 
 
-			// Classes of subobjects, created while CDO construction
+			// Classes of subobjects, created while CDO construction, including assets they depend on for their own construction
 			CompactDataRef.CDODependency.bSerializationBeforeCreateDependency = SerializeBeforeCreateCDODependencies.Contains(const_cast<UObject*>(Asset));
 
 			// CDO is not serialized

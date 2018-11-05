@@ -13,12 +13,15 @@ class UUserDefinedStruct;
 /** The struct gathers dependencies of a converted BPGC */
 struct BLUEPRINTCOMPILERCPPBACKEND_API FGatherConvertedClassDependencies
 {
+private:
+	static TMap<UStruct*, TSharedPtr<FGatherConvertedClassDependencies>> CachedConvertedClassDependencies;
+
 protected:
 	UStruct* OriginalStruct;
 
 public:
 	// Dependencies:
-	TArray<UObject*> Assets; 
+	TSet<UObject*> Assets;
 
 	TSet<UBlueprintGeneratedClass*> ConvertedClasses;
 	TSet<UUserDefinedStruct*> ConvertedStructs;
@@ -34,7 +37,7 @@ public:
 	FCompilerNativizationOptions NativizationOptions;
 
 public:
-	FGatherConvertedClassDependencies(UStruct* InStruct, const FCompilerNativizationOptions& InNativizationOptions);
+	static TSharedPtr<FGatherConvertedClassDependencies> Get(UStruct* InStruct, const FCompilerNativizationOptions& InNativizationOptions);
 
 	UStruct* GetActualStruct() const
 	{
@@ -50,10 +53,17 @@ public:
 public:
 	bool WillClassBeConverted(const UBlueprintGeneratedClass* InClass) const;
 
+	void GatherAssetsReferencedByConvertedTypes(TSet<UObject*>& Dependencies) const;
+
 	static void GatherAssetsReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct);
 
 	static bool IsFieldFromExcludedPackage(const UField* Field, const TSet<FName>& InExcludedModules);
 
 protected:
+	FGatherConvertedClassDependencies(UStruct* InStruct, const FCompilerNativizationOptions& InNativizationOptions);
+
+	/** Friend for access to constructor via MakeShared */
+	friend class SharedPointerInternals::TIntrusiveReferenceController<FGatherConvertedClassDependencies>;
+
 	void DependenciesForHeader();
 };

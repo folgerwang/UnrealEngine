@@ -200,7 +200,7 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 		if (bTryUsedAssetsList)
 		{
 			int32 AssetIndex = UsedObjectInCurrentClass.IndexOfByKey(Object);
-			if (INDEX_NONE == AssetIndex && Dependencies.Assets.Contains(Object))
+			if (INDEX_NONE == AssetIndex && Dependencies.Assets.Contains(const_cast<UObject*>(Object)))
 			{
 				AssetIndex = UsedObjectInCurrentClass.Add(Object);
 			}

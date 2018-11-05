@@ -72,6 +72,14 @@ struct FGatherConvertedClassDependenciesHelperBase : public FReferenceCollector
 		}
 	}
 
+	void AddAssetDependency(UObject* InAsset)
+	{
+		if (InAsset)
+		{
+			Dependencies.Assets.Add(InAsset);
+		}
+	}
+
 	void AddConvertedClassDependency(UBlueprintGeneratedClass* InBPGC)
 	{
 		if (InBPGC && !Dependencies.ConvertedClasses.Contains(InBPGC))
@@ -166,13 +174,13 @@ struct FFindAssetsToInclude : public FGatherConvertedClassDependenciesHelperBase
 					else
 					{
 						// Add the class itself as a dependency.
-						Dependencies.Assets.AddUnique(OwnerClass);
+						AddAssetDependency(OwnerClass);
 
 						if (ObjAsBPGC)
 						{
 							// For BPGC types, we also include the CDO as a dependency (since it will be serialized).
 							// Note that if we get here, we already know from above that the BPGC is not being converted.
-							Dependencies.Assets.AddUnique(ObjAsBPGC->GetDefaultObject());
+							AddAssetDependency(ObjAsBPGC->GetDefaultObject());
 						}
 					}
 				}
@@ -186,19 +194,19 @@ struct FFindAssetsToInclude : public FGatherConvertedClassDependenciesHelperBase
 					else
 					{
 						// Add the struct itself as a dependency.
-						Dependencies.Assets.AddUnique(OwnerStruct);
+						AddAssetDependency(OwnerStruct);
 					}
 				}
 				else
 				{
 					// UFUNCTION, UENUM, etc.
-					Dependencies.Assets.AddUnique(Object);
+					AddAssetDependency(Object);
 				}
 			}
 			else
 			{
 				// Include the asset as a dependency.
-				Dependencies.Assets.AddUnique(Object);
+				AddAssetDependency(Object);
 			}
 
 			// No need to traverse these objects any further, so we just return.
@@ -317,7 +325,7 @@ struct FFindHeadersToInclude : public FGatherConvertedClassDependenciesHelperBas
 		}
 
 		{
-			auto ObjAsField = Cast<UField>(Object);
+			UField* ObjAsField = Cast<UField>(Object);
 			if (!ObjAsField)
 			{
 				const bool bTransientObject = (Object->HasAnyFlags(RF_Transient) && !Object->IsIn(CurrentlyConvertedStruct)) || Object->IsIn(GetTransientPackage());
@@ -358,7 +366,7 @@ struct FFindHeadersToInclude : public FGatherConvertedClassDependenciesHelperBas
 			return;
 		}
 
-		auto OwnedByAnythingInHierarchy = [&]()->bool
+		auto OwnedByAnythingInHierarchy = [this, Object, CurrentlyConvertedStruct]()->bool
 		{
 			for (UStruct* IterStruct = CurrentlyConvertedStruct; IterStruct; IterStruct = IterStruct->GetSuperStruct())
 			{
@@ -424,7 +432,7 @@ FGatherConvertedClassDependencies::FGatherConvertedClassDependencies(UStruct* In
 	static const FBoolConfigValueHelper DontNativizeDataOnlyBP(TEXT("BlueprintNativizationSettings"), TEXT("bDontNativizeDataOnlyBP"));
 	if (DontNativizeDataOnlyBP)
 	{
-		auto RemoveFieldsFromDataOnlyBP = [&](TSet<UField*>& FieldSet)
+		auto RemoveFieldsFromDataOnlyBP = [this](TSet<UField*>& FieldSet)
 		{
 			TSet<UField*> FieldsToAdd;
 			for (auto Iter = FieldSet.CreateIterator(); Iter; ++Iter)
@@ -447,7 +455,7 @@ FGatherConvertedClassDependencies::FGatherConvertedClassDependencies(UStruct* In
 
 	{
 		TSet<FName> ExcludedModules(NativizationOptions.ExcludedModules);
-		auto RemoveFieldsDependentOnExcludedModules = [&](TSet<UField*>& FieldSet)
+		auto RemoveFieldsDependentOnExcludedModules = [&ExcludedModules, InStruct](TSet<UField*>& FieldSet)
 		{
 			for (auto Iter = FieldSet.CreateIterator(); Iter; ++Iter)
 			{
@@ -463,9 +471,9 @@ FGatherConvertedClassDependencies::FGatherConvertedClassDependencies(UStruct* In
 		RemoveFieldsDependentOnExcludedModules(IncludeInBody);
 	}
 
-	auto GatherRequiredModules = [&](const TSet<UField*>& Fields)
+	auto GatherRequiredModules = [this](const TSet<UField*>& Fields)
 	{
-		for (auto Field : Fields)
+		for (UField* Field : Fields)
 		{
 			const UPackage* Package = Field ? Field->GetOutermost() : nullptr;
 			if (Package && Package->HasAnyPackageFlags(PKG_CompiledIn))
@@ -532,13 +540,13 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 	TArray<UObject*> NeededObjects;
 	FReferenceFinder HeaderReferenceFinder(NeededObjects, nullptr, false, false, true, false);
 
-	auto ShouldIncludeHeaderFor = [&](UObject* InObj)->bool
+	auto ShouldIncludeHeaderFor = [this](UObject* InObj)->bool
 	{
 		if (InObj
 			&& (InObj->IsA<UClass>() || InObj->IsA<UEnum>() || InObj->IsA<UScriptStruct>())
 			&& !InObj->HasAnyFlags(RF_ClassDefaultObject))
 		{
-			auto ObjAsBPGC = Cast<UBlueprintGeneratedClass>(InObj);
+			UBlueprintGeneratedClass* ObjAsBPGC = Cast<UBlueprintGeneratedClass>(InObj);
 			const bool bWillBeConvetedAsBPGC = ObjAsBPGC && WillClassBeConverted(ObjAsBPGC);
 			const bool bRemainAsUnconvertedBPGC = ObjAsBPGC && !bWillBeConvetedAsBPGC;
 			if (!bRemainAsUnconvertedBPGC && (InObj->GetOutermost() != OriginalStruct->GetOutermost()))
@@ -549,7 +557,7 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 		return false;
 	};
 
-	for (auto Obj : ObjectsToCheck)
+	for (UObject* Obj : ObjectsToCheck)
 	{
 		const UProperty* Property = Cast<const UProperty>(Obj);
 		if (const UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
@@ -561,28 +569,28 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 		const bool bIsMemberVariable = OwnerProperty && (OwnerProperty->GetOuter() == OriginalStruct);
 		if (bIsParam || bIsMemberVariable)
 		{
-			if (auto SoftClassProperty = Cast<const USoftClassProperty>(Property))
+			if (const USoftClassProperty* SoftClassProperty = Cast<const USoftClassProperty>(Property))
 			{
 				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(SoftClassProperty->MetaClass));
 			}
-			if (auto ClassProperty = Cast<const UClassProperty>(Property))
+			if (const UClassProperty* ClassProperty = Cast<const UClassProperty>(Property))
 			{
 				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(ClassProperty->MetaClass));
 			}
-			if (auto ObjectProperty = Cast<const UObjectPropertyBase>(Property))
+			if (const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(Property))
 			{
 				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(ObjectProperty->PropertyClass));
 			}
-			else if (auto InterfaceProperty = Cast<const UInterfaceProperty>(Property))
+			else if (const UInterfaceProperty* InterfaceProperty = Cast<const UInterfaceProperty>(Property))
 			{
 				IncludeInHeader.Add(InterfaceProperty->InterfaceClass);
 			}
-			else if (auto DelegateProperty = Cast<const UDelegateProperty>(Property))
+			else if (const UDelegateProperty* DelegateProperty = Cast<const UDelegateProperty>(Property))
 			{
 				IncludeInHeader.Add(DelegateProperty->SignatureFunction ? DelegateProperty->SignatureFunction->GetOwnerStruct() : nullptr);
 			}
 			/* MC Delegate signatures are recreated in local scope anyway.
-			else if (auto MulticastDelegateProperty = Cast<const UMulticastDelegateProperty>(Property))
+			else if (const UMulticastDelegateProperty* MulticastDelegateProperty = Cast<const UMulticastDelegateProperty>(Property))
 			{
 				IncludeInHeader.Add(MulticastDelegateProperty->SignatureFunction ? MulticastDelegateProperty->SignatureFunction->GetOwnerClass() : nullptr);
 			}
@@ -608,12 +616,12 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 		}
 	}
 
-	if (auto SuperStruct = OriginalStruct->GetSuperStruct())
+	if (UStruct* SuperStruct = OriginalStruct->GetSuperStruct())
 	{
 		IncludeInHeader.Add(SuperStruct);
 	}
 
-	if (auto SourceClass = Cast<UClass>(OriginalStruct))
+	if (UClass* SourceClass = Cast<UClass>(OriginalStruct))
 	{
 		for (auto& ImplementedInterface : SourceClass->Interfaces)
 		{
@@ -621,7 +629,7 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 		}
 	}
 
-	for (auto Obj : NeededObjects)
+	for (UObject* Obj : NeededObjects)
 	{
 		if (ShouldIncludeHeaderFor(Obj))
 		{
@@ -684,9 +692,9 @@ TSet<const UObject*> FGatherConvertedClassDependencies::AllDependencies() const
 		All.Add(SuperClass);
 	}
 
-	if (auto SourceClass = Cast<UClass>(OriginalStruct))
+	if (UClass* SourceClass = Cast<UClass>(OriginalStruct))
 	{
-		for (auto& ImplementedInterface : SourceClass->Interfaces)
+		for (const FImplementedInterface& ImplementedInterface : SourceClass->Interfaces)
 		{
 			UBlueprintGeneratedClass* InterfaceClass = Cast<UBlueprintGeneratedClass>(ImplementedInterface.Class);
 			if (ImplementedInterface.Class && (!InterfaceClass || WillClassBeConverted(InterfaceClass)))
@@ -695,8 +703,15 @@ TSet<const UObject*> FGatherConvertedClassDependencies::AllDependencies() const
 			}
 		}
 	}
+	
+	TSet<UObject*> NestedAssets;
+	GatherAssetsReferencedByConvertedTypes(NestedAssets);
 
 	for (auto It : Assets)
+	{
+		All.Add(It);
+	}
+	for (auto It : NestedAssets)
 	{
 		All.Add(It);
 	}
@@ -713,6 +728,24 @@ TSet<const UObject*> FGatherConvertedClassDependencies::AllDependencies() const
 		All.Add(It);
 	}
 	return All;
+}
+
+TMap<UStruct*, TSharedPtr<FGatherConvertedClassDependencies>> FGatherConvertedClassDependencies::CachedConvertedClassDependencies;
+
+TSharedPtr<FGatherConvertedClassDependencies> FGatherConvertedClassDependencies::Get(UStruct* InStruct, const FCompilerNativizationOptions& InNativizationOptions)
+{
+	TSharedPtr<FGatherConvertedClassDependencies> ConvertedClassDependenciesPtr;
+	if (InStruct)
+	{
+		ConvertedClassDependenciesPtr = CachedConvertedClassDependencies.FindOrAdd(InStruct);
+		if (!ConvertedClassDependenciesPtr.IsValid())
+		{
+			ConvertedClassDependenciesPtr = MakeShared<FGatherConvertedClassDependencies>(InStruct, InNativizationOptions);
+			check(ConvertedClassDependenciesPtr.IsValid());
+		}
+	}
+
+	return ConvertedClassDependenciesPtr;
 }
 
 class FArchiveReferencesInStructInstance : public FArchive
@@ -745,6 +778,39 @@ public:
 	}
 };
 
+void FGatherConvertedClassDependencies::GatherAssetsReferencedByConvertedTypes(TSet<UObject*>& Dependencies) const
+{
+	TSet<UStruct*> VisitedTypes = { GetActualStruct() };
+
+	TArray<UStruct*> ConvertedTypeStack;
+	ConvertedTypeStack.Append(ConvertedStructs.Array());
+	ConvertedTypeStack.Append(ConvertedClasses.Array());
+
+	while(ConvertedTypeStack.Num() > 0)
+	{
+		UStruct* ConvertedType = ConvertedTypeStack.Pop();
+		TSharedPtr<FGatherConvertedClassDependencies> ConvertedTypeDependenciesPtr = Get(ConvertedType, NativizationOptions);
+
+		VisitedTypes.Add(ConvertedType);
+		Dependencies.Append(ConvertedTypeDependenciesPtr->Assets);
+
+		for (UUserDefinedStruct* ConvertedStruct : ConvertedTypeDependenciesPtr->ConvertedStructs)
+		{
+			if (!VisitedTypes.Contains(ConvertedStruct))
+			{
+				ConvertedTypeStack.Push(ConvertedStruct);
+			}
+		}
+		
+		for (UBlueprintGeneratedClass* ConvertedClass : ConvertedTypeDependenciesPtr->ConvertedClasses)
+		{
+			if (!VisitedTypes.Contains(ConvertedClass))
+			{
+				ConvertedTypeStack.Push(ConvertedClass);
+			}
+		}
+	}
+}
 
 void FGatherConvertedClassDependencies::GatherAssetsReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct)
 {
