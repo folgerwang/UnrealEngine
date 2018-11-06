@@ -241,7 +241,10 @@ void FDefaultStereoLayers::PostRenderView_RenderThread(FRHICommandListImmediate&
 	{
 		RenderTarget = InView.Family->RenderTarget->GetRenderTargetTexture();
 	}
-	SetRenderTarget(RHICmdList, RenderTarget, FTextureRHIRef());
+
+	FRHIRenderPassInfo RPInfo(RenderTarget, ERenderTargetActions::Load_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("StereoLayerRender"));
+
 	RHICmdList.SetViewport(RenderParams.Viewport.Min.X, RenderParams.Viewport.Min.Y, 0, RenderParams.Viewport.Max.X, RenderParams.Viewport.Max.Y, 1.0f);
 	StereoLayerRender(RHICmdList, SortedSceneLayers, RenderParams);
 	
@@ -249,12 +252,18 @@ void FDefaultStereoLayers::PostRenderView_RenderThread(FRHICommandListImmediate&
 	FTexture2DRHIRef OverlayRenderTarget = HMDDevice->GetOverlayLayerTarget_RenderThread(InView.StereoPass, RenderParams.Viewport);
 	if (OverlayRenderTarget.IsValid())
 	{
-		SetRenderTarget(RHICmdList, OverlayRenderTarget, FTextureRHIRef());
+		RHICmdList.EndRenderPass();
+
+		FRHIRenderPassInfo RPInfoOverlayRenderTarget(OverlayRenderTarget, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfoOverlayRenderTarget, TEXT("StereoLayerRenderIntoOverlay"));
+
 		DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 		RHICmdList.SetViewport(RenderParams.Viewport.Min.X, RenderParams.Viewport.Min.Y, 0, RenderParams.Viewport.Max.X, RenderParams.Viewport.Max.Y, 1.0f);
 	}
 
 	StereoLayerRender(RHICmdList, SortedOverlayLayers, RenderParams);
+
+	RHICmdList.EndRenderPass();
 }
 
 bool FDefaultStereoLayers::IsActiveThisFrame(class FViewport* InViewport) const

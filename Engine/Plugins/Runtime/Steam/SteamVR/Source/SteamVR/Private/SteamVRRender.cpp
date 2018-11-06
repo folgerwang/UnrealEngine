@@ -37,8 +37,12 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 
 	if (bSplashIsShown)
 	{
-		SetRenderTarget(RHICmdList, SrcTexture, FTextureRHIRef());
-		DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
+		FRHIRenderPassInfo RPInfo(SrcTexture, ERenderTargetActions::DontLoad_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("Clear"));
+		{
+			DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
+		}
+		RHICmdList.EndRenderPass();
 	}
 
 	check(SpectatorScreenController);

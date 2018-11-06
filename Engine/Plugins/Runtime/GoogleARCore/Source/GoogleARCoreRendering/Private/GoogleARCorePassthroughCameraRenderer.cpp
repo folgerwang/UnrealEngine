@@ -353,36 +353,40 @@ void FGoogleARCorePassthroughCameraRenderer::CopyVideoTexture_RenderThread(FRHIC
 
 	IRendererModule& RendererModule = GetRendererModule();
 
-	SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-	DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+	FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::DontLoad_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyVideoTexture"));
+	{
+		DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 
-	RHICmdList.SetViewport(0, 0, 0, TargetSize.X, TargetSize.Y, 1.0f);
+		RHICmdList.SetViewport(0, 0, 0, TargetSize.X, TargetSize.Y, 1.0f);
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), VideoTexture.GetReference());
+		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), VideoTexture.GetReference());
 
-	RendererModule.DrawRectangle(
-		RHICmdList,
-		0, 0,
-		TargetSize.X, TargetSize.Y,
-		0, 0,
-		1, 1,
-		FIntPoint(TargetSize.X, TargetSize.Y),
-		FIntPoint(1, 1),
-		*VertexShader,
-		EDRF_Default);
+		RendererModule.DrawRectangle(
+			RHICmdList,
+			0, 0,
+			TargetSize.X, TargetSize.Y,
+			0, 0,
+			1, 1,
+			FIntPoint(TargetSize.X, TargetSize.Y),
+			FIntPoint(1, 1),
+			*VertexShader,
+			EDRF_Default);
+	}
+	RHICmdList.EndRenderPass();
 #endif
 }

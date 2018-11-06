@@ -357,32 +357,35 @@ void FStressTester::DoTickGPU_RenderThread(FRHICommandListImmediate& RHICmdList,
 		}
 
 		//This is where the magic happens
-		SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
+		FRHIRenderPassInfo RPInfo(BackBuffer, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("FSPass"));
+		{
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			const auto FeatureLevel = GMaxRHIFeatureLevel;
+			TShaderMapRef<FOculusVertexShader> VertexShader(GetGlobalShaderMap(FeatureLevel));
+			TShaderMapRef<FOculusStressShadersPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
 
-		const auto FeatureLevel = GMaxRHIFeatureLevel;
-		TShaderMapRef<FOculusVertexShader> VertexShader(GetGlobalShaderMap(FeatureLevel));
-		TShaderMapRef<FOculusStressShadersPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
-		
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GOculusTextureVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GOculusTextureVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		FShaderResourceViewRHIRef TextureParameterSRV = RHICreateShaderResourceView(SrcTexture, 0);
-		PixelShader->SetSurfaces(RHICmdList, TextureParameterSRV);
-		PixelShader->SetUniformBuffers(RHICmdList, ConstantParameters, VariableParameters);
+			FShaderResourceViewRHIRef TextureParameterSRV = RHICreateShaderResourceView(SrcTexture, 0);
+			PixelShader->SetSurfaces(RHICmdList, TextureParameterSRV);
+			PixelShader->SetUniformBuffers(RHICmdList, ConstantParameters, VariableParameters);
 
-		// Draw a fullscreen quad that we can run our pixel shader on
-		RHICmdList.SetStreamSource(0, CreateTempOcculusVertexBuffer(), 0);
-		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+			// Draw a fullscreen quad that we can run our pixel shader on
+			RHICmdList.SetStreamSource(0, CreateTempOcculusVertexBuffer(), 0);
+			RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		}
+		RHICmdList.EndRenderPass();
 
 		PixelShader->UnbindBuffers(RHICmdList);
 	}

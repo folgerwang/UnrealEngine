@@ -39,40 +39,44 @@ void FOSVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& rhiCmdList, 
 	const uint32 viewportHeight = backBuffer->GetSizeY();
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	SetRenderTarget(rhiCmdList, backBuffer, FTextureRHIRef());
-	rhiCmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+	FRHIRenderPassInfo RPInfo(backBuffer, ERenderTargetActions::Load_Store);
+	rhiCmdList.BeginRenderPass(RPInfo, TEXT("OSVRHMD_RenderTexture"));
+	{
+		rhiCmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	rhiCmdList.SetViewport(0, 0, 0, viewportWidth, viewportHeight, 1.0f);
+		rhiCmdList.SetViewport(0, 0, 0, viewportWidth, viewportHeight, 1.0f);
 
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	const auto featureLevel = GMaxRHIFeatureLevel;
-	auto shaderMap = GetGlobalShaderMap(featureLevel);
+		const auto featureLevel = GMaxRHIFeatureLevel;
+		auto shaderMap = GetGlobalShaderMap(featureLevel);
 
-	TShaderMapRef<FScreenVS> vertexShader(shaderMap);
-	TShaderMapRef<FScreenPS> pixelShader(shaderMap);
+		TShaderMapRef<FScreenVS> vertexShader(shaderMap);
+		TShaderMapRef<FScreenPS> pixelShader(shaderMap);
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*vertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*pixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*vertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*pixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	SetGraphicsPipelineState(rhiCmdList, GraphicsPSOInit);
+		SetGraphicsPipelineState(rhiCmdList, GraphicsPSOInit);
 
-	pixelShader->SetParameters(rhiCmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), srcTexture);
+		pixelShader->SetParameters(rhiCmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), srcTexture);
 
-	RendererModule->DrawRectangle(
-		rhiCmdList,
-		0, 0, // X, Y
-		viewportWidth, viewportHeight, // SizeX, SizeY
-		0.0f, 0.0f, // U, V
-		1.0f, 1.0f, // SizeU, SizeV
-		FIntPoint(viewportWidth, viewportHeight), // TargetSize
-		FIntPoint(1, 1), // TextureSize
-		*vertexShader,
-		EDRF_Default);
+		RendererModule->DrawRectangle(
+			rhiCmdList,
+			0, 0, // X, Y
+			viewportWidth, viewportHeight, // SizeX, SizeY
+			0.0f, 0.0f, // U, V
+			1.0f, 1.0f, // SizeU, SizeV
+			FIntPoint(viewportWidth, viewportHeight), // TargetSize
+			FIntPoint(1, 1), // TextureSize
+			*vertexShader,
+			EDRF_Default);
+	}
+	rhiCmdList.EndRenderPass();
 }
 
 void FOSVRHMD::GetEyeRenderParams_RenderThread(const struct FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const
