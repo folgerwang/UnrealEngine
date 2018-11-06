@@ -15,6 +15,7 @@ class FD3D12StateCacheBase;
 class FD3D12CommandListManager;
 class FD3D12CommandContext;
 class FD3D12CommandListHandle;
+class FD3D12SegListAllocator;
 struct FD3D12GraphicsPipelineState;
 typedef FD3D12StateCacheBase FD3D12StateCache;
 
@@ -70,7 +71,7 @@ public:
 	~FD3D12Heap();
 
 	inline ID3D12Heap* GetHeap() { return Heap.GetReference(); }
-	inline void SetHeap(ID3D12Heap* HeapIn) { Heap = HeapIn; }
+	inline void SetHeap(ID3D12Heap* HeapIn) { *Heap.GetInitReference() = HeapIn; }
 
 	void UpdateResidency(FD3D12CommandListHandle& CommandList);
 
@@ -375,6 +376,16 @@ struct FD3D12BlockAllocatorPrivateData
 	}
 };
 
+struct FD3D12SegListAllocatorPrivateData
+{
+	uint32 Offset;
+
+	void Init()
+	{
+		Offset = 0;
+	}
+};
+
 class FD3D12ResourceAllocator;
 // A very light-weight and cache friendly way of accessing a GPU resource
 class FD3D12ResourceLocation : public FD3D12DeviceChild, public FNoncopyable
@@ -392,6 +403,13 @@ public:
 		eHeapAliased, 
 	};
 
+	enum EAllocatorType : uint8
+	{
+		AT_Default, // FD3D12BaseAllocatorType
+		AT_SegList, // FD3D12SegListAllocator
+		AT_Unknown = 0xff
+	};
+
 	FD3D12ResourceLocation(FD3D12Device* Parent);
 	~FD3D12ResourceLocation();
 
@@ -404,7 +422,8 @@ public:
 	void SetResource(FD3D12Resource* Value);
 	inline void SetType(ResourceLocationType Value) { Type = Value;}
 
-	inline void SetAllocator(FD3D12BaseAllocatorType* Value) { Allocator = Value; }
+	inline void SetAllocator(FD3D12BaseAllocatorType* Value) { Allocator = Value; AllocatorType = AT_Default; }
+	inline void SetSegListAllocator(FD3D12SegListAllocator* Value) { SegListAllocator = Value; AllocatorType = AT_SegList; }
 	inline void SetMappedBaseAddress(void* Value) { MappedBaseAddress = Value; }
 	inline void SetGPUVirtualAddress(D3D12_GPU_VIRTUAL_ADDRESS Value) { GPUVirtualAddress = Value; }
 	inline void SetOffsetFromBaseOfResource(uint64 Value) { OffsetFromBaseOfResource = Value; }
@@ -412,7 +431,8 @@ public:
 
 	// Getters
 	inline ResourceLocationType GetType() const { return Type; }
-	inline FD3D12BaseAllocatorType* GetAllocator() { return Allocator; }
+	inline FD3D12BaseAllocatorType* GetAllocator() { check(AT_Default == AllocatorType); return Allocator; }
+	inline FD3D12SegListAllocator* GetSegListAllocator() { check(AT_SegList == AllocatorType); return SegListAllocator; }
 	inline FD3D12Resource* GetResource() const { return UnderlyingResource; }
 	inline void* GetMappedBaseAddress() const { return MappedBaseAddress; }
 	inline D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const { return GPUVirtualAddress; }
@@ -421,6 +441,7 @@ public:
 	inline FD3D12ResidencyHandle* GetResidencyHandle() { return ResidencyHandle; }
 	inline FD3D12BuddyAllocatorPrivateData& GetBuddyAllocatorPrivateData() { return AllocatorData.BuddyAllocatorPrivateData; }
 	inline FD3D12BlockAllocatorPrivateData& GetBlockAllocatorPrivateData() { return AllocatorData.BlockAllocatorPrivateData; }
+	inline FD3D12SegListAllocatorPrivateData& GetSegListAllocatorPrivateData() { return AllocatorData.SegListAllocatorPrivateData; }
 
 	const inline bool IsValid() const { return Type != ResourceLocationType::eUndefined; }
 
@@ -494,13 +515,18 @@ private:
 	FD3D12ResidencyHandle* ResidencyHandle;
 
 	// Which allocator this belongs to
-	FD3D12BaseAllocatorType* Allocator;
+	union
+	{
+		FD3D12BaseAllocatorType* Allocator;
+		FD3D12SegListAllocator* SegListAllocator;
+	};
 
 	// Union to save memory
 	union PrivateAllocatorData
 	{
 		FD3D12BuddyAllocatorPrivateData BuddyAllocatorPrivateData;
 		FD3D12BlockAllocatorPrivateData BlockAllocatorPrivateData;
+		FD3D12SegListAllocatorPrivateData SegListAllocatorPrivateData;
 	} AllocatorData;
 
 	// Note: These values refer to the start of this location including any padding *NOT* the start of the underlying resource
@@ -512,6 +538,8 @@ private:
 	uint64 Size;
 
 	bool bTransient;
+
+	EAllocatorType AllocatorType;
 };
 
 class FD3D12DeferredDeletionQueue : public FD3D12AdapterChild

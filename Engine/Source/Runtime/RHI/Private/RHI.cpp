@@ -476,6 +476,7 @@ bool GSupportsWideMRT = true;
 float GMinClipZ = 0.0f;
 float GProjectionSignY = 1.0f;
 bool GRHINeedsExtraDeletionLatency = false;
+bool GRHIForceNoDeletionLatencyForStreamingTextures = false;
 TRHIGlobal<int32> GMaxComputeDispatchDimension((1 << 16) - 1);
 bool GRHILazyShaderCodeLoading = false;
 bool GRHISupportsLazyShaderCodeLoading = false;
