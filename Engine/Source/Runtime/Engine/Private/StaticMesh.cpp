@@ -4797,7 +4797,7 @@ void UStaticMesh::GenerateLodsInPackage()
 
 #endif // #if WITH_EDITOR
 
-UStaticMeshSocket* UStaticMesh::FindSocket(FName InSocketName)
+UStaticMeshSocket* UStaticMesh::FindSocket(FName InSocketName) const
 {
 	if(InSocketName == NAME_None)
 	{
