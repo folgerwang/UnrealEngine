@@ -458,6 +458,8 @@ uint32 GetShadowQuality();
 /** Renders the scene's lighting. */
 void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICmdList)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_RenderLights, FColor::Emerald);
 	SCOPED_DRAW_EVENT(RHICmdList, Lights);
 	SCOPED_GPU_STAT(RHICmdList, Lights);
@@ -603,6 +605,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			{
 				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 				RenderSimpleLightsStandardDeferred(RHICmdList, SimpleLights);
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
 			}
 
 			{
@@ -620,6 +623,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					// Render the light to the scene color buffer, using a 1x1 white texture as input 
 					RenderLight(RHICmdList, LightSceneInfo, NULL, false, false);
 				}
+
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
 			}
 
 			if (GUseTranslucentLightingVolumes && GSupportsVolumeTextureRendering)
@@ -758,37 +763,49 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					// All shadows render with min blending
 					bool bClearToWhite = !bClearLightScreenExtentsOnly;
 
-					SetRenderTarget(RHICmdList, ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, SceneContext.GetSceneDepthSurface(), bClearToWhite ? ESimpleRenderTargetMode::EClearColorExistingDepth : ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
-
-					if (bClearLightScreenExtentsOnly)
+					FRHIRenderPassInfo RPInfo(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_DontStore, ERenderTargetActions::Load_Store);
+					RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneContext.GetSceneDepthSurface();
+					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
+					if (bClearToWhite)
 					{
-						SCOPED_DRAW_EVENT(RHICmdList, ClearQuad);
+						RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
+					}
 
-						for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+					TransitionRenderPassTargets(RHICmdList, RPInfo);
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearScreenShadowMask"));
+					{
+						if (bClearLightScreenExtentsOnly)
 						{
-							const FViewInfo& View = Views[ViewIndex];
-							FIntRect ScissorRect;
+							SCOPED_DRAW_EVENT(RHICmdList, ClearQuad);
 
-							if (!LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect))
+							for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 							{
-								ScissorRect = View.ViewRect;
-							}
+								const FViewInfo& View = Views[ViewIndex];
+								FIntRect ScissorRect;
 
-							if (ScissorRect.Min.X < ScissorRect.Max.X && ScissorRect.Min.Y < ScissorRect.Max.Y)
-							{
-								RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
-								DrawClearQuad(RHICmdList, true, FLinearColor(1, 1, 1, 1), false, 0, false, 0);
-							}
-							else
-							{
-								LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect);
+								if (!LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect))
+								{
+									ScissorRect = View.ViewRect;
+								}
+
+								if (ScissorRect.Min.X < ScissorRect.Max.X && ScissorRect.Min.Y < ScissorRect.Max.Y)
+								{
+									RHICmdList.SetViewport(ScissorRect.Min.X, ScissorRect.Min.Y, 0.0f, ScissorRect.Max.X, ScissorRect.Max.Y, 1.0f);
+									DrawClearQuad(RHICmdList, true, FLinearColor(1, 1, 1, 1), false, 0, false, 0);
+								}
+								else
+								{
+									LightSceneInfo.Proxy->GetScissorRect(ScissorRect, View, View.ViewRect);
+								}
 							}
 						}
 					}
+					RHICmdList.EndRenderPass();
 
 					RenderShadowProjections(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, bInjectedTranslucentVolume);
-
-					bUsedShadowMaskTexture = true;
+					
+					bUsedShadowMaskTexture = true;					
 				}
 
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -816,7 +833,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 						INC_DWORD_STAT(STAT_NumLightFunctionOnlyLights);
 					}
 				}
-			
+
 				if (bUsedShadowMaskTexture)
 				{
 					RHICmdList.CopyToResolveTarget(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ScreenShadowMaskTexture->GetRenderTargetItem().ShaderResourceTexture, FResolveParams(FResolveRect()));
@@ -841,6 +858,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				{
 					RenderLight(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, false, true);
 				}
+
+				SceneContext.FinishRenderingSceneColor(RHICmdList);
 			}
 		}
 	}
@@ -882,7 +901,8 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 {
 	if (Scene->bIsEditorScene)
 	{
-		FSceneRenderTargets::Get(RHICmdList).BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 		// Clear to discard base pass values in scene color since we didn't skip that, to have valid scene depths
 		DrawClearQuad(RHICmdList, FLinearColor::Black);
@@ -892,6 +912,8 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 		//Note: making use of FScene::InvisibleLights, which contains lights that haven't been added to the scene in the same way as visible lights
 		// So code called by RenderLightArrayForOverlapViewmode must be careful what it accesses
 		RenderLightArrayForOverlapViewmode(RHICmdList, Scene->InvisibleLights);
+
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
 	}
 }
 
