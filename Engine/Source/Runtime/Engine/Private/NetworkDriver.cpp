@@ -2182,7 +2182,11 @@ bool UNetDriver::HandleSocketsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 		Ar.Logf( TEXT("   Server %s"), *ServerConnection->LowLevelDescribe() );
 		for( int32 i=0; i<ServerConnection->OpenChannels.Num(); i++ )
 		{
-			Ar.Logf( TEXT("      Channel %i: %s"), ServerConnection->OpenChannels[i]->ChIndex, *ServerConnection->OpenChannels[i]->Describe() );
+			UChannel* const Channel = ServerConnection->OpenChannels[i];
+			if (Channel)
+			{
+				Ar.Logf( TEXT("      Channel %i: %s"), Channel->ChIndex, *Channel->Describe() );
+			}
 		}
 	}
 #if WITH_SERVER_CODE
@@ -2192,7 +2196,11 @@ bool UNetDriver::HandleSocketsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 		Ar.Logf( TEXT("   Client %s"), *Connection->LowLevelDescribe() );
 		for( int32 j=0; j<Connection->OpenChannels.Num(); j++ )
 		{
-			Ar.Logf( TEXT("      Channel %i: %s"), Connection->OpenChannels[j]->ChIndex, *Connection->OpenChannels[j]->Describe() );
+			UChannel* const Channel = Connection->OpenChannels[j];
+			if (Channel)
+			{
+				Ar.Logf( TEXT("      Channel %i: %s"), Channel->ChIndex, *Channel->Describe() );
+			}
 		}
 	}
 #endif
