@@ -2023,7 +2023,7 @@ void UEngine::ReinitializeCustomTimeStep()
 		CustomTimeStep->Shutdown(this);
 		if (!CustomTimeStep->Initialize(this))
 		{
-			UE_LOG(LogEngine, Error, TEXT("Failed reinitializing CustomTimeStep %s"), *GetPathName(CustomTimeStep));
+			UE_LOG(LogEngine, Warning, TEXT("Failed reinitializing CustomTimeStep %s"), *GetPathName(CustomTimeStep));
 		}
 	}
 }
@@ -2047,7 +2047,7 @@ bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
 			bResult = CurrentCustomTimeStep->Initialize(this);
 			if (!bResult)
 			{
-				UE_LOG(LogEngine, Error, TEXT("SetCustomTimeStep - Failed to intialize CustomTimeStep %s"), *GetPathName(CurrentCustomTimeStep));
+				UE_LOG(LogEngine, Warning, TEXT("SetCustomTimeStep - Failed to intialize CustomTimeStep %s"), *GetPathName(CurrentCustomTimeStep));
 				CurrentCustomTimeStep = nullptr;
 			}
 		}
@@ -2062,7 +2062,7 @@ void UEngine::ReinitializeTimecodeProvider()
 	Provider->Shutdown(this);
 	if (!Provider->Initialize(this))
 	{
-		UE_LOG(LogEngine, Error, TEXT("Failed reinitializing TimecodeProvider %s"), *GetPathName(Provider));
+		UE_LOG(LogEngine, Warning, TEXT("Failed reinitializing TimecodeProvider %s"), *GetPathName(Provider));
 	}
 }
 
@@ -2106,7 +2106,7 @@ bool UEngine::SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
 		{
 			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
 			{
-				UE_LOG(LogEngine, Error, TEXT("SetTimecodeProvider - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
+				UE_LOG(LogEngine, Warning, TEXT("SetTimecodeProvider - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
 			}
 		}
 	}
@@ -2449,7 +2449,7 @@ void UEngine::InitializeObjectReferences()
 			DefaultTimecodeProvider = NewObject<UTimecodeProvider>(this, DefaultTimecodeProviderClass);
 			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
 			{
-				UE_LOG(LogEngine, Error, TEXT("InitializeObjectReferences - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
+				UE_LOG(LogEngine, Warning, TEXT("InitializeObjectReferences - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
 			}
 
 			DefaultTimecodeProvider->AddToRoot();
@@ -13585,6 +13585,26 @@ public:
 
 void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params)
 {
+	// UObject::CollectDefaultSubobjects will not return all DSOs for the CDO (only returns inherited subobjects). It also
+	// includes any subobjects that have a matching name on the archetype. This function returns all subobjects that have
+	// a matching instancing on Object's archetype and any objects tagged as RF_DefaultSubObject. Non-DSO instanced subobjects
+	// may be missing, but testing will determine that:
+	const auto CollectAllSubobjects = [](UObject* Object, TArray<UObject*>& OutSubobjectArray)
+	{
+		const bool bIncludedNestedObjects = true;
+		GetObjectsWithOuter(Object, OutSubobjectArray, bIncludedNestedObjects);
+
+		// Remove contained objects that are not subobjects.
+		for ( int32 ComponentIndex = 0; ComponentIndex < OutSubobjectArray.Num(); ComponentIndex++ )
+		{
+			UObject* PotentialComponent = OutSubobjectArray[ComponentIndex];
+			if (!PotentialComponent->IsDefaultSubobject() && !PotentialComponent->HasAnyFlags(RF_DefaultSubObject))
+			{
+				OutSubobjectArray.RemoveAtSwap(ComponentIndex--);
+			}
+		}
+	};
+
 	check(OldObject && NewObject);
 
 	// Bad idea to write data to an actor while its components are registered
@@ -13618,7 +13638,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	{
 		// Find all instanced objects of the old CDO, and save off their modified properties to be later applied to the newly instanced objects of the new CDO
 		TArray<UObject*> Components;
-		OldObject->CollectDefaultSubobjects(Components, true);
+		CollectAllSubobjects( OldObject, Components );
 
 		for (UObject* OldInstance : Components)
 		{
@@ -13643,7 +13663,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	TArray<UObject*> ComponentsOnNewObject;
 	{
 		TArray<UObject*> EditInlineSubobjectsOfComponents;
-		NewObject->CollectDefaultSubobjects(ComponentsOnNewObject,true);
+		CollectAllSubobjects( NewObject, ComponentsOnNewObject );
 
 		// populate the ReferenceReplacementMap 
 		for (int32 Index = 0; Index < ComponentsOnNewObject.Num(); Index++)

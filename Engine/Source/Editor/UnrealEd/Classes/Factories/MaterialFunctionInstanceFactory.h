@@ -27,6 +27,10 @@ class UMaterialFunctionMaterialLayerInstanceFactory : public UMaterialFunctionIn
 
 	//~ Begin UFactory Interface
 	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
+	FString GetDefaultNewAssetName() const override
+	{
+		return FString(TEXT("NewMaterialLayerInstance"));
+	}
 	//~ Begin UFactory Interface	
 };
 
@@ -38,5 +42,9 @@ class UMaterialFunctionMaterialLayerBlendInstanceFactory : public UMaterialFunct
 
 	//~ Begin UFactory Interface
 	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
+	FString GetDefaultNewAssetName() const override
+	{
+		return FString(TEXT("NewMaterialLayerBlendInstance"));
+	}
 	//~ Begin UFactory Interface	
 };

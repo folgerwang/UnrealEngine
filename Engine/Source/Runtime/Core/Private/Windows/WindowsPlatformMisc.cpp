@@ -969,6 +969,7 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 {
 	UE_LOG(LogWindows, Log,  TEXT("FPlatformMisc::RequestExit(%i)"), Force );
 
+	GIsRequestingExit = 1;
 	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
 
 	if( Force )
@@ -993,7 +994,6 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 	{
 		// Tell the platform specific code we want to exit cleanly from the main loop.
 		PostQuitMessage( 0 );
-		GIsRequestingExit = 1;
 	}
 }
 
@@ -1815,7 +1815,7 @@ HWND FWindowsPlatformMisc::GetTopLevelWindowHandle(uint32 ProcessId)
 	return Data.Handle;
 }
 
-void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
+FORCENOINLINE void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
 {
 	/** This is the last place to gather memory stats before exception. */
 	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();

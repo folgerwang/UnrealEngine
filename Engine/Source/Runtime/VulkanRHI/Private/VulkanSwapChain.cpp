@@ -168,7 +168,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 					if (!GPixelFormatNotSupportedWarning.Contains(InOutPixelFormat))
 					{
 						GPixelFormatNotSupportedWarning.Add(InOutPixelFormat);
-						UE_LOG(LogVulkanRHI, Warning, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain formats..."), (uint32)InOutPixelFormat);
+						UE_LOG(LogVulkanRHI, Display, TEXT("Requested PixelFormat %d not supported by this swapchain! Falling back to supported swapchain format..."), (uint32)InOutPixelFormat);
 					}
 					InOutPixelFormat = PF_Unknown;
 				}
@@ -253,6 +253,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	VkPresentModeKHR PresentMode = VK_PRESENT_MODE_FIFO_KHR;
 	if (FVulkanPlatform::SupportsQuerySurfaceProperties())
 	{
+		static bool bFirstTimeLog = true;
+
 		uint32 NumFoundPresentModes = 0;
 		VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, nullptr));
 		check(NumFoundPresentModes > 0);
@@ -260,6 +262,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		TArray<VkPresentModeKHR> FoundPresentModes;
 		FoundPresentModes.AddZeroed(NumFoundPresentModes);
 		VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, FoundPresentModes.GetData()));
+
+		UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("Found %d Surface present modes:"), NumFoundPresentModes);
 
 		bool bFoundPresentModeMailbox = false;
 		bool bFoundPresentModeImmediate = false;
@@ -271,36 +275,86 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 			{
 			case VK_PRESENT_MODE_MAILBOX_KHR:
 				bFoundPresentModeMailbox = true;
+				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VK_PRESENT_MODE_MAILBOX_KHR (%d)"), (int32)VK_PRESENT_MODE_MAILBOX_KHR);
 				break;
 			case VK_PRESENT_MODE_IMMEDIATE_KHR:
 				bFoundPresentModeImmediate = true;
+				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VK_PRESENT_MODE_IMMEDIATE_KHR (%d)"), (int32)VK_PRESENT_MODE_IMMEDIATE_KHR);
 				break;
 			case VK_PRESENT_MODE_FIFO_KHR:
 				bFoundPresentModeFIFO = true;
+				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VK_PRESENT_MODE_FIFO_KHR (%d)"), (int32)VK_PRESENT_MODE_FIFO_KHR);
+				break;
+			default:
+				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("- VkPresentModeKHR %d"), (int32)FoundPresentModes[i]);
 				break;
 			}
 		}
 
-		// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
-		const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
+		int32 RequestedPresentMode = -1;
+		if (FParse::Value(FCommandLine::Get(), TEXT("vulkanpresentmode="), RequestedPresentMode))
+		{
+			bool bRequestSuccessful = false;
+			switch (RequestedPresentMode)
+			{
+			case VK_PRESENT_MODE_MAILBOX_KHR:
+				if (bFoundPresentModeMailbox)
+				{
+					PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+					bRequestSuccessful = true;
+				}
+				break;
+			case VK_PRESENT_MODE_IMMEDIATE_KHR:
+				if (bFoundPresentModeImmediate)
+				{
+					PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+					bRequestSuccessful = true;
+				}
+				break;
+			case VK_PRESENT_MODE_FIFO_KHR:
+				if (bFoundPresentModeFIFO)
+				{
+					PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+					bRequestSuccessful = true;
+				}
+				break;
+			default:
+				break;
+			}
 
-		if (bFoundPresentModeMailbox && LockToVsync)
-		{
-			PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			if (!bRequestSuccessful)
+			{
+				UE_CLOG(bFirstTimeLog, LogVulkanRHI, Warning, TEXT("Requested PresentMode (%d) is not handled or available, ignoring..."), RequestedPresentMode);
+				RequestedPresentMode = -1;
+			}
 		}
-		else if(bFoundPresentModeImmediate && (bDisableVsyncForHMD || !LockToVsync))
+
+		if (RequestedPresentMode == -1)
 		{
-			PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+			// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
+			const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
+
+			if (bFoundPresentModeImmediate && (bDisableVsyncForHMD || !LockToVsync))
+			{
+				PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+			}
+			else if (bFoundPresentModeMailbox)
+			{
+				PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			}
+			else if (bFoundPresentModeFIFO)
+			{
+				PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+			}
+			else
+			{
+				UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired PresentMode! Using %d"), static_cast<int32>(FoundPresentModes[0]));
+				PresentMode = FoundPresentModes[0];
+			}
 		}
-		else if (bFoundPresentModeFIFO)
-		{
-			PresentMode = VK_PRESENT_MODE_FIFO_KHR;
-		}
-		else
-		{
-			UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired PresentMode! Using %d"), static_cast<int32>(FoundPresentModes[0]));
-			PresentMode = FoundPresentModes[0];
-		}
+
+		UE_CLOG(bFirstTimeLog, LogVulkanRHI, Display, TEXT("Selected VkPresentModeKHR mode %d"), PresentMode);
+		bFirstTimeLog = false;
 	}
 
 	// Check the surface properties and formats
@@ -331,7 +385,6 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	uint32 SizeX = FVulkanPlatform::SupportsQuerySurfaceProperties() ? (SurfProperties.currentExtent.width == 0xFFFFFFFF ? Width : SurfProperties.currentExtent.width) : Width;
 	uint32 SizeY = FVulkanPlatform::SupportsQuerySurfaceProperties() ? (SurfProperties.currentExtent.height == 0xFFFFFFFF ? Height : SurfProperties.currentExtent.height) : Height;
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Create swapchain: %ux%u \n"), SizeX, SizeY);
-
 
 	VkSwapchainCreateInfoKHR SwapChainInfo;
 	ZeroVulkanStruct(SwapChainInfo, VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
@@ -420,6 +473,10 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 void FVulkanSwapChain::Destroy()
 {
 	check(FVulkanPlatform::SupportsStandardSwapchain());
+
+	// We could be responding to an OUT_OF_DATE event and the GPU might not be done with swapchain image, so wait for idle.
+	// Alternatively could also check on the fence(s) for the image(s) from the swapchain but then timing out/waiting could become an issue.
+	Device.WaitUntilIdle();
 
 	VulkanRHI::vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, VULKAN_CPU_ALLOCATOR);
 	SwapChain = VK_NULL_HANDLE;
@@ -528,10 +585,10 @@ int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 void FVulkanSwapChain::RenderThreadPacing()
 {
 	check(IsInRenderingThread());
-	const int32 SyncInterval = RHIGetSyncInterval();
+	const int32 SyncInterval = LockToVsync ? RHIGetSyncInterval() : 0;
 
 	//very naive CPU side frame pacer.
-	if (GVulkanCPURenderThreadFramePacer)
+	if (GVulkanCPURenderThreadFramePacer && SyncInterval > 0)
 	{
 		static double PreviousFrameCPUTime = 0;
 		static double SampledDeltaTimeMS = 0;
@@ -604,7 +661,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 	Info.pSwapchains = &SwapChain;
 	Info.pImageIndices = (uint32*)&CurrentImageIndex;
 
-	const int32 SyncInterval = RHIGetSyncInterval();
+	const int32 SyncInterval = LockToVsync ? RHIGetSyncInterval() : 0;
 	ensureMsgf(SyncInterval <= 3 && SyncInterval >= 0, TEXT("Unsupported sync interval: %i"), SyncInterval);
 	FVulkanPlatform::EnablePresentInfoExtensions(Info);
 
@@ -794,7 +851,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 #endif
 
 	//very naive CPU side frame pacer.
-	if (GVulkanCPURHIFramePacer)
+	if (GVulkanCPURHIFramePacer && SyncInterval > 0)
 	{
 		static double PreviousFrameCPUTime = 0;
 		double NowCPUTime = FPlatformTime::Seconds();

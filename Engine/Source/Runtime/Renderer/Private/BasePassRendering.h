@@ -61,6 +61,7 @@ END_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters)
 BEGIN_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters,)
 	UNIFORM_MEMBER_STRUCT(FSharedBasePassUniformParameters, Shared)
 	// Forward shading 
+	UNIFORM_MEMBER(uint32, UseForwardScreenSpaceShadowMask)
 	UNIFORM_MEMBER_TEXTURE(Texture2D, ForwardScreenSpaceShadowMaskTexture)
 	UNIFORM_MEMBER_TEXTURE(Texture2D, IndirectOcclusionTexture)
 	UNIFORM_MEMBER_TEXTURE(Texture2D, ResolvedSceneDepthTexture)
@@ -312,7 +313,7 @@ public:
 	{
 		Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		// @todo MetalMRT: Remove this hack and implement proper atmospheric-fog solution for Metal MRT...
-		OutEnvironment.SetDefine(TEXT("BASEPASS_ATMOSPHERIC_FOG"), (Platform != SP_METAL_MRT && Platform != SP_METAL_MRT_MAC) ? bEnableAtmosphericFog : 0);
+		OutEnvironment.SetDefine(TEXT("BASEPASS_ATMOSPHERIC_FOG"), !IsMetalMRTPlatform(Platform) ? bEnableAtmosphericFog : 0);
 	}
 };
 

@@ -848,23 +848,23 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 		return;
 	}
 
+#if WITH_EDITORONLY_DATA
+	FScopeLock ScopeLock(&SoundWave->RawDataCriticalSection);
+#endif
+
 	// check if there is any raw sound data
 	if( SoundWave->RawData.GetBulkDataSize() > 0 )
 	{
-		if (SoundWave->RawData.IsLocked())
-		{
-			UE_LOG(LogAudioDerivedData, Warning, TEXT("In CookSimpleWave: Raw PCM data already being written to. %s "), *SoundWave->GetFullName());
-		}
 
 		// Lock raw wave data.
-		uint8* RawWaveData = ( uint8* )SoundWave->RawData.Lock( LOCK_READ_ONLY );
+		const uint8* RawWaveData = ( const uint8* )SoundWave->RawData.LockReadOnly();
 		bWasLocked = true;
 		int32 RawDataSize = SoundWave->RawData.GetBulkDataSize();
 
 		// parse the wave data
 		if( !WaveInfo.ReadWaveHeader( RawWaveData, RawDataSize, 0 ) )
 		{
-			UE_LOG(LogTemp, Warning, TEXT( "Only mono or stereo 16 bit waves allowed: %s (%d bytes)" ), *SoundWave->GetFullName(), RawDataSize );
+			UE_LOG(LogAudioDerivedData, Warning, TEXT( "Only mono or stereo 16 bit waves allowed: %s (%d bytes)" ), *SoundWave->GetFullName(), RawDataSize );
 		}
 		else
 		{
@@ -896,10 +896,6 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 				WaveInfo.SampleDataSize = TotalDataSize;
 			}
 		}
-		else
-		{
-			UE_LOG(LogTemp, Log, TEXT("Couldn't find amount to resample to."));
-		}
 
 		FSoundQualityInfo QualityInfo = { 0 };
 		if (CompressionOverrides)
@@ -908,7 +904,7 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 			if (ModifiedCompressionQuality >= 1.0f)
 			{
 				QualityInfo.Quality = FMath::FloorToInt(ModifiedCompressionQuality);
-				UE_LOG(LogTemp, Display, TEXT("Compression Quality for %s will be modified from %d to %d."), *SoundWave->GetFullName(), SoundWave->CompressionQuality, QualityInfo.Quality);
+				UE_LOG(LogAudioDerivedData, Display, TEXT("Compression Quality for %s will be modified from %d to %d."), *SoundWave->GetFullName(), SoundWave->CompressionQuality, QualityInfo.Quality);
 			}
 			else
 			{
@@ -969,10 +965,9 @@ static void CookSurroundWave( USoundWave* SoundWave, FName FormatName, const IAu
 	TArray<TArray<uint8> >	SourceBuffers;
 	TArray<int32>			RequiredChannels;
 
-	if (SoundWave->RawData.IsLocked())
-	{
-		UE_LOG(LogAudioDerivedData, Warning, TEXT("In CookSurroundWave: Raw PCM data already being written to. %s "), *SoundWave->GetFullName());
-	}
+#if WITH_EDITORONLY_DATA
+	FScopeLock ScopeLock(&SoundWave->RawDataCriticalSection);
+#endif
 
 	uint8* RawWaveData = ( uint8* )SoundWave->RawData.Lock( LOCK_READ_ONLY );
 	if (RawWaveData == nullptr)

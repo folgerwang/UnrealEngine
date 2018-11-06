@@ -20,7 +20,6 @@
 			"BlacklistPlatforms" :
 			[
 				"Win32",
-				"Mac",
 				"XboxOne",
 				"PS4",
 				"IOS",
@@ -29,6 +28,10 @@
 				"TVOS",
 				"Switch",
 				"Lumin",
+			],
+			"BlacklistTargets" :
+			[
+				"Server",
 			]
 		},
 		{
@@ -57,6 +60,10 @@
 				"TVOS",
 				"Switch",
 				"Lumin",
+			],
+			"BlacklistTargets" :
+			[
+				"Server",
 			]
 		}
 	]

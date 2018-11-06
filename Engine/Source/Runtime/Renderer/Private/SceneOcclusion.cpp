@@ -52,10 +52,9 @@ FAutoConsoleVariableRef CVarOcclusionCullCascadedShadowMaps(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
-int32 GMobileAllowSoftwareOcclusion = 0;
-FAutoConsoleVariableRef CVarMobileAllowSoftwareOcclusion(
+static TAutoConsoleVariable<int32> CVarMobileAllowSoftwareOcclusion(
 	TEXT("r.Mobile.AllowSoftwareOcclusion"),
-	GMobileAllowSoftwareOcclusion,
+	0,
 	TEXT("Whether to allow rasterizing scene on CPU for primitive occlusion.\n"),
 	ECVF_RenderThreadSafe
 	);
@@ -95,6 +94,7 @@ int32 FOcclusionQueryHelpers::GetNumBufferedFrames(ERHIFeatureLevel::Type Featur
 
 // default, non-instanced shader implementation
 IMPLEMENT_SHADER_TYPE(,FOcclusionQueryVS,TEXT("/Engine/Private/OcclusionQueryVertexShader.usf"),TEXT("Main"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(,FOcclusionQueryPS,TEXT("/Engine/Private/OcclusionQueryPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
 static FGlobalBoundShaderState GOcclusionTestBoundShaderState;
 
@@ -262,7 +262,8 @@ bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSc
 
 void FSceneViewState::ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel)
 {
-	bool bShouldBeEnabled = InFeatureLevel <= ERHIFeatureLevel::ES3_1 && GMobileAllowSoftwareOcclusion != 0;
+	bool bMobileAllowSoftwareOcclusion = CVarMobileAllowSoftwareOcclusion.GetValueOnAnyThread() != 0;
+	bool bShouldBeEnabled = InFeatureLevel <= ERHIFeatureLevel::ES3_1 && bMobileAllowSoftwareOcclusion;
 
 	if (bShouldBeEnabled && !SceneSoftwareOcclusion)
 	{
@@ -1507,8 +1508,14 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 
 				// Lookup the vertex shader.
 				TShaderMapRef<FOcclusionQueryVS> VertexShader(View.ShaderMap);
-
 				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+
+				if (View.Family->EngineShowFlags.OcclusionMeshes)
+				{
+					TShaderMapRef<FOcclusionQueryPS> PixelShader(View.ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+					GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA>::GetRHI();
+				}
 
 				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 

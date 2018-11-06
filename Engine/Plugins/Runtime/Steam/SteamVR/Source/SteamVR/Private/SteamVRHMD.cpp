@@ -128,6 +128,7 @@ public:
 	}
 #else //STEAMVR_SUPPORTED_PLATFORMS
 		: VRSystem(nullptr)
+		, VRInput(nullptr)
 	{
 		LoadOpenVRModule();
 	}
@@ -151,6 +152,11 @@ public:
 		return VRSystem;
 	}
 	
+	virtual vr::IVRInput* GetVRInput() const override
+	{
+		return VRInput;
+	}
+
 	bool LoadOpenVRModule()
 	{
 #if PLATFORM_WINDOWS
@@ -216,6 +222,7 @@ public:
 	{
 		if (OpenVRDLLHandle != nullptr)
 		{
+			UE_LOG(LogHMD, Log, TEXT("Freeing OpenVRDLLHandle."));
 			FPlatformProcess::FreeDllHandle(OpenVRDLLHandle);
 			OpenVRDLLHandle = nullptr;
 		}
@@ -229,6 +236,7 @@ public:
 	virtual void Reset() override
 	{
 		VRSystem = nullptr;
+		VRInput = nullptr;
 	}
 	
 	uint64 GetGraphicsAdapterLuid() override
@@ -338,18 +346,18 @@ public:
 
 	virtual TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > GetVulkanExtensions() override
 	{
-		FSteamVRHMD* SteamVRHMD = new FSteamVRHMD(this);
+		TSharedPtr< FSteamVRHMD, ESPMode::ThreadSafe > SteamVRHMD = FSceneViewExtensions::NewExtension<FSteamVRHMD>(this);
 		if (!SteamVRHMD->IsInitialized())
 		{
-			delete SteamVRHMD;
 			return nullptr;
 		}
-		return TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe >(SteamVRHMD);
+		return SteamVRHMD;
 	}
 
 private:
 	vr::IVRSystem* VRSystem;
-	
+	vr::IVRInput* VRInput;
+
 	void* OpenVRDLLHandle;
 #endif // STEAMVR_SUPPORTED_PLATFORMS
 };
@@ -359,10 +367,11 @@ IMPLEMENT_MODULE( FSteamVRPlugin, SteamVR )
 TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FSteamVRPlugin::CreateTrackingSystem()
 {
 #if STEAMVR_SUPPORTED_PLATFORMS
-	TSharedPtr< FSteamVRHMD, ESPMode::ThreadSafe > SteamVRHMD( new FSteamVRHMD(this) );
+	TSharedPtr< FSteamVRHMD, ESPMode::ThreadSafe > SteamVRHMD = FSceneViewExtensions::NewExtension<FSteamVRHMD>(this);
 	if( SteamVRHMD->IsInitialized() )
 	{
 		VRSystem = SteamVRHMD->GetVRSystem();
+		VRInput = SteamVRHMD->GetVRInput();
 		return SteamVRHMD;
 	}
 #endif//STEAMVR_SUPPORTED_PLATFORMS
@@ -1263,6 +1272,11 @@ bool FSteamVRHMD::EnableStereo(bool bStereo)
 	}
 
 	bStereoDesired = (IsHMDEnabled()) ? bStereo : false;
+	if (bStereoDesired && !bOcclusionMeshesBuilt)
+	{
+		SetupOcclusionMeshes();
+		bOcclusionMeshesBuilt = true;
+	}
 
 	// Set the viewport to match that of the HMD display
 	FSceneViewport* SceneVP = FindSceneViewport();
@@ -1478,11 +1492,13 @@ bool FSteamVRHMD::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
 	return false;
 }
 
-FSteamVRHMD::FSteamVRHMD(ISteamVRPlugin* InSteamVRPlugin) :
+FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSteamVRPlugin) :
+	FSceneViewExtensionBase(AutoRegister), 
 	bHmdEnabled(true),
 	HmdWornState(EHMDWornState::Unknown),
 	bStereoDesired(false),
 	bStereoEnabled(false),
+	bOcclusionMeshesBuilt(false),
 	WindowMirrorBoundsWidth(2160),
 	WindowMirrorBoundsHeight(1200),
 	PixelDensity(1.0f),
@@ -1500,10 +1516,7 @@ FSteamVRHMD::FSteamVRHMD(ISteamVRPlugin* InSteamVRPlugin) :
 	VROverlay(nullptr),
 	VRChaperone(nullptr)
 {
-	if (Startup())
-	{
-		SetupOcclusionMeshes();
-	}
+	Startup();
 }
 
 FSteamVRHMD::~FSteamVRHMD()
@@ -1539,6 +1552,7 @@ bool FSteamVRHMD::Startup()
 		return false;
 	}
 
+	
 	// attach to the compositor	
 	//VRCompositor = (vr::IVRCompositor*)vr::VR_GetGenericInterface(vr::IVRCompositor_Version, &HmdErr);
 	int CompositorConnectRetries = 10;
@@ -1611,6 +1625,14 @@ bool FSteamVRHMD::Startup()
 
 		vr::EVRInitError RenderModelsErr = vr::VRInitError_None;
 		VRRenderModels = (vr::IVRRenderModels*)(*VRGetGenericInterfaceFn)(vr::IVRRenderModels_Version, &RenderModelsErr);
+
+		vr::EVRInitError InputErr = vr::VRInitError_None;
+		VRInput = (vr::IVRInput*)(*VRGetGenericInterfaceFn)(vr::IVRInput_Version, &InputErr);
+		if ((VRInput == nullptr) || (InputErr != vr::VRInitError_None))
+		{
+			UE_LOG(LogHMD, Log, TEXT("Failed to initialize VRInput.  Error: %d"), (int32)InputErr);
+		}
+
 
 #if PLATFORM_MAC
 		if (IsMetalPlatform(GMaxRHIShaderPlatform))
@@ -1688,6 +1710,8 @@ void FSteamVRHMD::Shutdown()
 {
 	if (VRSystem != nullptr)
 	{
+		UE_LOG(LogHMD, Log, TEXT("SteamVR Shutting down."));
+
 		SplashTicker->UnregisterForMapLoad();
 		SplashTicker = nullptr;
 
@@ -1750,7 +1774,7 @@ static void SetupHiddenAreaMeshes(vr::IVRSystem* const VRSystem, FHMDViewMesh Re
 
 
 void FSteamVRHMD::SetupOcclusionMeshes()
-{	
+{
 	FSteamVRHMD* const Self = this;
 	ENQUEUE_RENDER_COMMAND(SetupOcclusionMeshesCmd)([Self](FRHICommandListImmediate& RHICmdList)
 	{

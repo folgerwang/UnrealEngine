@@ -1274,7 +1274,7 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 	const ERHIFeatureLevel::Type FeatureLevel = InWorld->FeatureLevel;
 	const EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;;
 
-	FScopedSlowTask CompileShaderTask(3.f, LOCTEXT("CompileDebugViewModeShaders", "Compiling Missing ViewMode Shaders")); // { Get Used Materials, Sync Pending Shader, Wait for Compilation }
+	FScopedSlowTask CompileShaderTask(3.f, LOCTEXT("CompileMissingViewModeShaders", "Compiling Missing ViewMode Shaders")); // { Get Used Materials, Sync Pending Shader, Wait for Compilation }
 	CompileShaderTask.MakeDialog(true);
 
 	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
@@ -1367,7 +1367,7 @@ bool FEditorBuildUtils::CompileShadersComplexityViewMode(EMaterialQualityLevel::
 	}
 
 	// wait for compilation to be done and copy the number of instruction from the compiled shaders to the emulated shader set
-	if (WaitForShaderCompilation(LOCTEXT("CompileDebugViewModeShaders", "Offline Shader Compilation"), ProgressTask))
+	if (WaitForShaderCompilation(LOCTEXT("OfflineShaderCompilation", "Offline Shader Compilation"), ProgressTask))
 	{
 		FSuspendRenderingThread SuspendObject(false);
 

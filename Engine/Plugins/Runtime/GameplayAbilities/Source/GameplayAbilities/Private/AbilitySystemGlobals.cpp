@@ -384,8 +384,8 @@ UGameplayCueManager* UAbilitySystemGlobals::GetGameplayCueManager()
 
 		if ( GlobalGameplayCueManager == nullptr)
 		{
-			// Fallback to CDO
-			GlobalGameplayCueManager = UGameplayCueManager::StaticClass()->GetDefaultObject<UGameplayCueManager>();
+			// Fallback to base native class
+			GlobalGameplayCueManager = NewObject<UGameplayCueManager>(this, UGameplayCueManager::StaticClass(), NAME_None);
 		}
 
 		GlobalGameplayCueManager->OnCreated();

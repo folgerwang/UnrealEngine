@@ -232,22 +232,6 @@ namespace UnrealBuildTool
 		{
 		}
 
-		/// <summary>
-		/// Return whether we wish to have this platform's binaries in our builds
-		/// </summary>
-		public override bool IsBuildRequired()
-		{
-			return false;
-		}
-
-		/// <summary>
-		/// Return whether we wish to have this platform's binaries in our CIS tests
-		/// </summary>
-		public override bool IsCISRequired()
-		{
-			return false;
-		}
-
 		public override DirectoryReference GetBundleDirectory(ReadOnlyTargetRules Rules, List<FileReference> OutputFiles)
 		{
 			if(Rules.bIsBuildingConsoleApplication)

@@ -479,6 +479,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
 	uint8 bApplyImpulseOnDamage : 1;
 
+	/** True if physics should be replicated to autonomous proxies. This should be true for
+		server-authoritative simulations, and false for client authoritative simulations. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	uint8 bReplicatePhysicsToAutonomousProxy : 1;
+
 	// General flags.
 	
 	/** If this is True, this component must always be loaded on clients, even if Hidden and CollisionEnabled is NoCollision. */

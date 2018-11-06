@@ -68,6 +68,7 @@ protected:
 // @todo -- support these properly
 	virtual EARWorldMappingState OnGetWorldMappingStatus() const override { return EARWorldMappingState::StillMappingNotRelocalizable; }
 	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const override { return TArray<FARVideoFormat>(); }
+	virtual TArray<FVector> OnGetPointCloud() const override { return TArray<FVector>(); }
 	//~IARSystemSupport
 
 private:

@@ -10,6 +10,7 @@
 #include "MovieSceneCommonHelpers.h"
 #include "UObject/Package.h"
 #include "Templates/Tuple.h"
+#include "MovieSceneTimeHelpers.h"
 
 
 FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree)

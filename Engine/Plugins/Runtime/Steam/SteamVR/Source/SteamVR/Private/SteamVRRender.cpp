@@ -33,7 +33,6 @@ void FSteamVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePass
 void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture, FVector2D WindowSize) const
 {
 	check(IsInRenderingThread());
-	const_cast<FSteamVRHMD*>(this)->UpdateStereoLayers_RenderThread();
 
 	if (bSplashIsShown)
 	{
@@ -43,6 +42,17 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 
 	check(SpectatorScreenController);
 	SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
+}
+
+void FSteamVRHMD::PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
+{
+	check(IsInRenderingThread());
+	UpdateStereoLayers_RenderThread();
+}
+
+bool FSteamVRHMD::IsActiveThisFrame(class FViewport* InViewport) const
+{
+	return GEngine && GEngine->IsStereoscopic3D(InViewport) && !IsMetalPlatform(GMaxRHIShaderPlatform);
 }
 
 static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass, const FHMDViewMesh MeshAssets[])
@@ -270,6 +280,12 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 void FSteamVRHMD::VulkanBridge::Reset()
 {
 
+}
+
+void FSteamVRHMD::VulkanBridge::UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI)
+{
+	RenderTargetTexture = Viewport.GetRenderTargetTexture();
+	check(IsValidRef(RenderTargetTexture));
 }
 
 FSteamVRHMD::OpenGLBridge::OpenGLBridge(FSteamVRHMD* plugin):

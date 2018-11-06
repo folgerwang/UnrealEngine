@@ -2048,7 +2048,7 @@ void UScriptStruct::PrepareCppStructOps()
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has native ImportTextItem."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_ImportTextItemNative);
 	}
-	if (CppStructOps->HasSerializeFromMismatchedTag())
+	if (CppStructOps->HasSerializeFromMismatchedTag() || CppStructOps->HasStructuredSerializeFromMismatchedTag())
 	{
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has native SerializeFromMismatchedTag."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_SerializeFromMismatchedTag);
@@ -2952,6 +2952,8 @@ UObject* UClass::CreateDefaultObject()
 {
 	if ( ClassDefaultObject == NULL )
 	{
+		ensureMsgf(!HasAnyClassFlags(CLASS_LayoutChanging), TEXT("Class named %s creating its CDO while changing its layout"), *GetName());
+
 		UClass* ParentClass = GetSuperClass();
 		UObject* ParentDefaultObject = NULL;
 		if ( ParentClass != NULL )

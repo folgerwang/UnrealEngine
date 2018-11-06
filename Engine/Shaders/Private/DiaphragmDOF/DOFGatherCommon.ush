@@ -122,6 +122,9 @@
 	#define CONFIG_FAST_ACCUMULATOR_KERNEL_DENSITY (KERNEL_DENSITY_CONSTANT_HEXAWEB)
 	//#define CONFIG_FAST_ACCUMULATOR_KERNEL_DENSITY (KERNEL_DENSITY_HEXAWEB_LOWER_IN_CENTER)
 
+	// Highlights needs a bit of help.
+	#define CONFIG_SLIGHT_RING_ROTATION 1
+
 #elif DIM_GATHER_QUALITY == GATHER_QUALITY_HIGH_QUALITY
 	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
 	#define CONFIG_MIRRORED_SAMPLER 1
@@ -227,6 +230,13 @@
 #ifndef CONFIG_MAX_SAMPLING_DENSITY_CHANGES
 	#define CONFIG_MAX_SAMPLING_DENSITY_CHANGES 3
 #endif
+
+/** Adds a slight rotation to the samples to reduce interferance sample location and texel grid with the point sampler,
+ * that improves highlight post filtering. */
+#ifndef CONFIG_SLIGHT_RING_ROTATION
+	#define CONFIG_SLIGHT_RING_ROTATION 0
+#endif
+
 
 //------------------------------------------------------- CONFIG CHECKS
 

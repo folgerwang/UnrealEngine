@@ -28,7 +28,7 @@ FText FInputScaleBias::GetFriendlyName(FText InFriendlyName) const
 		}
 		else
 		{
-			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_Scale", "{Scale} * {PinFriendlyName}"), Args);
+			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_ScaleMul", "{Scale} * {PinFriendlyName}"), Args);
 		}
 	}
 
@@ -45,7 +45,7 @@ FText FInputScaleBias::GetFriendlyName(FText InFriendlyName) const
 		}
 		else
 		{
-			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_Bias", "{Bias} + {PinFriendlyName}"), Args);
+			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_BiasPlus", "{Bias} + {PinFriendlyName}"), Args);
 		}
 	}
 
@@ -114,7 +114,7 @@ FText FInputScaleBiasClamp::GetFriendlyName(FText InFriendlyName) const
 		}
 		else 
 		{
-			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_Scale", "{Scale} * {PinFriendlyName}"), Args);
+			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_ScaleMul", "{Scale} * {PinFriendlyName}"), Args);
 		}
 	}
 
@@ -131,7 +131,7 @@ FText FInputScaleBiasClamp::GetFriendlyName(FText InFriendlyName) const
 		}
 		else
 		{
-			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_Bias", "{Bias} + {PinFriendlyName}"), Args);
+			OutFriendlyName = FText::Format(LOCTEXT("FInputScaleBias_BiasPlus", "{Bias} + {PinFriendlyName}"), Args);
 		}
 	}
 

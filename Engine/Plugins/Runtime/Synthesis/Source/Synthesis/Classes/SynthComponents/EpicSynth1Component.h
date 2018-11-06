@@ -14,6 +14,7 @@
 #include "EpicSynth1.h"
 #include "EpicSynth1Types.h"
 #include "DSP/Osc.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "EpicSynth1Component.generated.h"
 
 USTRUCT(BlueprintType)
@@ -359,6 +360,16 @@ public:
 
  	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Synth|Preset")
  	TArray<FModularSynthPresetBankEntry> Presets;
+};
+
+UCLASS()
+class SYNTHESIS_API UModularSynthLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+	// Adds the modular synth preset to the bank asset in the content browser. Only call during editor.
+	UFUNCTION(BlueprintCallable, Category = "Synthesis")
+	static void AddModularSynthPresetToBankAsset(UModularSynthPresetBank* InBank, const FModularSynthPreset& Preset, const FString& PresetName);
 };
 
 

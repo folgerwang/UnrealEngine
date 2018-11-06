@@ -1002,7 +1002,6 @@ public:
 						}
 						IOObjectRelease(ServiceEntry);
 					}
-					CFRelease(MatchDictionary);
 				}
 				break;
 			}
@@ -1850,7 +1849,7 @@ void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure( const TCHAR* ErrorMessage )
+void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
 	// Simple re-entrance guard.
 	EnsureLock.Lock();
@@ -1878,6 +1877,24 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	bReentranceGuard = false;
 	EnsureLock.Unlock();
 }
+
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	EnsureLock.Lock();
+	if (!bReentranceGuard && FMacApplicationInfo::CrashReporter != nil)
+	{
+		bReentranceGuard = true;
+
+		const bool bIsEnsure = true;
+		FMacCrashContext EnsureContext(bIsEnsure);
+		EnsureContext.SetPortableCallStack(0, Stack);
+		EnsureContext.GenerateEnsureInfoAndLaunchReporter();
+
+		bReentranceGuard = false;
+	}
+	EnsureLock.Unlock();
+}
+
 typedef NSArray* (*MTLCopyAllDevices)(void);
 
 bool FMacPlatformMisc::HasPlatformFeature(const TCHAR* FeatureName)

@@ -1968,9 +1968,14 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 
 			if (GBlueprintUseCompilationManager)
 			{
-				// Skip CDO validation in this case as we will not have yet propagated values to the new CDO.
+				// Skip CDO validation in this case as we will not have yet propagated values to the new CDO. Also skip
+				// Blueprint search data updates, as that will be handled by an OnAssetAdded() delegate in the FiB manager.
+				const EBlueprintCompileOptions BPCompileOptions =
+					EBlueprintCompileOptions::SkipDefaultObjectValidation |
+					EBlueprintCompileOptions::SkipFiBSearchMetaUpdate;
+
 				FBlueprintCompilationManager::CompileSynchronously(
-					FBPCompileRequest(Blueprint, EBlueprintCompileOptions::SkipDefaultObjectValidation, nullptr)
+					FBPCompileRequest(Blueprint, BPCompileOptions, nullptr)
 				);
 			}
 			else
@@ -2697,8 +2702,6 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 		GraphToRemove->SetFlags(RF_Transient);
 	}
 
-	GraphToRemove->MarkPendingKill();
-
 	if (Flags & EGraphRemoveFlags::Recompile )
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
@@ -2805,7 +2808,7 @@ void FBlueprintEditorUtils::RenameGraph(UEdGraph* Graph, const FString& NewNameS
 			}
 		}
 
-		if (!Blueprint->bIsRegeneratingOnLoad)
+		if (!Blueprint->bIsRegeneratingOnLoad && !Blueprint->bBeingCompiled)
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
@@ -8923,6 +8926,10 @@ const FSlateBrush* FBlueprintEditorUtils::GetIconFromPin( const FEdGraphPinType&
 		{
 			IconBrush = FEditorStyle::GetBrush(TEXT("Kismet.VariableList.SetTypeIcon"));
 		}
+	}
+	else if (PinType.PinCategory == UEdGraphSchema_K2::PC_MCDelegate)
+	{
+		IconBrush = FEditorStyle::GetBrush(TEXT("GraphEditor.Delegate_16x"));
 	}
 	else if( PinSubObject )
 	{

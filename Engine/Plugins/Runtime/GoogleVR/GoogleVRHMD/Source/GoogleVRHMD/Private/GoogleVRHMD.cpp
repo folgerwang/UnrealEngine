@@ -397,6 +397,12 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
+	// set to identity
+	CachedHeadPose = 	{ { { 1.0f, 0.0f, 0.0f, 0.0f },
+						{ 0.0f, 1.0f, 0.0f, 0.0f },
+						{ 0.0f, 0.0f, 1.0f, 0.0f },
+						{ 0.0f, 0.0f, 0.0f, 1.0f } } };
+
 	// Get GVRAPI from java
 	GVRAPI = AndroidThunkCpp_GetNativeGVRApi();
 
@@ -922,9 +928,13 @@ void FGoogleVRHMD::SetNumOfDistortionPoints(int32 XPoints, int32 YPoints)
 	NumIndices = NumTris * 3;
 
 	// generate the distortion mesh
-	GenerateDistortionCorrectionIndexBuffer();
-	GenerateDistortionCorrectionVertexBuffer(eSSP_LEFT_EYE);
-	GenerateDistortionCorrectionVertexBuffer(eSSP_RIGHT_EYE);
+	FGoogleVRHMD * const Self = this;
+	ENQUEUE_RENDER_COMMAND(GenerateDistortionCorrectionCmd)([Self](FRHICommandListImmediate& RHICmdList)
+	{
+		Self->GenerateDistortionCorrectionIndexBuffer();
+		Self->GenerateDistortionCorrectionVertexBuffer(eSSP_LEFT_EYE);
+		Self->GenerateDistortionCorrectionVertexBuffer(eSSP_RIGHT_EYE);
+	});
 }
 
 void FGoogleVRHMD::SetDistortionMeshSize(EDistortionMeshSizeEnum MeshSize)

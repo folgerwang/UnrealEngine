@@ -110,8 +110,8 @@ void UNiagaraDataInterfaceSimpleCounter::GetVMExternalFunction(const FVMExternal
 
 void UNiagaraDataInterfaceSimpleCounter::GetNextValue(FVectorVMContext& Context)
 {	
-	FUserPtrHandler<CounterInstanceData> InstanceData(Context);
-	FRegisterHandler<int32> OutValue(Context);
+	VectorVM::FUserPtrHandler<CounterInstanceData> InstanceData(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{

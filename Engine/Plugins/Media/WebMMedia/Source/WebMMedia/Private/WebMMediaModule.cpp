@@ -5,7 +5,9 @@
 #include "Modules/ModuleManager.h"
 
 #include "IWebMMediaModule.h"
+#if WITH_WEBM_LIBS
 #include "Player/WebMMediaPlayer.h"
+#endif // WITH_WEBM_LIBS
 
 
 DEFINE_LOG_CATEGORY(LogWebMMedia);
@@ -22,7 +24,11 @@ public:
 
 	virtual TSharedPtr<IMediaPlayer, ESPMode::ThreadSafe> CreatePlayer(IMediaEventSink& EventSink) override
 	{
+#if WITH_WEBM_LIBS
 		return MakeShared<FWebMMediaPlayer, ESPMode::ThreadSafe>(EventSink);
+#else
+		return nullptr;
+#endif
 	}
 
 public:

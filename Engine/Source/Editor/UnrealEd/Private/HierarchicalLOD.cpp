@@ -99,7 +99,7 @@ void FHierarchicalLODBuilder::Build()
 		FMessageLog MapCheck("HLODResults");
 		MapCheck.Warning()
 			->AddToken(FUObjectToken::Create(World->GetWorldSettings()))
-			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_NoBuildHLODHiddenLevels", "Certain levels are marked as hidden, Hierarchical LODs will not be build for hidden levels.")));
+			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_NoBuildHLODHiddenLevels", "Certain levels are marked as hidden, Hierarchical LODs will not be built for hidden levels.")));
 	}
 	
 }
@@ -731,54 +731,105 @@ void FHierarchicalLODBuilder::BuildMeshesForLODActors(bool bForceAll)
 
 void FHierarchicalLODBuilder::SaveMeshesForActors()
 {
-	TArray<UPackage*> PackagesToSave;
+	TArray<UPackage*> LevelPackagesToSave;
+	TArray<FString> OldLevelPackageNames;
 
+	bool bUnsavedLevel = false;
 	const TArray<ULevel*>& Levels = World->GetLevels();
 	for (const ULevel* Level : Levels)
 	{
-		const TArray<FHierarchicalSimplification>& BuildLODLevelSettings = Level->GetWorldSettings()->GetHierarchicalLODSetup();
-		UMaterialInterface* BaseMaterial = Level->GetWorldSettings()->GetHierarchicalLODBaseMaterial();
-		TArray<TArray<ALODActor*>> LODLevelActors;
-		LODLevelActors.AddDefaulted(BuildLODLevelSettings.Num());
+		// Levels might also need a resave, or levels might not have been saved yet
+		LevelPackagesToSave.Add(Level->GetOutermost());
+		OldLevelPackageNames.Add(Level->GetOutermost()->GetName());
+		bUnsavedLevel |= Level->GetOutermost()->GetName().StartsWith("/Temp/");
+	}
 
-		if (Level->Actors.Num() > 0)
+	bool bSuccess = true;
+
+	// Save levels first if they are in the /Temp/ mount point
+	if(bUnsavedLevel)
+	{
+		bSuccess = UEditorLoadingAndSavingUtils::SavePackagesWithDialog(LevelPackagesToSave, true);
+	}
+	
+	if(bSuccess)
+	{
+		check(LevelPackagesToSave.Num() == OldLevelPackageNames.Num() && LevelPackagesToSave.Num() == Levels.Num());
+
+		TArray<UPackage*> HLODPackagesToSave;
+
+		for(int32 PackageIndex = 0; PackageIndex < LevelPackagesToSave.Num(); ++PackageIndex)
 		{
-			FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
-			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+			const ULevel* Level = Levels[PackageIndex];
 
-			// Retrieve LOD actors from the level
-			uint32 NumLODActors = 0;
-			for (int32 ActorId = 0; ActorId < Level->Actors.Num(); ++ActorId)
-			{
-				AActor* Actor = Level->Actors[ActorId];
-				if (Actor && Actor->IsA<ALODActor>())
-				{
-					ALODActor* LODActor = CastChecked<ALODActor>(Actor);
-						
-					LODLevelActors[LODActor->LODLevel - 1].Add(LODActor);
-					NumLODActors++;
-				}
-			}		
+			HLODPackagesToSave.Add(Level->GetOutermost());
 
-			if (NumLODActors)
+			const TArray<FHierarchicalSimplification>& BuildLODLevelSettings = Level->GetWorldSettings()->GetHierarchicalLODSetup();
+			UMaterialInterface* BaseMaterial = Level->GetWorldSettings()->GetHierarchicalLODBaseMaterial();
+			TArray<TArray<ALODActor*>> LODLevelActors;
+			LODLevelActors.AddDefaulted(BuildLODLevelSettings.Num());
+
+			if (Level->Actors.Num() > 0)
 			{
-				const int32 NumLODLevels = LODLevelActors.Num();
-				for (int32 LODIndex = 0; LODIndex < NumLODLevels; ++LODIndex)
+				FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+				IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+
+				// Retrieve LOD actors from the level
+				uint32 NumLODActors = 0;
+				for (int32 ActorId = 0; ActorId < Level->Actors.Num(); ++ActorId)
 				{
-					UPackage* AssetsOuter = Utilities->RetrieveLevelHLODPackage(Level, LODIndex);
-					if(AssetsOuter)
+					AActor* Actor = Level->Actors[ActorId];
+					if (Actor && Actor->IsA<ALODActor>())
 					{
-						PackagesToSave.Add(AssetsOuter);
+						ALODActor* LODActor = CastChecked<ALODActor>(Actor);
+						
+						LODLevelActors[LODActor->LODLevel - 1].Add(LODActor);
+						NumLODActors++;
+					}
+				}		
+
+				if (NumLODActors)
+				{
+					const int32 NumLODLevels = LODLevelActors.Num();
+					for (int32 LODIndex = 0; LODIndex < NumLODLevels; ++LODIndex)
+					{
+						UPackage* AssetsOuter = Utilities->RetrieveLevelHLODPackage(Level, LODIndex);
+						if(AssetsOuter)
+						{
+							HLODPackagesToSave.Add(AssetsOuter);
+						}
+						// If we couldn't find the HLOD package, the level may have been renamed while saving above, 
+						// so we need to relocate our old HLOD package before saving it.
+						else if(bUnsavedLevel && LevelPackagesToSave[PackageIndex]->GetName() != OldLevelPackageNames[PackageIndex])
+						{
+							FString OldHLODProxyName = Utilities->GetLevelHLODProxyName(OldLevelPackageNames[PackageIndex], LODIndex);
+							UHLODProxy* OldHLODPProxy = FindObject<UHLODProxy>(nullptr, *OldHLODProxyName);
+							if(OldHLODPProxy)
+							{
+								FString NewHLODProxyName = Utilities->GetLevelHLODProxyName(LevelPackagesToSave[PackageIndex]->GetName(), LODIndex);
+								FString OldHLODPackageName = FPackageName::ObjectPathToPackageName(OldHLODProxyName);
+								FString NewHLODPackageName = FPackageName::ObjectPathToPackageName(NewHLODProxyName);
+								UPackage* OldHLODPackage = FindObject<UPackage>(nullptr, *OldHLODPackageName);
+								if(OldHLODPackage)
+								{
+									OldHLODPProxy->Rename(*FPackageName::ObjectPathToObjectName(NewHLODProxyName), OldHLODPackage, REN_NonTransactional | REN_DontCreateRedirectors);
+									OldHLODPackage->Rename(*NewHLODPackageName, nullptr, REN_NonTransactional | REN_DontCreateRedirectors);
+									
+									HLODPackagesToSave.Add(OldHLODPackage);
+
+									// Mark the level package as dirty as we have changed export locations, and without a resave we will not pick up
+									// HLOD packages when reloaded.
+									Level->GetOutermost()->MarkPackageDirty();
+								}
+							}
+						}
 					}
 				}
 			}
 		}
 
-		// Levels might also need a resave
-		PackagesToSave.Add(Level->GetOutermost());
+		UEditorLoadingAndSavingUtils::SavePackagesWithDialog(HLODPackagesToSave, true);
 	}
-
-	UEditorLoadingAndSavingUtils::SavePackagesWithDialog(PackagesToSave, true);
 }
 
 bool FHierarchicalLODBuilder::NeedsBuild(bool bInForce) const

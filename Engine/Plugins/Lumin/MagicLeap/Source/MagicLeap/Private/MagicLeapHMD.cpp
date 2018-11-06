@@ -981,6 +981,7 @@ FMagicLeapHMD::FMagicLeapHMD(IMagicLeapPlugin* InMagicLeapPlugin, bool bEnableVD
 	bStereoEnabled(false),
 	bStereoDesired(false),
 #endif
+	bIsRenderingPaused(false),
 	bHmdPosTracking(true),
 	bHaveVisionTracking(false),
 	IPD(0.064f),
@@ -1109,7 +1110,10 @@ void FMagicLeapHMD::LoadFromIni()
 	{
 		// This will be set later during Graphics Client initialization based on thje value in FrameTimingHint read from the config here.
 		ConfigFrameTimingHint = static_cast<ELuminFrameTimingHint>(FrameTimingEnum->GetValueByNameString(EnumVal));
-		SetFrameTimingHint(ConfigFrameTimingHint);
+		if (GraphicsClient != ML_INVALID_HANDLE)
+		{
+			SetFrameTimingHint(ConfigFrameTimingHint);
+		}
 	}
 #endif //PLATFORM_LUMIN
 }

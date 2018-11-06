@@ -1170,6 +1170,8 @@ namespace VulkanRHI
 		{
 			ReleaseResources(true);
 		}
+
+		void OnCmdBufferDeleted(FVulkanCmdBuffer* CmdBuffer);
 /*
 		class FVulkanAsyncDeletionWorker : public FVulkanDeviceChild, FNonAbandonableTask
 		{
@@ -1250,6 +1252,11 @@ namespace VulkanRHI
 	protected:
 		uint32 BufferIndex;
 
+		enum
+		{
+			NUM_BUFFERS = 3,
+		};
+
 		struct FFrameEntry
 		{
 			TRefCountPtr<FBufferSuballocation> BufferSuballocation;
@@ -1263,7 +1270,7 @@ namespace VulkanRHI
 			void Reset();
 			bool TryAlloc(uint32 InSize, uint32 InAlignment, FTempAllocInfo& OutInfo);
 		};
-		FFrameEntry Entries[NUM_RENDER_BUFFERS];
+		FFrameEntry Entries[NUM_BUFFERS];
 		FCriticalSection CS;
 
 		friend class FVulkanCommandListContext;
@@ -1468,6 +1475,16 @@ namespace VulkanRHI
 		void InnerExecute(FVulkanCmdBuffer* CmdBuffer, bool bEnsure);
 
 	public:
+		inline int32 NumImageBarriers() const
+		{
+			return ImageBarriers.Num();
+		}
+
+		inline int32 NumBufferBarriers() const
+		{
+			return BufferBarriers.Num();
+		}
+
 		inline void ResetStages()
 		{
 			SourceStage = 0;

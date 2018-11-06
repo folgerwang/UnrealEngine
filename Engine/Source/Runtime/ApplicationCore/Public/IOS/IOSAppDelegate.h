@@ -9,6 +9,10 @@
 #include "Logging/LogMacros.h"
 #include "Containers/UnrealString.h"
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+#import <UserNotifications/UserNotifications.h>
+#endif
+
 #define USE_MUTE_SWITCH_DETECTION 0
 
 // Predicate to decide whether a push notification message should be processed
@@ -69,6 +73,9 @@ namespace FAppEntry
 	UIGestureRecognizerDelegate,
 #endif
 	GKGameCenterControllerDelegate,
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+	UNUserNotificationCenterDelegate,
+#endif
 UITextFieldDelegate>
 
 /** Window object */

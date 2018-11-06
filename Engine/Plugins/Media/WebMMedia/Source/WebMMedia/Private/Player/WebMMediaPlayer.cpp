@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMMediaPlayer.h"
+
+#if WITH_WEBM_LIBS
+
 #include "WebMMediaPrivate.h"
 
 #include "IMediaEventSink.h"
@@ -139,7 +142,7 @@ bool FWebMMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/
 
 	if (!MkvRead())
 	{
-		UE_LOG(LogWebMMedia, Error, TEXT("Error parsing MKV file: %s"), *FilePath);
+		UE_LOG(LogWebMMedia, Error, TEXT("Error parsing matroska file: %s"), *FilePath);
 		return false;
 	}
 
@@ -148,12 +151,19 @@ bool FWebMMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/
 
 	if (SelectedAudioTrack != INDEX_NONE)
 	{
-		AudioDecoder->Initialize(AudioTracks[SelectedAudioTrack]->GetSamplingRate(), AudioTracks[SelectedAudioTrack]->GetChannels());
+		const mkvparser::AudioTrack* AudioTrack = AudioTracks[SelectedAudioTrack];
+
+		size_t PrivateDataSize;
+		const uint8* PrivateData = AudioTrack->GetCodecPrivate(PrivateDataSize);
+
+		AudioDecoder->Initialize(AudioTrack->GetCodecId(), AudioTrack->GetSamplingRate(), AudioTrack->GetChannels(), PrivateData, PrivateDataSize);
 	}
 
 	if (SelectedVideoTrack != INDEX_NONE)
 	{
-		VideoDecoder->Initialize();
+		const mkvparser::VideoTrack* VideoTrack = VideoTracks[SelectedVideoTrack];
+
+		VideoDecoder->Initialize(VideoTrack->GetCodecId());
 	}
 
 	CurrentState = EMediaState::Stopped;
@@ -413,12 +423,19 @@ bool FWebMMediaPlayer::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 		{
 			if (SelectedAudioTrack != INDEX_NONE)
 			{
-				AudioDecoder->Initialize(AudioTracks[SelectedAudioTrack]->GetSamplingRate(), AudioTracks[SelectedAudioTrack]->GetChannels());
+				const mkvparser::AudioTrack* AudioTrack = AudioTracks[SelectedAudioTrack];
+
+				size_t PrivateDataSize;
+				const uint8* PrivateData = AudioTrack->GetCodecPrivate(PrivateDataSize);
+
+				AudioDecoder->Initialize(AudioTrack->GetCodecId(), AudioTrack->GetSamplingRate(), AudioTrack->GetChannels(), PrivateData, PrivateDataSize);
 			}
 
 			if (SelectedVideoTrack != INDEX_NONE)
 			{
-				VideoDecoder->Initialize();
+				const mkvparser::VideoTrack* VideoTrack = VideoTracks[SelectedVideoTrack];
+
+				VideoDecoder->Initialize(VideoTrack->GetCodecId());
 			}
 		}
 	}
@@ -526,12 +543,19 @@ bool FWebMMediaPlayer::Seek(const FTimespan& Time)
 
 	if (SelectedVideoTrack != INDEX_NONE)
 	{
-		VideoDecoder->Initialize();
+		const mkvparser::VideoTrack* VideoTrack = VideoTracks[SelectedVideoTrack];
+
+		VideoDecoder->Initialize(VideoTrack->GetCodecId());
 	}
 
 	if (SelectedAudioTrack != INDEX_NONE)
 	{
-		AudioDecoder->Initialize(AudioTracks[SelectedAudioTrack]->GetSamplingRate(), AudioTracks[SelectedAudioTrack]->GetChannels());
+		const mkvparser::AudioTrack* AudioTrack = AudioTracks[SelectedAudioTrack];
+
+		size_t PrivateDataSize;
+		const uint8* PrivateData = AudioTrack->GetCodecPrivate(PrivateDataSize);
+
+		AudioDecoder->Initialize(AudioTrack->GetCodecId(), AudioTrack->GetSamplingRate(), AudioTrack->GetChannels(), PrivateData, PrivateDataSize);
 	}
 
 	CurrentTime = Time;
@@ -606,7 +630,7 @@ bool FWebMMediaPlayer::MkvRead()
 
 		if (Track->GetType() == mkvparser::Track::kVideo)
 		{
-			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "V_VP9") == 0)
+			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "V_VP8") == 0 || FCStringAnsi::Strcmp(Track->GetCodecId(), "V_VP9") == 0)
 			{
 				VideoTracks.Add(static_cast<const mkvparser::VideoTrack*>(Track));
 			}
@@ -618,7 +642,7 @@ bool FWebMMediaPlayer::MkvRead()
 		}
 		else if (Track->GetType() == mkvparser::Track::kAudio)
 		{
-			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "A_OPUS") == 0)
+			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "A_OPUS") == 0 || FCStringAnsi::Strcmp(Track->GetCodecId(), "A_VORBIS") == 0)
 			{
 				AudioTracks.Add(static_cast<const mkvparser::AudioTrack*>(Track));
 			}
@@ -725,3 +749,5 @@ void FWebMMediaPlayer::Stop()
 }
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // WITH_WEBM_LIBS

@@ -648,7 +648,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 						for (uint32_t n = 0; n < MeshData.vertex_count; ++ n)
 						{
 							CurrentMeshDataCache->Normals.Add(MagicLeap::
-								ToFVector(MeshData.normal[n], WorldToMetersScale));
+								ToFVector(MeshData.normal[n], 1.0f));
 						}
 					}
 					// If no normals were provided we need to pack fake ones for Vulkan

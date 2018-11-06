@@ -133,7 +133,7 @@ bool ReloadMaterialResource(
 	Tmp.SerializeInlineShaderMap(Ar);
 	if (Tmp.GetGameThreadShaderMap())
 	{
-		Tmp.GetGameThreadShaderMap()->RegisterSerializedShaders();
+		Tmp.GetGameThreadShaderMap()->RegisterSerializedShaders(false);
 		return true;
 	}
 	UE_LOG(LogMaterial, Warning, TEXT("Failed to reload material resources for package %s (file name: %s)."), *PackageName, *Filename);
@@ -558,7 +558,6 @@ const FMaterialShaderMap* FMaterial::GetShaderMapToUse() const
 	}
 	else 
 	{
-		check(IsInRenderingThread());
 		ShaderMapToUse = GetRenderingThreadShaderMap();
 	}
 
@@ -848,14 +847,14 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 			if (bValid)
 			{
 				TRefCountPtr<FMaterialShaderMap> LoadedShaderMap = new FMaterialShaderMap();
-				LoadedShaderMap->Serialize(Ar);
+				LoadedShaderMap->Serialize(Ar, true, bCooked && Ar.IsLoading());
 				GameThreadShaderMap = LoadedShaderMap;
 			}
 		}
 	}
 }
 
-void FMaterial::RegisterInlineShaderMap()
+void FMaterial::RegisterInlineShaderMap(bool bLoadedByCookedMaterial)
 {
 	if (GameThreadShaderMap)
 	{
@@ -865,7 +864,7 @@ void FMaterial::RegisterInlineShaderMap()
 		{
 			RenderingThreadShaderMap = GameThreadShaderMap;
 		}
-		GameThreadShaderMap->RegisterSerializedShaders();
+		GameThreadShaderMap->RegisterSerializedShaders(bLoadedByCookedMaterial);
 	}
 }
 

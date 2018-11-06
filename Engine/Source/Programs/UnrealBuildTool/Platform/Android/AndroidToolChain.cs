@@ -344,7 +344,7 @@ namespace UnrealBuildTool
 										" --sysroot=\"" + Path.Combine(NDKPath, "sysroot") + "\"" +
 										" -isystem " + Path.Combine(NDKPath, "sysroot/usr/include/i686-linux-android/") +
 										" -D__ANDROID_API__=" + NDKApiLevel32Int;
-				ToolchainParamsx86 = " -target x86_64-none-linux-android" +
+				ToolchainParamsx64 = " -target x86_64-none-linux-android" +
 										" --sysroot=\"" + Path.Combine(NDKPath, "sysroot") + "\"" +
 										" -isystem " + Path.Combine(NDKPath, "sysroot/usr/include/x86_64-linux-android/") +
 										" -D__ANDROID_API__=" + NDKApiLevel64Int;
@@ -1453,7 +1453,7 @@ namespace UnrealBuildTool
 							else
 							{
 								CompileAction.CommandPath = "/bin/sh";
-								CompileAction.CommandArguments = String.Format("-c \"{0} {1}\"", ClangPath, ResponseArgument);
+								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", ClangPath, ResponseArgument);
 								CompileAction.CommandDescription = "Compile";
 							}
 						}
@@ -1684,7 +1684,7 @@ namespace UnrealBuildTool
 						}
 						else
 						{
-							LinkAction.CommandArguments = String.Format("-c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
+							LinkAction.CommandArguments = String.Format("-c \'{0} {1}\'", LinkAction.CommandPath, LinkAction.CommandArguments);
 							LinkAction.CommandPath = "/bin/sh";
 							LinkAction.CommandDescription = "Link";
 						}

@@ -109,6 +109,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Arguments that are used by every Rsync call
 		/// </summary>
+		private List<string> BasicRsyncArguments;
+
+		/// <summary>
+		/// Arguments that are used by directory Rsync call
+		/// </summary>
 		private List<string> CommonRsyncArguments;
 
 		/// <summary>
@@ -219,17 +224,6 @@ namespace UnrealBuildTool
 			RsyncAuthentication = ExpandVariables(RsyncAuthentication);
 			SshAuthentication = ExpandVariables(SshAuthentication);
 
-			// Get the remote base directory
-			RemoteBaseDir = String.Format("/Users/{0}/UE4/Builds/{1}", UserName, Environment.MachineName);
-
-			// Build the list of directory mappings between the local and remote machines
-			Mappings = new List<RemoteMapping>();
-			Mappings.Add(new RemoteMapping(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory)));
-			if(ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
-			{
-				Mappings.Add(new RemoteMapping(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory)));
-			}
-
 			// Build a list of arguments for SSH
 			CommonSshArguments = new List<string>();
 			CommonSshArguments.Add("-o BatchMode=yes");
@@ -238,16 +232,36 @@ namespace UnrealBuildTool
 			CommonSshArguments.Add(String.Format("\"{0}@{1}\"", UserName, ServerName));
 
 			// Build a list of arguments for Rsync
-			CommonRsyncArguments = new List<string>();
-			CommonRsyncArguments.Add("--compress");
+			BasicRsyncArguments = new List<string>();
+			BasicRsyncArguments.Add("--compress");
+			BasicRsyncArguments.Add("--verbose");
+			BasicRsyncArguments.Add(String.Format("--rsh=\"{0} -p {1}\"", RsyncAuthentication, ServerPort));
+			BasicRsyncArguments.Add("--chmod=ugo=rwx");
+
+			// Build a list of arguments for Rsync filters
+			CommonRsyncArguments = new List<string>(BasicRsyncArguments);
 			CommonRsyncArguments.Add("--recursive");
 			CommonRsyncArguments.Add("--delete"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--delete-excluded"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--times"); // Preserve modification times
-			CommonRsyncArguments.Add("--verbose");
-			CommonRsyncArguments.Add("-m");
-			CommonRsyncArguments.Add("--chmod=ug=rwX,o=rxX");
-			CommonRsyncArguments.Add(String.Format("--rsh=\"{0} -p {1}\"", RsyncAuthentication, ServerPort));
+			CommonRsyncArguments.Add("--prune-empty-dirs"); // Remove empty directories from the file list
+
+			// Get the remote base directory
+			StringBuilder Output;
+			if(ExecuteAndCaptureOutput("'echo ~'", out Output) != 0)
+			{
+				throw new BuildException("Unable to determine home directory for remote user");
+			}
+			RemoteBaseDir = String.Format("{0}/UE4/Builds/{1}", Output.ToString().Trim().TrimEnd('/'), Environment.MachineName);
+			Log.TraceInformation("[Remote] Using base directory '{0}'", RemoteBaseDir);
+
+			// Build the list of directory mappings between the local and remote machines
+			Mappings = new List<RemoteMapping>();
+			Mappings.Add(new RemoteMapping(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory)));
+			if(ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				Mappings.Add(new RemoteMapping(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory)));
+			}
 		}
 
 		/// <summary>
@@ -322,8 +336,32 @@ namespace UnrealBuildTool
 			DirectoryReference TempDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Remote", TargetDesc.Name, TargetDesc.Platform.ToString(), TargetDesc.Configuration.ToString());
 			DirectoryReference.CreateDirectory(TempDir);
 
+			bool bLogIsMapped = false;
+			foreach (RemoteMapping Mapping in Mappings)
+			{
+				if (RemoteLogFile.Directory.FullName.Equals(Mapping.LocalDirectory.FullName, StringComparison.InvariantCultureIgnoreCase))
+				{
+					bLogIsMapped = true;
+					break;
+				}
+			}
+			if (!bLogIsMapped)
+			{
+				Mappings.Add(new RemoteMapping(RemoteLogFile.Directory, GetRemotePath(RemoteLogFile.Directory)));
+			}
+
 			// Compile the rules assembly
-			RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
+			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
+
+			// Create the target rules
+			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault()), new string[0]);
+
+			// Check if we need to enable a nativized plugin, and compile the assembly for that if we do
+			FileReference NativizedPluginFile = Rules.GetNativizedPlugin();
+			if(NativizedPluginFile != null)
+			{
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(NativizedPluginFile, false, RulesAssembly, false);
+			}
 
 			// Path to the local manifest file. This has to be translated from the remote format after the build is complete.
 			List<FileReference> LocalManifestFiles = new List<FileReference>();
@@ -337,7 +375,7 @@ namespace UnrealBuildTool
 			RemoteArguments.Add(TargetDesc.Platform.ToString());
 			RemoteArguments.Add(TargetDesc.Configuration.ToString());
 			RemoteArguments.Add("-SkipRulesCompile"); // Use the rules assembly built locally
-			RemoteArguments.Add("-ForceXmlConfigCache"); // Use the XML config cache built locally, since the remote won't have it
+			RemoteArguments.Add(String.Format("-XmlConfigCache={0}", GetRemotePath(XmlConfig.CacheFile))); // Use the XML config cache built locally, since the remote won't have it
 			RemoteArguments.Add(String.Format("-Log={0}", GetRemotePath(RemoteLogFile)));
 			RemoteArguments.Add(String.Format("-Manifest={0}", GetRemotePath(RemoteManifestFile)));
 
@@ -387,6 +425,9 @@ namespace UnrealBuildTool
 				// Always generate a .stub
 				RemoteArguments.Add("-CreateStub");
 
+				// Cannot use makefiles, since we need PostBuildSync() to generate the IPA (and that requires a TargetRules instance)
+				RemoteArguments.Add("-NoUBTMakefiles");
+
 				// Get the provisioning data for this project
 				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile);
 				if(ProvisioningData == null || ProvisioningData.MobileProvisionFile == null)
@@ -404,10 +445,16 @@ namespace UnrealBuildTool
 				Log.TraceInformation("[Remote] Uploading {0}", MobileProvisionFile);
 				UploadFile(MobileProvisionFile);
 
-				// Extract the certificate for the project
+				// Extract the certificate for the project. Try to avoid calling IPP if we already have it.
 				FileReference CertificateFile = FileReference.Combine(TempDir, "Certificate.p12");
-				if(!FileReference.Exists(CertificateFile))
+
+				FileReference CertificateInfoFile = FileReference.Combine(TempDir, "Certificate.txt");
+				string CertificateInfoContents = String.Format("{0}\n{1}", ProvisioningData.MobileProvisionFile, FileReference.GetLastWriteTimeUtc(ProvisioningData.MobileProvisionFile).Ticks);
+
+				if(!FileReference.Exists(CertificateFile) || !FileReference.Exists(CertificateInfoFile) || FileReference.ReadAllText(CertificateInfoFile) != CertificateInfoContents)
 				{
+					Log.TraceInformation("[Remote] Exporting certificate for {0}...", ProvisioningData.MobileProvisionFile);
+
 					StringBuilder Arguments = new StringBuilder("ExportCertificate");
 					if(TargetDesc.ProjectFile == null)
 					{
@@ -417,12 +464,12 @@ namespace UnrealBuildTool
 					{
 						Arguments.AppendFormat(" \"{0}\"", TargetDesc.ProjectFile.Directory);
 					}
+					Arguments.AppendFormat(" -provisionfile \"{0}\"", ProvisioningData.MobileProvisionFile);
+					Arguments.AppendFormat(" -outputcertificate \"{0}\"", CertificateFile);
 					if(TargetDesc.Platform == UnrealTargetPlatform.TVOS)
 					{
 						Arguments.Append(" -tvos");
 					}
-					Arguments.AppendFormat(" -outputcertificate \"{0}\"", CertificateFile);
-					Arguments.AppendFormat(" -provisioninguuid {0}", ProvisioningData.MobileProvisionUUID);
 
 					ProcessStartInfo StartInfo = new ProcessStartInfo();
 					StartInfo.FileName = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Binaries", "DotNET", "IOS", "IPhonePackager.exe").FullName;
@@ -431,6 +478,8 @@ namespace UnrealBuildTool
 					{
 						throw new BuildException("IphonePackager failed.");
 					}
+
+					FileReference.WriteAllText(CertificateInfoFile, CertificateInfoContents);
 				}
 
 				// Upload the certificate to the remote
@@ -444,7 +493,6 @@ namespace UnrealBuildTool
 			}
 
 			// Upload the workspace files
-			Log.TraceInformation("[Remote] Uploading workspace files");
 			UploadWorkspace(TempDir);
 
 			// Fixup permissions on any shell scripts
@@ -605,6 +653,28 @@ namespace UnrealBuildTool
 			List<string> Arguments = new List<string>(CommonRsyncArguments);
 			Arguments.Add(String.Format("--rsync-path=\"mkdir -p {0} && rsync\"", RemoteDirectory));
 			Arguments.Add(String.Format("\"{0}\"", GetLocalCygwinPath(LocalFile)));
+			Arguments.Add(String.Format("\"{0}@{1}\":'{2}'", UserName, ServerName, RemoteFile));
+			Arguments.Add("-q");
+
+			int Result = Rsync(String.Join(" ", Arguments));
+			if(Result != 0)
+			{
+				throw new BuildException("Error while running Rsync (exit code {0})", Result);
+			}
+		}
+
+		/// <summary>
+		/// Upload a single file to the remote
+		/// </summary>
+		/// <param name="LocalDirectory">The base directory to copy</param>
+		/// <param name="RemoteDirectory">The remote directory</param>
+		/// <param name="LocalFileList">The file to upload</param>
+		void UploadFiles(DirectoryReference LocalDirectory, string RemoteDirectory, FileReference LocalFileList)
+		{
+			List<string> Arguments = new List<string>(BasicRsyncArguments);
+			Arguments.Add(String.Format("--rsync-path=\"mkdir -p {0} && rsync\"", RemoteDirectory));
+			Arguments.Add(String.Format("--files-from=\"{0}\"", GetLocalCygwinPath(LocalFileList)));
+			Arguments.Add(String.Format("\"{0}/\"", GetLocalCygwinPath(LocalDirectory)));
 			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
 			Arguments.Add("-q");
 
@@ -674,7 +744,7 @@ namespace UnrealBuildTool
 			foreach(string Line in FileReference.ReadAllLines(ScriptPathsFileName))
 			{
 				string FileToUpload = Line.Trim();
-				if(FileToUpload.Length > 0 && FileToUpload[0] != ';')
+				if(FileToUpload.Length > 0 && FileToUpload[0] != '#')
 				{
 					ScriptPaths.Add(FileToUpload);
 				}
@@ -701,21 +771,6 @@ namespace UnrealBuildTool
 			}
 
 			// Write a file that protects all the scripts from being overridden by the standard engine filters
-			FileReference ScriptUploadList = FileReference.Combine(TempDir, "RsyncEngineScripts-Upload.txt");
-			using(StreamWriter Writer = new StreamWriter(ScriptUploadList.FullName))
-			{
-				foreach(string ScriptPath in ScriptPaths)
-				{
-					for(int SlashIdx = ScriptPath.IndexOf('/', 1); SlashIdx != -1; SlashIdx = ScriptPath.IndexOf('/', SlashIdx + 1))
-					{
-						Writer.WriteLine("+ {0}", ScriptPath.Substring(0, SlashIdx));
-					}
-					Writer.WriteLine("+ {0}", ScriptPath);
-				}
-				Writer.WriteLine("protect *");
-			}
-
-			// Write a file that protects all the scripts from being overridden by the standard engine filters
 			FileReference ScriptProtectList = FileReference.Combine(TempDir, "RsyncEngineScripts-Protect.txt");
 			using(StreamWriter Writer = new StreamWriter(ScriptProtectList.FullName))
 			{
@@ -726,14 +781,23 @@ namespace UnrealBuildTool
 			}
 
 			// Upload these files to the remote
-			List<FileReference> FilterLocations = new List<FileReference>();
-			FilterLocations.Add(ScriptUploadList);
-			UploadDirectory(TempDir, GetRemotePath(UnrealBuildTool.EngineDirectory), FilterLocations);
+			Log.TraceInformation("[Remote] Uploading scripts...");
+			UploadFiles(TempDir, GetRemotePath(UnrealBuildTool.EngineDirectory), ScriptPathsFileName);
+
+			// Upload the config files
+			Log.TraceInformation("[Remote] Uploading config files...");
+			UploadFile(XmlConfig.CacheFile);
 
 			// Upload the engine files
 			List<FileReference> EngineFilters = new List<FileReference>();
 			EngineFilters.Add(ScriptProtectList);
+			if(UnrealBuildTool.IsEngineInstalled())
+			{
+				EngineFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncEngineInstalled.txt"));
+			}
 			EngineFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncEngine.txt"));
+
+			Log.TraceInformation("[Remote] Uploading engine files...");
 			UploadDirectory(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory), EngineFilters);
 
 			// Upload the project files
@@ -748,6 +812,7 @@ namespace UnrealBuildTool
 				}
 				ProjectFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncProject.txt"));
 
+				Log.TraceInformation("[Remote] Uploading project files...");
 				UploadDirectory(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory), ProjectFilters);
 			}
 		}
@@ -896,6 +961,39 @@ namespace UnrealBuildTool
 			{
 				string FormattedOutput = ConvertRemotePathsToLocal(Args.Data);
 				Log.TraceInformation("  {0}", FormattedOutput);
+			}
+		}
+
+		/// <summary>
+		/// Execute a remote command, capturing the output text
+		/// </summary>
+		/// <param name="Command">Command to be executed</param>
+		/// <param name="Output">Receives the output text</param>
+		/// <returns></returns>
+		protected int ExecuteAndCaptureOutput(string Command, out StringBuilder Output)
+		{
+			StringBuilder FullCommand = new StringBuilder();
+			foreach(string CommonSshArgument in CommonSshArguments)
+			{
+				FullCommand.AppendFormat("{0} ", CommonSshArgument);
+			}
+			FullCommand.Append(Command.Replace("\"", "\\\""));
+
+			using(Process SSHProcess = new Process())
+			{
+				Output = new StringBuilder();
+
+				StringBuilder OutputLocal = Output;
+				DataReceivedEventHandler OutputHandler = (E, Args) => { if(Args.Data != null){ OutputLocal.Append(Args.Data); } };
+
+				SSHProcess.StartInfo.FileName = SshExe.FullName;
+				SSHProcess.StartInfo.WorkingDirectory = SshExe.Directory.FullName;
+				SSHProcess.StartInfo.Arguments = FullCommand.ToString();
+				SSHProcess.OutputDataReceived += OutputHandler;
+				SSHProcess.ErrorDataReceived += OutputHandler;
+
+				Log.TraceLog("[SSH] {0} {1}", Utils.MakePathSafeToUseWithCommandLine(SSHProcess.StartInfo.FileName), SSHProcess.StartInfo.Arguments);
+				return Utils.RunLocalProcess(SSHProcess);
 			}
 		}
 

@@ -260,7 +260,7 @@ template <typename ElementType>
 void TMeshElementArrayBase<ElementType>::Compact( TSparseArray<int32>& OutIndexRemap )
 {
 	TSparseArray<ElementType> NewContainer;
-	NewContainer.Empty( Container.Num() );
+	NewContainer.Reserve( Container.Num() );
 
 	OutIndexRemap.Empty( Container.GetMaxIndex() );
 
@@ -285,7 +285,7 @@ template <typename ElementType>
 void TMeshElementArrayBase<ElementType>::Remap( const TSparseArray<int32>& IndexRemap )
 {
 	TSparseArray<ElementType> NewContainer;
-	NewContainer.Empty( IndexRemap.GetMaxIndex() );
+	NewContainer.Reserve( IndexRemap.GetMaxIndex() );
 
 	// Add valid elements into a new contiguous sparse array.  Note non-const iterator so we can move elements.
 	for( typename TSparseArray<ElementType>::TIterator It( Container ); It; ++It )

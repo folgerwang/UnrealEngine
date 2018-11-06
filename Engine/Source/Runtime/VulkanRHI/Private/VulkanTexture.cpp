@@ -797,8 +797,7 @@ void FVulkanSurface::InitialClear(FVulkanCommandListContext& Context,const FClea
 	}
 
 	VkImageLayout FinalLayout = Barrier.GetDestLayout(BarrierIndex);
-	VkImageLayout ImageLayout = Context.FindOrAddLayout(Image, FinalLayout);
-	ensure(FinalLayout == ImageLayout);
+	Context.FindOrAddLayoutRW(Image, FinalLayout) = FinalLayout;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1225,9 +1224,6 @@ void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FText
 	//SubresourceRange.baseArrayLayer = 0;
 	SubresourceRange.layerCount = 1;
 
-	ensure(UpdateRegion.SrcX == 0);
-	ensure(UpdateRegion.SrcY == 0);
-
 	uint8* RESTRICT DestData = (uint8*)Memory;
 	uint8* RESTRICT SourceRowData = (uint8*)SourceData;
 	for (uint32 Height = 0; Height < NumBlocksY; ++Height)
@@ -1526,6 +1522,7 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 
 	if (!CreateInfo.BulkData)
 	{
+		Device.GetImmediateContext().FindOrAddLayout(Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
 		return;
 	}
 
@@ -1643,6 +1640,8 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 		PartialView = new FVulkanTextureView;
 		PartialView->Create(Device, Surface.Image, Surface.ViewType, Surface.PartialAspectMask, Surface.PixelFormat, Surface.ViewFormat, 0, FMath::Max(NumMips, 1u), 0, FMath::Max(1u, SizeZ), ConversionInitializer);
 	}
+
+	Device.GetImmediateContext().FindOrAddLayout(InImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 FVulkanTextureBase::~FVulkanTextureBase()

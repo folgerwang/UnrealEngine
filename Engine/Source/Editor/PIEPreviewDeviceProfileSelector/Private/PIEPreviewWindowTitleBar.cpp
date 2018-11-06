@@ -4,10 +4,93 @@
 #include "PIEPreviewWindow.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "SViewportToolBar.h"
 
 #if WITH_EDITOR
 
-#define LOCTEXT_NAMESPACE "PIEPreviewWindowTitleBar"
+/** Toolbar class used to add some menus to configure various device display settings */
+class SPIEToolbar : public SViewportToolBar
+{
+public:
+	SLATE_BEGIN_ARGS(SPIEToolbar) {}
+		SLATE_EVENT(FOnGetContent, OnGetMenuContent)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	FReply OnMenuClicked();
+
+protected:
+	TSharedPtr<SMenuAnchor> MenuAnchor;
+};
+
+void SPIEToolbar::Construct(const FArguments& InArgs)
+{
+	SViewportToolBar::Construct(SViewportToolBar::FArguments());
+
+	const FSlateBrush* ImageBrush = FPIEPreviewWindowCoreStyle::Get().GetBrush("ComboButton.Arrow");
+
+	TSharedPtr<SWidget> ButtonContent =
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 2.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				.IsEnabled(true)
+				.Cursor(EMouseCursor::Default)
+				[
+					SNew(SImage)
+					.Image(ImageBrush)
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			]
+		];
+
+	ChildSlot
+	[
+		SAssignNew(MenuAnchor, SMenuAnchor)
+		.Padding(0)
+		.Placement(MenuPlacement_BelowAnchor)
+		[
+			SNew(SButton)
+			// Allows users to drag with the mouse to select options after opening the menu */
+			.ClickMethod(EButtonClickMethod::MouseDown)
+			.ContentPadding(FMargin(2.0f, 2.0f))
+			.VAlign(VAlign_Center)
+			.ButtonStyle(FPIEPreviewWindowCoreStyle::Get(), "PIEWindow.MenuButton")
+			.OnClicked(this, &SPIEToolbar::OnMenuClicked)
+			[
+				ButtonContent.ToSharedRef()
+			]
+		]
+		.OnGetMenuContent(InArgs._OnGetMenuContent)
+	];
+}
+
+FReply SPIEToolbar::OnMenuClicked()
+{
+	// If the menu button is clicked toggle the state of the menu anchor which will open or close the menu
+	if (MenuAnchor->ShouldOpenDueToClick())
+	{
+		MenuAnchor->SetIsOpen(true);
+		SetOpenMenu(MenuAnchor);
+	}
+	else
+	{
+		MenuAnchor->SetIsOpen(false);
+		TSharedPtr<SMenuAnchor> NullAnchor;
+		SetOpenMenu(NullAnchor);
+	}
+
+	return FReply::Handled();
+}
+
 
 void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >& OutLeftContent, TSharedPtr< SWidget >& OutRightContent)
 {
@@ -23,11 +106,8 @@ void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >
 			[this]()
 			{
 				TSharedPtr<SPIEPreviewWindow> PIEWindow = GetOwnerWindow();
-
-				if (PIEWindow.IsValid())
-				{
-					PIEWindow->RotateWindow();
-				}
+				check(PIEWindow.IsValid());
+				PIEWindow->RotateWindow();
 
 				return FReply::Handled();
 			}
@@ -44,13 +124,9 @@ void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >
 			[this]()
 			{
 				TSharedPtr<SPIEPreviewWindow> PIEWindow = GetOwnerWindow();
+				check(PIEWindow.IsValid());
 			
-				if (PIEWindow.IsValid())
-				{
-					return PIEWindow->IsRotationAllowed();
-				}
-
-				return false;
+				return PIEWindow->IsRotationAllowed();
 			}
 		)
 	;
@@ -63,6 +139,23 @@ void SPIEPreviewWindowTitleBar::MakeTitleBarContentWidgets(TSharedPtr< SWidget >
 		.AutoWidth()
 		[
 			ScreenRotationButton.ToSharedRef()
+		];
+
+	// Add the settings menu widget
+	WindowTitleBarButtons->AddSlot()
+		.AutoWidth()
+		[
+			SNew(SPIEToolbar)
+			.OnGetMenuContent_Lambda
+			(
+				[this]()
+				{
+					TSharedPtr<SPIEPreviewWindow> PIEWindow = GetOwnerWindow();
+					check(PIEWindow.IsValid());
+
+					return PIEWindow->BuildSettingsMenu();
+				}
+			)
 		];
 
 	if (OutRightContentBaseWindow.IsValid())

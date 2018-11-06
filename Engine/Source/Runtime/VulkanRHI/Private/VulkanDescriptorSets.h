@@ -48,6 +48,7 @@ struct FDescriptorSetRemappingInfo
 		FRemappingInfo			Remapping;
 
 		bool					bHasConstantData = false;
+		const bool				bPadding = false;	// padding is need on memcmp/MemCrc to make sure mem align
 		//bool					bIsRedundant = false;
 	};
 
@@ -90,6 +91,58 @@ struct FDescriptorSetRemappingInfo
 	TStaticArray<FStageInfo, ShaderStage::NumStages>	StageInfos;
 
 	TArray<FInputAttachmentData>						InputAttachmentData;
+
+	inline bool operator==(const FDescriptorSetRemappingInfo& In) const
+	{
+		if (InputAttachmentData.Num() != In.InputAttachmentData.Num())
+		{
+			return false;
+		}
+
+		if (SetInfos.Num() != In.SetInfos.Num())
+		{
+			return false;
+		}
+
+		if (FMemory::Memcmp(InputAttachmentData.GetData(), In.InputAttachmentData.GetData(), sizeof(FInputAttachmentData) * InputAttachmentData.Num()))
+		{
+			return false;
+		}
+
+		for (int32 SetInfosIndex = 0; SetInfosIndex < SetInfos.Num(); ++SetInfosIndex)
+		{
+			int32 SetInfosNums = SetInfos[SetInfosIndex].Types.Num();
+			if (SetInfos[SetInfosIndex].NumBufferInfos != In.SetInfos[SetInfosIndex].NumBufferInfos ||
+				SetInfos[SetInfosIndex].NumImageInfos != In.SetInfos[SetInfosIndex].NumImageInfos ||
+				SetInfosNums != In.SetInfos[SetInfosIndex].Types.Num() ||
+				(SetInfosNums != 0 && FMemory::Memcmp(SetInfos[SetInfosIndex].Types.GetData(), In.SetInfos[SetInfosIndex].Types.GetData(), sizeof(VkDescriptorType) * SetInfosNums)))
+			{
+				return false;
+			}
+		}
+
+		for (uint32 StageInfosIndex = 0; StageInfosIndex < ShaderStage::NumStages; ++StageInfosIndex)
+		{
+			if (StageInfos[StageInfosIndex].PackedUBDescriptorSet != In.StageInfos[StageInfosIndex].PackedUBDescriptorSet ||
+				StageInfos[StageInfosIndex].Pad0 != In.StageInfos[StageInfosIndex].Pad0 ||
+				StageInfos[StageInfosIndex].Globals.Num() != In.StageInfos[StageInfosIndex].Globals.Num() ||
+				StageInfos[StageInfosIndex].PackedUBBindingIndices.Num() != In.StageInfos[StageInfosIndex].PackedUBBindingIndices.Num() ||
+				StageInfos[StageInfosIndex].UniformBuffers.Num() != In.StageInfos[StageInfosIndex].UniformBuffers.Num() ||
+				FMemory::Memcmp(StageInfos[StageInfosIndex].Globals.GetData(), In.StageInfos[StageInfosIndex].Globals.GetData(), sizeof(FRemappingInfo) * StageInfos[StageInfosIndex].Globals.Num()) ||
+				FMemory::Memcmp(StageInfos[StageInfosIndex].PackedUBBindingIndices.GetData(), In.StageInfos[StageInfosIndex].PackedUBBindingIndices.GetData(), sizeof(uint16) * StageInfos[StageInfosIndex].PackedUBBindingIndices.Num()) ||
+				FMemory::Memcmp(StageInfos[StageInfosIndex].UniformBuffers.GetData(), In.StageInfos[StageInfosIndex].UniformBuffers.GetData(), sizeof(FUBRemappingInfo) * StageInfos[StageInfosIndex].UniformBuffers.Num()))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	inline bool operator != (const FDescriptorSetRemappingInfo& In) const
+	{
+		return !(*this == In);
+	}
 
 	inline bool IsEmpty() const
 	{
@@ -193,6 +246,15 @@ struct FDescriptorSetRemappingInfo
 		return NewBindingIndex;
 	}
 */
+
+
+	static_assert(
+		sizeof(FRemappingInfo) == (sizeof(FRemappingInfo::NewDescriptorSet) + sizeof(FRemappingInfo::NewBindingIndex)),
+		"FRemappingInfo should not have padding! structure is used for MemCrc32/Memcmp");
+
+	static_assert(
+		sizeof(FUBRemappingInfo) == (sizeof(FRemappingInfo) + sizeof(FUBRemappingInfo::bHasConstantData) + sizeof(FUBRemappingInfo::bPadding)),
+		"FUBRemappingInfo should not have padding! structure is used for MemCrc32/Memcmp");
 };
 
 // Information for the layout of descriptor sets; does not hold runtime objects
@@ -219,11 +281,12 @@ public:
 		return SetLayouts;
 	}
 
-	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSet, const FVulkanShaderHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState = nullptr);
 	void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSetStage, const FVulkanShaderHeader& CodeHeader, FUniformBufferGatherInfo& OutUBGatherInfo) const;
 
 	template<bool bIsCompute>
 	void FinalizeBindings(const FUniformBufferGatherInfo& UBGatherInfo, const TArrayView<const FSamplerStateRHIParamRef>& ImmutableSamplers);
+
+	void GenerateHash(const TArrayView<const FSamplerStateRHIParamRef>& ImmutableSamplers);
 
 	friend uint32 GetTypeHash(const FVulkanDescriptorSetsLayoutInfo& In)
 	{
@@ -250,10 +313,15 @@ public:
 				return false;
 			}
 
-			if (NumBindings != 0 && FMemory::Memcmp(&In.SetLayouts[Index].LayoutBindings[0], &SetLayouts[Index].LayoutBindings[0], NumBindings * sizeof(VkDescriptorSetLayoutBinding)))
+			if (NumBindings != 0 && FMemory::Memcmp(In.SetLayouts[Index].LayoutBindings.GetData(), SetLayouts[Index].LayoutBindings.GetData(), NumBindings * sizeof(VkDescriptorSetLayoutBinding)) != 0)
 			{
 				return false;
 			}
+		}
+
+		if (RemappingInfo != In.RemappingInfo)
+		{
+			return false;
 		}
 
 		return true;
@@ -642,7 +710,7 @@ public:
 		return RemappingInfo->InputAttachmentData;
 	}
 
-	void Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo, FVulkanShader** Shaders);
+	void Initialize(const FDescriptorSetRemappingInfo& InRemappingInfo);
 
 protected:
 	// Cached data from FDescriptorSetRemappingInfo

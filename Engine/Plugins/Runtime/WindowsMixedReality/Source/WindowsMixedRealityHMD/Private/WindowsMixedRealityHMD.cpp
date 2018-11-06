@@ -7,13 +7,12 @@
 #include "Modules/ModuleManager.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
+#include "Interfaces/IPluginManager.h"
 #include "IWindowsMixedRealityHMDPlugin.h"
 
 #if WITH_EDITOR
 #include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
 #endif
-
-#include "WindowsMixedRealityDelegates.h"
 
 #include "Engine/GameEngine.h"
 
@@ -92,6 +91,13 @@ namespace WindowsMixedReality
 			return FString(TEXT("WindowsMixedRealityHMD"));
 		}
 
+		void StartupModule() override
+		{
+			IHeadMountedDisplayModule::StartupModule();
+			FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("WindowsMixedReality"))->GetBaseDir(), TEXT("Shaders"));
+			AddShaderSourceDirectoryMapping(TEXT("/Plugin/WindowsMixedReality"), PluginShaderDir);
+		}
+
 		void ShutdownModule() override
 		{
 			hmd.Dispose();
@@ -115,7 +121,7 @@ namespace WindowsMixedReality
 
 	float FWindowsMixedRealityHMD::GetWorldToMetersScale() const
 	{
-		return GWorld ? GWorld->GetWorldSettings()->WorldToMeters : 100.0f;
+		return CachedWorldToMetersScale;
 	}
 
 	//---------------------------------------------------
@@ -226,6 +232,14 @@ namespace WindowsMixedReality
 		return FString(hmd.GetDisplayName());
 	}
 
+	void CenterMouse(RECT windowRect)
+	{
+		int width = windowRect.right - windowRect.left;
+		int height = windowRect.bottom - windowRect.top;
+
+		SetCursorPos(windowRect.left + width / 2, windowRect.top + height / 2);
+	}
+
 	bool FWindowsMixedRealityHMD::OnStartGameFrame(FWorldContext & WorldContext)
 	{
 		if (this->bRequestRestart)
@@ -261,16 +275,49 @@ namespace WindowsMixedReality
 			SetupHolographicCamera();
 		}
 
-		// Broadcast presence changed event to subscribed delegates.
 		if (hmd.HasUserPresenceChanged())
 		{
-			AWindowsMixedRealityDelegates* WindowsMRDelegates = AWindowsMixedRealityDelegates::GetInstance();
-			if (WindowsMRDelegates != nullptr
-				&& WindowsMRDelegates->OnUserPresenceChanged.IsBound())
+			currentWornState = GetHMDWornState();
+
+			// Broadcast HMD worn/ not worn delegates.
+			if (currentWornState == EHMDWornState::Worn)
 			{
-				WindowsMRDelegates->OnUserPresenceChanged.Broadcast(GetHMDWornState());
+				FCoreDelegates::VRHeadsetPutOnHead.Broadcast();
+			}
+			else if (currentWornState == EHMDWornState::NotWorn)
+			{
+				FCoreDelegates::VRHeadsetRemovedFromHead.Broadcast();
 			}
 		}
+
+		// Restore windows focus to game window to preserve keyboard/mouse input.
+		if (currentWornState == EHMDWornState::Type::Worn)
+		{
+			HWND gameHWND = (HWND)GEngine->GameViewport->GetWindow()->GetNativeWindow()->GetOSWindowHandle();
+
+			// Set mouse focus to center of game window so any clicks interact with the game.
+			if (mouseLockedToCenter)
+			{
+				RECT windowRect;
+				GetWindowRect(gameHWND, &windowRect);
+
+				CenterMouse(windowRect);
+			}
+
+			if (GetCapture() != gameHWND)
+			{
+				// Keyboard input
+				SetForegroundWindow(gameHWND);
+
+				// Mouse input
+				SetCapture(gameHWND);
+				SetFocus(gameHWND);
+
+				FSlateApplication::Get().SetAllUserFocusToGameViewport();
+			}
+		}
+
+		CachedWorldToMetersScale = WorldContext.World()->GetWorldSettings()->WorldToMeters;
 
 		return true;
 	}
@@ -376,21 +423,64 @@ namespace WindowsMixedReality
 			HeadRotation.Normalize();
 
 			// Position = forward/ backwards, left/ right, up/ down.
-			PositionL = ((FVector(UPoseL.M[2][3], -1 * UPoseL.M[0][3], -1 * UPoseL.M[1][3]) * GWorld->GetWorldSettings()->WorldToMeters));
-			PositionR = ((FVector(UPoseR.M[2][3], -1 * UPoseR.M[0][3], -1 * UPoseR.M[1][3]) * GWorld->GetWorldSettings()->WorldToMeters));
+			PositionL = ((FVector(UPoseL.M[2][3], -1 * UPoseL.M[0][3], -1 * UPoseL.M[1][3]) * GetWorldToMetersScale()));
+			PositionR = ((FVector(UPoseR.M[2][3], -1 * UPoseR.M[0][3], -1 * UPoseR.M[1][3]) * GetWorldToMetersScale()));
 
 			PositionL = RotationL.RotateVector(PositionL);
 			PositionR = RotationR.RotateVector(PositionR);
 
 			if (ipd == 0)
 			{
-				ipd = FVector::Dist(PositionL, PositionR) / GWorld->GetWorldSettings()->WorldToMeters;
+				ipd = FVector::Dist(PositionL, PositionR) / GetWorldToMetersScale();
 			}
 
 			FVector HeadPosition = FMath::Lerp(PositionL, PositionR, 0.5f);
 
 			CurrOrientation = HeadRotation;
 			CurrPosition = HeadPosition;
+		}
+	}
+
+	void SetupHiddenVisibleAreaMesh(TArray<FHMDViewMesh>& HiddenMeshes, TArray<FHMDViewMesh>& VisibleMeshes)
+	{
+		for (int i = (int)MixedRealityInterop::HMDEye::Left;
+			i <= (int)MixedRealityInterop::HMDEye::Right; i++)
+		{
+			MixedRealityInterop::HMDEye eye = (MixedRealityInterop::HMDEye)i;
+
+			DirectX::XMFLOAT2* vertices;
+			int length;
+			if (hmd.GetHiddenAreaMesh(eye, vertices, length))
+			{
+				FVector2D* const vertexPositions = new FVector2D[length];
+				for (int v = 0; v < length; v++)
+				{
+					// Remap to space Unreal is expecting.
+					float x = (vertices[v].x + 1) / 2.0f;
+					float y = (vertices[v].y + 1) / 2.0f;
+
+					vertexPositions[v].Set(x, y);
+				}
+				HiddenMeshes[i].BuildMesh(vertexPositions, length, FHMDViewMesh::MT_HiddenArea);
+
+				delete[] vertexPositions;
+			}
+
+			if (hmd.GetVisibleAreaMesh(eye, vertices, length))
+			{
+				FVector2D* const vertexPositions = new FVector2D[length];
+				for (int v = 0; v < length; v++)
+				{
+					// Remap from NDC space to [0..1] bottom-left origin.
+					float x = (vertices[v].x + 1) / 2.0f;
+					float y = (vertices[v].y + 1) / 2.0f;
+
+					vertexPositions[v].Set(x, y);
+				}
+				VisibleMeshes[i].BuildMesh(vertexPositions, length, FHMDViewMesh::MT_VisibleArea);
+
+				delete[] vertexPositions;
+			}
 		}
 	}
 
@@ -418,7 +508,13 @@ namespace WindowsMixedReality
 					bIsStereoEnabled = hmd.IsStereoEnabled();
 					if (bIsStereoEnabled)
 					{
-						SetupHiddenVisibleAreaMesh();
+						hmd.CreateHiddenVisibleAreaMesh();
+
+						FWindowsMixedRealityHMD* Self = this;
+						ENQUEUE_RENDER_COMMAND(SetupHiddenVisibleAreaMeshCmd)([Self](FRHICommandListImmediate& RHICmdList)
+						{
+							SetupHiddenVisibleAreaMesh(Self->HiddenAreaMesh, Self->VisibleAreaMesh);
+						});
 					}
 				}
 				else
@@ -439,51 +535,6 @@ namespace WindowsMixedReality
 
 		// Uncap fps to enable FPS higher than 62
 		GEngine->bForceDisableFrameRateSmoothing = bIsStereoEnabled;
-	}
-
-	void FWindowsMixedRealityHMD::SetupHiddenVisibleAreaMesh()
-	{
-		hmd.CreateHiddenVisibleAreaMesh();
-
-		for (int i = (int)MixedRealityInterop::HMDEye::Left;
-			i <= (int)MixedRealityInterop::HMDEye::Right; i++)
-		{
-			MixedRealityInterop::HMDEye eye = (MixedRealityInterop::HMDEye)i;
-
-			DirectX::XMFLOAT2* vertices;
-			int length;
-			if (hmd.GetHiddenAreaMesh(eye, vertices, length))
-			{
-				FVector2D* const vertexPositions = new FVector2D[length];
-				for (int v = 0; v < length; v++)
-				{
-					// Remap to space Unreal is expecting.
-					float x = (vertices[v].x + 1) / 2.0f;
-					float y = (vertices[v].y + 1) / 2.0f;
-
-					vertexPositions[v].Set(x, y);
-				}
-				HiddenAreaMesh[i].BuildMesh(vertexPositions, length, FHMDViewMesh::MT_HiddenArea);
-
-				delete[] vertexPositions;
-			}
-
-			if (hmd.GetVisibleAreaMesh(eye, vertices, length))
-			{
-				FVector2D* const vertexPositions = new FVector2D[length];
-				for (int v = 0; v < length; v++)
-				{
-					// Remap from NDC space to [0..1] bottom-left origin.
-					float x = (vertices[v].x + 1) / 2.0f;
-					float y = (vertices[v].y + 1) / 2.0f;
-
-					vertexPositions[v].Set(x, y);
-				}
-				VisibleAreaMesh[i].BuildMesh(vertexPositions, length, FHMDViewMesh::MT_VisibleArea);
-
-				delete[] vertexPositions;
-			}
-		}
 	}
 
 	bool FWindowsMixedRealityHMD::IsStereoEnabled() const
@@ -509,6 +560,8 @@ namespace WindowsMixedReality
 			hmd.EnableStereo(stereo);
 
 			InitializeHolographic();
+
+			currentWornState = GetHMDWornState();
 
 			FApp::SetUseVRFocus(true);
 			FApp::SetHasVRFocus(true);
@@ -648,6 +701,60 @@ namespace WindowsMixedReality
 			hmd.SetScreenScaleFactor(ScreenScalePercentage);
 			mCustomPresent->UpdateViewport(Viewport, ViewportRHI);
 		}
+	}
+
+	void FWindowsMixedRealityHMD::RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const
+	{
+		const uint32 ViewportWidth = BackBuffer->GetSizeX();
+		const uint32 ViewportHeight = BackBuffer->GetSizeY();
+
+		const uint32 TextureWidth = SrcTexture->GetSizeX();
+		const uint32 TextureHeight = SrcTexture->GetSizeY();
+
+		const uint32 SourceWidth = TextureWidth / 2;
+		const uint32 SourceHeight = TextureHeight;
+		const float r1 = (float)ViewportWidth / (float)SourceWidth;
+		const float r2 = (float)ViewportHeight / (float)SourceHeight;
+		const float r = FMath::Min(r1, r2);
+		const uint32 width = (float)SourceWidth * r;
+		const uint32 height = (float)SourceHeight * r;
+		const uint32 x = (ViewportWidth - width) * 0.5f;
+		const uint32 y = (ViewportHeight - height) * 0.5f;
+
+		SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
+		DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f));
+		RHICmdList.SetViewport(x, y, 0, width + x, height + y, 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+		const auto FeatureLevel = GMaxRHIFeatureLevel;
+		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SrcTexture);
+
+		RendererModule->DrawRectangle(
+			RHICmdList,
+			0, 0,
+			ViewportWidth, ViewportHeight,
+			0.0f, 0.0f,
+			0.5f, 1.0f,
+			FIntPoint(ViewportWidth, ViewportHeight),
+			FIntPoint(1, 1),
+			*VertexShader,
+			EDRF_Default);
 	}
 
 	// Create a BGRA backbuffer for rendering.
@@ -867,6 +974,9 @@ namespace WindowsMixedReality
 	{
 		static const FName RendererModuleName("Renderer");
 		RendererModule = FModuleManager::GetModulePtr<IRendererModule>(RendererModuleName);
+
+		HiddenAreaMesh.SetNum(2);
+		VisibleAreaMesh.SetNum(2);
 	}
 
 	FWindowsMixedRealityHMD::~FWindowsMixedRealityHMD()

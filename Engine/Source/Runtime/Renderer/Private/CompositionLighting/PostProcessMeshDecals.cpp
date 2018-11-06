@@ -599,7 +599,7 @@ private:
 						View.Family->GetDebugViewShaderMode(),
 						DrawingContext.CurrentDecalStage);
 					DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-					CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+					CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
 					DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias));
 
 					int32 BatchElementIndex = 0;

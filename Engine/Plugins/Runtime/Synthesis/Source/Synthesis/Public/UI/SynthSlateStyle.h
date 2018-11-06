@@ -3,12 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UI/SSynthKnob.h"
 #include "UObject/ObjectMacros.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/SWidget.h"
 #include "Components/Widget.h"
 #include "Styling/SlateWidgetStyle.h"
+#include "Styling/SlateStyle.h"
 #include "Brushes/SlateImageBrush.h"
 #include "SynthSlateStyle.generated.h"
 
@@ -45,6 +45,18 @@ protected:
 	virtual float GetSize(ESynthSlateSizeType SizeType) const = 0;
 
 	bool bResourcesLoaded;
+};
+
+
+struct FSynthSlateStyleSet
+{
+	static void Initialize();
+	static void Shutdown();
+
+	static TSharedPtr< class FSlateStyleSet > Get();
+
+private:
+	static TSharedPtr< class FSlateStyleSet > StyleInstance;
 };
 
 /**

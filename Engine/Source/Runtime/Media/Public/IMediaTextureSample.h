@@ -64,6 +64,10 @@ enum class EMediaTextureSampleFormat
 	FloatRGBA
 };
 
+namespace MediaTextureSampleFormat
+{
+	 MEDIA_API const TCHAR* EnumToString(const EMediaTextureSampleFormat InSampleFormat);
+};
 
 /**
  * Interface for media texture samples.

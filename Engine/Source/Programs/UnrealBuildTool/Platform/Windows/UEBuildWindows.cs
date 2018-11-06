@@ -188,6 +188,35 @@ namespace UnrealBuildTool
 		public bool bBuildLargeAddressAwareBinary = true;
 
 		/// <summary>
+		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
+		/// </summary>
+		internal VCEnvironment Environment;
+
+		/// <summary>
+		/// Directory containing the toolchain
+		/// </summary>
+		public string ToolChainDir
+		{
+			get { return (Environment == null)? null : Environment.ToolChainDir.FullName; }
+		}
+
+		/// <summary>
+		/// The version number of the toolchain
+		/// </summary>
+		public string ToolChainVersion
+		{
+			get { return (Environment == null)? null : Environment.ToolChainVersion.ToString(); }
+		}
+
+		/// <summary>
+		/// Root directory containing the Windows Sdk
+		/// </summary>
+		public string WindowsSdkDir
+		{
+			get { return (Environment == null)? null : Environment.WindowsSdkDir.FullName; }
+		}
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -324,6 +353,26 @@ namespace UnrealBuildTool
 			return Inner.GetVisualStudioCompilerVersionName();
 		}
 
+		internal VCEnvironment Environment
+		{
+			get { return Inner.Environment; }
+		}
+
+		public string ToolChainDir
+		{
+			get { return Inner.ToolChainDir; }
+		}
+
+		public string ToolChainVersion
+		{
+			get { return Inner.ToolChainVersion; }
+		}
+
+		public string WindowsSdkDir
+		{
+			get { return Inner.WindowsSdkDir; }
+		}
+
 		#if !__MonoCS__
 		#pragma warning restore CS1591
 		#endif
@@ -458,6 +507,13 @@ namespace UnrealBuildTool
 			{
 				Target.bDisableDebugInfoForGeneratedCode = false;
 			}
+
+			// Initialize the VC environment for the target, and set all the version numbers to the concrete values we chose.
+			VCEnvironment Environment = VCEnvironment.Create(Target.WindowsPlatform.Compiler, DefaultCppPlatform, Target.WindowsPlatform.CompilerVersion, Target.WindowsPlatform.WindowsSdkVersion);
+			Target.WindowsPlatform.Environment = Environment;
+			Target.WindowsPlatform.Compiler = Environment.Compiler;
+			Target.WindowsPlatform.CompilerVersion = Environment.CompilerVersion.ToString();
+			Target.WindowsPlatform.WindowsSdkVersion = Environment.WindowsSdkVersion.ToString();
 
 //			@Todo: Still getting reports of frequent OOM issues with this enabled as of 15.7.
 //			// Enable fast PDB linking if we're on VS2017 15.7 or later. Previous versions have OOM issues with large projects.
@@ -805,6 +861,16 @@ namespace UnrealBuildTool
 		static bool IsValidToolChainDir2017(DirectoryReference ToolChainDir)
 		{
 			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx86", "x64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
+		}
+
+		/// <summary>
+		/// Determines if an IDE for the given compiler is installed.
+		/// </summary>
+		/// <param name="Compiler">Compiler to check for</param>
+		/// <returns>True if the given compiler is installed</returns>
+		public static bool HasIDE(WindowsCompiler Compiler)
+		{
+			return FindVSInstallDirs(Compiler).Count > 0;
 		}
 
 		/// <summary>
@@ -1319,12 +1385,47 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Return whether this platform has uniquely named binaries across multiple games
+		/// Gets the application icon for a given project
 		/// </summary>
-		public override bool HasUniqueBinaries()
+		/// <param name="ProjectFile">The project file</param>
+		/// <returns>The icon to use for this project</returns>
+		public static FileReference GetApplicationIcon(FileReference ProjectFile)
 		{
-			// Windows applications have many shared binaries between games
-			return false;
+			// Check if there's a custom icon
+			if(ProjectFile != null)
+			{
+				FileReference IconFile = FileReference.Combine(ProjectFile.Directory, "Build", "Windows", "Application.ico");
+				if(FileReference.Exists(IconFile))
+				{
+					return IconFile;
+				}
+			}
+
+			// Otherwise use the default
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Runtime", "Launch", "Resources", "Windows", "UE4.ico");
+		}
+
+		/// <summary>
+		/// Configures the resource compile environment for the given target
+		/// </summary>
+		/// <param name="ResourceCompileEnvironment">The compile environment</param>
+		/// <param name="IntermediateDirectory">The output directory for compiled files</param>
+		/// <param name="Target">The target being built</param>
+		public static void SetupResourceCompileEnvironment(CppCompileEnvironment ResourceCompileEnvironment, DirectoryReference IntermediateDirectory, ReadOnlyTargetRules Target)
+		{
+			// Figure the icon to use. We can only use a custom icon when compiling to a project-specific intemediate directory (and not for the shared editor executable, for example).
+			FileReference IconFile;
+			if(Target.ProjectFile != null && IntermediateDirectory.IsUnderDirectory(Target.ProjectFile.Directory))
+			{
+				IconFile = WindowsPlatform.GetApplicationIcon(Target.ProjectFile);
+			}
+			else
+			{
+				IconFile = WindowsPlatform.GetApplicationIcon(null);
+			}
+
+			// Setup the compile environment, setting the icon to use via a macro. This is used in PCLaunch.rc2.
+			ResourceCompileEnvironment.Definitions.Add(String.Format("BUILD_ICON_FILE_NAME=\"\\\"{0}\\\"\"", IconFile.FullName.Replace("\\", "\\\\")));
 		}
 
 		/// <summary>
@@ -1661,7 +1762,6 @@ namespace UnrealBuildTool
 		/// <param name="Target">Information about the target being deployed</param>
 		public override void Deploy(UEBuildDeployTarget Target)
 		{
-			new BaseWindowsDeploy().PrepTargetForDeployment(Target);
 		}
 	}
 

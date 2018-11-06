@@ -7,6 +7,7 @@
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneTimeHelpers.h"
 
 #include "Algo/BinarySearch.h"
 
@@ -344,11 +345,6 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::GetSegmentFromIterator(
 	}
 
 	return CompileSegment(Iterator);
-}
-
-TRange<FFrameNumber> FMovieSceneEvaluationTrack::GetUniqueRangeFromLowerBound(TRangeBound<FFrameNumber> InLowerBound) const
-{
-	return EvaluationTree.Tree.IterateFromLowerBound(InLowerBound).Range();
 }
 
 void FMovieSceneEvaluationTrack::ValidateSegments()

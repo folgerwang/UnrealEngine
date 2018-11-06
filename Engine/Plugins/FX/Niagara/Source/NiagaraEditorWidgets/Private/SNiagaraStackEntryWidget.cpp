@@ -4,7 +4,7 @@
 #include "ViewModels/Stack/NiagaraStackViewModel.h"
 #include "NiagaraEditorWidgetsStyle.h"
 
-#define	LOCTEXT_NAMESPACE "SNiagaraStackEntryWidget"
+#define LOCTEXT_NAMESPACE "SNiagaraStackEntryWidget"
 
 FSlateColor SNiagaraStackEntryWidget::GetTextColorForSearch() const
 {

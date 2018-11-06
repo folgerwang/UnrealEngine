@@ -74,12 +74,10 @@ class FVulkanShader : public IRefCountedObject
 {
 public:
 	FVulkanShader(FVulkanDevice* InDevice, EShaderFrequency InFrequency, VkShaderStageFlagBits InStageFlag)
-		: Id(0)
+		: ShaderKey(0)
 		, StageFlag(InStageFlag)
 		, Frequency(InFrequency)
 		, Device(InDevice)
-		, ShaderCodeCRC(0)
-		, ShaderCodeLen(0)
 	{
 	}
 
@@ -87,7 +85,7 @@ public:
 
 	void PurgeShaderModules();
 
-	void Setup(const TArray<uint8>& InShaderHeaderAndCode);
+	void Setup(const TArray<uint8>& InShaderHeaderAndCode, uint64 InShaderKey);
 
 	VkShaderModule GetOrCreateHandle(const FVulkanLayout* Layout, uint32 LayoutHash)
 	{
@@ -112,13 +110,13 @@ public:
 		return CodeHeader;
 	}
 
-	inline uint64 GetId() const
+	inline uint64 GetShaderKey() const
 	{
-		return Id;
+		return ShaderKey;
 	}
 
 protected:
-	uint64							Id;
+	uint64							ShaderKey;
 
 	/** External bindings for this shader. */
 	FVulkanShaderHeader				CodeHeader;
@@ -129,10 +127,6 @@ protected:
 	TArray<uint32>					Spirv;
 
 	FVulkanDevice*					Device;
-
-	// Cached shader key information
-	uint32							ShaderCodeCRC;
-	uint32							ShaderCodeLen;
 
 	VkShaderModule CreateHandle(const FVulkanLayout* Layout, uint32 LayoutHash);
 
@@ -189,24 +183,8 @@ public:
 	void OnDeleteShader(const FVulkanShader& Shader);
 
 private:
-	struct FKey
-	{
-		uint32 CodeLen;
-		uint32 CodeCRC;
-	};
-
-	friend bool operator ==(const FVulkanShaderFactory::FKey& A, const FVulkanShaderFactory::FKey& B)
-	{
-		return A.CodeLen == B.CodeLen && A.CodeCRC == B.CodeCRC;
-	}
-
-	friend uint32 GetTypeHash(const FVulkanShaderFactory::FKey &Key)
-	{
-		return HashCombine(GetTypeHash(Key.CodeLen), GetTypeHash(Key.CodeCRC));
-	}
-	
 	FRWLock Lock;
-	TMap<FKey, FVulkanShader*> ShaderMap[SF_NumFrequencies];
+	TMap<uint64, FVulkanShader*> ShaderMap[SF_NumFrequencies];
 };
 
 class FVulkanBoundShaderState : public FRHIBoundShaderState
@@ -378,7 +356,10 @@ public:
 		{
 			return ResourceAllocation->GetHandle();
 		}
-		return VK_NULL_HANDLE;
+		else
+		{
+			return VK_NULL_HANDLE;
+		}
 	}
 
 	inline uint64 GetAllocationOffset() const
@@ -1152,7 +1133,13 @@ protected:
 	VkBufferUsageFlags BufferUsageFlags;
 	uint32 NumBuffers;
 	uint32 DynamicBufferIndex;
-	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_RENDER_BUFFERS];
+
+	enum
+	{
+		NUM_BUFFERS = 3,
+	};
+
+	TRefCountPtr<VulkanRHI::FBufferSuballocation> Buffers[NUM_BUFFERS];
 	struct
 	{
 		VulkanRHI::FBufferSuballocation* SubAlloc = nullptr;
@@ -1384,8 +1371,8 @@ public:
 		}
 
 		OutPackedUniformBufferStagingMask = ((uint64)1 << (uint64)InCodeHeader.PackedUBs.Num()) - 1;
-		EmulatedUBsCopyInfo = &InCodeHeader.EmulatedUBsCopyInfo;
-		EmulatedUBsCopyRanges = &InCodeHeader.EmulatedUBCopyRanges;
+		EmulatedUBsCopyInfo = InCodeHeader.EmulatedUBsCopyInfo;
+		EmulatedUBsCopyRanges = InCodeHeader.EmulatedUBCopyRanges;
 	}
 
 	inline void SetPackedGlobalParameter(uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* RESTRICT NewValue, uint64& InOutPackedUniformBufferStagingDirty)
@@ -1411,15 +1398,15 @@ public:
 	inline void SetEmulatedUniformBufferIntoPacked(uint32 BindPoint, const TArray<uint8>& ConstantData, uint64& NEWPackedUniformBufferStagingDirty)
 	{
 		// Emulated UBs. Assumes UniformBuffersCopyInfo table is sorted by CopyInfo.SourceUBIndex
-		if (BindPoint < (uint32)EmulatedUBsCopyRanges->Num())
+		if (BindPoint < (uint32)EmulatedUBsCopyRanges.Num())
 		{
-			uint32 Range = (*EmulatedUBsCopyRanges)[BindPoint];
+			uint32 Range = EmulatedUBsCopyRanges[BindPoint];
 			uint16 Start = (Range >> 16) & 0xffff;
 			uint16 Count = Range & 0xffff;
 			const uint8* RESTRICT SourceData = ConstantData.GetData();
 			for (int32 Index = Start; Index < Start + Count; ++Index)
 			{
-				const CrossCompiler::FUniformBufferCopyInfo& CopyInfo = (*EmulatedUBsCopyInfo)[Index];
+				const CrossCompiler::FUniformBufferCopyInfo& CopyInfo = EmulatedUBsCopyInfo[Index];
 				check(CopyInfo.SourceUBIndex == BindPoint);
 				FPackedBuffer& StagingBuffer = PackedUniformBuffers[(int32)CopyInfo.DestUBIndex];
 				//check(ByteOffset + NumBytes <= (uint32)StagingBuffer.Num());
@@ -1445,9 +1432,9 @@ public:
 protected:
 	TArray<FPackedBuffer>									PackedUniformBuffers;
 
-	// Pointers to Shader Code Header
-	const TArray<CrossCompiler::FUniformBufferCopyInfo>*	EmulatedUBsCopyInfo;
-	const TArray<uint32>*									EmulatedUBsCopyRanges;
+	// Copies to Shader Code Header (shaders may be deleted when we use this object again)
+	TArray<CrossCompiler::FUniformBufferCopyInfo>			EmulatedUBsCopyInfo;
+	TArray<uint32>											EmulatedUBsCopyRanges;
 };
 
 class FVulkanStagingBuffer : public FRHIStagingBuffer
@@ -1474,13 +1461,12 @@ public:
 	}
 
 	virtual bool Poll() const final override;
-	virtual bool Wait(float TimeoutMs) const final override;
 
 protected:
 	FVulkanCmdBuffer*	CmdBuffer = nullptr;
 	uint64				FenceSignaledCounter = 0;
 
-	friend class FVulkanDynamicRHI;
+	friend class FVulkanCommandListContext;
 };
 
 template<class T>

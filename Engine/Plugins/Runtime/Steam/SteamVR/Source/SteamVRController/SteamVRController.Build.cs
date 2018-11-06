@@ -21,15 +21,21 @@ public class SteamVRController : ModuleRules
 			"InputDevice",
             "InputCore",
 			"HeadMountedDisplay",
-            "SteamVR"
-		});
+            "SteamVR",
+            "Json"
+        });
 
-// 		DynamicallyLoadedModuleNames.AddRange(new string[]
-// 		{
-// 			"SteamVR",
-// 		});
+        // 		DynamicallyLoadedModuleNames.AddRange(new string[]
+        // 		{
+        // 			"SteamVR",
+        // 		});
 
-		AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenVR");
+        if (Target.bBuildEditor == true)
+        {
+            PrivateDependencyModuleNames.Add("UnrealEd");
+        }
+
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenVR");
 
         if ( Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64")) )
         {

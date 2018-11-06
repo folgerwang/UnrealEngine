@@ -438,7 +438,7 @@ namespace PixelInspector
 		TickSinceLastCreateRequest++;
 	}
 	
-	void SPixelInspector::CreatePixelInspectorRequest(FVector2D InspectViewportUV, int32 viewportUniqueId, FSceneInterface *SceneInterface, bool bInGameViewMode)
+	void SPixelInspector::CreatePixelInspectorRequest(FVector2D InspectViewportUV, int32 viewportUniqueId, FSceneInterface *SceneInterface, bool bInGameViewMode, float InPreExposure)
 	{
 		if (TickSinceLastCreateRequest < MINIMUM_TICK_BETWEEN_CREATE_REQUEST)
 			return;
@@ -469,7 +469,7 @@ namespace PixelInspector
 		if (BufferIndex == -1)
 			return;
 		
-		Requests[BufferIndex].SetRequestData(InspectViewportUV, BufferIndex, viewportUniqueId, GBufferFormat, AllowStaticLighting);
+		Requests[BufferIndex].SetRequestData(InspectViewportUV, BufferIndex, viewportUniqueId, GBufferFormat, AllowStaticLighting, InPreExposure);
 		SceneInterface->AddPixelInspectorRequest(&(Requests[BufferIndex]));
 	}
 
@@ -660,22 +660,27 @@ namespace PixelInspector
 
 	void SPixelInspector::ReadBackRequestData()
 	{
-		for (int RequestIndex = 0; RequestIndex < 2; ++RequestIndex)
+		for (int RequestIndex = 0; RequestIndex < ARRAY_COUNT(Requests); ++RequestIndex)
 		{
-			if (Requests[RequestIndex].RequestComplete == false && Requests[RequestIndex].RenderingCommandSend == true)
+			FPixelInspectorRequest& Request = Requests[RequestIndex];
+			if (Request.RequestComplete == false && Request.RenderingCommandSend == true)
 			{
-				if (Requests[RequestIndex].FrameCountAfterRenderingCommandSend >= WAIT_FRAMENUMBER_BEFOREREADING)
+				if (Request.FrameCountAfterRenderingCommandSend >= WAIT_FRAMENUMBER_BEFOREREADING)
 				{
-					if (Requests[RequestIndex].SourceViewportUV == FVector2D(-1, -1))
+					if (Request.SourceViewportUV == FVector2D(-1, -1))
 					{
 						continue;
 					}
+
+
 					PixelInspectorResult PixelResult;
-					PixelResult.ViewportUV = Requests[RequestIndex].SourceViewportUV;
-					PixelResult.ViewUniqueId = Requests[RequestIndex].ViewId;
+					PixelResult.ViewportUV = Request.SourceViewportUV;
+					PixelResult.ViewUniqueId = Request.ViewId;
+					PixelResult.PreExposure = Request.PreExposure;
+					PixelResult.OneOverPreExposure = Request.PreExposure > 0.f ? (1.f / Request.PreExposure) : 1.f;;
 
 					TArray<FColor> BufferFinalColorValue;
-					FTextureRenderTargetResource* RTResourceFinalColor = Buffer_FinalColor_RGB8[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+					FTextureRenderTargetResource* RTResourceFinalColor = Buffer_FinalColor_RGB8[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 					if (RTResourceFinalColor->ReadPixels(BufferFinalColorValue) == false)
 					{
 						BufferFinalColorValue.Empty();
@@ -683,17 +688,17 @@ namespace PixelInspector
 					PixelResult.DecodeFinalColor(BufferFinalColorValue);
 
 					TArray<FLinearColor> BufferSceneColorValue;
-					FTextureRenderTargetResource* RTResourceSceneColor = Buffer_SceneColor_Float[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+					FTextureRenderTargetResource* RTResourceSceneColor = Buffer_SceneColor_Float[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 					if (RTResourceSceneColor->ReadLinearColorPixels(BufferSceneColorValue) == false)
 					{
 						BufferSceneColorValue.Empty();
 					}
 					PixelResult.DecodeSceneColor(BufferSceneColorValue);
-					
-					if (Buffer_Depth_Float[Requests[RequestIndex].BufferIndex] != nullptr)
+
+					if (Buffer_Depth_Float[Request.BufferIndex] != nullptr)
 					{
 						TArray<FLinearColor> BufferDepthValue;
-						FTextureRenderTargetResource* RTResourceDepth = Buffer_Depth_Float[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceDepth = Buffer_Depth_Float[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceDepth->ReadLinearColorPixels(BufferDepthValue) == false)
 						{
 							BufferDepthValue.Empty();
@@ -702,78 +707,78 @@ namespace PixelInspector
 					}
 
 					TArray<FLinearColor> BufferHDRValue;
-					FTextureRenderTargetResource* RTResourceHDR = Buffer_HDR_Float[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+					FTextureRenderTargetResource* RTResourceHDR = Buffer_HDR_Float[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 					if (RTResourceHDR->ReadLinearColorPixels(BufferHDRValue) == false)
 					{
 						BufferHDRValue.Empty();
 					}
 					PixelResult.DecodeHDR(BufferHDRValue);
 
-					if (Requests[RequestIndex].GBufferPrecision == EGBufferFormat::Force8BitsPerChannel)
+					if (Request.GBufferPrecision == EGBufferFormat::Force8BitsPerChannel)
 					{
 						TArray<FColor> BufferAValue;
-						FTextureRenderTargetResource* RTResourceA = Buffer_A_RGB8[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceA = Buffer_A_RGB8[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceA->ReadPixels(BufferAValue) == false)
 						{
 							BufferAValue.Empty();
 						}
 
 						TArray<FColor> BufferBCDEValue;
-						FTextureRenderTargetResource* RTResourceBCDE = Buffer_BCDE_RGB8[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceBCDE = Buffer_BCDE_RGB8[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceA->ReadPixels(BufferBCDEValue) == false)
 						{
 							BufferBCDEValue.Empty();
 						}
 
-						PixelResult.DecodeBufferData(BufferAValue, BufferBCDEValue, Requests[RequestIndex].AllowStaticLighting);
+						PixelResult.DecodeBufferData(BufferAValue, BufferBCDEValue, Request.AllowStaticLighting);
 					}
-					else if (Requests[RequestIndex].GBufferPrecision == EGBufferFormat::Default)
+					else if (Request.GBufferPrecision == EGBufferFormat::Default)
 					{
 						//PF_A2B10G10R10 format is not support yet
 						TArray<FLinearColor> BufferAValue;
-						FTextureRenderTargetResource* RTResourceA = Buffer_A_RGB10[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceA = Buffer_A_RGB10[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceA->ReadLinearColorPixels(BufferAValue) == false)
 						{
 							BufferAValue.Empty();
 						}
 
 						TArray<FColor> BufferBCDEValue;
-						FTextureRenderTargetResource* RTResourceBCDE = Buffer_BCDE_RGB8[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceBCDE = Buffer_BCDE_RGB8[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceBCDE->ReadPixels(BufferBCDEValue) == false)
 						{
 							BufferBCDEValue.Empty();
 						}
-						PixelResult.DecodeBufferData(BufferAValue, BufferBCDEValue, Requests[RequestIndex].AllowStaticLighting);
+						PixelResult.DecodeBufferData(BufferAValue, BufferBCDEValue, Request.AllowStaticLighting);
 					}
-					else if (Requests[RequestIndex].GBufferPrecision == EGBufferFormat::HighPrecisionNormals || Requests[RequestIndex].GBufferPrecision == EGBufferFormat::Force16BitsPerChannel)
+					else if (Request.GBufferPrecision == EGBufferFormat::HighPrecisionNormals || Request.GBufferPrecision == EGBufferFormat::Force16BitsPerChannel)
 					{
 						//PF_A2B10G10R10 format is not support yet
 						TArray<FFloat16Color> BufferAValue;
-						FTextureRenderTargetResource* RTResourceA = Buffer_A_Float[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceA = Buffer_A_Float[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceA->ReadFloat16Pixels(BufferAValue) == false)
 						{
 							BufferAValue.Empty();
 						}
 
 						TArray<FFloat16Color> BufferBCDEValue;
-						FTextureRenderTargetResource* RTResourceBCDE = Buffer_BCDE_Float[Requests[RequestIndex].BufferIndex]->GameThread_GetRenderTargetResource();
+						FTextureRenderTargetResource* RTResourceBCDE = Buffer_BCDE_Float[Request.BufferIndex]->GameThread_GetRenderTargetResource();
 						if (RTResourceA->ReadFloat16Pixels(BufferBCDEValue) == false)
 						{
 							BufferBCDEValue.Empty();
 						}
-						PixelResult.DecodeBufferData(BufferAValue, BufferBCDEValue, Requests[RequestIndex].AllowStaticLighting);
+						PixelResult.DecodeBufferData(BufferAValue, BufferBCDEValue, Request.AllowStaticLighting);
 					}
 					else
 					{
-						checkf(0, TEXT("Unhandled gbuffer format (%i) during pixel inspector readback."), Requests[RequestIndex].GBufferPrecision);
+						checkf(0, TEXT("Unhandled gbuffer format (%i) during pixel inspector readback."), Request.GBufferPrecision);
 					}
 
 					AccumulationResult.Add(PixelResult);
 					ReleaseBuffers(RequestIndex);
-					Requests[RequestIndex].RequestComplete = true;
-					Requests[RequestIndex].RenderingCommandSend = true;
-					Requests[RequestIndex].FrameCountAfterRenderingCommandSend = 0;
-					Requests[RequestIndex].RequestTickSinceCreation = 0;
+					Request.RequestComplete = true;
+					Request.RenderingCommandSend = true;
+					Request.FrameCountAfterRenderingCommandSend = 0;
+					Request.RequestTickSinceCreation = 0;
 				}
 				else
 				{

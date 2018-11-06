@@ -1,13 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMVideoDecoder.h"
+
+#if WITH_WEBM_LIBS
+
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
+#include "WebMMediaTextureSample.h"
 #include "MediaShaders.h"
 #include "MediaSamples.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
-# include "Containers/DynamicRHIResourceArray.h"
+#include "Containers/DynamicRHIResourceArray.h"
 
 namespace
 {
@@ -61,31 +65,39 @@ FWebMVideoDecoder::FWebMVideoDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSa
 	: Samples(InSamples)
 	, VideoSamplePool(new FWebMMediaTextureSamplePool)
 	, bTexturesCreated(false)
+	, bIsInitialized(false)
 {
-	const int32 NumOfThreads = 1;
-	const vpx_codec_dec_cfg_t CodecConfig = { NumOfThreads, 0, 0 };
-	verify(vpx_codec_dec_init(&Context, vpx_codec_vp9_dx(), &CodecConfig, /*VPX_CODEC_USE_FRAME_THREADING*/ 0) == 0);
 }
 
 FWebMVideoDecoder::~FWebMVideoDecoder()
 {
-	// Make sure all compute shader decoding is done
-	FlushRenderingCommands();
-
-	if (VideoDecodingTask && !VideoDecodingTask->IsComplete())
-	{
-		FTaskGraphInterface::Get().WaitUntilTaskCompletes(VideoDecodingTask);
-	}
-
-	vpx_codec_destroy(&Context);
+	Close();
 }
 
-void FWebMVideoDecoder::Initialize()
+bool FWebMVideoDecoder::Initialize(const char* CodecName)
 {
-	// Flush decoder
-	vpx_codec_decode(&Context, nullptr, 0, nullptr, 0);
+	Close();
 
-	bTexturesCreated = false;
+	const int32 NumOfThreads = 1;
+	const vpx_codec_dec_cfg_t CodecConfig = { NumOfThreads, 0, 0 };
+
+	if (FCStringAnsi::Strcmp(CodecName, "V_VP8") == 0)
+	{
+		verify(vpx_codec_dec_init(&Context, vpx_codec_vp8_dx(), &CodecConfig, /*VPX_CODEC_USE_FRAME_THREADING*/ 0) == 0);
+	}
+	else if (FCStringAnsi::Strcmp(CodecName, "V_VP9") == 0)
+	{
+		verify(vpx_codec_dec_init(&Context, vpx_codec_vp9_dx(), &CodecConfig, /*VPX_CODEC_USE_FRAME_THREADING*/ 0) == 0);
+	}
+	else
+	{
+		UE_LOG(LogWebMMedia, Display, TEXT("Unsupported video codec: %s"), CodecName);
+		return false;
+	}
+
+	bIsInitialized = true;
+
+	return true;
 }
 
 void FWebMVideoDecoder::DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames)
@@ -101,6 +113,11 @@ void FWebMVideoDecoder::DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFram
 
 		DoDecodeVideoFrames(VideoFrames);
 	}, TStatId(), nullptr, ENamedThreads::AnyThread);
+}
+
+bool FWebMVideoDecoder::IsBusy() const
+{
+	return VideoDecodingTask && !VideoDecodingTask->IsComplete();
 }
 
 void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames)
@@ -131,7 +148,7 @@ void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>
 
 			TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> VideoSample = VideoSamplePool->AcquireShared();
 
-			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->stride[0], Image->d_h), VideoFrame->Time);
+			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time);
 
 			FConvertParams Params;
 			Params.VideoSample = VideoSample;
@@ -153,6 +170,25 @@ void FWebMVideoDecoder::CreateTextures(const vpx_image_t* Image)
 	DecodedY = RHICreateTexture2D(Image->stride[0], Image->d_h, PF_G8, 1, 1, TexCreate_Dynamic, CreateInfo);
 	DecodedU = RHICreateTexture2D(Image->stride[1], Image->d_h / 2, PF_G8, 1, 1, TexCreate_Dynamic, CreateInfo);
 	DecodedV = RHICreateTexture2D(Image->stride[2], Image->d_h / 2, PF_G8, 1, 1, TexCreate_Dynamic, CreateInfo);
+}
+
+void FWebMVideoDecoder::Close()
+{
+	if (VideoDecodingTask && !VideoDecodingTask->IsComplete())
+	{
+		FTaskGraphInterface::Get().WaitUntilTaskCompletes(VideoDecodingTask);
+	}
+
+	// Make sure all compute shader decoding is done
+	FlushRenderingCommands();
+
+	if (bIsInitialized)
+	{
+		vpx_codec_destroy(&Context);
+		bIsInitialized = false;
+	}
+
+	bTexturesCreated = false;
 }
 
 void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
@@ -227,10 +263,10 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		}
 
 		SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
-		PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), MediaShaders::YuvToSrgbDefault, true);
+		PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), FIntPoint(Image->d_w, Image->d_h), MediaShaders::YuvToSrgbDefault, true);
 
 		// draw full-size quad
-		CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
+		CommandList.SetViewport(0, 0, 0.0f, Image->d_w, Image->d_h, 1.0f);
 		CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
 		CommandList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 		CommandList.CopyToResolveTarget(RenderTarget, RenderTarget, FResolveParams());
@@ -238,3 +274,5 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		Samples->AddVideo(VideoSample.ToSharedRef());
 	}
 }
+
+#endif // WITH_WEBM_LIBS

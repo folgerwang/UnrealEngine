@@ -30,20 +30,6 @@ extern CORE_API bool GIsGPUCrashed;
 	FGenericCrashContext
 -----------------------------------------------------------------------------*/
 
-struct FCrashStackFrame
-{
-	FCrashStackFrame(const FString& ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
-	{
-		ModuleName = ModuleNameIn;
-		BaseAddress = BaseAddressIn;
-		Offset = OffsetIn;
-	}
-
-	FString ModuleName;
-	uint64 BaseAddress;
-	uint64 Offset;
-};
-
 const ANSICHAR* FGenericCrashContext::CrashContextRuntimeXMLNameA = "CrashContext.runtime-xml";
 const TCHAR* FGenericCrashContext::CrashContextRuntimeXMLNameW = TEXT( "CrashContext.runtime-xml" );
 
@@ -109,7 +95,6 @@ namespace NCachedCrashContextProperties
 	static FString CrashReportClientRichText;
 	static FString GameStateName;
 	static TArray<FString> EnabledPluginsList;
-	static TArray<FCrashStackFrame> CrashStack;	
 }
 
 void FGenericCrashContext::Initialize()
@@ -472,7 +457,7 @@ void FGenericCrashContext::AddPlatformSpecificProperties() const
 void FGenericCrashContext::AddPortableCallStack() const
 {	
 
-	if (NCachedCrashContextProperties::CrashStack.Num() == 0)
+	if (CallStack.Num() == 0)
 	{
 		AddCrashProperty(TEXT("PCallStack"), TEXT(""));
 		return;
@@ -482,12 +467,12 @@ void FGenericCrashContext::AddPortableCallStack() const
 
 	// Get the max module name length for padding
 	int32 MaxModuleLength = 0;
-	for (TArray<FCrashStackFrame>::TConstIterator It(NCachedCrashContextProperties::CrashStack); It; ++It)
+	for (TArray<FCrashStackFrame>::TConstIterator It(CallStack); It; ++It)
 	{
 		MaxModuleLength = FMath::Max(MaxModuleLength, It->ModuleName.Len());
 	}
 
-	for (TArray<FCrashStackFrame>::TConstIterator It(NCachedCrashContextProperties::CrashStack); It; ++It)
+	for (TArray<FCrashStackFrame>::TConstIterator It(CallStack); It; ++It)
 	{
 		CrashStackBuffer += FString::Printf(TEXT("%-*s 0x%016x + %-8x"),MaxModuleLength + 1, *It->ModuleName, It->BaseAddress, It->Offset);
 		CrashStackBuffer += LINE_TERMINATOR;
@@ -498,8 +483,6 @@ void FGenericCrashContext::AddPortableCallStack() const
 	AppendEscapedXMLString(EscapedStackBuffer, *CrashStackBuffer);
 
 	AddCrashProperty(TEXT("PCallStack"), *EscapedStackBuffer);
-
-	NCachedCrashContextProperties::CrashStack.Empty();
 }
 
 void FGenericCrashContext::AddHeader() const
@@ -654,12 +637,20 @@ void FGenericCrashContext::AddPlugin(const FString& PluginDesc)
 	NCachedCrashContextProperties::EnabledPluginsList.Add(PluginDesc);
 }
 
-void FGenericCrashContext::AddStackFrame(const FString& ModuleName, uint64 BaseAddress, uint64 Offset)
+FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context)
 {
-	NCachedCrashContextProperties::CrashStack.Add(FCrashStackFrame(ModuleName, BaseAddress, Offset));
+	// If the callstack is for the executing thread, ignore this function
+	if(Context == nullptr)
+	{
+		NumStackFramesToIgnore++;
+	}
+
+	const int32 MaxDepth = 100;
+	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
+	return SetPortableCallStack(NumStackFramesToIgnore, Stack);
 }
 
-void FGenericCrashContext::GeneratePortableCallStack(int32 IgnoreCount, int32 MaxDepth, void* Context)
+void FGenericCrashContext::SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack)
 {
 	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
 
@@ -669,10 +660,8 @@ void FGenericCrashContext::GeneratePortableCallStack(int32 IgnoreCount, int32 Ma
 		ProcessModules.AddUninitialized(ModuleEntries);
 		FPlatformStackWalk::GetProcessModuleSignatures(ProcessModules.GetData(), ProcessModules.Max());
 
-		TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(IgnoreCount, MaxDepth, Context);
 		TMap<FString, uint64> ImageBases;
 		int32 ModuleIndex = 0;
-
 		for (TArray<FProgramCounterSymbolInfo>::TConstIterator Itr(Stack); Itr; ++Itr)
 		{
 			FString ModuleName = FPaths::GetBaseFilename(Itr->ModuleName);
@@ -699,7 +688,7 @@ void FGenericCrashContext::GeneratePortableCallStack(int32 IgnoreCount, int32 Ma
 				BaseOfImage = ImageBases[ModuleName];
 			}
 
-			FGenericCrashContext::AddStackFrame(ModuleName, BaseOfImage, Itr->ProgramCounter > BaseOfImage ? Itr->ProgramCounter - BaseOfImage : MAX_uint64);
+			CallStack.Add(FCrashStackFrame(ModuleName, BaseOfImage, Itr->ProgramCounter > BaseOfImage ? Itr->ProgramCounter - BaseOfImage : MAX_uint64));
 		}
 	}
 

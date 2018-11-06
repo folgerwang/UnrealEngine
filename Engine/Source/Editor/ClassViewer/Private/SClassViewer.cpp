@@ -2162,133 +2162,138 @@ void SClassViewer::Construct(const FArguments& InArgs, const FClassViewerInitial
 	TSharedPtr< SWidget > ClassViewerContent;
 
 	ClassViewerContent = 
-	SNew(SBorder)
-	.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+	SNew(SBox)
+	.MaxDesiredHeight(800.0f)
 	[
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.AutoHeight()
+		SNew(SBorder)
+		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding( 1.0f, 0.0f, 1.0f, 0.0f )
 			[
-				SNew(STextBlock)
-				.Visibility(bHasTitle ? EVisibility::Visible : EVisibility::Collapsed)
-				.ColorAndOpacity(FEditorStyle::GetColor("MultiboxHookColor"))
-				.Text(InitOptions.ViewerTitleString)
-			]
-		]
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2.0f, 2.0f)
-			[
-				FiltersWidget
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(2.0f, 2.0f)
-			[
-				SAssignNew(SearchBox, SSearchBox)
-				.OnTextChanged( this, &SClassViewer::OnFilterTextChanged )
-				.OnTextCommitted( this, &SClassViewer::OnFilterTextCommitted )
-			]
-		]
-
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SSeparator)
-			.Visibility(HeaderVisibility)
-		]
-
-		+SVerticalBox::Slot()
-		.FillHeight(1.0f)
-		[
-			SNew(SOverlay)
-
-			+SOverlay::Slot()
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Fill)
-			[
-				SNew(SVerticalBox)
-
-				+SVerticalBox::Slot()
-				.FillHeight(1.0f)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
 				[
-					SNew(SScrollBorder, ClassTreeView)
-					.Visibility(InitOptions.DisplayMode == EClassViewerDisplayMode::TreeView ? EVisibility::Visible : EVisibility::Collapsed)
-					[
-						ClassTreeView
-					]
+					SNew(STextBlock)
+					.Visibility(bHasTitle ? EVisibility::Visible : EVisibility::Collapsed)
+					.ColorAndOpacity(FEditorStyle::GetColor("MultiboxHookColor"))
+					.Text(InitOptions.ViewerTitleString)
 				]
-
-				+SVerticalBox::Slot()
-				.FillHeight(1.0f)
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(2.0f, 2.0f)
 				[
-					SNew(SScrollBorder, ClassListView)
-					.Visibility(InitOptions.DisplayMode == EClassViewerDisplayMode::ListView ? EVisibility::Visible : EVisibility::Collapsed)
-					[
-						ClassListView
-					]
+					FiltersWidget
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(2.0f, 2.0f)
+				[
+					SAssignNew(SearchBox, SSearchBox)
+					.OnTextChanged( this, &SClassViewer::OnFilterTextChanged )
+					.OnTextCommitted( this, &SClassViewer::OnFilterTextCommitted )
 				]
 			]
 
-			+SOverlay::Slot()
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Bottom)
-			.Padding(FMargin(24, 0, 24, 0))
+			+SVerticalBox::Slot()
+			.AutoHeight()
 			[
-				// Asset discovery indicator
-				AssetDiscoveryIndicator
-			]
-		]
-
-		// Bottom panel
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-
-			// Asset count
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.f)
-			.VAlign(VAlign_Center)
-			.Padding(8, 0)
-			[
-				SNew(STextBlock)
-				.Text(this, &SClassViewer::GetClassCountText)
+				SNew(SSeparator)
+				.Visibility(HeaderVisibility)
 			]
 
-			// View mode combo button
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
+			+SVerticalBox::Slot()
+			.FillHeight(1.0f)
 			[
-				SAssignNew(ViewOptionsComboButton, SComboButton)
-				.ContentPadding(0)
-				.ForegroundColor(this, &SClassViewer::GetViewButtonForegroundColor)
-				.ButtonStyle(FEditorStyle::Get(), "ToggleButton") // Use the tool bar item style for this button
-				.OnGetMenuContent(this, &SClassViewer::GetViewButtonContent)
-				.ButtonContent()
+				SNew(SOverlay)
+
+				+SOverlay::Slot()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Fill)
 				[
-					SNew(SHorizontalBox)
+					SNew(SVerticalBox)
+
+					+SVerticalBox::Slot()
+					.FillHeight(1.0f)
+					[
+						SNew(SScrollBorder, ClassTreeView)
+						.Visibility(InitOptions.DisplayMode == EClassViewerDisplayMode::TreeView ? EVisibility::Visible : EVisibility::Collapsed)
+						[
+							ClassTreeView
+						]
+					]
+
+					+SVerticalBox::Slot()
+					.FillHeight(1.0f)
+					[
+						SNew(SScrollBorder, ClassListView)
+						.Visibility(InitOptions.DisplayMode == EClassViewerDisplayMode::ListView ? EVisibility::Visible : EVisibility::Collapsed)
+						[
+							ClassListView
+						]
+					]
+				]
+
+				+SOverlay::Slot()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Bottom)
+				.Padding(FMargin(24, 0, 24, 0))
+				[
+					// Asset discovery indicator
+					AssetDiscoveryIndicator
+				]
+			]
+
+			// Bottom panel
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+
+				// Asset count
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.f)
+				.VAlign(VAlign_Center)
+				.Padding(8, 0)
+				[
+					SNew(STextBlock)
+					.Text(this, &SClassViewer::GetClassCountText)
+				]
+
+				// View mode combo button
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(ViewOptionsComboButton, SComboButton)
+					.ContentPadding(0)
+					.ForegroundColor(this, &SClassViewer::GetViewButtonForegroundColor)
+					.ButtonStyle(FEditorStyle::Get(), "ToggleButton") // Use the tool bar item style for this button
+					.OnGetMenuContent(this, &SClassViewer::GetViewButtonContent)
+					.ButtonContent()
+					[
+						SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(SImage).Image(FEditorStyle::GetBrush("GenericViewButton"))
+						]
+
 						+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SImage).Image(FEditorStyle::GetBrush("GenericViewButton"))
-					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(2, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock).Text(LOCTEXT("ViewButton", "View Options"))
+						.AutoWidth()
+						.Padding(2, 0, 0, 0)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock).Text(LOCTEXT("ViewButton", "View Options"))
+						]
 					]
 				]
 			]

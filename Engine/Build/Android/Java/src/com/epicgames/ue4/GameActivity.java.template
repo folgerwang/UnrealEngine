@@ -1109,7 +1109,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 		if (Extensions.contains("GL_IMG_texture_compression_pvrtc"))
 		{
-			TextureFormats += ",PVRTC";
+			TextureFormats += "PVRTC,";
 		}
 		if (Extensions.contains("GL_NV_texture_compression_s3tc") || Extensions.contains("GL_EXT_texture_compression_s3tc"))
 		{
@@ -2790,6 +2790,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 		else
 		{
+			nativeOnInitialDownloadStarted();
+
 			// Post the check activity handler here to run after onResume completes
 			Log.debug("==============> Posting request for downloader activity");
 			final Handler downloadHandler = new Handler();
@@ -4014,6 +4016,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				errorCode = DOWNLOAD_USER_QUIT;
 			}
 			
+			nativeOnInitialDownloadCompleted();
+
 			HasAllFiles = (errorCode == DOWNLOAD_FILES_PRESENT || errorCode == DOWNLOAD_COMPLETED_OK);
 			
 			if(errorCode == DOWNLOAD_NO_RETURN_CODE 
@@ -4720,9 +4724,13 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	{
 		if (key.equals("ue4.display.PresentationDeadlineNanos"))
 		{
-			WindowManager windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
-			android.view.Display display = windowManager.getDefaultDisplay();
-			return display.getPresentationDeadlineNanos();
+			if (android.os.Build.VERSION.SDK_INT >= 21)
+			{
+				WindowManager windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
+				android.view.Display display = windowManager.getDefaultDisplay();
+				return display.getPresentationDeadlineNanos();
+			}
+			return -1;
 		}
 		else
 		if (key.equals("ue4.display.AppVsyncOffsetNanos"))
@@ -5395,6 +5403,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 	public native void nativeOnConfigurationChanged(boolean bPortrait);
 		
+	public native void nativeOnInitialDownloadStarted();
+	public native void nativeOnInitialDownloadCompleted();
+
 	static
 	{
 		System.loadLibrary("gnustl_shared");

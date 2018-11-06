@@ -22,6 +22,11 @@
 	"Modules": [
 		{
 			"Name": "SequencerScripting",
+			"Type": "Developer",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SequencerScriptingEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
 		}

@@ -341,6 +341,10 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	TMap<FName, uint32> AsyncLoadingDataFormats;
+
+	/** FByteBulkData doesn't currently support readonly access from multiple threads, so we limit access to RawData with a critical section on cook. */
+	FCriticalSection RawDataCriticalSection;
+
 #endif
 
 	/** Resource index to cross reference with buffers */

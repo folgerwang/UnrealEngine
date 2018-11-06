@@ -180,7 +180,7 @@ TUniquePtr<FMediaProfileMenuEntryImpl> FMediaProfileMenuEntryImpl::Implementatio
 
 void FMediaProfileMenuEntry::Register()
 {
-	if (!IsRunningCommandlet() && GetDefault<UMediaProfileSettings>()->bDisplayInToolbar)
+	if (!IsRunningCommandlet() && GetDefault<UMediaProfileEditorSettings>()->bDisplayInToolbar)
 	{
 		FMediaProfileMenuEntryImpl::Implementation = MakeUnique<FMediaProfileMenuEntryImpl>();
 	}

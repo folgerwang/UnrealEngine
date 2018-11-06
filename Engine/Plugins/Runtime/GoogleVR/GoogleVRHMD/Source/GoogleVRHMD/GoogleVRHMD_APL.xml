@@ -24,8 +24,10 @@
 		<setBoolFromPropertyContains result="bCardboardCaps" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="GoogleVRCaps" contains="Cardboard"/>
 		<setBoolFromPropertyContains result="bDaydream33Caps" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="GoogleVRCaps" contains="Daydream33"/>
 		<setBoolFromPropertyContains result="bDaydream63Caps" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="GoogleVRCaps" contains="Daydream63"/>
+		<setBoolFromPropertyContains result="bDaydream66Caps" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="GoogleVRCaps" contains="Daydream66"/>
 
 		<setBoolOr result="bSupportDaydream" arg1="$B(bDaydream33Caps)" arg2="$B(bDaydream63Caps)"/>
+		<setBoolOr result="bSupportDaydream" arg1="$B(bSupportDaydream)" arg2="$B(bDaydream66Caps)"/>
 		<if condition="bSupportDaydream">
 			<true>
 				<log text="Project supports daydream, will enable async reprojection when possible." />
@@ -54,6 +56,11 @@
 		<if condition="bDaydream63Caps">
 			<true>
 				<log text="Project supports Daydream AIO 6.3 device." />
+			</true>
+		</if>
+		<if condition="bDaydream66Caps">
+			<true>
+				<log text="Project supports Daydream AIO 6.6 device." />
 			</true>
 		</if>
 	</init>
@@ -118,6 +125,7 @@
 		@com.google.vr.cardboard.UsedByNative *;
 }
 
+-dontwarn com.google.vr.cardboard.R$id
 -dontwarn com.google.protobuf.nano.NanoEnumValue
 -dontwarn sun.misc.Unsafe
 		</insert>
@@ -146,16 +154,19 @@
 				<addFeature android:name="android.software.vr.mode" android:required="false" />
 			</false>
 		</if>
+		<if condition="bDaydream33Caps">
+			<true>
+				<addFeature android:name="android.hardware.vr.headtracking" android:version="1" android:required="false" />
+			</true>
+		</if>
 		<if condition="bDaydream63Caps">
 			<true>
-				<if condition="bDaydream33Caps">
-					<true>
-						<addFeature android:name="android.hardware.vr.headtracking" android:version="1" android:required="false" />
-					</true>
-					<false>
-						<addFeature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
-					</false>
-				</if>
+				<addFeature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+			</true>
+		</if>
+		<if condition="bDaydream66Caps">
+			<true>
+				<addFeature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
 			</true>
 		</if>
 

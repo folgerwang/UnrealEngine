@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "AnimGraphNode_Root.h"
+#include "AnimGraphNode_StateResult.h"
 #include "AnimGraphNode_CustomTransitionResult.generated.h"
 
 UCLASS(MinimalAPI)
-class UAnimGraphNode_CustomTransitionResult : public UAnimGraphNode_Root
+class UAnimGraphNode_CustomTransitionResult : public UAnimGraphNode_StateResult
 {
 	GENERATED_UCLASS_BODY()
 

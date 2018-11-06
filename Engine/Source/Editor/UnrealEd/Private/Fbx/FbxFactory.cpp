@@ -270,6 +270,11 @@ UObject* UFbxFactory::FactoryCreateFile
 	UFbxImportUI* OverrideImportUI = AssetImportTask ? Cast<UFbxImportUI>(AssetImportTask->Options) : nullptr;
 	if (OverrideImportUI)
 	{
+		if (AssetImportTask->bAutomated && OverrideImportUI->bAutomatedImportShouldDetectType)
+		{
+			OverrideImportUI->MeshTypeToImport = ImportUI->MeshTypeToImport;
+			OverrideImportUI->OriginalImportType = ImportUI->OriginalImportType;
+		}
 		ImportUI = OverrideImportUI;
 	}
 	//We are not re-importing
@@ -553,7 +558,7 @@ UObject* UFbxFactory::FactoryCreateFile
 							{
 								break;
 							}
-						
+
 							TArray<FbxNode*> SkelMeshNodeArray;
 							for (int32 j = 0; j < NodeArray.Num(); j++)
 							{
@@ -585,9 +590,13 @@ UObject* UFbxFactory::FactoryCreateFile
 							{
 								FName OutputName = FbxImporter->MakeNameForMesh(Name.ToString(), SkelMeshNodeArray[0]);
 
+								TArray<FbxNode*> SkeletonNodeArray;
+								FbxImporter->FillFbxSkeletonArray(RootNodeToImport, SkeletonNodeArray);
+
 								UnFbx::FFbxImporter::FImportSkeletalMeshArgs ImportSkeletalMeshArgs;
 								ImportSkeletalMeshArgs.InParent = InParent;
 								ImportSkeletalMeshArgs.NodeArray = SkelMeshNodeArray;
+								ImportSkeletalMeshArgs.BoneNodeArray = SkeletonNodeArray;
 								ImportSkeletalMeshArgs.Name = OutputName;
 								ImportSkeletalMeshArgs.Flags = Flags;
 								ImportSkeletalMeshArgs.TemplateImportData = ImportUI->SkeletalMeshImportData;
@@ -609,7 +618,7 @@ UObject* UFbxFactory::FactoryCreateFile
 
 								if ( NewMesh )
 								{
-									if (ImportUI->bImportAnimations)
+									if (ImportOptions->bImportAnimations)
 									{
 										// We need to remove all scaling from the root node before we set up animation data.
 										// Othewise some of the global transform calculations will be incorrect.
@@ -671,7 +680,7 @@ UObject* UFbxFactory::FactoryCreateFile
 							}
 						
 							// import morph target
-							if (CreatedObject && ImportUI->SkeletalMeshImportData->bImportMorphTargets && ImportedSuccessfulLodIndex != INDEX_NONE)
+							if (CreatedObject && ImportOptions->bImportMorph && ImportedSuccessfulLodIndex != INDEX_NONE)
 							{
 								// Disable material importing when importing morph targets
 								uint32 bImportMaterials = ImportOptions->bImportMaterials;

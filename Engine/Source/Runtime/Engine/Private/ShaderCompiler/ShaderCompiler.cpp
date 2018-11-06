@@ -3168,7 +3168,15 @@ void GlobalBeginCompileShader(
 	bool bForwardShading = false;
 	{
 		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(ShaderPlatformToPlatformName(EShaderPlatform(Target.Platform)).ToString());
-		bForwardShading = TargetPlatform && TargetPlatform->UsesForwardShading();
+		if (TargetPlatform)
+		{
+			bForwardShading = TargetPlatform->UsesForwardShading();
+		}
+		else
+		{
+			static IConsoleVariable* CVarForwardShading = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForwardShading"));
+			bForwardShading = CVarForwardShading ? (CVarForwardShading->GetInt() != 0) : false;
+		}
 		Input.Environment.SetDefine(TEXT("FORWARD_SHADING"), bForwardShading);
 	}
 
@@ -3857,9 +3865,9 @@ static void SerializeGlobalShaders(FArchive& Ar, TShaderMap<FGlobalShaderType>* 
 	}
 
 	// Serialize the global shaders.
-	GlobalShaderMap->SerializeInline(Ar, true, false, ShaderKeysToSave);
+	GlobalShaderMap->SerializeInline(Ar, true, false, false, ShaderKeysToSave);
 	// And now register them.
-	GlobalShaderMap->RegisterSerializedShaders();
+	GlobalShaderMap->RegisterSerializedShaders(false);
 }
 
 /** Saves the platform's shader map to the DDC. */

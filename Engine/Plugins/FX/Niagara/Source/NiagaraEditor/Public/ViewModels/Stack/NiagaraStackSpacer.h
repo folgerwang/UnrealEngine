@@ -3,6 +3,8 @@
 #pragma once
 
 #include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
 #include "NiagaraStackSpacer.generated.h"
 
 UCLASS()
@@ -21,6 +23,10 @@ public:
 	FName GetSpacerKey() const;
 
 	float GetSpacerScale() const;
+
+	//~ DragDropHandling
+	virtual FReply OnStackSpacerDrop(TSharedPtr<FDragDropOperation> DragDropOperation);
+	virtual bool OnStackSpacerAllowDrop(TSharedPtr<FDragDropOperation> DragDropOperation);
 
 private:
 	FName SpacerKey;

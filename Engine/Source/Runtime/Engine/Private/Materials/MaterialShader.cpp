@@ -1060,7 +1060,7 @@ void FMaterialShaderMap::LoadFromDerivedDataCache(const FMaterial* Material, con
 
 				// Deserialize from the cached data
 				InOutShaderMap->Serialize(Ar);
-				InOutShaderMap->RegisterSerializedShaders();
+				InOutShaderMap->RegisterSerializedShaders(false);
 
 				const FString InDataKey = GetMaterialShaderMapKeyString(InOutShaderMap->GetShaderMapId(), InPlatform);
 				checkSlow(InOutShaderMap->GetShaderMapId() == ShaderMapId);
@@ -1099,11 +1099,11 @@ TArray<uint8>* FMaterialShaderMap::BackupShadersToMemory()
 	{
 		// Serialize data needed to handle shader key changes in between the save and the load of the FShaders
 		const bool bHandleShaderKeyChanges = true;
-		MeshShaderMaps[Index].SerializeInline(Ar, true, bHandleShaderKeyChanges);
+		MeshShaderMaps[Index].SerializeInline(Ar, true, bHandleShaderKeyChanges, false);
 		MeshShaderMaps[Index].Empty();
 	}
 
-	SerializeInline(Ar, true, true);
+	SerializeInline(Ar, true, true, false);
 	Empty();
 
 	return SavedShaderData;
@@ -1117,12 +1117,12 @@ void FMaterialShaderMap::RestoreShadersFromMemory(const TArray<uint8>& ShaderDat
 	{
 		// Use the serialized shader key data to detect when the saved shader is no longer valid and skip it
 		const bool bHandleShaderKeyChanges = true;
-		MeshShaderMaps[Index].SerializeInline(Ar, true, bHandleShaderKeyChanges);
-		MeshShaderMaps[Index].RegisterSerializedShaders();
+		MeshShaderMaps[Index].SerializeInline(Ar, true, bHandleShaderKeyChanges, false);
+		MeshShaderMaps[Index].RegisterSerializedShaders(false);
 	}
 
-	SerializeInline(Ar, true, true);
-	RegisterSerializedShaders();
+	SerializeInline(Ar, true, true, false);
+	RegisterSerializedShaders(false);
 }
 
 void FMaterialShaderMap::SaveForRemoteRecompile(FArchive& Ar, const TMap<FString, TArray<TRefCountPtr<FMaterialShaderMap> > >& CompiledShaderMaps, const TArray<FShaderResourceId>& ClientResourceIds)
@@ -1191,7 +1191,7 @@ void FMaterialShaderMap::SaveForRemoteRecompile(FArchive& Ar, const TMap<FString
 
 	for (int32 Index = 0; Index < NumUniqueResources; Index++)
 	{
-		UniqueResources[Index]->Serialize(Ar);
+		UniqueResources[Index]->Serialize(Ar, false);
 	}
 
 	// now we serialize a map (for each material), but without inline the resources, since they are above
@@ -1240,7 +1240,7 @@ void FMaterialShaderMap::LoadForRemoteRecompile(FArchive& Ar, EShaderPlatform Sh
 	{
 		// Load the inlined shader resource
 		FShaderResource* Resource = new FShaderResource();
-		Resource->Serialize(Ar);
+		Resource->Serialize(Ar, false);
 
 		// if this Id is already in memory, that means that this is a repeated resource and so we skip it
 		if (FShaderResource::FindShaderResourceById(Resource->GetId()) != NULL)
@@ -1315,7 +1315,7 @@ void FMaterialShaderMap::LoadForRemoteRecompile(FArchive& Ar, EShaderPlatform Sh
 							FMaterialResource* MaterialResource = MatchingMaterial->GetMaterialResource(GetMaxSupportedFeatureLevel(ShaderPlatform), (EMaterialQualityLevel::Type)QualityLevelIndex);
 
 							MaterialResource->SetGameThreadShaderMap(LoadedShaderMap);
-							MaterialResource->RegisterInlineShaderMap();
+							MaterialResource->RegisterInlineShaderMap(false);
 
 							ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 								FSetShaderMapOnMaterialResources,
@@ -1440,7 +1440,7 @@ void FMaterialShaderMap::Compile(
 				*ShaderMapId.GetParameterSetLayerParametersKey()
 			);
   
-			UE_LOG(LogShaders, Warning, TEXT("	%s"), *DebugDescription);
+			UE_LOG(LogShaders, Display, TEXT("	%s"), *DebugDescription);
 #endif
 
 			uint32 NumShaders = 0;
@@ -2134,7 +2134,6 @@ void FMaterialShaderMap::Register(EShaderPlatform InShaderPlatform)
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderMapMemory, GetSizeBytes());
 	}
 
-	checkf(!bRegistered && !GIdToMaterialShaderMap[GetShaderPlatform()].Contains(ShaderMapId), TEXT("Hashcollision or inserting element twice in global ShaderMapTable. bRegistered: %s"), bRegistered ? TEXT("true") : TEXT("false"));
 	GIdToMaterialShaderMap[GetShaderPlatform()].Add(ShaderMapId,this);
 	bRegistered = true;
 }
@@ -2262,7 +2261,7 @@ struct FCompareMeshShaderMaps
 	}
 };
 
-void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
+void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources, bool bLoadedByCookedMaterial)
 {
 	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
 	// Note: This is saved to the DDC, not into packages (except when cooked)
@@ -2294,7 +2293,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 	if (Ar.IsSaving())
 	{
 		// Material shaders
-		TShaderMap<FMaterialShaderType>::SerializeInline(Ar, bInlineShaderResources, false);
+		TShaderMap<FMaterialShaderType>::SerializeInline(Ar, bInlineShaderResources, false, false);
 
 		// Mesh material shaders
 		int32 NumMeshShaderMaps = 0;
@@ -2334,7 +2333,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 
 				Ar << VFType;
 
-				MeshShaderMap->SerializeInline(Ar, bInlineShaderResources, false);
+				MeshShaderMap->SerializeInline(Ar, bInlineShaderResources, false, false);
 			}
 		}
 
@@ -2374,7 +2373,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 		InitOrderedMeshShaderMaps();
 
 		// Material shaders
-		TShaderMap<FMaterialShaderType>::SerializeInline(Ar, bInlineShaderResources, false);
+		TShaderMap<FMaterialShaderType>::SerializeInline(Ar, bInlineShaderResources, false, bLoadedByCookedMaterial);
 
 		// Mesh material shaders
 		int32 NumMeshShaderMaps = 0;
@@ -2391,7 +2390,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 			check(VFType);
 			FMeshMaterialShaderMap* MeshShaderMap = OrderedMeshShaderMaps[VFType->GetId()];
 			check(MeshShaderMap);
-			MeshShaderMap->SerializeInline(Ar, bInlineShaderResources, false);
+			MeshShaderMap->SerializeInline(Ar, bInlineShaderResources, false, bLoadedByCookedMaterial);
 		}
 
 		bool bCooked;
@@ -2418,17 +2417,17 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 	}
 }
 
-void FMaterialShaderMap::RegisterSerializedShaders()
+void FMaterialShaderMap::RegisterSerializedShaders(bool bLoadedByCookedMaterial)
 {
 	check(IsInGameThread());
 
-	TShaderMap<FMaterialShaderType>::RegisterSerializedShaders();
+	TShaderMap<FMaterialShaderType>::RegisterSerializedShaders(bLoadedByCookedMaterial);
 	
 	for (FMeshMaterialShaderMap* MeshShaderMap : OrderedMeshShaderMaps)
 	{
 		if (MeshShaderMap)
 		{
-			MeshShaderMap->RegisterSerializedShaders();
+			MeshShaderMap->RegisterSerializedShaders(bLoadedByCookedMaterial);
 		}
 	}
 

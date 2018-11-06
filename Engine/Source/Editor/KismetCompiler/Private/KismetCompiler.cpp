@@ -289,6 +289,7 @@ void FKismetCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedClass* Cla
 	}
 
 	// Purge the class to get it back to a "base" state
+	bool bLayoutChanging = ClassToClean->HasAnyClassFlags(CLASS_LayoutChanging);
 	ClassToClean->PurgeClass(bRecompilingOnLoad);
 
 	// Set properties we need to regenerate the class with
@@ -297,6 +298,11 @@ void FKismetCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedClass* Cla
 	ClassToClean->ClassWithin = ParentClass->ClassWithin ? ParentClass->ClassWithin : UObject::StaticClass();
 	ClassToClean->ClassConfigName = ClassToClean->IsNative() ? FName(ClassToClean->StaticConfigName()) : ParentClass->ClassConfigName;
 	ClassToClean->DebugData = FBlueprintDebugData();
+
+	if(bLayoutChanging)
+	{
+		ClassToClean->ClassFlags |= CLASS_LayoutChanging;
+	}
 }
 
 void FKismetCompilerContext::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectCollection& SubObjectsToSave, UBlueprintGeneratedClass* ClassToClean)
@@ -2141,12 +2147,23 @@ void FKismetCompilerContext::PostcompileFunction(FKismetFunctionContext& Context
 	FinishCompilingFunction(Context);
 }
 
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+extern ENGINE_API int32 IncrementUberGraphSerialNumber();
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 /**
  * Handles final post-compilation setup, flags, creates cached values that would normally be set during deserialization, etc...
  */
 void FKismetCompilerContext::FinishCompilingFunction(FKismetFunctionContext& Context)
 {
 	SetCalculatedMetaDataAndFlags( Context.Function, Context.EntryPoint, Schema );
+	
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	if( NewClass->UberGraphFunction == Context.Function )
+	{
+		NewClass->UberGraphFunctionKey = IncrementUberGraphSerialNumber();
+	}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 }
 
 void FKismetCompilerContext::SetCalculatedMetaDataAndFlags(UFunction* Function, UK2Node_FunctionEntry* EntryNode, const UEdGraphSchema_K2* K2Schema)
@@ -4010,7 +4027,7 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 	FKismetCompilerVMBackend Backend_VM(Blueprint, Schema, *this);
 
 	// Determine whether or not to skip generated class validation. This requires CDO value propagation to occur first.
-	bool bSkipGeneratedClassValidation = !bPropagateValuesToCDO;
+	bool bSkipGeneratedClassValidation = !bPropagateValuesToCDO || CompileOptions.CompileType == EKismetCompileType::Cpp;
 
 	if( bGenerateLocals )
 	{
@@ -4175,7 +4192,7 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 				}
 
 				// >>> Backwards Compatibility: Propagate data from the skel CDO to the gen CDO if we haven't already done so for this blueprint
-				if( !bIsSkeletonOnly && !Blueprint->IsGeneratedClassAuthoritative() )
+				if( !bIsSkeletonOnly && !Blueprint->IsGeneratedClassAuthoritative() && CompileOptions.CompileType != EKismetCompileType::Cpp )
 				{
 					UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
 					CopyDetails.bAggressiveDefaultSubobjectReplacement = false;

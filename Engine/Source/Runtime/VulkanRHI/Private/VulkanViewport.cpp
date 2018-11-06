@@ -10,6 +10,7 @@
 #include "VulkanContext.h"
 #include "GlobalShader.h"
 #include "HAL/PlatformAtomics.h"
+#include "Engine/RendererSettings.h"
 
 //#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
@@ -207,6 +208,9 @@ FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 {
 	check(IsInRenderingThread());
 
+	// make sure we aren't in the middle of swapchain recreation (which can happen on e.g. RHI thread)
+	FScopeLock LockSwapchain(&RecreatingSwapchain);
+
 	if (!RenderingBackBuffer && FVulkanPlatform::SupportsStandardSwapchain())
 	{
 		check(!DelayAcquireBackBuffer());
@@ -244,9 +248,38 @@ void FVulkanViewport::AdvanceBackBufferFrame()
 	}
 }
 
-//void FVulkanViewport::WaitForFrameEventCompletion()
-//{
-//}
+void FVulkanViewport::WaitForFrameEventCompletion()
+{
+	if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent())
+	{
+		static FCriticalSection CS;
+		FScopeLock ScopeLock(&CS);
+		if (LastFrameCommandBuffer && LastFrameCommandBuffer->IsSubmitted())
+		{
+			// If last frame's fence hasn't been signaled already, wait for it here
+			if (LastFrameFenceCounter == LastFrameCommandBuffer->GetFenceSignaledCounter())
+			{
+				if (!GWaitForIdleOnSubmit)
+				{
+					// The wait has already happened if GWaitForIdleOnSubmit is set
+					LastFrameCommandBuffer->GetOwner()->GetMgr().WaitForCmdBuffer(LastFrameCommandBuffer);
+				}
+			}
+		}
+	}
+}
+
+void FVulkanViewport::IssueFrameEvent()
+{
+	if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent())
+	{
+		// The fence we need to wait on next frame is already there in the command buffer
+		// that was just submitted in this frame's Present. Just grab that command buffer's
+		// info to use next frame in WaitForFrameEventCompletion.
+		FVulkanQueue* Queue = Device->GetGraphicsQueue();
+		Queue->GetLastSubmittedInfo(LastFrameCommandBuffer, LastFrameFenceCounter);
+	}
+}
 
 
 FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRenderTargetsInfo& InRTInfo, const FVulkanRenderTargetLayout& RTLayout, const FVulkanRenderPass& RenderPass)
@@ -412,6 +445,7 @@ void FVulkanViewport::RecreateSwapchain(void* NewNativeWindow, bool bForce)
 		return;
 	}
 
+	FScopeLock LockSwapchain(&RecreatingSwapchain);
 	RenderingBackBuffer = nullptr;
 	RHIBackBuffer = nullptr;
 
@@ -446,22 +480,22 @@ void FVulkanViewport::Tick(float DeltaTime)
 		ENQUEUE_RENDER_COMMAND(UpdateVsync)(
 			[this](FRHICommandListImmediate& RHICmdList)
 		{
-			RecreateSwapchainFromRT();
+			RecreateSwapchainFromRT(PixelFormat);
 		});
 		FlushRenderingCommands();
 	}
 }
 
-void FVulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen)
+void FVulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
 	SizeX = InSizeX;
 	SizeY = InSizeY;
 	bIsFullscreen = bInIsFullscreen;
 
-	RecreateSwapchainFromRT();
+	RecreateSwapchainFromRT(PreferredPixelFormat);
 }
 
-void FVulkanViewport::RecreateSwapchainFromRT()
+void FVulkanViewport::RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat)
 {
 	check(IsInRenderingThread());
 	
@@ -495,6 +529,7 @@ void FVulkanViewport::RecreateSwapchainFromRT()
 		Device->GetDeferredDeletionQueue().ReleaseResources(true);
 	}
 
+	PixelFormat = PreferredPixelFormat;
 	CreateSwapchain();
 }
 
@@ -564,7 +599,7 @@ void FVulkanViewport::CreateSwapchain()
 	}
 }
 
-inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSourceReadOnly, VkImage SrcSurface, VkImage DstSurface, int32 SizeX, int32 SizeY)
+inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSourceReadOnly, VkImage SrcSurface, VkImage DstSurface, int32 SizeX, int32 SizeY, int32 WindowSizeX, int32 WindowSizeY)
 {
 	VulkanRHI::FPendingBarrier Barriers;
 	int32 SourceIndex = Barriers.AddImageBarrier(SrcSurface, VK_IMAGE_ASPECT_COLOR_BIT, 1);
@@ -577,23 +612,54 @@ inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSour
 	Barriers.SetTransition(DestIndex, EImageLayoutBarrier::Undefined, EImageLayoutBarrier::TransferDest);
 	Barriers.Execute(CmdBuffer);
 
-	VkImageCopy Region;
-	FMemory::Memzero(Region);
-	Region.extent.width = SizeX;
-	Region.extent.height = SizeY;
-	Region.extent.depth = 1;
-	Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	//Region.srcSubresource.baseArrayLayer = 0;
-	Region.srcSubresource.layerCount = 1;
-	//Region.srcSubresource.mipLevel = 0;
-	Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	//Region.dstSubresource.baseArrayLayer = 0;
-	Region.dstSubresource.layerCount = 1;
-	//Region.dstSubresource.mipLevel = 0;
-	VulkanRHI::vkCmdCopyImage(CmdBuffer->GetHandle(),
-		SrcSurface, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1, &Region);
+	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer->GetHandle(), 32);
+
+	if (SizeX != WindowSizeX || SizeY != WindowSizeY)
+	{
+		VkImageBlit Region;
+		FMemory::Memzero(Region);
+		Region.srcOffsets[0].x = 0;
+		Region.srcOffsets[0].y = 0;
+		Region.srcOffsets[0].z = 0;
+		Region.srcOffsets[1].x = SizeX;
+		Region.srcOffsets[1].y = SizeY;
+		Region.srcOffsets[1].z = 1;
+		Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		Region.srcSubresource.layerCount = 1;
+		Region.dstOffsets[0].x = 0;
+		Region.dstOffsets[0].y = 0;
+		Region.dstOffsets[0].z = 0;
+		Region.dstOffsets[1].x = WindowSizeX;
+		Region.dstOffsets[1].y = WindowSizeY;
+		Region.dstOffsets[1].z = 1;
+		Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		Region.dstSubresource.baseArrayLayer = 0;
+		Region.dstSubresource.layerCount = 1;
+		VulkanRHI::vkCmdBlitImage(CmdBuffer->GetHandle(),
+			SrcSurface, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &Region, VK_FILTER_LINEAR);
+	}
+	else
+	{
+		VkImageCopy Region;
+		FMemory::Memzero(Region);
+		Region.extent.width = SizeX;
+		Region.extent.height = SizeY;
+		Region.extent.depth = 1;
+		Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		//Region.srcSubresource.baseArrayLayer = 0;
+		Region.srcSubresource.layerCount = 1;
+		//Region.srcSubresource.mipLevel = 0;
+		Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		//Region.dstSubresource.baseArrayLayer = 0;
+		Region.dstSubresource.layerCount = 1;
+		//Region.dstSubresource.mipLevel = 0;
+		VulkanRHI::vkCmdCopyImage(CmdBuffer->GetHandle(),
+			SrcSurface, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &Region);
+	}
 
 	// Prepare for present
 	Barriers.ResetStages();
@@ -621,8 +687,11 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 				UE_LOG(LogVulkanRHI, Fatal, TEXT("Swapchain acquire image index failed!"));
 			}
 
+			uint32 WindowSizeX = SizeX;
+			uint32 WindowSizeY = SizeY;
+
 			Context->RHIPushEvent(TEXT("CopyImageToBackBuffer"), FColor::Blue);
-			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY);
+			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY, WindowSizeX, WindowSizeY);
 			Context->RHIPopEvent();
 		}
 		else
@@ -693,19 +762,12 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 		RHIBackBuffer = nullptr;
 	}
 
-	//static const TConsoleVariableData<int32>* CFinishFrameVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FinishCurrentFrame"));
-	//if (!CFinishFrameVar->GetValueOnRenderThread())
-	//{
-	//	// Wait for the GPU to finish rendering the previous frame before finishing this frame.
-	//	WaitForFrameEventCompletion();
-	//	IssueFrameEvent();
-	//}
-	//else
-	//{
-	//	// Finish current frame immediately to reduce latency
-	//	IssueFrameEvent();
-	//	WaitForFrameEventCompletion();
-	//}
+	if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent() && !bHasCustomPresent)
+	{
+		// Wait for the GPU to finish rendering the previous frame before finishing this frame.
+		WaitForFrameEventCompletion();
+		IssueFrameEvent();
+	}
 
 	// If the input latency timer has been triggered, block until the GPU is completely
 	// finished displaying this frame and calculate the delta time.
@@ -736,7 +798,40 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 FViewportRHIRef FVulkanDynamicRHI::RHICreateViewport(void* WindowHandle, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
 	check( IsInGameThread() );
+
+	// Use a default pixel format if none was specified	
+	if (PreferredPixelFormat == PF_Unknown)
+	{
+		static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnAnyThread()));
+	}
+
 	return new FVulkanViewport(this, Device, WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
+}
+
+void FVulkanDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+{
+	check(IsInGameThread());
+	FVulkanViewport* Viewport = ResourceCast(ViewportRHI);
+
+	// Use a default pixel format if none was specified	
+	if (PreferredPixelFormat == PF_Unknown)
+	{
+		static const auto* CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnAnyThread()));
+	}
+
+	if (Viewport->GetSizeXY() != FIntPoint(SizeX, SizeY))
+	{
+		FlushRenderingCommands();
+
+		ENQUEUE_RENDER_COMMAND(ResizeViewport)(
+			[Viewport, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat](FRHICommandListImmediate& RHICmdList)
+			{
+				Viewport->Resize(SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
+			});
+		FlushRenderingCommands();
+	}
 }
 
 void FVulkanDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint32 SizeX, uint32 SizeY, bool bIsFullscreen)
@@ -751,7 +846,7 @@ void FVulkanDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint
 		ENQUEUE_RENDER_COMMAND(ResizeViewport)(
 			[Viewport, SizeX, SizeY, bIsFullscreen](FRHICommandListImmediate& RHICmdList)
 			{
-				Viewport->Resize(SizeX, SizeY, bIsFullscreen);
+				Viewport->Resize(SizeX, SizeY, bIsFullscreen, PF_Unknown);
 			});
 		FlushRenderingCommands();
 	}

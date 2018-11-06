@@ -629,7 +629,6 @@ void FVulkanDevice::SetupFormats()
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo)
 {
-
 	const uint32 CreateInfoHash = FCrc::MemCrc32(&CreateInfo, sizeof(CreateInfo));
 	VkSamplerYcbcrConversion* const FindResult = SamplerColorConversionMap.Find(CreateInfoHash);
 	if (FindResult != nullptr)
@@ -639,7 +638,7 @@ VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSam
 	else
 	{
 		VkSamplerYcbcrConversion NewConversion;
-		VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(GetInstanceHandle(), &CreateInfo, nullptr, &NewConversion));
+		VERIFYVULKANRESULT(VulkanRHI::vkCreateSamplerYcbcrConversionKHR(GetInstanceHandle(), &CreateInfo, VULKAN_CPU_ALLOCATOR, &NewConversion));
 		SamplerColorConversionMap.Add(CreateInfoHash, NewConversion);
 		return NewConversion;
 	}
@@ -719,7 +718,7 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 		return Info;
 	};
 
-	UE_LOG(LogVulkanRHI, Display, TEXT("Initializing Device %d: %s"), DeviceIndex, ANSI_TO_TCHAR(GpuProps.deviceName));
+	UE_LOG(LogVulkanRHI, Display, TEXT("Device %d: %s"), DeviceIndex, ANSI_TO_TCHAR(GpuProps.deviceName));
 	UE_LOG(LogVulkanRHI, Display, TEXT("- API 0x%x Driver 0x%x VendorId 0x%x"), GpuProps.apiVersion, GpuProps.driverVersion, GpuProps.vendorID);
 	UE_LOG(LogVulkanRHI, Display, TEXT("- DeviceID 0x%x Type %s"), GpuProps.deviceID, *GetDeviceTypeString());
 	UE_LOG(LogVulkanRHI, Display, TEXT("- Max Descriptor Sets Bound %d Timestamps %d"), GpuProps.limits.maxBoundDescriptorSets, GpuProps.limits.timestampComputeAndGraphics);
@@ -755,27 +754,39 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 
 	StagingManager.Init(this);
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
-	if (GGPUCrashDebuggingEnabled && OptionalDeviceExtensions.HasAMDBufferMarker)
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
+	if (GGPUCrashDebuggingEnabled)
 	{
-		VkBufferCreateInfo CreateInfo;
-		ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
-		CreateInfo.size = GMaxCrashBufferEntries * sizeof(uint32_t);
-		CreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		VERIFYVULKANRESULT(VulkanRHI::vkCreateBuffer(Device, &CreateInfo, VULKAN_CPU_ALLOCATOR, &CrashMarker.Buffer));
+		if (OptionalDeviceExtensions.HasAMDBufferMarker)
+		{
+			VkBufferCreateInfo CreateInfo;
+			ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
+			CreateInfo.size = GMaxCrashBufferEntries * sizeof(uint32_t);
+			CreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+			VERIFYVULKANRESULT(VulkanRHI::vkCreateBuffer(Device, &CreateInfo, VULKAN_CPU_ALLOCATOR, &CrashMarker.Buffer));
 
-		VkMemoryRequirements MemReq;
-		FMemory::Memzero(MemReq);
-		VulkanRHI::vkGetBufferMemoryRequirements(Device, CrashMarker.Buffer, &MemReq);
+			VkMemoryRequirements MemReq;
+			FMemory::Memzero(MemReq);
+			VulkanRHI::vkGetBufferMemoryRequirements(Device, CrashMarker.Buffer, &MemReq);
 
-		CrashMarker.Allocation = MemoryManager.Alloc(false, CreateInfo.size, MemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, nullptr, __FILE__, __LINE__);
+			CrashMarker.Allocation = MemoryManager.Alloc(false, CreateInfo.size, MemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, nullptr, __FILE__, __LINE__);
 
-		uint32* Entry = (uint32*)CrashMarker.Allocation->Map(VK_WHOLE_SIZE, 0);
-		check(Entry);
-		// Start with 0 entries
-		*Entry = 0;
-		VERIFYVULKANRESULT(VulkanRHI::vkBindBufferMemory(Device, CrashMarker.Buffer, CrashMarker.Allocation->GetHandle(), 0));
+			uint32* Entry = (uint32*)CrashMarker.Allocation->Map(VK_WHOLE_SIZE, 0);
+			check(Entry);
+			// Start with 0 entries
+			*Entry = 0;
+			VERIFYVULKANRESULT(VulkanRHI::vkBindBufferMemory(Device, CrashMarker.Buffer, CrashMarker.Allocation->GetHandle(), 0));
+		}
+		else if (OptionalDeviceExtensions.HasNVDiagnosticCheckpoints)
+		{
+			CrashMarker.Allocation = MemoryManager.Alloc(false, GMaxCrashBufferEntries * sizeof(uint32_t), UINT32_MAX, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, nullptr, __FILE__, __LINE__);
+			uint32* Entry = (uint32*)CrashMarker.Allocation->Map(VK_WHOLE_SIZE, 0);
+			check(Entry);
+			// Start with 0 entries
+			*Entry = 0;
+		}
 	}
 #endif
 
@@ -874,7 +885,7 @@ void FVulkanDevice::Destroy()
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	for (const auto& Pair : SamplerColorConversionMap)
 	{
-		vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, nullptr);
+		VulkanRHI::vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, VULKAN_CPU_ALLOCATOR);
 	}
 	SamplerColorConversionMap.Reset();
 #endif
@@ -913,16 +924,26 @@ void FVulkanDevice::Destroy()
 	StagingManager.Deinit();
 
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
-	if (GGPUCrashDebuggingEnabled && OptionalDeviceExtensions.HasAMDBufferMarker)
+	if (GGPUCrashDebuggingEnabled)
 	{
-		CrashMarker.Allocation->Unmap();
-		VulkanRHI::vkDestroyBuffer(Device, CrashMarker.Buffer, VULKAN_CPU_ALLOCATOR);
-		CrashMarker.Buffer = VK_NULL_HANDLE;
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+		if (OptionalDeviceExtensions.HasAMDBufferMarker)
+		{
+			CrashMarker.Allocation->Unmap();
+			VulkanRHI::vkDestroyBuffer(Device, CrashMarker.Buffer, VULKAN_CPU_ALLOCATOR);
+			CrashMarker.Buffer = VK_NULL_HANDLE;
 
-		MemoryManager.Free(CrashMarker.Allocation);
-	}
+			MemoryManager.Free(CrashMarker.Allocation);
+		}
 #endif
+#if VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT
+		if (OptionalDeviceExtensions.HasNVDiagnosticCheckpoints)
+		{
+			CrashMarker.Allocation->Unmap();
+			MemoryManager.Free(CrashMarker.Allocation);
+		}
+#endif
+	}
 
 	ResourceHeapManager.Deinit();
 
@@ -1052,7 +1073,7 @@ void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineSta
 
 void FVulkanDevice::NotifyDeletedComputePipeline(class FVulkanComputePipeline* Pipeline)
 {
-	if (ComputeContext != ImmediateContext)
+	if (ComputeContext && ComputeContext != ImmediateContext)
 	{
 		ComputeContext->PendingComputeState->NotifyDeletedPipeline(Pipeline);
 	}

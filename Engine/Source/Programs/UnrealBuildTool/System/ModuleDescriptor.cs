@@ -173,6 +173,11 @@ namespace UnrealBuildTool
 		public string[] WhitelistPrograms;
 
 		/// <summary>
+		/// List of disallowed programs
+		/// </summary>
+		public string[] BlacklistPrograms;
+
+		/// <summary>
 		/// List of additional dependencies for building this module.
 		/// </summary>
 		public string[] AdditionalDependencies;
@@ -243,6 +248,12 @@ namespace UnrealBuildTool
 			if (InObject.TryGetStringArrayField("WhitelistPrograms", out WhitelistPrograms))
 			{
 				Module.WhitelistPrograms = WhitelistPrograms;
+			}
+
+			string[] BlacklistPrograms;
+			if (InObject.TryGetStringArrayField("BlacklistPrograms", out BlacklistPrograms))
+			{
+				Module.BlacklistPrograms = BlacklistPrograms;
 			}
 
 			string[] AdditionalDependencies;
@@ -321,6 +332,10 @@ namespace UnrealBuildTool
 			if(WhitelistPrograms != null && WhitelistPrograms.Length > 0)
 			{
 				Writer.WriteStringArrayField("WhitelistPrograms", WhitelistPrograms);
+			}
+			if(BlacklistPrograms != null && BlacklistPrograms.Length > 0)
+			{
+				Writer.WriteStringArrayField("BlacklistPrograms", BlacklistPrograms);
 			}
 			if (AdditionalDependencies != null && AdditionalDependencies.Length > 0)
 			{
@@ -401,10 +416,20 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			// Check the program name is whitelisted
-			if(TargetType == TargetType.Program && (WhitelistPrograms == null || !WhitelistPrograms.Contains(TargetName)))
+			// Special checks just for programs
+			if(TargetType == TargetType.Program)
 			{
-				return false;
+				// Check the program name is whitelisted. Note that this behavior is slightly different to other whitelist/blacklist checks; we will whitelist a module of any type if it's explicitly allowed for this program.
+				if(WhitelistPrograms != null && WhitelistPrograms.Length > 0)
+				{
+					return WhitelistPrograms.Contains(TargetName);
+				}
+				
+				// Check the program name is not blacklisted
+				if(BlacklistPrograms != null && BlacklistPrograms.Contains(TargetName))
+				{
+					return false;
+				}
 			}
 
 			// Check the module is compatible with this target.
@@ -412,7 +437,7 @@ namespace UnrealBuildTool
 			{
 				case ModuleHostType.Runtime:
 				case ModuleHostType.RuntimeNoCommandlet:
-                    return true;
+                    return TargetType != TargetType.Program;
                 case ModuleHostType.CookedOnly:
                     return bBuildRequiresCookedData;
                 case ModuleHostType.RuntimeAndProgram:

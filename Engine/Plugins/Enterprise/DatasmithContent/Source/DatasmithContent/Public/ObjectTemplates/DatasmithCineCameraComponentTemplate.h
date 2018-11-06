@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CineCameraComponent.h"
 #include "Engine/Scene.h"
 #include "ObjectTemplates/DatasmithObjectTemplate.h"
 
@@ -44,6 +45,9 @@ USTRUCT()
 struct FDatasmithCameraFocusSettingsTemplate
 {
 	GENERATED_BODY()
+
+	UPROPERTY()
+	ECameraFocusMethod FocusMethod;
 
 	UPROPERTY()
 	float ManualFocusDistance;

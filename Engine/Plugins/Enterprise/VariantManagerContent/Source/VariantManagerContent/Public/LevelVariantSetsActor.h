@@ -11,6 +11,9 @@
 #include "LevelVariantSetsActor.generated.h"
 
 
+class UVariantSet;
+
+
 UCLASS(hideCategories=(Rendering, Physics, LOD, Activation, Input))
 class VARIANTMANAGERCONTENT_API ALevelVariantSetsActor : public AActor
 {
@@ -20,16 +23,24 @@ public:
 
 	ALevelVariantSetsActor(const FObjectInitializer& Init);
 
-public:
+	// AActor interface
+	virtual void BeginPlay() override;
+	//~ End AActor interface
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Variants", meta=(AllowedClasses="LevelVariantSets"))
-	FSoftObjectPath LevelVariantSets;
-
-public:
-
-	UFUNCTION(BlueprintCallable, Category="Variants")
+	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
 	ULevelVariantSets* GetLevelVariantSets(bool bLoad = false) const;
 
-	UFUNCTION(BlueprintCallable, Category="Variants")
+	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
 	void SetLevelVariantSets(ULevelVariantSets* InVariantSets);
+
+	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
+	bool SwitchOnVariantByName(FString VariantSetName, FString VariantName);
+
+	UFUNCTION(BlueprintCallable, Category="LevelVariantSets")
+	bool SwitchOnVariantByIndex(int32 VariantSetIndex, int32 VariantIndex);
+
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="LevelVariantSets", meta=(AllowedClasses="LevelVariantSets"))
+	FSoftObjectPath LevelVariantSets;
 };

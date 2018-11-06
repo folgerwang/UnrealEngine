@@ -244,7 +244,7 @@ public class LuminPlatform : Platform
 	/// <returns>Cook platform string.</returns>
 	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
-		return "Lumin";
+		return bIsClientOnly ? "LuminClient" : "Lumin";
 	}
 
 	/// <summary>

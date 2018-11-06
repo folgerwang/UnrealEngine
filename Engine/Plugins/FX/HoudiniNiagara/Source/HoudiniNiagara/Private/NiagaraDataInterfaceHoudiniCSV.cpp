@@ -595,72 +595,72 @@ void UNiagaraDataInterfaceHoudiniCSV::GetFunctions(TArray<FNiagaraFunctionSignat
 	}
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValue);
-//DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValueByString);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValue);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValueEx);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPosition);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetNormal);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetColor);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVelocity);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetImpulse);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPositionAndTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetLastRowIndexAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointIDsToSpawnAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetRowIndexesForPointAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointPositionAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointValueAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTimeEx);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLife);
-//DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLifeAtTime);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointType);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValue);
+//DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValueByString);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValue);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValueEx);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPosition);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetNormal);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetColor);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVelocity);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetImpulse);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPositionAndTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetLastRowIndexAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointIDsToSpawnAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetRowIndexesForPointAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointPositionAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointValueAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTimeEx);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLife);
+//DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLifeAtTime);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointType);
 void UNiagaraDataInterfaceHoudiniCSV::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
     if (BindingInfo.Name == GetFloatValueName && BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 1)
     {
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValue)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValue)::Bind(this, OutFunc);
     }
     /*else if (BindingInfo.Name == GetFloatValueByStringName && BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 1)
     {
-		TNDIParamBinder<0, float, TNDIParamBinder<1, FString, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValueByString)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetFloatValueByString)::Bind(this, BindingInfo, InstanceData, OutFunc);
     }*/
     else if (BindingInfo.Name == GetVectorValueName && BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 3)
     {
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValue)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValue)::Bind(this, OutFunc);
     }
 	else if (BindingInfo.Name == GetVectorValueExName && BindingInfo.GetNumInputs() == 4 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, int32, TNDIParamBinder<2, bool, TNDIParamBinder<3, bool, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValueEx)>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVectorValueEx)::Bind(this, OutFunc);
 	}
     else if (BindingInfo.Name == GetPositionName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 3)
     {
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPosition)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPosition)::Bind(this, OutFunc);
     }
     else if (BindingInfo.Name == GetNormalName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 3)
     {
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetNormal)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetNormal)::Bind(this, OutFunc);
     }
     else if (BindingInfo.Name == GetTimeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
     {
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetTime)::Bind(this, OutFunc);
     }
 	else if (BindingInfo.Name == GetVelocityName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVelocity)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVelocity)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetColorName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4)
 	{
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetColor)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetColor)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetImpulseName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
 	{
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetImpulse)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetImpulse)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetPositionAndTimeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4)
     {
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPositionAndTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPositionAndTime)::Bind(this, OutFunc);
     }
     else if ( BindingInfo.Name == GetNumberOfPointsName && BindingInfo.GetNumInputs() == 0 && BindingInfo.GetNumOutputs() == 1 )
     {
@@ -676,45 +676,45 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVMExternalFunction(const FVMExternalFun
 	}
     else if (BindingInfo.Name == GetLastRowIndexAtTimeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
     {
-		TNDIParamBinder<0, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetLastRowIndexAtTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetLastRowIndexAtTime)::Bind(this, OutFunc);
     }
     else if (BindingInfo.Name == GetPointIDsToSpawnAtTimeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 3)
     {
-		TNDIParamBinder<0, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointIDsToSpawnAtTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointIDsToSpawnAtTime)::Bind(this, OutFunc);
     }
 	else if (BindingInfo.Name == GetRowIndexesForPointAtTimeName && BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetRowIndexesForPointAtTime)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetRowIndexesForPointAtTime)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetPointPositionAtTimeName && BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointPositionAtTime)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointPositionAtTime)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetPointValueAtTimeName && BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 1)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, int32, TNDIParamBinder<2, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointValueAtTime)>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointValueAtTime)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetPointVectorValueAtTimeName && BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, int32, TNDIParamBinder<2, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTime)>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTime)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetPointVectorValueAtTimeExName && BindingInfo.GetNumInputs() == 5 && BindingInfo.GetNumOutputs() == 3)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, int32, TNDIParamBinder<2, float, TNDIParamBinder<3, bool, TNDIParamBinder<4, bool, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTimeEx)>>>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointVectorValueAtTimeEx)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == GetPointLifeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
 	{
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLife)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLife)::Bind(this, OutFunc);
 	}
 	/*
 	else if (BindingInfo.Name == GetPointLifeAtTimeName && BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 1)
 	{
-		TNDIParamBinder<0, int32, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLifeAtTime)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointLifeAtTime)::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	*/
 	else if (BindingInfo.Name == GetPointTypeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
 	{
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointType)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointType)::Bind(this, OutFunc);
 	}
     else
     {
@@ -725,13 +725,12 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVMExternalFunction(const FVMExternalFun
     }
 }
 
-template<typename RowParamType, typename ColParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetFloatValue(FVectorVMContext& Context)
 {
-    RowParamType RowParam(Context);
-    ColParamType ColParam(Context);
+    VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+    VectorVM::FExternalFuncInputHandler<int32> ColParam(Context);
 
-    FRegisterHandler<float> OutValue(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
     for ( int32 i = 0; i < Context.NumInstances; ++i )
     {
@@ -749,15 +748,14 @@ void UNiagaraDataInterfaceHoudiniCSV::GetFloatValue(FVectorVMContext& Context)
     }
 }
 
-template<typename RowParamType, typename ColParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetVectorValue( FVectorVMContext& Context )
 {
-    RowParamType RowParam(Context);
-    ColParamType ColParam(Context);
+    VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+    VectorVM::FExternalFuncInputHandler<int32> ColParam(Context);
 
-	FRegisterHandler<float> OutVectorX(Context);
-	FRegisterHandler<float> OutVectorY(Context);
-	FRegisterHandler<float> OutVectorZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVectorX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVectorY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVectorZ(Context);
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -780,25 +778,24 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVectorValue( FVectorVMContext& Context 
     }
 }
 
-template<typename RowParamType, typename ColParamType, typename DoSwapParamType, typename DoScaleParamType >
 void UNiagaraDataInterfaceHoudiniCSV::GetVectorValueEx(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-	ColParamType ColParam(Context);
-	DoSwapParamType DoSwapParam(Context);
-	DoScaleParamType DoScaleParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> ColParam(Context);
+	VectorVM::FExternalFuncInputHandler<FNiagaraBool> DoSwapParam(Context);
+	VectorVM::FExternalFuncInputHandler<FNiagaraBool> DoScaleParam(Context);
 
-	FRegisterHandler<float> OutVectorX(Context);
-	FRegisterHandler<float> OutVectorY(Context);
-	FRegisterHandler<float> OutVectorZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVectorX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVectorY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutVectorZ(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
 		int32 row = RowParam.Get();
 		int32 col = ColParam.Get();
 
-		bool DoSwap = DoSwapParam.Get();
-		bool DoScale = DoScaleParam.Get();
+		bool DoSwap = DoSwapParam.Get().GetValue();
+		bool DoScale = DoScaleParam.Get().GetValue();
 
 		FVector V = FVector::ZeroVector;
 		if (HoudiniCSVAsset)
@@ -818,13 +815,12 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVectorValueEx(FVectorVMContext& Context
 	}
 }
 /*
-template<typename RowParamType, typename ColTitleParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetFloatValueByString(FVectorVMContext& Context)
 {
-    RowParamType RowParam(Context);
+    VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
     ColTitleParamType ColTitleParam(Context);
 
-    FRegisterHandler<float> OutValue(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
     for ( int32 i = 0; i < Context.NumInstances; ++i )
     {
@@ -843,13 +839,12 @@ void UNiagaraDataInterfaceHoudiniCSV::GetFloatValueByString(FVectorVMContext& Co
 }
 */
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPosition(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-    FRegisterHandler<float> OutSampleX(Context);
-    FRegisterHandler<float> OutSampleY(Context);
-    FRegisterHandler<float> OutSampleZ(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -869,13 +864,12 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPosition(FVectorVMContext& Context)
     }
 }
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetNormal(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-    FRegisterHandler<float> OutSampleX(Context);
-    FRegisterHandler<float> OutSampleY(Context);
-    FRegisterHandler<float> OutSampleZ(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -895,11 +889,10 @@ void UNiagaraDataInterfaceHoudiniCSV::GetNormal(FVectorVMContext& Context)
     }
 }
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetTime(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-    FRegisterHandler<float> OutValue(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -915,13 +908,12 @@ void UNiagaraDataInterfaceHoudiniCSV::GetTime(FVectorVMContext& Context)
     }
 }
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetVelocity(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-	FRegisterHandler<float> OutSampleX(Context);
-	FRegisterHandler<float> OutSampleY(Context);
-	FRegisterHandler<float> OutSampleZ(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleZ(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -941,14 +933,13 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVelocity(FVectorVMContext& Context)
 	}
 }
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetColor(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-	FRegisterHandler<float> OutSampleR(Context);
-	FRegisterHandler<float> OutSampleG(Context);
-	FRegisterHandler<float> OutSampleB(Context);
-	FRegisterHandler<float> OutSampleA(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleR(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleG(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleB(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleA(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -970,11 +961,10 @@ void UNiagaraDataInterfaceHoudiniCSV::GetColor(FVectorVMContext& Context)
 	}
 }
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetImpulse(FVectorVMContext& Context)
 {
-	RowParamType RowParam(Context);
-	FRegisterHandler<float> OutValue(Context);
+	VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -991,11 +981,10 @@ void UNiagaraDataInterfaceHoudiniCSV::GetImpulse(FVectorVMContext& Context)
 }
 
 // Returns the last index of the points that should be spawned at time t
-template<typename TimeParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetLastRowIndexAtTime(FVectorVMContext& Context)
 {
-    TimeParamType TimeParam(Context);
-    FRegisterHandler<int32> OutValue(Context);
+    VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);
+    VectorVM::FExternalFuncRegisterHandler<int32> OutValue(Context);
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -1012,13 +1001,12 @@ void UNiagaraDataInterfaceHoudiniCSV::GetLastRowIndexAtTime(FVectorVMContext& Co
 }
 
 // Returns the last index of the points that should be spawned at time t
-template<typename TimeParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointIDsToSpawnAtTime( FVectorVMContext& Context )
 {
-    TimeParamType TimeParam( Context );
-    FRegisterHandler<int32> OutMinValue( Context );
-    FRegisterHandler<int32> OutMaxValue( Context );
-    FRegisterHandler<int32> OutCountValue( Context );
+    VectorVM::FExternalFuncInputHandler<float> TimeParam( Context );
+    VectorVM::FExternalFuncRegisterHandler<int32> OutMinValue( Context );
+    VectorVM::FExternalFuncRegisterHandler<int32> OutMaxValue( Context );
+    VectorVM::FExternalFuncRegisterHandler<int32> OutCountValue( Context );
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -1043,15 +1031,14 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointIDsToSpawnAtTime( FVectorVMContext
     }
 }
 
-template<typename RowParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPositionAndTime(FVectorVMContext& Context)
 {
-    RowParamType RowParam(Context);
+    VectorVM::FExternalFuncInputHandler<int32> RowParam(Context);
 
-    FRegisterHandler<float> OutPosX(Context);
-    FRegisterHandler<float> OutPosY(Context);
-    FRegisterHandler<float> OutPosZ(Context);
-    FRegisterHandler<float> OutTime(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
+    VectorVM::FExternalFuncRegisterHandler<float> OutTime(Context);
 
     for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -1079,15 +1066,14 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPositionAndTime(FVectorVMContext& Conte
     }
 }
 
-template<typename PointIDParamType, typename TimeParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetRowIndexesForPointAtTime(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
-	TimeParamType TimeParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);
 
-	FRegisterHandler<int32> OutPrevIndex(Context);
-	FRegisterHandler<int32> OutNextIndex(Context);
-	FRegisterHandler<float> OutWeightValue(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutPrevIndex(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutNextIndex(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutWeightValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -1114,15 +1100,14 @@ void UNiagaraDataInterfaceHoudiniCSV::GetRowIndexesForPointAtTime(FVectorVMConte
     }
 }
 
-template<typename PointIDParamType, typename TimeParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointPositionAtTime( FVectorVMContext& Context )
 {
-	PointIDParamType PointIDParam(Context);
-	TimeParamType TimeParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);
 
-	FRegisterHandler<float> OutPosX(Context);
-	FRegisterHandler<float> OutPosY(Context);
-	FRegisterHandler<float> OutPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
     {
@@ -1147,14 +1132,13 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointPositionAtTime( FVectorVMContext& 
     }
 }
 
-template<typename PointIDParamType, typename ColParamType, typename TimeParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointValueAtTime(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
-	TimeParamType TimeParam(Context);
-	ColParamType ColParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> ColParam(Context);
 
-	FRegisterHandler<float> OutValue(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1178,16 +1162,15 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointValueAtTime(FVectorVMContext& Cont
 	}
 }
 
-template<typename PointIDParamType, typename ColParamType, typename TimeParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointVectorValueAtTime(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
-	ColParamType ColParam(Context);
-	TimeParamType TimeParam(Context);	
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> ColParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);	
 
-	FRegisterHandler<float> OutPosX(Context);
-	FRegisterHandler<float> OutPosY(Context);
-	FRegisterHandler<float> OutPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1215,18 +1198,17 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointVectorValueAtTime(FVectorVMContext
 	}
 }
 
-template<typename PointIDParamType, typename ColParamType, typename TimeParamType, typename DoSwapParamType, typename DoScaleParamType >
 void UNiagaraDataInterfaceHoudiniCSV::GetPointVectorValueAtTimeEx(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
-	ColParamType ColParam(Context);
-	TimeParamType TimeParam(Context);
-	DoSwapParamType DoSwapParam(Context);
-	DoScaleParamType DoScaleParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> ColParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);
+	VectorVM::FExternalFuncInputHandler<FNiagaraBool> DoSwapParam(Context);
+	VectorVM::FExternalFuncInputHandler<FNiagaraBool> DoScaleParam(Context);
 
-	FRegisterHandler<float> OutPosX(Context);
-	FRegisterHandler<float> OutPosY(Context);
-	FRegisterHandler<float> OutPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutPosZ(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1234,8 +1216,8 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointVectorValueAtTimeEx(FVectorVMConte
 		int32 Col = ColParam.Get();
 		float time = TimeParam.Get();
 
-		bool DoSwap = DoSwapParam.Get();
-		bool DoScale = DoScaleParam.Get();
+		bool DoSwap = DoSwapParam.Get().GetValue();
+		bool DoScale = DoScaleParam.Get().GetValue();
 
 		FVector posVector = FVector::ZeroVector;
 		if (HoudiniCSVAsset)
@@ -1259,12 +1241,11 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointVectorValueAtTimeEx(FVectorVMConte
 	}
 }
 
-template<typename PointIDParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointLife(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
 
-	FRegisterHandler<float> OutValue(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1285,13 +1266,13 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointLife(FVectorVMContext& Context)
 }
 
 /*
-template<typename PointIDParamType, typename TimeParamType>
+template<typename VectorVM::FExternalFuncInputHandler<int32>, typename VectorVM::FExternalFuncInputHandler<float>>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointLifeAtTime(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
-	TimeParamType TimeParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> TimeParam(Context);
 
-	FRegisterHandler<float> OutValue(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1314,12 +1295,11 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointLifeAtTime(FVectorVMContext& Conte
 }
 */
 
-template<typename PointIDParamType>
 void UNiagaraDataInterfaceHoudiniCSV::GetPointType(FVectorVMContext& Context)
 {
-	PointIDParamType PointIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<int32> PointIDParam(Context);
 
-	FRegisterHandler<int32> OutValue(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutValue(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -1341,21 +1321,21 @@ void UNiagaraDataInterfaceHoudiniCSV::GetPointType(FVectorVMContext& Context)
 
 void UNiagaraDataInterfaceHoudiniCSV::GetNumberOfRows(FVectorVMContext& Context)
 {
-	FRegisterHandler<int32> OutNumRows(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutNumRows(Context);
 	*OutNumRows.GetDest() = HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfRows() : 0;
 	OutNumRows.Advance();
 }
 
 void UNiagaraDataInterfaceHoudiniCSV::GetNumberOfColumns(FVectorVMContext& Context)
 {
-	FRegisterHandler<int32> OutNumCols(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutNumCols(Context);
 	*OutNumCols.GetDest() = HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfColumns() : 0;
 	OutNumCols.Advance();
 }
 
 void UNiagaraDataInterfaceHoudiniCSV::GetNumberOfPoints(FVectorVMContext& Context)
 {
-	FRegisterHandler<int32> OutNumPoints(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutNumPoints(Context);
 	*OutNumPoints.GetDest() = HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfPoints() : 0;
 	OutNumPoints.Advance();
 }

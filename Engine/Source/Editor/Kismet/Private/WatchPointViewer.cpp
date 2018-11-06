@@ -994,8 +994,8 @@ void WatchViewer::RegisterTabSpawner(FTabManager& TabManager)
 	};
 	
 	TabManager.RegisterTabSpawner( WatchViewer::GetTabName(), FOnSpawnTab::CreateStatic(SpawnWatchViewTab) )
-		.SetDisplayName( LOCTEXT("TabTitle", "Watch Window") )
-		.SetTooltipText( LOCTEXT("TooltipText", "Open the watch window tab") );
+		.SetDisplayName( LOCTEXT("SpawnerTitle", "Watch Window") )
+		.SetTooltipText( LOCTEXT("SpawnerTooltipText", "Open the watch window tab") );
 }
 
 #undef LOCTEXT_NAMESPACE

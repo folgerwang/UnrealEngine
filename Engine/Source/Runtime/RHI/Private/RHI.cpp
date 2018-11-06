@@ -515,8 +515,6 @@ EPixelFormat GRHIHDRDisplayOutputFormat = PF_FloatRGBA;
 
 uint64 GRHIPresentCounter = 1;
 
-bool GRHISupportsGPUFence = false;
-
 /** Whether we are profiling GPU hitches. */
 bool GTriggerGPUHitchProfile = false;
 
@@ -670,6 +668,7 @@ static FName NAME_PLATFORM_ANDROID(TEXT("Android"));
 static FName NAME_PLATFORM_IOS(TEXT("IOS"));
 static FName NAME_PLATFORM_MAC(TEXT("Mac"));
 static FName NAME_PLATFORM_SWITCH(TEXT("Switch"));
+static FName NAME_PLATFORM_TVOS(TEXT("TVOS"));
 
 FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
 {
@@ -686,8 +685,16 @@ FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
 	case SP_VULKAN_ES3_1_ANDROID:
 		return NAME_PLATFORM_ANDROID;
 	case SP_METAL:
-		return NAME_PLATFORM_IOS;
+	case SP_METAL_MRT:
+        return NAME_PLATFORM_IOS;
+	case SP_METAL_TVOS:
+	case SP_METAL_MRT_TVOS:
+		return NAME_PLATFORM_TVOS;
 	case SP_METAL_SM5:
+	case SP_METAL_SM5_NOTESS:
+	case SP_METAL_MACES3_1:
+	case SP_METAL_MACES2:
+	case SP_METAL_MRT_MAC:
 		return NAME_PLATFORM_MAC;
 	case SP_SWITCH:
 	case SP_SWITCH_FORWARD:
@@ -799,7 +806,7 @@ RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform)
 	{
 		return true;
 	}
-	else if (Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_MAC)
+	else if (IsMetalSM5Platform(Platform))
 	{
 		return (RHIGetShaderLanguageVersion(Platform) >= 2);
 	}

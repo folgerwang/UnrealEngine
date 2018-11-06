@@ -232,13 +232,25 @@ void DetermineMaxCallstackDepth()
 void FWindowsPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, int32 IgnoreCount, void* Context )
 {
 	InitStackWalking();
+
+	// If the callstack is for the executing thread, ignore this function
+	if(Context == nullptr)
+	{
+		IgnoreCount++;
+	}
 	FGenericPlatformStackWalk::StackWalkAndDump(HumanReadableString, HumanReadableStringSize, IgnoreCount, Context);
 }
 
-TArray<FProgramCounterSymbolInfo> FWindowsPlatformStackWalk::GetStack(int32 IgnoreCount, int32 MaxDepth, void* Context)
+FORCENOINLINE TArray<FProgramCounterSymbolInfo> FWindowsPlatformStackWalk::GetStack(int32 IgnoreCount, int32 MaxDepth, void* Context)
 {
 	InitStackWalking();
-	return FGenericPlatformStackWalk::GetStack(IgnoreCount + 1, MaxDepth, Context);
+
+	// If the callstack is for the executing thread, ignore this function
+	if(Context == nullptr)
+	{
+		IgnoreCount++;
+	}
+	return FGenericPlatformStackWalk::GetStack(IgnoreCount, MaxDepth, Context);
 }
 
 void FWindowsPlatformStackWalk::ThreadStackWalkAndDump(ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize, int32 IgnoreCount, uint32 ThreadId)
@@ -319,18 +331,18 @@ uint32 FWindowsPlatformStackWalk::CaptureStackBackTrace( uint64* BackTrace, uint
 	{
 #if USE_FAST_STACKTRACE
 		if (!GMaxCallstackDepthInitialized)
-			{
-				DetermineMaxCallstackDepth();
-			}
-			PVOID WinBackTrace[MAX_CALLSTACK_DEPTH];
+		{
+			DetermineMaxCallstackDepth();
+		}
+		PVOID WinBackTrace[MAX_CALLSTACK_DEPTH];
 		uint16 NumFrames = RtlCaptureStackBackTrace(0, FMath::Min<ULONG>(GMaxCallstackDepth, MaxDepth), WinBackTrace, NULL);
 		Depth = NumFrames;
 		for (uint16 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
-			{
+		{
 			BackTrace[FrameIndex] = (uint64)WinBackTrace[FrameIndex];
-			}
+		}
 		while (NumFrames < MaxDepth)
-			{
+		{
 			BackTrace[NumFrames++] = 0;
 		}		
 #elif USE_SLOW_STACKTRACE

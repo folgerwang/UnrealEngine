@@ -79,6 +79,9 @@ private:
 	virtual void SetMaterial(int32 ElementIndex, class UMaterialInterface* InMaterial) override;
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 	//~ UPrimitiveComponent
+	//~ UActorComponent
+	virtual void SendRenderDynamicData_Concurrent() override;
+	//~ UActorComponent
 
 	//~ IMRMesh
 	virtual void SendBrickData(FSendBrickDataArgs Args) override;

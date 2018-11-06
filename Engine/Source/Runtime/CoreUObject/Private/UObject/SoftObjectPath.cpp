@@ -139,7 +139,7 @@ void FSoftObjectPath::SerializePath(FArchive& Ar)
 	ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
 
 	FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
-	ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType);
+	ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType, &Ar);
 
 	if (SerializeType == ESoftObjectPathSerializeType::NeverSerialize)
 	{
@@ -434,10 +434,10 @@ void FSoftObjectPath::ClearPIEPackageNames()
 	PIEPackageNames.Empty();
 }
 
-bool FSoftObjectPath::FixupForPIE()
+bool FSoftObjectPath::FixupForPIE(int32 PIEInstance)
 {
 #if WITH_EDITOR
-	if (GPlayInEditorID != INDEX_NONE && !IsNull())
+	if (PIEInstance != INDEX_NONE && !IsNull())
 	{
 		const FString Path = ToString();
 
@@ -448,7 +448,7 @@ bool FSoftObjectPath::FixupForPIE()
 			// Name of the ULevel subobject of UWorld, set in InitializeNewWorld
 			const bool bIsChildOfLevel = SubPathString.StartsWith(TEXT("PersistentLevel."));
 
-			FString PIEPath = FString::Printf(TEXT("%s/%s_%d_%s"), *FPackageName::GetLongPackagePath(Path), PLAYWORLD_PACKAGE_PREFIX, GPlayInEditorID, *ShortPackageOuterAndName);
+			FString PIEPath = FString::Printf(TEXT("%s/%s_%d_%s"), *FPackageName::GetLongPackagePath(Path), PLAYWORLD_PACKAGE_PREFIX, PIEInstance, *ShortPackageOuterAndName);
 			const FName PIEPackage = (!bIsChildOfLevel ? FName(*FPackageName::ObjectPathToPackageName(PIEPath)) : NAME_None);
 
 			// Duplicate if this an already registered PIE package or this looks like a level subobject reference
@@ -463,6 +463,11 @@ bool FSoftObjectPath::FixupForPIE()
 	}
 #endif
 	return false;
+}
+
+bool FSoftObjectPath::FixupForPIE()
+{
+	return FixupForPIE(GPlayInEditorID);
 }
 
 bool FSoftObjectPath::FixupCoreRedirects()
@@ -523,7 +528,7 @@ FSoftClassPath FSoftClassPath::GetOrCreateIDForClass(const UClass *InClass)
 	return FSoftClassPath(InClass);
 }
 
-bool FSoftObjectPathThreadContext::GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType) const
+bool FSoftObjectPathThreadContext::GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType, FArchive* Archive) const
 {
 	FName CurrentPackageName, CurrentPropertyName;
 	ESoftObjectPathCollectType CurrentCollectType = ESoftObjectPathCollectType::AlwaysCollect;
@@ -559,34 +564,55 @@ bool FSoftObjectPathThreadContext::GetSerializationOptions(FName& OutPackageName
 		bFoundAnything = true;
 	}
 	
-	// Check UObject thread context as a backup
+	
+	// Check UObject thread context as a backup, this only works for loads
 	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 	if (ThreadContext.SerializedObject)
 	{
 		FLinkerLoad* Linker = ThreadContext.SerializedObject->GetLinker();
+
 		if (Linker)
 		{
 			if (CurrentPackageName == NAME_None)
 			{
 				CurrentPackageName = FName(*FPackageName::FilenameToLongPackageName(Linker->Filename));
 			}
-			if (Linker->GetSerializedProperty() && CurrentPropertyName == NAME_None)
+			if (Archive == nullptr)
 			{
-				CurrentPropertyName = Linker->GetSerializedProperty()->GetFName();
+				// Use archive from linker if it wasn't passed in
+				Archive = Linker;
 			}
-#if WITH_EDITORONLY_DATA
-			bool bEditorOnly = Linker->IsEditorOnlyPropertyOnTheStack();
-#else
-			bool bEditorOnly = false;
-#endif
-			// If we were always collect before and not overridden by stack options, set to editor only
-			if (bEditorOnly && CurrentCollectType == ESoftObjectPathCollectType::AlwaysCollect)
-			{
-				CurrentCollectType = ESoftObjectPathCollectType::EditorOnlyCollect;
-			}
-
 			bFoundAnything = true;
 		}
+	}
+
+	// Check archive for property/editor only info, this works for any serialize if passed in
+	if (Archive)
+	{
+		UProperty* CurrentProperty = Archive->GetSerializedProperty();
+			
+		if (CurrentProperty && CurrentPropertyName == NAME_None)
+		{
+			CurrentPropertyName = CurrentProperty->GetFName();
+		}
+		bool bEditorOnly = false;
+#if WITH_EDITOR
+		bEditorOnly = Archive->IsEditorOnlyPropertyOnTheStack();
+
+		static FName UntrackedName = TEXT("Untracked");
+		if (CurrentProperty && CurrentProperty->HasMetaData(UntrackedName))
+		{
+			// Property has the Untracked metadata, so set to never collect references
+			CurrentCollectType = ESoftObjectPathCollectType::NeverCollect;
+		}
+#endif
+		// If we were always collect before and not overridden by stack options, set to editor only
+		if (bEditorOnly && CurrentCollectType == ESoftObjectPathCollectType::AlwaysCollect)
+		{
+			CurrentCollectType = ESoftObjectPathCollectType::EditorOnlyCollect;
+		}
+
+		bFoundAnything = true;
 	}
 
 	if (bFoundAnything)

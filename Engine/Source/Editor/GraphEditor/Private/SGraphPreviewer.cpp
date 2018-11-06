@@ -7,23 +7,24 @@
 #include "EditorStyleSet.h"
 #include "SGraphPanel.h"
 
-void SGraphPreviewer::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SGraphPreviewer::RefreshGraphTimer(const double InCurrentTime, const float InDeltaTime)
 {
-	// Keep the graph constantly zoomed to fit
-	GraphPanel->ZoomToFit(false);
-
-	// Refresh the graph if needed
-	if (bNeedsRefresh)
+	if (NeedsRefreshCounter > 0)
 	{
-		bNeedsRefresh = false;
-		GraphPanel->Update();
-	}	
+		GraphPanel->ZoomToFit(false);
+		NeedsRefreshCounter--;
+		return EActiveTimerReturnType::Continue;
+	}
+	else
+	{
+		return EActiveTimerReturnType::Stop;
+	}
 }
 
 void SGraphPreviewer::Construct( const FArguments& InArgs, UEdGraph* InGraphObj )
 {
 	EdGraphObj = InGraphObj;
-	bNeedsRefresh = true;
+	NeedsRefreshCounter = 2;
 
 	TSharedPtr<SOverlay> DisplayStack;
 
@@ -54,6 +55,8 @@ void SGraphPreviewer::Construct( const FArguments& InArgs, UEdGraph* InGraphObj 
 		]
 	];
 
+	GraphPanel->Update();
+
 	// Add the title bar if specified
 	if (InArgs._TitleBar.IsValid())
 	{
@@ -63,4 +66,6 @@ void SGraphPreviewer::Construct( const FArguments& InArgs, UEdGraph* InGraphObj 
 				InArgs._TitleBar.ToSharedRef()
 			];
 	}
+
+	RegisterActiveTimer(0.0f, FWidgetActiveTimerDelegate::CreateSP(this, &SGraphPreviewer::RefreshGraphTimer));
 }

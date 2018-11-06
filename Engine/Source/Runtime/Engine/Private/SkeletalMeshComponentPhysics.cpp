@@ -97,19 +97,19 @@ FString FSkeletalMeshComponentEndPhysicsTickFunction::DiagnosticMessage()
 
 void USkeletalMeshComponent::CreateBodySetup()
 {
-	check(SkeletalMesh);
-
 	if (BodySetup == NULL)
 	{
 		BodySetup = NewObject<UBodySetup>(this);
 	}
 
-	UBodySetup* OriginalBodySetup = SkeletalMesh->GetBodySetup();
-	
-	BodySetup->CopyBodyPropertiesFrom(OriginalBodySetup);
-	BodySetup->CollisionTraceFlag = CTF_UseComplexAsSimple;
+	if (SkeletalMesh)
+	{
+		UBodySetup* OriginalBodySetup = SkeletalMesh->GetBodySetup();
+		BodySetup->CopyBodyPropertiesFrom(OriginalBodySetup);
+		BodySetup->CookedFormatDataOverride = &OriginalBodySetup->CookedFormatData;
+	}
 
-	BodySetup->CookedFormatDataOverride = &OriginalBodySetup->CookedFormatData;
+	BodySetup->CollisionTraceFlag = CTF_UseComplexAsSimple;
 
 	//need to recreate meshes
 	BodySetup->ClearPhysicsMeshes();
@@ -1965,7 +1965,7 @@ void USkeletalMeshComponent::ComputeSkinnedPositions(USkeletalMeshComponent* Com
 					if (ActorData)
 					{
 						const uint32 SoftOffset = Section.GetVertexBufferIndex();
-						const uint32 NumSoftVerts = Section.GetNumVertices();
+						const uint32 NumSoftVerts = FMath::Min(Section.GetNumVertices(), ActorData->Positions.Num());
 
 						// if blend weight is 1.0, doesn't need to blend with a skinned position
 						if (Component->ClothBlendWeight < 1.0f)

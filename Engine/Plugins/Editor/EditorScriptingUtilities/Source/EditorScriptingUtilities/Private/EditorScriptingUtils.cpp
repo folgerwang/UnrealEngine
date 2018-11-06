@@ -182,6 +182,15 @@ namespace EditorScriptingUtils
 			return FString();
 		}
 
+		// Extract the subobject path if any
+		FString SubObjectPath;
+		int32 SubObjectDelimiterIdx;
+		if (TextPath.FindChar(SUBOBJECT_DELIMITER_CHAR, SubObjectDelimiterIdx))
+		{
+			SubObjectPath = TextPath.Mid(SubObjectDelimiterIdx + 1);
+			TextPath = TextPath.Left(SubObjectDelimiterIdx);
+		}
+
 		// Convert \ to /
 		TextPath.ReplaceInline(TEXT("\\"), TEXT("/"), ESearchCase::CaseSensitive);
 		FPaths::RemoveDuplicateSlashes(TextPath);
@@ -204,7 +213,7 @@ namespace EditorScriptingUtils
 		}
 
 		// Get the object name
-		FString ObjectName = FPackageName::ObjectPathToPackageName(AssetFullName);
+		FString ObjectName = FPackageName::ObjectPathToObjectName(AssetFullName);
 		if (ObjectName.IsEmpty())
 		{
 			OutFailureReason = FString::Printf(TEXT("Can't convert the path '%s' because it doesn't contain an asset name."), *AnyAssetPath);
@@ -236,7 +245,7 @@ namespace EditorScriptingUtils
 			return FString();
 		}
 
-		FString ObjectPath = FString::Printf(TEXT("%s.%s"), *PackagePath, *ObjectName); // #todo-ueent should be asset name, not object name (as ObjectName == PackageName)
+		FString ObjectPath = FString::Printf(TEXT("%s.%s"), *PackagePath, *ObjectName);
 
 		if (FPackageName::IsScriptPackage(ObjectPath))
 		{

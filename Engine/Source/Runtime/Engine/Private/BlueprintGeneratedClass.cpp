@@ -39,6 +39,9 @@ static FAutoConsoleVariableRef CVarBlueprintClusteringEnabled(
 
 UBlueprintGeneratedClass::UBlueprintGeneratedClass(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	, UberGraphFunctionKey(0)
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 {
 	NumReplicatedProperties = 0;
 	bHasNativizedParent = false;
@@ -119,50 +122,7 @@ void UBlueprintGeneratedClass::PostLoad()
 	}
 #endif // WITH_EDITORONLY_DATA
 
-	// Generate "fast path" instancing data for UCS/AddComponent node templates.
-	if (CookedComponentInstancingData.Num() > 0)
-	{
-		for (int32 Index = ComponentTemplates.Num() - 1; Index >= 0; --Index)
-		{
-			if (UActorComponent* ComponentTemplate = ComponentTemplates[Index])
-			{
-				if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
-				{
-					ComponentInstancingData->LoadCachedPropertyDataForSerialization(ComponentTemplate);
-				}
-			}
-		}
-	}
-
 	AssembleReferenceTokenStream(true);
-}
-
-void UBlueprintGeneratedClass::GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut)
-{
-	Super::GetRequiredPreloadDependencies(DependenciesOut);
-
-	// the component templates are no longer needed as Preload() dependencies 
-	// (FLinkerLoad now handles these with placeholder export objects instead)...
-	// this change was prompted by a cyclic case, where creating the first
-	// component-template tripped the serialization of its class outer, before 
-	// another second component-template could be created (even though the 
-	// second component was listed in the ExportMap before the class)
-// 	for (UActorComponent* Component : ComponentTemplates)
-// 	{
-// 		// because of the linker's way of handling circular dependencies (with 
-// 		// placeholder blueprint classes), we need to ensure that class owned 
-// 		// blueprint components are created before the class's  is 
-// 		// ComponentTemplates member serialized in (otherwise, the component 
-// 		// would be created as a ULinkerPlaceholderClass instance)
-// 		//
-// 		// by returning these in the DependenciesOut array, we're making it 
-// 		// known that they should be prioritized in the package's ExportMap 
-// 		// before this class
-// 		if (Component->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
-// 		{
-// 			DependenciesOut.Add(Component);
-// 		}
-// 	}
 }
 
 FPrimaryAssetId UBlueprintGeneratedClass::GetPrimaryAssetId() const
@@ -345,6 +305,54 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 		// On load, build the custom property list used in post-construct initialization logic. Note that in the editor, this will be refreshed during compile-on-load.
 		// @TODO - Potentially make this serializable (or cooked data) to eliminate the slight load time cost we'll incur below to generate this list in a cooked build. For now, it's not serialized since the raw UProperty references cannot be saved out.
 		UpdateCustomPropertyListForPostConstruction();
+
+		// Generate "fast path" instancing data for inherited SCS node templates.
+		if (InheritableComponentHandler)
+		{
+			for (auto RecordIt = InheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
+			{
+				if (RecordIt->ComponentTemplate && RecordIt->CookedComponentInstancingData.bIsValid)
+				{
+					RecordIt->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(RecordIt->ComponentTemplate);
+				}
+			}
+		}
+
+		// Generate "fast path" instancing data for SCS node templates owned by this Blueprint class.
+		if (SimpleConstructionScript)
+		{
+			const TArray<USCS_Node*>& AllSCSNodes = SimpleConstructionScript->GetAllNodes();
+			for (USCS_Node* SCSNode : AllSCSNodes)
+			{
+				if (SCSNode->ComponentTemplate && SCSNode->CookedComponentInstancingData.bIsValid)
+				{
+					SCSNode->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(SCSNode->ComponentTemplate);
+				}
+			}
+		}
+
+		// Generate "fast path" instancing data for UCS/AddComponent node templates.
+		if (CookedComponentInstancingData.Num() > 0)
+		{
+			for (UActorComponent* ComponentTemplate : ComponentTemplates)
+			{
+				if (ComponentTemplate)
+				{
+					if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
+					{
+						ComponentInstancingData->BuildCachedPropertyDataFromTemplate(ComponentTemplate);
+					}
+				}
+			}
+		}
+
+		// We may need to manually apply default value overrides to some inherited components in a cooked build
+		// scenario. This can occur if we have a nativized Blueprint class somewhere in the parent class ancestry.
+		// Note: This must occur AFTER component templates are loaded, but BEFORE component instances are serialized.
+		if (bHasNativizedParent)
+		{
+			CheckAndApplyComponentTemplateOverrides(ClassDefaultObject);
+		}
 	}
 }
 
@@ -363,13 +371,6 @@ void UBlueprintGeneratedClass::PostLoadDefaultObject(UObject* Object)
 		if (HasAnyClassFlags(CLASS_Config))
 		{
 			ClassDefaultObject->LoadConfig();
-		}
-
-		// We may need to manually apply default value overrides to some inherited components in a cooked build
-		// scenario. This can occur if we have a nativized Blueprint class somewhere in the parent class ancestry.
-		if (bHasNativizedParent)
-		{
-			CheckAndApplyComponentTemplateOverrides(ClassDefaultObject);
 		}
 	}
 }
@@ -811,8 +812,7 @@ UObject* UBlueprintGeneratedClass::FindArchetype(UClass* ArchetypeClass, const F
 			}
 		}
 	}
-
-	ensure(!Archetype || ArchetypeClass->IsChildOf(Archetype->GetClass()));
+	
 	return Archetype;
 }
 
@@ -1179,11 +1179,8 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(UObject* 
 										}
 									};
 
-									// Ensure that the ICH has gotten a PostLoad() call - we need to ensure that any cooked data will have been fully processed before proceeding.
-									ICH->ConditionalPostLoad();
-
 									// Serialize cached override data to the instanced subobject that's based on the default subobject from the nativized parent class and owned by the non-nativized child class default object.
-									FNativizedComponentOverrideDataLoader OverrideDataLoader(OverrideData->GetCachedPropertyDataForSerialization(), OverrideData->GetCachedPropertyListForSerialization());
+									FNativizedComponentOverrideDataLoader OverrideDataLoader(OverrideData->GetCachedPropertyData(), OverrideData->GetCachedPropertyList());
 									NativizedComponentSubobjectInstance->Serialize(OverrideDataLoader);
 								}
 							}
@@ -1242,6 +1239,9 @@ void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool
 					*GetPathNameSafe(UberGraphFunction), *GetPathNameSafe(Obj));
 			}
 			PointerToUberGraphFrame->RawPointer = FrameMemory;
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+			PointerToUberGraphFrame->UberGraphFunctionKey = UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 		}
 	}
 
@@ -1324,6 +1324,51 @@ void UBlueprintGeneratedClass::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	}
 }
 
+void UBlueprintGeneratedClass::GetDefaultObjectPreloadDependencies(TArray<UObject*>& OutDeps)
+{
+	Super::GetDefaultObjectPreloadDependencies(OutDeps);
+
+	// Ensure that BPGC-owned component templates (archetypes) are loaded prior to CDO serialization in order to support the following use cases:
+	//
+	//	1) When the "fast path" component instancing optimization is enabled, we generate a cached delta binary at BPGC load time that we then deserialize into
+	//	   new component instances after we spawn them at runtime. Generating the cached delta requires component templates to be loaded so that we can use them
+	//	   as the basis for delta serialization. However, we cannot add them a preload dependency of the class without introducing a cycle, so we add them as a
+	//	   preload dependency on the CDO here instead.
+	//	2) When Blueprint nativization is enabled, any Blueprint class assets that are not converted to C++ may still inherit from a Blueprint class asset that is
+	//	   converted to C++. In that case, the non-nativized child Blueprint class may still inherit one or more SCS nodes from the parent class. However, when
+	//	   we nativize a Blueprint class, we convert the class-owned SCS component templates into CDO-owned default subobjects. In the non-nativized child Blueprint
+	//	   class, these remain stored in the ICH as override templates. In order to ensure that the inherited default subobject in the CDO reflects the defaults that
+	//	   are recorded into the override template, we bake out the list of changed properties at cook time and then use it to also generate a cached delta binary
+	//	   when the non-nativized BPGC child asset is loaded in the cooked build. We then use binary serialization to update the default subobject instance (see
+	//	   CheckAndApplyComponentTemplateOverrides). That must occur prior to serializing instances of the non-nativized BPGC so that delta serialization works
+	//	   correctly, so adding them as preload dependencies here ensures that the override templates will all be loaded prior to serialization of the CDO.
+
+	// Walk up the SCS inheritance hierarchy and add component templates (archetypes). This may include override templates contained in the ICH for inherited SCS nodes.
+	UBlueprintGeneratedClass* CurrentBPClass = this;
+	while (CurrentBPClass)
+	{
+		if (CurrentBPClass->SimpleConstructionScript)
+		{
+			const TArray<USCS_Node*>& AllSCSNodes = CurrentBPClass->SimpleConstructionScript->GetAllNodes();
+			for (USCS_Node* SCSNode : AllSCSNodes)
+			{
+				OutDeps.Add(SCSNode->GetActualComponentTemplate(this));
+			}
+		}
+
+		CurrentBPClass = Cast<UBlueprintGeneratedClass>(CurrentBPClass->GetSuperClass());
+	}
+
+	// Also add UCS/AddComponent node templates (archetypes).
+	for (UActorComponent* ComponentTemplate : ComponentTemplates)
+	{
+		if (ComponentTemplate)
+		{
+			OutDeps.Add(ComponentTemplate);
+		}
+	}
+}
+
 bool UBlueprintGeneratedClass::NeedsLoadForServer() const
 {
 	// This logic can't be used for targets that use editor content because UBlueprint::NeedsLoadForEditorGame
@@ -1382,19 +1427,22 @@ void UBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties
 	Super::Link(Ar, bRelinkExistingProperties);
 
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
-	if (UsePersistentUberGraphFrame() && UberGraphFunction)
+	if(UsePersistentUberGraphFrame())
 	{
-		Ar.Preload(UberGraphFunction);
-
-		for (UStructProperty* Property : TFieldRange<UStructProperty>(this, EFieldIteratorFlags::ExcludeSuper))
+		if (UberGraphFunction)
 		{
-			if (Property->GetFName() == GetUberGraphFrameName())
+			Ar.Preload(UberGraphFunction);
+
+			for (UStructProperty* Property : TFieldRange<UStructProperty>(this, EFieldIteratorFlags::ExcludeSuper))
 			{
-				UberGraphFramePointerProperty = Property;
-				break;
+				if (Property->GetFName() == GetUberGraphFrameName())
+				{
+					UberGraphFramePointerProperty = Property;
+					break;
+				}
 			}
+			checkSlow(UberGraphFramePointerProperty);
 		}
-		checkSlow(UberGraphFramePointerProperty);
 	}
 #endif
 
@@ -1406,6 +1454,9 @@ void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 	Super::PurgeClass(bRecompilingOnLoad);
 
 	UberGraphFunction = NULL;
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	UberGraphFunctionKey = 0;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 #if WITH_EDITORONLY_DATA
 	OverridenArchetypeForCDO = NULL;
 
@@ -1439,6 +1490,15 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 				checkSlow(PointerToUberGraphFrame)
 				if (PointerToUberGraphFrame->RawPointer)
 				{
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+					ensureMsgf(
+						PointerToUberGraphFrame->UberGraphFunctionKey == BPGC->UberGraphFunctionKey,
+						TEXT("Detected key mismatch in uber graph frame for instance %s of type %s, iteration will be unsafe"),
+						*InThis->GetPathName(),
+						*BPGC->GetPathName()
+					);
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 					checkSlow(BPGC->UberGraphFunction);
 					FVerySlowReferenceCollectorArchiveScope CollectorScope(
 						Collector.GetInternalPersistentFrameReferenceCollectorArchive(),
@@ -1479,8 +1539,24 @@ bool UBlueprintGeneratedClass::UsePersistentUberGraphFrame()
 #endif
 }
 
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+static TAtomic<int32> GUberGraphSerialNumber(0);
+
+ENGINE_API int32 IncrementUberGraphSerialNumber()
+{
+	return ++GUberGraphSerialNumber;
+}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 void UBlueprintGeneratedClass::Serialize(FArchive& Ar)
 {
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	if (Ar.IsLoading() && 0 == (Ar.GetPortFlags() & PPF_Duplicate))
+	{
+		UberGraphFunctionKey = IncrementUberGraphSerialNumber();
+	}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 	Super::Serialize(Ar);
 
 	if (Ar.IsLoading() && 0 == (Ar.GetPortFlags() & PPF_Duplicate))
@@ -1585,7 +1661,7 @@ void FBlueprintCookedComponentInstancingData::BuildCachedArrayPropertyList(const
 	}
 }
 
-const FCustomPropertyListNode* FBlueprintCookedComponentInstancingData::GetCachedPropertyListForSerialization() const
+const FCustomPropertyListNode* FBlueprintCookedComponentInstancingData::GetCachedPropertyList() const
 {
 	FCustomPropertyListNode* PropertyListRootNode = nullptr;
 
@@ -1605,7 +1681,7 @@ const FCustomPropertyListNode* FBlueprintCookedComponentInstancingData::GetCache
 	return PropertyListRootNode;
 }
 
-void FBlueprintCookedComponentInstancingData::LoadCachedPropertyDataForSerialization(UActorComponent* SourceTemplate)
+void FBlueprintCookedComponentInstancingData::BuildCachedPropertyDataFromTemplate(UActorComponent* SourceTemplate)
 {
 	// Blueprint component instance data writer implementation.
 	class FBlueprintComponentInstanceDataWriter : public FObjectWriter
@@ -1642,10 +1718,10 @@ void FBlueprintCookedComponentInstancingData::LoadCachedPropertyDataForSerializa
 			ComponentTemplateFlags = SourceTemplate->GetFlags();
 
 			// This will also load the cached property list, if necessary.
-			const FCustomPropertyListNode* PropertyList = GetCachedPropertyListForSerialization();
+			const FCustomPropertyListNode* PropertyList = GetCachedPropertyList();
 
 			// Write template data out to the "fast path" buffer. All dependencies will be loaded at this point.
-			FBlueprintComponentInstanceDataWriter InstanceDataWriter(CachedPropertyDataForSerialization, PropertyList);
+			FBlueprintComponentInstanceDataWriter InstanceDataWriter(CachedPropertyData, PropertyList);
 			SourceTemplate->Serialize(InstanceDataWriter);
 		}
 		else

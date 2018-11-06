@@ -946,6 +946,12 @@ void SAssetView::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 
 	CalculateThumbnailHintColorAndOpacity();
 
+	if (FSlateApplication::Get().GetActiveModalWindow().IsValid())
+	{
+		// If we're in a model window then we need to tick the thumbnail pool in order for thumbnails to render correctly.
+		AssetThumbnailPool->Tick(InDeltaTime);
+	}
+
 	if ( bPendingUpdateThumbnails )
 	{
 		UpdateThumbnails();
@@ -3942,6 +3948,12 @@ TSharedPtr<SWidget> SAssetView::OnGetContextMenuContent()
 {
 	if ( CanOpenContextMenu() )
 	{
+		if (IsRenamingAsset())
+		{
+			RenamingAsset.Pin()->RenameCanceledEvent.ExecuteIfBound();
+			RenamingAsset.Reset();
+		}
+
 		const TArray<FString> SelectedFolders = GetSelectedFolders();
 		if(SelectedFolders.Num() > 0)
 		{

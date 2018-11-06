@@ -26,6 +26,8 @@ struct SYNTHESIS_API FSynth2DSliderStyle : public FSlateWidgetStyle
 
 	virtual ~FSynth2DSliderStyle();
 
+	static void Initialize();
+
 	// Image to use for the 2D handle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Appearance)
 	FSlateBrush NormalThumbImage;

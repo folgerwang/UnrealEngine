@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewModels/Stack/NiagaraStackSpacer.h"
+#include "NiagaraActions.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 void UNiagaraStackSpacer::Initialize(FRequiredEntryData InRequiredEntryData, FName InSpacerKey, float InSpacerScale, EStackRowStyle InRowStyle)
 {
@@ -33,4 +35,14 @@ FName UNiagaraStackSpacer::GetSpacerKey() const
 float UNiagaraStackSpacer::GetSpacerScale() const
 {
 	return SpacerScale;
+}
+
+FReply UNiagaraStackSpacer::OnStackSpacerDrop(TSharedPtr<FDragDropOperation> DragDropOperation)
+{
+	return FReply::Unhandled(); 
+}
+
+bool UNiagaraStackSpacer::OnStackSpacerAllowDrop(TSharedPtr<FDragDropOperation> DragDropOperation)
+{
+	return false;
 }

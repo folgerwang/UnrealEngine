@@ -293,6 +293,16 @@ public:
 	 * @return The owning local player.
 	 */
 	virtual ULocalPlayer* GetOwningLocalPlayer() const override;
+	
+	/**
+	 * Gets the local player associated with this UI cast to the template type.
+	 * @return The owning local player. May be NULL if the cast fails.
+	 */
+	template < class T >
+	T* GetOwningLocalPlayer() const
+	{
+		return Cast<T>(GetOwningLocalPlayer());
+	}
 
 	/**
 	 * Sets the player associated with this UI via LocalPlayer reference.
@@ -305,7 +315,17 @@ public:
 	 * @return The player controller that owns the UI.
 	 */
 	virtual APlayerController* GetOwningPlayer() const override;
-
+	
+	/**
+	 * Gets the player controller associated with this UI cast to the template type.
+	 * @return The player controller that owns the UI. May be NULL if the cast fails.
+	 */
+	template < class T >
+	T* GetOwningPlayer() const
+	{
+		return Cast<T>(GetOwningPlayer());
+	}
+	
 	/**
 	 * Sets the local player associated with this UI via PlayerController reference.
 	 * @param LocalPlayerController The PlayerController of the local player you want to be the conceptual owner of this UI.
@@ -319,6 +339,17 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Player")
 	class APawn* GetOwningPlayerPawn() const;
+	
+	/**
+	 * Gets the player pawn associated with this UI cast to the template type.
+	 * @return Gets the owning player pawn that's owned by the player controller assigned to this widget.
+	 * May be NULL if the cast fails.
+	 */
+	template < class T >
+	T* GetOwningPlayerPawn() const
+	{
+		return Cast<T>(GetOwningPlayerPawn());
+	}
 
 	/**
 	 * Get the owning player's PlayerState.

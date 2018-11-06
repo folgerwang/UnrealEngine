@@ -6,7 +6,6 @@
 
 #define LOCTEXT_NAMESPACE "ARSkyLight"
 
-
 AARSkyLight::AARSkyLight(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, CaptureProbe(nullptr)
@@ -61,3 +60,4 @@ void AARSkyLight::SetEnvironmentCaptureProbe(UAREnvironmentCaptureProbe* InCaptu
 	}
 }
 
+#undef LOCTEXT_NAMESPACE

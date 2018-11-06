@@ -476,8 +476,15 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static FORCEINLINE void ProgramParameter(GLuint Program, GLenum PName, GLint Value)
 	{
-		check(glProgramParameteri);
-		glProgramParameteri(Program, PName, Value);
+		if (bES30Support)
+		{
+			check(glProgramParameteri);
+			glProgramParameteri(Program, PName, Value);
+		}
+		else
+		{
+			FOpenGLBase::ProgramParameter(Program, PName, Value);
+		}
 	}
 
 	static FORCEINLINE void BindBufferBase(GLenum Target, GLuint Index, GLuint Buffer)
@@ -512,7 +519,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static FORCEINLINE void VertexAttribIPointer(GLuint Index, GLint Size, GLenum Type, GLsizei Stride, const GLvoid* Pointer)
 	{
-		if (IsES31Usable() && glVertexAttribIPointer != nullptr)
+		if (IsES31Usable())
 		{
 			glVertexAttribIPointer(Index, Size, Type, Stride, Pointer);
 		}

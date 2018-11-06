@@ -751,6 +751,10 @@ static inline VkPrimitiveTopology UEToVulkanType(EPrimitiveType PrimitiveType)
 	return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
 }
 
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+extern TAutoConsoleVariable<int32> CVarVulkanDebugBarrier;
+#endif
+
 namespace VulkanRHI
 {
 	static inline FString GetPipelineCacheFilename()
@@ -817,7 +821,7 @@ namespace VulkanRHI
 		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	}
 
-	inline void InsertHeavyWeightBarrier(VkCommandBuffer CmdBuffer)
+	inline void HeavyWeightBarrier(VkCommandBuffer CmdBuffer)
 	{
 		VkMemoryBarrier Barrier;
 		ZeroVulkanStruct(Barrier, VK_STRUCTURE_TYPE_MEMORY_BARRIER);
@@ -852,6 +856,16 @@ namespace VulkanRHI
 			VK_ACCESS_HOST_READ_BIT |
 			VK_ACCESS_HOST_WRITE_BIT;
 		VulkanRHI::vkCmdPipelineBarrier(CmdBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &Barrier, 0, nullptr, 0, nullptr);
+	}
+
+	inline void DebugHeavyWeightBarrier(VkCommandBuffer CmdBuffer, int32 CVarConditionMask)
+	{
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+		if (CVarVulkanDebugBarrier.GetValueOnAnyThread() & CVarConditionMask)
+		{
+			HeavyWeightBarrier(CmdBuffer);
+		}
+#endif
 	}
 }
 

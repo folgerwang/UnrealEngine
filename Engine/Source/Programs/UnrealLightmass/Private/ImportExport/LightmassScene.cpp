@@ -1549,6 +1549,30 @@ void FSpotLight::SampleDirection(
 //----------------------------------------------------------------------------
 //	Rect light class
 //----------------------------------------------------------------------------
+void FRectLight::Import( FLightmassImporter& Importer )
+{
+	FPointLight::Import( Importer );
+
+	Importer.ImportData( (FRectLightData*)this );
+
+#if 0
+	uint32 NumPixels = 0;
+	if( SourceTextureSizeX + SourceTextureSizeY > 0 )
+	{
+		uint32 SizeX = SourceTextureSizeX;
+		uint32 SizeY = SourceTextureSizeY;
+		while( SizeX > 1 || SizeY > 1 )
+		{
+			NumPixels += SizeX * SizeY;
+
+			SizeX = SizeX > 1 ? SizeX >> 1 : 1;
+			SizeY = SizeY > 1 ? SizeY >> 1 : 1;
+		}
+	}
+	Importer.ImportArray( SourceTexture, NumPixels );
+#endif
+}
+
 
 FVector PolygonIrradiance( FVector Poly[4] )
 {
@@ -1580,7 +1604,7 @@ FVector PolygonIrradiance( FVector Poly[4] )
  */
 FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalculateForIndirectLighting) const
 {
-	FVector4 ToLight = Position - Point;
+	FVector ToLight = Position - Point;
 
 	FVector AxisY = GetLightTangent();
 	FVector AxisZ = -Direction;
@@ -1589,6 +1613,9 @@ FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalcula
 		LightSourceRadius,
 		LightSourceLength
 	);
+
+	if( ( ToLight | AxisZ ) < 0.0f )
+		return FLinearColor::Black;
 
 	FVector Poly[4];
 	Poly[0] = ToLight - AxisX * Extent.X - AxisY * Extent.Y;
@@ -1601,11 +1628,22 @@ FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalcula
 	// TODO Move CPU cide
 	DistanceAttenuation /= 2 * Extent.X * Extent.Y;
 
-	float DistanceSqr = ToLight.SizeSquared3();
+	float DistanceSqr = ToLight.SizeSquared();
 	float LightRadiusMask = FMath::Square(FMath::Max(0.0f, 1.0f - FMath::Square(DistanceSqr / (Radius * Radius))));
 	DistanceAttenuation *= LightRadiusMask;
 
-	return FLight::GetDirectIntensity(Point, bCalculateForIndirectLighting) * DistanceAttenuation;
+	return FLight::GetDirectIntensity(Point, bCalculateForIndirectLighting) * DistanceAttenuation * SourceTextureAvgColor;
+}
+
+/** Returns the number of direct photons to gather required by this light. */
+int32 FRectLight::GetNumDirectPhotons(float DirectPhotonDensity) const
+{
+	const float InfluenceSphereSurfaceAreaMillions = 4.0f * (float)PI * FMath::Square(Radius) / 1000000.0f;
+	// Find the fraction of the sphere's surface area that is inside the cone
+	const float SurfaceAreaSphereFraction = 0.25f;
+	// Gather enough photons to meet DirectPhotonDensity on the spherical cap at the influence radius of the spot light.
+	const int32 NumDirectPhotons = FMath::TruncToInt(InfluenceSphereSurfaceAreaMillions * SurfaceAreaSphereFraction * DirectPhotonDensity);
+	return NumDirectPhotons == appTruncErrorCode ? INT_MAX : NumDirectPhotons;
 }
 
 /** Validates a surface sample given the position that sample is affecting. */
@@ -1657,6 +1695,23 @@ FVector4 FRectLight::LightCenterPosition(const FVector4& ReceivingPosition, cons
 #endif
 }
 
+bool FRectLight::AffectsBounds(const FBoxSphereBounds& Bounds) const
+{
+	FPlane Plane( Position, Direction );
+	float DistanceToPlane = ( Bounds.Origin - Position ) | Direction;
+	if( DistanceToPlane < -Bounds.SphereRadius )
+	{
+		return false;
+	}
+
+	if(!FPointLight::AffectsBounds(Bounds))
+	{
+		return false;
+	}
+
+	return true;
+}
+
 /** Returns true if all parts of the light are behind the surface being tested. */
 bool FRectLight::BehindSurface(const FVector4& TrianglePoint, const FVector4& TriangleNormal) const
 {
@@ -1705,6 +1760,55 @@ void FRectLight::SampleLightSurface(FLMRandomStream& RandomStream, FLightSurface
 	Sample.Normal = -AxisZ;
 	// Probability of generating this surface position is 1 / SurfaceArea
 	Sample.PDF = 1.0f / (4.0f * Extent.X * Extent.Y);
+}
+
+/** Generates a direction sample from the light's domain */
+void FRectLight::SampleDirection(FLMRandomStream& RandomStream, FLightRay& SampleRay, FVector4& LightSourceNormal, FVector2D& LightSurfacePosition, float& RayPDF, FLinearColor& Power) const
+{
+	FVector AxisY = GetLightTangent();
+	FVector AxisZ = -Direction;
+	FVector AxisX = AxisY ^ AxisZ;
+	FVector2D Extent(
+		LightSourceRadius,
+		LightSourceLength
+	);
+
+	float UnitX = RandomStream.GetFraction() * 2.0f - 1.0f;
+	float UnitY = RandomStream.GetFraction() * 2.0f - 1.0f;
+
+	FVector4 SamplePosition = Position + AxisX * Extent.X * UnitX + AxisY * Extent.Y * UnitY;
+
+	FVector4 SampleDirection = GetCosineHemisphereVector( RandomStream );
+	RayPDF = SampleDirection.Z / PI;
+
+	SampleDirection =
+		SampleDirection.X * AxisX +
+		SampleDirection.Y * AxisY +
+		SampleDirection.Z * AxisZ;
+
+	SampleRay = FLightRay(
+		SamplePosition,
+		SamplePosition - SampleDirection * Radius,
+		NULL,
+		this
+		);
+
+	LightSourceNormal = -AxisZ;
+
+	Power = SourceTextureAvgColor * IndirectColor * Brightness;
+}
+
+/** Generates a direction sample from the light based on the given rays */
+void FRectLight::SampleDirection(
+	const TArray<FIndirectPathRay>& IndirectPathRays, 
+	FLMRandomStream& RandomStream, 
+	FLightRay& SampleRay, 
+	float& RayPDF, 
+	FLinearColor& Power) const
+{
+	FVector4 Unused;
+	FVector2D Unused2;
+	FRectLight::SampleDirection(RandomStream, SampleRay, Unused, Unused2, RayPDF, Power);
 }
 
 

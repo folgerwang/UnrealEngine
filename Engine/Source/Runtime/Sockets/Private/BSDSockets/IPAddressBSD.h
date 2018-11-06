@@ -83,15 +83,12 @@ public:
 	virtual TArray<uint8> GetRawIp() const override;
 
 	/**
-	 * Sets the ip address from a host byte order uint32
+	 * Sets the ip address from a host byte order uint32.
+	 * Will attempt to determine platform compatibility for best way to store address
 	 *
 	 * @param InAddr the new address to use (must convert to network byte order)
 	 */
-	virtual void SetIp(uint32 InAddr) override
-	{
-		((sockaddr_in*)&Addr)->sin_addr.s_addr = htonl(InAddr);
-		Addr.ss_family = AF_INET;
-	}
+	virtual void SetIp(uint32 InAddr) override;
 
 	/**
 	 * Sets the ip address from a string IPv6 or IPv4 address.
@@ -163,7 +160,7 @@ public:
 
 	/**
 	 * Copies the network byte order ip address to a host byte order dword.
-	 * Does nothing if we are currently not storing an ipv4 addr
+	 * Does nothing if we are currently not storing an ipv4 addr in some capacity
 	 *
 	 * @param OutAddr the out param receiving the ip address
 	 */

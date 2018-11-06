@@ -24,7 +24,7 @@ class UMediaPlayer;
 /**
  * Implements a texture asset for rendering video tracks from UMediaPlayer assets.
  */
-UCLASS(hidecategories=(Adjustments, Compositing, LevelOfDetail, Object))
+UCLASS(hidecategories=(Adjustments, Compositing, LevelOfDetail, ImportSettings, Object))
 class MEDIAASSETS_API UMediaTexture
 	: public UTexture
 {

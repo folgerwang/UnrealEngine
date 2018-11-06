@@ -54,6 +54,7 @@
 #include "DeferredShadingRenderer.h"
 #include "PostProcess/PostProcessFFTBloom.h"
 #include "MobileSeparateTranslucencyPass.h"
+#include "MobileDistortionPass.h"
 
 /** The global center for all post processing activities. */
 FPostProcessing GPostProcessing;
@@ -1431,7 +1432,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 		bool bVisualizeBloom = View.Family->EngineShowFlags.VisualizeBloom && FeatureLevel >= ERHIFeatureLevel::SM4;
 		bool bVisualizeMotionBlur = View.Family->EngineShowFlags.VisualizeMotionBlur && FeatureLevel >= ERHIFeatureLevel::SM4;
 
-		if(bVisualizeHDR || bVisualizeBloom || bVisualizeMotionBlur)
+		if(bVisualizeBloom || bVisualizeMotionBlur)
 		{
 			bAllowTonemapper = false;
 		}
@@ -1465,10 +1466,18 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 
 			bool bSepTransWasApplied = false;
 
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			if(bDepthOfField && View.FinalPostProcessSettings.DepthOfFieldMethod != DOFM_BokehDOF)
 			{
 				if(View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_Gaussian)
 				{
+					static bool bHasWarned = false;
+					if (!bHasWarned)
+					{
+						UE_LOG(LogRenderer, Warning, TEXT("Gaussian DOF algorithm is deprecated and will be removed from deferred shading renderer. Consider using the Circle DOF method in post process settings."));
+						bHasWarned = true;
+					}
+
 					if (FPostProcessing::HasAlphaChannelSupport())
 					{
 						UE_LOG(LogRenderer, Log, TEXT("Gaussian depth of field does not have alpha channel support. Only Circle DOF has."));
@@ -1505,6 +1514,12 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 					}
 					else
 					{
+						static bool bHasWarned = false;
+						if (!bHasWarned)
+						{
+							UE_LOG(LogRenderer, Warning, TEXT("Circle DOF algorithm is deprecated and will be removed. Consider using Diphragm DOF with r.DOF.Algorithm = 1."));
+							bHasWarned = true;
+						}
 						AddPostProcessDepthOfFieldCircle(Context, DOFVelocityRef);
 					}
 				}
@@ -1514,9 +1529,17 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 				&& View.FinalPostProcessSettings.DepthOfFieldScale > 0
 				&& View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_BokehDOF
 				&& !Context.View.Family->EngineShowFlags.VisualizeDOF;
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 			if(bBokehDOF)
 			{
+				static bool bHasWarned = false;
+				if (!bHasWarned)
+				{
+					UE_LOG(LogRenderer, Warning, TEXT("Bokeh DOF algorithm is deprecated and will be removed. Consider using the Circle DOF method in post process settings."));
+					bHasWarned = true;
+				}
+
 				if (FPostProcessing::HasAlphaChannelSupport())
 				{
 					UE_LOG(LogRenderer, Log, TEXT("Boked depth of field does not have alpha channel support. Only Circle DOF has."));
@@ -1981,7 +2004,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
 		}
 
-		if(View.Family->EngineShowFlags.VisualizeLPV && !View.Family->EngineShowFlags.VisualizeHDR)
+		if(View.Family->EngineShowFlags.VisualizeLPV)
 		{
 			ensureMsgf(!bUnscaledFinalOutput, TEXT("Should not unscale final output multiple times."));
 			bUnscaledFinalOutput = true;
@@ -2313,7 +2336,7 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 		// incorrect UTexture::SRGB state. (UTexture::SRGB != HW texture state)
 		bool bSRGBAwareTarget = View.Family->RenderTarget->GetDisplayGamma() == 1.0f
 			&& View.bIsSceneCapture
-			&& View.GetShaderPlatform() == EShaderPlatform::SP_METAL;
+			&& IsMetalMobilePlatform(View.GetShaderPlatform());
 
 		// add the passes we want to add to the graph (commenting a line means the pass is not inserted into the graph) ---------
 		if( View.Family->EngineShowFlags.PostProcessing && bAllowFullPostProcess)
@@ -2343,6 +2366,18 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 
 			// Post is not supported on ES2 devices using mosaic.
 			bool bUsePost = bHDRModeAllowsPost && IsMobileHDR();
+			
+			if (bUsePost && IsMobileDistortionActive(View))
+			{
+				FRenderingCompositePass* AccumulatedDistortion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionAccumulatePassES2(SceneColorSize));
+				AccumulatedDistortion->SetInput(ePId_Input0, Context.FinalOutput); // unused atm
+				FRenderingCompositeOutputRef AccumulatedDistortionRef(AccumulatedDistortion);
+				
+				FRenderingCompositePass* PostProcessDistorsion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCDistortionMergePassES2(SceneColorSize));
+				PostProcessDistorsion->SetInput(ePId_Input0, Context.FinalOutput);
+				PostProcessDistorsion->SetInput(ePId_Input1, AccumulatedDistortionRef);
+				Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessDistorsion);
+			}
 
 			// Always evaluate custom post processes
 			if (bUsePost)
@@ -2422,12 +2457,15 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 						// black is how we clear the velocity buffer so this means no velocity
 						FRenderingCompositePass* NoVelocity = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(GSystemTextures.BlackDummy));
 						FRenderingCompositeOutputRef NoVelocityRef(NoVelocity);
+
+						PRAGMA_DISABLE_DEPRECATION_WARNINGS
 						if(View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_Gaussian && IsGaussianActive(Context))
 						{
 							FDepthOfFieldStats DepthOfFieldStat;
 							FRenderingCompositeOutputRef DummySeparateTranslucency;
 							AddPostProcessDepthOfFieldGaussian(Context, DepthOfFieldStat, NoVelocityRef, DummySeparateTranslucency);
 						}
+						PRAGMA_ENABLE_DEPRECATION_WARNINGS
 					}
 				}
 

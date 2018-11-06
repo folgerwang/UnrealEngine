@@ -602,9 +602,10 @@ public:
 		AllowStaticLighting = true;
 		FrameCountAfterRenderingCommandSend = 0;
 		RequestTickSinceCreation = 0;
+		PreExposure = 1;
 	}
 
-	void SetRequestData(FVector2D SrcViewportUV, int32 TargetBufferIndex, int32 ViewUniqueId, int32 GBufferFormat, bool StaticLightingEnable)
+	void SetRequestData(FVector2D SrcViewportUV, int32 TargetBufferIndex, int32 ViewUniqueId, int32 GBufferFormat, bool StaticLightingEnable, float InPreExposure)
 	{
 		SourceViewportUV = SrcViewportUV;
 		BufferIndex = TargetBufferIndex;
@@ -613,6 +614,7 @@ public:
 		ViewId = ViewUniqueId;
 		GBufferPrecision = GBufferFormat;
 		AllowStaticLighting = StaticLightingEnable;
+		PreExposure = InPreExposure;
 		FrameCountAfterRenderingCommandSend = 0;
 		RequestTickSinceCreation = 0;
 	}
@@ -634,6 +636,7 @@ public:
 	//GPU state at capture time
 	int32 GBufferPrecision;
 	bool AllowStaticLighting;
+	float PreExposure;
 };
 
 #define VIRTUALTEXTURESPACE_MAXLAYERS 4

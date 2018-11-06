@@ -24,6 +24,10 @@ namespace ResonanceAudio
 
 	FResonanceAudioReverb::~FResonanceAudioReverb()
 	{
+		if (GlobalReverbPluginPreset)
+		{
+			GlobalReverbPluginPreset->RemoveFromRoot();
+		}
 	}
 
 	void FResonanceAudioReverb::Initialize(const FAudioPluginInitializationParams InitializationParams)
@@ -116,10 +120,11 @@ namespace ResonanceAudio
 
 		if (GlobalReverbPluginPreset)
 		{
+			GlobalReverbPluginPreset->AddToRoot();
 			ReverbPluginPreset = GlobalReverbPluginPreset;
 
 			FResonanceAudioReverbPlugin* Effect = static_cast<FResonanceAudioReverbPlugin*>(GlobalReverbPluginPreset->CreateNewEffect());
-			Effect->RegisterWithPreset(GlobalReverbPluginPreset);
+			Effect->SetPreset(GlobalReverbPluginPreset);
 			Effect->SetResonanceAudioReverbPlugin(this);
 			return static_cast<FSoundEffectSubmix*>(Effect);
 		}

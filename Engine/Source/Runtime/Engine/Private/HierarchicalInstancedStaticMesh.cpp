@@ -1561,15 +1561,23 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				for (int32 LODIndex = 1; LODIndex < InstanceParams.LODs; LODIndex++)
 				{
 					float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(View->GetFeatureLevel()), SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
-					InstanceParams.LODPlanesMin[LODIndex - 1] = Distance - LODRandom;
-					InstanceParams.LODPlanesMax[LODIndex - 1] = Distance;
+					InstanceParams.LODPlanesMin[LODIndex - 1] = FMath::Min(FinalCull - LODRandom, Distance - LODRandom);
+					InstanceParams.LODPlanesMax[LODIndex - 1] = FMath::Min(FinalCull, Distance);
 				}
 				InstanceParams.LODPlanesMin[InstanceParams.LODs - 1] = FinalCull - LODRandom;
 				InstanceParams.LODPlanesMax[InstanceParams.LODs - 1] = FinalCull;
+
+				// Added assert guard to track issue UE-53944
+				check(InstanceParams.LODs <= 8);
+				check(RenderData != nullptr);
 			
 				for (int32 LODIndex = 0; LODIndex < InstanceParams.LODs; LODIndex++)
 				{
 					InstanceParams.MinInstancesToSplit[LODIndex] = 2;
+
+					// Added assert guard to track issue UE-53944
+					check(RenderData->LODResources.IsValidIndex(LODIndex));
+
 					int32 NumVerts = RenderData->LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices();
 					if (NumVerts)
 					{
@@ -1729,11 +1737,11 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						for (int32 LODIndex = 1; LODIndex < NumLODs; LODIndex++)
 						{
 							float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(View->GetFeatureLevel()), SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
-							LODPlanesMin[LODIndex - 1] = Distance - LODRandom;
-							LODPlanesMax[LODIndex - 1] = Distance;
+							LODPlanesMin[LODIndex - 1] = FMath::Min(FinalCull - LODRandom, Distance - LODRandom);
+							LODPlanesMax[LODIndex - 1] = FMath::Min(FinalCull, Distance);
 						}
 						LODPlanesMin[NumLODs - 1] = FinalCull - LODRandom;
-						LODPlanesMax[NumLODs - 1] = FinalCull;				
+						LODPlanesMax[NumLODs - 1] = FinalCull;
 
 						// NOTE: in case of unbuilt we can't really apply the instance scales so the LOD won't be optimal until the build is completed
 
@@ -2431,6 +2439,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>);
 		NumBuiltInstances = 0;
 		NumBuiltRenderInstances = 0;
+		InstanceCountToRender = 0;
 		InstanceReorderTable.Empty();
 		SortedInstances.Empty();
 
@@ -2699,6 +2708,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>);
 		NumBuiltInstances = 0;
 		NumBuiltRenderInstances = 0;
+		InstanceCountToRender = 0;
 		InstanceReorderTable.Empty();
 		SortedInstances.Empty();
 		CacheMeshExtendedBounds = FBoxSphereBounds(ForceInitToZero);

@@ -934,15 +934,24 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 					RHICmdList.DrawIndexedPrimitive(GetUnitCubeIndexBuffer(), PT_TriangleList, 0, 0, 8, 0, ARRAY_COUNT(GCubeIndices) / 3, 1);
 					RenderTargetManager.bGufferADirty |= (RenderTargetManager.TargetsToResolve[FDecalRenderTargetManager::GBufferAIndex] != nullptr);
 				}
-
-				// we don't modify stencil but if out input was having stencil for us (after base pass - we need to clear)
-				// Clear stencil to 0, which is the assumed default by other passes
-				DrawClearQuad(RHICmdList, false, FLinearColor(), false, 0, true, 0, SceneContext.GetSceneDepthSurface()->GetSizeXY(), FIntRect());
 			}
 
 			// This stops the targets from being resolved and decoded until the last view is rendered.
 			// This is done so as to not run eliminate fast clear on the views before the end.
 			bool bLastView = Context.View.Family->Views.Last() == &Context.View;
+			if (Scene.Decals.Num() > 0 && bLastView && CurrentStage == DRS_Emissive)
+			{
+				// we don't modify stencil but if out input was having stencil for us (after base pass - we need to clear)
+				// Clear stencil to 0, which is the assumed default by other passes
+				FRHIDepthRenderTargetView DepthView(SceneContext.GetSceneDepthTexture(), 
+													ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, 
+													ERenderTargetLoadAction::EClear,	ERenderTargetStoreAction::EStore, 
+													FExclusiveDepthStencil(FExclusiveDepthStencil::DepthNop_StencilWrite));
+				FRHISetRenderTargetsInfo Info(0, nullptr, DepthView);
+				RHICmdList.SetRenderTargetsAndClear(Info);
+				//DrawClearQuad(RHICmdList, false, FLinearColor(), false, 0, true, 0, SceneContext.GetSceneDepthSurface()->GetSizeXY(), FIntRect());
+			}
+
 			if (CurrentStage == DRS_BeforeBasePass)
 			{
 				// combine DBuffer RTWriteMasks; will end up in one texture we can load from in the base pass PS and decide whether to do the actual work or not

@@ -778,7 +778,8 @@ void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContex
 	const FSceneRenderTargetItem* DestRenderTarget, const FSceneRenderTargetItem* SceneDepthBuffer,
 	const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample)
 {
-	const bool bDepthBoundsTestEnabled = GSupportsDepthBoundsTest && SceneDepthBuffer && CVarAmbientOcclusionDepthBoundsTest.GetValueOnRenderThread();
+	// We do not support the depth bounds optimization if we are in MSAA. To do so we would have to resolve the depth buffer here OR use a multisample texture for our AO target.
+	const bool bDepthBoundsTestEnabled = GSupportsDepthBoundsTest && SceneDepthBuffer && CVarAmbientOcclusionDepthBoundsTest.GetValueOnRenderThread() && SceneDepthBuffer->TargetableTexture->GetNumSamples() == 1;
 
 	// Set the view family's render target/viewport.
 
@@ -801,22 +802,25 @@ void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContex
 		static_assert(bool(ERHIZBuffer::IsInverted), "Inverted depth buffer is assumed when setting depth bounds test for AO.");
 
 		// We must clear all pixels that won't be touched by AO shader.
-		FClearQuadCallbacks Callbacks;
-		Callbacks.PSOModifier = [](FGraphicsPipelineStateInitializer& PSOInitializer)
+		FClearQuadCallbacks* Callbacks = new FClearQuadCallbacks();
+
+		Callbacks->PSOModifier = [](FGraphicsPipelineStateInitializer& PSOInitializer)
 		{
 			PSOInitializer.bDepthBounds = true;
 		};
-		Callbacks.PreClear = [DepthFar](FRHICommandList& InRHICmdList)
+		Callbacks->PreClear = [DepthFar](FRHICommandList& InRHICmdList)
 		{
 			// This is done by rendering a clear quad over a depth range from AmbientOcclusionFadeDistance to far plane.
 			InRHICmdList.SetDepthBounds(0, DepthFar);	// NOTE: Inverted depth
 		};
-		Callbacks.PostClear = [DepthFar](FRHICommandList& InRHICmdList)
+		Callbacks->PostClear = [DepthFar](FRHICommandList& InRHICmdList)
 		{
 			// Set depth bounds test to cover everything from near plane to AmbientOcclusionFadeDistance and run AO pixel shader.
 			InRHICmdList.SetDepthBounds(DepthFar, 1.0f);
 		};
-		DrawClearQuad(Context.RHICmdList, FLinearColor::White, Callbacks);
+		DrawClearQuad(Context.RHICmdList, FLinearColor::White, *Callbacks);
+
+		delete Callbacks;
 	}
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;

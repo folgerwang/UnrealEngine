@@ -5,6 +5,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/LevelScriptActor.h"
 #include "Editor.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectHash.h"
@@ -215,7 +216,8 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 	{
 		NewAssetFactories = InArgs._NewAssetFactories.GetValue();
 	}
-	else if (AllowedClassFilters.Num() > 1 && !AllowedClassFilters.Contains(UObject::StaticClass()))
+	// If there are more allowed classes than just UObject 
+	else if (AllowedClassFilters.Num() > 1 || !AllowedClassFilters.Contains(UObject::StaticClass()))
 	{
 		NewAssetFactories = PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(AllowedClassFilters, DisallowedClassFilters);
 	}
@@ -267,7 +269,7 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 				// Go through all the found objects and see if any are a CDO, we can't set an actor in a CDO default.
 				for (UObject* Obj : ObjectList)
 				{
-					if (Obj->IsTemplate())
+					if (Obj->IsTemplate() && !Obj->IsA<ALevelScriptActor>())
 					{
 						IsEnabledAttribute.Set(false);
 						TooltipAttribute.Set(LOCTEXT("VariableHasDisableEditOnTemplateTooltip", "Editing this value in a Class Default Object is not allowed"));

@@ -25,6 +25,7 @@ bool FDisplayClusterConfigParserDebugAuto::ParseFile(const FString& path)
 	ClusterNode.ScreenId   = TEXT("screen_stub");;
 	ClusterNode.ViewportId = TEXT("viewport_stub");
 	ClusterNode.SoundEnabled = true;
+	ClusterNode.EyeSwap    = false;
 	AddClusterNode(ClusterNode);
 
 	const float PixelDensity = 0.6f / 1920.f;
@@ -40,8 +41,6 @@ bool FDisplayClusterConfigParserDebugAuto::ParseFile(const FString& path)
 	Viewport.Id   = ClusterNode.ViewportId;
 	Viewport.Loc  = FIntPoint(0, 0);
 	Viewport.Size = FIntPoint(DisplayClusterConstants::misc::DebugAutoResX, DisplayClusterConstants::misc::DebugAutoResY);
-	Viewport.FlipHorizontal = false;
-	Viewport.FlipVertical   = false;
 	AddViewport(Viewport);
 	
 	FDisplayClusterConfigCamera Camera;

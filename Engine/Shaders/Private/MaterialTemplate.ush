@@ -94,15 +94,15 @@ struct FMaterialParticleParameters
 	/** Dynamic parameters used by particle systems. */
 	half4 DynamicParameter;
 
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if( DYNAMIC_PARAMETERS_MASK & 2)
 	half4 DynamicParameter1;
 #endif
 
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	half4 DynamicParameter2;
 #endif
 
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	half4 DynamicParameter3;
 #endif
 
@@ -127,19 +127,19 @@ float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Defaul
 	{
 		return Parameters.DynamicParameter;
 	}
-#if NUM_DYNAMIC_PARAMETERS > 1
+#if (DYNAMIC_PARAMETERS_MASK & 2)
 	else if(ParameterIndex == 1)
 	{
 		return Parameters.DynamicParameter1;
 	}
 #endif
-#if NUM_DYNAMIC_PARAMETERS > 2
+#if (DYNAMIC_PARAMETERS_MASK & 4)
 	else if(ParameterIndex == 2)
 	{
 		return Parameters.DynamicParameter2;
 	}
 #endif	
-#if NUM_DYNAMIC_PARAMETERS > 3
+#if (DYNAMIC_PARAMETERS_MASK & 8)
 	else if(ParameterIndex == 3)
 	{
 		return Parameters.DynamicParameter3;
@@ -1362,7 +1362,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 	//PPI_SceneDepth
 	if (SceneTextureId == 1)
 	{
-		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, UV).r);
+		MaterialFloat Depth = Texture2DSample(MobileSceneTextures.SceneColorTexture, MobileSceneTextures.SceneColorTextureSampler, UV).a;
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
 	//PPI_CustomDepth

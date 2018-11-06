@@ -10,6 +10,8 @@
 #include "VulkanContext.h"
 #include "VulkanMemory.h"
 #include "PipelineStateCache.h"
+#include "Misc/OutputDeviceRedirector.h"
+
 
 extern CORE_API bool GIsGPUCrashed;
 
@@ -95,33 +97,6 @@ FVulkanStagingBuffer::~FVulkanStagingBuffer()
 FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef BackingBuffer)
 {
 	return new FVulkanStagingBuffer(BackingBuffer);
-}
-
-void FVulkanDynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef FenceRHI, uint32 Offset, uint32 NumBytes)
-{
-	FVulkanCommandListContext& Context = Device->GetImmediateContext();
-	FVulkanCmdBuffer* CmdBuffer = Context.GetCommandBufferManager()->GetActiveCmdBuffer();
-
-	FVulkanGPUFence* Fence = ResourceCast(FenceRHI);
-	Fence->CmdBuffer = CmdBuffer;
-	Fence->FenceSignaledCounter = CmdBuffer->GetFenceSignaledCounter();
-
-	ensure(CmdBuffer->IsOutsideRenderPass());
-	VulkanRHI::FStagingBuffer* ReadbackStagingBuffer = Device->GetStagingManager().AcquireBuffer(NumBytes);
-	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	StagingBuffer->StagingBuffer = ReadbackStagingBuffer;
-	StagingBuffer->QueuedOffset = Offset;
-	StagingBuffer->QueuedNumBytes = NumBytes;
-
-	VkBufferCopy Region;
-	FMemory::Memzero(Region);
-	Region.size = NumBytes;
-	FVulkanVertexBuffer* VertexBuffer = ResourceCast(StagingBufferRHI->GetBackingBuffer());
-	Region.srcOffset = Offset + VertexBuffer->GetOffset();
-	//Region.dstOffset = 0;
-	VulkanRHI::vkCmdCopyBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), ReadbackStagingBuffer->GetHandle(), 1, &Region);
-
-	return FDynamicRHI::RHIEnqueueStagedRead(StagingBuffer, Fence, Offset, NumBytes);
 }
 
 void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
@@ -378,8 +353,8 @@ float FVulkanEventNode::GetTiming()
 
 void FVulkanGPUProfiler::BeginFrame()
 {
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
-	if (GGPUCrashDebuggingEnabled && Device->GetOptionalExtensions().HasAMDBufferMarker)
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
+	if (GGPUCrashDebuggingEnabled && Device->GetOptionalExtensions().HasGPUCrashDumpExtensions())
 	{
 		static auto* CrashCollectionEnableCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.collectionenable"));
 		static auto* CrashCollectionDataDepth = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.datadepth"));
@@ -491,7 +466,7 @@ void FVulkanGPUProfiler::EndFrame()
 	}
 }
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 void FVulkanGPUProfiler::PushMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TCHAR* Name)
 {
 	uint32 CRC = 0;
@@ -516,7 +491,7 @@ void FVulkanGPUProfiler::PushMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer 
 	}
 
 	PushPopStack.Push(CRC);
-	FVulkanPlatform::WriteBufferMarkerAMD(CmdBuffer, DestBuffer, TArrayView<uint32>(PushPopStack), true);
+	FVulkanPlatform::WriteCrashMarker(Device->GetOptionalExtensions(), CmdBuffer, DestBuffer, TArrayView<uint32>(PushPopStack), true);
 }
 
 void FVulkanGPUProfiler::PopMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer)
@@ -524,19 +499,48 @@ void FVulkanGPUProfiler::PopMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer D
 	if (PushPopStack.Num() > 0)
 	{
 		PushPopStack.Pop(false);
-		FVulkanPlatform::WriteBufferMarkerAMD(CmdBuffer, DestBuffer, TArrayView<uint32>(PushPopStack), false);
+		FVulkanPlatform::WriteCrashMarker(Device->GetOptionalExtensions(), CmdBuffer, DestBuffer, TArrayView<uint32>(PushPopStack), false);
 	}
 }
 
 void FVulkanGPUProfiler::DumpCrashMarkers(void* BufferData)
 {
-	uint32* Entries = (uint32*)BufferData;
-	uint32 NumCRCs = *Entries++;
-	for (uint32 Index = 0; Index < NumCRCs; ++Index)
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	if (Device->GetOptionalExtensions().HasAMDBufferMarker)
 	{
-		const FString* Frame = CachedStrings.Find(*Entries);
-		UE_LOG(LogVulkanRHI, Error, TEXT("[VK_AMD_buffer_info] %i: %s (CRC 0x%x)"), Index, Frame ? *(*Frame) : TEXT("<undefined>"), *Entries);
-		++Entries;
+		uint32* Entries = (uint32*)BufferData;
+		uint32 NumCRCs = *Entries++;
+		for (uint32 Index = 0; Index < NumCRCs; ++Index)
+		{
+			const FString* Frame = CachedStrings.Find(*Entries);
+			UE_LOG(LogVulkanRHI, Error, TEXT("[VK_AMD_buffer_info] %i: %s (CRC 0x%x)"), Index, Frame ? *(*Frame) : TEXT("<undefined>"), *Entries);
+			++Entries;
+		}
+	}
+	else
+#endif
+	{
+#if VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT
+		if (Device->GetOptionalExtensions().HasNVDiagnosticCheckpoints)
+		{
+			TArray<VkCheckpointDataNV> Data;
+			uint32 Num = 0;
+			VkQueue QueueHandle = Device->GetGraphicsQueue()->GetHandle();
+			VulkanDynamicAPI::vkGetQueueCheckpointDataNV(QueueHandle, &Num, nullptr);
+			Data.AddUninitialized(Num);
+			VulkanDynamicAPI::vkGetQueueCheckpointDataNV(QueueHandle, &Num, &Data[0]);
+			check(Num == Data.Num());
+			for (uint32 Index = 0; Index < Num; ++Index)
+			{
+				check(Data[Index].sType == VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV);
+				uint32 Value = (uint32)(size_t)Data[Index].pCheckpointMarker;
+				const FString* Frame = CachedStrings.Find(Value);
+				UE_LOG(LogVulkanRHI, Error, TEXT("[VK_NV_device_diagnostic_checkpoints] %i: Stage 0x%x, %s (CRC 0x%x)"), Index, Data[Index].stage, Frame ? *(*Frame) : TEXT("<undefined>"), Value);
+			}
+			GLog->PanicFlushThreadedLogs();
+			GLog->Flush();
+		}
+#endif
 	}
 }
 #endif
@@ -649,12 +653,12 @@ namespace VulkanRHI
 		UE_LOG(LogVulkanRHI, Error, TEXT("%s failed, VkResult=%d\n at %s:%u \n with error %s"),
 			ANSI_TO_TCHAR(VkFunction), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 		if (GIsGPUCrashed && GGPUCrashDebuggingEnabled)
 		{
 			FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
 			FVulkanDevice* Device = RHI->GetDevice();
-			if (Device->GetOptionalExtensions().HasAMDBufferMarker)
+			if (Device->GetOptionalExtensions().HasGPUCrashDumpExtensions())
 			{
 				Device->GetImmediateContext().GetGPUProfiler().DumpCrashMarkers(Device->GetCrashMarkerMappedPointer());
 			}

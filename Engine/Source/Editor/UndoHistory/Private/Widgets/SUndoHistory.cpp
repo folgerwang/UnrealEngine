@@ -103,21 +103,9 @@ SUndoHistory::~SUndoHistory()
 
 void SUndoHistory::OnUndoBufferChanged()
 {
-	if (GEditor != nullptr && GEditor->Trans != nullptr)
-	{
-		ReloadUndoList();
+	ReloadUndoList();
 
-		LastActiveTransactionIndex = GEditor->Trans->GetQueueLength() - 1;
-
-		if (UndoList.IsValidIndex(LastActiveTransactionIndex))
-		{
-			UndoListView->SetSelection(UndoList[LastActiveTransactionIndex]);
-		}
-		else
-		{
-			UndoListView->ClearSelection();
-		}
-	}
+	SelectLastTransaction();
 }
 
 void SUndoHistory::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -155,10 +143,22 @@ void SUndoHistory::ReloadUndoList( )
 
 	for (int32 QueueIndex = 0; QueueIndex < GEditor->Trans->GetQueueLength(); ++QueueIndex)
 	{
-		UndoList.Add(MakeShareable(new FTransactionInfo(QueueIndex, GEditor->Trans->GetTransaction(QueueIndex))));
+		UndoList.Add(MakeShared<FTransactionInfo>(QueueIndex, GEditor->Trans->GetTransaction(QueueIndex)));
 	}
 
 	UndoListView->RequestListRefresh();
+}
+
+void SUndoHistory::SelectLastTransaction()
+{
+	if (GEditor != nullptr && GEditor->Trans != nullptr)
+	{
+		LastActiveTransactionIndex = GEditor->Trans->GetQueueLength() - 1;
+		if (UndoList.IsValidIndex(LastActiveTransactionIndex))
+		{
+			UndoListView->SetSelection(UndoList[LastActiveTransactionIndex]);
+		}
+	}
 }
 
 
