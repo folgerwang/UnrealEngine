@@ -44,6 +44,7 @@ TSharedRef<SWidget> UButton::RebuildWidget()
 		.ButtonStyle(&WidgetStyle)
 		.ClickMethod(ClickMethod)
 		.TouchMethod(TouchMethod)
+		.PressMethod(PressMethod)
 		.IsFocusable(IsFocusable)
 		;
 
