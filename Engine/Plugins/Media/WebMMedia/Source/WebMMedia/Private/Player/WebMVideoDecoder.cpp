@@ -233,33 +233,36 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		}
 
 		FRHITexture* RenderTarget = VideoSample->GetTexture();
-		SetRenderTargets(CommandList, 1, &RenderTarget, nullptr, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop);
-
-		// configure media shaders
-		auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
-
-		TShaderMapRef<FYUVConvertPS> PixelShader(ShaderMap);
-		TShaderMapRef<FMediaShadersVS> VertexShader(ShaderMap);
-
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		FRHIRenderPassInfo RPInfo(RenderTarget, ERenderTargetActions::Load_Store);
+		CommandList.BeginRenderPass(RPInfo, TEXT("ConvertYUVtoRGBA"));
 		{
-			CommandList.ApplyCachedRenderTargets(GraphicsPSOInit);
-			GraphicsPSOInit.BlendState = TStaticBlendStateWriteMask<CW_RGBA, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GMoviePlayerResources.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+			// configure media shaders
+			auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+
+			TShaderMapRef<FYUVConvertPS> PixelShader(ShaderMap);
+			TShaderMapRef<FMediaShadersVS> VertexShader(ShaderMap);
+
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			{
+				CommandList.ApplyCachedRenderTargets(GraphicsPSOInit);
+				GraphicsPSOInit.BlendState = TStaticBlendStateWriteMask<CW_RGBA, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GMoviePlayerResources.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+			}
+
+			SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
+			PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), MediaShaders::YuvToSrgbDefault, true);
+
+			// draw full-size quad
+			CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
+			CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
+			CommandList.DrawPrimitive(0, 2, 1);
 		}
-
-		SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
-		PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), MediaShaders::YuvToSrgbDefault, true);
-
-		// draw full-size quad
-		CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
-		CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
-		CommandList.DrawPrimitive(0, 2, 1);
+		CommandList.EndRenderPass();
 		CommandList.CopyToResolveTarget(RenderTarget, RenderTarget, FResolveParams());
 
 		Samples->AddVideo(VideoSample.ToSharedRef());
