@@ -198,7 +198,7 @@ void FDeferredShadingSceneRenderer::RenderMeshDistanceFieldVisualization(FRHICom
 			}
 
 			{
-				SetRenderTarget(RHICmdList, NULL, NULL);
+				UnbindRenderTargets(RHICmdList);
 
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{
@@ -240,6 +240,8 @@ void FDeferredShadingSceneRenderer::RenderMeshDistanceFieldVisualization(FRHICom
 				GAOCulledObjectBuffers.Buffers.DiscardTransientResource();
 			}
 
+			check(RHICmdList.IsOutsideRenderPass());
+
 			{
 				FSceneRenderTargets::Get(RHICmdList).BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
 
@@ -278,6 +280,8 @@ void FDeferredShadingSceneRenderer::RenderMeshDistanceFieldVisualization(FRHICom
 						GetBufferSizeForAO(),
 						*VertexShader);
 				}
+
+				FSceneRenderTargets::Get(RHICmdList).FinishRenderingSceneColor(RHICmdList);
 			}
 		}
 	}

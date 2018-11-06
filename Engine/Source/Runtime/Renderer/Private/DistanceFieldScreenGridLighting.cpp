@@ -558,7 +558,7 @@ void FDeferredShadingSceneRenderer::RenderDistanceFieldAOScreenGrid(
 	}
 	ScreenGridResources->AcquireTransientResource();
 
-	SetRenderTarget(RHICmdList, NULL, NULL);
+	UnbindRenderTargets(RHICmdList);
 
 	if (bUseGlobalDistanceField)
 	{
