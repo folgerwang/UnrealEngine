@@ -724,15 +724,13 @@ private:
 	TSharedRef<SDockTab> SpawnTab_LayerProperties(const FSpawnTabArgs& Args);
 
 	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
+	void OnFinishedChangingParametersFromOverview(const FPropertyChangedEvent& PropertyChangedEvent);
 private:
 	/** List of open tool panels; used to ensure only one exists at any one time */
 	TMap< FName, TWeakPtr<class SDockableTab> > SpawnedToolPanels;
 
 	/** Property View */
 	TSharedPtr<class IDetailsView> MaterialDetailsView;
-
-	/** Parameters View */
-	TSharedPtr<class IDetailsView> MaterialParametersView;
 
 	/** New Graph Editor */
 	TSharedPtr<class SGraphEditor> GraphEditor;
@@ -755,6 +753,9 @@ private:
 
 	/** Find results log as well as the search filter */
 	TSharedPtr<class SFindInMaterial> FindResults;
+
+	/** Parameter overview list View */
+	TSharedPtr<class SMaterialParametersOverviewPanel> MaterialParametersOverviewWidget;
 
 	/** Layer Properties View */
 	TSharedPtr<class SMaterialLayersFunctionsMaterialWrapper> MaterialLayersFunctionsInstance;

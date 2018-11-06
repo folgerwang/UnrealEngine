@@ -39,8 +39,6 @@ public:
 	UPROPERTY()
 	class UMaterial* OriginalMaterial;
 
-	TWeakPtr<class IDetailsView> DetailsView;
-
 	//~ Begin UObject Interface.
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #if WITH_EDITOR

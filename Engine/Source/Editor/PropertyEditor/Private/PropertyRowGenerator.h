@@ -110,6 +110,7 @@ public:
 
 	const FCustomPropertyTypeLayoutMap& GetInstancedPropertyTypeLayoutMap() const;
 	void UpdateDetailRows();
+	virtual FOnFinishedChangingProperties& OnFinishedChangingProperties() override { return OnFinishedChangingPropertiesDelegate; }
 
 private:
 	void PreSetObject(int32 NumNewObjects, bool bHasStructRoots);
@@ -148,6 +149,8 @@ private:
 	TSharedRef<IPropertyUtilities> PropertyUtilities;
 	/** Utility class for accessing internal helper methods */
 	TSharedRef<IPropertyGenerationUtilities> PropertyGenerationUtilities;
+	/** Delegate called when the details panel finishes editing a property (after post edit change is called) */
+	FOnFinishedChangingProperties OnFinishedChangingPropertiesDelegate;
 
 	bool bViewingClassDefaultObject;
 };

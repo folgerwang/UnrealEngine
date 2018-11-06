@@ -1179,10 +1179,9 @@ void UMaterial::OverrideVectorParameterDefault(const FMaterialParameterInfo& Par
 	bool bShouldRecacheMaterialExpressions = false;
 
 	FMaterialResource* Resource = GetMaterialResource(InFeatureLevel);
-	// Iterate over both the 2D textures and cube texture expressions.
 	const TArray<TRefCountPtr<FMaterialUniformExpression> >& UniformExpressions = Resource->GetUniformVectorParameterExpressions();
 
-	// Iterate over each of the material's texture expressions.
+	// Iterate over each of the material's vector expressions.
 	for (FMaterialUniformExpression* UniformExpression : UniformExpressions)
 	{
 		if (UniformExpression->GetType() == &FMaterialUniformExpressionVectorParameter::StaticType)
@@ -1299,15 +1298,16 @@ bool UMaterial::IsCompilingOrHadCompileError(ERHIFeatureLevel::Type InFeatureLev
 #if WITH_EDITOR
 bool UMaterial::SetVectorParameterValueEditorOnly(FName ParameterName, FLinearColor InValue)
 {
+	bool bSetNewValue = false;
+	UMaterialExpressionVectorParameter* Parameter = nullptr;
 	for (UMaterialExpression* Expression : Expressions)
 	{
-		if (UMaterialExpressionVectorParameter* Parameter = Cast<UMaterialExpressionVectorParameter>(Expression))
+		Parameter = Cast<UMaterialExpressionVectorParameter>(Expression);
+		if (Parameter && Parameter->SetParameterValue(ParameterName, InValue))
 		{
-			if (Parameter->SetParameterValue(ParameterName, InValue))
-			{
-				return true;
-				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
-			}
+			bSetNewValue = true;
+			break;
+			// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 		}
 		else if (UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
@@ -1328,29 +1328,41 @@ bool UMaterial::SetVectorParameterValueEditorOnly(FName ParameterName, FLinearCo
 							{
 								if (FunctionExpressionParameter->SetParameterValue(ParameterName, InValue))
 								{
-									return true;
+									bSetNewValue = true;
+									break;
 								}
 							}
 						}
+					}
+					if (bSetNewValue)
+					{
+						break;
 					}
 				}
 			}
 		}
 	}
-	return false;
+	if (bSetNewValue)
+	{
+		UProperty* ParamProperty = FindField<UProperty>(UMaterialExpressionVectorParameter::StaticClass(), GET_MEMBER_NAME_STRING_CHECKED(UMaterialExpressionVectorParameter, DefaultValue));
+		FPropertyChangedEvent PropertyChangedEvent(ParamProperty);
+		Parameter->PostEditChangeProperty(PropertyChangedEvent);
+	}
+	return bSetNewValue;
 }
 
 bool UMaterial::SetScalarParameterValueEditorOnly(FName ParameterName, float InValue)
 {
+	bool bSetNewValue = false;
+	UMaterialExpressionScalarParameter* Parameter = nullptr;
 	for (UMaterialExpression* Expression : Expressions)
 	{
-		if (UMaterialExpressionScalarParameter* Parameter = Cast<UMaterialExpressionScalarParameter>(Expression))
+		Parameter = Cast<UMaterialExpressionScalarParameter>(Expression);
+		if (Parameter && Parameter->SetParameterValue(ParameterName, InValue))
 		{
-			if (Parameter->SetParameterValue(ParameterName, InValue))
-			{
-				return true;
-				// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
-			}
+			bSetNewValue = true;
+			break;
+			// Warning: in the case of duplicate parameters with different default values, this will find the first in the expression array, not necessarily the one that's used for rendering
 		}
 		else if (UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expression))
 		{
@@ -1367,20 +1379,33 @@ bool UMaterial::SetScalarParameterValueEditorOnly(FName ParameterName, float InV
 					{
 						for (UMaterialExpression* FunctionExpression : *ExpressionPtr)
 						{
-							if (UMaterialExpressionScalarParameter* FunctionExpressionParameter = Cast<UMaterialExpressionScalarParameter>(FunctionExpression))
+							Parameter = Cast<UMaterialExpressionScalarParameter>(FunctionExpression);
+							if (!bSetNewValue && Parameter)
 							{
-								if (FunctionExpressionParameter->SetParameterValue(ParameterName, InValue))
+								if (Parameter->SetParameterValue(ParameterName, InValue))
 								{
-									return true;
+									bSetNewValue = true;
+									break;
 								}
 							}
 						}
+					}
+					if (bSetNewValue)
+					{
+						break;
 					}
 				}
 			}
 		}
 	}
-	return false;
+	if (bSetNewValue)
+	{
+		UProperty* ParamProperty = FindField<UProperty>(UMaterialExpressionScalarParameter::StaticClass(), GET_MEMBER_NAME_STRING_CHECKED(UMaterialExpressionScalarParameter, DefaultValue));
+		FPropertyChangedEvent PropertyChangedEvent(ParamProperty);
+		Parameter->PostEditChangeProperty(PropertyChangedEvent);
+	}
+
+	return bSetNewValue;
 };
 
 bool UMaterial::SetTextureParameterValueEditorOnly(FName ParameterName, class UTexture* InValue)

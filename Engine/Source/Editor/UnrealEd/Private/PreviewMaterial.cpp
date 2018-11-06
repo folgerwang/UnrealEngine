@@ -267,13 +267,6 @@ void UMaterialEditorPreviewParameters::PostEditChangeProperty(FPropertyChangedEv
 				OriginalFunction->PreviewMaterial->PostEditChangeProperty(PropertyChangedEvent);
 			}
 		}
-	
-		if(DetailsView.IsValid())
-		{
-			// Tell our source instance to update itself so the preview updates.
-			DetailsView.Pin()->OnFinishedChangingProperties().Broadcast(PropertyChangedEvent);
-		}
-
 	}
 }
 

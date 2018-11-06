@@ -19,7 +19,7 @@ class IPropertyHandle;
 class UMaterialEditorInstanceConstant;
 class SMaterialLayersFunctionsInstanceTree;
 
-class SMaterialLayersFunctionsInstanceTreeItem : public STableRow< TSharedPtr<FStackSortedData> >
+class SMaterialLayersFunctionsInstanceTreeItem : public STableRow< TSharedPtr<FSortedParamData> >
 {
 public:
 
@@ -29,7 +29,7 @@ public:
 	{}
 
 	/** The item content. */
-	SLATE_ARGUMENT(TSharedPtr<FStackSortedData>, StackParameterData)
+	SLATE_ARGUMENT(TSharedPtr<FSortedParamData>, StackParameterData)
 	SLATE_ARGUMENT(UMaterialEditorInstanceConstant*, MaterialEditorInstance)
 	SLATE_ARGUMENT(SMaterialLayersFunctionsInstanceTree*, InTree)
 	SLATE_END_ARGS()
@@ -41,15 +41,15 @@ private:
 	bool bIsHoveredDragTarget;
 
 
-	FString GetCurvePath(UDEditorScalarParameterValue* Parameter) const;
+	FString GetCurvePath(class UDEditorScalarParameterValue* Parameter) const;
 	const FSlateBrush* GetBorderImage() const;
 
 public:
 
 	void RefreshOnRowChange(const FAssetData& AssetData, SMaterialLayersFunctionsInstanceTree* InTree);
-	bool GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const;
-	void FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData);
-	ECheckBoxState GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const;
+	bool GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FSortedParamData> InStackData) const;
+	void FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FSortedParamData> InStackData);
+	ECheckBoxState GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FSortedParamData> InStackData) const;
 	FText GetLayerName(SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter) const;
 	void OnNameChanged(const FText& InText, ETextCommit::Type CommitInfo, SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter);
 
@@ -81,7 +81,7 @@ public:
 	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView);
 
 	/** The node info to build the tree view row from. */
-	TSharedPtr<FStackSortedData> StackParameterData;
+	TSharedPtr<FSortedParamData> StackParameterData;
 
 	SMaterialLayersFunctionsInstanceTree* Tree;
 
@@ -111,7 +111,7 @@ public:
 	FSimpleDelegate OnLayerPropertyChanged;
 };
 
-class SMaterialLayersFunctionsInstanceTree : public STreeView<TSharedPtr<FStackSortedData>>
+class SMaterialLayersFunctionsInstanceTree : public STreeView<TSharedPtr<FSortedParamData>>
 {
 	friend class SMaterialLayersFunctionsInstanceTreeItem;
 public:
@@ -125,9 +125,9 @@ public:
 
 	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs);
-	TSharedRef< ITableRow > OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> Item, const TSharedRef< STableViewBase >& OwnerTable);
-	void OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> InParent, TArray< TSharedPtr<FStackSortedData> >& OutChildren);
-	void OnExpansionChanged(TSharedPtr<FStackSortedData> Item, bool bIsExpanded);
+	TSharedRef< ITableRow > OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> Item, const TSharedRef< STableViewBase >& OwnerTable);
+	void OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> InParent, TArray< TSharedPtr<FSortedParamData> >& OutChildren);
+	void OnExpansionChanged(TSharedPtr<FSortedParamData> Item, bool bIsExpanded);
 	void SetParentsExpansionState();
 
 	float OnGetLeftColumnWidth() const { return 1.0f - ColumnWidth; }
@@ -139,7 +139,7 @@ public:
 	struct FMaterialLayersFunctions* FunctionInstance;
 	TSharedPtr<IPropertyHandle> FunctionInstanceHandle;
 	void RefreshOnAssetChange(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType);
-	void ResetAssetToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FStackSortedData> InData);
+	void ResetAssetToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FSortedParamData> InData);
 	void AddLayer();
 	void RemoveLayer(int32 Index);
 	FReply ToggleLayerVisibility(int32 Index);
@@ -162,12 +162,12 @@ public:
 	FReply OnThumbnailDoubleClick(const FGeometry& Geometry, const FPointerEvent& MouseEvent, EMaterialParameterAssociation InAssociation, int32 InIndex);
 protected:
 
-	void ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter);
+	void ShowSubParameters(TSharedPtr<FSortedParamData> ParentParameter);
 
 private:
-	TArray<TSharedPtr<FStackSortedData>> LayerProperties;
+	TArray<TSharedPtr<FSortedParamData>> LayerProperties;
 
-	TArray<FLayerParameterUnsortedData> NonLayerProperties;
+	TArray<FUnsortedParamData> NonLayerProperties;
 
 	/** The actual width of the right column.  The left column is 1-ColumnWidth */
 	float ColumnWidth;
@@ -202,7 +202,7 @@ public:
 };
 
 
-class SMaterialLayersFunctionsMaterialTree : public STreeView<TSharedPtr<FStackSortedData>>
+class SMaterialLayersFunctionsMaterialTree : public STreeView<TSharedPtr<FSortedParamData>>
 {
 	friend class SMaterialLayersFunctionsMaterialTreeItem;
 public:
@@ -216,9 +216,9 @@ public:
 
 	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs);
-	TSharedRef< ITableRow > OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> Item, const TSharedRef< STableViewBase >& OwnerTable);
-	void OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FStackSortedData> InParent, TArray< TSharedPtr<FStackSortedData> >& OutChildren);
-	void OnExpansionChanged(TSharedPtr<FStackSortedData> Item, bool bIsExpanded);
+	TSharedRef< ITableRow > OnGenerateRowMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> Item, const TSharedRef< STableViewBase >& OwnerTable);
+	void OnGetChildrenMaterialLayersFunctionsTreeView(TSharedPtr<FSortedParamData> InParent, TArray< TSharedPtr<FSortedParamData> >& OutChildren);
+	void OnExpansionChanged(TSharedPtr<FSortedParamData> Item, bool bIsExpanded);
 	void SetParentsExpansionState();
 
 	float OnGetLeftColumnWidth() const { return 1.0f - ColumnWidth; }
@@ -238,12 +238,12 @@ public:
 
 protected:
 
-	void ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter);
+	void ShowSubParameters(TSharedPtr<FSortedParamData> ParentParameter);
 
 private:
-	TArray<TSharedPtr<FStackSortedData>> LayerProperties;
+	TArray<TSharedPtr<FSortedParamData>> LayerProperties;
 
-	TArray<FLayerParameterUnsortedData> NonLayerProperties;
+	TArray<FUnsortedParamData> NonLayerProperties;
 
 	/** The actual width of the right column.  The left column is 1-ColumnWidth */
 	float ColumnWidth;

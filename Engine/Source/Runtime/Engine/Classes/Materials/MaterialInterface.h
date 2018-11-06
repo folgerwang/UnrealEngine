@@ -261,6 +261,9 @@ public:
 	UPROPERTY()
 	TMap<FString, bool> LayerParameterExpansion;
 
+	UPROPERTY()
+	TMap<FString, bool> ParameterOverviewExpansion;
+
 	/** Importing data and options used for this material */
 	UPROPERTY(EditAnywhere, Instanced, Category = ImportSettings)
 	class UAssetImportData* AssetImportData;

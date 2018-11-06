@@ -586,7 +586,7 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewFunctionInstance(class UMateria
 }
 
 
-FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FStackSortedData> InSortedData)
+FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FSortedParamData> InSortedData)
 {
 	const FString DefaultSuffix = TEXT("_Inst");
 	TArray<FEditorParameterGroup> ParameterGroups;
@@ -595,7 +595,7 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFu
 	{
 		FunctionPreviewMaterial = Object->GetPreviewMaterial();
 	}
-	for (TSharedPtr<FStackSortedData> Group : InSortedData->Children)
+	for (TSharedPtr<FSortedParamData> Group : InSortedData->Children)
 	{
 		FEditorParameterGroup DuplicatedGroup = FEditorParameterGroup();
 		DuplicatedGroup.GroupAssociation = Group->Group.GroupAssociation;
@@ -857,7 +857,7 @@ void FMaterialPropertyHelpers::ResetLayerAssetToDefault(TSharedPtr<IPropertyHand
 	
 }
 
-bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<FStackSortedData> InParameterData, UMaterialInterface* InMaterial)
+bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<FSortedParamData> InParameterData, UMaterialInterface* InMaterial)
 {
 	if (!InParameterData->Parameter)
 	{

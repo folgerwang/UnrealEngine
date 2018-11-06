@@ -121,6 +121,8 @@
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
 
 #include "MaterialStats.h"
+#include "SMaterialParametersOverviewWidget.h"
+#include "IPropertyRowGenerator.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
@@ -691,6 +693,8 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	Material->MaterialGraph->RebuildGraph();
 	RecenterEditor();
 
+	UMaterialEditingLibrary::RecompileMaterial(OriginalMaterial);
+
 	//Make sure the preview material is initialized.
 	UpdatePreviewMaterial(true);
 	RegenerateCodeView(true);
@@ -764,7 +768,6 @@ FMaterialEditor::~FMaterialEditor()
 	SaveEditorSettings();
 
 	MaterialDetailsView.Reset();
-	MaterialParametersView.Reset();
 
 	{
 		SCOPED_SUSPEND_RENDERING_THREAD(true);
@@ -933,8 +936,6 @@ void FMaterialEditor::CreateInternalWidgets()
 
 	PropertyEditorModule.RegisterCustomClassLayout( UMaterial::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMaterialDetailCustomization::MakeInstance ) );
 
-	const FDetailsViewArgs ParametersViewArgs(false, false, true, FDetailsViewArgs::HideNameArea, true, this);
-	MaterialParametersView = PropertyEditorModule.CreateDetailView(ParametersViewArgs);
 	MaterialEditorInstance = NewObject<UMaterialEditorPreviewParameters>(GetTransientPackage(), NAME_None, RF_Transactional);
 	MaterialEditorInstance->PreviewMaterial = Material;
 	MaterialEditorInstance->OriginalMaterial = OriginalMaterial;
@@ -942,14 +943,9 @@ void FMaterialEditor::CreateInternalWidgets()
 	{
 		MaterialEditorInstance->OriginalFunction = MaterialFunction->ParentFunction;
 	}
-	MaterialEditorInstance->DetailsView = MaterialParametersView;
-	MaterialEditorInstance->RegenerateArrays();
-
-	FOnGetDetailCustomizationInstance LayoutParameterDetails = FOnGetDetailCustomizationInstance::CreateStatic(
-		&FMaterialEditorParameterDetails::MakeInstance, MaterialEditorInstance);
-	MaterialParametersView->RegisterInstancedCustomPropertyLayout(UMaterialEditorPreviewParameters::StaticClass(), LayoutParameterDetails);
-	MaterialParametersView->SetObject(MaterialEditorInstance, true);
-	MaterialParametersView->OnFinishedChangingProperties().AddSP(this, &FMaterialEditor::OnFinishedChangingProperties);
+	MaterialParametersOverviewWidget = SNew(SMaterialParametersOverviewPanel)
+		.InMaterialEditorInstance(MaterialEditorInstance);
+	MaterialParametersOverviewWidget->GetGenerator()->OnFinishedChangingProperties().AddSP(this, &FMaterialEditor::OnFinishedChangingParametersFromOverview);
 	
 	IMaterialEditorModule* MaterialEditorModule = &FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	if (MaterialEditorModule->MaterialLayersEnabled())
@@ -1002,6 +998,22 @@ void FMaterialEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& 
 		}
 		RefreshPreviewViewport();
 		UpdatePreviewMaterial();
+		MaterialParametersOverviewWidget->UpdateEditorInstance(MaterialEditorInstance);
+	}
+}
+
+void FMaterialEditor::OnFinishedChangingParametersFromOverview(const FPropertyChangedEvent& PropertyChangedEvent)
+{
+	bool bRefreshNodePreviews = false;
+	if (PropertyChangedEvent.Property != nullptr)
+	{
+		RefreshExpressionPreviews(true);
+		RefreshPreviewViewport();
+		UpdatePreviewMaterial();
+		TArray<TWeakObjectPtr<UObject>> SelectedObjects = MaterialDetailsView->GetSelectedObjects();
+		MaterialDetailsView->SetObjects(SelectedObjects, true);
+		Material->MarkPackageDirty();
+		SetMaterialDirty();
 	}
 }
 
@@ -1591,9 +1603,6 @@ void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
 	}
 	if (MaterialEditorInstance != nullptr)
 	{
-		MaterialEditorInstance->RegenerateArrays();
-		MaterialParametersView->ForceRefresh();
-
 		if (MaterialLayersFunctionsInstance.IsValid())
 		{
 			MaterialLayersFunctionsInstance->SetEditorInstance(MaterialEditorInstance);
@@ -2989,8 +2998,7 @@ void FMaterialEditor::OnPromoteToParameter()
 	}
 	if (MaterialEditorInstance != nullptr)
 	{
-		MaterialEditorInstance->RegenerateArrays();
-		MaterialParametersView->ForceRefresh();
+		MaterialParametersOverviewWidget->UpdateEditorInstance(MaterialEditorInstance);
 	}
 }
 
@@ -3336,7 +3344,7 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_ParameterDefaults(const FSpawnTab
 		[
 			SNew(SBox)
 			[
-				MaterialParametersView.ToSharedRef()
+				MaterialParametersOverviewWidget.ToSharedRef()
 			]
 		];
 
@@ -3476,6 +3484,7 @@ UMaterialExpression* FMaterialEditor::CreateNewMaterialExpression(UClass* NewExp
 	RefreshExpressionPreviews();
 	GraphEditor->NotifyGraphChanged();
 	SetMaterialDirty();
+	MaterialParametersOverviewWidget->UpdateEditorInstance(MaterialEditorInstance);
 	return NewExpression;
 }
 
@@ -4080,7 +4089,7 @@ void FMaterialEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 		{
 			MaterialLayersFunctionsInstance->SetEditorInstance(MaterialEditorInstance);
 		}
-
+		MaterialParametersOverviewWidget->UpdateEditorInstance(MaterialEditorInstance);
 		const FName NameOfPropertyThatChanged( *PropertyThatChanged->GetName() );
 		if ((NameOfPropertyThatChanged == GET_MEMBER_NAME_CHECKED(UMaterialInterface, PreviewMesh)) ||
 			(NameOfPropertyThatChanged == GET_MEMBER_NAME_CHECKED(UMaterial, bUsedWithSkeletalMesh)))
@@ -4330,6 +4339,7 @@ void FMaterialEditor::OnColorPickerCommitted(FLinearColor LinearColor)
 	}
 
 	RefreshExpressionPreviews();
+	MaterialParametersOverviewWidget->UpdateEditorInstance(MaterialEditorInstance);
 }
 
 TSharedRef<SGraphEditor> FMaterialEditor::CreateGraphEditorWidget()
@@ -4809,6 +4819,7 @@ void FMaterialEditor::OnNodeTitleCommitted(const FText& NewText, ETextCommit::Ty
 		const FScopedTransaction Transaction( LOCTEXT( "RenameNode", "Rename Node" ) );
 		NodeBeingChanged->Modify();
 		NodeBeingChanged->OnRenameNode(NewText.ToString());
+		MaterialParametersOverviewWidget->UpdateEditorInstance(MaterialEditorInstance);
 	}
 }
 
