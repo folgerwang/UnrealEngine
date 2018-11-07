@@ -2770,6 +2770,7 @@ namespace UnrealGameSync
 					if(Idx + 1 < Text.Length && Text[Idx + 1] == '[')
 					{
 						ElementText.Append(Text[Idx]);
+						Idx += 2;
 						continue;
 					}
 
