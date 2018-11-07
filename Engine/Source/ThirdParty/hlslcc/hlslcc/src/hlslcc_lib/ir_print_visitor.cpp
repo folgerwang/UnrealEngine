@@ -87,7 +87,7 @@ ir_print_visitor::ir_print_visitor()
 {
 	indentation = 0;
 	printable_names =
-		hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
+	hash_table_ctor(32, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	symbols = _mesa_symbol_table_ctor();
 	mem_ctx = ralloc_context(NULL);
 }

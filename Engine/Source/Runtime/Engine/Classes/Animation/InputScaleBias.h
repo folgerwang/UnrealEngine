@@ -50,7 +50,19 @@ public:
 	{
 	}
 
+	FInputRange(const float InMin, const float InMax)
+		: Min(InMin)
+		, Max(InMax)
+	{}
+
 	FVector2D ToVector2D() const { return FVector2D(Min, Max); } 
+	
+	bool ClampValue(float& InOutValue) const 
+	{ 
+		const float OriginalValue = InOutValue;
+		InOutValue = FMath::Clamp(InOutValue, Min, Max);
+		return (OriginalValue != InOutValue);
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -60,6 +72,15 @@ struct ENGINE_API FInputScaleBiasClamp
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	bool bMapRange;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	bool bClampResult;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	bool bInterpResult;
+
+	UPROPERTY(Transient)
+	mutable bool bInitialized;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (EditCondition = "bMapRange"))
 	FInputRange InRange;
@@ -73,17 +94,11 @@ struct ENGINE_API FInputScaleBiasClamp
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	float Bias;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
-	bool bClampResult;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (EditCondition = "bClampResult"))
 	float ClampMin;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (EditCondition = "bClampResult"))
 	float ClampMax;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
-	bool bInterpResult;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (EditCondition = "bInterpResult"))
 	float InterpSpeedIncreasing;
@@ -94,21 +109,19 @@ struct ENGINE_API FInputScaleBiasClamp
 	UPROPERTY(Transient)
 	mutable float InterpolatedResult;
 
-	UPROPERTY(Transient)
-	mutable bool bInitialized;
-
 public:
 	FInputScaleBiasClamp()
-		: Scale(1.0f)
-		, Bias(0.0f)
+		: bMapRange(false)
 		, bClampResult(false)
+		, bInterpResult(false)
+		, bInitialized(false)
+		, Scale(1.0f)
+		, Bias(0.0f)
 		, ClampMin(0.f)
 		, ClampMax(1.f)
-		, bInterpResult(false)
 		, InterpSpeedIncreasing(10.f)
 		, InterpSpeedDecreasing(10.f)
 		, InterpolatedResult(0.f)
-		, bInitialized(false)
 	{
 	}
 
@@ -141,21 +154,21 @@ struct ENGINE_API FInputAlphaBoolBlend
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	EAlphaBlendOption BlendOption;
 
+	UPROPERTY(Transient)
+	bool bInitialized;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	UCurveFloat* CustomCurve;
 
 	UPROPERTY(Transient)
 	FAlphaBlend AlphaBlend;
 
-	UPROPERTY(Transient)
-	bool bInitialized;
-
 	FInputAlphaBoolBlend()
 		: BlendInTime(0.0f)
 		, BlendOutTime(0.0f)
 		, BlendOption(EAlphaBlendOption::Linear)
-		, CustomCurve(nullptr)
 		, bInitialized(false)
+		, CustomCurve(nullptr)
 	{}
 
 	float ApplyTo(bool bEnabled, float InDeltaTime);

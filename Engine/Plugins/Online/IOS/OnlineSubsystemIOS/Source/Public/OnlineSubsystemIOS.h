@@ -19,7 +19,7 @@ class ONLINESUBSYSTEMIOS_API FOnlineSubsystemIOS :
 
 public:
 	
-	virtual ~FOnlineSubsystemIOS() {};
+	virtual ~FOnlineSubsystemIOS() = default;
 
 	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
@@ -43,9 +43,10 @@ public:
 	virtual IOnlineSharingPtr GetSharingInterface() const override;
 	virtual IOnlineUserPtr GetUserInterface() const override;
 	virtual IOnlineMessagePtr GetMessageInterface() const override;
-    virtual IOnlinePresencePtr GetPresenceInterface() const override;
+	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
-    virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;
@@ -58,8 +59,8 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemIOS();
-	FOnlineSubsystemIOS(FName InInstanceName);
+	FOnlineSubsystemIOS() = delete;
+	explicit FOnlineSubsystemIOS(FName InInstanceName);
 
 	/**
 	 * Is IAP available for use
@@ -85,6 +86,9 @@ private:
 	
 	void InitAppStoreHelper();
 	void CleanupAppStoreHelper();
+
+	/** Handle purchase command cheat codes */
+	bool HandlePurchaseExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/** Online async task thread */
 	class FRunnableThread* OnlineAsyncTaskThread;

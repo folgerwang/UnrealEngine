@@ -49,6 +49,11 @@
 using namespace physx;
 using namespace Gu;
 
+namespace PhysxMTDHacks
+{
+	const float Epsilon = 1e-7f;
+}
+
 static PX_FORCE_INLINE void getScaledTriangle(const PxTriangleMeshGeometry& triGeom, const Cm::Matrix34& vertex2worldSkew, bool flipsNormal, PxTriangle& triangle, PxTriangleID triangleIndex)
 {
 	TriangleMesh* tm = static_cast<TriangleMesh*>(triGeom.triangleMesh);
@@ -1088,7 +1093,14 @@ bool physx::Gu::computeSphere_SphereMTD(const Sphere& sphere0, const Sphere& sph
 	const PxReal radiusSum = sphere0.radius + sphere1.radius;
 
 	const PxReal d = PxSqrt(d2);
-	hit.normal = delta / d;
+	if (d > PhysxMTDHacks::Epsilon)
+	{
+		hit.normal = delta / d;
+	}
+	else
+	{
+		hit.normal = PxVec3(0.f, 0.f, 1.f);
+	}
 	hit.distance = d - radiusSum ;
 	hit.position = sphere0.center + hit.normal * sphere0.radius;
 	return true;
@@ -1106,7 +1118,14 @@ bool physx::Gu::computeSphere_CapsuleMTD( const Sphere& sphere, const Capsule& c
 	
 	const PxReal lenSq = normal.magnitudeSquared();
 	const PxF32 d = PxSqrt(lenSq);
-	hit.normal = normal / d;
+	if (d > PhysxMTDHacks::Epsilon)
+	{
+		hit.normal = normal / d;
+	}
+	else
+	{
+		hit.normal = PxVec3(0.f, 0.f, 1.f);
+	}
 	hit.distance = d - radiusSum;
 	hit.position = sphere.center + hit.normal * sphere.radius;
 	return true;
@@ -1128,7 +1147,14 @@ bool physx::Gu::computeCapsule_CapsuleMTD(const Capsule& capsule0, const Capsule
 	const PxVec3 normal = pointAtCapsule0 - pointAtCapsule1;
 	const PxReal lenSq = normal.magnitudeSquared();
 	const PxF32 len = PxSqrt(lenSq);
-	hit.normal = normal / len;
+	if (len > PhysxMTDHacks::Epsilon)
+	{
+		hit.normal = normal / len;
+	}
+	else
+	{
+		hit.normal = PxVec3(0.f, 0.f, 1.f);
+	}
 	hit.distance = len - radiusSum;
 	hit.position = pointAtCapsule1 + hit.normal * capsule1.radius;
 	return true;

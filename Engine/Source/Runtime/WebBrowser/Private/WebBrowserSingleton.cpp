@@ -4,6 +4,7 @@
 #include "Misc/Paths.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Internationalization/Culture.h"
 #include "Misc/App.h"
 #include "WebBrowserModule.h"
@@ -121,7 +122,7 @@ FString FWebBrowserSingleton::ApplicationCacheDir() const
 {
 #if PLATFORM_MAC
 	// OSX wants caches in a separate location from other app data
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -219,6 +220,8 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 #endif
 	, bDevToolsShortcutEnabled(UE_BUILD_DEBUG)
 	, bJSBindingsToLoweringEnabled(true)
+	, DefaultMaterial(nullptr)
+	, DefaultTranslucentMaterial(nullptr)
 {
 #if WITH_CEF3
 	// The FWebBrowserSingleton must be initialized on the game thread
@@ -240,10 +243,17 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	CefSettings Settings;
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
+#if !PLATFORM_LINUX
+	Settings.enable_net_security_expiration = true;
+	Settings.external_message_pump = true;
+#endif
+	//@todo change to threaded version instead of using external_message_pump & OnScheduleMessagePumpWork
+	Settings.multi_threaded_message_loop = false;
+	
 
 	FString CefLogFile(FPaths::Combine(*FPaths::ProjectLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
-	CefString(&Settings.log_file) = *CefLogFile;
+	CefString(&Settings.log_file) = TCHAR_TO_WCHAR(*CefLogFile);
 	Settings.log_severity = bVerboseLogging ? LOGSEVERITY_VERBOSE : LOGSEVERITY_WARNING;
 
 	uint16 DebugPort;
@@ -254,16 +264,16 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 
 	// Specify locale from our settings
 	FString LocaleCode = GetCurrentLocaleCode();
-	CefString(&Settings.locale) = *LocaleCode;
+	CefString(&Settings.locale) = TCHAR_TO_WCHAR(*LocaleCode);
 
 	// Append engine version to the user agent string.
-	CefString(&Settings.product_version) = *WebBrowserInitSettings.ProductVersion;
+	CefString(&Settings.product_version) = TCHAR_TO_WCHAR(*WebBrowserInitSettings.ProductVersion);
 
 #if CEF3_DEFAULT_CACHE
 	// Enable on disk cache
 	FString CachePath(FPaths::Combine(ApplicationCacheDir(), TEXT("webcache")));
 	CachePath = FPaths::ConvertRelativePathToFull(CachePath);
-	CefString(&Settings.cache_path) = *CachePath;
+	CefString(&Settings.cache_path) = TCHAR_TO_WCHAR(*CachePath);
 #endif
 
 	// Specify path to resources
@@ -273,7 +283,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("Chromium Resources information not found at: %s."), *ResourcesPath);
 	}
-	CefString(&Settings.resources_dir_path) = *ResourcesPath;
+	CefString(&Settings.resources_dir_path) = TCHAR_TO_WCHAR(*ResourcesPath);
 
 #if !PLATFORM_MAC
 	// On Mac Chromium ignores custom locales dir. Files need to be stored in Resources folder in the app bundle
@@ -283,7 +293,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("Chromium Locales information not found at: %s."), *LocalesPath);
 	}
-	CefString(&Settings.locales_dir_path) = *LocalesPath;
+	CefString(&Settings.locales_dir_path) = TCHAR_TO_WCHAR(*LocalesPath);
 #endif
 
 	// Specify path to sub process exe
@@ -294,7 +304,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("UnrealCEFSubProcess.exe not found, check that this program has been built and is placed in: %s."), *SubProcessPath);
 	}
-	CefString(&Settings.browser_subprocess_path) = *SubProcessPath;
+	CefString(&Settings.browser_subprocess_path) = TCHAR_TO_WCHAR(*SubProcessPath);
 
 	// Initialize CEF.
 	bool bSuccess = CefInitialize(MainArgs, Settings, CEFBrowserApp.get(), nullptr);
@@ -361,6 +371,12 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 	CEFBrowserApp = nullptr;
 	// Shut down CEF.
 	CefShutdown();
+#elif PLATFORM_IOS || PLATFORM_PS4 || (PLATFORM_ANDROID && USE_ANDROID_JNI)
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		// Clear this before CefShutdown() below
+		WindowInterfaces.Reset();
+	}
 #endif
 }
 
@@ -381,10 +397,9 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	bool bShowErrorMessage = BrowserWindowParent->IsShowingErrorMessages();
 	bool bThumbMouseButtonNavigation = BrowserWindowParent->IsThumbMouseButtonNavigationEnabled();
 	bool bUseTransparency = BrowserWindowParent->UseTransparency();
-	FString InitialURL = BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str();
+	FString InitialURL = WCHAR_TO_TCHAR(BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str());
 	TSharedPtr<FCEFWebBrowserWindow> NewBrowserWindow(new FCEFWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency, bJSBindingsToLoweringEnabled));
 	BrowserWindowInfo->Handler->SetBrowserWindow(NewBrowserWindow);
-
 	{
 		FScopeLock Lock(&WindowInterfacesCS);
 		WindowInterfaces.Add(NewBrowserWindow);
@@ -402,7 +417,8 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	TOptional<FString> ContentsToLoad,
 	bool ShowErrorMessage,
 	FColor BackgroundColor,
-	int BrowserFrameRate )
+	int BrowserFrameRate,
+	const TArray<FString>& AltRetryDomains)
 {
 	FCreateBrowserWindowSettings Settings;
 	Settings.OSWindowHandle = OSWindowHandle;
@@ -413,12 +429,20 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	Settings.bShowErrorMessage = ShowErrorMessage;
 	Settings.BackgroundColor = BackgroundColor;
 	Settings.BrowserFrameRate = BrowserFrameRate;
+	Settings.AltRetryDomains = AltRetryDomains;
 
 	return CreateBrowserWindow(Settings);
 }
 
 TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FCreateBrowserWindowSettings& WindowSettings)
 {
+	bool bBrowserEnabled = true;
+	GConfig->GetBool(TEXT("Browser"), TEXT("bEnabled"), bBrowserEnabled, GEngineIni);
+	if (!bBrowserEnabled)
+	{
+		return nullptr;
+	}
+
 #if WITH_CEF3
 	static bool AllowCEF = !FParse::Param(FCommandLine::Get(), TEXT("nocef"));
 	if (AllowCEF)
@@ -457,7 +481,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 
 
 		// WebBrowserHandler implements browser-level callbacks.
-		CefRefPtr<FCEFBrowserHandler> NewHandler(new FCEFBrowserHandler(WindowSettings.bUseTransparency));
+		CefRefPtr<FCEFBrowserHandler> NewHandler(new FCEFBrowserHandler(WindowSettings.bUseTransparency, WindowSettings.AltRetryDomains));
 
 		CefRefPtr<CefRequestContext> RequestContext = nullptr;
 		if (WindowSettings.Context.IsSet())
@@ -468,10 +492,13 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 			if (ExistingRequestContext == nullptr)
 			{
 				CefRequestContextSettings RequestContextSettings;
-				CefString(&RequestContextSettings.accept_language_list) = *Context.AcceptLanguageList;
-				CefString(&RequestContextSettings.cache_path) = *Context.CookieStorageLocation;
+				CefString(&RequestContextSettings.accept_language_list) = TCHAR_TO_WCHAR(*Context.AcceptLanguageList);
+				CefString(&RequestContextSettings.cache_path) = TCHAR_TO_WCHAR(*Context.CookieStorageLocation);
 				RequestContextSettings.persist_session_cookies = Context.bPersistSessionCookies;
 				RequestContextSettings.ignore_certificate_errors = Context.bIgnoreCertificateErrors;
+#if !PLATFORM_LINUX
+				RequestContextSettings.enable_net_security_expiration = Context.bEnableNetSecurityExpiration;
+#endif
 
 				//Create a new one
 				RequestContext = CefRequestContext::CreateContext(RequestContextSettings, nullptr);
@@ -485,7 +512,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		}
 
 		// Create the CEF browser window.
-		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), *WindowSettings.InitialURL, BrowserSettings, RequestContext);
+		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), TCHAR_TO_WCHAR(*WindowSettings.InitialURL), BrowserSettings, RequestContext);
 		if (Browser.get())
 		{
 			// Create new window
@@ -499,11 +526,11 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 				WindowSettings.bUseTransparency,
 				bJSBindingsToLoweringEnabled));
 			NewHandler->SetBrowserWindow(NewBrowserWindow);
-
 			{
 				FScopeLock Lock(&WindowInterfacesCS);
 				WindowInterfaces.Add(NewBrowserWindow);
 			}
+			
 			return NewBrowserWindow;
 		}
 	}
@@ -517,18 +544,39 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		WindowSettings.bUseTransparency,
 		bJSBindingsToLoweringEnabled));
 
-	//WindowInterfaces.Add(NewBrowserWindow);
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
-#elif PLATFORM_IOS || PLATFORM_PS4
+#elif PLATFORM_IOS
 	// Create new window
 	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
 		WindowSettings.InitialURL, 
 		WindowSettings.ContentsToLoad, 
 		WindowSettings.bShowErrorMessage, 
 		WindowSettings.bThumbMouseButtonNavigation, 
+		WindowSettings.bUseTransparency,
+		bJSBindingsToLoweringEnabled));
+
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
+	return NewBrowserWindow;
+#elif PLATFORM_PS4
+	// Create new window
+	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
+		WindowSettings.InitialURL,
+		WindowSettings.ContentsToLoad,
+		WindowSettings.bShowErrorMessage,
+		WindowSettings.bThumbMouseButtonNavigation,
 		WindowSettings.bUseTransparency));
 
-	//WindowInterfaces.Add(NewBrowserWindow);
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
 #endif
 	return nullptr;
@@ -539,26 +587,37 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
     QUICK_SCOPE_CYCLE_COUNTER(STAT_FWebBrowserSingleton_Tick);
 
 #if WITH_CEF3
-	FScopeLock Lock(&WindowInterfacesCS);
-	bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
-	// Remove any windows that have been deleted and check whether it's currently visible
-	for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
 	{
-		if (!WindowInterfaces[Index].IsValid())
+		FScopeLock Lock(&WindowInterfacesCS);
+		bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
+		// Remove any windows that have been deleted and check whether it's currently visible
+		for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
 		{
-			WindowInterfaces.RemoveAt(Index);
-		}
-		else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
-		{
-			TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
-			if(BrowserWindow.IsValid())
+			if (!WindowInterfaces[Index].IsValid())
 			{
-				// Test if we've ticked recently. If not assume the browser window has become hidden.
-				BrowserWindow->CheckTickActivity();
+				WindowInterfaces.RemoveAt(Index);
+			}
+			else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
+			{
+				TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+				if(BrowserWindow.IsValid())
+				{
+					// Test if we've ticked recently. If not assume the browser window has become hidden.
+					BrowserWindow->CheckTickActivity();
+				}
 			}
 		}
 	}
-	CefDoMessageLoopWork();
+
+	bool bForceMessageLoop = false;
+	GConfig->GetBool(TEXT("Browser"), TEXT("bForceMessageLoop"), bForceMessageLoop, GEngineIni);
+	if (CEFBrowserApp != nullptr)
+	{
+		// force via config override or if there are active browser windows
+		const bool bForce = bForceMessageLoop || WindowInterfaces.Num() > 0;
+		// tick the CEF app to determine when to run CefDoMessageLoopWork
+		CEFBrowserApp->TickMessagePump(DeltaTime, bForce);
+	}
 
 	// Update video buffering for any windows that need it
 	for (int32 Index = 0; Index < WindowInterfaces.Num(); Index++)
@@ -572,6 +631,28 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 			}
 		}
 	}
+
+#elif PLATFORM_IOS || PLATFORM_PS4 || (PLATFORM_ANDROID && USE_ANDROID_JNI)
+	FScopeLock Lock(&WindowInterfacesCS);
+	bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
+	// Remove any windows that have been deleted and check whether it's currently visible
+	for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
+	{
+		if (!WindowInterfaces[Index].IsValid())
+		{
+			WindowInterfaces.RemoveAt(Index);
+		}
+		else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
+		{
+			TSharedPtr<IWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+			if (BrowserWindow.IsValid())
+			{
+				// Test if we've ticked recently. If not assume the browser window has become hidden.
+				BrowserWindow->CheckTickActivity();
+			}
+		}
+	}
+
 #endif
 	return true;
 }
@@ -633,10 +714,13 @@ bool FWebBrowserSingleton::RegisterContext(const FBrowserContextSettings& Settin
 	}
 
 	CefRequestContextSettings RequestContextSettings;
-	CefString(&RequestContextSettings.accept_language_list) = *Settings.AcceptLanguageList;
-	CefString(&RequestContextSettings.cache_path) = *Settings.CookieStorageLocation;
+	CefString(&RequestContextSettings.accept_language_list) = TCHAR_TO_WCHAR(*Settings.AcceptLanguageList);
+	CefString(&RequestContextSettings.cache_path) = TCHAR_TO_WCHAR(*Settings.CookieStorageLocation);
 	RequestContextSettings.persist_session_cookies = Settings.bPersistSessionCookies;
 	RequestContextSettings.ignore_certificate_errors = Settings.bIgnoreCertificateErrors;
+#if !PLATFORM_LINUX
+	RequestContextSettings.enable_net_security_expiration = Settings.bEnableNetSecurityExpiration;
+#endif
 
 	//Create a new one
 	CefRefPtr<CefRequestContext> RequestContext = CefRequestContext::CreateContext(RequestContextSettings, nullptr);

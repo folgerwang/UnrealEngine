@@ -17,7 +17,7 @@ void UMovieSceneByteTrack::PostLoad()
 
 UMovieSceneSection* UMovieSceneByteTrack::CreateNewSection()
 {
-	UMovieSceneByteSection* NewByteSection = NewObject<UMovieSceneByteSection>(this, UMovieSceneByteSection::StaticClass(), NAME_None, RF_Transactional);
+	UMovieSceneByteSection* NewByteSection = NewObject<UMovieSceneByteSection>(this, NAME_None, RF_Transactional);
 	NewByteSection->ByteCurve.SetEnum(Enum);
 	return NewByteSection;
 }

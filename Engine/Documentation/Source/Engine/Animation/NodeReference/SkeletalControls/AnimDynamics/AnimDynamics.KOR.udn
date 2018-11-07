@@ -76,7 +76,7 @@ Constraint 섹션에서는 운동 범위를 정의할 수 있는데, 그 범위�
 | [REGION:tablesection]**입력 핀**[/REGION] ||
 | **External Force** | 외부 힘 - 체크하면 시뮬레이션 내 모든 바디에 (월드 스페이스로 지정된) 외부 힘을 가합니다. |
 | **Component Pose** | 컴포넌트 포즈 - 변경시킬 입력 포즈입니다. |
-| **Alpha** | 알파 - 알파 값으로 사용할 [0.0, 1.0] 범위의 플로트 값으로, SkeletalControl 에 적용되는 Transform 의 가중치를 결정합니다. 0.0 은 입력 포즈만, 1.0 이면 콘트롤이 계산한 트랜스폼만 사용합니다. |
+| **Alpha** | 알파 - 알파 값으로 사용할 [0.0, 1.0] 범위의 플로트 값으로, SkeletalControl 에 적용되는 Transform 의 가중치를 결정합니다. 0.0 은 입력 포즈만, 1.0 이면 컨트롤이 계산한 트랜스폼만 사용합니다. |
 | [REGION:tablesection]**출력 핀**[/REGION] ||
 | Pose (Blank) | 포즈 (공백) - 트랜스폼이 적용된 이후의 최종 포즈입니다. |
 

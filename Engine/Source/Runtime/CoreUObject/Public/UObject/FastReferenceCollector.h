@@ -185,6 +185,7 @@ public:
 	{
 		TArray<FGCArrayStruct*> AllArrays;
 		Pool.PopAll(AllArrays);
+		int32 Index = 0;
 		for (FGCArrayStruct* ArrayStruct : AllArrays)
 		{
 			for (UObject** WeakReference : ArrayStruct->WeakReferences)
@@ -196,7 +197,8 @@ public:
 				}
 			}
 			ArrayStruct->WeakReferences.Reset();
-			if (bClearPools)
+			if (bClearPools 
+				|| Index % 7 == 3) // delete 1/7th of them just to keep things from growing too much between full purges
 			{
 				delete ArrayStruct;
 			}
@@ -204,6 +206,7 @@ public:
 			{
 				Pool.Push(ArrayStruct);
 			}
+			Index++;
 		}
 	}
 
@@ -779,7 +782,7 @@ private:
 						void*         Map = StackEntryData + ReferenceInfo.Offset;
 						UMapProperty* MapProperty = (UMapProperty*)TokenStream->ReadPointer(TokenStreamIndex);
 						TokenReturnCount = ReferenceInfo.ReturnCount;
-						MapProperty->SerializeItem(ReferenceCollector.GetVerySlowReferenceCollectorArchive(), Map, nullptr);
+						MapProperty->SerializeItem(FStructuredArchiveFromArchive(ReferenceCollector.GetVerySlowReferenceCollectorArchive()).GetSlot(), Map, nullptr);
 					}
 					break;
 					case GCRT_AddTSetReferencedObjects:
@@ -787,7 +790,7 @@ private:
 						void*         Set = StackEntryData + ReferenceInfo.Offset;
 						USetProperty* SetProperty = (USetProperty*)TokenStream->ReadPointer(TokenStreamIndex);
 						TokenReturnCount = ReferenceInfo.ReturnCount;
-						SetProperty->SerializeItem(ReferenceCollector.GetVerySlowReferenceCollectorArchive(), Set, nullptr);
+						SetProperty->SerializeItem(FStructuredArchiveFromArchive(ReferenceCollector.GetVerySlowReferenceCollectorArchive()).GetSlot(), Set, nullptr);
 					}
 					break;
 					case GCRT_EndOfPointer:

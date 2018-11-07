@@ -74,16 +74,20 @@ namespace UnrealBuildTool
 
 		public override bool HasSpecificDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
-			string[] BoolKeys = new string[]
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectPath, UnrealTargetPlatform.Lumin);
+			bool bUseVulkan = true;
+			Ini.GetBool("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "bUseVulkan", out bUseVulkan);
+
+			List<string> ConfigBoolKeys = new List<string>();
+			ConfigBoolKeys.Add("bBuildWithNvTegraGfxDebugger");
+			if (!bUseVulkan)
 			{
-				"bBuildWithNvTegraGfxDebugger",
-				// @todo Lumin: Once we switch to Vulkan only, this will no longer be needed, since Vulkan can do both without needing to recompile
-				"bUseMobileRendering",
-			};
+				ConfigBoolKeys.Add("bUseMobileRendering");
+			}
 
 			// look up Android specific settings
 			// @todo Lumin: When we subclass platform ini's, this would be Platform!!
-			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", BoolKeys, null, null))
+			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", ConfigBoolKeys.ToArray(), null, null))
 			{
 				return false;
 			}
@@ -153,6 +157,7 @@ namespace UnrealBuildTool
 		{
 			CompileEnvironment.Definitions.Add("PLATFORM_LUMIN=1");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_JNI=0");
+			CompileEnvironment.Definitions.Add("USE_ANDROID_AUDIO=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_FILE=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_INPUT=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_LAUNCH=0");
@@ -160,7 +165,7 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_ANDROID_OPENGL=0");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 
-			DirectoryReference MLSDKDir = DirectoryReference.MakeFromNormalizedFullPath("$(MLSDK)");
+			DirectoryReference MLSDKDir = new DirectoryReference("$(MLSDK)", DirectoryReference.Sanitize.None);
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
@@ -268,18 +273,23 @@ namespace UnrealBuildTool
 	class LuminPlatformSDK : AndroidPlatformSDK
 	{
 		/// <summary>
-		/// This is the SDK version we support
+		/// This is the minimum SDK version we support.
 		/// </summary>
-		static string ExpectedSDKVersion = "0.12";   // now unified for all the architectures
+		static uint MinimumSDKVersionMajor = 0;
+		static uint MinimumSDKVersionMinor = 16;
 
 		public override string GetSDKTargetPlatformName()
 		{
 			return "Lumin";
 		}
-
 		protected override string GetRequiredSDKString()
 		{
-			return ExpectedSDKVersion;
+			return string.Format("{0}.{1}", MinimumSDKVersionMajor, MinimumSDKVersionMinor);
+		}
+
+		protected override String GetRequiredScriptVersionString()
+		{
+			return "Lumin_15";
 		}
 
 		private string FindVersionNumber(string StringToFind, string[] AllLines)
@@ -316,6 +326,11 @@ namespace UnrealBuildTool
 					// if the folder specified by the config var doesn't exist, fall back to the env var.
 					if (Directory.Exists(path))
 					{
+						if (MLSDKPath != path)
+						{
+							Console.WriteLine("*** MLSDK environment variable differs from config file; overriding environment variable ***");
+						}
+
 						MLSDKPath = path;
 					}
 				}
@@ -329,8 +344,10 @@ namespace UnrealBuildTool
 			{
 				return false;
 			}
-			// we don't have the required MLSDK setup
-			String DetectedVersion = "Unknown";
+
+			// detected SDK version is < minimum major/minor
+			uint DetectedMajorVersion;
+			uint DetectedMinorVersion;
 			String VersionFile = string.Format("{0}/include/ml_version.h", MLSDKPath).Replace('/', Path.DirectorySeparatorChar);
 			if (File.Exists(VersionFile))
 			{
@@ -338,11 +355,19 @@ namespace UnrealBuildTool
 
 				String MajorVersion = FindVersionNumber("MLSDK_VERSION_MAJOR", VersionText);
 				String MinorVersion = FindVersionNumber("MLSDK_VERSION_MINOR", VersionText);
-				DetectedVersion = string.Format("{0}.{1}", MajorVersion, MinorVersion);
+				DetectedMajorVersion = Convert.ToUInt32(MajorVersion);
+				DetectedMinorVersion = Convert.ToUInt32(MinorVersion);
 			}
-			if (!DetectedVersion.Equals(GetRequiredSDKString()))
+			else
 			{
-				Console.WriteLine("*** Found installed MLSDK version {0} but require {1} ***", DetectedVersion, GetRequiredSDKString());
+				Console.WriteLine("*** Unable to locate MLSDK version file ml_version.h ***");
+				return false;
+			}
+
+			if (DetectedMajorVersion < MinimumSDKVersionMajor || (DetectedMajorVersion == MinimumSDKVersionMajor && DetectedMinorVersion < MinimumSDKVersionMinor))
+			{
+				Console.WriteLine("*** Found installed MLSDK version {0}.{1} but require at least {2}.{3} ***",
+					DetectedMajorVersion, DetectedMinorVersion, MinimumSDKVersionMajor, MinimumSDKVersionMinor);
 				return false;
 			}
 

@@ -309,7 +309,7 @@ public:
 	static TSharedRef<class FGlobalTabmanager> GetGlobalTabManager();
 
 	/** Initializes high dpi support for the process */
-	static void InitHighDPI();
+	static void InitHighDPI(const bool bForceEnable);
 
 	/** @return the root style node, which is the entry point to the style graph representing all the current style rules. */
 	const class FStyleNode* GetRootStyle() const;
@@ -523,6 +523,10 @@ public:
 	DECLARE_EVENT_OneParam(FSlateApplication, FUserRegisteredEvent, int32);
 	FUserRegisteredEvent& OnUserRegistered() { return UserRegisteredEvent; }
 
+	/** Delegate called when a window is about to be destroyed */
+	DECLARE_EVENT_OneParam(FSlateApplication, FOnWindowBeingDestroyed, const SWindow&);
+	FOnWindowBeingDestroyed& OnWindowBeingDestroyed() { return WindowBeingDestroyedEvent; }
+
 	/** 
 	 * Removes references to FViewportRHI's.  
 	 * This has to be done explicitly instead of using the FRenderResource mechanism because FViewportRHI's are managed by the game thread.
@@ -642,6 +646,9 @@ public:
 	/** Gets a delegate that is invoked in the editor when a windows dpi scale changes or when a widget window may have changed and DPI scale info needs to be checked */
 	DECLARE_EVENT_OneParam(FSlateApplication, FOnWindowDPIScaleChanged, TSharedRef<SWindow>);
 	FOnWindowDPIScaleChanged& OnWindowDPIScaleChanged() { return OnWindowDPIScaleChangedEvent; }
+
+	/** Event used to signal that a DPI change is about to happen */
+	FOnWindowDPIScaleChanged& OnSystemSignalsDPIChanged() { return OnSignalSystemDPIChangedEvent; }
 #endif //WITH_EDITOR
 
 	/**
@@ -782,6 +789,9 @@ public:
 	/** Are we drag-dropping right now? */
 	bool IsDragDropping() const;
 
+	/** Are we drag-dropping and are we affected by this pointer event? */
+	bool IsDragDroppingAffected(const FPointerEvent& InPointerEvent) const;
+
 	/** Get the current drag-dropping content */
 	TSharedPtr<class FDragDropOperation> GetDragDroppingContent() const;
 
@@ -862,6 +872,12 @@ public:
 	void EnableMenuAnimations( const bool bEnableAnimations );
 
 	void SetPlatformApplication(const TSharedRef<class GenericApplication>& InPlatformApplication);
+
+	/**
+	 * Replace the current platform application with a custom version.
+	 * @param InPlatformApplication - The replacement platform application.
+	 */
+	void OverridePlatformApplication(TSharedPtr<class GenericApplication> InPlatformApplication);
 
 	/** Set the global application icon */
 	void SetAppIcon(const FSlateBrush* const InAppIcon);
@@ -1322,6 +1338,8 @@ public:
 	void SetAllowTooltips(bool bCanShow);
 	bool GetAllowTooltips() const;
 	
+	bool IsRenderingOffScreen() const { return bRenderOffScreen; }
+
 public:
 
 	//~ Begin FSlateApplicationBase Interface
@@ -1434,6 +1452,8 @@ public:
 	virtual bool OnTouchStarted( const TSharedPtr< FGenericWindow >& PlatformWindow, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId ) override;
 	virtual bool OnTouchMoved( const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId ) override;
 	virtual bool OnTouchEnded( const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
+	virtual bool OnTouchForceChanged(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override;
+	virtual bool OnTouchFirstMove(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override;
 	virtual void ShouldSimulateGesture(EGestureEvent Gesture, bool bEnable) override;
 	virtual bool OnMotionDetected(const FVector& Tilt, const FVector& RotationRate, const FVector& Gravity, const FVector& Acceleration, int32 ControllerId) override;
 	virtual bool OnSizeChanged( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 Width, const int32 Height, bool bWasMinimized = false ) override;
@@ -1442,6 +1462,7 @@ public:
 	virtual void OnResizingWindow( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
 	virtual bool BeginReshapingWindow( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
 	virtual void FinishedReshapingWindow( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
+	virtual void SignalSystemDPIChanged(const TSharedRef<FGenericWindow>& Window) override;
 	virtual void HandleDPIScaleChanged(const TSharedRef<FGenericWindow>& Window) override;
 	virtual void OnMovedWindow( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 X, const int32 Y ) override;
 	virtual bool OnWindowActivationChanged( const TSharedRef< FGenericWindow >& PlatformWindow, const EWindowActivation ActivationType ) override;
@@ -1703,6 +1724,9 @@ private:
 
 	/** true if any slate window is currently active (not just top level windows) */
 	bool bSlateWindowActive;
+
+	/** true if rendering windows even when they are set to invisible */
+	bool bRenderOffScreen;
 
 	/** Application-wide scale for supporting monitors of varying pixel density */
 	float Scale;
@@ -2136,6 +2160,9 @@ private:
 	/** Delegate for when a new user has been registered. */
 	FUserRegisteredEvent UserRegisteredEvent;
 
+	/** Delegate for when a window is in the process of being destroyed */
+	FOnWindowBeingDestroyed WindowBeingDestroyedEvent;
+
 	/** Delegate for slate Tick during modal dialogs */
 	FOnModalLoopTickEvent ModalLoopTickEvent;
 
@@ -2161,6 +2188,7 @@ private:
 		bool HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 		bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 		bool HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
+		bool HandleMouseButtonDoubleClickEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 		bool HandleMotionDetectedEvent(FSlateApplication& SlateApp, const FMotionEvent& MotionEvent);
 
 		/**
@@ -2205,6 +2233,11 @@ private:
 	 * User Function cannot mark the input as handled.
 	 */
 	FOnApplicationMousePreInputButtonDownListener OnApplicationMousePreInputButtonDownListenerEvent;
+
+	/**
+	* Called before the dpi scale of a particular window is about to changed
+	*/
+	FOnWindowDPIScaleChanged OnSignalSystemDPIChangedEvent;
 
 	/**
 	 * Called when an editor window dpi scale is changed

@@ -78,7 +78,7 @@ class SdfAssetPath;
 /// will transform the world such that the camera is at the origin, looking 
 /// down the -Z axis, with Y as the up axis.
 /// 
-/// \sa \ref usdGeom_linAlgBasics "UsdGeom Linear Algebra Basic Assumptions"
+/// \sa \ref UsdGeom_LinAlgBasics
 /// 
 ///
 /// For any described attribute \em Fallback \em Value or \em Allowed \em Values below
@@ -89,11 +89,10 @@ class SdfAssetPath;
 class UsdGeomCamera : public UsdGeomXformable
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = true;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::ConcreteTyped;
 
     /// Construct a UsdGeomCamera on UsdPrim \p prim .
     /// Equivalent to UsdGeomCamera::Get(prim.GetStage(), prim.GetPath())
@@ -161,6 +160,13 @@ public:
     USDGEOM_API
     static UsdGeomCamera
     Define(const UsdStagePtr &stage, const SdfPath &path);
+
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
 
 private:
     // needs to invoke _GetStaticTfType.
@@ -481,13 +487,8 @@ public:
 
     /// Creates a GfCamera object from the attribute values at \p time.
     ///
-    /// Outside of Pixar, never touch \p isZup, it is deprecated !
-    ///
-    /// Set \p isZup to UsdUtilsGetCamerasAreZup(prim.GetStage()). Eventually,
-    /// z-Up encoding of cameras will be dropped and this parameter will go
-    /// away.
     USDGEOM_API
-    GfCamera GetCamera(const UsdTimeCode &time, const bool isZup = false) const;
+    GfCamera GetCamera(const UsdTimeCode &time) const;
 
     /// Write attribute values from \p camera for \p time.
     ///

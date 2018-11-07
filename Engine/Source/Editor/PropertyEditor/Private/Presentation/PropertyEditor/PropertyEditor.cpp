@@ -404,6 +404,8 @@ bool FPropertyEditor::IsEditConst() const
 
 void FPropertyEditor::SetEditConditionState( bool bShouldEnable )
 {
+	const FScopedTransaction Transaction(FText::Format(LOCTEXT("SetEditConditionState", "Set {0} edit condition state "), PropertyNode->GetDisplayName()));
+
 	// Propagate the value change to any instances if we're editing a template object.
 	FObjectPropertyNode* ObjectNode = PropertyNode->FindObjectItemParent();
 
@@ -724,7 +726,8 @@ void FPropertyEditor::SyncToObjectsInNode( const TWeakPtr< FPropertyNode >& Weak
 		}
 		else if( IntProp )
 		{
-			PropertyClass = IntProp->InterfaceClass;
+			// Note: this should be IntProp->InterfaceClass but we're using UObject as the class  to work around InterfaceClass not working with FindObject
+			PropertyClass = UObject::StaticClass();
 		}
 
 		// Get a list of addresses for objects handled by the property window.

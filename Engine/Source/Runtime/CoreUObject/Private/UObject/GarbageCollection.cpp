@@ -24,6 +24,7 @@
 #include "HAL/LowLevelMemTracker.h"
 #include "UObject/GarbageCollectionVerification.h"
 #include "Async/ParallelFor.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 /*-----------------------------------------------------------------------------
    Garbage collection.
@@ -69,9 +70,6 @@ static int32 GUnrechableObjectIndex = 0;
 
 /** Helpful constant for determining how many token slots we need to store a pointer **/
 static const uint32 GNumTokensPerPointer = sizeof(void*) / sizeof(uint32); //-V514
-/** Calls ConditionalBeginDestroy on unreachable objects */
-static bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit = 0.0f);
-
 
 FThreadSafeBool& FGCScopeLock::GetGarbageCollectingFlag()
 {
@@ -93,8 +91,10 @@ FGCCSyncObject::~FGCCSyncObject()
 
 void FGCCSyncObject::Create()
 {
-	check(!Singleton.IsValid());
-	Singleton = MakeUnique<FGCCSyncObject>();
+	if (!Singleton.IsValid())
+	{
+		Singleton = MakeUnique<FGCCSyncObject>();
+	}
 }
 
 #define UE_LOG_FGCScopeGuard_LockAsync_Time 0
@@ -107,7 +107,7 @@ FGCScopeGuard::FGCScopeGuard()
 	FGCCSyncObject::Get().LockAsync();
 #if UE_LOG_FGCScopeGuard_LockAsync_Time
 	const double ElapsedTime = FPlatformTime::Seconds() - StartTime;
-	if (ElapsedTime > 0.001)
+	if (FPlatformProperties::RequiresCookedData() && ElapsedTime > 0.001)
 	{
 		// Note this is expected to take roughly the time it takes to collect garbage and verify GC assumptions, so up to 300ms in development
 		UE_LOG(LogGarbage, Warning, TEXT("%f ms for acquiring ASYNC lock"), ElapsedTime * 1000);
@@ -972,7 +972,7 @@ static void AcquireGCLock()
 	const double StartTime = FPlatformTime::Seconds();
 	FGCCSyncObject::Get().GCLock();
 	const double ElapsedTime = FPlatformTime::Seconds() - StartTime;
-	if (ElapsedTime > 0.001)
+	if (FPlatformProperties::RequiresCookedData() && ElapsedTime > 0.001)
 	{
 		UE_LOG(LogGarbage, Warning, TEXT("%f ms for acquiring GC lock"), ElapsedTime * 1000);
 	}
@@ -1061,7 +1061,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 	// Depending on platform FPlatformTime::Seconds might take a noticeable amount of time if called thousands of times so we avoid
 	// enforcing the time limit too often, especially as neither Destroy nor actual deletion should take significant
 	// amounts of time.
-	const int32	TimeLimitEnforcementGranularityForDestroy	= 10;	
+	const int32	TimeLimitEnforcementGranularityForDestroy	= 10;
 	const int32	TimeLimitEnforcementGranularityForDeletion	= 100;
 
 	if (GUnrechableObjectIndex < GUnreachableObjects.Num())
@@ -1086,7 +1086,9 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 		// Try to dispatch all FinishDestroy messages to unreachable objects.  We'll iterate over every
 		// single object and destroy any that are ready to be destroyed.  The objects that aren't yet
 		// ready will be added to a list to be processed afterwards.
-		int32 TimePollCounter = 0;
+		int32 TimeLimitTimePollCounter = 0;
+		int32 FinishDestroyTimePollCounter = 0;
+
 		if (GObjCurrentPurgeObjectIndexNeedsReset)
 		{
 			// iterators don't have an op=, so we destroy it and reconstruct it with a placement new
@@ -1139,7 +1141,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 			++GObjCurrentPurgeObjectIndex;
 
 			// Only check time limit every so often to avoid calling FPlatformTime::Seconds too often.
-			const bool bPollTimeLimit = ((TimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
+			const bool bPollTimeLimit = ((TimeLimitTimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
 			if( bUseTimeLimit && bPollTimeLimit && ((FPlatformTime::Seconds() - StartTime) > TimeLimit) )
 			{
 				bTimeLimitReached = true;
@@ -1196,7 +1198,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 					}
 
 					// Only check time limit every so often to avoid calling FPlatformTime::Seconds too often.
-					const bool bPollTimeLimit = ((TimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
+					const bool bPollTimeLimit = ((TimeLimitTimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
 					if( bUseTimeLimit && bPollTimeLimit && ((FPlatformTime::Seconds() - StartTime) > TimeLimit) )
 					{
 						bTimeLimitReached = true;
@@ -1215,7 +1217,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 				{
 					if (FPlatformProperties::RequiresCookedData())
 					{
-						const bool bPollTimeLimit = ((TimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
+						const bool bPollTimeLimit = ((FinishDestroyTimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
 						const double MaxTimeForFinishDestroy = 10.0;
 						// Check if we spent too much time on waiting for FinishDestroy without making any progress
 						if (LastLoopObjectsPendingDestructionCount == GGCObjectsPendingDestructionCount && bPollTimeLimit &&
@@ -1242,9 +1244,21 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 								GGCObjectsPendingDestructionCount,
 								*GetFullNameSafe(LastObjectNotReadyForFinishDestroy));
 #else
-							UE_LOG(LogGarbage, Fatal, TEXT("Spent to much time waiting for FinishDestroy for %d object(s) (last object: %s), check log for details"),
+							//for non-desktop platforms, make this a warning so that we can die inside of an object member call.
+							//this will give us a greater chance of getting useful memory inside of the platform minidump.
+							UE_LOG(LogGarbage, Warning, TEXT("Spent to much time waiting for FinishDestroy for %d object(s) (last object: %s), check log for details"),
 								GGCObjectsPendingDestructionCount,
 								*GetFullNameSafe(LastObjectNotReadyForFinishDestroy));
+							if (LastObjectNotReadyForFinishDestroy)
+							{
+								LastObjectNotReadyForFinishDestroy->AbortInsideMemberFunction();
+							}
+							else
+							{
+								//go through the standard fatal error path if LastObjectNotReadyForFinishDestroy is null.
+								//this could happen in the current code flow, in the odd case where an object finished readying just in time for the loop above.
+								UE_LOG(LogGarbage, Fatal, TEXT("LastObjectNotReadyForFinishDestroy is NULL."));
+							}
 #endif
 						}
 					}
@@ -1432,7 +1446,7 @@ void GatherUnreachableObjects(bool bForceSingleThreaded)
 			UE_LOG(LogGarbage, Log, TEXT("Destroying cluster (%d) %s"), ClusterRootItem->GetClusterIndex(), *static_cast<UObject*>(ClusterRootItem->Object)->GetFullName());
 #endif
 			ClusterRootItem->ClearFlags(EInternalObjectFlags::ClusterRoot);
-			
+
 			const int32 ClusterIndex = ClusterRootItem->GetClusterIndex();
 			FUObjectCluster& Cluster = GUObjectClusters[ClusterIndex];
 			for (int32 ClusterObjectIndex : Cluster.Objects)
@@ -1451,8 +1465,8 @@ void GatherUnreachableObjects(bool bForceSingleThreaded)
 		}
 	}
 
-	UE_LOG(LogGarbage, Log, TEXT("%f ms for Gather Unreachable Objects (%d objects collected including %d cluster objects from %d clusters)"), 
-		(FPlatformTime::Seconds() - StartTime) * 1000, 
+	UE_LOG(LogGarbage, Log, TEXT("%f ms for Gather Unreachable Objects (%d objects collected including %d cluster objects from %d clusters)"),
+		(FPlatformTime::Seconds() - StartTime) * 1000,
 		GUnreachableObjects.Num(),
 		ClusterObjects,
 		ClusterItemsToDestroy.Num());
@@ -1468,6 +1482,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 {
 	SCOPE_TIME_GUARD(TEXT("Collect Garbage"));
 	SCOPED_NAMED_EVENT(CollectGarbageInternal, FColor::Red);
+	CSV_EVENT_GLOBAL(TEXT("GC"));
 
 	FGCCSyncObject::Get().ResetGCIsWaiting();
 
@@ -1597,6 +1612,11 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	STAT_ADD_CUSTOMMESSAGE_NAME( STAT_NamedMarker, TEXT( "GarbageCollection - End" ) );
 }
 
+bool IsIncrementalUnhashPending()
+{
+	return GUnrechableObjectIndex < GUnreachableObjects.Num();
+}
+
 bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UnhashUnreachableObjects"), STAT_UnhashUnreachableObjects, STATGROUP_GC);
@@ -1609,7 +1629,7 @@ bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)
 	const double StartTime = FPlatformTime::Seconds();
 	const int32 TimeLimitEnforcementGranularityForBeginDestroy = 10;
 	int32 Items = 0;
-	int32 TimePollCounter = 0;	
+	int32 TimePollCounter = 0;
 
 	while (GUnrechableObjectIndex < GUnreachableObjects.Num())
 	{
@@ -1632,10 +1652,10 @@ bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)
 		}
 	}
 
-	UE_LOG(LogGarbage, Log, TEXT("%f ms for %sunhashing unreachable objects. Items %d (%d/%d)"), 
-		(FPlatformTime::Seconds() - StartTime) * 1000, 
+	UE_LOG(LogGarbage, Log, TEXT("%f ms for %sunhashing unreachable objects. Items %d (%d/%d)"),
+		(FPlatformTime::Seconds() - StartTime) * 1000,
 		bUseTimeLimit ? TEXT("incrementally ") : TEXT(""),
-		Items, 
+		Items,
 		GUnrechableObjectIndex, GUnreachableObjects.Num());
 
 	FCoreUObjectDelegates::PostGarbageCollectConditionalBeginDestroy.Broadcast();

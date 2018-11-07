@@ -56,7 +56,7 @@ SkillLevel: Beginner
 |**Handle Linear Stiffness** | 핸들 직선 강성 - 마우스 스프링 힘의 직선 강성입니다. |
 |**Handle Angular Damping** | 핸들 각 제동 - 마우스 스프링 힘의 각 제동입니다. |
 |**Handle Angular Stiffness** | 핸들 각 강성 - 마우스 스프링 힘의 각 강성입니다. |
-|**Interpolation Speed** | 보간 속도 - 마우스 스프링 힘에 대한 피직스 타겟 트랜스폼 보간 속도입니다. |
+|**Interpolation Speed** | 보간 속도 - 마우스 스프링 힘에 대한 피직스 타깃 트랜스폼 보간 속도입니다. |
 [/REGION]
 
 ### Poking

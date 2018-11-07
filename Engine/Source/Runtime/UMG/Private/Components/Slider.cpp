@@ -19,6 +19,8 @@ USlider::USlider(const FObjectInitializer& ObjectInitializer)
 	SSlider::FArguments Defaults;
 	WidgetStyle = *Defaults._Style;
 	IsFocusable = true;
+	MouseUsesStep = false;
+	RequiresControllerLock = true;
 }
 
 TSharedRef<SWidget> USlider::RebuildWidget()
@@ -42,6 +44,8 @@ void USlider::SynchronizeProperties()
 	TAttribute<float> ValueBinding = PROPERTY_BINDING(float, Value);
 	
 	MySlider->SetOrientation(Orientation);
+	MySlider->SetMouseUsesStep(MouseUsesStep);
+	MySlider->SetRequiresControllerLock(RequiresControllerLock);
 	MySlider->SetSliderBarColor(SliderBarColor);
 	MySlider->SetSliderHandleColor(SliderHandleColor);
 	MySlider->SetValue(ValueBinding);

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
+#include "Algo/Accumulate.h"
 #include "Tests/TestHelpers.h"
 #include "Tests/Mock/FileSystem.mock.h"
 #include "Tests/Mock/Manifest.mock.h"
@@ -88,7 +89,7 @@ void FFileAttributionSpec::Define()
 					for (const FString& File : NewFiles)
 					{
 						MockFileSystem->FileSizes.Add(StagedFileDirectory / File, 64);
-						MockFileSystem->FileAttributes.Add(StagedFileDirectory / File, EFileAttributes::Exists);
+						MockFileSystem->FileAttributes.Add(StagedFileDirectory / File, EAttributeFlags::Exists);
 					}
 				});
 
@@ -116,9 +117,9 @@ void FFileAttributionSpec::Define()
 					FFileManifest FileManifest;
 					FileManifest.Filename = MissingFile;
 					MockFileSystem->FileSizes.Add(StagedFileDirectory / MissingFile, INDEX_NONE);
-					MockFileSystem->FileAttributes.Add(StagedFileDirectory / MissingFile, EFileAttributes::None);
+					MockFileSystem->FileAttributes.Add(StagedFileDirectory / MissingFile, EAttributeFlags::None);
 					MockFileSystem->FileSizes.Add(InstallDirectory / MissingFile, INDEX_NONE);
-					MockFileSystem->FileAttributes.Add(InstallDirectory / MissingFile, EFileAttributes::None);
+					MockFileSystem->FileAttributes.Add(InstallDirectory / MissingFile, EAttributeFlags::None);
 					MockNewManifest->BuildFileList.Add(MissingFile);
 					MockNewManifest->FileManifests.Add(MissingFile, FileManifest);
 				});
@@ -327,11 +328,11 @@ void FFileAttributionSpec::MakeUnit()
 		FFileManifest FileManifest;
 		FileManifest.Filename = File;
 		FSHA1::HashBuffer(*FGuid::NewGuid().ToString(), sizeof(TCHAR) * 32, FileManifest.FileHash.Hash);
-		FileManifest.FileChunkParts.Add(ChunkPart);
-		FileManifest.bIsUnixExecutable = ExeFiles.Contains(File);
-		FileManifest.bIsReadOnly = ReadOnlyFiles.Contains(File);
-		FileManifest.bIsCompressed = CompressedFiles.Contains(File);
-		FileManifest.Init();
+		FileManifest.ChunkParts.Add(ChunkPart);
+		FileManifest.FileMetaFlags |= ReadOnlyFiles.Contains(File) ? BuildPatchServices::EFileMetaFlags::ReadOnly : BuildPatchServices::EFileMetaFlags::None;
+		FileManifest.FileMetaFlags |= CompressedFiles.Contains(File) ? BuildPatchServices::EFileMetaFlags::Compressed : BuildPatchServices::EFileMetaFlags::None;
+		FileManifest.FileMetaFlags |= ExeFiles.Contains(File) ? BuildPatchServices::EFileMetaFlags::UnixExecutable : BuildPatchServices::EFileMetaFlags::None;
+		FileManifest.FileSize = Algo::Accumulate<int64>(FileManifest.ChunkParts, 0, [] (int64 Count, const FChunkPart& Element) { return Count + Element.Size; });
 		MockNewManifest->BuildFileList.Add(File);
 		MockNewManifest->FileManifests.Add(File, FileManifest);
 		if (SameFiles.Contains(File))
@@ -345,8 +346,8 @@ void FFileAttributionSpec::MakeUnit()
 			MockOldManifest->BuildFileList.Add(File);
 			MockOldManifest->FileManifests.Add(File, FileManifest);
 		}
-		MockFileSystem->FileSizes.Add(InstallDirectory / File, FileManifest.GetFileSize());
-		MockFileSystem->FileAttributes.Add(InstallDirectory / File, EFileAttributes::Exists);
+		MockFileSystem->FileSizes.Add(InstallDirectory / File, FileManifest.FileSize);
+		MockFileSystem->FileAttributes.Add(InstallDirectory / File, EAttributeFlags::Exists);
 	}
 	FileAttribution.Reset(BuildPatchServices::FFileAttributionFactory::Create(
 		MockFileSystem.Get(),

@@ -29,6 +29,7 @@ struct ASSETREGISTRY_API FAssetRegistryVersion
 		ChangedAssetData,		// AssetData serialization format changed, versions before this are not readable
 		RemovedMD5Hash,			// Removed MD5 hash from package data
 		AddedHardManage,		// Added hard/soft manage references
+		AddedCookedMD5Hash,		// Added MD5 hash of cooked package to package data
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
@@ -318,7 +319,7 @@ public:
 	/** Returns true if the asset is loaded */
 	bool IsAssetLoaded() const
 	{
-		return IsValid() && FindObject<UObject>(NULL, *ObjectPath.ToString()) != NULL;
+		return IsValid() && FindObjectSafe<UObject>(NULL, *ObjectPath.ToString()) != NULL;
 	}
 
 	/** Prints the details of the asset to the log */
@@ -535,6 +536,9 @@ public:
 	/** Guid of the source package, uniquely identifies an asset package */
 	FGuid PackageGuid;
 
+	/** MD5 of the cooked package on disk, for tracking nondeterministic changes */
+	FMD5Hash CookedHash;
+
 	FAssetPackageData()
 		: DiskSize(0)
 	{
@@ -548,6 +552,7 @@ public:
 	{
 		Ar << DiskSize;
 		Ar << PackageGuid;
+		Ar << CookedHash;
 	}
 };
 

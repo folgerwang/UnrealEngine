@@ -79,7 +79,7 @@ public:
 	}
 
 private:
-	//~ IStringTableEngineInterop interface
+	//~ IStringTableEngineBridge interface
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) override
 	{
 		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
@@ -103,18 +103,23 @@ private:
 		}
 	}
 
-	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FArchive& InAr) override
+	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FStructuredArchive::FSlot Slot) override
 	{
-		check(InAr.IsObjectReferenceCollector());
+		check(Slot.GetUnderlyingArchive().IsObjectReferenceCollector());
 
-		UStringTable* StringTableAsset = FStringTableRegistry::Get().FindStringTableAsset(InTableId);
-		InAr << StringTableAsset;
+		UObject* StringTableAsset = FStringTableRegistry::Get().FindStringTableAsset(InTableId);
+		Slot << StringTableAsset;
 	}
 
 	virtual bool IsStringTableFromAssetImpl(const FName InTableId) override
 	{
 		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InTableId);
 		return StringTableAssetReference.IsValid();
+	}
+
+	virtual bool IsStringTableAssetBeingReplacedImpl(const UStringTable* InStringTableAsset) override
+	{
+		return InStringTableAsset && InStringTableAsset->HasAnyFlags(RF_NewerVersionExists);
 	}
 
 	static FSoftObjectPath GetAssetReference(const FName InTableId)

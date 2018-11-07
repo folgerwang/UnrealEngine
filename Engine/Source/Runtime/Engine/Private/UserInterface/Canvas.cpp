@@ -26,6 +26,7 @@
 
 #include "StereoRendering.h"
 #include "Debug/ReporterGraph.h"
+#include "Fonts/FontMeasure.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCanvas, Log, All);
 
@@ -231,7 +232,6 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyCon
 ,	CurrentDeltaWorldTime(0)
 ,	FeatureLevel(InFeatureLevel)
 ,	bUseInternalTexture(false)
-,	StereoDepth(150)
 ,	DrawMode(InDrawMode)
 ,	DPIScale(InDPIScale)
 {
@@ -258,7 +258,6 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyCons
 ,	CurrentDeltaWorldTime(InWorldDeltaTime)
 ,	FeatureLevel(InFeatureLevel)
 ,	bUseInternalTexture(false)
-,	StereoDepth(150)
 ,	DrawMode(CDM_DeferDrawing)
 ,	DPIScale(InDPIScale)
 {
@@ -269,8 +268,6 @@ void FCanvas::Construct()
 {
 	check(RenderTarget);
 
-	CachedOrthoProjection[0] = CachedOrthoProjection[1] = FMatrix::Identity;
-	CachedRTWidth = CachedRTHeight = CachedDrawDepth = -1;
 	bStereoRendering = false;
 	bScaledToRenderTarget = false;
 	bAllowsToSwitchVerticalAxis = true;
@@ -1356,7 +1353,7 @@ void UCanvas::UpdateSafeZoneData()
 	{
 		FDisplayMetrics DisplayMetrics;
 
-		FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+		FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 
 		SafeZonePadX = FMath::CeilToInt(DisplayMetrics.TitleSafePaddingSize.X);
 		SafeZonePadY = FMath::CeilToInt(DisplayMetrics.TitleSafePaddingSize.Y);
@@ -1375,12 +1372,6 @@ void UCanvas::UpdateAllCanvasSafeZoneData()
 	{
 		It->UpdateSafeZoneData();
 	}
-}
-
-
-void UCanvas::SetStereoDepth(uint32 depth)
-{
-	Canvas->SetStereoDepth(depth);
 }
 
 void UCanvas::Update()
@@ -1608,7 +1599,7 @@ int32 UCanvas::WrappedPrint(bool Draw, float X, float Y, int32& out_XL, int32& o
 	return WrappedStrings.Num();
 }
 
-void UCanvas::StrLen( const UFont* InFont, const FString& InText, float& XL, float& YL)
+void UCanvas::StrLen(const UFont* InFont, const FString& InText, float& XL, float& YL, bool bDPIAware)
 {
 	if (InFont == NULL)
 	{
@@ -1616,11 +1607,21 @@ void UCanvas::StrLen( const UFont* InFont, const FString& InText, float& XL, flo
 	}
 	else
 	{
-		FTextSizingParameters Parameters(InFont,1.0f,1.0f);
-		UCanvas::CanvasStringSize(Parameters, *InText);
-
-		XL = Parameters.DrawXL;
-		YL = Parameters.DrawYL;
+		if (InFont->FontCacheType == EFontCacheType::Offline || bDPIAware == false)
+		{
+			FTextSizingParameters Parameters(InFont, 1.0f, 1.0f);
+			UCanvas::CanvasStringSize(Parameters, *InText);
+			XL = Parameters.DrawXL;
+			YL = Parameters.DrawYL;
+		}
+		else
+		{
+			const FSlateFontInfo LegacyFontInfo = InFont->GetLegacySlateFontInfo();
+			const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+			const FVector2D MeasuredTextSize = FontMeasure->Measure(InText, LegacyFontInfo, Canvas->GetDPIScale());
+			XL = MeasuredTextSize.X;
+			YL = MeasuredTextSize.Y;
+		}
 	}
 }
 
@@ -1828,55 +1829,10 @@ void UCanvas::DrawItem( class FCanvasItem& Item, float X, float Y )
 	Canvas->DrawItem( Item, X, Y  );
 }
 
-bool FCanvas::GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2])
-{
-	bool rv = false;
-
-	if (bStereoRendering)
-	{
-		rv = true;
-		const int32 RTWidth = RenderTarget->GetSizeXY().X;
-		const int32 RTHeight = RenderTarget->GetSizeXY().Y;
-		if (RTWidth != CachedRTWidth || RTHeight != CachedRTHeight || InDrawDepth != CachedDrawDepth)
-		{
-			rv = false;
-			if (GEngine && GEngine->StereoRenderingDevice.IsValid())
-			{
-				GEngine->StereoRenderingDevice->GetOrthoProjection(RTWidth, RTHeight, InDrawDepth, CachedOrthoProjection);
-				CachedRTWidth = RTWidth;
-				CachedRTHeight= RTHeight;
-				CachedDrawDepth=InDrawDepth;
-				rv = true;
-			}
-		}
-		OutOrthoProjection[0] = CachedOrthoProjection[0];
-		OutOrthoProjection[1] = CachedOrthoProjection[1];
-	}
-	return rv;
-}
-
 void FCanvas::DrawItem(FCanvasItem& Item)
 {
-	const uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
-	FMatrix OrthoProjection[2];
-	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
-	{
-		//left eye
-		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
-		Item.Draw(this);
-		PopTransform();
-		if (!bUseInternalTexture)
-		{
-			//right eye
-			PushRelativeTransform(OrthoProjection[1]);
-			Item.Draw(this);
-			PopTransform();
-		}
-	}
-	else
-	{
-		Item.Draw(this);
-	}
+
+	Item.Draw(this);
 
 	if (DrawMode == CDM_ImmediateDrawing)
 	{
@@ -1886,26 +1842,7 @@ void FCanvas::DrawItem(FCanvasItem& Item)
 
 void FCanvas::DrawItem(FCanvasItem& Item, const FVector2D& InPosition)
 {
-	uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
-	FMatrix OrthoProjection[2];
-	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
-	{
-		//left eye
-		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
-		Item.Draw(this, InPosition);
-		PopTransform();
-		if (!bUseInternalTexture)
-		{
-			//right eye
-			PushRelativeTransform(OrthoProjection[1]);
-			Item.Draw(this, InPosition);
-			PopTransform();
-		}
-	}
-	else
-	{
-		Item.Draw(this , InPosition);
-	}
+	Item.Draw(this , InPosition);
 
 	if (DrawMode == CDM_ImmediateDrawing)
 	{
@@ -1915,26 +1852,7 @@ void FCanvas::DrawItem(FCanvasItem& Item, const FVector2D& InPosition)
 
 void FCanvas::DrawItem(FCanvasItem& Item, float X, float Y)
 {
-	uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
-	FMatrix OrthoProjection[2];
-	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
-	{
-		//left eye
-		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
-		Item.Draw(this, X, Y);
-		PopTransform();
-		if (!bUseInternalTexture)
-		{
-			//right eye
-			PushRelativeTransform(OrthoProjection[1]);
-			Item.Draw(this, X, Y);
-			PopTransform();
-		}
-	}
-	else
-	{
-		Item.Draw(this, X, Y);
-	}
+	Item.Draw(this, X, Y);
 
 	if (DrawMode == CDM_ImmediateDrawing)
 	{
@@ -2012,7 +1930,8 @@ void UCanvas::K2_DrawMaterial(UMaterialInterface* RenderMaterial, FVector2D Scre
 	}
 }
 
-void UCanvas::K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FLinearColor RenderColor, float Kerning, FLinearColor ShadowColor, FVector2D ShadowOffset, bool bCentreX, bool bCentreY, bool bOutlined, FLinearColor OutlineColor)
+
+void UCanvas::K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FVector2D Scale, FLinearColor RenderColor, float Kerning, FLinearColor ShadowColor, FVector2D ShadowOffset, bool bCentreX, bool bCentreY, bool bOutlined, FLinearColor OutlineColor)
 {
 	if (!RenderText.IsEmpty() && Canvas)
 	{
@@ -2022,6 +1941,7 @@ void UCanvas::K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2
 		TextItem.ShadowOffset = ShadowOffset;
 		TextItem.bCentreX = bCentreX;
 		TextItem.bCentreY = bCentreY;
+		TextItem.Scale = Scale;
 		TextItem.bOutlined = bOutlined;
 		TextItem.OutlineColor = OutlineColor;
 		DrawItem(TextItem);

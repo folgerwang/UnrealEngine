@@ -26,26 +26,45 @@ void FAnimNode_PoseDriver::Initialize_AnyThread(const FAnimationInitializeContex
 	FAnimNode_PoseHandler::Initialize_AnyThread(Context);
 
 	SourcePose.Initialize(Context);
-
-	CacheDrivenIDs(Context.AnimInstanceProxy->GetSkeleton());
 }
 
-void FAnimNode_PoseDriver::CacheDrivenIDs(USkeleton* Skeleton)
+void FAnimNode_PoseDriver::RebuildPoseList(const FBoneContainer& InBoneContainer, const UPoseAsset* InPoseAsset)
 {
 	// Cache UIDs for driving curves
-	if (DriveOutput == EPoseDriverOutput::DriveCurves)
+	PoseExtractContext.PoseCurves.Reset();
+	const USkeleton* Skeleton = InPoseAsset->GetSkeleton();
+	if (Skeleton)
 	{
+		const TArray<FSmartName>& PoseNames = InPoseAsset->GetPoseNames();
 		for (FPoseDriverTarget& PoseTarget : PoseTargets)
 		{
-			PoseTarget.DrivenUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, PoseTarget.DrivenName);
-		}
-	}
-	// If not driving curves, init to INDEX_NONE
-	else
-	{
-		for (FPoseDriverTarget& PoseTarget : PoseTargets)
-		{
-			PoseTarget.DrivenUID = INDEX_NONE;
+			if (DriveOutput == EPoseDriverOutput::DriveCurves)
+			{
+				PoseTarget.DrivenUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, PoseTarget.DrivenName);
+			}
+			else
+			{
+				PoseTarget.DrivenUID = INDEX_NONE;
+			}
+
+			const int32 PoseIndex = InPoseAsset->GetPoseIndexByName(PoseTarget.DrivenName); 
+			if (PoseIndex != INDEX_NONE)
+			{
+				TArray<uint16> const& LUTIndex = InBoneContainer.GetUIDToArrayLookupTable();
+				if (ensure(LUTIndex.IsValidIndex(PoseNames[PoseIndex].UID)) && LUTIndex[PoseNames[PoseIndex].UID] != MAX_uint16)
+				{
+					// we keep pose index as that is the fastest way to search when extracting pose asset
+					PoseTarget.PoseCurveIndex = PoseExtractContext.PoseCurves.Add(FPoseCurve(PoseIndex, PoseNames[PoseIndex].UID, 0.f));
+				}
+				else
+				{
+					PoseTarget.PoseCurveIndex = INDEX_NONE;
+				}
+			}
+			else
+			{
+				PoseTarget.PoseCurveIndex = INDEX_NONE;
+			}
 		}
 	}
 }
@@ -186,7 +205,10 @@ void FAnimNode_PoseDriver::Evaluate_AnyThread(FPoseContext& Output)
 	// Udpate DrivenIDs if needed
 	if (bCachedDrivenIDsAreDirty)
 	{
-		CacheDrivenIDs(Output.AnimInstanceProxy->GetSkeleton());
+		if (CurrentPoseAsset.IsValid())
+		{
+			RebuildPoseList(Output.AnimInstanceProxy->GetRequiredBones(), CurrentPoseAsset.Get());
+		}
 	}
 
 	FPoseContext SourceData(Output);
@@ -249,7 +271,6 @@ void FAnimNode_PoseDriver::Evaluate_AnyThread(FPoseContext& Output)
 		return;
 	}
 
-
 	RBFParams.TargetDimensions = SourceBones.Num() * 3;
 
 	// Get target array as RBF types
@@ -273,18 +294,14 @@ void FAnimNode_PoseDriver::Evaluate_AnyThread(FPoseContext& Output)
 		{
 			FPoseContext CurrentPose(Output);
 
-			// Reset PoseExtractContext..
-			check(PoseExtractContext.PoseCurves.Num() == PoseUIDList.Num());		
-			FMemory::Memzero(PoseExtractContext.PoseCurves.GetData(), PoseExtractContext.PoseCurves.Num() * sizeof(float));
 			// Then fill in weight for any driven poses
 			for (const FRBFOutputWeight& Weight : OutputWeights)
 			{
 				const FPoseDriverTarget& PoseTarget = PoseTargets[Weight.TargetIndex];
-
-				int32 PoseIndex = CurrentPoseAsset.Get()->GetPoseIndexByName(PoseTarget.DrivenName);
+				const int32 PoseIndex = PoseTarget.PoseCurveIndex;
 				if (PoseIndex != INDEX_NONE)
 				{
-					PoseExtractContext.PoseCurves[PoseIndex] = Weight.TargetWeight;
+					PoseExtractContext.PoseCurves[PoseIndex].Value = Weight.TargetWeight;
 				}
 			}
 
@@ -341,7 +358,6 @@ void FAnimNode_PoseDriver::Evaluate_AnyThread(FPoseContext& Output)
 			bHaveValidPose = true;
 		}
 	}
-
 
 	// No valid pose, just pass through
 	if(!bHaveValidPose)

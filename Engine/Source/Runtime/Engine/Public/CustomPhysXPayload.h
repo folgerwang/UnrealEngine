@@ -32,7 +32,8 @@ struct FCustomPhysXSyncActors
 	virtual void FinalizeSync(int32 SceneType) = 0;
 
 private:
-	friend class FPhysScene;
+	friend class FPhysScene_PhysX;
+	friend class FPhysScene_ImmediatePhysX;
 	TArray<physx::PxRigidActor*> Actors;
 };
 

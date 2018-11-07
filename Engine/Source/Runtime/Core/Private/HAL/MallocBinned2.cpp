@@ -12,7 +12,7 @@
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/MemoryMisc.h"
-
+#include "HAL/PlatformMisc.h"
 
 #if BINNED2_ALLOW_RUNTIME_TWEAKING
 
@@ -236,7 +236,15 @@ private:
 		{
 			FirstFreeBlock = (FFreeBlock*)FirstFreeBlock->NextFreeBlock;
 		}
+#if PLATFORM_LUMIN
+		// Temporarily disable fatal check for Lumin since it crashes the ImageTrackerComponent.
+		if (!(!FirstFreeBlock || FirstFreeBlock->GetNumFreeRegularBlocks() != 0))
+		{
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("assert failed - (!FirstFreeBlock || FirstFreeBlock->GetNumFreeRegularBlocks() != 0)"));
+		}
+#else
 		check(!FirstFreeBlock || FirstFreeBlock->GetNumFreeRegularBlocks() != 0);
+#endif // PLATFORM_LUMIN
 	}
 };
 
@@ -999,10 +1007,17 @@ const TCHAR* FMallocBinned2::GetDescriptiveName()
 
 void FMallocBinned2::FlushCurrentThreadCache()
 {
+	double StartTimeInner = FPlatformTime::Seconds();
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMallocBinned2_FlushCurrentThreadCache);
 	FPerThreadFreeBlockLists* Lists = FPerThreadFreeBlockLists::Get();
+
+	float WaitForMutexTime = 0.0f;
+	float WaitForMutexAndTrimTime = 0.0f;
+
 	if (Lists)
 	{
 		FScopeLock Lock(&Mutex);
+		WaitForMutexTime = FPlatformTime::Seconds() - StartTimeInner;
 		for (int32 PoolIndex = 0; PoolIndex != BINNED2_SMALL_POOL_COUNT; ++PoolIndex)
 		{
 			FBundleNode* Bundles = Lists->PopBundles(PoolIndex);
@@ -1011,6 +1026,17 @@ void FMallocBinned2::FlushCurrentThreadCache()
 				Private::FreeBundles(*this, Bundles, PoolIndexToBlockSize(PoolIndex), PoolIndex);
 			}
 		}
+		WaitForMutexAndTrimTime = FPlatformTime::Seconds() - StartTimeInner;
+	}
+
+	// These logs must happen outside the above mutex to avoid deadlocks
+	if (WaitForMutexTime > 0.02f)
+	{
+		UE_LOG(LogMemory, Warning, TEXT("FMallocBinned2 took %6.2fms to wait for mutex for trim."), WaitForMutexTime * 1000.0f);
+	}
+	if (WaitForMutexAndTrimTime > 0.02f)
+	{
+		UE_LOG(LogMemory, Warning, TEXT("FMallocBinned2 took %6.2fms to wait for mutex AND trim."), WaitForMutexAndTrimTime * 1000.0f);
 	}
 }
 
@@ -1204,7 +1230,7 @@ void FMallocBinned2::DumpAllocatorStats(class FOutputDevice& Ar)
 	Ar.Logf(TEXT("Requested Allocations: %fmb"), ((double)AllocatedLargePoolMemory) / (1024.0f * 1024.0f));
 	Ar.Logf(TEXT("OS Allocated: %fmb"), ((double)AllocatedLargePoolMemoryWAlignment) / (1024.0f * 1024.0f));
 
-	uint32 OSPageAllocatorCachedFreeSize = CachedOSPageAllocator.GetCachedFreeTotal();
+	uint64 OSPageAllocatorCachedFreeSize = CachedOSPageAllocator.GetCachedFreeTotal();
 	Ar.Logf(TEXT("OS Page Allocator"));
 	Ar.Logf(TEXT("Cached free pages: %fmb"), ((double)OSPageAllocatorCachedFreeSize) / (1024.0f * 1024.0f));
 #else

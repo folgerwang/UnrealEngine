@@ -19,8 +19,8 @@
 class UNiagaraDataInterface;
 class FNiagaraCompileRequestDataBase;
 
-void SerializeNiagaraShaderMaps(const TMap<const ITargetPlatform*, FNiagaraShaderScript*>* PlatformScriptResourcesToSavePtr, FArchive& Ar, FNiagaraShaderScript& OutLoadedResources);
-void ProcessSerializedShaderMaps(UNiagaraScript* Owner, FNiagaraShaderScript LoadedResource, FNiagaraShaderScript* (&OutScriptResourcesLoaded)[ERHIFeatureLevel::Num]);
+void SerializeNiagaraShaderMaps(const TMap<const ITargetPlatform*, TArray<FNiagaraShaderScript*>>* PlatformScriptResourcesToSave, FArchive& Ar, TArray<FNiagaraShaderScript>& OutLoadedResources);
+void ProcessSerializedShaderMaps(UNiagaraScript* Owner, TArray<FNiagaraShaderScript>& LoadedResources, FNiagaraShaderScript& OutResourceForCurrentPlatform, FNiagaraShaderScript* (&OutScriptResourcesLoaded)[ERHIFeatureLevel::Num]);
 
 #define NIAGARA_INVALID_MEMORY (0xBA)
 
@@ -123,6 +123,7 @@ public:
 
 	FNiagaraVMExecutableDataId()
 		: CompilerVersionID()
+		, ScriptUsageType(ENiagaraScriptUsage::Function)
 		, BaseScriptID(0, 0, 0, 0)
 	{ }
 
@@ -412,7 +413,8 @@ public:
 	//~ End UObject interface
 
 	// Infrastructure for GPU compute Shaders
-	NIAGARA_API void CacheResourceShadersForCooking(EShaderPlatform ShaderPlatform, FNiagaraShaderScript* &OutCachedResource);
+	NIAGARA_API void CacheResourceShadersForCooking(EShaderPlatform ShaderPlatform, TArray<FNiagaraShaderScript*>& InOutCachedResources);
+
 	NIAGARA_API void CacheResourceShadersForRendering(bool bRegenerateId, bool bForceRecompile=false);
 	void BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform);
 	void CacheShadersForResources(EShaderPlatform ShaderPlatform, FNiagaraShaderScript *ResourceToCache, bool bApplyCompletedShaderMapForRendering, bool bForceRecompile = false, bool bCooking=false);
@@ -535,6 +537,8 @@ private:
 	UPROPERTY()
 	mutable FNiagaraVMExecutableDataId LastGeneratedVMId;
 
+	TArray<FNiagaraShaderScript> LoadedScriptResources;
+
 	FNiagaraShaderScript ScriptResource;
 
 	FNiagaraShaderScript* ScriptResourcesByFeatureLevel[ERHIFeatureLevel::Num];
@@ -552,7 +556,7 @@ private:
 
 #if WITH_EDITORONLY_DATA
 	/* script resources being cached for cooking. */
-	TMap<const class ITargetPlatform*, FNiagaraShaderScript*> CachedScriptResourcesForCooking;
+	TMap<const class ITargetPlatform*, TArray<FNiagaraShaderScript*>> CachedScriptResourcesForCooking;
 
 	UPROPERTY(Transient)
 	TArray<UObject*> ActiveCompileRoots;

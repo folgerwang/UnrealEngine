@@ -18,18 +18,23 @@ class FRectLightSceneProxy : public FLocalLightSceneProxy
 public:
 	float		SourceWidth;
 	float		SourceHeight;
-	//UTexture*	SourceTexture;
+	UTexture*	SourceTexture;
 
 	FRectLightSceneProxy(const URectLightComponent* Component)
 	:	FLocalLightSceneProxy(Component)
 	,	SourceWidth(Component->SourceWidth)
 	,	SourceHeight(Component->SourceHeight)
-	//,	SourceTexture(Component->SourceTexture)
+	,	SourceTexture(Component->SourceTexture)
 	{}
 
 	virtual bool IsRectLight() const override
 	{
 		return true;
+	}
+
+	virtual bool HasSourceTexture() const override
+	{
+		return SourceTexture != nullptr;
 	}
 
 	/** Accesses parameters needed for rendering the light. */
@@ -57,8 +62,7 @@ public:
 		LightParameters.LightSourceRadius = SourceWidth * 0.5f;
 		LightParameters.LightSoftSourceRadius = 0.0f;
 		LightParameters.LightSourceLength = SourceHeight * 0.5f;
-		LightParameters.SourceTexture = GWhiteTexture;
-		//LightParameters.SourceTexture = SourceTexture ? SourceTexture->Resource : GWhiteTexture;
+		LightParameters.SourceTexture = SourceTexture ? SourceTexture->Resource : GWhiteTexture;
 	}
 
 	/**
@@ -107,7 +111,7 @@ URectLightComponent::URectLightComponent(const FObjectInitializer& ObjectInitial
 
 	SourceWidth = 64.0f;
 	SourceHeight = 64.0f;
-	//SourceTexture = nullptr;
+	SourceTexture = nullptr;
 }
 
 FLightSceneProxy* URectLightComponent::CreateSceneProxy() const
@@ -154,6 +158,24 @@ float URectLightComponent::ComputeLightBrightness() const
 
 	return LightBrightness;
 }
+
+#if WITH_EDITOR
+void URectLightComponent::SetLightBrightness(float InBrightness)
+{
+	if (IntensityUnits == ELightUnits::Candelas)
+	{
+		Super::SetLightBrightness(InBrightness / (100.f * 100.f)); // Conversion from cm2 to m2
+	}
+	else if (IntensityUnits == ELightUnits::Lumens)
+	{
+		Super::SetLightBrightness(InBrightness / (100.f * 100.f / PI)); // Conversion from cm2 to m2 and PI from the cosine distribution
+	}
+	else
+	{
+		Super::SetLightBrightness(InBrightness / 16); // Legacy scale of 16
+	}
+}
+#endif // WITH_EDITOR
 
 /**
 * @return ELightComponentType for the light component class 

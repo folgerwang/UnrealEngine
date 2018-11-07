@@ -25,12 +25,16 @@
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "UObject/MetaData.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Package.h"
 #include "AssetRegistryModule.h"
 #include "ARFilter.h"
 #include "Animation/Skeleton.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 
 DEFINE_LOG_CATEGORY(LogFbx);
 
@@ -44,9 +48,38 @@ TSharedPtr<FFbxImporter> FFbxImporter::StaticInstance;
 
 TSharedPtr<FFbxImporter> FFbxImporter::StaticPreviewInstance;
 
+template<typename TMaterialType>
+void PrepareAndShowMaterialConflictPreviewDialog(UFbxImportUI* ImportUI)
+{
+	TArray<TMaterialType> CurrentMaterial;
+	TArray<TMaterialType> ResultMaterial;
+	TArray<int32> RemapMaterial;
+	TArray<FName> RemapMaterialName;
+	RemapMaterial.AddZeroed(ImportUI->MaterialCompareData.ResultAsset.Num());
+	RemapMaterialName.AddZeroed(ImportUI->MaterialCompareData.ResultAsset.Num());
+	CurrentMaterial.AddDefaulted(ImportUI->MaterialCompareData.CurrentAsset.Num());
+	for (int32 Materialindex = 0; Materialindex < ImportUI->MaterialCompareData.CurrentAsset.Num(); ++Materialindex)
+	{
+		CurrentMaterial[Materialindex].MaterialSlotName = ImportUI->MaterialCompareData.CurrentAsset[Materialindex].MaterialSlotName;
+		CurrentMaterial[Materialindex].ImportedMaterialSlotName = ImportUI->MaterialCompareData.CurrentAsset[Materialindex].ImportedMaterialSlotName;
+	}
+	ResultMaterial.AddDefaulted(ImportUI->MaterialCompareData.ResultAsset.Num());
+	for (int32 Materialindex = 0; Materialindex < ImportUI->MaterialCompareData.ResultAsset.Num(); ++Materialindex)
+	{
+		ResultMaterial[Materialindex].MaterialSlotName = ImportUI->MaterialCompareData.ResultAsset[Materialindex].MaterialSlotName;
+		ResultMaterial[Materialindex].ImportedMaterialSlotName = ImportUI->MaterialCompareData.ResultAsset[Materialindex].ImportedMaterialSlotName;
+	}
+	UnFbx::EFBXReimportDialogReturnOption OutReturnOption;
+	UnFbx::FFbxImporter::PrepareAndShowMaterialConflictDialog<TMaterialType>(CurrentMaterial, ResultMaterial, RemapMaterial, RemapMaterialName, true, true, OutReturnOption);
+}
 
+void PrepareAndShowSkeletonConflictPreviewDialog(UFbxImportUI* ImportUI)
+{
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(ImportUI->ReimportMesh);
+	UnFbx::FFbxImporter::ShowFbxSkeletonConflictWindow(SkeletalMesh, ImportUI->Skeleton, ImportUI->SkeletonCompareData);
+}
 
-FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, bool bForceImportType, EFBXImportType ImportType, UObject* ReimportObject)
+FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType, EFBXImportType ImportType)
 {
 	OutOperationCanceled = false;
 
@@ -102,6 +135,97 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 		//This option must always be the same value has the skeletalmesh one.
 		ImportUI->AnimSequenceImportData->bImportMeshesInBoneHierarchy = ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
 
+		//////////////////////////////////////////////////////////////////////////
+		// Set the information section data
+		
+		//Make sure the file is open to be able to read the header before showing the options
+		//If the file is already open it will simply return false.
+		FbxImporter->ReadHeaderFromFile(InFilename, true);
+
+		ImportUI->FileVersion = FbxImporter->GetFbxFileVersion();
+		ImportUI->FileCreator = FbxImporter->GetFileCreator();
+		// do analytics on getting Fbx data
+		FbxDocumentInfo* DocInfo = FbxImporter->Scene->GetSceneInfo();
+		if (DocInfo)
+		{
+			FString LastSavedVendor(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationVendor.Get().Buffer()));
+			FString LastSavedAppName(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationName.Get().Buffer()));
+			FString LastSavedAppVersion(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationVersion.Get().Buffer()));
+
+			ImportUI->FileCreatorApplication = LastSavedVendor + TEXT(" ") + LastSavedAppName + TEXT(" ") + LastSavedAppVersion;
+		}
+		else
+		{
+			ImportUI->FileCreatorApplication = TEXT("");
+		}
+
+		ImportUI->FileUnits = FbxImporter->GetFileUnitSystem();
+
+		ImportUI->FileAxisDirection = FbxImporter->GetFileAxisDirection();
+
+		//Set the info original file frame rate
+		ImportUI->FileSampleRate = FString::Printf(TEXT("%.2f"), FbxImporter->GetOriginalFbxFramerate());
+
+		//Set the info start time and the end time
+		ImportUI->AnimStartFrame = TEXT("0");
+		ImportUI->AnimEndFrame = TEXT("0");
+		FbxTimeSpan AnimTimeSpan(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
+		int32 AnimStackCount = FbxImporter->Scene->GetSrcObjectCount<FbxAnimStack>();
+		for (int32 AnimStackIndex = 0; AnimStackIndex < AnimStackCount; AnimStackIndex++)
+		{
+			FbxAnimStack* CurAnimStack = FbxImporter->Scene->GetSrcObject<FbxAnimStack>(AnimStackIndex);
+			FbxTimeSpan AnimatedInterval(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
+			FbxImporter->Scene->GetRootNode()->GetAnimationInterval(AnimatedInterval, CurAnimStack);
+			// find the most range that covers by both method, that'll be used for clamping
+			AnimTimeSpan.SetStart(FMath::Min<FbxTime>(AnimTimeSpan.GetStart(), AnimatedInterval.GetStart()));
+			AnimTimeSpan.SetStop(FMath::Max<FbxTime>(AnimTimeSpan.GetStop(), AnimatedInterval.GetStop()));
+		}
+		if (AnimTimeSpan.GetStart() != FBXSDK_TIME_INFINITE)
+		{
+			FbxTime EachFrame = FBXSDK_TIME_ONE_SECOND / FbxImporter->GetOriginalFbxFramerate();
+			ImportUI->AnimStartFrame = FString::FromInt(AnimTimeSpan.GetStart().Get() / EachFrame.Get());
+			ImportUI->AnimEndFrame = FString::FromInt(AnimTimeSpan.GetStop().Get() / EachFrame.Get());
+		}
+
+		if (ImportUI->MeshTypeToImport != FBXIT_Animation && ImportUI->ReimportMesh != nullptr)
+		{
+			ImportUI->OnUpdateCompareFbx = FOnUpdateCompareFbx::CreateLambda([&ImportUI, &FbxImporter]
+			{
+				//Fill the importUI compare
+				ImportUI->UpdateCompareData(FbxImporter);
+			});
+
+			ImportUI->OnShowMaterialConflictDialog = FOnShowConflictDialog::CreateLambda([&ImportUI, &FbxImporter]
+			{
+				if (!ImportUI->MaterialCompareData.bHasConflict)
+				{
+					return;
+				}
+				if (ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh)
+				{
+
+					PrepareAndShowMaterialConflictPreviewDialog<FSkeletalMaterial>(ImportUI);
+				}
+				else if (ImportUI->MeshTypeToImport == FBXIT_StaticMesh)
+				{
+					PrepareAndShowMaterialConflictPreviewDialog<FStaticMaterial>(ImportUI);
+				}
+			});
+
+			ImportUI->OnShowSkeletonConflictDialog = FOnShowConflictDialog::CreateLambda([&ImportUI, &FbxImporter]
+			{
+				if (!ImportUI->SkeletonCompareData.bHasConflict)
+				{
+					return;
+				}
+				if (ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh)
+				{
+					PrepareAndShowSkeletonConflictPreviewDialog(ImportUI);
+				}
+			});
+			
+		}
+		
 		TSharedPtr<SWindow> ParentWindow;
 
 		if( FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
@@ -275,6 +399,8 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	else if ( ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh )
 	{
 		UFbxSkeletalMeshImportData* SkeletalMeshData	= ImportUI->SkeletalMeshImportData;
+		InOutImportOptions.bImportAsSkeletalGeometry    = SkeletalMeshData->ImportContentType == EFBXImportContentType::FBXICT_Geometry;
+		InOutImportOptions.bImportAsSkeletalSkinning	= SkeletalMeshData->ImportContentType == EFBXImportContentType::FBXICT_SkinningWeights;
 		InOutImportOptions.NormalImportMethod			= SkeletalMeshData->NormalImportMethod;
 		InOutImportOptions.NormalGenerationMethod		= SkeletalMeshData->NormalGenerationMethod;
 		InOutImportOptions.ImportTranslation			= SkeletalMeshData->ImportTranslation;
@@ -340,6 +466,7 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.AnimationName = ImportUI->OverrideAnimationName;
 	// only re-sample if they don't want to use default sample rate
 	InOutImportOptions.bResample = !ImportUI->AnimSequenceImportData->bUseDefaultSampleRate;
+	InOutImportOptions.ResampleRate = ImportUI->AnimSequenceImportData->CustomSampleRate;
 	InOutImportOptions.bPreserveLocalTransform = ImportUI->AnimSequenceImportData->bPreserveLocalTransform;
 	InOutImportOptions.bDeleteExistingMorphTargetCurves = ImportUI->AnimSequenceImportData->bDeleteExistingMorphTargetCurves;
 	InOutImportOptions.bRemoveRedundantKeys = ImportUI->AnimSequenceImportData->bRemoveRedundantKeys;
@@ -445,6 +572,12 @@ void FFbxImporter::CleanUp()
 	}
 	SdkManager = NULL;
 	Logger = NULL;
+}
+
+void FFbxImporter::PartialCleanUp()
+{
+	ClearTokenizedErrorMessages();
+	ReleaseScene();
 }
 
 //-------------------------------------------------------------------------
@@ -946,9 +1079,7 @@ void FFbxImporter::FixMaterialClashName()
 
 void FFbxImporter::EnsureNodeNameAreValid()
 {
-	//TODO add an editor preference option for 4.21 (default value to false)
-	//const bool bKeepFbxNamespace = GetDefault<UEditorPerProjectUserSettings>()->bKeepFbxNamespace;
-	const bool bKeepNamespace = false;
+	const bool bKeepNamespace = GetDefault<UEditorPerProjectUserSettings>()->bKeepFbxNamespace;
 
 	TSet<FString> AllNodeName;
 	int32 CurrentNameIndex = 1;
@@ -968,7 +1099,7 @@ void FFbxImporter::EnsureNodeNameAreValid()
 			{
 				AddTokenizedErrorMessage(
 					FTokenizedMessage::Create(EMessageSeverity::Warning,
-					FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
+					FText::Format(LOCTEXT("FbxImport_NoNodeName", "FBX File Loading: Found node with no name, new node name is '{0}'"), FText::FromString(NodeName))),
 					FFbxErrors::Generic_LoadingSceneFailed);
 			}
 		}
@@ -998,6 +1129,47 @@ void FFbxImporter::EnsureNodeNameAreValid()
 		}
 		AllNodeName.Add(NodeName);
 	}
+}
+
+FString FFbxImporter::GetFileAxisDirection()
+{
+	FString AxisDirection;
+	int32 Sign = 1;
+	switch (FileAxisSystem.GetUpVector(Sign))
+	{
+	case FbxAxisSystem::eXAxis:
+		{
+			AxisDirection += TEXT("X");
+		}
+		break;
+	case FbxAxisSystem::eYAxis:
+		{
+			AxisDirection += TEXT("Y");
+		}
+		break;
+	case FbxAxisSystem::eZAxis:
+		{
+			AxisDirection += TEXT("Z");
+		}
+		break;
+	}
+	//Negative sign mean down instead of up
+	AxisDirection += Sign == 1 ? TEXT("-UP") : TEXT("-DOWN");
+		
+	switch (FileAxisSystem.GetCoorSystem())
+	{
+	case FbxAxisSystem::eLeftHanded:
+		{
+			AxisDirection += TEXT(" (LH)");
+		}
+		break;
+	case FbxAxisSystem::eRightHanded:
+		{
+			AxisDirection += TEXT(" (RH)");
+		}
+		break;
+	}
+	return AxisDirection;
 }
 
 #ifdef IOS_REF
@@ -1050,7 +1222,8 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 	// Get the version number of the FBX file format.
 	Importer->GetFileVersion(FileMajor, FileMinor, FileRevision);
 	FbxFileVersion = FString::Printf(TEXT("%d.%d.%d"), FileMajor, FileMinor, FileRevision);
-
+	
+	FbxFileCreator = UTF8_TO_TCHAR(Importer->GetFileHeaderInfo()->mCreator.Buffer());
 	// output result
 	if(bStatus)
 	{
@@ -1066,7 +1239,12 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 		Result = false;
 		CurPhase = NOTSTARTED;
 	}
-	
+
+	const FbxGlobalSettings& GlobalSettings = Scene->GetGlobalSettings();
+	FbxTime::EMode TimeMode = GlobalSettings.GetTimeMode();
+	//Set the original framerate from the current fbx file
+	OriginalFbxFramerate = FbxTime::GetFrameRate(TimeMode);
+
 	return Result;
 }
 
@@ -1119,6 +1297,33 @@ void FFbxImporter::ConvertScene()
 
 	//Reset all the transform evaluation cache since we change some node transform
 	Scene->GetAnimationEvaluator()->Reset();
+}
+
+//-------------------------------------------------------------------------
+//
+//-------------------------------------------------------------------------
+bool FFbxImporter::ReadHeaderFromFile(const FString& Filename, bool bPreventMaterialNameClash /*= false*/)
+{
+	bool Result = true;
+
+
+	switch (CurPhase)
+	{
+	case NOTSTARTED:
+		if (!OpenFile(FString(Filename)))
+		{
+			Result = false;
+			break;
+		}
+	case FILEOPENED:
+		if (!ImportFile(FString(Filename), bPreventMaterialNameClash))
+		{
+			Result = false;
+			CurPhase = NOTSTARTED;
+			break;
+		}
+	}
+	return Result;
 }
 
 //-------------------------------------------------------------------------
@@ -1492,6 +1697,19 @@ void FFbxImporter::FillFbxMeshArray(FbxNode* Node, TArray<FbxNode*>& outMeshArra
 	for (ChildIndex=0; ChildIndex<Node->GetChildCount(); ++ChildIndex)
 	{
 		FillFbxMeshArray(Node->GetChild(ChildIndex), outMeshArray, FFbxImporter);
+	}
+}
+
+void FFbxImporter::FillFbxSkeletonArray(FbxNode* Node, TArray<FbxNode*>& OutMeshArray)
+{
+	if (Node->GetSkeleton())
+	{
+		OutMeshArray.Add(Node);
+	}
+
+	for (int32 ChildIndex = 0; ChildIndex < Node->GetChildCount(); ++ChildIndex)
+	{
+		FillFbxSkeletonArray(Node->GetChild(ChildIndex), OutMeshArray);
 	}
 }
 
@@ -2259,7 +2477,7 @@ void FFbxImporter::RecursiveFindRigidMesh(FbxNode* Node, TArray< TArray<FbxNode*
 * @param Node Root node to find skeletal meshes
 * @param outSkelMeshArray return Fbx meshes they are grouped by skeleton
 */
-void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bForceFindRigid /*= false*/)
+void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bCombineSkeletalMesh, bool bForceFindRigid /*= false*/)
 {
 	TArray<FbxNode*> SkeletonArray;
 
@@ -2273,39 +2491,7 @@ void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<Fbx
 		RecursiveFixSkeleton(SkeletonArray[SkelIndex], *outSkelMeshArray[SkelIndex], ImportOptions->bImportMeshesInBoneHierarchy );
 	}
 
-	// if it doesn't want group node (or null node) for root, remove them
-	/*
-	if (ImportOptions->bImportGroupNodeAsRoot == false)
-	{
-		// find the last node
-		for ( int32 SkelMeshIndex=0; SkelMeshIndex < outSkelMeshArray.Num() ; ++SkelMeshIndex )
-		{
-			auto SkelMesh = outSkelMeshArray[SkelMeshIndex];
-			if ( SkelMesh->Num() > 0 )
-			{
-				auto Node = SkelMesh->Last();
-
-				if(Node)
-				{
-					DumpFBXNode(Node);
-
-					FbxNodeAttribute* Attr = Node->GetNodeAttribute();
-					if(Attr && Attr->GetAttributeType() == FbxNodeAttribute::eNull)
-					{
-						// if root is null, just remove
-						SkelMesh->Remove(Node);
-						// SkelMesh is still valid?
-						if ( SkelMesh->Num() == 0 )
-						{
-							// we remove this from outSkelMeshArray
-							outSkelMeshArray.RemoveAt(SkelMeshIndex);
-							--SkelMeshIndex;
-						}
-					}
-				}
-			}
-		}
-	}*/
+	
 
 	// b) find rigid mesh
 	
@@ -2386,7 +2572,22 @@ void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<Fbx
 	//Empty the skeleton array
 	SkeletonArray.Empty();
 
-	
+
+	if (bCombineSkeletalMesh)
+	{
+		//Merge all the skeletal mesh arrays into one combine mesh
+		TArray<FbxNode*>* CombineNodes = new TArray<FbxNode*>();
+		for (TArray<FbxNode*> *Parts : outSkelMeshArray)
+		{
+			for (FbxNode* TmpNode : (*Parts))
+			{
+				CombineNodes->Add(TmpNode);
+			}
+			delete Parts;
+		}
+		outSkelMeshArray.Empty();
+		outSkelMeshArray.Add(CombineNodes);
+	}
 }
 
 FbxNode* FFbxImporter::FindFBXMeshesByBone(const FName& RootBoneName, bool bExpandLOD, TArray<FbxNode*>& OutFBXMeshNodeArray)
@@ -2435,7 +2636,7 @@ FbxNode* FFbxImporter::FindFBXMeshesByBone(const FName& RootBoneName, bool bExpa
 	// Get Mesh nodes array that bind to the skeleton system
 	// 1, get all skeltal meshes in the FBX file
 	TArray< TArray<FbxNode*>* > SkelMeshArray;
-	FillFbxSkelMeshArrayInScene(Scene->GetRootNode(), SkelMeshArray, false, ImportOptions->bImportScene);
+	FillFbxSkelMeshArrayInScene(Scene->GetRootNode(), SkelMeshArray, false, ImportOptions->bImportAsSkeletalGeometry || ImportOptions->bImportAsSkeletalSkinning, ImportOptions->bImportScene);
 
 	// 2, then get skeletal meshes that bind to this skeleton
 	for (int32 SkelMeshIndex = 0; SkelMeshIndex < SkelMeshArray.Num(); SkelMeshIndex++)
@@ -2592,6 +2793,111 @@ FbxNode* FFbxImporter::RetrieveObjectFromName(const TCHAR* ObjectName, FbxNode* 
 		}
 	}
 	return nullptr;
+}
+
+FString GetFbxPropertyStringValue(const FbxProperty& Property)
+{
+	FString ValueStr(TEXT("Unsupported type"));
+
+	FbxDataType DataType = Property.GetPropertyDataType();
+	switch (DataType.GetType())
+	{
+	case eFbxBool:
+	{
+		FbxBool BoolValue = Property.Get<FbxBool>();
+		ValueStr = LexToString(BoolValue);
+	}
+	break;
+	case eFbxInt:
+	{
+		FbxInt IntValue = Property.Get<FbxInt>();
+		ValueStr = LexToString(IntValue);
+	}
+	break;
+	case eFbxEnum:
+	{
+		FbxEnum EnumValue = Property.Get<FbxEnum>();
+		ValueStr = LexToString(EnumValue);
+	}
+	break;
+	case eFbxFloat:
+	{
+		FbxFloat FloatValue = Property.Get<FbxFloat>();
+		ValueStr = LexToString(FloatValue);
+	}
+	break;
+	case eFbxDouble:
+	{
+		FbxDouble DoubleValue = Property.Get<FbxDouble>();
+		ValueStr = LexToString(DoubleValue);
+	}
+	break;
+	case eFbxDouble2:
+	{
+		FbxDouble2 Vec = Property.Get<FbxDouble2>();
+		ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1]);
+	}
+	break;
+	case eFbxDouble3:
+	{
+		FbxDouble3 Vec = Property.Get<FbxDouble3>();
+		ValueStr = FString::Printf(TEXT("(%f, %f, %f)"), Vec[0], Vec[1], Vec[2]);
+	}
+	break;
+	case eFbxDouble4:
+	{
+		FbxDouble4 Vec = Property.Get<FbxDouble4>();
+		ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1], Vec[2], Vec[3]);
+	}
+	break;
+	case eFbxString:
+	{
+		FbxString StringValue = Property.Get<FbxString>();
+		ValueStr = UTF8_TO_TCHAR(StringValue.Buffer());
+	}
+	break;
+	default:
+		break;
+	}
+	return ValueStr;
+}
+
+void FFbxImporter::ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
+{
+	if (!Object || !Node)
+	{
+		return;
+	}
+
+	// Import all custom user-defined FBX properties from the FBX node to the object metadata
+	FbxProperty CurrentProperty = Node->GetFirstProperty();
+	FString NodeName = UTF8_TO_TCHAR(Node->GetName());
+	static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+	while (CurrentProperty.IsValid())
+	{
+		if (CurrentProperty.GetFlag(FbxPropertyFlags::eUserDefined))
+		{
+			// Prefix the FBX metadata tag to make it distinguishable from other metadata
+			// so that it can be exportable through FBX export
+			FString MetadataTag = UTF8_TO_TCHAR(CurrentProperty.GetName());
+			if (!MetadataTag.StartsWith(NodeName))
+			{
+				// Append the node name in the tag since all the metadata will be flattened on the Object
+				MetadataTag = NodeName + TEXT(".") + MetadataTag;
+			}
+			MetadataTag = MetadataPrefix + MetadataTag;
+
+			FString MetadataValue = GetFbxPropertyStringValue(CurrentProperty);
+			Object->GetOutermost()->GetMetaData()->SetValue(Object, *MetadataTag, *MetadataValue);
+		}
+		CurrentProperty = Node->GetNextProperty(CurrentProperty);
+	}
+
+	int NumChildren = Node->GetChildCount();
+	for (int i = 0; i < NumChildren; ++i)
+	{
+		ImportNodeCustomProperties(Object, Node->GetChild(i));
+	}
 }
 
 } // namespace UnFbx

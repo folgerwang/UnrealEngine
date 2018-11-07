@@ -22,14 +22,14 @@ public:
 		{
 			if(!OnlineSub->Init())
 			{
-				UE_LOG(LogOnline, Warning, TEXT("Facebook API failed to initialize!"));
+				UE_LOG_ONLINE(Warning, TEXT("Facebook API failed to initialize!"));
 				OnlineSub->Shutdown();
 				OnlineSub.Reset();
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Facebook API disabled!"));
+			UE_LOG_ONLINE(Warning, TEXT("Facebook API disabled!"));
 			OnlineSub->Shutdown();
 			OnlineSub.Reset();
 		}
@@ -40,7 +40,7 @@ public:
 
 void FOnlineSubsystemFacebookModule::StartupModule()
 {
-	UE_LOG(LogOnline, Log, TEXT("Facebook Startup!"));
+	UE_LOG_ONLINE(Log, TEXT("Facebook Startup!"));
 
 	FacebookFactory = new FOnlineFactoryFacebook();
 
@@ -51,7 +51,7 @@ void FOnlineSubsystemFacebookModule::StartupModule()
 
 void FOnlineSubsystemFacebookModule::ShutdownModule()
 {
-	UE_LOG(LogOnline, Log, TEXT("Facebook Shutdown!"));
+	UE_LOG_ONLINE(Log, TEXT("Facebook Shutdown!"));
 
 	FOnlineSubsystemModule& OSS = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>("OnlineSubsystem");
 	OSS.UnregisterPlatformService(FACEBOOK_SUBSYSTEM);

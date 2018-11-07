@@ -170,6 +170,31 @@ float UPointLightComponent::ComputeLightBrightness() const
 	return LightBrightness;
 }
 
+#if WITH_EDITOR
+void UPointLightComponent::SetLightBrightness(float InBrightness)
+{
+	if (bUseInverseSquaredFalloff)
+	{
+		if (IntensityUnits == ELightUnits::Candelas)
+		{
+			Super::SetLightBrightness(InBrightness / (100.f * 100.f)); // Conversion from cm2 to m2
+		}
+		else if (IntensityUnits == ELightUnits::Lumens)
+		{
+			Super::SetLightBrightness(InBrightness / (100.f * 100.f / 4 / PI)); // Conversion from cm2 to m2 and 4PI from the sphere area in the 1/r2 attenuation
+		}
+		else
+		{
+			Super::SetLightBrightness(InBrightness / 16); // Legacy scale of 16
+		}
+	}
+	else
+	{
+		Super::SetLightBrightness(InBrightness);
+	}
+}
+#endif // WITH_EDITOR
+
 /**
 * @return ELightComponentType for the light component class 
 */
@@ -205,6 +230,11 @@ void UPointLightComponent::Serialize(FArchive& Ar)
 	{
 		AddLocalRotation( FRotator(-90.f, 0.f, 0.f) );
 	}
+
+	if (Ar.IsLoading() && !bUseInverseSquaredFalloff)
+	{
+		IntensityUnits = ELightUnits::Unitless;
+	}
 }
 
 #if WITH_EDITOR
@@ -214,10 +244,13 @@ bool UPointLightComponent::CanEditChange(const UProperty* InProperty) const
 	if (InProperty)
 	{
 		FString PropertyName = InProperty->GetName();
-
-		if (FCString::Strcmp(*PropertyName, TEXT("LightFalloffExponent")) == 0)
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, LightFalloffExponent))
 		{
 			return !bUseInverseSquaredFalloff;
+		}
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(ULocalLightComponent, IntensityUnits))
+		{
+			return bUseInverseSquaredFalloff;
 		}
 	}
 
@@ -236,6 +269,11 @@ void UPointLightComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 	SourceRadius = FMath::Max(0.0f, SourceRadius);
 	SoftSourceRadius = FMath::Max(0.0f, SoftSourceRadius);
 	SourceLength = FMath::Max(0.0f, SourceLength);
+
+	if (!bUseInverseSquaredFalloff)
+	{
+		IntensityUnits = ELightUnits::Unitless;
+	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }

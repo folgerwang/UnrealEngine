@@ -118,6 +118,7 @@ private:
 	FName GetVariableName() const;
 
 	/** Commonly queried attributes about the schema action */
+	bool IsAUserVariable(UProperty* VariableProperty) const;
 	bool IsASCSVariable(UProperty* VariableProperty) const;
 	bool IsABlueprintVariable(UProperty* VariableProperty) const;
 	bool IsALocalVariable(UProperty* VariableProperty) const;

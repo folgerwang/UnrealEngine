@@ -35,21 +35,6 @@ namespace Tools.DotNETCommon
 	public class FileFilter
 	{
 		/// <summary>
-		/// List of all confidential folder names
-		/// </summary>
-		public static readonly FileSystemName[] RestrictedFolderNames =
-		{
-			new FileSystemName("EpicInternal"),
-			new FileSystemName("CarefullyRedist"),
-			new FileSystemName("NotForLicensees"),
-			new FileSystemName("NoRedist"),
-			new FileSystemName("PS4"),
-			new FileSystemName("XboxOne"),
-			new FileSystemName("Switch"),
-			new FileSystemName("Quail")
-		};
-
-		/// <summary>
 		/// Root node for the tree.
 		/// </summary>
 		FileFilterNode RootNode;
@@ -363,7 +348,7 @@ namespace Tools.DotNETCommon
 		/// </summary>
 		public void ExcludeRestrictedFolders()
 		{
-			foreach(FileSystemName RestrictedFolderName in RestrictedFolderNames)
+			foreach(string RestrictedFolderName in RestrictedFolders.Names)
 			{
 				AddRule(String.Format(".../{0}/...", RestrictedFolderName), FileFilterType.Exclude);
 			}

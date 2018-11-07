@@ -12,6 +12,7 @@
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/OutputDeviceConsole.h"
+#include "Misc/AutomationTest.h"
 #include "UObject/ErrorException.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectAllocator.h"
@@ -36,6 +37,7 @@
 #include "UObject/CoreRedirects.h"
 #include "Internationalization/PolyglotTextData.h"
 #include "Serialization/ArchiveScriptReferenceCollector.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/GarbageCollection.h"
 
@@ -441,7 +443,7 @@ void UField::SetMetaData(const TCHAR* Key, const TCHAR* InValue)
 	UPackage* Package = GetOutermost();
 	check(Package);
 
-	return Package->GetMetaData()->SetValue(this, Key, InValue);
+	Package->GetMetaData()->SetValue(this, Key, InValue);
 }
 
 void UField::SetMetaData(const FName& Key, const TCHAR* InValue)
@@ -449,7 +451,7 @@ void UField::SetMetaData(const FName& Key, const TCHAR* InValue)
 	UPackage* Package = GetOutermost();
 	check(Package);
 
-	return Package->GetMetaData()->SetValue(this, Key, InValue);
+	Package->GetMetaData()->SetValue(this, Key, InValue);
 }
 
 UClass* UField::GetClassMetaData(const TCHAR* Key) const
@@ -837,34 +839,42 @@ void UStruct::DestroyStruct(void* Dest, int32 ArrayDim) const
 	}
 }
 
+void UStruct::SerializeBin(FArchive& Ar, void* Data) const
+{
+	SerializeBin(FStructuredArchiveFromArchive(Ar).GetSlot(), Data);
+}
 //
 // Serialize all of the class's data that belongs in a particular
 // bin and resides in Data.
 //
-void UStruct::SerializeBin( FArchive& Ar, void* Data ) const
+void UStruct::SerializeBin( FStructuredArchive::FSlot Slot, void* Data ) const
 {
-	if( Ar.IsObjectReferenceCollector() )
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	FStructuredArchive::FStream PropertyStream = Slot.EnterStream();
+
+	if( UnderlyingArchive.IsObjectReferenceCollector() )
 	{
 		for( UProperty* RefLinkProperty=RefLink; RefLinkProperty!=NULL; RefLinkProperty=RefLinkProperty->NextRef )
 		{
-			RefLinkProperty->SerializeBinProperty( Ar, Data );
+			RefLinkProperty->SerializeBinProperty(PropertyStream.EnterElement(), Data );
 		}
 	}
-	else if( Ar.ArUseCustomPropertyList )
+	else if( UnderlyingArchive.ArUseCustomPropertyList )
 	{
-		const FCustomPropertyListNode* CustomPropertyList = Ar.ArCustomPropertyList;
+		const FCustomPropertyListNode* CustomPropertyList = UnderlyingArchive.ArCustomPropertyList;
 		for (auto PropertyNode = CustomPropertyList; PropertyNode; PropertyNode = PropertyNode->PropertyListNext)
 		{
 			UProperty* Property = PropertyNode->Property;
 			if( Property )
 			{
 				// Temporarily set to the sub property list, in case we're serializing a UStruct property.
-				Ar.ArCustomPropertyList = PropertyNode->SubPropertyList;
+				UnderlyingArchive.ArCustomPropertyList = PropertyNode->SubPropertyList;
 
-				Property->SerializeBinProperty(Ar, Data, PropertyNode->ArrayIndex);
+				Property->SerializeBinProperty(PropertyStream.EnterElement(), Data, PropertyNode->ArrayIndex);
 
 				// Restore the original property list.
-				Ar.ArCustomPropertyList = CustomPropertyList;
+				UnderlyingArchive.ArCustomPropertyList = CustomPropertyList;
 			}
 		}
 	}
@@ -872,35 +882,56 @@ void UStruct::SerializeBin( FArchive& Ar, void* Data ) const
 	{
 		for (UProperty* Property = PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
 		{
-			Property->SerializeBinProperty(Ar, Data);
+			Property->SerializeBinProperty(PropertyStream.EnterElement(), Data);
 		}
 	}
 }
 
-void UStruct::SerializeBinEx( FArchive& Ar, void* Data, void const* DefaultData, UStruct* DefaultStruct ) const
+void UStruct::SerializeBinEx( FStructuredArchive::FSlot Slot, void* Data, void const* DefaultData, UStruct* DefaultStruct ) const
 {
 	if ( !DefaultData || !DefaultStruct )
 	{
-		SerializeBin(Ar, Data);
+		SerializeBin(Slot, Data);
 		return;
 	}
 
 	for( TFieldIterator<UProperty> It(this); It; ++It )
 	{
-		It->SerializeNonMatchingBinProperty(Ar, Data, DefaultData, DefaultStruct);
+		It->SerializeNonMatchingBinProperty(Slot, Data, DefaultData, DefaultStruct);
 	}
 }
 
 void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad) const
 {
+	SerializeTaggedProperties(FStructuredArchiveFromArchive(Ar).GetSlot(), Data, DefaultsStruct, Defaults, BreakRecursionIfFullyLoad);
+}
+
+void UStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad) const
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 	//SCOPED_LOADTIMER(SerializeTaggedPropertiesTime);
 
 	// Determine if this struct supports optional property guid's (UBlueprintGeneratedClasses Only)
-	const bool bArePropertyGuidsAvailable = (Ar.UE4Ver() >= VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG) && !FPlatformProperties::RequiresCookedData() && ArePropertyGuidsAvailable();
+	const bool bArePropertyGuidsAvailable = (UnderlyingArchive.UE4Ver() >= VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG) && !FPlatformProperties::RequiresCookedData() && ArePropertyGuidsAvailable();
 
-	if( Ar.IsLoading() )
+	if( UnderlyingArchive.IsLoading() )
 	{
 		// Load tagged properties.
+		TArray<FString> FieldNames;
+
+		TOptional<FStructuredArchive::FRecord> PropertiesRecord;
+		TOptional<FStructuredArchive::FStream> PropertiesStream;
+
+		if (UnderlyingArchive.IsTextFormat())
+		{
+			PropertiesRecord.Emplace(Slot.EnterRecord_TextOnly(FieldNames));
+		}
+		else
+		{
+			PropertiesStream.Emplace(Slot.EnterStream());
+		}
+
+		int32 CurrentFieldNameIdx = UnderlyingArchive.IsTextFormat() ? 0 : -1;
 
 		// This code assumes that properties are loaded in the same order they are saved in. This removes a n^2 search 
 		// and makes it an O(n) when properties are saved in the same order as they are loaded (default case). In the 
@@ -910,10 +941,12 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 		int32		RemainingArrayDim	= Property ? Property->ArrayDim : 0;
 
 		// Load all stored properties, potentially skipping unknown ones.
-		while (1)
+		while (CurrentFieldNameIdx < FieldNames.Num())
 		{
+			FStructuredArchive::FRecord PropertyRecord = UnderlyingArchive.IsTextFormat() ? PropertiesRecord->EnterRecord(FIELD_NAME(*FieldNames[CurrentFieldNameIdx++])) : PropertiesStream->EnterElement().EnterRecord();
+
 			FPropertyTag Tag;
-			Ar << Tag;
+			PropertyRecord << NAMED_FIELD(Tag);
 
 			if( Tag.Name == NAME_None )
 			{
@@ -921,7 +954,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			}
 			if (!Tag.Name.IsValid())
 			{
-				UE_LOG(LogClass, Warning, TEXT("Invalid tag name: struct '%s', archive '%s'"), *GetName(), *Ar.GetArchiveName());
+				UE_LOG(LogClass, Warning, TEXT("Invalid tag name: struct '%s', archive '%s'"), *GetName(), *UnderlyingArchive.GetArchiveName());
 				break;
 			}
 
@@ -930,7 +963,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			{
 				Property = Property->PropertyLinkNext;
 				// Skip over properties that don't need to be serialized.
-				while( Property && !Property->ShouldSerializeValue( Ar ) )
+				while( Property && !Property->ShouldSerializeValue( UnderlyingArchive ) )
 				{
 					Property = Property->PropertyLinkNext;
 				}
@@ -952,7 +985,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			if( Property == nullptr || Property->GetFName() != Tag.Name )
 			{
 				// No need to check redirects on platforms where everything is cooked. Always check for save games
-				if ((!FPlatformProperties::RequiresCookedData() || Ar.IsSaveGame()) && !Ar.HasAnyPortFlags(PPF_DuplicateForPIE|PPF_Duplicate))
+				if ((!FPlatformProperties::RequiresCookedData() || UnderlyingArchive.IsSaveGame()) && !UnderlyingArchive.HasAnyPortFlags(PPF_DuplicateForPIE|PPF_Duplicate))
 				{
 					FName EachName = GetFName();
 					FName PackageName = GetOutermost()->GetFName();
@@ -1017,7 +1050,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 
 			// Check if this is a struct property and we have a redirector
 			// No need to check redirects on platforms where everything is cooked. Always check for save games
-			if (!FPlatformProperties::RequiresCookedData() || Ar.IsSaveGame())
+			if (!FPlatformProperties::RequiresCookedData() || UnderlyingArchive.IsSaveGame())
 			{
 				if (Tag.Type == NAME_StructProperty && PropID == NAME_StructProperty)
 				{
@@ -1038,10 +1071,10 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				}
 			}
 
-			const int64 StartOfProperty = Ar.Tell();
+			const int64 StartOfProperty = UnderlyingArchive.Tell();
 			if( !Property )
 			{
-				//UE_LOG(LogClass, Warning, TEXT("Property %s of %s not found for package:  %s"), *Tag.Name.ToString(), *GetFullName(), *Ar.GetArchiveName() );
+				//UE_LOG(LogClass, Warning, TEXT("Property %s of %s not found for package:  %s"), *Tag.Name.ToString(), *GetFullName(), *UnderlyingArchive.GetArchiveName() );
 			}
 #if WITH_EDITOR
 			else if (BreakRecursionIfFullyLoad && BreakRecursionIfFullyLoad->HasAllFlags(RF_LoadCompleted))
@@ -1057,15 +1090,17 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			else if( Tag.ArrayIndex >= Property->ArrayDim || Tag.ArrayIndex < 0 )
 			{
 				UE_LOG(LogClass, Warning, TEXT("Array bound exceeded (var %s=%d, exceeds %s [0-%d] in package:  %s"),
-					*Tag.Name.ToString(), Tag.ArrayIndex, *GetName(), Property->ArrayDim-1, *Ar.GetArchiveName());
+					*Tag.Name.ToString(), Tag.ArrayIndex, *GetName(), Property->ArrayDim-1, *UnderlyingArchive.GetArchiveName());
 			}
-			else if( !Property->ShouldSerializeValue(Ar) )
+			else if( !Property->ShouldSerializeValue(UnderlyingArchive) )
 			{
-				UE_CLOG((Ar.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
+				UE_CLOG((UnderlyingArchive.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *UnderlyingArchive.GetArchiveName() );
 			}
 			else
 			{
-				switch (Property->ConvertFromType(Tag, Ar, Data, DefaultsStruct))
+				FStructuredArchive::FSlot ValueSlot = PropertyRecord.EnterField(FIELD_NAME_TEXT("Value"));
+
+				switch (Property->ConvertFromType(Tag, ValueSlot, Data, DefaultsStruct))
 				{
 					case EConvertFromTypeResult::Converted:
 						bAdvanceProperty = true;
@@ -1074,7 +1109,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					case EConvertFromTypeResult::UseSerializeItem:
 						if (Tag.Type != PropID)
 						{
-							UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *Ar.GetArchiveName() );
+							UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *UnderlyingArchive.GetArchiveName() );
 						}
 						else
 						{
@@ -1082,8 +1117,8 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 							uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
 
 							// This property is ok.
-							Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
-							bAdvanceProperty = !Ar.IsCriticalError();
+							Tag.SerializeTaggedProperty(ValueSlot, Property, DestAddress, DefaultsFromParent);
+							bAdvanceProperty = !UnderlyingArchive.IsCriticalError();
 						}
 						break;
 
@@ -1097,13 +1132,15 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 
 			if (!bAdvanceProperty)
 			{
-				Ar.Seek(StartOfProperty + Tag.Size);
+				UnderlyingArchive.Seek(StartOfProperty + Tag.Size);
 			}
 		}
 	}
 	else
 	{
-		check(Ar.IsSaving() || Ar.IsCountingMemory());
+		FStructuredArchive::FRecord PropertiesRecord = Slot.EnterRecord();
+
+		check(UnderlyingArchive.IsSaving() || UnderlyingArchive.IsCountingMemory());
 
 		UScriptStruct* DefaultsScriptStruct = dynamic_cast<UScriptStruct*>(DefaultsStruct);
 
@@ -1111,18 +1148,18 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 		bool bUseAtomicSerialization = false;
 		if (DefaultsScriptStruct)
 		{
-			bUseAtomicSerialization = DefaultsScriptStruct->ShouldSerializeAtomically(Ar);
+			bUseAtomicSerialization = DefaultsScriptStruct->ShouldSerializeAtomically(UnderlyingArchive);
 		}
 
 		// Save tagged properties.
 
 		// Iterate over properties in the order they were linked and serialize them.
-		const FCustomPropertyListNode* CustomPropertyNode = Ar.ArUseCustomPropertyList ? Ar.ArCustomPropertyList : nullptr;
-		for (UProperty* Property = Ar.ArUseCustomPropertyList ? (CustomPropertyNode ? CustomPropertyNode->Property : nullptr) : PropertyLink;
+		const FCustomPropertyListNode* CustomPropertyNode = UnderlyingArchive.ArUseCustomPropertyList ? UnderlyingArchive.ArCustomPropertyList : nullptr;
+		for (UProperty* Property = UnderlyingArchive.ArUseCustomPropertyList ? (CustomPropertyNode ? CustomPropertyNode->Property : nullptr) : PropertyLink;
 			Property;
-			Property = Ar.ArUseCustomPropertyList ? FCustomPropertyListNode::GetNextPropertyAndAdvance(CustomPropertyNode) : Property->PropertyLinkNext)
+			Property = UnderlyingArchive.ArUseCustomPropertyList ? FCustomPropertyListNode::GetNextPropertyAndAdvance(CustomPropertyNode) : Property->PropertyLinkNext)
 		{
-			if( Property->ShouldSerializeValue(Ar) )
+			if( Property->ShouldSerializeValue(UnderlyingArchive) )
 			{
 				const int32 LoopMin = CustomPropertyNode ? CustomPropertyNode->ArrayIndex : 0;
 				const int32 LoopMax = CustomPropertyNode ? LoopMin + 1 : Property->ArrayDim;
@@ -1130,7 +1167,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				{
 					uint8* DataPtr      = Property->ContainerPtrToValuePtr           <uint8>(Data, Idx);
 					uint8* DefaultValue = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Idx);
-					if( CustomPropertyNode || !Ar.DoDelta() || Ar.IsTransacting() || (!Defaults && !dynamic_cast<const UClass*>(this)) || !Property->Identical( DataPtr, DefaultValue, Ar.GetPortFlags()) )
+					if( CustomPropertyNode || !UnderlyingArchive.DoDelta() || UnderlyingArchive.IsTransacting() || (!Defaults && !dynamic_cast<const UClass*>(this)) || !Property->Identical( DataPtr, DefaultValue, UnderlyingArchive.GetPortFlags()) )
 					{
 						if (bUseAtomicSerialization)
 						{
@@ -1138,58 +1175,70 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 						}
 #if WITH_EDITOR
 						static const FName NAME_PropertySerialize = FName(TEXT("PropertySerialize"));
-						FArchive::FScopeAddDebugData P(Ar, NAME_PropertySerialize);
-						FArchive::FScopeAddDebugData S(Ar, Property->GetFName());
+						FArchive::FScopeAddDebugData P(UnderlyingArchive, NAME_PropertySerialize);
+						FArchive::FScopeAddDebugData S(UnderlyingArchive, Property->GetFName());
 #endif
-						FPropertyTag Tag( Ar, Property, Idx, DataPtr, DefaultValue );
+						FPropertyTag Tag( UnderlyingArchive, Property, Idx, DataPtr, DefaultValue );
 						// If available use the property guid from BlueprintGeneratedClasses, provided we aren't cooking data.
-						if (bArePropertyGuidsAvailable && !Ar.IsCooking())
+						if (bArePropertyGuidsAvailable && !UnderlyingArchive.IsCooking())
 						{
 							const FGuid PropertyGuid = FindPropertyGuidFromName(Tag.Name);
 							Tag.SetPropertyGuid(PropertyGuid);
 						}
-						Ar << Tag;
+
+						FStructuredArchive::FRecord PropertyRecord = PropertiesRecord.EnterRecord(FIELD_NAME(*Tag.Name.ToString()));
+
+						PropertyRecord << NAMED_FIELD(Tag);
 
 						// need to know how much data this call to SerializeTaggedProperty consumes, so mark where we are
-						int64 DataOffset = Ar.Tell();
+						int64 DataOffset = UnderlyingArchive.Tell();
 
 						// if using it, save the current custom property list and switch to its sub property list (in case of UStruct serialization)
 						const FCustomPropertyListNode* SavedCustomPropertyList = nullptr;
-						if(Ar.ArUseCustomPropertyList && CustomPropertyNode)
+						if(UnderlyingArchive.ArUseCustomPropertyList && CustomPropertyNode)
 						{
-							SavedCustomPropertyList = Ar.ArCustomPropertyList;
-							Ar.ArCustomPropertyList = CustomPropertyNode->SubPropertyList;
+							SavedCustomPropertyList = UnderlyingArchive.ArCustomPropertyList;
+							UnderlyingArchive.ArCustomPropertyList = CustomPropertyNode->SubPropertyList;
 						}
 
-						Tag.SerializeTaggedProperty( Ar, Property, DataPtr, DefaultValue );
+						FStructuredArchive::FSlot PropertyField = PropertyRecord.EnterField(FIELD_NAME_TEXT("Value"));
+						Tag.SerializeTaggedProperty(PropertyField, Property, DataPtr, DefaultValue);
+						if (!PropertyField.IsFilled())
+						{
+							Tag.SerializeTaggedProperty(PropertyField, Property, DataPtr, DefaultValue);
+						}
 
 						// restore the original custom property list after serializing
 						if (SavedCustomPropertyList)
 						{
-							Ar.ArCustomPropertyList = SavedCustomPropertyList;
+							UnderlyingArchive.ArCustomPropertyList = SavedCustomPropertyList;
 						}
 
 						// set the tag's size
-						Tag.Size = Ar.Tell() - DataOffset;
+						Tag.Size = UnderlyingArchive.Tell() - DataOffset;
 
-						if ( Tag.Size >  0 )
+						if ( Tag.Size >  0 && !UnderlyingArchive.IsTextFormat())
 						{
 							// mark our current location
-							DataOffset = Ar.Tell();
+							DataOffset = UnderlyingArchive.Tell();
 
 							// go back and re-serialize the size now that we know it
-							Ar.Seek(Tag.SizeOffset);
-							Ar << Tag.Size;
+							UnderlyingArchive.Seek(Tag.SizeOffset);
+							UnderlyingArchive << Tag.Size;
 
 							// return to the current location
-							Ar.Seek(DataOffset);
+							UnderlyingArchive.Seek(DataOffset);
 						}
 					}
 				}
 			}
 		}
-		static FName Temp(NAME_None);
-		Ar << Temp;
+
+		if (!UnderlyingArchive.IsTextFormat())
+		{
+			static FName Temp(NAME_None);
+			UnderlyingArchive << Temp;
+		}
 	}
 }
 void UStruct::FinishDestroy()
@@ -1197,6 +1246,9 @@ void UStruct::FinishDestroy()
 	Script.Empty();
 	Super::FinishDestroy();
 }
+
+IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UStruct);
+
 void UStruct::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
@@ -1466,13 +1518,13 @@ const UStruct* UStruct::HasMetaDataHierarchical(const FName& Key) const
 	 */
 	static void HandlePlaceholderScriptRef(ScriptPointerType& ScriptPtr)
 	{
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
+		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
+#else
 		ScriptPointerType  Temp; 
 		FMemory::Memcpy(&Temp, &ScriptPtr, sizeof(ScriptPointerType));
 		UObject*& ExprPtrRef = (UObject*&)Temp;
-#else
-		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
-#endif 
+#endif
 		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef))
 		{
 			PlaceholderObj->AddReferencingScriptExpr((UClass**)(&ExprPtrRef));
@@ -1996,7 +2048,7 @@ void UScriptStruct::PrepareCppStructOps()
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has native ImportTextItem."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_ImportTextItemNative);
 	}
-	if (CppStructOps->HasSerializeFromMismatchedTag())
+	if (CppStructOps->HasSerializeFromMismatchedTag() || CppStructOps->HasStructuredSerializeFromMismatchedTag())
 	{
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has native SerializeFromMismatchedTag."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_SerializeFromMismatchedTag);
@@ -2005,6 +2057,8 @@ void UScriptStruct::PrepareCppStructOps()
 	check(!bPrepareCppStructOpsCompleted); // recursion is unacceptable
 	bPrepareCppStructOpsCompleted = true;
 }
+
+IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER(UScriptStruct);
 
 void UScriptStruct::Serialize( FArchive& Ar )
 {
@@ -2029,13 +2083,20 @@ bool UScriptStruct::UseBinarySerialization(const FArchive& Ar) const
 
 void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Defaults)
 {
-	const bool bUseBinarySerialization = UseBinarySerialization(Ar);
+	SerializeItem(FStructuredArchiveFromArchive(Ar).GetSlot(), Value, Defaults);
+}
+
+void UScriptStruct::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults)
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	const bool bUseBinarySerialization = UseBinarySerialization(UnderlyingArchive);
 	const bool bUseNativeSerialization = UseNativeSerialization();
 
 	// Preload struct before serialization tracking to not double count time.
 	if (bUseBinarySerialization || bUseNativeSerialization)
 	{
-		Ar.Preload(this);
+		UnderlyingArchive.Preload(this);
 	}
 
 	bool bItemSerialized = false;
@@ -2043,7 +2104,21 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 	{
 		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
 		check(TheCppStructOps); // else should not have STRUCT_SerializeNative
-		bItemSerialized = TheCppStructOps->Serialize(Ar, Value);
+
+		if (TheCppStructOps->HasStructuredSerializer())
+		{
+			bItemSerialized = TheCppStructOps->Serialize(Slot, Value);
+		}
+		else
+		{
+			FArchiveUObjectFromStructuredArchive Ar(Slot);
+			bItemSerialized = TheCppStructOps->Serialize(Ar, Value);
+			if (bItemSerialized && !Slot.IsFilled())
+			{
+				// The struct said that serialization succeeded but it didn't actually write anything.
+				Slot.EnterRecord();
+			}
+		}		
 	}
 
 	if (!bItemSerialized)
@@ -2051,18 +2126,18 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 		if (bUseBinarySerialization)
 		{
 			// Struct is already preloaded above.
-			if (!Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !ShouldSerializeAtomically(Ar) && !Ar.ArUseCustomPropertyList)
+			if (!UnderlyingArchive.IsPersistent() && UnderlyingArchive.GetPortFlags() != 0 && !ShouldSerializeAtomically(UnderlyingArchive) && !UnderlyingArchive.ArUseCustomPropertyList)
 			{
-				SerializeBinEx(Ar, Value, Defaults, this);
+				SerializeBinEx(Slot, Value, Defaults, this);
 			}
 			else
 			{
-				SerializeBin(Ar, Value);
+				SerializeBin(Slot, Value);
 			}
 		}
 		else
 		{
-			SerializeTaggedProperties(Ar, (uint8*)Value, this, (uint8*)Defaults);
+			SerializeTaggedProperties(Slot, (uint8*)Value, this, (uint8*)Defaults);
 		}
 	}
 
@@ -2070,7 +2145,7 @@ void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Default
 	{
 		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
 		check(TheCppStructOps); // else should not have STRUCT_PostSerializeNative
-		TheCppStructOps->PostSerialize(Ar, Value);
+		TheCppStructOps->PostSerialize(UnderlyingArchive, Value);
 	}
 }
 
@@ -2606,8 +2681,10 @@ private:
 	uint8* TempBuffer;
 };
 
-void AttemptToFindUninitializedScriptStructPointers()
+int32 FStructUtils::AttemptToFindUninitializedScriptStructMembers()
 {
+	int32 UninitializedScriptStructMemberCount = 0;
+
 	for (TObjectIterator<UScriptStruct> ScriptIt; ScriptIt; ++ScriptIt)
 	{
 		UScriptStruct* ScriptStruct = *ScriptIt;
@@ -2622,13 +2699,22 @@ void AttemptToFindUninitializedScriptStructPointers()
 			
 			for (const UProperty* Property : TFieldRange<UProperty>(ScriptStruct, EFieldIteratorFlags::ExcludeSuper))
 			{
+#if	WITH_EDITOR || HACK_HEADER_GENERATOR
+				static const FName NAME_IgnoreForMemberInitializationTest(TEXT("IgnoreForMemberInitializationTest"));
+				if (Property->HasMetaData(NAME_IgnoreForMemberInitializationTest))
+				{
+					continue;
+				}
+#endif
+
 				if (const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(Property))
 				{
 					// Check any reflected pointer properties to make sure they got initialized
 					const UObject* PropValue = ObjectProperty->GetObjectPropertyValue_InContainer(WrapperFF.GetData());
 					if (PropValue == BadPointer)
 					{
-						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						++UninitializedScriptStructMemberCount;
+						UE_LOG(LogClass, Warning, TEXT("ObjectProperty %s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
 					}
 				}
 				else if (const UBoolProperty* BoolProperty = Cast<const UBoolProperty>(Property))
@@ -2639,7 +2725,8 @@ void AttemptToFindUninitializedScriptStructPointers()
 
 					if (Value0 != Value1)
 					{
-						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						++UninitializedScriptStructMemberCount;
+						UE_LOG(LogClass, Warning, TEXT("BoolProperty %s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
 					}
 				}
 				else if (Property->IsA(UNameProperty::StaticClass()))
@@ -2649,15 +2736,37 @@ void AttemptToFindUninitializedScriptStructPointers()
 				}
 				else
 				{
-					// Catch all remaining properties
-					if (!Property->Identical_InContainer(WrapperAA.GetData(), Wrapper55.GetData()))
+					bool ShouldInspect = true;
+					if (Property->IsA(UStructProperty::StaticClass()))
 					{
-						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						// Skip user defined structs since we will consider those structs directly.
+						// Calling again here will just result in false positives
+						const UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+						ShouldInspect = (StructProperty->Struct->StructFlags & STRUCT_NoExport) != 0;
+					}
+
+					if (ShouldInspect)
+					{
+						// Catch all remaining properties
+
+						// Uncomment the following line to aid finding crash sources encountered while running this test. A crash usually indicates an uninitialized pointer
+						// UE_LOG(LogClass, Log, TEXT("Testing %s%s::%s for proper initialization"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						if (!Property->Identical_InContainer(WrapperAA.GetData(), Wrapper55.GetData()))
+						{
+							++UninitializedScriptStructMemberCount;
+							UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						}
 					}
 				}
 			}
 		}
 	}
+
+	if (UninitializedScriptStructMemberCount > 0)
+	{
+		UE_LOG(LogClass, Display, TEXT("%i Uninitialized script stuct members found"), UninitializedScriptStructMemberCount);
+	}
+	return UninitializedScriptStructMemberCount;
 }
 
 #include "HAL/IConsoleManager.h"
@@ -2668,8 +2777,14 @@ FAutoConsoleCommandWithWorldAndArgs GCmdListBadScriptStructs(
 	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(
 		[](const TArray<FString>& Params, UWorld* World)
 {
-	AttemptToFindUninitializedScriptStructPointers();
+	FStructUtils::AttemptToFindUninitializedScriptStructMembers();
 }));
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAutomationTestAttemptToFindUninitializedScriptStructMembers, "UObject.Class AttemptToFindUninitializedScriptStructMembers", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::ServerContext | EAutomationTestFlags::SmokeFilter)
+bool FAutomationTestAttemptToFindUninitializedScriptStructMembers::RunTest(const FString& Parameters)
+{
+	return FStructUtils::AttemptToFindUninitializedScriptStructMembers() == 0;
+}
 
 #endif
 
@@ -2837,6 +2952,8 @@ UObject* UClass::CreateDefaultObject()
 {
 	if ( ClassDefaultObject == NULL )
 	{
+		ensureMsgf(!HasAnyClassFlags(CLASS_LayoutChanging), TEXT("Class named %s creating its CDO while changing its layout"), *GetName());
+
 		UClass* ParentClass = GetSuperClass();
 		UObject* ParentDefaultObject = NULL;
 		if ( ParentClass != NULL )
@@ -2856,7 +2973,7 @@ UObject* UClass::CreateDefaultObject()
 			if( HasAnyClassFlags(CLASS_CompiledFromBlueprint) && (PropertyLink == NULL) && !GIsDuplicatingClassForReinstancing)
 			{
 				auto ClassLinker = GetLinker();
-				if (ClassLinker)
+				if (ClassLinker && !ClassLinker->bDynamicClassLinker)
 				{
 					if (!GEventDrivenLoaderEnabled)
 					{
@@ -3180,7 +3297,6 @@ void UClass::PostLoad()
 	if (!HasAnyClassFlags(CLASS_Native))
 	{
 		ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
-		SetUpRuntimeReplicationData();
 	}
 }
 
@@ -3212,13 +3328,6 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 {
 	check(!bRelinkExistingProperties || !(ClassFlags & CLASS_Intrinsic));
 	Super::Link(Ar, bRelinkExistingProperties);
-
-	// For non-native classes, this will happen in PostLoad when all its functions
-	// are guaranteed to be loaded. Native classes have to do this now.
-	if (HasAnyClassFlags(CLASS_Native))
-	{
-		SetUpRuntimeReplicationData();
-	}
 }
 
 void UClass::SetUpRuntimeReplicationData()
@@ -3908,31 +4017,38 @@ bool UClass::ImplementsInterface( const class UClass* SomeInterface ) const
 	return false;
 }
 
+void UClass::SerializeDefaultObject(UObject* Object, FArchive& Ar)
+{
+	SerializeDefaultObject(Object, FStructuredArchiveFromArchive(Ar).GetSlot());
+}
+
 /** serializes the passed in object as this class's default object using the given archive
  * @param Object the object to serialize as default
  * @param Ar the archive to serialize from
  */
-void UClass::SerializeDefaultObject(UObject* Object, FArchive& Ar)
+void UClass::SerializeDefaultObject(UObject* Object, FStructuredArchive::FSlot Slot)
 {
 	// tell the archive that it's allowed to load data for transient properties
-	Ar.StartSerializingDefaults();
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 
-	if( ((Ar.IsLoading() || Ar.IsSaving()) && !Ar.WantBinaryPropertySerialization()) )
+	UnderlyingArchive.StartSerializingDefaults();
+
+	if( ((UnderlyingArchive.IsLoading() || UnderlyingArchive.IsSaving()) && !UnderlyingArchive.WantBinaryPropertySerialization()) )
 	{
 	    // class default objects do not always have a vtable when saved
 		// so use script serialization as opposed to native serialization to
 	    // guarantee that all property data is loaded into the correct location
-	    SerializeTaggedProperties(Ar, (uint8*)Object, GetSuperClass(), (uint8*)Object->GetArchetype());
+	    SerializeTaggedProperties(Slot, (uint8*)Object, GetSuperClass(), (uint8*)Object->GetArchetype());
 	}
-	else if ( Ar.GetPortFlags() != 0 )
+	else if (UnderlyingArchive.GetPortFlags() != 0 )
 	{
-		SerializeBinEx(Ar, Object, Object->GetArchetype(), GetSuperClass() );
+		SerializeBinEx(Slot, Object, Object->GetArchetype(), GetSuperClass() );
 	}
 	else
 	{
-		SerializeBin(Ar, Object);
+		SerializeBin(Slot, Object);
 	}
-	Ar.StopSerializingDefaults();
+	UnderlyingArchive.StopSerializingDefaults();
 }
 
 
@@ -3973,6 +4089,10 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 		RemoveMetaData("ClassGroupNames");
 	}
 #endif
+
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
+	UberGraphFramePointerProperty = NULL;
+#endif//USE_UBER_GRAPH_PERSISTENT_FRAME
 
 	ClassDefaultObject = NULL;
 
@@ -4054,6 +4174,9 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer)
 ,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin( UObject::StaticClass() )
 ,	ClassGeneratedBy(nullptr)
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
+,	UberGraphFramePointerProperty(nullptr)
+#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 ,	ClassDefaultObject(nullptr)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
@@ -4072,6 +4195,9 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass)
 ,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin(UObject::StaticClass())
 ,	ClassGeneratedBy(nullptr)
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
+,	UberGraphFramePointerProperty(nullptr)
+#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 ,	ClassDefaultObject(nullptr)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
@@ -4342,11 +4468,17 @@ UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type Incl
 		UClass* SuperClass = GetSuperClass();
 		if (SuperClass || Interfaces.Num() > 0)
 		{
-			if (UFunction** SuperResult = SuperFuncMap.Find(InName))
+			bool bFoundInSuperFuncMap = false;
 			{
-				Result = *SuperResult;
+				FRWScopeLock ScopeLock(SuperFuncMapLock, FRWScopeLockType::SLT_ReadOnly);
+				if (UFunction** SuperResult = SuperFuncMap.Find(InName))
+				{
+					Result = *SuperResult;
+					bFoundInSuperFuncMap = true;
+				}
 			}
-			else
+
+			if (!bFoundInSuperFuncMap)
 			{
 				for (const FImplementedInterface& Inter : Interfaces)
 				{
@@ -4362,6 +4494,7 @@ UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type Incl
 					Result = SuperClass->FindFunctionByName(InName);
 				}
 
+				FRWScopeLock ScopeLock(SuperFuncMapLock, FRWScopeLockType::SLT_Write);
 				SuperFuncMap.Add(InName, Result);
 			}
 		}
@@ -4633,7 +4766,7 @@ void GetPrivateStaticClassBody(
 			EC_StaticConstructor,
 			Name,
 			InSize,
-			InClassFlags,
+			InClassFlags|CLASS_CompiledFromBlueprint,
 			InClassCastFlags,
 			InConfigName,
 			EObjectFlags(RF_Public | RF_Standalone | RF_Transient | RF_Dynamic | (GIsInitialLoad ? RF_MarkAsRootSet : RF_NoFlags)),
@@ -4718,7 +4851,7 @@ void UFunction::Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL)
 {
 	checkSlow(Func);
 
-	UClass* OuterClass = GetOuterUClass();
+	UClass* OuterClass = (UClass*)GetOuter();
 	if (OuterClass->IsChildOf(UInterface::StaticClass()))
 	{
 		Obj = (UObject*)Obj->GetInterfaceAddress(OuterClass);

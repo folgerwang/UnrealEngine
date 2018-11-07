@@ -33,7 +33,6 @@
 #include "pxr/base/tf/traits.h"
 #include "pxr/base/tf/typeFunctions.h"
 
-#include <boost/function.hpp>
 #include <boost/mpl/vector.hpp>
 #include <boost/operators.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -47,7 +46,10 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
 class TfPyObjWrapper;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
+
 class TfType;
 
 /// \class TfType
@@ -73,51 +75,13 @@ class TfType : boost::totally_ordered<TfType>
 
 public:
     /// Callback invoked when a declared type needs to be defined.
-    typedef boost::function<void (TfType)> DefinitionCallback;
+    using DefinitionCallback = void (*)(TfType);
 
     /// Base class of all factory types.
     class FactoryBase {
     public:
         TF_API virtual ~FactoryBase();
     };
-
-private:
-    /// Helper object used for defining an TfType with the C++ type T.
-    ///
-    template <typename T>
-    class _TypeDefiner {
-    public:
-        typedef _TypeDefiner<T> This;
-
-        /// Return the type just created.
-        TfType GetType();
-
-    private:
-        _TypeDefiner(TfType const& type);
-
-        // For each of the C++ base types in TypeVector,
-        // add a cast function for casting raw pointers to/from the type BASE.
-        template < typename TypeVector >
-        This& _AddBaseCppTypes();
-
-        // Add a cast function for casting raw pointers to/from the type BASE.
-        template <typename BASE>
-        This& _AddBaseCppType();
-
-        // Type being defined.
-        // We'd prefer to just hold a TfType, but we can't because this
-        // is a nested type and so TfType's definition is not complete.
-        // Instead, we store a pointer to an owned TfType.
-        TfType const* _type;
-
-        template <typename DERIVED, typename TypeVector, bool empty>
-        friend struct Tf_AddBases;
-
-        friend class TfType;
-    };
-
-    template <typename DERIVED, typename TypeVector, bool empty>
-    friend struct Tf_AddBases;
 
 public:
     
@@ -127,6 +91,7 @@ public:
         MANUFACTURABLE = 0x08,   ///< Manufacturable type (implies concrete)
     };
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     // This is a non-templated base class for the templated
     // polymorphic-to-Python infrastructure.
     struct PyPolymorphicBase
@@ -134,10 +99,7 @@ public:
     protected:
         TF_API virtual ~PyPolymorphicBase();
     };
-
-private:
-    // Sentinel placeholder for Bases<> typelist.
-    class Unspecified;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
 public:
     /// A type-list of C++ base types.
@@ -279,11 +241,13 @@ public:
         return TfType::Find<BASE>().FindDerivedByName(name);
     }
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     /// Retrieve the \c TfType corresponding to an obj with the
     /// given Python class \c classObj.
     ///
     TF_API
     static TfType const& FindByPythonClass(const TfPyObjWrapper & classObj);
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
     /// @}
 
@@ -334,6 +298,7 @@ public:
     TF_API
     std::vector<std::string> GetAliases(TfType derivedType) const;
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     /// Return the Python class object for this type.
     ///
     /// If this type is unknown or has not yet had a Python class
@@ -344,6 +309,7 @@ public:
     ///
     TF_API
     TfPyObjWrapper GetPythonClass() const;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
     /// Return a vector of types from which this type was derived.
     ///
@@ -481,7 +447,7 @@ public:
     static TfType const&
     Declare( const std::string & typeName,
              const std::vector<TfType> & bases,
-             DefinitionCallback definitionCallback=0 );
+             DefinitionCallback definitionCallback=nullptr );
 
     /// Define a TfType with the given C++ type T and C++ base types
     /// B.  Each of the base types will be declared (but not defined)
@@ -506,10 +472,12 @@ public:
     template <typename T>
     static TfType const& Define();
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     /// Define the Python class object corresponding to this TfType.
     /// \see TfTypePythonClass
     TF_API
     void DefinePythonClass(const TfPyObjWrapper &classObj) const;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
     /// Add an alias for DERIVED beneath BASE.
     ///
@@ -656,6 +624,7 @@ private:
     TF_API
     FactoryBase* _GetFactory() const;
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     TF_API
     static TfType const &_FindImplPyPolymorphic(PyPolymorphicBase const *ptr);
     
@@ -686,10 +655,29 @@ private:
         return Find(typeid(T));
     }
 
+#else
+    template <class T>
+    static typename std::enable_if<
+        std::is_polymorphic<T>::value, TfType const &>::type
+    _FindImpl(T const *rawPtr) {
+        return Find(typeid(*rawPtr));
+    }
+
+    template <class T>
+    static typename std::enable_if<
+        !std::is_polymorphic<T>::value, TfType const &>::type
+    _FindImpl(T const *rawPtr) {
+        return Find(typeid(T));
+    }
+
+#endif // PXR_PYTHON_SUPPORT_ENABLED
+
     bool _IsAImpl(TfType queryType) const;
 
     typedef void *(*_CastFunction)(void *, bool derivedToBase);
-    
+
+    template <typename TypeVector>
+    friend struct Tf_AddBases;
     friend struct _TypeInfo;
     friend class Tf_TypeRegistry;
     friend class TfHash;
@@ -750,18 +738,6 @@ template <>
 struct TfSizeofType<const volatile void> {
     static const size_t value = 0;
 };
-
-template <typename T>
-TfType::_TypeDefiner<T>::_TypeDefiner(TfType const& type)
-{
-    // Record traits information about T.
-    const bool isPodType = std::is_pod<T>::value;
-    const bool isEnumType = std::is_enum<T>::value;
-    const size_t sizeofType = TfSizeofType<T>::value;
-
-    _type = &type;
-    _type->_DefineCppType(typeid(T), sizeofType, isPodType, isEnumType);
-}
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

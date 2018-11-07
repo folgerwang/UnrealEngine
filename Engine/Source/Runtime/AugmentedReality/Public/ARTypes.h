@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Engine/DataAsset.h"
-//@joeg -- ARKit 2.0 support
 #include "HAL/ThreadSafeBool.h"
 #include "ARTypes.generated.h"
 
@@ -19,15 +18,17 @@ class UTexture2D;
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARTrackingState : uint8
 {
-	/** Currently not tracking. */
+	/** Unknown tracking state */
+	Unknown,
+	
+	/** Currently tracking. */
 	Tracking,
 	
 	/** Currently not tracking, but may resume tracking later. */
 	NotTracking,
 	
 	/** Stopped tracking forever. */
-	StoppedTracking,
-	
+	StoppedTracking
 };
 
 
@@ -90,7 +91,6 @@ enum class EARSessionStatus : uint8
 	Other,
 };
 
-//@joeg -- ARKit 2.0 support
 /** Gives feedback as to whether the AR data can be saved and relocalized or not */
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARWorldMappingState : uint8
@@ -191,6 +191,11 @@ public:
 	EARCandidateImageOrientation GetOrientation() const { return Orientation; }
 
 private:
+#if WITH_EDITOR
+	/** Used to enforce physical sizes matching the aspect ratio of the images */
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+	
 	/** The image to detect in scenes */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	UTexture2D* CandidateTexture;
@@ -203,16 +208,14 @@ private:
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	float Width;
 
-	/** The physical height in centimeters of the object that this candidate image represents */
+	/** The physical height in centimeters of the object that this candidate image represents. Ignored in ARCore */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	float Height;
 
-	/** The orientation to treat the candidate image as */
+	/** The orientation to treat the candidate image as. Ignored in ARCore */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	EARCandidateImageOrientation Orientation;
 };
-
-//@joeg -- ARKit 2.0 support
 
 /** An asset that points to an object to be detected in a scene */
 UCLASS(BlueprintType)
@@ -320,3 +323,42 @@ public:
 		bIsDone = true;
 	}
 };
+
+/** A specific AR video format */
+USTRUCT(BlueprintType)
+struct AUGMENTEDREALITY_API FARVideoFormat
+{
+	GENERATED_BODY()
+
+public:
+	FARVideoFormat()
+		: FPS(0)
+		, Width(0)
+		, Height(0)
+	{
+		
+	}
+	
+	FARVideoFormat(int32 InFPS, int32 InWidth, int32 InHeight)
+		: FPS(InFPS)
+		, Width(InWidth)
+		, Height(InHeight)
+	{
+		
+	}
+	
+	/** The desired or supported number of frames per second for this video format */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AR AugmentedReality|Session")
+	int32 FPS;
+	
+	/** The desired or supported width in pixels for this video format */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AR AugmentedReality|Session")
+	int32 Width;
+
+	/** The desired or supported height in pixels for this video format */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AR AugmentedReality|Session")
+	int32 Height;
+
+	bool IsValidFormat() { return FPS > 0 && Width > 0 && Height > 0; }
+};
+

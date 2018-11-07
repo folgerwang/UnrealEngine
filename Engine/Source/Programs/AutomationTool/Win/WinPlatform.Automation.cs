@@ -184,17 +184,31 @@ public abstract class BaseWinPlatform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
-        List<FileReference> ExeNames = GetExecutableNames(SC);
-
-        // Select target configurations based on the exe list returned from GetExecutableNames
-        List<UnrealTargetConfiguration> TargetConfigs = SC.StageTargetConfigurations.GetRange(0, ExeNames.Count);
-
-		if (!Params.HasDLCName)
+		// If this is a content-only project and there's a custom icon, update the executable
+		if (!Params.HasDLCName && !Params.IsCodeBasedProject)
 		{
-			WindowsExports.SetApplicationIcon(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, TargetConfigs, ExeNames, SC.EngineRoot);
+			FileReference IconFile = FileReference.Combine(Params.RawProjectPath.Directory, "Build", "Windows", "Application.ico");
+			if(FileReference.Exists(IconFile))
+			{
+				CommandUtils.LogInformation("Updating executable with custom icon from {0}", IconFile);
+
+				GroupIconResource GroupIcon = GroupIconResource.FromIco(IconFile.FullName);
+
+				List<FileReference> ExecutablePaths = GetExecutableNames(SC);
+				foreach (FileReference ExecutablePath in ExecutablePaths)
+				{
+					using (ModuleResourceUpdate Update = new ModuleResourceUpdate(ExecutablePath.FullName, false))
+					{
+						const int IconResourceId = 123; // As defined in Engine\Source\Runtime\Launch\Resources\Windows\resource.h
+						if (GroupIcon != null)
+						{
+							Update.SetIcons(IconResourceId, GroupIcon);
+						}
+					}
+				}
+			}
 		}
 
-		// package up the program, potentially with an installer for Windows
 		PrintRunTime();
 	}
 
@@ -260,10 +274,10 @@ public abstract class BaseWinPlatform : Platform
 	{
 		// Check if there are any executables being staged in this directory. Usually we only need to stage runtime dependencies next to the executable, but we may be staging
 		// other engine executables too (eg. CEF)
-		List<StagedFileReference> FilesInTargetDir = SC.FilesToStage.NonUFSFiles.Keys.Where(x => x.IsUnderDirectory(StagedBinariesDir) && (x.CanonicalName.EndsWith(".exe") || x.CanonicalName.EndsWith(".dll"))).ToList();
+		List<StagedFileReference> FilesInTargetDir = SC.FilesToStage.NonUFSFiles.Keys.Where(x => x.IsUnderDirectory(StagedBinariesDir) && (x.HasExtension(".exe") || x.HasExtension(".dll"))).ToList();
 		if(FilesInTargetDir.Count > 0)
 		{
-			Log("Copying AppLocal dependencies from {0} to {1}", BaseAppLocalDependenciesPath, StagedBinariesDir);
+			LogInformation("Copying AppLocal dependencies from {0} to {1}", BaseAppLocalDependenciesPath, StagedBinariesDir);
 
 			// Stage files in subdirs
 			foreach (DirectoryReference DependencyDirectory in DirectoryReference.EnumerateDirectories(BaseAppLocalDependenciesPath))

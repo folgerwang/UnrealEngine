@@ -10,12 +10,12 @@
 @interface FCocoaWindow : NSWindow <NSWindowDelegate, NSDraggingDestination>
 {
 	EWindowMode::Type WindowMode;
-	bool bAcceptsInput;
 	bool bDisplayReconfiguring;
 	bool bRenderInitialized;
 	bool bIsBeingOrderedFront;
 	float Opacity;
 @public
+	bool bAcceptsInput;
 	bool bZoomed;
 	bool bIsOnActiveSpace;
 	bool bIsBeingResized;

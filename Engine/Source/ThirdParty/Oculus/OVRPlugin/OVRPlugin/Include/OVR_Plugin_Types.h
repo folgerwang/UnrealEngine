@@ -28,7 +28,7 @@ limitations under the License.
 #endif
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 25
+#define OVRP_MINOR_VERSION 28
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
@@ -197,6 +197,13 @@ typedef enum {
   ovrpBatteryStatus_Unknown,
   ovrpBatteryStatus_EnumSize = 0x7fffffff
 } ovrpBatteryStatus;
+
+//Handedness of user as specified in the mobile device
+typedef enum {
+    ovrpHandedness_Unsupported = 0,
+    ovrpHandedness_LeftHanded = 1,
+    ovrpHandedness_RightHanded = 2
+} ovrpHandedness;
 
 /// An oculus platform UI.
 typedef enum {
@@ -787,6 +794,10 @@ typedef enum {
   ovrpLayerSubmitFlag_NoDepth = (1 << 3),
   /// Use inverse alpha for timewarp blending
   ovrpLayerSubmitFlag_InverseAlpha = (1 << 4),
+  /// Combine the submitted layer with the layers generated from OVROverlay commands
+  ovrpLayerSubmitFlag_CombineLayerSubmits = (1 << 5),
+  /// Enable Positional timeWarp on Fov layer
+  ovrpLayerSubmitFlag_PositionalTimeWarp = (1 << 6),
 } ovrpLayerSubmitFlags;
 
 /// Layer state to submit to ovrp_EndFrame
@@ -842,7 +853,29 @@ typedef union {
   ovrpLayerSubmit_Equirect Equirect;
 } ovrpLayerSubmitUnion;
 
+typedef enum {
+  ovrpViewportStencilType_HiddenArea = 0,
+  ovrpViewportStencilType_VisibleArea = 1,
+  ovrpViewportStencilType_BorderLine = 2
+} ovrpViewportStencilType;
+
 #undef OVRP_LAYER_SUBMIT
 #undef OVRP_LAYER_SUBMIT_TYPE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #endif

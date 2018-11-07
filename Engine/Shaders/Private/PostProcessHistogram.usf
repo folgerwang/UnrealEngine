@@ -56,6 +56,9 @@ void MainCS(
 				if(TexelPos.x < GatherExtentInt.x && TexelPos.y < GatherExtentInt.y)
 				{
 					float4 SceneColor = PostprocessInput0.Load(int3(TexelPos, 0));
+	#if USE_PREEXPOSURE
+					SceneColor.xyz *= View.OneOverPreExposure;
+	#endif
 					float LuminanceVal = max(SceneColor.r, max(SceneColor.g, SceneColor.b));
 					float LogLuminance = ComputeHistogramPositionFromLuminance(LuminanceVal);
 			

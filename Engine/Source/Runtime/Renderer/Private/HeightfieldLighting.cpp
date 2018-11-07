@@ -562,9 +562,11 @@ public:
 
 	FHeightfieldDescriptionsResource()
 	{
-		Data.Format = PF_A32B32G32R32F;
 		// In float4's, must match usf
-		Data.Stride = 12;
+		const int32 HEIGHTFIELD_DATA_STRIDE = 10;
+
+		Data.Format = PF_A32B32G32R32F;
+		Data.Stride = HEIGHTFIELD_DATA_STRIDE;
 	}
 
 	virtual void InitDynamicRHI()  override
@@ -616,17 +618,16 @@ void UploadHeightfieldDescriptions(const TArray<FHeightfieldComponentDescription
 					
 		HeightfieldDescriptionData.Add(FVector4(Description.HeightfieldRect.Size().X, Description.HeightfieldRect.Size().Y, InvLightingAtlasSize.X, InvLightingAtlasSize.Y));
 
-		const FMatrix WorldToLocal = Description.LocalToWorld.Inverse();
+		const FMatrix LocalToWorldT = Description.LocalToWorld.GetTransposed();
+		const FMatrix WorldToLocalT = Description.LocalToWorld.Inverse().GetTransposed();
 
-		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocal.M[0]);
-		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocal.M[1]);
-		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocal.M[2]);
-		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocal.M[3]);
+		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocalT.M[0]);
+		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocalT.M[1]);
+		HeightfieldDescriptionData.Add(*(FVector4*)&WorldToLocalT.M[2]);
 
-		HeightfieldDescriptionData.Add(*(FVector4*)&Description.LocalToWorld.M[0]);
-		HeightfieldDescriptionData.Add(*(FVector4*)&Description.LocalToWorld.M[1]);
-		HeightfieldDescriptionData.Add(*(FVector4*)&Description.LocalToWorld.M[2]);
-		HeightfieldDescriptionData.Add(*(FVector4*)&Description.LocalToWorld.M[3]);
+		HeightfieldDescriptionData.Add(*(FVector4*)&LocalToWorldT.M[0]);
+		HeightfieldDescriptionData.Add(*(FVector4*)&LocalToWorldT.M[1]);
+		HeightfieldDescriptionData.Add(*(FVector4*)&LocalToWorldT.M[2]);
 	}
 
 	check(HeightfieldDescriptionData.Num() % GHeightfieldDescriptions.Data.Stride == 0);

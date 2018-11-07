@@ -7,42 +7,52 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "MovieSceneCapture.h"
+#include "IPropertyUtilities.h"
+#include "Editor.h"
 
 TSharedRef<IDetailCustomization> FMovieSceneCaptureCustomization::MakeInstance()
 {
 	return MakeShareable(new FMovieSceneCaptureCustomization);
 }
 
+FMovieSceneCaptureCustomization::~FMovieSceneCaptureCustomization()
+{
+	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(PropertyChangedHandle);
+	GEditor->OnObjectsReplaced().Remove(ObjectsReplacedHandle);
+}
+
 void FMovieSceneCaptureCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	IDetailLayoutBuilder* CachedBuilder = &DetailBuilder;
+	PropertyUtilities = DetailBuilder.GetPropertyUtilities();
+	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
 
-	auto UpdateDetails = [=]{
-		CachedBuilder->ForceRefreshDetails();
-	};
+	PropertyChangedHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMovieSceneCaptureCustomization::OnObjectPostEditChange);
+	ObjectsReplacedHandle = GEditor->OnObjectsReplaced().AddRaw(this, &FMovieSceneCaptureCustomization::OnObjectsReplaced);
+}
 
-	TSharedRef<IPropertyHandle> CaptureTypeProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, CaptureType));
-	CaptureTypeProperty->SetOnPropertyValueChanged(FSimpleDelegate::CreateLambda(UpdateDetails));
-	CaptureTypeProperty->SetOnChildPropertyValueChanged(FSimpleDelegate::CreateLambda(UpdateDetails));
+void FMovieSceneCaptureCustomization::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
+{
+	// Defer the update 1 frame to ensure that we don't end up in a recursive loop adding bindings to the OnObjectsReplaced delegate that is currently being triggered
+	// (since the bindings are added in FMovieSceneCaptureCustomization::CustomizeDetails)
+	PropertyUtilities->EnqueueDeferredAction(FSimpleDelegate::CreateLambda([LocalPropertyUtilities = PropertyUtilities]{ LocalPropertyUtilities->ForceRefresh(); }));
+}
 
-	TSharedRef<IPropertyHandle> ProtocolSettingsProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, ProtocolSettings));
-	DetailBuilder.HideProperty(ProtocolSettingsProperty);
-
-	DetailBuilder.EditCategory("CaptureSettings", FText(), ECategoryPriority::Important);
-
-	UObject* ObjectValue = nullptr;
-	ProtocolSettingsProperty->GetValue(ObjectValue);
-	if (ObjectValue)
+void FMovieSceneCaptureCustomization::OnObjectPostEditChange( UObject* Object, FPropertyChangedEvent& PropertyChangedEvent )
+{
+	if (ObjectsBeingCustomized.Contains(Object))
 	{
-		IDetailCategoryBuilder& CustomSettingsCategory = DetailBuilder.EditCategory("CustomSettings", ObjectValue->GetClass()->GetDisplayNameText(), ECategoryPriority::TypeSpecific);
+		static FName ImageCaptureProtocolTypeName = GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, ImageCaptureProtocolType);
+		static FName ImageCaptureProtocolName     = GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, ImageCaptureProtocol);
+		static FName AudioCaptureProtocolTypeName = GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, AudioCaptureProtocolType);
+		static FName AudioCaptureProtocolName	  = GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, AudioCaptureProtocol);
 
-		TArray<UObject*> Objects;
-		Objects.Add(ObjectValue);
-
-		for (TFieldIterator<UProperty> Iterator(ObjectValue->GetClass()); Iterator; ++Iterator)
+		FName PropertyName = PropertyChangedEvent.GetPropertyName();
+		if (PropertyName == ImageCaptureProtocolTypeName || ( PropertyName == ImageCaptureProtocolName && PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet ) ||
+			PropertyName == AudioCaptureProtocolTypeName || ( PropertyName == AudioCaptureProtocolName && PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet ))
 		{
-			EPropertyLocation::Type Location = Iterator->HasAnyPropertyFlags(CPF_AdvancedDisplay) ? EPropertyLocation::Advanced : EPropertyLocation::Default;
-			CustomSettingsCategory.AddExternalObjectProperty(Objects, Iterator->GetFName(), Location);
+			// Defer the update 1 frame to ensure that we don't end up in a recursive loop adding bindings to the OnObjectPropertyChanged delegate that is currently being triggered
+			// (since the bindings are added in FMovieSceneCaptureCustomization::CustomizeDetails)
+			PropertyUtilities->EnqueueDeferredAction(FSimpleDelegate::CreateLambda([LocalPropertyUtilities = PropertyUtilities]{ LocalPropertyUtilities->ForceRefresh(); }));
 		}
 	}
 }

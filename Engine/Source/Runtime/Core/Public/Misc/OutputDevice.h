@@ -107,7 +107,10 @@ namespace ELogTimes
 		SinceGStartTime,
 
 		// Display log timestamps in local time
-		Local
+		Local,
+
+		// Display log timestamps in timecode format
+		Timecode
 	};
 }
 
@@ -192,6 +195,14 @@ public:
 		return false;
 	}
 
+	/**
+	* @return whether this output device can be used from multiple threads simultaneously without any locking
+	*/
+	virtual bool CanBeUsedOnMultipleThreads() const
+	{
+		return false;
+	}
+
 	// Simple text printing.
 	void Log( const TCHAR* S );
 	void Log( ELogVerbosity::Type Verbosity, const TCHAR* S );
@@ -208,7 +219,7 @@ private:
 
 public:
 	template <typename FmtType, typename... Types>
-	void Logf(const FmtType& Fmt, Types... Args)
+	FORCEINLINE void Logf(const FmtType& Fmt, Types... Args)
 	{
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FOutputDevice::Logf");
@@ -217,7 +228,7 @@ public:
 	}
 
 	template <typename FmtType, typename... Types>
-	void Logf(ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
+	FORCEINLINE void Logf(ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
 	{
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FOutputDevice::Logf");
@@ -226,7 +237,7 @@ public:
 	}
 
 	template <typename FmtType, typename... Types>
-	void CategorizedLogf(const FName& Category, ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
+	FORCEINLINE void CategorizedLogf(const FName& Category, ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
 	{
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FOutputDevice::CategorizedLogf");

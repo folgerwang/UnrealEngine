@@ -115,6 +115,7 @@ bool FPluginDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 	Object.TryGetStringField(TEXT("SupportURL"), SupportURL);
 	Object.TryGetStringField(TEXT("EngineVersion"), EngineVersion);
 	Object.TryGetStringArrayField(TEXT("SupportedTargetPlatforms"), SupportedTargetPlatforms);
+	Object.TryGetStringArrayField(TEXT("SupportedPrograms"), SupportedPrograms);
 
 	if (!FModuleDescriptor::ReadArray(Object, TEXT("Modules"), Modules, OutFailReason))
 	{
@@ -137,6 +138,12 @@ bool FPluginDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 	Object.TryGetBoolField(TEXT("Installed"), bInstalled);
 	Object.TryGetBoolField(TEXT("RequiresBuildPlatform"), bRequiresBuildPlatform);
 	Object.TryGetBoolField(TEXT("Hidden"), bIsHidden);
+
+	bool bCanBeUsedWithUnrealHeaderTool;
+	if(Object.TryGetBoolField("CanBeUsedWithUnrealHeaderTool", bCanBeUsedWithUnrealHeaderTool) && bCanBeUsedWithUnrealHeaderTool)
+	{
+		SupportedPrograms.Add(TEXT("UnrealHeaderTool"));
+	}
 
 	PreBuildSteps.Read(Object, TEXT("PreBuildSteps"));
 	PostBuildSteps.Read(Object, TEXT("PostBuildSteps"));
@@ -203,6 +210,10 @@ void FPluginDescriptor::Write(TJsonWriter<>& Writer) const
 	if(SupportedTargetPlatforms.Num() > 0)
 	{
 		Writer.WriteValue(TEXT("SupportedTargetPlatforms"), SupportedTargetPlatforms);
+	}
+	if (SupportedPrograms.Num() > 0)
+	{
+		Writer.WriteValue(TEXT("SupportedPrograms"), SupportedPrograms);
 	}
 
 	FModuleDescriptor::WriteArray(Writer, TEXT("Modules"), Modules);

@@ -6,7 +6,8 @@
 #include "RHI.h"
 
 // Must be aligned to 4 bytes
-void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& SrcBuffer, const FRWByteAddressBuffer& DstBuffer, uint32 NumBytes, uint32 SrcOffset = 0, uint32 DstOffset = 0 );
+void MemsetBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, uint32 Value, uint32 NumBytes, uint32 DstOffset = 0 );
+void MemcpyBuffer( FRHICommandList& RHICmdList, const FRWByteAddressBuffer& DstBuffer, const FRWByteAddressBuffer& SrcBuffer, uint32 NumBytes, uint32 DstOffset = 0, uint32 SrcOffset = 0 );
 void ResizeBuffer( FRHICommandList& RHICmdList, FRWByteAddressBuffer& Buffer, uint32 NumBytes );
 
 

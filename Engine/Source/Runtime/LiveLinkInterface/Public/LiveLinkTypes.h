@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,7 +46,7 @@ public:
 	GENERATED_USTRUCT_BODY()
 
 	// Time for this frame. Used during interpolation. If this goes backwards we will dump already stored frames. 
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	double Time;
 
 	// Value calculated on create to represent the different between the source time and client time
@@ -131,11 +131,23 @@ public:
 	using FLiveLinkTimeCode_Base_DEPRECATED::FLiveLinkTimeCode_Base_DEPRECATED;
 
 	// Implicit conversion to FTimecode
-	operator FQualifiedFrameTime()
+	operator FQualifiedFrameTime() const
 	{
 		int32 TotalFrameNumber = (int32)FMath::RoundToZero(Seconds * (FrameRate.Numerator / (double)FrameRate.Denominator)) + Frames;
 		FFrameTime FrameTime = FFrameTime(TotalFrameNumber);
 		return FQualifiedFrameTime(FrameTime, FrameRate);
+	}
+
+	FLiveLinkTimeCode& operator=(const FQualifiedFrameTime& InFrameTime)
+	{
+		const int32 NumberOfFramesInSecond = FMath::CeilToInt(InFrameTime.Rate.AsDecimal());
+		const int32 NumberOfFrames = FMath::RoundToZero(InFrameTime.Time.AsDecimal());
+
+		Seconds = (int32)FMath::RoundToZero(NumberOfFrames / (double)NumberOfFramesInSecond);
+		Frames = NumberOfFrames % NumberOfFramesInSecond;
+		FrameRate = FLiveLinkFrameRate(InFrameTime.Rate.Numerator, InFrameTime.Rate.Denominator);
+
+		return *this;
 	}
 };
 
@@ -156,9 +168,7 @@ public:
 	UPROPERTY()
 	TMap<FName, FString> StringMetaData;
 
-	DEPRECATED(4.20, "SceneTime will become an FQualifiedFrameTime from TimeManagement in 4.21. FLiveLinkTimeCode will implicitly allow conversion to FQualifiedFrameTime so please update your code in preparation.")
-	UPROPERTY()
-	FLiveLinkTimeCode SceneTime;
+	FQualifiedFrameTime SceneTime;
 };
 
 USTRUCT()
@@ -173,7 +183,7 @@ public:
 	UPROPERTY()
 	TArray<FLiveLinkCurveElement> CurveElements;
 	
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	FLiveLinkWorldTime WorldTime;
 
 	UPROPERTY()
@@ -250,4 +260,21 @@ struct FLiveLinkSubjectFrame
 
 	// Metadata for this frame
 	FLiveLinkMetaData MetaData;
+};
+
+
+struct FLiveLinkFrame
+{
+public:
+	TArray<FTransform> Transforms;
+	TArray<FOptionalCurveElement> Curves;
+
+	FLiveLinkMetaData MetaData;
+
+	FLiveLinkWorldTime WorldTime;
+
+	void ExtendCurveData(int32 ExtraCurves)
+	{
+		Curves.AddDefaulted(ExtraCurves);
+	}
 };

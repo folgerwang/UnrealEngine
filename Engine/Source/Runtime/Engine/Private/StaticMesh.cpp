@@ -42,11 +42,11 @@
 #include "Templates/UniquePtr.h"
 
 #if WITH_EDITOR
-#include "Editor.h"
 #include "RawMesh.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshBuilder.h"
 #include "MeshUtilities.h"
+#include "MeshUtilitiesCommon.h"
 #include "DerivedDataCacheInterface.h"
 #include "PlatformInfo.h"
 #include "ScopedTransaction.h"
@@ -65,6 +65,8 @@
 #include "ProfilingDebugging/CookStats.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Streaming/UVChannelDensity.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 #define LOCTEXT_NAMESPACE "StaticMesh"
 DEFINE_LOG_CATEGORY(LogStaticMesh);	
@@ -110,6 +112,12 @@ static TAutoConsoleVariable<int32> CVarSupportReversedIndexBuffers(
 	TEXT("r.SupportReversedIndexBuffers"),
 	1,
 	TEXT("Enables reversed index buffers. Saves a little time at the expense of doubling the size of index buffers."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarStripDistanceFieldDataDuringLoad(
+	TEXT("r.StaticMesh.StripDistanceFieldDataDuringLoad"),
+	0,
+	TEXT("If non-zero, data for distance fields will be discarded on load. TODO: change to discard during cook!."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
 #if ENABLE_COOK_STATS
@@ -771,8 +779,20 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 	// Inline the distance field derived data for cooked builds
 	if (bCooked)
 	{
-		FStripDataFlags StripFlags( Ar );
-		if ( !StripFlags.IsDataStrippedForServer() )
+		// Defined class flags for possible stripping
+		const uint8 DistanceFieldDataStripFlag = 1;
+
+		// Actual flags used during serialization
+		uint8 ClassDataStripFlags = 0;
+
+#if WITH_EDITOR
+		const bool bWantToStripDistanceFieldData = Ar.IsCooking() && (!Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DeferredRendering) || !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DistanceFieldAO));
+
+		ClassDataStripFlags |= (bWantToStripDistanceFieldData ? DistanceFieldDataStripFlag : 0);
+#endif
+
+		FStripDataFlags StripFlags(Ar, ClassDataStripFlags);
+		if (!StripFlags.IsDataStrippedForServer() && !StripFlags.IsClassDataStripped(DistanceFieldDataStripFlag))
 		{
 			if (Ar.IsSaving())
 			{
@@ -783,13 +803,7 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 			{
 				FStaticMeshLODResources& LOD = LODResources[ResourceIndex];
 				
-				bool bStripDistanceFields = false;
-				if (Ar.IsCooking())
-				{
-					bStripDistanceFields = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DeferredRendering);
-				}
-				
-				bool bValid = (LOD.DistanceFieldData != NULL) && !bStripDistanceFields;
+				bool bValid = (LOD.DistanceFieldData != NULL);
 
 				Ar << bValid;
 
@@ -824,6 +838,23 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 		for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
 		{
 			Ar << ScreenSize[LODIndex];
+		}
+	}
+
+	if (Ar.IsLoading() )
+	{
+		bool bStripDistanceFieldDataDuringLoad = (CVarStripDistanceFieldDataDuringLoad.GetValueOnAnyThread() == 1);
+		if( bStripDistanceFieldDataDuringLoad )
+		{
+			for (int32 ResourceIndex = 0; ResourceIndex < LODResources.Num(); ResourceIndex++)
+			{
+				FStaticMeshLODResources& LOD = LODResources[ResourceIndex];
+				if( LOD.DistanceFieldData != nullptr )
+				{
+					delete LOD.DistanceFieldData;
+					LOD.DistanceFieldData = nullptr;
+				}
+			}
 		}
 	}
 }
@@ -2957,7 +2988,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("A3E9E442F5784050BCAF878E4E80EE44")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("ED22489A741846E9830C0AEFB207E591")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {
@@ -3056,7 +3087,152 @@ void UStaticMesh::CacheMeshData()
 	}
 }
 
+bool UStaticMesh::AddUVChannel(int32 LODIndex)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		Modify();
+
+		if (FMeshDescriptionOperations::AddUVChannel(*MeshDescription))
+		{
+			CommitOriginalMeshDescription(LODIndex);
+			PostEditChange();
+
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UStaticMesh::InsertUVChannel(int32 LODIndex, int32 UVChannelIndex)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		Modify();
+
+		if (FMeshDescriptionOperations::InsertUVChannel(*MeshDescription, UVChannelIndex))
+		{
+			// Adjust the lightmap UV indices in the Build Settings to account for the new channel
+			FMeshBuildSettings& LODBuildSettings = SourceModels[LODIndex].BuildSettings;
+			if (UVChannelIndex <= LODBuildSettings.SrcLightmapIndex)
+			{
+				++LODBuildSettings.SrcLightmapIndex;
+			}
+
+			if (UVChannelIndex <= LODBuildSettings.DstLightmapIndex)
+			{
+				++LODBuildSettings.DstLightmapIndex;
+			}
+
+			if (UVChannelIndex <= LightMapCoordinateIndex)
+			{
+				++LightMapCoordinateIndex;
+			}
+
+			CommitOriginalMeshDescription(LODIndex);
+			PostEditChange();
+
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UStaticMesh::RemoveUVChannel(int32 LODIndex, int32 UVChannelIndex)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		FMeshBuildSettings& LODBuildSettings = SourceModels[LODIndex].BuildSettings;
+
+		if (LODBuildSettings.bGenerateLightmapUVs)
+		{
+			if (UVChannelIndex == LODBuildSettings.SrcLightmapIndex)
+			{
+				UE_LOG(LogStaticMesh, Error, TEXT("RemoveUVChannel: To remove the lightmap source UV channel, disable \"Generate Lightmap UVs\" in the Build Settings."));
+				return false;
+			}
+
+			if (UVChannelIndex == LODBuildSettings.DstLightmapIndex)
+			{
+				UE_LOG(LogStaticMesh, Error, TEXT("RemoveUVChannel: To remove the lightmap destination UV channel, disable \"Generate Lightmap UVs\" in the Build Settings."));
+				return false;
+			}
+		}
+
+		Modify();
+
+		if (FMeshDescriptionOperations::RemoveUVChannel(*MeshDescription, UVChannelIndex))
+		{
+			// Adjust the lightmap UV indices in the Build Settings to account for the removed channel
+			if (UVChannelIndex < LODBuildSettings.SrcLightmapIndex)
+			{
+				--LODBuildSettings.SrcLightmapIndex;
+			}
+
+			if (UVChannelIndex < LODBuildSettings.DstLightmapIndex)
+			{
+				--LODBuildSettings.DstLightmapIndex;
+			}
+
+			if (UVChannelIndex < LightMapCoordinateIndex)
+			{
+				--LightMapCoordinateIndex;
+			}
+
+			CommitOriginalMeshDescription(LODIndex);
+			PostEditChange();
+
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UStaticMesh::SetUVChannel(int32 LODIndex, int32 UVChannelIndex, const TArray<FVector2D>& TexCoords)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (!MeshDescription)
+	{
+		return false;
+	}
+
+	if (TexCoords.Num() < MeshDescription->VertexInstances().Num())
+	{
+		return false;
+	}
+
+	Modify();
+
+	int32 TextureCoordIndex = 0;
+	TMeshAttributesRef<FVertexInstanceID, FVector2D> UVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+	{
+		UVs.Set(VertexInstanceID, UVChannelIndex, TexCoords[TextureCoordIndex++]);
+	}
+
+	CommitOriginalMeshDescription(LODIndex);
+	PostEditChange();
+
+	return true;
+}
+
 #endif
+
+int32 UStaticMesh::GetNumUVChannels(int32 LODIndex)
+{
+	int32 NumUVChannels = 0;
+#if WITH_EDITORONLY_DATA
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		NumUVChannels = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	}
+#endif
+	return NumUVChannels;
+}
 
 void UStaticMesh::CacheDerivedData()
 {
@@ -3220,8 +3396,12 @@ void UStaticMesh::Serialize(FArchive& Ar)
 
 	if( !StripFlags.IsEditorDataStripped() )
 	{
-		Ar << HighResSourceMeshName;
-		Ar << HighResSourceMeshCRC;
+		// TODO: These should be gated with a version check, but not able to be done in this stream.
+		FString Deprecated_HighResSourceMeshName;
+		uint32 Deprecated_HighResSourceMeshCRC;
+
+		Ar << Deprecated_HighResSourceMeshName;
+		Ar << Deprecated_HighResSourceMeshCRC;
 	}
 #endif // #if WITH_EDITORONLY_DATA
 
@@ -3328,12 +3508,13 @@ void UStaticMesh::Serialize(FArchive& Ar)
 	{
 		DistanceFieldSelfShadowBias = SourceModels[0].BuildSettings.DistanceFieldBias_DEPRECATED * 10.0f;
 	}
-#endif // WITH_EDITORONLY_DATA
 
 	if (Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::RefactorMeshEditorMaterials)
+#endif // WITH_EDITORONLY_DATA
 	{
 		Ar << StaticMaterials;
 	}
+#if WITH_EDITORONLY_DATA
 	else if (Ar.IsLoading())
 	{
 		TArray<UMaterialInterface*> Unique_Materials_DEPRECATED;
@@ -3356,12 +3537,13 @@ void UStaticMesh::Serialize(FArchive& Ar)
 			int32 UniqueIndex = Unique_Materials_DEPRECATED.AddUnique(MaterialInterface);
 #if WITH_EDITOR
 			//We must cleanup the material list since we have a new way to build static mesh
-			CleanUpRedondantMaterialPostLoad = StaticMaterials.Num() > 1;
+			bCleanUpRedundantMaterialPostLoad = StaticMaterials.Num() > 1;
 #endif
 		}
 		Materials_DEPRECATED.Empty();
 
 	}
+#endif // WITH_EDITORONLY_DATA
 
 
 #if WITH_EDITOR
@@ -3491,7 +3673,7 @@ void UStaticMesh::PostLoad()
 
 		//Fix up the material to remove redundant material, this is needed since the material refactor where we do not have anymore copy of the materials
 		//in the materials list
-		if (RenderData && CleanUpRedondantMaterialPostLoad)
+		if (RenderData && bCleanUpRedundantMaterialPostLoad)
 		{
 			bool bMaterialChange = false;
 			TArray<FStaticMaterial> CompactedMaterial;
@@ -3557,7 +3739,7 @@ void UStaticMesh::PostLoad()
 					BodySetup->InvalidatePhysicsData();
 				}
 			}
-			CleanUpRedondantMaterialPostLoad = false;
+			bCleanUpRedundantMaterialPostLoad = false;
 		}
 
 		if (RenderData && GStaticMeshesThatNeedMaterialFixup.Get(this))
@@ -3565,6 +3747,47 @@ void UStaticMesh::PostLoad()
 			FixupZeroTriangleSections();
 		}
 	}
+
+	if (RenderData)
+	{
+		// check the MinLOD values are all within range
+		bool bFixedMinLOD = false;
+		int32 MinAvailableLOD = FMath::Max<int32>(RenderData->LODResources.Num() - 1, 0);
+		if (!RenderData->LODResources.IsValidIndex(MinLOD.Default))
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("MinLOD"), FText::AsNumber(MinLOD.Default));
+			Arguments.Add(TEXT("MinAvailLOD"), FText::AsNumber(MinAvailableLOD));
+			FMessageLog("LoadErrors").Warning()
+				->AddToken(FUObjectToken::Create(this))
+				->AddToken(FTextToken::Create(FText::Format(LOCTEXT("LoadError_BadMinLOD", "Min LOD value of {MinLOD} is out of range 0..{MinAvailLOD} and has been adjusted to {MinAvailLOD}. Please verify and resave the asset."), Arguments)));
+
+			MinLOD.Default = MinAvailableLOD;
+			bFixedMinLOD = true;
+		}
+		for (TMap<FName, int32>::TIterator It(MinLOD.PerPlatform); It; ++It)
+		{
+			if (!RenderData->LODResources.IsValidIndex(It.Value()))
+			{
+				FFormatNamedArguments Arguments;
+				Arguments.Add(TEXT("MinLOD"), FText::AsNumber(It.Value()));
+				Arguments.Add(TEXT("MinAvailLOD"), FText::AsNumber(MinAvailableLOD));
+				Arguments.Add(TEXT("Platform"), FText::FromString(It.Key().ToString()));
+				FMessageLog("LoadErrors").Warning()
+					->AddToken(FUObjectToken::Create(this))
+					->AddToken(FTextToken::Create(FText::Format(LOCTEXT("LoadError_BadMinLODOverride", "Min LOD override of {MinLOD} for {Platform} is out of range 0..{MinAvailLOD} and has been adjusted to {MinAvailLOD}. Please verify and resave the asset."), Arguments)));
+
+				It.Value() = MinAvailableLOD;
+				bFixedMinLOD = true;
+			}
+		}
+		if (bFixedMinLOD)
+		{
+			FMessageLog("LoadErrors").Open();
+		}
+	}
+
+
 #endif // #if WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
@@ -4333,12 +4556,6 @@ int32 UStaticMesh::GetMaterialIndex(FName MaterialSlotName) const
 #if WITH_EDITOR
 void UStaticMesh::SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMaterial)
 {
-	if (!GIsEditor || GEditor->PlayWorld != nullptr || GIsPlayInEditorWorld)
-	{
-		UE_LOG(LogStaticMesh, Warning, TEXT("UStaticMesh::SetMaterial can only be called in editor mode."));
-		return;
-	}
-
 	static FName NAME_StaticMaterials = GET_MEMBER_NAME_CHECKED(UStaticMesh, StaticMaterials);
 
 	if (StaticMaterials.IsValidIndex(MaterialIndex))

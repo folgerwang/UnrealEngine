@@ -16,6 +16,6 @@ public class RuntimePhysXCooking : ModuleRules
 			}
 		);
 
-		SetupModulePhysXAPEXSupport(Target);
+		SetupModulePhysicsSupport(Target);
 	}
 }

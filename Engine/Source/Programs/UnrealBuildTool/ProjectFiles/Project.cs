@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -143,6 +143,14 @@ namespace UnrealBuildTool
 			protected set;
 		}
 
+		/// <summary>
+		/// The base directory for files within this project
+		/// </summary>
+		public DirectoryReference BaseDir
+		{
+			get;
+			set;
+		}
 
 		/// Returns true if this is a generated project (as opposed to an imported project)
 		public bool IsGeneratedProject
@@ -318,7 +326,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="NewIncludePaths">List of include paths to add</param>
 		/// <param name="bAddingSystemIncludes"></param>
-		public void AddInteliiSenseIncludePaths(HashSet<DirectoryReference> NewIncludePaths, bool bAddingSystemIncludes)
+		public void AddIntelliSenseIncludePaths(HashSet<DirectoryReference> NewIncludePaths, bool bAddingSystemIncludes)
 		{
 			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
 				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)

@@ -1441,8 +1441,9 @@ public:
 	/** Lights added if wholescenepointlight shadow would have been rendered (ignoring r.SupportPointLightWholeSceneShadows). Used for warning about unsupported features. */	
 	TArray<FName, SceneRenderingAllocator> UsedWholeScenePointLightNames;
 
-	/** Feature level being rendered */
+	/** Feature level and shader platform being used for rendering */
 	ERHIFeatureLevel::Type FeatureLevel;
+	EShaderPlatform ShaderPlatform;
 	
 	/** 
 	 * The width in pixels of the stereo view family being rendered. This may be different than FamilySizeX if
@@ -1469,6 +1470,12 @@ public:
 
 	/** Setups FViewInfo::ViewRect according to ViewFamilly's ScreenPercentageInterface. */
 	void PrepareViewRectsForRendering();
+
+	/** Setups each FViewInfo::GPUMask. */
+	void ComputeViewGPUMasks(FRHIGPUMask RenderTargetGPUMask);
+
+	/** Update the rendertarget with each view results.*/
+	void DoCrossGPUTransfers(FRHICommandListImmediate& RHICmdList, FRHIGPUMask RenderTargetGPUMask);
 
 	bool DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const;
 	/** Issues occlusion queries. */
@@ -1516,6 +1523,8 @@ public:
 		return ScreenPercentageInterface->Fork_GameThread(ForkedViewFamily);
 	}
 
+	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
+	
 protected:
 
 	/** Size of the family. */
@@ -1606,6 +1615,9 @@ protected:
 	/** Gathers simple lights from visible primtives in the passed in views. */
 	static void GatherSimpleLights(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, FSimpleLightArray& SimpleLights);
 
+	/** Splits the gathered simple lights into arrays based on which view they should be rendered in */
+	static void SplitSimpleLightsByView(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, const FSimpleLightArray& SimpleLights, FSimpleLightArray* SimpleLightsByView);
+
 	/** Calculates projected shadow visibility. */
 	void InitProjectedShadowVisibility(FRHICommandListImmediate& RHICmdList);	
 
@@ -1649,7 +1661,6 @@ protected:
 
 	/** Renders the scene's distortion */
 	void RenderDistortion(FRHICommandListImmediate& RHICmdList);
-	void RenderDistortionES2(FRHICommandListImmediate& RHICmdList);
 
 	/** Returns the scene color texture multi-view is targeting. */	
 	FTextureRHIParamRef GetMultiViewSceneColor(const FSceneRenderTargets& SceneContext) const;
@@ -1659,8 +1670,6 @@ protected:
 
 	/** Renders a depth mask into the monoscopic far field view to ensure we only render visible pixels. */
 	void RenderMonoscopicFarFieldMask(FRHICommandListImmediate& RHICmdList);
-
-	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
 
 	void UpdatePrimitivePrecomputedLightingBuffers();
 	void ClearPrimitiveSingleFramePrecomputedLightingBuffers();
@@ -1726,7 +1735,7 @@ protected:
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);
 
 	/** Renders the base pass for translucency. */
-	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);
+	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews, bool bRenderToSceneColor);
 
 	/** Perform upscaling when post process is not used. */
 	void BasicPostProcess(FRHICommandListImmediate& RHICmdList, FViewInfo &View, bool bDoUpscale, bool bDoEditorPrimitives);
@@ -1737,9 +1746,6 @@ protected:
 	/** Copy scene color from the mobile multi-view render targat array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
 
-	/** Gather information about post-processing pass, which can be used by render for optimizations. Called by InitViews */
-	void UpdatePostProcessUsageFlags();
-
 	/** Render inverse opacity for the dynamic meshes. */
 	bool RenderInverseOpacityDynamic(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
 
@@ -1747,9 +1753,7 @@ protected:
 	void PostInitViewCustomData();
 	
 private:
-
 	bool bModulatedShadowsInUse;
-	bool bPostProcessUsesDepthTexture;
 };
 
 // The noise textures need to be set in Slate too.
@@ -1862,6 +1866,7 @@ struct FFastVramConfig
 	uint32 DistanceFieldTileIntersectionResources;
 	uint32 DistanceFieldAOScreenGridResources;
 	uint32 ForwardLightingCullingResources;
+	uint32 GlobalDistanceFieldCullGridBuffers;
 	bool bDirty;
 
 private:

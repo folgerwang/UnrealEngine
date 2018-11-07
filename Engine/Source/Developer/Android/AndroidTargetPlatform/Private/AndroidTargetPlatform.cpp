@@ -21,10 +21,12 @@
 #include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformFilemanager.h"
+#include "HAL/IConsoleManager.h"
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
 #include "Interfaces/IAndroidDeviceDetection.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/SecureHash.h"
+
 
 #if WITH_ENGINE
 #include "AudioCompressionSettings.h"
@@ -208,6 +210,11 @@ FAndroidTargetPlatform::~FAndroidTargetPlatform()
 	 FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 }
 
+FAndroidTargetDevicePtr FAndroidTargetPlatform::CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const
+{
+	return MakeShareable(new FAndroidTargetDevice(InTargetPlatform, InSerialNumber, InAndroidVariant));
+}
+
 bool FAndroidTargetPlatform::SupportsES2() const
 {
 	// default to support ES2
@@ -245,14 +252,8 @@ bool FAndroidTargetPlatform::SupportsVulkan() const
 
 bool FAndroidTargetPlatform::SupportsSoftwareOcclusion() const
 {
-	// default to not supporting
-	bool bSupportsSoftwareOcclusion = false;
-#if WITH_ENGINE
-	int32 IntValue = 0;
-	GConfig->GetInt(TEXT("ConsoleVariables"), TEXT("r.Mobile.AllowSoftwareOcclusion"), IntValue, GEngineIni);
-	bSupportsSoftwareOcclusion = (IntValue != 0);
-#endif
-	return bSupportsSoftwareOcclusion;
+	static auto* CVarMobileAllowSoftwareOcclusion = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowSoftwareOcclusion"));
+	return CVarMobileAllowSoftwareOcclusion->GetValueOnAnyThread() != 0;
 }
 
 /* ITargetPlatform overrides
@@ -342,6 +343,7 @@ bool FAndroidTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) 
 	switch (Feature)
 	{
 		case ETargetPlatformFeatures::Packaging:
+		case ETargetPlatformFeatures::DeviceOutputLog:
 			return true;
 			
 		case ETargetPlatformFeatures::LowQualityLightmaps:
@@ -370,7 +372,7 @@ void FAndroidTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutForm
 {
 	static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
 	static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
-	static FName NAME_SF_VULKAN_ES31_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
+	static FName NAME_SF_VULKAN_ES31_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
 	static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 
 	if (SupportsVulkan())
@@ -778,8 +780,7 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 			// create target device
 			FAndroidTargetDevicePtr& Device = Devices.Add(DeviceInfo.SerialNumber);
 
-			Device = CreateNewDevice(DeviceInfo);
-
+			Device = CreateTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName());
 
 			Device->SetConnected(true);
 			Device->SetModel(DeviceInfo.Model);

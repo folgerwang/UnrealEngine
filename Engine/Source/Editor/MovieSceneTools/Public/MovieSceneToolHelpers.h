@@ -188,13 +188,13 @@ public:
 	static void MovieSceneTranslatorLogOutput(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext);
 
 	/**
-	 * Import FBX
-	 *
-	 * @param InMovieScene The movie scene to import the fbx into
-	 * @param InObjectBindingNameMap The object binding to name map to map import fbx animation onto
-	 * @param bCreateCameras Whether to allow creation of cameras if found in the fbx file.
-	 * @return Whether the import was successful
-	 */
+	* Import FBX
+	*
+	* @param InMovieScene The movie scene to import the fbx into
+	* @param InObjectBindingNameMap The object binding to name map to map import fbx animation onto
+	* @param bCreateCameras Whether to allow creation of cameras if found in the fbx file.
+	* @return Whether the import was successful
+	*/
 	static bool ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap, TOptional<bool> bCreateCameras);
 
 	/*
@@ -203,7 +203,7 @@ public:
 	 * @param InterpMode The rich curve interpolation to convert
 	 * @return The converted matinee interpolation
 	 */
-	static EInterpCurveMode RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode );
+	static EInterpCurveMode RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
 
 	/*
 	 * Copy key data to move axis

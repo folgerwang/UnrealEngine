@@ -19,14 +19,22 @@ public:
 	void	RegisterSpace( FVirtualTextureSpace* Space );
 	void	UnregisterSpace( FVirtualTextureSpace* Space );
 
-	FVirtualTextureSpace*	GetSpace( uint8 ID )	{ return Spaces[ ID ]; }
+	FVirtualTextureSpace*	GetSpace(uint8 ID) { if (ID >= MaxSpaces) return nullptr; return Spaces[ID]; }
 
 private:
 	void	FeedbackAnalysis( FUniquePageList* RESTRICT RequestedPageList, const uint32* RESTRICT Buffer, uint32 Width, uint32 Height, uint32 Pitch );
 	
 	uint32	Frame;
 	
-	FVirtualTextureSpace*	Spaces[16];
+	static const uint32 MaxSpaces = 16;
+	FVirtualTextureSpace*	Spaces[MaxSpaces];
+
+	bool bFlushCaches;
+	void FlushCachesFromConsole();
+	FAutoConsoleCommand FlushCachesCommand;
+
+	void DumpFromConsole();
+	FAutoConsoleCommand DumpCommand;
 };
 
-extern FVirtualTextureSystem GVirtualTextureSystem;
+FVirtualTextureSystem *GetVirtualTextureSystem();

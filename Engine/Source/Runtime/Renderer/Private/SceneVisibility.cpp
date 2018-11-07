@@ -185,7 +185,7 @@ static FAutoConsoleVariableRef CVarNeverOcclusionTestDistance(
 	TEXT("r.NeverOcclusionTestDistance"),
 	GNeverOcclusionTestDistance,
 	TEXT("When the distance between the viewpoint and the bounding sphere center is less than this, never occlusion cull."),
-	ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe | ECVF_Scalability
 );
 
 /** Distance fade cvars */
@@ -600,6 +600,7 @@ struct FVisForPrimParams
 		, NumToProcess(InNumToProcess)
 		, bSubmitQueries(bInSubmitQueries)
 		, bHZBOcclusion(bInHZBOcclusion)		
+		, bNeedsScanOnRead(false)
 		, InsertPrimitiveOcclusionHistory(OutOcclusionHistory)
 		, QueriesToRelease(OutQueriesToRelease)
 		, HZBBoundsToAdd(OutHZBBounds)
@@ -645,6 +646,9 @@ struct FVisForPrimParams
 	bool bSubmitQueries;
 	bool bHZBOcclusion;	
 
+	// Whether the entries written into the history need to be read using a scan search (see FPrimitiveOcclusionHistory::bNeedsScanOnRead)
+	bool bNeedsScanOnRead;
+
 	//occlusion history to insert into.  In parallel these will be all merged back into the view's history on the main thread.
 	//use TChunkedArray so pointers to the new FPrimitiveOcclusionHistory's won't change if the array grows.	
 	TArray<FPrimitiveOcclusionHistory>*		InsertPrimitiveOcclusionHistory;
@@ -675,12 +679,31 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 	const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
-	const bool bClearQueries = !View.Family->EngineShowFlags.HitProxies;
+	bool bClearQueries = !View.Family->EngineShowFlags.HitProxies;
 	const float CurrentRealTime = View.Family->CurrentRealTime;
 	uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
 	FRenderQueryPool& OcclusionQueryPool = ViewState->OcclusionQueryPool;
 	FHZBOcclusionTester& HZBOcclusionTests = ViewState->HZBOcclusionTests;
-	
+
+	int32 ReadBackLagTolerance = NumBufferedFrames;
+
+	const bool bIsStereoView = View.StereoPass == eSSP_LEFT_EYE || View.StereoPass == eSSP_RIGHT_EYE;
+	const bool bUseRoundRobinOcclusion = bIsStereoView && !View.bIsSceneCapture && View.ViewState->IsRoundRobinEnabled();
+	if (bUseRoundRobinOcclusion)
+	{
+		// We don't allow clearing of a history entry if we do not also submit an occlusion query to replace the deleted one
+		// as we want to keep the history as full as possible
+		bClearQueries &= bSubmitQueries;
+
+		// However, if this frame happens to be the first frame, then we clear anyway since in the first frame we should not be
+		// reading past queries
+		bClearQueries |= View.bIgnoreExistingQueries;
+
+		// Round-robin occlusion culling involves reading frames that could be twice as stale as without round-robin
+		ReadBackLagTolerance = NumBufferedFrames * 2;
+	}
+	// Round robin occlusion culling can make holes in the occlusion history which would require scanning the history when reading
+	Params.bNeedsScanOnRead = bUseRoundRobinOcclusion;
 
 	TSet<FPrimitiveOcclusionHistory, FPrimitiveOcclusionHistoryKeyFuncs>& ViewPrimitiveOcclusionHistory = ViewState->PrimitiveOcclusionHistorySet;
 	TArray<FPrimitiveOcclusionHistory>* InsertPrimitiveOcclusionHistory = Params.InsertPrimitiveOcclusionHistory;
@@ -690,6 +713,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 	const bool bNewlyConsideredBBoxExpandActive = GExpandNewlyOcclusionTestedBBoxesAmount > 0.0f && GFramesToExpandNewlyOcclusionTestedBBoxes > 0 && GFramesNotOcclusionTestedToExpandBBoxes > 0;
 	const float NeverOcclusionTestDistanceSquared = GNeverOcclusionTestDistance * GNeverOcclusionTestDistance;
+	const FVector ViewOrigin = View.ViewMatrices.GetViewOrigin();
 
 	const int32 ReserveAmount = NumToProcess;
 	if (!bSingleThreaded)
@@ -821,7 +845,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 						// Read the occlusion query results.
 						uint64 NumSamples = 0;
 						bool bGrouped = false;
-						FRenderQueryRHIParamRef PastQuery = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames, bGrouped);
+						FRenderQueryRHIParamRef PastQuery = PrimitiveOcclusionHistory->GetQueryForReading(OcclusionFrameCounter, NumBufferedFrames, ReadBackLagTolerance, bGrouped);
 						if (PastQuery)
 						{
 							//int32 RefCount = PastQuery.GetReference()->GetRefCount();
@@ -903,9 +927,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 					}
 					else
 					{
-						bool bGrouped = false;
-						FRenderQueryRHIParamRef Query = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames, bGrouped);
-						if (Query)
+						if (PrimitiveOcclusionHistory->GetQueryForEviction(OcclusionFrameCounter, NumBufferedFrames))
 						{
 							QueriesToRelease->Add(PrimitiveOcclusionHistory);							
 						}
@@ -937,7 +959,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 					bool bAllowBoundsTest;
 					const FBoxSphereBounds OcclusionBounds = (bSubQueries ? (*SubBounds)[SubQuery] : Scene->PrimitiveOcclusionBounds[BitIt.GetIndex()]).ExpandBy(GExpandAllTestedBBoxesAmount + (bSkipNewlyConsidered ? GExpandNewlyOcclusionTestedBBoxesAmount : 0.0));
-					if (FVector::DistSquared(View.ViewLocation, OcclusionBounds.Origin) < NeverOcclusionTestDistanceSquared)
+					if (FVector::DistSquared(ViewOrigin, OcclusionBounds.Origin) < NeverOcclusionTestDistanceSquared)
 					{
 						bAllowBoundsTest = false;
 					}
@@ -1032,7 +1054,8 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 											View.GroupedOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent) :
 											View.IndividualOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent),
 											NumBufferedFrames,
-											bGroupedQuery
+											bGroupedQuery,
+											Params.bNeedsScanOnRead
 										);
 									}
 								}
@@ -1321,7 +1344,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 						View.GroupedOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent) :
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
 						NumBufferedFrames,
-						RunQueriesIter->bGroupedQuery
+						RunQueriesIter->bGroupedQuery,
+						Params[i].bNeedsScanOnRead
 						);
 				}
 			}
@@ -1405,7 +1429,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
 						NumBufferedFrames,
-						false
+						false,
+						Params.bNeedsScanOnRead
 					);
 				}
 			}
@@ -1432,7 +1457,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
 						NumBufferedFrames,
-						false
+						false,
+						Params.bNeedsScanOnRead
 					);
 				}
 			}
@@ -1470,9 +1496,9 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 	int32 NumOccludedPrimitives = 0;
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 	
-	// Disable HZB on OpenGL platforms to avoid rendering artefacts
+	// Disable HZB on OpenGL platforms to avoid rendering artifacts
 	// It can be forced on by setting HZBOcclusion to 2
-	bool bHZBOcclusion = (!IsOpenGLPlatform(GShaderPlatformForFeatureLevel[Scene->GetFeatureLevel()]) && GHZBOcclusion) || (GHZBOcclusion == 2);
+	bool bHZBOcclusion = (!IsOpenGLPlatform(GShaderPlatformForFeatureLevel[Scene->GetFeatureLevel()]) && !IsSwitchPlatform(GShaderPlatformForFeatureLevel[Scene->GetFeatureLevel()]) && GHZBOcclusion) || (GHZBOcclusion == 2);
 
 	// Use precomputed visibility data if it is available.
 	if (View.PrecomputedVisibilityData)
@@ -1523,8 +1549,21 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 				check(!ViewState->HZBOcclusionTests.IsValidFrame(ViewState->OcclusionFrameCounter));
 				ViewState->HZBOcclusionTests.MapResults(RHICmdList);
 			}
-			
-			NumOccludedPrimitives += FetchVisibilityForPrimitives(Scene, View, bSubmitQueries, bHZBOcclusion);			
+ 
+			// Perform round-robin occlusion queries
+			if (View.ViewState->IsRoundRobinEnabled() &&
+				!View.bIsSceneCapture && // We only round-robin on the main renderer (not scene captures)
+				!View.bIgnoreExistingQueries && // We do not alternate occlusion queries when we want to refresh the occlusion history
+				(View.StereoPass == eSSP_LEFT_EYE || View.StereoPass == eSSP_RIGHT_EYE)) // Only relevant to stereo views
+			{
+				// For even frames, prevent left eye from occlusion querying
+				// For odd frames, prevent right eye from occlusion querying
+				const bool FrameParity = ((View.ViewState->PrevFrameNumber & 0x01) == 1);
+				bSubmitQueries &= (FrameParity && View.StereoPass == eSSP_LEFT_EYE) ||
+								  (!FrameParity && View.StereoPass == eSSP_RIGHT_EYE);
+			}
+
+			NumOccludedPrimitives += FetchVisibilityForPrimitives(Scene, View, bSubmitQueries, bHZBOcclusion);
 
 			if( bHZBOcclusion )
 			{
@@ -1607,8 +1646,8 @@ struct FMarkRelevantStaticMeshesForViewData
 		MinScreenRadiusForCSMDepthSquared = GMinScreenRadiusForCSMDepth * GMinScreenRadiusForCSMDepth;
 		MinScreenRadiusForDepthPrepassSquared = GMinScreenRadiusForDepthPrepass * GMinScreenRadiusForDepthPrepass;
 
-		extern bool ShouldForceFullDepthPass(ERHIFeatureLevel::Type FeatureLevel);
-		bFullEarlyZPass = ShouldForceFullDepthPass(View.GetFeatureLevel());
+		extern bool ShouldForceFullDepthPass(EShaderPlatform ShaderPlatform);
+		bFullEarlyZPass = ShouldForceFullDepthPass(View.GetShaderPlatform());
 	}
 };
 
@@ -1859,7 +1898,7 @@ struct FRelevancePacket
 			// Cache the nearest reflection proxy if needed
 			if (PrimitiveSceneInfo->bNeedsCachedReflectionCaptureUpdate
 				// For mobile, the per-object reflection is used for everything
-				&& (Scene->GetShadingPath() == EShadingPath::Mobile || bTranslucentRelevance || IsForwardShadingEnabled(Scene->GetFeatureLevel())))
+				&& (Scene->GetShadingPath() == EShadingPath::Mobile || bTranslucentRelevance || IsForwardShadingEnabled(Scene->GetShaderPlatform())))
 			{
 				PrimitiveSceneInfo->CachedReflectionCaptureProxy = Scene->FindClosestReflectionCapture(Scene->PrimitiveBounds[BitIndex].BoxSphereBounds.Origin);
 				PrimitiveSceneInfo->CachedPlanarReflectionProxy = Scene->FindClosestPlanarReflection(Scene->PrimitiveBounds[BitIndex].BoxSphereBounds);
@@ -2357,6 +2396,7 @@ static void MarkAllPrimitivesForReflectionProxyUpdate(FScene* Scene)
 		// Note: Only visible primitives will actually update their reflection proxy
 		for (int32 PrimitiveIndex = 0; PrimitiveIndex < Scene->Primitives.Num(); PrimitiveIndex++)
 		{
+			Scene->Primitives[PrimitiveIndex]->CachedPlanarReflectionProxy = NULL;
 			Scene->Primitives[PrimitiveIndex]->bNeedsCachedReflectionCaptureUpdate = true;
 		}
 
@@ -2694,6 +2734,16 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				View.bIgnoreExistingQueries = true;
 				View.bDisableDistanceBasedFadeTransitions = true;
 			}
+
+			// Turn on/off round-robin occlusion querying in the ViewState
+			static const auto CVarRROCC = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.RoundRobinOcclusion"));
+			const bool bEnableRoundRobin = CVarRROCC ? (CVarRROCC->GetValueOnAnyThread() != false) : false;
+			if (bEnableRoundRobin != ViewState->IsRoundRobinEnabled())
+			{
+				ViewState->UpdateRoundRobin(bEnableRoundRobin);
+				View.bIgnoreExistingQueries = true;
+			}
+
 			ViewState->PrevViewMatrixForOcclusionQuery = View.ViewMatrices.GetViewMatrix();
 			ViewState->PrevViewOriginForOcclusionQuery = View.ViewMatrices.GetViewOrigin();
 				
@@ -2912,6 +2962,10 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 			{
 				QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_HLODUpdate);
 				HLODTree.UpdateVisibilityStates(View);
+			}
+			else
+			{
+				HLODTree.ClearVisibilityState(View);
 			}
 
 			int32 NumCulledPrimitivesForView;
@@ -3513,7 +3567,7 @@ void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandLis
 		FTaskGraphInterface::Get().WaitUntilTasksComplete(SortEvents, ENamedThreads::GetRenderThread());
 	}
 
-	if (ViewFamily.EngineShowFlags.DynamicShadows && !IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)))
+	if (ViewFamily.EngineShowFlags.DynamicShadows && !IsSimpleForwardShadingEnabled(ShaderPlatform))
 	{
 		// Setup dynamic shadows.
 		InitDynamicShadows(RHICmdList);
@@ -3590,6 +3644,36 @@ void FLODSceneTree::UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitive
 	if (FLODSceneNode* Node = SceneNodes.Find(NodeId))
 	{
 		Node->SceneInfo = SceneInfo;
+	}
+}
+
+void FLODSceneTree::ClearVisibilityState(FViewInfo& View)
+{
+	if (FSceneViewState* ViewState = (FSceneViewState*)View.State)
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		// Skip update logic when frozen
+		if (ViewState->bIsFrozen)
+		{
+			return;
+		}
+#endif
+		FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
+
+		if(HLODState.IsValidPrimitiveIndex(0))
+		{
+			HLODState.PrimitiveFadingLODMap.Empty(0);
+			HLODState.PrimitiveFadingOutLODMap.Empty(0);
+			HLODState.ForcedVisiblePrimitiveMap.Empty(0);
+			HLODState.ForcedHiddenPrimitiveMap.Empty(0);
+		}
+
+		TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState>& VisibilityStates = ViewState->HLODSceneNodeVisibilityStates;
+
+		if(VisibilityStates.Num() > 0)
+		{
+			VisibilityStates.Empty(0);
+		}
 	}
 }
 

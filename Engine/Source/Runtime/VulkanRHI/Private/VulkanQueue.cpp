@@ -9,7 +9,7 @@
 #include "VulkanMemory.h"
 
 int32 GWaitForIdleOnSubmit = 0;
-static FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit(
+FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit(
 	TEXT("r.Vulkan.WaitForIdleOnSubmit"),
 	GWaitForIdleOnSubmit,
 	TEXT("Waits for the GPU to be idle on every submit. Useful for tracking GPU hangs.\n")
@@ -91,6 +91,6 @@ void FVulkanQueue::UpdateLastSubmittedCommandBuffer(FVulkanCmdBuffer* CmdBuffer)
 {
 	FScopeLock ScopeLock(&CS);
 	LastSubmittedCmdBuffer = CmdBuffer;
-	LastSubmittedCmdBufferFenceCounter = CmdBuffer->GetFenceSignaledCounter();
+	LastSubmittedCmdBufferFenceCounter = CmdBuffer->GetFenceSignaledCounterH();
 	++SubmitCounter;
 }

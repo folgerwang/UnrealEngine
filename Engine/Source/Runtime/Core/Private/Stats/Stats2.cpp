@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreTypes.h"
+#include "Stats/Stats2.h"
 #include "Misc/AssertionMacros.h"
 #include "HAL/UnrealMemory.h"
 #include "Templates/UnrealTemplate.h"
@@ -1065,9 +1065,13 @@ FThreadStatsPool::FThreadStatsPool()
 FThreadStats* FThreadStatsPool::GetFromPool()
 {
 	FPlatformMisc::MemoryBarrier();
-	FThreadStats* Result = new(Pool.Pop()) FThreadStats();
-	check(Result && "Increase NUM_ELEMENTS_IN_POOL");
-	return Result;
+	FThreadStats* Address = Pool.Pop();
+	while (!Address)
+	{
+		Pool.Push(new FThreadStats(EConstructor::FOR_POOL));
+		Address = Pool.Pop();
+	}
+	return new(Address) FThreadStats();
 }
 
 void FThreadStatsPool::ReturnToPool( FThreadStats* Instance )

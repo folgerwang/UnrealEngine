@@ -111,7 +111,7 @@ UExporter* UExporter::FindExporter( UObject* Object, const TCHAR* FileType )
 	for (TSet< TWeakObjectPtr<UExporter> >::TIterator It(RegisteredExporters); It; ++It)
 	{
 		UExporter* Default = It->Get();
-		if(Default)
+		if(Default && !Default->GetClass()->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
 		{
 			check( Default->FormatExtension.Num() == Default->FormatDescription.Num() );
 			if (Default->SupportsObject(Object))
@@ -266,9 +266,13 @@ bool UExporter::RunAssetExportTask(class UAssetExportTask* Task)
 	Exporter->ExportTask = Task;
 	Exporter->bSelectedOnly = Task->bSelected;
 
-	TSharedPtr<FOutputDevice> TextBuffer;
-	if( Exporter->bText )
+	if (Exporter->ScriptRunAssetExportTask(Task))
 	{
+		return true;
+	}
+	else if( Exporter->bText )
+	{
+		TSharedPtr<FOutputDevice> TextBuffer;
 		bool bIsFileDevice = false;
 		FString TempFile = FPaths::GetPath(Task->Filename);
 		if (Exporter->bForceFileOperations || Task->bUseFileArchive)

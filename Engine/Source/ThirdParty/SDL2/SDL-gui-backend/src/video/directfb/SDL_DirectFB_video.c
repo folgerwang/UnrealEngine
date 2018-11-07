@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -109,8 +109,8 @@ DirectFB_CreateDevice(int devindex)
     device->GetDisplayModes = DirectFB_GetDisplayModes;
     device->SetDisplayMode = DirectFB_SetDisplayMode;
     device->PumpEvents = DirectFB_PumpEventsWindow;
-    device->CreateWindow = DirectFB_CreateWindow;
-    device->CreateWindowFrom = DirectFB_CreateWindowFrom;
+    device->CreateSDLWindow = DirectFB_CreateWindow;
+    device->CreateSDLWindowFrom = DirectFB_CreateWindowFrom;
     device->SetWindowTitle = DirectFB_SetWindowTitle;
     device->SetWindowIcon = DirectFB_SetWindowIcon;
     device->SetWindowPosition = DirectFB_SetWindowPosition;
@@ -228,8 +228,7 @@ DirectFB_VideoInit(_THIS)
             DirectFBSetOption("disable-module", "x11input");
     }
 
-    /* FIXME: Reenable as default once multi kbd/mouse interface is sorted out */
-    devdata->use_linux_input = readBoolEnv(DFBENV_USE_LINUX_INPUT, 0);       /* default: on */
+    devdata->use_linux_input = readBoolEnv(DFBENV_USE_LINUX_INPUT, 1);       /* default: on */
 
     if (!devdata->use_linux_input)
     {

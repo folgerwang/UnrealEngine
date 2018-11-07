@@ -68,7 +68,6 @@ const FIntPoint FWindowsApplication::MinimizedWindowPosition(-32000,-32000);
 
 FWindowsApplication* WindowsApplication = nullptr;
 
-
 FWindowsApplication* FWindowsApplication::CreateWindowsApplication( const HINSTANCE InstanceHandle, const HICON IconHandle )
 {
 	WindowsApplication = new FWindowsApplication( InstanceHandle, IconHandle );
@@ -116,7 +115,7 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	TaskbarList = FTaskbarList::Create();
 
 	// Get initial display metrics. (display information for existing desktop, before we start changing resolutions)
-	FDisplayMetrics::GetDisplayMetrics(InitialDisplayMetrics);
+	FDisplayMetrics::RebuildDisplayMetrics(InitialDisplayMetrics);
 
 	// Save the current sticky/toggle/filter key settings so they can be restored them later
 	// If there are .ini settings, use them instead of the current system settings.
@@ -467,7 +466,7 @@ FPlatformRect FWindowsApplication::GetWorkArea( const FPlatformRect& CurrentWind
  * @param OutHeight - Reference to output variable for monitor native height
  * @returns 'true' if data was extracted successfully, 'false' otherwise
  **/
-static bool GetMonitorSizeFromEDID(const HKEY hDevRegKey, int32& OutWidth, int32& OutHeight)
+static bool GetMonitorSizeFromEDID(const HKEY hDevRegKey, int32& OutWidth, int32& OutHeight, int32& OutDPI)
 {	
 	static const uint32 NameSize = 512;
 	static TCHAR ValueName[NameSize];
@@ -499,6 +498,25 @@ static bool GetMonitorSizeFromEDID(const HKEY hDevRegKey, int32& OutWidth, int32
 		OutWidth = ((EDIDData[DetailTimingDescriptorStartIndex+4] >> 4) << 8) | EDIDData[DetailTimingDescriptorStartIndex+2];
 		OutHeight = ((EDIDData[DetailTimingDescriptorStartIndex+7] >> 4) << 8) | EDIDData[DetailTimingDescriptorStartIndex+5];
 
+		const int32 HorizontalSizeOffset = 21;
+		const int32 VerticalSizeOffset = 22;
+		const float CmToInch = 0.393701f;
+
+		if (EDIDData[HorizontalSizeOffset] > 0 && EDIDData[VerticalSizeOffset] > 0)
+		{
+			float PhysicalWidth = CmToInch * (float)EDIDData[HorizontalSizeOffset];
+			float PhysicalHeight = CmToInch * (float)EDIDData[VerticalSizeOffset];
+
+			int32 HDpi = FMath::TruncToInt((float)OutWidth / PhysicalWidth);
+			int32 VDpi = FMath::TruncToInt((float)OutHeight / PhysicalHeight);
+
+			OutDPI = (HDpi + VDpi) / 2;
+		}
+		else
+		{
+			OutDPI = 0;
+		}
+
 		return true; // valid EDID found
 	}
 
@@ -512,7 +530,7 @@ static bool GetMonitorSizeFromEDID(const HKEY hDevRegKey, int32& OutWidth, int32
  * @praam OutHeight - Reference to output variable for monitor native height
  * @returns TRUE if data was extracted successfully, FALSE otherwise
  **/
-inline bool GetSizeForDevID(const FString& TargetDevID, int32& Width, int32& Height)
+inline bool GetSizeForDevID(const FString& TargetDevID, int32& Width, int32& Height, int32& DPI)
 {
 	static const GUID ClassMonitorGuid = {0x4d36e96e, 0xe325, 0x11ce, {0xbf, 0xc1, 0x08, 0x00, 0x2b, 0xe1, 0x03, 0x18}};
 
@@ -551,7 +569,7 @@ inline bool GetSizeForDevID(const FString& TargetDevID, int32& Width, int32& Hei
 
 					if (hDevRegKey && hDevRegKey != INVALID_HANDLE_VALUE)
 					{
-						bRes = GetMonitorSizeFromEDID(hDevRegKey, Width, Height);
+						bRes = GetMonitorSizeFromEDID(hDevRegKey, Width, Height, DPI);
 						RegCloseKey(hDevRegKey);
 						break;
 					}
@@ -629,10 +647,26 @@ static void GetMonitorsInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 					Info.ID = FString::Printf(TEXT("%s"), Monitor.DeviceID);
 					Info.Name = Info.ID.Mid (8, Info.ID.Find (TEXT("\\"), ESearchCase::CaseSensitive, ESearchDir::FromStart, 9) - 8);
 
-					if (GetSizeForDevID(Info.Name, Info.NativeWidth, Info.NativeHeight))
+					if (GetSizeForDevID(Info.Name, Info.NativeWidth, Info.NativeHeight, Info.DPI))
 					{
 						Info.ID = Monitor.DeviceID;
 						Info.bIsPrimary = (DisplayDevice.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) > 0;
+
+						// sanity check for DPI values
+						if (Info.DPI < 96 || Info.DPI > 300)
+						{
+							// switch to default winapi value
+							Info.DPI = FWindowsPlatformApplicationMisc::GetMonitorDPI(Info);
+						}
+						else
+						{
+							// we also need to include the OS scaling value
+							const float CenterX = 0.5f * (Info.WorkArea.Right + Info.WorkArea.Left);
+							const float CenterY = 0.5f * (Info.WorkArea.Top + Info.WorkArea.Bottom);
+							const float DPIScaleFactor = FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(CenterX, CenterY);
+							Info.DPI *= DPIScaleFactor;
+						}
+
 						OutMonitorInfo.Add(Info);
 
 						if (PrimaryDevice == nullptr && Info.bIsPrimary)
@@ -654,7 +688,7 @@ static void GetMonitorsInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 	}
 }
 
-void FDisplayMetrics::GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics)
 {
 	// Total screen size of the primary monitor
 	OutDisplayMetrics.PrimaryDisplayWidth = ::GetSystemMetrics( SM_CXSCREEN );
@@ -1051,6 +1085,65 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 					int32 NewWidth = Rect->right - Rect->left;
 					int32 NewHeight = Rect->bottom - Rect->top;
 
+					FWindowSizeLimits SizeLimits = MessageHandler->GetSizeLimitsForWindow(CurrentNativeEventWindow);
+
+					switch (wParam)
+					{
+					case WMSZ_LEFT:
+					case WMSZ_RIGHT:
+					case WMSZ_BOTTOMLEFT:
+					case WMSZ_BOTTOMRIGHT:
+					case WMSZ_TOPLEFT:
+					case WMSZ_TOPRIGHT:
+					{
+						int32 MinWidth = SizeLimits.GetMinWidth().GetValue();
+						if (SizeLimits.GetMinHeight().GetValue() < SizeLimits.GetMinWidth().GetValue())
+						{
+							MinWidth = SizeLimits.GetMinHeight().GetValue() * AspectRatio;
+						}
+
+						if (NewWidth < MinWidth)
+						{
+							if (wParam == WMSZ_LEFT || wParam == WMSZ_BOTTOMLEFT || wParam == WMSZ_TOPLEFT)
+							{
+								Rect->left -= (MinWidth - NewWidth);
+							}
+							else if (wParam == WMSZ_RIGHT || wParam == WMSZ_BOTTOMRIGHT || wParam == WMSZ_TOPRIGHT)
+							{
+								Rect->right += (MinWidth - NewWidth);
+							}
+
+							NewWidth = MinWidth;
+						}
+
+						break;
+					}
+					case WMSZ_TOP:
+					case WMSZ_BOTTOM:
+					{
+						int32 MinHeight = SizeLimits.GetMinHeight().GetValue();
+						if (SizeLimits.GetMinWidth().GetValue() < SizeLimits.GetMinHeight().GetValue())
+						{
+							MinHeight = SizeLimits.GetMinWidth().GetValue() / AspectRatio;
+						}
+
+						if (NewHeight < MinHeight)
+						{
+							if (wParam == WMSZ_TOP)
+							{
+								Rect->top -= (MinHeight - NewHeight);
+							}
+							else
+							{
+								Rect->bottom += (MinHeight - NewHeight);
+							}
+
+							NewHeight = MinHeight;
+						}
+						break;
+					}
+					}
+
 					switch (wParam)
 					{
 					case WMSZ_LEFT:
@@ -1329,11 +1422,13 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 					BorderHeight = BorderRect.bottom - BorderRect.top;
 				}
 
+				const float DPIScaleFactor = CurrentNativeEventWindow->GetDPIScaleFactor();
+
 				// We always apply BorderWidth and BorderHeight since Slate always works with client area window sizes
-				MinMaxInfo->ptMinTrackSize.x = FMath::RoundToInt( SizeLimits.GetMinWidth().Get(MinMaxInfo->ptMinTrackSize.x) );
-				MinMaxInfo->ptMinTrackSize.y = FMath::RoundToInt( SizeLimits.GetMinHeight().Get(MinMaxInfo->ptMinTrackSize.y) );
-				MinMaxInfo->ptMaxTrackSize.x = FMath::RoundToInt( SizeLimits.GetMaxWidth().Get(MinMaxInfo->ptMaxTrackSize.x) ) + BorderWidth;
-				MinMaxInfo->ptMaxTrackSize.y = FMath::RoundToInt( SizeLimits.GetMaxHeight().Get(MinMaxInfo->ptMaxTrackSize.y) ) + BorderHeight;
+				MinMaxInfo->ptMinTrackSize.x = FMath::RoundToInt( SizeLimits.GetMinWidth().Get(MinMaxInfo->ptMinTrackSize.x) * DPIScaleFactor );
+				MinMaxInfo->ptMinTrackSize.y = FMath::RoundToInt( SizeLimits.GetMinHeight().Get(MinMaxInfo->ptMinTrackSize.y) * DPIScaleFactor );
+				MinMaxInfo->ptMaxTrackSize.x = FMath::RoundToInt( SizeLimits.GetMaxWidth().Get(MinMaxInfo->ptMaxTrackSize.x) * DPIScaleFactor ) + BorderWidth;
+				MinMaxInfo->ptMaxTrackSize.y = FMath::RoundToInt( SizeLimits.GetMaxHeight().Get(MinMaxInfo->ptMaxTrackSize.y) * DPIScaleFactor ) + BorderHeight;
 				return 0;
 			}
 			break;
@@ -1384,7 +1479,7 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			{
 				// Slate needs to know when desktop size changes.
 				FDisplayMetrics DisplayMetrics;
-				FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+				FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 				BroadcastDisplayMetricsChanged(DisplayMetrics);
 			}
 			break;
@@ -2032,15 +2127,19 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 
 		case WM_DPICHANGED:
 			{
-				if( CurrentNativeEventWindowPtr.IsValid() )
+				if( CurrentNativeEventWindowPtr.IsValid())
 				{
-					CurrentNativeEventWindowPtr->SetDPIScaleFactor(LOWORD(wParam) / 96.0f);
+					MessageHandler->SignalSystemDPIChanged(CurrentNativeEventWindowPtr.ToSharedRef());
 
+					if (!CurrentNativeEventWindowPtr->IsManualManageDPIChanges())
+					{
+						CurrentNativeEventWindowPtr->SetDPIScaleFactor(LOWORD(wParam) / 96.0f);
 
-					LPRECT NewRect = (LPRECT)lParam;
-					SetWindowPos(hwnd, nullptr, NewRect->left, NewRect->top, NewRect->right - NewRect->left, NewRect->bottom - NewRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+						LPRECT NewRect = (LPRECT)lParam;
+						SetWindowPos(hwnd, nullptr, NewRect->left, NewRect->top, NewRect->right - NewRect->left, NewRect->bottom - NewRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
 
-					MessageHandler->HandleDPIScaleChanged(CurrentNativeEventWindowPtr.ToSharedRef());
+						MessageHandler->HandleDPIScaleChanged(CurrentNativeEventWindowPtr.ToSharedRef());
+					}
 				}
 			}
 			break;

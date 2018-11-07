@@ -21,6 +21,14 @@
 TSharedPtr< FSlateEditorStyle::FStyle > FSlateEditorStyle::StyleInstance = NULL;
 TWeakObjectPtr< UEditorStyleSettings > FSlateEditorStyle::Settings = NULL;
 
+bool IncludeEditorSpecificStyles()
+{
+#if IS_PROGRAM
+	return true;
+#else
+	return GIsEditor;
+#endif
+}
 
 /* FSlateEditorStyle interface
  *****************************************************************************/
@@ -160,15 +168,6 @@ void FSlateEditorStyle::FStyle::SyncSettings()
 
 void FSlateEditorStyle::FStyle::Initialize()
 {
-	//@Todo slate: splitting game and style atlases is a better solution to avoiding editor textures impacting game atlas pages. Tho this would still be a loading win.
-	// We do WITH_EDITOR and well as !GIsEditor because in UFE !GIsEditor is true, however we need the styles.
-#if WITH_EDITOR
-	if (!GIsEditor)
-	{
-		return;
-	}
-#endif
-
 	SyncSettings();
 
 	SetContentRoot( FPaths::EngineContentDir() / TEXT("Editor/Slate") );
@@ -177,10 +176,17 @@ void FSlateEditorStyle::FStyle::Initialize()
 	SetupGeneralStyles();
 	SetupGeneralIcons();
 	SetupWindowStyles();
+	SetupPropertyEditorStyles();
+
+	// Avoid polluting the game texture atlas with non-core editor style items when not the editor (or a standalone application, like UFE)
+	if (!IncludeEditorSpecificStyles())
+	{
+		return;
+	}
+
 	SetupProjectBadgeStyle();
 	SetupDockingStyles();
 	SetupTutorialStyles();
-	SetupPropertyEditorStyles();
 	SetupProfilerStyle();
 	SetupGraphEditorStyles();
 	SetupLevelEditorStyle();
@@ -1116,6 +1122,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 #if WITH_EDITOR || IS_PROGRAM
 
 	// Animation tools
+	if (IncludeEditorSpecificStyles())
 	{
 		Set( "AnimEditor.RefreshButton", new IMAGE_BRUSH( "Old/AnimEditor/RefreshButton", Icon16x16 ) );
 		Set( "AnimEditor.VisibleEye", new IMAGE_BRUSH( "Old/AnimEditor/RefreshButton", Icon16x16 ) );
@@ -1317,7 +1324,6 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// Package Dialog
-
 	{
 		Set( "PackageDialog.ListHeader", new BOX_BRUSH( "Old/SavePackages/ListHeader", 4.0f/32.0f ) );
 		Set( "SavePackages.SCC_DlgCheckedOutOther", new IMAGE_BRUSH( "Old/SavePackages/SCC_DlgCheckedOutOther", FVector2D( 18, 16 ) ) );
@@ -1348,7 +1354,6 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// Layer Browser
-
 	{
 		Set( "LayerBrowser.LayerContentsQuickbarBackground",  new BOX_BRUSH( "Common/DarkGroupBorder", 4.f/16.f ) );
 		Set( "LayerBrowser.ExploreLayerContents",  new IMAGE_BRUSH( "Icons/ExploreLayerContents", Icon16x16 ) );
@@ -1422,7 +1427,6 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 		Set( "WorldBrowser.LabelFont", DEFAULT_FONT( "Regular", 9 ) );
 		Set( "WorldBrowser.LabelFontBold", DEFAULT_FONT( "Bold", 10 ) );
 	}
-
 
 	// Scene Outliner
 	{
@@ -1504,7 +1508,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 
 #if WITH_EDITOR || IS_PROGRAM
 	// Breadcrumb Trail
-		{
+	{
 		Set( "BreadcrumbTrail.Delimiter", new IMAGE_BRUSH( "Common/Delimiter", Icon16x16 ) );
 
 		Set( "BreadcrumbButton", FButtonStyle()
@@ -1560,7 +1564,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// Open any asset dialog
-		{
+	{
 		Set( "SystemWideCommands.SummonOpenAssetDialog", new IMAGE_BRUSH( "Icons/icon_asset_open_16px", Icon16x16 ) );
 	
 		Set( "GlobalAssetPicker.Background", new BOX_BRUSH( "Old/Menu_Background", FMargin(8.0f/64.0f) ) );
@@ -1572,7 +1576,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 				.SetShadowOffset( FVector2D( 1,1 ) )
 				.SetShadowColorAndOpacity( FLinearColor::Black )
 			);
-		}
+	}
 
 
 	// Main frame
@@ -1631,8 +1635,10 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	{
 		FSliderStyle SliderStyle = FSliderStyle()
 			.SetNormalBarImage(FSlateColorBrush(FColor::White))
+			.SetHoveredBarImage(FSlateColorBrush(FColor::White))
 			.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
 			.SetNormalThumbImage( BOX_BRUSH( "Common/Button", 8.0f/32.0f ) )
+			.SetHoveredThumbImage(BOX_BRUSH("Common/Button", 8.0f / 32.0f))
 			.SetDisabledThumbImage( BOX_BRUSH( "Common/Button_Disabled", 8.0f/32.0f ) )
 			.SetBarThickness(2.0f);
 		Set( "Slider", SliderStyle );
@@ -1654,12 +1660,13 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 
 #if WITH_EDITOR || IS_PROGRAM
 	// About screen
+	if (IncludeEditorSpecificStyles())
 	{
 		Set( "AboutScreen.Background", new IMAGE_BRUSH( "About/Background", FVector2D(600,332), FLinearColor::White, ESlateBrushTileType::Both) );
 		Set( "AboutScreen.Facebook", new IMAGE_BRUSH( "About/FacebookIcon", FVector2D(35,35) ) );
 		Set( "AboutScreen.FacebookHovered", new IMAGE_BRUSH( "About/FacebookIcon_Hovered", FVector2D(35,35) ) );
-		Set( "AboutScreen.UE4", new IMAGE_BRUSH( "About/UE4Icon", FVector2D(50,50) ) );
-		Set( "AboutScreen.UE4Hovered", new IMAGE_BRUSH( "About/UE4Icon_Hovered", FVector2D(50,50) ) );
+		Set( "AboutScreen.UE4", new IMAGE_BRUSH( "About/UE4Icon", FVector2D(50,50), FLinearColor::Gray) );
+		Set( "AboutScreen.UE4Hovered", new IMAGE_BRUSH( "About/UE4Icon", FVector2D(50,50), FLinearColor::White) );
 		Set( "AboutScreen.EpicGames", new IMAGE_BRUSH( "About/EpicGamesIcon", FVector2D(50,50) ) );
 		Set( "AboutScreen.EpicGamesHovered", new IMAGE_BRUSH( "About/EpicGamesIcon_Hovered", FVector2D(50,50) ) );
 	}
@@ -1667,6 +1674,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 
 #if WITH_EDITOR
 	// Credits screen
+	if (IncludeEditorSpecificStyles())
 	{
 		Set("Credits.Button", FButtonStyle(NoBorder)
 			.SetNormal(FSlateNoResource())
@@ -1763,6 +1771,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// Sequencer
+	if (IncludeEditorSpecificStyles())
 	{
 		Set( "Sequencer.IconKeyAuto", new IMAGE_BRUSH( "Sequencer/IconKeyAuto", Icon12x12 ) );
 		Set( "Sequencer.IconKeyBreak", new IMAGE_BRUSH( "Sequencer/IconKeyBreak", Icon12x12 ) );
@@ -1772,6 +1781,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 
 		Set( "Sequencer.KeyCircle", new IMAGE_BRUSH( "Sequencer/KeyCircle", Icon12x12 ) );
 		Set( "Sequencer.KeyDiamond", new IMAGE_BRUSH( "Sequencer/KeyDiamond", Icon12x12 ) );
+		Set( "Sequencer.KeyDiamondBorder", new IMAGE_BRUSH( "Sequencer/KeyDiamondBorder", Icon12x12 ) );
 		Set( "Sequencer.KeySquare", new IMAGE_BRUSH( "Sequencer/KeySquare", Icon12x12 ) );
 		Set( "Sequencer.KeyTriangle", new IMAGE_BRUSH( "Sequencer/KeyTriangle", Icon12x12 ) );
 		Set( "Sequencer.KeyLeft", new IMAGE_BRUSH( "Sequencer/KeyLeft", Icon12x12 ) );
@@ -1782,6 +1792,8 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 		Set( "Sequencer.TangentHandle", new IMAGE_BRUSH( "Sequencer/TangentHandle", FVector2D(7, 7) ) );
 		Set( "Sequencer.GenericDivider", new IMAGE_BRUSH( "Sequencer/GenericDivider", FVector2D(2.f, 2.f), FLinearColor::White, ESlateBrushTileType::Vertical ) );
 
+		Set("Sequencer.Timeline.ScrubHandleDown", new BOX_BRUSH("Sequencer/ScrubHandleDown", FMargin(6.f / 13.f, 5 / 12.f, 6 / 13.f, 8 / 12.f)));
+		Set("Sequencer.Timeline.ScrubHandleUp", new BOX_BRUSH("Sequencer/ScrubHandleUp", FMargin(6.f / 13.f, 8 / 12.f, 6 / 13.f, 5 / 12.f)));
 		Set( "Sequencer.Timeline.ScrubFill", new BOX_BRUSH( "Sequencer/ScrubFill", FMargin( 2.f/4.f, 0.f ) ) );
 		Set( "Sequencer.Timeline.FrameBlockScrubHandleDown", new BOX_BRUSH( "Sequencer/ScrubHandleDown", FMargin( 6.f/13.f, 5/12.f, 6/13.f, 8/12.f ) ) );
 		Set( "Sequencer.Timeline.FrameBlockScrubHandleUp", new BOX_BRUSH( "Sequencer/ScrubHandleUp", FMargin( 6.f/13.f, 8/12.f, 6/13.f, 5/12.f ) ) );
@@ -1913,6 +1925,8 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 		Set( "Sequencer.TrackHoverHighlight_Top", new IMAGE_BRUSH( TEXT("Sequencer/TrackHoverHighlight_Top"), FVector2D(4, 4) ) );
 		Set( "Sequencer.TrackHoverHighlight_Bottom", new IMAGE_BRUSH( TEXT("Sequencer/TrackHoverHighlight_Bottom"), FVector2D(4, 4) ) );
 		Set( "Sequencer.SpawnableIconOverlay", new IMAGE_BRUSH( TEXT("Sequencer/SpawnableIconOverlay"), FVector2D(13, 13) ) );
+		Set( "Sequencer.LockSequence", new IMAGE_BRUSH("Sequencer/Main_Icons/Icon_Sequencer_Locked_16x", Icon16x16) );
+		Set( "Sequencer.UnlockSequence", new IMAGE_BRUSH("Sequencer/Main_Icons/Icon_Sequencer_Unlocked_16x", Icon16x16) );
 
 		Set( "Sequencer.GeneralOptions", new IMAGE_BRUSH( "Sequencer/Main_Icons/Icon_Sequencer_General_Options_24x", Icon48x48 ) );
 		Set( "Sequencer.GeneralOptions.Small", new IMAGE_BRUSH( "Sequencer/Main_Icons/Icon_Sequencer_General_Options_24x", Icon24x24 ) );
@@ -2007,7 +2021,12 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			)
 			.SetDownArrowImage(IMAGE_BRUSH("Common/ComboArrow", Icon8x8));
 		Set( "Sequencer.SectionComboButton", SequencerSectionComboButton );
-		
+
+		Set("Sequencer.CreateEventBinding", new IMAGE_BRUSH("Icons/icon_Blueprint_AddFunction_16px", Icon16x16));
+		Set("Sequencer.CreateQuickBinding", new IMAGE_BRUSH("Icons/icon_Blueprint_Node_16x", Icon16x16));
+		Set("Sequencer.ClearEventBinding", new IMAGE_BRUSH("Icons/Edit/icon_Edit_Delete_40x", Icon16x16));
+		Set("Sequencer.MultipleEvents", new IMAGE_BRUSH("Sequencer/MultipleEvents", Icon16x16));
+		Set("Sequencer.UnboundEvent", new IMAGE_BRUSH("Sequencer/UnboundEvent", Icon16x16));
 
 		// Sequencer Blending Iconography
 		Set( "EMovieSceneBlendType::Absolute", new IMAGE_BRUSH( "Sequencer/EMovieSceneBlendType_Absolute", FVector2D(32, 16) ) );
@@ -2017,6 +2036,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 
 
 	// Sequence recorder standalone UI
+	if (IncludeEditorSpecificStyles())
 	{
 		Set( "SequenceRecorder.TabIcon", new IMAGE_BRUSH( "SequenceRecorder/icon_tab_SequenceRecorder_16x", Icon16x16 ) );
 		Set( "SequenceRecorder.Common.RecordAll.Small", new IMAGE_BRUSH( "SequenceRecorder/icon_RecordAll_40x", Icon20x20 ) );
@@ -2036,6 +2056,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// Foliage Edit Mode
+	if (IncludeEditorSpecificStyles())
 	{	
 		FLinearColor DimBackground = FLinearColor(FColor(64, 64, 64));
 		FLinearColor DimBackgroundHover = FLinearColor(FColor(50, 50, 50));
@@ -2142,6 +2163,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// GameProjectDialog
+	if (IncludeEditorSpecificStyles())
 	{
 		Set( "GameProjectDialog.NewProjectTitle", FTextBlockStyle(NormalText) 
 			.SetFont( DEFAULT_FONT( "BoldCondensed", 28 ) )
@@ -2191,6 +2213,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 		Set( "GameProjectDialog.BasicCodeThumbnail", new IMAGE_BRUSH( "GameProjectDialog/basic_code_thumbnail", Icon128x128 ) );
 		Set( "GameProjectDialog.CodeIcon", new IMAGE_BRUSH( "GameProjectDialog/feature_code_32x", FVector2D(32,32) ) );
 		Set( "GameProjectDialog.CodeImage", new IMAGE_BRUSH( "GameProjectDialog/feature_code", FVector2D(96,96) ) );
+		Set( "GameProjectDialog.CodeImage_48x", new IMAGE_BRUSH("GameProjectDialog/feature_code", Icon40x40));
 		Set( "GameProjectDialog.BlueprintIcon", new IMAGE_BRUSH( "GameProjectDialog/feature_blueprint_32x", FVector2D(32,32) ) );
 		Set( "GameProjectDialog.BlueprintImage", new IMAGE_BRUSH( "GameProjectDialog/feature_blueprint", FVector2D(96,96) ) );
 		Set( "GameProjectDialog.CodeBorder", new BOX_BRUSH( "GameProjectDialog/feature_border", FMargin(4.0f/16.0f), FLinearColor(0.570, 0.359, 0.081, 1.f) ) );
@@ -2234,6 +2257,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	}
 
 	// NewClassDialog
+	if (IncludeEditorSpecificStyles())
 	{
 		Set( "NewClassDialog.PageTitle", FTextBlockStyle(NormalText)
 			.SetFont( DEFAULT_FONT( "BoldCondensed", 28 ) )
@@ -2274,8 +2298,6 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetShadowColorAndOpacity( FLinearColor(0,0,0,0.9f) )
 		);
 	}
-
-
 
 	// Package Migration
 	{
@@ -2858,6 +2880,11 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetPadding(FMargin(0.0f));
 
 		Set("Common.GotoBlueprintHyperlink", EditBPHyperlinkStyle);
+	}
+
+	// Timecode Provider
+	{
+		Set("TimecodeProvider.TabIcon", new IMAGE_BRUSH("Icons/icon_tab_TimecodeProvider_16x", Icon16x16));
 	}
 #endif
 }
@@ -6102,7 +6129,6 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("AimOffsetBlendSpace"),
 			TEXT("AimOffsetBlendSpace1D"),
 			TEXT("AIPerceptionComponent"),
-			TEXT("AmbientSound"),
 			TEXT("AnimationModifier"),		
 			TEXT("AnimBlueprint"),
 			TEXT("AnimComposite"),
@@ -6110,7 +6136,6 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("AnimSequence"),
 			TEXT("ApplicationLifecycleComponent"),
 			TEXT("AtmosphericFog"),
-			TEXT("AudioVolume"),
 			TEXT("BehaviorTree"),
 			TEXT("BlackboardData"),
 			TEXT("BlendSpace"),
@@ -6209,7 +6234,6 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("RadialForceActor"),
 			TEXT("RadialForceComponent"),
 			TEXT("ReflectionCapture"),
-			TEXT("ReverbEffect"),
 			TEXT("RotatingMovementComponent"),
 			TEXT("SceneCapture2D"),
 			TEXT("SceneCaptureCube"),
@@ -6221,11 +6245,6 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("SlateBrushAsset"),
 			TEXT("SlateWidgetStyleAsset"),
 			TEXT("StringTable"),
-			TEXT("SoundAttenuation"),
-			TEXT("SoundClass"),
-			TEXT("SoundConcurrency"),
-			TEXT("SoundCue"),
-			TEXT("SoundMix"),
 			TEXT("SphereReflectionCapture"),
 			TEXT("SpotLight"),
 			TEXT("SpotLightMovable"),
@@ -6246,6 +6265,7 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("TriggerSphere"),
 			TEXT("TriggerVolume"),
 			TEXT("TouchInterface"),
+			TEXT("UserDefinedCaptureProtocol"),
 			TEXT("UserDefinedEnum"),
 			TEXT("UserDefinedStruct"),
 			TEXT("WidgetBlueprint"),

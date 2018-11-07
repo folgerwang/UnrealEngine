@@ -40,7 +40,7 @@ class ONLINESUBSYSTEMGOOGLEPLAY_API FOnlineSubsystemGooglePlay :
 {
 public:
 
-	virtual ~FOnlineSubsystemGooglePlay() {}
+	virtual ~FOnlineSubsystemGooglePlay() = default;
 
 	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
@@ -67,6 +67,7 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override { return nullptr; }
 	virtual IOnlineChatPtr GetChatInterface() const override { return nullptr; }
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override { return nullptr; }
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override { return nullptr; }
 
 	virtual class UObject* GetNamedInterface(FName InterfaceName) override { return nullptr; }
 	virtual void SetNamedInterface(FName InterfaceName, class UObject* NewInterface) override {}
@@ -87,8 +88,8 @@ public:
 	
 PACKAGE_SCOPE:
 
-	FOnlineSubsystemGooglePlay();
-	FOnlineSubsystemGooglePlay(FName InInstanceName);
+	FOnlineSubsystemGooglePlay() = delete;
+	explicit FOnlineSubsystemGooglePlay(FName InInstanceName);
 
 	/** Return the async task manager owned by this subsystem */
 	class FOnlineAsyncTaskManagerGooglePlay* GetAsyncTaskManager() { return OnlineAsyncTaskThreadRunnable.Get(); }

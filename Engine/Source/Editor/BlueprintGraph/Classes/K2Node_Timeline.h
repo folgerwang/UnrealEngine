@@ -37,7 +37,7 @@ class UK2Node_Timeline : public UK2Node
 	UPROPERTY(Transient)
 	uint32 bLoop:1;
 
-	/** If the timeline is set to loop */
+	/** If the timeline is set to replicate */
 	UPROPERTY(Transient)
 	uint32 bReplicated:1;
 
@@ -59,6 +59,7 @@ class UK2Node_Timeline : public UK2Node
 	virtual TSharedPtr<class INameValidatorInterface> MakeNameValidator() const override;
 	virtual FText GetTooltipText() const override;
 	virtual FString GetDocumentationExcerptName() const override;
+	virtual FName GetCornerIcon() const override;
 	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual bool ShouldShowNodeProperties() const override { return true; }
 	virtual UObject* GetJumpTargetForDoubleClick() const override;

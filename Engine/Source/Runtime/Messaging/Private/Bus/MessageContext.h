@@ -35,6 +35,7 @@ public:
 	 * @param InSender The sender's address.
 	 * @param InRecipients The message recipients.
 	 * @param InScope The message scope.
+	 * @param InFlags The message flags.
 	 * @param InTimeSent The time at which the message was sent.
 	 * @param InExpiration The message's expiration time.
 	 * @param InSenderThread The name of the thread from which the message was sent.
@@ -46,6 +47,7 @@ public:
 		const FMessageAddress& InSender,
 		const TArray<FMessageAddress>& InRecipients,
 		EMessageScope InScope,
+		EMessageFlags InFlags,
 		const FDateTime& InTimeSent,
 		const FDateTime& InExpiration,
 		ENamedThreads::Type InSenderThread
@@ -55,6 +57,7 @@ public:
 		, Message(InMessage)
 		, Recipients(InRecipients)
 		, Scope(InScope)
+		, Flags(InFlags)
 		, Sender(InSender)
 		, SenderThread(InSenderThread)
 		, TimeSent(InTimeSent)
@@ -85,6 +88,7 @@ public:
 		, OriginalContext(InContext)
 		, Recipients(NewRecipients)
 		, Scope(NewScope)
+		, Flags(EMessageFlags::None)
 		, Sender(InForwarder)
 		, SenderThread(InForwarderThread)
 		, TimeSent(InTimeForwarded)
@@ -105,6 +109,7 @@ public:
 	virtual TSharedPtr<IMessageContext, ESPMode::ThreadSafe> GetOriginalContext() const override;
 	virtual const TArray<FMessageAddress>& GetRecipients() const override;
 	virtual EMessageScope GetScope() const override;
+	virtual EMessageFlags GetFlags() const override;
 	virtual const FMessageAddress& GetSender() const override;
 	virtual ENamedThreads::Type GetSenderThread() const override;
 	virtual const FDateTime& GetTimeForwarded() const override;
@@ -132,6 +137,9 @@ private:
 
 	/** Holds the message's scope. */
 	EMessageScope Scope;
+
+	/** Holds the message's scope. */
+	EMessageFlags Flags;
 
 	/** Holds the sender's identifier. */
 	FMessageAddress Sender;

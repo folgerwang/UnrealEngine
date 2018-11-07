@@ -451,9 +451,36 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			}
 		}
 
-#if !IS_PROGRAM || HACK_HEADER_GENERATOR
 		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
 		{
+			// Configure the plugins that were enabled from the target file
+			TArray<FString> TargetEnabledPlugins = { UBT_TARGET_ENABLED_PLUGINS };
+			for (const FString& TargetEnabledPlugin : TargetEnabledPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(TargetEnabledPlugin))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(TargetEnabledPlugin, true), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(TargetEnabledPlugin);
+				}
+			}
+
+			// Configure the plugins that were enabled from the target file
+			TArray<FString> TargetDisabledPlugins = { UBT_TARGET_DISABLED_PLUGINS };
+			for (const FString& TargetDisabledPlugin : TargetDisabledPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(TargetDisabledPlugin))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(TargetDisabledPlugin, false), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(TargetDisabledPlugin);
+				}
+			}
+
 			// Find all the plugin references in the project file
 			const FProjectDescriptor* ProjectDescriptor = IProjectManager::Get().GetCurrentProject();
 			if (ProjectDescriptor != nullptr)
@@ -486,7 +513,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 			}
 		}
-#endif
 #if IS_PROGRAM
 		// Programs can also define the list of enabled plugins in ini
 		TArray<FString> ProgramPluginNames;
@@ -515,39 +541,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			if (Plugin.bEnabled)
 			{
 				UE_LOG(LogPluginManager, Log, TEXT("Mounting plugin %s"), *Plugin.GetName());
-
-				// Plugins can have their own shaders
-				// Add potential plugin shader directory only if at least one plugin's module is loaded in PostConfigInit. Not supported otherwise
-				{
-					FString RealShaderSourceDir = FPaths::Combine(*Plugin.GetBaseDir(), TEXT("Shaders"));
-
-					if (FPaths::DirectoryExists(RealShaderSourceDir))
-					{
-						UE_LOG(LogPluginManager, Log, TEXT("Plugin shader directory %s found"), *RealShaderSourceDir);
-						bool PluginHasAPostConfigInitModule = false;
-						for (const FModuleDescriptor& Module : Plugin.GetDescriptor().Modules)
-						{
-							if (Module.LoadingPhase == ELoadingPhase::PostConfigInit)
-							{
-								PluginHasAPostConfigInitModule = true;
-								break;
-							}
-						}
-
-						if (PluginHasAPostConfigInitModule)
-						{
-							FString VirtualShaderSourceDir = FString(TEXT("/Plugin")) / Plugin.GetName();
-							UE_LOG(LogPluginManager, Log,
-								TEXT("Mapping shader source directory %s to virtual directory %s"),
-								*RealShaderSourceDir, *VirtualShaderSourceDir);
-							FGenericPlatformProcess::AddShaderSourceDirectoryMapping(VirtualShaderSourceDir, RealShaderSourceDir);
-						}
-						else
-						{
-							UE_LOG(LogPluginManager, Log, TEXT("No ELoadingPhase::PostConfigInit module found."), *RealShaderSourceDir);
-						}
-					}
-				}
 
 				// Build the list of content folders
 				if (Plugin.Descriptor.bCanContainContent)
@@ -743,6 +736,14 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 			if(!Plugin.Descriptor.SupportsTargetPlatform(FPlatformMisc::GetUBTPlatform()))
 			{
 				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' due to unsupported platform in plugin descriptor"), *Reference.Name);
+				continue;
+			}
+#endif
+			// Check that this plugin supports the current program
+#if IS_PROGRAM
+			if (!Plugin.Descriptor.SupportedPrograms.Contains(UE_APP_NAME))
+			{
+				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' due to absence from the supported programs list"), *Reference.Name);
 				continue;
 			}
 #endif

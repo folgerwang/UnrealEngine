@@ -45,8 +45,13 @@ void FLocalizationResourceTextSource::GetLocalizedCultureNames(const ELocalizati
 void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalizationLoadFlags InLoadFlags, TArrayView<const FString> InPrioritizedCultures, FTextLocalizationResource& InOutNativeResource, FTextLocalizationResources& InOutLocalizedResources)
 {
 	// Collect the localization paths to load from.
+	TArray<FString> GameNativePaths;
 	TArray<FString> GameLocalizationPaths;
-	if (ShouldLoadGame(InLoadFlags))
+	if (ShouldLoadNativeGameData(InLoadFlags))
+	{
+		GameNativePaths += FPaths::GetGameLocalizationPaths();
+	}
+	else if (ShouldLoadGame(InLoadFlags))
 	{
 		GameLocalizationPaths += FPaths::GetGameLocalizationPaths();
 	}
@@ -88,10 +93,7 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 	}
 
 	TArray<FString> PrioritizedLocalizationPaths;
-	if (ShouldLoadLocalizedGameData(InLoadFlags))
-	{
-		PrioritizedLocalizationPaths += GameLocalizationPaths;
-	}
+	PrioritizedLocalizationPaths += GameLocalizationPaths;
 	PrioritizedLocalizationPaths += EditorLocalizationPaths;
 	PrioritizedLocalizationPaths += EngineLocalizationPaths;
 	PrioritizedLocalizationPaths += AdditionalLocalizationPaths;
@@ -136,14 +138,14 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 		}
 	}
 
-	// The editor cheats and loads the native language's localizations.
-	if (!ShouldLoadLocalizedGameData(InLoadFlags))
+	// The editor cheats and loads the games native localizations.
+	if (ShouldLoadNativeGameData(InLoadFlags) && GameNativePaths.Num() > 0)
 	{
 		const FString NativeGameCulture = TextLocalizationResourceUtil::GetNativeProjectCultureName();
-		if (!NativeGameCulture.IsEmpty() && GameLocalizationPaths.Num() > 0)
+		if (!NativeGameCulture.IsEmpty())
 		{
 			TSharedRef<FTextLocalizationResource> TextLocalizationResource = InOutLocalizedResources.EnsureResource(InPrioritizedCultures[0]);
-			for (const FString& LocalizationPath : GameLocalizationPaths)
+			for (const FString& LocalizationPath : GameNativePaths)
 			{
 				const FString CulturePath = LocalizationPath / NativeGameCulture;
 				TextLocalizationResource->LoadFromDirectory(CulturePath);

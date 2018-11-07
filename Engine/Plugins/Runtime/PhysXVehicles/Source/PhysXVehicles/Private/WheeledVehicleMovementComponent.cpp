@@ -17,6 +17,7 @@
 #include "VehicleAnimInstance.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "Physics/PhysicsFiltering.h"
+#include "Physics/PhysicsInterfaceUtils.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "Logging/MessageLog.h"
 #include "TireConfig.h"
@@ -151,24 +152,9 @@ UWheeledVehicleMovementComponent::UWheeledVehicleMovementComponent(const FObject
 
 	SetIsReplicated(true);
 
+#if WITH_PHYSX_VEHICLES
 	AHUD::OnShowDebugInfo.AddUObject(this, &UWheeledVehicleMovementComponent::ShowDebugInfo);
-}
-
-void UWheeledVehicleMovementComponent::ShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos)
-{
-	static FName NAME_Vehicle = FName(TEXT("Vehicle"));
-
-	if (Canvas && HUD->ShouldDisplayDebug(NAME_Vehicle))
-	{
-		if (APlayerController* Controller = Cast<APlayerController>(GetController()))
-		{
-			if (Controller->IsLocalController())
-			{
-				DrawDebug(Canvas, YL, YPos);
-
-			}
-		}
-	}
+#endif
 }
 
 void UWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
@@ -184,7 +170,24 @@ void UWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewU
 	}
 }
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
+
+void UWheeledVehicleMovementComponent::ShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos)
+{
+	static FName NAME_Vehicle = FName(TEXT("Vehicle"));
+
+	if(Canvas && HUD->ShouldDisplayDebug(NAME_Vehicle))
+	{
+		if(APlayerController* Controller = Cast<APlayerController>(GetController()))
+		{
+			if(Controller->IsLocalController())
+			{
+				DrawDebug(Canvas, YL, YPos);
+
+			}
+		}
+	}
+}
 
 bool UWheeledVehicleMovementComponent::CanCreateVehicle() const
 {
@@ -226,6 +229,7 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 {
 	ComputeConstants();
 
+#if WITH_PHYSX_VEHICLES
 	if ( PVehicle == NULL )
 	{
 		if ( CanCreateVehicle() )
@@ -244,7 +248,10 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 			}
 		}
 	}
+#endif
 }
+
+#if WITH_PHYSX_VEHICLES
 
 void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 {
@@ -254,133 +261,154 @@ void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 	}
 
 	static PxMaterial* WheelMaterial = GPhysXSDK->createMaterial(0.0f, 0.0f, 0.0f);
+	FBodyInstance* TargetInstance = UpdatedPrimitive->GetBodyInstance();
 
-	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PVehicleActor)
+	FPhysicsCommand::ExecuteWrite(TargetInstance->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-		// Add wheel shapes to actor
-		for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+		PxRigidActor* PActor = FPhysicsInterface::GetPxRigidActor_AssumesLocked(Actor);
+		if(!PActor)
 		{
-			FWheelSetup& WheelSetup = WheelSetups[WheelIdx];
-			UVehicleWheel* Wheel = WheelSetup.WheelClass.GetDefaultObject();
-			check(Wheel);
+			return;
+		}
 
-			const FVector WheelOffset = GetWheelRestingPosition(WheelSetup);
-			const PxTransform PLocalPose = PxTransform(U2PVector(WheelOffset));
-			PxShape* PWheelShape = NULL;
-			
-			// Prepare shape
-			const UBodySetup* WheelBodySetup = nullptr;
-			FVector MeshScaleV(1.f, 1.f, 1.f);
-			if (Wheel->bDontCreateShape)
+		if(PxRigidDynamic* PVehicleActor = PActor->is<PxRigidDynamic>())
+		{
+			// Add wheel shapes to actor
+			for(int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
 			{
-				//don't create shape so grab it directly from the bodies associated with the vehicle
-				if(USkinnedMeshComponent* SkinnedMesh = GetMesh())
+				FWheelSetup& WheelSetup = WheelSetups[WheelIdx];
+				UVehicleWheel* Wheel = WheelSetup.WheelClass.GetDefaultObject();
+				check(Wheel);
+
+				const FVector WheelOffset = GetWheelRestingPosition(WheelSetup);
+				const PxTransform PLocalPose = PxTransform(U2PVector(WheelOffset));
+				PxShape* PWheelShape = NULL;
+
+				// Prepare shape
+				const UBodySetup* WheelBodySetup = nullptr;
+				FVector MeshScaleV(1.f, 1.f, 1.f);
+				if(Wheel->bDontCreateShape)
 				{
-					if(const FBodyInstance* WheelBI = SkinnedMesh->GetBodyInstance(WheelSetup.BoneName))
+					//don't create shape so grab it directly from the bodies associated with the vehicle
+					if(USkinnedMeshComponent* SkinnedMesh = GetMesh())
 					{
-						WheelBodySetup = WheelBI->BodySetup.Get();
+						if(const FBodyInstance* WheelBI = SkinnedMesh->GetBodyInstance(WheelSetup.BoneName))
+						{
+							WheelBodySetup = WheelBI->BodySetup.Get();
+						}
+					}
+
+				}
+				else if(Wheel->CollisionMesh && Wheel->CollisionMesh->BodySetup)
+				{
+					WheelBodySetup = Wheel->CollisionMesh->BodySetup;
+
+					FBoxSphereBounds MeshBounds = Wheel->CollisionMesh->GetBounds();
+					if(Wheel->bAutoAdjustCollisionSize)
+					{
+						MeshScaleV.X = Wheel->ShapeRadius / MeshBounds.BoxExtent.X;
+						MeshScaleV.Y = Wheel->ShapeWidth / MeshBounds.BoxExtent.Y;
+						MeshScaleV.Z = Wheel->ShapeRadius / MeshBounds.BoxExtent.Z;
 					}
 				}
-				
-			}
-			else if (Wheel->CollisionMesh && Wheel->CollisionMesh->BodySetup)
-			{
-				WheelBodySetup = Wheel->CollisionMesh->BodySetup;
 
-				FBoxSphereBounds MeshBounds = Wheel->CollisionMesh->GetBounds();
-				if (Wheel->bAutoAdjustCollisionSize)
+				if(WheelBodySetup)
 				{
-					MeshScaleV.X = Wheel->ShapeRadius / MeshBounds.BoxExtent.X;
-					MeshScaleV.Y = Wheel->ShapeWidth / MeshBounds.BoxExtent.Y;
-					MeshScaleV.Z = Wheel->ShapeRadius / MeshBounds.BoxExtent.Z;
+					PxMeshScale MeshScale(U2PVector(UpdatedComponent->RelativeScale3D * MeshScaleV), PxQuat(physx::PxIdentity));
+
+					if(WheelBodySetup->AggGeom.ConvexElems.Num() == 1)
+					{
+						PxConvexMesh* ConvexMesh = WheelBodySetup->AggGeom.ConvexElems[0].GetConvexMesh();
+						PWheelShape = GPhysXSDK->createShape(PxConvexMeshGeometry(ConvexMesh, MeshScale), *WheelMaterial, /*bIsExclusive=*/true);
+						PVehicleActor->attachShape(*PWheelShape);
+						PWheelShape->release();
+					}
+					else if(WheelBodySetup->TriMeshes.Num())
+					{
+						PxTriangleMesh* TriMesh = WheelBodySetup->TriMeshes[0];
+
+						// No eSIMULATION_SHAPE flag for wheels
+						PWheelShape = GPhysXSDK->createShape(PxTriangleMeshGeometry(TriMesh, MeshScale), *WheelMaterial, /*bIsExclusive=*/true, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION);
+						PWheelShape->setLocalPose(PLocalPose);
+						PVehicleActor->attachShape(*PWheelShape);
+						PWheelShape->release();
+					}
 				}
-			}
 
-			if(WheelBodySetup)
-			{
-				PxMeshScale MeshScale(U2PVector(UpdatedComponent->RelativeScale3D * MeshScaleV), PxQuat(physx::PxIdentity));
-
-				if (WheelBodySetup->AggGeom.ConvexElems.Num() == 1)
+				if(!PWheelShape)
 				{
-					PxConvexMesh* ConvexMesh = WheelBodySetup->AggGeom.ConvexElems[0].GetConvexMesh();
-					PWheelShape = GPhysXSDK->createShape(PxConvexMeshGeometry(ConvexMesh, MeshScale), *WheelMaterial, /*bIsExclusive=*/true);
-					PVehicleActor->attachShape(*PWheelShape);
-					PWheelShape->release();
-				}
-				else if (WheelBodySetup->TriMeshes.Num())
-				{
-					PxTriangleMesh* TriMesh = WheelBodySetup->TriMeshes[0];
-
-					// No eSIMULATION_SHAPE flag for wheels
-					PWheelShape = GPhysXSDK->createShape(PxTriangleMeshGeometry(TriMesh, MeshScale), *WheelMaterial, /*bIsExclusive=*/true, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION);
+					//fallback onto simple spheres
+					PWheelShape = GPhysXSDK->createShape(PxSphereGeometry(Wheel->ShapeRadius), *WheelMaterial, /*bIsExclusive=*/true);
 					PWheelShape->setLocalPose(PLocalPose);
 					PVehicleActor->attachShape(*PWheelShape);
 					PWheelShape->release();
 				}
+
+				// Init filter data
+				FCollisionResponseContainer CollisionResponse;
+				CollisionResponse.SetAllChannels(ECR_Ignore);
+
+				FCollisionFilterData WheelQueryFilterData, DummySimData;
+				CreateShapeFilterData(ECC_Vehicle, FMaskFilter(0), UpdatedComponent->GetOwner()->GetUniqueID(), CollisionResponse, UpdatedComponent->GetUniqueID(), 0, WheelQueryFilterData, DummySimData, false, false, false);
+
+				if(Wheel->SweepType != EWheelSweepType::Complex)
+				{
+					WheelQueryFilterData.Word3 |= EPDF_SimpleCollision;
+				}
+
+				if(Wheel->SweepType != EWheelSweepType::Simple)
+				{
+					WheelQueryFilterData.Word3 |= EPDF_ComplexCollision;
+				}
+
+				//// Give suspension raycasts the same group ID as the chassis so that they don't hit each other
+				PWheelShape->setQueryFilterData(U2PFilterData(WheelQueryFilterData));
 			}
-			
-			if(!PWheelShape)
-			{
-				//fallback onto simple spheres
-				PWheelShape = GPhysXSDK->createShape(PxSphereGeometry(Wheel->ShapeRadius), *WheelMaterial, /*bIsExclusive=*/true);
-				PWheelShape->setLocalPose(PLocalPose);
-				PVehicleActor->attachShape(*PWheelShape);
-				PWheelShape->release();
-			}
-
-			// Init filter data
-			FCollisionResponseContainer CollisionResponse;
-			CollisionResponse.SetAllChannels(ECR_Ignore);
-
-			PxFilterData PWheelQueryFilterData, PDummySimData;
-			CreateShapeFilterData(ECC_Vehicle, FMaskFilter(0), UpdatedComponent->GetOwner()->GetUniqueID(), CollisionResponse, UpdatedComponent->GetUniqueID(), 0, PWheelQueryFilterData, PDummySimData, false, false, false);
-
-			if (Wheel->SweepType != EWheelSweepType::Complex)
-			{
-				PWheelQueryFilterData.word3 |= EPDF_SimpleCollision;
-			}
-
-			if (Wheel->SweepType != EWheelSweepType::Simple)
-			{
-				PWheelQueryFilterData.word3 |= EPDF_ComplexCollision;
-			}
-
-			//// Give suspension raycasts the same group ID as the chassis so that they don't hit each other
-			PWheelShape->setQueryFilterData(PWheelQueryFilterData);
 		}
 	});
 }
+#endif
 
-
-
+#if WITH_PHYSX_VEHICLES
 void UWheeledVehicleMovementComponent::UpdateMassProperties(FBodyInstance* BI)
 {
-	ExecuteOnPxRigidDynamicReadWrite(BI, [&](PxRigidDynamic* PVehicleActor)
+	FPhysicsCommand::ExecuteWrite(BI->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-		// Override mass
-		const float MassRatio = Mass > 0.0f ? Mass / PVehicleActor->getMass() : 1.0f;
-
-		PxVec3 PInertiaTensor = PVehicleActor->getMassSpaceInertiaTensor();
-
-		PInertiaTensor.x *= InertiaTensorScale.X * MassRatio;
-		PInertiaTensor.y *= InertiaTensorScale.Y * MassRatio;
-		PInertiaTensor.z *= InertiaTensorScale.Z * MassRatio;
-
-		PVehicleActor->setMassSpaceInertiaTensor(PInertiaTensor);
-		PVehicleActor->setMass(Mass);
-
-		const PxVec3 PCOMOffset = U2PVector(GetLocalCOM());
-		PVehicleActor->setCMassLocalPose(PxTransform(PCOMOffset, PxQuat(physx::PxIdentity)));	//ignore the mass reference frame. TODO: expose this to the user
-
-		if (PVehicle)
+		PxRigidActor* PActor = FPhysicsInterface::GetPxRigidActor_AssumesLocked(Actor);
+		if(!PActor)
 		{
-			PxVehicleWheelsSimData& WheelData = PVehicle->mWheelsSimData;
-			SetupWheelMassProperties_AssumesLocked(WheelData.getNbWheels(), &WheelData, PVehicleActor);
+			return;
+		}
+
+		if(PxRigidDynamic* PVehicleActor = PActor->is<PxRigidDynamic>())
+		{
+			// Override mass
+			const float MassRatio = Mass > 0.0f ? Mass / PVehicleActor->getMass() : 1.0f;
+
+			PxVec3 PInertiaTensor = PVehicleActor->getMassSpaceInertiaTensor();
+
+			PInertiaTensor.x *= InertiaTensorScale.X * MassRatio;
+			PInertiaTensor.y *= InertiaTensorScale.Y * MassRatio;
+			PInertiaTensor.z *= InertiaTensorScale.Z * MassRatio;
+
+			PVehicleActor->setMassSpaceInertiaTensor(PInertiaTensor);
+			PVehicleActor->setMass(Mass);
+
+			const PxVec3 PCOMOffset = U2PVector(GetLocalCOM());
+			PVehicleActor->setCMassLocalPose(PxTransform(PCOMOffset, PxQuat(physx::PxIdentity)));	//ignore the mass reference frame. TODO: expose this to the user
+
+			if(PVehicle)
+			{
+				PxVehicleWheelsSimData& WheelData = PVehicle->mWheelsSimData;
+				SetupWheelMassProperties_AssumesLocked(WheelData.getNbWheels(), &WheelData, PVehicleActor);
+			}
 		}
 	});
 }
+#endif
 
 
+#if WITH_PHYSX_VEHICLES
 void UWheeledVehicleMovementComponent::SetupVehicleMass()
 {
 	if (!UpdatedPrimitive)
@@ -447,7 +475,9 @@ void UWheeledVehicleMovementComponent::SetupWheelMassProperties_AssumesLocked(co
 		PWheelsSimData->setTireForceAppPointOffset(WheelIdx, PTireForceAppCMOffset);
 	}
 }
+#endif
 
+#if WITH_PHYSX_VEHICLES
 void UWheeledVehicleMovementComponent::SetupWheels(PxVehicleWheelsSimData* PWheelsSimData)
 {
 	if (!UpdatedPrimitive)
@@ -455,82 +485,94 @@ void UWheeledVehicleMovementComponent::SetupWheels(PxVehicleWheelsSimData* PWhee
 		return;
 	}
 
-	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PVehicleActor)
+	FBodyInstance* TargetInstance = UpdatedPrimitive->GetBodyInstance();
+
+	FPhysicsCommand::ExecuteWrite(TargetInstance->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-		const PxReal LengthScale = 100.f; // Convert default from m to cm
-
-		// Control substepping
-		PWheelsSimData->setSubStepCount(ThresholdLongitudinalSpeed * LengthScale, LowForwardSpeedSubStepCount, HighForwardSpeedSubStepCount);
-		PWheelsSimData->setMinLongSlipDenominator(4.f * LengthScale);
-
-		const int32 NumWheels = FMath::Min(32, WheelSetups.Num());
-
-		for (int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
+		PxRigidActor* PActor = FPhysicsInterface::GetPxRigidActor_AssumesLocked(Actor);
+		if(!PActor)
 		{
-			UVehicleWheel* Wheel = WheelSetups[WheelIdx].WheelClass.GetDefaultObject();
-
-			// init wheel data
-			PxVehicleWheelData PWheelData;
-			PWheelData.mRadius = Wheel->ShapeRadius;
-			PWheelData.mWidth = Wheel->ShapeWidth;
-			PWheelData.mMaxSteer = WheelSetups[WheelIdx].bDisableSteering ? 0.f : FMath::DegreesToRadians(Wheel->SteerAngle);
-			PWheelData.mMaxBrakeTorque = M2ToCm2(Wheel->MaxBrakeTorque);
-			PWheelData.mMaxHandBrakeTorque = Wheel->bAffectedByHandbrake ? M2ToCm2(Wheel->MaxHandBrakeTorque) : 0.0f;
-
-			PWheelData.mDampingRate = M2ToCm2(Wheel->DampingRate);
-			PWheelData.mMass = Wheel->Mass;
-			PWheelData.mMOI = 0.5f * PWheelData.mMass * FMath::Square(PWheelData.mRadius);
-
-			// init tire data
-			PxVehicleTireData PTireData;
-			PTireData.mType = Wheel->TireConfig ? Wheel->TireConfig->GetTireConfigID() : FPhysXVehicleManager::GetDefaultTireConfig()->GetTireConfigID();
-			//PTireData.mCamberStiffnessPerUnitGravity = 0.0f;
-			PTireData.mLatStiffX = Wheel->LatStiffMaxLoad;
-			PTireData.mLatStiffY = Wheel->LatStiffValue;
-			PTireData.mLongitudinalStiffnessPerUnitGravity = Wheel->LongStiffValue;
-
-			// finalize sim data
-			PWheelsSimData->setWheelData(WheelIdx, PWheelData);
-			PWheelsSimData->setTireData(WheelIdx, PTireData);
+			return;
 		}
 
-		SetupWheelMassProperties_AssumesLocked(NumWheels, PWheelsSimData, PVehicleActor);
-
-		const int32 NumShapes = PVehicleActor->getNbShapes();
-		const int32 NumChassisShapes = NumShapes - NumWheels;
-		if(NumChassisShapes >= 1)
+		if(PxRigidDynamic* PVehicleActor = PActor->is<PxRigidDynamic>())
 		{
-		TArray<PxShape*> Shapes;
-		Shapes.AddZeroed(NumShapes);
+			const PxReal LengthScale = 100.f; // Convert default from m to cm
 
-		PVehicleActor->getShapes(Shapes.GetData(), NumShapes);
+			// Control substepping
+			PWheelsSimData->setSubStepCount(ThresholdLongitudinalSpeed * LengthScale, LowForwardSpeedSubStepCount, HighForwardSpeedSubStepCount);
+			PWheelsSimData->setMinLongSlipDenominator(4.f * LengthScale);
 
-			for (int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
-		{
-			const int32 WheelShapeIndex = NumChassisShapes + WheelIdx;
+			const int32 NumWheels = FMath::Min(32, WheelSetups.Num());
 
-			PWheelsSimData->setWheelShapeMapping(WheelIdx, WheelShapeIndex);
-			PWheelsSimData->setSceneQueryFilterData(WheelIdx, Shapes[WheelShapeIndex]->getQueryFilterData());
-		}
-		}
-		else
-		{
+			for(int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
+			{
+				UVehicleWheel* Wheel = WheelSetups[WheelIdx].WheelClass.GetDefaultObject();
+
+				// init wheel data
+				PxVehicleWheelData PWheelData;
+				PWheelData.mRadius = Wheel->ShapeRadius;
+				PWheelData.mWidth = Wheel->ShapeWidth;
+				PWheelData.mMaxSteer = WheelSetups[WheelIdx].bDisableSteering ? 0.f : FMath::DegreesToRadians(Wheel->SteerAngle);
+				PWheelData.mMaxBrakeTorque = M2ToCm2(Wheel->MaxBrakeTorque);
+				PWheelData.mMaxHandBrakeTorque = Wheel->bAffectedByHandbrake ? M2ToCm2(Wheel->MaxHandBrakeTorque) : 0.0f;
+
+				PWheelData.mDampingRate = M2ToCm2(Wheel->DampingRate);
+				PWheelData.mMass = Wheel->Mass;
+				PWheelData.mMOI = 0.5f * PWheelData.mMass * FMath::Square(PWheelData.mRadius);
+
+				// init tire data
+				PxVehicleTireData PTireData;
+				PTireData.mType = Wheel->TireConfig ? Wheel->TireConfig->GetTireConfigID() : FPhysXVehicleManager::GetDefaultTireConfig()->GetTireConfigID();
+				//PTireData.mCamberStiffnessPerUnitGravity = 0.0f;
+				PTireData.mLatStiffX = Wheel->LatStiffMaxLoad;
+				PTireData.mLatStiffY = Wheel->LatStiffValue;
+				PTireData.mLongitudinalStiffnessPerUnitGravity = Wheel->LongStiffValue;
+
+				// finalize sim data
+				PWheelsSimData->setWheelData(WheelIdx, PWheelData);
+				PWheelsSimData->setTireData(WheelIdx, PTireData);
+			}
+
+			SetupWheelMassProperties_AssumesLocked(NumWheels, PWheelsSimData, PVehicleActor);
+
+			const int32 NumShapes = PVehicleActor->getNbShapes();
+			const int32 NumChassisShapes = NumShapes - NumWheels;
+			if(NumChassisShapes >= 1)
+			{
+				TArray<PxShape*> Shapes;
+				Shapes.AddZeroed(NumShapes);
+
+				PVehicleActor->getShapes(Shapes.GetData(), NumShapes);
+
+				for(int32 WheelIdx = 0; WheelIdx < NumWheels; ++WheelIdx)
+				{
+					const int32 WheelShapeIndex = NumChassisShapes + WheelIdx;
+
+					PWheelsSimData->setWheelShapeMapping(WheelIdx, WheelShapeIndex);
+					PWheelsSimData->setSceneQueryFilterData(WheelIdx, Shapes[WheelShapeIndex]->getQueryFilterData());
+				}
+			}
+			else
+			{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			UE_LOG(LogPhysics, Warning, TEXT("Missing wheel shapes. Please ensure there's a body associated with each wheel, or deselect Don'tCreateShape in your wheel class for vehicle''%s''"), *GetPathNameSafe(this));
+				UE_LOG(LogPhysics, Warning, TEXT("Missing wheel shapes. Please ensure there's a body associated with each wheel, or deselect Don'tCreateShape in your wheel class for vehicle''%s''"), *GetPathNameSafe(this));
 #endif
+			}
+
+
+
+			// tire load filtering
+			PxVehicleTireLoadFilterData PTireLoadFilter;
+			PTireLoadFilter.mMinNormalisedLoad = MinNormalizedTireLoad;
+			PTireLoadFilter.mMinFilteredNormalisedLoad = MinNormalizedTireLoadFiltered;
+			PTireLoadFilter.mMaxNormalisedLoad = MaxNormalizedTireLoad;
+			PTireLoadFilter.mMaxFilteredNormalisedLoad = MaxNormalizedTireLoadFiltered;
+			PWheelsSimData->setTireLoadFilterData(PTireLoadFilter);
 		}
-
-		
-
-		// tire load filtering
-		PxVehicleTireLoadFilterData PTireLoadFilter;
-		PTireLoadFilter.mMinNormalisedLoad = MinNormalizedTireLoad;
-		PTireLoadFilter.mMinFilteredNormalisedLoad = MinNormalizedTireLoadFiltered;
-		PTireLoadFilter.mMaxNormalisedLoad = MaxNormalizedTireLoad;
-		PTireLoadFilter.mMaxFilteredNormalisedLoad = MaxNormalizedTireLoadFiltered;
-		PWheelsSimData->setTireLoadFilterData(PTireLoadFilter);
 	});
 }
+#endif // WITH_PHYSX_VEHICLES
 #endif // WITH_PHYSX
 
  ////////////////////////////////////////////////////////////////////////////
@@ -629,7 +671,7 @@ void PxVehicleComputeTireForceDefault
 
 void UWheeledVehicleMovementComponent::GenerateTireForces( UVehicleWheel* Wheel, const FTireShaderInput& Input, FTireShaderOutput& Output )
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	const void* realShaderData = &PVehicle->mWheelsSimData.getTireData(Wheel->WheelIndex);
 
 	float Dummy;
@@ -650,10 +692,10 @@ void UWheeledVehicleMovementComponent::GenerateTireForces( UVehicleWheel* Wheel,
 	//UE_LOG( LogVehicles, Warning, TEXT("Friction = %f	LongSlip = %f	LatSlip = %f"), Input.TireFriction, Input.LongSlip, Input.LatSlip );	
 	//UE_LOG( LogVehicles, Warning, TEXT("WheelTorque= %f	LongForce = %f	LatForce = %f"), Output.WheelTorque, Output.LongForce, Output.LatForce );
 	//UE_LOG( LogVehicles, Warning, TEXT("RestLoad= %f	NormLoad = %f	TireLoad = %f"),Input.RestTireLoad, Input.NormalizedTireLoad, Input.TireLoad );
-#endif // WITH_PHYSX
+#endif // WITH_PHYSX_VEHICLES
 }
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 
 void UWheeledVehicleMovementComponent::PostSetupVehicle()
 {
@@ -695,10 +737,19 @@ FVector UWheeledVehicleMovementComponent::GetLocalCOM() const
 	{
 		if (const FBodyInstance* BodyInst = UpdatedPrimitive->GetBodyInstance())
 		{
-			ExecuteOnPxRigidDynamicReadOnly(BodyInst, [&](const PxRigidDynamic* PVehicleActor)
+			FPhysicsCommand::ExecuteRead(BodyInst->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 			{
-				PxTransform PCOMTransform = PVehicleActor->getCMassLocalPose();
-				LocalCOM = P2UVector(PCOMTransform.p);
+				PxRigidActor* PActor = FPhysicsInterface::GetPxRigidActor_AssumesLocked(Actor);
+				if(!PActor)
+				{
+					return;
+				}
+
+				if(PxRigidDynamic* PVehicleActor = PActor->is<PxRigidDynamic>())
+				{
+					PxTransform PCOMTransform = PVehicleActor->getCMassLocalPose();
+					LocalCOM = P2UVector(PCOMTransform.p);
+				}
 			});
 		}
 	}
@@ -1061,6 +1112,11 @@ void UWheeledVehicleMovementComponent::UpdateState( float DeltaTime )
 
 		// and send to server
 		ServerUpdateState(SteeringInput, ThrottleInput, BrakeInput, HandbrakeInput, GetCurrentGear());
+
+		if (PawnOwner && PawnOwner->IsNetMode(NM_Client))
+		{
+			MarkForClientCameraUpdate();
+		}
 	}
 	else
 	{
@@ -1205,7 +1261,7 @@ float UWheeledVehicleMovementComponent::CalcThrottleInput()
 	return FMath::Abs(RawThrottleInput);
 }
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 void UWheeledVehicleMovementComponent::StopMovementImmediately()
 {
 	Super::StopMovementImmediately();
@@ -1267,7 +1323,7 @@ void UWheeledVehicleMovementComponent::SetGearDown(bool bNewGearDown)
 
 void UWheeledVehicleMovementComponent::SetTargetGear(int32 GearNum, bool bImmediate)
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	//UE_LOG( LogVehicles, Warning, TEXT(" UWheeledVehicleMovementComponent::SetTargetGear::GearNum = %d, bImmediate = %d"), GearNum, bImmediate);
 	const uint32 TargetGearNum = GearToPhysXGear(GearNum);
 	if (PVehicleDrive && PVehicleDrive->mDriveDynData.getTargetGear() != TargetGearNum)
@@ -1286,7 +1342,7 @@ void UWheeledVehicleMovementComponent::SetTargetGear(int32 GearNum, bool bImmedi
 
 void UWheeledVehicleMovementComponent::SetUseAutoGears(bool bUseAuto)
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicleDrive)
 	{
 		PVehicleDrive->mDriveDynData.setUseAutoGears(bUseAuto);
@@ -1297,10 +1353,12 @@ void UWheeledVehicleMovementComponent::SetUseAutoGears(bool bUseAuto)
 float UWheeledVehicleMovementComponent::GetForwardSpeed() const
 {
 	float ForwardSpeed = 0.f;
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if ( PVehicle )
 	{
-		UpdatedPrimitive->GetBodyInstance()->ExecuteOnPhysicsReadOnly([&]
+		FBodyInstance* Instance = UpdatedPrimitive->GetBodyInstance();
+
+		FPhysicsCommand::ExecuteRead(Instance->GetActorReferenceWithWelding(), [&](const FPhysicsActorHandle& Actor)
 		{
 			ForwardSpeed = PVehicle->computeForwardSpeed();
 		});
@@ -1312,7 +1370,7 @@ float UWheeledVehicleMovementComponent::GetForwardSpeed() const
 
 float UWheeledVehicleMovementComponent::GetEngineRotationSpeed() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicleDrive)
 	{		
 		return 9.5493 *  PVehicleDrive->mDriveDynData.getEngineRotationSpeed(); // 9.5493 = 60sec/min * (Motor Omega)/(2 * Pi); Motor Omega is in radians/sec, not RPM.
@@ -1340,7 +1398,7 @@ float UWheeledVehicleMovementComponent::GetEngineMaxRotationSpeed() const
 	return MaxEngineRPM;
 }
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 
 int32 UWheeledVehicleMovementComponent::GearToPhysXGear(const int32 Gear) const
 {
@@ -1375,7 +1433,7 @@ int32 UWheeledVehicleMovementComponent::PhysXGearToGear(const int32 PhysXGear) c
 
 int32 UWheeledVehicleMovementComponent::GetCurrentGear() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicleDrive)
 	{
 		const int32 PhysXGearNum = PVehicleDrive->mDriveDynData.getCurrentGear();
@@ -1388,7 +1446,7 @@ int32 UWheeledVehicleMovementComponent::GetCurrentGear() const
 
 int32 UWheeledVehicleMovementComponent::GetTargetGear() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicleDrive)
 	{
 		const int32 PhysXGearNum = PVehicleDrive->mDriveDynData.getTargetGear();
@@ -1401,7 +1459,7 @@ int32 UWheeledVehicleMovementComponent::GetTargetGear() const
 
 bool UWheeledVehicleMovementComponent::GetUseAutoGears() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicleDrive)
 	{
 		return PVehicleDrive->mDriveDynData.getUseAutoGears();
@@ -1424,7 +1482,7 @@ void UWheeledVehicleMovementComponent::Serialize(FArchive& Ar)
 }
 
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 void DrawTelemetryGraph( uint32 Channel, const PxVehicleGraph& PGraph, UCanvas* Canvas, float GraphX, float GraphY, float GraphWidth, float GraphHeight, float& OutX )
 {
 
@@ -1497,7 +1555,7 @@ void DrawTelemetryGraph( uint32 Channel, const PxVehicleGraph& PGraph, UCanvas* 
 
 bool UWheeledVehicleMovementComponent::CheckSlipThreshold(float AbsLongSlipThreshold, float AbsLatSlipThreshold) const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicle == NULL)
 	{
 		return false;
@@ -1535,7 +1593,7 @@ bool UWheeledVehicleMovementComponent::CheckSlipThreshold(float AbsLongSlipThres
 
 float UWheeledVehicleMovementComponent::GetMaxSpringForce() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicle == NULL)
 	{
 		return false;
@@ -1561,7 +1619,25 @@ float UWheeledVehicleMovementComponent::GetMaxSpringForce() const
 #endif // WITH_PHYSX
 }
 
-#if WITH_PHYSX
+AController* UWheeledVehicleMovementComponent::GetController() const
+{
+	if(OverrideController)
+	{
+		return OverrideController;
+	}
+
+	if(UpdatedComponent)
+	{
+		if(APawn* Pawn = Cast<APawn>(UpdatedComponent->GetOwner()))
+		{
+			return Pawn->Controller;
+		}
+	}
+
+	return nullptr;
+}
+
+#if WITH_PHYSX_VEHICLES
 
 void UWheeledVehicleMovementComponent::DrawDebug(UCanvas* Canvas, float& YL, float& YPos)
 {
@@ -1680,25 +1756,6 @@ void UWheeledVehicleMovementComponent::SetOverrideController(AController* InOver
 {
 	OverrideController = InOverrideController;
 }
-
-AController* UWheeledVehicleMovementComponent::GetController() const
-{
-	if(OverrideController)
-	{
-		return OverrideController;
-	}
-
-	if (UpdatedComponent)
-	{
-		if (APawn* Pawn = Cast<APawn>(UpdatedComponent->GetOwner()))
-		{
-			return Pawn->Controller;
-		}
-	}
-
-	return nullptr;
-}
-
 
 void UWheeledVehicleMovementComponent::FixupSkeletalMesh()
 {
@@ -1836,7 +1893,7 @@ void UWheeledVehicleMovementComponent::DrawDebugLines()
 
 #endif // WITH_PHYSX
 
-#if WITH_EDITOR && WITH_PHYSX
+#if WITH_EDITOR && WITH_PHYSX_VEHICLES
 
 void UWheeledVehicleMovementComponent::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
 {

@@ -19,7 +19,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
     FrameRateLock = EPowerUsageFrameRateLock::PUFRL_30;
 	bSupportsIPad = true;
 	bSupportsIPhone = true;
-	MinimumiOSVersion = EIOSVersion::IOS_9;
+	MinimumiOSVersion = EIOSVersion::IOS_10;
 	EnableRemoteShaderCompile = false;
 	bGeneratedSYMFile = false;
 	bGeneratedSYMBundle = false;
@@ -40,6 +40,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bUseRemoteAsVirtualJoystick = true;
 	bUseRemoteAbsoluteDpadValues = false;
     bEnableRemoteNotificationsSupport = false;
+    bEnableBackgroundFetch = false;
 	bSupportsOpenGLES2 = false;
 	bSupportsMetal = true;
 	bSupportsMetalMRT = false;
@@ -115,8 +116,8 @@ void UIOSRuntimeSettings::PostInitProperties()
 
 		const FString DefaultKeyFilename = TEXT("RemoteToolChainPrivate.key");
 		const FString RelativeFilePathLocation = FPaths::Combine(TEXT("SSHKeys"), *RemoteServerName, *RSyncUsername, *DefaultKeyFilename);
-		TCHAR Path[4096];
-		FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
+
+		FString Path = FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"));
 
 		TArray<FString> PossibleKeyLocations;
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::ProjectDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
@@ -125,7 +126,7 @@ void UIOSRuntimeSettings::PostInitProperties()
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), TEXT("NoRedist"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), *RelativeFilePathLocation));
-		PossibleKeyLocations.Add(FPaths::Combine(Path, TEXT("Unreal Engine"), TEXT("UnrealBuildTool"), *RelativeFilePathLocation));
+		PossibleKeyLocations.Add(FPaths::Combine(*Path, TEXT("Unreal Engine"), TEXT("UnrealBuildTool"), *RelativeFilePathLocation));
 
 		// Find a potential path that we will use if the user hasn't overridden.
 		// For information purposes only
@@ -139,10 +140,10 @@ void UIOSRuntimeSettings::PostInitProperties()
 		}
 	}
 
-	// switch IOS_6.1, IOS_7, and IOS_8 to IOS_9
-	if (MinimumiOSVersion < EIOSVersion::IOS_9)
+	// switch IOS_6.1, IOS_7, IOS_8, and IOS_9 to IOS_10
+	if (MinimumiOSVersion < EIOSVersion::IOS_10)
 	{
-		MinimumiOSVersion = EIOSVersion::IOS_9;
+		MinimumiOSVersion = EIOSVersion::IOS_10;
 	}
 	if (bSupportsOpenGLES2)
 	{
@@ -183,5 +184,16 @@ void UIOSRuntimeSettings::PostInitProperties()
 	{
 		MinimumiOSVersion = EIOSVersion::IOS_10;
 	}
+
+	EnsureOrientationInProjectDefaultEngine();
 }
 #endif
+
+void UIOSRuntimeSettings::EnsureOrientationInProjectDefaultEngine()
+{
+	// Make sure the values from BaseEngine.ini are written in the project's DefaultEngine.ini
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsPortraitOrientation)), GetDefaultConfigFilename());
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsUpsideDownOrientation)), GetDefaultConfigFilename());
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsLandscapeLeftOrientation)), GetDefaultConfigFilename());
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, PreferredLandscapeOrientation)), GetDefaultConfigFilename());
+}

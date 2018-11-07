@@ -19,6 +19,7 @@ struct APPLICATIONCORE_API FMacPlatformApplicationMisc : public FGenericPlatform
 	static class GenericApplication* CreateApplication();
 	static void RequestMinimize();
 	static bool IsThisApplicationForeground();
+	static bool IsScreensaverEnabled();
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static void ActivateApplication();
     static void UpdateApplicationMenu();
@@ -50,6 +51,9 @@ struct APPLICATIONCORE_API FMacPlatformApplicationMisc : public FGenericPlatform
 	static bool bIsHighResolutionCapable;
 
 	static id<NSObject> CommandletActivity;
+
+private:
+	static bool bDisplaySleepEnabled;
 };
 
 typedef FMacPlatformApplicationMisc FPlatformApplicationMisc;

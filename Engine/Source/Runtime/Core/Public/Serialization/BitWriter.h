@@ -28,6 +28,11 @@ public:
 	 */
 	FBitWriter( int64 InMaxBits, bool AllowResize = false );
 
+	FBitWriter(FBitWriter&) = default;
+    FBitWriter& operator=(const FBitWriter&) = default;
+    FBitWriter(FBitWriter&&) = default;
+    FBitWriter& operator=(FBitWriter&&) = default;
+
 	void SerializeBits( void* Src, int64 LengthBits );
 
 	virtual void SerializeBitsWithOffset( void* Src, int32 SourceBit, int64 LengthBits ) override;
@@ -193,12 +198,12 @@ public:
 		Init(Writer);
 	}
 
-	int64 GetNumBits()
+	FORCEINLINE_DEBUGGABLE int64 GetNumBits() const
 	{
 		return Num;
 	}
 
-	void Init( FBitWriter& Writer)
+	FORCEINLINE_DEBUGGABLE void Init( FBitWriter& Writer)
 	{
 		Num = Writer.Num;
 		Overflowed = Writer.ArIsError;
@@ -206,7 +211,12 @@ public:
 
 	void Pop( FBitWriter& Writer );
 	void Copy( FBitWriter& Writer, TArray<uint8> &Buffer );
-	void PopWithoutClear( FBitWriter& Writer );
+
+	/** Pops the BitWriter back to the start but doesn't clear what was written. */
+	FORCEINLINE_DEBUGGABLE void PopWithoutClear( FBitWriter& Writer )
+	{
+		Writer.Num = Num;
+	}
 
 private:
 

@@ -12,7 +12,7 @@
 #include "MaterialEditorModule.h"
 #include "Materials/MaterialInstance.h"
 #include "PropertyEditorModule.h"
-#include "UI/MediaBundleEditorStyle.h"
+#include "UI/MediaFrameworkUtilitiesEditorStyle.h"
 #include "Widgets/Docking/SDockTab.h"
  
 
@@ -230,7 +230,7 @@ void FMediaBundleEditorToolkit::ExtendToolBar()
 					NAME_None,
 					LOCTEXT("MaterialEditor", "Open Material Editor"),
 					LOCTEXT("Material_ToolTip", "Open Material Editor for this Media Bundle material."),
-					FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "MaterialEditor")
+					FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "MaterialEditor")
 					);
 			}
 			ToolbarBuilder.EndSection();

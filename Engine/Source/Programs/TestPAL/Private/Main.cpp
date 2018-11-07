@@ -31,6 +31,8 @@ IMPLEMENT_APPLICATION(TestPAL, "TestPAL");
 #define ARG_MALLOC_THREADING_TEST			"mallocthreadtest"
 #define ARG_MALLOC_REPLAY					"mallocreplay"
 #define ARG_THREAD_PRIO_TEST				"threadpriotest"
+#define ARG_INLINE_CALLSTACK_TEST			"inline"
+#define ARG_STRINGS_ALLOCATION_TEST			"stringsallocation"
 
 namespace TestPAL
 {
@@ -353,6 +355,14 @@ int32 StringPrecisionTest(const TCHAR* CommandLine)
 	UE_LOG(LogTestPAL, Display, TEXT("Begining of the line %*s"), Indent, *TestString);
 	UE_LOG(LogTestPAL, Display, TEXT("%*s end of the line"), Indent, *TestString);
 
+	int Width = 2;
+	for (uint32 Idx = 0; Idx < 10; ++Idx)
+	{
+		UE_LOG(LogTestPAL, Display, TEXT("DynSize: %d SignedDynFormat%0*d"), Width, Width, Idx);
+		UE_LOG(LogTestPAL, Display, TEXT("DynSize: %d Size_tDynFormat%0*zd"), Width, Width, static_cast<size_t>(Idx));
+		++Width;
+	}
+
 	FEngineLoop::AppPreExit();
 	FEngineLoop::AppExit();
 	return 0;
@@ -516,10 +526,49 @@ int32 GetAllocationSizeTest(const TCHAR* CommandLine)
 	return 0;
 }
 
+/**
+ * Strings allocation test
+ */
+int32 StringsAllocationTest(const TCHAR* CommandLine)
+{
+	FPlatformMisc::SetCrashHandler(NULL);
+	FPlatformMisc::SetGracefulTerminationHandler();
+
+	GEngineLoop.PreInit(CommandLine);
+	UE_LOG(LogTestPAL, Display, TEXT("Running StringsAllocationTest test."));
+
+	const int32 NumOfStrings = 1000000;
+	const TCHAR* SampleText = TEXT("Lorem ipsum dolor sit amet");
+
+	FString* Strings[NumOfStrings];
+
+	UE_LOG(LogTestPAL, Display, TEXT("Allocating %u strings '%s'"), NumOfStrings, SampleText);
+
+	for(int32 i = 0; i < NumOfStrings; ++i)
+	{
+		Strings[i] = new FString(SampleText);
+	}
+
+	if (GWarn)
+	{
+		GMalloc->DumpAllocatorStats(*GWarn);
+	}
+
+	for(int32 i = 0; i < NumOfStrings; ++i)
+	{
+		delete Strings[i];
+	}
+
+	// GMalloc = OldGMalloc;
+	FEngineLoop::AppExit();
+	return 0;
+}
+
+
 /** An ugly way to pass a parameters to FRunnable; shouldn't matter for this test code. */
 int32 GMallocTestNumRuns = 500;
 int32 GMallocTestMemoryPerThreadKB = 64*1024;	// 64 MB
-bool GMallocTestCommitMemory = false;
+bool GMallocTestTouchTMemory = false;
 
 FThreadSafeCounter64 GTotalAllocsDone;
 FThreadSafeCounter64 GTotalMemoryAllocated;
@@ -544,8 +593,14 @@ struct FMemoryAllocatingThread : public FRunnable
 
 			while(MemAllocatedThisRun < GMallocTestMemoryPerThreadKB * 1024 && NumAllocs < ARRAY_COUNT(Ptrs))
 			{
-				// allocate up to 128KB at a time
-				const int32 ChunkSize = 1 + static_cast<int32>(131072.0 * FMath::FRand());
+				// increase the probability of the smallest chunks, but allow fairly large (up to 16 MB)
+				double Uniform = FMath::FRand();
+				double Asymptote = (Uniform >= DBL_EPSILON) ? (1 / Uniform) : 1.0;
+				double SkewedTowardsSmall = FMath::Min(1.0, Asymptote / 4096.0);	// 4096 is an arbitrary constant
+
+				const int32 ChunkSize = 1 + static_cast<int32>(16384.0 * 1024.0 * SkewedTowardsSmall);
+				//printf("Uniform: %f, Asymptote: %f, SkewedTowardsSmall: %f, ChunkSize: %d bytes\n", Uniform, Asymptote, SkewedTowardsSmall, ChunkSize);
+				//fflush(stdout);
 
 				void* Ptr = nullptr;
 				if (bUseSystemMalloc)
@@ -563,7 +618,7 @@ struct FMemoryAllocatingThread : public FRunnable
 					MemAllocatedThisRun += ChunkSize;
 
 					// touch the memory if not measuring the speed
-					if (UNLIKELY(GMallocTestCommitMemory))
+					if (UNLIKELY(GMallocTestTouchTMemory))
 					{
 						FMemory::Memset(Ptr, 0xff, ChunkSize);
 					}
@@ -627,7 +682,7 @@ int32 MallocThreadingTest(const TCHAR* CommandLine)
 	UE_LOG(LogTestPAL, Display, TEXT("    -numthreads=N"));
 	UE_LOG(LogTestPAL, Display, TEXT("    -memperthread=N (how much memory each thread will allocate in KB)"));
 	UE_LOG(LogTestPAL, Display, TEXT("    -numruns=N (how many times the thread will allocate and free that memory)"));
-	UE_LOG(LogTestPAL, Display, TEXT("    -commitmem (touch the memory to commit it - makes speed measurements irrelevant)"));
+	UE_LOG(LogTestPAL, Display, TEXT("    -touchmem (touch the memory to make sure it's backed by physical RAM - this can dominate the execution time)"));
 
 	bool bUseSystemMalloc = FParse::Param(CommandLine, TEXT("systemmalloc"));
 	int32 NumTestThreads = 4, InNumTestThreads = 0, InNumRuns = 0, InMemPerThreadKB = 0;
@@ -643,15 +698,15 @@ int32 MallocThreadingTest(const TCHAR* CommandLine)
 	{
 		GMallocTestMemoryPerThreadKB = FMath::Max(0, InMemPerThreadKB);
 	}
-	if (FParse::Param(CommandLine, TEXT("commitmem")))
+	if (FParse::Param(CommandLine, TEXT("touchmem")))
 	{
-		GMallocTestCommitMemory = true;
+		GMallocTestTouchTMemory = true;
 	}
 
 	UE_LOG(LogTestPAL, Display, TEXT("Running malloc threading test using %s malloc and %d threads, each allocating %sup to %d KB (%d MB) memory %d times."),
 		bUseSystemMalloc ? TEXT("libc") : GMalloc->GetDescriptiveName(),
 		NumTestThreads,
-		GMallocTestCommitMemory ? TEXT("and committing ") : TEXT(""),
+		GMallocTestTouchTMemory ? TEXT("and touching ") : TEXT(""),
 		GMallocTestMemoryPerThreadKB, GMallocTestMemoryPerThreadKB / 1024,
 		GMallocTestNumRuns
 		);
@@ -690,9 +745,9 @@ int32 MallocThreadingTest(const TCHAR* CommandLine)
 	double BytesPerSecond = (WallTimeDuration > 0.0) ? GTotalMemoryAllocated.GetValue() / WallTimeDuration : 0.0;
 
 	UE_LOG(LogTestPAL, Display, TEXT("Speed in allocs:        %.1f Kallocs/sec (%.1f allocs/sec)%s"), AllocsPerSecond / 1000.0, AllocsPerSecond,
-		GMallocTestCommitMemory ? TEXT("- irrelevant since memory is committed") : TEXT(""));
+		GMallocTestTouchTMemory ? TEXT("- less relevant since memory was touched") : TEXT(""));
 	UE_LOG(LogTestPAL, Display, TEXT("Speed in bytes:         %.1f MB/sec (%.1f KB/sec, %.1f bytes/sec)%s"), BytesPerSecond / (1024.0 * 1024.0), BytesPerSecond / 1024.0, BytesPerSecond,
-		GMallocTestCommitMemory ? TEXT("- irrelevant since memory is committed") : TEXT(""));
+		GMallocTestTouchTMemory ? TEXT("- less relevant since memory is touched") : TEXT(""));
 
 	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
 	UE_LOG(LogTestPAL, Display, TEXT("Peak used resident RAM: %llu MB (%llu KB, %llu bytes)"), Stats.PeakUsedPhysical / (1024 * 1024), Stats.PeakUsedPhysical / 1024, Stats.PeakUsedPhysical);
@@ -1058,6 +1113,113 @@ int32 ThreadPriorityTest(const TCHAR* CommandLine)
 	return 0;
 }
 
+// inlined/non-inlined functions for testing
+namespace
+{
+	void FORCENOINLINE LexicalBlock()
+	{
+		{
+			{
+				ensure(false);
+			}
+		}
+	}
+
+	void FORCENOINLINE LabelSwitch()
+	{
+		switch (1)
+		{
+			case 1:
+				ensure(false);
+				break;
+			default:
+				break;
+		}
+	}
+
+	void FORCENOINLINE LabelGoto()
+	{
+		goto end;
+		ensure(false); // skips all of these. Just want to create a bunch of inline statements in this single non inlined one
+		ensure(false);
+		ensure(false);
+		ensure(false);
+		ensure(false);
+		ensure(false);
+end:
+		ensure(false);
+	}
+
+	void FORCEINLINE inline_three_ensures()
+	{
+		ensure(false);
+	}
+
+	void FORCEINLINE inline_two_calls_inline_three()
+	{
+		inline_three_ensures();
+	}
+
+	void FORCEINLINE inline_one_calls_inline_two()
+	{
+		inline_two_calls_inline_three();
+	}
+
+	void FORCENOINLINE MultipleInlineDeep()
+	{
+		inline_one_calls_inline_two();
+	}
+
+	void FORCEINLINE inline_crash()
+	{
+		*(int*)0x1 = 0x0;
+	}
+
+	void FORCENOINLINE no_inline_to_inline_crash()
+	{
+		inline_crash();
+	}
+}
+
+int32 InlineCallstacksTest(const TCHAR* CommandLine)
+{
+	FPlatformMisc::SetCrashHandler(NULL);
+	FPlatformMisc::SetGracefulTerminationHandler();
+
+	GEngineLoop.PreInit(CommandLine);
+
+	/*  Three unique cases that we can only test two:
+	 *
+	 *  LexicalBlocks (ie. scope/if/for/while blocks
+	 *  Labels (ie. goto/switch statements)
+	 *  Try/Catch (cannot use when execptions are disabled, but we *should* handle this case)
+	 *
+	 *  As well as testing, multiple deep inlining. ie. Calling multiple inline functions and still
+	 *  seeing the call site
+	 *
+	 *  Just make sure that the functions used + their callsite into ensure(false) are correctly reported in
+	 *  the callstack
+	 */
+
+	UE_LOG(LogTestPAL, Warning, TEXT("\n*** Lexical Block ***"));
+	LexicalBlock();
+	UE_LOG(LogTestPAL, Warning, TEXT("\n*** Label Switch ***"));
+	LabelSwitch();
+
+	UE_LOG(LogTestPAL, Warning, TEXT("\n*** Label Goto ***"));
+	LabelGoto();
+
+	UE_LOG(LogTestPAL, Warning, TEXT("\n*** Multiple Inlined ***"));
+	MultipleInlineDeep();
+
+	// Should always be the last case, as this crashes
+	UE_LOG(LogTestPAL, Warning, TEXT("\n*** Array delegate to crash***"));
+	TArray<TFunction<void()>> a;
+	a.Push([] { no_inline_to_inline_crash(); });
+	a[0]();
+
+	return 0;
+}
 
 /**
  * Selects and runs one of test cases.
@@ -1086,10 +1248,12 @@ int32 MultiplexedMain(int32 ArgC, char* ArgV[])
 		{
 			return MessageBoxTest(*TestPAL::CommandLine);
 		}
+#if USE_DIRECTORY_WATCHER
 		else if (!FCStringAnsi::Strcmp(ArgV[IdxArg], ARG_DIRECTORY_WATCHER_TEST))
 		{
 			return DirectoryWatcherTest(*TestPAL::CommandLine);
 		}
+#endif
 		else if (!FCStringAnsi::Strcmp(ArgV[IdxArg], ARG_THREAD_SINGLETON_TEST))
 		{
 			return ThreadSingletonTest(*TestPAL::CommandLine);
@@ -1126,6 +1290,14 @@ int32 MultiplexedMain(int32 ArgC, char* ArgV[])
 		{
 			return ThreadPriorityTest(*TestPAL::CommandLine);
 		}
+		else if (!FCStringAnsi::Strcmp(ArgV[IdxArg], ARG_INLINE_CALLSTACK_TEST))
+		{
+			return InlineCallstacksTest(*TestPAL::CommandLine);
+		}
+		else if (!FCStringAnsi::Strcmp(ArgV[IdxArg], ARG_STRINGS_ALLOCATION_TEST))
+		{
+			return StringsAllocationTest(*TestPAL::CommandLine);
+		}
 	}
 
 	FPlatformMisc::SetCrashHandler(NULL);
@@ -1149,6 +1321,7 @@ int32 MultiplexedMain(int32 ArgC, char* ArgV[])
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test malloc for thread-safety and performance."), UTF8_TO_TCHAR(ARG_MALLOC_THREADING_TEST));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test by replaying a saved malloc history saved by -mallocsavereplay. Possible options: -replayfile=File, -stopafter=N (operation), -suppresserrors"), UTF8_TO_TCHAR(ARG_MALLOC_REPLAY));
 	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test thread priorities."), UTF8_TO_TCHAR(ARG_THREAD_PRIO_TEST));
+	UE_LOG(LogTestPAL, Warning, TEXT("  %s: test inline callstacks through ensures and a final crash."), UTF8_TO_TCHAR(ARG_INLINE_CALLSTACK_TEST));
 	UE_LOG(LogTestPAL, Warning, TEXT(""));
 	UE_LOG(LogTestPAL, Warning, TEXT("Pass one of those to run an appropriate test."));
 

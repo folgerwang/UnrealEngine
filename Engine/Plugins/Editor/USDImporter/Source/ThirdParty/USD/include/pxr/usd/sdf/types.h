@@ -312,7 +312,7 @@ SDF_API const TfEnum &SdfGetUnitFromName( const std::string &name );
 /// Defaults to "true" if the string is not recognized.
 ///
 /// If parseOK is supplied, the pointed-to bool will be set to indicate
-/// whether the parse was succesful.
+/// whether the parse was successful.
 SDF_API bool SdfBoolFromString( const std::string &, bool *parseOk = NULL );
 
 /// Given a value, returns if there is a valid corresponding valueType.
@@ -459,36 +459,6 @@ struct SdfValueTypeTraits<char[N]>
     static const bool IsValueType = true;
 };
 
-#define _SDF_MAKE_SCALAR_TYPENAME_TOKEN(r, unused, elem)                \
-    (SDF_VALUE_TAG(elem), BOOST_PP_STRINGIZE(SDF_VALUE_TYPENAME(elem)))
-
-#define _SDF_MAKE_SHAPED_TYPENAME_TOKEN(r, unused, elem)                       \
-    (BOOST_PP_CAT(SDF_VALUE_TAG(elem), Array),                                 \
-     BOOST_PP_STRINGIZE(SDF_VALUE_TYPENAME(elem)) "[]")
-
-#define _SDF_VALUE_TYPE_NAME_TOKENS                                            \
-    (Point) ((PointArray, "Point[]"))                                          \
-    (PointFloat) ((PointFloatArray, "PointFloat[]"))                           \
-    (Normal) ((NormalArray, "Normal[]"))                                       \
-    (NormalFloat) ((NormalFloatArray, "NormalFloat[]"))                        \
-    (Vector) ((VectorArray, "Vector[]"))                                       \
-    (VectorFloat) ((VectorFloatArray, "VectorFloat[]"))                        \
-    (Color) ((ColorArray, "Color[]"))                                          \
-    (ColorFloat) ((ColorFloatArray, "ColorFloat[]"))                           \
-    (Frame) ((FrameArray, "Frame[]"))                                          \
-    (Transform) ((TransformArray, "Transform[]"))                              \
-    (PointIndex) ((PointIndexArray, "PointIndex[]"))                           \
-    (EdgeIndex) ((EdgeIndexArray, "EdgeIndex[]"))                              \
-    (FaceIndex) ((FaceIndexArray, "FaceIndex[]"))                              \
-    (Schema) ((SchemaArray, "Schema[]"))
-
-#define SDF_VALUE_TYPE_NAME_TOKENS                                             \
-    _SDF_VALUE_TYPE_NAME_TOKENS                                                \
-    BOOST_PP_EXPAND(BOOST_PP_SEQ_TRANSFORM(                                    \
-                        _SDF_MAKE_SCALAR_TYPENAME_TOKEN, ~, SDF_VALUE_TYPES))  \
-    BOOST_PP_EXPAND(BOOST_PP_SEQ_TRANSFORM(                                    \
-                        _SDF_MAKE_SHAPED_TYPENAME_TOKEN, ~, SDF_VALUE_TYPES))
-
 #define SDF_VALUE_ROLE_NAME_TOKENS              \
     (Point)                                     \
     (Normal)                                    \
@@ -499,7 +469,8 @@ struct SdfValueTypeTraits<char[N]>
     (PointIndex)                                \
     (EdgeIndex)                                 \
     (FaceIndex)                                 \
-    (Schema)
+    (TextureCoordinate)                         \
+    (Schema)                                   
 
 TF_DECLARE_PUBLIC_TOKENS(SdfValueRoleNames, SDF_API, SDF_VALUE_ROLE_NAME_TOKENS);
 
@@ -650,6 +621,8 @@ public:
     SdfValueTypeName Quath,    Quatf,    Quatd;
     SdfValueTypeName Matrix2d, Matrix3d, Matrix4d;
     SdfValueTypeName Frame4d;
+    SdfValueTypeName TexCoord2h, TexCoord2f, TexCoord2d;
+    SdfValueTypeName TexCoord3h, TexCoord3f, TexCoord3d;
 
     SdfValueTypeName BoolArray;
     SdfValueTypeName UCharArray, IntArray, UIntArray, Int64Array, UInt64Array;
@@ -667,6 +640,8 @@ public:
     SdfValueTypeName QuathArray,    QuatfArray,    QuatdArray;
     SdfValueTypeName Matrix2dArray, Matrix3dArray, Matrix4dArray;
     SdfValueTypeName Frame4dArray;
+    SdfValueTypeName TexCoord2hArray, TexCoord2fArray, TexCoord2dArray;
+    SdfValueTypeName TexCoord3hArray, TexCoord3fArray, TexCoord3dArray;
 
     SDF_API ~Sdf_ValueTypeNamesType();
     struct _Init {
@@ -710,6 +685,31 @@ private:
 
 // Write out the string representation of a block.
 SDF_API std::ostream& operator<<(std::ostream&, SdfValueBlock const&); 
+
+// A class that represents a human-readable value.  This is used for the special
+// purpose of producing layers that serialize field values in alternate ways; to
+// produce more human-readable output, for example.
+struct SdfHumanReadableValue {
+    SdfHumanReadableValue() = default;
+    explicit SdfHumanReadableValue(std::string const &text) : _text(text) {}
+
+    bool operator==(SdfHumanReadableValue const &other) const {
+        return GetText() == other.GetText();
+    }
+    bool operator!=(SdfHumanReadableValue const &other) const {
+        return !(*this == other);
+    }
+
+    std::string const &GetText() const { return _text; }
+private:
+    std::string _text;
+};
+
+SDF_API
+std::ostream &operator<<(std::ostream &out, const SdfHumanReadableValue &hrval);
+
+SDF_API
+size_t hash_value(const SdfHumanReadableValue &hrval);
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

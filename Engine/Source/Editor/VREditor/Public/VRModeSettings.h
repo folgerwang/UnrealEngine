@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
+#include "VISettings.h"
 #include "VRModeSettings.generated.h"
 
 UENUM()
@@ -21,7 +22,7 @@ enum class EInteractorHand : uint8
 * Implements the settings for VR Mode.
 */
 UCLASS(config = EditorSettings)
-class VREDITOR_API UVRModeSettings : public UObject
+class VREDITOR_API UVRModeSettings : public UVISettings
 {
 	GENERATED_BODY()
 
@@ -34,16 +35,20 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = "General", meta = (DisplayName = "Enable VR Mode Auto-Entry"))
 	uint32 bEnableAutoVREditMode : 1;
 
+	// Whether or not sequences should be autokeyed
+	UPROPERTY(EditAnywhere, config, Category = "Cinematics")
+	uint32 bAutokeySequences : 1;
+
 	// Which hand should have the primary interactor laser on it
 	UPROPERTY(EditAnywhere, config, Category = "General")
 	EInteractorHand InteractorHand;
 
 	/** Show the movement grid for orientation while moving through the world */
-	UPROPERTY(EditAnywhere, config, Category = "UI Customization")
+	UPROPERTY(EditAnywhere, config, Category = "World Movement")
 	uint32 bShowWorldMovementGrid : 1;
 
 	/** Dim the surroundings while moving through the world */
-	UPROPERTY(EditAnywhere, config, Category = "UI Customization")
+	UPROPERTY(EditAnywhere, config, Category = "World Movement")
 	uint32 bShowWorldMovementPostProcess : 1;
 
 	/** Display a progress bar while scaling that shows your current scale */

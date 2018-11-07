@@ -13,8 +13,17 @@ namespace UnrealBuildTool.Rules
 					"CinematicCamera",
 					"Core",
 					"CoreUObject",
-					"Engine"
-				}
+					"Engine",
+                    "ShaderCore",
+                }
+			);
+
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"Landscape",
+                    "Projects",
+                }
 			);
 		}
 	}

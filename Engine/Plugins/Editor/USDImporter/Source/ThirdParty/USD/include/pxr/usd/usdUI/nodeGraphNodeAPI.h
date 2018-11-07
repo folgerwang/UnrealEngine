@@ -28,7 +28,7 @@
 
 #include "pxr/pxr.h"
 #include "pxr/usd/usdUI/api.h"
-#include "pxr/usd/usd/schemaBase.h"
+#include "pxr/usd/usd/apiSchemaBase.h"
 #include "pxr/usd/usd/prim.h"
 #include "pxr/usd/usd/stage.h"
 #include "pxr/usd/usdUI/tokens.h"
@@ -61,21 +61,20 @@ class SdfAssetPath;
 /// So to set an attribute to the value "rightHanded", use UsdUITokens->rightHanded
 /// as the value.
 ///
-class UsdUINodeGraphNodeAPI : public UsdSchemaBase
+class UsdUINodeGraphNodeAPI : public UsdAPISchemaBase
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = false;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::SingleApplyAPI;
 
     /// Construct a UsdUINodeGraphNodeAPI on UsdPrim \p prim .
     /// Equivalent to UsdUINodeGraphNodeAPI::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
     /// an invalid \p prim
     explicit UsdUINodeGraphNodeAPI(const UsdPrim& prim=UsdPrim())
-        : UsdSchemaBase(prim)
+        : UsdAPISchemaBase(prim)
     {
     }
 
@@ -83,7 +82,7 @@ public:
     /// Should be preferred over UsdUINodeGraphNodeAPI(schemaObj.GetPrim()),
     /// as it preserves SchemaBase state.
     explicit UsdUINodeGraphNodeAPI(const UsdSchemaBase& schemaObj)
-        : UsdSchemaBase(schemaObj)
+        : UsdAPISchemaBase(schemaObj)
     {
     }
 
@@ -112,6 +111,29 @@ public:
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
 
+    /// Applies this <b>single-apply</b> API schema to the given \p prim.
+    /// This information is stored by adding "NodeGraphNodeAPI" to the 
+    /// token-valued, listOp metadata \em apiSchemas on the prim.
+    /// 
+    /// \return A valid UsdUINodeGraphNodeAPI object is returned upon success. 
+    /// An invalid (or empty) UsdUINodeGraphNodeAPI object is returned upon 
+    /// failure. See \ref UsdAPISchemaBase::_ApplyAPISchema() for conditions 
+    /// resulting in failure. 
+    /// 
+    /// \sa UsdPrim::GetAppliedSchemas()
+    /// \sa UsdPrim::HasAPI()
+    ///
+    USDUI_API
+    static UsdUINodeGraphNodeAPI 
+    Apply(const UsdPrim &prim);
+
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDUI_API
+    virtual UsdSchemaType _GetSchemaType() const;
+
 private:
     // needs to invoke _GetStaticTfType.
     friend class UsdSchemaRegistry;
@@ -135,8 +157,12 @@ public:
     /// (coordinates are Qt style, not cartesian).
     /// 
     /// These positions are not explicitly meant in pixel space, but rather
-    /// assume that the size of a node is approximately 100x100. Depending on 
+    /// assume that the size of a node is approximately 1.0x1.0. Where size-x is
+    /// the node width and size-y height of the node. Depending on 
     /// graph UI implementation, the size of a node may vary in each direction.
+    /// 
+    /// Example: If a node's width is 300 and it is position is at 1000, we
+    /// store for x-position: 1000 * (1.0/300)
     /// 
     ///
     /// \n  C++ Type: GfVec2f
@@ -257,6 +283,34 @@ public:
     /// the default for \p writeSparsely is \c false.
     USDUI_API
     UsdAttribute CreateExpansionStateAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
+
+public:
+    // --------------------------------------------------------------------- //
+    // SIZE 
+    // --------------------------------------------------------------------- //
+    /// 
+    /// Optional size hint for a node in a node graph.
+    /// X is the width.
+    /// Y is the height.
+    /// 
+    /// This value is optional, because node size is often determined 
+    /// based on the number of in- and outputs of a node.
+    /// 
+    ///
+    /// \n  C++ Type: GfVec2f
+    /// \n  Usd Type: SdfValueTypeNames->Float2
+    /// \n  Variability: SdfVariabilityUniform
+    /// \n  Fallback Value: No Fallback
+    USDUI_API
+    UsdAttribute GetSizeAttr() const;
+
+    /// See GetSizeAttr(), and also 
+    /// \ref Usd_Create_Or_Get_Property for when to use Get vs Create.
+    /// If specified, author \p defaultValue as the attribute's default,
+    /// sparsely (when it makes sense to do so) if \p writeSparsely is \c true -
+    /// the default for \p writeSparsely is \c false.
+    USDUI_API
+    UsdAttribute CreateSizeAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
 
 public:
     // ===================================================================== //

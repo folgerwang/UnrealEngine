@@ -5,6 +5,7 @@
 #include "Editor.h"
 
 #include "Modules/ModuleManager.h"
+#include "Features/IModularFeatures.h"
 #include "Misc/CoreDelegates.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "WorkspaceMenuStructure.h"
@@ -22,6 +23,10 @@
 #include "LiveLinkClientPanel.h"
 #include "LiveLinkClientCommands.h"
 
+#include "ISequencerModule.h"
+#include "Sequencer/LiveLinkPropertyTrackEditor.h"
+#include "SequencerRecorderSections/MovieSceneLiveLinkSectionRecorder.h"
+
 /**
  * Implements the Messaging module.
  */
@@ -30,6 +35,7 @@
 
 static const FName LiveLinkClientTabName(TEXT("LiveLink"));
 static const FName LevelEditorModuleName(TEXT("LevelEditor"));
+static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecorderFactory");
 
 #define IMAGE_PLUGIN_BRUSH( RelativePath, ... ) FSlateImageBrush( InPluginContent( RelativePath, ".png" ), __VA_ARGS__ )
 
@@ -53,9 +59,11 @@ public:
 		static FName LiveLinkStyle(TEXT("LiveLinkStyle"));
 		StyleSet = MakeShareable(new FSlateStyleSet(LiveLinkStyle));
 
+		bHasRegisteredTabSpawners = false;
+
 		if (FModuleManager::Get().IsModuleLoaded(LevelEditorModuleName))
 		{
-			RegisterTab();
+			RegisterTabSpawner();
 		}
 		else
 		{
@@ -79,40 +87,25 @@ public:
 		StyleSet->Set("LiveLinkClient.Common.RemoveAllSources", new IMAGE_PLUGIN_BRUSH(TEXT("icon_RemoveSource_40x"), Icon40x40));
 
 		FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Get());
+
+		ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
+		CreateLiveLinkPropertyTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FLiveLinkPropertyTrackEditor::CreateTrackEditor));
+
+		IModularFeatures::Get().RegisterModularFeature(MovieSceneSectionRecorderFactoryName, &MovieSceneLiveLinkRecorder);
+
 	}
 
 	void ModulesChangesCallback(FName ModuleName, EModuleChangeReason ReasonForChange)
 	{
 		if (ReasonForChange == EModuleChangeReason::ModuleLoaded && ModuleName == LevelEditorModuleName)
 		{
-			RegisterTab();
+			RegisterTabSpawner();
 		}
-	}
-
-	void RegisterTab()
-	{
-		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(LevelEditorModuleName);
-
-		TSharedPtr<FSlateStyleSet> StyleSetPtr = StyleSet;
-
-		//Register our UI
-		LevelEditorTabManagerChangedHandle = LevelEditorModule.OnTabManagerChanged().AddLambda([StyleSetPtr]()
-		{
-			FLevelEditorModule& LocalLevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(LevelEditorModuleName);
-			LocalLevelEditorModule.GetLevelEditorTabManager()->RegisterTabSpawner(LiveLinkClientTabName, FOnSpawnTab::CreateStatic(&FLiveLinkEditorModule::SpawnLiveLinkTab, StyleSetPtr))
-				.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
-				.SetDisplayName(LOCTEXT("LiveLinkTabTitle", "Live Link"))
-				.SetTooltipText(LOCTEXT("SequenceRecorderTooltipText", "Open the Live Link streaming manager tab."))
-				.SetIcon(FSlateIcon(StyleSetPtr->GetStyleSetName(), "LiveLinkClient.Common.Icon.Small"));
-		});
 	}
 
 	virtual void ShutdownModule() override
 	{
-		if (FSlateApplication::IsInitialized())
-		{
-			FGlobalTabmanager::Get()->UnregisterTabSpawner(LiveLinkClientTabName);
-		}
+		UnregisterTabSpawner();
 
 		FModuleManager::Get().OnModulesChanged().Remove(ModulesChangedHandle);
 
@@ -121,6 +114,14 @@ public:
 			FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(LevelEditorModuleName);
 			LevelEditorModule.OnTabManagerChanged().Remove(LevelEditorTabManagerChangedHandle);
 		}
+
+		ISequencerModule* SequencerModule = FModuleManager::GetModulePtr<ISequencerModule>("Sequencer");
+		if (SequencerModule != nullptr)
+		{
+			SequencerModule->UnRegisterTrackEditor(CreateLiveLinkPropertyTrackEditorHandle);
+		}
+
+		IModularFeatures::Get().UnregisterModularFeature(MovieSceneSectionRecorderFactoryName, &MovieSceneLiveLinkRecorder);
 	}
 
 	virtual bool SupportsDynamicReloading() override
@@ -146,8 +147,38 @@ public:
 
 private:
 
+	void RegisterTabSpawner()
+	{
+		if (bHasRegisteredTabSpawners)
+		{
+			UnregisterTabSpawner();
+		}
+
+		TSharedPtr<FSlateStyleSet> StyleSetPtr = StyleSet;
+		FTabSpawnerEntry& SpawnerEntry = FGlobalTabmanager::Get()->RegisterNomadTabSpawner(LiveLinkClientTabName, FOnSpawnTab::CreateStatic(&FLiveLinkEditorModule::SpawnLiveLinkTab, StyleSetPtr))
+			.SetDisplayName(LOCTEXT("LiveLinkTabTitle", "Live Link"))
+			.SetTooltipText(LOCTEXT("SequenceRecorderTooltipText", "Open the Live Link streaming manager tab."))
+			.SetIcon(FSlateIcon(StyleSetPtr->GetStyleSetName(), "LiveLinkClient.Common.Icon.Small"));
+
+		const IWorkspaceMenuStructure& MenuStructure = WorkspaceMenu::GetMenuStructure();
+		SpawnerEntry.SetGroup(MenuStructure.GetLevelEditorCategory());
+
+		bHasRegisteredTabSpawners = true;
+	}
+
+	void UnregisterTabSpawner()
+	{
+		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(LiveLinkClientTabName);
+		bHasRegisteredTabSpawners = false;
+	}
+
 	FDelegateHandle LevelEditorTabManagerChangedHandle;
 	FDelegateHandle ModulesChangedHandle;
+	FDelegateHandle CreateLiveLinkPropertyTrackEditorHandle;
+	FMovieSceneLiveLinkSectionRecorderFactory MovieSceneLiveLinkRecorder;
+
+	// Track if we have registered
+	bool bHasRegisteredTabSpawners;
 };
 
 IMPLEMENT_MODULE(FLiveLinkEditorModule, LiveLinkEditor);

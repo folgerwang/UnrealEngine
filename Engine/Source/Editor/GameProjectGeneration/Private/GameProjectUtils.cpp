@@ -79,10 +79,9 @@
 #define LOCTEXT_NAMESPACE "GameProjectUtils"
 
 #define MAX_PROJECT_PATH_BUFFER_SPACE 130 // Leave a reasonable buffer of additional characters to account for files created in the content directory during or after project generation
-#define MAX_PROJECT_NAME_LENGTH 20 // Enforce a reasonable project name length so the path is not too long for PLATFORM_MAX_FILEPATH_LENGTH
-static_assert(PLATFORM_MAX_FILEPATH_LENGTH - MAX_PROJECT_PATH_BUFFER_SPACE > 0, "File system path shorter than project creation buffer space.");
+#define MAX_PROJECT_NAME_LENGTH 20 // Enforce a reasonable project name length so the path is not too long for FPlatformMisc::GetMaxPathLength()
 
-#define MAX_CLASS_NAME_LENGTH 32 // Enforce a reasonable class name length so the path is not too long for PLATFORM_MAX_FILEPATH_LENGTH
+#define MAX_CLASS_NAME_LENGTH 32 // Enforce a reasonable class name length so the path is not too long for FPlatformMisc::GetMaxPathLength()
 
 TWeakPtr<SNotificationItem> GameProjectUtils::UpdateGameProjectNotification = NULL;
 TWeakPtr<SNotificationItem> GameProjectUtils::WarningProjectNameNotification = NULL;
@@ -499,7 +498,7 @@ bool GameProjectUtils::IsValidProjectFileForCreation(const FString& ProjectFile,
 		return false;
 	}
 
-	const int32 MaxProjectPathLength = PLATFORM_MAX_FILEPATH_LENGTH - MAX_PROJECT_PATH_BUFFER_SPACE;
+	const int32 MaxProjectPathLength = FPlatformMisc::GetMaxPathLength() - MAX_PROJECT_PATH_BUFFER_SPACE;
 	if ( FPaths::GetBaseFilename(ProjectFile, false).Len() > MaxProjectPathLength )
 	{
 		FFormatNamedArguments Args;
@@ -589,7 +588,7 @@ bool GameProjectUtils::OpenProject(const FString& ProjectFile, FText& OutFailRea
 		return false;
 	}
 
-	const int32 MaxProjectPathLength = PLATFORM_MAX_FILEPATH_LENGTH - MAX_PROJECT_PATH_BUFFER_SPACE;
+	const int32 MaxProjectPathLength = FPlatformMisc::GetMaxPathLength() - MAX_PROJECT_PATH_BUFFER_SPACE;
 	if ( FPaths::GetBaseFilename(ProjectFile, false).Len() > MaxProjectPathLength )
 	{
 		FFormatNamedArguments Args;
@@ -749,56 +748,29 @@ void GameProjectUtils::CheckForOutOfDateGameProjectFile()
 			}
 		}
 
+		// Check if the project file is an older version
 		FProjectStatus ProjectStatus;
+		bool bRequiresUpdate = false;
 		if (IProjectManager::Get().QueryStatusForCurrentProject(ProjectStatus))
 		{
 			if ( ProjectStatus.bRequiresUpdate )
 			{
-				const FText UpdateProjectText = LOCTEXT("UpdateProjectFilePrompt", "Project file is saved in an older format. Would you like to update it?");
-				const FText UpdateProjectConfirmText = LOCTEXT("UpdateProjectFileConfirm", "Update");
-				const FText UpdateProjectCancelText = LOCTEXT("UpdateProjectFileCancel", "Not Now");
-
-				FNotificationInfo Info(UpdateProjectText);
-				Info.bFireAndForget = false;
-				Info.bUseLargeFont = false;
-				Info.bUseThrobber = false;
-				Info.bUseSuccessFailIcons = false;
-				Info.FadeOutDuration = 3.f;
-				Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectConfirmText, FText(), FSimpleDelegate::CreateStatic(&GameProjectUtils::OnUpdateProjectConfirm)));
-				Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectCancelText, FText(), FSimpleDelegate::CreateStatic(&GameProjectUtils::OnUpdateProjectCancel)));
-
-				if (UpdateGameProjectNotification.IsValid())
-				{
-					UpdateGameProjectNotification.Pin()->ExpireAndFadeout();
-					UpdateGameProjectNotification.Reset();
+				bRequiresUpdate = true;
 				}
-
-				UpdateGameProjectNotification = FSlateNotificationManager::Get().AddNotification(Info);
-
-				if (UpdateGameProjectNotification.IsValid())
-				{
-					UpdateGameProjectNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
-				}
-			}
 		}
 
-		// Check if there are any other updates we need to make to the project file
-		if(!UpdateGameProjectNotification.IsValid())
-		{
+		// Get the current project descriptor
 			const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
-			if(Project != nullptr)
-			{
-				bool bUpdatePluginReferences = false;
-				TArray<FPluginReferenceDescriptor> NewPluginReferences = Project->Plugins;
 
-				// Check if there are any installed plugins which aren't referenced by the project file
+		// Check if there are any installed plugins that need to be added as a reference
+				TArray<FPluginReferenceDescriptor> NewPluginReferences = Project->Plugins;
 				for(TSharedRef<IPlugin>& Plugin: IPluginManager::Get().GetEnabledPlugins())
 				{
 					if(Plugin->GetDescriptor().bInstalled && Project->FindPluginReferenceIndex(Plugin->GetName()) == INDEX_NONE)
 					{
 						FPluginReferenceDescriptor PluginReference(Plugin->GetName(), true);
 						NewPluginReferences.Add(PluginReference);
-						bUpdatePluginReferences = true;
+				bRequiresUpdate = true;
 					}
 				}
 
@@ -814,24 +786,49 @@ void GameProjectUtils::CheckForOutOfDateGameProjectFile()
 							if(Reference.MarketplaceURL != Descriptor.MarketplaceURL)
 							{
 								Reference.MarketplaceURL = Descriptor.MarketplaceURL;
-								bUpdatePluginReferences = true;
+						bRequiresUpdate = true;
 							}
 							if(Reference.SupportedTargetPlatforms != Descriptor.SupportedTargetPlatforms)
 							{
 								Reference.SupportedTargetPlatforms = Descriptor.SupportedTargetPlatforms;
-								bUpdatePluginReferences = true;
+						bRequiresUpdate = true;
 							}
 						}
 					}
 				}
 
-				// Check if the file needs updating
-				if(bUpdatePluginReferences)
+		// If we have updates pending, show the prompt
+		if (bRequiresUpdate)
+		{
+			FProjectDescriptorModifier ModifyProject = FProjectDescriptorModifier::CreateLambda(
+				[NewPluginReferences](FProjectDescriptor& Descriptor) { Descriptor.Plugins = NewPluginReferences; return true; });
+
+			FSimpleDelegate OnUpdateProjectConfirm = FSimpleDelegate::CreateLambda(
+				[ModifyProject]() { UpdateProject_Impl(&ModifyProject); });
+
+			const FText UpdateProjectText = LOCTEXT("UpdateProjectFilePrompt", "Project file is out of date. Would you like to update it?");
+			const FText UpdateProjectConfirmText = LOCTEXT("UpdateProjectFileConfirm", "Update");
+			const FText UpdateProjectCancelText = LOCTEXT("UpdateProjectFileCancel", "Not Now");
+
+			FNotificationInfo Info(UpdateProjectText);
+			Info.bFireAndForget = false;
+			Info.bUseLargeFont = false;
+			Info.bUseThrobber = false;
+			Info.bUseSuccessFailIcons = false;
+			Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectConfirmText, FText(), OnUpdateProjectConfirm));
+			Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectCancelText, FText(), FSimpleDelegate::CreateStatic(&GameProjectUtils::OnUpdateProjectCancel)));
+
+			if (UpdateGameProjectNotification.IsValid())
 				{
-					UpdateProject(FProjectDescriptorModifier::CreateLambda( 
-						[NewPluginReferences](FProjectDescriptor& Descriptor){ Descriptor.Plugins = NewPluginReferences; return true; }
-					));
+				UpdateGameProjectNotification.Pin()->ExpireAndFadeout();
+				UpdateGameProjectNotification.Reset();
 				}
+
+			UpdateGameProjectNotification = FSlateNotificationManager::Get().AddNotification(Info);
+
+			if (UpdateGameProjectNotification.IsValid())
+			{
+				UpdateGameProjectNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
 			}
 		}
 	}
@@ -2869,9 +2866,13 @@ bool GameProjectUtils::GenerateClassHeaderFile(const FString& NewHeaderFileName,
 	FinalOutput = FinalOutput.Replace(TEXT("%UCLASS_SPECIFIER_LIST%"), *MakeCommaDelimitedList(ClassSpecifierList, false), ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%PREFIXED_CLASS_NAME%"), *PrefixedClassName, ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%PREFIXED_BASE_CLASS_NAME%"), *PrefixedBaseClassName, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%EVENTUAL_CONSTRUCTOR_DECLARATION%"), *EventualConstructorDeclaration, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%CLASS_PROPERTIES%"), *ClassProperties, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%CLASS_FUNCTION_DECLARATIONS%"), *ClassFunctionDeclarations, ESearchCase::CaseSensitive);
+
+	// Special case where where the wildcard starts with a tab and ends with a new line
+	const bool bLeadingTab = true;
+	const bool bTrailingNewLine = true;
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%EVENTUAL_CONSTRUCTOR_DECLARATION%"), *EventualConstructorDeclaration, bLeadingTab, bTrailingNewLine);
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%CLASS_PROPERTIES%"), *ClassProperties, bLeadingTab, bTrailingNewLine);
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%CLASS_FUNCTION_DECLARATIONS%"), *ClassFunctionDeclarations, bLeadingTab, bTrailingNewLine);
 	if (BaseClassIncludeDirective.Len() == 0)
 	{
 		FinalOutput = FinalOutput.Replace(TEXT("%BASE_CLASS_INCLUDE_DIRECTIVE%") LINE_TERMINATOR, TEXT(""), ESearchCase::CaseSensitive);
@@ -3028,16 +3029,16 @@ bool GameProjectUtils::GenerateClassCPPFile(const FString& NewCPPFileName, const
 	// Not all of these will exist in every class template
 	FString FinalOutput = Template.Replace(TEXT("%COPYRIGHT_LINE%"), *MakeCopyrightLine(), ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%UNPREFIXED_CLASS_NAME%"), *UnPrefixedClassName, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_NAME%"), *ModuleInfo.ModuleName, ESearchCase::CaseSensitive);
-	if (PchIncludeDirective.Len() == 0)
-	{
-		FinalOutput = FinalOutput.Replace(TEXT("%PCH_INCLUDE_DIRECTIVE%") LINE_TERMINATOR, TEXT(""), ESearchCase::CaseSensitive);
-	}
-	FinalOutput = FinalOutput.Replace(TEXT("%PCH_INCLUDE_DIRECTIVE%"), *PchIncludeDirective, ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%PREFIXED_CLASS_NAME%"), *PrefixedClassName, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%EVENTUAL_CONSTRUCTOR_DEFINITION%"), *EventualConstructorDefinition, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%ADDITIONAL_MEMBER_DEFINITIONS%"), *AdditionalMemberDefinitions, ESearchCase::CaseSensitive);
-	FinalOutput = FinalOutput.Replace(TEXT("%ADDITIONAL_INCLUDE_DIRECTIVES%"), *AdditionalIncludesStr, ESearchCase::CaseSensitive);
+	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_NAME%"), *ModuleInfo.ModuleName, ESearchCase::CaseSensitive);
+
+	// Special case where where the wildcard ends with a new line
+	const bool bLeadingTab = false;
+	const bool bTrailingNewLine = true;
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%PCH_INCLUDE_DIRECTIVE%"), *PchIncludeDirective, bLeadingTab, bTrailingNewLine);
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%ADDITIONAL_INCLUDE_DIRECTIVES%"), *AdditionalIncludesStr, bLeadingTab, bTrailingNewLine);
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%EVENTUAL_CONSTRUCTOR_DEFINITION%"), *EventualConstructorDefinition, bLeadingTab, bTrailingNewLine);
+	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%ADDITIONAL_MEMBER_DEFINITIONS%"), *AdditionalMemberDefinitions, bLeadingTab, bTrailingNewLine);
 
 	HarvestCursorSyncLocation( FinalOutput, OutSyncLocation );
 
@@ -3187,6 +3188,29 @@ bool GameProjectUtils::GeneratePluginModuleHeaderFile(const FString& HeaderFileN
 	FinalOutput = FinalOutput.Replace(TEXT("%PUBLIC_HEADER_INCLUDES%"), *MakeIncludeList(PublicHeaderIncludes), ESearchCase::CaseSensitive);
 
 	return WriteOutputFile(HeaderFileName, FinalOutput, OutFailReason);
+}
+
+FString GameProjectUtils::ReplaceWildcard(const FString& Input, const FString& From, const FString& To, bool bLeadingTab, bool bTrailingNewLine)
+{
+	FString Result = Input;
+	FString WildCard = bLeadingTab ? TEXT("\t") : TEXT("");
+
+	WildCard.Append(From);
+
+	if (bTrailingNewLine)
+	{
+		WildCard.Append(LINE_TERMINATOR);
+	}
+
+	int32 NumReplacements = Result.ReplaceInline(*WildCard, *To, ESearchCase::CaseSensitive);
+
+	// if replacement fails, try again using just the plain wildcard without tab and/or new line
+	if (NumReplacements == 0)
+	{
+		Result = Result.Replace(*From, *To, ESearchCase::CaseSensitive);
+	}
+
+	return Result;
 }
 
 void GameProjectUtils::OnUpdateProjectConfirm()
@@ -3475,7 +3499,7 @@ bool GameProjectUtils::ProjectRequiresBuild(const FName InPlatformInfoName)
 	}
 
 	// check to see if any plugins beyond the defaults have been enabled
-	bRequiresBuild |= IProjectManager::Get().IsNonDefaultPluginEnabled();
+	bRequiresBuild |= !IProjectManager::Get().HasDefaultPluginSettings();
 
 	// check to see if Blueprint nativization is enabled in the Project settings
 	bRequiresBuild |= GetDefault<UProjectPackagingSettings>()->BlueprintNativizationMethod != EProjectPackagingBlueprintNativizationMethod::Disabled;
@@ -3898,11 +3922,11 @@ bool GameProjectUtils::InsertFeaturePacksIntoINIFile(const FProjectInformation& 
 		FString StarterPack;
 		if (InProjectInfo.TargetedHardware == EHardwareClass::Mobile)
 		{
-			StarterPack = TEXT("InsertPack=(PackSource=\"MobileStarterContent") + DefaultFeaturePackExtension + TEXT(",PackName=\"StarterContent\")");
+			StarterPack = TEXT("InsertPack=(PackSource=\"MobileStarterContent") + DefaultFeaturePackExtension + TEXT("\",PackName=\"StarterContent\")");
 		}
 		else
 		{
-			StarterPack = TEXT("InsertPack=(PackSource=\"StarterContent")  + DefaultFeaturePackExtension + TEXT(",PackName=\"StarterContent\")");
+			StarterPack = TEXT("InsertPack=(PackSource=\"StarterContent")  + DefaultFeaturePackExtension + TEXT("\",PackName=\"StarterContent\")");
 		}
 		PackList.Add(StarterPack);
 	}

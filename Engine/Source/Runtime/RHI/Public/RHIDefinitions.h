@@ -63,9 +63,11 @@ enum EShaderPlatform
 	SP_METAL_MRT_MAC		= 27,
 	SP_VULKAN_SM5_LUMIN		= 28,
 	SP_VULKAN_ES3_1_LUMIN	= 29,
+	SP_METAL_TVOS			= 30,
+	SP_METAL_MRT_TVOS		= 31,
 
-	SP_NumPlatforms			= 30,
-	SP_NumBits				= 5,
+	SP_NumPlatforms			= 32,
+	SP_NumBits				= 6,
 };
 static_assert(SP_NumPlatforms <= (1 << SP_NumBits), "SP_NumPlatforms will not fit on SP_NumBits");
 
@@ -81,6 +83,12 @@ enum ERenderQueryType
 
 /** Maximum number of miplevels in a texture. */
 enum { MAX_TEXTURE_MIP_COUNT = 14 };
+
+/** Maximum number of immutable samplers in a PSO. */
+enum
+{
+	MaxImmutableSamplers = 2
+};
 
 /** The maximum number of vertex elements which can be used by a vertex declaration. */
 enum
@@ -152,6 +160,20 @@ namespace ERHIFeatureLevel
 		Num
 	};
 };
+
+/**
+* The RHI's currently enabled shading path.
+*/
+namespace ERHIShadingPath
+{
+	enum Type
+	{
+		Deferred,
+		Forward,
+		Mobile,
+		Num
+	};
+}
 
 enum ESamplerFilter
 {
@@ -432,15 +454,6 @@ enum EResourceLockMode
 	RLM_Num
 };
 
-enum class EMultiGPUMode
-{
-	Broadcast,		// Broadcast all (if multi-GPU)
-	AlternateFrame,	// Alternate Frame Rendering (Use GPU# where # = FrameIndex % NumGPU)
-	AlternateView,	// Alternate View Rendering (Use GPU# where # = ViewIndex % NumGPU)
-	GPU0,			// Only use GPU0
-	GPU1			// Only use GPU1
-};
-
 /** limited to 8 types in FReadSurfaceDataFlags */
 enum ERangeCompressionMode
 {
@@ -546,7 +559,6 @@ enum EBufferUsageFlags
 
 	/** 
 	 * The buffer will be written to occasionally, GPU read only, CPU write only.  The data lifetime is until the next update, or the buffer is destroyed.
-	 * Warning: On PS4, BUF_Dynamic do not support multiple updates per frame!  Later updates will overwrite earlier ones, causing a race condition with the GPU.
 	 */
 	BUF_Dynamic           = 0x0002, 
 
@@ -646,21 +658,20 @@ enum ETextureCreateFlags
 
 	// Texture is encoded in sRGB gamma space
 	TexCreate_SRGB					= 1<<4,
-	// Texture will be created without a packed miptail
-	TexCreate_NoMipTail				= 1<<5,
+	// Texture data is writable by the CPU
+	TexCreate_CPUWritable			= 1<<5,
 	// Texture will be created with an un-tiled format
 	TexCreate_NoTiling				= 1<<6,
 	// Texture that may be updated every frame
 	TexCreate_Dynamic				= 1<<8,
-	// Allow silent texture creation failure
-	TexCreate_AllowFailure			= 1<<9,
+	// Texture will be used as a render pass attachment that will be read from
+	TexCreate_InputAttachmentRead	= 1<<9,
 	// Disable automatic defragmentation if the initial texture memory allocation fails.
 	TexCreate_DisableAutoDefrag		= 1<<10,
 	// Create the texture with automatic -1..1 biasing
 	TexCreate_BiasNormalMap			= 1<<11,
 	// Create the texture with the flag that allows mip generation later, only applicable to D3D11
 	TexCreate_GenerateMipCapable	= 1<<12,
-
 	// The texture can be partially allocated in fastvram
 	TexCreate_FastVRAMPartialAlloc  = 1<<13,
 	// UnorderedAccessView (DX11 only)
@@ -798,19 +809,11 @@ inline bool IsES2Platform(const EShaderPlatform Platform)
 	return Platform == SP_PCD3D_ES2 || Platform == SP_OPENGL_PCES2 || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES2_WEBGL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_METAL_MACES2;
 }
 
-/** Whether the shader platform is OpenGL and corresponds to the ES2/ES3.1 feature level. */
-inline bool IsMobileOpenGlPlatform(const EShaderPlatform Platform)
-{
-	return IsES2Platform(Platform)
-		|| Platform == SP_PCD3D_ES3_1 || Platform == SP_OPENGL_PCES3_1 || Platform == SP_VULKAN_ES3_1_ANDROID
-		|| Platform == SP_VULKAN_PCES3_1 || Platform == SP_METAL || Platform == SP_METAL_MACES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID;
-}
-
 /** Whether the shader platform corresponds to the ES2/ES3.1 feature level. */
 inline bool IsMobilePlatform(const EShaderPlatform Platform)
 {
 	return IsES2Platform(Platform)
-		|| Platform == SP_METAL || Platform == SP_METAL_MACES3_1
+		|| Platform == SP_METAL || Platform == SP_METAL_MACES3_1 || Platform == SP_METAL_TVOS
 		|| Platform == SP_PCD3D_ES3_1
 		|| Platform == SP_OPENGL_PCES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID
 		|| Platform == SP_VULKAN_ES3_1_ANDROID || Platform == SP_VULKAN_PCES3_1 || Platform == SP_VULKAN_ES3_1_LUMIN
@@ -821,12 +824,27 @@ inline bool IsOpenGLPlatform(const EShaderPlatform Platform)
 {
 	return Platform == SP_OPENGL_SM4 || Platform == SP_OPENGL_SM5 || Platform == SP_OPENGL_PCES2 || Platform == SP_OPENGL_PCES3_1
 		|| Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES2_WEBGL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES31_EXT
-		|| Platform == SP_OPENGL_ES3_1_ANDROID || Platform == SP_SWITCH || Platform == SP_SWITCH_FORWARD;
+		|| Platform == SP_OPENGL_ES3_1_ANDROID;
 }
 
 inline bool IsMetalPlatform(const EShaderPlatform Platform)
 {
-	return Platform == SP_METAL || Platform == SP_METAL_MRT || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_SM5 || Platform == SP_METAL_MACES3_1 || Platform == SP_METAL_MACES2 || Platform == SP_METAL_MRT_MAC;
+	return Platform == SP_METAL || Platform == SP_METAL_MRT || Platform == SP_METAL_TVOS || Platform == SP_METAL_MRT_TVOS || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_SM5 || Platform == SP_METAL_MACES3_1 || Platform == SP_METAL_MACES2 || Platform == SP_METAL_MRT_MAC;
+}
+
+inline bool IsMetalMobilePlatform(const EShaderPlatform Platform)
+{
+	return Platform == SP_METAL || Platform == SP_METAL_TVOS;
+}
+
+inline bool IsMetalMRTPlatform(const EShaderPlatform Platform)
+{
+	return Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_TVOS || Platform == SP_METAL_MRT_MAC;
+}
+
+inline bool IsMetalSM5Platform(const EShaderPlatform Platform)
+{
+	return Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_TVOS || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_SM5 || Platform == SP_METAL_MRT_MAC;
 }
 
 inline bool IsConsolePlatform(const EShaderPlatform Platform)
@@ -898,6 +916,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_OPENGL_ES31_EXT:
 	case SP_METAL_SM5:
 	case SP_METAL_MRT:
+	case SP_METAL_MRT_TVOS:
 	case SP_METAL_MRT_MAC:
 	case SP_METAL_SM5_NOTESS:
 	case SP_VULKAN_SM5:
@@ -916,6 +935,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_METAL_MACES2:
 		return ERHIFeatureLevel::ES2;
 	case SP_METAL:
+	case SP_METAL_TVOS:
 	case SP_METAL_MACES3_1:
 	case SP_PCD3D_ES3_1:
 	case SP_OPENGL_PCES3_1:
@@ -939,6 +959,9 @@ inline bool IsSimulatedPlatform(EShaderPlatform Platform)
 		case SP_PCD3D_ES2:
 		case SP_PCD3D_ES3_1:
 		case SP_OPENGL_PCES3_1:
+		case SP_METAL_MACES3_1:
+		case SP_METAL_MACES2:
+		case SP_VULKAN_PCES3_1:
 			return true;
 		break;
 
@@ -988,14 +1011,14 @@ inline bool RHINeedsToSwitchVerticalAxis(EShaderPlatform Platform)
 #endif
 
 	// ES2 & ES3.1 need to flip when rendering to an RT that will be post processed
-	return IsOpenGLPlatform(Platform) && IsMobilePlatform(Platform) && !IsPCPlatform(Platform) && Platform != SP_METAL && !IsVulkanPlatform(Platform)
+	return IsOpenGLPlatform(Platform) && IsMobilePlatform(Platform) && !IsPCPlatform(Platform) && !IsMetalMobilePlatform(Platform) && !IsVulkanPlatform(Platform)
 		   && Platform != SP_SWITCH && Platform != SP_SWITCH_FORWARD;
 }
 
 inline bool RHISupportsSeparateMSAAAndResolveTextures(const EShaderPlatform Platform)
 {
 	// Metal mobile devices, Vulkan and Android ES2/3.1 need to handle MSAA and resolve textures internally (unless RHICreateTexture2D was changed to take an optional resolve target)
-	const bool bMobileMetalDevice = (Platform == SP_METAL || Platform == SP_METAL_MRT);
+	const bool bMobileMetalDevice = (Platform == SP_METAL || Platform == SP_METAL_TVOS || Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_TVOS);
 	return !bMobileMetalDevice && !IsVulkanPlatform(Platform) && !IsAndroidOpenGLESPlatform(Platform);
 }
 
@@ -1010,15 +1033,10 @@ inline bool RHISupportsGeometryShaders(const EShaderPlatform Platform)
 	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsMetalPlatform(Platform) && !IsVulkanMobilePlatform(Platform);
 }
 
-inline bool RHISupportsShaderCompression(const EShaderPlatform Platform)
-{
-	return true;
-}
-
 inline bool RHIHasTiledGPU(const EShaderPlatform Platform)
 {
 	// @todo MetalMRT Technically we should include (Platform == SP_METAL_MRT) but this would disable depth-pre-pass which is currently required.
-	return Platform == SP_METAL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES3_1_ANDROID;
+	return Platform == SP_METAL || Platform == SP_METAL_TVOS || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES3_1_ANDROID;
 }
 
 inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
@@ -1062,8 +1080,8 @@ inline int32 GetFeatureLevelMaxNumberOfBones(ERHIFeatureLevel::Type FeatureLevel
 	switch (FeatureLevel)
 	{
 	case ERHIFeatureLevel::ES2:
-		return 75;
 	case ERHIFeatureLevel::ES3_1:
+		return 75;
 	case ERHIFeatureLevel::SM4:
 	case ERHIFeatureLevel::SM5:
 		return 256;

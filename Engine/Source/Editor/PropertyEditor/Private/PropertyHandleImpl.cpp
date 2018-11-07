@@ -1385,13 +1385,15 @@ void FPropertyValueImpl::InsertChild( TSharedPtr<FPropertyNode> ChildNodeToInser
 		ChangeEvent.SetArrayIndexPerObject(ArrayIndicesPerObject);
 		ChangeEvent.SetInstancesChangedResultPerArchetype(PropagationResultPerObject);
 
-		ChildNodePtr->NotifyPostChange(ChangeEvent, NotifyHook);
+		PropertyNode.Pin()->NotifyPostChange(ChangeEvent, NotifyHook);
 
 		if (PropertyUtilities.IsValid())
 		{
 			ChildNodePtr->FixPropertiesInEvent(ChangeEvent);
 			PropertyUtilities.Pin()->NotifyFinishedChangingProperties(ChangeEvent);
 		}
+
+		PropertyNode.Pin()->RebuildChildren();
 	}
 }
 
@@ -1531,13 +1533,15 @@ void FPropertyValueImpl::DeleteChild( TSharedPtr<FPropertyNode> ChildNodeToDelet
 		ChangeEvent.SetArrayIndexPerObject(ArrayIndicesPerObject);
 		ChangeEvent.SetInstancesChangedResultPerArchetype(PropagationResultPerObject);
 
-		ChildNodePtr->NotifyPostChange(ChangeEvent, NotifyHook);
+		PropertyNode.Pin()->NotifyPostChange(ChangeEvent, NotifyHook);
 
 		if (PropertyUtilities.IsValid())
 		{
 			ChildNodePtr->FixPropertiesInEvent(ChangeEvent);
 			PropertyUtilities.Pin()->NotifyFinishedChangingProperties(ChangeEvent);
 		}
+
+		PropertyNode.Pin()->RebuildChildren();
 	}
 }
 
@@ -1638,6 +1642,8 @@ void FPropertyValueImpl::SwapChildren( TSharedPtr<FPropertyNode> FirstChildNode,
 			SecondChildNodePtr->FixPropertiesInEvent(ChangeEvent);
 			PropertyUtilities.Pin()->NotifyFinishedChangingProperties(ChangeEvent);
 		}
+
+		PropertyNode.Pin()->RebuildChildren();
 	}
 }
 
@@ -2046,7 +2052,7 @@ void FPropertyValueImpl::DuplicateChild( TSharedPtr<FPropertyNode> ChildNodeToDu
 		ChangeEvent.SetArrayIndexPerObject(ArrayIndicesPerObject);
 		ChangeEvent.SetInstancesChangedResultPerArchetype(PropagationResultPerObject);
 
-		ChildNodePtr->NotifyPostChange(ChangeEvent, NotifyHook);
+		PropertyNode.Pin()->NotifyPostChange(ChangeEvent, NotifyHook);
 
 		if (PropertyUtilities.IsValid())
 		{
@@ -3710,6 +3716,25 @@ FPropertyAccess::Result FPropertyHandleObject::SetValueFromFormattedString(const
 			else
 			{
 				bSupportedObject = true;
+			}
+
+			if (bSupportedObject)
+			{
+				const FString& DisallowedClassesString = NodeProperty->GetMetaData("DisallowedClasses");
+				TArray<FString> DisallowedClassNames;
+				DisallowedClassesString.ParseIntoArray(DisallowedClassNames, TEXT(","), true);
+
+				for (const FString& DisallowedClassName : DisallowedClassNames)
+				{
+					UClass* DisallowedClass = FindObject<UClass>(ANY_PACKAGE, *DisallowedClassName);
+					const bool bIsInterface = DisallowedClass && DisallowedClass->HasAnyClassFlags(CLASS_Interface);
+
+					if ((DisallowedClass && QualifiedObject->IsA(DisallowedClass)) || (bIsInterface && QualifiedObject->GetClass()->ImplementsInterface(DisallowedClass)))
+					{
+						bSupportedObject = false;
+						break;
+					}
+				}
 			}
 
 			// Check required class

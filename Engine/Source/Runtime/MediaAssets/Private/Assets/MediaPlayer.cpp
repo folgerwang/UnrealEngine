@@ -11,6 +11,7 @@
 #include "IMediaTicker.h"
 #include "IMediaTracks.h"
 #include "MediaPlayerFacade.h"
+#include "MediaPlayerOptions.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
@@ -89,6 +90,23 @@ bool UMediaPlayer::CanPlayUrl(const FString& Url)
 	return PlayerFacade->CanPlayUrl(Url, GetDefault<UMediaSource>());
 }
 
+void UMediaPlayer::SetPlaylistInternal(UMediaPlaylist* InPlaylist)
+{
+	if (Playlist && Playlist != InPlaylist && Playlist->IsRooted())
+	{
+		// To avoid leaking UObjects we need to remove the old playlist from root set 
+		// (which has been most likely rooted because this MediaPlayer is in disregard for GC set)
+		Playlist->RemoveFromRoot();
+	}
+
+	Playlist = InPlaylist;
+
+	if (InPlaylist && GUObjectArray.IsDisregardForGC(this))
+	{
+		// If this MediaPlayer object is in disregard for GC set, add the new Playlist to root set.
+		Playlist->AddToRoot();
+	}
+}
 
 void UMediaPlayer::Close()
 {
@@ -96,10 +114,12 @@ void UMediaPlayer::Close()
 
 	PlayerFacade->Close();
 
+	Playlist = nullptr;
 	if (!HasAnyFlags(RF_ClassDefaultObject) && !GExitPurge)
 	{
-		Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+		SetPlaylistInternal(NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient));
 	}
+
 	PlaylistIndex = INDEX_NONE;
 	PlayOnNext = false;
 }
@@ -399,8 +419,8 @@ bool UMediaPlayer::OpenPlaylistIndex(UMediaPlaylist* InPlaylist, int32 Index)
 
 	UE_LOG(LogMediaAssets, Verbose, TEXT("%s.OpenSource %s %i"), *GetFName().ToString(), *InPlaylist->GetFName().ToString(), Index);
 
-	Playlist = InPlaylist;
-
+	SetPlaylistInternal(InPlaylist);
+	
 	if (Index == INDEX_NONE)
 	{
 		return true;
@@ -426,7 +446,7 @@ bool UMediaPlayer::OpenPlaylistIndex(UMediaPlaylist* InPlaylist, int32 Index)
 }
 
 
-bool UMediaPlayer::OpenSource(UMediaSource* MediaSource)
+bool UMediaPlayer::OpenSourceInternal(UMediaSource* MediaSource, const FMediaPlayerOptions* PlayerOptions)
 {
 	Close();
 
@@ -446,10 +466,21 @@ bool UMediaPlayer::OpenSource(UMediaSource* MediaSource)
 
 	check(Playlist != nullptr);
 	Playlist->Add(MediaSource);
+	PlayOnNext |= PlayerFacade->IsPlaying();
+	Playlist->GetNext(PlaylistIndex);
 
-	return Next();
+	return PlayerFacade->Open(MediaSource->GetUrl(), MediaSource, PlayerOptions);
 }
 
+bool UMediaPlayer::OpenSourceWithOptions(UMediaSource* MediaSource, const FMediaPlayerOptions& PlayerOptions)
+{
+	return OpenSourceInternal(MediaSource, &PlayerOptions);
+}
+
+bool UMediaPlayer::OpenSource(UMediaSource* MediaSource)
+{
+	return OpenSourceInternal(MediaSource, nullptr);
+}
 
 bool UMediaPlayer::OpenUrl(const FString& Url)
 {
@@ -693,6 +724,11 @@ void UMediaPlayer::PostDuplicate(bool bDuplicateForPIE)
 	{
 		PlayerGuid = FGuid::NewGuid();
 		PlayerFacade->SetGuid(PlayerGuid);
+
+		if (!Playlist)
+		{
+			Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+		}
 	}
 }
 

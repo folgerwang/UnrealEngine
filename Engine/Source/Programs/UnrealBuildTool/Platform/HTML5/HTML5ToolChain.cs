@@ -274,7 +274,7 @@ namespace UnrealBuildTool
 			Result += " -s BINARYEN=1 -s ALLOW_MEMORY_GROWTH=1";
 //			Result += " -s BINARYEN_METHOD=\\'native-wasm\\'";
 //			Result += " -s BINARYEN_MEM_MAX=-1";
-//			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
+			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
 
 			// no need for exceptions
 			Result += " -s DISABLE_EXCEPTION_CATCHING=1";
@@ -390,14 +390,8 @@ namespace UnrealBuildTool
 
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
-				string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
 				// Add the object file to the produced item list.
-				FileItem ObjectFile = FileItem.GetItemByFileReference(
-					FileReference.Combine(
-						OutputDir,
-						Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
-						)
-					);
+				FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".bc"));
 				CompileAction.ProducedItems.Add(ObjectFile);
 				FileArguments += string.Format(" -o \"{0}\"", ObjectFile.AbsolutePath);
 

@@ -212,7 +212,7 @@ void UNiagaraNodeCustomHlsl::BuildParameterMapHistory(FNiagaraParameterMapHistor
 	int32 ParamMapIdx = INDEX_NONE;
 	TArray<FNiagaraVariable> LocalVars;
 	// This only works currently if the input pins are in the same order as the signature pins.
-	if (InputPins.Num() == Signature.Inputs.Num() + 1)// the add pin is extra
+	if (InputPins.Num() == Signature.Inputs.Num() + 1 && OutputPins.Num() == Signature.Outputs.Num() + 1)// the add pin is extra
 	{
 		bool bHasParamMapInput = false;
 		bool bHasParamMapOutput = false;
@@ -340,8 +340,6 @@ void UNiagaraNodeCustomHlsl::RebuildSignatureFromPins()
 
 	Signature = Sig;
 
-	RefreshFromExternalChanges();
-	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 }
 
 #undef LOCTEXT_NAMESPACE

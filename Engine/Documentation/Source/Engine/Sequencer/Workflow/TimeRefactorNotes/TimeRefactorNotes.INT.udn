@@ -1,0 +1,160 @@
+Availability:Public
+Title:Sequencer Time Refactor Technical Notes
+Crumbs:%ROOT%, Engine
+Description:Technical information for the Time Refactor performed on the Sequencer tool for 4.20. 
+Navigation:topic
+Parent:Engine\Sequencer\Workflow
+order:1
+Version:4.20
+tags:Sequencer
+
+[TOC(start:2 end:2)]
+
+[REGION:warning]
+For the 4.20 release of UE4 substantial changes have been made to the way time is represented within Sequencer. This has been done to better support filmic pipelines and contexts where frame-accuracy is of huge importance. This page outlines the high-level conceptual changes, and details the breaking C++ code changes for upgrade purposes.
+[/REGION]
+
+## What has changed?
+
+Since its inception, **Sequencer** has represented time as a **number of seconds**, using a **floating point number**. This has made it very hard to support robust frame-accuracy, and has led to keyframe positioning errors, errors during rendering, unstable camera cut frames, ambiguous evaluation problems and more. As of the engine 4.20 release, the switch has been made to using integer ticks to represent time which resolves many, if not all of these problems.
+
+The way in which these ticks are interpreted is defined at a per-sequence level, through the sequence’s **Tick Resolution **which defines how many ticks there are per second. Using this mechanism, the user is in control of how granular sequencer data can be. For example, for real-time applications where frame-accuracy is less of a concern one might choose a very high resolution, whereas a Master Sequence for a rendered cinematic might choose the actual desired framerate for the project.
+
+This approach enables great flexibility for Sequencer in different contexts without compromising on robustness or performance. By default, content created before 4.20 will be upgraded with a tick resolution of **60,000 fps** which covers all common frame rates except **23.976 (NTSC)**. New sequences will default to a tick resolution of **24,000,** which covers all common whole number rates, as well as **23.976 (NTSC).**
+
+These cvars are useful for customizing what defaults to use for any given project:
+
+* MovieScene.LegacyConversionFrameRate (**Default: 60000fps**)
+
+    * Specifies default frame resolution for UMovieScene data saved before 4.20. 
+
+    * Has no effect on assets (re)saved from 4.20+.
+
+* LevelSequence.DefaultTickResolution (**Default: 24000fps**)
+
+    * Specifies a default tick resolution for newly created level sequences.
+
+* LevelSequence.DefaultDisplayRate (**Default: 30fps**)
+
+    * Specifies a default display frame rate for newly created level sequences; also defines frame locked frame rate where sequences are set to be frame locked.
+
+Bear in mind that Sequencer still supports evaluation of keyframe data using a floating-point subframe, which means we can still perform smooth interpolation at runtime even on sequences that have a very low tick resolution. Only section boundaries and the keyframes themselves are constrained by the tick resolution.
+
+All timing information for a given sequence now resides on the **Display Rate** drop-down on the Sequencer toolbar where the tooltip describes the current sequence’s tick resolution:
+
+![image alt text](image_0.png)(w:624 h:314 convert:false)
+
+This menu allows you to change the sequence’s Display Frame Rate, Time Display mode, and Evaluation Type. Common Display Rates that are compatible with the current sequence’s tick resolution are shown at the top level. It is possible to display using a frame rate that is incompatible with the tick resolution, but this is not advisable.
+
+Once created, it is possible to change the tick resolution of the sequence but bear in mind that converting a sequence to a tick resolution that is not a multiple of its current resolution may result in section boundaries and keys being rounded to the new resolution which can be found in the **Advanced Options **menu.
+
+![image alt text](image_1.png)(w:624 h:416 convert:false)
+
+## C++ Upgrade Notes
+
+In order to support the new time format, a large reworking of many internal Sequencer and MovieScene classes and data structures was required. Given the size and scope of the changes, it has not been possible to provide a graceful deprecation path for some APIs. 
+
+This section will explain in detail the major changes and provide an example code migration from 4.19 to 4.20.
+
+### Changes and Additions
+
+* **TimeManagement **module: provides common time-related data structures and manipulation and handling utilities:
+
+
+| Code | Description |
+| --- | --- |
+| FFrameNumber (32 bits) | A typesafe 32-bit integer primarily used to represent a context-free tick or a frame number. Does not support conversion from any other numeric type other than an int32. |
+| FFrameTime (64 bits) | A time representation comprising a context-free frame number and a floating point sub-frame. Primarily used during evaluation. |
+| FFrameRate (64 bits) | A fractional frame rate stored as an integral numerator and denominator (frames / seconds). |
+| FQualifiedFrameTime (128 bits) | A composition of FFrameTime and FFrameRate that allows for convenient conversion to/from seconds values and other frame rates. |
+| FTimecode (20 bytes) | A timecode representation comprising integers for hours, minutes, seconds and frames, including a boolean flag for drop frame/non-drop timecode |
+
+
+
+* **MovieScene Data**: UMovieScene now contains a tick resolution and display rate, and bolsters the previous ‘Force Fixed Frame Interval’ evaluation with an evaluation type enum. Notable changes to UMovieScene’s API include:
+
+
+| Code | Description |
+| --- | --- |
+| UMovieScene::GetEvaluationType() | Retrieves an enumeration specifying how to evaluate this sequence: [INCLUDE:#MovieSceneDataInsetTable] |
+| UMovieScene::GetTickResolution() | Retrieves the tick resolution that all FFrameNumbers within this movie scene should be interpreted with (unless otherwise stated) |
+| UMovieScene::GetDisplayRate() | Retrieves the frame rate that user-facing UI, Blueprint nodes and Sequence Players use when interfacing with this sequence. Also defines t.maxfps and the locked framerate when EvaluationType is set to FrameLocked. |
+
+<!---
+[EXCERPT:MovieSceneDataInsetTable]
+| Code | Description |
+|--- | --- |
+| WithSubFrames (default) | Evaluate using sub-frame interpolation |
+| FrameLocked | Lock to the DisplayRate of the sequence, only evaluate round frame numbers, no subframes, set t.maxfps during evaluation. |
+[/EXCERPT]
+--->
+
+
+All movie scene data relating to time has been converted to using FFrameNumber, based on the tick resolution of the owning UMovieScene. This includes: 
+
+* UMovieSceneSection ranges. Section ranges are now exposed exclusively as TRange<FFrameNumber>. This range now also implies infinite upper or lower bounds, and removes the need for a separate IsInfinite flag. Sections that support infinite ranges can now set bSupportsInfiniteRange to true. 
+
+* UMovieScene playback and selection ranges. Both inclusive and exclusive upper and lower bounds are now correctly handled.
+
+* Pre/Post roll amounts
+
+* UMovieSceneSubSection start offsets (in the inner sequence’s tick resolution)
+
+* **Curve Data**: All existing curve classes (for example FRichCurve, FIntegralCurve, FNameCurve ) are replaced internally with new channel types that operate on FFrameNumber times in the owning UMovieScene’s tick resolution, rather than floats. Backwards compatibility with floating point time representations is not possible due to the disparity in time types. Automatic upgrade from their legacy counterparts is supported through SerializeFromMismatchedTag, using the legacy upgrade tick resolution as outlined above.
+
+    * FRichCurve becomes FMovieSceneFloatChannel
+
+    * FIntegralCurve becomes FMovieSceneIntegerChannel
+
+    * FStringCurve becomes FMovieSceneStringChannel
+
+    * FNameCurve is no longer used internally
+
+    * FMovieSceneByteChannel (including enums) and FMovieSceneBoolChannel have been added.
+
+Custom curve data types that were previously using TCurveInterface, should be trivial to migrate to the new FMovieSceneXYZChannel model as long as they provide a TMovieSceneChannelData<> GetData() method.
+
+### Movie Scene Channels
+
+Given the necessary breaking changes to curve (now referred to as channel) data, the opportunity was also taken to unify several editor codepaths and reduce duplication for sections that support keyframes. A new type, FMovieSceneChannelProxy, has been added which affords editor and runtime code a common language for interacting with and manipulating keyframes. 
+
+To this end, IKeyframeSection<> has been completely removed and is no longer necessary. Sections that support keyframes now just need to populate their channel proxy correctly in order to support generic keyframe interaction. This change will also make it much simpler to compose new section types with keyframes in the future since the common key-manipulation interface now exists at the channel level, rather than the section level.
+
+There are several components to this new system, with a slightly different approach to editor customization:
+
+#### FMovieSceneChannelProxy
+
+Stored on UMovieSceneSection: derived types should populate this structure with all of its channels as in the example below. Channels are stored by their base FMovieSceneChannel* in buckets by derived type. With this in mind, any reallocation of channels should be immediately followed by a re-creation of the channel proxy; doing so will invalidate any pointers and handles to the channels stored in the old proxy.
+
+All interaction with channels is through either the FMovieSceneChannel interface directly, or ISequencerChannelInterface, depending on context. The latter is registered per-type through the sequencer module (ISequencerModule::RegisterChannelEditor).
+
+[REGION: warning]Failure to do so will result in a failed assertion at runtime when trying to edit such channels. A templated helper is provided through TSequencerChannelInterface which allows single-concept overloading for any given channel type, resolved through argument-dependent lookup (ADL). [/REGION]
+
+This allows customization of specific behavior without having to re-implement the entire interface if the defaults are suitable for most channels. It also means that core sequencer code can automatically populate UI for channel data without having to manually define ISequencerSection interfaces and manually defining the channel layout in the editor as well as in the runtime. This streamlines the creation of custom section types to a degree, particularly when composing sections from already supported intrinsic channel data.
+
+Default implementation functions for ISequencerChannelInterface are defined in the Sequencer namespace, but overloads should be added either to your channel’s namespace or the global namespace.
+
+[REGION: note]It is recommended that custom channels follow the pattern of storing times and values in parallel arrays, and provide a TMovieSceneChannelData<T> GetData() method for interacting with the keys. The majority of FMovieSceneChannel’s interface directly maps to functions callable on TMovieSceneChannelData.[/REGION]
+
+Using this proxy approach, all data required for constructing UI and interacting with the channel’s keys is readily available to Sequencer UI code. 
+
+#### FMovieSceneChannel
+
+Provides an interface through which all common channel data can be interacted with. All channels added to the channel proxy must implement this type.
+
+#### ISequencerChannelInterface
+
+An interface to all overloads relating to UI interaction and manipulation required by sequencer for a given channel. Must be registered through the ISequencerModule class for each channel type (normally in your editor module’s StartupModule method).
+
+#### TMovieSceneChannelTraits
+
+Specifies compile-time traits for channel types such as extended editor data, and whether the channel supports default values. Many sequencer UI utilities use the function overloads specified in MovieSceneChannelTraits.h to interact with each concrete channel type. If the default templated overloads are incompatible with your channel type, you should overload the necessary functions for the specific channel.
+
+### Other Utilities
+
+Several helper utilities have been added to make working with movie scene ranges easier. Now that we use a discrete time base, it’s easier to rationalize about section boundaries. Internally ranges are represented as TRange<FFrameNumber>, which supports inclusive, exclusive and open bounds. In order to make dealing with these ranges simpler for discrete time bases, you can use MovieScene::DiscreteInclusiveLower, DiscreteExclusiveUpper and DiscreteSize to consistently deal with the various boundary conditions.
+
+### Migration Guide
+
+Due to the nature of these changes, there will be C++ changes that require migration if you have written your own tracks, sections or curves in C++. Please see the prepared [example migration](https://bitbucket.org/BrakePad/custom-sequencer-example/commits/all) project for a track, section and channel type to assist in your own upgrade.
+

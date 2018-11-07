@@ -108,6 +108,12 @@ struct FVelocityRendering
 {
 	static FPooledRenderTargetDesc GetRenderTargetDesc();
 
-	static bool OutputsToGBuffer();
-	static bool OutputsOnlyToGBuffer(bool bSupportsStaticLighting);
+	/** Returns true the velocity can be outputted in the BasePass. */
+	static bool BasePassCanOutputVelocity(EShaderPlatform ShaderPlatform);
+
+	/** Returns true the velocity can be outputted in the BasePass. Only valid for the current platform. */
+	static bool BasePassCanOutputVelocity(ERHIFeatureLevel::Type FeatureLevel);
+
+	/** Returns true the velocity is output in the BasePass. */
+	static bool VertexFactoryOnlyOutputsVelocityInBasePass(EShaderPlatform ShaderPlatform, bool bVertexFactorySupportsStaticLighting);
 };

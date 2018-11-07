@@ -26,7 +26,8 @@ void FWebBrowserViewport::Tick( const FGeometry& AllottedGeometry, double InCurr
 {
 	if (!bIsPopup)
 	{
-		FVector2D AbsoluteSize = AllottedGeometry.GetLocalSize() * AllottedGeometry.Scale;
+		const float DPIScale = AllottedGeometry.Scale / (WebBrowserWindow->GetParentWindow().IsValid() ? WebBrowserWindow->GetParentWindow()->GetNativeWindow()->GetDPIScaleFactor() : 1.0f);
+		FVector2D AbsoluteSize = AllottedGeometry.GetLocalSize() * DPIScale;
 		WebBrowserWindow->SetViewportSize(AbsoluteSize.IntPoint());
 
 #if WITH_CEF3

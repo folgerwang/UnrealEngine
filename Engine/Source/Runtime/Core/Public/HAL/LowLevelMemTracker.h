@@ -120,6 +120,7 @@ enum class ELLMTagSet : uint8
 	macro(PlatformTrackedTotal,					"TrackedTotal",					GET_STATFNAME(STAT_PlatformTrackedTotalLLM),				NAME_None)									\
 	macro(PlatformUntaggedTotal,				"Untagged",						GET_STATFNAME(STAT_PlatformUntaggedTotalLLM),				NAME_None)									\
 	macro(PlatformUntracked,					"Untracked",					GET_STATFNAME(STAT_PlatformUntrackedLLM),					NAME_None)									\
+	macro(PlatformOverhead,						"LLMOverhead",					GET_STATFNAME(STAT_PlatformOverheadLLM),					NAME_None)									\
 	macro(FMalloc,								"FMalloc",						GET_STATFNAME(STAT_FMallocLLM),								NAME_None)									\
 	macro(FMallocUnused,						"FMallocUnused",				GET_STATFNAME(STAT_FMallocUnusedLLM),						GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(ThreadStack,							"ThreadStack",					GET_STATFNAME(STAT_ThreadStackLLM),							GET_STATFNAME(STAT_EngineSummaryLLM))		\
@@ -150,6 +151,7 @@ enum class ELLMTagSet : uint8
 	macro(Animation,							"Animation",					GET_STATFNAME(STAT_AnimationLLM),							GET_STATFNAME(STAT_AnimationSummaryLLM))	\
 	macro(StaticMesh,							"StaticMesh",					GET_STATFNAME(STAT_StaticMeshLLM),							GET_STATFNAME(STAT_StaticMeshSummaryLLM))	\
 	macro(Materials,							"Materials",					GET_STATFNAME(STAT_MaterialsLLM),							GET_STATFNAME(STAT_MaterialsSummaryLLM))	\
+	macro(MaterialShaderMaps,					"MaterialShaderMaps",			GET_STATFNAME(STAT_MaterialShaderMapsLLM),					GET_STATFNAME(STAT_MaterialsSummaryLLM))	\
 	macro(Particles,							"Particles",					GET_STATFNAME(STAT_ParticlesLLM),							GET_STATFNAME(STAT_ParticlesSummaryLLM))	\
 	macro(GC,									"GC",							GET_STATFNAME(STAT_GCLLM),									GET_STATFNAME(STAT_EngineSummaryLLM))		\
 	macro(UI,									"UI",							GET_STATFNAME(STAT_UILLM),									GET_STATFNAME(STAT_UISummaryLLM))			\
@@ -188,6 +190,8 @@ enum class ELLMTag : LLM_TAG_TYPE
 	// anything above this value is treated as an FName for a stat section
 };
 
+static const uint32 LLM_TAG_COUNT = 256;
+
 /**
  * Passed in to OnLowLevelAlloc to specify the type of allocation. Used to track FMalloc total
  * and pausing for a specific allocation type.
@@ -210,6 +214,7 @@ extern FName LLMGetTagStat(ELLMTag Tag);
  * LLM utility macros
  */
 #define LLM(x) x
+#define LLM_IF_ENABLED(x) if (!FLowLevelMemTracker::bIsDisabled) { x; }
 #define SCOPE_NAME PREPROCESSOR_JOIN(LLMScope,__LINE__)
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -332,9 +337,17 @@ class CORE_API FLowLevelMemTracker
 public:
 
 	// get the singleton, which makes sure that we always have a valid object
-	static FLowLevelMemTracker& Get();
+	inline static FLowLevelMemTracker& Get()
+	{
+		if (TrackerInstance)
+			return *TrackerInstance;
+		else
+			return Construct();
+	}
 
-	bool IsEnabled();
+	static FLowLevelMemTracker& Construct();
+
+	static bool IsEnabled();
 
 	// we always start up running, but if the commandline disables us, we will do it later after main
 	// (can't get the commandline early enough in a cross-platform way)
@@ -368,11 +381,14 @@ public:
 
     // get the top active tag for the given tracker
     int64 GetActiveTag(ELLMTracker Tracker);
-    
-	void RegisterPlatformTag(int32 Tag, const TCHAR* Name, FName StatName, FName SummaryStatName);
 
+	void RegisterPlatformTag(int32 Tag, const TCHAR* Name, FName StatName, FName SummaryStatName);
+    
 	// look up the tag associated with the given name
 	bool FindTagByName( const TCHAR* Name, uint64& OutTag ) const;
+
+	// get the name for the given tag
+	const TCHAR* FindTagName(uint64 Tag) const;
 
 private:
 	FLowLevelMemTracker();
@@ -392,8 +408,6 @@ private:
 
 	uint64 ProgramSize;
 
-	TAtomic<bool> bIsDisabled;
-
 	bool ActiveSets[(int32)ELLMTagSet::Max];
 
 	bool bCanEnable;
@@ -405,6 +419,11 @@ private:
 	FLLMPlatformTag PlatformTags[(int32)ELLMTag::PlatformTagEnd + 1 - (int32)ELLMTag::PlatformTagStart];
 
 	FLLMTracker* Trackers[(int32)ELLMTracker::Max];
+
+	static FLowLevelMemTracker* TrackerInstance;
+
+public: // really internal but needs to be visible for LLM_IF_ENABLED macro
+	static bool bIsDisabled;
 };
 
 /*
@@ -440,6 +459,7 @@ protected:
 
 #else
 	#define LLM(...)
+	#define LLM_IF_ENABLED(...)
 	#define LLM_SCOPE(...)
 	#define LLM_PLATFORM_SCOPE(...)
 	#define LLM_SCOPED_TAG_WITH_STAT(...)

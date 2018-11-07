@@ -202,6 +202,15 @@
 #include "Developer/HotReload/Public/IHotReload.h"
 #include "EditorBuildUtils.h"
 #include "MaterialStatsCommon.h"
+#include "MaterialShaderQualitySettings.h"
+
+#include "Bookmarks/IBookmarkTypeTools.h"
+#include "Bookmarks/BookMarkTypeActions.h"
+#include "Bookmarks/BookMark2DTypeActions.h"
+#include "ComponentReregisterContext.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInstance.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
@@ -337,6 +346,8 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	bIsEndingPlay = false;
 	NumOnlinePIEInstances = 0;
 	DefaultWorldFeatureLevel = GMaxRHIFeatureLevel;
+
+	bNotifyUndoRedoSelectionChange = true;
 
 	EditorWorldExtensionsManager = nullptr;
 
@@ -670,6 +681,10 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	IHotReloadModule& HotReloadModule = IHotReloadModule::Get();
 	HotReloadModule.OnModuleCompilerStarted ().AddUObject(this, &UEditorEngine::OnModuleCompileStarted);
 	HotReloadModule.OnModuleCompilerFinished().AddUObject(this, &UEditorEngine::OnModuleCompileFinished);
+
+	IBookmarkTypeTools& BookmarkTools = IBookmarkTypeTools::Get();
+	BookmarkTools.RegisterBookmarkTypeActions(MakeShared<FBookMark2DTypeActions>());
+	BookmarkTools.RegisterBookmarkTypeActions(MakeShared<FBookMarkTypeActions>());
 }
 
 bool UEditorEngine::HandleOpenAsset(UObject* Asset)
@@ -712,7 +727,19 @@ void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageRel
 				{
 					if(NewObject && CastChecked<UBlueprint>(NewObject)->GeneratedClass)
 					{
-						FBlueprintCompileReinstancer::ReplaceInstancesOfClass(OldBlueprint->GeneratedClass, CastChecked<UBlueprint>(NewObject)->GeneratedClass);
+						// Don't change the class on instances that are being thrown away by the reload code. If we update
+						// the class and recompile the old class ::ReplaceInstancesOfClass will experience some crosstalk 
+						// with the compiler (both trying to create objects of the same class in the same location):
+						TArray<UObject*> OldInstances;
+						GetObjectsOfClass(OldBlueprint->GeneratedClass, OldInstances, false);
+						OldInstances.RemoveAllSwap(
+							[](UObject* Obj){ return !Obj->HasAnyFlags(RF_NewerVersionExists); }
+						);
+						
+						TSet<UObject*> InstancesToLeaveAlone(OldInstances);
+						FReplaceInstancesOfClassParameters ReplaceInstancesParameters(OldBlueprint->GeneratedClass, CastChecked<UBlueprint>(NewObject)->GeneratedClass);
+						ReplaceInstancesParameters.InstancesThatShouldUseOldClass = &InstancesToLeaveAlone;
+						FBlueprintCompileReinstancer::ReplaceInstancesOfClassEx(ReplaceInstancesParameters);
 					}
 					else
 					{
@@ -759,7 +786,7 @@ void UEditorEngine::HandlePackageReloaded(const EPackageReloadPhase InPackageRel
 				BlueprintToRecompile = ObjectReferencerPtr->GetTypedOuter<UBlueprint>();
 			}
 			
-			if (BlueprintToRecompile)
+			if (BlueprintToRecompile && !BlueprintToRecompile->HasAnyFlags(RF_NewerVersionExists))
 			{
 				BlueprintsToRecompileThisBatch.Add(BlueprintToRecompile);
 			}
@@ -904,7 +931,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		if (GetPIEWorldContext() != nullptr && GetPIEWorldContext()->World() != nullptr)
 		{
-			GetPIEWorldContext()->World()->DestroyDemoNetDriver();
+			GEngine->ShutdownWorldNetDriver(GetPIEWorldContext()->World());
 		}
 	});
 
@@ -928,6 +955,8 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	SlowTask.EnterProgressFrame(40);
 	GEditor = this;
 	InitEditor(InEngineLoop);
+
+	LoadEditorFeatureLevel();
 
 	Layers = FLayers::Create( MakeWeakObjectPtr( this ) );
 
@@ -986,7 +1015,8 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("LocalizationDashboard"),
 			TEXT("MergeActors"),
 			TEXT("InputBindingEditor"),
-			TEXT("AudioEditor")
+			TEXT("AudioEditor"),
+			TEXT("TimeManagementEditor")
 		};
 
 		FScopedSlowTask ModuleSlowTask(ARRAY_COUNT(ModuleNames));
@@ -1473,6 +1503,11 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			// If there is currently a pie world a viewport is overriding audio settings do not adjust the volume.
 			FApp::SetVolumeMultiplier( 1.0f );
 		}
+	}
+
+	if (!bHasFocus)
+	{
+		SetPreviewMeshMode(false);
 	}
 
 	// Tick any editor FTickableEditorObject dervived classes
@@ -2736,7 +2771,10 @@ void UEditorEngine::ApplyDeltaToActor(AActor* InActor,
 
 	// Update the actor before leaving.
 	InActor->MarkPackageDirty();
-	InActor->InvalidateLightingCacheDetailed(bTranslationOnly);
+	if (!GIsDemoMode)
+	{
+		InActor->InvalidateLightingCacheDetailed(bTranslationOnly);
+	}
 	InActor->PostEditMove( false );
 }
 
@@ -4279,7 +4317,7 @@ void UEditorEngine::OnSourceControlDialogClosed(bool bEnabled)
 	}
 }
 
-bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World)
+bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World, bool &bOutForceInitialized)
 {
 	// We need a physics scene at save time in case code does traces during onsave events.
 	bool bHasPhysicsScene = false;
@@ -4307,11 +4345,15 @@ bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World)
 		{
 			// If we don't have a physics scene and the world was initialized without one (i.e. an inactive world) then we should create one here. We will remove it down below after the save
 			World->CreatePhysicsScene();
+
+			// Keep track of the force initialization so we can use the proper cleanup
+			bOutForceInitialized = false;
 		}
 		else
 		{
 			// If we aren't already initialized, initialize now and create a physics scene. Don't create an FX system because it uses too much video memory for bulk operations
 			World->InitWorld(GetEditorWorldInitializationValues().CreateFXSystem(false).CreatePhysicsScene(true));
+			bOutForceInitialized = true;
 		}
 
 		// Update components now that a physics scene exists.
@@ -4324,11 +4366,18 @@ bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World)
 	return false;
 }
 
-void UEditorEngine::CleanupPhysicsSceneThatWasInitializedForSave(UWorld* World)
+void UEditorEngine::CleanupPhysicsSceneThatWasInitializedForSave(UWorld* World, bool bForceInitialized)
 {
 	// Make sure we clean up the physics scene here. If we leave too many scenes in memory, undefined behavior occurs when locking a scene for read/write.
 	World->ClearWorldComponents();
+
+	if(bForceInitialized)
+	{
+		World->CleanupWorld(true, true, World);
+	}
+
 	World->SetPhysicsScene(nullptr);
+
 #if WITH_PHYSX
 	if (GPhysCommandHandler)
 	{
@@ -4359,6 +4408,7 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 
 	UWorld* World = Cast<UWorld>(Base);
 	bool bInitializedPhysicsSceneForSave = false;
+	bool bForceInitializedWorld = false;
 	const bool bSavingConcurrent = !!(SaveFlags & ESaveFlags::SAVE_Concurrent);
 	
 	UWorld *OriginalOwningWorld = nullptr;
@@ -4366,7 +4416,7 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 	{
 		if (!bSavingConcurrent)
 		{
-			bInitializedPhysicsSceneForSave = InitializePhysicsSceneForSaveIfNecessary(World);
+			bInitializedPhysicsSceneForSave = InitializePhysicsSceneForSaveIfNecessary(World, bForceInitializedWorld);
 
 			OnPreSaveWorld(SaveFlags, World);
 		}
@@ -4425,7 +4475,7 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 
 			if (bInitializedPhysicsSceneForSave)
 			{
-				CleanupPhysicsSceneThatWasInitializedForSave(World);
+				CleanupPhysicsSceneThatWasInitializedForSave(World, bForceInitializedWorld);
 			}
 
 			// Rerunning construction scripts may have made it dirty again
@@ -5238,14 +5288,9 @@ static void CopyLightComponentProperties( const AActor& InOldActor, AActor& InNe
 	UActorComponent* LightComponentToCopy = NULL;
 
 	// Go through the old actor's components and look for a light component to copy.
-	TInlineComponentArray<UActorComponent*> OldActorComponents;
-	InOldActor.GetComponents(OldActorComponents);
-
-	for( int32 CompToCopyIdx = 0; CompToCopyIdx < OldActorComponents.Num(); ++CompToCopyIdx )
+	for (UActorComponent* Component : InOldActor.GetComponents())
 	{
-		UActorComponent* Component = OldActorComponents[CompToCopyIdx];
-
-		if( Component->IsRegistered() && Component->IsA( CopyableComponentClass ) ) 
+		if (Component && Component->IsRegistered() && Component->IsA( CopyableComponentClass ) ) 
 		{
 			// A light component has been found. 
 			CompToCopyClass = Component->GetClass();
@@ -5259,17 +5304,13 @@ static void CopyLightComponentProperties( const AActor& InOldActor, AActor& InNe
 	// The class of the new actors light component
 	const UClass* CommonLightComponentClass = NULL;
 
-	// Dont do anything if there is no valid light component to copy from
+	// Don't do anything if there is no valid light component to copy from
 	if( LightComponentToCopy )
 	{
-		TInlineComponentArray<UActorComponent*> NewActorComponents;
-		InNewActor.GetComponents(NewActorComponents);
-
 		// Find a light component to overwrite in the new actor
-		for( int32 NewCompIdx = 0; NewCompIdx < NewActorComponents.Num(); ++NewCompIdx )
+		for (UActorComponent* Component : InNewActor.GetComponents())
 		{
-			UActorComponent* Component = NewActorComponents[ NewCompIdx ];
-			if(Component->IsRegistered())
+			if (Component && Component->IsRegistered())
 			{
 				// Find a common component class between the new and old actor.   
 				// This needs to be done so we can copy as many properties as possible. 
@@ -5508,37 +5549,31 @@ void CopyActorComponentProperties( const AActor* SourceActor, AActor* DestActor,
 
 		// Construct a mapping from the default actor of its relevant component names to its actual components. Here relevant component
 		// names are those that match a name provided as a parameter.
-		TInlineComponentArray<UActorComponent*> CDOComponents;
-		SrcActorDefaultActor->GetComponents(CDOComponents);
-
 		TMap<FString, const UActorComponent*> NameToDefaultComponentMap; 
-		for ( TInlineComponentArray<UActorComponent*>::TConstIterator CompIter( CDOComponents ); CompIter; ++CompIter )
+		for (UActorComponent* CurComp : SrcActorDefaultActor->GetComponents())
 		{
-			const UActorComponent* CurComp = *CompIter;
-			check( CurComp );
-
-			const FString CurCompName = CurComp->GetName();
-			if ( ComponentNames.Contains( CurCompName ) )
+			if (CurComp)
 			{
-				NameToDefaultComponentMap.Add( CurCompName, CurComp );
+				FString CurCompName = CurComp->GetName();
+				if (ComponentNames.Contains(CurCompName))
+				{
+					NameToDefaultComponentMap.Add(MoveTemp(CurCompName), CurComp);
+				}
 			}
 		}
 
 		// Construct a mapping from the source actor of its relevant component names to its actual components. Here relevant component names
 		// are those that match a name provided as a parameter.
-		TInlineComponentArray<UActorComponent*> SourceComponents;
-		SourceActor->GetComponents(SourceComponents);
-
 		TMap<FString, const UActorComponent*> NameToSourceComponentMap;
-		for ( TInlineComponentArray<UActorComponent*>::TConstIterator CompIter( SourceComponents ); CompIter; ++CompIter )
+		for (UActorComponent* CurComp : SourceActor->GetComponents())
 		{
-			const UActorComponent* CurComp = *CompIter;
-			check( CurComp );
-
-			const FString CurCompName = CurComp->GetName();
-			if ( ComponentNames.Contains( CurCompName ) )
+			if (CurComp)
 			{
-				NameToSourceComponentMap.Add( CurCompName, CurComp );
+				FString CurCompName = CurComp->GetName();
+				if (ComponentNames.Contains(CurCompName))
+				{
+					NameToSourceComponentMap.Add(MoveTemp(CurCompName), CurComp);
+				}
 			}
 		}
 
@@ -6846,7 +6881,7 @@ FORCEINLINE bool NetworkRemapPath_local(FWorldContext& Context, FString& Str, bo
 		// First strip any source prefix, then add the appropriate prefix for this context
 		FSoftObjectPath Path = UWorld::RemovePIEPrefix(Str);
 		
-		Path.FixupForPIE();
+		Path.FixupForPIE(Context.PIEInstance);
 		FString Remapped = Path.ToString();
 		if (!Remapped.Equals(Str, ESearchCase::CaseSensitive))
 		{
@@ -7050,6 +7085,8 @@ void UEditorEngine::InitializeNewlyCreatedInactiveWorld(UWorld* World)
 	check(World);
 	if (!World->bIsWorldInitialized && World->WorldType == EWorldType::Inactive)
 	{
+		const bool bOldDirtyState = World->GetOutermost()->IsDirty();
+
 		// Create the world without a physics scene because creating too many physics scenes causes deadlock issues in PhysX. The scene will be created when it is opened in the level editor.
 		// Also, don't create an FXSystem because it consumes too much video memory. This is also created when the level editor opens this world.
 		World->InitWorld(GetEditorWorldInitializationValues()
@@ -7059,6 +7096,12 @@ void UEditorEngine::InitializeNewlyCreatedInactiveWorld(UWorld* World)
 
 		// Update components so the scene is populated
 		World->UpdateWorldComponents(true, true);
+
+		// Need to restore the dirty state as registering components dirties the world
+		if (!bOldDirtyState)
+		{
+			World->GetOutermost()->SetDirtyFlag(bOldDirtyState);
+		}
 	}
 }
 
@@ -7278,8 +7321,10 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 		{
 			*OutError = TEXT("Error encountered.");
 		}
-
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitForMapToLoadCommand);
+		else
+		{
+			ADD_LATENT_AUTOMATION_COMMAND(FWaitForMapToLoadCommand);
+		}
 	}
 #endif
 	return;
@@ -7351,6 +7396,145 @@ void UEditorEngine::UpdateShaderComplexityMaterials()
 void UEditorEngine::OnSceneMaterialsModified()
 {
 	UpdateShaderComplexityMaterials();
+}
+
+void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel)
+{
+	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "UpdatingMaterialsMessage", "Updating Materials"), true);
+	SlowTask.MakeDialog();
+
+	//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
+	for (TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()); It; It.Next())
+	{
+		BeginUpdateResourceRHI(*It);
+	}
+
+	FGlobalComponentReregisterContext RecreateComponents;
+	FlushRenderingCommands();
+
+	SlowTask.EnterProgressFrame(5.0f);
+
+	// Decrement refcount on old feature level
+	UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
+
+	SlowTask.EnterProgressFrame(50.0f);
+	UMaterial::AllMaterialsCacheResourceShadersForRendering();
+	
+	SlowTask.EnterProgressFrame(40.0f);
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+
+	CompileGlobalShaderMap(InFeatureLevel);
+	GShaderCompilingManager->ProcessAsyncResults(false, true);
+	SlowTask.EnterProgressFrame(5.0f);
+}
+
+void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel)
+{
+	if (DefaultWorldFeatureLevel != InPreviewFeatureLevel)
+	{
+		// Record this feature level as we want to use it for all subsequent level creation and loading
+		DefaultWorldFeatureLevel = InPreviewFeatureLevel;
+
+		FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "ChangingPreviewRenderingLevelMessage", "Changing Preview Rendering Level"), true);
+		SlowTask.MakeDialog();
+
+		// first change the feature level for global/shared resources
+		SetMaterialsFeatureLevel(InPreviewFeatureLevel);
+
+		SlowTask.EnterProgressFrame(50.0f);
+
+		UWorld* MainWorld = GetEditorWorldContext().World();
+		if (MainWorld != nullptr)
+		{
+			MainWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
+		}
+
+		SlowTask.EnterProgressFrame(25.0f);
+
+		// Update any currently running PIE sessions.
+		for (TObjectIterator<UWorld> It; It; ++It)
+		{
+			UWorld* ItWorld = *It;
+			if (ItWorld->WorldType == EWorldType::PIE)
+			{
+				ItWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
+			}
+		}
+
+		SlowTask.EnterProgressFrame(25.0f);
+
+		GUnrealEd->OnSceneMaterialsModified();
+		GUnrealEd->RedrawAllViewports();
+	}
+}
+
+void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
+{
+	FGlobalComponentRecreateRenderStateContext Recreate;
+	FlushRenderingCommands();
+	UMaterial::AllMaterialsCacheResourceShadersForRendering();
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+}
+
+void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
+{
+	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
+	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == PreviewFeatureLevel);
+
+	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
+	const FName InitialPreviewPlatform = MaterialShaderQualitySettings->GetPreviewPlatform();
+	MaterialShaderQualitySettings->SetPreviewPlatform(MaterialQualityPlatform);
+
+	if (DefaultWorldFeatureLevel != PreviewFeatureLevel)
+	{
+		// a new feature level will recompile the materials and apply the effect of any 'material quality platform'
+		SetFeatureLevelPreview(PreviewFeatureLevel);
+	}
+	else if (InitialPreviewPlatform != MaterialQualityPlatform)
+	{
+		// Rebuild materials if we have the same feature level but a different 'material quality platform'
+		AllMaterialsCacheResourceShadersForRendering();
+	}
+
+	if (bSaveSettings)
+	{
+		SaveEditorFeatureLevel();
+	}
+}
+
+void UEditorEngine::LoadEditorFeatureLevel()
+{
+ 	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+	auto* QualitySettings = UMaterialShaderQualitySettings::Get();
+
+	EShaderPlatform ShaderPlatform = ShaderFormatToLegacyShaderPlatform(Settings->PreviewShaderPlatformName);
+	if (ShaderPlatform != SP_NumPlatforms)
+	{
+		const FName MaterialQualityPlatform = Settings->bIsMaterialQualityOverridePlatform ? Settings->PreviewShaderPlatformName : NAME_None;
+		const ERHIFeatureLevel::Type PreviewFeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
+		SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel, false);
+	}
+}
+
+void UEditorEngine::SaveEditorFeatureLevel()
+{
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+
+	const FName& PreviewPlatormName = UMaterialShaderQualitySettings::Get()->GetPreviewPlatform();
+	if (PreviewPlatormName == NAME_None)
+	{
+		Settings->bIsMaterialQualityOverridePlatform = false;
+
+		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(DefaultWorldFeatureLevel);
+		Settings->PreviewShaderPlatformName = LegacyShaderPlatformToShaderFormat(ShaderPlatform);
+	}
+	else
+	{
+		Settings->bIsMaterialQualityOverridePlatform = true;
+		Settings->PreviewShaderPlatformName = PreviewPlatormName;
+	}
+
+	Settings->PostEditChange();
 }
 
 #undef LOCTEXT_NAMESPACE 

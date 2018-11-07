@@ -32,7 +32,7 @@ public class FBX : ModuleRules
 				// We are using DLL versions of the FBX libraries
 				PublicDefinitions.Add("FBXSDK_SHARED");
 
-				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/libfbxsdk.dll");
+				RuntimeDependencies.Add("$(TargetOutputDir)/libfbxsdk.dll", FBxLibPath + "libfbxsdk.dll");
 			}
 			else
 			{
@@ -54,7 +54,7 @@ public class FBX : ModuleRules
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			string LibDir = FBXSDKDir + "lib/gcc4/" + Target.Architecture + "/release/";
-			if (!Directory.Exists(LibDir))
+			if (!Target.bIsEngineInstalled && !Directory.Exists(LibDir))
 			{
 				string Err = string.Format("FBX SDK not found in {0}", LibDir);
 				System.Console.WriteLine(Err);

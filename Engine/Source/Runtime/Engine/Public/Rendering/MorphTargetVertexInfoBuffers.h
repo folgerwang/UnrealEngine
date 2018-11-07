@@ -15,6 +15,13 @@ public:
 	ENGINE_API virtual void InitRHI() override;
 	ENGINE_API virtual void ReleaseRHI() override;
 
+	static uint32 GetMaximumThreadGroupSize()
+	{
+		//D3D11 there can be at most 65535 Thread Groups in each dimension of a Dispatch call.
+		uint64 MaximumThreadGroupSize = uint64(GMaxComputeDispatchDimension) * 32ull;
+		return uint32(FMath::Min<uint64>(MaximumThreadGroupSize, UINT32_MAX));
+	}
+
 	uint32 GetNumWorkItems(uint32 index = UINT_MAX) const
 	{
 		check(index == UINT_MAX || index < (uint32)WorkItemsPerMorph.Num());
@@ -59,6 +66,12 @@ public:
 	{
 		check(Index < (uint32)PermuationSize.Num());
 		return PermuationSize[Index];
+	}
+
+	uint32 GetNumSplitsPerMorph(uint32 Index) const
+	{
+		check(Index < (uint32)NumSplitsPerMorph.Num());
+		return NumSplitsPerMorph[Index];
 	}
 
 	void CalculateInverseAccumulatedWeights(const TArray<float>& MorphTargetWeights, TArray<float>& InverseAccumulatedWeights) const;
@@ -118,6 +131,7 @@ public:
 		WorkItemsPerMorph.Empty();
 		PermuationStart.Empty();
 		PermuationSize.Empty();
+		NumSplitsPerMorph.Empty();
 		AccumStrategyRules.Empty();
 		AccumStrategyRules.Empty();
 		TempStoreSize = 0;
@@ -140,6 +154,7 @@ protected:
 	TArray<uint32> WorkItemsPerMorph;
 	TArray<uint32> PermuationStart;
 	TArray<uint32> PermuationSize;
+	TArray<uint32> NumSplitsPerMorph; //splits due to too large dispatch size
 	TArray<FPermuationNode> AccumStrategyRules;
 	uint32 TempStoreSize;
 

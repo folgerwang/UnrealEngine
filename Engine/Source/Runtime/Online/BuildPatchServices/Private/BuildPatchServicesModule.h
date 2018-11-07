@@ -1,9 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	BuildPatchServicesModule.h: Declares the FBuildPatchServicesModule class.
-=============================================================================*/
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -24,6 +20,7 @@ enum
 	StreamBufferSize	= FileBufferSize*4,	// When reading from build data stream, how much to buffer.
 };
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 /**
  * Implements the BuildPatchServicesModule.
  */
@@ -38,12 +35,15 @@ public:
 	// IModuleInterface interface end.
 
 	// IBuildPatchServicesModule interface begin.
+	virtual BuildPatchServices::IBuildStatisticsRef CreateBuildStatistics(const IBuildInstallerRef& Installer) const override;
 	virtual IBuildManifestPtr LoadManifestFromFile(const FString& Filename) override;
 	virtual IBuildManifestPtr MakeManifestFromData(const TArray<uint8>& ManifestData) override;
-	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) override;
+	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest) override;
+	virtual TSet<FString> GetInstalledPrereqIds() const override;
 	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) override;
 	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) override;
 	virtual IBuildInstallerRef StartBuildInstall(BuildPatchServices::FInstallerConfiguration Configuration, FBuildPatchBoolManifestDelegate OnCompleteDelegate) override;
+	virtual const TArray<IBuildInstallerRef>& GetInstallers() const override;
 	virtual void SetStagingDirectory(const FString& StagingDir) override;
 	virtual void SetCloudDirectory(FString CloudDir) override;
 	virtual void SetCloudDirectories(TArray<FString> CloudDirs) override;
@@ -56,9 +56,9 @@ public:
 	virtual bool CompactifyCloudDirectory(const FString& CloudDirectory, float DataAgeThreshold, ECompactifyMode::Type Mode, const FString& DeletedChunkLogFile) override;
 	virtual bool EnumeratePatchData(const FString& InputFile, const FString& OutputFile, bool bIncludeSizes) override;
 	virtual bool VerifyChunkData(const FString& SearchPath, const FString& OutputFile) override;
-	virtual bool PackageChunkData(const FString& ManifestFilePath, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize) override;
+	virtual bool PackageChunkData(const FString& ManifestFilePath, const FString& PrevManifestFilePath, const TArray<TSet<FString>>& TagSetArray, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize, const FString& ResultDataFilePath) override;
 	virtual bool MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath) override;
-	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const FString& OutputFilePath) override;
+	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath) override;
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) override;
 	// IBuildPatchServicesModule interface end.
 
@@ -132,8 +132,11 @@ private:
 	// A flag specifying whether prerequisites install should be skipped
 	bool bForceSkipPrereqs;
 
-	// Save the ptr to the build installer thread that we create
-	TArray< FBuildPatchInstallerPtr > BuildPatchInstallers;
+	// Array of created installers
+	TArray<FBuildPatchInstallerPtr> BuildPatchInstallers;
+
+	// Array of created installers as exposable interface refs
+	TArray<IBuildInstallerRef> BuildPatchInstallerInterfaces;
 
 	// Holds available installations used for recycling install data
 	TMap<FString, FBuildPatchAppManifestRef> AvailableInstallations;
@@ -141,3 +144,4 @@ private:
 	// Handle to the registered Tick delegate
 	FDelegateHandle TickDelegateHandle;
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

@@ -40,6 +40,7 @@
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "ProfilingDebugging/ExternalProfiler.h"
 
 // Resource includes.
 #include "Runtime/Launch/Resources/Windows/Resource.h"
@@ -108,11 +109,20 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 	OsVersionInfo.dwOSVersionInfoSize = sizeof( OSVERSIONINFOEX );
 	out_OSVersionLabel = TEXT( "Windows (unknown version)" );
 	out_OSSubVersionLabel = FString();
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 	CA_SUPPRESS(28159)
 	if( GetVersionEx( (LPOSVERSIONINFO)&OsVersionInfo ) )
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 	{
 		bool bIsInvalidVersion = false;
 
@@ -369,11 +379,20 @@ FString FWindowsOSVersionHelper::GetOSVersion()
 
 	OSVERSIONINFOEX OsVersionInfo = { 0 };
 	OsVersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 	CA_SUPPRESS(28159)
 	if (GetVersionEx((LPOSVERSIONINFO)&OsVersionInfo))
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 	{
 		return FString::Printf(TEXT("%d.%d.%d.%d.%d.%s"), OsVersionInfo.dwMajorVersion, OsVersionInfo.dwMinorVersion, OsVersionInfo.dwBuildNumber, OsVersionInfo.wProductType, OsVersionInfo.wSuiteMask, Architecture);
 	}
@@ -545,10 +564,15 @@ void FWindowsPlatformMisc::PlatformInit()
 /**
  * Handler called for console events like closure, CTRL-C, ...
  *
- * @param Type	unused
+ * @param Type Ctrl-C, Ctrl-Break, Close Console Log Window, Logoff, or Shutdown
  */
 static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 {
+	// Once this function is called, Windows gives us about 5 seconds to clean up and exit.
+	// There's no way to cancel. Since console is shutting down, logging might not be reliable.
+
+	GIsRequestingExit = true;
+
 	// Notify anyone listening that we're about to terminate
 	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
 
@@ -566,18 +590,7 @@ static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 		GError->Flush();
 	}
 
-	// if we are running commandlet we want the application to exit immediately on control-c press
-	if( !GIsRequestingExit && !IsRunningCommandlet())
-	{
-		PostQuitMessage( 0 );
-		GIsRequestingExit = 1;
-	}
-	else
-	{
-		// User has pressed Ctrl-C twice and we should forcibly terminate the application.
-		// ExitProcess would run global destructors, possibly causing assertions.
-		TerminateProcess(GetCurrentProcess(), 0);
-	}
+	// Windows will now terminate this process with ExitCode = 0xC000013A
 	return true;
 }
 
@@ -587,6 +600,32 @@ void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 	SetConsoleCtrlHandler(ConsoleCtrlHandler, true);
 }
 
+int32 FWindowsPlatformMisc::GetMaxPathLength()
+{
+	struct FLongPathsEnabled
+	{
+		bool bValue;
+
+		FLongPathsEnabled()
+		{
+			HMODULE Handle = GetModuleHandle(TEXT("ntdll.dll"));
+			if (Handle == NULL)
+			{
+				bValue = false;
+			}
+			else
+			{
+				typedef BOOLEAN(NTAPI *RtlAreLongPathsEnabledFunc)();
+				RtlAreLongPathsEnabledFunc RtlAreLongPathsEnabled = (RtlAreLongPathsEnabledFunc)(void*)GetProcAddress(Handle, "RtlAreLongPathsEnabled");
+				bValue = (RtlAreLongPathsEnabled != NULL && RtlAreLongPathsEnabled());
+			}
+		}
+	};
+
+	static FLongPathsEnabled LongPathsEnabled;
+	return LongPathsEnabled.bValue? 32767 : MAX_PATH;
+}
+
 void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength)
 {
 	uint32 Error = ::GetEnvironmentVariableW(VariableName, Result, ResultLength);
@@ -594,6 +633,30 @@ void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCH
 	{		
 		*Result = 0;
 	}
+}
+
+FString FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName)
+{
+	// Allocate the data for the string. Loop in case the variable happens to change while running, or the buffer isn't large enough.
+	FString Buffer;
+	for(uint32 Length = 128;;)
+	{
+		TArray<TCHAR>& CharArray = Buffer.GetCharArray();
+		CharArray.SetNumUninitialized(Length);
+
+		Length = ::GetEnvironmentVariableW(VariableName, CharArray.GetData(), CharArray.Num());
+		if (Length == 0)
+		{
+			Buffer.Reset();
+			break;
+		}
+		else if (Length < (uint32)CharArray.Num())
+		{
+			CharArray.SetNum(Length + 1);
+			break;
+		}
+	}
+	return Buffer;
 }
 
 void FWindowsPlatformMisc::SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value)
@@ -837,28 +900,52 @@ void FWindowsPlatformMisc::BeginNamedEventFrame()
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::FrameStart();
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->FrameSync();
+	}
+#endif
 }
 
 void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->StartScopedEvent(Text);
+	}
+#endif
 }
 
 void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->StartScopedEvent(ANSI_TO_TCHAR(Text));
+	}
+#endif
 }
 
 void FWindowsPlatformMisc::EndNamedEvent()
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PopEvent();
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->EndScopedEvent();
+	}
+#endif
 }
 #endif // UE_BUILD_SHIPPING
 
@@ -882,6 +969,7 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 {
 	UE_LOG(LogWindows, Log,  TEXT("FPlatformMisc::RequestExit(%i)"), Force );
 
+	GIsRequestingExit = 1;
 	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
 
 	if( Force )
@@ -906,7 +994,6 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 	{
 		// Tell the platform specific code we want to exit cleanly from the main loop.
 		PostQuitMessage( 0 );
-		GIsRequestingExit = 1;
 	}
 }
 
@@ -1728,7 +1815,7 @@ HWND FWindowsPlatformMisc::GetTopLevelWindowHandle(uint32 ProcessId)
 	return Data.Handle;
 }
 
-void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
+FORCENOINLINE void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
 {
 	/** This is the last place to gather memory stats before exception. */
 	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();
@@ -2534,8 +2621,8 @@ bool FWindowsPlatformMisc::QueryRegKey( const Windows::HKEY InKey, const TCHAR* 
 				char *Buffer = new char[Size];
 				if (RegQueryValueEx( Key, InValueName, NULL, NULL, (LPBYTE)Buffer, &Size ) == ERROR_SUCCESS)
 				{
-					OutData = FString( Size-1, (TCHAR*)Buffer );
-					OutData.TrimToNullTerminator();
+					const uint32 Length = (Size / sizeof(TCHAR)) - 1;
+					OutData = FString( Length, (TCHAR*)Buffer );
 					bSuccess = true;
 				}
 				delete [] Buffer;

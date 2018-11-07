@@ -17,7 +17,7 @@ void SObjectWidget::Construct(const FArguments& InArgs, UUserWidget* InWidgetObj
 	];
 
 	// The user widget will tell us if we can tick but default to false for now
-	bCanTick = false;
+	SetCanTick(false);
 
 	if (WidgetObject)
 	{
@@ -483,6 +483,15 @@ FReply SObjectWidget::OnMotionDetected(const FGeometry& MyGeometry, const FMotio
 		return WidgetObject->NativeOnMotionDetected( MyGeometry, InMotionEvent );
 	}
 
+	return FReply::Unhandled();
+}
+
+FReply SObjectWidget::OnTouchForceChanged(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	if (CanRouteEvent())
+	{
+		return WidgetObject->NativeOnTouchForceChanged(MyGeometry, InTouchEvent);
+	}
 	return FReply::Unhandled();
 }
 

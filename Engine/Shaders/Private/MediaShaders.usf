@@ -130,7 +130,14 @@ void RGBConvertPS(
 	out float4 OutColor : SV_Target0)
 {
 	float2 ScaledUV = InUV * RGBConvertUB.UVScale;
-	OutColor = RGBConvertUB.Texture.Sample(RGBConvertUB.Sampler, ScaledUV);
+	if (RGBConvertUB.SrgbToLinear == 0)
+	{
+		OutColor = RGBConvertUB.Texture.Sample(RGBConvertUB.Sampler, ScaledUV);
+	}
+	else
+	{
+		OutColor = float4(sRGBToLinear(RGBConvertUB.Texture.Sample(RGBConvertUB.Sampler, ScaledUV).xyz), 1.0);
+	}
 }
 
 
@@ -197,10 +204,12 @@ void YUVConvertPS(
 	float2 InUV : TEXCOORD0,
 	out float4 OutColor : SV_Target0)
 {
+	float2 ScaledUV = InUV * YUVConvertUB.UVScale;
+
 	float3 YUV;
-	YUV.x = YUVConvertUB.YTexture.Sample(YUVConvertUB.YSampler, InUV.xy).x;
-	YUV.y = YUVConvertUB.UTexture.Sample(YUVConvertUB.USampler, InUV.xy).x;
-	YUV.z = YUVConvertUB.VTexture.Sample(YUVConvertUB.VSampler, InUV.xy).x;
+	YUV.x = YUVConvertUB.YTexture.Sample(YUVConvertUB.YSampler, ScaledUV).x;
+	YUV.y = YUVConvertUB.UTexture.Sample(YUVConvertUB.USampler, ScaledUV).x;
+	YUV.z = YUVConvertUB.VTexture.Sample(YUVConvertUB.VSampler, ScaledUV).x;
 	
 	OutColor.xyz = YuvToRgb(YUV, YUVConvertUB.ColorTransform, YUVConvertUB.SrgbToLinear);
 	OutColor.w = 1.0f;

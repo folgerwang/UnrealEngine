@@ -72,6 +72,7 @@
     <Compile Include="P4Blame.cs" />
     <Compile Include="P4Environment.cs" />
     <Compile Include="P4Utils.cs" />
+    <Compile Include="PackageUtils.cs" />
     <Compile Include="ParallelExecutor.cs" />
     <Compile Include="Platform.cs" />
     <Compile Include="ProcessUtils.cs" />
@@ -83,7 +84,7 @@
     <Compile Include="StagedDirectoryReference.cs" />
     <Compile Include="StagedFileReference.cs" />
     <Compile Include="StagedFileSystemReference.cs" />
-    <Compile Include="ThreadPoolWorkQueue.cs" />
+    <Compile Include="StreamUtils.cs" />
     <Compile Include="UBTUtils.cs" />
     <Compile Include="UE4Build.cs" />
     <Compile Include="Utils.cs" />

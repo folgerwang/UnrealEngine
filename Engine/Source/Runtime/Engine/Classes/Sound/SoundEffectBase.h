@@ -83,14 +83,11 @@ public:
 
 	void SetPreset(USoundEffectPreset* Inpreset);
 
-	/** Registers the parent preset and registers this instance with the preset. */
-	void RegisterWithPreset(USoundEffectPreset* InParentPreset);
-
 	/** Removes the instance from the preset. */
-	void UnregisterWithPreset();
+	void ClearPreset();
 
-	/** Queries if the given preset object is the parent preset, i.e. the preset which spawned this effect instance. */
-	bool IsParentPreset(USoundEffectPreset* InPreset) const;
+	/** Queries if the given preset object is the uobject preset for this preset instance, i.e. the preset which spawned this effect instance. */
+	bool IsPreset(USoundEffectPreset* InPreset) const;
 
 	/** Enqueues a lambda command on a thread safe queue which is pumped from the audio render thread. */
 	void EffectCommand(TFunction<void()> Command);
@@ -104,7 +101,6 @@ protected:
 
 	FThreadSafeBool bChanged;
 	USoundEffectPreset* Preset;
-	USoundEffectPreset* ParentPreset;
 
 	FThreadSafeBool bIsRunning;
 	FThreadSafeBool bIsActive;

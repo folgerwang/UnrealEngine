@@ -364,7 +364,7 @@ namespace CreateAssetHelper
 						AssetPackage->SetDirtyFlag(false);
 
 						// Unload the packages and collect garbage.
-						PackageTools::UnloadPackages(PackagesToDelete);
+						UPackageTools::UnloadPackages(PackagesToDelete);
 
 						IFileManager::Get().Delete(*PackageFilename);
 

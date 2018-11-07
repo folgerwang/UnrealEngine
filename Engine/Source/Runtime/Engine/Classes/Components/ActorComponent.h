@@ -87,7 +87,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FActorComponentGlobalDestroyPhysicsSignature
  * @see USceneComponent
  * @see UPrimitiveComponent
  */
-UCLASS(DefaultToInstanced, BlueprintType, abstract, meta=(ShortTooltip="An ActorComponent is a reusable component that can be added to any actor."))
+UCLASS(DefaultToInstanced, BlueprintType, abstract, meta=(ShortTooltip="An ActorComponent is a reusable component that can be added to any actor."), config=Engine)
 class ENGINE_API UActorComponent : public UObject, public IInterface_AssetUserData
 {
 	GENERATED_BODY()
@@ -199,7 +199,7 @@ public:
 
 protected:
 	/** Whether this component can potentially influence navigation */
-	UPROPERTY(EditAnywhere, Category = Collision, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category = Collision, AdvancedDisplay, config)
 	uint8 bCanEverAffectNavigation : 1;
 
 public:
@@ -213,6 +213,12 @@ public:
 	/** If true, the component will be excluded from non-editor builds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Cooking)
 	uint8 bIsEditorOnly:1;
+
+#if WITH_EDITORONLY_DATA
+private:
+	UPROPERTY()
+	uint8 bIsVisualizationComponent : 1;
+#endif
 
 private:
 	/** Indicates that OnCreatedComponent has been called, but OnDestroyedComponent has not yet */
@@ -393,13 +399,28 @@ public:
 
 	virtual bool GetComponentClassCanReplicate() const;
 
+#if WITH_EDITORONLY_DATA
 	/** Returns whether this component is an editor-only object or not */
 	virtual bool IsEditorOnly() const override { return bIsEditorOnly; }
 
 	virtual void MarkAsEditorOnlySubobject() override
 	{
 		bIsEditorOnly = true;
+		// A bit sketchy, but is best for backwards compatibility as the vast majority of editor only components were for visualization, 
+		// so for the very few where visualization is not the purpose, it can be cleared after the subobject is created
+		bIsVisualizationComponent = true; 
 	}
+
+	bool IsVisualizationComponent() const { return bIsVisualizationComponent; }
+	void SetIsVisualizationComponent(const bool bInIsVisualizationComponent)
+	{
+		bIsVisualizationComponent = bInIsVisualizationComponent;
+		if (bIsVisualizationComponent)
+		{
+			bIsEditorOnly = true;
+		}
+	}
+#endif
 
 	/** Returns net role of the owning actor */
 	/** Returns true if we are replicating and not authorative */

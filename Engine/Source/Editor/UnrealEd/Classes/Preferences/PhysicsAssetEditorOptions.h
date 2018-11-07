@@ -51,8 +51,16 @@ class UNREALED_API UPhysicsAssetEditorOptions : public UObject
 	float PokeBlendTime;
 	
 	/** Scale factor for the gravity used in the simulation */
-	UPROPERTY(EditAnywhere, config, Category=Simulation, meta=(UIMin=0, UIMax=100, ClampMin=-10000, ClampMax=10000))
+	UPROPERTY(EditAnywhere, config, Category=Simulation, meta=(UIMin=0, UIMax=100, ClampMin=-10000, ClampMax=10000, EditCondition = "!bUseGravityOverride"))
 	float GravScale;
+
+	/** Gravity override used in the simulation */
+	UPROPERTY(EditAnywhere, config, Category = Simulation, meta = (UIMin = 0, UIMax = 100, ClampMin = -100000, ClampMax = 100000, EditCondition = "bUseGravityOverride"))
+	float GravityOverrideZ;
+
+	/* Toggle gravity override vs gravity scale */
+	UPROPERTY(EditAnywhere, config, Category = Simulation, meta = (InlineEditConditionToggle))
+	bool bUseGravityOverride;
 
 	/** Max FPS for simulation in PhysicsAssetEditor. This is helpful for targeting the same FPS as your game. -1 means disabled*/
 	UPROPERTY(EditAnywhere, config, Category = Simulation)

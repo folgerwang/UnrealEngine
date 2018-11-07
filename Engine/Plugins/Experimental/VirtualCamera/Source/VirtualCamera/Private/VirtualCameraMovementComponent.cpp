@@ -35,6 +35,19 @@ void UVirtualCameraMovementComponent::AddInputVector(FVector WorldVector, bool b
 	TargetLocation += WorldVector;
 }
 
+void UVirtualCameraMovementComponent::AddInputVectorFromController(FVector WorldVector, EVirtualCameraAxis MovementScaleAxis)
+{
+	if (WorldVector.IsZero())
+	{
+		return;
+	}
+
+	WorldVector *= AxisSettings[MovementScaleAxis].MovementScale;
+	ApplyLocationLocks(WorldVector);
+
+	TargetLocation += WorldVector;
+}
+
 void UVirtualCameraMovementComponent::ProcessMovementInput(const FVector& TrackerLocation, const FRotator& TrackerRotation)
 {
 	FVector DeltaMovement = TrackerLocation - PreviousTrackerLocation;
@@ -133,36 +146,14 @@ void UVirtualCameraMovementComponent::OnMoveForward(const float InValue)
 {
 	FVector InputVector = UpdatedComponent->GetForwardVector();
 	InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-	InputVector *= InValue;
-
-	if (InputVector.IsZero())
-	{
-		return;
-	}
-
-	InputVector *= AxisSettings[EVirtualCameraAxis::LocationX].MovementScale;
-	ApplyLocationLocks(InputVector);
-
-	TargetLocation += InputVector;
+	AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationX);
 }
 
 void UVirtualCameraMovementComponent::OnMoveRight(const float InValue)
 {
 	FVector InputVector = UpdatedComponent->GetRightVector();
 	InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-	
-	InputVector *= InValue;
-
-	if (InputVector.IsZero())
-	{
-		return;
-	}
-
-	// To preseve direction when moving diagonally use same scaling as forward movement
-	InputVector *= AxisSettings[EVirtualCameraAxis::LocationY].MovementScale;
-	ApplyLocationLocks(InputVector);
-	
-	TargetLocation += InputVector;
+	AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationY);
 }
 
 void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
@@ -176,17 +167,7 @@ void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
 	{
 		FVector InputVector = UpdatedComponent->GetUpVector();
 		InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-		InputVector *= InValue;
-
-		if (InputVector.IsZero())
-		{
-			return;
-		}
-
-		InputVector *= AxisSettings[EVirtualCameraAxis::LocationZ].MovementScale;
-		ApplyLocationLocks(InputVector);
-
-		TargetLocation += InputVector;
+		AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationZ);
 	}
 }
 

@@ -7,11 +7,18 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "BuildSettings.h"
+#include "UObject/DevObjectVersion.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/NetworkVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogApp, Log, All);
 
 /* FApp static initialization
  *****************************************************************************/
+
+#if UE_BUILD_DEVELOPMENT
+bool FApp::bIsDebugGame = false;
+#endif
 
 FGuid FApp::InstanceId = FGuid::NewGuid();
 FGuid FApp::SessionId = FGuid::NewGuid();
@@ -29,6 +36,7 @@ double FApp::DeltaTime = 1 / 30.0;
 double FApp::IdleTime = 0.0;
 double FApp::IdleTimeOvershoot = 0.0;
 FTimecode FApp::Timecode = FTimecode();
+FFrameRate FApp::TimecodeFrameRate = FFrameRate(60,1);
 float FApp::VolumeMultiplier = 1.0f;
 float FApp::UnfocusedVolumeMultiplier = 0.0f;
 bool FApp::bUseVRFocus = false;
@@ -59,35 +67,13 @@ FString FApp::GetEpicProductIdentifier()
 	return FString(TEXT(EPIC_PRODUCT_IDENTIFIER));
 }
 
-const TCHAR * FApp::GetDeploymentName()
-{
-	static TCHAR StaticDeploymentName[64] = {0};
-	static bool bHaveDeployment = false;
-
-	if (!bHaveDeployment)
-	{
-		// use -epicapp value from the commandline. Default deployment is not captured by this,
-		// but this may not be a problem as that would be the case only during the development
-		FParse::Value(FCommandLine::Get(), TEXT("EPICAPP="), StaticDeploymentName, ARRAY_COUNT(StaticDeploymentName) - 1);
-		bHaveDeployment = true;
-	}
-
-	return StaticDeploymentName;
-}
-
 EBuildConfigurations::Type FApp::GetBuildConfiguration()
 {
 #if UE_BUILD_DEBUG
 	return EBuildConfigurations::Debug;
 
 #elif UE_BUILD_DEVELOPMENT
-	// Detect DebugGame using an extern variable in monolithic configurations, or a command line argument in modular configurations.
-	#if IS_MONOLITHIC
-		extern const bool GIsDebugGame;
-		return GIsDebugGame? EBuildConfigurations::DebugGame : EBuildConfigurations::Development;
-	#else
-		return IsRunningDebug() ? EBuildConfigurations::DebugGame : EBuildConfigurations::Development;
-	#endif
+	return bIsDebugGame ? EBuildConfigurations::DebugGame : EBuildConfigurations::Development;
 
 #elif UE_BUILD_SHIPPING
 	return EBuildConfigurations::Shipping;
@@ -100,14 +86,12 @@ EBuildConfigurations::Type FApp::GetBuildConfiguration()
 #endif
 }
 
-bool FApp::IsRunningDebug()
+#if UE_BUILD_DEVELOPMENT
+void FApp::SetDebugGame(bool bInIsDebugGame)
 {
-	static FString RunConfig;
-	static const bool bHasRunConfig = FParse::Value(FCommandLine::Get(), TEXT("RunConfig="), RunConfig);
-	static const bool bRunningDebug = FParse::Param(FCommandLine::Get(), TEXT("debug"))
-	                                  || (bHasRunConfig && RunConfig.StartsWith(TEXT("Debug")));
-	return bRunningDebug;
+	bIsDebugGame = bInIsDebugGame;
 }
+#endif
 
 FString FApp::GetBuildDate()
 {
@@ -256,6 +240,13 @@ bool FApp::IsUnattended() // @todo clang: Workaround for missing symbol export
 #endif
 
 #if HAVE_RUNTIME_THREADING_SWITCHES
+
+#if PLATFORM_LUMIN
+#define MIN_CORE_COUNT 2
+#else
+#define MIN_CORE_COUNT 4
+#endif
+
 bool FApp::ShouldUseThreadingForPerformance()
 {
 	static bool OnlyOneThread = 
@@ -263,11 +254,12 @@ bool FApp::ShouldUseThreadingForPerformance()
 		FParse::Param(FCommandLine::Get(), TEXT("noperfthreads")) ||
 		IsRunningDedicatedServer() ||
 		!FPlatformProcess::SupportsMultithreading() ||
-		FPlatformMisc::NumberOfCoresIncludingHyperthreads() < 4;
+		FPlatformMisc::NumberOfCoresIncludingHyperthreads() < MIN_CORE_COUNT;
 	return !OnlyOneThread;
 }
-#endif // HAVE_RUNTIME_THREADING_SWITCHES
+#undef MIN_CORE_COUNT
 
+#endif // HAVE_RUNTIME_THREADING_SWITCHES
 
 static bool GUnfocusedVolumeMultiplierInitialised = false;
 float FApp::GetUnfocusedVolumeMultiplier()
@@ -297,4 +289,53 @@ void FApp::SetHasVRFocus(bool bInHasVRFocus)
 {
 	UE_CLOG(bHasVRFocus != bInHasVRFocus, LogApp, Verbose, TEXT("HasVRFocus has changed to %d"), int(bInHasVRFocus));
 	bHasVRFocus = bInHasVRFocus;
+}
+
+void FApp::PrintStartupLogMessages()
+{
+	UE_LOG(LogInit, Log, TEXT("Build: %s"), FApp::GetBuildVersion());
+	UE_LOG(LogInit, Log, TEXT("Engine Version: %s"), *FEngineVersion::Current().ToString());
+	UE_LOG(LogInit, Log, TEXT("Compatible Engine Version: %s"), *FEngineVersion::CompatibleWith().ToString());
+	UE_LOG(LogInit, Log, TEXT("Net CL: %u"), FNetworkVersion::GetNetworkCompatibleChangelist());
+	FString OSLabel, OSVersion;
+	FPlatformMisc::GetOSVersions(OSLabel, OSVersion);
+	UE_LOG(LogInit, Log, TEXT("OS: %s (%s), CPU: %s, GPU: %s"), *OSLabel, *OSVersion, *FPlatformMisc::GetCPUBrand(), *FPlatformMisc::GetPrimaryGPUBrand());
+
+#if PLATFORM_64BITS
+	UE_LOG(LogInit, Log, TEXT("Compiled (64-bit): %s %s"), ANSI_TO_TCHAR(__DATE__), ANSI_TO_TCHAR(__TIME__));
+#else
+	UE_LOG(LogInit, Log, TEXT("Compiled (32-bit): %s %s"), ANSI_TO_TCHAR(__DATE__), ANSI_TO_TCHAR(__TIME__));
+#endif
+
+	// Print compiler version info
+#if defined(__clang__)
+	UE_LOG(LogInit, Log, TEXT("Compiled with Clang: %s"), ANSI_TO_TCHAR(__clang_version__));
+#elif defined(__INTEL_COMPILER)
+	UE_LOG(LogInit, Log, TEXT("Compiled with ICL: %d"), __INTEL_COMPILER);
+#elif defined( _MSC_VER )
+#ifndef __INTELLISENSE__	// Intellisense compiler doesn't support _MSC_FULL_VER
+	{
+		const FString VisualCPPVersion(FString::Printf(TEXT("%d"), _MSC_FULL_VER));
+		const FString VisualCPPRevisionNumber(FString::Printf(TEXT("%02d"), _MSC_BUILD));
+		UE_LOG(LogInit, Log, TEXT("Compiled with Visual C++: %s.%s.%s.%s"),
+			*VisualCPPVersion.Mid(0, 2), // Major version
+			*VisualCPPVersion.Mid(2, 2), // Minor version
+			*VisualCPPVersion.Mid(4),	// Build version
+			*VisualCPPRevisionNumber	// Revision number
+		);
+	}
+#endif
+#else
+	UE_LOG(LogInit, Log, TEXT("Compiled with unrecognized C++ compiler"));
+#endif
+
+	UE_LOG(LogInit, Log, TEXT("Build Configuration: %s"), EBuildConfigurations::ToString(FApp::GetBuildConfiguration()));
+	UE_LOG(LogInit, Log, TEXT("Branch Name: %s"), *FApp::GetBranchName());
+	FString FilteredString = FCommandLine::IsCommandLineLoggingFiltered() ? TEXT("Filtered ") : TEXT("");
+	UE_LOG(LogInit, Log, TEXT("%sCommand Line: %s"), *FilteredString, FCommandLine::GetForLogging());
+	UE_LOG(LogInit, Log, TEXT("Base Directory: %s"), FPlatformProcess::BaseDir());
+	//UE_LOG(LogInit, Log, TEXT("Character set: %s"), sizeof(TCHAR)==1 ? TEXT("ANSI") : TEXT("Unicode") );
+	UE_LOG(LogInit, Log, TEXT("Installed Engine Build: %d"), FApp::IsEngineInstalled() ? 1 : 0);
+
+	FDevVersionRegistration::DumpVersionsToLog();
 }

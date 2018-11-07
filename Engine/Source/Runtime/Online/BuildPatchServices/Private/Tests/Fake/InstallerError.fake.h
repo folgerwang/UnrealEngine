@@ -41,10 +41,10 @@ namespace BuildPatchServices
 			return ErrorText;
 		}
 
-		virtual void SetError(EBuildPatchInstallError InErrorType, const TCHAR* InErrorCode, FText InErrorText) override
+		virtual void SetError(EBuildPatchInstallError InErrorType, const TCHAR* InErrorSubType, uint32 InErrorCode, FText InErrorText) override
 		{
 			ErrorType = InErrorType;
-			ErrorCode = InErrorCode;
+			ErrorCode = InErrorSubType + ((InErrorCode > 0) ? FString::Printf(TEXT("-%u"), InErrorCode) : TEXT(""));
 			ErrorText = MoveTemp(InErrorText);
 		}
 

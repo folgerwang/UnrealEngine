@@ -64,11 +64,10 @@ class SdfAssetPath;
 class UsdGeomCapsule : public UsdGeomGprim
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = true;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::ConcreteTyped;
 
     /// Construct a UsdGeomCapsule on UsdPrim \p prim .
     /// Equivalent to UsdGeomCapsule::Get(prim.GetStage(), prim.GetPath())
@@ -136,6 +135,13 @@ public:
     USDGEOM_API
     static UsdGeomCapsule
     Define(const UsdStagePtr &stage, const SdfPath &path);
+
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
 
 private:
     // needs to invoke _GetStaticTfType.
@@ -253,6 +259,27 @@ public:
     //  - Close the include guard with #endif
     // ===================================================================== //
     // --(BEGIN CUSTOM CODE)--
+
+    /// Compute the extent for the capsule defined by the height, radius, and
+    /// axis.
+    ///
+    /// \return true upon success, false if unable to calculate extent.
+    ///
+    /// On success, extent will contain an approximate axis-aligned bounding 
+    /// box of the capsule defined by the height, radius, and axis.
+    ///
+    /// This function is to provide easy authoring of extent for usd authoring 
+    /// tools, hence it is static and acts outside a specific prim (as in 
+    /// attribute based methods).
+    USDGEOM_API
+    static bool ComputeExtent(double height, double radius, const TfToken& axis,
+        VtVec3fArray* extent);
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    static bool ComputeExtent(double height, double radius, const TfToken& axis,
+        const GfMatrix4d& transform, VtVec3fArray* extent);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

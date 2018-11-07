@@ -35,7 +35,7 @@
 #include "GeneralProjectSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/TimelineComponent.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Dialogs/Dialogs.h"
 #include "UnrealEdGlobals.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -894,12 +894,12 @@ void FBlueprintEditor::OnSelectionUpdated(const TArray<FSCSEditorTreeNodePtrType
 	AActor* EditorActorInstance = Blueprint->SimpleConstructionScript->GetComponentEditorActorInstance();
 	if (EditorActorInstance != nullptr)
 	{
-		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-		EditorActorInstance->GetComponents(PrimitiveComponents, true);
-
-		for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
+		for (UActorComponent* Component : EditorActorInstance->GetComponents())
 		{
-			PrimitiveComponent->PushSelectionToProxy();
+			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component))
+			{
+				PrimitiveComponent->PushSelectionToProxy();
+			}
 		}
 	}
 
@@ -1764,18 +1764,9 @@ void FBlueprintEditor::InitBlueprintEditor(
 	InitAssetEditor(Mode, InitToolkitHost, BlueprintEditorAppName, DummyLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Objects);
 	
 	CommonInitialization(InBlueprints);
-	
-	TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
-	FKismet2Menu::SetupBlueprintEditorMenu( MenuExtender, *this );
-	AddMenuExtender(MenuExtender);
 
-	FBlueprintEditorModule* BlueprintEditorModule = &FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
-	TSharedPtr<FExtender> CustomExtenders = BlueprintEditorModule->GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects());
-	BlueprintEditorModule->OnGatherBlueprintMenuExtensions().Broadcast(CustomExtenders, GetBlueprintObj());
+	InitalizeExtenders();
 
-	AddMenuExtender(CustomExtenders);
-	AddToolbarExtender(CustomExtenders);
-	
 	RegenerateMenusAndToolbars();
 
 	RegisterApplicationModes(InBlueprints, bShouldOpenInDefaultsMode, bNewlyCreated);
@@ -1821,6 +1812,20 @@ void FBlueprintEditor::InitBlueprintEditor(
 			DumpMessagesToCompilerLog(Blueprint->UpgradeNotesLog->Messages, true);
 		}
 	}
+}
+
+void FBlueprintEditor::InitalizeExtenders()
+{
+	TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
+	FKismet2Menu::SetupBlueprintEditorMenu(MenuExtender, *this);
+	AddMenuExtender(MenuExtender);
+
+	FBlueprintEditorModule* BlueprintEditorModule = &FModuleManager::LoadModuleChecked<FBlueprintEditorModule>("Kismet");
+	TSharedPtr<FExtender> CustomExtenders = BlueprintEditorModule->GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects());
+	BlueprintEditorModule->OnGatherBlueprintMenuExtensions().Broadcast(CustomExtenders, GetBlueprintObj());
+
+	AddMenuExtender(CustomExtenders);
+	AddToolbarExtender(CustomExtenders);
 }
 
 void FBlueprintEditor::RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated/* = false*/)
@@ -2623,6 +2628,29 @@ void FBlueprintEditor::CreateDefaultCommands()
 			}),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateLambda([]()->bool{ return GetDefault<UBlueprintEditorSettings>()->bShowActionMenuItemSignatures; }));
+
+	for (int32 QuickJumpIndex = 0; QuickJumpIndex < FGraphEditorCommands::Get().QuickJumpCommands.Num(); ++QuickJumpIndex)
+	{
+		ToolkitCommands->MapAction(
+			FGraphEditorCommands::Get().QuickJumpCommands[QuickJumpIndex].QuickJump,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::OnGraphEditorQuickJump, QuickJumpIndex)
+		);
+
+		ToolkitCommands->MapAction(
+			FGraphEditorCommands::Get().QuickJumpCommands[QuickJumpIndex].SetQuickJump,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::SetGraphEditorQuickJump, QuickJumpIndex)
+		);
+
+		ToolkitCommands->MapAction(
+			FGraphEditorCommands::Get().QuickJumpCommands[QuickJumpIndex].ClearQuickJump,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::ClearGraphEditorQuickJump, QuickJumpIndex)
+		);
+	}
+
+	ToolkitCommands->MapAction(
+		FGraphEditorCommands::Get().ClearAllQuickJumps,
+		FExecuteAction::CreateSP(this, &FBlueprintEditor::ClearAllGraphEditorQuickJumps)
+	);
 }
 
 void FBlueprintEditor::OpenNativeCodeGenerationTool()
@@ -3055,8 +3083,7 @@ void FBlueprintEditor::OnGraphEditorDropStreamingLevel(const TArray< TWeakObject
 	for (int32 i = 0; i < Levels.Num(); i++)
 	{
 		ULevelStreaming* DroppedLevel = Levels[i].Get();
-		if ((DroppedLevel != NULL) && 
-			(DroppedLevel->IsA(ULevelStreamingKismet::StaticClass()))) 
+		if (DroppedLevel && DroppedLevel->IsA<ULevelStreamingDynamic>())
 		{
 			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
 				Graph,
@@ -5971,9 +5998,6 @@ void FBlueprintEditor::PasteNodesHere(class UEdGraph* DestinationGraph, const FV
 			// Log new node created to analytics
 			AnalyticsTrackNodeEvent(GetBlueprintObj(), Node, false);
 		}
-
-		// post process on the node 
-		PostPasteNode(PastedNodes);
 	}
 
 	if (bNeedToModifyStructurally)
@@ -8479,6 +8503,59 @@ void FBlueprintEditor::RemoveBookmark(const FGuid& BookmarkNodeId, bool bRefresh
 	{
 		BookmarksWidget->RefreshBookmarksTree();
 	}
+}
+
+void FBlueprintEditor::SetGraphEditorQuickJump(int32 QuickJumpIndex)
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		if (UEdGraph* GraphObject = FocusedGraphEd->GetCurrentGraph())
+		{
+			UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+			FEditedDocumentInfo& QuickJumpInfo = LocalSettings->GraphEditorQuickJumps.FindOrAdd(QuickJumpIndex);
+
+			QuickJumpInfo.EditedObjectPath = GraphObject;
+			FocusedGraphEd->GetViewLocation(QuickJumpInfo.SavedViewOffset, QuickJumpInfo.SavedZoomAmount);
+
+			LocalSettings->SaveConfig();
+		}
+	}
+}
+
+void FBlueprintEditor::ClearGraphEditorQuickJump(int32 QuickJumpIndex)
+{
+	UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+	LocalSettings->GraphEditorQuickJumps.Remove(QuickJumpIndex);
+	LocalSettings->SaveConfig();
+}
+
+void FBlueprintEditor::OnGraphEditorQuickJump(int32 QuickJumpIndex)
+{
+	const UBlueprintEditorSettings* LocalSettings = GetDefault<UBlueprintEditorSettings>();
+	if (const FEditedDocumentInfo* QuickJumpInfo = LocalSettings->GraphEditorQuickJumps.Find(QuickJumpIndex))
+	{
+		if (UObject* EditedObject = QuickJumpInfo->EditedObjectPath.TryLoad())
+		{
+			TSharedPtr<IBlueprintEditor> IBlueprintEditorPtr = FKismetEditorUtilities::GetIBlueprintEditorForObject(EditedObject, true);
+			if (IBlueprintEditorPtr.IsValid())
+			{
+				IBlueprintEditorPtr->FocusWindow();
+				TSharedPtr<SGraphEditor> GraphEditorPtr = IBlueprintEditorPtr->OpenGraphAndBringToFront(Cast<UEdGraph>(EditedObject));
+				if (GraphEditorPtr.IsValid())
+				{
+					GraphEditorPtr->SetViewLocation(QuickJumpInfo->SavedViewOffset, QuickJumpInfo->SavedZoomAmount);
+				}
+			}
+		}
+	}
+}
+
+void FBlueprintEditor::ClearAllGraphEditorQuickJumps()
+{
+	UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+	LocalSettings->GraphEditorQuickJumps.Empty();
+	LocalSettings->SaveConfig();
 }
 
 /////////////////////////////////////////////////////

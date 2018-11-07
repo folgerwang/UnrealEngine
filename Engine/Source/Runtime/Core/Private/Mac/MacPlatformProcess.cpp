@@ -5,8 +5,10 @@
 =============================================================================*/
 
 #include "Mac/MacPlatformProcess.h"
+#include "Mac/MacPlatform.h"
 #include "Apple/ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
+#include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include <mach-o/dyld.h>
@@ -69,7 +71,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 	
 	FString PlatformName = TEXT("Mac");
 	FString ExecutableName = AppName;
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutableName += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}
@@ -142,6 +144,16 @@ void FMacPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FStri
 	SCOPED_AUTORELEASE_POOL;
 
 	UE_LOG(LogMac, Log,  TEXT("LaunchURL %s %s"), URL, Parms?Parms:TEXT("") );
+
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
+	{
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
+		return;
+	}
+
 	NSString* Url = (NSString*)FPlatformString::TCHARToCFString( URL );
 	
 	FString SchemeName;
@@ -661,7 +673,7 @@ FString FMacPlatformProcess::GetApplicationName( uint32 ProcessId )
 {
 	FString Output = TEXT("");
 
-	char Buffer[MAX_PATH];
+	char Buffer[MAC_MAX_PATH];
 	int32 Ret = proc_pidpath(ProcessId, Buffer, sizeof(Buffer));
 	if (Ret > 0)
 	{
@@ -705,38 +717,9 @@ bool FMacPlatformProcess::IsSandboxedApplication()
 #endif
 }
 
-void FMacPlatformProcess::CleanFileCache()
-{
-	bool bShouldCleanShaderWorkingDirectory = true;
-#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
-	// Only clean the shader working directory if we are the first instance, to avoid deleting files in use by other instances
-	//@todo - check if any other instances are running right now
-	bShouldCleanShaderWorkingDirectory = GIsFirstInstance;
-#endif
-
-    if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
-    {
-        // get shader path, and convert it to the userdirectory
-		for (const auto& ShaderSourceDirectoryEntry : FPlatformProcess::AllShaderSourceDirectoryMappings())
-		{
-			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / ShaderSourceDirectoryEntry.Value;
-            FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
-            FPaths::CollapseRelativeDirectories(ShaderDir);
-            
-            // make sure we don't delete from the source directory
-            if (ShaderDir != UserShaderDir)
-            {
-                IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
-            }
-        }
-        
-        FPlatformProcess::CleanShaderWorkingDir();
-    }
-}
-
 const TCHAR* FMacPlatformProcess::BaseDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -763,7 +746,7 @@ const TCHAR* FMacPlatformProcess::BaseDir()
 				BasePath = [BasePath stringByDeletingLastPathComponent];
 			}
 		}
-		FCString::Strcpy(Result, MAX_PATH, *FString(BasePath));
+		FCString::Strcpy(Result, MAC_MAX_PATH, *FString(BasePath));
 		FCString::Strcat(Result, TEXT("/"));
 	}
 	return Result;
@@ -771,7 +754,7 @@ const TCHAR* FMacPlatformProcess::BaseDir()
 
 const TCHAR* FMacPlatformProcess::UserDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -799,7 +782,7 @@ const TCHAR* FMacPlatformProcess::UserSettingsDir()
 
 static TCHAR* UserLibrarySubDirectory()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		FString SubDirectory = IsRunningGame() ? FString(FApp::GetProjectName()) : FString(TEXT("Unreal Engine")) / FApp::GetProjectName();
@@ -821,7 +804,7 @@ static TCHAR* UserLibrarySubDirectory()
 
 const TCHAR* FMacPlatformProcess::UserPreferencesDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -835,7 +818,7 @@ const TCHAR* FMacPlatformProcess::UserPreferencesDir()
 
 const TCHAR* FMacPlatformProcess::UserLogsDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -847,9 +830,20 @@ const TCHAR* FMacPlatformProcess::UserLogsDir()
 	return Result;
 }
 
+const TCHAR* FMacPlatformProcess::UserHomeDir()
+{
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
+	if (!Result[0])
+	{
+		SCOPED_AUTORELEASE_POOL;
+		FPlatformString::CFStringToTCHAR((CFStringRef)NSHomeDirectory(), Result);
+	}
+	return Result;
+}
+
 const TCHAR* FMacPlatformProcess::ApplicationSettingsDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -912,7 +906,7 @@ void FMacPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 FString FMacPlatformProcess::GetCurrentWorkingDirectory()
 {
 	// get the current directory
-	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
+	ANSICHAR CurrentDir[MAC_MAX_PATH] = { 0 };
 	getcwd(CurrentDir, sizeof(CurrentDir));
 	return UTF8_TO_TCHAR(CurrentDir);
 }
@@ -1155,7 +1149,7 @@ FMacPlatformProcess::FProcEnumerator::FProcEnumerator()
 
 	if (sysctl(Mib, 4, NULL, &BufferSize, NULL, 0) != -1 && BufferSize > 0)
 	{
-		char Buffer[MAX_PATH];
+		char Buffer[MAC_MAX_PATH];
 		Processes = (struct kinfo_proc*)FMemory::Malloc(BufferSize);
 		if (sysctl(Mib, 4, Processes, &BufferSize, NULL, 0) != -1)
 		{
@@ -1206,7 +1200,7 @@ uint32 FMacPlatformProcess::FProcEnumInfo::GetParentPID() const
 
 FString FMacPlatformProcess::FProcEnumInfo::GetFullPath() const
 {
-	char Buffer[MAX_PATH];
+	char Buffer[MAC_MAX_PATH];
 	proc_pidpath(GetPID(), Buffer, sizeof(Buffer));
 
 	return Buffer;

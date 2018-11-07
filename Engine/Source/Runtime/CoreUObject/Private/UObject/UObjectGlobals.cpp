@@ -757,8 +757,6 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 	// Strip off the object class.
 	ConstructorHelpers::StripObjectClass( InOutName );
 
-	InOutName = FPackageName::GetDelegateResolvedPackagePath(InOutName);
-
 	// if you're attempting to find an object in any package using a dotted name that isn't fully
 	// qualified (such as ObjectName.SubobjectName - notice no package name there), you normally call
 	// StaticFindObject and pass in ANY_PACKAGE as the value for InPackage.  When StaticFindObject calls ResolveName,
@@ -978,7 +976,11 @@ UObject* StaticLoadObjectInternal(UClass* ObjectClass, UObject* InOuter, const T
 
 UObject* StaticLoadObject(UClass* ObjectClass, UObject* InOuter, const TCHAR* InName, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox, bool bAllowObjectReconciliation )
 {
-	UE_CLOG(FUObjectThreadContext::Get().IsRoutingPostLoad && IsInAsyncLoadingThread(), LogUObjectGlobals, Warning, TEXT("Calling StaticLoadObject during PostLoad may result in hitches during streaming."));
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	if (ThreadContext.IsRoutingPostLoad && IsInAsyncLoadingThread())
+	{
+		UE_LOG(LogUObjectGlobals, Warning, TEXT("Calling StaticLoadObject during PostLoad of %s may result in hitches during streaming."), *GetFullNameSafe(ThreadContext.CurrentlyPostLoadedObjectByALT));
+	}
 
 	UObject* Result = StaticLoadObjectInternal(ObjectClass, InOuter, InName, Filename, LoadFlags, Sandbox, bAllowObjectReconciliation);
 	if (!Result)
@@ -1126,8 +1128,8 @@ public:
 		}
 
 		FArchive* OtherFile = IFileManager::Get().CreateFileReader(DiffFilename);
-		FDiffFileArchive* DiffArchive = new FDiffFileArchive(Loader, OtherFile);
-		Loader = DiffArchive;
+		FDiffFileArchive* DiffArchive = new FDiffFileArchive(GetLoader(), OtherFile);
+		SetLoader(DiffArchive);
 
 	}
 };
@@ -2193,12 +2195,13 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 {
 	bool bSavedToTransactionBuffer = false;
 
-	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
+	// Script packages should not end up in the transaction buffer.
+	// PIE objects should go through however. Additionally, in order
 	// to save a copy of the object, we must have a transactor and the object must be transactional.
-	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
-	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags( PKG_PlayInEditor | PKG_ContainsScript) == false);
+	const bool bIsTransactional = Object->HasAnyFlags(RF_Transactional);
+	const bool bIsNotScriptPackage = (Object->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript) == false);
 
-	if ( GUndo && IsTransactional && IsNotPIEOrContainsScriptObject )
+	if ( GUndo && bIsTransactional && bIsNotScriptPackage)
 	{
 		// Mark the package dirty, if requested
 		if ( bMarkDirty )
@@ -2223,12 +2226,13 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
  */
 void SnapshotTransactionBuffer(UObject* Object)
 {
-	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
+	// Script packages should not end up in the transaction buffer.
+	// PIE objects should go through however. Additionally, in order
 	// to save a copy of the object, we must have a transactor and the object must be transactional.
-	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
-	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript) == false);
+	const bool bIsTransactional = Object->HasAnyFlags(RF_Transactional);
+	const bool bIsNotScriptPackage = (Object->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript) == false);
 
-	if (GUndo && IsTransactional && IsNotPIEOrContainsScriptObject)
+	if (GUndo && bIsTransactional && bIsNotScriptPackage)
 	{
 		GUndo->SnapshotObject(Object);
 	}

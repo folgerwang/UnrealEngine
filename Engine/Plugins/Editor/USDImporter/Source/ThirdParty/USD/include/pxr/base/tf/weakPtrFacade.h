@@ -38,17 +38,6 @@
 #include <boost/type_traits/is_same.hpp>
 #include <boost/utility/enable_if.hpp>
 
-
-#if !defined(doxygen)
-//
-// Declare classes in Boost.Python which need to know about TfWeakPtr.
-//
-namespace boost { namespace python { namespace objects {
-template <class P, class V> struct pointer_holder;
-}}} // end namespace boost
-
-#endif
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 class TfHash;
@@ -232,11 +221,11 @@ public:
     
     DataType *operator -> () const {
         DataType *ptr = _FetchPointer();
-        if (ARCH_LIKELY(ptr))
+        if (ARCH_LIKELY(ptr)) {
             return ptr;
-        TF_FATAL_ERROR("Dereferenced an invalid %s",
-                       ArchGetDemangled(typeid(Derived)).c_str());
-        return 0;
+        }
+        static const TfCallContext ctx(TF_CALL_CONTEXT);
+        Tf_PostNullSmartPtrDereferenceFatalError(ctx, typeid(Derived));
     }
 
     DataType &operator * () const {
@@ -252,8 +241,6 @@ public:
 private:
 
     friend class TfHash;
-    template <class P, class V>
-    friend struct boost::python::objects::pointer_holder;
 
     friend std::type_info const &TfTypeid(Derived const &p) {
         if (ARCH_UNLIKELY(!p))

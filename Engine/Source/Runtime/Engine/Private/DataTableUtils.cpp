@@ -299,7 +299,7 @@ FString DataTableUtils::AssignStringToProperty(const FString& InString, const UP
 	return Error;
 }
 
-FString DataTableUtils::GetPropertyValueAsStringDirect(const UProperty* InProp, uint8* InData, const EDataTableExportFlags InDTExportFlags)
+FString DataTableUtils::GetPropertyValueAsStringDirect(const UProperty* InProp, const uint8* InData, const EDataTableExportFlags InDTExportFlags)
 {
 	FString Result;
 
@@ -311,7 +311,7 @@ FString DataTableUtils::GetPropertyValueAsStringDirect(const UProperty* InProp, 
 	return Result;
 }
 
-FString DataTableUtils::GetPropertyValueAsString(const UProperty* InProp, uint8* InData, const EDataTableExportFlags InDTExportFlags)
+FString DataTableUtils::GetPropertyValueAsString(const UProperty* InProp, const uint8* InData, const EDataTableExportFlags InDTExportFlags)
 {
 	FString Result;
 
@@ -342,7 +342,7 @@ FString DataTableUtils::GetPropertyValueAsString(const UProperty* InProp, uint8*
 	return Result;
 }
 
-FText DataTableUtils::GetPropertyValueAsTextDirect(const UProperty* InProp, uint8* InData)
+FText DataTableUtils::GetPropertyValueAsTextDirect(const UProperty* InProp, const uint8* InData)
 {
 	FText Result;
 
@@ -357,7 +357,7 @@ FText DataTableUtils::GetPropertyValueAsTextDirect(const UProperty* InProp, uint
 	return Result;
 }
 
-FText DataTableUtils::GetPropertyValueAsText(const UProperty* InProp, uint8* InData)
+FText DataTableUtils::GetPropertyValueAsText(const UProperty* InProp, const uint8* InData)
 {
 	FText Result;
 
@@ -496,7 +496,7 @@ TArray<FString> DataTableUtils::GetColumnDataAsString(const UDataTable* InTable,
 	UProperty* ColumnProperty = InTable->FindTableProperty(PropertyName);
 	if (ColumnProperty)
 	{
-		for (auto RowIt = InTable->RowMap.CreateConstIterator(); RowIt; ++RowIt)
+		for (auto RowIt = InTable->GetRowMap().CreateConstIterator(); RowIt; ++RowIt)
 		{
 			uint8* RowData = RowIt.Value();
 			Result.Add(GetPropertyValueAsString(ColumnProperty, RowData, InDTExportFlags));

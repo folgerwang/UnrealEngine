@@ -12,7 +12,6 @@
 #include "MetalCommandQueue.h"
 #include "MetalCommandBuffer.h"
 #include "RenderUtils.h"
-#include "ShaderCache.h"
 #include "Misc/ScopeRWLock.h"
 #include <objc/runtime.h>
 
@@ -396,9 +395,9 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
         for (uint32 i = 0; i < NumActiveTargets; i++)
         {
             EPixelFormat TargetFormat = Init.RenderTargetFormats[i];
-            if (TargetFormat == PF_Unknown)
+            if (TargetFormat == PF_Unknown && PixelShader && (((PixelShader->Bindings.InOutMask & 0x7fff) & (1 << i))))
             {
-                UE_CLOG(PixelShader && (((PixelShader->Bindings.InOutMask & 0x7fff) & (1 << i))), LogMetal, Warning, TEXT("Pipeline pixel shader expects target %u to be bound but it isn't."), i);
+				UE_LOG(LogMetal, Fatal, TEXT("Pipeline pixel shader expects target %u to be bound but it isn't: %s."), i, *FString(PixelShader->GetSourceCode()));
                 continue;
             }
             
@@ -419,7 +418,7 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             Attachment.SetPixelFormat(MetalFormat);
             
             mtlpp::RenderPipelineColorAttachmentDescriptor Blend = BlendState->RenderTargetStates[i].BlendState;
-            if(Attachment)
+            if(TargetFormat != PF_Unknown)
             {
                 // assign each property manually, would be nice if this was faster
                 Attachment.SetBlendingEnabled(Blend.IsBlendingEnabled());
@@ -826,7 +825,14 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), HullShader ? *FString(HullShader->GetSourceCode()) : TEXT("NULL"));
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), DomainShader ? *FString(DomainShader->GetSourceCode()) : TEXT("NULL"));
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(RenderPipelineDesc.GetPtr().description));
-		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a render pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Failed to generate a render pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
+		
+		// We need to pass a failure up the chain, so we'll clean up here.
+		if(Pipeline->RenderPipelineState == nil)
+		{
+			[Pipeline release];
+			return nil;
+		}
 		
     #if METAL_DEBUG_OPTIONS
         Pipeline->ComputeSource = DomainShader ? VertexShader->GetSourceCode() : nil;
@@ -886,6 +892,12 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	if (Desc == nil)
 	{
 		Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
+		
+		// Bail cleanly if compilation fails.
+		if(!Desc)
+		{
+			return nil;
+		}
 
 		// Now we are a writer as we want to create & add the new pipeline
 		Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
@@ -901,26 +913,31 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	return Desc;
 }
 
-FMetalGraphicsPipelineState::FMetalGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Init)
-: Initializer(Init)
+bool FMetalGraphicsPipelineState::Compile()
 {
 	FMemory::Memzero(PipelineStates);
 	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
 	{
-		PipelineStates[i][0][0][0] = [GetMTLRenderPipeline(true, this, Init, (EMetalIndexType)i, nullptr, nullptr, nullptr) retain];
-        check(PipelineStates[i][0][0][0]);
+		PipelineStates[i][0][0][0] = [GetMTLRenderPipeline(true, this, Initializer, (EMetalIndexType)i, nullptr, nullptr, nullptr) retain];
+		if(!PipelineStates[i][0][0][0])
+		{
+			return false;
+		}
 	}
+	
+	return true;
 }
 
 FMetalGraphicsPipelineState::~FMetalGraphicsPipelineState()
 {
+    static uint32 MaxBufferNum = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) ? EMetalBufferType_Num : 1u;
 	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
 	{
-        for (uint32 v = 0; v < EMetalBufferType_Num; v++)
+        for (uint32 v = 0; v < MaxBufferNum; v++)
         {
-            for (uint32 f = 0; f < EMetalBufferType_Num; f++)
+            for (uint32 f = 0; f < MaxBufferNum; f++)
             {
-                for (uint32 c = 0; c < EMetalBufferType_Num; c++)
+                for (uint32 c = 0; c < MaxBufferNum; c++)
                 {
                 	if (PipelineStates[i][v][f][c])
                 	{
@@ -941,8 +958,8 @@ FMetalShaderPipeline* FMetalGraphicsPipelineState::GetPipeline(EMetalIndexType I
 	EMetalBufferType Fragment = PixelShader && (PixelShader->BufferTypeHash && PixelShader->BufferTypeHash == PixelBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
 	EMetalBufferType Compute = DomainShader && (DomainShader->BufferTypeHash && DomainShader->BufferTypeHash == DomainBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
 
-    FMetalShaderPipeline* Pipe = PipelineStates[IndexType][Vertex][Fragment][Compute];
-	if (!Pipe)
+    FMetalShaderPipeline* Pipe = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) ? PipelineStates[IndexType][Vertex][Fragment][Compute] : nullptr;
+	if ((GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) && !Pipe)
 	{
 		Pipe = PipelineStates[IndexType][Vertex][Fragment][Compute] = [GetMTLRenderPipeline(true, this, Initializer, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes) retain];
 	}
@@ -963,7 +980,14 @@ FGraphicsPipelineStateRHIRef FMetalDynamicRHI::RHICreateGraphicsPipelineState(co
 {
 	@autoreleasepool {
 	FMetalGraphicsPipelineState* State = new FMetalGraphicsPipelineState(Initializer);
-	check(State);
+		
+	if(!State->Compile())
+	{
+		// Compilation failures are propagated up to the caller.
+		State->DoNoDeferDelete();
+		delete State;
+		return nullptr;
+	}
 	State->VertexDeclaration = ResourceCast(Initializer.BoundShaderState.VertexDeclarationRHI);
 	State->VertexShader = ResourceCast(Initializer.BoundShaderState.VertexShaderRHI);
 	State->PixelShader = ResourceCast(Initializer.BoundShaderState.PixelShaderRHI);
@@ -972,7 +996,6 @@ FGraphicsPipelineStateRHIRef FMetalDynamicRHI::RHICreateGraphicsPipelineState(co
 	State->GeometryShader = ResourceCast(Initializer.BoundShaderState.GeometryShaderRHI);
 	State->DepthStencilState = ResourceCast(Initializer.DepthStencilState);
 	State->RasterizerState = ResourceCast(Initializer.RasterizerState);
-	FShaderCache::LogGraphicsPipelineState(ImmediateContext.GetInternalContext().GetCurrentState().GetShaderCacheStateObject(), GMaxRHIShaderPlatform, Initializer, State);
 	return State;
 	}
 }

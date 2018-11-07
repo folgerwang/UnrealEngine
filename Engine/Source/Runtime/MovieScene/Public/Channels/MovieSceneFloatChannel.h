@@ -202,7 +202,7 @@ public:
 public:
 
 	/** Serialize this float function from a mismatching property tag (FRichCurve) */
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 	int32 AddConstantKey(FFrameNumber InTime, float InValue);
 
@@ -287,7 +287,7 @@ public:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneFloatChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneFloatChannel>
 {
-	enum { WithSerializeFromMismatchedTag = true };
+	enum { WithStructuredSerializeFromMismatchedTag = true };
 };
 
 template<>

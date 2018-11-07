@@ -117,10 +117,11 @@ class SdfAssetPath;
 /// 2. If *scales* is authored, next apply the scaling matrix from *scales[i]*
 /// 3. If *orientations* is authored: **if *angularVelocities* is authored**, 
 /// first multiply *orientations[i]* by the unit quaternion derived by scaling 
-/// *angularVelocities[i]* by the time differential from the left-bracketing 
-/// timeSample for *orientation* to the requested evaluation time *t*, 
-/// storing the result in *R*, **else** assign *R* directly from 
-/// *orientations[i]*.  Apply the rotation matrix derived from *R*.
+/// *angularVelocities[i]* by the \ref UsdGeom_PITimeScaling "time differential" 
+/// from the left-bracketing timeSample for *orientation* to the requested 
+/// evaluation time *t*, storing the result in *R*, **else** assign *R* 
+/// directly from *orientations[i]*.  Apply the rotation matrix derived 
+/// from *R*.
 /// 4. Apply the translation derived from *positions[i]*. If *velocities* is 
 /// authored, apply the translation deriving from *velocities[i]* scaled by 
 /// the time differential from the left-bracketing timeSample for *positions* 
@@ -129,12 +130,51 @@ class SdfAssetPath;
 /// prim itself (or the UsdGeomImageable::ComputeLocalToWorldTransform() of the 
 /// PointInstancer to put the instance directly into world space)
 /// 
+/// If neither *velocities* nor *angularVelocities* are authored, we fallback to
+/// standard position and orientation computation logic (using linear
+/// interpolation between timeSamples) as described by
+/// \ref UsdGeom_VelocityInterpolation .
+/// 
+/// \anchor UsdGeom_PITimeScaling
+/// <b>Scaling Velocities for Interpolation</b>
+/// 
+/// When computing time-differentials by which to apply velocity or
+/// angularVelocity to positions or orientations, we must scale by
+/// ( 1.0 / UsdStage::GetTimeCodesPerSecond() ), because velocities are recorded
+/// in units/second, while we are interpolating in UsdTimeCode ordinates.
+/// 
+/// Additionally, if *motion:velocityScale* is authored or inherited (see
+/// UsdGeomMotionAPI::ComputeVelocityScale()), it is used to scale both the
+/// velocity and angular velocity by a constant value during computation. The
+/// *motion:velocityScale* attribute is encoded by UsdGeomMotionAPI.
 /// 
 /// We provide both high and low-level API's for dealing with the
 /// transformation as a matrix, both will compute the instance matrices using
 /// multiple threads; the low-level API allows the client to cache unvarying
 /// inputs so that they need not be read duplicately when computing over
 /// time.
+/// 
+/// See also \ref UsdGeom_VelocityInterpolation .
+/// 
+/// \section UsdGeomPointInstancer_primvars Primvars on PointInstancer
+/// 
+/// \ref UsdGeomPrimvar "Primvars" authored on a PointInstancer prim should
+/// always be applied to each instance with \em constant interpolation at
+/// the root of the instance.  When you are authoring primvars on a 
+/// PointInstancer, think about it as if you were authoring them on a 
+/// point-cloud (e.g. a UsdGeomPoints gprim).  The same 
+/// <A HREF="http://renderman.pixar.com/resources/current/rps/appnote.22.html#classSpecifiers">interpolation rules for points</A> apply here, substituting
+/// "instance" for "point".
+/// 
+/// In other words, the (constant) value extracted for each instance
+/// from the authored primvar value depends on the authored \em interpolation
+/// and \em elementSize of the primvar, as follows:
+/// \li <b>constant</b> or <b>uniform</b> : the entire authored value of the
+/// primvar should be applied exactly to each instance.
+/// \li <b>varying</b>, <b>vertex</b>, or <b>faceVarying</b>: the first
+/// \em elementSize elements of the authored primvar array should be assigned to
+/// instance zero, the second \em elementSize elements should be assigned to
+/// instance one, and so forth.
 /// 
 /// 
 /// \section UsdGeomPointInstancer_masking Masking Instances: "Deactivating" and Invising
@@ -160,7 +200,7 @@ class SdfAssetPath;
 /// 
 /// The first masking feature encodes a list of IDs in a list-editable metadatum
 /// called \em inactiveIds, which, although it does not have any similar 
-/// impact to stage poopulation as \ref UsdPrim::SetActive() "prim activation",
+/// impact to stage population as \ref UsdPrim::SetActive() "prim activation",
 /// it shares with that feature that its application is uniform over all time.
 /// Because it is list-editable, we can \em sparsely add and remove instances
 /// from it in many layers.
@@ -230,39 +270,14 @@ class SdfAssetPath;
 /// 19 }
 /// \endcode
 /// 
-/// \section UsdGeomPointInstancer_primvars Primvars on PointInstancer
-/// 
-/// \ref UsdGeomPrimvar "Primvars" authored on a PointInstancer prim should
-/// always be applied to each instance with \em constant interpolation at
-/// the root of the instance.  When you are authoring primvars on a 
-/// PointInstancer, think about it as if you were authoring them on a 
-/// point-cloud (e.g. a UsdGeomPoints gprim).  The same 
-/// <A HREF="http://renderman.pixar.com/resources/current/rps/appnote.22.html#classSpecifiers">interpolation rules for points</A> apply here, substituting
-/// "instance" for "point".
-/// 
-/// In other words, the (constant) value extracted for each instance
-/// from the authored primvar value depends on the authored \em interpolation
-/// and \em elementSize of the primvar, as follows:
-/// \li <b>constant</b> or <b>uniform</b> : the entire authored value of the
-/// primvar should be applied exactly to each instance.
-/// \li <b>varying</b>, <b>vertex</b>, or <b>faceVarying</b>: the first
-/// \em elementSize elements of the authored primvar array should be assigned to
-/// instance zero, the second \em elementSize elements should be assigned to
-/// instance one, and so forth.
-///
-/// For any described attribute \em Fallback \em Value or \em Allowed \em Values below
-/// that are text/tokens, the actual token is published and defined in \ref UsdGeomTokens.
-/// So to set an attribute to the value "rightHanded", use UsdGeomTokens->rightHanded
-/// as the value.
 ///
 class UsdGeomPointInstancer : public UsdGeomBoundable
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = true;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::ConcreteTyped;
 
     /// Construct a UsdGeomPointInstancer on UsdPrim \p prim .
     /// Equivalent to UsdGeomPointInstancer::Get(prim.GetStage(), prim.GetPath())
@@ -331,6 +346,13 @@ public:
     static UsdGeomPointInstancer
     Define(const UsdStagePtr &stage, const SdfPath &path);
 
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
+
 private:
     // needs to invoke _GetStaticTfType.
     friend class UsdSchemaRegistry;
@@ -378,7 +400,7 @@ public:
     /// binary state on Id'd instances without adding a separate primvar.
     /// See also \ref UsdGeomPointInstancer_varyingTopo
     ///
-    /// \n  C++ Type: VtArray<long>
+    /// \n  C++ Type: VtArray<int64_t>
     /// \n  Usd Type: SdfValueTypeNames->Int64Array
     /// \n  Variability: SdfVariabilityVarying
     /// \n  Fallback Value: No Fallback
@@ -475,14 +497,17 @@ public:
     // --------------------------------------------------------------------- //
     // VELOCITIES 
     // --------------------------------------------------------------------- //
-    /// If authored, per-instance velocity vector to be used for
-    /// interpolating position.  Velocities should be considered mandatory if
-    /// both \em protoIndices and \em positions are animated.  Magnitude of
-    /// the velocity is measured in position units per UsdTimeCode . To convert to
-    /// position units per second, multiply by
+    /// If provided, per-instance 'velocities' will be used to 
+    /// compute positions between samples for the 'positions' attribute,
+    /// rather than interpolating between neighboring 'positions' samples.
+    /// Velocities should be considered mandatory if both \em protoIndices
+    /// and \em positions are animated.  Velocity is measured in position
+    /// units per second, as per most simulation software. To convert to
+    /// position units per UsdTimeCode, divide by
     /// UsdStage::GetTimeCodesPerSecond().
     /// 
-    /// See also \ref UsdGeomPointInstancer_transform .
+    /// See also \ref UsdGeomPointInstancer_transform, 
+    /// \ref UsdGeom_VelocityInterpolation .
     ///
     /// \n  C++ Type: VtArray<GfVec3f>
     /// \n  Usd Type: SdfValueTypeNames->Vector3fArray
@@ -506,8 +531,8 @@ public:
     /// If authored, per-instance angular velocity vector to be used for
     /// interoplating orientations.  Angular velocities should be considered
     /// mandatory if both \em protoIndices and \em orientations are animated.
-    /// Magnitude of the angular velocity is measured in <b>degrees</b> per
-    /// UsdTimeCode . To convert to degrees per second, multiply by
+    /// Angular velocity is measured in <b>degrees</b> per second. To convert
+    /// to degrees per UsdTimeCode, divide by
     /// UsdStage::GetTimeCodesPerSecond().
     /// 
     /// See also \ref UsdGeomPointInstancer_transform .
@@ -534,10 +559,10 @@ public:
     /// A list of id's to make invisible at the evaluation time.
     /// See \ref UsdGeomPointInstancer_invisibleIds .
     ///
-    /// \n  C++ Type: VtArray<long>
+    /// \n  C++ Type: VtArray<int64_t>
     /// \n  Usd Type: SdfValueTypeNames->Int64Array
     /// \n  Variability: SdfVariabilityVarying
-    /// \n  Fallback Value: No Fallback
+    /// \n  Fallback Value: []
     USDGEOM_API
     UsdAttribute GetInvisibleIdsAttr() const;
 
@@ -548,30 +573,6 @@ public:
     /// the default for \p writeSparsely is \c false.
     USDGEOM_API
     UsdAttribute CreateInvisibleIdsAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
-
-public:
-    // --------------------------------------------------------------------- //
-    // PROTOTYPEDRAWMODE 
-    // --------------------------------------------------------------------- //
-    /// Draw modes that host applications can use as a hint for how each
-    /// instance of each prototype should be represented.  This hint should only
-    /// affect interactive/preview representations and is optional.
-    ///
-    /// \n  C++ Type: TfToken
-    /// \n  Usd Type: SdfValueTypeNames->Token
-    /// \n  Variability: SdfVariabilityUniform
-    /// \n  Fallback Value: fullGeom
-    /// \n  \ref UsdGeomTokens "Allowed Values": [point, card, fullGeom]
-    USDGEOM_API
-    UsdAttribute GetPrototypeDrawModeAttr() const;
-
-    /// See GetPrototypeDrawModeAttr(), and also 
-    /// \ref Usd_Create_Or_Get_Property for when to use Get vs Create.
-    /// If specified, author \p defaultValue as the attribute's default,
-    /// sparsely (when it makes sense to do so) if \p writeSparsely is \c true -
-    /// the default for \p writeSparsely is \c false.
-    USDGEOM_API
-    UsdAttribute CreatePrototypeDrawModeAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
 
 public:
     // --------------------------------------------------------------------- //
@@ -780,7 +781,11 @@ public:
     ///
     /// This will return \c false and leave \p xforms untouched if:
     /// - \p xforms is NULL
-    /// - there is no authored \em protoIndices attribute
+    /// - one of \p time and \p baseTime is numeric and the other is
+    ///   UsdTimeCode::Default() (they must either both be numeric or both be
+    ///   default)
+    /// - there is no authored \em protoIndices attribute or \em positions
+    ///   attribute
     /// - the size of any of the per-instance attributes does not match the
     ///   size of \em protoIndices
     /// - \p doProtoXforms is \c IncludeProtoXform but an index value in
@@ -815,6 +820,9 @@ public:
     ///                   same value for \p baseTime that it does for \p time.
     ///                   When \p baseTime is less than or equal to \p time,
     ///                   we will choose the lower bracketing timeSample.
+    ///                   Selecting sample times with respect to baseTime will
+    ///                   be performed independently for positions and
+    ///                   orientations.
     /// \param doProtoXforms - specifies whether to include the root 
     ///                   transformation of each instance's prototype in the
     ///                   instance's transform.  Default is to include it, but
@@ -826,11 +834,201 @@ public:
     USDGEOM_API
     bool
     ComputeInstanceTransformsAtTime(
-                        VtArray<GfMatrix4d>* xforms,
-                        const UsdTimeCode time,
-                        const UsdTimeCode baseTime,
-                        const ProtoXformInclusion doProtoXforms = IncludeProtoXform,
-                        const MaskApplication applyMask = ApplyMask) const;
+        VtArray<GfMatrix4d>* xforms,
+        const UsdTimeCode time,
+        const UsdTimeCode baseTime,
+        const ProtoXformInclusion doProtoXforms = IncludeProtoXform,
+        const MaskApplication applyMask = ApplyMask) const;
+
+    /// Compute the per-instance transforms as in
+    /// ComputeInstanceTransformsAtTime, but using multiple sample times. An
+    /// array of matrix arrays is returned where each matrix array contains the
+    /// instance transforms for the corresponding time in \p times .
+    ///
+    /// \param times - A vector containing the UsdTimeCodes at which we want to
+    ///                sample.
+    USDGEOM_API
+    bool
+    ComputeInstanceTransformsAtTimes(
+        std::vector<VtArray<GfMatrix4d>>* xformsArray,
+        const std::vector<UsdTimeCode>& times,
+        const UsdTimeCode baseTime,
+        const ProtoXformInclusion doProtoXforms = IncludeProtoXform,
+        const MaskApplication applyMask = ApplyMask) const;
+
+    /// \overload
+    /// Perform the per-instance transform computation as described in
+    /// \ref UsdGeomPointInstancer_transform . This does the same computation as
+    /// the non-static ComputeInstanceTransformsAtTime method, but takes all
+    /// data as parameters rather than accessing authored data.
+    ///
+    /// \param xforms - the out parameter for the transformations.  Its size
+    ///                 will depend on the given data and \p applyMask
+    /// \param stage - the UsdStage
+    /// \param time - time at which we want to evaluate the transforms
+    /// \param protoIndices - array containing all instance prototype indices.
+    /// \param positions - array containing all instance positions. This array
+    ///                    must be the same size as \p protoIndices .
+    /// \param velocities - array containing all instance velocities. This array
+    ///                     must be either the same size as \p protoIndices or
+    ///                     empty. If it is empty, transforms are computed as if
+    ///                     all velocities were zero in all dimensions.
+    /// \param velocitiesSampleTime - time at which the samples from
+    ///                               \p velocities were taken.
+    /// \param scales - array containing all instance scales. This array must be
+    ///                 either the same size as \p protoIndices or empty. If it
+    ///                 is empty, transforms are computed with no change in
+    ///                 scale.
+    /// \param orientations - array containing all instance orientations. This
+    ///                       array must be either the same size as
+    ///                       \p protoIndices or empty. If it is empty,
+    ///                       transforms are computed with no change in
+    ///                       orientation
+    /// \param angularVelocities - array containing all instance angular
+    ///                            velocities. This array must be either the
+    ///                            same size as \p protoIndices or empty. If it
+    ///                            is empty, transforms are computed as if all
+    ///                            angular velocities were zero in all
+    ///                            dimensions.
+    /// \param angularVelocitiesSampleTime - time at which the samples from
+    ///                                      \p angularVelocities were taken.
+    /// \param protoPaths - array containing the paths for all instance
+    ///                     prototypes. If this array is not empty, prototype
+    ///                     transforms are applied to the instance transforms.
+    /// \param mask - vector containing a mask to apply to the computed result.
+    ///               This vector must be either the same size as
+    ///               \p protoIndices or empty. If it is empty, no mask is
+    ///               applied.
+    /// \param velocityScale - factor used to artificially increase the effect
+    ///                        of velocity and angular velocity on positions and
+    ///                        orientations respectively.
+    USDGEOM_API
+    static bool
+    ComputeInstanceTransformsAtTime(
+        VtArray<GfMatrix4d>* xforms,
+        UsdStageWeakPtr& stage,
+        UsdTimeCode time,
+        const VtIntArray& protoIndices,
+        const VtVec3fArray& positions,
+        const VtVec3fArray& velocities,
+        UsdTimeCode velocitiesSampleTime,
+        const VtVec3fArray& scales,
+        const VtQuathArray& orientations,
+        const VtVec3fArray& angularVelocities,
+        UsdTimeCode angularVelocitiesSampleTime,
+        const SdfPathVector& protoPaths,
+        const std::vector<bool>& mask,
+        float velocityScale = 1.0);
+
+private:
+
+    // Get the authored prototype indices for instance transform computation.
+    // Fail if prototype indices are not authored.
+    bool _GetProtoIndicesForInstanceTransforms(
+        UsdTimeCode baseTime,
+        VtIntArray* protoIndices) const;
+
+    // Get the authored positions for instance transform computation. Fail if
+    // there are no authored positions or the number of positions doesn't match
+    // the number of instances.
+    bool _GetPositionsForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        UsdTimeCode* positionsSampleTime,
+        bool* positionsHasSamples,
+        VtVec3fArray* positions) const;
+
+    // Get the authored velocities for instance transform computation. Fail if
+    // there are no authored velocities, the number of velocities doesn't match
+    // the number of instances, or the velocity timesample does not align with
+    // the position timesample.
+    bool _GetVelocitiesForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        UsdTimeCode positionsSampleTime,
+        UsdTimeCode* velocitiesSampleTime,
+        VtVec3fArray* velocities) const;
+
+    // Get the authored positions and velocities for instance transform
+    // computation. This method fails if the positions can't be fetched (see
+    // _GetPositionsForInstanceTransforms). If velocities can't be fetched (see
+    // _GetVelocitiesForInstanceTransforms) or positions are not time-varying,
+    // then \p velocities is cleared and \p velocitiesSampleTime is not changed.
+    bool _GetPositionsAndVelocitiesForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        VtVec3fArray* positions,
+        VtVec3fArray* velocities,
+        UsdTimeCode* velocitiesSampleTime) const;
+
+    // Get the authored scales for instance transform computation. Fail if there
+    // are no authored scales or the number of scales doesn't match the number
+    // of instances.
+    bool _GetScalesForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        VtVec3fArray* scales) const;
+
+    // Get the authored orientations for instance transform computation. Fail if
+    // there are no authored orientations or the number of orientations doesn't
+    // match the number of instances.
+    bool _GetOrientationsForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        UsdTimeCode* orientationsSampleTime,
+        bool* orientationsHasSamples,
+        VtQuathArray* orientations) const;
+
+    // Get the authored angular velocities for instance transform computation.
+    // Fail if there are no authored angular velocities, the number of angular
+    // velocities doesn't match the number of instances, or the angular velocity
+    // timesample does not align with the orientation timesample.
+    bool _GetAngularVelocitiesForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        UsdTimeCode orientationsSampleTime,
+        UsdTimeCode* angularVelocitiesSampleTime,
+        VtVec3fArray* angularVelocities) const;
+
+    // Get the authored orientations and angular velocities for instance
+    // transform computation. This method fails if the orientations can't be
+    // fetched (see _GetOrientationsForInstanceTransforms). If angular
+    // velocities can't be fetched (see
+    // _GetAngularVelocitiesForInstanceTransforms) or orientations are not time-
+    // varying, then \p angularVelocities is cleared and
+    // \p angularVelocitiesSampleTime is not changed.
+    bool _GetOrientationsAndAngularVelocitiesForInstanceTransforms(
+        UsdTimeCode baseTime,
+        size_t numInstances,
+        VtQuathArray* orientations,
+        VtVec3fArray* angularVelocities,
+        UsdTimeCode* angularVelocitiesSampleTime) const;
+
+    // Get the authored prototype paths. Fail if there are no authored prototype
+    // paths or the prototype indices are out of bounds.
+    bool _GetPrototypePathsForInstanceTransforms(
+        const VtIntArray& protoIndices,
+        SdfPathVector* protoPaths) const;
+
+    // Fetches data from attributes on a UsdGeomPointInstancer required for
+    // instance transform calculations.
+    bool _ComputeInstanceTransformsAtTimePreamble(
+        const UsdTimeCode baseTime,
+        const ProtoXformInclusion doProtoXforms,
+        const MaskApplication applyMask,
+        VtIntArray* protoIndices,
+        VtVec3fArray* positions,
+        VtVec3fArray* velocities,
+        UsdTimeCode* velocitiesSampleTime,
+        VtVec3fArray* scales,
+        VtQuathArray* orientations,
+        VtVec3fArray* angularVelocities,
+        UsdTimeCode* angularVelocitiesSampleTime,
+        SdfPathVector* protoPaths,
+        std::vector<bool>* mask,
+        float* velocityScale) const;
+
+public:
 
     /// Compute the extent of the point instancer based on the per-instance,
     /// "PointInstancer relative" transforms at \p time, as described in
@@ -872,6 +1070,75 @@ public:
                         VtVec3fArray* extent,
                         const UsdTimeCode time,
                         const UsdTimeCode baseTime) const;
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    bool ComputeExtentAtTime(
+                        VtVec3fArray* extent,
+                        const UsdTimeCode time,
+                        const UsdTimeCode baseTime,
+                        const GfMatrix4d& transform) const;
+
+    /// Compute the extent of the point instancer as in
+    /// \ref ComputeExtentAtTime , but across multiple \p times . This is
+    /// equivalent to, but more efficient than, calling ComputeExtentAtTime
+    /// several times. Each element in \p extents is the computed extent at the
+    /// corresponding time in \p times .
+    ///
+    /// As in \ref ComputeExtentAtTime, if there is no error, we return \c true
+    /// and \p extents will be the tightest bounds we can compute efficiently.
+    /// If an error occurs computing the extent at any time, \c false will be
+    /// returned and \p extents will be left untouched.
+    ///
+    /// \param times - A vector containing the UsdTimeCodes at which we want to
+    ///                sample.
+    USDGEOM_API
+    bool ComputeExtentAtTimes(
+                        std::vector<VtVec3fArray>* extents,
+                        const std::vector<UsdTimeCode>& times,
+                        const UsdTimeCode baseTime) const;
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied at
+    /// each time.
+    USDGEOM_API
+    bool ComputeExtentAtTimes(
+                        std::vector<VtVec3fArray>* extents,
+                        const std::vector<UsdTimeCode>& times,
+                        const UsdTimeCode baseTime,
+                        const GfMatrix4d& transform) const;
+
+private:
+
+    bool _ComputeExtentAtTimePreamble(
+        UsdTimeCode baseTime,
+        VtIntArray* protoIndices,
+        std::vector<bool>* mask,
+        UsdRelationship* prototypes,
+        SdfPathVector* protoPaths) const;
+
+    bool _ComputeExtentFromTransforms(
+        VtVec3fArray* extent,
+        const VtIntArray& protoIndices,
+        const std::vector<bool>& mask,
+        const UsdRelationship& prototypes,
+        const SdfPathVector& protoPaths,
+        const VtMatrix4dArray& instanceTransforms,
+        UsdTimeCode time,
+        const GfMatrix4d* transform) const;
+
+    bool _ComputeExtentAtTime(
+        VtVec3fArray* extent,
+        const UsdTimeCode time,
+        const UsdTimeCode baseTime,
+        const GfMatrix4d* transform) const;
+
+    bool _ComputeExtentAtTimes(
+        std::vector<VtVec3fArray>* extent,
+        const std::vector<UsdTimeCode>& times,
+        const UsdTimeCode baseTime,
+        const GfMatrix4d* transform) const;
 };
 
 template <class T>
@@ -913,6 +1180,22 @@ UsdGeomPointInstancer::ApplyMaskToArray(std::vector<bool> const &mask,
     }
     return true;
 }
+
+/// Returns true if list ops should be composed with SdfListOp::ApplyOperations()
+/// Returns false if list ops should be composed with SdfListOp::ComposeOperations().
+USDGEOM_API
+bool
+UsdGeomPointInstancerApplyNewStyleListOps();
+
+/// Applies a list operation of type \p op using \p items
+/// over the existing list operation on \p prim with the name
+/// \p metadataName.
+USDGEOM_API 
+bool 
+UsdGeomPointInstancerSetOrMergeOverOp(std::vector<int64_t> const &items, 
+                                      SdfListOpType op,
+                                      UsdPrim const &prim,
+                                      TfToken const &metadataName);
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

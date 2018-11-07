@@ -11,15 +11,15 @@
 #include "ShaderParameterUtils.h"
 #include "ClearQuad.h"
 
-DECLARE_CYCLE_STAT(TEXT("Batching"), STAT_NiagaraGPUSimTick_RT, STATGROUP_Niagara);
-DECLARE_CYCLE_STAT(TEXT("GPU Data Readback"), STAT_NiagaraGPUReadback_RT, STATGROUP_Niagara);
+DECLARE_CYCLE_STAT(TEXT("GPU Emitter Dispatch [RT]"), STAT_NiagaraGPUSimTick_RT, STATGROUP_Niagara);
+DECLARE_CYCLE_STAT(TEXT("GPU Data Readback [RT]"), STAT_NiagaraGPUReadback_RT, STATGROUP_Niagara);
+DECLARE_CYCLE_STAT(TEXT("Allocate GPU Readback Data [RT]"), STAT_NiagaraAllocateGPUReadback_RT, STATGROUP_Niagara);
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Niagara GPU Sim"), STAT_GPU_NiagaraSim, STATGROUP_GPU);
 DECLARE_DWORD_COUNTER_STAT(TEXT("# GPU Particles"), STAT_NiagaraGPUParticles, STATGROUP_Niagara);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Readback latency (frames)"), STAT_NiagaraReadbackLatency, STATGROUP_Niagara);
 
 DECLARE_GPU_STAT_NAMED(NiagaraGPUSimulation, TEXT("Niagara GPU Simulation"));
 DECLARE_GPU_STAT_NAMED(NiagaraIndexBufferClear, TEXT("Niagara index buffer clear"));
-
 
 NiagaraEmitterInstanceBatcher* NiagaraEmitterInstanceBatcher::BatcherSingleton = nullptr;
 uint32 FNiagaraComputeExecutionContext::TickCounter = 0;
@@ -32,11 +32,12 @@ void NiagaraEmitterInstanceBatcher::Queue(FNiagaraComputeExecutionContext *InCon
 			uint32, QueueIndex, CurQueueIndex,
 			FNiagaraComputeExecutionContext*, ExecContext, InContext,
 			{
+				const uint32 QueueIndexMask = (1 << QueueIndex);
 				//Don't queue the same context for execution multiple times. TODO: possibly try to combine/accumulate the tick info if we happen to have > 1 before it's executed.
-				if (!ExecContext->bPendingExecution)
+				if (!(ExecContext->PendingExecutionQueueMask & QueueIndexMask))
 				{
 					Queue[QueueIndex].Add(ExecContext);
-					ExecContext->bPendingExecution = true;
+					ExecContext->PendingExecutionQueueMask |= QueueIndexMask;
 				}
 			});
 }
@@ -51,17 +52,26 @@ void NiagaraEmitterInstanceBatcher::Remove(FNiagaraComputeExecutionContext *InCo
 			{
 				Queue[i].Remove(ExecContext);
 			}
+			ExecContext->PendingExecutionQueueMask = 0;
 		});
 }
 
 void NiagaraEmitterInstanceBatcher::ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
 {
-	TArray<FNiagaraComputeExecutionContext*> &WorkQueue = SimulationQueue[CurQueueIndex ^ 0x1];
+	const uint32 TickedQueueIndex = (CurQueueIndex ^ 0x1);
+	const uint32 TickedQueueIndexMask = (1 << TickedQueueIndex);
+
+	TArray<FNiagaraComputeExecutionContext*> &WorkQueue = SimulationQueue[TickedQueueIndex];
 	for (FNiagaraComputeExecutionContext *Context : WorkQueue)
 	{
-		// need to call RenderThreadInit on data interfaces
-		//ExecuteSingle(Context, RHICmdList);
-		TickSingle(Context, RHICmdList, ViewUniformBuffer);
+		if (Context)
+		{
+			// need to call RenderThreadInit on data interfaces
+			//ExecuteSingle(Context, RHICmdList);
+			TickSingle(Context, RHICmdList, ViewUniformBuffer);
+			Context->PendingExecutionQueueMask &= ~TickedQueueIndexMask;
+		}
+
 	}
 	WorkQueue.Empty();
 }
@@ -72,7 +82,6 @@ void NiagaraEmitterInstanceBatcher::TickSingle(FNiagaraComputeExecutionContext *
 
 	check(IsInRenderingThread());
 	Context->MainDataSet->Tick();
-	Context->bPendingExecution = false;
 
 	FNiagaraComputeExecutionContext::TickCounter++;
 
@@ -106,8 +115,13 @@ void NiagaraEmitterInstanceBatcher::TickSingle(FNiagaraComputeExecutionContext *
 	// assume all instances survived; ResolveDataSetWrites will change this if the deferred readback was successful; that data may be several frames old
 	Context->MainDataSet->CurrData().SetNumInstances(NewNumInstances);
 
-	// resolve data set writes - grabs the number of instances written from the index set during the simulation run
-	ResolveDatasetWrites(Context);
+	// Don't resolve if the data if there are no instances (prevents a transition issue warning).
+	if (NewNumInstances > 0)
+	{
+		// resolve data set writes - grabs the number of instances written from the index set during the simulation run
+		ResolveDatasetWrites(RHICmdList, Context);
+	}
+
 	RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, Context->MainDataSet->GetCurDataSetIndices().UAV);		// transition to readable; we'll be using this next frame
 
 	/*
@@ -164,29 +178,43 @@ void NiagaraEmitterInstanceBatcher::ClearIndexBufferCur(FRHICommandList &RHICmdL
  *	overallocating a bit, and the CPU might think we have more particles alive than we actually do;
  *	since we use DrawIndirect with the GPU determining draw call parameters, that's not an issue
  */
-void NiagaraEmitterInstanceBatcher::ResolveDatasetWrites(FNiagaraComputeExecutionContext *Context) const
+void NiagaraEmitterInstanceBatcher::ResolveDatasetWrites(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context) const
 {
 	FRWBuffer &DatasetIndexBufferWrite = Context->MainDataSet->GetCurDataSetIndices();
 	uint32 SpawnedThisFrame = Context->SpawnRateInstances + Context->EventSpawnTotal;
 	Context->AccumulatedSpawnRate += SpawnedThisFrame;
 	if (!Context->GPUDataReadback)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_NiagaraAllocateGPUReadback_RT);
+
 		Context->GPUDataReadback = new FRHIGPUMemoryReadback(DatasetIndexBufferWrite.Buffer, TEXT("Niagara GPU Emitter Readback"));
 		INC_DWORD_STAT(STAT_NiagaraReadbackLatency);
+		Context->GPUDataReadback->Insert(RHICmdList);
 	}
 	else if (Context->GPUDataReadback->IsReady())
 	{
-		SCOPE_CYCLE_COUNTER(STAT_NiagaraGPUReadback_RT);
-		int32 *NumInstancesAfterSim = static_cast<int32*>(Context->GPUDataReadback->RetrieveData(64 * sizeof(int32)));
-		Context->MainDataSet->CurrData().SetNumInstances(NumInstancesAfterSim[1] + Context->AccumulatedSpawnRate);	// index 1 is always the count
-		SET_DWORD_STAT(STAT_NiagaraGPUParticles, NumInstancesAfterSim[1] + Context->AccumulatedSpawnRate);
-		SET_DWORD_STAT(STAT_NiagaraReadbackLatency, 0);
-
-		Context->GPUDataReadback->Finish();
-
-		Context->AccumulatedSpawnRate = 0;
-		delete Context->GPUDataReadback;
-		Context->GPUDataReadback = new FRHIGPUMemoryReadback(DatasetIndexBufferWrite.Buffer, TEXT("Niagara GPU Emitter Readback"));
+		{
+		    SCOPE_CYCLE_COUNTER(STAT_NiagaraGPUReadback_RT);
+		    int32 *NumInstancesAfterSim = static_cast<int32*>(Context->GPUDataReadback->RetrieveData(64 * sizeof(int32)));
+		    int32 ExistingDataCount = Context->MainDataSet->CurrData().GetNumInstances();// index 1 is always the count
+		    int32 NewExistingDataCount = NumInstancesAfterSim[1] + Context->AccumulatedSpawnRate;
+		    Context->MainDataSet->CurrData().SetNumInstances(NewExistingDataCount);	
+		    FString PathName = Context->GPUScript->GetOutermost()->GetPathName();
+		    // UE_LOG(LogNiagara, Log, TEXT("GPU Syncup %s : Was(%d) Now(%d)"), *PathName, ExistingDataCount, NewExistingDataCount );
+		    SET_DWORD_STAT(STAT_NiagaraGPUParticles, NewExistingDataCount);
+		    SET_DWORD_STAT(STAT_NiagaraReadbackLatency, 0);
+    
+		    Context->GPUDataReadback->Finish();
+    
+		    Context->AccumulatedSpawnRate = 0;
+		}
+		{
+			SCOPE_CYCLE_COUNTER(STAT_NiagaraAllocateGPUReadback_RT);
+			// The following code seems to take significant time on d3d12
+			delete Context->GPUDataReadback;
+			Context->GPUDataReadback = new FRHIGPUMemoryReadback(DatasetIndexBufferWrite.Buffer, TEXT("Niagara GPU Emitter Readback"));
+			Context->GPUDataReadback->Insert(RHICmdList);
+		}
 	}
 }
 
@@ -249,6 +277,7 @@ void NiagaraEmitterInstanceBatcher::Run(const FNiagaraComputeExecutionContext *C
 
 	FNiagaraDataSet *DataSet = Context->MainDataSet;
 	const FNiagaraParameterStore& ParameterStore = Context->CombinedParamStore;
+	const FRHIUniformBufferLayout& CBufferLayout = Context->CBufferLayout;
 	const TArray<uint8, TAlignedHeapAllocator<16>> &Params = Context->ParamData_RT;
 	const FRWBuffer &WriteIndexBuffer = DataSet->GetCurDataSetIndices();
 	FRWBuffer &ReadIndexBuffer = DataSet->GetPrevDataSetIndices();
@@ -309,13 +338,11 @@ void NiagaraEmitterInstanceBatcher::Run(const FNiagaraComputeExecutionContext *C
 	}
 
 	// setup script parameters
-	FRHIUniformBufferLayout CBufferLayout(TEXT("Niagara Compute Sim CBuffer"));
-	CBufferLayout.ConstantBufferSize = Params.Num();
 	if (CBufferLayout.ConstantBufferSize)
 	{
 		check(CBufferLayout.Resources.Num() == 0);
 		const uint8* ParamData = Params.GetData();
-		FUniformBufferRHIRef CBuffer = RHICreateUniformBuffer(ParamData, CBufferLayout, EUniformBufferUsage::UniformBuffer_MultiFrame);
+		FUniformBufferRHIRef CBuffer = RHICreateUniformBuffer(ParamData, CBufferLayout, EUniformBufferUsage::UniformBuffer_SingleDraw);
 		RHICmdList.SetShaderUniformBuffer(Shader->GetComputeShader(), Shader->EmitterConstantBufferParam.GetBaseIndex(), CBuffer);
 	}
 

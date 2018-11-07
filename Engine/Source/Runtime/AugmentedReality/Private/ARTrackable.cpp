@@ -50,6 +50,16 @@ EARTrackingState UARTrackedGeometry::GetTrackingState() const
 	return TrackingState;
 }
 
+bool UARTrackedGeometry::IsTracked() const
+{
+	return TrackingState == EARTrackingState::Tracking;
+}
+
+void UARTrackedGeometry::SetTrackingState(EARTrackingState NewState)
+{
+	TrackingState = NewState;
+}
+
 FTransform UARTrackedGeometry::GetLocalToWorldTransform() const
 {
 	return GetLocalToTrackingTransform() * GetARSystem()->GetTrackingToWorldTransform();
@@ -160,11 +170,15 @@ void UARPlaneGeometry::DebugDraw( UWorld* World, const FLinearColor& OutlineColo
 void UARTrackedImage::DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds /*= 0.0f*/) const
 {
 	const FTransform LocalToWorldTransform = GetLocalToWorldTransform();
-	const FString CurAnchorDebugName = GetDebugName().ToString();
-	const FColor OutlineRGB =OutlineColor.ToFColor(false);
-	ARDebugHelpers::DrawDebugString( World, LocalToWorldTransform.GetLocation(), CurAnchorDebugName, 0.25f*OutlineThickness, OutlineRGB, PersistForSeconds, true);
+	const FString CurAnchorDebugName = FString::Printf(TEXT("%s - %s"), *GetDebugName().ToString(), *DetectedImage->GetFriendlyName());
+	const FColor OutlineRGB = OutlineColor.ToFColor(false);
 
-	DrawDebugPoint(World, LocalToWorldTransform.GetLocation(), 0.5f, OutlineRGB, false, PersistForSeconds, 0);
+	FVector Extent(DetectedImage->GetPhysicalHeight() / 2.f, DetectedImage->GetPhysicalWidth() / 2.f, 0.f);
+	
+	const FVector WorldSpaceCenter = LocalToWorldTransform.GetLocation();
+	DrawDebugBox(World, WorldSpaceCenter, Extent, LocalToWorldTransform.GetRotation(), OutlineRGB, false, PersistForSeconds, 0, 0.1f * OutlineThickness);
+
+	ARDebugHelpers::DrawDebugString(World, WorldSpaceCenter, CurAnchorDebugName, 0.25f * OutlineThickness, OutlineRGB, PersistForSeconds, true);
 }
 
 void UARTrackedImage::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateImage* InDetectedImage)
@@ -184,7 +198,6 @@ void UARFaceGeometry::UpdateFaceGeometry(const TSharedRef<FARSystemBase, ESPMode
 		IndexBuffer = Indices;
 	}
 	
-//@joeg -- Eye tracking support
 	LeftEyeTransform = InLeftEyeTransform;
 	RightEyeTransform = InRightEyeTransform;
 	LookAtTarget = InLookAtTarget;
@@ -225,7 +238,6 @@ const TMap<EARFaceBlendShape, float> UARFaceGeometry::GetBlendShapes() const
 	return BlendShapes;
 }
 
-//@joeg -- Eye tracking support
 const FTransform& UARFaceGeometry::GetLocalSpaceEyeTransform(EAREye Eye) const
 {
 	if (Eye == EAREye::LeftEye)
@@ -243,10 +255,7 @@ FTransform UARFaceGeometry::GetWorldSpaceEyeTransform(EAREye Eye) const
 	}
 	return GetLocalToWorldTransform() * RightEyeTransform;
 }
-//@joeg -- end eye tracking
 
-
-//@joeg -- Added environmental texture probe support
 UAREnvironmentCaptureProbe::UAREnvironmentCaptureProbe()
 	: Super()
 	, EnvironmentCaptureTexture(nullptr)
@@ -281,7 +290,6 @@ UAREnvironmentCaptureProbeTexture* UAREnvironmentCaptureProbe::GetEnvironmentCap
 	return EnvironmentCaptureTexture;
 }
 
-//@joeg -- Object detection
 void UARTrackedObject::DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds /*= 0.0f*/) const
 {
 	const FTransform LocalToWorldTransform = GetLocalToWorldTransform();

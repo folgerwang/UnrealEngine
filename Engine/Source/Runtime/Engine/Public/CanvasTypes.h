@@ -571,13 +571,6 @@ public:
 
 	FORCEINLINE bool IsUsingInternalTexture() const { return bUseInternalTexture; }
 
-	/** Depth used for orthographic stereo projection. Uses World Units.*/
-	FORCEINLINE void SetStereoDepth(int32 InDepth)
-	{
-		StereoDepth = InDepth;
-	}
-	FORCEINLINE int32 GetStereoDepth() const { return StereoDepth; }
-
 	FORCEINLINE void SetParentCanvasSize(FIntPoint InParentSize)
 	{
 		ParentSize = InParentSize;
@@ -630,20 +623,11 @@ private:
 	/** true, if Canvas is being rendered in its own texture */
 	bool bUseInternalTexture;
 
-	/** Depth used for orthographic stereo projection. Uses World Units.*/
-	int32 StereoDepth;
-
-	/** Cached render target size, depth and ortho-projection matrices for stereo rendering */
-	FMatrix CachedOrthoProjection[2];
-	int32 CachedRTWidth, CachedRTHeight, CachedDrawDepth;
-
 	FIntPoint ParentSize;
 
 	ECanvasDrawMode DrawMode;
 
 	float DPIScale;
-
-	bool GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2]);
 
 	/** 
 	* Shared construction function

@@ -15,6 +15,7 @@
 #include "GameFramework/Actor.h"
 #include "CollisionQueryParams.h"
 #include "SceneTypes.h"
+#include "Engine/EngineTypes.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "Engine/TextureStreamingTypes.h"
 #include "AI/Navigation/NavRelevantInterface.h"
@@ -477,6 +478,11 @@ public:
 	/** True for damage to this component to apply physics impulse, false to opt out of these impulses. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
 	uint8 bApplyImpulseOnDamage : 1;
+
+	/** True if physics should be replicated to autonomous proxies. This should be true for
+		server-authoritative simulations, and false for client authoritative simulations. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	uint8 bReplicatePhysicsToAutonomousProxy : 1;
 
 	// General flags.
 	
@@ -1146,7 +1152,7 @@ public:
 	 *  @param bAccelChange If true, Torque is taken as a change in angular acceleration instead of a physical torque (i.e. mass will have no effect).
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
-	void AddTorqueInRadians(FVector Torque, FName BoneName = NAME_None, bool bAccelChange = false);
+	virtual void AddTorqueInRadians(FVector Torque, FName BoneName = NAME_None, bool bAccelChange = false);
 
 	/**
 	 *	Add a torque to a single rigid body.
@@ -1169,7 +1175,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to modify velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
-	void SetPhysicsLinearVelocity(FVector NewVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
+	virtual void SetPhysicsLinearVelocity(FVector NewVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
 
 	/** 
 	 *	Get the linear velocity of a single body. 
@@ -1219,7 +1225,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to modify angular velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))
-	void SetPhysicsAngularVelocityInRadians(FVector NewAngVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
+	virtual void SetPhysicsAngularVelocityInRadians(FVector NewAngVel, bool bAddToCurrent = false, FName BoneName = NAME_None);
 
 	/**
 	 *	Set the angular velocity of a single body.
@@ -1278,7 +1284,7 @@ public:
 	 */
 	DEPRECATED(4.18, "Use GetPhysicsAngularVelocityInDegrees instead.")
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true", DeprecatedFunction, DeprecationMessage="Use GetPhysicsAngularVelocityInDegrees instead"))	
-	FVector GetPhysicsAngularVelocity(FName BoneName = NAME_None)
+	FVector GetPhysicsAngularVelocity(FName BoneName = NAME_None) const
 	{
 		return GetPhysicsAngularVelocityInDegrees(BoneName);
 	}
@@ -1288,7 +1294,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to get velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))	
-	FVector GetPhysicsAngularVelocityInDegrees(FName BoneName = NAME_None)
+	FVector GetPhysicsAngularVelocityInDegrees(FName BoneName = NAME_None) const
 	{
 		return FMath::RadiansToDegrees(GetPhysicsAngularVelocityInRadians(BoneName));
 	}
@@ -1298,7 +1304,7 @@ public:
 	 *	@param BoneName			If a SkeletalMeshComponent, name of body to get velocity of. 'None' indicates root body.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics", meta=(UnsafeDuringActorConstruction="true"))	
-	FVector GetPhysicsAngularVelocityInRadians(FName BoneName = NAME_None);
+	FVector GetPhysicsAngularVelocityInRadians(FName BoneName = NAME_None) const;
 
 	/**
 	*	Get the center of mass of a single body. In the case of a welded body this will return the center of mass of the entire welded body (including its parent and children)
@@ -1386,9 +1392,46 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Collision")	
 	virtual void SetCollisionObjectType(ECollisionChannel Channel);
 
-	/** Perform a line trace against a single component */
-	UFUNCTION(BlueprintCallable, Category="Collision", meta=(DisplayName = "Line Trace Component", ScriptName = "LineTraceComponent", bTraceComplex="true", UnsafeDuringActorConstruction="true"))	
-	bool K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+	/** Perform a line trace against a single component
+	 * @param TraceStart The start of the trace in world-space
+	 * @param TraceEnd The end of the trace in world-space
+	 * @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	 * @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	 * @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	 */
+	UFUNCTION(BlueprintCallable, Category="Collision", meta=(DisplayName = "Line Trace Component", ScriptName = "LineTraceComponent", bTraceComplex="true", bPersistentShowTrace="false", UnsafeDuringActorConstruction="true"))	
+	bool K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+
+	/** Perform a sphere trace against a single component
+	* @param TraceStart The start of the trace in world-space
+	* @param TraceEnd The end of the trace in world-space
+	* @param SphereRadius Radius of the sphere to trace against the component
+	* @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	* @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	* @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (DisplayName = "Sphere Trace Component", ScriptName = "SphereTraceComponent", bTraceComplex = "true", bPersistentShowTrace="false", UnsafeDuringActorConstruction = "true"))
+	bool K2_SphereTraceComponent(FVector TraceStart, FVector TraceEnd, float SphereRadius, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+
+	/** Perform a box overlap against a single component as an AABB (No rotation)
+	* @param InBoxCentre The centre of the box to overlap with the component
+	* @param InBox Description of the box to use in the overlap
+	* @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	* @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	* @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (DisplayName = "Box Overlap Component", ScriptName = "BoxOverlapComponent", bTraceComplex = "true", bPersistentShowTrace="false", UnsafeDuringActorConstruction = "true"))
+	bool K2_BoxOverlapComponent(FVector InBoxCentre, const FBox InBox, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+
+	/** Perform a sphere overlap against a single component
+	* @param InSphereCentre The centre of the sphere to overlap with the component
+	* @param InSphereRadius The Radius of the sphere to overlap with the component
+	* @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	* @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	* @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (DisplayName = "Sphere Overlap Component", ScriptName = "SphereOverlapComponent", bTraceComplex = "true", bPersistentShowTrace="false", UnsafeDuringActorConstruction = "true"))
+	bool K2_SphereOverlapComponent(FVector InSphereCentre, float InSphereRadius, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
 
 	/** Sets the bRenderCustomDepth property and marks the render state dirty. */
 	UFUNCTION(BlueprintCallable, Category="Rendering")
@@ -1779,13 +1822,15 @@ protected:
 	virtual void OnCreatePhysicsState() override;
 	virtual void OnDestroyPhysicsState() override;
 	virtual void OnActorEnableCollisionChanged() override;
+
+public:
 	/**
 	 * Called to get the Component To World Transform from the Root BodyInstance
 	 * This needs to be virtual since SkeletalMeshComponent Root has to undo its own transform
 	 * Without this, the root LocalToAtom is overridden by physics simulation, causing kinematic velocity to 
 	 * accelerate simulation
 	 *
-	 * @param : UseBI - root body instsance
+	 * @param : UseBI - root body instance
 	 * @return : New GetComponentTransform() to use
 	 */
 	virtual FTransform GetComponentTransformFromBodyInstance(FBodyInstance* UseBI);
@@ -1884,7 +1929,7 @@ public:
 	 * Dispatch notification for wake events and propagate to any welded bodies
 	 */
 
-	void DispatchWakeEvents(int32 WakeEvent, FName BoneName);
+	void DispatchWakeEvents(ESleepEvent WakeEvent, FName BoneName);
 
 	/**
 	 * Set collision params on OutParams (such as CollisionResponse, bTraceAsyncScene) to match the settings on this PrimitiveComponent.

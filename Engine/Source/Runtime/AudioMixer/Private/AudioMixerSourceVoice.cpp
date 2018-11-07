@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerSourceVoice.h"
 #include "AudioMixerSource.h"
@@ -64,7 +64,11 @@ namespace Audio
 
 			for (int32 i = 0; i < InitParams.SubmixSends.Num(); ++i)
 			{
-				SubmixSends.Add(InitParams.SubmixSends[i].Submix->GetId(), InitParams.SubmixSends[i]);
+				FMixerSubmixPtr SubmixPtr = InitParams.SubmixSends[i].Submix.Pin();
+				if (SubmixPtr.IsValid())
+				{
+					SubmixSends.Add(SubmixPtr->GetId(), InitParams.SubmixSends[i]);
+				}
 			}
 
 			bStopFadedOut = false;
@@ -242,29 +246,37 @@ namespace Audio
 		return SourceManager->MixOutputBuffers(SourceId, InSubmixChannelType, SendLevel, OutWetBuffer);
 	}
 
-	void FMixerSourceVoice::SetSubmixSendInfo(FMixerSubmixPtr Submix, const float SendLevel)
+// MSVC 2017 15.8.4 is generating bad code where setting submix will crash. See https://developercommunity.visualstudio.com/content/problem/345511/bad-code-generation-in-vs-2017-v1585.html.
+MSVC_PRAGMA(optimize("", off))
+	void FMixerSourceVoice::SetSubmixSendInfo(FMixerSubmixWeakPtr Submix, const float SendLevel)
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
 
 		if (!bOutputToBusOnly)
 		{
-			FMixerSourceSubmixSend* SubmixSend = SubmixSends.Find(Submix->GetId());
-			if (!SubmixSend)
+			FMixerSubmixPtr SubmixPtr = Submix.Pin();
+			if (SubmixPtr.IsValid())
 			{
-				FMixerSourceSubmixSend NewSubmixSend;
-				NewSubmixSend.Submix = Submix;
-				NewSubmixSend.SendLevel = SendLevel;
-				NewSubmixSend.bIsMainSend = false;
-				SubmixSends.Add(Submix->GetId(), NewSubmixSend);
-				SourceManager->SetSubmixSendInfo(SourceId, NewSubmixSend);
-			}
-			else if (!FMath::IsNearlyEqual(SubmixSend->SendLevel, SendLevel))
-			{
-				SubmixSend->SendLevel = SendLevel;
-				SourceManager->SetSubmixSendInfo(SourceId, *SubmixSend);
+				FMixerSourceSubmixSend* SubmixSend = SubmixSends.Find(SubmixPtr->GetId());
+
+				if (!SubmixSend)
+				{
+					FMixerSourceSubmixSend NewSubmixSend;
+					NewSubmixSend.Submix = Submix;
+					NewSubmixSend.SendLevel = SendLevel;
+					NewSubmixSend.bIsMainSend = false;
+					SubmixSends.Add(SubmixPtr->GetId(), NewSubmixSend);
+					SourceManager->SetSubmixSendInfo(SourceId, NewSubmixSend);
+				}
+				else if (!FMath::IsNearlyEqual(SubmixSend->SendLevel, SendLevel))
+				{
+					SubmixSend->SendLevel = SendLevel;
+					SourceManager->SetSubmixSendInfo(SourceId, *SubmixSend);
+				}
 			}
 		}
 	}
+MSVC_PRAGMA(optimize("", on))
 
 	void FMixerSourceVoice::OnMixBus(FMixerSourceVoiceBuffer* OutMixerSourceBuffer)
 	{

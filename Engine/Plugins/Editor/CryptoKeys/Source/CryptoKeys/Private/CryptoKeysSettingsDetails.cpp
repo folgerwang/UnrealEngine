@@ -37,9 +37,9 @@ void FCryptoKeysSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBu
 				.ToolTipText(LOCTEXT("GenerateEncryptionKey_Tooltip", "Generates a new encryption key"))
 				.OnClicked_Lambda([this, Settings]()
 				{
-					if (Settings.IsValid() && CryptoKeysHelpers::GenerateNewEncryptionKey(Settings.Get()))
+					if (Settings.IsValid() && CryptoKeysHelpers::GenerateEncryptionKey(Settings->EncryptionKey))
 					{
-						Settings->SaveConfig(CPF_Config, *Settings->GetDefaultConfigFilename());
+						Settings->UpdateDefaultConfigFile();
 					}
 					else
 					{
@@ -80,9 +80,9 @@ void FCryptoKeysSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBu
 				.ToolTipText(LOCTEXT("GenerateSigningKey_Tooltip", "Generates a new signing key"))
 				.OnClicked_Lambda([this, Settings]()
 				{
-					if (Settings.IsValid() && CryptoKeysHelpers::GenerateNewSigningKeys(Settings.Get()))
+					if (Settings.IsValid() && CryptoKeysHelpers::GenerateSigningKey(Settings->SigningPublicExponent, Settings->SigningPrivateExponent, Settings->SigningModulus))
 					{
-						Settings->SaveConfig(CPF_Config, *Settings->GetDefaultConfigFilename());
+						Settings->UpdateDefaultConfigFile();
 					}
 					else
 					{

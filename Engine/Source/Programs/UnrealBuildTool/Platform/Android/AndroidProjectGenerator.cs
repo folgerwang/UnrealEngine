@@ -193,17 +193,20 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="ProjectFileFormat"></param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform, VCProjectFileFormat ProjectFileFormat)
+		public override void GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform, VCProjectFileFormat ProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
 			if(IsVSAndroidSupportInstalled() || !IsNsightInstalled(ProjectFileFormat))
 			{
-				return base.GetAdditionalVisualStudioPropertyGroups(InPlatform, ProjectFileFormat);
+				base.GetAdditionalVisualStudioPropertyGroups(InPlatform, ProjectFileFormat, ProjectFileBuilder);
 			}
-
-			return "	<PropertyGroup Label=\"NsightTegraProject\">" + ProjectFileGenerator.NewLine +
-					"		<NsightTegraProjectRevisionNumber>" + NsightVersionCode.ToString() + "</NsightTegraProjectRevisionNumber>" + ProjectFileGenerator.NewLine +
-					"	</PropertyGroup>" + ProjectFileGenerator.NewLine;
+			else
+			{
+				ProjectFileBuilder.AppendLine("  <PropertyGroup Label=\"NsightTegraProject\">");
+				ProjectFileBuilder.AppendLine("    <NsightTegraProjectRevisionNumber>" + NsightVersionCode.ToString() + "</NsightTegraProjectRevisionNumber>");
+				ProjectFileBuilder.AppendLine("  </PropertyGroup>");
+			}
 		}
 
 		/// <summary>
@@ -238,16 +241,19 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
 		/// <param name="InProjectFileFormat">The version of Visual Studio to target</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat InProjectFileFormat)
+		public override void GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat InProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
 			if (IsVSAndroidSupportInstalled() || !IsNsightInstalled(InProjectFileFormat))
 			{
-				return "\t\t<PlatformToolset>" + VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(InProjectFileFormat) + "</PlatformToolset>" + ProjectFileGenerator.NewLine;
+				ProjectFileBuilder.AppendLine("    <PlatformToolset>" + VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(InProjectFileFormat) + "</PlatformToolset>");
 			}
-
-			return "\t\t<PlatformToolset>" + VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(InProjectFileFormat) + "</PlatformToolset>" + ProjectFileGenerator.NewLine
-				+ "\t\t<AndroidNativeAPI>UseTarget</AndroidNativeAPI>" + ProjectFileGenerator.NewLine;
+			else
+			{
+				ProjectFileBuilder.AppendLine("    <PlatformToolset>" + VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(InProjectFileFormat) + "</PlatformToolset>");
+				ProjectFileBuilder.AppendLine("    <AndroidNativeAPI>UseTarget</AndroidNativeAPI>");
+			}
 		}
 
 		/// <summary>
@@ -261,11 +267,10 @@ namespace UnrealBuildTool
 		/// <param name="ProjectFilePath">Path to the project file</param>
 		/// <param name="NMakeOutputPath"></param>
 		/// <param name="InProjectFileFormat">Format for the generated project files</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>The custom path lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat)
+		public override void GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat, StringBuilder ProjectFileBuilder)
 		{
-			string PathsLines = "";
-
 			if (!IsVSAndroidSupportInstalled() && IsNsightInstalled(InProjectFileFormat))
 			{
 
@@ -299,55 +304,59 @@ namespace UnrealBuildTool
 				AdditionalLibDirs += ";" + IntermediateDirectoryPath + @"\obj\local\x86";
 				AdditionalLibDirs += @";$(AdditionalLibraryDirectories)";
 
-				PathsLines =
-					"		<IncludePath />" + ProjectFileGenerator.NewLine +
-					"		<ReferencePath />" + ProjectFileGenerator.NewLine +
-					"		<LibraryPath />" + ProjectFileGenerator.NewLine +
-					"		<LibraryWPath />" + ProjectFileGenerator.NewLine +
-					"		<SourcePath />" + ProjectFileGenerator.NewLine +
-					"		<ExcludePath />" + ProjectFileGenerator.NewLine +
-					"		<AndroidAttach>False</AndroidAttach>" + ProjectFileGenerator.NewLine +
-					"		<DebuggerFlavor>AndroidDebugger</DebuggerFlavor>" + ProjectFileGenerator.NewLine +
-					"		<OverrideAPKPath>" + APKPath + "</OverrideAPKPath>" + ProjectFileGenerator.NewLine +
-					"		<AdditionalLibraryDirectories>" + AdditionalLibDirs + "</AdditionalLibraryDirectories>" + ProjectFileGenerator.NewLine +
-					"		<BuildXmlPath>" + BuildXmlPath + "</BuildXmlPath>" + ProjectFileGenerator.NewLine +
-					"		<AndroidManifestPath>" + AndroidManifestPath + "</AndroidManifestPath>" + ProjectFileGenerator.NewLine;
+				ProjectFileBuilder.AppendLine("    <IncludePath />");
+				ProjectFileBuilder.AppendLine("    <ReferencePath />");
+				ProjectFileBuilder.AppendLine("    <LibraryPath />");
+				ProjectFileBuilder.AppendLine("    <LibraryWPath />");
+				ProjectFileBuilder.AppendLine("    <SourcePath />");
+				ProjectFileBuilder.AppendLine("    <ExcludePath />");
+				ProjectFileBuilder.AppendLine("    <AndroidAttach>False</AndroidAttach>");
+				ProjectFileBuilder.AppendLine("    <DebuggerFlavor>AndroidDebugger</DebuggerFlavor>");
+				ProjectFileBuilder.AppendLine("    <OverrideAPKPath>" + APKPath + "</OverrideAPKPath>");
+				ProjectFileBuilder.AppendLine("    <AdditionalLibraryDirectories>" + AdditionalLibDirs + "</AdditionalLibraryDirectories>");
+				ProjectFileBuilder.AppendLine("    <BuildXmlPath>" + BuildXmlPath + "</BuildXmlPath>");
+				ProjectFileBuilder.AppendLine("    <AndroidManifestPath>" + AndroidManifestPath + "</AndroidManifestPath>");
 			}
 			else 
 			{
-				PathsLines = base.GetVisualStudioPathsEntries(InPlatform, InConfiguration, TargetType, TargetRulesPath, ProjectFilePath, NMakeOutputPath, InProjectFileFormat);
+				base.GetVisualStudioPathsEntries(InPlatform, InConfiguration, TargetType, TargetRulesPath, ProjectFilePath, NMakeOutputPath, InProjectFileFormat, ProjectFileBuilder);
 			}
-
-			return PathsLines;
-
 		}
 		
 		/// <summary>
 		/// Return any custom property settings. These will be included right after Global properties to make values available to all other imports.
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioGlobalProperties(UnrealTargetPlatform InPlatform)
+		public override void GetVisualStudioGlobalProperties(UnrealTargetPlatform InPlatform, StringBuilder ProjectFileBuilder)
 		{
 			if (IsVSAndroidSupportInstalled())
 			{
-				return "	<Import Project=\"$(AndroidTargetsPath)\\Android.Tools.props\"/>" + ProjectFileGenerator.NewLine;
+				ProjectFileBuilder.AppendLine("  <Import Project=\"$(AndroidTargetsPath)\\Android.Tools.props\"/>");
 			}
-			return base.GetVisualStudioGlobalProperties(InPlatform);
+			else
+			{
+				base.GetVisualStudioGlobalProperties(InPlatform, ProjectFileBuilder);
+			}
 		}
 
 		/// <summary>
 		/// Return any custom property settings. These will be included in the ImportGroup section
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="ProjectFileBuilder">String builder for the project file</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioImportGroupProperties(UnrealTargetPlatform InPlatform)
+		public override void GetVisualStudioImportGroupProperties(UnrealTargetPlatform InPlatform, StringBuilder ProjectFileBuilder)
 		{
 			if (IsVSAndroidSupportInstalled())
 			{
-				return "		<Import Project=\"VSAndroidUnreal.props\" /> " + ProjectFileGenerator.NewLine;
+				ProjectFileBuilder.AppendLine("    <Import Project=\"VSAndroidUnreal.props\" />");
 			}
-			return base.GetVisualStudioImportGroupProperties(InPlatform);
+			else
+			{
+				base.GetVisualStudioImportGroupProperties(InPlatform, ProjectFileBuilder);
+			}
 		}
 
 		/// <summary>
@@ -698,25 +707,17 @@ namespace UnrealBuildTool
 		{
 		}
 
-		// This is the GUID that Visual Studio uses to identify an Android project file in the solution
+		/// <summary>
+		/// This is the GUID that Visual Studio uses to identify an Android project file in the solution
+		/// </summary>
 		public override string ProjectTypeGUID
 		{
 			get { return "{39E2626F-3545-4960-A6E8-258AD8476CE5}"; }
 		}
 
-		/// <summary>
-		/// The only valid configuration for these to be run in is Debug|ARM
-		/// </summary>
-		/// <param name="Platform">Actual platform</param>
-		/// <param name="Configuration">Actual configuration</param>
-		/// <param name="TargetConfigurationName">The configuration name from the target rules, or null if we don't have one</param>
-		/// <param name="ProjectPlatformName">Name of platform string to use for Visual Studio project</param>
-		/// <param name="ProjectConfigurationName">Name of configuration string to use for Visual Studio project</param>
-		public override void MakeProjectPlatformAndConfigurationNames(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string TargetConfigurationName, out string ProjectPlatformName, out string ProjectConfigurationName)
+		public override MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform)
 		{
-			ProjectConfigurationName = UnrealTargetConfiguration.Debug.ToString();
-			ProjectPlatformName = "ARM";
+			return new MSBuildProjectContext("Debug", "ARM"){ bBuildByDefault = (SolutionPlatform == UnrealTargetPlatform.Android) };
 		}
-
 	}
 }

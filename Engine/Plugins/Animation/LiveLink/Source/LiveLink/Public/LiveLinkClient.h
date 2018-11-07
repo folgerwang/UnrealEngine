@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,29 +17,22 @@
 // Live Link Log Category
 DECLARE_LOG_CATEGORY_EXTERN(LogLiveLink, Log, All);
 
-struct FLiveLinkFrame
+struct FLiveLinkSubjectTimeSyncData
 {
-public:
-	TArray<FTransform>		Transforms;
-	TArray<FOptionalCurveElement>	Curves;
-
-	FLiveLinkMetaData		MetaData;
-
-	FLiveLinkWorldTime WorldTime;
-
-	void ExtendCurveData(int32 ExtraCurves)
-	{
-		Curves.AddDefaulted(ExtraCurves);
-	}
+	bool bIsValid = false;
+	FGuid SkeletonGuid;
+	FFrameTime OldestSampleTime;
+	FFrameTime NewestSampleTime;
+	FLiveLinkTimeSynchronizationSettings Settings;
 };
 
 struct FLiveLinkSubject
 {
 	// Key for storing curve data (Names)
-	FLiveLinkCurveKey	 CurveKeyData;
+	FLiveLinkCurveKey CurveKeyData;
 
 	// Subject data frames that we have received (transforms and curve values)
-	TArray<FLiveLinkFrame>		Frames;
+	TArray<FLiveLinkFrame> Frames;
 
 	// Time difference between current system time and TimeCode times 
 	double SubjectTimeOffset;
@@ -54,22 +47,20 @@ struct FLiveLinkSubject
 	// Guid to track the last live link source that modified us
 	FGuid LastModifier;
 
-	// Connection settings specified by user
-	FLiveLinkInterpolationSettings CachedInterpolationSettings;
-
-	FLiveLinkSubject(const FLiveLinkRefSkeleton& InRefSkeleton)
-		: RefSkeleton(InRefSkeleton)
+	FLiveLinkSubject(const FLiveLinkRefSkeleton& InRefSkeleton, FName InName)
+		: Name(InName)
+		, RefSkeleton(InRefSkeleton)
 		, RefSkeletonGuid(FGuid::NewGuid())
 	{}
 
-	FLiveLinkSubject()
-	{}
-
 	// Add a frame of data from a FLiveLinkFrameData
-	void AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource);
+	void AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource, bool bSaveFrame);
 
 	// Populate OutFrame with a frame based off of the supplied time and our own offsets
-	void BuildInterpolatedFrame(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
+	void GetFrameAtWorldTime(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
+
+	// Populate OutFrame with a frame based off of the supplied scene time.
+	void GetFrameAtSceneTime(const FQualifiedFrameTime& InSceneTime, FLiveLinkSubjectFrame& OutFrame);
 
 	// Get this subjects ref skeleton
 	const FLiveLinkRefSkeleton& GetRefSkeleton() const { return RefSkeleton; }
@@ -77,13 +68,89 @@ struct FLiveLinkSubject
 	// Handling setting a new ref skeleton
 	void SetRefSkeleton(const FLiveLinkRefSkeleton& InRefSkeleton) { RefSkeleton = InRefSkeleton; RefSkeletonGuid = FGuid::NewGuid(); }
 
+	// Free all subject data frames.
+	void ClearFrames();
+
+	void CacheSourceSettings(const ULiveLinkSourceSettings* DataToCache);
+
+	FName GetName() const { return Name; }
+
+	ELiveLinkSourceMode GetMode() const { return CachedSettings.SourceMode; }
+
+	FLiveLinkSubjectTimeSyncData GetTimeSyncData();
+
+	void OnStartSynchronization(const struct FTimeSynchronizationOpenData& OpenData, const int32 FrameOffset);
+	void OnSynchronizationEstablished(const struct FTimeSynchronizationStartData& StartData);
+	void OnStopSynchronization();
+
 private:
+
+	// Copy a frame from the buffer to a FLiveLinkSubjectFrame
+	static void CopyFrameData(const FLiveLinkFrame& InFrame, FLiveLinkSubjectFrame& OutFrame);
+
+	// Blend two frames from the buffer and copy the result to a FLiveLinkSubjectFrame
+	static void CopyFrameDataBlended(const FLiveLinkFrame& PreFrame, const FLiveLinkFrame& PostFrame, float BlendWeight, FLiveLinkSubjectFrame& OutFrame);
+
+	void ResetFrame(FLiveLinkSubjectFrame& OutFrame) const;;
+
+	int32 AddFrame_Default(const FLiveLinkWorldTime& FrameTime, bool bSaveFrame);
+	int32 AddFrame_Interpolated(const FLiveLinkWorldTime& FrameTime, bool bSaveFrame);
+	int32 AddFrame_TimeSynchronized(const FFrameTime& FrameTime, bool bSaveFrame);
+
+	template<bool bWithRollover>
+	int32 AddFrame_TimeSynchronized(const FFrameTime& FrameTime, bool bSaveFrame);
+
+	void GetFrameAtWorldTime_Default(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
+	void GetFrameAtWorldTime_Interpolated(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
+
+	template<bool bWithRollover>
+	void GetFrameAtSceneTime_TimeSynchronized(const FFrameTime& FrameTime, FLiveLinkSubjectFrame& OutFrame);
+
+	template<bool bForInsert, bool bWithRollover>
+	int32 FindFrameIndex_TimeSynchronized(const FFrameTime& FrameTime);
+
+	FName Name;
+
+	struct FLiveLinkCachedSettings
+	{
+		ELiveLinkSourceMode SourceMode = ELiveLinkSourceMode::Default;
+		TOptional<FLiveLinkInterpolationSettings> InterpolationSettings;
+		TOptional<FLiveLinkTimeSynchronizationSettings> TimeSynchronizationSettings;
+	};
+
+	// Connection settings specified by user
+	// May only store settings relevant to the current mode (ELiveLinkSourceMode).
+	FLiveLinkCachedSettings CachedSettings;
 
 	// Ref Skeleton for transforms
 	FLiveLinkRefSkeleton RefSkeleton;
 
 	// Allow us to track changes to the ref skeleton
 	FGuid RefSkeletonGuid;
+
+	struct FLiveLinkTimeSynchronizationData
+	{
+		// Whether or not synchronization has been established.
+		bool bHasEstablishedSync = false;
+
+		// The frame in our buffer where a rollover was detected. Only applicable for time synchronized sources.
+		int32 RolloverFrame = INDEX_NONE;
+
+		// Frame offset that will be used for this source.
+		int32 Offset = 0;
+
+		// Frame Time value modulus. When this value is not set, we assume no rollover occurs.
+		TOptional<FFrameTime> RolloverModulus;
+
+		// Frame rate used as the base for synchronization.
+		FFrameRate SyncFrameRate;
+
+		// Frame time that synchronization was established (relative to SynchronizationFrameRate).
+		FFrameTime SyncStartTime;
+	};
+
+	TOptional<FLiveLinkTimeSynchronizationData> TimeSyncData;
+	
 };
 
 // Structure that identifies an individual subject
@@ -116,7 +183,7 @@ struct FLiveLinkVirtualSubjectSource : public ILiveLinkSource
 class LIVELINK_API FLiveLinkClient : public ILiveLinkClient, public FTickableGameObject, public FGCObject
 {
 public:
-	FLiveLinkClient() : LastValidationCheck(0.0), VirtualSubjectGuid(FGuid::NewGuid()) { AddVirtualSubjectSource(); }
+	FLiveLinkClient() : LastValidationCheck(0.0), VirtualSubjectGuid(FGuid::NewGuid()), bSaveFrames(false) { AddVirtualSubjectSource(); }
 	~FLiveLinkClient();
 
 	// Begin FTickableGameObject implementation
@@ -148,17 +215,31 @@ public:
 
 	virtual void ClearSubject(FName SubjectName) override;
 	virtual void PushSubjectData(FGuid SourceGuid, FName SubjectName, const FLiveLinkFrameData& FrameData) override;
-	// End ILiveLinkClient Interface
+	virtual void ClearSubjectsFrames(FName SubjectName) override;
+	virtual void ClearAllSubjectsFrames() override;
 
 	// Add a new virtual subject to the client
 	void AddVirtualSubject(FName NewVirtualSubjectName);
 
 	virtual const FLiveLinkSubjectFrame* GetSubjectData(FName SubjectName) override;
 
+	const FLiveLinkSubjectFrame* GetSubjectDataAtWorldTime(FName SubjectName, double WorldTime) override;
+	const FLiveLinkSubjectFrame* GetSubjectDataAtSceneTime(FName SubjectName, const FTimecode& SceneTime) override;
+
 	const TArray<FGuid>& GetSourceEntries() const { return SourceGuids; }
+	const TArray<FLiveLinkFrame>*	GetSubjectRawFrames(FName SubjectName) override;
+
+	bool GetSaveFrames() const override;
+	bool SetSaveFrames(bool InSave) override;
+
+	// End ILiveLinkClient Interface
 
 	// Get a list of currently active subjects
 	TArray<FLiveLinkSubjectKey> GetSubjects();
+
+	FLiveLinkSubjectTimeSyncData GetTimeSyncData(FName SubjectName);
+
+	FGuid GetCurrentSubjectOwner(FName SubjectName) const;
 
 	// Populates an array with in-use subject names
 	virtual void GetSubjectNames(TArray<FName>& SubjectNames) override;
@@ -195,7 +276,18 @@ public:
 	FDelegateHandle RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SubjectsChanged);
 	void UnregisterSubjectsChangedHandle(FDelegateHandle Handle);
 
+	/** Called when time synchronization is starting for a subject. */
+	void OnStartSynchronization(FName SubjectName, const struct FTimeSynchronizationOpenData& OpenData, const int32 FrameOffset);
+
+	/** Called when time synchronization has been established for a subject. */
+	void OnSynchronizationEstablished(FName SubjectName, const struct FTimeSynchronizationStartData& StartData);
+
+	/** Called when time synchronization has been stopped for a subject. */
+	void OnStopSynchronization(FName SubjectName);
+
 private:
+
+	void RemoveSource(int32 SourceIndex);
 
 	// Setup the source for virtual subjects
 	void AddVirtualSubjectSource();
@@ -259,4 +351,7 @@ private:
 
 	// "source guid" for virtual subjects
 	FGuid VirtualSubjectGuid;
+
+	//Whether or not we save the Frames , or just keep as set of minimal ones for resolution.
+	bool bSaveFrames;
 };

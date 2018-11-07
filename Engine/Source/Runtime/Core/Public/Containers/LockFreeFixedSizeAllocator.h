@@ -195,12 +195,7 @@ public:
 	~TLockFreeFixedSizeAllocator()
 	{
 		check(!NumUsed.GetValue());
-		while (void* Mem = FreeList.Pop())
-		{
-			FMemory::Free(Mem);
-			NumFree.Decrement();
-		}
-		check(!NumFree.GetValue());
+		Trim();
 	}
 
 	/**
@@ -235,6 +230,19 @@ public:
 		NumUsed.Decrement();
 		FreeList.Push(Item);
 		NumFree.Increment();
+	}
+
+	/**
+	* Returns all free memory to the heap
+	*/
+	void Trim()
+	{
+		while (void* Mem = FreeList.Pop())
+		{
+			FMemory::Free(Mem);
+			NumFree.Decrement();
+		}
+		check(!NumFree.GetValue());
 	}
 
 	/**

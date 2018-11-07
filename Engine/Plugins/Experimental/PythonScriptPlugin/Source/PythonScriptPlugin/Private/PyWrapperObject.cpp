@@ -895,7 +895,15 @@ void FPyWrapperObjectMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FR
 
 	UObject* OldInstance = Self->ObjectInstance;
 	Collector.AddReferencedObject(Self->ObjectInstance);
-	if (Self->ObjectInstance != OldInstance && Self->ObjectInstance != nullptr)
+
+	// Update the wrapped instance in the object factory
+	if (Self->ObjectInstance != OldInstance)
+	{
+		FPyWrapperObjectFactory::Get().UnmapInstance(OldInstance, Py_TYPE(Self));
+	}
+
+	// Update the object type
+	if (Self->ObjectInstance != OldInstance && Self->ObjectInstance)
 	{
 		// Object instance has been re-pointed, make sure we're still the correct type
 		PyTypeObject* NewPyType = FPyWrapperTypeRegistry::Get().GetWrappedClassType(Self->ObjectInstance->GetClass());
@@ -907,6 +915,12 @@ void FPyWrapperObjectMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FR
 		{
 			Self->ObjectInstance = nullptr;
 		}
+	}
+
+	// Update the wrapped instance in the object factory
+	if (Self->ObjectInstance != OldInstance && Self->ObjectInstance)
+	{
+		FPyWrapperObjectFactory::Get().MapInstance(Self->ObjectInstance, Self);
 	}
 
 	// We also need to ARO delegates on this object to catch ones that are wrapping Python callables (also recursing into nested structs and containers)
@@ -1086,6 +1100,9 @@ struct FPythonGeneratedClassUtil
 		// Map the Unreal class to the Python type
 		InClass->PyType = FPyTypeObjectPtr::NewReference(InPyType);
 		FPyWrapperTypeRegistry::Get().RegisterWrappedClassType(InClass->GetFName(), InPyType);
+
+		// Ensure the CDO exists
+		InClass->GetDefaultObject();
 	}
 
 	static bool CreatePropertyFromDefinition(UPythonGeneratedClass* InClass, PyTypeObject* InPyType, const FString& InFieldName, FPyUPropertyDef* InPyPropDef)

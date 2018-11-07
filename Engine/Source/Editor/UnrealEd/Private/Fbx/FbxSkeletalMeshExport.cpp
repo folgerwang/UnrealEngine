@@ -12,6 +12,7 @@
 
 #include "FbxExporter.h"
 #include "Exporters/FbxExportOption.h"
+#include "UObject/MetaData.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFbxSkeletalMeshExport, Log, All);
 
@@ -455,15 +456,68 @@ void FFbxExporter::CreateBindPose(FbxNode* MeshRootNode)
 	}
 }
 
-void FFbxExporter::ExportSkeletalMeshComponent(USkeletalMeshComponent* SkelMeshComp, const TCHAR* MeshName, FbxNode* ActorRootNode)
+void FFbxExporter::ExportSkeletalMeshComponent(USkeletalMeshComponent* SkelMeshComp, const TCHAR* MeshName, FbxNode* ActorRootNode, bool bSaveAnimSeq)
 {
 	if (SkelMeshComp && SkelMeshComp->SkeletalMesh)
 	{
-		UAnimSequence* AnimSeq = (SkelMeshComp->GetAnimationMode() == EAnimationMode::AnimationSingleNode)? Cast<UAnimSequence>(SkelMeshComp->AnimationData.AnimToPlay) : NULL;
+		UAnimSequence* AnimSeq = (bSaveAnimSeq && SkelMeshComp->GetAnimationMode() == EAnimationMode::AnimationSingleNode) ? 
+			Cast<UAnimSequence>(SkelMeshComp->AnimationData.AnimToPlay) : NULL;
 		FbxNode* SkeletonRootNode = ExportSkeletalMeshToFbx(SkelMeshComp->SkeletalMesh, AnimSeq, MeshName, ActorRootNode);
 		if(SkeletonRootNode)
 		{
 			FbxSkeletonRoots.Add(SkelMeshComp, SkeletonRootNode);
+		}
+	}
+}
+
+void ExportObjectMetadataToBones(const UObject* ObjectToExport, const TArray<FbxNode*>& Nodes)
+{
+	if (!ObjectToExport || Nodes.Num() == 0)
+	{
+		return;
+	}
+
+	// Retrieve the metadata map without creating it
+	const TMap<FName, FString>* MetadataMap = UMetaData::GetMapForObject(ObjectToExport);
+	if (MetadataMap)
+	{
+		// Map the nodes to their names for fast access
+		TMap<FString, FbxNode*> NameToNode;
+		for (FbxNode* Node : Nodes)
+		{
+			NameToNode.Add(FString(Node->GetName()), Node);
+		}
+
+		static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+		for (const auto& MetadataIt : *MetadataMap)
+		{
+			// Export object metadata tags that are prefixed as FBX custom user-defined properties
+			// Remove the prefix since it's for Unreal use only (and '.' is considered an invalid character for user property names in DCC like Maya)
+			FString TagAsString = MetadataIt.Key.ToString();
+			if (TagAsString.RemoveFromStart(MetadataPrefix))
+			{
+				// Extract the node name from the metadata tag
+				FString NodeName;
+				int32 CharPos = INDEX_NONE;
+				if (TagAsString.FindChar(TEXT('.'), CharPos))
+				{
+					NodeName = TagAsString.Left(CharPos);
+
+					// The remaining part is the actual metadata tag
+					TagAsString = TagAsString.RightChop(CharPos + 1); // exclude the period
+				}
+
+				// Try to attach the metadata to its associated node by name
+				FbxNode** Node = NameToNode.Find(NodeName);
+				if (Node)
+				{
+					FbxProperty Property = FbxProperty::Create(*Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
+					FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
+
+					Property.Set(ValueString);
+					Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+				}
+			}
 		}
 	}
 }
@@ -517,10 +571,14 @@ FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, co
 			TmpNodeNoTransform->RemoveChild(SkeletonRootNode);
 			ActorRootNode->AddChild(SkeletonRootNode);
 		}
+
+		ExportObjectMetadataToBones(SkelMesh->Skeleton, BoneNodes);
+
 		if (MeshRootNode)
 		{
 			TmpNodeNoTransform->RemoveChild(MeshRootNode);
 			ActorRootNode->AddChild(MeshRootNode);
+			ExportObjectMetadata(SkelMesh, MeshRootNode);
 		}
 
 		Scene->GetRootNode()->RemoveChild(TmpNodeNoTransform);

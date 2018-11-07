@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3669916
 Availability:Docs
 Crumbs: %ROOT%
-Title: Niagara Key Concepts
-Description:Critical concepts for working with particles in Unreal and the Niagara, particle editor.
+Title: Niagara重要概念
+Description:在虚幻以及粒子编辑器Niagara中制作处理粒子的重要概念。
 Type: Overview
 SkillLevel:Beginner
 Version: 4.17
@@ -13,64 +13,64 @@ topic-image:Engine\Niagara\NiagaraSocial.png
 
 [TOC(start:2 end:2)]
 
-The Niagara Editor gives the user the ability to create a wide range of visual effects that can meet any Unreal Engine 4 (UE4) projects needs and do so in real-time. From effects for the player to effects for the environment, Niagara is flexible and powerful enough to handle whatever visual effects your project requires. In the following document, we will take a high-level look at how Niagara is different from Cascade and also how all the various pieces that make up the Niagara Editor work together. 
+Niagara编辑器让用户能够实时创建多种多样的视觉效果以满足任何虚幻引擎4（UE4）项目的需要。从玩家效果到环境效果，Niagara都具备足够的灵活性和能力来处理项目所需的视觉效果。在以下文档中，我们将全面介绍Niagara与Cascade的不同之处，以及Niagara编辑器的各个组件如何配合工作。 
 
-## A Modular Approach to Particle Effects
+## 用于实现粒子效果的模块化方法
 
-The primary overreaching concept of Cascade was to incorporate modularity into the creation of effects whenever possible. This was achieved by supplying a default set of modules when any new effect was created and then allowing effect artist to add additional modules or entirely new emitters based on what the effect needed to achieve. While this system works remarkably well for some years, it had a few minor issues that made things like sharing effect data between effects or updating many effects at once a time-consuming task that was prone to error. 
+Cascade最初的超范围概念是尽可能将模块化融入到效果创建中。其实现方法是在创建任何新效果时提供一组默认模块，然后让效果美术添加更多模块，或者添加全新的发射器，这取决于需要实现的效果。虽然该系统多年以来效果非凡，但仍存在一些小问题，导致一些任务执行时间较长，而且易于出错，例如在效果之间分享效果数据或者一次性更新许多效果。 
 
 [REGION:lightbox]
 [![](NKC_00.png)(w:764)](NKC_00.png)
 [/REGION]
 
 [REGION:caption]
-This image shows that a **Cascade Particle System** is made up of a collection of emitters.
+该图显示了由发射器集合组成的 **Cascade粒子系统**。
 [/REGION]
 
-To address these issues, Niagara has fully embraced this idea of modularity by decoupling the individual emitters that make up a particle system. Instead of having the particle system contain each emitter, **Niagara Systems** are comprised of many individual **Niagara Emitters**. Each of these Niagara Emitters contains a single effect that is controlled using the various modules that you are familiar with like **Lifetime**, **Location** and **Size** to adjust how the particles behave and look. However because these Niagara Emitters are independent actors that are saved in the Content Browser, that means they can be updated and shared with any Niagara System that you want to create allowing you to make massive changes to your emitters without having to spend a lot of time doing so.
+为解决这些问题，Niagara完全接纳了模块化理念，但剔除了构成粒子系统的独立发射器的设计。为取代让粒子系统包含各个发射器的想法，**Niagara系统** 由多个独立的 **Niagara发射器** 组成。每个Niagara发射器包含一种效果，而该效果由您所熟悉的各种模块控制，例如 **寿命**、**位置** 和 **大小**，可以调整粒子的行为和外观。但是，由于这些Niagara发射器是保存在内容浏览器中的独立演算体（Actor），因此它们可以更新并与您想要创建的任何Niagara系统共享，这样您无需花费大量时间，即可对发射器进行大幅修改。
 
 [REGION:lightbox]
 [![](NKC_01.png)(w:764)](NKC_01.png)
 [/REGION]
 
 [REGION:caption]
-This image shows that a **Niagara System** is made up of a collection of **Niagara Emitters**.
+该图显示了由 **Niagara发射器** 集合组成的 **Niagara系统**。
 [/REGION]
 
-## Niagara Emitter
+## Niagara发射器
 
-When you create or open up a Niagara Emitter, it will come with some default modules that can be found in the **Selected Emitter** tab. Inside this tab, you will see the following five options that can be expanded and edited. Each of the following section will affect how the emitter spawns and behave's over its lifetime.
+在您创建或打开Niagara发射器时，其自带一些默认模块，可以在 **所选发射器（Selected Emitter）** 选项卡中找到。在该选项卡中，您会看到可以展开和编辑的以下五个选项。以下每个部分都会影响发射器终生的产生和行为方式。
 
 [REGION:lightbox]
 [![](NKC_02.png)(w:620)](NKC_02.png)
 [/REGION]
 
-* **Emitter Spawn**
-    * The Emitter Spawn section is run when the emitter starts up. This is similar to a Construction Script for Blueprints in that it does one-time setup that can be used in later scripts. It cannot reference individual particles, but it can be used to set emitter variables, run emitter modules, and set up variables that will be used in the particle scripts.
-* **Emitter Update**
-    * The Emitter Update section is run every frame that the Emitter is active. Users will determine how many particles to spawn, compute constant values for use in particle update scripts, and do other per-frame "tick" logic for the emitter here. It is important to have the Emitter Lifecycle module in this section to ensure that all of the lifecycle logic is executed for each emitter, allowing the system to properly shut down.
-* **Particle Spawn**
-    * The Particle Spawn section is run once every time a particle is born. Users will use this section to set initial state for the particle. If the Emitter is not set to use Interpolated Spawn, the output from this section will define the state of the particle for the first frame it is rendered. If Interpolated Spawning does occur, the particles will be evenly spread out in the time range from the previous frame if not an instantaneous burst and the update script will be run for each particle for the fractional amount of the frame since it was created. This allows users to achieve smooth trails and can also be used to allow the particle update script to define the state of the particle for the first frame that it is rendered. If you need randomness to differentiate each particle, it is best to choose your random values in the spawn script and store that value for use in each subsequent update "tick."
-* **Particle Update**
-    * The Particle Update section controls how an individual particle will behave over its life. Changes to physical simulation attributes, rendering attributes, etc. can all be done within this section. If the user wishes to broadcast data to other emitters, modules that emit events can occur in this section.  It is important to have the Update Age module in this section to ensure that each particle continues to age and eventually die once it has passed its lifetime.
-* **Add Event Handler**
-    * The Add Event Handler section determines how this emitter will respond to incoming events from collision or other emitters. 
+* **发射器产生（Emitter Spawn）**
+    * 发射器产生（Emitter Spawn）部分在发射器启动时运行。这类似于蓝图的构造脚本，它会进行一次性设置以在后续脚本中使用。它无法引用单个粒子，但可以用于设置发射器变量，运行发射器模块，并设置将在粒子脚本中使用的变量。
+* **发射器更新（Emitter Update）**
+    * 发射器更新（Emitter Update）部分在发射器保持活跃期间每帧运行一次。用户将在这里确定要产生的粒子数，计算要在粒子更新脚本中使用的常量值，以及实现发射器的其他每帧“tick”逻辑。在该部分中包含“发射器生命周期”（Emitter Lifecycle）模块非常重要，这样可以确保为每个发射器执行所有生命周期逻辑，让系统能够正常关闭。
+* **粒子产生（Particle Spawn）**
+    * 粒子产生（Particle Spawn）部分每次在粒子产生时运行一次。用户将使用该部分设置粒子的初始状态。如果发射器没有设置为使用“内插产生”（Interpolated Spawn），则该部分输出将定义渲染第一帧时的粒子状态。如果确实发生了内插产生，则粒子将均匀地分散到自前一帧开始的时间范围内（如果不是瞬时爆发），更新脚本将针对每个粒子运行，运行时间为自创建以来经过的少量帧数。这样用户可以实现流畅的轨迹，还可以让粒子更新脚本定义渲染第一帧时的粒子状态。如果您需要随机性来区分每个粒子，最好在产生脚本中选择随机值，并存储该值以在每个后续更新“tick”中使用。
+* **粒子更新（Particle Update）**
+    * 粒子更新（Particle Update）部分控制单个粒子的终生行为模式。物理模拟属性、渲染属性等更改可以在该部分中完成。如果用户希望将数据传播到其他发射器，可以在该部分中使用能够发出事件的模块。在该部分中包含“更新年龄”（Update Age）模块十分重要，这样可以确保每个粒子会持续老化，最终在寿命结束时消亡。
+* **添加事件处理程序（Add Event Handler）**
+    * 添加事件处理程序（Add Event Handler）部分确定该发射器如何响应来自碰撞或其他发射器的事件。 
 
-## Niagara System 
+## Niagara系统（Niagara System） 
 
-To use a Niagara Emitter in your project, it will first need to be placed into a **Niagara System**. A Niagara System is a used to display the individual Niagara Emitters that have been created to make an effect. This also makes it very easy to mix and match different Niagara emitters together to create entirely new effects using only the existing emitters.
+要在项目中使用Niagara发射器，则首先需要将该发射器放入到 **Niagara系统（Niagara System）** 中。Niagara系统用于显示为制造效果而创建的各个Niagara发射器。这样也非常易于将不同的Niagara发射器混合和匹配起来，以仅使用现有发射器创建全新的效果。
 
 [REGION:lightbox]
 [![](NKC_08.png)(w:620)](NKC_08.png)
 [/REGION]
 
- To add a Niagara Emitter to a Niagara System, you will need to drag your Niagara Emitter from the Content Browser onto the **Track** section of the **Timeline**. 
+要将Niagara发射器添加到Niagara系统，您需要将Niagara发射器从内容浏览器拖放到 **时间轴（Timeline）** 的 **轨迹（Track）** 部分。 
 
 [REGION:lightbox]
 [![](NKC_07.png)(w:600)](NKC_07.png)
 [/REGION]
 
-You can adjust the properties of Niagara Emitters that are placed in the Timeline by selecting one and then go to the **Selected Emitter** panel and adjust the needed property.
+您可以调整放入时间轴（Timeline）的Niagara发射器的属性，方法是选择一个发射器，然后转至 **所选发射器（Selected Emitter）** 面板，并调整所需属性。
 
 [REGION:lightbox]
 [![](NKC_09.png)(w:250)](NKC_09.png)

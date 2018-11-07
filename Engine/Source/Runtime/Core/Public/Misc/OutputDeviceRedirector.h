@@ -41,8 +41,11 @@ private:
 	/** A FIFO backlog of messages logged before the editor had a chance to intercept them. */
 	TArray<FBufferedLine> BacklogLines;
 
-	/** Array of output devices to redirect to */
-	TArray<FOutputDevice*> OutputDevices;
+	/** Array of output devices to redirect to using buffering mechanism */
+	TArray<FOutputDevice*> BufferedOutputDevices;
+
+	/** Array of output devices that can redirected to without bufffering */
+	TArray<FOutputDevice*> UnbufferedOutputDevices;
 
 	/** The master thread ID.  Logging from other threads will be buffered for processing by the master thread. */
 	uint32 MasterThreadID;

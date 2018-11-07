@@ -167,10 +167,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Utility|Collision")
 	FTraceQueryTestResultsInner ProfileResults;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Utility|Collision")
 	FTraceChannelTestBatchOptions BatchOptions;
 
 	/** Output string value */
-	UFUNCTION(BlueprintCallable, Category = "Utility|Collision")
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Collision")
 	FString ToString();
 
 	bool AssertEqual(const UTraceQueryTestResults* Expected, const FString& What, const UObject* ContextObject, AFunctionalTest& FunctionalTest) const;

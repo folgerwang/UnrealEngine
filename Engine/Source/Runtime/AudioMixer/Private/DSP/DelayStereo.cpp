@@ -10,6 +10,7 @@ namespace Audio
 		, Feedback(0.0f)
 		, DelayRatio(0.0f)
 		, WetLevel(0.0f)
+		, NumChannels(0)
 		, bIsInit(true)
 	{
 	}
@@ -45,11 +46,16 @@ namespace Audio
 		WetLevel = FMath::Clamp(InWetLevel, 0.0f, 1.0f);;
 	}
 
-	void FDelayStereo::Init(const float InSampleRate, const float InDelayLengthSec)
+	void FDelayStereo::Init(const float InSampleRate, int32 InNumChannels, const float InDelayLengthSec)
 	{
+		NumChannels = InNumChannels;
+
 		// Init the delay lines
-		LeftDelay.Init(InSampleRate, 2.0f * InDelayLengthSec);
-		RightDelay.Init(InSampleRate, 2.0f * InDelayLengthSec);
+		for (int32 Channel = 0; Channel < InNumChannels; ++Channel)
+		{
+			int32 Index = Delays.Add(FDelay());
+			Delays[Index].Init(InSampleRate, 2.0f * InDelayLengthSec);
+		}
 
 		Reset();
 	}
@@ -57,50 +63,119 @@ namespace Audio
 	void FDelayStereo::Reset()
 	{
 		bIsInit = true;
-		LeftDelay.Reset();
-		RightDelay.Reset();
+		for (FDelay& Delay : Delays)
+		{
+			Delay.Reset();
+		}
 	}
 
 	void FDelayStereo::UpdateDelays()
 	{
 		// As delay ratio goes to zero, the delay times are the same
-		LeftDelay.SetEasedDelayMsec(DelayTimeMsec * (1.0f + DelayRatio), bIsInit);
-		RightDelay.SetEasedDelayMsec(DelayTimeMsec * (1.0f - DelayRatio), bIsInit);
+		for (FDelay& Delay : Delays)
+		{
+			Delay.SetEasedDelayMsec(DelayTimeMsec * (1.0f + DelayRatio), bIsInit);
+		}
 	}
 
-	void FDelayStereo::ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample)
+	void FDelayStereo::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
 		bIsInit = false;
 
-		float LeftDelayOut = LeftDelay.Read();
-		float RightDelayOut = RightDelay.Read();
-
-		float LeftDelayIn = 0.0f;
-		float RightDelayIn = 0.0f;
-
-		if (DelayMode == EStereoDelayMode::Normal)
+		// 1-channel audio just does a simple delay
+		if (NumChannels == 1)
 		{
-			LeftDelayIn = InLeftSample + LeftDelayOut * Feedback;
-			RightDelayIn = InRightSample + RightDelayOut * Feedback;
+			FDelay& Delay = Delays[0];
+			float DelayOut = Delay.Read();
+			float DelayIn = InFrame[0] + DelayOut * Feedback;
+			DelayOut = Delay.ProcessAudioSample(DelayIn);
+			OutFrame[0] = InFrame[0] + WetLevel * DelayOut;
 		}
-		else if (DelayMode == EStereoDelayMode::Cross)
+		else
 		{
-			LeftDelayIn = InRightSample + LeftDelayOut * Feedback;
-			RightDelayIn = InLeftSample + RightDelayOut * Feedback;
+			float LeftDelayOut = Delays[0].Read();
+			float RightDelayOut = Delays[1].Read();
+
+			float LeftDelayIn = 0.0f;
+			float RightDelayIn = 0.0f;
+
+			if (DelayMode == EStereoDelayMode::Normal)
+			{
+				LeftDelayIn = InFrame[0] + LeftDelayOut * Feedback;
+				RightDelayIn = InFrame[1] + RightDelayOut * Feedback;
+			}
+			else if (DelayMode == EStereoDelayMode::Cross)
+			{
+				LeftDelayIn = InFrame[1] + LeftDelayOut * Feedback;
+				RightDelayIn = InFrame[0] + RightDelayOut * Feedback;
+			}
+			else if (DelayMode == EStereoDelayMode::PingPong)
+			{
+				LeftDelayIn = InFrame[1] + RightDelayOut * Feedback;
+				RightDelayIn = InFrame[0] + LeftDelayOut * Feedback;
+			}
+
+			float WetLeftOut = 0.0f;
+			float WetRightOut = 0.0f;
+			WetLeftOut = Delays[0].ProcessAudioSample(LeftDelayIn);
+			WetRightOut = Delays[1].ProcessAudioSample(RightDelayIn);
+
+			OutFrame[0] = InFrame[0] + WetLevel * WetLeftOut;
+			OutFrame[1] = InFrame[1] + WetLevel * WetRightOut;
 		}
-		else if (DelayMode == EStereoDelayMode::PingPong)
+	}
+
+	void FDelayStereo::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		bIsInit = false;
+
+		if (NumChannels == 1)
 		{
-			LeftDelayIn = InRightSample + RightDelayOut * Feedback;
-			RightDelayIn = InLeftSample + LeftDelayOut * Feedback;
+			FDelay& Delay = Delays[0];
+
+			for (int32 SampleIndex = 0; SampleIndex < InNumSamples; ++SampleIndex)
+			{
+				float DelayOut = Delay.Read();
+				float DelayIn = InBuffer[SampleIndex] + DelayOut * Feedback;
+				DelayOut = Delay.ProcessAudioSample(DelayIn);
+				OutBuffer[SampleIndex] = InBuffer[SampleIndex] + WetLevel * DelayOut;
+			}
 		}
+		else
+		{
+			for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+			{
+				float LeftDelayOut = Delays[0].Read();
+				float RightDelayOut = Delays[1].Read();
 
-		float WetLeftOut = 0.0f;
-		float WetRightOut = 0.0f;
-		LeftDelay.ProcessAudio(&LeftDelayIn, &WetLeftOut);
-		RightDelay.ProcessAudio(&RightDelayIn, &WetRightOut);
+				float LeftDelayIn = 0.0f;
+				float RightDelayIn = 0.0f;
 
-		OutLeftSample = InLeftSample + WetLevel * WetLeftOut;
-		OutRightSample = InRightSample + WetLevel * WetRightOut;
+				if (DelayMode == EStereoDelayMode::Normal)
+				{
+					LeftDelayIn = InBuffer[SampleIndex] + LeftDelayOut * Feedback;
+					RightDelayIn = InBuffer[SampleIndex + 1] + RightDelayOut * Feedback;
+				}
+				else if (DelayMode == EStereoDelayMode::Cross)
+				{
+					LeftDelayIn = InBuffer[SampleIndex + 1] + LeftDelayOut * Feedback;
+					RightDelayIn = InBuffer[SampleIndex] + RightDelayOut * Feedback;
+				}
+				else if (DelayMode == EStereoDelayMode::PingPong)
+				{
+					LeftDelayIn = InBuffer[SampleIndex + 1] + RightDelayOut * Feedback;
+					RightDelayIn = InBuffer[SampleIndex] + LeftDelayOut * Feedback;
+				}
+
+				float WetLeftOut = 0.0f;
+				float WetRightOut = 0.0f;
+				WetLeftOut = Delays[0].ProcessAudioSample(LeftDelayIn);
+				WetRightOut = Delays[1].ProcessAudioSample(RightDelayIn);
+
+				OutBuffer[SampleIndex] = InBuffer[SampleIndex] + WetLevel * WetLeftOut;
+				OutBuffer[SampleIndex + 1] = InBuffer[SampleIndex + 1] + WetLevel * WetRightOut;
+			}
+		}
 	}
 
 

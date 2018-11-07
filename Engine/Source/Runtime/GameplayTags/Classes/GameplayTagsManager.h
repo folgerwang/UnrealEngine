@@ -51,7 +51,7 @@ struct FRestrictedGameplayTagTableRow : public FGameplayTagTableRow
 	bool bAllowNonRestrictedChildren;
 
 	/** Constructors */
-	FRestrictedGameplayTagTableRow() {}
+	FRestrictedGameplayTagTableRow() : bAllowNonRestrictedChildren(false) {}
 	FRestrictedGameplayTagTableRow(FName InTag, const FString& InDevComment = TEXT(""), bool InAllowNonRestrictedChildren = false) : FGameplayTagTableRow(InTag, InDevComment), bAllowNonRestrictedChildren(InAllowNonRestrictedChildren) {}
 	GAMEPLAYTAGS_API FRestrictedGameplayTagTableRow(FRestrictedGameplayTagTableRow const& Other);
 
@@ -70,6 +70,15 @@ enum class EGameplayTagSourceType : uint8
 	RestrictedTagList,	// Restricted tags from an ini
 	DataTable,			// From a DataTable
 	Invalid,			// Not a real source
+};
+
+UENUM()
+enum class EGameplayTagSelectionType : uint8
+{
+	None,
+	NonRestrictedOnly,
+	RestrictedOnly,
+	All
 };
 
 /** Struct defining where gameplay tags are loaded/saved from. Mostly for the editor */
@@ -424,6 +433,9 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns the tag source for a given tag source name and type, or null if not found */
 	const FGameplayTagSource* FindTagSource(FName TagSourceName) const;
 
+	/** Returns the tag source for a given tag source name and type, or null if not found */
+	FGameplayTagSource* FindTagSource(FName TagSourceName);
+
 	/** Fills in an array with all tag sources of a specific type */
 	void FindTagSourcesWithType(EGameplayTagSourceType TagSourceType, TArray<const FGameplayTagSource*>& OutArray) const;
 
@@ -494,9 +506,13 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Gets a Filtered copy of the GameplayRootTags Array based on the comma delimited filter string passed in */
 	void GetFilteredGameplayRootTags(const FString& InFilterString, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray) const;
 
-	/** Returns "Categories" meta property from given handle, used for filtering by tag wiodget */
+	/** Returns "Categories" meta property from given handle, used for filtering by tag widget */
 	FString GetCategoriesMetaFromPropertyHandle(TSharedPtr<class IPropertyHandle> PropertyHandle) const;
 
+	/** Returns "Categories" meta property from given struct, used for filtering by tag widget */
+	FString GetCategoriesMetaFromStruct(UScriptStruct* Struct) const;
+
+	/** Returns "GameplayTagFilter" meta property from given function, used for filtering by tag widget for any parameters of the function that end up as BP pins */
 	FString GetCategoriesMetaFromFunction(UFunction* Func) const;
 
 	/** Gets a list of all gameplay tag nodes added by the specific source */
@@ -511,8 +527,12 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Refresh the gameplaytag tree due to an editor change */
 	void EditorRefreshGameplayTagTree();
 
-	/** Gets a Tag Container containing the all tags in the hierarchy that are children of this tag, and were explicitly added to the dictionary */
+	/** Gets a Tag Container containing all of the tags in the hierarchy that are children of this tag, and were explicitly added to the dictionary */
 	FGameplayTagContainer RequestGameplayTagChildrenInDictionary(const FGameplayTag& GameplayTag) const;
+#if WITH_EDITORONLY_DATA
+	/** Gets a Tag Container containing all of the tags in the hierarchy that are children of this tag, were explicitly added to the dictionary, and do not have any explicitly added tags between them and the specified tag */
+	FGameplayTagContainer RequestGameplayTagDirectDescendantsInDictionary(const FGameplayTag& GameplayTag, EGameplayTagSelectionType SelectionType) const;
+#endif // WITH_EDITORONLY_DATA
 
 	/** This is called when EditorRefreshGameplayTagTree. Useful if you need to do anything editor related when tags are added or removed */
 	static FSimpleMulticastDelegate OnEditorRefreshGameplayTagTree;

@@ -14,6 +14,7 @@ static bool GFoundTegraGfxDebugger = false;
 
 void* FVulkanLuminPlatform::VulkanLib = nullptr;
 bool FVulkanLuminPlatform::bAttemptedLoad = false;
+VkPhysicalDeviceSamplerYcbcrConversionFeatures FVulkanLuminPlatform::SamplerConversion;
 
 bool FVulkanLuminPlatform::LoadVulkanLibrary()
 {
@@ -68,6 +69,9 @@ bool FVulkanLuminPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 
 	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
+
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 
 	return bFoundAllEntryPoints;
 }
@@ -130,5 +134,14 @@ void FVulkanLuminPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 
 bool FVulkanLuminPlatform::ForceEnableDebugMarkers()
 {
+	// Preventing VK_EXT_DEBUG_MARKER from being enabled on Lumin, because the device doesn't support it.
 	return GFoundTegraGfxDebugger;
+}
+
+void FVulkanLuminPlatform::EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo)
+{
+	SamplerConversion.pNext = nullptr;
+	SamplerConversion.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
+	SamplerConversion.samplerYcbcrConversion = VK_TRUE;
+	DeviceInfo.pNext = &SamplerConversion;
 }

@@ -283,23 +283,12 @@ LandscapeVisibilityMask ノードのプロパティは、 **[Details (詳細)]**
 
 [Manage モード](Engine/Landscape/Editing/ManageMode) でランドスケープ内に穴を作成することができますが、ランドスケープ コンポーネント全体を 1 度に削除することになります。これを回避するには、Landscape Hole マテリアルを使ってランドスケープ上の所定位置の可視性とコリジョンをマスクします。山の斜面の洞窟の入口などの作成に便利です。 
 
-[Region:tip]
-Lansdcape マテリアルと Landscape Hole マテリアルには同じマテリアルを使用できますが、オパシティ マスクを使っているマテリアルはそうでないマテリアルよりもパフォーマンス全体の負荷が大きいです。このような理由で、Landscape Hole マテリアルを別に作成するオプションが付いているのです。
-[/region]
 
 **Landscape Hole マテリアルの作成方法**
 
 1. まず、マテリアル エディタでマテリアルを開く、もしくは新規に作成します。マテリアルを開いたら、**[Details (詳細)]** パネルを見て、**[Blend Mode]** を **[Masked]** に設定します。
 
 	![](Landscape_BaseNodeOpacity.png)
-
-	[COMMENT:none]
-
-	[REGION:tip]
-	ランドスケープに開ける穴に別々のマテリアルを使用する場合は、テクスチャが Base Color スロットへ渡されること、またはランドスケープの一部を見えないようにする際に、その部分を黒くしないように注意してください。
-	[/REGION]
-	
-[/COMMENT]
 
 1. 次に、 **LandscapeVisibilityMask** ノードをマテリアル グラフに追加して、 **Opacity Mask** 入力へ出力を接続します。
 
@@ -326,9 +315,6 @@ Lansdcape マテリアルと Landscape Hole マテリアルには同じマテリ
 	[/PARAMLITERAL]
 	[/OBJECT]
 
-[REGION:note]
-ランドスケープに穴を作成するペイント ツールの使用方法については、[オパシティ マスクを使って穴を作成する](Engine\Landscape\Editing\SculptMode\#オパシティマスクを使って穴を作成する) を参照してください。
-[/REGION]
 
 
 ## マテリアルをランドスケープに割り当てる
@@ -355,10 +341,6 @@ Lansdcape マテリアルと Landscape Hole マテリアルには同じマテリ
 
 	![](Landscape_HoleSettings.png)
 
-
-[REGION:note]
-Landscape Hole マテリアルの使用に関する詳細は、[オパシティマスクを使って穴を作成する](Engine\Landscape\Editing\SculptMode\#オパシティマスクを使って穴を作成する) を参照してください。
-[/REGION]
 
 [COMMENT:none]
 

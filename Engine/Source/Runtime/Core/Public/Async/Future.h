@@ -11,11 +11,7 @@
 #include "Misc/DateTime.h"
 #include "HAL/Event.h"
 #include "HAL/PlatformProcess.h"
-
-template<typename ResultType> class TSharedFuture;
-
-/* TFutureBase
-*****************************************************************************/
+#include "Misc/ScopeLock.h"
 
 /**
  * Base class for the internal state of asynchronous return values (futures).
@@ -35,8 +31,8 @@ public:
 	 *
 	 * @param InCompletionCallback A function that is called when the state is completed.
 	 */
-	FFutureState(TFunction<void()>&& InCompletionCallback)
-		: CompletionCallback(InCompletionCallback)
+	FFutureState(TUniqueFunction<void()>&& InCompletionCallback)
+		: CompletionCallback(MoveTemp(InCompletionCallback))
 		, CompletionEvent(FPlatformProcess::GetSynchEventFromPool(true))
 		, Complete(false)
 	{ }
@@ -78,30 +74,59 @@ public:
 		return false;
 	}
 
+	/** 
+	 * Set a continuation to be called on completion of the promise
+	 * @param Continuation 
+	 */
+	void SetContinuation(TUniqueFunction<void()>&& Continuation)
+	{
+		bool bShouldJustRun = IsComplete();
+		if (!bShouldJustRun)
+		{
+			FScopeLock Lock(&Mutex);
+			bShouldJustRun = IsComplete();
+			if (!bShouldJustRun)
+			{
+				CompletionCallback = MoveTemp(Continuation);
+			}
+		}
+		if (bShouldJustRun && Continuation)
+		{
+			Continuation();
+		}
+	}
+
 protected:
 
 	/** Notifies any waiting threads that the result is available. */
 	void MarkComplete()
 	{
-		Complete = true;
+		TUniqueFunction<void()> Continuation;
+		{
+			FScopeLock Lock(&Mutex);
+			Continuation = MoveTemp(CompletionCallback);
+			Complete = true;
+		}
 		CompletionEvent->Trigger();
 
-		if (CompletionCallback)
+		if (Continuation)
 		{
-			CompletionCallback();
+			Continuation();
 		}
 	}
 
 private:
+	/** Mutex used to allow proper handling of continuations */
+	mutable FCriticalSection Mutex;
 
 	/** An optional callback function that is executed the state is completed. */
-	TFunction<void()> CompletionCallback;
+	TUniqueFunction<void()> CompletionCallback;
 
 	/** Holds an event signaling that the result is available. */
 	FEvent* CompletionEvent;
 
 	/** Whether the asynchronous result is available. */
-	bool Complete;
+	TAtomic<bool> Complete; 
 };
 
 
@@ -124,7 +149,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the state is completed.
 	 */
-	TFutureState(TFunction<void()>&& CompletionCallback)
+	TFutureState(TUniqueFunction<void()>&& CompletionCallback)
 		: FFutureState(MoveTemp(CompletionCallback))
 	{ }
 
@@ -180,6 +205,8 @@ private:
 	InternalResultType Result;
 };
 
+/* TFuture
+*****************************************************************************/
 
 /**
  * Abstract base template for futures and shared futures.
@@ -304,6 +331,40 @@ protected:
 		return State;
 	}
 
+	/**
+	 * Set a completion callback that will be called once the future completes
+	 *	or immediately if already completed
+	 *
+	 * @param Continuation a continuation taking an argument of type TFuture<InternalResultType>
+	 * @return nothing at the moment but could return another future to allow future chaining
+	 */
+	template<typename Func>
+	auto Then(Func Continuation);
+
+	/**
+	 * Convenience wrapper for Then that
+	 *	set a completion callback that will be called once the future completes
+	 *	or immediately if already completed
+	 * @param Continuation a continuation taking an argument of type InternalResultType
+	 * @return nothing at the moment but could return another future to allow future chaining
+	 */
+	template<typename Func>
+	auto Next(Func Continuation);
+
+	/**
+	 * Reset the future.
+	 *	Reseting a future removes any continuation from its shared state and invalidates it.
+	 *	Useful for discarding yet to be completed future cleanly.
+	 */
+	void Reset()
+	{
+		if (IsValid())
+		{
+			this->State->SetContinuation(nullptr);
+			this->State.Reset();
+		}
+	}
+
 private:
 
 	/** Holds the future's state. */
@@ -311,11 +372,7 @@ private:
 };
 
 
-/* TFuture
-*****************************************************************************/
-
 template<typename ResultType> class TSharedFuture;
-
 
 /**
  * Template for unshared futures.
@@ -374,6 +431,24 @@ public:
 	{
 		return TSharedFuture<ResultType>(MoveTemp(*this));
 	}
+
+	/**
+	 * Expose Then functionality
+	 * @see TFutureBase 
+	 */
+	using BaseType::Then;
+
+	/**
+	 * Expose Next functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Next;
+
+	/**
+	 * Expose Reset functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Reset;
 
 private:
 
@@ -443,6 +518,24 @@ public:
 		return TSharedFuture<ResultType&>(MoveTemp(*this));
 	}
 
+	/**
+	 * Expose Then functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Then;
+
+	/**
+	 * Expose Next functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Next;
+
+	/**
+	 * Expose Reset functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Reset;
+
 private:
 
 	/** Hidden copy constructor (futures cannot be copied). */
@@ -508,6 +601,24 @@ public:
 	 */
 	TSharedFuture<void> Share();
 
+	/**
+	 * Expose Then functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Then;
+
+	/**
+	 * Expose Next functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Next;
+
+	/**
+	 * Expose Reset functionality
+	 * @see TFutureBase
+	 */
+	using BaseType::Reset;
+
 private:
 
 	/** Hidden copy constructor (futures cannot be copied). */
@@ -516,7 +627,6 @@ private:
 	/** Hidden copy assignment (futures cannot be copied). */
 	TFuture& operator=(const TFuture&);
 };
-
 
 /* TSharedFuture
 *****************************************************************************/
@@ -745,7 +855,7 @@ public:
 
 	/** Default constructor. */
 	TPromiseBase()
-		: State(MakeShareable(new TFutureState<InternalResultType>))
+		: State(MakeShared<TFutureState<InternalResultType>, ESPMode::ThreadSafe>())
 	{ }
 
 	/**
@@ -764,8 +874,8 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromiseBase(TFunction<void()>&& CompletionCallback)
-		: State(MakeShareable(new TFutureState<InternalResultType>(MoveTemp(CompletionCallback))))
+	TPromiseBase(TUniqueFunction<void()>&& CompletionCallback)
+		: State(MakeShared<TFutureState<InternalResultType>, ESPMode::ThreadSafe>(MoveTemp(CompletionCallback)))
 	{ }
 
 public:
@@ -844,7 +954,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromise(TFunction<void()>&& CompletionCallback)
+	TPromise(TUniqueFunction<void()>&& CompletionCallback)
 		: BaseType(MoveTemp(CompletionCallback))
 		, FutureRetrieved(false)
 	{ }
@@ -944,7 +1054,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromise(TFunction<void()>&& CompletionCallback)
+	TPromise(TUniqueFunction<void()>&& CompletionCallback)
 		: BaseType(MoveTemp(CompletionCallback))
 		, FutureRetrieved(false)
 	{ }
@@ -1031,7 +1141,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromise(TFunction<void()>&& CompletionCallback)
+	TPromise(TUniqueFunction<void()>&& CompletionCallback)
 		: BaseType(MoveTemp(CompletionCallback))
 		, FutureRetrieved(false)
 	{ }
@@ -1082,3 +1192,56 @@ private:
 	/** Whether a future has already been retrieved from this promise. */
 	bool FutureRetrieved;
 };
+
+/* TFuture::Then
+*****************************************************************************/
+
+namespace FutureDetail
+{
+	/**
+	* Template for setting a promise value from a continuation.
+	*/
+	template<typename Func, typename ParamType, typename ResultType>
+	inline void SetPromiseValue(TPromise<ResultType>& Promise, Func& Function, TFuture<ParamType>&& Param)
+	{
+		Promise.SetValue(Function(MoveTemp(Param)));
+	}
+	template<typename Func, typename ParamType>
+	inline void SetPromiseValue(TPromise<void>& Promise, Func& Function, TFuture<ParamType>&& Param)
+	{
+		Function(MoveTemp(Param));
+		Promise.SetValue();
+	}
+}
+
+// Then implementation
+template<typename InternalResultType>
+template<typename Func>
+auto TFutureBase<InternalResultType>::Then(Func Continuation) //-> TFuture<decltype(Continuation(MoveTemp(TFuture<InternalResultType>())))>
+{
+	check(IsValid());
+	using ReturnValue = decltype(Continuation(MoveTemp(TFuture<InternalResultType>())));
+
+	TPromise<ReturnValue> Promise;
+	TFuture<ReturnValue> FutureResult = Promise.GetFuture();
+	TUniqueFunction<void()> Callback = [PromiseCapture = MoveTemp(Promise), ContinuationCapture = MoveTemp(Continuation), StateCapture = this->State]() mutable
+	{
+		FutureDetail::SetPromiseValue(PromiseCapture, ContinuationCapture, TFuture<InternalResultType>(MoveTemp(StateCapture)));
+	};
+
+	// This invalidate this future.
+	StateType MovedState = MoveTemp(this->State);
+	MovedState->SetContinuation(MoveTemp(Callback));
+	return FutureResult;
+}
+
+// Next implementation
+template<typename InternalResultType>
+template<typename Func>
+auto TFutureBase<InternalResultType>::Next(Func Continuation) //-> TFuture<decltype(Continuation(Get()))>
+{
+	return this->Then([Continuation = MoveTemp(Continuation)](TFuture<InternalResultType> Self) mutable
+	{
+		return Continuation(Self.Get());
+	});
+}

@@ -42,7 +42,6 @@ void FDiskCacheInterface::Init(FString &filename, bool bEnable)
 		}
 	}
 	bool fileFound = mCacheExists;
-	mCurrentFileMapSize = 1;
 	GrowMapping(64 * 1024, true);
 
 	if (fileFound && mFileStart)
@@ -69,12 +68,9 @@ void FDiskCacheInterface::GrowMapping(SIZE_T size, bool firstrun)
 		return;
 	}
 
-	if (mCurrentFileMapSize - mCurrentOffset < size)
+	if (mCurrentOffset + size > mCurrentFileMapSize)
 	{
-		while ((mCurrentFileMapSize - mCurrentOffset) < size)
-		{
-			mCurrentFileMapSize += mFileGrowSize;
-		}
+		mCurrentFileMapSize = Align(mCurrentOffset + size, mFileGrowSize);
 	}
 	else
 	{
@@ -97,7 +93,8 @@ void FDiskCacheInterface::GrowMapping(SIZE_T size, bool firstrun)
 
 	uint32 flag = (mCacheExists) ? OPEN_EXISTING : CREATE_NEW;
 	// open the shader cache file
-	mFile = CreateFile(mFileName.GetCharArray().GetData(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, flag, FILE_ATTRIBUTE_NORMAL, NULL);
+	mFile = CreateFile(mFileName.GetCharArray().GetData(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, flag, FILE_ATTRIBUTE_NORMAL, NULL);
+
 	if (mFile == INVALID_HANDLE_VALUE)
 	{
 		//error state!

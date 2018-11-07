@@ -258,23 +258,16 @@ struct FMultiTransformBlendHelper
 
 				int32 NumBlends = Transforms.Num();
 
-				float ParentWeight = ParentWeights[0] * MultiplyWeight;
-				FVector		OutTranslation = Transforms[0].GetTranslation() *  ParentWeight;
-				FQuat		OutRotation = Transforms[0].GetRotation() * ParentWeight;
-				FVector		OutScale = Transforms[0].GetScale3D() * ParentWeight;
+				OutTransform = Transforms[0] * ScalarRegister(ParentWeights[0] * MultiplyWeight);
 
 				// otherwise we just purely blend by number, and then later we normalize
 				for (int32 Index = 1; Index < NumBlends; ++Index)
 				{
 					// Simple linear interpolation for translation and scale.
-					ParentWeight = ParentWeights[Index] * MultiplyWeight;
-					OutTranslation = FMath::Lerp(OutTranslation, Transforms[Index].GetTranslation(), ParentWeight);
-					OutScale = OutScale + Transforms[Index].GetScale3D()*ParentWeight;
-					OutRotation = FQuat::FastLerp(OutRotation, Transforms[Index].GetRotation(), ParentWeight);
+					OutTransform.AccumulateWithShortestRotation(Transforms[Index], ScalarRegister(ParentWeights[Index] * MultiplyWeight));
 				}
 
-				OutRotation.Normalize();
-				OutTransform = FTransform(OutRotation, OutTranslation, OutScale);
+				OutTransform.NormalizeRotation();
 
 				return true;
 			}

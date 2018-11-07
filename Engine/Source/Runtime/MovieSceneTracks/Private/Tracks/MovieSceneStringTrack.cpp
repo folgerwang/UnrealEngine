@@ -20,7 +20,7 @@ void UMovieSceneStringTrack::AddSection(UMovieSceneSection& Section)
 
 UMovieSceneSection* UMovieSceneStringTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneStringSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneStringSection>(this, NAME_None, RF_Transactional);
 }
 
 

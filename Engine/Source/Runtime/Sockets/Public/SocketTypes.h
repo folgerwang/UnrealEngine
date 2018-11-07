@@ -4,6 +4,16 @@
 
 #include "CoreMinimal.h"
 
+/** Indicates the socket protocol of socket being used, typically for BSD Sockets */
+enum class ESocketProtocolFamily : uint8
+{
+	/** No protocol family specification. Typically defined as AF_UNSPEC */
+	None,
+	/** IPv4 and IPv6 respectively. */
+	IPv4,
+	IPv6
+};
+
 /** Indicates the type of socket being used (streaming or datagram) */
 enum ESocketType
 {
@@ -139,3 +149,24 @@ namespace ESocketWaitConditions
 		WaitForReadOrWrite
 	};
 }
+
+/**
+ * Enumerates socket shutdown modes.
+ */
+enum class ESocketShutdownMode
+{
+	/**
+	 * Disables reading on the socket.
+	 */
+	Read,
+	
+	/**
+	 * Disables writing on the socket.
+	 */
+	Write,
+	
+	/**
+	 * Disables reading and writing on the socket.
+	 */
+	ReadWrite
+};

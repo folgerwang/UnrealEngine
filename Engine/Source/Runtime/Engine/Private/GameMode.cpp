@@ -358,6 +358,7 @@ void AGameMode::SetMatchState(FName NewState)
 
 void AGameMode::OnMatchStateSet()
 {
+	FGameModeEvents::OnGameModeMatchStateSetEvent().Broadcast(MatchState);
 	// Call change callbacks
 	if (MatchState == MatchState::WaitingToStart)
 	{
@@ -588,7 +589,7 @@ void AGameMode::Broadcast( AActor* Sender, const FString& Msg, FName Type )
 	APlayerState* SenderPlayerState = nullptr;
 	if ( Cast<APawn>(Sender) != nullptr)
 	{
-		SenderPlayerState = Cast<APawn>(Sender)->PlayerState;
+		SenderPlayerState = Cast<APawn>(Sender)->GetPlayerState();
 	}
 	else if ( Cast<AController>(Sender) != nullptr)
 	{

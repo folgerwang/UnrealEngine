@@ -641,23 +641,12 @@ int32 FMacPlatformMisc::NumberOfCoresIncludingHyperthreads()
 	return FApplePlatformMisc::NumberOfCores();
 }
 
-static const TCHAR* GetUserHomeDir()
-{
-	static TCHAR Result[MAX_PATH] = TEXT("");
-	if (!Result[0])
-	{
-		SCOPED_AUTORELEASE_POOL;
-		FPlatformString::CFStringToTCHAR((CFStringRef)NSHomeDirectory(), Result);
-	}
-	return Result;
-}
-
 void FMacPlatformMisc::NormalizePath(FString& InPath)
 {
 	// only expand if path starts with ~, e.g. ~/ should be expanded, /~ should not
 	if (InPath.StartsWith(TEXT("~"), ESearchCase::CaseSensitive))	// case sensitive is quicker, and our substring doesn't care
 	{
-		InPath = InPath.Replace(TEXT("~"), GetUserHomeDir(), ESearchCase::CaseSensitive);
+		InPath = InPath.Replace(TEXT("~"), FPlatformProcess::UserHomeDir(), ESearchCase::CaseSensitive);
 	}
 }
 
@@ -1012,7 +1001,6 @@ public:
 						}
 						IOObjectRelease(ServiceEntry);
 					}
-					CFRelease(MatchDictionary);
 				}
 				break;
 			}
@@ -1313,6 +1301,11 @@ bool FMacPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& T
 		TotalNumberOfBytes = FSStat.f_blocks * FSStat.f_bsize;
 		NumberOfFreeBytes = FSStat.f_bavail * FSStat.f_bsize;
 	}
+	else
+	{
+		int ErrNo = errno;
+		UE_LOG(LogMac, Warning, TEXT("Unable to statfs('%s'): errno=%d (%s)"), *InPath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+	}
 	return (Err == 0);
 }
 
@@ -1414,8 +1407,8 @@ FString FMacPlatformMisc::GetXcodePath()
 
 bool FMacPlatformMisc::IsSupportedXcodeVersionInstalled()
 {
-	// We need Xcode 8.2 or newer to be able to compile Metal shaders correctly
-	return GMacAppInfo.XcodeVersion.majorVersion > 8 || (GMacAppInfo.XcodeVersion.majorVersion == 8 && GMacAppInfo.XcodeVersion.minorVersion >= 2);
+	// We need Xcode 9.4 or newer to be able to compile Metal shaders correctly
+	return GMacAppInfo.XcodeVersion.majorVersion > 9 || (GMacAppInfo.XcodeVersion.majorVersion == 9 && GMacAppInfo.XcodeVersion.minorVersion >= 4);
 }
 
 CGDisplayModeRef FMacPlatformMisc::GetSupportedDisplayMode(CGDirectDisplayID DisplayID, uint32 Width, uint32 Height)
@@ -1559,8 +1552,8 @@ void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 
 	if (!FMacApplicationInfo::CrashReporter && !GCrashMalloc)
 	{
-		GetUserHomeDir(); // This may be called from the crash handler, so we call it here to initialize it early.
-						  // This way the crash handler will use a cached string and we will limit allocations and avoid creating an autorelease pool.
+		FPlatformProcess::UserHomeDir(); // This may be called from the crash handler, so we call it here to initialize it early.
+										 // This way the crash handler will use a cached string and we will limit allocations and avoid creating an autorelease pool.
 
 		// Configure the crash handler malloc zone to reserve some VM space for itself
 		GCrashMalloc = new FMacMallocCrashHandler( 128 * 1024 * 1024 );
@@ -1855,7 +1848,7 @@ void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure( const TCHAR* ErrorMessage )
+void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
 	// Simple re-entrance guard.
 	EnsureLock.Lock();
@@ -1883,6 +1876,24 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	bReentranceGuard = false;
 	EnsureLock.Unlock();
 }
+
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	EnsureLock.Lock();
+	if (!bReentranceGuard && FMacApplicationInfo::CrashReporter != nil)
+	{
+		bReentranceGuard = true;
+
+		const bool bIsEnsure = true;
+		FMacCrashContext EnsureContext(bIsEnsure);
+		EnsureContext.SetPortableCallStack(0, Stack);
+		EnsureContext.GenerateEnsureInfoAndLaunchReporter();
+
+		bReentranceGuard = false;
+	}
+	EnsureLock.Unlock();
+}
+
 typedef NSArray* (*MTLCopyAllDevices)(void);
 
 bool FMacPlatformMisc::HasPlatformFeature(const TCHAR* FeatureName)

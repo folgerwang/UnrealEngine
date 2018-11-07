@@ -426,7 +426,7 @@ namespace FAIResources
 }
 
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct AIMODULE_API FAIRequestID
 {
 	GENERATED_USTRUCT_BODY()

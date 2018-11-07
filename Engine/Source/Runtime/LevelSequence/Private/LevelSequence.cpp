@@ -5,7 +5,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
-#include "Engine/BlueprintGeneratedClass.h"
+#include "LevelSequenceDirector.h"
 #include "Engine/Engine.h"
 #include "MovieScene.h"
 #include "UObject/Package.h"
@@ -15,6 +15,7 @@
 #include "MovieSceneSpawnableAnnotation.h"
 #include "Tracks/MovieSceneSpawnTrack.h"
 #include "Modules/ModuleManager.h"
+#include "LevelSequencePlayer.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 #if WITH_EDITOR
@@ -93,6 +94,18 @@ bool ULevelSequence::CanAnimateObject(UObject& InObject) const
 }
 
 #if WITH_EDITOR
+
+void ULevelSequence::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+#if WITH_EDITORONLY_DATA
+	if (DirectorBlueprint)
+	{
+		DirectorBlueprint->GetAssetRegistryTags(OutTags);
+	}
+#endif
+
+	Super::GetAssetRegistryTags(OutTags);
+}
 
 void PurgeLegacyBlueprints(UObject* InObject, UPackage* Package)
 {
@@ -188,9 +201,16 @@ void ULevelSequence::PostLoad()
 
 	if (GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::PurgeSpawnableBlueprints)
 	{
-		// Remove any old generated classes from the package that will have been left behind from when we used blueprints for spawnables
-		UPackage* Package = GetOutermost();
-		ForEachObjectWithOuter(MovieScene, [=](UObject* InObject) { PurgeLegacyBlueprints(InObject, Package); }, false);
+		// Remove any old generated classes from the package that will have been left behind from when we used blueprints for spawnables		
+		{
+			UPackage* Package = GetOutermost();
+			TArray<UObject*> PackageSubobjects;
+			GetObjectsWithOuter(Package, PackageSubobjects, false);
+			for (UObject* ObjectInPackage : PackageSubobjects)
+			{
+				PurgeLegacyBlueprints(ObjectInPackage, Package);
+			}
+		}
 
 		// Remove any invalid object bindings
 		TSet<FGuid> ValidObjectBindings;
@@ -460,3 +480,26 @@ FGuid ULevelSequence::CreateSpawnable(UObject* ObjectToSpawn)
 }
 
 #endif // WITH_EDITOR
+
+UObject* ULevelSequence::CreateDirectorInstance(IMovieScenePlayer& Player)
+{
+	ULevelSequencePlayer* LevelSequencePlayer = Cast<ULevelSequencePlayer>(Player.AsUObject());
+	UObject*              DirectorOuter       = LevelSequencePlayer ? LevelSequencePlayer : Player.GetPlaybackContext();
+
+	if (DirectorClass && DirectorOuter && DirectorClass->IsChildOf(ULevelSequenceDirector::StaticClass()))
+	{
+		FName DirectorName = NAME_None;
+
+#if WITH_EDITOR
+		// Give it a pretty name so it shows up in the debug instances drop down nicely
+		DirectorName = MakeUniqueObjectName(DirectorOuter, DirectorClass, *(GetFName().ToString() + TEXT("_Director")));
+#endif
+
+		ULevelSequenceDirector* NewDirector = NewObject<ULevelSequenceDirector>(DirectorOuter, DirectorClass, DirectorName, RF_Transient);
+		NewDirector->Player = LevelSequencePlayer;
+		NewDirector->OnCreated();
+		return NewDirector;
+	}
+
+	return nullptr;
+}

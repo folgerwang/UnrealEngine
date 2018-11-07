@@ -34,10 +34,28 @@
 #include "AssetTypeActions/AssetTypeActions_SoundSourceBus.h"
 #include "Utils.h"
 #include "UObject/UObjectIterator.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 const FName AudioEditorAppIdentifier = FName(TEXT("AudioEditorApp"));
 
 DEFINE_LOG_CATEGORY(LogAudioEditor);
+
+class FSlateStyleSet;
+struct FGraphPanelPinConnectionFactory;
+
+
+// Preprocessor macro to make defining audio icons simple...
+
+// CLASS_NAME - name of the class to make the icon for
+// ICON_NAME - base-name of the icon to use. Not necessarily based off class name
+#define SET_AUDIO_ICON(CLASS_NAME, ICON_NAME) \
+		AudioStyleSet->Set( *FString::Printf(TEXT("ClassIcon.%s"), TEXT(#CLASS_NAME)), new FSlateImageBrush(FPaths::EngineContentDir() / FString::Printf(TEXT("Editor/Slate/Icons/AssetIcons/%s_16x.png"), TEXT(#ICON_NAME)), Icon16)); \
+		AudioStyleSet->Set( *FString::Printf(TEXT("ClassThumbnail.%s"), TEXT(#CLASS_NAME)), new FSlateImageBrush(FPaths::EngineContentDir() / FString::Printf(TEXT("Editor/Slate/Icons/AssetIcons/%s_64x.png"), TEXT(#ICON_NAME)), Icon64)); 
+
+// Simpler version of SET_AUDIO_ICON, assumes same name of icon png and class name
+#define SET_AUDIO_ICON_SIMPLE(CLASS_NAME) SET_AUDIO_ICON(CLASS_NAME, CLASS_NAME)
+
 
 class FAudioEditorModule : public IAudioEditorModule
 {
@@ -64,6 +82,9 @@ public:
 
 		// Create reimport handler for surround sound waves
 		UReimportSoundSurroundFactory::StaticClass();
+
+		SetupIcons();
+
 	}
 
 	virtual void ShutdownModule() override
@@ -253,6 +274,38 @@ public:
 
 private:
 
+	void SetupIcons()
+	{
+		// Setup icon sizes
+		FVector2D Icon16 = FVector2D(16.0f, 16.0f);
+		FVector2D Icon64 = FVector2D(64.0f, 64.0f);
+
+		// Setup the audio icon root
+		FString AudioIconRoot = TEXT("Icons/AssetIcons/");
+
+		// Create style set for audio asset icons
+		AudioStyleSet = MakeShareable(new FSlateStyleSet("AudioStyleSet"));
+
+		SET_AUDIO_ICON_SIMPLE(SoundAttenuation);
+		SET_AUDIO_ICON_SIMPLE(AmbientSound);
+		SET_AUDIO_ICON_SIMPLE(SoundClass);
+		SET_AUDIO_ICON_SIMPLE(SoundConcurrency);
+		SET_AUDIO_ICON_SIMPLE(SoundCue);
+		SET_AUDIO_ICON_SIMPLE(SoundMix);
+		SET_AUDIO_ICON_SIMPLE(AudioVolume);
+		SET_AUDIO_ICON_SIMPLE(SoundSourceBus);
+		SET_AUDIO_ICON_SIMPLE(SoundSubmix);
+		SET_AUDIO_ICON_SIMPLE(ReverbEffect);
+
+		SET_AUDIO_ICON(SoundEffectSubmixPreset, SubmixEffectPreset);
+		SET_AUDIO_ICON(SoundEffectSourcePreset, SourceEffectPreset);
+		SET_AUDIO_ICON(SoundEffectSourcePresetChain, SourceEffectPresetChain_1);
+		SET_AUDIO_ICON(ModularSynthPresetBank, SoundGenericIcon_2);
+		
+
+		FSlateStyleRegistry::RegisterSlateStyle(*AudioStyleSet.Get());
+	}
+
 	struct FExtensibilityManagers
 	{
 		TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
@@ -276,7 +329,8 @@ private:
 	FExtensibilityManagers SoundSubmixExtensibility;
 	TArray<TSharedPtr<ISoundWaveAssetActionExtensions>> SoundWaveAssetActionExtensions;
 	TSet<USoundEffectPreset*> RegisteredActions;
-	TSharedPtr<struct FGraphPanelPinConnectionFactory> SoundCueGraphConnectionFactory;
+	TSharedPtr<FGraphPanelPinConnectionFactory> SoundCueGraphConnectionFactory;
+	TSharedPtr<FSlateStyleSet> AudioStyleSet;
 
 };
 

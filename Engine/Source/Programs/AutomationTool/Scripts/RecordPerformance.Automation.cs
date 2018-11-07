@@ -59,7 +59,7 @@ class RecordPerformance : BuildCommand
 				var Platform = GetPlatformByName(PlatformName);
 				if (Platform == null)
 				{
-					Log("Cannot find platform '{0}'. Skipping.", PlatformName);
+					LogInformation("Cannot find platform '{0}'. Skipping.", PlatformName);
 					continue;
 				}
 
@@ -98,7 +98,7 @@ class RecordPerformance : BuildCommand
 			CreateChart(Stat);
 		}
 
-		Log("Performance charts stored in {0}", OutputDir);
+		LogInformation("Performance charts stored in {0}", OutputDir);
 	}
 
 	private IEnumerable<string> ParseMultipleParams(string ParamName)
@@ -182,7 +182,7 @@ class RecordPerformance : BuildCommand
 		var AdditionalCommandLineParameters = "-savevulkanpsocacheonexit";
 		var StatFileName = Path.Combine(ProjectToRun, "Saved", "FXPerformance", PerformanceMonitorConfig + ".csv");
 
-		Log("Running {0} on {1}...", Rhi, Platform.PlatformType);
+		LogInformation("Running {0} on {1}...", Rhi, Platform.PlatformType);
 
 		var RhiParam = (Rhi != "default") ? "-" + Rhi : "";
 
@@ -193,7 +193,7 @@ class RecordPerformance : BuildCommand
 		}
 		catch
 		{
-			Log("Running game failed. Stats might be wrong / incomplete.");
+			LogInformation("Running game failed. Stats might be wrong / incomplete.");
 		}
 
 		if (UseStats)
@@ -215,7 +215,7 @@ class RecordPerformance : BuildCommand
 
 	private void BuildAndCookPlatform(UnrealTargetPlatform Platform)
 	{
-		Log("Building {0}...", Platform.ToString());
+		LogInformation("Building {0}...", Platform.ToString());
 
 		RunBCR(string.Format("-project={0} -platform={1} -build -cook -stage -pak -deploy", ProjectToRun, Platform));
 	}

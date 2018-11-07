@@ -9,9 +9,11 @@
 #include "CollisionQueryParams.h"
 #include "EngineDefines.h"
 #include "PhysxUserData.h"
+#include "Physics/PhysicsInterfaceCore.h"
+#include "Physics/PhysicsInterfaceTypes.h"
+#include "PhysicsPublic.h"
 #include "BodyInstance.generated.h"
 
-class FPhysScene;
 class UBodySetup;
 class UPhysicalMaterial;
 class UPrimitiveComponent;
@@ -22,55 +24,10 @@ struct FConstraintInstance;
 struct FPropertyChangedEvent;
 struct FShapeData;
 class UPrimitiveComponent;
-class FPhysScene;
 
-/** Delegate for applying custom physics forces upon the body. Can be passed to "AddCustomPhysics" so 
-  * custom forces and torques can be calculated individually for every physics substep.
-  * The function provides delta time for a physics step and pointer to body instance upon which forces must be added.
-  * 
-  * Do not expect this callback to be called from the main game thread! It may get called from a physics simulation thread. */
-DECLARE_DELEGATE_TwoParams(FCalculateCustomPhysics, float, FBodyInstance*);
-
-/** Delegate for applying custom physics projection upon the body. When this is set for the body instance,
-  * it will be called whenever component transformation is requested from the physics engine. If
-  * projection is required (for example, visual position of an object must be different to the one in physics engine,
-  * e.g. the box should not penetrate the wall visually) the transformation of body must be updated to account for it.
-  * Since this could be called many times by GetWorldTransform any expensive computations should be cached if possible.*/
-DECLARE_DELEGATE_TwoParams(FCalculateCustomProjection, const FBodyInstance*, FTransform&);
-
-/** Delegate for when the mass properties of a body instance have been re-calculated. This can be useful for systems that need to set specific physx settings on actors, or systems that rely on the mass information in some way*/
-DECLARE_MULTICAST_DELEGATE_OneParam(FRecalculatedMassProperties, FBodyInstance*);
-
-#if WITH_PHYSX
 struct FShapeData;
 
-namespace physx
-{
-	class PxRigidActor;
-	class PxAggregate;
-	class PxRigidBody;
-	class PxRigidDynamic;
-	class PxGeometry;
-	class PxShape;
-	class PxMaterial;
-	class PxTransform;
-	struct PxContactPair;
-	struct PxFilterData;
-}
-
-
-/**
- * Default number of inlined elements used in TInlinePxShapeArray.
- * Increase if for instance character meshes use more than this number of physics bodies and are involved in many queries.
- */
-enum { NumInlinedPxShapeElements = 32 };
-
-/** Array that is intended for use when fetching shapes from a rigid body. */
-typedef TArray<physx::PxShape*, TInlineAllocator<NumInlinedPxShapeElements>> FInlinePxShapeArray;
-
-ENGINE_API int32 FillInlinePxShapeArray_AssumesLocked(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor);
-
-#endif // WITH_PHYSX
+ENGINE_API int32 FillInlineShapeArray_AssumesLocked(PhysicsInterfaceTypes::FInlineShapeArray& Array, const FPhysicsActorHandle& Actor, EPhysicsSceneType InSceneType = PST_MAX);
 
 UENUM(BlueprintType)
 namespace EDOFMode
@@ -191,12 +148,6 @@ struct ENGINE_API FBodyInstance
 	/** When we are a body within a SkeletalMeshComponent, we cache the index of the bone we represent, to speed up sync'ing physics to anim. */
 	int16 InstanceBoneIndex;
 
-	/** Physics scene index for the synchronous scene. */
-	int16 SceneIndexSync;
-
-	/** Physics scene index for the asynchronous scene. */
-	int16 SceneIndexAsync;
-
 private:
 	/** Enum indicating what type of object this should be considered as when it moves */
 	UPROPERTY(EditAnywhere, Category=Custom)
@@ -218,7 +169,7 @@ private:
 	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled;
 
 public:
-	// Current state of the physx body for tracking deferred addition and removal.
+	// Current state of the physics body for tracking deferred addition and removal.
 	BodyInstanceSceneState CurrentSceneState;
 
 	/** The set of values used in considering when put this body to sleep. */
@@ -451,12 +402,6 @@ public:
 	/** The parent body that we are welded to*/
 	FBodyInstance* WeldParent;
 
-#if WITH_PHYSX
-	/** Figures out the new FCollisionNotifyInfo needed for pending notification. It adds it, and then returns an array that goes from pair index to notify collision index */
-	static TArray<int32> AddCollisionNotifyInfo(const FBodyInstance* Body0, const FBodyInstance* Body1, const physx::PxContactPair * Pairs, uint32 NumPairs, TArray<FCollisionNotifyInfo> & PendingNotifyInfos);
-
-#endif
-
 protected:
 
 	/**
@@ -499,18 +444,13 @@ public:
 
 public:
 
-#if WITH_PHYSX
-	/** Internal use. Physics-engine representation of this body in the synchronous scene. */
-	physx::PxRigidActor* RigidActorSync;
+	const FPhysicsActorHandle& GetPhysicsActorHandle() const;
+	const FPhysicsActorHandle& GetActorReferenceWithWelding() const;
 
-	/** Internal use. Physics-engine representation of this body in the asynchronous scene. */
-	physx::PxRigidActor* RigidActorAsync;
-
-	/** Internal use. Physics-engine representation of a PxAggregate for this body, in case it has alot of shapes. */
-	physx::PxAggregate* BodyAggregate;
+	// Internal physics representation of our body instance
+	FPhysicsActorHandle ActorHandle;
 
 	TSharedPtr<TArray<ANSICHAR>> CharDebugName;
-#endif	//WITH_PHYSX
 
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
@@ -530,31 +470,22 @@ public:
 	 **/
 	void LoadProfileData(bool bVerifyProfile);
 
-#if WITH_PHYSX
-	typedef physx::PxAggregate* PhysXAggregateType;
-#endif
-
 	/** Helper struct to specify spawn behavior */
 	struct FInitBodySpawnParams
 	{
 		ENGINE_API FInitBodySpawnParams(const UPrimitiveComponent* PrimComp);
 
-		/** Whether the created physx actor will be static */
+		/** Whether the created physics actor will be static */
 		bool bStaticPhysics;
 
 		/** Whether to use the BodySetup's PhysicsType to override if the instance simulates*/
 		bool bPhysicsTypeDeterminesSimulation;
 
-		/** Whether kinematic targets are used by scene queries */
-		bool bKinematicTargetsUpdateSQ;
-
 		/** Whether to override the physics scene used for simulation */
 		EDynamicActorScene DynamicActorScene;
 
-#if WITH_PHYSX
 		/** An aggregate to place the body into */
-		PhysXAggregateType Aggregate;
-#endif
+		FPhysicsAggregateHandle Aggregate;
 	};
 
 	void InitBody(UBodySetup* Setup, const FTransform& Transform, UPrimitiveComponent* PrimComp, FPhysScene* InRBScene)
@@ -587,82 +518,35 @@ public:
 	 *	@param PrimitiveComp
 	 *	@param InRBScene
 	 */
-	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene);
+	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, FPhysScene* InRBScene);
 
-	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
-	void ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
 
-	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda. */
-	void ExecuteOnPhysicsReadWrite(TFunctionRef<void()> Func) const;
-	
-#if WITH_PHYSX
+	/** Get the scene that owns this body. */
+	FPhysScene* GetPhysicsScene() const;
 
-	/** If scene type is not specified return the first scene used. */
-	int32 GetSceneIndex(int32 SceneType = -1) const;
-
-	/** Initialise dynamic properties for this instance when using PhysX - this must be done after scene addition.
-	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
+	/** Initialise dynamic properties for this instance when using physics - this must be done after scene addition.
+	 *  Note: This function is not thread safe. Make sure to obtain the appropriate physics scene locks before calling this function
 	 */
 	void InitDynamicProperties_AssumesLocked();
 
-	/** Populate the filter data within the provided FShapeData with the correct filters for this instance
-	 *	@param ShapeData ShapeData to populate. ShapeData.CollisionEnabled and ShapeData.FilterData will be filled in.
-	 *	@param bForceSimpleAsComplex Whether to force simple colision as complex
-	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
-	 */
-	void GetFilterData_AssumesLocked(FShapeData& ShapeData, bool bForceSimpleAsComplex = false);
+	/** Build the sim and query filter data (for simple and complex shapes) based on the settings of this BodyInstance (and its associated BodySetup)  */
+	void BuildBodyFilterData(FBodyCollisionFilterData& OutFilterData) const;
 
-	/** Set initialization flags on a provided shape
-	 *	@param UseCollisionEnabled Whether collision is enabled for the shape
-	 *	@param PShape The shape to set the flags on
-	 *	@param SceneType Which scene we are using
-	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
-	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
-	 */
-	void SetShapeFlags_AssumesLocked(TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, physx::PxShape* PShape, EPhysicsSceneType SceneType, const bool bUseComplexAsSimple = false);
-
-	/** Populate the flag fields of the provided FShapeData with correct initialization flags
-	 *	@param ShapeData ShapeData to populate. ShapeData.FilterData will not be modified.
-	 *	@param UseCollisionEnabled Whether collision is enabled for this instance
-	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
-	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
-	 */
-	void GetShapeFlags_AssumesLocked(FShapeData& ShapeData, TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, const bool bUseComplexAsSimple = false);
-
-	/**
-	 * Return the PxRigidActor from the given scene (see EPhysicsSceneType), if SceneType is in the range [0, PST_MAX).
-	 * If SceneType < 0, the PST_Sync actor is returned if it is not NULL, otherwise the PST_Async actor is returned.
-	 * Invalid scene types will cause NULL to be returned.
-	 * Note: Reading/writing from/to PxRigidActor is not thread safe. If you use the actor make sure to obtain the appropriate PhysX scene lock
-	 */
-	physx::PxRigidActor* GetPxRigidActor_AssumesLocked() const
-	{
-		return RigidActorSync ? RigidActorSync : RigidActorAsync;
-	}
-
-	physx::PxRigidActor* GetPxRigidActorFromScene_AssumesLocked(int32 SceneType) const;
-
-	/** Return the PxRigidDynamic if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidDynamic can exist in only one of the two scenes.
-	 *  Note: This function assumes the appropriate scene lock has been obtained.
-	 *  @see ExecuteOnPxRigidDynamicReadOnly, ExecuteOnPxRigidDynamicReadWrite
-	 */
-	physx::PxRigidDynamic* GetPxRigidDynamic_AssumesLocked() const;
-
-	/** Return the PxRigidBody if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidBody can exist in only one of the two scenes.
-	 *  Note: This function assumes the appropriate scene lock has been obtained.
-	 *  @see ExecuteOnPxRigidBodyReadOnly, ExecuteOnPxRigidBodyReadWrite
-	 */
-	physx::PxRigidBody* GetPxRigidBody_AssumesLocked() const;
+	/** Build the flags to control which types of collision (sim and query) shapes owned by this BodyInstance should have. */
+	static void BuildBodyCollisionFlags(FBodyCollisionFlags& OutFlags, ECollisionEnabled::Type UseCollisionEnabled, bool bUseComplexAsSimple);
 
 	/** 
 	 *	Utility to get all the shapes from a FBodyInstance 
 	 *	Shapes belonging to sync actor are first, then async. Number of shapes belonging to sync actor is returned.
-	 *	NOTE: This function is not thread safe. You must hold the PhysX scene lock while calling it and reading/writing from the shapes
+	 *	NOTE: This function is not thread safe. You must hold the physics scene lock while calling it and reading/writing from the shapes
 	 */
-	int32 GetAllShapes_AssumesLocked(TArray<physx::PxShape*>& OutShapes) const;
-#endif	//WITH_PHYSX
+	int32 GetAllShapes_AssumesLocked(TArray<FPhysicsShapeHandle>& OutShapes) const;
 
-	void TermBody();
+	/**
+	 * Terminates the body, releasing resources
+	 * @param bNeverDeferRelease In some cases orphaned actors can have their internal release deferred. If this isn't desired this flag will override that behavior
+	 */
+	void TermBody(bool bNeverDeferRelease = false);
 
 	/** 
 	 * Takes two body instances and welds them together to create a single simulated rigid body. Returns true if success.
@@ -699,6 +583,10 @@ public:
 
 	/** Returns the mass coordinate system to world space transform (position is world center of mass, rotation is world inertia orientation) */
 	FTransform GetMassSpaceToWorldSpace() const;
+	FTransform GetMassSpaceLocal() const;
+
+	/** TODO: this only works at runtime when the physics state has been created. Any changes that result in recomputing mass properties will not properly remember this */
+	void SetMassSpaceLocal(const FTransform& NewMassSpaceLocalTM);
 
 	/** Draws the center of mass as a wire star */
 	void DrawCOMPosition(class FPrimitiveDrawInterface* PDI, float COMRenderSize, const FColor& COMRenderColor);
@@ -770,9 +658,13 @@ public:
 	void AddForce(const FVector& Force, bool bAllowSubstepping = true, bool bAccelChange = false);
 	/** Add a force at a particular position (world space when bIsLocalForce = false, body space otherwise) */
 	void AddForceAtPosition(const FVector& Force, const FVector& Position, bool bAllowSubstepping = true, bool bIsLocalForce = false);
+	/** Clear accumulated forces on this body */
+	void ClearForces(bool bAllowSubstepping = true);
 
 	/** Add a torque to this body */
 	void AddTorqueInRadians(const FVector& Torque, bool bAllowSubstepping = true, bool bAccelChange = false);
+	/** Clear accumulated torques on this body */
+	void ClearTorques(bool bAllowSubstepping = true);
 
 	/** Add a rotational impulse to this body */
 	void AddAngularImpulseInRadians(const FVector& Impulse, bool bVelChange);
@@ -782,10 +674,10 @@ public:
 	/** Add an impulse to this body and a particular world position */
 	void AddImpulseAtPosition(const FVector& Impulse, const FVector& Position);
 	/** Set the linear velocity of this body */
-	void SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent);
+	void SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent, bool bAutoWake = true);
 
 	/** Set the angular velocity of this body */
-	void SetAngularVelocityInRadians(const FVector& NewAngVel, bool bAddToCurrent);
+	void SetAngularVelocityInRadians(const FVector& NewAngVel, bool bAddToCurrent, bool bAutoWake = true);
 
 	/** Set the maximum angular velocity of this body */
 	void SetMaxAngularVelocityInRadians(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true);
@@ -824,7 +716,7 @@ public:
 	 *	Move the physics body to a new pose.
 	 *	@param	bTeleport	If true, no velocity is inferred on the kinematic body from this movement, but it moves right away.
 	 */
-	void SetBodyTransform(const FTransform& NewTransform, ETeleportType Teleport);
+	void SetBodyTransform(const FTransform& NewTransform, ETeleportType Teleport, bool bAutoWake = true);
 
 	/** Get current velocity in world space from physics body. */
 	FVector GetUnrealWorldVelocity() const;
@@ -877,8 +769,16 @@ public:
 	/** Controls what kind of collision is enabled for this body and allows optional disable physics rebuild */
 	void SetCollisionEnabled(ECollisionEnabled::Type NewType, bool bUpdatePhysicsFilterData = true);
 
+private:
+
+	ECollisionEnabled::Type GetCollisionEnabled_CheckOwner() const;
+
+public:
 	/** Get the current type of collision enabled */
-	ECollisionEnabled::Type GetCollisionEnabled() const;
+	FORCEINLINE ECollisionEnabled::Type GetCollisionEnabled(bool bCheckOwner = true) const
+	{
+		return (bCheckOwner ? GetCollisionEnabled_CheckOwner() : CollisionEnabled.GetValue());
+	}
 
 	/**  
 	 * Set Collision Profile Name (deferred)
@@ -921,21 +821,19 @@ public:
 	/** Update the instance's material properties (friction, restitution) */
 	void UpdatePhysicalMaterials();
 
-#if WITH_PHYSX
 	/** 
 	 *  Apply a material directly to the passed in shape. Note this function is very advanced and requires knowledge of shape sharing as well as threading. Note: assumes the appropriate locks have been obtained
 	 *  @param  PShape					The shape we are applying the material to
-	 *  @param  PSimpleMat				The material to use if a simple shape is provided (or complex materials are empty)
+	 *  @param  SimplePhysMat			The material to use if a simple shape is provided (or complex materials are empty)
 	 *  @param  ComplexPhysMats			The array of materials to apply if a complex shape is provided
 	 *	@param	bSharedShape			If this is true it means you've already detached the shape from all actors that use it (attached shared shapes are not writable).
 	 */
-	static void ApplyMaterialToShape_AssumesLocked(physx::PxShape* PShape, physx::PxMaterial* PSimpleMat, const TArray<UPhysicalMaterial*>& ComplexPhysMats, const bool bSharedShape);
+	static void ApplyMaterialToShape_AssumesLocked(const FPhysicsShapeHandle& InShape, UPhysicalMaterial* SimplePhysMat, const TArrayView<UPhysicalMaterial*>& ComplexPhysMats, const bool bSharedShape);
 
-	/** Note: This function is not thread safe. Make sure you obtain the appropriate PhysX scene lock before calling it*/
-	void ApplyMaterialToInstanceShapes_AssumesLocked(physx::PxMaterial* PSimpleMat, TArray<UPhysicalMaterial*>& ComplexPhysMats);
-#endif
+	/** Note: This function is not thread safe. Make sure you obtain the appropriate physics scene lock before calling it*/
+	void ApplyMaterialToInstanceShapes_AssumesLocked(UPhysicalMaterial* SimplePhysMat, TArray<UPhysicalMaterial*>& ComplexPhysMats);
 
-	/** Update the instances collision filtering data */
+	/** Update the instances collision filtering data */ 
 	void UpdatePhysicsFilterData();
 
 	friend FArchive& operator<<(FArchive& Ar,FBodyInstance& BodyInst);
@@ -965,20 +863,6 @@ public:
 	 *  @return true if a hit is found
 	 */
 	bool Sweep(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& ShapeWorldRotation, const FCollisionShape& Shape, bool bTraceComplex) const;
-
-#if WITH_PHYSX
-	/**
-	 *  Test if the bodyinstance overlaps with the geometry in the Pos/Rot
-	 *
-	 *	@param	PGeom			Geometry it would like to test
-	 *  @param  ShapePose       Transform information in world. Use U2PTransform to convert from FTransform
-	 *  @param  OutMTD			The minimum translation direction needed to push the shape out of this BodyInstance. (Optional)
-	 *  @return true if PrimComp overlaps this component at the specified location/rotation
-	 *
-	 *	Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
-	 */
-	bool OverlapPhysX_AssumesLocked(const physx::PxGeometry& Geom, const physx::PxTransform&  ShapePose, FMTDResult* OutMTD = nullptr) const;
-#endif	//WITH_PHYSX
 
 	/**
 	 *  Test if the bodyinstance overlaps with the specified shape at the specified position/rotation
@@ -1066,7 +950,7 @@ public:
 	float GetDistanceToBody(const FVector& Point, FVector& OutPointOnBody) const;
 
 	/** 
-	 * Returns memory used by resources allocated for this body instance ( ex. Physx resources )
+	 * Returns memory used by resources allocated for this body instance ( ex. physics resources )
 	 **/
 	void GetBodyInstanceResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
 
@@ -1080,36 +964,34 @@ public:
 	/** Applies a deferred collision profile */
 	void ApplyDeferredCollisionProfileName();
 
-#if WITH_PHYSX
-public:
-	FPhysxUserData PhysxUserData;
-
 	/** Returns the original owning body instance. This is needed for welding */
-	const FBodyInstance* GetOriginalBodyInstance(const physx::PxShape* PShape) const;
+	const FBodyInstance* GetOriginalBodyInstance(const FPhysicsShapeHandle& InShape) const;
 
 	/** Returns the relative transform between root body and welded instance owned by the shape.*/
-	const FTransform& GetRelativeBodyTransform(const physx::PxShape* PShape) const;
+	const FTransform& GetRelativeBodyTransform(const FPhysicsShapeHandle& InShape) const;
 
 	/** Check if the shape is owned by this body instance */
-	bool IsShapeBoundToBody(const physx::PxShape* PShape) const;
+	bool IsShapeBoundToBody(const FPhysicsShapeHandle& Shape) const;
+
+public:
+	// #PHYS2 Rename, not just for physx now.
+	FPhysxUserData PhysxUserData;
+
+	struct FWeldInfo
+	{
+		FWeldInfo(FBodyInstance* InChildBI, const FTransform& InRelativeTM)
+			: ChildBI(InChildBI)
+			, RelativeTM(InRelativeTM)
+		{}
+
+		FBodyInstance* ChildBI;
+		FTransform RelativeTM;
+	};
+
+	const TMap<FPhysicsShapeHandle, FWeldInfo>* GetCurrentWeldInfo() const;
+
 private:
-	/**
-	 *  Trace a shape against just this bodyinstance
-	 *  @param  OutHit          Information about hit against this component, if true is returned
-	 *  @param  Start           Start location of the box
-	 *  @param  End             End location of the box
-	 *  @param  ShapeAdaptor    Adaptor containing geometry information about the shape to be swept.
-	 *  @param	bTraceComplex	Should we trace against complex or simple collision of this body
-	 *  @return true if a hit is found
-	 */
-	bool InternalSweepPhysX(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const struct FPhysXShapeAdaptor& ShapeAdaptor, bool bTraceComplex, const physx::PxRigidActor* RigidBody) const;
 
-	/** 
-	 * Helper function to update per shape filtering info. This should interface is not very friendly and should only be used from inside FBodyInstance
-	 */
-	void UpdatePhysicsShapeFilterData(uint32 ComponentID, bool bPhysicsStatic, const TEnumAsByte<ECollisionEnabled::Type> * CollisionEnabledOverride, FCollisionResponseContainer * ResponseOverride, bool * bNotifyOverride);
-
-#endif 
 	/**
 	 * Invalidate Collision Profile Name
 	 * This gets called when it invalidates the reason of Profile Name
@@ -1143,24 +1025,9 @@ private:
 
 	void UpdateDebugRendering();
 
-	struct FWeldInfo
-	{
-		FWeldInfo(FBodyInstance* InChildBI, const FTransform& InRelativeTM)
-		: ChildBI(InChildBI)
-		, RelativeTM(InRelativeTM)
-		{}
-
-		FBodyInstance* ChildBI;
-		FTransform RelativeTM;
-	};
-
-#if WITH_PHYSX
 	/** Used to map between shapes and welded bodies. We do not create entries if the owning body instance is root*/
-	TSharedPtr<TMap<physx::PxShape*, FWeldInfo>> ShapeToBodiesMap;
+	TSharedPtr<TMap<FPhysicsShapeHandle, FWeldInfo>> ShapeToBodiesMap;
 
-#endif
-
-	void SetShapeFlagsInternal_AssumesShapeLocked(struct FSetShapeParams& Params, bool& bUpdateMassProperties);
 };
 
 template<>

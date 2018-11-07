@@ -127,7 +127,7 @@ public:
 	TSharedPtr<FAnimationRecorder> Recorder;
 
 	/** Used to store/restore update flag when recording */
-	EMeshComponentUpdateFlag::Type CachedMeshComponentUpdateFlag;
+	EVisibilityBasedAnimTickOption CachedVisibilityBasedAnimTickOption;
 
 	/** Used to store/restore URO when recording */
 	bool bCachedEnableUpdateRateOptimizations;

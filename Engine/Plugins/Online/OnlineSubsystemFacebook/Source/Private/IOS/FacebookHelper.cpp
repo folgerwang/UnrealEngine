@@ -2,6 +2,7 @@
 
 #include "FacebookHelper.h"
 #include "OnlineSubsystemFacebookPrivate.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 
 @implementation FFacebookHelper
 
@@ -45,7 +46,7 @@
 {
 	const FString UserId([FBSDKAccessToken currentAccessToken].userID);
 	const FString Token([FBSDKAccessToken currentAccessToken].tokenString);
-	UE_LOG(LogOnline, Warning, TEXT("Facebook Token Change UserId: %s Token: %s"), *UserId, *Token);
+	UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Facebook Token Change UserId: %s Token: %s"), *UserId, *Token);
 
 #if !UE_BUILD_SHIPPING
 	for(NSString *key in [[note userInfo] allKeys])
@@ -72,7 +73,7 @@
 {
 	const FString UserId([FBSDKAccessToken currentAccessToken].userID);
 	const FString Token([FBSDKAccessToken currentAccessToken].tokenString);
-	UE_LOG(LogOnline, Warning, TEXT("Facebook UserId Change UserId: %s Token: %s"), *UserId, *Token);
+	UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Facebook UserId Change UserId: %s Token: %s"), *UserId, *Token);
 
 #if !UE_BUILD_SHIPPING
 	for(NSString *key in [[note userInfo] allKeys])
@@ -94,7 +95,7 @@
 {
 	const FString UserId([FBSDKAccessToken currentAccessToken].userID);
 	const FString Token([FBSDKAccessToken currentAccessToken].tokenString);
-	UE_LOG(LogOnline, Warning, TEXT("Facebook Profile Change UserId: %s Token: %s"), *UserId, *Token);
+	UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Facebook Profile Change UserId: %s Token: %s"), *UserId, *Token);
 
 #if !UE_BUILD_SHIPPING
 	for(NSString *key in [[note userInfo] allKeys])

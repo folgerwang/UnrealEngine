@@ -126,6 +126,11 @@ IOnlineTurnBasedPtr FOnlineSubsystemTwitch::GetTurnBasedInterface() const
 	return nullptr;
 }
 
+IOnlineTournamentPtr FOnlineSubsystemTwitch::GetTournamentInterface() const
+{
+	return nullptr;
+}
+
 bool FOnlineSubsystemTwitch::Init()
 {
 	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemTwitch::Init() Name: %s"), *InstanceName.ToString());
@@ -171,7 +176,7 @@ FString FOnlineSubsystemTwitch::GetAppId() const
 		if (!bWarned)
 		{
 			bWarned = true;
-			UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemTwitch] of DefaultEngine.ini"));
+			UE_LOG_ONLINE(Warning, TEXT("Missing ClientId= in [OnlineSubsystemTwitch] of DefaultEngine.ini"));
 		}
 	}
 	return ClientId;

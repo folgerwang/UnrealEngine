@@ -108,14 +108,12 @@ int LightmassMain(int argc, ANSICHAR* argv[])
 
 	// Override 'NumThreads' with the environment variable, if it's set.
 	{
-		TCHAR* SwarmMaxCoresVariable = new TCHAR[32768];
-		FPlatformMisc::GetEnvironmentVariable( TEXT("Swarm_MaxCores"), SwarmMaxCoresVariable, 32768 );
-		int32 SwarmMaxCores = FCString::Atoi( SwarmMaxCoresVariable );
+		FString SwarmMaxCoresVariable = FPlatformMisc::GetEnvironmentVariable( TEXT("Swarm_MaxCores") );
+		int32 SwarmMaxCores = FCString::Atoi( *SwarmMaxCoresVariable );
 		if ( SwarmMaxCores >= 1 && SwarmMaxCores < 128 )
 		{
 			NumThreads = SwarmMaxCores;
 		}
-		delete [] SwarmMaxCoresVariable;
 	}
 
 	for (int32 ArgIndex = 1; ArgIndex < argc; ArgIndex++)
@@ -202,10 +200,10 @@ int LightmassMain(int argc, ANSICHAR* argv[])
 			SceneGuid.C = _tcstoul(*Arg.Mid(16, 8), NULL, 16);
 			SceneGuid.D = _tcstoul(*Arg.Mid(24, 8), NULL, 16);
 #else
-			SceneGuid.A = wcstoul(*Arg.Mid(0, 8), NULL, 16);
-			SceneGuid.B = wcstoul(*Arg.Mid(8, 8), NULL, 16);
-			SceneGuid.C = wcstoul(*Arg.Mid(16, 8), NULL, 16);
-			SceneGuid.D = wcstoul(*Arg.Mid(24, 8), NULL, 16);
+			SceneGuid.A = FCString::Strtoui64(*Arg.Mid(0, 8), NULL, 16);
+			SceneGuid.B = FCString::Strtoui64(*Arg.Mid(8, 8), NULL, 16);
+			SceneGuid.C = FCString::Strtoui64(*Arg.Mid(16, 8), NULL, 16);
+			SceneGuid.D = FCString::Strtoui64(*Arg.Mid(24, 8), NULL, 16);
 #endif
 		}
 	}

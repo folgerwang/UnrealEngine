@@ -264,6 +264,8 @@ protected:
 		return true;
 	}
 
+	virtual FAndroidTargetDevicePtr CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const;
+
 	// query for rene3ring mode support
 	bool SupportsES2() const;
 	bool SupportsES31() const;
@@ -478,7 +480,7 @@ public:
 		// if we didn't assign anything specially, then use the defaults
 		if (TextureFormatName == NAME_None)
 		{
-			TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false);
+			TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false, false, 1);
 		}
 
 		// perform any remapping away from defaults

@@ -18,11 +18,14 @@
 #include "Components/LineBatchComponent.h"
 #include "PhysicsPublic.h"
 #include "Rendering/SkeletalMeshRenderData.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #if WITH_PHYSX
 	#include "PhysXPublic.h"
 #endif // WITH_PHYSX
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 
 /** Used for drawing pre-phys skeleton if bShowPrePhysBones is true */
@@ -104,6 +107,8 @@ public:
 	{
 		SCOPED_NAMED_EVENT(FParallelBlendPhysicsCompletionTask_DoTask, FColor::Yellow);
 		SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
+
 		if (USkeletalMeshComponent* Comp = SkeletalMeshComponent.Get())
 		{
 			Comp->CompleteParallelBlendPhysics();
@@ -186,17 +191,8 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 		FTransform TM;
 	};
 
-#define DEPRECATED_PHYSBLEND_UPDATES_PHYSX 0	//If you really need the old behavior of physics blending set this to 1. Note this is inefficient and doesn't lead to good results. Please use UPhysicalAnimationComponent
-#if DEPRECATED_PHYSBLEND_UPDATES_PHYSX
-	TArray<FBodyTMPair, TMemStackAllocator<alignof(FBodyTMPair)>> PendingBodyTMs;
-#endif
-
-#if WITH_PHYSX
+	FPhysicsCommand::ExecuteRead(this, [&]()
 	{
-		const uint32 SceneType = GetPhysicsSceneType(*PhysicsAsset, *PhysScene, UseAsyncScene);
-		SCOPED_SCENE_READ_LOCK(PhysScene->GetPhysXScene(SceneType));
-#endif
-
 		bool bSetParentScale = false;
 		const bool bSimulatedRootBody = Bodies.IsValidIndex(RootBodyData.BodyIndex) && Bodies[RootBodyData.BodyIndex]->IsInstanceSimulatingPhysics();
 		const FTransform NewComponentToWorld = bSimulatedRootBody ? GetComponentTransformFromBodyInstance(Bodies[RootBodyData.BodyIndex]) : FTransform::Identity;
@@ -209,9 +205,6 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 			// See if this is a physics bone..
 			int32 BodyIndex = PhysicsAsset->FindBodyIndex(SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex));
 			// need to update back to physX so that physX knows where it was after blending
-#if DEPRECATED_PHYSBLEND_UPDATES_PHYSX
-			bool bUpdatePhysics = false;
-#endif
 			FBodyInstance* PhysicsAssetBodyInstance = nullptr;
 
 			// If so - get its world space matrix and its parents world space matrix and calc relative atom.
@@ -278,12 +271,6 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 							bSetParentScale = true;
 						}
 
-						#if DEPRECATED_PHYSBLEND_UPDATES_PHYSX
-						if (UsePhysWeight < 1.f)
-						{
-							bUpdatePhysics = true;
-						}
-						#endif
 					}
 				}
 			}
@@ -314,35 +301,9 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 					EditableComponentSpaceTransforms[BoneIndex] = Bodies[BodyIndex]->GetUnrealWorldTransform_AssumesLocked().GetRelativeTransform(NewComponentToWorld);
 				}
 			}
-#if DEPRECATED_PHYSBLEND_UPDATES_PHYSX
-			if (bUpdatePhysics && PhysicsAssetBodyInstance)
-			{
-				//This is extremely inefficient. We need to obtain a write lock which will block other threads from blending
-				//For now I'm juts deferring it to the end of this loop, but in general we need to move it all out of here and do it when the blend task is done
-				FBodyTMPair* BodyTMPair = new (PendingBodyTMs) FBodyTMPair;
-				BodyTMPair->BI = PhysicsAssetBodyInstance;
-				BodyTMPair->TM = EditableComponentSpaceTransforms[BoneIndex] * GetComponentTransform();
-			}
-#endif
 		}
+	});	//end scope for read lock
 
-#if WITH_PHYSX
-	}	//end scope for read lock
-#if DEPRECATED_PHYSBLEND_UPDATES_PHYSX
-	if(PendingBodyTMs.Num() && CVarPhysicsAnimBlendUpdatesPhysX.GetValueOnAnyThread())
-	{
-		//This is extremely inefficient. We need to obtain a write lock which will block other threads from blending
-		//For now I'm juts deferring it to the end of this loop, but in general we need to move it all out of here and do it when the blend task is done
-		SCOPED_SCENE_WRITE_LOCK(PhysScene->GetPhysXScene(SceneType));
-
-		for (const FBodyTMPair& BodyTMPair : PendingBodyTMs)
-		{
-			BodyTMPair.BI->SetBodyTransform(BodyTMPair.TM, ETeleportType::TeleportPhysics);
-		}
-    }
-#endif
-#endif
-	
 }
 
 
@@ -431,6 +392,7 @@ void USkeletalMeshComponent::FinalizeAnimationUpdate()
 	// Flip bone buffer and send 'post anim' notification
 	FinalizeBoneTransform();
 
+	if(!bSimulationUpdatesChildTransforms || !IsSimulatingPhysics() )	//If we simulate physics the call to MoveComponent already updates the children transforms. If we are confident that animation will not be needed this can be skipped. TODO: this should be handled at the scene component layer
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateChildTransforms);
 
@@ -439,6 +401,7 @@ void USkeletalMeshComponent::FinalizeAnimationUpdate()
 		UpdateChildTransforms(EUpdateTransformFlags::OnlyUpdateIfUsingSocket);
 	}
 
+	if(bUpdateOverlapsOnAnimationFinalize)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateOverlaps);
 
@@ -476,7 +439,7 @@ void USkeletalMeshComponent::CompleteParallelBlendPhysics()
 	ParallelBlendPhysicsCompletionTask.SafeRelease();
 }
 
-void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed)
+void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateRBBones);
 
@@ -525,13 +488,6 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 	}
 #endif
 
-	// If we are only using bodies for physics, don't need to move them right away, can defer until simulation (unless told not to)
-	if(DeferralAllowed == EAllowKinematicDeferral::AllowDeferral && (bDeferMovementFromSceneQueries || BodyInstance.GetCollisionEnabled() == ECollisionEnabled::PhysicsOnly))
-	{
-		PhysScene->MarkForPreSimKinematicUpdate(this, Teleport, bNeedsSkinning);
-		return;
-	}
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// If desired, draw the skeleton at the point where we pass it to the physics.
 	if (bShowPrePhysBones && SkeletalMesh && InSpaceBases.Num() == SkeletalMesh->RefSkeleton.GetNum())
@@ -574,86 +530,85 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 			const int32 NumBodies = Bodies.Num();
 #if WITH_PHYSX
 
-			const uint32 SceneType = GetPhysicsSceneType(*PhysicsAsset, *PhysScene, UseAsyncScene);
 			// Lock the scenes we need (flags set in InitArticulated)
-			SCOPED_SCENE_WRITE_LOCK(PhysScene->GetPhysXScene(SceneType));
-
-			// Iterate over each body
-			for (int32 i = 0; i < NumBodies; i++)
+			FPhysicsCommand::ExecuteWrite(this, [&]()
 			{
-				FBodyInstance* BodyInst = Bodies[i];
-				PxRigidActor* RigidActor = BodyInst->GetPxRigidActor_AssumesLocked();
-
-				if (RigidActor && (bTeleport || !BodyInst->IsInstanceSimulatingPhysics()))	//If we have a body and it's kinematic, or we are teleporting a simulated body
+				// Iterate over each body
+				for(int32 i = 0; i < NumBodies; i++)
 				{
-					const int32 BoneIndex = BodyInst->InstanceBoneIndex;
+					FBodyInstance* BodyInst = Bodies[i];
+					FPhysicsActorHandle& ActorHandle = BodyInst->ActorHandle;
+					const bool bIsRigidBody = FPhysicsInterface::IsRigidBody(ActorHandle);
 
-					// If we could not find it - warn.
-					if (BoneIndex == INDEX_NONE || BoneIndex >= NumComponentSpaceTransforms)
+					if(ActorHandle.IsValid() && bIsRigidBody && (bTeleport || !BodyInst->IsInstanceSimulatingPhysics()))	//If we have a body and it's kinematic, or we are teleporting a simulated body
 					{
-						const FName BodyName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
-						UE_LOG(LogPhysics, Log, TEXT("UpdateRBBones: WARNING: Failed to find bone '%s' need by PhysicsAsset '%s' in SkeletalMesh '%s'."), *BodyName.ToString(), *PhysicsAsset->GetName(), *SkeletalMesh->GetName());
+						const int32 BoneIndex = BodyInst->InstanceBoneIndex;
+
+						// If we could not find it - warn.
+						if(BoneIndex == INDEX_NONE || BoneIndex >= NumComponentSpaceTransforms)
+						{
+							const FName BodyName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
+							UE_LOG(LogPhysics, Log, TEXT("UpdateRBBones: WARNING: Failed to find bone '%s' need by PhysicsAsset '%s' in SkeletalMesh '%s'."), *BodyName.ToString(), *PhysicsAsset->GetName(), *SkeletalMesh->GetName());
+						}
+						else
+						{
+							// update bone transform to world
+							const FTransform BoneTransform = InSpaceBases[BoneIndex] * CurrentLocalToWorld;
+							if(!BoneTransform.IsValid())
+							{
+								const FName BodyName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
+								UE_LOG(LogPhysics, Warning, TEXT("UpdateKinematicBonesToAnim: Trying to set transform with bad data %s on PhysicsAsset '%s' in SkeletalMesh '%s' for bone '%s'"), *BoneTransform.ToHumanReadableString(), *PhysicsAsset->GetName(), *SkeletalMesh->GetName(), *BodyName.ToString());
+								BoneTransform.DiagnosticCheck_IsValid();	//In special nan mode we want to actually ensure
+
+								continue;
+							}
+
+							// If not teleporting (must be kinematic) set kinematic target
+							if(!bTeleport)
+							{
+								PhysScene->SetKinematicTarget_AssumesLocked(BodyInst, BoneTransform, true);
+							}
+							// Otherwise, set global pose
+							else
+							{
+								FPhysicsInterface::SetGlobalPose_AssumesLocked(ActorHandle, BoneTransform);
+							}
+
+							if(!PhysicsAsset->SkeletalBodySetups[i]->bSkipScaleFromAnimation)
+							{
+								// now update scale
+								// if uniform, we'll use BoneTranform
+								if(MeshScale3D.IsUniform())
+								{
+									// @todo UE4 should we update scale when it's simulated?
+									BodyInst->UpdateBodyScale(BoneTransform.GetScale3D());
+								}
+								else
+								{
+									// @note When you have non-uniform scale on mesh base,
+									// hierarchical bone transform can update scale too often causing performance issue
+									// So we just use mesh scale for all bodies when non-uniform
+									// This means physics representation won't be accurate, but
+									// it is performance friendly by preventing too frequent physics update
+									BodyInst->UpdateBodyScale(MeshScale3D);
+								}
+							}
+						}
 					}
 					else
 					{
-						// update bone transform to world
-						const FTransform BoneTransform = InSpaceBases[BoneIndex] * CurrentLocalToWorld;
-						if(!BoneTransform.IsValid())
+						//make sure you have physics weight or blendphysics on, otherwise, you'll have inconsistent representation of bodies
+						// @todo make this to be kismet log? But can be too intrusive
+						if(!bBlendPhysics && BodyInst->PhysicsBlendWeight <= 0.f && BodyInst->BodySetup.IsValid())
 						{
-							const FName BodyName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
-							UE_LOG(LogPhysics, Warning, TEXT("UpdateKinematicBonesToAnim: Trying to set transform with bad data %s on PhysicsAsset '%s' in SkeletalMesh '%s' for bone '%s'"), *BoneTransform.ToHumanReadableString(), *PhysicsAsset->GetName(), *SkeletalMesh->GetName(), *BodyName.ToString());
-							BoneTransform.DiagnosticCheck_IsValid();	//In special nan mode we want to actually ensure
-
-							continue;
-						}
-
-						// If not teleporting (must be kinematic) set kinematic target
-						if (!bTeleport)
-						{
-							PhysScene->SetKinematicTarget_AssumesLocked(BodyInst, BoneTransform, true);
-						}
-						// Otherwise, set global pose
-						else
-						{
-							const PxTransform PNewPose = U2PTransform(BoneTransform);
-							ensure(PNewPose.isValid());
-							RigidActor->setGlobalPose(PNewPose);
-						}
-
-						if (!PhysicsAsset->SkeletalBodySetups[i]->bSkipScaleFromAnimation)
-						{
-						// now update scale
-						// if uniform, we'll use BoneTranform
-						if (MeshScale3D.IsUniform())
-						{
-							// @todo UE4 should we update scale when it's simulated?
-							BodyInst->UpdateBodyScale(BoneTransform.GetScale3D());
-						}
-						else
-						{
-							// @note When you have non-uniform scale on mesh base,
-							// hierarchical bone transform can update scale too often causing performance issue
-							// So we just use mesh scale for all bodies when non-uniform
-							// This means physics representation won't be accurate, but
-							// it is performance friendly by preventing too frequent physics update
-							BodyInst->UpdateBodyScale(MeshScale3D);
+							//It's not clear whether this should be a warning. There are certainly cases where you interpolate the blend weight towards 0. The blend feature needs some work which will probably change this in the future.
+							//Making it Verbose for now
+							UE_LOG(LogPhysics, Verbose, TEXT("%s(Mesh %s, PhysicsAsset %s, Bone %s) is simulating, but no blending. "),
+								*GetName(), *GetNameSafe(SkeletalMesh), *GetNameSafe(PhysicsAsset), *BodyInst->BodySetup.Get()->BoneName.ToString());
 						}
 					}
 				}
-				}
-				else
-				{
-					//make sure you have physics weight or blendphysics on, otherwise, you'll have inconsistent representation of bodies
-					// @todo make this to be kismet log? But can be too intrusive
-					if (!bBlendPhysics && BodyInst->PhysicsBlendWeight <= 0.f && BodyInst->BodySetup.IsValid())
-					{
-						//It's not clear whether this should be a warning. There are certainly cases where you interpolate the blend weight towards 0. The blend feature needs some work which will probably change this in the future.
-						//Making it Verbose for now
-						UE_LOG(LogPhysics, Verbose, TEXT("%s(Mesh %s, PhysicsAsset %s, Bone %s) is simulating, but no blending. "),
-							*GetName(), *GetNameSafe(SkeletalMesh), *GetNameSafe(PhysicsAsset), *BodyInst->BodySetup.Get()->BoneName.ToString());
-					}
-				}
-			}
+			});
 
 #endif // WITH_PHYSX
 

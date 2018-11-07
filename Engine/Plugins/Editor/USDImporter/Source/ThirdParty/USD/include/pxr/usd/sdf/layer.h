@@ -194,10 +194,13 @@ public:
     /// to be read in, which can be much faster if that is all that is
     /// required.  Note that this is just a hint: some FileFormat readers
     /// may disregard this flag and still fully populate the layer contents.
+    ///
+    /// An optional \p tag may be specified.  See CreateAnonymous for details.
     SDF_API
     static SdfLayerRefPtr OpenAsAnonymous(
         const std::string &layerPath,
-        bool metadataOnly = false);
+        bool metadataOnly = false,
+        const std::string& tag = std::string());
 
     /// Returns the scene description schema for this layer.
     SDF_API
@@ -226,11 +229,17 @@ public:
     /// repository, overlay, real path, or other asset information fields.
     /// Anonymous layers may be tagged, which can be done to aid debugging
     /// subsystems that make use of anonymous layers.  The tag becomes the
-    /// display name of an anonymous layer. Untagged anonymous layers have an
-    /// empty display name.
+    /// display name of an anonymous layer, and is also included in the
+    /// generated identifier. Untagged anonymous layers have an empty display
+    /// name.
     SDF_API
     static SdfLayerRefPtr CreateAnonymous(
         const std::string& tag = std::string());
+
+    /// Create an anonymous layer with a specific \p format.
+    SDF_API
+    static SdfLayerRefPtr CreateAnonymous(
+        const std::string &tag, const SdfFileFormatConstPtr &format);
 
     /// Returns true if this layer is an anonymous layer.
     SDF_API
@@ -257,9 +266,10 @@ public:
 
     /// Returns \c true if successful, \c false if an error occurred.
     /// Returns \c false if the layer has no remembered file name or the 
-    /// layer type cannot be saved.
+    /// layer type cannot be saved. The layer will not be overwritten if the 
+    /// file exists and the layer is not dirty unless \p force is true.
     SDF_API
-    bool Save() const;
+    bool Save(bool force = false) const;
 
     /// Exports this layer to a file.
     /// Returns \c true if successful, \c false if an error occurred.
@@ -354,7 +364,7 @@ public:
     /// old asset path as reference.
     /// 
     /// If new asset path is supplied, the update works as "rename", updating
-    /// any occurence of the old reference to the new reference.
+    /// any occurrence of the old reference to the new reference.
     SDF_API
     bool UpdateExternalReference(
         const std::string &oldAssetPath,
@@ -370,7 +380,7 @@ public:
     /// 
     /// For example: 
     ///     FindOrOpen('foo.sdf', args={'a':'b', 'c':'d'}).identifier
-    ///         => "foo.sdf?a=b&c=d"
+    ///         => "foo.sdf?sdf_args:a=b&c=d"
     ///
     /// Note that this means the identifier may in general not be a path.
     ///
@@ -521,6 +531,13 @@ public:
         return hasValue && (!outValue.isValueBlock);
     }
 
+    /// Return the type of the value for \p name on spec \p id.  If no such
+    /// field exists, return typeid(void).
+    std::type_info const &GetFieldTypeid(
+        const SdfAbstractDataSpecId &id, const TfToken &name) const {
+        return _data->GetTypeid(id, name);
+    }
+
     /// Return whether a value exists for the given \a id and \a fieldName and
     /// \a keyPath.  The \p keyPath is a ':'-separated path addressing an
     /// element in sub-dictionaries.  Optionally returns the value if it exists.
@@ -658,6 +675,13 @@ public:
                   const TfToken& fieldName, T* value) const;
     SDF_API
     bool HasField(const SdfPath& path, const TfToken& fieldName) const;
+
+    std::type_info const &GetFieldTypeid(
+        const SdfPath &path, const TfToken &fieldName) const {
+        SdfAbstractDataSpecId specId(&path);
+        return GetFieldTypeid(specId, fieldName);
+    }
+
     template <class T>
     bool HasFieldDictKey(const SdfPath& path, const TfToken& fieldName,
                          const TfToken &keyPath, T* value) const;
@@ -705,6 +729,51 @@ public:
 
     /// \name Metadata
     /// @{
+
+    /// Returns the color configuration asset-path for this layer.
+    ///
+    /// The default value is an empty asset-path.
+    SDF_API
+    SdfAssetPath GetColorConfiguration() const;
+
+    /// Sets the color configuration asset-path for this layer.
+    SDF_API
+    void SetColorConfiguration(const SdfAssetPath &colorConfiguration);
+
+    /// Returns true if color configuration metadata is set in this layer.
+    /// \sa GetColorConfiguration(), SetColorConfiguration()
+    SDF_API 
+    bool HasColorConfiguration() const;
+    
+    /// Clears the color configuration metadata authored in this layer. 
+    /// \sa HasColorConfiguration(), SetColorConfiguration()
+    SDF_API
+    void ClearColorConfiguration();
+
+    /// Returns the color management system used to interpret the color 
+    /// configuration asset-path authored in this layer.
+    ///
+    /// The default value is an empty token, which implies that the clients 
+    /// will have to determine the color management system from the color 
+    /// configuration asset path (i.e. from its file extension), if it's 
+    /// specified. 
+    SDF_API
+    TfToken GetColorManagementSystem() const;
+
+    /// Sets the color management system used to interpret the color 
+    /// configuration asset-path authored this layer.
+    SDF_API
+    void SetColorManagementSystem(const TfToken &cms);
+
+    /// Returns true if colorManagementSystem metadata is set in this layer.
+    /// \sa GetColorManagementSystem(), SetColorManagementSystem()
+    SDF_API 
+    bool HasColorManagementSystem() const;
+    
+    /// Clears the 'colorManagementSystem' metadata authored in this layer. 
+    /// \sa HascolorManagementSystem(), SetColorManagementSystem()
+    SDF_API
+    void ClearColorManagementSystem();
 
     /// Returns the comment string for this layer.
     ///
@@ -940,7 +1009,7 @@ public:
     /// Adds a new root prim at the given index.
     /// If the index is -1, the prim is inserted at the end.
     /// The layer will take ownership of the prim, via a TfRefPtr.
-    /// Returns true if succesful, false if failed (for example,
+    /// Returns true if successful, false if failed (for example,
     /// due to a duplicate name).
     SDF_API
     bool InsertRootPrim(const SdfPrimSpecHandle &prim, int index = -1);
@@ -1161,7 +1230,7 @@ public:
 
     /// Returns true if the caller is allowed to modify the layer and 
     /// false otherwise.  A layer may have to perform some action to acquire 
-    /// permission to be editted.
+    /// permission to be edited.
     SDF_API
     bool PermissionToEdit() const;
 
@@ -1381,7 +1450,7 @@ private:
     //
     // Callers *must* be holding an SdfLayerRefPtr to this layer to
     // ensure that it is not deleted out from under them, in
-    // case initialiation fails.  (This method cannot acquire the
+    // case initialization fails.  (This method cannot acquire the
     // reference itself internally without being susceptible to a race.)
     bool _WaitForInitializationAndCheckIfSuccessful();
 
@@ -1423,7 +1492,8 @@ private:
     static bool _ComputeInfoToFindOrOpenLayer(
         const std::string& identifier,
         const SdfLayer::FileFormatArguments& args,
-        _FindOrOpenLayerInfo* info);
+        _FindOrOpenLayerInfo* info,
+        bool computeAssetInfo = false);
 
     // Open a layer, adding an entry to the registry and releasing
     // the registry lock.
@@ -1432,16 +1502,13 @@ private:
     static SdfLayerRefPtr _OpenLayerAndUnlockRegistry(
         Lock &lock,
         const _FindOrOpenLayerInfo& info,
-        bool metadataOnly,
-        std::string const &resolvedPath,
-        const ArAssetInfo &assetInfo,
-        bool isAnonymous);
+        bool metadataOnly);
 
     // Helper function to try to find the layer with \p identifier and
     // pre-resolved path \p resolvedPath in the registry.  Caller must hold
     // registry \p lock for reading.  If \p retryAsWriter is false, lock is
     // released upon return.  Otherwise the lock is released upon return if a
-    // layer is found succesfully.  If no layer is found then the lock is
+    // layer is found successfully.  If no layer is found then the lock is
     // upgraded to a writer lock upon return.  Note that this upgrade may not be
     // atomic, but this function ensures that if upon return there does not
     // exist a matching layer in the registry.
@@ -1473,7 +1540,7 @@ private:
     /// PropertySpec::HasOnlyRequiredFields). This also removes inert ancestors.
     void _RemoveIfInert(const SdfSpec& spec);
 
-    /// Peforms a depth first search of the namespace hierarchy, beginning at
+    /// Performs a depth first search of the namespace hierarchy, beginning at
     /// \p prim, removing prims that do not affect the scene. The return value 
     /// indicates whether the prim passed in is now inert as a result of this 
     /// call, and can itself be removed.
@@ -1639,7 +1706,7 @@ private:
     // of initialization its contents, at which point we can truly publish
     // the layer. We add the layer to the registry before initialization
     // completes so that other threads can discover and block on the
-    // same layer while it is being initalized.
+    // same layer while it is being initialized.
     std::mutex _initializationMutex;
 
     // This is an optional<bool> that is only set once initialization

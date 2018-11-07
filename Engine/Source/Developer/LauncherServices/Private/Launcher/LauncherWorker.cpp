@@ -336,6 +336,10 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			{
 				Platforms += TEXT("+Mac");
 			}
+			else if (PlatformInfo->TargetPlatformName == FName("IOSClient"))
+			{
+				Platforms += TEXT("+IOS");
+			}
 			else
 			{
 				Platforms += TEXT("+");
@@ -575,7 +579,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 
 				if ( InProfile->ShouldAddPatchLevel() )
 				{
-					UATCommand += TEXT(" -newpatchlevel");
+					UATCommand += TEXT(" -addpatchlevel");
 				}
 			}
 
@@ -777,6 +781,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	}
 	else
 	{
+		if (InProfile->IsIncludingPrerequisites())
+		{
+			UATCommand += TEXT(" -prereqs");
+		}
+
 		if (InProfile->GetPackagingMode() == ELauncherProfilePackagingModes::Locally)
 		{
 			UATCommand += TEXT(" -stage -package");

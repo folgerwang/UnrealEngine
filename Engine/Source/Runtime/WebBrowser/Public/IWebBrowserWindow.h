@@ -6,6 +6,7 @@
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
 #include "Widgets/SWindow.h"
+#include "SWebBrowser.h"
 
 class Error;
 class FSlateShaderResource;
@@ -55,6 +56,13 @@ public:
 	 * @param WindowSize Desired viewport size
 	 */
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos = FIntPoint::NoneValue) = 0;
+
+	/**
+	* Gets the current size of the web browser viewport if available, FIntPoint::NoneValue otherwise
+	*
+	* @param WindowSize Desired viewport size
+	*/
+	virtual FIntPoint GetViewportSize() const = 0;
 
 	/**
 	 * Gets interface to the texture representation of the browser
@@ -176,6 +184,16 @@ public:
 	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) = 0;
 
 	/**
+	 * Sets whether mouse wheel events should be handled by the window
+	 */
+	virtual void SetSupportsMouseWheel(bool bValue) = 0;
+
+	/**
+	 * Returns whether mouse wheel events should be handled by the window
+	 */
+	virtual bool GetSupportsMouseWheel() const = 0;
+
+	/**
 	 * Called when the mouse wheel is spun
 	 *
 	 * @param MyGeometry The Geometry of the browser
@@ -288,6 +306,7 @@ public:
 	*/
 	virtual void SetParentWindow(TSharedPtr<class SWindow> Window) = 0;
 
+	virtual void CheckTickActivity() {};
 public:
 
 	/** A delegate that is invoked when the loading state of a document changed. */
@@ -350,8 +369,29 @@ public:
 	DECLARE_DELEGATE_RetVal(bool, FOnSuppressContextMenu);
 	virtual FOnSuppressContextMenu& OnSuppressContextMenu() = 0;
 
+	/** A delegate that is invoked when drag is detected in an area specified as a drag region on the web page. */
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragWindow, const FPointerEvent& /*MouseEvent*/)
+	virtual FOnDragWindow& OnDragWindow() = 0;
+
+	/** A delegate that is invoked to check the visibility of the native browser */
+	DECLARE_DELEGATE_RetVal(bool, FOnCheckVisibility);
+	virtual FOnCheckVisibility& OnCheckVisibility()
+	{
+		return OnCheckVisibilityDelegate;
+	}
+
+	virtual bool CheckVisibility()
+	{
+		return !OnCheckVisibilityDelegate.IsBound() || OnCheckVisibilityDelegate.Execute();
+	}
+
 protected:
 
 	/** Virtual Destructor. */
 	virtual ~IWebBrowserWindow() { };
+
+private:
+	/** Delegate for veritying the window's visibility  */
+	FOnCheckVisibility OnCheckVisibilityDelegate;
+
 };

@@ -25,6 +25,8 @@ enum EStereoscopicPass
 class IStereoRendering
 {
 public:
+	virtual ~IStereoRendering() { }
+
 	/** 
 	 * Whether or not stereo rendering is on this frame.
 	 */
@@ -61,6 +63,29 @@ public:
 			return EStereoscopicPass::eSSP_RIGHT_EYE;
 		else
 			return EStereoscopicPass::eSSP_MONOSCOPIC_EYE;
+	}
+
+	/**
+	* For the specified stereoscopic pass type, assign a view index based on the extension's sorting
+	*/
+	virtual uint32 GetViewIndexForPass(EStereoscopicPass StereoPassType) const
+	{
+		switch (StereoPassType)
+		{
+		case eSSP_LEFT_EYE:
+		case eSSP_FULL:
+			return 0;
+
+		case eSSP_RIGHT_EYE:
+			return 1;
+
+		case eSSP_MONOSCOPIC_EYE:
+			return 2;
+
+		default:
+			check(0);
+			return -1;
+		}
 	}
 	
 	/**
@@ -126,21 +151,9 @@ public:
 	 */
 	virtual void InitCanvasFromView(class FSceneView* InView, class UCanvas* Canvas) = 0;
 
-	// Are we outputting so a Spectator Screen now.
-	virtual bool IsSpectatorScreenActive() const { return false; }
-
 	// Renders texture into a backbuffer. Could be empty if no rendertarget texture is used, or if direct-rendering 
 	// through RHI bridge is implemented. 
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const {}
-
-	/**
-	 * Returns orthographic projection , used from Canvas::DrawItem.
-	 */
-	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const
-	{
-		OrthoProjection[0] = OrthoProjection[1] = FMatrix::Identity;
-		OrthoProjection[1] = FTranslationMatrix(FVector(OrthoProjection[1].M[0][3] * RTWidth * .25 + RTWidth * .5, 0, 0));
-	}
 
 	/**
 	 * Returns currently active render target manager.

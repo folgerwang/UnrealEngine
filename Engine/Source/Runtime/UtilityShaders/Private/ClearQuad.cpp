@@ -9,9 +9,11 @@
 #include "RendererInterface.h"
 #include "Logging/LogMacros.h"
 
+TGlobalResource<FClearVertexBuffer> GClearVertexBuffer;
+
 DEFINE_LOG_CATEGORY_STATIC(LogClearQuad, Log, Log)
 
-static void ClearQuadSetup( FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil )
+static void ClearQuadSetup( FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, TFunction<void(FGraphicsPipelineStateInitializer&)> PSOModifier = nullptr)
 {
 	if (UNLIKELY(!FApp::CanEverRender()))
 	{
@@ -107,9 +109,15 @@ static void ClearQuadSetup( FRHICommandList& RHICmdList, bool bClearColor, int32
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
 	GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
 
+	if (PSOModifier)
+	{
+		PSOModifier(GraphicsPSOInit);
+	}
+
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 	RHICmdList.SetStencilRef(Stencil);
 
+	VertexShader->SetDepthParameter(RHICmdList, Depth);
 	PixelShader->SetColors(RHICmdList, ClearColorArray, NumClearColors);
 }
 
@@ -256,13 +264,27 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumCl
 {
 	ClearQuadSetup(RHICmdList, bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil);
 
-	// without a hole
-	FVector4 Vertices[4];
-	Vertices[0].Set(-1.0f, 1.0f, Depth, 1.0f);
-	Vertices[1].Set(1.0f, 1.0f, Depth, 1.0f);
-	Vertices[2].Set(-1.0f, -1.0f, Depth, 1.0f);
-	Vertices[3].Set(1.0f, -1.0f, Depth, 1.0f);
-	DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+	RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+}
+
+void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FClearQuadCallbacks ClearQuadCallbacks)
+{
+	ClearQuadSetup(RHICmdList, bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil, ClearQuadCallbacks.PSOModifier);
+
+	if (ClearQuadCallbacks.PreClear)
+	{
+		ClearQuadCallbacks.PreClear(RHICmdList);
+	}
+
+	// Draw a fullscreen quad without a hole
+	RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+
+	if (ClearQuadCallbacks.PostClear)
+	{
+		ClearQuadCallbacks.PostClear(RHICmdList);
+	}
 }
 
 void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntPoint ViewSize, FIntRect ExcludeRect)
@@ -295,7 +317,11 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumCl
 		InnerVertices[2].Set(FMath::Lerp(-1.0f, 1.0f, FractionRect.Z), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f);
 		InnerVertices[3].Set(FMath::Lerp(-1.0f, 1.0f, FractionRect.X), FMath::Lerp(1.0f, -1.0f, FractionRect.W), Depth, 1.0f);
 
-		FVector4 Vertices[10];
+		FRHIResourceCreateInfo CreateInfo;
+		FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector4) * 10, BUF_Volatile, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector4) * 10, RLM_WriteOnly);
+		
+		FVector4* Vertices = reinterpret_cast<FVector4*>(VoidPtr);
 		Vertices[0] = OuterVertices[0];
 		Vertices[1] = InnerVertices[0];
 		Vertices[2] = OuterVertices[1];
@@ -307,17 +333,17 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumCl
 		Vertices[8] = OuterVertices[0];
 		Vertices[9] = InnerVertices[0];
 
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 8, Vertices, sizeof(Vertices[0]));
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 8, 1);
+
+		VertexBufferRHI.SafeRelease();
 	}
 	else
 	{
 		// without a hole
-		FVector4 Vertices[4];
-		Vertices[0].Set(-1.0f, 1.0f, Depth, 1.0f);
-		Vertices[1].Set(1.0f, 1.0f, Depth, 1.0f);
-		Vertices[2].Set(-1.0f, -1.0f, Depth, 1.0f);
-		Vertices[3].Set(1.0f, -1.0f, Depth, 1.0f);
-
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+		RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 	}
 }

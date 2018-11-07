@@ -98,9 +98,11 @@ bool UCSVImportFactory::FactoryCanImport(const FString& Filename)
 	return false;
 }
 
-UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn)
+UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
 	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+
+	bOutOperationCanceled = false;
 
 	// See if table/curve already exists
 	UDataTable* ExistingTable = FindObject<UDataTable>(InParent, *InName.ToString());
@@ -109,7 +111,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 
 	// Save off information if so
 	bool bHaveInfo = false;
-	UScriptStruct* ImportRowStruct = NULL;
+	UScriptStruct* ImportRowStruct = nullptr;
 	ERichCurveInterpMode ImportCurveInterpMode = RCIM_Linear;
 	ECSVImportType ImportType = ECSVImportType::ECSV_DataTable;
 
@@ -122,17 +124,17 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 		// For automated import to work a row struct must be specified for a datatable type or a curve type must be specified
 		bHaveInfo = ImportRowStruct != nullptr || ImportType != ECSVImportType::ECSV_DataTable;
 	}
-	else if(ExistingTable != NULL)
+	else if (ExistingTable != nullptr)
 	{
 		ImportRowStruct = ExistingTable->RowStruct;
 		bHaveInfo = true;
 	}
-	else if(ExistingCurveTable != NULL)
+	else if (ExistingCurveTable != nullptr)
 	{
 		ImportType = ECSVImportType::ECSV_CurveTable;
 		bHaveInfo = true;
 	}
-	else if(ExistingCurve != NULL)
+	else if (ExistingCurve != nullptr)
 	{
 		ImportType = ExistingCurve->IsA(UCurveFloat::StaticClass()) ? ECSVImportType::ECSV_CurveFloat : ECSVImportType::ECSV_CurveVector;
 		bHaveInfo = true;
@@ -177,6 +179,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 		ImportRowStruct = ImportOptionsWindow->GetSelectedRowStruct();
 		ImportCurveInterpMode = ImportOptionsWindow->GetSelectedCurveIterpMode();
 		bDoImport = ImportOptionsWindow->ShouldImport();
+		bOutOperationCanceled = !bDoImport;
 	}
 	else if(!bHaveInfo && IsAutomatedImport())
 	{
@@ -187,7 +190,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 		bDoImport = false;
 	}
 
-	UObject* NewAsset = NULL;
+	UObject* NewAsset = nullptr;
 	if(bDoImport)
 	{
 		// Convert buffer to an FString (will this be slow with big tables?)
@@ -208,8 +211,11 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 
 			// If there is an existing table, need to call this to free data memory before recreating object
 			bool bStripFromClientBuilds = false;
-			if(ExistingTable != NULL)
+			UDataTable::FOnDataTableChanged OldOnDataTableChanged;
+			if (ExistingTable != nullptr)
 			{
+				OldOnDataTableChanged = MoveTemp(ExistingTable->OnDataTableChanged());
+				ExistingTable->OnDataTableChanged().Clear();
 				DataTableClass = ExistingTable->GetClass();
 				ExistingTable->EmptyTable();
 				bStripFromClientBuilds = ExistingTable->bStripFromClientBuilds;
@@ -223,6 +229,10 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 			// Go ahead and create table from string
 			Problems = DoImportDataTable(NewTable, String);
 
+			// hook delegates back up and inform listeners of changes
+			NewTable->OnDataTableChanged() = MoveTemp(OldOnDataTableChanged);
+			NewTable->OnDataTableChanged().Broadcast();
+
 			// Print out
 			UE_LOG(LogCSVImportFactory, Log, TEXT("Imported DataTable '%s' - %d Problems"), *InName.ToString(), Problems.Num());
 			NewAsset = NewTable;
@@ -232,8 +242,11 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 			UClass* CurveTableClass = UCurveTable::StaticClass();
 
 			// If there is an existing table, need to call this to free data memory before recreating object
-			if(ExistingCurveTable != NULL)
+			UCurveTable::FOnCurveTableChanged OldOnCurveTableChanged;
+			if (ExistingCurveTable != nullptr)
 			{
+				OldOnCurveTableChanged = MoveTemp(ExistingCurveTable->OnCurveTableChanged());
+				ExistingCurveTable->OnCurveTableChanged().Clear();
 				CurveTableClass = ExistingCurveTable->GetClass();
 				ExistingCurveTable->EmptyTable();
 			}
@@ -244,6 +257,10 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 
 			// Go ahead and create table from string
 			Problems = DoImportCurveTable(NewTable, String, ImportCurveInterpMode);
+
+			// hook delegates back up and inform listeners of changes
+			NewTable->OnCurveTableChanged() = MoveTemp(OldOnCurveTableChanged);
+			NewTable->OnCurveTableChanged().Broadcast();
 
 			// Print out
 			UE_LOG(LogCSVImportFactory, Log, TEXT("Imported CurveTable '%s' - %d Problems"), *InName.ToString(), Problems.Num());
@@ -288,22 +305,23 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 	return NewAsset;
 }
 
-bool UCSVImportFactory::ReimportCSV( UObject* Obj )
+EReimportResult::Type UCSVImportFactory::ReimportCSV(UObject* Obj)
 {
-	bool bHandled = false;
+	EReimportResult::Type Result = EReimportResult::Failed;
+
 	if(UCurveBase* Curve = Cast<UCurveBase>(Obj))
 	{
-		bHandled = Reimport(Curve, Curve->AssetImportData->GetFirstFilename());
+		Result = Reimport(Curve, Curve->AssetImportData->GetFirstFilename());
 	}
 	else if(UCurveTable* CurveTable = Cast<UCurveTable>(Obj))
 	{
-		bHandled = Reimport(CurveTable, CurveTable->AssetImportData->GetFirstFilename());
+		Result = Reimport(CurveTable, CurveTable->AssetImportData->GetFirstFilename());
 	}
 	else if(UDataTable* DataTable = Cast<UDataTable>(Obj))
 	{
-		bHandled = Reimport(DataTable, DataTable->AssetImportData->GetFirstFilename());
+		Result = Reimport(DataTable, DataTable->AssetImportData->GetFirstFilename());
 	}
-	return bHandled;
+	return Result;
 }
 
 void UCSVImportFactory::ParseFromJson(TSharedRef<class FJsonObject> ImportSettingsJson)
@@ -311,7 +329,7 @@ void UCSVImportFactory::ParseFromJson(TSharedRef<class FJsonObject> ImportSettin
 	FJsonObjectConverter::JsonObjectToUStruct(ImportSettingsJson, FCSVImportSettings::StaticStruct(), &AutomatedImportSettings, 0, 0);
 }
 
-bool UCSVImportFactory::Reimport(UObject* Obj, const FString& Path)
+EReimportResult::Type UCSVImportFactory::Reimport(UObject* Obj, const FString& Path)
 {
 	if(Path.IsEmpty() == false)
 	{ 
@@ -322,11 +340,16 @@ bool UCSVImportFactory::Reimport(UObject* Obj, const FString& Path)
 		{
 			const TCHAR* Ptr = *Data;
 			CurrentFilename = FilePath; //not thread safe but seems to be how it is done..
-			auto Result = FactoryCreateText( Obj->GetClass(), Obj->GetOuter(), Obj->GetFName(), Obj->GetFlags(), NULL, *FPaths::GetExtension(FilePath), Ptr, Ptr+Data.Len(), NULL );
-			return true;
+			bool bWasCancelled = false;
+			UObject* Result = FactoryCreateText(Obj->GetClass(), Obj->GetOuter(), Obj->GetFName(), Obj->GetFlags(), nullptr, *FPaths::GetExtension(FilePath), Ptr, Ptr+Data.Len(), nullptr, bWasCancelled);
+			if (bWasCancelled)
+			{
+				return EReimportResult::Cancelled;
+			}
+			return Result ? EReimportResult::Succeeded : EReimportResult::Failed;
 		}
 	}
-	return false;
+	return EReimportResult::Failed;
 }
 
 TArray<FString> UCSVImportFactory::DoImportDataTable(UDataTable* TargetDataTable, const FString& DataToImport)
@@ -386,7 +409,14 @@ bool UReimportDataTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutF
 	if(DataTable)
 	{
 		DataTable->AssetImportData->ExtractFilenames(OutFilenames);
-		return true;
+		if (OutFilenames.Num() > 0)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 	return false;
 }
@@ -402,8 +432,8 @@ void UReimportDataTableFactory::SetReimportPaths( UObject* Obj, const TArray<FSt
 
 EReimportResult::Type UReimportDataTableFactory::Reimport( UObject* Obj )
 {	
-	auto Result = EReimportResult::Failed;
-	if(auto DataTable = Cast<UDataTable>(Obj))
+	EReimportResult::Type Result = EReimportResult::Failed;
+	if (UDataTable* DataTable = Cast<UDataTable>(Obj))
 	{
 		FDataTableEditorUtils::BroadcastPreChange(DataTable, FDataTableEditorUtils::EDataTableChangeInfo::RowList);
 		Result = UCSVImportFactory::ReimportCSV(DataTable) ? EReimportResult::Succeeded : EReimportResult::Failed;

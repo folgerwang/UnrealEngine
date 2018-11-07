@@ -37,6 +37,16 @@ namespace mtlpp
                                                                                                  size:size
                                                                                             mipmapped:mipmapped]);
     }
+	
+	ns::AutoReleased<TextureDescriptor> TextureDescriptor::TextureBufferDescriptor(PixelFormat pixelFormat, NSUInteger size, ResourceOptions options, TextureUsage usage)
+	{
+#if MTLPP_IS_AVAILABLE(10_14, 12_0)
+		return ns::AutoReleased<TextureDescriptor>([MTLTextureDescriptor textureBufferDescriptorWithPixelFormat:MTLPixelFormat(pixelFormat)
+																										 width:size resourceOptions:options usage:usage]);
+#else
+		return ns::AutoReleased<TextureDescriptor>();
+#endif
+	}
 
     TextureType TextureDescriptor::GetTextureType() const
     {
@@ -169,6 +179,16 @@ namespace mtlpp
         return TextureUsage(0);
 #endif
     }
+	
+	bool TextureDescriptor::GetAllowGPUOptimisedContents() const
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_14, 12_0)
+		return TextureUsage([(MTLTextureDescriptor*)m_ptr allowGPUOptimizedContents]);
+#else
+		return TextureUsage(0);
+#endif
+	}
 
     void TextureDescriptor::SetTextureType(TextureType textureType)
     {
@@ -295,6 +315,14 @@ namespace mtlpp
 #endif
 #endif
     }
+	
+	void TextureDescriptor::SetAllowGPUOptimisedContents(bool optimise)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_14, 12_0)
+		[(MTLTextureDescriptor*)m_ptr setAllowGPUOptimizedContents:optimise];
+#endif
+	}
 
     ns::AutoReleased<Resource> Texture::GetRootResource() const
     {
@@ -559,6 +587,12 @@ namespace mtlpp
 #endif
         	return [(id<MTLTexture>)m_ptr isFramebufferOnly];
     }
+	
+	bool Texture::GetAllowGPUOptimisedContents() const
+	{
+		Validate();
+		return [(id<MTLTexture>)m_ptr allowGPUOptimizedContents];
+	}
 
     void Texture::GetBytes(void* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage, const Region& fromRegion, NSUInteger mipmapLevel, NSUInteger slice)
     {

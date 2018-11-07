@@ -51,10 +51,10 @@ Tags:Pose Assets
 
 포즈 드라이버 노드를 추가하고 제어하고자 하는 포즈가 들어있는 포즈 애셋을 할당합니다.
 그리고 **Source Bone** 을 **clav** 본으로 설정하여 (**Rotate** (회전)으로 설정된) **Drive Source** (구동 소스)에 따라
-사용되고 있는 포즈를 구동시키는 **Pose Targets** (포즈 타겟)을 업데이트합니다.
-애니메이션이 재생되고 쇄골 본이 회전하면서, **Pose Targets** (포즈 타겟) 섹션의 각 포즈가 최종 포즈에 끼치는 영향력이 막대로 표시됩니다.
+사용되고 있는 포즈를 구동시키는 **Pose Targets** (포즈 타깃)을 업데이트합니다.
+애니메이션이 재생되고 쇄골 본이 회전하면서, **Pose Targets** (포즈 타깃) 섹션의 각 포즈가 최종 포즈에 끼치는 영향력이 막대로 표시됩니다.
 [REGION:note]
-포즈 드라이버 노드는 타겟 본의 방향에 따라 구동 값을 보간하는 **RBF (Radial Basis Function)** (방사 기저 함수)를 사용합니다.
+포즈 드라이버 노드는 타깃 본의 방향에 따라 구동 값을 보간하는 **RBF (Radial Basis Function)** (방사 기저 함수)를 사용합니다.
 [/REGION]
 
 ## 포즈 드라이버 추가
@@ -74,11 +74,11 @@ Tags:Pose Assets
 	![](BlankDetails.png)
 
 	
-## 포즈 타겟
+## 포즈 타깃
 
-Pose Target (포즈 타겟)에서는 포즈 드라이버 노드로 구동시키고자 하는 포즈를 포즈 애셋 또는 커브로부터 지정합니다.
+Pose Target (포즈 타깃)에서는 포즈 드라이버 노드로 구동시키고자 하는 포즈를 포즈 애셋 또는 커브로부터 지정합니다.
 
-포즈 애셋을 할당한 채, **툴** 버튼을 클릭하고 **Copy All from PoseAsset** (포즈 애셋에서 모두 복사)를 선택하면 각 포즈가 포즈 타겟 창에 추가됩니다.
+포즈 애셋을 할당한 채, **툴** 버튼을 클릭하고 **Copy All from PoseAsset** (포즈 애셋에서 모두 복사)를 선택하면 각 포즈가 포즈 타깃 창에 추가됩니다.
 
 ![](CopyPoses.png)
 
@@ -87,12 +87,12 @@ Pose Target (포즈 타겟)에서는 포즈 드라이버 노드로 구동시키�
 ![](PoseTargetsOptions.png)
 
 [REGION:tip]
-**포즈 타겟** 창의 포즈를 클릭하거나 뷰포트에서 타겟 라인을 클릭하면 포즈를 선택할 수 있습니다.
+**포즈 타깃** 창의 포즈를 클릭하거나 뷰포트에서 타깃 라인을 클릭하면 포즈를 선택할 수 있습니다.
 [/REGION]
 
-### 커브 기반 포즈 타겟
+### 커브 기반 포즈 타깃
 
-포즈 타겟은 포즈 애셋 대신 [](Engine/Animation/Sequences/Curves) (모프 타겟 및 머티리얼 커브)로도 구동시킬 수 있습니다.
+포즈 타깃은 포즈 애셋 대신 [](Engine/Animation/Sequences/Curves) (모프 타깃 및 머티리얼 커브)로도 구동시킬 수 있습니다.
 
 포즈 애셋 대신 커브 데이터를 사용하는 방법은:
 
@@ -104,7 +104,7 @@ Pose Target (포즈 타겟)에서는 포즈 드라이버 노드로 구동시키�
 
 	![](CompileButton.png)
 
-1.	**타겟 추가** 버튼을 눌러 구동시키고자 하는 커브 수를 추가합니다.
+1.	**타깃 추가** 버튼을 눌러 구동시키고자 하는 커브 수를 추가합니다.
 
 	![](AddTarget.png)
 
@@ -115,7 +115,7 @@ Pose Target (포즈 타겟)에서는 포즈 드라이버 노드로 구동시키�
 
 ## 포즈 드라이버 프로퍼티
 
-**디테일** 패널의 **Pose Driver** 프로퍼티 섹션에서는 **포즈 타겟** 의 파라미터를 구동하는 데 사용할 **Source Bones** (소스 본)을 정의할 수 있습니다.
+**디테일** 패널의 **Pose Driver** 프로퍼티 섹션에서는 **포즈 타깃** 의 파라미터를 구동하는 데 사용할 **Source Bones** (소스 본)을 정의할 수 있습니다.
 다수의 소스 본 지정 또는 **Only Drive Selected Bones** (선택 본만 구동), 소스 본 트랜스폼을 읽을 때 사용할 **Eval Space Bone** (이밸 스페이스 본) 정의, RBF 솔버에 사용되는 **RBF Parameters** 설정, **Drive Source** 및 **Drive Output** 설정 등입니다.
 
 Pose Driver 섹션에 있는 프로퍼티는 다음과 같습니다:
@@ -135,11 +135,11 @@ Pose Driver 섹션에 있는 프로퍼티는 다음과 같습니다:
 [EXCERPT:rbftable]
 | 옵션 | 설명 |
 | ----------- |------|
-| **Radius** | 반경 - 각 타겟에 대한 기본 반경으로, 타겟 스케일 팩터 단위로 곱합니다. | 
+| **Radius** | 반경 - 각 타깃에 대한 기본 반경으로, 타깃 스케일 팩터 단위로 곱합니다. | 
 | **Function** | 함수 - 사용할 [블렌드 모드](Engine/Animation/NonLinearBlends) 유형을 정의합니다. | 
-| **Distance Method** | 거리 메소드 - 거리 측정 방법을 **Swing Angle** (스윙 각도), **Quaternion** (쿼터니언), **Euclidean** (유클리드) 중에서 선택합니다. | 
+| **Distance Method** | 거리 메서드 - 거리 측정 방법을 **Swing Angle** (스윙 각도), **Quaternion** (쿼터니언), **Euclidean** (유클리드) 중에서 선택합니다. | 
 | **Twist Axis** | 트위스트 축 - **Distance Method** 가 **Swing Angle** 로 설정되었을 때 사용할 축입니다. | 
-| **Weight Threshold** | 가중 한계치 - 가중치가 이 수치 미만이면 타겟으로부터의 기여를 반환하지 않습니다. | 
+| **Weight Threshold** | 가중 한계치 - 가중치가 이 수치 미만이면 타깃으로부터의 기여를 반환하지 않습니다. | 
 [/EXCERPT:rbftable]
 
 [/COMMENT]

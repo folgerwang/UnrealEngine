@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -26,8 +26,8 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The directory to find files in
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string BaseDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference BaseDir;
 
 		/// <summary>
 		/// List of file specifications separated by semicolons (eg. Engine/.../*.pdb), or the name of a tag set
@@ -38,8 +38,8 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// Output directory for the stripped files. Defaults to the input path (overwriting the input files).
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string OutputDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference OutputDir;
 
 		/// <summary>
 		/// Tag to be applied to build products of this task
@@ -77,10 +77,10 @@ namespace BuildGraph.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Get the base directory
-			DirectoryReference BaseDir = ResolveDirectory(Parameters.BaseDir);
+			DirectoryReference BaseDir = Parameters.BaseDir;
 
 			// Get the output directory
-			DirectoryReference OutputDir = ResolveDirectory(Parameters.OutputDir);
+			DirectoryReference OutputDir = Parameters.OutputDir;
 
 			// Find the matching files
 			FileReference[] SourceFiles = ResolveFilespec(BaseDir, Parameters.Files, TagNameToFileSet).OrderBy(x => x.FullName).ToArray();
@@ -95,11 +95,11 @@ namespace BuildGraph.Tasks
 				DirectoryReference.CreateDirectory(TargetFiles[Idx].Directory);
 				if (SourceFiles[Idx] == TargetFiles[Idx])
 				{
-					CommandUtils.Log("Stripping symbols: {0}", SourceFiles[Idx].FullName);
+					CommandUtils.LogInformation("Stripping symbols: {0}", SourceFiles[Idx].FullName);
 				}
 				else
 				{
-					CommandUtils.Log("Stripping symbols: {0} -> {1}", SourceFiles[Idx].FullName, TargetFiles[Idx].FullName);
+					CommandUtils.LogInformation("Stripping symbols: {0} -> {1}", SourceFiles[Idx].FullName, TargetFiles[Idx].FullName);
 				}
 				TargetPlatform.StripSymbols(SourceFiles[Idx], TargetFiles[Idx]);
 			}

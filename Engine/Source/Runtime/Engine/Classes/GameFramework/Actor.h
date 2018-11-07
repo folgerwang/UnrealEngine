@@ -176,7 +176,7 @@ public:
 	uint8 bExchangedRoles:1;
 
 	/** This actor will be loaded on network clients during map load */
-	UPROPERTY(Category=Replication, EditDefaultsOnly)
+	UPROPERTY(Category=Replication, EditAnywhere)
 	uint8 bNetLoadOnClient:1;
 
 	/** If actor has valid Owner, call Owner's IsNetRelevantFor and GetNetPriority */
@@ -470,6 +470,12 @@ public:
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadWrite)
 	float NetPriority;
 
+private:
+
+	/** Caches the most recent last render time we've looked at for this actor */
+	mutable float CachedLastRenderTime;
+
+public:
 	/**
 	 * Set the name of the net driver associated with this actor.  Will move the actor out of the list of network actors from the old net driver and add it to the new list
 	 * @param NewNetDriverName name of the new net driver association
@@ -598,7 +604,7 @@ public:
 	uint8 bIsEditorPreviewActor:1;
 
 	/** Whether this actor is hidden by the layer browser. */
-	UPROPERTY()
+	UPROPERTY(Transient)
 	uint8 bHiddenEdLayer:1;
 
 	/** Whether this actor is hidden by the level browser. */
@@ -1509,6 +1515,9 @@ public:
 	virtual void PostEditImport() override;
 	virtual bool IsSelectedInEditor() const override;
 
+	/** When selected can this actor be deleted? */
+	virtual bool CanDeleteSelectedActor(FText& OutReason) const { return true; }
+
 	struct FActorRootComponentReconstructionData
 	{
 		// Struct to store info about attached actors
@@ -1519,6 +1528,8 @@ public:
 			FName AttachParentName;
 			FName SocketName;
 			FTransform RelativeTransform;
+
+			friend FArchive& operator<<(FArchive& Ar, FAttachedActorInfo& ActorInfo);
 		};
 
 		// The RootComponent's transform
@@ -1532,28 +1543,45 @@ public:
 
 		// Actors that are attached to this RootComponent
 		TArray<FAttachedActorInfo> AttachedToInfo;
+
+		friend FArchive& operator<<(FArchive& Ar, FActorRootComponentReconstructionData& RootComponentData);
 	};
 
 	class FActorTransactionAnnotation : public ITransactionObjectAnnotation
 	{
 	public:
-		FActorTransactionAnnotation(const AActor* Actor, const bool bCacheRootComponentData = true);
+		/** Create an empty instance */
+		static TSharedRef<FActorTransactionAnnotation> Create();
 
+		/** Create an instance from the given actor, optionally caching root component data */
+		static TSharedRef<FActorTransactionAnnotation> Create(const AActor* InActor, const bool InCacheRootComponentData = true);
+
+		/** Create an instance from the given actor if required (UActorTransactionAnnotation::HasInstanceData would return true), optionally caching root component data */
+		static TSharedPtr<FActorTransactionAnnotation> CreateIfRequired(const AActor* InActor, const bool InCacheRootComponentData = true);
+
+		//~ ITransactionObjectAnnotation interface
 		virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+		virtual void Serialize(FArchive& Ar) override;
 
 		bool HasInstanceData() const;
 
+		// Actor and component data
+		TWeakObjectPtr<const AActor> Actor;
 		FComponentInstanceDataCache ComponentInstanceData;
 
 		// Root component reconstruction data
 		bool bRootComponentDataCached;
 		FActorRootComponentReconstructionData RootComponentData;
+
+	private:
+		FActorTransactionAnnotation();
+		FActorTransactionAnnotation(const AActor* InActor, FComponentInstanceDataCache&& InComponentInstanceData, const bool InCacheRootComponentData = true);
 	};
 
 	/** Cached pointer to the transaction annotation data from PostEditUndo to be used in the next RerunConstructionScript */
 	TSharedPtr<FActorTransactionAnnotation> CurrentTransactionAnnotation;
 
-	virtual TSharedPtr<ITransactionObjectAnnotation> GetTransactionAnnotation() const override;
+	virtual TSharedPtr<ITransactionObjectAnnotation> FactoryTransactionAnnotation(const ETransactionAnnotationCreationMode InCreationMode) const override;
 	virtual void PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation) override;
 
 	/** @return true if the component is allowed to re-register its components when modified.  False for CDOs or PIE instances. */
@@ -1726,7 +1754,7 @@ public:
 	virtual bool IsSelectable() const { return true; }
 
 	/** @return	Returns true if this actor should be shown in the scene outliner */
-	bool IsListedInSceneOutliner() const;
+	virtual bool IsListedInSceneOutliner() const;
 
 	/** @return	Returns true if this actor is allowed to be attached to the given actor */
 	virtual bool EditorCanAttachTo(const AActor* InParent, FText& OutReason) const;
@@ -1809,6 +1837,8 @@ public:
 	/** Returns NumUncachedStaticLightingInteractions for this actor */
 	const int32 GetNumUncachedStaticLightingInteractions() const;
 
+	/** Returns a custom brush icon name to use in place of the automatic class icon where actors are represented via 2d icons in the editor (e.g scene outliner and menus) */
+	virtual FName GetCustomIconName() const { return NAME_None; }
 #endif		// WITH_EDITOR
 
 	/**
@@ -1924,6 +1954,9 @@ public:
 	
 	/** Always called immediately after properties are received from the remote. */
 	virtual void PostNetReceive() override;
+
+	/** Always called immediately after a new Role is received from the remote. */
+	virtual void PostNetReceiveRole();
 
 	/** IsNameStableForNetworking means an object can be referred to its path name (relative to outer) over the network */
 	virtual bool IsNameStableForNetworking() const override;
@@ -2236,7 +2269,10 @@ public:
 	/** Invalidate lighting cache with default options. */
 	void InvalidateLightingCache()
 	{
-		InvalidateLightingCacheDetailed(false);
+		if (GIsEditor && !GIsDemoMode)
+		{
+			InvalidateLightingCacheDetailed(false);
+		}
 	}
 
 	/** Invalidates anything produced by the last lighting build. */
@@ -2599,8 +2635,8 @@ public:
 		return const_cast<AActor*>(this)->FindOrAddNetworkObjectInfo();
 	}
 
-	/** Force actor to be updated to clients */
-	UFUNCTION(BlueprintAuthorityOnly, BlueprintCallable, Category="Networking")
+	/** Force actor to be updated to clients/demo net drivers */
+	UFUNCTION( BlueprintCallable, Category="Networking")
 	virtual void ForceNetUpdate();
 
 	/**
@@ -2651,6 +2687,16 @@ public:
 
 	/** Gets the GameInstance that ultimately contains this actor. */
 	class UGameInstance* GetGameInstance() const;
+	
+	/** 
+	 * Gets the GameInstance that ultimately contains this actor cast to the template type.
+	 * May return NULL if the cast fails. 
+	 */
+	template< class T >
+	T* GetGameInstance() const 
+	{ 
+		return Cast<T>(GetGameInstance()); 
+	}
 
 	/** Returns true if this is a replicated actor that was placed in the map */
 	bool IsNetStartupActor() const;
@@ -2835,6 +2881,11 @@ public:
 		return ReplicatedComponents; 
 	}
 
+protected:
+
+	/** Set of replicated components, stored as an array to save space as this is generally not very large */
+	TArray<UActorComponent*> ReplicatedComponents;
+
 private:
 	/**
 	 * All ActorComponents owned by this Actor. Stored as a Set as actors may have a large number of components
@@ -2846,9 +2897,6 @@ private:
 	/** Maps natively-constructed components to properties that reference them. */
 	TMultiMap<FName, UObjectProperty*> NativeConstructedComponentToPropertyMap;
 #endif
-
-	/** Set of replicated components, stored as an array to save space as this is generally not very large */
-	TArray<UActorComponent*> ReplicatedComponents;
 
 	/** Array of ActorComponents that have been added by the user on a per-instance basis. */
 	UPROPERTY(Instanced)
@@ -3064,11 +3112,11 @@ class TInlineComponentArray : public TArray<T, TInlineAllocator<NumElements>>
 
 public:
 	TInlineComponentArray() : Super() { }
-	TInlineComponentArray(const class AActor* Actor) : Super()
+	TInlineComponentArray(const class AActor* Actor, bool bIncludeFromChildActors = false) : Super()
 	{
 		if (Actor)
 		{
-			Actor->GetComponents(*this);
+			Actor->GetComponents(*this, bIncludeFromChildActors);
 		}
 	};
 };

@@ -29,9 +29,7 @@ class ONLINESUBSYSTEMOCULUS_API FOnlineSubsystemOculus :
 
 public:
 
-	virtual ~FOnlineSubsystemOculus()
-	{
-	}
+	virtual ~FOnlineSubsystemOculus() = default;
 
 	// IOnlineSubsystem
 
@@ -59,6 +57,7 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
@@ -86,12 +85,10 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemOculus(FName InInstanceName) :
+	FOnlineSubsystemOculus() = delete;
+	explicit FOnlineSubsystemOculus(FName InInstanceName) :
 		FOnlineSubsystemImpl(OCULUS_SUBSYSTEM, InInstanceName),
 		bOculusInit(false)
-	{}
-
-	FOnlineSubsystemOculus()
 	{}
 
 	bool IsInitialized() const;

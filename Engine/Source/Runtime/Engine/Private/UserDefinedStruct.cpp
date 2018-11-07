@@ -100,23 +100,24 @@ UUserDefinedStruct::UUserDefinedStruct(const FObjectInitializer& ObjectInitializ
 #endif
 }
 
-void UUserDefinedStruct::Serialize(FArchive& Ar)
+void UUserDefinedStruct::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize( Ar );
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
 	if (HasAnyFlags(RF_ClassDefaultObject))
 	{
 		return;
 	}
 
-	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 
-	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::UserDefinedStructsStoreDefaultInstance)
+	if (UnderlyingArchive.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::UserDefinedStructsStoreDefaultInstance)
 	{
-		if (EUserDefinedStructureStatus::UDSS_UpToDate == Status && !(Ar.GetPortFlags() & PPF_Duplicate))
+		if (EUserDefinedStructureStatus::UDSS_UpToDate == Status && !(UnderlyingArchive.GetPortFlags() & PPF_Duplicate))
 		{
 			// If we're saving or loading new data, serialize our defaults
-			if (!DefaultStructInstance.IsValid() && Ar.IsLoading())
+			if (!DefaultStructInstance.IsValid() && UnderlyingArchive.IsLoading())
 			{
 				DefaultStructInstance.Recreate(this);
 			}
@@ -124,14 +125,21 @@ void UUserDefinedStruct::Serialize(FArchive& Ar)
 			uint8* StructData = DefaultStructInstance.GetStructMemory();
 
 			FScopedPlaceholderRawContainerTracker TrackStruct(StructData);
-			SerializeItem(Ar, StructData, nullptr);
+			SerializeItem(Record.EnterField(FIELD_NAME_TEXT("Data")), StructData, nullptr);
+
+			// Now that defaults have been loaded we can inspect our properties
+			// and default values and set the StructFlags accordingly:
+			if(UnderlyingArchive.IsLoading())
+			{
+				UpdateStructFlags();
+			}
 		}
 	}
 
 #if WITH_EDITOR
-	if (Ar.IsLoading())
+	if (UnderlyingArchive.IsLoading())
 	{
-		if (Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::UserDefinedStructsBlueprintVisible)
+		if (UnderlyingArchive.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::UserDefinedStructsBlueprintVisible)
 		{
 			for (TFieldIterator<UProperty> PropIt(this); PropIt; ++PropIt)
 			{
@@ -145,8 +153,8 @@ void UUserDefinedStruct::Serialize(FArchive& Ar)
 			// information at editor time about the user structure.
 			if (EditorData != nullptr)
 			{
-				Ar.Preload(EditorData);
-				if (!(Ar.GetPortFlags() & PPF_Duplicate))
+				UnderlyingArchive.Preload(EditorData);
+				if (!(UnderlyingArchive.GetPortFlags() & PPF_Duplicate))
 				{
 					FStructureEditorUtils::RecreateDefaultInstanceInEditorData(this);
 				}
@@ -429,8 +437,91 @@ void UUserDefinedStruct::AddReferencedObjects(UObject* InThis, FReferenceCollect
 	if (StructData)
 	{
 		FVerySlowReferenceCollectorArchiveScope CollectorScope(Collector.GetVerySlowReferenceCollectorArchive(), This);
-		This->SerializeBin(CollectorScope.GetArchive(), StructData);
+		This->SerializeBin(FStructuredArchiveFromArchive(CollectorScope.GetArchive()).GetSlot(), StructData);
 	}
 
 	Super::AddReferencedObjects(This, Collector);
+}
+
+void UUserDefinedStruct::UpdateStructFlags()
+{
+	// Adapted from PrepareCppStructOps, where we 'discover' zero constructability
+	// for native types:
+	bool bIsZeroConstruct = true;
+	{
+		uint8* StructData = DefaultStructInstance.GetStructMemory();
+		if (StructData)
+		{
+			int32 Size = GetStructureSize();
+			for (int32 Index = 0; Index < Size; Index++)
+			{
+				if (StructData[Index])
+				{
+					bIsZeroConstruct = false;
+					break;
+				}
+			}
+		}
+
+		if(bIsZeroConstruct)
+		{	
+			for (TFieldIterator<UProperty> It(this); It; ++It)
+			{
+				UProperty* Property = *It;
+				if (Property && !Property->HasAnyPropertyFlags(CPF_ZeroConstructor))
+				{
+					bIsZeroConstruct = false;
+					break;
+				}
+			}
+		}
+	}
+
+	// IsPOD/NoDtor could be derived earlier than bIsZeroConstruct because they do not depend on 
+	// the structs default values, but it is convenient to calculate them all in one place:
+	bool bIsPOD = true;
+	{
+		for (TFieldIterator<UProperty> It(this); It; ++It)
+		{
+			UProperty* Property = *It;
+			if (Property && !Property->HasAnyPropertyFlags(CPF_IsPlainOldData))
+			{
+				bIsPOD = false;
+				break;
+			}
+		}
+	}
+
+	bool bHasNoDtor = bIsPOD;
+	{
+		if(!bHasNoDtor)
+		{
+			// we're not POD, but we still may have no destructor, check properties:
+			bHasNoDtor = true;
+			for (TFieldIterator<UProperty> It(this); It; ++It)
+			{
+				UProperty* Property = *It;
+				if (Property && !Property->HasAnyPropertyFlags(CPF_NoDestructor))
+				{
+					bHasNoDtor = false;
+					break;
+				}
+			}
+		}
+	}
+	
+	StructFlags = EStructFlags(StructFlags | STRUCT_ZeroConstructor | STRUCT_IsPlainOldData | STRUCT_NoDestructor);
+	if(!bIsZeroConstruct)
+	{
+		StructFlags = EStructFlags(StructFlags & ~STRUCT_ZeroConstructor);
+	}
+	if(!bIsPOD)
+	{
+		StructFlags = EStructFlags(StructFlags & ~STRUCT_IsPlainOldData);
+	}
+	if(!bHasNoDtor)
+	{
+		StructFlags = EStructFlags(StructFlags & ~STRUCT_NoDestructor);
+	}
+
 }

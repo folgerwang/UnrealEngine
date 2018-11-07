@@ -32,6 +32,12 @@ struct FColorInfo
 		Color = InColor;
 		Label = FText();
 	}
+
+	FColorInfo(TSharedPtr<FLinearColor> InColor, FText InLabel)
+	{
+		Color = InColor;
+		Label = InLabel;
+	}
 };
 
 /**

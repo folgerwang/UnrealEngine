@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -27,32 +27,32 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// PAK file to output
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileName)]
-		public string Output;
+		[TaskParameter]
+		public FileReference Output;
 
 		/// <summary>
 		/// Path to a Response File that contains a list of files to add to the pak file, instead of specifying them individually
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
-		public string ResponseFile;
+		[TaskParameter(Optional = true)]
+		public FileReference ResponseFile;
 
 		/// <summary>
 		/// Directories to rebase the files relative to. If specified, the shortest path under a listed directory will be used for each file.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string RebaseDir;
+		[TaskParameter(Optional = true)]
+		public HashSet<DirectoryReference> RebaseDir;
 
 		/// <summary>
 		/// Script which gives the order of files
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
-		public string Order;
+		[TaskParameter(Optional = true)]
+		public FileReference Order;
 
 		/// <summary>
 		/// Encryption keys for this pak file
 		/// </summary>
 		[TaskParameter(Optional = true)]
-		public string Sign;
+		public FileReference Sign;
 
 		/// <summary>
 		/// Whether to compress files
@@ -105,19 +105,14 @@ namespace BuildGraph.Tasks
 			HashSet<DirectoryReference> RebaseDirs = new HashSet<DirectoryReference>{ CommandUtils.RootDirectory };
 			if(Parameters.RebaseDir != null)
 			{
-				RebaseDirs.UnionWith(SplitDelimitedList(Parameters.RebaseDir).Select(x => ResolveDirectory(x)));
+				RebaseDirs.UnionWith(Parameters.RebaseDir);
 			}
 
 			// Get the output parameter
-			FileReference OutputFile = ResolveFile(Parameters.Output);
+			FileReference OutputFile = Parameters.Output;
 
 			// Check for a ResponseFile parameter
-			FileReference ResponseFile = null;
-			if (!String.IsNullOrEmpty(Parameters.ResponseFile))
-			{
-				ResponseFile = ResolveFile(Parameters.ResponseFile);
-			}
-
+			FileReference ResponseFile = Parameters.ResponseFile;
 			if (ResponseFile == null)
 			{
 				// Get a unique filename for the response file
@@ -148,11 +143,11 @@ namespace BuildGraph.Tasks
 			CommandLine.AppendFormat("{0} -create={1}", CommandUtils.MakePathSafeToUseWithCommandLine(OutputFile.FullName), CommandUtils.MakePathSafeToUseWithCommandLine(ResponseFile.FullName));
 			if(Parameters.Sign != null)
 			{
-				CommandLine.AppendFormat(" -sign={0}", CommandUtils.MakePathSafeToUseWithCommandLine(ResolveFile(Parameters.Sign).FullName));
+				CommandLine.AppendFormat(" -sign={0}", CommandUtils.MakePathSafeToUseWithCommandLine(Parameters.Sign.FullName));
 			}
 			if(Parameters.Order != null)
 			{
-				CommandLine.AppendFormat(" -order={0}", CommandUtils.MakePathSafeToUseWithCommandLine(ResolveFile(Parameters.Order).FullName));
+				CommandLine.AppendFormat(" -order={0}", CommandUtils.MakePathSafeToUseWithCommandLine(Parameters.Order.FullName));
 			}
 			if (GlobalCommandLine.Installed)
 			{
@@ -175,7 +170,7 @@ namespace BuildGraph.Tasks
 			}
 
 			// Run it
-			CommandUtils.Log("Running '{0} {1}'", CommandUtils.MakePathSafeToUseWithCommandLine(UnrealPakExe.FullName), CommandLine.ToString());
+			CommandUtils.LogInformation("Running '{0} {1}'", CommandUtils.MakePathSafeToUseWithCommandLine(UnrealPakExe.FullName), CommandLine.ToString());
 			CommandUtils.RunAndLog(CommandUtils.CmdEnv, UnrealPakExe.FullName, CommandLine.ToString(), Options: CommandUtils.ERunOptions.Default | CommandUtils.ERunOptions.UTF8Output);
 			BuildProducts.Add(OutputFile);
 

@@ -50,26 +50,28 @@ FExternalProfiler* FActiveExternalProfilerBase::GetActiveProfiler()
 	// Create profiler on demand.
 	if (ActiveProfiler == NULL && !bDidInitialize)
 	{
-		const int32 AvailableProfilerCount = IModularFeatures::Get().GetModularFeatureImplementationCount(FExternalProfiler::GetFeatureName());
-		for (int32 CurProfilerIndex = 0; CurProfilerIndex < AvailableProfilerCount; ++CurProfilerIndex)
+		const FName FeatureName = FExternalProfiler::GetFeatureName();
+		TArray<FExternalProfiler*> AvailbleProfilers = IModularFeatures::Get().GetModularFeatureImplementations<FExternalProfiler>(FeatureName);
+
+		for (FExternalProfiler* CurProfiler : AvailbleProfilers)
 		{
-			FExternalProfiler& CurProfiler = IModularFeatures::Get().GetModularFeature<FExternalProfiler&>(FExternalProfiler::GetFeatureName());
+			check(CurProfiler != nullptr);
 
 #if 0
 			// Logging disabled here as it can cause a stack overflow whilst flushing logs during EnginePreInit
-			UE_LOG(LogExternalProfiler, Log, TEXT("Found external profiler: %s"), CurProfiler.GetProfilerName());
+			UE_LOG(LogExternalProfiler, Log, TEXT("Found external profiler: %s"), CurProfiler->GetProfilerName());
 #endif
 
 			// Default to the first profiler we have if none were specified on the command-line
 			if (ActiveProfiler == NULL)
 			{
-				ActiveProfiler = &CurProfiler;
+				ActiveProfiler = CurProfiler;
 			}
 
 			// Check to see if the profiler was specified on the command-line (e.g., "-VTune")
-			if (FParse::Param(FCommandLine::Get(), CurProfiler.GetProfilerName()))
+			if (FParse::Param(FCommandLine::Get(), CurProfiler->GetProfilerName()))
 			{
-				ActiveProfiler = &CurProfiler;
+				ActiveProfiler = CurProfiler;
 			}
 		}
 
@@ -88,6 +90,7 @@ FExternalProfiler* FActiveExternalProfilerBase::GetActiveProfiler()
 		// Don't try to initialize again this session
 		bDidInitialize = true;
 	}
+
 	return ActiveProfiler;
 }
 

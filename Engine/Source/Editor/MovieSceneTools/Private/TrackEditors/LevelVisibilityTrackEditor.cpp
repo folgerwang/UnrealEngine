@@ -97,6 +97,11 @@ void FLevelVisibilityTrackEditor::OnAddTrack()
 		return;
 	}
 
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	const FScopedTransaction Transaction( LOCTEXT( "AddLevelVisibilityTrack_Transaction", "Add Level Visibility Track" ) );
 	FocusedMovieScene->Modify();
 

@@ -12,6 +12,7 @@
 	"EnabledByDefault" : false,
 	"CanContainContent" : true,
 	"IsBetaVersion" : false,
+	"Installed" : false,
 	"Modules" :
 	[
 		{
@@ -37,6 +38,10 @@
 	],
 	"Plugins" :
 	[
+		{
+			"Name": "MediaIOFramework",
+			"Enabled": true
+		},
 		{
 			"Name" : "OpenCVLensDistortion",
 			"Enabled" : true

@@ -86,13 +86,13 @@ bool FPixelInspectorModule::GetViewportRealtime(int32 ViewportUid, bool IsCurren
 	return IsCurrentlyRealtime;
 }
 
-void FPixelInspectorModule::CreatePixelInspectorRequest(FVector2D InspectViewportUV, int32 ViewportUniqueId, FSceneInterface *SceneInterface, bool bInGameViewMode)
+void FPixelInspectorModule::CreatePixelInspectorRequest(FVector2D InspectViewportUV, int32 ViewportUniqueId, FSceneInterface *SceneInterface, bool bInGameViewMode, float InPreExposure)
 {
 	if (HPixelInspectorWindow.IsValid() == false)
 	{
 		return;
 	}
-	HPixelInspectorWindow->CreatePixelInspectorRequest(InspectViewportUV, ViewportUniqueId, SceneInterface, bInGameViewMode);
+	HPixelInspectorWindow->CreatePixelInspectorRequest(InspectViewportUV, ViewportUniqueId, SceneInterface, bInGameViewMode, InPreExposure);
 }
 
 void FPixelInspectorModule::SetViewportInformation(int32 ViewportUniqueId, FIntPoint ViewportSize)

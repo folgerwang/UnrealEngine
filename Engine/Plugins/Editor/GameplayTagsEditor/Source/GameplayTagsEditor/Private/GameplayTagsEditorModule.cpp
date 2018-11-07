@@ -31,6 +31,8 @@
 #include "GameplayTagReferenceHelperDetails.h"
 #include "UObject/UObjectHash.h"
 #include "GameplayTagReferenceHelperDetails.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/FileHelper.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagEditor"
 
@@ -280,16 +282,14 @@ public:
 		}
 	}
 
-	bool DeleteTagRedirector(const FString& TagToDelete)
+	bool DeleteTagRedirector(const FName& TagToDelete)
 	{
-		FName TagName = FName(*TagToDelete);
-
 		UGameplayTagsSettings* Settings = GetMutableDefault<UGameplayTagsSettings>();
 		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 
 		for (int32 i = 0; i < Settings->GameplayTagRedirects.Num(); i++)
 		{
-			if (Settings->GameplayTagRedirects[i].OldTagName == TagName)
+			if (Settings->GameplayTagRedirects[i].OldTagName == TagToDelete)
 			{
 				Settings->GameplayTagRedirects.RemoveAt(i);
 
@@ -299,7 +299,7 @@ public:
 
 				Manager.EditorRefreshGameplayTagTree();
 
-				ShowNotification(FText::Format(LOCTEXT("RemoveTagRedirect", "Deleted tag redirect {0}"), FText::FromString(TagToDelete)), 5.0f);
+				ShowNotification(FText::Format(LOCTEXT("RemoveTagRedirect", "Deleted tag redirect {0}"), FText::FromName(TagToDelete)), 5.0f);
 
 				return true;
 			}
@@ -325,11 +325,13 @@ public:
 		UGameplayTagsSettings*			Settings = GetMutableDefault<UGameplayTagsSettings>();
 		UGameplayTagsDeveloperSettings* DevSettings = GetMutableDefault<UGameplayTagsDeveloperSettings>();
 
+		FName NewTagName = FName(*NewTag);
+
 		// Delete existing redirector
-		DeleteTagRedirector(NewTag);
+		DeleteTagRedirector(NewTagName);
 
 		// Already in the list as an explicit tag, ignore. Note we want to add if it is in implicit tag. (E.g, someone added A.B.C then someone tries to add A.B)
-		if (Manager.IsDictionaryTag(FName(*NewTag)))
+		if (Manager.IsDictionaryTag(NewTagName))
 		{
 			ShowNotification(FText::Format(LOCTEXT("AddTagFailure_AlreadyExists", "Failed to add gameplay tag {0}, already exists!"), FText::FromString(NewTag)), 10.0f);
 
@@ -387,7 +389,7 @@ public:
 							break;
 						}
 
-						ShowNotification(FText::Format(LOCTEXT("AddTagFailure", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
+						ShowNotification(FText::Format(LOCTEXT("AddTagFailure_RestrictedTag", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
 
 						return false;
 					}
@@ -468,9 +470,9 @@ public:
 		return true;
 	}
 
-	virtual bool DeleteTagFromINI(const FString& TagToDelete) override
+	virtual bool DeleteTagFromINI(TSharedPtr<FGameplayTagNode> TagNodeToDelete) override
 	{
-		FName TagName = FName(*TagToDelete);
+		FName TagName = TagNodeToDelete->GetCompleteTagName();
 
 		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 		UGameplayTagsSettings* Settings = GetMutableDefault<UGameplayTagsSettings>();
@@ -481,31 +483,37 @@ public:
 		bool bTagIsRestricted;
 		bool bTagAllowsNonRestrictedChildren;
 
-		if (DeleteTagRedirector(TagToDelete))
+		if (DeleteTagRedirector(TagName))
 		{
 			return true;
 		}
 		
 		if (!Manager.GetTagEditorData(TagName, Comment, TagSourceName, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren))
 		{
-			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoTag", "Cannot delete tag {0}, does not exist!"), FText::FromString(TagToDelete)), 10.0f);
-
+			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoTag", "Cannot delete tag {0}, does not exist!"), FText::FromName(TagName)), 10.0f);
 			return false;
 		}
+
+		ensure(bTagIsRestricted == TagNodeToDelete->IsRestrictedGameplayTag());
 
 		const FGameplayTagSource* TagSource = Manager.FindTagSource(TagSourceName);
 
 		// Check if the tag is implicitly defined
 		if (!bTagIsExplicit || !TagSource)
 		{
-			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoSource", "Cannot delete tag {0} as it is implicit, remove children manually"), FText::FromString(TagToDelete)), 10.0f);
-
+			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoSource", "Cannot delete tag {0} as it is implicit, remove children manually"), FText::FromName(TagName)), 10.0f);
 			return false;
 		}
-		else if (!TagSource->SourceTagList)
+		
+		if (bTagIsRestricted && !TagSource->SourceRestrictedTagList)
 		{
-			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureBadSource", "Cannot delete tag {0} from source {1}, remove manually"), FText::FromString(TagToDelete), FText::FromName(TagSourceName)), 10.0f);
+			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureBadSource", "Cannot delete tag {0} from source {1}, remove manually"), FText::FromName(TagName), FText::FromName(TagSourceName)), 10.0f);
+			return false;
+		}
 
+		if (!bTagIsRestricted && !TagSource->SourceTagList)
+		{
+			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureBadSource", "Cannot delete tag {0} from source {1}, remove manually"), FText::FromName(TagName), FText::FromName(TagSourceName)), 10.0f);
 			return false;
 		}
 
@@ -517,7 +525,7 @@ public:
 		TagsThatWillBeDeleted.Add(TagName);
 
 		FGameplayTag ParentTag = ActualTag.RequestDirectParent();
-		while (ParentTag.IsValid())
+		while (ParentTag.IsValid() && !Manager.FindTagNode(ParentTag)->IsExplicitTag())
 		{
 			// See if there are more children than the one we are about to delete
 			FGameplayTagContainer ParentChildTags = Manager.RequestGameplayTagChildrenInDictionary(ParentTag);
@@ -553,27 +561,45 @@ public:
 		}
 
 		// Passed, delete and save
-		UGameplayTagsList* TagList = TagSource->SourceTagList;
+		const FString& ConfigFileName = bTagIsRestricted ? TagSource->SourceRestrictedTagList->ConfigFileName : TagSource->SourceTagList->ConfigFileName;
+		int32 TagListSize = bTagIsRestricted ? TagSource->SourceRestrictedTagList->RestrictedGameplayTagList.Num() : TagSource->SourceTagList->GameplayTagList.Num();
 
-		for (int32 i = 0; i < TagList->GameplayTagList.Num(); i++)
+		for (int32 i = 0; i < TagListSize; i++)
 		{
-			if (TagList->GameplayTagList[i].Tag == TagName)
+			bool bRemoved = false;
+			if (bTagIsRestricted)
 			{
-				TagList->GameplayTagList.RemoveAt(i);
+				if (TagSource->SourceRestrictedTagList->RestrictedGameplayTagList[i].Tag == TagName)
+				{
+					TagSource->SourceRestrictedTagList->RestrictedGameplayTagList.RemoveAt(i);
+					TagSource->SourceRestrictedTagList->UpdateDefaultConfigFile(ConfigFileName);
+					bRemoved = true;
+				}
+			}
+			else
+			{
+				if (TagSource->SourceTagList->GameplayTagList[i].Tag == TagName)
+				{
+					TagSource->SourceTagList->GameplayTagList.RemoveAt(i);
+					TagSource->SourceTagList->UpdateDefaultConfigFile(ConfigFileName);
+					bRemoved = true;
+				}
+			}
 
-				TagList->UpdateDefaultConfigFile(TagList->ConfigFileName);
-				GameplayTagsUpdateSourceControl(TagList->ConfigFileName);
-				GConfig->LoadFile(TagList->ConfigFileName);
+			if (bRemoved)
+			{
+				GameplayTagsUpdateSourceControl(ConfigFileName);
+				GConfig->LoadFile(ConfigFileName);
 
 				// See if we still live due to child tags
 
 				if (ChildTags.Num() > 0)
 				{
-					ShowNotification(FText::Format(LOCTEXT("RemoveTagChildrenExist", "Deleted explicit tag {0}, still exists implicitly due to children"), FText::FromString(TagToDelete)), 5.0f);
+					ShowNotification(FText::Format(LOCTEXT("RemoveTagChildrenExist", "Deleted explicit tag {0}, still exists implicitly due to children"), FText::FromName(TagName)), 5.0f);
 				}
 				else
 				{
-					ShowNotification(FText::Format(LOCTEXT("RemoveTag", "Deleted tag {0}"), FText::FromString(TagToDelete)), 5.0f);
+					ShowNotification(FText::Format(LOCTEXT("RemoveTag", "Deleted tag {0}"), FText::FromName(TagName)), 5.0f);
 				}
 
 				// This invalidates all local variables, need to return right away
@@ -583,9 +609,76 @@ public:
 			}
 		}
 
-		ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoTag", "Cannot delete tag {0}, does not exist!"), FText::FromString(TagToDelete)), 10.0f);
+		ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoTag", "Cannot delete tag {0}, does not exist!"), FText::FromName(TagName)), 10.0f);
 		
 		return false;
+	}
+
+	virtual bool UpdateTagInINI(const FString& TagToUpdate, const FString& Comment, bool bIsRestrictedTag, bool bAllowNonRestrictedChildren) override
+	{
+		FName TagName = FName(*TagToUpdate);
+
+		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
+		UGameplayTagsSettings* Settings = GetMutableDefault<UGameplayTagsSettings>();
+
+		FString OldComment;
+		FName TagSourceName;
+		bool bTagIsExplicit;
+		bool bTagWasRestricted;
+		bool bTagDidAllowNonRestrictedChildren;
+
+		bool bSuccess = false;
+
+		if (Manager.GetTagEditorData(TagName, OldComment, TagSourceName, bTagIsExplicit, bTagWasRestricted, bTagDidAllowNonRestrictedChildren))
+		{
+			if (const FGameplayTagSource* TagSource = Manager.FindTagSource(TagSourceName))
+			{
+				// if we're disallowing non-restricted children make sure we don't already have some
+				if (bTagDidAllowNonRestrictedChildren && !bAllowNonRestrictedChildren)
+				{
+					FGameplayTag ActualTag = Manager.RequestGameplayTag(TagName);
+					FGameplayTagContainer ChildTags = Manager.RequestGameplayTagDirectDescendantsInDictionary(ActualTag, EGameplayTagSelectionType::NonRestrictedOnly);
+					if (!ChildTags.IsEmpty())
+					{
+						ShowNotification(LOCTEXT("ToggleAllowNonRestrictedChildrenFailure", "Cannot prevent non-restricted children since some already exist! Delete them first."), 10.0f);
+						return false;
+					}
+				}
+
+				UObject* TagListObj = nullptr;
+				FString ConfigFileName;
+
+				if (bIsRestrictedTag && TagSource->SourceRestrictedTagList)
+				{
+					URestrictedGameplayTagsList* RestrictedTagList = TagSource->SourceRestrictedTagList;
+					TagListObj = RestrictedTagList;
+					ConfigFileName = RestrictedTagList->ConfigFileName;
+
+					for (int32 i = 0; i < RestrictedTagList->RestrictedGameplayTagList.Num(); i++)
+					{
+						if (RestrictedTagList->RestrictedGameplayTagList[i].Tag == TagName)
+						{
+							RestrictedTagList->RestrictedGameplayTagList[i].bAllowNonRestrictedChildren = bAllowNonRestrictedChildren;
+							bSuccess = true;
+							break;
+						}
+					}
+				}
+
+				if (bSuccess)
+				{
+					// Check source control before and after writing, to make sure it gets created or checked out
+					GameplayTagsUpdateSourceControl(ConfigFileName);
+					TagListObj->UpdateDefaultConfigFile(ConfigFileName);
+					GameplayTagsUpdateSourceControl(ConfigFileName);
+
+					GConfig->LoadFile(ConfigFileName);
+				}
+
+			}
+		}
+
+		return bSuccess;
 	}
 
 	virtual bool RenameTagInINI(const FString& TagToRename, const FString& TagToRenameTo) override
@@ -603,8 +696,8 @@ public:
 		bool bTagAllowsNonRestrictedChildren;
 
 		// Delete existing redirector
-		DeleteTagRedirector(TagToRenameTo);
-		DeleteTagRedirector(TagToRename);
+		DeleteTagRedirector(NewTagName);
+		DeleteTagRedirector(OldTagName);
 
 		if (Manager.GetTagEditorData(OldTagName, OldComment, OldTagSourceName, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren))
 		{
@@ -684,6 +777,76 @@ public:
 		return true;
 	}
 
+	static bool WriteCustomReport(FString FileName, TArray<FString>& FileLines)
+	{
+		// Has a report been generated
+		bool ReportGenerated = false;
+
+		// Ensure we have a log to write
+		if (FileLines.Num())
+		{
+			// Create the file name		
+			FString FileLocation = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() + TEXT("Reports/"));
+			FString FullPath = FString::Printf(TEXT("%s%s"), *FileLocation, *FileName);
+
+			// save file
+			FArchive* LogFile = IFileManager::Get().CreateFileWriter(*FullPath);
+
+			if (LogFile != NULL)
+			{
+				for (int32 Index = 0; Index < FileLines.Num(); ++Index)
+				{
+					FString LogEntry = FString::Printf(TEXT("%s"), *FileLines[Index]) + LINE_TERMINATOR;
+					LogFile->Serialize(TCHAR_TO_ANSI(*LogEntry), LogEntry.Len());
+				}
+
+				LogFile->Close();
+				delete LogFile;
+
+				// A report has been generated
+				ReportGenerated = true;
+			}
+		}
+
+		return ReportGenerated;
+	}
+
+	static void DumpTagList()
+	{
+		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
+
+		TArray<FString> ReportLines;
+
+		ReportLines.Add(TEXT("Tag,Reference Count,Source,Comment"));
+
+		FGameplayTagContainer AllTags;
+		Manager.RequestAllGameplayTags(AllTags, true);
+
+		TArray<FGameplayTag> ExplicitList;
+		AllTags.GetGameplayTagArray(ExplicitList);
+
+		ExplicitList.Sort();
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		
+		for (const FGameplayTag& Tag : ExplicitList)
+		{
+			TArray<FAssetIdentifier> Referencers;
+			FAssetIdentifier TagId = FAssetIdentifier(FGameplayTag::StaticStruct(), Tag.GetTagName());
+			AssetRegistryModule.Get().GetReferencers(TagId, Referencers, EAssetRegistryDependencyType::SearchableName);
+
+			FString Comment;
+			FName TagSource;
+			bool bExplicit, bRestricted, bAllowNonRestrictedChildren;
+
+			Manager.GetTagEditorData(Tag.GetTagName(), Comment, TagSource, bExplicit, bRestricted, bAllowNonRestrictedChildren);
+
+			ReportLines.Add(FString::Printf(TEXT("%s,%d,%s,%s"), *Tag.ToString(), Referencers.Num(), *TagSource.ToString(), *Comment));
+		}
+
+		WriteCustomReport(TEXT("TagList.csv"), ReportLines);
+	}
+
 	FDelegateHandle AssetImportHandle;
 	FDelegateHandle SettingsChangedHandle;
 
@@ -691,6 +854,11 @@ public:
 	FName GameplayTagStructName;
 };
 
+static FAutoConsoleCommand CVarDumpTagList(
+	TEXT("GameplayTags.DumpTagList"),
+	TEXT("Writes out a csv with all tags to Reports/TagList.csv"),
+	FConsoleCommandDelegate::CreateStatic(FGameplayTagsEditorModule::DumpTagList),
+	ECVF_Cheat);
 
 IMPLEMENT_MODULE(FGameplayTagsEditorModule, GameplayTagsEditor)
 

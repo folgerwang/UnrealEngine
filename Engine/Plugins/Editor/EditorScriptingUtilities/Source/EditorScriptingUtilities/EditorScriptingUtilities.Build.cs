@@ -21,6 +21,8 @@ namespace UnrealBuildTool.Rules
 					"AssetTools",
 					"EditorStyle",
 					"MainFrame",
+					"MeshDescription",
+					"MeshDescriptionOperations",
 					"RawMesh",
 					"Slate",
 					"SlateCore",

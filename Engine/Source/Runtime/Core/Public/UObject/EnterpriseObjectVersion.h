@@ -15,6 +15,15 @@ struct CORE_API FEnterpriseObjectVersion
 		// Conditional serialization of bulk (UDatasmithScene) and extra (UDatasmithStaticMeshCADImportData) data 
 		FixSerializationOfBulkAndExtraData,
 
+		// Extensibility updates for bookmarks
+		BookmarkExtensibilityUpgrade,
+
+		// Update FMediaFrameworkCaptureCameraViewportCameraOutputInfo with LazyObjectPtr
+		MediaFrameworkUserDataLazyObject,
+		
+		// Live Live timecode synchronization updates
+		LiveLinkTimeSynchronization,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

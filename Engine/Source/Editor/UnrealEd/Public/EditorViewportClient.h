@@ -273,6 +273,10 @@ public:
 
 	virtual ~FEditorViewportClient();
 
+	/** Non-copyable */
+	FEditorViewportClient(const FEditorViewportClient&) = delete;
+	FEditorViewportClient& operator=(const FEditorViewportClient&) = delete;
+
 	/**
 	 * Toggles whether or not the viewport updates in realtime and returns the updated state.
 	 *
@@ -449,6 +453,13 @@ public:
 	/** FViewElementDrawer interface */
 	virtual void Draw(const FSceneView* View,FPrimitiveDrawInterface* PDI) override;
 	virtual void Draw(FViewport* Viewport,FCanvas* Canvas) override;
+
+	/**
+	 * Gets the world space cursor info from the current mouse position
+	 *
+	 * @return					An FViewportCursorLocation containing information about the mouse position in world space.
+	 */
+	FViewportCursorLocation GetCursorWorldLocationFromMousePos();
 
 	/** FViewportClient interface */
 	virtual void ProcessScreenShots(FViewport* Viewport) override;
@@ -713,10 +724,10 @@ public:
 	virtual bool DropObjectsAtCoordinates(int32 MouseX, int32 MouseY, const TArray<UObject*>& DroppedObjects, TArray<AActor*>& OutNewActors, bool bOnlyDropOnTarget = false, bool bCreateDropPreview = false, bool bSelectActors = true, UActorFactory* FactoryToUse = NULL ) { return false; }
 
 	/** Returns true if the viewport is allowed to be possessed for previewing cinematic sequences or keyframe animations*/
-	bool AllowsCinematicPreview() const { return bAllowCinematicPreview; }
+	bool AllowsCinematicControl() const { return bAllowCinematicControl; }
 
 	/** Sets whether or not this viewport is allowed to be possessed by cinematic/scrubbing tools */
-	void SetAllowCinematicPreview( bool bInAllowCinematicPreview ) { bAllowCinematicPreview = bInAllowCinematicPreview; }
+	void SetAllowCinematicControl( bool bInAllowCinematicControl) { bAllowCinematicControl = bInAllowCinematicControl; }
 
 public:
 	/** True if the window is maximized or floating */
@@ -979,7 +990,7 @@ public:
 protected:
 
 	/** true if this window is allowed to be possessed by cinematic tools for previewing sequences in real-time */
-	bool bAllowCinematicPreview;
+	bool bAllowCinematicControl;
 
 	/** Camera speed setting */
 	int32 CameraSpeedSetting;
@@ -1006,7 +1017,8 @@ public:
 
 	void SetGameView(bool bGameViewEnable);
 
-	/** 
+	virtual void SetVREditView(bool bGameViewEnable);
+	/**
 	 * Returns true if this viewport is excluding non-game elements from its display
 	 */
 	virtual bool IsInGameView() const override { return bInGameViewMode; }
@@ -1104,6 +1116,9 @@ public:
 
 	/** Set whether previewing for low DPI. */
 	void SetLowDPIPreview(bool LowDPIPreview);
+	
+	/** Mouse info is usually transformed to gizmo space before FEdMode handles it, this allows raw delta X and Y access */
+	FMouseDeltaTracker* GetMouseDeltaTracker() { return  MouseDeltaTracker; }
 	
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */
@@ -1601,6 +1616,9 @@ private:
 
 	/** If true, we are in Game View mode*/
 	bool bInGameViewMode;
+
+	/** If true, we are in VR Edit View mode*/
+	bool bInVREditViewMode;
 
 	/** If true, the viewport widget should be invalidated on the next tick (needed to ensure thread safety) */
 	bool bShouldInvalidateViewportWidget;

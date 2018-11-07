@@ -112,7 +112,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.15.1-release](
 
 * UE-42101 [daydream] FirstPersonTemplate 와 4.15P4 에서의 검정 화면을 고쳤습니다.
 
-* UE-41604 Oculus 에서 렌더 타겟 할당에 대한 잘못된 실패 케이스 픽스를 통합시켰습니다.
+* UE-41604 Oculus 에서 렌더 타깃 할당에 대한 잘못된 실패 케이스 픽스를 통합시켰습니다.
 
 * UE-41568 Win64 플랫폼에서 GearVR 활성화를 시켜줘야 하던 것을 고쳤습니다.
 

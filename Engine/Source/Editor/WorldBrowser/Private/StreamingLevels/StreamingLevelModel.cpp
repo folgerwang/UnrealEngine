@@ -48,6 +48,16 @@ ULevel* FStreamingLevelModel::GetLevelObject() const
 	}
 }
 
+bool FStreamingLevelModel::IsTransient() const
+{
+	if (ULevelStreaming* StreamingObj = LevelStreaming.Get())
+	{
+		return StreamingObj->HasAnyFlags(RF_Transient);
+	}
+
+	return false;
+}
+
 FName FStreamingLevelModel::GetAssetName() const
 {
 	return NAME_None;

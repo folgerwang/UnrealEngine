@@ -150,11 +150,11 @@ void FSocketSubsystemSteam::Shutdown()
  *
  * @Param SocketType type of socket to create (DGram, Stream, etc)
  * @param SocketDescription debug description
- * @param bForceUDP overrides any platform specific protocol with UDP instead
+ * @param ProtocolType the socket protocol to be used
  *
  * @return the new socket or NULL if failed
  */
-FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
+FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType)
 {
 	FSocket* NewSocket = NULL;
 	if (SocketType == FName("SteamClientSocket"))
@@ -199,10 +199,10 @@ FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FStr
 		ISocketSubsystem* PlatformSocketSub = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 		if (PlatformSocketSub)
 		{
-			NewSocket = PlatformSocketSub->CreateSocket(SocketType, SocketDescription, bForceUDP);
+			NewSocket = PlatformSocketSub->CreateSocket(SocketType, SocketDescription, ProtocolType);
 		}
 	}
-	
+
 	if (!NewSocket)
 	{
 		UE_LOG(LogSockets, Warning, TEXT("Failed to create socket %s [%s]"), *SocketType.ToString(), *SocketDescription);
@@ -309,6 +309,28 @@ void FSocketSubsystemSteam::ConnectFailure(FUniqueNetIdSteam& RemoteId)
 	}
 
 	P2PRemove(RemoteId);
+}
+
+/**
+ * Gets the address information of the given hostname and outputs it into an array of resolvable addresses.
+ * It is up to the caller to determine which one is valid for their environment.
+ *
+ * @param HostName string version of the queryable hostname or ip address
+ * @param ServiceName string version of a service name ("http") or a port number ("80")
+ * @param QueryFlags What flags are used in making the getaddrinfo call. Several flags can be used at once by ORing the values together.
+ *                   Platforms are required to translate this value into a the correct flag representation.
+ * @param ProtocolType this is used to limit results from the call. Specifying None will search all valid protocols.
+ *					   Callers will find they rarely have to specify this flag.
+ * @param SocketType What socket type should the results be formatted for. This typically does not change any formatting results and can
+ *                   be safely left to the default value.
+ *
+ * @return the array of results from GetAddrInfo
+ */
+FAddressInfoResult FSocketSubsystemSteam::GetAddressInfo(const TCHAR* HostName, const TCHAR* ServiceName,
+	EAddressInfoFlags QueryFlags, ESocketProtocolFamily ProtocolType,	ESocketType SocketType)
+{
+	UE_LOG_ONLINE(Warning, TEXT("GetAddressInfo is not supported on Steam Sockets"));
+	return FAddressInfoResult(HostName, ServiceName);
 }
 
 /**

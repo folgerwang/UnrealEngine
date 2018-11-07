@@ -31,6 +31,7 @@ struct FExpressionInput
 	UPROPERTY()
 	int32 OutputIndex;
 
+#if WITH_EDITORONLY_DATA
 	/** 
 	 * optional FName of the input.  
 	 * Note that this is the only member which is not derived from the output currently connected. 
@@ -52,6 +53,7 @@ struct FExpressionInput
 
 	UPROPERTY()
 	int32 MaskA;
+#endif
 
 	/** Material expression name that this input is connected to, or None if not connected. Used only in cooked builds */
 	UPROPERTY()
@@ -75,6 +77,7 @@ struct FExpressionOutput
 	UPROPERTY()
 	FName OutputName;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	int32 Mask;
 
@@ -89,7 +92,7 @@ struct FExpressionOutput
 
 	UPROPERTY()
 	int32 MaskA;
-
+#endif
 };
 #endif
 
@@ -202,7 +205,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	
 	virtual bool Modify( bool bAlwaysMarkDirty=true ) override;
 #endif // WITH_EDITOR
-	virtual void Serialize( FArchive& Ar ) override;
+	virtual void Serialize( FStructuredArchive::FRecord Record ) override;
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForEditorGame() const override
 	{
@@ -406,7 +409,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	* Parameter Name functions, this is requires as multiple class have ParameterName
 	* but are not UMaterialExpressionParameter due to class hierarchy. */
 	virtual bool HasAParameterName() const { return false; }
-	virtual void ValidateParameterName();
+	virtual void ValidateParameterName(const bool bAllowDuplicateName = true);
 
 	virtual FName GetParameterName() const { return NAME_None; }
 	virtual void SetParameterName(const FName& Name) {}

@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Misc/Optional.h"
+#include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
 
 
@@ -48,6 +50,14 @@ public:
 	 * @see GetData, GetDuration, GetSize, GetTime
 	 */
 	virtual FTimespan GetTime() const = 0;
+
+	/**
+	 * Get the sample timecode if available.
+	 *
+	 * @return Sample timecode.
+	 * @see GetTime
+	 */
+	virtual TOptional<FTimecode> GetTimecode() const { return TOptional<FTimecode>(); }
 
 public:
 

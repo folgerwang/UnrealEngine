@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
+#include "Containers/ContainersFwd.h"
 #include "Containers/ArrayView.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"
+#include "CoreGlobals.h"
 
 class FTextLocalizationResource;
 class FTextLocalizationResources;
@@ -72,9 +74,11 @@ public:
 		return EnumHasAnyFlags(InLoadFlags, ELocalizationLoadFlags::Additional);
 	}
 
-	/** Should we load localized game data based on the given load flags and environment? */
-	static FORCEINLINE bool ShouldLoadLocalizedGameData(const ELocalizationLoadFlags InLoadFlags)
+	/** Should we load native game data based on the given load flags and environment? */
+	static FORCEINLINE bool ShouldLoadNativeGameData(const ELocalizationLoadFlags InLoadFlags)
 	{
-		return !GIsEditor || EnumHasAnyFlags(InLoadFlags, ELocalizationLoadFlags::ForceLocalizedGame);
+		// The editor loads native game data by default to prevent authoring issues
+		// It will load localized data only if the request is forced (eg, when entering game localization preview mode)
+		return GIsEditor && !EnumHasAnyFlags(InLoadFlags, ELocalizationLoadFlags::ForceLocalizedGame);
 	}
 };

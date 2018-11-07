@@ -17,10 +17,12 @@
 #include "UObject/VRObjectVersion.h"
 #include "UObject/GeometryObjectVersion.h"
 #include "UObject/AnimPhysObjectVersion.h"
+#include "UObject/AnimObjectVersion.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/ReflectionCaptureObjectVersion.h"
 #include "UObject/LoadTimesObjectVersion.h"
 #include "UObject/AutomationObjectVersion.h"
+#include "UObject/NiagaraObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDevObjectVersion, Log, All);
 
@@ -126,6 +128,11 @@ const FGuid FAnimPhysObjectVersion::GUID(0x29E575DD, 0xE0A34627, 0x9D10D276, 0x2
 // Register AnimPhys custom version with Core
 FDevVersionRegistration GRegisterAnimPhysObjectVersion(FAnimPhysObjectVersion::GUID, FAnimPhysObjectVersion::LatestVersion, TEXT("Dev-AnimPhys"));
 
+// Unique Anim Object version id
+const FGuid FAnimObjectVersion::GUID(0xAF43A65D, 0x7FD34947, 0x98733E8E, 0xD9C1BB05);
+// Register AnimPhys custom version with Core
+FDevVersionRegistration GRegisterAnimObjectVersion(FAnimObjectVersion::GUID, FAnimObjectVersion::LatestVersion, TEXT("Dev-Anim"));
+
 // Unique ReflectionCapture Object version id
 const FGuid FReflectionCaptureObjectVersion::GUID(0x6B266CEC, 0x1EC74B8F, 0xA30BE4D9, 0x0942FC07);
 // Register Rendering custom version with Core
@@ -145,3 +152,8 @@ FDevVersionRegistration GRegisterFortniteMainBranchObjectVersion(FFortniteMainBr
 const FGuid FEnterpriseObjectVersion::GUID(0x9DFFBCD6, 0x494F0158, 0xE2211282, 0x3C92A888);
 // Register Enterprise custom version with Core
 FDevVersionRegistration GRegisterEnterpriseObjectVersion(FEnterpriseObjectVersion::GUID, FEnterpriseObjectVersion::LatestVersion, TEXT("Dev-Enterprise"));
+
+// Unique Niagara Object version id
+const FGuid FNiagaraObjectVersion::GUID(0xF2AED0AC, 0x9AFE416F, 0x8664AA7F, 0xFA26D6FC);
+// Register Niagara custom version with Core
+FDevVersionRegistration GRegisterNiagaraObjectVersion(FNiagaraObjectVersion::GUID, FNiagaraObjectVersion::LatestVersion, TEXT("Dev-Niagara"));

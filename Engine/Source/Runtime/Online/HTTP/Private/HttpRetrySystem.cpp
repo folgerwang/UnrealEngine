@@ -2,9 +2,12 @@
 
 #include "HttpRetrySystem.h"
 #include "HAL/PlatformTime.h"
+#include "HAL/PlatformProcess.h"
 #include "Math/RandomStream.h"
 #include "HttpModule.h"
 #include "Http.h"
+#include "HttpManager.h"
+#include "Stats/Stats.h"
 
 FHttpRetrySystem::FRequest::FRequest(
 	FManager& InManager,
@@ -265,15 +268,17 @@ float FHttpRetrySystem::FManager::GetLockoutPeriodSeconds(const FHttpRetryReques
 	{
 		if (LockoutPeriod <= 0.0f)
 		{
-			if (HttpRetryRequestEntry.Request->GetStatus() != EHttpRequestStatus::Failed_ConnectionError ||
-				!HttpRetryRequestEntry.Request->RetryDomains.IsValid())
+			const bool bFailedToConnect = HttpRetryRequestEntry.Request->GetStatus() == EHttpRequestStatus::Failed_ConnectionError;
+			const bool bHasRetryDomains = HttpRetryRequestEntry.Request->RetryDomains.IsValid();
+			// Skip the lockout period if we failed to connect to a domain and we have other domains to try
+			const bool bSkipLockoutPeriod = (bFailedToConnect && bHasRetryDomains);
+			if (!bSkipLockoutPeriod)
 			{
-				LockoutPeriod = 5.0f + 5.0f * ((HttpRetryRequestEntry.CurrentRetryCount - 1) >> 1);
-				LockoutPeriod = LockoutPeriod > 30.0f ? 30.0f : LockoutPeriod;
-			}
-			else
-			{
-				// Do not have a lockout period if we failed to connect to a domain and we have other domains to try
+				constexpr const float LockoutPeriodMinimumSeconds = 5.0f;
+				constexpr const float LockoutPeriodEscalationSeconds = 2.5f;
+				constexpr const float LockoutPeriodMaxSeconds = 30.0f;
+				LockoutPeriod = LockoutPeriodMinimumSeconds + LockoutPeriodEscalationSeconds * (HttpRetryRequestEntry.CurrentRetryCount - 1);
+				LockoutPeriod = FMath::Min(LockoutPeriod, LockoutPeriodMaxSeconds);
 			}
 		}
 	}
@@ -285,7 +290,8 @@ static FRandomStream temp(4435261);
 
 bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount, uint32* FailedCount, uint32* CompletedCount)
 {
-	//QUICK_SCOPE_CYCLE_COUNTER(STAT_FHttpRetrySystem_FManager_Update);
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FHttpRetrySystem_FManager_Update);
+
 	bool bIsGreen = true;
 
 	if (FileCount != nullptr)
@@ -550,4 +556,20 @@ void FHttpRetrySystem::FManager::CancelRequest(TSharedRef<FHttpRetrySystem::FReq
 		RequestList.Add(RetryRequestEntry);
 	}
 	HttpRetryRequest->HttpRequest->CancelRequest();
+}
+
+/* This should only be used when shutting down or suspending, to make sure 
+	all pending HTTP requests are flushed to the network */
+void FHttpRetrySystem::FManager::BlockUntilFlushed(float InTimeoutSec)
+{
+	const float SleepInterval = 0.016;
+	float TimeElapsed = 0.0f;
+	uint32 FileCount, FailingCount, FailedCount, CompleteCount;
+	while (RequestList.Num() > 0 && TimeElapsed < InTimeoutSec)
+	{
+		FHttpModule::Get().GetHttpManager().Tick(SleepInterval);
+		Update(&FileCount, &FailingCount, &FailedCount, &CompleteCount);
+		FPlatformProcess::Sleep(SleepInterval);
+		TimeElapsed += SleepInterval;
+	}
 }

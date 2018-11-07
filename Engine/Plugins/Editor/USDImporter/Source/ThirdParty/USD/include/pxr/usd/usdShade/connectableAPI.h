@@ -28,7 +28,7 @@
 
 #include "pxr/pxr.h"
 #include "pxr/usd/usdShade/api.h"
-#include "pxr/usd/usd/schemaBase.h"
+#include "pxr/usd/usd/apiSchemaBase.h"
 #include "pxr/usd/usd/prim.h"
 #include "pxr/usd/usd/stage.h"
 
@@ -57,24 +57,39 @@ class SdfAssetPath;
 ///
 /// UsdShadeConnectableAPI is an API schema that provides a common
 /// interface for creating outputs and making connections between shading 
-/// parameters and outputs.
+/// parameters and outputs. The interface is common to all UsdShade schemas
+/// that support Inputs and Outputs, which currently includes UsdShadeShader,
+/// UsdShadeNodeGraph, and UsdShadeMaterial .
+/// 
+/// One can construct a UsdShadeConnectableAPI directly from a UsdPrim, or
+/// from objects of any of the schema classes listed above.  If it seems
+/// onerous to need to construct a secondary schema object to interact with
+/// Inputs and Outputs, keep in mind that any function whose purpose is either
+/// to walk material/shader networks via their connections, or to create such
+/// networks, can typically be written entirely in terms of 
+/// UsdShadeConnectableAPI objects, without needing to care what the underlying
+/// prim type is.
+/// 
+/// Additionally, the most common UsdShadeConnectableAPI behaviors
+/// (creating Inputs and Outputs, and making connections) are wrapped as
+/// convenience methods on the prim schema classes (creation) and 
+/// UsdShadeInput and UsdShadeOutput.
 /// 
 ///
-class UsdShadeConnectableAPI : public UsdSchemaBase
+class UsdShadeConnectableAPI : public UsdAPISchemaBase
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = false;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::NonAppliedAPI;
 
     /// Construct a UsdShadeConnectableAPI on UsdPrim \p prim .
     /// Equivalent to UsdShadeConnectableAPI::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
     /// an invalid \p prim
     explicit UsdShadeConnectableAPI(const UsdPrim& prim=UsdPrim())
-        : UsdSchemaBase(prim)
+        : UsdAPISchemaBase(prim)
     {
     }
 
@@ -82,7 +97,7 @@ public:
     /// Should be preferred over UsdShadeConnectableAPI(schemaObj.GetPrim()),
     /// as it preserves SchemaBase state.
     explicit UsdShadeConnectableAPI(const UsdSchemaBase& schemaObj)
-        : UsdSchemaBase(schemaObj)
+        : UsdAPISchemaBase(schemaObj)
     {
     }
 
@@ -111,6 +126,13 @@ public:
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
 
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDSHADE_API
+    virtual UsdSchemaType _GetSchemaType() const;
+
 private:
     // needs to invoke _GetStaticTfType.
     friend class UsdSchemaRegistry;
@@ -135,25 +157,29 @@ public:
     // ===================================================================== //
     // --(BEGIN CUSTOM CODE)--
     
-private:
-    // Returns true if the given prim is compatible with this API schema,
-    // i.e. if it is a shader or a node-graph.
+protected:
+    /// Returns true if the given prim is compatible with this API schema,
+    /// i.e. if it is a valid shader or a node-graph.
     USDSHADE_API
-    virtual bool _IsCompatible(const UsdPrim &prim) const;
+    virtual bool _IsCompatible() const override;
     
 public:
 
     /// Constructor that takes a UsdShadeShader.
-    explicit UsdShadeConnectableAPI(const UsdShadeShader &shader):
+    /// Allow implicit (auto) conversion of UsdShadeShader to 
+    /// UsdShadeConnectableAPI, so that a shader can be passed into any function
+    /// that accepts a ConnectableAPI.
+    UsdShadeConnectableAPI(const UsdShadeShader &shader):
         UsdShadeConnectableAPI(shader.GetPrim())
-    {        
-    }
+    { }
 
     /// Constructor that takes a UsdShadeNodeGraph.
-    explicit UsdShadeConnectableAPI(const UsdShadeNodeGraph &nodeGraph):
+    /// Allow implicit (auto) conversion of UsdShadeNodeGraph to 
+    /// UsdShadeConnectableAPI, so that a nodegraph can be passed into any function
+    /// that accepts a ConnectableAPI.
+    UsdShadeConnectableAPI(const UsdShadeNodeGraph &nodeGraph):
         UsdShadeConnectableAPI(nodeGraph.GetPrim())
-    {        
-    }
+    { }
 
     /// Returns true if the prim is a shader.
     USDSHADE_API
@@ -162,20 +188,6 @@ public:
     /// Returns true if the prim is a node-graph.
     USDSHADE_API
     bool IsNodeGraph() const;
-
-    /// Allow UsdShadeConnectableAPI to auto-convert to UsdShadeNodeGraph, so 
-    /// you can pass in a UsdShadeConnectableAPI to any function that accepts 
-    /// a UsdShadeNodeGraph.
-    operator UsdShadeNodeGraph () {
-        return UsdShadeNodeGraph(GetPrim());
-    }
-
-    /// Allow UsdShadeConnectableAPI to auto-convert to UsdShadeShader, so 
-    /// you can pass in a UsdShadeConnectableAPI to any function that accepts 
-    /// a UsdShadeShader.
-    operator UsdShadeShader () {
-        return UsdShadeShader(GetPrim());
-    }
 
     /// \name Connections 
     /// 
@@ -189,9 +201,10 @@ public:
     /// source attribute, which can be an input or an output.
     /// 
     /// The result depends on the "connectability" of the input and the source 
-    /// attributes and the types of prims they belong to.
+    /// attributes. 
     /// 
     /// \sa UsdShadeInput::SetConnectability
+    /// \sa UsdShadeInput::GetConnectability
     USDSHADE_API
     static bool CanConnect(const UsdShadeInput &input, 
                            const UsdAttribute &source);
@@ -372,8 +385,9 @@ public:
 
 private:
     /// \deprecated 
-    /// Provided for use by UsdRiLookAPI to author old-style interface 
-    /// attribute connections, which require the \p renderTarget argument. 
+    /// Provided for use by UsdRiLookAPI and UsdRiMaterialAPI to author 
+    /// old-style interface attribute connections, which require the 
+    /// \p renderTarget argument. 
     /// 
     static bool _ConnectToSource(
         UsdProperty const &shadingProp,
@@ -384,13 +398,17 @@ private:
         SdfValueTypeName typeName=SdfValueTypeName());
 
 protected:
+    // Befriend UsdRiLookAPI and UsdRiMaterialAPI temporarily to assist in the
+    // transition to the new shading encoding.
     friend class UsdRiLookAPI;
+    friend class UsdRiMaterialAPI;
     
     /// \deprecated
     /// Connect the given shading property to the given source input. 
     /// 
-    /// Provided for use by UsdRiLookAPI to author old-style interface 
-    /// attribute connections, which require the \p renderTarget argument. 
+    /// Provided for use by UsdRiLookAPI and UsdRiMaterialAPI to author 
+    /// old-style interface attribute connections, which require the 
+    /// \p renderTarget argument. 
     /// 
     USDSHADE_API
     static bool _ConnectToSource(UsdProperty const &shadingProp, 
@@ -496,23 +514,25 @@ public:
         return HasConnectedSource(output.GetProperty());
     }
 
-    /// Returns true if the given shading property's source, as returned by 
-    /// UsdShadeConnectableAPI::GetConnectedSource(), is authored across a 
-    /// specializes arc, which is used to denote a base material.
+    /// Returns true if the connection to the given shading property's source, 
+    /// as returned by UsdShadeConnectableAPI::GetConnectedSource(), is authored
+    /// across a specializes arc, which is used to denote a base material.
     /// 
     USDSHADE_API
-    static bool IsSourceFromBaseMaterial(const UsdProperty &shadingProp);
+    static bool IsSourceConnectionFromBaseMaterial(
+        const UsdProperty &shadingProp);
 
     /// \overload
     USDSHADE_API
-    static bool IsSourceFromBaseMaterial(const UsdShadeInput &input) {
-        return IsSourceFromBaseMaterial(input.GetAttr());
+    static bool IsSourceConnectionFromBaseMaterial(const UsdShadeInput &input) {
+        return IsSourceConnectionFromBaseMaterial(input.GetAttr());
     }
 
     /// \overload
     USDSHADE_API
-    static bool IsSourceFromBaseMaterial(const UsdShadeOutput &output) {
-        return IsSourceFromBaseMaterial(output.GetProperty());
+    static bool IsSourceConnectionFromBaseMaterial(const UsdShadeOutput &output) 
+    {
+        return IsSourceConnectionFromBaseMaterial(output.GetProperty());
     }
 
     /// Disconnect source for this shading property.
@@ -560,6 +580,18 @@ public:
     static bool ClearSource(UsdShadeOutput const &output) {
         return ClearSource(output.GetProperty());
     }
+
+    /// \deprecated
+    /// 
+    /// Returns whether authoring of bidirectional connections for the old-style 
+    /// interface attributes is enabled. When this returns true, interface 
+    /// attribute connections are authored both ways (using both 
+    /// interfaceRecipientOf: and connectedSourceFor: relationships)
+    /// 
+    /// \note This method exists only for testing equality of the old and new
+    /// encoding of shading networks in USD. 
+    USDSHADE_API
+    static bool AreBidirectionalInterfaceConnectionsEnabled();
 
     /// @}
 

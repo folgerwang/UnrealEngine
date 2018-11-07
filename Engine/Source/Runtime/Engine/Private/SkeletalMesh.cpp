@@ -48,6 +48,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "Templates/UniquePtr.h"
 #include "AnimationRuntime.h"
+#include "UObject/NiagaraObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Rendering/SkeletalMeshModel.h"
@@ -504,6 +505,29 @@ bool USkeletalMesh::HasActiveClothingAssets() const
 #endif
 }
 
+bool USkeletalMesh::HasActiveClothingAssetsForLOD(int32 LODIndex) const
+{
+	if(FSkeletalMeshRenderData* Resource = GetResourceForRendering())
+	{
+		if (Resource->LODRenderData.IsValidIndex(LODIndex))
+		{
+			const FSkeletalMeshLODRenderData& LodData = Resource->LODRenderData[LODIndex];
+			const int32 NumSections = LodData.RenderSections.Num();
+			for(int32 SectionIdx = 0; SectionIdx < NumSections; ++SectionIdx)
+			{
+				const FSkelMeshRenderSection& Section = LodData.RenderSections[SectionIdx];
+
+				if(Section.ClothingData.AssetGuid.IsValid())
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 bool USkeletalMesh::ComputeActiveClothingAssets() const
 {
 	if(FSkeletalMeshRenderData* Resource = GetResourceForRendering())
@@ -709,10 +733,12 @@ FArchive &operator<<( FArchive& Ar, FSkeletalMeshLODInfo& I )
 {
 	Ar << I.LODMaterialMap;
 
+#if WITH_EDITORONLY_DATA
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_MOVE_SKELETALMESH_SHADOWCASTING )
 	{
 		Ar << I.bEnableShadowCasting_DEPRECATED;
 	}
+#endif
 
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::RemoveTriangleSorting)
@@ -906,6 +932,7 @@ void USkeletalMesh::BeginDestroy()
 		Skeleton->RemoveLinkup(this);
 	}
 
+#if WITH_EDITORONLY_DATA
 #if WITH_APEX_CLOTHING
 	// release clothing assets
 	for (FClothingAssetData_Legacy& Data : ClothingAssets_DEPRECATED)
@@ -917,6 +944,7 @@ void USkeletalMesh::BeginDestroy()
 		}
 	}
 #endif // #if WITH_APEX_CLOTHING
+#endif // WITH_EDITORONLY_DATA
 
 	// Release the mesh's render resources.
 	ReleaseResources();
@@ -939,6 +967,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+	Ar.UsingCustomVersion(FNiagaraObjectVersion::GUID);
 
 	FStripDataFlags StripFlags( Ar );
 
@@ -1616,6 +1645,12 @@ void USkeletalMesh::PostLoad()
 	bHasActiveClothingAssets = ComputeActiveClothingAssets();
 
 #if WITH_EDITOR
+	if (GetLinkerCustomVersion(FNiagaraObjectVersion::GUID) < FNiagaraObjectVersion::SkeletalMeshVertexSampling)
+	{
+		SamplingInfo.BuildRegions(this);
+		SamplingInfo.BuildWholeMesh(this);
+	}
+
 	UpdateGenerateUpToData();
 #endif
 }
@@ -1731,7 +1766,16 @@ void USkeletalMesh::DebugVerifySkeletalMeshLOD()
 	}
 }
 
-void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
+void USkeletalMesh::InitMorphTargetsAndRebuildRenderData()
+{
+	MarkPackageDirty();
+	// need to refresh the map
+	InitMorphTargets();
+	// invalidate render data
+	InvalidateRenderData();
+}
+
+bool USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget, bool bInvalidateRenderData)
 {
 	if ( MorphTarget )
 	{
@@ -1765,25 +1809,20 @@ void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
 			bRegistered = true;
 		}
 
-		if (bRegistered)
+		if (bRegistered && bInvalidateRenderData)
 		{
-			MarkPackageDirty();
-			// need to refresh the map
-			InitMorphTargets();
-			// invalidate render data
-			InvalidateRenderData();
+			InitMorphTargetsAndRebuildRenderData();
 		}
+		return bRegistered;
 	}
+	return false;
 }
+
 
 void USkeletalMesh::UnregisterAllMorphTarget()
 {
 	MorphTargets.Empty();
-	MarkPackageDirty();
-	// need to refresh the map
-	InitMorphTargets();
-	// invalidate render data
-	InvalidateRenderData();
+	InitMorphTargetsAndRebuildRenderData();
 }
 
 void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
@@ -1798,15 +1837,10 @@ void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
 			{
 				MorphTargets.RemoveAt(I);
 				--I;
-				MarkPackageDirty();
-				// need to refresh the map
-				InitMorphTargets();
-				// invalidate render data
-				InvalidateRenderData();
+				InitMorphTargetsAndRebuildRenderData();
 				return;
 			}
 		}
-
 		UE_LOG( LogSkeletalMesh, Log, TEXT("UnregisterMorphTarget: %s not found."), *MorphTarget->GetName() );
 	}
 }
@@ -2187,6 +2221,7 @@ FArchive& operator<<(FArchive& Ar, FSkeletalMaterial& Elem)
 		}
 #endif //#if WITH_EDITORONLY_DATA
 	}
+#if WITH_EDITORONLY_DATA
 	else
 	{
 		if (Ar.UE4Ver() >= VER_UE4_MOVE_SKELETALMESH_SHADOWCASTING)
@@ -2200,6 +2235,7 @@ FArchive& operator<<(FArchive& Ar, FSkeletalMaterial& Elem)
 			Ar << Elem.bRecomputeTangent_DEPRECATED;
 		}
 	}
+#endif
 	
 	if (!Ar.IsLoading() || Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::TextureStreamingMeshUVChannelData)
 	{
@@ -3093,9 +3129,9 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 		,	bForceWireframe(Component->bForceWireframe)
 		,	bCanHighlightSelectedSections(Component->bCanHighlightSelectedSections)
 		,	bRenderStatic(Component->bRenderStatic)
-		,	MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 		,	FeatureLevel(GetScene().GetFeatureLevel())
 		,	bMaterialsNeedMorphUsage_GameThread(false)
+		,	MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 #if WITH_EDITORONLY_DATA
 		,	StreamingDistanceMultiplier(FMath::Max(0.0f, Component->StreamingDistanceMultiplier))
 #endif
@@ -3114,8 +3150,8 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 	// Force inset shadows if capsule shadows are requested, as they can't be supported with full scene shadows
 	bCastInsetShadow = bCastInsetShadow || bCastCapsuleDirectShadow;
 
-	const USkeletalMeshComponent* SkeletalMeshComponent = Cast<const USkeletalMeshComponent>(Component);
-	if(SkeletalMeshComponent && SkeletalMeshComponent->bPerBoneMotionBlur)
+	const USkinnedMeshComponent* SkinnedMeshComponent = Cast<const USkinnedMeshComponent>(Component);
+	if(SkinnedMeshComponent && SkinnedMeshComponent->bPerBoneMotionBlur)
 	{
 		bAlwaysHasVelocity = true;
 	}
@@ -3215,22 +3251,22 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 	SetPropertyColor(NewPropertyColor);
 
 	// Copy out shadow physics asset data
-	if(SkeletalMeshComponent)
+	if(SkinnedMeshComponent)
 	{
-		UPhysicsAsset* ShadowPhysicsAsset = SkeletalMeshComponent->SkeletalMesh->ShadowPhysicsAsset;
+		UPhysicsAsset* ShadowPhysicsAsset = SkinnedMeshComponent->SkeletalMesh->ShadowPhysicsAsset;
 
 		if (ShadowPhysicsAsset
-			&& SkeletalMeshComponent->CastShadow
-			&& (SkeletalMeshComponent->bCastCapsuleDirectShadow || SkeletalMeshComponent->bCastCapsuleIndirectShadow))
+			&& SkinnedMeshComponent->CastShadow
+			&& (SkinnedMeshComponent->bCastCapsuleDirectShadow || SkinnedMeshComponent->bCastCapsuleIndirectShadow))
 		{
 			for (int32 BodyIndex = 0; BodyIndex < ShadowPhysicsAsset->SkeletalBodySetups.Num(); BodyIndex++)
 			{
 				UBodySetup* BodySetup = ShadowPhysicsAsset->SkeletalBodySetups[BodyIndex];
-				int32 BoneIndex = SkeletalMeshComponent->GetBoneIndex(BodySetup->BoneName);
+				int32 BoneIndex = SkinnedMeshComponent->GetBoneIndex(BodySetup->BoneName);
 
 				if (BoneIndex != INDEX_NONE)
 				{
-					const FMatrix& RefBoneMatrix = SkeletalMeshComponent->SkeletalMesh->GetComposedRefPoseMatrix(BoneIndex);
+					const FMatrix& RefBoneMatrix = SkinnedMeshComponent->SkeletalMesh->GetComposedRefPoseMatrix(BoneIndex);
 
 					const int32 NumSpheres = BodySetup->AggGeom.SphereElems.Num();
 					for (int32 SphereIndex = 0; SphereIndex < NumSpheres; SphereIndex++)

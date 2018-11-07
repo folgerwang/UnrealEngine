@@ -41,6 +41,7 @@
 #include "BusyCursor.h"
 #include "MRUFavoritesList.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Exporters/Exporter.h"
 
 
 #include "PackagesDialog.h"
@@ -375,6 +376,7 @@ static FString GetDefaultDirectory()
 FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 {
 	FString Result;
+	TSet<FString> Extensions;
 
 	switch( Interaction )
 	{
@@ -391,7 +393,7 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 			TArray<UFactory*> Factories;
 			for (UClass* Class : TObjectRange<UClass>())
 			{
-				if (Class->IsChildOf<USceneImportFactory>())
+				if (Class->IsChildOf<USceneImportFactory>() && !Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
 				{
 					UFactory* Factory = Class->GetDefaultObject<UFactory>();
 					if (Factory->bEditorImport)
@@ -420,7 +422,51 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 		break;
 
 	case FI_ExportScene:
-		Result = TEXT("FBX (*.fbx)|*.fbx|Object (*.obj)|*.obj|Unreal Text (*.t3d)|*.t3d|Stereo Litho (*.stl)|*.stl|LOD Export (*.lod.obj)|*.lod.obj");
+		{
+			for (UClass* Class : TObjectRange<UClass>())
+			{
+				if (!Class->IsChildOf<UExporter>() || Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
+				{
+					continue;
+				}
+
+				UExporter* Exporter = Class->GetDefaultObject<UExporter>();
+				if (!Exporter->SupportsObject(UWorld::StaticClass()->GetDefaultObject()))
+				{
+					continue;
+				}
+
+				// Ignore generic UObject exporters
+				if (!Exporter->SupportedClass || !Exporter->SupportedClass->IsChildOf<UWorld>())
+				{
+					continue;
+				}
+
+				for (int32 i = 0; i < Exporter->FormatExtension.Num(); ++i)
+				{
+					FString FormatExtensionLower = Exporter->FormatExtension[i].ToLower();
+					if (FormatExtensionLower == TEXT("copy"))
+					{
+						continue;
+					}
+
+					// Skip over duplicates
+					if (Extensions.Contains(FormatExtensionLower))
+					{
+						continue;
+					}
+					Extensions.Add(FormatExtensionLower);
+
+					if (Result.Len() > 0)
+					{
+						Result += TEXT("|");
+					}
+
+					const FString& FormatDescription = Exporter->FormatDescription[i];
+					Result += FString::Printf(TEXT("%s (*.%s)|*.%s"), *FormatDescription, *FormatExtensionLower, *FormatExtensionLower);
+				}
+			}
+		}
 		break;
 
 	default:
@@ -653,7 +699,7 @@ static bool SaveWorld(UWorld* World,
 							{
 								TArray<UPackage*> AllPackagesToUnload;
 								AllPackagesToUnload.Add(Cast<UPackage>(ExistingObject));
-								PackageTools::UnloadPackages(AllPackagesToUnload);
+								UPackageTools::UnloadPackages(AllPackagesToUnload);
 							}
 						}
 
@@ -678,11 +724,6 @@ static bool SaveWorld(UWorld* World,
 
 			bSuccess = GEditor->Exec( NULL, *FString::Printf( TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\" SILENT=true AUTOSAVING=%s KEEPDIRTY=%s"), *Package->GetName(), *FinalFilename, *AutoSavingString, *KeepDirtyString ), SaveErrors );
 			SaveErrors.Flush();
-		}
-
-		if ( bAddedAssetPathRedirection )
-		{
-			GRedirectCollector.RemoveAssetPathRedirection( *OldPath.GetAssetPathString() );
 		}
 
 		// @todo Autosaving should save build data as well
@@ -1207,7 +1248,7 @@ void FEditorFileUtils::Import(const FString& InFilename)
 	USceneImportFactory *SceneFactory = nullptr;
 	for (UClass* Class : TObjectRange<UClass>())
 	{
-		if (Class->IsChildOf<USceneImportFactory>())
+		if (Class->IsChildOf<USceneImportFactory>() && !Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
 		{
 			USceneImportFactory* TestFactory = Class->GetDefaultObject<USceneImportFactory>();
 			if (TestFactory->FactoryCanImport(InFilename))
@@ -2133,7 +2174,7 @@ bool FEditorFileUtils::AttemptUnloadInactiveWorldPackage(UPackage* PackageToUnlo
 		TArray<UPackage*> PackagesToUnload;
 		PackagesToUnload.Add(PackageToUnload);
 		TWeakObjectPtr<UPackage> WeakPackage = PackageToUnload;
-		if (!PackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage))
+		if (!UPackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage))
 		{
 			return false;
 		}
@@ -2441,21 +2482,14 @@ bool FEditorFileUtils::SaveMap(UWorld* InWorld, const FString& Filename )
 	// Disallow the save if in interpolation editing mode and the user doesn't want to exit interpolation mode.
 	if ( !InInterpEditMode() )
 	{
-		double SaveStartTime = FPlatformTime::Seconds();
+		const double SaveStartTime = FPlatformTime::Seconds();
 
-		// Only save the world if GEditor is null, the Persistent Level is not using Externally referenced objects or the user wants to continue regardless
-		if ( !GEditor || 
-			!GEditor->PackageUsingExternalObjects(InWorld->PersistentLevel) || 
-			EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, EAppReturnType::No, NSLOCTEXT("UnrealEd", "Warning_UsingExternalPackage", "This map is using externally referenced packages which won't be found when in a game and all references will be broken. Perform a map check for more details.\n\nWould you like to continue?")) 
-			)
-		{
-			FString FinalFilename;
-			bLevelWasSaved = SaveWorld( InWorld, &Filename,
-										NULL, NULL,
-										true, false,
-										FinalFilename,
-										false, false );
-		}
+		FString FinalFilename;
+		bLevelWasSaved = SaveWorld( InWorld, &Filename,
+									nullptr, nullptr,
+									true, false,
+									FinalFilename,
+									false, false );
 
 		// Track time spent saving map.
 		UE_LOG(LogFileHelpers, Log, TEXT("Saving map '%s' took %.3f"), *FPaths::GetBaseFilename(Filename), FPlatformTime::Seconds() - SaveStartTime );
@@ -2585,15 +2619,34 @@ EAutosaveContentPackagesResult::Type FEditorFileUtils::AutosaveContentPackagesEx
 		// If the package is dirty and is not the transient package, we'd like to autosave it
 		if ( CurPackage && ( CurPackage != TransientPackage ) && CurPackage->IsDirty() && (bForceIfNotInList || DirtyPackagesForAutoSave.Contains(CurPackage)) )
 		{
-			UWorld* MapWorld = UWorld::FindWorldInPackage(CurPackage);
+			bool bSkipPackage = false;
+			TArray<UObject*> ObjectsInPackage;
+			GetObjectsWithOuter(CurPackage, ObjectsInPackage, false);
+			for (auto ObjIt = ObjectsInPackage.CreateConstIterator(); ObjIt; ++ObjIt)
+			{
+				// Also, make sure this is not a map package
+				if (Cast<UWorld>(*ObjIt))
+				{
+					bSkipPackage = true;
+					break;
+				}
+				else if (Cast<UMapBuildDataRegistry>(*ObjIt))
+				{
+					// Do not auto save generated map build data packages
+					bSkipPackage = true;
+					break;
+				}
+			}
 
-			// Also, make sure this is not a map package
-			const bool bIsMapPackage = MapWorld != NULL;
+			if (bSkipPackage)
+			{
+				continue;
+			}
 
 			// Ignore packages with long, invalid names. This culls out packages with paths in read-only roots such as /Temp.
 			const bool bInvalidLongPackageName = !FPackageName::IsShortPackageName(CurPackage->GetFName()) && !FPackageName::IsValidLongPackageName(CurPackage->GetName(), /*bIncludeReadOnlyRoots=*/false);
 				
-			if ( !bIsMapPackage && !bInvalidLongPackageName )
+			if ( !bInvalidLongPackageName )
 			{
 				PackagesToSave.Add(CurPackage);
 			}
@@ -4026,26 +4079,6 @@ UWorld* UEditorLoadingAndSavingUtils::LoadMapWithDialog()
 	return GEditor->GetEditorWorldContext().World();
 }
 
-static bool InternalCheckForReferencesToExternalPackages(const TArray<UPackage*>& PackagesToSave)
-{
-	TArray<UPackage*> PackagesWithExternalRefs;
-	if (PackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
-	{
-		FString PackageNames;
-		for (UPackage* Package : PackagesWithExternalRefs)
-		{
-			PackageNames += FString::Printf(TEXT("%s\n"), *Package->GetName());
-		}
-
-		bool bProceed = EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, EAppReturnType::No, FText::Format(NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"), FText::FromString(PackageNames)));
-		if (!bProceed)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
 static bool InternalCheckoutAndSavePackages(const TArray<UPackage*>& PackagesToSave, bool bUseDialog)
 {
 	bool bResult = true;
@@ -4053,10 +4086,6 @@ static bool InternalCheckoutAndSavePackages(const TArray<UPackage*>& PackagesToS
 	{
 		if (bUseDialog)
 		{
-			if (!InternalCheckForReferencesToExternalPackages(PackagesToSave))
-			{
-				return false;
-			}
 			const bool bPromptUserToSave = true;
 			const bool bFastSave = false;
 			const bool bCanBeDeclined = true;
@@ -4067,11 +4096,6 @@ static bool InternalCheckoutAndSavePackages(const TArray<UPackage*>& PackagesToS
 			const FScopedBusyCursor BusyCursor;
 			// Prevent modal window if not requested.
 			TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
-
-			if (!InternalCheckForReferencesToExternalPackages(PackagesToSave))
-			{
-				return false;
-			}
 
 			const bool bErrorIfAlreadyCheckedOut = false;
 			const bool bShowDialogIfFailure = false;
@@ -4164,7 +4188,7 @@ void UEditorLoadingAndSavingUtils::ExportScene(bool bExportSelectedActorsOnly)
 
 void UEditorLoadingAndSavingUtils::UnloadPackages(const TArray<UPackage*>& PackagesToUnload, bool& bOutAnyPackagesUnloaded, FText& OutErrorMessage)
 {
-	bOutAnyPackagesUnloaded = PackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage);
+	bOutAnyPackagesUnloaded = UPackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage);
 }
 
 #undef LOCTEXT_NAMESPACE

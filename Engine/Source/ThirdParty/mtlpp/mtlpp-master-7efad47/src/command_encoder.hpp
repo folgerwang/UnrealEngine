@@ -28,7 +28,7 @@ namespace mtlpp
 	MTLPP_AVAILABLE(10_13, 11_0);
 
 	template<typename T>
-	class CommandEncoder : public ns::Object<T>
+	class MTLPP_EXPORT CommandEncoder : public ns::Object<T>
     {
 #if MTLPP_CONFIG_VALIDATE
 		CommandBufferFence CmdBufferFence;

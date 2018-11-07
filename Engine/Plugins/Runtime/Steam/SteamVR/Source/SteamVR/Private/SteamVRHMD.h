@@ -59,6 +59,8 @@ struct FSteamVRLayer
 	{}
 
 	// Required by TStereoLayerManager:
+	void SetLayerId(uint32 InId) { LayerDesc.SetLayerId(InId); }
+	uint32 GetLayerId() const { return LayerDesc.GetLayerId(); }
 	friend bool GetLayerDescMember(const FSteamVRLayer& Layer, FLayerDesc& OutLayerDesc);
 	friend void SetLayerDescMember(FSteamVRLayer& Layer, const FLayerDesc& InLayerDesc);
 	friend void MarkLayerTextureForUpdate(FSteamVRLayer& Layer);
@@ -113,7 +115,7 @@ private:
 /**
  * SteamVR Head Mounted Display
  */
-class FSteamVRHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public FSteamVRAssetManager, public TSharedFromThis<FSteamVRHMD, ESPMode::ThreadSafe>, public TStereoLayerManager<FSteamVRLayer>, public IHeadMountedDisplayVulkanExtensions
+class FSteamVRHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public FSteamVRAssetManager, public TStereoLayerManager<FSteamVRLayer>, public FSceneViewExtensionBase, public IHeadMountedDisplayVulkanExtensions
 {
 public:
 	static const FName SteamSystemName;
@@ -133,7 +135,7 @@ public:
 
 	virtual class TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > GetStereoRenderingDevice() override
 	{
-		return AsShared();
+		return SharedThis(this);
 	}
 
 	virtual bool OnStartGameFrame(FWorldContext& WorldContext) override;
@@ -154,7 +156,9 @@ public:
 	virtual FRotator GetBaseRotation() const override;
 	virtual void SetBaseOrientation(const FQuat& BaseOrient) override;
 	virtual FQuat GetBaseOrientation() const override;
-
+	virtual void SetBasePosition(const FVector& BasePosition) override;
+	virtual FVector GetBasePosition() const override;
+	
 	virtual void OnEndPlay(FWorldContext& InWorldContext) override;
 	virtual void RecordAnalytics() override;
 
@@ -206,7 +210,6 @@ public:
 	virtual void CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float MetersToWorld, FVector& ViewLocation) override;
 	virtual FMatrix GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType) const override;
 	virtual void RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture, FVector2D WindowSize) const override;
-	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
 	virtual void GetEyeRenderParams_RenderThread(const FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const override;
 	virtual IStereoRenderTargetManager* GetRenderTargetManager() override { return this; }
 	virtual IStereoLayers* GetStereoLayers() override;
@@ -224,6 +227,17 @@ public:
 	// IStereoLayers interface
 	// Create/Set/Get/Destroy inherited from TStereoLayerManager
 	virtual void UpdateSplashScreen() override;
+	virtual void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture) override;
+
+	// ISceneViewExtension interface
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override {};
+	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView) override {}
+	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override {}
+	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override {}
+	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override {}
+	virtual void PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
+	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override;
+
 
 	/** IHeadMountedDisplayVulkanExtensions */
 	virtual bool GetVulkanInstanceExtensionsRequired( TArray<const ANSICHAR*>& Out ) override;
@@ -234,7 +248,7 @@ private:
 	void CreateSpectatorScreenController();
 public:
 	virtual FIntRect GetFullFlatEyeRect_RenderThread(FTexture2DRHIRef EyeTexture) const override;
-	virtual void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SrcTexture, FIntRect SrcRect, FTexture2DRHIParamRef DstTexture, FIntRect DstRect, bool bClearBlack) const override;
+	virtual void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SrcTexture, FIntRect SrcRect, FTexture2DRHIParamRef DstTexture, FIntRect DstRect, bool bClearBlack, bool bNoAlpha) const override;
 
 	class BridgeBaseImpl : public FXRRenderBridge
 	{
@@ -305,6 +319,7 @@ public:
 		VulkanBridge(FSteamVRHMD* plugin);
 
 		virtual void FinishRendering() override;
+		virtual void UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI) override;
 		virtual void Reset() override;
 
 	protected:
@@ -356,7 +371,7 @@ public:
 	void PoseToOrientationAndPosition(const vr::HmdMatrix34_t& InPose, const float WorldToMetersScale, FQuat& OutOrientation, FVector& OutPosition) const;
 public:
 	/** Constructor */
-	FSteamVRHMD(ISteamVRPlugin* SteamVRPlugin);
+	FSteamVRHMD(const FAutoRegister&, ISteamVRPlugin*);
 
 	/** Destructor */
 	virtual ~FSteamVRHMD();
@@ -365,6 +380,7 @@ public:
 	bool IsInitialized() const;
 
 	vr::IVRSystem* GetVRSystem() const { return VRSystem; }
+	vr::IVRInput* GetVRInput() const { return VRInput; }
 	vr::IVRRenderModels* GetRenderModelManager() const { return VRRenderModels; }
 
 protected:
@@ -440,6 +456,7 @@ private:
 	EHMDWornState::Type HmdWornState;
 	bool bStereoDesired;
 	bool bStereoEnabled;
+	bool bOcclusionMeshesBuilt;
 
 	// Current world to meters scale. Should only be used when refreshing poses.
 	// Everywhere else, use the current tracking frame's WorldToMetersScale.
@@ -565,6 +582,7 @@ private:
 	vr::IVROverlay* VROverlay;
 	vr::IVRChaperone* VRChaperone;
 	vr::IVRRenderModels* VRRenderModels;
+	vr::IVRInput* VRInput;
 
 	FString DisplayId;
 

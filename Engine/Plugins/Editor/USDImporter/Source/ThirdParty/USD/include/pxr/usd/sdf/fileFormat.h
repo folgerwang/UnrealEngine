@@ -90,6 +90,21 @@ public:
     /// GetFileExtensions.
     SDF_API bool IsSupportedExtension(const std::string& extension) const;
 
+    /// Returns true if this file format is a package containing other
+    /// assets.
+    SDF_API 
+    virtual bool IsPackage() const;
+
+    /// Returns the path of the "root" layer contained in the package
+    /// layer at \p resolvedPath produced by this file format. If this 
+    /// file format is not a package, returns the empty string.
+    ///
+    /// The package root layer is the layer in the package layer that 
+    /// is used when that package is opened via SdfLayer.
+    SDF_API
+    virtual std::string GetPackageRootLayerPath(
+        const std::string& resolvedPath) const;
+
     /// Type for specifying additional file format-specific arguments
     /// to the various API below.
     typedef std::map<std::string, std::string> FileFormatArguments;
@@ -135,7 +150,7 @@ public:
     /// layers.
     SDF_API bool ShouldSkipAnonymousReload() const;
 
-    /// Return true if the the \p layer produced by this file format
+    /// Return true if the \p layer produced by this file format
     /// streams its data to and from its serialized data store on demand.
     ///
     /// Sdf will treat streaming layers differently to avoid pulling
@@ -267,27 +282,19 @@ protected:
 
     //
     // Minimally break layer encapsulation with the following methods.  These
-    // methods are also intended to limit the need for SdLayer friendship with 
-    // SdFileFormat child classes.
+    // methods are also intended to limit the need for SdfLayer friendship with 
+    // SdfFileFormat child classes.
     //
 
-    /// Swap the layers internal _data member with \p data.
+    /// Set the internal data for \p layer to \p data, possibly transferring
+    /// ownership of \p data.
     SDF_API
-    static void _SwapLayerData(const SdfLayerHandle& layer,
-                               SdfAbstractDataRefPtr& data);
+    static void _SetLayerData(
+        const SdfLayerHandle& layer, SdfAbstractDataRefPtr& data);
 
-    /// Set the layers internal _data member to \p data.
-    SDF_API
-    static void _SetLayerData(const SdfLayerHandle& layer,
-                              const SdfAbstractDataPtr& data);
-
-    /// Get the layers internal _data member.
+    /// Get the internal data for \p layer.
     SDF_API
     static SdfAbstractDataConstPtr _GetLayerData(const SdfLayerHandle& layer);
-
-    /// Returns true if the layer is loading as a new layer.
-    SDF_API
-    static bool _LayerIsLoadingAsNew(const SdfLayerHandle& layer);
 
 private:
     SDF_API

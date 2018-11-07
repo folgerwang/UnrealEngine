@@ -31,12 +31,12 @@
 
 void FHoudiniNiagaraEditorModule::StartupModule()
 {
-    // Register the Houdini CSV Type Actions
-    IAssetTools& AssetTools = FModuleManager::LoadModuleChecked< FAssetToolsModule >("AssetTools").Get();
+	// Register the Houdini CSV Type Actions
+	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked< FAssetToolsModule >("AssetTools").Get();
 
-    TSharedRef< IAssetTypeActions > HCSVAction = MakeShareable( new FHoudiniCSVAssetActions() );
-    AssetTools.RegisterAssetTypeActions( HCSVAction );
-    AssetTypeActions.Add( HCSVAction );
+	TSharedRef< IAssetTypeActions > HCSVAction = MakeShareable( new FHoudiniCSVAssetActions() );
+	AssetTools.RegisterAssetTypeActions( HCSVAction );
+	AssetTypeActions.Add( HCSVAction );
 
 	// Create Slate style set.
 	if (!StyleSet.IsValid())
@@ -69,16 +69,16 @@ void FHoudiniNiagaraEditorModule::StartupModule()
 
 void FHoudiniNiagaraEditorModule::ShutdownModule()
 {
-    // Unregister asset type actions we have previously registered.
-    if ( FModuleManager::Get().IsModuleLoaded("AssetTools") )
-    {
+	// Unregister asset type actions we have previously registered.
+	if ( FModuleManager::Get().IsModuleLoaded("AssetTools") )
+	{
 		IAssetTools & AssetTools = FModuleManager::GetModuleChecked< FAssetToolsModule >("AssetTools").Get();
 
 		for ( int32 Index = 0; Index < AssetTypeActions.Num(); ++Index )
 			AssetTools.UnregisterAssetTypeActions( AssetTypeActions[Index].ToSharedRef() );
 
 		AssetTypeActions.Empty();
-    }
+	}
 
 	// Unregister Slate style set.
 	if (StyleSet.IsValid())

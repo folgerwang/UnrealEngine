@@ -32,7 +32,7 @@ void FAssetTypeActions_Texture2D::GetActions( const TArray<UObject*>& InObjects,
 	{
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Texture2D_CreateVolumeTexture", "Create Volume Texture"),
-			LOCTEXT("Texture2D_CreateSlateBrushToolTip", "Creates a new volume texture using this texture."),
+			LOCTEXT("Texture2D_CreateVolumeTextureToolTip", "Creates a new volume texture using this texture."),
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Sphere"),
 			FUIAction(FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture, Textures ), FCanExecuteAction())
 			);
@@ -103,7 +103,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture(TArray<TWeakObjectP
 
 	if( Objects.Num() == 1 )
 	{
-		auto Object = Objects[0].Get();
+		UTexture2D* Object = Objects[0].Get();
 
 		if( Object )
 		{
@@ -114,7 +114,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture(TArray<TWeakObjectP
 
 			// Create the factory used to generate the asset
 			UVolumeTextureFactory* Factory = NewObject<UVolumeTextureFactory>();
-			Factory->InitialTexture = CastChecked<UTexture2D>(Object);
+			Factory->InitialTexture = Object;
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UVolumeTexture::StaticClass(), Factory);
 		}

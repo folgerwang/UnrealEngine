@@ -47,6 +47,12 @@
 #import <StoreKit/StoreKit.h>
 #import <DeviceCheck/DeviceCheck.h>
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+#import <UserNotifications/UserNotifications.h>
+#include "Async/TaskGraphInterfaces.h"
+#include "Misc/CoreDelegates.h"
+#endif
+
 //#include <libproc.h>
 // @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
 //#include <mach-o/dyld.h>
@@ -101,6 +107,46 @@ void FIOSPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT("High frequency timer resolution =%f MHz"), 0.000001 / FPlatformTime::GetSecondsPerCycle() );
 	GStartupFreeMemoryMB = GetFreeMemoryMB();
 	UE_LOG(LogInit, Log, TEXT("Free Memory at startup: %d MB"), GStartupFreeMemoryMB);
+
+	// create the Documents/<GameName>/Content directory so we can exclude it from iCloud backup
+	FString ResultStr = FPaths::ProjectContentDir();
+	ResultStr.ReplaceInline(TEXT("../"), TEXT(""));
+	ResultStr.ReplaceInline(TEXT(".."), TEXT(""));
+	ResultStr.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+	FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+	ResultStr = DownloadPath + ResultStr;
+	NSURL* URL = [NSURL fileURLWithPath : ResultStr.GetNSString()];
+	if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
+	{
+		[[NSFileManager defaultManager] createDirectoryAtURL:URL withIntermediateDirectories : YES attributes : nil error : nil];
+	}
+
+	// mark it to not be uploaded
+	NSError *error = nil;
+	BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+	if (!success)
+	{
+		NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+	}
+
+	// create the Documents/Engine/Content directory so we can exclude it from iCloud backup
+	ResultStr = FPaths::EngineContentDir();
+	ResultStr.ReplaceInline(TEXT("../"), TEXT(""));
+	ResultStr.ReplaceInline(TEXT(".."), TEXT(""));
+	ResultStr.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+	ResultStr = DownloadPath + ResultStr;
+	URL = [NSURL fileURLWithPath : ResultStr.GetNSString()];
+	if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
+	{
+		[[NSFileManager defaultManager] createDirectoryAtURL:URL withIntermediateDirectories : YES attributes : nil error : nil];
+	}
+
+	// mark it to not be uploaded
+	success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+	if (!success)
+	{
+		NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+	}
 }
 
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
@@ -163,6 +209,11 @@ int FIOSPlatformMisc::GetAudioVolume()
 	return [[IOSAppDelegate GetDelegate] GetAudioVolume];
 }
 
+int32 FIOSPlatformMisc::GetDeviceVolume()
+{
+	return [[IOSAppDelegate GetDelegate] GetAudioVolume];
+}
+
 bool FIOSPlatformMisc::AreHeadphonesPluggedIn()
 {
 	return [[IOSAppDelegate GetDelegate] AreHeadphonesPluggedIn];
@@ -204,7 +255,7 @@ float FIOSPlatformMisc::GetDeviceTemperatureLevel()
 #if !PLATFORM_TVOS
 	if (@available(iOS 11, *))
 	{
-		switch ([[NSProcessInfo processInfo] thermalState])
+		switch ([[IOSAppDelegate GetDelegate] GetThermalState])
 		{
 		case NSProcessInfoThermalStateNominal:	return (float)FCoreDelegates::ETemperatureSeverity::Good; break;
 		case NSProcessInfoThermalStateFair:		return (float)FCoreDelegates::ETemperatureSeverity::Bad; break;
@@ -214,6 +265,18 @@ float FIOSPlatformMisc::GetDeviceTemperatureLevel()
 	}
 #endif
 	return -1.0f;
+}
+
+bool FIOSPlatformMisc::IsInLowPowerMode()
+{
+#if !PLATFORM_TVOS
+    if (@available(iOS 11, *))
+    {
+        bool bInLowPowerMode = [[NSProcessInfo processInfo] isLowPowerModeEnabled];
+        return bInLowPowerMode;
+    }
+#endif
+    return false;
 }
 
 
@@ -385,16 +448,31 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 			{
 				DeviceType = IOS_IPadPro_105;
 			}
+			else if (Minor == 5 || Minor == 6)
+			{
+				DeviceType = IOS_IPad6;
+			}
 			else
 			{
 				DeviceType = IOS_IPadPro2_129;
 			}
 		}
+		else if (Major == 8)
+		{
+			if (Minor == 3 || Minor == 4)
+			{
+				DeviceType = IOS_IPadPro_11;
+			}
+			else
+			{
+				DeviceType = IOS_IPadPro3_129;
+			}
+		}
 
 		// Default to highest settings currently available for any future device
-		else if (Major > 8)
+		else if (Major >= 9)
 		{
-			DeviceType = IOS_IPadPro2_129;
+			DeviceType = IOS_IPadPro3_129;
 		}
 	}
 	// iPhones
@@ -473,17 +551,32 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 				DeviceType = IOS_IPhoneX;
 			}
 		}
-		else if (Major >= 10)
+        else if (Major == 11)
+        {
+            if (Minor == 2)
+            {
+                DeviceType = IOS_IPhoneXS;
+            }
+            else if (Minor == 4 || Minor == 6)
+            {
+                DeviceType = IOS_IPhoneXSMax;
+            }
+            else if (Minor == 8)
+            {
+                DeviceType = IOS_IPhoneXR;
+            }
+        }
+		else if (Major >= 12)
 		{
 			// for going forward into unknown devices (like 8/8+?), we can't use Minor,
 			// so treat devices with a scale > 2.5 to be 6SPlus type devices, < 2.5 to be 6S type devices
 			if ([UIScreen mainScreen].scale > 2.5f)
 			{
-				DeviceType = IOS_IPhone8Plus;
+				DeviceType = IOS_IPhoneXSMax;
 			}
 			else
 			{
-				DeviceType = IOS_IPhone8;
+				DeviceType = IOS_IPhoneXS;
 			}
 		}
 	}
@@ -626,15 +719,51 @@ FString FIOSPlatformMisc::GetOSVersion()
 
 bool FIOSPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)
 {
-	NSDictionary<NSFileAttributeKey, id>* FSStat = [[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil];
-	if (FSStat)
-	{
-		TotalNumberOfBytes = [[FSStat objectForKey:NSFileSystemSize] longLongValue];
-		NumberOfFreeBytes = [[FSStat objectForKey:NSFileSystemFreeSize] longLongValue];
-		return true;
-	}
-	return false;
+    //On iOS 11 use new method to return disk space available for important usages
+#if !PLATFORM_TVOS
+    if (@available(iOS 11, *))
+    {
+	    bool GetValueSuccess = false;
+
+	    NSNumber *FreeBytes = nil;
+	    NSURL *URL = [NSURL fileURLWithPath : NSHomeDirectory()];
+	    GetValueSuccess = [URL getResourceValue : &FreeBytes forKey : NSURLVolumeAvailableCapacityForImportantUsageKey error : nil];
+	    if (FreeBytes)
+	    {
+	        NumberOfFreeBytes = [FreeBytes longLongValue];
+	    }
+
+	    NSNumber *TotalBytes = nil;
+	    GetValueSuccess = GetValueSuccess &&[URL getResourceValue : &TotalBytes forKey : NSURLVolumeTotalCapacityKey error : nil];
+	    if (TotalBytes)
+	    {
+	        TotalNumberOfBytes = [TotalBytes longLongValue];
+	    }
+
+	    if (GetValueSuccess
+	        && (NumberOfFreeBytes > 0)
+	        && (TotalNumberOfBytes > 0))
+	    {
+	        return true;
+	    }
+    }
+#endif
+
+    //fallback to old method if we didn't return above
+    {
+        NSDictionary<NSFileAttributeKey, id>* FSStat = [[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error : nil];
+        if (FSStat)
+        {
+            NumberOfFreeBytes = [[FSStat objectForKey : NSFileSystemFreeSize] longLongValue];
+            TotalNumberOfBytes = [[FSStat objectForKey : NSFileSystemSize] longLongValue];
+
+            return true;
+        }
+
+        return false;
+    }
 }
+
 
 void FIOSPlatformMisc::RequestStoreReview()
 {
@@ -702,6 +831,11 @@ class IPlatformChunkInstall* FIOSPlatformMisc::GetPlatformChunkInstall()
 	}
 
 	return ChunkInstall;
+}
+
+bool FIOSPlatformMisc::SupportsForceTouchInput()
+{
+	return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone && GetIOSDeviceType() != IOS_IPhoneSE;
 }
 
 #if !PLATFORM_TVOS
@@ -867,14 +1001,31 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 {
     dispatch_async(dispatch_get_main_queue(), ^{
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+		UNUserNotificationCenter *Center = [UNUserNotificationCenter currentNotificationCenter];
+		[Center requestAuthorizationWithOptions:(UNAuthorizationOptionBadge | UNAuthorizationOptionSound | UNAuthorizationOptionAlert)
+							  completionHandler:^(BOOL granted, NSError * _Nullable error) {
+								  if (error)
+								  {
+									  UE_LOG(LogIOS, Log, TEXT("Failed to register for notifications."));
+								  }
+								  else
+								  {
+									  int32 types = (int32)granted;
+									  FFunctionGraphTask::CreateAndDispatchWhenReady([types]()
+																					 {
+																						 FCoreDelegates::ApplicationRegisteredForUserNotificationsDelegate.Broadcast(types);
+																					 }, TStatId(), NULL, ENamedThreads::GameThread);
+									  
+								  }
+							  }];
+#else
 	UIApplication* application = [UIApplication sharedApplication];
 	if ([application respondsToSelector : @selector(registerUserNotificationSettings:)])
 	{
 #ifdef __IPHONE_8_0
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		UIUserNotificationSettings * settings = [UIUserNotificationSettings settingsForTypes : (UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert) categories:nil];
 		[application registerUserNotificationSettings : settings];
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 	}
 	else
@@ -886,12 +1037,32 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 #endif
 	}
 #endif
+#endif
     });
 }
 
 bool FIOSPlatformMisc::IsRegisteredForRemoteNotifications()
 {
 	return false;
+}
+
+bool FIOSPlatformMisc::IsAllowedRemoteNotifications()
+{
+#if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
+	checkf(false, TEXT("For min iOS version >= 10 use FIOSLocalNotificationService::CheckAllowedNotifications."));
+	return true;
+#elif defined(__IPHONE_8_0)
+	UIApplication* application = [UIApplication sharedApplication];
+	UIUserNotificationSettings* Settings = [application currentUserNotificationSettings];
+	int32 AllowedTypes = (int32)[Settings types];
+	return AllowedTypes != UIUserNotificationTypeNone;
+#else
+	return true;
+#endif
+#else
+	return true;
+#endif
 }
 
 void FIOSPlatformMisc::UnregisterForRemoteNotifications()
@@ -1000,7 +1171,7 @@ int32 FIOSPlatformMisc::IOSVersionCompare(uint8 Major, uint8 Minor, uint8 Revisi
 	return 0;
 }
 
-void FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
+bool FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QuerySucceededFunc, TFunction<void(const FString&, const FString&)> QueryFailedFunc)
 {
 	DCDevice* DeviceCheckDevice = [DCDevice currentDevice];
 	if ([DeviceCheckDevice isSupported])
@@ -1012,10 +1183,27 @@ void FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8
 			{
 				TArray<uint8> DeviceToken((uint8*)[token bytes], [token length]);
 
-				QueryCompleteFunc(DeviceToken);
+				QuerySucceededFunc(DeviceToken);
+			}
+			else
+			{
+				FString ErrorDescription([error localizedDescription]);
+
+				NSDate* currentDate = [[[NSDate alloc] init] autorelease];
+                NSTimeZone* timeZone = [NSTimeZone defaultTimeZone];
+                NSDateFormatter* dateFormatter = [[[NSDateFormatter alloc] init] autorelease];
+                [dateFormatter setTimeZone:timeZone];
+                [dateFormatter setDateFormat:@"yyyy-mm-dd'T'HH:mm:ss.SSS'Z'"];
+                FString localDateString([dateFormatter stringFromDate:currentDate]);
+                
+				QueryFailedFunc(ErrorDescription, localDateString);
 			}
 		}];
+
+		return true;
 	}
+
+	return false;
 }
 
 /*------------------------------------------------------------------------------
@@ -1338,6 +1526,8 @@ void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* 
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
 #endif // FRAMEPRO_ENABLED
+
+	FApplePlatformMisc::BeginNamedEvent(Color, Text);
 }
 
 void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
@@ -1345,6 +1535,8 @@ void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHA
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
 #endif // FRAMEPRO_ENABLED
+
+	FApplePlatformMisc::BeginNamedEvent(Color, Text);
 }
 
 void FIOSPlatformMisc::EndNamedEvent()
@@ -1352,6 +1544,8 @@ void FIOSPlatformMisc::EndNamedEvent()
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PopEvent();
 #endif // FRAMEPRO_ENABLED
+
+	FApplePlatformMisc::EndNamedEvent();
 }
 
 void FIOSPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
@@ -1662,7 +1856,7 @@ void FIOSCrashContext::GenerateEnsureInfo() const
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure( const TCHAR* ErrorMessage )
+void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
     // Simple re-entrance guard.
     EnsureLock.Lock();

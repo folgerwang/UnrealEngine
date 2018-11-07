@@ -67,6 +67,14 @@ namespace UMWidget
 		// UPROPERTY(meta=(BindWidget, OptionalWidget=true))
 		OptionalWidget,
 
+		// [PropertyMetadata] This property requires a widget animation be bound to it in the designer.  Allows easy native access to designer defined animations.
+		// UPROPERTY(meta=(BindWidgetAnim))
+		BindWidgetAnim,
+
+		// [PropertyMetadata] This property optionally allows a animation widget be bound to it in the designer.  Allows easy native access to designer defined animation.
+		// UPROPERTY(meta=(BindWidgetAnimOptional))
+		BindWidgetAnimOptional,
+
 		// [PropertyMetadata] Exposes a dynamic delegate property in the details panel for the widget.
 		// UPROPERTY(meta=(IsBindableEvent))
 		IsBindableEvent,
@@ -695,6 +703,12 @@ public:
 	/** Sets the friendly name of the widget to display in the editor */
 	void SetDisplayLabel(const FString& DisplayLabel);
 
+	/** @return the category name of the widget */
+	const FString& GetCategoryName() const;
+
+	/** Sets the category name of the widget */
+	void SetCategoryName(const FString& InValue);
+
 	/**
 	 * Called at the end of Widget Blueprint compilation.
 	 * Allows UMG elements to evaluate their default states and determine whether they are acceptable.
@@ -876,6 +890,10 @@ private:
 
 	/** The underlying SWidget for the design time wrapper widget. */
 	TWeakPtr<SWidget> DesignWrapperWidget;
+
+	/** Category name used in the widget designer for sorting purpose */
+	UPROPERTY()
+	FString CategoryName;
 #endif
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

@@ -163,7 +163,7 @@ TArray<IAssetEditorInstance*> FAssetEditorManager::FindEditorsForAsset(UObject* 
 }
 
 
-void FAssetEditorManager::CloseAllEditorsForAsset(UObject* Asset)
+int32 FAssetEditorManager::CloseAllEditorsForAsset(UObject* Asset)
 {
 	TArray<IAssetEditorInstance*> EditorInstances = FindEditorsForAsset(Asset);
 
@@ -173,6 +173,8 @@ void FAssetEditorManager::CloseAllEditorsForAsset(UObject* Asset)
 	}
 
 	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::CloseAllEditorsForAsset);
+
+	return EditorInstances.Num();
 }
 
 void FAssetEditorManager::RemoveAssetFromAllEditors(UObject* Asset)
@@ -401,7 +403,7 @@ bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode:
 		FString AssetPath = Asset->GetOuter()->GetPathName();
 		FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 		FMainMRUFavoritesList* RecentlyOpenedAssets = CBModule.GetRecentlyOpenedAssets();
-		if (RecentlyOpenedAssets)
+		if (RecentlyOpenedAssets && FPackageName::IsValidLongPackageName(AssetPath))
 		{
 			RecentlyOpenedAssets->AddMRUItem(AssetPath);
 		}
@@ -787,9 +789,17 @@ void FAssetEditorManager::HandlePackageReloaded(const EPackageReloadPhase InPack
 			}
 		}
 
+		int32 NumAssetEditorsClosed = 0;
 		for (UObject* OldAsset : OldAssets)
 		{
-			CloseAllEditorsForAsset(OldAsset);
+			NumAssetEditorsClosed += CloseAllEditorsForAsset(OldAsset);
+		}
+
+		if (NumAssetEditorsClosed > 0)
+		{
+			// Closing asset editors might have have left objects pending GC that still reference the asset we're about to reload
+			// Run a GC now to ensure those are cleaned up before the fix-up phase happens
+			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 		}
 	}
 

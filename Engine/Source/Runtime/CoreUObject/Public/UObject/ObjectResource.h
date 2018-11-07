@@ -358,6 +358,9 @@ struct FObjectExport : public FObjectResource
 	 */
 	COREUOBJECT_API FObjectExport();
 	FObjectExport( UObject* InObject );
+
+	/** Resets the stored Object and any transient flags */
+	COREUOBJECT_API void ResetObject();
 	
 	/** I/O functions */
 	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar, FObjectExport& E);

@@ -10,7 +10,7 @@
 #include "Slate/SceneViewport.h"
 #include "SlateOptMacros.h"
 #include "Textures/SlateIcon.h"
-#include "UI/MediaBundleEditorStyle.h"
+#include "UI/MediaFrameworkUtilitiesEditorStyle.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Images/SThrobber.h"
@@ -305,7 +305,7 @@ void SMediaFrameworkCaptureCameraViewportWidget::Construct(const FArguments& InA
 		LevelViewportClient->ViewportType = LVT_Perspective;
 		LevelViewportClient->bDrawAxes = false;
 		LevelViewportClient->bDisableInput = true;
-		LevelViewportClient->SetAllowCinematicPreview(false);
+		LevelViewportClient->SetAllowCinematicControl(false);
 		LevelViewportClient->VisibilityDelegate.BindLambda([] {return true; });
 		LevelViewportClient->AutoSetPIE();
 	}

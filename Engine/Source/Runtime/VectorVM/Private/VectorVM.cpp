@@ -17,6 +17,12 @@ DECLARE_CYCLE_STAT(TEXT("Execution"), STAT_VVMExec, STATGROUP_VectorVM);
 
 DEFINE_LOG_CATEGORY_STATIC(LogVectorVM, All, All);
 
+//#define FREE_TABLE_LOCK_CONTENTION_WARNINGS (!UE_BUILD_SHIPPING)
+#define FREE_TABLE_LOCK_CONTENTION_WARNINGS (0)
+
+//I don't expect us to ever be waiting long
+#define FREE_TABLE_LOCK_CONTENTION_WARN_THRESHOLD_MS (0.01)
+
 //#define VM_FORCEINLINE
 #define VM_FORCEINLINE FORCEINLINE
 
@@ -33,6 +39,30 @@ DEFINE_LOG_CATEGORY_STATIC(LogVectorVM, All, All);
 #define SRCOP_CRC (OP2_CONST | OP_REGISTER | OP0_CONST)
 #define SRCOP_CCR (OP2_CONST | OP1_CONST | OP_REGISTER)
 #define SRCOP_CCC (OP2_CONST | OP1_CONST | OP0_CONST)
+
+//Temporarily locking the free table until we can implement a lock free algorithm. UE-65856
+FORCEINLINE void FDataSetMeta::LockFreeTable()
+{
+#if FREE_TABLE_LOCK_CONTENTION_WARNINGS
+	uint64 StartCycles = FPlatformTime::Cycles64();
+#endif
+ 		
+	FreeTableLock.Lock();
+ 
+#if FREE_TABLE_LOCK_CONTENTION_WARNINGS
+	uint64 EndCylces = FPlatformTime::Cycles64();
+	double DurationMs = FPlatformTime::ToMilliseconds64(EndCylces - StartCycles);
+	if (DurationMs >= FREE_TABLE_LOCK_CONTENTION_WARN_THRESHOLD_MS)
+	{
+		UE_LOG(LogVectorVM, Warning, TEXT("VectorVM Stalled in LockFreeTable()! %g ms"), DurationMs);
+	}
+#endif
+}
+
+FORCEINLINE void FDataSetMeta::UnlockFreeTable()
+{
+ 	FreeTableLock.Unlock();
+}
 
 static int32 GbParallelVVM = 1;
 static FAutoConsoleVariableRef CVarbParallelVVM(
@@ -51,6 +81,103 @@ static FAutoConsoleVariableRef CVarParallelVVMChunksPerBatch(
 );
 
 //////////////////////////////////////////////////////////////////////////
+//  Constant Handlers
+
+struct FConstantHandlerBase
+{
+	uint16 ConstantIndex;
+	FConstantHandlerBase(FVectorVMContext& Context)
+		: ConstantIndex(VectorVM::DecodeU16(Context))
+	{}
+
+	FORCEINLINE void Advance() { }
+};
+
+template<typename T>
+struct FConstantHandler : public FConstantHandlerBase
+{
+	T Constant;
+	FConstantHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Constant(*((T*)(Context.ConstantTable + ConstantIndex)))
+	{}
+	FORCEINLINE const T& Get() { return Constant; }
+	FORCEINLINE const T& GetAndAdvance() { return Constant; }
+};
+
+struct FDataSetOffsetHandler : FConstantHandlerBase
+{
+	uint32 Offset;
+	FDataSetOffsetHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Offset(Context.DataSetOffsetTable[ConstantIndex])
+	{}
+	FORCEINLINE const uint32 Get() { return Offset; }
+	FORCEINLINE const uint32 GetAndAdvance() { return Offset; }
+};
+
+template<>
+struct FConstantHandler<VectorRegister> : public FConstantHandlerBase
+{
+	VectorRegister Constant;
+	FConstantHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Constant(VectorLoadFloat1(&Context.ConstantTable[ConstantIndex]))
+	{}
+	FORCEINLINE const VectorRegister Get() { return Constant; }
+	FORCEINLINE const VectorRegister GetAndAdvance() { return Constant; }
+};
+
+template<>
+struct FConstantHandler<VectorRegisterInt> : public FConstantHandlerBase
+{
+	VectorRegisterInt Constant;
+	FConstantHandler(FVectorVMContext& Context)
+		: FConstantHandlerBase(Context)
+		, Constant(VectorIntLoad1(&Context.ConstantTable[ConstantIndex]))
+	{}
+	FORCEINLINE const VectorRegisterInt Get() { return Constant; }
+	FORCEINLINE const VectorRegisterInt GetAndAdvance() { return Constant; }
+};
+
+
+//////////////////////////////////////////////////////////////////////////
+// Register handlers.
+// Handle reading of a register, advancing the pointer with each read.
+
+struct FRegisterHandlerBase
+{
+	int32 RegisterIndex;
+	FORCEINLINE FRegisterHandlerBase(FVectorVMContext& Context)
+		: RegisterIndex(VectorVM::DecodeU16(Context))
+	{}
+
+};
+
+template<typename T>
+struct FRegisterHandler : public FRegisterHandlerBase
+{
+private:
+	T * RESTRICT Register;
+public:
+	FORCEINLINE FRegisterHandler(FVectorVMContext& Context)
+		: FRegisterHandlerBase(Context)
+		, Register((T*)Context.RegisterTable[RegisterIndex])
+	{}
+	FORCEINLINE const T Get() { return *Register; }
+	FORCEINLINE T* GetDest() { return Register; }
+	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE const T GetAndAdvance()
+	{
+		return *Register++;
+	}
+	FORCEINLINE T* GetDestAndAdvance()
+	{
+		return Register++;
+	}
+};
+
+//////////////////////////////////////////////////////////////////////////
 
 FVectorVMContext::FVectorVMContext()
 	: Code(nullptr)
@@ -62,7 +189,6 @@ FVectorVMContext::FVectorVMContext()
 	, UserPtrTable(nullptr)
 	, NumInstances(0)
 	, StartInstance(0)
-	, DataSetMetaTable(nullptr)
 #if STATS
 	, StatScopes(nullptr)
 #endif
@@ -89,7 +215,7 @@ void FVectorVMContext::PrepareForExec(
 	int32 InNumSecondaryDatasets,
 	FVMExternalFunction* InExternalFunctionTable,
 	void** InUserPtrTable,
-	FDataSetMeta*RESTRICT InDataSetMetaTable
+	TArray<FDataSetMeta>& RESTRICT InDataSetMetaTable
 #if STATS
 	, const TArray<TStatId>* InStatScopes
 #endif
@@ -117,7 +243,53 @@ void FVectorVMContext::PrepareForExec(
 		RegisterTable[VectorVM::NumTempRegisters + VectorVM::MaxInputRegisters + i] = OutputRegisters[i];
 	}
 
-	DataSetMetaTable = InDataSetMetaTable;
+	DataSetMetaTable = &InDataSetMetaTable;
+
+	ThreadLocalTempData.SetNum(DataSetMetaTable->Num());
+}
+
+void FVectorVMContext::FinishExec()
+{
+	//At the end of executing each chunk we can push any thread local temporary data out to the main storage with locks or atomics.
+
+	TArray<FDataSetMeta>& MetaTable = *DataSetMetaTable;
+	check(ThreadLocalTempData.Num() == MetaTable.Num());
+	for(int32 DataSetIndex=0; DataSetIndex < MetaTable.Num(); ++DataSetIndex)
+	{
+		FDataSetThreadLocalTempData&RESTRICT Data = ThreadLocalTempData[DataSetIndex];
+
+		if (Data.IDsToFree.Num() > 0)
+		{
+			TArray<int32>&RESTRICT FreeIDTable = *MetaTable[DataSetIndex].FreeIDTable;
+			int32&RESTRICT NumFreeIDs = *MetaTable[DataSetIndex].NumFreeIDs;
+			check(FreeIDTable.Num() >= NumFreeIDs + Data.IDsToFree.Num());
+
+			//Temporarily locking the free table until we can implement something lock-free
+			MetaTable[DataSetIndex].LockFreeTable();
+			for (int32 IDToFree : Data.IDsToFree)
+			{
+				FreeIDTable[NumFreeIDs++] = IDToFree;
+			}
+			//Unlock the free table.
+			MetaTable[DataSetIndex].UnlockFreeTable();
+			Data.IDsToFree.Reset();
+		}
+
+		//Also update the max ID seen. This should be the ONLY place in the VM we update this max value.
+		volatile int32* MaxUsedID = MetaTable[DataSetIndex].MaxUsedID;
+		int32 LocalMaxUsedID;
+		do
+		{
+			LocalMaxUsedID = *MaxUsedID;
+			if (LocalMaxUsedID >= Data.MaxID)
+			{
+				break;
+			}
+		} while (FPlatformAtomics::InterlockedCompareExchange(MaxUsedID, Data.MaxID, LocalMaxUsedID) != LocalMaxUsedID);
+
+		*MaxUsedID = FMath::Max(*MaxUsedID, Data.MaxID);
+
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -211,7 +383,7 @@ struct TUnaryKernel
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TUnaryKernelHandler<Kernel, DstHandler, RegisterHandler, NumInstancesPerOp>::Exec(Context); break;
@@ -223,11 +395,11 @@ struct TUnaryKernel
 template<typename Kernel>
 struct TUnaryScalarKernel : public TUnaryKernel<Kernel, FRegisterHandler<float>, FConstantHandler<float>, FRegisterHandler<float>, 1> {};
 template<typename Kernel>
-struct TUnaryVectorKernel : public TUnaryKernel<Kernel, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
+struct TUnaryVectorKernel : public TUnaryKernel<Kernel, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
 template<typename Kernel>
 struct TUnaryScalarIntKernel : public TUnaryKernel<Kernel, FRegisterHandler<int32>, FConstantHandler<int32>, FRegisterHandler<int32>, 1> {};
 template<typename Kernel>
-struct TUnaryVectorIntKernel : public TUnaryKernel<Kernel, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
+struct TUnaryVectorIntKernel : public TUnaryKernel<Kernel, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
 
 /** Base class of Vector kernels with 2 operands. */
 template <typename Kernel, typename DstHandler, typename ConstHandler, typename RegisterHandler, uint32 NumInstancesPerOp>
@@ -235,7 +407,7 @@ struct TBinaryKernel
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TBinaryKernelHandler<Kernel, DstHandler, RegisterHandler, RegisterHandler, NumInstancesPerOp>::Exec(Context); break;
@@ -249,9 +421,9 @@ struct TBinaryKernel
 template<typename Kernel>
 struct TBinaryScalarKernel : public TBinaryKernel<Kernel, FRegisterHandler<float>, FConstantHandler<float>, FRegisterHandler<float>, 1> {};
 template<typename Kernel>
-struct TBinaryVectorKernel : public TBinaryKernel<Kernel, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
+struct TBinaryVectorKernel : public TBinaryKernel<Kernel, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
 template<typename Kernel>
-struct TBinaryVectorIntKernel : public TBinaryKernel<Kernel, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
+struct TBinaryVectorIntKernel : public TBinaryKernel<Kernel, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
 
 /** Base class of Vector kernels with 3 operands. */
 template <typename Kernel, typename DstHandler, typename ConstHandler, typename RegisterHandler, uint32 NumInstancesPerOp>
@@ -259,7 +431,7 @@ struct TTrinaryKernel
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TTrinaryKernelHandler<Kernel, DstHandler, RegisterHandler, RegisterHandler, RegisterHandler, NumInstancesPerOp>::Exec(Context); break;
@@ -278,9 +450,9 @@ struct TTrinaryKernel
 template<typename Kernel>
 struct TTrinaryScalarKernel : public TTrinaryKernel<Kernel, FRegisterHandler<float>, FConstantHandler<float>, FRegisterHandler<float>, 1> {};
 template<typename Kernel>
-struct TTrinaryVectorKernel : public TTrinaryKernel<Kernel, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
+struct TTrinaryVectorKernel : public TTrinaryKernel<Kernel, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
 template<typename Kernel>
-struct TTrinaryVectorIntKernel : public TTrinaryKernel<Kernel, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
+struct TTrinaryVectorIntKernel : public TTrinaryKernel<Kernel, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
 
 
 /*------------------------------------------------------------------------------
@@ -590,7 +762,7 @@ struct FVectorKernelExecutionIndex
 		VectorRegisterInt VectorStride = MakeVectorRegisterInt(VECTOR_WIDTH_FLOATS, VECTOR_WIDTH_FLOATS, VECTOR_WIDTH_FLOATS, VECTOR_WIDTH_FLOATS);
 		VectorRegisterInt Index = MakeVectorRegisterInt(Context.StartInstance, Context.StartInstance + 1, Context.StartInstance + 2, Context.StartInstance + 3);
 		
-		FRegisterDestHandler<VectorRegisterInt> Dest(Context);
+		FRegisterHandler<VectorRegisterInt> Dest(Context);
 		int32 Loops = Align(Context.NumInstances, VECTOR_WIDTH_FLOATS) / VECTOR_WIDTH_FLOATS;
 		for (int32 i = 0; i < Loops; ++i)
 		{
@@ -884,30 +1056,43 @@ struct FScalarKernelAcquireID
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		int32 DataSetIndex = DecodeU16(Context);
-		TArray<int32>&RESTRICT FreeIDTable = *Context.DataSetMetaTable[DataSetIndex].FreeIDTable;
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		TArray<FDataSetMeta>& MetaTable = *Context.DataSetMetaTable;
+		TArray<int32>&RESTRICT FreeIDTable = *MetaTable[DataSetIndex].FreeIDTable;
 
-		int32 Tag = Context.DataSetMetaTable[DataSetIndex].IDAcquireTag;
+		int32 Tag = MetaTable[DataSetIndex].IDAcquireTag;
 
-		int32 IDIndexReg = DecodeU16(Context);
+		int32 IDIndexReg = VectorVM::DecodeU16(Context);
 		int32*RESTRICT IDIndex = (int32*)(Context.RegisterTable[IDIndexReg]);
 
-		int32 IDTagReg = DecodeU16(Context);
+		int32 IDTagReg = VectorVM::DecodeU16(Context);
 		int32*RESTRICT IDTag = (int32*)(Context.RegisterTable[IDTagReg]);
 
-		int32* NumFreeIDs = Context.DataSetMetaTable[DataSetIndex].NumFreeIDs;
+		int32& NumFreeIDs = *MetaTable[DataSetIndex].NumFreeIDs;
+
+		//Temporarily using a lock to ensure thread safety for accessing the FreeIDTable until a lock free solution can be implemented.
+		MetaTable[DataSetIndex].LockFreeTable();
 	
 		check(FreeIDTable.Num() >= Context.NumInstances);
+		check(NumFreeIDs >= Context.NumInstances);
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
-			int32 FreeIDTableIndex = FPlatformAtomics::InterlockedDecrement(NumFreeIDs);
-			//UE_LOG(LogVectorVM, Warning, TEXT("AcquireID: InstanceID:%d | FreeTableIdx:%d | Tag:%d "), FreeIDTable[FreeIDTableIndex], FreeIDTableIndex, Tag);
-			*IDIndex = FreeIDTable[FreeIDTableIndex];
+			int32 FreeIDTableIndex = --NumFreeIDs;
+
+			//Grab the value from the FreeIDTable.
+			int32 AcquiredID = FreeIDTable[FreeIDTableIndex];
+			checkSlow(AcquiredID != INDEX_NONE);
+
+			//Mark this entry in the FreeIDTable as invalid.
 			FreeIDTable[FreeIDTableIndex] = INDEX_NONE;
+
+			*IDIndex = AcquiredID;
 			*IDTag = Tag;
 			++IDIndex;
 			++IDTag;
 		}
+
+		MetaTable[DataSetIndex].UnlockFreeTable();
 	}
 };
 
@@ -916,20 +1101,21 @@ struct FScalarKernelUpdateID
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		int32 DataSetIndex = DecodeU16(Context);
-		int32 InstanceIDRegisterIndex = DecodeU16(Context);
-		int32 InstanceIndexRegisterIndex = DecodeU16(Context);
-		
-		TArray<int32>&RESTRICT IDTable = *Context.DataSetMetaTable[DataSetIndex].IDTable;
-		TArray<int32>&RESTRICT FreeIDTable = *Context.DataSetMetaTable[DataSetIndex].FreeIDTable;
-		int32 InstanceOffset = Context.DataSetMetaTable[DataSetIndex].InstanceOffset;// +Context.StartInstance;
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		int32 InstanceIDRegisterIndex = VectorVM::DecodeU16(Context);
+		int32 InstanceIndexRegisterIndex = VectorVM::DecodeU16(Context);
+
+		TArray<FDataSetMeta>& MetaTable = *Context.DataSetMetaTable;
+
+		TArray<int32>&RESTRICT IDTable = *MetaTable[DataSetIndex].IDTable;
+		int32 InstanceOffset = MetaTable[DataSetIndex].InstanceOffset + Context.StartInstance;
 
 		int32*RESTRICT IDRegister = (int32*)(Context.RegisterTable[InstanceIDRegisterIndex]);
 		int32*RESTRICT IndexRegister = (int32*)(Context.RegisterTable[InstanceIndexRegisterIndex]);
+		
+		FDataSetThreadLocalTempData& DataSetTempData = Context.ThreadLocalTempData[DataSetIndex];
 
-		volatile int32* MaxUsedID = Context.DataSetMetaTable[DataSetIndex].MaxUsedID;
-		int32* NumFreeIDs = Context.DataSetMetaTable[DataSetIndex].NumFreeIDs;
-
+		TArray<int32>&RESTRICT IDsToFree = DataSetTempData.IDsToFree;
 		check(IDTable.Num() >= InstanceOffset + Context.NumInstances);
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
@@ -938,28 +1124,17 @@ struct FScalarKernelUpdateID
 
 			if (Index == INDEX_NONE)
 			{
-				//Instance not being written so release it's ID.
-				IDTable[InstanceId] = INDEX_NONE;
-				int32 FreeIDIndex = FPlatformAtomics::InterlockedIncrement(NumFreeIDs) - 1;
-				//UE_LOG(LogVectorVM, Warning, TEXT("UpdateID: Dead instance, Adding ID %d to free table at idx %d."), InstanceId, FreeIDIndex);
-				FreeIDTable[FreeIDIndex] = InstanceId;
+				//Add the ID to a thread local list of IDs to free which are actually added to the list safely at the end of this chunk's execution.
+				IDsToFree.Add(InstanceId);
 			}
 			else
 			{
-				int32 RealIdx = InstanceOffset + Index;
+				//Update the actual index for this ID. No thread safety is needed as this ID slot can only ever be written by this instance and so a single thread.
+				int32 RealIdx = InstanceOffset + Index;	
 				IDTable[InstanceId] = RealIdx;
 
-				//Update the MaxUsedID.
-				int32 LocalMaxUsedID;
-				do 
-				{
-					LocalMaxUsedID = *MaxUsedID;
-					if (LocalMaxUsedID >= InstanceId)
-					{
-						break;
-					}
-				} 
-				while (FPlatformAtomics::InterlockedCompareExchange(MaxUsedID, InstanceId, LocalMaxUsedID) != LocalMaxUsedID);
+				//Update thread local max ID seen. We push this to the real value at the end of execution.
+				DataSetTempData.MaxID = FMath::Max(DataSetTempData.MaxID, InstanceId);
 				
 				//UE_LOG(LogVectorVM, Warning, TEXT("UpdateID: RealIdx:%d | InstanceID:%d."), RealIdx, InstanceId);
 			}
@@ -975,9 +1150,9 @@ struct FVectorKernelReadInput
 	{
 		static const int32 InstancesPerVector = sizeof(VectorRegister) / sizeof(T);
 
-		int32 DataSetIndex = DecodeU16(Context);
-		int32 InputRegisterIdx = DecodeU16(Context);
-		int32 DestRegisterIdx = DecodeU16(Context);
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		int32 InputRegisterIdx = VectorVM::DecodeU16(Context);
+		int32 DestRegisterIdx = VectorVM::DecodeU16(Context);
 		int32 Loops = Align(Context.NumInstances, InstancesPerVector) / InstancesPerVector;
 
 		VectorRegister* DestReg = (VectorRegister*)(Context.RegisterTable[DestRegisterIdx]);
@@ -1007,9 +1182,9 @@ struct FVectorKernelReadInputNoAdvance
 	{
 		static const int32 InstancesPerVector = sizeof(VectorRegister) / sizeof(T);
 
-		int32 DataSetIndex = DecodeU16(Context);
-		int32 InputRegisterIdx = DecodeU16(Context);
-		int32 DestRegisterIdx = DecodeU16(Context);
+		int32 DataSetIndex = VectorVM::DecodeU16(Context);
+		int32 InputRegisterIdx = VectorVM::DecodeU16(Context);
+		int32 DestRegisterIdx = VectorVM::DecodeU16(Context);
 		int32 Loops = Align(Context.NumInstances, InstancesPerVector) / InstancesPerVector;
 
 		VectorRegister* DestReg = (VectorRegister*)(Context.RegisterTable[DestRegisterIdx]);
@@ -1074,7 +1249,7 @@ struct FScalarKernelWriteOutputIndexed
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);		
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
 		case SRCOP_RRR: TTrinaryOutputKernelHandler<FScalarKernelWriteOutputIndexed, FOutputRegisterHandler<T>, FDataSetOffsetHandler, FRegisterHandler<int32>, FRegisterHandler<T>, 1>::Exec(Context); break;
@@ -1096,7 +1271,7 @@ struct FDataSetCounterHandler
 {
 	int32* Counter;
 	FDataSetCounterHandler(FVectorVMContext& Context)
-		: Counter(Context.DataSetIndexTable + DecodeU16(Context))
+		: Counter(Context.DataSetIndexTable + VectorVM::DecodeU16(Context))
 	{}
 
 	VM_FORCEINLINE void Advance() { }
@@ -1110,11 +1285,11 @@ struct FScalarKernelAcquireCounterIndex
 {
 	static VM_FORCEINLINE void Exec(FVectorVMContext& Context)
 	{
-		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		uint32 SrcOpTypes = VectorVM::DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
-		case SRCOP_RRR: TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterDestHandler<int32>, FDataSetCounterHandler, FRegisterHandler<int32>, 1>::Exec(Context); break;
-		case SRCOP_RRC:	TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterDestHandler<int32>, FDataSetCounterHandler, FConstantHandler<int32>, 1>::Exec(Context); break;
+		case SRCOP_RRR: TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterHandler<int32>, FDataSetCounterHandler, FRegisterHandler<int32>, 1>::Exec(Context); break;
+		case SRCOP_RRC:	TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterHandler<int32>, FDataSetCounterHandler, FConstantHandler<int32>, 1>::Exec(Context); break;
 		default: check(0); break;
 		};
 	}
@@ -1165,7 +1340,7 @@ struct FKernelExternalFunctionCall
 {
 	static void Exec(FVectorVMContext& Context)
 	{
-		uint32 ExternalFuncIdx = DecodeU8(Context);
+		uint32 ExternalFuncIdx = VectorVM::DecodeU8(Context);
 		Context.ExternalFunctionTable[ExternalFuncIdx].Execute(Context);
 	}
 };
@@ -1398,7 +1573,7 @@ struct FVectorIntKernelLogicNot : TUnaryVectorIntKernel<FVectorIntKernelLogicNot
 
 //conversions
 //f2i,
-struct FVectorKernelFloatToInt : TUnaryKernel<FVectorKernelFloatToInt, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelFloatToInt : TUnaryKernel<FVectorKernelFloatToInt, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegister Src0)
 	{
@@ -1407,7 +1582,7 @@ struct FVectorKernelFloatToInt : TUnaryKernel<FVectorKernelFloatToInt, FRegister
 };
 
 //i2f,
-struct FVectorKernelIntToFloat : TUnaryKernel<FVectorKernelIntToFloat, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelIntToFloat : TUnaryKernel<FVectorKernelIntToFloat, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegister* Dst, VectorRegisterInt Src0)
 	{
@@ -1416,7 +1591,7 @@ struct FVectorKernelIntToFloat : TUnaryKernel<FVectorKernelIntToFloat, FRegister
 };
 
 //f2b,
-struct FVectorKernelFloatToBool : TUnaryKernel<FVectorKernelFloatToBool, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelFloatToBool : TUnaryKernel<FVectorKernelFloatToBool, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegister* Dst, VectorRegister Src0)
 	{		
@@ -1425,7 +1600,7 @@ struct FVectorKernelFloatToBool : TUnaryKernel<FVectorKernelFloatToBool, FRegist
 };
 
 //b2f,
-struct FVectorKernelBoolToFloat : TUnaryKernel<FVectorKernelBoolToFloat, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelBoolToFloat : TUnaryKernel<FVectorKernelBoolToFloat, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegister* Dst, VectorRegister Src0)
 	{
@@ -1434,7 +1609,7 @@ struct FVectorKernelBoolToFloat : TUnaryKernel<FVectorKernelBoolToFloat, FRegist
 };
 
 //i2b,
-struct FVectorKernelIntToBool : TUnaryKernel<FVectorKernelIntToBool, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelIntToBool : TUnaryKernel<FVectorKernelIntToBool, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0)
 	{
@@ -1443,7 +1618,7 @@ struct FVectorKernelIntToBool : TUnaryKernel<FVectorKernelIntToBool, FRegisterDe
 };
 
 //b2i,
-struct FVectorKernelBoolToInt : TUnaryKernel<FVectorKernelBoolToInt, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelBoolToInt : TUnaryKernel<FVectorKernelBoolToInt, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0)
 	{
@@ -1582,7 +1757,7 @@ void VectorVM::Exec(
 	{		
 		FVectorVMContext& Context = FVectorVMContext::Get();
 		Context.PrepareForExec(InputRegisters, OutputRegisters, NumInputRegisters, NumOutputRegisters, ConstantTable, DataSetIndexTable.GetData(), DataSetOffsetTable.GetData(), DataSetOffsetTable.Num(),
-			ExternalFunctionTable, UserPtrTable, DataSetMetaTable.GetData()
+			ExternalFunctionTable, UserPtrTable, DataSetMetaTable
 #if STATS
 			, &StatScopes
 #endif
@@ -1728,6 +1903,8 @@ void VectorVM::Exec(
 			InstancesLeft -= InstancesPerChunk;
 			++ChunkIdx;
 		}
+
+		Context.FinishExec();
 	};
 
 	ParallelFor(NumBatches, ExecChunkBatch, GbParallelVVM == 0 || !bParallel);

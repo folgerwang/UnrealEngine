@@ -7,8 +7,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Animation/AnimSequence.h"
 #include "Math/FloatPacker.h"
+#include "Animation/AnimEnums.h"
+#include "EngineLogs.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAnimationCompression, Log, All);
 
@@ -33,6 +34,27 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAnimationCompression, Log, All);
 #define Quant11BitDiv     (1023.f)
 #define Quant11BitFactor  (1023.f)
 #define Quant11BitOffs    (1023)
+
+//@TODO: Explore different scales
+static constexpr int32 LogScale = 7;
+
+namespace AnimationCompressionUtils
+{
+	template<typename ValueType>
+	inline ValueType UnalignedRead(const void* Ptr)
+	{
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
+		return *reinterpret_cast<const ValueType*>(Ptr);
+#else
+		// TODO: On ARM devices this will be slower than it needs to be.
+		// To make it fast, __packed keyword must be used with the reinterpret cast.
+		// Ideally this code would be moved into FPlatformMisc to handle this per platform properly.
+		ValueType Result;
+		memcpy(&Result, Ptr, sizeof(ValueType));
+		return Result;
+#endif
+	}
+}
 
 class FQuatFixed48NoW
 {
@@ -123,7 +145,8 @@ public:
 		Packed = (PackedX << XShift) | (PackedY << YShift) | (PackedZ);
 	}
 
-	void ToQuat(FQuat& Out) const
+	template<bool bIsDataAligned>
+	static FQuat ToQuat(const uint32* PackedValue)
 	{
 		const uint32 XShift = 21;
 		const uint32 YShift = 10;
@@ -131,6 +154,7 @@ public:
 		const uint32 YMask = 0x001ffc00;
 		const uint32 XMask = 0xffe00000;
 
+		const uint32 Packed = bIsDataAligned ? *PackedValue : AnimationCompressionUtils::UnalignedRead<uint32>(PackedValue);
 		const uint32 UnpackedX = Packed >> XShift;
 		const uint32 UnpackedY = (Packed & YMask) >> YShift;
 		const uint32 UnpackedZ = (Packed & ZMask);
@@ -140,10 +164,12 @@ public:
 		const float Z = ((int32)UnpackedZ - (int32)Quant10BitOffs) / Quant10BitDiv;
 		const float WSquared = 1.f - X*X - Y*Y - Z*Z;
 
-		Out.X = X;
-		Out.Y = Y;
-		Out.Z = Z;
-		Out.W = WSquared > 0.f ? FMath::Sqrt( WSquared ) : 0.f;
+		return FQuat(X, Y, Z, WSquared > 0.f ? FMath::Sqrt(WSquared) : 0.f);
+	}
+
+	void ToQuat(FQuat& Out) const
+	{
+		Out = ToQuat<true>(&Packed);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FQuatFixed32NoW& Quat)
@@ -190,14 +216,20 @@ public:
 		Z = Temp.Z;
 	}
 
-	void ToQuat(FQuat& Out) const
+	template<bool bIsDataAligned = true>
+	static FQuat ToQuat(const float* Values)
 	{
+		const float X = bIsDataAligned ? *Values++ : AnimationCompressionUtils::UnalignedRead<float>(Values++);
+		const float Y = bIsDataAligned ? *Values++ : AnimationCompressionUtils::UnalignedRead<float>(Values++);
+		const float Z = bIsDataAligned ? *Values++ : AnimationCompressionUtils::UnalignedRead<float>(Values++);
 		const float WSquared = 1.f - X*X - Y*Y - Z*Z;
 
-		Out.X = X;
-		Out.Y = Y;
-		Out.Z = Z;
-		Out.W = WSquared > 0.f ? FMath::Sqrt( WSquared ) : 0.f;
+		return FQuat(X, Y, Z, WSquared > 0.f ? FMath::Sqrt(WSquared) : 0.f);
+	}
+
+	void ToQuat(FQuat& Out) const
+	{
+		Out = ToQuat<true>(&X);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FQuatFloat96NoW& Quat)
@@ -286,7 +318,8 @@ public:
 		Packed = (PackedZ << ZShift) | (PackedY << YShift) | (PackedX);
 	}
 
-	void ToVector(FVector& Out, const float* Mins, const float *Ranges) const
+	template<bool bIsDataAligned = true>
+	static FVector ToVector(const float* Mins, const float *Ranges, const uint32* PackedValue)
 	{
 		const uint32 ZShift = 21;
 		const uint32 YShift = 10;
@@ -294,17 +327,21 @@ public:
 		const uint32 YMask = 0x001ffc00;
 		const uint32 ZMask = 0xffe00000;
 
+		const uint32 Packed = bIsDataAligned ? *PackedValue : AnimationCompressionUtils::UnalignedRead<uint32>(PackedValue);
 		const uint32 UnpackedZ = Packed >> ZShift;
 		const uint32 UnpackedY = (Packed & YMask) >> YShift;
 		const uint32 UnpackedX = (Packed & XMask);
 
-		const float X = ( (((int32)UnpackedX - (int32)Quant10BitOffs) / Quant10BitDiv) * Ranges[0] + Mins[0] );
-		const float Y = ( (((int32)UnpackedY - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[1] + Mins[1] );
-		const float Z = ( (((int32)UnpackedZ - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[2] + Mins[2] );
+		const float X = ((((int32)UnpackedX - (int32)Quant10BitOffs) / Quant10BitDiv) * Ranges[0] + Mins[0]);
+		const float Y = ((((int32)UnpackedY - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[1] + Mins[1]);
+		const float Z = ((((int32)UnpackedZ - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[2] + Mins[2]);
 
-		Out.X = X;
-		Out.Y = Y;
-		Out.Z = Z;
+		return FVector(X, Y, Z);
+	}
+
+	void ToVector(FVector& Out, const float* Mins, const float *Ranges) const
+	{
+		Out = ToVector<true>(Mins, Ranges, &Packed);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FVectorIntervalFixed32NoW& Value)
@@ -354,7 +391,8 @@ public:
 		Packed = (PackedX << XShift) | (PackedY << YShift) | (PackedZ);
 	}
 
-	void ToQuat(FQuat& Out, const float* Mins, const float *Ranges) const
+	template<bool bIsDataAligned>
+	static FQuat ToQuat(const float* Mins, const float *Ranges, const uint32* PackedValue)
 	{
 		const uint32 XShift = 21;
 		const uint32 YShift = 10;
@@ -362,19 +400,22 @@ public:
 		const uint32 YMask = 0x001ffc00;
 		const uint32 XMask = 0xffe00000;
 
+		const uint32 Packed = bIsDataAligned ? *PackedValue : AnimationCompressionUtils::UnalignedRead<uint32>(PackedValue);
 		const uint32 UnpackedX = Packed >> XShift;
 		const uint32 UnpackedY = (Packed & YMask) >> YShift;
 		const uint32 UnpackedZ = (Packed & ZMask);
 
-		const float X = ( (((int32)UnpackedX - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[0] + Mins[0] );
-		const float Y = ( (((int32)UnpackedY - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[1] + Mins[1] );
-		const float Z = ( (((int32)UnpackedZ - (int32)Quant10BitOffs) / Quant10BitDiv) * Ranges[2] + Mins[2] );
+		const float X = ((((int32)UnpackedX - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[0] + Mins[0]);
+		const float Y = ((((int32)UnpackedY - (int32)Quant11BitOffs) / Quant11BitDiv) * Ranges[1] + Mins[1]);
+		const float Z = ((((int32)UnpackedZ - (int32)Quant10BitOffs) / Quant10BitDiv) * Ranges[2] + Mins[2]);
 		const float WSquared = 1.f - X*X - Y*Y - Z*Z;
 
-		Out.X = X;
-		Out.Y = Y;
-		Out.Z = Z;
-		Out.W = WSquared > 0.f ? FMath::Sqrt( WSquared ) : 0.f;
+		return FQuat(X, Y, Z, WSquared > 0.f ? FMath::Sqrt(WSquared) : 0.f);
+	}
+
+	void ToQuat(FQuat& Out, const float* Mins, const float *Ranges) const
+	{
+		Out = ToQuat<true>(Mins, Ranges, &Packed);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FQuatIntervalFixed32NoW& Quat)
@@ -422,7 +463,8 @@ public:
 		Packed = (PackedX << XShift) | (PackedY << YShift) | (PackedZ);
 	}
 
-	void ToQuat(FQuat& Out) const
+	template<bool bIsDataAligned>
+	static FQuat ToQuat(const uint32* PackedValue)
 	{
 		const uint32 XShift = 21;
 		const uint32 YShift = 10;
@@ -430,6 +472,7 @@ public:
 		const uint32 YMask = 0x001ffc00;
 		const uint32 XMask = 0xffe00000;
 
+		const uint32 Packed = bIsDataAligned ? *PackedValue : AnimationCompressionUtils::UnalignedRead<uint32>(PackedValue);
 		const uint32 UnpackedX = Packed >> XShift;
 		const uint32 UnpackedY = (Packed & YMask) >> YShift;
 		const uint32 UnpackedZ = (Packed & ZMask);
@@ -437,15 +480,17 @@ public:
 		TFloatPacker<3, 7, true> Packer7e3;
 		TFloatPacker<3, 6, true> Packer6e3;
 
-		const float X = Packer7e3.Decode( UnpackedX );
-		const float Y = Packer7e3.Decode( UnpackedY );
-		const float Z = Packer6e3.Decode( UnpackedZ );
+		const float X = Packer7e3.Decode(UnpackedX);
+		const float Y = Packer7e3.Decode(UnpackedY);
+		const float Z = Packer6e3.Decode(UnpackedZ);
 		const float WSquared = 1.f - X*X - Y*Y - Z*Z;
 
-		Out.X = X;
-		Out.Y = Y;
-		Out.Z = Z;
-		Out.W = WSquared > 0.f ? FMath::Sqrt( WSquared ) : 0.f;
+		return FQuat(X, Y, Z, WSquared > 0.f ? FMath::Sqrt(WSquared) : 0.f);
+	}
+
+	void ToQuat(FQuat& Out) const
+	{
+		Out = ToQuat<true>(&Packed);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FQuatFloat32NoW& Quat)
@@ -469,7 +514,7 @@ public:
  * @param	KeyData			The compressed rotation data to decompress.
  * @return	None. 
  */
-template <int32 FORMAT>
+template <int32 FORMAT, bool bIsDataAligned = true>
 FORCEINLINE void DecompressRotation(FQuat& Out, const uint8* RESTRICT TopOfStream, const uint8* RESTRICT KeyData)
 {
 	// this if-else stack gets compiled away to a single result based on the template parameter
@@ -477,16 +522,20 @@ FORCEINLINE void DecompressRotation(FQuat& Out, const uint8* RESTRICT TopOfStrea
 	{
 		// due to alignment issue, this crahses accessing non aligned 
 		// we don't think this is common case, so this is slower. 
-		float* Keys = (float*)KeyData;
-		Out = FQuat(Keys[0], Keys[1], Keys[2], Keys[3]);
+		const float* Keys = (const float*)KeyData;
+		const float X = bIsDataAligned ? Keys[0] : AnimationCompressionUtils::UnalignedRead<float>(&Keys[0]);
+		const float Y = bIsDataAligned ? Keys[1] : AnimationCompressionUtils::UnalignedRead<float>(&Keys[1]);
+		const float Z = bIsDataAligned ? Keys[2] : AnimationCompressionUtils::UnalignedRead<float>(&Keys[2]);
+		const float W = bIsDataAligned ? Keys[3] : AnimationCompressionUtils::UnalignedRead<float>(&Keys[3]);
+		Out = FQuat(X, Y, Z, W);
 	}
 	else if ( FORMAT == ACF_Float96NoW )
 	{
-		((FQuatFloat96NoW*)KeyData)->ToQuat( Out );
+		Out = FQuatFloat96NoW::ToQuat<bIsDataAligned>((const float*)KeyData);
 	}
 	else if ( FORMAT == ACF_Fixed32NoW )
 	{
-		((FQuatFixed32NoW*)KeyData)->ToQuat( Out );
+		Out = FQuatFixed32NoW::ToQuat<bIsDataAligned>((const uint32*)KeyData);
 	}
 	else if ( FORMAT == ACF_Fixed48NoW )
 	{
@@ -496,11 +545,11 @@ FORCEINLINE void DecompressRotation(FQuat& Out, const uint8* RESTRICT TopOfStrea
 	{
 		const float* RESTRICT Mins = (float*)TopOfStream;
 		const float* RESTRICT Ranges = (float*)(TopOfStream+sizeof(float)*3);
-		((FQuatIntervalFixed32NoW*)KeyData)->ToQuat( Out, Mins, Ranges );
+		Out = FQuatIntervalFixed32NoW::ToQuat<bIsDataAligned>(Mins, Ranges, (const uint32*)KeyData);
 	}
 	else if ( FORMAT == ACF_Float32NoW )
 	{
-		((FQuatFloat32NoW*)KeyData)->ToQuat( Out );
+		Out = FQuatFloat32NoW::ToQuat<bIsDataAligned>((const uint32*)KeyData);
 	}
 	else if ( FORMAT == ACF_Identity )
 	{
@@ -521,18 +570,18 @@ FORCEINLINE void DecompressRotation(FQuat& Out, const uint8* RESTRICT TopOfStrea
  * @param	KeyData			The compressed translation data to decompress.
  * @return	None. 
  */
-template <int32 FORMAT>
+template <int32 FORMAT, bool bIsDataAligned = true>
 FORCEINLINE void DecompressTranslation(FVector& Out, const uint8* RESTRICT TopOfStream, const uint8* RESTRICT KeyData)
 {
 	if ( (FORMAT == ACF_None) || (FORMAT == ACF_Float96NoW) )
 	{
-		Out = *((FVector*)KeyData);
+		Out = bIsDataAligned ? *((FVector*)KeyData) : AnimationCompressionUtils::UnalignedRead<FVector>(KeyData);
 	}
 	else if ( FORMAT == ACF_IntervalFixed32NoW )
 	{
 		const float* RESTRICT Mins = (float*)TopOfStream;
 		const float* RESTRICT Ranges = (float*)(TopOfStream+sizeof(float)*3);
-		((FVectorIntervalFixed32NoW*)KeyData)->ToVector( Out, Mins, Ranges );
+		Out = FVectorIntervalFixed32NoW::ToVector<bIsDataAligned>(Mins, Ranges, (const uint32*)KeyData);
 	}
 	else if ( FORMAT == ACF_Identity )
 	{
@@ -558,18 +607,18 @@ FORCEINLINE void DecompressTranslation(FVector& Out, const uint8* RESTRICT TopOf
  * @param	KeyData			The compressed Scale data to decompress.
  * @return	None. 
  */
-template <int32 FORMAT>
+template <int32 FORMAT, bool bIsDataAligned = true>
 FORCEINLINE void DecompressScale(FVector& Out, const uint8* RESTRICT TopOfStream, const uint8* RESTRICT KeyData)
 {
 	if ( (FORMAT == ACF_None) || (FORMAT == ACF_Float96NoW) )
 	{
-		Out = *((FVector*)KeyData);
+		Out = bIsDataAligned ? *((FVector*)KeyData) : AnimationCompressionUtils::UnalignedRead<FVector>(KeyData);
 	}
 	else if ( FORMAT == ACF_IntervalFixed32NoW )
 	{
 		const float* RESTRICT Mins = (float*)TopOfStream;
 		const float* RESTRICT Ranges = (float*)(TopOfStream+sizeof(float)*3);
-		((FVectorIntervalFixed32NoW*)KeyData)->ToVector( Out, Mins, Ranges );
+		Out = FVectorIntervalFixed32NoW::ToVector<bIsDataAligned>(Mins, Ranges, (const uint32*)KeyData);
 	}
 	else if ( FORMAT == ACF_Identity )
 	{
@@ -738,6 +787,7 @@ public:
 	}
 
 	/** Decompress a single translation key from a single track that was compressed with the PerTrack codec (scalar) */
+	template<bool bIsDataAligned = true>
 	static FORCEINLINE_DEBUGGABLE void DecompressTranslation(int32 Format, int32 FormatFlags, FVector& Out, const uint8* RESTRICT TopOfStream, const uint8* RESTRICT KeyData)
 	{
 		if( Format == ACF_Float96NoW )
@@ -745,7 +795,7 @@ public:
 			// Legacy Format, all components stored
 			if( (FormatFlags & 7) == 0 )
 			{
-				Out = *((FVector*)KeyData);
+				Out = bIsDataAligned ? *((FVector*)KeyData) : AnimationCompressionUtils::UnalignedRead<FVector>(KeyData);
 			}
 			// Stored per components
 			else
@@ -753,7 +803,7 @@ public:
 				const float* RESTRICT TypedKeyData = (const float*)KeyData;
 				if (FormatFlags & 1)
 				{
-					Out.X = *TypedKeyData++;
+					Out.X = bIsDataAligned ? *TypedKeyData++ : AnimationCompressionUtils::UnalignedRead<float>(TypedKeyData++);
 				}
 				else
 				{
@@ -762,7 +812,7 @@ public:
 
 				if (FormatFlags & 2)
 				{
-					Out.Y = *TypedKeyData++;
+					Out.Y = bIsDataAligned ? *TypedKeyData++ : AnimationCompressionUtils::UnalignedRead<float>(TypedKeyData++);
 				}
 				else
 				{
@@ -771,7 +821,7 @@ public:
 
 				if (FormatFlags & 4)
 				{
-					Out.Z = *TypedKeyData++;
+					Out.Z = bIsDataAligned ? *TypedKeyData++ : AnimationCompressionUtils::UnalignedRead<float>(TypedKeyData++);
 				}
 				else
 				{
@@ -802,12 +852,10 @@ public:
 				Ranges[2] = *SourceBounds++;
 			}
 
-			((FVectorIntervalFixed32NoW*)KeyData)->ToVector(Out, Mins, Ranges);
+			Out = FVectorIntervalFixed32NoW::ToVector<bIsDataAligned>(Mins, Ranges, (const uint32*)KeyData);
 		}
 		else if (Format == ACF_Fixed48NoW)
 		{
-			//@TODO: Explore different scales
-			const int32 LogScale = 7;
 			const uint16* RESTRICT TypedKeyData = (const uint16*)KeyData;
 			if (FormatFlags & 1)
 			{
@@ -849,15 +897,16 @@ public:
 	}
 
 	/** Decompress a single rotation key from a single track that was compressed with the PerTrack codec (scalar) */
+	template<bool bIsDataAligned = true>
 	static FORCEINLINE_DEBUGGABLE void DecompressRotation(int32 Format, int32 FormatFlags, FQuat& Out, const uint8* RESTRICT TopOfStream, const uint8* RESTRICT KeyData)
 	{
 		if (Format == ACF_Fixed48NoW)
 		{
 			const uint16* RESTRICT TypedKeyData = (const uint16*)KeyData;
 
-			const float Xa = (FormatFlags & 1) ? (float)(*TypedKeyData++) : 32767.0f;
-			const float Ya = (FormatFlags & 2) ? (float)(*TypedKeyData++) : 32767.0f;
-			const float Za = (FormatFlags & 4) ? (float)(*TypedKeyData++) : 32767.0f;
+			const float Xa = (FormatFlags & 1) ? (float)(bIsDataAligned ? (*TypedKeyData++) : AnimationCompressionUtils::UnalignedRead<uint16>(TypedKeyData++)) : 32767.0f;
+			const float Ya = (FormatFlags & 2) ? (float)(bIsDataAligned ? (*TypedKeyData++) : AnimationCompressionUtils::UnalignedRead<uint16>(TypedKeyData++)) : 32767.0f;
+			const float Za = (FormatFlags & 4) ? (float)(bIsDataAligned ? (*TypedKeyData++) : AnimationCompressionUtils::UnalignedRead<uint16>(TypedKeyData++)) : 32767.0f;
 
 			const float X = (Xa - 32767.0f) * 3.0518509475997192297128208258309e-5f;
 			const float XX = X*X;
@@ -874,7 +923,7 @@ public:
 		}
 		else if (Format == ACF_Float96NoW)
 		{
-			((FQuatFloat96NoW*)KeyData)->ToQuat(Out);
+			Out = FQuatFloat96NoW::ToQuat<bIsDataAligned>((const float*)KeyData);
 		}
 		else if ( Format == ACF_IntervalFixed32NoW )
 		{
@@ -899,15 +948,15 @@ public:
 				Ranges[2] = *SourceBounds++;
 			}
 
-			((FQuatIntervalFixed32NoW*)KeyData)->ToQuat( Out, Mins, Ranges );
+			Out = FQuatIntervalFixed32NoW::ToQuat<bIsDataAligned>(Mins, Ranges, (const uint32*)KeyData);
 		}
 		else if ( Format == ACF_Float32NoW )
 		{
-			((FQuatFloat32NoW*)KeyData)->ToQuat( Out );
+			Out = FQuatFloat32NoW::ToQuat<bIsDataAligned>((const uint32*)KeyData);
 		}
 		else if (Format == ACF_Fixed32NoW)
 		{
-			((FQuatFixed32NoW*)KeyData)->ToQuat(Out);
+			Out = FQuatFixed32NoW::ToQuat<bIsDataAligned>((const uint32*)KeyData);
 		}
 		else if ( Format == ACF_Identity )
 		{
@@ -921,6 +970,7 @@ public:
 	}
 
 	/** Decompress a single Scale key from a single track that was compressed with the PerTrack codec (scalar) */
+	template<bool bIsDataAligned = true>
 	static FORCEINLINE_DEBUGGABLE void DecompressScale(int32 Format, int32 FormatFlags, FVector& Out, const uint8* RESTRICT TopOfStream, const uint8* RESTRICT KeyData)
 	{
 		if( Format == ACF_Float96NoW )
@@ -928,7 +978,7 @@ public:
 			// Legacy Format, all components stored
 			if( (FormatFlags & 7) == 0 )
 			{
-				Out = *((FVector*)KeyData);
+				Out = bIsDataAligned ? *((FVector*)KeyData) : AnimationCompressionUtils::UnalignedRead<FVector>(KeyData);
 			}
 			// Stored per components
 			else
@@ -936,7 +986,7 @@ public:
 				const float* RESTRICT TypedKeyData = (const float*)KeyData;
 				if (FormatFlags & 1)
 				{
-					Out.X = *TypedKeyData++;
+					Out.X = bIsDataAligned ? *TypedKeyData++ : AnimationCompressionUtils::UnalignedRead<float>(TypedKeyData++);
 				}
 				else
 				{
@@ -945,7 +995,7 @@ public:
 
 				if (FormatFlags & 2)
 				{
-					Out.Y = *TypedKeyData++;
+					Out.Y = bIsDataAligned ? *TypedKeyData++ : AnimationCompressionUtils::UnalignedRead<float>(TypedKeyData++);
 				}
 				else
 				{
@@ -954,7 +1004,7 @@ public:
 
 				if (FormatFlags & 4)
 				{
-					Out.Z = *TypedKeyData++;
+					Out.Z = bIsDataAligned ? *TypedKeyData++ : AnimationCompressionUtils::UnalignedRead<float>(TypedKeyData++);
 				}
 				else
 				{
@@ -985,12 +1035,10 @@ public:
 				Ranges[2] = *SourceBounds++;
 			}
 
-			((FVectorIntervalFixed32NoW*)KeyData)->ToVector(Out, Mins, Ranges);
+			Out = FVectorIntervalFixed32NoW::ToVector<bIsDataAligned>(Mins, Ranges, (const uint32*)KeyData);
 		}
 		else if (Format == ACF_Fixed48NoW)
 		{
-			//@TODO: Explore different scales
-			const int32 LogScale = 7;
 			const uint16* RESTRICT TypedKeyData = (const uint16*)KeyData;
 			if (FormatFlags & 1)
 			{
@@ -1030,7 +1078,6 @@ public:
 			Out = FVector::ZeroVector;
 		}
 	}
-
 };
 
 template <>

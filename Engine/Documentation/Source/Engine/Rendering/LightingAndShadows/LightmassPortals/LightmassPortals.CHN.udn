@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3753383
 Availability: Public
 Crumbs: %ROOT%
-Title: Lightmass Portals
-Description: Help increase the quality of baked interior lighting.  
+Title: Lightmass门户
+Description: 帮助提高烘焙室内光照的质量。  
 Type: Overview
 SkillLevel:Intermediate
 Version:4.18
@@ -17,93 +17,93 @@ Social-image:LMP_TopicImage.png
 
 [TOC(start:2 end:2)]
 
-When using a Skylight or HDR image to light your Unreal Engine 4 (UE4) levels, you may run into issues with Lightmass not understanding where the light in the scene should be coming from. To help Lightmass better understand where the light should be coming from you can place Lightmass Portals Actors around the areas that are critical to lighting. In the following document, we will take a look at setting up and using Lightmass Portals in your UE4 projects.
+使用天空光照或HDR影像为虚幻引擎4（UE4）关卡照明时，您可能会遇到Lightmass不理解场景中的光源应该来自何方的问题。为了帮助Lightmass更好地理解光源应该来自何方，可以在对光照至关重要的区域周围放置Lightmass门户Actor。在以下文档中，我们将研究UE4项目中的Lightmass门户的设置和使用。
 
-## How It Works 
+## 工作方式 
 
-From a high-level Lightmass Portals work in the following manner:
+概括起来，Lightmass门户是按下列方式工作的：
 
-* Lightmass Portals are most useful when a scene is lit using a [Skylight](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight/), HDR image or a Static Mesh that is set to [Use Emissive for Static Lighting](Engine/Rendering/Materials/HowTo/EmissiveGlow/#usingemissivematerialstolighttheworld) checked. 
+* 使用[天空光照](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight/)、HDR影像或设置为启用[将自发光用于静态照明（Use Emissive for Static Lighting）](Engine/Rendering/Materials/HowTo/EmissiveGlow/#usingemissivematerialstolighttheworld)选项的静态网格体对场景照明时，Lightmass门户用处最大。 
 
     [REGION:lightbox]
     [![](LMP_SkylightSetup.png)(w:500)](LMP_SkylightSetup.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-* Lightmass Portals are placed and in the level and scaled to fit any open areas that are important to the final lighting.
+* Lightmass门户放置在关卡中，并调整比例以适应对最终光照有重要意义的任何开放区域。
 
     ![](LMPortals.png)(w:800)
 
-* When Lightmass is building the light, the Lightmass Portals tell Lightmass that more light rays should come from this area yielding higher quality light and shadows.  
+* 当Lightmass构建光源时，Lightmass门户会告诉Lightmass，应该有更多光线来自此区域，从而产生更高质量的光照和阴影。  
 
     [OBJECT:ComparisonSlider]
         [PARAM:before]
-        ![Without Portals](LMPortal_Results_00.png)
+        ![不使用门户](LMPortal_Results_00.png)
         [/PARAM]
         [PARAM:after]
-        ![With Portals](LMPortal_Results_01.png)
+        ![使用门户](LMPortal_Results_01.png)
         [/PARAM]
     [/OBJECT]
 
-## Steps 
+## 步骤 
 
-To use Lightmass Portals in your UE4 projects, you will need to do the following.
+要在UE4项目中使用Lightmass门户，需要执行下列操作。
 
-1. From the **Modes** panel search for **Lightmass Portal** and when located drag the Lightmass Portal Actor into your level to place it.
+1. 从 **模式（Modes）** 面板搜索 **Lightmass门户（Lightmass Portal）**，找到以后，将Lightmass门户Actor拖入关卡中放置。
 
     [REGION:lightbox]
     [![](LMPortal_Step_01.png)(w:500)](LMPortal_Step_01.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Using the **Move**, **Rotate** and **Scale** tools position and scale the Lightmass Portal to be about the same size or slightly smaller than the opening or area you want Lightmass to focus more rays towards.
+2. 使用 **移动（Move）**、**旋转（Rotate）** 和 **缩放（Scale）** 工具放置和缩放Lightmass门户，使它的大小与你希望聚焦更多光线的开口或区域大致相同或略小一点。
 
     [REGION:lightbox]
     [![](LMPortal_Step_02.png)(w:500)](LMPortal_Step_02.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Over on the **Main Toolbar**, click on the small white triangle next to **Build** and from the displayed change the **Lighting Quality** to **Production**.
+3. 在 **主工具栏（Main Toolbar）** 上，单击 **构建（Build）** 旁边的白色小三角，将显示的 **光照质量（Lighting Quality）** 改为 **产品级（Production）**。
 
     ![](LMPortal_Step_03.png)
 
-1. When that has all been completed, press the **Build** button to start the Lightmass lighting build.
+4. 完成所有设置后，按 **构建（Build）** 按钮开始Lightmass光照构建。
 
     ![](LMPortal_Step_04.png)
 
-## End Result
+## 最终结果
 
-Once your Lightmass build has completed, you will have something similar to the following image.
+完成Lightmass构建之后，就会得到与下列图像类似的效果。
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Without Portals](LMPortal_Off.png)(w:1000)
+    ![不使用门户](LMPortal_Off.png)(w:1000)
     [/PARAM]
     [PARAM:after]
-    ![With Portals](LMPortal_On.png)
+    ![使用门户](LMPortal_On.png)
     [/PARAM]
 [/OBJECT]
 
-If you take a close look at the **Without Portals** image, you will notice that there is a lot of noise in the image, especially in the darker areas when compared to the **With Portals** image. 
+如果细看 **不使用门户** 的图像，你会注意到与 **使用门户** 的图像相比，该图像中有许多噪点，特别是在比较暗的区域。 
 
-## Known Issues / Limitations
+## 已知问题/限制
 
-* Lightmass Portals work by forcing Lightmass to send rays toward the portal. Because of this, you should only use Lightmass Portals on small levels and only for lighting that is critical to the scene. Failing to do this and adding too many Lightmass Portals can drastically increase your Lightmass build times.
+* Lightmass门户是通过强制Lightmass向门户发射光线来工作的。因此，应该只将Lightmass门户用于小型关卡，而且只用于对场景很关键的光照。如果不遵循这一原则，添加太多Lightmass门户，就可能大大增加Lightmass构建次数。
 
-* Only use Lightmass Portals on very small levels as Lightmass Portals are not occluded by anything. Using them in big open world type levels will result in longer than needed light baking times.
+* 只可将Lightmass门户用在非常小的关卡中，因为Lightmass门户不会被任何物体遮挡。如果将它们用在大型的开放世界场景类关卡中，就会不必要地延长光源烘焙时间。
 
-* Lightmass Portals should only be used when needed as they will increase the time it takes Lightmass to calculate the lighting for the scene.
+* 应该仅在需要时使用Lightmass门户，因为它们会增加Lightmass为场景计算光照所需的时间。
 
-* If using Static Meshes for Emissive light caster's make sure that you place a Lightmass Portal around the area on the Static Meshes light is supposed to be emitted from.
+* 如果将静态网格体用于自发光的光线投射体，一定要在应该发射该静态网格体光线的区域周围放置Lightmass门户。
 
 
 

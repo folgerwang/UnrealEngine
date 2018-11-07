@@ -5,6 +5,11 @@
 URotatingMovementComponent::URotatingMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	// Rotating components are often added to actors also with a projectile component,
+	// and we wouldn't want to stomp their desired physics volume setting so turn off auto-registration.
+	bAutoRegisterPhysicsVolumeUpdates = false;
+	bComponentShouldUpdatePhysicsVolume = false;
+
 	RotationRate.Yaw = 180.0f;
 	bRotationInLocalSpace = true;
 }

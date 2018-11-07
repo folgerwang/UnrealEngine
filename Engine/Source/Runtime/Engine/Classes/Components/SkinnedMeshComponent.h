@@ -10,6 +10,7 @@
 #include "Components/SceneComponent.h"
 #include "Engine/TextureStreamingTypes.h"
 #include "Components/MeshComponent.h"
+#include "Containers/SortedMap.h"
 #include "SkinnedMeshComponent.generated.h"
 
 class FPrimitiveSceneProxy;
@@ -50,26 +51,38 @@ enum EPhysBodyOp
 	PBO_MAX,
 };
 
-/** Skinned Mesh Update Flag based on rendered or not. */
-UENUM()
+/** Skinned Mesh Animation Tick option based on rendered or not. This dictates "TickPose and RefreshBoneTransforms" */
+UENUM(BlueprintType)
+enum class EVisibilityBasedAnimTickOption : uint8
+{
+	/** Always Tick and Refresh BoneTransforms whether rendered or not. */
+	AlwaysTickPoseAndRefreshBones,
+	/** Always Tick, but Refresh BoneTransforms only when rendered. */
+	AlwaysTickPose,
+	/**
+		When rendered Tick Pose and Refresh Bone Transforms,
+		otherwise, just update montages and skip everything else.
+		(AnimBP graph will not be updated).
+	*/
+	OnlyTickMontagesWhenNotRendered,
+	/** Tick only when rendered, and it will only RefreshBoneTransforms when rendered. */
+	OnlyTickPoseWhenRendered,
+};
+
+/** Previous deprecated animation tick option. */
 namespace EMeshComponentUpdateFlag
 {
-	enum Type
-	{
-		/** Always Tick and Refresh BoneTransforms whether rendered or not. */
-		AlwaysTickPoseAndRefreshBones,
-		/** Always Tick, but Refresh BoneTransforms only when rendered. */
-		AlwaysTickPose,
-		/**
-			When rendered Tick Pose and Refresh Bone Transforms,
-			otherwise, just update montages and skip everything else.
-			(AnimBP graph will not be updated).
-		*/
-		OnlyTickMontagesWhenNotRendered,
-		/** Tick only when rendered, and it will only RefreshBoneTransforms when rendered. */
-		OnlyTickPoseWhenRendered,
-	};
-}
+	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	typedef int32 Type;
+	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	static const uint8 AlwaysTickPoseAndRefreshBones = 0;
+	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	static const uint8 AlwaysTickPose = 1;
+	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	static const uint8 OnlyTickMontagesWhenNotRendered = 2;
+	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	static const uint8 OnlyTickPoseWhenRendered = 3;
+};
 
 /** Values for specifying bone space. */
 UENUM()
@@ -221,8 +234,6 @@ protected:
 	/** Array of bone visibilities (containing one of the values in EBoneVisibilityStatus for each bone).  A bone is only visible if it is *exactly* 1 (BVS_Visible) */
 	TArray<uint8> PreviousBoneVisibilityStates;
 	TArray<FTransform> PreviousComponentSpaceTransformsArray;
-	/** used to cache previous bone transform or not */
-	bool bHasValidBoneTransform;
 
 protected:
 	/** The index for the ComponentSpaceTransforms buffer we can currently write to */
@@ -233,6 +244,9 @@ protected:
 
 	/** current bone transform revision number */
 	uint32 CurrentBoneTransformRevisionNumber;
+
+	/** Incremented every time the master bone map changes. Used to keep in sync with any duplicate data needed by other threads */
+	int32 MasterBoneMapCacheCount;
 
 	/** 
 	 * If set, this component has slave pose components that are associated with this 
@@ -246,13 +260,10 @@ protected:
 	 */
 	TArray<int32> MasterBoneMap;
 
-	/** Incremented every time the master bone map changes. Used to keep in sync with any duplicate data needed by other threads */
-	int32 MasterBoneMapCacheCount;
-
 	/**
 	*	Mapping for socket overrides, key is the Source socket name and the value is the override socket name
 	*/
-	TMap<FName, FName> SocketOverrideLookup;
+	TSortedMap<FName, FName> SocketOverrideLookup;
 
 public:
 #if WITH_EDITORONLY_DATA
@@ -319,10 +330,6 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
 	int32 ForcedLodModel;
 
-	/** Whether we should use the min lod specified in MinLodModel for this component instead of the min lod in the mesh */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD)
-	bool bOverrideMinLod;
-
 	/**
 	 * This is the min LOD that this component will use.  (e.g. if set to 2 then only 2+ LOD Models will be used.) This is useful to set on
 	 * meshes which are known to be a certain distance away and still want to have better LODs when zoomed in on them.
@@ -358,15 +365,28 @@ public:
 	/** Array of bone visibilities (containing one of the values in EBoneVisibilityStatus for each bone).  A bone is only visible if it is *exactly* 1 (BVS_Visible) */
 	TArray<uint8> BoneVisibilityStates;
 
-	/** This is update frequency flag even when our Owner has not been rendered recently
-	 * 
-	 * SMU_AlwaysTickPoseAndRefreshBones,			// Always Tick and Refresh BoneTransforms whether rendered or not
-	 * SMU_AlwaysTickPose,							// Always Tick, but Refresh BoneTransforms only when rendered
-	 * SMU_OnlyTickPoseWhenRendered,				// Tick only when rendered, and it will only RefreshBoneTransforms when rendered
-	 * 
+	/*
+	 * This is tick animation frequency option based on this component rendered or not or using montage
+	 *  You can change this default value in the INI file 
+	 * Mostly related with performance
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
-	TEnumAsByte<EMeshComponentUpdateFlag::Type> MeshComponentUpdateFlag;
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Config, Category=Optimization)
+	EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
+
+#if WITH_EDITOR
+	DEPRECATED(4.21, "MeshComponentUpdateFlag has been renamed VisibilityBasedAnimTickOption")
+	uint8& MeshComponentUpdateFlag = *(uint8*)&VisibilityBasedAnimTickOption;
+#endif
+
+protected:
+	/** used to cache previous bone transform or not */
+	uint8 bHasValidBoneTransform:1;
+
+public:
+
+	/** Whether we should use the min lod specified in MinLodModel for this component instead of the min lod in the mesh */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD)
+	uint8 bOverrideMinLod:1;
 
 	/** 
 	 * When true, we will just using the bounds from our MasterPoseComponent.  This is useful for when we have a Mesh Parented
@@ -402,18 +422,18 @@ public:
 	//
 	
 	/** When true, skip using the physics asset etc. and always use the fixed bounds defined in the SkeletalMesh. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
 	uint8 bComponentUseFixedSkelBounds:1;
 
 	/** If true, when updating bounds from a PhysicsAsset, consider _all_ BodySetups, not just those flagged with bConsiderForBounds. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
 	uint8 bConsiderAllBodiesForBounds:1;
 
 	/** If true, this component uses its parents LOD when attached if available
 	* ForcedLOD can override this change. By default, it will use parent LOD.
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Rendering)
-	uint32 bSyncAttachParentLOD : 1;
+	uint8 bSyncAttachParentLOD : 1;
 
 
 	/** Whether or not we can highlight selected sections - this should really only be done in the editor */
@@ -477,17 +497,17 @@ private:
 	uint8 bForceMeshObjectUpdate:1;
 
 public:
-	/** Object responsible for sending bone transforms, morph target state etc. to render thread. */
-	class FSkeletalMeshObject*	MeshObject;
-
-	/** Gets the skeletal mesh resource used for rendering the component. */
-	FSkeletalMeshRenderData* GetSkeletalMeshRenderData() const;
-
 	/** 
 	 * Controls how dark the capsule indirect shadow can be.
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(UIMin = "0", UIMax = "1", EditCondition="bCastCapsuleIndirectShadow", DisplayName = "Capsule Indirect Shadow Min Visibility"))
 	float CapsuleIndirectShadowMinVisibility;
+
+	/** Object responsible for sending bone transforms, morph target state etc. to render thread. */
+	class FSkeletalMeshObject*	MeshObject;
+
+	/** Gets the skeletal mesh resource used for rendering the component. */
+	FSkeletalMeshRenderData* GetSkeletalMeshRenderData() const;
 
 	/** 
 	 * Override the Physics Asset of the mesh. It uses SkeletalMesh.PhysicsAsset, but if you'd like to override use this function
@@ -592,6 +612,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
 	FName GetParentBone(FName BoneName) const;
+
+	/**
+	* Get delta transform from reference pose based on BaseNode.
+	* This uses last frame up-to-date transform, so it will have a frame delay if you use this info in the AnimGraph
+	*
+	* @param BoneName Name of the bone
+	* @param BaseName Name of the base bone - if none, it will use parent as a base
+	* 
+	* @return the delta transform from refpose in that given space (BaseName)
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
+	FTransform GetDeltaTransformFromRefPose(FName BoneName, FName BaseName = NAME_None) const;
 
 public:
 	//~ Begin UObject Interface
@@ -718,7 +750,12 @@ public:
 
 	/** Caches the RefToLocal matrices. */
 	void CacheRefToLocalMatrices(TArray<FMatrix>& OutRefToLocal) const;
-	
+
+	FORCEINLINE	const USkinnedMeshComponent* GetBaseComponent()const
+	{
+		return MasterPoseComponent.IsValid() ? MasterPoseComponent.Get() : this;
+	}
+
 	/**
 	* Returns color of the vertex.
 	*

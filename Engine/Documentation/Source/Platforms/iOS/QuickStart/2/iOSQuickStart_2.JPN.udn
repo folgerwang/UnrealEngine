@@ -26,6 +26,7 @@ parent:Platforms/iOS/QuickStart
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 この時点でこの手順は必ずしも必要ではありませんが、デプロイのテストを行うためにプロジェクトの準備ができているのは良いことです。[プロジェクトの準備ができていれば、このセクションはスキップできます。](Platforms/iOS/QuickStart/3)
@@ -96,3 +97,5 @@ parent:Platforms/iOS/QuickStart
 [/COMMENT]
 
 
+
+%Steps%

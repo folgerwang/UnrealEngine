@@ -1,10 +1,11 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 
 public class StagedDirectoryReference : StagedFileSystemReference, IEquatable<StagedDirectoryReference>
 {
@@ -57,7 +58,7 @@ public class StagedDirectoryReference : StagedFileSystemReference, IEquatable<St
 		}
 		else
 		{
-			return (object)B != null && A.CanonicalName == B.CanonicalName;
+			return (object)B != null && A.Name.Equals(B.Name, FileSystemReference.Comparison);
 		}
 	}
 
@@ -80,7 +81,7 @@ public class StagedDirectoryReference : StagedFileSystemReference, IEquatable<St
 	public override bool Equals(object Obj)
 	{
 		StagedDirectoryReference Other = Obj as StagedDirectoryReference;
-		return Other != null && Other.CanonicalName == CanonicalName;
+		return Other != null && Other.Name.Equals(Name, FileSystemReference.Comparison);
 	}
 
 	/// <summary>
@@ -90,7 +91,7 @@ public class StagedDirectoryReference : StagedFileSystemReference, IEquatable<St
 	/// <returns>True if the two directories are identical. Case is ignored.</returns>
 	public bool Equals(StagedDirectoryReference Other)
 	{
-		return CanonicalName == Other.CanonicalName;
+		return Name.Equals(Other.Name, FileSystemReference.Comparison);
 	}
 
 	/// <summary>
@@ -99,7 +100,7 @@ public class StagedDirectoryReference : StagedFileSystemReference, IEquatable<St
 	/// <returns>Hash code for the current object.</returns>
 	public override int GetHashCode()
 	{
-		return CanonicalName.GetHashCode();
+		return FileSystemReference.Comparer.GetHashCode(Name);
 	}
 }
 

@@ -94,13 +94,28 @@ public:
 
     /// Copy constructor.
     TfToken(TfToken const& rhs) : _rep(rhs._rep) { _AddRef(); }
+
+    /// Move constructor.
+    TfToken(TfToken && rhs) : _rep(rhs._rep) {
+        rhs._rep = TfPointerAndBits<const _Rep>();
+    }
     
-    /// Assignment.
+    /// Copy assignment.
     TfToken& operator= (TfToken const& rhs) {
         if (&rhs != this) {
-        rhs._AddRef();
-        _RemoveRef();
-        _rep = rhs._rep;
+            rhs._AddRef();
+            _RemoveRef();
+            _rep = rhs._rep;
+        }
+        return *this;
+    }
+
+    /// Move assignment.
+    TfToken& operator= (TfToken && rhs) {
+        if (&rhs != this) {
+            _RemoveRef();
+            _rep = rhs._rep;
+            rhs._rep = TfPointerAndBits<const _Rep>();
         }
         return *this;
     }
@@ -161,19 +176,12 @@ public:
         }
     };
 
-    /// Functor for comparing two tokens, for use in TfHashSet.
-    struct TokensEqualFunctor {
-        bool operator()(TfToken const& t1, TfToken const& t2) const {
-            return t1 == t2;
-        }
-    };
-
-    /// \typedef TfHashSet<TfToken, TfToken::HashFunctor, TfToken::TokensEqualFunctor> HashSet;
+    /// \typedef TfHashSet<TfToken, TfToken::HashFunctor> HashSet;
     ///
     /// Predefined type for TfHashSet of tokens, since it's so awkward to
     /// manually specify.
     ///
-    typedef TfHashSet<TfToken, TfToken::HashFunctor, TfToken::TokensEqualFunctor> HashSet;
+    typedef TfHashSet<TfToken, TfToken::HashFunctor> HashSet;
     
     /// \typedef std::set<TfToken, TfToken::LTTokenFunctor> Set;
     ///
@@ -183,18 +191,31 @@ public:
     ///
     typedef std::set<TfToken, TfToken::LTTokenFunctor> Set;
     
+    /// Return the size of the string that this token represents.
+    size_t size() const {
+        _Rep const *rep = _rep.Get();
+        return rep ? rep->_str.size() : 0;
+    }
+
     /// Return the text that this token represents.
     ///
     /// \note The returned pointer value is not valid after this TfToken
     /// object has been destroyed.
     ///
     char const* GetText() const {
-        return _rep ? _rep->_str.c_str() : _emptyStr;
+        _Rep const *rep = _rep.Get();
+        return rep ? rep->_str.c_str() : "";
+    }
+
+    /// Synonym for GetText().
+    char const *data() const {
+        return GetText();
     }
 
     /// Return the string that this token represents.
     std::string const& GetString() const {
-        return _rep ? _rep->_str : _GetEmptyString();
+        _Rep const *rep = _rep.Get();
+        return rep ? rep->_str : _GetEmptyString();
     }
 
     /// Swap this token with another.
@@ -204,7 +225,10 @@ public:
     
     /// Equality operator
     bool operator==(TfToken const& o) const {
-        return _rep.Get() == o._rep.Get();
+        // Equal if pointers & bits are equal, or if just pointers are.  Done
+        // this way to avoid the bitwise operations for common cases.
+        return _rep.GetLiteral() == o._rep.GetLiteral() ||
+            _rep.Get() == o._rep.Get();
     }
 
     /// Equality operator
@@ -279,7 +303,7 @@ public:
     operator std::string const& () const { return GetString(); }
     
     /// Returns \c true iff this token contains the empty string \c ""
-    bool IsEmpty() const { return !_rep; }
+    bool IsEmpty() const { return _rep.GetLiteral() == 0; }
 
     /// Stream insertion.
     friend TF_API std::ostream &operator <<(std::ostream &stream, TfToken const&);
@@ -304,8 +328,9 @@ private:
         if (_rep.BitsAs<bool>()) {
             // We believe this rep is refCounted.
             if (_rep->_isCounted) {
-                if (_rep->_refCount == 1)
+                if (_rep->_refCount.load(std::memory_order_relaxed) == 1) {
                     _PossiblyDestroyRep();
+                }
                 else {
                     /*
                      * This is deliberately racy.  It's possible the statement
@@ -320,7 +345,7 @@ private:
                      * using it.  So it's not even necessarily a true leak --
                      * it's just a potential leak.
                      */
-                    --_rep->_refCount;
+                    _rep->_refCount.fetch_sub(1, std::memory_order_relaxed);
                 }
             } else {
                 // Our belief is wrong, update our cache of countedness.
@@ -356,12 +381,14 @@ private:
             return *this;
         }
 
-        bool IncrementIfCounted() const {
+        inline bool IncrementIfCounted() const {
             const bool isCounted = _isCounted;
-            if (isCounted)
-                ++_refCount;
+            if (isCounted) {
+                _refCount.fetch_add(1, std::memory_order_relaxed);
+            }
             return isCounted;
         }
+
         std::string _str;
         char const *_cstr;
         mutable std::atomic_int _refCount;
@@ -373,7 +400,6 @@ private:
     friend struct Tf_TokenRegistry;
     
     TF_API static std::string const& _GetEmptyString();
-    TF_API static char const* _emptyStr;
 
     mutable TfPointerAndBits<const _Rep> _rep;
 };

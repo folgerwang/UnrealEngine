@@ -7,6 +7,7 @@
 #include "RHI.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/ConfigCacheIni.h"
+#include "RHIShaderFormatDefinitions.inl"
 #include "ProfilingDebugging/CsvProfiler.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, RHI);
@@ -37,8 +38,8 @@ DEFINE_STAT(STAT_GetOrCreatePSO);
 static FAutoConsoleVariable CVarUseVulkanRealUBs(
 	TEXT("r.Vulkan.UseRealUBs"),
 	1,
-	TEXT("0: Emulate uniform buffers on Vulkan SM4/SM5 [default]\n")
-	TEXT("1: Use real uniform buffers"),
+	TEXT("0: Emulate uniform buffers on Vulkan SM4/SM5 (debugging ONLY)\n")
+	TEXT("1: Use real uniform buffers [default]"),
 	ECVF_ReadOnly
 	);
 
@@ -319,7 +320,12 @@ void FRHIResource::FlushPendingDeletes(bool bFlushDeferredDeletes)
 		}
 	}
 
+#if PLATFORM_XBOXONE
+	// Adding another frame of latency on Xbox. Speculative GPU crash fix.
+	const uint32 NumFramesToExpire = 4;
+#else
 	const uint32 NumFramesToExpire = 3;
+#endif
 
 	if (DeferredDeletionQueue.Num())
 	{
@@ -470,6 +476,9 @@ bool GSupportsWideMRT = true;
 float GMinClipZ = 0.0f;
 float GProjectionSignY = 1.0f;
 bool GRHINeedsExtraDeletionLatency = false;
+TRHIGlobal<int32> GMaxComputeDispatchDimension((1 << 16) - 1);
+bool GRHILazyShaderCodeLoading = false;
+bool GRHISupportsLazyShaderCodeLoading = false;
 TRHIGlobal<int32> GMaxShadowDepthBufferSizeX(2048);
 TRHIGlobal<int32> GMaxShadowDepthBufferSizeY(2048);
 TRHIGlobal<int32> GMaxTextureDimensions(2048);
@@ -500,6 +509,7 @@ bool GRHIRequiresRenderTargetForPixelShaderUAVs = false;
 bool GRHISupportsMSAADepthSampleAccess = false;
 bool GRHISupportsResolveCubemapFaces = false;
 
+bool GRHIIsHDREnabled = false;
 bool GRHISupportsHDROutput = false;
 EPixelFormat GRHIHDRDisplayOutputFormat = PF_FloatRGBA;
 
@@ -599,157 +609,111 @@ RHI_API void GetFeatureLevelName(ERHIFeatureLevel::Type InFeatureLevel, FName& O
 	}
 }
 
-static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
-static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
-static FName NAME_PCD3D_ES3_1(TEXT("PCD3D_ES31"));
-static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
-static FName NAME_GLSL_150(TEXT("GLSL_150"));
-static FName NAME_SF_PS4(TEXT("SF_PS4"));
-static FName NAME_SF_XBOXONE_D3D12(TEXT("SF_XBOXONE_D3D12"));
-static FName NAME_GLSL_430(TEXT("GLSL_430"));
-static FName NAME_GLSL_150_ES2(TEXT("GLSL_150_ES2"));
-static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
-static FName NAME_GLSL_150_ES31(TEXT("GLSL_150_ES31"));
-static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
-static FName NAME_GLSL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
-static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
-static FName NAME_SF_METAL(TEXT("SF_METAL"));
-static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
-static FName NAME_SF_METAL_MRT_MAC(TEXT("SF_METAL_MRT_MAC"));
-static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
-static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
-static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
-static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
-static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
-static FName NAME_VULKAN_ES3_1_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
-static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
-static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
-static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
-static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
-static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
-static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
-static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
-static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
-static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
-static FName NAME_SF_METAL_MACES2(TEXT("SF_METAL_MACES2"));
-static FName NAME_GLSL_SWITCH(TEXT("GLSL_SWITCH"));
-static FName NAME_GLSL_SWITCH_FORWARD(TEXT("GLSL_SWITCH_FORWARD"));
+FName ShadingPathNames[] =
+{
+	FName(TEXT("Deferred")),
+	FName(TEXT("Forward")),
+	FName(TEXT("Mobile")),
+};
 
-FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
+static_assert(ARRAY_COUNT(ShadingPathNames) == ERHIShadingPath::Num, "Missing entry from shading path names.");
+
+RHI_API bool GetShadingPathFromName(FName Name, ERHIShadingPath::Type& OutShadingPath)
+{
+	for (int32 NameIndex = 0; NameIndex < ARRAY_COUNT(ShadingPathNames); NameIndex++)
+	{
+		if (ShadingPathNames[NameIndex] == Name)
+		{
+			OutShadingPath = (ERHIShadingPath::Type)NameIndex;
+			return true;
+		}
+	}
+
+	OutShadingPath = ERHIShadingPath::Num;
+	return false;
+}
+
+RHI_API void GetShadingPathName(ERHIShadingPath::Type InShadingPath, FString& OutName)
+{
+	check(InShadingPath < ARRAY_COUNT(ShadingPathNames));
+	if (InShadingPath < ARRAY_COUNT(ShadingPathNames))
+	{
+		ShadingPathNames[(int32)InShadingPath].ToString(OutName);
+	}
+	else
+	{
+		OutName = TEXT("InvalidShadingPath");
+	}
+}
+
+static FName InvalidShadingPathName(TEXT("InvalidShadingPath"));
+RHI_API void GetShadingPathName(ERHIShadingPath::Type InShadingPath, FName& OutName)
+{
+	check(InShadingPath < ARRAY_COUNT(ShadingPathNames));
+	if (InShadingPath < ARRAY_COUNT(ShadingPathNames))
+	{
+		OutName = ShadingPathNames[(int32)InShadingPath];
+	}
+	else
+	{
+
+		OutName = InvalidShadingPathName;
+	}
+}
+
+static FName NAME_PLATFORM_WINDOWS(TEXT("Windows"));
+static FName NAME_PLATFORM_PS4(TEXT("PS4"));
+static FName NAME_PLATFORM_XBOXONE(TEXT("XboxOne"));
+static FName NAME_PLATFORM_ANDROID(TEXT("Android"));
+static FName NAME_PLATFORM_IOS(TEXT("IOS"));
+static FName NAME_PLATFORM_MAC(TEXT("Mac"));
+static FName NAME_PLATFORM_SWITCH(TEXT("Switch"));
+static FName NAME_PLATFORM_TVOS(TEXT("TVOS"));
+
+FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
 {
 	switch(Platform)
 	{
-	case SP_PCD3D_SM5:
-		return NAME_PCD3D_SM5;
 	case SP_PCD3D_SM4:
-		return NAME_PCD3D_SM4;
-	case SP_PCD3D_ES3_1:
-		return NAME_PCD3D_ES3_1;
-	case SP_PCD3D_ES2:
-		return NAME_PCD3D_ES2;
-	case SP_OPENGL_SM4:
-		return NAME_GLSL_150;
+	case SP_PCD3D_SM5:
+		return NAME_PLATFORM_WINDOWS;
 	case SP_PS4:
-		return NAME_SF_PS4;
+		return NAME_PLATFORM_PS4;
 	case SP_XBOXONE_D3D12:
-		return NAME_SF_XBOXONE_D3D12;
-	case SP_OPENGL_SM5:
-		return NAME_GLSL_430;
-	case SP_OPENGL_PCES2:
-	{
-		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("OpenGL.UseEmulatedUBs"));
-		return (CVar && CVar->GetValueOnAnyThread() != 0) ? NAME_GLSL_150_ES2_NOUB : NAME_GLSL_150_ES2;
-	}
-	case SP_OPENGL_PCES3_1:
-		return NAME_GLSL_150_ES31;
-	case SP_OPENGL_ES2_ANDROID:
-		return NAME_GLSL_ES2;
-	case SP_OPENGL_ES2_WEBGL:
-		return NAME_GLSL_ES2_WEBGL;
-	case SP_OPENGL_ES2_IOS:
-		return NAME_GLSL_ES2_IOS;
-	case SP_METAL:
-		return NAME_SF_METAL;
-	case SP_METAL_MRT:
-		return NAME_SF_METAL_MRT;
-	case SP_METAL_MRT_MAC:
-		return NAME_SF_METAL_MRT_MAC;
-	case SP_METAL_SM5_NOTESS:
-		return NAME_SF_METAL_SM5_NOTESS;
-	case SP_METAL_SM5:
-		return NAME_SF_METAL_SM5;
-	case SP_METAL_MACES3_1:
-		return NAME_SF_METAL_MACES3_1;
-	case SP_METAL_MACES2:
-		return NAME_SF_METAL_MACES2;
-	case SP_OPENGL_ES31_EXT:
-		return NAME_GLSL_310_ES_EXT;
+		return NAME_PLATFORM_XBOXONE;
 	case SP_OPENGL_ES3_1_ANDROID:
-		return NAME_GLSL_ES3_1_ANDROID;
-	case SP_VULKAN_SM4:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM4 : NAME_VULKAN_SM4_NOUB;
-	case SP_VULKAN_SM5:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM5 : NAME_VULKAN_SM5_NOUB;
-	case SP_VULKAN_SM5_LUMIN:
-		return NAME_VULKAN_SM5_LUMIN;
-	case SP_VULKAN_ES3_1_LUMIN:
-		return NAME_VULKAN_ES3_1_LUMIN;
-	case SP_VULKAN_PCES3_1:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1 : NAME_VULKAN_ES3_1_NOUB;
 	case SP_VULKAN_ES3_1_ANDROID:
-		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1_ANDROID : NAME_VULKAN_ES3_1_ANDROID_NOUB;
+		return NAME_PLATFORM_ANDROID;
+	case SP_METAL:
+	case SP_METAL_MRT:
+        return NAME_PLATFORM_IOS;
+	case SP_METAL_TVOS:
+	case SP_METAL_MRT_TVOS:
+		return NAME_PLATFORM_TVOS;
+	case SP_METAL_SM5:
+	case SP_METAL_SM5_NOTESS:
+	case SP_METAL_MACES3_1:
+	case SP_METAL_MACES2:
+	case SP_METAL_MRT_MAC:
+		return NAME_PLATFORM_MAC;
 	case SP_SWITCH:
-		return NAME_GLSL_SWITCH;
 	case SP_SWITCH_FORWARD:
-		return NAME_GLSL_SWITCH_FORWARD;
+		return NAME_PLATFORM_SWITCH;
 
 	default:
-		check(0);
-		return NAME_PCD3D_SM5;
+		return FName();
 	}
+}
+
+FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
+{
+	return ShaderPlatformToShaderFormatName(Platform);
 }
 
 EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 {
-	if (ShaderFormat == NAME_PCD3D_SM5)					return SP_PCD3D_SM5;	
-	if (ShaderFormat == NAME_PCD3D_SM4)					return SP_PCD3D_SM4;
-	if (ShaderFormat == NAME_PCD3D_ES3_1)				return SP_PCD3D_ES3_1;
-	if (ShaderFormat == NAME_PCD3D_ES2)					return SP_PCD3D_ES2;
-	if (ShaderFormat == NAME_GLSL_150)					return SP_OPENGL_SM4;
-	if (ShaderFormat == NAME_SF_PS4)					return SP_PS4;
-	if (ShaderFormat == NAME_SF_XBOXONE_D3D12)			return SP_XBOXONE_D3D12;
-	if (ShaderFormat == NAME_GLSL_430)					return SP_OPENGL_SM5;
-	if (ShaderFormat == NAME_GLSL_150_ES2)				return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)			return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_GLSL_150_ES31)				return SP_OPENGL_PCES3_1;
-	if (ShaderFormat == NAME_GLSL_ES2)					return SP_OPENGL_ES2_ANDROID;
-	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)			return SP_OPENGL_ES2_WEBGL;
-	if (ShaderFormat == NAME_GLSL_ES2_IOS)				return SP_OPENGL_ES2_IOS;
-	if (ShaderFormat == NAME_SF_METAL)					return SP_METAL;
-	if (ShaderFormat == NAME_SF_METAL_MRT)				return SP_METAL_MRT;
-	if (ShaderFormat == NAME_SF_METAL_MRT_MAC)			return SP_METAL_MRT_MAC;
-	if (ShaderFormat == NAME_GLSL_310_ES_EXT)			return SP_OPENGL_ES31_EXT;
-	if (ShaderFormat == NAME_SF_METAL_SM5)				return SP_METAL_SM5;
-	if (ShaderFormat == NAME_VULKAN_SM4)				return SP_VULKAN_SM4;
-	if (ShaderFormat == NAME_VULKAN_SM5)				return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_VULKAN_SM5_LUMIN)			return SP_VULKAN_SM5_LUMIN;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)		return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_NOUB)	return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_LUMIN)		return SP_VULKAN_ES3_1_LUMIN;
-	if (ShaderFormat == NAME_VULKAN_ES3_1)				return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_NOUB)			return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)			return SP_VULKAN_SM4;
-	if (ShaderFormat == NAME_VULKAN_SM5_NOUB)			return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)		return SP_METAL_SM5_NOTESS;
-	if (ShaderFormat == NAME_SF_METAL_MACES3_1)			return SP_METAL_MACES3_1;
-	if (ShaderFormat == NAME_SF_METAL_MACES2)			return SP_METAL_MACES2;
-	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID)		return SP_OPENGL_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_GLSL_SWITCH)				return SP_SWITCH;
-	if (ShaderFormat == NAME_GLSL_SWITCH_FORWARD)		return SP_SWITCH_FORWARD;
-	
-	return SP_NumPlatforms;
+	return ShaderFormatNameToShaderPlatform(ShaderFormat);
 }
-
 
 RHI_API bool IsRHIDeviceAMD()
 {
@@ -842,7 +806,7 @@ RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform)
 	{
 		return true;
 	}
-	else if (Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_MAC)
+	else if (IsMetalSM5Platform(Platform))
 	{
 		return (RHIGetShaderLanguageVersion(Platform) >= 2);
 	}
@@ -981,15 +945,15 @@ void FRHIRenderPassInfo::Validate() const
 		{
 			ensureMsgf(0, TEXT("Missing color render target for which to generate mips!"));
 		}
-		else if (NumColorRenderTargets > 1)
+
+		for (int32 Index = 1; Index < NumColorRenderTargets; ++Index)
 		{
-			ensureMsgf(0, TEXT("Too many color render targets for which to generate mips!"));
-		}
+			ensureMsgf(ColorRenderTargets[0].RenderTarget->GetSizeXYZ() == ColorRenderTargets[Index].RenderTarget->GetSizeXYZ(), TEXT("Color Render Targets must all have the same dimensions for generating mips!"));
+		}		
 	}
 
 	if (DepthStencilRenderTarget.DepthStencilTarget)
 	{
-		ensureMsgf(!bGeneratingMips, TEXT("Can't (currently) generate mip maps off a depth/stencil target!"));
 		// Ensure NumSamples matches with color RT
 		if (NumSamples != -1)
 		{
@@ -1001,7 +965,7 @@ void FRHIRenderPassInfo::Validate() const
 		// Don't try to resolve a non-msaa
 		ensure(!bIsMSAAResolve || DepthStencilRenderTarget.DepthStencilTarget->GetNumSamples() > 1);
 		// Don't resolve to null
-		ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
+		//ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
 		// Don't write to depth if read-only
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);
@@ -1011,4 +975,10 @@ void FRHIRenderPassInfo::Validate() const
 		ensure(DepthStencilRenderTarget.Action == EDepthStencilTargetActions::DontLoad_DontStore);
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil == FExclusiveDepthStencil::DepthNop_StencilNop);
 	}
+}
+
+static FRHIPanicEvent RHIPanicEvent;
+FRHIPanicEvent& RHIGetPanicDelegate()
+{
+	return RHIPanicEvent;
 }

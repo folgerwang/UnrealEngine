@@ -30,6 +30,9 @@ struct FAnimNode_AssetPlayerBase;
 struct FAnimNode_StateMachine;
 struct FAnimNode_SubInput;
 struct FBakedAnimationStateMachine;
+struct FBoneContainer;
+
+typedef TArray<FTransform> FTransformArrayA2;
 
 UENUM()
 enum class EAnimCurveType : uint8 
@@ -892,7 +895,7 @@ public:
 	 * The range of return will be from [-180, 180], and this can be used to feed blendspace directional value
 	 */
 	UFUNCTION(BlueprintCallable, Category="Animation")
-	float CalculateDirection(const FVector& Velocity, const FRotator& BaseRotation);
+	float CalculateDirection(const FVector& Velocity, const FRotator& BaseRotation) const;
 
 	//--- AI communication start ---//
 	/** locks indicated AI resources of animated pawn

@@ -270,7 +270,6 @@ namespace UnrealBuildTool
 							AdaptiveUnityBuildInfoString.Append(", " + CPPFileName);
 						}
 					}
-
 					else
 					{
 						// If adaptive unity build is enabled for this module, add this source file to the set that will invalidate the makefile
@@ -294,13 +293,22 @@ namespace UnrealBuildTool
 				{
 					if (PrintedSettingsForTargets.Add(Target.Name))
 					{
-						if (Target.bAdaptiveUnityDisablesPCH)
+						if (Target.bAdaptiveUnityCreatesDedicatedPCH)
+						{
+							Log.TraceInformation("[Adaptive unity build] Creating dedicated PCH for each excluded file. Set bAdaptiveUnityCreatesDedicatedPCH to false in BuildConfiguration.xml to change this behavior.");
+						}
+						else if (Target.bAdaptiveUnityDisablesPCH)
 						{
 							Log.TraceInformation("[Adaptive unity build] Disabling PCH for excluded files. Set bAdaptiveUnityDisablesPCH to false in BuildConfiguration.xml to change this behavior.");
 						}
+
 						if (Target.bAdaptiveUnityDisablesOptimizations)
 						{
 							Log.TraceInformation("[Adaptive unity build] Disabling optimizations for excluded files. Set bAdaptiveUnityDisablesOptimizations to false in BuildConfiguration.xml to change this behavior.");
+						}
+						if (Target.bAdaptiveUnityEnablesEditAndContinue)
+						{
+							Log.TraceInformation("[Adaptive unity build] Enabling Edit & Continue for excluded files. Set bAdaptiveUnityEnablesEditAndContinue to false in BuildConfiguration.xml to change this behavior.");
 						}
 					}
 					Log.TraceInformation(AdaptiveUnityBuildInfoString.ToString());
@@ -323,18 +331,7 @@ namespace UnrealBuildTool
 				// Add source files to the unity file
 				foreach (FileItem CPPFile in UnityFile.Files)
 				{
-					string IncludePath;
-					if(BuildPlatform.UseAbsolutePathsInUnityFiles())
-					{
-						IncludePath = CPPFile.AbsolutePath;
-					}
-					else
-					{
-						// @todo: MakeRelativeTo does not work with code projects on a different drive than the engine. reverting to old version until we can come
-						// up with a better solution
-						IncludePath = RemoteExports.ConvertPath(CPPFile.AbsolutePath).Replace('\\', '/');
-					}
-					OutputUnityCPPWriter.WriteLine("#include \"{0}\"", IncludePath);
+					OutputUnityCPPWriter.WriteLine("#include \"{0}\"", CPPFile.AbsolutePath);
 				}
 
 				// Determine unity file path name
@@ -351,16 +348,9 @@ namespace UnrealBuildTool
 
 				// Write the unity file to the intermediate folder.
 				FileItem UnityCPPFile = FileItem.CreateIntermediateTextFile(UnityCPPFilePath, OutputUnityCPPWriter.ToString());
-
+				UnityCPPFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
 				UnityCPPFile.RelativeCost = UnityFile.TotalLength;
 				NewCPPFiles.Add(UnityCPPFile);
-
-				// Cache information about the unity .cpp dependencies
-				// @todo ubtmake urgent: Fails when building remotely for Mac because unity .cpp has an include for a PCH on the REMOTE machine
-				FileItem FirstCppFile = UnityFile.Files.First();
-				UEBuildModuleCPP.CachePCHUsageForModuleSourceFile(CompileEnvironment, FirstCppFile);
-				UnityCPPFile.CachedIncludePaths = FirstCppFile.CachedIncludePaths;
-				UnityCPPFile.PrecompiledHeaderIncludeFilename = FirstCppFile.PrecompiledHeaderIncludeFilename;
 			}
 
 			return NewCPPFiles;

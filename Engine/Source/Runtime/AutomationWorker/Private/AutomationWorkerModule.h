@@ -94,6 +94,9 @@ private:
 	/** Handles FAutomationWorkerRunTests messages. */
 	void HandleRunTestsMessage(const FAutomationWorkerRunTests& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
+	/** Handles FAutomationWorkerStopTests messages. */
+	void HandleStopTestsMessage(const struct FAutomationWorkerStopTests& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
+
 	/** Handles FAutomationWorkerImageComparisonResults messages. */
 	void HandleScreenShotCompared(const FAutomationWorkerImageComparisonResults& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 

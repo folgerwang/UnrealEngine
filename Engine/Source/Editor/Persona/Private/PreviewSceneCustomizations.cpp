@@ -229,19 +229,36 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 
 	// bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons option
 	DetailBuilder.EditCategory("Additional Meshes")
-	.AddCustomRow(LOCTEXT("AdditvesMeshOption", "Additional Mesh Selection Option"))
+	.AddCustomRow(LOCTEXT("AdditionalMeshOption", "Additional Mesh Selection Option"))
 	.NameContent()
 	[
 		SNew(STextBlock)
 		.Font(IDetailLayoutBuilder::GetDetailFont())
-		.Text(LOCTEXT("AdditvesMeshSelectionFromDifferentSkeletons", "Allow Different Skeletons"))
-		.ToolTipText(LOCTEXT("AdditvesMeshSelectionFromDifferentSkeletons_ToolTip", "When selecting additional mesh, whether or not filter by the current skeleton."))
+		.Text(LOCTEXT("AdditionalMeshSelectionFromDifferentSkeletons", "Allow Different Skeletons"))
+		.ToolTipText(LOCTEXT("AdditionalMeshSelectionFromDifferentSkeletons_ToolTip", "When selecting additional mesh, whether or not filter by the current skeleton."))
 	]
 	.ValueContent()
 	[
 		SNew(SCheckBox)
 		.IsChecked(this, &FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkeletonsIsChecked)
 		.OnCheckStateChanged(this, &FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkeletonsCheckedStateChanged)
+	];
+	
+	// bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons option
+	DetailBuilder.EditCategory("Additional Meshes")
+	.AddCustomRow(LOCTEXT("AdditionalMeshOption_AnimBP", "Additional Mesh Anim Selection Option"))
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.Text(LOCTEXT("UseCustomAnimBP", "Allow Custom AnimBP Override"))
+		.ToolTipText(LOCTEXT("UseCustomAnimBP_ToolTip", "When using preview collection, allow it to override custom AnimBP also."))
+	]
+	.ValueContent()
+	[
+		SNew(SCheckBox)
+		.IsChecked(this, &FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPIsChecked)
+		.OnCheckStateChanged(this, &FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPCheckedStateChanged)
 	];
 
 	DetailBuilder.EditCategory("Additional Meshes")
@@ -421,6 +438,7 @@ void FPreviewSceneDescriptionCustomization::HandleAdditionalMeshesChanged(const 
 		PreviewScene.Pin()->SetAdditionalMeshes(MeshCollection);
 	}
 
+	DataAssetToDisplay = MeshCollection;
 	DetailLayoutBuilder->ForceRefreshDetails();
 }
 
@@ -433,6 +451,22 @@ ECheckBoxState FPreviewSceneDescriptionCustomization::HandleAllowDifferentSkelet
 {
 	return GetDefault<UPersonaOptions>()->bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
+
+void FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPCheckedStateChanged(ECheckBoxState CheckState)
+{
+	GetMutableDefault<UPersonaOptions>()->bAllowPreviewMeshCollectionsToUseCustomAnimBP = (CheckState == ECheckBoxState::Checked);
+
+	if (PreviewScene.IsValid())
+	{
+		PreviewScene.Pin()->RefreshAdditionalMeshes();
+	}
+}
+
+ECheckBoxState FPreviewSceneDescriptionCustomization::HandleUseCustomAnimBPIsChecked() const
+{
+	return GetDefault<UPersonaOptions>()->bAllowPreviewMeshCollectionsToUseCustomAnimBP? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 
 // FPreviewMeshCollectionEntryCustomization

@@ -55,7 +55,7 @@ skilllevel: Advanced
 
 
 ### 쿠킹
-1. 드롭다운 메뉴에서 쿠킹 메소드로 **By the Book** 을 선택합니다.
+1. 드롭다운 메뉴에서 쿠킹 메서드로 **By the Book** 을 선택합니다.
 1. 콘텐츠 쿠킹 대상 플랫폼에 대한 박스를 전부 체크합니다. 이 예제는 윈도우 테스트 용이므로, **WindowsNoEditor** 를 선택했습니다.
 1. 현지화 쿠킹 대상 컬처에 대한 박스를 전부 체크합니다.
 1. 쿠킹할 맵에 대한 박스를 체크합니다.
@@ -104,7 +104,7 @@ skilllevel: Advanced
 예를 들어 윈도우에서, pak 파일을 사용자의 `[ProjectName]\Releases\[VersionNumber]\[PlatformName]` 폴더에, 원본 콘텐츠 pak 파일 옆에 복사하는 
 인스톨러를 만들면 됩니다.
 
-디바이스에서 `FPakPlatformFile::GetPakFolders` 에 설정된 pak 검색 디렉토리 중 한 곳에 패치 pak 파일이 있으면 자동으로 마운트됩니다.
+디바이스에서 `FPakPlatformFile::GetPakFolders` 에 설정된 pak 검색 디렉터리 중 한 곳에 패치 pak 파일이 있으면 자동으로 마운트됩니다.
 패치 우선순위는, 마운팅 시스템에서 파일 명 끝에 `_p` 가 붙은 경우 다른 pak 파일보다 우선시합니다. 이름은 변경할 수 있지만, 파일명이 
 `_p.pak` 로 끝나야 합니다.
 

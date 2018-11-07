@@ -3,6 +3,8 @@
 #include "Debug/DebugDrawService.h"
 #include "UObject/Package.h"
 #include "Engine/Canvas.h"
+#include "Engine/Engine.h"
+#include "IXRTrackingSystem.h"
 
 TArray<TArray<FDebugDrawDelegate> > UDebugDrawService::Delegates;
 FEngineShowFlags UDebugDrawService::ObservedFlags(ESFIM_Editor);
@@ -62,7 +64,11 @@ void UDebugDrawService::Draw(const FEngineShowFlags Flags, FViewport* Viewport, 
 		CanvasObject->AddToRoot();
 	}
 
-	CanvasObject->Init(View->UnscaledViewRect.Width(), View->UnscaledViewRect.Height(), View, Canvas);
+	if (!Canvas || !(Canvas->IsStereoRendering() && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice()))
+	{
+		CanvasObject->Init(View->UnscaledViewRect.Width(), View->UnscaledViewRect.Height(), View, Canvas);
+	}
+
 	CanvasObject->Update();	
 	CanvasObject->SetView(View);
 

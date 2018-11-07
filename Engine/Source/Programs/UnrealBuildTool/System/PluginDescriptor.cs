@@ -120,6 +120,11 @@ namespace UnrealBuildTool
 		public UnrealTargetPlatform[] SupportedTargetPlatforms;
 
 		/// <summary>
+		/// List of programs supported by this plugin.
+		/// </summary>
+		public string[] SupportedPrograms;
+
+		/// <summary>
 		/// List of all modules associated with this plugin
 		/// </summary>
 		public ModuleDescriptor[] Modules;
@@ -143,11 +148,6 @@ namespace UnrealBuildTool
 		/// Marks the plugin as beta in the UI
 		/// </summary>
 		public bool bIsBetaVersion;
-
-		/// <summary>
-		/// Whether this plugin can be used by UnrealHeaderTool
-		/// </summary>
-		public bool bCanBeUsedWithUnrealHeaderTool;
 
 		/// <summary>
 		/// Set for plugins which are installed
@@ -230,6 +230,7 @@ namespace UnrealBuildTool
 			RawObject.TryGetStringField("SupportURL", out SupportURL);
 			RawObject.TryGetStringField("EngineVersion", out EngineVersion);
 			RawObject.TryGetEnumArrayField<UnrealTargetPlatform>("SupportedTargetPlatforms", out SupportedTargetPlatforms);
+			RawObject.TryGetStringArrayField("SupportedPrograms", out SupportedPrograms);
 
 			JsonObject[] ModulesArray;
 			if (RawObject.TryGetObjectArrayField("Modules", out ModulesArray))
@@ -252,7 +253,14 @@ namespace UnrealBuildTool
 			RawObject.TryGetBoolField("CanContainContent", out bCanContainContent);
 			RawObject.TryGetBoolField("IsBetaVersion", out bIsBetaVersion);
 			RawObject.TryGetBoolField("Installed", out bInstalled);
-			RawObject.TryGetBoolField("CanBeUsedWithUnrealHeaderTool", out bCanBeUsedWithUnrealHeaderTool);
+
+			bool bCanBeUsedWithUnrealHeaderTool;
+			if(RawObject.TryGetBoolField("CanBeUsedWithUnrealHeaderTool", out bCanBeUsedWithUnrealHeaderTool) && bCanBeUsedWithUnrealHeaderTool)
+			{
+				Array.Resize(ref SupportedPrograms, (SupportedPrograms == null)? 1 : SupportedPrograms.Length + 1);
+				SupportedPrograms[SupportedPrograms.Length - 1] = "UnrealHeaderTool";
+			}
+
 			RawObject.TryGetBoolField("RequiresBuildPlatform", out bRequiresBuildPlatform);
 
 			CustomBuildSteps.TryRead(RawObject, "PreBuildSteps", out PreBuildSteps);
@@ -340,6 +348,11 @@ namespace UnrealBuildTool
 			if(SupportedTargetPlatforms != null && SupportedTargetPlatforms.Length > 0)
 			{
 				Writer.WriteEnumArrayField<UnrealTargetPlatform>("SupportedTargetPlatforms", SupportedTargetPlatforms);
+			}
+
+			if (SupportedPrograms != null && SupportedPrograms.Length > 0)
+			{
+				Writer.WriteStringArrayField("SupportedPrograms", SupportedPrograms);
 			}
 
 			ModuleDescriptor.WriteArray(Writer, "Modules", Modules);

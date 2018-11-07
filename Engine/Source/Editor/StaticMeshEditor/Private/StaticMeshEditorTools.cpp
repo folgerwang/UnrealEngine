@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditorTools.h"
 #include "Framework/Commands/UIAction.h"
@@ -2443,7 +2443,7 @@ void FMeshMaterialsLayout::OnMaterialNameCommitted(const FText& InValue, ETextCo
 bool FMeshMaterialsLayout::CanDeleteMaterialSlot(int32 MaterialIndex) const
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
-	return (MaterialIndex + 1) == StaticMesh.StaticMaterials.Num();
+	return StaticMesh.StaticMaterials.IsValidIndex(MaterialIndex);
 }
 
 void FMeshMaterialsLayout::OnDeleteMaterialSlot(int32 MaterialIndex)
@@ -2451,10 +2451,37 @@ void FMeshMaterialsLayout::OnDeleteMaterialSlot(int32 MaterialIndex)
 	UStaticMesh& StaticMesh = GetStaticMesh();
 	if (CanDeleteMaterialSlot(MaterialIndex))
 	{
+		if (!bDeleteWarningConsumed)
+		{
+			EAppReturnType::Type Answer = FMessageDialog::Open(EAppMsgType::OkCancel, LOCTEXT("FMeshMaterialsLayout_DeleteMaterialSlot", "WARNING - Deleting a material slot can break the game play blueprint or the game play code. All indexes after the delete slot will change"));
+			if (Answer == EAppReturnType::Cancel)
+			{
+				return;
+			}
+			bDeleteWarningConsumed = true;
+		}
+
 		FScopedTransaction Transaction(LOCTEXT("StaticMeshEditorDeletedMaterialSlot", "Staticmesh editor: Deleted material slot"));
 
 		StaticMesh.Modify();
 		StaticMesh.StaticMaterials.RemoveAt(MaterialIndex);
+
+		//Fix the section info, the FMeshDescription use FName to retrieve the indexes when we build so no need to fix it
+		for (int32 LodIndex = 0; LodIndex < StaticMesh.GetNumLODs(); ++LodIndex)
+		{
+			for (int32 SectionIndex = 0; SectionIndex < StaticMesh.GetNumSections(LodIndex); ++SectionIndex)
+			{
+				if (StaticMesh.SectionInfoMap.IsValidSection(LodIndex, SectionIndex))
+				{
+					FMeshSectionInfo SectionInfo = StaticMesh.SectionInfoMap.Get(LodIndex, SectionIndex);
+					if (SectionInfo.MaterialIndex > MaterialIndex)
+					{
+						SectionInfo.MaterialIndex -= 1;
+						StaticMesh.SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+					}
+				}
+			}
+		}
 
 		StaticMesh.PostEditChange();
 	}
@@ -2792,6 +2819,8 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 			.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnImportLOD)
 		];
 
+	int32 PlatformNumber = PlatformInfo::GetAllPlatformGroupNames().Num();
+
 	LODSettingsCategory.AddCustomRow( LOCTEXT("MinLOD", "Minimum LOD") )
 	.NameContent()
 	[
@@ -2800,6 +2829,8 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 		.Text(LOCTEXT("MinLOD", "Minimum LOD"))
 	]
 	.ValueContent()
+	.MinDesiredWidth((float)(StaticMesh->MinLOD.PerPlatform.Num() + 1)*125.0f)
+	.MaxDesiredWidth((float)(PlatformNumber + 1)*125.0f)
 	[
 		SNew(SPerPlatformPropertiesWidget)
 		.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetMinLODWidget)
@@ -3091,6 +3122,8 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories) );
 			SectionSettingsWidgets[ LODIndex ]->AddToCategory( LODCategory );
 
+			int32 PlatformNumber = PlatformInfo::GetAllPlatformGroupNames().Num();
+
 			LODCategory.AddCustomRow(( LOCTEXT("ScreenSizeRow", "ScreenSize")))
 			.NameContent()
 			[
@@ -3099,8 +3132,8 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.Text(LOCTEXT("ScreenSizeName", "Screen Size"))
 			]
 			.ValueContent()
-			.MinDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
-			.MaxDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
+			.MinDesiredWidth(GetScreenSizeWidgetWidth(LODIndex))
+			.MaxDesiredWidth((float)(PlatformNumber + 1)*125.0f)
 			[
 				SNew(SPerPlatformPropertiesWidget)
 				.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget, LODIndex)
@@ -3288,6 +3321,7 @@ TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget(FName P
 {
 	return SNew(SSpinBox<float>)
 		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.MinDesiredWidth(60.0f)
 		.MinValue(0.0f)
 		.MaxValue(WORLD_MAX)
 		.SliderExponent(2.0f)

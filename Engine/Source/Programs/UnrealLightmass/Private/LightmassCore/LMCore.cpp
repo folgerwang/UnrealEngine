@@ -19,8 +19,6 @@ namespace Lightmass
 
 FLightmassLog::FLightmassLog()
 {
-	Filename[0] = 0;
-
 	// Create a Guid for this run.
 	FGuid Guid = FGuid::NewGuid();
 
@@ -35,19 +33,18 @@ FLightmassLog::FLightmassLog()
 		PathSeparatorPos--;
 	}
 #if PLATFORM_MAC
-	FString LogName = FPaths::Combine( FPlatformProcess::UserLogsDir(), *FString( ExeNameLen - PathSeparatorPos, *ExeName + PathSeparatorPos + 1 ) );
+	Filename = FPaths::Combine( FPlatformProcess::UserLogsDir(), *FString( ExeNameLen - PathSeparatorPos, *ExeName + PathSeparatorPos + 1 ) );
 #else
-	FString LogName( ExeNameLen - PathSeparatorPos - 5, *ExeName + PathSeparatorPos + 1 );
+	Filename = FString( ExeNameLen - PathSeparatorPos - 5, *ExeName + PathSeparatorPos + 1 );
 #endif
-	LogName += TEXT("_");
-	LogName += FPlatformProcess::ComputerName();
-	LogName += TEXT("_");
-	LogName += Guid.ToString();
-	LogName += TEXT(".log");
-	FCString::Strncpy( Filename, *LogName, PLATFORM_MAX_FILEPATH_LENGTH );
+	Filename += TEXT("_");
+	Filename += FPlatformProcess::ComputerName();
+	Filename += TEXT("_");
+	Filename += Guid.ToString();
+	Filename += TEXT(".log");
 
 	// open the file for writing
-	File = IFileManager::Get().CreateFileWriter(*LogName);
+	File = IFileManager::Get().CreateFileWriter(*Filename);
 
 	// mark the file to be unicode
 	if (File != NULL)
@@ -58,7 +55,7 @@ FLightmassLog::FLightmassLog()
 	else
 	{
 		// print to the screen that we failed to open the file
-		wprintf(TEXT("\nFailed to open the log file '%s' for writing\n\n"), *LogName);
+		printf("\nFailed to open the log file '%s' for writing\n\n", TCHAR_TO_UTF8(*Filename));
 	}
 }
 
@@ -79,7 +76,7 @@ void FLightmassLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, co
 
 	// also print it to the screen and debugger output
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-	printf("%ls\n", V);
+	printf("%s\n", TCHAR_TO_UTF8(V));
 #else
 	wprintf(TEXT("%s\n"), V);
 #endif

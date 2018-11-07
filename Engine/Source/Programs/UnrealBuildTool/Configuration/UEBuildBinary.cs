@@ -31,16 +31,6 @@ namespace UnrealBuildTool
 		/// A static library (.lib or .a)
 		/// </summary>
 		StaticLibrary,
-
-		/// <summary>
-		/// An object file (.obj or .o)
-		/// </summary>
-		Object,
-
-		/// <summary>
-		/// A precompiled header (.pch or .gch)
-		/// </summary>
-		PrecompiledHeader
 	}
 
 	/// <summary>
@@ -52,6 +42,11 @@ namespace UnrealBuildTool
 		/// The type of binary to build
 		/// </summary>
 		public UEBuildBinaryType Type;
+
+		/// <summary>
+		/// Output directory for this binary
+		/// </summary>
+		public DirectoryReference OutputDir;
 
 		/// <summary>
 		/// The output file path. This must be set before a binary can be built using it.
@@ -153,6 +148,7 @@ namespace UnrealBuildTool
 			)
 		{
 			this.Type = Type;
+			this.OutputDir = OutputFilePaths.First().Directory;
 			this.OutputFilePaths = new List<FileReference>(OutputFilePaths);
 			this.IntermediateDirectory = IntermediateDirectory;
 			this.bAllowExports = bAllowExports;
@@ -182,18 +178,19 @@ namespace UnrealBuildTool
 		/// <param name="LinkEnvironment">The environment to link the binary in</param>
 		/// <param name="SharedPCHs">List of templates for shared PCHs</param>
 		/// <param name="WorkingSet">The working set of source files</param>
+		/// <param name="ExeDir">Directory containing the output executable</param>
 		/// <param name="ActionGraph">Graph to add build actions to</param>
 		/// <returns>Set of built products</returns>
-		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph)
+		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
 		{
-			// Return nothing if we're using precompiled binaries
-			if(bUsePrecompiled)
+			// Return nothing if we're using precompiled binaries. If we're not linking, we might want just one module to be compiled (eg. a foreign plugin), so allow any actions to run.
+			if (bUsePrecompiled && !Target.bDisableLinking)
 			{
 				return new List<FileItem>();
 			}
 
 			// Setup linking environment.
-			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment, SharedPCHs, WorkingSet, ActionGraph);
+			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph);
 
 			// If we're generating projects, we only need include paths and definitions, there is no need to run the linking logic.
 			if (ProjectFileGenerator.bGenerateProjectFiles)
@@ -207,10 +204,105 @@ namespace UnrealBuildTool
 				return BinaryLinkEnvironment.InputFiles;
 			}
 
-			// Return linked files.
-			return SetupOutputFiles(ToolChain, CompileEnvironment, BinaryLinkEnvironment, ActionGraph);
+			// Generate import libraries as a separate step
+			List<FileItem> OutputFiles = new List<FileItem>();
+			if (bCreateImportLibrarySeparately)
+			{
+				// Mark the link environment as cross-referenced.
+				BinaryLinkEnvironment.bIsCrossReferenced = true;
+
+				if (BinaryLinkEnvironment.Platform != CppPlatform.Mac && BinaryLinkEnvironment.Platform != CppPlatform.Linux)
+				{
+					// Create the import library.
+					OutputFiles.AddRange(ToolChain.LinkAllFiles(BinaryLinkEnvironment, true, ActionGraph));
+				}
+			}
+
+			// Link the binary.
+			FileItem[] Executables = ToolChain.LinkAllFiles(BinaryLinkEnvironment, false, ActionGraph);
+			OutputFiles.AddRange(Executables);
+
+			// Produce additional console app if requested
+			if (bBuildAdditionalConsoleApp)
+			{
+				// Produce additional binary but link it as a console app
+				LinkEnvironment ConsoleAppLinkEvironment = new LinkEnvironment(BinaryLinkEnvironment);
+				ConsoleAppLinkEvironment.bIsBuildingConsoleApplication = true;
+				ConsoleAppLinkEvironment.WindowsEntryPointOverride = "WinMainCRTStartup";		// For WinMain() instead of "main()" for Launch module
+				ConsoleAppLinkEvironment.OutputFilePaths = ConsoleAppLinkEvironment.OutputFilePaths.Select(Path => GetAdditionalConsoleAppPath(Path)).ToList();
+
+				// Link the console app executable
+				OutputFiles.AddRange(ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false, ActionGraph));
+			}
+
+			foreach (FileItem Executable in Executables)
+			{
+				OutputFiles.AddRange(ToolChain.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph));
+			}
+
+			return OutputFiles;
 		}
 
+		/// <summary>
+		/// Gets all the runtime dependencies Copies all the runtime dependencies from any modules in 
+		/// </summary>
+		/// <param name="RuntimeDependencies">The output list of runtime dependencies, mapping target file to type</param>
+		/// <param name="TargetFileToSourceFile">Map of target files to source files that need to be copied</param>
+		/// <param name="ExeDir">Output directory for the executable</param>
+		public void PrepareRuntimeDependencies(List<RuntimeDependency> RuntimeDependencies, Dictionary<FileReference, FileReference> TargetFileToSourceFile, DirectoryReference ExeDir)
+		{
+			foreach(UEBuildModule Module in Modules)
+			{
+				foreach (ModuleRules.RuntimeDependency Dependency in Module.Rules.RuntimeDependencies.Inner)
+				{
+					if(Dependency.SourcePath == null)
+					{
+						// Expand the target path
+						string ExpandedPath = Module.ExpandPathVariables(Dependency.Path, OutputDir, ExeDir);
+						if (FileFilter.FindWildcardIndex(ExpandedPath) == -1)
+						{
+							RuntimeDependencies.Add(new RuntimeDependency(new FileReference(ExpandedPath), Dependency.Type));
+						}
+						else
+						{
+							RuntimeDependencies.AddRange(FileFilter.ResolveWildcard(ExpandedPath).Select(x => new RuntimeDependency(x, Dependency.Type)));
+						}
+					}
+					else
+					{
+						// Parse the source and target patterns
+						FilePattern SourcePattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.SourcePath, OutputDir, ExeDir));
+						FilePattern TargetPattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.Path, OutputDir, ExeDir));
+
+						// Resolve all the wildcards between the source and target paths
+						Dictionary<FileReference, FileReference> Mapping;
+						try
+						{
+							Mapping = FilePattern.CreateMapping(null, ref SourcePattern, ref TargetPattern);
+						}
+						catch(FilePatternException Ex)
+						{
+							throw new BuildException(Ex, "While creating runtime dependencies for module {0}", Module.Name);
+						}
+
+						// Add actions to copy everything
+						foreach(KeyValuePair<FileReference, FileReference> Pair in Mapping)
+						{
+							FileReference ExistingSourceFile;
+							if(!TargetFileToSourceFile.TryGetValue(Pair.Key, out ExistingSourceFile))
+							{
+								TargetFileToSourceFile[Pair.Key] = Pair.Value;
+								RuntimeDependencies.Add(new RuntimeDependency(Pair.Key, Dependency.Type));
+							}
+							else if(ExistingSourceFile != Pair.Value)
+							{
+								throw new BuildException("Runtime dependency '{0}' is configured to be staged from '{1}' and '{2}'", Pair.Key, Pair.Value, ExistingSourceFile);
+							}
+						}
+					}
+				}
+			}
+		}
 
 		/// <summary>
 		/// Called to allow the binary to modify the link environment of a different binary containing 
@@ -369,44 +461,81 @@ namespace UnrealBuildTool
 		/// <param name="bCreateDebugInfo">Whether debug info is enabled for this binary</param>
 		public void GetBuildProducts(ReadOnlyTargetRules Target, UEToolChain ToolChain, Dictionary<FileReference, BuildProductType> BuildProducts, bool bCreateDebugInfo)
 		{
-			// Get the type of build products we're creating
-			BuildProductType OutputType = BuildProductType.RequiredResource;
-			switch (Type)
+			// Add all the precompiled outputs
+			foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
 			{
-				case UEBuildBinaryType.Executable:
-					OutputType = BuildProductType.Executable;
-					break;
-				case UEBuildBinaryType.DynamicLinkLibrary:
-					OutputType = BuildProductType.DynamicLibrary;
-					break;
-				case UEBuildBinaryType.StaticLibrary:
-					OutputType = BuildProductType.StaticLibrary;
-					break;
-			}
-
-			// Add the primary build products
-			string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, Type);
-			foreach (FileReference OutputFilePath in OutputFilePaths)
-			{
-				AddBuildProductAndDebugFiles(OutputFilePath, OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
-			}
-
-			// Add the console app, if there is one
-			if (Type == UEBuildBinaryType.Executable && bBuildAdditionalConsoleApp)
-			{
-				foreach (FileReference OutputFilePath in OutputFilePaths)
+				if(Module.Rules.bPrecompile)
 				{
-					AddBuildProductAndDebugFiles(GetAdditionalConsoleAppPath(OutputFilePath), OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
+					if(Module.GeneratedCodeDirectory != null && DirectoryReference.Exists(Module.GeneratedCodeDirectory))
+					{
+						foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
+						{
+							// Exclude timestamp files, since they're always updated and cause collisions between builds
+							if(!GeneratedCodeFile.GetFileName().Equals("Timestamp", StringComparison.OrdinalIgnoreCase) && !GeneratedCodeFile.HasExtension(".cpp"))
+							{
+								BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
+							}
+						}
+					}
+					if(Target.LinkType == TargetLinkType.Monolithic)
+					{
+						FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
+						BuildProducts.Add(PrecompiledManifestLocation, BuildProductType.BuildResource);
+
+						PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
+						foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
+						{
+							if(!BuildProducts.ContainsKey(OutputFile))
+							{
+								BuildProducts.Add(OutputFile, BuildProductType.BuildResource);
+							}
+						}
+					}
 				}
 			}
 
-			// Add any additional build products from the modules in this binary, including additional bundle resources/dylibs on Mac.
-			List<string> Libraries = new List<string>();
-			List<UEBuildBundleResource> BundleResources = new List<UEBuildBundleResource>();
-			GatherAdditionalResources(Libraries, BundleResources);
+			// Add all the binary outputs
+			if(!Target.bDisableLinking)
+			{
+				// Get the type of build products we're creating
+				BuildProductType OutputType = BuildProductType.RequiredResource;
+				switch (Type)
+				{
+					case UEBuildBinaryType.Executable:
+						OutputType = BuildProductType.Executable;
+						break;
+					case UEBuildBinaryType.DynamicLinkLibrary:
+						OutputType = BuildProductType.DynamicLibrary;
+						break;
+					case UEBuildBinaryType.StaticLibrary:
+						OutputType = BuildProductType.BuildResource;
+						break;
+				}
 
-			// Add any extra files from the toolchain
-			ToolChain.ModifyBuildProducts(Target, this, Libraries, BundleResources, BuildProducts);
+				// Add the primary build products
+				string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, Type);
+				foreach (FileReference OutputFilePath in OutputFilePaths)
+				{
+					AddBuildProductAndDebugFiles(OutputFilePath, OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
+				}
+
+				// Add the console app, if there is one
+				if (Type == UEBuildBinaryType.Executable && bBuildAdditionalConsoleApp)
+				{
+					foreach (FileReference OutputFilePath in OutputFilePaths)
+					{
+						AddBuildProductAndDebugFiles(GetAdditionalConsoleAppPath(OutputFilePath), OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
+					}
+				}
+
+				// Add any additional build products from the modules in this binary, including additional bundle resources/dylibs on Mac.
+				List<string> Libraries = new List<string>();
+				List<UEBuildBundleResource> BundleResources = new List<UEBuildBundleResource>();
+				GatherAdditionalResources(Libraries, BundleResources);
+
+				// Add any extra files from the toolchain
+				ToolChain.ModifyBuildProducts(Target, this, Libraries, BundleResources, BuildProducts);
+			}
 		}
 
 		/// <summary>
@@ -575,7 +704,7 @@ namespace UnrealBuildTool
 			return BinaryCompileEnvironment;
 		}
 
-		private LinkEnvironment SetupBinaryLinkEnvironment(ReadOnlyTargetRules Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CppCompileEnvironment CompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph)
+		private LinkEnvironment SetupBinaryLinkEnvironment(ReadOnlyTargetRules Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CppCompileEnvironment CompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
 		{
 			LinkEnvironment BinaryLinkEnvironment = new LinkEnvironment(LinkEnvironment);
 			HashSet<UEBuildModule> LinkEnvironmentVisitedModules = new HashSet<UEBuildModule>();
@@ -609,7 +738,7 @@ namespace UnrealBuildTool
 				}
 
 				// Allow the module to modify the link environment for the binary.
-				Module.SetupPrivateLinkEnvironment(this, BinaryLinkEnvironment, BinaryDependencies, LinkEnvironmentVisitedModules);
+				Module.SetupPrivateLinkEnvironment(this, BinaryLinkEnvironment, BinaryDependencies, LinkEnvironmentVisitedModules, ExeDir);
 			}
 
 
@@ -653,8 +782,12 @@ namespace UnrealBuildTool
 					}
 					else
 					{
+						// Get the intermediate directory
+						DirectoryReference ResourceIntermediateDirectory = ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory;
+
 						// Create a compile environment for resource files
 						CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
+						WindowsPlatform.SetupResourceCompileEnvironment(ResourceCompileEnvironment, ResourceIntermediateDirectory, Target);
 
 						// @todo: This should be in some Windows code somewhere...
 						// Set the original file name macro; used in PCLaunch.rc to set the binary metadata fields.
@@ -667,7 +800,7 @@ namespace UnrealBuildTool
 
 						// Otherwise compile the default resource file per-binary, so that it gets the correct ORIGINAL_FILE_NAME macro.
 						FileItem DefaultResourceFile = FileItem.GetItemByFileReference(FileReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Runtime", "Launch", "Resources", "Windows", "PCLaunch.rc"));
-						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(BinaryCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ((UEBuildModuleCPP)Modules.First()).IntermediateDirectory, ActionGraph);
+						CPPOutput DefaultResourceOutput = ToolChain.CompileRCFiles(ResourceCompileEnvironment, new List<FileItem> { DefaultResourceFile }, ResourceIntermediateDirectory, ActionGraph);
 						BinaryLinkEnvironment.InputFiles.AddRange(DefaultResourceOutput.ObjectFiles);
 					}
 				}
@@ -677,49 +810,6 @@ namespace UnrealBuildTool
 			BinaryLinkEnvironment.InputFiles.AddRange(BinaryLinkEnvironment.CommonResourceFiles);
 
 			return BinaryLinkEnvironment;
-		}
-
-		private List<FileItem> SetupOutputFiles(UEToolChain ToolChain, CppCompileEnvironment BinaryCompileEnvironment, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
-		{
-			//
-			// Regular linking action.
-			//
-			List<FileItem> OutputFiles = new List<FileItem>();
-			if (bCreateImportLibrarySeparately)
-			{
-				// Mark the link environment as cross-referenced.
-				BinaryLinkEnvironment.bIsCrossReferenced = true;
-
-				if (BinaryLinkEnvironment.Platform != CppPlatform.Mac && BinaryLinkEnvironment.Platform != CppPlatform.Linux)
-				{
-					// Create the import library.
-					OutputFiles.AddRange(ToolChain.LinkAllFiles(BinaryLinkEnvironment, true, ActionGraph));
-				}
-			}
-
-			// Link the binary.
-			FileItem[] Executables = ToolChain.LinkAllFiles(BinaryLinkEnvironment, false, ActionGraph);
-			OutputFiles.AddRange(Executables);
-
-			// Produce additional console app if requested
-			if (bBuildAdditionalConsoleApp)
-			{
-				// Produce additional binary but link it as a console app
-				LinkEnvironment ConsoleAppLinkEvironment = new LinkEnvironment(BinaryLinkEnvironment);
-				ConsoleAppLinkEvironment.bIsBuildingConsoleApplication = true;
-				ConsoleAppLinkEvironment.WindowsEntryPointOverride = "WinMainCRTStartup";		// For WinMain() instead of "main()" for Launch module
-				ConsoleAppLinkEvironment.OutputFilePaths = ConsoleAppLinkEvironment.OutputFilePaths.Select(Path => GetAdditionalConsoleAppPath(Path)).ToList();
-
-				// Link the console app executable
-				OutputFiles.AddRange(ToolChain.LinkAllFiles(ConsoleAppLinkEvironment, false, ActionGraph));
-			}
-
-			foreach (FileItem Executable in Executables)
-			{
-				OutputFiles.AddRange(ToolChain.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph));
-			}
-
-			return OutputFiles;
 		}
 
 		/// <summary>

@@ -98,6 +98,8 @@ DEFINE_STAT(STAT_Navigation_PathVisibilityOptimisation);
 DEFINE_STAT(STAT_Navigation_ObservedPathsCount);
 DEFINE_STAT(STAT_Navigation_RecastMemory);
 
+CSV_DEFINE_CATEGORY(NAV_SYSTEM, true);
+
 //----------------------------------------------------------------------//
 // consts
 //----------------------------------------------------------------------//
@@ -150,6 +152,15 @@ namespace FNavigationSystem
 			: (const UNavigationSystemV1*)nullptr;
 		return NavSysCDO == nullptr || NavSysCDO->ShouldDiscardSubLevelNavData(&NavData);
 	}
+
+	void MakeAllComponentsNeverAffectNav(AActor& Actor)
+	{
+		const TSet<UActorComponent*> Components = Actor.GetComponents();
+		for (UActorComponent* ActorComp : Components)
+		{
+			ActorComp->SetCanEverAffectNavigation(false);
+		}
+	}
 }
 
 namespace NavigationDebugDrawing
@@ -201,8 +212,6 @@ namespace
 bool UNavigationSystemV1::bNavigationAutoUpdateEnabled = true;
 TMap<INavLinkCustomInterface*, FWeakObjectPtr> UNavigationSystemV1::PendingCustomLinkRegistration;
 FCriticalSection UNavigationSystemV1::CustomLinkRegistrationSection;
-TSubclassOf<UNavArea> UNavigationSystemV1::DefaultWalkableArea = NULL;
-TSubclassOf<UNavArea> UNavigationSystemV1::DefaultObstacleArea = NULL;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 FNavigationSystemExec UNavigationSystemV1::ExecHandler;
 #endif // !UE_BUILD_SHIPPING
@@ -280,9 +289,8 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 			UNavigationSystemBase::RemoveActorDataDelegate().BindLambda([](AActor& Actor) { UNavigationSystemV1::ClearNavOctreeAll(&Actor); });
 			UNavigationSystemBase::HasComponentDataDelegate().BindLambda([](UActorComponent& Comp) {
 				UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Comp.GetWorld());
-				return (NavSys && (NavSys->GetObjectsNavOctreeId(&Comp) || NavSys->HasPendingObjectNavOctreeId(&Comp)));
+				return (NavSys && (NavSys->GetObjectsNavOctreeId(Comp) || NavSys->HasPendingObjectNavOctreeId(&Comp)));
 			});
-			UNavigationSystemBase::GetDefaultWalkableAreaDelegate().BindLambda([]() { return UNavigationSystemV1::GetDefaultWalkableArea(); });
 			UNavigationSystemBase::GetDefaultSupportedAgentDelegate().BindStatic(&UNavigationSystemV1::GetDefaultSupportedAgent);
 			UNavigationSystemBase::UpdateActorAndComponentDataDelegate().BindStatic(&UNavigationSystemV1::UpdateActorAndComponentsInNavOctree);
 			UNavigationSystemBase::OnComponentBoundsChangedDelegate().BindLambda([](UActorComponent& Comp, const FBox& NewBounds, const FBox& DirtyArea) {
@@ -353,6 +361,10 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 				}
 			});
 #endif // WITH_EDITOR
+
+#if ENABLE_VISUAL_LOG
+			FVisualLogger::NavigationDataDumpDelegate.AddStatic(&NavigationDataDump);
+#endif // ENABLE_VISUAL_LOG
 		}
 	};
 	static FDelegatesInitializer DelegatesInitializer;
@@ -386,8 +398,7 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 	}
 	else if (GetClass() == UNavigationSystemV1::StaticClass())
 	{
-		DefaultWalkableArea = UNavArea_Default::StaticClass();
-		DefaultObstacleArea = UNavArea_Obstacle::StaticClass();
+		SetDefaultWalkableArea(UNavArea_Default::StaticClass());
 		SetDefaultObstacleArea(UNavArea_Obstacle::StaticClass());
 		
 		const FTransform RecastToUnrealTransfrom(Recast2UnrealMatrix());
@@ -423,6 +434,7 @@ UNavigationSystemV1::~UNavigationSystemV1()
 void UNavigationSystemV1::ConfigureAsStatic()
 {
 	bStaticRuntimeNavigation = true;
+	SetWantsComponentChangeNotifies(false);
 }
 
 void UNavigationSystemV1::SetUpdateNavOctreeOnComponentChange(bool bNewUpdateOnComponentChange)
@@ -981,6 +993,8 @@ void UNavigationSystemV1::Tick(float DeltaSeconds)
 	if (!bAsyncBuildPaused)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_Navigation_TickAsyncBuild);
+		CSV_SCOPED_TIMING_STAT(NAV_SYSTEM, Navigation_TickAsyncBuild);
+
 		for (ANavigationData* NavData : NavDataSet)
 		{
 			if (NavData)
@@ -1606,7 +1620,15 @@ bool UNavigationSystemV1::IsThereAnywhereToBuildNavigation() const
 		return true;
 	}
 
-	// @TODO this should be done more flexible to be able to trigger this from game-specific 
+	for (const FNavigationBounds& Bounds : RegisteredNavBounds)
+	{
+		if (Bounds.AreaBox.IsValid)
+		{
+			return true;
+		}
+	}
+
+	// @TODO this should be made more flexible to be able to trigger this from game-specific 
 	// code (like Navigation System's subclass maybe)
 	bool bCreateNavigation = false;
 
@@ -1710,13 +1732,7 @@ void UNavigationSystemV1::ApplyWorldOffset(const FVector& InOffset, bool bWorldS
 	if (GetRuntimeGenerationType() == ERuntimeGenerationType::Dynamic)
 	{
 		//stop generators from building navmesh
-		for (ANavigationData* NavData : NavDataSet)
-		{
-			if (NavData)
-			{
-				if (NavData->GetGenerator()) NavData->GetGenerator()->CancelBuild();
-			}
-		}
+		CancelBuild();
 
 		ConditionalPopulateNavOctree();
 		Build();
@@ -1984,7 +2000,7 @@ void UNavigationSystemV1::RegisterCustomLink(INavLinkCustomInterface& CustomLink
 			const FVector WorldPtA = OwnerActorTM.TransformPosition(RelativePtA);
 			const FVector WorldPtB = OwnerActorTM.TransformPosition(RelativePtB);
 
-			FBox LinkBounds(EForceInit::ForceInitToZero);
+			FBox LinkBounds(ForceInitToZero);
 			LinkBounds += WorldPtA;
 			LinkBounds += WorldPtB;
 
@@ -2382,7 +2398,7 @@ FSetElementId UNavigationSystemV1::RegisterNavOctreeElement(UObject* ElementOwne
 		}
 		else
 		{
-			const FOctreeElementId* ElementId = GetObjectsNavOctreeId(ElementOwner);
+			const FOctreeElementId* ElementId = GetObjectsNavOctreeId(*ElementOwner);
 			bCanAdd = (ElementId == NULL);
 		}
 
@@ -2433,7 +2449,7 @@ void UNavigationSystemV1::AddElementToNavOctree(const FNavigationDirtyElement& D
 	{
 		// check if parent node is waiting in queue
 		const FSetElementId ParentRequestId = PendingOctreeUpdates.FindId(FNavigationDirtyElement(NavigationParent));
-		const FOctreeElementId* ParentId = GetObjectsNavOctreeId(NavigationParent);
+		const FOctreeElementId* ParentId = GetObjectsNavOctreeId(*NavigationParent);
 		if (ParentRequestId.IsValidId() && ParentId == NULL)
 		{
 			FNavigationDirtyElement& ParentNode = PendingOctreeUpdates[ParentRequestId];
@@ -2443,7 +2459,7 @@ void UNavigationSystemV1::AddElementToNavOctree(const FNavigationDirtyElement& D
 			ParentNode.bInvalidRequest = true;
 		}
 
-		const FOctreeElementId* UseParentId = ParentId ? ParentId : GetObjectsNavOctreeId(NavigationParent);
+		const FOctreeElementId* UseParentId = ParentId ? ParentId : GetObjectsNavOctreeId(*NavigationParent);
 		if (UseParentId && NavOctree->IsValidElementId(*UseParentId))
 		{
 			UE_LOG(LogNavOctree, Log, TEXT("ADD %s to %s"), *GetNameSafe(ElementOwner), *GetNameSafe(NavigationParent));
@@ -2470,7 +2486,7 @@ void UNavigationSystemV1::AddElementToNavOctree(const FNavigationDirtyElement& D
 	}
 }
 
-bool UNavigationSystemV1::GetNavOctreeElementData(UObject* NodeOwner, int32& DirtyFlags, FBox& DirtyBounds)
+bool UNavigationSystemV1::GetNavOctreeElementData(const UObject& NodeOwner, int32& DirtyFlags, FBox& DirtyBounds)
 {
 	const FOctreeElementId* ElementId = GetObjectsNavOctreeId(NodeOwner);
 	if (ElementId != NULL)
@@ -2508,13 +2524,13 @@ void UNavigationSystemV1::UnregisterNavOctreeElement(UObject* ElementOwner, INav
 		return;
 	}
 
-	const FOctreeElementId* ElementId = GetObjectsNavOctreeId(ElementOwner);
+	const FOctreeElementId* ElementId = GetObjectsNavOctreeId(*ElementOwner);
 	UE_LOG(LogNavOctree, Log, TEXT("UNREG %s %s"), *GetNameSafe(ElementOwner), ElementId ? TEXT("[exists]") : TEXT(""));
 
 	if (ElementId != NULL)
 	{
 		RemoveNavOctreeElementId(*ElementId, UpdateFlags);
-		RemoveObjectsNavOctreeId(ElementOwner);
+		RemoveObjectsNavOctreeId(*ElementOwner);
 	}
 	else
 	{
@@ -2547,9 +2563,9 @@ void UNavigationSystemV1::RemoveNavOctreeElementId(const FOctreeElementId& Eleme
 {
 	if (NavOctree->IsValidElementId(ElementId))
 	{
-		// mark area occupied by given actor as dirty
-		FNavigationOctreeElement& ElementData = NavOctree->GetElementById(ElementId);
+		const FNavigationOctreeElement& ElementData = NavOctree->GetElementById(ElementId);
 		const int32 DirtyFlag = GetDirtyFlagHelper(UpdateFlags, ElementData.Data->GetDirtyFlag());
+		// mark area occupied by given actor as dirty
 		AddDirtyArea(ElementData.Bounds.GetBox(), DirtyFlag);
 		NavOctree->RemoveNode(ElementId);
 	}
@@ -2559,7 +2575,7 @@ const FNavigationRelevantData* UNavigationSystemV1::GetDataForObject(const UObje
 {
 	check(NavOctree.IsValid());
 
-	const FOctreeElementId* OctreeID = GetObjectsNavOctreeId(&Object);
+	const FOctreeElementId* OctreeID = GetObjectsNavOctreeId(Object);
 
 	if (OctreeID != nullptr && OctreeID->IsValidId() == true)
 	{
@@ -2644,13 +2660,12 @@ void UNavigationSystemV1::UpdateActorAndComponentsInNavOctree(AActor& Actor, boo
 {
 	UpdateActorInNavOctree(Actor);
 		
-	TInlineComponentArray<UActorComponent*> Components;
-	Actor.GetComponents(Components);
-
-	for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+	for (UActorComponent* Component : Actor.GetComponents())
 	{
-		check(Components[ComponentIndex]);
-		UpdateComponentInNavOctree(*Components[ComponentIndex]);
+		if (Component)
+		{
+			UpdateComponentInNavOctree(*Component);
+		}
 	}
 
 	if (bUpdateAttachedActors)
@@ -2696,12 +2711,9 @@ void UNavigationSystemV1::UpdateAttachedActorsInNavOctree(AActor& RootActor)
 
 void UNavigationSystemV1::UpdateNavOctreeBounds(AActor* Actor)
 {
-	TInlineComponentArray<UActorComponent*> Components;
-	Actor->GetComponents(Components);
-
-	for (int32 Idx = 0; Idx < Components.Num(); Idx++)
+	for (UActorComponent* Component : Actor->GetComponents())
 	{
-		INavRelevantInterface* NavElement = Cast<INavRelevantInterface>(Components[Idx]);
+		INavRelevantInterface* NavElement = Cast<INavRelevantInterface>(Component);
 		if (NavElement)
 		{
 			NavElement->UpdateNavigationBounds();
@@ -2734,11 +2746,15 @@ void UNavigationSystemV1::UpdateNavOctreeElement(UObject* ElementOwner, INavRele
 		UE_LOG(LogNavOctree, Log, TEXT("IGNORE(UpdateNavOctreeElement) %s"), *GetPathNameSafe(ElementOwner));
 		return;
 	}
+	else if (ElementOwner == nullptr)
+	{
+		return;
+	}
 
 	// grab existing octree data
 	FBox CurrentBounds;
 	int32 CurrentFlags;
-	const bool bAlreadyExists = GetNavOctreeElementData(ElementOwner, CurrentFlags, CurrentBounds);
+	const bool bAlreadyExists = GetNavOctreeElementData(*ElementOwner, CurrentFlags, CurrentBounds);
 
 	// don't invalidate pending requests
 	UpdateFlags |= OctreeUpdate_Refresh;
@@ -2819,7 +2835,12 @@ void UNavigationSystemV1::UpdateNavOctreeParentChain(UObject* ElementOwner, bool
 
 bool UNavigationSystemV1::UpdateNavOctreeElementBounds(UActorComponent* Comp, const FBox& NewBounds, const FBox& DirtyArea)
 {
-	const FOctreeElementId* ElementId = GetObjectsNavOctreeId(Comp);
+	if (Comp == nullptr)
+	{
+		return false;
+	}
+
+	const FOctreeElementId* ElementId = GetObjectsNavOctreeId(*Comp);
 	if (ElementId && ElementId->IsValidId())
 	{
 		NavOctree->UpdateNode(*ElementId, NewBounds);
@@ -2827,7 +2848,7 @@ bool UNavigationSystemV1::UpdateNavOctreeElementBounds(UActorComponent* Comp, co
 		// Add dirty area
 		if (DirtyArea.IsValid)
 		{
-			ElementId = GetObjectsNavOctreeId(Comp);
+			ElementId = GetObjectsNavOctreeId(*Comp);
 			if (ElementId && ElementId->IsValidId())
 			{
 				FNavigationOctreeElement& ElementData = NavOctree->GetElementById(*ElementId);
@@ -3100,24 +3121,11 @@ void UNavigationSystemV1::AddNavigationBoundsUpdateRequest(const FNavigationBoun
 
 void UNavigationSystemV1::PerformNavigationBoundsUpdate(const TArray<FNavigationBoundsUpdateRequest>& UpdateRequests)
 {
-	if (NavDataSet.Num() == 0)
-	{
-		//TODO: will hitch when user places first navigation volume in the world 
-		
-		if (NavDataRegistrationQueue.Num() > 0)
-		{
-			ProcessRegistrationCandidates();
-		}
+	// NOTE: we used to create missing nav data first, before updating nav bounds, 
+	// but some nav data classes (like RecastNavMesh) may depend on the nav bounds
+	// being already known at the moment of creation or serialization, so it makes more 
+	// sense to update bounds first 
 
-		if (NavDataSet.Num() == 0)
-		{
-			SpawnMissingNavigationData();
-			ProcessRegistrationCandidates();
-		}
-				
-		ConditionalPopulateNavOctree();
-	}
-	
 	// Create list of areas that needs to be updated
 	TArray<FBox> UpdatedAreas;
 	for (const FNavigationBoundsUpdateRequest& Request : UpdateRequests)
@@ -3179,6 +3187,27 @@ void UNavigationSystemV1::PerformNavigationBoundsUpdate(const TArray<FNavigation
 		// Propagate to generators areas that needs to be updated
 		AddDirtyAreas(UpdatedAreas, ENavigationDirtyFlag::All | ENavigationDirtyFlag::NavigationBounds);
 	}
+
+	// I'm not sure why we even do the following as part of this function
+	// @TODO investigate if we can extract it into a separate function and
+	// call it directly
+	if (NavDataSet.Num() == 0)
+	{
+		//TODO: will hitch when user places first navigation volume in the world 
+
+		if (NavDataRegistrationQueue.Num() > 0)
+		{
+			ProcessRegistrationCandidates();
+		}
+
+		if (NavDataSet.Num() == 0 && bAutoCreateNavigationData == true)
+		{
+			SpawnMissingNavigationData();
+			ProcessRegistrationCandidates();
+		}
+
+		ConditionalPopulateNavOctree();
+	}
 }
 
 void UNavigationSystemV1::AddNavigationBounds(const FNavigationBounds& NewBounds)
@@ -3226,7 +3255,14 @@ void UNavigationSystemV1::Build()
 
 	const double BuildStartTime = FPlatformTime::Seconds();
 
-	SpawnMissingNavigationData();
+	if (bAutoCreateNavigationData == true
+#if WITH_EDITOR
+		|| OperationMode == FNavigationSystemRunMode::EditorMode
+#endif // WITH_EDITOR
+		)
+	{
+		SpawnMissingNavigationData();
+	}
 
 	// make sure freshly created navigation instances are registered before we try to build them
 	ProcessRegistrationCandidates();
@@ -3249,6 +3285,20 @@ void UNavigationSystemV1::Build()
 #endif // !UE_BUILD_SHIPPING
 
 	UE_LOG(LogNavigation, Display, TEXT("UNavigationSystemV1::Build total execution time: %.5f"), float(FPlatformTime::Seconds() - BuildStartTime));
+}
+
+void UNavigationSystemV1::CancelBuild()
+{
+	for (ANavigationData* NavData : NavDataSet)
+	{
+		if (NavData)
+		{
+			if (NavData->GetGenerator())
+			{
+				NavData->GetGenerator()->CancelBuild();
+			}
+		}
+	}
 }
 
 void UNavigationSystemV1::SpawnMissingNavigationData()
@@ -3573,7 +3623,7 @@ void UNavigationSystemV1::AddLevelCollisionToOctree(ULevel* Level)
 		NavOctree->GetNavGeometryStoringMode() == FNavigationOctree::StoreNavGeometry)
 	{
 		const TArray<FVector>* LevelGeom = Level->GetStaticNavigableGeometry();
-		const FOctreeElementId* ElementId = GetObjectsNavOctreeId(Level);
+		const FOctreeElementId* ElementId = GetObjectsNavOctreeId(*Level);
 
 		if (!ElementId && LevelGeom && LevelGeom->Num() > 0)
 		{
@@ -3597,7 +3647,7 @@ void UNavigationSystemV1::RemoveLevelCollisionFromOctree(ULevel* Level)
 {
 	if (Level && NavOctree.IsValid())
 	{
-		const FOctreeElementId* ElementId = GetObjectsNavOctreeId(Level);
+		const FOctreeElementId* ElementId = GetObjectsNavOctreeId(*Level);
 		UE_LOG(LogNavOctree, Log, TEXT("UNREG %s %s"), *GetNameSafe(Level), ElementId ? TEXT("[exists]") : TEXT(""));
 
 		if (ElementId != NULL)
@@ -3610,7 +3660,7 @@ void UNavigationSystemV1::RemoveLevelCollisionFromOctree(ULevel* Level)
 			}
 
 			NavOctree->RemoveNode(*ElementId);
-			RemoveObjectsNavOctreeId(Level);
+			RemoveObjectsNavOctreeId(*Level);
 		}
 	}
 }
@@ -4295,8 +4345,9 @@ void UNavigationSystemV1::GetOnScreenMessages(TMultiMap<FCoreDelegates::EOnScree
 #else
 	const bool bIsNavigationAutoUpdateEnabled = true;
 #endif
-	if (IsNavigationDirty() 
-		&& (!bIsNavigationAutoUpdateEnabled || !SupportsNavigationGeneration() || !CanRebuildDirtyNavigation()))
+	if (IsNavigationDirty()
+		&& ((OperationMode == FNavigationSystemRunMode::EditorMode && !bIsNavigationAutoUpdateEnabled)
+			|| !SupportsNavigationGeneration() || !CanRebuildDirtyNavigation()))
 	{
 		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Error
 			, LOCTEXT("NAVMESHERROR", "NAVMESH NEEDS TO BE REBUILT"));
@@ -4372,6 +4423,12 @@ void UNavigationSystemV1::Configure(const UNavigationSystemConfig& Config)
 UNavigationSystemModuleConfig::UNavigationSystemModuleConfig(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+void UNavigationSystemModuleConfig::PostInitProperties()
+{
+	Super::PostInitProperties();
+
 	const UNavigationSystemV1* NavSysCDO = GetDefault<UNavigationSystemV1>();
 	if (NavSysCDO)
 	{
@@ -4397,9 +4454,10 @@ UNavigationSystemBase* UNavigationSystemModuleConfig::CreateAndConfigureNavigati
 	{
 		return nullptr;
 	}
-	
-	UNavigationSystemV1* NavSysInstance = Cast<UNavigationSystemV1>(Super::CreateAndConfigureNavigationSystem(World));
-	UE_CLOG(NavSysInstance == nullptr, LogNavigation, Error
+
+	UNavigationSystemBase* NewNavSys = Super::CreateAndConfigureNavigationSystem(World);
+	UNavigationSystemV1* NavSysInstance = Cast<UNavigationSystemV1>(NewNavSys);
+	UE_CLOG(NavSysInstance == nullptr && NewNavSys != nullptr, LogNavigation, Error
 		, TEXT("Unable to spawn navsys instance of class %s - unable to cast to UNavigationSystemV1")
 		, *NavigationSystemClass.GetAssetName()
 	);

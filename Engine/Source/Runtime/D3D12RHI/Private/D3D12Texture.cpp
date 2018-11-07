@@ -1120,8 +1120,7 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHICreateTexture2D_RenderThread(class FRHICom
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return GDynamicRHI->RHICreateTexture2D(SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
 	}
 
@@ -1157,7 +1156,7 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHIAsyncCreateTexture2D(uint32 SizeX, uint32 
 		1,  // Sample count
 		0);  // Sample quality
 
-	D3D12_SUBRESOURCE_DATA SubResourceData[MAX_TEXTURE_MIP_COUNT] = { 0 };
+	D3D12_SUBRESOURCE_DATA SubResourceData[MAX_TEXTURE_MIP_COUNT] = { };
 	for (uint32 MipIndex = 0; MipIndex < NumInitialMips; ++MipIndex)
 	{
 		uint32 NumBlocksX = FMath::Max<uint32>(1, (SizeX >> MipIndex) / GPixelFormats[Format].BlockSizeX);
@@ -1345,8 +1344,7 @@ FTexture2DArrayRHIRef FD3D12DynamicRHI::RHICreateTexture2DArray_RenderThread(cla
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTexture2DArray(SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
 	}
 
@@ -1363,8 +1361,7 @@ FTexture3DRHIRef FD3D12DynamicRHI::RHICreateTexture3D_RenderThread(class FRHICom
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTexture3D(SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
 	}
 
@@ -1772,8 +1769,12 @@ void TD3D12Texture2D<RHIResourceType>::UnlockInternal(class FRHICommandListImmed
 template<typename RHIResourceType>
 void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImmediate* RHICmdList, uint32 MipIndex, const FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {
-	check(GPixelFormats[this->GetFormat()].BlockSizeX == 1);
-	check(GPixelFormats[this->GetFormat()].BlockSizeY == 1);
+	check(UpdateRegion.Width  %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.Height % GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.DestX  %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.DestY  %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.SrcX   %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.SrcY   %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
 
 	const uint32 AlignedSourcePitch = Align(SourcePitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 	const uint32 bufferSize = Align(UpdateRegion.Height*AlignedSourcePitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
@@ -1782,12 +1783,12 @@ void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImme
 	while (Texture)
 	{
 		FD3D12ResourceLocation UploadHeapResourceLocation(GetParentDevice());
-		void* pData = GetParentDevice()->GetDefaultFastAllocator().Allocate<FD3D12ScopeLock>(bufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &UploadHeapResourceLocation);
+		void* pData = GetParentDevice()->GetDefaultFastAllocator().template Allocate<FD3D12ScopeLock>(bufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &UploadHeapResourceLocation);
 		check(nullptr != pData);
 
 		byte* pRowData = (byte*)pData;
 		byte* pSourceRowData = (byte*)SourceData;
-		uint32 CopyPitch = UpdateRegion.Width * GPixelFormats[this->GetFormat()].BlockBytes;
+		uint32 CopyPitch = FMath::DivideAndRoundUp(UpdateRegion.Width, (uint32)GPixelFormats[this->GetFormat()].BlockSizeX) * GPixelFormats[this->GetFormat()].BlockBytes;
 		check(CopyPitch <= SourcePitch);
 		for (uint32 i = 0; i < UpdateRegion.Height; i++)
 		{
@@ -1901,7 +1902,7 @@ FUpdateTexture3DData FD3D12DynamicRHI::BeginUpdateTexture3D_RenderThread(class F
 	check(IsInRenderingThread());
 	// This stall could potentially be removed, provided the fast allocator is thread-safe. However we 
 	// currently need to stall in the End method anyway (see below)
-	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 	return BeginUpdateTexture3D_Internal(Texture, MipIndex, UpdateRegion);
 }
 
@@ -1910,7 +1911,7 @@ void FD3D12DynamicRHI::EndUpdateTexture3D_RenderThread(class FRHICommandListImme
 	check(IsInRenderingThread());
 	// TODO: move this command entirely to the RHI thread so we can remove these stalls
 	// and fix potential ordering issue with non-compute-shader version
-	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 	EndUpdateTexture3D_Internal(UpdateData);
 }
 
@@ -1968,7 +1969,7 @@ FUpdateTexture3DData FD3D12DynamicRHI::BeginUpdateTexture3D_Internal(FTexture3DR
 	check(FormatInfo.BlockSizeZ == 1);
 
 	bool bDoComputeShaderCopy = false; // Compute shader can not cast compressed formats into uint
-	if (CVarUseUpdateTexture3DComputeShader.GetValueOnRenderThread() != 0 && FormatInfo.BlockSizeX == 1 && FormatInfo.BlockSizeY == 1 && Texture->GetResource()->GetHeap() && !(Texture->GetFlags() & TexCreate_OfflineProcessed))
+	if (CVarUseUpdateTexture3DComputeShader.GetValueOnRenderThread() != 0 && FormatInfo.BlockSizeX == 1 && FormatInfo.BlockSizeY == 1 && Texture->ResourceLocation.GetGPUVirtualAddress() && !(Texture->GetFlags() & TexCreate_OfflineProcessed))
 	{
 		// Try a compute shader update. This does a memory allocation internally
 		bDoComputeShaderCopy = BeginUpdateTexture3D_ComputeShader(UpdateData, UpdateDataD3D12);
@@ -1996,12 +1997,102 @@ FUpdateTexture3DData FD3D12DynamicRHI::BeginUpdateTexture3D_Internal(FTexture3DR
 	return UpdateData;
 }
 
+class FD3D12RHICmdEndUpdateTexture3D : public FRHICommand<FD3D12RHICmdEndUpdateTexture3D>
+{
+public:
+	FD3D12RHICmdEndUpdateTexture3D(FUpdateTexture3DData& UpdateData) :
+		MipIdx(UpdateData.MipIndex),
+		DstStartX(UpdateData.UpdateRegion.DestX),
+		DstStartY(UpdateData.UpdateRegion.DestY),
+		DstStartZ(UpdateData.UpdateRegion.DestZ),
+		DstTexture(UpdateData.Texture)
+	{
+		FMemory::Memset(&PlacedSubresourceFootprint, 0, sizeof(PlacedSubresourceFootprint));
+
+		D3D12_SUBRESOURCE_FOOTPRINT& SubresourceFootprint = PlacedSubresourceFootprint.Footprint;
+		SubresourceFootprint.Depth = UpdateData.UpdateRegion.Depth;
+		SubresourceFootprint.Height = UpdateData.UpdateRegion.Height;
+		SubresourceFootprint.Width = UpdateData.UpdateRegion.Width;
+		SubresourceFootprint.Format = static_cast<DXGI_FORMAT>(GPixelFormats[DstTexture->GetFormat()].PlatformFormat);
+		SubresourceFootprint.RowPitch = UpdateData.RowPitch;
+		check(SubresourceFootprint.RowPitch % FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT == 0);
+
+		FD3D12UpdateTexture3DData* UpdateDataD3D12 =
+			reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateData.PlatformData[0]);
+
+		SrcResourceLocation = UpdateDataD3D12->UploadHeapResourceLocation;
+		PlacedSubresourceFootprint.Offset = SrcResourceLocation->GetOffsetFromBaseOfResource();
+	}
+
+	virtual ~FD3D12RHICmdEndUpdateTexture3D()
+	{
+		if (SrcResourceLocation)
+		{
+			delete SrcResourceLocation;
+			SrcResourceLocation = nullptr;
+		}
+	}
+
+	void Execute(FRHICommandListBase& RHICmdList)
+	{
+		FD3D12Texture3D* NativeTexture = FD3D12DynamicRHI::ResourceCast(DstTexture.GetReference());
+		FD3D12Resource* UploadBuffer = SrcResourceLocation->GetResource();
+
+		for (FD3D12Texture3D* TextureLink = NativeTexture;
+			TextureLink;
+			TextureLink = static_cast<FD3D12Texture3D*>(TextureLink->GetNextObject()))
+		{
+			FD3D12Device* Device = TextureLink->GetParentDevice();
+			FD3D12CommandListHandle& NativeCmdList = Device->GetDefaultCommandContext().CommandListHandle;
+#if USE_PIX
+			PIXBeginEvent(NativeCmdList.GraphicsCommandList(), PIX_COLOR(255, 255, 255), TEXT("EndUpdateTexture3D"));
+#endif
+			CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(TextureLink->GetResource()->GetResource(), MipIdx);
+			CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(UploadBuffer->GetResource(), PlacedSubresourceFootprint);
+
+			FScopeResourceBarrier ScopeResourceBarrierDest(
+				NativeCmdList,
+				TextureLink->GetResource(),
+				TextureLink->GetResource()->GetDefaultResourceState(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				DestCopyLocation.SubresourceIndex);
+
+			Device->GetDefaultCommandContext().numCopies++;
+			NativeCmdList.FlushResourceBarriers();
+			NativeCmdList->CopyTextureRegion(
+				&DestCopyLocation,
+				DstStartX,
+				DstStartY,
+				DstStartZ,
+				&SourceCopyLocation,
+				nullptr);
+
+			NativeCmdList.UpdateResidency(TextureLink->GetResource());
+
+			DEBUG_EXECUTE_COMMAND_CONTEXT(Device->GetDefaultCommandContext());
+#if USE_PIX
+			PIXEndEvent(NativeCmdList.GraphicsCommandList());
+#endif
+		}
+
+		delete SrcResourceLocation;
+		SrcResourceLocation = nullptr;
+	}
+
+private:
+	uint32 MipIdx;
+	uint32 DstStartX;
+	uint32 DstStartY;
+	uint32 DstStartZ;
+	FTexture3DRHIRef DstTexture;
+	FD3D12ResourceLocation* SrcResourceLocation;
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT PlacedSubresourceFootprint;
+};
+
 void FD3D12DynamicRHI::EndUpdateTexture3D_Internal(FUpdateTexture3DData& UpdateData)
 {
 	check(IsInRenderingThread());
 	check(GFrameNumberRenderThread == UpdateData.FrameNumber);
-
-	FD3D12Texture3D* Texture = FD3D12DynamicRHI::ResourceCast(UpdateData.Texture);
 
 	FD3D12UpdateTexture3DData* UpdateDataD3D12 = reinterpret_cast<FD3D12UpdateTexture3DData*>(&UpdateData.PlatformData[0]);
 	check( UpdateDataD3D12->UploadHeapResourceLocation != nullptr );
@@ -2012,49 +2103,16 @@ void FD3D12DynamicRHI::EndUpdateTexture3D_Internal(FUpdateTexture3DData& UpdateD
 	}
 	else
 	{
-		D3D12_SUBRESOURCE_FOOTPRINT sourceSubresource;
-		sourceSubresource.Depth = UpdateData.UpdateRegion.Depth;
-		sourceSubresource.Height = UpdateData.UpdateRegion.Height;
-		sourceSubresource.Width = UpdateData.UpdateRegion.Width;
-		sourceSubresource.Format = (DXGI_FORMAT)GPixelFormats[Texture->GetFormat()].PlatformFormat;
-		sourceSubresource.RowPitch = UpdateData.RowPitch;
-		check(sourceSubresource.RowPitch % FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT == 0);
-
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT placedTexture3D = { 0 };
-		placedTexture3D.Offset = UpdateDataD3D12->UploadHeapResourceLocation->GetOffsetFromBaseOfResource();
-		placedTexture3D.Footprint = sourceSubresource;
-
-		FD3D12Resource* UploadBuffer = UpdateDataD3D12->UploadHeapResourceLocation->GetResource();
-
-		for (FD3D12Texture3D* TextureLink = Texture; TextureLink; TextureLink = (FD3D12Texture3D*)TextureLink->GetNextObject())
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+		if (RHICmdList.Bypass())
 		{
-			FD3D12Device* Device = TextureLink->GetParentDevice();
-			FD3D12CommandListHandle& hCommandList = Device->GetDefaultCommandContext().CommandListHandle;
-#if USE_PIX
-			PIXBeginEvent(hCommandList.GraphicsCommandList(), PIX_COLOR(255, 255, 255), TEXT("EndUpdateTexture3D"));
-#endif
-			CD3DX12_TEXTURE_COPY_LOCATION DestCopyLocation(TextureLink->GetResource()->GetResource(), UpdateData.MipIndex);
-			CD3DX12_TEXTURE_COPY_LOCATION SourceCopyLocation(UploadBuffer->GetResource(), placedTexture3D);
-
-			FScopeResourceBarrier ScopeResourceBarrierDest(hCommandList, TextureLink->GetResource(), TextureLink->GetResource()->GetDefaultResourceState(), D3D12_RESOURCE_STATE_COPY_DEST, DestCopyLocation.SubresourceIndex);
-
-			Device->GetDefaultCommandContext().numCopies++;
-			hCommandList.FlushResourceBarriers();
-			hCommandList->CopyTextureRegion(
-				&DestCopyLocation,
-				UpdateData.UpdateRegion.DestX, UpdateData.UpdateRegion.DestY, UpdateData.UpdateRegion.DestZ,
-				&SourceCopyLocation,
-				nullptr);
-
-			hCommandList.UpdateResidency(TextureLink->GetResource());
-
-			DEBUG_EXECUTE_COMMAND_CONTEXT(Device->GetDefaultCommandContext());
-
-#if USE_PIX
-			PIXEndEvent(hCommandList.GraphicsCommandList());
-#endif
+			FD3D12RHICmdEndUpdateTexture3D RHICmd(UpdateData);
+			RHICmd.Execute(RHICmdList);
 		}
-		delete UpdateDataD3D12->UploadHeapResourceLocation;
+		else
+		{
+			new (RHICmdList.AllocCommand<FD3D12RHICmdEndUpdateTexture3D>()) FD3D12RHICmdEndUpdateTexture3D(UpdateData);
+		}
 	}
 }
 
@@ -2065,8 +2123,7 @@ FTextureCubeRHIRef FD3D12DynamicRHI::RHICreateTextureCube_RenderThread(class FRH
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTextureCube(Size, Format, NumMips, Flags, CreateInfo);
 	}
 
@@ -2082,8 +2139,7 @@ FTextureCubeRHIRef FD3D12DynamicRHI::RHICreateTextureCubeArray_RenderThread(clas
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTextureCubeArray(Size, ArraySize, Format, NumMips, Flags, CreateInfo);
 	}
 

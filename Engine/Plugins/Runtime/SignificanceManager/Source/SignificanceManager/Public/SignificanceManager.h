@@ -20,9 +20,10 @@ class USignificanceManager;
 struct FAutoCompleteCommand;
 
 DECLARE_STATS_GROUP(TEXT("Significance Manager"), STATGROUP_SignificanceManager, STATCAT_Advanced);
+DECLARE_LOG_CATEGORY_EXTERN(LogSignificance, Log, All);
 
 /* Module definition for significance manager. Owns the references to created significance managers*/
-class SIGNIFICANCEMANAGER_API FSignificanceManagerModule : public FDefaultGameModuleImpl, public FGCObject
+class SIGNIFICANCEMANAGER_API FSignificanceManagerModule : public FDefaultModuleImpl, public FGCObject
 {
 public:
 	// Begin IModuleInterface overrides
@@ -50,8 +51,10 @@ private:
 	// Callback function registered with HUD to supply debug info when ShowDebug SignificanceManager has been entered on the console
 	static void OnShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
 
+#if ALLOW_CONSOLE
 	// Callback function registered with Console to inject show debug auto complete command
 	static void PopulateAutoCompleteEntries(TArray<FAutoCompleteCommand>& AutoCompleteList);
+#endif // ALLOW_CONSOLE
 
 	// Map of worlds to their significance manager
 	static TMap<const UWorld*, USignificanceManager*> WorldSignificanceManagers;
@@ -79,6 +82,12 @@ public:
 	typedef TFunction<float(UObject*, const FTransform&)> FSignificanceFunction;
 	typedef TFunction<void(UObject*, float, float, bool)> FPostSignificanceFunction;
 
+	struct FManagedObjectInfo;
+
+	typedef TFunction<float(FManagedObjectInfo*, const FTransform&)> FManagedObjectSignificanceFunction;
+	typedef TFunction<void(FManagedObjectInfo*, float, float, bool)> FManagedObjectPostSignificanceFunction;
+
+
 	enum class EPostSignificanceType : uint8
 	{
 		// The object has no post work to be done
@@ -89,7 +98,7 @@ public:
 		Sequential
 	};
 
-	struct FManagedObjectInfo
+	struct SIGNIFICANCEMANAGER_API FManagedObjectInfo
 	{
 		FManagedObjectInfo()
 			: Object(nullptr)
@@ -98,13 +107,13 @@ public:
 		{
 		}
 
-		FManagedObjectInfo(UObject* InObject, FName InTag, FSignificanceFunction InSignificanceFunction, EPostSignificanceType InPostSignificanceType = EPostSignificanceType::None, FPostSignificanceFunction InPostSignificanceFunction = nullptr)
+		FManagedObjectInfo(UObject* InObject, FName InTag, FManagedObjectSignificanceFunction InSignificanceFunction, EPostSignificanceType InPostSignificanceType = EPostSignificanceType::None, FManagedObjectPostSignificanceFunction InPostSignificanceFunction = nullptr)
 			: Object(InObject)
 			, Tag(InTag)
 			, Significance(1.0f)
 			, PostSignificanceType(InPostSignificanceType)
-			, SignificanceFunction(InSignificanceFunction)
-			, PostSignificanceFunction(InPostSignificanceFunction)
+			, SignificanceFunction(MoveTemp(InSignificanceFunction))
+			, PostSignificanceFunction(MoveTemp(InPostSignificanceFunction))
 		{
 			if (PostSignificanceFunction)
 			{
@@ -117,12 +126,14 @@ public:
 			}
 		}
 
-		UObject* GetObject() const { return Object; }
-		FName GetTag() const { return Tag; }
-		float GetSignificance() const { return Significance; }
-		FSignificanceFunction GetSignificanceFunction() const { return SignificanceFunction; }
-		EPostSignificanceType GetPostSignificanceType() const { return PostSignificanceType; }
-		FPostSignificanceFunction GetPostSignificanceNotifyDelegate() const { return PostSignificanceFunction; }
+		virtual ~FManagedObjectInfo() { }
+
+		FORCEINLINE UObject* GetObject() const { return Object; }
+		FORCEINLINE FName GetTag() const { return Tag; }
+		FORCEINLINE float GetSignificance() const { return Significance; }
+		FManagedObjectSignificanceFunction GetSignificanceFunction() const { return SignificanceFunction; }
+		FORCEINLINE EPostSignificanceType GetPostSignificanceType() const { return PostSignificanceType; }
+		FManagedObjectPostSignificanceFunction GetPostSignificanceNotifyDelegate() const { return PostSignificanceFunction; }
 
 	private:
 		UObject* Object;
@@ -130,8 +141,8 @@ public:
 		float Significance;
 		EPostSignificanceType PostSignificanceType;
 
-		FSignificanceFunction SignificanceFunction;
-		FPostSignificanceFunction PostSignificanceFunction;
+		FManagedObjectSignificanceFunction SignificanceFunction;
+		FManagedObjectPostSignificanceFunction PostSignificanceFunction;
 
 		void UpdateSignificance(const TArray<FTransform>& ViewPoints, const bool bSortSignificanceAscending);
 
@@ -143,14 +154,18 @@ public:
 
 	// Begin UObject overrides
 	virtual void BeginDestroy() override;
-	virtual UWorld* GetWorld()const override;
+	virtual UWorld* GetWorld() const override final;
 	// End UObject overrides
 
 	// Overridable function to update the managed objects' significance
 	virtual void Update(TArrayView<const FTransform> Viewpoints);
 
 	// Overridable function used to register an object as managed by the significance manager
+	DEPRECATED(4.21, "Override RegisterObject that uses ManagedObject significance functions")
 	virtual void RegisterObject(UObject* Object, FName Tag, FSignificanceFunction SignificanceFunction, EPostSignificanceType InPostSignificanceType = EPostSignificanceType::None, FPostSignificanceFunction InPostSignificanceFunction = nullptr);
+
+	// Overridable function used to register an object as managed by the significance manager
+	virtual void RegisterObject(UObject* Object, FName Tag, FManagedObjectSignificanceFunction SignificanceFunction, EPostSignificanceType InPostSignificanceType = EPostSignificanceType::None, FManagedObjectPostSignificanceFunction InPostSignificanceFunction = nullptr);
 
 	// Overridable function used to unregister an object as managed by the significance manager
 	virtual void UnregisterObject(UObject* Object);
@@ -159,10 +174,10 @@ public:
 	void UnregisterAll(FName Tag);
 
 	// Returns objects of specified tag, Tag must be specified or else an empty array will be returned
-	const TArray<const FManagedObjectInfo*>& GetManagedObjects(FName Tag) const;
+	const TArray<FManagedObjectInfo*>& GetManagedObjects(FName Tag) const;
 
 	// Returns all managed objects regardless of tag
-	void GetManagedObjects(TArray<const FManagedObjectInfo*>& OutManagedObjects, bool bInSignificanceOrder = false) const;
+	void GetManagedObjects(TArray<FManagedObjectInfo*>& OutManagedObjects, bool bInSignificanceOrder = false) const;
 
 	// Returns the managed object for the passed-in object, if any. Otherwise returns nullptr
 	USignificanceManager::FManagedObjectInfo* GetManagedObject(UObject* Object) const;
@@ -190,6 +205,8 @@ public:
 	const TArray<FTransform>& GetViewpoints() const { return Viewpoints; }
 protected:
 
+	// Internal function that takes the managed object info and registers it with the significance manager
+	void RegisterManagedObject(FManagedObjectInfo* ObjectInfo);
 
 	// Whether the significance manager should be created on a client. Only used from CDO and 
 	uint32 bCreateOnClient:1;
@@ -208,10 +225,20 @@ private:
 	TArray<FTransform> Viewpoints;
 
 	// All objects being managed organized by Tag
-	TMap<FName, TArray<const FManagedObjectInfo*>> ManagedObjectsByTag;
+	TMap<FName, TArray<FManagedObjectInfo*>> ManagedObjectsByTag;
 
 	// Reverse lookup map to find the tag for a given object
 	TMap<UObject*, FManagedObjectInfo*> ManagedObjects;
+
+	// Arrays used for ::Update. To avoid memory allocations, making them members
+	TArray<FManagedObjectInfo*> ObjArray;
+
+	struct FSequentialPostWorkPair
+	{
+		FManagedObjectInfo* ObjectInfo;
+		float OldSignificance;
+	};
+	TArray<FSequentialPostWorkPair> ObjWithSequentialPostWork;
 
 	// Game specific significance class to instantiate
 	UPROPERTY(globalconfig, noclear, EditAnywhere, Category=DefaultClasses, meta=(MetaClass="SignificanceManager", DisplayName="Significance Manager Class"))

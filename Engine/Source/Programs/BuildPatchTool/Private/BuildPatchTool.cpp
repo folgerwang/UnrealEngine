@@ -16,14 +16,17 @@ class FBuildPatchOutputDevice : public FOutputDevice
 public:
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override
 	{
-#if PLATFORM_WINDOWS
+		// Only forward verbosities higher than Display as they will already be sent to stdout.
+		// For EC to get any logging, we have to forward all.
+		//if (Verbosity > ELogVerbosity::Display)
+		{
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-		printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #else
-		wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #endif
-		fflush( stdout );
-#endif
+			fflush( stdout );
+		}
 	}
 };
 
@@ -69,22 +72,52 @@ const TCHAR* HandleLegacyCommandline(const TCHAR* CommandLine)
 
 EReturnCode RunBuildPatchTool()
 {
-	// Load the BuildPatchServices Module
-	IBuildPatchServicesModule& BuildPatchServicesModule = FModuleManager::LoadModuleChecked<IBuildPatchServicesModule>(TEXT("BuildPatchServices"));
-
-	// Initialise the UObject system and process our uobject classes
+	// Initialise the UObject module.
 	FModuleManager::Get().LoadModule(TEXT("CoreUObject"));
 	FCoreDelegates::OnInit.Broadcast();
+
+	// Load the BuildPatchServices Module.
+	IBuildPatchServicesModule& BuildPatchServicesModule = FModuleManager::LoadModuleChecked<IBuildPatchServicesModule>(TEXT("BuildPatchServices"));
+
+	// Make sure we have processed UObjects from BPS.
 	ProcessNewlyLoadedUObjects();
 
+	// Instantiate and execute the tool.
 	TSharedRef<IToolMode> ToolMode = FToolModeFactory::Create(BuildPatchServicesModule);
 	return ToolMode->Execute();
+}
+
+int32 NumberOfWorkerThreadsDesired()
+{
+	const int32 MaxThreads = 64;
+	const int32 NumberOfCores = FPlatformMisc::NumberOfCores();
+	// need to spawn at least one worker thread (see FTaskGraphImplementation)
+	return FMath::Max(FMath::Min(NumberOfCores - 1, MaxThreads), 1);
+}
+
+void CheckAndReallocThreadPool()
+{
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		const int32 ThreadsSpawned = GThreadPool->GetNumThreads();
+		const int32 DesiredThreadCount = NumberOfWorkerThreadsDesired();
+		if (ThreadsSpawned < DesiredThreadCount)
+		{
+			UE_LOG(LogBuildPatchTool, Log, TEXT("Engine only spawned %d worker threads, bumping up to %d!"), ThreadsSpawned, DesiredThreadCount);
+			GThreadPool->Destroy();
+			GThreadPool = FQueuedThreadPool::Allocate();
+			verify(GThreadPool->Create(DesiredThreadCount, 128 * 1024));
+		}
+	}
 }
 
 EReturnCode BuildPatchToolMain(const TCHAR* CommandLine)
 {
 	// Add log device for stdout
-	GLog->AddOutputDevice(new FBuildPatchOutputDevice());
+	if (FParse::Param(CommandLine, TEXT("stdout")))
+	{
+		GLog->AddOutputDevice(new FBuildPatchOutputDevice());
+	}
 
 	// Handle legacy commandlines
 	CommandLine = HandleLegacyCommandline(CommandLine);
@@ -96,6 +129,9 @@ EReturnCode BuildPatchToolMain(const TCHAR* CommandLine)
 	// Initialise application
 	GEngineLoop.PreInit(CommandLine);
 	UE_LOG(LogBuildPatchTool, Log, TEXT("Executed with commandline: %s"), CommandLine);
+
+	// Check whether as a program, we should bump up the number of threads in GThreadPool.
+	CheckAndReallocThreadPool();
 
 	// Run the application
 	EReturnCode ReturnCode = RunBuildPatchTool();

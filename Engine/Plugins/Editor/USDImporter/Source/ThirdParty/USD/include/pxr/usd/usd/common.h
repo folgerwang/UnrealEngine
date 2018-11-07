@@ -24,10 +24,13 @@
 #ifndef USD_COMMON_H
 #define USD_COMMON_H
 
+/// \file usd/common.h
+
 #include "pxr/pxr.h"
 #include "pxr/usd/usd/api.h"
 #include "pxr/base/tf/declarePtrs.h"
 #include "pxr/base/tf/stringUtils.h"
+#include "pxr/usd/sdf/layerOffset.h"
 
 #include "pxr/usd/usd/primDataHandle.h"
 #include "pxr/usd/usd/timeCode.h"
@@ -36,7 +39,6 @@
 #include <map>
 
 PXR_NAMESPACE_OPEN_SCOPE
-
 
 // Forward declare Usd classes.
 class UsdStage;
@@ -78,10 +80,102 @@ typedef std::map<class TfToken, VtValue,
                  TfDictionaryLessThan
                  > UsdMetadataValueMap;
 
-/// Returns true if the pipeline is configured to process / generate 
-/// USD only and stop generating tidScenes.
+/// Returns true if Add() methods in the USD API, when given
+/// UsdListPositionTempDefault, should author "add" operations
+/// in SdfListOp values instead of prepends. Used for backwards
+/// compatibility.
 USD_API
-bool UsdIsRetireLumosEnabled();
+bool UsdAuthorOldStyleAdd();
+
+/// Returns true if USD uses the historical behavior of applying
+/// the inverse of composed layer offsets to map layer time to
+/// stage time.  Respects the env setting USD_USE_INVERSE_LAYER_OFFSET.
+USD_API
+bool UsdUsesInverseLayerOffset();
+
+/// Prepare the given offset for application to map layer time to
+/// stage time, respecting the environment variable
+/// USD_USE_INVERSE_LAYER_OFFSET.
+///
+/// Typically, the supplied SdfLayerOffset will come from Pcp -- in
+/// a PcpNodeRef or PcpLayerStack -- and represent the cumulative offset
+/// to transform data from a layer to the Usd stage.
+///
+/// Historically, USD applied the inverse of that offset, flipping
+/// the intended semantics. To address this, this function provides a
+/// temporary measure to control whether to take the inverse or not.
+/// Under the new behavior this function will become a no-op,
+/// and can eventually be phased out.
+USD_API
+SdfLayerOffset UsdPrepLayerOffset(SdfLayerOffset offset);
+
+/// \enum UsdListPosition
+///
+/// Specifies a position to add items to lists.  Used by some Add()
+/// methods in the USD API that manipulate lists, such as AddReference().
+///
+enum UsdListPosition {
+    /// The position at the front of the prepend list.
+    /// An item added at this position will, after composition is applied,
+    /// be stronger than other items prepended in this layer, and stronger
+    /// than items added by weaker layers.
+    UsdListPositionFrontOfPrependList,
+    /// The position at the back of the prepend list.
+    /// An item added at this position will, after composition is applied,
+    /// be weaker than other items prepended in this layer, but stronger
+    /// than items added by weaker layers.
+    UsdListPositionBackOfPrependList,
+    /// The position at the front of the append list.
+    /// An item added at this position will, after composition is applied,
+    /// be stronger than other items appended in this layer, and stronger
+    /// than items added by weaker layers.
+    UsdListPositionFrontOfAppendList,
+    /// The position at the back of the append list.
+    /// An item added at this position will, after composition is applied,
+    /// be weaker than other items appended in this layer, but stronger
+    /// than items added by weaker layers.
+    UsdListPositionBackOfAppendList,
+    /// Default position.
+    /// XXX This value will be removed in the near future. This is
+    /// meant as a temporary value used for staged rollout of the
+    /// new behavior with a TfEnvSetting.
+    UsdListPositionTempDefault,
+};
+
+/// \enum UsdLoadPolicy
+///
+/// Controls UsdStage::Load() and UsdPrim::Load() behavior regarding whether or
+/// not descendant prims are loaded.
+///
+enum UsdLoadPolicy {
+    /// Load a prim plus all its descendants.
+    UsdLoadWithDescendants,
+    /// Load a prim by itself with no descendants.
+    UsdLoadWithoutDescendants
+};
+
+/// \enum UsdSchemaType
+///
+/// An enum representing which type of schema a given schema class belongs to
+///
+enum class UsdSchemaType {
+    /// Represents abstract or base schema types that are interface-only
+    /// and cannot be instantiated. These are reserved for core base classes
+    /// known to the usdGenSchema system, so this should never be assigned to
+    /// generated schema classes.
+    AbstractBase,
+    /// Represents a non-concrete typed schema
+    AbstractTyped,
+    /// Represents a concrete typed schema
+    ConcreteTyped,
+    /// Non-applied API schema
+    NonAppliedAPI,
+    /// Single Apply API schema
+    SingleApplyAPI,
+    /// Multiple Apply API Schema
+    MultipleApplyAPI
+    
+};
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

@@ -24,6 +24,9 @@ enum class ETargetPlatformFeatures
 	/** Distance field shadows. */
 	DistanceFieldShadows,
 
+	/** Distance field AO. */
+	DistanceFieldAO,
+
 	/** Gray scale SRGB texture formats support. */
 	GrayscaleSRGB,
 
@@ -65,6 +68,9 @@ enum class ETargetPlatformFeatures
 
 	/* The platform supports half float vertex format */
 	HalfFloatVertexFormat,
+
+	/* The platform supports the experimental Device Output Log window */
+	DeviceOutputLog,
 };
 
 
@@ -253,7 +259,7 @@ public:
 	virtual bool IsServerOnly() const = 0;
 
 	/**
-	* Checks whether this platform suports shader compilation over XGE interface.
+	* Checks whether this platform supports shader compilation over XGE interface.
 	*
 	* @return true if this platform can distribute shader compilation threads with XGE.
 	*/
@@ -275,6 +281,13 @@ public:
 	 * @return true if this platform requires cooked data, false otherwise.
 	 */
 	virtual bool RequiresCookedData() const = 0;
+
+	/**
+	* Checks whether this platform has a secure shippable package format, and therefore doesn't need any encryption or signing support
+	*
+	* @return true if this platform requires cooked data, false otherwise.
+	*/
+	virtual bool HasSecurePackageFormat() const = 0;
 
 	/**
 	 * Checks whether this platform requires user credentials (typically server platforms).
@@ -304,6 +317,16 @@ public:
 	 */
 	virtual bool SupportsFeature( ETargetPlatformFeatures Feature ) const = 0;
 
+	/**
+	 * Gets whether the platform should use forward shading or not.
+	 */
+	virtual bool UsesForwardShading() const = 0;
+
+	/**
+	* Gets whether the platform should use DBuffer for decals.
+	*/
+	virtual bool UsesDBuffer() const = 0;
+	
 #if WITH_ENGINE
 	/**
 	 * Gets the format to use for a particular body setup.
@@ -347,6 +370,25 @@ public:
 	 * @param OutFormats will contain all the texture formats which are possible for this platform
 	 */
 	virtual void GetAllTextureFormats( TArray<FName>& OutFormats ) const = 0;
+
+	/**
+	* Gets the texture format to use for a virtual texturing layer. In order to make a better guess
+	* some parameters are passed to this function.
+	*
+	* @param SourceFormat The raw uncompressed source format (ETextureSourceFormat) the texture is stored in.
+	* @param bAllowCompression Allow a compressed (lossy) format to be chosen.
+	* @param bNoAlpha The chosen format doesn't need to have an alpha channel.
+	* @param bSupportDX11TextureFormats Allow choosing a texture format which is supported only on DX11 hardware (e.g. BC7 etc).
+	* @param settings A hint as to what kind of data is to be stored in the layer or an explicit request for a certain format (TextureCompressionSettings enum value).
+	* @return The chosen format to use for the layer on this platform based on the given input. May return the None name ( Fname::IsNone == true) on platforms that do not support VT.
+	* 
+	* FIXME: Is it better to pass in the UVirtualTexture and layer index instead of all these arguments?! Less encapsulated but cleaner??
+	* this would also mean we don't have to hide the SourceFormat and TextureCompressionSettings enums
+	*/
+	virtual FName GetVirtualTextureLayerFormat(
+		int32 SourceFormat,
+		bool bAllowCompression, bool bNoAlpha,
+		bool bSupportDX11TextureFormats, int32 TextureCompressionSettings) const = 0;
 
 	/**
 	 * Gets the format to use for a particular piece of audio.
@@ -432,9 +474,30 @@ public:
 	virtual bool SendLowerCaseFilePaths() const = 0;
 
 	/**
-	* Project settings to check to determine if a build should occurr
-	*/
+	 * Project settings to check to determine if a build should occur
+	 */
 	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const = 0;
+
+	/**
+	 * Give the platform a chance to refresh internal settings before a cook, etc
+	 */
+	virtual void RefreshSettings() = 0;
+
+	/**
+	 * Get unique integer identifier for this platform.
+	 *
+	 * The implementation will assign an ordinal to each target platform at startup, assigning
+	 * a value of 0, 1, 2, etc in order to make the ordinals usable as array / bit mask indices.
+	 *
+	 * @return int32 A unique integer which may be used to identify target platform during the 
+	 *               current session only (note: not stable across runs).
+	 */
+	virtual int32 GetPlatformOrdinal() const = 0;
+
+	/**
+	 * Given a platform ordinal number, returns the corresponding ITargetPlatform instance
+	 */
+	TARGETPLATFORM_API static const ITargetPlatform* GetPlatformFromOrdinal(int32 Ordinal);
 
 public:
 
@@ -454,4 +517,143 @@ public:
 
 	/** Virtual destructor. */
 	virtual ~ITargetPlatform() { }
+
+protected:
+	static TARGETPLATFORM_API int32 AssignPlatformOrdinal(const ITargetPlatform& Platform);
+};
+
+/**
+ * Target platform identifier
+ *
+ * This is really just a wrapper around an integer ordinal value, to prevent
+ * accidental mix-ups with other classes of integers. It also provides more
+ * context to a reader of the code.
+ *
+ * @see ITargetPlatform::GetPlatformOrdinal()
+ */
+
+struct FTargetPlatform
+{
+	inline FTargetPlatform(const ITargetPlatform& Platform)
+	{
+		Ordinal = Platform.GetPlatformOrdinal();
+	}
+
+	inline uint32 GetOrdinal() const { return Ordinal;  }
+
+	bool operator<(const FTargetPlatform& Other) const
+	{
+		return Ordinal < Other.Ordinal;
+	}
+
+	bool operator==(const FTargetPlatform& Other) const
+	{
+		return Ordinal == Other.Ordinal;
+	}
+
+private:
+	uint32 Ordinal = 0;
+};
+
+inline uint32 GetTypeHash(const FTargetPlatform& Key) { return Key.GetOrdinal(); }
+
+/**
+ * Target platform set implementation using bitmask for compactness
+ */
+class FTargetPlatformSet
+{
+public:
+	inline void Add(const FTargetPlatform& Platform)
+	{
+		const uint32 Ordinal = Platform.GetOrdinal();
+
+		Mask |= 1ull << Ordinal;
+	}
+
+	inline void Remove(const FTargetPlatform& Platform)
+	{
+		const uint32 Ordinal = Platform.GetOrdinal();
+
+		Mask &= ~(1ull << Ordinal);
+	}
+
+	/// Remove all members from the Platforms set from this set
+	inline void Remove(const FTargetPlatformSet& Platforms)
+	{
+		Mask &= ~Platforms.Mask;
+	}
+
+	/// Check if this set contains any of the members of the Other set
+	inline bool Contains(const FTargetPlatform& Platform) const
+	{
+		const uint32 Ordinal = Platform.GetOrdinal();
+
+		return !!(Mask & (1ull << Ordinal));
+	}
+
+	/// Check if this set contains any of the members of the Other set
+	bool ContainsAny(const FTargetPlatformSet& Other) const
+	{
+		return !!(Mask & Other.Mask);
+	}
+
+	bool IsEmpty() const
+	{
+		return Mask == 0;
+	}
+
+	void Merge(const FTargetPlatformSet& Other)
+	{
+		Mask |= Other.Mask;
+	}
+
+	void Clear()
+	{
+		Mask = 0;
+	}
+
+	bool operator==(const FTargetPlatformSet& Other) const
+	{
+		return this->Mask == Other.Mask;
+	}
+
+	uint32 GetHash() const
+	{
+		// This may not be awesome but I don't know that it's an actual problem in practice
+		return uint32(this->Mask ^ (this->Mask >> 32));
+	}
+
+	/**
+	 * Iterate over all set members
+	 *
+	 * @param Callback - callback accepting a const ITargetPlatform* argument
+	 */
+	template<typename Func>
+	void ForEach(Func&& Callback) const
+	{
+		// This could maybe be smarter and leverage intrinsics to directly 
+		// scan for the next set bit but I just want to make it work for 
+		// now so let's keep it simple until it shows up in a profile
+
+		uint64 IterMask = Mask;
+		int Ordinal = 0;
+
+		while(IterMask)
+		{
+			if (IterMask & 1)
+			{
+				Callback(ITargetPlatform::GetPlatformFromOrdinal(Ordinal));
+			}
+
+			IterMask >>= 1;
+			++Ordinal;
+		}
+	}
+
+	// TODO: support for ranged for? It's easy to make mistakes when refactoring
+	// regular for loops into ForEach type constructs since the semantics of any
+	// return statements does change when you put them inside a lambda.
+
+private:
+	uint64	Mask = 0;
 };

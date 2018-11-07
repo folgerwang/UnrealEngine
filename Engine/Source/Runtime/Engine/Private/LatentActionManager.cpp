@@ -22,20 +22,20 @@ FString FPendingLatentAction::GetDescription() const
 
 void FLatentActionManager::AddNewAction(UObject* InActionObject, int32 UUID, FPendingLatentAction* NewAction)
 {
-	auto& ObjectActionListPtr = ObjectToActionListMap.FindOrAdd(InActionObject);
-	if (!ObjectActionListPtr.Get())
+	TSharedPtr<FObjectActions>& ObjectActions = ObjectToActionListMap.FindOrAdd(InActionObject);
+	if (!ObjectActions.Get())
 	{
-		ObjectActionListPtr = MakeShareable(new FActionList());
+		ObjectActions = MakeShareable(new FObjectActions());
 	}
-	ObjectActionListPtr->Add(UUID, NewAction);
+	ObjectActions->ActionList.Add(UUID, NewAction);
 
 	LatentActionsChangedDelegate.Broadcast(InActionObject, ELatentActionChangeType::ActionsAdded);
 }
 
 void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObject)
 {
-	auto ObjectActionList = GetActionListForObject(InObject);
-	if (ObjectActionList)
+	FObjectActions* ObjectActions = GetActionsForObject(InObject);
+	if (ObjectActions)
 	{
 		auto& ActionToRemoveListPtr = ActionsToRemoveMap.FindOrAdd(InObject);
 		if (!ActionToRemoveListPtr.IsValid())
@@ -43,7 +43,7 @@ void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObje
 			ActionToRemoveListPtr = MakeShareable(new TArray<FUuidAndAction>());
 		}
 
-		for (FActionList::TConstIterator It(*ObjectActionList); It; ++It)
+		for (FActionList::TConstIterator It(ObjectActions->ActionList); It; ++It)
 		{
 			ActionToRemoveListPtr->Add(*It);
 		}
@@ -52,10 +52,10 @@ void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObje
 
 int32 FLatentActionManager::GetNumActionsForObject(TWeakObjectPtr<UObject> InObject)
 {
-	auto ObjectActionList = GetActionListForObject(InObject);
-	if (ObjectActionList)
+	FObjectActions* ObjectActions = GetActionsForObject(InObject);
+	if (ObjectActions)
 	{
-		return ObjectActionList->Num();
+		return ObjectActions->ActionList.Num();
 	}
 
 	return 0;
@@ -64,20 +64,35 @@ int32 FLatentActionManager::GetNumActionsForObject(TWeakObjectPtr<UObject> InObj
 
 DECLARE_CYCLE_STAT(TEXT("Blueprint Latent Actions"), STAT_TickLatentActions, STATGROUP_Game);
 
+void FLatentActionManager::BeginFrame()
+{
+	for (FObjectToActionListMap::TIterator ObjIt(ObjectToActionListMap); ObjIt; ++ObjIt)
+	{
+		FObjectActions* ObjectActions = ObjIt.Value().Get();
+		check(ObjectActions);
+		ObjectActions->bProcessedThisFrame = false;
+	}
+}
+
 void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTime)
 {
 	SCOPE_CYCLE_COUNTER(STAT_TickLatentActions);
 
+	if (InObject && !InObject->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+	{
+		return;
+	}
+
 	for (FActionsForObject::TIterator It(ActionsToRemoveMap); It; ++It)
 	{
-		auto ActionList = GetActionListForObject(It.Key());
-		auto ActionToRemoveListPtr = It.Value();
-		if (ActionToRemoveListPtr.IsValid() && ActionList)
+		FObjectActions* ObjectActions = GetActionsForObject(It.Key());
+		TSharedPtr<TArray<FUuidAndAction>> ActionToRemoveListPtr = It.Value();
+		if (ActionToRemoveListPtr.IsValid() && ObjectActions)
 		{
-			for (auto PendingActionToKill : *ActionToRemoveListPtr)
+			for (const FUuidAndAction& PendingActionToKill : *ActionToRemoveListPtr)
 			{
-				const int32 RemovedNum = ActionList->RemoveSingle(PendingActionToKill.Key, PendingActionToKill.Value);
-				auto Action = PendingActionToKill.Value;
+				FPendingLatentAction* Action = PendingActionToKill.Value;
+				const int32 RemovedNum = ObjectActions->ActionList.RemoveSingle(PendingActionToKill.Key, Action);
 				if (RemovedNum && Action)
 				{
 					Action->NotifyActionAborted();
@@ -92,15 +107,14 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 	}
 	ActionsToRemoveMap.Reset();
 
-	//@TODO: K2: Very inefficient code right now
-	if (InObject != NULL)
+	if (InObject)
 	{
-		if (!ProcessedThisFrame.Contains(InObject))
+		if (FObjectActions* ObjectActions = GetActionsForObject(InObject))
 		{
-			if (FActionList* ObjectActionList = GetActionListForObject(InObject))
+			if (!ObjectActions->bProcessedThisFrame)
 			{
-				TickLatentActionForObject(DeltaTime, *ObjectActionList, InObject);
-				ProcessedThisFrame.Add(InObject);
+				TickLatentActionForObject(DeltaTime, ObjectActions->ActionList, InObject);
+				ObjectActions->bProcessedThisFrame = true;
 			}
 		}
 	}
@@ -110,21 +124,18 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 		{	
 			TWeakObjectPtr<UObject> WeakPtr = ObjIt.Key();
 			UObject* Object = WeakPtr.Get();
-			auto ObjectActionListPtr = ObjIt.Value().Get();
-			check(ObjectActionListPtr);
-			FActionList& ObjectActionList = *ObjectActionListPtr;
+			FObjectActions* ObjectActions = ObjIt.Value().Get();
+			check(ObjectActions);
+			FActionList& ObjectActionList = ObjectActions->ActionList;
 
-			if (Object != NULL)
+			if (Object)
 			{
 				// Tick all outstanding actions for this object
-				if (ObjectActionList.Num() > 0)
+				if (!ObjectActions->bProcessedThisFrame && ObjectActionList.Num() > 0)
 				{
-					if (!ProcessedThisFrame.Contains(Object))
-					{
-						TickLatentActionForObject(DeltaTime, ObjectActionList, Object);
-						ensure(ObjectActionListPtr == ObjIt.Value().Get());
-						ProcessedThisFrame.Add(Object);
-					}
+					TickLatentActionForObject(DeltaTime, ObjectActionList, Object);
+					ensure(ObjectActions == ObjIt.Value().Get());
+					ObjectActions->bProcessedThisFrame = true;
 				}
 			}
 			else
@@ -132,9 +143,11 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 				// Terminate all outstanding actions for this object, which has been GCed
 				for (TMultiMap<int32, FPendingLatentAction*>::TConstIterator It(ObjectActionList); It; ++It)
 				{
-					FPendingLatentAction* Action = It.Value();
-					Action->NotifyObjectDestroyed();
-					delete Action;
+					if (FPendingLatentAction* Action = It.Value())
+					{
+						Action->NotifyObjectDestroyed();
+						delete Action;
+					}
 				}
 				ObjectActionList.Reset();
 			}
@@ -169,9 +182,8 @@ void FLatentActionManager::TickLatentActionForObject(float DeltaTime, FActionLis
 	}
 
 	// Remove any items that were deleted
-	for (int32 i = 0; i < ItemsToRemove.Num(); ++i)
+	for (const FActionListPair& ItemPair : ItemsToRemove)
 	{
-		const FActionListPair& ItemPair = ItemsToRemove[i];
 		const int32 ItemIndex = ItemPair.Key;
 		FPendingLatentAction* DyingAction = ItemPair.Value;
 		ObjectActionList.Remove(ItemIndex, DyingAction);
@@ -184,9 +196,8 @@ void FLatentActionManager::TickLatentActionForObject(float DeltaTime, FActionLis
 	}
 
 	// Trigger any pending execution links
-	for (int32 i = 0; i < Response.LinksToExecute.Num(); ++i)
+	for (FLatentResponse::FExecutionInfo& LinkInfo : Response.LinksToExecute)
 	{
-		FLatentResponse::FExecutionInfo& LinkInfo = Response.LinksToExecute[i];
 		if (LinkInfo.LinkID != INDEX_NONE)
 		{
 			if (UObject* CallbackTarget = LinkInfo.CallbackTarget.Get())
@@ -220,11 +231,11 @@ FString FLatentActionManager::GetDescription(UObject* InObject, int32 UUID) cons
 
 	FString Description = *NSLOCTEXT("LatentActionManager", "NoPendingActions", "No Pending Actions").ToString();
 
-	const FLatentActionManager::FActionList* ObjectActionList = GetActionListForObject(InObject);
-	if ((ObjectActionList != NULL) && (ObjectActionList->Num() > 0))
+	const FObjectActions* ObjectActions = GetActionsForObject(InObject);
+	if (ObjectActions && ObjectActions->ActionList.Num() > 0)
 	{	
 		TArray<FPendingLatentAction*> Actions;
-		ObjectActionList->MultiFind(UUID, Actions);
+		ObjectActions->ActionList.MultiFind(UUID, Actions);
 
 		const int32 PendingActions = Actions.Num();
 
@@ -246,10 +257,10 @@ void FLatentActionManager::GetActiveUUIDs(UObject* InObject, TSet<int32>& UUIDLi
 {
 	check(InObject);
 
-	const FLatentActionManager::FActionList* ObjectActionList = GetActionListForObject(InObject);
-	if ((ObjectActionList != NULL) && (ObjectActionList->Num() > 0))
+	const FObjectActions* ObjectActions = GetActionsForObject(InObject);
+	if (ObjectActions && ObjectActions->ActionList.Num() > 0)
 	{
-		for (TMultiMap<int32, FPendingLatentAction*>::TConstIterator It(*ObjectActionList); It; ++It)
+		for (TMultiMap<int32, FPendingLatentAction*>::TConstIterator It(ObjectActions->ActionList); It; ++It)
 		{
 			UUIDList.Add(It.Key());
 		}
@@ -262,16 +273,16 @@ FLatentActionManager::~FLatentActionManager()
 {
 	for (auto& ObjectActionListIterator : ObjectToActionListMap)
 	{
-		TSharedPtr<FActionList>& ActionList = ObjectActionListIterator.Value;
-		if (ActionList.IsValid())
+		TSharedPtr<FObjectActions>& ObjectActions = ObjectActionListIterator.Value;
+		if (ObjectActions.IsValid())
 		{
-			for (auto& ActionIterator : *ActionList.Get())
+			for (auto& ActionIterator : ObjectActions->ActionList)
 			{
 				FPendingLatentAction* Action = ActionIterator.Value;
 				ActionIterator.Value = nullptr;
 				delete Action;
 			}
-			ActionList->Reset();
+			ObjectActions->ActionList.Reset();
 		}
 	}
 }

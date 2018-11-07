@@ -43,6 +43,7 @@ public:
 		None
 	};
 
+	FORCEINLINE bool GetAreDataInterfacesInitialized() const { return bDataInterfacesInitialized; }
 
 	/** Creates a new niagara System instance with the supplied component. */
 	explicit FNiagaraSystemInstance(UNiagaraComponent* InComponent);
@@ -58,6 +59,9 @@ public:
 	void Activate(EResetMode InResetMode = EResetMode::ResetAll);
 	void Deactivate(bool bImmediate = false);
 	void Complete();
+
+	void SetPaused(bool bInPaused);
+	FORCEINLINE bool IsPaused()const { return bPaused; }
 
 	void SetSolo(bool bInSolo);
 
@@ -196,6 +200,7 @@ public:
 	void Dump()const;
 
 private:
+
 	/** Builds the emitter simulations. */
 	void InitEmitters();
 
@@ -295,9 +300,14 @@ private:
 	/** If this instance has any currently ticking emitters. If false, allows us to skip some work. */
 	uint32 bHasTickingEmitters : 1;
 
+	/** If this system is paused. When paused it will not tick and never complete etc. */
+	uint32 bPaused : 1;
+
 	/* Execution state requested by external code/BPs calling Activate/Deactivate. */
 	ENiagaraExecutionState RequestedExecutionState;
 
 	/** Copy of simulations internal state so that it can be passed to emitters etc. */
 	ENiagaraExecutionState ActualExecutionState;
+
+	bool bDataInterfacesInitialized;
 };

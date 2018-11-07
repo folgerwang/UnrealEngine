@@ -65,6 +65,7 @@ namespace Audio
 
 		if (WaveInstance->WaveData->DecompressionType != DTYPE_Procedural)
 		{
+			check(!InWaveInstance->WaveData->RawPCMData || InWaveInstance->WaveData->RawPCMDataSize);
 			const int32 NumBytes = WaveInstance->WaveData->RawPCMDataSize;
 			NumFrames = NumBytes / (WaveInstance->WaveData->NumChannels * sizeof(int16));
 		}
@@ -169,7 +170,7 @@ namespace Audio
 			{
 				// If we're spatializing using HRTF and its an external send, don't need to setup a default/base submix send to master or EQ submix
 				// We'll only be using non-default submix sends (e.g. reverb).
-				if (!(WaveInstance->SpatializationMethod == ESoundSpatializationAlgorithm::SPATIALIZATION_HRTF && MixerDevice->bSpatializationIsExternalSend))
+				if (!(InitParams.bUseHRTFSpatialization && MixerDevice->bSpatializationIsExternalSend))
 				{
 					// If this sound is an ambisonics file, we preempt the normal base submix routing and only send to master ambisonics submix
 					if (WaveInstance->bIsAmbisonics)
@@ -240,9 +241,13 @@ namespace Audio
 			// Loop through all submix sends to figure out what speaker maps this source is using
 			for (FMixerSourceSubmixSend& Send : InitParams.SubmixSends)
 			{
-				ESubmixChannelFormat SubmixChannelType = Send.Submix->GetSubmixChannels();
-				ChannelMaps[(int32)SubmixChannelType].bUsed = true;
-				ChannelMaps[(int32)SubmixChannelType].ChannelMap.Reset();
+				FMixerSubmixPtr SubmixPtr = Send.Submix.Pin();
+				if (SubmixPtr.IsValid())
+				{
+					ESubmixChannelFormat SubmixChannelType = SubmixPtr->GetSubmixChannels();
+					ChannelMaps[(int32)SubmixChannelType].bUsed = true;
+					ChannelMaps[(int32)SubmixChannelType].ChannelMap.Reset();
+				}
 			}
 
 			// Check to see if this sound has been flagged to be in debug mode
@@ -276,9 +281,6 @@ namespace Audio
 
 			// Update the buffer sample rate to the wave instance sample rate in case it was serialized incorrectly
 			MixerBuffer->InitSampleRate(WaveInstance->WaveData->GetSampleRateForCurrentPlatform());
-
-			// Now we init the mixer source buffer
-			MixerSourceBuffer->Init();
 
 			// Hand off the mixer source buffer decoder
 			InitParams.MixerSourceBuffer = MixerSourceBuffer;
@@ -387,6 +389,9 @@ namespace Audio
 			}
 		}
 
+		// Clear out our mixer source buffer if things failed
+		MixerSourceBuffer = nullptr;
+
 		// Something went wrong with initializing the generator
 		return false;
 	}
@@ -455,6 +460,13 @@ namespace Audio
 			return;
 		}
 
+		// Don't restart the sound if it was stopping when we paused, just stop it.
+		if (Paused && (bIsStopping || bIsDone))
+		{
+			StopNow();
+			return;
+		}
+
 		// It's possible if Pause and Play are called while a sound is async initializing. In this case
 		// we'll just not actually play the source here. Instead we'll call play when the sound finishes loading.
 		if (MixerSourceVoice && InitializationState == EMixerSourceInitializationState::Initialized)
@@ -507,7 +519,6 @@ namespace Audio
 					StopNow();
 				}
 			}
-
 			Paused = false;
 		}
 	}
@@ -519,7 +530,7 @@ namespace Audio
 		// Immediately stop the sound source
 
 		InitializationState = EMixerSourceInitializationState::NotInitialized;
-		
+
 		IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
 
 		bIsStopping = false;
@@ -599,6 +610,11 @@ namespace Audio
 
 	float FMixerSource::GetPlaybackPercent() const
 	{
+		if (InitializationState != EMixerSourceInitializationState::Initialized)
+		{
+			return 0.f;
+		}
+
 		if (MixerSourceVoice && NumTotalFrames > 0)
 		{
 			int64 NumFrames = MixerSourceVoice->GetNumFramesPlayed();
@@ -800,7 +816,7 @@ namespace Audio
 		{
 			if (SendInfo.SoundSubmix != nullptr)
 			{
-				FMixerSubmixPtr SubmixInstance = MixerDevice->GetSubmixInstance(SendInfo.SoundSubmix);
+				FMixerSubmixWeakPtr SubmixInstance = MixerDevice->GetSubmixInstance(SendInfo.SoundSubmix);
 				MixerSourceVoice->SetSubmixSendInfo(SubmixInstance, SendInfo.SendLevel);
 
 				// Make sure we flag that we're using this submix sends since these can be dynamically added from BP

@@ -432,8 +432,8 @@ public:
 		return bExtraBoneInfluencesT;
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType);
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 	
 	/**
 	* An implementation of the interface used by TSynchronizedResource to 
@@ -518,8 +518,8 @@ public:
 		bSupportsManualVertexFetch = false;
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType);
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 
 	inline void UpdateVertexDeclaration(FGPUBaseSkinVertexFactory* SourceVertexFactory, struct FRWBuffer* PositionRWBuffer, struct FRWBuffer* TangentRWBuffer)
 	{
@@ -588,8 +588,8 @@ public:
 	: TGPUSkinVertexFactory<bExtraBoneInfluencesT>(InFeatureLevel, InNumVertices)
 	{}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType);
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 	
 	/**
 	* An implementation of the interface used by TSynchronizedResource to 
@@ -721,7 +721,7 @@ public:
 				Index = 1 - Index;
 			}
 
-			check(ClothSimulPositionNormalBuffer[Index].VertexBufferRHI.IsValid());
+			checkf(ClothSimulPositionNormalBuffer[Index].VertexBufferRHI.IsValid(), TEXT("Index: %i Buffer0: %s Frame0: %i Buffer1: %s Frame1: %i"), Index,  ClothSimulPositionNormalBuffer[0].VertexBufferRHI.IsValid() ? TEXT("true") : TEXT("false"), BufferFrameNumber[0], ClothSimulPositionNormalBuffer[1].VertexBufferRHI.IsValid() ? TEXT("true") : TEXT("false"), BufferFrameNumber[1]);
 			return ClothSimulPositionNormalBuffer[Index];
 		}
 		
@@ -914,8 +914,8 @@ public:
 		: TGPUSkinVertexFactory<bExtraBoneInfluencesT>(InFeatureLevel, InNumVertices)
 	{}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType);
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class ::FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static bool ShouldCompilePermutation(EShaderPlatform Platform, const class ::FMaterial* Material, const FShaderType* ShaderType);
 
 	/**
 	* An implementation of the interface used by TSynchronizedResource to 

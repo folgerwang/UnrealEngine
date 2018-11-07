@@ -44,18 +44,22 @@ bool ALobbyBeaconHost::Init(FName InSessionName)
 
 void ALobbyBeaconHost::SetupLobbyState(int32 InMaxPlayers)
 {
-	if (ensure(LobbyStateClass))
+	if (!LobbyState)
 	{
-		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.Owner = this;
-		LobbyState = GetWorld()->SpawnActor<ALobbyBeaconState>(LobbyStateClass.Get(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
-		if (LobbyState)
+		if (ensure(LobbyStateClass))
 		{
-			LobbyState->MaxPlayers = InMaxPlayers;
+			FActorSpawnParameters SpawnInfo;
+			SpawnInfo.Owner = this;
+			LobbyState = GetWorld()->SpawnActor<ALobbyBeaconState>(LobbyStateClass.Get(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
 
 			// Associate with this objects net driver for proper replication
 			LobbyState->SetNetDriverName(GetNetDriverName());
 		}
+	}
+
+	if (LobbyState)
+	{
+		LobbyState->MaxPlayers = InMaxPlayers;
 	}
 }
 

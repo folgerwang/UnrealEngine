@@ -8,7 +8,8 @@
 /**
  * Information about a user we are observing the play time and instituting limits for
  */
-class PLAYTIMELIMIT_API FPlayTimeLimitUser
+class PLAYTIMELIMIT_API FPlayTimeLimitUser : 
+	public TSharedFromThis<FPlayTimeLimitUser, ESPMode::ThreadSafe>
 {
 public:
 	/** Constructor */
@@ -67,7 +68,7 @@ public:
 	 * @see GetNextNotificationTime
 	 * @param InNextNotificationTime the next notification time, or empty if this user should not receive periodic notifications
 	 */
-	void SetNextNotificationTime(const TOptional<double>& InNextNotificationTime) { NextNotificationTime = InNextNotificationTime; }
+	virtual void SetNextNotificationTime(const TOptional<double>& InNextNotificationTime) { NextNotificationTime = InNextNotificationTime; }
 
 	/**
 	 * Get the last known reward rate
@@ -81,6 +82,19 @@ public:
 	 */
 	void SetLastKnownRewardRate(float InLastKnownRewardRate) { LastKnownRewardRate = InLastKnownRewardRate; }
 
+	/**
+	* Clear override dialog text
+	*/
+	virtual void ClearDialogOverrideText() {
+		OverrideDialogTitle.Empty(); 
+		OverrideDialogText.Empty();
+		OverrideButtonText.Empty();
+	}
+
+	FString OverrideDialogTitle;
+	FString OverrideDialogText;
+	FString OverrideButtonText;
+
 protected:
 	/** The user id */
 	TSharedRef<const FUniqueNetId> UserId;
@@ -89,3 +103,6 @@ protected:
 	/** Last known reward rate so we can alert on changes */
 	float LastKnownRewardRate;
 };
+
+typedef FPlayTimeLimitUser* FPlayTimeLimitUserRawPtr;
+typedef TSharedPtr<FPlayTimeLimitUser, ESPMode::ThreadSafe> FPlayTimeLimitUserPtr;

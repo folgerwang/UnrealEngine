@@ -37,13 +37,13 @@
 #include "pxr/base/tf/hashmap.h"
 #include "pxr/base/tf/hashset.h"
 
-#include <boost/shared_ptr.hpp>
 #include <boost/unordered_map.hpp>
 
 #include <tbb/spin_rw_mutex.h>
 
 #include <functional>
 #include <map>
+#include <memory>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -239,7 +239,7 @@ public:
     PCP_API
     SdfVariantSelectionMap ComposeAuthoredVariantSelections() const;
 
-    /// Return the variant selecion applied for the named variant set.
+    /// Return the variant selection applied for the named variant set.
     /// If none was applied, this returns an empty string.
     /// This can be different from the authored variant selection;
     /// for example, if the authored selection is invalid.
@@ -264,7 +264,7 @@ private:
 
     // List of errors local to this prim, encountered during computation.
     // NULL if no errors were found (the expected common case).
-    boost::scoped_ptr<PcpErrorVector> _localErrors;
+    std::unique_ptr<PcpErrorVector> _localErrors;
 };
 
 /// Free function version for generic code and ADL.
@@ -294,6 +294,15 @@ public:
         allErrors.swap(r.allErrors);
         std::swap(includedDiscoveredPayload, r.includedDiscoveredPayload);
     }
+
+    /// Appends the outputs from \p childOutputs to this object, using 
+    /// \p arcToParent to connect \p childOutputs' prim index to this object's
+    /// prim index. 
+    /// 
+    /// Returns the node in this object's prim index corresponding to the root
+    /// node of \p childOutputs' prim index.
+    PcpNodeRef Append(const PcpPrimIndexOutputs& childOutputs,
+                      const PcpArc& arcToParent);
 };
 
 /// Free function version for generic code and ADL.

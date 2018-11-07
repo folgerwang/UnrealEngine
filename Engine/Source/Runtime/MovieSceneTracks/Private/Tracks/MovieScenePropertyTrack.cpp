@@ -176,6 +176,7 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(FFrameNumber Time
 
 	// Add a new section that starts and ends at the same time
 	UMovieSceneSection* NewSection = CreateNewSection();
+	ensureAlwaysMsgf(NewSection->HasAnyFlags(RF_Transactional), TEXT("CreateNewSection must return an instance with RF_Transactional set! (pass RF_Transactional to NewObject)"));
 	NewSection->SetFlags(RF_Transactional);
 	NewSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 

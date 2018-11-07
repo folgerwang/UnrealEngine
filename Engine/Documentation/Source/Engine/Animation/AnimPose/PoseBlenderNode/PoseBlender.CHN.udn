@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3717037
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation
-Title: Pose Blender
-Description:Describes how to play back a Pose Asset with the Pose Blender node. 
+Title: 动作混合器
+Description:描述如何使用动作混合器节点播放一个动作资源。 
 Type: Reference
 Version: 4.16
 Parent: Engine/Animation/AnimPose
@@ -18,16 +18,16 @@ Tags:Animation Blueprint
 Tags:Animation Blending
 Tags:Pose Assets
 
-After creating [](Engine/Animation/AnimPose), one way of driving and playing back a **Pose Asset** at runtime is through the **Pose by Name** and **Pose Blender** nodes: 
+创建[](Engine/Animation/AnimPose)之后，在运行时驱动和播放 **动作资源（Pose Asset）** 的一种方式是使用 **Pose by Name** 和 **Pose Blender** 节点： 
 
-* **Pose by Name** - where you can get the transform of a pose by its name. 
-* **Pose Blender** - which outputs the correct pose driven by curves from a Source Pose. 
+* **Pose by Name** - 可通过动作名称获得动作的变形。 
+* **Pose Blender** - 从一个源动作输出由曲线驱动的正确动作。 
 
 [REGION:note]
-See [](Engine/Animation/AnimHowTo/CreatePoseAsset) for a step-by-step guide of creating a Pose Asset. 
+请参阅[](Engine/Animation/AnimHowTo/CreatePoseAsset)了解创建动作资源的步骤指南。 
 [/REGION]
 
-In the example below, we have a face that uses a Pose Asset to smile when the player is close and frown when they move away.
+下例中的面部使用了动作资源，玩家靠近时将微笑，玩家离开时将皱眉。
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -47,47 +47,47 @@ In the example below, we have a face that uses a Pose Asset to smile when the pl
 	[/PARAMLITERAL]
 [/OBJECT]
 
-Our State Machine inside our Animation Blueprint is set up with three states: 
+动画蓝图中的状态机由三种状态设置： 
 
 ![](StateMachine.png)
 
-Our default **State** which is our neutral expression, our **Smile** state which is entered when the player enters a trigger volume and our **Frown** state when the player leaves the trigger volume. 
-In this example, we only move between smiling and frowning states after triggering the first smile. Inside each state, we use the **Pose Blender** and our animation sequence to apply the curve driven animation. 
+默认 **状态** 为无表情，玩家进入触发体积域后将进入 **微笑** 状态，玩家离开触发体积域后将进入 **皱眉** 状态。 
+在此例中，触发第一个微笑后只会在微笑和皱眉状态之间切换。在每个状态中，我们使用 **Pose Blender** 和动画序列来应用曲线驱动的动画。 
 
 ![](PoseBlender.png)
 
-Pose Blender nodes are created automatically when dragging a Pose Asset into the graph. 
+将动作资源拖入图表后将自动创建Pose Blender节点。 
 
 ![](DragInPoseAsset.png)
 
-### Additional Information
+### 附加信息
 
-Plugging an Animation Sequence directly into the Final Animation Pose without using a Pose Blender will not automatically apply the curve driven animation. 
+如果不使用Pose Blender便将动画序列直接插入Final Animation Pose，则不会自动应用曲线驱动动画。 
 
 ![](NoPoseBlender.png)
 
-Additionally, using only a Pose Blender node without supplying any incoming curve data to drive those poses will not output your desired pose. 
+此外，只使用Pose Blender而不提供用于驱动动作的进入曲线数据，将无法输出所需的动作。 
 
 ![](NoCurveData.png)
 
-You will need to use a method to drive the curve data along with the Pose Driver node to effectively manipulate the final pose. 
+要有效地操纵最终动作，你需要设法使用Pose Driver节点操纵曲线数据。 
 
 ![](PoseBlender.png)
 
-You can also convert a Pose Blender to a Pose by Name (or a Pose by Name to a Pose Blender) node through the right-click context menu. 
+你还可以使用右键单击上下文菜单将Pose Blender节点转换为Pose by Name节点（或者相反，Pose by Name可以转换为Pose Blender节点）。 
 
 ![](PoseByName.png)
 
-The Pose by Name will enable you to manually specify which pose to use inside the **Details** panel that is used inside the **Pose Asset**. 
+转换为Pose by Name节点后，你可以在 **细节（Details）** 面板中指定要在 **动作资源（Pose Asset）** 中使用的动作。 
 
 ![](AdditivePoseByName.png)
 
-For our example, we are controlling two aspects of our character's face, the right side of a smile and the left side of a smile, therefore, a Pose Blender make more sense to use.
-If we wanted to control only one pose within our Pose Asset, the Pose by Name provides the ability to control a single pose by its name (which is usually good for full body context). 
+在此例中，我们控制角色面部的右侧和左侧笑容两部分，因此使用Pose Blender更有意义。
+如果只需要控制动作资源中的一个动作，则可以使用Pose by Name按动作名称控制单个动作（通常适用于全身动作）。 
 
 [REGION:note]
-If you are using a Pose Asset with **Additive** enabled, you will also need to use the **Apply Additive** node to correctly display your desired pose. 
-For Pose Assets that are not Additive, you can directly link a Pose by Name node to the Final Animation Pose output. 
+如使用的动作资源启用了 **Additive**，还需要使用 **Apply Additive** 节点准确显示所需的动作。 
+对未启用Additive的动作资源而言，可以直接将Pose by Name节点连接到最终动画动作输出。 
 [/REGION]
 
 

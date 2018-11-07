@@ -10,6 +10,7 @@ D3D12Stats.h: D3D12 Statistics and Timing Interfaces
 */
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Present time"), STAT_D3D12PresentTime, STATGROUP_D3D12RHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("CustomPresent time"), STAT_D3D12CustomPresentTime, STATGROUP_D3D12RHI, );
 
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num command allocators (3D, Compute, Copy)"), STAT_D3D12NumCommandAllocators, STATGROUP_D3D12RHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num command lists (3D, Compute, Copy)"), STAT_D3D12NumCommandLists, STATGROUP_D3D12RHI, );
@@ -215,8 +216,8 @@ class FD3D12EventNode : public FGPUProfilerEventNode, public FD3D12AdapterChild
 public:
 	FD3D12EventNode(const TCHAR* InName, FGPUProfilerEventNode* InParent, class FD3D12Adapter* InParentAdapter) :
 		FGPUProfilerEventNode(InName, InParent),
-		Timing(InParentAdapter, 1),
-		FD3D12AdapterChild(InParentAdapter)
+		FD3D12AdapterChild(InParentAdapter),
+		Timing(InParentAdapter, 1)
 	{
 		// Initialize Buffered timestamp queries 
 		Timing.InitDynamicRHI();
@@ -253,8 +254,8 @@ public:
 
 	FD3D12EventNodeFrame(class FD3D12Adapter* InParent) :
 		FGPUProfilerEventNodeFrame(),
-		RootEventTiming(InParent, 1),
-		FD3D12AdapterChild(InParent)
+		FD3D12AdapterChild(InParent),
+		RootEventTiming(InParent, 1)
 	{
 		RootEventTiming.InitDynamicRHI();
 	}
@@ -294,8 +295,8 @@ namespace D3D12RHI
 		TIndirectArray<FD3D12EventNodeFrame> GPUHitchEventNodeFrames;
 
 		FD3DGPUProfiler(FD3D12Adapter* Parent)
-			: FrameTiming(Parent, 8)
-			, FD3D12AdapterChild(Parent)
+			: FD3D12AdapterChild(Parent)
+			, FrameTiming(Parent, 8)
 		{}
 
 		//FD3DGPUProfiler(class FD3D12Device* InParent) :

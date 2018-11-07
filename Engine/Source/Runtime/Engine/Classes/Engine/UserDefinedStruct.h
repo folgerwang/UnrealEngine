@@ -99,7 +99,7 @@ public:
 #endif	// WITH_EDITOR
 
 	// UObject interface.
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual void SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad=NULL) const override;
 	virtual FString PropertyNameToDisplayName(FName InName) const override;
 	// End of UObject interface.
@@ -124,4 +124,6 @@ public:
 	/** returns references from default instance */
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
+	/** Inspects properties and default values, setting appropriate StructFlags */
+	void UpdateStructFlags();
 };

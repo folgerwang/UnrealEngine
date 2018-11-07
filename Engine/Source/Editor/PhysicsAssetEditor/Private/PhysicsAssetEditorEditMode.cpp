@@ -425,8 +425,8 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 
 				ConstraintSetup->DefaultInstance.SetRefFrame(EConstraintFrame::Frame2, SelectedObject.ManipulateTM * StartManParentConTM[i]);
 
-				//Rotation by default only rotates one frame, but translation by default moves both
-				bool bMultiFrame = (InViewportClient->IsAltPressed() && InViewportClient->GetWidgetMode() == FWidget::WM_Rotate) || (!InViewportClient->IsAltPressed() && InViewportClient->GetWidgetMode() == FWidget::WM_Translate);
+				// Alt + Move will split frames and rotate or move them separately
+				bool bMultiFrame = !InViewportClient->IsAltPressed();
 
 				if (bMultiFrame)
 				{
@@ -459,7 +459,7 @@ void FPhysicsAssetEditorEditMode::Tick(FEditorViewportClient* ViewportClient, fl
 
 		UWorld* World = SharedData->PreviewScene.Pin()->GetWorld();
 		AWorldSettings* Setting = World->GetWorldSettings();
-		Setting->WorldGravityZ = SharedData->bNoGravitySimulation ? 0.0f : UPhysicsSettings::Get()->DefaultGravityZ*SharedData->EditorOptions->GravScale;
+		Setting->WorldGravityZ = SharedData->bNoGravitySimulation ? 0.0f : (SharedData->EditorOptions->bUseGravityOverride ? SharedData->EditorOptions->GravityOverrideZ : (UPhysicsSettings::Get()->DefaultGravityZ * SharedData->EditorOptions->GravScale));
 		Setting->bWorldGravitySet = true;
 
 		// We back up the transforms array now
@@ -604,12 +604,14 @@ bool FPhysicsAssetEditorEditMode::GetCustomDrawingCoordinateSystem(FMatrix& InMa
 	if (SharedData->GetSelectedBody())
 	{
 		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->GetSelectedBody()->Index]->BoneName);
+		if(BoneIndex != INDEX_NONE)
+		{
+			FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
+			BoneTM.RemoveScaling();
 
-		FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
-		BoneTM.RemoveScaling();
-
-		InMatrix = SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, 1.f).ToMatrixNoScale().RemoveTranslation();
-		return true;
+			InMatrix = SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, 1.f).ToMatrixNoScale().RemoveTranslation();
+			return true;
+		}
 	}
 	else if (SharedData->GetSelectedConstraint())
 	{
@@ -631,12 +633,14 @@ FVector FPhysicsAssetEditorEditMode::GetWidgetLocation() const
 	if (SharedData->GetSelectedBody())
 	{
 		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->GetSelectedBody()->Index]->BoneName);
+		if(BoneIndex != INDEX_NONE)
+		{
+			FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
+			const float Scale = BoneTM.GetScale3D().GetAbsMax();
+			BoneTM.RemoveScaling();
 
-		FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
-		const float Scale = BoneTM.GetScale3D().GetAbsMax();
-		BoneTM.RemoveScaling();
-
-		return SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, Scale).GetTranslation();
+			return SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, Scale).GetTranslation();
+		}
 	}
 	else if (SharedData->GetSelectedConstraint())
 	{

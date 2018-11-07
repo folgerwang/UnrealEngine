@@ -40,6 +40,7 @@ public class IntelISPCTexComp : ModuleRules
         else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64"))
         {
             string BinaryLibraryFolder = BinaryFolder + "Linux64-Release";
+			PrivateRuntimeLibraryPaths.Add(BinaryLibraryFolder);
             string LibraryFilePath = BinaryLibraryFolder + "/libispc_texcomp.so";
             PublicAdditionalLibraries.Add(LibraryFilePath);
             PublicDelayLoadDLLs.Add("libispc_texcomp.so");

@@ -29,8 +29,8 @@ class ENGINE_API INetworkPredictionInterface
 	/** (Server) Send position to client if necessary, or just ack good moves. */
 	virtual void SendClientAdjustment()					PURE_VIRTUAL(INetworkPredictionInterface::SendClientAdjustment,);
 
-	/** (Server) Trigger a position update on clients, if the server hasn't heard from them in a while. */
-	virtual void ForcePositionUpdate(float DeltaTime)	PURE_VIRTUAL(INetworkPredictionInterface::ForcePositionUpdate,);
+	/** (Server) Trigger a position update on clients, if the server hasn't heard from them in a while. @return Whether movement is performed. */
+	virtual bool ForcePositionUpdate(float DeltaTime)	PURE_VIRTUAL(INetworkPredictionInterface::ForcePositionUpdate, return false;);
 
 	//--------------------------------
 	// Client hooks
@@ -83,12 +83,39 @@ public:
 
 	FNetworkPredictionData_Server()
 	: ServerTimeStamp(0.f)
+	, ServerTimeBeginningForcedUpdates(0.f)
+	, ServerTimeLastForcedUpdate(0.f)
+	, bTriggeringForcedUpdates(false)
+	, bForcedUpdateDurationExceeded(false)
 	{
 	}
 
 	virtual ~FNetworkPredictionData_Server() {}
 
+	virtual void ResetForcedUpdateState()
+	{
+		ServerTimeBeginningForcedUpdates = 0.0f;
+		ServerTimeLastForcedUpdate = 0.0f;
+		bTriggeringForcedUpdates = false;
+		bForcedUpdateDurationExceeded = false;
+	}
+
 	/** Server clock time when last server move was received or movement was forced to be processed */
 	float ServerTimeStamp;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Forced update state
+
+	/** Initial ServerTimeStamp that triggered a ForcedPositionUpdate series. Reset to 0 after no longer exceeding update interval. */
+	float ServerTimeBeginningForcedUpdates;
+
+	/** ServerTimeStamp last time we called ForcePositionUpdate. */
+	float ServerTimeLastForcedUpdate;
+
+	/** Set to true while requirements for ForcePositionUpdate interval are met, and set back to false after updates are received again. */
+	bool bTriggeringForcedUpdates;
+
+	/** Set to true while bTriggeringForcedUpdates is true and after update duration has been exceeded (when server will stop forcing updates). */
+	bool bForcedUpdateDurationExceeded;
 };
 

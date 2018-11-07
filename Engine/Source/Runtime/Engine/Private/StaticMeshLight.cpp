@@ -221,13 +221,12 @@ void FStaticMeshStaticLightingTextureMapping::Apply(FQuantizedLightmapData* Quan
 		// thread before it is safe to continue.
 		check(StaticMeshComponent->AttachmentCounter.GetValue() == 0);
 
-		if (StaticMeshComponent->LODData.Num() != StaticMeshComponent->GetStaticMesh()->GetNumLODs())
+		// Ensure LODData has enough entries in it, free not required.
+		const bool bLODDataCountChanged = StaticMeshComponent->SetLODDataCount(LODIndex + 1, StaticMeshComponent->GetStaticMesh()->GetNumLODs());
+		if (bLODDataCountChanged)
 		{
 			StaticMeshComponent->MarkPackageDirty();
 		}
-
-		// Ensure LODData has enough entries in it, free not required.
-		StaticMeshComponent->SetLODDataCount(LODIndex + 1, StaticMeshComponent->GetStaticMesh()->GetNumLODs());
 
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = StaticMeshComponent->LODData[LODIndex];
 		ELightMapPaddingType PaddingType = GAllowLightmapPadding ? LMPT_NormalPadding : LMPT_NoPadding;

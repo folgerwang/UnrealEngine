@@ -23,6 +23,9 @@ struct CORE_API FGenericPlatformOutputDevices
 		return nullptr; // normally only used for dedicated servers
 	}
 
+	static FOutputDeviceError*			GetError();
+	static FFeedbackContext*            GetFeedbackContext();
+
 protected:
 	static TCHAR CachedAbsoluteFilename[1024];
 };

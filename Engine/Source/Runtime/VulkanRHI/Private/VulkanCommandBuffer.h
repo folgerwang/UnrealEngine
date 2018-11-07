@@ -14,9 +14,7 @@ class FVulkanCommandBufferPool;
 class FVulkanCommandBufferManager;
 class FVulkanRenderTargetLayout;
 class FVulkanQueue;
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 class FVulkanDescriptorPoolSetContainer;
-#endif
 
 namespace VulkanRHI
 {
@@ -31,7 +29,7 @@ protected:
 	friend class FVulkanCommandBufferPool;
 	friend class FVulkanQueue;
 
-	FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool);
+	FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool, bool bInIsUploadOnly);
 	~FVulkanCmdBuffer();
 
 public:
@@ -75,6 +73,52 @@ public:
 		return FenceSignaledCounter;
 	}
 
+	//#todo-rco: Temp to help find out where the crash is coming from!
+	inline volatile uint64 GetFenceSignaledCounterA() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterB() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterC() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterD() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterE() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterF() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterG() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterH() const
+	{
+		return FenceSignaledCounter;
+	}
+
+	inline volatile uint64 GetFenceSignaledCounterI() const
+	{
+		return FenceSignaledCounter;
+	}
+
 	inline volatile uint64 GetSubmittedFenceCounter() const
 	{
 		return SubmittedFenceCounter;
@@ -84,30 +128,32 @@ public:
 	{
 		return (Timing != nullptr) && (FMath::Abs((int64)FenceSignaledCounter - (int64)LastValidTiming) < 3);
 	}
-	
+
 	void AddWaitSemaphore(VkPipelineStageFlags InWaitFlags, VulkanRHI::FSemaphore* InWaitSemaphore);
 
 	void Begin();
 	void End();
 
-	enum class EState
+	enum class EState : uint8
 	{
 		ReadyForBegin,
 		IsInsideBegin,
 		IsInsideRenderPass,
 		HasEnded,
 		Submitted,
+		NotAllocated,
 	};
-
-	bool bNeedsDynamicStateSet;
-	bool bHasPipeline;
-	bool bHasViewport;
-	bool bHasScissor;
-	bool bHasStencilRef;
 
 	VkViewport CurrentViewport;
 	VkRect2D CurrentScissor;
 	uint32 CurrentStencilRef;
+	EState State;
+	uint8 bNeedsDynamicStateSet	: 1;
+	uint8 bHasPipeline			: 1;
+	uint8 bHasViewport			: 1;
+	uint8 bHasScissor			: 1;
+	uint8 bHasStencilRef		: 1;
+	uint8 bIsUploadOnly			: 1;
 
 	// You never want to call Begin/EndRenderPass directly as it will mess up with the FTransitionAndLayoutManager
 	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, class FVulkanRenderPass* RenderPass, class FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues);
@@ -118,22 +164,19 @@ public:
 		State = EState::IsInsideBegin;
 	}
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	//#todo-rco: Hide this
 	FVulkanDescriptorPoolSetContainer* CurrentDescriptorPoolSetContainer = nullptr;
-#endif
+
+	bool AcquirePoolSetAndDescriptorsIfNeeded(const class FVulkanDescriptorSetsLayout& Layout, bool bNeedDescriptors, VkDescriptorSet* OutDescriptors);
 
 private:
 	FVulkanDevice* Device;
 	VkCommandBuffer CommandBufferHandle;
-	EState State;
+	double SubmittedTime = 0.0f;
 
 	TArray<VkPipelineStageFlags> WaitFlags;
 	TArray<VulkanRHI::FSemaphore*> WaitSemaphores;
 	TArray<VulkanRHI::FSemaphore*> SubmittedWaitSemaphores;
-
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-	void AcquirePoolSet();
-#endif
 
 	void MarkSemaphoresAsSubmitted()
 	{
@@ -159,6 +202,15 @@ private:
 	FVulkanGPUTiming* Timing;
 	uint64 LastValidTiming;
 
+	void AcquirePoolSetContainer();
+
+	void AllocMemory();
+	void FreeMemory();
+
+public:
+	//#todo-rco: Hide this
+	TMap<uint32, class FVulkanTypedDescriptorPoolSet*> TypedDescriptorPoolSets;
+
 	friend class FVulkanDynamicRHI;
 	friend class FTransitionAndLayoutManager;
 };
@@ -166,25 +218,41 @@ private:
 class FVulkanCommandBufferPool
 {
 public:
-	FVulkanCommandBufferPool(FVulkanDevice* InDevice);
-
+	FVulkanCommandBufferPool(FVulkanDevice* InDevice, FVulkanCommandBufferManager& InMgr);
 	~FVulkanCommandBufferPool();
 
 	void RefreshFenceStatus(FVulkanCmdBuffer* SkipCmdBuffer = nullptr);
 
 	inline VkCommandPool GetHandle() const
 	{
-		check(Handle != VK_NULL_HANDLE);
 		return Handle;
 	}
 
+	inline FCriticalSection* GetCS()
+	{
+		return &CS;
+	}
+
+	void FreeUnusedCmdBuffers(FVulkanQueue* Queue);
+
+	inline FVulkanCommandBufferManager& GetMgr()
+	{
+		return Mgr;
+	}
+
 private:
-	FVulkanDevice* Device;
 	VkCommandPool Handle;
 
-	FVulkanCmdBuffer* Create();
-
 	TArray<FVulkanCmdBuffer*> CmdBuffers;
+	TArray<FVulkanCmdBuffer*> FreeCmdBuffers;
+
+	FCriticalSection CS;
+	FVulkanDevice* Device;
+
+	FVulkanCommandBufferManager& Mgr;
+
+	FVulkanCmdBuffer* Create(bool bIsUploadOnly);
+
 
 	void Create(uint32 QueueFamilyIndex);
 	friend class FVulkanCommandBufferManager;
@@ -238,6 +306,8 @@ public:
 	}
 
 	uint32 CalculateGPUTime();
+
+	void FreeUnusedCmdBuffers();
 
 private:
 	FVulkanDevice* Device;

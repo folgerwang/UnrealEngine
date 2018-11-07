@@ -12,6 +12,10 @@ struct ENGINE_API FPoseSnapshot
 	GENERATED_BODY()
 
 public:
+	FPoseSnapshot()
+		: bIsValid(false)
+	{}
+
 	/** Array of transforms per-bone */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Snapshot")
 	TArray<FTransform> LocalTransforms;

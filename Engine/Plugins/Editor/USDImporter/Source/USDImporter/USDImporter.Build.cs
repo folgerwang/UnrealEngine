@@ -33,15 +33,24 @@ namespace UnrealBuildTool.Rules
 					"SlateCore",
                     "PropertyEditor",
 					"Slate",
-					"RawMesh",
+                    "EditorStyle",
+                    "RawMesh",
                     "GeometryCache",
+					"MeshDescription",
 					"MeshUtilities",
+                    "PythonScriptPlugin",
                     "RenderCore",
                     "RHI",
                     "MessageLog",
 					"JsonUtilities",
                 }
 				);
+
+			PrivateIncludePathModuleNames.AddRange(
+				new string[] {
+					"MeshDescription"
+				}
+			);
 
 			string BaseLibDir = ModuleDirectory + "/../UnrealUSDWrapper/Lib/";
 
@@ -58,7 +67,8 @@ namespace UnrealBuildTool.Rules
             else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64"))
 			{
                 // link directly to runtime libs on Linux, as this also puts them into rpath
-				string RuntimeLibraryPath = Path.Combine(ModuleDirectory, "../../Binaries/", Target.Platform.ToString(), Target.Architecture.ToString());
+				string RuntimeLibraryPath = Path.Combine(ModuleDirectory, "../../Binaries", Target.Platform.ToString(), Target.Architecture.ToString());
+				PrivateRuntimeLibraryPaths.Add(RuntimeLibraryPath);
 				PublicAdditionalLibraries.Add(RuntimeLibraryPath +"/libUnrealUSDWrapper.so");
 
                 foreach (string FilePath in Directory.EnumerateFiles(RuntimeLibraryPath, "*.so*", SearchOption.AllDirectories))

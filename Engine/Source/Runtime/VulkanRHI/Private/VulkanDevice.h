@@ -9,12 +9,33 @@
 #include "VulkanMemory.h"
 
 class FVulkanDescriptorPool;
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 class FVulkanDescriptorPoolsManager;
-#endif
 class FVulkanCommandListContextImmediate;
+#if VULKAN_USE_NEW_QUERIES
 class FVulkanOcclusionQueryPool;
-class FVulkanQueryPool;
+#else
+class FOLDVulkanQueryPool;
+#endif
+
+struct FOptionalVulkanDeviceExtensions
+{
+	uint32 HasKHRMaintenance1 : 1;
+	uint32 HasKHRMaintenance2 : 1;
+	uint32 HasMirrorClampToEdge : 1;
+	uint32 HasKHRExternalMemoryCapabilities : 1;
+	uint32 HasKHRGetPhysicalDeviceProperties2 : 1;
+	uint32 HasKHRDedicatedAllocation : 1;
+	uint32 HasEXTValidationCache : 1;
+	uint32 HasAMDBufferMarker : 1;
+	uint32 HasNVDiagnosticCheckpoints : 1;
+	uint32 HasGoogleDisplayTiming : 1;
+	uint32 HasYcbcrSampler : 1;
+
+	inline bool HasGPUCrashDumpExtensions() const
+	{
+		return HasAMDBufferMarker || HasNVDiagnosticCheckpoints;
+	}
+};
 
 class FVulkanDevice
 {
@@ -106,14 +127,19 @@ public:
 	}
 #endif
 
-	inline const VkPhysicalDeviceFeatures& GetFeatures() const
+	inline const VkPhysicalDeviceFeatures& GetPhysicalFeatures() const
 	{
-		return Features;
+		return PhysicalFeatures;
 	}
 
 	inline bool HasUnifiedMemory() const
 	{
 		return MemoryManager.HasUnifiedMemory();
+	}
+
+	inline uint64 GetTimestampValidBitsMask() const
+	{
+		return TimestampValidBitsMask;
 	}
 
 	bool IsFormatSupported(VkFormat Format) const;
@@ -165,18 +191,20 @@ public:
 		return FenceManager;
 	}
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	inline FVulkanDescriptorPoolsManager& GetDescriptorPoolsManager()
 	{
 		return *DescriptorPoolsManager;
 	}
-#endif
 
 	inline TMap<uint32, FSamplerStateRHIRef>& GetSamplerMap()
 	{
 		return SamplerMap;
 	}
 
+	inline FVulkanShaderFactory& GetShaderFactory()
+	{
+		return ShaderFactory;
+	}
 
 	FVulkanCommandListContextImmediate& GetImmediateContext();
 
@@ -227,37 +255,8 @@ public:
 
 	void SubmitCommandsAndFlushGPU();
 
-#if VULKAN_USE_NEW_QUERIES
 	FVulkanOcclusionQueryPool* AcquireOcclusionQueryPool(uint32 NumQueries);
-	FVulkanTimestampQueryPool* PrepareTimestampQueryPool(bool& bOutRequiresReset);
-#else
-	inline FVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
-	{
-		// First try to find An available one
-		for (int32 Index = 0; Index < Pools.Num(); ++Index)
-		{
-			FVulkanBufferedQueryPool* Pool = Pools[Index];
-			if (Pool->HasRoom())
-			{
-				return *Pool;
-			}
-		}
 
-		// None found, so allocate new Pool
-		FVulkanBufferedQueryPool* Pool = new FVulkanBufferedQueryPool(this, QueryType == VK_QUERY_TYPE_OCCLUSION ? NUM_OCCLUSION_QUERIES_PER_POOL : NUM_TIMESTAMP_QUERIES_PER_POOL, QueryType);
-		Pools.Add(Pool);
-		return *Pool;
-	}
-	inline FVulkanBufferedQueryPool& FindAvailableOcclusionQueryPool()
-	{
-		return FindAvailableQueryPool(OcclusionQueryPools, VK_QUERY_TYPE_OCCLUSION);
-	}
-
-	inline FVulkanBufferedQueryPool& FindAvailableTimestampQueryPool()
-	{
-		return FindAvailableQueryPool(TimestampQueryPools, VK_QUERY_TYPE_TIMESTAMP);
-	}
-#endif
 	inline class FVulkanPipelineStateCacheManager* GetPipelineStateCache()
 	{
 		return PipelineStateCache;
@@ -269,24 +268,12 @@ public:
 	FVulkanCommandListContext* AcquireDeferredContext();
 	void ReleaseDeferredContext(FVulkanCommandListContext* InContext);
 
-	struct FOptionalVulkanDeviceExtensions
-	{
-		uint32 HasKHRMaintenance1 : 1;
-		uint32 HasKHRMaintenance2 : 1;
-		uint32 HasMirrorClampToEdge : 1;
-		uint32 HasKHRExternalMemoryCapabilities : 1;
-		uint32 HasKHRGetPhysicalDeviceProperties2 : 1;
-		uint32 HasKHRDedicatedAllocation : 1;
-		uint32 HasEXTValidationCache : 1;
-		uint32 HasAMDBufferMarker : 1;
-	};
-
 	inline const FOptionalVulkanDeviceExtensions& GetOptionalExtensions() const
 	{
 		return OptionalDeviceExtensions;
 	}
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	VkBuffer GetCrashMarkerBuffer() const
 	{
 		return CrashMarker.Buffer;
@@ -300,6 +287,10 @@ public:
 
 	void SetupPresentQueue(VkSurfaceKHR Surface);
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	VkSamplerYcbcrConversion CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo);
+#endif
+
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat, int32 BlockBytes);
@@ -307,12 +298,6 @@ private:
 
 	void SubmitCommands(FVulkanCommandListContext* Context);
 
-	VkPhysicalDevice Gpu;
-	VkPhysicalDeviceProperties GpuProps;
-#if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
-	VkPhysicalDeviceIDPropertiesKHR GpuIdProps;
-#endif
-	VkPhysicalDeviceFeatures Features;
 
 	VkDevice Device;
 
@@ -326,27 +311,30 @@ private:
 
 	VulkanRHI::FFenceManager FenceManager;
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	FVulkanDescriptorPoolsManager* DescriptorPoolsManager = nullptr;
-#endif
+
+	FVulkanShaderFactory ShaderFactory;
 
 	FVulkanSamplerState* DefaultSampler;
 	FVulkanSurface* DefaultImage;
 	VkImageView DefaultImageView;
+
+	VkPhysicalDevice Gpu;
+	VkPhysicalDeviceProperties GpuProps;
+#if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
+	VkPhysicalDeviceIDPropertiesKHR GpuIdProps;
+#endif
+	VkPhysicalDeviceFeatures PhysicalFeatures;
 
 	TArray<VkQueueFamilyProperties> QueueFamilyProps;
 	VkFormatProperties FormatProperties[VK_FORMAT_RANGE_SIZE];
 	// Info for formats that are not in the core Vulkan spec (i.e. extensions)
 	mutable TMap<VkFormat, VkFormatProperties> ExtensionFormatProperties;
 
-#if VULKAN_USE_NEW_QUERIES
-	int32 CurrentOcclusionQueryPool = 0;
-	TArray<FVulkanOcclusionQueryPool*> OcclusionQueryPools;
-	FVulkanTimestampQueryPool* TimestampQueryPool = nullptr;
-#else
-	TArray<FVulkanBufferedQueryPool*> OcclusionQueryPools;
-	TArray<FVulkanBufferedQueryPool*> TimestampQueryPools;
-#endif
+	TArray<FVulkanOcclusionQueryPool*> UsedOcclusionQueryPools;
+	TArray<FVulkanOcclusionQueryPool*> FreeOcclusionQueryPools;
+
+	uint64 TimestampValidBitsMask = 0;
 
 	FVulkanQueue* GfxQueue;
 	FVulkanQueue* ComputeQueue;
@@ -355,7 +343,7 @@ private:
 	bool bAsyncComputeQueue = false;
 	bool bPresentOnComputeQueue = false;
 
-#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+#if VULKAN_SUPPORTS_GPU_CRASH_DUMPS
 	struct
 	{
 		VkBuffer Buffer = VK_NULL_HANDLE;
@@ -370,6 +358,9 @@ private:
 	FVulkanCommandListContextImmediate* ImmediateContext;
 	FVulkanCommandListContext* ComputeContext;
 	TArray<FVulkanCommandListContext*> CommandContexts;
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	TMap<uint32, VkSamplerYcbcrConversion> SamplerColorConversionMap;
+#endif
 
 	void GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 

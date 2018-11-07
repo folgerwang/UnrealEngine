@@ -144,18 +144,19 @@ public:
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+	virtual FName GetCustomIconName() const override;
 #endif // WITH_EDITOR
 
 	virtual bool Modify(bool bAlwaysMarkDirty = false) override;
 
 	virtual bool NeedsLoadForClient() const override
 	{ 
-		return !IsNotForClientOrServer(); 
+		return !IsNotForClientOrServer() && Super::NeedsLoadForClient(); 
 	}
 
 	virtual bool NeedsLoadForServer() const override
 	{ 
-		return !IsNotForClientOrServer(); 
+		return !IsNotForClientOrServer() && Super::NeedsLoadForServer(); 
 	}
 
 public:

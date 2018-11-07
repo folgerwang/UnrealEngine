@@ -89,10 +89,20 @@ public:
 	virtual const TArray<FAnalyticsEventAttribute>& GetDefaultEventAttributes() const = 0;
 
 	/**
+	 * Updates the default URL endpoint and AltDomains.
+	 */
+	virtual void SetURLEndpoint(const FString& UrlEndpoint, const TArray<FString>& AltDomains) = 0;
+
+	/**
 	* Set a callback to be invoked any time an event is queued.
 	* 
 	* @param the callback
 	*/
 	typedef TFunction<void(const FString& EventName, const TArray<FAnalyticsEventAttribute>& Attrs, bool bJson)> OnEventRecorded;
 	virtual void SetEventCallback(const OnEventRecorded& Callback) = 0;
+
+	/**
+	* Blocks execution in the thread until all events have been flushed to the network.
+	*/
+	virtual void BlockUntilFlushed(float InTimeoutSec) = 0;
 };

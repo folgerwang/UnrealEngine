@@ -115,6 +115,9 @@ public:
 	virtual void BeginRendering_GameThread() {}
 
 
+	// Are we outputting so a Spectator Screen now.
+	virtual bool IsSpectatorScreenActive() const { return false; }
+
 	/**
 	* Return a pointer to the SpectatorScreenController for the HMD if supported, else null.
 	* The controller is owned by the HMD, and will be destroyed when the HMD is destroyed.
@@ -139,6 +142,11 @@ public:
 	* Gets the ideal render target size for the device. See vr.pixeldensity description.
 	*/
 	virtual FIntPoint GetIdealRenderTargetSize() const { return FIntPoint(); }
+
+	/**
+	* Gets the ideal render target size for the debug canvas on the device.
+	*/
+	virtual FIntPoint GetIdealDebugCanvasRenderTargetSize() const { return FIntPoint(1024, 1024); }
 
 	/**
 	 * Gets the scaling factor, applied to the post process warping effect
@@ -234,4 +242,9 @@ public:
 	 * Returns true, if the app has VR focus, meaning if it is rendered in the HMD.
 	 */
 	virtual bool DoesAppHaveVRFocus() const;
+
+	/**
+	 * If true, scene rendering should be skipped.
+	 */
+	virtual bool IsRenderingPaused() const { return false; }
 };

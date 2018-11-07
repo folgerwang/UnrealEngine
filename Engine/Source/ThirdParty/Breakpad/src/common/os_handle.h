@@ -43,10 +43,10 @@ typedef int OSHandle;
 #endif
 
 extern int GetOSPageSize();
-extern int GetOSHandleSize(OSHandle os_handle);
+extern int64_t GetOSHandleSize(OSHandle os_handle);
 extern void CloseOSHandle(OSHandle os_handle);
 extern size_t ReadOSHandle(const OSHandle os_handle, void* buf, size_t size, size_t nmemb = 1, size_t offset = 0);
-extern void* CreateOSMapping(void* addr, size_t length, int prot, int flags, OSHandle os_handle, size_t offset);
+extern void* CreateOSMapping(void* addr, int64_t length, int prot, int flags, OSHandle os_handle, size_t offset);
 extern void CloseOSMapping(void* addr, size_t length = 0);
 
 #endif

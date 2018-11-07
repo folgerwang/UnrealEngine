@@ -49,8 +49,9 @@ namespace UnrealBuildTool.Rules
 					"CinematicCamera",
                     "EditorWidgets",
                     "Kismet",
-				}
-				);
+                    "LiveLinkInterface",
+                }
+                );
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[]

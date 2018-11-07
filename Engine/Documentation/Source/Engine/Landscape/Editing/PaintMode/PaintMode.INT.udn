@@ -102,11 +102,9 @@ The Flatten tool directly sets the selected layer's weight to the value of the *
 | **Flatten Mode** | Determines whether the tool will increase or decrease the application of the selected layer's weight, or do both. |
 
 [COMMENT:none]
---
-| **Use Slope Flatten** | If checked, flattens along a Landscape's existing slope. |
-| **Pick Value Per Apply** | If checked, constantly selects new values to flatten toward, instead of only using the first clicked point. |
-| **Flatten Target** | Sets the target value toward which to flatten. |
---
+|**Use Slope Flatten**|If checked, flattens along a Landscape's existing slope.|
+|**Pick Value Per Apply**|If checked, constantly selects new values to flatten toward, instead of only using the first clicked point.|
+|**Flatten Target** | Sets the target value toward which to flatten.|
 [/COMMENT]
 
 
@@ -192,7 +190,7 @@ The primary purpose of layer info objects is to act as a unique key for painted 
 | Option | Description |
 | ------ | ----------- |
 | **Phys Material** | The [Physical Material](Engine/Physics/PhysicalMaterials) (if any) assigned to areas of Landscape where this layer is dominant. |
-| **Hardness** | The value used by the [Erosion](Engine/Landscape/Editing/SculptMode/#Erosion) tool. |
+| **Hardness** | The value used by the [Erosion](Engine/Landscape/Editing/SculptMode/Erosion) tool. |
 
 ### Orphaned Layers
 

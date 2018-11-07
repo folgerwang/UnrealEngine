@@ -25,7 +25,7 @@ class SubmitUtilizationReportToEC : BuildCommand
 		if (string.IsNullOrEmpty(DayParam))
 		{
 			Day = DateTime.Today.Add(new TimeSpan(1,0,0,0));
-			Log("Day parameter not specified, defaulting to today's report: " + Day.Date.ToString("MM-dd-yyyy"));
+			LogInformation("Day parameter not specified, defaulting to today's report: " + Day.Date.ToString("MM-dd-yyyy"));
 		}
 		else
 		{
@@ -68,13 +68,13 @@ class SubmitUtilizationReportToEC : BuildCommand
 			// delete anything older than two weeks
 			if(ExistingDate < TwoWeeksAgo)
 			{
-				Log("Deleting out-of-date property: " + prop.InnerText);
+				LogInformation("Deleting out-of-date property: " + prop.InnerText);
 				CommandUtils.RunAndLog("ectool", string.Format("--timeout 900 deleteProperty --propertyName \"/projects/GUBP_V5/Generated/Utilization2/{0}\"", prop.InnerText), Options: Opts);
 			}
 
 		}
 		// add today's
-		Log("Adding report: " + Day.Subtract(new TimeSpan(1,0,0,0)).ToString("yyyy-MM-dd") + "->" + Day.ToString("yyyy-MM-dd"));
+		LogInformation("Adding report: " + Day.Subtract(new TimeSpan(1,0,0,0)).ToString("yyyy-MM-dd") + "->" + Day.ToString("yyyy-MM-dd"));
 		CommandUtils.RunAndLog("ectool", string.Format("--timeout 900 setProperty \"/projects/GUBP_V5/Generated/Utilization2/Report_{0}\" --valueFile {1}", Day.Subtract(new TimeSpan(1,0,0,0)).ToString("yyyy-MM-dd"), FileName), Options: Opts);
 	}
 }

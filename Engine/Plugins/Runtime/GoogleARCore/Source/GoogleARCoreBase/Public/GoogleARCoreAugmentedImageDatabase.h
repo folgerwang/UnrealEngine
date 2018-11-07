@@ -34,7 +34,9 @@ struct FGoogleARCoreAugmentedImageDatabaseEntry
 	float Width;
 
 	FGoogleARCoreAugmentedImageDatabaseEntry()
-		: Width(0.0f) { }
+		: ImageAsset(nullptr)
+	    , Width(0.0f) 
+	{ }
 };
 
 UCLASS(BlueprintType)

@@ -70,6 +70,7 @@ FTextBlockStyle::FTextBlockStyle()
 , ShadowOffset(FVector2D::ZeroVector)
 , ShadowColorAndOpacity(FLinearColor::Black)
 , SelectedBackgroundColor(FSlateColor::UseForeground())
+, HighlightColor(ForceInitToZero)
 {
 }
 
@@ -394,8 +395,10 @@ FSliderStyle::FSliderStyle()
 void FSliderStyle::GetResources( TArray< const FSlateBrush* >& OutBrushes ) const
 {
 	OutBrushes.Add( &NormalBarImage );
+	OutBrushes.Add( &HoveredBarImage );
 	OutBrushes.Add( &DisabledBarImage );
 	OutBrushes.Add( &NormalThumbImage );
+	OutBrushes.Add( &HoveredThumbImage );
 	OutBrushes.Add( &DisabledThumbImage );
 }
 

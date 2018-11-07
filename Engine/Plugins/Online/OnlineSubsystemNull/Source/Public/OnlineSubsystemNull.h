@@ -33,9 +33,7 @@ class ONLINESUBSYSTEMNULL_API FOnlineSubsystemNull :
 
 public:
 
-	virtual ~FOnlineSubsystemNull()
-	{
-	}
+	virtual ~FOnlineSubsystemNull() = default;
 
 	// IOnlineSubsystem
 
@@ -63,7 +61,8 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
-	
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
+
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;
@@ -79,19 +78,9 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemNull(FName InInstanceName) :
+	FOnlineSubsystemNull() = delete;
+	explicit FOnlineSubsystemNull(FName InInstanceName) :
 		FOnlineSubsystemImpl(NULL_SUBSYSTEM, InInstanceName),
-		SessionInterface(nullptr),
-		VoiceInterface(nullptr),
-		bVoiceInterfaceInitialized(false),
-		LeaderboardsInterface(nullptr),
-		IdentityInterface(nullptr),
-		AchievementsInterface(nullptr),
-		OnlineAsyncTaskThreadRunnable(nullptr),
-		OnlineAsyncTaskThread(nullptr)
-	{}
-
-	FOnlineSubsystemNull() :
 		SessionInterface(nullptr),
 		VoiceInterface(nullptr),
 		bVoiceInterfaceInitialized(false),
@@ -108,7 +97,7 @@ private:
 	FOnlineSessionNullPtr SessionInterface;
 
 	/** Interface for voice communication */
-	mutable FOnlineVoiceImplPtr VoiceInterface;
+	mutable IOnlineVoicePtr VoiceInterface;
 
 	/** Interface for voice communication */
 	mutable bool bVoiceInterfaceInitialized;

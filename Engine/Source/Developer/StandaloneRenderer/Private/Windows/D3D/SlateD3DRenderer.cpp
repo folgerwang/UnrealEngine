@@ -5,14 +5,9 @@
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
 #include "Rendering/ElementBatcher.h"
 #include "Fonts/FontCache.h"
-#include "Stats/SlateStats.h"
 #include "Widgets/SWindow.h"
 #include "Misc/CommandLine.h"
 #include "StandaloneRendererLog.h"
-
-SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElementList, "Renderer DrawElementList");
-SLATE_DECLARE_CYCLE_COUNTER(GRendererUpdateBuffers, "Renderer UpdateBuffers");
-SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElements, "Renderer DrawElements");
 
 TRefCountPtr<ID3D11Device> GD3DDevice;
 TRefCountPtr<ID3D11DeviceContext> GD3DDeviceContext;
@@ -140,15 +135,25 @@ bool FSlateD3DRenderer::Initialize()
 		bool bResult = CreateDevice();
 		if (bResult)
 		{
+			GEncounteredCriticalD3DDeviceError = false;
+
 			TextureManager = MakeShareable(new FSlateD3DTextureManager);
 			FSlateDataPayload::ResourceManager = TextureManager.Get();
 
-			TextureManager->LoadUsedTextures();
+			if (!GEncounteredCriticalD3DDeviceError)
+			{
+				TextureManager->LoadUsedTextures();
+			}
 
-			RenderingPolicy = MakeShareable(new FSlateD3D11RenderingPolicy(SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef()));
+			if (!GEncounteredCriticalD3DDeviceError)
+			{
+				RenderingPolicy = MakeShareable(new FSlateD3D11RenderingPolicy(SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef()));
+			}
 
-			ElementBatcher = MakeShareable(new FSlateElementBatcher(RenderingPolicy.ToSharedRef()));
-			GEncounteredCriticalD3DDeviceError = false;
+			if (!GEncounteredCriticalD3DDeviceError)
+			{
+				ElementBatcher = MakeShareable(new FSlateElementBatcher(RenderingPolicy.ToSharedRef()));
+			}
 		}
 		else
 		{
@@ -520,11 +525,10 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
 		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];
-		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GRendererDrawElementList, ElementList.GetWindow()->GetCreatedInLocation());
 
-		if ( ElementList.GetWindow().IsValid() )
+		if ( ElementList.GetRenderWindow() )
 		{
-			TSharedRef<SWindow> WindowToDraw = ElementList.GetWindow().ToSharedRef();
+			SWindow* WindowToDraw = ElementList.GetRenderWindow();
 
 			// Add all elements for this window to the element batcher
 			ElementBatcher->AddElements( ElementList );
@@ -534,12 +538,11 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 
 			FVector2D WindowSize = WindowToDraw->GetSizeInScreen();
 
-			FSlateD3DViewport* Viewport = WindowToViewportMap.Find( &WindowToDraw.Get() );
+			FSlateD3DViewport* Viewport = WindowToViewportMap.Find( WindowToDraw );
 			check(Viewport);
 
 			FSlateBatchData& BatchData = ElementList.GetBatchData();
 			{
-				SLATE_CYCLE_COUNTER_SCOPE(GRendererUpdateBuffers);
 				BatchData.CreateRenderBatches(ElementList.GetRootDrawLayer().GetElementBatchMap());
 				RenderingPolicy->UpdateVertexAndIndexBuffers(BatchData);
 			}
@@ -559,7 +562,6 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 			GD3DDeviceContext->OMSetRenderTargets( 1, &RTV, NULL );
 
 			{
-				SLATE_CYCLE_COUNTER_SCOPE(GRendererDrawElements);
 				RenderingPolicy->DrawElements(ViewMatrix * Viewport->ProjectionMatrix, BatchData.GetRenderBatches());
 			}
 

@@ -34,10 +34,11 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	CloseButtonHoverAlpha(0.0f),
 	DockSelectDistance(0.0f)
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
-	{
-		return;
-	}
+}
+
+void AVREditorDockableWindow::PostActorCreated()
+{
+	Super::PostActorCreated();
 
 	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
@@ -52,66 +53,93 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 
 	const FRotator RelativeRotation(30.f, 0.f, 0.f);
 	{
+		UStaticMesh* DockingMesh = AssetContainer.DockingButtonMesh;
+
+		DockButtonMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT( "DockMesh" ) );
+		DockButtonMeshComponent->SetupAttachment(RootComponent);
+		DockButtonMeshComponent->RegisterComponent();
+		DockButtonMeshComponent->SetStaticMesh(DockingMesh);
+		DockButtonMeshComponent->SetMobility( EComponentMobility::Movable );
+
+
+		DockButtonMeshComponent->SetGenerateOverlapEvents(false);
+		DockButtonMeshComponent->SetCanEverAffectNavigation( false );
+		DockButtonMeshComponent->bCastDynamicShadow = false;
+		DockButtonMeshComponent->bCastStaticShadow = false;
+		DockButtonMeshComponent->bAffectDistanceFieldLighting = false;
+		DockButtonMeshComponent->SetRelativeRotation(RelativeRotation);
+
+
+		DockButtonMID = UMaterialInstanceDynamic::Create( HoverMaterial, GetTransientPackage() );
+		check(DockButtonMID != nullptr );
+		DockButtonMeshComponent->SetMaterial( 0, DockButtonMID);
+		DockButtonMeshComponent->SetMaterial(1, DockButtonMID);
+
 		UStaticMesh* SelectionMesh = AssetContainer.WindowSelectionBarMesh;
 
-		SelectionBarMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "SelectionBarMesh" ) );
-		SelectionBarMeshComponent->SetStaticMesh( SelectionMesh );
-		SelectionBarMeshComponent->SetMobility( EComponentMobility::Movable );
-		SelectionBarMeshComponent->SetupAttachment( RootComponent );
-
+		SelectionBarMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("SelectionBarMesh"));
+		SelectionBarMeshComponent->SetupAttachment(RootComponent);
+		SelectionBarMeshComponent->SetMobility(EComponentMobility::Movable);
+		SelectionBarMeshComponent->RegisterComponent();
+		SelectionBarMeshComponent->SetStaticMesh(SelectionMesh);
 		SelectionBarMeshComponent->SetGenerateOverlapEvents(false);
-		SelectionBarMeshComponent->SetCanEverAffectNavigation( false );
+		SelectionBarMeshComponent->SetCanEverAffectNavigation(false);
 		SelectionBarMeshComponent->bCastDynamicShadow = false;
 		SelectionBarMeshComponent->bCastStaticShadow = false;
 		SelectionBarMeshComponent->bAffectDistanceFieldLighting = false;
 		SelectionBarMeshComponent->SetRelativeRotation(RelativeRotation);
 
 
-		SelectionBarMID = UMaterialInstanceDynamic::Create( HoverMaterial, GetTransientPackage() );
-		check( SelectionBarMID != nullptr );
-		SelectionBarMeshComponent->SetMaterial( 0, SelectionBarMID );
-		SelectionBarTranslucentMID = UMaterialInstanceDynamic::Create( TranslucentHoverMaterial, GetTransientPackage() );
-		check( SelectionBarTranslucentMID != nullptr );
-		SelectionBarMeshComponent->SetMaterial( 1, SelectionBarTranslucentMID );
+		SelectionBarMID = UMaterialInstanceDynamic::Create(HoverMaterial, GetTransientPackage());
+		check(SelectionBarMID != nullptr);
+		SelectionBarMeshComponent->SetMaterial(0, SelectionBarMID);
+		SelectionBarTranslucentMID = UMaterialInstanceDynamic::Create(TranslucentHoverMaterial, GetTransientPackage());
+		check(SelectionBarTranslucentMID != nullptr);
+		SelectionBarMeshComponent->SetMaterial(1, SelectionBarTranslucentMID);
 	}
 
 	{
 		UStaticMesh* CloseButtonMesh = AssetContainer.WindowCloseButtonMesh;
 
-		CloseButtonMeshComponent= CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "CloseButtonMesh" ) );
-		CloseButtonMeshComponent->SetStaticMesh( CloseButtonMesh );
-		CloseButtonMeshComponent->SetMobility( EComponentMobility::Movable );
-		CloseButtonMeshComponent->SetupAttachment( RootComponent );
-
+		CloseButtonMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("CloseButtonMesh"));
+		CloseButtonMeshComponent->SetStaticMesh(CloseButtonMesh);
+		CloseButtonMeshComponent->SetMobility(EComponentMobility::Movable);
+		CloseButtonMeshComponent->SetupAttachment(RootComponent);
+		CloseButtonMeshComponent->RegisterComponent();
 		CloseButtonMeshComponent->SetGenerateOverlapEvents(false);
-		CloseButtonMeshComponent->SetCanEverAffectNavigation( false );
+		CloseButtonMeshComponent->SetCanEverAffectNavigation(false);
 		CloseButtonMeshComponent->bCastDynamicShadow = false;
 		CloseButtonMeshComponent->bCastStaticShadow = false;
 		CloseButtonMeshComponent->bAffectDistanceFieldLighting = false;
 		CloseButtonMeshComponent->SetRelativeRotation(RelativeRotation);
 
-		CloseButtonMID = UMaterialInstanceDynamic::Create( HoverMaterial, GetTransientPackage() );
-		check( CloseButtonMID != nullptr );
-		CloseButtonMeshComponent->SetMaterial( 0, CloseButtonMID );
-		CloseButtonTranslucentMID = UMaterialInstanceDynamic::Create( TranslucentHoverMaterial, GetTransientPackage() );
-		check( CloseButtonTranslucentMID != nullptr );
-		CloseButtonMeshComponent->SetMaterial( 1, CloseButtonTranslucentMID );
+		CloseButtonMID = UMaterialInstanceDynamic::Create(HoverMaterial, GetTransientPackage());
+		check(CloseButtonMID != nullptr);
+		CloseButtonMeshComponent->SetMaterial(0, CloseButtonMID);
+		CloseButtonTranslucentMID = UMaterialInstanceDynamic::Create(TranslucentHoverMaterial, GetTransientPackage());
+		check(CloseButtonTranslucentMID != nullptr);
+		CloseButtonMeshComponent->SetMaterial(1, CloseButtonTranslucentMID);
 	}
 
 	// The selection bar and close button will not be initially visible.  They'll appear when the user aims
 	// their laser toward the UI
-	SelectionBarMeshComponent->SetVisibility( false );
-	CloseButtonMeshComponent->SetVisibility( false );
+	SelectionBarMeshComponent->SetVisibility(false);
+	CloseButtonMeshComponent->SetVisibility(false);
 
 	// Create the drag operation
-	DragOperationComponent = CreateDefaultSubobject<UViewportDragOperationComponent>( TEXT( "DragOperation" ) );
-	DragOperationComponent->SetDragOperationClass( UDockableWindowDragOperation::StaticClass() );
+	DragOperationComponent = NewObject<UViewportDragOperationComponent>(this, TEXT("DragOperation"));
+	DragOperationComponent->SetDragOperationClass(UDockableWindowDragOperation::StaticClass());
 }
+
+
 
 void AVREditorDockableWindow::SetupWidgetComponent()
 {
 	Super::SetupWidgetComponent();
-
+	// Dockable UIs always have a border so we need to make the background not transparent.
+	WidgetComponent->SetOpacityFromTexture(0.0f);	
+	WidgetComponent->SetBackgroundColor(FLinearColor::Black);
+	WidgetComponent->SetBlendMode(EWidgetBlendMode::Opaque);
 	SetSelectionBarColor( GetOwner().GetOwner().GetColor( UVREditorMode::EColors::UISelectionBarColor ) );
 	SetCloseButtonColor( GetOwner().GetOwner().GetColor( UVREditorMode::EColors::UICloseButtonColor ) );
 }
@@ -139,6 +167,7 @@ void AVREditorDockableWindow::TickManually( float DeltaTime )
 		const float WorldScaleFactor = GetOwner().GetOwner().GetWorldScaleFactor();
 		const FVector AnimatedScale = CalculateAnimatedScale();
 
+		const float CurrentScaleFactor = GetDockedTo() == EDockedTo::Nothing ? WorldPlacedScaleFactor : WorldScaleFactor;
 		// Update whether the user is aiming toward us or not
 		bIsLaserAimingTowardUI = false;
 
@@ -146,10 +175,10 @@ void AVREditorDockableWindow::TickManually( float DeltaTime )
 		{
 			const FTransform UICapsuleTransform = this->GetActorTransform();
 
-			const FVector UICapsuleStart = FVector( 0.0f, 0.0f, -Size.Y * 0.4f ) * WorldScaleFactor * AnimatedScale;
-			const FVector UICapsuleEnd = FVector( 0.0f, 0.0f, Size.Y * 0.4f ) * WorldScaleFactor * AnimatedScale;
-			const float UICapsuleLocalRadius = Size.X * 0.5f * WorldScaleFactor * AnimatedScale.Y;
-			const float MinDistanceToUICapsule = 10.0f * WorldScaleFactor * AnimatedScale.Y;	// @todo vreditor tweak
+			const FVector UICapsuleStart = FVector( 0.0f, 0.0f, -Size.Y * 0.4f ) * CurrentScaleFactor * AnimatedScale;
+			const FVector UICapsuleEnd = FVector( 0.0f, 0.0f, Size.Y * 0.4f ) * CurrentScaleFactor * AnimatedScale;
+			const float UICapsuleLocalRadius = Size.X * 0.5f * CurrentScaleFactor * AnimatedScale.Y;
+			const float MinDistanceToUICapsule = 10.0f * CurrentScaleFactor * AnimatedScale.Y;	// @todo vreditor tweak
 			const FVector UIForwardVector = FVector::ForwardVector;
 			const float MinDotForAimingAtOtherHand = -1.1f;	// @todo vreditor tweak
 
@@ -176,10 +205,64 @@ void AVREditorDockableWindow::TickManually( float DeltaTime )
 		float EasedAimingAtMeFadeAlpha = UVREditorMode::OvershootEaseOut( AimingAtMeFadeAlpha, AnimationOvershootAmount );
 
 		// Only show our extra buttons and controls if the user is roughly aiming toward us.  This just reduces clutter.
+		DockButtonMeshComponent->SetVisibility(EasedAimingAtMeFadeAlpha > KINDA_SMALL_NUMBER ? true : false);
 		SelectionBarMeshComponent->SetVisibility( EasedAimingAtMeFadeAlpha > KINDA_SMALL_NUMBER ? true : false );
 		CloseButtonMeshComponent->SetVisibility( EasedAimingAtMeFadeAlpha > KINDA_SMALL_NUMBER ? true : false );
 
 		EasedAimingAtMeFadeAlpha = FMath::Max( 0.001f, EasedAimingAtMeFadeAlpha );
+
+		// Update the dock button
+		if (bIsHoveringOverDockButton)
+		{
+			DockButtonHoverAlpha += DeltaTime / VREd::DockUIHoverAnimationDuration->GetFloat();
+		}
+		else
+		{
+			DockButtonHoverAlpha -= DeltaTime / VREd::DockUIHoverAnimationDuration->GetFloat();;
+		}
+		DockButtonHoverAlpha = FMath::Clamp(DockButtonHoverAlpha, 0.0f, 1.0f);
+
+		// How big the close button should be
+		const FVector DockButtonSize(5.0f, Size.X * 0.12f, Size.X * 0.1f);
+		FVector DockButtonScale = DockButtonSize * AnimatedScale * CurrentScaleFactor * EasedAimingAtMeFadeAlpha;
+		DockButtonScale *= FMath::Lerp(1.0f, VREd::DockUIHoverScale->GetFloat(), DockButtonHoverAlpha);
+
+		DockButtonMeshComponent->SetRelativeScale3D(DockButtonScale);
+		const FVector DockButtonRelativeLocation = FVector(
+			6.5f,
+			((Size.X * 0.5f) - (DockButtonSize.Y * 0.5f)),
+			-(Size.Y * 0.5f + (DockButtonSize.Z * 1.5f) + VREd::DockUISelectionBarVerticalOffset->GetFloat())) * AnimatedScale * CurrentScaleFactor;
+		DockButtonMeshComponent->SetRelativeLocation(DockButtonRelativeLocation);
+
+		SetDockButtonColor(GetOwner().GetOwner().GetColor(bIsHoveringOverDockButton ? UVREditorMode::EColors::UICloseButtonHoverColor : 
+			GetDockedTo() == EDockedTo::Nothing ? UVREditorMode::EColors::SelectionColor : UVREditorMode::EColors::UICloseButtonColor));
+		
+		// Update the close button
+		
+		if (bIsHoveringOverCloseButton)
+		{
+			CloseButtonHoverAlpha += DeltaTime / VREd::DockUIHoverAnimationDuration->GetFloat();
+		}
+		else
+		{
+			CloseButtonHoverAlpha -= DeltaTime / VREd::DockUIHoverAnimationDuration->GetFloat();;
+		}
+		CloseButtonHoverAlpha = FMath::Clamp(CloseButtonHoverAlpha, 0.0f, 1.0f);
+
+		// How big the close button should be
+		const FVector CloseButtonSize(20.0f, Size.X * 0.1f, Size.X * 0.1f);
+		FVector CloseButtonScale = CloseButtonSize * AnimatedScale * CurrentScaleFactor * EasedAimingAtMeFadeAlpha;
+		CloseButtonScale *= FMath::Lerp(1.0f, VREd::DockUIHoverScale->GetFloat(), CloseButtonHoverAlpha);
+
+		CloseButtonMeshComponent->SetRelativeScale3D(CloseButtonScale);
+		const FVector CloseButtonRelativeLocation = FVector(
+			4.0f,
+			-((Size.X * 0.5f) - (CloseButtonSize.Y * 0.5f)),
+			-(Size.Y * 0.5f + CloseButtonSize.Z + VREd::DockUISelectionBarVerticalOffset->GetFloat())) * AnimatedScale * CurrentScaleFactor;
+		CloseButtonMeshComponent->SetRelativeLocation(CloseButtonRelativeLocation);
+
+		SetCloseButtonColor(GetOwner().GetOwner().GetColor(bIsHoveringOverCloseButton ? UVREditorMode::EColors::UICloseButtonHoverColor : UVREditorMode::EColors::UICloseButtonColor));
+		
 
 		// Update the selection bar
 		{
@@ -194,8 +277,8 @@ void AVREditorDockableWindow::TickManually( float DeltaTime )
 			SelectionBarHoverAlpha = FMath::Clamp( SelectionBarHoverAlpha, 0.0f, 1.0f );
 
 			// How big the selection bar should be
-			const FVector SelectionBarSize(20.0f, Size.X * 0.8f, Size.X * 0.1f);
-			FVector SelectionBarScale = SelectionBarSize * AnimatedScale * WorldScaleFactor;
+			const FVector SelectionBarSize(20.0f, Size.X * 0.7f, Size.X * 0.1f);
+			FVector SelectionBarScale = SelectionBarSize * AnimatedScale * CurrentScaleFactor;
 			SelectionBarScale *= FMath::Lerp( 1.0f, VREd::DockUIHoverScale->GetFloat(), SelectionBarHoverAlpha );
 
 			// Scale vertically based on our fade alpha
@@ -204,39 +287,14 @@ void AVREditorDockableWindow::TickManually( float DeltaTime )
 			SelectionBarMeshComponent->SetRelativeScale3D( SelectionBarScale );
 			const FVector SelectionBarRelativeLocation = FVector(
 				4.0f,
-				((Size.X * 0.5f) - (SelectionBarSize.Y * 0.5f)),
-				-(Size.Y * 0.5f + SelectionBarSize.Z + VREd::DockUISelectionBarVerticalOffset->GetFloat())) * AnimatedScale * WorldScaleFactor;
+				(Size.X * 0.5f - (SelectionBarSize.Y * 0.5f) - (1.5f * CloseButtonSize.Y)),
+				-(Size.Y * 0.5f + SelectionBarSize.Z + VREd::DockUISelectionBarVerticalOffset->GetFloat())) * AnimatedScale * CurrentScaleFactor;
 			SelectionBarMeshComponent->SetRelativeLocation( SelectionBarRelativeLocation );
 
 			SetSelectionBarColor( GetOwner().GetOwner().GetColor( bIsHoveringOverSelectionBar ? UVREditorMode::EColors::UISelectionBarHoverColor : UVREditorMode::EColors::UISelectionBarColor ) );
 		}
 
-		// Update the close button
-		{
-			if( bIsHoveringOverCloseButton )
-			{
-				CloseButtonHoverAlpha += DeltaTime / VREd::DockUIHoverAnimationDuration->GetFloat();
-			}
-			else
-			{
-				CloseButtonHoverAlpha -= DeltaTime / VREd::DockUIHoverAnimationDuration->GetFloat();;
-			}
-			CloseButtonHoverAlpha = FMath::Clamp( CloseButtonHoverAlpha, 0.0f, 1.0f );
-
-			// How big the close button should be
-			const FVector CloseButtonSize(20.0f, Size.X * 0.1f, Size.X * 0.1f);
-			FVector CloseButtonScale = CloseButtonSize * AnimatedScale * WorldScaleFactor * EasedAimingAtMeFadeAlpha;
-			CloseButtonScale *= FMath::Lerp( 1.0f, VREd::DockUIHoverScale->GetFloat(), CloseButtonHoverAlpha );
-
-			CloseButtonMeshComponent->SetRelativeScale3D( CloseButtonScale );
-			const FVector CloseButtonRelativeLocation = FVector(
-				4.0f,
-				-((Size.X * 0.5f) - (CloseButtonSize.Y * 0.5f)),
-				-(Size.Y * 0.5f + CloseButtonSize.Z + VREd::DockUISelectionBarVerticalOffset->GetFloat())) * AnimatedScale * WorldScaleFactor;
-			CloseButtonMeshComponent->SetRelativeLocation(CloseButtonRelativeLocation);
-
-			SetCloseButtonColor( GetOwner().GetOwner().GetColor( bIsHoveringOverCloseButton ? UVREditorMode::EColors::UICloseButtonHoverColor : UVREditorMode::EColors::UICloseButtonColor ) );
-		}
+		
 	}
 } 
 
@@ -289,6 +347,18 @@ void AVREditorDockableWindow::OnPressed( UViewportInteractor* Interactor, const 
 			const bool bSpawnInFront = false;
 			GetOwner().ShowEditorUIPanel(this, VRInteractor, bShouldShow, bSpawnInFront);
 		}
+		if (InHitResult.Component == DockButtonMeshComponent)
+		{
+			if (GetDockedTo() == EDockedTo::Nothing)
+			{
+				SetDockedTo(EDockedTo::Room);
+			}
+			else if (GetDockedTo() == EDockedTo::Room)
+			{
+				SetDockedTo(EDockedTo::Nothing);
+				WorldPlacedScaleFactor = GetOwner().GetOwner().GetWorldScaleFactor();
+			}
+		}
 		else if(InHitResult.Component == GetSelectionBarMeshComponent() && !GetOwner().IsDraggingPanelFromOpen())
 		{
 			bOutResultedInDrag = true;
@@ -314,6 +384,11 @@ void AVREditorDockableWindow::OnHoverEnter( UViewportInteractor* Interactor, con
 	{
 		bIsHoveringOverCloseButton = true;
 	}
+
+	if (DockButtonMeshComponent == InHitResult.GetComponent())
+	{
+		bIsHoveringOverDockButton = true;
+	}
 }
 
 void AVREditorDockableWindow::OnHoverLeave( UViewportInteractor* Interactor, const UActorComponent* NewComponent )
@@ -332,6 +407,11 @@ void AVREditorDockableWindow::OnHoverLeave( UViewportInteractor* Interactor, con
 	if ( OtherInteractorHoveredComponent != CloseButtonMeshComponent && NewComponent != CloseButtonMeshComponent )
 	{
 		bIsHoveringOverCloseButton = false;
+	}
+
+	if (OtherInteractorHoveredComponent != DockButtonMeshComponent && NewComponent != DockButtonMeshComponent)
+	{
+		bIsHoveringOverDockButton = false;
 	}
 }
 
@@ -362,6 +442,12 @@ void AVREditorDockableWindow::SetCloseButtonColor( const FLinearColor& LinearCol
 	static FName StaticColorParameterName( "Color" );
 	CloseButtonMID->SetVectorParameterValue( StaticColorParameterName, LinearColor );
 	CloseButtonTranslucentMID->SetVectorParameterValue( StaticColorParameterName, LinearColor );
+}
+
+void AVREditorDockableWindow::SetDockButtonColor(const FLinearColor& LinearColor)
+{
+	static FName StaticColorParameterName("Color");
+	DockButtonMID->SetVectorParameterValue(StaticColorParameterName, LinearColor);
 }
 
 /************************************************************************/

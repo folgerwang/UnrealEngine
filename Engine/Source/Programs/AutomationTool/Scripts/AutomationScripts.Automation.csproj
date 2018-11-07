@@ -53,10 +53,6 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="Localization.Automation">
-      <HintPath>..\..\..\..\Binaries\DotNET\AutomationScripts\Localization.Automation.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\DotNETCommon\MetaData.cs">
@@ -64,6 +60,7 @@
     </Compile>
     <Compile Include="AnalyzeThirdPartyLibs.Automation.cs" />
     <Compile Include="ArchiveCommand.Automation.cs" />
+    <Compile Include="StashTarget.cs" />
     <Compile Include="BlameKeyword.Automation.cs" />
     <Compile Include="BuildCommonTools.Automation.cs" />
     <Compile Include="BuildCookRun.Automation.cs" />
@@ -73,9 +70,12 @@
     <Compile Include="BuildPluginCommand.Automation.cs" />
     <Compile Include="BuildProjectCommand.Automation.cs" />
     <Compile Include="BuildThirdPartyLibs.Automation.cs" />
+    <Compile Include="CheckBalancedMacros.cs" />
     <Compile Include="CheckCsprojDotNetVersion.cs" />
     <Compile Include="CheckForHacks.cs" />
     <Compile Include="CheckRestrictedFolders.cs" />
+    <Compile Include="CheckTargetExists.cs" />
+    <Compile Include="CheckXcodeVersion.cs" />
     <Compile Include="CleanAutomationReports.cs" />
     <Compile Include="CleanFormalBuilds.Automation.cs" />
     <Compile Include="CodeSurgery.Automation.cs" />
@@ -86,6 +86,7 @@
     <Compile Include="CopyUsingDistillFileSet.Automation.cs" />
     <Compile Include="CryptoKeys.Automation.cs" />
     <Compile Include="DeployCommand.Automation.cs" />
+    <Compile Include="ExtractPaks.Automation.cs" />
     <Compile Include="GetFileCommand.Automation.cs" />
     <Compile Include="RebasePublicIncludePaths.cs" />
     <Compile Include="FixupRedirects.Automation.cs" />
@@ -98,7 +99,6 @@
     <Compile Include="ReplaceAssetsUsingManifest.cs" />
     <Compile Include="ResavePackagesCommand.Automation.cs" />
     <Compile Include="IPhonePackager.Automation.cs" />
-    <Compile Include="LauncherLocalization.Automation.cs" />
     <Compile Include="ListMobileDevices.Automation.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -137,10 +137,7 @@
     <ProjectReference Include="..\Localization\Localization.Automation.csproj">
       <Project>{c2f959b1-1727-4598-9c32-3d9acce72750}</Project>
       <Name>Localization.Automation</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\OneSkyLocalization\OneSkyLocalization.Automation.csproj">
-      <Project>{39369368-5603-46da-baae-766bb3cb2b51}</Project>
-      <Name>OneSkyLocalization.Automation</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

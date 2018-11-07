@@ -126,7 +126,7 @@ Tags:Graphs
 
 ## 应用图表
 
-无论您的 _图表_ 是 _Construction Script（构造脚本）_ 、_EventGraph（事件图表）_ 、_Function（函数）_ 还是 _Macro（宏）_ ，您都可以在[](Engine/Blueprints\Editor) 的[图表](Engine/Blueprints\Editor\Modes\GraphPanel) 模式中对其进行编辑。基本上，
+无论您的 _图表_ 是 _Construction Script（构造脚本）_ 、_EventGraph（事件图表）_ 、_Function（函数）_ 还是 _Macro（宏）_ ，您都可以在[](Engine/Blueprints\Editor) 的[图表](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) 模式中对其进行编辑。基本上，
 所有的图表都包含由 _连线_ 连接起来的 _节点_ 网络。
 
 

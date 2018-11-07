@@ -42,23 +42,24 @@ namespace EditorScriptingUtils
 	}
 
 	// Test for invalid characters
-	bool IsAValidPath(const FString& Path, FString& OutFailureReason)
+	bool IsAValidPath(const FString& Path, const TCHAR* InvalidChar, FString& OutFailureReason)
 	{
-		// Like !FName::IsValidGroupName(Path)), but with INVALID_OBJECTPATH_CHARACTERS and no conversion to from FName
-		const int32 StrLen = FCString::Strlen(INVALID_OBJECTPATH_CHARACTERS);
+		// Like !FName::IsValidGroupName(Path)), but with another list and no conversion to from FName
+		// InvalidChar may be INVALID_OBJECTPATH_CHARACTERS or INVALID_LONGPACKAGE_CHARACTERS or ...
+		const int32 StrLen = FCString::Strlen(InvalidChar);
 		for (int32 Index = 0; Index < StrLen; ++Index)
 		{
 			int32 FoundIndex = 0;
-			if (Path.FindChar(INVALID_OBJECTPATH_CHARACTERS[Index], FoundIndex))
+			if (Path.FindChar(InvalidChar[Index], FoundIndex))
 			{
 				OutFailureReason = FString::Printf(TEXT("Can't convert the path %s because it contains invalid characters."), *Path);
 				return false;
 			}
 		}
 
-		if (Path.Len() > MAX_UNREAL_FILENAME_LENGTH)
+		if (Path.Len() > FPlatformMisc::GetMaxPathLength())
 		{
-			OutFailureReason = FString::Printf(TEXT("Can't convert the path %s because it is too long; this may interfere with cooking for consoles. Unreal filenames should be no longer than %d characters."), *Path, MAX_UNREAL_FILENAME_LENGTH);
+			OutFailureReason = FString::Printf(TEXT("Can't convert the path %s because it is too long; this may interfere with cooking for consoles. Unreal filenames should be no longer than %d characters."), *Path, FPlatformMisc::GetMaxPathLength());
 			return false;
 		}
 		return true;
@@ -181,38 +182,48 @@ namespace EditorScriptingUtils
 			return FString();
 		}
 
+		// Extract the subobject path if any
+		FString SubObjectPath;
+		int32 SubObjectDelimiterIdx;
+		if (TextPath.FindChar(SUBOBJECT_DELIMITER_CHAR, SubObjectDelimiterIdx))
+		{
+			SubObjectPath = TextPath.Mid(SubObjectDelimiterIdx + 1);
+			TextPath = TextPath.Left(SubObjectDelimiterIdx);
+		}
+
 		// Convert \ to /
 		TextPath.ReplaceInline(TEXT("\\"), TEXT("/"), ESearchCase::CaseSensitive);
 		FPaths::RemoveDuplicateSlashes(TextPath);
 
-		// Test for invalid characters
-		if (!IsAValidPath(TextPath, OutFailureReason))
-		{
-			return FString();
-		}
-
 		// Get asset full name, i.e."PackageName.ObjectName:InnerAssetName.2ndInnerAssetName" from "/Game/Folder/PackageName.ObjectName:InnerAssetName.2ndInnerAssetName"
-		FString AssetFullName = FPackageName::GetShortName(TextPath);
-
-		// Remove possible ':' character from asset full name
+		FString AssetFullName;
 		{
-			int32 IndexOfSemiColumn;
-			if (AssetFullName.FindChar(TEXT(':'), IndexOfSemiColumn))
+			// Get everything after the last slash
+			int32 IndexOfLastSlash = INDEX_NONE;
+			TextPath.FindLastChar('/', IndexOfLastSlash);
+
+			FString Folders = TextPath.Left(IndexOfLastSlash);
+			// Test for invalid characters
+			if (!IsAValidPath(Folders, INVALID_LONGPACKAGE_CHARACTERS, OutFailureReason))
 			{
-				AssetFullName = AssetFullName.Left(IndexOfSemiColumn);
+				return FString();
 			}
+
+			AssetFullName = TextPath.Mid(IndexOfLastSlash + 1);
 		}
 
 		// Get the object name
 		FString ObjectName = FPackageName::ObjectPathToObjectName(AssetFullName);
 		if (ObjectName.IsEmpty())
 		{
-			ObjectName = FPackageName::ObjectPathToPackageName(AssetFullName);
-			if (ObjectName.IsEmpty())
-			{
-				OutFailureReason = FString::Printf(TEXT("Can't convert the path '%s' because it doesn't contain an asset name."), *AnyAssetPath);
-				return FString();
-			}
+			OutFailureReason = FString::Printf(TEXT("Can't convert the path '%s' because it doesn't contain an asset name."), *AnyAssetPath);
+			return FString();
+		}
+
+		// Test for invalid characters
+		if (!IsAValidPath(ObjectName, INVALID_OBJECTNAME_CHARACTERS, OutFailureReason))
+		{
+			return FString();
 		}
 
 		// Confirm that we have a valid Root Package and get the valid PackagePath /Game/MyFolder/MyAsset
@@ -281,13 +292,6 @@ namespace EditorScriptingUtils
 		TextPath.ReplaceInline(TEXT("\\"), TEXT("/"), ESearchCase::CaseSensitive);
 		FPaths::RemoveDuplicateSlashes(TextPath);
 
-		// Test for invalid characters
-		if (!IsAValidPath(TextPath, OutFailureReason))
-		{
-			return FString();
-		}
-
-		//ObjectName = FPackageName::ObjectPathToObjectName(ObjectName);
 		{
 			// Remove .
 			int32 ObjectDelimiterIdx;
@@ -301,6 +305,12 @@ namespace EditorScriptingUtils
 			{
 				TextPath = TextPath.Left(ObjectDelimiterIdx);
 			}
+		}
+
+		// Test for invalid characters
+		if (!IsAValidPath(TextPath, INVALID_LONGPACKAGE_CHARACTERS, OutFailureReason))
+		{
+			return FString();
 		}
 
 		// Confirm that we have a valid Root Package and get the valid PackagePath /Game/MyFolder

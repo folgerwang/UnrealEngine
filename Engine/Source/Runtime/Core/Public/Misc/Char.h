@@ -135,7 +135,18 @@ typedef TChar<ANSICHAR> FCharAnsi;
 	TCHAR specialized functions
 -----------------------------------------------------------------------------*/
 
-template <> inline TChar<WIDECHAR>::CharType TChar<WIDECHAR>::ToUpper(CharType Char)	{ return ::towupper(Char); }
+template <> inline TChar<WIDECHAR>::CharType TChar<WIDECHAR>::ToUpper(CharType Char)
+{
+#if !PLATFORM_TCHAR_IS_4_BYTES
+	// for 2 byte wide chars use ansi toupper() if it is not an actual wide char (value less than 128)
+	// towupper() is slow on some platforms.
+	if (Char < 128)
+	{
+		return ::toupper((ANSICHAR)Char);
+	}
+#endif
+	return ::towupper(Char);
+}
 template <> inline TChar<WIDECHAR>::CharType TChar<WIDECHAR>::ToLower(CharType Char)	{ return ::towlower(Char); }
 template <> inline bool TChar<WIDECHAR>::IsUpper(CharType Char)							{ return ::iswupper(Char) != 0; }
 template <> inline bool TChar<WIDECHAR>::IsLower(CharType Char)							{ return ::iswlower(Char) != 0; }

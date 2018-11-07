@@ -321,6 +321,8 @@ public:
 
 	/** enables path observing specified AActor's location and update itself if actor changes location */
 	void SetGoalActorObservation(const AActor& ActorToObserve, float TetherDistance);
+	/** Modifies distance to the GoalActor at which we'll update the path */
+	void SetGoalActorTetherDistance(const float NewTetherDistace) { GoalActorLocationTetherDistanceSq = FMath::Square(NewTetherDistace); }
 	/** turns goal actor location's observation */
 	void DisableGoalActorObservation();
 	/** set's up the path to use SourceActor's location in case of recalculation */
@@ -446,6 +448,10 @@ protected:
 	/** if true path will call OnPathUpdated notify */
 	uint32 bUseOnPathUpdatedNotify : 1;
 
+	/** indicates whether at any point GoalActor was a valid Actor. Used as
+	 *	an optimization in FNavigationPath::TickPathObservation */
+	uint32 bObservingGoalActor : 1;
+
 	/** navigation data used to generate this path */
 	TWeakObjectPtr<ANavigationData> NavigationDataUsed;
 
@@ -510,7 +516,7 @@ protected:
 	uint32 bForceRebuildOnLoad : 1;
 
 	/** If set, navigation data can act as default one in navigation system's queries */
-	UPROPERTY(config, VisibleAnywhere, Category = Runtime, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Runtime, AdvancedDisplay)
 	uint32 bCanBeMainNavData : 1;
 
 	/** If set, navigation data will be spawned in persistent level during rebuild if actor doesn't exist */

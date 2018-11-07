@@ -107,6 +107,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE( FOnShowSelectedNodesOnlyChanged );
 	DECLARE_MULTICAST_DELEGATE_OneParam( FOnAllowEditsModeChanged, EAllowEditsMode );
 	DECLARE_MULTICAST_DELEGATE( FOnCurveEditorCurveVisibilityChanged );
+	DECLARE_MULTICAST_DELEGATE(FOnLoopStateChanged);
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
@@ -278,11 +279,6 @@ public:
 	/** Set whether to show channel colors */
 	void SetShowChannelColors(bool bInShowChannelColors);
 
-	/** @return true if showing transport controls in level editor viewports */
-	bool GetShowViewportTransportControls() const;
-	/** Toggle whether to show transport controls in level editor viewports */
-	void SetShowViewportTransportControls(bool bVisible);
-
 	/** @return Whether to allow possession of PIE viewports */
 	bool ShouldAllowPossessionOfPIEViewports() const;
 	/** Toggle whether to allow possession of PIE viewports */
@@ -323,6 +319,11 @@ public:
 	/** Toggle whether to show pre and post roll in sequencer */
 	void SetShouldShowPrePostRoll(bool bInVisualizePreAndPostRoll);
 
+	/** Check whether whether to recompile the director blueprint when the sequence is evaluated (if one exists) */
+	bool ShouldCompileDirectorOnEvaluate() const;
+	/** Assign whether whether to recompile the director blueprint when the sequence is evaluated (if one exists) */
+	void SetCompileDirectorOnEvaluate(bool bInCompileDirectorOnEvaluate);
+
 	uint32 GetTrajectoryPathCap() const { return TrajectoryPathCap; }
 
 	/** Gets the current curve visibility. */
@@ -331,6 +332,8 @@ public:
 	void SetCurveVisibility(ECurveEditorCurveVisibility InCurveVisibility);
 
 	FOnCurveEditorCurveVisibilityChanged& GetOnCurveEditorCurveVisibilityChanged();
+
+	FOnLoopStateChanged& GetOnLoopStateChanged();
 
 	/** What format should we display the UI controls in when representing time in a sequence? */
 	EFrameNumberDisplayFormats GetTimeDisplayFormat() const { return FrameNumberDisplayFormat; }
@@ -473,10 +476,6 @@ protected:
 	UPROPERTY( config, EditAnywhere, Category=Timeline )
 	bool bShowChannelColors;
 
-	/** Enable or disable transport controls in the viewport. */
-	UPROPERTY( config )
-	bool bShowViewportTransportControls;
-
 	/** When enabled, sequencer is able to possess viewports that represent PIE worlds */
 	UPROPERTY(config, EditAnywhere, Category=General)
 	bool bAllowPossessionOfPIEViewports;
@@ -501,6 +500,10 @@ protected:
 	UPROPERTY( config, EditAnywhere, Category=General )
 	bool bVisualizePreAndPostRoll;
 
+	/** Whether to recompile the director blueprint when the sequence is evaluated (if one exists) */
+	UPROPERTY(config, EditAnywhere, Category=General)
+	bool bCompileDirectorOnEvaluate;
+
 	/** Specifies the maximum number of keys to draw when rendering trajectories in viewports */
 	UPROPERTY(config, EditAnywhere, Category=General)
 	uint32 TrajectoryPathCap;
@@ -516,4 +519,5 @@ protected:
 	FOnEvaluateSubSequencesInIsolationChanged OnEvaluateSubSequencesInIsolationChangedEvent;
 	FOnShowSelectedNodesOnlyChanged OnShowSelectedNodesOnlyChangedEvent;
 	FOnAllowEditsModeChanged OnAllowEditsModeChangedEvent;
+	FOnLoopStateChanged OnLoopStateChangedEvent;
 };

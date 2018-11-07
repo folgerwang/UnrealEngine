@@ -131,6 +131,11 @@ public:
 
 	void AdvanceBackBufferFrame_RenderThread();
 
+	uint32 GetNextPresentGPUIndex() const 
+	{ 
+		return BackBufferGPUIndices.IsValidIndex(CurrentBackBufferIndex_RenderThread) ? BackBufferGPUIndices[CurrentBackBufferIndex_RenderThread] : 0; 
+	}
+
 private:
 
 	/** Presents the frame synchronizing with DWM. */
@@ -174,8 +179,9 @@ private:
 	TRefCountPtr<IDXGISwapChain1> SDRSwapChain1;
 
 	TArray<TRefCountPtr<FD3D12Texture2D>> BackBuffers;
+	TArray<uint32> BackBufferGPUIndices;
 	uint32 NumBackBuffers;
-	int32 PresentGPUIndex;
+	int32 BackbufferMultiGPUBinding; // where INDEX_NONE cycles through the GPU, otherwise the GPU index.
 
 	uint32 CurrentBackBufferIndex_RenderThread;
 	FD3D12Texture2D* BackBuffer_RenderThread;

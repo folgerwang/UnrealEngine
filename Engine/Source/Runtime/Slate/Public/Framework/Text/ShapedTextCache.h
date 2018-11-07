@@ -56,7 +56,7 @@ class SLATE_API FShapedTextCache
 {
 public:
 	/** Create a new shaped text cache */
-	static FShapedTextCacheRef Create(FSlateFontCache& InFontCache)
+	static FShapedTextCacheRef Create(const TSharedRef<FSlateFontCache>& InFontCache)
 	{
 		return MakeShareable(new FShapedTextCache(InFontCache));
 	}
@@ -104,20 +104,20 @@ public:
 	/**
 	 * Get the font cache used by this instance
 	 */
-	FSlateFontCache& GetFontCache() const
+	TSharedPtr<FSlateFontCache> GetFontCache() const
 	{
-		return FontCache;
+		return FontCachePtr.Pin();
 	}
 
 private:
 	/** Constructor */
-	FShapedTextCache(FSlateFontCache& InFontCache)
-		: FontCache(InFontCache)
+	FShapedTextCache(const TSharedRef<FSlateFontCache>& InFontCache)
+		: FontCachePtr(InFontCache)
 	{
 	}
 
 	/** Font cache to use when shaping text */
-	FSlateFontCache& FontCache;
+	TWeakPtr<FSlateFontCache> FontCachePtr;
 
 	/** Mapping between a cache key and the corresponding shaped text */
 	TMap<FCachedShapedTextKey, FShapedGlyphSequencePtr> CachedShapedText;

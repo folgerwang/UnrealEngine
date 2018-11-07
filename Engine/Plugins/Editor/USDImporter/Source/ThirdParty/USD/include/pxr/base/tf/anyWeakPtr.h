@@ -31,13 +31,16 @@
 #include "pxr/pxr.h"
 #include "pxr/base/tf/api.h"
 #include "pxr/base/tf/cxxCast.h"
-#include "pxr/base/tf/pyUtils.h"
 #include "pxr/base/tf/traits.h"
 #include "pxr/base/tf/type.h"
 #include "pxr/base/tf/weakPtr.h"
 
-#include <boost/operators.hpp>
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
+#include "pxr/base/tf/pyUtils.h"
 #include <boost/python/object.hpp>
+#endif // PXR_PYTHON_SUPPORT_ENABLED
+
+#include <boost/operators.hpp>
 
 #include <cstddef>
 #include <type_traits>
@@ -101,7 +104,7 @@ public:
     /// which has expired.
     TF_API bool IsInvalid() const;
 
-    /// Return the unique identifier of the WeakPtr this AnyWeakPtr conrtains
+    /// Return the unique identifier of the WeakPtr this AnyWeakPtr contains
     TF_API void const *GetUniqueIdentifier() const;
 
     /// Return the TfWeakBase object of the WeakPtr we are holding
@@ -131,7 +134,7 @@ public:
     }
 
   private:
-
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     // This grants friend access to a function in the wrapper file for this
     // class.  This lets the wrapper reach down into an AnyWeakPtr to get a
     // boost::python wrapped object corresponding to the held type.  This
@@ -139,11 +142,12 @@ public:
     friend boost::python::api::object
     Tf_GetPythonObjectFromAnyWeakPtr(This const &self);
 
-    template <class WeakPtr>
-    friend WeakPtr TfAnyWeakPtrDynamicCast(const TfAnyWeakPtr &anyWeak, WeakPtr*);
-
     TF_API
     boost::python::api::object _GetPythonObject() const;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
+
+    template <class WeakPtr>
+    friend WeakPtr TfAnyWeakPtrDynamicCast(const TfAnyWeakPtr &anyWeak, WeakPtr*);
 
     // This is using the standard type-erasure pattern.
     struct _PointerHolderBase {
@@ -154,7 +158,9 @@ public:
         virtual TfWeakBase const *GetWeakBase() const = 0;
         virtual operator bool() const = 0;
         virtual bool _IsConst() const = 0;
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
         virtual boost::python::api::object GetPythonObject() const = 0;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
         virtual const std::type_info & GetTypeInfo() const = 0;
         virtual TfType const& GetType() const = 0;
         virtual const void* _GetMostDerivedPtr() const = 0;
@@ -169,7 +175,9 @@ public:
         TF_API virtual TfWeakBase const *GetWeakBase() const;
         TF_API virtual operator bool() const;
         TF_API virtual bool _IsConst() const;
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
         TF_API virtual boost::python::api::object GetPythonObject() const;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
         TF_API virtual const std::type_info & GetTypeInfo() const;
         TF_API virtual TfType const& GetType() const;
         TF_API virtual const void* _GetMostDerivedPtr() const;
@@ -188,7 +196,9 @@ public:
         virtual TfWeakBase const *GetWeakBase() const;
         virtual operator bool() const;
         virtual bool _IsConst() const;
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
         virtual boost::python::api::object GetPythonObject() const;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
         virtual const std::type_info & GetTypeInfo() const;
         virtual TfType const& GetType() const;
         virtual const void* _GetMostDerivedPtr() const;
@@ -241,12 +251,14 @@ TfAnyWeakPtr::_PointerHolder<Ptr>::operator bool() const
     return bool(_ptr);
 }
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
 template <class Ptr>
 boost::python::api::object
 TfAnyWeakPtr::_PointerHolder<Ptr>::GetPythonObject() const
 {
     return TfPyObject(_ptr);
 }
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
 template <class Ptr>
 const std::type_info &
@@ -278,7 +290,7 @@ template <class Ptr>
 bool
 TfAnyWeakPtr::_PointerHolder<Ptr>::_IsPolymorphic() const
 {
-    return boost::is_polymorphic<typename Ptr::DataType>::value;
+    return std::is_polymorphic<typename Ptr::DataType>::value;
 }
 
 template <class Ptr>

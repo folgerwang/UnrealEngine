@@ -1,0 +1,144 @@
+﻿INTSourceChangelist:4285161
+Availability: Public
+Crumbs: 
+Title: 머티리얼의 커브 아틀라스
+Description: 커브 아틀라스는 머티리얼을 통해 커브 리니어 컬러 데이터에 액세스할 수 있도록 해주는 커브 애셋 조합을 저장합니다.
+Version: 4.20
+Parent: Engine/Rendering/Materials
+Order: 6
+
+
+![](MaterialGradientCurvesBanner.png "MaterialGradientCurvesBanner.png")
+
+Curve Atlas (커브 아틀라스)는 [커브](Engine/UI/CurveEditor) 애셋 조합을 저장하여 머티리얼을 통해 Curve Linear Color (커브 리니어 컬러) 데이터에 액세스할 수 있습니다. 커브 아틀라스는 [머티리얼](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials) 에서 사용할 수 있는 텍스처에 커브를 몇 개든 저장합니다. [머티리얼 인스턴스](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances) 를 만들고 블루프린트를 통해 [머티리얼 인스턴스 다이내믹](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances) (MID)를 변경할 때, 커브를 오버라이드로 설정할 수 있습니다. 그러면 베이스 머티리얼을 바꾸지 않고도 RGBA 커브 값을 빠르게 변경하며 반복처리할 수 있습니다.
+
+## 커브 리니어 컬러 애셋
+
+**Curve Linear Color** (커브 리니어 컬러) 애셋은 보간된 RGBA 포인트를 저장하는 애셋으로, 이 포인트를 지정한 범위에 걸쳐 평가하여 머티리얼에서 사용할 수 있는 컬러 그레이디언트를 생성합니다.  
+![](CurveGradient.png)
+
+[REGION:caption]
+커브 리니어 컬러 애셋으로 만든 커브 그레이디언트 예
+[/REGION]
+
+**콘텐츠 브라우저** 에서 **신규 추가 > 기타 > 커브** 를 선택하여 커브를 만듭니다.  
+
+[REGION:lightbox]
+[![](Create_Curve.png)(w:350)](Create_Curve.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+그리고 **커브 클래스 선택** 창에서 **CurveLinearColor** (커브 리니어 컬러)를 선택합니다.  
+![](PickCurveClassWindow.png)
+
+콘텐츠 브라우저에 새로운 커브 리니어 컬러 애셋이 추가되고 그 현재 그레이디언트 프리뷰가 나타납니다. 커브 애셋 에디터를 열면, 그래프의 개별 RGBA 커브에 키를 추가, 조정, 제거할 수 있습니다.  
+![](MyCurveAsset.png)
+
+커브를 그 애셋 에디터에서 열변, 개별 RGBA 커브 설정, 커브의 컬러 값 조정, 커브 그레이디언트 결과를 미리볼 수 있습니다.  
+
+[REGION:lightbox]
+[![](CurveAssetEditor.png)](CurveAssetEditor.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+[REGION:caption]
+1.  **Curve Graph** (커브 그래프)에서는 개별 RGBA 커브의 키를 조정, 추가, 제거할 수 있습니다.
+2.  **Color** (컬러) 패널에서는 모든 키에 적용되는 컬러 값을 조정할 수 있습니다.
+3.  **Curve Gradient Result** (커브 그레이디언트 결과)에서는 결과 그레이디언트가 나타납니다.
+
+[REGION:note]
+개별 커브에 Shift 를 누르고 클릭하면 단일 키를 추가합니다. 빈 그래프를 클릭하면, 클릭한 지점에 있는 모든 커브에 새 키를 추가합니다.
+[/REGION]
+[/REGION]
+
+## 커브 아틀라스 애셋
+
+**Curve Atlas** (커브 아틀라스) 애셋은 여러 커브 애셋을 저장하고 액세스하는 데 사용되며, 그레이디언트 룩업 테이블(LUT)을 관리할 수 있습니다. 커브 아틀라스 애셋 에디터는 텍스처 에디터와 비슷하게 Brightness(밝기), Vibrance(채도보정), Hue(색상) 등을 조정할 수 있습니다.  
+![](CurveAtlas.png)(w:200 h:200)
+
+[REGION:caption]
+커브 아틀라스 LUT 예
+[/REGION]
+
+커브 아틀라스에 **그레이디언트 커브** 로 할당된 커브가 아틀라스를 구성합니다. 머티리얼 그래프는 생성된 텍스처를 사용하여 액터에 적용된 머티리얼을 조회(look up)합니다.
+
+**콘텐츠 브라우저** 에서 **신규 추가 > 기타 > 커브 아틀라스** 를 선택하여 커브 아틀라스 애셋을 만듭니다.  
+
+[REGION:lightbox]
+[![](Create_CurveAtlas.png)(w:350)](Create_CurveAtlas.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+커브 아틀라스를 그 애셋 에디터에서 열면, 저장할 수 있는 커브 수 설정, 커브 할당, 할당된 모든 커브에 대한 컬러 값 조정이 가능하며, 텍스처 에디터 기능과 비슷합니다.  
+
+[REGION:lightbox]
+[![](CurveAtlasAssetEditor_1.png)](CurveAtlasAssetEditor_1.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+1.  메인 뷰포트에 표시된 **커브 아틀라스** LUT 는 적용된 **Texture Size** (텍스처 크기)에 할당된 **Gradient Curve** (그레이디언트 커브) 전부를 표시합니다.
+2.  **커브** 패널에서는 필요한 **그레이디언트 커브** 수의 **텍스처 크기** 를 설정합니다. 기본값은 256 입니다.
+3.  **Adjustments** (조정) 패널은 커브 아틀라스에 할당된 모든 **그레이디언트 커브** 의 텍스처를 조정합니다.
+
+[REGION:note]
+최대 텍스처 효율을 위해, (32, 64, 128 등) **2 거듭제곱** 값을 사용하는 것이 가장 좋습니다. 여기 텍스처 크기는 에디터 인터페이스 전체를 포함하는 데모용입니다.
+[/REGION]
+[REGION:warning]
+**Texture Size** (텍스처 크기)는 그레이디언트 충실도에 영향을 줄 수 있으므로, 복잡한 커브의 작은 아틀라스 크기에는 사용하지 않는 것이 가장 좋습니다. 그러나 간단한 커브 세트에 작은 아틀라스를 사용하면 텍스처 크기를 절약할 수 있습니다.
+[/REGION]
+
+커브 아틀라스에 새 그레이디언트 커브를 추가하려면 **더하기** (**+**) 아이콘을 눌러 배열 엘리먼트를 추가하고, **휴지통** 아이콘으로 엘리먼트를 제거합니다.  
+![](CurveAtlasAssetEditor_AddRemove.png)
+
+## 커브 아틀라스에 머티리얼 사용
+
+커브를 만들고 커브 아틀라스에 적용한 후, 그 커브 아틀라스와 아틀라스에 할당된 커브를 레퍼런싱하는 머티리얼을 만들 수 있습니다.
+
+아틀라스에서 커브를 샘플링하려면 새 머티리얼을 만들고 그래프에 우클릭한 뒤 **Curve Atlas Row Parameter** 노드를 추가합니다.  
+![](CurveAtlasRowParameter.png)
+
+[REGION:note]
+이 노드는 블루프린트를 통해 아틀라스 UV 의 V 축을 사용할 수 있는 [머티리얼 인스턴스 다이내믹](Engine/Rendering/Materials/MaterialInstances) (MID) 작업이 가능하다는 점에서 Scalar Parameter (스칼라 파라미터)와 비슷합니다만, 샘플링한 후 R, G, B, A, 마스크와 함께 Vector 3 를 반환합니다.
+[/REGION]
+
+노드를 선택하고 **디테일** 패널에서 **Atlas** (아틀라스)와 기본 **Curve** (커브)를 할당하면, 이 머티리얼이 그 아틀라스를 사용할 수 있습니다.  
+![](MatDetails_AtlasAndCurveAssignment.png)
+
+커브 아틀라스는 컴파일할 때 굽습니다. 즉 현재 실행시간에 아틀라스 내용이나 아틀라스에 저장된 커브 데이터를 변경할 수 없다는 뜻입니다. 하지만 하나의 커브 아틀라스에 많은 양의 데이터를 저장한 뒤, 블루프린트를 사용하여 머티리얼 인스턴스에서 샘플링 중인 커브를 오버라이드할 수 있습니다.
+
+예를 들어 여기 “Rock” 머티리얼은 하나의 커브 아틀라스에 할당된 다수의 커브를 사용하고 있습니다.  
+
+[REGION:lightbox]
+[![](RockMaterialSetup_2.png)](RockMaterialSetup_2.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+그런 다음 **머티리얼 인스턴스** 를 만들 때, 스칼라 파라미터를 변경하여 메시에 적용된 **커브 아틀라스** 가 레퍼런싱하는 **커브** 애셋을 선택할 수 있습니다.
+
+[REGION:imagetable]
+여기 예제는 적용된 머티리얼 인스턴스와 커브 아틀라스에서 레퍼런싱 중인 커브를 나타냅니다.
+| ![](Curve_Base.png)(w:250) | ![](Curve_1.png)(w:250) | ![](Curve_2.png)(w:250) | ![](Curve_3.png)(w:250) |
+| --- | --- | --- | --- |
+| Base | Curve 1 | Curve 2 | Curve 3 |
+[/REGION]
+
+### 블루프린트를 통한 커브 아틀라스 액세스
+
+블루프린트에서 **Get Curve Position** 노드를 사용하여 다이내믹 머티리얼 인스턴스의 스칼라 파라미터 값을 설정할 수 있습니다. Get Curve Position 은 커브 아틀라스를 입력으로 받아 스칼라 값을 **Set Scalar Parameter Value** 에 전달하고, 아틀라스에서 커브를 찾았는지 여부를 나타내는 부울 값을 반환합니다.  
+
+[REGION:lightbox]
+[![](BlueprintCurve.png)](BlueprintCurve.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]

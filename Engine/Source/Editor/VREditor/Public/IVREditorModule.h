@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
+#include "Templates/SubclassOf.h"
 
 /**
  * The public interface to this module
@@ -51,6 +52,13 @@ public:
 	virtual bool IsVREditorAvailable() const = 0;
 
 	/**
+	* Checks to see if the VR Mode button should be active or grayed out (such as during SIE)
+	*
+	* @return	True if button should be active
+	*/
+	virtual bool IsVREditorButtonActive() const = 0;
+
+	/**
 	 * Enables or disables editor VR features.  Calling this to active VR will turn on the HMD and setup
 	 * the editor UI for VR interaction.
 	 *
@@ -78,10 +86,27 @@ public:
 	*
 	* @param The new actor preview widget
 	*/
-	virtual void UpdateActorPreview(TSharedRef<class SWidget> InWidget) = 0;
+	virtual void UpdateActorPreview(TSharedRef<class SWidget> InWidget, int32 Index) = 0;
+
+
+	/**
+	* Update any external UMG UI spawned from the radial menu
+	*
+	* @param The new widget
+	* @param The label to use for the UI
+	*/
+	virtual void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name) = 0;
+
+	/**
+	* Update any external Slate UI spawned from the radial menu
+	*
+	* @param The new widget
+	* @param The label to use for the UI
+	*/
+	virtual void UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name) = 0;
 
 	/** Gets the radial menu extender.  This can be used to add your own menu items to the VR radial menu */
-	virtual const TSharedRef<class FExtender>& GetRadialMenuExtender() = 0;
+	virtual TSharedPtr<class FExtender> GetRadialMenuExtender() = 0;
 
 };
 

@@ -38,9 +38,6 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
-	FVector CrowdAgentMoveDirection;
-
 	virtual void BeginDestroy() override;
 
 	// ICrowdAgentInterface BEGIN
@@ -156,6 +153,12 @@ protected:
 	UPROPERTY(transient)
 	UCharacterMovementComponent* CharacterMovement;
 
+public:
+	UPROPERTY()
+	FVector CrowdAgentMoveDirection;
+
+protected:
+#if WITH_EDITORONLY_DATA
 	/** DEPRECATED: Group mask for this agent - use property from CharacterMovementComponent instead */
 	UPROPERTY()
 	FNavAvoidanceMask AvoidanceGroup_DEPRECATED;
@@ -167,46 +170,50 @@ protected:
 	/** DEPRECATED: Will NOT avoid other agents if they are in one of specified groups, higher priority than GroupsToAvoid - use property from CharacterMovementComponent instead */
 	UPROPERTY()
 	FNavAvoidanceMask GroupsToIgnore_DEPRECATED;
+#endif
 
 	/** if set, velocity will be updated even if agent is falling */
-	uint32 bAffectFallingVelocity : 1;
+	uint8 bAffectFallingVelocity : 1;
 
 	/** if set, move focus will match velocity direction */
-	uint32 bRotateToVelocity : 1;
+	uint8 bRotateToVelocity : 1;
 
 	/** if set, move velocity will be updated in every tick */
-	uint32 bUpdateDirectMoveVelocity : 1;
+	uint8 bUpdateDirectMoveVelocity : 1;
 
 	DEPRECATED(4.11, "Please use IsCrowdSimulationEnabled(), SetCrowdSimulationState() and SimulationState member for initialization.")
-	uint32 bEnableCrowdSimulation : 1;
+	uint8 bEnableCrowdSimulation : 1;
 
 	/** set when agent is registered in crowd simulation (either controlled or an obstacle) */
-	uint32 bRegisteredWithCrowdSimulation : 1;
+	uint8 bRegisteredWithCrowdSimulation : 1;
 
 	/** if set, avoidance and steering will be suspended (used for direct move requests) */
-	uint32 bSuspendCrowdSimulation : 1;
+	uint8 bSuspendCrowdSimulation : 1;
 
-	uint32 bEnableAnticipateTurns : 1;
-	uint32 bEnableObstacleAvoidance : 1;
-	uint32 bEnableSeparation : 1;
-	uint32 bEnableOptimizeVisibility : 1;
-	uint32 bEnableOptimizeTopology : 1;
-	uint32 bEnablePathOffset : 1;
-	uint32 bEnableSlowdownAtGoal : 1;
+	uint8 bEnableAnticipateTurns : 1;
+	uint8 bEnableObstacleAvoidance : 1;
+	uint8 bEnableSeparation : 1;
+	uint8 bEnableOptimizeVisibility : 1;
+	uint8 bEnableOptimizeTopology : 1;
+	uint8 bEnablePathOffset : 1;
+	uint8 bEnableSlowdownAtGoal : 1;
 
 	/** if set, agent if moving on final path part, skip further updates (runtime flag) */
-	uint32 bFinalPathPart : 1;
+	uint8 bFinalPathPart : 1;
 
 	/** if set, destination overshot can be tested */
-	uint32 bCanCheckMovingTooFar : 1;
+	uint8 bCanCheckMovingTooFar : 1;
 
 	/** if set, path parts can be switched in UpdatePathSegment, based on distance */
-	uint32 bCanUpdatePathPartInTick : 1;
+	uint8 bCanUpdatePathPartInTick : 1;
 
 	/** if set, movement will be finished when velocity is opposite to path direction (runtime flag) */
-	uint32 bCheckMovementAngle : 1;
+	uint8 bCheckMovementAngle : 1;
 
-	uint32 bEnableSimulationReplanOnResume : 1;
+	uint8 bEnableSimulationReplanOnResume : 1;
+
+	TEnumAsByte<ECrowdAvoidanceQuality::Type> AvoidanceQuality;
+	ECrowdSimulationState SimulationState;
 
 	float SeparationWeight;
 	float CollisionQueryRange;
@@ -220,9 +227,6 @@ protected:
 
 	/** last visited poly on path */
 	int32 LastPathPolyIndex;
-
-	TEnumAsByte<ECrowdAvoidanceQuality::Type> AvoidanceQuality;
-	ECrowdSimulationState SimulationState;
 
 	// PathFollowingComponent BEGIN
 	virtual int32 DetermineStartingPathPoint(const FNavigationPath* ConsideredPath) const override;

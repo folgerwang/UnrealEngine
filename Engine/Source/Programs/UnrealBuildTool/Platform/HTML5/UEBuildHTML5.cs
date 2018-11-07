@@ -95,10 +95,6 @@ namespace UnrealBuildTool
 					return ".js";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".bc";
-				case UEBuildBinaryType.Object:
-					return ".bc";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".gch";
 			}
 
 			return base.GetBinaryExtension(InBinaryType);
@@ -121,17 +117,6 @@ namespace UnrealBuildTool
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
 			// This platform currently always compiles monolithic
-			return true;
-		}
-
-		/// <summary>
-		/// Whether the editor should be built for this platform or not
-		/// </summary>
-		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration">The UnrealTargetConfiguration being built</param>
-		/// <returns>bool   true if the editor should be built, false if not</returns>
-		public override bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
 			return true;
 		}
 
@@ -202,7 +187,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("UNICODE");
 			CompileEnvironment.Definitions.Add("_UNICODE");
 			CompileEnvironment.Definitions.Add("WITH_AUTOMATION_WORKER=0");
-			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 			CompileEnvironment.Definitions.Add("USE_SCENE_LOCK=0");
 

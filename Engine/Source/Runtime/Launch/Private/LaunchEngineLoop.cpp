@@ -28,8 +28,12 @@
 #include "HAL/FileManagerGeneric.h"
 #include "HAL/ExceptionHandling.h"
 #include "Stats/StatsMallocProfilerProxy.h"
+#if WITH_ENGINE
 #include "HAL/PlatformSplash.h"
+#endif
+#if WITH_APPLICATION_CORE
 #include "HAL/PlatformApplicationMisc.h"
+#endif
 #include "HAL/ThreadManager.h"
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Containers/Ticker.h"
@@ -146,9 +150,9 @@
 #endif
 
 	#include "MoviePlayer.h"
+    #include "PreLoadScreenManager.h"
 
 	#include "ShaderCodeLibrary.h"
-	#include "ShaderCache.h"
 	#include "ShaderPipelineCache.h"
 
 #if !UE_BUILD_SHIPPING
@@ -281,10 +285,12 @@ public:
 class FOutputDeviceStdOutput : public FOutputDevice
 {
 public:
-
 	FOutputDeviceStdOutput()
-		: AllowedLogVerbosity(ELogVerbosity::Display)
 	{
+#if PLATFORM_WINDOWS
+		bIsConsoleOutput = IsStdoutAttachedToConsole() && !FParse::Param(FCommandLine::Get(), TEXT("GenericConsoleOutput"));
+#endif
+
 		if (FParse::Param(FCommandLine::Get(), TEXT("AllowStdOutLogVerbosity")))
 		{
 			AllowedLogVerbosity = ELogVerbosity::Log;
@@ -296,10 +302,6 @@ public:
 		}
 	}
 
-	virtual ~FOutputDeviceStdOutput()
-	{
-	}
-
 	virtual bool CanBeUsedOnAnyThread() const override
 	{
 		return true;
@@ -309,20 +311,54 @@ public:
 	{
 		if (Verbosity <= AllowedLogVerbosity)
 		{
+			FString line = FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes);
+
+#if PLATFORM_WINDOWS
+			if (bIsConsoleOutput)
+			{
+				line.AppendChar('\n');
+
+				WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), *line, line.Len(), NULL, NULL);
+
+				return;
+			}
+
+			// fall through to standard printf path
+#endif
+
 #if PLATFORM_TCHAR_IS_CHAR16
-			printf("%s\n", TCHAR_TO_UTF8(*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes)));
+			printf("%s\n", TCHAR_TO_UTF8(*line));
 #elif PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 			// printf prints wchar_t strings just fine with %ls, while mixing printf()/wprintf() is not recommended (see https://stackoverflow.com/questions/8681623/printf-and-wprintf-in-single-c-code)
-			printf("%ls\n", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			printf("%ls\n", *line);
 #else
-			wprintf(TEXT("%s\n"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			wprintf(TEXT("%s\n"), *line);
 #endif
+
 			fflush(stdout);
 		}
 	}
 
 private:
-	ELogVerbosity::Type AllowedLogVerbosity;
+	ELogVerbosity::Type AllowedLogVerbosity = ELogVerbosity::Display;
+	bool				bIsConsoleOutput = false;
+
+#if PLATFORM_WINDOWS
+	static bool IsStdoutAttachedToConsole()
+	{
+		HANDLE StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+		if (StdoutHandle != INVALID_HANDLE_VALUE)
+		{
+			DWORD FileType = GetFileType(StdoutHandle);
+			if (FileType == FILE_TYPE_CHAR)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+#endif
 };
 
 
@@ -369,7 +405,9 @@ public:
 };
 
 
+#if WITH_APPLICATION_CORE
 static TUniquePtr<FOutputDeviceConsole>	GScopedLogConsole;
+#endif
 static TUniquePtr<FOutputDeviceStdOutput> GScopedStdOut;
 static TUniquePtr<FOutputDeviceTestExit> GScopedTestExit;
 
@@ -380,8 +418,7 @@ static void RHIExitAndStopRHIThread()
 #if HAS_GPU_STATS
 	FRealtimeGPUProfiler::Get()->Release();
 #endif
-	FShaderPipelineCache::Shutdown();
-	
+
 	// Stop the RHI Thread (using GRHIThread_InternalUseOnly is unreliable since RT may be stopped)
 	if (FTaskGraphInterface::IsRunning() && FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::RHIThread))
 	{
@@ -887,7 +924,6 @@ int32 FEngineLoop::PreInit(int32 ArgC, TCHAR* ArgV[], const TCHAR* AdditionalCom
 	return GEngineLoop.PreInit(*CmdLine);
 }
 
-
 #if WITH_ENGINE
 bool IsServerDelegateForOSS(FName WorldContextHandle)
 {
@@ -909,7 +945,6 @@ bool IsServerDelegateForOSS(FName WorldContextHandle)
 	{
 		ensure(WorldContextHandle == NAME_None);
 		UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
-
 		if (GameEngine)
 		{
 			World = GameEngine->GetGameWorld();
@@ -917,16 +952,18 @@ bool IsServerDelegateForOSS(FName WorldContextHandle)
 		else
 		{
 #if WITH_EDITOR
+			// The calling code didn't pass in a world context and really should have
 			if (GIsPlayInEditorWorld)
 			{
 				World = GWorld;
 			}
 #endif
 
-			if (World == nullptr)
-			{
-				return false;
-			}
+#if !WITH_DEV_AUTOMATION_TESTS
+			// Not having a world to make the right determination is a bad thing
+			// In the editor during PIE this will confuse the individual PIE windows and their associated online components
+			UE_CLOG((World == nullptr), LogInit, Error, TEXT("Failed to determine if OSS is server in PIE, OSS requests will fail"));
+#endif
 		}
 	}
 
@@ -934,7 +971,6 @@ bool IsServerDelegateForOSS(FName WorldContextHandle)
 	return (NetMode == NM_ListenServer || NetMode == NM_DedicatedServer);
 }
 #endif
-
 
 #if WITH_ENGINE && CSV_PROFILER
 static void UpdateCoreCsvStats()
@@ -955,6 +991,11 @@ DECLARE_CYCLE_STAT( TEXT( "FEngineLoop::PreInit.AfterStats" ), STAT_FEngineLoop_
 int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 {
 	FMemory::SetupTLSCachesOnCurrentThread();
+
+	// Set the flag for whether we've build DebugGame instead of Development. The engine does not know this (whereas the launch module does) because it is always built in development.
+#if UE_BUILD_DEVELOPMENT && defined(UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME) && UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME
+	FApp::SetDebugGame(true);
+#endif
 
 	// disable/enable LLM based on commandline
 	LLM(FLowLevelMemTracker::Get().ProcessCommandLine(CmdLine));
@@ -1017,8 +1058,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		return 1;
 	}
 
+#if WITH_APPLICATION_CORE
 	// Initialize log console here to avoid statics initialization issues when launched from the command line.
 	GScopedLogConsole = TUniquePtr<FOutputDeviceConsole>(FPlatformApplicationMisc::CreateConsoleOutputDevice());
+#endif
 
 	// Always enable the backlog so we get all messages, we will disable and clear it in the game
 	// as soon as we determine whether GIsEditor == false
@@ -1088,8 +1131,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	// Output devices.
+#if WITH_APPLICATION_CORE
 	GError = FPlatformApplicationMisc::GetErrorOutputDevice();
 	GWarn = FPlatformApplicationMisc::GetFeedbackContext();
+#else
+	GError = FPlatformOutputDevices::GetError();
+	GWarn = FPlatformOutputDevices::GetFeedbackContext();
+#endif
 
 	// allow the command line to override the platform file singleton
 	bool bFileOverrideFound = false;
@@ -1132,7 +1180,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 #if WITH_ENGINE
 	// Add the default engine shader dir
-	FGenericPlatformProcess::AddShaderSourceDirectoryMapping(TEXT("/Engine"), FGenericPlatformProcess::ShaderDir());
+	AddShaderSourceDirectoryMapping(TEXT("/Engine"), FGenericPlatformProcess::ShaderDir());
 
 	TArray<FString> Tokens;
 	TArray<FString> Switches;
@@ -1410,9 +1458,17 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 #endif
 
-	// initialize task graph sub-system with potential multiple threads
-	FTaskGraphInterface::Startup(FPlatformMisc::NumberOfCores());
-	FTaskGraphInterface::Get().AttachToThread(ENamedThreads::GameThread);
+	// Some programs might not use the taskgraph or thread pool
+	bool bCreateTaskGraphAndThreadPools = true;
+#if IS_PROGRAM
+	bCreateTaskGraphAndThreadPools = !FParse::Param(FCommandLine::Get(), TEXT("ReduceThreadUsage"));
+#endif
+	if (bCreateTaskGraphAndThreadPools)
+	{
+		// initialize task graph sub-system with potential multiple threads
+		FTaskGraphInterface::Startup(FPlatformMisc::NumberOfCores());
+		FTaskGraphInterface::Get().AttachToThread(ENamedThreads::GameThread);
+	}
 
 #if STATS
 	FThreadStats::StartThread();
@@ -1462,7 +1518,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 #endif //WITH_EDITOR
 
-	if (FPlatformProcess::SupportsMultithreading())
+	if (FPlatformProcess::SupportsMultithreading() && bCreateTaskGraphAndThreadPools)
 	{
 		int StackSize = 128;
 		bool bForceEditorStackSize = false;
@@ -1508,8 +1564,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #endif
 	}
 
+#if WITH_APPLICATION_CORE
 	// Get a pointer to the log output device
 	GLogConsole = GScopedLogConsole.Get();
+#endif
 
 	LoadPreInitModules();
 
@@ -1573,14 +1631,20 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 #endif
 
+	// Init scalability system and defaults
+	Scalability::InitScalabilitySystem();
+
+	// Set all CVars which have been setup in the device profiles.
+	// This may include scalability group settings which will override
+	// the defaults set above which can then be replaced below when
+	// the game user settings are loaded and applied.
+	UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile();
+
 	// As early as possible to avoid expensive re-init of subsystems,
 	// after SystemSettings.ini file loading so we get the right state,
 	// before ConsoleVariables.ini so the local developer can always override.
-	// before InitializeCVarsForActiveDeviceProfile() so the platform can override user settings
+	// after InitializeCVarsForActiveDeviceProfile() so the user can override platform defaults
 	Scalability::LoadState((bHasEditorToken && !GEditorSettingsIni.IsEmpty()) ? GEditorSettingsIni : GGameUserSettingsIni);
-
-	// Set all CVars which have been setup in the device profiles.
-	UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile();
 
 	if (FPlatformMisc::UseRenderThread())
 	{
@@ -1595,7 +1659,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		// platform specific initialization now that the SystemSettings are loaded
 		FPlatformMisc::PlatformInit();
+#if WITH_APPLICATION_CORE
 		FPlatformApplicationMisc::Init();
+#endif
 		FPlatformMemory::Init();
 	}
 
@@ -1711,7 +1777,33 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	// Delete temporary files in cache.
-	FPlatformProcess::CleanFileCache();
+	{
+		bool bShouldCleanShaderWorkingDirectory = true;
+#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
+		// Only clean the shader working directory if we are the first instance, to avoid deleting files in use by other instances
+		//@todo - check if any other instances are running right now
+		bShouldCleanShaderWorkingDirectory = GIsFirstInstance;
+#endif
+
+		if (bShouldCleanShaderWorkingDirectory && !FParse::Param(FCommandLine::Get(), TEXT("Multiprocess")))
+		{
+			// get shader path, and convert it to the userdirectory
+			for (const auto& SHaderSourceDirectoryEntry : AllShaderSourceDirectoryMappings())
+			{
+				FString ShaderDir = FString(FPlatformProcess::BaseDir()) / SHaderSourceDirectoryEntry.Value;
+				FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
+				FPaths::CollapseRelativeDirectories(ShaderDir);
+
+				// make sure we don't delete from the source directory
+				if (ShaderDir != UserShaderDir)
+				{
+					IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
+				}
+			}
+
+			FPlatformProcess::CleanShaderWorkingDir();
+		}
+	}
 
 #if !UE_BUILD_SHIPPING
 	GIsDemoMode = FParse::Param(FCommandLine::Get(), TEXT("DEMOMODE"));
@@ -1746,8 +1838,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 	InitEngineTextLocalization();
 
+	bool bForceEnableHighDPI = false;
+#if WITH_EDITOR
+	bForceEnableHighDPI = FPIEPreviewDeviceModule::IsRequestingPreviewDevice();
+#endif
+
 	// This must be called before any window (including the splash screen is created
-	FSlateApplication::InitHighDPI();
+	FSlateApplication::InitHighDPI(bForceEnableHighDPI);
 
 	UStringTable::InitializeEngineBridge();
 
@@ -1805,17 +1902,19 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	// Initialize the RHI.
 	RHIInit(bHasEditorToken);
 
+	// One-time initialization of global variables based on engine configuration.
+	RenderUtilsInit();
+
 	if (FPlatformProperties::RequiresCookedData())
 	{
 		// Will open material shader code storage if project was packaged with it
         // This only opens the Global shader library, which is always in the content dir.
 		FShaderCodeLibrary::InitForRuntime(GMaxRHIShaderPlatform);
 			
-		// Will open the pipeline cache if available
+		// Initialize the pipeline cache system. Opening is deferred until the manual call to
+		// OpenPipelineFileCache below, after content pak's ShaderCodeLibraries are loaded.
 		FShaderPipelineCache::Initialize(GMaxRHIShaderPlatform);
 	}
-
-	FShaderCache::LoadBinaryCache();
 
 	FString Commandline = FCommandLine::Get();
 	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
@@ -1827,13 +1926,15 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		check(!GDistanceFieldAsyncQueue);
 		GDistanceFieldAsyncQueue = new FDistanceFieldAsyncQueue();
+
+		// Shader hash cache is required only for shader compilation.
+		InitializeShaderHashCache();
 	}
 
 	// Cache the renderer module in the main thread so that we can safely retrieve it later from the rendering thread.
 	GetRendererModule();
 
 	{
-
 		// Initialize shader types before loading any shaders
 		InitializeShaderTypes();
 
@@ -1861,6 +1962,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		}
 
 		CreateMoviePlayer();
+
+        if (FPreLoadScreenManager::ArePreLoadScreensEnabled())
+        {
+            FPreLoadScreenManager::Create();
+            ensure(FPreLoadScreenManager::Get());
+        }
+
 		// If platforms support early movie playback we have to start the rendering thread much earlier
 #if PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK
 		PostInitRHI();
@@ -1914,7 +2022,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				GetMoviePlayer()->Initialize(SlateRenderer.Get());
 
                 // hide splash screen now before playing any movies
-                FPlatformMisc::PlatformHandleSplashScreen(false);
+				FPlatformMisc::PlatformHandleSplashScreen(false);
 
 				// only allowed to play any movies marked as early startup.  These movies or widgets can have no interaction whatsoever with uobjects or engine features
 				GetMoviePlayer()->PlayEarlyStartupMovies();
@@ -1977,6 +2085,18 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				}
 #endif
 			}
+            else
+            {
+                // hide splash screen now before playing any movies
+                FPlatformMisc::PlatformHandleSplashScreen(false);
+
+                if (FPreLoadScreenManager::Get())
+                {
+                    //initialize and play our first Early PreLoad Screen if one is setup
+                    FPreLoadScreenManager::Get()->Initialize(SlateRenderer.Get());
+                    FPreLoadScreenManager::Get()->PlayFirstPreLoadScreen(EPreLoadScreenTypes::EarlyStartupScreen);
+                }
+            }
 		}
 		else if ( IsRunningCommandlet() )
 		{
@@ -1988,9 +2108,18 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		{
 			if (FCoreDelegates::OnMountAllPakFiles.IsBound() )
 			{
+#if 1
+				FString InstalledGameContentDir = FPaths::Combine(*FPaths::ProjectPersistentDownloadDir(), TEXT("InstalledContent"), FApp::GetProjectName(), TEXT("Content"), TEXT("Paks"));
+				FPlatformMisc::AddAdditionalRootDirectory(FPaths::Combine(*FPaths::ProjectPersistentDownloadDir(), TEXT("InstalledContent")));
+
+				TArray<FString> PakFolders;
+				PakFolders.Add(InstalledGameContentDir);
+				FCoreDelegates::OnMountAllPakFiles.Execute(PakFolders);
+#else
 				TArray<FString> PakFolders;
 				PakFolders.Add(FPaths::Combine(*FPaths::ProjectPersistentDownloadDir(), TEXT("InstalledContent"), FApp::GetProjectName(), TEXT("Content"), TEXT("Paks")));
 				FCoreDelegates::OnMountAllPakFiles.Execute(PakFolders);
+#endif
 			}
 
 			extern CORE_API void ReapplyRecordedCVarSettingsFromIni();
@@ -2009,6 +2138,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			{
 				FShaderCodeLibrary::OpenLibrary(FApp::GetProjectName(), FPaths::Combine(*FPaths::ProjectPersistentDownloadDir(), TEXT("InstalledContent"), FApp::GetProjectName(), TEXT("Content")));
 			}
+
+			// Now our shader code main library is opened, kick off the precompile.
+			FShaderPipelineCache::OpenPipelineFileCache(GMaxRHIShaderPlatform);
 		}
 		
 		InitGameTextLocalization();
@@ -2083,13 +2215,29 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 #if !UE_SERVER
-	if (!IsRunningDedicatedServer() && !IsRunningCommandlet() && !GetMoviePlayer()->IsMovieCurrentlyPlaying())
-	{
-		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
-		{
-			GetMoviePlayer()->Initialize(*Renderer);
-		}
-	}
+    //See if we have an engine loading PreLoadScreen registered, if not try to play an engine loading movie as a backup.
+    if (!IsRunningDedicatedServer() && !IsRunningCommandlet() && !GetMoviePlayer()->IsMovieCurrentlyPlaying())
+    {
+        if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+        {
+            if (FPreLoadScreenManager::Get())
+            {
+                if (FPreLoadScreenManager::Get()->HasRegisteredPreLoadScreenType(EPreLoadScreenTypes::EngineLoadingScreen))
+                {
+                    FPreLoadScreenManager::Get()->Initialize(*Renderer);
+                }
+                else
+                {
+                    //If we don't have a PreLoadScreen to show, try and initialize old flow with the movie player.
+                    GetMoviePlayer()->Initialize(*Renderer, FPreLoadScreenManager::Get()->GetRenderWindow());
+                }
+            }
+            else
+            {
+                GetMoviePlayer()->Initialize(*Renderer, nullptr);
+            }
+        }
+    }
 #endif
 
 		// do any post appInit processing, before the render thread is started.
@@ -2122,8 +2270,16 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #if !UE_SERVER// && !UE_EDITOR
 	if (!IsRunningDedicatedServer() && !IsRunningCommandlet() && !GetMoviePlayer()->IsMovieCurrentlyPlaying())
 	{
-		// Play any non-early startup loading movies.
-		GetMoviePlayer()->PlayMovie();
+        if (FPreLoadScreenManager::Get() && FPreLoadScreenManager::Get()->HasRegisteredPreLoadScreenType(EPreLoadScreenTypes::EngineLoadingScreen))
+        {
+            FPreLoadScreenManager::Get()->PlayFirstPreLoadScreen(EPreLoadScreenTypes::EngineLoadingScreen);
+			FPreLoadScreenManager::Get()->SetEngineLoadingComplete(false);
+        }
+        else
+        {
+            // Play any non-early startup loading movies.
+            GetMoviePlayer()->PlayMovie();
+        }
 	}
 #endif
 
@@ -2507,7 +2663,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #if USE_LOCALIZED_PACKAGE_CACHE
 	FPackageLocalizationManager::Get().InitializeFromDefaultCache();
 #endif	// USE_LOCALIZED_PACKAGE_CACHE
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::PostInit();
+#endif
 #endif // WITH_ENGINE
 
 	//run automation smoke tests now that everything is setup to run
@@ -2698,6 +2856,7 @@ bool FEngineLoop::LoadStartupCoreModules()
 		FModuleManager::Get().LoadModule(TEXT("Blutility"));
 	}
 
+	//FModuleManager::Get().LoadModule(TEXT("VirtualTexturingEditor"));
 #endif //(WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
 #if WITH_ENGINE
@@ -2844,6 +3003,11 @@ int32 FEngineLoop::Init()
 	check( GEngine );
 
 	GetMoviePlayer()->PassLoadingScreenWindowBackToGame();
+    
+    if (FPreLoadScreenManager::Get())
+    {
+        FPreLoadScreenManager::Get()->PassPreLoadScreenWindowBackToGame();
+    }
 
 	GEngine->ParseCommandline();
 
@@ -2870,8 +3034,8 @@ int32 FEngineLoop::Init()
 			
 			if (SessionService.IsValid())
 			{
-				SessionService->Start();
-			}
+			SessionService->Start();
+		}
 		}
 
 		EngineService = new FEngineService();
@@ -2886,7 +3050,15 @@ int32 FEngineLoop::Init()
 
 	GEngine->Start();
 
-	GetMoviePlayer()->WaitForMovieToFinish();
+    if (FPreLoadScreenManager::Get() && FPreLoadScreenManager::Get()->HasActivePreLoadScreenType(EPreLoadScreenTypes::EngineLoadingScreen))
+    {
+        FPreLoadScreenManager::Get()->SetEngineLoadingComplete(true);
+        FPreLoadScreenManager::Get()->WaitForEngineLoadingScreenToFinish();
+    }
+    else
+    {
+        GetMoviePlayer()->WaitForMovieToFinish();
+    }
 
 #if !UE_SERVER
 	// initialize media framework
@@ -3028,9 +3200,8 @@ void FEngineLoop::Exit()
 	// Stop the rendering thread.
 	StopRenderingThread();
 
-
-	// Disable the shader cache
-	FShaderCache::ShutdownShaderCache();
+	// Disable the PSO cache
+	FShaderPipelineCache::Shutdown();
 
 	// Close shader code map, if any
 	FShaderCodeLibrary::Shutdown();
@@ -3258,15 +3429,50 @@ uint64 FScopedSampleMallocChurn::DumpFrame = 0;
 
 #endif
 
-static inline void IssueLongGPUTaskHelper()
+
+static inline void BeginFrameRenderThread(FRHICommandListImmediate& RHICmdList, uint64 CurrentFrameCounter)
 {
-#if WITH_PROFILEGPU && !UE_BUILD_SHIPPING
+	GRHICommandList.LatchBypass();
+	GFrameNumberRenderThread++;
+
+#if !UE_BUILD_SHIPPING 
+	// If we are profiling, kick off a long GPU task to make the GPU always behind the CPU so that we
+	// won't get GPU idle time measured in profiling results
+#if WITH_PROFILEGPU 
 	if (GTriggerGPUProfile && !GTriggerGPUHitchProfile)
 	{
-		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 		IssueScalableLongGPUTask(RHICmdList);
 	}
 #endif
+	FString FrameString = FString::Printf(TEXT("Frame %d"), CurrentFrameCounter);
+#if ENABLE_NAMED_EVENTS
+#if PLATFORM_LIMIT_PROFILER_UNIQUE_NAMED_EVENTS
+	FPlatformMisc::BeginNamedEvent(FColor::Yellow, TEXT("Frame"));
+#else
+	FPlatformMisc::BeginNamedEvent(FColor::Yellow, *FrameString);
+#endif
+#endif // ENABLE_NAMED_EVENTS
+	RHICmdList.PushEvent(*FrameString, FColor::Green);
+#endif // !UE_BUILD_SHIPPING
+
+	GPU_STATS_BEGINFRAME(RHICmdList);
+	RHICmdList.BeginFrame();
+	FCoreDelegates::OnBeginFrameRT.Broadcast();
+}
+
+
+static inline void EndFrameRenderThread(FRHICommandListImmediate& RHICmdList)
+{
+	FCoreDelegates::OnEndFrameRT.Broadcast();
+	RHICmdList.EndFrame();
+
+	GPU_STATS_ENDFRAME(RHICmdList);
+#if !UE_BUILD_SHIPPING 
+	RHICmdList.PopEvent();
+#if ENABLE_NAMED_EVENTS
+	FPlatformMisc::EndNamedEvent();
+#endif
+#endif // !UE_BUILD_SHIPPING 
 }
 
 void FEngineLoop::Tick()
@@ -3303,7 +3509,12 @@ void FEngineLoop::Tick()
 	FPlatformMisc::BeginNamedEventFrame();
 
 	uint64 CurrentFrameCounter = GFrameCounter;
+
+#if PLATFORM_LIMIT_PROFILER_UNIQUE_NAMED_EVENTS
+	SCOPED_NAMED_EVENT(FEngineLoopTick, FColor::Red);
+#else
 	SCOPED_NAMED_EVENT_F(TEXT("Frame %d"), FColor::Red, CurrentFrameCounter);
+#endif
 
 	// execute callbacks for cvar changes
 	{
@@ -3333,7 +3544,7 @@ void FEngineLoop::Tick()
 
 		// flush debug output which has been buffered by other threads
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_FlushThreadedLogs);
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_FlushThreadedLogs); 
 			GLog->FlushThreadedLogs();
 		}
 
@@ -3353,20 +3564,7 @@ void FEngineLoop::Tick()
 		// beginning of RHI frame
 		ENQUEUE_RENDER_COMMAND(BeginFrame)([CurrentFrameCounter](FRHICommandListImmediate& RHICmdList)
 		{
-			GRHICommandList.LatchBypass();
-			GFrameNumberRenderThread++;
-
-			// If we are profiling, kick off a long GPU task to make the GPU always behind the CPU so that we
-			// won't get GPU idle time measured in profiling results
-			IssueLongGPUTaskHelper();
-
-			FString FrameString = FString::Printf(TEXT("Frame %d"), CurrentFrameCounter);
-			FPlatformMisc::BeginNamedEvent(FColor::Yellow, *FrameString);
-			RHICmdList.PushEvent(*FrameString, FColor::Green);
-
-			GPU_STATS_BEGINFRAME(RHICmdList);
-			RHICmdList.BeginFrame();
-			FCoreDelegates::OnBeginFrameRT.Broadcast();
+			BeginFrameRenderThread(RHICmdList, CurrentFrameCounter);
 		});
 
 		#if !UE_SERVER && WITH_ENGINE
@@ -3469,9 +3667,15 @@ void FEngineLoop::Tick()
 			LLM_SCOPE(ELLMTag::UI);
 
 			FSlateApplication& SlateApp = FSlateApplication::Get();
-			SlateApp.PollGameDeviceState();
+            {
+                QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_Tick_PollGameDeviceState);
+                SlateApp.PollGameDeviceState();
+            }
 			// Gives widgets a chance to process any accumulated input
-			SlateApp.FinishedInputThisFrame();
+            {
+                QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_Tick_FinishedInputThisFrame);
+                SlateApp.FinishedInputThisFrame();
+            }
 		}
 
 #if !UE_SERVER
@@ -3492,8 +3696,29 @@ void FEngineLoop::Tick()
 		// wait for it to finish before we continue to tick or tick again
 		// We do this right after GEngine->Tick() because that is where user code would initiate a load / movie.
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_WaitForMovieToFinish);
-			GetMoviePlayer()->WaitForMovieToFinish(true);
+            if (FPreLoadScreenManager::Get() && FPreLoadScreenManager::Get()->HasRegisteredPreLoadScreenType(EPreLoadScreenTypes::EngineLoadingScreen))
+            {
+                //Wait for any Engine Loading Screen to stop
+                if (FPreLoadScreenManager::Get()->HasActivePreLoadScreenType(EPreLoadScreenTypes::EngineLoadingScreen))
+                {
+                    FPreLoadScreenManager::Get()->WaitForEngineLoadingScreenToFinish();
+                }
+
+                //Switch Game Window Back
+                UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
+                if (GameEngine)
+                {
+                    GameEngine->SwitchGameWindowToUseGameViewport();
+                }
+
+                //Destroy / Clean Up PreLoadScreenManager as we are now done
+                FPreLoadScreenManager::Destroy();
+            }
+			else
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_WaitForMovieToFinish);
+				GetMoviePlayer()->WaitForMovieToFinish(true);
+			}
 		}
 
 		if (GShaderCompilingManager)
@@ -3537,7 +3762,7 @@ void FEngineLoop::Tick()
 		if (bDoConcurrentSlateTick)
 		{
 			const float DeltaSeconds = FApp::GetDeltaTime();
-			
+
 			if (CurrentDemoNetDriver && CurrentDemoNetDriver->ShouldTickFlushAsyncEndOfFrame())
 			{
 			ConcurrentTask = TGraphTask<FExecuteConcurrentWithSlateTickTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(
@@ -3691,11 +3916,7 @@ void FEngineLoop::Tick()
 		// end of RHI frame
 		ENQUEUE_UNIQUE_RENDER_COMMAND(EndFrame,
 		{
-			FCoreDelegates::OnEndFrameRT.Broadcast();
-			RHICmdList.EndFrame();
-			GPU_STATS_ENDFRAME(RHICmdList);
-			RHICmdList.PopEvent();
-			FPlatformMisc::EndNamedEvent();
+			EndFrameRenderThread(RHICmdList);
 		});
 
 		// Set CPU utilization stats.
@@ -3727,7 +3948,8 @@ static TAutoConsoleVariable<int32> CVarLogTimestamp(
 	TEXT("  0 = Do not display log timestamps\n")
 	TEXT("  1 = Log time stamps in UTC and frame time (default) e.g. [2015.11.25-21.28.50:803][376]\n")
 	TEXT("  2 = Log timestamps in seconds elapsed since GStartTime e.g. [0130.29][420]")
-	TEXT("  3 = Log timestamps in local time and frame time e.g. [2017.08.04-17.59.50:803][420]"),
+	TEXT("  3 = Log timestamps in local time and frame time e.g. [2017.08.04-17.59.50:803][420]")
+	TEXT("  4 = Log timestamps with the engine's timecode and frame time e.g. [17:59:50:18][420]"),
 	ECVF_Default);
 
 
@@ -3757,6 +3979,7 @@ static void CVarLogSinkFunction()
 			case 1: GPrintLogTimes = ELogTimes::UTC; break;
 			case 2: GPrintLogTimes = ELogTimes::SinceGStartTime; break;
 			case 3: GPrintLogTimes = ELogTimes::Local; break;
+			case 4: GPrintLogTimes = ELogTimes::Timecode; break;
 		}
 	}
 
@@ -3793,6 +4016,10 @@ static void CheckForPrintTimesOverride()
 		{
 			CVarLogTimestamp->Set((int)ELogTimes::Local, ECVF_SetBySystemSettingsIni);
 		}
+		else if (LogTimes == TEXT( "Timecode" ))
+		{
+			CVarLogTimestamp->Set((int)ELogTimes::Timecode, ECVF_SetBySystemSettingsIni);
+		}
 		// Assume this is a bool for backward compatibility
 		else if (FCString::ToBool( *LogTimes ))
 		{
@@ -3819,6 +4046,10 @@ static void CheckForPrintTimesOverride()
 	else if (FParse::Param( FCommandLine::Get(), TEXT( "LOCALLOGTIMES" ) ))
 	{
 		CVarLogTimestamp->Set((int)ELogTimes::Local, ECVF_SetByCommandline);
+	}
+	else if (FParse::Param(FCommandLine::Get(), TEXT( "LOGTIMECODE" )))
+	{
+		CVarLogTimestamp->Set((int)ELogTimes::Timecode, ECVF_SetByCommandline);
 	}
 }
 
@@ -3863,24 +4094,15 @@ bool FEngineLoop::AppInit( )
 	}
 
 
-	// 8192 is the maximum length of the command line on Windows XP.
-	TCHAR CmdLineEnv[8192];
-
 	// Retrieve additional command line arguments from environment variable.
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-CmdLineArgs"), CmdLineEnv,ARRAY_COUNT(CmdLineEnv));
-
-	// Manually nullptr terminate just in case. The nullptr string is returned above in the error case so
-	// we don't have to worry about that.
-	CmdLineEnv[ARRAY_COUNT(CmdLineEnv)-1] = 0;
-	FString Env = FString(CmdLineEnv).TrimStart();
-
+	FString Env = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-CmdLineArgs")).TrimStart();
 	if (Env.Len())
 	{
 		// Append the command line environment after inserting a space as we can't set it in the
 		// environment. Note that any code accessing GCmdLine before appInit obviously won't
 		// respect the command line environment additions.
 		FCommandLine::Append(TEXT(" -EnvAfterHere "));
-		FCommandLine::Append(CmdLineEnv);
+		FCommandLine::Append(*Env);
 	}
 #endif
 
@@ -3889,7 +4111,9 @@ bool FEngineLoop::AppInit( )
 
 	// Platform specific pre-init.
 	FPlatformMisc::PlatformPreInit();
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::PreInit();
+#endif
 
 	// Keep track of start time.
 	GSystemStartTime = FDateTime::Now().ToString();
@@ -4113,52 +4337,8 @@ bool FEngineLoop::AppInit( )
 		GLogConsole->Show(true);
 	}
 
-	//// Command line.
-	UE_LOG(LogInit, Log, TEXT("Build: %s"), FApp::GetBuildVersion());
-	UE_LOG(LogInit, Log, TEXT("Engine Version: %s"), *FEngineVersion::Current().ToString());
-	UE_LOG(LogInit, Log, TEXT("Compatible Engine Version: %s"), *FEngineVersion::CompatibleWith().ToString());
-	UE_LOG(LogInit, Log, TEXT("Net CL: %u"), FNetworkVersion::GetNetworkCompatibleChangelist());
-	FString OSLabel, OSVersion;
-	FPlatformMisc::GetOSVersions(OSLabel, OSVersion);
-	UE_LOG(LogInit, Log, TEXT("OS: %s (%s), CPU: %s, GPU: %s"), *OSLabel, *OSVersion, *FPlatformMisc::GetCPUBrand(), *FPlatformMisc::GetPrimaryGPUBrand());
-
-#if PLATFORM_64BITS
-	UE_LOG(LogInit, Log, TEXT("Compiled (64-bit): %s %s"), ANSI_TO_TCHAR(__DATE__), ANSI_TO_TCHAR(__TIME__));
-#else
-	UE_LOG(LogInit, Log, TEXT("Compiled (32-bit): %s %s"), ANSI_TO_TCHAR(__DATE__), ANSI_TO_TCHAR(__TIME__));
-#endif
-
-	// Print compiler version info
-#if defined(__clang__)
-	UE_LOG(LogInit, Log, TEXT("Compiled with Clang: %s"), ANSI_TO_TCHAR( __clang_version__ ) );
-#elif defined(__INTEL_COMPILER)
-	UE_LOG(LogInit, Log, TEXT("Compiled with ICL: %d"), __INTEL_COMPILER);
-#elif defined( _MSC_VER )
-	#ifndef __INTELLISENSE__	// Intellisense compiler doesn't support _MSC_FULL_VER
-	{
-		const FString VisualCPPVersion( FString::Printf( TEXT( "%d" ), _MSC_FULL_VER ) );
-		const FString VisualCPPRevisionNumber( FString::Printf( TEXT( "%02d" ), _MSC_BUILD ) );
-		UE_LOG(LogInit, Log, TEXT("Compiled with Visual C++: %s.%s.%s.%s"),
-			*VisualCPPVersion.Mid( 0, 2 ), // Major version
-			*VisualCPPVersion.Mid( 2, 2 ), // Minor version
-			*VisualCPPVersion.Mid( 4 ),	// Build version
-			*VisualCPPRevisionNumber	// Revision number
-			);
-	}
-	#endif
-#else
-	UE_LOG(LogInit, Log, TEXT("Compiled with unrecognized C++ compiler") );
-#endif
-
-	UE_LOG(LogInit, Log, TEXT("Build Configuration: %s"), EBuildConfigurations::ToString(FApp::GetBuildConfiguration()));
-	UE_LOG(LogInit, Log, TEXT("Branch Name: %s"), *FApp::GetBranchName() );
-	FString FilteredString = FCommandLine::IsCommandLineLoggingFiltered() ? TEXT("Filtered ") : TEXT("");
-	UE_LOG(LogInit, Log, TEXT("%sCommand Line: %s"), *FilteredString, FCommandLine::GetForLogging() );
-	UE_LOG(LogInit, Log, TEXT("Base Directory: %s"), FPlatformProcess::BaseDir() );
-	//UE_LOG(LogInit, Log, TEXT("Character set: %s"), sizeof(TCHAR)==1 ? TEXT("ANSI") : TEXT("Unicode") );
-	UE_LOG(LogInit, Log, TEXT("Installed Engine Build: %d"), FApp::IsEngineInstalled() ? 1 : 0);
-
-	FDevVersionRegistration::DumpVersionsToLog();
+	// Print all initial startup logging
+	FApp::PrintStartupLogMessages();
 
 	// if a logging build, clear out old log files
 #if !NO_LOGGING
@@ -4271,7 +4451,9 @@ void FEngineLoop::AppExit( )
 
 	UE_LOG(LogExit, Log, TEXT("Exiting."));
 
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::TearDown();
+#endif
 	FPlatformMisc::PlatformTearDown();
 
 	if (GConfig)

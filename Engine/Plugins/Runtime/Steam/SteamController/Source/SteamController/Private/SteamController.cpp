@@ -89,7 +89,10 @@ public:
 				InputSettings->GetActionNames(ActionNames);
 				for (const FName ActionName : ActionNames)
 				{
-					ControllerDigitalActionHandle_t DigitalActionHandle = SteamController()->GetDigitalActionHandle(ActionName.GetPlainANSIString());
+					ANSICHAR AnsiActionName[NAME_SIZE];
+					ActionName.GetPlainANSIString(AnsiActionName);
+
+					ControllerDigitalActionHandle_t DigitalActionHandle = SteamController()->GetDigitalActionHandle(AnsiActionName);
 					if (DigitalActionHandle > 0)
 					{
 						DigitalActionHandlesMap.Add(ActionName, DigitalActionHandle);
@@ -106,7 +109,10 @@ public:
 				InputSettings->GetAxisNames(AxisNames);
 				for (const FName AxisName : AxisNames)
 				{
-					ControllerAnalogActionHandle_t AnalogActionHandle = SteamController()->GetAnalogActionHandle(AxisName.GetPlainANSIString());
+					ANSICHAR AnsiAxisName[NAME_SIZE];
+					AxisName.GetPlainANSIString(AnsiAxisName);
+
+					ControllerAnalogActionHandle_t AnalogActionHandle = SteamController()->GetAnalogActionHandle(AnsiAxisName);
 					if (AnalogActionHandle > 0)
 					{
 						AnalogActionHandlesMap.Add(AxisName, AnalogActionHandle);

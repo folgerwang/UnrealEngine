@@ -14,6 +14,7 @@
 #include "UObject/Package.h"
 #include "UObject/MetaData.h"
 #include "UObject/UObjectHash.h"
+#include "UObject/GCObjectScopeGuard.h"
 #include "Serialization/ArchiveFindCulprit.h"
 #include "Misc/PackageName.h"
 #include "Editor/EditorPerProjectUserSettings.h"
@@ -37,6 +38,7 @@
 #include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
 #include "Engine/Selection.h"
+#include "Engine/GameEngine.h"
 #include "Engine/LevelStreaming.h"
 #include "Engine/MapBuildDataRegistry.h"
 
@@ -48,18 +50,22 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackageTools, Log, All);
 
-namespace PackageTools
+/** State passed to RestoreStandaloneOnReachableObjects. */
+UPackage* UPackageTools::PackageBeingUnloaded = nullptr;
+TMap<UObject*, UObject*> UPackageTools::ObjectsThatHadFlagsCleared;
+FDelegateHandle UPackageTools::ReachabilityCallbackHandle;
+
+UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	/** State passed to RestoreStandaloneOnReachableObjects. */
-	static UPackage* PackageBeingUnloaded = nullptr;
-	static TMap<UObject*,UObject*> ObjectsThatHadFlagsCleared;
-	static FDelegateHandle ReachabilityCallbackHandle;
+
+}
 
 	/**
 	 * Called during GC, after reachability analysis is performed but before garbage is purged.
 	 * Restores RF_Standalone to objects in the package-to-be-unloaded that are still reachable.
 	 */
-	void RestoreStandaloneOnReachableObjects()
+	void UPackageTools::RestoreStandaloneOnReachableObjects()
 	{
 		check(GIsEditor);
 
@@ -79,7 +85,7 @@ namespace PackageTools
 	 * @param	OutGroupPackages			The map that receives the filtered list of group packages.
 	 * @param	OutPackageList				The array that will contain the list of filtered packages.
 	 */
-	void GetFilteredPackageList(TSet<UPackage*>& OutFilteredPackageMap)
+	void UPackageTools::GetFilteredPackageList(TSet<UPackage*>& OutFilteredPackageMap)
 	{
 		// The UObject list is iterated rather than the UPackage list because we need to be sure we are only adding
 		// group packages that contain things the generic browser cares about.  The packages are derived by walking
@@ -113,7 +119,7 @@ namespace PackageTools
 	 * @param	OutObjects			[out] Receives the list of objects
 	 * @param	bMustBeBrowsable	If specified, does a check to see if object is browsable. Defaults to true.
 	 */
-	void GetObjectsInPackages( const TArray<UPackage*>* InPackages, TArray<UObject*>& OutObjects )
+	void UPackageTools::GetObjectsInPackages( const TArray<UPackage*>* InPackages, TArray<UObject*>& OutObjects )
 	{
 		if (InPackages)
 		{
@@ -142,7 +148,7 @@ namespace PackageTools
 		}
 	}
 
-	bool HandleFullyLoadingPackages( const TArray<UPackage*>& TopLevelPackages, const FText& OperationText )
+	bool UPackageTools::HandleFullyLoadingPackages( const TArray<UPackage*>& TopLevelPackages, const FText& OperationText )
 	{
 		bool bSuccessfullyCompleted = true;
 
@@ -192,7 +198,7 @@ namespace PackageTools
 	 *
 	 * @return	The loaded package (or NULL if something went wrong.)
 	 */
-	UPackage* LoadPackage( FString InFilename )
+	UPackage* UPackageTools::LoadPackage( FString InFilename )
 	{
 		// Detach all components while loading a package.
 		// This is necessary for the cases where the load replaces existing objects which may be referenced by the attached components.
@@ -228,7 +234,7 @@ namespace PackageTools
 	}
 
 
-	bool UnloadPackages( const TArray<UPackage*>& TopLevelPackages )
+	bool UPackageTools::UnloadPackages( const TArray<UPackage*>& TopLevelPackages )
 	{
 		FText ErrorMessage;
 		bool bResult = UnloadPackages(TopLevelPackages, ErrorMessage);
@@ -241,7 +247,7 @@ namespace PackageTools
 	}
 
 
-	bool UnloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage )
+	bool UPackageTools::UnloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage )
 	{
 		bool bResult = false;
 
@@ -454,10 +460,10 @@ namespace PackageTools
 	}
 
 
-	bool ReloadPackages( const TArray<UPackage*>& TopLevelPackages )
+	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages )
 	{
 		FText ErrorMessage;
-		const bool bResult = ReloadPackages(TopLevelPackages, ErrorMessage, /*bInteractive*/true);
+		const bool bResult = ReloadPackages(TopLevelPackages, ErrorMessage, EReloadPackagesInteractionMode::Interactive);
 		
 		if (!ErrorMessage.IsEmpty())
 		{
@@ -468,7 +474,13 @@ namespace PackageTools
 	}
 
 
-	bool ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const bool bInteractive )
+	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const bool bInteractive )
+	{
+		return ReloadPackages(TopLevelPackages, OutErrorMessage, bInteractive ? EReloadPackagesInteractionMode::Interactive : EReloadPackagesInteractionMode::AssumeNegative);
+	}
+
+
+	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const EReloadPackagesInteractionMode InteractionMode )
 	{
 		bool bResult = false;
 
@@ -500,22 +512,34 @@ namespace PackageTools
 					}
 				}
 
-				// Ask the user whether dirty packages should be reloaded.
-				if (bInteractive && DirtyPackages.Num() > 0)
+				// How should we handle locally dirty packages?
+				if (DirtyPackages.Num() > 0)
 				{
-					FTextBuilder ReloadDirtyPackagesMsgBuilder;
-					ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesHeader", "The following packages have been modified:"));
-					{
-						ReloadDirtyPackagesMsgBuilder.Indent();
-						for (UPackage* DirtyPackage : DirtyPackages)
-						{
-							ReloadDirtyPackagesMsgBuilder.AppendLine(DirtyPackage->GetFName());
-						}
-						ReloadDirtyPackagesMsgBuilder.Unindent();
-					}
-					ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesFooter", "Would you like to reload these packages? This will revert any changes you have made."));
+					EAppReturnType::Type ReloadDirtyPackagesResult = EAppReturnType::No;
 
-					if (FMessageDialog::Open(EAppMsgType::YesNo, ReloadDirtyPackagesMsgBuilder.ToText()) == EAppReturnType::Yes)
+					// Ask the user whether dirty packages should be reloaded.
+					if (InteractionMode == EReloadPackagesInteractionMode::Interactive)
+					{
+						FTextBuilder ReloadDirtyPackagesMsgBuilder;
+						ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesHeader", "The following packages have been modified:"));
+						{
+							ReloadDirtyPackagesMsgBuilder.Indent();
+							for (UPackage* DirtyPackage : DirtyPackages)
+							{
+								ReloadDirtyPackagesMsgBuilder.AppendLine(DirtyPackage->GetFName());
+							}
+							ReloadDirtyPackagesMsgBuilder.Unindent();
+						}
+						ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesFooter", "Would you like to reload these packages? This will revert any changes you have made."));
+
+						ReloadDirtyPackagesResult = FMessageDialog::Open(EAppMsgType::YesNo, ReloadDirtyPackagesMsgBuilder.ToText());
+					}
+					else if (InteractionMode == EReloadPackagesInteractionMode::AssumePositive)
+					{
+						ReloadDirtyPackagesResult = EAppReturnType::Yes;
+					}
+
+					if (ReloadDirtyPackagesResult == EAppReturnType::Yes)
 					{
 						for (UPackage* DirtyPackage : DirtyPackages)
 						{
@@ -567,71 +591,95 @@ namespace PackageTools
 			}
 		}
 
+		// Get the current world.
+		TWeakObjectPtr<UWorld> CurrentWorld;
+		if (GIsEditor)
+		{
+			if (UWorld* EditorWorld = GEditor->GetEditorWorldContext().World())
+			{
+				CurrentWorld = EditorWorld;
+			}
+		}
+		else if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))
+		{
+			if (UWorld* GameWorld = GameEngine->GetGameWorld())
+			{
+				CurrentWorld = GameWorld;
+			}
+		}
+
 		// Check to see if we need to reload the current world.
 		FName WorldNameToReload;
 		TMap<FName, const UMapBuildDataRegistry*> LevelsToMapBuildData;
 		TArray<ULevelStreaming*> RemovedStreamingLevels;
+		if (UWorld* CurrentWorldPtr = CurrentWorld.Get())
 		{
-			if (UWorld* EditorWorld = GEditor->GetEditorWorldContext().World())
+			// Is the current world being reloaded? If so, we just reset the current world and load it again at the end rather than let it go through ReloadPackage 
+			// (which doesn't work for the current world due to some assumptions about worlds, and their lifetimes).
+			// We also need to skip the build data package as that will also be destroyed by the transition.
+			if (PackagesToReload.Contains(CurrentWorldPtr->GetOutermost()))
 			{
-				// Is the currently loaded world being reloaded? If so, we just reset the current world and load it again at the end rather than let it go 
-				// through ReloadPackage (which doesn't work for the editor due to some assumptions it makes about worlds, and their lifetimes).
-				// We also need to skip the build data package as that will also be destroyed by the call to CreateNewMapForEditing.
-				if (PackagesToReload.Contains(EditorWorld->GetOutermost()))
+				// Cache this so we can reload the world later
+				WorldNameToReload = *CurrentWorldPtr->GetPathName();
+
+				// Remove the world package from the reload list
+				PackagesToReload.Remove(CurrentWorldPtr->GetOutermost());
+
+				// Remove the level build data package from the reload list as creating a new map will unload build data for the current world
+				for (int32 LevelIndex = 0; LevelIndex < CurrentWorldPtr->GetNumLevels(); ++LevelIndex)
 				{
-					// Cache this so we can reload the world later
-					WorldNameToReload = *EditorWorld->GetPathName();
-
-					// Remove the world package from the reload list
-					PackagesToReload.Remove(EditorWorld->GetOutermost());
-
-					// Remove the level build data package from the reload list as creating a new map will unload build data for the current world
-					for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
+					ULevel* Level = CurrentWorldPtr->GetLevel(LevelIndex);
+					if (Level->MapBuildData)
 					{
-						ULevel* Level = EditorWorld->GetLevel(LevelIndex);
-						if (Level->MapBuildData)
-						{
-							PackagesToReload.Remove(Level->MapBuildData->GetOutermost());
-						}
+						PackagesToReload.Remove(Level->MapBuildData->GetOutermost());
 					}
+				}
 
-					// Remove any streaming levels from the reload list as creating a new map will unload streaming levels for the current world
-					for (ULevelStreaming* EditorStreamingLevel : EditorWorld->GetStreamingLevels())
+				// Remove any streaming levels from the reload list as creating a new map will unload streaming levels for the current world
+				for (ULevelStreaming* StreamingLevel : CurrentWorldPtr->GetStreamingLevels())
+				{
+					if (StreamingLevel->IsLevelLoaded())
 					{
-						if (EditorStreamingLevel->IsLevelLoaded())
-						{
-							UPackage* EditorStreamingLevelPackage = EditorStreamingLevel->GetLoadedLevel()->GetOutermost();
-							PackagesToReload.Remove(EditorStreamingLevelPackage);
-						}
+						UPackage* StreamingLevelPackage = StreamingLevel->GetLoadedLevel()->GetOutermost();
+						PackagesToReload.Remove(StreamingLevelPackage);
 					}
+				}
 
-					// Unload the current world
+				// Unload the current world
+				if (GIsEditor)
+				{
 					GEditor->CreateNewMapForEditing();
 				}
-				// Cache the current map build data for the levels of the current world so we can see if they change due to a reload (we can skip this if reloading the current world).
-				else
+				else if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))
 				{
-					TArray<ULevel*> EditorLevels = EditorWorld->GetLevels();
+					// Outside of the editor we need to keep the packages alive to stop the world transition from GC'ing them
+					TGCObjectsScopeGuard<UPackage> KeepPackagesAlive(PackagesToReload);
 
-					for (ULevel* Level : EditorLevels)
+					FString LoadMapError;
+					GameEngine->LoadMap(GameEngine->GetWorldContextFromWorldChecked(CurrentWorldPtr), FURL(TEXT("/Engine/Maps/Templates/Template_Default")), nullptr, LoadMapError);
+				}
+			}
+			// Cache the current map build data for the levels of the current world so we can see if they change due to a reload (we can skip this if reloading the current world).
+			else
+			{
+				for (ULevel* Level : CurrentWorldPtr->GetLevels())
+				{
+					if (PackagesToReload.Contains(Level->GetOutermost()))
 					{
-						if (PackagesToReload.Contains(Level->GetOutermost()))
+						for (ULevelStreaming* StreamingLevel : CurrentWorldPtr->GetStreamingLevels())
 						{
-							for (ULevelStreaming* StreamingLevel : EditorWorld->GetStreamingLevels())
+							if (StreamingLevel->GetLoadedLevel() == Level)
 							{
-								if (StreamingLevel->GetLoadedLevel() == Level)
-								{
-									EditorWorld->RemoveFromWorld(Level);
-									StreamingLevel->RemoveLevelFromCollectionForReload();
-									RemovedStreamingLevels.Add(StreamingLevel);
-									break;
-								}
+								CurrentWorldPtr->RemoveFromWorld(Level);
+								StreamingLevel->RemoveLevelFromCollectionForReload();
+								RemovedStreamingLevels.Add(StreamingLevel);
+								break;
 							}
 						}
-						else
-						{
-							LevelsToMapBuildData.Add(Level->GetFName(), Level->MapBuildData);
-						}
+					}
+					else
+					{
+						LevelsToMapBuildData.Add(Level->GetFName(), Level->MapBuildData);
 					}
 				}
 			}
@@ -645,8 +693,10 @@ namespace PackageTools
 			::SortPackagesForReload(PackagesToReload);
 
 			// Remove potential references to to-be deleted objects from the global selection set.
-			GEditor->GetSelectedObjects()->DeselectAll();
-
+			if (GIsEditor)
+			{
+				GEditor->GetSelectedObjects()->DeselectAll();
+			}
 			// Detach all components while loading a package.
 			// This is necessary for the cases where the load replaces existing objects which may be referenced by the attached components.
 			FGlobalComponentReregisterContext ReregisterContext;
@@ -700,7 +750,7 @@ namespace PackageTools
 			}
 
 			// Update the actor browser if a script package was reloaded.
-			if (bScriptPackageWasReloaded)
+			if (GIsEditor && bScriptPackageWasReloaded)
 			{
 				GEditor->BroadcastClassPackageLoadedOrUnloaded();
 			}
@@ -709,21 +759,29 @@ namespace PackageTools
 		// Load the previous world (if needed).
 		if (!WorldNameToReload.IsNone())
 		{
-			TArray<FName> WorldNamesToReload;
-			WorldNamesToReload.Add(WorldNameToReload);
-			FAssetEditorManager::Get().OpenEditorsForAssets(WorldNamesToReload);
+			if (GIsEditor)
+			{
+				TArray<FName> WorldNamesToReload;
+				WorldNamesToReload.Add(WorldNameToReload);
+				FAssetEditorManager::Get().OpenEditorsForAssets(WorldNamesToReload);
+			}
+			else if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))
+			{
+				FString LoadMapError;
+				GameEngine->LoadMap(GameEngine->GetWorldContextFromWorldChecked(GameEngine->GetGameWorld()), FURL(*WorldNameToReload.ToString()), nullptr, LoadMapError);
+			}
 		}
 		// Update the rendering resources for the levels of the current world if their map build data has changed (we skip this if reloading the current world).
 		else
 		{
 			if (LevelsToMapBuildData.Num() > 0)
 			{
-				UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-				check(EditorWorld);
+				UWorld* CurrentWorldPtr = CurrentWorld.Get();
+				check(CurrentWorldPtr);
 
-				for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
+				for (int32 LevelIndex = 0; LevelIndex < CurrentWorldPtr->GetNumLevels(); ++LevelIndex)
 				{
-					ULevel* Level = EditorWorld->GetLevel(LevelIndex);
+					ULevel* Level = CurrentWorldPtr->GetLevel(LevelIndex);
 					const UMapBuildDataRegistry* OldMapBuildData = LevelsToMapBuildData.FindRef(Level->GetFName());
 
 					if (OldMapBuildData && OldMapBuildData != Level->MapBuildData)
@@ -733,15 +791,16 @@ namespace PackageTools
 					}
 				}
 			}
+
 			if (RemovedStreamingLevels.Num() > 0)
 			{
-				UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-				check(EditorWorld);
+				UWorld* CurrentWorldPtr = CurrentWorld.Get();
+				check(CurrentWorldPtr);
 
 				for (ULevelStreaming* StreamingLevel : RemovedStreamingLevels)
 				{
 					ULevel* NewLevel = StreamingLevel->GetLoadedLevel();
-					EditorWorld->AddToWorld(NewLevel, StreamingLevel->LevelTransform, false);
+					CurrentWorldPtr->AddToWorld(NewLevel, StreamingLevel->LevelTransform, false);
 					StreamingLevel->AddLevelToCollectionAfterReload();
 				}
 			}
@@ -763,7 +822,7 @@ namespace PackageTools
 	 *
 	 * @return	the path that the user chose for the export.
 	 */
-	FString DoBulkExport(const TArray<UPackage*>& TopLevelPackages, FString LastExportPath, const TSet<UClass*>* FilteredClasses /* = NULL */, bool bUseProvidedExportPath/* = false*/ )
+	FString UPackageTools::DoBulkExport(const TArray<UPackage*>& TopLevelPackages, FString LastExportPath, const TSet<UClass*>* FilteredClasses /* = NULL */, bool bUseProvidedExportPath/* = false*/ )
 	{
 		// Disallow export if any packages are cooked.
 		if (HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "BulkExportE", "Bulk Export...") ) )
@@ -812,7 +871,7 @@ namespace PackageTools
 		return LastExportPath;
 	}
 
-	void CheckOutRootPackages( const TArray<UPackage*>& Packages )
+	void UPackageTools::CheckOutRootPackages( const TArray<UPackage*>& Packages )
 	{
 		if (ISourceControlModule::Get().IsEnabled())
 		{
@@ -855,7 +914,7 @@ namespace PackageTools
 	 * @param	PackagePath	Path of the package to check, relative or absolute
 	 * @return	true if PackagePath points to an external location
 	 */
-	bool IsPackagePathExternal( const FString& PackagePath )
+	bool UPackageTools::IsPackagePathExternal( const FString& PackagePath )
 	{
 		bool bIsExternal = true;
 		TArray< FString > Paths;
@@ -887,99 +946,15 @@ namespace PackageTools
 	 * @param	Package	The package to check
 	 * @return	true if the package points to an external filename
 	 */
-	bool IsPackageExternal(const UPackage& Package)
+	bool UPackageTools::IsPackageExternal(const UPackage& Package)
 	{
 		FString FileString;
 		FPackageName::DoesPackageExist(Package.GetName(), NULL, &FileString);
 
 		return IsPackagePathExternal( FileString );
 	}
-	/**
-	 * Checks if the passed in packages have any references to  externally loaded packages.  I.E Ones not found automatically in the content directory
-	 *
-	 * @param	PackagesToCheck					The packages to check
-	 * @param	OutPackagesWithExternalRefs		Optional list of packages that have external references
-	 * @param	LevelToCheck					The ULevel to check
-	 * @param	OutObjectsWithExternalRefs		List of objects gathered from within the given ULevel that have external references
-	 * @return	true if PackageToCheck has references to an externally loaded package
-	 */
-	bool CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, ULevel* LevelToCheck/*=NULL*/, TArray<UObject*>* OutObjectsWithExternalRefs/*=NULL*/ )
-	{
-		bool bHasExternalPackageRefs = false;
 
-		// Find all external packages
-		TSet<UPackage*> FilteredPackageMap;
-		GetFilteredPackageList(FilteredPackageMap);
-
-		TArray< UPackage* > ExternalPackages;
-		ExternalPackages.Reserve(FilteredPackageMap.Num());
-		for (UPackage* Pkg : FilteredPackageMap)
-		{
-			FString OutFilename;
-			const FString PackageName = Pkg->GetName();
-			const FGuid PackageGuid = Pkg->GetGuid();
-
-			FPackageName::DoesPackageExist( PackageName, &PackageGuid, &OutFilename );
-
-			if( OutFilename.Len() > 0 && IsPackageExternal( *Pkg ) )
-			{
-				ExternalPackages.Add(Pkg);
-			}
-		}
-
-		// get all the objects in the external packages and make sure they aren't referenced by objects in a package being checked
-		TArray< UObject* > ObjectsInExternalPackages;
-		TArray< UObject* > ObjectsInPackageToCheck;
-		
-		if(PackagesToCheck)
-		{
-			GetObjectsInPackages( &ExternalPackages, ObjectsInExternalPackages );
-			GetObjectsInPackages( PackagesToCheck, ObjectsInPackageToCheck );
-		}
-		else
-		{
-			GetObjectsWithOuter(LevelToCheck, ObjectsInPackageToCheck);
-
-			// Gather all objects in any loaded external packages			
-			for (const UPackage* Package : ExternalPackages)
-			{
-				ForEachObjectWithOuter(Package,
-									   [&ObjectsInExternalPackages](UObject* Obj)
-									   {
-										   if (ObjectTools::IsObjectBrowsable(Obj))
-										   {
-											   ObjectsInExternalPackages.Add(Obj);
-										   }
-									   });
-			}
-		}
-
-		// only check objects which are in packages to be saved.  This should greatly reduce the overhead by not searching through objects we don't intend to save
-		for (UObject* CheckObject : ObjectsInPackageToCheck)
-		{
-			for (UObject* ExternalObject : ObjectsInExternalPackages)
-			{
-				FArchiveFindCulprit ArFind( ExternalObject, CheckObject, false );
-				if( ArFind.GetCount() > 0 )
-				{
-					if( OutPackagesWithExternalRefs )
-					{
-						OutPackagesWithExternalRefs->Add( CheckObject->GetOutermost() );
-					}
-					if(OutObjectsWithExternalRefs)
-					{
-						OutObjectsWithExternalRefs->Add( CheckObject );
-					}
-					bHasExternalPackageRefs = true;
-					break;
-				}
-			}
-		}
-
-		return bHasExternalPackageRefs;
-	}
-
-	bool SavePackagesForObjects(const TArray<UObject*>& ObjectsToSave)
+	bool UPackageTools::SavePackagesForObjects(const TArray<UObject*>& ObjectsToSave)
 	{
 		// Retrieve all dirty packages for the objects 
 		TArray<UPackage*> PackagesToSave;
@@ -991,25 +966,6 @@ namespace PackageTools
 			}
 		}
 
-		TArray< UPackage* > PackagesWithExternalRefs;
-		FString PackageNames;
-		if (PackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
-		{
-			for (int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
-			{
-				PackageNames += FString::Printf(TEXT("%s\n"), *PackagesWithExternalRefs[PkgIdx]->GetName());
-			}
-			bool bProceed = EAppReturnType::Yes == FMessageDialog::Open(
-				EAppMsgType::YesNo,
-				FText::Format(
-					NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"),
-					FText::FromString(PackageNames)));
-			if (!bProceed)
-			{
-				return false;
-			}
-		}
-
 		const bool bCheckDirty = false;
 		const bool bPromptToSave = false;
 		const FEditorFileUtils::EPromptReturnCode Return = FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, bCheckDirty, bPromptToSave);
@@ -1017,7 +973,7 @@ namespace PackageTools
 		return (PackagesToSave.Num() > 0) && Return == FEditorFileUtils::EPromptReturnCode::PR_Success;
 	}
 
-	bool IsSingleAssetPackage(const FString& PackageName)
+	bool UPackageTools::IsSingleAssetPackage(const FString& PackageName)
 	{
 		FString PackageFileName;
 		if ( FPackageName::DoesPackageExist(PackageName, NULL, &PackageFileName) )
@@ -1030,7 +986,7 @@ namespace PackageTools
 		return true;
 	}
 
-	FString SanitizePackageName (const FString& InPackageName)
+	FString UPackageTools::SanitizePackageName (const FString& InPackageName)
 	{
 		FString SanitizedName;
 		FString InvalidChars = INVALID_LONGPACKAGE_CHARACTERS;
@@ -1056,7 +1012,6 @@ namespace PackageTools
 
 		return SanitizedName;
 	}
-}
 
 #undef LOCTEXT_NAMESPACE
 

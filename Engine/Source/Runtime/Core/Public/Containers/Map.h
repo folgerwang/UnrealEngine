@@ -309,6 +309,15 @@ public:
 	FORCEINLINE ValueType& Add(      KeyType&& InKey) { return Emplace(MoveTempIfPossible(InKey)); }
 
 	/**
+	 * Set the value associated with a key.
+	 *
+	 * @param InKeyValue A Tuple containing the Key and Value to associate together
+	 * @return A reference to the value as stored in the map. The reference is only valid until the next change to any key in the map.
+	 */
+	FORCEINLINE ValueType& Add(const TTuple<KeyType,ValueType>&  InKeyValue) { return Emplace(                   InKeyValue.Key ,                    InKeyValue.Value ); }
+	FORCEINLINE ValueType& Add(      TTuple<KeyType,ValueType>&& InKeyValue) { return Emplace(MoveTempIfPossible(InKeyValue.Key), MoveTempIfPossible(InKeyValue.Value)); }
+
+	/**
 	 * Sets the value associated with a key.
 	 *
 	 * @param InKey The key to associate the value with.
@@ -532,6 +541,7 @@ public:
 	/** Structured archive serializer. */
 	FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, TMapBase& InMap)
 	{
+		/*
 		if (Slot.GetUnderlyingArchive().IsTextFormat())
 		{
 			int32 Num = InMap.Num();
@@ -561,6 +571,7 @@ public:
 			}
 		}
 		else
+		*/
 		{
 			Slot << InMap.Pairs;
 		}

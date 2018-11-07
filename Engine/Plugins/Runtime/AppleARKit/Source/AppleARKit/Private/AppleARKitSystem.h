@@ -16,7 +16,7 @@
 #endif
 
 
-DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("ARKit"), STATGROUP_ARKIT, STATCAT_Advanced);
 
 //
 //  FAppleARKitSystem
@@ -79,12 +79,12 @@ protected:
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
 	virtual UARTextureCameraImage* OnGetCameraImage() override;
 	virtual UARTextureCameraDepth* OnGetCameraDepth() override;
-//@joeg -- ARKit 2.0 additions
 	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) override;
 	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const override;
 	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const override;
 	virtual EARWorldMappingState OnGetWorldMappingStatus() const override;
-//@joeg -- End additions
+	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const override;
+	virtual TArray<FVector> OnGetPointCloud() const override;
 	//~IARSystemSupport
 
 private:
@@ -137,6 +137,9 @@ private:
 	/** Creates or clears the face ar support object if face ar has been requested */
 	void CheckForFaceARSupport(UARSessionConfig* InSessionConfig);
 	
+	/** Updates the ARKit perf counters */
+	void UpdateARKitPerfStats();
+	
 	/** The orientation of the device; see EScreenOrientation */
 	EScreenOrientation::Type DeviceOrientation;
 	
@@ -168,7 +171,6 @@ private:
 	UAppleARKitTextureCameraImage* CameraImage;
 	UAppleARKitTextureCameraDepth* CameraDepth;
 	TMap< FString, UARCandidateImage* > CandidateImages;
-//@joeg -- Object detection
 	TMap< FString, UARCandidateObject* > CandidateObjects;
 	// ...
 	// PROPERTIES REPORTED TO FGCObject

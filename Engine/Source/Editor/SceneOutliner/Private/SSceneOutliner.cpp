@@ -2378,7 +2378,7 @@ namespace SceneOutliner
 		}
 	}
 
-	FSlateBrush* SSceneOutliner::GetCachedIconForClass(FName InClassName) const
+	const FSlateBrush* SSceneOutliner::GetCachedIconForClass(FName InClassName) const
 	{ 
 		if (CachedIcons.Find(InClassName))
 		{
@@ -2390,7 +2390,7 @@ namespace SceneOutliner
 		}
 	}
 
-	void SSceneOutliner::CacheIconForClass(FName InClassName, FSlateBrush* InSlateBrush)
+	void SSceneOutliner::CacheIconForClass(FName InClassName, const FSlateBrush* InSlateBrush)
 	{
 		CachedIcons.Emplace(InClassName, InSlateBrush);
 	}
@@ -2486,7 +2486,7 @@ namespace SceneOutliner
 						}
 					}
 
-					if (GUnrealEd->CanDeleteSelectedActors( SharedData->RepresentingWorld, true, false ))
+					if (GUnrealEd->CanDeleteSelectedActors( SharedData->RepresentingWorld, true, true ))
 					{
 						GEditor->edactDeleteSelected( SharedData->RepresentingWorld );
 					}

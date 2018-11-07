@@ -17,7 +17,7 @@ class UEditorPerProjectUserSettings : public UObject
 	// The following options are exposed in the Preferences Editor 
 
 	/** If enabled, any newly opened UI menus, menu bars, and toolbars will show the developer hooks that would accept extensions */
-	UPROPERTY(EditAnywhere, config, Category=DeveloperTools)
+	UPROPERTY(EditAnywhere, config, Category=DeveloperTools, meta = (DisplayName = "Display UI Extension Points"))
 	uint32 bDisplayUIExtensionPoints:1;
 
 	/** If enabled, tooltips linked to documentation will show the developer the link bound to that UI item */
@@ -70,6 +70,10 @@ class UEditorPerProjectUserSettings : public UObject
 	/** If enabled, the compile message log window will open if there is a compiler error on Hot Reload */
 	UPROPERTY(EditAnywhere, config, Category=HotReload)
 	uint32 bShowCompilerLogOnCompileError : 1;
+
+	/** If enabled, the fbx parser will keep the fbx namespaces, otherwise the namespace will be append to fbx node. */
+	UPROPERTY(EditAnywhere, config, Category = Import)
+	uint32 bKeepFbxNamespace : 1;
 
 	/** If enabled, the fbx option dialog will show when user re-import a fbx */
 	UPROPERTY(EditAnywhere, config, Category = Import)
@@ -144,6 +148,14 @@ public:
 
 	UPROPERTY(config)
 	int32 MaterialQualityLevel;
+
+	/** The name of the shader platform that will be used in the editor */
+	UPROPERTY(config)
+	FName PreviewShaderPlatformName;
+
+	/** whether or not the above PreviewShaderPlatformName is a platform that needs to override the material settings in UMaterialShaderQualitySettings */
+	UPROPERTY(config)
+	bool bIsMaterialQualityOverridePlatform;
 
 public:
 

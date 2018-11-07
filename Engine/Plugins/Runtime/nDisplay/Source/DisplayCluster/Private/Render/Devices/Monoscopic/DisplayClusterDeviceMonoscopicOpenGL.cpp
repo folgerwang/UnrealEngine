@@ -5,7 +5,6 @@
 
 #include "Misc/DisplayClusterLog.h"
 
-#include <utility>
 
 
 FDisplayClusterDeviceMonoscopicOpenGL::FDisplayClusterDeviceMonoscopicOpenGL()
@@ -29,7 +28,6 @@ bool FDisplayClusterDeviceMonoscopicOpenGL::Present(int32& InOutSyncInterval)
 	// Convert to left bottom origin and flip Y
 	const int dstY1 = ViewportSize.Y;
 	const int dstY2 = 0;
-
 
 	FOpenGLViewport* pOglViewport = static_cast<FOpenGLViewport*>(CurrentViewport->GetViewportRHI().GetReference());
 	check(pOglViewport);

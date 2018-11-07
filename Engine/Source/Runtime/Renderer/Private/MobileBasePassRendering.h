@@ -446,6 +446,18 @@ public:
 	TMobileBasePassPSBaseType() {}
 };
 
+inline bool UseSkylightPermutation(bool bEnableSkyLight, int32 MobileSkyLightPermutationOptions)
+{
+	if (bEnableSkyLight)
+	{
+		return MobileSkyLightPermutationOptions == 0 || MobileSkyLightPermutationOptions == 2;
+	}
+	else
+	{
+		return MobileSkyLightPermutationOptions == 0 || MobileSkyLightPermutationOptions == 1;
+	}
+}
+
 template< typename LightMapPolicyType, EOutputFormat OutputFormat, bool bEnableSkyLight, int32 NumMovablePointLights>
 class TMobileBasePassPS : public TMobileBasePassPSBaseType<LightMapPolicyType>
 {
@@ -457,13 +469,20 @@ public:
 		// We compile the point light shader combinations based on the project settings
 		static auto* MobileDynamicPointLightsUseStaticBranchCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileDynamicPointLightsUseStaticBranch"));
 		static auto* MobileNumDynamicPointLightsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
+		static auto* MobileSkyLightPermutationCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.SkyLightPermutation"));
 		const bool bMobileDynamicPointLightsUseStaticBranch = (MobileDynamicPointLightsUseStaticBranchCVar->GetValueOnAnyThread() == 1);
 		const int32 MobileNumDynamicPointLights = MobileNumDynamicPointLightsCVar->GetValueOnAnyThread();
+		const int32 MobileSkyLightPermutationOptions = MobileSkyLightPermutationCVar->GetValueOnAnyThread();
 		const bool bIsUnlit = Material->GetShadingModel() == MSM_Unlit;
-
 
 		// Only compile skylight version for lit materials on ES2 (Metal) or higher
 		const bool bShouldCacheBySkylight = !bEnableSkyLight || !bIsUnlit;
+
+		// Only compile skylight permutations when they are enabled
+		if (!bIsUnlit && !UseSkylightPermutation(bEnableSkyLight, MobileSkyLightPermutationOptions))
+		{
+			return false;
+		}
 
 		const bool bShouldCacheByNumDynamicPointLights =
 			(NumMovablePointLights == 0 ||
@@ -689,7 +708,7 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(nullptr,nullptr,InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		FMeshDrawingPolicy(nullptr, nullptr, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
 		VertexDeclaration(InVertexFactory->GetDeclaration()),
 		LightMapPolicy(InLightMapPolicy),
 		NumMovablePointLights(InNumMovablePointLights),
@@ -698,6 +717,18 @@ public:
 	{
 		static_assert(MAX_BASEPASS_DYNAMIC_POINT_LIGHTS == 4, "If you change MAX_BASEPASS_DYNAMIC_POINT_LIGHTS, you need to change the switch statement below");
 
+		if (InMaterialRenderProxy != nullptr)
+		{
+			ImmutableSamplerState = InMaterialRenderProxy->ImmutableSamplerState;
+		}
+		
+		// use only existing sky-light permutation
+		bool bIsLit = (InMaterialResource.GetShadingModel() != MSM_Unlit);
+		if (bIsLit && !UseSkylightPermutation(bInEnableSkyLight, FReadOnlyCVARCache::Get().MobileSkyLightPermutation))	
+		{
+			bInEnableSkyLight = !bInEnableSkyLight;
+		}
+		
 		switch (NumMovablePointLights)
 		{
 		case INT32_MAX:
@@ -783,13 +814,19 @@ public:
 			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy) &&
 			DRAWING_POLICY_MATCH(NumMovablePointLights == Other.NumMovablePointLights) &&
 			DRAWING_POLICY_MATCH(bEnableReceiveDecalOutput == Other.bEnableReceiveDecalOutput) &&
-			DRAWING_POLICY_MATCH(UseDebugViewPS() == Other.UseDebugViewPS());
+			DRAWING_POLICY_MATCH(UseDebugViewPS() == Other.UseDebugViewPS()) &&
+			DRAWING_POLICY_MATCH(ImmutableSamplerState == Other.ImmutableSamplerState);
 		DRAWING_POLICY_MATCH_END 
 	}
 
 	uint32 GetTypeHash() const
 	{
 		return PointerHash(VertexDeclaration, PointerHash(MaterialResource));
+	}
+
+	const FMaterialRenderProxy* GetPipelineMaterialRenderProxy(const FMaterialRenderProxy* ElementMaterialRenderProxy)
+	{
+		return ElementMaterialRenderProxy;
 	}
 
 	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)
@@ -988,6 +1025,7 @@ protected:
 	FVertexDeclarationRHIRef VertexDeclaration;
 	LightMapPolicyType LightMapPolicy;
 	int32 NumMovablePointLights;
+	FImmutableSamplerState ImmutableSamplerState;
 	EBlendMode BlendMode;
 	uint32 bEnableReceiveDecalOutput : 1;
 };

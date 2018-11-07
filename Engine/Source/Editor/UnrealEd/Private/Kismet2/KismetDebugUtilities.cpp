@@ -118,7 +118,7 @@ public:
 
 void FKismetDebugUtilities::EndOfScriptExecution()
 {
-	
+#if DO_BLUEPRINT_GUARD
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 	if(BlueprintExceptionTracker.ScriptEntryTag == 1)
 	{
@@ -127,18 +127,22 @@ void FKismetDebugUtilities::EndOfScriptExecution()
 
 		Data.Reset();
 	}
+#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::RequestSingleStepIn()
 {
+#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
 	Data.bIsSingleStepping = true;
+#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::RequestStepOver()
 {
+#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
@@ -171,10 +175,12 @@ void FKismetDebugUtilities::RequestStepOver()
 			}
 		}
 	}
+#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::RequestStepOut()
 {
+#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
@@ -184,6 +190,7 @@ void FKismetDebugUtilities::RequestStepOut()
 		Data.bIsSteppingOut = true;
 		Data.TargetGraphStackDepth = BlueprintExceptionTracker.ScriptStack.Num() - 1;
 	}
+#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info)
@@ -501,6 +508,7 @@ UEdGraphNode* FKismetDebugUtilities::FindSourceNodeForCodeLocation(const UObject
 
 void FKismetDebugUtilities::CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bool bHitBreakpoint, int32 BreakpointOffset, bool& InOutBreakExecution)
 {
+#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
@@ -599,10 +607,12 @@ void FKismetDebugUtilities::CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bo
 			}
 		}
 	}
+#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info, UEdGraphNode* NodeStoppedAt, int32 DebugOpcodeOffset)
 {
+#if DO_BLUEPRINT_GUARD
 	checkSlow(BlueprintObj->GetObjectBeingDebugged() == ActiveObject);
 
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
@@ -692,6 +702,7 @@ void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, co
 	// Now enter within-the-frame debugging mode
 	if (bShouldInStackDebug)
 	{
+		TGuardValue<int32> GuardDisablePIE(GPlayInEditorID, INDEX_NONE);
 		const TArray<const FFrame*>& ScriptStack = FBlueprintExceptionTracker::Get().ScriptStack;
 		Data.LastExceptionMessage = Info.GetDescription();
 		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NodeStoppedAt);
@@ -699,6 +710,7 @@ void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, co
 		WatchViewer::UpdateInstancedWatchDisplay();
 		FSlateApplication::Get().EnterDebuggingMode();
 	}
+#endif // DO_BLUEPRINT_GUARD
 }
 
 UEdGraphNode* FKismetDebugUtilities::GetCurrentInstruction()
@@ -1197,10 +1209,10 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 			UFunction* OuterFunction = Cast<UFunction>(Property->GetOuter());
 			if (!PropertyBase && OuterFunction)
 			{
-				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
+				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(OuterFunction->GetOuter());
 				if (BPGC && ActiveObject->IsA(BPGC))
 				{
-					PropertyBase = BPGC->GetPersistentUberGraphFrame(ActiveObject, OuterFunction);
+					PropertyBase = GetPersistentUberGraphFrame( OuterFunction, ActiveObject );
 				}
 			}
 #endif // USE_UBER_GRAPH_PERSISTENT_FRAME
@@ -1261,7 +1273,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 						{
 							void* PropertyValue = SelfPinProperty->ContainerPtrToValuePtr<void>(SelfPinData);
 							UObject* TempActiveObject = SelfPinPropertyBase->GetObjectPropertyValue(PropertyValue);
-							if (TempActiveObject && TempActiveObject != ActiveObject)
+							if (TempActiveObject)
 							{
 								return FindDebuggingData(Blueprint, TempActiveObject, WatchPin, OutProperty, OutData, OutDelta, OutParent);
 							}

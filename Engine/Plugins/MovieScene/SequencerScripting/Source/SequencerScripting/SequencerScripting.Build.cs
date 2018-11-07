@@ -17,7 +17,8 @@ public class SequencerScripting : ModuleRules
 			new string[] {
 				"SequencerScripting/Private",
 				"SequencerScripting/Private/ExtensionLibraries",
-			}
+                "SequencerScripting/Private/KeysAndChannels",
+            }
 		);
 
 		PublicDependencyModuleNames.AddRange(
@@ -26,7 +27,6 @@ public class SequencerScripting : ModuleRules
 				"Core",
 				"TimeManagement",
 				"MovieScene",
-                "MovieSceneTools",
                 "MovieSceneTracks",
             }
 		);
@@ -37,11 +37,8 @@ public class SequencerScripting : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Kismet",
-				"PythonScriptPlugin",
 				"Slate",
 				"SlateCore",
-				"MovieSceneCaptureDialog",
-                "MovieSceneCapture",
                 "LevelSequence",
 			}
 		);

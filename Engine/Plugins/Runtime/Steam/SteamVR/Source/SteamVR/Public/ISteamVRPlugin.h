@@ -49,11 +49,18 @@ public:
 
 #if STEAMVR_SUPPORTED_PLATFORMS
 	/**
-	 * Get the IVRSystem* that was previously set by the HMD implemenentation.
-	 *
-	 * @return The pointer if the HMD has been initialized, otherwise nullptr 
-	 */
-	virtual vr::IVRSystem* GetVRSystem() const=0;
+	* Get the IVRSystem* that was previously set by the HMD implemenentation.
+	*
+	* @return The pointer if the HMD has been initialized, otherwise nullptr
+	*/
+	virtual vr::IVRSystem* GetVRSystem() const = 0;
+
+	/**
+	* Get the IVRInput* that was previously set by the HMD implemenentation.
+	*
+	* @return The pointer if the HMD has been initialized, otherwise nullptr
+	*/
+	virtual vr::IVRInput* GetVRInput() const = 0;
 
 	/**
 	 * Resets the plugin, in case of early VR system shutdown

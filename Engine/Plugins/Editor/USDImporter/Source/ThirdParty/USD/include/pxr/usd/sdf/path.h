@@ -32,7 +32,6 @@
 #include "pxr/base/tf/stl.h"
 #include "pxr/base/tf/token.h"
 
-#include <boost/bind.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/operators.hpp>
 #include "pxr/base/tf/hashmap.h"
@@ -125,10 +124,10 @@ typedef std::vector<class SdfPath> SdfPathVector;
 /// SdfPath is strongly thread-safe, in the sense that zero additional
 /// synchronization is required between threads creating or using SdfPath
 /// values. Just like TfToken, SdfPath values are immutable. Internally,
-/// SdfPath uses a global prefix tree to efficienty share representations
+/// SdfPath uses a global prefix tree to efficiently share representations
 /// of paths, and provide fast equality/hashing operations, but
 /// modifications to this table are internally synchronized. Consequently,
-/// as with TfToken, for best performance it is importantant to minimize
+/// as with TfToken, for best performance it is important to minimize
 /// the number of values created (since it requires synchronized access to
 /// this table) or copied (since it requires atomic ref-counting operations).
 ///
@@ -578,21 +577,27 @@ public:
     static TfTokenVector TokenizeIdentifierAsTokens(const std::string &name);
 
     /// Join \p names into a single identifier using the namespace delimiter.
+    /// Any empty strings present in \p names are ignored when joining.
     SDF_API 
-    static std::string JoinIdentifier(const std::vector<std::string>& names);
+    static std::string JoinIdentifier(const std::vector<std::string> &names);
 
     /// Join \p names into a single identifier using the namespace delimiter.
+    /// Any empty strings present in \p names are ignored when joining.
     SDF_API 
     static std::string JoinIdentifier(const TfTokenVector& names);
 
     /// Join \p lhs and \p rhs into a single identifier using the
     /// namespace delimiter.
+    /// Returns \p lhs if \p rhs is empty and vice verse.
+    /// Returns an empty string if both \p lhs and \p rhs are empty.
     SDF_API 
     static std::string JoinIdentifier(const std::string &lhs,
                                       const std::string &rhs);
 
     /// Join \p lhs and \p rhs into a single identifier using the
     /// namespace delimiter.
+    /// Returns \p lhs if \p rhs is empty and vice verse.
+    /// Returns an empty string if both \p lhs and \p rhs are empty.
     SDF_API 
     static std::string JoinIdentifier(const TfToken &lhs, const TfToken &rhs);
 
@@ -692,6 +697,8 @@ private:
     // via nodes and then want to return a new path with a resulting node.
     // The node is expected to already be Retain'ed for the resulting path.
     explicit SdfPath(const Sdf_PathNodeConstRefPtr &pathNode);
+    // Accept rvalues too.
+    explicit SdfPath(Sdf_PathNodeConstRefPtr &&pathNode);
 
     friend class Sdf_PathNode;
     friend class Sdfext_PathAccess;
@@ -736,7 +743,6 @@ template <class ForwardIterator>
 std::pair<ForwardIterator, ForwardIterator>
 SdfPathFindPrefixedRange(ForwardIterator begin, ForwardIterator end,
                          SdfPath const &prefix) {
-    using boost::bind;
     std::pair<ForwardIterator, ForwardIterator> result;
 
     // First, use lower_bound to find where \a prefix would go.
@@ -745,7 +751,9 @@ SdfPathFindPrefixedRange(ForwardIterator begin, ForwardIterator end,
     // Next, find end of range starting from the lower bound, using the
     // prefixing condition to define the boundary.
     result.second = TfFindBoundary(result.first, end,
-                                   bind(&SdfPath::HasPrefix, _1, prefix));
+                                   [&prefix](SdfPath const &path) {
+                                       return path.HasPrefix(prefix);
+                                   });
 
     return result;
 }

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -20,14 +20,20 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Set the base directory to resolve relative paths and patterns against. If set, any absolute patterns (eg. /Engine/Build/...) are taken to be relative to this path. If not, they are taken to be truly absolute.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string BaseDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference BaseDir;
 
 		/// <summary>
 		/// Set of files to work from, including wildcards and tag names, separated by semicolons. Resolved relative to BaseDir if set, otherwise to the branch root directory.
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Files;
+
+		/// <summary>
+		/// Set of text files to add additional files from. Each file list should have on file per line.
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileSpec)]
+		public string FileLists;
 
 		/// <summary>
 		/// Patterns to filter the list of files by, including tag names or wildcards. May include patterns that apply to the base directory if set. Defaults to all files if not specified.
@@ -78,13 +84,40 @@ namespace AutomationTool.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Get the base directory
-			DirectoryReference BaseDir = ResolveDirectory(Parameters.BaseDir);
+			DirectoryReference BaseDir = Parameters.BaseDir ?? CommandUtils.RootDirectory;
 
 			// Parse all the exclude rules
 			List<string> ExcludeRules = ParseRules(BaseDir, Parameters.Except ?? "", TagNameToFileSet);
 
 			// Resolve the input list
-			HashSet<FileReference> Files = ResolveFilespecWithExcludePatterns(BaseDir, Parameters.Files, ExcludeRules, TagNameToFileSet);
+			HashSet<FileReference> Files = new HashSet<FileReference>();
+			if(!String.IsNullOrEmpty(Parameters.Files))
+			{
+				Files.UnionWith(ResolveFilespecWithExcludePatterns(BaseDir, Parameters.Files, ExcludeRules, TagNameToFileSet));
+			}
+
+			// Resolve the input file lists
+			if(!String.IsNullOrEmpty(Parameters.FileLists))
+			{
+				HashSet<FileReference> FileLists = ResolveFilespec(BaseDir, Parameters.FileLists, TagNameToFileSet);
+				foreach(FileReference FileList in FileLists)
+				{
+					if(!FileReference.Exists(FileList))
+					{
+						throw new BuildException("Specified file list '{0}' does not exist", FileList);
+					}
+
+					string[] Lines = FileReference.ReadAllLines(FileList);
+					foreach(string Line in Lines)
+					{
+						string TrimLine = Line.Trim();
+						if(TrimLine.Length > 0)
+						{
+							Files.Add(FileReference.Combine(BaseDir, TrimLine));
+						}
+					}
+				}
+			}
 
 			// Limit to matches against the 'Filter' parameter, if set
 			if(Parameters.Filter != null)

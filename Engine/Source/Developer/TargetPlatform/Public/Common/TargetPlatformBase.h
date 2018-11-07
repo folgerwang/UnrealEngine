@@ -31,10 +31,22 @@ public:
 		return *PlatformInfo;
 	}
 
+	TARGETPLATFORM_API virtual bool UsesForwardShading() const override;
+
+	TARGETPLATFORM_API virtual bool UsesDBuffer() const override;
+
 #if WITH_ENGINE
 	virtual void GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const override
 	{
 		OutFormats.Add(FName(TEXT("FullHDR")));
+	}
+
+	virtual FName GetVirtualTextureLayerFormat(
+		int32 SourceFormat,
+		bool bAllowCompression, bool bNoAlpha,
+		bool bSupportDX11TextureFormats, int32 Settings) const override
+	{
+		return FName();
 	}
 #endif //WITH_ENGINE
 
@@ -93,9 +105,18 @@ public:
 		// do nothing in the base class
 	}
 
+	virtual void RefreshSettings() override
+	{
+	}
+
 	virtual int32 GetCompressionBitWindow() const override
 	{
 		return DEFAULT_ZLIB_BIT_WINDOW;
+	}
+
+	virtual int32 GetPlatformOrdinal() const override
+	{
+		return PlatformOrdinal;
 	}
 
 protected:
@@ -104,10 +125,13 @@ protected:
 		: PlatformInfo(InPlatformInfo)
 	{
 		check(PlatformInfo);
+
+		PlatformOrdinal = AssignPlatformOrdinal(*this);
 	}
 
 	/** Information about this platform */
 	const PlatformInfo::FPlatformInfo *PlatformInfo;
+	int32 PlatformOrdinal;
 };
 
 
@@ -169,6 +193,11 @@ public:
 		return TPlatformProperties::RequiresCookedData();
 	}
 
+	virtual bool HasSecurePackageFormat() const override
+	{
+		return TPlatformProperties::HasSecurePackageFormat();
+	}
+
 	virtual bool RequiresUserCredentials() const override
 	{
 		return TPlatformProperties::RequiresUserCredentials();
@@ -193,6 +222,9 @@ public:
 
 		case ETargetPlatformFeatures::DistanceFieldShadows:
 			return TPlatformProperties::SupportsDistanceFieldShadows();
+
+		case ETargetPlatformFeatures::DistanceFieldAO:
+			return TPlatformProperties::SupportsDistanceFieldAO();
 
 		case ETargetPlatformFeatures::GrayscaleSRGB:
 			return TPlatformProperties::SupportsGrayscaleSRGB();
@@ -233,7 +265,6 @@ public:
 
 		return false;
 	}
-	
 
 #if WITH_ENGINE
 	virtual FName GetPhysicsFormat( class UBodySetup* Body ) const override

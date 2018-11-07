@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "EngineDefines.h"
 #include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 #if WITH_PHYSX
 	#include "PhysicsEngine/PhysXSupport.h"
@@ -74,6 +75,20 @@ void FPhysCommandHandler::ExecuteCommands()
 			else
 			{
 				delete ContactModifyCallback;
+			}
+			break;
+		}
+
+		case PhysCommand::DeleteCCDContactModifyCallback:
+		{
+			FCCDContactModifyCallback* CCDContactModifyCallback = Command.Pointer.CCDContactModifyCallback;
+			if (FPhysScene::CCDContactModifyCallbackFactory.IsValid())
+			{
+				FPhysScene::CCDContactModifyCallbackFactory->Destroy(CCDContactModifyCallback);
+			}
+			else
+			{
+				delete CCDContactModifyCallback;
 			}
 			break;
 		}

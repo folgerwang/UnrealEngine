@@ -58,11 +58,10 @@ class SdfAssetPath;
 class UsdGeomPointBased : public UsdGeomGprim
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = false;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::AbstractTyped;
 
     /// Construct a UsdGeomPointBased on UsdPrim \p prim .
     /// Equivalent to UsdGeomPointBased::Get(prim.GetStage(), prim.GetPath())
@@ -106,6 +105,13 @@ public:
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
 
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
+
 private:
     // needs to invoke _GetStaticTfType.
     friend class UsdSchemaRegistry;
@@ -145,12 +151,17 @@ public:
     // VELOCITIES 
     // --------------------------------------------------------------------- //
     /// If provided, 'velocities' should be used by renderers to 
-    /// compute motion blur for a given 'points' sample, rather than 
-    /// interpolating to a neighboring 'points' sample.  This is the only
-    /// reasonable means of specifying motion blur for topologically
+    /// 
+    /// compute positions between samples for the 'points' attribute, rather
+    /// than interpolating between neighboring 'points' samples.  This is the
+    /// only reasonable means of computing motion blur for topologically
     /// varying PointBased primitives.  It follows that the length of each
     /// 'velocities' sample must match the length of the corresponding
-    /// 'points' sample.
+    /// 'points' sample.  Velocity is measured in position units per second,
+    /// as per most simulation software. To convert to position units per
+    /// UsdTimeCode, divide by UsdStage::GetTimeCodesPerSecond().
+    /// 
+    /// See also \ref UsdGeom_VelocityInterpolation .
     ///
     /// \n  C++ Type: VtArray<GfVec3f>
     /// \n  Usd Type: SdfValueTypeNames->Vector3fArray
@@ -171,13 +182,14 @@ public:
     // --------------------------------------------------------------------- //
     // NORMALS 
     // --------------------------------------------------------------------- //
-    /// Provide orientation for individual points, which, depending on
-    /// subclass, may define a surface, curve, or free points.  Note that in
-    /// general you should not need or want to provide 'normals' for any
-    /// Mesh that is subdivided, as the subdivision scheme will provide smooth
-    /// normals.  'normals' is not a generic Primvar,
-    /// but the number of elements in this attribute will be determined by
-    /// its 'interpolation'.  See \ref SetNormalsInterpolation()
+    /// Provide an object-space orientation for individual points, 
+    /// which, depending on subclass, may define a surface, curve, or free 
+    /// points.  Note that 'normals' should not be authored on any Mesh that
+    /// is subdivided, since the subdivision algorithm will define its own
+    /// normals. 'normals' is not a generic primvar, but the number of elements
+    /// in this attribute will be determined by its 'interpolation'.  See
+    /// \ref SetNormalsInterpolation() . If 'normals' and 'primvars:normals'
+    /// are both specified, the latter has precedence.
     ///
     /// \n  C++ Type: VtArray<GfVec3f>
     /// \n  Usd Type: SdfValueTypeNames->Normal3fArray
@@ -212,7 +224,7 @@ public:
     /// Although 'normals' is not classified as a generic UsdGeomPrimvar (and
     /// will not be included in the results of UsdGeomImageable::GetPrimvars() )
     /// it does require an interpolation specification.  The fallback
-    /// interpolation, if left unspecified, is UsdGeomTokens->varying , 
+    /// interpolation, if left unspecified, is UsdGeomTokens->vertex , 
     /// which will generally produce smooth shading on a polygonal mesh.
     /// To achieve partial or fully faceted shading of a polygonal mesh
     /// with normals, one should use UsdGeomTokens->faceVarying or
@@ -242,9 +254,15 @@ public:
     ///
     /// This function is to provide easy authoring of extent for usd authoring
     /// tools, hence it is static and acts outside a specific prim (as in 
-    /// attribute based methods). 
+    /// attribute based methods).
     USDGEOM_API
     static bool ComputeExtent(const VtVec3fArray& points, VtVec3fArray* extent);
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    static bool ComputeExtent(const VtVec3fArray& points,
+        const GfMatrix4d& transform, VtVec3fArray* extent);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

@@ -85,23 +85,24 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	new (IconNames)FPlatformIconInfo(TEXT("Icon83.5@2x.png"), LOCTEXT("AppIcon_iPadProRetina_iOS9", "iPad Pro Retina iOS9 App Icon"), FText::GetEmpty(), 167, 167, FPlatformIconInfo::Required);
 	new (IconNames)FPlatformIconInfo(TEXT("Icon1024.png"), LOCTEXT("AppIcon_Marketing", "Marketing Icon"), FText::GetEmpty(), 1024, 1024, FPlatformIconInfo::Required);
 
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default.png"), LOCTEXT("LaunchImage_iPhone", "Launch iPhone 4/4S"), FText::GetEmpty(), 320, 480, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default@2x.png"), LOCTEXT("LaunchImage_iPhoneRetina", "Launch iPhone 4/4S Retina"), FText::GetEmpty(), 640, 960, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-568h@2x.png"), LOCTEXT("LaunchImage_iPhone5", "Launch iPhone 5/5S Retina"), FText::GetEmpty(), 640, 1136, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape.png"), LOCTEXT("LaunchImage_iPad_Landscape", "Launch iPad in Landscape"), FText::GetEmpty(), 1024, 768, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape@2x.png"), LOCTEXT("LaunchImage_iPadRetina_Landscape", "Launch iPad Retina in Landscape"), FText::GetEmpty(), 2048, 1536, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Portrait.png"), LOCTEXT("LaunchImage_iPad_Portrait", "Launch iPad in Portrait"), FText::GetEmpty(), 768, 1024, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Portrait@2x.png"), LOCTEXT("LaunchImage_iPadRetina_Portrait", "Launch iPad Retina in Portrait"), FText::GetEmpty(), 1536, 2048, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6.png"), LOCTEXT("LaunchImage_iPhone6", "Launch iPhone 6 in Portrait"), FText::GetEmpty(), 750, 1334, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6-Landscape.png"), LOCTEXT("LaunchImage_iPhone6_Landscape", "Launch iPhone 6 in Landscape"), FText::GetEmpty(), 1334, 750, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Landscape.png"), LOCTEXT("LaunchImage_iPhone6Plus_Landscape", "Launch iPhone 6 Plus in Landscape"), FText::GetEmpty(), 2208, 1242, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Portrait.png"), LOCTEXT("LaunchImage_iPhone6Plus_Portrait", "Launch iPhone 6 Plus in Portrait"), FText::GetEmpty(), 1242, 2208, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneX-Landscape.png"), LOCTEXT("LaunchImage_iPhoneX_Landscape", "Launch iPhone X in Landscape"), FText::GetEmpty(), 2436, 1125, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneX-Portrait.png"), LOCTEXT("LaunchImage_iPhoneX_Portrait", "Launch iPhone X in Portrait"), FText::GetEmpty(), 1125, 2436, FPlatformIconInfo::Required);
-	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape-1336.png"), LOCTEXT("LaunchImage_iPadPro_Landscape", "Launch iPad Pro in Landscape"), FText::GetEmpty(), 1336, 1024, FPlatformIconInfo::Required);
-	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1336.png"), LOCTEXT("LaunchImage_iPadPro_Portrait", "Launch iPad Pro in Portrait"), FText::GetEmpty(), 1024, 1336, FPlatformIconInfo::Required);
-	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Landscape-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Landscape", "Launch iPad Pro Retina in Landscape"), FText::GetEmpty(), 2732, 2048, FPlatformIconInfo::Required);
-	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Portrait", "Launch iPad Pro Retina in Portrait"), FText::GetEmpty(), 2048, 2732, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone5-Landscape.png"), LOCTEXT("LaunchImage_iPhone5_Landscape", "iPhone 5/5S/SE in Landscape"), FText::GetEmpty(), 1136, 640, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-568h@2x.png"), LOCTEXT("LaunchImage_iPhone5_Portrait", "iPhone 5/5S/SE in Portrait"), FText::GetEmpty(), 640, 1136, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6-Landscape.png"), LOCTEXT("LaunchImage_iPhone6_Landscape", "iPhone 6/7/8 in Landscape"), FText::GetEmpty(), 1334, 750, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6.png"), LOCTEXT("LaunchImage_iPhone6", "iPhone 6/7/8 in Portrait"), FText::GetEmpty(), 750, 1334, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Landscape.png"), LOCTEXT("LaunchImage_iPhone6Plus_Landscape", "iPhone 6+/7+/8+ in Landscape"), FText::GetEmpty(), 2208, 1242, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Portrait.png"), LOCTEXT("LaunchImage_iPhone6Plus_Portrait", "iPhone 6+/7+/8+ in Portrait"), FText::GetEmpty(), 1242, 2208, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneXS-Landscape.png"), LOCTEXT("LaunchImage_iPhoneX_Landscape", "iPhone X/XS in Landscape"), FText::GetEmpty(), 2436, 1125, FPlatformIconInfo::Required);
+    new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneXS-Portrait.png"), LOCTEXT("LaunchImage_iPhoneX_Portrait", "iPhone X/XS in Portrait"), FText::GetEmpty(), 1125, 2436, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneXSMax-Landscape.png"), LOCTEXT("LaunchImage_iPhoneXSMax_Landscape", "iPhone XS Max in Landscape"), FText::GetEmpty(), 2688, 1242, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneXSMax-Portrait.png"), LOCTEXT("LaunchImage_iPhoneXSMax_Portrait", "iPhone XS Max in Portrait"), FText::GetEmpty(), 1242, 2688, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape@2x.png"), LOCTEXT("LaunchImage_iPadRetina_Landscape", "iPad in Landscape"), FText::GetEmpty(), 2048, 1536, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Portrait@2x.png"), LOCTEXT("LaunchImage_iPadRetina_Portrait", "iPad in Portrait"), FText::GetEmpty(), 1536, 2048, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Landscape-1112@2x.png"), LOCTEXT("LaunchImage_iPadPro105Retina_Landscape", "iPad Pro 10.5 in Landscape"), FText::GetEmpty(), 2224, 1668, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1112@2x.png"), LOCTEXT("LaunchImage_iPadPro105Retina_Portrait", "iPad Pro 10.5 in Portrait"), FText::GetEmpty(), 1668, 2224, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Landscape-1194@2x.png"), LOCTEXT("LaunchImage_iPadPro11Retina_Landscape", "iPad Pro 11 in Landscape"), FText::GetEmpty(), 2388, 1668, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1194@2x.png"), LOCTEXT("LaunchImage_iPadPro11Retina_Portrait", "iPad Pro 11 in Portrait"), FText::GetEmpty(), 1668, 2388, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Landscape-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Landscape", "iPad Pro 12.9 in Landscape"), FText::GetEmpty(), 2732, 2048, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Portrait", "iPad Pro 12.9 in Portrait"), FText::GetEmpty(), 2048, 2732, FPlatformIconInfo::Required);
 
 	bShowAllProvisions = false;
 	bShowAllCertificates = false;
@@ -442,7 +443,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 						(
 						SNew(SHeaderRow)
 						+ SHeaderRow::Column("Selected")
-						.DefaultLabel(LOCTEXT("ProvisionListSelectColumnHeader", ""))
+						.DefaultLabel(FText::GetEmpty())
 						.FixedWidth(30.0f)
 						+ SHeaderRow::Column("Name")
 						.DefaultLabel(LOCTEXT("ProvisionListNameColumnHeader", "Provision"))
@@ -603,7 +604,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 								(
 									SNew(SHeaderRow)
 									+ SHeaderRow::Column("Selected")
-									.DefaultLabel(LOCTEXT("CertificateListSelectColumnHeader", ""))
+									.DefaultLabel(FText::GetEmpty())
 									.FixedWidth(30.0f)
 									+ SHeaderRow::Column("Name")
 									.DefaultLabel(LOCTEXT("CertificateListNameColumnHeader", "Certificate"))
@@ -805,6 +806,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	SETUP_PLIST_PROP(bSupportsUpsideDownOrientation, OrientationCategory);
 	SETUP_PLIST_PROP(bSupportsLandscapeLeftOrientation, OrientationCategory);
 	SETUP_PLIST_PROP(bSupportsLandscapeRightOrientation, OrientationCategory);
+	SETUP_PLIST_PROP(PreferredLandscapeOrientation, OrientationCategory);
 	
 	SETUP_PLIST_PROP(bSupportsMetal, RenderCategory);
 	
@@ -1219,15 +1221,15 @@ FReply FIOSTargetSettingsCustomization::OnInstallProvisionClicked()
 
 		// see if the provision is already installed
 		FString DestName = FPaths::GetBaseFilename(ProvisionPath);
-		TCHAR Path[4096];
+		FString Path;
 #if PLATFORM_MAC
-		FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"), Path, ARRAY_COUNT(Path));
-		FString Destination = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), Path, *DestName);
-		FString Destination2 = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), Path, FApp::GetProjectName());
+		Path = FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"));
+		FString Destination = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), *Path, *DestName);
+		FString Destination2 = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), *Path, FApp::GetProjectName());
 #else
-		FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"), Path, ARRAY_COUNT(Path));
-		FString Destination = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), Path, *DestName);
-		FString Destination2 = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), Path, FApp::GetProjectName());
+		Path = FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"));
+		FString Destination = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), *Path, *DestName);
+		FString Destination2 = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), *Path, FApp::GetProjectName());
 #endif
 		if (FPaths::FileExists(Destination) || FPaths::FileExists(Destination2))
 		{
@@ -1348,9 +1350,8 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 		RemoteServerPort = "22";
 	}
 
-	TCHAR Path[4096];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
-	FString Destination = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *RemoteServerAddress, *(Settings.RSyncUsername));
+	FString Path = FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"));
+	FString Destination = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), *Path, *RemoteServerAddress, *(Settings.RSyncUsername));
 	if (FPaths::FileExists(Destination))
 	{
 		FString MessagePrompt = FString::Printf(TEXT("An SSH Key already exists.  Do you want to replace this key?"));
@@ -1371,9 +1372,8 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 	if (!FPaths::DirectoryExists(DeltaCopyPath))
 	{
 		// if no UE4 bundled version of DeltaCopy, try and use the default install location
-		TCHAR ProgramPath[4096];
-		FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"), ProgramPath, ARRAY_COUNT(ProgramPath));
-		DeltaCopyPath = FPaths::Combine(ProgramPath, TEXT("DeltaCopy"));
+		FString ProgramPath = FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"));
+		DeltaCopyPath = FPaths::Combine(*ProgramPath, TEXT("DeltaCopy"));
 	}
 	
 	if (!FPaths::DirectoryExists(DeltaCopyPath))
@@ -1389,7 +1389,7 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 		*DeltaCopyPath,
 		*(Settings.RSyncUsername),
 		*RemoteServerAddress,
-		Path,
+		*Path,
 		*CygwinPath,
 		*EnginePath);
 
@@ -1811,7 +1811,18 @@ void FIOSTargetSettingsCustomization::SetShaderStandard(int32 Value)
 			Message = LOCTEXT("iOSMetalShaderVersion2_0","Enabling Metal Shader Standard v2.0 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 11.0 or later.");
 			SetMinVersion((int32)EIOSVersion::IOS_11);
 		}
-		
+        else if (Value == 4 && (EIOSVersion)EnumValue < EIOSVersion::IOS_12)
+        {
+            Message = LOCTEXT("iOSMetalShaderVersion2_1","Enabling Metal Shader Standard v2.1 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 12.0 or later.");
+            SetMinVersion((int32)EIOSVersion::IOS_12);
+        }
+
+		// make sure we never set the min version to less than current supported
+		if (((EIOSVersion)EnumValue < EIOSVersion::IOS_10))
+		{
+			SetMinVersion((int32)EIOSVersion::IOS_10);
+		}
+
 		
 		ShaderVersionWarningTextBox->SetError(Message);
 	}

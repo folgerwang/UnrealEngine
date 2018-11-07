@@ -5,6 +5,8 @@
 #include "CoreTypes.h"
 #include "Math/Color.h"
 #include "Math/IntPoint.h"
+#include "Misc/Optional.h"
+#include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
 #include "Templates/SharedPointer.h"
 
@@ -34,6 +36,9 @@ enum class EMediaTextureSampleFormat
 	/** Four 8-bit unsigned integer components (Blue, Green, Red, Alpha) per texel. */
 	CharBGRA,
 
+	/** Four 10-bit unsigned integer components (Blue, Green, Red) & 2-bit alpha per texel. */
+	CharBGR10A2,
+
 	/**  Windows bitmap (like CharBGRA, but flipped vertically). */
 	CharBMP,
 
@@ -59,6 +64,10 @@ enum class EMediaTextureSampleFormat
 	FloatRGBA
 };
 
+namespace MediaTextureSampleFormat
+{
+	 MEDIA_API const TCHAR* EnumToString(const EMediaTextureSampleFormat InSampleFormat);
+};
 
 /**
  * Interface for media texture samples.
@@ -156,6 +165,14 @@ public:
 	 * @see GetBuffer, GetDim, GetDuration, GetFormat, GetOutputDim, GetStride, GetTexture
 	 */
 	virtual FTimespan GetTime() const = 0;
+
+	/**
+	 * Get the sample timecode if available.
+	 *
+	 * @return Sample timecode.
+	 * @see GetTime
+	 */
+	virtual TOptional<FTimecode> GetTimecode() const { return TOptional<FTimecode>(); }
 
 	/**
 	 * Whether the sample can be held in a cache.

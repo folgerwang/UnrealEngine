@@ -18,6 +18,8 @@
 #include "UObject/ReferenceChainSearch.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/FastReferenceCollector.h"
+#include "UObject/Package.h"
+#include "Misc/CommandLine.h"
 
 int32 GCreateGCClusters = 1;
 static FAutoConsoleVariableRef CCreateGCClusters(
@@ -228,8 +230,77 @@ int32 FUObjectClusterContainer::GetMinClusterSize() const
 
 #if !UE_BUILD_SHIPPING
 
+static bool DoesClusterContainObjects(const FUObjectCluster& Cluster, const TArray<int32>& Objects)
+{
+	for (int32 ObjectIndex : Objects)
+	{
+		if (Cluster.RootIndex == ObjectIndex)
+		{
+			return true;
+		}
+		if (Cluster.Objects.Contains(ObjectIndex))
+		{
+			return true;
+		}
+		else if (Cluster.MutableObjects.Contains(ObjectIndex))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+static void ParseObjectNameArrayForClusters(TArray<int32>& OutIndexArray, const TArray<FString>& InNameArray, bool bWarn = true)
+{
+	for (const FString& ObjectName : InNameArray)
+	{
+		UObject* Res = StaticFindObject(UObject::StaticClass(), ANY_PACKAGE, *ObjectName);
+		if (Res)
+		{
+			int32 ObjectIndex = GUObjectArray.ObjectToIndex(Res);
+			OutIndexArray.Add(ObjectIndex);
+		}
+		else
+		{
+			UE_CLOG(bWarn, LogObj, Warning, TEXT("ParseObjectNameArrayForClusters can't find object \"%s\""), *ObjectName);
+		}
+	}
+}
+
 void DumpClusterToLog(const FUObjectCluster& Cluster, bool bHierarchy, bool bIndexOnly)
 {
+#if UE_GCCLUSTER_VERBOSE_LOGGING
+	static struct FVerboseClusterLoggingSettings
+	{
+		TArray<FString> WithObjects;
+		FVerboseClusterLoggingSettings()
+		{
+			FString ObjectsList;
+			FParse::Value(FCommandLine::Get(), TEXT("DumpClustersWithObjects="), ObjectsList);
+			ObjectsList.ParseIntoArray(WithObjects, TEXT(","));
+		}
+		bool DoesClusterContainRequestedObjects(const FUObjectCluster& InCluster)
+		{
+			bool bContainsObjects = true;
+			if (WithObjects.Num())
+			{
+				// We need to process the object name list each time we check it against a cluster because
+				// the objects may get loaded in and out as we create new clusters
+				TArray<int32> ObjectIndices;
+				ParseObjectNameArrayForClusters(ObjectIndices, WithObjects, false);
+				// If none of the objects is currently loaded and ObjectIndices is empty we will properly reject the cluster
+				bContainsObjects = DoesClusterContainObjects(InCluster, ObjectIndices);
+			}
+			return bContainsObjects;
+		}
+	} VerboseClusterLoggingSettings;
+
+	if (!VerboseClusterLoggingSettings.DoesClusterContainRequestedObjects(Cluster))
+	{
+		return;
+	}
+#endif
+
 	FUObjectItem* RootItem = GUObjectArray.IndexToObjectUnsafeForGC(Cluster.RootIndex);
 	UObject* RootObject = static_cast<UObject*>(RootItem->Object);
 	UE_LOG(LogObj, Display, TEXT("%s (Index: %d), Size: %d, ReferencedClusters: %d"), *RootObject->GetFullName(), Cluster.RootIndex, Cluster.Objects.Num(), Cluster.ReferencedClusters.Num());
@@ -294,7 +365,6 @@ void DumpClusterToLog(const FUObjectCluster& Cluster, bool bHierarchy, bool bInd
 	}
 }
 
-
 // Dumps all clusters to log.
 void ListClusters(const TArray<FString>& Args)
 {
@@ -313,34 +383,47 @@ void ListClusters(const TArray<FString>& Args)
 		}
 	}
 
-	if (Args.Contains(TEXT("SortByName")))
+	TArray<int32> WithObjects;
+	for (const FString& Arg : Args)
 	{
-		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+		if (Arg == TEXT("SortByName"))
 		{
-			return GUObjectArray.IndexToObject(A->RootIndex)->Object->GetFName();
-		});
-	}
-	else if (Args.Contains(TEXT("SortByObjectCount")))
-	{
-		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			{
+				return GUObjectArray.IndexToObject(A->RootIndex)->Object->GetFName();
+			});
+		}
+		else if (Arg == TEXT("SortByObjectCount"))
 		{
-			return A->Objects.Num();
-		});
-	}
-	else if (Args.Contains(TEXT("SortByMutableObjectCount")))
-	{
-		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			{
+				return A->Objects.Num();
+			});
+		}
+		else if (Arg == TEXT("SortByMutableObjectCount"))
 		{
-			return A->MutableObjects.Num();
-		});
-	}
-	else if (Args.Contains(TEXT("SortByReferencedClustersCount")))
-	{
-		Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			{
+				return A->MutableObjects.Num();
+			});
+		}
+		else if (Arg == TEXT("SortByReferencedClustersCount"))
 		{
-			return A->ReferencedClusters.Num();
-		});
+			Algo::SortBy(AllClusters, [](FUObjectCluster* A)
+			{
+				return A->ReferencedClusters.Num();
+			});
+		}
+		else if (Arg.StartsWith("With="))
+		{
+			FString ObjectsList = Arg.Mid(5);
+			TArray<FString> ObjectNames;
+			ObjectsList.ParseIntoArray(ObjectNames, TEXT(","));
+			ParseObjectNameArrayForClusters(WithObjects, ObjectNames);
+		}
 	}
+
+	int32 NumberOfClustersPrinted = 0;
 
 	for (FUObjectCluster* Cluster : AllClusters)
 	{
@@ -351,9 +434,19 @@ void ListClusters(const TArray<FString>& Args)
 		MaxClusterSize = FMath::Max(MaxClusterSize, Cluster->Objects.Num());
 		TotalClusterObjects += Cluster->Objects.Num();
 
-		DumpClusterToLog(*Cluster, bHierarchy, false);
+		bool bListCluster = true;
+		if (WithObjects.Num())
+		{
+			bListCluster = DoesClusterContainObjects(*Cluster, WithObjects);
+		}
+		if (bListCluster)
+		{
+			DumpClusterToLog(*Cluster, bHierarchy, false);
+			NumberOfClustersPrinted++;
+		}
 	}
-	UE_LOG(LogObj, Display, TEXT("Number of clusters: %d"), AllClusters.Num());
+	UE_LOG(LogObj, Display, TEXT("Displayed %d clusters"), NumberOfClustersPrinted);
+	UE_LOG(LogObj, Display, TEXT("Total number of clusters: %d"), AllClusters.Num());
 	UE_LOG(LogObj, Display, TEXT("Maximum cluster size: %d"), MaxClusterSize);
 	UE_LOG(LogObj, Display, TEXT("Average cluster size: %d"), AllClusters.Num() ? (TotalClusterObjects / AllClusters.Num()) : 0);
 	UE_LOG(LogObj, Display, TEXT("Number of objects in GC clusters: %d"), TotalClusterObjects);

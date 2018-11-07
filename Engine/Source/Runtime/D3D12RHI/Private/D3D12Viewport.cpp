@@ -94,11 +94,11 @@ using namespace D3D12RHI;
 
 #if WITH_MGPU
 FD3D12FramePacing::FD3D12FramePacing(FD3D12Adapter* Parent)
-	: bKeepRunning(true)
+	: FD3D12AdapterChild(Parent)
+	, bKeepRunning(true)
 	, AvgFrameTimeMs(0.0f)
 	, LastFrameTimeMs(0)
 	, Thread(nullptr)
-	, FD3D12AdapterChild(Parent)
 {
 	VERIFYD3D12RESULT(Parent->GetD3DDevice()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(Fence.GetInitReference())));
 	FMemory::Memset(SleepTimes, 0);
@@ -182,7 +182,6 @@ void FD3D12FramePacing::PrePresentQueued(ID3D12CommandQueue* Queue)
 FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex)
 {
 	FD3D12Adapter* Adapter = Parent->GetParentAdapter();
-	const FRHIGPUMask Node = Parent->GetGPUMask();
 
 	// Grab the back buffer
 	TRefCountPtr<ID3D12Resource> BackBufferResource;
@@ -207,7 +206,7 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 
 		if (Device->GetGPUIndex() == Parent->GetGPUIndex())
 		{
-			FD3D12Resource* NewResourceWrapper = new FD3D12Resource(Device, Node, BackBufferResource, State, BackBufferDesc);
+			FD3D12Resource* NewResourceWrapper = new FD3D12Resource(Device, FRHIGPUMask::All(), BackBufferResource, State, BackBufferDesc);
 			NewResourceWrapper->AddRef();
 			NewTexture->ResourceLocation.AsStandAlone(NewResourceWrapper);
 		}
@@ -328,36 +327,23 @@ void FD3D12Viewport::CalculateSwapChainDepth(int32 DefaultSwapChainDepth)
 
 	// This is a temporary helper to visualize what each GPU is rendering. 
 	// Not specifying a value will cycle swap chain through all GPUs.
-	PresentGPUIndex = INDEX_NONE;
+	BackbufferMultiGPUBinding = 0;
 	NumBackBuffers = DefaultSwapChainDepth;
+#if WITH_MGPU
 	if (GNumExplicitGPUsForRendering > 1)
 	{
-		if (FParse::Value(FCommandLine::Get(), TEXT("PresentGPU="), PresentGPUIndex))
+		if (FParse::Value(FCommandLine::Get(), TEXT("PresentGPU="), BackbufferMultiGPUBinding))
 		{
-			PresentGPUIndex = FMath::Clamp<int32>(PresentGPUIndex, INDEX_NONE, (int32)GNumExplicitGPUsForRendering - 1) ;
+			BackbufferMultiGPUBinding = FMath::Clamp<int32>(BackbufferMultiGPUBinding, INDEX_NONE, (int32)GNumExplicitGPUsForRendering - 1) ;
 		}
-		else
+		else if (FParse::Param(FCommandLine::Get(), TEXT("AFR")))
 		{
-			switch (GetMultiGPUMode())
-			{
-			case EMultiGPUMode::AlternateFrame:
-			case EMultiGPUMode::Broadcast:
-				PresentGPUIndex = INDEX_NONE;
+				BackbufferMultiGPUBinding = INDEX_NONE;
 				NumBackBuffers = GNumExplicitGPUsForRendering > 2 ? GNumExplicitGPUsForRendering : 4;
-				break;
-
-			case EMultiGPUMode::AlternateView:
-			case EMultiGPUMode::GPU0:
-				PresentGPUIndex = 0;
-				break;
-			case EMultiGPUMode::GPU1:
-				PresentGPUIndex = 1 % GNumExplicitGPUsForRendering;
-				break;
-			default:
-				break;
-			}
+				GNumAlternateFrameRenderingGroups = GNumExplicitGPUsForRendering;
 		}
 	}
+#endif // WITH_MGPU
 
 	BackBuffers.Empty();
 	BackBuffers.AddZeroed(NumBackBuffers);
@@ -495,6 +481,7 @@ bool FD3D12Viewport::PresentChecked(int32 SyncInterval)
 
 	if (IsValidRef(CustomPresent))
 	{
+		SCOPE_CYCLE_COUNTER(STAT_D3D12CustomPresentTime);
 		bNeedNativePresent = CustomPresent->Present(SyncInterval);
 	}
 	if (bNeedNativePresent)
@@ -930,6 +917,19 @@ void FD3D12DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer(FViewportRHIParam
 	// Advance frame so the next call to RHIGetViewportBackBuffer returns the next buffer in the swap chain.
 	FD3D12Viewport* Viewport = FD3D12DynamicRHI::ResourceCast(ViewportRHI);
 	Viewport->AdvanceBackBufferFrame_RenderThread();
+}
+
+uint32 FD3D12DynamicRHI::RHIGetViewportNextPresentGPUIndex(FViewportRHIParamRef ViewportRHI)
+{
+	check(IsInRenderingThread());
+#if WITH_MGPU
+	const FD3D12Viewport* Viewport = FD3D12DynamicRHI::ResourceCast(ViewportRHI);
+	if (Viewport)
+	{
+		return Viewport->GetNextPresentGPUIndex();
+	}
+#endif // WITH_MGPU
+	return 0;
 }
 
 FTexture2DRHIRef FD3D12DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)

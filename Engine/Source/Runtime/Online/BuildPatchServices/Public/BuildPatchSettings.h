@@ -2,12 +2,33 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/IBuildManifest.h"
 #include "Misc/Variant.h"
+#include "Interfaces/IBuildManifest.h"
+#include "BuildPatchInstall.h"
 #include "BuildPatchVerify.h"
+#include "BuildPatchFeatureLevel.h"
 
 namespace BuildPatchServices
 {
+	/**
+	 * Defines a list of all build patch services initialization settings, can be used to override default init behaviors.
+	 */
+	struct FBuildPatchServicesInitSettings
+	{
+	public:
+		/**
+		 * Default constructor. Initializes all members with default behavior values.
+		 */
+		FBuildPatchServicesInitSettings();
+
+		// The application settings directory.
+		FString ApplicationSettingsDir;
+		// The application project name.
+		FString ProjectName;
+		// The local machine config file name.
+		FString LocalMachineConfigFileName;
+	};
+
 	/**
 	 * Defines a list of all the options of an installation task.
 	 */
@@ -29,14 +50,16 @@ namespace BuildPatchServices
 		TArray<FString> CloudDirectories;
 		// The set of tags that describe what to be installed. Empty set means full installation.
 		TSet<FString> InstallTags;
+		// The mode for installation.
+		EInstallMode InstallMode;
 		// The mode for verification.
 		EVerifyMode VerifyMode;
 		// Whether the operation is a repair to an existing installation only.
 		bool bIsRepair;
-		// Whether the operation should only produce the necessary staged data, without performing the final install stage yet.
-		bool bStageOnly;
 		// Whether to run the prerequisite installer provided if it hasn't been ran before on this machine.
 		bool bRunRequiredPrereqs;
+		// Whether to allow this installation to run concurrently with any existing installations.
+		bool bAllowConcurrentExecution;
 
 		/**
 		 * Construct with install manifest, provides common defaults for other settings.
@@ -50,10 +73,11 @@ namespace BuildPatchServices
 			, ChunkDatabaseFiles()
 			, CloudDirectories()
 			, InstallTags()
+			, InstallMode(EInstallMode::NonDestructiveInstall)
 			, VerifyMode(EVerifyMode::ShaVerifyAllFiles)
 			, bIsRepair(false)
-			, bStageOnly(false)
 			, bRunRequiredPrereqs(true)
+			, bAllowConcurrentExecution(false)
 		{}
 
 		/**
@@ -68,10 +92,11 @@ namespace BuildPatchServices
 			, ChunkDatabaseFiles(MoveTemp(MoveFrom.ChunkDatabaseFiles))
 			, CloudDirectories(MoveTemp(MoveFrom.CloudDirectories))
 			, InstallTags(MoveTemp(MoveFrom.InstallTags))
-			, VerifyMode(MoveTemp(MoveFrom.VerifyMode))
-			, bIsRepair(MoveTemp(MoveFrom.bIsRepair))
-			, bStageOnly(MoveTemp(MoveFrom.bStageOnly))
-			, bRunRequiredPrereqs(MoveTemp(MoveFrom.bRunRequiredPrereqs))
+			, InstallMode(MoveFrom.InstallMode)
+			, VerifyMode(MoveFrom.VerifyMode)
+			, bIsRepair(MoveFrom.bIsRepair)
+			, bRunRequiredPrereqs(MoveFrom.bRunRequiredPrereqs)
+			, bAllowConcurrentExecution(MoveFrom.bAllowConcurrentExecution)
 		{}
 
 		/**
@@ -86,10 +111,11 @@ namespace BuildPatchServices
 			, ChunkDatabaseFiles(CopyFrom.ChunkDatabaseFiles)
 			, CloudDirectories(CopyFrom.CloudDirectories)
 			, InstallTags(CopyFrom.InstallTags)
+			, InstallMode(CopyFrom.InstallMode)
 			, VerifyMode(CopyFrom.VerifyMode)
 			, bIsRepair(CopyFrom.bIsRepair)
-			, bStageOnly(CopyFrom.bStageOnly)
 			, bRunRequiredPrereqs(CopyFrom.bRunRequiredPrereqs)
+			, bAllowConcurrentExecution(CopyFrom.bAllowConcurrentExecution)
 		{}
 	};
 
@@ -98,35 +124,43 @@ namespace BuildPatchServices
 	 */
 	struct FGenerationConfiguration
 	{
-		// The directory to analyze
+		// The client feature level to output data for.
+		EFeatureLevel FeatureLevel;
+		// The directory to analyze.
 		FString RootDirectory;
-		// The ID of the app of this build
+		// The ID of the app of this build.
 		uint32 AppId;
-		// The name of the app of this build
+		// The name of the app of this build.
 		FString AppName;
-		// The version string for this build
+		// The version string for this build.
 		FString BuildVersion;
-		// The local exe path that would launch this build
+		// The local exe path that would launch this build.
 		FString LaunchExe;
-		// The command line that would launch this build
+		// The command line that would launch this build.
 		FString LaunchCommand;
+		// The path to a file containing a \r\n separated list of RootDirectory relative files to read.
+		FString InputListFile;
 		// The path to a file containing a \r\n separated list of RootDirectory relative files to ignore.
 		FString IgnoreListFile;
 		// The path to a file containing a \r\n separated list of RootDirectory relative files followed by attribute keywords.
 		FString AttributeListFile;
-		// The set of identifiers which the prerequisites satisfy
+		// The set of identifiers which the prerequisites satisfy.
 		TSet<FString> PrereqIds;
-		// The display name of the prerequisites installer
+		// The display name of the prerequisites installer.
 		FString PrereqName;
-		// The path to the prerequisites installer
+		// The path to the prerequisites installer.
 		FString PrereqPath;
-		// The command line arguments for the prerequisites installer
+		// The command line arguments for the prerequisites installer.
 		FString PrereqArgs;
-		// The maximum age (in days) of existing data files which can be reused in this build
+		// The maximum age (in days) of existing data files which can be reused in this build.
 		float DataAgeThreshold;
-		// Indicates whether data age threshold should be honored. If false, ALL data files can be reused
+		// Indicates whether data age threshold should be honored. If false, ALL data files can be reused.
 		bool bShouldHonorReuseThreshold;
-		// Map of custom fields to add to the manifest
+		// The chunk window size to be used when saving out new data.
+		uint32 OutputChunkWindowSize;
+		// Indicates whether any window size chunks should be matched, rather than just out output window size.
+		bool bShouldMatchAnyWindowSize;
+		// Map of custom fields to add to the manifest.
 		TMap<FString, FVariant> CustomFields;
 		// The cloud directory that all patch data will be saved to. An empty value will use module's global setting.
 		FString CloudDirectory;
@@ -137,7 +171,8 @@ namespace BuildPatchServices
 		 * Default constructor
 		 */
 		FGenerationConfiguration()
-			: RootDirectory()
+			: FeatureLevel(EFeatureLevel::Latest)
+			, RootDirectory()
 			, AppId()
 			, AppName()
 			, BuildVersion()
@@ -151,6 +186,8 @@ namespace BuildPatchServices
 			, PrereqArgs()
 			, DataAgeThreshold()
 			, bShouldHonorReuseThreshold()
+			, OutputChunkWindowSize(1048576)
+			, bShouldMatchAnyWindowSize(true)
 			, CustomFields()
 			, CloudDirectory()
 			, OutputFilename()

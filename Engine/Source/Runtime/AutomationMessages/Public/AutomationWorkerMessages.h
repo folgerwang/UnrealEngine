@@ -133,6 +133,15 @@ struct FAutomationWorkerResetTests
 
 
 /**
+*/
+USTRUCT()
+struct FAutomationWorkerStopTests
+{
+	GENERATED_USTRUCT_BODY()
+};
+
+
+/**
  */
 USTRUCT()
 struct FAutomationWorkerPong
@@ -455,6 +464,28 @@ public:
 public:
 
 	FAutomationScreenshotMetadata()
+		: Width(0)
+		, Height(0)
+		, bIsStereo(false)
+		, ResolutionQuality(0.0f)
+		, ViewDistanceQuality(0)
+		, AntiAliasingQuality(0)
+		, ShadowQuality(0)
+		, PostProcessQuality(0)
+		, TextureQuality(0)
+		, EffectsQuality(0)
+		, FoliageQuality(0)
+		, bHasComparisonRules(0)
+		, ToleranceRed(0)
+		, ToleranceGreen(0)
+		, ToleranceBlue(0)
+		, ToleranceAlpha(0)
+		, ToleranceMinBrightness(0)
+		, ToleranceMaxBrightness(0)
+		, MaximumLocalError(0.0f)
+		, MaximumGlobalError(0.0f)
+		, bIgnoreAntiAliasing(false)
+		, bIgnoreColors(false)
 	{
 	}
 

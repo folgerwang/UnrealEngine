@@ -625,7 +625,8 @@ void FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(UE
 					DynamicInputNodeOverrideNode->GetInputPins(InputPins);
 					for (UEdGraphPin* InputPin : InputPins)
 					{
-						if (InputPin->PinName.ToString().StartsWith(DynamicInputNode->GetFunctionName()))
+						FNiagaraParameterHandle InputHandle(InputPin->PinName);
+						if (InputHandle.GetNamespace().ToString() == DynamicInputNode->GetFunctionName())
 						{
 							RemoveNodesForStackFunctionInputOverridePin(*InputPin, OutRemovedDataObjects);
 							DynamicInputNodeOverrideNode->RemovePin(InputPin);
@@ -1031,7 +1032,7 @@ void FNiagaraStackGraphUtilities::SetModuleIsEnabled(UNiagaraNodeFunctionCall& F
 
 bool FNiagaraStackGraphUtilities::ValidateGraphForOutput(UNiagaraGraph& NiagaraGraph, ENiagaraScriptUsage ScriptUsage, FGuid ScriptUsageId, FText& ErrorMessage)
 {
-	UNiagaraNodeOutput* OutputNode = NiagaraGraph.FindOutputNode(ScriptUsage, ScriptUsageId);
+	UNiagaraNodeOutput* OutputNode = NiagaraGraph.FindEquivalentOutputNode(ScriptUsage, ScriptUsageId);
 	if (OutputNode == nullptr)
 	{
 		ErrorMessage = LOCTEXT("ValidateNoOutputMessage", "Output node doesn't exist for script.");
@@ -1314,6 +1315,22 @@ void FNiagaraStackGraphUtilities::GetAvailableParametersForScript(UNiagaraNodeOu
 			}
 		}
 	}
+
+	TOptional<FName> UsageNamespace = FNiagaraStackGraphUtilities::GetNamespaceForScriptUsage(ScriptOutputNode.GetUsage());
+	if (UsageNamespace.IsSet())
+	{
+		for (const TPair<FNiagaraVariable, FNiagaraGraphParameterReferenceCollection>& Entry : ScriptOutputNode.GetNiagaraGraph()->GetParameterMap())
+		{
+			// Pick up any params with 0 references from the Parameters window
+			bool bDoesParamHaveNoReferences = Entry.Value.ParameterReferences.Num() == 0;
+			bool bIsParamInUsageNamespace = Entry.Key.IsInNameSpace(UsageNamespace.GetValue().ToString());
+
+			if (bDoesParamHaveNoReferences && bIsParamInUsageNamespace)
+			{
+				OutAvailableParameters.AddUnique(Entry.Key);
+			}
+		}
+	}
 }
 
 TOptional<FName> FNiagaraStackGraphUtilities::GetNamespaceForScriptUsage(ENiagaraScriptUsage ScriptUsage)
@@ -1543,6 +1560,27 @@ bool FNiagaraStackGraphUtilities::IsValidDefaultDynamicInput(UNiagaraScript& Own
 {
 	FStackFunctionInputValue InputValue;
 	return TryGetStackFunctionInputValue(OwningScript, nullptr, DefaultPin, NAME_None, FRapidIterationParameterContext(), InputValue) && InputValue.DynamicValue.IsSet();
+}
+
+bool FNiagaraStackGraphUtilities::ParameterIsCompatibleWithScriptUsage(FNiagaraVariable Parameter, ENiagaraScriptUsage Usage)
+{
+	const FNiagaraParameterHandle ParameterHandle(Parameter.GetName());
+	switch (Usage)
+	{
+	case ENiagaraScriptUsage::SystemSpawnScript:
+	case ENiagaraScriptUsage::SystemUpdateScript:
+		return ParameterHandle.IsSystemHandle();
+	case ENiagaraScriptUsage::EmitterSpawnScript:
+	case ENiagaraScriptUsage::EmitterUpdateScript:
+		return ParameterHandle.IsEmitterHandle();
+	case ENiagaraScriptUsage::ParticleSpawnScript:
+	case ENiagaraScriptUsage::ParticleSpawnScriptInterpolated:
+	case ENiagaraScriptUsage::ParticleUpdateScript:
+	case ENiagaraScriptUsage::ParticleEventScript:
+		return ParameterHandle.IsParticleAttributeHandle();
+	default:
+		return false;
+	}
 }
 
 bool FNiagaraStackGraphUtilities::DoesDynamicInputMatchDefault(

@@ -19,7 +19,8 @@
 #define CONSOLE_NONE	"\x1b[0m"
 
 FLinuxConsoleOutputDevice::FLinuxConsoleOutputDevice()
-	: bOverrideColorSet(false)
+	: bOverrideColorSet(false),
+	  bOutputtingToTerminal(isatty(STDOUT_FILENO))
 {
 }
 
@@ -48,7 +49,8 @@ void FLinuxConsoleOutputDevice::Serialize(const TCHAR* Data, ELogVerbosity::Type
 		else
 		{
 			bool bNeedToResetColor = false;
-			if (!bOverrideColorSet)
+
+			if (bOutputtingToTerminal && !bOverrideColorSet)
 			{
 				if (Verbosity == ELogVerbosity::Error)
 				{
@@ -62,7 +64,7 @@ void FLinuxConsoleOutputDevice::Serialize(const TCHAR* Data, ELogVerbosity::Type
 				}
 			}
 
-			printf("%ls\n", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes));
+			printf("%s\n", TCHAR_TO_UTF8(*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes)));
 
 			if (bNeedToResetColor)
 			{

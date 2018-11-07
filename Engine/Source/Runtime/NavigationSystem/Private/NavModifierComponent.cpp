@@ -19,14 +19,11 @@ void UNavModifierComponent::CalcAndCacheBounds() const
 	const AActor* MyOwner = GetOwner();
 	if (MyOwner)
 	{
-		TInlineComponentArray<UPrimitiveComponent*> PrimComponents;
-		MyOwner->GetComponents(PrimComponents);
-
 		Bounds = FBox(ForceInit);
 		ComponentBounds.Reset();
-		for (int32 Idx = 0; Idx < PrimComponents.Num(); Idx++)
+		for (UActorComponent* Component : MyOwner->GetComponents())
 		{
-			UPrimitiveComponent* PrimComp = PrimComponents[Idx];
+			UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component);
 			if (PrimComp && PrimComp->IsRegistered() && PrimComp->IsCollisionEnabled())
 			{
 				UBodySetup* BodySetup = PrimComp->GetBodySetup();
@@ -75,7 +72,8 @@ void UNavModifierComponent::CalcAndCacheBounds() const
 						const FKConvexElem& ElemInfo = BodySetup->AggGeom.ConvexElems[ConvexIdx];
 						FTransform ElemTM = ElemInfo.GetTransform();
 						ElemTM.ScaleTranslation(Scale3D);
-						ElemTM *= FTransform(ParentTM.GetLocation());
+						// no need to translate with ParentTM since FKConvexElem 
+						// we're getting are already translated
 
 						const FBox ConvexBounds = ElemInfo.CalcAABB(ElemTM, Scale3D);
 						ComponentBounds.Add(FRotatedBox(ConvexBounds, ElemTM.GetRotation() * ParentTM.GetRotation()));

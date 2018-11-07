@@ -5,9 +5,12 @@
 #include "OculusHMDPrivateRHI.h"
 #include "Containers/StringConv.h"
 #include "Misc/EngineVersion.h"
+#include "Misc/Paths.h"
 #if PLATFORM_ANDROID
 #include "Android/AndroidApplication.h"
 #endif
+#include "Interfaces/IPluginManager.h"
+#include "ShaderCore.h"
 
 
 //-------------------------------------------------------------------------------------------------
@@ -24,6 +27,12 @@ FOculusHMDModule::FOculusHMDModule()
 #endif
 }
 
+void FOculusHMDModule::StartupModule()
+{
+	IHeadMountedDisplayModule::StartupModule();
+	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("OculusVR"))->GetBaseDir(), TEXT("Shaders"));
+	AddShaderSourceDirectoryMapping(TEXT("/Plugin/OculusVR"), PluginShaderDir);
+}
 
 void FOculusHMDModule::ShutdownModule()
 {

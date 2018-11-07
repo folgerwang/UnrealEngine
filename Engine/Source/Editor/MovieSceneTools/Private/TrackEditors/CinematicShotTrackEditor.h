@@ -104,12 +104,11 @@ public:
 	void NewTake(UMovieSceneCinematicShotSection* Section);
 
 	/*
-	* Switch take
+	* Switch take for the selected sections
 	*
-	* @param Section The section to switch the take of.
 	* @param TakeNumber The take number to switch to.
 	*/
-	void SwitchTake(UMovieSceneCinematicShotSection* Section, uint32 TakeNumber);
+	void SwitchTake(uint32 TakeNumber);
 
 private:
 

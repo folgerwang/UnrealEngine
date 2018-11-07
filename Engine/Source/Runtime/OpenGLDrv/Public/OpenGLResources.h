@@ -23,7 +23,6 @@
 #include "BoundShaderStateCache.h"
 #include "RenderResource.h"
 #include "OpenGLShaderResources.h"
-#include "ShaderCache.h"
 
 class FOpenGLDynamicRHI;
 class FOpenGLLinkedProgram;
@@ -844,7 +843,7 @@ public:
 		}
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, InSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, InSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 
@@ -856,7 +855,7 @@ public:
 		}
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, -(int64)GetSize(), ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, -(int64)GetSize(), ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 
@@ -953,14 +952,14 @@ public:
 	FOpenGLBaseIndexBuffer(uint32 InStride,uint32 InSize,uint32 InUsage): FRHIIndexBuffer(InStride,InSize,InUsage)
 	{
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, InSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, InSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 
 	~FOpenGLBaseIndexBuffer(void)
 	{
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, -(int64)GetSize(), ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, -(int64)GetSize(), ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 
@@ -1376,65 +1375,6 @@ public:
 		PixelBuffers.AddZeroed(this->GetNumMips() * (bCubemap ? 6 : 1) * GetEffectiveSizeZ());
 		SetAllocatedStorage(bInAllocatedStorage);
 		ClientStorageBuffers.AddZeroed(this->GetNumMips() * (bCubemap ? 6 : 1) * GetEffectiveSizeZ());
-
-		FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
-		if ( ShaderCache )
-		{
-			FShaderTextureKey Tex;
-			Tex.Format = (EPixelFormat)InFormat;
-			Tex.Flags = InFlags;
-			Tex.MipLevels = InNumMips;
-			Tex.Samples = InNumSamples;
-			Tex.X = InSizeX;
-			Tex.Y = InSizeY;
-			Tex.Z = InSizeZ;
-			switch(InTarget)
-			{
-				case GL_TEXTURE_2D:
-				case GL_TEXTURE_2D_MULTISAMPLE:
-				{
-					Tex.Type = SCTT_Texture2D;
-					break;
-				}
-				case GL_TEXTURE_3D:
-				{
-					Tex.Type = SCTT_Texture3D;
-					break;
-				}
-				case GL_TEXTURE_CUBE_MAP:
-				{
-					Tex.Type = SCTT_TextureCube;
-					break;
-				}
-				case GL_TEXTURE_2D_ARRAY:
-				{
-					Tex.Type = SCTT_Texture2DArray;
-					break;
-				}
-				case GL_TEXTURE_CUBE_MAP_ARRAY:
-				{
-					Tex.Type = SCTT_TextureCubeArray;
-					Tex.Z = InArraySize;
-					break;
-				}
-#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
-				case GL_TEXTURE_EXTERNAL_OES:
-				{
-					Tex.Type = SCTT_TextureExternal2D;
-					break;
-				}
-#endif
-				default:
-				{
-					Tex.Type = SCTT_Invalid;
-				}
-			}
-
-			if (Tex.Type != SCTT_Invalid)
-			{
-				FShaderCache::LogTexture(Tex, this);
-			}
-		}
 	}
 
 	virtual ~TOpenGLTexture()
@@ -1978,7 +1918,7 @@ public:
 
 	virtual ~FOpenGLShaderResourceViewProxy()
 	{
-		FShaderCache::RemoveSRV(this);
+
 	}
 };
 

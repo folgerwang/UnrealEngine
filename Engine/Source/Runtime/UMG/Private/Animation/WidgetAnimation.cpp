@@ -59,8 +59,18 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 	return NullAnimation;
 }
 
-#endif
+void UWidgetAnimation::SetDisplayLabel(const FString& InDisplayLabel)
+{
+	DisplayLabel = InDisplayLabel;
+}
 
+FText UWidgetAnimation::GetDisplayName() const
+{
+	const bool bHasDisplayLabel = !DisplayLabel.IsEmpty();
+	return bHasDisplayLabel ? FText::FromString(DisplayLabel) : Super::GetDisplayName();
+}
+
+#endif
 
 float UWidgetAnimation::GetStartTime() const
 {
@@ -179,6 +189,12 @@ UMovieScene* UWidgetAnimation::GetMovieScene() const
 	return MovieScene;
 }
 
+UObject* UWidgetAnimation::CreateDirectorInstance(IMovieScenePlayer& Player)
+{
+	// Widget animations do not create separate director instances, but just re-use the UUserWidget from the playback context
+	UUserWidget* WidgetContext = CastChecked<UUserWidget>(Player.GetPlaybackContext());
+	return WidgetContext;
+}
 
 UObject* UWidgetAnimation::GetParentObject(UObject* Object) const
 {

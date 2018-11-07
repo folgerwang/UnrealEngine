@@ -36,6 +36,13 @@ struct FCameraFilmbackSettings
 		return (SensorWidth == Other.SensorWidth)
 			&& (SensorHeight == Other.SensorHeight);
 	}
+
+	FCameraFilmbackSettings()
+		: SensorWidth(24.89f)
+		, SensorHeight(18.67f)
+		, SensorAspectRatio(1.33f)
+	{
+	}
 };
 
 /** A named bundle of filmback settings used to implement filmback presets */
@@ -72,7 +79,7 @@ struct FCameraLensSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens")
 	float MinFStop;
 
-	/** Minimum aperture for this lens (e.g. 2.8 for an f/2.8 lens) */
+	/** Maximum aperture for this lens (e.g. 2.8 for an f/2.8 lens) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens")
 	float MaxFStop;
 
@@ -143,6 +150,7 @@ struct FCameraTrackingFocusSettings
 
 	FCameraTrackingFocusSettings()
 		: ActorToTrack(nullptr),
+		RelativeOffset(ForceInitToZero),
 		bDrawDebugTrackingFocusPoint(false)
 	{}
 };
@@ -191,6 +199,7 @@ struct FCameraFocusSettings
 	FCameraFocusSettings() : 
 		FocusMethod(ECameraFocusMethod::Manual),
 		ManualFocusDistance(100000.f),
+		TrackingFocusSettings(),
 #if WITH_EDITORONLY_DATA
 		bDrawDebugFocusPlane(false),
 		DebugFocusPlaneColor(102, 26, 204, 153),		// purple
@@ -214,7 +223,9 @@ public:
 	UCineCameraComponent();
 
 	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView) override;
-
+#if WITH_EDITOR
+	virtual FText GetFilmbackText() const override;
+#endif
 	/** Controls the filmback of the camera. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Current Camera Settings")
 	FCameraFilmbackSettings FilmbackSettings;
@@ -275,8 +286,10 @@ public:
 	/** Returns a list of available lens presets. */
 	static TArray<FNamedLensPreset> const& GetLensPresets();
 
+#if WITH_EDITOR
 	/** Update the debug focus plane position and orientation. */
 	void UpdateDebugFocusPlane();
+#endif
 
 protected:
 
@@ -300,6 +313,7 @@ protected:
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 #endif
 
+#if WITH_EDITORONLY_DATA
 	/** Mesh used for debug focus plane visualization */
 	UPROPERTY(transient)
 	UStaticMesh* FocusPlaneVisualizationMesh;
@@ -316,7 +330,6 @@ protected:
 	UPROPERTY(transient)
 	UMaterialInstanceDynamic* DebugFocusPlaneMID;
 
-#if WITH_EDITORONLY_DATA
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void ResetProxyMeshTransform() override;
 #endif
@@ -355,6 +368,8 @@ private:
 	float GetDesiredFocusDistance(const FVector& InLocation) const;
 	float GetWorldToMetersScale() const;
 
+#if WITH_EDITORONLY_DATA
 	void CreateDebugFocusPlane();
 	void DestroyDebugFocusPlane();
+#endif
 };

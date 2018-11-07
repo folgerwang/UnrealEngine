@@ -40,14 +40,14 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define PLATFORM_HAS_BSD_TIME							1
 #define PLATFORM_HAS_BSD_IPV6_SOCKETS					1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
-#define PLATFORM_MAX_FILEPATH_LENGTH					MAX_PATH
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED			IOS_MAX_PATH
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING				1
 #define PLATFORM_BUILTIN_VERTEX_HALF_FLOAT				0
 #define PLATFORM_SUPPORTS_MULTIPLE_NATIVE_WINDOWS		0
 #define PLATFORM_ALLOW_NULL_RHI							1
 #define PLATFORM_ENABLE_VECTORINTRINSICS_NEON			PLATFORM_64BITS // disable vector intrinsics to make it compatible with 32-bit in Xcode 8.3
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS					1
-#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK			0 // movies will start before engine is initalized
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK			1 // movies will start before engine is initalized
 
 // on iOS we now perform offline symbolication as it's significantly faster. Requires bGenerateCrashReportSymbols=true in the ini file.
 #define	PLATFORM_RUNTIME_MALLOCPROFILER_SYMBOLICATION	0	
@@ -96,7 +96,6 @@ typedef FIOSPlatformTypes FPlatformTypes;
 // Alignment.
 #define GCC_PACK(n) __attribute__((packed,aligned(n)))
 #define GCC_ALIGN(n) __attribute__((aligned(n)))
-#define REQUIRES_ALIGNED_ACCESS 1
 
 // operator new/delete operators
 // As of 10.9 we need to use _NOEXCEPT & cxx_noexcept compatible definitions
@@ -113,4 +112,4 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define DLLEXPORT
 #define DLLIMPORT
 
-#define MAX_PATH 1024
+#define IOS_MAX_PATH 1024

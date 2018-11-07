@@ -21,7 +21,10 @@ public:
 	TEnumAsByte< EComponentMobility::Type > Mobility;
 
 	UPROPERTY()
-	class USceneComponent* AttachParent;
+	TSoftObjectPtr< USceneComponent > AttachParent;
+
+	UPROPERTY()
+	TSet<FName> Tags;
 
 	virtual void Apply( UObject* Destination, bool bForce = false ) override;
 	virtual void Load( const UObject* Source ) override;

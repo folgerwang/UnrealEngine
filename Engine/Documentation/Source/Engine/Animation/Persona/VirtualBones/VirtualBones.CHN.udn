@@ -1,66 +1,128 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Title:Virtual Bones
+﻿INTSourceChangelist:3620333
+Availability:Public
+Title:虚拟骨骼
 Crumbs:
-Description:Overview of Virtual Bones that enables you to add IK or Anim constraint joints inside of the Editor.
+Description:概述能让您在编辑器中添加IK或动画约束关节的虚拟骨骼。
 Related: Engine/Content/FBX/Animations
 Related: Engine/Animation/Persona/Modes
 Related: Engine/Content/Types/SkeletalMeshes
-version: 4.15
+version: 4.17
 parent: Engine/Animation
 type:reference
-topic-image: 
+topic-image:VirtualBones_Topic.png
 reference-image:WalkAnim.gif
-tags: Animations, Skeletal Mesh, Skeleton, Bones
-order:
+tags:Animation
+Tags:Skeletal Mesh
+order:100
 
 
-<div align= "center">
-![Virtual Bones](VirtualBones.png)(w:500)
-</div>
-
-Inside the [Animation Tools Editors](Engine/Animation/Persona/Modes), namely the Skeleton or Animation Editors, you can add **Virtual Bones** to the Skeleton of your mesh. 
-These serve to help improve iteration time by enabling you to change your target joint hierarchy for IK or aim inside of the Editor. Before this feature was added, you would 
-have to do this outside of the engine to add them to your asset in your modeling application and then reimport all the animations in order to fix the animation data with the 
-new joints included. 
-
-Virtual Bones, by their very nature, are not skinnable, but, instead, constrained between two existing bones on the Skeleton and they automatically have data generated for them 
-for each animation on the Skeleton. For example, you can add a joint that is a child of a hand, but is constrained to the palm joint. Unlike sockets, this joint can be used 
-in Animation Blueprints as a target, such as an IK target or look at target, or you could even modify them in the Animation Blueprint for later use. 
-
-[REGION:note]
-For additional information and some practical usage suggestions for Virtual Bones, check out the [Animation Techniques used in Paragon](https://youtu.be/1UOY-FMm-xo?list=PL-j8pRjjCYWENU4on8on7b0pEbrmwlzlM) 
-for more information. In Paragon, Virtual Bones have so far been used to make it easier to retarget or change reference frames for controllers and is also used for orientation 
-and slope warping.
+[REGION:fullwidth raw]
+![Virtual Bones](VirtualBones.png)
 [/REGION]
 
 
-## Adding Virtual Bones to your Skeleton
+[TOC(start:2 end:2)]
 
-To add Virtual Bones to your Skeletal Mesh:
 
-1. In the **Content Browser**, open any Skeletal Mesh or Animation Asset. For the purpose of this example, the Third Person Template character is being used.
- 
-	![](CB_Skeleton.png)(w:350) 
-1. In the **Animation Tool Editors** (Skeletal or Animation), select any Bone from the joint hierarchy from the **Skeleton Tree** window. Now, right-click and hover over **Add Virtual Bone** from the context menu. 
- Select a bone from the **Pick Target Bone** window that opens. 
-   
-	[REGION:raw]
-	![](SelectVirtualBone.png)(w:850)
+在[骨架编辑器](Engine/Animation/Persona/Modes/Skeleton)中，您可以使用骨架树将 **虚拟骨骼（Virtual Bones）** 添加到网格体的现有骨架中。这样有助于缩短迭代时间，使您能够从编辑器内部更改用于瞄准或IK（逆向运动学）的目标关节层级。在此之前，您必须在该编辑器之外的3D建模软件中添加这些骨骼，然后重新导入所有动画，将新关节包含在内以修复动画数据。 
+
+虚拟骨骼本质上是不可以添加皮肤的，并且可以约束在骨架层级中的两个现有骨骼之间使用，它们会自动为各个动画生成数据。
+例如，您可以添加一个关节作为手部的子资源，但它将受到手掌关节的限制。与骨臼不同的是，该关节可以在[动画蓝图](Engine/Animation/AnimBlueprints)中用作目标，例如IK目标或“注视”目标。甚至可以在动画蓝图中修改虚拟骨骼以供将来使用。
+
+
+
+## 添加虚拟骨骼
+
+要将虚拟骨骼添加到骨架网格体的骨架树，请执行以下操作：
+
+1. 使用 **骨架树（Skeleton Tree）** 窗口，选择您想要用作第一个连接点的任意骨骼。 
+	
+	[REGION:lightbox]
+	[![](Add_SelectBone.png)(w:600)](Add_SelectBone.png)
 	[/REGION]
-1. Now that you've added your Virtual Bone(s), you will see it listed in the Skeleton hierarchy. These are indicated by the prefix "VB" in their name and their lavender color in the Skeleton Tree window. 
+	[REGION:caption]单击查看大图。[/REGION]
+
+1. 单击右键，调出上下文菜单，并从列表中选择 **添加虚拟骨骼（Add Virtual Bone）**，然后在展开的 **选择目标骨骼...（Pick Target Bone...）** 中，选择想要连接的骨骼。
+	
+	[REGION:lightbox]
+	[![](Add_AddVB_Target.png)(w:600)](Add_AddVB_Target.png)
+	[/REGION]
+	[REGION:caption]单击查看大图。[/REGION]
+	
+	[REGION:tip]
+	您可以转至视口，选择 **显示（Show）**  > **骨骼（Bone）**  > **所有层级（All Hierarchy）**，以始终显示骨架层级。 
+	[/REGION]
+
+1. 现在，您会看到骨架树层级中列出以 **VB** 为前缀的虚拟骨骼。 
+
+	![](Add_VirtualBoneAdded.png)
+
+	当您从列表中选中时，会看到骨架编辑器视口中高亮显示相应骨骼。 
+
+	[REGION:lightbox] 
+	[![](Add_VirtualBoneSelected.png)(w:600)](Add_VirtualBoneSelected.png) 
+	[/REGION] 
+	[REGION:caption]单击查看大图。[/REGION]
+
+	在选中虚拟骨骼的情况下播放动画，可以看到它的动画效果，并且它会相应地更新。
+
+	[REGION:asyncgif] ![](WalkAnim.gif)(w:350) [/REGION]
+
+## 删除虚拟骨骼
+
+要从骨架网格体的骨架树删除添加的虚拟骨骼，请执行以下操作：
+
+1. 在 **骨架树（Skeleton Tree）** 窗口中，选择任意虚拟骨骼。
 
 	[REGION:lightbox]
-	[![](VirtualBoneView.png)(w:550)](VirtualBoneView.png)
+	[![](Delete_SelectVB.png)(w:600)](Delete_SelectVB.png)
 	[/REGION]
+	[REGION:caption]单击查看大图。[/REGION]
 
-	[REGION:tip]
-	If you do not see your bones in the Viewport of the Skeleton or Animation Editors, go to **Show** > **Bones** > **All Hierarchy** so that your Skeleton is always visible. There are also other options here
-	to fit your preference if you do not want to always see all the bones in the viewport.
+1. 单击右键，调出上下文菜单，然后从列表中选择 **删除（Delete）**。 
+
+	![](Delete_DeleteVB.png)(w:400)
+
+
+## 重命名虚拟骨骼
+
+要对骨架网格体的骨架树中的虚拟骨骼重命名，请执行以下操作：
+
+1. 在 **骨架树（Skeleton Tree）** 窗口中，选择任意虚拟骨骼。
+
+	[REGION:lightbox]
+	[![](Delete_SelectVB.png)(w:600)](Delete_SelectVB.png)
 	[/REGION]
-	
-	In the Animation Editor, you will see your Virtual Bone(s) constrained between the selected joints and that it updates with your animation. 
-	 
- 	[REGION:asyncgif]
-	![Virtual Bone](WalkAnim.gif)(w:350)
-	[/REGION]
+	[REGION:caption]单击查看大图。[/REGION]
+
+1. 重命名虚拟骨骼有三种方法： 
+
+  * 单击右键，从上下文菜单中选择 **重命名虚拟骨骼（Rename Virtual Bone）**
+  	
+  	![](Rename_ContextMenu.png)(w:400)
+  * 选中虚拟骨骼，然后按 **F2**。
+  * 双击虚拟骨骼的名称。
+
+
+## 其他资源
+
+有关虚拟骨骼实际用法的更多信息和建议，例如，如何使用虚拟骨骼来简化重定位操作，更改用于控制器、方向和倾斜变形的参考帧。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	1UOY-FMm-xo
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	50
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+

@@ -12,7 +12,7 @@
 #include "SlateOptMacros.h"
 #include "Slate/SceneViewport.h"
 #include "Textures/SlateIcon.h"
-#include "UI/MediaBundleEditorStyle.h"
+#include "UI/MediaFrameworkUtilitiesEditorStyle.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSplitter.h"
@@ -94,7 +94,7 @@ void SMediaFrameworkCapture::RegisterNomadTabSpawner()
 			.SetDisplayName(LOCTEXT("TabTitle", "Media Capture"))
 			.SetTooltipText(LOCTEXT("TooltipText", "Displays Capture Camera Viewport and Render Target."))
 			.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
-			.SetIcon(FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture.Small"));
+			.SetIcon(FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture.Small"));
 	};
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
@@ -217,7 +217,7 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 			NAME_None,
 			LOCTEXT("Output_Label", "Capture"),
 			LOCTEXT("Output_ToolTip", "Capture the camera's viewport and the render target."),
-			FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture")
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture")
 			);
 		ToolBarBuilder.AddToolBarButton(
 			FUIAction(
@@ -233,7 +233,7 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 			NAME_None,
 			LOCTEXT("Stop_Label", "Stop"),
 			LOCTEXT("Stop_ToolTip", "Stop the capturing of the camera's viewport and the render target."),
-			FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Stop")
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Stop")
 			);
 	}
 	ToolBarBuilder.EndSection();
@@ -250,10 +250,10 @@ bool SMediaFrameworkCapture::CanEnableViewport() const
 	{
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
 		{
-			bEnabled = Info.MediaOutput && Info.LockedCameraActors.Num() > 0;
-			for (AActor* CameraActor : Info.LockedCameraActors)
+			bEnabled = Info.MediaOutput && Info.LockedActors.Num() > 0;
+			for (const TLazyObjectPtr<AActor>& CameraActorRef : Info.LockedActors)
 			{
-				bEnabled = bEnabled && CameraActor != nullptr;
+				bEnabled = bEnabled && CameraActorRef.IsValid();
 			}
 
 			if (!bEnabled)
@@ -297,17 +297,21 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
 		{
 			TArray<TWeakObjectPtr<AActor>> InfoPreviewActors;
-			InfoPreviewActors.Reserve(Info.LockedCameraActors.Num());
-			for (AActor* Actor : Info.LockedCameraActors)
+			InfoPreviewActors.Reserve(Info.LockedActors.Num());
+			for (const TLazyObjectPtr<AActor>& ActorRef : Info.LockedActors)
 			{
-				InfoPreviewActors.Add(Actor);
+				AActor* Actor = ActorRef.Get();
+				if (Actor)
+				{
+					InfoPreviewActors.Add(Actor);
+				}
 			}
 
 			TSharedPtr<SMediaFrameworkCaptureCameraViewportWidget> CaptureCamaraViewport = SNew(SMediaFrameworkCaptureCameraViewportWidget)
 				.Owner(SharedThis(this))
 				.PreviewActors(InfoPreviewActors)
 				.MediaOutput(Info.MediaOutput)
-				.ViewMode(VMI_Unknown);
+				.ViewMode(Info.ViewMode);
 
 			CaptureBoxes->AddCaptureWidget(CaptureCamaraViewport);
 			CaptureCamaraViewport->StartOutput();
@@ -397,7 +401,7 @@ void SMediaFrameworkCapture::OnLevelActorsRemoved(AActor* InActor)
 	{
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
 		{
-			if (Info.LockedCameraActors.Contains(InActor))
+			if (Info.LockedActors.Contains(InActor))
 			{
 				EnabledCapture(false);
 				return;

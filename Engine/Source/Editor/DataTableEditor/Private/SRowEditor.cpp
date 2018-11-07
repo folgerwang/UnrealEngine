@@ -8,6 +8,7 @@
 #include "Widgets/Input/SButton.h"
 #include "EditorStyleSet.h"
 #include "UObject/StructOnScope.h"
+#include "Misc/MessageDialog.h"
 
 #include "PropertyEditorModule.h"
 #include "IStructureDetailsView.h"
@@ -39,7 +40,7 @@ public:
 
 	virtual const UScriptStruct* GetStruct() const override
 	{
-		return DataTable.IsValid() ? DataTable->RowStruct : nullptr;
+		return DataTable.IsValid() ? DataTable->GetRowStruct() : nullptr;
 	}
 
 	virtual UPackage* GetPackage() const override
@@ -55,7 +56,7 @@ public:
 	{
 		return !RowName.IsNone()
 			&& DataTable.IsValid()
-			&& DataTable->RowStruct
+			&& DataTable->GetRowStruct()
 			&& DataTable->FindRowUnchecked(RowName);
 	}
 
@@ -205,7 +206,7 @@ void SRowEditor::Restore()
 
 UScriptStruct* SRowEditor::GetScriptStruct() const
 {
-	return DataTable.IsValid() ? DataTable->RowStruct : NULL;
+	return DataTable.IsValid() ? DataTable->RowStruct : nullptr;
 }
 
 FName SRowEditor::GetCurrentName() const
@@ -220,7 +221,7 @@ FText SRowEditor::GetCurrentNameAsText() const
 
 FString SRowEditor::GetStructureDisplayName() const
 {
-	const auto Struct = DataTable.IsValid() ? DataTable->RowStruct : NULL;
+	const auto Struct = DataTable.IsValid() ? DataTable->GetRowStruct() : nullptr;
 	return Struct 
 		? Struct->GetDisplayNameText().ToString()
 		: LOCTEXT("Error_UnknownStruct", "Error: Unknown Struct").ToString();
@@ -327,7 +328,7 @@ FReply SRowEditor::OnMoveToExtentClicked(FDataTableEditorUtils::ERowMoveDirectio
 	{
 		// We move by the row map size, as FDataTableEditorUtils::MoveRow will automatically clamp this as appropriate
 		const FName RowToMove = GetCurrentName();
-		FDataTableEditorUtils::MoveRow(DataTable.Get(), RowToMove, MoveDirection, DataTable->RowMap.Num());
+		FDataTableEditorUtils::MoveRow(DataTable.Get(), RowToMove, MoveDirection, DataTable->GetRowMap().Num());
 	}
 	return FReply::Handled();
 }
@@ -336,6 +337,14 @@ void SRowEditor::OnRowRenamed(const FText& Text, ETextCommit::Type CommitType)
 {
 	if (!GetCurrentNameAsText().EqualTo(Text) && DataTable.IsValid())
 	{
+		if (Text.IsEmptyOrWhitespace() || !FName::IsValidXName(Text.ToString(), INVALID_NAME_CHARACTERS))
+		{
+			// popup an error dialog here
+			const FText Message = FText::Format(LOCTEXT("InvalidRowName", "'{0}' is not a valid row name"), Text);
+			FMessageDialog::Open(EAppMsgType::Ok, Message);
+
+			return;
+		}
 		const FName NewName = DataTableUtils::MakeValidName(Text.ToString());
 		for (auto Name : CachedRowNames)
 		{
@@ -379,6 +388,11 @@ EVisibility SRowEditor::GetResetToDefaultVisibility() const
 
 void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 {
+	ConstructInternal(Changed);
+}
+
+void SRowEditor::ConstructInternal(UDataTable* Changed)
+{
 	DataTable = Changed;
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -417,6 +431,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SRowEditor::OnAddClicked)
+				.IsEnabled(this, &SRowEditor::IsAddRowEnabled)
 				.ToolTipText(LOCTEXT("AddRowTooltip", "Add a new row to the data table"))
 				[
 					SNew(SImage)
@@ -433,6 +448,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SRowEditor::OnRemoveClicked)
+				.IsEnabled(this, &SRowEditor::IsRemoveRowEnabled)
 				.ToolTipText(LOCTEXT("RemoveRowTooltip", "Remove the currently selected row from the data table"))
 				[
 					SNew(SImage)
@@ -488,6 +504,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 			[
 				SNew(SBox)
 				.HAlign(HAlign_Right)
+				.Visibility(this, &SRowEditor::GetRenameVisibility)
 				[
 					SNew(STextBlock).Text(LOCTEXT("RowNameLabel", "Row Name:"))
 				]
@@ -498,6 +515,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 			[
 				SNew(SBox)
 				.WidthOverride(2 * ButtonWidth)
+				.Visibility(this, &SRowEditor::GetRenameVisibility)
 				[
 					SAssignNew(RenameTextBox, SEditableTextBox)
 					.Text(this, &SRowEditor::GetCurrentNameAsText)
@@ -514,6 +532,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SRowEditor::OnMoveRowClicked, FDataTableEditorUtils::ERowMoveDirection::Up)
+				.IsEnabled(this, &SRowEditor::IsMoveRowUpEnabled)
 				.ToolTipText(LOCTEXT("MoveUpTooltip", "Move the currently selected row up by one in the data table"))
 				[
 					SNew(STextBlock)
@@ -531,6 +550,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SRowEditor::OnMoveRowClicked, FDataTableEditorUtils::ERowMoveDirection::Down)
+				.IsEnabled(this, &SRowEditor::IsMoveRowDownEnabled)
 				.ToolTipText(LOCTEXT("MoveDownTooltip", "Move the currently selected row down by one in the data table"))
 				[
 					SNew(STextBlock)
@@ -548,6 +568,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SRowEditor::OnMoveToExtentClicked, FDataTableEditorUtils::ERowMoveDirection::Up)
+				.IsEnabled(this, &SRowEditor::IsMoveRowUpEnabled)
 				.ToolTipText(LOCTEXT("MoveToTopTooltip", "Move the currently selected row to the top of the data table"))
 				[
 					SNew(STextBlock)
@@ -565,6 +586,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				.OnClicked(this, &SRowEditor::OnMoveToExtentClicked, FDataTableEditorUtils::ERowMoveDirection::Down)
+				.IsEnabled(this, &SRowEditor::IsMoveRowDownEnabled)
 				.ToolTipText(LOCTEXT("MoveToBottomTooltip", "Move the currently selected row to the bottom of the data table"))
 				[
 					SNew(STextBlock)
@@ -578,6 +600,31 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 			StructureDetailsView->GetWidget().ToSharedRef()
 		]
 	];
+}
+
+bool SRowEditor::IsMoveRowUpEnabled() const
+{
+	return true;
+}
+
+bool SRowEditor::IsMoveRowDownEnabled() const
+{
+	return true;
+}
+
+bool SRowEditor::IsAddRowEnabled() const
+{
+	return true;
+}
+
+bool SRowEditor::IsRemoveRowEnabled() const
+{
+	return true;
+}
+
+EVisibility SRowEditor::GetRenameVisibility() const
+{
+	return EVisibility::Visible;
 }
 
 #undef LOCTEXT_NAMESPACE

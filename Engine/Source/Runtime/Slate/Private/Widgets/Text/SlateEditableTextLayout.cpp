@@ -140,6 +140,7 @@ FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InO
 	bHasDragSelectedSinceFocused = false;
 	bTextChangedByVirtualKeyboard = false;
 	bTextCommittedByVirtualKeyboard = false;
+	bSelectionChangedExternally = false;
 	VirtualKeyboardTextCommitType = ETextCommit::Default;
 
 	CachedSize = FVector2D::ZeroVector;
@@ -213,7 +214,8 @@ FSlateEditableTextLayout::~FSlateEditableTextLayout()
 		TextInputMethodSystem->UnregisterContext(TextInputMethodContextRef);
 	}
 
-	if(FSlateApplication::IsInitialized() && FPlatformApplicationMisc::RequiresVirtualKeyboard())
+	if(FSlateApplication::IsInitialized() && FPlatformApplicationMisc::RequiresVirtualKeyboard() && 
+	   OwnerWidget->GetSlateWidgetPtr().IsValid() && OwnerWidget->GetSlateWidgetPtr()->HasAnyUserFocus().IsSet())
 	{
 		FSlateApplication::Get().ShowVirtualKeyboard(false, 0);
 	}
@@ -239,7 +241,7 @@ void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
 	if (RefreshImpl(&NewText, bForceRefresh))
 	{
 		// Make sure we move the cursor to the end of the new text if we had keyboard focus
-		if (OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet())
+		if (OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet() && !bWasFocusedByLastMouseDown)
 		{
 			JumpTo(ETextLocation::EndOfDocument, ECursorAction::MoveCursor);
 		}
@@ -709,8 +711,8 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 		GoTo(ETextLocation::EndOfDocument);
 	}
 
-	// Select All Text
-	if (OwnerWidget->ShouldSelectAllTextWhenFocused())
+	// Select All Text for non-mouse events (mouse events are handled by HandleMouseButtonUp)
+	if (InFocusEvent.GetCause() != EFocusCause::Mouse && OwnerWidget->ShouldSelectAllTextWhenFocused())
 	{
 		SelectAllText();
 	}
@@ -1157,7 +1159,7 @@ FReply FSlateEditableTextLayout::HandleMouseButtonUp(const FGeometry& MyGeometry
 			// we'll leave things alone!
 			if (bWasFocusedByLastMouseDown)
 			{
-				if (!bHasDragSelectedSinceFocused)
+				if (!bHasDragSelectedSinceFocused || !SelectionStart.IsSet())
 				{
 					if (OwnerWidget->ShouldSelectAllTextWhenFocused())
 					{
@@ -3178,6 +3180,22 @@ void FSlateEditableTextLayout::Tick(const FGeometry& AllottedGeometry, const dou
 		Refresh();
 	}
 
+	if (bSelectionChangedExternally)
+	{
+		bSelectionChangedExternally = false;
+		if (TextInputMethodContext.IsValid())
+		{
+			if (ExternalSelectionStart <= ExternalSelectionEnd)
+			{
+				TextInputMethodContext->SetSelectionRange(ExternalSelectionStart, ExternalSelectionEnd - ExternalSelectionStart, ITextInputMethodContext::ECaretPosition::Beginning);
+			}
+			else
+			{
+				TextInputMethodContext->SetSelectionRange(ExternalSelectionEnd, ExternalSelectionStart - ExternalSelectionEnd, ITextInputMethodContext::ECaretPosition::Ending);
+			}
+		}
+	}
+
 	// Update the search before we process the next PositionToScrollIntoView
 	{
 		const FText& SearchTextToSet = BoundSearchText.Get(FText::GetEmpty());
@@ -3492,6 +3510,17 @@ void FSlateEditableTextLayout::FVirtualKeyboardEntry::SetTextFromVirtualKeyboard
 			OwnerLayout->bTextCommittedByVirtualKeyboard = true;
 		}
 	}
+}
+
+void FSlateEditableTextLayout::FVirtualKeyboardEntry::SetSelectionFromVirtualKeyboard(int InSelStart, int InSelEnd)
+{
+	// Update the text selection and the cursor position
+	// This method is called externally (eg. on Android from the native virtual keyboard implementation) 
+	// The text may also change on the same frame, so the external selection must happen in Tick after the text update
+
+	OwnerLayout->bSelectionChangedExternally = true;
+	OwnerLayout->ExternalSelectionStart = InSelStart;
+	OwnerLayout->ExternalSelectionEnd = InSelEnd;
 }
 
 FText FSlateEditableTextLayout::FVirtualKeyboardEntry::GetText() const

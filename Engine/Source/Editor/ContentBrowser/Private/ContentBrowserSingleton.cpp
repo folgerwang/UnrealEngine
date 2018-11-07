@@ -349,6 +349,22 @@ void FContentBrowserSingleton::GetSelectedAssets(TArray<FAssetData>& SelectedAss
 	}
 }
 
+void FContentBrowserSingleton::GetSelectedFolders(TArray<FString>& SelectedFolders)
+{
+	if (PrimaryContentBrowser.IsValid())
+	{
+		PrimaryContentBrowser.Pin()->GetSelectedFolders(SelectedFolders);
+	}
+}
+
+void FContentBrowserSingleton::GetSelectedPathViewFolders(TArray<FString>& SelectedFolders)
+{
+	if (PrimaryContentBrowser.IsValid())
+	{
+		SelectedFolders = PrimaryContentBrowser.Pin()->GetSelectedPathViewFolders();
+	}
+}
+
 void FContentBrowserSingleton::CaptureThumbnailFromViewport(FViewport* InViewport, TArray<FAssetData>& SelectedAssets)
 {
 	ContentBrowserUtils::CaptureThumbnailFromViewport(InViewport, SelectedAssets);

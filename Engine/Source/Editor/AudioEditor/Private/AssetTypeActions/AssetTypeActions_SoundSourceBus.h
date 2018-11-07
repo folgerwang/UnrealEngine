@@ -19,5 +19,6 @@ public:
 	virtual UClass* GetSupportedClass() const override;
 	virtual bool CanFilter() override { return true; }
 	virtual bool IsImportedAsset() const override { return false; }
+	virtual TSharedPtr<class SWidget> GetThumbnailOverlay(const FAssetData& AssetData) const override { return nullptr; }
 	//~ End IAssetTypeActions Implementation
 };

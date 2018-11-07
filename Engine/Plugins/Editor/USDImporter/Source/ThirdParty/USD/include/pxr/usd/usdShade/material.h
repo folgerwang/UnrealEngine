@@ -31,9 +31,13 @@
 #include "pxr/usd/usdShade/nodeGraph.h"
 #include "pxr/usd/usd/prim.h"
 #include "pxr/usd/usd/stage.h"
+#include "pxr/usd/usdShade/tokens.h"
 
 #include "pxr/usd/usd/variantSets.h"
+#include "pxr/usd/usdGeom/subset.h"
 #include "pxr/usd/usdGeom/faceSetAPI.h"
+#include "pxr/usd/usdShade/connectableAPI.h"
+#include "pxr/usd/usdShade/tokens.h"
 
 
 #include "pxr/base/vt/value.h"
@@ -63,50 +67,57 @@ class SdfAssetPath;
 /// adopt the convention that all properties be prefixed with a namespace
 /// that identifies the target, e.g. "rel ri:surface = </Shaders/mySurf>".
 /// 
-/// <b>Binding Materials</b>
+/// ## Binding Materials
 /// 
 /// In the UsdShading model, geometry expresses a binding to a single Material or
-/// to a set of Materials partitioned by face-sets defined on the geometry;
-/// it is legal to bind a Material at the root (or other sub-prim) of a model,
-/// and then bind a different Material to individual gprims, but the meaning of
-/// inheritance and "ancestral overriding" of Material bindings is left to each
-/// render-target to determine.  Since UsdGeom has no concept of shading,
-/// we provide the API for binding and unbinding geometry here, on UsdShadeMaterial.
-/// Please see Bind(), Unbind(), GetBindingRel(), GetBoundMaterial().
+/// to a set of Materials partitioned by UsdGeomSubsets defined beneath the
+/// geometry; it is legal to bind a Material at the root (or other sub-prim) of 
+/// a model, and then bind a different Material to individual gprims, but the
+/// meaning of inheritance and "ancestral overriding" of Material bindings is 
+/// left to each render-target to determine.  Since UsdGeom has no concept of 
+/// shading, we provide the API for binding and unbinding geometry on the API 
+/// schema UsdShadeMaterialBindingAPI.
 /// 
-/// <b>Material Variation</b>
+/// ## Material Variation
 /// 
-/// The entire power of Usd variantSets and all the other composition 
-/// operators can be brought to bear on encoding shading variation.  
+/// The entire power of USD VariantSets and all the other composition 
+/// operators can leveraged when encoding shading variation.  
 /// UsdShadeMaterial provides facilities for a particular way of building
 /// "Material variants" in which neither the identity of the Materials themselves
 /// nor the geometry Material-bindings need to change - instead we vary the
-/// targetted networks, interface values, and even parameter values within
+/// targeted networks, interface values, and even parameter values within
 /// a single variantSet.  
-/// See \ref UsdShadeMaterial_Variations "Authoring Material Variations" for more.
+/// See \ref UsdShadeMaterial_Variations "Authoring Material Variations" 
+/// for more details.
 /// 
-/// <b>Authoring Materials for Referenced Re-use</b>
+/// ## Materials Encapsulate their Networks in Namespace
 /// 
-/// The shading networks that a Material may target can live anywhere in a layer's
-/// namespace.  However, it is advantageous to place all of the shaders that 
-/// "belong" to the Material under it in namespace, particularly when building
-/// "shading libraries/palettes" that you intend to reference into other,
-/// composite, more specialized Materials.  This is because Usd references compose
-/// all descendant prims of the reference target into the referencer's namespace.
-/// This means that all of the library Material's shader network will come along 
-/// with the Material when the Material gets referenced as a sub-component of another
-/// Material.
+/// UsdShade requires that all of the shaders that "belong" to the Material 
+/// live under the Material in namespace. This supports powerful, easy reuse
+/// of Materials, because it allows us to *reference* a Material from one
+/// asset (the asset might be a library of Materials) into another asset: USD 
+/// references compose all descendant prims of the reference target into the 
+/// referencer's namespace, which means that all of the referenced Material's 
+/// shader networks will come along with the Material. When referenced in this
+/// way, Materials can also be [instanced](http://openusd.org/docs/USD-Glossary.html#USDGlossary-Instancing), for ease of deduplication and compactness.
+/// Finally, Material encapsulation also allows us to 
+/// \ref UsdShadeMaterial_BaseMaterial "specialize" child materials from 
+/// parent materials.
 /// 
 /// 
+///
+/// For any described attribute \em Fallback \em Value or \em Allowed \em Values below
+/// that are text/tokens, the actual token is published and defined in \ref UsdShadeTokens.
+/// So to set an attribute to the value "rightHanded", use UsdShadeTokens->rightHanded
+/// as the value.
 ///
 class UsdShadeMaterial : public UsdShadeNodeGraph
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = true;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::ConcreteTyped;
 
     /// Construct a UsdShadeMaterial on UsdPrim \p prim .
     /// Equivalent to UsdShadeMaterial::Get(prim.GetStage(), prim.GetPath())
@@ -175,6 +186,13 @@ public:
     static UsdShadeMaterial
     Define(const UsdStagePtr &stage, const SdfPath &path);
 
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDSHADE_API
+    virtual UsdSchemaType _GetSchemaType() const;
+
 private:
     // needs to invoke _GetStaticTfType.
     friend class UsdSchemaRegistry;
@@ -186,6 +204,72 @@ private:
     // override SchemaBase virtuals.
     USDSHADE_API
     virtual const TfType &_GetTfType() const;
+
+public:
+    // --------------------------------------------------------------------- //
+    // SURFACE 
+    // --------------------------------------------------------------------- //
+    /// Represents the universal "surface" output terminal of a
+    /// material.
+    ///
+    /// \n  C++ Type: TfToken
+    /// \n  Usd Type: SdfValueTypeNames->Token
+    /// \n  Variability: SdfVariabilityVarying
+    /// \n  Fallback Value: No Fallback
+    USDSHADE_API
+    UsdAttribute GetSurfaceAttr() const;
+
+    /// See GetSurfaceAttr(), and also 
+    /// \ref Usd_Create_Or_Get_Property for when to use Get vs Create.
+    /// If specified, author \p defaultValue as the attribute's default,
+    /// sparsely (when it makes sense to do so) if \p writeSparsely is \c true -
+    /// the default for \p writeSparsely is \c false.
+    USDSHADE_API
+    UsdAttribute CreateSurfaceAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
+
+public:
+    // --------------------------------------------------------------------- //
+    // DISPLACEMENT 
+    // --------------------------------------------------------------------- //
+    /// Represents the universal "displacement" output terminal of a 
+    /// material.
+    ///
+    /// \n  C++ Type: TfToken
+    /// \n  Usd Type: SdfValueTypeNames->Token
+    /// \n  Variability: SdfVariabilityVarying
+    /// \n  Fallback Value: No Fallback
+    USDSHADE_API
+    UsdAttribute GetDisplacementAttr() const;
+
+    /// See GetDisplacementAttr(), and also 
+    /// \ref Usd_Create_Or_Get_Property for when to use Get vs Create.
+    /// If specified, author \p defaultValue as the attribute's default,
+    /// sparsely (when it makes sense to do so) if \p writeSparsely is \c true -
+    /// the default for \p writeSparsely is \c false.
+    USDSHADE_API
+    UsdAttribute CreateDisplacementAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
+
+public:
+    // --------------------------------------------------------------------- //
+    // VOLUME 
+    // --------------------------------------------------------------------- //
+    /// Represents the universal "volume" output terminal of a
+    /// material.
+    ///
+    /// \n  C++ Type: TfToken
+    /// \n  Usd Type: SdfValueTypeNames->Token
+    /// \n  Variability: SdfVariabilityVarying
+    /// \n  Fallback Value: No Fallback
+    USDSHADE_API
+    UsdAttribute GetVolumeAttr() const;
+
+    /// See GetVolumeAttr(), and also 
+    /// \ref Usd_Create_Or_Get_Property for when to use Get vs Create.
+    /// If specified, author \p defaultValue as the attribute's default,
+    /// sparsely (when it makes sense to do so) if \p writeSparsely is \c true -
+    /// the default for \p writeSparsely is \c false.
+    USDSHADE_API
+    UsdAttribute CreateVolumeAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
 
 public:
     // ===================================================================== //
@@ -211,17 +295,23 @@ public:
 
     // --------------------------------------------------------------------- //
     /// \name Binding Geometry Prims to Materials
+    /// \deprecated
+    /// This API is now deprecated. Please use UsdShadeMaterialBindingAPI
+    /// instead.
     /// @{
     // --------------------------------------------------------------------- //
 
+    /// \deprecated
     /// Create a Material-binding relationship on \p prim and target it to this 
     /// Material prim
     ///
     /// Any UsdPrim can have a binding to at most a \em single UsdShadeMaterial .
     /// \return true on success
     USDSHADE_API
-    bool Bind(UsdPrim& prim) const;
+    //[[deprecated("Please use UsdShadeMaterialBindingAPI instead.")]]
+    bool Bind(const UsdPrim& prim) const;
 
+    /// \deprecated
     /// Ensure that, when resolved up to and including the current UsdEditTarget
     /// in composition strength, the given prim has no binding to a UsdShadeMaterial
     ///
@@ -231,8 +321,10 @@ public:
     /// use GetBindingRel().ClearTargets()
     /// \return true on success
     USDSHADE_API
-    static bool Unbind(UsdPrim& prim);
+    //[[deprecated("Please use UsdShadeMaterialBindingAPI instead.")]]
+    static bool Unbind(const UsdPrim& prim);
 
+    /// \deprecated
     /// Direct access to the binding relationship for \p prim, if it has
     /// already been created.
     ///
@@ -245,50 +337,232 @@ public:
     /// will then be the client's responsibility to ensure that only a
     /// single Material prim is targetted.  In general, use 
     /// UsdRelationship::SetTargets() rather than UsdRelationship::AddTarget()
+    //[[deprecated("Please use UsdShadeMaterialBindingAPI instead.")]]
     USDSHADE_API
     static UsdRelationship GetBindingRel(const UsdPrim& prim);
 
+    /// \deprecated
     /// Follows the relationship returned by GetBindingRel and returns a
     /// valid UsdShadeMaterial if the relationship targets exactly one such prim.
     ///
+    //[[deprecated("Please use UsdShadeMaterialBindingAPI instead.")]]
     USDSHADE_API
     static UsdShadeMaterial GetBoundMaterial(const UsdPrim &prim);
 
     /// @}
 
     // --------------------------------------------------------------------- //
+    /// \anchor UsdShadeMaterial_Outputs
+    /// \name Standard Material Terminal Outputs
+    /// A UsdShadeMaterial can have any number of "terminal" outputs. These 
+    /// outputs are generally used to point to outputs of shader prims or 
+    /// NodeGraphs that describe certain properties of the material that a 
+    /// renderer might wish to consume. There are three standard output 
+    /// terminals that are supported by the core API: <b>surface</b>, 
+    /// <b>displacement</b> and <b>volume</b>. 
+    /// 
+    /// Each terminal output can further be qualified by a token-valued 
+    /// <b>renderContext</b>. When a non-empty renderContext value is specified 
+    /// to the API, the output is considered to have a specific or restricted 
+    /// renderContext. If the renderContext value is empty (i.e. equal to 
+    /// UsdShadeTokens->universalRenderContext), then the output is considered 
+    /// to be a "universal", meaning it could apply to any render contexts. 
+    /// Render context token values is typically driven by the rendering backend
+    /// consuming the terminal output (eg, RI or glslfx).
+    /// @{
+        
+    /// Creates and returns the "surface" output on this material for the 
+    /// specified \p renderContext.
+    /// 
+    /// If the output already exists on the material, it is returned and no 
+    /// authoring is performed. The returned output will always have the 
+    /// requested renderContext.
+    USDSHADE_API 
+    UsdShadeOutput CreateSurfaceOutput(const TfToken &renderContext
+            =UsdShadeTokens->universalRenderContext) const;
+
+    /// Returns the "surface" output of this material for the specified
+    /// \p renderContext. The returned output will always have the requested 
+    /// renderContext. 
+    /// 
+    /// An invalid output is returned if an output corresponding to the 
+    /// requested specific-renderContext does not exist.
+    /// 
+    /// \sa UsdShadeMaterial::ComputeSurfaceSource()
+    USDSHADE_API
+    UsdShadeOutput GetSurfaceOutput(const TfToken &renderContext
+            =UsdShadeTokens->universalRenderContext) const;
+
+    /// Computes the resolved "surface" output source for the given 
+    /// \p renderContext.
+    /// 
+    /// If a "surface" output corresponding to the specific renderContext 
+    /// does not exist <b>or</b> is not connected to a valid source, then this 
+    /// checks the <i>universal</i> surface output.
+    /// 
+    /// Returns an empty Shader object if there is no valid <i>surface</i> 
+    /// output source for the requested \p renderContext.
+    /// The python version of this method returns a tuple containing three 
+    /// elements (the source surface shader, sourceName, sourceType).
+    USDSHADE_API
+    UsdShadeShader ComputeSurfaceSource(
+        const TfToken &renderContext=UsdShadeTokens->universalRenderContext,
+        TfToken *sourceName=nullptr, 
+        UsdShadeAttributeType *sourceType=nullptr) const;
+
+    /// Creates and returns the "displacement" output on this material for the 
+    /// specified \p renderContext.
+    /// 
+    /// If the output already exists on the material, it is returned and no 
+    /// authoring is performed. The returned output will always have the 
+    /// requested renderContext.
+    USDSHADE_API 
+    UsdShadeOutput CreateDisplacementOutput(const TfToken &renderContext
+            =UsdShadeTokens->universalRenderContext) const;
+
+    /// Returns the "displacement" output of this material for the specified
+    /// renderContext. The returned output will always have the requested 
+    /// renderContext. 
+    /// 
+    /// An invalid output is returned if an output corresponding to the 
+    /// requested specific-renderContext does not exist.
+    /// 
+    /// \sa UsdShadeMaterial::ComputeDisplacementSource()
+    USDSHADE_API 
+    UsdShadeOutput GetDisplacementOutput(const TfToken &renderContext
+            =UsdShadeTokens->universalRenderContext) const;
+
+    /// Computes the resolved "displacement" output source for the given 
+    /// \p renderContext.
+    /// 
+    /// If a "displacement" output corresponding to the specific renderContext 
+    /// does not exist <b>or</b> is not connected to a valid source, then this 
+    /// checks the <i>universal</i> displacement output.
+    /// 
+    /// Returns an empty Shader object if there is no valid <i>displacement</i>
+    /// output source for the requested \p renderContext.
+    /// The python version of this method returns a tuple containing three 
+    /// elements (the source displacement shader, sourceName, sourceType).
+    USDSHADE_API
+    UsdShadeShader ComputeDisplacementSource(
+        const TfToken &renderContext=UsdShadeTokens->universalRenderContext,
+        TfToken *sourceName=nullptr, 
+        UsdShadeAttributeType *sourceType=nullptr) const;
+
+    /// Creates and returns the "volume" output on this material for the 
+    /// specified \p renderContext.
+    /// 
+    /// If the output already exists on the material, it is returned and no 
+    /// authoring is performed. The returned output will always have the 
+    /// requested renderContext.
+    USDSHADE_API 
+    UsdShadeOutput CreateVolumeOutput(const TfToken &renderContext
+            =UsdShadeTokens->universalRenderContext) const;
+
+    /// Returns the "volume" output of this material for the specified
+    /// renderContext. The returned output will always have the requested 
+    /// renderContext. 
+    /// 
+    /// An invalid output is returned if an output corresponding to the 
+    /// requested specific-renderContext does not exist.
+    /// 
+    /// \sa UsdShadeMaterial::ComputeVolumeSource()
+    USDSHADE_API 
+    UsdShadeOutput GetVolumeOutput(const TfToken &renderContext
+            =UsdShadeTokens->universalRenderContext) const;
+
+    /// Computes the resolved "volume" output source for the given 
+    /// \p renderContext.
+    /// 
+    /// If a "volume" output corresponding to the specific renderContext 
+    /// does not exist <b>or</b> is not connected to a valid source, then this 
+    /// checks the <i>universal</i> volume output.
+    /// 
+    /// Returns an empty Shader object if there is no valid <i>volume</i> output 
+    /// source for the requested \p renderContext.
+    /// The python version of this method returns a tuple containing three 
+    /// elements (the source volume shader, sourceName, sourceType).
+    USDSHADE_API
+    UsdShadeShader ComputeVolumeSource(
+        const TfToken &renderContext=UsdShadeTokens->universalRenderContext,
+        TfToken *sourceName=nullptr, 
+        UsdShadeAttributeType *sourceType=nullptr) const;
+
+    /// @}
+
+private:
+    // Helper method to compute the source of a given output, identified by its 
+    // baseName, for the specified renderContext.
+    bool _ComputeNamedOutputSource(
+        const TfToken &baseName, 
+        const TfToken &renderContext,
+        UsdShadeConnectableAPI *source,
+        TfToken *sourceName,
+        UsdShadeAttributeType *sourceType) const;
+
+    // Helper method to compute the source shader of a given output, identified 
+    // by its baseName, for the specified renderContext.
+    UsdShadeShader _ComputeNamedOutputShader(
+        const TfToken &baseName,
+        const TfToken &renderContext,
+        TfToken *sourceName, 
+        UsdShadeAttributeType *sourceType) const;
+
+public:
+    // --------------------------------------------------------------------- //
     /// \anchor UsdShadeMaterial_Variations
     /// \name Authoring Material Variations
     /// Each UsdShadeMaterial prim can host data for any number of render targets
-    /// (such as Renderman RSL, Renderman RIS, Arnold, or glslfx).  Each Material
-    /// can /em also, however, encode variations of a particular Material that can
-    /// vary each target's set of bound shaders - or any other data authored
-    /// on the Material.  For example, we might have a logo'd baseball cap that
-    /// comes in denim, nylon, and corduroy variations.  We can encode the
-    /// material variation - and the ability to select the variations - as
-    /// a Material variant that varies the surface shader relationship in each of
-    /// the render targets.
+    /// (such as Renderman RIS, Arnold, or glslfx).
+    ///
+    /// A single UsdShadeMaterial group can, however, encode variations on
+    /// appearance, varying any data authored on the material and its contents.
+    /// For example, we might have a logo'd baseball cap that
+    /// comes in denim, nylon, and corduroy variations.
     ///
     /// We provide methods to aid in authoring such variations on individual
-    /// Material prims, and also a facility for creating a "master" Material variant
-    /// on another prim (a model's root prim, or another common ancestor of
-    /// all Material prims in a model) that will set the variants on each Material
-    /// in concert, from making a single variant selection.
+    /// Material prims, and also a facility for creating a "master" look
+    /// variant on another prim (e.g.  a model's root prim, or another common 
+    /// ancestor of all Material prims in a model) that will be able to modify
+    /// Materials, bindings, connections and values at once.
     ///
     /// <b>Note on variant vs "direct" opinions.</b>
-    /// For any given location in a layer (i.e. a prim's spec in the layer),
-    /// opinions expressed inside a variant of a variantSet will be
-    /// \em weaker than any opinions expressed "directly" at the location,
-    /// outside of any layer.
+    /// For any given prim's spec in a layer, opinions expressed inside a 
+    /// variant of a variantSet will be /weaker/ than any opinions expressed 
+    /// "directly" at the location, outside of any layer.
     ///
-    /// Therefore, if you intend to vary relationship "surface" in a 
-    /// MaterialVariant, make sure you author it \em only inside variant edit
-    /// contexts (i.e. GetEditContextForVariant()).  If you author the
-    /// relationship outside any of the variants, it will trump them all.
+    /// Therefore, if you intend to author a default variant that is weaker than
+    /// more explicit variants, you will need to have those opinions be weaker 
+    /// by setting them across a reference arc such as the following:
+    ///
+    /// \code
+    /// def "MyMaterial" (
+    ///     add references = </MyMaterial_defaultShadingVariant>
+    ///     variants = {
+    ///         string materialVariant = "SomeVariant"
+    ///     }
+    ///     add variantSets = "materialVariant"
+    /// )
+    /// {
+    ///     float strongerThanVariantOpinion
+    /// 
+    ///     variantSet "materialVariant" = {
+    ///         "SomeVariant" {
+    ///             float variantOpinion
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// over "MyMaterial_defaultShadingVariant"
+    /// {
+    ///     float weakerThanVariantOpinion
+    /// }
+    /// \endcode
+    /// 
     /// @{
+    ///
     // --------------------------------------------------------------------- //
-
-    /// Helper function for configuring a UsdStage's editTarget to author
+    /// Helper function for configuring a UsdStage's UsdEditTarget to author
     /// Material variations. Takes care of creating the Material variantSet and
     /// specified variant, if necessary.
     ///
@@ -302,7 +576,7 @@ public:
     /// {
     ///     UsdEditContext ctxt(clothMaterial.GetEditContextForVariant(currVariant));
     ///
-    ///     // All Usd mutation of the UsdStage on which clothMaterial sits will
+    ///     // All USD mutation of the UsdStage on which clothMaterial sits will
     ///     // now go "inside" the currVariant of the "MaterialVariant" variantSet
     /// }
     /// \endcode
@@ -422,9 +696,109 @@ public:
 
     /// @}
 
+
+    // --------------------------------------------------------------------- //
+    /// \anchor UsdShadeMaterial_Subsets
+    /// \name Binding materials to subsets
+    /// \deprecated This API is now deprecated. Please use the equivalent API 
+    ///             available on UsdShadeMaterialBindingAPI.
+    /// 
+    /// API to create, access and query the presence of GeomSubsets below an 
+    /// imageable prim, that are created for the purpose of binding materials.
+    /// 
+    /// \note Material bindings authored on GeomSubsets are honored by renderers
+    /// only if their familyName is <b>UsdShadeTokens->materialBind</b>.
+    /// 
+    /// Here's some sample code that shows how to create "face" subsets and 
+    /// and bind materials to them.
+    /// \code
+    /// UsdGeomImageable mesh = UsdGeomImageable::Get(stage,
+    ///         SdfPath("/path/to/meshPrim");
+    /// UsdShadeMaterial plastic = UsdShadeMaterial::Get(stage, 
+    ///         SdfPath("/path/to/PlasticMaterial");
+    /// UsdShadeMaterial metal = UsdShadeMaterial::Get(stage, 
+    ///         SdfPath("/path/to/MetalMaterial");    
+    ///
+    /// VtIntArray plasticFaces, metalFaces;
+    /// //.. populate faceIndices here.
+    /// //.. 
+    /// 
+    /// UsdGeomSubset plasticSubset = 
+    ///         UsdShaderMaterial::CreateMaterialBindSubset(mesh, 
+    ///                 "plasticSubset", plasticFaces);
+    /// UsdGeomSubset metalSubset = 
+    ///         UsdShaderMaterial::CreateMaterialBindSubset(mesh, 
+    ///                 "metalSubset", metalFaces);
+    /// plastic.Bind(plasticSubset.GetPrim())
+    /// metal.Bind(metalSubset.GetPrim())
+    /// 
+    /// \endcode
+    /// @{
+
+    /// \deprecated 
+    /// Creates a GeomSubset named \p subsetName with element type, 
+    /// \p elementType and familyName <b>materialBind<b> below the given
+    /// imageable prim, \p geom. 
+    /// 
+    /// If a GeomSubset named \p subsetName already exists, then its 
+    /// "familyName" is updated to be UsdShadeTokens->materialBind and its 
+    /// indices (at <i>default</i> timeCode) are updated with the provided 
+    /// \p indices value before returning. 
+    /// 
+    /// This method forces the familyType of the "materialBind" family of 
+    /// subsets to UsdGeomTokens->nonOverlapping if it's unset or explicitly set
+    /// to UsdGeomTokens->unrestricted.
+    /// 
+    /// The default value \p elementType is UsdGeomTokens->face, as we expect 
+    /// materials to be bound most often to subsets of faces on meshes.
+    USDSHADE_API
+    static UsdGeomSubset CreateMaterialBindSubset(
+        const UsdGeomImageable &geom,
+        const TfToken &subsetName,
+        const VtIntArray &indices,
+        const TfToken &elementType=UsdGeomTokens->face);
+
+    /// \deprecated
+    /// Returns all the existing GeomSubsets with 
+    /// familyName=UsdShadeTokens->materialBind below the given imageable prim, 
+    /// \p geom.
+    USDSHADE_API
+    static std::vector<UsdGeomSubset> GetMaterialBindSubsets(
+        const UsdGeomImageable &geom);
+    
+    /// \deprecated
+    /// Encodes whether the family of "materialBind" subsets form a valid 
+    /// partition of the set of all faces on the imageable prim, \p geom.
+    USDSHADE_API
+    static bool SetMaterialBindSubsetsFamilyType(
+        const UsdGeomImageable &geom,
+        const TfToken &familyType);
+
+    /// \deprecated
+    /// Returns the familyType of the family of "materialBind" subsets under
+    /// \p geom. 
+    /// 
+    /// By default materialBind subsets have familyType="nonOverlapping", but
+    /// their can also be tagged as a "partition", using 
+    /// SetMaterialBindFaceSubsetsFamilyType(). 
+    /// 
+    /// \sa UsdGeomSubset::SetFamilyType
+    /// \sa UsdGeomSubset::GetFamilyNameAttr
+    /// 
+    USDSHADE_API
+    static TfToken GetMaterialBindSubsetsFamilyType(
+        const UsdGeomImageable &geom);
+
+    /// @}
+
     // --------------------------------------------------------------------- //
     /// \anchor UsdShadeMaterial_FaceSet
     /// \name FaceSet
+    /// 
+    /// \deprecated 
+    /// \note This API is now deprecated as the has-A schema UsdGeomFaceSetAPI 
+    /// has been deprecated in favor of the new concrete (typed) 
+    /// <b>UsdGeomSubset</b> schema.
     /// 
     /// API to create and query the existence of a "Material" face-set on a mesh 
     /// prim. 
@@ -450,6 +824,7 @@ public:
     /// @{
     // --------------------------------------------------------------------- //
 
+    /// \deprecated 
     /// Creates a "Material" face-set on the given prim. The Material face-set is a 
     /// partition of faces, since no face can be bound to more than one Material.
     /// 
@@ -459,12 +834,14 @@ public:
     USDSHADE_API
     static UsdGeomFaceSetAPI CreateMaterialFaceSet(const UsdPrim &prim);
 
+    /// \deprecated 
     /// Returns the "Material" face-set if it exists on the given prim. If not, 
     /// returns an invalid UsdGeomFaceSetAPI object.
     /// 
     USDSHADE_API
     static UsdGeomFaceSetAPI GetMaterialFaceSet(const UsdPrim &prim);
 
+    /// \deprecated 
     /// Returns true if the given prim has a "Material" face-set. A "Material" 
     /// face-set must be a partition for it to be considered valid.
     /// 

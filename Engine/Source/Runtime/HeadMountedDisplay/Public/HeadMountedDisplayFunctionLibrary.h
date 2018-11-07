@@ -197,6 +197,29 @@ class HEADMOUNTEDDISPLAY_API UHeadMountedDisplayFunctionLibrary : public UBluepr
 	static FTransform GetTrackingToWorldTransform(UObject* WorldContext);
 
 	/**
+	* Called to calibrate the offset transform between an external tracking source and the internal tracking source
+	* (e.g. mocap tracker to and HMD tracker).  This should be called once per session, or when the physical relationship
+	* between the external tracker and internal tracker changes (e.g. it was bumped or reattached).  After calibration,
+	* calling UpdateExternalTrackingPosition will try to correct the internal tracker to the calibrated offset to prevent
+	* drift between the two systems
+	*
+	* @param ExternalTrackingTransform		The transform in world-coordinates, of the reference marker of the external tracking system
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay|ExternalTracking")
+	static void CalibrateExternalTrackingToHMD(const FTransform& ExternalTrackingTransform);
+
+	/**
+	* Called after calibration to attempt to pull the internal tracker (e.g. HMD tracking) in line with the external tracker
+	* (e.g. mocap tracker).  This will set the internal tracker's base offset and rotation to match and realign the two systems.
+	* This can be called every tick, or whenever realignment is desired.  Note that this may cause choppy movement if the two
+	* systems diverge relative to each other, or a big jump if called infrequently when there has been significant drift
+	*
+	* @param ExternalTrackingTransform		The transform in world-coordinates, of the reference marker of the external tracking system
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay|ExternalTracking")
+	static void UpdateExternalTrackingHMDPosition(const FTransform& ExternalTrackingTransform);
+
+	/**
 	 * Returns current state of VR focus.
 	 *
 	 * @param bUseFocus		(out) if set to true, then this App does use VR focus.
@@ -235,7 +258,7 @@ class HEADMOUNTEDDISPLAY_API UHeadMountedDisplayFunctionLibrary : public UBluepr
 	* @param	bClearBlack: if true the render target will be drawn black before either rect is drawn.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay|SpectatorScreen")
-	static void SetSpectatorScreenModeTexturePlusEyeLayout(FVector2D EyeRectMin, FVector2D EyeRectMax, FVector2D TextureRectMin, FVector2D TextureRectMax, bool bDrawEyeFirst = true, bool bClearBlack = false);
+	static void SetSpectatorScreenModeTexturePlusEyeLayout(FVector2D EyeRectMin, FVector2D EyeRectMax, FVector2D TextureRectMin, FVector2D TextureRectMax, bool bDrawEyeFirst = true, bool bClearBlack = false, bool bUseAlpha = false);
 
 	/**
 	 * Cross XR-System query that will list all XR devices currently being tracked.

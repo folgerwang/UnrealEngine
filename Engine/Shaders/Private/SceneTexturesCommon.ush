@@ -74,6 +74,10 @@ float CalcSceneDepth(uint2 PixelPos)
 // Only reference MobileSceneTextures uniform buffer if SHADING_PATH_MOBILE
 #if SHADING_PATH_MOBILE
 
+#ifndef VULKAN_SUBPASS_DEPTHFETCH
+	#define	VULKAN_SUBPASS_DEPTHFETCH		0
+#endif
+
 /** return all channels of the scene lighting texture */
 float4 CalcFullSceneColor(float2 ScreenUV)
 {
@@ -104,9 +108,12 @@ float CalcSceneDepth(float2 ScreenUV)
 				return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
 			#endif 
 		#elif METAL_PROFILE && !MAC
-				return FramebufferFetchES2().w;
+			return FramebufferFetchES2().w;
 		#elif COMPILER_GLSL_ES3_1
-				return FramebufferFetchES2().w;
+			return FramebufferFetchES2().w;
+		#elif VULKAN_SUBPASS_DEPTHFETCH
+			// Special intrinsic to read from the current depth buffer
+			return ConvertFromDeviceZ(VulkanSubpassDepthFetch());
 		#else
 			return ConvertFromDeviceZ(Texture2DSampleLevel(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, ScreenUV, 0).r);
 		#endif
@@ -117,9 +124,15 @@ float CalcSceneDepth(float2 ScreenUV)
 /** Returns DeviceZ which is the z value stored in the depth buffer. */
 float LookupDeviceZ( float2 ScreenUV )
 {
-#if COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1
+#if	MOBILE_FORCE_DEPTH_TEXTURE_READS
+	// native Depth buffer lookup
+	return Texture2DSampleLevel(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, ScreenUV, 0).r;
+#elif COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1
 	// todo: can be optimized
 	return ConvertToDeviceZ(CalcSceneDepth(ScreenUV));
+#elif VULKAN_SUBPASS_DEPTHFETCH
+	// Special intrinsic to read from the current depth buffer
+	return VulkanSubpassDepthFetch();
 #elif METAL_PROFILE
 	// todo: can be optimized
 	return ConvertToDeviceZ(CalcSceneDepth(ScreenUV));

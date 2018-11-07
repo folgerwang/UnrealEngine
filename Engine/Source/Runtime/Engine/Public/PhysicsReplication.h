@@ -8,6 +8,9 @@
 #pragma once
 
 #include "Engine/EngineTypes.h"
+#include "Physics/PhysicsInterfaceDeclares.h"
+
+class FPhysScene_PhysX;
 
 struct FReplicatedPhysicsTarget
 {
@@ -40,7 +43,6 @@ struct FReplicatedPhysicsTarget
 struct FBodyInstance;
 struct FRigidBodyErrorCorrection;
 class UWorld;
-class FPhysScene;
 class UPrimitiveComponent;
 
 class ENGINE_API FPhysicsReplication
@@ -53,16 +55,22 @@ public:
 	void Tick(float DeltaSeconds);
 
 	/** Sets the latest replicated target for a body instance */
-	void SetReplicatedTarget(UPrimitiveComponent* Component, FName BoneName, const FRigidBodyState& ReplicatedTarget);
+	virtual void SetReplicatedTarget(UPrimitiveComponent* Component, FName BoneName, const FRigidBodyState& ReplicatedTarget);
 
 	/** Remove the replicated target*/
-	void RemoveReplicatedTarget(UPrimitiveComponent* Component);
+	virtual void RemoveReplicatedTarget(UPrimitiveComponent* Component);
 
 protected:
 
 	/** Update the physics body state given a set of replicated targets */
 	virtual void OnTick(float DeltaSeconds, TMap<TWeakObjectPtr<UPrimitiveComponent>, FReplicatedPhysicsTarget>& ComponentsToTargets);
-	bool ApplyRigidBodyState(float DeltaSeconds, FBodyInstance* BI, FReplicatedPhysicsTarget& PhysicsTarget, const FRigidBodyErrorCorrection& ErrorCorrection, const float PingSecondsOneWay);
+	virtual void OnTargetRestored(TWeakObjectPtr<UPrimitiveComponent> Component, const FReplicatedPhysicsTarget& Target) {}
+
+	/** Called when a dynamic rigid body receives a physics update */
+	virtual bool ApplyRigidBodyState(float DeltaSeconds, FBodyInstance* BI, FReplicatedPhysicsTarget& PhysicsTarget, const FRigidBodyErrorCorrection& ErrorCorrection, const float PingSecondsOneWay);
+
+	UWorld* GetOwningWorld();
+	const UWorld* GetOwningWorld() const;
 
 private:
 

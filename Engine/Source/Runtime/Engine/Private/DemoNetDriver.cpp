@@ -24,7 +24,7 @@
 #include "Engine/NetworkObjectList.h"
 #include "Net/RepLayout.h"
 #include "GameFramework/SpectatorPawn.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "GameFramework/SpectatorPawnMovement.h"
 #include "Net/UnrealNetwork.h"
 #include "UnrealEngine.h"
@@ -63,7 +63,10 @@ static TAutoConsoleVariable<float> CVarDemoCullDistanceOverride( TEXT( "demo.Cul
 static TAutoConsoleVariable<float> CVarDemoRecordHzWhenNotRelevant( TEXT( "demo.RecordHzWhenNotRelevant" ), 2.0f, TEXT( "Record at this frequency when actor is not relevant." ) );
 static TAutoConsoleVariable<int32> CVarLoopDemo(TEXT("demo.Loop"), 0, TEXT("<1> : play replay from beginning once it reaches the end / <0> : stop replay at the end"));
 static TAutoConsoleVariable<int32> CVarDemoFastForwardIgnoreRPCs( TEXT( "demo.FastForwardIgnoreRPCs" ), 1, TEXT( "If true, RPCs will be discarded during playback fast forward." ) );
-static TAutoConsoleVariable<int32> CVarDemoSaveRollbackActorState( TEXT( "demo.SaveRollbackActorState" ), 1, TEXT( "If true, rollback actors will save some replicated state to apply when respawned." ) );
+
+static int32 GDemoSaveRollbackActorState = 1;
+static FAutoConsoleVariableRef CVarDemoSaveRollbackActorState( TEXT( "demo.SaveRollbackActorState" ), GDemoSaveRollbackActorState, TEXT( "If true, rollback actors will save some replicated state to apply when respawned." ) );
+
 static TAutoConsoleVariable<int32> CVarWithLevelStreamingFixes(TEXT("demo.WithLevelStreamingFixes"), 0, TEXT("If 1, provides fixes for level streaming (but breaks backwards compatibility)."));
 static TAutoConsoleVariable<int32> CVarWithDemoTimeBurnIn(TEXT("demo.WithTimeBurnIn"), 0, TEXT("If true, adds an on screen message with the current DemoTime and Changelist."));
 
@@ -103,7 +106,7 @@ static void FlushNetChecked(UNetConnection& NetConnection)
 static bool ShouldActorGoDormantForDemo(const AActor* Actor, const UActorChannel* Channel)
 {
 	if ( Actor->NetDormancy <= DORM_Awake || !Channel || Channel->bPendingDormancy || Channel->Dormant )
-	{
+{
 		// Either shouldn't go dormant, or is already dormant
 		return false;
 	}
@@ -239,9 +242,9 @@ public:
 	{
 		if (Driver.IsValid())
 		{
-			InitialTotalDemoTime = Driver->ReplayStreamer->GetTotalDemoTime();
-			TaskStartTime = FPlatformTime::Seconds();
-		}
+		InitialTotalDemoTime	= Driver->ReplayStreamer->GetTotalDemoTime();
+		TaskStartTime			= FPlatformTime::Seconds();
+	}
 	}
 
 	virtual void StartTask()
@@ -255,23 +258,23 @@ public:
 			return true;
 		}
 
-		if (!Driver->ReplayStreamer->IsLive())
+		if ( !Driver->ReplayStreamer->IsLive() )
 		{
 			// The replay is no longer live, so don't try to jump to end
 			return true;
 		}
 
 		// Wait for the most recent live time
-		const bool bHasNewReplayTime = (Driver->ReplayStreamer->GetTotalDemoTime() != InitialTotalDemoTime);
+		const bool bHasNewReplayTime = ( Driver->ReplayStreamer->GetTotalDemoTime() != InitialTotalDemoTime );
 
 		// If we haven't gotten a new time from the demo by now, assume it might not be live, and just jump to the end now so we don't hang forever
-		const bool bTimeExpired = (FPlatformTime::Seconds() - TaskStartTime >= 15);
+		const bool bTimeExpired = ( FPlatformTime::Seconds() - TaskStartTime >= 15 );
 
-		if (bHasNewReplayTime || bTimeExpired)
+		if ( bHasNewReplayTime || bTimeExpired )
 		{
-			if (bTimeExpired)
+			if ( bTimeExpired )
 			{
-				UE_LOG(LogDemo, Warning, TEXT("FJumpToLiveReplayTask::Tick: Too much time since last live update."));
+				UE_LOG( LogDemo, Warning, TEXT( "FJumpToLiveReplayTask::Tick: Too much time since last live update." ) );
 			}
 
 			// We're ready to jump to the end now
@@ -300,25 +303,25 @@ public:
 	}
 
 	virtual void StartTask() override
-	{
+	{		
 		if (!Driver.IsValid())
 		{
 			return;
 		}
 
-		check(!Driver->IsFastForwarding());
+		check( !Driver->IsFastForwarding() );
 
-		OldTimeInSeconds = Driver->DemoCurrentTime;	// Rember current time, so we can restore on failure
-		Driver->DemoCurrentTime = TimeInSeconds;			// Also, update current time so HUD reflects desired scrub time now
+		OldTimeInSeconds		= Driver->DemoCurrentTime;	// Rember current time, so we can restore on failure
+		Driver->DemoCurrentTime	= TimeInSeconds;			// Also, update current time so HUD reflects desired scrub time now
 
-															// Clamp time
-		Driver->DemoCurrentTime = FMath::Clamp(Driver->DemoCurrentTime, 0.0f, Driver->DemoTotalTime - 0.01f);
+		// Clamp time
+		Driver->DemoCurrentTime = FMath::Clamp( Driver->DemoCurrentTime, 0.0f, Driver->DemoTotalTime - 0.01f );
 
 		// Tell the streamer to start going to this time
 		Driver->ReplayStreamer->GotoTimeInMS(Driver->DemoCurrentTime * 1000, FGotoCallback::CreateSP(this, &FGotoTimeInSecondsTask::CheckpointReady));
 
 		// Pause channels while we wait (so the world is paused while we wait for the new stream location to load)
-		Driver->PauseChannels(true);
+		Driver->PauseChannels( true );
 	}
 
 	virtual bool Tick() override
@@ -334,7 +337,7 @@ public:
 			return true;
 		}
 
-		if (GotoCheckpointArchive != nullptr)
+		if ( GotoCheckpointArchive != nullptr )
 		{
 			if ( GotoCheckpointSkipExtraTimeInMS > 0 && !Driver->ReplayStreamer->IsDataAvailable() )
 			{
@@ -359,31 +362,31 @@ public:
 	void CheckpointReady( const FGotoResult& Result )
 	{
 		if (!Driver.IsValid())
-		{
+	{
 			return;
 		}
 
-		check(GotoCheckpointArchive == nullptr);
-		check(GotoCheckpointSkipExtraTimeInMS == -1);
+		check( GotoCheckpointArchive == nullptr );
+		check( GotoCheckpointSkipExtraTimeInMS == -1 );
 
 		if (!Result.WasSuccessful())
 		{
-			UE_LOG(LogDemo, Warning, TEXT("FGotoTimeInSecondsTask::CheckpointReady: Failed to go to checkpoint."));
+			UE_LOG( LogDemo, Warning, TEXT( "FGotoTimeInSecondsTask::CheckpointReady: Failed to go to checkpoint." ) );
 
 			if (Driver.IsValid())
 			{
-				// Restore old demo time
-				Driver->DemoCurrentTime = OldTimeInSeconds;
+			// Restore old demo time
+			Driver->DemoCurrentTime = OldTimeInSeconds;
 
-				// Call delegate if any
-				Driver->NotifyGotoTimeFinished(false);
+			// Call delegate if any
+			Driver->NotifyGotoTimeFinished(false);
 			}
 
 			GotoCheckpointSkipExtraTimeInMS = -2;	// So tick can detect failure case
 			return;
 		}
 
-		GotoCheckpointArchive = Driver->ReplayStreamer->GetCheckpointArchive();
+		GotoCheckpointArchive			= Driver->ReplayStreamer->GetCheckpointArchive();
 		GotoCheckpointSkipExtraTimeInMS = Result.ExtraTimeMS;
 	}
 
@@ -407,13 +410,13 @@ public:
 			return;
 		}
 
-		check(!Driver->IsFastForwarding());
+		check( !Driver->IsFastForwarding() );
 
-		const uint32 TimeInMSToCheck = FMath::Clamp(Driver->GetDemoCurrentTimeInMS() + (uint32)(SecondsToSkip * 1000), (uint32)0, Driver->ReplayStreamer->GetTotalDemoTime());
+		const uint32 TimeInMSToCheck = FMath::Clamp( Driver->GetDemoCurrentTimeInMS() + ( uint32 )( SecondsToSkip * 1000 ), ( uint32 )0, Driver->ReplayStreamer->GetTotalDemoTime() );
 
-		Driver->ReplayStreamer->SetHighPriorityTimeRange(Driver->GetDemoCurrentTimeInMS(), TimeInMSToCheck);
+		Driver->ReplayStreamer->SetHighPriorityTimeRange( Driver->GetDemoCurrentTimeInMS(), TimeInMSToCheck );
 
-		Driver->SkipTimeInternal(SecondsToSkip, true, false);
+		Driver->SkipTimeInternal( SecondsToSkip, true, false );
 	}
 
 	virtual bool Tick() override
@@ -485,7 +488,7 @@ public:
 			{
 				return true;
 			}
-
+		
 			// If not all data is available, we could end only partially fast forwarding the levels.
 			if (CheckpointSkipExtraTimeInMS > 0 && !Driver->ReplayStreamer->IsDataAvailableForTimeRange(GotoTime - CheckpointSkipExtraTimeInMS, GotoTime))
 			{
@@ -523,9 +526,9 @@ public:
 private:
 
 	uint32			GotoTime;
-	bool			bSkipWork;
-	FArchive*		CheckpointArchive;				
-	int64			CheckpointSkipExtraTimeInMS;
+	bool						bSkipWork;
+	FArchive*					CheckpointArchive;				
+	int64						CheckpointSkipExtraTimeInMS;
 	FGotoCallback	CheckpointReadyDelegate;
 };
 
@@ -1047,15 +1050,15 @@ void UDemoNetDriver::NotifyStreamingLevelUnload( ULevel* InLevel )
 {
 	if (InLevel && !InLevel->bClientOnlyVisible && HasLevelStreamingFixes() && IsPlaying())
 	{
-		// We can't just iterate over the levels actors, because the ones in the queue will already have been destroyed.
-		for (TMap<FString, FRollbackNetStartupActorInfo>::TIterator It = RollbackNetStartupActors.CreateIterator(); It; ++It)
-		{
-			if (It.Value().Level == InLevel)
+			// We can't just iterate over the levels actors, because the ones in the queue will already have been destroyed.
+			for (TMap<FString, FRollbackNetStartupActorInfo>::TIterator It = RollbackNetStartupActors.CreateIterator(); It; ++It)
 			{
-				It.RemoveCurrent();
+				if (It.Value().Level == InLevel)
+				{
+					It.RemoveCurrent();
+				}
 			}
 		}
-	}
 
 	Super::NotifyStreamingLevelUnload(InLevel);
 }
@@ -1170,11 +1173,24 @@ bool UDemoNetDriver::WriteNetworkDemoHeader(FString& Error)
 		DemoHeader.HeaderFlags |= EReplayHeaderFlags::HasStreamingFixes;
 	}
 
+	DemoHeader.Guid = FGuid::NewGuid();
+
 	// Write the header
 	(*FileAr) << DemoHeader;
 	FileAr->Flush();
 
 	return true;
+}
+
+void UDemoNetDriver::WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData)
+{
+	FNetworkReplayDelegates::OnWriteGameSpecificDemoHeader.Broadcast(GameSpecificData);
+}
+
+bool UDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
+{
+	FNetworkReplayDelegates::OnProcessGameSpecificDemoHeader.Broadcast(GameSpecificData, Error);
+	return Error.Len() == 0;
 }
 
 bool UDemoNetDriver::IsRecording() const
@@ -1335,7 +1351,7 @@ void UDemoNetDriver::TickDispatch( float DeltaSeconds )
 
 	if ( ReplayStreamer->GetLastError() != ENetworkReplayError::None )
 	{
-		UE_LOG(LogDemo, Error, TEXT("UDemoNetDriver::TickDispatch: ReplayStreamer ERROR: %s"), ENetworkReplayError::ToString(ReplayStreamer->GetLastError()));
+		UE_LOG( LogDemo, Error, TEXT( "UDemoNetDriver::TickDispatch: ReplayStreamer ERROR: %s" ), ENetworkReplayError::ToString( ReplayStreamer->GetLastError() ) );
 		NotifyDemoPlaybackFailure(EDemoPlayFailure::Generic);
 		return;
 	}
@@ -1549,49 +1565,56 @@ bool UDemoNetDriver::DemoReplicateActor(AActor* Actor, UNetConnection* Connectio
 void UDemoNetDriver::SerializeGuidCache(TSharedPtr<FNetGUIDCache> InGuidCache, FArchive* CheckpointArchive)
 {
 	int32 NumValues = 0;
+	int32 UnloadedValues = 0;
 
-	for ( auto It = InGuidCache->ObjectLookup.CreateIterator(); It; ++It )
-	{
-		FNetGuidCacheObject& CacheObject = It.Value();
-
-		if ( CacheObject.Object == nullptr || !CacheObject.Object->IsNameStableForNetworking() )
-		{
-			continue;
-		}
-
-		NumValues++;
-	}
+	int64 CountPos = CheckpointArchive->Tell();
 
 	*CheckpointArchive << NumValues;
-
-	UE_LOG( LogDemo, Verbose, TEXT( "Checkpoint. SerializeGuidCache: %i" ), NumValues );
 
 	for ( auto It = InGuidCache->ObjectLookup.CreateIterator(); It; ++It )
 	{
 		FNetworkGUID& NetworkGUID = It.Key();
 		FNetGuidCacheObject& CacheObject = It.Value();
 
-		if ( CacheObject.Object == NULL || !CacheObject.Object->IsNameStableForNetworking() )
+		if (NetworkGUID.IsValid() && (NetworkGUID.IsStatic() || (CacheObject.Object.IsValid() && CacheObject.Object->IsNameStableForNetworking())))
 		{
-			continue;
+			// if we know the guid was specifically deleted, do not serialize it
+			if (DeletedNetStartupActorGUIDs.Contains(NetworkGUID))
+			{
+				continue;
+			}
+
+			FString PathName = CacheObject.Object.IsValid() ? CacheObject.Object->GetName() : CacheObject.PathName.ToString();
+
+			GEngine->NetworkRemapPath(this, PathName, false);
+
+			*CheckpointArchive << NetworkGUID;
+			*CheckpointArchive << CacheObject.OuterGUID;
+			*CheckpointArchive << PathName;
+			*CheckpointArchive << CacheObject.NetworkChecksum;
+
+			uint8 Flags = 0;
+			Flags |= CacheObject.bNoLoad ? (1 << 0) : 0;
+			Flags |= CacheObject.bIgnoreWhenMissing ? (1 << 1) : 0;
+
+			*CheckpointArchive << Flags;
+
+			++NumValues;
+
+			const bool bUnloaded = !CacheObject.Object.IsValid() || !CacheObject.Object->IsNameStableForNetworking();
+			if (bUnloaded)
+			{
+				++UnloadedValues;
+			}
 		}
-
-		FString PathName = CacheObject.Object->GetName();
-
-		GEngine->NetworkRemapPath(this, PathName, false);
-
-		*CheckpointArchive << NetworkGUID;
-		*CheckpointArchive << CacheObject.OuterGUID;
-		*CheckpointArchive << PathName;
-		*CheckpointArchive << CacheObject.NetworkChecksum;
-
-		uint8 Flags = 0;
-		
-		Flags |= CacheObject.bNoLoad ? ( 1 << 0 ) : 0;
-		Flags |= CacheObject.bIgnoreWhenMissing ? ( 1 << 1 ) : 0;
-
-		*CheckpointArchive << Flags;
 	}
+
+	int64 Pos = CheckpointArchive->Tell();
+	CheckpointArchive->Seek(CountPos);
+	*CheckpointArchive << NumValues;
+	CheckpointArchive->Seek(Pos);
+
+	UE_LOG( LogDemo, Verbose, TEXT( "Checkpoint. SerializeGuidCache: %i Unloaded: %i" ), NumValues, UnloadedValues );
 }
 
 float UDemoNetDriver::GetCheckpointSaveMaxMSPerFrame() const
@@ -1696,8 +1719,8 @@ void UDemoNetDriver::SaveCheckpoint()
 	// Do the first checkpoint tick now if we're not amortizing
 	if (GetCheckpointSaveMaxMSPerFrame() <= 0.0f)
 	{
-		TickCheckpoint();
-	}
+	TickCheckpoint();
+}
 }
 
 class FRepActorsCheckpointParams
@@ -1833,7 +1856,7 @@ void UDemoNetDriver::TickCheckpoint()
 		TGuardValue<uint32> NumLevelsAddedThisFrameGuard(NumLevelsAddedThisFrame, AllLevelStatuses.Num());
 
 		// Write out all of the queued up packets generated while saving the checkpoint
-		WriteDemoFrameFromQueuedDemoPackets( *CheckpointArchive, CastChecked< UDemoNetConnection>( ClientConnection )->QueuedCheckpointPackets, static_cast<float>(LastCheckpointTime) );
+		WriteDemoFrameFromQueuedDemoPackets( *CheckpointArchive, ClientConnection->QueuedCheckpointPackets, static_cast<float>(LastCheckpointTime) );
 
 		// Get the total checkpoint size
 		const int32 TotalCheckpointSize = CheckpointArchive->TotalSize();
@@ -1902,7 +1925,6 @@ void UDemoNetDriver::LoadExternalData( FArchive& Ar, const float TimeSeconds )
 
 	while ( true )
 	{
-		uint8 ExternalDataBuffer[1024];
 		uint32 ExternalDataNumBits;
 
 		// Read payload into payload/guid map
@@ -1920,16 +1942,16 @@ void UDemoNetDriver::LoadExternalData( FArchive& Ar, const float TimeSeconds )
 
 		int32 ExternalDataNumBytes = ( ExternalDataNumBits + 7 ) >> 3;
 
-		Ar.Serialize( ExternalDataBuffer, ExternalDataNumBytes );
+		FBitReader Reader(nullptr, ExternalDataNumBits);
 
-		FBitReader Reader( ExternalDataBuffer, ExternalDataNumBits );
+		Ar.Serialize(Reader.GetData(), ExternalDataNumBytes);
 
 		Reader.SetEngineNetVer( ServerConnection->EngineNetworkProtocolVersion );
 		Reader.SetGameNetVer( ServerConnection->GameNetworkProtocolVersion );
 
 		FReplayExternalDataArray& ExternalDataArray = ExternalDataToObjectMap.FindOrAdd( NetGUID );
 
-		ExternalDataArray.Add( new FReplayExternalData( Reader, TimeSeconds ) );
+		ExternalDataArray.Add( new FReplayExternalData( MoveTemp(Reader), TimeSeconds ) );
 	}
 }
 
@@ -1972,11 +1994,27 @@ void UDemoNetDriver::EnumerateEventsForActiveReplay(const FString& Group, const 
 	}
 }
 
+void UDemoNetDriver::EnumerateEventsForActiveReplay(const FString& Group, const int32 UserIndex, const FEnumerateEventsCallback& Delegate)
+{
+	if (ReplayStreamer.IsValid())
+	{
+		ReplayStreamer->EnumerateEvents(ActiveReplayName, Group, UserIndex, Delegate);
+	}
+}
+
 void UDemoNetDriver::RequestEventDataForActiveReplay(const FString& EventID, const FRequestEventDataCallback& Delegate)
 {
 	if (ReplayStreamer.IsValid())
 	{
 		ReplayStreamer->RequestEventData(ActiveReplayName, EventID, Delegate);
+	}
+}
+
+void UDemoNetDriver::RequestEventDataForActiveReplay(const FString& EventID, const int32 UserIndex, const FRequestEventDataCallback& Delegate)
+{
+	if (ReplayStreamer.IsValid())
+	{
+		ReplayStreamer->RequestEventData(ActiveReplayName, EventID, UserIndex, Delegate);
 	}
 }
 
@@ -2415,6 +2453,18 @@ bool UDemoNetDriver::ReplicatePrioritizedActor(const FActorPriority& ActorPriori
 
 		if (TotalRecordTimeMS > MaxDesiredRecordTimeMS)
 		{
+			if (UE_LOG_ACTIVE(LogDemo, Log))
+			{
+				static double LastWarningTime = 0.0f;
+				const double CurrentWarningTime = FPlatformTime::Seconds();
+
+				if ((CurrentWarningTime - LastWarningTime) > 1.0)
+				{
+					UE_LOG(LogDemo, Log, TEXT("Exceeded maximum desired recording time.  Max: %.3fms."), MaxDesiredRecordTimeMS);
+					LastWarningTime = CurrentWarningTime;
+				}
+			}
+
 			return false;
 		}
 	}
@@ -2527,7 +2577,7 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar, TArray<FPla
 
 	if ( ReplayStreamer->GetLastError() != ENetworkReplayError::None )
 	{
-		UE_LOG(LogDemo, Error, TEXT("UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets: ReplayStreamer ERROR: %s"), ENetworkReplayError::ToString(ReplayStreamer->GetLastError()));
+		UE_LOG( LogDemo, Error, TEXT( "UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets: ReplayStreamer ERROR: %s" ), ENetworkReplayError::ToString( ReplayStreamer->GetLastError() ) );
 		NotifyDemoPlaybackFailure(EDemoPlayFailure::Generic);
 		return false;
 	}
@@ -2627,7 +2677,7 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar, TArray<FPla
 				continue;
 			}
 
-			ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>(World, NAME_None, RF_NoFlags, nullptr);
+			ULevelStreamingDynamic* StreamingLevel = NewObject<ULevelStreamingDynamic>(World, NAME_None, RF_NoFlags, nullptr);
 
 			StreamingLevel->SetShouldBeLoaded(true);
 			StreamingLevel->SetShouldBeVisible(true);
@@ -2691,39 +2741,39 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar, TArray<FPla
 	{
 		DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Demo_ReadPackets"), Demo_ReadPackets, STATGROUP_Net);
 
-		while (true)
+	while (true)
+	{
+		if (HasLevelStreamingFixes())
 		{
-			if (HasLevelStreamingFixes())
-			{
-				Ar.SerializeIntPacked(SeenLevelIndex);
-			}
-
-			int32 PacketBytes = 0;
-			uint8 ReadBuffer[MAX_DEMO_READ_WRITE_BUFFER];
-
-			if (!ReadPacket(Ar, ReadBuffer, PacketBytes, sizeof(ReadBuffer)))
-			{
-				UE_LOG(LogDemo, Error, TEXT("UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets: ReadPacket failed."));
-				NotifyDemoPlaybackFailure(EDemoPlayFailure::Generic);
-				return false;
-			}
-
-			if (PacketBytes == 0)
-			{
-				break;
-			}
-			if (!bAppendPackets)
-			{
-				continue;
-			}
-
-			FPlaybackPacket& Packet = *(new(InPlaybackPackets)FPlaybackPacket);
-			Packet.Data.AddUninitialized(PacketBytes);
-			Packet.TimeSeconds = TimeSeconds;
-			Packet.LevelIndex = ReadCurrentLevelIndex;
-			Packet.SeenLevelIndex = SeenLevelIndex;
-			FMemory::Memcpy(Packet.Data.GetData(), ReadBuffer, PacketBytes);
+			Ar.SerializeIntPacked(SeenLevelIndex);
 		}
+
+		int32 PacketBytes = 0;
+		uint8 ReadBuffer[MAX_DEMO_READ_WRITE_BUFFER];
+
+		if (!ReadPacket(Ar, ReadBuffer, PacketBytes, sizeof(ReadBuffer)))
+		{
+			UE_LOG(LogDemo, Error, TEXT("UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets: ReadPacket failed."));
+				NotifyDemoPlaybackFailure(EDemoPlayFailure::Generic);
+			return false;
+		}
+
+		if (PacketBytes == 0)
+		{
+			break;
+		}
+		if (!bAppendPackets)
+		{
+			continue;
+		}
+
+		FPlaybackPacket& Packet = *(new(InPlaybackPackets)FPlaybackPacket);
+		Packet.Data.AddUninitialized(PacketBytes);
+		Packet.TimeSeconds = TimeSeconds;
+		Packet.LevelIndex = ReadCurrentLevelIndex;
+		Packet.SeenLevelIndex = SeenLevelIndex;
+		FMemory::Memcpy(Packet.Data.GetData(), ReadBuffer, PacketBytes);
+	}
 	}
 
 	return true;
@@ -3126,29 +3176,22 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 #if CSV_PROFILER
 	{
 		static FCsvDemoSettings CsvDemoSettings = GetCsvDemoSettings();
-		FCsvProfiler* CsvProfiler = FCsvProfiler::Get();
 		if (CsvDemoSettings.bCaptureCsv)
 		{
 			bool bDoCapture = IsPlaying()
 				&& DemoCurrentTime >= CsvDemoSettings.StartTime
 				&& ((DemoCurrentTime <= CsvDemoSettings.EndTime) || (CsvDemoSettings.EndTime < 0));
 
-			// Stop the capture when we reach the specified frame count
-			if (CsvDemoSettings.FrameCount>=0 && CsvProfiler->GetCaptureFrameNumber() >= CsvDemoSettings.FrameCount)
+			static bool bStartedCsvRecording = false;
+			if (!bStartedCsvRecording && bDoCapture)
 			{
-				bDoCapture = false;
+				FCsvProfiler::Get()->BeginCapture(CsvDemoSettings.FrameCount);
+				bStartedCsvRecording = true;
 			}
-
-			if (bDoCapture != CsvProfiler->IsCapturing())
+			else if (bStartedCsvRecording && !bDoCapture)
 			{
-				if (bDoCapture)
-				{
-					CsvProfiler->BeginCapture();
-				}
-				else
-				{
-					CsvProfiler->EndCapture();
-				}
+				FCsvProfiler::Get()->EndCapture();
+				bStartedCsvRecording = false;
 			}
 		}
 	}
@@ -3253,11 +3296,11 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 	{
 		DECLARE_SCOPE_CYCLE_COUNTER(TEXT("TickDemoPlayback_ProcessPackets"), TickDemoPlayback_ProcessPackets, STATGROUP_Net);
 
-		// Process packets until we are caught up (this implicitly handles fast forward if DemoCurrentTime past many frames)
-		while ( ConditionallyProcessPlaybackPackets() )
-		{
-			DemoFrameNum++;
-		}
+	// Process packets until we are caught up (this implicitly handles fast forward if DemoCurrentTime past many frames)
+	while ( ConditionallyProcessPlaybackPackets() )
+	{
+		DemoFrameNum++;
+	}
 
 		// Remove all packets that were processed
 		PlaybackPackets.RemoveAt(0, PlaybackPacketIndex);
@@ -3453,8 +3496,8 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 		UE_LOG(LogDemo, Warning, TEXT("UDemoNetConnection::ReplayStreamingReady: Failed. %s"), Result.bRecording ? TEXT("") : EDemoPlayFailure::ToString(EDemoPlayFailure::DemoNotFound));
 
 		if (Result.bRecording)
-		{
-			StopDemo();
+	{
+		StopDemo();
 		}
 		else
 		{
@@ -3502,7 +3545,8 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 			}
 		}
 
-		UE_LOG(LogDemo, Log, TEXT("ReplayStreamingReady: playing back replay %s, which was recorded on engine version %s"), *DemoURL.Map, *PlaybackDemoHeader.EngineVersion.ToString());
+		UE_LOG(LogDemo, Log, TEXT("ReplayStreamingReady: playing back replay [%s] %s, which was recorded on engine version %s"),
+			*PlaybackDemoHeader.Guid.ToString(EGuidFormats::Digits), *DemoURL.Map, *PlaybackDemoHeader.EngineVersion.ToString());
 	}
 }
 
@@ -3529,7 +3573,7 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 		}
 
 		FRollbackNetStartupActorInfo& RollbackActor = It.Value();
-		
+
 		// filter to a specific level
 		if ((Level != nullptr) && (RollbackActor.Level != Level))
 		{
@@ -3563,15 +3607,27 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 		AActor* Actor = GetWorld()->SpawnActorAbsolute( RollbackActor.Archetype->GetClass(), SpawnTransform, SpawnInfo );
 		if (Actor)
 		{
-			if (!ensure(Actor->GetFullName() == It.Key()))
+			if ( !ensure( Actor->GetFullName() == It.Key() ) )
 			{
-				UE_LOG(LogDemo, Log, TEXT("RespawnNecessaryNetStartupActors: NetStartupRollbackActor name doesn't match original: %s, %s"), *Actor->GetFullName(), *It.Key());
+				UE_LOG( LogDemo, Log, TEXT( "RespawnNecessaryNetStartupActors: NetStartupRollbackActor name doesn't match original: %s, %s" ), *Actor->GetFullName(), *It.Key() );
+			}
+
+			bool bSanityCheckReferences = true;
+
+			for(UObject* ObjRef : RollbackActor.ObjReferences)
+			{
+				if (ObjRef == nullptr)
+				{
+					bSanityCheckReferences = false;
+					UE_LOG(LogDemo, Warning, TEXT("RespawnNecessaryNetStartupActors: Rollback actor reference was gc'd, skipping state restore: %s"), *GetFullNameSafe(Actor));
+					break;
+				}
 			}
 
 			TSharedPtr<FRepLayout> RepLayout = GetObjectClassRepLayout(Actor->GetClass());
 			if (RepLayout.IsValid())
 			{
-				if (RepLayout.IsValid() && RollbackActor.RepState.IsValid())
+				if (RepLayout.IsValid() && RollbackActor.RepState.IsValid() && bSanityCheckReferences)
 				{
 					const ENetRole SavedRole = Actor->Role;
 
@@ -3611,7 +3667,7 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 					{
 						TSharedPtr<FRepState> RepState = RollbackActor.SubObjRepState.FindRef(ActorComp->GetFullName());
 
-						if (SubObjLayout.IsValid() && RepState.IsValid())
+						if (SubObjLayout.IsValid() && RepState.IsValid() && bSanityCheckReferences)
 						{
 							SubObjLayout->DiffStableProperties(&RepState->RepNotifies, nullptr, ActorComp, RepState->StaticBuffer.GetData());
 
@@ -3680,9 +3736,9 @@ void UDemoNetDriver::PrepFastForwardLevels()
 					}
 					else
 					{
-						LevelActors.Add(Actor);
-					}
+					LevelActors.Add(Actor);
 				}
+			}
 			}
 
 			TArray<AActor*> SpawnedActors;
@@ -3795,9 +3851,9 @@ bool UDemoNetDriver::FastForwardLevels(FArchive* CheckpointArchive, int64 ExtraT
 			{
 				Ar.Seek(PreFramePos);
 				if (ensure(NumPackets != 0))
-				{
+	{
 					Packets.RemoveAt(NumPackets, Packets.Num() - NumPackets);
-				}
+	}
 				return false;
 			}
 
@@ -3805,9 +3861,9 @@ bool UDemoNetDriver::FastForwardLevels(FArchive* CheckpointArchive, int64 ExtraT
 		}
 
 		bool IsError() const
-		{
+	{
 			return bErrorOccurred;
-		}
+	}
 
 		TArray<FPlaybackPacket> Packets;
 
@@ -3816,11 +3872,11 @@ bool UDemoNetDriver::FastForwardLevels(FArchive* CheckpointArchive, int64 ExtraT
 		UDemoNetDriver& Driver;
 		const float LastPacketTime;
 
-		// We only want to process packets that are before anything we've currently processed.
-		// Further, we want to make sure that we leave the archive in a good state for later use.
-		int32 NumPackets = 0;
-		float LastReadTime = 0;
-		FArchivePos PreFramePos = 0;
+	// We only want to process packets that are before anything we've currently processed.
+	// Further, we want to make sure that we leave the archive in a good state for later use.
+	int32 NumPackets = 0;
+	float LastReadTime = 0;
+	FArchivePos PreFramePos = 0;
 
 		bool bErrorOccurred = false;
 
@@ -3848,7 +3904,7 @@ bool UDemoNetDriver::FastForwardLevels(FArchive* CheckpointArchive, int64 ExtraT
 	while (!StreamingAr->AtEnd() && ReplayStreamer->IsDataAvailable() && ReadPacketsHelper.ReadPackets(*StreamingAr));
 
 	if (ReadPacketsHelper.IsError())
-	{
+		{
 		UE_LOG(LogDemo, Warning, TEXT("UDemoNetDriver::FastForwardLevels: Failed to read packets from Stream."));
 		NotifyDemoPlaybackFailure(EDemoPlayFailure::Generic);
 		return false;
@@ -4061,7 +4117,7 @@ bool UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 		ConnectURL.Map = DemoURL.Map;
 		ServerConnection->InitConnection(this, USOCK_Pending, ConnectURL, 1000000);
 
-		GEngine->ForceGarbageCollection();
+		GEngine->ForceGarbageCollection(true);
 
 		ProcessSeamlessTravel(LevelForCheckpoint);
 		CurrentLevelIndex = LevelForCheckpoint;
@@ -4229,7 +4285,7 @@ bool UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 	// Optionally collect garbage after the old actors and connection are cleaned up - there could be a lot of pending-kill objects at this point.
 	if (CVarDemoLoadCheckpointGarbageCollect.GetValueOnGameThread() != 0)
 	{
-		GEngine->ForceGarbageCollection();
+		GEngine->ForceGarbageCollection(true);
 	}
 
 	FURL ConnectURL;
@@ -4620,8 +4676,10 @@ FString UDemoNetConnection::LowLevelGetRemoteAddress( bool bAppendPort )
 	return TEXT( "UDemoNetConnection" );
 }
 
-void UDemoNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+void UDemoNetConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
+	uint32 CountBytes = FMath::DivideAndRoundUp(CountBits, 8);
+
 	if ( CountBytes == 0 )
 	{
 		UE_LOG( LogDemo, Warning, TEXT( "UDemoNetConnection::LowLevelSend: Ignoring empty packet." ) );
@@ -4638,11 +4696,11 @@ void UDemoNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountB
 	if ( bResendAllDataSinceOpen )
 	{
 		// This path is only active for a checkpoint saving out, we need to queue in separate list
-		new( QueuedCheckpointPackets )FQueuedDemoPacket( ( uint8* )Data, CountBytes, CountBits );
+		new( QueuedCheckpointPackets )FQueuedDemoPacket( ( uint8* )Data, CountBits, Traits );
 		return;
 	}
 
-	new(QueuedDemoPackets)FQueuedDemoPacket((uint8*)Data, CountBytes, CountBits);
+	new(QueuedDemoPackets)FQueuedDemoPacket((uint8*)Data, CountBits, Traits);
 }
 
 void UDemoNetConnection::TrackSendForProfiler(const void* Data, int32 NumBytes)
@@ -4723,6 +4781,12 @@ void UDemoNetConnection::HandleClientPlayer( APlayerController* PC, UNetConnecti
 	}
 }
 
+TSharedPtr<FInternetAddr> UDemoNetConnection::GetInternetAddr()
+{
+	// Does not use MappedClientConnections
+	return TSharedPtr<FInternetAddr>();
+}
+
 bool UDemoNetConnection::ClientHasInitializedLevelFor(const AActor* TestActor) const
 {
 	// We save all currently streamed levels into the demo stream so we can force the demo playback client
@@ -4765,7 +4829,7 @@ TSharedPtr<FObjectReplicator> UDemoNetConnection::CreateReplicatorForNewActorCha
 }
 
 void UDemoNetConnection::DestroyIgnoredActor(AActor* Actor)
-{
+	{
 	QueueInitialDormantStartupActorForRewind(Actor);
 
 	Super::DestroyIgnoredActor(Actor);
@@ -4885,6 +4949,12 @@ void UDemoNetDriver::NotifyActorDestroyed( AActor* Actor, bool IsSeamlessTravel 
 
 			UE_LOG(LogDemo, VeryVerbose, TEXT("NotifyActyorDestroyed: adding actor to deleted startup list: %s"), *Actor->GetFullName());
 			DeletedNetStartupActors.Add( Actor->GetFullName() );
+
+			FNetworkGUID NetGUID = GuidCache->NetGUIDLookup.FindRef(Actor);
+			if (NetGUID.IsValid())
+			{
+				DeletedNetStartupActorGUIDs.Add(NetGUID);
+			}
 		}
 	}
 
@@ -4988,7 +5058,7 @@ void UDemoNetDriver::QueueNetStartupActorForRollbackViaDeletion( AActor* Actor )
 	RollbackActor.Rotation	= Actor->GetActorRotation();
 	RollbackActor.Level		= Actor->GetLevel();
 
-	if (CVarDemoSaveRollbackActorState.GetValueOnAnyThread())
+	if (GDemoSaveRollbackActorState != 0)
 	{
 		TSharedPtr<FObjectReplicator> NewReplicator = MakeShared<FObjectReplicator>();
 		if (NewReplicator.IsValid())
@@ -5041,6 +5111,20 @@ void UDemoNetDriver::ForceNetUpdate(AActor* Actor)
 			NetActor->NextUpdateTime = DemoCurrentTime - 0.01f;
 		}
 	}
+	}
+
+UChannel* UDemoNetDriver::InternalCreateChannel(EChannelType ChType)
+{
+	// In case of recording off the game thread with CVarDemoClientRecordAsyncEndOfFrame,
+	// we need to clear the async flag on the channel so that it will get cleaned up by GC.
+	// This should be safe since channel objects don't interact with async loading, and
+	// async recording happens in a very controlled manner.
+	UChannel* NewChannel = Super::InternalCreateChannel(ChType);
+	if (NewChannel)
+	{
+		NewChannel->ClearInternalFlags(EInternalObjectFlags::Async);
+	}
+	return NewChannel;
 }
 
 void UDemoNetDriver::NotifyDemoPlaybackFailure(EDemoPlayFailure::Type FailureType)
@@ -5059,6 +5143,20 @@ void UDemoNetDriver::NotifyDemoPlaybackFailure(EDemoPlayFailure::Type FailureTyp
 			}
 		}
 	}
+}
+
+FString UDemoNetDriver::GetDemoPath() const
+{
+	if (ReplayStreamer.IsValid())
+	{
+		FString DemoPath;
+		if (ReplayStreamer->GetDemoPath(DemoPath) == EStreamingOperationResult::Success)
+		{
+			return DemoPath;
+		}
+	}
+
+	return FString();
 }
 
 /*-----------------------------------------------------------------------------

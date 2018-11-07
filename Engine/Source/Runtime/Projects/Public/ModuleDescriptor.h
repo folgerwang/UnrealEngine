@@ -131,6 +131,12 @@ struct PROJECTS_API FModuleDescriptor
 	/** List of disallowed target configurations */
 	TArray<FString> BlacklistTargetConfigurations;
 
+	/** List of allowed programs */
+	TArray<FString> WhitelistPrograms;
+
+	/** List of disallowed programs */
+	TArray<FString> BlacklistPrograms;
+
 	/** List of additional dependencies for building this module. */
 	TArray<FString> AdditionalDependencies;
 

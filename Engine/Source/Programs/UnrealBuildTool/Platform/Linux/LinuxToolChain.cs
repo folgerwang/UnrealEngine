@@ -11,6 +11,33 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+	/// <summary>
+	/// Option flags for the Linux toolchain
+	/// </summary>
+	[Flags]
+	enum LinuxToolChainOptions
+	{
+		/// <summary>
+		/// No custom options
+		/// </summary>
+		None = 0,
+
+		/// <summary>
+		/// Enable address sanitzier
+		/// </summary>
+		EnableAddressSanitizer = 0x1,
+
+		/// <summary>
+		/// Enable thread sanitizer
+		/// </summary>
+		EnableThreadSanitizer = 0x2,
+
+		/// <summary>
+		/// Enable undefined behavior sanitizer
+		/// </summary>
+		EnableUndefinedBehaviorSanitizer = 0x4,
+	}
+
 	class LinuxToolChain : UEToolChain
 	{
 		/** Flavor of the current build (target triplet)*/
@@ -22,16 +49,23 @@ namespace UnrealBuildTool
 		/** Whether the compiler is set up to produce PIE executables by default */
 		bool bSuppressPIE = false;
 
+		/** Whether or not to preserve the portable symbol file produced by dump_syms */
+		bool bPreservePSYM = false;
+
 		/** Platform SDK to use */
 		protected LinuxPlatformSDK PlatformSDK;
 
 		/** Toolchain information to print during the build. */
 		protected string ToolchainInfo;
 
-		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK)
-			: this(CppPlatform.Linux, InArchitecture, InSDK)
+		/// <summary>
+		/// Whether to compile with ASan enabled
+		/// </summary>
+		LinuxToolChainOptions Options;
+		
+		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK, bool InPreservePSYM = false, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
+			: this(CppPlatform.Linux, InArchitecture, InSDK, InPreservePSYM, InOptions)
 		{
-			
 			MultiArchRoot = PlatformSDK.GetSDKLocation();
 			BaseLinuxPath = PlatformSDK.GetBaseLinuxPathForArchitecture(InArchitecture);
 
@@ -150,11 +184,13 @@ namespace UnrealBuildTool
 			bUseLld = (CompilerVersionMajor >= 5);
 		}
 
-		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture, LinuxPlatformSDK InSDK) 
+		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture, LinuxPlatformSDK InSDK, bool InPreservePSYM = false, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
 			: base(InCppPlatform)
 		{
 			Architecture = InArchitecture;
 			PlatformSDK = InSDK;
+			Options = InOptions;
+			bPreservePSYM = InPreservePSYM;
 		}
 
 		protected virtual bool CrossCompiling()
@@ -191,11 +227,16 @@ namespace UnrealBuildTool
 		internal string GetDumpEncodeDebugCommand(LinkEnvironment LinkEnvironment, FileItem OutputFile)
 		{
 			bool bUseCmdExe = BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32;
-			string DumpCommand = bUseCmdExe ? "\"{0}\" \"{1}\" \"{2}\" 2>NUL\n" : "\"{0}\" -o \"{2}\" \"{1}\"\n";
+			string DumpCommand = bUseCmdExe ? "\"{0}\" \"{1}\" \"{2}\" 2>NUL\n" : "\"{0}\" -c -o \"{2}\" \"{1}\"\n";
 			FileItem EncodedBinarySymbolsFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".sym"));
-			FileItem SymbolsFile  = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + ".rawsym"));
+			FileItem SymbolsFile  = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + ".psym"));
 			FileItem StrippedFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + "_nodebug"));
 			FileItem DebugFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".debug"));
+
+			if (bPreservePSYM)
+			{
+				SymbolsFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".psym"));
+			}
 
 			string Out = "";
 
@@ -215,6 +256,17 @@ namespace UnrealBuildTool
 
 			if (LinkEnvironment.bCreateDebugInfo)
 			{
+				if (bUseCmdExe)
+				{
+					// Bad hack where objcopy.exe cannot handle files larger then 2GB. Its fine when building on Linux
+					Out += string.Format("for /F \"tokens=*\" %%F in (\"{0}\") DO set size=%%~zF\n",
+						OutputFile.AbsolutePath
+					);
+
+					// If we are less then 2GB create the debugging info
+					Out += "if %size% LSS 2147483648 (\n";
+				}
+
 				// objcopy stripped file
 				Out += string.Format("\"{0}\" --strip-all \"{1}\" \"{2}\"\n",
 					GetObjcopyPath(LinkEnvironment.Architecture),
@@ -243,6 +295,11 @@ namespace UnrealBuildTool
 					Out += string.Format("move /Y \"{0}.temp\" \"{1}\"\n",
 						OutputFile.AbsolutePath,
 						OutputFile.AbsolutePath
+					);
+
+					// If our file is greater then 4GB we'll have to create a debug file anyway
+					Out += string.Format(") ELSE (\necho DummyDebug >> {0}\n)\n",
+						DebugFile.AbsolutePath
 					);
 				}
 				else
@@ -476,6 +533,24 @@ namespace UnrealBuildTool
 				Result += " -I" + "ThirdParty/Linux/LibCxx/include/c++/v1";
 			}
 
+			// ASan
+			if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer))
+			{
+				Result += " -fsanitize=address";
+			}
+
+			// TSan
+			if (Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer))
+			{
+				Result += " -fsanitize=thread";
+			}
+
+			// UBSan
+			if (Options.HasFlag(LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer))
+			{
+				Result += " -fsanitize=undefined";
+			}
+
 			Result += " -Wall -Werror";
 
 			if (!CompileEnvironment.Architecture.StartsWith("x86_64") && !CompileEnvironment.Architecture.StartsWith("i686"))
@@ -597,13 +672,10 @@ namespace UnrealBuildTool
 			{
 				// libdwarf (from elftoolchain 0.6.1) doesn't support DWARF4. If we need to go back to depending on elftoolchain revert this back to dwarf-3
 				Result += " -gdwarf-4";
-				
-				// Include debug info
-				Result += " -g";
-				
-				// Include additional debug info to help LLDB
+
+				// Make debug info LLDB friendly
 				Result += " -glldb";
-				
+
 				// Makes debugging .so libraries better
 				Result += " -fstandalone-debug";
 			}
@@ -615,7 +687,19 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				Result += " -O2";	// warning: as of now (2014-09-28), clang 3.5.0 miscompiles PlatformerGame with -O3 (bitfields?)
+				// Don't over optimise if using AddressSanitizer or you'll get false positive errors due to erroneous optimisation of necessary AddressSanitizer instrumentation.
+				if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer))
+				{
+					Result += " -O1 -g -fno-optimize-sibling-calls -fno-omit-frame-pointer";
+				}
+				else if (Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer))
+				{
+					Result += " -O1 -g";
+				}
+				else
+				{
+					Result += " -O2";	// warning: as of now (2014-09-28), clang 3.5.0 miscompiles PlatformerGame with -O3 (bitfields?)
+				}
 			}
 
 			if (!CompileEnvironment.bUseInlining)
@@ -779,6 +863,23 @@ namespace UnrealBuildTool
 				Result += string.Format(" -Wl,--unresolved-symbols=ignore-in-shared-libs");
 			}
 
+			if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer) || Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer) || Options.HasFlag(LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer))
+			{
+				Result += " -g";
+				if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer))
+				{
+					Result += " -fsanitize=address";
+				}
+				else if (Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer))
+				{
+					Result += " -fsanitize=thread";
+				}
+				else if (Options.HasFlag(LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer))
+				{
+					Result += " -fsanitize=undefined";
+				}
+			}
+
 			// RPATH for third party libs
 			Result += " -Wl,-rpath=${ORIGIN}";
 			Result += " -Wl,-rpath-link=${ORIGIN}";
@@ -795,7 +896,7 @@ namespace UnrealBuildTool
 				// x86_64 is now using updated ICU that doesn't need extra .so
 				Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Linux/" + LinkEnvironment.Architecture;
 			}
-			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/OpenVR/OpenVRv1_0_11/linux64";
+			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/OpenVR/OpenVRv1_0_16/linux64";
 
 			// @FIXME: Workaround for generating RPATHs for launching on devices UE-54136
 			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/PhysX3/Linux/x86_64-unknown-linux-gnu";
@@ -1026,10 +1127,7 @@ namespace UnrealBuildTool
 
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
-				// Add the precompiled header file's path to the include path so Clang can find it.
-				// This needs to be before the other include paths to ensure Clang uses it instead of the source header file.
-				string PrecompiledFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
-				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderFile.AbsolutePath.Replace(PrecompiledFileExtension, "").Replace('\\', '/'));
+				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderIncludeFilename.FullName.Replace('\\', '/'));
 			}
 
 			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
@@ -1097,14 +1195,8 @@ namespace UnrealBuildTool
 
 				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
-					string PrecompiledFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced item list.
-					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
-						FileReference.Combine(
-							OutputDir,
-							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledFileExtension
-							)
-						);
+					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".gch"));
 
 					CompileAction.ProducedItems.Add(PrecompiledHeaderFile);
 					Result.PrecompiledHeaderFile = PrecompiledHeaderFile;
@@ -1120,14 +1212,8 @@ namespace UnrealBuildTool
 						CompileAction.PrerequisiteItems.Add(CompileEnvironment.PrecompiledHeaderFile);
 					}
 
-					string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
-					FileItem ObjectFile = FileItem.GetItemByFileReference(
-						FileReference.Combine(
-							OutputDir,
-							Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
-							)
-						);
+					FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".o"));
 					CompileAction.ProducedItems.Add(ObjectFile);
 					Result.ObjectFiles.Add(ObjectFile);
 
@@ -1392,6 +1478,15 @@ namespace UnrealBuildTool
 				if ((AdditionalLibrary.Contains("Plugins") || AdditionalLibrary.Contains("Binaries/ThirdParty") || AdditionalLibrary.Contains("Binaries\\ThirdParty")) && Path.GetDirectoryName(AdditionalLibrary) != Path.GetDirectoryName(OutputFile.AbsolutePath))
 				{
 					string RelativePath = new FileReference(AdditionalLibrary).Directory.MakeRelativeTo(OutputFile.Location.Directory);
+					// On Windows, MakeRelativeTo can silently fail if the engine and the project are located on different drives
+					if (CrossCompiling() && RelativePath.StartsWith(UnrealBuildTool.RootDirectory.FullName))
+					{
+						// do not replace directly, but take care to avoid potential double slashes or missed slashes
+						string PathFromRootDir = RelativePath.Replace(UnrealBuildTool.RootDirectory.FullName, "");
+						// Path.Combine doesn't combine these properly
+						RelativePath = ((PathFromRootDir.StartsWith("\\") || PathFromRootDir.StartsWith("/")) ? "..\\..\\.." : "..\\..\\..\\") + PathFromRootDir;
+					}
+
 					if (!RPaths.Contains(RelativePath))
 					{
 						RPaths.Add(RelativePath);
@@ -1400,19 +1495,19 @@ namespace UnrealBuildTool
 				}
 			}
 
-			foreach (FileReference RuntimeDependency in LinkEnvironment.RuntimeDependencies)
+			foreach(string RuntimeLibaryPath in LinkEnvironment.RuntimeLibraryPaths)
 			{
-				if (RuntimeDependency.ContainsName(new FileSystemName("Binaries"), 0) && RuntimeDependency.GetExtension() == ".so" && Path.GetDirectoryName(RuntimeDependency.FullName) != Path.GetDirectoryName(OutputFile.AbsolutePath))
+				string RelativePath = RuntimeLibaryPath;
+				if(!RelativePath.StartsWith("$"))
 				{
-					string RelativeRootPath = RuntimeDependency.Directory.MakeRelativeTo(UnrealBuildTool.RootDirectory);
+					string RelativeRootPath = new DirectoryReference(RuntimeLibaryPath).MakeRelativeTo(UnrealBuildTool.RootDirectory);
 					// We're assuming that the binary will be placed according to our ProjectName/Binaries/Platform scheme
-					string RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
-
-					if (!RPaths.Contains(RelativePath))
-					{
-						RPaths.Add(RelativePath);
-						ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
-					}
+					RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
+				}
+				if (!RPaths.Contains(RelativePath))
+				{
+					RPaths.Add(RelativePath);
+					ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
 				}
 			}
 

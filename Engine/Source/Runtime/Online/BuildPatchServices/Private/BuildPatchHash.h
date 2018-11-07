@@ -33,17 +33,16 @@ struct FRollingHashConst
 /**
  * A class that performs a rolling hash
  */
-template< uint32 WindowSize >
 class FRollingHash
 {
 	// A typedef for our data ring buffer
-	typedef TRingBuffer< uint8, WindowSize > HashRingBuffer;
+	typedef TRingBuffer< uint8 > HashRingBuffer;
 
 public:
 	/**
 	 * Constructor
 	 */
-	FRollingHash();
+	FRollingHash(uint32 WindowSize);
 
 	/**
 	 * Pass this function the initial data set to start the Rolling Hash with.
@@ -88,19 +87,22 @@ public:
 	const uint32 GetNumDataNeeded() const;
 
 	/**
-	 * Get the size of our window 
-	 * @return		Template arg WindowSize
+	 * @return the size of our window
 	 */
 	const uint32 GetWindowSize() const;
 
 	/**
 	 * Static function to simply return the hash for a given data range.
-	 * @param DataSet	The buffer to the data. This must be a buffer of length == WindowSize
-	 * @return			The hash state for the provided data
+	 * @param DataSet     The buffer to the data.
+	 * @param WindowSize  The buffer of length.
+	 * @return The hash state for the provided data
 	 */
-	static uint64 GetHashForDataSet( const uint8* DataSet );
+	static uint64 GetHashForDataSet( const uint8* DataSet, uint32 WindowSize );
 
 private:
+	FRollingHash();;
+	// The data size that we roll over.
+	const uint32 WindowSize;
 	// The current hash value
 	uint64 HashState;
 	// The number of bytes we have consumed so far, used in hash function and to check validity of calls
@@ -108,112 +110,6 @@ private:
 	// Store the data to make access and rolling easier
 	HashRingBuffer WindowData;
 };
-
-namespace FCycPoly64Hash
-{
-	/**
-	 * Calculate the hash for a given data range.
-	 * @param DataSet	The buffer to the data. This must be a buffer of length == DataSize
-	 * @param DataSize	The size of the buffer
-	 * @param State		The current hash state, if continuing hash from previous buffer. 0 for new data.
-	 * @return			The hash state for the provided data
-	 */
-	uint64 GetHashForDataSet(const uint8* DataSet, const uint32 DataSize, const uint64 State = 0);
-}
-
-/* FRollingHash implementation
-*****************************************************************************/
-template< uint32 WindowSize >
-FRollingHash< WindowSize >::FRollingHash()
-	: HashState( 0 )
-	, NumBytesConsumed( 0 )
-{
-}
-
-template< uint32 WindowSize >
-void FRollingHash< WindowSize >::ConsumeByte( const uint8& NewByte )
-{
-	// We must be setup by consuming the correct amount of bytes
-	check( NumBytesConsumed < WindowSize );
-	++NumBytesConsumed;
-
-	// Add the byte to our buffer
-	WindowData.Enqueue( NewByte );
-	// Add to our HashState
-	ROTLEFT_64B( HashState, 1 );
-	HashState ^= FRollingHashConst::HashTable[ NewByte ];
-}
-
-template< uint32 WindowSize >
-void FRollingHash< WindowSize >::ConsumeBytes( const uint8* NewBytes, const uint32& NumBytes )
-{
-	for ( uint32 i = 0; i < NumBytes; ++i )
-	{
-		ConsumeByte( NewBytes[i] );
-	}
-}
-
-template< uint32 WindowSize >
-const uint32 FRollingHash< WindowSize >::GetNumDataNeeded() const
-{
-	return WindowSize - NumBytesConsumed;
-}
-
-template< uint32 WindowSize >
-const uint32 FRollingHash< WindowSize >::GetWindowSize() const
-{
-	return WindowSize;
-}
-
-template< uint32 WindowSize >
-void FRollingHash< WindowSize >::RollForward( const uint8& NewByte )
-{
-	// We must have consumed enough bytes to function correctly
-	check( NumBytesConsumed == WindowSize );
-	uint8 OldByte;
-	WindowData.Dequeue( OldByte );
-	WindowData.Enqueue( NewByte );
-	// Update our HashState
-	uint64 OldTerm = FRollingHashConst::HashTable[ OldByte ];
-	ROTLEFT_64B( OldTerm, WindowSize );
-	ROTLEFT_64B( HashState, 1 );
-	HashState ^= OldTerm;
-	HashState ^= FRollingHashConst::HashTable[ NewByte ];
-}
-
-template< uint32 WindowSize >
-void FRollingHash< WindowSize >::Clear()
-{
-	HashState = 0;
-	NumBytesConsumed = 0;
-	WindowData.Empty();
-}
-
-template< uint32 WindowSize >
-const uint64 FRollingHash< WindowSize >::GetWindowHash() const
-{
-	// We must have consumed enough bytes to function correctly
-	check( NumBytesConsumed == WindowSize );
-	return HashState;
-}
-
-template< uint32 WindowSize >
-const TRingBuffer< uint8, WindowSize >& FRollingHash< WindowSize >::GetWindowData() const
-{
-	return WindowData;
-}
-
-template< uint32 WindowSize >
-uint64 FRollingHash< WindowSize >::GetHashForDataSet( const uint8* DataSet )
-{
-	uint64 HashState = 0;
-	for ( uint32 i = 0; i < WindowSize; ++i )
-	{
-		ROTLEFT_64B( HashState, 1 );
-		HashState ^= FRollingHashConst::HashTable[ DataSet[i] ];
-	}
-	return HashState;
-}
 
 /**
  * A static function to perform sanity checks on the rolling hash class.
@@ -231,10 +127,10 @@ static bool CheckRollingHashAlgorithm()
 		uint8 Converted[6];
 		for (uint32 iChar = 0; iChar < 6; ++iChar )
 			Converted[iChar] = IndivWords[idx][iChar];
-		IndivHashes[idx] = FRollingHash< 6 >::GetHashForDataSet( Converted );
+		IndivHashes[idx] = FRollingHash::GetHashForDataSet( Converted, 6 );
 	}
 
-	FRollingHash< 6 > RollingHash;
+	FRollingHash RollingHash(6);
 	uint32 StrIdx = 0;
 	for (uint32 k=0; k<6; ++k)
 		RollingHash.ConsumeByte( DataToRollOver[ StrIdx++ ] );

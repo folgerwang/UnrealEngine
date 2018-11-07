@@ -193,7 +193,7 @@ void FSequencerEntityWalker::HandleSingleNode(const ISequencerEntityVisitor& Vis
 	//  - Sections that have no key areas
 	const bool bIterateKeyGroupings = Visitor.CheckEntityMask(ESequencerEntity::Key) &&
 		!bNodeHasKeyArea &&
-		(!InNode->IsExpanded() || InNode->GetChildNodes().Num() == 0);
+		(!InNode->IsExpanded() || InNode->GetChildNodes().Num() != 0);
 
 	if (bIterateKeyGroupings)
 	{
@@ -236,6 +236,9 @@ void FSequencerEntityWalker::HandleKeyArea(const ISequencerEntityVisitor& Visito
 	const FFrameTime RangeEndFrame       = Range.Range.GetUpperBoundValue() * Range.TickResolution;
 
 	TRange<FFrameNumber> VisitRangeFrames( (RangeStartFrame-HalfKeySizeFrames).CeilToFrame(), (RangeEndFrame+HalfKeySizeFrames).FloorToFrame() );
+
+	VisitRangeFrames = TRange<FFrameNumber>::Intersection(Section->GetRange(), VisitRangeFrames);
+
 	KeyArea->GetKeyInfo(&Handles, &Times, VisitRangeFrames);
 
 	for (int32 Index = 0; Index < Times.Num(); ++Index)

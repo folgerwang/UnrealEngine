@@ -6,6 +6,7 @@
 #include "Textures/SlateShaderResource.h"
 #include "Brushes/SlateDynamicImageBrush.h"
 #include "Rendering/DrawElements.h"
+#include "Templates/RefCounting.h"
 
 class FRHITexture2D;
 class FSlateDrawBuffer;
@@ -19,6 +20,7 @@ class FSceneInterface;
 struct FSlateBrush;
 
 typedef FRHITexture2D* FTexture2DRHIParamRef;
+typedef TRefCountPtr<FRHITexture2D> FTexture2DRHIRef;
 
 /**
  * Update context for deferred drawing of widgets to render targets
@@ -88,17 +90,17 @@ public:
 	/**
 	 * Flushes all cached data from the font cache for the current thread
 	 */
-	void FlushFontCache();
+	void FlushFontCache(const FString& FlushReason);
 
 	/**
 	 * Flushes all cached data from the font cache for the game thread
 	 */
-	void FlushGameThreadFontCache();
+	void FlushGameThreadFontCache(const FString& FlushReason);
 
 	/**
 	 * Flushes all cached data from the font cache for the render thread
 	 */
-	void FlushRenderThreadFontCache();
+	void FlushRenderThreadFontCache(const FString& FlushReason);
 
 	/**
 	 * Release any rendering resources owned by this font service
@@ -242,6 +244,10 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPostResizeWindowBackbuffer, void*);
 	FOnPostResizeWindowBackbuffer& OnPostResizeWindowBackBuffer() { return PostResizeBackBufferDelegate; }
 
+	/** Callback on the render thread after slate rendering finishes and right before present is called */
+	DECLARE_DELEGATE_OneParam(FOnBackBufferReadyToPresent, const FTexture2DRHIRef&);
+	FOnBackBufferReadyToPresent& OnBackBufferReadyToPresent() { return OnBackBufferReadyToPresentDelegate; }
+
 	/** 
 	 * Sets which color vision filter to use
 	 */
@@ -333,9 +339,9 @@ public:
 	/**
 	 * Flushes all cached data from the font cache for the current thread
 	 */
-	void FlushFontCache()
+	void FlushFontCache(const FString& FlushReason)
 	{
-		SlateFontServices->FlushFontCache();
+		SlateFontServices->FlushFontCache(FlushReason);
 	}
 
 	/**
@@ -500,6 +506,8 @@ protected:
 	FOnSlateWindowDestroyed OnSlateWindowDestroyedDelegate;
 	FOnPreResizeWindowBackbuffer PreResizeBackBufferDelegate;
 	FOnPostResizeWindowBackbuffer PostResizeBackBufferDelegate;
+
+	FOnBackBufferReadyToPresent OnBackBufferReadyToPresentDelegate;
 
 	/**
 	 * Necessary to grab before flushing the resource pool, as it may be being 

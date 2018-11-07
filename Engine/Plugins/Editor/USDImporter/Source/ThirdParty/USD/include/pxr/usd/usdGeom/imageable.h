@@ -61,9 +61,9 @@ class SdfAssetPath;
 /// what geometry should be included for processing by rendering and other
 /// computations.
 /// 
-/// Imageable also introduces the concept (and API) of geometric
-/// "primitive variables", as UsdGeomPrimvar, which interpolate across a 
-/// primitive and can override shader inputs.
+/// <Deprecated> Imageable also provides API for accessing primvars, which
+/// have been moved to the UsdGeomPrimvarsAPI schema.  This API is planned
+/// to be removed, UsdGeomPrimvarsAPI should be used directly instead.
 ///
 /// For any described attribute \em Fallback \em Value or \em Allowed \em Values below
 /// that are text/tokens, the actual token is published and defined in \ref UsdGeomTokens.
@@ -73,11 +73,10 @@ class SdfAssetPath;
 class UsdGeomImageable : public UsdTyped
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = false;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::AbstractTyped;
 
     /// Construct a UsdGeomImageable on UsdPrim \p prim .
     /// Equivalent to UsdGeomImageable::Get(prim.GetStage(), prim.GetPath())
@@ -120,6 +119,13 @@ public:
     static UsdGeomImageable
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
+
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
 
 private:
     // needs to invoke _GetStaticTfType.
@@ -275,11 +281,11 @@ public:
     /// \p attrName, due to the possible need to apply property namespacing
     /// for primvars.  See \ref Usd_Creating_and_Accessing_Primvars
     /// for more information.  Creation may fail and return an invalid
-    /// Primvar if \p attrName contains any other namespaces than the
-    /// canonical primvars namespace, as described in the above reference.
+    /// Primvar if \p attrName contains a reserved keyword, such as the 
+    /// "indices" suffix we use for indexed primvars.
     ///
-    /// The behavior with respect to the provided \p typeName,
-    /// and \p custom is the same as for UsdAttributes::Create(), and
+    /// The behavior with respect to the provided \p typeName
+    /// is the same as for UsdAttributes::Create(), and
     /// \p interpolation and \p elementSize are as described in
     /// UsdGeomPrimvar::GetInterpolation() and UsdGeomPrimvar::GetElementSize().
     ///
@@ -298,8 +304,7 @@ public:
     UsdGeomPrimvar CreatePrimvar(const TfToken& attrName,
                                  const SdfValueTypeName &typeName,
                                  const TfToken& interpolation = TfToken(),
-                                 int elementSize = -1,
-                                 bool custom = false);
+                                 int elementSize = -1) const;
 
     /// Return the Primvar attribute named by \p name, which will
     /// be valid if a Primvar attribute definition already exists.
@@ -332,13 +337,36 @@ public:
     USDGEOM_API
     std::vector<UsdGeomPrimvar> GetAuthoredPrimvars() const;
 
-    /// Is there defined Primvar \p name on this prim?
+    /// Like GetPrimvars(), but searches instead for authored
+    /// primvars inherited from ancestor prims.  Primvars are only
+    /// inherited if they do not exist on the prim itself.  The
+    /// returned primvars will be bound to attributes on the corresponding
+    /// ancestor prims.  Only primvars with authored values are inherited;
+    /// fallback values are not inherited.   The order of the returned
+    /// primvars is undefined.
+    USDGEOM_API
+    std::vector<UsdGeomPrimvar> FindInheritedPrimvars() const;
+
+    /// Like GetPrimvar(), but searches instead for the named primvar
+    /// inherited on ancestor prim.  Primvars are only inherited if
+    /// they do not exist on the prim itself.  The returned primvar will
+    /// be bound to the attribute on the corresponding ancestor prim.
+    USDGEOM_API
+    UsdGeomPrimvar FindInheritedPrimvar(const TfToken &name) const;
+
+    /// Is there a defined Primvar \p name on this prim?
     ///
     /// Name lookup will account for Primvar namespacing.
     ///
     /// \sa GetPrimvar()
     USDGEOM_API
     bool HasPrimvar(const TfToken &name) const;
+
+    /// Is there an inherited Primvar \p name on this prim?
+    /// The name given is the primvar name, not its underlying attribute name.
+    /// \sa FindInheritedPrimvar()
+    USDGEOM_API
+    bool HasInheritedPrimvar(const TfToken &name) const;
 
     /// @}
 

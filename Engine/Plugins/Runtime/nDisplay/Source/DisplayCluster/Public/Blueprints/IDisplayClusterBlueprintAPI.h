@@ -226,12 +226,6 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Toggle eye swap"), Category = "DisplayCluster|Render")
 	virtual bool ToggleEyesSwap() = 0;
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set output flip"), Category = "DisplayCluster|Render")
-	virtual void SetOutputFlip(bool flipH, bool flipV) = 0;
-
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get output flip"), Category = "DisplayCluster|Render")
-	virtual void GetOutputFlip(bool& flipH, bool& flipV) = 0;
-
 	/** Return near and far plane clip plane distances. */
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get near and far clipping distance"), Category = "DisplayCluster|Render")
 	virtual void GetCullingDistance(float& NearClipPlane, float& FarClipPlane) = 0;

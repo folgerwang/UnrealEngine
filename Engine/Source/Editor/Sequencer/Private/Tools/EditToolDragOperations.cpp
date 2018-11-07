@@ -478,10 +478,17 @@ void FDuplicateKeysAndSections::OnBeginDrag(const FPointerEvent& MouseEvent, FVe
 
 	// Duplicate our selections as well.
 	bool bDelayedStructureRebuild = false;
+
+	TArray<UMovieSceneSection*> SectionsToDuplicate;
 	for (const FSectionHandle& SectionHandle : Sections)
 	{
-		UMovieSceneSection* DuplicatedSection = DuplicateObject<UMovieSceneSection>(SectionHandle.GetSectionObject(), SectionHandle.GetSectionObject()->GetOuter());
-		UMovieSceneTrack* OwningTrack = SectionHandle.GetSectionObject()->GetTypedOuter<UMovieSceneTrack>();
+		SectionsToDuplicate.Add(SectionHandle.GetSectionObject());
+	}
+
+	for (UMovieSceneSection* SectionToDuplicate : SectionsToDuplicate)
+	{
+		UMovieSceneSection* DuplicatedSection = DuplicateObject<UMovieSceneSection>(SectionToDuplicate, SectionToDuplicate->GetOuter());
+		UMovieSceneTrack* OwningTrack = SectionToDuplicate->GetTypedOuter<UMovieSceneTrack>();
 		OwningTrack->Modify();
 		OwningTrack->AddSection(*DuplicatedSection);
 
@@ -617,9 +624,16 @@ FMoveKeysAndSections::FMoveKeysAndSections(FSequencer& InSequencer, const TSet<F
 	: FEditToolDragOperation(InSequencer)
 	, bHotspotWasSection(InbHotspotWasSection)
 {
-	// Keys are always movable so we simply pass the selected set on to be tracked
-	Keys = InSelectedKeys;
-	KeysAsArray = InSelectedKeys.Array();
+	// Filter out the keys on sections that are read only
+	for (auto SelectedKey : InSelectedKeys)
+	{
+		if (!SelectedKey.Section->IsReadOnly())
+		{
+			Keys.Add(SelectedKey);
+		}
+	}
+
+	KeysAsArray = Keys.Array();
 
 	// However, we don't want infinite sections to be movable, so we discard them from our selection.
 	// We support partially infinite (infinite on one side) sections however.
@@ -642,7 +656,7 @@ FMoveKeysAndSections::~FMoveKeysAndSections()
 }
 
 void FMoveKeysAndSections::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)
-	{
+{
 	// Early out if we've somehow started a drag operation without any sections or keys. This prevents an empty Undo/Redo Transaction from being created.
 	if (!Sections.Num() && !Keys.Num())
 	{

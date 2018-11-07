@@ -24,6 +24,7 @@ class FChunkedFixedUObjectArray;
 	#define OPERATOR_NEW_MSVC_PRAGMA
 #endif
 
+#if !FORCE_ANSI_ALLOCATOR
 #define REPLACEMENT_OPERATOR_NEW_AND_DELETE \
 	OPERATOR_NEW_MSVC_PRAGMA void* operator new  ( size_t Size                        ) OPERATOR_NEW_THROW_SPEC      { return FMemory::Malloc( Size ); } \
 	OPERATOR_NEW_MSVC_PRAGMA void* operator new[]( size_t Size                        ) OPERATOR_NEW_THROW_SPEC      { return FMemory::Malloc( Size ); } \
@@ -37,6 +38,9 @@ class FChunkedFixedUObjectArray;
 	void operator delete[]( void* Ptr, size_t Size )                                    OPERATOR_DELETE_THROW_SPEC   { FMemory::Free( Ptr ); } \
 	void operator delete  ( void* Ptr, size_t Size, const std::nothrow_t& )             OPERATOR_DELETE_NOTHROW_SPEC { FMemory::Free( Ptr ); } \
 	void operator delete[]( void* Ptr, size_t Size, const std::nothrow_t& )             OPERATOR_DELETE_NOTHROW_SPEC { FMemory::Free( Ptr ); }
+#else
+	#define REPLACEMENT_OPERATOR_NEW_AND_DELETE
+#endif
 
 class FChunkedFixedUObjectArray;
 

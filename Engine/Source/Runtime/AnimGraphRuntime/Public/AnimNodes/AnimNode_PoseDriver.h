@@ -98,11 +98,16 @@ struct ANIMGRAPHRUNTIME_API FPoseDriverTarget
 	/** Cached curve UID, if DriveOutput is set to DriveCurves */
 	int32 DrivenUID;
 
+	/** Pose buffer index */
+	int32 PoseCurveIndex;
+
 	FPoseDriverTarget()
-		: TargetScale(1.f)
+		: TargetRotation(ForceInitToZero)
+		, TargetScale(1.f)
 		, bApplyCustomCurve(false)
 		, DrivenName(NAME_None)
 		, DrivenUID(INDEX_NONE)
+		, PoseCurveIndex(INDEX_NONE)
 	{}
 };
 
@@ -190,6 +195,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_PoseDriver : public FAnimNode_PoseHandler
 	/** Return array of FRBFTarget structs, derived from PoseTargets array and DriveSource setting */
 	void GetRBFTargets(TArray<FRBFTarget>& OutTargets) const;
 
-	/** Update all DrivenUID properties in PoseTargets array */
-	void CacheDrivenIDs(USkeleton* Skeleton);
+	/* Rebuild Pose List*/
+	virtual void RebuildPoseList(const FBoneContainer& InBoneContainer, const UPoseAsset* InPoseAsset) override;
 };

@@ -324,7 +324,7 @@ struct FMath : public FPlatformMath
 	}
 
 	/**
-	* Computes the sine and cosine of a scalar float.
+	* Computes the sine and cosine of a scalar value.
 	*
 	* @param ScalarSin	Pointer to where the Sin result should be stored
 	* @param ScalarCos	Pointer to where the Cos result should be stored
@@ -379,7 +379,7 @@ struct FMath : public FPlatformMath
 	//		FASTASIN_HALF_PI	== 1.5707963050f  == 0x3fC90FDA
 #define FASTASIN_HALF_PI (1.5707963050f)
 	/**
-	* Computes the ASin of a scalar float.
+	* Computes the ASin of a scalar value.
 	*
 	* @param Value  input angle
 	* @return ASin of Value
@@ -1030,6 +1030,15 @@ struct FMath : public FPlatformMath
 	static CORE_API bool PlaneAABBIntersection(const FPlane& P, const FBox& AABB);
 
 	/**
+	 * Determine the position of an AABB relative to a plane:
+	 * completely above (in the direction of the normal of the plane), completely below or intersects it
+	 * @param P - the plane to test
+	 * @param AABB - the axis aligned bounding box to test
+	 * @return -1 if below, 1 if above, 0 if intersects
+	 */
+	static CORE_API int32 PlaneAABBRelativePosition(const FPlane& P, const FBox& AABB);
+
+	/**
 	 * Performs a sphere vs box intersection test using Arvo's algorithm:
 	 *
 	 *	for each i in (x, y, z)
@@ -1537,4 +1546,13 @@ struct FMath : public FPlatformMath
 		int32 CurrentGcd = GreatestCommonDivisor(a, b);
 		return CurrentGcd == 0 ? 0 : (a / CurrentGcd) * b;
 	}
+
+	/**
+	 * Generates a 1D Perlin noise from the given value.  Returns a continuous random value between -1.0 and 1.0.
+	 *
+	 * @param	Value	The input value that Perlin noise will be generated from.  This is usually a steadily incrementing time value.
+	 *
+	 * @return	Perlin noise in the range of -1.0 to 1.0
+	 */
+	static CORE_API float PerlinNoise1D(const float Value);
 };

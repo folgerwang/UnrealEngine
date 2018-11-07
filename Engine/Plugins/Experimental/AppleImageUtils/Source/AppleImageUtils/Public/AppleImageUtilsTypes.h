@@ -12,6 +12,15 @@
 #include "AppleImageUtilsTypes.generated.h"
 
 UENUM(BlueprintType, Category="AppleImageUtils", meta=(Experimental))
+enum class ETextureRotationDirection : uint8
+{
+	None,
+	Left,
+	Right,
+	Down
+};
+
+UENUM(BlueprintType, Category="AppleImageUtils", meta=(Experimental))
 enum class EAppleTextureType : uint8
 {
 	Unknown,
@@ -47,7 +56,6 @@ public:
 	/** @return the IOSurface held by the implementing object */
 	virtual IOSurfaceRef GetSurface() const { return nullptr; }
 
-//@joeg -- Added for environment capture support
 	/** @return the MTLTextureid<MTL held by the implementing object */
 	virtual id<MTLTexture> GetMetalTexture() const { return nullptr; }
 #endif

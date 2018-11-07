@@ -88,15 +88,13 @@ void AVREditorFloatingUI::SetupWidgetComponent()
 	{
 		WidgetComponent->SetSlateWidget(SlateWidget.ToSharedRef());
 	}
-	else
+	else if (UserWidgetClass != nullptr)
 	{
 		// @todo vreditor unreal: Ideally we would do this in the constructor and not again after.  Due to an apparent bug in UMG, 
 		// we need to re-create the widget in lock-step with the WidgetComponent, otherwise input doesn't function correctly on the 
 		// widget after the widget component is destroyed and recreated with the same user widget.
-		check(UserWidgetClass != nullptr);
-		UserWidget = CreateWidget<UVREditorBaseUserWidget>(GetWorld(), UserWidgetClass);
+		UserWidget = CreateWidget<UUserWidget>(GetWorld(), UserWidgetClass);
 		check(UserWidget != nullptr);
-		UserWidget->SetOwner(this);
 
 		WidgetComponent->SetWidget(UserWidget);
 	}
@@ -151,14 +149,13 @@ void AVREditorFloatingUI::SetSlateWidget(const TSharedRef<SWidget>& InitSlateWid
 	SetupWidgetComponent();
 }
 
-void AVREditorFloatingUI::SetUMGWidget( UVREditorUISystem& InitOwner, const VREditorPanelID& InID, TSubclassOf<UVREditorBaseUserWidget> InitUserWidgetClass, const FIntPoint InitResolution, const float InitScale, const EDockedTo InitDockedTo )
+void AVREditorFloatingUI::SetUMGWidget( UVREditorUISystem& InitOwner, const VREditorPanelID& InID, TSubclassOf<UUserWidget> InitUserWidgetClass, const FIntPoint InitResolution, const float InitScale, const EDockedTo InitDockedTo )
 {
 	Owner = &InitOwner;
 	SetVRMode(&Owner->GetOwner());
 
 	UISystemID = InID;
 
-	check( InitUserWidgetClass != nullptr );
 	UserWidgetClass = InitUserWidgetClass;
 
 	Resolution = InitResolution;
@@ -179,16 +176,19 @@ void AVREditorFloatingUI::TickManually(float DeltaTime)
 	if (WindowMeshComponent != nullptr && WidgetComponent->IsVisible())
 	{
 		const float WorldScaleFactor = GetOwner().GetOwner().GetWorldScaleFactor();
+
+		const float CurrentScaleFactor = (GetDockedTo() == EDockedTo::Nothing && WorldPlacedScaleFactor != 0) ? WorldPlacedScaleFactor : WorldScaleFactor;
+
 		const FVector AnimatedScale = CalculateAnimatedScale();
 		const FVector2D Size = GetSize();
 		const float WindowMeshSize = 100.0f;	// Size of imported mesh, we need to inverse compensate for
 
 		const FVector WindowMeshScale = FVector(1.0,
 			Size.X / WindowMeshSize,
-			Size.Y / WindowMeshSize) * AnimatedScale * WorldScaleFactor;
+			Size.Y / WindowMeshSize) * AnimatedScale * CurrentScaleFactor;
 		WindowMeshComponent->SetRelativeScale3D(WindowMeshScale);
 
-		const FVector NewScale(GetScale() * AnimatedScale * WorldScaleFactor);
+		const FVector NewScale(GetScale() * AnimatedScale * CurrentScaleFactor);
 		SetWidgetComponentScale(NewScale);
 	}
 }
@@ -268,8 +268,15 @@ void AVREditorFloatingUI::UpdateFadingState(const float DeltaTime)
 			// At least a little bit visible
 			if (bHidden)
 			{
-				SetActorHiddenInGame(false);
-				WidgetComponent->SetVisibility(true);
+				bHidden = false;
+
+				// Iterate as floating UI children may have other mesh components
+				TInlineComponentArray<USceneComponent*> ComponentArray;
+				GetComponents(ComponentArray);
+				for (USceneComponent* Component : ComponentArray)
+				{
+					Component->SetVisibility(true);
+				}
 				FadeDelay = 0.0f;
 			}
 		}
@@ -283,8 +290,14 @@ void AVREditorFloatingUI::UpdateFadingState(const float DeltaTime)
 			// Fully invisible
 			if (!bHidden)
 			{
-				SetActorHiddenInGame(true);
-				WidgetComponent->SetVisibility(false);
+				bHidden = true;
+				// Iterate as floating UI children may have other mesh components
+				TInlineComponentArray<USceneComponent*> ComponentArray;
+				GetComponents(ComponentArray);
+				for (USceneComponent* Component : ComponentArray)
+				{
+					Component->SetVisibility(false);
+				}
 				FadeDelay = 0.0f;
 
 				if (bClearWidgetOnHide)
@@ -333,7 +346,7 @@ void AVREditorFloatingUI::SetCollision(const ECollisionEnabled::Type InCollision
 	}
 }
 
-UVREditorBaseUserWidget* AVREditorFloatingUI::GetUserWidget()
+UUserWidget* AVREditorFloatingUI::GetUserWidget()
 {
 	return UserWidget;
 }
@@ -351,8 +364,14 @@ void AVREditorFloatingUI::ShowUI( const bool bShow, const bool bAllowFading, con
 
 		if (!bAllowFading)
 		{
-			SetActorHiddenInGame(!bShow);
-			WidgetComponent->SetVisibility(bShow);
+			bHidden = !bShow;
+			// Iterate as floating UI children may have other components
+			TInlineComponentArray<USceneComponent*> ComponentArray;
+			GetComponents(ComponentArray);
+			for (USceneComponent* Component : ComponentArray)
+			{
+				Component->SetVisibility(bShow);
+			}
 			FadeAlpha = bShow ? 1.0f : 0.0f;
 			if (bInClearWidgetOnHide )
 			{

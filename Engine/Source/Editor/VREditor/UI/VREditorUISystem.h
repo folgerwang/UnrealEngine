@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "UObject/Object.h"
 #include "Widgets/SOverlay.h"
 #include "VRRadialMenuHandler.h"
+#include "EditorWorldExtension.h"
 #include "VREditorUISystem.generated.h"
 
 class AVREditorDockableWindow;
@@ -199,10 +200,14 @@ public:
 	void UpdateSequencerUI();
 
 	/** Function to force an update of the Actor Preview UI based on a change */
-	void UpdateActorPreviewUI(TSharedRef<SWidget> InWidget);
+	void UpdateActorPreviewUI(TSharedRef<SWidget> InWidget, int32 Index);
+
+	void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name);
+
+	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name);
 
 	/** Transition the user widgets to a new world */
-	void TransitionWorld(UWorld* NewWorld);
+	void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState);
 
 	UVRRadialMenuHandler* GetRadialMenuHandler()
 	{
@@ -234,7 +239,6 @@ public:
 	static const VREditorPanelID InfoDisplayPanelID;
 	static const VREditorPanelID RadialMenuPanelID;
 	static const VREditorPanelID TabManagerPanelID;
-	static const VREditorPanelID ActorPreviewUIID;
 
 	/** Get UI panel Actor from the passed ID */
 	AVREditorFloatingUI* GetPanel(const VREditorPanelID& InPanelID) const;
@@ -330,6 +334,10 @@ protected:
 	/** All of the floating UIs.  These may or may not be visible (spawned) */
 	UPROPERTY()
 	TMap<FName, class AVREditorFloatingUI*> FloatingUIs;
+
+	/** All of the preview window info. */
+	UPROPERTY()
+	TMap<FName, class AActor*> PreviewWindowInfo;
 
 	/** Our Quick Menu UI */
 	UPROPERTY()

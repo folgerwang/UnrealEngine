@@ -141,7 +141,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	* @param Player		The player controller of the player to get the ID of
 	* @return			The ID of the passed in player. -1 if there is no controller for the passed in player
 	*/
-	UFUNCTION(BlueprintCallable, Category="Game", meta=(UnsafeDuringActorConstruction="true"))
+	UFUNCTION(BlueprintPure, Category="Game", meta=(UnsafeDuringActorConstruction="true"))
 	static int32 GetPlayerControllerID(APlayerController* Player);
 
 	/** 
@@ -236,6 +236,19 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Game", meta=(WorldContext="WorldContextObject") )
 	static bool IsGamePaused(const UObject* WorldContextObject);
 
+	/**
+	 * Enabled rendering of the world
+	 * @param	bEnable		Whether the world should be rendered or not
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
+	static void SetEnableWorldRendering(const UObject* WorldContextObject, bool bEnable);
+
+	/**
+	 * Returns the world rendering state
+	 * @return	Whether the world should be rendered or not
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
+	static bool GetEnableWorldRendering(const UObject* WorldContextObject);
 
 	/** Hurt locally authoritative actors within the radius. Will only hit components that block the Visibility channel.
 	 * @param BaseDamage - The base damage to apply, i.e. the damage at the origin.
@@ -629,7 +642,7 @@ public:
 	 * Returns whether or not subtitles are currently enabled.
 	 * @return true if subtitles are enabled.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Audio|Subtitles")
+	UFUNCTION(BlueprintPure, Category = "Audio|Subtitles")
 	static bool AreSubtitlesEnabled();
 
 	// --- Audio Functions ----------------------------
@@ -822,6 +835,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game")
 	static bool DoesSaveGameExist(const FString& SlotName, const int32 UserIndex);
 
+	/**
+	 *	Load the contents from a given array of bytes.
+	 *	@param InSaveData		The array containing the serialized USaveGame data to load
+	 *	@return SaveGameObject	Object containing loaded game state (NULL if load fails)
+	 */
+	static USaveGame* LoadGameFromMemory(const TArray<uint8>& InSaveData);
+
 	/** 
 	 *	Load the contents from a given slot.
 	 *	@param SlotName			Name of the save game slot to load from.
@@ -885,7 +905,7 @@ public:
 	/**
 	 * Returns the string name of the current platform, to perform different behavior based on platform. 
 	 * (Platform names include Windows, Mac, IOS, Android, PS4, XboxOne, HTML5, Linux) */
-	UFUNCTION(BlueprintCallable, Category="Game")
+	UFUNCTION(BlueprintPure, Category="Game")
 	static FString GetPlatformName();
 
 	/**

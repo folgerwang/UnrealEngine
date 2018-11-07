@@ -14,7 +14,7 @@
 
 UMovieSceneSection* UMovieSceneNiagaraSystemTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneNiagaraSystemSpawnSection>(this);
+	return NewObject<UMovieSceneNiagaraSystemSpawnSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneNiagaraSystemTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

@@ -28,11 +28,11 @@ void UButtonSlot::BuildSlot(TSharedRef<SButton> InButton)
 {
 	Button = InButton;
 
-	Button->SetContentPadding(Padding);
-	Button->SetHAlign(HorizontalAlignment);
-	Button->SetVAlign(VerticalAlignment);
+	Button.Pin()->SetContentPadding(Padding);
+	Button.Pin()->SetHAlign(HorizontalAlignment);
+	Button.Pin()->SetVAlign(VerticalAlignment);
 
-	Button->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
+	Button.Pin()->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
 }
 
 void UButtonSlot::SetPadding(FMargin InPadding)
@@ -40,7 +40,7 @@ void UButtonSlot::SetPadding(FMargin InPadding)
 	Padding = InPadding;
 	if ( Button.IsValid() )
 	{
-		Button->SetContentPadding(InPadding);
+		Button.Pin()->SetContentPadding(InPadding);
 	}
 }
 
@@ -49,7 +49,7 @@ void UButtonSlot::SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlignm
 	HorizontalAlignment = InHorizontalAlignment;
 	if ( Button.IsValid() )
 	{
-		Button->SetHAlign(InHorizontalAlignment);
+		Button.Pin()->SetHAlign(InHorizontalAlignment);
 	}
 }
 
@@ -58,7 +58,7 @@ void UButtonSlot::SetVerticalAlignment(EVerticalAlignment InVerticalAlignment)
 	VerticalAlignment = InVerticalAlignment;
 	if ( Button.IsValid() )
 	{
-		Button->SetVAlign(InVerticalAlignment);
+		Button.Pin()->SetVAlign(InVerticalAlignment);
 	}
 }
 

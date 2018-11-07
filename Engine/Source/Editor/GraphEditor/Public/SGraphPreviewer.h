@@ -23,16 +23,16 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, UEdGraph* InGraphObj);
-public:
-	// SWidget interface
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	// End of SWidget interface
+private:
+	/** Helper function used to refresh the graph */
+	EActiveTimerReturnType RefreshGraphTimer(const double InCurrentTime, const float InDeltaTime);
+
 protected:
 	/// The Graph we are currently viewing
 	UEdGraph* EdGraphObj;
 
-	// Do we need to refresh next tick?
-	bool bNeedsRefresh;
+	// As node's bounds dont get updated immediately, to truly zoom out to fit we need to tick a few times
+	int32 NeedsRefreshCounter;
 
 	// The underlying graph panel
 	TSharedPtr<SGraphPanel> GraphPanel;

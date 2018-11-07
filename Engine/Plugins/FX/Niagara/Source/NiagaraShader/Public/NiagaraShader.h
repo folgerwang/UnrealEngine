@@ -40,7 +40,8 @@ public:
 
 	static FName UniformBufferLayoutName;
 
-	FNiagaraShader() //: DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
+	FNiagaraShader()
+		: CBufferLayout(TEXT("Niagara Compute Sim CBuffer"))
 	{
 	}
 
@@ -94,7 +95,8 @@ public:
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
-	
+
+	FRHIUniformBufferLayout CBufferLayout;
 	FShaderResourceParameter FloatInputBufferParam;
 	FShaderResourceParameter IntInputBufferParam;
 	FRWShaderParameter FloatOutputBufferParam;

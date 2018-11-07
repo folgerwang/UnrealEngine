@@ -42,17 +42,16 @@
 // Preprocessor input
 #include "ViewportInteractionInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "VISettings.h"
+
 
 #define LOCTEXT_NAMESPACE "ViewportWorldInteraction"
 
 namespace VI
 {
 	static FAutoConsoleVariable GizmoScaleInDesktop( TEXT( "VI.GizmoScaleInDesktop" ), 0.35f, TEXT( "How big the transform gizmo should be when used in desktop mode" ) );
-	static FAutoConsoleVariable ScaleWorldFromFloor( TEXT( "VI.ScaleWorldFromFloor" ), 0, TEXT( "Whether the world should scale relative to your tracking space floor instead of the center of your hand locations" ) );
-	static FAutoConsoleVariable ScaleWorldWithDynamicPivot( TEXT( "VI.ScaleWorldWithDynamicPivot" ), 1, TEXT( "Whether to compute a new center point for scaling relative from by looking at how far either controller moved relative to the last frame" ) );
 	static FAutoConsoleVariable AllowVerticalWorldMovement( TEXT( "VI.AllowVerticalWorldMovement" ), 1, TEXT( "Whether you can move your tracking space away from the origin or not" ) );
 	static FAutoConsoleVariable AllowWorldRotationPitchAndRoll( TEXT( "VI.AllowWorldRotationPitchAndRoll" ), 0, TEXT( "When enabled, you'll not only be able to yaw, but also pitch and roll the world when rotating by gripping with two hands" ) );
-	static FAutoConsoleVariable AllowSimultaneousWorldScalingAndRotation( TEXT( "VI.AllowSimultaneousWorldScalingAndRotation" ), 1, TEXT( "When enabled, you can freely rotate and scale the world with two hands at the same time.  Otherwise, we'll detect whether to rotate or scale depending on how much of either gesture you initially perform." ) );
 	static FAutoConsoleVariable WorldScalingDragThreshold( TEXT( "VI.WorldScalingDragThreshold" ), 7.0f, TEXT( "How much you need to perform a scale gesture before world scaling starts to happen." ) );
 	static FAutoConsoleVariable WorldRotationDragThreshold( TEXT( "VI.WorldRotationDragThreshold" ), 8.0f, TEXT( "How much (degrees) you need to perform a rotation gesture before world rotation starts to happen." ) );
 	static FAutoConsoleVariable InertiaVelocityBoost( TEXT( "VI.InertiaVelocityBoost" ), 0.5f, TEXT( "How much to scale object velocity when releasing dragged simulating objects in Simulate mode" ) );
@@ -257,7 +256,6 @@ static void SegmentDistToSegmentDouble( DVector A1, DVector B1, DVector A2, DVec
 	OutP2 = A2 + S2 * T2;
 }
 
-
 UViewportWorldInteraction::UViewportWorldInteraction():
 	Super(),
 	bDraggedSinceLastSelection( false ),
@@ -302,15 +300,7 @@ UViewportWorldInteraction::UViewportWorldInteraction():
 
 void UViewportWorldInteraction::Init()
 {
-	Colors.SetNumZeroed( (int32)EColors::TotalCount );
-	{
-		Colors[(int32)EColors::DefaultColor] = FLinearColor(0.7f, 0.7f, 0.7f, 1.0f);
-		Colors[(int32)EColors::Forward] = FLinearColor(0.594f, 0.0197f, 0.0f, 1.0f);
-		Colors[(int32)EColors::Right] = FLinearColor(0.1349f, 0.3959f, 0.0f, 1.0f);
-		Colors[(int32)EColors::Up] = FLinearColor(0.0251f, 0.207f, 0.85f, 1.0f);
-		Colors[(int32)EColors::GizmoHover] = FLinearColor::Yellow;
-		Colors[(int32)EColors::GizmoDragging] = FLinearColor::Yellow;
-	}
+	InitColors();
 
 	AppTimeEntered = FTimespan::FromSeconds( FApp::GetCurrentTime() );
 
@@ -346,6 +336,19 @@ void UViewportWorldInteraction::Init()
 	GEditor->SelectNone(true, true, false);
 
 	CurrentTickNumber = 0;
+}
+
+void UViewportWorldInteraction::InitColors()
+{
+	Colors.SetNumZeroed((int32)EColors::TotalCount);
+	{
+		Colors[(int32)EColors::DefaultColor] = FLinearColor(0.7f, 0.7f, 0.7f, 1.0f);
+		Colors[(int32)EColors::Forward] = FLinearColor(0.594f, 0.0197f, 0.0f, 1.0f);
+		Colors[(int32)EColors::Right] = FLinearColor(0.1349f, 0.3959f, 0.0f, 1.0f);
+		Colors[(int32)EColors::Up] = FLinearColor(0.0251f, 0.207f, 0.85f, 1.0f);
+		Colors[(int32)EColors::GizmoHover] = FLinearColor::Yellow;
+		Colors[(int32)EColors::GizmoDragging] = FLinearColor::Yellow;
+	}
 }
 
 void UViewportWorldInteraction::Shutdown()
@@ -399,20 +402,28 @@ void UViewportWorldInteraction::Shutdown()
 	GizmoType.Reset();
 
 	// Remove the input pre-processor
-	FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
-	InputProcessor.Reset();
-
+	if (InputProcessor.IsValid() && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
+		InputProcessor.Reset();
+	}
 	USelection::SelectionChangedEvent.RemoveAll( this );
 	GEditor->OnEditorClose().RemoveAll( this );
 }
 
-void UViewportWorldInteraction::TransitionWorld(UWorld* NewWorld)
+void UViewportWorldInteraction::TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState)
 {
-	Super::TransitionWorld(NewWorld);
+	check(NewWorld != nullptr);
 
-	for (UViewportInteractor* Interactor : Interactors)
+	Super::TransitionWorld(NewWorld, TransitionState);
+
+	if (TransitionState == EEditorWorldExtensionTransitionState::TransitionAll ||
+		TransitionState == EEditorWorldExtensionTransitionState::TransitionNonPIEOnly)
 	{
-		Interactor->Rename(nullptr, NewWorld->PersistentLevel);
+		for (UViewportInteractor* Interactor : Interactors)
+		{
+			Interactor->Rename(nullptr, NewWorld->PersistentLevel);
+		}
 	}
 }
 
@@ -1724,7 +1735,7 @@ void UViewportWorldInteraction::UpdateDragging(
 			// side of the line that moved the most this update.
 			const float TotalDistance = LineStartDistance + LineEndDistance;
 			float LineStartToEndActivityWeight = 0.5f;	// Default to right in the center, if no distance moved yet.
-			if ( VI::ScaleWorldWithDynamicPivot->GetInt() != 0 && !FMath::IsNearlyZero( TotalDistance ) )	// Avoid division by zero
+			if (GetDefault<UVISettings>()->bScaleWorldWithDynamicPivot && !FMath::IsNearlyZero( TotalDistance ) )	// Avoid division by zero
 			{
 				LineStartToEndActivityWeight = LineStartDistance / TotalDistance;
 			}
@@ -1732,7 +1743,7 @@ void UViewportWorldInteraction::UpdateDragging(
 			PivotLocation = FMath::Lerp( LastLineStart, LastLineEnd, LineStartToEndActivityWeight );
 			bHasPivotLocation = true;
 
-			if ( DraggingMode == EViewportInteractionDraggingMode::World && VI::ScaleWorldFromFloor->GetInt() != 0 )
+			if ( DraggingMode == EViewportInteractionDraggingMode::World && GetDefault<UVISettings>()->bScaleWorldFromFloor)
 			{
 				PivotLocation.Z = 0.0f;
 			}
@@ -1841,7 +1852,7 @@ void UViewportWorldInteraction::UpdateDragging(
 
 			if( bWithTwoHands )
 			{
-				if( VI::AllowSimultaneousWorldScalingAndRotation->GetInt() == 0 &&
+				if(!GetDefault<UVISettings>()->bAllowSimultaneousWorldScalingAndRotation &&
 					LockedWorldDragMode == ELockedWorldDragMode::Unlocked )
 				{
 					const bool bHasDraggedEnoughToScale = FMath::Abs( GizmoScaleSinceDragStarted ) >= VI::WorldScalingDragThreshold->GetFloat();
@@ -1873,7 +1884,7 @@ void UViewportWorldInteraction::UpdateDragging(
 				&&
 				(
 					( 
-						( VI::AllowSimultaneousWorldScalingAndRotation->GetInt() != 0 ) 
+						(GetDefault<UVISettings>()->bAllowSimultaneousWorldScalingAndRotation )
 						&&
 						( LockedWorldDragMode == ELockedWorldDragMode::Unlocked ) 
 					) 
@@ -1886,7 +1897,7 @@ void UViewportWorldInteraction::UpdateDragging(
 				&&
 				(
 					( 
-						( VI::AllowSimultaneousWorldScalingAndRotation->GetInt() != 0 ) 
+						(GetDefault<UVISettings>()->bAllowSimultaneousWorldScalingAndRotation )
 						&& 
 						( LockedWorldDragMode == ELockedWorldDragMode::Unlocked ) 
 					) 
@@ -3153,7 +3164,7 @@ void UViewportWorldInteraction::SpawnGridMeshActor()
 	{
 		const bool bWithSceneComponent = false;
 		SnapGridActor = SpawnTransientSceneActor<AActor>(TEXT("SnapGrid"), bWithSceneComponent);
-
+		SnapGridActor->bIsEditorOnlyActor = true;
 		SnapGridMeshComponent = NewObject<UStaticMeshComponent>( SnapGridActor );
 		SnapGridMeshComponent->MarkAsEditorOnlySubobject();
 		SnapGridActor->AddOwnedComponent( SnapGridMeshComponent );
@@ -3604,6 +3615,98 @@ FVector UViewportWorldInteraction::SnapLocation(const bool bLocalSpaceSnapping, 
 	}	
 
 	return SnappedGizmoLocation;
+}
+
+void UViewportWorldInteraction::UseLegacyInteractions()
+{
+	if (DefaultMouseCursorInteractorRefCount == 1)
+	{
+		this->ReleaseMouseCursorInteractor();
+	}
+	if (DefaultOptionalViewportClient != nullptr)
+	{
+		DefaultOptionalViewportClient->ShowWidget(true);
+	}
+	for (UViewportInteractor* Interactor : Interactors)
+	{
+		Interactor->Shutdown();
+		Interactor->MarkPendingKill();
+	}
+
+	Interactors.Empty();
+	Transformables.Empty();
+	Colors.Empty();
+
+	OnHoverUpdateEvent.Clear();
+	OnPreviewInputActionEvent.Clear();
+	OnInputActionEvent.Clear();
+	OnKeyInputEvent.Clear();
+	OnAxisInputEvent.Clear();
+	OnStopDraggingEvent.Clear();
+
+	TransformGizmoActor = nullptr;
+	SnapGridActor = nullptr;
+	SnapGridMeshComponent = nullptr;
+	SnapGridMID = nullptr;
+	DraggedInteractable = nullptr;
+	if (ViewportTransformer != nullptr)
+	{
+		ViewportTransformer->Shutdown();
+		ViewportTransformer = nullptr;
+	}
+
+	AssetContainer = nullptr;
+
+	GizmoType.Reset();
+
+	// Remove the input pre-processor
+	if (InputProcessor.IsValid())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
+		InputProcessor.Reset();
+	}
+	USelection::SelectionChangedEvent.RemoveAll(this);
+}
+
+void UViewportWorldInteraction::UseVWInteractions()
+{
+	// Add colors
+	InitColors();
+
+	// Setup the asset container.
+	AssetContainer = &LoadAssetContainer();
+
+	if (DefaultMouseCursorInteractorRefCount == 0)
+	{
+		this->AddMouseCursorInteractor();
+	}
+	if (DefaultOptionalViewportClient != nullptr)
+	{
+		DefaultOptionalViewportClient->ShowWidget(false);
+	}
+
+	// Start with the default transformer
+	SetTransformer(nullptr);
+
+	// Spawn the transform gizmo
+	SpawnTransformGizmoIfNeeded();
+
+	const bool bShouldBeVisible = false;
+	const bool bPropagateToChildren = true;
+	TransformGizmoActor->GetRootComponent()->SetVisibility(bShouldBeVisible, bPropagateToChildren);
+
+	// Create and add the input pre-processor to the slate application.
+	if (!InputProcessor.IsValid())
+	{
+		InputProcessor = MakeShareable(new FViewportInteractionInputProcessor(this));
+		FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);
+	}
+
+	// Pretend that actor selection changed, so that our gizmo refreshes right away based on which objects are selected
+	GEditor->NoteSelectionChange();
+	GEditor->SelectNone(true, true, false);
+
+	CurrentTickNumber = 0;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -126,7 +126,7 @@ struct FMRMeshProxySection
 
 static void InitVertexFactory(FLocalVertexFactory* VertexFactory, const FMRMeshProxySection& MRMeshSection)
 {
-	ENQUEUE_RENDER_COMMAND(InitProcMeshVertexFactory)(
+	ENQUEUE_RENDER_COMMAND(InitMrMeshVertexFactory)(
 		[VertexFactory, &MRMeshSection](FRHICommandListImmediate& RHICmdList)
 	{
 		check(IsInRenderingThread());
@@ -284,6 +284,11 @@ public:
 			delete ProxySections[i];
 			ProxySections.RemoveAtSwap(i);
 		}
+	}
+
+	void RenderThread_SetMaterial(UMaterialInterface* Material)
+	{
+		MaterialToUse = Material;
 	}
 
 private:
@@ -577,7 +582,28 @@ void UMRMeshComponent::SetMaterial(int32 ElementIndex, class UMaterialInterface*
 	if (Material != InMaterial)
 	{
 		Material = InMaterial;
-		MarkRenderStateDirty();
+		MarkRenderDynamicDataDirty();
+	}
+}
+
+void UMRMeshComponent::SendRenderDynamicData_Concurrent()
+{
+	Super::SendRenderDynamicData_Concurrent();
+
+	if (SceneProxy)
+	{
+		// Enqueue command to send to render thread
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			FSetMaterialLambda,
+			UMRMeshComponent*, This, this,
+			UMaterialInterface*, Material, Material,
+			{
+				FMRMeshProxy* MRMeshProxy = static_cast<FMRMeshProxy*>(This->SceneProxy);
+				if (MRMeshProxy)
+				{
+					MRMeshProxy->RenderThread_SetMaterial(Material);
+				}
+			});
 	}
 }
 

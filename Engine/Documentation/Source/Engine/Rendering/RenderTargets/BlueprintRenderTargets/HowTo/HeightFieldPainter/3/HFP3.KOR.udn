@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4309000
 availability:Public
 title:3. 블루프린트 구성
 description:하이트 맵 페인터 블루프린트를 만들고 구성하는 법에 대해 다룹니다.
@@ -62,7 +62,7 @@ checkpoint:HFP
 
 ## Trace from Camera 함수 구성
 
-이 함수 구현 방법은 두 가지 있습니다. 첫 번째는 주로 평면이나 기타 평평한 표면에 약간의 수학 및 작업이 필요합니다. 두 번째는 **Find Collisoin UV** 노드를 사용하는 것으로, 메모리는 더욱 많이 사용하지만 모양에 상관 없이 어떤 **스태틱 메시 컴포넌트** 에서도 작업 가능할 것입니다 (UV 이음새는 여전히 부작용을 유발합니다). 구현 메소드는 아래에서 선택할 수 있습니다.
+이 함수 구현 방법은 두 가지 있습니다. 첫 번째는 주로 평면이나 기타 평평한 표면에 약간의 수학 및 작업이 필요합니다. 두 번째는 **Find Collisoin UV** 노드를 사용하는 것으로, 메모리는 더욱 많이 사용하지만 모양에 상관 없이 어떤 **스태틱 메시 컴포넌트** 에서도 작업 가능할 것입니다 (UV 이음새는 여전히 부작용을 유발합니다). 구현 메서드는 아래에서 선택할 수 있습니다.
 
 %Globals:MethodSelect%
 
@@ -138,7 +138,7 @@ Trace from Camera (카메라에서 트레이스) 함수는 하이트 값을 올�
 [EXCERPT:m2]
 
 [REGION:note]
-이 메소드 사용을 위해서는 에디터에서 **Support UV from Hit Result** (히트 결과에서 UV 지원) 기능을 켜야 합니다. 자세한 방법 관련 정보는 [](Engine/Physics/Tracing/Overview#EnablingUVCoordinatesfromTrace) 문서를 참고하세요.
+이 메서드 사용을 위해서는 에디터에서 **Support UV from Hit Result** (히트 결과에서 UV 지원) 기능을 켜야 합니다. 자세한 방법 관련 정보는 [트레이스에서 UV 좌표 구하기](Engine/Physics/Tracing/Overview#트레이스에서UV좌표구하기) 문서를 참고하세요.
 [/REGION]
 
 1. **함수** 탭의 작은 (흰색) 더하기 부호를 클릭하여 새 함수를 만들고 이름을 **TraceFromCamera** 라 합니다.
@@ -937,7 +937,7 @@ Trace from Camera (카메라에서 트레이스) 함수는 하이트 값을 올�
 		blueprint
 	[/PARAMLITERAL]
 	[PARAM:image]
-		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_VP_Setup_UV_01.png)
+		![](Engine/Rendering/RenderTargets/BlueprintRenderTargets/HowTo/HeightFieldPainter/HFP_BP_Setup_01.png)
 	[/PARAM]
 	[PARAM:snippet]
 		Begin Object Class=K2Node_FunctionEntry Name="K2Node_FunctionEntry_48"
@@ -1166,7 +1166,7 @@ Trace from Camera (카메라에서 트레이스) 함수는 하이트 값을 올�
 		blueprint
 	[/PARAMLITERAL]
 	[PARAM:image]
-		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_VP_Setup_UV_02.png)
+		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_BP_Setup_02.png)
 	[/PARAM]
 	[PARAM:snippet]
 		Begin Object Class=K2Node_CustomEvent Name="K2Node_CustomEvent_0"

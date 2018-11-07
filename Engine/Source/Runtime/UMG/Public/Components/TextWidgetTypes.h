@@ -58,6 +58,10 @@ class UMG_API UTextLayoutWidget : public UWidget
 {
 	GENERATED_UCLASS_BODY()
 
+public:
+	bool GetAutoWrapText() const { return AutoWrapText; }
+	float GetWrapTextAt() const { return WrapTextAt; }
+
 protected:
 	/** Synchronize the properties with the given widget. A template as the Slate widgets conform to the same API, but don't derive from a common base. */
 	template <typename TWidgetType>

@@ -157,52 +157,58 @@ void USynthComponent::Deactivate()
 
 void USynthComponent::Initialize(int32 SampleRateOverride)
 {
-	if (!bIsInitialized)
+	// This will try to create the audio component if it hasn't yet been created
+	CreateAudioComponent();
+
+	// Try to get a proper sample rate
+	int32 SampleRate = SampleRateOverride;
+	if (SampleRate == INDEX_NONE)
 	{
-		// Try to get a proper sample rate
-		int32 SampleRate = SampleRateOverride;
-		if (SampleRate == INDEX_NONE)
+		// Check audio device if we've not explicitly been told what sample rate to use
+		FAudioDevice* AudioDevice = GetAudioDevice();
+		if (AudioDevice)
 		{
-			// Check audio device if we've not explicitly been told what sample rate to use
-			FAudioDevice* AudioDevice = GetAudioDevice();
-			if (AudioDevice)
-			{
-				SampleRate = AudioDevice->SampleRate;
-			}
+			SampleRate = AudioDevice->SampleRate;
+		}
+	}
+
+	// Only allow initialization if we've gota  proper sample rate
+	if (SampleRate != INDEX_NONE)
+	{
+#if SYNTH_GENERATOR_TEST_TONE
+		NumChannels = 2;
+		TestSineLeft.Init(SampleRate, 440.0f, 0.5f);
+		TestSineRight.Init(SampleRate, 220.0f, 0.5f);
+#else	
+		// Initialize the synth component
+		this->Init(SampleRate);
+
+		if (NumChannels < 0 || NumChannels > 2)
+		{
+			UE_LOG(LogAudioMixer, Error, TEXT("Synthesis component '%s' has set an invalid channel count '%d' (only mono and stereo currently supported)."), *GetName(), NumChannels);
 		}
 
-		// Only allow initialization if we've gota  proper sample rate
-		if (SampleRate != INDEX_NONE)
-		{
-			bIsInitialized = true;
-
-#if SYNTH_GENERATOR_TEST_TONE
-			NumChannels = 2;
-			TestSineLeft.Init(SampleRate, 440.0f, 0.5f);
-			TestSineRight.Init(SampleRate, 220.0f, 0.5f);
-#else	
-			// Initialize the synth component
-			this->Init(SampleRate);
-
-			if (NumChannels < 0 || NumChannels > 2)
-			{
-				UE_LOG(LogAudioMixer, Error, TEXT("Synthesis component '%s' has set an invalid channel count '%d' (only mono and stereo currently supported)."), *GetName(), NumChannels);
-			}
-
-			NumChannels = FMath::Clamp(NumChannels, 1, 2);
+		NumChannels = FMath::Clamp(NumChannels, 1, 2);
 #endif
 
+		if (nullptr == Synth)
+		{
 			Synth = NewObject<USynthSound>(this, TEXT("Synth"));
+		}
 
-			// Copy sound base data to the sound
-			Synth->SourceEffectChain = SourceEffectChain;
-			Synth->SoundSubmixObject = SoundSubmix;
-			Synth->SoundSubmixSends = SoundSubmixSends;
-			Synth->BusSends = BusSends;
-			Synth->PreEffectBusSends = PreEffectBusSends;
-			Synth->bOutputToBusOnly = bOutputToBusOnly;
+		// Copy sound base data to the sound
+		Synth->SourceEffectChain = SourceEffectChain;
+		Synth->SoundSubmixObject = SoundSubmix;
+		Synth->SoundSubmixSends = SoundSubmixSends;
+		Synth->BusSends = BusSends;
+		Synth->PreEffectBusSends = PreEffectBusSends;
+		Synth->bOutputToBusOnly = bOutputToBusOnly;
 
-			Synth->Init(this, NumChannels, SampleRate, PreferredBufferLength);
+		Synth->Init(this, NumChannels, SampleRate, PreferredBufferLength);
+
+		if (FAudioDevice* AudioDevice = AudioComponent->GetAudioDevice())
+		{
+			Synth->StartOnAudioDevice(AudioDevice);
 		}
 	}
 }
@@ -219,34 +225,28 @@ void USynthComponent::CreateAudioComponent()
 		// Create the audio component which will be used to play the procedural sound wave
 		AudioComponent = NewObject<UAudioComponent>(this);
 
-		if (AudioComponent)
-		{
-			AudioComponent->bAutoActivate = false;
-			AudioComponent->bStopWhenOwnerDestroyed = true;
-			AudioComponent->bShouldRemainActiveIfDropped = true;
-			AudioComponent->Mobility = EComponentMobility::Movable;
+	}
+
+	if (AudioComponent)
+	{
+		AudioComponent->bAutoActivate = false;
+		AudioComponent->bStopWhenOwnerDestroyed = true;
+		AudioComponent->bShouldRemainActiveIfDropped = true;
+		AudioComponent->Mobility = EComponentMobility::Movable;
 
 #if WITH_EDITORONLY_DATA
-			AudioComponent->bVisualizeComponent = false;
+		AudioComponent->bVisualizeComponent = false;
 #endif
-			if (AudioComponent->GetAttachParent() == nullptr && !AudioComponent->IsAttachedTo(this))
-			{
-				AudioComponent->SetupAttachment(this);
-			}
-
-			AudioComponent->OnAudioSingleEnvelopeValueNative.AddUObject(this, &USynthComponent::OnAudioComponentEnvelopeValue);
-
-			// Set defaults to be the same as audio component defaults
-			AudioComponent->EnvelopeFollowerAttackTime = EnvelopeFollowerAttackTime;
-			AudioComponent->EnvelopeFollowerReleaseTime = EnvelopeFollowerReleaseTime;
-
-			Initialize();
-
-			if (FAudioDevice* AudioDevice = AudioComponent->GetAudioDevice())
-			{
-				Synth->StartOnAudioDevice(AudioDevice);
-			}
+		if (AudioComponent->GetAttachParent() == nullptr && !AudioComponent->IsAttachedTo(this))
+		{
+			AudioComponent->SetupAttachment(this);
 		}
+
+		AudioComponent->OnAudioSingleEnvelopeValueNative.AddUObject(this, &USynthComponent::OnAudioComponentEnvelopeValue);
+
+		// Set defaults to be the same as audio component defaults
+		AudioComponent->EnvelopeFollowerAttackTime = EnvelopeFollowerAttackTime;
+		AudioComponent->EnvelopeFollowerReleaseTime = EnvelopeFollowerReleaseTime;
 	}
 }
 
@@ -283,7 +283,7 @@ void USynthComponent::OnUnregister()
 bool USynthComponent::IsReadyForOwnerToAutoDestroy() const
 {
 	const bool bIsAudioComponentReadyForDestroy = !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
-	const bool bIsSynthSoundReadyForDestroy = !Synth || !Synth->GetNumSoundsActive();
+	const bool bIsSynthSoundReadyForDestroy = !Synth || !Synth->IsGenerating();
 	return bIsAudioComponentReadyForDestroy && bIsSynthSoundReadyForDestroy;
 }
 
@@ -354,16 +354,15 @@ void USynthComponent::Start()
 	{
 		return;
 	}
-		
-	// This will try to create the audio component if it hasn't yet been created
-	CreateAudioComponent();
 
 	// We will also ensure that this synth was initialized before attempting to play.
 	Initialize();
 
+	// If there is no Synth USoundBase, we can't start. This can happen if start is called in a cook, a server, or 
+	// if the audio engine is set to "noaudio".
+	// TODO: investigate if this should be handled elsewhere before this point
 	if (Synth == nullptr)
 	{
-		UE_LOG(LogAudio, Warning, TEXT("Warning: SynthComponent failed to start due to failiure in initialization."));
 		return;
 	}
 

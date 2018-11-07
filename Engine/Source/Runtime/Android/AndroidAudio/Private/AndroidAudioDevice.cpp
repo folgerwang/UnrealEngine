@@ -24,6 +24,11 @@ public:
 };
 
 IMPLEMENT_MODULE(FSLESAudioDeviceModule, AndroidAudio );
+
+
+DEFINE_STAT(STAT_AudioAndroidSourcePlayerCreateTime);
+DEFINE_STAT(STAT_AudioAndroidSourcePlayerRealize);
+
 /*------------------------------------------------------------------------------------
 	UALAudioDevice constructor and UObject interface.
 ------------------------------------------------------------------------------------*/

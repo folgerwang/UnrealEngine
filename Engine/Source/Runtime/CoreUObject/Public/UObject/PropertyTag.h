@@ -14,6 +14,9 @@
  */
 struct FPropertyTag
 {
+	// Transient.
+	UProperty* Prop;
+
 	// Variables.
 	FName	Type;		// Type of property
 	uint8	BoolVal;	// a boolean property's value (never need to serialize data for bool properties except here)
@@ -37,8 +40,10 @@ struct FPropertyTag
 	void SetPropertyGuid(const FGuid& InPropertyGuid);
 
 	// Serializer.
-	friend FArchive& operator<<( FArchive& Ar, FPropertyTag& Tag );
+	friend FArchive& operator<<(FArchive& Ar, FPropertyTag& Tag);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FPropertyTag& Tag);
 
 	// Property serializer.
-	void SerializeTaggedProperty( FArchive& Ar, UProperty* Property, uint8* Value, uint8* Defaults ) const;
+	void SerializeTaggedProperty(FArchive& Ar, UProperty* Property, uint8* Value, uint8* Defaults) const;
+	void SerializeTaggedProperty(FStructuredArchive::FSlot Slot, UProperty* Property, uint8* Value, uint8* Defaults) const;
 };

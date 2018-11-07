@@ -29,11 +29,11 @@ void UBorderSlot::BuildSlot(TSharedRef<SBorder> InBorder)
 {
 	Border = InBorder;
 
-	Border->SetPadding(Padding);
-	Border->SetHAlign(HorizontalAlignment);
-	Border->SetVAlign(VerticalAlignment);
+	Border.Pin()->SetPadding(Padding);
+	Border.Pin()->SetHAlign(HorizontalAlignment);
+	Border.Pin()->SetVAlign(VerticalAlignment);
 
-	Border->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
+	Border.Pin()->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
 }
 
 void UBorderSlot::SetPadding(FMargin InPadding)

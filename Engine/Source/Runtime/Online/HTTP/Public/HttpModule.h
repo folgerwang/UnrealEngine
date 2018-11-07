@@ -240,9 +240,23 @@ public:
 	}
 
 	/**
+	 * Get the default headers that are appended to every request
+	 * @return the default headers
+	 */
+	const TMap<FString, FString>& GetDefaultHeaders() const { return DefaultHeaders; }
+
+	/**
+	 * Add a default header to be appended to future requests
+	 * If a request already specifies this header, then the defaulted version will not be used
+	 * @param HeaderName - Name of the header (e.g., "Content-Type")
+	 * @param HeaderValue - Value of the header
+	 */
+	void AddDefaultHeader(const FString& HeaderName, const FString& HeaderValue) { DefaultHeaders.Emplace(HeaderName, HeaderValue); }
+
+	/**
 	 * @returns The current proxy address.
 	 */
-	inline const FString& GetProxyAddress()
+	inline const FString& GetProxyAddress() const
 	{
 		return ProxyAddress;
 	}
@@ -263,6 +277,14 @@ public:
 	inline bool SupportsDynamicProxy() const
 	{
 		return bSupportsDynamicProxy;
+	}
+
+	/**
+	 * @returns the list of allowed domains for applying whitelist
+	 */
+	inline const TArray<FString>& GetAllowedDomains() const
+	{
+		return AllowedDomains;
 	}
 
 private:
@@ -321,10 +343,14 @@ private:
 	bool bEnableHttp;
 	/** toggles null (mock) http requests */
 	bool bUseNullHttp;
+	/** Default headers - each request will include these headers, using the default value if not overridden */
+	TMap<FString, FString> DefaultHeaders;
 	/** singleton for the module while loaded and available */
 	static FHttpModule* Singleton;
 	/** The address to use for proxy, in format IPADDRESS:PORT */
 	FString ProxyAddress;
 	/** Whether or not the http implementation we are using supports dynamic proxy setting. */
 	bool bSupportsDynamicProxy;
+	/** Whitelist for domains that can be accessed. If Empty then no whitelist is applied */
+	TArray<FString> AllowedDomains;
 };

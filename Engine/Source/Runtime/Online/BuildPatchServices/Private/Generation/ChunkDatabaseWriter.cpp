@@ -29,12 +29,20 @@ namespace BuildPatchServices
 			: Filename(InFilename)
 			, Pos(INDEX_NONE)
 		{
+			if ( Filename.IsEmpty() )
+			{
+				UE_LOG(LogChunkDatabaseWriter, Error, TEXT("Created data message with no filename but has INDEX_NONE, WILL TRY AND CREATE FILE"));
+			}
 		}
 
 		FDataMessage(int64 InPos)
 			: Filename()
 			, Pos(InPos)
 		{
+			if ( InPos == INDEX_NONE )
+			{
+				UE_LOG(LogChunkDatabaseWriter, Error, TEXT("Created data message with no filename but has INDEX_NONE, WILL TRY AND CREATE FILE"));
+			}
 			Memory.Reset(DataMessageBufferSize);
 		}
 
@@ -218,7 +226,12 @@ namespace BuildPatchServices
 					UE_LOG(LogChunkDatabaseWriter, Log, TEXT("Writing chunk database %s"), *DataMessage->Filename);
 					CurrentFile = FileSystem->CreateFileWriter(*DataMessage->Filename);
 					FilesCreated.Add(DataMessage->Filename);
-					bSuccess = CurrentFile.IsValid();
+					if ( CurrentFile.IsValid() == false )
+					{
+						bSuccess = false;
+						UE_LOG(LogChunkDatabaseWriter, Error, TEXT("Failed to create file with name \"%s\""));
+						InstallerError->SetError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::FileCreateFail);
+					}
 				}
 				// Process a data serialize.
 				else if (CurrentFile.IsValid())

@@ -7,25 +7,9 @@
 
 #define LOCTEXT_NAMESPACE "VREditor"
 
-namespace VREd
-{
-	static FAutoConsoleVariable SettingsTriggerPressedThreshold_Vive(TEXT("VREd.SettingsTriggerPressedThreshold_Vive"), 0.33f, TEXT("The amount (between 0-1) you have to depress the Vive controller trigger to register a press"));
-	static FAutoConsoleVariable SettingsTriggerPressedThreshold_Rift(TEXT("VREd.SettingsTriggerPressedThreshold_Rift"), 0.5f, TEXT("The amount (between 0-1) you have to depress the Oculus Touch controller trigger to register a press "));
-}
-
 UVRModeSettings::UVRModeSettings()
 	: Super()
 {
-	bEnableAutoVREditMode = false;
-	InteractorHand = EInteractorHand::Right;
-	bShowWorldMovementGrid = true;
-	bShowWorldMovementPostProcess = true;
-	bShowWorldScaleProgressBar = true;
-	UIBrightness = 1.5f;
-	GizmoScale = 0.8f;
-	DoubleClickTime = 0.25f;
-	TriggerPressedThreshold_Vive = VREd::SettingsTriggerPressedThreshold_Vive->GetFloat();
-	TriggerPressedThreshold_Rift = VREd::SettingsTriggerPressedThreshold_Rift->GetFloat();
 }
 
 #if WITH_EDITOR

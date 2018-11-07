@@ -37,11 +37,11 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bKeepCursorInPlayRangeWhileScrubbing = false;
 	bKeepCursorInPlayRange = true;
 	bKeepPlayRangeInSectionBounds = true;
+	bCompileDirectorOnEvaluate = true;
 	ZeroPadFrames = 0;
 	bShowCombinedKeyframes = true;
 	bInfiniteKeyAreas = false;
 	bShowChannelColors = false;
-	bShowViewportTransportControls = true;
 	bAllowPossessionOfPIEViewports = false;
 	bActivateRealtimeViewports = true;
 	bEvaluateSubSequencesInIsolation = false;
@@ -407,6 +407,7 @@ void USequencerSettings::SetLoopMode(ESequencerLoopMode InLoopMode)
 	if (LoopMode != InLoopMode)
 	{
 		LoopMode = InLoopMode;
+		OnLoopStateChangedEvent.Broadcast();
 		SaveConfig();
 	}
 }
@@ -527,21 +528,6 @@ void USequencerSettings::SetShowChannelColors(bool InbShowChannelColors)
 	}
 }
 
-bool USequencerSettings::GetShowViewportTransportControls() const
-{
-	return bShowViewportTransportControls;
-}
-
-void USequencerSettings::SetShowViewportTransportControls(bool bVisible)
-{
-	if (bShowViewportTransportControls != bVisible)
-	{
-		bShowViewportTransportControls = bVisible;
-		SaveConfig();
-	}
-}
-
-
 bool USequencerSettings::ShouldAllowPossessionOfPIEViewports() const
 {
 	return bAllowPossessionOfPIEViewports;
@@ -642,6 +628,21 @@ void USequencerSettings::SetShouldShowPrePostRoll(bool bInVisualizePreAndPostRol
 	}
 }
 
+
+bool USequencerSettings::ShouldCompileDirectorOnEvaluate() const
+{
+	return bCompileDirectorOnEvaluate;
+}
+
+void USequencerSettings::SetCompileDirectorOnEvaluate(bool bInCompileDirectorOnEvaluate)
+{
+	if (bInCompileDirectorOnEvaluate != bCompileDirectorOnEvaluate)
+	{
+		bCompileDirectorOnEvaluate = bInCompileDirectorOnEvaluate;
+		SaveConfig();
+	}
+}
+
 ECurveEditorCurveVisibility USequencerSettings::GetCurveVisibility() const
 {
 	return CurveVisibility;
@@ -661,6 +662,12 @@ USequencerSettings::FOnCurveEditorCurveVisibilityChanged& USequencerSettings::Ge
 {
 	return OnCurveEditorCurveVisibilityChanged;
 }
+
+USequencerSettings::FOnLoopStateChanged& USequencerSettings::GetOnLoopStateChanged()
+{
+	return OnLoopStateChangedEvent;
+}
+
 
 void USequencerSettings::SetTimeDisplayFormat(EFrameNumberDisplayFormats InFormat)
 {

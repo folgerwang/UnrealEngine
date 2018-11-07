@@ -42,6 +42,9 @@ public:
 	/** If the VR Editor is currently available */
 	bool IsVREditorAvailable() const;
 
+	/** If the VR Editor button active */
+	bool IsVREditorButtonActive() const;
+
 	/** Gets the current VR Editor mode that was enabled */
 	UVREditorMode* GetCurrentVREditorMode();
 
@@ -72,4 +75,7 @@ private:
 
 	/** True when we detect that the user is wearing the HMD */
 	EHMDWornState::Type HMDWornState;
+
+	/** True if the ViewportWorldInteraction extension was not pre-existing. */
+	bool bAddedViewportWorldInteractionExtension;
 };

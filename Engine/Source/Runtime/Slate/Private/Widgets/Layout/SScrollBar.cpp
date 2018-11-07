@@ -27,8 +27,6 @@ void SScrollBar::Construct(const FArguments& InArgs)
 
 	SBorder::Construct( SBorder::FArguments()
 		.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
-		.BorderBackgroundColor( this, &SScrollBar::GetTrackOpacity )
-		.ColorAndOpacity( this, &SScrollBar::GetThumbOpacity )
 		[
 			SNew(SVerticalBox)
 
@@ -50,6 +48,7 @@ void SScrollBar::Construct(const FArguments& InArgs)
 						.VAlign(VerticalAlignment)
 						[
 							SNew(SImage)
+							.ColorAndOpacity(this, &SScrollBar::GetTrackOpacity)
 							.Image(TopBrush)
 						]
 					]
@@ -57,6 +56,7 @@ void SScrollBar::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(DragThumb, SBorder)
 						.BorderImage( this, &SScrollBar::GetDragThumbImage )
+						.ColorAndOpacity(this, &SScrollBar::GetThumbOpacity)
 						.HAlign(HAlign_Center)
 						.VAlign(VAlign_Center)
 						[
@@ -71,6 +71,7 @@ void SScrollBar::Construct(const FArguments& InArgs)
 						.VAlign(VerticalAlignment)
 						[
 							SNew(SImage)
+							.ColorAndOpacity(this, &SScrollBar::GetTrackOpacity)
 							.Image(BottomBrush)
 						]
 					]
@@ -216,7 +217,11 @@ SScrollBar::SScrollBar()
 
 FSlateColor SScrollBar::GetTrackOpacity() const
 {
-	if ( bDraggingThumb || IsHovered() )
+	if (AlwaysShowScrollbar() && (Track->GetThumbSizeFraction() == 0.0f))
+	{
+		return FLinearColor(1, 1, 1, 0.5f);
+	}
+	else if (bDraggingThumb || IsHovered())
 	{
 		return FLinearColor(1,1,1,1);
 	}
@@ -228,20 +233,24 @@ FSlateColor SScrollBar::GetTrackOpacity() const
 
 FLinearColor SScrollBar::GetThumbOpacity() const
 {
-	if ( bDraggingThumb || IsHovered() )
+	if (Track->GetThumbSizeFraction() <= 0.0f)
+	{
+		return FLinearColor(1, 1, 1, 0);
+	}
+	else if ( bDraggingThumb || IsHovered() )
 	{
 		return FLinearColor(1,1,1,1);
 	}
 	else
 	{
-		if ( bHideWhenNotInUse && !bAlwaysShow )
+		if ( bHideWhenNotInUse && !bAlwaysShowScrollbar )
 		{
 			const double LastInteractionDelta = bIsScrolling ? 0 : ( FSlateApplication::Get().GetCurrentTime() - LastInteractionTime );
 
 			float ThumbOpacity = FMath::Lerp(1.0f, 0.0f, FMath::Clamp((float)( ( LastInteractionDelta - 0.2 ) / 0.2 ), 0.0f, 1.0f));
 			return FLinearColor(1, 1, 1, ThumbOpacity);
 		}
-		else
+		else 
 		{
 			return FLinearColor(1, 1, 1, 0.75f);
 		}
@@ -343,7 +352,8 @@ void SScrollBar::SetThickness(TAttribute<FVector2D> InThickness)
 
 void SScrollBar::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 {
-	bAlwaysShow = InAlwaysVisible;
+	bAlwaysShowScrollbar = InAlwaysVisible;
+
 	if ( InAlwaysVisible )
 	{
 		Visibility = EVisibility::Visible;
@@ -352,4 +362,10 @@ void SScrollBar::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 	{
 		Visibility = TAttribute<EVisibility>(SharedThis(this), &SScrollBar::ShouldBeVisible);
 	}
+	Track->SetIsAlwaysVisible(InAlwaysVisible);
+}
+
+bool SScrollBar::AlwaysShowScrollbar() const
+{
+	return bAlwaysShowScrollbar;
 }

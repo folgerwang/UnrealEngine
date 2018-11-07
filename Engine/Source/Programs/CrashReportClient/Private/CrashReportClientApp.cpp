@@ -226,7 +226,7 @@ bool RunWithUI(FPlatformErrorReport ErrorReport)
 
 		// Update the display metrics
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		FSlateApplication::Get().GetPlatformApplication()->OnDisplayMetricsChanged().Broadcast(DisplayMetrics);
 	}
 
@@ -245,13 +245,11 @@ bool RunWithUI(FPlatformErrorReport ErrorReport)
 	// open up the app window	
 	TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
 
-	const FSlateRect WorkArea = FSlateApplicationBase::Get().GetPreferredWorkArea();
-
 	auto Window = FSlateApplication::Get().AddWindow(
 		SNew(SWindow)
 		.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
 		.HasCloseButton(FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
-		.ClientSize(InitialWindowDimensions * FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(WorkArea.Left, WorkArea.Top))
+		.ClientSize(InitialWindowDimensions)
 		[
 			ClientControl
 		]);
@@ -337,17 +335,6 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 
 	FPlatformErrorReport::Init();
 	FPlatformErrorReport ErrorReport = LoadErrorReport();
-
-	// For now Linux needs to ask if we want to submit a crash report unless specifically configured not to
-	if (PLATFORM_LINUX)
-	{
-		bool bAgreeToServerCrashUpload = true;
-		GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bAgreeToServerCrashUpload"), bAgreeToServerCrashUpload, GEngineIni);
-		if(bAgreeToServerCrashUpload && FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, TEXT("A crash has occurred. Would you like to submit this crash report?"), TEXT("Crash Client Reporter")) == EAppReturnType::No)
-		{
-			GIsRequestingExit = true;
-		}
-	}
 
 	if (!GIsRequestingExit && ErrorReport.HasFilesToUpload() && FPrimaryCrashProperties::Get() != nullptr)
 	{

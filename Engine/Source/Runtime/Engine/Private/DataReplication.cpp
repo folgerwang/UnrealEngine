@@ -20,13 +20,27 @@
 DECLARE_CYCLE_STAT(TEXT("Custom Delta Property Rep Time"), STAT_NetReplicateCustomDeltaPropTime, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("ReceiveRPC"), STAT_NetReceiveRPC, STATGROUP_Game);
 
-
 static TAutoConsoleVariable<int32> CVarMaxRPCPerNetUpdate( TEXT( "net.MaxRPCPerNetUpdate" ), 2, TEXT( "Maximum number of RPCs allowed per net update" ) );
 static TAutoConsoleVariable<int32> CVarDelayUnmappedRPCs( TEXT("net.DelayUnmappedRPCs" ), 0, TEXT( "If >0 delay received RPCs with unmapped properties" ) );
-static TAutoConsoleVariable<int32> CVarShareShadowState( TEXT( "net.ShareShadowState" ), 1, TEXT( "If true, work done to compare properties will be shared across connections" ) );
-static TAutoConsoleVariable<float> CVarMaxUpdateDelay( TEXT( "net.MaxSharedShadowStateUpdateDelayInSeconds" ), 1.0f / 4.0f, TEXT( "When a new changelist is available for a particular connection (using shared shadow state), but too much time has passed, force another compare against all the properties" ) );
 
-extern TAutoConsoleVariable<int32> CVarNetPartialBunchReliableThreshold;
+int32 GShareShadowState = 1;
+static FAutoConsoleVariableRef CVarShareShadowState( TEXT( "net.ShareShadowState" ), GShareShadowState, TEXT( "If true, work done to compare properties will be shared across connections" ) );
+
+static TAutoConsoleVariable<FString> CVarNetReplicationDebugProperty(
+	TEXT("net.Replication.DebugProperty"),
+	TEXT(""),
+	TEXT("Debugs Replication of property by name")
+	TEXT("Partial name of property to debug"),
+	ECVF_Default);
+
+int32 GNetRPCDebug = 0;
+static FAutoConsoleVariableRef CVarNetRPCDebug(
+	TEXT("net.RPC.Debug"),
+	GNetRPCDebug,
+	TEXT("Print all RPC bunches sent over the network\n")
+	TEXT(" 0: no print.\n")
+	TEXT(" 1: Print bunches as they are sent."),
+	ECVF_Default);
 
 class FNetSerializeCB : public INetSerializeCB
 {
@@ -386,7 +400,7 @@ void FReplicationChangelistMgr::Update( const UObject* InObject, const uint32 Re
 	//	2. We check LastCompareIndex > 1 so we can do at least one pass per connection to compare all properties
 	//		This is necessary due to how RemoteRole is manipulated per connection, so we need to give all connections a chance to see if it changed
 	//	3. We ALWAYS compare on bNetInitial to make sure we have a fresh changelist of net initial properties in this case
-	if ( !bForceCompare && CVarShareShadowState.GetValueOnAnyThread() && !RepFlags.bNetInitial && LastCompareIndex > 1 && LastReplicationFrame == ReplicationFrame )
+	if ( !bForceCompare && GShareShadowState && !RepFlags.bNetInitial && LastCompareIndex > 1 && LastReplicationFrame == ReplicationFrame )
 	{
 		INC_DWORD_STAT_BY( STAT_NetSkippedDynamicProps, 1 );
 		return;
@@ -639,8 +653,8 @@ bool FObjectReplicator::ReceivedBunch( FNetBitReader& Bunch, const FReplicationF
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			{
-				static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.Replication.DebugProperty"));
-				if (CVar && !CVar->GetString().IsEmpty() && ReplicatedProp->GetName().Contains(CVar->GetString()) )
+				FString DebugPropertyStr = CVarNetReplicationDebugProperty.GetValueOnAnyThread();
+				if (!DebugPropertyStr.IsEmpty() && ReplicatedProp->GetName().Contains(DebugPropertyStr) )
 				{
 					UE_LOG(LogRep, Log, TEXT("Replicating Property[%d] %s on %s"), ReplicatedProp->RepIndex, *ReplicatedProp->GetName(), *Object->GetName());
 				}
@@ -782,13 +796,40 @@ bool FObjectReplicator::ReceivedBunch( FNetBitReader& Bunch, const FReplicationF
 	FieldCache->bIncompatible = true;	\
 	return true;						\
 
+
+bool GReceiveRPCTimingEnabled = false;
+struct FScopedRPCTimingTracker
+{
+	FScopedRPCTimingTracker(UFunction* InFunction, UNetConnection* InConnection) : Connection(InConnection), Function(InFunction)
+	{
+		if (GReceiveRPCTimingEnabled)
+		{
+			StartTime = FPlatformTime::Seconds();
+		}
+	};
+
+	~FScopedRPCTimingTracker()
+	{
+		if (GReceiveRPCTimingEnabled)
+		{
+			const double Elapsed = FPlatformTime::Seconds() - StartTime;
+			Connection->Driver->NotifyRPCProcessed(Function, Connection, Elapsed);
+
+		}
+	}
+	UNetConnection* Connection;
+	UFunction* Function;
+	double StartTime;
+};
+
 bool FObjectReplicator::ReceivedRPC(FNetBitReader& Reader, const FReplicationFlags& RepFlags, const FFieldNetCache* FieldCache, const bool bCanDelayRPC, bool& bOutDelayRPC, TSet<FNetworkGUID>& UnmappedGuids)
 {
 	const bool bIsServer = Connection->Driver->IsServer();
 	UObject* Object = GetObject();
 	FName FunctionName = FieldCache->Field->GetFName();
-	UFunction * Function = Object->FindFunction(FunctionName);
+	UFunction* Function = Object->FindFunction(FunctionName);
 
+	FScopedRPCTimingTracker ScopedTracker(Function, Connection);
 	SCOPE_CYCLE_COUNTER(STAT_NetReceiveRPC);
 	SCOPE_CYCLE_UOBJECT(Function, Function);
 
@@ -1266,9 +1307,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 	// Replicate Queued (unreliable functions)
 	if ( RemoteFunctions != NULL && RemoteFunctions->GetNumBits() > 0 )
 	{
-		static const auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt( TEXT( "net.RPC.Debug" ) );
-
-		if ( UNLIKELY( CVar && CVar->GetValueOnAnyThread() == 1 ) )
+		if ( UNLIKELY(GNetRPCDebug == 1) )
 		{
 			UE_LOG( LogRepTraffic, Warning,	TEXT("      Sending queued RPCs: %s. Channel[%d] [%.1f bytes]"), *Object->GetName(), OwningChannel->ChIndex, RemoteFunctions->GetNumBits() / 8.f );
 		}

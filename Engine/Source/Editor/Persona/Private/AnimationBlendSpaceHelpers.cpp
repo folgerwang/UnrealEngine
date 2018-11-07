@@ -196,7 +196,7 @@ FDelaunayTriangleGenerator::ECircumCircleState FDelaunayTriangleGenerator::GetCi
 	else
 	{
 		// On top of the triangle edge
-		if (FMath::IsNearlyZero(Det))
+		if (FMath::IsNearlyZero(Det, KINDA_SMALL_NUMBER))
 		{
 			return ECCS_On;
 		}

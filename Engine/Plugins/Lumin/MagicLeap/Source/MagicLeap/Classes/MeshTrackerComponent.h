@@ -9,15 +9,13 @@
 UENUM(BlueprintType)
 enum class EMeshType : uint8
 {
-	/** The full, high resolution mesh. */
-	Full,
-	/*! Meshing should be done in blocks. */
-	Blocks,
+	/*! Meshing should be done as triangles. */
+	Triangles,
 	/*! Return mesh vertices as a point cloud. */
 	PointCloud
 };
 
-/** Type of mesh to query from the underlying system. */
+/** Vertex color mode. */
 UENUM(BlueprintType)
 enum class EMLMeshVertexColorMode : uint8
 {
@@ -27,6 +25,18 @@ enum class EMLMeshVertexColorMode : uint8
 	Confidence  UMETA(DisplayName = "Vertex Confidence"),
 	/*! Each block is given a color from a list. */
 	Block  UMETA(DisplayName = "Blocks Colored")
+};
+
+/** Discrete level of detail required. */
+UENUM(BlueprintType)
+enum class EMeshLOD : uint8
+{
+	/*! Minimum LOD. */
+	Minimum,
+	/*! Medium LOD. */
+	Medium,
+	/*! Maximum LOD. */
+	Maximum,
 };
 
 /**
@@ -80,54 +90,29 @@ public:
 
 	/** The type of mesh to query. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	EMeshType MeshType = EMeshType::Blocks;
-
-	/**
-	  Specifies the time (in seconds) to query if new mesh data is available.
-	  Decreasing this time may give more mesh data, but may degrade performance. Use 0 to turn off auto updating.
-	*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	float MeshingPollTime = 1.0f;
+	EMeshType MeshType = EMeshType::Triangles;
 
 	/** Bounding box for the mesh scan. The mesh will be scanned for only within this box. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
 	class UBoxComponent* BoundingVolume;
 
-	/** Mesh everything within range. */
+	/** Meshing LOD. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	bool IgnoreBoundingVolume = false;
+	EMeshLOD LevelOfDetail = EMeshLOD::Medium;
 
-	/**
-	  Maximum number of triangles allowed for the mesh in Full mode, or per mesh block in Blocks mode. Use 0 to turn off simplification.
-	  Setting this to a reasonably high enough number because of target hardware limitation. It is recommended to leave this number as low as possible but never 0.
-	*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap", meta = (ClampMin = 0))
-	int32 TargetNumberTriangles = 5000;
-
-	/** If true, the system will attempt to fill small gaps to create a more connected mesh. */
+	/** The perimeter (in Unreal Units) of gaps to be filled. 0 means do not fill. A good value is 300cm. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	bool FillGaps = true;
-
-	/** The perimeter (in Unreal Units) of gaps to be filled. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	float PerimeterOfGapsToFill = 100.0f;
+	float PerimeterOfGapsToFill = 300.0f;
 
 	/** If true, the system will planarize the returned mesh i.e. planar regions will be smoothed out. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
 	bool Planarize = false;
 
-	/** If true, the system will remove mesh sections that are disconnected from the main mesh
-		and which have an area less than DisconnectedSectionArea. */
+	/** Any section that is disconnected from the main mesh and has an area (in Unreal Units squared) 
+	    less than this value will be removed. 
+		0 means do not remove disconnected sections. A good value is 50cm. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	bool RemoveDisconnectedSections = true;
-
-	/** Any section that is disconnected from the main mesh and has an area (in Unreal Units squared) less than this value will be removed. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
-	float DisconnectedSectionArea = 25.0f;
-
-	/** Minimum distance that a bounding box has to move to cause a rescan. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap", meta = (ClampMin = 0.0f))
-	float MinDistanceRescan = 50.0f;
+	float DisconnectedSectionArea = 50.0f;
 
 	/** If true, the system will generate normals for the triangle vertices. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Meshing|MagicLeap")
@@ -175,10 +160,6 @@ public:
 		It seems like those are not being respected directly by the component.
 	*/
 
-	/** Force an update on a non-live updating mesh tracker. */
-	UFUNCTION(BlueprintCallable, Category = "Meshing|MagicLeap")
-	bool ForceMeshUpdate();
-
 	/** Polls for and handles the results of the environmental mesh queries. */
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
@@ -193,8 +174,6 @@ public:
 #endif
 
 private:
-	void LogMLDataArray(const struct MLDataArray& Data) const;
-	void TickWithFakeData();
 	class FMeshTrackerImpl *Impl;
 
 #if WITH_EDITOR

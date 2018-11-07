@@ -2,6 +2,7 @@
 
 #include "Kismet/KismetSystemLibrary.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/FileManager.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
@@ -105,6 +106,23 @@ FString UKismetSystemLibrary::GetProjectContentDirectory()
 FString UKismetSystemLibrary::GetProjectSavedDirectory()
 {
 	return FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir());
+}
+
+FString UKismetSystemLibrary::ConvertToRelativePath(const FString& InPath)
+{
+	return IFileManager::Get().ConvertToRelativePath(*InPath);
+}
+
+FString UKismetSystemLibrary::ConvertToAbsolutePath(const FString& Filename)
+{
+	return FPaths::ConvertRelativePathToFull(Filename);
+}
+
+FString UKismetSystemLibrary::NormalizeFilename(const FString& InPath)
+{
+	FString Normalized(InPath);
+	FPaths::NormalizeFilename(Normalized);
+	return Normalized;
 }
 
 FString UKismetSystemLibrary::GetGameBundleId()
@@ -320,7 +338,9 @@ int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObje
 }
 
 
-void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference)
+
+
+void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions)
 {
 	APlayerController* TargetPC = SpecificPlayer ? SpecificPlayer : UGameplayStatics::GetPlayerController(WorldContextObject, 0);
 	if( TargetPC )
@@ -331,7 +351,14 @@ void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerCo
 		}
 		else
 		{
-			TargetPC->ConsoleCommand("quit");
+			if (bIgnorePlatformRestrictions)
+			{
+				TargetPC->ConsoleCommand("quit force");
+			}
+			else
+			{
+				TargetPC->ConsoleCommand("quit");
+			}
 		}
 	}
 }
@@ -2168,7 +2195,7 @@ bool UKismetSystemLibrary::GetConvenientWindowedResolutions(TArray<FIntPoint>& R
 	}
 	else
 	{
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 	}
 
 	extern void GenerateConvenientWindowedResolutions(const struct FDisplayMetrics& InDisplayMetrics, TArray<FIntPoint>& OutResolutions);
@@ -2342,6 +2369,11 @@ void UKismetSystemLibrary::SetStructurePropertyByName(UObject* Object, FName Pro
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.
 	check(0);
+}
+
+bool UKismetSystemLibrary::IsScreensaverEnabled()
+{
+	return FPlatformApplicationMisc::IsScreensaverEnabled();
 }
 
 void UKismetSystemLibrary::ControlScreensaver(bool bAllowScreenSaver)
@@ -2533,6 +2565,49 @@ void UKismetSystemLibrary::SetUserActivity(const FUserActivity& UserActivity)
 FString UKismetSystemLibrary::GetCommandLine()
 {
 	return FString(FCommandLine::Get());
+}
+
+bool UKismetSystemLibrary::IsUnattended()
+{
+	return FApp::IsUnattended();
+}
+
+int32 UKismetSystemLibrary::BeginTransaction(const FString& Context, FText Description, UObject* PrimaryObject)
+{
+#if WITH_EDITOR
+	return GEngine->BeginTransaction(*Context, Description, PrimaryObject);
+#else
+	return INDEX_NONE;
+#endif
+}
+
+int32 UKismetSystemLibrary::EndTransaction()
+{
+#if WITH_EDITOR
+	return GEngine->EndTransaction();
+#else
+	return INDEX_NONE;
+#endif
+}
+
+void UKismetSystemLibrary::CancelTransaction(const int32 Index)
+{
+#if WITH_EDITOR
+	if (Index >= 0)
+	{
+		GEngine->CancelTransaction(Index);
+	}
+#endif
+}
+
+void UKismetSystemLibrary::TransactObject(UObject* Object)
+{
+#if WITH_EDITOR
+	if (Object)
+	{
+		Object->Modify();
+	}
+#endif
 }
 
 UObject* UKismetSystemLibrary::GetObjectFromPrimaryAssetId(FPrimaryAssetId PrimaryAssetId)

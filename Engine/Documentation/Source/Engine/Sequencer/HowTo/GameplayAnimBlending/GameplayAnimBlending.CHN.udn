@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:Blending Gameplay and Sequencer Animation
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:混合游戏玩法与Sequencer动画
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:Illustrates how you can blend animation smoothly from gameplay into a Level Sequence based animation. 
+Description:介绍如何将游戏玩法的动画平滑地混合进关卡序列动画中。 
 Version: 4.17
 SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo
@@ -12,12 +12,12 @@ tags:Sequencer
 tags:Animation
 type:how-to
 
-When creating your cinematic sequences, you may want to blend existing gameplay animation with animation contained inside your Level Sequence. 
-For example, a playable character walks up to a door and you want Sequencer to take over and animation the character opening up and walking through the door. 
-Or a player is controlling their character in a third person shooter and comes around a blind corner and you want to blend in a cinematic death sequence. 
-By using a combination of Sequencer, Blueprint and the Animation Blueprint you can blend whatever gameplay pose your character is in with a **Slot** animation defined by Sequencer. 
+创建过场动画序列时，可能需要将现有的游戏动画与关卡序列中包含的动画混合起来。 
+例如，一个可操作角色在游戏中走向一扇门，你希望Sequencer制作角色动画让这个角色打开门。 
+或者，一个第三人称射击游戏中的玩家正在控制其角色，但是走到了死角，你想要混入死亡过场动画序列。 
+通过结合使用Sequencer、蓝图和动画蓝图，可以将角色的任意游戏动作与Sequencer定义的 **插槽** 动画混合起来。 
 
-In this example, we take whatever gameplay pose the character is in when entering a trigger volume and blend it with a death animation inside Sequencer.
+在本示例中，我们将角色进入触发器体积时的任意游戏动作与Sequencer中的死亡动画混合起来。
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -37,37 +37,12 @@ In this example, we take whatever gameplay pose the character is in when enterin
 	[/PARAMLITERAL]
 [/OBJECT]
 
-[COMMENT:none]
- Didn't see this in the S&S but I guess we aren't doing it this way any more? 
-## Steps
+## 步骤
 
-[REGION:buttonlist]
-
-	* [](Engine\Sequencer\HowTo\GameplayAnimBlending\01_SequenceSetup "%Engine\Sequencer\HowTo\GameplayAnimBlending\01_SequenceSetup:description%")
-	* [](Engine\Sequencer\HowTo\GameplayAnimBlending\02_AnimCharacterBPs "%Engine\Sequencer\HowTo\GameplayAnimBlending\02_AnimCharacterBPs:description%")
-	* [](Engine\Sequencer\HowTo\GameplayAnimBlending\03_LevelSetup "%Engine\Sequencer\HowTo\GameplayAnimBlending\03_LevelSetup:description%")
-	* [](Engine\Sequencer\HowTo\GameplayAnimBlending\04_LevelBlueprintSetup "%Engine\Sequencer\HowTo\GameplayAnimBlending\04_LevelBlueprintSetup:description%")
-	
-[/REGION]
-
-[/COMMENT]
-
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		Steps
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"/Engine/Sequencer/HowTo/GameplayAnimBlending" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+[DIR(output:"checkpoint" parent:"/Engine/Sequencer/HowTo/GameplayAnimBlending" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Engine/Sequencer/HowTo/GameplayAnimBlending/01_SequenceSetup "%Engine/Sequencer/HowTo/GameplayAnimBlending/01_SequenceSetup:title%")
+	[单击开始](Engine/Sequencer/HowTo/GameplayAnimBlending/01_SequenceSetup "%Engine/Sequencer/HowTo/GameplayAnimBlending/01_SequenceSetup:title%")
 [/REGION]
 
 

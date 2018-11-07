@@ -81,7 +81,7 @@ namespace AutomationTool
 				{
 					if (!Document.bHasErrors)
 					{
-						UnrealBuildTool.Log.WriteLine(LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}({1}): error: {2}", File.FullName, Ex.LineNumber, Ex.Message);
+						Log.TraceError(File.FullName, Ex.LineNumber, "{0}", Ex.Message);
 						Document.bHasErrors = true;
 					}
 				}
@@ -794,12 +794,10 @@ namespace AutomationTool
 				{
 					if (Types.Length > 0 && Agent.PossibleTypes.Length > 0)
 					{
-						string[] NewTypes = Agent.PossibleTypes.Intersect(Types, StringComparer.InvariantCultureIgnoreCase).ToArray();
-						if (NewTypes.Length == 0)
+						if (Types.Length != Agent.PossibleTypes.Length || !Types.SequenceEqual(Agent.PossibleTypes, StringComparer.InvariantCultureIgnoreCase))
 						{
-							LogError(Element, "No common agent types with previous agent definition");
+							LogError(Element, "Agent types ({0}) were different than previous agent definition with types ({1}). Must either be empty or match exactly.", string.Join(",", Types), string.Join(",", Agent.PossibleTypes));
 						}
-						Agent.PossibleTypes = NewTypes;
 					}
 				}
 				else
@@ -1023,7 +1021,15 @@ namespace AutomationTool
 					// Register all the output tags in the global name table.
 					foreach(NodeOutput Output in NewNode.Outputs)
 					{
-						Graph.TagNameToNodeOutput.Add(Output.TagName, Output);
+						NodeOutput ExistingOutput;
+						if(Graph.TagNameToNodeOutput.TryGetValue(Output.TagName, out ExistingOutput))
+						{
+							LogError(Element, "Node '{0}' already has an output called '{1}'", ExistingOutput.ProducingNode.Name, Output.TagName);
+						}
+						else
+						{
+							Graph.TagNameToNodeOutput.Add(Output.TagName, Output);
+						}
 					}
 
 					// Add all the tasks
@@ -1260,21 +1266,31 @@ namespace AutomationTool
 						// Expand variables in the value
 						string ExpandedValue = ExpandProperties(Element, Attribute.Value);
 
-						// Parse it and assign it to the parameters object
-						object Value;
-						if (Parameter.ValueType.IsEnum)
+						// If it's a collection type, split it into separate values
+						if(Parameter.CollectionType == null)
 						{
-							Value = Enum.Parse(Parameter.ValueType, ExpandedValue);
-						}
-						else if (Parameter.ValueType == typeof(Boolean))
-						{
-							Value = Condition.Evaluate(ExpandedValue);
+							// Parse it and assign it to the parameters object
+							object Value = ParseValue(ExpandedValue, Parameter.ValueType);
+							Parameter.FieldInfo.SetValue(ParametersObject, Value);
 						}
 						else
 						{
-							Value = Convert.ChangeType(ExpandedValue, Parameter.ValueType);
+							// Get the collection, or create one if necessary
+							object CollectionValue = Parameter.FieldInfo.GetValue(ParametersObject);
+							if(CollectionValue == null)
+							{
+								CollectionValue = Activator.CreateInstance(Parameter.FieldInfo.FieldType);
+								Parameter.FieldInfo.SetValue(ParametersObject, CollectionValue);
+							}
+
+							// Parse the values and add them to the collection
+							List<string> ValueStrings = CustomTask.SplitDelimitedList(ExpandedValue);
+							foreach(string ValueString in ValueStrings)
+							{
+								object Value = ParseValue(ValueString, Parameter.ValueType);
+								Parameter.CollectionType.InvokeMember("Add", BindingFlags.InvokeMethod | BindingFlags.Instance | BindingFlags.Public, null, CollectionValue, new object[]{ Value });
+							}
 						}
-						Parameter.FieldInfo.SetValue(ParametersObject, Value);
 					}
 				}
 
@@ -1316,6 +1332,37 @@ namespace AutomationTool
 						}
 					}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Parse a value of the given type
+		/// </summary>
+		/// <param name="ValueText">The text to parse</param>
+		/// <param name="ValueType">Type of the value to parse</param>
+		/// <returns>Value that was parsed</returns>
+		object ParseValue(string ValueText, Type ValueType)
+		{
+			// Parse it and assign it to the parameters object
+			if (ValueType.IsEnum)
+			{
+				return Enum.Parse(ValueType, ValueText);
+			}
+			else if (ValueType == typeof(Boolean))
+			{
+				return Condition.Evaluate(ValueText);
+			}
+			else if (ValueType == typeof(FileReference))
+			{
+				return CustomTask.ResolveFile(ValueText);
+			}
+			else if (ValueType == typeof(DirectoryReference))
+			{
+				return CustomTask.ResolveDirectory(ValueText);
+			}
+			else
+			{
+				return Convert.ChangeType(ValueText, ValueType);
 			}
 		}
 

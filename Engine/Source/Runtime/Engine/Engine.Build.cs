@@ -11,7 +11,7 @@ public class Engine : ModuleRules
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
-		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
+        PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -25,6 +25,7 @@ public class Engine : ModuleRules
 			new string[] {
 				"TargetPlatform",
 				"ImageWrapper",
+				"ImageWriteQueue",
 				"HeadMountedDisplay",
 				"EyeTracker",
 				"MRMesh",
@@ -71,6 +72,7 @@ public class Engine : ModuleRules
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
+				"Sockets",
 				"UtilityShaders",
 				"AssetRegistry", // Here until FAssetData is moved to engine
 				"EngineMessages",
@@ -79,8 +81,9 @@ public class Engine : ModuleRules
 				"GameplayTags",
 				"DatabaseSupport",
 				"PacketHandler",
-                "AudioPlatformConfiguration",
+				"AudioPlatformConfiguration",
 				"MeshDescription",
+				"PakFile",
 			}
 		);
 
@@ -88,7 +91,6 @@ public class Engine : ModuleRules
 			new string[] {
 				"AppFramework",
 				"Networking",
-				"Sockets",
 				"Landscape",
 				"UMG",
 				"Projects",
@@ -96,11 +98,13 @@ public class Engine : ModuleRules
 				"CinematicCamera",
 				"Analytics",
 				"AnalyticsET",
-			}
+                //"CrunchCompression"
+            }
 		);
 
 		DynamicallyLoadedModuleNames.Add("EyeTracker");
 
+		
 		if (Target.bUseXGEController &&
 			Target.Type == TargetType.Editor &&
 			(Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32))
@@ -170,9 +174,9 @@ public class Engine : ModuleRules
 		CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
 		CircularlyReferencedDependentModules.Add("CinematicCamera");
 
-		// The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
-		// and needs to be listed in an always-included module in order to be compiled into standalone games
-		DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
+        // The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
+        // and needs to be listed in an always-included module in order to be compiled into standalone games
+        DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
         
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
@@ -219,6 +223,8 @@ public class Engine : ModuleRules
 			if (Target.Type != TargetType.Server)
 			{
 				PrivateIncludePathModuleNames.Add("MeshUtilities");
+				PrivateIncludePathModuleNames.Add("MeshUtilitiesCommon");
+
 				DynamicallyLoadedModuleNames.Add("MeshUtilities");
 
 				PrivateDependencyModuleNames.AddRange(
@@ -340,8 +346,9 @@ public class Engine : ModuleRules
 			PrivateIncludePathModuleNames.Add("PIEPreviewDeviceProfileSelector");
 		}
 
-		SetupModulePhysXAPEXSupport(Target);
-		if(Target.bCompilePhysX && (Target.bBuildEditor || Target.bCompileAPEX))
+		SetupModulePhysicsSupport(Target);
+		
+		if (Target.bCompilePhysX && (Target.bBuildEditor || Target.bCompileAPEX))
 		{
 			DynamicallyLoadedModuleNames.Add("PhysXCooking");
 		}
@@ -426,7 +433,7 @@ public class Engine : ModuleRules
 		PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
 
         // Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
-        if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
+    if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			RuntimeDependencies.Add("$(EngineDir)/Content/Stats/...", StagedFileType.UFS);
 		}

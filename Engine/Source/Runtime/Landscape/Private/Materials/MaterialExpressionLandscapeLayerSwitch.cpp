@@ -90,13 +90,29 @@ void UMaterialExpressionLandscapeLayerSwitch::GetCaption(TArray<FString>& OutCap
 	OutCaptions.Add(TEXT("Layer Switch"));
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+bool UMaterialExpressionLandscapeLayerSwitch::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
+}
+
 #endif // WITH_EDITOR
 
-void UMaterialExpressionLandscapeLayerSwitch::Serialize(FArchive& Ar)
+void UMaterialExpressionLandscapeLayerSwitch::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() < VER_UE4_FIX_TERRAIN_LAYER_SWITCH_ORDER)
+	if (Record.GetUnderlyingArchive().UE4Ver() < VER_UE4_FIX_TERRAIN_LAYER_SWITCH_ORDER)
 	{
 		Swap(LayerUsed, LayerNotUsed);
 	}

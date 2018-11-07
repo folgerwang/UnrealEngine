@@ -20,6 +20,7 @@
 #include "Sound/SoundNodeRandom.h"
 #include "GameFramework/GameUserSettings.h"
 #include "AudioCompressionSettingsUtils.h"
+#include "AudioThread.h"
 #if WITH_EDITOR
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "SoundCueGraph/SoundCueGraphNode.h"
@@ -77,14 +78,11 @@ void USoundCue::CacheAggregateValues()
 
 		Duration = FirstNode->GetDuration();
 
+		MaxDistance = FirstNode->GetMaxDistance();
+		// If no sound cue nodes overrode the max distance, we need to check the base attenuation
 		if (MaxDistance == 0.0f)
 		{
-			MaxDistance = FirstNode->GetMaxDistance();
-			// If no sound cue nodes overrode the max distance, we need to check the base attenuation
-			if (MaxDistance == 0.0f)
-			{
-				MaxDistance = USoundBase::GetMaxDistance();
-			}
+			MaxDistance = USoundBase::GetMaxDistance();
 		}
 
 		bHasDelayNode = FirstNode->HasDelayNode();
@@ -93,31 +91,33 @@ void USoundCue::CacheAggregateValues()
 	}
 }
 
-void USoundCue::Serialize(FArchive& Ar)
+void USoundCue::Serialize(FStructuredArchive::FRecord Record)
 {
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
 	// Always force the duration to be updated when we are saving or cooking
-	if (Ar.IsSaving() || Ar.IsCooking())
+	if (UnderlyingArchive.IsSaving() || UnderlyingArchive.IsCooking())
 	{
 		Duration = (FirstNode ? FirstNode->GetDuration() : 0.f);
 		CacheAggregateValues();
 	}
 
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
+	if (UnderlyingArchive.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
 	{
-		FStripDataFlags StripFlags(Ar);
+		FStripDataFlags StripFlags(Record.EnterField(FIELD_NAME_TEXT("SoundCueStripFlags")));
 #if WITH_EDITORONLY_DATA
 		if (!StripFlags.IsEditorDataStripped())
 		{
-			Ar << SoundCueGraph;
+			Record << NAMED_FIELD(SoundCueGraph);
 		}
 #endif
 	}
 #if WITH_EDITOR
 	else
 	{
-		Ar << SoundCueGraph;
+		Record << NAMED_FIELD(SoundCueGraph);
 	}
 #endif
 }
@@ -157,6 +157,16 @@ void USoundCue::PostLoad()
 	}
 
 	CacheAggregateValues();
+}
+
+bool USoundCue::CanBeClusterRoot() const
+{
+	return false;
+}
+
+bool USoundCue::CanBeInCluster() const
+{
+	return false;
 }
 
 void USoundCue::OnPostEngineInit()
@@ -298,18 +308,25 @@ bool USoundCue::FindPathToNode(const UPTRINT NodeHashToFind, TArray<USoundNode*>
 
 void USoundCue::StaticAudioQualityChanged(int32 NewQualityLevel)
 {
-	CachedQualityLevel = NewQualityLevel;
+	if (CachedQualityLevel != NewQualityLevel)
+	{
+		FAudioCommandFence AudioFence;
+		AudioFence.BeginFence();
+		AudioFence.Wait();
 
-	if (GEngine)
-	{
-		for (TObjectIterator<USoundCue> SoundCueIt; SoundCueIt; ++SoundCueIt)
+		CachedQualityLevel = NewQualityLevel;
+
+		if (GEngine)
 		{
-			SoundCueIt->AudioQualityChanged();
+			for (TObjectIterator<USoundCue> SoundCueIt; SoundCueIt; ++SoundCueIt)
+			{
+				SoundCueIt->AudioQualityChanged();
+			}
 		}
-	}
-	else
-	{
-		// PostLoad should have set up the delegate to fire EvaluateNodes once GEngine is initialized
+		else
+		{
+			// PostLoad should have set up the delegate to fire EvaluateNodes once GEngine is initialized
+		}
 	}
 }
 

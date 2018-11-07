@@ -40,7 +40,7 @@ public:
 	/** Constructor */
 	SImage()
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 

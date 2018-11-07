@@ -125,6 +125,7 @@ void SWebBrowser::Construct(const FArguments& InArgs, const TSharedPtr<IWebBrows
 				.OnDismissAllDialogs(OnDismissAllDialogs)
 				.Visibility(this, &SWebBrowser::GetViewportVisibility)
 				.OnSuppressContextMenu(InArgs._OnSuppressContextMenu)
+				.OnDragWindow(InArgs._OnDragWindow)
 			]
 			+ SOverlay::Slot()
 			.HAlign(HAlign_Center)

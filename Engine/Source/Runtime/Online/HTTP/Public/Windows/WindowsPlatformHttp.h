@@ -33,7 +33,6 @@ public:
 	static IHttpRequest* ConstructRequest();
 
 	/**
-
 	 * @return the mime type for the file.
 	 */
 	static FString GetMimeType(const FString& FilePath);

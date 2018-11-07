@@ -30,7 +30,7 @@ FItemPropertyNode::~FItemPropertyNode(void)
 uint8* FItemPropertyNode::GetValueBaseAddress( uint8* StartAddress )
 {
 	UProperty* MyProperty = GetProperty();
-	if( MyProperty )
+	if( MyProperty && ParentNodeWeakPtr.IsValid())
 	{
 		UArrayProperty* OuterArrayProp = Cast<UArrayProperty>(MyProperty->GetOuter());
 		USetProperty* OuterSetProp = Cast<USetProperty>(MyProperty->GetOuter());
@@ -307,7 +307,8 @@ void FItemPropertyNode::InitChildNodes()
 	else if( StructProperty )
 	{
 		// Expand struct.
-		for( TFieldIterator<UProperty> It(StructProperty->Struct); It; ++It )
+		TArray<UProperty*> StructMembers;
+		for (TFieldIterator<UProperty> It(StructProperty->Struct); It; ++It)
 		{
 			UProperty* StructMember = *It;
 			static const FName Name_InlineEditConditionToggle("InlineEditConditionToggle");
@@ -316,30 +317,37 @@ void FItemPropertyNode::InitChildNodes()
 			const bool bShowIfDisableEditOnInstance = !StructMember->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
 			if (bShouldShowHiddenProperties || (bShowIfEditableProperty && !bOnlyShowAsInlineEditCondition && bShowIfDisableEditOnInstance))
 			{
-				TSharedPtr<FItemPropertyNode> NewItemNode( new FItemPropertyNode );//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
+				StructMembers.Add(StructMember);
+			}
+		}
+
+		PropertyEditorHelpers::OrderPropertiesFromMetadata(StructMembers);
+
+		for (UProperty* StructMember : StructMembers)
+		{
+			TSharedPtr<FItemPropertyNode> NewItemNode( new FItemPropertyNode );//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
 		
-				FPropertyNodeInitParams InitParams;
-				InitParams.ParentNode = SharedThis(this);
-				InitParams.Property = StructMember;
-				InitParams.ArrayOffset = 0;
-				InitParams.ArrayIndex = INDEX_NONE;
-				InitParams.bAllowChildren = true;
-				InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
-				InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
+			FPropertyNodeInitParams InitParams;
+			InitParams.ParentNode = SharedThis(this);
+			InitParams.Property = StructMember;
+			InitParams.ArrayOffset = 0;
+			InitParams.ArrayIndex = INDEX_NONE;
+			InitParams.bAllowChildren = true;
+			InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
+			InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
 
-				NewItemNode->InitNode( InitParams );
-				AddChildNode(NewItemNode);
+			NewItemNode->InitNode( InitParams );
+			AddChildNode(NewItemNode);
 
-				if ( FPropertySettings::Get().ExpandDistributions() == false)
+			if ( FPropertySettings::Get().ExpandDistributions() == false)
+			{
+				// auto-expand distribution structs
+				if ( Cast<UObjectProperty>(StructMember) || Cast<UWeakObjectProperty>(StructMember) || Cast<ULazyObjectProperty>(StructMember) || Cast<USoftObjectProperty>(StructMember) )
 				{
-					// auto-expand distribution structs
-					if ( Cast<UObjectProperty>(StructMember) || Cast<UWeakObjectProperty>(StructMember) || Cast<ULazyObjectProperty>(StructMember) || Cast<USoftObjectProperty>(StructMember) )
+					const FName StructName = StructProperty->Struct->GetFName();
+					if (StructName == NAME_RawDistributionFloat || StructName == NAME_RawDistributionVector)
 					{
-						const FName StructName = StructProperty->Struct->GetFName();
-						if (StructName == NAME_RawDistributionFloat || StructName == NAME_RawDistributionVector)
-						{
-							NewItemNode->SetNodeFlags(EPropertyNodeFlags::Expanded, true);
-						}
+						NewItemNode->SetNodeFlags(EPropertyNodeFlags::Expanded, true);
 					}
 				}
 			}

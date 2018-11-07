@@ -25,12 +25,12 @@ void FOnlineAsyncTaskSteamReadSharedFile::Tick()
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Steam user not logged in."));
+				UE_LOG_ONLINE_CLOUD(Warning, TEXT("Steam user not logged in."));
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Steam remote storage API disabled."));
+			UE_LOG_ONLINE_CLOUD(Warning, TEXT("Steam remote storage API disabled."));
 		}
 
 		bInit = true;

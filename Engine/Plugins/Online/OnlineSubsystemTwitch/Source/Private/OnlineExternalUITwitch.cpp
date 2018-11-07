@@ -69,7 +69,7 @@ bool FOnlineExternalUITwitch::ShowLoginUI(const int ControllerIndex, bool bShowO
 
 	if (!bStarted)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("%s"), *ErrorStr);
+		UE_LOG_ONLINE_EXTERNALUI(Warning, TEXT("%s"), *ErrorStr);
 
 		FOnlineError Error;
 		Error.SetFromErrorCode(MoveTemp(ErrorStr));
@@ -128,7 +128,7 @@ FLoginFlowResult FOnlineExternalUITwitch::ParseRedirectResult(const FTwitchLogin
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("FOnlineExternalUITwitch::ParseRedirectResult: State does not match (received=%s, expected=%s)"), **State, *CurrentLoginNonce);
+			UE_LOG_ONLINE_EXTERNALUI(Warning, TEXT("FOnlineExternalUITwitch::ParseRedirectResult: State does not match (received=%s, expected=%s)"), **State, *CurrentLoginNonce);
 		}
 	}
 
@@ -188,7 +188,7 @@ void FOnlineExternalUITwitch::OnLoginUIComplete(const FLoginFlowResult& Result, 
 
 void FOnlineExternalUITwitch::OnExternalLoginFlowComplete(const FLoginFlowResult& Result, int ControllerIndex, const FOnLoginUIClosedDelegate Delegate)
 {
-	UE_LOG_ONLINE(Log, TEXT("OnExternalLoginFlowComplete %s"), *Result.ToDebugString());
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("OnExternalLoginFlowComplete %s"), *Result.ToDebugString());
 	OnLoginUIComplete(Result, ControllerIndex, Delegate);
 }
 
@@ -196,7 +196,7 @@ void FOnlineExternalUITwitch::OnConsoleShowWebUrlComplete(const FString& FinalUr
 {
 	FLoginFlowResult Result = OnLoginRedirectURL(FinalUrl);
 
-	UE_LOG_ONLINE(Log, TEXT("OnConsoleShowWebUrlComplete %s"), *Result.ToDebugString());
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("OnConsoleShowWebUrlComplete %s"), *Result.ToDebugString());
 	OnLoginUIComplete(Result, ControllerIndex, Delegate);
 }
 

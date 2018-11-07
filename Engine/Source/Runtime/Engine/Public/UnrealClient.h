@@ -90,6 +90,11 @@ public:
 
 	ENGINE_API bool ReadLinearColorPixelsPtr(FLinearColor* OutImageBytes, FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(RCM_MinMax, CubeFace_MAX), FIntRect InRect = FIntRect(0, 0, 0, 0));
 
+	/**
+	 * Returns the GPU nodes on which to render this rendertarget.
+	 **/
+	ENGINE_API virtual FRHIGPUMask GetGPUMask(FRHICommandListImmediate& RHICmdList) const { return FRHIGPUMask::GPU0(); }
+
 protected:
 
 	FTexture2DRHIRef RenderTargetTextureRHI;
@@ -330,6 +335,7 @@ public:
 	virtual bool IsPenActive() { return false; }
 	virtual void SetMouse(int32 x, int32 y) = 0;
 	virtual bool IsFullscreen()	const { return WindowMode == EWindowMode::Fullscreen || WindowMode == EWindowMode::WindowedFullscreen; }
+	virtual bool IsExclusiveFullscreen() const { return WindowMode == EWindowMode::Fullscreen; }
 	virtual EWindowMode::Type GetWindowMode()	const { return WindowMode; }
 	virtual void ProcessInput( float DeltaTime ) = 0;
 
@@ -373,6 +379,12 @@ public:
 	ENGINE_API virtual void	EnqueueBeginRenderFrame(const bool bShouldPresent);
 
 	/**
+	 *	Ends a rendering frame. Called from the game thread.
+	 *	@param bPresent		Whether the frame should be presented to the screen
+	 */
+	ENGINE_API virtual void EnqueueEndRenderFrame(const bool bLockToVsync, const bool bShouldPresent);
+
+	/**
 	 *	Starts a new rendering frame. Called from the rendering thread.
 	 */
 	ENGINE_API virtual void	BeginRenderFrame(FRHICommandListImmediate& RHICmdList);
@@ -383,6 +395,11 @@ public:
 	 *	@param bLockToVsync	Whether the GPU should block until VSYNC before presenting
 	 */
 	ENGINE_API virtual void	EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool bPresent, bool bLockToVsync);
+
+	/**
+	 * Returns the GPU nodes on which to render this viewport.
+	 **/
+	ENGINE_API virtual FRHIGPUMask GetGPUMask(FRHICommandListImmediate& RHICmdList) const override;
 
 	/**
 	 * @return whether or not this Controller has a keyboard available to be used
@@ -562,12 +579,6 @@ public:
 	/** Returns dimensions of RenderTarget texture. Can be called on a game thread. */
 	virtual FIntPoint GetRenderTargetTextureSizeXY() const { return GetSizeXY(); }
 
-	/** Causes this viewport to flush rendering commands once it has been drawn */
-	void IncrementFlushOnDraw() { ++FlushOnDrawCount; }
-
-	/** Decrements a previously incremented count that caused this viewport to flush rendering commands when it was drawn */
-	void DecrementFlushOnDraw() { check(FlushOnDrawCount); --FlushOnDrawCount; }
-
 protected:
 
 	/** The viewport's client. */
@@ -674,9 +685,6 @@ protected:
 
 	/** If true this viewport is an FSlateSceneViewport */
 	uint32 bIsSlateViewport : 1;
-
-	/** The number of pending calls to IncrementFlushOnDraw. Non-zero implies this viewport will flush rendering commands when it is drawn. */
-	uint32 FlushOnDrawCount;
 
 	/** true if we should draw game viewports (has no effect on Editor viewports) */
 	ENGINE_API static bool bIsGameRenderingEnabled;

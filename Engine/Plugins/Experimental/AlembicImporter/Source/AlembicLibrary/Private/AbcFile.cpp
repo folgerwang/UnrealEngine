@@ -170,11 +170,8 @@ EAbcImportError FAbcFile::Import(UAbcImportSettings* InImportSettings)
 	SecondsPerFrame = TimeStep;
 	ImportLength = FrameSpan * TimeStep;
 
-	// If the user opted to skip empty frames out of the specified frame range, calculate the time offset
-	if (SamplingSettings.bSkipEmpty)
-	{
-		ImportTimeOffset = StartFrameIndex * SecondsPerFrame;
-	}
+	// Calculate time offset from start of import animation range
+	ImportTimeOffset = StartFrameIndex * SecondsPerFrame;
 
 	// Read first-frames for both the transforms and poly meshes
 
@@ -458,6 +455,11 @@ const float FAbcFile::GetImportTimeOffset() const
 const float FAbcFile::GetImportLength() const
 {
 	return ImportLength;
+}
+
+const int32 FAbcFile::GetFramerate() const
+{
+	return FramesPerSecond;
 }
 
 const FBoxSphereBounds& FAbcFile::GetArchiveBounds() const

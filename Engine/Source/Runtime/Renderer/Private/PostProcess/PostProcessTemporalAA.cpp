@@ -78,7 +78,7 @@ public:
 	FShaderParameter HistoryBufferSize;
 	FShaderParameter HistoryBufferUVMinMax;
 	FShaderParameter MaxViewportUVAndSvPositionToViewportUV;
-	FShaderParameter OneOverHistoryPreExposure;
+	FShaderParameter PreExposureSettings;
 	FShaderParameter ViewportUVToInputBufferUV;
 
 	void Bind(const FShader::CompiledShaderInitializerType& Initializer)
@@ -100,7 +100,7 @@ public:
 		HistoryBufferSize.Bind(ParameterMap, TEXT("HistoryBufferSize"));
 		HistoryBufferUVMinMax.Bind(ParameterMap, TEXT("HistoryBufferUVMinMax"));
 		MaxViewportUVAndSvPositionToViewportUV.Bind(ParameterMap, TEXT("MaxViewportUVAndSvPositionToViewportUV"));
-		OneOverHistoryPreExposure.Bind(ParameterMap, TEXT("OneOverHistoryPreExposure"));
+		PreExposureSettings.Bind(ParameterMap, TEXT("PreExposureSettings"));
 		ViewportUVToInputBufferUV.Bind(ParameterMap, TEXT("ViewportUVToInputBufferUV"));
 	}
 
@@ -108,7 +108,7 @@ public:
 	{
 		Ar << PostprocessParameter << SceneTextureParameters ;
 		Ar << SampleWeights << PlusWeights << DitherScale << VelocityScaling << CurrentFrameWeight << ScreenPosAbsMax << ScreenPosToHistoryBufferUV << HistoryBuffer[0] << HistoryBuffer[1] << HistoryBufferSampler[0] << HistoryBufferSampler[1] << HistoryBufferSize << HistoryBufferUVMinMax;
-		Ar << MaxViewportUVAndSvPositionToViewportUV << OneOverHistoryPreExposure << ViewportUVToInputBufferUV;
+		Ar << MaxViewportUVAndSvPositionToViewportUV << PreExposureSettings << ViewportUVToInputBufferUV;
 	}
 
 	template <typename TRHICmdList, typename TShaderRHIParamRef>
@@ -199,6 +199,7 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, CurrentFrameWeight, CVarTemporalAACurrentFrameWeight.GetValueOnRenderThread());
 
 		// Set history shader parameters.
+		if (InputHistory.IsValid())
 		{
 			FIntPoint ReferenceViewportOffset = InputHistory.ViewportRect.Min;
 			FIntPoint ReferenceViewportExtent = InputHistory.ViewportRect.Size();
@@ -258,8 +259,17 @@ public:
 			SetShaderValue(RHICmdList, ShaderRHI, MaxViewportUVAndSvPositionToViewportUV, MaxViewportUVAndSvPositionToViewportUVValue);
 		}
 
-		const float OneOverHistoryPreExposureValue = 1.f / FMath::Max<float>(SMALL_NUMBER, InputHistory.IsValid() ? InputHistory.SceneColorPreExposure : Context.View.PreExposure);
-		SetShaderValue(RHICmdList, ShaderRHI, OneOverHistoryPreExposure, OneOverHistoryPreExposureValue);
+		// Pre-exposure, One over Pre-exposure, History pre-exposure, History one over pre-exposure.
+		// DOF settings must preserve scene color range.
+		FVector4 PreExposureSettingsValue(1.f, 1.f, 1.f, 1.f);
+		if (PassParameters.Pass == ETAAPassConfig::Main)
+		{
+			PreExposureSettingsValue.X = Context.View.PreExposure;
+			PreExposureSettingsValue.Y = 1.f / FMath::Max<float>(SMALL_NUMBER, Context.View.PreExposure);
+			PreExposureSettingsValue.Z = InputHistory.IsValid() ? InputHistory.SceneColorPreExposure : Context.View.PreExposure;
+			PreExposureSettingsValue.W  = 1.f / FMath::Max<float>(SMALL_NUMBER, PreExposureSettingsValue.Z);
+		}
+		SetShaderValue(RHICmdList, ShaderRHI, PreExposureSettings, PreExposureSettingsValue);
 
 		{
 			float InvSizeX = 1.0f / float(SrcSize.X);
@@ -544,7 +554,7 @@ class FPostProcessTemporalAACS : public FGlobalShader
 
 IMPLEMENT_GLOBAL_SHADER(FPostProcessTemporalAACS, "/Engine/Private/PostProcessTemporalAA.usf", "MainCS", SF_Compute);
 
-static void TransitionShaderResources(FRenderingCompositePassContext& Context)
+static inline void TransitionPixelPassResources(FRenderingCompositePassContext& Context)
 {
 	TShaderMapRef< FPostProcessTonemapVS > VertexShader(Context.GetShaderMap());
 	VertexShader->TransitionResources(Context);
@@ -856,7 +866,8 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		// Inform MultiGPU systems that we're starting to update this resource
 		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
 
-		TransitionShaderResources(Context);
+		// make sure we transition resources before we begin the render pass on Vulkan (which happens when we call SetRenderTargets)
+		TransitionPixelPassResources(Context);
 
 		// Setup render targets.
 		{

@@ -108,10 +108,8 @@ namespace Audio
 
 	float FEarlyReflections::ProcessDelayLine(const float InSample, FDelayAPF& InAPF, FOnePoleLPF& InLPF)
 	{
-		float APFOut = 0.0f;
-		InAPF.ProcessAudio(&InSample, &APFOut);
-		float LPFOut = 0.0f;
-		InLPF.ProcessAudio(&APFOut, &LPFOut);
+		float APFOut = InAPF.ProcessAudioSample(InSample);
+		float LPFOut = InLPF.ProcessAudioSample(APFOut);
 		return LPFOut;
 	}
 
@@ -129,14 +127,12 @@ namespace Audio
 			float InputSample = InBuffer[Channel];
 
 			// Input -> PreDelay
-			float PreDelayOut = 0.0f;
-			Data[Channel].PreDelay.ProcessAudio(&InputSample, &PreDelayOut);
+			float PreDelayOut = Data[Channel].PreDelay.ProcessAudioSample(InputSample);
 
 			// PreDelay -> InputLPF
 			PreDelayOut *= Settings.Bandwidth;
 
-			float InputLPFOut = 0.0f;
-			Data[Channel].InputLPF.ProcessAudio(&PreDelayOut, &InputLPFOut);
+			float InputLPFOut = Data[Channel].InputLPF.ProcessAudioSample(PreDelayOut);
 
 			// Process each delay line input
 
@@ -330,31 +326,25 @@ namespace Audio
 			// INPUT DIFFUSION
 
 			// InputSample -> PreDelay
-			float PreDelayOut = 0.0f;
-			PreDelay.ProcessAudio(&InputSample, &PreDelayOut);
+			float PreDelayOut = PreDelay.ProcessAudioSample(InputSample);
 
 			// Scale by bandwidth
 			PreDelayOut *= Settings.Bandwidth;
 
 			// PreDelay -> InputLPFOut
-			float InputLPFOut = 0.0f;
-			InputLPF.ProcessAudio(&PreDelayOut, &InputLPFOut);
+			float InputLPFOut = InputLPF.ProcessAudioSample(PreDelayOut);
 
 			// InputLPFOut -> APF1
-			float APF1Out = 0.0f;
-			APF1.ProcessAudio(&InputLPFOut, &APF1Out);
+			float APF1Out = APF1.ProcessAudioSample(InputLPFOut);
 
 			// APF1 -> APF2
-			float APF2Out = 0.0f;
-			APF2.ProcessAudio(&APF1Out, &APF2Out);
+			float APF2Out = APF2.ProcessAudioSample(APF1Out);;
 
 			// APF2 -> APF3
-			float APF3Out = 0.0f;
-			APF3.ProcessAudio(&APF2Out, &APF3Out);
+			float APF3Out = APF3.ProcessAudioSample(APF2Out);
 
 			// APF3 -> APF4
-			float APF4Out = 0.0f;
-			APF4.ProcessAudio(&APF3Out, &APF4Out);
+			float APF4Out = APF4.ProcessAudioSample(APF3Out);
 
 			// -------------------
 			// Modulation
@@ -378,30 +368,25 @@ namespace Audio
 			float RightPlateInput = APF4Out + UnderflowClamp(LeftPlate.PreviousSample);
 
 			// Input -> ModulatedAPF
-			float RightPlateModulatedAPFOut = 0.0f;
-			RightPlate.ModulatedAPF.ProcessAudio(&RightPlateInput, &RightPlateModulatedAPFOut);
+			float RightPlateModulatedAPFOut = RightPlate.ModulatedAPF.ProcessAudioSample(RightPlateInput);
 
 			// ModulatedAPF -> Delay1
-			float RightPlateDelay1Out = 0.0f;
-			RightPlate.Delay1.ProcessAudio(&RightPlateModulatedAPFOut, &RightPlateDelay1Out);
+			float RightPlateDelay1Out = RightPlate.Delay1.ProcessAudioSample(RightPlateModulatedAPFOut);
 
 			// Apply dampening
 			RightPlateDelay1Out *= (1.0f - Settings.Dampening);
 
 			// Delay1 -> LPF
-			float RightPlateLPFOut = 0.0f;
-			RightPlate.LPF.ProcessAudio(&RightPlateDelay1Out, &RightPlateLPFOut);
+			float RightPlateLPFOut = RightPlate.LPF.ProcessAudioSample(RightPlateDelay1Out);
 
 			// Apply decay
 			RightPlateLPFOut *= (1.0f - Settings.Decay);
 
 			// LPF -> APF
-			float RightPlateAPFOut = 0.0f;
-			RightPlate.APF.ProcessAudio(&RightPlateLPFOut, &RightPlateAPFOut);
+			float RightPlateAPFOut = RightPlate.APF.ProcessAudioSample(RightPlateLPFOut);
 
 			// APF-> Delay2
-			float RightPlateDelay2Out = 0.0f;
-			RightPlate.Delay2.ProcessAudio(&RightPlateAPFOut, &RightPlateDelay2Out);
+			float RightPlateDelay2Out = RightPlate.Delay2.ProcessAudioSample(RightPlateAPFOut);
 
 			// Write to PreviousSample for feedback
 			RightPlate.PreviousSample = (1.0f - Settings.Decay) * RightPlateDelay2Out;
@@ -413,30 +398,25 @@ namespace Audio
 			float LeftPlateInput = APF4Out + UnderflowClamp(RightPlate.PreviousSample);
 
 			// Input -> ModulatedAPF
-			float LeftPlateModulatedAPFOut = 0.0f;
-			LeftPlate.ModulatedAPF.ProcessAudio(&LeftPlateInput, &LeftPlateModulatedAPFOut);
+			float LeftPlateModulatedAPFOut = LeftPlate.ModulatedAPF.ProcessAudioSample(LeftPlateInput);
 
 			// ModulatedAPF -> Delay1
-			float LeftPlateDelay1Out = 0.0f;
-			LeftPlate.Delay1.ProcessAudio(&LeftPlateModulatedAPFOut, &LeftPlateDelay1Out);
+			float LeftPlateDelay1Out = LeftPlate.Delay1.ProcessAudioSample(LeftPlateModulatedAPFOut);
 
 			// Apply dampening
 			LeftPlateDelay1Out *= (1.0f - Settings.Dampening);
 
 			// Delay1 -> LPF
-			float LeftPlateLPFOut = 0.0f;
-			LeftPlate.LPF.ProcessAudio(&LeftPlateDelay1Out, &LeftPlateLPFOut);
+			float LeftPlateLPFOut = LeftPlate.LPF.ProcessAudioSample(LeftPlateDelay1Out);
 
 			// Apply decay
 			LeftPlateLPFOut *= (1.0f - Settings.Decay);
 
 			// LPF -> APF
-			float LeftPlateAPFOut = 0.0f;
-			LeftPlate.APF.ProcessAudio(&LeftPlateLPFOut, &LeftPlateAPFOut);
-
+			float LeftPlateAPFOut = LeftPlate.APF.ProcessAudioSample(LeftPlateLPFOut);
+			
 			// APF-> Delay2
-			float LeftPlateDelay2Out = 0.0f;
-			LeftPlate.Delay2.ProcessAudio(&LeftPlateAPFOut, &LeftPlateDelay2Out);
+			float LeftPlateDelay2Out = LeftPlate.Delay2.ProcessAudioSample(LeftPlateAPFOut);
 
 			// Write to PreviousSample for feedback
 			LeftPlate.PreviousSample = (1.0f - Settings.Decay) * LeftPlateDelay2Out;

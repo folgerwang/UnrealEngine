@@ -59,7 +59,7 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 	check( MeshDescription );
 
 	// Add all vertices
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 	for( const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs() )
 	{
 		WireframeMesh->AddVertex( VertexID );
@@ -67,8 +67,8 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 	}
 
 	// Add all edges
-	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
-	const TEdgeAttributeArray<bool>& EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
+	TEdgeAttributesConstRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsHard );
+	TEdgeAttributesConstRef<bool> EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsUVSeam );
 	for( const FEdgeID EdgeID : MeshDescription->Edges().GetElementIDs() )
 	{
 		WireframeMesh->AddEdge( EdgeID );
@@ -78,7 +78,7 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 
 	// Add all polygons and edge instances
 	// @todo mesheditor wireframe: holes not yet handled
-	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
+	TPolygonAttributesConstRef<FVector> PolygonNormals = MeshDescription->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Normal );
 	for( const FPolygonID PolygonID : EditableMesh->GetMeshDescription()->Polygons().GetElementIDs() )
 	{
 		WireframeMesh->AddPolygon( PolygonID );
@@ -99,7 +99,7 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMes
 	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
-	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
+	TPolygonAttributesConstRef<FVector> PolygonNormals = MeshDescription->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Normal );
 	for( const FPolygonID PolygonID : EditableMesh->PolygonsPendingNewTangentBasis )
 	{
 		WireframeMesh->SetPolygonNormal( PolygonID, PolygonNormals[ PolygonID ] );
@@ -202,7 +202,7 @@ void UMeshEditorStaticMeshAdapter::OnCreateVertices( const UEditableMesh* Editab
 	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 	for( const FVertexID VertexID : VertexIDs )
 	{
 		WireframeMesh->AddVertex( VertexID );
@@ -230,8 +230,8 @@ void UMeshEditorStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableM
 	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
-	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
-	const TEdgeAttributeArray<bool>& EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
+	TEdgeAttributesConstRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsHard );
+	TEdgeAttributesConstRef<bool> EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsUVSeam );
 
 	for( const FEdgeID EdgeID : EdgeIDs )
 	{
@@ -278,8 +278,8 @@ void UMeshEditorStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* Edit
 	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
-	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
-	const TEdgeAttributeArray<bool>& EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
+	TEdgeAttributesConstRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsHard );
+	TEdgeAttributesConstRef<bool> EdgeUVSeams = MeshDescription->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsUVSeam );
 
 	if( Attribute.AttributeName == MeshAttribute::Edge::IsHard ||
 		Attribute.AttributeName == MeshAttribute::Edge::IsUVSeam )
@@ -294,7 +294,7 @@ void UMeshEditorStaticMeshAdapter::OnCreatePolygons( const UEditableMesh* Editab
 	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
-	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
+	TPolygonAttributesConstRef<FVector> PolygonNormals = MeshDescription->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Normal );
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
 		WireframeMesh->AddPolygon( PolygonID );

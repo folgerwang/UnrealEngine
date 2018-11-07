@@ -25,6 +25,7 @@
 #endif
 
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 #include "SkeletalRenderPublic.h"
 
 DECLARE_CYCLE_STAT(TEXT("Compute Clothing Normals"), STAT_NvClothComputeNormals, STATGROUP_Physics);
@@ -568,13 +569,18 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 		CurrentCloth->setTranslation(U2PVector(RootBoneWorldTransform.GetTranslation()));
 		CurrentCloth->setRotation(U2PQuat(RootBoneWorldTransform.GetRotation()));
 
-		if(Actor.bUseGravityOverride)
+		FClothConfig& ClothConfig = Actor.AssetCreatedFrom->ClothConfig;
+		if (ClothConfig.bUseGravityOverride)
 		{
-			CurrentCloth->setGravity(U2PVector(Actor.AssetCreatedFrom->ClothConfig.GravityScale * Actor.GravityOverride));
+			CurrentCloth->setGravity(U2PVector(ClothConfig.GravityOverride));
+		}
+		else if(Actor.bUseGravityOverride)
+		{
+			CurrentCloth->setGravity(U2PVector(ClothConfig.GravityScale * Actor.GravityOverride));
 		}
 		else
 		{
-			CurrentCloth->setGravity(U2PVector(Actor.AssetCreatedFrom->ClothConfig.GravityScale * NvContext->WorldGravity));
+			CurrentCloth->setGravity(U2PVector(ClothConfig.GravityScale * NvContext->WorldGravity));
 		}
 
 		Actor.UpdateMotionConstraints(NvContext);
@@ -596,9 +602,10 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 					{
 						const FTransform& BoneTransform = NvContext->BoneTransforms[MappedIndex];
 						SphereLocation = BoneTransform.TransformPosition(Sphere.LocalPosition);
-						SphereLocation = RootBoneTransform.InverseTransformPosition(SphereLocation);
 					}
 				}
+
+				SphereLocation = RootBoneTransform.InverseTransformPosition(SphereLocation);
 
 				Scratch.SphereData.Add(physx::PxVec4(U2PVector(SphereLocation), Sphere.Radius + Actor.CollisionThickness));
 			}

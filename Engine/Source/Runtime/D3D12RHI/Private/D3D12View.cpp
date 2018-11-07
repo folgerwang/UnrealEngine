@@ -181,10 +181,8 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FStructu
 		}
 		else if (bUINT8Access)
 		{
-			SRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			SRVDesc.Format = DXGI_FORMAT_R8_UINT;
 			Stride = 1;
-			SRVDesc.Buffer.StructureByteStride = Stride;
 		}
 		else
 		{
@@ -202,7 +200,7 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FStructu
 
 FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
 {
-	struct FD3D12InitializeVertexBufferSRVRHICommand : public FRHICommand<FD3D12InitializeVertexBufferSRVRHICommand>
+	struct FD3D12InitializeVertexBufferSRVRHICommand final : public FRHICommand<FD3D12InitializeVertexBufferSRVRHICommand>
 	{
 		FD3D12VertexBuffer* VertexBuffer;
 		FD3D12ShaderResourceView* SRV;
@@ -255,9 +253,9 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexB
 		VertexBuffer->SetDynamicSRV(ShaderResourceView);
 
 		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-		if (!RHICmdList.Bypass() && (VertexBuffer->GetUsage() & BUF_AnyDynamic))
+		if (ShouldDeferBufferLockOperation(&RHICmdList) && (VertexBuffer->GetUsage() & BUF_AnyDynamic))
 		{
-			// We have to defer the SRV initialization to the RHI thread if the buffer is dynamic, as dynamic buffers can be renamed.
+			// We have to defer the SRV initialization to the RHI thread if the buffer is dynamic (and RHI threading is enabled), as dynamic buffers can be renamed.
 			// Also insert an RHI thread fence to prevent parallel translate tasks running until this command has completed.
 			new (RHICmdList.AllocCommand<FD3D12InitializeVertexBufferSRVRHICommand>()) FD3D12InitializeVertexBufferSRVRHICommand(VertexBuffer, ShaderResourceView, Stride, Format);
 			RHICmdList.RHIThreadFence(true);

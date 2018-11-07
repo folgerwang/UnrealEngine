@@ -72,7 +72,6 @@
 #include "Factories/CurveFactory.h"
 #include "Factories/CurveImportFactory.h"
 #include "Factories/DataAssetFactory.h"
-#include "Factories/DataTableFactory.h"
 #include "Factories/DialogueVoiceFactory.h"
 #include "Factories/DialogueWaveFactory.h"
 #include "Factories/EnumFactory.h"
@@ -255,6 +254,7 @@
 #include "MaterialEditorModule.h"
 #include "Factories/CurveLinearColorAtlasFactory.h"
 #include "Curves/CurveLinearColorAtlas.h"
+#include "Rendering/SkeletalMeshModel.h"
 
 #include "Misc/App.h"
 
@@ -881,11 +881,6 @@ UObject* ULevelFactory::FactoryCreateText
 						SpawnInfo.Name = ActorUniqueName;
 						SpawnInfo.Template = Archetype;
 						SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-						if (GEditor->bIsSimulatingInEditor)
-						{
-							// During SIE, we don't want to run construction scripts on a BP until it is completely constructed
-							SpawnInfo.bDeferConstruction = true;
-						}
 						AActor* NewActor = World->SpawnActor( TempClass, nullptr, nullptr, SpawnInfo );
 						
 						if( NewActor )
@@ -2008,19 +2003,19 @@ UObject* UCurveLinearColorAtlasFactory::FactoryCreateNew(UClass* Class, UObject*
 	}
 
 	UCurveLinearColorAtlas* Object = NewObject<UCurveLinearColorAtlas>(InParent, Class, Name, Flags);
-	Object->Source.Init2DWithMipChain(Width, Height, TSF_BGRA8);
-	Object->SrcData.AddUninitialized(Object->TextureSize*Object->TextureSize);
-	uint8* MipData = Object->Source.LockMip(0);
+	Object->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
+	const int32 TextureDataSize = Object->Source.CalcMipSize(0);
+	Object->SrcData.AddUninitialized(TextureDataSize);
+	uint32* TextureData = (uint32*)Object->Source.LockMip(0);
 	for (uint32 y = 0; y < Object->TextureSize; y++)
 	{
 		// Create base mip for the texture we created.
-		FColor Src = FLinearColor::White.ToFColor(false);
 		for (uint32 x = 0; x < Object->TextureSize; x++)
 		{
-			Object->SrcData[x*Object->TextureSize + y] = Src;
+			Object->SrcData[x*Object->TextureSize + y] = FLinearColor::White;
 		}
 	}
-	FMemory::Memcpy(MipData, Object->SrcData.GetData(), Object->TextureSize*Object->TextureSize * sizeof(FColor));
+	FMemory::Memcpy(TextureData, Object->SrcData.GetData(), TextureDataSize);
 	Object->Source.UnlockMip(0);
 
 	Object->UpdateResource();
@@ -2949,13 +2944,17 @@ public:
 	/* returns False if requires further processing because entire row is filled with zeroed alpha values */
 	bool ProcessHorizontalRow(int32 Y)
 	{
+		const uint32 White = FColor::White.DWColor();
+
 		// Left -> Right
 		int32 NumLeftmostZerosToProcess = 0;
 		const PixelDataType* FillColor = nullptr;
 		for (int32 X = 0; X < TextureWidth; ++X)
 		{
 			PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
-			if (PixelData[AIdx] == 0)
+			ColorDataType* ColorData = reinterpret_cast<ColorDataType*>(PixelData);
+			// only wipe out colors that are affected by png turning valid colors white if alpha = 0
+			if (PixelData[AIdx] == 0 && *ColorData == White)
 			{
 				if (FillColor)
 				{
@@ -2966,7 +2965,6 @@ public:
 				else
 				{
 					// Mark pixel as needing fill
-					ColorDataType* ColorData = reinterpret_cast<ColorDataType*>(PixelData);
 					*ColorData = 0;
 
 					// Keep track of how many pixels to fill starting at beginning of row
@@ -4803,7 +4801,7 @@ EReimportResult::Type UFontFileImportFactory::Reimport(UObject* InObject)
 		return EReimportResult::Succeeded;
 	}
 
-	return EReimportResult::Failed;
+	return OutCanceled ? EReimportResult::Cancelled : EReimportResult::Failed;
 }
 
 int32 UFontFileImportFactory::GetPriority() const
@@ -5194,10 +5192,12 @@ EReimportResult::Type UReimportTextureFactory::Reimport( UObject* Obj )
 	else if (OutCanceled)
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import canceled"));
+		return EReimportResult::Cancelled;
 	}
 	else
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import failed"));
+		return EReimportResult::Failed;
 	}
 	
 	return EReimportResult::Succeeded;
@@ -5295,14 +5295,43 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	ReimportUI->MeshTypeToImport = FBXIT_StaticMesh;
 	ReimportUI->StaticMeshImportData->bCombineMeshes = true;
 
-	ImportOptions->OriginalMeshCopy = nullptr;
-
 	if (!ImportUI)
 	{
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	//Prevent any UI for automation, unattended and commandlet
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
+
+	if (ImportData == nullptr)
+	{
+		// An existing import data object was not found, make one here and show the options dialog
+		ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(Mesh, ImportUI->StaticMeshImportData);
+		Mesh->AssetImportData = ImportData;
+	}
+
+	//Get the re-import filename
+	const FString Filename = ImportData->GetFirstFilename();
+	const FString FileExtension = FPaths::GetExtension(Filename);
+	const bool bIsValidFile = FileExtension.Equals(TEXT("fbx"), ESearchCase::IgnoreCase) || FileExtension.Equals("obj", ESearchCase::IgnoreCase);
+	if (!bIsValidFile)
+	{
+		return EReimportResult::Failed;
+	}
+	if (!(Filename.Len()))
+	{
+		// Since this is a new system most static meshes don't have paths, so logging has been commented out
+		//UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: static mesh resource does not have path stored."));
+		return EReimportResult::Failed;
+	}
+	// Ensure that the file provided by the path exists
+	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+	{
+		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+		return EReimportResult::Failed;
+	}
+	CurrentFilename = Filename;
+
 
 	if( ImportData  && !ShowImportDialogAtReimport)
 	{
@@ -5312,13 +5341,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	}
 	else
 	{
-		if (ImportData == nullptr)
-		{
-			// An existing import data object was not found, make one here and show the options dialog
-			ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(Mesh, ImportUI->StaticMeshImportData);
-			Mesh->AssetImportData = ImportData;
-		}
 		ReimportUI->bIsReimport = true;
+		ReimportUI->ReimportMesh = Mesh;
 		ReimportUI->StaticMeshImportData = ImportData;
 		
 		//Force the bAutoGenerateCollision to false if the Mesh Customize collision is true
@@ -5334,7 +5358,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		bool bOutImportAll = false;
 		bool bIsObjFormat = false;
 		bool bIsAutomated = false;
-		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_StaticMesh, Mesh);
+
+		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_StaticMesh);
 		
 		//Put back the original bAutoGenerateCollision settings since the user cancel the re-import
 		if (bOperationCanceled && Mesh->bCustomizedCollision)
@@ -5351,51 +5376,28 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
-		const FString Filename = ImportData->GetFirstFilename();
-		const FString FileExtension = FPaths::GetExtension(Filename);
-		const bool bIsValidFile = FileExtension.Equals( TEXT("fbx"), ESearchCase::IgnoreCase ) || FileExtension.Equals( "obj",  ESearchCase::IgnoreCase );
-
-		if ( !bIsValidFile )
-		{
-			return EReimportResult::Failed;
-		}
-
-		if(!(Filename.Len()))
-		{
-			// Since this is a new system most static meshes don't have paths, so logging has been commented out
-			//UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: static mesh resource does not have path stored."));
-			return EReimportResult::Failed;
-		}
-
 		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
 
-		// Ensure that the file provided by the path exists
-		if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
-		{
-			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
-			return EReimportResult::Failed;
-		}
-
-		//Create a copy of the mesh we re-import
-		if (!IsUnattended)
-		{
-			ImportOptions->OriginalMeshCopy = Cast<UStaticMesh>(StaticDuplicateObject(Mesh, GetTransientPackage(), NAME_None, RF_Standalone));
-		}
-
-		CurrentFilename = Filename;
 		bool bImportSucceed = true;
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 		{
 			FFbxImporter->ApplyTransformSettingsToFbxNode(FFbxImporter->Scene->GetRootNode(), ImportData);
+
+			// preserve the user data by doing a copy
 			const TArray<UAssetUserData*>* UserData = Mesh->GetAssetUserDataArray();
-			TArray<UAssetUserData*> UserDataCopy;
+			TMap<UAssetUserData*, bool> UserDataCopy;
 			if (UserData)
 			{
 				for (int32 Idx = 0; Idx < UserData->Num(); Idx++)
 				{
 					if ((*UserData)[Idx] != nullptr)
 					{
-						UserDataCopy.Add((UAssetUserData*)StaticDuplicateObject((*UserData)[Idx], GetTransientPackage()));
+						bool bAddDupToRoot = !((*UserData)[Idx]->IsRooted());
+						if (bAddDupToRoot)
+						{
+							(*UserData)[Idx]->AddToRoot();
+						}
+						UserDataCopy.Add((UAssetUserData*)StaticDuplicateObject((*UserData)[Idx], GetTransientPackage()), bAddDupToRoot);
 					}
 				}
 			}
@@ -5404,6 +5406,13 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 			UNavCollisionBase* NavCollision = Mesh->NavCollision ? 
 				(UNavCollisionBase*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
 				nullptr;
+
+			bool bAddedNavCollisionDupToRoot = false;
+			if (NavCollision && !NavCollision->IsRooted())
+			{
+				bAddedNavCollisionDupToRoot = true;
+				NavCollision->AddToRoot();
+			}
 
 			// preserve extended bound settings
 			const FVector PositiveBoundsExtension = Mesh->PositiveBoundsExtension;
@@ -5414,14 +5423,25 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 				UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully") );
 
 				// Copy user data to newly created mesh
-				for (int32 Idx = 0; Idx < UserDataCopy.Num(); Idx++)
+				for (auto Kvp : UserDataCopy)
 				{
-					UserDataCopy[Idx]->Rename(nullptr, Mesh, REN_DontCreateRedirectors | REN_DoNotDirty);
-					Mesh->AddAssetUserData(UserDataCopy[Idx]);
+					UAssetUserData* UserDataObject = Kvp.Key;
+					if (Kvp.Value)
+					{
+						//if the duplicated temporary UObject was add to root, we must remove it from the root
+						UserDataObject->RemoveFromRoot();
+					}
+					UserDataObject->Rename(nullptr, Mesh, REN_DontCreateRedirectors | REN_DoNotDirty);
+					Mesh->AddAssetUserData(UserDataObject);
 				}
 
 				if (NavCollision)
 				{
+					if (bAddedNavCollisionDupToRoot)
+					{
+						//if the duplicated temporary UObject was add to root, we must remove it from the root
+						NavCollision->RemoveFromRoot();
+					}
 					Mesh->NavCollision = NavCollision;
 					NavCollision->Rename(NULL, Mesh, REN_DontCreateRedirectors | REN_DoNotDirty);
 				}
@@ -5431,13 +5451,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 				Mesh->NegativeBoundsExtension = NegativeBoundsExtension;
 
 				Mesh->AssetImportData->Update(Filename);
-
-				if (ImportOptions->OriginalMeshCopy)
-				{
-					//Show the compare window in case there is a conflict
-					bool UserCancel = false;
-					FFbxImporter->ShowFbxCompareWindow(ImportOptions->OriginalMeshCopy, Mesh, UserCancel);
-				}
 
 				// Try to find the outer package so we can dirty it up
 				if (Mesh->GetOuter())
@@ -5464,12 +5477,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		}
 
 		FFbxImporter->ReleaseScene(); 
-		if (ImportOptions->OriginalMeshCopy)
-		{
-			ImportOptions->OriginalMeshCopy->ClearFlags(RF_Standalone);
-			ImportOptions->OriginalMeshCopy->MarkPendingKill();
-			ImportOptions->OriginalMeshCopy = nullptr;
-		}
 
 		return bImportSucceed ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}
@@ -5571,8 +5578,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 	UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->AssetImportData);
 	
-	ImportOptions->OriginalMeshCopy = nullptr;
-
 	// Prepare the import options
 	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
@@ -5589,9 +5594,28 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	}
 
 	bool bSuccess = false;
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	//Prevent any UI for automation, unattended and commandlet
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
-	
+
+	if (ImportData == nullptr)
+	{
+		// An existing import data object was not found, make one here and show the options dialog
+		ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
+		SkeletalMesh->AssetImportData = ImportData;
+	}
+
+	const FString Filename = ImportData->GetFirstFilename();
+	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
+
+	// Ensure that the file provided by the path exists
+	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+	{
+		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+		return EReimportResult::Failed;
+	}
+	CurrentFilename = Filename;
+
 	if( ImportData && !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
@@ -5599,19 +5623,28 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		//Some options not supported with skeletal mesh
 		ReimportUI->SkeletalMeshImportData->bBakePivotInVertex = false;
 		ReimportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
+
+		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
+		if (!ReimportUI->bAllowContentTypeImport)
+		{
+			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+		}
+
 		ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
 	}
 	else
 	{
-		if (ImportData == nullptr)
-		{
-			// An existing import data object was not found, make one here and show the options dialog
-			ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
-			SkeletalMesh->AssetImportData = ImportData;
-		}
 		ReimportUI->bIsReimport = true;
+		ReimportUI->ReimportMesh = Obj;
 		ReimportUI->SkeletalMeshImportData = ImportData;
+		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
 
+		if (!ReimportUI->bAllowContentTypeImport)
+		{
+			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+		}
 		bool bImportOperationCanceled = false;
 		bool bShowOptionDialog = true;
 		bool bForceImportType = true;
@@ -5623,28 +5656,27 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportOptions->bCreatePhysicsAsset = false;
 		ImportOptions->PhysicsAsset = SkeletalMesh->PhysicsAsset;
 
-		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_SkeletalMesh, Obj );
+		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_SkeletalMesh);
 	}
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
 		ImportOptions->bCanShowDialog = !IsUnattended;
 
-		const FString Filename = ImportData->GetFirstFilename();
-		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-		// Ensure that the file provided by the path exists
-		if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+		if (ImportOptions->bImportAsSkeletalSkinning)
 		{
-			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found.") );
-			return EReimportResult::Failed;
+			ImportOptions->bImportMaterials = false;
+			ImportOptions->bImportTextures = false;
+			ImportOptions->bImportLOD = false;
+			ImportOptions->bImportSkeletalMeshLODs = false;
+			ImportOptions->bImportAnimations = false;
+			ImportOptions->bImportMorph = false;
 		}
-		CurrentFilename = Filename;
-
-		//Create a copy of the mesh we re-import
-		if (!IsUnattended)
+		else if (ImportOptions->bImportAsSkeletalGeometry)
 		{
-			ImportOptions->OriginalMeshCopy = Cast<USkeletalMesh>(StaticDuplicateObject(SkeletalMesh, GetTransientPackage(), NAME_None, RF_Standalone));
+			ImportOptions->bImportAnimations = false;
+			ImportOptions->bUpdateSkeletonReferencePose = false;
+			ImportOptions->bUseT0AsRefPose = false;
 		}
 
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -5655,13 +5687,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 				SkeletalMesh->AssetImportData->Update(Filename);
 				
-				if (ImportOptions->OriginalMeshCopy)
-				{
-					//Show the compare window in case there is a conflict
-					bool UserCancel = false;
-					FFbxImporter->ShowFbxCompareWindow(ImportOptions->OriginalMeshCopy, SkeletalMesh, UserCancel);
-				}
-
 				// Try to find the outer package so we can dirty it up
 				if (SkeletalMesh->GetOuter())
 				{
@@ -5688,16 +5713,9 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		CleanUp();
 
 		// Reimporting can have dangerous effects if the mesh is still in the transaction buffer.  Reset the transaction buffer if this is the case
-		if( GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
+		if(!IsRunningCommandlet() && GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
 		{
 			GEditor->ResetTransaction( LOCTEXT("ReimportSkeletalMeshTransactionReset", "Reimporting a skeletal mesh which was in the undo buffer") );
-		}
-
-		if (ImportOptions->OriginalMeshCopy)
-		{
-			ImportOptions->OriginalMeshCopy->ClearFlags(RF_Standalone);
-			ImportOptions->OriginalMeshCopy->MarkPendingKill();
-			ImportOptions->OriginalMeshCopy = nullptr;
 		}
 
 		return bSuccess ? EReimportResult::Succeeded : EReimportResult::Failed;
@@ -5861,6 +5879,7 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 
 		// update the data in case the file source has changed
 		ImportData->Update(UFactory::CurrentFilename);
+		AnimSequence->ImportFileFramerate = Importer->GetOriginalFbxFramerate();
 
 		// Try to find the outer package so we can dirty it up
 		if (AnimSequence->GetOuter())
@@ -5876,6 +5895,8 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import failed") );
 		Importer->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, LOCTEXT("Error_CouldNotReimportAnimation", "Cannot re-import animation.")), FFbxErrors::Generic_ReimportingObjectFailed);
+		Importer->ReleaseScene();
+		return EReimportResult::Failed;
 	}
 
 	Importer->ReleaseScene(); 
@@ -6895,149 +6916,6 @@ UObject* UCameraAnimFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FN
 	NewCamAnim->CameraInterpGroup = NewObject<UInterpGroupCamera>(NewCamAnim);
 	NewCamAnim->CameraInterpGroup->GroupName = Name;
 	return NewCamAnim;
-}
-
-/*------------------------------------------------------------------------------
-UDataTableFactory implementation.
-------------------------------------------------------------------------------*/
-UDataTableFactory::UDataTableFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	SupportedClass = UDataTable::StaticClass();
-	bCreateNew = true;
-	bEditAfterNew = true;
-}
-
-bool UDataTableFactory::ConfigureProperties()
-{
-	class FDataTableFactoryUI : public TSharedFromThis < FDataTableFactoryUI >
-	{
-		TSharedPtr<SWindow> PickerWindow;
-		TSharedPtr<SComboBox<UScriptStruct*>> RowStructCombo;
-		TSharedPtr<SButton> OkButton;
-		UScriptStruct* ResultStruct;
-	public:
-		FDataTableFactoryUI() : ResultStruct(NULL) {}
-
-		TSharedRef<SWidget> MakeRowStructItemWidget(class UScriptStruct* InStruct) const
-		{
-			return SNew(STextBlock).Text(InStruct ? InStruct->GetDisplayNameText() : FText::GetEmpty());
-		}
-
-		FText GetSelectedRowOptionText() const
-		{
-			UScriptStruct* RowStruct = RowStructCombo.IsValid() ? RowStructCombo->GetSelectedItem() : NULL;
-			return RowStruct ? RowStruct->GetDisplayNameText() : FText::GetEmpty();
-		}
-
-		FReply OnCreate()
-		{
-			ResultStruct = RowStructCombo.IsValid() ? RowStructCombo->GetSelectedItem() : NULL;
-			if (PickerWindow.IsValid())
-			{
-				PickerWindow->RequestDestroyWindow();
-			}
-			return FReply::Handled();
-		}
-
-		FReply OnCancel()
-		{
-			ResultStruct = NULL;
-			if (PickerWindow.IsValid())
-			{
-				PickerWindow->RequestDestroyWindow();
-			}
-			return FReply::Handled();
-		}
-
-		bool IsAnyRowSelected() const
-		{
-			return  RowStructCombo.IsValid() && RowStructCombo->GetSelectedItem();
-		}
-
-		UScriptStruct* OpenStructSelector()
-		{
-			ResultStruct = NULL;
-			auto RowStructs = FDataTableEditorUtils::GetPossibleStructs();
-
-			RowStructCombo = SNew(SComboBox<UScriptStruct*>)
-			.OptionsSource(&RowStructs)
-			.OnGenerateWidget(this, &FDataTableFactoryUI::MakeRowStructItemWidget)
-			[
-				SNew(STextBlock)
-				.Text(this, &FDataTableFactoryUI::GetSelectedRowOptionText)
-			];
-
-			PickerWindow = SNew(SWindow)
-			.Title(LOCTEXT("DataTableFactoryOptions", "Pick Structure"))
-			.ClientSize(FVector2D(350, 100))
-			.SupportsMinimize(false).SupportsMaximize(false)
-			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
-				.Padding(10)
-				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						RowStructCombo.ToSharedRef()
-					]
-					+ SVerticalBox::Slot()
-					.HAlign(HAlign_Right)
-					.AutoHeight()
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SAssignNew(OkButton, SButton)
-							.Text(LOCTEXT("OK", "OK"))
-							.OnClicked(this, &FDataTableFactoryUI::OnCreate)
-						]
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SButton)
-							.Text(LOCTEXT("Cancel", "Cancel"))
-							.OnClicked(this, &FDataTableFactoryUI::OnCancel)
-						]
-					]
-				]
-			];
-
-			OkButton->SetEnabled(
-				TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FDataTableFactoryUI::IsAnyRowSelected)));
-
-			GEditor->EditorAddModalWindow(PickerWindow.ToSharedRef());
-
-			PickerWindow.Reset();
-			RowStructCombo.Reset();
-
-			return ResultStruct;
-		}
-	};
-
-
-	TSharedRef<FDataTableFactoryUI> StructSelector = MakeShareable(new FDataTableFactoryUI());
-	Struct = StructSelector->OpenStructSelector();
-
-	return Struct != NULL;
-}
-
-UObject* UDataTableFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
-{
-	UDataTable* DataTable = NULL;
-	if (Struct && ensure(UDataTable::StaticClass() == Class))
-	{
-		ensure(0 != (RF_Public & Flags));
-		DataTable = NewObject<UDataTable>(InParent, Name, Flags);
-		if (DataTable)
-		{
-			DataTable->RowStruct = Struct;
-		}
-	}
-	return DataTable;
 }
 
 /*------------------------------------------------------------------------------

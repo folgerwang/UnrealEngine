@@ -36,6 +36,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// The cache file that is being used
+		/// </summary>
+		public static FileReference CacheFile;
+
+		/// <summary>
 		/// Parsed config values
 		/// </summary>
 		static XmlConfigData Values;
@@ -48,69 +53,85 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Initialize the config system with the given types
 		/// </summary>
-		public static bool ReadConfigFiles()
+		/// <param name="OverrideCacheFile">Force use of the cached XML config without checking if it's valid (useful for remote builds)</param>
+		public static bool ReadConfigFiles(FileReference OverrideCacheFile)
 		{
 			// Find all the configurable types
 			List<Type> ConfigTypes = FindConfigurableTypes();
 
-			// Find all the input files
-			FileReference[] InputFiles = FindInputFiles().Select(x => x.Location).ToArray();
-
-			// Get the path to the cache file
-			FileReference CacheFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "XmlConfigCache.bin");
-			if(UnrealBuildTool.IsEngineInstalled())
+			// Update the cache if necessary
+			if(OverrideCacheFile != null)
 			{
-				DirectoryReference UserSettingsDir = Utils.GetUserSettingDirectory();
-				if(UserSettingsDir != null)
+				// Set the cache file to the overriden value
+				CacheFile = OverrideCacheFile;
+
+				// Never rebuild the cache; just try to load it.
+				if(!XmlConfigData.TryRead(CacheFile, ConfigTypes, out Values))
 				{
-					CacheFile = FileReference.Combine(UserSettingsDir, "UnrealEngine", String.Format("XmlConfigCache-{0}.bin", UnrealBuildTool.RootDirectory.FullName.Replace(":", "").Replace(Path.DirectorySeparatorChar, '+')));
+					throw new BuildException("Unable to load XML config cache ({0})", CacheFile);
 				}
 			}
-
-			// Get the path to the schema
-			FileReference SchemaFile = GetSchemaLocation();
-
-			// Try to read the existing cache from disk
-			XmlConfigData CachedValues;
-			if(IsCacheUpToDate(CacheFile, InputFiles) && FileReference.Exists(SchemaFile))
+			else
 			{
-				if(XmlConfigData.TryRead(CacheFile, ConfigTypes, out CachedValues) && Enumerable.SequenceEqual(InputFiles, CachedValues.InputFiles))
+				// Get the default cache file
+				CacheFile = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "XmlConfigCache.bin");
+				if(UnrealBuildTool.IsEngineInstalled())
 				{
-					Values = CachedValues;
-				}
-			}
-
-			// If that failed, regenerate it
-			if(Values == null)
-			{
-				// Find all the configurable fields from the given types
-				Dictionary<string, Dictionary<string, FieldInfo>> CategoryToFields = new Dictionary<string, Dictionary<string, FieldInfo>>();
-				FindConfigurableFields(ConfigTypes, CategoryToFields);
-
-				// Create a schema for the config files
-				XmlSchema Schema = CreateSchema(CategoryToFields);
-				if(!UnrealBuildTool.IsEngineInstalled())
-				{
-					WriteSchema(Schema, SchemaFile);
-				}
-
-				// Read all the XML files and validate them against the schema
-				Dictionary<Type, Dictionary<FieldInfo, object>> TypeToValues = new Dictionary<Type, Dictionary<FieldInfo, object>>();
-				foreach(FileReference InputFile in InputFiles)
-				{
-					if(!TryReadFile(InputFile, CategoryToFields, TypeToValues, Schema))
+					DirectoryReference UserSettingsDir = Utils.GetUserSettingDirectory();
+					if(UserSettingsDir != null)
 					{
-						Log.TraceError("Failed to properly read XML file : {0}", InputFile.FullName);
-						return false;
+						CacheFile = FileReference.Combine(UserSettingsDir, "UnrealEngine", String.Format("XmlConfigCache-{0}.bin", UnrealBuildTool.RootDirectory.FullName.Replace(":", "").Replace(Path.DirectorySeparatorChar, '+')));
 					}
 				}
 
-				// Make sure the cache directory exists
-				DirectoryReference.CreateDirectory(CacheFile.Directory);
+				// Find all the input files
+				FileReference[] InputFiles = FindInputFiles().Select(x => x.Location).ToArray();
 
-				// Create the new cache
-				Values = new XmlConfigData(InputFiles, TypeToValues.ToDictionary(x => x.Key, x => x.Value.ToArray()));
-				Values.Write(CacheFile);
+				// Get the path to the schema
+				FileReference SchemaFile = GetSchemaLocation();
+
+				// Try to read the existing cache from disk
+				XmlConfigData CachedValues;
+				if(IsCacheUpToDate(CacheFile, InputFiles) && FileReference.Exists(SchemaFile))
+				{
+					if(XmlConfigData.TryRead(CacheFile, ConfigTypes, out CachedValues) && Enumerable.SequenceEqual(InputFiles, CachedValues.InputFiles))
+					{
+						Values = CachedValues;
+					}
+				}
+
+				// If that failed, regenerate it
+				if(Values == null)
+				{
+					// Find all the configurable fields from the given types
+					Dictionary<string, Dictionary<string, FieldInfo>> CategoryToFields = new Dictionary<string, Dictionary<string, FieldInfo>>();
+					FindConfigurableFields(ConfigTypes, CategoryToFields);
+
+					// Create a schema for the config files
+					XmlSchema Schema = CreateSchema(CategoryToFields);
+					if(!UnrealBuildTool.IsEngineInstalled())
+					{
+						WriteSchema(Schema, SchemaFile);
+					}
+
+					// Read all the XML files and validate them against the schema
+					Dictionary<Type, Dictionary<FieldInfo, object>> TypeToValues = new Dictionary<Type, Dictionary<FieldInfo, object>>();
+					foreach(FileReference InputFile in InputFiles)
+					{
+						if(!TryReadFile(InputFile, CategoryToFields, TypeToValues, Schema))
+						{
+							Log.TraceError("Failed to properly read XML file : {0}", InputFile.FullName);
+							return false;
+						}
+					}
+
+					// Make sure the cache directory exists
+					DirectoryReference.CreateDirectory(CacheFile.Directory);
+
+					// Create the new cache
+					Values = new XmlConfigData(InputFiles, TypeToValues.ToDictionary(x => x.Key, x => x.Value.ToArray()));
+					Values.Write(CacheFile);
+				}
 			}
 
 			// Apply all the static field values
@@ -526,31 +547,34 @@ namespace UnrealBuildTool
 			// Parse the document
 			foreach(XmlElement CategoryElement in ConfigFile.DocumentElement.ChildNodes.OfType<XmlElement>())
 			{
-				Dictionary<string, FieldInfo> NameToField = CategoryToFields[CategoryElement.Name];
-				foreach(XmlElement KeyElement in CategoryElement.ChildNodes.OfType<XmlElement>())
+				Dictionary<string, FieldInfo> NameToField;
+				if(CategoryToFields.TryGetValue(CategoryElement.Name, out NameToField))
 				{
-					FieldInfo Field;
-					if(NameToField.TryGetValue(KeyElement.Name, out Field))
+					foreach(XmlElement KeyElement in CategoryElement.ChildNodes.OfType<XmlElement>())
 					{
-						// Parse the corresponding value
-						object Value;
-						if(Field.FieldType == typeof(string[]))
+						FieldInfo Field;
+						if(NameToField.TryGetValue(KeyElement.Name, out Field))
 						{
-							Value = KeyElement.ChildNodes.OfType<XmlElement>().Where(x => x.Name == "Item").Select(x => x.InnerText).ToArray();
-						}
-						else
-						{
-							Value = ParseValue(Field.FieldType, KeyElement.InnerText);
-						}
+							// Parse the corresponding value
+							object Value;
+							if(Field.FieldType == typeof(string[]))
+							{
+								Value = KeyElement.ChildNodes.OfType<XmlElement>().Where(x => x.Name == "Item").Select(x => x.InnerText).ToArray();
+							}
+							else
+							{
+								Value = ParseValue(Field.FieldType, KeyElement.InnerText);
+							}
 
-						// Add it to the set of values for the type containing this field
-						Dictionary<FieldInfo, object> FieldToValue;
-						if(!TypeToValues.TryGetValue(Field.DeclaringType, out FieldToValue))
-						{
-							FieldToValue = new Dictionary<FieldInfo, object>();
-							TypeToValues.Add(Field.DeclaringType, FieldToValue);
+							// Add it to the set of values for the type containing this field
+							Dictionary<FieldInfo, object> FieldToValue;
+							if(!TypeToValues.TryGetValue(Field.DeclaringType, out FieldToValue))
+							{
+								FieldToValue = new Dictionary<FieldInfo, object>();
+								TypeToValues.Add(Field.DeclaringType, FieldToValue);
+							}
+							FieldToValue[Field] = Value;
 						}
-						FieldToValue[Field] = Value;
 					}
 				}
 			}

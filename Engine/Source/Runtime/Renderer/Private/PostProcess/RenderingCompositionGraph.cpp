@@ -18,6 +18,10 @@
 #include "PostProcess/SceneRenderTargets.h"
 #include "SceneRendering.h"
 
+#include "IImageWrapper.h"
+#include "ImageWriteQueue.h"
+#include "Modules/ModuleManager.h"
+
 void ExecuteCompositionGraphDebug();
 
 static TAutoConsoleVariable<int32> CVarCompositionGraphOrder(
@@ -348,63 +352,7 @@ void FRenderingCompositionGraph::RecursivelyGatherDependencies(FRenderingComposi
 	}
 }
 
-template<typename TColor> struct TAsyncBufferWrite;
-
-struct FAsyncBufferWriteQueue
-{
-	template<typename T>
-	static TFuture<void> Dispatch(TAsyncBufferWrite<T>&& In)
-	{
-		NumInProgressWrites.Increment();
-
-		while (NumInProgressWrites.GetValue() >= MaxAsyncWrites)
-		{
-			// Yield until we can write another
-			FPlatformProcess::Sleep(0.f);
-		}
-
-		return Async<void>(EAsyncExecution::ThreadPool, MoveTemp(In));
-	}
-	
-	static FThreadSafeCounter NumInProgressWrites;
-	static const int32 MaxAsyncWrites = 6;
-};
-FThreadSafeCounter FAsyncBufferWriteQueue::NumInProgressWrites;
-
-/** Callable type used to save a color buffer on an async task without allocating/copying into a new one */
-template<typename TColor>
-struct TAsyncBufferWrite
-{
-	TAsyncBufferWrite(FString InFilename, FIntPoint InDestSize, TArray<TColor> InBitmap) : Filename(MoveTemp(InFilename)), DestSize(InDestSize), Bitmap(MoveTemp(InBitmap)) {}
-
-	TAsyncBufferWrite(TAsyncBufferWrite&& In) : Filename(MoveTemp(In.Filename)), DestSize(In.DestSize), Bitmap(MoveTemp(In.Bitmap)) {}
-	TAsyncBufferWrite& operator=(TAsyncBufferWrite&& In) { Filename = MoveTemp(In.Filename); DestSize = In.DestSize; Bitmap = MoveTemp(In.Bitmap); return *this; }
-
-	/** Call operator that saves the color buffer data */
-	void operator()()
-	{
-		FString ResultPath;
-		GetHighResScreenshotConfig().SaveImage(Filename, Bitmap, DestSize, &ResultPath);
-		UE_LOG(LogConsoleResponse, Display, TEXT("Content was saved to \"%s\""), *ResultPath);
-
-		FAsyncBufferWriteQueue::NumInProgressWrites.Decrement();
-	}
-
-	/** Copy semantics are only defined to appease TFunction, whose virtual CloneByCopy function is always instantiated, even if the TFunction itself is never copied */
-	TAsyncBufferWrite(const TAsyncBufferWrite& In) : Filename(In.Filename), DestSize(In.DestSize), Bitmap(In.Bitmap) { ensureMsgf(false, TEXT("Type should not be copied")); }
-	TAsyncBufferWrite& operator=(const TAsyncBufferWrite& In) { Filename = In.Filename; DestSize = In.DestSize; Bitmap = In.Bitmap; ensureMsgf(false, TEXT("Type should not be copied")); return *this; }
-
-private:
-
-	/** The filename to save to */
-	FString Filename;
-	/** The size of the bitmap */
-	FIntPoint DestSize;
-	/** The bitmap data itself */
-	TArray<TColor> Bitmap;
-};
-
-TFuture<void> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const
+TFuture<bool> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const
 {
 	FSceneRenderTargetItem& RenderTargetItem = Output->PooledRenderTarget->GetRenderTargetItem();
 	FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
@@ -412,40 +360,56 @@ TFuture<void> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePa
 	check(Texture);
 	check(Texture->GetTexture2D());
 
+	if (!ensureMsgf(HighResScreenshotConfig.ImageWriteQueue, TEXT("Unable to write images unless FHighResScreenshotConfig::Init has been called.")))
+	{
+		return TFuture<bool>();
+	}
+
 	FIntRect SourceRect = Context.View.ViewRect;
-
-	int32 MSAAXSamples = Texture->GetNumSamples();
-
 	if (GIsHighResScreenshot && HighResScreenshotConfig.CaptureRegion.Area())
 	{
 		SourceRect = HighResScreenshotConfig.CaptureRegion;
 	}
 
+	int32 MSAAXSamples = Texture->GetNumSamples();
 	SourceRect.Min.X *= MSAAXSamples;
 	SourceRect.Max.X *= MSAAXSamples;
 
-	FIntPoint DestSize(SourceRect.Width(), SourceRect.Height());
-
-	EPixelFormat PixelFormat = Texture->GetFormat();
-	
-	switch (PixelFormat)
+	switch (Texture->GetFormat())
 	{
 		case PF_FloatRGBA:
 		{
-			TArray<FFloat16Color> Bitmap;
-			Context.RHICmdList.ReadSurfaceFloatData(Texture, SourceRect, Bitmap, (ECubeFace)0, 0, 0);
+			TUniquePtr<TImagePixelData<FFloat16Color>> PixelData = MakeUnique<TImagePixelData<FFloat16Color>>(SourceRect.Size());
+			Context.RHICmdList.ReadSurfaceFloatData(Texture, SourceRect, PixelData->Pixels, (ECubeFace)0, 0, 0);
 
-			return FAsyncBufferWriteQueue::Dispatch(TAsyncBufferWrite<FFloat16Color>(Filename, DestSize, MoveTemp(Bitmap)));
+			check(PixelData->IsDataWellFormed());
+
+			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+			ImageTask->PixelData = MoveTemp(PixelData);
+
+			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
+			ImageTask->Filename = Filename;
+
+			return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
 		}
 
 		case PF_A32B32G32R32F:
 		{
 			FReadSurfaceDataFlags ReadDataFlags(RCM_MinMax);
 			ReadDataFlags.SetLinearToGamma(false);
-			TArray<FLinearColor> Bitmap;
-			Context.RHICmdList.ReadSurfaceData(Texture, SourceRect, Bitmap, ReadDataFlags);
 
-			return FAsyncBufferWriteQueue::Dispatch(TAsyncBufferWrite<FLinearColor>(Filename, DestSize, MoveTemp(Bitmap)));
+			TUniquePtr<TImagePixelData<FLinearColor>> PixelData = MakeUnique<TImagePixelData<FLinearColor>>(SourceRect.Size());
+			Context.RHICmdList.ReadSurfaceData(Texture, SourceRect, PixelData->Pixels, ReadDataFlags);
+
+			check(PixelData->IsDataWellFormed());
+
+			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+			ImageTask->PixelData = MoveTemp(PixelData);
+
+			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
+			ImageTask->Filename = Filename;
+
+			return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
 		}
 
 		case PF_R8G8B8A8:
@@ -453,19 +417,35 @@ TFuture<void> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePa
 		{
 			FReadSurfaceDataFlags ReadDataFlags;
 			ReadDataFlags.SetLinearToGamma(false);
-			TArray<FColor> Bitmap;
-			Context.RHICmdList.ReadSurfaceData(Texture, SourceRect, Bitmap, ReadDataFlags);
-			FColor* Pixel = Bitmap.GetData();
-			for (int32 i = 0, Count = Bitmap.Num(); i < Count; i++, Pixel++)
+
+			TUniquePtr<TImagePixelData<FColor>> PixelData = MakeUnique<TImagePixelData<FColor>>(SourceRect.Size());
+			Context.RHICmdList.ReadSurfaceData(Texture, SourceRect, PixelData->Pixels, ReadDataFlags);
+
+			check(PixelData->IsDataWellFormed());
+
+			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+			ImageTask->PixelData = MoveTemp(PixelData);
+
+			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
+			ImageTask->Filename = Filename;
+
+			// Always write full alpha
+			ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+
+			if (ImageTask->Format == EImageFormat::EXR)
 			{
-				Pixel->A = 255;
+				// Write FColors with a gamma curve. This replicates behaviour that previously existed in ExrImageWrapper.cpp (see following overloads) that assumed
+				// any 8 bit output format needed linearizing, but this is not a safe assumption to make at such a low level:
+				// void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, float* ChannelOUT)
+				// void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, FFloat16* ChannelOUT)
+				ImageTask->PixelPreProcessors.Add(TAsyncGammaCorrect<FColor>(2.2f));
 			}
 
-			return FAsyncBufferWriteQueue::Dispatch(TAsyncBufferWrite<FColor>(Filename, DestSize, MoveTemp(Bitmap)));
+			return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
 		}
 	}
 
-	return TFuture<void>();
+	return TFuture<bool>();
 }
 
 void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOutputRef& InOutputRef, FRenderingCompositePassContext& Context) const
@@ -804,11 +784,6 @@ FRenderingCompositeOutput *FRenderingCompositeOutputRef::GetOutput() const
 	}
 
 	return Source->GetOutput(PassOutputId); 
-}
-
-FRenderingCompositePass* FRenderingCompositeOutputRef::GetPass() const
-{
-	return Source;
 }
 
 // -----------------------------------------------------------------

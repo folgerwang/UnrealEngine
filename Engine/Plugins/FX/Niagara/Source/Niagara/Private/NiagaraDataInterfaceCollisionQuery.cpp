@@ -201,25 +201,24 @@ void UNiagaraDataInterfaceCollisionQuery::GetParameterDefinitionHLSL(FNiagaraDat
 	// we don't need to add these to hlsl, as they're already in common.ush
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, SubmitQuery);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, ReadQuery);
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, PerformQuery);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, SubmitQuery);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, ReadQuery);
+DEFINE_NDI_DIRECT_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, PerformQuery);
 
 void UNiagaraDataInterfaceCollisionQuery::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	CQDIPerInstanceData *InstData = (CQDIPerInstanceData *)InstanceData;
 	if (BindingInfo.Name == TEXT("SubmitQuery") /*&& BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 1*/)
 	{
-		TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, TNDIParamBinder<4, float, TNDIParamBinder<5, float, TNDIParamBinder<6, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, SubmitQuery)>>>>>>>::Bind(this, BindingInfo, InstData, OutFunc);
+		 NDI_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, SubmitQuery)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == TEXT("ReadQuery") /*&& BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4*/)
 	{
-		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, ReadQuery)>::Bind(this, BindingInfo, InstData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, ReadQuery)::Bind(this, OutFunc);
 	}
 	else if (BindingInfo.Name == TEXT("PerformCollisionQuery") /*&& BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4*/)
 	{
-		//				  id     |---------------------------------- position ---------------------------|    |------------------------------- direction -------------------------------|     |-------- dT --------|   |------- size -------|    |---- depthBounds ----|
-		TNDIParamBinder<0, int, TNDIParamBinder<1, float, TNDIParamBinder<2, float, TNDIParamBinder<3, float, TNDIParamBinder<4, float, TNDIParamBinder<5, float, TNDIParamBinder<6, float, TNDIParamBinder<7, float, TNDIParamBinder<8, float, TNDIParamBinder<9, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, PerformQuery)>>>>>>>>>>::Bind(this, BindingInfo, InstData, OutFunc);
+		NDI_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, PerformQuery)::Bind(this, OutFunc);
 	}
 	else
 	{
@@ -228,37 +227,35 @@ void UNiagaraDataInterfaceCollisionQuery::GetVMExternalFunction(const FVMExterna
 	}
 }
 
-
-template<typename InQueryIDType, typename PosTypeX, typename PosTypeY, typename PosTypeZ, typename DirTypeX, typename DirTypeY, typename DirTypeZ, typename DTType, typename SizeType, typename DepthBoundsType>
 void UNiagaraDataInterfaceCollisionQuery::PerformQuery(FVectorVMContext& Context)
 {
 	//PerformType PerformParam(Context);
-	InQueryIDType InIDParam(Context);
-	PosTypeX PosParamX(Context);
-	PosTypeY PosParamY(Context);
-	PosTypeZ PosParamZ(Context);
+	VectorVM::FExternalFuncInputHandler<int32> InIDParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> PosParamX(Context);
+	VectorVM::FExternalFuncInputHandler<float> PosParamY(Context);
+	VectorVM::FExternalFuncInputHandler<float> PosParamZ(Context);
 
-	DirTypeX DirParamX(Context);
-	DirTypeY DirParamY(Context);
-	DirTypeZ DirParamZ(Context);
+	VectorVM::FExternalFuncInputHandler<float> DirParamX(Context);
+	VectorVM::FExternalFuncInputHandler<float> DirParamY(Context);
+	VectorVM::FExternalFuncInputHandler<float> DirParamZ(Context);
 
-	DTType DTParam(Context);
-	SizeType SizeParam(Context);
-	DepthBoundsType DepthBoundsParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> DTParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> SizeParam(Context);
+	VectorVM::FExternalFuncInputHandler<float> DepthBoundsParam(Context);
 
-	FUserPtrHandler<CQDIPerInstanceData> InstanceData(Context);
+	VectorVM::FUserPtrHandler<CQDIPerInstanceData> InstanceData(Context);
 
-	FRegisterHandler<int32> OutQueryID(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutQueryID(Context);
 
-	FRegisterHandler<int32> OutQueryValid(Context);
-	FRegisterHandler<float> OutCollisionPosX(Context);
-	FRegisterHandler<float> OutCollisionPosY(Context);
-	FRegisterHandler<float> OutCollisionPosZ(Context);
-	FRegisterHandler<float> OutCollisionNormX(Context);
-	FRegisterHandler<float> OutCollisionNormY(Context);
-	FRegisterHandler<float> OutCollisionNormZ(Context);
-	FRegisterHandler<float> Friction(Context);
-	FRegisterHandler<float> Restitution(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutQueryValid(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionNormX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionNormY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionNormZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Friction(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> Restitution(Context);
 
 	FScopeLock ScopeLock(&CriticalSection);
 	for (int32 i = 0; i < Context.NumInstances; ++i)
@@ -330,22 +327,21 @@ void UNiagaraDataInterfaceCollisionQuery::PerformQuery(FVectorVMContext& Context
 }
 
 
-template<typename PosTypeX, typename PosTypeY, typename PosTypeZ, typename VelTypeX, typename VelTypeY, typename VelTypeZ, typename DTType>
 void UNiagaraDataInterfaceCollisionQuery::SubmitQuery(FVectorVMContext& Context)
 {
-	PosTypeX PosParamX(Context);
-	PosTypeY PosParamY(Context);
-	PosTypeZ PosParamZ(Context);
-	VelTypeX VelParamX(Context);
-	VelTypeY VelParamY(Context);
-	VelTypeZ VelParamZ(Context);
+	VectorVM::FExternalFuncInputHandler<float> PosParamX(Context);
+	VectorVM::FExternalFuncInputHandler<float> PosParamY(Context);
+	VectorVM::FExternalFuncInputHandler<float> PosParamZ(Context);
+	VectorVM::FExternalFuncInputHandler<float> VelParamX(Context);
+	VectorVM::FExternalFuncInputHandler<float> VelParamY(Context);
+	VectorVM::FExternalFuncInputHandler<float> VelParamZ(Context);
 
-	DTType DTParam(Context);
-	FUserPtrHandler<CQDIPerInstanceData> InstanceData(Context);
+	VectorVM::FExternalFuncInputHandler<float> DTParam(Context);
+	VectorVM::FUserPtrHandler<CQDIPerInstanceData> InstanceData(Context);
 
 	FScopeLock ScopeLock(&CriticalSection);
 
-	FRegisterHandler<int32> OutQueryID(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutQueryID(Context);
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
 		FVector Pos(PosParamX.Get(), PosParamY.Get(), PosParamZ.Get());
@@ -368,22 +364,20 @@ void UNiagaraDataInterfaceCollisionQuery::SubmitQuery(FVectorVMContext& Context)
 
 }
 
-
-template<typename IDType>
 void UNiagaraDataInterfaceCollisionQuery::ReadQuery(FVectorVMContext& Context)
 {	
-	IDType IDParam(Context);
-	FUserPtrHandler<CQDIPerInstanceData> InstanceData(Context);
-	FRegisterHandler<int32> OutQueryValid(Context);
-	FRegisterHandler<float> OutCollisionPosX(Context);
-	FRegisterHandler<float> OutCollisionPosY(Context);
-	FRegisterHandler<float> OutCollisionPosZ(Context);
-	FRegisterHandler<float> OutCollisionVelX(Context);
-	FRegisterHandler<float> OutCollisionVelY(Context);
-	FRegisterHandler<float> OutCollisionVelZ(Context);
-	FRegisterHandler<float> OutCollisionNormX(Context);
-	FRegisterHandler<float> OutCollisionNormY(Context);
-	FRegisterHandler<float> OutCollisionNormZ(Context);
+	VectorVM::FExternalFuncInputHandler<int32> IDParam(Context);
+	VectorVM::FUserPtrHandler<CQDIPerInstanceData> InstanceData(Context);
+	VectorVM::FExternalFuncRegisterHandler<int32> OutQueryValid(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionPosX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionPosY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionPosZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionVelX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionVelY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionVelZ(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionNormX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionNormY(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutCollisionNormZ(Context);
 
 	FScopeLock ScopeLock(&CriticalSection);
 	for (int32 i = 0; i < Context.NumInstances; ++i)

@@ -40,13 +40,16 @@ UENUM()
 	IOS_8 = 8 UMETA(Hidden),
 
 	/** iOS 9 */
-	IOS_9 = 9 UMETA(DisplayName = "9.0"),
+	IOS_9 = 9 UMETA(Hidden),
 
 	/** iOS 10 */
 	IOS_10 = 10 UMETA(DisplayName = "10.0"),
 
 	/** iOS 11 */
 	IOS_11 = 11 UMETA(DisplayName = "11.0"),
+
+	/** iOS 12 */
+	IOS_12 = 12 UMETA(DisplayName = "12.0"),
 
 };
 
@@ -64,6 +67,19 @@ enum class EIOSMetalShaderStandard : uint8
 	
 	/** Metal Shaders Compatible With iOS 11.0/tvOS 11.0 or later (std=ios-metal2.0) */
 	IOSMetalSLStandard_2_0 = 3 UMETA(DisplayName="Metal v2.0 (iOS 11.0/tvOS 11.0)"),
+    
+    /** Metal Shaders Compatible With iOS 12.0/tvOS 12.0 or later (std=ios-metal2.1) */
+    IOSMetalSLStandard_2_1 = 4 UMETA(DisplayName="Metal v2.1 (iOS 12.0/tvOS 12.0)"),
+};
+
+UENUM()
+enum class EIOSLandscapeOrientation : uint8
+{
+	/** Landscape Left */
+	LandscapeLeft = 0 UMETA(DisplayName = "Landscape (left home button)"),
+
+	/** Landscape Right */
+	LandscapeRight = 1 UMETA(DisplayName = "Landscape (right home button)"),
 };
 
 /**
@@ -192,6 +208,10 @@ public:
     // Should push/remote notifications support (iOS Online Subsystem) be enabled?
     UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
     uint32 bEnableRemoteNotificationsSupport : 1;
+    
+    // Should background fetch support be enabled?
+    UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+    uint32 bEnableBackgroundFetch : 1;
     
 	// Whether or not to compile iOS Metal shaders for the Mobile renderer (requires iOS 8+ and an A7 processor).
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Mobile Renderer"))
@@ -328,6 +348,10 @@ public:
 	// Supports right landscape orientation. Portrait will not be supported.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
 	uint32 bSupportsLandscapeRightOrientation : 1;
+
+	// The Preferred Orientation will be used as the initial orientation at launch when both Landscape Left and Landscape Right orientations are to be supported.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations, meta = (DisplayName = "Preferred Landscape Orientation"))
+	EIOSLandscapeOrientation PreferredLandscapeOrientation;
 
 	// Specifies the the display name for the application. This will be displayed under the icon on the device.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)
@@ -488,4 +512,8 @@ public:
 	virtual void PostInitProperties() override;
 	// End of UObject interface
 #endif
+
+private:
+	virtual void EnsureOrientationInProjectDefaultEngine();
+
 };

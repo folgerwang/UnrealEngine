@@ -7,7 +7,7 @@
 #include "Common.ush"
 
 #if PS4_PROFILE
-# include "PS4/HdrCustomResolveShaders.ush"
+# include "Platform/PS4/HdrCustomResolveShaders.ush"
 #else
 
 float4 HdrCustomResolveVS(uint Id : SV_VertexID) : SV_POSITION

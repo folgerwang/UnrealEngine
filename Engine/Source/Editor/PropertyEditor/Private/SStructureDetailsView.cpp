@@ -10,6 +10,7 @@
 #include "StructurePropertyNode.h"
 #include "Widgets/Colors/SColorPicker.h"
 #include "Widgets/Input/SSearchBox.h"
+#include "DetailsViewPropertyGenerationUtilities.h"
 
 
 #define LOCTEXT_NAMESPACE "SStructureDetailsView"
@@ -43,6 +44,7 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 	RootNodes.Add(MakeShareable(new FStructurePropertyNode));
 		
 	PropertyUtilities = MakeShareable( new FPropertyDetailsUtilities( *this ) );
+	PropertyGenerationUtilities = MakeShareable(new FDetailsViewPropertyGenerationUtilities(*this));
 	
 	ColumnSizeData.LeftColumnWidth = TAttribute<float>(this, &SStructureDetailsView::OnGetLeftColumnWidth);
 	ColumnSizeData.RightColumnWidth = TAttribute<float>(this, &SStructureDetailsView::OnGetRightColumnWidth);

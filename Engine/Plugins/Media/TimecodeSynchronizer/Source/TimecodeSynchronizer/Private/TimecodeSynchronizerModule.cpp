@@ -45,7 +45,7 @@ public:
 		{
 			if (UTimecodeSynchronizer* Asset = MediaAsset.LoadSynchronous())
 			{
-				Asset->StartPreRoll();
+				Asset->StartSynchronization();
 			}
 		}
 		return true;
@@ -58,7 +58,7 @@ public:
 		{
 			if (UTimecodeSynchronizer* Asset = MediaAsset.LoadSynchronous())
 			{
-				Asset->StopInputSources();
+				Asset->StopSynchronization();
 			}
 		}
 		return true;

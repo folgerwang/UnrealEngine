@@ -68,6 +68,8 @@ DEFINE_LOG_CATEGORY(LogContentCommandlet);
 #include "GenericPlatform/GenericPlatformProcess.h"
 #include "HAL/ThreadManager.h"
 #include "ShaderCompiler.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -297,7 +299,7 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 	// This option will filter the package list and only save packages that are redirectors, or that reference redirectors
 	const bool bFixupRedirects = (Switches.Contains(TEXT("FixupRedirects")) || Switches.Contains(TEXT("FixupRedirectors")));
 
-	if (bResaveDirectRefsAndDeps || bFixupRedirects)
+	if (bResaveDirectRefsAndDeps || bFixupRedirects || bOnlyMaterials)
 	{
 		AssetRegistry.SearchAllAssets(true);
 
@@ -490,6 +492,55 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 	{
 		VerboseMessage(FString::Printf(TEXT("Skipping %s"), *Filename));
 		return;
+	}
+
+	if (CollectionFilter.Num())
+	{
+		FString PackageNameToCreate;
+		if (!FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageNameToCreate))
+		{
+			PackageNameToCreate = Filename;
+		}
+
+		FName PackageName(*PackageNameToCreate);
+		if (!CollectionFilter.Contains(PackageName))
+		{
+			return;
+		}
+	}
+
+	if (bOnlyMaterials)
+	{
+		FString PackageNameToCreate;
+		if (!FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageNameToCreate))
+		{
+			PackageNameToCreate = Filename;
+		}
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+		FName PackageName(*PackageNameToCreate);
+		TArray<FAssetData> PackageAssetData;
+		if (!AssetRegistry.GetAssetsByPackageName(PackageName, PackageAssetData, true))
+		{
+			return;
+		}
+
+		bool bAnyMaterialsPresent = false;
+		for (const FAssetData& AssetData : PackageAssetData)
+		{
+			UClass* AssetClass = AssetData.GetClass();
+			if (AssetClass && AssetClass->IsChildOf(UMaterialInterface::StaticClass()))
+			{
+				bAnyMaterialsPresent = true;
+				break;
+			}
+		}
+
+		if (!bAnyMaterialsPresent)
+		{
+			return;
+		}
 	}
 
 	bool bIsReadOnly = IFileManager::Get().IsReadOnly(*Filename);
@@ -766,7 +817,7 @@ void UResavePackagesCommandlet::DeleteOnePackage(const FString& Filename)
 		// Unload package so we can delete it
 		TArray<UPackage *> PackagesToDelete;
 		PackagesToDelete.Add(Package);
-		PackageTools::UnloadPackages(PackagesToDelete);
+		UPackageTools::UnloadPackages(PackagesToDelete);
 		PackagesToDelete.Empty();
 		Package = nullptr;
 	}
@@ -840,11 +891,37 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildLighting = Switches.Contains(TEXT("buildlighting"));
 	/** determine if we are building reflection captures for the map packages on the pass. **/
-	bShouldBuildReflectionCaptures = Switches.Contains(TEXT("buildreflectioncaptures"));
-	/** determine if we are building lighting for the map packages on the pass. **/
-	bShouldBuildTextureStreaming = Switches.Contains(TEXT("buildtexturestreaming"));
+	bShouldBuildReflectionCaptures = Switches.Contains(TEXT("buildreflectioncaptures"));	/** rebuilds texture streaming data for all packages, rather than just maps. **/
+	bShouldBuildTextureStreamingForAll = Switches.Contains(TEXT("buildtexturestreamingforall"));
+	/** determine if we are building texture streaming data for the map packages on the pass. **/
+	bShouldBuildTextureStreaming = bShouldBuildTextureStreamingForAll || Switches.Contains(TEXT("buildtexturestreaming"));
 	/** determine if we can skip the version changelist check */
 	bIgnoreChangelist = Switches.Contains(TEXT("IgnoreChangelist"));
+	/** only process packages containing materials */
+	bOnlyMaterials = Switches.Contains(TEXT("onlymaterials"));
+
+	/** check for filtering packages by collection. **/
+	FString FilterByCollection;
+	FParse::Value(*Params, TEXT("FilterByCollection="), FilterByCollection);
+
+	CollectionFilter = TSet<FName>();
+	if (!FilterByCollection.IsEmpty())
+	{
+		ICollectionManager& CollectionManager = FCollectionManagerModule::GetModule().Get();
+		TArray<FName> CollectionAssets;
+		if (!CollectionManager.GetAssetsInCollection(FName(*FilterByCollection), ECollectionShareType::CST_All, CollectionAssets))
+		{
+			UE_LOG(LogContentCommandlet, Warning, TEXT("Could not get assets in collection '%s'. Skipping filter."), *FilterByCollection);
+		}
+		else
+		{
+			//insert all of the collection names into the set for fast filter checks
+			for (const FName &AssetName : CollectionAssets)
+			{
+				CollectionFilter.Add(FName(*FPackageName::ObjectPathToPackageName(AssetName.ToString())));
+			}
+		}
+	}
 
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildHLOD = Switches.Contains(TEXT("BuildHLOD"));
@@ -866,9 +943,8 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bForceUATEnvironmentVariableSet = false;
 	if (bShouldBuildHLOD)
 	{
-		TCHAR MutexVariableValue = 0;
-		FPlatformMisc::GetEnvironmentVariable(TEXT("uebp_UATMutexNoWait"), &MutexVariableValue, 1);
-		if (MutexVariableValue != 1)
+		FString MutexVariableValue = FPlatformMisc::GetEnvironmentVariable(TEXT("uebp_UATMutexNoWait"));
+		if (MutexVariableValue != TEXT("1"))
 		{
 			FPlatformMisc::SetEnvironmentVar(TEXT("uebp_UATMutexNoWait"), TEXT("1"));
 			bForceUATEnvironmentVariableSet = true;
@@ -1216,6 +1292,30 @@ bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename, bool bAddF
 }
 
 
+bool UResavePackagesCommandlet::RevertFile(const FString& Filename)
+{
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(*Filename, EStateCacheUsage::ForceUpdate);
+	bool bSuccesfullyReverted = false;
+
+	if (SourceControlState.IsValid())
+	{
+		if (SourceControlState->CanRevert() && (SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), *Filename) == ECommandResult::Succeeded))
+		{
+			bSuccesfullyReverted = true;
+			UE_LOG(LogContentCommandlet, Display, TEXT("[REPORT] %s Reverted successfully"), *Filename);			
+		}
+		else
+		{
+			UE_LOG(LogContentCommandlet, Warning, TEXT("[REPORT] %s could not be reverted!"), *Filename);
+		}
+	}
+
+	return bSuccesfullyReverted;
+}
+
+
+
 bool UResavePackagesCommandlet::CanCheckoutFile(const FString& Filename, FString& CheckedOutUser)
 {
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
@@ -1248,8 +1348,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 	}
 	ABrush::OnRebuildDone();
 
-	const bool bBuildingNonHLODData = (bShouldBuildLighting || bShouldBuildTextureStreaming || bShouldBuildReflectionCaptures);
-	if (bBuildingNonHLODData || bShouldBuildHLOD)
+	const bool bShouldBuildTextureStreamingForWorld = bShouldBuildTextureStreaming && !bShouldBuildTextureStreamingForAll;
+	if (bShouldBuildLighting || bShouldBuildTextureStreamingForWorld || bShouldBuildHLOD || bShouldBuildReflectionCaptures)
 	{
 		bool bShouldProceedWithRebuild = true;
 
@@ -1307,8 +1407,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 		FString WorldPackageCheckedOutUser;
 		if (FPackageName::DoesPackageExist(World->GetOutermost()->GetName(), NULL, &WorldPackageName))
 		{
-			// If we are only building HLODs check if level can be checked out, if so add to list of files that will be saved/checked-out after rebuilding the data
-			if(bShouldBuildHLOD && !bBuildingNonHLODData)
+			if(bShouldBuildHLOD)
 			{
 				if (CanCheckoutFile(WorldPackageName, WorldPackageCheckedOutUser) || !bSkipCheckedOutFiles)
 				{
@@ -1345,8 +1444,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 
 			for (ULevelStreaming* NextStreamingLevel : World->GetStreamingLevels())
 			{
-				// If we are not building HLODs or are but also rebuilding lighting we check out the level file, otherwise we don't to try and ensure a minimal HLOD rebuild
-				if (!bShouldBuildHLOD || bBuildingNonHLODData)
+				// If we are building HLODs, we dont check out ahead of time
+				if(!bShouldBuildHLOD)
 				{
 					CheckOutLevelFile(NextStreamingLevel->GetLoadedLevel());
 				}
@@ -1355,8 +1454,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 				const FString StreamingLevelWorldAssetPackageName = NextStreamingLevel->GetWorldAssetPackageName();
 				if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &StreamingLevelPackageFilename))
 				{
-					// If we are building HLODs only, we dont check out the files ahead of rebuilding the data
-					if(bShouldBuildHLOD && !bBuildingNonHLODData)
+					// If we are building HLODs, we dont check out ahead of time
+					if(bShouldBuildHLOD)
 					{
 						FString CurrentlyCheckedOutUser;
 						if (CanCheckoutFile(StreamingLevelPackageFilename, CurrentlyCheckedOutUser) || !bSkipCheckedOutFiles)
@@ -1377,7 +1476,6 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 						}
 						else
 						{
-							UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] %s is currently already checked out, cannot continue resaving"), *StreamingLevelPackageFilename);
 							bShouldProceedWithRebuild = false;
 							break;
 						}
@@ -1410,7 +1508,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			// We need any deferred commands added when loading to be executed before we start building lighting.
 			GEngine->TickDeferredCommands();
 
-			if (bShouldBuildTextureStreaming)
+			if (bShouldBuildTextureStreamingForWorld)
 			{
 				FEditorBuildUtils::EditorBuildTextureStreaming(World);
 			}
@@ -1590,11 +1688,11 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 				{
 					FString StreamingLevelPackageFilename;
 					const FString StreamingLevelWorldAssetPackageName = NextStreamingLevel->GetWorldAssetPackageName();
-					if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &StreamingLevelPackageFilename) && SublevelFilenames.Contains(StreamingLevelPackageFilename))
+					if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &StreamingLevelPackageFilename) && SublevelFilenames.Contains(StreamingLevelWorldAssetPackageName))
 					{
 						UPackage* SubLevelPackage = NextStreamingLevel->GetLoadedLevel()->GetOutermost();
 						bool bSaveSubLevelPackage = true;
-						if(bShouldBuildHLOD && !bBuildingNonHLODData)
+						if(bShouldBuildHLOD)
 						{
 							// If we are building HLOD, only save packages that were dirtied
 							bSaveSubLevelPackage = SubLevelPackage->IsDirty();
@@ -1604,7 +1702,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 						{
 							// When building HLODs we dont check out/modify maps unless dirty
 							bool bFileCheckedOut = true;
-							if(bShouldBuildHLOD && !bBuildingNonHLODData)
+							if(bShouldBuildHLOD)
 							{
 								bFileCheckedOut = CheckoutFile(StreamingLevelPackageFilename, true);
 							}
@@ -1653,9 +1751,9 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 				FilesToSubmit.AddUnique(SublevelFilename);
 			}
 
-			if(bShouldBuildHLOD && !bBuildingNonHLODData)
+			if(bShouldBuildHLOD)
 			{
-				// Don't save outer package if it isn't dirty when doing a HLOD rebuild only
+				// Don't save outer package if it isn't dirty
 				bSavePackage = World->GetOutermost()->IsDirty();
 			}
 		}
@@ -1683,6 +1781,14 @@ void UResavePackagesCommandlet::PerformAdditionalOperations( UPackage* Package, 
 	if( ( FParse::Param(FCommandLine::Get(), TEXT("CLEANCLASSES")) == true ) && ( CleanClassesFromContentPackages(Package) == true ) )
 	{
 		bShouldSavePackage = true;
+	}
+
+	if (bShouldBuildTextureStreamingForAll)
+	{
+		if (FEditorBuildUtils::EditorBuildMaterialTextureStreamingData(Package))
+		{
+			bSavePackage = true;
+		}
 	}
 
 	// add additional operations here

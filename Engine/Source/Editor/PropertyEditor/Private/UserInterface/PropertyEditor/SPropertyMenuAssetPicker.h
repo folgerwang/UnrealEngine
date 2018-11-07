@@ -19,7 +19,9 @@ public:
 	{}
 		SLATE_ARGUMENT( FAssetData, InitialObject )
 		SLATE_ARGUMENT( bool, AllowClear )
+		SLATE_ARGUMENT( bool, AllowCopyPaste )
 		SLATE_ARGUMENT( TArray<const UClass*>, AllowedClasses )
+		SLATE_ARGUMENT( TArray<const UClass*>, DisallowedClasses )
 		SLATE_ARGUMENT( TArray<UFactory*>, NewAssetFactories )
 		SLATE_EVENT( FOnShouldFilterAsset, OnShouldFilterAsset )
 		SLATE_EVENT( FOnAssetSelected, OnSet )
@@ -90,8 +92,14 @@ private:
 	/** Whether the asset can be 'None' in this case */
 	bool bAllowClear;
 
-	/** Array of classes to filter by */
+	/** Whether the asset can be copied or pasted */
+	bool bAllowCopyPaste;
+
+	/** Array of classes to Allow in filter */
 	TArray<const UClass*> AllowedClasses;
+
+	/** Array of classes to Disallow in filter */
+	TArray<const UClass*> DisallowedClasses;
 
 	/** Array of factories which can create a new asset of suitable type */
 	TArray<UFactory*> NewAssetFactories;

@@ -2822,7 +2822,13 @@ APlayerState* APlayerController::GetNextViewablePlayer(int32 dir)
 	AGameModeBase* GameMode = World->GetAuthGameMode();
 	AGameStateBase* GameState = World->GetGameState();
 
-	if (PlayerCameraManager->ViewTarget.PlayerState )
+	// Can't continue unless we have the GameState and GameMode
+	if (!GameState || !GameMode)
+	{
+		return nullptr;
+	}
+
+	if (PlayerCameraManager && PlayerCameraManager->ViewTarget.PlayerState)
 	{
 		// Find index of current viewtarget's PlayerState
 		for ( int32 i=0; i<GameState->PlayerArray.Num(); i++ )
@@ -4135,7 +4141,7 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 					--ControllerId;
 				}
 
-				InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
+				UpdateForceFeedback(InputInterface, ControllerId);
 
 				const bool bAreHapticsDisabled = (CVarDisableHaptics.GetValueOnGameThread() > 0) || bDisableHaptics;
 				if (!bAreHapticsDisabled)
@@ -4157,6 +4163,11 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 			}
 		}
 	}
+}
+
+void APlayerController::UpdateForceFeedback(IInputInterface* InputInterface, const int32 ControllerId)
+{
+	InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
 }
 
 /// @cond DOXYGEN_WARNINGS
@@ -4418,7 +4429,10 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 
 	//root of tick hierarchy
 
-	if ((GetRemoteRole() == ROLE_AutonomousProxy) && !IsNetMode(NM_Client) && !IsLocalPlayerController())
+	const bool bIsClient = IsNetMode(NM_Client);
+	const bool bIsLocallyControlled = IsLocalPlayerController();
+
+	if ((GetRemoteRole() == ROLE_AutonomousProxy) && !bIsClient && !bIsLocallyControlled)
 	{
 		// force physics update for clients that aren't sending movement updates in a timely manner 
 		// this prevents cheats associated with artificially induced ping spikes
@@ -4435,20 +4449,60 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 					UWorld* World = GetWorld();
 					if (ServerData->ServerTimeStamp != 0.f)
 					{
-						const float TimeSinceUpdate = World->GetTimeSeconds() - ServerData->ServerTimeStamp;
+						const float WorldTimeStamp = World->GetTimeSeconds();
+						const float TimeSinceUpdate = WorldTimeStamp - ServerData->ServerTimeStamp;
 						const float PawnTimeSinceUpdate = TimeSinceUpdate * GetPawn()->CustomTimeDilation;
-						if (PawnTimeSinceUpdate > FMath::Max<float>(DeltaSeconds+0.06f, AGameNetworkManager::StaticClass()->GetDefaultObject<AGameNetworkManager>()->MAXCLIENTUPDATEINTERVAL * GetPawn()->GetActorTimeDilation()))
+						// See how long we wait to force an update. Setting MAXCLIENTUPDATEINTERVAL to zero allows the server to disable this feature.
+						const AGameNetworkManager* GameNetworkManager = (const AGameNetworkManager*)(AGameNetworkManager::StaticClass()->GetDefaultObject());
+						const float ForcedUpdateInterval = GameNetworkManager->MAXCLIENTUPDATEINTERVAL;
+						const float ForcedUpdateMaxDuration = FMath::Min(GameNetworkManager->MaxClientForcedUpdateDuration, 5.0f);
+						
+						// If currently resolving forced updates, and exceeded max duration, then wait for a valid update before enabling them again.
+						ServerData->bForcedUpdateDurationExceeded = false;
+						if (ServerData->bTriggeringForcedUpdates)
 						{
+							const float PawnTimeSinceForcingUpdates = (WorldTimeStamp - ServerData->ServerTimeBeginningForcedUpdates) * GetPawn()->CustomTimeDilation;
+							if (PawnTimeSinceForcingUpdates > ForcedUpdateMaxDuration * GetPawn()->GetActorTimeDilation())
+							{
+								if (ServerData->ServerTimeStamp > ServerData->ServerTimeLastForcedUpdate)
+								{
+									// An update came in that was not a forced update (ie a real move), since ServerTimeStamp advanced outside this code.
+									ServerData->ResetForcedUpdateState();
+								}
+								else
+								{
+									// Waiting for ServerTimeStamp to advance from a client move.
+									ServerData->bForcedUpdateDurationExceeded = true;
+								}
+							}
+						}
+						
+						// Trigger forced update if allowed
+						if (ForcedUpdateInterval > 0.f && PawnTimeSinceUpdate > FMath::Max<float>(DeltaSeconds+0.06f, ForcedUpdateInterval * GetPawn()->GetActorTimeDilation()))
+						{						
 							//UE_LOG(LogPlayerController, Warning, TEXT("ForcedMovementTick. PawnTimeSinceUpdate: %f, DeltaSeconds: %f, DeltaSeconds+: %f"), PawnTimeSinceUpdate, DeltaSeconds, DeltaSeconds+0.06f);
 							const USkeletalMeshComponent* PawnMesh = GetPawn()->FindComponentByClass<USkeletalMeshComponent>();
-							if (!PawnMesh || !PawnMesh->IsSimulatingPhysics())
+							if (!ServerData->bForcedUpdateDurationExceeded && (!PawnMesh || !PawnMesh->IsSimulatingPhysics()))
 							{
-								// We are setting the ServerData timestamp BEFORE updating position below since that may cause ServerData to become deleted (like if the pawn was unpossessed as a result of the move)
-								// Also null the pointer to make sure no one accidentally starts using it below the call to ForcePositionUpdate
-								ServerData->ServerTimeStamp = World->GetTimeSeconds();
-								ServerData = nullptr;
+								const bool bDidUpdate = NetworkPredictionInterface->ForcePositionUpdate(PawnTimeSinceUpdate);
 
-								NetworkPredictionInterface->ForcePositionUpdate(PawnTimeSinceUpdate);
+								// Refresh this pointer in case it has changed (which can happen if character is destroyed or repossessed).
+								ServerData = NetworkPredictionInterface->HasPredictionData_Server() ? NetworkPredictionInterface->GetPredictionData_Server() : nullptr;
+
+								if (bDidUpdate && ServerData)
+								{
+									ServerData->ServerTimeLastForcedUpdate = WorldTimeStamp;
+
+									// Detect initial conditions triggering forced updates.
+									if (!ServerData->bTriggeringForcedUpdates)
+									{
+										ServerData->ServerTimeBeginningForcedUpdates = ServerData->ServerTimeStamp;
+										ServerData->bTriggeringForcedUpdates = true;
+									}
+
+									// Set server timestamp, if there was movement.
+									ServerData->ServerTimeStamp = WorldTimeStamp;
+								}
 							}
 						}
 					}
@@ -4456,17 +4510,18 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 					{
 						// If timestamp is zero, set to current time so we don't have a huge initial delta time for correction.
 						ServerData->ServerTimeStamp = World->GetTimeSeconds();
+						ServerData->ResetForcedUpdateState();
 					}
 				}
 			}
 		}
 
 		// update viewtarget replicated info
-		if (PlayerCameraManager != NULL)
+		if (PlayerCameraManager != nullptr)
 		{
 			APawn* TargetPawn = PlayerCameraManager->GetViewTargetPawn();
 			
-			if ((TargetPawn != GetPawn()) && (TargetPawn != NULL))
+			if ((TargetPawn != GetPawn()) && (TargetPawn != nullptr))
 			{
 				TargetViewRotation = TargetPawn->GetViewRotation();
 			}
@@ -4475,7 +4530,7 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 	else if (Role > ROLE_SimulatedProxy)
 	{
 		// Process PlayerTick with input.
-		if (!PlayerInput && (Player == NULL || Cast<ULocalPlayer>( Player ) != NULL))
+		if (!PlayerInput && (Player == nullptr || Cast<ULocalPlayer>( Player ) != nullptr))
 		{
 			InitInputSystem();
 		}
@@ -4491,12 +4546,24 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 		}
 
 		// update viewtarget replicated info
-		if (PlayerCameraManager != NULL)
+		if (PlayerCameraManager != nullptr)
 		{
 			APawn* TargetPawn = PlayerCameraManager->GetViewTargetPawn();
-			if ((TargetPawn != GetPawn()) && (TargetPawn != NULL))
+			if ((TargetPawn != GetPawn()) && (TargetPawn != nullptr))
 			{
 				SmoothTargetViewRotation(TargetPawn, DeltaSeconds);
+			}
+
+			// Send a camera update if necessary.
+			if (bIsClient && bIsLocallyControlled && GetPawn() && PlayerCameraManager->bUseClientSideCameraUpdates)
+			{
+				UPawnMovementComponent* PawnMovement = GetPawn()->GetMovementComponent();
+				if (PawnMovement != nullptr &&
+					!PawnMovement->IsMoveInputIgnored() &&
+					(PawnMovement->GetLastInputVector() != FVector::ZeroVector || PawnMovement->Velocity != FVector::ZeroVector))
+				{
+					PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
+				}
 			}
 		}
 	}
@@ -4510,7 +4577,7 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 	RotationInput = FRotator::ZeroRotator;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (CheatManager != NULL)
+	if (CheatManager != nullptr)
 	{
 		CheatManager->TickCollisionDebug();
 	}
@@ -4902,7 +4969,7 @@ float APlayerController::GetInputAnalogKeyState(const FKey Key) const
 
 FVector APlayerController::GetInputVectorKeyState(const FKey Key) const
 {
-	return (PlayerInput ? PlayerInput->GetVectorKeyValue(Key) : FVector());
+	return (PlayerInput ? PlayerInput->GetRawVectorKeyValue(Key) : FVector());
 }
 
 void APlayerController::GetInputTouchState(ETouchIndex::Type FingerIndex, float& LocationX, float& LocationY, bool& bIsCurrentlyPressed) const
@@ -5079,12 +5146,32 @@ void FInputModeDataBase::SetFocusAndLocking(FReply& SlateOperations, TSharedPtr<
 	}
 }
 
+FInputModeUIOnly& FInputModeUIOnly::SetWidgetToFocus(TSharedPtr<SWidget> InWidgetToFocus)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (InWidgetToFocus.IsValid() && !InWidgetToFocus->SupportsKeyboardFocus())
+	{
+		UE_LOG(LogPlayerController, Error, TEXT("InputMode:UIOnly - Attempting to focus Non-Focusable widget %s!"), *InWidgetToFocus->ToString());
+	}
+#endif
+	WidgetToFocus = InWidgetToFocus;
+	return *this;
+}
+
+FInputModeUIOnly& FInputModeUIOnly::SetLockMouseToViewportBehavior(EMouseLockMode InMouseLockMode)
+{
+	MouseLockMode = InMouseLockMode;
+	return *this;
+}
+
 void FInputModeUIOnly::ApplyInputMode(FReply& SlateOperations, class UGameViewportClient& GameViewportClient) const
 {
 	TSharedPtr<SViewport> ViewportWidget = GameViewportClient.GetGameViewportWidget();
 	if (ViewportWidget.IsValid())
 	{
-		SetFocusAndLocking(SlateOperations, WidgetToFocus, MouseLockMode == EMouseLockMode::LockAlways, ViewportWidget.ToSharedRef());
+		const bool bLockMouseToViewport = MouseLockMode == EMouseLockMode::LockAlways
+												 || (MouseLockMode == EMouseLockMode::LockInFullscreen && GameViewportClient.IsExclusiveFullscreenViewport());
+		SetFocusAndLocking(SlateOperations, WidgetToFocus, bLockMouseToViewport, ViewportWidget.ToSharedRef());
 
 		SlateOperations.ReleaseMouseCapture();
 
@@ -5099,7 +5186,9 @@ void FInputModeGameAndUI::ApplyInputMode(FReply& SlateOperations, class UGameVie
 	TSharedPtr<SViewport> ViewportWidget = GameViewportClient.GetGameViewportWidget();
 	if (ViewportWidget.IsValid())
 	{
-		SetFocusAndLocking(SlateOperations, WidgetToFocus, MouseLockMode == EMouseLockMode::LockAlways, ViewportWidget.ToSharedRef());
+		const bool bLockMouseToViewport = MouseLockMode == EMouseLockMode::LockAlways
+			|| (MouseLockMode == EMouseLockMode::LockInFullscreen && GameViewportClient.IsExclusiveFullscreenViewport());
+		SetFocusAndLocking(SlateOperations, WidgetToFocus, bLockMouseToViewport, ViewportWidget.ToSharedRef());
 
 		SlateOperations.ReleaseMouseCapture();
 

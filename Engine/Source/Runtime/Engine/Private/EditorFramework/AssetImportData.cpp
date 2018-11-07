@@ -186,10 +186,14 @@ FString UAssetImportData::SanitizeImportFilename(const FString& InPath) const
 
 FString UAssetImportData::SanitizeImportFilename(const FString& InPath, const UPackage* Outermost)
 {
-	if (Outermost)
+	return SanitizeImportFilename(InPath, Outermost ? Outermost->GetPathName() : FString());
+}
+
+FString UAssetImportData::SanitizeImportFilename(const FString& InPath, const FString& PackagePath)
+{
+	if (!PackagePath.IsEmpty())
 	{
 		const bool		bIncludeDot = true;
-		const FString	PackagePath	= Outermost->GetPathName();
 		const FName		MountPoint	= FPackageName::GetPackageMountPoint(PackagePath);
 		const FString	PackageFilename = FPackageName::LongPackageNameToFilename(PackagePath, FPaths::GetExtension(InPath, bIncludeDot));
 		const FString	AbsolutePath = FPaths::ConvertRelativePathToFull(InPath);
@@ -231,8 +235,6 @@ FString UAssetImportData::SanitizeImportFilename(const FString& InPath, const UP
 
 FString UAssetImportData::ResolveImportFilename(const FString& InRelativePath, const UPackage* Outermost)
 {
-	FString RelativePath = InRelativePath;
-
 	if (Outermost)
 	{
 		// Relative to the package filename?
@@ -271,7 +273,7 @@ FString UAssetImportData::ResolveImportFilename(const FString& InRelativePath, c
 #endif
 
 	// Convert relative paths
-	return FPaths::ConvertRelativePathToFull(RelativePath);	
+	return FPaths::ConvertRelativePathToFull(InRelativePath);
 }
 
 FString UAssetImportData::ResolveImportFilename(const FString& InRelativePath) const

@@ -66,6 +66,22 @@ void UMaterialExpressionLandscapeLayerSample::GetCaption(TArray<FString>& OutCap
 {
 	OutCaptions.Add(FString::Printf(TEXT("Sample '%s'"), *ParameterName.ToString()));
 }
+
+bool UMaterialExpressionLandscapeLayerSample::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
+}
+
 #endif // WITH_EDITOR
 
 void UMaterialExpressionLandscapeLayerSample::GetAllParameterInfo(TArray<FMaterialParameterInfo> &OutParameterInfo, TArray<FGuid> &OutParameterIds, const FMaterialParameterInfo& InBaseParameterInfo) const

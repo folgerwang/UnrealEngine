@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnrealBuildTool;
+using Tools.DotNETCommon;
 
 namespace AutomationTool
 {
@@ -166,33 +167,47 @@ namespace AutomationTool
 
 			// Get the Perforce client setting
 			Client = CommandUtils.GetEnvVar(EnvVarNames.Client);
-			if(String.IsNullOrEmpty(Client))
+			Branch = CommandUtils.GetEnvVar(EnvVarNames.BuildRootP4);
+			ClientRoot = CommandUtils.GetEnvVar(EnvVarNames.ClientRoot);
+			if(String.IsNullOrEmpty(Client) || String.IsNullOrEmpty(Branch) || String.IsNullOrEmpty(ClientRoot))
 			{
+				// Create a connection using the current setting
 				P4Connection DefaultConnection = new P4Connection(User: User, Client: null, ServerAndPort: ServerAndPort);
-				P4ClientInfo ThisClient = DetectClient(DefaultConnection, User, Environment.MachineName.ToLower(), CmdEnv.UATExe);
-				Log.TraceInformation("Using user {0} clientspec {1} {2}", User, ThisClient.Name, ThisClient.RootPath);
 
-				string BranchPath;
-				string ClientRootPath;
-				P4Connection ClientConnection = new P4Connection(User: User, Client: ThisClient.Name, ServerAndPort: ServerAndPort);
-				DetectRootPaths(ClientConnection, CmdEnv.LocalRoot, ThisClient, out BranchPath, out ClientRootPath);
+				// Get the client info
+				P4ClientInfo ThisClient;
+				if(String.IsNullOrEmpty(Client))
+				{
+					ThisClient = DetectClient(DefaultConnection, User, Environment.MachineName.ToLower(), CmdEnv.UATExe);
+					Log.TraceInformation("Using user {0} clientspec {1} {2}", User, ThisClient.Name, ThisClient.RootPath);
+					Client = ThisClient.Name;
+					CommandUtils.SetEnvVar(EnvVarNames.Client, Client);
+				}
+				else
+				{
+					ThisClient = DefaultConnection.GetClientInfo(Client);
+				}
 
-				Client = ThisClient.Name;
-				CommandUtils.SetEnvVar(EnvVarNames.Client, Client);
-
-				Branch = BranchPath;
-				CommandUtils.SetEnvVar(EnvVarNames.BuildRootP4, Branch);
-
-				ClientRoot = ClientRootPath;
-				CommandUtils.SetEnvVar(EnvVarNames.ClientRoot, ClientRootPath);
-			}
-			else
-			{
-				Branch = CommandUtils.GetEnvVar(EnvVarNames.BuildRootP4);
-				ClientRoot = CommandUtils.GetEnvVar(EnvVarNames.ClientRoot);
+				// Detect the root paths
 				if(String.IsNullOrEmpty(Branch) || String.IsNullOrEmpty(ClientRoot))
 				{
-					throw new AutomationException("{0} and {1} must also be set with {2}", EnvVarNames.ClientRoot, EnvVarNames.BuildRootP4, EnvVarNames.Client);
+					P4Connection ClientConnection = new P4Connection(User: User, Client: ThisClient.Name, ServerAndPort: ServerAndPort);
+
+					string BranchPath;
+					string ClientRootPath;
+					DetectRootPaths(ClientConnection, CmdEnv.LocalRoot, ThisClient, out BranchPath, out ClientRootPath);
+
+					if(String.IsNullOrEmpty(Branch))
+					{
+						Branch = BranchPath;
+						CommandUtils.SetEnvVar(EnvVarNames.BuildRootP4, Branch);
+					}
+
+					if(String.IsNullOrEmpty(ClientRoot))
+					{
+						ClientRoot = ClientRootPath;
+						CommandUtils.SetEnvVar(EnvVarNames.ClientRoot, ClientRootPath);
+					}
 				}
 			}
 
@@ -420,14 +435,22 @@ namespace AutomationTool
 			CommandUtils.LogVerbose("uebp_CL not set, detecting 'have' CL...");
 
 			// Retrieve the current changelist 
-			var P4Result = Connection.P4("changes -m 1 " + CommandUtils.CombinePaths(PathSeparator.Depot, ClientRootPath, "/...#have"), AllowSpew: false);
-			var CLTokens = P4Result.Output.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-			var CLString = CLTokens[1];
-			var CL = Int32.Parse(CLString);
-			if (CLString != CL.ToString())
+			IProcessResult P4Result = Connection.P4("changes -m 1 " + CommandUtils.CombinePaths(PathSeparator.Depot, ClientRootPath, "/...#have"), AllowSpew: false);
+
+			string[] CLTokens = P4Result.Output.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+			if(CLTokens.Length == 0)
 			{
-				throw new AutomationException("Failed to retrieve current changelist.");
+				throw new AutomationException("Unable to find current changelist (no output from 'p4 changes' command)");
 			}
+			
+			string CLString = CLTokens[1];
+
+			int CL;
+			if(!Int32.TryParse(CLString, out CL) || CLString != CL.ToString())
+			{
+				throw new AutomationException("Unable to parse current changelist from Perforce output:\n{0}", P4Result.Output);
+			}
+
 			return CLString;
 		}
 

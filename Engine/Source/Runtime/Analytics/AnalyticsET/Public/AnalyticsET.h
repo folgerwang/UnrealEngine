@@ -40,6 +40,8 @@ public:
 		FString APIKeyET;
 		/** ET API Server - Base URL to send events. */
 		FString APIServerET;
+		/** ET Alt API Servers - Base URLs to send events on retry. */
+		TArray<FString> AltAPIServersET;
 		/** 
 		 * AppVersion - defines the app version passed to the provider. By default this will be FEngineVersion::Current(), but you can supply your own. 
 		 * As a convenience, you can use -AnalyticsAppVersion=XXX to force the AppVersion to a specific value. Useful for playtest etc where you want to define a specific version string dynamically.
@@ -54,13 +56,16 @@ public:
 		FString AppEnvironment;
 		/** The UploadType that the data router should use. Defaults to GetDefaultUploadType. */
 		FString UploadType;
+		/** Maximum number of retries to attempt. */
+		uint32 RetryLimitCount;
 
 		/** Default ctor to ensure all values have their proper default. */
 		Config() : UseLegacyProtocol(false) {}
 		/** Ctor exposing common configurables . */
-		Config(FString InAPIKeyET, FString InAPIServerET, FString InAppVersionET = FString(), bool InUseLegacyProtocol = false, FString InAppEnvironment = FString(), FString InUploadType = FString()) 
+		Config(FString InAPIKeyET, FString InAPIServerET, FString InAppVersionET = FString(), bool InUseLegacyProtocol = false, FString InAppEnvironment = FString(), FString InUploadType = FString(), TArray<FString> InAltApiServers = TArray<FString>())
 			: APIKeyET(MoveTemp(InAPIKeyET))
 			, APIServerET(MoveTemp(InAPIServerET))
+			, AltAPIServersET(MoveTemp(InAltApiServers))
 			, AppVersionET(MoveTemp(InAppVersionET))
 			, UseLegacyProtocol(InUseLegacyProtocol)
 			, AppEnvironment(MoveTemp(InAppEnvironment))

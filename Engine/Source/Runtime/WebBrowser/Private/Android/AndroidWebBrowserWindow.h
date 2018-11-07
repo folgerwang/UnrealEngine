@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if USE_ANDROID_JNI
 
 #include "IWebBrowserWindow.h"
-#include "AndroidJSScripting.h"
 #include "Widgets/SWidget.h"
+#include "MobileJS/MobileJSScripting.h"
 
 class SAndroidWebBrowserWidget;
 class SWebBrowserView;
@@ -53,6 +55,7 @@ public:
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
+	virtual FIntPoint GetViewportSize() const override;
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -69,6 +72,8 @@ public:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
+	virtual void SetSupportsMouseWheel(bool bValue) override;
+	virtual bool GetSupportsMouseWheel() const override;
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnFocus(bool SetFocus, bool bIsPopup) override;
 	virtual void OnCaptureLost() override;
@@ -87,7 +92,6 @@ public:
 	virtual void SetIsDisabled(bool bValue) override;
 	virtual TSharedPtr<SWindow> GetParentWindow() const override;
 	virtual void SetParentWindow(TSharedPtr<SWindow> Window) override;
-	virtual FIntPoint GetViewportSize() const;
 
 	DECLARE_DERIVED_EVENT(FAndroidWebBrowserWindow, IWebBrowserWindow::FOnDocumentStateChanged, FOnDocumentStateChanged);
 	virtual FOnDocumentStateChanged& OnDocumentStateChanged() override
@@ -176,12 +180,27 @@ public:
 		return SuppressContextMenuDelgate;
 	}
 
+	virtual FOnDragWindow& OnDragWindow() override
+	{
+		return DragWindowDelegate;
+	}
+
 public:
 
 	/**
 	* Called from the WebBrowserSingleton tick event. Should test whether the widget got a tick from Slate last frame and set the state to hidden if not.
 	*/
-	//void CheckTickActivity();
+	void CheckTickActivity() override;
+
+	/**
+	* Signal from the widget, meaning that the widget is still active
+	*/
+	void SetTickLastFrame();
+
+	/**
+	* Browser's visibility
+	*/
+	bool IsVisible();
 
 private:
 
@@ -255,17 +274,29 @@ private:
 	/** Delegate for suppressing context menu */
 	FOnSuppressContextMenu SuppressContextMenuDelgate;
 
+	/** Delegate that is executed when a drag event is detected in an area of the web page tagged as a drag region. */
+	FOnDragWindow DragWindowDelegate;
+
 	/** Current state of the document being loaded. */
 	EWebBrowserDocumentState DocumentState;
 	int ErrorCode;
 
-	FAndroidJSScriptingPtr Scripting;
+	FMobileJSScriptingPtr Scripting;
 
 	mutable TOptional<TFunction<void (const FString&)>> GetPageSourceCallback;
 
 	TSharedPtr<SWindow> ParentWindow;
 
 	FIntPoint AndroidWindowSize;
+
+	/** Tracks whether the widget is currently disabled or not*/
+	bool bIsDisabled;
+
+	/** Tracks whether the widget is currently visible or not*/
+	bool bIsVisible;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
 };
 
 typedef FAndroidWebBrowserWindow FWebBrowserWindow;

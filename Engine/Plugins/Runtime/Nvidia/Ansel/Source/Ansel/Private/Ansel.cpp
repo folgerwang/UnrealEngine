@@ -298,6 +298,7 @@ void FNVAnselCameraPhotographyPrivate::DoCustomUIControls(FPostProcessSettings& 
 		UEPostProcessingOriginal = InOutPPSettings;
 
 		// add all relevant controls
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if (bEffectUIAllowed[DepthOfField] && (InOutPPSettings.DepthOfFieldMethod == DOFM_Gaussian || InOutPPSettings.DepthOfFieldScale > 0.f)) // 'Is DoF used?'
 		{
 			if (InOutPPSettings.DepthOfFieldMethod != DOFM_Gaussian) // scale irrelevant for gaussian
@@ -318,11 +319,12 @@ void FNVAnselCameraPhotographyPrivate::DoCustomUIControls(FPostProcessSettings& 
 			);
 			DeclareSlider(
 				control_doffocaldistance,
-				LOCTEXT("control_dofscale", "Focus Distance"),
+				LOCTEXT("control_doffocaldistance", "Focus Distance"),
 				0.f, 10000.f,
 				InOutPPSettings.DepthOfFieldFocalDistance
 			);
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if (bEffectUIAllowed[Bloom] &&
 			InOutPPSettings.BloomIntensity > 0.f)
@@ -754,7 +756,10 @@ void FNVAnselCameraPhotographyPrivate::ReconfigureAnsel()
 	AnselConfig->startCaptureCallback = AnselStartCaptureCallback;
 	AnselConfig->stopCaptureCallback = AnselStopCaptureCallback;
 
-	AnselConfig->gameWindowHandle = GEngine->GameViewport->GetWindow()->GetNativeWindow()->GetOSWindowHandle();
+	if (GEngine->GameViewport && GEngine->GameViewport->GetWindow().IsValid() && GEngine->GameViewport->GetWindow()->GetNativeWindow().IsValid())
+	{
+		AnselConfig->gameWindowHandle = GEngine->GameViewport->GetWindow()->GetNativeWindow()->GetOSWindowHandle();
+	}
 	UE_LOG(LogAnsel, Log, TEXT("gameWindowHandle= %p"), AnselConfig->gameWindowHandle);
 
 	static IConsoleVariable* CVarTranslationSpeed = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Photography.TranslationSpeed"));
@@ -782,7 +787,7 @@ void FNVAnselCameraPhotographyPrivate::ReconfigureAnsel()
 	ansel::SetConfigurationStatus status = ansel::setConfiguration(*AnselConfig);
 	if (status != ansel::kSetConfigurationSuccess)
 	{
-		UE_LOG(LogAnsel, Log, TEXT("ReconfigureAnsel setConfiguration returned %ld"), long int(status));
+		UE_LOG(LogAnsel, Log, TEXT("ReconfigureAnsel setConfiguration returned %ld"), (long int)(status));
 	}
 }
 
@@ -799,7 +804,7 @@ void FNVAnselCameraPhotographyPrivate::DeconfigureAnsel()
 	ansel::SetConfigurationStatus status = ansel::setConfiguration(*AnselConfig);
 	if (status != ansel::kSetConfigurationSuccess)
 	{
-		UE_LOG(LogAnsel, Log, TEXT("DeconfigureAnsel setConfiguration returned %ld"), long int(status));
+		UE_LOG(LogAnsel, Log, TEXT("DeconfigureAnsel setConfiguration returned %ld"), (long int)(status));
 	}
 }
 

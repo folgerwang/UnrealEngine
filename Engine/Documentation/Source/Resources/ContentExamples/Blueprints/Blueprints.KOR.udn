@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4309085
 Availability: Public
 Title:블루프린트 콘텐츠 예제
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
@@ -201,7 +201,7 @@ topic-image:blueprint_ce_compact.png
 [COMMENT:none]
 
 [EXCERPT:BlueprintsCEInstructions]
-콘텐츠 예제 프로젝트의 [블루프린트를 열어](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Opening) 보면 각 블루프린트를 만드는 데 대한 [디폴트](Engine/Blueprints/Editor\Modes\Defaults), [컴포넌트](Engine/Blueprints/UserGuide\Components), [그래프](Engine/Blueprints/Editor\Modes\GraphPanel) 셋업 방식을 확인할 수 있습니다.
+콘텐츠 예제 프로젝트의 [블루프린트를 열어](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Opening) 보면 각 블루프린트를 만드는 데 대한 [디폴트](Engine/Blueprints/Editor\Modes\Defaults), [컴포넌트](Engine/Blueprints/UserGuide\Components), 그래프 셋업 방식을 확인할 수 있습니다.
 [/EXCERPT:BlueprintsCEInstructions]
 
 

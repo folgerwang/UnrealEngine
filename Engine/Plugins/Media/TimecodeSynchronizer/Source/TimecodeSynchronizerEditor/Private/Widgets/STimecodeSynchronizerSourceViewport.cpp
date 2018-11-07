@@ -28,7 +28,7 @@ STimecodeSynchronizerSourceViewport::STimecodeSynchronizerSourceViewport()
 	, SourceTextBox(nullptr)
 	, TimecodeSynchronization(nullptr)
 	, AttachedSourceIndex(INDEX_NONE)
-	, bIsTimecodedSource(false)
+	, bIsSynchronizedSource(false)
 	, Material(nullptr)
 	, MaterialBrush(nullptr)
 	, TextureSampler(nullptr)
@@ -37,11 +37,11 @@ STimecodeSynchronizerSourceViewport::STimecodeSynchronizerSourceViewport()
 /* STimecodeSynchronizerSourceViewport interface
 *****************************************************************************/
 
-void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UTimecodeSynchronizer* InTimecodeSynchronizer, int32 InAttachedSourceIndex, bool InTimecodedSource, UTexture* InTexture)
+void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UTimecodeSynchronizer* InTimecodeSynchronizer, int32 InAttachedSourceIndex, bool bInIsSynchronizedSource, UTexture* InTexture)
 {
 	TimecodeSynchronization = InTimecodeSynchronizer;
 	AttachedSourceIndex = InAttachedSourceIndex;
-	bIsTimecodedSource = InTimecodedSource;
+	bIsSynchronizedSource = bInIsSynchronizedSource;
 	
 	//If no texture is attached, a default static texture will be used (for non live viewable sources)
 	MaterialBrush = nullptr;
@@ -105,9 +105,9 @@ void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UT
 					.Text_Lambda([&]() -> FText
 					{
 						const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
-						if (AttachedSource && AttachedSource->bIsReady)
+						if (AttachedSource && AttachedSource->IsReady())
 						{
-							return FText::FromString(GetAttachedSource()->InputSource->GetDisplayName());
+							return FText::FromString(GetAttachedSource()->GetDisplayName());
 						}
 						return FText();
 					})
@@ -211,10 +211,11 @@ FText STimecodeSynchronizerSourceViewport::HandleIntervalMinTimecodeText() const
 {
 	FTimecode Timecode;
 	const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
-	if (AttachedSource && AttachedSource->bIsReady)
+	if (AttachedSource && AttachedSource->IsReady())
 	{
-		const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(AttachedSource->FrameRate);
-		Timecode = FTimecode::FromFrameNumber(AttachedSource->NextSampleTime.FrameNumber, AttachedSource->FrameRate, bIsDropFrame);
+		const FFrameNumber OldestFrame = AttachedSource->GetInputSourceState().OldestAvailableSample.GetFrame();
+		const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(AttachedSource->GetFrameRate());
+		Timecode = FTimecode::FromFrameNumber(OldestFrame, AttachedSource->GetFrameRate(), bIsDropFrame);
 	}
 
 	return FText::FromString(Timecode.ToString());
@@ -224,11 +225,11 @@ FText STimecodeSynchronizerSourceViewport::HandleIntervalMaxTimecodeText() const
 {
 	FTimecode Timecode;
 	const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
-	if (AttachedSource && AttachedSource->bIsReady)
+	if (AttachedSource && AttachedSource->IsReady())
 	{
-		const FFrameNumber NextFrame = AttachedSource->NextSampleTime.FrameNumber + AttachedSource->AvailableSampleCount;
-		const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(AttachedSource->FrameRate);
-		Timecode = FTimecode::FromFrameNumber(NextFrame, AttachedSource->FrameRate, bIsDropFrame);
+		const FFrameNumber NewestFrame = AttachedSource->GetInputSourceState().NewestAvailableSample.GetFrame();
+		const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(AttachedSource->GetFrameRate());
+		Timecode = FTimecode::FromFrameNumber(NewestFrame, AttachedSource->GetFrameRate(), bIsDropFrame);
 	}
 
 	return FText::FromString(Timecode.ToString());
@@ -242,7 +243,7 @@ FText STimecodeSynchronizerSourceViewport::HandleCurrentTimecodeText() const
 FText STimecodeSynchronizerSourceViewport::HandleIsSourceMasterText() const
 {
 	FString Role;
-	if (TimecodeSynchronization && AttachedSourceIndex != INDEX_NONE && bIsTimecodedSource && TimecodeSynchronization->GetActiveMasterSynchronizationTimecodedSourceIndex() == AttachedSourceIndex)
+	if (TimecodeSynchronization && AttachedSourceIndex != INDEX_NONE && bIsSynchronizedSource && TimecodeSynchronization->GetActiveMasterSynchronizationTimecodedSourceIndex() == AttachedSourceIndex)
 	{
 		Role = "Master";
 	}
@@ -256,7 +257,7 @@ const FTimecodeSynchronizerActiveTimecodedInputSource* STimecodeSynchronizerSour
 
 	if (TimecodeSynchronization && AttachedSourceIndex != INDEX_NONE)
 	{
-		const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& Sources = bIsTimecodedSource ? TimecodeSynchronization->GetTimecodedSources() : TimecodeSynchronization->GetSynchronizationSources();
+		const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& Sources = bIsSynchronizedSource ? TimecodeSynchronization->GetSynchronizedSources() : TimecodeSynchronization->GetNonSynchronizedSources();
 		if (Sources.IsValidIndex(AttachedSourceIndex))
 		{
 			Result = &Sources[AttachedSourceIndex];

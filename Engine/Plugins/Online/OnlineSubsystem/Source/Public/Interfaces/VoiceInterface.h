@@ -9,7 +9,7 @@
 
 class FVoicePacket;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Log, All);
 #define UE_LOG_ONLINE_VOICEENGINE(Verbosity, Format, ...) \
 { \
 	UE_LOG(LogVoiceEngine, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
@@ -20,7 +20,7 @@ ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Display, All);
 	UE_CLOG(Conditional, LogVoiceEngine, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
 }
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineVoice, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineVoice, Log, All);
 
 #define UE_LOG_ONLINE_VOICE(Verbosity, Format, ...) \
 { \
@@ -243,12 +243,10 @@ class IOnlineVoice
 protected:
 	IOnlineVoice() {};
 
-	/**
-	 * Initialize the voice interface
-	 */
-	virtual bool Init() = 0;
 
 PACKAGE_SCOPE:
+
+	virtual IVoiceEnginePtr CreateVoiceEngine() = 0;
 
 	/**
 	 * Re-evaluates the muting list for all local talkers
@@ -256,6 +254,13 @@ PACKAGE_SCOPE:
 	virtual void ProcessMuteChangeNotification() = 0;
 
 public:
+	virtual void Shutdown() {}
+
+	/**
+	* Initialize the voice interface
+	*/
+	virtual bool Init() { return true; }
+
 	/** Virtual destructor to force proper child cleanup */
 	virtual ~IOnlineVoice() {}
 
@@ -322,7 +327,7 @@ public:
 	virtual bool UnregisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
 
 	/**
-	 * Iterates the current remote talker list unregistering them with the 
+	 * Iterates the current remote talker list unregistering them with the
 	 * voice engine and our internal state
 	 */
 	virtual void RemoveAllRemoteTalkers() = 0;

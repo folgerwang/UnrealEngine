@@ -479,15 +479,78 @@ struct FReflectionCaptureSortData
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData,TEXT("ReflectionCapture"));
 
-/** Compute shader that does tiled deferred culling of reflection captures, then sorts and composites them. */
+/** Pixel shader that does tiled deferred culling of reflection captures, then sorts and composites them. */
 class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FReflectionEnvironmentSkyLightingPS, Global)
-public:
+	DECLARE_GLOBAL_SHADER(FReflectionEnvironmentSkyLightingPS);
+
+	class FHasBoxCaptures			: SHADER_PERMUTATION_BOOL("REFLECTION_COMPOSITE_HAS_BOX_CAPTURES");
+	class FHasSphereCaptures		: SHADER_PERMUTATION_BOOL("REFLECTION_COMPOSITE_HAS_SPHERE_CAPTURES");
+	class FDFAOIndirectOcclusion	: SHADER_PERMUTATION_BOOL("SUPPORT_DFAO_INDIRECT_OCCLUSION");
+	class FSpecularBounce			: SHADER_PERMUTATION_BOOL("SPECULAR_BOUNCE");
+	class FSkyLight					: SHADER_PERMUTATION_BOOL("ENABLE_SKY_LIGHT");
+	class FDynamicSkyLight			: SHADER_PERMUTATION_BOOL("ENABLE_DYNAMIC_SKY_LIGHT");
+	class FSkyShadowing				: SHADER_PERMUTATION_BOOL("APPLY_SKY_SHADOWING");
+
+	using FPermutationDomain = TShaderPermutationDomain<
+		FHasBoxCaptures,
+		FHasSphereCaptures,
+		FDFAOIndirectOcclusion,
+		FSpecularBounce,
+		FSkyLight,
+		FDynamicSkyLight,
+		FSkyShadowing>;
+
+	static FPermutationDomain RemapPermutation(FPermutationDomain PermutationVector)
+	{
+		// Environment captures have simple specular bounce without reflection captures.
+		if (PermutationVector.Get<FSpecularBounce>())
+		{
+			PermutationVector.Set<FSkyLight>(false);
+			PermutationVector.Set<FDFAOIndirectOcclusion>(false);
+			PermutationVector.Set<FHasBoxCaptures>(false);
+			PermutationVector.Set<FHasSphereCaptures>(false);
+		}
+
+		// FSkyLightingDynamicSkyLight requires FSkyLightingSkyLight.
+		if (!PermutationVector.Get<FSkyLight>())
+		{
+			PermutationVector.Set<FDynamicSkyLight>(false);
+		}
+
+		// FSkyLightingSkyShadowing requires FSkyLightingDynamicSkyLight.
+		if (!PermutationVector.Get<FDynamicSkyLight>())
+		{
+			PermutationVector.Set<FSkyShadowing>(false);
+		}
+
+		return PermutationVector;
+	}
+
+	static FPermutationDomain BuildPermutationVector(const FViewInfo& View, bool bBoxCapturesOnly, bool bSphereCapturesOnly, bool bSupportDFAOIndirectOcclusion, bool bSpecularBounce, bool bEnableSkyLight, bool bEnableDynamicSkyLight, bool bApplySkyShadowing)
+	{
+		FPermutationDomain PermutationVector;
+
+		PermutationVector.Set<FHasBoxCaptures>(bBoxCapturesOnly);
+		PermutationVector.Set<FHasSphereCaptures>(bSphereCapturesOnly);
+		PermutationVector.Set<FDFAOIndirectOcclusion>(bSupportDFAOIndirectOcclusion);
+		PermutationVector.Set<FSpecularBounce>(bSpecularBounce);
+		PermutationVector.Set<FSkyLight>(bEnableSkyLight);
+		PermutationVector.Set<FDynamicSkyLight>(bEnableDynamicSkyLight);
+		PermutationVector.Set<FSkyShadowing>(bApplySkyShadowing);
+
+		return RemapPermutation(PermutationVector);
+	}
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4);
+		if (!IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4))
+		{
+			return false;
+		}
+
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+		return PermutationVector == RemapPermutation(PermutationVector);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -497,6 +560,9 @@ public:
 		OutEnvironment.CompilerFlags.Add(CFLAG_StandardOptimization);
 		FForwardLightingParameters::ModifyCompilationEnvironment(Parameters.Platform, OutEnvironment);
 	}
+
+
+public:
 
 	FReflectionEnvironmentSkyLightingPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
@@ -595,77 +661,7 @@ private:
 	FSkyLightParameters SkyLightParameters;
 };
 
-template< uint32 bUseLightmaps, uint32 bBoxCapturesOnly, uint32 bSphereCapturesOnly, uint32 bSupportDFAOIndirectOcclusion, uint32 bSpecularBounce, uint32 bEnableSkyLight, uint32 bEnableDynamicSkyLight, uint32 bApplySkyShadowing>
-class TReflectionEnvironmentSkyLightingPS : public FReflectionEnvironmentSkyLightingPS
-{
-	DECLARE_SHADER_TYPE(TReflectionEnvironmentSkyLightingPS, Global);
-
-	/** Default constructor. */
-	TReflectionEnvironmentSkyLightingPS() {}
-public:
-	TReflectionEnvironmentSkyLightingPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		: FReflectionEnvironmentSkyLightingPS(Initializer)
-	{}
-
-	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
-	{
-		FReflectionEnvironmentSkyLightingPS::ModifyCompilationEnvironment(Parameters, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("USE_LIGHTMAPS"), bUseLightmaps);
-		OutEnvironment.SetDefine(TEXT("REFLECTION_COMPOSITE_HAS_BOX_CAPTURES"), bBoxCapturesOnly);
-		OutEnvironment.SetDefine(TEXT("REFLECTION_COMPOSITE_HAS_SPHERE_CAPTURES"), bSphereCapturesOnly);
-		OutEnvironment.SetDefine(TEXT("SUPPORT_DFAO_INDIRECT_OCCLUSION"), bSupportDFAOIndirectOcclusion);
-		OutEnvironment.SetDefine(TEXT("SPECULAR_BOUNCE"), bSpecularBounce);
-		OutEnvironment.SetDefine(TEXT("ENABLE_SKY_LIGHT"), bEnableSkyLight);
-		OutEnvironment.SetDefine(TEXT("ENABLE_DYNAMIC_SKY_LIGHT"), bEnableDynamicSkyLight);
-		OutEnvironment.SetDefine(TEXT("APPLY_SKY_SHADOWING"), bApplySkyShadowing);
-	}
-
-	static const TCHAR* GetDebugName()
-	{
-		static const FString Name = FString::Printf(TEXT("TReflectionEnvironmentSkyLightingPS(%s,%s,%s,%s,%s,%s,%s,%s)"),
-			bUseLightmaps == 1 ? TEXT("true") : TEXT("false"),
-			bBoxCapturesOnly == 1 ? TEXT("true") : TEXT("false"),
-			bSphereCapturesOnly == 1 ? TEXT("true") : TEXT("false"),
-			bSupportDFAOIndirectOcclusion == 1 ? TEXT("true") : TEXT("false"),
-			bSpecularBounce == 1 ? TEXT("true") : TEXT("false"),
-			bEnableSkyLight == 1 ? TEXT("true") : TEXT("false"),
-			bEnableDynamicSkyLight == 1 ? TEXT("true") : TEXT("false"),
-			bApplySkyShadowing == 1 ? TEXT("true") : TEXT("false")
-		);
-
-		return *Name;
-	}
-};
-
-// The C preprocessor doesn't like commas in macro parameters (typically template paramater list)
-#define ARG_WITH_COMMAS(...) __VA_ARGS__
-
-// Templatized version of IMPLEMENT_SHADER_TYPE
-// This allows us to avoid 32 IMPLEMENT_SHADER_TYPE macros, one per shader variation
-IMPLEMENT_SHADER_TYPE_WITH_DEBUG_NAME(
-	ARG_WITH_COMMAS(template<uint32 A, uint32 B, uint32 C, uint32 D, uint32 E, uint32 F, uint32 G, uint32 H>),
-	ARG_WITH_COMMAS(TReflectionEnvironmentSkyLightingPS<A, B, C, D, E, F, G, H>),
-	TEXT("/Engine/Private/ReflectionEnvironmentPixelShader.usf"),
-	TEXT("ReflectionEnvironmentSkyLighting"),
-	SF_Pixel)
-
-// This function selects a shader variation dynamically at runtime based on its parameters
-// Intuitively it can be seen as translating SelectShader(1, 0, 1, 1, 0) into ShaderInstance<1, 0, 1, 1, 0>()
-// i.e. translating function parameters into template parameters, which allows us to avoid 32 if-elses / switch-cases
-// When this function is called, it will also be the place where the 32 shader variations get actually instantiated
-template <class ShaderClass, template<uint32...> class ShaderTemplateClass, uint32... ExtractedTemplateParameters>
-ShaderClass* SelectShaderVariation(TShaderMap<FGlobalShaderType>* ShaderMap)
-{
-	return *TShaderMapRef< ShaderTemplateClass<ExtractedTemplateParameters...> >(ShaderMap);
-}
-
-template <class ShaderClass, template<uint32...> class ShaderTemplateClass, uint32... ExtractedTemplateParameters, typename... Args>
-ShaderClass* SelectShaderVariation(TShaderMap<FGlobalShaderType>* ShaderMap, bool first, Args... args)
-{
-	return first ?
-		SelectShaderVariation<ShaderClass, ShaderTemplateClass, ExtractedTemplateParameters..., 1>(ShaderMap, args...) :
-		SelectShaderVariation<ShaderClass, ShaderTemplateClass, ExtractedTemplateParameters..., 0>(ShaderMap, args...);
-}
+IMPLEMENT_GLOBAL_SHADER(FReflectionEnvironmentSkyLightingPS, "/Engine/Private/ReflectionEnvironmentPixelShader.usf", "ReflectionEnvironmentSkyLighting", SF_Pixel);
 
 bool FDeferredShadingSceneRenderer::ShouldDoReflectionEnvironment() const
 {
@@ -700,9 +696,16 @@ void GatherAndSortReflectionCaptures(const FViewInfo& View, const FScene* Scene,
 			if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM5)
 			{
 				const FCaptureComponentSceneState* ComponentStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(CurrentCapture->Component);
-				NewSortEntry.CaptureIndex = ComponentStatePtr ? ComponentStatePtr->CaptureIndex : 0;
+
+				if (!ComponentStatePtr)
+				{
+					// Skip reflection captures without built data to upload
+					continue;
+				}
+
+				NewSortEntry.CaptureIndex = ComponentStatePtr->CaptureIndex;
 				check(NewSortEntry.CaptureIndex < MaxCubemaps || NewSortEntry.CaptureIndex == 0);
-				NewSortEntry.CaptureOffsetAndAverageBrightness.W = ComponentStatePtr ? ComponentStatePtr->AverageBrightness : 1.0f;
+				NewSortEntry.CaptureOffsetAndAverageBrightness.W = ComponentStatePtr->AverageBrightness;
 			}
 
 			NewSortEntry.Guid = CurrentCapture->Guid;
@@ -806,8 +809,6 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 	}
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
-	const bool bUseLightmaps = (AllowStaticLightingVar->GetValueOnRenderThread() == 1);
 
 	const bool bReflectionEnv = ShouldDoReflectionEnvironment();
 
@@ -838,9 +839,9 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
 
-			FReflectionEnvironmentSkyLightingPS* PixelShader =
-				SelectShaderVariation<FReflectionEnvironmentSkyLightingPS, TReflectionEnvironmentSkyLightingPS>
-				(View.ShaderMap, bUseLightmaps, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL, bReflectionCapture, bSkyLight, bDynamicSkyLight, bApplySkyShadowing);
+			auto PermutationVector = FReflectionEnvironmentSkyLightingPS::BuildPermutationVector(View, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL, bReflectionCapture, bSkyLight, bDynamicSkyLight, bApplySkyShadowing);
+
+			TShaderMapRef<FReflectionEnvironmentSkyLightingPS> PixelShader(View.ShaderMap, PermutationVector);
 
 			FGraphicsPipelineStateInitializer GraphicsPSOInit;
 
@@ -878,7 +879,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);

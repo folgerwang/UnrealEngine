@@ -482,10 +482,10 @@ bool FSourceControlWindows::PromptForRevert( const TArray<FString>& InPackageNam
 				});
 
 				// Hot-reload the new packages...
-				PackageTools::ReloadPackages(LoadedPackages);
+				UPackageTools::ReloadPackages(LoadedPackages);
 
 				// Unload any deleted packages...
-				PackageTools::UnloadPackages(PackagesToUnload);
+				UPackageTools::UnloadPackages(PackagesToUnload);
 
 				// Re-cache the SCC state...
 				SourceControlProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), RevertPackageFilenames, EConcurrency::Asynchronous);

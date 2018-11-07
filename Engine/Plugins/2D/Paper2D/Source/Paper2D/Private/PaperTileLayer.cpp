@@ -263,6 +263,11 @@ void UPaperTileLayer::AugmentBodySetup(UBodySetup* ShapeBodySetup, float RenderS
 					break;
 					}
 
+					// Calculate offset for tile sets that don't match the tile map's size
+					const FIntPoint TileSetSize = CellInfo.TileSet->GetTileSize();
+					ProjectionOffset.X += (TileSetSize.X - TileWidth) * 0.5f;
+					ProjectionOffset.Y += (TileSetSize.Y - TileHeight) * 0.5f;
+
 					const FVector2D CellOffset(ProjectionOffset.X, ProjectionOffset.Y);
 					
 					CollisionBuilder.SetCellOffset(CellOffset, LocalTransform);

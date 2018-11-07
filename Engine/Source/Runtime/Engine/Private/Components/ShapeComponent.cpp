@@ -99,9 +99,23 @@ template <> void UShapeComponent::AddShapeToGeomArray<FKSphereElem>() { ShapeBod
 template <> void UShapeComponent::AddShapeToGeomArray<FKSphylElem>() { ShapeBodySetup->AggGeom.SphylElems.Add(FKSphylElem()); }
 
 #if WITH_PHYSX
-template <> void UShapeComponent::SetShapeToNewGeom<FKBoxElem>(PxShape* PShape) { PShape->userData = (void*)ShapeBodySetup->AggGeom.BoxElems[0].GetUserData(); }
-template <> void UShapeComponent::SetShapeToNewGeom<FKSphereElem>(PxShape* PShape) { PShape->userData = (void*)ShapeBodySetup->AggGeom.SphereElems[0].GetUserData(); }
-template <> void UShapeComponent::SetShapeToNewGeom<FKSphylElem>(PxShape* PShape) { PShape->userData = (void*)ShapeBodySetup->AggGeom.SphylElems[0].GetUserData(); }
+template <>
+void UShapeComponent::SetShapeToNewGeom<FKBoxElem>(const FPhysicsShapeHandle& Shape)
+{
+	FPhysicsInterface::SetUserData(Shape, (void*)ShapeBodySetup->AggGeom.BoxElems[0].GetUserData());
+}
+
+template <>
+void UShapeComponent::SetShapeToNewGeom<FKSphereElem>(const FPhysicsShapeHandle& Shape)
+{
+	FPhysicsInterface::SetUserData(Shape, (void*)ShapeBodySetup->AggGeom.SphereElems[0].GetUserData());
+}
+
+template <>
+void UShapeComponent::SetShapeToNewGeom<FKSphylElem>(const FPhysicsShapeHandle& Shape)
+{
+	FPhysicsInterface::SetUserData(Shape, (void*)ShapeBodySetup->AggGeom.SphylElems[0].GetUserData());
+}
 #endif
 
 template <typename ShapeElemType>
@@ -129,17 +143,17 @@ void UShapeComponent::CreateShapeBodySetupIfNeeded()
 			if(BodyInstance.IsValidBodyInstance())
 			{
 #if WITH_PHYSX
-				BodyInstance.ExecuteOnPhysicsReadWrite([this]
+				FPhysicsCommand::ExecuteWrite(BodyInstance.GetActorReferenceWithWelding(), [this](const FPhysicsActorHandle& Actor)
 				{
-					TArray<PxShape *> PShapes;
-					BodyInstance.GetAllShapes_AssumesLocked(PShapes);
+					TArray<FPhysicsShapeHandle> Shapes;
+					BodyInstance.GetAllShapes_AssumesLocked(Shapes);
 
-					for(PxShape* PShape : PShapes)	//The reason we iterate is we may have multiple scenes and thus multiple shapes, but they are all pointing to the same geometry
+					for(FPhysicsShapeHandle& Shape : Shapes)	//The reason we iterate is we may have multiple scenes and thus multiple shapes, but they are all pointing to the same geometry
 					{
 						//Update shape with the new body setup. Make sure to only update shapes owned by this body instance
-						if(BodyInstance.IsShapeBoundToBody(PShape))
+						if(BodyInstance.IsShapeBoundToBody(Shape))
 						{
-							SetShapeToNewGeom<ShapeElemType>(PShape);
+							SetShapeToNewGeom<ShapeElemType>(Shape);
 						}
 					}
 				});

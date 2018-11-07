@@ -25,12 +25,14 @@
 #include "Containers/CircularQueue.h"
 #include "Misc/FileHelper.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
 
 namespace PlatformProcessLimits
 {
 	enum
 	{
-		MaxUserHomeDirLength = MAX_PATH + 1
+		MaxUserHomeDirLength = UNIX_MAX_PATH + 1
 	};
 };
 
@@ -119,7 +121,7 @@ namespace PlatformProcessLimits
 	enum
 	{
 		MaxComputerName	= 128,
-		MaxBaseDirLength= MAX_PATH + 1,
+		MaxBaseDirLength= UNIX_MAX_PATH + 1,
 		MaxArgvParameters = 256,
 		MaxUserName = LOGIN_NAME_MAX
 	};
@@ -143,30 +145,6 @@ const TCHAR* FUnixPlatformProcess::ComputerName()
 		bHaveResult = true;
 	}
 	return CachedResult;
-}
-
-void FUnixPlatformProcess::CleanFileCache()
-{
-	bool bShouldCleanShaderWorkingDirectory = IsFirstInstance();
-
-	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
-	{
-		// get shader path, and convert it to the userdirectory
-		for (const auto& ShaderSourceDirectoryEntry : FPlatformProcess::AllShaderSourceDirectoryMappings())
-		{
-			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / ShaderSourceDirectoryEntry.Value;
-			FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
-			FPaths::CollapseRelativeDirectories(ShaderDir);
-
-			// make sure we don't delete from the source directory
-			if (ShaderDir != UserShaderDir)
-			{
-				IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
-			}
-		}
-
-		FPlatformProcess::CleanShaderWorkingDir();
-	}
 }
 
 const TCHAR* FUnixPlatformProcess::UserName(bool bOnlyAlphaNumeric)
@@ -214,15 +192,15 @@ const TCHAR* FUnixPlatformProcess::UserDir()
 	// On Unix (just like on Mac) this corresponds to $HOME/Documents.
 	// To accomodate localization requirement we use xdg-user-dir command,
 	// and fall back to $HOME/Documents if setting not found.
-	static TCHAR Result[MAX_PATH] = {0};
+	static TCHAR Result[UNIX_MAX_PATH] = {0};
 
 	if (!Result[0])
 	{
 		FILE* FilePtr = popen("xdg-user-dir DOCUMENTS", "r");
 		if (FilePtr)
 		{
-			char DocPath[MAX_PATH];
-			if (fgets(DocPath, MAX_PATH, FilePtr) != nullptr)
+			char DocPath[UNIX_MAX_PATH];
+			if (fgets(DocPath, UNIX_MAX_PATH, FilePtr) != nullptr)
 			{
 				size_t DocLen = strlen(DocPath) - 1;
 				if (DocLen > 0)
@@ -289,7 +267,7 @@ const TCHAR* FUnixPlatformProcess::ApplicationSettingsDir()
 {
 	// The ApplicationSettingsDir is where the engine stores settings and configuration
 	// data.  On linux this corresponds to $HOME/.config/Epic
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[UNIX_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		FCString::Strncpy(Result, FPlatformProcess::UserHomeDir(), ARRAY_COUNT(Result));
@@ -369,7 +347,7 @@ FString FUnixPlatformProcess::GenerateApplicationPath( const FString& AppName, E
 	FString PlatformName = FPlatformProcess::GetBinariesSubdirectory();
 	FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *AppName);
 	
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutablePath += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}
@@ -572,6 +550,15 @@ bool FUnixPlatformProcess::CanLaunchURL(const TCHAR* URL)
 
 void FUnixPlatformProcess::LaunchURL(const TCHAR* URL, const TCHAR* Parms, FString* Error)
 {
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
+	{
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
+		return;
+	}
+
 	// @todo This ignores params and error; mostly a stub
 	pid_t pid = fork();
 	UE_LOG(LogHAL, Verbose, TEXT("FUnixPlatformProcess::LaunchURL: '%s'"), URL);
@@ -1199,7 +1186,7 @@ void FUnixPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool Kill
  * If sigqueue is used, the payload int will be split into the upper and lower uint16 values. The upper value is a "cookie" and the
  *     lower value is an "index". These two values will be used to name the process using the pattern DS-<cookie>-<index>. This name
  *     can be used to uniquely discover the process that was spawned.
- * If -NumForks=x is suppled on the command line, x forks will be made when the function is called.
+ * If -NumForks=x is suppled on the command line, x forks will be made when the function is called, and if any forked processes close for any reason, they will be reopened
  * If -WaitAndForkCmdLinePath=Foo is suppled, the command line parameters of the child processes will be filled out with the contents
  *     of files found in the directory referred to by Foo, where the child's "index" is the name of the file to be read in the directory.
  * If -WaitAndForkRequireResponse is on the command line, child processes will not proceed after being spawned until a SIGRTMIN+2 signal is sent to them.
@@ -1220,7 +1207,8 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 
 	static TCircularQueue<int32> WaitAndForkSignalQueue(WAIT_AND_FORK_QUEUE_LENGTH);
 
-	// If we asked to fork up front without the need to send signals, just push the fork requests on the queue
+	// If we asked to fork up front without the need to send signals, just push the fork requests on the queue and we will refork them if they close
+	// This is mostly used in cases where there is no external process sending signals to this process to create forks and is a simple way to start or test
 	int32 NumForks = 0;
 	FParse::Value(FCommandLine::Get(), TEXT("-NumForks="), NumForks);
 	if (NumForks > 0)
@@ -1264,12 +1252,17 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 	UE_LOG(LogHAL, Log, TEXT("   *** WaitAndFork awaiting signal %d to create child processes... ***"), WAIT_AND_FORK_QUEUE_SIGNAL);
 	GLog->Flush();
 
-	// Skip the first NumForks responses. These forks should happen at startup without confirmation.
-	int32 NumForksToNotRequireResponse = bRequireResponseSignal ? NumForks : 0;
-
 	EWaitAndForkResult RetVal = EWaitAndForkResult::Parent;
-	TArray<pid_t> AllChildren;
-	AllChildren.Reserve(512);
+	struct FPidAndSignal
+	{
+		pid_t Pid;
+		int32 SignalValue;
+
+		FPidAndSignal() : SignalValue(0) {}
+		FPidAndSignal(pid_t InPid, int32 InSignalValue) : Pid(InPid), SignalValue(InSignalValue) {}
+	};
+	TArray<FPidAndSignal> AllChildren;
+	AllChildren.Reserve(1024); // Sized to be big enough that it probably wont reallocte, but its not the end of the world if it does.
 	while (!GIsRequestingExit)
 	{
 		int32 SignalValue = 0;
@@ -1337,7 +1330,7 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 				UnixCrashReporterTracker::RemoveValidCrashReportTickerForChildProcess();
 
 				// If requested, now wait for a SIGRTMIN+2 signal before continuing execution.
-				if (bRequireResponseSignal && NumForksToNotRequireResponse <= 0)
+				if (bRequireResponseSignal && (ChildIdx == 0 || ChildIdx > NumForks))
 				{
 					static bool bResponseReceived = false;
 					struct sigaction Action;
@@ -1362,8 +1355,8 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 					sigaction(WAIT_AND_FORK_RESPONSE_SIGNAL, &Action, nullptr);
 				}
 
-				UE_LOG(LogHAL, Log, TEXT("[Child] WaitAndFork child process has started."));
-				UE_LOG(LogHAL, Log, TEXT("[Child] Command line: %s"), FCommandLine::Get());
+				UE_LOG(LogHAL, Log, TEXT("[Child] WaitAndFork child process has started with pid %d."), GetCurrentProcessId());
+				FApp::PrintStartupLogMessages();
 
 				// Children break out of the loop and return
 				RetVal = EWaitAndForkResult::Child;
@@ -1372,12 +1365,7 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 			else
 			{
 				// Parent
-				AllChildren.Add(ChildPID);
-
-				if (NumForksToNotRequireResponse > 0)
-				{
-					NumForksToNotRequireResponse--;
-				}
+				AllChildren.Emplace(ChildPID, SignalValue);
 
 				UE_LOG(LogHAL, Log, TEXT("[Parent] WaitAndFork Successfully made a child with pid %d!"), ChildPID);
 			}
@@ -1390,18 +1378,27 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 			// Trim terminated children
 			for (int32 ChildIdx = AllChildren.Num() - 1; ChildIdx >= 0; --ChildIdx)
 			{
-				pid_t ChildPID = AllChildren[ChildIdx];
+				const FPidAndSignal& ChildPidAndSignal = AllChildren[ChildIdx];
 
-				pid_t WaitResult = waitpid(ChildPID, nullptr, WNOHANG);
+				pid_t WaitResult = waitpid(ChildPidAndSignal.Pid, nullptr, WNOHANG);
 				if (WaitResult == -1)
 				{
 					int32 ErrNo = errno;
-					UE_LOG(LogHAL, Log, TEXT("[Parent] WaitAndFork unknown error while querying existance of child %d. Error:%d"), ChildPID, ErrNo);
+					UE_LOG(LogHAL, Log, TEXT("[Parent] WaitAndFork unknown error while querying existance of child %d. Error:%d"), ChildPidAndSignal.Pid, ErrNo);
 				}
 				else if (WaitResult != 0)
 				{
-					UE_LOG(LogHAL, Log, TEXT("[Parent] WaitAndFork child %d missing. Removing from children list..."), ChildPID);
-					AllChildren.RemoveAt(ChildIdx);
+					if (NumForks > 0 && ChildPidAndSignal.SignalValue > 0 && ChildPidAndSignal.SignalValue <= NumForks)
+					{
+						UE_LOG(LogHAL, Log, TEXT("[Parent] WaitAndFork child %d missing. This was NumForks child %d. Relaunching..."), ChildPidAndSignal.Pid, ChildPidAndSignal.SignalValue);
+						WaitAndForkSignalQueue.Enqueue(ChildPidAndSignal.SignalValue);
+					}
+					else
+					{
+						UE_LOG(LogHAL, Log, TEXT("[Parent] WaitAndFork child %d missing. Removing from children list..."), ChildPidAndSignal.Pid);
+					}
+
+					AllChildren.RemoveAt(ChildIdx, 1, false);
 				}
 			}
 		}
@@ -1431,7 +1428,7 @@ void FUnixPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 FString FUnixPlatformProcess::GetCurrentWorkingDirectory()
 {
 	// get the current directory
-	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
+	ANSICHAR CurrentDir[UNIX_MAX_PATH] = { 0 };
 	(void)getcwd(CurrentDir, sizeof(CurrentDir));
 	return UTF8_TO_TCHAR(CurrentDir);
 }
@@ -1569,7 +1566,7 @@ void FUnixPlatformProcess::LaunchFileInDefaultExternalApplication( const TCHAR* 
 void FUnixPlatformProcess::ExploreFolder( const TCHAR* FilePath )
 {
 	struct stat st;
-	TCHAR TruncatedPath[MAX_PATH] = TEXT("");
+	TCHAR TruncatedPath[UNIX_MAX_PATH] = TEXT("");
 	FCString::Strcpy(TruncatedPath, FilePath);
 
 	if (stat(TCHAR_TO_UTF8(FilePath), &st) == 0)

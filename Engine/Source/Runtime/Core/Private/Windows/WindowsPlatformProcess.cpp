@@ -21,6 +21,8 @@
 #include "Stats/Stats.h"
 #include "Misc/CoreStats.h"
 #include "Windows/WindowsHWrapper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 	#include <shellapi.h>
@@ -107,7 +109,7 @@ FString FWindowsPlatformProcess::GenerateApplicationPath( const FString& AppName
 	FString PlatformName = GetBinariesSubdirectory();
 	FString ExecutablePath = FString::Printf(TEXT("..\\..\\..\\Engine\\Binaries\\%s\\%s"), *PlatformName, *AppName);
 
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutablePath += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}
@@ -253,24 +255,33 @@ void FWindowsPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, F
 {
 	check(URL);
 
-	// Initialize the error to empty string.
-	if (Error)
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
 	{
-		*Error = TEXT("");
-	}
-
-	// Use the default handler if we have a URI scheme name that doesn't look like a Windows path, and is not http: or https:
-	FString SchemeName;
-	if(FParse::SchemeNameFromURI(URL, SchemeName) && SchemeName.Len() > 1 && SchemeName != TEXT("http") && SchemeName != TEXT("https"))
-	{
-		LaunchDefaultHandlerForURL(URL, Error);
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
 	}
 	else
 	{
-		FString URLParams = FString::Printf(TEXT("%s %s"), URL, Parms ? Parms : TEXT("")).TrimEnd();
-		LaunchWebURL( URLParams, Error );
-	}
+		// Initialize the error to empty string.
+		if (Error)
+		{
+			*Error = TEXT("");
+		}
 
+		// Use the default handler if we have a URI scheme name that doesn't look like a Windows path, and is not http: or https:
+		FString SchemeName;
+		if (FParse::SchemeNameFromURI(URL, SchemeName) && SchemeName.Len() > 1 && SchemeName != TEXT("http") && SchemeName != TEXT("https"))
+		{
+			LaunchDefaultHandlerForURL(URL, Error);
+		}
+		else
+		{
+			FString URLParams = FString::Printf(TEXT("%s %s"), URL, Parms ? Parms : TEXT("")).TrimEnd();
+			LaunchWebURL(URLParams, Error);
+		}
+	}
 }
 
 FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild)
@@ -716,35 +727,6 @@ bool FWindowsPlatformProcess::ExecElevatedProcess(const TCHAR* URL, const TCHAR*
 	return bSuccess;
 }
 
-void FWindowsPlatformProcess::CleanFileCache()
-{
-	bool bShouldCleanShaderWorkingDirectory = true;
-#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
-	// Only clean the shader working directory if we are the first instance, to avoid deleting files in use by other instances
-	//@todo - check if any other instances are running right now
-	bShouldCleanShaderWorkingDirectory = GIsFirstInstance;
-#endif
-
-	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
-	{
-		// get shader path, and convert it to the userdirectory
-		for (const auto& SHaderSourceDirectoryEntry : FPlatformProcess::AllShaderSourceDirectoryMappings())
-		{
-			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / SHaderSourceDirectoryEntry.Value;
-			FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
-			FPaths::CollapseRelativeDirectories(ShaderDir);
-
-			// make sure we don't delete from the source directory
-			if (ShaderDir != UserShaderDir)
-			{
-				IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
-			}
-		}
-
-		FPlatformProcess::CleanShaderWorkingDir();
-	}
-}
-
 const TCHAR* FWindowsPlatformProcess::BaseDir()
 {
 	static TCHAR Result[512]=TEXT("");
@@ -820,12 +802,16 @@ const TCHAR* FWindowsPlatformProcess::UserDir()
 	static FString WindowsUserDir;
 	if( !WindowsUserDir.Len() )
 	{
-		TCHAR UserPath[MAX_PATH];
-		// get the My Documents directory
-		HRESULT Ret = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, UserPath);
+		TCHAR* UserPath;
 
-		// make the base user dir path
-		WindowsUserDir = FString(UserPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/");
+		// get the My Documents directory
+		HRESULT Ret = SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &UserPath);
+		if (SUCCEEDED(Ret))
+		{
+			// make the base user dir path
+			WindowsUserDir = FString(UserPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/");
+			CoTaskMemFree(UserPath);
+		}
 	}
 	return *WindowsUserDir;
 }
@@ -855,12 +841,16 @@ const TCHAR* FWindowsPlatformProcess::UserSettingsDir()
 	static FString WindowsUserSettingsDir;
 	if (!WindowsUserSettingsDir.Len())
 	{
-		TCHAR UserPath[MAX_PATH];
-		// get the My Documents directory
-		HRESULT Ret = SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, UserPath);
+		TCHAR* UserPath;
 
-		// make the base user dir path
-		WindowsUserSettingsDir = FString(UserPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/");
+		// get the local AppData directory
+		HRESULT Ret = SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &UserPath);
+		if (SUCCEEDED(Ret))
+		{
+			// make the base user dir path
+			WindowsUserSettingsDir = FString(UserPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/");
+			CoTaskMemFree(UserPath);
+		}
 	}
 	return *WindowsUserSettingsDir;
 }
@@ -870,13 +860,16 @@ const TCHAR* FWindowsPlatformProcess::ApplicationSettingsDir()
 	static FString WindowsApplicationSettingsDir;
 	if( !WindowsApplicationSettingsDir.Len() )
 	{
-		TCHAR ApplictionSettingsPath[MAX_PATH];
-		// get the My Documents directory
-		HRESULT Ret = SHGetFolderPath(NULL, CSIDL_COMMON_APPDATA, NULL, SHGFP_TYPE_CURRENT, ApplictionSettingsPath);
+		TCHAR* ApplictionSettingsPath;
 
-		// make the base user dir path
-		// @todo rocket this folder should be based on your company name, not just be hard coded to /Epic/
-		WindowsApplicationSettingsDir = FString(ApplictionSettingsPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/Epic/");
+		// get the local AppData directory
+		HRESULT Ret = SHGetKnownFolderPath(FOLDERID_ProgramData, 0, NULL, &ApplictionSettingsPath);
+		if (SUCCEEDED(Ret))
+		{
+			// make the base user dir path
+			WindowsApplicationSettingsDir = FString(ApplictionSettingsPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/Epic/");
+			CoTaskMemFree(ApplictionSettingsPath);
+		}
 	}
 	return *WindowsApplicationSettingsDir;
 }
@@ -930,10 +923,26 @@ void FWindowsPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 /** Get the current working directory (only really makes sense on desktop platforms) */
 FString FWindowsPlatformProcess::GetCurrentWorkingDirectory()
 {
-	// get the current working directory (uncached)
-	TCHAR CurrentDirectory[MAX_PATH];
-	GetCurrentDirectoryW(MAX_PATH, CurrentDirectory);
-	return CurrentDirectory;
+	// Allocate the data for the string. Loop in case the variable happens to change while running, or the buffer isn't large enough.
+	FString Buffer;
+	for (uint32 Length = 128;;)
+	{
+		TArray<TCHAR>& CharArray = Buffer.GetCharArray();
+		CharArray.SetNumUninitialized(Length);
+
+		Length = ::GetCurrentDirectoryW(CharArray.Num(), CharArray.GetData());
+		if (Length == 0)
+		{
+			Buffer.Reset();
+			break;
+		}
+		if (Length < (uint32)CharArray.Num())
+		{
+			CharArray.SetNum(Length + 1);
+			break;
+		}
+	}
+	return Buffer;
 }
 
 const FString FWindowsPlatformProcess::ShaderWorkingDir()
@@ -1070,11 +1079,9 @@ bool FWindowsPlatformProcess::ResolveNetworkPath( FString InUNCPath, FString& Ou
 			// NetShareGetInfo doesn't accept const TCHAR* as the share name so copy to temp array
 			SHARE_INFO_2* BufPtr = NULL;
 			::NET_API_STATUS res;
-			TCHAR ShareNamePtr[MAX_PATH];
-			FCString::Strcpy(ShareNamePtr, ShareName.Len() + 1, *ShareName);
 
 			// Call the NetShareGetInfo function, specifying level 2
-			if ( ( res = NetShareGetInfo( NULL, ShareNamePtr, 2, (LPBYTE*)&BufPtr ) ) == ERROR_SUCCESS )
+			if ( ( res = NetShareGetInfo( NULL, ShareName.GetCharArray().GetData(), 2, (LPBYTE*)&BufPtr ) ) == ERROR_SUCCESS )
 			{
 				// Construct the local path
 				OutPath = FString( BufPtr->shi2_path ) + InUNCPath.Mid( ComputerNameLen + 1 + ShareNameLen );

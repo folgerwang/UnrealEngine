@@ -20,6 +20,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Engine/TextureStreamingTypes.h"
 #include "Components/PrimitiveComponent.h"
 #include "AI/NavigationSystemBase.h"
+#include "AI/NavigationSystemConfig.h"
 #include "Misc/MessageDialog.h"
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
@@ -89,6 +90,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Engine/ObjectReferencer.h"
 #include "Engine/TextureLODSettings.h"
 #include "Engine/TimecodeProvider.h"
+#include "Engine/SystemTimeTimecodeProvider.h"
 #include "Misc/NetworkVersion.h"
 #include "Net/OnlineEngineInterface.h"
 #include "Engine/Console.h"
@@ -147,9 +149,6 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "ObjectEditorUtils.h"
 #endif
 
-#if WITH_EDITOR
-#include "AudioEditorModule.h"
-#endif
 
 #include "HardwareInfo.h"
 #include "EngineModule.h"
@@ -390,9 +389,22 @@ FCachedSystemScalabilityCVars::FCachedSystemScalabilityCVars()
 	, MaxCSMShadowResolution(-1)
 	, ViewDistanceScale(-1)
 	, ViewDistanceScaleSquared(-1)
+	, StaticMeshLODDistanceScale(1.0f)
 	, MaxAnisotropy(-1)
+	
 {
 
+}
+
+bool FCachedSystemScalabilityCVars::operator==(const FCachedSystemScalabilityCVars& Other)
+{
+	return DetailMode == Other.DetailMode &&
+		MaterialQualityLevel == Other.MaterialQualityLevel &&
+		MaxShadowResolution == Other.MaxShadowResolution &&
+		MaxCSMShadowResolution == Other.MaxCSMShadowResolution &&
+		ViewDistanceScale == Other.ViewDistanceScale &&
+		ViewDistanceScaleSquared == Other.ViewDistanceScaleSquared &&
+		StaticMeshLODDistanceScale == Other.StaticMeshLODDistanceScale;
 }
 
 void ScalabilityCVarsSinkCallback()
@@ -454,7 +466,17 @@ void ScalabilityCVarsSinkCallback()
 		LocalScalabilityCVars.MaterialQualityLevel = (EMaterialQualityLevel::Type)FMath::Clamp(MaterialQualityLevelVar->GetValueOnGameThread(), 0, (int32)EMaterialQualityLevel::Num - 1);
 	}
 
+	{
+		static const auto StaticMeshLODDistanceScale = IConsoleManager::Get().FindConsoleVariable(TEXT("r.StaticMeshLODDistanceScale"));
+		LocalScalabilityCVars.StaticMeshLODDistanceScale = StaticMeshLODDistanceScale->GetFloat();
+	}
+
 	LocalScalabilityCVars.bInitialized = true;
+
+	if ((LocalScalabilityCVars == GCachedScalabilityCVars) && GCachedScalabilityCVars.bInitialized)
+	{
+		return;
+	}
 
 	FlushRenderingCommands();
 
@@ -499,8 +521,6 @@ void ScalabilityCVarsSinkCallback()
 		}
 	}
 }
-
-static bool GHDROutputEnabled = false;
 
 bool ParseResolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int32& OutWindowMode)
 {
@@ -569,14 +589,83 @@ bool ParseResolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int3
 	return false;
 }
 
+void HDRSettingChangedSinkCallback()
+{
+	static const auto CVarHDROutputEnabled = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.EnableHDROutput"));
+	check(CVarHDROutputEnabled);
+	
+	bool bIsHDREnabled = CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	
+	if(bIsHDREnabled != GRHIIsHDREnabled)
+	{
+		// We'll naively fall back to 1000 if DisplayNits is 0
+		uint32 DisplayNitLevel = GEngine->GetGameUserSettings()->GetCurrentHDRDisplayNits();
+		if(DisplayNitLevel == 0)
+		{
+			DisplayNitLevel = 1000;
+		}
+		
+		int32 OutputDevice = 0;
+		int32 ColorGamut = 0;
+		
+		// If we are turning HDR on we must set the appropriate OutputDevice and ColorGamut.
+		// If we are turning it off, we'll reset back to 0/0
+		if(bIsHDREnabled)
+		{
+#if PLATFORM_WINDOWS
+			if (IsRHIDeviceNVIDIA() || IsRHIDeviceAMD())
+			{
+				// ScRGB, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
+				ColorGamut = 2;
+			}
+#elif PLATFORM_PS4
+			{
+				// PQ, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
+				ColorGamut = 2;
+			}
+
+#elif PLATFORM_MAC
+			{
+				// ScRGB, 1000 or 2000 nits, DCI-P3
+				OutputDevice = DisplayNitLevel == 1000 ? 5 : 6;
+				ColorGamut = 1;
+			}
+#elif PLATFORM_IOS
+			{
+				// Linear output to Apple's specific format.
+				OutputDevice = 7;
+				ColorGamut = 0;
+			}
+#elif PLATFORM_XBOXONE
+			{
+				// PQ, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
+				ColorGamut = 2;
+			}
+#endif
+		}
+		
+		static IConsoleVariable* CVarHDROutputDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
+		static IConsoleVariable* CVarHDRColorGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
+		check(CVarHDROutputDevice);
+		check(CVarHDRColorGamut);
+		
+		CVarHDROutputDevice->Set(OutputDevice, ECVF_SetByDeviceProfile);
+		CVarHDRColorGamut->Set(ColorGamut, ECVF_SetByDeviceProfile);
+		
+		// Now set the HDR setting.
+		GRHIIsHDREnabled = CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	}
+}
+
 void SystemResolutionSinkCallback()
 {
 	auto ResString = CVarSystemResolution->GetString();
 
 	uint32 ResX, ResY;
 	int32 WindowModeInt = GSystemResolution.WindowMode;
-
-	bool bHDROutputEnabled = GRHISupportsHDROutput && IsHDREnabled();
 
 	if (ParseResolution(*ResString, ResX, ResY, WindowModeInt))
 	{
@@ -585,19 +674,17 @@ void SystemResolutionSinkCallback()
 		if( GSystemResolution.ResX != ResX ||
 			GSystemResolution.ResY != ResY ||
 			GSystemResolution.WindowMode != WindowMode ||
-			GHDROutputEnabled != bHDROutputEnabled ||
 			GSystemResolution.bForceRefresh)
 		{
 			GSystemResolution.ResX = ResX;
 			GSystemResolution.ResY = ResY;
 			GSystemResolution.WindowMode = WindowMode;
 			GSystemResolution.bForceRefresh = false;
-			GHDROutputEnabled = bHDROutputEnabled;
 
 			// tell anyone listening about the change
 			FCoreDelegates::OnSystemResolutionChanged.Broadcast(ResX, ResY);
 
-			if(GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
+			if (GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Resizing viewport due to setres change, %d x %d"), ResX, ResY);
 				GEngine->GameViewport->ViewportFrame->ResizeFrame(ResX, ResY, WindowMode);
@@ -683,6 +770,7 @@ void RefreshEngineSettings()
 {
 	extern void FreeSkeletalMeshBuffersSinkCallback();
 
+	HDRSettingChangedSinkCallback();
 	RefreshSamplerStatesCallback();
 	ScalabilityCVarsSinkCallback();
 	FreeSkeletalMeshBuffersSinkCallback();
@@ -1439,9 +1527,10 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 
 	// Dynamically load engine runtime modules
 	{
-		FModuleManager::Get().LoadModuleChecked(TEXT("StreamingPauseRendering"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("MovieScene"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("MovieSceneTracks"));
+		FModuleManager::Get().LoadModule("ImageWriteQueue");
+		FModuleManager::Get().LoadModuleChecked("StreamingPauseRendering");
+		FModuleManager::Get().LoadModuleChecked("MovieScene");
+		FModuleManager::Get().LoadModuleChecked("MovieSceneTracks");
 	}
 
 	// Finish asset manager loading
@@ -1570,7 +1659,13 @@ void UEngine::PreExit()
 
 	delete ScreenSaverInhibitorRunnable;
 
-	SetTimecodeProvider(nullptr);
+	GetTimecodeProviderProtected()->Shutdown(this);
+	CustomTimecodeProvider = nullptr;
+
+	// Don't clear the pointer to DefaultTimecodeProvider, as other systems shutting down may try to reference it
+	// for validation.
+	DefaultTimecodeProvider->RemoveFromRoot();
+
 	SetCustomTimeStep(nullptr);
 
 	ShutdownHMD();
@@ -1707,9 +1802,9 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 	FTimedMemReport::Get().PumpTimedMemoryReports();
 #endif
 
-	if (CustomTimeStep)
+	if (CurrentCustomTimeStep)
 	{
-		bool bRunEngineCode = CustomTimeStep->UpdateTimeStep(this);
+		bool bRunEngineCode = CurrentCustomTimeStep->UpdateTimeStep(this);
 		if (!bRunEngineCode)
 		{
 			UpdateTimecode();
@@ -1920,74 +2015,115 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 	UpdateTimecode();
 }
 
+void UEngine::ReinitializeCustomTimeStep()
+{
+	UEngineCustomTimeStep* CustomTimeStep = GetCustomTimeStep();
+	if (CustomTimeStep)
+	{
+		CustomTimeStep->Shutdown(this);
+		if (!CustomTimeStep->Initialize(this))
+		{
+			UE_LOG(LogEngine, Warning, TEXT("Failed reinitializing CustomTimeStep %s"), *GetPathName(CustomTimeStep));
+		}
+	}
+}
+
 bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
 {
 	bool bResult = true;
 
-	if (InCustomTimeStep != CustomTimeStep)
+	UEngineCustomTimeStep* Previous = GetCustomTimeStep();
+	if (InCustomTimeStep != Previous)
 	{
-		if (CustomTimeStep)
+		if (Previous)
 		{
-			CustomTimeStep->Shutdown(this);
+			Previous->Shutdown(this);
 		}
 
-		CustomTimeStep = InCustomTimeStep;
+		CurrentCustomTimeStep = InCustomTimeStep;
 
-		if (CustomTimeStep)
+		if (CurrentCustomTimeStep)
 		{
-			bResult = CustomTimeStep->Initialize(this);
+			bResult = CurrentCustomTimeStep->Initialize(this);
 			if (!bResult)
 			{
-				CustomTimeStep = nullptr;
+				UE_LOG(LogEngine, Warning, TEXT("SetCustomTimeStep - Failed to intialize CustomTimeStep %s"), *GetPathName(CurrentCustomTimeStep));
+				CurrentCustomTimeStep = nullptr;
 			}
 		}
 	}
 
 	return bResult;
+}
+
+void UEngine::ReinitializeTimecodeProvider()
+{
+	UTimecodeProvider* Provider = GetTimecodeProviderProtected();
+	Provider->Shutdown(this);
+	if (!Provider->Initialize(this))
+	{
+		UE_LOG(LogEngine, Warning, TEXT("Failed reinitializing TimecodeProvider %s"), *GetPathName(Provider));
+	}
 }
 
 bool UEngine::SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
 {
 	bool bResult = true;
 
-	if (InTimecodeProvider != TimecodeProvider)
+	if (InTimecodeProvider != CustomTimecodeProvider)
 	{
-		if (TimecodeProvider)
+		const bool bCurrentlyUsingDefault = !CustomTimecodeProvider;
+		if (bCurrentlyUsingDefault)
 		{
-			TimecodeProvider->Shutdown(this);
+			// If we're already using the default, and we're resetting to the default, we don't need to do anything.
+			if (InTimecodeProvider == DefaultTimecodeProvider || InTimecodeProvider == nullptr)
+			{
+				return bResult;
+			}
+			else
+			{
+				DefaultTimecodeProvider->Shutdown(this);
+			}
+		}
+		else
+		{
+			CustomTimecodeProvider->Shutdown(this);
+			CustomTimecodeProvider = nullptr;
 		}
 
-		TimecodeProvider = InTimecodeProvider;
-
-		if (TimecodeProvider)
+		if (InTimecodeProvider != nullptr)
 		{
-			bResult = TimecodeProvider->Initialize(this);
-			if (!bResult)
+			bResult = InTimecodeProvider->Initialize(this);
+			if (bResult)
 			{
-				TimecodeProvider = nullptr;
+				CustomTimecodeProvider = InTimecodeProvider;
+			}
+		}
+
+		// If the new provider failed to initialized (or was null), then
+		// re-initialize the default provider.
+		if (!CustomTimecodeProvider)
+		{
+			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
+			{
+				UE_LOG(LogEngine, Warning, TEXT("SetTimecodeProvider - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
 			}
 		}
 	}
-
+	
 	return bResult;
 }
 
 void UEngine::UpdateTimecode()
 {
-	if (TimecodeProvider)
+	const UTimecodeProvider* Provider = GetTimecodeProvider();
+	if (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
 	{
-		if (TimecodeProvider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
-		{
-			FApp::SetTimecode(TimecodeProvider->GetTimecode());
-		}
-		else
-		{
-			FApp::SetTimecode(FTimecode());
-		}
+		FApp::SetTimecodeAndFrameRate(Provider->GetTimecode(), Provider->GetFrameRate());
 	}
 	else
 	{
-		FApp::SetTimecode(UTimecodeProvider::GetSystemTimeTimecode(DefaultTimecodeFrameRate));
+		FApp::SetTimecodeAndFrameRate(FTimecode(), FFrameRate());
 	}
 }
 
@@ -2094,44 +2230,23 @@ void LoadEngineClass(FSoftClassPath& ClassName, TSubclassOf<ClassType>& EngineCl
 	}
 }
 
-void InitializeTimecodeProvider(UEngine* InEngine, FSoftClassPath InTimecodeFrameRateClassName)
+UEngineCustomTimeStep* InitializeCustomTimeStep(UEngine* InEngine, FSoftClassPath InCustomTimeStepClassName)
 {
-	if (InEngine->GetTimecodeProvider() == nullptr && InTimecodeFrameRateClassName.IsValid())
-	{
-		UClass* TimecodeProviderClass = LoadClass<UObject>(nullptr, *InTimecodeFrameRateClassName.ToString());
-		if (TimecodeProviderClass)
-		{
-			UTimecodeProvider* NewTimecodeProvider = NewObject<UTimecodeProvider>(InEngine, TimecodeProviderClass);
-			if (!InEngine->SetTimecodeProvider(NewTimecodeProvider))
-			{
-				UE_LOG(LogEngine, Error, TEXT("Engine config TimecodeFrameRateClassName '%s' could not be initialized."), *InTimecodeFrameRateClassName.ToString());
-			}
-		}
-		else
-		{
-			UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeFrameRateClassName '%s' is not a valid class name."), *InTimecodeFrameRateClassName.ToString());
-		}
-	}
-}
-
-void InitializeCustomTimeStep(UEngine* InEngine, FSoftClassPath InCustomTimeStepClassName)
-{
+	UEngineCustomTimeStep* NewCustomTimeStep = nullptr;
 	if (InEngine->GetCustomTimeStep() == nullptr && InCustomTimeStepClassName.IsValid())
 	{
 		UClass* CustomTimeStepClass = LoadClass<UObject>(nullptr, *InCustomTimeStepClassName.ToString());
 		if (CustomTimeStepClass)
 		{
-			UEngineCustomTimeStep* NewCustomTimeStep = NewObject<UEngineCustomTimeStep>(InEngine, CustomTimeStepClass);
-			if (!InEngine->SetCustomTimeStep(NewCustomTimeStep))
-			{
-				UE_LOG(LogEngine, Error, TEXT("Engine config CustomTimeStepClassName '%s' could not be initialized."), *InCustomTimeStepClassName.ToString());
-			}
+			NewCustomTimeStep = NewObject<UEngineCustomTimeStep>(InEngine, CustomTimeStepClass);
+			InEngine->SetCustomTimeStep(NewCustomTimeStep);
 		}
 		else
 		{
 			UE_LOG(LogEngine, Error, TEXT("Engine config value CustomTimeStepClassName '%s' is not a valid class name."), *InCustomTimeStepClassName.ToString());
 		}
 	}
+	return NewCustomTimeStep;
 }
 
 /**
@@ -2285,6 +2400,7 @@ void UEngine::InitializeObjectReferences()
 	LoadEngineClass<ULocalPlayer>(LocalPlayerClassName, LocalPlayerClass);
 	LoadEngineClass<AWorldSettings>(WorldSettingsClassName, WorldSettingsClass);
 	LoadEngineClass<UNavigationSystemBase>(NavigationSystemClassName, NavigationSystemClass);
+	LoadEngineClass<UNavigationSystemConfig>(NavigationSystemConfigClassName, NavigationSystemConfigClass);
 	LoadEngineClass<UAvoidanceManager>(AvoidanceManagerClassName, AvoidanceManagerClass);
 	LoadEngineClass<UPhysicsCollisionHandler>(PhysicsCollisionHandlerClassName, PhysicsCollisionHandlerClass);
 	LoadEngineClass<UGameUserSettings>(GameUserSettingsClassName, GameUserSettingsClass);
@@ -2318,8 +2434,43 @@ void UEngine::InitializeObjectReferences()
 		}
 	}
 
-	InitializeCustomTimeStep(this, CustomTimeStepClassName);
-	InitializeTimecodeProvider(this, TimecodeFrameRateClassName);
+	DefaultCustomTimeStep = InitializeCustomTimeStep(this, CustomTimeStepClassName);
+
+	// Setup the timecode providers.
+	{
+		if (DefaultTimecodeProvider == nullptr)
+		{
+			UClass* DefaultTimecodeProviderClass = DefaultTimecodeProviderClassName.TryLoadClass<UTimecodeProvider>();
+			if (DefaultTimecodeProviderClass == nullptr)
+			{
+				DefaultTimecodeProviderClass = USystemTimeTimecodeProvider::StaticClass();
+			}
+
+			DefaultTimecodeProvider = NewObject<UTimecodeProvider>(this, DefaultTimecodeProviderClass);
+			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
+			{
+				UE_LOG(LogEngine, Warning, TEXT("InitializeObjectReferences - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
+			}
+
+			DefaultTimecodeProvider->AddToRoot();
+			if (USystemTimeTimecodeProvider* LocalSystemTimeProvider = Cast<USystemTimeTimecodeProvider>(DefaultTimecodeProvider))
+			{
+				LocalSystemTimeProvider->SetFrameRate(DefaultTimecodeFrameRate);
+			}
+		}
+
+		if (CustomTimecodeProvider == nullptr && TimecodeProviderClassName.IsValid())
+		{
+			if (UClass* TimecodeProviderClass = TimecodeProviderClassName.TryLoadClass<UTimecodeProvider>())
+			{
+				SetTimecodeProvider(NewObject<UTimecodeProvider>(this, TimecodeProviderClass));
+			}
+			else
+			{
+				UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeProviderClassName '%s' is not a valid class name."), *TimecodeProviderClassName.ToString());
+			}
+		}
+	}
 
 	if (GameSingleton == nullptr && GameSingletonClassName.ToString().Len() > 0)
 	{
@@ -2475,22 +2626,6 @@ void UEngine::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collect
 	Super::AddReferencedObjects(This, Collector);
 }
 
-#if WITH_EDITOR
-bool UEngine::CanEditChange(const UProperty* InProperty) const
-{
-	if (!Super::CanEditChange(InProperty))
-	{
-		return false;
-	}
-
-	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UEngine, DefaultTimecodeFrameRate))
-	{
-		return !TimecodeFrameRateClassName.IsValid();
-	}
-
-	return true;
-}
-#endif // #if WITH_EDITOR
 
 void UEngine::CleanupGameViewport()
 {
@@ -2593,82 +2728,20 @@ FAudioDevice* UEngine::GetActiveAudioDevice()
 	return nullptr;
 }
 
-/**
-*	Initialize the audio device
-*
-*	@return	bool		true if successful, false if not
-*/
-bool UEngine::InitializeAudioDeviceManager()
+void UEngine::InitializeAudioDeviceManager()
 {
-	if (AudioDeviceManager == nullptr)
+	if (AudioDeviceManager == nullptr && bUseSound)
 	{
-		// Initialize the audio device.
-		if (bUseSound == true)
+		AudioDeviceManager = new FAudioDeviceManager();
+		if (AudioDeviceManager->Initialize())
 		{
-			// Check if we're going to try to force loading the audio mixer from the command line
-			bool bForceAudioMixer = FParse::Param(FCommandLine::Get(), TEXT("AudioMixer"));
-
-			// If not using command line switch to use audio mixer, check the engine ini file
-			if (!bForceAudioMixer)
-			{
-				GConfig->GetBool(TEXT("Audio"), TEXT("EnableAudioMixer"), bForceAudioMixer, GEngineIni);
-			}
-
-			FString AudioDeviceModuleName;
-			if (bForceAudioMixer)
-			{
-				GConfig->GetString(TEXT("Audio"), TEXT("AudioMixerModuleName"), AudioDeviceModuleName, GEngineIni);
-			}
-
-			// get the module name from the ini file
-			if (!bForceAudioMixer || AudioDeviceModuleName.IsEmpty())
-			{
-				GConfig->GetString(TEXT("Audio"), TEXT("AudioDeviceModuleName"), AudioDeviceModuleName, GEngineIni);
-			}
-
-			if (AudioDeviceModuleName.Len() > 0)
-			{
-				// load the module by name from the .ini
-				IAudioDeviceModule* AudioDeviceModule = FModuleManager::LoadModulePtr<IAudioDeviceModule>(*AudioDeviceModuleName);
-
-				// did the module exist?
-				if (AudioDeviceModule)
-				{
-					const bool bIsAudioMixerEnabled = AudioDeviceModule->IsAudioMixerModule();
-					GetMutableDefault<UAudioSettings>()->SetAudioMixerEnabled(bIsAudioMixerEnabled);
-
-#if WITH_EDITOR
-					if (bIsAudioMixerEnabled)
-					{
-						IAudioEditorModule* AudioEditorModule = &FModuleManager::LoadModuleChecked<IAudioEditorModule>("AudioEditor");
-						AudioEditorModule->RegisterAudioMixerAssetActions();
-						AudioEditorModule->RegisterEffectPresetAssetActions();
-					}
-#endif
-
-					// Create the audio device manager and register the platform module to the device manager
-					AudioDeviceManager = new FAudioDeviceManager();
-					AudioDeviceManager->RegisterAudioDeviceModule(AudioDeviceModule);
-
-					FAudioDeviceManager::FCreateAudioDeviceResults NewDeviceResults;
-
-					// Create a new audio device.
-					if (AudioDeviceManager->CreateAudioDevice(true, NewDeviceResults))
-					{
-						MainAudioDeviceHandle = NewDeviceResults.Handle;
-						AudioDeviceManager->SetActiveDevice(MainAudioDeviceHandle);
-						FAudioThread::StartAudioThread();
-					}
-					else
-					{
-						ShutdownAudioDeviceManager();
-					}
-				}
-			}
+			MainAudioDeviceHandle = AudioDeviceManager->GetMainAudioDeviceHandle();
+		}
+		else
+		{
+			ShutdownAudioDeviceManager();
 		}
 	}
-
-	return AudioDeviceManager != nullptr;
 }
 
 bool UEngine::UseSound() const
@@ -8435,8 +8508,7 @@ void UEngine::EnableScreenSaver( bool bEnable )
 		return;
 	}
 
-	TCHAR EnvVariable[32];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"), EnvVariable, ARRAY_COUNT(EnvVariable));
+	FString EnvVariable = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"));
 	const bool bDisallowScreenSaverInhibitor = FString(EnvVariable).ToBool();
 
 	// By default we allow to use screen saver inhibitor, but in some cases user can override this setting.
@@ -8571,6 +8643,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage->ScreenMessage = DebugMessage;
 				NewMessage->DisplayColor = DisplayColor;
 				NewMessage->TimeToDisplay = TimeToDisplay;
+				NewMessage->TextScale = TextScale;
 				NewMessage->CurrentTimeDisplayed = 0.0f;				
 			}
 			else
@@ -8580,7 +8653,8 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage.Key = Key;
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
-				NewMessage.ScreenMessage = DebugMessage;				
+				NewMessage.ScreenMessage = DebugMessage;
+				NewMessage.TextScale = TextScale;
 				PriorityScreenMessages.Insert(NewMessage, 0);
 			}
 		}
@@ -8596,6 +8670,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
 				NewMessage.ScreenMessage = DebugMessage;				
+				NewMessage.TextScale = TextScale;
 				ScreenMessages.Add((int32)Key, NewMessage);
 			}
 			else
@@ -8606,6 +8681,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				Message->TextScale = TextScale;
 				Message->TimeToDisplay = TimeToDisplay;
 				Message->CurrentTimeDisplayed = 0.0f;				
+				Message->TextScale = TextScale;
 			}
 		}
 	}
@@ -8696,14 +8772,12 @@ bool UEngine::FErrorsAndWarningsCollector::Tick(float Seconds)
 /** Wrapper from int32 to uint64 */
 void UEngine::AddOnScreenDebugMessage(int32 Key, float TimeToDisplay, FColor DisplayColor, const FString& DebugMessage, bool bNewerOnTop, const FVector2D& TextScale)
 {
-	if (bEnableOnScreenDebugMessages == true)
-	{
-		AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);
-	}
+	AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);
 }
 
 bool UEngine::OnScreenDebugMessageExists(uint64 Key)
 {
+#if !UE_BUILD_SHIPPING
 	if (bEnableOnScreenDebugMessages == true)
 	{
 		if (Key == (uint64)-1)
@@ -8718,14 +8792,17 @@ bool UEngine::OnScreenDebugMessageExists(uint64 Key)
 			return true;
 		}
 	}
+#endif // !UE_BUILD_SHIPPING
 
 	return false;
 }
 
 void UEngine::ClearOnScreenDebugMessages()
 {
+#if !UE_BUILD_SHIPPING
 	ScreenMessages.Empty();
 	PriorityScreenMessages.Empty();
+#endif // !UE_BUILD_SHIPPING
 }
 
 #if !UE_BUILD_SHIPPING
@@ -9502,6 +9579,8 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 */
 float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas* CanvasObject, float MessageX, float MessageY)
 {
+	static TFrameValue<bool> HasUpdatedScreenDebugMessages;
+
 	int32 YPos = MessageY;
 	const int32 MaxYPos = CanvasObject ? CanvasObject->SizeY : 700;
 	if (GEngine->PriorityScreenMessages.Num() > 0)
@@ -9514,14 +9593,18 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 			if (YPos < MaxYPos)
 			{
 				MessageTextItem.Text = FText::FromString(Message.ScreenMessage);
-				MessageTextItem.SetColor(Message.DisplayColor);				
+				MessageTextItem.SetColor(Message.DisplayColor);
+				MessageTextItem.Scale = Message.TextScale;
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				}
 			}
 		}
 	}
@@ -9541,13 +9624,19 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				MsgIt.RemoveCurrent();
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					MsgIt.RemoveCurrent();
+				}
 			}
 		}
 	}
+
+	// Flag variable that the update has already been done this frame
+	HasUpdatedScreenDebugMessages = true;
 
 	return MessageY;
 }
@@ -9576,14 +9665,13 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 		return;
 	}
 
-
 	float DPIScale = Canvas->GetDPIScale();
-
-	const FVector2D ScaledViewportSize = FVector2D(Viewport->GetSizeXY()) / DPIScale;
+	
+	FIntPoint TextureSize = Canvas->GetRenderTarget()->GetSizeXY();
 
 	//@todo joeg: Move this stuff to a function, make safe to use on consoles by
 	// respecting the various safe zones, and make it compile out.
-	const int32 FPSXOffset	= (GEngine->IsStereoscopic3D(Viewport)) ? ScaledViewportSize.X * 0.5f * 0.334f / DPIScale : (FPlatformProperties::SupportsWindowedMode() ? 110 : 250);
+	const int32 FPSXOffset	= (FPlatformProperties::SupportsWindowedMode() ? 110 : 250);
 	const int32 StatsXOffset = 100;// FPlatformProperties::SupportsWindowedMode() ? 4 : 100;
 
 	static const int32 MessageStartY = GIsEditor ? 35 : 100; // Account for safe frame
@@ -9594,7 +9682,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #if !UE_BUILD_SHIPPING
 	if (!GIsHighResScreenshot && !GIsDumpingMovie && GAreScreenMessagesEnabled)
 	{
-		const int32 MessageX = (GEngine->IsStereoscopic3D(Viewport)) ? ScaledViewportSize.X * 0.5f * 0.3f : 40;
+		const int32 MessageX = 40;
 
 		FCanvasTextItem SmallTextItem(FVector2D(0, 0), FText::GetEmpty(), GEngine->GetSmallFont(), FLinearColor::White);
 		SmallTextItem.Scale = FontScale;
@@ -9614,7 +9702,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 			FText Text = LOCTEXT("VisLogRecordingActive", "VisLog recording active");
 			StringSize(GEngine->GetSmallFont(), XSize, YSize, *Text.ToString());
 
-			SmallTextItem.Position = FVector2D((int32)Viewport->GetSizeXY().X - XSize - 16, 36);
+			SmallTextItem.Position = FVector2D((int32)TextureSize.X - XSize - 16, 36);
 			SmallTextItem.Text = Text;
 			SmallTextItem.SetColor(FLinearColor::Red);
 			SmallTextItem.EnableShadow(FLinearColor::Black);
@@ -9725,8 +9813,8 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #endif // UE_BUILD_SHIPPING 
 
 	{
-		int32 X = ((CanvasObject) ? CanvasObject->SizeX : Viewport->GetSizeXY().X) / Canvas->GetDPIScale() - FPSXOffset;
-		int32 Y = ((GEngine->IsStereoscopic3D(Viewport)) ? FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.40f) : FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.20f)) / Canvas->GetDPIScale();
+		int32 X = ((CanvasObject) ? CanvasObject->SizeX : TextureSize.X) / Canvas->GetDPIScale() - FPSXOffset;
+		int32 Y = FMath::TruncToInt(TextureSize.Y * 0.20f) / Canvas->GetDPIScale();
 
 		// give the viewport first shot at drawing stats
 		Y = Viewport->DrawStatsHUD(Canvas, X, Y);
@@ -9737,7 +9825,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #if STATS
 		extern void RenderStats(FViewport* Viewport, class FCanvas* Canvas, int32 X, int32 Y, int32 SizeX);
 
-		int32 PixelSizeX = CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : Viewport->GetSizeXY().X;
+		int32 PixelSizeX = CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : TextureSize.X;
 
 		RenderStats( Viewport, Canvas, StatsXOffset, Y, FMath::FloorToInt(PixelSizeX / Canvas->GetDPIScale()));
 #endif
@@ -9964,33 +10052,25 @@ void FFrameEndSync::Sync( bool bAllowOneFrameThreadLag )
 		EventIndex = (EventIndex + 1) % 2;
 	}
 
-	if (GDoAsyncLoadingWhileWaitingForVSync && IsAsyncLoading())
+	// if we only have two cores, it is important to leave them for the RT to get its work done.
+	static bool bEnoughCoresToDoAsyncLoadingWhileWaitingForVSync = FPlatformMisc::NumberOfCoresIncludingHyperthreads() > 2;
+
+	if (bEnoughCoresToDoAsyncLoadingWhileWaitingForVSync && GDoAsyncLoadingWhileWaitingForVSync)
 	{
 		const int32 MaxTicks = 5;
 		int32 NumTicks = 0;
 		float TimeLimit = GAsyncLoadingTimeLimit / 1000.f / float(MaxTicks);
-		while (!Fence[EventIndex].IsFenceComplete())
+		while (NumTicks < MaxTicks && !Fence[EventIndex].IsFenceComplete() && IsAsyncLoading())
 		{
+			NumTicks++;
+			ProcessAsyncLoading(true, false, TimeLimit);
 			if (bEmptyGameThreadTasks)
 			{
-				// need to process gamethread tasks at least once a frame no matter what
 				FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
-				if (Fence[EventIndex].IsFenceComplete())
-				{
-					break;
-				}
-			}
-			if (NumTicks < MaxTicks)
-			{
-				NumTicks++;
-				ProcessAsyncLoading(true, false, TimeLimit);
 			}
 		}
 	}
-	else
-	{
-		Fence[EventIndex].Wait(bEmptyGameThreadTasks);  // here we also opportunistically execute game thread tasks while we wait
-	}
+	Fence[EventIndex].Wait(bEmptyGameThreadTasks);  // here we also opportunistically execute game thread tasks while we wait
 }
 
 FString appGetStartupMap(const TCHAR* CommandLine)
@@ -10590,7 +10670,7 @@ UNetDriver* FindNamedNetDriver_Local(const TArray<FNamedNetDriver>& ActiveNetDri
 	return NULL;
 }
 
-UNetDriver* UEngine::FindNamedNetDriver(UWorld * InWorld, FName NetDriverName)
+UNetDriver* UEngine::FindNamedNetDriver(const UWorld* InWorld, FName NetDriverName)
 {
 #if WITH_EDITOR
 	const FWorldContext* WorldContext = GetWorldContextFromWorld(InWorld);
@@ -11672,7 +11752,7 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 			if (!MakeSureMapNameIsValid(Context.PendingNetGame->URL.Map))
 			{
 				BrowseToDefaultMap(Context);
-				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.RedirectURL);
+				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.Map);
 			}
 			else
 			{
@@ -11681,10 +11761,18 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 
 				const bool bLoadedMapSuccessfully = LoadMap(Context, Context.PendingNetGame->URL, Context.PendingNetGame, Error);
 
-				Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
+				if (Context.PendingNetGame != nullptr)
+				{
+					Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
 
-				// Kill the pending level.
-				Context.PendingNetGame = NULL;
+					// Kill the pending level.
+					Context.PendingNetGame = nullptr;
+				}
+				else
+				{
+					BrowseToDefaultMap(Context);
+					BroadcastTravelFailure(Context.World(), ETravelFailure::TravelFailure, Error);
+				}
 			}
 		}
 	}
@@ -12046,6 +12134,14 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 				NewWorld->RenameToPIEWorld(WorldContext.PIEInstance);
 			}
 			ResetPIEAudioSetting(NewWorld);
+
+#if WITH_EDITOR
+			// PIE worlds should use the same feature level as the editor
+			if (WorldContext.PIEWorldFeatureLevel != ERHIFeatureLevel::Num && NewWorld->FeatureLevel != WorldContext.PIEWorldFeatureLevel)
+			{
+				NewWorld->ChangeFeatureLevel(WorldContext.PIEWorldFeatureLevel);
+			}
+#endif
 		}
 		else if (WorldContext.WorldType == EWorldType::Game)
 		{
@@ -13489,18 +13585,35 @@ public:
 
 void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params)
 {
+	// UObject::CollectDefaultSubobjects will not return all DSOs for the CDO (only returns inherited subobjects). It also
+	// includes any subobjects that have a matching name on the archetype. This function returns all subobjects that have
+	// a matching instancing on Object's archetype and any objects tagged as RF_DefaultSubObject. Non-DSO instanced subobjects
+	// may be missing, but testing will determine that:
+	const auto CollectAllSubobjects = [](UObject* Object, TArray<UObject*>& OutSubobjectArray)
+	{
+		const bool bIncludedNestedObjects = true;
+		GetObjectsWithOuter(Object, OutSubobjectArray, bIncludedNestedObjects);
+
+		// Remove contained objects that are not subobjects.
+		for ( int32 ComponentIndex = 0; ComponentIndex < OutSubobjectArray.Num(); ComponentIndex++ )
+		{
+			UObject* PotentialComponent = OutSubobjectArray[ComponentIndex];
+			if (!PotentialComponent->IsDefaultSubobject() && !PotentialComponent->HasAnyFlags(RF_DefaultSubObject))
+			{
+				OutSubobjectArray.RemoveAtSwap(ComponentIndex--);
+			}
+		}
+	};
+
 	check(OldObject && NewObject);
 
 	// Bad idea to write data to an actor while its components are registered
 	AActor* NewActor = Cast<AActor>(NewObject);
 	if (NewActor != nullptr)
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		NewActor->GetComponents(Components);
-
-		for(int32 i=0; i<Components.Num(); i++)
+		for (UActorComponent* Component : NewActor->GetComponents())
 		{
-			ensure(!Components[i]->IsRegistered());
+			ensure(Component == nullptr || !Component->IsRegistered());
 		}
 	}
 
@@ -13525,7 +13638,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	{
 		// Find all instanced objects of the old CDO, and save off their modified properties to be later applied to the newly instanced objects of the new CDO
 		TArray<UObject*> Components;
-		OldObject->CollectDefaultSubobjects(Components, true);
+		CollectAllSubobjects( OldObject, Components );
 
 		for (UObject* OldInstance : Components)
 		{
@@ -13550,7 +13663,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	TArray<UObject*> ComponentsOnNewObject;
 	{
 		TArray<UObject*> EditInlineSubobjectsOfComponents;
-		NewObject->CollectDefaultSubobjects(ComponentsOnNewObject,true);
+		CollectAllSubobjects( NewObject, ComponentsOnNewObject );
 
 		// populate the ReferenceReplacementMap 
 		for (int32 Index = 0; Index < ComponentsOnNewObject.Num(); Index++)
@@ -13767,15 +13880,14 @@ bool AllowHighQualityLightmaps(ERHIFeatureLevel::Type FeatureLevel)
 // Helper function for changing system resolution via the r.setres console command
 void FSystemResolution::RequestResolutionChange(int32 InResX, int32 InResY, EWindowMode::Type InWindowMode)
 {
-	if (PLATFORM_UNIX)
+#if PLATFORM_UNIX
+	// Fullscreen and WindowedFullscreen behave the same on Linux, see FLinuxWindow::ReshapeWindow()/SetWindowMode().
+	// Allowing Fullscreen window mode confuses higher level code (see UE-19996).
+	if (InWindowMode == EWindowMode::Fullscreen)
 	{
-		// Fullscreen and WindowedFullscreen behave the same on Linux, see FLinuxWindow::ReshapeWindow()/SetWindowMode().
-		// Allowing Fullscreen window mode confuses higher level code (see UE-19996).
-		if (InWindowMode == EWindowMode::Fullscreen)
-		{
-			InWindowMode = EWindowMode::WindowedFullscreen;
-		}
+		InWindowMode = EWindowMode::WindowedFullscreen;
 	}
+#endif
 
 	FString WindowModeSuffix;
 	switch (InWindowMode)
@@ -13971,6 +14083,7 @@ int32 UEngine::RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas
 	// Start drawing the various counters.
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
 
+	UEngineCustomTimeStep* CustomTimeStep = GetCustomTimeStep();
 	if (CustomTimeStep)
 	{
 		ECustomTimeStepSynchronizationState State = CustomTimeStep->GetSynchronizationState();
@@ -14182,7 +14295,7 @@ int32 UEngine::RenderStatLevels(UWorld* World, FViewport* Viewport, FCanvas* Can
 		const FSubLevelStatus& LevelStatus = SubLevelsStatusList[LevelIdx];
 
 		// Wrap around at the bottom.
-		if (Y > Viewport->GetSizeXY().Y - 30)
+		if (Y > Canvas->GetRenderTarget()->GetSizeXY().Y - 30)
 		{
 			MaxY = FMath::Max(MaxY, Y);
 			Y = BaseY;
@@ -15723,34 +15836,31 @@ int32 UEngine::RenderStatTimecode(UWorld* World, FViewport* Viewport, FCanvas* C
 	UFont* Font = FPlatformProperties::SupportsWindowedMode() ? GetSmallFont() : GetMediumFont();
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
 
-	UTimecodeProvider* Provider = GetTimecodeProvider();
-	if (Provider)
+	const UTimecodeProvider* Provider = GetTimecodeProvider();
+	ETimecodeProviderSynchronizationState State = Provider->GetSynchronizationState();
+	FString ProviderName = Provider->GetName();
+	float CharWidth, CharHeight;
+	Font->GetCharSize(TEXT(' '), CharWidth, CharHeight);
+	int32 NewX = X - Font->GetStringSize(*ProviderName) - (int32)CharWidth;
+	switch (State)
 	{
-		ETimecodeProviderSynchronizationState State = Provider->GetSynchronizationState();
-		FString ProviderName = Provider->GetName();
-		float CharWidth, CharHeight;
-		Font->GetCharSize(TEXT(' '), CharWidth, CharHeight);
-		int32 NewX = X - Font->GetStringSize(*ProviderName) - (int32)CharWidth;
-		switch(State)
-		{
-			case ETimecodeProviderSynchronizationState::Closed:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Closed"), *ProviderName), Font, FColor::Red);
-				break;
-			case ETimecodeProviderSynchronizationState::Error:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Error"), *ProviderName), Font, FColor::Red);
-				break;
-			case ETimecodeProviderSynchronizationState::Synchronized:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronized"), *ProviderName), Font, FColor::Green);
-				break;
-			case ETimecodeProviderSynchronizationState::Synchronizing:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronizing"), *ProviderName), Font, FColor::Yellow);
-				break;
-			default:
-				check(false);
-				break;
-		}
-		Y += RowHeight;
+	case ETimecodeProviderSynchronizationState::Closed:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Closed"), *ProviderName), Font, FColor::Red);
+		break;
+	case ETimecodeProviderSynchronizationState::Error:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Error"), *ProviderName), Font, FColor::Red);
+		break;
+	case ETimecodeProviderSynchronizationState::Synchronized:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronized"), *ProviderName), Font, FColor::Green);
+		break;
+	case ETimecodeProviderSynchronizationState::Synchronizing:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronizing"), *ProviderName), Font, FColor::Yellow);
+		break;
+	default:
+		check(false);
+		break;
 	}
+	Y += RowHeight;
 	Canvas->DrawShadowedString(X, Y, *FString::Printf(TEXT("TC: %s"), *FApp::GetTimecode().ToString()), Font, FColor::Green);
 	Y += RowHeight;
 

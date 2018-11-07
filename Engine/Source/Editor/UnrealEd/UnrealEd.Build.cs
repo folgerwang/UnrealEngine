@@ -97,6 +97,7 @@ public class UnrealEd : ModuleRules
 				"NavigationSystem",
                 "MeshDescription",
                 "MeshBuilder",
+                "MaterialShaderQualitySettings"
             }
 		);
 
@@ -114,6 +115,7 @@ public class UnrealEd : ModuleRules
 				"LauncherPlatform",
 				"EditorStyle",
 				"EngineSettings",
+				"ImageWriteQueue",
 				"InputCore",
 				"InputBindingEditor",
 				"LauncherServices",
@@ -123,6 +125,7 @@ public class UnrealEd : ModuleRules
 				"PropertyEditor",
 				"Projects",
 				"RawMesh",
+				"MeshUtilitiesCommon",
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
@@ -161,14 +164,15 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
+				"PakFileUtilities",
 				"TimeManagement",
-			}
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
-				"FontEditor",
+                "FontEditor",
 				"StaticMeshEditor",
 				"TextureEditor",
 				"Cascade",
@@ -224,6 +228,7 @@ public class UnrealEd : ModuleRules
 				"AnimationModifiers",
 				"ClothPainter",
 				"Media",
+				"TimeManagementEditor",
 			}
 		);
 
@@ -257,7 +262,9 @@ public class UnrealEd : ModuleRules
 		// Add include directory for Lightmass
 		PublicIncludePaths.Add("Programs/UnrealLightmass/Public");
 
-		PublicIncludePathModuleNames.AddRange(
+        PublicIncludePaths.Add("Developer/Android/AndroidDeviceDetection/Public/Interfaces");
+
+        PublicIncludePathModuleNames.AddRange(
 			new string[] {
 				"CollectionManager",
 				"BlueprintGraph",
@@ -268,10 +275,11 @@ public class UnrealEd : ModuleRules
 				"NavigationSystem",
 				"GameplayTasks",
 				"AIModule",
-			}
+            }
 			);
 
-		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
+
+        if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			PublicDependencyModuleNames.Add("XAudio2");
@@ -297,7 +305,7 @@ public class UnrealEd : ModuleRules
 			"FreeType2"
 		);
 
-		SetupModulePhysXAPEXSupport(Target);
+		SetupModulePhysicsSupport(Target);
 
 		if (Target.bCompileRecast)
 		{

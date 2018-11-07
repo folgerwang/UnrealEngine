@@ -36,7 +36,7 @@ namespace AutomationTool
 		/// <summary>
 		/// List of all targets detected for this project.
 		/// </summary>
-		public Dictionary<TargetType, SingleTargetProperties> Targets = new Dictionary<TargetType, SingleTargetProperties>();
+		public List<SingleTargetProperties> Targets = new List<SingleTargetProperties>();
 
 		/// <summary>
 		/// List of all Engine ini files for this project
@@ -292,6 +292,8 @@ namespace AutomationTool
 				Writer.WriteLine("{");
 				Writer.WriteLine("\tpublic {0}(ReadOnlyTargetRules Target) : base(Target)", ProjectName);
 				Writer.WriteLine("\t{");
+				Writer.WriteLine("\t\tPCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;");
+				Writer.WriteLine();
 				Writer.WriteLine("\t\tPrivateDependencyModuleNames.Add(\"Core\");");
 				Writer.WriteLine("\t\tPrivateDependencyModuleNames.Add(\"Core\");");
 				Writer.WriteLine("\t}");
@@ -456,7 +458,7 @@ namespace AutomationTool
 		/// <param name="ExtraSearchPaths">Additional search paths.</param>
 		private static void DetectTargetsForProject(ProjectProperties Properties, List<string> ExtraSearchPaths = null)
 		{
-			Properties.Targets = new Dictionary<TargetType, SingleTargetProperties>();
+			Properties.Targets = new List<SingleTargetProperties>();
 			FileReference TargetsDllFilename;
 			string FullProjectPath = null;
 
@@ -579,7 +581,7 @@ namespace AutomationTool
 					}
 					else
 					{
-						Properties.Targets.Add(Rules.Type, TargetData);
+						Properties.Targets.Add(TargetData);
 					}
 				}
 			}
@@ -682,7 +684,7 @@ namespace AutomationTool
             {
                 GameName = "UE4";
                 Properties = ProjectUtils.GetProjectProperties(null);
-                if (!Properties.Targets.ContainsKey(TargetType.Editor))
+                if (!Properties.Targets.Exists(Target => Target.Rules.Type == TargetType.Editor))
                 {
                     throw new AutomationException("Base UE4 project did not contain an editor target.");
                 }
@@ -698,11 +700,11 @@ namespace AutomationTool
 					CommandUtils.LogVerbose("          Targets {0}:", Properties.Targets.Count);
                     foreach (var ThisTarget in Properties.Targets)
                     {
-						CommandUtils.LogVerbose("            TargetName          : " + ThisTarget.Value.TargetName);
-						CommandUtils.LogVerbose("              Type          : " + ThisTarget.Key.ToString());
-						CommandUtils.LogVerbose("              bUsesSteam  : " + (ThisTarget.Value.Rules.bUsesSteam ? "YES" : "NO"));
-						CommandUtils.LogVerbose("              bUsesCEF3   : " + (ThisTarget.Value.Rules.bUsesCEF3 ? "YES" : "NO"));
-						CommandUtils.LogVerbose("              bUsesSlate  : " + (ThisTarget.Value.Rules.bUsesSlate ? "YES" : "NO"));
+						CommandUtils.LogVerbose("            TargetName          : " + ThisTarget.TargetName);
+						CommandUtils.LogVerbose("              Type          : " + ThisTarget.Rules.Type);
+						CommandUtils.LogVerbose("              bUsesSteam  : " + (ThisTarget.Rules.bUsesSteam ? "YES" : "NO"));
+						CommandUtils.LogVerbose("              bUsesCEF3   : " + (ThisTarget.Rules.bUsesCEF3 ? "YES" : "NO"));
+						CommandUtils.LogVerbose("              bUsesSlate  : " + (ThisTarget.Rules.bUsesSlate ? "YES" : "NO"));
                     }
 					CommandUtils.LogVerbose("      Programs {0}:", Properties.Programs.Count);
                     foreach (var ThisTarget in Properties.Programs)
@@ -761,7 +763,7 @@ namespace AutomationTool
 				{
 					Proj.Dump(InHostPlatforms);
 				}
-				CommandUtils.LogVerbose("  {0} Non-Code projects:", CodeProjects.Count);
+				CommandUtils.LogVerbose("  {0} Non-Code projects:", NonCodeProjects.Count);
 				foreach (var Proj in NonCodeProjects)
 				{
 					Proj.Dump(InHostPlatforms);

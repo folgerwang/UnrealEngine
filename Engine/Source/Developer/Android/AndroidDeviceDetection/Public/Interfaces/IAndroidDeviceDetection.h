@@ -40,6 +40,22 @@ struct FAndroidDeviceInfo
 	// TCP port number on our local host forwarded over adb to the device
 	uint16 HostMessageBusPort;
 
+	// Holds pixel per inch value.
+	int32 DeviceDPI = 0;
+
+	// Holds the display resolution for the device
+	int32 ResolutionX = 0;
+	int32 ResolutionY = 0;
+
+	// Holds the reported OpenGLES version.
+	FString OpenGLVersionString;
+
+	// Holds the GPU family name.
+	FString GPUFamilyString;
+
+	// Holds the name of the manufacturer
+	FString DeviceBrand;
+
 	FAndroidDeviceInfo()
 		: SDKVersion(INDEX_NONE)
 		, GLESVersion(INDEX_NONE)
@@ -56,11 +72,13 @@ struct FAndroidDeviceInfo
 class IAndroidDeviceDetection
 {
 public:
-	virtual void Initialize(const TCHAR* SDKDirectoryEnvVar, const TCHAR* SDKRelativeExePath, const TCHAR* GetPropCommand, bool bGetExtensionsViaSurfaceFlinger) = 0;
+	virtual void Initialize(const TCHAR* SDKDirectoryEnvVar, const TCHAR* SDKRelativeExePath, const TCHAR* GetPropCommand, bool bGetExtensionsViaSurfaceFlinger, bool bForLumin = false) = 0;
 	virtual const TMap<FString,FAndroidDeviceInfo>& GetDeviceMap() = 0;
 	virtual FCriticalSection* GetDeviceMapLock() = 0;
 	virtual void UpdateADBPath() = 0;
 	virtual FString GetADBPath() = 0;
+
+	virtual void ExportDeviceProfile(const FString& OutPath, const FString& DeviceName) = 0;
 protected:
 
 	/**

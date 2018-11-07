@@ -36,17 +36,17 @@ void FD3D12CommandListHandle::Create(FD3D12Device* ParentDevice, D3D12_COMMAND_L
 }
 
 FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, FD3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
-	: CommandListManager(InCommandListManager)
+	: FD3D12DeviceChild(ParentDevice)
+	, FD3D12SingleNodeGPUObject(ParentDevice->GetGPUMask())
+	, CommandListManager(InCommandListManager)
+	, CurrentOwningContext(nullptr)
+	, CommandListType(InCommandListType)
+	, CurrentCommandAllocator(&CommandAllocator)
 	, CurrentGeneration(1)
 	, LastCompleteGeneration(0)
 	, IsClosed(false)
 	, PendingResourceBarriers()
-	, CurrentOwningContext(nullptr)
-	, CurrentCommandAllocator(&CommandAllocator)
-	, CommandListType(InCommandListType)
 	, ResidencySet(nullptr)
-	, FD3D12DeviceChild(ParentDevice)
-	, FD3D12SingleNodeGPUObject(ParentDevice->GetGPUMask())
 {
 	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList((uint32)GetGPUMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
 	INC_DWORD_STAT(STAT_D3D12NumCommandLists);
@@ -54,6 +54,13 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 #if PLATFORM_WINDOWS
 	// Optionally obtain the ID3D12GraphicsCommandList1 interface, we don't check the HRESULT.
 	CommandList->QueryInterface(IID_PPV_ARGS(CommandList1.GetInitReference()));
+#endif
+
+#if NAME_OBJECTS
+	TArray<FStringFormatArg> Args;
+	Args.Add(LexToString(ParentDevice->GetGPUIndex()));
+	FString Name = FString::Format(TEXT("FD3D12CommandListData (GPU {0})"), Args);
+	SetName(CommandList, Name.GetCharArray().GetData());
 #endif
 
 	// Initially start with all lists closed.  We'll open them as we allocate them.

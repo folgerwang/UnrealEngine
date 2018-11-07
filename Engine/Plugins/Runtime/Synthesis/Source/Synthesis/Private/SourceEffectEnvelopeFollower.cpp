@@ -222,6 +222,7 @@ void FSourceEffectEnvelopeFollower::Init(const FSoundEffectSourceInitData& InitD
 	bIsActive = true;
 	EnvelopeFollower.Init(InitData.SampleRate);
 	CurrentEnvelopeValue = 0.0f;
+	NumChannels = InitData.NumSourceChannels;
 }
 
 FSourceEffectEnvelopeFollower::~FSourceEffectEnvelopeFollower()
@@ -239,28 +240,31 @@ void FSourceEffectEnvelopeFollower::OnPresetChanged()
 	EnvelopeFollower.SetMode((Audio::EPeakMode::Type)Settings.PeakMode);
 }
 
-void FSourceEffectEnvelopeFollower::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectEnvelopeFollower::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	float SampleValue = 0.0f;
-	for (int32 i = 0; i < InData.AudioFrame.Num(); ++i)
-	{
-		SampleValue += InData.AudioFrame[i];
-		OutData.AudioFrame[i] = InData.AudioFrame[i];
-	}
+	// Memcpy the output (this is a "pass through" effect)
+	FMemory::Memcpy(OutAudioBufferData, InData.InputSourceEffectBufferPtr, sizeof(float)*InData.NumSamples);
 
-	if (InData.AudioFrame.Num() == 2)
+	for (int32 SampleIndex = 0; SampleIndex < InData.NumSamples; SampleIndex += NumChannels)
 	{
-		SampleValue *= 0.5f;
-	}
+		float SampleValue = 0.0f;
+		for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
+		{
+			SampleValue += InData.InputSourceEffectBufferPtr[SampleIndex + ChannelIndex];
+		}
 
-	CurrentEnvelopeValue = EnvelopeFollower.ProcessAudio(SampleValue);
+		if (NumChannels == 2)
+		{
+			SampleValue *= 0.5f;
+		}
 
-	FrameCount = FrameCount & (FramesToNotify - 1);
-	if (FrameCount == 0)
-	{
-		SourceEffectEnvFollowerNotifier->UpdateEnvFollowerInstance(OwningPresetUniqueId, InstanceId, CurrentEnvelopeValue);
+		CurrentEnvelopeValue = EnvelopeFollower.ProcessAudio(SampleValue);
+
+		if ((FrameCount++ & (FramesToNotify - 1)) == 0)
+		{
+			SourceEffectEnvFollowerNotifier->UpdateEnvFollowerInstance(OwningPresetUniqueId, InstanceId, CurrentEnvelopeValue);
+		}
 	}
-	++FrameCount;
 }
 
 void USourceEffectEnvelopeFollowerPreset::SetSettings(const FSourceEffectEnvelopeFollowerSettings& InSettings)

@@ -28,7 +28,7 @@ namespace AutomationScripts.Automation
 
 		public override void ExecuteBuild()
 		{
-			Log("********** REBUILD LIGHT MAPS COMMAND STARTED **********");
+			LogInformation("********** REBUILD LIGHT MAPS COMMAND STARTED **********");
 			int SubmittedCL = 0;
 			try
 			{
@@ -54,8 +54,8 @@ namespace AutomationScripts.Automation
 			}
 			catch (Exception ProcessEx)
 			{
-				Log("********** REBUILD LIGHT MAPS COMMAND FAILED **********");
-                Log("Error message: {0}", ProcessEx.Message);
+				LogInformation("********** REBUILD LIGHT MAPS COMMAND FAILED **********");
+                LogInformation("Error message: {0}", ProcessEx.Message);
 				HandleFailure(ProcessEx.Message);
 				throw ProcessEx;
 			}
@@ -63,7 +63,7 @@ namespace AutomationScripts.Automation
 			// The processes steps have completed successfully.
 			HandleSuccess(SubmittedCL);
 
-			Log("********** REBUILD LIGHT MAPS COMMAND COMPLETED **********");
+			LogInformation("********** REBUILD LIGHT MAPS COMMAND COMPLETED **********");
 		}
 
 		#endregion
@@ -73,7 +73,7 @@ namespace AutomationScripts.Automation
 
 		private void BuildNecessaryTargets()
 		{
-			Log("Running Step:- RebuildLightMaps::BuildNecessaryTargets");
+			LogInformation("Running Step:- RebuildLightMaps::BuildNecessaryTargets");
 			UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
             Agenda.AddTarget("UnrealHeaderTool", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
 			Agenda.AddTarget("ShaderCompileWorker", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
@@ -105,16 +105,16 @@ namespace AutomationScripts.Automation
 
 		private void CreateChangelist(ProjectParams Params)
 		{
-			Log("Running Step:- RebuildLightMaps::CheckOutMaps");
+			LogInformation("Running Step:- RebuildLightMaps::CheckOutMaps");
 			// Setup a P4 Cl we will use to submit the new lightmaps
 			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding lightmaps from changelist {1}\n#rb None\n#tests None", Params.ShortProjectName, P4Env.Changelist));
-			Log("Working in {0}", WorkingCL);
+			LogInformation("Working in {0}", WorkingCL);
 
 		}
 
 		private void RunRebuildLightmapsCommandlet(ProjectParams Params)
 		{
-			Log("Running Step:- RebuildLightMaps::RunRebuildLightmapsCommandlet");
+			LogInformation("Running Step:- RebuildLightMaps::RunRebuildLightmapsCommandlet");
 
 			// Find the commandlet binary
 			string UE4EditorExe = HostPlatform.Current.GetUE4ExePath(Params.UE4Exe);
@@ -142,11 +142,11 @@ namespace AutomationScripts.Automation
                 if ( AEx != null )
                 {
                     string LogFile = AEx.LogFileName;
-                    UnrealBuildTool.Log.TraceWarning("Attempting to load file {0}", LogFile);
+                    Tools.DotNETCommon.Log.TraceWarning("Attempting to load file {0}", LogFile);
                     if ( LogFile != "")
                     {
                         
-                        UnrealBuildTool.Log.TraceWarning("Attempting to read file {0}", LogFile);
+                        Tools.DotNETCommon.Log.TraceWarning("Attempting to read file {0}", LogFile);
                         try
                         {
                             string[] AllLogFile = ReadAllLines(LogFile);
@@ -176,14 +176,14 @@ namespace AutomationScripts.Automation
 
 		private void SubmitRebuiltMaps(ref int SubmittedCL)
 		{
-			Log("Running Step:- RebuildLightMaps::SubmitRebuiltMaps");
+			LogInformation("Running Step:- RebuildLightMaps::SubmitRebuiltMaps");
 
 			// Check everything in!
 			if (WorkingCL != -1)
 			{
-                Log("Running Step:- Submitting CL " + WorkingCL);
+                LogInformation("Running Step:- Submitting CL " + WorkingCL);
 				P4.Submit(WorkingCL, out SubmittedCL, true, true);
-				Log("INFO: Lightmaps successfully submitted in cl "+ SubmittedCL.ToString());
+				LogInformation("INFO: Lightmaps successfully submitted in cl "+ SubmittedCL.ToString());
 			}
 		}
 

@@ -173,7 +173,7 @@ public:
     ///
     /// The default implementation does a spec-by-spec, field-by-field
     /// comparison.
-    // XXX: What are the right semmantics for this? 
+    // XXX: What are the right semantics for this?
     //      Does it matter if the underlying implementation matches?
     SDF_API
     virtual bool Equals(const SdfAbstractDataRefPtr &rhs) const;
@@ -242,6 +242,18 @@ public:
     SDF_API
     virtual VtValue Get(const SdfAbstractDataSpecId& id, 
                         const TfToken& fieldName) const = 0;
+
+    /// Return the type of the value for \p fieldName on spec \p id.  If no such
+    /// field exists, return typeid(void).  Derived classes may optionally
+    /// override this for performance.  The base implementation is equivalent
+    /// to:
+    ///
+    /// \code
+    /// return Get(id, fieldName).GetTypeid();
+    /// \endcode
+    SDF_API
+    virtual std::type_info const &
+    GetTypeid(const SdfAbstractDataSpecId &id, const TfToken &fieldName) const;
 
     /// Set the value of the given \a id and \a fieldName.
     ///

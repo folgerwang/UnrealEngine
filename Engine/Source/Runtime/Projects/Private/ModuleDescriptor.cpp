@@ -220,6 +220,28 @@ bool FModuleDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		}
 	}
 
+	// Read the whitelisted programs
+	TSharedPtr<FJsonValue> WhitelistProgramsValue = Object.TryGetField(TEXT("WhitelistPrograms"));
+	if (WhitelistProgramsValue.IsValid() && WhitelistProgramsValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& ProgramsArray = WhitelistProgramsValue->AsArray();
+		for (int Idx = 0; Idx < ProgramsArray.Num(); Idx++)
+		{
+			WhitelistPrograms.Add(ProgramsArray[Idx]->AsString());
+		}
+	}
+
+	// Read the blacklisted programs
+	TSharedPtr<FJsonValue> BlacklistProgramsValue = Object.TryGetField(TEXT("BlacklistPrograms"));
+	if (BlacklistProgramsValue.IsValid() && BlacklistProgramsValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& ProgramsArray = BlacklistProgramsValue->AsArray();
+		for (int Idx = 0; Idx < ProgramsArray.Num(); Idx++)
+		{
+			BlacklistPrograms.Add(ProgramsArray[Idx]->AsString());
+		}
+	}
+
 	// Read the additional dependencies
 	TSharedPtr<FJsonValue> AdditionalDependenciesValue = Object.TryGetField(TEXT("AdditionalDependencies"));
 	if (AdditionalDependenciesValue.IsValid() && AdditionalDependenciesValue->Type == EJson::Array)
@@ -328,6 +350,24 @@ void FModuleDescriptor::Write(TJsonWriter<>& Writer) const
 		}
 		Writer.WriteArrayEnd();
 	}
+	if (WhitelistPrograms.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("WhitelistPrograms"));
+		for (int Idx = 0; Idx < WhitelistPrograms.Num(); Idx++)
+		{
+			Writer.WriteValue(WhitelistPrograms[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
+	if (BlacklistPrograms.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("BlacklistPrograms"));
+		for (int Idx = 0; Idx < BlacklistPrograms.Num(); Idx++)
+		{
+			Writer.WriteValue(BlacklistPrograms[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
 	if (AdditionalDependencies.Num() > 0)
 	{
 		Writer.WriteArrayStart(TEXT("AdditionalDependencies"));
@@ -396,16 +436,29 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 		return false;
 	}
 
+#if IS_PROGRAM
+	// Check the program is whitelisted. Note that the behavior is slightly different to other whitelist/blacklist pairs here; we will whitelist a module of any type if it's explicitly allowed for this program.
+	if (WhitelistPrograms.Num() > 0)
+	{
+		return WhitelistPrograms.Contains(UE_APP_NAME);
+	}
+
+	// Check the program is allowed
+	if (BlacklistPrograms.Num() > 0 && BlacklistPrograms.Contains(UE_APP_NAME))
+	{
+		return false;
+	}
+#endif
+
 	// Check the module is compatible with this target. This should match ModuleDescriptor.IsCompiledInConfiguration in UBT
 	switch (Type)
 	{
 	case EHostType::Runtime:
 	case EHostType::RuntimeNoCommandlet:
-#if IS_PROGRAM
-		return false;
-#else
-		return true;
-#endif
+		#if !IS_PROGRAM
+			return true;
+		#endif
+		break;
 
 	case EHostType::RuntimeAndProgram:
 		return true;

@@ -9,6 +9,19 @@ class AActor;
 class UCanvas;
 struct FLogEntryItem;
 
+
+#if ENABLE_VISUAL_LOG
+#define DEFINE_ENUM_TO_STRING(EnumType) FString EnumToString(const EnumType Value) \
+{ \
+	static const UEnum* TypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT(#EnumType)); \
+	return TypeEnum->GetNameStringByIndex(static_cast<int32>(Value)); \
+}
+#define DECLARE_ENUM_TO_STRING(EnumType) FString EnumToString(const EnumType Value)
+#else
+#define DEFINE_ENUM_TO_STRING(EnumType) 
+#define DECLARE_ENUM_TO_STRING(EnumType)
+#endif // ENABLE_VISUAL_LOG
+
 enum class ECreateIfNeeded : int8
 {
 	Invalid = -1,
@@ -61,6 +74,7 @@ enum class EVisualLoggerShapeElement : uint8
 	Polygon,
 	Mesh,
 	NavAreaMesh, // convex based mesh with min and max Z values
+	Arrow, 
 	// note that in order to remain backward compatibility in terms of log
 	// serialization new enum values need to be added at the end
 };
@@ -218,6 +232,11 @@ struct ENGINE_API FVisualLogEntry
 	void AddConvexElement(const TArray<FVector>& Points, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White, const FString& Description = TEXT(""));
 	// histogram sample
 	void AddHistogramData(const FVector2D& DataSample, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FName& GraphName, const FName& DataName);
+	// arrow
+	void AddArrow(const FVector& Start, const FVector& End, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White, const FString& Description = TEXT(""));
+	// boxes
+	void AddBoxes(const TArray<FBox>& Boxes, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color = FColor::White);
+
 	// Custom data block
 	FVisualLogDataBlock& AddDataBlock(const FString& TagName, const TArray<uint8>& BlobDataArray, const FName& CategoryName, ELogVerbosity::Type Verbosity);
 	// Event

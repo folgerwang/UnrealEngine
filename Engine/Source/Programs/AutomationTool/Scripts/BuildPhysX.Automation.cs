@@ -98,7 +98,7 @@ class BuildPhysX : BuildCommand
 		}
 
 		Environment.SetEnvironmentVariable("CMAKE_ROOT", DirectoryReference.Combine(CMakeRootDirectory, "share").ToString());
-		Log("set {0}={1}", "CMAKE_ROOT", Environment.GetEnvironmentVariable("CMAKE_ROOT"));
+		LogInformation("set {0}={1}", "CMAKE_ROOT", Environment.GetEnvironmentVariable("CMAKE_ROOT"));
 
 		switch (TargetData.Platform)
 		{
@@ -582,7 +582,7 @@ class BuildPhysX : BuildCommand
 	{
 		Process LocalProcess = new Process();
 		LocalProcess.StartInfo = StartInfo;
-		LocalProcess.OutputDataReceived += (Sender, Line) => { if (Line != null && Line.Data != null) UnrealBuildTool.Log.TraceInformation(Line.Data); };
+		LocalProcess.OutputDataReceived += (Sender, Line) => { if (Line != null && Line.Data != null) Tools.DotNETCommon.Log.TraceInformation(Line.Data); };
 		return RunLocalProcess(LocalProcess);
 	}
 
@@ -590,9 +590,9 @@ class BuildPhysX : BuildCommand
 	{
 		// make sure we set up the environment variable specifying where the root of the PhysX SDK is
 		Environment.SetEnvironmentVariable("GW_DEPS_ROOT", PhysXSourceRootDirectory.ToString());
-		Log("set {0}={1}", "GW_DEPS_ROOT", Environment.GetEnvironmentVariable("GW_DEPS_ROOT"));
+		LogInformation("set {0}={1}", "GW_DEPS_ROOT", Environment.GetEnvironmentVariable("GW_DEPS_ROOT"));
 		Environment.SetEnvironmentVariable("CMAKE_MODULE_PATH", DirectoryReference.Combine(PhysXSourceRootDirectory, "Externals", "CMakeModules").ToString());
-		Log("set {0}={1}", "CMAKE_MODULE_PATH", Environment.GetEnvironmentVariable("CMAKE_MODULE_PATH"));
+		LogInformation("set {0}={1}", "CMAKE_MODULE_PATH", Environment.GetEnvironmentVariable("CMAKE_MODULE_PATH"));
 
 		string CMakeName = GetCMakeNameAndSetupEnv(TargetData);
 
@@ -608,7 +608,7 @@ class BuildPhysX : BuildCommand
 
 					if(!bCleanOnly)
 					{
-						Log("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
 
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
 						StartInfo.FileName = CMakeName;
@@ -626,7 +626,7 @@ class BuildPhysX : BuildCommand
 
 					if (!bCleanOnly)
 					{
-						Log("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
 
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
 						StartInfo.FileName = CMakeName;
@@ -648,7 +648,7 @@ class BuildPhysX : BuildCommand
 
 					if (!bCleanOnly)
 					{
-						Log("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
 
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
 						StartInfo.FileName = CMakeName;
@@ -656,10 +656,10 @@ class BuildPhysX : BuildCommand
 						StartInfo.Arguments = GetCMakeArguments(TargetLib, TargetData, BuildConfig);
 
 						System.Console.WriteLine("Working in '{0}'", StartInfo.WorkingDirectory);
-						Log("Working in '{0}'", StartInfo.WorkingDirectory);
+						LogInformation("Working in '{0}'", StartInfo.WorkingDirectory);
 
 						System.Console.WriteLine("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
-						Log("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
+						LogInformation("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
 						
 						if (RunLocalProcessAndLogOutput(StartInfo) != 0)
 						{
@@ -677,7 +677,7 @@ class BuildPhysX : BuildCommand
 
 					if (!bCleanOnly)
 					{
-						Log("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
 
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
 						StartInfo.FileName = CMakeName;
@@ -710,7 +710,7 @@ class BuildPhysX : BuildCommand
 
 					if (!bCleanOnly)
 					{
-						Log("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
 
 						// CMAKE_TOOLCHAIN_FILE
 						Environment.SetEnvironmentVariable("LIB_SUFFIX", GetConfigurationSuffix(BuildConfig, TargetData)); // only used in HTML5's CMakefiles
@@ -728,8 +728,8 @@ class BuildPhysX : BuildCommand
 						StartInfo.WorkingDirectory = CMakeTargetDirectory.ToString();
 						StartInfo.Arguments = "\"" + HTML5SDKInfo.EMSCRIPTEN_ROOT + "\\emcmake\" cmake " + GetCMakeArguments(TargetLib, TargetData, BuildConfig);
 
-						Log("Working in: {0}", StartInfo.WorkingDirectory);
-						Log("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
+						LogInformation("Working in: {0}", StartInfo.WorkingDirectory);
+						LogInformation("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
 						
 						if (RunLocalProcessAndLogOutput(StartInfo) != 0)
 						{
@@ -745,7 +745,7 @@ class BuildPhysX : BuildCommand
 
 					if (!bCleanOnly)
 					{
-						Log("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
 
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
 						StartInfo.FileName = CMakeName;
@@ -788,7 +788,7 @@ class BuildPhysX : BuildCommand
 		return null;
 	}
 
-	private static string RemoveOtherMakeFromPath(string WindowsPath)
+	private static string RemoveOtherMakeAndCygwinFromPath(string WindowsPath)
 	{
 		string[] PathComponents = WindowsPath.Split(';');
 		string NewPath = "";
@@ -797,10 +797,10 @@ class BuildPhysX : BuildCommand
 			// everything what contains /bin or /sbin is suspicious, check if it has make in it
 			if (PathComponent.Contains("\\bin") || PathComponent.Contains("/bin") || PathComponent.Contains("\\sbin") || PathComponent.Contains("/sbin"))
 			{
-				if (File.Exists(PathComponent + "/make.exe") || File.Exists(PathComponent + "make.exe"))
+				if (File.Exists(PathComponent + "/make.exe") || File.Exists(PathComponent + "make.exe") || File.Exists(PathComponent + "/cygwin1.dll"))
 				{
 					// gotcha!
-					Log("Removing {0} from PATH since it contains possibly colliding make.exe", PathComponent);
+					LogInformation("Removing {0} from PATH since it contains possibly colliding make.exe", PathComponent);
 					continue;
 				}
 			}
@@ -832,10 +832,10 @@ class BuildPhysX : BuildCommand
 
 				string PrevPath = Environment.GetEnvironmentVariable("PATH");
 				// mixing bundled make and cygwin make is no good. Try to detect and remove cygwin paths.
-				string PathWithoutCygwin = RemoveOtherMakeFromPath(PrevPath);
+				string PathWithoutCygwin = RemoveOtherMakeAndCygwinFromPath(PrevPath);
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + PathWithoutCygwin);
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + Environment.GetEnvironmentVariable("PATH"));
-				Log("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
+				LogInformation("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
 			}
 		}
 	}
@@ -1044,8 +1044,8 @@ class BuildPhysX : BuildCommand
 			StartInfo.WorkingDirectory = ConfigDirectory.ToString();
 			StartInfo.Arguments = MakeOptions;
 
-			Log("Working in: {0}", StartInfo.WorkingDirectory);
-			Log("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
+			LogInformation("Working in: {0}", StartInfo.WorkingDirectory);
+			LogInformation("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
 
 			if (RunLocalProcessAndLogOutput(StartInfo) != 0)
 			{
@@ -1403,7 +1403,7 @@ class BuildPhysX : BuildCommand
 				StartInfo.Arguments = SOFile.FullName + " " + PSymbolFile.ToString();
 				StartInfo.RedirectStandardError = true;
 
-				Log("Running: '{0} {1}'", StartInfo.FileName, StartInfo.Arguments);
+				LogInformation("Running: '{0} {1}'", StartInfo.FileName, StartInfo.Arguments);
 
 				RunLocalProcessAndLogOutput(StartInfo);
 
@@ -1411,7 +1411,7 @@ class BuildPhysX : BuildCommand
 				StartInfo.FileName = BreakpadSymbolEncoderPath.ToString() + ExeSuffix;
 				StartInfo.Arguments = PSymbolFile.ToString() + " " + SymbolFile.ToString();
 
-				Log("Running: '{0} {1}'", StartInfo.FileName, StartInfo.Arguments);
+				LogInformation("Running: '{0} {1}'", StartInfo.FileName, StartInfo.Arguments);
 
 				RunLocalProcessAndLogOutput(StartInfo);
 
@@ -1558,27 +1558,27 @@ class BuildPhysX : BuildCommand
 		}
 		
 		// if we don't pass anything, we'll just merge by default
-		string RobomergeAction = ParseParamValue("Robomerge", "").ToLower();
-		if(!string.IsNullOrEmpty(RobomergeAction))
+		string RobomergeCommand = ParseParamValue("Robomerge", "").ToLower();
+		if(!string.IsNullOrEmpty(RobomergeCommand))
 		{
-			// empty for merge default action
-			if(RobomergeAction == "merge")
+			// for merge default action, add flag to make sure buildmachine commit isn't skipped
+			if(RobomergeCommand == "merge")
 			{
-				RobomergeAction = "";
+				RobomergeCommand = "#robomerge[all] #DisregardExcludedAuthors";
 			}
 			// otherwise add hashtags
-			else if(RobomergeAction == "ignore")
+			else if(RobomergeCommand == "ignore")
 			{
-				RobomergeAction = "#ignore";
+				RobomergeCommand = "#robomerge #ignore";
 			}
-			else if(RobomergeAction == "null")
+			else if(RobomergeCommand == "null")
 			{
-				RobomergeAction = "#null";
+				RobomergeCommand = "#robomerge #null";
 			}
 			// otherwise the submit will likely fail.
 			else
 			{
-				throw new AutomationException("Invalid Robomerge param passed in {0}.  Must be empty, \"null\", or \"ignore\"", RobomergeAction);
+				throw new AutomationException("Invalid Robomerge param passed in {0}.  Must be \"merge\", \"null\", or \"ignore\"", RobomergeCommand);
 			}
 		}
 
@@ -1679,9 +1679,9 @@ class BuildPhysX : BuildCommand
 			}
 
 			string RobomergeLine = string.Empty;
-			if(!string.IsNullOrEmpty(RobomergeAction))
+			if(!string.IsNullOrEmpty(RobomergeCommand))
 			{
-				RobomergeLine = Environment.NewLine + "#robomerge " + RobomergeAction;
+				RobomergeLine = Environment.NewLine + RobomergeCommand;
 			}
             P4ChangeList = P4.CreateChange(P4Env.Client, String.Format("BuildPhysX.Automation: Deploying {0} libs.", LibDeploymentDesc) + Environment.NewLine + "#rb none" + Environment.NewLine + "#lockdown Nick.Penwarden" + Environment.NewLine + "#tests none" + Environment.NewLine + "#jira none" + RobomergeLine);
 		}
@@ -1729,13 +1729,13 @@ class BuildPhysX : BuildCommand
 		{
 			if (!P4.TryDeleteEmptyChange(P4ChangeList))
 			{
-				Log("Submitting changelist " + P4ChangeList.ToString());
+				LogInformation("Submitting changelist " + P4ChangeList.ToString());
 				int SubmittedChangeList = InvalidChangeList;
 				P4.Submit(P4ChangeList, out SubmittedChangeList);
 			}
 			else
 			{
-				Log("Nothing to submit!");
+				LogInformation("Nothing to submit!");
 			}
 		}
 	}

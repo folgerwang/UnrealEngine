@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:Using Auto-Key in Sequencer
+﻿INTSourceChangelist:3759671
+Availability: Public
+Title:在Sequencer中使用自动关键帧
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:Shows how to use the auto-key feature in Sequencer to automatically key property value changes to Actors in Sequencer. 
+Description:展示如何使用Sequencer中的自动关键帧功能在Sequencer中自动为多个Actor的属性更改设置关键帧。
 Version: 4.18
 SkillLevel: Beginner
 parent:Engine/Sequencer/HowTo
@@ -13,93 +13,93 @@ Related: Engine\Sequencer\ReferenceEditor\
 tags:Sequencer
 type:how-to
 
-One approach you can take when crafting your cinematics with the **Sequencer Editor** is to enable the **Auto-Key** feature to automatically keyframe property changes. 
-There are a few different ways you can manually add keyframes to tracks in Sequencer, however if you are making several changes to an Actor's property, you may want to enable Auto-Key to keyframe those changes for you. 
+使用 **Sequencer编辑器** 制作动画时可以采用的一种做法是，启用 **自动设置关键帧（Auto-Key）** 功能，自动为属性更改设置关键帧。 
+在Sequencer中有几种不同的方法来手动将关键帧添加到轨迹，但如果对Actor的属性进行多处更改，则可能需要启用自动设置关键帧来对这些更改设置关键帧。 
 
-In this how-to, we illustrate the requirements to use Auto-Key and practice auto-keying the properties of multiple Actors. 
+本操作指南介绍了自动设置关键帧功能的使用要求，并练习了自动为多个Actor属性设置关键帧。 
 
-## Steps
+## 步骤
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** with **Starter Content** enabled. 
+在本操作指南使用 **蓝图第三人称模板（Blueprint Third Person Template）**，其中启用了 **初学者内容包（Starter Content）**。 
 [/REGION]
 
-1.	Inside your project, from the Main Toolbar, click the **Cinematics** button and select **Add Level Sequence** and give it any name. 
+1.   在项目的主工具栏中，单击 **过场动画（Cinematics）** 按钮，然后选择 **添加关卡序列（Add Level Sequence）** 并将其命名为任意名称。 
 
-	![](AutoKey_01.png)
+  ![](AutoKey_01.png)
 
-1.	Inside the **Sequencer Editor**, click the **Auto-Key** button from the Toolbar. 
+  1. 在 **Sequencer编辑器** 中，单击工具栏上的 **自动设置关键帧（Auto-Key）** 按钮。 
 
-	![](AutoKey_02.png)
+  ![](AutoKey_02.png)
 
-	The Auto-Key button will change to a key icon, indicating that Auto-Key is enabled. 
+  自动设置关键帧（Auto-Key）按钮将变成关键帧图标，表示已启用自动设置关键帧。 
 
-1.	From the **Modes** panel, drag both a **Point Light** and a **Cube** into the Level. 
+  1. 在 **模式（Modes）** 面板中，同时将 **点光源（Point Light）** 和 **立方体（Cube）** 拖动到关卡中。 
 
-	![](AutoKey_04.png)
+  ![](AutoKey_04.png)
 
-	These will be the Actors who we want to Auto-Key property changes for in Sequencer. 
+  这些是我们要在Sequencer中为其属性更改自动设置关键帧的Actor。 
 
-1.	Select both the **Point Light** and **Cube**, then in **Sequencer**, click the **Track** button and select **Add Current Selection** under **Actor To Sequencer**. 
+  1. 同时选择 **点光源（Point Light）** 和 **立方体（Cube）**，然后在 **Sequencer** 中单击 **轨迹（Track）** 按钮，并选中 **Actor To Sequencer** 下的 **添加当前选择（Add Current Selection）**。 
 
-	![](AutoKey_05.png)
+  ![](AutoKey_05.png)
 
-	This will add both Actors to Sequencer so that we can begin to manipulate and control their properties from Sequencer. 
+  这会将两个Actor添加到Sequencer，以便我们在Sequencer中操控它们的属性。 
 
-1.	Click the **Keyframe** button for the Tracks highlighted below to add a keyframe for their current values. 
+  1. 单击下面突出显示的轨迹的 **关键帧（Keyframe）** 按钮，为其当前值添加关键帧。 
 
-	![](AutoKey_06.png)
+  ![](AutoKey_06.png)
 
-	[REGION:note]
-	In order for **Auto-Key** to begin tracking and keying properties, at least one keyframe for the Actor's property you want to auto-key must be added. 
-	[/REGION]
+  [REGION:note]
+  为了让 **自动设置关键帧（Auto-Key）** 功能开始跟踪并设置属性的关键帧，必须为要自动设置关键帧的Actor属性添加至少一个关键帧。 
+  [/REGION]
 
-1.	Move the Timeline to frame **50**, then in the Level, move the **Cube** in any direction. 
+  1. 将时间轴拉到第 **50** 帧，然后在关卡中朝任意方向移动 **立方体（Cube）**。 
 
-	![](AutoKey_07.png)
+  ![](AutoKey_07.png)
 
-	When moving the Cube, the **Transform** value is automatically keyframed inside Sequencer.
-	
-1.	In the **Details** panel for the **Point Light**, change the **Intensity** and **Light Color** values. 
+  当移动立方体时，**变换（Transform）** 值的关键帧会在Sequencer中自动设置。
 
-	![](AutoKey_08.png)
+  1. 在 **点光源（Point Light）** 的 **细节（Details）** 面板，更改 **强度（Intensity）** 和 **光源颜色（Light Color）** 的数值。 
 
-	Sequencer will automatically keyframe whatever results you enter inside the **Details** panel since both tracks in Sequencer have a keyframe on them already. 
+  ![](AutoKey_08.png)
 
-1.	Scrub the Timeline ahead to frame **150**, then in the Level with the **Cube** selected, press the **R** key and scale the size of the cube to any value. 
+  Sequencer将自动为 **细节（Details）** 面板中输入的任何结果设置关键帧，因为Sequencer中的两个轨迹都已有关键帧。 
 
-	![](AutoKey_09.png)
+  1. 将时间轴向前拉到第 **150** 帧，然后在选择了 **立方体（Cube）** 的关卡中，按 **R** 键并将立方体的大小缩放到任何值。 
 
-	If you expand that **Transform** track for the Cube in Sequencer, you will notice that only the **Scale** value had a keyframed applied. 
-	This is because, by default, the Auto-Key keyframes only the properites that have changed and not all properties. 
-	Since we only changed the Scale value and not the Location or Rotation, only the Scale value was keyframed. 
-	You can change this by enabling the **Key All Properites** option from the Sequencer Toolbar which will add keys for all properties not just the ones that have changed. 
+  ![](AutoKey_09.png)
 
-1.	Click the **Auto-Key Options** button next to the **Auto-Key** button. 
+  如果在Sequencer中展开立方体的该 **变换（Transform）** 轨迹，你会注意到只为 **缩放（Scale）** 值设置了关键帧。 
+  这是因为，默认情况下，自动设置关键帧功能只为更改的属性设置关键帧，而不是为所有属性设置关键帧。 
+  我们只更改了缩放（Scale）值而没有更改位置（Location）或旋转（Rotation），因此只为缩放（Scale）值设置了关键帧。 
+  你可以启用Sequencer工具栏中的 **为所有属性设置关键帧（Key All Properties）** 选项来更改这个功能，该选项将为所有属性添加关键帧，而不只是更改的属性。 
 
-	![](AutoKey_10.png)
+  1. 单击 **自动设置关键帧（Auto-Key）** 按钮旁的 **自动设置关键帧选项（Auto-Key Options）** 按钮。 
 
-	This will change the Auto-Key feature to **Key All** instead of **Key Only Changes**. 
+  ![](AutoKey_10.png)
 
-1.	Scale the Cube in the Level again to any value. 
+  这会把自动设置关键帧功能更改为 **为所有属性设置关键帧（Key All）**，而不再是 **只为更改的属性设置关键帧（Key Only Changes）**。 
 
-	![](AutoKey_11.png)
+  1. 再次将关卡中的立方体缩放到任何值。 
 
-	You will notice that even though you are making Scale value changes, the Auto-Key feature will also key Location and Rotation values now. 
+  ![](AutoKey_11.png)
 
-1.	Select the **Point Light** track, then in the **Details** panel for the Point Light, change the **Light Color** to any value. 
+  你会注意到，即使只更改了缩放值，现在自动设置关键帧功能也会为位置（Location）和旋转（Rotation）值设置关键帧。 
 
-	![](AutoKey_12.png)
+  1. 选择 **点光源（Point Light）** 轨迹，然后在点光源的 **细节（Details）** 面板，将 **光源颜色（Light Color）** 更改为任意值。 
 
-	Here, even though the Point Light track is selected and **Key All** is enabled, changing the Light Color property only affects the Light Color Track (a new **Intensity** keyframe was not added). 
-	Sequencer will only apply auto-keys to individual property tracks and not all tracks for a given Actor. For example, Location, Rotation, and Scale are all part of the Transform track which is why they recieve keyframes automatically. 
-	Intensity and Light Color are two different properties, and thefore, changing the value of the Light Color will not auto-key the Intensity track. 
+  ![](AutoKey_12.png)
+
+  此时，即使已经选中点光源轨迹且启用了 **为所有属性设置关键帧（Key All）**，更改光源颜色（Light Color）属性也只会影响到光源颜色（Light Color）轨迹（未添加新的 **强度（Intensity）** 关键帧）。 
+  Sequencer将只会对单个属性轨迹应用自动设置关键帧，而不是对给定Actor的所有轨迹应用。例如，位置（Location）、旋转（Rotation）和缩放（Scale）都是变换（Transform）轨迹的组成部分，因此会为它们自动设置关键帧。 
+  而强度（Intensity）和光源颜色（Light Color）是两种不同的属性，所以更改光源颜色（Light Color）的数值不会为强度（Intensity）轨迹自动设置关键帧。 
 
 
-## End Result
+## 最终结果
 
-You should now have an understanding of how to use the **Auto-Key** feature within Sequencer and the requirements to automatically add keys. 
-Once you add an Actor to a Level Sequence and add a keyframe for a property track, enabling the auto-key option will start to automatically add keys for that property whenever you change them (as seen below). 
+你现在应该已经了解如何在Sequencer中使用 **自动设置关键帧（Auto-Key）** 功能以及自动添加关键帧的要求。 
+将Actor添加到关卡序列并为属性轨道添加关键帧后，如果启用自动设置关键帧选项，将会自动为更改的属性设置关键帧（如下所示）。 
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:videoid]
@@ -118,6 +118,31 @@ pd3laxIT_VE
 simple
 [/PARAMLITERAL]
 [/OBJECT]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

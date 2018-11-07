@@ -86,7 +86,7 @@ FCinematicViewportClient::FCinematicViewportClient()
 	bDrawAxes = false;
 	bIsRealtime = true;
 	SetGameView(true);
-	SetAllowCinematicPreview(true);
+	SetAllowCinematicControl(true);
 	bDisableInput = false;
 }
 
@@ -205,6 +205,7 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 				.MaxValue(TOptional<double>())
 				.OnEndSliderMovement(this, &SCinematicLevelViewport::SetTime)
 				.Value(this, &SCinematicLevelViewport::GetTime)
+				.ToolTipText(LOCTEXT("TimeLocalToCurrentSequence", "The current time of the sequence relative to the focused sequence."))
 				.Delta_Lambda([=]()
 				{
 					return UIData.OuterResolution.AsDecimal() * UIData.OuterPlayRate.AsInterval(); 
@@ -309,6 +310,7 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 									SNew(STextBlock)
 									.ColorAndOpacity(Gray)
 									.Text_Lambda([=]{ return UIData.ShotName; })
+									.ToolTipText(LOCTEXT("CurrentSequence", "The name of the currently evaluated sequence."))
 								]
 
 								+ SHorizontalBox::Slot()
@@ -318,7 +320,8 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 								[
 									SNew(STextBlock)
 									.ColorAndOpacity(Gray)
-									.Text_Lambda([=]{ return UIData.CameraName; })
+									.Text_Lambda([=] { return UIData.CameraName; })
+									.ToolTipText(LOCTEXT("CurrentCamera", "The name of the current camera."))
 								]
 							]
 
@@ -328,7 +331,8 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 							[
 								SNew(STextBlock)
 								.ColorAndOpacity(Gray)
-								.Text_Lambda([=]{ return UIData.Filmback; })
+								.Text_Lambda([=] { return UIData.Filmback; })
+								.ToolTipText(LOCTEXT("CurrentFilmback", "The name of the current shot's filmback (the imaging area of the frame/sensor)."))
 							]
 
 							+ SHorizontalBox::Slot()
@@ -337,7 +341,8 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 								SNew(STextBlock)
 								.Font(FEditorStyle::GetFontStyle("Sequencer.FixedFont"))
 								.ColorAndOpacity(Gray)
-								.Text_Lambda([=]{ return UIData.LocalPlaybackTime; })
+								.Text_Lambda([=] { return UIData.LocalPlaybackTime; })
+								.ToolTipText(LOCTEXT("LocalPlaybackTime", "The current playback time relative to the currently evaluated sequence."))
 							]
 						]
 					]
@@ -711,35 +716,7 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 			UIData.CameraName = FText::FromString(OuterActor->GetActorLabel());
 		}
 
-		if (UCineCameraComponent* CineCam = Cast<UCineCameraComponent>(CameraComponent))
-		{
-			const float SensorWidth = CineCam->FilmbackSettings.SensorWidth;
-			const float SensorHeight = CineCam->FilmbackSettings.SensorHeight;
-
-			// Search presets for one that matches
-			const FNamedFilmbackPreset* Preset = UCineCameraComponent::GetFilmbackPresets().FindByPredicate([&](const FNamedFilmbackPreset& InPreset){
-				return InPreset.FilmbackSettings.SensorWidth == SensorWidth && InPreset.FilmbackSettings.SensorHeight == SensorHeight;
-			});
-
-			if (Preset)
-			{
-				UIData.Filmback = FText::FromString(Preset->Name);
-			}
-			else
-			{
-				FNumberFormattingOptions Opts = FNumberFormattingOptions().SetMaximumFractionalDigits(1);
-				UIData.Filmback = FText::Format(
-					LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm)"),
-					FText::AsNumber(SensorWidth, &Opts),
-					FText::AsNumber(SensorHeight, &Opts)
-				);
-			}
-		}
-		else
-		{
-			// Just use the FoV
-			UIData.Filmback = FText::FromString(LexToString(FNumericUnit<float>(CameraComponent->FieldOfView, EUnit::Degrees)));
-		}
+		UIData.Filmback = CameraComponent->GetFilmbackText();
 	}
 	else
 	{

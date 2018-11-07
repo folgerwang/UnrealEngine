@@ -198,6 +198,14 @@ public:
 	FVector2D PasteDropLocation;
 
 protected:
+	virtual void InitalizeExtenders() override;
+	TSharedPtr<FExtender> CreateMenuExtender();
+	void FillFileMenu(FMenuBuilder& MenuBuilder);
+	void BindToolkitCommands();
+
+	void OpenCreateNativeBaseClassDialog();
+	void OnCreateNativeBaseClassSuccessfully(const FString& InClassName, const FString& InClassPath, const FString& InModuleName);
+
 	// Begin FBlueprintEditor
 	virtual void RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated = false) override;
 	virtual FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const override;
@@ -217,6 +225,9 @@ private:
 
 	bool CanCutSelectedWidgets();
 	void CutSelectedWidgets();
+
+	bool CanDuplicateSelectedWidgets();
+	void DuplicateSelectedWidgets();
 
 private:
 	/** Called whenever the blueprint is structurally changed. */

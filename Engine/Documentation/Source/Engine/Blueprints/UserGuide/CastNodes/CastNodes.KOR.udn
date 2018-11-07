@@ -21,7 +21,7 @@ topic-image:Engine/Blueprints/UserGuide/CastToNode.png
 
 **Get Player Character** 노드를 사용한 다음 (특수 캐릭터 블루프린트인) **Cast To MyCharacter** 노드를 사용하면, 이제 플레이어 캐릭터가 MyCharacter 라면 그 블루프린트에 들어있는 변수, 함수, 이벤트, 기타 특수 함수성에 접근하게 해달라고 할 수 있는 것입니다.
 
-여기서는 형변환의 몇 가지 사용법에 대해 배워보겠으며, Cast To 노드 사용법은 예제를 살펴보고, 다른 형변환 유형으로는 타겟 블루프린트 캐스팅에 대해서도 읽어보세요.
+여기서는 형변환의 몇 가지 사용법에 대해 배워보겠으며, Cast To 노드 사용법은 예제를 살펴보고, 다른 형변환 유형으로는 타깃 블루프린트 캐스팅에 대해서도 읽어보세요.
 
 
 
@@ -37,7 +37,7 @@ topic-image:Engine/Blueprints/UserGuide/CastToNode.png
 
 [INCLUDE:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo#castexample]
 
-## 타겟 블루프린트 형변환
+## 타깃 블루프린트 형변환
 
 [INCLUDE:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo#targetcasting]
 

@@ -173,11 +173,13 @@ public:
 	virtual void SetCameraSpeedSetting(int32 SpeedSetting) override;
 	virtual float GetCameraSpeedScalar() const override;
 	virtual void SetCameraSpeedScalar(float SpeedScalar) override;
-	virtual void ReceivedFocus(FViewport* Viewport) override;
+	virtual void ReceivedFocus(FViewport* InViewport) override;
+	virtual void LostFocus(FViewport* InViewport) override;
 	virtual void ProcessClick(FSceneView& View, HHitProxy* HitProxy, FKey Key, EInputEvent Event, uint32 HitX, uint32 HitY) override;
 	virtual UWorld* GetWorld() const override;
 	virtual void BeginCameraMovement(bool bHasMovement) override;
 	virtual void EndCameraMovement() override;
+	virtual void SetVREditView(bool bGameViewEnable) override;
 
 	virtual bool OverrideHighResScreenshotCaptureRegion(FIntRect& OutCaptureRegion) override;
 
@@ -423,14 +425,6 @@ public:
 	void SetLastKeyViewport();
 
 	/** 
-	 * Gets the world space cursor info from the current mouse position
-	 * 
-	 * @param InViewportClient	The viewport client to check for mouse position and to set up the scene view.
-	 * @return					An FViewportCursorLocation containing information about the mouse position in world space.
-	 */
-	FViewportCursorLocation GetCursorWorldLocationFromMousePos();
-	
-	/** 
 	 * Access the 'active' actor lock. This is the actor locked to the viewport via the viewport menus.
 	 * It is forced to be inactive if Matinee is controlling locking.
 	 * 
@@ -552,10 +546,16 @@ public:
 	 */
 	static UObject* GetOrCreateMaterialFromTexture( UTexture* UnrealTexture );
 
-	/** Whether transport controls can be attached */
-	virtual bool CanAttachTransportControls() const { return true; }
-
 protected:
+	/**
+	* Sets the state of creating a preview actor in the viewport.
+	*/
+	static void SetIsDroppingPreviewActor(bool bNewIsDroppingPreviewActor)
+	{
+		bIsDroppingPreviewActor = bNewIsDroppingPreviewActor;
+	}
+
+
 	/** 
 	 * Checks the viewport to see if the given blueprint asset can be dropped on the viewport.
 	 * @param AssetInfo		The blueprint Asset in question to be dropped

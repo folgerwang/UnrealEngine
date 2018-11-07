@@ -9,12 +9,15 @@
 class UReverbEffect;
 
 FSubmixEffectReverb::FSubmixEffectReverb()
-	: bIsEnabled(false)
+	: DryLevel(0.0f)
+	, bIsEnabled(false)
 {
 }
 
 void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	Audio::FPlateReverbSettings NewSettings;
 
 	NewSettings.LateDelayMsec = 0.0f;
@@ -25,6 +28,8 @@ void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 	NewSettings.Decay = 0.2f;
 	NewSettings.Density = 0.8f;
 	NewSettings.Wetness = 1.0f;
+
+	DryLevel = 0.0f;
 
 	Params.SetParams(NewSettings);
 
@@ -43,6 +48,8 @@ void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 
 void FSubmixEffectReverb::OnPresetChanged()
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	GET_EFFECT_SETTINGS(SubmixEffectReverb);
 
 	FAudioReverbEffect ReverbEffect;
@@ -59,14 +66,18 @@ void FSubmixEffectReverb::OnPresetChanged()
 	ReverbEffect.AirAbsorptionGainHF = Settings.AirAbsorptionGainHF;
 	ReverbEffect.RoomRolloffFactor = 0.0f; // not used
 	ReverbEffect.Volume = Settings.WetLevel;
-		
+
+	DryLevel = Settings.DryLevel;
+
 	SetEffectParameters(ReverbEffect);
 }
 
 void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	check(InData.NumChannels == 2);
-	if (OutData.NumChannels < 2 || !bIsEnabled) 
+ 	if (OutData.NumChannels < 2 || !bIsEnabled) 
 	{
 		// Not supported
 		return;
@@ -85,6 +96,9 @@ void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InDa
 		for (int32 SampleIndex = 0; SampleIndex < InData.AudioBuffer->Num(); SampleIndex += OutData.NumChannels)
 		{
 			PlateReverb.ProcessAudioFrame(&AudioData[SampleIndex], InData.NumChannels, &OutAudioData[SampleIndex], OutData.NumChannels);
+
+			OutAudioData[SampleIndex] += DryLevel * AudioData[SampleIndex];
+			OutAudioData[SampleIndex + 1] += DryLevel * AudioData[SampleIndex + 1];
 		}
 	}
 	// 5.1 or higher surround sound. Map stereo output to quad output
@@ -94,18 +108,23 @@ void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InDa
 		{
 			// Processed downmixed audio frame
 			PlateReverb.ProcessAudioFrame(&AudioData[InSampleIndex], InData.NumChannels, &OutAudioData[OutSampleIndex], InData.NumChannels);
-
 			// Now do a cross-over to the back-left/back-right speakers from the front-left and front-right
 			
 			// Using standard speaker map order map the right output to the BackLeft channel
 			OutAudioData[OutSampleIndex + EAudioMixerChannel::BackRight] = OutAudioData[OutSampleIndex + EAudioMixerChannel::FrontLeft];
 			OutAudioData[OutSampleIndex + EAudioMixerChannel::BackLeft] = OutAudioData[OutSampleIndex + EAudioMixerChannel::FrontRight];
+
+			// Copy dry output to output data to stereo fronts
+			OutAudioData[OutSampleIndex] += DryLevel * AudioData[InSampleIndex];
+			OutAudioData[OutSampleIndex + 1] += DryLevel * AudioData[InSampleIndex + 1];
 		}
 	}
 }
 
 void FSubmixEffectReverb::SetEffectParameters(const FAudioReverbEffect& InParams)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	Audio::FPlateReverbSettings NewSettings;
 
 	NewSettings.EarlyReflections.Gain = FMath::GetMappedRangeValueClamped({ 0.0f, 3.16f }, { 0.0f, 1.0f }, InParams.ReflectionsGain);
@@ -142,7 +161,7 @@ void FSubmixEffectReverb::UpdateParameters()
 	}
 }
 
-void USubmixEffectReverbPreset::SetSettingsWithReverbEffect(const UReverbEffect* InReverbEffect, const float WetLevel)
+void USubmixEffectReverbPreset::SetSettingsWithReverbEffect(const UReverbEffect* InReverbEffect, const float WetLevel, const float DryLevel)
 {
 	if (InReverbEffect)
 	{
@@ -158,6 +177,7 @@ void USubmixEffectReverbPreset::SetSettingsWithReverbEffect(const UReverbEffect*
 		Settings.LateDelay = InReverbEffect->LateDelay;
 		Settings.AirAbsorptionGainHF = InReverbEffect->AirAbsorptionGainHF;
 		Settings.WetLevel = WetLevel;
+		Settings.DryLevel = DryLevel;
 
 		Update();
 	}

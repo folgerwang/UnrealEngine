@@ -67,6 +67,11 @@ public:
 
 private:
 	FVector NavMeshDrawOffset;
+
+	uint32 bShowBestPath : 1;
+	uint32 bShowNodePool : 1;
+	uint32 bShowDiff : 1;
+
 	ANavigationTestingActor* NavTestActor;
 	FDebugDrawDelegate DebugTextDrawingDelegate;
 	FDelegateHandle DebugTextDrawingDelegateHandle;
@@ -81,10 +86,6 @@ private:
 	FSetElementId BestNodeId;
 
 	FVector ClosestWallLocation;
-
-	uint32 bShowBestPath : 1;
-	uint32 bShowNodePool : 1;
-	uint32 bShowDiff : 1;
 };
 
 #if WITH_RECAST && WITH_EDITOR

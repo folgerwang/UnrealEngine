@@ -159,10 +159,6 @@ namespace UnrealBuildTool
 					return ".so";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".a";
-				case UEBuildBinaryType.Object:
-					return ".o";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".gch";
 			}
 			return base.GetBinaryExtension(InBinaryType);
 		}
@@ -218,11 +214,6 @@ namespace UnrealBuildTool
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
 			// This platform currently always compiles monolithic
-			return true;
-		}
-
-		public override bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
 			return true;
 		}
 
@@ -308,44 +299,9 @@ namespace UnrealBuildTool
 			return AllBinaries;
 		}
 
-		private bool IsVulkanSDKAvailable()
-		{
-			bool bHaveVulkan = false;
-
-			// First look for VulkanSDK (two possible env variables)
-			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
-			if (String.IsNullOrEmpty(VulkanSDKPath))
-			{
-				VulkanSDKPath = Environment.GetEnvironmentVariable("VK_SDK_PATH");
-			}
-
-			// Note: header is the same for all architectures so just use arch-arm
-			string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-			string NDKVulkanIncludePath = NDKPath + "/platforms/android-24/arch-arm/usr/include/vulkan";
-
-			// Use NDK Vulkan header if discovered, or VulkanSDK if available
-			if (File.Exists(NDKVulkanIncludePath + "/vulkan.h"))
-			{
-				bHaveVulkan = true;
-			}
-			else
-			if (!String.IsNullOrEmpty(VulkanSDKPath))
-			{
-				bHaveVulkan = true;
-			}
-			else
-			if (File.Exists("ThirdParty/Vulkan/Windows/Include/vulkan/vulkan.h"))
-			{
-				bHaveVulkan = true;
-			}
-
-			return bHaveVulkan;
-		}
-
 		public override void AddExtraModules(ReadOnlyTargetRules Target, List<string> PlatformExtraModules)
 		{
-			bool bVulkanExists = IsVulkanSDKAvailable();
-			if (bVulkanExists && Target.Type != TargetType.Program)
+			if (Target.Type != TargetType.Program)
 			{
 				PlatformExtraModules.Add("VulkanRHI");
 			}
@@ -409,7 +365,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
-			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 
 			DirectoryReference NdkDir = new DirectoryReference(NDKPath);
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include"));
@@ -471,7 +426,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
-			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 
 			SetUpSpecificEnvironment(Target, CompileEnvironment, LinkEnvironment);
 
@@ -538,12 +492,12 @@ namespace UnrealBuildTool
 
 		protected override string GetRequiredSDKString()
 		{
-			return "-21";
+			return "-22";
 		}
 
 		protected override String GetRequiredScriptVersionString()
 		{
-			return "3.2";
+			return "3.4";
 		}
 
 		// prefer auto sdk on android as correct 'manual' sdk detection isn't great at the moment.

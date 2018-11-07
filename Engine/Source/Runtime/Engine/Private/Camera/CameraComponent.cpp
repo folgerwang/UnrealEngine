@@ -18,6 +18,8 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "IXRCamera.h"
+#include "Math/UnitConversion.h"
+#include "Widgets/Input/NumericTypeInterface.h"
 
 #define LOCTEXT_NAMESPACE "CameraComponent"
 
@@ -33,6 +35,8 @@ UCameraComponent::UCameraComponent(const FObjectInitializer& ObjectInitializer)
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> EditorCameraMesh(TEXT("/Engine/EditorMeshes/MatineeCam_SM"));
 		CameraMesh = EditorCameraMesh.Object;
 	}
+
+	bUseControllerViewRotation_DEPRECATED = true; // the previous default value before bUsePawnControlRotation replaced this var.
 #endif
 
 	FieldOfView = 90.0f;
@@ -43,7 +47,6 @@ UCameraComponent::UCameraComponent(const FObjectInitializer& ObjectInitializer)
 	bConstrainAspectRatio = false;
 	bUseFieldOfViewForLOD = true;
 	PostProcessBlendWeight = 1.0f;
-	bUseControllerViewRotation_DEPRECATED = true; // the previous default value before bUsePawnControlRotation replaced this var.
 	bUsePawnControlRotation = false;
 	bAutoActivate = true;
 	bLockToHmd = true;
@@ -84,6 +87,13 @@ void UCameraComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 }
 #endif
 
+#if WITH_EDITOR
+FText UCameraComponent::GetFilmbackText() const
+{
+	return FText::FromString(LexToString(FNumericUnit<float>(FieldOfView, EUnit::Degrees)));
+}
+#endif
+
 void UCameraComponent::OnRegister()
 {
 #if WITH_EDITORONLY_DATA
@@ -93,7 +103,7 @@ void UCameraComponent::OnRegister()
 		{
 			ProxyMeshComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			ProxyMeshComponent->SetupAttachment(this);
-			ProxyMeshComponent->bIsEditorOnly = true;
+			ProxyMeshComponent->SetIsVisualizationComponent(true);
 			ProxyMeshComponent->SetStaticMesh(CameraMesh);
 			ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			ProxyMeshComponent->bHiddenInGame = true;
@@ -107,7 +117,7 @@ void UCameraComponent::OnRegister()
 		{
 			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			DrawFrustum->SetupAttachment(this);
-			DrawFrustum->bIsEditorOnly = true;
+			DrawFrustum->SetIsVisualizationComponent(true);
 			DrawFrustum->CreationMethod = CreationMethod;
 			DrawFrustum->RegisterComponentWithWorld(GetWorld());
 		}
@@ -118,6 +128,8 @@ void UCameraComponent::OnRegister()
 
 	Super::OnRegister();
 }
+
+#if WITH_EDITORONLY_DATA
 
 void UCameraComponent::PostLoad()
 {
@@ -130,8 +142,6 @@ void UCameraComponent::PostLoad()
 		bUsePawnControlRotation = bUseControllerViewRotation_DEPRECATED;
 	}
 }
-
-#if WITH_EDITORONLY_DATA
 
  void UCameraComponent::SetCameraMesh(UStaticMesh* Mesh)
  {
@@ -222,7 +232,6 @@ void UCameraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 
 	RefreshVisualRepresentation();
 }
-#endif	// WITH_EDITORONLY_DATA
 
 void UCameraComponent::Serialize(FArchive& Ar)
 {
@@ -233,6 +242,7 @@ void UCameraComponent::Serialize(FArchive& Ar)
 		PostProcessSettings.OnAfterLoad();
 	}
 }
+#endif	// WITH_EDITORONLY_DATA
 
 void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView)
 {

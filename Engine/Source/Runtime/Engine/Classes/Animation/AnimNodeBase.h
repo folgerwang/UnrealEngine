@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
+#include "Engine/EngineTypes.h"
 #include "Animation/AnimTypes.h"
 #include "Animation/AnimCurveTypes.h"
 #include "BonePose.h"
@@ -385,11 +386,11 @@ struct ENGINE_API FPoseLinkBase
 #endif
 
 protected:
-	/** The non serialized node pointer. */
-	struct FAnimNode_Base* LinkedNode;
-
 	/** Flag to prevent reentry when dealing with circular trees. */
 	bool bProcessed;
+
+	/** The non serialized node pointer. */
+	struct FAnimNode_Base* LinkedNode;
 
 public:
 	FPoseLinkBase()
@@ -397,8 +398,8 @@ public:
 #if WITH_EDITORONLY_DATA
 		, SourceLinkID(INDEX_NONE)
 #endif
-		, LinkedNode(NULL)
 		, bProcessed(false)
+		, LinkedNode(NULL)
 	{
 	}
 
@@ -653,7 +654,7 @@ struct ENGINE_API FAnimNode_Base
 	 * This is called during anim blueprint compilation to handle child anim blueprints.
 	 * @param	NewAsset	The new asset that is being set
 	 */
-	virtual void OverrideAsset(UAnimationAsset* NewAsset) {}
+	virtual void OverrideAsset(class UAnimationAsset* NewAsset) {}
 
 	/**
 	 * Called to gather on-screen debug data. 

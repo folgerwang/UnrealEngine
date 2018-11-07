@@ -203,7 +203,7 @@ static TAutoConsoleVariable<int32> CVarShadowFadeResolution(
 	TEXT("r.Shadow.FadeResolution"),
 	64,
 	TEXT("Resolution in texels below which shadows are faded out"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarMinShadowResolution(
 	TEXT("r.Shadow.MinResolution"),
@@ -489,6 +489,8 @@ FProjectedShadowInfo::FProjectedShadowInfo()
 	, DependentView(0)
 	, ShadowId(INDEX_NONE)
 	, PreShadowTranslation(0, 0, 0)
+	, MaxSubjectZ(0)
+	, MinSubjectZ(0)
 	, ShadowBounds(0)
 	, X(0)
 	, Y(0)
@@ -3274,7 +3276,7 @@ void FSceneRenderer::AllocateShadowDepthTargets(FRHICommandListImmediate& RHICmd
 				bShadowIsVisible = false;
 			}
 
-			if (IsForwardShadingEnabled(FeatureLevel) 
+			if (IsForwardShadingEnabled(ShaderPlatform)
 				&& ProjectedShadowInfo->GetLightSceneInfo().GetDynamicShadowMapChannel() == -1)
 			{
 				// With forward shading, dynamic shadows are projected into channels of the light attenuation texture based on their assigned DynamicShadowMapChannel
@@ -3362,11 +3364,11 @@ void FSceneRenderer::AllocateShadowDepthTargets(FRHICommandListImmediate& RHICmd
 					}
 				}
 			}
-
-			// Sort cascades, this is needed for blending between cascades to work
-			VisibleLightInfo.ShadowsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
-			VisibleLightInfo.RSMsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
 		}
+
+		// Sort cascades, this is needed for blending between cascades to work
+		VisibleLightInfo.ShadowsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
+		VisibleLightInfo.RSMsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
 
 		AllocateCSMDepthTargets(RHICmdList, WholeSceneDirectionalShadows);
 	}
@@ -3888,7 +3890,7 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 
 					const bool bCreateShadowForMovableLight = 
 						bShouldCreateShadowForMovableLight
-						&& (!bPointLightShadow || bProjectEnablePointLightShadows);
+						&& (bPointLightShadow || bProjectEnablePointLightShadows);
 
 					// Also create a whole scene shadow for lights with precomputed shadows that are unbuilt
 					const bool bShouldCreateShadowToPreviewStaticLight =
@@ -3898,7 +3900,7 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 
 					const bool bCreateShadowToPreviewStaticLight = 
 						bShouldCreateShadowToPreviewStaticLight						
-						&& (!bPointLightShadow || bProjectEnablePointLightShadows);
+						&& (bPointLightShadow || bProjectEnablePointLightShadows);
 
 					// Create a whole scene shadow for lights that want static shadowing but didn't get assigned to a valid shadowmap channel due to overlap
 					const bool bShouldCreateShadowForOverflowStaticShadowing =
@@ -3910,7 +3912,7 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList)
 
 					const bool bCreateShadowForOverflowStaticShadowing =
 						bShouldCreateShadowForOverflowStaticShadowing
-						&& (!bPointLightShadow || bProjectEnablePointLightShadows);
+						&& (bPointLightShadow || bProjectEnablePointLightShadows);
 
 					const bool bPointLightWholeSceneShadow = (bShouldCreateShadowForMovableLight || bShouldCreateShadowForOverflowStaticShadowing || bShouldCreateShadowToPreviewStaticLight) && bPointLightShadow;
 					if (bPointLightWholeSceneShadow)

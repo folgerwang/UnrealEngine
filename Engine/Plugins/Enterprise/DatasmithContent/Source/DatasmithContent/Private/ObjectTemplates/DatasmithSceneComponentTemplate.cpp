@@ -30,6 +30,8 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 		SceneComponent->SetMobility( Mobility );
 	}
 
+	bool bCanAttach = ( AttachParent && AttachParent->GetComponentLevel() == SceneComponent->GetComponentLevel() );
+
 	if ( !PreviousTemplate || PreviousTemplate->AttachParent == SceneComponent->GetAttachParent() )
 	{
 		FAttachmentTransformRules AttachmentTransformRules = FAttachmentTransformRules::KeepRelativeTransform;
@@ -44,13 +46,41 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 			AttachmentTransformRules = FAttachmentTransformRules::KeepWorldTransform;
 		}
 
-		SceneComponent->AttachToComponent( AttachParent, AttachmentTransformRules );
+		if ( bCanAttach )
+		{
+			SceneComponent->AttachToComponent( AttachParent.Get(), AttachmentTransformRules );
+		}
 	}
 
 	if ( !PreviousTemplate || AreTransformsEqual( PreviousTemplate->RelativeTransform, SceneComponent->GetRelativeTransform() ) )
 	{
-		SceneComponent->SetRelativeTransform( RelativeTransform );
+		if ( bCanAttach )
+		{
+			SceneComponent->SetRelativeTransform( RelativeTransform );
+		}
+		else
+		{
+			// We were unable to attach to our parent so we need to compute the desired world transform
+			FTransform WorldTransform = RelativeTransform;
+
+			if ( AttachParent )
+			{
+				WorldTransform *= AttachParent->GetComponentTransform();
+
+				SceneComponent->SetRelativeTransform( WorldTransform );
+			}
+		}
 	}
+
+	if ( !PreviousTemplate )
+	{
+		SceneComponent->ComponentTags = Tags.Array();
+	}
+	else
+	{
+		SceneComponent->ComponentTags = FDatasmithObjectTemplateUtils::ThreeWaySetMerge(PreviousTemplate->Tags, TSet<FName>(SceneComponent->ComponentTags), Tags).Array();
+	}
+
 
 	FDatasmithObjectTemplateUtils::SetObjectTemplate( Destination, this );
 #endif // #if WITH_EDITORONLY_DATA
@@ -69,6 +99,8 @@ void UDatasmithSceneComponentTemplate::Load( const UObject* Source )
 	RelativeTransform = SceneComponent->GetRelativeTransform();
 	Mobility = SceneComponent->Mobility;
 	AttachParent = SceneComponent->GetAttachParent();
+	Tags = TSet<FName>(SceneComponent->ComponentTags);
+
 #endif // #if WITH_EDITORONLY_DATA
 }
 
@@ -84,6 +116,7 @@ bool UDatasmithSceneComponentTemplate::Equals( const UDatasmithObjectTemplate* O
 	bool bEquals = AreTransformsEqual( RelativeTransform, TypedOther->RelativeTransform );
 	bEquals = bEquals && ( Mobility == TypedOther->Mobility );
 	bEquals = bEquals && ( AttachParent == TypedOther->AttachParent );
+	bEquals = bEquals && FDatasmithObjectTemplateUtils::SetsEquals(Tags, TypedOther->Tags);
 
 	return bEquals;
 }

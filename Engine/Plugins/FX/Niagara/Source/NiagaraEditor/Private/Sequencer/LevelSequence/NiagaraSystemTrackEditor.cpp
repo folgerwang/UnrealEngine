@@ -123,7 +123,12 @@ void FNiagaraSystemTrackEditor::AddNiagaraSystemTrack(FGuid ObjectBinding)
 	if (System != nullptr)
 	{
 		UMovieScene* MovieScene = GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene();
-		FScopedTransaction AddTrackTransaction(LOCTEXT("AddNiagaraSystemTrackTransaction", "Add Niagara System Life Cycle Track"));
+		if (MovieScene->IsReadOnly())
+		{
+			return;
+		}
+
+		FScopedTransaction AddTrackTransaction(LOCTEXT("AddNiagaraSystemLifeCycleTrackTransaction", "Add Niagara System Life Cycle Track"));
 		MovieScene->Modify();
 
 		UMovieSceneNiagaraSystemTrack* NiagaraSystemTrack = MovieScene->AddTrack<UMovieSceneNiagaraSystemTrack>(ObjectBinding);
@@ -159,7 +164,12 @@ void FNiagaraSystemTrackEditor::AddNiagaraParameterTrack(FGuid ObjectBinding, FN
 	if (NiagaraEditorModule.CanCreateParameterTrackForType(*Parameter.GetType().GetScriptStruct()))
 	{
 		UMovieScene* MovieScene = GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene();
-		FScopedTransaction AddTrackTransaction(LOCTEXT("AddNiagaraSystemTrackTransaction", "Add Niagara Parameter Track"));
+		if (MovieScene->IsReadOnly())
+		{
+			return;
+		}
+
+		FScopedTransaction AddTrackTransaction(LOCTEXT("AddNiagaraParameterTrackTransaction", "Add Niagara Parameter Track"));
 		MovieScene->Modify();
 
 		UMovieSceneNiagaraParameterTrack* ParameterTrack = NiagaraEditorModule.CreateParameterTrackForType(*Parameter.GetType().GetScriptStruct(), Parameter);

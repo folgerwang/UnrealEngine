@@ -24,6 +24,12 @@
 #include "Algo/Transform.h"
 #include "UObject/MobileObjectVersion.h"
 #include "EngineStats.h"
+#include "Interfaces/ITargetPlatform.h"
+#if WITH_EDITOR
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#endif // WITH_EDITOR
+
 
 #include "Interfaces/ITargetPlatform.h"
 #if WITH_EDITOR
@@ -94,6 +100,58 @@ void FInstanceUpdateCmdBuffer::SetEditorData(int32 RenderIndex, const FColor& Co
 	Cmd.Type = FInstanceUpdateCmdBuffer::EditorData;
 	Cmd.HitProxyColor = Color;
 	Cmd.bSelected = bSelected;
+
+	Edit();
+}
+
+void FInstanceUpdateCmdBuffer::SetLightMapData(int32 RenderIndex, const FVector2D& LightmapUVBias)
+{
+	// We only support 1 command to update lightmap/shadowmap
+	bool CommandExist = false;
+
+	for (FInstanceUpdateCommand& Cmd : Cmds)
+	{
+		if (Cmd.Type == FInstanceUpdateCmdBuffer::LightmapData && Cmd.InstanceIndex == RenderIndex)
+		{
+			CommandExist = true;
+			Cmd.LightmapUVBias = LightmapUVBias;
+			break;
+		}
+	}
+
+	if (!CommandExist)
+	{
+		FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
+		Cmd.InstanceIndex = RenderIndex;
+		Cmd.Type = FInstanceUpdateCmdBuffer::LightmapData;
+		Cmd.LightmapUVBias = LightmapUVBias;
+	}
+
+	Edit();
+}
+
+void FInstanceUpdateCmdBuffer::SetShadowMapData(int32 RenderIndex, const FVector2D& ShadowmapUVBias)
+{
+	// We only support 1 command to update lightmap/shadowmap
+	bool CommandExist = false;
+
+	for (FInstanceUpdateCommand& Cmd : Cmds)
+	{
+		if (Cmd.Type == FInstanceUpdateCmdBuffer::LightmapData && Cmd.InstanceIndex == RenderIndex)
+		{
+			CommandExist = true;
+			Cmd.ShadowmapUVBias = ShadowmapUVBias;
+			break;
+		}
+	}
+
+	if (!CommandExist)
+	{
+		FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
+		Cmd.InstanceIndex = RenderIndex;
+		Cmd.Type = FInstanceUpdateCmdBuffer::LightmapData;
+		Cmd.ShadowmapUVBias = ShadowmapUVBias;
+	}
 
 	Edit();
 }
@@ -193,6 +251,9 @@ void FStaticMeshInstanceBuffer::UpdateFromCommandBuffer_RenderThread(FInstanceUp
 			break;
 		case FInstanceUpdateCmdBuffer::EditorData:
 			InstanceData->SetInstanceEditorData(Cmd.InstanceIndex, Cmd.HitProxyColor, Cmd.bSelected);
+			break;
+		case FInstanceUpdateCmdBuffer::LightmapData:
+			InstanceData->SetInstanceLightMapData(Cmd.InstanceIndex, Cmd.LightmapUVBias, Cmd.ShadowmapUVBias);
 			break;
 		default:
 			check(false);
@@ -917,6 +978,9 @@ public:
 
 	/** The cached selected instances */
 	TBitArray<> SelectedInstances;
+
+	/* The cached random seed */
+	int32 InstancingRandomSeed;
 };
 #endif
 
@@ -940,6 +1004,9 @@ FActorComponentInstanceData* UInstancedStaticMeshComponent::GetComponentInstance
 
 	// Back up instance selection
 	StaticMeshInstanceData->SelectedInstances = SelectedInstances;
+
+	// Back up random seed
+	StaticMeshInstanceData->InstancingRandomSeed = InstancingRandomSeed;
 
 	return InstanceData;
 #else
@@ -991,6 +1058,8 @@ void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticM
 
 	SelectedInstances = InstancedMeshData->SelectedInstances;
 
+	InstancingRandomSeed = InstancedMeshData->InstancingRandomSeed;
+
 	// Force recreation of the render data
 	InstanceUpdateCmdBuffer.Edit();
 	MarkRenderStateDirty();
@@ -1021,8 +1090,6 @@ FPrimitiveSceneProxy* UInstancedStaticMeshComponent::CreateSceneProxy()
 		if (InstanceUpdateCmdBuffer.NumTotalCommands() != 0)
 		{
 			InstanceUpdateCmdBuffer.Reset();
-
-			//TODO: should we not use the command buffer here instead of updating all instances?!
 
 			FStaticMeshInstanceData RenderInstanceData = FStaticMeshInstanceData(GVertexElementTypeSupport.IsSupported(VET_Half2));
 			BuildRenderData(RenderInstanceData, PerInstanceRenderData->HitProxies);
@@ -1250,24 +1317,6 @@ void UInstancedStaticMeshComponent::OnCreatePhysicsState()
 
 void UInstancedStaticMeshComponent::OnDestroyPhysicsState()
 {
-	int32 PSceneIndex = INDEX_NONE;
-	for(const FBodyInstance* BI : InstanceBodies)
-	{
-		if(BI)
-		{
-			if(BI->SceneIndexSync)
-			{
-				PSceneIndex = BI->SceneIndexSync;
-				break;
-			}
-			else if(BI->SceneIndexAsync)
-			{
-				PSceneIndex = BI->SceneIndexAsync;
-				break;
-			}
-		}
-	}
-
 	USceneComponent::OnDestroyPhysicsState();
 
 	// Release all physics representations
@@ -1684,7 +1733,7 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	{
 		TArray<FInstancedStaticMeshInstanceData_DEPRECATED> DeprecatedData;
 		DeprecatedData.BulkSerialize(Ar);
-		PerInstanceSMData.Reserve(DeprecatedData.Num());
+		PerInstanceSMData.Reset(DeprecatedData.Num());
 		Algo::Transform(DeprecatedData, PerInstanceSMData, [](const FInstancedStaticMeshInstanceData_DEPRECATED& OldData){ 
 			return FInstancedStaticMeshInstanceData(OldData.Transform);
 		});

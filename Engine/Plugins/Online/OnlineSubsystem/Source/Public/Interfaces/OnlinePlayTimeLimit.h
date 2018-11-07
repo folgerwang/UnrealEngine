@@ -15,7 +15,7 @@ class FUniqueNetId;
  * @param MinutesPlayed number of minutes the user has played
  * @param RewardRate current rate of rewards for the user
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FWarnUserPlayTime, const FUniqueNetId& /*UserId*/, int32 /*MinutesPlayed*/, float /*RewardRate*/);
+DECLARE_MULTICAST_DELEGATE_SixParams(FWarnUserPlayTime, const FUniqueNetId& /*UserId*/, int32 /*MinutesPlayed*/, float /*RewardRate*/, const FString& /*DialogTitle*/, const FString& /*DialogText*/, const FString& /*ButtonText*/);
 typedef FWarnUserPlayTime::FDelegate FWarnUserPlayTimeDelegate;
 
 /**

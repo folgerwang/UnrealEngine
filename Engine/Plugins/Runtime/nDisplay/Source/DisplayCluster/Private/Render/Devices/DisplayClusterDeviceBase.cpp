@@ -39,13 +39,6 @@ bool FDisplayClusterDeviceBase::Initialize()
 		return false;
 	}
 
-	const FDisplayClusterConfigCustom cfgCustom = GDisplayCluster->GetPrivateConfigMgr()->GetConfigCustom();
-
-	if (cfgCustom.Args.Contains(FString(DisplayClusterStrings::cfg::data::custom::SwapInt)))
-	{
-		SwapInterval = FCString::Atoi(*cfgCustom.Args[FString(DisplayClusterStrings::cfg::data::custom::SwapInt)]);
-	}
-
 	UE_LOG(LogDisplayClusterRender, Log, TEXT("Use swap interval: %d"), SwapInterval);
 
 	return true;
@@ -382,24 +375,6 @@ bool FDisplayClusterDeviceBase::ToggleEyesSwap()
 
 	UE_LOG(LogDisplayClusterRender, Log, TEXT("ToggleEyesSwap: swap=%s"), DisplayClusterHelpers::str::BoolToStr(bEyeSwap));
 	return bEyeSwap;
-}
-
-void FDisplayClusterDeviceBase::SetOutputFlip(bool flipH, bool flipV)
-{
-	UE_LOG(LogDisplayClusterRender, Log, TEXT("SetOutputFlip: horizontal=%s vertical=%s"), DisplayClusterHelpers::str::BoolToStr(flipH), DisplayClusterHelpers::str::BoolToStr(flipV));
-	
-	FScopeLock lock(&InternalsSyncScope);
-	bFlipHorizontal = flipH;
-	bFlipVertical = flipV;
-}
-
-void FDisplayClusterDeviceBase::GetOutputFlip(bool& flipH, bool& flipV) const
-{
-	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("GetOutputFlip: horizontal=%s vertical=%s"), DisplayClusterHelpers::str::BoolToStr(bFlipHorizontal), DisplayClusterHelpers::str::BoolToStr(bFlipVertical));
-
-	FScopeLock lock(&InternalsSyncScope);
-	flipH = bFlipHorizontal;
-	flipV = bFlipVertical;
 }
 
 void FDisplayClusterDeviceBase::SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy)

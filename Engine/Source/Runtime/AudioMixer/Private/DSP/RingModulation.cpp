@@ -8,6 +8,9 @@ namespace Audio
 	FRingModulation::FRingModulation()
 		: ModulationFrequency(800.0f)
 		, ModulationDepth(0.5f)
+		, DryLevel(0.0f)
+		, WetLevel(1.0f)
+		, NumChannels(0)
 	{
 
 	}
@@ -17,12 +20,14 @@ namespace Audio
 
 	}
 
-	void FRingModulation::Init(const float InSampleRate)
+	void FRingModulation::Init(const float InSampleRate, const int32 InNumChannels)
 	{
 		Osc.Init(InSampleRate);
 		Osc.SetFrequency(ModulationFrequency);
 		Osc.Update();
 		Osc.Start();
+
+		NumChannels = InNumChannels;
 	}
 
 	void FRingModulation::SetModulatorWaveType(const EOsc::Type InType)
@@ -41,11 +46,22 @@ namespace Audio
 		ModulationDepth = FMath::Clamp(InModulationDepth, -1.0f, 1.0f);
 	}
 
-	void FRingModulation::ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample)
+	void FRingModulation::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
 		float OscOut = Osc.Generate();
-		OutLeftSample = InLeftSample * OscOut * ModulationDepth;
-		OutRightSample = InRightSample * OscOut * ModulationDepth;
+		for (int32 Channel = 0; Channel < NumChannels; ++Channel)
+		{
+			OutFrame[Channel] = DryLevel * InFrame[Channel] + WetLevel * InFrame[Channel] * OscOut * ModulationDepth;
+		}
 	}
+
+	void FRingModulation::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+		{
+			ProcessAudioFrame(&InBuffer[SampleIndex], &OutBuffer[SampleIndex]);
+		}
+	}
+
 
 }

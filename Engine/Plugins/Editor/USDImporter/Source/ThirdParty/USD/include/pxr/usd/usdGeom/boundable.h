@@ -82,11 +82,10 @@ class SdfAssetPath;
 class UsdGeomBoundable : public UsdGeomXformable
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = false;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::AbstractTyped;
 
     /// Construct a UsdGeomBoundable on UsdPrim \p prim .
     /// Equivalent to UsdGeomBoundable::Get(prim.GetStage(), prim.GetPath())
@@ -129,6 +128,13 @@ public:
     static UsdGeomBoundable
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
+
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
 
 private:
     // needs to invoke _GetStaticTfType.
@@ -203,6 +209,14 @@ public:
     USDGEOM_API
     static bool ComputeExtentFromPlugins(const UsdGeomBoundable &boundable,
                                          const UsdTimeCode &time,
+                                         VtVec3fArray *extent);
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    static bool ComputeExtentFromPlugins(const UsdGeomBoundable &boundable,
+                                         const UsdTimeCode &time,
+                                         const GfMatrix4d &transform,
                                          VtVec3fArray *extent);
 
 };

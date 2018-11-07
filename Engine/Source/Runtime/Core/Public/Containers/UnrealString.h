@@ -15,10 +15,10 @@
 #include "Templates/UnrealTemplate.h"
 #include "Math/NumericLimits.h"
 #include "Containers/Array.h"
-#include "Containers/Set.h"
 #include "Misc/CString.h"
 #include "Misc/Crc.h"
 #include "Math/UnrealMathUtility.h"
+#include "Templates/Invoke.h"
 #include "Templates/IsValidVariadicFunctionArg.h"
 #include "Templates/AndOrNot.h"
 #include "Templates/IsArrayOrRefOfType.h"
@@ -123,13 +123,22 @@ public:
 	 * @param InCount how many characters to copy
 	 * @param InSrc String to copy from
 	 */
-	FORCEINLINE explicit FString( int32 InCount, const TCHAR* InSrc )
+	template <
+		typename CharType,
+		typename = typename TEnableIf<TIsCharType<CharType>::Value>::Type // This TEnableIf is to ensure we don't instantiate this constructor for non-char types, like id* in Obj-C
+	>
+	FORCEINLINE explicit FString(int32 InCount, const CharType* InSrc)
 	{
-		Data.AddUninitialized(InCount ? InCount + 1 : 0);
-
-		if( Data.Num() > 0 )
+		if (InSrc && *InSrc)
 		{
-			FCString::Strncpy(Data.GetData(), InSrc, InCount + 1);
+			int32 DestLen = FPlatformString::ConvertedLength<TCHAR>(InSrc, InCount);
+			if (DestLen > 0)
+			{
+				Data.AddUninitialized(DestLen + 1);
+
+				FPlatformString::Convert(Data.GetData(), DestLen, InSrc, InCount);
+				*(Data.GetData() + Data.Num() - 1) = TEXT('\0');
+			}
 		}
 	}
 
@@ -502,6 +511,13 @@ public:
 			}
 		}
 	}
+	/**
+	 * Removes the text from the start of the string if it exists.
+	 *
+	 * @param InPrefix the prefix to search for at the start of the string to remove.
+	 * @return true if the prefix was removed, otherwise false.
+	 */
+	bool RemoveFromStart( const TCHAR* InPrefix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
 	 * Removes the text from the start of the string if it exists.
@@ -510,6 +526,14 @@ public:
 	 * @return true if the prefix was removed, otherwise false.
 	 */
 	bool RemoveFromStart( const FString& InPrefix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
+
+	/**
+	 * Removes the text from the end of the string if it exists.
+	 *
+	 * @param InSuffix the suffix to search for at the end of the string to remove.
+	 * @return true if the suffix was removed, otherwise false.
+	 */
+	bool RemoveFromEnd( const TCHAR* InSuffix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
 	 * Removes the text from the end of the string if it exists.
@@ -1747,19 +1771,19 @@ public:
 	static FString SanitizeFloat( double InFloat, const int32 InMinFractionalDigits = 1 );
 
 	/**
-	 * Joins an array of 'something that can be concatentated to strings with +=' together into a single string with separators.
+	 * Joins a range of 'something that can be concatentated to strings with +=' together into a single string with separators.
 	 *
-	 * @param	Array		The array of 'things' to concatenate.
+	 * @param	Range		The range of 'things' to concatenate.
 	 * @param	Separator	The string used to separate each element.
 	 *
 	 * @return	The final, joined, separated string.
 	 */
-	template <typename T, typename Allocator>
-	static FString Join(const TArray<T, Allocator>& Array, const TCHAR* Separator)
+	template <typename RangeType>
+	static FString Join(const RangeType& Range, const TCHAR* Separator)
 	{
 		FString Result;
 		bool    First = true;
-		for (const T& Element : Array)
+		for (const auto& Element : Range)
 		{
 			if (First)
 			{
@@ -1777,19 +1801,20 @@ public:
 	}
 
 	/**
-	* Joins a Set of 'something that can be concatentated to strings with +=' together into a single string with separators.
-	*
-	* @param	Set		The Set of 'things' to concatenate.
-	* @param	Separator	The string used to separate each element.
-	*
-	* @return	The final, joined, separated string.
-	*/
-	template <typename T, typename Allocator>
-	static FString Join(const TSet<T, Allocator>& Set, const TCHAR* Separator)
+	 * Joins a range of elements together into a single string with separators using a projection function.
+	 *
+	 * @param	Range		The range of 'things' to concatenate.
+	 * @param	Separator	The string used to separate each element.
+	 * @param	Proj		The projection used to get a string for each element.
+	 *
+	 * @return	The final, joined, separated string.
+	 */
+	template <typename RangeType, typename ProjectionType>
+	static FString JoinBy(const RangeType& Range, const TCHAR* Separator, ProjectionType Proj)
 	{
 		FString Result;
 		bool    First = true;
-		for (const T& Element : Set)
+		for (const auto& Element : Range)
 		{
 			if (First)
 			{
@@ -1800,7 +1825,7 @@ public:
 				Result += Separator;
 			}
 
-			Result += Element;
+			Result += Invoke(Proj, Element);
 		}
 
 		return Result;

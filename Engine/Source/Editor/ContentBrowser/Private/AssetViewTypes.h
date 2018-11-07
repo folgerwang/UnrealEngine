@@ -43,6 +43,9 @@ struct FAssetViewItem
 	/** Broadcasts whenever a rename is requested */
 	FSimpleDelegate RenamedRequestEvent;
 
+	/** Broadcasts whenever a rename is canceled */
+	FSimpleDelegate RenameCanceledEvent;
+
 	/** An event to fire when the asset data for this item changes */
 	DECLARE_MULTICAST_DELEGATE( FOnAssetDataChanged );
 	FOnAssetDataChanged OnAssetDataChanged;

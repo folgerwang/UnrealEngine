@@ -41,6 +41,7 @@ enum ELauncherVersion
 	LAUNCHERSERVICES_ADDEDENCRYPTINIFILES = 24,
 	LAUNCHERSERVICES_ADDEDMULTILEVELPATCHING = 25,
 	LAUNCHERSERVICES_ADDEDADDITIONALCOMMANDLINE = 26,
+	LAUNCHERSERVICES_ADDEDINCLUDEPREREQUISITES = 27,
 
 	//ADD NEW STUFF HERE
 
@@ -245,8 +246,6 @@ public:
 		}
 	}
 
-public:
-
 	/**
 	 * Gets the identifier of the device group to deploy to.
 	 *
@@ -260,8 +259,6 @@ public:
 	{
 		return DeployedDeviceGroupId;
 	}
-
-public:
 
 	//~ Begin ILauncherProfile Interface
 
@@ -739,6 +736,11 @@ public:
 		return DeployWithUnrealPak;
 	}
 
+	virtual bool IsIncludingPrerequisites() const override
+	{
+		return IncludePrerequisites;
+	}
+
 	virtual bool IsGeneratingChunks() const override
 	{
 		return bGenerateChunks;
@@ -919,6 +921,14 @@ public:
 			Archive << bArchive;
 			Archive << ArchiveDir;
 		}
+		if (Version >= LAUNCHERSERVICES_ADDEDADDITIONALCOMMANDLINE)
+		{
+			Archive << AdditionalCommandLineParameters;
+		}
+		if (Version >= LAUNCHERSERVICES_ADDEDINCLUDEPREREQUISITES)
+		{
+			Archive << IncludePrerequisites;
+		}
 		
 		DefaultLaunchRole->Serialize(Archive);
 
@@ -1054,6 +1064,7 @@ public:
 		Writer.WriteValue("Archive", bArchive);
 		Writer.WriteValue("ArchiveDirectory", ArchiveDir);
 		Writer.WriteValue("AdditionalCommandLineParameters", AdditionalCommandLineParameters);
+		Writer.WriteValue("IncludePrerequisites", IncludePrerequisites);
 
 		// serialize the default launch role
 		DefaultLaunchRole->Save(Writer, TEXT("DefaultRole"));
@@ -1092,7 +1103,6 @@ public:
 		Writer.WriteValue("nocompile", !IsBuildingUAT());
 		Writer.WriteValue("nocompileeditor", FApp::IsEngineInstalled());
 		Writer.WriteValue("ue4exe", GetEditorExe());
-		Writer.WriteValue("usedebugparamforeditorexe", FApp::IsRunningDebug());
 		Writer.WriteValue("utf8output", true);
 
 		// client configurations
@@ -1400,7 +1410,6 @@ public:
 		"skipcookingeditorcontent", "true/false"
 		"numcookerstospawn", "8"
 		"compressed", "true/false"
-		"usedebugparamforeditorexe", "true/false"
 		"iterativecooking", "true/false"
 		"skipcookonthefly", "true/false"
 		"cookall", "true/false"
@@ -1716,6 +1725,11 @@ public:
 			AdditionalCommandLineParameters = TEXT("");
 		}
 
+		if (Version >= LAUNCHERSERVICES_ADDEDINCLUDEPREREQUISITES)
+		{
+			IncludePrerequisites = Object.GetBoolField("IncludePrerequisites");
+		}
+
 		// load the default launch role
 		TSharedPtr<FJsonObject> Role = Object.GetObjectField("DefaultRole");
 		DefaultLaunchRole->Load(*(Role.Get()));
@@ -1809,6 +1823,7 @@ public:
 		DeployedDeviceGroup.Reset();
 		DeploymentMode = ELauncherProfileDeploymentModes::CopyToDevice;
 		DeployStreamingServer = false;
+		IncludePrerequisites = false;
 		DeployWithUnrealPak = false;
 		DeployedDeviceGroupId = FGuid();
 		HideFileServerWindow = false;
@@ -2265,6 +2280,16 @@ public:
 		}
 	}
 
+	virtual void SetIncludePrerequisites(bool InValue) override
+	{
+		if (IncludePrerequisites != InValue)
+		{
+			IncludePrerequisites = InValue;
+
+			Validate();
+		}
+	}
+
     virtual void SetTimeout( uint32 InTime ) override
     {
         if (Timeout != InTime)
@@ -2476,6 +2501,7 @@ protected:
 		}
 
 		ValidatePlatformSDKs();
+		ValidateDeviceStatus();
 	}
 	
 	void ValidatePlatformSDKs(void)
@@ -2539,7 +2565,33 @@ protected:
 			}
 		}
 	}
-	
+
+	void ValidateDeviceStatus(void)
+	{
+		ValidationErrors.Remove(ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized);
+
+		if (DeployedDeviceGroup.IsValid())
+		{
+			const TArray<FString>& Devices = DeployedDeviceGroup->GetDeviceIDs();
+			for (auto DeviceId : Devices)
+			{
+				ITargetDeviceServicesModule* TargetDeviceServicesModule = static_cast<ITargetDeviceServicesModule*>(FModuleManager::Get().LoadModule(TEXT("TargetDeviceServices")));
+				if (TargetDeviceServicesModule)
+				{
+					TSharedPtr<ITargetDeviceProxy> DeviceProxy = TargetDeviceServicesModule->GetDeviceProxyManager()->FindProxyDeviceForTargetDevice(DeviceId);
+					if (DeviceProxy.IsValid())
+					{
+						if (!DeviceProxy->IsAuthorized())
+						{
+							ValidationErrors.Add(ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized);
+							return;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	void OnLauncherDeviceGroupDeviceAdded(const ILauncherDeviceGroupRef& DeviceGroup, const FString& DeviceId)
 	{
 		if( DeviceGroup == DeployedDeviceGroup )
@@ -2621,6 +2673,9 @@ private:
 
 	// Holds a flag indicating whether content should be packaged with UnrealPak.
 	bool DeployWithUnrealPak;
+
+	// Flag to indicate if game prerequisites should be included
+	bool IncludePrerequisites;
 
 	// Flag indicating if content should be split into chunks
 	bool bGenerateChunks;

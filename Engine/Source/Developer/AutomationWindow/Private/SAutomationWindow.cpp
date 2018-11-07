@@ -69,7 +69,7 @@ public:
 		
 #if WITH_EDITOR
 		// Added button for running the currently open level test.
-		UI_COMMAND(RunLevelTest, "Run Level Test", "Run Level Test", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(RunLevelTest, "Run Level Test", "Run Level Test", EUserInterfaceActionType::Button, FInputChord());
 #endif
 	}
 public:
@@ -1737,9 +1737,6 @@ void SAutomationWindow::OnRefreshTestCallback()
 		}
 	}
 
-	// Check Tests that where checked before refresh tests was pressed.
-	AutomationController->SetEnabledTests(SavedEnabledTests);
-	SavedEnabledTests.Empty();
 	SavedExpandedItems.Empty();
 
 	//rebuild the UI
@@ -1797,9 +1794,7 @@ void SAutomationWindow::ExpandTreeView( TSharedPtr< IAutomationReport > InReport
 /** Updates list of all the tests */
 void SAutomationWindow::ListTests( )
 {
-	// Save Expanded and Enabled Test Names
-	AutomationController->GetEnabledTestNames(SavedEnabledTests);
-
+	// Save Expanded state prior to refresh
 	TSet<TSharedPtr<IAutomationReport>> ExpandedItems;
 	TestTable->GetExpandedItems(ExpandedItems);
 	SavedExpandedItems = SaveExpandedTestNames(ExpandedItems);

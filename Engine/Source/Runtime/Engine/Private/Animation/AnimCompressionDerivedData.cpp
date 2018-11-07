@@ -80,7 +80,7 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 
 	if (!bDoCompressionInPlace)
 	{
-		DuplicateSequence = DuplicateObject<UAnimSequence>(OriginalAnimSequence, GetTransientPackage());
+		DuplicateSequence = DuplicateObject<UAnimSequence>(OriginalAnimSequence, GetTransientPackage(), OriginalAnimSequence->GetFName());
 		DuplicateSequence->AddToRoot();
 		AnimToOperateOn = DuplicateSequence;
 	}
@@ -124,8 +124,6 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 		const TCHAR* OutputStr = CompressContext.Get()->bOutput ? TEXT("true") : TEXT("false");
 #endif
 
-		AnimToOperateOn->CompressedByteStream.Reset();
-		AnimToOperateOn->CompressedTrackOffsets.Reset();
 		FAnimationUtils::CompressAnimSequence(AnimToOperateOn, *CompressContext.Get());
 		bCompressionSuccessful = AnimToOperateOn->IsCompressedDataValid();
 

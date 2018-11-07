@@ -152,11 +152,12 @@ void FPlayerMuteList::GameplayUnmutePlayer(APlayerController* OwningPC, const FU
 
 	// Find the muted player's player controller so it can be notified
 	APlayerController* OtherPC = GetPlayerControllerFromNetId(World, *PlayerIdToUnmute);
-	if (OtherPC != NULL)
+
+	if (OtherPC != nullptr)
 	{
 		FUniqueNetIdRepl& OwningPlayerId = OwningPC->PlayerState->UniqueId;
 		auto PlayerIdToUnmutePred = [&PlayerIdToUnmute](TSharedRef<const FUniqueNetId> Other) { return PlayerIdToUnmute.IsValid() && *PlayerIdToUnmute == *Other; };
-		auto OwningPlayerIdPred = [&OwningPlayerId](TSharedRef<const FUniqueNetId> Other) { return *OwningPlayerId == *Other; };
+		auto OwningPlayerIdPred = [&OwningPlayerId](TSharedRef<const FUniqueNetId> Other) { return OwningPlayerId.IsValid() && *OwningPlayerId == *Other; };
 
 		// Make sure this player isn't explicitly muted
 		if (VoiceMuteList.IndexOfByPredicate(PlayerIdToUnmutePred) == INDEX_NONE &&

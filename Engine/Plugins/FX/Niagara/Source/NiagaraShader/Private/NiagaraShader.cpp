@@ -10,6 +10,7 @@
 #include "ShaderCompiler.h"
 #include "NiagaraShaderDerivedDataVersion.h"
 #include "NiagaraShaderCompilationManager.h"
+#include "UObject/CoreRedirects.h"
 #if WITH_EDITOR
 	#include "Interfaces/ITargetPlatformManagerModule.h"
 	#include "TickableEditorObject.h"
@@ -462,7 +463,7 @@ void FNiagaraShaderMap::LoadFromDerivedDataCache(const FNiagaraShaderScript* Scr
 
 				// Deserialize from the cached data
 				InOutShaderMap->Serialize(Ar);
-				InOutShaderMap->RegisterSerializedShaders();
+				InOutShaderMap->RegisterSerializedShaders(false);
 
 				checkSlow(InOutShaderMap->GetShaderMapId() == ShaderMapId);
 
@@ -496,8 +497,8 @@ TArray<uint8>* FNiagaraShaderMap::BackupShadersToMemory()
 	TArray<uint8>* SavedShaderData = new TArray<uint8>();
 	FMemoryWriter Ar(*SavedShaderData);
 
-	SerializeInline(Ar, true, true);
-	RegisterSerializedShaders();
+	SerializeInline(Ar, true, true, false);
+	RegisterSerializedShaders(false);
 	Empty();
 
 	return SavedShaderData;
@@ -506,8 +507,8 @@ TArray<uint8>* FNiagaraShaderMap::BackupShadersToMemory()
 void FNiagaraShaderMap::RestoreShadersFromMemory(const TArray<uint8>& ShaderData)
 {
 	FMemoryReader Ar(ShaderData);
-	SerializeInline(Ar, true, true);
-	RegisterSerializedShaders();
+	SerializeInline(Ar, true, true, false);
+	RegisterSerializedShaders(false);
 }
 
 void FNiagaraShaderMap::SaveForRemoteRecompile(FArchive& Ar, const TMap<FString, TArray<TRefCountPtr<FNiagaraShaderMap> > >& CompiledShaderMaps, const TArray<FShaderResourceId>& ClientResourceIds)
@@ -563,7 +564,7 @@ void FNiagaraShaderMap::SaveForRemoteRecompile(FArchive& Ar, const TMap<FString,
 
 	for (int32 Index = 0; Index < NumUniqueResources; Index++)
 	{
-		UniqueResources[Index]->Serialize(Ar);
+		UniqueResources[Index]->Serialize(Ar, false);
 	}
 
 	// now we serialize a map (for each script)
@@ -734,7 +735,6 @@ void FNiagaraShaderMap::Compile(
 			Script->RemoveOutstandingCompileId(CompilingId);
 			// Assign a unique identifier so that shaders from this shader map can be associated with it after a deferred compile
 			CompilingId = NextCompilingId;
-			UE_LOG(LogShaders, Log, TEXT("CompilingId = %p %d"), Script, CompilingId);
 			Script->AddCompileId(CompilingId);
 
 			check(NextCompilingId < UINT_MAX);
@@ -785,6 +785,12 @@ void FNiagaraShaderMap::Compile(
 					}
 					NumShaders++;
 				}
+				else if (ShaderType)
+				{
+					UE_LOG(LogWindows, Display, TEXT("Skipping compilation of %s as it isn't supported on this target type."), *Script->SourceName);
+					Script->RemoveOutstandingCompileId(CompilingId);
+					Script->NotifyCompilationFinished();
+				}
 			}
   
 			if (!CorrespondingScripts)
@@ -808,7 +814,7 @@ void FNiagaraShaderMap::Compile(
 			{
 				TArray<int32> CurrentShaderMapId;
 				CurrentShaderMapId.Add(CompilingId);
-				//GNiagaraShaderCompilationManager->FinishCompilation(*FriendlyName, CurrentShaderMapId);
+				GNiagaraShaderCompilationManager.FinishCompilation(*FriendlyName, CurrentShaderMapId);
 			}
 		}
 	}
@@ -909,7 +915,7 @@ bool FNiagaraShaderMap::IsNiagaraShaderComplete(const FNiagaraShaderScript* Scri
 
 bool FNiagaraShaderMap::IsComplete(const FNiagaraShaderScript* Script, bool bSilent)
 {
-	check(!IsInRenderingThread());
+	check(!GIsThreadedRendering || !IsInRenderingThread());
 	// Make sure we are operating on a referenced shader map or the below Find will cause this shader map to be deleted,
 	// Since it creates a temporary ref counted pointer.
 	check(NumRefs > 0);
@@ -1086,21 +1092,21 @@ void FNiagaraShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 
 	if (Ar.IsSaving())
 	{
-		TShaderMap<FNiagaraShaderType>::SerializeInline(Ar, bInlineShaderResources, false);
-		RegisterSerializedShaders();
+		TShaderMap<FNiagaraShaderType>::SerializeInline(Ar, bInlineShaderResources, false, false);
+		RegisterSerializedShaders(false);
 	}
 
 	if (Ar.IsLoading())
 	{
-		TShaderMap<FNiagaraShaderType>::SerializeInline(Ar, bInlineShaderResources, false);
+		TShaderMap<FNiagaraShaderType>::SerializeInline(Ar, bInlineShaderResources, false, false);
 	}
 }
 
-void FNiagaraShaderMap::RegisterSerializedShaders()
+void FNiagaraShaderMap::RegisterSerializedShaders(bool bCookedMaterial)
 {
 	check(IsInGameThread());
 
-	TShaderMap<FNiagaraShaderType>::RegisterSerializedShaders();
+	TShaderMap<FNiagaraShaderType>::RegisterSerializedShaders(bCookedMaterial);
 }
 
 void FNiagaraShaderMap::DiscardSerializedShaders()
@@ -1168,6 +1174,7 @@ const FNiagaraShaderMap* FNiagaraShaderMap::GetShaderMapBeingCompiled(const FNia
 
 FNiagaraShader::FNiagaraShader(const FNiagaraShaderType::CompiledShaderInitializerType& Initializer)
 	: FShader(Initializer)
+	, CBufferLayout(TEXT("Niagara Compute Sim CBuffer"))
 	, DebugDescription(Initializer.DebugDescription)
 {
 	check(!DebugDescription.IsEmpty());
@@ -1329,6 +1336,17 @@ void FNiagaraDataInterfaceParamRef::ConstructParameters()
 void FNiagaraDataInterfaceParamRef::InitDIClass()
 {
 	DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ParameterInfo.DIClassName, true));
+	if (DIClass == nullptr)
+	{
+		FCoreRedirectObjectName OldObjName;
+		OldObjName.ObjectName = *ParameterInfo.DIClassName;
+		FCoreRedirectObjectName NewObjName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldObjName);
+		if (NewObjName.IsValid())
+		{
+			DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *NewObjName.ObjectName.ToString(), true));
+		}
+
+	}
 	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef. %s"), *ParameterInfo.DIClassName);
 }
 

@@ -13,9 +13,12 @@
 #include "OnlineSubsystemBPCallHelper.h"
 #include "OnlineSubsystemUtilsPackage.h"
 #include "VoipListenerSynthComponent.h"
+#include "OnlineSubsystemUtilsPackage.h"
+
+#include "VoicePacketImpl.h"
+#include "UObject/CoreOnline.h"
 
 class IOnlineSubsystem;
-class FUniqueNetIdString;
 class IVoiceDecoder;
 class IVoiceEncoder;
 class IVoiceCapture;
@@ -117,7 +120,7 @@ class FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
 	friend class FVoiceSerializeHelper;
 
 	/** Mapping of UniqueIds to the incoming voice data and their audio component */
-	typedef TMap<FUniqueNetIdString, FRemoteTalkerDataImpl> FRemoteTalkerData;
+	typedef TMap<FUniqueNetIdWrapper, FRemoteTalkerDataImpl> FRemoteTalkerData;
 
 	/** Reference to the main online subsystem */
 	IOnlineSubsystem* OnlineSubsystem;
@@ -187,7 +190,7 @@ class FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
 	 * @param SamplesRequired number of samples needed for immediate playback
 	 * @param TalkerId id of the remote talker to allocate voice data for
 	 */
-	void GenerateVoiceData(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired, FUniqueNetIdString TalkerId);
+	void GenerateVoiceData(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired, const FUniqueNetId& TalkerId);
 
 PACKAGE_SCOPE:
 
@@ -220,13 +223,13 @@ public:
 	virtual uint32 StartRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
 	{
 		// Not needed
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 StopRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
 	{
 		// Not needed
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) override
@@ -234,10 +237,10 @@ public:
 		if (OwningUserIndex == INVALID_INDEX)
 		{
 			OwningUserIndex = LocalUserNum;
-			return S_OK;
+			return ONLINE_SUCCESS;
 		}
 
-		return E_FAIL;
+		return ONLINE_FAIL;
 	}
 
 	virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) override
@@ -245,16 +248,16 @@ public:
 		if (IsOwningUser(LocalUserNum))
 		{
 			OwningUserIndex = INVALID_INDEX;
-			return S_OK;
+			return ONLINE_SUCCESS;
 		}
 
-		return E_FAIL;
+		return ONLINE_FAIL;
 	}
 
 	virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) override
 	{
 		// Not needed
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) override;
@@ -271,14 +274,14 @@ public:
 
 	virtual bool IsRemotePlayerTalking(const FUniqueNetId& UniqueId) override
 	{
-		return RemoteTalkerBuffers.Find((const FUniqueNetIdString&)UniqueId) != nullptr;
+		return RemoteTalkerBuffers.Find(FUniqueNetIdWrapper(UniqueId.AsShared())) != nullptr;
 	}
 
 	virtual uint32 GetVoiceDataReadyFlags() const override;
 	virtual uint32 SetPlaybackPriority(uint32 LocalUserNum, const FUniqueNetId& RemoteTalkerId, uint32 Priority) override
 	{
 		// Not supported
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, uint32* Size) override { return ReadLocalVoiceData(LocalUserNum, Data, Size, nullptr); }

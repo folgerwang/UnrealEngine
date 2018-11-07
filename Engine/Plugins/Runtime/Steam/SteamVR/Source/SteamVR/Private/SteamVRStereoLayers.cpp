@@ -219,10 +219,7 @@ void FSteamVRHMD::UpdateStereoLayers_RenderThread()
 	}
 
 	// Metal is not supported yet
-	if (IsMetalPlatform(GMaxRHIShaderPlatform))
-	{
-		return;
-	}
+	check(!IsMetalPlatform(GMaxRHIShaderPlatform));
 
 	static const auto CVarMixLayerPriorities = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.StereoLayers.bMixLayerPriorities"));
 	const bool bUpdateLayerPriorities = (CVarMixLayerPriorities->GetValueOnRenderThread() == 0) && GetStereoLayersDirty();
@@ -334,11 +331,65 @@ void FSteamVRHMD::UpdateStereoLayers_RenderThread()
 	}
 }
 
-//=============================================================================
-IStereoLayers* FSteamVRHMD::GetStereoLayers ()
+void FSteamVRHMD::GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture)
 {
-	check(VROverlay);
-	return this;
+	Texture = LeftTexture = nullptr;
+	FSteamVRLayer* LayerFound = nullptr;
+
+	if (IsInRenderingThread())
+	{
+		ForEachLayer([&](uint32 /* unused */, FSteamVRLayer& Layer)
+		{
+			if (Layer.GetLayerId() == LayerId)
+			{
+				LayerFound = &Layer;
+			}
+		});
+	}
+	else
+	{
+		// Only supporting the use of this function on RenderingThread.
+		check(false);
+		return;
+	}
+
+	if (LayerFound && LayerFound->LayerDesc.Texture)
+	{
+		switch (LayerFound->LayerDesc.ShapeType)
+		{
+		case IStereoLayers::CubemapLayer:
+			Texture = LayerFound->LayerDesc.Texture->GetTextureCube();
+			LeftTexture = LayerFound->LayerDesc.LeftTexture ? LayerFound->LayerDesc.LeftTexture->GetTextureCube() : nullptr;
+			break;
+
+		case IStereoLayers::CylinderLayer:
+		case IStereoLayers::QuadLayer:
+			Texture = LayerFound->LayerDesc.Texture->GetTexture2D();
+			LeftTexture = LayerFound->LayerDesc.LeftTexture ? LayerFound->LayerDesc.LeftTexture->GetTexture2D() : nullptr;
+			break;
+
+		default:
+			break;
+		}
+	}
+}
+
+//=============================================================================
+IStereoLayers* FSteamVRHMD::GetStereoLayers()
+{
+	// Metal is not supported yet. Fall back to the default portable implementation
+	if (IsMetalPlatform(GMaxRHIShaderPlatform))
+	{
+		return FHeadMountedDisplayBase::GetStereoLayers();
+	}
+
+
+	if (VROverlay)
+	{
+		return this;
+	}
+
+	return nullptr;
 }
 
 #endif //STEAMVR_SUPPORTED_PLATFORMS

@@ -95,7 +95,7 @@ FHlslCrossCompilerContext::FHlslCrossCompilerContext(int InFlags, EHlslShaderFre
 	if (bIsES2)
 	{
 		// ES implies some flag modifications
-		Flags |= HLSLCC_PackUniforms | HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
+		Flags |= HLSLCC_PackUniforms | HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures | HLSLCC_ExpandUBMemberArrays;
 	}
 	else if (bIsES3_1)
 	{
@@ -335,6 +335,7 @@ bool FHlslCrossCompilerContext::RunBackend(
 	}
 	//TIMER(gen_main);
 
+	//IRDump(ir);
 	if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
 	{
 		return false;
@@ -369,6 +370,13 @@ bool FHlslCrossCompilerContext::RunBackend(
 		if (bFlattenUBStructures)
 		{
 			FlattenUniformBufferStructures(ir, ParseState);
+			
+			if ((Flags & HLSLCC_ExpandUBMemberArrays) == HLSLCC_ExpandUBMemberArrays)
+			{
+				// this is needed to help out packing uniform buffers into global arrays 
+				ExpandUniformBufferArrays(ir, ParseState);
+			}
+						
 			validate_ir_tree(ir, ParseState);
 
 			if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
@@ -394,9 +402,10 @@ bool FHlslCrossCompilerContext::RunBackend(
 	if (bPackUniforms)
 	{
 		const bool bPackGlobalArraysIntoUniformBuffers = ((Flags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
+		const bool PackUniformsIntoUniformBufferWithNames = ((Flags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
 		const bool bKeepNames = (Flags & HLSLCC_KeepSamplerAndImageNames) == HLSLCC_KeepSamplerAndImageNames;
 		TVarVarMap UniformMap;
-		PackUniforms(ir, ParseState, bFlattenUBStructures, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, bKeepNames, UniformMap);
+		PackUniforms(ir, ParseState, bFlattenUBStructures, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, bKeepNames, UniformMap);
 		//TIMER(pack_uniforms);
 
 		RemovePackedUniformBufferReferences(ir, ParseState, UniformMap);

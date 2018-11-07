@@ -307,6 +307,46 @@ namespace SavePackageStats
 }
 #endif
 
+#if WITH_EDITORONLY_DATA
+
+/**
+ * Calculates a checksum on an object's serialized data stream, but only of its non-editor properties.
+ */
+class COREUOBJECT_API FArchiveObjectCrc32NonEditorProperties : public FArchiveObjectCrc32
+{
+	using Super = FArchiveObjectCrc32;
+
+public:
+	FArchiveObjectCrc32NonEditorProperties()
+		: EditorOnlyProp(0)
+	{
+	}
+
+	virtual void Serialize(void* Data, int64 Length)
+	{
+		int32 NewEditorOnlyProp = EditorOnlyProp + this->IsEditorOnlyPropertyOnTheStack();
+		TGuardValue<int32> Guard(EditorOnlyProp, NewEditorOnlyProp);
+		if (NewEditorOnlyProp == 0)
+		{
+			Super::Serialize(Data, Length);
+		}
+	}
+
+	virtual FString GetArchiveName() const
+	{
+		return TEXT("FArchiveObjectCrc32NonEditorProperties");
+	}
+	
+private:
+	int32 EditorOnlyProp;
+};
+
+#else
+
+	typedef FArchiveObjectCrc32 FArchiveObjectCrc32NonEditorProperties;
+
+#endif
+
 static bool HasUnsaveableOuter(UObject* InObj, UPackage* InSavingPackage)
 {
 	UObject* Obj = InObj;
@@ -999,7 +1039,7 @@ FArchive& FArchiveSaveTagExports::operator<<(FWeakObjectPtr& Value)
 	}
 	else
 	{
-		Value.Serialize(*this);
+		FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 	}
 	return *this;
 }
@@ -1213,7 +1253,7 @@ FArchive& FArchiveSaveTagImports::operator<< (struct FWeakObjectPtr& Value)
 	}
 	else
 	{
-		Value.Serialize(*this);
+		FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 	}
 	return *this;
 }
@@ -1336,11 +1376,21 @@ FArchive& FArchiveSaveTagImports::operator<<(FSoftObjectPath& Value)
 	{
 		Value.SerializePath(*this);
 
-		FString Path = Value.ToString();
-		FName PackageName = FName(*FPackageName::ObjectPathToPackageName(Path));
+		FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
+		FName ReferencingPackageName, ReferencingPropertyName;
+		ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
+		ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
 
-		SavePackageState.MarkNameAsReferenced(PackageName);
-		Linker->SoftPackageReferenceList.AddUnique(PackageName);	
+		ThreadContext.GetSerializationOptions(ReferencingPackageName, ReferencingPropertyName, CollectType, SerializeType, this);
+
+		if (CollectType != ESoftObjectPathCollectType::NeverCollect)
+		{
+			// Don't track if this is a never collect path
+			FString Path = Value.ToString();
+			FName PackageName = FName(*FPackageName::ObjectPathToPackageName(Path));
+			SavePackageState.MarkNameAsReferenced(PackageName);
+			Linker->SoftPackageReferenceList.AddUnique(PackageName);
+		}
 	}
 	return *this;
 }
@@ -1933,7 +1983,6 @@ class FExportReferenceSorter : public FArchiveUObject
 		FScopeLock ScopeLock(&InitializeCoreClassesCritSec);
 		check(CoreClasses.Num() == 0);
 		check(ReferencedObjects.Num() == 0);
-		check(ForceLoadObjects.Num() == 0);
 		check(SerializedObjects.Num() == 0);
 		check(bIgnoreFieldReferences == false);
 
@@ -1941,7 +1990,6 @@ class FExportReferenceSorter : public FArchiveUObject
 		static TArray<UClass*> StaticCoreClasses;
 		static TArray<UObject*> StaticCoreReferencedObjects;
 		static TArray<UObject*> StaticProcessedObjects;
-		static TArray<UObject*> StaticForceLoadObjects;
 		static TSet<UObject*> StaticSerializedObjects;
 		
 		
@@ -2031,7 +2079,6 @@ class FExportReferenceSorter : public FArchiveUObject
 				check(CoreClasses.Num() == StaticCoreClasses.Num());
 				check(ReferencedObjects.Num() == StaticCoreReferencedObjects.Num());
 				check(ProcessedObjects.Num() == StaticProcessedObjects.Num());
-				check(ForceLoadObjects.Num() == StaticForceLoadObjects.Num());
 				check(SerializedObjects.Num() == StaticSerializedObjects.Num());
 				
 				
@@ -2047,10 +2094,6 @@ class FExportReferenceSorter : public FArchiveUObject
 				{
 					check(ProcessedObject.Value == StaticProcessedObjects.Find(ProcessedObject.Key));
 				}
-				for (int I = 0; I < ForceLoadObjects.Num(); ++I)
-				{
-					check(ForceLoadObjects[I] == StaticForceLoadObjects[I]);
-				}
 				for (const auto& SerializedObject : SerializedObjects)
 				{
 					check(StaticSerializedObjects.Find(SerializedObject));
@@ -2061,7 +2104,6 @@ class FExportReferenceSorter : public FArchiveUObject
 			StaticCoreClasses = CoreClasses;
 			StaticCoreReferencedObjects = ReferencedObjects;
 			StaticProcessedObjects = ProcessedObjects;
-			StaticForceLoadObjects = ForceLoadObjects;
 			StaticSerializedObjects = SerializedObjects;
 
 			check(CurrentClass == nullptr);
@@ -2072,7 +2114,6 @@ class FExportReferenceSorter : public FArchiveUObject
 			CoreClasses = StaticCoreClasses;
 			ReferencedObjects = StaticCoreReferencedObjects;
 			ProcessedObjects = StaticProcessedObjects;
-			ForceLoadObjects = StaticForceLoadObjects;
 			SerializedObjects = StaticSerializedObjects;
 
 			CoreReferencesOffset = StaticCoreReferencedObjects.Num();
@@ -2372,19 +2413,7 @@ public:
 				}
 				else
 				{
-					// since normal references to objects aren't force-loaded, 
-					// we do not need to pass true for bProcessObject by default
-					// (true would indicate that Object must be inserted into 
-					// the sorted export list before the object that contains 
-					// this object reference - i.e. the object we're currently
-					// serializing)
-					// 
-					// sometimes (rarely) this is the case though, so we use 
-					// ForceLoadObjects to determine if the object we're 
-					// serializing would force load Object (if so, it'll come 
-					// first in the ExportMap)
-					bool const bProcessObject = ForceLoadObjects.Contains(Object);
-					HandleDependency(Object, bProcessObject);
+					HandleDependency(Object);
 				}
 			}
 		}
@@ -2483,35 +2512,10 @@ public:
 					// so we turn off field serialization so that we don't have to worry about handling this struct's fields just yet
 					bIgnoreFieldReferences = true;
 
-					// most often, we don't want/need object references getting  
-					// recorded as dependencies, but some structs (classes) 
-					// require certain non-field objects be prioritized in the 
-					// ExportMap earlier (see UClass::GetRequiredPreloadDependencies() 
-					// for more details)... this array records/holds those 
-					// required sub-objects
-					TArray<UObject*> StructForceLoadObjects;
-
 					bool const bIsClassObject = (dynamic_cast<UClass*>(StructObject) != nullptr);
-					if (bIsClassObject)
-					{
-						UClass* AsClass = (UClass*)StructObject;
-						AsClass->GetRequiredPreloadDependencies(StructForceLoadObjects);
-						check(!StructForceLoadObjects.Num()); //@todoio GetRequiredPreloadDependencies is dead code, remove
-					}
-					// append rather than replace (in case we're nested in a 
-					// recursive call)... adding these to ForceLoadObjects 
-					// ensures that any reference to a StructForceLoadObjects
-					// object gets recorded in the ExportMap before StructObject
-					// (see operator<<, where we utilize ForceLoadObjects)
-					ForceLoadObjects.Append(StructForceLoadObjects);
-					int32 const ForceLoadCount = StructForceLoadObjects.Num();
 
 					SerializedObjects.Add(StructObject);
 					StructObject->Serialize(*this);
-
-					// remove (pop) rather than empty, in case ClassForceLoadObjects
-					// had entries from a previous call to this function up that chain
-					ForceLoadObjects.RemoveAt(ForceLoadObjects.Num() - ForceLoadCount, ForceLoadCount);
 
 					// at this point, any objects which were referenced through this struct's script or defaults will be in the list of exports, and 
 					// the CurrentInsertIndex will have been advanced so that the object processed will be inserted just before this struct in the array
@@ -2653,13 +2657,6 @@ private:
 	 * hasn't been created yet.
 	 */
 	UClass* CurrentClass;
-
-	/** 
-	 * This is a list of objects that would be force loaded by a struct/class 
-	 * currently being handled by ProcessStruct() (meaning that they should be
-	 * prioritized in the target ExportMap, before the struct).
-	 */
-	TArray<UObject*> ForceLoadObjects;
 
 	/** Package to constrain checks to */
 	UPackage* PackageToSort;
@@ -2847,7 +2844,7 @@ struct FPackageExportTagger
 #endif
 				if (bIsCooking && Base->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
 				{
-					FArchiveObjectCrc32 CrcArchive;
+					FArchiveObjectCrc32NonEditorProperties CrcArchive;
 
 					int32 Before = CrcArchive.Crc32(Base);
 					Base->PreSave(TargetPlatform);
@@ -2911,7 +2908,7 @@ struct FPackageExportTagger
 					//@warning: Objects created from within PreSave will NOT have PreSave called on them!!!
 					if (bIsCooking && Obj->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
 					{
-						FArchiveObjectCrc32 CrcArchive;
+						FArchiveObjectCrc32NonEditorProperties CrcArchive;
 
 						int32 Before = CrcArchive.Crc32(Obj);
 						Obj->PreSave(TargetPlatform);
@@ -3487,6 +3484,26 @@ void VerifyEDLCookInfo()
 	FEDLCookChecker::Verify();
 }
 
+void AddFileToHash(FString const &Filename, FMD5 &Hash)
+{
+	TArray<uint8> LocalScratch;
+	LocalScratch.SetNumUninitialized(1024 * 64);
+
+	FArchive* Ar = IFileManager::Get().CreateFileReader(*Filename);
+	
+	const int64 Size = Ar->TotalSize();
+	int64 Position = 0;
+
+	while (Position < Size)
+	{
+		const auto ReadNum = FMath::Min(Size - Position, (int64)LocalScratch.Num());
+		Ar->Serialize(LocalScratch.GetData(), ReadNum);
+		Hash.Update(LocalScratch.GetData(), ReadNum);
+		Position += ReadNum;
+	}
+	delete Ar;
+}
+
 FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename,
 	FOutputDevice* Error, FLinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags, 
 	const class ITargetPlatform* TargetPlatform, const FDateTime&  FinalTimeStamp, bool bSlowTask, FArchiveDiffMap* InOutDiffMap)
@@ -3608,7 +3625,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 		uint32 Time = 0; CLOCK_CYCLES(Time);
 		int64 TotalPackageSizeUncompressed = 0;
-		
+		FMD5 CookedPackageHash;
+
 		// Make sure package is fully loaded before saving. 
 		if (!Base && !InOuter->IsFullyLoaded())
 		{
@@ -4048,6 +4066,62 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 							{
 								ImportTagger << Template;
 							}
+
+							static struct FDumpChangesSettings
+							{
+								FString ObjectName;
+								FString ArchetypeName;
+
+								FDumpChangesSettings()
+								{
+									const TCHAR* CommandLine = FCommandLine::Get();
+
+									// Check if we want to dump objects by name
+									FString LocalObjectName;
+									if (FParse::Value(CommandLine, TEXT("dumpsavestate="), LocalObjectName))
+									{
+										ObjectName = MoveTemp(LocalObjectName);
+									}
+
+									// Check if we want to dump objects by their CDO name
+									FString LocalArchetypeName;
+									if (FParse::Value(CommandLine, TEXT("dumpsavestatebyarchetype="), LocalArchetypeName))
+									{
+										ArchetypeName = MoveTemp(LocalArchetypeName);
+									}
+								}
+							} DumpChangesSettings;
+
+							// Dump objects and their CDO during save to show how those objects are being delta-serialized
+							if (Obj->GetFName() == *DumpChangesSettings.ObjectName || Template->GetFName() == *DumpChangesSettings.ArchetypeName)
+							{
+								auto DumpPropertiesToText = [](UObject* Object)
+								{
+									TArray<TTuple<UProperty*, FString>> Result;
+									for (UProperty* Prop : TFieldRange<UProperty>(Object->GetClass()))
+									{
+										FString PropState;
+										const void* PropAddr = Prop->ContainerPtrToValuePtr<void>(Object);
+										Prop->ExportTextItem(PropState, PropAddr, nullptr, Object, PPF_None);
+
+										Result.Emplace(Prop, MoveTemp(PropState));
+									}
+									return Result;
+								};
+
+								TArray<TTuple<UProperty*, FString>> TemplateOutput = DumpPropertiesToText(Template);
+								TArray<TTuple<UProperty*, FString>> ObjOutput      = DumpPropertiesToText(Obj);
+
+								FString TemplateText = FString::JoinBy(TemplateOutput, TEXT("\n"), [](const TTuple<UProperty*, FString>& PropValue)
+								{
+									return FString::Printf(TEXT("  %s: %s"), *PropValue.Get<0>()->GetName(), *PropValue.Get<1>());
+								});
+								FString ObjText = FString::JoinBy(ObjOutput, TEXT("\n"), [](const TTuple<UProperty*, FString>& PropValue)
+								{
+									return FString::Printf(TEXT("  %s: %s"), *PropValue.Get<0>()->GetName(), *PropValue.Get<1>());
+								});
+								UE_LOG(LogSavePackage, Warning, TEXT("---\nArchetype: %s\n%s\nObject: %s\n%s\n---"), *Template->GetFullName(), *TemplateText, *Obj->GetFullName(), *ObjText);
+							}
 						}
 
 						if (IsEventDrivenLoaderEnabledInCookedBuilds() && TargetPlatform)
@@ -4384,9 +4458,9 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
 #endif // WITH_EDITOR
 					if (!bTextFormat)
-				    {
+					{
 						StructuredArchiveRoot.GetUnderlyingArchive() << Linker->Summary;
-				    }
+					}
 				}
 				int32 OffsetAfterPackageFileSummary = Linker->Tell();
 		
@@ -5363,9 +5437,15 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 							if ( Export.Object->HasAnyFlags(RF_ClassDefaultObject) )
 							{
-								FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-								Adapter.SetExternalObjectIndicesMap(&Linker->ObjectIndicesMap);
-								Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
+								if (bSupportsText)
+								{
+									Export.Object->GetClass()->SerializeDefaultObject(Export.Object, ExportSlot);
+								}
+								else
+								{
+									FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
+									Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
+								}
 							}
 							else
 							{
@@ -5384,7 +5464,6 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								else
 								{
 									FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-									Adapter.SetExternalObjectIndicesMap(&Linker->ObjectIndicesMap);
 									Export.Object->Serialize(Adapter);
 								}
 
@@ -5554,9 +5633,31 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								delete Archive;
 							};
 
+						if (SaveFlags & SAVE_ComputeHash)
+						{
+							if (bSaveAsync)
+							{
+								if (BulkArchive->TotalSize())
+								{
+									CookedPackageHash.Update(((FBufferArchive*)BulkArchive)->GetData(), BulkArchive->TotalSize());
+								}
+								if (OptionalBulkArchive->TotalSize())
+								{
+									CookedPackageHash.Update(((FBufferArchive*)OptionalBulkArchive)->GetData(), OptionalBulkArchive->TotalSize());
+								}
+							}
+						}
 						FinalizeBulkDataFile(BulkArchive, BulkFilename);
 						FinalizeBulkDataFile(OptionalBulkArchive, OptionalBulkFilename);
 
+						if (SaveFlags & SAVE_ComputeHash)
+						{
+							if (!bSaveAsync)
+							{
+								AddFileToHash(BulkFilename, CookedPackageHash);
+								AddFileToHash(OptionalBulkFilename, CookedPackageHash);
+							}
+						}
 						
 					}
 				}
@@ -5694,10 +5795,29 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				
 				// Update package flags from package, in case serialization has modified package flags.
 				Linker->Summary.PackageFlags = Linker->LinkerRoot->GetPackageFlags() & ~PKG_NewlyCreated;
+				
+				{
+					// Verify that the final serialization pass hasn't added any new custom versions. Otherwise this will result in crashes when loading the package.
+					bool bNewCustomVersionsUsed = false;
+					for (const FCustomVersion& LinkerCustomVer : Linker->GetCustomVersions().GetAllVersions())
+					{
+						if (Linker->Summary.GetCustomVersionContainer().GetVersion(LinkerCustomVer.Key) == nullptr)
+						{
+							UE_LOG(LogSavePackage, Error,
+								TEXT("Unexpected custom version \"%s\" found when saving %s. This usually happens when export tagging and final serialization paths differ. Package will not be saved."),
+								*LinkerCustomVer.GetFriendlyName().ToString(), *Linker->LinkerRoot->GetName());
+							bNewCustomVersionsUsed = true;
+						}
+					}
+					if (bNewCustomVersionsUsed)
+					{
+						return ESavePackageResult::Error;
+					}
+				}
 
 				if (!bTextFormat)
 				{
-				Linker->Seek(0);
+					Linker->Seek(0);
 				}
 				{
 #if WITH_EDITOR
@@ -5708,7 +5828,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 				if (!bTextFormat)
 				{
-				check( Linker->Tell() == OffsetAfterPackageFileSummary );
+					check( Linker->Tell() == OffsetAfterPackageFileSummary );
 				}
 
 				if ( EndSavingIfCancelled( Linker.Get(), TempFilename ) )
@@ -5723,13 +5843,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker->Detach();
 
 					delete StructuredArchive;
-
-					if (TextFormatArchive)
-					{
-						TextFormatArchive->Flush();
-						TextFormatArchive->Close();
-						delete TextFormatArchive;
-					}
+					delete Formatter;
+					delete TextFormatArchive;
 				}
 				UNCLOCK_CYCLES(Time);
 				UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Verbose,  TEXT("Save=%.2fms"), FPlatformTime::ToMilliseconds(Time) );
@@ -5798,6 +5913,11 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 							COOK_STAT(FScopedDurationTimer SaveTimer(SavePackageStats::AsyncWriteTimeSec));
 							TotalPackageSizeUncompressed += DataSize;
 
+							if (SaveFlags & SAVE_ComputeHash)
+							{
+								CookedPackageHash.Update( Writer->GetData(), Writer->TotalSize() );
+							}
+
 							FLargeMemoryPtr DataPtr(Writer->GetData());
 							Writer->ReleaseOwnership();
 							if (IsEventDrivenLoaderEnabledInCookedBuilds() && Linker->IsCooking())
@@ -5810,6 +5930,10 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 							}
 						}
 						Linker->Detach();
+
+						delete StructuredArchive;
+						delete Formatter;
+						delete TextFormatArchive;
 					}
 					// Move the temporary file.
 					else
@@ -5822,6 +5946,12 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 						UE_LOG(LogSavePackage, Log,  TEXT("Moving '%s' to '%s'"), *TempFilename, *NewPath );
 						TotalPackageSizeUncompressed += IFileManager::Get().FileSize(*TempFilename);
+
+						if (SaveFlags & SAVE_ComputeHash)
+						{
+							AddFileToHash(TempFilename, CookedPackageHash);
+						}
+
 						Success = IFileManager::Get().Move( *NewPath, *TempFilename );
 						if (FinalTimeStamp != FDateTime::MinValue())
 						{
@@ -5871,7 +6001,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						// Warn about long package names, which may be bad for consoles with limited filename lengths.
 						if( bWarnOfLongFilename == true )
 						{
-							int32 MaxFilenameLength = MAX_UNREAL_FILENAME_LENGTH;
+							int32 MaxFilenameLength = FPlatformMisc::GetMaxPathLength();
 
 							// If the name is of the form "_LOC_xxx.ext", remove the loc data before the length check
 							FString CleanBaseFilename = BaseFilename;
@@ -5943,13 +6073,16 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 		if (Success)
 		{
+			FMD5Hash OutputHash;
+			OutputHash.Set(CookedPackageHash);
+
 			if (bRequestStub)
 			{
-				return FSavePackageResultStruct(ESavePackageResult::GenerateStub, TotalPackageSizeUncompressed);
+				return FSavePackageResultStruct(ESavePackageResult::GenerateStub, TotalPackageSizeUncompressed, OutputHash);
 			}
 			else
 			{
-				return FSavePackageResultStruct(bDiffOnlyIdentical ? ESavePackageResult::Success : ESavePackageResult::DifferentContent, TotalPackageSizeUncompressed);
+				return FSavePackageResultStruct(bDiffOnlyIdentical ? ESavePackageResult::Success : ESavePackageResult::DifferentContent, TotalPackageSizeUncompressed, OutputHash);
 			}
 		}
 		else

@@ -35,6 +35,8 @@
 #include "ILevelSequenceModule.h"
 #include "Misc/LevelSequenceEditorActorSpawner.h"
 #include "SequencerSettings.h"
+#include "Misc/MovieSceneSequenceEditor_LevelSequence.h"
+#include "BlueprintAssetHandler.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
 
@@ -68,6 +70,32 @@ public:
 		RegisterLevelEditorExtensions();
 		RegisterPlacementModeExtensions();
 		RegisterSettings();
+		RegisterSequenceEditor();
+
+		class FLevelSequenceAssetBlueprintHandler : public IBlueprintAssetHandler
+		{
+			virtual UBlueprint* RetrieveBlueprint(UObject* InObject) const override
+			{
+				return Cast<UBlueprint>(CastChecked<ULevelSequence>(InObject)->DirectorBlueprint);
+			}
+
+			virtual bool AssetContainsBlueprint(const FAssetData& InAssetData) const
+			{
+				// Only have a blueprint if it contains the BlueprintPathWithinPackage tag
+				return InAssetData.TagsAndValues.Find(FBlueprintTags::BlueprintPathWithinPackage) != nullptr;
+			}
+
+			virtual bool SupportsNativization(const UObject* InAsset, const UBlueprint* InBlueprint, FText* OutReason) const
+			{
+				if (OutReason)
+				{
+					*OutReason = LOCTEXT("NativizationError", "Level Sequences do not support nativization.");
+				}
+				return false;
+			}
+		};
+
+		FBlueprintAssetHandler::Get().RegisterHandler<FLevelSequenceAssetBlueprintHandler>(ULevelSequence::StaticClass()->GetFName());
 	}
 	
 	virtual void ShutdownModule() override
@@ -79,6 +107,7 @@ public:
 		UnregisterLevelEditorExtensions();
 		UnregisterPlacementModeExtensions();
 		UnregisterSettings();
+		UnregisterSequenceEditor();
 	}
 
 protected:
@@ -189,6 +218,12 @@ protected:
 		}
 	}
 
+	void RegisterSequenceEditor()
+	{
+		ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
+		SequenceEditorHandle = SequencerModule.RegisterSequenceEditor(ULevelSequence::StaticClass(), MakeUnique<FMovieSceneSequenceEditor_LevelSequence>());
+	}
+
 protected:
 
 	/** Unregisters sequencer editor object bindings */
@@ -270,6 +305,15 @@ protected:
 			SettingsModule->UnregisterSettings("Project", "Plugins", "LevelSequencer");
 
 			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "LevelSequenceEditor");
+		}
+	}
+
+	void UnregisterSequenceEditor()
+	{
+		ISequencerModule* SequencerModule = FModuleManager::GetModulePtr<ISequencerModule>("Sequencer");
+		if (SequencerModule)
+		{
+			SequencerModule->UnregisterSequenceEditor(SequenceEditorHandle);
 		}
 	}
 
@@ -366,6 +410,8 @@ private:
 	FDelegateHandle EditorActorSpawnerDelegateHandle;
 
 	USequencerSettings* Settings;
+
+	FDelegateHandle SequenceEditorHandle;
 };
 
 

@@ -6,6 +6,7 @@
 #include "HAL/FeedbackContextAnsi.h"
 #include "Math/Color.h"
 
+#include "HAL/PlatformOutputDevices.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 /** Hooks for moving ClipboardCopy and ClipboardPaste into FPlatformApplicationMisc */
@@ -52,14 +53,12 @@ class FOutputDeviceConsole* FGenericPlatformApplicationMisc::CreateConsoleOutput
 
 class FOutputDeviceError* FGenericPlatformApplicationMisc::GetErrorOutputDevice()
 {
-	static FOutputDeviceAnsiError Singleton;
-	return &Singleton;
+	return FPlatformOutputDevices::GetError();
 }
 
 class FFeedbackContext* FGenericPlatformApplicationMisc::GetFeedbackContext()
 {
-	static FFeedbackContextAnsi Singleton;
-	return &Singleton;
+	return FPlatformOutputDevices::GetFeedbackContext();
 }
 
 GenericApplication* FGenericPlatformApplicationMisc::CreateApplication()

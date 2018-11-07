@@ -61,8 +61,6 @@ FRWBuffer& NiagaraRenderer::GetDummyIntBuffer()
 	return DummyIntBuffer.Buffer;
 }
 
-
-
 NiagaraRenderer::NiagaraRenderer()
 	: CPUTimeMS(0.0f)
 	, bLocalSpace(false)
@@ -299,6 +297,10 @@ bool NiagaraRendererLights::HasDynamicData()
 bool NiagaraRendererLights::SetMaterialUsage()
 {
 	return false;
+}
+
+void NiagaraRendererLights::TransformChanged()
+{
 }
 
 #if WITH_EDITORONLY_DATA

@@ -47,6 +47,14 @@ struct FViewportConfigOptions
 
 	UPROPERTY(config)
 	FName CameraFollowBoneName;
+
+	FViewportConfigOptions()
+		: ViewModeIndex(EViewModeIndex::VMI_Lit)
+		, ViewFOV(53.43)
+		, CameraFollowMode(EAnimationViewportCameraFollowMode::None)
+	{}
+
+	void SetToDefault();
 };
 
 /** Options that should be unique per asset editor (like skeletal mesh or anim sequence editors) */
@@ -56,11 +64,14 @@ struct FAssetEditorOptions
 	GENERATED_BODY()
 
 	FAssetEditorOptions()
-	{}
+	{
+		SetViewportConfigsToDefault();
+	}
 
 	FAssetEditorOptions(const FName& InContext)
 		: Context(InContext)
 	{
+		SetViewportConfigsToDefault();
 	}
 
 	/** the name of the asset editor properties apply to */
@@ -75,6 +86,8 @@ struct FAssetEditorOptions
 	{
 		return InOptions.Context == Context;
 	}
+
+	void SetViewportConfigsToDefault();
 };
 
 UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)
@@ -134,8 +147,11 @@ class UNREALED_API UPersonaOptions : public UObject
 	UPROPERTY(EditAnywhere, config, Category = "Skeleton Tree")
 	bool bHideParentsWhenFiltering;
 
-	UPROPERTY(EditAnywhere, config, Category = "Preview Scene")
+	UPROPERTY(EditAnywhere, config, Category = "Preview Scene|AdditionalMesh")
 	bool bAllowPreviewMeshCollectionsToSelectFromDifferentSkeletons;
+
+	UPROPERTY(EditAnywhere, config, Category = "Preview Scene|AdditionalMesh")
+	bool bAllowPreviewMeshCollectionsToUseCustomAnimBP;
 
 	/** Whether or not Skeletal Mesh Section selection should be enabled by default for the Animation Editor(s)*/
 	UPROPERTY(EditAnywhere, config, Category = "Mesh")

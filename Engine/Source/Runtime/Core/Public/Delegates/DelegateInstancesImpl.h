@@ -76,6 +76,11 @@ public:
 		return (UObject*)UserObjectPtr.Get();
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObjectPtr.Get();
+	}
+
 	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override final
 	{
@@ -227,6 +232,11 @@ public:
 	virtual UObject* GetUObject() const override final
 	{
 		return nullptr;
+	}
+
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObject.Pin().Get();
 	}
 
 	// Deprecated
@@ -405,6 +415,11 @@ public:
 		return nullptr;
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObject;
+	}
+
 	// Deprecated
 	virtual bool HasSameObject( const void* InUserObject ) const override final
 	{
@@ -551,6 +566,11 @@ public:
 	virtual UObject* GetUObject( ) const override final
 	{
 		return (UObject*)UserObject.Get();
+	}
+
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return UserObject.Get();
 	}
 
 	// Deprecated
@@ -705,6 +725,11 @@ public:
 		return nullptr;
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return nullptr;
+	}
+
 	// Deprecated
 	virtual bool HasSameObject( const void* UserObject ) const override final
 	{
@@ -838,6 +863,11 @@ public:
 		return nullptr;
 	}
 
+	virtual const void* GetObjectForTimerManager() const override final
+	{
+		return nullptr;
+	}
+
 	// Deprecated
 	virtual bool HasSameObject(const void* UserObject) const override final
 	{
@@ -924,5 +954,150 @@ public:
 		Super::Execute(Params...);
 
 		return true;
+	}
+};
+
+/**
+ * Implements a weak object delegate binding for C++ functors, e.g. lambdas.
+ */
+template <typename UserClass, typename FuncType, typename FunctorType, typename... VarTypes>
+class TWeakBaseFunctorDelegateInstance;
+
+template <typename UserClass, typename WrappedRetValType, typename... ParamTypes, typename FunctorType, typename... VarTypes>
+class TWeakBaseFunctorDelegateInstance<UserClass, WrappedRetValType(ParamTypes...), FunctorType, VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type(ParamTypes...)>
+{
+public:
+	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
+
+private:
+	static_assert(TAreTypesEqual<FunctorType, typename TRemoveReference<FunctorType>::Type>::Value, "FunctorType cannot be a reference");
+
+	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type(ParamTypes...)> Super;
+	typedef TWeakBaseFunctorDelegateInstance<RetValType(ParamTypes...), FunctorType, VarTypes...>   UnwrappedThisType;
+
+public:
+	TWeakBaseFunctorDelegateInstance(UserClass* InContextObject, const FunctorType& InFunctor, VarTypes... Vars)
+		: ContextObject(InContextObject)
+		, Functor      (InFunctor)
+		, Payload      (Vars...)
+		, Handle       (FDelegateHandle::GenerateNewHandle)
+	{
+	}
+
+	TWeakBaseFunctorDelegateInstance(UserClass* InContextObject, FunctorType&& InFunctor, VarTypes... Vars)
+		: ContextObject(InContextObject)
+		, Functor      (MoveTemp(InFunctor))
+		, Payload      (Vars...)
+		, Handle       (FDelegateHandle::GenerateNewHandle)
+	{
+	}
+
+	// IDelegateInstance interface
+
+#if USE_DELEGATE_TRYGETBOUNDFUNCTIONNAME
+
+	virtual FName TryGetBoundFunctionName() const override final
+	{
+		return NAME_None;
+	}
+
+#endif
+
+	virtual UObject* GetUObject() const override final
+	{
+		return ContextObject.Get();
+	}
+
+	// Deprecated
+	virtual bool HasSameObject(const void* InContextObject) const override final
+	{
+		return GetUObject() == InContextObject;
+	}
+
+	virtual bool IsSafeToExecute() const override final
+	{
+		return ContextObject.IsValid();
+	}
+
+public:
+	// IBaseDelegateInstance interface
+	virtual void CreateCopy(FDelegateBase& Base) override final
+	{
+		new (Base) UnwrappedThisType(*(UnwrappedThisType*)this);
+	}
+
+	virtual RetValType Execute(ParamTypes... Params) const override final
+	{
+		return Payload.ApplyAfter(Functor, Params...);
+	}
+
+	virtual FDelegateHandle GetHandle() const override final
+	{
+		return Handle;
+	}
+
+public:
+	/**
+	 * Creates a new static function delegate binding for the given function pointer.
+	 *
+	 * @param InFunctor C++ functor
+	 * @return The new delegate.
+	 */
+	FORCEINLINE static void Create(FDelegateBase& Base, UserClass* InContextObject, const FunctorType& InFunctor, VarTypes... Vars)
+	{
+		new (Base) UnwrappedThisType(InContextObject, InFunctor, Vars...);
+	}
+	FORCEINLINE static void Create(FDelegateBase& Base, UserClass* InContextObject, FunctorType&& InFunctor, VarTypes... Vars)
+	{
+		new (Base) UnwrappedThisType(InContextObject, MoveTemp(InFunctor), Vars...);
+	}
+
+private:
+	// Context object - the validity of this object controls the validity of the lambda
+	TWeakObjectPtr<UserClass> ContextObject;
+
+	// C++ functor
+	// We make this mutable to allow mutable lambdas to be bound and executed.  We don't really want to
+	// model the Functor as being a direct subobject of the delegate (which would maintain transivity of
+	// const - because the binding doesn't affect the substitutability of a copied delegate.
+	mutable typename TRemoveConst<FunctorType>::Type Functor;
+
+	// Payload member variables, if any.
+	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
+};
+
+template <typename UserClass, typename FunctorType, typename... ParamTypes, typename... VarTypes>
+class TWeakBaseFunctorDelegateInstance<UserClass, void(ParamTypes...), FunctorType, VarTypes...> : public TWeakBaseFunctorDelegateInstance<UserClass, TTypeWrapper<void>(ParamTypes...), FunctorType, VarTypes...>
+{
+	typedef TWeakBaseFunctorDelegateInstance<TTypeWrapper<void>(ParamTypes...), FunctorType, VarTypes...> Super;
+
+public:
+	/**
+	 * Creates and initializes a new instance.
+	 *
+	 * @param InFunctor C++ functor
+	 */
+	TWeakBaseFunctorDelegateInstance(UserClass* InContextObject, const FunctorType& InFunctor, VarTypes... Vars)
+		: Super(InContextObject, InFunctor, Vars...)
+	{
+	}
+
+	TWeakBaseFunctorDelegateInstance(UserClass* InContextObject, FunctorType&& InFunctor, VarTypes... Vars)
+		: Super(InContextObject, MoveTemp(InFunctor), Vars...)
+	{
+	}
+
+	virtual bool ExecuteIfSafe(ParamTypes... Params) const override final
+	{
+		if (Super::IsSafeToExecute())
+		{
+			Super::Execute(Params...);
+			return true;
+		}
+
+		return false;
 	}
 };

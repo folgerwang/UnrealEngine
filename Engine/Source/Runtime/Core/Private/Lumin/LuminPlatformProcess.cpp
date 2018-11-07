@@ -29,9 +29,9 @@ namespace LuminProcess
 			// The common Linux way of using lstat to dynamically discover the length
 			// of the symlink name doesn't work on Lumin. As it returns a zero size
 			// for the link. [RR]
-			char * SelfPath = (char*)FMemory::Malloc(MAX_PATH + 1);
-			FMemory::Memzero(SelfPath, MAX_PATH + 1);
-			if (readlink("/proc/self/exe", SelfPath, MAX_PATH) == -1)
+			char * SelfPath = (char*)FMemory::Malloc(ANDROID_MAX_PATH + 1);
+			FMemory::Memzero(SelfPath, ANDROID_MAX_PATH + 1);
+			if (readlink("/proc/self/exe", SelfPath, ANDROID_MAX_PATH) == -1)
 			{
 				int ErrNo = errno;
 				UE_LOG(LogHAL, Fatal, TEXT("readlink() failed with errno = %d (%s)"), ErrNo,
@@ -40,7 +40,7 @@ namespace LuminProcess
 				return CachedResult;
 			}
 			CachedResult = (TCHAR*)FMemory::Malloc((FCStringAnsi::Strlen(SelfPath) + 1)*sizeof(TCHAR));
-			FCString::Strcpy(CachedResult, MAX_PATH, ANSI_TO_TCHAR(SelfPath));
+			FCString::Strcpy(CachedResult, ANDROID_MAX_PATH, ANSI_TO_TCHAR(SelfPath));
 			FMemory::Free(SelfPath);
 		}
 		return CachedResult;
@@ -80,40 +80,32 @@ void FLuminPlatformProcess::LaunchURL(const TCHAR* URL, const TCHAR* Parms, FStr
 	check(URL);
 	const FString URLWithParams = FString::Printf(TEXT("%s %s"), URL, Parms ? Parms : TEXT("")).TrimEnd();
 
-	MLDispatchPacket* Packet = MLDispatchAllocateEmptyPacket();
+	MLDispatchPacket* Packet = nullptr;
+	MLResult Result = MLDispatchAllocateEmptyPacket(&Packet);
 	if (Packet != nullptr)
 	{
-		bool bSetUri = MLDispatchSetUri(Packet, TCHAR_TO_UTF8(*URLWithParams));
-		if (bSetUri)
+		Result = MLDispatchSetUri(Packet, TCHAR_TO_UTF8(*URLWithParams));
+		if (Result == MLResult_Ok)
 		{
-			MLDispatchErrorCode ErrorCode = MLDispatchTryOpenApplication(Packet);
-			switch(ErrorCode)
+			Result = MLDispatchTryOpenApplication(Packet);
+			if (Result != MLResult_Ok)
 			{
-				case MLDispatchErrorCode_CannotStartApp:
-					UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s - Cannot start app"), *URLWithParams);
-					break;
-				case MLDispatchErrorCode_InvalidPacket:
-					UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s - Invalid packet"), *URLWithParams);
-					break;
-				case MLDispatchErrorCode_NoAppFound:
-					UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s - No app found"), *URLWithParams);
-					break;
-				case MLDispatchErrorCode_Internal:
-					UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s - Internal error"), *URLWithParams);
-					break;
-				default:
-					UE_LOG(LogCore, Display, TEXT("Launching URL %s"), *URLWithParams);					
+				UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s: MLDispatchTryOpenApplication failure: %d"), *URLWithParams, static_cast<int32>(Result));
 			}
 		}
 		else
 		{
-			UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s - could not set URI in dispatch packet"), *URLWithParams);
+			UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s: MLDispatchSetUri failure: %s"), *URLWithParams, static_cast<int32>(Result));
 		}
-		MLDispatchReleasePacket(&Packet, true, false);
+		Result = MLDispatchReleasePacket(&Packet, true, false);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogCore, Error, TEXT("MLDispatchReleasePacket failed: %s"), static_cast<int32>(Result));
+		}
 	}
 	else
 	{
-		UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s - could not allocate dispatch packet"), *URLWithParams);
+		UE_LOG(LogCore, Error, TEXT("Failed to launch URL %s: MLDispatchAllocateEmptyPacket failure: %s"), *URLWithParams, static_cast<int32>(Result));
 	}
 }
 

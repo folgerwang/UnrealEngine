@@ -11,6 +11,7 @@
 #include "Modules/ModuleManager.h"
 #include "DetailLayoutHelpers.h"
 #include "PropertyHandleImpl.h"
+#include "IPropertyGenerationUtilities.h"
 
 class FPropertyRowGeneratorUtilities : public IPropertyUtilities
 {
@@ -88,16 +89,48 @@ private:
 };
 
 
+class FPropertyRowGeneratorGenerationUtilities : public IPropertyGenerationUtilities
+{
+public:
+	FPropertyRowGeneratorGenerationUtilities(FPropertyRowGenerator& InGenerator)
+		: Generator(&InGenerator)
+	{
+	}
+
+	void ResetGenerator()
+	{
+		Generator = nullptr;
+	}
+
+	virtual const FCustomPropertyTypeLayoutMap& GetInstancedPropertyTypeLayoutMap() const override
+	{
+		return Generator->GetInstancedPropertyTypeLayoutMap();
+	}
+
+	virtual void RebuildTreeNodes() override
+	{
+		if (Generator != nullptr)
+		{
+			Generator->UpdateDetailRows();
+		}
+	}
+
+private:
+	FPropertyRowGenerator* Generator;
+};
+
 FPropertyRowGenerator::FPropertyRowGenerator(const FPropertyRowGeneratorArgs& InArgs, TSharedPtr<FAssetThumbnailPool> InThumbnailPool)
 	: Args(InArgs)
 	, ThumbnailPool(InThumbnailPool)
 	, PropertyUtilities(new FPropertyRowGeneratorUtilities(*this))
+	, PropertyGenerationUtilities(new FPropertyRowGeneratorGenerationUtilities(*this))
 {
 }
 
 FPropertyRowGenerator::~FPropertyRowGenerator()
 {
 	StaticCastSharedRef<FPropertyRowGeneratorUtilities>(PropertyUtilities)->ResetGenerator();
+	StaticCastSharedRef<FPropertyRowGeneratorGenerationUtilities>(PropertyGenerationUtilities)->ResetGenerator();
 }
 
 void FPropertyRowGenerator::SetObjects(const TArray<UObject*>& InObjects)
@@ -362,6 +395,11 @@ void FPropertyRowGenerator::PostSetObject()
 	UpdateDetailRows();
 }
 
+const FCustomPropertyTypeLayoutMap& FPropertyRowGenerator::GetInstancedPropertyTypeLayoutMap() const
+{
+	return InstancedTypeToLayoutMap;
+}
+
 void FPropertyRowGenerator::UpdateDetailRows()
 {
 	RootTreeNodes.Reset();
@@ -477,9 +515,8 @@ void FPropertyRowGenerator::UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyN
 	// Reset everything
 	LayoutData.ClassToPropertyMap.Empty();
 
-	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities, nullptr, false));
+	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities, PropertyGenerationUtilities, nullptr, false));
 	DetailLayout->AddNodeVisibilityChangedHandler(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FPropertyRowGenerator::LayoutNodeVisibilityChanged));
-	DetailLayout->SetInstancedPropertyTypeLayoutMap(InstancedTypeToLayoutMap);
 	LayoutData.DetailLayout = DetailLayout;
 
 	TSharedPtr<FComplexPropertyNode> RootPropertyNode = InRootPropertyNode;

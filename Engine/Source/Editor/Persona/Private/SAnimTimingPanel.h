@@ -193,7 +193,7 @@ public:
 
 	// Construct the panel
 	// @param InArgs - Slate arguments
-	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged);
+	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnSectionsChanged);
 
 	// Updates panel widgets
 	void Update();

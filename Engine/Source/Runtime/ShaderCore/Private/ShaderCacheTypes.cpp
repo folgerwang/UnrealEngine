@@ -8,6 +8,7 @@
 #include "ShaderCache.h"
 #include "Serialization/MemoryWriter.h"
 
+
 uint32 FShaderDrawKey::CurrentMaxResources = EShaderCacheMaxNumResources;
 
 FArchive& operator<<( FArchive& Ar, FShaderPlatformCache& Info )

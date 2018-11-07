@@ -238,6 +238,8 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 		}
 	}
 
+	AnimationObject->RetargetSource = Component->SkeletalMesh ? AnimSkeleton->GetRetargetSourceForMesh(Component->SkeletalMesh) : NAME_None;
+
 	// init notifies
 	AnimationObject->InitializeNotifyTrack();
 
@@ -317,26 +319,32 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 					TimesToRecord.SetNum(NumFrames);
 					ValuesToRecord.SetNum(NumFrames);
 
+					bool bSeenThisCurve = false;
 					for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
 					{
 						const float TimeToRecord = FrameIndex*IntervalTime;
-						FCurveElement& CurCurve = RecordedCurves[FrameIndex][CurveIndex];
-						if (FrameIndex == 0)
+						if(RecordedCurves[FrameIndex].IsValidIndex(CurveIndex))
 						{
-							// add one and save the cache
-							FSmartName CurveName;
-							if (SkeletonObj->GetSmartNameByUID(USkeleton::AnimCurveMappingName, CurveUID, CurveName))
+							FCurveElement& CurCurve = RecordedCurves[FrameIndex][CurveIndex];
+							if (!bSeenThisCurve)
 							{
-								// give default curve flag for recording 
-								AnimationObject->RawCurveData.AddFloatCurveKey(CurveName, AACF_DefaultCurve, TimeToRecord, CurCurve.Value);
-								FloatCurveData = static_cast<FFloatCurve*>(AnimationObject->RawCurveData.GetCurveData(CurveUID, ERawCurveTrackTypes::RCT_Float));
-							}
-						}
+								bSeenThisCurve = true;
 
-						if (FloatCurveData)
-						{
-							TimesToRecord[FrameIndex] = TimeToRecord;
-							ValuesToRecord[FrameIndex] = CurCurve.Value;
+								// add one and save the cache
+								FSmartName CurveName;
+								if (SkeletonObj->GetSmartNameByUID(USkeleton::AnimCurveMappingName, CurveUID, CurveName))
+								{
+									// give default curve flag for recording 
+									AnimationObject->RawCurveData.AddFloatCurveKey(CurveName, AACF_DefaultCurve, TimeToRecord, CurCurve.Value);
+									FloatCurveData = static_cast<FFloatCurve*>(AnimationObject->RawCurveData.GetCurveData(CurveUID, ERawCurveTrackTypes::RCT_Float));
+								}
+							}
+
+							if (FloatCurveData)
+							{
+								TimesToRecord[FrameIndex] = TimeToRecord;
+								ValuesToRecord[FrameIndex] = CurCurve.Value;
+							}
 						}
 					}
 
@@ -774,7 +782,7 @@ FAnimationRecorderManager& FAnimationRecorderManager::Get()
 FAnimRecorderInstance::FAnimRecorderInstance()
 	: SkelComp(nullptr)
 	, Recorder(nullptr)
-	, CachedMeshComponentUpdateFlag(EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones)
+	, CachedVisibilityBasedAnimTickOption(EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones)
 	, bCachedEnableUpdateRateOptimizations(false)
 {
 }
@@ -813,10 +821,10 @@ void FAnimRecorderInstance::InitInternal(USkeletalMeshComponent* InComponent, co
 
 		// turn off URO and make sure we always update even if out of view
 		bCachedEnableUpdateRateOptimizations = InComponent->bEnableUpdateRateOptimizations;
-		CachedMeshComponentUpdateFlag = InComponent->MeshComponentUpdateFlag;
+		CachedVisibilityBasedAnimTickOption = InComponent->VisibilityBasedAnimTickOption;
 
 		InComponent->bEnableUpdateRateOptimizations = false;
-		InComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		InComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	}
 }
 
@@ -865,7 +873,7 @@ void FAnimRecorderInstance::FinishRecording(bool bShowMessage)
 
 		// restore update flags
 		SkelComp->bEnableUpdateRateOptimizations = bCachedEnableUpdateRateOptimizations;
-		SkelComp->MeshComponentUpdateFlag = CachedMeshComponentUpdateFlag;
+		SkelComp->VisibilityBasedAnimTickOption = CachedVisibilityBasedAnimTickOption;
 	}
 }
 

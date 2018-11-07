@@ -8,24 +8,16 @@
 
 /** Identifies an attribute in a user profile. */
 UENUM(BlueprintType, meta=(ScriptName="MagicLeapIdentityAttributeType"))
-enum class EMagicLeapIdentityAttribute : uint8
+enum class EMagicLeapIdentityKey : uint8
 {
-	UserID,
 	GivenName,
 	FamilyName,
 	Email,
-	Status,
-	TermsAccepted,
-	Birthday,
-	Company,
-	Industry,
-	Location,
-	Tagline,
+	Bio,
 	PhoneNumber,
 	Avatar2D,
 	Avatar3D,
-	IsDeveloper,
-	Unknown
+	Unknown,
 };
 
 /** List of possible errors when calling the Identity functions. */
@@ -33,13 +25,23 @@ UENUM(BlueprintType)
 enum class EMagicLeapIdentityError : uint8
 {
 	Ok,
+	InvalidParam,
+	AllocFailed,
+	PrivilegeDenied,
 	FailedToConnectToLocalService,
 	FailedToConnectToCloudService,
 	CloudAuthentication,
 	InvalidInformationFromCloud,
-	InvalidArgument,
-	AsyncOperationNotComplete,
-	OtherError
+	NotLoggedIn,
+	ExpiredCredentials,
+	FailedToGetUserProfile,
+	Unauthorized,
+	CertificateError,
+	RejectedByCloud,
+	AlreadyLoggedIn,
+	ModifyIsNotSupported,
+	NetworkError,
+	UnspecifiedFailure,
 };
 
 /** Represents an attribute and its value of a user's profile. */
@@ -50,15 +52,16 @@ struct FMagicLeapIdentityAttribute
 
 public:
 	FMagicLeapIdentityAttribute()
+		: Attribute(EMagicLeapIdentityKey::GivenName)
 	{}
 
-	FMagicLeapIdentityAttribute(EMagicLeapIdentityAttribute attribute, const FString& value)
+	FMagicLeapIdentityAttribute(EMagicLeapIdentityKey attribute, const FString& value)
 		: Attribute(attribute)
 		, Value(value)
 	{}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity|MagicLeap")
-	EMagicLeapIdentityAttribute Attribute;
+	EMagicLeapIdentityKey Attribute;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Identity|MagicLeap")
 	FString Value;

@@ -47,6 +47,7 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;
@@ -70,8 +71,8 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemFacebookCommon();
-	FOnlineSubsystemFacebookCommon(FName InInstanceName);
+	FOnlineSubsystemFacebookCommon() = delete;
+	explicit FOnlineSubsystemFacebookCommon(FName InInstanceName);
 
 protected:
 

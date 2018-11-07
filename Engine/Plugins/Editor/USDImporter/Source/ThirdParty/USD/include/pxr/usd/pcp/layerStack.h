@@ -36,6 +36,7 @@
 
 #include <boost/noncopyable.hpp>
 #include <iosfwd>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -92,6 +93,11 @@ public:
     PCP_API
     const SdfLayerOffset* GetLayerOffsetForLayer(const SdfLayerHandle&) const;
 
+    /// Return the layer offset for the given layer, or NULL if the layer
+    /// can't be found or is the identity.
+    PCP_API
+    const SdfLayerOffset* GetLayerOffsetForLayer(const SdfLayerRefPtr&) const;
+    
     /// Returns the layer offset for the layer at the given index in this
     /// layer stack. Returns NULL if the offset is the identity.
     PCP_API
@@ -120,12 +126,40 @@ public:
     bool HasLayer(const SdfLayerRefPtr& layer) const;
 
     /// Returns relocation source-to-target mapping for this layer stack.
+    ///
+    /// This map combines the individual relocation entries found across
+    /// all layers in this layer stack; multiple entries that affect a single
+    /// prim will be combined into a single entry. For instance, if this
+    /// layer stack contains relocations { /A: /B } and { /A/C: /A/D }, this
+    /// map will contain { /A: /B } and { /B/C: /B/D }. This allows consumers
+    /// to go from unrelocated namespace to relocated namespace in a single
+    /// step.
     PCP_API
     const SdfRelocatesMap& GetRelocatesSourceToTarget() const;
 
     /// Returns relocation target-to-source mapping for this layer stack.
+    ///
+    /// See GetRelocatesSourceToTarget for more details.
     PCP_API
     const SdfRelocatesMap& GetRelocatesTargetToSource() const;
+
+    /// Returns incremental relocation source-to-target mapping for this layer 
+    /// stack.
+    ///
+    /// This map contains the individual relocation entries found across
+    /// all layers in this layer stack; it does not combine ancestral
+    /// entries with descendant entries. For instance, if this
+    /// layer stack contains relocations { /A: /B } and { /A/C: /A/D }, this
+    /// map will contain { /A: /B } and { /A/C: /A/D }.
+    PCP_API
+    const SdfRelocatesMap& GetIncrementalRelocatesSourceToTarget() const;
+
+    /// Returns incremental relocation target-to-source mapping for this layer 
+    /// stack.
+    ///
+    /// See GetIncrementalRelocatesTargetToSource for more details.
+    PCP_API
+    const SdfRelocatesMap& GetIncrementalRelocatesTargetToSource() const;
 
     /// Returns a list of paths to all prims across all layers in this 
     /// layer stack that contained relocates.
@@ -217,7 +251,7 @@ private:
     std::vector<PcpMapFunction> _mapFunctions;
 
     /// The tree structure of the layer stack.
-    /// Stored separately because this is needed only ocassionally.
+    /// Stored separately because this is needed only occasionally.
     SdfLayerTreeHandle _layerTree;
 
     /// Tracks information used to compute sublayer asset paths.
@@ -247,11 +281,13 @@ private:
 
     /// The errors, if any, discovered while computing this layer stack.
     /// NULL if no errors were found (the expected common case).
-    boost::scoped_ptr<PcpErrorVector> _localErrors;
+    std::unique_ptr<PcpErrorVector> _localErrors;
 
     /// Pre-computed table of local relocates.
     SdfRelocatesMap _relocatesSourceToTarget;
     SdfRelocatesMap _relocatesTargetToSource;
+    SdfRelocatesMap _incrementalRelocatesSourceToTarget;
+    SdfRelocatesMap _incrementalRelocatesTargetToSource;
 
     /// A map of PcpMapExpressions::Variable instances used to represent
     /// the current value of relocations given out by
@@ -276,10 +312,13 @@ std::ostream& operator<<(std::ostream&, const PcpLayerStackRefPtr&);
 /// putting the results into the given sourceToTarget and targetToSource
 /// maps.
 void
-Pcp_ComputeRelocationsForLayerStack( const SdfLayerRefPtrVector & layers,
-                                     SdfRelocatesMap *relocatesSourceToTarget,
-                                     SdfRelocatesMap *relocatesTargetToSource,
-                                     SdfPathVector *relocatesPrimPaths);
+Pcp_ComputeRelocationsForLayerStack(
+    const SdfLayerRefPtrVector & layers,
+    SdfRelocatesMap *relocatesSourceToTarget,
+    SdfRelocatesMap *relocatesTargetToSource,
+    SdfRelocatesMap *incrementalRelocatesSourceToTarget,
+    SdfRelocatesMap *incrementalRelocatesTargetToSource,
+    SdfPathVector *relocatesPrimPaths);
 
 // Returns true if \p layerStack should be recomputed due to changes to
 // any computed asset paths that were used to find or open layers

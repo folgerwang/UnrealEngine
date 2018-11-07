@@ -114,7 +114,7 @@ The **Layered blend per bone** node performs a masked blend that only affects a 
 
 The **Slot** node plays the resultant animation from a given animation slot. 
 
-[INCLUDE:Engine/Animation/AnimMontage#slots]
+
 
 For more details on using Slots with the Animation Montage system, please see [](Engine/Animation/AnimMontage).
 

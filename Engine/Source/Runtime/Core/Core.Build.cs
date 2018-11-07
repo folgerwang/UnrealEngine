@@ -75,7 +75,7 @@ public class Core : ModuleRules
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib"
 				);
-			PublicFrameworks.AddRange(new string[] { "UIKit", "Foundation", "AudioToolbox", "AVFoundation", "GameKit", "StoreKit", "CoreVideo", "CoreMedia", "CoreGraphics", "GameController", "SystemConfiguration", "DeviceCheck" });
+			PublicFrameworks.AddRange(new string[] { "UIKit", "Foundation", "AudioToolbox", "AVFoundation", "GameKit", "StoreKit", "CoreVideo", "CoreMedia", "CoreGraphics", "GameController", "SystemConfiguration", "DeviceCheck", "UserNotifications" });
 			if (Target.Platform == UnrealTargetPlatform.IOS)
 			{
 				PublicFrameworks.AddRange(new string[] { "CoreMotion", "AdSupport", "WebKit" });
@@ -104,8 +104,7 @@ public class Core : ModuleRules
 			PublicIncludePaths.Add(string.Format("Runtime/Core/Public/{0}", Target.Platform.ToString()));
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib",
-				"jemalloc",
-				"elftoolchain"
+				"jemalloc"
                 );
 
 			// Core uses dlopen()

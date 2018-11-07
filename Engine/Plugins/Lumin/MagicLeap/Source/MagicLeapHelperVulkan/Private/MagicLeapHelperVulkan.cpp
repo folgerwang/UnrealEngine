@@ -12,6 +12,10 @@
 #include "VulkanUtil.h"
 #endif
 
+#if PLATFORM_LUMIN
+#include <ml_graphics_utils.h>
+#endif //PLATFORM_LUMIN
+
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeapHelperVulkan, Display, All);
 
 class FMagicLeapHelperVulkanPlugin : public IMagicLeapHelperVulkanPlugin
@@ -121,8 +125,7 @@ uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uin
 	VkImageCreateInfo ImageCreateInfo;
 
 	// This must match the RenderTargetTexture image other than format, which we are aliasing as srgb to match the output of the tonemapper.
-	FMemory::Memzero(ImageCreateInfo);
-	ImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	ZeroVulkanStruct(ImageCreateInfo, VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
 	ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
 	ImageCreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
 	ImageCreateInfo.extent.width = Width;
@@ -153,5 +156,132 @@ uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uin
 	return (uint64)Result;
 #else
 	return 0;
+#endif
+}
+
+bool FMagicLeapHelperVulkan::GetVulkanDeviceExtensionsRequired(VkPhysicalDevice_T* pPhysicalDevice, TArray<const ANSICHAR*>& Out)
+{
+#if PLATFORM_LUMIN
+	// Get the extensions supported by the device through the RHI
+	TArray<VkExtensionProperties> Properties;
+	{
+		uint32_t PropertyCount;
+		VulkanRHI::vkEnumerateDeviceExtensionProperties((VkPhysicalDevice) pPhysicalDevice, nullptr, &PropertyCount, nullptr);
+		Properties.SetNum(PropertyCount);
+		VulkanRHI::vkEnumerateDeviceExtensionProperties((VkPhysicalDevice) pPhysicalDevice, nullptr, &PropertyCount, Properties.GetData());
+	}
+
+	// Get the extensions required by ML
+	TArray<VkExtensionProperties> RequiredExtensions;
+	{
+		uint32_t PropertyCount = 0;
+		MLGraphicsEnumerateRequiredVkDeviceExtensionsForMediaHandleImport(nullptr, &PropertyCount);
+		RequiredExtensions.SetNum(PropertyCount);
+		MLGraphicsEnumerateRequiredVkDeviceExtensionsForMediaHandleImport(RequiredExtensions.GetData(), &PropertyCount);
+	}
+
+	int32 ExtensionsFound = 0;
+	for (int32 ExtensionIndex = 0; ExtensionIndex < RequiredExtensions.Num(); ExtensionIndex++)
+	{
+		for (int32 PropertyIndex = 0; PropertyIndex < Properties.Num(); PropertyIndex++)
+		{
+			if (!FCStringAnsi::Strcmp(Properties[PropertyIndex].extensionName, RequiredExtensions[ExtensionIndex].extensionName))
+			{
+				ANSICHAR* const FoundExtensionName = (ANSICHAR*)FMemory::Malloc(VK_MAX_EXTENSION_NAME_SIZE);
+				FMemory::Memcpy(FoundExtensionName, RequiredExtensions[ExtensionIndex].extensionName, VK_MAX_EXTENSION_NAME_SIZE);
+				Out.Add(FoundExtensionName);
+				ExtensionsFound++;
+				break;
+			}
+		}
+	}
+
+	const bool bFoundRequiredExtensions = (ExtensionsFound == RequiredExtensions.Num());
+	GSupportsImageExternal = bFoundRequiredExtensions; // This should probably be set by the vk rhi if the needed extensions are supported VK_KHR_external_memory?
+	return bFoundRequiredExtensions;
+#endif //PLATFORM_LUMIN
+
+	return true;
+}
+
+bool FMagicLeapHelperVulkan::GetMediaTexture(FTextureRHIRef& ResultTexture, FSamplerStateRHIRef& SamplerResult, const uint64 MediaTextureHandle)
+{
+#if PLATFORM_LUMIN
+	FVulkanDynamicRHI* const RHI = (FVulkanDynamicRHI*)GDynamicRHI;
+	FVulkanDevice* const Device = RHI->GetDevice();
+	MLGraphicsImportedMediaSurface MediaSurface; 
+
+
+	const MLResult Result = MLGraphicsImportVkImageFromMediaHandle(Device->GetInstanceHandle(), MediaTextureHandle, &MediaSurface);
+	if (Result != MLResult_Ok)
+	{
+		return false;
+	}
+
+	VkImageMemoryBarrier ImageBarrier;
+	FMemory::Memzero(&ImageBarrier, sizeof(VkImageMemoryBarrier));
+	ImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	ImageBarrier.pNext = nullptr;
+	ImageBarrier.srcAccessMask = 0;
+	ImageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	ImageBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	ImageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	ImageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	ImageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	ImageBarrier.image = MediaSurface.imported_image;
+	ImageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ImageBarrier.subresourceRange.baseMipLevel = 0;
+	ImageBarrier.subresourceRange.levelCount = 1;
+	ImageBarrier.subresourceRange.baseArrayLayer = 0;
+	ImageBarrier.subresourceRange.layerCount = 1;
+
+	FVulkanCommandListContext& ImmediateContext = Device->GetImmediateContext();
+	FVulkanCmdBuffer* CmdBuffer = ImmediateContext.GetCommandBufferManager()->GetUploadCmdBuffer();
+	VulkanRHI::vkCmdPipelineBarrier(
+		CmdBuffer->GetHandle(),
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		&ImageBarrier);
+
+	FSamplerYcbcrConversionInitializer ConversionInitializer;
+	FMemory::Memzero(&ConversionInitializer, sizeof(FSamplerYcbcrConversionInitializer));
+	ConversionInitializer.Format = MediaSurface.format;
+	ConversionInitializer.ExternalFormat = MediaSurface.external_format;
+
+	ConversionInitializer.Components.a = MediaSurface.sampler_ycbcr_conversion_components.a;
+	ConversionInitializer.Components.r = MediaSurface.sampler_ycbcr_conversion_components.r;
+	ConversionInitializer.Components.g = MediaSurface.sampler_ycbcr_conversion_components.g;
+	ConversionInitializer.Components.b = MediaSurface.sampler_ycbcr_conversion_components.b;
+
+	ConversionInitializer.Model = MediaSurface.suggested_ycbcr_model;
+	ConversionInitializer.Range = MediaSurface.suggested_ycbcr_range;
+	ConversionInitializer.XOffset = MediaSurface.suggested_x_chroma_offset;
+	ConversionInitializer.YOffset = MediaSurface.suggested_y_chroma_offset;
+
+	ResultTexture = RHI->RHICreateTexture2DFromResource(PF_B8G8R8A8, 1, 1, 1, 1, MediaSurface.imported_image, ConversionInitializer, 0);
+
+	// Create a single sampler for the associated media player
+	if (SamplerResult == nullptr)
+	{
+		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
+		SamplerResult = RHI->RHICreateSamplerState(SamplerStateInitializer, ConversionInitializer);
+	}
+
+	return true;
+#endif //PLATFORM_LUMIN
+	return false;
+}
+
+void FMagicLeapHelperVulkan::AliasMediaTexture(FTextureRHIParamRef DestTexture, FTextureRHIParamRef SrcTexture)
+{
+#if PLATFORM_LUMIN
+	FVulkanDynamicRHI* const RHI = (FVulkanDynamicRHI*)GDynamicRHI;
+	RHI->RHIAliasTextureResources(DestTexture, SrcTexture);
 #endif
 }

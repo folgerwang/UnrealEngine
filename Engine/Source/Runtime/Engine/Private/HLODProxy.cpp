@@ -326,13 +326,16 @@ FName UHLODProxy::GenerateKeyForActor(const ALODActor* LODActor)
 					for(int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
 					{
 						UMaterialInterface* MaterialInterface = StaticMeshComponent->GetMaterial(MaterialIndex);
-						CRC = GetCRC(MaterialInterface, CRC);
-
-						TArray<UTexture*> Textures;
-						MaterialInterface->GetUsedTextures(Textures, EMaterialQualityLevel::High, true, ERHIFeatureLevel::SM5, true);
-						for(UTexture* Texture : Textures)
+						if (MaterialInterface)
 						{
-							CRC = GetCRC(Texture, CRC);
+							CRC = GetCRC(MaterialInterface, CRC);
+
+							TArray<UTexture*> Textures;
+							MaterialInterface->GetUsedTextures(Textures, EMaterialQualityLevel::High, true, ERHIFeatureLevel::SM5, true);
+							for (UTexture* Texture : Textures)
+							{
+								CRC = GetCRC(Texture, CRC);
+							}
 						}
 					}
 				}
@@ -367,7 +370,17 @@ FName UHLODProxy::GenerateKeyForActor(const ALODActor* LODActor)
 bool UHLODProxy::ContainsDataForActor(const ALODActor* InLODActor) const
 {
 #if WITH_EDITOR
-	FName Key = GenerateKeyForActor(InLODActor);
+	FName Key;
+
+	// Only re-generate the key in non-PIE worlds
+	if(InLODActor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
+	{
+		Key = InLODActor->GetKey();
+	}
+	else
+	{
+		Key = GenerateKeyForActor(InLODActor);
+	}
 #else
 	FName Key = InLODActor->GetKey();
 #endif

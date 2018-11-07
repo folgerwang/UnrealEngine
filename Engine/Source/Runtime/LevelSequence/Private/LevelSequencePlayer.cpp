@@ -109,6 +109,7 @@ void ULevelSequencePlayer::OnStopped()
 		}
 	}
 	PrerequisiteActors.Reset();
+	LastViewTarget.Reset();
 }
 
 /* IMovieScenePlayer interface
@@ -222,6 +223,12 @@ void ULevelSequencePlayer::NotifyBindingUpdate(const FGuid& InGuid, FMovieSceneS
 	{
 		if (AActor* Actor = Cast<AActor>(WeakObject.Get()))
 		{
+			
+			if (Actor == LevelSequenceActor)
+			{
+				continue;
+			}
+
 			for (UActorComponent* Component : Actor->GetComponents())
 			{
 				if (Component)
@@ -350,6 +357,17 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 			OutSnapshot.CurrentShotName = ActiveShot->GetShotDisplayName();
 			OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(InnerDisplayTime, InnerFrameRate);
 			OutSnapshot.ShotID = ActiveShot->GetSequenceID();
+
+#if WITH_EDITORONLY_DATA
+			FFrameNumber  InnerFrameNumber = InnerFrameRate.AsFrameNumber(InnerFrameRate.AsSeconds(InnerDisplayTime));
+			FFrameNumber  InnerStartFrameNumber = ActiveShot->TimecodeSource.Timecode.ToFrameNumber(InnerFrameRate);
+			FFrameNumber  InnerCurrentFrameNumber = InnerStartFrameNumber + InnerFrameNumber;
+			FTimecode     InnerCurrentTimecode = ActiveShot->TimecodeSource.Timecode.FromFrameNumber(InnerCurrentFrameNumber, InnerFrameRate, false);
+
+			OutSnapshot.SourceTimecode = InnerCurrentTimecode.ToString();
+#else
+			OutSnapshot.SourceTimecode = FTimecode().ToString();
+#endif
 		}
 	}
 }

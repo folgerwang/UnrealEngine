@@ -220,6 +220,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Float)"))
 	void SetNiagaraVariableFloat(const FString& InVariableName, float InValue);
 
+	/** Sets a Niagara int parameter by name, overriding locally if necessary.*/
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Int32)"))
+	void SetNiagaraVariableInt(const FString& InVariableName, int32 InValue);
+
 	/** Sets a Niagara float parameter by name, overriding locally if necessary.*/
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Bool)"))
 	void SetNiagaraVariableBool(const FString& InVariableName, bool InValue);
@@ -262,6 +266,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara)
 	void AdvanceSimulationByTime(float SimulateTime, float TickDeltaSeconds);
 
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	void SetPaused(bool bInPaused);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	bool IsPaused()const;
+
 	//~ Begin UObject Interface.
 	virtual void PostLoad();
 #if WITH_EDITOR
@@ -270,7 +280,7 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 	bool IsParameterValueOverriddenLocally(const FName& InParamName);
-	void SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverridden);
+	void SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverridden, bool bRequiresSystemInstanceReset);
 	
 	FOnSystemInstanceChanged& OnSystemInstanceChanged() { return OnSystemInstanceChangedDelegate; }
 

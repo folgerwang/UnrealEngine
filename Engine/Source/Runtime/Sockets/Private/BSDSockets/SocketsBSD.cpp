@@ -2,7 +2,7 @@
 
 #include "BSDSockets/SocketsBSD.h"
 
-#if PLATFORM_HAS_BSD_SOCKETS
+#if PLATFORM_HAS_BSD_SOCKETS || PLATFORM_HAS_BSD_IPV6_SOCKETS
 
 #include "BSDSockets/IPAddressBSD.h"
 #include "BSDSockets/SocketSubsystemBSD.h"
@@ -15,6 +15,42 @@
 
 /* FSocket overrides
  *****************************************************************************/
+
+bool FSocketBSD::Shutdown(ESocketShutdownMode Mode)
+{
+	int InternalMode = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	// Windows uses different constants than POSIX
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SD_RECEIVE;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SD_SEND;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SD_BOTH;
+			break;
+	}
+#else
+	switch (Mode)
+	{
+		case ESocketShutdownMode::Read:
+			InternalMode = SHUT_RD;
+			break;
+		case ESocketShutdownMode::Write:
+			InternalMode = SHUT_WR;
+			break;
+		case ESocketShutdownMode::ReadWrite:
+			InternalMode = SHUT_RDWR;
+			break;
+	}
+#endif
+
+	return shutdown(Socket, InternalMode) == 0;
+}
 
 bool FSocketBSD::Close(void)
 {
@@ -30,13 +66,15 @@ bool FSocketBSD::Close(void)
 
 bool FSocketBSD::Bind(const FInternetAddr& Addr)
 {
-	return bind(Socket, (sockaddr*)(FInternetAddrBSD&)Addr, sizeof(sockaddr_in)) == 0;
+	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(Addr);
+	return bind(Socket, (const sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize()) == 0;
 }
 
 
 bool FSocketBSD::Connect(const FInternetAddr& Addr)
 {
-	int32 Return = connect(Socket, (sockaddr*)(FInternetAddrBSD&)Addr, sizeof(sockaddr_in));
+	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(Addr);
+	int32 Return = connect(Socket, (const sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize());
 	
 	check(SocketSubsystem);
 	ESocketErrors Error = SocketSubsystem->TranslateErrorCode(Return);
@@ -110,8 +148,9 @@ FSocket* FSocketBSD::Accept(const FString& InSocketDescription)
 
 FSocket* FSocketBSD::Accept(FInternetAddr& OutAddr, const FString& InSocketDescription)
 {
-	SOCKLEN SizeOf = sizeof(sockaddr_in);
-	SOCKET NewSocket = accept(Socket, *(FInternetAddrBSD*)(&OutAddr), &SizeOf);
+	FInternetAddrBSD& BSDAddr = static_cast<FInternetAddrBSD&>(OutAddr);
+	SOCKLEN SizeOf = sizeof(sockaddr_storage);
+	SOCKET NewSocket = accept(Socket, (sockaddr*)&(BSDAddr.Addr), &SizeOf);
 
 	if (NewSocket != INVALID_SOCKET)
 	{
@@ -127,15 +166,16 @@ FSocket* FSocketBSD::Accept(FInternetAddr& OutAddr, const FString& InSocketDescr
 
 bool FSocketBSD::SendTo(const uint8* Data, int32 Count, int32& BytesSent, const FInternetAddr& Destination)
 {
+	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(Destination);
 	// Write the data and see how much was written
-	BytesSent = sendto(Socket, (const char*)Data, Count, 0, (FInternetAddrBSD&)Destination, sizeof(sockaddr_in));
+	BytesSent = sendto(Socket, (const char*)Data, Count, 0, (const sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize());
 
 //	NETWORK_PROFILER(FSocket::SendTo(Data,Count,BytesSent,Destination));
 
 	bool Result = BytesSent >= 0;
 	if (Result)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 	return Result;
 }
@@ -150,7 +190,7 @@ bool FSocketBSD::Send(const uint8* Data, int32 Count, int32& BytesSent)
 	bool Result = BytesSent >= 0;
 	if (Result)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 	return Result;
 }
@@ -161,11 +201,12 @@ bool FSocketBSD::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInte
 	bool bSuccess = false;
 	const bool bStreamSocket = (SocketType == SOCKTYPE_Streaming);
 	const int TranslatedFlags = TranslateFlags(Flags);
-	SOCKLEN Size = sizeof(sockaddr_in);
-	sockaddr& Addr = *(FInternetAddrBSD&)Source;
+	FInternetAddrBSD& BSDAddr = static_cast<FInternetAddrBSD&>(Source);
+	SOCKLEN Size = sizeof(sockaddr_storage);
+	sockaddr* Addr = (sockaddr*)&(BSDAddr.Addr);
 
 	// Read into the buffer and set the source address
-	BytesRead = recvfrom(Socket, (char*)Data, BufferSize, TranslatedFlags, &Addr, &Size);
+	BytesRead = recvfrom(Socket, (char*)Data, BufferSize, TranslatedFlags, Addr, &Size);
 //	NETWORK_PROFILER(FSocket::RecvFrom(Data,BufferSize,BytesRead,Source));
 
 	if (BytesRead >= 0)
@@ -182,7 +223,7 @@ bool FSocketBSD::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInte
 
 	if (bSuccess)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 
 	return bSuccess;
@@ -212,7 +253,7 @@ bool FSocketBSD::Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketRe
 
 	if (bSuccess)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		LastActivityTime = FPlatformTime::Seconds();
 	}
 
 	return bSuccess;
@@ -248,7 +289,7 @@ ESocketConnectionState FSocketBSD::GetConnectionState(void)
 	// look for an existing error
 	if (HasState(ESocketBSDParam::HasError) == ESocketBSDReturn::No)
 	{
-		if (FDateTime::UtcNow() - LastActivityTime > FTimespan::FromSeconds(5))
+		if (FPlatformTime::Seconds() - LastActivityTime > 5.0)
 		{
 			// get the write state
 			ESocketBSDReturn WriteState = HasState(ESocketBSDParam::CanWrite, FTimespan::FromMilliseconds(1));
@@ -258,7 +299,7 @@ ESocketConnectionState FSocketBSD::GetConnectionState(void)
 			if (WriteState == ESocketBSDReturn::Yes || ReadState == ESocketBSDReturn::Yes)
 			{
 				CurrentState = SCS_Connected;
-				LastActivityTime = FDateTime::UtcNow();
+				LastActivityTime = FPlatformTime::Seconds();
 			}
 			else if (WriteState == ESocketBSDReturn::No && ReadState == ESocketBSDReturn::No)
 			{
@@ -277,11 +318,11 @@ ESocketConnectionState FSocketBSD::GetConnectionState(void)
 
 void FSocketBSD::GetAddress(FInternetAddr& OutAddr)
 {
-	FInternetAddrBSD& Addr = (FInternetAddrBSD&)OutAddr;
-	SOCKLEN Size = sizeof(sockaddr_in);
+	FInternetAddrBSD& BSDAddr = static_cast<FInternetAddrBSD&>(OutAddr);
+	SOCKLEN Size = sizeof(sockaddr_storage);
 
 	// Figure out what ip/port we are bound to
-	bool bOk = getsockname(Socket, Addr, &Size) == 0;
+	bool bOk = getsockname(Socket, (sockaddr*)&BSDAddr.Addr, &Size) == 0;
 
 	if (bOk == false)
 	{
@@ -293,11 +334,11 @@ void FSocketBSD::GetAddress(FInternetAddr& OutAddr)
 
 bool FSocketBSD::GetPeerAddress(FInternetAddr& OutAddr)
 {
-	FInternetAddrBSD& Addr = (FInternetAddrBSD&)OutAddr;
-	SOCKLEN Size = sizeof(sockaddr_in);
+	FInternetAddrBSD& BSDAddr = static_cast<FInternetAddrBSD&>(OutAddr);
+	SOCKLEN Size = sizeof(sockaddr_storage);
 
 	// Figure out what ip/port we are bound to
-	int Result = getpeername(Socket, Addr, &Size);
+	int Result = getpeername(Socket, (sockaddr*)&BSDAddr.Addr, &Size);
 
 	if (Result != 0)
 	{
@@ -339,34 +380,64 @@ bool FSocketBSD::SetBroadcast(bool bAllowBroadcast)
 
 bool FSocketBSD::JoinMulticastGroup(const FInternetAddr& GroupAddress)
 {
+	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(GroupAddress);
+
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	if (BSDAddr.GetProtocolFamily() == ESocketProtocolFamily::IPv6)
+	{
+		ipv6_mreq imr;
+		imr.ipv6mr_interface = 0;
+		imr.ipv6mr_multiaddr = ((sockaddr_in6*)&(BSDAddr.Addr))->sin6_addr;
+		return (setsockopt(Socket, IPPROTO_IPV6, IP_ADD_MEMBERSHIP, (char*)&imr, sizeof(imr)) == 0);
+	}
+#endif
+
 	ip_mreq imr;
-
 	imr.imr_interface.s_addr = INADDR_ANY;
-	imr.imr_multiaddr = ((sockaddr_in*)&**((FInternetAddrBSD*)(&GroupAddress)))->sin_addr;
-
+	imr.imr_multiaddr = ((sockaddr_in*)&(BSDAddr.Addr))->sin_addr;
 	return (setsockopt(Socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&imr, sizeof(imr)) == 0);
 }
 
 
 bool FSocketBSD::LeaveMulticastGroup(const FInternetAddr& GroupAddress)
 {
+	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(GroupAddress);
+
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	if (BSDAddr.GetProtocolFamily() == ESocketProtocolFamily::IPv6)
+	{
+		ipv6_mreq imr;
+		imr.ipv6mr_interface = 0;
+		imr.ipv6mr_multiaddr = ((sockaddr_in6*)&(BSDAddr.Addr))->sin6_addr;
+		return (setsockopt(Socket, IPPROTO_IPV6, IP_DROP_MEMBERSHIP, (char*)&imr, sizeof(imr)) == 0);
+	}
+#endif
+
 	ip_mreq imr;
-
 	imr.imr_interface.s_addr = INADDR_ANY;
-	imr.imr_multiaddr = ((sockaddr_in*)&**((FInternetAddrBSD*)(&GroupAddress)))->sin_addr;
-
+	imr.imr_multiaddr = ((sockaddr_in*)&(BSDAddr.Addr))->sin_addr;
 	return (setsockopt(Socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char*)&imr, sizeof(imr)) == 0);
 }
 
 
 bool FSocketBSD::SetMulticastLoopback(bool bLoopback)
 {
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	bool IPv6Loop = bLoopback;
+	setsockopt(Socket, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char*)&IPv6Loop, sizeof(IPv6Loop));
+#endif
+
 	return (setsockopt(Socket, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&bLoopback, sizeof(bLoopback)) == 0);
 }
 
 
 bool FSocketBSD::SetMulticastTtl(uint8 TimeToLive)
 {
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	uint8 IPv6TTL = TimeToLive;
+	setsockopt(Socket, IPPROTO_IPV6, IP_MULTICAST_TTL, (char*)&IPv6TTL, sizeof(IPv6TTL));
+#endif
+
 	return (setsockopt(Socket, IPPROTO_IP, IP_MULTICAST_TTL, (char*)&TimeToLive, sizeof(TimeToLive)) == 0);
 }
 
@@ -374,7 +445,14 @@ bool FSocketBSD::SetMulticastTtl(uint8 TimeToLive)
 bool FSocketBSD::SetReuseAddr(bool bAllowReuse)
 {
 	int Param = bAllowReuse ? 1 : 0;
-	return setsockopt(Socket,SOL_SOCKET,SO_REUSEADDR,(char*)&Param,sizeof(Param)) == 0;
+	int ReuseAddrResult = setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, (char*)&Param, sizeof(Param));
+#ifdef SO_REUSEPORT // Linux kernel 3.9+ and FreeBSD define this separately
+	if (ReuseAddrResult == 0)
+	{
+		return setsockopt(Socket, SOL_SOCKET, SO_REUSEPORT, (char *)&Param, sizeof(Param)) == 0;
+	}
+#endif
+	return ReuseAddrResult == 0;
 }
 
 
@@ -422,9 +500,8 @@ bool FSocketBSD::SetReceiveBufferSize(int32 Size,int32& NewSize)
 
 int32 FSocketBSD::GetPortNo(void)
 {
-	sockaddr_in Addr;
-
-	SOCKLEN Size = sizeof(sockaddr_in);
+	sockaddr_storage Addr;
+	SOCKLEN Size = sizeof(sockaddr_storage);
 
 	// Figure out what ip/port we are bound to
 	bool bOk = getsockname(Socket, (sockaddr*)&Addr, &Size) == 0;
@@ -437,8 +514,33 @@ int32 FSocketBSD::GetPortNo(void)
 		return 0;
 	}
 
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	if (Addr.ss_family == AF_INET6)
+	{
+		return ntohs(((sockaddr_in6&)Addr).sin6_port);
+	}
+#endif
+
 	// Convert big endian port to native endian port.
-	return ntohs(Addr.sin_port);
+	return ntohs(((sockaddr_in&)Addr).sin_port);
+}
+
+bool FSocketBSD::SetIPv6Only(bool bIPv6Only)
+{
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	int v6only = bIPv6Only ? 1 : 0;
+	bool bOk = setsockopt(Socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&v6only, sizeof(v6only)) == 0;
+
+	if (bOk == false)
+	{
+		check(SocketSubsystem);
+		UE_LOG(LogSockets, Error, TEXT("Failed to set sock opt for socket (%s)"), SocketSubsystem->GetSocketError());
+	}
+
+	return bOk;
+#else 
+	return false;
+#endif
 }
 
 
@@ -459,20 +561,22 @@ ESocketBSDReturn FSocketBSD::HasState(ESocketBSDParam State, FTimespan WaitTime)
 	FD_ZERO(&SocketSet);
 	FD_SET(Socket, &SocketSet);
 
+	timeval* TimePointer = WaitTime.GetTicks() >= 0 ? &Time : nullptr;
+
 	// Check the status of the state
 	int32 SelectStatus = 0;
 	switch (State)
 	{
 	case ESocketBSDParam::CanRead:
-		SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, &Time);
+		SelectStatus = select(Socket + 1, &SocketSet, NULL, NULL, TimePointer);
 		break;
 
 	case ESocketBSDParam::CanWrite:
-		SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, &Time);
+		SelectStatus = select(Socket + 1, NULL, &SocketSet, NULL, TimePointer);
 		break;
 
 	case ESocketBSDParam::HasError:
-		SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, &Time);
+		SelectStatus = select(Socket + 1, NULL, NULL, &SocketSet, TimePointer);
 		break;
 	}
 

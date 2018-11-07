@@ -44,13 +44,13 @@ UObject* FSlateSound::GetResourceObject( ) const
 }
 
 
-bool FSlateSound::SerializeFromMismatchedTag( FPropertyTag const& Tag, FArchive& Ar )
+bool FSlateSound::SerializeFromMismatchedTag(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	// Sounds in Slate used to be stored as FName properties, so allow them to be upgraded in-place
 	if (Tag.Type == NAME_NameProperty)
 	{
 		FName SoundName;
-		Ar << SoundName;
+		Slot << SoundName;
 		*this = FromName_DEPRECATED(SoundName);
 
 		return true;

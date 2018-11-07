@@ -37,7 +37,6 @@
 #include "MeshAttributes.h"
 #include "IMeshBuilderModule.h"
 #include "Settings/EditorExperimentalSettings.h"
-#include "UObject/MetaData.h"
 
 #define LOCTEXT_NAMESPACE "FbxStaticMeshImport"
 
@@ -322,7 +321,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		else
 		{
 			FString MaterialFullName = GetMaterialFullName(*FbxMaterial);
-			FString BasePackageName = PackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(StaticMesh->GetOutermost()->GetName()) / MaterialFullName);
+			FString BasePackageName = UPackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(StaticMesh->GetOutermost()->GetName()) / MaterialFullName);
 			UMaterialInterface* UnrealMaterialInterface = FindObject<UMaterialInterface>(NULL, *(BasePackageName + TEXT(".") + MaterialFullName));
 			if (UnrealMaterialInterface == NULL)
 			{
@@ -527,18 +526,16 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	int32 VertexCount = Mesh->GetControlPointsCount();
 	bool OddNegativeScale = IsOddNegativeScale(TotalMatrix);
 	bool bHasNonDegeneratePolygons = false;
-	TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-
-	TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-
-	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TEdgeAttributesRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 	int32 VertexOffset = MeshDescription->Vertices().Num();
 	int32 VertexInstanceOffset = MeshDescription->VertexInstances().Num();
@@ -547,18 +544,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	TMap<int32, FPolygonGroupID> PolygonGroupMapping;
 
 	// When importing multiple mesh pieces to the same static mesh.  Ensure each mesh piece has the same number of Uv's
-	int32 ExistingUVCount = 0;
-	for (int32 UVChannelIndex = 0; UVChannelIndex < VertexInstanceUVs.GetNumIndices(); ++UVChannelIndex)
-	{
-		if (VertexInstanceUVs.GetArrayForIndex(UVChannelIndex).Num() > 0)
-		{
-			ExistingUVCount++;
-		}
-		else
-		{
-			break;
-		}
-	}
+	int32 ExistingUVCount = VertexInstanceUVs.GetNumIndices();
 
 	int32 NumUVs = FMath::Max(FBXUVs.UniqueUVCount, ExistingUVCount);
 	NumUVs = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, NumUVs);
@@ -678,7 +664,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 					FinalUVVector.X = static_cast<float>(UVVector[0]);
 					FinalUVVector.Y = 1.f - static_cast<float>(UVVector[1]);   //flip the Y of UVs for DirectX
 				}
-				VertexInstanceUVs.GetArrayForIndex(UVLayerIndex)[AddedVertexInstanceId] = FinalUVVector;
+				VertexInstanceUVs.Set(AddedVertexInstanceId, UVLayerIndex, FinalUVVector);
 			}
 
 			//Color attribute
@@ -1064,10 +1050,53 @@ void UnFbx::FFbxImporter::AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* Stat
 	}
 }
 
-UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStaticMeshImportData* TemplateImportData)
+FbxNode* UnFbx::FFbxImporter::GetMeshNodesFromName(UStaticMesh* StaticMesh, TArray<FbxNode*>& FbxMeshArray)
 {
 	char MeshName[1024];
-	FCStringAnsi::Strcpy(MeshName,1024,TCHAR_TO_UTF8(*Mesh->GetName()));
+	FCStringAnsi::Strcpy(MeshName, 1024, TCHAR_TO_UTF8(*StaticMesh->GetName()));
+	// find the Fbx mesh node that the Unreal Mesh matches according to name
+	int32 MeshIndex;
+	for (MeshIndex = 0; MeshIndex < FbxMeshArray.Num(); MeshIndex++)
+	{
+		const char* FbxMeshName = FbxMeshArray[MeshIndex]->GetName();
+		// The name of Unreal mesh may have a prefix, so we match from end
+		int32 i = 0;
+		char* MeshPtr = MeshName + FCStringAnsi::Strlen(MeshName) - 1;
+		if (FCStringAnsi::Strlen(FbxMeshName) <= FCStringAnsi::Strlen(MeshName))
+		{
+			const char* FbxMeshPtr = FbxMeshName + FCStringAnsi::Strlen(FbxMeshName) - 1;
+			while (i < FCStringAnsi::Strlen(FbxMeshName))
+			{
+				bool bIsPointAndUnderscore = *FbxMeshPtr == '.' && *MeshPtr == '_';
+
+				if (*MeshPtr != *FbxMeshPtr && !bIsPointAndUnderscore)
+				{
+					break;
+				}
+				else
+				{
+					i++;
+					MeshPtr--;
+					FbxMeshPtr--;
+				}
+			}
+		}
+
+		if (i == FCStringAnsi::Strlen(FbxMeshName)) // matched
+		{
+			// check further
+			if (FCStringAnsi::Strlen(FbxMeshName) == FCStringAnsi::Strlen(MeshName) || // the name of Unreal mesh is full match
+				*MeshPtr == '_')														// or the name of Unreal mesh has a prefix
+			{
+				return FbxMeshArray[MeshIndex];
+			}
+		}
+	}
+	return nullptr;
+}
+
+UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStaticMeshImportData* TemplateImportData)
+{
 	TArray<FbxNode*> FbxMeshArray;
 	FbxNode* Node = NULL;
 	UStaticMesh* NewMesh = NULL;
@@ -1138,9 +1167,6 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 		}
 	}
 	
-	
-	
-	
 	// if there is only one mesh, use it without name checking 
 	// (because the "Used As Full Name" option enables users name the Unreal mesh by themselves
 	if (!bCombineMeshesLOD && FbxMeshArray.Num() == 1)
@@ -1149,45 +1175,7 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	}
 	else if(!bCombineMeshes && !bCombineMeshesLOD)
 	{
-		// find the Fbx mesh node that the Unreal Mesh matches according to name
-		int32 MeshIndex;
-		for ( MeshIndex = 0; MeshIndex < FbxMeshArray.Num(); MeshIndex++ )
-		{
-			const char* FbxMeshName = FbxMeshArray[MeshIndex]->GetName();
-			// The name of Unreal mesh may have a prefix, so we match from end
-			int32 i = 0;
-			char* MeshPtr = MeshName + FCStringAnsi::Strlen(MeshName) - 1;
-			if (FCStringAnsi::Strlen(FbxMeshName) <= FCStringAnsi::Strlen(MeshName))
-			{
-				const char* FbxMeshPtr = FbxMeshName + FCStringAnsi::Strlen(FbxMeshName) - 1;
-				while (i < FCStringAnsi::Strlen(FbxMeshName))
-				{
-					bool bIsPointAndUnderscore = *FbxMeshPtr == '.' && *MeshPtr == '_';
-					
-					if (*MeshPtr != *FbxMeshPtr && !bIsPointAndUnderscore)
-					{
-						break;
-					}
-					else
-					{
-						i++;
-						MeshPtr--;
-						FbxMeshPtr--;
-					}
-				}
-			}
-
-			if (i == FCStringAnsi::Strlen(FbxMeshName)) // matched
-			{
-				// check further
-				if ( FCStringAnsi::Strlen(FbxMeshName) == FCStringAnsi::Strlen(MeshName) || // the name of Unreal mesh is full match
-					*MeshPtr == '_')														// or the name of Unreal mesh has a prefix
-				{
-					Node = FbxMeshArray[MeshIndex];
-					break;
-				}
-			}
-		}
+		Node = GetMeshNodesFromName(Mesh, FbxMeshArray);
 	}
 
 	// If there is no match it may be because an LOD group was imported where
@@ -1342,103 +1330,6 @@ void UnFbx::FFbxImporter::VerifyGeometry(UStaticMesh* StaticMesh)
 	}
 }
 
-FString GetFbxPropertyStringValue(const FbxProperty& Property)
-{
-	FString ValueStr(TEXT("Unsupported type"));
-
-	FbxDataType DataType = Property.GetPropertyDataType();
-	switch (DataType.GetType())
-	{
-	case eFbxBool:
-		{
-			FbxBool BoolValue = Property.Get<FbxBool>();
-			ValueStr = LexToString(BoolValue);
-		}
-		break;
-	case eFbxInt:
-		{
-			FbxInt IntValue = Property.Get<FbxInt>();
-			ValueStr = LexToString(IntValue);
-		}
-		break;
-	case eFbxEnum:
-		{
-			FbxEnum EnumValue = Property.Get<FbxEnum>();
-			ValueStr = LexToString(EnumValue);
-		}
-		break;
-	case eFbxFloat:
-		{
-			FbxFloat FloatValue = Property.Get<FbxFloat>();
-			ValueStr = LexToString(FloatValue);
-		}
-		break;
-	case eFbxDouble:
-		{
-			FbxDouble DoubleValue = Property.Get<FbxDouble>();
-			ValueStr = LexToString(DoubleValue);
-		}
-		break;
-	case eFbxDouble2:
-		{
-			FbxDouble2 Vec = Property.Get<FbxDouble2>();
-			ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1]);
-		}
-		break;
-	case eFbxDouble3:
-		{
-			FbxDouble3 Vec = Property.Get<FbxDouble3>();
-			ValueStr = FString::Printf(TEXT("(%f, %f, %f)"), Vec[0], Vec[1], Vec[2]);
-		}
-		break;
-	case eFbxDouble4:
-		{
-			FbxDouble4 Vec = Property.Get<FbxDouble4>();
-			ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1], Vec[2], Vec[3]);
-		}
-		break;
-	case eFbxString:
-		{
-			FbxString StringValue = Property.Get<FbxString>();
-			ValueStr = UTF8_TO_TCHAR(StringValue.Buffer());
-	}
-		break;
-	default:
-		break;
-	}
-	return ValueStr;
-}
-
-void ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
-{
-	if (Object && Node)
-	{
-		// Import all custom user-defined FBX properties from the FBX node to the object metadata
-		FbxProperty CurrentProperty = Node->GetFirstProperty();
-		static const FString MetadataPrefix(FBX_METADATA_PREFIX);
-		while (CurrentProperty.IsValid())
-		{
-			if (CurrentProperty.GetFlag(FbxPropertyFlags::eUserDefined))
-			{
-				// Prefix the FBX metadata tag to make it distinguishable from other metadata
-				// so that it can be exportable through FBX export
-				FString MetadataTag = UTF8_TO_TCHAR(CurrentProperty.GetName());
-				MetadataTag = MetadataPrefix + MetadataTag;
-
-				FString MetadataValue = GetFbxPropertyStringValue(CurrentProperty);
-				Object->GetOutermost()->GetMetaData()->SetValue(Object, *MetadataTag, *MetadataValue);
-			}
-			CurrentProperty = Node->GetNextProperty(CurrentProperty);
-		}
-
-		int NumChildren = Node->GetChildCount();
-		for (int i = 0; i < NumChildren; ++i)
-		{
-			ImportNodeCustomProperties(Object, Node->GetChild(i));
-		}
-	}
-}
-
 UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TArray<FbxNode*>& MeshNodeArray, const FName InName, EObjectFlags Flags, UFbxStaticMeshImportData* TemplateImportData, UStaticMesh* InStaticMesh, int LODIndex, void *ExistMeshDataPtr)
 {
 	struct ExistingStaticMeshData* ExistMeshData = (struct ExistingStaticMeshData*)ExistMeshDataPtr;
@@ -1503,7 +1394,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		if (Package == nullptr)
 		{
 			NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
-			NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+			NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 			Package = CreatePackage(NULL, *NewPackageName);
 		}
 		Package->FullyLoad();
@@ -1638,9 +1529,9 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 	if (bBuildStatus)
 	{
-		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		int32 FirstOpenUVChannel = VertexInstanceUVs.GetNumIndices() >= MAX_MESH_TEXTURE_COORDS ? 1 : VertexInstanceUVs.GetNumIndices();
-		TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 		TArray<FStaticMaterial> MaterialToAdd;
 		for (const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())

@@ -53,7 +53,9 @@ FVector4 CircleDofHalfCoc(const FViewInfo& View)
 
 	FVector4 Ret(0, 1, 0, 0);
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if(bDepthOfField && View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_CircleDOF)
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	{
 		float FocalLengthInMM = ComputeFocalLengthFromFov(View);
 	 
@@ -203,13 +205,16 @@ void FRCPassPostProcessCircleDOFSetup::Process(FRenderingCompositePassContext& C
 	uint32 NumRenderTargets = FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
 	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
 
-	FLinearColor ClearColors[2] = 
+	if (View.StereoPass == eSSP_FULL)
 	{
-		FLinearColor(0, 0, 0, 0),
-		FLinearColor(0, 0, 0, 0)
-	};
-	// is optimized away if possible (RT size=view size, )
-	DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		FLinearColor ClearColors[2] =
+		{
+			FLinearColor(0, 0, 0, 0),
+			FLinearColor(0, 0, 0, 0)
+		};
+		// is optimized away if possible (RT size=view size, )
+		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+	}
 
 	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
 
@@ -415,13 +420,16 @@ void FRCPassPostProcessCircleDOFDilate::Process(FRenderingCompositePassContext& 
 	};
 	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, nullptr);
 
-	FLinearColor ClearColors[2] = 
+	if (View.StereoPass == eSSP_FULL)
 	{
-		FLinearColor(0, 0, 0, 0),
-		FLinearColor(0, 0, 0, 0)
-	};
-	// is optimized away if possible (RT size=view size, )
-	DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		FLinearColor ClearColors[2] =
+		{
+			FLinearColor(0, 0, 0, 0),
+			FLinearColor(0, 0, 0, 0)
+		};
+		// is optimized away if possible (RT size=view size, )
+		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+	}
 
 	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
 
@@ -696,14 +704,17 @@ void FRCPassPostProcessCircleDOF::Process(FRenderingCompositePassContext& Contex
 	uint32 NumRenderTargets = FPostProcessing::HasAlphaChannelSupport() ? 2 : 1;
 	SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
 
-	FLinearColor ClearColors[2] = 
+	if (View.StereoPass == eSSP_FULL)
 	{
-		FLinearColor(0, 0, 0, 0),
-		FLinearColor(0, 0, 0, 0)
-	};
+		FLinearColor ClearColors[2] =
+		{
+			FLinearColor(0, 0, 0, 0),
+			FLinearColor(0, 0, 0, 0)
+		};
 
-	// is optimized away if possible (RT size=view size, )
-	DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+		// is optimized away if possible (RT size=view size, )
+		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, DestRect);
+	}
 
 	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
 		
@@ -918,7 +929,7 @@ void FRCPassPostProcessCircleDOFRecombine::Process(FRenderingCompositePassContex
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
-	if (Context.HasHmdMesh())
+	if (!Context.HasHmdMesh())
 	{
 		// Set the view family's render target/viewport.
 		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());

@@ -215,7 +215,7 @@ SkillLevel:Beginner
 
 [INCLUDE:#presetTable]
 
-* **物理コンストレイント アクタ** の使用については、[**%Engine/Physics\Constraints\ConstraintsUserGuide:title%**](Engine/Physics\Constraints\ConstraintsUserGuide) をご覧ください。
+* **物理コンストレイント アクタ** の使用については、[Engine/Physics\Constraints\ConstraintsUserGuide]() をご覧ください。
 
 [EXCERPT:presetTable]
 | ジョイント プリセット | 説明 |
@@ -244,15 +244,15 @@ SkillLevel:Beginner
 
 | プロパティ | 説明 |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]|
-| **Joint Name** |  |
-| **Constraint Bone 1** |  |
-| **Constraint Bone 2** |  |
-| **Disable Collision** |  |
+|[REGION:tablesection]Constraint[/REGION]||
+| **Joint Name** ||
+| **Constraint Bone 1** ||
+| **Constraint Bone 2** ||
+| **Disable Collision** ||
 
-* **物理アセットツール** (**PhAT**) の詳しいリファレンスについては、[**%Engine/Physics\PhAT\Reference:title%**](Engine/Physics\PhAT\Reference) をご覧ください。
+* **物理アセットツール** (**PhAT**) の詳しいリファレンスについては、[Engine/Physics\PhAT\Reference]() をご覧ください。
 
-* **物理アセットツール** (**PhAT**) の **物理コンストレイント** の使用については、[**%Engine/Physics\PhAT\UserGuide:title%**](Engine/Physics\PhAT\UserGuide) をご覧ください。
+* **物理アセットツール** (**PhAT**) の **物理コンストレイント** の使用については、[Engine/Physics\PhAT\UserGuide]() をご覧ください。
 
 * **物理アセットツール** (**PhAT**) の 使用については、[**%Engine/Physics\PhAT:title%**](Engine/Physics\PhAT) をご覧ください。
 

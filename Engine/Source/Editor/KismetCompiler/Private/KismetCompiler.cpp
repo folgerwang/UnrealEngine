@@ -289,6 +289,7 @@ void FKismetCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedClass* Cla
 	}
 
 	// Purge the class to get it back to a "base" state
+	bool bLayoutChanging = ClassToClean->HasAnyClassFlags(CLASS_LayoutChanging);
 	ClassToClean->PurgeClass(bRecompilingOnLoad);
 
 	// Set properties we need to regenerate the class with
@@ -297,6 +298,11 @@ void FKismetCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedClass* Cla
 	ClassToClean->ClassWithin = ParentClass->ClassWithin ? ParentClass->ClassWithin : UObject::StaticClass();
 	ClassToClean->ClassConfigName = ClassToClean->IsNative() ? FName(ClassToClean->StaticConfigName()) : ParentClass->ClassConfigName;
 	ClassToClean->DebugData = FBlueprintDebugData();
+
+	if(bLayoutChanging)
+	{
+		ClassToClean->ClassFlags |= CLASS_LayoutChanging;
+	}
 }
 
 void FKismetCompilerContext::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectCollection& SubObjectsToSave, UBlueprintGeneratedClass* ClassToClean)
@@ -656,7 +662,8 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 				if(UMulticastDelegateProperty* AsDelegate = Cast<UMulticastDelegateProperty>(NewProperty))
 				{
 					AsDelegate->SignatureFunction = FindField<UFunction>(NewClass, *(Variable.VarName.ToString() + HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX));
-					ensure(AsDelegate->SignatureFunction);
+					// Skeleton compilation phase may run when the delegate has been created but the function has not:
+					ensureAlways(AsDelegate->SignatureFunction || !bIsFullCompile);
 				}
 			}
 
@@ -1398,7 +1405,7 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 	}
 
 	const UEdGraphSchema* const K2Schema = UEdGraphSchema_K2::StaticClass()->GetDefaultObject<UEdGraphSchema_K2>();
-
+	TMap<UEdGraphNode*, TArray<UEdGraphNode*>> PrunedExecNodeNeighbors;
 	for (int32 NodeIndex = 0; NodeIndex < GraphNodes.Num(); ++NodeIndex)
 	{
 		UEdGraphNode* Node = GraphNodes[NodeIndex];
@@ -1433,6 +1440,19 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 			{
 				if (Node)
 				{
+					// Track nodes that are directly connected to the outputs of the node we are pruning so 
+					// that we can warn if one or more of those neighboring nodes are not also orphaned:
+					Node->ForEachNodeDirectlyConnectedIf(
+						// Consider connections on output pins other than the exec pin:
+						[](const UEdGraphPin* Pin) {
+							if(Pin->Direction == EGPD_Output && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) 
+							{ 
+								return true; 
+							}
+							return false;
+						},
+						[&PrunedExecNodeNeighbors, Node](UEdGraphNode* NeighborNode) { PrunedExecNodeNeighbors.FindOrAdd(Node).Add(NeighborNode); }
+					);
 					Node->BreakAllNodeLinks();
 				}
 				GraphNodes.RemoveAtSwap(NodeIndex);
@@ -1473,6 +1493,24 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 					--NodeIndex;
 				}
 			}
+		}
+	}
+
+	for(const TPair<UEdGraphNode*, TArray<UEdGraphNode*>>& PrunedExecNodeWithNeighbors : PrunedExecNodeNeighbors)
+	{
+		bool bNeighborsNotPruned = false;
+		for(UEdGraphNode* Neighbor : PrunedExecNodeWithNeighbors.Value)
+		{
+			if(GraphNodes.Contains(Neighbor))
+			{
+				bNeighborsNotPruned = true;
+			}
+		}
+
+		if(bNeighborsNotPruned)
+		{
+			// Warn the user if they are attempting to read an output value from a pruned exec node:
+			MessageLog.Warning(FName(TEXT("PrunedExecInUse")), *LOCTEXT("PrunedExecNodeAttemptedUse", "@@ was pruned because its Exec pin is not connected, the connected value is not available and will instead be read as default").ToString(), PrunedExecNodeWithNeighbors.Key);
 		}
 	}
 }
@@ -1737,6 +1775,8 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context,
 		{
 			ensure(!NewClass->UberGraphFunction);
 			NewClass->UberGraphFunction = Context.Function;
+			NewClass->UberGraphFunction->FunctionFlags |= FUNC_UbergraphFunction;
+			NewClass->UberGraphFunction->FunctionFlags |= FUNC_Final;
 		}
 
 		// Register nets from function entry/exit nodes first, even for skeleton compiles (as they form the signature)
@@ -2107,12 +2147,23 @@ void FKismetCompilerContext::PostcompileFunction(FKismetFunctionContext& Context
 	FinishCompilingFunction(Context);
 }
 
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+extern ENGINE_API int32 IncrementUberGraphSerialNumber();
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+
 /**
  * Handles final post-compilation setup, flags, creates cached values that would normally be set during deserialization, etc...
  */
 void FKismetCompilerContext::FinishCompilingFunction(FKismetFunctionContext& Context)
 {
 	SetCalculatedMetaDataAndFlags( Context.Function, Context.EntryPoint, Schema );
+	
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	if( NewClass->UberGraphFunction == Context.Function )
+	{
+		NewClass->UberGraphFunctionKey = IncrementUberGraphSerialNumber();
+	}
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 }
 
 void FKismetCompilerContext::SetCalculatedMetaDataAndFlags(UFunction* Function, UK2Node_FunctionEntry* EntryNode, const UEdGraphSchema_K2* K2Schema)
@@ -3362,6 +3413,7 @@ void FKismetCompilerContext::ExpandTunnelsAndMacros(UEdGraph* SourceGraph)
 			for (int32 I = 0; I < ClonedGraph->Nodes.Num(); ++I)
 			{
 				MacroGeneratedNodes.Add(ClonedGraph->Nodes[I], CurrentNode);
+				MessageLog.NotifyIntermediateMacroNode(CurrentNode, ClonedGraph->Nodes[I]);
 			}
 
 			TArray<UEdGraphNode*> MacroNodes(ClonedGraph->Nodes);
@@ -3974,6 +4026,9 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 	const bool bSkipRefreshExternalBlueprintDependencyNodes = !!(InternalFlags & EInternalCompilerFlags::SkipRefreshExternalBlueprintDependencyNodes);
 	FKismetCompilerVMBackend Backend_VM(Blueprint, Schema, *this);
 
+	// Determine whether or not to skip generated class validation. This requires CDO value propagation to occur first.
+	bool bSkipGeneratedClassValidation = !bPropagateValuesToCDO || CompileOptions.CompileType == EKismetCompileType::Cpp;
+
 	if( bGenerateLocals )
 	{
 		for (int32 i = 0; i < FunctionList.Num(); ++i)
@@ -4006,23 +4061,6 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 			}
 		}
 
-		// Save off intermediate build products if requested
-		if (CompileOptions.bSaveIntermediateProducts && !Blueprint->bIsRegeneratingOnLoad)
-		{
-			// Generate code for each function (done in a second pass to allow functions to reference each other)
-			for (int32 i = 0; i < FunctionList.Num(); ++i)
-			{
-				FKismetFunctionContext& ContextFunction = FunctionList[i];
-				if (FunctionList[i].SourceGraph != NULL)
-				{
-					// Record this graph as an intermediate product
-					ContextFunction.SourceGraph->Schema = UEdGraphSchema_K2::StaticClass();
-					Blueprint->IntermediateGeneratedGraphs.Add(ContextFunction.SourceGraph);
-					ContextFunction.SourceGraph->SetFlags(RF_Transient);
-				}
-			}
-		}
-
 		for (TFieldIterator<UMulticastDelegateProperty> PropertyIt(NewClass); PropertyIt; ++PropertyIt)
 		{
 			if(const UMulticastDelegateProperty* MCDelegateProp = *PropertyIt)
@@ -4044,6 +4082,23 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 			{
 				BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_PostcompileFunction);
 				FinishCompilingFunction(Function);
+			}
+		}
+	}
+
+	// Save off intermediate build products if requested
+	if (bIsFullCompile && CompileOptions.bSaveIntermediateProducts && !Blueprint->bIsRegeneratingOnLoad)
+	{
+		// Generate code for each function (done in a second pass to allow functions to reference each other)
+		for (int32 i = 0; i < FunctionList.Num(); ++i)
+		{
+			FKismetFunctionContext& ContextFunction = FunctionList[i];
+			if (FunctionList[i].SourceGraph != NULL)
+			{
+				// Record this graph as an intermediate product
+				ContextFunction.SourceGraph->Schema = UEdGraphSchema_K2::StaticClass();
+				Blueprint->IntermediateGeneratedGraphs.Add(ContextFunction.SourceGraph);
+				ContextFunction.SourceGraph->SetFlags(RF_Transient);
 			}
 		}
 	}
@@ -4130,9 +4185,14 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 					UEditorEngine::CopyPropertiesForUnrelatedObjects(OldCDO, NewCDO, CopyDetails);
 					FBlueprintEditorUtils::PatchCDOSubobjectsIntoExport(OldCDO, NewCDO);
 				}
+				else
+				{
+					// Don't perform generated class validation since we didn't do any value propagation.
+					bSkipGeneratedClassValidation = true;
+				}
 
 				// >>> Backwards Compatibility: Propagate data from the skel CDO to the gen CDO if we haven't already done so for this blueprint
-				if( !bIsSkeletonOnly && !Blueprint->IsGeneratedClassAuthoritative() )
+				if( !bIsSkeletonOnly && !Blueprint->IsGeneratedClassAuthoritative() && CompileOptions.CompileType != EKismetCompileType::Cpp )
 				{
 					UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
 					CopyDetails.bAggressiveDefaultSubobjectReplacement = false;
@@ -4322,7 +4382,8 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 
 	PostCompileDiagnostics();
 
-	if (bIsFullCompile && !Blueprint->bIsRegeneratingOnLoad)
+	// Perform validation only if CDO propagation was performed above, otherwise the new CDO will not yet be fully initialized.
+	if (bIsFullCompile && !bSkipGeneratedClassValidation && !Blueprint->bIsRegeneratingOnLoad)
 	{
 		bool Result = ValidateGeneratedClass(NewClass);
 		// TODO What do we do if validation fails?
@@ -4475,9 +4536,6 @@ void FKismetCompilerContext::SetNewClass(UBlueprintGeneratedClass* ClassToUse)
 
 bool FKismetCompilerContext::ValidateGeneratedClass(UBlueprintGeneratedClass* Class)
 {
-	// Our CDO should be properly constructed by this point and should always exist
-	FKismetCompilerUtilities::ValidateEnumProperties(NewClass->GetDefaultObject(), MessageLog);
-
 	return UBlueprint::ValidateGeneratedClass(Class);
 }
 

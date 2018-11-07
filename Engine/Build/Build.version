@@ -1,10 +1,10 @@
 {
 	"MajorVersion": 4,
-	"MinorVersion": 20,
-	"PatchVersion": 3,
+	"MinorVersion": 21,
+	"PatchVersion": 0,
 	"Changelist": 0,
-	"CompatibleChangelist": 4212847,
+	"CompatibleChangelist": 0,
 	"IsLicenseeVersion": 0,
 	"IsPromotedBuild": 0,
-	"BranchName": "++UE4+Release-4.20"
+	"BranchName": "++UE4+Release-4.21"
 }

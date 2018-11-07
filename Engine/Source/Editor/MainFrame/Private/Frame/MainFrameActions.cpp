@@ -170,6 +170,12 @@ void FMainFrameCommands::RegisterCommands()
 	UI_COMMAND(VisitForums, "Forums...", "Go the the Unreal Engine forums to view announcements and engage in discussions with other developers.", EUserInterfaceActionType::Button, FInputChord());
 	ActionList->MapAction(VisitForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitForums));
 
+	UI_COMMAND(ReportABug, "Report a Bug...", "Found a bug?  Go here to fill out a bug report", EUserInterfaceActionType::Button, FInputChord());
+	ActionList->MapAction(ReportABug, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::ReportABug));
+
+	UI_COMMAND(OpenIssueTracker, "Issue Tracker", "Go here to view the Unreal Engine bug tracking website", EUserInterfaceActionType::Button, FInputChord());
+	ActionList->MapAction(OpenIssueTracker, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::OpenIssueTracker));
+
 	UI_COMMAND( VisitAskAQuestionPage, "Ask a Question...", "Have a question?  Go here to ask about anything and everything related to Unreal.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitAskAQuestionPage, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitAskAQuestionPage ) );
 
@@ -400,11 +406,6 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 	if (CookerSettings->bIterativeCookingForFileCookContent)
 	{
 		OptionalParams += TEXT(" -iterate");
-	}
-
-	if (FApp::IsRunningDebug())
-	{
-		OptionalParams += TEXT(" -UseDebugParamForEditorExe");
 	}
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetProjectName() / FApp::GetProjectName() + TEXT(".uproject");
@@ -722,11 +723,6 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += FString::Printf(TEXT(" -NumCookersToSpawn=%d"), NumCookers); 
 	}
 
-	if (FApp::IsRunningDebug())
-	{
-		OptionalParams += TEXT(" -UseDebugParamForEditorExe");
-	}
-
 	FString Configuration = FindObject<UEnum>(ANY_PACKAGE, TEXT("EProjectPackagingBuildConfigurations"))->GetNameStringByValue(PackagingSettings->BuildConfiguration);
 	Configuration = Configuration.Replace(TEXT("PPBC_"), TEXT(""));
 	if (Configuration.Right(6) == TEXT("Client"))
@@ -1029,6 +1025,24 @@ void FMainFrameActionCallbacks::OpenSlateApp( FName AppName )
 bool FMainFrameActionCallbacks::OpenSlateApp_IsChecked( FName AppName )
 {
 	return false;
+}
+
+void FMainFrameActionCallbacks::ReportABug()
+{
+	FString ReportABugURL;
+	if (FUnrealEdMisc::Get().GetURL(TEXT("ReportABugURL"), ReportABugURL, false))
+	{
+		FPlatformProcess::LaunchURL(*ReportABugURL, NULL, NULL);
+	}
+}
+
+void FMainFrameActionCallbacks::OpenIssueTracker()
+{
+	FString IssueTrackerURL;
+	if (FUnrealEdMisc::Get().GetURL(TEXT("IssueTrackerURL"), IssueTrackerURL, false))
+	{
+		FPlatformProcess::LaunchURL(*IssueTrackerURL, NULL, NULL);
+	}
 }
 
 void FMainFrameActionCallbacks::VisitAskAQuestionPage()

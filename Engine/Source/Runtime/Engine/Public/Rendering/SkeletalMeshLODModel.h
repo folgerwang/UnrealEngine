@@ -12,6 +12,7 @@
 #include "BoneIndices.h"
 #include "Serialization/BulkData.h"
 #include "SkeletalMeshTypes.h"
+#include "Rendering/SkeletalMeshLODImporterData.h"
 
 
 //
@@ -222,6 +223,8 @@ public:
 	FIntBulkData				RawPointIndices;
 	FWordBulkData				LegacyRawPointIndices;
 
+	/** Imported raw mesh data. Optional, only the imported mesh LOD has this, generated LOD or old asset will be null. */
+	FRawSkeletalMeshBulkData	RawSkeletalMeshBulkData;
 
 	/** Constructor (default) */
 	FSkeletalMeshLODModel()

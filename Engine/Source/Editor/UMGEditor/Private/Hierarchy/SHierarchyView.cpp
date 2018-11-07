@@ -82,7 +82,6 @@ void SHierarchyView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluep
 	BlueprintEditor.Pin()->OnSelectedWidgetsChanged.AddRaw(this, &SHierarchyView::OnEditorSelectionChanged);
 
 	bRefreshRequested = true;
-	bExpandAllNodes = true;
 }
 
 SHierarchyView::~SHierarchyView()
@@ -410,6 +409,11 @@ void SHierarchyView::RecursiveExpand(TSharedPtr<FHierarchyModel>& Model, EExpand
 	for (TSharedPtr<FHierarchyModel>& ChildModel : Children)
 	{
 		RecursiveExpand(ChildModel, ExpandBehavior);
+	}
+
+	if (Model->IsExpanded())
+	{
+		WidgetTreeView->SetItemExpansion(Model, true);
 	}
 }
 

@@ -118,7 +118,11 @@ int32 FSlateTextRun::OnPaint( const FPaintArgs& Args, const FTextLayout::FLineVi
 			FSlateFontInfo ShadowFontInfo = Style.Font;
 			ShadowFontInfo.OutlineSettings.OutlineColor = Style.ShadowColorAndOpacity;
 			ShadowFontInfo.OutlineSettings.OutlineMaterial = nullptr;
-			
+			if (!ShadowFontInfo.OutlineSettings.bApplyOutlineToDropShadows)
+			{
+				ShadowFontInfo.OutlineSettings.OutlineSize = 0;
+			}
+
 			// Create new shaped text for drop shadow
 			ShadowShapedText = ShapedTextCacheUtil::GetShapedTextSubSequence(
 				BlockTextContext.ShapedTextCache,

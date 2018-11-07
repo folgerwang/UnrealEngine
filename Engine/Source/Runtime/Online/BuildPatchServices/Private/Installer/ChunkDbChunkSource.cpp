@@ -54,16 +54,13 @@ namespace ChunkDbSourceHelpers
 		switch (LoadResult)
 		{
 			case EChunkLoadResult::Success:
-			return IChunkDbChunkSourceStat::ELoadResult::Success;
-
+				return IChunkDbChunkSourceStat::ELoadResult::Success;
 			case EChunkLoadResult::MissingHashInfo:
-			return IChunkDbChunkSourceStat::ELoadResult::MissingHashInfo;
-
+				return IChunkDbChunkSourceStat::ELoadResult::MissingHashInfo;
 			case EChunkLoadResult::HashCheckFailed:
-			return IChunkDbChunkSourceStat::ELoadResult::HashCheckFailed;
-
+				return IChunkDbChunkSourceStat::ELoadResult::HashCheckFailed;
 			default:
-			return IChunkDbChunkSourceStat::ELoadResult::SerializationError;
+				return IChunkDbChunkSourceStat::ELoadResult::SerializationError;
 		}
 	}
 }
@@ -115,6 +112,7 @@ namespace BuildPatchServices
 		// IChunkSource interface begin.
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TSet<FGuid> AddRuntimeRequirements(TSet<FGuid> NewRequirements) override;
+		virtual bool AddRepeatRequirement(const FGuid& RepeatRequirement) override;
 		virtual void SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback) override;
 		// IChunkSource interface end.
 
@@ -161,6 +159,8 @@ namespace BuildPatchServices
 		// Communication between the incoming Get calls, and our worker thread.
 		TQueue<FGuid, EQueueMode::Spsc> FailedToLoadMessages;
 		TSet<FGuid> FailedToLoad;
+		// Communication between the incoming AddRepeatRequirement calls, and our worker thread.
+		TQueue<FGuid, EQueueMode::Mpsc> RepeatRequirementMessages;
 	};
 
 	FChunkDbChunkSource::FChunkDbChunkSource(FChunkDbSourceConfig InConfiguration, IPlatform* InPlatform, IFileSystem* InFileSystem, IChunkStore* InChunkStore, IChunkReferenceTracker* InChunkReferenceTracker, IChunkDataSerialization* InChunkDataSerialization, IMessagePump* InMessagePump, IInstallerError* InInstallerError, IChunkDbChunkSourceStat* InChunkDbChunkSourceStat)
@@ -273,6 +273,16 @@ namespace BuildPatchServices
 		return NewRequirements.Difference(AvailableChunks);
 	}
 
+	bool FChunkDbChunkSource::AddRepeatRequirement(const FGuid& RepeatRequirement)
+	{
+		if (AvailableChunks.Contains(RepeatRequirement))
+		{
+			RepeatRequirementMessages.Enqueue(RepeatRequirement);
+			return true;
+		}
+		return false;
+	}
+
 	void FChunkDbChunkSource::SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback)
 	{
 		UnavailableChunksCallback = Callback;
@@ -290,6 +300,12 @@ namespace BuildPatchServices
 			bool bWorkPerformed = false;
 			if (bStartedLoading)
 			{
+				// 'Forget' any repeat requirements.
+				FGuid RepeatRequirement;
+				while (RepeatRequirementMessages.Dequeue(RepeatRequirement))
+				{
+					PlacedInStore.Remove(RepeatRequirement);
+				}
 				// Select chunks that are contained in our chunk db files.
 				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId)
 				{
@@ -308,6 +324,7 @@ namespace BuildPatchServices
 				BatchLoadChunks.RemoveAll(RemovePredicate);
 
 				// Load this batch.
+				ChunkDbChunkSourceStat->OnBatchStarted(BatchLoadChunks);
 				for (int32 ChunkIdx = 0; ChunkIdx < BatchLoadChunks.Num() && !bShouldAbort; ++ChunkIdx)
 				{
 					const FGuid& BatchLoadChunk = BatchLoadChunks[ChunkIdx];
@@ -415,15 +432,19 @@ namespace BuildPatchServices
 				int64 DataEndPoint = ChunkLocation.ByteStart + ChunkLocation.ByteSize;
 				if (TotalFileSize >= DataEndPoint)
 				{
+					ISpeedRecorder::FRecord ActivityRecord;
+					ActivityRecord.CyclesStart = FStatsCollector::GetCycles();
 					if (ChunkDbFile->Tell() != ChunkLocation.ByteStart)
 					{
 						ChunkDbFile->Seek(ChunkLocation.ByteStart);
 					}
 					EChunkLoadResult LoadResult;
 					TUniquePtr<IChunkDataAccess> ChunkDataAccess(ChunkDataSerialization->LoadFromArchive(*ChunkDbFile, LoadResult));
+					ActivityRecord.CyclesEnd = FStatsCollector::GetCycles();
 					const uint64 End = ChunkDbFile->Tell();
+					ActivityRecord.Size = End - ChunkLocation.ByteStart;
 					bChunkGood = LoadResult == EChunkLoadResult::Success && ChunkDataAccess.IsValid() && (End == DataEndPoint);
-					ChunkDbChunkSourceStat->OnLoadComplete(DataId, ChunkDbSourceHelpers::FromSerializer(LoadResult));
+					ChunkDbChunkSourceStat->OnLoadComplete(DataId, ChunkDbSourceHelpers::FromSerializer(LoadResult), ActivityRecord);
 					if (bChunkGood)
 					{
 						// Add it to our cache.
@@ -433,7 +454,7 @@ namespace BuildPatchServices
 				}
 				else
 				{
-					ChunkDbChunkSourceStat->OnLoadComplete(DataId, IChunkDbChunkSourceStat::ELoadResult::LocationOutOfBounds);
+					ChunkDbChunkSourceStat->OnLoadComplete(DataId, IChunkDbChunkSourceStat::ELoadResult::LocationOutOfBounds, ISpeedRecorder::FRecord());
 				}
 			}
 		}
@@ -489,5 +510,24 @@ namespace BuildPatchServices
 		check(InstallerError != nullptr);
 		check(ChunkDbChunkSourceStat != nullptr);
 		return new FChunkDbChunkSource(MoveTemp(Configuration), Platform, FileSystem, ChunkStore, ChunkReferenceTracker, ChunkDataSerialization, MessagePump, InstallerError, ChunkDbChunkSourceStat);
+	}
+
+	const TCHAR* ToString(const IChunkDbChunkSourceStat::ELoadResult& LoadResult)
+	{
+		switch(LoadResult)
+		{
+			case IChunkDbChunkSourceStat::ELoadResult::Success:
+				return TEXT("Success");
+			case IChunkDbChunkSourceStat::ELoadResult::MissingHashInfo:
+				return TEXT("MissingHashInfo");
+			case IChunkDbChunkSourceStat::ELoadResult::HashCheckFailed:
+				return TEXT("HashCheckFailed");
+			case IChunkDbChunkSourceStat::ELoadResult::LocationOutOfBounds:
+				return TEXT("LocationOutOfBounds");
+			case IChunkDbChunkSourceStat::ELoadResult::SerializationError:
+				return TEXT("SerializationError");
+			default:
+				return TEXT("Unknown");
+		}
 	}
 }

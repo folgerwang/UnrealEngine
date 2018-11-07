@@ -112,13 +112,13 @@ namespace Audio
 		DryInput /= InChannels;
 
 		// Process the input through our pre-delay:
-		PreDelayLine.ProcessAudio(&DryInput, &DryInput);
+		DryInput = PreDelayLine.ProcessAudioSample(DryInput);
 
 		// Process the pre-delay output through a series of APFs:
 		FDelayAPF* APFArrayPtr = APFArray.GetData();
 		for (int32 APFIndex = 0; APFIndex < APFArray.Num(); ++APFIndex)
 		{
-			APFArrayPtr[APFIndex].ProcessAudio(&DryInput, &DryInput);
+			DryInput = APFArrayPtr[APFIndex].ProcessAudioSample(DryInput);
 		}
 		
 		// Process the APF series output through our FDN.
@@ -146,10 +146,10 @@ namespace Audio
 			Temp *= DecayFactor;
 			
 			// Process our delay line input through it's corresponding LPF:
-			DampeningArrayPtr[DelayColumn].ProcessAudio(&Temp, &Temp);
+			Temp = DampeningArrayPtr[DelayColumn].ProcessAudioSample(Temp);
 
 			// Finally, process the delay line.
-			DelayLinesPtr[DelayColumn].ProcessAudio(&Temp, &Temp);
+			Temp = DelayLinesPtr[DelayColumn].ProcessAudioSample(Temp);
 
 			// Tap out of each delay line and sum into our OutputAccumulator:
 			OutputAccumulator += Temp;

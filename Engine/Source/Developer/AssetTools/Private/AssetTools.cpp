@@ -49,11 +49,13 @@
 #include "AssetTypeActions/AssetTypeActions_CanvasRenderTarget2D.h"
 #include "AssetTypeActions/AssetTypeActions_CurveFloat.h"
 #include "AssetTypeActions/AssetTypeActions_CurveTable.h"
+#include "AssetTypeActions/AssetTypeActions_CompositeCurveTable.h"
 #include "AssetTypeActions/AssetTypeActions_CurveVector.h"
 #include "AssetTypeActions/AssetTypeActions_CurveLinearColor.h"
 #include "AssetTypeActions/AssetTypeActions_CurveLinearColorAtlas.h"
 #include "AssetTypeActions/AssetTypeActions_DataAsset.h"
 #include "AssetTypeActions/AssetTypeActions_DataTable.h"
+#include "AssetTypeActions/AssetTypeActions_CompositeDataTable.h"
 #include "AssetTypeActions/AssetTypeActions_Enum.h"
 #include "AssetTypeActions/AssetTypeActions_Class.h"
 #include "AssetTypeActions/AssetTypeActions_Struct.h"
@@ -167,11 +169,13 @@ UAssetToolsImpl::UAssetToolsImpl(const FObjectInitializer& ObjectInitializer)
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Curve));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveFloat));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveTable));
+	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CompositeCurveTable));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveVector));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveLinearColor));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveLinearColorAtlas));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_DataAsset));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_DataTable));
+	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CompositeDataTable));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Enum));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Class));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Struct));
@@ -450,7 +454,7 @@ UObject* UAssetToolsImpl::CreateAsset(const FString& AssetName, const FString& P
 		return nullptr;
 	}
 
-	const FString PackageName = PackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
+	const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 	// Make sure we can create the asset without conflicts
 	if ( !CanCreateAsset(AssetName, PackageName, LOCTEXT("CreateANewObject", "Create a new object")) )
@@ -519,25 +523,28 @@ UObject* UAssetToolsImpl::CreateAssetWithDialog(UClass* AssetClass, UFactory* Fa
 
 UObject* UAssetToolsImpl::CreateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory, FName CallingContext)
 {
-	FSaveAssetDialogConfig SaveAssetDialogConfig;
-	SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveAssetDialogTitle", "Save Asset As");
-	SaveAssetDialogConfig.DefaultPath = PackagePath;
-	SaveAssetDialogConfig.DefaultAssetName = AssetName;
-	SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
-
-	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-	FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
-	if (!SaveObjectPath.IsEmpty())
+	if(Factory)
 	{
-		FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(Factory);
-		if (Factory->ConfigureProperties())
-		{
-			const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
-			const FString SavePackagePath = FPaths::GetPath(SavePackageName);
-			const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
-			FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, PackagePath);
+		FSaveAssetDialogConfig SaveAssetDialogConfig;
+		SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveAssetDialogTitle", "Save Asset As");
+		SaveAssetDialogConfig.DefaultPath = PackagePath;
+		SaveAssetDialogConfig.DefaultAssetName = AssetName;
+		SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
 
-			return CreateAsset(SaveAssetName, SavePackagePath, AssetClass, Factory, CallingContext);
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+		if (!SaveObjectPath.IsEmpty())
+		{
+			FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(Factory);
+			if (Factory->ConfigureProperties())
+			{
+				const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+				const FString SavePackagePath = FPaths::GetPath(SavePackageName);
+				const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
+				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, PackagePath);
+
+				return CreateAsset(SaveAssetName, SavePackagePath, AssetClass, Factory, CallingContext);
+			}
 		}
 	}
 
@@ -873,7 +880,7 @@ TArray<UObject*> UAssetToolsImpl::ImportAssets(const TArray<FString>& Files, con
 
 void UAssetToolsImpl::CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const
 {
-	const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(InBasePackageName);
+	const FString SanitizedBasePackageName = UPackageTools::SanitizePackageName(InBasePackageName);
 
 	const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName);
 	const FString BaseAssetNameWithSuffix = FPackageName::GetLongPackageAssetName(SanitizedBasePackageName) + InSuffix;
@@ -1616,6 +1623,7 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 							{
 								// succeed, recreate package since it has been deleted
 								Pkg = CreatePackage(nullptr, *PackageName);
+								Pkg->MarkAsFullyLoaded();
 							}
 						}
 						else
@@ -2105,7 +2113,7 @@ bool UAssetToolsImpl::CanCreateAsset(const FString& AssetName, const FString& Pa
 	// Handle fully loading packages before creating new objects.
 	TArray<UPackage*> TopLevelPackages;
 	TopLevelPackages.Add( Pkg );
-	if( !PackageTools::HandleFullyLoadingPackages( TopLevelPackages, OperationText ) )
+	if( !UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, OperationText ) )
 	{
 		// User aborted.
 		return false;
@@ -2146,6 +2154,7 @@ bool UAssetToolsImpl::CanCreateAsset(const FString& AssetName, const FString& Pa
 
 				// Old package will be GC'ed... create a new one here
 				Pkg = CreatePackage(nullptr,*PackageName);
+				Pkg->MarkAsFullyLoaded();
 			}
 			else
 			{
@@ -2467,6 +2476,11 @@ void UAssetToolsImpl::RecursiveGetDependencies(const FName& PackageName, TSet<FN
 void UAssetToolsImpl::FixupReferencers(const TArray<UObjectRedirector*>& Objects) const
 {
 	AssetFixUpRedirectors->FixupReferencers(Objects);
+}
+
+void UAssetToolsImpl::OpenEditorForAssets(const TArray<UObject*>& Assets) const
+{
+	FAssetEditorManager::Get().OpenEditorForAssets(Assets);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -27,8 +27,12 @@ public:
 
 public:
 
-	/** Synchronize the media with the engine's timecode. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Synchronization)
+	/**
+	 * Synchronize the media with the engine's timecode.
+	 * The media player has be able to read timecode.
+	 * The media player will try to play the corresponding frame, base on the frame's timecode value.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Synchronization, meta=(DisplayName="Synchronize with Engine's Timecode"))
 	bool bUseTimeSynchronization;
 
 public:

@@ -42,17 +42,12 @@ public:
 
 	void DoWork()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		switch (TaskType)
 		{
 			case EAudioTaskType::Procedural:
 			{
-				// Make sure we've been flagged as active
-				if (ProceduralTaskData.ProceduralSoundWave->GetNumSoundsActive() == 0)
-				{
-					UE_LOG(LogAudioMixer, Warning, TEXT("Warning: Attempted to run async procedural task on inactive sound. Aborting."));
-					return;
-				}
-
 				// If we're not a float format, we need to convert the format to float
 				const EAudioMixerStreamDataFormat::Type FormatType = ProceduralTaskData.ProceduralSoundWave->GetGeneratedPCMDataFormat();
 				if (FormatType != EAudioMixerStreamDataFormat::Float)

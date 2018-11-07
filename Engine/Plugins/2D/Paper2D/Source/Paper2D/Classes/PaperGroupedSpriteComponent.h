@@ -5,11 +5,11 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Components/MeshComponent.h"
+#include "Physics/PhysicsInterfaceDeclares.h"
 
 #include "PaperGroupedSpriteComponent.generated.h"
 
 class FGroupedSpriteSceneProxy;
-class FPhysScene;
 class FPrimitiveSceneProxy;
 class UPaperSprite;
 class UTexture;

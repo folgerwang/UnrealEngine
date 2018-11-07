@@ -11,56 +11,6 @@
 #include "CoreMinimal.h"
 #include "RHI.h"
 
-
-/* FRHIGPUMemoryUpdate: represents a memory update request scheduled with RHIScheduleGPUMemoryUpdate
- *
- */
-class FRHIGPUMemoryUpdate
-{
-public:
-	FRHIGPUMemoryUpdate(FRHIStagingBuffer *Staging, FVertexBufferRHIRef InBuffer, FName RequestName)
-	{
-		GPUVertexBuffer = InBuffer;
-		StagingBuffer = Staging;
-		Fence = RHICreateGPUFence(RequestName);
-		Fence->Write();
-	}
-
-	FRHIGPUMemoryUpdate(FVertexBufferRHIRef InBuffer, FName RequestName)
-	{
-		GPUVertexBuffer = InBuffer;
-		StagingBuffer = RHICreateStagingBuffer();
-		Fence = RHICreateGPUFence(RequestName);
-		Fence->Write();
-	}
-
-	bool WaitForFence(float Timeout) 
-	{ 
-		return Fence->Wait(Timeout); 
-	}
-	bool IsReady() 
-	{ 
-		return Fence->Poll(); 
-	}
-
-	void UpdateBuffer(void *InPtr, int32 NumBytes) 
-	{ 
-		check(Fence->Poll());  
-	}
-	
-	void Finish() 
-	{ 
-	}
-
-private:
-
-	FRHIStagingBuffer *StagingBuffer;
-	FVertexBufferRHIRef  GPUVertexBuffer;
-	TRefCountPtr<FRHIGPUFence> Fence;
-};
-
-
-
 /* FRHIGPUMemoryReadback: represents a memory readback request scheduled with RHIScheduleGPUMemoryUpdate
 *
 */
@@ -68,49 +18,39 @@ class FRHIGPUMemoryReadback
 {
 public:
 
-	FRHIGPUMemoryReadback(FStagingBufferRHIRef Staging, FVertexBufferRHIRef InBuffer, FName RequestName)
-	{
-		GPUVertexBuffer = InBuffer;
-		StagingBuffer = Staging;
-		Fence = RHICreateGPUFence(RequestName);
-		Fence->Write();
-	}
-
 	FRHIGPUMemoryReadback(FVertexBufferRHIRef InBuffer, FName RequestName)
 	{
 		GPUVertexBuffer = InBuffer;
-		StagingBuffer = RHICreateStagingBuffer();
+		StagingBuffer = RHICreateStagingBuffer(InBuffer);
 		Fence = RHICreateGPUFence(RequestName);
-		Fence->Write();
 	}
 
 	~FRHIGPUMemoryReadback()
 	{
 	}
 
-	bool WaitForFence(float Timeout)
+	void Insert(FRHICommandList& RHICmdList, uint32 NumBytes = 0)
 	{
-		return Fence->Wait(Timeout);
+		RHICmdList.EnqueueStagedRead(StagingBuffer, Fence, 0, NumBytes ? NumBytes : GPUVertexBuffer->GetSize());
 	}
 
 	bool IsReady()
 	{
-		return Fence->Poll();
+		return !Fence || Fence->Poll();
 	}
 
 	void *RetrieveData(uint32 NumBytes)
 	{
 		ensure(Fence->Poll());
-		return StagingBuffer->Lock(GPUVertexBuffer, 0, NumBytes, EResourceLockMode::RLM_ReadOnly);
+		return RHILockStagingBuffer(StagingBuffer, 0, NumBytes);
 	}
 
 	void Finish()
 	{
-		StagingBuffer->Unlock();
+		RHIUnlockStagingBuffer(StagingBuffer);
 	}
 
 private:
-
 	FStagingBufferRHIRef StagingBuffer;
 	FVertexBufferRHIRef  GPUVertexBuffer;
 	FGPUFenceRHIRef Fence;

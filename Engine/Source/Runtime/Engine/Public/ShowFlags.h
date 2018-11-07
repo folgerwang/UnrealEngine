@@ -30,6 +30,7 @@ enum EShowFlagInitMode
 {
 	ESFIM_Game,
 	ESFIM_Editor,
+	ESFIM_VREditing,
 	ESFIM_All0
 };
 
@@ -314,7 +315,7 @@ private:
 		SetVisualizeBuffer(false);
 		SetVectorFields(false);
 		SetGBufferHints(false);
-		SetCompositeEditorPrimitives(InitMode == ESFIM_Editor);
+		SetCompositeEditorPrimitives(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetTestImage(false);
 		SetVisualizeDOF(false);
 		SetVisualizeAdaptiveDOF(false);
@@ -341,24 +342,24 @@ private:
 		SetAudioRadius(InitMode == ESFIM_Editor);
 		SetBSPSplit(false);
 		SetBrushes(false);
-		SetEditor(InitMode == ESFIM_Editor);
+		SetEditor(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetLargeVertices(false);
 		SetGrid(InitMode == ESFIM_Editor);
 		SetMeshEdges(false);
 		SetCover(false);
 		SetSplines(InitMode == ESFIM_Editor);
-		SetSelection(InitMode == ESFIM_Editor);
+		SetSelection(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetModeWidgets(InitMode == ESFIM_Editor);
 		SetBounds(false);
 		SetHitProxies(false);
 		SetPropertyColoration(false);
 		SetLightInfluences(false);
-		SetPivot(InitMode == ESFIM_Editor);
+		SetPivot(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetShadowFrustums(false);
 		SetWireframe(false);
 		SetLightRadius(InitMode == ESFIM_Editor);
 		SetVolumes(InitMode == ESFIM_Editor);
-		SetGame(InitMode != ESFIM_Editor);
+		SetGame(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
 		SetLevelColoration(false);
 		SetCollision(false);
 		SetCollisionPawn(false);
@@ -367,7 +368,7 @@ private:
 		SetCameraSafeFrames(false);
 		SetVisualizeOutOfBoundsPixels(false);
 		SetHighResScreenshotMask(false);
-		SetHMDDistortion(true); // only effective if a HMD is in use
+		SetHMDDistortion(false); // only effective if a HMD is in use
 		SetStereoRendering(false);
 		SetDistanceCulledPrimitives(InitMode == ESFIM_Editor);
 		SetVisualizeLightCulling(false);
@@ -388,9 +389,11 @@ private:
 		SetMaterialTextureScaleAccuracy(false);
 		SetOutputMaterialTextureScales(false);
 		SetRequiredTextureResolution(false);
-		SetMotionBlur(InitMode != ESFIM_Editor);
+		SetMotionBlur(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
 		SetBones(false);
-		SetScreenPercentage(InitMode != ESFIM_Editor);
+		SetScreenPercentage(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
+		SetVREditing(InitMode == ESFIM_VREditing);
+		SetOcclusionMeshes(false);
 	}
 
 
@@ -447,7 +450,7 @@ private:
 ENGINE_API void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowFlags& EngineShowFlags);
 
 /** Call each view rendering after game [engine] show flags for rendering a view have been set. */
-ENGINE_API void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, FName CurrentBufferVisualizationMode, bool bIsSplitScreen=false);
+ENGINE_API void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, FName CurrentBufferVisualizationMode);
 
 /** Call each view rendering after game [engine] show flags for rendering a view have been set; disables effects that will not work in an orthographic projection due to shader limitations. */
 ENGINE_API void EngineShowFlagOrthographicOverride(bool bIsPerspective, FEngineShowFlags& EngineShowFlags);

@@ -8,7 +8,7 @@ static const int32 NUM_SCROLLBAR_SLOTS = 3;
 void SScrollBarTrack::Construct(const FArguments& InArgs)
 {
 	OffsetFraction = 0;
-	ThumbSizeFraction = 0;
+	ThumbSizeFraction = 1.0; // default to zero offset from the top with a full track thumb (scrolling not needed)
 	MinThumbSize = 35;
 	Orientation = InArgs._Orientation;
 
@@ -36,7 +36,8 @@ void SScrollBarTrack::Construct(const FArguments& InArgs)
 
 SScrollBarTrack::FTrackSizeInfo SScrollBarTrack::GetTrackSizeInfo(const FGeometry& InTrackGeometry) const
 {
-	return FTrackSizeInfo(InTrackGeometry, Orientation, MinThumbSize, this->ThumbSizeFraction, this->OffsetFraction);
+	const float CurrentMinThumbSize = ThumbSizeFraction <= 0.0f ? 0.0f : MinThumbSize;
+	return FTrackSizeInfo(InTrackGeometry, Orientation, CurrentMinThumbSize, this->ThumbSizeFraction, this->OffsetFraction);
 }
 
 void SScrollBarTrack::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
@@ -117,13 +118,23 @@ void SScrollBarTrack::SetSizes(float InThumbOffsetFraction, float InThumbSizeFra
 {
 	OffsetFraction = InThumbOffsetFraction;
 	ThumbSizeFraction = InThumbSizeFraction;
+
+	// If you have no thumb, then it's effectively the size of the whole track
+	if (ThumbSizeFraction == 0.0f && !bIsAlwaysVisible)
+	{
+		ThumbSizeFraction = 1.0f;
+	}
+	else if (ThumbSizeFraction > 1.0f && bIsAlwaysVisible)
+	{
+		ThumbSizeFraction = 0.0f;
+	}
 }
 
 bool SScrollBarTrack::IsNeeded() const
 {
 	// We use a small epsilon here to avoid the scroll bar showing up when all of the content is already in view, due to
 	// floating point precision when the scroll bar state is set
-	return ThumbSizeFraction < (1.0f - KINDA_SMALL_NUMBER);
+	return ThumbSizeFraction < (1.0f - KINDA_SMALL_NUMBER) || bIsAlwaysVisible;
 }
 
 float SScrollBarTrack::DistanceFromTop() const
@@ -144,4 +155,9 @@ float SScrollBarTrack::GetMinThumbSize() const
 float SScrollBarTrack::GetThumbSizeFraction() const
 {
 	return ThumbSizeFraction;
+}
+
+void SScrollBarTrack::SetIsAlwaysVisible(bool InIsAlwaysVisible)
+{
+	bIsAlwaysVisible = InIsAlwaysVisible;
 }

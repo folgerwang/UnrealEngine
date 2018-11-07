@@ -21,6 +21,7 @@ public:
 		SequenceRecordingBasePath.Path = TEXT("/Game/Cinematics/Sequences");
 		bSpecifyTargetLevelSequence = true;
 		bDuplicateTargetLevelSequence = false;
+		bRecordTargetLevelSequenceLength = false;
 	}
 
 	UPROPERTY(EditAnywhere, Category = "Recording Groups")
@@ -45,6 +46,10 @@ public:
 	/** Whether we should duplicate the target level sequence and record into the duplicate */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Recording Groups", meta=(EditCondition = "bSpecifyTargetLevelSequence"))
 	bool bDuplicateTargetLevelSequence;
+
+	/** Whether we should record to the length of the target level sequence */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Recording Groups", meta=(EditCondition = "bSpecifyTargetLevelSequence"))
+	bool bRecordTargetLevelSequenceLength;
 
 	/** A list of actor recordings in this group which contains both the actors to record as well as settings for each one. */
 	UPROPERTY(VisibleAnywhere, Category = "Recording Groups")

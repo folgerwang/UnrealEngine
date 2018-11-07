@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -36,6 +36,11 @@ namespace AutomationTool
 		public Type ValueType;
 
 		/// <summary>
+		/// The ICollection interface for this type
+		/// </summary>
+		public Type CollectionType;
+
+		/// <summary>
 		/// Validation type for this field
 		/// </summary>
 		public TaskParameterValidationType ValidationType;
@@ -60,6 +65,22 @@ namespace AutomationTool
 			{
 				ValueType = ValueType.GetGenericArguments()[0];
 				bOptional = true;
+			}
+
+			if(ValueType.IsClass)
+			{
+				foreach(Type InterfaceType in ValueType.GetInterfaces())
+				{
+					if(InterfaceType.IsGenericType)
+					{
+						Type GenericInterfaceType = InterfaceType.GetGenericTypeDefinition();
+						if(GenericInterfaceType == typeof(ICollection<>))
+						{
+							CollectionType = InterfaceType;
+							ValueType = InterfaceType.GetGenericArguments()[0];
+						}
+					}
+				}
 			}
 		}
 	}
@@ -252,6 +273,8 @@ namespace AutomationTool
 			TypeToSchemaTypeName.Add(typeof(String), GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
 			TypeToSchemaTypeName.Add(typeof(Boolean), GetQualifiedTypeName(ScriptSchemaStandardType.Boolean));
 			TypeToSchemaTypeName.Add(typeof(Int32), GetQualifiedTypeName(ScriptSchemaStandardType.Integer));
+			TypeToSchemaTypeName.Add(typeof(FileReference), GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
+			TypeToSchemaTypeName.Add(typeof(DirectoryReference), GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
 			
 			// Create all the custom user types, and add them to the qualified name lookup
 			List<XmlSchemaType> UserTypes = new List<XmlSchemaType>();
@@ -259,10 +282,17 @@ namespace AutomationTool
 			{
 				if(!TypeToSchemaTypeName.ContainsKey(Type))
 				{
-					string Name = Type.Name + "UserType";
-					XmlSchemaType SchemaType = CreateUserType(Name, Type);
-					UserTypes.Add(SchemaType);
-					TypeToSchemaTypeName.Add(Type, new XmlQualifiedName(Name, NamespaceURI));
+					if(Type.IsClass && Type.GetInterfaces().Any(x => x.GetGenericTypeDefinition() == typeof(ICollection<>)))
+					{
+						TypeToSchemaTypeName.Add(Type, GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
+					}
+					else
+					{
+						string Name = Type.Name + "UserType";
+						XmlSchemaType SchemaType = CreateUserType(Name, Type);
+						UserTypes.Add(SchemaType);
+						TypeToSchemaTypeName.Add(Type, new XmlQualifiedName(Name, NamespaceURI));
+					}
 				}
 			}
 
@@ -395,18 +425,8 @@ namespace AutomationTool
 		{
 			switch(Type)
 			{
-				case TaskParameterValidationType.Name:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.Name);
-				case TaskParameterValidationType.NameList:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.NameList);
-				case TaskParameterValidationType.Tag:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.Tag);
 				case TaskParameterValidationType.TagList:
 					return GetQualifiedTypeName(ScriptSchemaStandardType.TagList);
-				case TaskParameterValidationType.Target:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.NameOrTag);
-				case TaskParameterValidationType.TargetList:
-					return GetQualifiedTypeName(ScriptSchemaStandardType.NameOrTagList);
 			}
 			return null;
 		}

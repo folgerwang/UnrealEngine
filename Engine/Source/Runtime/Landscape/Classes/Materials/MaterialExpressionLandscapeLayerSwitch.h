@@ -38,7 +38,7 @@ class LANDSCAPE_API UMaterialExpressionLandscapeLayerSwitch : public UMaterialEx
 public:
 
 	//~ Begin UObject Interface
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End UObject Interface
 
 	//~ Begin UMaterialExpression Interface
@@ -46,6 +46,7 @@ public:
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
+	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;
 #endif
 	virtual UTexture* GetReferencedTexture() override;
 	virtual bool CanReferenceTexture() const override { return true; }

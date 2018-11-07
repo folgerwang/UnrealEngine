@@ -23,6 +23,8 @@
 #define SETTING_QOS FName(TEXT("QOS"))
 /** Setting describing the region of the world you are in (value is FString) */
 #define SETTING_REGION FName(TEXT("REGION"))
+/** Setting describing the a specific subregion preference within a region (value is FString) */
+#define SETTING_SUBREGION FName(TEXT("SUBREGION"))
 /** Setting describing the unique id of a datacenter (value is FString) */
 #define SETTING_DCID FName(TEXT("DCID"))
 /** Number of players needed to fill out this session (value is int32) */
@@ -657,7 +659,7 @@ public:
 		, PlatformHash(0)
 		, TimeoutInSeconds(0.0f)
 	{
-		QuerySettings.Set(SETTING_MAPNAME, FString(TEXT("")), EOnlineComparisonOp::Equals);
+		QuerySettings.Set(SETTING_MAPNAME, FString(), EOnlineComparisonOp::Equals);
 		QuerySettings.Set(SEARCH_DEDICATED_ONLY, false, EOnlineComparisonOp::Equals);
 		QuerySettings.Set(SEARCH_EMPTY_SERVERS_ONLY, false, EOnlineComparisonOp::Equals);
 		QuerySettings.Set(SEARCH_SECURE_SERVERS_ONLY, false, EOnlineComparisonOp::Equals);

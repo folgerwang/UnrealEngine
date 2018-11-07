@@ -58,7 +58,7 @@ struct FPrimaryAssetType
 	/** UStruct Overrides */
 	bool ExportTextItem(FString& ValueStr, FPrimaryAssetType const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 	bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText);
-	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	friend inline uint32 GetTypeHash(const FPrimaryAssetType& Key)
 	{
@@ -153,7 +153,7 @@ struct FPrimaryAssetId
 	/** UStruct Overrides */
 	bool ExportTextItem(FString& ValueStr, FPrimaryAssetId const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 	bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText);
-	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	friend inline uint32 GetTypeHash(const FPrimaryAssetId& Key)
 	{

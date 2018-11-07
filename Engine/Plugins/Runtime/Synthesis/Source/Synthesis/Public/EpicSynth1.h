@@ -200,7 +200,7 @@ namespace Audio
 		bool SetEnablePatch(const FPatchId PatchId, bool bIsEnabled);
 
 		// Generate the next frame of audio
-		void Generate(float& OutLeft, float& OutRight);
+		void GenerateFrame(float* OutFrame);
 
 	protected:
 

@@ -133,6 +133,18 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Utilities|Paths", meta=(BlueprintThreadSafe))
 	static FString GetProjectSavedDirectory();
 
+	/* Converts passed in filename to use a relative path */
+	UFUNCTION(BlueprintPure, Category="Utilities|Paths")
+	static FString ConvertToRelativePath(const FString& Filename);
+
+	/* Converts passed in filename to use a absolute path */
+	UFUNCTION(BlueprintPure, Category="Utilities|Paths")
+	static FString ConvertToAbsolutePath(const FString& Filename);
+
+	/* Convert all / and \ to TEXT("/") */
+	UFUNCTION(BlueprintPure, Category="Utilities|Paths", meta=(BlueprintThreadSafe))
+	static FString NormalizeFilename(const FString& InFilename);
+
 	/**
 	 * Retrieves the game's platform-specific bundle identifier or package name of the game
 	 *
@@ -185,51 +197,51 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static UObject* Conv_InterfaceToObject(const FScriptInterface& Interface); 
 
 	/** Builds a SoftObjectPath struct. Generally you should be using Soft Object References/Ptr types instead */
-	UFUNCTION(BlueprintPure, Category = "SoftObjectPath", meta = (Keywords = "construct build", NativeMakeFunc))
+	UFUNCTION(BlueprintPure, Category = "SoftObjectPath", meta = (Keywords = "construct build", NativeMakeFunc, BlueprintThreadSafe))
 	static FSoftObjectPath MakeSoftObjectPath(const FString& PathString);
 
 	/** Gets the path string out of a Soft Object Path */
-	UFUNCTION(BlueprintPure, Category = "SoftObjectPath", meta = (NativeBreakFunc))
+	UFUNCTION(BlueprintPure, Category = "SoftObjectPath", meta = (NativeBreakFunc, BlueprintThreadSafe))
 	static void BreakSoftObjectPath(FSoftObjectPath InSoftObjectPath, FString& PathString);
 
 	/** Builds a SoftClassPath struct. Generally you should be using Soft Class References/Ptr types instead */
-	UFUNCTION(BlueprintPure, Category = "SoftClassPath", meta = (Keywords = "construct build", NativeMakeFunc))
+	UFUNCTION(BlueprintPure, Category = "SoftClassPath", meta = (Keywords = "construct build", NativeMakeFunc, BlueprintThreadSafe))
 	static FSoftClassPath MakeSoftClassPath(const FString& PathString);
 
 	/** Gets the path string out of a Soft Class Path */
-	UFUNCTION(BlueprintPure, Category = "SoftClassPath", meta = (NativeBreakFunc))
+	UFUNCTION(BlueprintPure, Category = "SoftClassPath", meta = (NativeBreakFunc, BlueprintThreadSafe))
 	static void BreakSoftClassPath(FSoftClassPath InSoftClassPath, FString& PathString);
 
 	/** Returns true if the Soft Object Reference is not null */
-	UFUNCTION(BlueprintPure, Category = "Utilities")
+	UFUNCTION(BlueprintPure, Category = "Utilities", meta = (BlueprintThreadSafe))
 	static bool IsValidSoftObjectReference(const TSoftObjectPtr<UObject>& SoftObjectReference);
 
 	/** Converts a Soft Object Reference to a string. The other direction is not provided because it cannot be validated */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (SoftObjectReference)", CompactNodeTitle = "->"), Category = "Utilities")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (SoftObjectReference)", CompactNodeTitle = "->", BlueprintThreadSafe), Category = "Utilities")
 	static FString Conv_SoftObjectReferenceToString(const TSoftObjectPtr<UObject>& SoftObjectReference);
 
 	/** Returns true if the values are equal (A == B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SoftObjectReference)", CompactNodeTitle = "=="), Category = "Utilities")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SoftObjectReference)", CompactNodeTitle = "==", BlueprintThreadSafe), Category = "Utilities")
 	static bool EqualEqual_SoftObjectReference(const TSoftObjectPtr<UObject>& A, const TSoftObjectPtr<UObject>& B);
 
 	/** Returns true if the values are not equal (A != B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (SoftObjectReference)", CompactNodeTitle = "!="), Category = "Utilities")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (SoftObjectReference)", CompactNodeTitle = "!=", BlueprintThreadSafe), Category = "Utilities")
 	static bool NotEqual_SoftObjectReference(const TSoftObjectPtr<UObject>& A, const TSoftObjectPtr<UObject>& B);
 
 	/** Returns true if the Soft Class Reference is not null */
-	UFUNCTION(BlueprintPure, Category = "Utilities")
+	UFUNCTION(BlueprintPure, Category = "Utilities", meta = (BlueprintThreadSafe))
 	static bool IsValidSoftClassReference(const TSoftClassPtr<UObject>& SoftClassReference);
 
 	/** Converts a Soft Class Reference to a string. The other direction is not provided because it cannot be validated */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (SoftObjectReference)", CompactNodeTitle = "->"), Category = "Utilities")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (SoftObjectReference)", CompactNodeTitle = "->", BlueprintThreadSafe), Category = "Utilities")
 	static FString Conv_SoftClassReferenceToString(const TSoftClassPtr<UObject>& SoftClassReference);
 
 	/** Returns true if the values are equal (A == B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SoftClassReference)", CompactNodeTitle = "=="), Category = "Utilities")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SoftClassReference)", CompactNodeTitle = "==", BlueprintThreadSafe), Category = "Utilities")
 	static bool EqualEqual_SoftClassReference(const TSoftClassPtr<UObject>& A, const TSoftClassPtr<UObject>& B);
 
 	/** Returns true if the values are not equal (A != B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (SoftClassReference)", CompactNodeTitle = "!="), Category = "Utilities")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (SoftClassReference)", CompactNodeTitle = "!=", BlueprintThreadSafe), Category = "Utilities")
 	static bool NotEqual_SoftClassReference(const TSoftClassPtr<UObject>& A, const TSoftClassPtr<UObject>& B);
 
 	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "true"), Category = "Utilities")
@@ -337,7 +349,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	Duration		The display duration (if Print to Screen is True). Using negative number will result in loading the duration time from the config.
 	 */
 	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log", AdvancedDisplay = "2", DevelopmentOnly), Category="Utilities|Text")
-	static void PrintText(UObject* WorldContextObject, const FText InText = FText::FromString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0, 0.66, 1.0), float Duration = 2.f);
+	static void PrintText(UObject* WorldContextObject, const FText InText = INVTEXT("Hello"), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0, 0.66, 1.0), float Duration = 2.f);
 
 	/**
 	 * Prints a warning string to the log and the screen. Meant to be used as a way to inform the user that they misused the node.
@@ -383,9 +395,11 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	/** 
 	 *	Exit the current game 
 	 * @param	SpecificPlayer	The specific player to quit the game. If not specified, player 0 will quit.
+	 * @param	QuitPreference	Form of quitting.
+	 * @param	bIgnorePlatformRestrictions	Ignores and best-practices based on platform (e.g PS4 games should never quit). Non-shipping only
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game",meta=(WorldContext="WorldContextObject"))
-	static void QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference);
+	static void QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions);
 
 	//=============================================================================
 	// Latent Actions
@@ -1532,6 +1546,13 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static bool IsLoggedIn(APlayerController* SpecificPlayer);
 
 	/**
+	 * Returns true if screen saver is enabled.
+	 *
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Utilities|Platform")
+	static bool IsScreensaverEnabled();
+
+	/**
 	 * Allows or inhibits screensaver
 	 * @param	bAllowScreenSaver		If false, don't allow screensaver if possible, otherwise allow default behavior
 	 */
@@ -1648,6 +1669,59 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category="Utilities")
 	static FString GetCommandLine();
 
+	/**
+	 * Returns true if running unattended (-unattended is on the command line)
+	 *
+	 * @return	Unattended state
+	 */
+	UFUNCTION(BlueprintPure, Category = "Utilities")
+	static bool IsUnattended();
+
+	// --- Transactions ------------------------------
+
+	/**
+	 * Begin a new undo transaction. An undo transaction is defined as all actions which take place when the user selects "undo" a single time.
+	 * @note If there is already an active transaction in progress, then this increments that transaction's action counter instead of beginning a new transaction.
+	 * @note You must call TransactObject before modifying each object that should be included in this undo transaction.
+	 * @note Only available in the editor.
+	 * 
+	 * @param	Context			The context for the undo session. Typically the tool/editor that caused the undo operation.
+	 * @param	Description		The description for the undo session. This is the text that will appear in the "Edit" menu next to the Undo item.
+	 * @param	PrimaryObject	The primary object that the undo session operators on (can be null, and mostly is).
+	 *
+	 * @return	The number of active actions when BeginTransaction was called (values greater than 0 indicate that there was already an existing undo transaction in progress), or -1 on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static int32 BeginTransaction(const FString& Context, FText Description, UObject* PrimaryObject);
+
+	/**
+	 * Attempt to end the current undo transaction. Only successful if the transaction's action counter is 1.
+	 * @note Only available in the editor.
+	 * 
+	 * @return	The number of active actions when EndTransaction was called (a value of 1 indicates that the transaction was successfully closed), or -1 on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static int32 EndTransaction();
+
+	/**
+	 * Cancel the current transaction, and no longer capture actions to be placed in the undo buffer.
+	 * @note Only available in the editor.
+	 *
+	 * @param	Index		The action counter to cancel transactions from (as returned by a call to BeginTransaction).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static void CancelTransaction(const int32 Index);
+
+	/**
+	 * Notify the current transaction (if any) that this object is about to be modified and should be placed into the undo buffer.
+	 * @note Internally this calls Modify on the given object, so will also mark the owner package dirty.
+	 * @note Only available in the editor.
+	 *
+	 * @param	Object		The object that is about to be modified.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static void TransactObject(UObject* Object);
+
 	// --- Asset Manager ------------------------------
 
 	/** Returns the Object associated with a Primary Asset Id, this will only return a valid object if it is in memory, it will not load it */
@@ -1687,35 +1761,35 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static void GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& OutPrimaryAssetIdList);
 
 	/** Returns true if the Primary Asset Id is valid */
-	UFUNCTION(BlueprintPure, Category = "AssetManager", meta=(ScriptMethod="IsValid", ScriptOperator="bool"))
+	UFUNCTION(BlueprintPure, Category = "AssetManager", meta=(ScriptMethod="IsValid", ScriptOperator="bool", BlueprintThreadSafe))
 	static bool IsValidPrimaryAssetId(FPrimaryAssetId PrimaryAssetId);
 
 	/** Converts a Primary Asset Id to a string. The other direction is not provided because it cannot be validated */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (PrimaryAssetId)", CompactNodeTitle = "->", ScriptMethod="ToString"), Category = "AssetManager")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (PrimaryAssetId)", CompactNodeTitle = "->", ScriptMethod="ToString", BlueprintThreadSafe), Category = "AssetManager")
 	static FString Conv_PrimaryAssetIdToString(FPrimaryAssetId PrimaryAssetId);
 
 	/** Returns true if the values are equal (A == B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (PrimaryAssetId)", CompactNodeTitle = "==", ScriptOperator="=="), Category = "AssetManager")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (PrimaryAssetId)", CompactNodeTitle = "==", ScriptOperator="==", BlueprintThreadSafe), Category = "AssetManager")
 	static bool EqualEqual_PrimaryAssetId(FPrimaryAssetId A, FPrimaryAssetId B);
 
 	/** Returns true if the values are not equal (A != B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (PrimaryAssetId)", CompactNodeTitle = "!=", ScriptOperator="!="), Category = "AssetManager")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (PrimaryAssetId)", CompactNodeTitle = "!=", ScriptOperator="!=", BlueprintThreadSafe), Category = "AssetManager")
 	static bool NotEqual_PrimaryAssetId(FPrimaryAssetId A, FPrimaryAssetId B);
 
 	/** Returns list of Primary Asset Ids for a PrimaryAssetType */
-	UFUNCTION(BlueprintPure, Category = "AssetManager", meta=(ScriptMethod="IsValid", ScriptOperator="bool"))
+	UFUNCTION(BlueprintPure, Category = "AssetManager", meta=(ScriptMethod="IsValid", ScriptOperator="bool", BlueprintThreadSafe))
 	static bool IsValidPrimaryAssetType(FPrimaryAssetType PrimaryAssetType);
 
 	/** Converts a Primary Asset Type to a string. The other direction is not provided because it cannot be validated */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (PrimaryAssetType)", CompactNodeTitle = "->", ScriptMethod="ToString"), Category = "AssetManager")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (PrimaryAssetType)", CompactNodeTitle = "->", ScriptMethod="ToString", BlueprintThreadSafe), Category = "AssetManager")
 	static FString Conv_PrimaryAssetTypeToString(FPrimaryAssetType PrimaryAssetType);
 
 	/** Returns true if the values are equal (A == B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (PrimaryAssetType)", CompactNodeTitle = "==", ScriptOperator="=="), Category = "AssetManager")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (PrimaryAssetType)", CompactNodeTitle = "==", ScriptOperator="==", BlueprintThreadSafe), Category = "AssetManager")
 	static bool EqualEqual_PrimaryAssetType(FPrimaryAssetType A, FPrimaryAssetType B);
 
 	/** Returns true if the values are not equal (A != B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (PrimaryAssetType)", CompactNodeTitle = "!=", ScriptOperator="!="), Category = "AssetManager")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (PrimaryAssetType)", CompactNodeTitle = "!=", ScriptOperator="!=", BlueprintThreadSafe), Category = "AssetManager")
 	static bool NotEqual_PrimaryAssetType(FPrimaryAssetType A, FPrimaryAssetType B);
 
 	/** Unloads a primary asset, which allows it to be garbage collected if nothing else is referencing it */

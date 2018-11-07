@@ -250,7 +250,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				throw new BuildException("Couldn't find 32-bit or 64-bit versions of the Android toolchain");
+				throw new BuildException("Couldn't find 32-bit or 64-bit versions of the Android toolchain with NDKROOT: " + NDKPath);
 			}
 
 			// prefer clang 3.6, but fall back if needed for now
@@ -294,7 +294,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				throw new BuildException("Cannot find supported Android toolchain");
+				throw new BuildException("Cannot find supported Android toolchain with NDKPath:" + NDKPath);
 			}
 
 			// set up the path to our toolchains
@@ -344,7 +344,7 @@ namespace UnrealBuildTool
 										" --sysroot=\"" + Path.Combine(NDKPath, "sysroot") + "\"" +
 										" -isystem " + Path.Combine(NDKPath, "sysroot/usr/include/i686-linux-android/") +
 										" -D__ANDROID_API__=" + NDKApiLevel32Int;
-				ToolchainParamsx86 = " -target x86_64-none-linux-android" +
+				ToolchainParamsx64 = " -target x86_64-none-linux-android" +
 										" --sysroot=\"" + Path.Combine(NDKPath, "sysroot") + "\"" +
 										" -isystem " + Path.Combine(NDKPath, "sysroot/usr/include/x86_64-linux-android/") +
 										" -D__ANDROID_API__=" + NDKApiLevel64Int;
@@ -1251,7 +1251,7 @@ namespace UnrealBuildTool
 
 			string BasePCHName = "";
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(UEBuildPlatform.CPPTargetPlatformToUnrealTargetPlatform(CompileEnvironment.Platform));
-			string PCHExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+			string PCHExtension = ".gch";
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
 				BasePCHName = RemoveArchName(CompileEnvironment.PrecompiledHeaderFile.AbsolutePath).Replace(PCHExtension, "");
@@ -1290,9 +1290,12 @@ namespace UnrealBuildTool
 					string PCHArguments = "";
 					if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 					{
+						// add the platform-specific PCH reference
+						PCHArguments += string.Format(" -include-pch \"{0}\"", InlineArchName(BasePCHName, Arch, GPUArchitecture) + PCHExtension);
+
 						// Add the precompiled header file's path to the include path so Clang can find it.
 						// This needs to be before the other include paths to ensure Clang uses it instead of the source header file.
-						PCHArguments += string.Format(" -include \"{0}\"", InlineArchName(BasePCHName, Arch, GPUArchitecture));
+						PCHArguments += string.Format(" -include \"{0}\"", BasePCHName);
 					}
 
 					foreach (FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
@@ -1341,7 +1344,7 @@ namespace UnrealBuildTool
 							FileArguments += GetCompileArguments_C(bDisableOptimizations);
 
 							// remove shadow variable warnings for externally included files
-							if (!SourceFile.AbsolutePath.Replace("\\", "/").StartsWith(Path.GetFullPath(UnrealBuildTool.RootDirectory.CanonicalName)))
+							if (!SourceFile.Location.IsUnderDirectory(UnrealBuildTool.RootDirectory))
 							{
 								bDisableShadowWarning = true;
 							}
@@ -1386,11 +1389,14 @@ namespace UnrealBuildTool
 								CompileAction.PrerequisiteItems.Add(ArchPrecompiledHeaderFile);
 							}
 
-							string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
-
+							string ObjectFileExtension;
 							if(CompileEnvironment.AdditionalArguments != null && CompileEnvironment.AdditionalArguments.Contains("-emit-llvm"))
 							{
 								ObjectFileExtension = ".bc";
+							}
+							else
+							{
+								ObjectFileExtension = ".o";
 							}
 
 							// Add the object file to the produced item list.
@@ -1439,8 +1445,17 @@ namespace UnrealBuildTool
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 						if(bExecuteCompilerThroughShell)
 						{
-							CompileAction.CommandPath = "cmd.exe";
-							CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+							if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+							{
+								CompileAction.CommandPath = "cmd.exe";
+								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+							}
+							else
+							{
+								CompileAction.CommandPath = "/bin/sh";
+								CompileAction.CommandArguments = String.Format("-c \'{0} {1}\'", ClangPath, ResponseArgument);
+								CompileAction.CommandDescription = "Compile";
+							}
 						}
 						else
 						{
@@ -1662,13 +1677,81 @@ namespace UnrealBuildTool
 
 					if(bExecuteCompilerThroughShell)
 					{
-						LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
-						LinkAction.CommandPath = "cmd.exe";
+						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+						{
+							LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
+							LinkAction.CommandPath = "cmd.exe";
+						}
+						else
+						{
+							LinkAction.CommandArguments = String.Format("-c \'{0} {1}\'", LinkAction.CommandPath, LinkAction.CommandArguments);
+							LinkAction.CommandPath = "/bin/sh";
+							LinkAction.CommandDescription = "Link";
+						}
 					}
+
+					// Windows can run into an issue with too long of a commandline when clang tries to call ld to link.
+					// To work around this we call clang to just get the command it would execute and generate a
+					// second response file to directly call ld with the right arguments instead of calling through clang.
+/* disable while tracking down some linker errors this introduces
+					if (!Utils.IsRunningOnMono)
+					{
+						// capture the actual link command without running it
+						ProcessStartInfo StartInfo = new ProcessStartInfo();
+						StartInfo.WorkingDirectory = LinkEnvironment.IntermediateDirectory.FullName;
+						StartInfo.FileName = LinkAction.CommandPath;
+						StartInfo.Arguments = "-### " + LinkAction.CommandArguments;
+						StartInfo.UseShellExecute = false;
+						StartInfo.CreateNoWindow = true;
+						StartInfo.RedirectStandardError = true;
+
+						LinkerCommandline = "";
+
+						Process Proc = new Process();
+						Proc.StartInfo = StartInfo;
+						Proc.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForLinker);
+						Proc.Start();
+						Proc.BeginErrorReadLine();
+						Proc.WaitForExit(5000);
+
+						LinkerCommandline = LinkerCommandline.Trim();
+
+						// the command should be in quotes; if not we'll just use clang to link as usual
+						int FirstQuoteIndex = LinkerCommandline.IndexOf('"');
+						if (FirstQuoteIndex >= 0)
+						{
+							int SecondQuoteIndex = LinkerCommandline.Substring(FirstQuoteIndex + 1).IndexOf('"');
+							if (SecondQuoteIndex >= 0)
+							{
+								LinkAction.CommandPath = LinkerCommandline.Substring(FirstQuoteIndex + 1, SecondQuoteIndex - FirstQuoteIndex);
+								LinkAction.CommandArguments = LinkerCommandline.Substring(FirstQuoteIndex + SecondQuoteIndex + 3);
+
+								// replace double backslashes
+								LinkAction.CommandPath = LinkAction.CommandPath.Replace("\\\\", "/");
+
+								// now create a response file for the full command using ld directly
+								FileReference FinalResponseFileName = FileReference.Combine(LinkEnvironment.IntermediateDirectory, OutputFile.Location.GetFileName() + ".responseFinal");
+								FileItem FinalResponseFileItem = FileItem.CreateIntermediateTextFile(FinalResponseFileName, LinkAction.CommandArguments);
+								LinkAction.CommandArguments = string.Format("@\"{0}\"", FinalResponseFileName);
+								LinkAction.PrerequisiteItems.Add(FinalResponseFileItem);
+							}
+						}
+					}
+*/
 				}
 			}
 
 			return Outputs.ToArray();
+		}
+
+		// captures stderr from clang
+		private static string LinkerCommandline = "";
+		static public void OutputReceivedForLinker(Object Sender, DataReceivedEventArgs Line)
+		{
+			if ((Line != null) && (Line.Data != null) && (Line.Data.Contains("--sysroot")))
+			{
+				LinkerCommandline += Line.Data;
+			}
 		}
 
 		private void ExportObjectFilePaths(LinkEnvironment LinkEnvironment, string FileName)
@@ -1766,8 +1849,8 @@ namespace UnrealBuildTool
 			}
 
 			ProcessStartInfo StartInfo = new ProcessStartInfo();
-			StartInfo.FileName = GetStripPath(SourceFile);
-			StartInfo.Arguments = "--strip-debug " + TargetFile.FullName;
+			StartInfo.FileName = GetStripPath(SourceFile).Trim('"');
+			StartInfo.Arguments = " --strip-debug \"" + TargetFile.FullName + "\"";
 			StartInfo.UseShellExecute = false;
 			StartInfo.CreateNoWindow = true;
 			Utils.RunLocalProcessAndLogOutput(StartInfo);

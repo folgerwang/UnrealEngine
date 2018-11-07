@@ -242,9 +242,6 @@ public:
 
 	/* Function to go through all constructed canvas items and update their safe zone data. */
 	static void UpdateAllCanvasSafeZoneData();
-	
-	/* Changes depth in game units . Used to render stereo projection*/
-	void SetStereoDepth(uint32 depth);
 
 	/** 
 	 * Draw arbitrary aligned rectangle.
@@ -389,8 +386,9 @@ public:
 	 * @param Text The string to calculate for.
 	 * @param XL out Horizontal length of string.
 	 * @param YL out Vertical length of string.
+	 * @param bDPUAware If true measures text considering the current DPI scale factor of the canvas.  Defaults to false for backwards compatibility
 	 */
-	void StrLen(const UFont* InFont, const FString& InText, float& XL, float& YL);
+	void StrLen(const UFont* InFont, const FString& InText, float& XL, float& YL, bool bDPIAware = false);
 
 	/** 
 	 * Calculates the horizontal and vertical size of a given string. This is used for clipped text as it does not take wrapping into account.
@@ -476,6 +474,9 @@ public:
 	/** Creates if necessary and returns ReporterGraph instance for 2d graph canvas drawing */
 	TWeakObjectPtr<class UReporterGraph>  GetReporterGraph();
 
+	/** @return the current DPI scale being applied to all canvas draw elements */
+	float GetDPIScale() const { return Canvas->GetDPIScale(); }
+
 	/**
 	 * Draws a line on the Canvas.
 	 *
@@ -533,7 +534,7 @@ public:
 	 * @param OutlineColor				Color to render the outline for the text.
 	 */	
 	UFUNCTION(BlueprintCallable, Category=Canvas, meta=(DisplayName="Draw Text", ScriptName="DrawText"))
-	void K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FLinearColor RenderColor=FLinearColor::White, float Kerning=0.0f, FLinearColor ShadowColor=FLinearColor::Black, FVector2D ShadowOffset=FVector2D::UnitVector, bool bCentreX=false, bool bCentreY=false, bool bOutlined=false, FLinearColor OutlineColor=FLinearColor::Black);
+	void K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FVector2D Scale=FVector2D(1.0f,1.0f), FLinearColor RenderColor=FLinearColor::White, float Kerning=0.0f, FLinearColor ShadowColor=FLinearColor::Black, FVector2D ShadowOffset=FVector2D::UnitVector, bool bCentreX=false, bool bCentreY=false, bool bOutlined=false, FLinearColor OutlineColor=FLinearColor::Black);
 	
 	/**
 	 * Draws a 3x3 grid border with tiled frame and tiled interior on the Canvas.

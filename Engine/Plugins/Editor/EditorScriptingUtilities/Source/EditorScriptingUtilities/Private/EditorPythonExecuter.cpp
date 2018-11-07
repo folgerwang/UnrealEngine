@@ -164,8 +164,11 @@ namespace InternalEditorPythonRunner
 					{
 						bIsRunning = true;
 
-						// Run the command on the next frame
-						GEngine->HandleDeferCommand(*FString::Printf(TEXT("py %s"), *FileName), *GLog);
+						// Try and run the command
+						if (!GEngine->Exec(GWorld, *FString::Printf(TEXT("PY \"%s\""), *FileName), *GLog))
+						{
+							UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used without a valid Python Script Plugin. Ensure the plugin is enabled and wasn't compiled with Python support stubbed out."));
+						}
 					}
 				}
 				else
@@ -205,11 +208,11 @@ void FEditorPythonExecuter::OnStartupModule()
 	{
 		if (!GIsEditor)
 		{
-			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used outside of the editor"));
+			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used outside of the editor."));
 		}
 		else if (IsRunningCommandlet())
 		{
-			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be by a commandlet"));
+			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used by a commandlet."));
 		}
 		else
 		{

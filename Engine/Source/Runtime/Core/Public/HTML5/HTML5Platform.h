@@ -28,7 +28,7 @@ typedef FHTML5Types FPlatformTypes;
 #define PLATFORM_SUPPORTS_PRAGMA_PACK				1
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR			1
 #define PLATFORM_HAS_BSD_TIME						1
-#define PLATFORM_MAX_FILEPATH_LENGTH				PATH_MAX
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED		PATH_MAX
 #define PLATFORM_TCHAR_IS_4_BYTES					1
 #define PLATFORM_HAS_BSD_SOCKETS					1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
@@ -63,7 +63,6 @@ typedef FHTML5Types FPlatformTypes;
 // Alignment.
 #define GCC_PACK(n)			__attribute__((packed,aligned(n)))
 #define GCC_ALIGN(n)		__attribute__((aligned(n)))
-#define REQUIRES_ALIGNED_ACCESS 1
 
 // Operator new/delete handling.
 // operator new/delete operators
@@ -79,4 +78,4 @@ typedef FHTML5Types FPlatformTypes;
 
 
 #define MAXUINT8    ((uint8)~((uint8)0))
-#define MAX_PATH 1024
+#define HTML5_MAX_PATH 1024

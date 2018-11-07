@@ -14,6 +14,7 @@ namespace Audio
 		, HalfKneeBandwidthDb(5.0f)
 		, InputGain(1.0f)
 		, OutputGain(1.0f)
+		, NumChannels(0)
 		, bIsChannelLinked(true)
 		, bIsAnalogMode(true)
 	{
@@ -25,9 +26,10 @@ namespace Audio
 	{
 	}
 
-	void FDynamicsProcessor::Init(const float SampleRate, const int32 NumChannels)
+	void FDynamicsProcessor::Init(const float SampleRate, const int32 InNumChannels)
 	{
-		for (int32 Channel = 0; Channel < NumChannels; ++Channel)
+		NumChannels = InNumChannels;
+		for (int32 Channel = 0; Channel < InNumChannels; ++Channel)
 		{
 			int32 Index = LookaheadDelay.Add(FDelay());
 			LookaheadDelay[Index].Init(SampleRate, 0.1f);
@@ -118,16 +120,14 @@ namespace Audio
 		ProcessingMode = InProcessingMode;
 	}
 
-	void FDynamicsProcessor::ProcessAudio(const float* InputFrame, int32 NumChannels, float* OutputFrame)
+	void FDynamicsProcessor::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
-		check(NumChannels <= EnvFollower.Num());
-
 		// Get detector outputs
 		DetectorOuts.Reset();
 		 
 		for (int32 Channel = 0; Channel < NumChannels; ++Channel)
 		{
-			DetectorOuts.Add(EnvFollower[Channel].ProcessAudio(InputGain * InputFrame[Channel]));
+			DetectorOuts.Add(EnvFollower[Channel].ProcessAudio(InputGain * InFrame[Channel]));
 		}
 
 		Gain.Reset();
@@ -171,11 +171,18 @@ namespace Audio
 			// Write and read into the look ahead delay line.
 			// We apply the compression output of the direct input to the output of this delay line
 			// This way sharp transients can be "caught" with the gain.
-			float LookaheadOutput = 0.0f;
-			LookaheadDelay[Channel].ProcessAudio(&InputFrame[Channel], &LookaheadOutput);
+			float LookaheadOutput = LookaheadDelay[Channel].ProcessAudioSample(InFrame[Channel]);
 
 			// Write into the output with the computed gain value
-			OutputFrame[Channel] = Gain[Channel] * LookaheadOutput * OutputGain;
+			OutFrame[Channel] = Gain[Channel] * LookaheadOutput * OutputGain;
+		}
+	}
+
+	void FDynamicsProcessor::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+		{
+			ProcessAudioFrame(&InBuffer[SampleIndex], &OutBuffer[SampleIndex]);
 		}
 	}
 

@@ -246,14 +246,16 @@ void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerR
 }
 
 
-FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice) :
-	Sampler(VK_NULL_HANDLE)
+FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice, const bool bInIsImmutable)
+	: Sampler(VK_NULL_HANDLE)
+	, bIsImmutable(bInIsImmutable)
 {
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, nullptr, &Sampler));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, VULKAN_CPU_ALLOCATOR, &Sampler));
 }
 
-FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
+FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializerRHI& InInitializer)
 {
+	Initializer = InInitializer;
 	FVulkanRasterizerState::ResetCreateInfo(RasterizerState);
 
 	// @todo vulkan: I'm assuming that Solid and Wireframe wouldn't ever be mixed within the same BoundShaderState, so we are ignoring the fill mode as a unique identifier
@@ -315,8 +317,9 @@ void FVulkanDepthStencilState::SetupCreateInfo(const FGraphicsPipelineStateIniti
 	}
 }
 
-FVulkanBlendState::FVulkanBlendState(const FBlendStateInitializerRHI& Initializer)
+FVulkanBlendState::FVulkanBlendState(const FBlendStateInitializerRHI& InInitializer)
 {
+	Initializer = InInitializer;
 	for (uint32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
 	{
 		const FBlendStateInitializerRHI::FRenderTarget& ColorTarget = Initializer.RenderTargets[Index];
@@ -365,6 +368,42 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(const FSamplerState
 	}
 }
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
+	const FSamplerStateInitializerRHI& Initializer, 
+	const FSamplerYcbcrConversionInitializer& ConversionInitializer)
+{
+	VkSamplerYcbcrConversionCreateInfo ConversionCreateInfo;
+	FMemory::Memzero(&ConversionCreateInfo, sizeof(VkSamplerYcbcrConversionCreateInfo));
+	ConversionCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO;
+	ConversionCreateInfo.format = ConversionInitializer.Format;
+	
+	ConversionCreateInfo.components.a = ConversionInitializer.Components.a;
+	ConversionCreateInfo.components.r = ConversionInitializer.Components.r;
+	ConversionCreateInfo.components.g = ConversionInitializer.Components.g;
+	ConversionCreateInfo.components.b = ConversionInitializer.Components.b;
+	
+	ConversionCreateInfo.ycbcrModel = ConversionInitializer.Model;
+	ConversionCreateInfo.ycbcrRange = ConversionInitializer.Range;
+	ConversionCreateInfo.xChromaOffset = ConversionInitializer.XOffset;
+	ConversionCreateInfo.yChromaOffset = ConversionInitializer.YOffset;
+	ConversionCreateInfo.chromaFilter = VK_FILTER_NEAREST;
+	ConversionCreateInfo.forceExplicitReconstruction = VK_FALSE;
+
+	check(ConversionInitializer.Format != VK_FORMAT_UNDEFINED); // No support for VkExternalFormatANDROID yet.
+
+	VkSamplerYcbcrConversionInfo ConversionInfo;
+	FMemory::Memzero(&ConversionInfo, sizeof(VkSamplerYcbcrConversionInfo));
+	ConversionInfo.conversion = Device->CreateSamplerColorConversion(ConversionCreateInfo);
+	ConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
+
+	VkSamplerCreateInfo SamplerInfo;
+	FVulkanSamplerState::SetupSamplerCreateInfo(Initializer, *Device, SamplerInfo);
+	SamplerInfo.pNext = &ConversionInfo;
+
+	return new FVulkanSamplerState(SamplerInfo, *Device, true);
+}
+#endif
 
 FRasterizerStateRHIRef FVulkanDynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
 {

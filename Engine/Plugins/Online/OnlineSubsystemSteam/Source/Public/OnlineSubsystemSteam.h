@@ -79,7 +79,10 @@ protected:
 	FOnlineLeaderboardsSteamPtr LeaderboardsInterface;
 
 	/** Interface to the voice engine */
-	FOnlineVoiceSteamPtr VoiceInterface;
+	mutable IOnlineVoicePtr VoiceInterface;
+
+	/** Interface for voice communication */
+	mutable bool bVoiceInterfaceInitialized;
 
 	/** Interface to the external UI services */
 	FOnlineExternalUISteamPtr ExternalUIInterface;
@@ -102,6 +105,7 @@ protected:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
+	FOnlineSubsystemSteam() = delete;
 	FOnlineSubsystemSteam(FName InInstanceName) :
 		FOnlineSubsystemImpl(STEAM_SUBSYSTEM, InInstanceName),
 		bSteamworksClientInitialized(false),
@@ -117,27 +121,7 @@ PACKAGE_SCOPE:
 		UserCloudInterface(nullptr),
 		LeaderboardsInterface(nullptr),
 		VoiceInterface(nullptr),
-		ExternalUIInterface(nullptr),
-		PresenceInterface(nullptr),
-		AuthInterface(nullptr),
-		OnlineAsyncTaskThreadRunnable(nullptr),
-		OnlineAsyncTaskThread(nullptr)
-	{}
-
-	FOnlineSubsystemSteam() : 
-		bSteamworksClientInitialized(false),
-		bSteamworksGameServerInitialized(false),
-		SteamAppID(0),
-		GameServerSteamPort(0),
-		GameServerGamePort(0),
-		GameServerQueryPort(0),
-		SessionInterface(nullptr),
-		IdentityInterface(nullptr),
-		FriendInterface(nullptr),
-		SharedCloudInterface(nullptr),
-		UserCloudInterface(nullptr),
-		LeaderboardsInterface(nullptr),
-		VoiceInterface(nullptr),
+		bVoiceInterfaceInitialized(false),
 		ExternalUIInterface(nullptr),
 		PresenceInterface(nullptr),
 		AuthInterface(nullptr),
@@ -248,6 +232,7 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 	virtual bool IsLocalPlayer(const FUniqueNetId& UniqueId) const override;
 	virtual bool Init() override;
 	virtual bool Shutdown() override;

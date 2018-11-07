@@ -28,6 +28,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "GeometryCacheComponent.h"
 #include "GeometryCache.h"
+#include "Styling/SlateIconFinder.h"
 
 namespace GeometryCacheEditorConstants
 {
@@ -43,13 +44,9 @@ static UGeometryCacheComponent* AcquireGeometryCacheFromObjectGuid(const FGuid& 
 
 	if (AActor* Actor = Cast<AActor>(BoundObject))
 	{
-		TInlineComponentArray<UGeometryCacheComponent*> GeometryMeshComponents;
-		Actor->GetComponents(GeometryMeshComponents);
-
-		for (int32 j = 0; j <GeometryMeshComponents.Num(); ++j)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			UGeometryCacheComponent* GeometryMeshComp = GeometryMeshComponents[j];
-			if (GeometryMeshComp)
+			if (UGeometryCacheComponent* GeometryMeshComp = Cast<UGeometryCacheComponent>(Component))
 			{
 				return GeometryMeshComp;
 			}
@@ -377,6 +374,11 @@ TSharedPtr<SWidget> FGeometryCacheTrackEditor::BuildOutlinerEditWidget(const FGu
 		return TSharedPtr<SWidget>();
 	}
 	
+}
+
+const FSlateBrush* FGeometryCacheTrackEditor::GetIconBrush() const
+{
+	return FSlateIconFinder::FindIconForClass(UGeometryCacheComponent::StaticClass()).GetIcon();
 }
 
 

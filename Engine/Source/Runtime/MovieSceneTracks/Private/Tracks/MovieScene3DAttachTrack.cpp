@@ -22,8 +22,7 @@ FMovieSceneEvalTemplatePtr UMovieScene3DAttachTrack::CreateTemplateForSection(co
 void UMovieScene3DAttachTrack::AddConstraint(FFrameNumber KeyTime, int32 Duration, const FName SocketName, const FName ComponentName, const FMovieSceneObjectBindingID& ConstraintBindingID)
 {
 	// add the section
-	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this);
-	NewSection->SetFlags(RF_Transactional);
+	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this, NAME_None, RF_Transactional);
 	NewSection->SetAttachTargetID(ConstraintBindingID);
 	NewSection->InitialPlacement(ConstraintSections, KeyTime, Duration, SupportsMultipleRows());
 	NewSection->AttachSocketName = SocketName;
@@ -34,8 +33,7 @@ void UMovieScene3DAttachTrack::AddConstraint(FFrameNumber KeyTime, int32 Duratio
 
 UMovieSceneSection* UMovieScene3DAttachTrack::CreateNewSection()
 {
-	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this);
-	NewSection->SetFlags(RF_Transactional);
+	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this, NAME_None, RF_Transactional);
 
 	ConstraintSections.Add(NewSection);
 

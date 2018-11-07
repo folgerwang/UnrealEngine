@@ -291,7 +291,7 @@ private:
 	TArray<FColor>* OutScreenshotData;
 
 	/** These are state management variables for Scenes on the game thread. A similar copy exists on the RHI Rendering Policy for the rendering thread.*/
-	TArray<FSceneInterface*> ActiveScenes;
+	TArray<FSceneInterface*, TInlineAllocator<4>> ActiveScenes;
 	int32 CurrentSceneIndex;
 	
 	/** Version that increments when it is okay to clean up older cached resources */

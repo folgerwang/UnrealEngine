@@ -109,13 +109,7 @@ public:
 
 public:
 
-	/**
-	 * Get the selection range.
-	 *
-	 * @return The selection range.
-	 * @see SetSelectionRange, SetSelectionRangeEnd, SetSelectionRangeStart
-	 */
-	TRange<FFrameNumber> GetSelectionRange() const;
+	virtual TRange<FFrameNumber> GetSelectionRange() const override;
 
 	/**
 	 * Set the selection selection range.
@@ -125,19 +119,9 @@ public:
 	 */
 	void SetSelectionRange(TRange<FFrameNumber> Range);
 	
-	/**
-	 * Set the selection range's end position to the current global time.
-	 *
-	 * @see GetSelectionRange, SetSelectionRange, SetSelectionRangeStart
-	 */
-	void SetSelectionRangeEnd();
-	
-	/**
-	 * Set the selection range's start position to the current global time.
-	 *
-	 * @see GetSelectionRange, SetSelectionRange, SetSelectionRangeEnd
-	 */
-	void SetSelectionRangeStart();
+	virtual void SetSelectionRangeEnd() override;
+
+	virtual void SetSelectionRangeStart() override;
 
 	/** Clear and reset the selection range. */
 	void ResetSelectionRange();
@@ -267,8 +251,8 @@ public:
 	/** Bake transform */
 	void BakeTransform();
 
-	/** Sync to source timecode */
-	void SyncToSourceTimecode();
+	/** Sync using source timecode */
+	void SyncSectionsUsingSourceTimecode();
 
 	/**
 	 * @return Movie scene tools used by the sequencer
@@ -277,6 +261,25 @@ public:
 	{
 		return TrackEditors;
 	}
+
+public:
+	/** @return The set of marked frames */
+	TSet<FFrameNumber> GetMarkedFrames() const;
+
+protected:
+
+	/** Set/Clear a Mark at the current time */
+	void ToggleMarkAtPlayPosition();
+	void StepToNextMark();
+	void StepToPreviousMark();
+
+	/**
+	 * @param	FrameNumber The FrameNumber in Ticks 
+	 * @param	bSetMark  true to set the mark, false to clear the mark
+	 */
+	void SetMarkedFrame(FFrameNumber FrameNumber, bool bSetMark);
+
+	void ClearAllMarkedFrames();
 
 public:
 
@@ -616,6 +619,7 @@ public:
 	//~ ISequencer Interface
 
 	virtual void Close() override;
+	virtual FOnCloseEvent& OnCloseEvent() override { return OnCloseEventDelegate; }
 	virtual TSharedRef<SWidget> GetSequencerWidget() const override;
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const override { return ActiveTemplateIDs[0]; }
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const override { return ActiveTemplateIDs.Top(); }
@@ -791,6 +795,9 @@ protected:
 	/** Get the unqualified local time */
 	FFrameTime GetLocalFrameTime() const { return GetLocalTime().Time; }
 
+	/** Exports sequence to a FBX file */
+	void ExportFBXInternal(const FString& Filename, TArray<FGuid>& Bindings);
+
 protected:
 
 	/**
@@ -879,6 +886,7 @@ protected:
 	void BindCommands();
 
 	//~ Begin FEditorUndoClient Interface
+	virtual bool MatchesContext(const FTransactionContext& InContext, const TArray<TPair<UObject*, FTransactionObjectEvent>>& TransactionObjects) const override;
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 	// End of FEditorUndoClient
@@ -944,6 +952,9 @@ protected:
 
 	/** Get the default key attributes to apply to newly created keys on the curve editor */
 	FKeyAttributes GetDefaultKeyAttributes() const;
+
+	/** Recompile any dirty director blueprints in the sequence hierarchy */
+	void RecompileDirtyDirectors();
 
 public:
 
@@ -1071,6 +1082,9 @@ private:
 
 	/** Represents the tree of nodes to display in the animation outliner. */
 	TSharedRef<FSequencerNodeTree> NodeTree;
+
+	/** A delegate which is called when the sequencer closes. */
+	FOnCloseEvent OnCloseEventDelegate;
 
 	/** A delegate which is called any time the global time changes. */
 	FOnGlobalTimeChanged OnGlobalTimeChangedDelegate;

@@ -392,7 +392,7 @@ public:
 
 	~FD3D12TextureAllocator();
 
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState, bool bForcePlacementCreation = false );
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState );
 };
 
 class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
@@ -400,7 +400,7 @@ class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiN
 public:
 	FD3D12TextureAllocatorPool(FD3D12Device* Device, FRHIGPUMask VisibilityNode);
 
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState, bool bForcePlacementCreation = false );
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState );
 
 	void CleanUpAllocations() { ReadOnlyTexturePool.CleanUpAllocations(); }
 
@@ -416,14 +416,14 @@ private:
 
 struct FD3D12FastAllocatorPage
 {
-	FD3D12FastAllocatorPage() :
-		NextFastAllocOffset(0)
-		, PageSize(0)
+	FD3D12FastAllocatorPage()
+		: PageSize(0)
+		, NextFastAllocOffset(0)
 		, FastAllocData(nullptr)
 		, FrameFence(0) {};
 
-	FD3D12FastAllocatorPage(uint32 Size) :
-		PageSize(Size)
+	FD3D12FastAllocatorPage(uint32 Size)
+		: PageSize(Size)
 		, NextFastAllocOffset(0)
 		, FastAllocData(nullptr)
 		, FrameFence(0) {};
@@ -493,11 +493,11 @@ class FD3D12AbstractRingBuffer
 {
 public:
 	FD3D12AbstractRingBuffer(uint64 BufferSize)
-		: Size(BufferSize)
+		: Fence(nullptr)
+		, Size(BufferSize)
 		, Head(BufferSize)
 		, Tail(0)
 		, LastFence(0)
-		, Fence(nullptr)
 	{}
 
 	static const uint64 FailedReturnValue = uint64(-1);

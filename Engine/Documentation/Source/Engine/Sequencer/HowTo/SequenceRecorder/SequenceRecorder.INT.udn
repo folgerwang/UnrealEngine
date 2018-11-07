@@ -12,103 +12,242 @@ Related: Engine/Sequencer/ReferenceEditor
 tags:Sequencer
 type:how-to
 
-The **Sequence Recorder** allows you to capture specified Actors during level editing or gameplay that can be saved as a new **Level Sequence**, and can be edited inside of **Sequencer**. 
-This is useful for quickly capturing content for scenes, as you can take a playable character, perform some actions during gameplay while recording with the Sequence Recorder, then take that data into Sequencer, creating a cinematic around it.
+# Sequence Recorder
 
-In this example, we will use the Sequence Recorder to record our playable character's movement, which we can then edit.
+The **Sequence Recorder** enables you to record Actor(s) from gameplay or level editing into Skeletal Animation, Transform, Event and Audio Tracks inside a Level Sequence. You can then edit the Level Sequence inside the **Sequencer Editor** to create a cinematic based around your recording.
 
-## Steps
+## Opening the Sequence Recorder
 
-[REGION:note]
-For this How-to, we are using the **Blueprint Third Person Template** project with **Starter Content Enabled**. 
-[/REGION]
+You can open the **Sequence Recorder** from the main **Menu Bar** under the **Window** tab:
 
-1.	From the **Menu Bar** under **Window**, select **Sequence Recorder**. 
+![image alt text](image_0.png)(w:270 h:300 convert:false)
 
-	![](RecorderStep1.png)
+After selecting **Sequence Recorder**, the **Sequence Recorder** window will open:
 
-	The Sequence Recorder window will automatically open. There are some options under **Sequence Recording** which will determine how (and where) the new Level Sequence asset will be saved. You can choose to record Actors that are spawned (such as particle effects, other characters, etc.), determine the naming convention and save location, and change other settings like the duration to record or delay before starting to record.
-	
-1.	From the Main Editor Toolbar, click the **Play** button to start a Play in Editor (PIE) session. 
+![image alt text](image_1.png)(w:586 h:709 convert:false)
 
-1.	Press **Shift+F1** to gain mouse control once inside the game. 
+## Tracking Actors for Recording
 
-1.	On the **Sequence Recorder** window, click the **Add** button. 
-	
-	![](SequenceRecorderAdd.png)
+Across the top of the Sequence Recorder are buttons used to control recording: Record, Add, Add Player, Remove and Remove All.
 
-1.	Click on the new recording (which will say **None**), then for **Actor to Record** click the drop-down and select **ThirdPersonCharacter**. 
+![image alt text](image_2.png)(w:322 h:64 convert:false)
 
-	![](ActorToRecord.png)
 
-	This is where we specify which Actor to target before starting the recording process, updating the UI as shown above.
+| Button | Description |
+| --- | --- |
+| Record | Initiates recording (affects all recordings).  |
+| Add | Add a new recording for selected actors. If nothing is selected, an empty recording will be added. |
+| Add Player | Add a new recording for the current player. |
+| Remove | Remove selected recording. |
+| Remove All | Remove all recordings. |
 
-1.	Optionally, you can choose to record audio and set the audio gain levels along with your recorded clip. 
 
-	![](RecordAudio.png)
 
-	Audio recording requires an attached microphone and will start recording when the sequence starts recording. 
+After clicking the **Add** button, both the **Record** option as well as the **Remove** option will become accessible. This will also add an**Actor Recording** field to the Actor Tracking window with the Actor to track listed as **None** (shown below).
 
-1.	Click the **Record** button. After 4 seconds (which is the **Record Delay** option under the Sequence Recording section), the recording process will start. 
+![image alt text](image_3.png)(w:516 h:222 convert:false)
 
-	![](RecordStart.png)
+Selecting the Actor Recording will populate the Sequence Recorder with additional options related to that recording.
 
-	[REGION:note]
-	When clicking the **Record** button, all Actors in the list that are set to be tracked will also be recorded. 
-	[/REGION]
+![image alt text](image_4.png)(w:524 h:709 convert:false)
 
-1.	Use the **WASD** and **Spacebar** keys to move the character around and jump, then press **ESC** when done.
+With these options you can define what Actor to track during the recording along with its animation settings. You can add multiple Actor Tracking fields to the Tracking Window, with each **Actor to Record** set to track different Actors.
 
-	[OBJECT:EmbeddedVideo]
+[REGION:note]Please see the [Recording to Sequencer](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder) page for a step-by-step guide to recording Actors with the Sequence Recorder.[/REGION]
+
+## Sequence Recorder Options
+
+Once you have the **Sequence Recorder** open, there are several properties you can adjust to determine how the **Sequence Recorder**records its Actors. When first opening the **Sequence Recorder**, you will only be presented with the default **Sequence Recording**options. After adding Actor(s) to track for recording, the **Actor Recording** and **Animation Recording** sections become available on a per Actor basis.
+
+### Recording Groups
+
+**Sequence Recorder** supports a profile system that is stored in the Persistent Level. **Recording Profiles** enable you to store which Actors you wish to record and their settings, as well as the output path to store the recorded data in. **Sequence Recorder** also supports recording multiple takes for each of the selected Actors. 
+
+The following options are available within the **Recording Groups **section of the **Sequence Recorder**:
+
+![image alt text](image_5.png)(w:502 h:257 convert:false)
+
+
+| Option | Description |
+| --- | --- |
+| Sequence Name | The base name of the Sequence to record to. This name will also be used to auto-generate any assets created by this recording. |
+| Sequence Recording Base Path | Base path for this recording. Sub-assets will be created in sub-directories as specified.  |
+| Specify Target Level Sequence | Whether we should specify the target Level Sequence or auto-create it.  |
+| Target Level Sequence | The Level Sequence to record into.  |
+| Duplicate Target Level | Whether we should duplicate the target Level Sequence and record into the duplicate.  |
+|  |  |
+
+
+
+The video below demonstrates an example of setting up **Recording Groups** with **Sequence Recorder**. 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	QGO_jCrjTEI
+	[/PARAMLITERAL]
 	[PARAMLITERAL:width]
-	640
+	78
 	[/PARAMLITERAL]
 	[PARAMLITERAL:height]
-	360
+	56.25
 	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### Sequence Recording
+
+These options enable you to define how the Sequence is recorded along with what Actors are recorded:
+
+![image alt text](image_6.png)(w:540 h:452 convert:false)
+
+
+| Option | Description |
+| --- | --- |
+| Create Level Sequence | Whether to create a Level Sequence when recording or not. Actors and animations will be inserted into this Sequence if enabled. |
+| Immersive Mode | Whether to maximize the viewport when recording. |
+| Sequence Length | Defines the maximum length of the Sequence to record (setting to 0 recording will continue until Stop is invoked by pressing Esc or the Stop button). |
+| Recording Delay | Delay that will be used before starting the recording. |
+| Animation Sub Directory | The name of the sub-directory animations will be placed in. Leave this empty to place into the same directory as the Sequence base path.  |
+| Record Nearby Spawned Actors | Whether or not to record nearby spawned Actors as part of this recording. |
+| Nearby Actor Recording Proximity | Defines the proximity to currently recorded Actors to record newly spawned Actors. |
+| Record World Settings Actor | Whether to record the World Settings Actor in the Sequence (some games use this to attach world sound effects). |
+| Reduce Keys | Whether to remove keyframes within a tolerance from the recorded tracks. |
+| Auto Save Asset | Whether to auto-save asset when recording is completed. Defaults to false. |
+| Actor Filter | Filter to check spawned Actors against to see if they should be recorded. You can specify which Actor classes to record from the expandable option. |
+| Level Sequence Actors to Trigger | Sequence Actors to trigger playback on when recording starts (for example, this can be used for recording synchronized Sequences). |
+| Default Animation Settings | The default settings applied to animation recording. Expand to see options for recording in World Space, Removing Root Animation, whether or not to Auto Save the asset when recording is complete, and the ability to adjust Sample Rate and Length. |
+| Classes and Properties to Record | The properties to record for specified classes. Component classes specified here will be recorded. If an Actor does not contain one of these classes it will be ignored. Expanded to define the classes and associated properties. |
+| Record Sequencer Spawned Actors | Whether to record Actors that are spawned by Sequencer itself (this is usually disabled as results can be unexpected). |
+| Per Actor Settings | Settings applied to Actors of a specified class. For each class you can define whether to record to a Possessable (level-owned) or Spawnable (sequence-owned). |
+
+
+
+### Actor Recording
+
+This section enables you to define the settings for Actors that are recorded: 
+
+![image alt text](image_7.png)(w:536 h:308 convert:false)
+
+
+| Option | Description |
+| --- | --- |
+| Record Visibility | Whether to record the Actors visibility or not. |
+| Record Transforms | Whether to record Actor transforms. This can be useful if you want the Actors to end up in specific locations after the sequence. By default we rely on animations to provide transforms, but this can be changed using the Record in World Space animation setting. |
+| Active | Whether this actor is active and to be recorded when the Record button is pressed.  |
+| Create Level Sequence | Whether to create a Level Sequence for this Actor recording. |
+| Target Level Sequence | The Level Sequence to record into.  |
+| Target Name | Optional target name to record to. If not specified, the Actor label will be used.  |
+| Take Number | Specify the Take Number for the new recording. |
+| Record to Possessable | Whether to record to Possessable (level owned) or Spawnable (sequence-owned) actors. Defaults to the global setting.  |
+| Actor to Record | This option is used to define which Actor you want to record. |
+
+
+
+### Animation Recording
+
+These settings can be used to define how Animation is recorded: 
+
+![image alt text](image_8.png)(w:536 h:165 convert:false)
+
+
+| Option | Description |
+| --- | --- |
+| Specify Target Animation | Whether we should specify the target animation or auto-create it. |
+| Target Animation | Enabled when Specify Target Animation is enabled and is used to specify the animation you want to record to. |
+| Animation Settings | See Default Animation Settings under Sequence Recording. These are applied to the Actor to Record. |
+
+
+
+## Tips and Tricks
+
+This section contains some workflow tips and tricks you can use when working with the **Sequence Recorder**.
+
+### Continuous Recording
+
+In the **Sequence Recorder** window, you can set the **Sequence Length** to **0** to perform continuous recording.
+
+![image alt text](image_9.png)(w:530 h:778 convert:false)
+
+[REGION:tip]When set to 0, recording will not stop unless you manually choose to stop recording by hitting the **Esc** key.[/REGION]
+
+### Right-click Recording
+
+If you have an active **Level Sequence** open, rather than clicking the **Add** button inside the **Sequence Recorder**, you can right-click on an Actor in your Level and initiate recording of the Actor from the context menu (or press **Alt + R**). This will add the Actor to the**Actor Tracking** window of the **Sequence Recorder** and automatically start recording after the set **Recording Delay** expires.
+
+![image alt text](image_10.png)(w:602 h:508 convert:false)
+
+[REGION:note]Please note that this will initiate Editor Recording and not [Gameplay Recording](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder) with the **Sequence Recorder**.[/REGION]
+
+### Subscene Recording Gameplay
+
+Using the **Sequence Recorder** to record gameplay will (by default) automatically create a new Level Sequence to record the content to. If you already have a Level Sequence that you want to add recorded content to, you can do so with the use of a [Subscene Track](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/TracksSub)and record the current Player Pawn.
+
+[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
-	9mZI75qBsx8
+	Wab8bB69TIo
 	[/PARAMLITERAL]
-	[/OBJECT] 
-
-	Inside the **Content Browser**, a new folder will be created containing assets related to the recorded sequence. 
-
- 
-
-## End Result
-
-You can open the **RecordedSequence** asset and begin editing it as you would a normal Level Sequence. Below is our recorded sequence, to which we could add cameras, and a [Camera Cuts](Engine/Sequencer/HowTo/TracksCameraCut) track to provide multiple angles, music, effects, or anything else we'd like to add. We could even take this sequence and embed it in other sequences as part of a [Shots Track](Engine/Sequencer/HowTo/TracksShot). 
-
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-1nFX_bpWfy0
-[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
-In addition to recording gameplay, you can record your actions during level editing by assigning an Actor to Record. 
+Above we create a new Level Sequence along with a Subscene Track, then during gameplay we hit **Shift + F1** to gain mouse control and add a primed Recorded Sequence based on our current Player Pawn. We can then press the **Record** button in the Viewport while playing our game to start recording and hit **Esc** to end recording.
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-fMzumqLk7IQ
-[/PARAMLITERAL]
-[/OBJECT]
+[REGION:note]Recording in this fashion is the same as manually adding the **Actor to Record** through the **Sequence Recorder** window and starting to Record from within the **Sequence Recorder**. One thing to keep in mind is that the settings defined inside the **Sequence Recorder** will be used when using this method of Subscene Recording.[/REGION]
 
-Above, we have placed a cube in our level and instructed the Sequence Recorder to record the cube. 
-We then moved the cube around and the Sequence Recorder captured the movements we entered through keyframes in a newly created Level Sequence. 
-When we play back our Level Sequence, a new Cube Actor is created (as a spawnable) in the Level Sequence, which is why a second Cube appears when the sequence is active.
+### Recording Class Properties
 
-[REGION:note]
-Only properties that can be keyframed, can be captured and recorded when Level Editing recording. 
-[/REGION]
+If you want to record a change in a specific property value for an Actor during your Sequence Recording, you can use the **Classes and Properties to Record** setting to specify which Class and its associated property (or properties) you want to track for recording.
+
+Below, we select the **CineCameraComponent **Class, clicking the **... **button opens the **Choose Properties to Be Recorded **menu (right) where you can enable each of the highlighted checkboxes to track and record the property. 
+
+![image alt text](image_11.png)(w:624 h:380 convert:false)
+
+If that property changes at all during recording it will automatically be keyframed reflecting the changes during the recording. If the Actor you are tracking does not contain one of the defined classes it will just be ignored. 
+
+By default, **Sequence Recorder** includes the following classes to track for recording:
+
+* [SkeletalMeshComponent](https://docs.unrealengine.com/en-us/Engine/Components/SkeletalMesh)
+
+* [StaticMeshComponent](https://docs.unrealengine.com/en-us/Engine/Components/StaticMesh)
+
+* [ParticleSystemComponent](https://docs.unrealengine.com/en-us/Engine/Components/Rendering#particlesystemcomponent)
+
+* [LightComponent](https://docs.unrealengine.com/en-us/Engine/Components/Lights)
+
+* [CameraComponent](https://docs.unrealengine.com/en-us/Engine/Components/Camera)
+
+* [CineCameraComponent](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/CineCameraActors)
+
+You can use these classes and track properties within them during your recording or you can delete them and use your own classes.
+
+### Recording to Possessable
+
+By default when you elect to perform a recording the Actors you have tagged for tracking will automatically have a **Spawnable** version of that Actor created and added to your recording. While the Spawnable version will only exist while the Level Sequence is open, there may be times when you want to "write" directly to an Actor in your level instead of creating a new Spawnable. You can do so by checking the **Record to Possessable** option under the **Actor Recording** section in the Sequence Recorder.
+
+![image alt text](image_12.png)(w:508 h:309 convert:false)
+
+Checking this option will no longer create a Spawnable but instead will be using a Possessable Actor to apply the recording to.
+
+[REGION:note]Please see the [Possessables vs. Spawnables](https://docs.unrealengine.com/latest/INT/Engine/Sequencer/Overview/index.html#possessablesvsstopspawnables) section in the Sequencer Overview for more information.[/REGION]
+
+### Immersive Mode
+
+When recording your gameplay, you may want a larger Viewport to "play" your game while recording. The **Immersive Mode** option inside the **Sequence Recorder** window will automatically maximize your Viewport for you while recording is active. Once you stop recording, the Viewport will return back to its normal size.
+
+![image alt text](image_13.png)(w:508 h:381 convert:false)
+

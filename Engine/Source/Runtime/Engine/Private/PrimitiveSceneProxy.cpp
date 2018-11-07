@@ -42,8 +42,10 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	PropertyColor(FLinearColor::White)
 ,	
 #endif
-	Mobility(InComponent->Mobility)
+	TranslucencySortPriority(FMath::Clamp(InComponent->TranslucencySortPriority, SHRT_MIN, SHRT_MAX))
+,	Mobility(InComponent->Mobility)
 ,	LightmapType(InComponent->LightmapType)
+,	StatId()
 ,	DrawInGame(InComponent->IsVisible())
 ,	DrawInEditor(InComponent->bVisible)
 ,	bRenderInMono(InComponent->bRenderInMono)
@@ -103,11 +105,11 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	CustomDepthStencilValue(InComponent->CustomDepthStencilValue)
 ,	CustomDepthStencilWriteMask(FRendererStencilMaskEvaluation::ToStencilMask(InComponent->CustomDepthStencilWriteMask))
 ,	LightingChannelMask(GetLightingChannelMaskForStruct(InComponent->LightingChannels))
-,	LpvBiasMultiplier(InComponent->LpvBiasMultiplier)
 ,	IndirectLightingCacheQuality(InComponent->IndirectLightingCacheQuality)
+,	LpvBiasMultiplier(InComponent->LpvBiasMultiplier)
 ,	DynamicIndirectShadowMinVisibility(0)
-,	Scene(InComponent->GetScene())
 ,	PrimitiveComponentId(InComponent->ComponentId)
+,	Scene(InComponent->GetScene())
 ,	PrimitiveSceneInfo(NULL)
 ,	OwnerName(InComponent->GetOwner() ? InComponent->GetOwner()->GetFName() : NAME_None)
 ,	ResourceName(InResourceName)
@@ -115,10 +117,9 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 #if WITH_EDITOR
 // by default we are always drawn
 ,	HiddenEditorViews(0)
+,	DrawInVREditMode(0)
 #endif
-,	TranslucencySortPriority(FMath::Clamp(InComponent->TranslucencySortPriority, SHRT_MIN, SHRT_MAX))
 ,	VisibilityId(InComponent->VisibilityId)
-,	StatId()
 ,	MaxDrawDistance(InComponent->CachedMaxDrawDistance > 0 ? InComponent->CachedMaxDrawDistance : FLT_MAX)
 ,	MinDrawDistance(InComponent->MinDrawDistance)
 ,	ComponentForDebuggingOnly(InComponent)
@@ -168,6 +169,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 #if WITH_EDITOR
 		// cache the actor's group membership
 		HiddenEditorViews = InComponent->GetHiddenEditorViews();
+		DrawInVREditMode = InComponent->GetOwner()->IsEditorOnly();
 #endif
 	}
 	
@@ -548,6 +550,16 @@ void FPrimitiveSceneProxy::SetCollisionEnabled_RenderThread(const bool bNewEnabl
 bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 {
 #if WITH_EDITOR
+	// Don't draw editor specific actors during game mode
+	if (View->Family->EngineShowFlags.Game)
+	{
+		if (DrawInVREditMode)
+		{
+			return false;
+		}
+	}
+
+	// After checking for VR/Desktop Edit mode specific actors, check for Editor vs. Game
 	if(View->Family->EngineShowFlags.Editor)
 	{
 		if(!DrawInEditor)

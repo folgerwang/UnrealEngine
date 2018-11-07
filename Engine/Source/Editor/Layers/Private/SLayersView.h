@@ -16,6 +16,7 @@
 #include "Widgets/Views/SListView.h"
 #include "Editor/Layers/Private/LayerCollectionViewModel.h"
 #include "Editor/Layers/Private/SLayersViewRow.h"
+#include "LayersDragDropOp.h"
 
 #define LOCTEXT_NAMESPACE "LayersView"
 
@@ -215,6 +216,28 @@ protected:
 		return FReply::Handled();
 	}
 
+	FReply OnDragRow(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+	{
+		if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && ViewModel->GetSelectedLayers().Num() > 0)
+		{
+			TSharedRef<FLayersDragDropOp> DragDropOp = MakeShared<FLayersDragDropOp>();
+
+			for (TSharedPtr<FLayerViewModel> Layer : ViewModel->GetSelectedLayers())
+			{
+				FName LayerName = Layer->GetFName();
+				if (LayerName != NAME_None)
+				{
+					DragDropOp->Layers.Add(LayerName);
+				}
+			}
+
+			DragDropOp->Construct();
+			return FReply::Handled().BeginDragDrop(DragDropOp);
+		}
+
+		return FReply::Unhandled();
+	}
+
 private:
 
 	/** 
@@ -228,7 +251,8 @@ private:
 	TSharedRef< ITableRow > OnGenerateRowDefault( const TSharedPtr< FLayerViewModel > Item, const TSharedRef< STableViewBase >& OwnerTable )
 	{
 		return SNew( SLayersViewRow, Item.ToSharedRef(), OwnerTable )
-			.HighlightText( HighlightText );
+			.HighlightText( HighlightText )
+			.OnDragDetected(this, &SLayersView::OnDragRow);
 	}
 
 	/**

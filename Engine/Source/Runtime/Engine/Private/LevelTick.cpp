@@ -41,6 +41,9 @@
 #include "TimerManager.h"
 #include "Camera/CameraPhotography.h"
 #include "HAL/LowLevelMemTracker.h"
+#if WITH_APEIRON
+#include "PhysicsEngine/CollisionAnalyzerCapture.h"
+#endif
 
 //#include "SoundDefinitions.h"
 #include "FXSystem.h"
@@ -943,6 +946,8 @@ void EndSendEndOfFrameUpdatesDrawEvent(TDrawEvent<FRHICommandList>* DrawEvent)
 void UWorld::SendAllEndOfFrameUpdates()
 {
 	SCOPE_CYCLE_COUNTER(STAT_PostTickComponentUpdate);
+	CSV_SCOPED_TIMING_STAT(Basic, PostTickComponentUpdate);
+
 	if (!HasEndOfFrameUpdates())
 	{
 		return;
@@ -1248,7 +1253,7 @@ void FTickableGameObject::TickObjects(UWorld* World, const int32 InTickType, con
 					if ((GIsEditor && TickableObject->IsTickableInEditor()) ||
 						(bIsGameWorld && ((!bIsPaused && TickType != LEVELTICK_TimeOnly) || (bIsPaused && TickableObject->IsTickableWhenPaused()))))
 					{
-						STAT(FScopeCycleCounter Context(TickableObject->GetStatId());)
+						FScopeCycleCounter Context(TickableObject->GetStatId());
 						TickableObject->Tick(DeltaSeconds);
 
 						// In case it was removed during tick
@@ -1335,12 +1340,13 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	bool bIsPaused = IsPaused();
 
 	{
-		CSV_SCOPED_TIMING_STAT(Basic, NetWorldTickTime);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_NetWorldTickTime);
 		SCOPE_CYCLE_COUNTER(STAT_NetWorldTickTime);
 		SCOPE_TIME_GUARD(TEXT("UWorld::Tick - NetTick"));
 		LLM_SCOPE(ELLMTag::Networking);
 		// Update the net code and fetch all incoming packets.
 		BroadcastTickDispatch(DeltaSeconds);
+		BroadcastPostTickDispatch();
 
 		if( NetDriver && NetDriver->ServerConnection )
 		{
@@ -1457,6 +1463,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 			EnsureCollisionTreeIsBuilt();
 			bInTick = true;
 			{
+				SCOPE_CYCLE_COUNTER(STAT_TG_StartPhysics);
 				SCOPE_TIME_GUARD_MS(TEXT("UWorld::Tick - TG_StartPhysics"), 10);
 				RunTickGroup(TG_StartPhysics); 
 			}
@@ -1599,14 +1606,14 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	// Update net and flush networking.
     // Tick all net drivers
 	{
-		CSV_SCOPED_TIMING_STAT(Basic, NetBroadcastTickTime);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_NetBroadcastTickTime);
 		SCOPE_CYCLE_COUNTER(STAT_NetBroadcastTickTime);
 		BroadcastTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 	
      // PostTick all net drivers
 	{
-		CSV_SCOPED_TIMING_STAT(Basic, NetBroadcastPostTickTime);
+		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_NetBroadcastPostTickTime);
 		BroadcastPostTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 
@@ -1750,7 +1757,7 @@ void UWorld::CleanupActors()
 		// Don't compact actors array for levels that are currently in the process of being made visible as the
 		// code that spreads this work across several frames relies on the actor count not changing as it keeps
 		// an index into the array.
-		if( CurrentLevelPendingVisibility != Level )
+		if( ensure(Level != nullptr) && (CurrentLevelPendingVisibility != Level) )
 		{
 			// Actor 0 (world info) and 1 (default brush) are special and should never be removed from the actor array even if NULL
 			const int32 FirstDynamicIndex = 2;

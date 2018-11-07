@@ -27,7 +27,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Sequence Info")
 	FString DisplayName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Sequence Info")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Sequence Info", meta = (IgnoreForMemberInitializationTest))
 	FDateTime LastEdited;
 
 	FLevelSequenceData(const FString InAssetPath = "", const FString InDisplayName = "", const FDateTime InLastEdited = FDateTime::Now())
@@ -151,6 +151,11 @@ protected:
 
 	/** Pointer to the sequence recorder module */
 	IAssetRegistry* AssetRegistry;
+
+	/** 
+	 * Overriding to allow playback controller to intercept and modify objects spawned by sequencer, for example disabling attach to HMD on spawned cameras 
+	 */
+	virtual void OnObjectSpawned(UObject* InObject, const FMovieSceneEvaluationOperand& Operand) override;
 
 #if WITH_EDITOR
 	/** Pointer to the sequence recorder module */

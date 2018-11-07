@@ -36,7 +36,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 // Base defines, defaults are commented out
 
 #define PLATFORM_LITTLE_ENDIAN								1
-#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS				1
+#define PLATFORM_SUPPORTS_UNALIGNED_LOADS					1
 #if defined(__clang__)
 	// @todo clang: Clang compiler on Windows doesn't support SEH exception handling yet (__try/__except)
 	#define PLATFORM_SEH_EXCEPTIONS_DISABLED				1
@@ -46,24 +46,20 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 #define PLATFORM_SUPPORTS_PRAGMA_PACK						1
-#if defined(__clang__)
-	#define PLATFORM_ENABLE_VECTORINTRINSICS				0
-#else
-	#define PLATFORM_ENABLE_VECTORINTRINSICS				1
-#endif
+#define PLATFORM_ENABLE_VECTORINTRINSICS					1
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR					0
 //#define PLATFORM_USE_SYSTEM_VSWPRINTF						1
 //#define PLATFORM_TCHAR_IS_4_BYTES							0
 #define PLATFORM_HAS_BSD_TIME								0
 #define PLATFORM_USE_PTHREADS								0
-#define PLATFORM_MAX_FILEPATH_LENGTH						WINDOWS_MAX_PATH
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED				WINDOWS_MAX_PATH
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS			1
 #define PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS				1
 #define PLATFORM_SUPPORTS_TBB								1
 #define PLATFORM_SUPPORTS_NAMED_PIPES						1
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
 #define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK				(!WITH_EDITOR) // movies will start before engine is initalized
-#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					WITH_EDITOR
+#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					0
 
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
 
@@ -136,7 +132,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 // Pragmas
-#define MSVC_PRAGMA(Pragma) __pragma(Pragma)
+#if !defined(__clang__)
+	#define MSVC_PRAGMA(Pragma) __pragma(Pragma)
+#endif
 
 // Prefetch
 #define PLATFORM_CACHE_LINE_SIZE	128

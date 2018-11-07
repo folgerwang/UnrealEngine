@@ -36,6 +36,13 @@ class IViewportInteractableInterface;
 class UViewportInteractionAssetContainer;
 class UViewportInteractor;
 
+UENUM()
+enum class EViewportWorldInteractionType : uint8
+{
+	VR = 0,
+	Legacy = 1
+};
+
 UCLASS()
 class VIEWPORTINTERACTION_API UViewportWorldInteraction : public UEditorWorldExtension
 {
@@ -44,11 +51,13 @@ class VIEWPORTINTERACTION_API UViewportWorldInteraction : public UEditorWorldExt
 public:
 
 	UViewportWorldInteraction();
-
 	// UEditorExtension overrides
 	virtual void Init() override;
 	virtual void Shutdown() override;
 	virtual void Tick( float DeltaSeconds ) override;
+
+	/** Initialize colors */
+	void InitColors();
 	
 	/** Adds interactor to the worldinteraction */
 	void AddInteractor( UViewportInteractor* Interactor );
@@ -341,9 +350,15 @@ public:
 
 	FVector SnapLocation(const bool bLocalSpaceSnapping, const FVector& DesiredGizmoLocation, const FTransform &GizmoStartTransform, const FVector SnapGridBase, const bool bShouldConstrainMovement, const FVector AlignAxes);
 
+	/** Forces the VWI to fall back to standard desktop interactions */
+	void UseLegacyInteractions();
+
+	/** Sets the VWI to use its own interactions */
+	void UseVWInteractions();
+
 protected:
 
-	virtual void TransitionWorld(UWorld* NewWorld) override;
+	virtual void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState) override;
 	virtual void EnteredSimulateInEditor() override;
 	virtual void LeftSimulateInEditor(UWorld* SimulateWorld) override;
 

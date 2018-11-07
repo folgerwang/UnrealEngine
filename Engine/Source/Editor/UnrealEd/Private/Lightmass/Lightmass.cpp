@@ -864,13 +864,10 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 				AActor* CurrentActor = Volume->OverrideVisibleActors[ActorIndex];
 				if (CurrentActor)
 				{
-					TInlineComponentArray<UPrimitiveComponent*> Components;
-					CurrentActor->GetComponents(Components);
-
-					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+					for (UActorComponent* Component : CurrentActor->GetComponents())
 					{
-						UPrimitiveComponent* CurrentComponent = Components[ComponentIndex];
-						if ((CurrentComponent->Mobility == EComponentMobility::Static) && CurrentComponent->VisibilityId != INDEX_NONE)
+						UPrimitiveComponent* CurrentComponent = Cast<UPrimitiveComponent>(Component);
+						if (CurrentComponent && (CurrentComponent->Mobility == EComponentMobility::Static) && CurrentComponent->VisibilityId != INDEX_NONE)
 						{
 							VisibilityIds.AddUnique(CurrentComponent->VisibilityId);
 						}
@@ -883,13 +880,10 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 				AActor* RemoveActor = Volume->OverrideInvisibleActors[RemoveActorIndex];
 				if (RemoveActor)
 				{
-					TInlineComponentArray<UPrimitiveComponent*> Components;
-					RemoveActor->GetComponents(Components);
-
-					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+					for (UActorComponent* Component : RemoveActor->GetComponents())
 					{
-						UPrimitiveComponent* RemoveComponent = Components[ComponentIndex];
-						if ((RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
+						UPrimitiveComponent* RemoveComponent = Cast<UPrimitiveComponent>(Component);
+						if (RemoveComponent && (RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
 						{
 							InvisibilityIds.AddUnique(RemoveComponent->VisibilityId);
 						}
@@ -907,13 +901,10 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 						AActor* RemoveActor = Level->Actors[RemoveActorIndex];
 						if (RemoveActor)
 						{
-							TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-							RemoveActor->GetComponents(PrimitiveComponents);
-
-							for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ComponentIndex++)
+							for (UActorComponent* Component : RemoveActor->GetComponents())
 							{
-								UPrimitiveComponent* RemoveComponent = PrimitiveComponents[ComponentIndex];
-								if ((RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
+								UPrimitiveComponent* RemoveComponent = Cast<UPrimitiveComponent>(Component);
+								if (RemoveComponent && (RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
 								{
 									InvisibilityIds.AddUnique(RemoveComponent->VisibilityId);
 								}
@@ -1112,7 +1103,6 @@ void FLightmassExporter::WriteLights( int32 Channel )
 	{
 		const URectLightComponent* Light = RectLights[LightIndex];
 		Lightmass::FLightData LightData;
-		Lightmass::FPointLightData PointData;
 		Copy( Light, LightData );
 		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
 		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
@@ -1123,12 +1113,92 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		TArray< uint8 > LightProfileTextureData;
 		CopyLightProfile( Light, LightData, LightProfileTextureData );
 
+		Lightmass::FPointLightData PointData;
 		PointData.Radius = Light->AttenuationRadius;
 		PointData.FalloffExponent = 0.0f;
 		PointData.LightTangent = Light->GetComponentTransform().GetUnitAxis(EAxis::Z);
+
+		Lightmass::FRectLightData RectData = { 0, 0, FLinearColor::White };
+		// TODO export texture data. Below code is written for that in mind but source data doesn't contain mips.
+		//TArray< FFloat16Color > SourceTexture;
+		if( Light->SourceTexture )
+		{
+			FTextureSource& Source = Light->SourceTexture->Source;
+
+			if( Source.IsValid() )
+			{
+				ETextureSourceFormat Format = Source.GetFormat();
+				int32 BytesPerPixel = Source.GetBytesPerPixel();
+				bool SRGB = Light->SourceTexture->SRGB;
+
+				uint32 NumMips = Source.GetNumMips();
+				uint32 MipLevel = NumMips - FMath::Min( NumMips, 8u );
+
+				uint32 SizeX = FMath::Max( Source.GetSizeX() >> MipLevel, 1 );
+				uint32 SizeY = FMath::Max( Source.GetSizeY() >> MipLevel, 1 );
+
+				RectData.SourceTextureSizeX = SizeX;
+				RectData.SourceTextureSizeY = SizeY;
+
+				while( SizeX > 1 || SizeY > 1 )
+				{
+					//int32 i = SourceTexture.AddUninitialized( SizeX * SizeY );
+					
+					TArray< uint8 > MipData;
+					Source.GetMipData( MipData, MipLevel );
+
+					uint8* Pixel = MipData.GetData();
+					uint8* PixelEnd = Pixel + MipData.Num();
+					while( Pixel < PixelEnd )
+					{
+						if( Format == TSF_RGBA16 || Format == TSF_RGBA16F )
+						{
+							//SourceTexture[ i++ ] = *(FFloat16Color*)Pixel;
+							RectData.SourceTextureAvgColor += FLinearColor( *(FFloat16Color*)Pixel );
+						}
+						else
+						{
+							FColor Color = FColor( Pixel[0], Pixel[0], Pixel[0] );
+							if( Format == TSF_BGRA8 || Format == TSF_BGRE8 )
+							{
+								Color = *(FColor*)Pixel;
+							}
+
+							FLinearColor LinearColor;
+							if( SRGB )
+							{
+								LinearColor = FLinearColor( Color );
+							}
+							else
+							{
+								LinearColor.R = float( Color.R ) / 255.0f;
+								LinearColor.G = float( Color.G ) / 255.0f;
+								LinearColor.B = float( Color.B ) / 255.0f;
+							}
+							
+							//SourceTexture[ i++ ] = FFloat16Color( LinearColor );
+							RectData.SourceTextureAvgColor += LinearColor;
+						}
+
+						Pixel += BytesPerPixel;
+					}
+
+					// Source doesn't often have mips just average color for now.
+					RectData.SourceTextureAvgColor *= 1.0f / ( SizeX * SizeY );
+					break;
+					
+					SizeX = SizeX > 1 ? SizeX >> 1 : 1;
+					SizeY = SizeY > 1 ? SizeY >> 1 : 1;
+					MipLevel++;
+				}
+			}
+		}
+
 		Swarm.WriteChannel( Channel, &LightData, sizeof(LightData) );
 		Swarm.WriteChannel( Channel, LightProfileTextureData.GetData(), LightProfileTextureData.Num() * LightProfileTextureData.GetTypeSize() );
 		Swarm.WriteChannel( Channel, &PointData, sizeof(PointData) );
+		Swarm.WriteChannel( Channel, &RectData, sizeof(RectData) );
+		//Swarm.WriteChannel( Channel, SourceTexture.GetData(), SourceTexture.Num() * SourceTexture.GetTypeSize() );
 		UpdateExportProgress();
 	}
 
@@ -2452,20 +2522,19 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	{
 		for (FSelectedActorIterator It(World); It; ++It)
 		{
-			TInlineComponentArray<UPrimitiveComponent*> Components;
-			It->GetComponents(Components);
-
-			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+			for (UActorComponent* Comp : It->GetComponents())
 			{
-				UPrimitiveComponent* Component = Components[ComponentIndex];
-				if (DebugVisibilityId == INDEX_NONE)
+				if (UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(Comp))
 				{
-					DebugVisibilityId = Component->VisibilityId;
-				}
-				else if (DebugVisibilityId != Component->VisibilityId)
-				{
-					UE_LOG(LogLightmassSolver, Warning, TEXT("Not debugging visibility for component %s with vis id %u, as it was not the first component on the selected actor."),
-						*Component->GetPathName(), Component->VisibilityId);
+					if (DebugVisibilityId == INDEX_NONE)
+					{
+						DebugVisibilityId = Component->VisibilityId;
+					}
+					else if (DebugVisibilityId != Component->VisibilityId)
+					{
+						UE_LOG(LogLightmassSolver, Warning, TEXT("Not debugging visibility for component %s with vis id %u, as it was not the first component on the selected actor."),
+							*Component->GetPathName(), Component->VisibilityId);
+					}
 				}
 			}
 		}
@@ -2568,7 +2637,6 @@ FLightmassProcessor::FLightmassProcessor(const FStaticLightingSystem& InSystem, 
 ,	bImportCompletedMappingsImmediately(false)
 ,	MappingToProcessIndex(0)
 {
-	check(&Swarm != NULL);
 	// Since these can be set by the commandline, we need to update them here...
 	GLightmassDebugOptions.bDebugMode = GLightmassDebugMode;
 	GLightmassDebugOptions.bStatsEnabled = GLightmassStatsMode;

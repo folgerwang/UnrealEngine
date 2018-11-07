@@ -7,6 +7,7 @@
 
 #include "MovieSceneMediaTemplate.generated.h"
 
+class UMediaPlayer;
 class UMovieSceneMediaSection;
 class UMovieSceneMediaTrack;
 class UMediaSoundComponent;
@@ -29,13 +30,24 @@ struct FMovieSceneMediaSectionParams
 	UMediaTexture* MediaTexture;
 
 	UPROPERTY()
-	FString Proxy;
+	UMediaPlayer* MediaPlayer;
 
 	UPROPERTY()
 	FFrameNumber SectionStartFrame;
 
 	UPROPERTY()
 	FFrameNumber SectionEndFrame;
+
+	UPROPERTY()
+	bool bLooping;
+
+	FMovieSceneMediaSectionParams()
+		: MediaSoundComponent(nullptr)
+		, MediaSource(nullptr)
+		, MediaTexture(nullptr)
+		, MediaPlayer(nullptr)
+		, bLooping(false)
+	{}
 };
 
 

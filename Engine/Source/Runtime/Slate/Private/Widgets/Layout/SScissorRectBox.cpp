@@ -18,7 +18,7 @@ SScissorRectBox::SScissorRectBox()
 
 void SScissorRectBox::Construct(const FArguments& InArgs)
 {
-	bCanTick = false;
+	SetCanTick(false);
 
 	ChildSlot
 	[

@@ -7,7 +7,6 @@
 #include "CoreMinimal.h"
 #include "Serialization/MemoryWriter.h"
 #include "RHI.h"
-#include "ShaderCache.h"
 #include "OpenGLDrv.h"
 
 GLint GMaxOpenGLTextureFilterAnisotropic = 1;
@@ -367,7 +366,6 @@ FSamplerStateRHIRef FOpenGLDynamicRHI::RHICreateSamplerState(const FSamplerState
 	SamplerState->AddRef();
 	GSamplerStateCache.Add(Initializer, SamplerState);
 
-	FShaderCache::LogSamplerState(FShaderCache::GetDefaultCacheState(), Initializer, SamplerState);
 	return SamplerState;
 }
 
@@ -379,7 +377,6 @@ FRasterizerStateRHIRef FOpenGLDynamicRHI::RHICreateRasterizerState(const FRaster
 	RasterizerState->Data.DepthBias = Initializer.DepthBias;
 	RasterizerState->Data.SlopeScaleDepthBias = Initializer.SlopeScaleDepthBias;
 	
-	FShaderCache::LogRasterizerState(FShaderCache::GetDefaultCacheState(), Initializer, RasterizerState);
 	return RasterizerState;
 }
 
@@ -412,7 +409,6 @@ FDepthStencilStateRHIRef FOpenGLDynamicRHI::RHICreateDepthStencilState(const FDe
 	DepthStencilState->Data.StencilReadMask = Initializer.StencilReadMask;
 	DepthStencilState->Data.StencilWriteMask = Initializer.StencilWriteMask;
 
-	FShaderCache::LogDepthStencilState(FShaderCache::GetDefaultCacheState(), Initializer, DepthStencilState);
 	return DepthStencilState;
 }
 
@@ -497,7 +493,6 @@ FBlendStateRHIRef FOpenGLDynamicRHI::RHICreateBlendState(const FBlendStateInitia
 		RenderTarget.ColorWriteMaskA = (RenderTargetInitializer.ColorWriteMask & CW_ALPHA) != 0;
 	}
 	
-	FShaderCache::LogBlendState(FShaderCache::GetDefaultCacheState(), Initializer, BlendState);
 	return BlendState;
 }
 

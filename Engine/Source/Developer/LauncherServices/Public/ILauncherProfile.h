@@ -198,6 +198,9 @@ namespace ELauncherProfileValidationErrors
 
 		/** The archive step requires a directory to be specified */
 		NoArchiveDirectorySpecified,
+
+		/** Device is unauthorized or is locked */
+		LaunchDeviceIsUnauthorized,
 	};
 }
 
@@ -801,6 +804,14 @@ public:
 	virtual bool IsPackingWithUnrealPak( ) const = 0;
 
 	/**
+	 * Checks whether to include an installer for prerequisites of packaged games, such as redistributable operating system components, on platforms that support it.
+	 *
+	 * @return true if prerequisites are to be included, false otherwise.
+	 * @see SetIncludePrerequisites
+	 */
+	virtual bool IsIncludingPrerequisites() const = 0;
+
+	/**
 	 * Return whether packaging will generate chunk data.
 	 *
 	 * @return true if Chunks will be generated, false otherwise.
@@ -1214,6 +1225,14 @@ public:
 	 * @see GetStreamingFileServer
 	 */
 	virtual void SetStreamingFileServer( bool Streaming ) = 0;
+
+	/**
+	 * Sets whether to include game prerequisites.
+	 *
+	 * @param Value Whether prerequisites should be used.
+	 * @see IsIncludingPrerequisites
+	 */
+	virtual void SetIncludePrerequisites(bool InValue) = 0;
 
     /**
      * Sets the cook on the fly server timeout

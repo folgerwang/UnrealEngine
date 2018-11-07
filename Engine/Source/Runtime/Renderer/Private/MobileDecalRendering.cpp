@@ -35,12 +35,8 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 
 	SCOPE_CYCLE_COUNTER(STAT_DecalsDrawTime);
 
-	EShaderPlatform ShaderPlatform = ViewFamily.GetShaderPlatform();
-	if (ShaderPlatform != SP_METAL) // temporary workaround for iOS Metal to avoid restarting render-pass
-	{
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
-	}
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
 	
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -119,10 +115,10 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 				}
 
 				// update BlendMode if needed
-				if (!bEncodedHDR && (!LastDecalBlendMode.IsSet() || LastDecalBlendMode.GetValue() != DecalData.DecalBlendMode))
+				if (!bEncodedHDR && (!LastDecalBlendMode.IsSet() || LastDecalBlendMode.GetValue() != DecalData.FinalDecalBlendMode))
 				{
-					LastDecalBlendMode = DecalData.DecalBlendMode;
-					switch(DecalData.DecalBlendMode)
+					LastDecalBlendMode = DecalData.FinalDecalBlendMode;
+					switch(DecalData.FinalDecalBlendMode)
 					{
 					case DBM_Translucent:
 						GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha>::GetRHI();
@@ -145,7 +141,7 @@ void FMobileSceneRenderer::RenderDecals(FRHICommandListImmediate& RHICmdList)
 				}
 
 				// Set shader params
-				FDecalRendering::SetShader(RHICmdList, GraphicsPSOInit, View, DecalData, FrustumComponentToClip);
+				FDecalRendering::SetShader(RHICmdList, GraphicsPSOInit, View, DecalData, DRS_Mobile, FrustumComponentToClip);
 			
 				RHICmdList.DrawIndexedPrimitive(GetUnitCubeIndexBuffer(), PT_TriangleList, 0, 0, 8, 0, ARRAY_COUNT(GCubeIndices) / 3, 1);
 			}

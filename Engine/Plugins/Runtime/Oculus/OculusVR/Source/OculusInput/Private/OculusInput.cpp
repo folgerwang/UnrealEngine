@@ -86,7 +86,7 @@ FOculusInput::FOculusInput( const TSharedRef< FGenericApplicationMessageHandler 
 	// take care of backward compatibility of Remote with Gamepad 
 	if (bRemoteKeysMappedToGamepad)
 	{
-		Remote.ReinitButtonsForGamepadCompat();
+		Remote.MapKeysToGamepad();
 	}
 
 	OVRPluginHandle = FOculusHMDModule::GetOVRPluginHandle();
@@ -190,10 +190,13 @@ void FOculusInput::SendControllerEvents()
 	{
 		if (MessageHandler.IsValid())
 		{
+			OculusHMD::FOculusHMD* OculusHMD = static_cast<OculusHMD::FOculusHMD*>(GEngine->XRSystem->GetHMDDevice());
+			ovrp_Update3(ovrpStep_Render, OculusHMD->GetNextFrameNumber(), 0.0);
+
 			ovrpControllerState4 OvrpControllerState;
 			
 			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Remote, &OvrpControllerState)) &&
-				OvrpControllerState.ConnectedControllerTypes == ovrpController_Remote)
+				(OvrpControllerState.ConnectedControllerTypes & ovrpController_Remote))
 			{
 				for (int32 ButtonIndex = 0; ButtonIndex < (int32)EOculusRemoteControllerButton::TotalButtonCount; ++ButtonIndex)
 				{
@@ -254,27 +257,24 @@ void FOculusInput::SendControllerEvents()
 					// Update button state
 					if (bButtonPressed != ButtonState.bIsPressed)
 					{
-						const bool bIsRepeat = false;
-
 						ButtonState.bIsPressed = bButtonPressed;
 						if (ButtonState.bIsPressed)
 						{
-							MessageHandler->OnControllerButtonPressed(ButtonState.Key, 0, bIsRepeat);
+							OnControllerButtonPressed(ButtonState, 0, false);
 
 							// Set the timer for the first repeat
 							ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
 						}
 						else
 						{
-							MessageHandler->OnControllerButtonReleased(ButtonState.Key, 0, bIsRepeat);
+							OnControllerButtonReleased(ButtonState, 0, false);
 						}
 					}
 
 					// Apply key repeat, if its time for that
 					if (ButtonState.bIsPressed && ButtonState.NextRepeatTime <= CurrentTime)
 					{
-						const bool bIsRepeat = true;
-						MessageHandler->OnControllerButtonPressed(ButtonState.Key, 0, bIsRepeat);
+						OnControllerButtonPressed(ButtonState, 0, true);
 
 						// Set the timer for the next repeat
 						ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
@@ -282,10 +282,10 @@ void FOculusInput::SendControllerEvents()
 				}
 			}
 
-			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Touchpad, &OvrpControllerState)) && OvrpControllerState.ConnectedControllerTypes == ovrpController_Touchpad)
+			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Touchpad, &OvrpControllerState)) && 
+				(OvrpControllerState.ConnectedControllerTypes & ovrpController_Touchpad))
 			{
 				ovrpVector2f ThumbstickValue = OvrpControllerState.Touchpad[0];
-				UE_LOG(LogOcInput, Log, TEXT("Get touchpad main with data %f %f"), ThumbstickValue.x, ThumbstickValue.y);
 
 				if (ThumbstickValue.x != Touchpad.TouchpadPosition.X)
 				{
@@ -324,27 +324,24 @@ void FOculusInput::SendControllerEvents()
 					// Update button state
 					if (bButtonPressed != ButtonState.bIsPressed)
 					{
-						const bool bIsRepeat = false;
-
 						ButtonState.bIsPressed = bButtonPressed;
 						if (ButtonState.bIsPressed)
 						{
-							MessageHandler->OnControllerButtonPressed(ButtonState.Key, 0, bIsRepeat);
+							OnControllerButtonPressed(ButtonState, 0, false);
 
 							// Set the timer for the first repeat
 							ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
 						}
 						else
 						{
-							MessageHandler->OnControllerButtonReleased(ButtonState.Key, 0, bIsRepeat);
+							OnControllerButtonReleased(ButtonState, 0, false);
 						}
 					}
 
 					// Apply key repeat, if its time for that
 					if (ButtonState.bIsPressed && ButtonState.NextRepeatTime <= CurrentTime)
 					{
-						const bool bIsRepeat = true;
-						MessageHandler->OnControllerButtonPressed(ButtonState.Key, 0, bIsRepeat);
+						OnControllerButtonPressed(ButtonState, 0, true);
 
 						// Set the timer for the next repeat
 						ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
@@ -365,9 +362,9 @@ void FOculusInput::SendControllerEvents()
 
 						bool bIsLeft = (HandIndex == (int32)EControllerHand::Left);
 
-						bool bIsMalibuTracked = bIsLeft ? (OvrpControllerState.ConnectedControllerTypes & ovrpController_LTrackedRemote) != 0 : (OvrpControllerState.ConnectedControllerTypes & ovrpController_RTrackedRemote) != 0;
-						bool bIsTouchTracked = bIsLeft ? (OvrpControllerState.ConnectedControllerTypes & ovrpController_LTouch) != 0 : (OvrpControllerState.ConnectedControllerTypes & ovrpController_RTouch) != 0;
-						bool bIsCurrentlyTracked = bIsMalibuTracked || bIsTouchTracked;
+						bool bIsMobileController = bIsLeft ? (OvrpControllerState.ConnectedControllerTypes & ovrpController_LTrackedRemote) != 0 : (OvrpControllerState.ConnectedControllerTypes & ovrpController_RTrackedRemote) != 0;
+						bool bIsTouchController = bIsLeft ? (OvrpControllerState.ConnectedControllerTypes & ovrpController_LTouch) != 0 : (OvrpControllerState.ConnectedControllerTypes & ovrpController_RTouch) != 0;
+						bool bIsCurrentlyTracked = bIsMobileController || bIsTouchController;
 
 						if (bIsCurrentlyTracked)
 						{
@@ -404,7 +401,7 @@ void FOculusInput::SendControllerEvents()
 								MessageHandler->OnControllerAnalog(bIsLeft ? FGamepadKeyNames::MotionController_Left_Grip1Axis : FGamepadKeyNames::MotionController_Right_Grip1Axis, ControllerPair.UnrealControllerIndex, State.GripAxis);
 							}
 
-							ovrpVector2f ThumbstickValue = bIsMalibuTracked ? OvrpControllerState.Touchpad[HandIndex] : OvrpControllerState.Thumbstick[HandIndex];
+							ovrpVector2f ThumbstickValue = bIsMobileController ? OvrpControllerState.Touchpad[HandIndex] : OvrpControllerState.Thumbstick[HandIndex];
 
 							if (ThumbstickValue.x != State.ThumbstickAxes.X)
 							{
@@ -438,7 +435,7 @@ void FOculusInput::SendControllerEvents()
 
 								case EOculusTouchControllerButton::XA:
 									bButtonPressed =
-										bIsMalibuTracked ?
+										bIsMobileController ?
 										(OvrpControllerState.Buttons & ovrpButton_Back) != 0 : 
 										(bIsLeft ? (OvrpControllerState.Buttons & ovrpButton_X) != 0 : (OvrpControllerState.Buttons & ovrpButton_A) != 0);
 									break;
@@ -449,25 +446,45 @@ void FOculusInput::SendControllerEvents()
 
 								case EOculusTouchControllerButton::Thumbstick:
 									bButtonPressed = 
-										bIsMalibuTracked ?
+										bIsMobileController ?
 											(bIsLeft ? (OvrpControllerState.Buttons & ovrpButton_LTouchpad) != 0 : (OvrpControllerState.Buttons & ovrpButton_RTouchpad) != 0) :
 											(bIsLeft ? (OvrpControllerState.Buttons & ovrpButton_LThumb) != 0 : (OvrpControllerState.Buttons & ovrpButton_RThumb) != 0);
 									break;
 									
 								case EOculusTouchControllerButton::Thumbstick_Up:
-									bButtonPressed = State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.Y > 0.7;
+									if (bIsTouchController && State.ThumbstickAxes.Size() > 0.7f ||
+										bIsMobileController && State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.Size() > 0.5f)
+									{
+										float Angle = FMath::Atan2(State.ThumbstickAxes.Y, State.ThumbstickAxes.X);
+										bButtonPressed = Angle >= (1.0f / 8.0f) * PI && Angle <= (7.0f / 8.0f) * PI;
+									}
 									break;
 
 								case EOculusTouchControllerButton::Thumbstick_Down:
-									bButtonPressed = State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.Y < -0.7;
+									if (bIsTouchController && State.ThumbstickAxes.Size() > 0.7f ||
+										bIsMobileController && State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.Size() > 0.5f)
+									{
+										float Angle = FMath::Atan2(State.ThumbstickAxes.Y, State.ThumbstickAxes.X);
+										bButtonPressed = Angle >= (-7.0f / 8.0f) * PI && Angle <= (-1.0f / 8.0f) * PI;
+									}
 									break;
 
 								case EOculusTouchControllerButton::Thumbstick_Left:
-									bButtonPressed = State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.X < -0.7;
+									if (bIsTouchController && State.ThumbstickAxes.Size() > 0.7f ||
+										bIsMobileController && State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.Size() > 0.5f)
+									{
+										float Angle = FMath::Atan2(State.ThumbstickAxes.Y, State.ThumbstickAxes.X);
+										bButtonPressed = Angle <= (-5.0f / 8.0f) * PI || Angle >= (5.0f / 8.0f) * PI;
+									}
 									break;
 
 								case EOculusTouchControllerButton::Thumbstick_Right:
-									bButtonPressed = State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.X > 0.7;
+									if (bIsTouchController && State.ThumbstickAxes.Size() > 0.7f ||
+										bIsMobileController && State.Buttons[(int)EOculusTouchControllerButton::Thumbstick].bIsPressed && State.ThumbstickAxes.Size() > 0.5f)
+									{
+										float Angle = FMath::Atan2(State.ThumbstickAxes.Y, State.ThumbstickAxes.X);
+										bButtonPressed = Angle >= (-3.0f / 8.0f) * PI && Angle <= (3.0f / 8.0f) * PI;
+									}
 									break;
 
 								case EOculusTouchControllerButton::Menu:
@@ -482,27 +499,24 @@ void FOculusInput::SendControllerEvents()
 								// Update button state
 								if (bButtonPressed != ButtonState.bIsPressed)
 								{
-									const bool bIsRepeat = false;
-
 									ButtonState.bIsPressed = bButtonPressed;
 									if (ButtonState.bIsPressed)
 									{
-										MessageHandler->OnControllerButtonPressed(ButtonState.Key, ControllerPair.UnrealControllerIndex, bIsRepeat);
+										OnControllerButtonPressed(ButtonState, ControllerPair.UnrealControllerIndex, false);
 
 										// Set the timer for the first repeat
 										ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
 									}
 									else
 									{
-										MessageHandler->OnControllerButtonReleased(ButtonState.Key, ControllerPair.UnrealControllerIndex, bIsRepeat);
+										OnControllerButtonReleased(ButtonState, ControllerPair.UnrealControllerIndex, false);
 									}
 								}
 
 								// Apply key repeat, if its time for that
 								if (ButtonState.bIsPressed && ButtonState.NextRepeatTime <= CurrentTime)
 								{
-									const bool bIsRepeat = true;
-									MessageHandler->OnControllerButtonPressed(ButtonState.Key, ControllerPair.UnrealControllerIndex, bIsRepeat);
+									OnControllerButtonPressed(ButtonState, ControllerPair.UnrealControllerIndex, true);
 
 									// Set the timer for the next repeat
 									ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
@@ -531,7 +545,7 @@ void FOculusInput::SendControllerEvents()
 								}
 								case EOculusTouchCapacitiveAxes::Thumbstick:
 								{
-									const uint32 mask = bIsMalibuTracked ? ((bIsLeft) ? ovrpTouch_LTouchpad : ovrpTouch_RTouchpad) : ((bIsLeft) ? ovrpTouch_LThumb : ovrpTouch_RThumb);
+									const uint32 mask = bIsMobileController ? ((bIsLeft) ? ovrpTouch_LTouchpad : ovrpTouch_RTouchpad) : ((bIsLeft) ? ovrpTouch_LThumb : ovrpTouch_RThumb);
 									CurrentAxisVal = (OvrpControllerState.Touches & mask) != 0 ? 1.f : 0.f;
 									break;
 								}
@@ -610,11 +624,11 @@ void FOculusInput::SetChannelValue( int32 ControllerId, FForceFeedbackChannelTyp
 			// @todo: The SMALL channel controls frequency, the LARGE channel controls amplitude.  This is a bit of a weird fit.
 			if( ChannelType == FForceFeedbackChannelType::LEFT_SMALL || ChannelType == FForceFeedbackChannelType::RIGHT_SMALL )
 			{
-				ControllerState.HapticFrequency = Value;
+				ControllerState.ForceFeedbackHapticFrequency = Value;
 			}
 			else
 			{
-				ControllerState.HapticAmplitude = Value;
+				ControllerState.ForceFeedbackHapticAmplitude = Value;
 			}
 
 			UpdateForceFeedback( ControllerPair, Hand );
@@ -634,16 +648,16 @@ void FOculusInput::SetChannelValues( int32 ControllerId, const FForceFeedbackVal
 			FOculusTouchControllerState& LeftControllerState = ControllerPair.ControllerStates[ (int32)EControllerHand::Left ];
 			if (!LeftControllerState.bPlayingHapticEffect)
 			{
-				LeftControllerState.HapticFrequency = Values.LeftSmall;
-				LeftControllerState.HapticAmplitude = Values.LeftLarge;
+				LeftControllerState.ForceFeedbackHapticFrequency = Values.LeftSmall;
+				LeftControllerState.ForceFeedbackHapticAmplitude = Values.LeftLarge;
 				UpdateForceFeedback(ControllerPair, EControllerHand::Left);
 			}
 
 			FOculusTouchControllerState& RightControllerState = ControllerPair.ControllerStates[(int32)EControllerHand::Right];
 			if (!RightControllerState.bPlayingHapticEffect)
 			{
-				RightControllerState.HapticFrequency = Values.RightSmall;
-				RightControllerState.HapticAmplitude = Values.RightLarge;
+				RightControllerState.ForceFeedbackHapticFrequency = Values.RightSmall;
+				RightControllerState.ForceFeedbackHapticAmplitude = Values.RightLarge;
 				UpdateForceFeedback(ControllerPair, EControllerHand::Right);
 			}
 		}
@@ -667,10 +681,10 @@ void FOculusInput::UpdateForceFeedback( const FOculusTouchControllerPair& Contro
 				GetHapticFrequencyRange(FreqMin, FreqMax);
 
 				// Map the [0.0 - 1.0] range to a useful range of frequencies for the Oculus controllers
-				const float ActualFrequency = FMath::Lerp(FreqMin, FreqMax, FMath::Clamp(ControllerState.HapticFrequency, 0.0f, 1.0f));
+				const float ActualFrequency = FMath::Lerp(FreqMin, FreqMax, FMath::Clamp(ControllerState.ForceFeedbackHapticFrequency, 0.0f, 1.0f));
 
 				// Oculus SDK wants amplitude values between 0.0 and 1.0
-				const float ActualAmplitude = ControllerState.HapticAmplitude * GetHapticAmplitudeScale();
+				const float ActualAmplitude = ControllerState.ForceFeedbackHapticAmplitude * GetHapticAmplitudeScale();
 
 				ovrpController OvrController = ovrpController_None;
 				if (OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch))
@@ -691,6 +705,30 @@ void FOculusInput::UpdateForceFeedback( const FOculusTouchControllerPair& Contro
 			}
 		}
 	}
+}
+
+bool FOculusInput::OnControllerButtonPressed(const FOculusButtonState& ButtonState, int32 ControllerId, bool IsRepeat)
+{
+	bool result = MessageHandler->OnControllerButtonPressed(ButtonState.Key, ControllerId, IsRepeat);
+
+	if (!ButtonState.EmulatedKey.IsNone())
+	{
+		MessageHandler->OnControllerButtonPressed(ButtonState.EmulatedKey, ControllerId, IsRepeat);
+	}
+
+	return result;
+}
+
+bool FOculusInput::OnControllerButtonReleased(const FOculusButtonState& ButtonState, int32 ControllerId, bool IsRepeat)
+{
+	bool result = MessageHandler->OnControllerButtonReleased(ButtonState.Key, ControllerId, IsRepeat);
+
+	if (!ButtonState.EmulatedKey.IsNone())
+	{
+		MessageHandler->OnControllerButtonReleased(ButtonState.EmulatedKey, ControllerId, IsRepeat);
+	}
+
+	return result;
 }
 
 FName FOculusInput::GetMotionControllerDeviceTypeName() const
@@ -809,7 +847,13 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 
 					ovrpControllerState4 OvrpControllerState;
 					
-					if (OVRP_SUCCESS(ovrp_GetControllerState4((ovrpController)(ovrpController_Active | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote), &OvrpControllerState)) &&
+					ovrpController ControllerTypes = (ovrpController)(ovrpController_Active | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote);
+
+#ifdef USE_ANDROID_INPUT
+					ControllerTypes = (ovrpController)(ControllerTypes | ovrpController_Touch);
+#endif
+
+					if (OVRP_SUCCESS(ovrp_GetControllerState4(ControllerTypes, &OvrpControllerState)) &&
 						(OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote)))
 					{
 						// Buffered haptics is currently only supported on Touch
@@ -822,7 +866,10 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 							ovrpHapticsState OvrpHapticsState;
 							if (OVRP_SUCCESS(ovrp_GetControllerHapticsState2(OvrpController, &OvrpHapticsState)))
 							{
-								int wanttosend = (int)ceil((float)OvrpHapticsDesc.SampleRateHz / 90.f) + 1;
+								float appFrameRate = 90.f;
+								ovrp_GetAppFramerate2(&appFrameRate);
+
+								int wanttosend = (int)ceil((float)OvrpHapticsDesc.SampleRateHz / appFrameRate) + 1;
 								wanttosend = FMath::Min(wanttosend, OvrpHapticsDesc.MaximumBufferSamplesCount);
 								wanttosend = FMath::Max(wanttosend, OvrpHapticsDesc.MinimumBufferSamplesCount);
 
@@ -886,7 +933,7 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 									}
 								}
 							}
-						}
+						} 
 						else
 						{
 							// Buffered haptics is currently only supported on Touch
@@ -897,7 +944,9 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 							float FreqMin, FreqMax = 0.f;
 							GetHapticFrequencyRange(FreqMin, FreqMax);
 
-							const float Frequency = FMath::Lerp(FreqMin, FreqMax, FMath::Clamp(Values.Frequency, 0.f, 1.f));
+							const float InitialFreq = (Values.Frequency > 0.0f) ? Values.Frequency : 1.0f;
+							const float Frequency = FMath::Lerp(FreqMin, FreqMax, FMath::Clamp(InitialFreq, 0.f, 1.f));
+
 							const float Amplitude = Values.Amplitude * GetHapticAmplitudeScale();
 
 							if (ControllerState.HapticAmplitude != Amplitude || ControllerState.HapticFrequency != Frequency)

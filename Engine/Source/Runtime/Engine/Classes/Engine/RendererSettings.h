@@ -144,11 +144,11 @@ namespace EDefaultBackBufferPixelFormat
 {
 	enum Type
 	{
-		DBBPF_B8G8R8A8 = 0	UMETA(DisplayName = "8bit RGBA"),
-		DBBPF_A16B16G16R16	UMETA(DisplayName = "16bit RGBA"),
-		DBBPF_FloatRGB		UMETA(DisplayName = "Float RGB"),
-		DBBPF_FloatRGBA		UMETA(DisplayName = "Float RGBA"),
-		DBBPF_A2B10G10R10	UMETA(DisplayName = "10bit RGB, 2bit Alpha"),
+		DBBPF_B8G8R8A8 = 0				UMETA(DisplayName = "8bit RGBA"),
+		DBBPF_A16B16G16R16_DEPRECATED	UMETA(DisplayName = "DEPRECATED - 16bit RGBA", Hidden),
+		DBBPF_FloatRGB_DEPRECATED		UMETA(DisplayName = "DEPRECATED - Float RGB", Hidden),
+		DBBPF_FloatRGBA					UMETA(DisplayName = "Float RGBA"),
+		DBBPF_A2B10G10R10				UMETA(DisplayName = "10bit RGB, 2bit Alpha"),
 		DBBPF_MAX,
 	};
 }
@@ -197,6 +197,18 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMobileUseLegacyShadingModel : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta=(
+		ConsoleVariable="r.Mobile.AllowDitheredLODTransition", DisplayName="Allow Dithered LOD Transition",
+		ToolTip="Whether to support 'Dithered LOD Transition' material option on mobile platforms. Enabling this may degrade performance as rendering will not benefit from Early-Z optimization.",
+		ConfigRestartRequired=true))
+	uint32 bMobileAllowDitheredLODTransition:1;
+
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta=(
+		ConsoleVariable="r.Mobile.AllowSoftwareOcclusion", DisplayName="Support Software Occlusion Culling",
+		ToolTip="Whether to support 'Software Occlusion Culling' on mobile platforms. This will package occluder information and enable Software Occlusion Culling.",
+		ConfigRestartRequired=false))
+	uint32 bMobileAllowSoftwareOcclusionCulling:1;
+	
 	UPROPERTY(config, EditAnywhere, Category = Materials, meta = (
 		ConsoleVariable = "r.DiscardUnusedQuality", DisplayName = "Game Discards Unused Material Quality Levels",
 		ToolTip = "When running in game mode, whether to keep shaders for all quality levels in memory or only those needed for the current quality level.\nUnchecked: Keep all quality levels in memory allowing a runtime quality level change. (default)\nChecked: Discard unused quality levels when loading content for the game, saving some memory."))
@@ -345,12 +357,6 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "Whether to use the new DOF implementation for Circle DOF method."))
 	uint32 bUseNewAlgorithm : 1;
 
-	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
-		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",
-		ToolTip = "Whether to use pre-exposure to remap the range of the scene color around the camera exposure. This limits the render target range required to support HDR lighting value.",
-		ConfigRestartRequired=true))
-	uint32 bUsePreExposure : 1;
-
 	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
 		ConsoleVariable = "r.DefaultFeature.Bloom", DisplayName = "Bloom",
 		ToolTip = "Whether the default for Bloom is enabled or not (postprocess volume/camera/game setting can still override and enable or disable it independently)"))
@@ -377,6 +383,18 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	TEnumAsByte<EAutoExposureMethodUI::Type> DefaultFeatureAutoExposure; 
 
 	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
+		ConsoleVariable = "r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange", DisplayName = "Extend default luminance range in Auto Exposure settings",
+		ToolTip = "Whether the default values for AutoExposure should support an extended range of scene luminance. Also changes the exposure settings to be expressed in EV100.",
+		ConfigRestartRequired=true))
+	uint32 bExtendDefaultLuminanceRangeInAutoExposureSettings: 1;
+
+	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
+		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",
+		ToolTip = "Whether to use pre-exposure to remap the range of the scene color around the camera exposure. This limits the render target range required to support HDR lighting value.",
+		ConfigRestartRequired=true))
+	uint32 bUsePreExposure : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
 		ConsoleVariable = "r.DefaultFeature.MotionBlur", DisplayName = "Motion Blur",
 		ToolTip = "Whether the default for MotionBlur is enabled or not (postprocess volume/camera/game setting can still override and enable or disable it independently)"))
 	uint32 bDefaultFeatureMotionBlur : 1;
@@ -398,14 +416,9 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	TEnumAsByte<EAntiAliasingMethod> DefaultFeatureAntiAliasing;
 
 	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
-		ConsoleVariable = "r.DefaultFeature.PointLightUnits", DisplayName = "Point Light Units",
-		ToolTip = "Which units to use for point lights"))
-	ELightUnits DefaultPointLightUnits;
-
-	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
-		ConsoleVariable = "r.DefaultFeature.SpotLightUnits", DisplayName = "Spot Light Units",
-		ToolTip = "Which units to use for spot lights"))
-	ELightUnits DefaultSpotLightUnits;
+		ConsoleVariable = "r.DefaultFeature.LightUnits", DisplayName = "Light Units",
+		ToolTip = "Which units to use for newly placed point, spot and rect lights"))
+	ELightUnits DefaultLightUnits;
 
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = DefaultSettings, meta = (
 		ConsoleVariable = "r.DefaultBackBufferPixelFormat",DisplayName = "Frame Buffer Pixel Format",
@@ -537,16 +550,17 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMonoscopicFarField : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
+		ConsoleVariable = "vr.RoundRobinOcclusion", DisplayName = "Round Robin Occlusion Queries",
+		ToolTip = "Enable round-robin scheduling of occlusion queries for VR.",
+		ConfigRestartRequired = false))
+	uint32 bRoundRobinOcclusion : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
 		ConsoleVariable = "vr.ODSCapture", DisplayName = "Omni-directional Stereo Capture",
 		ToolTip = "Enable Omni-directional Stereo Capture.",
 		ConfigRestartRequired = true))
 		uint32 bODSCapture : 1;
-
-	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
-		ConsoleVariable = "vr.DebugCanvasInLayer", DisplayName = "Debug Canvas in Layer",
-		ToolTip = "Enables debug canvases to be rendered in HMD layers"))
-		uint32 bDebugCanvasInLayer : 1;
 
 	UPROPERTY(config, EditAnywhere, Category=Editor, meta=(
 		ConsoleVariable="r.WireframeCullThreshold",DisplayName="Wireframe Cull Threshold",

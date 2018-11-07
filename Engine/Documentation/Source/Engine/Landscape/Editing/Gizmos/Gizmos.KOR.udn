@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3807090
+INTSourceChangelist:4307038
 Availability: Public
 Title:랜드스케이프 기즈모
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -204,20 +204,19 @@ Layer Name 이 랜드스케이프 상에 존재하는 레이어 이름에 일치
 
 
 [COMMENT:none]
-
 ## 기즈모 리스트
 
-![gizmolist.jpg](gizmolist.jpg)(w:267)
+![gizmolist.jpg]()(w:267)
 
 기즈모 리스트에는 나중에 쉽게 재사용 가능하도록 저장된 기즈모 목록이 표시됩니다.
 
-![gizmolist_populated.jpg](gizmolist_populated.jpg)(w:266)
+![gizmolist_populated.jpg]()(w:266)
 
 | **콘트롤** | **설명** |
 | --- | --- |
-| ![gizmolist_pin.jpg](gizmolist_pin.jpg)| 목록에 기즈모의 현재 위치, 크기, 로테이션을 저장합니다. |
-| ![gizmolist_remove.jpg](gizmolist_remove.jpg)| 목록에 현재 선택되어 있는 기즈모를 제거합니다. |
-| ![gizmolist_goto.jpg](gizmolist_goto.jpg)| 기즈모의 위치, 크기, 로테이션을 목록에 현재 선택되어 있는 기즈모의 것으로 설정합니다. |
+| ![gizmolist_pin.jpg]()| 목록에 기즈모의 현재 위치, 크기, 로테이션을 저장합니다. |
+| ![gizmolist_remove.jpg]()| 목록에 현재 선택되어 있는 기즈모를 제거합니다. |
+| ![gizmolist_goto.jpg]()| 기즈모의 위치, 크기, 로테이션을 목록에 현재 선택되어 있는 기즈모의 것으로 설정합니다. |
 
 
 [/COMMENT]

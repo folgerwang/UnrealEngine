@@ -1195,11 +1195,15 @@ PyObject* FindOrLoadAssetImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InKw
 		return nullptr;
 	}
 
-	UClass* ObjectType = UObject::StaticClass();
+	UClass* ObjectType = nullptr;
 	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, nullptr))
 	{
 		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
 		return nullptr;
+	}
+	if (!ObjectType)
+	{
+		ObjectType = UObject::StaticClass();
 	}
 
 	UObject* PotentialAsset = InFunc(UObject::StaticClass(), nullptr, *ObjectName);
@@ -1564,7 +1568,7 @@ void InitializeModule()
 	GPythonPropertyContainer.Reset(NewObject<UStruct>(GetTransientPackage(), TEXT("PythonProperties")));
 
 	GPythonTypeContainer.Reset(NewObject<UPackage>(nullptr, TEXT("/Engine/PythonTypes"), RF_Public));
-	GPythonTypeContainer->SetPackageFlags(PKG_CompiledIn | PKG_ContainsScript);
+	GPythonTypeContainer->SetPackageFlags(PKG_ContainsScript);
 
 	PyGenUtil::FNativePythonModule NativePythonModule;
 	NativePythonModule.PyModuleMethods = PyCoreMethods;

@@ -1,68 +1,131 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3721613
+
 Availability: Docs
+
 Crumbs: %ROOT%
-Title: Cascade To Niagara
-Description: Showing the differences and similarities between Cascade and Niagara
+
+Title: 从Cascade到Niagara
+
+Description: 展示Cascade与Niagara间的异同点
+
 Type: Overview
+
 SkillLevel: Beginner
+
 Version: 4.18
+
 Parent: Engine/Niagara
+
 Order: 1
+
 Tags: Cascade
+
 Tags: Getting Started
+
 topic-image:NiagaraToCascadeTopicImage.png
+
+
 
 [TOC(start:1 end:3)]
 
-While both Cascade and Niagara can be used to make visual effects (VFX) inside Unreal Engine 4 (UE4) the manner in which you use Cascade to create and adjust visual effects versus how you use Niagara to create and adjust visual effects is vastly different. In the following document, we will take a look at how to transition from Cascade to Niagara to make all of your visual effects. The reason for creating this new tool is to put more power into the hands of the artist to create additional functionality without the help of a programmer. We take some inspiration from the movie FX tools and try to make the system as adaptable and flexible as possible while keeping usability high and accommodating the 90% use cases.
 
-## Niagara Overview
 
-Niagara is Unreal Engine's next-generation visual effects system. It's a complete replacement for Cascade, with which it will coexist for a period unit Niagara functionally is deemed to fully superseded Cascades functionality. 
+虽然Cascade和Niagara都可以用于在虚幻引擎4（UE4）中制作视觉效果（VFX），但使用Cascade与使用Niagara创建和调整视觉效果的方式却迥然相异。在以下文档中，我们将为您介绍如何从Cascade过渡到Niagara来制作所有视觉效果。创建这一新工具的原因是让美术能够更加独立地创建更多功能，而无需借助程序员的帮助。我们的一些灵感来自于电影特效工具，试着尽量提高系统的适应性和灵活性，同时保持较高的易用性，以便能够适应90%的用例。
 
-## Why is Niagara Better Than Cascade
 
-The fundamental power of Niagara is predominantly in the ability to share arbitrary particle data in whatever way the user sees fit. This helps to enable users to script their own behaviors rather than requiring code intervention to create new hard-coded features. In Cascade, particle simulations are controlled by hard-coded modules, each providing a specific set of functionality to modify particle attributes. In contrast, Niagara simulation is controlled by node graphs that artist can create and edit.  
+
+## Niagara概述
+
+
+
+Niagara是虚幻引擎的新一代视觉效果系统。它可以完全取代Cascade，二者将共存一段时间，直到Niagara功能确定能够完全取代Cascade的功能为止。
+
+
+
+## Niagara为什么优于Cascade？
+
+
+
+Niagara的根本功能是无论用户使用何种查看方式，都能够分享任意角度的粒子数据。这样可以让用户自己设计行为，而无需代码干预来创建新的硬编码功能。在Cascade中，粒子模拟由硬编码模块控制，每个模块提供一组特定的功能来修改粒子属性。相反，Niagara模拟由美术可以创建和编辑的节点图形控制。
+
+
 
 [OBJECT:ComparisonSlider]
+ 
     [PARAM:before]
+
     ![Cascade](Cascade.png)(w:1000)
+
     [/PARAM]
+
     [PARAM:after]
+
     ![Niagara](Ninagra.png)
+
     [/PARAM]
+
 [/OBJECT]
 
-One of the other reasons Niagara's is superior to Cascade is that Niagara's node graphs are compiled to bytecode that is run in a very low overhead interpreter, resulting in very high performance even on CPU simulations. GPU simulations are planned, and it is expected to be transparent - with a few caveats, any emitter should be able to be simulated on CPU or GPU based on user choice.
 
-## Cascade & Niagara UI 
 
-When you first open up Niagara, the User Interface(UI) will look completely different than Cascade. However, if you take a close look, you will begin to notice that the Niagara interface does share some of the following similarities to Cascade. 
+Niagara优于Cascade的另一个原因是Niagara的节点图形采用字节代码编译，能够在开销极低的解释程序中运行，因此即使是在CPU模拟上也具有非常高的性能。GPU模拟是事先计划好的，整个过程应该是透明的——但需要提醒的是，根据用户的选择，任何发射器都应该能够在CPU或GPU上实现模拟。
 
-* Realtime 3D viewport to visualize effects while they are being created. 
 
-* Curves Editor for adjusting R, G, B and Alpha values.
 
-* Details Panel for adjusting various properties.
+## Cascade和Niagara UI
+
+
+
+首次打开Niagara时，用户界面（UI）看起来与Cascade完全不同。但是，如果您仔细观察，就会开始注意到Niagara界面确实与Cascade存在以下相似之处。
+
+
+
+* 实时3D视口，用于在创建效果时显示效果。
+
+
+
+* 曲线编辑器，用于调整R、G、B和Alpha值。
+
+
+
+* 细节面板，用于调整各种属性。
+
+
 
 [OBJECT:ComparisonSlider]
+
     [PARAM:before]
+
     ![Cascade](CTN_Cas_VFX.png)(w:1000)
+
     [/PARAM]
+
     [PARAM:after]
+
     ![Niagara](CTN_Nia_VFX.png)
+
     [/PARAM]
+
 [/OBJECT]
 
-## Niagara Emitters & Systems 
 
-One of the biggest differences between Cascade and Niagara is how you build emitters. When using Cascade emitters were built as a self-contained unit. While this made the emitters easy to place and spawn, it also made it hard to share behavior between different emitter or make updates as everything had to be done manually.  Niagara changes all of this by giving visual effect artist the ability to control, add or modify any part of a visual effects behavior right down to the pixel level. To accomplish Niagara particle systems have been broken up into the following two parts.
 
- * **Niagara Emitters:** This is a single visual effect that will be combined with other Niagara Emitters to make a Niagara System. If we are making a fire effect, the Niagara Emitters would be each of the different elements that make up the fire effect like the smoke, fire, distortion, and embers. 
+## Niagara发射器和系统
+
+
+
+Cascade和Niagara的最大差异之一是发射器的构建方式。在使用Cascade时，发射器构建为自包含单元。这样易于放置和大量衍生发射器，但也难以在不同的发射器之间分享行为，或者难以更新，因为所有工作都必须手动完成。Niagara彻底改变了现状，它让视觉效果美术能够在像素级别控制、添加或修改任意部分的视觉效果行为。为完成Niagara，粒子系统被细分为以下两个部分。
+
+* **Niagara发射器：** 这是一种视觉效果，能够与其他Niagara发射器结合以形成Niagara系统。如果我们要制作火焰效果，Niagara发射器就是各种不同的元素，这些元素组成火焰效果，例如烟、火、变形和灰烬。
+
+
 
     ![](CTN_NiagaraEmitters.png)
 
- * **Niagara Systems:** This contains all of the needed effects that make this up. Continuing with our fire example, this would be the completed fire effect that contains the smoke, fire, distortion, and embers.
+ 
+* **Niagara系统：** 包含完成最终效果所需的全部效果。继续以上述火焰示例为例，该系统将成为完整的火焰效果，其中包含烟、火、变形和灰烬。
+
+
 
     ![](CTN_NiagaraSystem.png)
 

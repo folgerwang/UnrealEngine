@@ -910,6 +910,7 @@ void SFilterList::RemoveFilter(const TSharedRef<SFilter>& FilterToRemove)
 		// Update the frontend filters collection
 		const TSharedRef<FFrontendFilter>& FrontendFilter = FilterToRemove->GetFrontendFilter().ToSharedRef();
 		SetFrontendFilterActive(FrontendFilter, false);
+		OnFilterChanged.ExecuteIfBound();
 	}
 }
 
@@ -1179,7 +1180,7 @@ TSharedRef<SWidget> SFilterList::MakeAddFilterMenu(EAssetTypeCategories::Type Me
 	MenuBuilder.EndSection(); //ContentBrowserFilterMiscAsset
 
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplication::Get().GetDisplayMetrics( DisplayMetrics );
+	FSlateApplication::Get().GetCachedDisplayMetrics( DisplayMetrics );
 
 	const FVector2D DisplaySize(
 		DisplayMetrics.PrimaryDisplayWorkAreaRect.Right - DisplayMetrics.PrimaryDisplayWorkAreaRect.Left,

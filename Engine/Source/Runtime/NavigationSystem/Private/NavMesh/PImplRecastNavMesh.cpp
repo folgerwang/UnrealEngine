@@ -1365,7 +1365,9 @@ bool FPImplRecastNavMesh::ProjectPointToNavMesh(const FVector& Point, FNavLocati
 	bool bSuccess = false;
 
 	FRecastSpeciaLinkFilter LinkFilter(FNavigationSystem::GetCurrent<UNavigationSystemV1>(NavMeshOwner->GetWorld()), Owner);
-	INITIALIZE_NAVQUERY(NavQuery, Filter.GetMaxSearchNodes(), LinkFilter);
+	// using 0 as NumNodes since findNearestPoly2D, being the only dtNavMeshQuery
+	// function we're using, is not utilizing m_nodePool
+	INITIALIZE_NAVQUERY(NavQuery, /*NumNodes=*/0, LinkFilter);
 
 	const dtQueryFilter* QueryFilter = ((const FRecastQueryFilter*)(Filter.GetImplementation()))->GetAsDetourQueryFilter();
 	ensure(QueryFilter);

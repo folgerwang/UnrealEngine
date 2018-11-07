@@ -1134,27 +1134,36 @@ void FSCSEditorTreeNodeInstanceAddedComponent::RemoveMeAsChild()
 
 void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InNewName)
 {
-	FScopedTransaction* TransactionContext = NULL;
-	if (!GetAndClearNonTransactionalRenameFlag())
-	{
-		TransactionContext = new FScopedTransaction(LOCTEXT("RenameComponentVariable", "Rename Component Variable"));
-	}
+	bool bIsNonTransactionalRename = GetAndClearNonTransactionalRenameFlag();
+	FScopedTransaction TransactionContext(LOCTEXT("RenameComponentVariable", "Rename Component Variable"), !bIsNonTransactionalRename);
 
 	UActorComponent* ComponentInstance = GetComponentTemplate();
-	check(ComponentInstance != nullptr);
+	if(ComponentInstance == nullptr)
+	{
+		return;
+	}
 
 	ERenameFlags RenameFlags = REN_DontCreateRedirectors;
-	if (!TransactionContext)
+	if (bIsNonTransactionalRename)
 	{
 		RenameFlags |= REN_NonTransactional;
 	}
-
-	ComponentInstance->Rename(*InNewName.ToString(), nullptr, RenameFlags);
-	InstancedComponentName = *InNewName.ToString();
-
-	if (TransactionContext)
+	
+	// name collision could occur due to e.g. our archetype being updated and causing a conflict with our ComponentInstance:
+	FString NewNameAsString = InNewName.ToString();
+	if(StaticFindObject(UObject::StaticClass(), ComponentInstance->GetOuter(), *NewNameAsString) == nullptr)
 	{
-		delete TransactionContext;
+		ComponentInstance->Rename(*NewNameAsString, nullptr, RenameFlags);
+		InstancedComponentName = *NewNameAsString;
+	}
+	else
+	{
+		UObject* Collision = StaticFindObject(UObject::StaticClass(), ComponentInstance->GetOuter(), *NewNameAsString);
+		if(Collision != ComponentInstance)
+		{
+			// use whatever name the ComponentInstance currently has:
+			InstancedComponentName = ComponentInstance->GetFName();
+		}
 	}
 }
 
@@ -1543,7 +1552,9 @@ TSharedRef<SWidget> SSCS_RowWidget::GenerateWidgetForColumn( const FName& Column
 				.Text( LOCTEXT("UnknownColumn", "Unknown Column") );
 	}
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSCS_RowWidget::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox, const FText& Key, TSharedRef<SWidget> ValueIcon, const TAttribute<FText>& Value, bool bImportant)
 {
 	InfoBox->AddSlot()
@@ -1576,7 +1587,9 @@ void SSCS_RowWidget::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox
 			]
 		];
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 TSharedRef<SToolTip> SSCS_RowWidget::CreateToolTipWidget() const
 {
 	// Create a box to hold every line of info in the body of the tooltip
@@ -3394,6 +3407,7 @@ TSharedRef<SWidget> SSCS_RowWidget_Separator::GenerateWidgetForColumn(const FNam
 //////////////////////////////////////////////////////////////////////////
 // SSCSEditor
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSCSEditor::Construct( const FArguments& InArgs )
 {
 	EditorMode = InArgs._EditorMode;
@@ -3522,8 +3536,11 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 
 	TSharedPtr<SHorizontalBox> ButtonBox;
 	TSharedPtr<SVerticalBox>   HeaderBox;
-	TSharedPtr<SWidget> SearchBar = SAssignNew(FilterBox, SSearchBox)
-		.OnTextChanged(this, &SSCSEditor::OnFilterTextChanged);
+	TSharedPtr<SWidget> SearchBar =
+		SAssignNew(FilterBox, SSearchBox)
+			.HintText(EditorMode == EComponentEditorMode::ActorInstance ? LOCTEXT("SearchComponentsHint", "Search Components") : LOCTEXT("SearchHint", "Search"))
+			.OnTextChanged(this, &SSCSEditor::OnFilterTextChanged);
+
 	const bool  bInlineSearchBarWithButtons = (EditorMode == EComponentEditorMode::BlueprintSCS);
 
 	bool bHideComponentClassCombo = InArgs._HideComponentClassCombo.Get();
@@ -4695,9 +4712,10 @@ bool SSCSEditor::ShouldAddInstancedActorComponent(UActorComponent* ActorComp, US
 {
 	// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
 	return (ActorComp != nullptr
-		&& (ActorComp->CreationMethod == EComponentCreationMethod::Instance || !ActorComp->IsEditorOnly())
+		&& (!ActorComp->IsVisualizationComponent())
 		&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView)
-		&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)));
+		&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
+		&& (ActorComp->CreationMethod != EComponentCreationMethod::Native || FComponentEditorUtils::CanEditNativeComponent(ActorComp) );
 }
 
 void SSCSEditor::DumpTree()
@@ -5775,9 +5793,8 @@ FSCSEditorTreeNodePtrType SSCSEditor::AddTreeNode(USCS_Node* InSCSNode, FSCSEdit
 	check(InSCSNode != NULL);
 
 	// During diffs, ComponentTemplates can easily be null, so prevent these checks.
-	if (!bIsDiffing)
+	if (!bIsDiffing && InSCSNode->ComponentTemplate)
 	{
-		check(InSCSNode->ComponentTemplate != NULL);
 		checkf(InSCSNode->ParentComponentOrVariableName == NAME_None
 			|| (!InSCSNode->bIsParentComponentNative && InParentNodePtr->GetSCSNode() != NULL && InParentNodePtr->GetSCSNode()->GetVariableName() == InSCSNode->ParentComponentOrVariableName)
 			|| (InSCSNode->bIsParentComponentNative && InParentNodePtr->GetComponentTemplate() != NULL && InParentNodePtr->GetComponentTemplate()->GetFName() == InSCSNode->ParentComponentOrVariableName),

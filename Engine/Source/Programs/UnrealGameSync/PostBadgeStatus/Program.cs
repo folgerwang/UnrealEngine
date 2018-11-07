@@ -53,7 +53,7 @@ namespace WriteBadgeStatus
 				}
 				try
 				{
-					SendRequest(RestUrl, "CIS", "POST", new JavaScriptSerializer().Serialize(Build));
+					SendRequest(RestUrl, "Build", "POST", new JavaScriptSerializer().Serialize(Build));
 				}
 				catch(Exception ex)
 				{

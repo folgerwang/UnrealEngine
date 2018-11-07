@@ -8,10 +8,10 @@
 const TCHAR* FLinuxPlatformProcess::BaseDir()
 {
 	static bool bHaveResult = false;
-	static TCHAR CachedResult[MAX_PATH];
+	static TCHAR CachedResult[UNIX_MAX_PATH];
 	if (!bHaveResult)
 	{
-		char SelfPath[MAX_PATH] = {0};
+		char SelfPath[UNIX_MAX_PATH] = {0};
 		if (readlink( "/proc/self/exe", SelfPath, ARRAY_COUNT(SelfPath) - 1) == -1)
 		{
 			int ErrNo = errno;

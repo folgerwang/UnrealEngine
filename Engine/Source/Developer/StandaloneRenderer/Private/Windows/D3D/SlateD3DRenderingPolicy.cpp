@@ -4,13 +4,8 @@
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DTextures.h"
-#include "Stats/SlateStats.h"
 #include "Layout/Clipping.h"
 
-SLATE_DECLARE_CYCLE_COUNTER(GSlateResizeRenderBuffers, "Resize Render Buffers");
-SLATE_DECLARE_CYCLE_COUNTER(GSlateLockRenderBuffers, "Lock Render Buffers");
-SLATE_DECLARE_CYCLE_COUNTER(GSlateMemCopyRenderBuffers, "Memcopy Render Buffers");
-SLATE_DECLARE_CYCLE_COUNTER(GSlateUnlockRenderBuffers, "Unlock Render Buffers");
 
 /** Offset to apply to UVs to line up texels with pixels */
 const float PixelCenterOffsetD3D11 = 0.0f;
@@ -43,6 +38,9 @@ FSlateD3D11RenderingPolicy::~FSlateD3D11RenderingPolicy()
 
 void FSlateD3D11RenderingPolicy::InitResources()
 {
+	VertexShader = nullptr;
+	PixelShader = nullptr;
+
 	D3D11_SAMPLER_DESC SamplerDesc;
 	FMemory::Memzero( &SamplerDesc, sizeof(D3D11_SAMPLER_DESC) );
 	SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
@@ -170,12 +168,27 @@ void FSlateD3D11RenderingPolicy::ReleaseResources()
 	VertexBuffer.DestroyBuffer();
 	IndexBuffer.DestroyBuffer();
 
-	delete VertexShader;
-	delete PixelShader;
+	if (VertexShader != nullptr)
+	{
+		delete VertexShader;
+		VertexShader = nullptr;
+	}
+
+	if (PixelShader != nullptr)
+	{
+		delete PixelShader;
+		PixelShader = nullptr;
+	}
 }
 
 void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& InBatchData )
 {	
+	if (!VertexBuffer.GetResource().IsValid() ||
+		!IndexBuffer.GetResource().IsValid())
+	{
+		return;
+	}
+
 	if( InBatchData.GetRenderBatches().Num() > 0 )
 	{
 		if( InBatchData.GetNumBatchedVertices() > 0 )
@@ -185,7 +198,6 @@ void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& I
 			// resize if needed
 			if( NumVertices*sizeof(FSlateVertex) > VertexBuffer.GetBufferSize() )
 			{
-				SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
 				uint32 NumBytesNeeded = NumVertices*sizeof(FSlateVertex);
 				// increase by a static size.
 				// @todo make this better
@@ -200,7 +212,6 @@ void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& I
 			// resize if needed
 			if( NumIndices > IndexBuffer.GetMaxNumIndices() )
 			{
-				SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
 				// increase by a static size.
 				// @todo make this better
 				IndexBuffer.ResizeBuffer( NumIndices + 100 );
@@ -210,18 +221,15 @@ void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& I
 		uint8* VerticesPtr = nullptr;
 		uint8* IndicesPtr = nullptr;
 		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateLockRenderBuffers);
 			VerticesPtr = (uint8*)VertexBuffer.Lock(0);
 			IndicesPtr = (uint8*)IndexBuffer.Lock(0);
 		}
 	
 		{
-			SLATE_CYCLE_COUNTER_SCOPE(GSlateMemCopyRenderBuffers);
 			InBatchData.FillVertexAndIndexBuffer( VerticesPtr, IndicesPtr, /*bAbsoluteIndices*/ false );
 		}
 
 		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateUnlockRenderBuffers);
 			VertexBuffer.Unlock();
 			IndexBuffer.Unlock();
 		}
@@ -230,6 +238,12 @@ void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& I
 
 void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches )
 {
+	if (!VertexBuffer.GetResource().IsValid() ||
+		!IndexBuffer.GetResource().IsValid())
+	{
+		return;
+	}
+
 	VertexShader->BindShader();
 
 	ID3D11Buffer* Buffer = VertexBuffer.GetResource();

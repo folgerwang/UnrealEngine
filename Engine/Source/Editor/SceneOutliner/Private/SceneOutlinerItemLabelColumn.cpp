@@ -220,15 +220,22 @@ private:
 		{
 			if (WeakSceneOutliner.IsValid())
 			{
-				FSlateBrush* CachedBrush = WeakSceneOutliner.Pin()->GetCachedIconForClass(Actor->GetClass()->GetFName());
+				FName IconName = Actor->GetCustomIconName();
+				if (IconName == NAME_None)
+				{
+					IconName = Actor->GetClass()->GetFName();
+				}
+
+				const FSlateBrush* CachedBrush = WeakSceneOutliner.Pin()->GetCachedIconForClass(IconName);
 				if (CachedBrush != nullptr)
 				{
 					return CachedBrush;
 				}
 				else
 				{
-					const FSlateBrush* FoundSlateBrush = FClassIconFinder::FindIconForActor(const_cast<AActor*>(Actor));
-					WeakSceneOutliner.Pin()->CacheIconForClass(Actor->GetClass()->GetFName(), const_cast<FSlateBrush*>(FoundSlateBrush));
+
+					const FSlateBrush* FoundSlateBrush = FClassIconFinder::FindIconForActor(Actor);
+					WeakSceneOutliner.Pin()->CacheIconForClass(IconName, FoundSlateBrush);
 					return FoundSlateBrush;
 				}
 			}

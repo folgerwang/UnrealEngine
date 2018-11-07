@@ -273,7 +273,7 @@ void AActor::RerunConstructionScripts()
 #if WITH_EDITOR
 		if (!CurrentTransactionAnnotation.IsValid())
 		{
-			CurrentTransactionAnnotation = MakeShareable(new FActorTransactionAnnotation(this, false));
+			CurrentTransactionAnnotation = FActorTransactionAnnotation::Create(this, false);
 		}
 		FActorTransactionAnnotation* ActorTransactionAnnotation = CurrentTransactionAnnotation.Get();
 		InstanceDataCache = &ActorTransactionAnnotation->ComponentInstanceData;
@@ -657,7 +657,7 @@ bool AActor::ExecuteConstruction(const FTransform& Transform, const FRotationCon
 		{
 			RootComponent->SetRelativeRotationCache(*TransformRotationCache);
 		}
-		RootComponent->SetWorldTransform(Transform);
+		RootComponent->SetWorldTransform(Transform, /*bSweep=*/false, /*OutSweepHitResult=*/nullptr, ETeleportType::TeleportPhysics);
 	}
 
 	// Generate the parent blueprint hierarchy for this actor, so we can run all the construction scripts sequentially
@@ -1016,7 +1016,7 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 		NewActorComp->SetFlags(RF_NeedPostLoad | RF_NeedPostLoadSubobjects);
 
 		// Load cached data into the new instance.
-		FBlueprintComponentInstanceDataLoader ComponentInstanceDataLoader(TemplateData->GetCachedPropertyDataForSerialization(), TemplateData->GetCachedPropertyListForSerialization());
+		FBlueprintComponentInstanceDataLoader ComponentInstanceDataLoader(TemplateData->GetCachedPropertyData(), TemplateData->GetCachedPropertyList());
 		NewActorComp->Serialize(ComponentInstanceDataLoader);
 
 		// Handle tasks that would normally occur post-duplication w/ SDO.

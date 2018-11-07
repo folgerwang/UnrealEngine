@@ -32,9 +32,20 @@ public class Launch : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Sockets",
-                "Overlay",
+				"Overlay",
 				"UtilityShaders",
-		});
+				"PreLoadScreen"
+			});
+
+		// Set a macro allowing us to switch between debuggame/development configuration
+		if(Target.Configuration == UnrealTargetConfiguration.DebugGame)
+		{
+			PrivateDefinitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=1");
+		}
+		else
+		{
+			PrivateDefinitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=0");
+		}
 
 		// Enable the LauncherCheck module to be used for platforms that support the Launcher.
 		// Projects should set Target.bUseLauncherChecks in their Target.cs to enable the functionality.
@@ -102,7 +113,7 @@ public class Launch : ModuleRules
 					"NetworkFile",
 					"StreamingFile",
 					"CookedIterativeFile",
-					"AutomationWorker",
+					"AutomationWorker"
 			});
 		}
 
@@ -131,6 +142,13 @@ public class Launch : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface"
 			});
+
+			if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrivateDependencyModuleNames.AddRange(new string[] {
+					"FunctionalTesting"
+				});
+			}
 		}
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)

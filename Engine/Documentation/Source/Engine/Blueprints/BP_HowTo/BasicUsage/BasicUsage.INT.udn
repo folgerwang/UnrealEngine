@@ -115,15 +115,7 @@ In the **Components Mode** you define what bits and pieces are used to construct
 
 * See [](Engine/Blueprints/Editor/Modes/Components) for more on the windows and options in this mode. 
 * See also [](Engine/Blueprints/UserGuide/Components) for working with **Components** in this mode.  
-
-### Graph Mode
-
-![](GraphTab.png)(w:740)
-
-The **Graph Mode** is considered to be the heart of a Blueprint. This is where you bring your Blueprints to life by adding and connecting Blueprint nodes together in a visual network that defines your Blueprint's logic. In the example image above, we have a **Character Blueprint** and in the graph, the logic that governs the character's movement is laid out. 
-
-* See [](Engine/Blueprints/Editor/Modes/GraphPanel) for more on the windows and options in this mode. 
-* See also [](Engine\Blueprints\BP_HowTo\NavigatingGraphs) for working within the **Graph Window** in this mode.  
+ 
 
 ### Defaults Mode
 

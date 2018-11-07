@@ -16,9 +16,6 @@
 DECLARE_STATS_GROUP(TEXT("Oculus"), STATGROUP_Oculus, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("GPUStressRendering"), STAT_GPUStressRendering, STATGROUP_Oculus);
 
-namespace OculusHMD
-{
-
 //-------------------------------------------------------------------------------------------------
 // Uniform buffers
 //-------------------------------------------------------------------------------------------------
@@ -42,6 +39,9 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters, TEXT("PSVa
 
 typedef TUniformBufferRef<FOculusPixelShaderVariableParameters> FOculusPixelShaderVariableParametersRef;
 
+namespace OculusHMD
+{
+
 
 //-------------------------------------------------------------------------------------------------
 // FTextureVertexDeclaration
@@ -52,6 +52,26 @@ struct FTextureVertex
 	FVector4	Position;
 	FVector2D	UV;
 };
+
+inline FVertexBufferRHIRef CreateTempOcculusVertexBuffer()
+{
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FTextureVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FTextureVertex) * 4, RLM_WriteOnly);
+
+	FTextureVertex* Vertices = (FTextureVertex*)VoidPtr;
+	Vertices[0].Position = FVector4(-1.0f, 1.0f, 0, 1.0f);
+	Vertices[1].Position = FVector4(1.0f, 1.0f, 0, 1.0f);
+	Vertices[2].Position = FVector4(-1.0f, -1.0f, 0, 1.0f);
+	Vertices[3].Position = FVector4(1.0f, -1.0f, 0, 1.0f);
+	Vertices[0].UV = FVector2D(0, 0);
+	Vertices[1].UV = FVector2D(1, 0);
+	Vertices[2].UV = FVector2D(0, 1);
+	Vertices[3].UV = FVector2D(1, 1);
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+
+	return VertexBufferRHI;
+}
 
 class FTextureVertexDeclaration : public FRenderResource
 {
@@ -189,9 +209,9 @@ FStressTester::FStressTester()
 	, CPUsTimeLimitInSeconds(10.)// 10 secs
 	, GPUsTimeLimitInSeconds(10.)// 10 secs
 	, GPUIterationsMultiplier(0.)
-	, PDStartTimeInSeconds(0.)
-	, GPUStartTimeInSeconds(0.)
 	, CPUStartTimeInSeconds(0.)
+	, GPUStartTimeInSeconds(0.)
+	, PDStartTimeInSeconds(0.)
 {
 
 }
@@ -361,22 +381,13 @@ void FStressTester::DoTickGPU_RenderThread(FRHICommandListImmediate& RHICmdList,
 		PixelShader->SetUniformBuffers(RHICmdList, ConstantParameters, VariableParameters);
 
 		// Draw a fullscreen quad that we can run our pixel shader on
-		FTextureVertex Vertices[4];
-		Vertices[0].Position = FVector4(-1.0f, 1.0f, 0, 1.0f);
-		Vertices[1].Position = FVector4(1.0f, 1.0f, 0, 1.0f);
-		Vertices[2].Position = FVector4(-1.0f, -1.0f, 0, 1.0f);
-		Vertices[3].Position = FVector4(1.0f, -1.0f, 0, 1.0f);
-		Vertices[0].UV = FVector2D(0, 0);
-		Vertices[1].UV = FVector2D(1, 0);
-		Vertices[2].UV = FVector2D(0, 1);
-		Vertices[3].UV = FVector2D(1, 1);
-
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+		RHICmdList.SetStreamSource(0, CreateTempOcculusVertexBuffer(), 0);
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 
 		PixelShader->UnbindBuffers(RHICmdList);
 	}
 
-#endif 0
+#endif // 0
 // END DO NOT MERGE -- Removing Packaging Issue
 }
 

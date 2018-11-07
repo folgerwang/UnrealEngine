@@ -355,7 +355,7 @@ int32 FBackChannelConnection::SendData(const void* InData, const int32 InSize)
 			//const TCHAR* SocketErr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(LastError);
 			//UE_CLOG(GBackChannelLogErrors, LogBackChannel, Error, TEXT("Failed to send %d bytes of data to %s. Err: %s"), BytesSent, *GetDescription(), SocketErr);
             
-            UE_CLOG(GBackChannelLogErrors, LogBackChannel, Error, TEXT("Failed to send %d bytes of data to %s. "), BytesSent, *GetDescription());
+            UE_CLOG(GBackChannelLogErrors, LogBackChannel, Log, TEXT("Failed to send %d bytes of data to %s. "), BytesSent, *GetDescription());
 		}
 	}
 	else

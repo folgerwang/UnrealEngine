@@ -188,13 +188,16 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 		SetRenderTargets(Context.RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIParamRef(), 0, NULL);
 	}
 	
-	FLinearColor ClearColors[2] = 
+	if (View.StereoPass == eSSP_FULL)
 	{
-		FLinearColor(0, 0, 0, 0),
-		FLinearColor(0, 0, 0, 0)
-	};
-	// is optimized away if possible (RT size=view size, )
-	DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, DestSize, DestRect);
+		FLinearColor ClearColors[2] =
+		{
+			FLinearColor(0, 0, 0, 0),
+			FLinearColor(0, 0, 0, 0)
+		};
+		// is optimized away if possible (RT size=view size, )
+		DrawClearQuadMRT(Context.RHICmdList, true, NumRenderTargets, ClearColors, false, 0, false, 0, DestSize, DestRect);
+	}
 
 	Context.SetViewportAndCallRHI(DestRect.Min.X, DestRect.Min.Y, 0.0f, DestRect.Max.X + 1, DestRect.Max.Y + 1, 1.0f );
 	
@@ -447,8 +450,12 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 	else
 	{
 		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		// is optimized away if possible (RT size=view size, )
-		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
+
+		if (View.StereoPass == eSSP_FULL)
+		{
+			// is optimized away if possible (RT size=view size, )
+			DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
+		}
 	}
 
 	Context.SetViewportAndCallRHI(View.ViewRect);

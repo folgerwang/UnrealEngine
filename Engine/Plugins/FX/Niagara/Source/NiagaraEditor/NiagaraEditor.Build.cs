@@ -46,6 +46,7 @@ public class NiagaraEditor : ModuleRules
                 "MovieSceneTracks",
                 "AdvancedPreviewScene",
 				"Projects",
+                "MainFrame",
 			}
         );
 

@@ -1058,16 +1058,18 @@ bool HasBakedDistributionDataHelper(const UDistribution* GivenDistribution)
 }
 #endif
 
-void UDistributionFloat::Serialize(FArchive& Ar)
+void UDistributionFloat::Serialize(FStructuredArchive::FRecord Record)
 {
 #if WITH_EDITOR
-	if (Ar.IsCooking() || Ar.IsSaving())
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsCooking() || UnderlyingArchive.IsSaving())
 	{
 		bBakedDataSuccesfully = HasBakedDistributionDataHelper<FRawDistributionFloat>(this);
 	}
 #endif
 
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 }
 
 
@@ -1266,16 +1268,18 @@ void FRawDistributionVector::InitLookupTable()
 #endif
 }
 
-void UDistributionVector::Serialize(FArchive& Ar)
+void UDistributionVector::Serialize(FStructuredArchive::FRecord Record)
 {
 #if WITH_EDITOR
-	if (Ar.IsCooking() || Ar.IsSaving())
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsCooking() || UnderlyingArchive.IsSaving())
 	{
 		bBakedDataSuccesfully = HasBakedDistributionDataHelper<FRawDistributionVector>(this);
 	}
 #endif
 
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 }
 
 bool UDistributionVector::NeedsLoadForClient() const

@@ -174,11 +174,11 @@ public:
 				{
 					if (CallbackResults.m_eResult == k_EResultFail)
 					{
-						UE_LOG_ONLINE(Warning, TEXT("Failed to obtain steam user stats, user: %s has no stats entries"), *UserId.ToDebugString());
+						UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failed to obtain steam user stats, user: %s has no stats entries"), *UserId.ToDebugString());
 					}
 					else
 					{
-						UE_LOG_ONLINE(Warning, TEXT("Failed to obtain steam user stats, user: %s error: %s"), *UserId.ToDebugString(), 
+						UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failed to obtain steam user stats, user: %s error: %s"), *UserId.ToDebugString(), 
 							*SteamResultString(CallbackResults.m_eResult));
 					}
 				}
@@ -187,12 +187,12 @@ public:
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Obtained steam user stats, but for wrong game! Ignoring."));
+				UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Obtained steam user stats, but for wrong game! Ignoring."));
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Failed to obtain steam user stats, user: %s error: unknown"), *UserId.ToDebugString());
+			UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failed to obtain steam user stats, user: %s error: unknown"), *UserId.ToDebugString());
 		}
 	}
 };
@@ -300,13 +300,13 @@ public:
 								break;
 							}
 						default:
-							UE_LOG_ONLINE(Warning, TEXT("Skipping unsuppported key value pair uploading to Steam %s=%s"), *StatName, *Stat.ToString());
+							UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Skipping unsuppported key value pair uploading to Steam %s=%s"), *StatName, *Stat.ToString());
 							break;
 						}
 
 						if (!bSuccess)
 						{
-							UE_LOG_ONLINE(Warning, TEXT("Failure to write key value pair when uploading to Steam %s=%s"), *StatName, *Stat.ToString());
+							UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failure to write key value pair when uploading to Steam %s=%s"), *StatName, *Stat.ToString());
 							bWasSuccessful = false;
 						}
 					}
@@ -466,14 +466,14 @@ public:
 							break;
 						}
 					default:
-						UE_LOG_ONLINE(Warning, TEXT("Unsupported key value pair during retrieval from Steam %s"), *StatName);
+						UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Unsupported key value pair during retrieval from Steam %s"), *StatName);
 						LastColumn = &(UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData()));
 						break;
 					}
 
 					if (!bSuccess)
 					{
-						UE_LOG_ONLINE(Warning, TEXT("Failure to read key value pair during retrieval from Steam %s"), *StatName);
+						UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failure to read key value pair during retrieval from Steam %s"), *StatName);
 						LastColumn->Empty();
 						bWasSuccessful = false;
 					}

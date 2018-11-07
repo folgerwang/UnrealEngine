@@ -197,6 +197,11 @@ public class DeploymentContext //: ProjectParams
 	public DirectoryReference MetadataDir;
 
 	/// <summary>
+	/// The directory containing the cooker generated data for this platform
+	/// </summary>
+	public DirectoryReference PlatformCookDir;
+
+	/// <summary>
 	/// List of executables we are going to stage
 	/// </summary>
 	public List<string> StageExecutables;
@@ -229,7 +234,7 @@ public class DeploymentContext //: ProjectParams
 	/// <summary>
 	/// List of restricted folder names which are not permitted in staged build
 	/// </summary>
-	public HashSet<FileSystemName> RestrictedFolderNames = new HashSet<FileSystemName>();
+	public HashSet<string> RestrictedFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
 	/// List of directories to remap during the stage
@@ -262,18 +267,6 @@ public class DeploymentContext //: ProjectParams
 	///  Directory to project binaries
 	/// </summary>
 	public DirectoryReference ProjectBinariesFolder;
-
-	/// <summary>
-	/// Filename for the manifest of file changes for iterative deployment.
-	/// </summary>
-	public const string UFSDeployDeltaFileName = "Manifest_DeltaUFSFiles.txt";	
-	public const string NonUFSDeployDeltaFileName = "Manifest_DeltaNonUFSFiles.txt";
-
-	/// <summary>
-	/// Filename for the manifest of files to delete during deployment.
-	/// </summary>
-	public const string UFSDeployObsoleteFileName = "Manifest_ObsoleteUFSFiles.txt";
-	public const string NonUFSDeployObsoleteFileName = "Manifest_ObsoleteNonUFSFiles.txt";
 
 	/// <summary>
 	/// The client connects to dedicated server to get data
@@ -310,7 +303,7 @@ public class DeploymentContext //: ProjectParams
     /// </summary>
     public bool PlatformUsesChunkManifests = false;
 
-    public DeploymentContext(
+	public DeploymentContext(
 		FileReference RawProjectPathOrName,
 		DirectoryReference InLocalRoot,
 		DirectoryReference BaseStageDirectory,
@@ -421,8 +414,8 @@ public class DeploymentContext //: ProjectParams
 		{
 			RestrictedFolderNames.ExceptWith(PlatformExports.GetIncludedFolderNames(StagePlatform));
 		}
-		RestrictedFolderNames.UnionWith(FileFilter.RestrictedFolderNames);
-		RestrictedFolderNames.Remove(new FileSystemName(StageTargetPlatform.IniPlatformType.ToString()));
+		RestrictedFolderNames.UnionWith(RestrictedFolders.Names);
+		RestrictedFolderNames.Remove(StageTargetPlatform.IniPlatformType.ToString());
 
 		// Read the game config files
 		ConfigHierarchy GameConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, ProjectRoot, InTargetPlatform.PlatformType);
@@ -549,7 +542,7 @@ public class DeploymentContext //: ProjectParams
 		{
 			foreach(DirectoryReference SubDir in DirectoryReference.EnumerateDirectories(BaseDir))
 			{
-				FileSystemName Name = new FileSystemName(SubDir);
+				string Name = SubDir.GetDirectoryName();
 				if(!RestrictedFolderNames.Contains(Name))
 				{
 					FindFilesToStageInternal(SubDir, Pattern, Option, Files);
@@ -900,67 +893,46 @@ public class DeploymentContext //: ProjectParams
 		return FilesAdded;
 	}
 
-	public String GetSanitizedDeviceName(String DeviceName)
+	private static string GetSanitizedDeviceNameSuffix(string DeviceName)
 	{
-		return DeviceName.Replace(":", "").Replace("/", "").Replace("\\", "").Replace("-", "").Replace(".exe", "");
+		if (string.IsNullOrWhiteSpace(DeviceName))
+			return string.Empty;
+		
+		return "_" + DeviceName
+			.Replace(":", "")
+			.Replace("/", "")
+			.Replace("\\", "")
+			.Replace("-", "")
+			.Replace(".exe", "");
 	}
 
-	public String GetUFSDeploymentDeltaPath(string DeviceName)
+	public string GetUFSDeploymentDeltaPath(string DeviceName)
 	{
-		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
-
-		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", UFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, string.Format("Manifest_DeltaUFSFiles{0}.txt", GetSanitizedDeviceNameSuffix(DeviceName)));
 	}
 
-	public String GetNonUFSDeploymentDeltaPath(string DeviceName)
+	public string GetNonUFSDeploymentDeltaPath(string DeviceName)
 	{
-		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
-
-		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", NonUFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, string.Format("Manifest_DeltaNonUFSFiles{0}.txt", GetSanitizedDeviceNameSuffix(DeviceName)));
 	}
 
-	public String GetUFSDeploymentObsoletePath(string DeviceName)
+	public string GetUFSDeploymentObsoletePath(string DeviceName)
 	{
-		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
-
-		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", UFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, string.Format("Manifest_ObsoleteUFSFiles{0}.txt", GetSanitizedDeviceNameSuffix(DeviceName)));
 	}
 
-	public String GetNonUFSDeploymentObsoletePath(string DeviceName)
+	public string GetNonUFSDeploymentObsoletePath(string DeviceName)
 	{
-		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
-
-		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", NonUFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, string.Format("Manifest_ObsoleteNonUFSFiles{0}.txt", GetSanitizedDeviceNameSuffix(DeviceName)));
 	}
 
-	public string UFSDeployedManifestFileName
+	public string GetNonUFSDeployedManifestFileName(string DeviceName)
 	{
-		get
-		{
-			return "Manifest_UFSFiles_" + StageTargetPlatform.PlatformType.ToString() + ".txt";
-		}
+		return string.Format("Manifest_NonUFSFiles_{0}{1}.txt", StageTargetPlatform.PlatformType, GetSanitizedDeviceNameSuffix(DeviceName));
 	}
 
-	public string NonUFSDeployedManifestFileName
+	public string GetUFSDeployedManifestFileName(string DeviceName)
 	{
-		get
-		{
-			return "Manifest_NonUFSFiles_" + StageTargetPlatform.PlatformType.ToString() + ".txt";
-		}
-	}
-
-	public static string GetNonUFSDeployedManifestFileName(UnrealTargetPlatform PlatformType)
-	{
-		return "Manifest_NonUFSFiles_" + PlatformType.ToString() + ".txt";
-	}
-
-	public static string GetUFSDeployedManifestFileName(UnrealTargetPlatform PlatformType)
-	{
-		return "Manifest_UFSFiles_" + PlatformType.ToString() + ".txt";
-	}
-
-	public static string GetDebugFilesManifestFileName(UnrealTargetPlatform PlatformType)
-	{
-		return "Manifest_DebugFiles_" + PlatformType.ToString() + ".txt";
+		return string.Format("Manifest_UFSFiles_{0}{1}.txt", StageTargetPlatform.PlatformType, GetSanitizedDeviceNameSuffix(DeviceName));
 	}
 }

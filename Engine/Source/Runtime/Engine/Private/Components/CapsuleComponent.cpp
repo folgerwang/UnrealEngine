@@ -103,16 +103,17 @@ FBoxSphereBounds UCapsuleComponent::CalcBounds(const FTransform& LocalToWorld) c
 
 void UCapsuleComponent::CalcBoundingCylinder(float& CylinderRadius, float& CylinderHalfHeight) const 
 {
-	const float Scale = GetComponentTransform().GetMaximumAxisScale();
+	const FVector& ComponentScale = GetComponentTransform().GetScale3D();
 	const float CapsuleEndCapCenter = FMath::Max(CapsuleHalfHeight - CapsuleRadius, 0.f);
-	const FVector ZAxis = GetComponentTransform().TransformVectorNoScale(FVector(0.f, 0.f, CapsuleEndCapCenter * Scale));
+	const FVector ZAxis = GetComponentTransform().TransformVectorNoScale(FVector(0.f, 0.f, CapsuleEndCapCenter * ComponentScale.Z));
 	
-	const float ScaledRadius = CapsuleRadius * Scale;
+	const float ScaledRadius = CapsuleRadius * (ComponentScale.X > ComponentScale.Y ? ComponentScale.X : ComponentScale.Y);
 	
 	CylinderRadius		= ScaledRadius + FMath::Sqrt(FMath::Square(ZAxis.X) + FMath::Square(ZAxis.Y));
 	CylinderHalfHeight	= ScaledRadius + ZAxis.Z;
 }
 
+#if WITH_EDITORONLY_DATA
 void UCapsuleComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -126,6 +127,7 @@ void UCapsuleComponent::Serialize(FArchive& Ar)
 		}
 	}
 }
+#endif
 
 void UCapsuleComponent::PostLoad()
 {
@@ -231,9 +233,8 @@ bool UCapsuleComponent::IsZeroExtent() const
 
 FCollisionShape UCapsuleComponent::GetCollisionShape(float Inflation) const
 {
-	const float ShapeScale = GetShapeScale();
-	const float Radius = FMath::Max(0.f, (CapsuleRadius * ShapeScale) + Inflation);
-	const float HalfHeight = FMath::Max(0.f, (CapsuleHalfHeight * ShapeScale) + Inflation);
+	const float Radius = FMath::Max(0.f, GetScaledCapsuleRadius() + Inflation);
+	const float HalfHeight = FMath::Max(0.f, GetScaledCapsuleHalfHeight() + Inflation);
 	return FCollisionShape::MakeCapsule(Radius, HalfHeight);
 }
 

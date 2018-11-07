@@ -62,5 +62,6 @@ namespace BuildPatchServices
 	 * @param State - The error type value.
 	 * @return The display text associated with the progress step.
 	 */
+	DEPRECATED(4.21, "BuildPatchServices::StateToText(const EBuildPatchState& State) has been deprecated. It will no longer be supported by BuildPatchServices in the future.")
 	BUILDPATCHSERVICES_API const FText& StateToText(const EBuildPatchState& State);
 }

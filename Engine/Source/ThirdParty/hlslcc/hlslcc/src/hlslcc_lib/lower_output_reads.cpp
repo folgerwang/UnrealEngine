@@ -82,7 +82,7 @@ output_read_remover::output_read_remover()
 {
    mem_ctx = ralloc_context(NULL);
    replacements =
-      hash_table_ctor(0, hash_table_var_hash, hash_table_pointer_compare);
+      hash_table_ctor(0, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 }
 
 output_read_remover::~output_read_remover()

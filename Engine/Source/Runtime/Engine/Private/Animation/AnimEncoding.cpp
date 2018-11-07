@@ -182,18 +182,16 @@ void PadMemoryReader(FMemoryReader* MemoryReader, uint8*& TrackData, const int32
  * Extracts a single BoneAtom from an Animation Sequence.
  *
  * @param	OutAtom			The BoneAtom to fill with the extracted result.
- * @param	Seq				An Animation Sequence to extract the BoneAtom from.
+ * @param	DecompContext	The decompression context to use.
  * @param	TrackIndex		The index of the track desired in the Animation Sequence.
- * @param	Time			The time (in seconds) to calculate the BoneAtom for.
  */
-void AnimationFormat_GetBoneAtom(	
+void AnimationFormat_GetBoneAtom(
 	FTransform& OutAtom,
-	const UAnimSequence& Seq,
-	int32 TrackIndex,
-	float Time)
+	FAnimSequenceDecompressionContext& DecompContext,
+	int32 TrackIndex)
 {
-	checkSlow(Seq.RotationCodec != NULL);
-	((AnimEncoding*)Seq.RotationCodec)->GetBoneAtom(OutAtom, Seq, TrackIndex, Time);
+	checkSlow(DecompContext.GetRotationCodec() != nullptr);
+	DecompContext.GetRotationCodec()->GetBoneAtom(OutAtom, DecompContext, TrackIndex);
 }
 
 #if USE_ANIMATION_CODEC_BATCH_SOLVER
@@ -202,35 +200,34 @@ void AnimationFormat_GetBoneAtom(
  * Extracts an array of BoneAtoms from an Animation Sequence representing an entire pose of the skeleton.
  *
  * @param	Atoms				The BoneAtoms to fill with the extracted result.
- * @param	RotationTracks		A BoneTrackArray element for each bone requesting rotation data. 
- * @param	TranslationTracks	A BoneTrackArray element for each bone requesting translation data. 
- * @param	Seq					An Animation Sequence to extract the BoneAtom from.
- * @param	Time				The time (in seconds) to calculate the BoneAtom for.
+ * @param	RotationTracks		A BoneTrackArray element for each bone requesting rotation data.
+ * @param	TranslationTracks	A BoneTrackArray element for each bone requesting translation data.
+ * @param	ScaleTracks			A BoneTrackArray element for each bone requesting scale data.
+ * @param	DecompContext		The decompression context to use.
  */
-void AnimationFormat_GetAnimationPose(	
-	FTransformArray& Atoms, 
+void AnimationFormat_GetAnimationPose(
+	FTransformArray& Atoms,
 	const BoneTrackArray& RotationPairs,
 	const BoneTrackArray& TranslationPairs,
 	const BoneTrackArray& ScalePairs,
-	const UAnimSequence& Seq,
-	float Time)
+	FAnimSequenceDecompressionContext& DecompContext)
 {
 	// decompress the translation component using the proper method
-	checkSlow(Seq.TranslationCodec != NULL);
+	checkSlow(DecompContext.GetTranslationCodec() != nullptr);
 	if (TranslationPairs.Num() > 0)
 	{
-		((AnimEncoding*)Seq.TranslationCodec)->GetPoseTranslations(Atoms, TranslationPairs, Seq, Time);
+		DecompContext.GetTranslationCodec()->GetPoseTranslations(Atoms, TranslationPairs, DecompContext);
 	}
 
 	// decompress the rotation component using the proper method
-	checkSlow(Seq.RotationCodec != NULL);
-	((AnimEncoding*)Seq.RotationCodec)->GetPoseRotations(Atoms, RotationPairs, Seq, Time);
+	checkSlow(DecompContext.GetRotationCodec() != nullptr);
+	DecompContext.GetRotationCodec()->GetPoseRotations(Atoms, RotationPairs, DecompContext);
 
-	checkSlow(Seq.ScaleCodec != NULL);
+	checkSlow(DecompContext.GetScaleCodec() != nullptr);
 	// we allow scale key to be empty
-	if (Seq.CompressedScaleOffsets.IsValid())
+	if (DecompContext.bHasScale)
 	{
-		((AnimEncoding*)Seq.ScaleCodec)->GetPoseScales(Atoms, ScalePairs, Seq, Time);
+		DecompContext.GetScaleCodec()->GetPoseScales(Atoms, ScalePairs, DecompContext);
 	}
 }
 #endif
@@ -239,48 +236,28 @@ void AnimationFormat_GetAnimationPose(
  * Extracts a single BoneAtom from an Animation Sequence.
  *
  * @param	OutAtom			The BoneAtom to fill with the extracted result.
- * @param	Seq				An Animation Sequence to extract the BoneAtom from.
+ * @param	DecompContext	The decompression context to use.
  * @param	TrackIndex		The index of the track desired in the Animation Sequence.
- * @param	Time			The time (in seconds) to calculate the BoneAtom for.
  */
-void AnimEncodingLegacyBase::GetBoneAtom(
-	FTransform& OutAtom,
-	const UAnimSequence& Seq,
-	int32 TrackIndex,
-	float Time)
+void AnimEncodingLegacyBase::GetBoneAtom(FTransform& OutAtom, FAnimSequenceDecompressionContext& DecompContext, int32 TrackIndex)
 {
 	// Initialize to identity to set the scale and in case of a missing rotation or translation codec
 	OutAtom.SetIdentity();
 
-	// Use the CompressedTrackOffsets stream to find the data addresses
-	const int32* RESTRICT TrackData= Seq.CompressedTrackOffsets.GetData() + (TrackIndex*4);
-	int32 TransKeysOffset = *(TrackData+0);
-	int32 NumTransKeys	= *(TrackData+1);
-	int32 RotKeysOffset	= *(TrackData+2);
-	int32 NumRotKeys		= *(TrackData+3);
-	const uint8* RESTRICT TransStream	= Seq.CompressedByteStream.GetData()+TransKeysOffset;
-	const uint8* RESTRICT RotStream		= Seq.CompressedByteStream.GetData()+RotKeysOffset;
-
-	const float RelativePos = Time / (float)Seq.SequenceLength;
-
 	// decompress the translation component using the proper method
-	checkSlow(Seq.TranslationCodec != NULL);
-	((AnimEncodingLegacyBase*)Seq.TranslationCodec)->GetBoneAtomTranslation(OutAtom, Seq, TransStream, NumTransKeys, Time, RelativePos);
+	checkSlow(DecompContext.GetTranslationCodec() != nullptr);
+	((AnimEncodingLegacyBase*)DecompContext.GetTranslationCodec())->GetBoneAtomTranslation(OutAtom, DecompContext, TrackIndex);
 
 	// decompress the rotation component using the proper method
-	checkSlow(Seq.RotationCodec != NULL);
-	((AnimEncodingLegacyBase*)Seq.RotationCodec)->GetBoneAtomRotation(OutAtom, Seq, RotStream, NumRotKeys, Time, RelativePos);
+	checkSlow(DecompContext.GetRotationCodec() != nullptr);
+	((AnimEncodingLegacyBase*)DecompContext.GetRotationCodec())->GetBoneAtomRotation(OutAtom, DecompContext, TrackIndex);
 
-	// we assume scale keys can be empty, so only extrace if we have valid keys
-	bool bHasValidScale = Seq.CompressedScaleOffsets.IsValid();
-	if (bHasValidScale)
+	// we assume scale keys can be empty, so only extract if we have valid keys
+	if (DecompContext.bHasScale)
 	{
-		int32 ScaleKeyOffset = Seq.CompressedScaleOffsets.GetOffsetData(TrackIndex, 0);
-		int32 NumScaleKeys = Seq.CompressedScaleOffsets.GetOffsetData(TrackIndex, 1);
-		const uint8* RESTRICT ScaleStream		= Seq.CompressedByteStream.GetData()+ScaleKeyOffset;
 		// decompress the rotation component using the proper method
-		checkSlow(Seq.ScaleCodec != NULL);
-		((AnimEncodingLegacyBase*)Seq.ScaleCodec)->GetBoneAtomScale(OutAtom, Seq, ScaleStream, NumScaleKeys, Time, RelativePos);
+		checkSlow(DecompContext.GetScaleCodec() != nullptr);
+		((AnimEncodingLegacyBase*)DecompContext.GetScaleCodec())->GetBoneAtomScale(OutAtom, DecompContext, TrackIndex);
 	}
 }
 
@@ -304,6 +281,17 @@ void AnimEncodingLegacyBase::ByteSwapIn(
 	int32 OriginalNumBytes = MemoryReader.TotalSize();
 	Seq.CompressedByteStream.Empty(OriginalNumBytes);
 	Seq.CompressedByteStream.AddUninitialized(OriginalNumBytes);
+
+	if (Seq.CompressedSegments.Num() != 0)
+	{
+#if !PLATFORM_LITTLE_ENDIAN
+#error "Byte swapping needs to be implemented here to support big-endian platforms"
+#endif
+
+		// TODO: Byte swap the new format
+		MemoryReader.Serialize(Seq.CompressedByteStream.GetData(), Seq.CompressedByteStream.Num());
+		return;
+	}
 
 	// Read and swap
 	uint8* StreamBase = Seq.CompressedByteStream.GetData();
@@ -373,6 +361,13 @@ void AnimEncodingLegacyBase::ByteSwapOut(
 {
 	FMemoryWriter MemoryWriter( SerializedData, true );
 	MemoryWriter.SetByteSwapping( ForceByteSwapping );
+
+	if (Seq.CompressedSegments.Num() != 0)
+	{
+		// TODO: Byte swap the new format
+		MemoryWriter.Serialize(Seq.CompressedByteStream.GetData(), Seq.CompressedByteStream.Num());
+		return;
+	}
 
 	uint8* StreamBase		= Seq.CompressedByteStream.GetData();
 	const int32 NumTracks		= Seq.CompressedTrackOffsets.Num()/4;

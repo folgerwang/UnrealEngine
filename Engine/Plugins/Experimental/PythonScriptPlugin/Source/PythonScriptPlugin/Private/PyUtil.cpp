@@ -169,9 +169,19 @@ FPropertyDef::FPropertyDef(const UProperty* InProperty)
 	, KeyDef()
 	, ValueDef()
 {
+	if (const UObjectPropertyBase* ObjectProp = Cast<UObjectPropertyBase>(InProperty))
+	{
+		PropertySubType = ObjectProp->PropertyClass;
+	}
+
 	if (const UClassProperty* ClassProp = Cast<UClassProperty>(InProperty))
 	{
-		PropertySubType = ClassProp->PropertyClass;
+		PropertySubType = ClassProp->MetaClass;
+	}
+
+	if (const USoftClassProperty* ClassProp = Cast<USoftClassProperty>(InProperty))
+	{
+		PropertySubType = ClassProp->MetaClass;
 	}
 
 	if (const UStructProperty* StructProp = Cast<UStructProperty>(InProperty))
@@ -220,7 +230,7 @@ bool CalculatePropertyDef(PyTypeObject* InPyType, FPropertyDef& OutPropertyDef)
 {
 	if (PyObject_IsSubclass((PyObject*)InPyType, (PyObject*)&PyWrapperObjectType) == 1)
 	{
-		OutPropertyDef.PropertyClass = UClassProperty::StaticClass();
+		OutPropertyDef.PropertyClass = UObjectProperty::StaticClass();
 		OutPropertyDef.PropertySubType = (UObject*)FPyWrapperObjectMetaData::GetClass(InPyType);
 		return true;
 	}
@@ -357,10 +367,24 @@ UProperty* CreateProperty(const FPropertyDef& InPropertyDef, const int32 InArray
 	{
 		Prop->ArrayDim = InArrayDim;
 
+		if (UObjectPropertyBase* ObjectProp = Cast<UObjectPropertyBase>(Prop))
+		{
+			UClass* ClassType = CastChecked<UClass>(InPropertyDef.PropertySubType);
+			ObjectProp->SetPropertyClass(ClassType);
+		}
+
 		if (UClassProperty* ClassProp = Cast<UClassProperty>(Prop))
 		{
 			UClass* ClassType = CastChecked<UClass>(InPropertyDef.PropertySubType);
-			ClassProp->SetPropertyClass(ClassType);
+			ClassProp->SetPropertyClass(UClass::StaticClass());
+			ClassProp->SetMetaClass(ClassType);
+		}
+
+		if (USoftClassProperty* ClassProp = Cast<USoftClassProperty>(Prop))
+		{
+			UClass* ClassType = CastChecked<UClass>(InPropertyDef.PropertySubType);
+			ClassProp->SetPropertyClass(UClass::StaticClass());
+			ClassProp->SetMetaClass(ClassType);
 		}
 
 		if (UStructProperty* StructProp = Cast<UStructProperty>(Prop))
@@ -673,7 +697,7 @@ PyObject* GetPropertyValue(const UStruct* InStruct, void* InStructData, const UP
 {
 	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible | CPF_BlueprintAssignable))
 		{
 			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be read"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return nullptr;
@@ -701,7 +725,7 @@ int SetPropertyValue(const UStruct* InStruct, void* InStructData, PyObject* InVa
 
 	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible | CPF_BlueprintAssignable))
 		{
 			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be set"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return -1;
@@ -988,8 +1012,8 @@ FString GetFriendlyStructValue(const UScriptStruct* InStruct, const void* InStru
 	}
 	else
 	{
-		const UScriptStruct* ScriptStruct = CastChecked<UScriptStruct>(InStruct);
-		ScriptStruct->ExportText(FriendlyStructValue, InStructValue, InStructValue, nullptr, InPortFlags, nullptr);
+		check(InStruct);
+		InStruct->ExportText(FriendlyStructValue, InStructValue, InStructValue, nullptr, InPortFlags, nullptr);
 	}
 
 	return FriendlyStructValue;

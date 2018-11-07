@@ -628,14 +628,14 @@ void FXmppPresenceJingle::OnSignalPresenceUpdate(const buzz::PresenceStatus& InS
 		ConvertToPresence(*RosterEntry.Presence, InStatus, UserJid);
 		FXmppJingle::ConvertToJid(RosterEntry.UserJid, InStatus.jid());
 
-		UE_LOG(LogXmpp, Verbose, TEXT("Received presence for user [%s]"), *UserJid.GetFullPath());
+		UE_LOG(LogXmpp, Verbose, TEXT("Received presence for user [%s]"), *UserJid.ToDebugString());
 		DebugPrintPresence(*RosterEntry.Presence);
 
 		RosterUpdates.Enqueue(UserJid.GetFullPath());
 	}
 	else if (UserJid.IsValid() && UserJid.Resource.IsEmpty())
 	{
-		UE_LOG(LogXmpp, Warning, TEXT("Ignoring presence update with empty resource. StatusJid = %s, JidFullPath = %s"), UTF8_TO_TCHAR(InStatus.jid().Str().c_str()), *UserJid.GetFullPath());
+		UE_LOG(LogXmpp, Warning, TEXT("Ignoring presence update with empty resource. StatusJid = %s, JidFullPath = %s"), UTF8_TO_TCHAR(InStatus.jid().Str().c_str()), *UserJid.ToDebugString());
 	}
 }
 
@@ -653,7 +653,7 @@ void FXmppPresenceJingle::OnSignalMucPresenceUpdate(const FXmppMucPresenceStatus
 	FXmppUserJid MucJid;
 	FXmppJingle::ConvertToJid(MucJid, MucStatus.jid());
 
-	UE_LOG(LogXmpp, Verbose, TEXT("Received MUC presence from [%s]"), *MucJid.GetFullPath());
+	UE_LOG(LogXmpp, Verbose, TEXT("Received MUC presence from [%s]"), *MucJid.ToDebugString());
 
 	FXmppMucPresence MucPresence;
 	ConvertToMucPresence(MucPresence, MucStatus, MucJid);

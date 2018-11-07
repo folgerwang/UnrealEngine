@@ -30,7 +30,28 @@ FMetalStructuredBuffer::~FMetalStructuredBuffer()
 FStructuredBufferRHIRef FMetalDynamicRHI::RHICreateStructuredBuffer(uint32 Stride,uint32 Size,uint32 InUsage,FRHIResourceCreateInfo& CreateInfo)
 {
 	@autoreleasepool {
-	return new FMetalStructuredBuffer(Stride, Size, CreateInfo.ResourceArray, InUsage);
+	FMetalStructuredBuffer* Buffer = new FMetalStructuredBuffer(Stride, Size, CreateInfo.ResourceArray, InUsage);
+	if (!CreateInfo.ResourceArray && Buffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
+	{
+		if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+		{
+			LLM_SCOPE(ELLMTag::VertexBuffer);
+			SafeReleaseMetalBuffer(Buffer->CPUBuffer);
+			Buffer->CPUBuffer = nil;
+		}
+
+		if (GMetalBufferZeroFill)
+		{
+			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
+		}
+	}
+#if PLATFORM_MAC
+	else if (GMetalBufferZeroFill && !CreateInfo.ResourceArray && Buffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+	{
+		MTLPP_VALIDATE(mtlpp::Buffer, Buffer->Buffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, Buffer->Buffer.GetLength())));
+	}
+#endif
+	return Buffer;
 	}
 }
 
@@ -67,16 +88,25 @@ struct FMetalRHICommandInitialiseStructuredBuffer : public FRHICommand<FMetalRHI
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
-		if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+		if (Buffer->CPUBuffer)
 		{
-			LLM_SCOPE(ELLMTag::VertexBuffer);
-			SafeReleaseMetalBuffer(Buffer->CPUBuffer);
+			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
+			if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			{
+				LLM_SCOPE(ELLMTag::VertexBuffer);
+				SafeReleaseMetalBuffer(Buffer->CPUBuffer);
+			}
+			else
+			{
+				Buffer->LastUpdate = GFrameNumberRenderThread;
+			}
 		}
-		else
+#if PLATFORM_MAC
+		else if (GMetalBufferZeroFill)
 		{
-			Buffer->LastUpdate = GFrameNumberRenderThread;
+			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
 		}
+#endif
 	}
 };
 
@@ -92,9 +122,14 @@ FStructuredBufferRHIRef FMetalDynamicRHI::CreateStructuredBuffer_RenderThread(cl
 			
 			if (VertexBuffer->CPUBuffer)
 			{
-				FMemory::Memzero(VertexBuffer->CPUBuffer.GetContents(), VertexBuffer->CPUBuffer.GetLength());
-				
 				FMemory::Memcpy(VertexBuffer->CPUBuffer.GetContents(), CreateInfo.ResourceArray->GetResourceData(), Size);
+
+#if PLATFORM_MAC
+				if(VertexBuffer->CPUBuffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+				{
+					MTLPP_VALIDATE(mtlpp::Buffer, VertexBuffer->CPUBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, GMetalBufferZeroFill ? VertexBuffer->CPUBuffer.GetLength() : Size)));
+				}
+#endif
 				
 				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 				{
@@ -120,6 +155,34 @@ FStructuredBufferRHIRef FMetalDynamicRHI::CreateStructuredBuffer_RenderThread(cl
 			// Discard the resource array's contents.
 			CreateInfo.ResourceArray->Discard();
 		}
+		else if (VertexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
+		{
+			if (VertexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			{
+				LLM_SCOPE(ELLMTag::VertexBuffer);
+				SafeReleaseMetalBuffer(VertexBuffer->CPUBuffer);
+				VertexBuffer->CPUBuffer = nil;
+			}
+
+			if (GMetalBufferZeroFill)
+			{
+				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+				{
+					FMetalRHICommandInitialiseStructuredBuffer UpdateCommand(VertexBuffer);
+					UpdateCommand.Execute(RHICmdList);
+				}
+				else
+				{
+					new (RHICmdList.AllocCommand<FMetalRHICommandInitialiseStructuredBuffer>()) FMetalRHICommandInitialiseStructuredBuffer(VertexBuffer);
+				}
+			}
+		}
+#if PLATFORM_MAC
+		else if (GMetalBufferZeroFill && VertexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+		{
+			MTLPP_VALIDATE(mtlpp::Buffer, VertexBuffer->Buffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, VertexBuffer->Buffer.GetLength())));
+		}
+#endif
 		
 		return VertexBuffer.GetReference();
 	}

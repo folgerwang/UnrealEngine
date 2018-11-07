@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -49,7 +49,7 @@
 #endif
 
 
-static SDL_assert_state
+static SDL_assert_state SDLCALL
 SDL_PromptAssertion(const SDL_assert_data *data, void *userdata);
 
 /*
@@ -120,10 +120,17 @@ static void SDL_GenerateAssertionReport(void)
 }
 
 
-static SDL_NORETURN void SDL_ExitProcess(int exitcode)
+#if defined(__WATCOMC__)
+#pragma aux SDL_ExitProcess aborts;
+#endif
+static void SDL_ExitProcess(int exitcode)
 {
 #ifdef __WIN32__
-    ExitProcess(exitcode);
+    /* "if you do not know the state of all threads in your process, it is
+       better to call TerminateProcess than ExitProcess"
+       https://msdn.microsoft.com/en-us/library/windows/desktop/ms682658(v=vs.85).aspx */
+    TerminateProcess(GetCurrentProcess(), exitcode);
+
 #elif defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();  /* this should "kill" the app. */
     emscripten_force_exit(exitcode);  /* this should "kill" the app. */
@@ -134,14 +141,17 @@ static SDL_NORETURN void SDL_ExitProcess(int exitcode)
 }
 
 
-static SDL_NORETURN void SDL_AbortAssertion(void)
+#if defined(__WATCOMC__)
+#pragma aux SDL_AbortAssertion aborts;
+#endif
+static void SDL_AbortAssertion(void)
 {
     SDL_Quit();
     SDL_ExitProcess(42);
 }
 
 
-static SDL_assert_state
+static SDL_assert_state SDLCALL
 SDL_PromptAssertion(const SDL_assert_data *data, void *userdata)
 {
 #ifdef __WIN32__
@@ -278,19 +288,19 @@ SDL_PromptAssertion(const SDL_assert_data *data, void *userdata)
                 break;
             }
 
-            if (SDL_strcmp(buf, "a") == 0) {
+            if (SDL_strncmp(buf, "a", 1) == 0) {
                 state = SDL_ASSERTION_ABORT;
                 break;
-            } else if (SDL_strcmp(buf, "b") == 0) {
+            } else if (SDL_strncmp(buf, "b", 1) == 0) {
                 state = SDL_ASSERTION_BREAK;
                 break;
-            } else if (SDL_strcmp(buf, "r") == 0) {
+            } else if (SDL_strncmp(buf, "r", 1) == 0) {
                 state = SDL_ASSERTION_RETRY;
                 break;
-            } else if (SDL_strcmp(buf, "i") == 0) {
+            } else if (SDL_strncmp(buf, "i", 1) == 0) {
                 state = SDL_ASSERTION_IGNORE;
                 break;
-            } else if (SDL_strcmp(buf, "A") == 0) {
+            } else if (SDL_strncmp(buf, "A", 1) == 0) {
                 state = SDL_ASSERTION_ALWAYS_IGNORE;
                 break;
             }

@@ -566,7 +566,7 @@ public:
 		FMeshDescription& OutReducedMesh,
 		float& OutMaxDeviation,
 		const FMeshDescription& InMesh,
-		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const FOverlappingCorners& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) override
 	{
@@ -627,7 +627,7 @@ public:
 		if (FParse::Param(FCommandLine::Get(), TEXT("NoSimplygon")))
 		{
 			//The user specified that simplygon should not be used
-			UE_LOG(LogSimplygon, Warning, TEXT("Simplygon is disabled with -NoSimplygon flag"));
+			UE_LOG(LogSimplygon, Log, TEXT("Simplygon is disabled with -NoSimplygon flag"));
 			return  NULL;
 		}
 		//@third party BEGIN SIMPLYGON
@@ -643,7 +643,7 @@ public:
 #endif
 		if (!FPaths::FileExists(DllPath))
 		{
-			UE_LOG(LogSimplygon, Warning, TEXT("Could not find d3dcompiler_47 DLL, which is required for loading Simplygon."));
+			UE_LOG(LogSimplygon, Log, TEXT("Could not find d3dcompiler_47 DLL, which is required for loading Simplygon."));
 			return NULL;
 		}
 		else
@@ -683,7 +683,7 @@ public:
 		if ((GetInterfaceVersionSimplygonSDK == NULL) || (InitializeSimplygonSDK == NULL))
 		{
 			// Couldn't find the functions we need.  
-			UE_LOG(LogSimplygon,Warning,TEXT("Failed to acquire Simplygon DLL exports."));
+			UE_LOG(LogSimplygon, Log,TEXT("Failed to acquire Simplygon DLL exports."));
 			FPlatformProcess::FreeDllHandle( GSimplygonSDKDLLHandle );
 			GSimplygonSDKDLLHandle = NULL;
 			return NULL;
@@ -698,8 +698,8 @@ public:
 
 		if (SUPPORTED_SIMPLYGON_VERSION.Compare(MajorVersion) != 0)
 		{
-			UE_LOG(LogSimplygon, Warning, TEXT("Simplygon version doesn't match the version expected by the Simplygon UE4 integration"));
-			UE_LOG(LogSimplygon, Warning, TEXT("Min version %s, found version %s"), *SUPPORTED_SIMPLYGON_VERSION, ANSI_TO_TCHAR(SimplygonSDK::GetHeaderVersion()));
+			UE_LOG(LogSimplygon, Log, TEXT("Simplygon version doesn't match the version expected by the Simplygon UE4 integration"));
+			UE_LOG(LogSimplygon, Log, TEXT("Min version %s, found version %s"), *SUPPORTED_SIMPLYGON_VERSION, ANSI_TO_TCHAR(SimplygonSDK::GetHeaderVersion()));
 			FPlatformProcess::FreeDllHandle(GSimplygonSDKDLLHandle);
 			GSimplygonSDKDLLHandle = NULL;
 			return NULL;
@@ -711,7 +711,7 @@ public:
 		GetInterfaceVersionSimplygonSDK(VersionHash);
 		if (FCStringAnsi::Strcmp(VersionHash, SimplygonSDK::GetInterfaceVersionHash()) != 0)
 		{
-			UE_LOG(LogSimplygon,Warning,TEXT("Library version mismatch. Header=%s Lib=%s"),ANSI_TO_TCHAR(SimplygonSDK::GetInterfaceVersionHash()),ANSI_TO_TCHAR(VersionHash));
+			UE_LOG(LogSimplygon, Log,TEXT("Library version mismatch. Header=%s Lib=%s"),ANSI_TO_TCHAR(SimplygonSDK::GetInterfaceVersionHash()),ANSI_TO_TCHAR(VersionHash));
 			FPlatformProcess::FreeDllHandle(GSimplygonSDKDLLHandle);
 			GSimplygonSDKDLLHandle = NULL;
 			return NULL;
@@ -764,7 +764,7 @@ public:
 
 			if (InitResult != SimplygonSDK::SG_ERROR_NOERROR && InitResult != SimplygonSDK::SG_ERROR_ALREADYINITIALIZED)
 			{
-				UE_LOG(LogSimplygon, Warning, TEXT("Failed to initialize Simplygon. Return code: %d."), InitResult);
+				UE_LOG(LogSimplygon, Log, TEXT("Failed to initialize Simplygon. Return code: %d."), InitResult);
 				FPlatformProcess::FreeDllHandle(GSimplygonSDKDLLHandle);
 				GSimplygonSDKDLLHandle = nullptr;
 			}
@@ -775,7 +775,7 @@ public:
 		}
 		else
 		{
-			UE_LOG(LogSimplygon, Warning, TEXT("Failed to load Simplygon license file."));
+			UE_LOG(LogSimplygon, Log, TEXT("Failed to load Simplygon license file."));
 		}
 
 		return Result;
@@ -1899,9 +1899,9 @@ private:
 	 */
 	struct FSkeletalMeshData
 	{
-		TArray<FVertInfluence> Influences;
-		TArray<FMeshWedge> Wedges;
-		TArray<FMeshFace> Faces;
+		TArray<SkeletalMeshImportData::FVertInfluence> Influences;
+		TArray<SkeletalMeshImportData::FMeshWedge> Wedges;
+		TArray<SkeletalMeshImportData::FMeshFace> Faces;
 		TArray<FVector> Points;
 		uint32 TexCoordCount;
 	};
@@ -2009,7 +2009,7 @@ private:
 				const float BoneWeight = sgBoneWeights[InfluenceIndex];
 				if ( InfluenceIndex == 0 || BoneWeight > 0.0f )
 				{
-					FVertInfluence* VertInfluence = new(MeshData.Influences) FVertInfluence;
+					SkeletalMeshImportData::FVertInfluence* VertInfluence = new(MeshData.Influences) SkeletalMeshImportData::FVertInfluence;
 					VertInfluence->BoneIndex = BoneIndex;
 					VertInfluence->Weight = BoneWeight;
 					VertInfluence->VertIndex = VertexIndex;
@@ -2021,7 +2021,7 @@ private:
 		for ( uint32 TriIndex = 0; TriIndex < TriCount; ++TriIndex )
 		{
 			// Per-triangle data.
-			FMeshFace& Face = MeshData.Faces[ TriIndex ];
+			SkeletalMeshImportData::FMeshFace& Face = MeshData.Faces[ TriIndex ];
 			
 			Face.MeshMaterialIndex = MaterialIndices ? MaterialIndices->GetItem( TriIndex ) : 0;
 			 
@@ -2094,7 +2094,7 @@ private:
 						int32 InfluenceIndex = PointInfluenceMap[ BasePointIndex ];
 						while ( MeshData.Influences[ InfluenceIndex ].VertIndex == BasePointIndex )
 						{
-							FVertInfluence* NewVertInfluence = new( MeshData.Influences ) FVertInfluence;
+							SkeletalMeshImportData::FVertInfluence* NewVertInfluence = new( MeshData.Influences ) SkeletalMeshImportData::FVertInfluence;
 							NewVertInfluence->BoneIndex = MeshData.Influences[ InfluenceIndex ].BoneIndex;
 							NewVertInfluence->Weight = MeshData.Influences[ InfluenceIndex ].Weight;
 							NewVertInfluence->VertIndex = PointIndex;
@@ -2110,7 +2110,7 @@ private:
 				check( PointIndex != INDEX_NONE );
 				check( ( MeshData.Points[ PointIndex ] - MeshData.Points[ BasePointIndex ] ).SizeSquared() == 0.0f );
 
-				FMeshWedge& Wedge = MeshData.Wedges[ WedgeIndex ];
+				SkeletalMeshImportData::FMeshWedge& Wedge = MeshData.Wedges[ WedgeIndex ];
 				Wedge.iVertex = PointIndex;
 				for( uint32 TexCoordIndex = 0; TexCoordIndex < TexCoordCount; ++TexCoordIndex )
 				{
@@ -2159,7 +2159,7 @@ private:
 
 		for (int32 FaceIndex = 0; FaceIndex < MeshData.Faces.Num(); ++FaceIndex)
 		{
-			FMeshFace& Face = MeshData.Faces[FaceIndex];
+			SkeletalMeshImportData::FMeshFace& Face = MeshData.Faces[FaceIndex];
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				Face.TangentX[CornerIndex] = GetConversionMatrix().InverseTransformVector(Face.TangentX[CornerIndex]);
@@ -2287,6 +2287,8 @@ private:
 		BoneSettings->SetBoneReductionTargets( SimplygonSDK::SG_BONEREDUCTIONTARGET_BONERATIO );
 		BoneSettings->SetBoneRatio ( 1.f );
 		BoneSettings->SetMaxBonePerVertex( Settings.MaxBonesPerVertex );
+		BoneSettings->SetLimitBonesPerVertex(true);
+		BoneSettings->SetUseBoneReducer(true);
 	}
 
 	/**

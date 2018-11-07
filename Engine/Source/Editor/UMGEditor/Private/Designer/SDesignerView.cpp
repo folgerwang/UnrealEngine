@@ -490,6 +490,7 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 
 	ZoomToFit(/*bInstantZoom*/ true);
 
+	FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SDesignerView::SwapSafeZoneTypes);
 	//RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SDesignerView::EnsureTick));
 }
 
@@ -975,7 +976,7 @@ void SDesignerView::SetStartupResolution()
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 }
 
@@ -1557,7 +1558,10 @@ void SDesignerView::ClearDropPreviews()
 
 		// Since the widget has been removed from the widget tree, move it into the transient package. Otherwise,
 		// it will remain outered to the widget tree and end up as a property in the BP class layout as a result.
-		DropPreview.Widget->Rename(nullptr, GetTransientPackage());
+		if (DropPreview.Widget->GetOutermost() != GetTransientPackage())
+		{
+			DropPreview.Widget->Rename(nullptr, GetTransientPackage());
+		}
 	}
 	DropPreviews.Empty();
 }
@@ -2017,7 +2021,11 @@ void SDesignerView::PopulateWidgetGeometryCache_Loop(FArrangedWidget& CurrentWid
 	{
 		bool bRespectLocks = IsRespectingLocks();
 
-		if (bRespectLocks && CandidateUWidget->IsLockedInDesigner())
+		if (!CandidateUWidget->GetVisibilityInDesigner().IsVisible())
+		{
+			bIncludeInHitTestGrid = false;
+		}
+		else if (bRespectLocks && CandidateUWidget->IsLockedInDesigner())
 		{
 			bIncludeInHitTestGrid = false;
 		}
@@ -2638,6 +2646,14 @@ void SDesignerView::DetermineDragDropPreviewWidgets(TArray<UWidget*>& OutWidgets
 	}
 }
 
+void SDesignerView::SwapSafeZoneTypes()
+{
+	if (FDisplayMetrics::GetDebugTitleSafeZoneRatio() < 1.f)
+	{
+		PreviewOverrideName = FString();
+	}
+}
+
 void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const bool bIsPreview)
 {
 	TSharedPtr<FDragDropOperation> DragOperation = DragDropEvent.GetOperation();
@@ -2774,7 +2790,10 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 		// Move the remaining widgets into the transient package. Otherwise, they will remain outered to the WidgetTree and end up as properties in the BP class layout as a result.
 		for (UWidget* Widget : DragDropPreviewWidgets)
 		{
-			Widget->Rename(nullptr, GetTransientPackage());
+			if (Widget->GetOutermost() != GetTransientPackage())
+			{
+				Widget->Rename(nullptr, GetTransientPackage());
+			}
 		}
 
 		// If we had preview widgets, we know that we can not be performing a selected widget drag/drop operation. Bail.
@@ -2834,18 +2853,18 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 				UPanelWidget* NewParent = Cast<UPanelWidget>(Target);
 
 				UWidget* Widget = bIsPreview ? DraggedWidget.Preview : DraggedWidget.Template;
-
+				UPanelWidget* ParentWidget = bIsPreview ? Cast<UPanelWidget>(DraggedWidget.ParentWidget.GetPreview()) : Cast<UPanelWidget>(DraggedWidget.ParentWidget.GetTemplate());
 				if (ensure(Widget))
 				{
-					bool bIsChangingParent = Widget->GetParent() != NewParent;
+					bool bIsChangingParent = ParentWidget != NewParent;
 					UBlueprint* OriginalBP = nullptr;
 
-					check(Widget->GetParent() != nullptr || bIsChangingParent);
-
-					// If this isn't a preview operation we need to modify a few things to properly undo the operation.
-					if (!bIsPreview)
+					if (bIsChangingParent)
 					{
-						if (bIsChangingParent)
+						check(ParentWidget != nullptr);
+
+						// If this isn't a preview operation we need to modify a few things to properly undo the operation.
+						if (!bIsPreview)
 						{
 							NewParent->SetFlags(RF_Transactional);
 							NewParent->Modify();
@@ -2855,31 +2874,34 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 
 							// If the Widget is changing parents, there's a chance it might be moving to a different WidgetTree as well.
 							UWidgetTree* OriginalWidgetTree = Cast<UWidgetTree>(Widget->GetOuter());
-							
+
 							if (UWidgetTree::TryMoveWidgetToNewTree(Widget, BP->WidgetTree))
 							{
 								// The Widget likely originated from a different blueprint, so get what blueprint it was originally a part of.
 								OriginalBP = OriginalWidgetTree ? OriginalWidgetTree->GetTypedOuter<UBlueprint>() : nullptr;
 							}
+
+							Widget->SetFlags(RF_Transactional);
+							Widget->Modify();
+						
+							ParentWidget->SetFlags(RF_Transactional);
+							ParentWidget->Modify();
+						
 						}
-
-						Widget->Modify();
-					}
-
-					if (Widget->GetParent() && bIsChangingParent)
-					{
-						if (!bIsPreview)
-						{
-							Widget->GetParent()->Modify();
-						}
-
-						Widget->GetParent()->RemoveChild(Widget);
 
 						// The Widget originated from a different blueprint, so mark it as modified.
 						if (OriginalBP && OriginalBP != BP)
 						{
 							FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(OriginalBP);
 						}
+					}
+					else if (!bIsPreview)
+					{
+						Widget->SetFlags(RF_Transactional);
+						Widget->Modify();
+
+						ParentWidget->SetFlags(RF_Transactional);
+						ParentWidget->Modify();
 					}
 
 					FVector2D ScreenSpacePosition = DragDropEvent.GetScreenSpacePosition();
@@ -2914,16 +2936,14 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 
 					FVector2D LocalPosition = WidgetUnderCursorGeometry.AbsoluteToLocal(ScreenSpacePosition);
 
-					UPanelSlot* Slot;
+					UPanelSlot* Slot = nullptr;
 					if (bIsChangingParent)
 					{
 						Slot = NewParent->AddChild(Widget);
 					}
 					else
 					{
-						check(Widget->GetParent()->GetChildIndex(Widget) != INDEX_NONE);
-
-						Slot = Widget->GetParent()->GetSlots()[Widget->GetParent()->GetChildIndex(Widget)];
+						Slot = ParentWidget->AddChild(Widget);
 					}
 
 					if (Slot != nullptr)
@@ -3022,16 +3042,33 @@ FReply SDesignerView::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& 
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
 
 		TSet<FWidgetReference> SelectedTemplates;
-
 		for (const auto& DropPreview : DropPreviews)
 		{
 			SelectedTemplates.Add(BlueprintEditor.Pin()->GetReferenceFromTemplate(DropPreview.Widget));
 		}
 
 		BlueprintEditor.Pin()->SelectWidgets(SelectedTemplates, false);
-
 		// Regenerate extension widgets now that we've finished moving or placing the widget.
 		CreateExtensionWidgetsForSelection();
+
+		UPanelSlot* Slot;
+		UWidgetTree* WidgetTree = BP->WidgetTree;
+		if (WidgetTree && SelectedDragDropOp.IsValid())
+		{
+			for (auto& DraggedWidget : SelectedDragDropOp->DraggedWidgets)
+			{
+				FWidgetReference Reference = BlueprintEditor.Pin()->GetReferenceFromTemplate(DraggedWidget.Template);
+				UWidget* LocalPreviewWidget = Reference.GetPreview();
+				if (LocalPreviewWidget && LocalPreviewWidget->GetParent())
+				{
+					Slot = LocalPreviewWidget->GetParent()->GetSlots()[LocalPreviewWidget->GetParent()->GetChildIndex(LocalPreviewWidget)];
+					if (Slot != nullptr)
+					{
+						FWidgetBlueprintEditorUtils::ImportPropertiesFromText(Slot, DraggedWidget.ExportedSlotProperties);
+					}
+				}
+			}
+		}
 
 		DropPreviews.Empty();
 		return FReply::Handled().SetUserFocus(SharedThis(this));
@@ -3210,7 +3247,7 @@ void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InRes
 
 	ScaleFactor = 1.0f;
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
-	UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
+	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
 	if (DeviceProfile)
 	{
 		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
@@ -3238,7 +3275,7 @@ void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InRes
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{
@@ -3530,6 +3567,17 @@ FReply SDesignerView::HandleSwapAspectRatioClicked()
 	int32 OldPreviewHeight = PreviewHeight;
 	PreviewHeight = PreviewWidth;
 	PreviewWidth = OldPreviewHeight;
+
+	ScaleFactor = 1.0f;
+	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
+
+	// Rescale the swapped sizes if we are on Android
+	if (DeviceProfile && DeviceProfile->DeviceType == TEXT("Android"))
+	{
+		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
+	}
+
 	bPreviewIsPortrait = (PreviewHeight > PreviewWidth);
 	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorPerProjectIni);
 	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), PreviewHeight, GEditorPerProjectIni);
@@ -3554,7 +3602,7 @@ FReply SDesignerView::HandleSwapAspectRatioClicked()
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{
@@ -3590,7 +3638,7 @@ FReply SDesignerView::HandleFlipSafeZonesClicked()
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{

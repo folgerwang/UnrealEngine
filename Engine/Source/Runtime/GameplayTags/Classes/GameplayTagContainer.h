@@ -182,7 +182,7 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	bool NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 	/** Used to upgrade a Name property to a GameplayTag struct property */
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 	/** Sets from a ImportText string, used in asset registry */
 	void FromExportString(const FString& ExportString);
@@ -254,8 +254,9 @@ struct TStructOpsTypeTraits< FGameplayTag > : public TStructOpsTypeTraitsBase2< 
 	enum
 	{
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithPostSerialize = true,
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 		WithImportTextItem = true,
 	};
 };
@@ -861,6 +862,7 @@ struct TStructOpsTypeTraits<FGameplayTagContainer> : public TStructOpsTypeTraits
 		WithSerializer = true,
 		WithIdenticalViaEquality = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithImportTextItem = true,
 		WithCopy = true,
 		WithPostScriptConstruct = true,

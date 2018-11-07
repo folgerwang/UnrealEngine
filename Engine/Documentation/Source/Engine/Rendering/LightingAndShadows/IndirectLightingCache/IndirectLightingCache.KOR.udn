@@ -18,9 +18,9 @@ topic-image:indirectcache_topic.png
 [/REGION]
 
 [REGION:warning]
-언리얼 엔진 버전 4.18 부로 [Volumetric Lightmap](Engine/Rendering/LightingAndShadows/VolumetricLightmaps) (볼류메트릭 라이트맵)이 Indirect Lighting Cache (간접광 라이팅 캐시) 대신 기본 메소드가 되었습니다.
+언리얼 엔진 버전 4.18 부로 [Volumetric Lightmap](Engine/Rendering/LightingAndShadows/VolumetricLightmaps) (볼류메트릭 라이트맵)이 Indirect Lighting Cache (간접광 라이팅 캐시) 대신 기본 메서드가 되었습니다.
 
-간접광 라이팅 캐시를 다시 사용하려면, **월드 세팅** > **Lightmass Settings** (라이트매스 세팅) > **Volume Lighting Method** (볼륨 라이팅 메소드)에서 **VLM Sparse Volume Lighting Samples** 로 설정하면 됩니다.
+간접광 라이팅 캐시를 다시 사용하려면, **월드 세팅** > **Lightmass Settings** (라이트매스 세팅) > **Volume Lighting Method** (볼륨 라이팅 메서드)에서 **VLM Sparse Volume Lighting Samples** 로 설정하면 됩니다.
 [/REGION]
 
 

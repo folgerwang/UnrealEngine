@@ -8,8 +8,3 @@ FMovieSceneEvaluationTemplate& FMovieSceneSequencePrecompiledTemplateStore::Acce
 {
 	return Sequence.PrecompiledEvaluationTemplate;
 }
-
-FMovieSceneEvaluationTemplate& FMovieSceneSequenceTemporaryTemplateStore::AccessTemplate(UMovieSceneSequence& Sequence)
-{
-	return Templates.FindOrAdd(&Sequence);
-}

@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "UObject/Object.h"
+#include "SequenceRecordingBase.h"
 #include "Misc/Guid.h"
 #include "Animation/AnimationRecordingSettings.h"
 #include "IMovieSceneSectionRecorder.h"
@@ -22,7 +20,7 @@ class USceneComponent;
 class FMovieSceneAnimationSectionRecorder;
 
 UCLASS(MinimalAPI)
-class UActorRecording : public UObject
+class UActorRecording : public USequenceRecordingBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -30,17 +28,13 @@ public:
 	/** Check whether it is worth recording this actor - i.e. is it going to affect the end result of the sequence */
 	static bool IsRelevantForRecording(AActor* Actor);
 
-	/** Start this queued recording. Sequence can be nullptr */
-	bool StartRecording(class ULevelSequence* CurrentSequence = nullptr, float CurrentSequenceTime = 0.0f, const FString& BaseAssetPath = FString(), const FString& SessionName = FString());
-
-	/** Stop this recording. Has no effect if we are not currently recording. Sequence can be nullptr */
-	bool StopRecording(class ULevelSequence* CurrentSequence = nullptr, float CurrentSequenceTime = 0.0f);
-
-	/** Tick this recording */
-	void Tick(float DeltaSeconds, ULevelSequence* CurrentSequence = nullptr, float CurrentSequenceTime = 0.0f);
-
-	/** Whether we are currently recording */
-	bool IsRecording() const;
+	/** UItemRecordingBase override */
+	virtual bool StartRecording(class ULevelSequence* CurrentSequence = nullptr, float CurrentSequenceTime = 0.0f, const FString& BaseAssetPath = FString(), const FString& SessionName = FString()) override;
+	virtual bool StopRecording(class ULevelSequence* CurrentSequence = nullptr, float CurrentSequenceTime = 0.0f) override;
+	virtual void Tick(ULevelSequence* CurrentSequence = nullptr, float CurrentSequenceTime = 0.0f) override;
+	virtual bool IsRecording() const override;
+	virtual UObject* GetObjectToRecord() const override { return GetActorToRecord(); }
+	virtual bool IsActive() const override { return bActive; }
 
 	/** Simulate a de-spawned actor */
 	void InvalidateObjectToRecord();
@@ -72,7 +66,7 @@ private:
 	bool ShouldDuplicateLevelSequence();
 
 	/** Check component validity for recording */
-	bool ValidComponent(USceneComponent* SceneComponent) const;
+	bool ValidComponent(UActorComponent* ActorComponent) const;
 
 	/** Adds us to a folder for better sequence organization */
 	void FindOrAddFolder(UMovieScene* MovieScene);
@@ -81,19 +75,25 @@ private:
 	void StartRecordingActorProperties(ULevelSequence* CurrentSequence, float CurrentSequenceTime);
 
 	/** Start recording component properties to a sequence */
-	TSharedPtr<class FMovieSceneAnimationSectionRecorder> StartRecordingComponentProperties(const FName& BindingName, USceneComponent* SceneComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InTargetSequence);
+	TSharedPtr<class FMovieSceneAnimationSectionRecorder> StartRecordingComponentProperties(const FName& BindingName, UActorComponent* ActorComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InTargetSequence);
 
 	/** Start recording components that are added at runtime */
 	void StartRecordingNewComponents(ULevelSequence* CurrentSequence, float CurrentSequenceTime);
 
+	/** Helper function to grab all components base actor and scene */
+	void GetAllComponents(TArray<UActorComponent*>& OutArray, bool bIncludeNonCDO = true);
+
 	/** Helper function to grab all scene components in the actor's hierarchy */
-	void GetSceneComponents(TArray<USceneComponent*>& OutArray, bool bIncludeNonCDO = true);
+	void GetSceneComponents(TArray<UActorComponent*>& OutArray, bool bIncludeNonCDO = true);
+
+	/** Helper to get all Non-Scene Actor Componets*/
+	void GetNonSceneActorComponents(TArray<UActorComponent*>& OutArray);
 
 	/** Sync up tracked components with the actor */
 	void SyncTrackedComponents(bool bIncludeNonCDO = true);
 
 	/** Ensure that we are recording any parents required for the specified component, and sort the specified array */
-	void ProcessNewComponentArray(TInlineComponentArray<USceneComponent*>& ProspectiveComponents) const;
+	void ProcessNewComponentArray(TInlineComponentArray<UActorComponent*>& ProspectiveComponents) const;
 
 	/** UObject interface */
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -150,9 +150,9 @@ private:
 	TArray<TSharedPtr<class IMovieSceneSectionRecorder>> SectionRecorders;
 
 	/** Track components to check if any have changed */
-	TArray<TWeakObjectPtr<USceneComponent>> TrackedComponents;
+	TArray<TWeakObjectPtr<UActorComponent>> TrackedComponents;
 
-	TMap<FObjectKey, TWeakObjectPtr<USceneComponent>> DuplicatedDynamicComponents;
+	TMap<FObjectKey, TWeakObjectPtr<UActorComponent>> DuplicatedDynamicComponents;
 
 	/** Flag to track whether we created new components */
 	bool bNewComponentAddedWhileRecording;

@@ -122,6 +122,9 @@ void FSequencerUtilities::PopulateMenu_CreateNewSection(FMenuBuilder& MenuBuilde
 			Track->UpdateEasing();
 
 			Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
+			Sequencer->EmptySelection();
+			Sequencer->SelectSection(NewSection);
+			Sequencer->ThrobSectionSelection();
 		}
 		else
 		{

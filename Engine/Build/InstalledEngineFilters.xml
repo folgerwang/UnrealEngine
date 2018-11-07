@@ -61,6 +61,7 @@
 	<!-- Define Editor Filters -->
 	<Property Name="CopyEditorFilter">
 		<!-- This assembly is normally embedded into the UBT executable, but it can technically be rebuilt from an installed build -->
+		Engine/Binaries/ThirdParty/Newtonsoft/...
 		Engine/Binaries/ThirdParty/VisualStudio/...
 
 		<!-- In-editor documentation -->
@@ -91,7 +92,6 @@
 		Engine/Source/Runtime/...
 		Engine/Source/Developer/...
 		Engine/Source/Editor/...
-		Engine/Source/ThirdParty/.../*.Build.cs
 		Engine/Source/ThirdParty/Licenses/...
 		Engine/Source/Programs/AutomationTool/...
 		Engine/Source/Programs/AutomationToolLauncher/...
@@ -144,12 +144,13 @@
 		Engine/Build/Target.cs.template
 	</Property>
   <!-- Optional API docs -->
-  <Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Builds/CppAPI-HTML.tgz" If="Exists('Engine/Documentation/Builds/CppAPI-HTML.tgz')"/>
+  <Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Builds/CodeAPI-HTML.tgz" If="Exists('Engine/Documentation/Builds/CodeAPI-HTML.tgz')"/>
   <Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Builds/BlueprintAPI-HTML.tgz" If="Exists('Engine/Documentation/Builds/BlueprintAPI-HTML.tgz')"/>
   <!-- Don't add VR template for Mac and Linux -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VirtualRealityBP/..." If="'$(HostPlatform)' != 'Linux'"/>
 		<!-- Define Editor Exceptions -->
 	<Property Name="CopyEditorExceptions">
+	
 		<!-- Content -->
 		Engine/Content/....psd
 		Engine/Content/....pdn
@@ -219,24 +220,27 @@
 		</Property>
 	</Do>
 
+	<!-- Files needed to build on Mac, either natively or via the remote toolchain -->
+	<Property Name="MacBuildFiles">
+		<!-- Build batch files -->
+		Engine/Build/BatchFiles/Mac/Build.sh
+		Engine/Build/BatchFiles/Mac/GenerateLLDBInit.sh
+		Engine/Build/BatchFiles/Mac/FixDependencyFiles.sh
+		Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh
+		Engine/Build/BatchFiles/Mac/SetupMono.sh
+		Engine/Build/BatchFiles/Mac/FixMonoFiles.sh
+		Engine/Build/BatchFiles/Mac/RunMono.sh
+		Engine/Build/BatchFiles/Mac/RunXBuild.sh
+		Engine/Build/BatchFiles/RunUAT.command
+		Engine/Build/BatchFiles/RunUAT.sh
+
+		<!-- Mono -->
+		Engine/Binaries/ThirdParty/Mono/Mac/...
+	</Property>
+
 	<!-- Mac-specific dependencies -->
 	<Do If="'$(HostPlatform)' == 'Mac'">
-		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter)">
-			<!-- Build batch files -->
-			Engine/Build/BatchFiles/Mac/Build.sh
-			Engine/Build/BatchFiles/Mac/GenerateLLDBInit.sh
-			Engine/Build/BatchFiles/Mac/FixDependencyFiles.sh
-			Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh
-			Engine/Build/BatchFiles/Mac/SetupMono.sh
-			Engine/Build/BatchFiles/Mac/FixMonoFiles.sh
-			Engine/Build/BatchFiles/Mac/RunMono.sh
-			Engine/Build/BatchFiles/Mac/RunXBuild.sh
-			Engine/Build/BatchFiles/RunUAT.command
-			Engine/Build/BatchFiles/RunUAT.sh
-
-			<!-- Mono -->
-			Engine/Binaries/ThirdParty/Mono/Mac/...
-
+		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);$(MacBuildFiles)">
 			<!-- Extra tools -->
 			Engine/Extras/LLDBDataFormatters/UE4DataFormatters.py
 		</Property>
@@ -347,11 +351,10 @@
 	</Property>
 
 	<!-- IOS -->
-	<Property Name="CopyIOSFilter">
+	<Property Name="CopyIOSFilter" Value="$(MacBuildFiles)">
 		<!-- Build Files -->
 		Engine/Build/IOS/...
 	</Property>
-		<!-- Win64 specific -->
 	<Do If="'$(HostPlatform)' == 'Win64'">
 		<Property Name="CopyIOSFilter" Value="$(CopyIOSFilter)">
 			Engine/Binaries/DotNET/IOS/openssl.exe
@@ -359,6 +362,7 @@
 			Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Mac/...
 			Engine/Binaries/ThirdParty/IOS/*
 			Engine/Build/BatchFiles/MakeAndInstallSSHKey.bat
+			Engine/Build/Rsync/...
 			Engine/Extras/ThirdPartyNotUE/DeltaCopy/...
 		</Property>
 	</Do>
@@ -371,7 +375,7 @@
 	</Property>
 
 	<!-- TVOS -->
-	<Property Name="CopyTVOSFilter">
+	<Property Name="CopyTVOSFilter" Value="$(MacBuildFiles)">
 		<!-- Build Files -->
 		Engine/Build/TVOS/...
 	</Property>
@@ -469,7 +473,7 @@
 	<Property Name="CopyLuminFilter">
 		<!-- Build Files -->
 		Engine/Build/Lumin/...
-		Engine/Source/ThirdParty/ResonanceAudioApi/Lumin/ResonanceAudio_LPL.xml
+		Engine/Source/ThirdParty/ResonanceAudioApi/...
 	</Property>
 	
 	<Property Name="CopyLuminExceptions">

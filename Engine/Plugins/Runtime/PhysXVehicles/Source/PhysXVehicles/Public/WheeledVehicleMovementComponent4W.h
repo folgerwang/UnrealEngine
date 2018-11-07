@@ -161,6 +161,10 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent4W : public UWheeledVehi
 	UPROPERTY(EditAnywhere, Category = MechanicalSetup)
 	FVehicleDifferential4WData DifferentialSetup;
 
+	/** Accuracy of Ackermann steer calculation (range: 0..1) */
+	UPROPERTY(EditAnywhere, Category = SteeringSetup, AdvancedDisplay, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "1.0", UIMax = "1.0"))
+	float AckermannAccuracy;
+
 	/** Transmission data */
 	UPROPERTY(EditAnywhere, Category = MechanicalSetup)
 	FVehicleTransmissionData TransmissionSetup;
@@ -168,11 +172,6 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent4W : public UWheeledVehi
 	/** Maximum steering versus forward speed (km/h) */
 	UPROPERTY(EditAnywhere, Category = SteeringSetup)
 	FRuntimeFloatCurve SteeringCurve;
-
-	/** Accuracy of Ackermann steer calculation (range: 0..1) */
-	UPROPERTY(EditAnywhere, Category = SteeringSetup, AdvancedDisplay, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "1.0", UIMax = "1.0"))
-	float AckermannAccuracy;
-
 
 	virtual void Serialize(FArchive & Ar) override;
 	virtual void ComputeConstants() override;
@@ -183,7 +182,7 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent4W : public UWheeledVehi
 protected:
 
 
-#if WITH_PHYSX
+#if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 
 	/** Allocate and setup the PhysX vehicle */
 	virtual void SetupVehicleDrive(physx::PxVehicleWheelsSimData* PWheelsSimData) override;

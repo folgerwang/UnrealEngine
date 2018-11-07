@@ -1039,6 +1039,9 @@ void UReflectionCaptureComponent::UpdateReflectionCaptureContents(UWorld* WorldT
 		// Note: this will also prevent uploads of cubemaps from DDC, which is unintentional
 		&& (GShaderCompilingManager == NULL || !GShaderCompilingManager->IsCompiling()))
 	{
+		//guarantee that all render proxies are up to date before kicking off this render
+		WorldToUpdate->SendAllEndOfFrameUpdates();
+
 		TArray<UReflectionCaptureComponent*> WorldCombinedCaptures;
 
 		for (int32 CaptureIndex = ReflectionCapturesToUpdate.Num() - 1; CaptureIndex >= 0; CaptureIndex--)

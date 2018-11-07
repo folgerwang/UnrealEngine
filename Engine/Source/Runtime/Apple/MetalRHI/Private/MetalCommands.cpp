@@ -12,7 +12,6 @@
 #include "RHIStaticStates.h"
 #include "ShaderParameterUtils.h"
 #include "SceneUtils.h"
-#include "ShaderCache.h"
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 #include "StaticBoundShaderState.h"
@@ -173,8 +172,6 @@ void FMetalRHICommandContext::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,
 	Viewport.zfar = MaxZ;
 	
 	Context->GetCurrentState().SetViewport(Viewport);
-	
-	FShaderCache::SetViewport(Context->GetCurrentState().GetShaderCacheStateObject(), MinX,MinY, MinZ, MaxX, MaxY, MaxZ);
 	}
 }
 
@@ -200,7 +197,6 @@ void FMetalRHICommandContext::RHISetStereoViewport(uint32 LeftMinX, uint32 Right
 		Viewport[1].zfar = MaxZ;
 		
 		Context->GetCurrentState().SetViewports(Viewport, 2);
-		FShaderCache::SetViewport(Context->GetCurrentState().GetShaderCacheStateObject(), LeftMinX, LeftMinY, MinZ, LeftMaxX, LeftMaxY, MaxZ);
 		}
 	}
 	else
@@ -251,7 +247,6 @@ void FMetalRHICommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineState
 		// Bad Arne!
 		RHISetStencilRef(0);
 		RHISetBlendFactor(FLinearColor(1.0f, 1.0f, 1.0f));
-		FShaderCache::SetGraphicsPipelineStateObject(GetInternalContext().GetCurrentState().GetShaderCacheStateObject(), GraphicsState);
 	}
 }
 
@@ -628,12 +623,10 @@ void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTar
 	FMetalContext* Manager = Context;
 	if (Context->GetCommandQueue().SupportsFeature(EMetalFeaturesGraphicsUAVs))
 	{
-		for (uint32 i = 0; i < RenderTargetsInfo.NumUAVs; i++)
+		for (uint32 i = 0; !bHasTarget && i < RenderTargetsInfo.NumUAVs; i++)
 		{
 			if (IsValidRef(RenderTargetsInfo.UnorderedAccessView[i]))
 			{
-				FMetalUnorderedAccessView* UAV = ResourceCast(RenderTargetsInfo.UnorderedAccessView[i].GetReference());
-				Context->GetCurrentState().SetShaderUnorderedAccessView(SF_Pixel, i, UAV);
 				bHasTarget = true;
 			}
 		}
@@ -664,8 +657,6 @@ void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTar
 
 			RHISetViewport(0, 0, 0.0f, Width, Height, 1.0f);
 		}
-		
-		FShaderCache::SetRenderTargets(Context->GetCurrentState().GetShaderCacheStateObject(), RenderTargetsInfo.NumColorRenderTargets, RenderTargetsInfo.ColorRenderTarget, &RenderTargetsInfo.DepthStencilRenderTarget);
 	}
 	}
 }

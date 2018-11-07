@@ -7,7 +7,6 @@
 FSoundEffectBase::FSoundEffectBase()
 	: bChanged(false)
 	, Preset(nullptr)
-	, ParentPreset(nullptr)
 	, bIsRunning(false)
 	, bIsActive(false)
 {}
@@ -29,7 +28,17 @@ void FSoundEffectBase::SetEnabled(const bool bInIsEnabled)
 void FSoundEffectBase::SetPreset(USoundEffectPreset* Inpreset)
 {
 	Preset = Inpreset;
+	Preset->AddEffectInstance(this);
 	bChanged = true;
+}
+
+void FSoundEffectBase::ClearPreset()
+{
+	if (Preset)
+	{
+		Preset->RemoveEffectInstance(this);
+		Preset = nullptr;
+	}
 }
 
 void FSoundEffectBase::Update()
@@ -43,20 +52,9 @@ void FSoundEffectBase::Update()
 	}
 }
 
-void FSoundEffectBase::RegisterWithPreset(USoundEffectPreset* InParentPreset)
+bool FSoundEffectBase::IsPreset(USoundEffectPreset* InPreset) const
 {
-	ParentPreset = InParentPreset;
-	ParentPreset->AddEffectInstance(this);
-}
-
-void FSoundEffectBase::UnregisterWithPreset()
-{
-	ParentPreset->RemoveEffectInstance(this);
-}
-
-bool FSoundEffectBase::IsParentPreset(USoundEffectPreset* InPreset) const
-{
-	return ParentPreset == InPreset;
+	return Preset == InPreset;
 }
 
 void FSoundEffectBase::EffectCommand(TFunction<void()> Command)

@@ -58,6 +58,12 @@ namespace UnrealGameSync
 			string UpdateSpawn;
 			ParseArgument(RemainingArgs, "-updatespawn=", out UpdateSpawn);
 
+			string ServerAndPort;
+			ParseArgument(RemainingArgs, "-p4port=", out ServerAndPort);
+
+			string UserName;
+			ParseArgument(RemainingArgs, "-p4user=", out UserName);
+
 			bool bRestoreState;
 			ParseOption(RemainingArgs, "-restorestate", out bRestoreState);
 
@@ -88,31 +94,33 @@ namespace UnrealGameSync
 
 			using(TelemetryWriter Telemetry = new TelemetryWriter(ApiUrl, Path.Combine(DataFolder, "Telemetry.log")))
 			{
-				try
+				AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+				using(UpdateMonitor UpdateMonitor = new UpdateMonitor(new PerforceConnection(UserName, null, ServerAndPort), UpdatePath))
 				{
-					using(UpdateMonitor UpdateMonitor = new UpdateMonitor(new PerforceConnection(null, null, null), UpdatePath))
-					{
-						ProgramApplicationContext Context = new ProgramApplicationContext(UpdateMonitor, ApiUrl, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn, ProjectFileName, bUnstable);
-						Application.Run(Context);
+					ProgramApplicationContext Context = new ProgramApplicationContext(UpdateMonitor, ApiUrl, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn, ProjectFileName, bUnstable);
+					Application.Run(Context);
 
-						if(UpdateMonitor.IsUpdateAvailable && UpdateSpawn != null)
-						{
-							InstanceMutex.Close();
-							Utility.SpawnProcess(UpdateSpawn, "-restorestate" + (bUnstable? " -unstable" : ""));
-						}
-					}
-				}
-				catch(Exception Ex)
-				{
-					StringBuilder ExceptionTrace = new StringBuilder(Ex.ToString());
-					for(Exception InnerEx = Ex.InnerException; InnerEx != null; InnerEx = InnerEx.InnerException)
+					if(UpdateMonitor.IsUpdateAvailable && UpdateSpawn != null)
 					{
-						ExceptionTrace.Append("\nInner Exception:\n");
-						ExceptionTrace.Append(InnerEx.ToString());
+						InstanceMutex.Close();
+						Utility.SpawnProcess(UpdateSpawn, "-restorestate" + (bUnstable? " -unstable" : ""));
 					}
-					TelemetryWriter.Enqueue(TelemetryErrorType.Crash, ExceptionTrace.ToString(), null, DateTime.Now);
-					MessageBox.Show(String.Format("UnrealGameSync has crashed.\n\n{0}", ExceptionTrace.ToString()));
 				}
+			}
+		}
+
+		private static void CurrentDomain_UnhandledException(object Sender, UnhandledExceptionEventArgs Args)
+		{
+			Exception Ex = Args.ExceptionObject as Exception;
+			if(Ex != null)
+			{
+				StringBuilder ExceptionTrace = new StringBuilder(Ex.ToString());
+				for(Exception InnerEx = Ex.InnerException; InnerEx != null; InnerEx = InnerEx.InnerException)
+				{
+					ExceptionTrace.Append("\nInner Exception:\n");
+					ExceptionTrace.Append(InnerEx.ToString());
+				}
+				TelemetryWriter.Enqueue(TelemetryErrorType.Crash, ExceptionTrace.ToString(), null, DateTime.Now);
 			}
 		}
 

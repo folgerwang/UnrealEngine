@@ -1420,7 +1420,7 @@ void FNiagaraSystemViewModel::SequencerDataChanged(EMovieSceneDataChangeType Dat
 
 void FNiagaraSystemViewModel::SequencerTimeChanged()
 {
-	if (!PreviewComponent)
+	if (!PreviewComponent || !PreviewComponent->GetSystemInstance() || !PreviewComponent->GetSystemInstance()->GetAreDataInterfacesInitialized())
 	{
 		return;
 	}
@@ -1583,11 +1583,21 @@ void FNiagaraSystemViewModel::UpdateEmitterFixedBounds()
 		{
 			if (&EmitterInst->GetEmitterHandle() == SelectedEmitterHandle && !EmitterInst->IsComplete())
 			{
-				FBox EmitterBounds = EmitterInst->CalculateDynamicBounds();
-				Emitter->Modify();
-				Emitter->bFixedBounds = true;
-				//Dynamic bounds are in world space. Transform back to local.
-				Emitter->FixedBounds = EmitterBounds.TransformBy(PreviewComponent->GetComponentToWorld().Inverse());
+				TOptional<FBox> EmitterBounds = EmitterInst->CalculateDynamicBounds();
+				if (EmitterBounds.IsSet())
+				{
+					Emitter->Modify();
+					Emitter->bFixedBounds = true;
+					if (Emitter->bLocalSpace)
+					{
+						Emitter->FixedBounds = EmitterBounds.GetValue();
+					}
+					else
+					{
+						//Dynamic bounds are in world space. Transform back to local.
+						Emitter->FixedBounds = EmitterBounds.GetValue().TransformBy(PreviewComponent->GetComponentToWorld().Inverse());
+					}
+				}
 			}
 		}
 	}

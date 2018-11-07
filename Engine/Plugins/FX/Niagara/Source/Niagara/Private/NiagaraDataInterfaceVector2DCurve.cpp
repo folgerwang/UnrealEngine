@@ -157,12 +157,12 @@ void %s(in float In_X, out float2 Out_Value) \n\
 	return true;
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceVector2DCurve, SampleCurve);
+DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceVector2DCurve, SampleCurve);
 void UNiagaraDataInterfaceVector2DCurve::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	if (BindingInfo.Name == SampleCurveName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 2)
 	{
-		TCurveUseLUTBinder<TNDIParamBinder<0, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceVector2DCurve, SampleCurve)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+		TCurveUseLUTBinder<NDI_FUNC_BINDER(UNiagaraDataInterfaceVector2DCurve, SampleCurve)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
 	else
 	{
@@ -192,13 +192,13 @@ FORCEINLINE_DEBUGGABLE FVector2D UNiagaraDataInterfaceVector2DCurve::SampleCurve
 	return FVector2D(XCurve.Eval(X), YCurve.Eval(X));
 }
 
-template<typename UseLUT, typename XParamType>
+template<typename UseLUT>
 void UNiagaraDataInterfaceVector2DCurve::SampleCurve(FVectorVMContext& Context)
 {
 	//TODO: Create some SIMDable optimized representation of the curve to do this faster.
-	XParamType XParam(Context);
-	FRegisterHandler<float> OutSampleX(Context);
-	FRegisterHandler<float> OutSampleY(Context);
+	VectorVM::FExternalFuncInputHandler<float> XParam(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleX(Context);
+	VectorVM::FExternalFuncRegisterHandler<float> OutSampleY(Context);
 
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{

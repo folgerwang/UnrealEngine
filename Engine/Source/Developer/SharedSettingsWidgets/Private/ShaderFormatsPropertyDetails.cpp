@@ -63,10 +63,16 @@ static FText GetFriendlyNameFromRHIName(const FString& InRHIName)
 			FriendlyRHIName = LOCTEXT("OpenGLES31", "OpenGLES 3.1 (Mobile)");
 			break;
 		case SP_METAL:
-			FriendlyRHIName = LOCTEXT("Metal", "iOS/tvOS Metal Mobile Renderer (ES3.1, Metal 1.1+, iOS/tvOS 9.0 or later)");
+			FriendlyRHIName = LOCTEXT("Metal", "iOS Metal Mobile Renderer (ES3.1, Metal 1.1+, iOS 9.0 or later)");
 			break;
 		case SP_METAL_MRT:
-			FriendlyRHIName = LOCTEXT("MetalMRT", "iOS/tvOS Metal Desktop Renderer (SM5, Metal 1.2+, iOS/tvOS 10.0 or later)");
+			FriendlyRHIName = LOCTEXT("MetalMRT", "iOS Metal Desktop Renderer (SM5, Metal 1.2+, iOS 10.0 or later)");
+			break;
+		case SP_METAL_TVOS:
+			FriendlyRHIName = LOCTEXT("MetalTV", "tvOS Metal Mobile Renderer (ES3.1, Metal 1.1+, tvOS 9.0 or later)");
+			break;
+		case SP_METAL_MRT_TVOS:
+			FriendlyRHIName = LOCTEXT("MetalMRTTV", "tvOS Metal Desktop Renderer (SM5, Metal 1.2+, tvOS 10.0 or later)");
 			break;
 		case SP_METAL_SM5_NOTESS:
 			FriendlyRHIName = LOCTEXT("MetalSM5_NOTESS", "Mac Metal Desktop Renderer without Tessellation (SM5, Metal 1.2+, macOS Sierra 10.12.6 or later)");

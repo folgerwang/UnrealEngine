@@ -108,6 +108,27 @@
 
 #include "GenericPlatform/GenericPlatform.h"
 
+//------------------------------------------------------------------
+// Setup macros for static code analysis
+//------------------------------------------------------------------
+#ifndef PLATFORM_COMPILER_CLANG
+#if defined(__clang__)
+#define PLATFORM_COMPILER_CLANG			1
+#else
+#define PLATFORM_COMPILER_CLANG			0
+#endif // defined(__clang__)
+#endif
+
+#if PLATFORM_WINDOWS
+	#include "Windows/WindowsPlatformCodeAnalysis.h"
+#elif PLATFORM_COMPILER_CLANG
+	#include "Clang/ClangPlatformCodeAnalysis.h"
+#endif
+
+#ifndef USING_ADDRESS_SANITISER
+	#define USING_ADDRESS_SANITISER 0
+#endif
+
 //---------------------------------------------------------
 // Identify the current platform and include that header
 //---------------------------------------------------------
@@ -135,27 +156,6 @@
 	#include "Switch/SwitchPlatform.h"
 #else
 	#error Unknown platform
-#endif
-
-//------------------------------------------------------------------
-// Setup macros for static code analysis
-//------------------------------------------------------------------
-#ifndef PLATFORM_COMPILER_CLANG
-	#if defined(__clang__)
-		#define PLATFORM_COMPILER_CLANG			1
-	#else
-		#define PLATFORM_COMPILER_CLANG			0
-	#endif // defined(__clang__)
-#endif
-
-#if PLATFORM_WINDOWS
-    #include "Windows/WindowsPlatformCodeAnalysis.h"
-#elif PLATFORM_COMPILER_CLANG
-    #include "Clang/ClangPlatformCodeAnalysis.h"
-#endif
-
-#ifndef USING_ADDRESS_SANITISER
-	#define USING_ADDRESS_SANITISER 0
 #endif
 
 //------------------------------------------------------------------
@@ -192,8 +192,8 @@
 #ifndef PLATFORM_LITTLE_ENDIAN
 	#define PLATFORM_LITTLE_ENDIAN				0
 #endif
-#ifndef PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS
-	#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS	0
+#ifndef PLATFORM_SUPPORTS_UNALIGNED_LOADS
+	#define PLATFORM_SUPPORTS_UNALIGNED_LOADS	0
 #endif
 #ifndef PLATFORM_EXCEPTIONS_DISABLED
 	#define PLATFORM_EXCEPTIONS_DISABLED		!PLATFORM_DESKTOP
@@ -233,7 +233,9 @@
 #endif
 #ifdef _MSC_VER
 	#define PLATFORM_COMPILER_HAS_AUTO_RETURN_TYPES 1
-	#pragma deprecated("PLATFORM_COMPILER_HAS_AUTO_RETURN_TYPES")
+	#ifndef __clang__
+		#pragma deprecated("PLATFORM_COMPILER_HAS_AUTO_RETURN_TYPES")
+	#endif
 #else
 	#define PLATFORM_COMPILER_HAS_AUTO_RETURN_TYPES 1 DEPRECATED_MACRO(4.19, "PLATFORM_COMPILER_HAS_AUTO_RETURN_TYPES has been deprecated and should be replaced with 1.")
 #endif
@@ -242,7 +244,9 @@
 #endif
 #ifdef _MSC_VER
 	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS 1
-	#pragma deprecated("PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS")
+	#ifndef __clang__
+		#pragma deprecated("PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS")
+	#endif
 #else
 	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS 1 DEPRECATED_MACRO(4.19, "PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS has been deprecated and should be replaced with 1.")
 #endif
@@ -273,11 +277,14 @@
 #ifndef PLATFORM_HAS_BSD_IPV6_SOCKETS
 	#define PLATFORM_HAS_BSD_IPV6_SOCKETS			0
 #endif
+#ifndef PLATFORM_SUPPORTS_UDP_MULTICAST_GROUP
+	#define PLATFORM_SUPPORTS_UDP_MULTICAST_GROUP	1
+#endif
 #ifndef PLATFORM_USE_PTHREADS
 	#define PLATFORM_USE_PTHREADS				1
 #endif
-#ifndef PLATFORM_MAX_FILEPATH_LENGTH
-	#define PLATFORM_MAX_FILEPATH_LENGTH		128
+#ifndef PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED
+	#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED		128			// Deprecated - prefer FPlatformMisc::GetMaxPathLength() instead.
 #endif
 #ifndef PLATFORM_SUPPORTS_TEXTURE_STREAMING
 	#define PLATFORM_SUPPORTS_TEXTURE_STREAMING	1
@@ -305,6 +312,9 @@
 #endif
 #ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
 	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO	1
+#endif
+#ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_GETNAMEINFO
+	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_GETNAMEINFO 1
 #endif
 #ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
 	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC	0
@@ -391,6 +401,10 @@
 	#define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING	1
 #endif
 
+#ifndef PLATFORM_IMPLEMENTS_BeginNamedEventStatic
+	#define PLATFORM_IMPLEMENTS_BeginNamedEventStatic			0
+#endif
+
 #ifndef PLATFORM_RHITHREAD_DEFAULT_BYPASS
 	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					1
 #endif
@@ -434,6 +448,7 @@
 #ifndef PLATFORM_HAS_CRC_INTRINSICS
 	#define PLATFORM_HAS_CRC_INTRINSICS							0
 #endif
+
 // deprecated, do not use
 #define PLATFORM_HAS_THREADSAFE_RHIGetRenderQueryResult	#
 #define PLATFORM_SUPPORTS_RHI_THREAD #
@@ -665,7 +680,7 @@ int32 main(int32 ArgC, ANSICHAR* Utf8ArgV[]) \
 	{ \
 		FUTF8ToTCHAR ConvertFromUtf8(Utf8ArgV[a]); \
 		ArgV[a] = new TCHAR[ConvertFromUtf8.Length() + 1]; \
-		FCString::Strcpy(ArgV[a], ConvertFromUtf8.Length(), ConvertFromUtf8.Get()); \
+		FCString::Strcpy(ArgV[a], ConvertFromUtf8.Length() + 1, ConvertFromUtf8.Get()); \
 	} \
 	int32 Result = tchar_main(ArgC, ArgV); \
 	for (int32 a = 0; a < ArgC; a++) \
@@ -883,3 +898,12 @@ namespace TypeTests
 	#endif
 		#define TEXT(x) TEXT_PASTE(x)
 #endif
+
+// this function is used to suppress static analysis warnings
+#if PLATFORM_HTML5
+FORCEINLINE bool IsHTML5Platform() { return true; }
+#else
+FORCEINLINE bool IsHTML5Platform() { return false; }
+#endif
+
+

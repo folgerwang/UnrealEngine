@@ -13,10 +13,13 @@
 #include "VoipListenerSynthComponent.h"
 #include "Features/IModularFeatures.h"
 
+class UWorld;
+class UAudioComponent;
+
 #ifdef ONLINESUBSYSTEMUTILS_API
 
 /** @return an initialized audio component specifically for use with VoIP */
-ONLINESUBSYSTEMUTILS_API class UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate, int32 NumChannels);
+ONLINESUBSYSTEMUTILS_API UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate, int32 NumChannels);
 
 /** @return an initialized Synth component specifically for use with VoIP */
 ONLINESUBSYSTEMUTILS_API UVoipListenerSynthComponent* CreateVoiceSynthComponent(uint32 SampleRate);
@@ -47,7 +50,7 @@ ONLINESUBSYSTEMUTILS_API int32 GetClientPeerIp(FName InstanceName, const FUnique
  *
  * @return 64bit base id for a voice chat room
  */
-ONLINESUBSYSTEMUTILS_API uint64 GetBaseVoiceChatTeamId(UWorld* World);
+ONLINESUBSYSTEMUTILS_API uint64 GetBaseVoiceChatTeamId(const UWorld* World);
 /**
  * Get a 64bit bit final id for a chat room 
  * <32bit IP Addr> | <8bit team index> | <24bit ProcessId>
@@ -91,7 +94,7 @@ public:
 	 * @param Subsystem the name of the subsystem
 	 * @return an FName of format Subsystem:Context_Id in PlayInEditor or Subsystem everywhere else
 	 */
-	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) const = 0;
+	virtual FName GetOnlineIdentifier(const UWorld* World, const FName Subsystem = NAME_None) const = 0;
 
 	/**
 	 * Create a TRANSPORT LAYER unique id
@@ -151,7 +154,7 @@ public:
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface (UWorld version) */
 #define IMPLEMENT_GET_INTERFACE(InterfaceType) \
-static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(class UWorld* World, const FName SubsystemName = NAME_None) \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const UWorld* World, const FName SubsystemName = NAME_None) \
 { \
 	IOnlineSubsystem* OSS = Online::GetSubsystem(World, SubsystemName); \
 	return (OSS == NULL) ? NULL : OSS->Get##InterfaceType##Interface(); \
@@ -196,7 +199,7 @@ namespace Online
 	 *
 	 * @return pointer to the appropriate online subsystem
 	 */
-	static IOnlineSubsystem* GetSubsystem(UWorld* World, const FName& SubsystemName = NAME_None)
+	static IOnlineSubsystem* GetSubsystem(const UWorld* World, const FName& SubsystemName = NAME_None)
 	{
 #if UE_EDITOR // at present, multiple worlds are only possible in the editor
 		FName Identifier = SubsystemName; 
@@ -220,7 +223,7 @@ namespace Online
 	 *
 	 * @return true if module for the subsystem is loaded
 	 */
-	static bool IsLoaded(UWorld* World, const FName& SubsystemName = NAME_None)
+	static bool IsLoaded(const UWorld* World, const FName& SubsystemName = NAME_None)
 	{
 #if UE_EDITOR // at present, multiple worlds are only possible in the editor
 		FName Identifier = SubsystemName;

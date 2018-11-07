@@ -3,41 +3,41 @@
 
 #include "CoreMinimal.h"
 
+struct FWebBrowserCookie
+{
+public:
+	// The cookie name.
+	FString Name;
+
+	// The cookie value.
+	FString Value;
+
+	// If is empty a host cookie will be created instead of a domain
+	// cookie. Domain cookies are stored with a leading "." and are visible to
+	// sub-domains whereas host cookies are not.
+	FString Domain;
+
+	// If is non-empty only URLs at or below the path will get the cookie
+	// value.
+	FString Path;
+
+	// If true the cookie will only be sent for HTTPS requests.
+	bool bSecure;
+
+	// If true the cookie will only be sent for HTTP requests.
+	bool bHttpOnly;
+
+	// If true the cookie will expire at the specified Expires datetime.
+	bool bHasExpires;
+
+	// The cookie expiration date is only valid if bHasExpires is true.
+	FDateTime Expires;
+};
+
 class IWebBrowserCookieManager
 {
 public:
-
-	struct FCookie
-	{
-	public:
-		// The cookie name.
-		FString Name;
-
-		// The cookie value.
-		FString Value;
-
-		// If is empty a host cookie will be created instead of a domain
-		// cookie. Domain cookies are stored with a leading "." and are visible to
-		// sub-domains whereas host cookies are not.
-		FString Domain;
-
-		// If is non-empty only URLs at or below the path will get the cookie
-		// value.
-		FString Path;
-
-		// If true the cookie will only be sent for HTTPS requests.
-		bool bSecure;
-
-		// If true the cookie will only be sent for HTTP requests.
-		bool bHttpOnly;
-
-		// If true the cookie will expire at the specified Expires datetime.
-		bool bHasExpires;
-
-		// The cookie expiration date is only valid if bHasExpires is true.
-		FDateTime Expires;
-	};
-
+	typedef struct FWebBrowserCookie FCookie;
 public:
 
 	/**
@@ -65,5 +65,4 @@ public:
 	 * @param Completed A callback function that will be invoked asynchronously on the game thread when the deletion is complete passing in the number of deleted objects.
 	 */
 	virtual void DeleteCookies(const FString& URL = TEXT(""), const FString& CookieName = TEXT(""), TFunction<void(int)> Completed = nullptr) = 0;
-
 };

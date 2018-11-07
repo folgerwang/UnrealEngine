@@ -18,7 +18,7 @@ FSlateWindowElementList& FSlateDrawBuffer::AddWindowElementList(TSharedRef<SWind
 	{
 		TSharedRef<FSlateWindowElementList> ExistingElementList = WindowElementListsPool[WindowIndex];
 
-		if (ExistingElementList->GetWindow() == ForWindow )
+		if (ExistingElementList->GetPaintWindow() == &ForWindow.Get())
 		{
 			WindowElementLists.Add(ExistingElementList);
 			WindowElementListsPool.RemoveAtSwap(WindowIndex);
@@ -35,13 +35,13 @@ FSlateWindowElementList& FSlateDrawBuffer::AddWindowElementList(TSharedRef<SWind
 	return *WindowElements;
 }
 
-void FSlateDrawBuffer::RemoveUnusedWindowElement(const TArray<TSharedRef<SWindow>>& AllWindows)
+void FSlateDrawBuffer::RemoveUnusedWindowElement(const TArray<SWindow*>& AllWindows)
 {
 	// Remove any window elements that are no longer valid.
 	for (int32 WindowIndex = 0; WindowIndex < WindowElementLists.Num(); ++WindowIndex)
 	{
-		TSharedPtr<SWindow> CandidateWindow = WindowElementLists[WindowIndex]->GetWindow();
-		if (CandidateWindow.IsValid() == false || !AllWindows.Contains(CandidateWindow.ToSharedRef()))
+		SWindow* CandidateWindow = WindowElementLists[WindowIndex]->GetPaintWindow();
+		if (!CandidateWindow || !AllWindows.Contains(CandidateWindow))
 		{
 			WindowElementLists.RemoveAtSwap(WindowIndex);
 			--WindowIndex;
@@ -64,7 +64,7 @@ void FSlateDrawBuffer::ClearBuffer()
 	// Remove any window elements that are no longer valid.
 	for (int32 WindowIndex = 0; WindowIndex < WindowElementListsPool.Num(); ++WindowIndex)
 	{
-		if (WindowElementListsPool[WindowIndex]->GetWindow().IsValid() == false)
+		if (WindowElementListsPool[WindowIndex]->GetPaintWindow() == nullptr)
 		{
 			WindowElementListsPool.RemoveAtSwap(WindowIndex);
 			--WindowIndex;
@@ -74,7 +74,7 @@ void FSlateDrawBuffer::ClearBuffer()
 	// Move all the window elements back into the pool.
 	for (TSharedRef<FSlateWindowElementList> ExistingList : WindowElementLists)
 	{
-		if (ExistingList->GetWindow().IsValid())
+		if (ExistingList->GetPaintWindow() != nullptr)
 		{
 			WindowElementListsPool.Add(ExistingList);
 		}
@@ -82,6 +82,7 @@ void FSlateDrawBuffer::ClearBuffer()
 
 	WindowElementLists.Reset();
 }
+
 
 void FSlateDrawBuffer::UpdateResourceVersion(uint32 NewResourceVersion)
 {

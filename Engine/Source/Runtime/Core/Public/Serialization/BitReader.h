@@ -22,9 +22,17 @@ struct CORE_API FBitReader : public FBitArchive
 	friend struct FBitReaderMark;
 
 public:
-
 	FBitReader( uint8* Src = nullptr, int64 CountBits = 0 );
+
+    FBitReader(FBitReader&) = default;
+    FBitReader& operator=(const FBitReader&) = default;
+    FBitReader(FBitReader&&) = default;
+    FBitReader& operator=(FBitReader&&) = default;
+
 	void SetData( FBitReader& Src, int64 CountBits );
+	void SetData( uint8* Src, int64 CountBits );
+	void SetData( TArray<uint8>&& Src, int64 CountBits );
+
 	FORCEINLINE_DEBUGGABLE void SerializeBits( void* Dest, int64 LengthBits )
 	{
 		if ( IsError() || Pos+LengthBits > Num)
@@ -224,12 +232,12 @@ public:
 		: Pos(Reader.Pos)
 	{ }
 
-	int64 GetPos()
+	FORCEINLINE_DEBUGGABLE int64 GetPos() const
 	{
 		return Pos;
 	}
 
-	void Pop( FBitReader& Reader )
+	FORCEINLINE_DEBUGGABLE void Pop( FBitReader& Reader )
 	{
 		Reader.Pos = Pos;
 	}

@@ -6,12 +6,17 @@
 #include "Animation/BlendSpaceBase.h"
 #include "Animation/PoseAsset.h"
 #include "Animation/AnimSingleNodeInstance.h"
+#include "AnimEncoding.h"
+
+FAnimSingleNodeInstanceProxy::~FAnimSingleNodeInstanceProxy()
+{
+}
 
 void FAnimSingleNodeInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 {
 	FAnimInstanceProxy::Initialize(InAnimInstance);
 
-	CurrentAsset = NULL;
+	CurrentAsset = nullptr;
 #if WITH_EDITORONLY_DATA
 	PreviewPoseCurrentTime = 0.0f;
 #endif
@@ -393,7 +398,8 @@ void FAnimNode_SingleNode::Evaluate_AnyThread(FPoseContext& Output)
 					const FSmartName& PoseName = PoseNames[PoseIndex];
 					if (PoseName.UID != SmartName::MaxUID)
 					{
-						ExtractContext.PoseCurves[PoseIndex] = Output.Curve.Get(PoseName.UID);
+						ExtractContext.PoseCurves[PoseIndex].PoseIndex = PoseIndex;
+						ExtractContext.PoseCurves[PoseIndex].Value = Output.Curve.Get(PoseName.UID);
 					}
 				}
 

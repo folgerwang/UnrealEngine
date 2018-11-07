@@ -312,8 +312,8 @@ namespace ClickHandlers
 			}
 		}
 
-		//If the component selected is editor-only, we want to select the non-editor-only component it's attached to
-		while (Component != nullptr && Component->IsEditorOnly())
+		//If the component selected is a visualization component, we want to select the non-visualization component it's attached to
+		while (Component != nullptr && Component->IsVisualizationComponent())
 		{
 			Component = Component->GetAttachParent();
 		}

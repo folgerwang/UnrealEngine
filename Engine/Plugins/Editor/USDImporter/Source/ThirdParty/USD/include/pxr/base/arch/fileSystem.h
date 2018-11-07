@@ -132,6 +132,12 @@ ARCH_API FILE*
 ArchOpenFile(char const* fileName, char const* mode);
 
 #if defined(ARCH_OS_WINDOWS)
+#   define ArchChmod(path, mode)        _chmod(path, mode)
+#else
+#   define ArchChmod(path, mode)        chmod(path, mode)
+#endif
+
+#if defined(ARCH_OS_WINDOWS)
 #   define ArchCloseFile(fd)            _close(fd)
 #else
 #   define ArchCloseFile(fd)            close(fd)
@@ -179,6 +185,9 @@ ArchOpenFile(char const* fileName, char const* mode);
 ARCH_API int64_t ArchGetFileLength(const char* fileName);
 ARCH_API int64_t ArchGetFileLength(FILE *file);
 
+/// Return a filename for this file, if one can be obtained.
+ARCH_API std::string ArchGetFileName(FILE *file);
+
 /// Returns true if the data in \c stat struct \p st indicates that the target
 /// file or directory is writable.
 ///
@@ -199,6 +208,31 @@ ARCH_API bool ArchGetModificationTime(const char* pathname, double* time);
 /// This function returns the modification time with as much precision as is
 /// available in the stat structure for the current platform.
 ARCH_API double ArchGetModificationTime(const ArchStatType& st);
+
+/// Normalizes the specified path, eliminating double slashes, etc.
+///
+/// This canonicalizes paths, removing any double slashes, and eliminiating
+/// '.', and '..' components of the path.  This emulates the behavior of
+/// os.path.normpath in Python.
+///
+/// On Windows, all backslashes are converted to forward slashes and drive
+/// specifiers (e.g., "C:") are lower-cased. If \p stripDriveSpecifier
+/// is \c true, these drive specifiers are removed from the path.
+ARCH_API std::string ArchNormPath(const std::string& path,
+                                  bool stripDriveSpecifier = false);
+
+/// Returns the canonical absolute path of the specified filename.
+///
+/// This makes the specified path absolute, by prepending the current working
+/// directory.  If the path is already absolute, it is returned unmodified.
+ARCH_API std::string ArchAbsPath(const std::string& path);
+
+/// Returns the permissions mode (mode_t) for the given pathname.
+///
+/// This function stats the given pathname and returns the permissions flags
+/// for it and returns true.  If the stat fails, returns false.
+///
+ARCH_API bool ArchGetStatMode(const char *pathname, int *mode);
 
 /// Return the path to a temporary directory for this platform.
 ///
@@ -265,21 +299,15 @@ std::string ArchMakeTmpSubdir(const std::string& tmpdir,
                               const std::string& prefix);
 
 // Helper 'deleter' for use with std::unique_ptr for file mappings.
-#if defined(ARCH_OS_WINDOWS)
-struct Arch_Unmapper {
-    ARCH_API void operator()(char *mapStart) const;
-    ARCH_API void operator()(char const *mapStart) const;
-};
-#else // assume POSIX
 struct Arch_Unmapper {
     Arch_Unmapper() : _length(~0) {}
     explicit Arch_Unmapper(size_t length) : _length(length) {}
     ARCH_API void operator()(char *mapStart) const;
     ARCH_API void operator()(char const *mapStart) const;
+    size_t GetLength() const { return _length; }
 private:
     size_t _length;
 };
-#endif
 
 /// ArchConstFileMapping and ArchMutableFileMapping are std::unique_ptr<char
 /// const *, ...> and std::unique_ptr<char *, ...> respectively.  The functions
@@ -288,21 +316,51 @@ private:
 using ArchConstFileMapping = std::unique_ptr<char const, Arch_Unmapper>;
 using ArchMutableFileMapping = std::unique_ptr<char, Arch_Unmapper>;
 
+/// Return the length of an ArchConstFileMapping.
+inline size_t
+ArchGetFileMappingLength(ArchConstFileMapping const &m) {
+    return m.get_deleter().GetLength();
+}
+
+/// Return the length of an ArchMutableFileMapping.
+inline size_t
+ArchGetFileMappingLength(ArchMutableFileMapping const &m) {
+    return m.get_deleter().GetLength();
+}
+
 /// Privately map the passed \p file into memory and return a unique_ptr to the
-/// read-only mapped contents.  The contents may not be modified.
+/// read-only mapped contents.  The contents may not be modified.  If mapping
+/// fails, return a null unique_ptr and if errMsg is not null fill it with
+/// information about the failure.
 ARCH_API
-ArchConstFileMapping ArchMapFileReadOnly(FILE *file);
+ArchConstFileMapping
+ArchMapFileReadOnly(FILE *file, std::string *errMsg=nullptr);
+
+/// \overload
+ARCH_API
+ArchConstFileMapping
+ArchMapFileReadOnly(std::string const& path, std::string *errMsg=nullptr);
 
 /// Privately map the passed \p file into memory and return a unique_ptr to the
 /// copy-on-write mapped contents.  If modified, the affected pages are
 /// dissociated from the underlying file and become backed by the system's swap
 /// or page-file storage.  Edits are not carried through to the underlying file.
+/// If mapping fails, return a null unique_ptr and if errMsg is not null fill it
+/// with information about the failure.
 ARCH_API
-ArchMutableFileMapping ArchMapFileReadWrite(FILE *file);
+ArchMutableFileMapping
+ArchMapFileReadWrite(FILE *file, std::string *errMsg=nullptr);
+
+/// \overload
+ARCH_API
+ArchMutableFileMapping
+ArchMapFileReadWrite(std::string const& path, std::string *errMsg=nullptr);
 
 enum ArchMemAdvice {
-    ArchMemAdviceWillNeed, // OS may prefetch this range.
-    ArchMemAdviceDontNeed  // OS may free resources related to this range.
+    ArchMemAdviceNormal,       // Treat range with default behavior.
+    ArchMemAdviceWillNeed,     // OS may prefetch this range.
+    ArchMemAdviceDontNeed,     // OS may free resources related to this range.
+    ArchMemAdviceRandomAccess, // Prefetching may not be beneficial.
 };
 
 /// Advise the OS regarding how the application intends to access a range of
@@ -311,6 +369,23 @@ enum ArchMemAdvice {
 /// optimization hint to the OS, and may be a no-op on some systems.
 ARCH_API
 void ArchMemAdvise(void const *addr, size_t len, ArchMemAdvice adv);
+
+/// Report whether or not the mapped virtual memory pages starting at \p addr
+/// for \p len bytes are resident in RAM.  Pages that are resident will not,
+/// when accessed, cause a page fault while those that are not will.  Return
+/// true on success and false in case of an error.  The \p addr argument must be
+/// a multiple of ArchGetPageSize().  The \p len argument need not be a multiple
+/// of the page size; it will be rounded up to the next page boundary.  Fill
+/// \p pageMap with 0s for pages not resident in memory and 1s for pages that
+/// are. The \p pageMap argument must therefore point to at least (\p len +
+/// ArchGetPageSize()-1)/ArchGetPageSize() bytes.
+///
+/// Note that currently this function is only implemented on Linux and Darwin.
+/// On Windows it currently always returns false.
+ARCH_API
+bool
+ArchQueryMappedMemoryResidency(
+    void const *addr, size_t len, unsigned char *pageMap);
 
 /// Read up to \p count bytes from \p offset in \p file into \p buffer.  The
 /// file position indicator for \p file is not changed.  Return the number of
@@ -332,8 +407,10 @@ ARCH_API
 std::string ArchReadLink(const char* path);
 
 enum ArchFileAdvice {
-    ArchFileAdviceWillNeed, // OS may prefetch this range.
-    ArchFileAdviceDontNeed  // OS may free resources related to this range.
+    ArchFileAdviceNormal,       // Treat range with default behavior.
+    ArchFileAdviceWillNeed,     // OS may prefetch this range.
+    ArchFileAdviceDontNeed,     // OS may free resources related to this range.
+    ArchFileAdviceRandomAccess, // Prefetching may not be beneficial.
 };
 
 /// Advise the OS regarding how the application intends to access a range of

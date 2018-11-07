@@ -5,6 +5,7 @@
 #include "CoreTypes.h"
 #include "Containers/UnrealString.h"
 #include "Misc/Timespan.h"
+#include "Templates/TypeHash.h"
 
 class FArchive;
 class FOutputDevice;
@@ -704,6 +705,17 @@ public:
 	friend CORE_API FArchive& operator<<(FArchive& Ar, FDateTime& DateTime)
 	{
 		return Ar << DateTime.Ticks;
+	}
+
+	/**
+	 * Serializes the given date and time from or into the specified structured archive slot.
+	 *
+	 * @param Slot The structured archive slot to serialize from or into.
+	 * @param DateTime The date and time value to serialize.
+	 */
+	friend CORE_API void operator<<(FStructuredArchive::FSlot Slot, FDateTime& DateTime)
+	{
+		return Slot << DateTime.Ticks;
 	}
 
 	/**

@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "GameFramework/OnlineReplStructs.h"
+#include "UObject/CoreNet.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
 #include "UObject/PropertyPortFlags.h"
@@ -43,7 +44,7 @@ ENUM_CLASS_FLAGS(EUniqueIdEncodingFlags);
 /** Use highest value for type for other (out of engine) oss type */
 const uint8 TypeHash_Other = 31;
 
-FArchive& operator<<( FArchive& Ar, FUniqueNetIdRepl& UniqueNetId)
+FArchive& operator<<(FArchive& Ar, FUniqueNetIdRepl& UniqueNetId)
 {
 	if (!Ar.IsPersistent() || Ar.IsNetArchive())
 	{
@@ -160,7 +161,8 @@ void FUniqueNetIdRepl::MakeReplicationData()
 			Writer << EncodingFlags;
 			if (TypeHash == TypeHash_Other)
 			{
-				Writer << Type;
+				FString TypeString = Type.ToString();
+				Writer << TypeString;
 			}
 			Writer << EncodedSize;
 
@@ -179,7 +181,8 @@ void FUniqueNetIdRepl::MakeReplicationData()
 			Writer << EncodingFlags;
 			if (TypeHash == TypeHash_Other)
 			{
-				Writer << Type;
+				FString TypeString = Type.ToString();
+				Writer << TypeString;
 			}
 			Writer << Contents;
 			//UE_LOG(LogNet, VeryVerbose, TEXT("Normal UniqueId, serializing %d bytes"), ReplicationBytes.Num());
@@ -242,7 +245,9 @@ bool FUniqueNetIdRepl::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSu
 					bool bValidTypeHash = TypeHash != 0;
 					if (TypeHash == TypeHash_Other)
 					{
-						Ar << Type;
+						FString TypeString;
+						Ar << TypeString;
+						Type = FName(*TypeString);
 						if (Ar.IsError() || Type == NAME_None)
 						{
 							bValidTypeHash = false;
@@ -322,7 +327,9 @@ bool FUniqueNetIdRepl::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSu
 				bool bValidTypeHash = TypeHash != 0;
 				if (TypeHash == TypeHash_Other)
 				{
-					Ar << Type;
+					FString TypeString;
+					Ar << TypeString;
+					Type = FName(*TypeString);
 					if (Ar.IsError() || Type == NAME_None)
 					{
 						bValidTypeHash = false;
@@ -586,7 +593,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 
 			if (EmptyIdOut.IsValid())
 			{
-				UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToString());
+				UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToDebugString());
 				bRegularSerializationSuccess = false;
 			}
 
@@ -609,14 +616,10 @@ void TestUniqueIdRepl(UWorld* InWorld)
 		{
 			bool bOutSuccess = false;
 
-			TArray<uint8> Buffer;
-			Buffer.Empty();
-
 			// Serialize In
+			FNetBitWriter TestUniqueIdWriter(16 * 1024);
 			uint8 EncodingFailures = 0;
 			{
-				FMemoryWriter TestUniqueIdWriter(Buffer);
-
 				EmptyIdIn.NetSerialize(TestUniqueIdWriter, nullptr, bOutSuccess);
 				EncodingFailures += bOutSuccess ? 0 : 1;
 				ValidIdIn.NetSerialize(TestUniqueIdWriter, nullptr, bOutSuccess);
@@ -655,7 +658,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 				// Serialize Out
 				uint8 DecodingFailures = 0;
 				{
-					FMemoryReader TestUniqueIdReader(Buffer);
+					FNetBitReader TestUniqueIdReader(nullptr, TestUniqueIdWriter.GetData(), TestUniqueIdWriter.GetNumBits());
 
 					EmptyIdOut.NetSerialize(TestUniqueIdReader, nullptr, bOutSuccess);
 					DecodingFailures += bOutSuccess ? 0 : 1;
@@ -683,7 +686,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 
 				if (EmptyIdOut.IsValid())
 				{
-					UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToString());
+					UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToDebugString());
 					bNetworkSerializationSuccess = false;
 				}
 
@@ -698,8 +701,8 @@ void TestUniqueIdRepl(UWorld* InWorld)
 				CHECK_REPL_EQUALITY(NonHexStringIdIn, NonHexStringIdOut, bNetworkSerializationSuccess);
 				CHECK_REPL_EQUALITY(UpperCaseStringIdIn, UpperCaseStringIdOut, bNetworkSerializationSuccess);
 				CHECK_REPL_EQUALITY(WayTooLongForHexEncodingIdIn, WayTooLongForHexEncodingIdOut, bNetworkSerializationSuccess);
-				CHECK_REPL_EQUALITY(CustomOSSIdIn, CustomOSSIdOut, bRegularSerializationSuccess);
-				CHECK_REPL_EQUALITY(CustomOSSEncodedIdIn, CustomOSSEncodedIdOut, bRegularSerializationSuccess);
+				CHECK_REPL_EQUALITY(CustomOSSIdIn, CustomOSSIdOut, bNetworkSerializationSuccess);
+				CHECK_REPL_EQUALITY(CustomOSSEncodedIdIn, CustomOSSEncodedIdOut, bNetworkSerializationSuccess);
 			}
 		}
 	}

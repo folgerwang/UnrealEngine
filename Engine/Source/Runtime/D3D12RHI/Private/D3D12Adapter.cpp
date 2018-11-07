@@ -6,6 +6,14 @@ D3D12Adapter.cpp:D3D12 Adapter implementation.
 
 #include "D3D12RHIPrivate.h"
 
+static TAutoConsoleVariable<int32> CVarTransientUniformBufferAllocatorSizeKB(
+	TEXT("D3D12.TransientUniformBufferAllocatorSizeKB"),
+	2 * 1024,
+	TEXT(""),
+	ECVF_ReadOnly
+);
+
+
 struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
 {
 	ED3D12CommandQueueType QueueType;
@@ -15,7 +23,7 @@ struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalF
 		: QueueType(InQueueType)
 		, Fence(InFence)
 		, Value(InValue)
-	{
+	{ 
 	}
 
 	void Execute(FRHICommandListBase& CmdList)
@@ -26,14 +34,13 @@ struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalF
 };
 
 FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
-	: Desc(DescIn)
-	, bDeviceRemoved(false)
-	, OwningRHI(nullptr)
-	, RootSignatureManager(this)
+	: OwningRHI(nullptr)
 	, bDepthBoundsTestSupported(false)
+	, bDeviceRemoved(false)
+	, Desc(DescIn)
+	, RootSignatureManager(this)
 	, PipelineStateCache(this)
 	, FenceCorePool(this)
-	, FrameFence(nullptr)
 	, DeferredDeletionQueue(this)
 	, DefaultContextRedirector(this, true, false)
 	, DefaultAsyncComputeContextRedirector(this, false, true)
@@ -48,8 +55,7 @@ FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
 	if (!FParse::Value(FCommandLine::Get(), TEXT("MaxGPUCount="), MaxGPUCount))
 	{
 		// If there is a mode token in the command line, enable multi-gpu.
-		FString GPUModeToken;
-		if (FParse::Value(FCommandLine::Get(), TEXT("MGPUMode="), GPUModeToken))
+		if (FParse::Param(FCommandLine::Get(), TEXT("AFR")))
 		{
 			MaxGPUCount = MAX_NUM_GPUS;
 		}
@@ -336,6 +342,9 @@ void FD3D12Adapter::InitializeDevices()
 		FrameFence = new FD3D12ManualFence(this, FRHIGPUMask::All(), L"Adapter Frame Fence");
 		FrameFence->CreateFence();
 
+		StagingFence = new FD3D12Fence(this, FRHIGPUMask::All(), L"Staging Fence");
+		StagingFence->CreateFence();
+
 		CreateSignatures();
 
 		//Create all of the FD3D12Devices
@@ -500,6 +509,13 @@ void FD3D12Adapter::Cleanup()
 		FrameFence.SafeRelease();
 	}
 
+	if (StagingFence)
+	{
+		StagingFence->Destroy();
+		StagingFence.SafeRelease();
+	}
+
+
 	PipelineStateCache.Close();
 	FenceCorePool.Destroy();
 }
@@ -545,6 +561,17 @@ FD3D12TemporalEffect* FD3D12Adapter::GetTemporalEffect(const FName& EffectName)
 
 	check(Effect);
 	return Effect;
+}
+
+FD3D12FastConstantAllocator& FD3D12Adapter::GetTransientUniformBufferAllocator()
+{
+	// Multi-GPU support : is using device 0 always appropriate here?
+	return *TransientUniformBufferAllocator.GetObjectForThisThread([this]() -> FD3D12FastConstantAllocator*
+	{
+		FD3D12FastConstantAllocator* Alloc = new FD3D12FastConstantAllocator(Devices[0], FRHIGPUMask::All(), CVarTransientUniformBufferAllocatorSizeKB.GetValueOnAnyThread() * 1024);
+		Alloc->Init();
+		return Alloc;
+	});
 }
 
 void FD3D12Adapter::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)

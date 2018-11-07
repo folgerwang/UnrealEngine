@@ -26,14 +26,14 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Path to the Engine folder, used to expand $(EngineDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string EngineDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference EngineDir;
 
 		/// <summary>
 		/// Path to the project folder, used to expand $(ProjectDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string ProjectDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference ProjectDir;
 
 		/// <summary>
 		/// Whether to tag the Build Products listed in receipts
@@ -60,18 +60,6 @@ namespace AutomationTool.Tasks
 		public string StagedFileType;
 
 		/// <summary>
-		/// Whether to tag the Precompiled Build Dependencies listed in receipts
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public bool PrecompiledBuildDependencies;
-
-		/// <summary>
-		/// Whether to tag the Precompiled Runtime Dependencies listed in receipts
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public bool PrecompiledRuntimeDependencies;
-
-		/// <summary>
 		/// Name of the tag to apply
 		/// </summary>
 		[TaskParameter(ValidationType = TaskParameterValidationType.TagList)]
@@ -89,9 +77,15 @@ namespace AutomationTool.Tasks
 		/// </summary>
 		TagReceiptTaskParameters Parameters;
 
-		BuildProductType BuildProductType;
+		/// <summary>
+		/// The type of build products to enumerate. May be null.
+		/// </summary>
+		Nullable<BuildProductType> BuildProductType;
 
-		StagedFileType StagedFileType;
+		/// <summary>
+		/// The type of staged files to enumerate. May be null,
+		/// </summary>
+		Nullable<StagedFileType> StagedFileType;
 
 		/// <summary>
 		/// Constructor
@@ -117,22 +111,13 @@ namespace AutomationTool.Tasks
 		/// <param name="Job">Information about the current job</param>
 		/// <param name="BuildProducts">Set of build products produced by this node.</param>
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
-		public override void Execute(JobContext Job, HashSet<FileReference
-			> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
+		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Set the Engine directory
-			DirectoryReference EngineDir = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine");
-			if (!String.IsNullOrEmpty(Parameters.EngineDir))
-			{
-				EngineDir = DirectoryReference.Combine(CommandUtils.RootDirectory, Parameters.EngineDir);
-			}
+			DirectoryReference EngineDir = Parameters.EngineDir ?? CommandUtils.EngineDirectory;
 
 			// Set the Project directory
-			DirectoryReference ProjectDir = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine");
-			if (!String.IsNullOrEmpty(Parameters.ProjectDir))
-			{
-				ProjectDir = DirectoryReference.Combine(CommandUtils.RootDirectory, Parameters.ProjectDir);
-			}
+			DirectoryReference ProjectDir = Parameters.ProjectDir ?? EngineDir;
 
 			// Resolve the input list
 			IEnumerable<FileReference> TargetFiles = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
@@ -158,10 +143,15 @@ namespace AutomationTool.Tasks
 				{
 					foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
 					{
-						if ((String.IsNullOrEmpty(Parameters.BuildProductType) && TargetReceipt.GetStageTypeFromBuildProductType(BuildProduct) == StagedFileType) || BuildProduct.Type == BuildProductType)
+						if(BuildProductType.HasValue && BuildProduct.Type != BuildProductType.Value)
 						{
-							Files.Add(BuildProduct.Path);
+							continue;
 						}
+						if(StagedFileType.HasValue && TargetReceipt.GetStageTypeFromBuildProductType(BuildProduct) != StagedFileType.Value)
+						{
+							continue;
+						}
+						Files.Add(BuildProduct.Path);
 					}
 				}
 
@@ -169,52 +159,25 @@ namespace AutomationTool.Tasks
 				{
 					foreach (RuntimeDependency RuntimeDependency in Receipt.RuntimeDependencies)
 					{
-						if (String.IsNullOrEmpty(Parameters.StagedFileType) || RuntimeDependency.Type == StagedFileType)
+						// Skip anything that doesn't match the files we want
+						if(BuildProductType.HasValue)
 						{
-							// Only add files that exist as dependencies are assumed to always exist
-							FileReference DependencyPath = RuntimeDependency.Path;
-							if (FileReference.Exists(DependencyPath))
-							{
-								Files.Add(DependencyPath);
-							}
-							else
-							{
-								CommandUtils.LogWarning("File listed as RuntimeDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
-							}
+							continue;
 						}
-					}
-				}
+						if(StagedFileType.HasValue && RuntimeDependency.Type != StagedFileType.Value)
+						{
+							continue;
+						}
 
-				if (Parameters.PrecompiledBuildDependencies)
-				{
-					foreach(FileReference PrecompiledBuildDependency in Receipt.PrecompiledBuildDependencies)
-					{
-						// Only add files that exist as dependencies are assumed to always exist
-						FileReference DependencyPath = PrecompiledBuildDependency;
+						// Check which files exist, and warn about any that don't. Ignore debug files, as they are frequently excluded for size (eg. UE4 on GitHub). This matches logic during staging.
+						FileReference DependencyPath = RuntimeDependency.Path;
 						if (FileReference.Exists(DependencyPath))
 						{
 							Files.Add(DependencyPath);
 						}
-						else
+						else if(RuntimeDependency.Type != UnrealBuildTool.StagedFileType.DebugNonUFS)
 						{
-							CommandUtils.LogWarning("File listed as PrecompiledBuildDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
-						}
-					}
-				}
-
-				if (Parameters.PrecompiledRuntimeDependencies)
-				{
-					foreach (FileReference PrecompiledRuntimeDependency in Receipt.PrecompiledRuntimeDependencies)
-					{
-						// Only add files that exist as dependencies are assumed to always exist
-						FileReference DependencyPath = PrecompiledRuntimeDependency;
-						if (FileReference.Exists(DependencyPath))
-						{
-							Files.Add(DependencyPath);
-						}
-						else
-						{
-							CommandUtils.LogWarning("File listed as PrecompiledRuntimeDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
+							CommandUtils.LogWarning("File listed as RuntimeDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
 						}
 					}
 				}

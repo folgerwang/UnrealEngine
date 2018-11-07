@@ -69,6 +69,53 @@ TSharedRef< FSlateStyleSet > FNiagaraEditorStyle::Create()
 
 	Style->Set("NiagaraEditor.StatsText", CategoryText);
 
+	// Asset picker
+	FTextBlockStyle AssetPickerAssetNameText = FTextBlockStyle(NormalText)
+		.SetColorAndOpacity(FLinearColor::White)
+		.SetFont(DEFAULT_FONT("Bold", 14))
+		.SetShadowOffset(FVector2D(0, 1))
+		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
+
+	Style->Set("NiagaraEditor.AssetPickerAssetNameText", AssetPickerAssetNameText);
+
+	FTextBlockStyle AssetPickerAssetCategoryText = FTextBlockStyle(NormalText)
+		.SetFont(DEFAULT_FONT("Regular", 10));
+
+	Style->Set("NiagaraEditor.AssetPickerAssetCategoryText", AssetPickerAssetCategoryText);
+
+	// New Asset Dialog
+	FTextBlockStyle NewAssetDialogOptionText = FTextBlockStyle(NormalText)
+		.SetFont(DEFAULT_FONT("Bold", 11));
+
+	Style->Set("NiagaraEditor.NewAssetDialog.OptionText", NewAssetDialogOptionText);
+
+	FTextBlockStyle NewAssetDialogHeaderText = FTextBlockStyle(NormalText)
+		.SetColorAndOpacity(FLinearColor::White)
+		.SetFont(DEFAULT_FONT("Bold", 10))
+		.SetShadowOffset(FVector2D(0, 1))
+		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
+
+	Style->Set("NiagaraEditor.NewAssetDialog.HeaderText", NewAssetDialogHeaderText);
+
+	FTextBlockStyle NewAssetDialogSubHeaderText = FTextBlockStyle(NormalText)
+		.SetColorAndOpacity(FLinearColor::White)
+		.SetFont(DEFAULT_FONT("Bold", 10))
+		.SetShadowOffset(FVector2D(0, 1))
+		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
+
+	Style->Set("NiagaraEditor.NewAssetDialog.SubHeaderText", NewAssetDialogSubHeaderText);
+
+	Style->Set("NiagaraEditor.NewAssetDialog.AddButton", FButtonStyle()
+		.SetNormal(BOX_CORE_BRUSH("Common/FlatButton", 2.0f / 8.0f, FLinearColor(0, 0, 0, .25f)))
+		.SetHovered(BOX_CORE_BRUSH("Common/FlatButton", 2.0f / 8.0f, FEditorStyle::GetSlateColor("SelectionColor")))
+		.SetPressed(BOX_CORE_BRUSH("Common/FlatButton", 2.0f / 8.0f, FEditorStyle::GetSlateColor("SelectionColor_Pressed")))
+	);
+
+	Style->Set("NiagaraEditor.NewAssetDialog.SubBorderColor", FLinearColor(FColor(48, 48, 48)));
+	Style->Set("NiagaraEditor.NewAssetDialog.ActiveOptionBorderColor", FLinearColor(FColor(96, 96, 96)));
+
+	Style->Set("NiagaraEditor.NewAssetDialog.SubBorder", new BOX_CORE_BRUSH("Common/GroupBorderLight", FMargin(4.0f / 16.0f)));
+
 	// Emitter Header
 	FTextBlockStyle HeadingText = FTextBlockStyle(NormalText)
 		.SetFont(DEFAULT_FONT("Regular", 14))
@@ -90,7 +137,15 @@ TSharedRef< FSlateStyleSet > FNiagaraEditorStyle::Create()
 		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
 	
 	Style->Set("NiagaraEditor.AttributeSpreadsheetTabText", TabText);
+
+	FTextBlockStyle SubduedHeadingText = FTextBlockStyle(NormalText)
+		.SetFont(DEFAULT_FONT("Regular", 14))
+		.SetShadowOffset(FVector2D(0, 1))
+		.SetColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f)))
+		.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f));
 	
+	Style->Set("NiagaraEditor.SubduedHeadingTextBox", SubduedHeadingText);
+
 	// Parameters
 	FSlateFontInfo ParameterFont = DEFAULT_FONT("Regular", 8);
 
@@ -156,9 +211,13 @@ TSharedRef< FSlateStyleSet > FNiagaraEditorStyle::Create()
 	Style->Set("NiagaraEditor.SimulationOptions.Small", new IMAGE_PLUGIN_BRUSH("Icons/Commands/icon_simulationOptions_40x", Icon20x20));
 
 	Style->Set("Niagara.CompileStatus.Unknown", new IMAGE_BRUSH("Icons/CompileStatus_Working", Icon40x40));
+	Style->Set("Niagara.CompileStatus.Unknown.Small", new IMAGE_BRUSH("Icons/CompileStatus_Working", Icon20x20));
 	Style->Set("Niagara.CompileStatus.Error",   new IMAGE_BRUSH("Icons/CompileStatus_Fail", Icon40x40));
+	Style->Set("Niagara.CompileStatus.Error.Small", new IMAGE_BRUSH("Icons/CompileStatus_Fail", Icon20x20));
 	Style->Set("Niagara.CompileStatus.Good",    new IMAGE_BRUSH("Icons/CompileStatus_Good", Icon40x40));
+	Style->Set("Niagara.CompileStatus.Good.Small", new IMAGE_BRUSH("Icons/CompileStatus_Good", Icon20x20));
 	Style->Set("Niagara.CompileStatus.Warning", new IMAGE_BRUSH("Icons/CompileStatus_Warning", Icon40x40));
+	Style->Set("Niagara.CompileStatus.Warning.Small", new IMAGE_BRUSH("Icons/CompileStatus_Warning", Icon20x20));
 	Style->Set("Niagara.Asset.ReimportAsset.Needed", new IMAGE_BRUSH("Icons/icon_Reimport_Needed_40x", Icon40x40));
 	Style->Set("Niagara.Asset.ReimportAsset.Default", new IMAGE_BRUSH("Icons/icon_Reimport_40x", Icon40x40));
 

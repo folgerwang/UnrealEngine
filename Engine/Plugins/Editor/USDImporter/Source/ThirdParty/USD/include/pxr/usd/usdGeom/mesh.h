@@ -68,10 +68,15 @@ class SdfAssetPath;
 /// 
 /// \section UsdGeom_Mesh_Normals A Note About Normals
 /// 
-/// Although the \em normals attribute inherited from PointBased can be authored
-/// on any mesh, they are almost never needed for subdivided meshes, and only
-/// add rendering cost.  You may consider only authoring them for polygonal
-/// meshes.
+/// Normals should not be authored on a subdivided mesh, since subdivision
+/// algorithms define their own normals. They should only be authored for
+/// polygonal meshes.
+/// 
+/// The 'normals' attribute inherited from UsdGeomPointBased is not a generic
+/// primvar, but the number of elements in this attribute will be determined by
+/// its 'interpolation'.  See \ref UsdGeomPointBased::GetNormalsInterpolation() .
+/// If 'normals' and 'primvars:normals' are both specified, the latter has
+/// precedence.
 ///
 /// For any described attribute \em Fallback \em Value or \em Allowed \em Values below
 /// that are text/tokens, the actual token is published and defined in \ref UsdGeomTokens.
@@ -81,11 +86,10 @@ class SdfAssetPath;
 class UsdGeomMesh : public UsdGeomPointBased
 {
 public:
-    /// Compile-time constant indicating whether or not this class corresponds
-    /// to a concrete instantiable prim type in scene description.  If this is
-    /// true, GetStaticPrimDefinition() will return a valid prim definition with
-    /// a non-empty typeName.
-    static const bool IsConcrete = true;
+    /// Compile time constant representing what kind of schema this class is.
+    ///
+    /// \sa UsdSchemaType
+    static const UsdSchemaType schemaType = UsdSchemaType::ConcreteTyped;
 
     /// Construct a UsdGeomMesh on UsdPrim \p prim .
     /// Equivalent to UsdGeomMesh::Get(prim.GetStage(), prim.GetPath())
@@ -153,6 +157,13 @@ public:
     USDGEOM_API
     static UsdGeomMesh
     Define(const UsdStagePtr &stage, const SdfPath &path);
+
+protected:
+    /// Returns the type of schema this class belongs to.
+    ///
+    /// \sa UsdSchemaType
+    USDGEOM_API
+    virtual UsdSchemaType _GetSchemaType() const;
 
 private:
     // needs to invoke _GetStaticTfType.
@@ -296,6 +307,32 @@ public:
     /// the default for \p writeSparsely is \c false.
     USDGEOM_API
     UsdAttribute CreateFaceVaryingLinearInterpolationAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
+
+public:
+    // --------------------------------------------------------------------- //
+    // TRIANGLESUBDIVISIONRULE 
+    // --------------------------------------------------------------------- //
+    /// Specifies what weights are used during triangle subdivision for
+    /// the Catmull-Clark scheme. Valid values are "catmullClark" (the default) 
+    /// and "smooth".
+    /// 
+    /// See http://graphics.pixar.com/opensubdiv/docs/subdivision_surfaces.html#triangle-subdivision-rule
+    ///
+    /// \n  C++ Type: TfToken
+    /// \n  Usd Type: SdfValueTypeNames->Token
+    /// \n  Variability: SdfVariabilityVarying
+    /// \n  Fallback Value: catmullClark
+    /// \n  \ref UsdGeomTokens "Allowed Values": [catmullClark, smooth]
+    USDGEOM_API
+    UsdAttribute GetTriangleSubdivisionRuleAttr() const;
+
+    /// See GetTriangleSubdivisionRuleAttr(), and also 
+    /// \ref Usd_Create_Or_Get_Property for when to use Get vs Create.
+    /// If specified, author \p defaultValue as the attribute's default,
+    /// sparsely (when it makes sense to do so) if \p writeSparsely is \c true -
+    /// the default for \p writeSparsely is \c false.
+    USDGEOM_API
+    UsdAttribute CreateTriangleSubdivisionRuleAttr(VtValue const &defaultValue = VtValue(), bool writeSparsely=false) const;
 
 public:
     // --------------------------------------------------------------------- //
@@ -453,20 +490,25 @@ public:
     // ===================================================================== //
     // --(BEGIN CUSTOM CODE)--
 
+    /// Validate the topology of a mesh.
+    /// This validates that the sum of \p faceVertexCounts is equal to the size
+    /// of the \p faceVertexIndices array, and that all face vertex indices in
+    /// the \p faceVertexIndices array are in the range [0, numPoints).
+    /// Returns true if the topology is valid, or false otherwise.
+    /// If the topology is invalid and \p reason is non-null, an error message
+    /// describing the validation error will be set.
+    USDGEOM_API
+    static bool ValidateTopology(const VtIntArray& faceVertexIndices,
+                                 const VtIntArray& faceVertexCounts,
+                                 size_t numPoints,
+                                 std::string* reason=nullptr);
+
 public:
     /// \var const float SHARPNESS_INFINITE
     /// As an element of a 'creaseSharpness' or 'cornerSharpness' array,
     /// indicates that the crease or corner is perfectly sharp.
     USDGEOM_API
     static const float SHARPNESS_INFINITE;
-
-    // A transition API which can read both the new (faceVaryingLinearInterpolation)
-    // and old(faceVaryingInterpolateBoundary) attributes, but only returns values
-    // in the new form. This aims to limit the number of consumers which need to 
-    // handle both sets of values.
-    USDGEOM_API
-    TfToken GetFaceVaryingLinearInterpolation(
-        UsdTimeCode time=UsdTimeCode::Default()) const; 
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

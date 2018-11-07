@@ -26,7 +26,7 @@ struct FAndroidTypes : public FGenericPlatformTypes
 
 typedef FAndroidTypes FPlatformTypes;
 
-#define MAX_PATH						PATH_MAX
+#define ANDROID_MAX_PATH						PATH_MAX
 
 // Base defines, must define these for the platform, there are no defaults
 #define PLATFORM_DESKTOP				0
@@ -39,7 +39,7 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR			1
 #define PLATFORM_HAS_BSD_TIME						1
 #define PLATFORM_USE_PTHREADS						1
-#define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED		ANDROID_MAX_PATH
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING			1
 #define PLATFORM_REQUIRES_FILESERVER				1
 #define PLATFORM_TCHAR_IS_CHAR16					1
@@ -55,7 +55,7 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS			1
 #define PLATFORM_UI_NEEDS_TOOLTIPS					0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES			0
-#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		0 // movies will start before engine is initalized
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		1 // movies will start before engine is initalized
 
 #if defined(EXPERIMENTAL_OPENGL_RHITHREAD) && EXPERIMENTAL_OPENGL_RHITHREAD
 	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			0
@@ -77,6 +77,9 @@ typedef FAndroidTypes FPlatformTypes;
 // some android platform overrides that sub-platforms can disable
 #ifndef USE_ANDROID_JNI
 	#define USE_ANDROID_JNI							1
+#endif
+#ifndef USE_ANDROID_AUDIO
+	#define USE_ANDROID_AUDIO						1
 #endif
 #ifndef USE_ANDROID_FILE
 	#define USE_ANDROID_FILE						1
@@ -118,7 +121,6 @@ typedef FAndroidTypes FPlatformTypes;
 // Alignment.
 #define GCC_PACK(n)			__attribute__((packed,aligned(n)))
 #define GCC_ALIGN(n)		__attribute__((aligned(n)))
-#define REQUIRES_ALIGNED_ACCESS 1
 
 // operator new/delete operators
 // As of 10.9 we need to use _NOEXCEPT & cxx_noexcept compatible definitions

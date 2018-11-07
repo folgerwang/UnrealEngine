@@ -156,7 +156,7 @@ void SAssetView::Construct( const FArguments& InArgs )
 
 	// Get desktop metrics
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplication::Get().GetDisplayMetrics( DisplayMetrics );
+	FSlateApplication::Get().GetCachedDisplayMetrics( DisplayMetrics );
 
 	const FVector2D DisplaySize(
 		DisplayMetrics.PrimaryDisplayWorkAreaRect.Right - DisplayMetrics.PrimaryDisplayWorkAreaRect.Left,
@@ -945,6 +945,12 @@ void SAssetView::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 	ProcessRecentlyLoadedOrChangedAssets();
 
 	CalculateThumbnailHintColorAndOpacity();
+
+	if (FSlateApplication::Get().GetActiveModalWindow().IsValid())
+	{
+		// If we're in a model window then we need to tick the thumbnail pool in order for thumbnails to render correctly.
+		AssetThumbnailPool->Tick(InDeltaTime);
+	}
 
 	if ( bPendingUpdateThumbnails )
 	{
@@ -3942,6 +3948,12 @@ TSharedPtr<SWidget> SAssetView::OnGetContextMenuContent()
 {
 	if ( CanOpenContextMenu() )
 	{
+		if (IsRenamingAsset())
+		{
+			RenamingAsset.Pin()->RenameCanceledEvent.ExecuteIfBound();
+			RenamingAsset.Reset();
+		}
+
 		const TArray<FString> SelectedFolders = GetSelectedFolders();
 		if(SelectedFolders.Num() > 0)
 		{

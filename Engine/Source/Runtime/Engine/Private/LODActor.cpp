@@ -18,6 +18,7 @@
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
 #include "Engine/HLODProxy.h"
+#include "UObject/PropertyPortFlags.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -747,23 +748,25 @@ const bool ALODActor::HasValidSubActors() const
 	{
 		if (SubActor)
 		{
-			TInlineComponentArray<UStaticMeshComponent*> Components;
-			SubActor->GetComponents(/*out*/ Components);
-
 #if WITH_EDITOR
 			FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+#endif
 
-			for (UStaticMeshComponent* Component : Components)
+			for (UActorComponent* Comp : GetComponents())
 			{
-				if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD(LODLevel - 1))
+				if (UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Comp))
 				{
+#if WITH_EDITOR
+					if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD(LODLevel - 1))
+					{
+						++NumMeshes;
+					}
+#else
 					++NumMeshes;
+#endif
 				}
 			}
-#else
-			NumMeshes += Components.Num();
-#endif
 
 			if (NumMeshes > 0)
 			{
@@ -972,6 +975,13 @@ void ALODActor::OnCVarsChanged()
 
 void ALODActor::Serialize(FArchive& Ar)
 {
+#if WITH_EDITOR
+	if (Ar.GetPortFlags() & PPF_DuplicateForPIE && Ar.IsSaving())
+	{
+		Key = UHLODProxy::GenerateKeyForActor(this);
+	}
+#endif
+
 	Super::Serialize(Ar);
 #if WITH_EDITOR
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);

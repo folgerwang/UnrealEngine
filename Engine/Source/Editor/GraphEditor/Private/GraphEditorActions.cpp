@@ -100,9 +100,61 @@ void FGraphEditorCommandsImpl::RegisterCommands()
 	UI_COMMAND( ZoomOut, "Zoom Out", "Zoom out from the graph editor", EUserInterfaceActionType::Button, FInputChord(EKeys::Subtract))
 
 	UI_COMMAND( GoToDocumentation, "View Documentation", "View documentation for this node.", EUserInterfaceActionType::Button, FInputChord());
+
+	// Map quick jump index to command key bindings.
+	TArray< FKey, TInlineAllocator<10> > NumberKeys;
+	NumberKeys.Add( EKeys::Zero );
+	NumberKeys.Add( EKeys::One );
+	NumberKeys.Add( EKeys::Two );
+	NumberKeys.Add( EKeys::Three );
+	NumberKeys.Add( EKeys::Four );
+	NumberKeys.Add( EKeys::Five );
+	NumberKeys.Add( EKeys::Six );
+	NumberKeys.Add( EKeys::Seven );
+	NumberKeys.Add( EKeys::Eight );
+	NumberKeys.Add( EKeys::Nine );
+
+	const int32 NumQuickJumpCommands = NumberKeys.Num();
+	QuickJumpCommands.Reserve(NumQuickJumpCommands);
+
+	for (int32 QuickJumpIndex = 0; QuickJumpIndex < NumQuickJumpCommands; ++QuickJumpIndex)
+	{
+		const FText QuickJumpIndexText = FText::AsNumber(QuickJumpIndex);
+
+		FQuickJumpCommandInfo QuickJumpCommandInfo;
+
+		QuickJumpCommandInfo.QuickJump =
+			FUICommandInfoDecl(
+				this->AsShared(), //Command class
+				FName(*FString::Printf(TEXT("QuickJump%i"), QuickJumpIndex)), //CommandName
+				FText::Format(LOCTEXT("QuickJump", "Quick Jump {0}"), QuickJumpIndexText), //Localized label
+				FText::Format(LOCTEXT("QuickJump_ToolTip", "Jump to the location and zoom level bound to {0}"), QuickJumpIndexText))//Localized tooltip
+			.UserInterfaceType(EUserInterfaceActionType::Button) //interface type
+			.DefaultChord(FInputChord(EModifierKey::Shift, NumberKeys[QuickJumpIndex])); //default chord
+
+		QuickJumpCommandInfo.SetQuickJump =
+			FUICommandInfoDecl(
+				this->AsShared(), //Command class
+				FName(*FString::Printf(TEXT("SetQuickJump%i"), QuickJumpIndex)), //CommandName
+				FText::Format(LOCTEXT("SetQuickJump", "Set Quick Jump {0}"), QuickJumpIndexText), //Localized label
+				FText::Format(LOCTEXT("SetQuickJump_ToolTip", "Save the graph's current location and zoom level as quick jump {0}"), QuickJumpIndexText))//Localized tooltip
+			.UserInterfaceType(EUserInterfaceActionType::Button) //interface type
+			.DefaultChord(FInputChord(EModifierKey::Control, NumberKeys[QuickJumpIndex])); //default chord
+
+		QuickJumpCommandInfo.ClearQuickJump =
+			FUICommandInfoDecl(
+				this->AsShared(), //Command class
+				FName(*FString::Printf(TEXT("ClearQuickJump%i"), QuickJumpIndex)), //CommandName
+				FText::Format(LOCTEXT("ClearQuickJump", "Clear Quick Jump {0}"), QuickJumpIndexText), //Localized label
+				FText::Format(LOCTEXT("ClearQuickJump_ToolTip", "Clear the saved location and zoom level at quick jump {0}"), QuickJumpIndexText))//Localized tooltip
+			.UserInterfaceType(EUserInterfaceActionType::Button) //interface type
+			.DefaultChord(FInputChord()); //default chord 
+
+		QuickJumpCommands.Add(QuickJumpCommandInfo);
+	}
+
+	UI_COMMAND( ClearAllQuickJumps, "Clear All Quick Jumps", "Clear all quick jump bindings", EUserInterfaceActionType::Button, FInputChord() );
 }
-
-
 
 void FGraphEditorCommands::Register()
 {

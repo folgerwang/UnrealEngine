@@ -17,6 +17,7 @@ namespace FAndroidAppEntry
 
 	void DestroyWindow();
 	void ReleaseEGL();
+	void OnPauseEvent();
 }
 
 struct FPlatformOpenGLContext;

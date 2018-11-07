@@ -7,10 +7,11 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Physics/PhysicsFiltering.h"
 #include "PhysXPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 DEFINE_LOG_CATEGORY(LogVehicles);
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 
 DECLARE_STATS_GROUP(TEXT("PhysXVehicleManager"), STATGROUP_PhysXVehicleManager, STATGROUP_Advanced);
 DECLARE_CYCLE_STAT(TEXT("PxVehicleSuspensionRaycasts"), STAT_PhysXVehicleManager_PxVehicleSuspensionRaycasts, STATGROUP_PhysXVehicleManager);
@@ -87,7 +88,7 @@ FPhysXVehicleManager::FPhysXVehicleManager(FPhysScene* PhysScene, uint32 SceneTy
 #endif
 {
 	// Save pointer to PhysX scene
-	Scene = PhysScene->GetPhysXScene(SceneType);
+	Scene = PhysScene->GetPxScene(SceneType);
 
 	// Set up delegates
 	OnPhysScenePreTickHandle = PhysScene->OnPhysScenePreTick.AddRaw(this, &FPhysXVehicleManager::PreTick);

@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
 
 #define AES_BLOCK_SIZE 16
 
@@ -16,7 +17,9 @@ struct CORE_API FAES
 	 */
 	struct FAESKey
 	{
-		uint8 Key[32];
+		static const int32 KeySize = 32;
+
+		uint8 Key[KeySize];
 
 		FAESKey()
 		{
@@ -26,7 +29,7 @@ struct CORE_API FAES
 		bool IsValid() const
 		{
 			uint32* Words = (uint32*)Key;
-			for (int32 Index = 0; Index < sizeof(Key) / 4; ++Index)
+			for (int32 Index = 0; Index < KeySize / 4; ++Index)
 			{
 				if (Words[Index] != 0)
 				{
@@ -38,7 +41,12 @@ struct CORE_API FAES
 
 		void Reset()
 		{
-			FMemory::Memset(Key, 0, sizeof(Key));
+			FMemory::Memset(Key, 0, KeySize);
+		}
+
+		bool operator == (const FAESKey& Other) const
+		{
+			return FMemory::Memcmp(Key, Other.Key, KeySize) == 0;
 		}
 	};
 

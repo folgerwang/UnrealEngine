@@ -60,6 +60,11 @@ public:
 	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() = 0;
 
 	/**
+	 * Cast this player instance as a UObject if possible
+	 */
+	virtual UObject* AsUObject() { return nullptr; }
+
+	/**
 	 * Whether this player can update the camera cut
 	 */
 	virtual bool CanUpdateCameraCut() const { return true; }
@@ -202,6 +207,20 @@ public:
 	FGuid FindObjectId(UObject& InObject, FMovieSceneSequenceIDRef SequenceID)
 	{
 		return State.FindObjectId(InObject, SequenceID, *this);
+	}
+
+	/**
+	* Attempt to find the object binding ID for the specified object, in the specified sequence
+	* @note: Does not clear the existing cache
+	*
+	* @param InObject 			The object to find a GUID for
+	* @param SequenceID 		The sequence ID to search within
+	*
+	* @return The guid of the object's binding, or zero guid if it was not found
+	*/
+	FGuid FindCachedObjectId(UObject& InObject, FMovieSceneSequenceIDRef SequenceID)
+	{
+		return State.FindCachedObjectId(InObject, SequenceID, *this);
 	}
 
 	/**

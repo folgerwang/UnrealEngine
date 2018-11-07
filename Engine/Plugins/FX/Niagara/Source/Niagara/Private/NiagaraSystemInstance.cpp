@@ -46,8 +46,10 @@ FNiagaraSystemInstance::FNiagaraSystemInstance(UNiagaraComponent* InComponent)
 	, bForceSolo(false)
 	, bPendingSpawn(false)
 	, bHasTickingEmitters(true)
+	, bPaused(false)
 	, RequestedExecutionState(ENiagaraExecutionState::Complete)
 	, ActualExecutionState(ENiagaraExecutionState::Complete)
+	, bDataInterfacesInitialized(false)
 {
 	SystemBounds.Init();
 }
@@ -274,7 +276,6 @@ void FNiagaraSystemInstance::Activate(EResetMode InResetMode)
 
 void FNiagaraSystemInstance::Deactivate(bool bImmediate)
 {
-
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemDeactivate);
 	if (IsComplete())
 	{
@@ -335,6 +336,27 @@ void FNiagaraSystemInstance::Complete()
 	}
 }
 
+void FNiagaraSystemInstance::SetPaused(bool bInPaused)
+{
+	if (bInPaused == bPaused)
+	{
+		return;
+	}
+	
+	FNiagaraSystemSimulation* SystemSim = GetSystemSimulation().Get();
+	check(SystemSim);
+	if (bInPaused)
+	{
+		SystemSim->PauseInstance(this);
+	}
+	else
+	{
+		SystemSim->UnpauseInstance(this);
+	}
+
+	bPaused = bInPaused;
+}
+
 void FNiagaraSystemInstance::Reset(FNiagaraSystemInstance::EResetMode Mode, bool bBindParams)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemReset);
@@ -351,6 +373,8 @@ void FNiagaraSystemInstance::Reset(FNiagaraSystemInstance::EResetMode Mode, bool
 	}
 
 	Component->LastRenderTime = Component->GetWorld()->GetTimeSeconds();
+
+	SetPaused(false);
 
 	if (SystemSim)
 	{
@@ -806,7 +830,7 @@ void FNiagaraSystemInstance::InitDataInterfaces()
 
 	DataInterfaceInstanceData.SetNumUninitialized(InstanceDataSize);
 
-	bool bOk = true;
+	bDataInterfacesInitialized = true;
 	for (TPair<TWeakObjectPtr<UNiagaraDataInterface>, int32>& Pair : DataInterfaceInstanceDataOffsets)
 	{
 		if (UNiagaraDataInterface* Interface = Pair.Key.Get())
@@ -815,7 +839,7 @@ void FNiagaraSystemInstance::InitDataInterfaces()
 
 			//Ideally when we make the batching changes, we can keep the instance data in big single type blocks that can all be updated together with a single virtual call.
 			bool bResult = Pair.Key->InitPerInstanceData(&DataInterfaceInstanceData[Pair.Value], this);
-			bOk &= bResult;
+			bDataInterfacesInitialized &= bResult;
 			if (!bResult)
 			{
 				UE_LOG(LogNiagara, Error, TEXT("Error initializing data interface \"%s\" for system. %u | %s"), *Interface->GetPathName(), Component, *Component->GetAsset()->GetName());
@@ -824,11 +848,11 @@ void FNiagaraSystemInstance::InitDataInterfaces()
 		else
 		{
 			UE_LOG(LogNiagara, Error, TEXT("A data interface currently in use by an System has been destroyed."));
-			bOk = false;
+			bDataInterfacesInitialized = false;
 		}
 	}
 
-	if (!bOk && (!IsComplete() && !IsPendingSpawn()))
+	if (!bDataInterfacesInitialized && (!IsComplete() && !IsPendingSpawn()))
 	{
 		//Some error initializing the data interfaces so disable until we're explicitly reinitialized.
 		UE_LOG(LogNiagara, Error, TEXT("Error initializing data interfaces. Completing system. %u | %s"), Component, *Component->GetAsset()->GetName());

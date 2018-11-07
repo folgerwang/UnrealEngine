@@ -29,6 +29,20 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 , ParallelCommandLists(0)
 , RuntimeDebuggingLevel(EMetalDebugLevelOff)
 {
+	int32 MaxShaderVersion = 0;
+#if PLATFORM_MAC
+	int32 DefaultMaxShaderVersion = 2;
+    const TCHAR* const Settings = TEXT("/Script/MacTargetPlatform.MacTargetSettings");
+#else
+	int32 DefaultMaxShaderVersion = 0;
+    const TCHAR* const Settings = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
+#endif
+    if(!GConfig->GetInt(Settings, TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
+    {
+        MaxShaderVersion = DefaultMaxShaderVersion;
+    }
+	ValidateVersion(MaxShaderVersion);
+
 	if(MaxNumCommandBuffers == 0)
 	{
 		CommandQueue = Device.NewCommandQueue();
@@ -38,7 +52,6 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		CommandQueue = Device.NewCommandQueue(MaxNumCommandBuffers);
 	}
 	check(CommandQueue);
-	bool bNoMetalv2 = FParse::Param(FCommandLine::Get(), TEXT("nometalv2"));
 #if PLATFORM_IOS
 	NSOperatingSystemVersion Vers = [[NSProcessInfo processInfo] operatingSystemVersion];
 	if(Vers.majorVersion >= 9)
@@ -47,9 +60,41 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 
 #if PLATFORM_TVOS
         Features &= ~(EMetalFeaturesSetBytes);
-		if(!bNoMetalv2 && [Device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v2])
+		if(Device.SupportsFeatureSet(mtlpp::FeatureSet::tvOS_GPUFamily1_v2))
 		{
-			Features |= EMetalFeaturesStencilView | EMetalFeaturesGraphicsUAVs;
+			Features |= EMetalFeaturesStencilView | EMetalFeaturesGraphicsUAVs | EMetalFeaturesFunctionConstants | EMetalFeaturesMemoryLessResources;
+		}
+		
+		if(Device.SupportsFeatureSet(mtlpp::FeatureSet::tvOS_GPUFamily2_v1))
+		{
+			Features |= EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesMSAADepthResolve | EMetalFeaturesTessellation | EMetalFeaturesMSAAStoreAndResolve;
+		}
+		
+		if(Vers.majorVersion > 10)
+		{
+			Features |= EMetalFeaturesGPUCommandBufferTimes;
+			Features |= EMetalFeaturesLinearTextures;
+			Features |= EMetalFeaturesPrivateBufferSubAllocation;
+			Features |= EMetalFeaturesDeferredStoreActions | EMetalFeaturesCombinedDepthStencil;
+			
+			if(Vers.majorVersion >= 11)
+			{
+				Features |= EMetalFeaturesGPUCaptureManager;
+				
+				if (MaxShaderVersion >= 3)
+				{
+					Features |= EMetalFeaturesLinearTextureUAVs;
+				}
+				if (Vers.majorVersion >= 12)
+				{
+					Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
+					
+					if (MaxShaderVersion >= 4)
+					{
+						Features |= EMetalFeaturesTextureBuffers;
+					}
+				}
+			}
 		}
 #else
 		if ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1])
@@ -57,32 +102,44 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			Features |= EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesMSAADepthResolve;
 		}
 		
-		if(!bNoMetalv2 && ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3]))
+		if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3])
 		{
 			Features |= EMetalFeaturesStencilView | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesMemoryLessResources /*| EMetalFeaturesHeaps | EMetalFeaturesFences*/;
 		}
 		
-		if(!bNoMetalv2 && [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
+		if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
 		{
 			Features |= EMetalFeaturesTessellation | EMetalFeaturesMSAAStoreAndResolve;
 		}
 		
 		if(Vers.majorVersion > 10 || (Vers.majorVersion == 10 && Vers.minorVersion >= 3))
         {
-            // This isn't currently working, with GPUStartTime and GPUStopTime usually coming back as zero.
-            // The docs say this means the GPU isn't finished with the command buffer yet, but we are running
-            // in the completed handler and the status is MTLCommandBufferStatusCompleted, so it has to be
-            // finished. My guess is that the command buffer is empty so the GPU isn't executing it.
-            //Features |= EMetalFeaturesGPUCommandBufferTimes;
-            
+            Features |= EMetalFeaturesGPUCommandBufferTimes;
+
 			Features |= EMetalFeaturesLinearTextures;
 			// InjectCurves() does not work with this
 			//Features |= EMetalFeaturesEfficientBufferBlits;
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 			
-			if(!bNoMetalv2 && ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3]))
+			if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3])
 			{
 				Features |= EMetalFeaturesDeferredStoreActions | EMetalFeaturesCombinedDepthStencil;
+			}
+			
+			// Turn on Linear Texture UAVs! Avoids the need to have function-constants which reduces initial runtime shader compile time
+			if (MaxShaderVersion >= 3 && Vers.majorVersion >= 11)
+			{
+				Features |= EMetalFeaturesLinearTextureUAVs;
+			}
+			
+			// Turn on Texture Buffers! These are faster on the GPU as we don't need to do out-of-bounds tests but require Metal 2.1 and macOS 10.14
+			if (Vers.majorVersion >= 12)
+			{
+				Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
+				if (MaxShaderVersion >= 4)
+				{
+					Features |= EMetalFeaturesTextureBuffers;
+				}
 			}
         }
 		
@@ -103,7 +160,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 	{
 		Features |= EMetalFeaturesSetBufferOffset;
 	}
-	if (!FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2))
+	if (Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2))
     {
         Features |= EMetalFeaturesStencilView | EMetalFeaturesDepth16 | EMetalFeaturesTessellation | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesDeferredStoreActions | EMetalFeaturesMSAADepthResolve | EMetalFeaturesMSAAStoreAndResolve;
         
@@ -125,6 +182,22 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 	        if (!DeviceName.Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
 	        {
 				Features |= EMetalFeaturesPrivateBufferSubAllocation;
+			}
+		}
+
+		// Turn on Linear Texture UAVs! Avoids the need to have function-constants which reduces initial runtime shader compile time
+		if (MaxShaderVersion >= 3 && FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
+		{
+			Features |= EMetalFeaturesLinearTextureUAVs;
+		}
+
+		// Turn on Texture Buffers! These are faster on the GPU as we don't need to do out-of-bounds tests but require Metal 2.1 and macOS 10.14
+		if (FPlatformMisc::MacOSXVersionCompare(10,14,0) >= 0)
+		{
+			Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
+			if (MaxShaderVersion >= 4)
+			{
+				Features |= EMetalFeaturesTextureBuffers;
 			}
 		}
     }
@@ -159,20 +232,6 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 	{
 		Features |= EMetalFeaturesGPUTrace;
 	}
-    
-    int32 MaxShaderVersion = 0;
-#if PLATFORM_MAC
-	int32 DefaultMaxShaderVersion = 2;
-    const TCHAR* const Settings = TEXT("/Script/MacTargetPlatform.MacTargetSettings");
-#else
-	int32 DefaultMaxShaderVersion = 0;
-    const TCHAR* const Settings = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
-#endif
-    if(!GConfig->GetInt(Settings, TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
-    {
-        MaxShaderVersion = DefaultMaxShaderVersion;
-    }
-    ValidateVersion(MaxShaderVersion);
 	
 #if METAL_STATISTICS
 	if (FParse::Param(FCommandLine::Get(),TEXT("metalstats")))
@@ -209,11 +268,11 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		{
 			PermittedOptions |= mtlpp::ResourceOptions::StorageModeMemoryless;
 		}
+#endif
 		if (Features & EMetalFeaturesFences)
 		{
 			PermittedOptions |= mtlpp::ResourceOptions::HazardTrackingModeUntracked;
 		}
-#endif
 	}
 }
 
@@ -235,6 +294,7 @@ mtlpp::CommandBuffer FMetalCommandQueue::CreateCommandBuffer(void)
 #else
 	static bool bUnretainedRefs = !FParse::Param(FCommandLine::Get(),TEXT("metalretainrefs"));
 #endif
+	
 	mtlpp::CommandBuffer CmdBuffer;
 	@autoreleasepool
 	{
@@ -278,7 +338,6 @@ void FMetalCommandQueue::SubmitCommandBuffers(TArray<mtlpp::CommandBuffer> Buffe
 	ParallelCommandLists |= (1 << Index);
 	if (ParallelCommandLists == ((1 << Count) - 1))
 	{
-		GetMetalDeviceContext().SubmitCommandsHint();
 		for (uint32 i = 0; i < Count; i++)
 		{
 			TArray<mtlpp::CommandBuffer>& CmdBuffers = CommandBuffers[i];
@@ -306,7 +365,6 @@ mtlpp::Fence FMetalCommandQueue::CreateFence(ns::String const& Label) const
 	{
 		FMetalDebugFence* Fence = [[FMetalDebugFence new] autorelease];
 		Fence.Inner = InternalFence;
-		[InternalFence release];
 		InternalFence = Fence;
 		Fence.label = Label;
 	}

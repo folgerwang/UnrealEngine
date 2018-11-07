@@ -783,6 +783,11 @@ public:
 	bool ExecuteNetworkCommands();
 
 	/**
+	 * Dequeue all latent and network commands
+	 */
+	void DequeueAllCommands();
+
+	/**
 	 * Load any modules that are not loaded by default and have test classes in them
 	 */
 	void LoadTestModules();
@@ -1250,7 +1255,7 @@ public:
 
 	void TestEqual(const FString& Description, const TCHAR* A, const TCHAR* B)
 	{
-		if (A != B)
+		if (FCString::Strcmp(A,B) != 0)
 		{
 			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, A, B), 1);
 		}
@@ -1258,7 +1263,7 @@ public:
 
 	void TestEqual(const FString& Description, const TCHAR* A, const FString& B)
 	{
-		if (A != B)
+		if (FCString::Strcmp(A, *B) != 0)
 		{
 			AddError(FString::Printf(TEXT("%s: The two values are not equal.\n  Actual: '%s'\nExpected: '%s'"), *Description, A, *B), 1);
 		}
@@ -1303,7 +1308,7 @@ public:
 	{
 		if (A == B)
 		{
-			AddError(FString::Printf(TEXT("%s: The two values are not equal."), *Description), 1);
+			AddError(FString::Printf(TEXT("%s: The two values are equal."), *Description), 1);
 		}
 	}
 

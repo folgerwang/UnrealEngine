@@ -7,6 +7,7 @@
 #include "D3D11RHIPrivate.h"
 #include "RenderCore.h"
 #include "Engine/RendererSettings.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #ifndef D3D11_WITH_DWMAPI
 #if WINVER > 0x502		// Windows XP doesn't support DWM
@@ -81,7 +82,6 @@ namespace RHIConsoleVariables
 		TEXT("Number of frames that can be queued for render."),
 		ECVF_RenderThreadSafe
 		);
-
 };
 
 extern void D3D11TextureAllocated2D( FD3D11Texture2D& Texture );
@@ -89,11 +89,31 @@ extern void D3D11TextureAllocated2D( FD3D11Texture2D& Texture );
 /**
  * Creates a FD3D11Surface to represent a swap chain's back buffer.
  */
-FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain)
+FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat PixelFormat, uint32 SizeX, uint32 SizeY, IDXGISwapChain* SwapChain)
 {
 	// Grab the back buffer
 	TRefCountPtr<ID3D11Texture2D> BackBufferResource;
-	VERIFYD3D11RESULT_EX(SwapChain->GetBuffer(0,IID_ID3D11Texture2D,(void**)BackBufferResource.GetInitReference()), D3DRHI->GetDevice());
+	if (SwapChain)
+	{
+		VERIFYD3D11RESULT_EX(SwapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)BackBufferResource.GetInitReference()), D3DRHI->GetDevice());
+	}
+	else
+	{
+		// Create custom back buffer texture as no swap chain is created in pixel streaming windowless mode
+		DXGI_FORMAT TextureFormat = GetRenderTargetFormat(PixelFormat);
+		D3D11_TEXTURE2D_DESC TextureDesc;
+		FMemory::Memzero(TextureDesc);
+		TextureDesc.Width = SizeX;
+		TextureDesc.Height = SizeY;
+		TextureDesc.MipLevels = 1;
+		TextureDesc.ArraySize = 1;
+		TextureDesc.Format = TextureFormat;
+		TextureDesc.SampleDesc.Count = 1;
+		TextureDesc.SampleDesc.Quality = 0;
+		TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+		TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateTexture2D(&TextureDesc, NULL, BackBufferResource.GetInitReference()), D3DRHI->GetDevice());
+	}
 
 	// create the render target view
 	TRefCountPtr<ID3D11RenderTargetView> BackBufferRenderTargetView;
@@ -230,17 +250,20 @@ void FD3D11Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 		check(SizeX > 0);
 		check(SizeY > 0);
 
-		// Resize the swap chain.
-		DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(PixelFormat);
-		VERIFYD3D11RESIZEVIEWPORTRESULT(SwapChain->ResizeBuffers(1,SizeX,SizeY,RenderTargetFormat,DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH),SizeX,SizeY,RenderTargetFormat, D3DRHI->GetDevice());
-
-		if(bInIsFullscreen)
+		if (bNeedSwapChain)
 		{
-			DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
+			// Resize the swap chain.
+			DXGI_FORMAT RenderTargetFormat = GetRenderTargetFormat(PixelFormat);
+			VERIFYD3D11RESIZEVIEWPORTRESULT(SwapChain->ResizeBuffers(1, SizeX, SizeY, RenderTargetFormat, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH), SizeX, SizeY, RenderTargetFormat, D3DRHI->GetDevice());
 
-			if (FAILED(SwapChain->ResizeTarget(&BufferDesc)))
+			if (bInIsFullscreen)
 			{
-				ConditionalResetSwapChain(true);
+				DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
+
+				if (FAILED(SwapChain->ResizeTarget(&BufferDesc)))
+				{
+					ConditionalResetSwapChain(true);
+				}
 			}
 		}
 	}
@@ -250,9 +273,12 @@ void FD3D11Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 		bIsFullscreen = bInIsFullscreen;
 		bIsValid = false;
 
-		// Use ConditionalResetSwapChain to call SetFullscreenState, to handle the failure case.
-		// Ignore the viewport's focus state; since Resize is called as the result of a user action we assume authority without waiting for Focus.
-		ConditionalResetSwapChain(true);
+		if (bNeedSwapChain)
+		{
+			// Use ConditionalResetSwapChain to call SetFullscreenState, to handle the failure case.
+			// Ignore the viewport's focus state; since Resize is called as the result of a user action we assume authority without waiting for Focus.
+			ConditionalResetSwapChain(true);
+		}
 	}
 
 	// Float RGBA backbuffers are requested whenever HDR mode is desired
@@ -266,7 +292,7 @@ void FD3D11Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	}
 
 	// Create a RHI surface to represent the viewport's back buffer.
-	BackBuffer = GetSwapChainSurface(D3DRHI, PixelFormat, SwapChain);
+	BackBuffer = GetSwapChainSurface(D3DRHI, PixelFormat, SizeX, SizeY, SwapChain);
 }
 
 /** Returns true if desktop composition is enabled. */
@@ -287,19 +313,50 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 
 	if (IsValidRef(CustomPresent))
 	{
+		SCOPE_CYCLE_COUNTER(STAT_D3D11CustomPresentTime);
 		bNeedNativePresent = CustomPresent->Present(SyncInterval);
 	}
 
 	if (bNeedNativePresent)
 	{
-		// Present the back buffer to the viewport window.
-		Result = SwapChain->Present(SyncInterval, 0);
+		if (SwapChain.IsValid())
+		{
+			// Present the back buffer to the viewport window.
+			Result = SwapChain->Present(SyncInterval, 0);
+		}
 
 		if (IsValidRef(CustomPresent))
 		{
 			CustomPresent->PostPresent();
 		}
 	}
+
+	FThreadHeartBeat::Get().PresentFrame();
+
+	if (FAILED(Result))
+	{
+		DXGI_SWAP_CHAIN_DESC Desc;
+		UE_LOG(LogRHI, Error, TEXT("SyncInterval %i"), SyncInterval);
+		if (!FAILED(SwapChain->GetDesc(&Desc)))
+		{
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Width %i"), Desc.BufferDesc.Width);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Height %i"), Desc.BufferDesc.Height);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.RefreshRate.Numerator %i"), Desc.BufferDesc.RefreshRate.Numerator);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.RefreshRate.Denominator %i"), Desc.BufferDesc.RefreshRate.Denominator);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Format %i"), Desc.BufferDesc.Format);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.ScanlineOrdering %i"), Desc.BufferDesc.ScanlineOrdering);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Scaling %i"), Desc.BufferDesc.Scaling);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.SampleDesc.Count %i"), Desc.SampleDesc.Count);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.SampleDesc.Quality %i"), Desc.SampleDesc.Quality);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferUsage %i"), Desc.BufferUsage);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferCount %i"), Desc.BufferCount);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.OutputWindow %p"), Desc.OutputWindow);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.Windowed %s"), Desc.Windowed ? TEXT("true") : TEXT("false"));
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.SwapEffect %u"), Desc.SwapEffect);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.Flags %u"), Desc.Flags);
+		}
+	}
+	FThreadHeartBeat::Get().PresentFrame();
 
 	VERIFYD3D11RESULT_EX(Result, D3DRHI->GetDevice());
 	
@@ -443,7 +500,7 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 	bool bNativelyPresented = true;
 #if	D3D11_WITH_DWMAPI
 	// We can't call Present if !bIsValid, as it waits a window message to be processed, but the main thread may not be pumping the message handler.
-	if(bIsValid)
+	if(bIsValid && SwapChain.IsValid())
 	{
 		// Check if the viewport's swap chain has been invalidated by DXGI.
 		BOOL bSwapChainFullscreenState;
@@ -598,7 +655,11 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	StateCache.SetGeometryShader(nullptr);
 	// Compute Shader is set to NULL after each Dispatch call, so no need to clear it here
 
-	bool bNativelyPresented = Viewport->Present(bLockToVsync);
+	bool bNativelyPresented = true;
+	if (bPresent)
+	{
+		bNativelyPresented = Viewport->Present(bLockToVsync);
+	}
 
 	// Don't wait on the GPU when using SLI, let the driver determine how many frames behind the GPU should be allowed to get
 	if (GNumAlternateFrameRenderingGroups == 1)

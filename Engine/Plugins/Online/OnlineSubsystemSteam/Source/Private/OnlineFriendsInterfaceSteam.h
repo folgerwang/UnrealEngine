@@ -120,6 +120,7 @@ public:
 	virtual bool IsFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName) override;
 	virtual bool QueryRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace) override;
 	virtual bool GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers) override;
+	virtual void DumpRecentPlayers() const override;
 	virtual bool BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId) override;
 	virtual bool UnblockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId) override;
 	virtual bool QueryBlockedPlayers(const FUniqueNetId& UserId) override;
@@ -139,8 +140,12 @@ class FOnlineAsyncTaskSteamReadFriendsList :
 	FOnlineFriendsSteam* FriendsPtr;
 	/** The user that is triggering the event */
 	int32 LocalUserNum;
+	/** The type of list we are trying to fetch */
+	EFriendsLists::Type FriendsListFilter;
 
 	FOnReadFriendsListComplete Delegate;
+
+	bool CanAddUserToList(bool bIsOnline, bool bIsPlayingThisGame, bool bIsPlayingGameInSession);
 
 public:
 	/**
@@ -150,12 +155,29 @@ public:
 	 * @param InLocalUserNum the local user that requested the read
 	 * @param InDelegate the delegate that will be called when reading the friends list is complete
 	 */
-	FOnlineAsyncTaskSteamReadFriendsList(FOnlineFriendsSteam* InFriendsPtr, int32 InLocalUserNum, const FOnReadFriendsListComplete& InDelegate) :
+	FOnlineAsyncTaskSteamReadFriendsList(FOnlineFriendsSteam* InFriendsPtr, int32 InLocalUserNum, const FString& InFriendsListFilter, const FOnReadFriendsListComplete& InDelegate) :
 		FriendsPtr(InFriendsPtr),
 		LocalUserNum(InLocalUserNum),
 		Delegate(InDelegate)
 	{
 		check(FriendsPtr);
+
+		if (InFriendsListFilter.Equals(EFriendsLists::ToString(EFriendsLists::OnlinePlayers), ESearchCase::IgnoreCase))
+		{
+			FriendsListFilter = EFriendsLists::OnlinePlayers;
+		}
+		else if (InFriendsListFilter.Equals(EFriendsLists::ToString(EFriendsLists::InGamePlayers), ESearchCase::IgnoreCase))
+		{
+			FriendsListFilter = EFriendsLists::InGamePlayers;
+		}
+		else if (InFriendsListFilter.Equals(EFriendsLists::ToString(EFriendsLists::InGameAndSessionPlayers), ESearchCase::IgnoreCase))
+		{
+			FriendsListFilter = EFriendsLists::InGameAndSessionPlayers;
+		}
+		else
+		{
+			FriendsListFilter = EFriendsLists::Default;
+		}
 	}
 
 	// FOnlineAsyncTask

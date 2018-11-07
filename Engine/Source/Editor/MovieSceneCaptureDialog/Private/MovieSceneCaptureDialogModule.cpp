@@ -23,6 +23,8 @@
 
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Misc/App.h"
@@ -468,7 +470,7 @@ void FInEditorCapture::OverridePlaySettings(ULevelEditorPlaySettings* PlayInEdit
 	PlayInEditorSettings->bOnlyLoadVisibleLevelsInPIE = false;
 	PlayInEditorSettings->bPreferToStreamLevelsInPIE = false;
 	PlayInEditorSettings->PIEAlwaysOnTop = false;
-	PlayInEditorSettings->DisableStandaloneSound = true;
+	PlayInEditorSettings->DisableStandaloneSound = false;
 	PlayInEditorSettings->AdditionalLaunchParameters = TEXT("");
 	PlayInEditorSettings->BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
 	PlayInEditorSettings->LaunchConfiguration = EPlayOnLaunchConfiguration::LaunchConfig_Default;
@@ -500,7 +502,7 @@ void FInEditorCapture::OnPIEViewportStarted()
 				// Keep scaling down the window size while we're bigger than half the desktop width/height
 				{
 					FDisplayMetrics DisplayMetrics;
-					FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+					FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 						
 					while(PreviewWindowSize.X >= DisplayMetrics.PrimaryDisplayWidth*.5f || PreviewWindowSize.Y >= DisplayMetrics.PrimaryDisplayHeight*.5f)
 					{
@@ -583,11 +585,13 @@ void FInEditorCapture::OnLevelSequenceFinished()
 
 void FInEditorCapture::OnCaptureStarted()
 {
+	FString CapturePath = CaptureObject->ResolveFileFormat(CaptureObject->Settings.OutputDirectory.Path, FFrameMetrics());
+
 	FNotificationInfo Info
 	(
 		SNew(SCaptureMovieNotification)
 		.CaptureState_Raw(this, &FInEditorCapture::GetCaptureState)
-		.CapturePath(CaptureObject->Settings.OutputDirectory.Path)
+		.CapturePath(CapturePath)
 		.OnCaptureFinished_Raw(this, &FInEditorCapture::OnCaptureFinished)
 		.OnCancel_Raw(this, &FInEditorCapture::Cancel)
 	);
@@ -876,6 +880,21 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		if (CurrentCapture.IsValid())
 		{
 			return LOCTEXT("AlreadyCapturing", "There is already a movie scene capture process open. Please close it and try again.");
+		}
+
+		FString OutputDirectory = CaptureObject->Settings.OutputDirectory.Path;
+		FPaths::NormalizeFilename(OutputDirectory);
+
+		if (!IFileManager::Get().DirectoryExists(*OutputDirectory))
+		{
+			if (!IFileManager::Get().MakeDirectory(*OutputDirectory))
+			{
+				return FText::Format(LOCTEXT( "InvalidDirectory", "Invalid output directory: {0}"), FText::FromString(OutputDirectory) );
+			}
+		}
+		else if (IFileManager::Get().IsReadOnly(*OutputDirectory))
+		{
+			return FText::Format(LOCTEXT( "ReadOnlyDirectory", "Read only output directory: {0}"), FText::FromString(OutputDirectory) );
 		}
 
 		// Prompt the user to save their changes so that they'll be in the movie, since we're not saving temporary copies of the level.

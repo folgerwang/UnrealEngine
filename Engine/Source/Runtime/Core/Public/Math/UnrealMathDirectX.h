@@ -64,7 +64,7 @@ FORCEINLINE VectorRegister MakeVectorRegister( float X, float Y, float Z, float 
  */
 FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, int32 W)
 {
-	return _mm_castps_si128(DirectX::XMVectorSet(X, Y, Z, W));
+	return _mm_castps_si128(DirectX::XMVectorSetInt(X, Y, Z, W));
 }
 
 /*=============================================================================
@@ -141,6 +141,14 @@ FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, i
  * @return		VectorRegister(Ptr[0], Ptr[0], Ptr[0], Ptr[0])
  */
 #define VectorLoadFloat1( Ptr )			DirectX::XMVectorReplicatePtr( (const float*)(Ptr) )
+
+/**
+ * Loads 2 floats from unaligned memory into X and Y and duplicates them in Z and W.
+ *
+ * @param Ptr	Unaligned memory pointer to the floats
+ * @return		VectorRegister(Ptr[0], Ptr[1], Ptr[0], Ptr[1])
+ */
+#define VectorLoadFloat2( Ptr )			MakeVectorRegister( ((const float*)(Ptr))[0], ((const float*)(Ptr))[1], ((const float*)(Ptr))[0], ((const float*)(Ptr))[1] )
 
 /**
  * Creates a vector out of three FLOATs and leaves W undefined.
@@ -833,7 +841,7 @@ FORCEINLINE void VectorQuaternionMultiply( VectorRegister *VResult, const Vector
 
 FORCEINLINE void VectorQuaternionVector3Rotate( FVector *Result, const FVector* Vec, const FQuat* Quat)
 {	
-	VectorRegister XMVec = VectorLoad(Vec);
+	VectorRegister XMVec = VectorLoadFloat3_W0(Vec);
 	VectorRegister XMQuat = VectorLoadAligned(Quat);
 	VectorRegister XMResult = DirectX::XMVector3Rotate(XMVec, XMQuat);
 	VectorStoreFloat3(XMResult, Result);
@@ -841,7 +849,7 @@ FORCEINLINE void VectorQuaternionVector3Rotate( FVector *Result, const FVector* 
 
 FORCEINLINE void VectorQuaternionVector3InverseRotate( FVector *Result, const FVector* Vec, const FQuat* Quat)
 {	
-	VectorRegister XMVec = VectorLoad(Vec);
+	VectorRegister XMVec = VectorLoadFloat3_W0(Vec);
 	VectorRegister XMQuat = VectorLoadAligned(Quat);
 	VectorRegister XMResult = DirectX::XMVector3InverseRotate(XMVec, XMQuat);
 	VectorStoreFloat3(XMResult, Result);
@@ -929,7 +937,7 @@ FORCEINLINE void VectorSinCos(VectorRegister* RESTRICT VSinAngles, VectorRegiste
 
 
 // Returns true if the vector contains a component that is either NAN or +/-infinite.
-inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
+FORCEINLINE bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
 {
 	// https://en.wikipedia.org/wiki/IEEE_754-1985
 	// Infinity is represented with all exponent bits set, with the correct sign bit.
@@ -937,7 +945,7 @@ inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
 	// This means finite values will not have all exponent bits set, so check against those bits.
 
 	// Mask off Exponent
-	VectorRegister ExpTest = VectorBitwiseAnd(Vec, GlobalVectorConstants::FloatInfinity);
+	const VectorRegister ExpTest = VectorBitwiseAnd(Vec, GlobalVectorConstants::FloatInfinity);
 	// Compare to full exponent. If any are full exponent (not finite), the signs copied to the mask are non-zero, otherwise it's zero and finite.
 	bool IsFinite = VectorMaskBits(VectorCompareEQ(ExpTest, GlobalVectorConstants::FloatInfinity)) == 0;
 	return !IsFinite;

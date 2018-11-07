@@ -708,7 +708,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 		const float GraphBottomYPos = GraphHeight + 80.0f;
 #else
 		const float GraphLeftXPos = 80.0f;
-		const float GraphBottomYPos = InViewport->GetSizeXY().Y / InCanvas->GetDPIScale() - 50.0f;
+		const float GraphBottomYPos = InCanvas->GetRenderTarget()->GetSizeXY().Y / InCanvas->GetDPIScale() - 50.0f;
 #endif
 
 		const float GraphBackgroundMarginSize = 8.0f;
@@ -1062,7 +1062,7 @@ int32 FStatHitchesData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32
 			}
 		}
 
-		const int32 MaxY = InViewport->GetSizeXY().Y;
+		const int32 MaxY = InCanvas->GetRenderTarget()->GetSizeXY().Y;
 		static const double TravelTime = 4.2;
 		for (int32 i = 0; i < NumHitches; i++)
 		{
@@ -1104,7 +1104,6 @@ FViewport::FViewport(FViewportClient* InViewportClient):
 	bHitProxiesCached(false),
 	bHasRequestedToggleFreeze(false),
 	bIsSlateViewport(false),
-	FlushOnDrawCount(0),
 	bTakeHighResScreenShot(false)
 {
 	//initialize the hit proxy kernel
@@ -1331,6 +1330,11 @@ void FViewport::EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool bPrese
 	GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
 }
 
+FRHIGPUMask FViewport::GetGPUMask(FRHICommandListImmediate& RHICmdList) const
+{
+	return FRHIGPUMask::FromIndex(RHICmdList.GetViewportNextPresentGPUIndex(GetViewportRHI()));
+}
+
 void InsertVolume(IInterface_PostProcessVolume* Volume, TArray< IInterface_PostProcessVolume* >& VolumeArray)
 {
 	const int32 NumVolumes = VolumeArray.Num();
@@ -1390,7 +1394,9 @@ void UPostProcessComponent::Serialize(FArchive& Ar)
 
 	if(Ar.IsLoading())
 	{
+#if WITH_EDITORONLY_DATA
 		Settings.OnAfterLoad();
+#endif
 	}
 }
 
@@ -1408,6 +1414,17 @@ void FViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 	});
 }
 
+
+void FViewport::EnqueueEndRenderFrame(const bool bLockToVsync, const bool bShouldPresent)
+{
+	FEndDrawingCommandParams Params = { this, (uint32)bLockToVsync, (uint32)GInputLatencyTimer.GameThreadTrigger, (uint32)(PresentAndStopMovieDelay > 0 ? 0 : bShouldPresent) };
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		EndDrawingCommand,
+		FEndDrawingCommandParams, Parameters, Params,
+		{
+			ViewportEndDrawing(RHICmdList, Parameters);
+		});
+}
 
 // true: The CompositionInspectur Slate UI requests it's data
 bool GCaptureCompositionNextFrame = false;
@@ -1505,15 +1522,7 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 	
 				// Slate doesn't present immediately. Tag the viewport as requiring vsync so that it happens.
 				SetRequiresVsync(bLockToVsync);
-
-				//@todo UE4: If Slate controls this viewport, we should not present
-				FEndDrawingCommandParams Params = { this, (uint32)bLockToVsync, (uint32)GInputLatencyTimer.GameThreadTrigger, (uint32)(PresentAndStopMovieDelay > 0 ? 0 : bShouldPresent) };
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					EndDrawingCommand,
-					FEndDrawingCommandParams,Parameters,Params,
-				{
-					ViewportEndDrawing(RHICmdList, Parameters);
-				});
+				EnqueueEndRenderFrame(bLockToVsync, bShouldPresent);
 
 				GInputLatencyTimer.GameThreadTrigger = false;
 			}
@@ -1544,11 +1553,6 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 				// Enable game rendering again if it isn't already.
 				bIsGameRenderingEnabled = true;
 			}
-		}
-
-		if (FlushOnDrawCount != 0)
-		{
-			FlushRenderingCommands();
 		}
 
 		if(GCaptureCompositionNextFrame)

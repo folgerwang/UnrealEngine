@@ -126,6 +126,21 @@ public:
 	 * Signal to RHI that cached state is no longer valid
 	 */
 	virtual void RHIInvalidateCachedState() {};
+
+    /**
+     * Enqueues on the GPU timeline any necessary operations to make the contents of 'StagingBuffer' accessible to the CPU, flushing outstanding GPU writes and/or transferring from inaccessible non-unified GPU memory to local CPU memory.
+     * @param StagingBuffer The buffer to stage. Must not be null.
+     * @param Fence A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the StagedRead was completed. Must not be null.
+     * @param Offset The start of the data in 'StagingBuffer' to make available.
+     * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
+     */
+	virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 InOffset, uint32 InNumBytes)
+	{
+		if (Fence)
+		{
+			Fence->Write();
+		}
+	}
 };
 
 // These states are now set by the Pipeline State Object and are now deprecated
@@ -246,12 +261,17 @@ public:
 		RHITransitionResources(TransitionType, TransitionPipeline, InUAVs, NumUAVs, nullptr);
 	}
 
-
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 
 	virtual void RHISubmitCommandsHint() = 0;
+
+	// Used for OpenGL to check and see if any occlusion queries can be read back on the RHI thread. If they aren't ready when we need them, then we end up stalling.
+	virtual void RHIPollOcclusionQueries()
+	{
+		/* empty default implementation */
+	}
 
 	// Not all RHIs need this (Mobile specific)
 	virtual void RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask) {};

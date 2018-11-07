@@ -39,10 +39,26 @@ void FNavigationBuildingNotificationImpl::BuildStarted()
 	Info.FadeOutDuration = 0.0f;
 	Info.ExpireDuration = 0.0f;
 
+	Info.ButtonDetails.Add(FNotificationButtonInfo(NSLOCTEXT("NavigationBuild", "Cancel", "Cancel"), FText::GetEmpty(), FSimpleDelegate::CreateRaw(this, &FNavigationBuildingNotificationImpl::CancelBuild)));
+
 	NavigationBuildNotificationPtr = FSlateNotificationManager::Get().AddNotification(Info);
 	if (NavigationBuildNotificationPtr.IsValid())
 	{
 		NavigationBuildNotificationPtr.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+	}
+}
+
+void FNavigationBuildingNotificationImpl::CancelBuild()
+{
+	UEditorEngine* const EEngine = Cast<UEditorEngine>(GEngine);
+	if (EEngine != nullptr)
+	{
+		FWorldContext &EditorContext = EEngine->GetEditorWorldContext();
+		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(EditorContext.World());
+		if (NavSys)
+		{
+			NavSys->CancelBuild();
+		}
 	}
 }
 

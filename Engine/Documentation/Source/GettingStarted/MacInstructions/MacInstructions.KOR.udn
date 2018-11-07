@@ -21,6 +21,6 @@ Order:
 
 1.	같은 폴더에서 **GenerateProjectFiles.command** 를 더블클릭합니다. 1 분이 채 안되어 완료될 것입니다.
 
-1.	**UE4.xcworkspace** 파일을 더블클릭하여 프로젝트를 Xcode 에 로드합니다. 제목줄에서 **My Mac** 타겟에 대한 **ShaderCompileWorker** 를 선택한 뒤, 'Product > Build' 메뉴 항목을 선택합니다. Xcode 빌드가 끝나면, **My Mac** 타겟의 **UE4** 에 대해서도 같은 작업을 해줍니다. 시스템 사양에 따라 컴파일 시간은 15 - 40 분 정도 걸립니다.
+1.	**UE4.xcworkspace** 파일을 더블클릭하여 프로젝트를 Xcode 에 로드합니다. 제목줄에서 **My Mac** 타깃에 대한 **ShaderCompileWorker** 를 선택한 뒤, 'Product > Build' 메뉴 항목을 선택합니다. Xcode 빌드가 끝나면, **My Mac** 타깃의 **UE4** 에 대해서도 같은 작업을 해줍니다. 시스템 사양에 따라 컴파일 시간은 15 - 40 분 정도 걸립니다.
    
 1.	컴파일이 끝나면, 'Product > Run' 메뉴 항목으로 에디터를 로드합니다.

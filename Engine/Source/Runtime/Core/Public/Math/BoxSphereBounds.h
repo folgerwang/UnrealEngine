@@ -253,20 +253,7 @@ public:
 	 */
 	friend FBoxSphereBounds Union( const FBoxSphereBounds& A,const FBoxSphereBounds& B )
 	{
-		FBox BoundingBox(ForceInit);
-
-		BoundingBox += (A.Origin - A.BoxExtent);
-		BoundingBox += (A.Origin + A.BoxExtent);
-		BoundingBox += (B.Origin - B.BoxExtent);
-		BoundingBox += (B.Origin + B.BoxExtent);
-
-		// Build a bounding sphere from the bounding box's origin and the radii of A and B.
-		FBoxSphereBounds Result(BoundingBox);
-
-		Result.SphereRadius = FMath::Min(Result.SphereRadius,FMath::Max((A.Origin - Result.Origin).Size() + A.SphereRadius,(B.Origin - Result.Origin).Size() + B.SphereRadius));
-		Result.DiagnosticCheckNaN();
-
-		return Result;
+		return A + B;
 	}
 
 #if ENABLE_NAN_DIAGNOSTIC
@@ -329,12 +316,14 @@ FORCEINLINE FBoxSphereBounds::FBoxSphereBounds( const FVector* Points, uint32 Nu
 	BoundingBox.GetCenterAndExtents(Origin, BoxExtent);
 
 	// using the center of the bounding box as the origin of the sphere, find the radius of the bounding sphere.
-	SphereRadius = 0.0f;
+	float SquaredSphereRadius = 0.0f;
 
 	for (uint32 PointIndex = 0; PointIndex < NumPoints; PointIndex++)
 	{
-		SphereRadius = FMath::Max(SphereRadius,(Points[PointIndex] - Origin).Size());
+		SquaredSphereRadius = FMath::Max(SquaredSphereRadius, (Points[PointIndex] - Origin).SizeSquared());
 	}
+
+	SphereRadius = FMath::Sqrt(SquaredSphereRadius);
 
 	DiagnosticCheckNaN();
 }

@@ -30,6 +30,7 @@ class FMfMediaTextureSamplePool;
 enum class EMediaTextureSampleFormat;
 
 struct FMfMediaSourceReaderSample;
+struct FMediaPlayerOptions;
 
 
 /**
@@ -153,7 +154,7 @@ public:
 	 * @param InSamples The sample collection that receives output samples.
 	 * @see IsInitialized, Shutdown
 	 */
-	void Initialize(IMFMediaSource* InMediaSource, IMFSourceReaderCallback* InSourceReaderCallback, const TSharedRef<FMediaSamples, ESPMode::ThreadSafe>& InSamples);
+	void Initialize(IMFMediaSource* InMediaSource, IMFSourceReaderCallback* InSourceReaderCallback, const TSharedRef<FMediaSamples, ESPMode::ThreadSafe>& InSamples, const FMediaPlayerOptions* PlayerOptions);
 
 	/**
 	 * Whether this object has been initialized.

@@ -37,25 +37,11 @@
 #include "pxr/usd/sdf/declareHandles.h"
 #include "pxr/usd/sdf/path.h"
 #include "pxr/usd/usd/common.h"
-#include "pxr/base/tf/envSetting.h"
 
 PXR_NAMESPACE_OPEN_SCOPE
 
 
 SDF_DECLARE_HANDLES(SdfLayer);
-
-/// Are the UsdGeomCameras in the given stage Z up?
-///
-/// \deprecated
-/// As we transition from a camera schema that can encode either a Zup or
-/// Yup camera to one that encodes only Yup, we need a means of determining
-/// which kind we'll find in \p stage, independent of the orientation of the
-/// geometry on the stage (which is encoded via UsdGeomGetStageUpAxis()).
-///
-/// This method uses the presence of old-style customData['isZup'] to determine
-/// whether the cameras is contains are zUp or yUp.
-USDUTILS_API
-bool UsdUtilsGetCamerasAreZup(UsdStageWeakPtr const &stage);
 
 /// Define the shading pipeline's convention for naming a companion
 /// alpha/opacity attribute and primvarnames given the full name of a
@@ -125,6 +111,10 @@ UsdPrim UsdUtilsUninstancePrimAtPath(const UsdStagePtr &stage,
 USDUTILS_API
 TfToken UsdUtilsGetPrimaryUVSetName();
 
+/// Returns the name of the reference position used on meshes and nurbs.
+/// By default the name is "pref".
+USDUTILS_API
+TfToken UsdUtilsGetPrefName();
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

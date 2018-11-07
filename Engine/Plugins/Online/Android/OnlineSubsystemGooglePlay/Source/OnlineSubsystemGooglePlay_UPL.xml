@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--OnlineSubsystemGooglePlay plugin additions-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">	
+	<!-- optional additions to the GameActivity imports in GameActivity.java -->
+	<init>
+	  <log text="Subsystem Google Play SDK Android init"/>
+	</init>
+
+	<!-- optional additions to GameActivity onCreate in GameActivity.java -->
+	<gameActivityOnCreateAdditions>
+	  <insert>
+		//Google Play SDK onCreate additions
+		googleClient = new GoogleApiClient.Builder(this)
+		.addConnectionCallbacks(this)
+		.addOnConnectionFailedListener(this)
+		.addApi(Games.API).addScope(Games.SCOPE_GAMES)
+		.addApi(Plus.API).addScope(Plus.SCOPE_PLUS_LOGIN)
+		.build();
+	  </insert>
+	</gameActivityOnCreateAdditions>
+
+</root>

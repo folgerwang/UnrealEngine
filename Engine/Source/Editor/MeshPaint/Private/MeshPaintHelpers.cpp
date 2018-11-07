@@ -134,7 +134,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 	else
 	{
 		// If there's no raw mesh data, don't try to do any fixup here
-		if (SrcModel.IsRawMeshEmpty() || ComponentLODInfo.OverrideMapBuildData == nullptr)
+		if (SrcModel.IsRawMeshEmpty() || ComponentLODInfo.OverrideVertexColors == nullptr)
 		{
 			return false;
 		}
@@ -1692,7 +1692,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 				const FSkeletalMeshLODRenderData& BaseLOD = Resource->LODRenderData[0];
 				GeometryInfo.PreEdit();				
 
-				FBox BaseBounds(EForceInit::ForceInitToZero);
+				FBox BaseBounds(ForceInitToZero);
 
 				TArray<FPaintedMeshVertex> PaintedVertices;
 				PaintedVertices.Empty(BaseLOD.GetNumVertices());

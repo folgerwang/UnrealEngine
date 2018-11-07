@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3151861
+﻿INTSourceChangelist:4008826
 Availability:NoPublish
 Title:
 Crumbs:
@@ -206,7 +206,7 @@ Engine/Rendering/Materials/ExpressionReference/Coordinates#lightmapuvs
 [/EXCERPT:UMaterialExpressionLightmapUVs]
 
 [EXCERPT:UMaterialExpressionObjectOrientation]
-ObjectOrientation 는 오브젝트의 월드 스페이스 업 벡터를 출력하는 표현식입니다. 다른 말로 머티리얼이 적용된 오브젝트의 로컬 양수 Z 축이 가리키고 있는 방향입니다.
+ObjectOrientation 는 오브젝트의 월드 스페이스 업 벡터를 출력하는 표현식입니다. 다른 말로 머티리얼이 적용된 오브젝트의 로컬 양수 Z 축이 가리키고 있는 방향입니다. 디퍼드 데칼의 경우, 머티리얼 도메인은 데칼 투영 방향을 (X 축) 반환합니다.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Coordinates#objectorientation
@@ -727,7 +727,7 @@ Engine/Rendering/Materials/ExpressionReference/Parameters#staticswitchparameter
 [/EXCERPT:UMaterialExpressionStaticSwitchParameter]
 
 [EXCERPT:UMaterialExpressionVectorParameter]
-VectorParameter 표현식은 Constant4Vector 와 같지만, 머티리얼의 인스턴스 안에서나 코드를 통해 변경할 수 있는 파라미터라는 점이 다릅니다. VectorParameter 의 장점 중 하나는 색 선택기를 사용해서 값을 설정할 수 있다는 점입니다.
+VectorParameter 표현식은 Constant4Vector 와 같지만, 머티리얼의 인스턴스 안에서나 코드를 통해 변경할 수 있는 파라미터라는 점이 다릅니다. VectorParameter 의 장점 중 하나는 색 선택 툴을 사용해서 값을 설정할 수 있다는 점입니다.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Parameters#vectorparameter
@@ -925,7 +925,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#rotateaboutaxis
 [/EXCERPT:UMaterialExpressionRotateAboutAxis]
 
 [EXCERPT:UMaterialExpressionAntialiasedTextureMask]
-AntialiasedTextureMask 로는 부드러운 (안티 앨리어싱이 적용된) 트랜지션 마스크를 사용하는 머티리얼을 만들 수 있습니다. 이 마스크는 두 개의 복잡한 머티리얼 프로퍼티를 블렌딩하거나, (SoftMasked 와 잘 작동하는) 알파 블렌딩된 머티리얼을 페이드 아웃 시키는 데 사용할 수 있습니다. 
+AntialiasedTextureMask 로는 부드러운 (안티 에일리어싱이 적용된) 트랜지션 마스크를 사용하는 머티리얼을 만들 수 있습니다. 이 마스크는 두 개의 복잡한 머티리얼 프로퍼티를 블렌딩하거나, (SoftMasked 와 잘 작동하는) 알파 블렌딩된 머티리얼을 페이드 아웃 시키는 데 사용할 수 있습니다. 
 
 그저 마스크가 지정된 텍스처를 (R G B A 중) 한 채널에 지정하고, 표현식에 사용된 채널을 설정한 다음 비교값을 지정합니다. 
 
@@ -969,7 +969,7 @@ Engine/Rendering/Materials/ExpressionReference/VectorOps#transformposition
 [EXCERPT:UMaterialExpressionCameraVectorWS]
 CameraVector 는 표면에 대한 카메라의 방향, 다른 말로 픽셀에서 카메라로의 방향을 나타내는 3채널 벡터값을 출력하는 표현식입니다.
 
-사용 예: CameraVector 는 ComponentMask 에 연결한 뒤 CameraVector 의 X, Y 채널을 텍스처 좌표로 사용하는 식으로 인바이언먼트 맵을 속이는 데 사용됩니다.
+사용 예: CameraVector 는 ComponentMask 에 연결한 뒤 CameraVector 의 X, Y 채널을 텍스처 좌표로 사용하는 식으로 인바이런먼트 맵을 속이는 데 사용됩니다.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Vector#cameravectorws
@@ -995,7 +995,7 @@ Engine/Rendering/Materials/ExpressionReference/Vector#objectbounds
 [EXCERPT:UMaterialExpressionReflectionVectorWS]
 ReflectionVectorWS 는 CameraVectorWS 와 내면은 비슷하나, 표면 노멀에 반사된 카메라 방향을 나타내는 3채널 벡터값을 출력한다는 차이점이 있습니다.
 
-사용 예: ReflectionVector 는 인바이언먼트 맵에 흔히 사용되며, 리플렉션 벡터의 x/y 컴포넌트는 큐브맵 텍스처로 들어가는 UV 로 사용됩니다.
+사용 예: ReflectionVector 는 인바이런먼트 맵에 흔히 사용되며, 리플렉션 벡터의 x/y 컴포넌트는 큐브맵 텍스처로 들어가는 UV 로 사용됩니다.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Vector#reflectionvectorws

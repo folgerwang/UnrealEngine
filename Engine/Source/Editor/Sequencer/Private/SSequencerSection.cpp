@@ -775,6 +775,11 @@ void SSequencerSection::CreateKeysUnderMouse( const FVector2D& MousePosition, co
 {
 	UMovieSceneSection& Section = *SectionInterface->GetSectionObject();
 
+	if (Section.IsReadOnly())
+	{
+		return;
+	}
+
 	// If the pressed key exists, offset the new key and look for it in the newly laid out key areas
 	if (InPressedKeys.Num())
 	{
@@ -1916,8 +1921,14 @@ FReply SSequencerSection::OnMouseButtonDoubleClick( const FGeometry& MyGeometry,
 {
 	if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 	{
-		FReply Reply = SectionInterface->OnSectionDoubleClicked( MyGeometry, MouseEvent );
+		TArray<FSequencerSelectedKey> Keys;
+		GetKeysUnderMouse(MouseEvent.GetScreenSpacePosition(), MyGeometry, Keys);
+		if (Keys.Num() == 1 && Keys[0].KeyHandle.IsSet())
+		{
+			return SectionInterface->OnKeyDoubleClicked(Keys[0].KeyHandle.GetValue());
+		}
 
+		FReply Reply = SectionInterface->OnSectionDoubleClicked( MyGeometry, MouseEvent );
 		if (!Reply.IsEventHandled())
 		{
 			// Find the object binding this node is underneath

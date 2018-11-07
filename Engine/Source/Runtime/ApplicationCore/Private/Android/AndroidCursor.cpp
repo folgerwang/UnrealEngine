@@ -8,14 +8,34 @@ FAndroidCursor::FAndroidCursor()
 	, CurrentPosition(FVector2D::ZeroVector)
 	, CursorClipRect()
 	, bShow(false)
-{	
+	, UIScaleFactor(1.0f)
+{
+	ComputeUIScaleFactor();
+}
+
+void FAndroidCursor::ComputeUIScaleFactor()
+{
+	FPlatformRect ScreenRect = FAndroidWindow::GetScreenRect();
+	int32_t ScreenWidth, ScreenHeight;
+	FAndroidWindow::CalculateSurfaceSize(FAndroidWindow::GetHardwareWindow(), ScreenWidth, ScreenHeight);
+
+	if (ScreenWidth > ScreenHeight)
+	{
+		UIScaleFactor = (ScreenRect.Bottom - ScreenRect.Top) / (float)ScreenHeight;
+	}
+	else
+	{
+		UIScaleFactor = (ScreenRect.Right - ScreenRect.Left) / (float)ScreenWidth;
+	}
 }
 
 void FAndroidCursor::SetPosition( const int32 X, const int32 Y )
 {
 	FVector2D NewPosition(X, Y);
+
+	NewPosition *= UIScaleFactor;
+
 	UpdateCursorClipping(NewPosition);
-	
 	CurrentPosition = NewPosition;
 }
 
@@ -40,7 +60,7 @@ void FAndroidCursor::Lock(const RECT* const Bounds)
 	if (Bounds == NULL)
 	{
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 		// The Android cursor should never leave the screen
 		CursorClipRect.Min = FIntPoint::ZeroValue;

@@ -39,7 +39,7 @@ class FD3D12DynamicRHI;
 
 /// @cond DOXYGEN_WARNINGS
 
-void* FD3D12ThreadLocalObject<FD3D12FastConstantAllocator>::ThisThreadObject = nullptr;
+template<> __declspec(thread) void* FD3D12ThreadLocalObject<FD3D12FastConstantAllocator>::ThisThreadObject = nullptr;
 
 /// @endcond
 
@@ -88,10 +88,10 @@ public:
 	// Getters
 	FORCEINLINE const uint32 GetAdapterIndex() const { return Desc.AdapterIndex; }
 	FORCEINLINE const D3D_FEATURE_LEVEL GetFeatureLevel() const { return Desc.MaxSupportedFeatureLevel; }
-	FORCEINLINE ID3D12Device* GetD3DDevice() { return RootDevice.GetReference(); }
-	FORCEINLINE ID3D12Device1* GetD3DDevice1() { return RootDevice1.GetReference(); }
+	FORCEINLINE ID3D12Device* GetD3DDevice() const { return RootDevice.GetReference(); }
+	FORCEINLINE ID3D12Device1* GetD3DDevice1() const { return RootDevice1.GetReference(); }
 #if PLATFORM_WINDOWS
-	FORCEINLINE ID3D12Device2* GetD3DDevice2() { return RootDevice2.GetReference(); }
+	FORCEINLINE ID3D12Device2* GetD3DDevice2() const { return RootDevice2.GetReference(); }
 #endif
 	FORCEINLINE void SetDeviceRemoved(bool value) { bDeviceRemoved = value; }
 	FORCEINLINE const bool IsDeviceRemoved() const { return bDeviceRemoved; }
@@ -144,6 +144,8 @@ public:
 
 	FORCEINLINE FD3D12ManualFence& GetFrameFence()  { check(FrameFence); return *FrameFence; }
 
+	FORCEINLINE FD3D12Fence* GetStagingFence()  { return StagingFence.GetReference(); }
+
 	FORCEINLINE FD3D12Device* GetDevice(uint32 GPUIndex)
 	{
 		check(GPUIndex < GNumExplicitGPUsForRendering);
@@ -180,12 +182,6 @@ public:
 		const D3D12_CLEAR_VALUE* ClearValue,
 		FD3D12Resource** ppOutResource);
 
-	HRESULT CreatePlacedResourceWithHeap(const D3D12_RESOURCE_DESC& Desc,
-		const D3D12_HEAP_PROPERTIES& HeapProps,
-		const D3D12_RESOURCE_STATES& InitialUsage,
-		const D3D12_CLEAR_VALUE* ClearValue,
-		FD3D12Resource** ppOutResource);
-
 	HRESULT CreatePlacedResource(const D3D12_RESOURCE_DESC& Desc,
 		FD3D12Heap* BackingHeap,
 		uint64 HeapOffset,
@@ -210,7 +206,8 @@ public:
 		const D3D12_RESOURCE_DESC& Desc,
 		uint32 Alignment, uint32 Stride, uint32 Size, uint32 InUsage,
 		FRHIResourceCreateInfo& CreateInfo,
-		bool SkipCreate);
+		bool SkipCreate,
+		FRHIGPUMask GPUMask = FRHIGPUMask::All());
 
 	// Queue up a command to signal the frame fence on the command list. This should only be called from the rendering thread.
 	void SignalFrameFence_RenderThread(FRHICommandListImmediate& RHICmdList);
@@ -271,16 +268,7 @@ public:
 
 	FD3D12TemporalEffect* GetTemporalEffect(const FName& EffectName);
 
-	FD3D12FastConstantAllocator& GetTransientUniformBufferAllocator() 
-	{
-		// Multi-GPU support : is using device 0 always appropriate here?
-		return *TransientUniformBufferAllocator.GetObjectForThisThread([this]() -> FD3D12FastConstantAllocator*
-		{
-			FD3D12FastConstantAllocator* Alloc = new FD3D12FastConstantAllocator(Devices[0], FRHIGPUMask::All(), 1024*1024*2);
-			Alloc->Init();
-			return Alloc;
-		});
-	}
+	FD3D12FastConstantAllocator& GetTransientUniformBufferAllocator();
 
 	void BlockUntilIdle();
 
@@ -343,6 +331,9 @@ protected:
 
 	/** A Fence whos value increases every frame*/
 	TRefCountPtr<FD3D12ManualFence> FrameFence;
+
+	/** A Fence used to syncrhonize FD3D12GPUFence and FD3D12StagingBuffer */
+	TRefCountPtr<FD3D12Fence> StagingFence;
 
 	FD3D12DeferredDeletionQueue DeferredDeletionQueue;
 

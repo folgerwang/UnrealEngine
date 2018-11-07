@@ -9,6 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class FMetalShaderPipeline;
 @class FMetalDebugRenderCommandEncoder;
+@class FMetalDebugParallelRenderCommandEncoder;
 
 class FMetalRenderCommandEncoderDebugging : public FMetalCommandEncoderDebugging
 {
@@ -60,6 +61,24 @@ public:
 	bool ValidateFunctionBindings(EMetalShaderFrequency Frequency);
 	void Validate();
 	
+	void InsertDebugSignpost(ns::String const& Label);
+	void PushDebugGroup(ns::String const& Group);
+	void PopDebugGroup();
+	
+	void EndEncoder();
+};
+
+class FMetalParallelRenderCommandEncoderDebugging : public ns::Object<FMetalDebugParallelRenderCommandEncoder*>
+{
+public:
+	FMetalParallelRenderCommandEncoderDebugging();
+	FMetalParallelRenderCommandEncoderDebugging(mtlpp::ParallelRenderCommandEncoder& Encoder, mtlpp::RenderPassDescriptor const& Desc, FMetalCommandBufferDebugging& Buffer);
+	FMetalParallelRenderCommandEncoderDebugging(FMetalDebugParallelRenderCommandEncoder* handle);
+
+	static FMetalDebugParallelRenderCommandEncoder* Get(mtlpp::ParallelRenderCommandEncoder& Buffer);
+
+	FMetalRenderCommandEncoderDebugging GetRenderCommandEncoderDebugger(mtlpp::RenderCommandEncoder& Encoder);
+
 	void InsertDebugSignpost(ns::String const& Label);
 	void PushDebugGroup(ns::String const& Group);
 	void PopDebugGroup();

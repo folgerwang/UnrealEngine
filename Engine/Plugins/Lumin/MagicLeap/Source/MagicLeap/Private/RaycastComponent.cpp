@@ -37,10 +37,10 @@ public:
 #if WITH_MLSDK
 		if (!MLHandleIsValid(Tracker))
 		{
-			Tracker = MLRaycastCreate();
-			if (!MLHandleIsValid(Tracker))
+			MLResult Result = MLRaycastCreate(&Tracker);
+			if (Result != MLResult_Ok)
 			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Error creating raycast tracker."));
+				UE_LOG(LogMagicLeap, Error, TEXT("MLRaycastCreate failed with error %d."), Result);
 				return false;
 			}
 		}
@@ -53,11 +53,8 @@ public:
 #if WITH_MLSDK
 		if (MLHandleIsValid(Tracker))
 		{
-			bool bResult = MLRaycastDestroy(Tracker);
-			if (!bResult)
-			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Error destroying raycast tracker."));
-			}
+			MLResult Result = MLRaycastDestroy(Tracker);
+			UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLRaycastDestroy failed with error %d."), Result);
 			Tracker = ML_INVALID_HANDLE;
 		}
 #endif //WITH_MLSDK
@@ -76,7 +73,7 @@ ERaycastResultState MLToUnrealRaycastResultState(MLRaycastResultState state)
 	case MLRaycastResultState_HitUnobserved:
 		return ERaycastResultState::HitUnobserved;
 	case MLRaycastResultState_NoCollision:
-		return ERaycastResultState::NoCollission;
+		return ERaycastResultState::NoCollision;
 	}
 	return ERaycastResultState::RequestFailed;
 }
@@ -107,9 +104,9 @@ URaycastComponent::~URaycastComponent()
 void URaycastComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-#if WITH_MLSDK
 
-	if (!MLHandleIsValid(Impl->Tracker))
+#if WITH_MLSDK
+	if (!(IMagicLeapPlugin::Get().IsMagicLeapHMDValid() && MLHandleIsValid(Impl->Tracker)))
 	{
 		return;
 	}
@@ -117,7 +114,8 @@ void URaycastComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	for (auto& pair : PendingRequests)
 	{
 		MLRaycastResult result;
-		if (MLRaycastGetResult(Impl->Tracker, pair.Key, &result))
+		MLResult APICallResult = MLRaycastGetResult(Impl->Tracker, pair.Key, &result);
+		if (APICallResult == MLResult_Ok)
 		{
 			const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 			float WorldToMetersScale = AppFramework.IsInitialized() ? AppFramework.GetWorldToMetersScale() : 100.0f;
@@ -142,6 +140,10 @@ void URaycastComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 			pair.Value.ResultDelegate.ExecuteIfBound(hitResult);
 			CompletedRequests.Add(pair.Key);
 		}
+		else if (APICallResult != MLResult_Pending)
+		{
+			UE_LOG(LogMagicLeap, Error, TEXT("MLRaycastGetResult failed with result %d."), APICallResult);
+		}
 	}
 
 	// TODO: Implement better strategy to optimize memory allocation.
@@ -159,7 +161,7 @@ void URaycastComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 bool URaycastComponent::RequestRaycast(const FRaycastQueryParams& RequestParams, const FRaycastResultDelegate& ResultDelegate)
 {
 #if WITH_MLSDK
-	if (!Impl->Create())
+	if (!(IMagicLeapPlugin::Get().IsMagicLeapHMDValid() && Impl->Create()))
 	{
 		return false;
 	}
@@ -178,14 +180,15 @@ bool URaycastComponent::RequestRaycast(const FRaycastQueryParams& RequestParams,
 	query.collide_with_unobserved = RequestParams.CollideWithUnobserved;
 	query.horizontal_fov_degrees = RequestParams.HorizontalFovDegrees;
 
-	MLHandle handle = MLRaycastRequest(Impl->Tracker, &query);
-	if (!MLHandleIsValid(handle))
+	MLHandle Handle = ML_INVALID_HANDLE;
+	MLResult Result = MLRaycastRequest(Impl->Tracker, &query, &Handle);
+	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogMagicLeap, Error, TEXT("Could not request raycast."));
+		UE_LOG(LogMagicLeap, Error, TEXT("MLRaycastRequest failed with error %d."), Result);
 		return false;
 	}
 
-	FRaycastRequestMetaData& requestMetaData = PendingRequests.Add(handle);
+	FRaycastRequestMetaData& requestMetaData = PendingRequests.Add(Handle);
 	requestMetaData.UserData = RequestParams.UserData;
 	requestMetaData.ResultDelegate = ResultDelegate;
 #endif //WITH_MLSDK

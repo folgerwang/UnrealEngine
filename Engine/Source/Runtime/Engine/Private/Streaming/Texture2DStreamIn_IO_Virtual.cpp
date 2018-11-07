@@ -51,7 +51,6 @@ void FTexture2DStreamIn_IO_Virtual::Finalize(const FContext& Context)
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DStreamIn_IO_Virtual::Finalize"), STAT_Texture2DStreamInIOVirtual_Finalize, STATGROUP_StreamingDetails);
 	check(Context.CurrentThread == TT_Render);
 
-	ClearIORequests(Context);
 	DoUnlockNewMips(Context);
 	if (IntermediateTextureRHI)
 	{

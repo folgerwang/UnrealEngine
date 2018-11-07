@@ -26,7 +26,7 @@ namespace EditorScriptingUtils
 	/*
 	 * Check if the Path is a valid ContentBrowser Path
 	 */
-	bool IsAValidPath(const FString& Path, FString& OutFailureReason);
+	bool IsAValidPath(const FString& Path, const TCHAR* InvalidChar, FString& OutFailureReason);
 
 	/*
 	 * Check if the AssetPath can be used to create a new asset
@@ -39,8 +39,9 @@ namespace EditorScriptingUtils
 	bool HasValidRoot(const FString& ObjectPath);
 
 	/*
-	 * From "AssetClass'/Game/Folder/MyAsset.MyAsset', "AssetClass /Game/Folder/MyAsset.MyAsset, "/Game/Folder/MyAsset.MyAsset", "/Game/Folder/MyAsset" "/Game/Folder/MyAsset.MyAsset:InnerAsset.2ndInnerAsset"
-	 * and convert to "/Game/Folder/MyAsset.MyAsset"
+	 * From "AssetClass'/Game/Folder/Package.Asset'", "AssetClass /Game/Folder/Package.Asset", "/Game/Folder/Package.Asset", "/Game/Folder/MyAsset" "/Game/Folder/Package.Asset:InnerAsset.2ndInnerAsset"
+	 * and convert to "/Game/Folder/Package.Asset"
+	 * @note: Object name is inferred from package name when missing
 	 */
 	FString ConvertAnyPathToObjectPath(const FString& AssetPath, FString& OutFailureReason);
 

@@ -35,6 +35,10 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = "DataTable", meta = (ExpandEnumAsExecs="OutResult", DataTablePin="CurveTable"))
 	static void EvaluateCurveTableRow(UCurveTable* CurveTable, FName RowName, float InXY, TEnumAsByte<EEvaluateCurveTableResult::Type>& OutResult, float& OutXY,const FString& ContextString);
     
+	// Returns whether or not Table contains a row named RowName
+  	UFUNCTION(BlueprintCallable, Category = "DataTable")
+ 	static bool DoesDataTableRowExist(UDataTable* Table, FName RowName);
+    
 	UFUNCTION(BlueprintCallable, Category = "DataTable")
 	static void GetDataTableRowNames(UDataTable* Table, TArray<FName>& OutRowNames);
 
@@ -46,7 +50,7 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
     UFUNCTION(BlueprintCallable, CustomThunk, Category = "DataTable", meta=(CustomStructureParam = "OutRow", BlueprintInternalUseOnly="true"))
     static bool GetDataTableRowFromName(UDataTable* Table, FName RowName, FTableRowBase& OutRow);
     
-	static bool Generic_GetDataTableRowFromName(UDataTable* Table, FName RowName, void* OutRowPtr);
+	static bool Generic_GetDataTableRowFromName(const UDataTable* Table, FName RowName, void* OutRowPtr);
 
     /** Based on UDataTableFunctionLibrary::GetDataTableRow */
     DECLARE_FUNCTION(execGetDataTableRowFromName)
@@ -72,7 +76,7 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
 		else if(StructProp && OutRowPtr)
 		{
 			UScriptStruct* OutputType = StructProp->Struct;
-			UScriptStruct* TableType  = Table->RowStruct;
+			const UScriptStruct* TableType  = Table->GetRowStruct();
 		
 			const bool bCompatible = (OutputType == TableType) || 
 				(OutputType->IsChildOf(TableType) && FStructUtils::TheSameLayout(OutputType, TableType));

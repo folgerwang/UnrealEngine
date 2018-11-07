@@ -3,6 +3,7 @@
 #include "EncryptionContextOpenSSL.h"
 
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlatformCryptoOpenSSL, Warning, All);
 
@@ -128,4 +129,47 @@ TArray<uint8> FEncryptionContextOpenSSL::Decrypt_AES_256_ECB(const TArrayView<co
 
 	OutResult = EPlatformCryptoResult::Success;
 	return Plaintext;
+}
+
+class FScopedEVPMDContext
+{
+public:
+	FScopedEVPMDContext() :
+		Context(EVP_MD_CTX_create())
+	{
+	}
+
+	FScopedEVPMDContext(FScopedEVPMDContext&) = delete;
+	FScopedEVPMDContext& operator=(FScopedEVPMDContext&) = delete;
+
+	~FScopedEVPMDContext()
+	{
+		EVP_MD_CTX_destroy(Context);
+	}
+
+	EVP_MD_CTX* Get() const { return Context; }
+
+private:
+	EVP_MD_CTX* Context;
+};
+
+bool FEncryptionContextOpenSSL::DigestVerify_PS256(const TArrayView<const char> Message, const TArrayView<const uint8> Signature, const TArrayView<const uint8> PKCS1Key)
+{
+	FScopedEVPMDContext Context;
+
+	if (Context.Get() == nullptr)
+	{
+		return false;
+	}
+
+	const unsigned char* PKCS1KeyData = PKCS1Key.GetData();
+	RSA* RsaKey = d2i_RSAPublicKey(nullptr, &PKCS1KeyData, PKCS1Key.Num());
+	EVP_PKEY* PKey = EVP_PKEY_new();
+	EVP_PKEY_assign_RSA(PKey, RsaKey);
+
+	EVP_PKEY_CTX* KeyContext = nullptr;
+	EVP_DigestVerifyInit(Context.Get(), &KeyContext, EVP_sha256(), nullptr, PKey);
+	EVP_PKEY_CTX_set_rsa_padding(KeyContext, RSA_PKCS1_PSS_PADDING);
+	EVP_DigestVerifyUpdate(Context.Get(), Message.GetData(), Message.Num());
+	return EVP_DigestVerifyFinal(Context.Get(), const_cast<uint8*>(Signature.GetData()), Signature.Num()) == 1;
 }

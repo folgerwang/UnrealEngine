@@ -16,6 +16,7 @@
 
 #if WITH_EDITOR
 #include "MeshUtilities.h"
+#include "MeshUtilitiesCommon.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/App.h"
 #endif // #if WITH_EDITOR
@@ -300,11 +301,11 @@ void RemapPaintedVertexColors(const TArray<FPaintedVertex>& InPaintedVertices,
 	TArray<FColor>& OutOverrideColors)
 {
 	// Find the extents formed by the cached vertex positions in order to optimize the octree used later
-	FVector MinExtents(EForceInit::ForceInitToZero);
-	FVector MaxExtents(EForceInit::ForceInitToZero);
+	FVector MinExtents(ForceInitToZero);
+	FVector MaxExtents(ForceInitToZero);
 	
 	TArray<FPaintedVertex> PaintedVertices;
-	FBox Bounds(EForceInit::ForceInitToZero);
+	FBox Bounds(ForceInitToZero);
 
 	// Retrieve currently painted vertices
 	if (InPaintedVertices.Num() > 0)

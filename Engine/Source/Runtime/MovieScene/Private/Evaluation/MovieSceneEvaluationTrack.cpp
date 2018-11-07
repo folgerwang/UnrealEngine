@@ -7,6 +7,7 @@
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneTimeHelpers.h"
 
 #include "Algo/BinarySearch.h"
 
@@ -346,11 +347,6 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::GetSegmentFromIterator(
 	return CompileSegment(Iterator);
 }
 
-TRange<FFrameNumber> FMovieSceneEvaluationTrack::GetUniqueRangeFromLowerBound(TRangeBound<FFrameNumber> InLowerBound) const
-{
-	return EvaluationTree.Tree.IterateFromLowerBound(InLowerBound).Range();
-}
-
 void FMovieSceneEvaluationTrack::ValidateSegments()
 {
 	// We don't remove segments as this may break ptrs that have been set up in the evaluation field. Instead we just remove invalid track indices.
@@ -522,19 +518,20 @@ void FMovieSceneEvaluationTrack::EvaluateSwept(FMovieSceneSegmentIdentifier Segm
 
 	GatherSweptSegments(Context.GetFrameNumberRange(), SortedIndex, Segments.GetSorted(), ImplToAccumulatedRange);
 
-	for (auto& Pair : ImplToAccumulatedRange)
+	ExecutionTokens.SetContext(Context);
+	for (const TTuple<int32, TRange<FFrameNumber>>& Pair : ImplToAccumulatedRange)
 	{
 		const int32 SectionIndex = Pair.Key;
-		TRange<FFrameTime> ClampRange = FMovieSceneEvaluationRange::NumberRangeToTimeRange(Pair.Value);
-		const FMovieSceneEvalTemplate& Template = GetChildTemplate(SectionIndex);
+		const TRange<FFrameNumber>&    SweptRange = Pair.Value;
+		const FMovieSceneEvalTemplate& Template   = GetChildTemplate(SectionIndex);
 
 		PersistentData.DeriveSectionKey(SectionIndex);
 		ExecutionTokens.SetCurrentScope(FMovieSceneEvaluationScope(PersistentData.GetSectionKey(), Template.GetCompletionMode()));
-		ExecutionTokens.SetContext(Context);
-		
+
 		Template.EvaluateSwept(
 			Operand,
-			Context.Clamp(ClampRange),
+			Context,
+			SweptRange,
 			PersistentData,
 			ExecutionTokens);
 	}

@@ -5,7 +5,7 @@ Crumbs:
 Description:
 
 [EXCERPT:OpenLevelBlueprint]
-Level Blueprint (레벨 블루프린트)는 레벨 전반적인 이벤트 그래프 역할을 하는 특수 유형 블루프린트입니다. 레벨 전반적 또는 레벨 내 특정 액터 인스턴스에만 관계된 이벤트는, 함수 호출 또는 플로우 콘트롤 형태로 시퀀스 액션을 발동시키는 데 사용됩니다.
+Level Blueprint (레벨 블루프린트)는 레벨 전반적인 이벤트 그래프 역할을 하는 특수 유형 블루프린트입니다. 레벨 전반적 또는 레벨 내 특정 액터 인스턴스에만 관계된 이벤트는, 함수 호출 또는 플로우 컨트롤 형태로 시퀀스 액션을 발동시키는 데 사용됩니다.
 
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Types/LevelBlueprint
@@ -42,7 +42,7 @@ Gameplay/Framework/UIAndHUD
 [/EXCERPT:OpenHUDBlueprint]
 
 [EXCERPT:OpenPlayerControllerBlueprint]
-콘트롤러는 물리적이지 않은 액터로, Pawn ( 또는 거기서 파생된 Character)에 빙의되어 그 동작을 제어합니다. 플레이어 콘트롤러(PlayerController)는 사람 플레이어가 폰을 제어할 때 사용됩니다.
+컨트롤러는 물리적이지 않은 액터로, Pawn ( 또는 거기서 파생된 Character)에 빙의되어 그 동작을 제어합니다. 플레이어 컨트롤러(PlayerController)는 사람 플레이어가 폰을 제어할 때 사용됩니다.
 [VAR:ToolTipFullLink]
 Gameplay/Framework/Controller/PlayerController
 [/VAR]

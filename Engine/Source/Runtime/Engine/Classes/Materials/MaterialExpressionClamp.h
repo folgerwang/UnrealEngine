@@ -42,7 +42,7 @@ class UMaterialExpressionClamp : public UMaterialExpression
 
 
 	//~ Begin UObject Interface
-	virtual void Serialize( FArchive& Ar ) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End UObject Interface
 
 	//~ Begin UMaterialExpression Interface

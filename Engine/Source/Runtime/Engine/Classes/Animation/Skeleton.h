@@ -366,6 +366,18 @@ public:
 	// return version of AnimCurveUidVersion
 	uint16 GetAnimCurveUidVersion() const { return AnimCurveUidVersion;  }
 	const TArray<uint16>& GetDefaultCurveUIDList() const { return DefaultCurveUIDList; }
+
+#if WITH_EDITOR
+	// Get existing (seen) sync marker names for this Skeleton
+	const TArray<FName>& GetExistingMarkerNames() const { return ExistingMarkerNames; }
+
+	// Register a new sync marker name
+	void RegisterMarkerName(FName MarkerName) { ExistingMarkerNames.AddUnique(MarkerName); ExistingMarkerNames.Sort(); }
+
+	// Remove a sync marker name
+	void RemoveMarkerName(FName MarkerName) { ExistingMarkerNames.Remove(MarkerName); }
+#endif
+
 protected:
 	// Container for smart name mappings
 	UPROPERTY()
@@ -375,6 +387,9 @@ protected:
 	// don't use this unless you want all curves from the skeleton
 	// FBoneContainer contains only list that is used by current LOD
 	TArray<uint16> DefaultCurveUIDList;
+
+	//Cached marker sync marker names (stripped for non editor)
+	TArray<FName> ExistingMarkerNames;
 
 private:
 	/** Increase the AnimCurveUidVersion so that instances can get the latest information */
@@ -677,6 +692,15 @@ public:
 
 		return ReferenceSkeleton.GetRefBonePose();	
 	}
+
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Find a retarget source for a particular skel mesh.
+	 * @param	InMesh	The skeletal mesh to find a source for
+	 * @return NAME_None if a retarget source was not found, or a valid name if it was
+	 */
+	ENGINE_API FName GetRetargetSourceForMesh(USkeletalMesh* InMesh) const;
+#endif
 
 	/** 
 	 * Get Track index of InAnimSeq for the BoneTreeIndex of BoneTree

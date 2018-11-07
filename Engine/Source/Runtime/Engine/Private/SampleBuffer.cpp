@@ -12,94 +12,81 @@
 namespace Audio
 {
 	FSoundWavePCMLoader::FSoundWavePCMLoader()
-		: AudioDevice(nullptr)
-		, SoundWave(nullptr)
-		, bIsLoading(false)
-		, bIsLoaded(false)
 	{
 	}
 
-	void FSoundWavePCMLoader::Init(FAudioDevice* InAudioDevice)
+	void FSoundWavePCMLoader::LoadSoundWave(USoundWave* InSoundWave, TFunction<void(const USoundWave* SoundWave, const Audio::FSampleBuffer& OutSampleBuffer)> OnLoaded)
 	{
-		AudioDevice = InAudioDevice;
-	}
+		FAudioDevice* AudioDevice = FAudioDevice::GetMainAudioDevice();
 
-	void FSoundWavePCMLoader::LoadSoundWave(USoundWave* InSoundWave)
-	{
 		if (!AudioDevice || !InSoundWave)
 		{
 			return;
 		}
 
-		// Queue existing sound wave reference so it can be
-		// cleared when the audio thread gets newly loaded audio data. 
-		// Don't want to kill the sound wave PCM data while it's playing on audio thread.
-		if (SoundWave)
-		{
-			PendingStoppingSoundWaves.Enqueue(SoundWave);
-		}
+		FLoadingSoundWaveInfo LoadingSoundWaveInfo;
+		LoadingSoundWaveInfo.SoundWave = InSoundWave;
+		LoadingSoundWaveInfo.OnLoaded = MoveTemp(OnLoaded);
+		LoadingSoundWaveInfo.bIsLoading = true;
 
-		SoundWave = InSoundWave;
-		if (!SoundWave->RawPCMData || SoundWave->AudioDecompressor)
+		if (LoadingSoundWaveInfo.SoundWave->GetPrecacheState() != ESoundWavePrecacheState::Done)
 		{
-			bIsLoaded = false;
-			bIsLoading = true;
+			LoadingSoundWaveInfo.bIsLoaded = false;
 
-			if (!SoundWave->RawPCMData)
-			{
-				// Kick off a decompression/precache of the sound wave
-				AudioDevice->Precache(SoundWave, false, true, true);
-			}
+			// Kick off a decompression/precache of the sound wave
+			AudioDevice->Precache(InSoundWave, false, true, true);
 		}
 		else
 		{
-			bIsLoading = true;
-			bIsLoaded = true;
+			LoadingSoundWaveInfo.bIsLoaded = true;
 		}
+
+		LoadingSoundWaves.Add(LoadingSoundWaveInfo);
 	}
 
-	bool FSoundWavePCMLoader::Update()
+	void FSoundWavePCMLoader::Update()
 	{
-		if (bIsLoading)
+		for (int32 i = LoadingSoundWaves.Num() - 1; i >= 0; --i)
 		{
-			check(SoundWave);
-	
-			if (bIsLoaded || (SoundWave->AudioDecompressor && SoundWave->AudioDecompressor->IsDone()))
+			FLoadingSoundWaveInfo& LoadingSoundWaveInfo = LoadingSoundWaves[i];
+
+			if (LoadingSoundWaveInfo.bIsLoading || LoadingSoundWaveInfo.bIsLoaded)
 			{
-				if (SoundWave->AudioDecompressor)
+				check(LoadingSoundWaveInfo.SoundWave);
+
+				if (LoadingSoundWaveInfo.bIsLoaded || LoadingSoundWaveInfo.SoundWave->GetPrecacheState() == ESoundWavePrecacheState::Done)
 				{
-					check(!bIsLoaded);
-					delete SoundWave->AudioDecompressor;
-					SoundWave->AudioDecompressor = nullptr;
-					SoundWave->SetPrecacheState(ESoundWavePrecacheState::Done);
+					LoadingSoundWaveInfo.bIsLoading = false;
+					LoadingSoundWaveInfo.bIsLoaded = true;
+
+					TSampleBuffer<> SampleBuffer;
+
+					USoundWave* SoundWave = LoadingSoundWaveInfo.SoundWave;
+
+					SampleBuffer.RawPCMData.Reset(SoundWave->RawPCMDataSize);
+					SampleBuffer.RawPCMData.AddUninitialized(SoundWave->RawPCMDataSize);
+					FMemory::Memcpy(SampleBuffer.RawPCMData.GetData(), SoundWave->RawPCMData, SoundWave->RawPCMDataSize);
+					SampleBuffer.NumSamples = SoundWave->RawPCMDataSize / sizeof(int16);
+					SampleBuffer.NumChannels = SoundWave->NumChannels;
+					SampleBuffer.NumFrames = SampleBuffer.NumSamples / SoundWave->NumChannels;
+					SampleBuffer.SampleRate = SoundWave->GetSampleRateForCurrentPlatform();
+					SampleBuffer.SampleDuration = (float)SampleBuffer.NumFrames / SampleBuffer.SampleRate;
+
+					LoadingSoundWaveInfo.OnLoaded(SoundWave, SampleBuffer);
+
+					LoadingSoundWaves.RemoveAtSwap(i, 1, false);
 				}
-
-				bIsLoading = false;
-				bIsLoaded = true;
-
-				SampleBuffer.RawPCMData.Reset(new int16[SoundWave->RawPCMDataSize]);
-				FMemory::Memcpy(SampleBuffer.RawPCMData.Get(), SoundWave->RawPCMData, SoundWave->RawPCMDataSize);
-				SampleBuffer.NumSamples = SoundWave->RawPCMDataSize / sizeof(int16);
-				SampleBuffer.NumChannels = SoundWave->NumChannels;
-				SampleBuffer.NumFrames = SampleBuffer.NumSamples / SoundWave->NumChannels;
-				SampleBuffer.SampleRate = SoundWave->GetSampleRateForCurrentPlatform();
-				SampleBuffer.SampleDuration = (float)SampleBuffer.NumFrames / SampleBuffer.SampleRate;
-
-				return true;
 			}
 		}
-
-		return false;
 	}
 
-	void FSoundWavePCMLoader::GetSampleBuffer(TSampleBuffer<>& OutSampleBuffer)
+	void FSoundWavePCMLoader::AddReferencedObjects(FReferenceCollector& Collector)
 	{
-		OutSampleBuffer = SampleBuffer;
-	}
-
-	void FSoundWavePCMLoader::Reset()
-	{
-		PendingStoppingSoundWaves.Empty();
+		for (FLoadingSoundWaveInfo& LoadingSoundWave : LoadingSoundWaves)
+		{
+			check(LoadingSoundWave.SoundWave);
+			Collector.AddReferencedObject(LoadingSoundWave.SoundWave);
+		}
 	}
 
 	FSoundWavePCMWriter::FSoundWavePCMWriter(int32 InChunkSize)
@@ -216,21 +203,34 @@ namespace Audio
 			return false;
 		}
 
-		FPaths::NormalizeDirectoryName(FilePath);
+		const bool bIsRelativePath = FPaths::IsRelative(FilePath);
+		if (bIsRelativePath)
+		{
+			AbsoluteFilePath = FPaths::ProjectSavedDir() + TEXT("BouncedWavFiles/") + FilePath;
+			AbsoluteFilePath = FPaths::ConvertRelativePathToFull(AbsoluteFilePath);
+		}
+		else
+		{
+			AbsoluteFilePath = FilePath;
+		}
 
-		FilePath = FPaths::ProjectSavedDir() + TEXT("BouncedWavFiles") + TEXT("/") + FilePath;
+		// Fix up any slashes
+		FPaths::NormalizeDirectoryName(AbsoluteFilePath);
+
+		// Remove any "../.." from the path.
+		FPaths::CollapseRelativeDirectories(AbsoluteFilePath);
 
 		CurrentState = ESoundWavePCMWriterState::Generating;
 
-		if (!CreateDirectoryIfNeeded(FilePath))
+		if (!CreateDirectoryIfNeeded(AbsoluteFilePath))
 		{
-			UE_LOG(LogAudio, Error, TEXT("Write to Wav File failed: Invalid directory path %s"), *FilePath);
+			UE_LOG(LogAudio, Error, TEXT("Write to Wav File failed: Invalid directory path %s"), *AbsoluteFilePath);
 			CurrentState = ESoundWavePCMWriterState::Failed;
 			return false;
 		}
 
-		AbsoluteFilePath = FilePath + FString(TEXT("/")) + FileName + FString(TEXT(".wav"));
-		AbsoluteFilePath = AbsoluteFilePath.Replace(TEXT("//"), TEXT("/"), ESearchCase::CaseSensitive);
+		// Now append the FileName
+		AbsoluteFilePath = AbsoluteFilePath + TEXT("/") + FileName + TEXT(".wav");
 
 		CurrentBuffer = InSampleBuffer;
 
@@ -486,6 +486,8 @@ namespace Audio
 			return;
 		}
 
+		// Clamp buffer to prevent wraparound when serializing:
+		CurrentBuffer.Clamp(0.9999f);
 		SerializeWaveFile(SerializedWavData, (const uint8*) CurrentBuffer.GetData(), CurrentBuffer.GetNumSamples() * sizeof(int16), CurrentBuffer.GetNumChannels(), CurrentBuffer.GetSampleRate());
 		UE_LOG(LogAudio, Display, TEXT("Serializing %d sample file (%d bytes) to %s"), CurrentBuffer.GetNumSamples(), SerializedWavData.Num(), *AbsoluteFilePath);
 		if (SerializedWavData.Num() == 0)

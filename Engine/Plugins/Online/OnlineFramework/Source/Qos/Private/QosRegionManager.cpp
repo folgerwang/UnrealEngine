@@ -9,36 +9,70 @@
 #include "QosEvaluator.h"
 #include "QosModule.h"
 
-FOnlineSessionSettingsQos::FOnlineSessionSettingsQos(bool bInIsDedicated)
+#define LAST_REGION_EVALUATION 3
+
+EQosDatacenterResult FRegionQosInstance::GetRegionResult() const
 {
-	NumPublicConnections = 1;
-	NumPrivateConnections = 0;
+	EQosDatacenterResult Result = EQosDatacenterResult::Success;
+	for (const FDatacenterQosInstance& Datacenter : DatacenterOptions)
+	{
+		if (Datacenter.Result == EQosDatacenterResult::Invalid)
+		{
+			Result = EQosDatacenterResult::Invalid;
+			break;
+		}
+		if (Datacenter.Result == EQosDatacenterResult::Incomplete)
+		{
+			Result = EQosDatacenterResult::Incomplete;
+			break;
+		}
+	}
 
-	bIsLANMatch = false;
-	bShouldAdvertise = true;
-	bAllowJoinInProgress = true;
-	bAllowInvites = true;
-	bUsesPresence = false;
-	bAllowJoinViaPresence = true;
-	bAllowJoinViaPresenceFriendsOnly = false;
+	return Result;
+}
 
-	FString GameModeStr(GAMEMODE_QOS);
-	Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
-	Set(SETTING_QOS, 1, EOnlineDataAdvertisementType::ViaOnlineService);
-	Set(SETTING_REGION, FQosInterface::Get()->GetRegionId(), EOnlineDataAdvertisementType::ViaOnlineService);
-	bIsDedicated = bInIsDedicated;
+int32 FRegionQosInstance::GetBestAvgPing() const
+{
+	int32 BestPing = UNREACHABLE_PING;
+	if (DatacenterOptions.Num() > 0)
+	{
+		// Presorted for best result first
+		BestPing = DatacenterOptions[0].AvgPingMs;
+	}
+
+	return BestPing;
+}
+
+FString FRegionQosInstance::GetBestSubregion() const
+{
+	FString BestDatacenterId;
+	if (DatacenterOptions.Num() > 0)
+	{
+		// Presorted for best result first
+		BestDatacenterId = DatacenterOptions[0].Definition.Id;
+	}
+
+	return BestDatacenterId;
+}
+
+void FRegionQosInstance::GetSubregionPreferences(TArray<FString>& OutSubregions) const
+{
+	for (const FDatacenterQosInstance& Option : DatacenterOptions)
+	{
+		// Presorted for best result first
+		OutSubregions.Add(Option.Definition.Id);
+	}
 }
 
 UQosRegionManager::UQosRegionManager(const FObjectInitializer& ObjectInitializer)
-	: bUseOldQosServers(false)
-	, NumTestsPerRegion(3)
+	: NumTestsPerRegion(3)
 	, PingTimeout(5.0f)
 	, LastCheckTimestamp(0)
 	, Evaluator(nullptr)
 	, QosEvalResult(EQosCompletionResult::Invalid)
 {
 	check(GConfig);
-	GConfig->GetString(TEXT("Qos"), TEXT("ForceRegionId"), ForceRegionId, GGameIni);
+	GConfig->GetString(TEXT("Qos"), TEXT("ForceRegionId"), ForceRegionId, GEngineIni);
 
 	// get a forced region id from the command line as an override
 	bRegionForcedViaCommandline = FParse::Value(FCommandLine::Get(), TEXT("McpRegion="), ForceRegionId);
@@ -54,12 +88,12 @@ void UQosRegionManager::PostReloadConfig(UProperty* PropertyThatWasLoaded)
 	{
 		for (int32 RegionIdx = RegionOptions.Num() - 1; RegionIdx >= 0; RegionIdx--)
 		{
-			FQosRegionInfo& Region = RegionOptions[RegionIdx];
+			FRegionQosInstance& RegionOption = RegionOptions[RegionIdx];
 
 			bool bFound = false;
-			for (FQosDatacenterInfo& Datacenter : Datacenters)
+			for (FQosRegionInfo& RegionDef : RegionDefinitions)
 			{
-				if (Datacenter.RegionId == Region.Region.RegionId)
+				if (RegionDef.RegionId == RegionOption.Definition.RegionId)
 				{
 					bFound = true;
 				}
@@ -72,17 +106,17 @@ void UQosRegionManager::PostReloadConfig(UProperty* PropertyThatWasLoaded)
 			}
 		}
 
-		for (int32 MetaIdx = 0; MetaIdx < Datacenters.Num(); MetaIdx++)
+		for (int32 RegionIdx = 0; RegionIdx < RegionDefinitions.Num(); RegionIdx++)
 		{
-			FQosDatacenterInfo& Datacenter = Datacenters[MetaIdx];
+			FQosRegionInfo& RegionDef = RegionDefinitions[RegionIdx];
 
 			bool bFound = false;
-			for (FQosRegionInfo& Region : RegionOptions)
+			for (FRegionQosInstance& RegionOption : RegionOptions)
 			{
-				if (Datacenter.RegionId == Region.Region.RegionId)
+				if (RegionDef.RegionId == RegionOption.Definition.RegionId)
 				{
 					// Overwrite the metadata
-					Region.Region = Datacenter;
+					RegionOption.Definition = RegionDef;
 					bFound = true;
 				}
 			}
@@ -90,22 +124,27 @@ void UQosRegionManager::PostReloadConfig(UProperty* PropertyThatWasLoaded)
 			if (!bFound)
 			{
 				// Add new value not in old list
-				FQosRegionInfo NewRegion(Datacenter);
-				RegionOptions.Insert(NewRegion, MetaIdx);
+				FRegionQosInstance NewRegion(RegionDef);
+				RegionOptions.Insert(NewRegion, RegionIdx);
 			}
 		}
 
 		OnQoSSettingsChangedDelegate.ExecuteIfBound();
 
-		// Validate the current region selection
-		TrySetDefaultRegion();
+		// Validate the current region selection (skipped if a selection has never been attempted)
+		if (QosEvalResult != EQosCompletionResult::Invalid)
+		{
+			TrySetDefaultRegion();
+		}
+
+		SanityCheckDefinitions();
 	}
 }
 
 int32 UQosRegionManager::GetMaxPingMs() const
 {
 	int32 MaxPing = -1;
-	if (GConfig->GetInt(TEXT("Qos"), TEXT("MaximumPingMs"), MaxPing, GGameIni) && MaxPing > 0)
+	if (GConfig->GetInt(TEXT("Qos"), TEXT("MaximumPingMs"), MaxPing, GEngineIni) && MaxPing > 0)
 	{
 		return MaxPing;
 	}
@@ -129,7 +168,7 @@ FString UQosRegionManager::GetDatacenterId()
 			{
 				FString DefaultDCID;
 				check(GConfig);
-				if (GConfig->GetString(TEXT("Qos"), TEXT("DCID"), DefaultDCID, GGameIni))
+				if (GConfig->GetString(TEXT("Qos"), TEXT("DCID"), DefaultDCID, GEngineIni))
 				{
 					// DCID specified in ini file
 					DCIDString = DefaultDCID.ToUpper();
@@ -143,6 +182,36 @@ FString UQosRegionManager::GetDatacenterId()
 	return DCID.DCIDString;
 }
 
+FString UQosRegionManager::GetAdvertisedSubregionId()
+{
+	struct FSubregion
+	{
+		FSubregion()
+		{
+			FString OverrideSubregion;
+			if (FParse::Value(FCommandLine::Get(), TEXT("McpSubregion="), OverrideSubregion))
+			{
+				// Subregion specified on command line
+				SubregionString = OverrideSubregion.ToUpper();
+			}
+			else
+			{
+				FString DefaultSubregion;
+				check(GConfig);
+				if (GConfig->GetString(TEXT("Qos"), TEXT("McpSubregion"), DefaultSubregion, GEngineIni))
+				{
+					// DCID specified in ini file
+					SubregionString = DefaultSubregion.ToUpper();
+				}
+			}
+		}
+
+		FString SubregionString;
+	};
+	static FSubregion Subregion;
+	return Subregion.SubregionString;
+}
+
 void UQosRegionManager::BeginQosEvaluation(UWorld* World, const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider, const FSimpleDelegate& OnComplete)
 {
 	check(World);
@@ -150,7 +219,7 @@ void UQosRegionManager::BeginQosEvaluation(UWorld* World, const TSharedPtr<IAnal
 	// There are valid cached results, use them
 	if ((RegionOptions.Num() > 0) &&
 		(QosEvalResult == EQosCompletionResult::Success) &&
-		(FDateTime::UtcNow() - LastCheckTimestamp).GetTotalSeconds() <= 3)
+		(FDateTime::UtcNow() - LastCheckTimestamp).GetTotalSeconds() <= LAST_REGION_EVALUATION)
 	{
 		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([OnComplete]()
 		{
@@ -163,38 +232,61 @@ void UQosRegionManager::BeginQosEvaluation(UWorld* World, const TSharedPtr<IAnal
 	OnQosEvalCompleteDelegate.Add(OnComplete);
 
 	// if we're already evaluating, simply return
-	if (Evaluator != nullptr)
+	if (Evaluator == nullptr)
 	{
-		return;
+		// create a new evaluator and start the process of running
+		Evaluator = NewObject<UQosEvaluator>();
+		Evaluator->AddToRoot();
+		Evaluator->SetWorld(World);
+		Evaluator->SetAnalyticsProvider(AnalyticsProvider);
+
+		FQosParams Params;
+		Params.NumTestsPerRegion = NumTestsPerRegion;
+		Params.Timeout = PingTimeout;
+		Evaluator->FindDatacenters(Params, RegionDefinitions, DatacenterDefinitions, FOnQosSearchComplete::CreateUObject(this, &UQosRegionManager::OnQosEvaluationComplete));
 	}
-
-	// create a new evaluator and start the process of running
-	Evaluator = NewObject<UQosEvaluator>();
-	Evaluator->AddToRoot();
-	Evaluator->SetWorld(World);
-	Evaluator->SetAnalyticsProvider(AnalyticsProvider);
-
-	FQosParams Params;
-	Params.ControllerId = 0;
-	Params.bUseOldQosServers = bUseOldQosServers;
-	Params.NumTestsPerRegion = NumTestsPerRegion;
-	Params.Timeout = PingTimeout;
-	Evaluator->FindDatacenters(Params, Datacenters, FOnQosSearchComplete::CreateUObject(this, &UQosRegionManager::OnQosEvaluationComplete));
 }
 
-void UQosRegionManager::OnQosEvaluationComplete(EQosCompletionResult Result, const TArray<FQosRegionInfo>& RegionInfo)
+void UQosRegionManager::OnQosEvaluationComplete(EQosCompletionResult Result, const TArray<FDatacenterQosInstance>& DatacenterInstances)
 {
 	// toss the evaluator
 	if (Evaluator != nullptr)
 	{
 		Evaluator->RemoveFromRoot();
+		Evaluator->MarkPendingKill();
 		Evaluator = nullptr;
 	}
 	QosEvalResult = Result;
-	RegionOptions.Empty(RegionInfo.Num());
+	RegionOptions.Empty(RegionDefinitions.Num());
 
-	// Always capture the region information (its still correct, even if in a bad state)
-	RegionOptions = RegionInfo;
+	TMultiMap<FString, FDatacenterQosInstance> DatacenterMap;
+	for (const FDatacenterQosInstance& Datacenter : DatacenterInstances)
+	{
+		DatacenterMap.Add(Datacenter.Definition.RegionId, Datacenter);
+	}
+
+	for (const FQosRegionInfo& RegionInfo : RegionDefinitions)
+	{
+		if (RegionInfo.IsPingable())
+		{
+			if (DatacenterMap.Num(RegionInfo.RegionId))
+			{
+				// Build region options from datacenter details
+				FRegionQosInstance* NewRegion = new (RegionOptions) FRegionQosInstance(RegionInfo);
+				DatacenterMap.MultiFind(RegionInfo.RegionId, NewRegion->DatacenterOptions);
+
+				NewRegion->DatacenterOptions.Sort([](const FDatacenterQosInstance& A, const FDatacenterQosInstance& B)
+				{
+					// Sort ping best to worst
+					return A.AvgPingMs < B.AvgPingMs;
+				});
+			}
+			else
+			{
+				UE_LOG(LogQos, Warning, TEXT("No datacenters for region %s"), *RegionInfo.RegionId);
+			}
+		}
+	}
 
 	LastCheckTimestamp = FDateTime::UtcNow();
 
@@ -205,7 +297,7 @@ void UQosRegionManager::OnQosEvaluationComplete(EQosCompletionResult Result, con
 	}
 
 	// treat lack of any regions as a failure
-	if (RegionInfo.Num() <= 0)
+	if (RegionOptions.Num() <= 0)
 	{
 		QosEvalResult = EQosCompletionResult::Failure;
 	}
@@ -265,33 +357,44 @@ FString UQosRegionManager::GetBestRegion() const
 
 	// try to select the lowest ping
 	int32 BestPing = INT_MAX;
-	const TArray<FQosRegionInfo>& LocalRegionOptions = GetRegionOptions();
-	for (const FQosRegionInfo& Region : LocalRegionOptions)
+	const TArray<FRegionQosInstance>& LocalRegionOptions = GetRegionOptions();
+	for (const FRegionQosInstance& Region : LocalRegionOptions)
 	{
-		bool bValidResults = (Region.Result == EQosRegionResult::Success) || (Region.Result == EQosRegionResult::Incomplete);
-		if (Region.IsUsable() && bValidResults &&
-			!Region.Region.bBeta && Region.AvgPingMs < BestPing)
+		if (Region.IsAutoAssignable() && Region.GetBestAvgPing() < BestPing)
 		{
-			BestPing = Region.AvgPingMs;
-			BestRegionId = Region.Region.RegionId;
+			BestPing = Region.GetBestAvgPing();
+			BestRegionId = Region.Definition.RegionId;
 		}
 	}
 
 	return BestRegionId;
 }
 
-const TArray<FQosRegionInfo>& UQosRegionManager::GetRegionOptions() const
+void UQosRegionManager::GetSubregionPreferences(const FString& RegionId, TArray<FString>& OutSubregions) const
+{
+	const TArray<FRegionQosInstance>& LocalRegionOptions = GetRegionOptions();
+	for (const FRegionQosInstance& Region : LocalRegionOptions)
+	{
+		if (Region.Definition.RegionId == RegionId)
+		{
+			Region.GetSubregionPreferences(OutSubregions);
+			break;
+		}
+	}
+}
+
+const TArray<FRegionQosInstance>& UQosRegionManager::GetRegionOptions() const
 {
 	if (ForceRegionId.IsEmpty())
 	{
 		return RegionOptions;
 	}
 
-	static TArray<FQosRegionInfo> ForcedRegionOptions;
+	static TArray<FRegionQosInstance> ForcedRegionOptions;
 	ForcedRegionOptions.Empty(1);
-	for (const FQosRegionInfo& RegionOption : RegionOptions)
+	for (const FRegionQosInstance& RegionOption : RegionOptions)
 	{
-		if (RegionOption.Region.RegionId == ForceRegionId)
+		if (RegionOption.Definition.RegionId == ForceRegionId)
 		{
 			ForcedRegionOptions.Add(RegionOption);
 		}
@@ -299,15 +402,17 @@ const TArray<FQosRegionInfo>& UQosRegionManager::GetRegionOptions() const
 #if !UE_BUILD_SHIPPING
 	if (ForcedRegionOptions.Num() == 0)
 	{
-		FQosRegionInfo FakeRegionInfo;
-		FakeRegionInfo.Region.DisplayName =	NSLOCTEXT("MMRegion", "DevRegion", "Development");
-		FakeRegionInfo.Region.RegionId = ForceRegionId;
-		FakeRegionInfo.Region.bEnabled = true;
-		FakeRegionInfo.Region.bVisible = true;
-		FakeRegionInfo.Region.bBeta = false;
-		FakeRegionInfo.Result = EQosRegionResult::Success;
-		FakeRegionInfo.AvgPingMs = 0;
-		ForcedRegionOptions.Add(FakeRegionInfo);
+		FRegionQosInstance FakeRegionInfo;
+		FakeRegionInfo.Definition.DisplayName =	NSLOCTEXT("MMRegion", "DevRegion", "Development");
+		FakeRegionInfo.Definition.RegionId = ForceRegionId;
+		FakeRegionInfo.Definition.bEnabled = true;
+		FakeRegionInfo.Definition.bVisible = true;
+		FakeRegionInfo.Definition.bAutoAssignable = false;
+		FDatacenterQosInstance FakeDatacenterInfo;
+		FakeDatacenterInfo.Result = EQosDatacenterResult::Success;
+		FakeDatacenterInfo.AvgPingMs = 0;
+		FakeRegionInfo.DatacenterOptions.Add(MoveTemp(FakeDatacenterInfo));
+		ForcedRegionOptions.Add(MoveTemp(FakeRegionInfo));
 	}
 #endif
 	return ForcedRegionOptions;
@@ -353,10 +458,10 @@ void UQosRegionManager::TrySetDefaultRegion()
 
 bool UQosRegionManager::IsUsableRegion(const FString& InRegionId) const
 {
-	const TArray<FQosRegionInfo>& LocalRegionOptions = GetRegionOptions();
-	for (const FQosRegionInfo& RegionInfo : LocalRegionOptions)
+	const TArray<FRegionQosInstance>& LocalRegionOptions = GetRegionOptions();
+	for (const FRegionQosInstance& RegionInfo : LocalRegionOptions)
 	{
-		if (RegionInfo.Region.RegionId == InRegionId)
+		if (RegionInfo.Definition.RegionId == InRegionId)
 		{
 			return RegionInfo.IsUsable();
 		}
@@ -374,10 +479,10 @@ bool UQosRegionManager::SetSelectedRegion(const FString& InRegionId, bool bForce
 		// make sure it's in the option list
 		FString RegionId = InRegionId.ToUpper();
 
-		const TArray<FQosRegionInfo>& LocalRegionOptions = GetRegionOptions();
-		for (const FQosRegionInfo& RegionInfo : LocalRegionOptions)
+		const TArray<FRegionQosInstance>& LocalRegionOptions = GetRegionOptions();
+		for (const FRegionQosInstance& RegionInfo : LocalRegionOptions)
 		{
-			if (RegionInfo.Region.RegionId == RegionId)
+			if (RegionInfo.Definition.RegionId == RegionId)
 			{
 				if (RegionInfo.IsUsable())
 				{
@@ -412,35 +517,124 @@ void UQosRegionManager::ClearSelectedRegion()
 
 bool UQosRegionManager::AllRegionsFound() const
 {
-	int32 NumRegions = 0;
-	for (const FQosDatacenterInfo& Datacenter : Datacenters)
+	int32 NumDatacenters = 0;
+	for (const FQosDatacenterInfo& Datacenter : DatacenterDefinitions)
 	{
 		if (Datacenter.IsPingable())
 		{
-			++NumRegions;
+			++NumDatacenters;
 		}
 	}
 
-	// Look at real region options here
-	if (NumRegions == RegionOptions.Num())
+	int32 NumDatacentersWithGoodResponses = 0;
+	for (const FRegionQosInstance& Region : RegionOptions)
 	{
-		for (const FQosRegionInfo& Region : RegionOptions)
+		for (const FDatacenterQosInstance& Datacenter : Region.DatacenterOptions)
 		{
-			// All regions need to have a good amount of data to be consider viable
-			bool bGoodPercentage = (((float)Region.NumResponses / (float)NumTestsPerRegion) >= 0.5f);
-			if (!bGoodPercentage)
+			const bool bGoodPercentage = (((float)Datacenter.NumResponses / (float)NumTestsPerRegion) >= 0.5f);
+			NumDatacentersWithGoodResponses += bGoodPercentage ? 1 : 0;
+		}
+	}
+
+	return (NumDatacenters > 0) && (NumDatacentersWithGoodResponses > 0) && (NumDatacenters == NumDatacentersWithGoodResponses);
+}
+
+void UQosRegionManager::SanityCheckDefinitions() const
+{
+	// Check data syntax
+	for (const FQosRegionInfo& Region : RegionDefinitions)
+	{
+		UE_CLOG(!Region.IsValid(), LogQos, Warning, TEXT("Invalid QOS region entry!"));
+	}
+
+	// Check data syntax
+	for (const FQosDatacenterInfo& Datacenter : DatacenterDefinitions)
+	{
+		UE_CLOG(!Datacenter.IsValid(), LogQos, Warning, TEXT("Invalid QOS datacenter entry!"));
+	}
+
+	// Every datacenter maps to a parent region
+	for (const FQosDatacenterInfo& Datacenter : DatacenterDefinitions)
+	{
+		bool bFoundParentRegion = false;
+		for (const FQosRegionInfo& Region : RegionDefinitions)
+		{
+			if (Datacenter.RegionId == Region.RegionId)
 			{
-				return false;
+				bFoundParentRegion = true;
+				break;
 			}
 		}
 
-		return true;
+		if (!bFoundParentRegion)
+		{
+			UE_LOG(LogQos, Warning, TEXT("Datacenter %s has undefined parent region %s"), *Datacenter.Id, *Datacenter.RegionId);
+		}
 	}
 
-	return false;
+	// Regions with no available datacenters
+	for (const FQosRegionInfo& Region : RegionDefinitions)
+	{
+		int32 NumDatacenters = 0;
+		int32 NumPingableDatacenters = 0;
+		for (const FQosDatacenterInfo& Datacenter : DatacenterDefinitions)
+		{
+			if (Datacenter.RegionId == Region.RegionId)
+			{
+				NumDatacenters++;
+				if (Datacenter.IsPingable())
+				{
+					NumPingableDatacenters++;
+				}
+			}
+		}
+
+		if (NumDatacenters == 0)
+		{
+			UE_LOG(LogQos, Warning, TEXT("Region %s has no datacenters"), *Region.RegionId);
+		}
+
+		if (NumDatacenters > 0 && NumPingableDatacenters == 0)
+		{
+			UE_LOG(LogQos, Warning, TEXT("Region %s has %d datacenters, all disabled"), *Region.RegionId, NumDatacenters);
+		}
+	}
+
+	// Every auto assignable region has at least one auto assignable datacenter
+	int32 NumAutoAssignableRegions = 0;
+	for (const FQosRegionInfo& Region : RegionDefinitions)
+	{
+		if (Region.IsAutoAssignable())
+		{
+			int32 NumPingableDatacenters = 0;
+			for (const FQosDatacenterInfo& Datacenter : DatacenterDefinitions)
+			{
+				if (Datacenter.RegionId == Region.RegionId)
+				{
+					if (Datacenter.IsPingable())
+					{
+						NumPingableDatacenters++;
+					}
+				}
+			}
+
+			if (NumPingableDatacenters)
+			{
+				NumAutoAssignableRegions++;
+			}
+
+			UE_LOG(LogQos, Display, TEXT("AutoRegion %s: %d datacenters available"), *Region.RegionId, NumPingableDatacenters);
+		}
+	}
+
+	// At least one region is auto assignable
+	if (NumAutoAssignableRegions == 0)
+	{
+		UE_LOG(LogQos, Warning, TEXT("No auto assignable regions available!"));
+	}
 }
 
-void UQosRegionManager::DumpRegionStats()
+void UQosRegionManager::DumpRegionStats() const
 {
 	UE_LOG(LogQos, Display, TEXT("Region Info:"));
 	UE_LOG(LogQos, Display, TEXT("Current: %s "), *SelectedRegionId);
@@ -448,14 +642,66 @@ void UQosRegionManager::DumpRegionStats()
 	{
 		UE_LOG(LogQos, Display, TEXT("Forced: %s "), *ForceRegionId);
 	}
-	
-	// Look at real region options here
-	UE_LOG(LogQos, Display, TEXT("Overall Result: %s"), ToString(QosEvalResult));
-	for (const FQosRegionInfo& Region : RegionOptions)
+
+	TMultiMap<FString, const FQosDatacenterInfo*> DatacentersByRegion;
+	for (const FQosDatacenterInfo& DatacenterDef : DatacenterDefinitions)
 	{
-		UE_LOG(LogQos, Display, TEXT("Region: %s [%s] Ping: %d"), *Region.Region.DisplayName.ToString(), *Region.Region.RegionId, Region.AvgPingMs);
-		UE_LOG(LogQos, Display, TEXT("\tEnabled: %d Visible: %d Beta: %d Result: %s"), Region.Region.bEnabled, Region.Region.bVisible, Region.Region.bBeta, ToString(Region.Result));
+		DatacentersByRegion.Emplace(DatacenterDef.RegionId, &DatacenterDef);
 	}
+
+	TMap<FString, const FRegionQosInstance* const> RegionInstanceByRegion;
+	for (const FRegionQosInstance& Region : RegionOptions)
+	{
+		RegionInstanceByRegion.Emplace(Region.Definition.RegionId, &Region);
+	}
+
+	// Look at real region options here
+	UE_LOG(LogQos, Display, TEXT("Definitions:"));
+	for (const FQosRegionInfo& RegionDef : RegionDefinitions)
+	{
+		const FRegionQosInstance* const* RegionInst = RegionInstanceByRegion.Find(RegionDef.RegionId);
+
+		TArray<const FQosDatacenterInfo*> OutValues;
+		DatacentersByRegion.MultiFind(RegionDef.RegionId, OutValues);
+
+		UE_LOG(LogQos, Display, TEXT("\tRegion: %s [%s] (%d datacenters)"), *RegionDef.DisplayName.ToString(), *RegionDef.RegionId, OutValues.Num());
+		UE_LOG(LogQos, Display, TEXT("\t Enabled: %d Visible: %d Beta: %d"), RegionDef.bEnabled, RegionDef.bVisible, RegionDef.bAutoAssignable);
+
+		TSet<FString> FoundSubregions;
+		if (RegionInst)
+		{
+			for (const FDatacenterQosInstance& Datacenter : (*RegionInst)->DatacenterOptions)
+			{
+				for (const FQosDatacenterInfo* DatacenterDef : OutValues)
+				{
+					if (DatacenterDef->Id == Datacenter.Definition.Id)
+					{
+						FoundSubregions.Add(DatacenterDef->Id);
+						float ResponsePercent = (static_cast<float>(Datacenter.NumResponses) / static_cast<float>(NumTestsPerRegion)) * 100.0f;
+						UE_LOG(LogQos, Display, TEXT("\t  Datacenter: %s%s %dms (%0.2f%%) %s"), 
+							*DatacenterDef->Id, !DatacenterDef->bEnabled ? TEXT(" Disabled") : TEXT(""),
+							Datacenter.AvgPingMs, ResponsePercent, ToString(Datacenter.Result)
+						);
+						break;
+					}
+				}
+			}
+		}
+
+		for (const FQosDatacenterInfo* DatacenterDef : OutValues)
+		{
+			UE_CLOG(!FoundSubregions.Contains(DatacenterDef->Id), LogQos, Display, TEXT("\t  Datacenter: %s%s"), *DatacenterDef->Id, !DatacenterDef->bEnabled ? TEXT(" Disabled") : TEXT(""));
+		}
+
+		if (!RegionInst)
+		{
+			UE_LOG(LogQos, Display, TEXT("No instances for region"));
+		}
+	}
+
+	UE_LOG(LogQos, Display, TEXT("Results: %s"), ToString(QosEvalResult));
+
+	SanityCheckDefinitions();
 }
 
 void UQosRegionManager::RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged)

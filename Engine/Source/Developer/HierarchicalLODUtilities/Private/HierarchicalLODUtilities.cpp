@@ -99,6 +99,20 @@ static FString GetHLODPackageName(const ULevel* InLevel, const uint32 InHLODLeve
 	return FString::Printf(TEXT("%s/HLOD/%s"), *PathName, *InOutHLODProxyName);
 }
 
+static FString GetHLODProxyName(const FString& InLevelPackageName, const uint32 InHLODLevelIndex)
+{
+	const FString BaseName = FPackageName::GetShortName(InLevelPackageName);	
+	return FString::Printf(TEXT("%s_%i_HLOD"), *BaseName, InHLODLevelIndex);
+}
+
+static FString GetHLODPackageName(const FString& InLevelPackageName, const uint32 InHLODLevelIndex, FString& InOutHLODProxyName)
+{
+	const FString PathName = FPackageName::GetLongPackagePath(InLevelPackageName);
+	const FString BaseName = FPackageName::GetShortName(InLevelPackageName);	
+	InOutHLODProxyName = GetHLODProxyName(InLevelPackageName, InHLODLevelIndex);
+	return FString::Printf(TEXT("%s/HLOD/%s"), *PathName, *InOutHLODProxyName);
+}
+
 void FHierarchicalLODUtilities::CleanStandaloneAssetsInPackage(UPackage* InPackage)
 {
 	TArray<UObject*> Objects;
@@ -205,6 +219,12 @@ UPackage* FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(const ULev
 	return HLODPackage;
 }
 
+FString FHierarchicalLODUtilities::GetLevelHLODProxyName(const FString& InLevelPackageName, const uint32 InHLODLevelIndex)
+{
+	FString HLODProxyName;
+	FString HLODPackageName = GetHLODPackageName(InLevelPackageName, InHLODLevelIndex, HLODProxyName);
+	return HLODPackageName + TEXT(".") + HLODProxyName;
+}
 
 bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup, UMaterialInterface* InBaseMaterial)
 {
@@ -910,7 +930,7 @@ bool FHierarchicalLODUtilities::IsWorldUsedForStreaming(const UWorld* InWorld)
 				TArray<UPackage*> Packages;
 				Packages.Add(ReferencingPackage);
 				TArray<UObject*> Objects;
-				PackageTools::GetObjectsInPackages(&Packages, Objects);
+				UPackageTools::GetObjectsInPackages(&Packages, Objects);
 
 				// Loop over all objects in package and try to find a world
 				for (UObject* Object : Objects)

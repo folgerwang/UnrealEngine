@@ -102,10 +102,10 @@ struct FAnalogData
 	FAnalogData()
 		: Index(INDEX_NONE)
 		, Value(0.f)
+		, PreviousValue(0.f)
 		, RangeMin(-1.f)
 		, RangeMax(-1.f)
 		, Offset(0.f)
-		, PreviousValue(0.f)
 		, bInverted(false)
 	{
 	}
@@ -113,10 +113,10 @@ struct FAnalogData
 	FAnalogData(const int32 InIndex, const float InValue, const float InRangeMin, const float InRangeMax, const float InOffset, const bool bInInverted, const FName InKeyName)
 		: Index(InIndex)
 		, Value(InValue)
+		, PreviousValue(0.f)
 		, RangeMin(InRangeMin)
 		, RangeMax(InRangeMax)
 		, Offset(0.f)
-		, PreviousValue(0.f)
 		, bInverted(bInInverted)
 		, KeyName(InKeyName)
 	{

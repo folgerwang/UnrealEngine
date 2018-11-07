@@ -7,6 +7,7 @@
 #include "Async/Async.h"
 #include "IMediaEventSink.h"
 #include "IMediaOptions.h"
+#include "MediaPlayerOptions.h"
 #include "Misc/Optional.h"
 #include "UObject/Class.h"
 
@@ -119,7 +120,7 @@ IMediaView& FWmfMediaPlayer::GetView()
 }
 
 
-bool FWmfMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
+bool FWmfMediaPlayer::Open(const FString& Url, const IMediaOptions* Options, const FMediaPlayerOptions* PlayerOptions)
 {
 	Close();
 
@@ -130,7 +131,13 @@ bool FWmfMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 
 	const bool Precache = (Options != nullptr) ? Options->GetMediaOption("PrecacheFile", false) : false;
 
-	return InitializePlayer(nullptr, Url, Precache);
+	return InitializePlayer(nullptr, Url, Precache, PlayerOptions);
+}
+
+
+bool FWmfMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
+{
+	return Open(Url, Options, nullptr);
 }
 
 
@@ -150,7 +157,7 @@ bool FWmfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Arch
 		return false;
 	}
 
-	return InitializePlayer(Archive, OriginalUrl, false);
+	return InitializePlayer(Archive, OriginalUrl, false, nullptr);
 }
 
 
@@ -208,7 +215,7 @@ void FWmfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 /* FWmfMediaPlayer implementation
  *****************************************************************************/
 
-bool FWmfMediaPlayer::InitializePlayer(const TSharedPtr<FArchive, ESPMode::ThreadSafe>& Archive, const FString& Url, bool Precache)
+bool FWmfMediaPlayer::InitializePlayer(const TSharedPtr<FArchive, ESPMode::ThreadSafe>& Archive, const FString& Url, bool Precache, const FMediaPlayerOptions* PlayerOptions)
 {
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Player %llx: Initializing %s (archive = %s, precache = %s)"), this, *Url, Archive.IsValid() ? TEXT("yes") : TEXT("no"), Precache ? TEXT("yes") : TEXT("no"));
 
@@ -222,17 +229,24 @@ bool FWmfMediaPlayer::InitializePlayer(const TSharedPtr<FArchive, ESPMode::Threa
 
 	MediaUrl = Url;
 
+	FMediaPlayerOptions LocalPlayerOptions;
+	if (PlayerOptions)
+	{
+		LocalPlayerOptions = *PlayerOptions;
+	}
+
 	// initialize presentation on a separate thread
 	const EAsyncExecution Execution = Precache ? EAsyncExecution::Thread : EAsyncExecution::ThreadPool;
 
-	Async<void>(Execution, [Archive, Url, Precache, TracksPtr = TWeakPtr<FWmfMediaTracks, ESPMode::ThreadSafe>(Tracks)]()
+	Async<void>(Execution, [Archive, Url, Precache, LocalPlayerOptions, TracksPtr = TWeakPtr<FWmfMediaTracks, ESPMode::ThreadSafe>(Tracks)]()
 	{
 		TSharedPtr<FWmfMediaTracks, ESPMode::ThreadSafe> PinnedTracks = TracksPtr.Pin();
 
 		if (PinnedTracks.IsValid())
 		{
 			TComPtr<IMFMediaSource> MediaSource = WmfMedia::ResolveMediaSource(Archive, Url, Precache);
-			PinnedTracks->Initialize(MediaSource, Url);
+
+			PinnedTracks->Initialize(MediaSource, Url, &LocalPlayerOptions);
 		}
 	});
 

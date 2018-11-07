@@ -16,7 +16,10 @@
 #include "BuildPatchProgress.h"
 #include "Core/Platform.h"
 #include "Core/ProcessTimer.h"
+#include "Core/AsyncHelpers.h"
 #include "Common/HttpManager.h"
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
 namespace BuildPatchServices
 {
@@ -24,9 +27,19 @@ namespace BuildPatchServices
 	struct FCloudSourceConfig;
 	struct FInstallSourceConfig;
 	class IInstallerError;
-	class IInstallerStatistics;
+	class IFileOperationTracker;
+	class IMemoryChunkStoreStatistics;
+	class IMemoryChunkStoreAggregateStatistics;
+	class IDiskChunkStoreStatistics;
+	class ISpeedRecorder;
+	class IChunkDataSizeProvider;
+	class IDownloadServiceStatistics;
+	class IChunkDbChunkSourceStatistics;
+	class ICloudChunkSourceStatistics;
+	class IInstallChunkSourceStatistics;
+	class IFileConstructorStatistics;
+	class IVerifierStatistics;
 	class IInstallerAnalytics;
-	class IMachineConfig;
 	class IDownloadService;
 	class IMessagePump;
 
@@ -84,6 +97,9 @@ namespace BuildPatchServices
 		// A flag that stores whether we are on the first install iteration.
 		FThreadSafeBool bFirstInstallIteration;
 
+		// Tracks required download data between install retries.
+		FThreadSafeInt64 PreviousTotalDownloadRequired;
+
 		// Keep track of build stats.
 		FBuildInstallStats BuildStats;
 
@@ -102,8 +118,11 @@ namespace BuildPatchServices
 		// Holds the files which are all required.
 		TSet<FString> TaggedFiles;
 
-		// The files that the installation process required to construct.
+		// The files to be constructed in the current install attempt.
 		TSet<FString> FilesToConstruct;
+
+		// The files that were removed during installation due to destructive patch behavior.
+		TSet<FString> OldFilesRemovedBySystem;
 
 		// Map of registered installations.
 		TMap<FString, FBuildPatchAppManifestRef> InstallationInfo;
@@ -133,7 +152,20 @@ namespace BuildPatchServices
 		TUniquePtr<IInstallerAnalytics> InstallerAnalytics;
 
 		// Installer statistics tracking.
-		TUniquePtr<IInstallerStatistics> InstallerStatistics;
+		TUniquePtr<IFileOperationTracker> FileOperationTracker;
+		TUniquePtr<IMemoryChunkStoreAggregateStatistics> MemoryChunkStoreAggregateStatistics;
+		TUniquePtr<IDiskChunkStoreStatistics> DiskChunkStoreStatistics;
+		TUniquePtr<ISpeedRecorder> DownloadSpeedRecorder;
+		TUniquePtr<ISpeedRecorder> DiskReadSpeedRecorder;
+		TUniquePtr<ISpeedRecorder> DiskWriteSpeedRecorder;
+		TUniquePtr<ISpeedRecorder> ChunkDbReadSpeedRecorder;
+		TUniquePtr<IChunkDataSizeProvider> ChunkDataSizeProvider;
+		TUniquePtr<IDownloadServiceStatistics> DownloadServiceStatistics;
+		TUniquePtr<IChunkDbChunkSourceStatistics> ChunkDbChunkSourceStatistics;
+		TUniquePtr<IInstallChunkSourceStatistics> InstallChunkSourceStatistics;
+		TUniquePtr<ICloudChunkSourceStatistics> CloudChunkSourceStatistics;
+		TUniquePtr<IFileConstructorStatistics> FileConstructorStatistics;
+		TUniquePtr<IVerifierStatistics> VerifierStatistics;
 
 		// Download service.
 		TUniquePtr<IDownloadService> DownloadService;
@@ -158,6 +190,9 @@ namespace BuildPatchServices
 		FProcessTimer ProcessPausedTimer;
 		FProcessTimer ProcessActiveTimer;
 		FProcessTimer ProcessExecuteTimer;
+
+		// Caches verification errors encountered each run.
+		TMap<BuildPatchServices::EVerifyError, int32> CachedVerifyErrorCounts;
 
 	public:
 		/**
@@ -185,6 +220,7 @@ namespace BuildPatchServices
 		virtual bool IsCanceled() const override;
 		virtual bool IsPaused() const override;
 		virtual bool IsResumable() const override;
+		virtual bool IsUpdate() const override;
 		virtual bool HasError() const override;
 		virtual EBuildPatchInstallError GetErrorType() const override;
 		virtual FString GetErrorCode() const override;
@@ -193,7 +229,7 @@ namespace BuildPatchServices
 		//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
 		virtual FText GetDownloadSpeedText() const override;
 		virtual double GetDownloadSpeed() const override;
-		virtual int64 GetInitialDownloadSize() const override;
+		virtual int64 GetTotalDownloadRequired() const override;
 		virtual int64 GetTotalDownloaded() const override;
 		virtual EBuildPatchState GetState() const override;
 		virtual FText GetStatusText() const override;
@@ -234,10 +270,80 @@ namespace BuildPatchServices
 		 */
 		void PreExit();
 
+		/**
+		 * @return the file operation tracker for granular data progress states.
+		 */
+		const IFileOperationTracker* GetFileOperationTracker() const;
+
+		/**
+		 * @return the speed recorder for download speed.
+		 */
+		const ISpeedRecorder* GetDownloadSpeedRecorder() const;
+
+		/**
+		 * @return the speed recorder for disk read speed.
+		 */
+		const ISpeedRecorder* GetDiskReadSpeedRecorder() const;
+
+		/**
+		 * @return the speed recorder for chunkdb read speed.
+		 */
+		const ISpeedRecorder* GetChunkDbReadSpeedRecorder() const;
+
+		/**
+		 * @return the speed recorder for disk write speed.
+		 */
+		const ISpeedRecorder* GetDiskWriteSpeedRecorder() const;
+
+		/**
+		 * @return the download service statistics interface.
+		 */
+		const IDownloadServiceStatistics* GetDownloadServiceStatistics() const;
+
+		/**
+		 * @return the install chunk source statistics interface.
+		 */
+		const IInstallChunkSourceStatistics* GetInstallChunkSourceStatistics() const;
+
+		/**
+		 * @return the cloud chunk source statistics interface.
+		 */
+		const ICloudChunkSourceStatistics* GetCloudChunkSourceStatistics() const;
+
+		/**
+		 * @return the file constructor statistics interface.
+		 */
+		const IFileConstructorStatistics* GetFileConstructorStatistics() const;
+
+		/**
+		 * @return the verifier statistics interface.
+		 */
+		const IVerifierStatistics* GetVerifierStatistics() const;
+
+		/**
+		 * @return the cloud memory chunk store statistics interface.
+		 */
+		const IMemoryChunkStoreStatistics* GetCloudMemoryChunkStoreStatistics() const;
+
+		/**
+		 * @return the install memory chunk store statistics interface.
+		 */
+		const IMemoryChunkStoreStatistics* GetInstallMemoryChunkStoreStatistics() const;
+
+		/**
+		 * @return the disk chunk store statistics interface.
+		 */
+		const IDiskChunkStoreStatistics* GetDiskChunkStoreStatistics() const;
+
+		/**
+		 * @return the configuration being used by the installer.
+		 */
+		const FInstallerConfiguration& GetConfiguration() const;
+
 	private:
 
 		/**
-		 * Initialise the installer.
+		 * Initialize the installer.
 		 * @return Whether initialization was successful.
 		 */
 		bool Initialize();
@@ -313,6 +419,8 @@ namespace BuildPatchServices
 		FCloudSourceConfig BuildCloudSourceConfig();
 	};
 }
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 typedef TSharedPtr< BuildPatchServices::FBuildPatchInstaller, ESPMode::ThreadSafe > FBuildPatchInstallerPtr;
 typedef TSharedRef< BuildPatchServices::FBuildPatchInstaller, ESPMode::ThreadSafe > FBuildPatchInstallerRef;

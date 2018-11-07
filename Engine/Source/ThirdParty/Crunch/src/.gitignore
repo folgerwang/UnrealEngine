@@ -1,0 +1,16 @@
+*.o
+*.2010.vcxproj.user
+*.2010.suo
+/crnlib/crunch
+/crnlib/Win32
+/crnlib/x64
+/crunch/Win32
+/crunch/x64
+/example1/Win32
+/example1/x64
+/example2/Win32
+/example2/x64
+/example3/Win32
+/example3/x64
+/lib
+/bin/*

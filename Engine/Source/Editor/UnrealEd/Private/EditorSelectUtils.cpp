@@ -383,7 +383,7 @@ void UUnrealEdEngine::UpdatePivotLocationForSelection( bool bOnChange )
 
 
 
-void UUnrealEdEngine::NoteSelectionChange()
+void UUnrealEdEngine::NoteSelectionChange(bool bNotify)
 {
 	// The selection changed, so make sure the pivot (widget) is located in the right place
 	UpdatePivotLocationForSelection( true );
@@ -399,8 +399,11 @@ void UUnrealEdEngine::NoteSelectionChange()
 	}
 
 	const bool bComponentSelectionChanged = GetSelectedComponentCount() > 0;
-	USelection* Selection = bComponentSelectionChanged ? GetSelectedComponents() : GetSelectedActors();
-	USelection::SelectionChangedEvent.Broadcast(Selection);
+	if (bNotify)
+	{
+		USelection* Selection = bComponentSelectionChanged ? GetSelectedComponents() : GetSelectedActors();
+		USelection::SelectionChangedEvent.Broadcast(Selection);
+	}
 	
 	if (!bComponentSelectionChanged)
 	{
@@ -724,7 +727,7 @@ bool UUnrealEdEngine::IsComponentSelected(const UPrimitiveComponent* PrimCompone
 		}
 		else
 		{
-			PotentiallySelectedComponent = (PrimComponent->IsEditorOnly() ? PrimComponent->GetAttachParent() : PrimComponent);
+			PotentiallySelectedComponent = (PrimComponent->IsVisualizationComponent() ? PrimComponent->GetAttachParent() : PrimComponent);
 		}
 
 		bIsSelected = GetSelectedComponents()->IsSelected(PotentiallySelectedComponent);

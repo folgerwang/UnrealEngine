@@ -381,7 +381,7 @@ UCameraAnimInst* APlayerCameraManager::PlayCameraAnim(UCameraAnim* Anim, float R
 		UCameraAnimInst* const Inst = AllocCameraAnimInst();
 		if (Inst)
 		{
-			if (!Anim->bRelativeToInitialFOV)
+			if (Anim != nullptr && !Anim->bRelativeToInitialFOV)
 			{
 				Inst->InitialFOV = ViewTarget.POV.FOV;
 			}
@@ -1435,7 +1435,7 @@ void FTViewTarget::CheckViewTarget(APlayerController* OwningController)
 	}
 	else if (APawn* TargetAsPawn = Cast<APawn>(Target))
 	{
-		PlayerState = TargetAsPawn->PlayerState;
+		PlayerState = TargetAsPawn->GetPlayerState();
 	}
 	else if (APlayerState* TargetAsPlayerState = Cast<APlayerState>(Target))
 	{
@@ -1448,7 +1448,7 @@ void FTViewTarget::CheckViewTarget(APlayerController* OwningController)
 
 	if ((PlayerState != NULL) && !PlayerState->IsPendingKill())
 	{
-		if ((Target == NULL) || Target->IsPendingKill() || !Cast<APawn>(Target) || (Cast<APawn>(Target)->PlayerState != PlayerState) )
+		if ((Target == NULL) || Target->IsPendingKill() || !Cast<APawn>(Target) || (CastChecked<APawn>(Target)->GetPlayerState() != PlayerState) )
 		{
 			Target = NULL;
 

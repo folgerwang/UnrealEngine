@@ -24,6 +24,7 @@
 #include "Engine/DemoNetDriver.h"
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
+#include "Components/ChildActorComponent.h"
 
 #if WITH_EDITOR
 #include "UObject/ObjectRedirector.h"
@@ -335,7 +336,16 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 
 		if (Ar.IsSaving())
 		{
-			Archetype = Actor->GetArchetype();
+			// ChildActor's need to be spawned from the ChildActorTemplate otherwise any non-replicated 
+			// customized properties will be incorrect on the Client.
+			if (UChildActorComponent* CAC = Actor->GetParentComponent())
+			{
+				Archetype = CAC->GetChildActorTemplate();
+			}
+			if (Archetype == nullptr)
+			{
+				Archetype = Actor->GetArchetype();
+			}
 			ActorLevel = Actor->GetLevel();
 
 			check( Archetype != nullptr );
@@ -1543,6 +1553,8 @@ void UPackageMapClient::ReceiveNetFieldExports(FArchive& Archive)
 
 		if (Exports.IsValidIndex(Export.Handle))
 		{
+			// preserve compatibility flag
+			Export.bIncompatible = Exports[Export.Handle].bIncompatible;
 			Exports[Export.Handle] = Export;
 		}
 		else
@@ -2766,7 +2778,11 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 
 	// At this point, we either have an outer, or we are a package
 	check( !CacheObjectPtr->bIsPending );
-	check(ObjOuter == NULL || ObjOuter->GetOutermost()->IsFullyLoaded() || ObjOuter->GetOutermost()->HasAnyPackageFlags( TreatAsLoadedFlags ));
+
+	if (!ensure(ObjOuter == nullptr || ObjOuter->GetOutermost()->IsFullyLoaded() || ObjOuter->GetOutermost()->HasAnyPackageFlags(TreatAsLoadedFlags)))
+	{
+		UE_LOG( LogNetPackageMap, Error, TEXT( "GetObjectFromNetGUID: Outer is null or package is not fully loaded.  FullNetGUIDPath: %s Outer: %s" ), *FullNetGUIDPath( NetGUID ), *GetFullNameSafe(ObjOuter) );
+	}
 
 	// See if this object is in memory
 	Object = StaticFindObject( UObject::StaticClass(), ObjOuter, *CacheObjectPtr->PathName.ToString(), false );

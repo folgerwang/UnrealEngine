@@ -108,11 +108,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdSrv, Log, All);
 
 #define LOCTEXT_NAMESPACE "UnrealEdSrv"
 
-//@hack: this needs to be cleaned up!
-static TCHAR TempStr[MAX_EDCMD];
-static uint16 Word1;
-
-
 /**
  * Dumps a set of selected objects to debugf.
  */
@@ -281,8 +276,8 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 	UPackage* Pkg = NULL;
 	if( FParse::Command( &Str, TEXT( "SavePackage" ) ) )
 	{
-		static TCHAR TempFname[MAX_EDCMD];
-		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname, 256 ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
+		FString TempFname;
+		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
 		{
 			// Update any thumbnails for objects in this package that were modified or generate
 			// new thumbnails for objects that don't have any
@@ -307,7 +302,7 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 			FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
 				
 			// NOTE: The package should really be fully loaded before we try to generate thumbnails
-			PackageTools::GetObjectsInPackages(
+			UPackageTools::GetObjectsInPackages(
 				&Packages,														// Packages to search
 				BrowsableObjectsInPackage );									// Out: Objects
 
@@ -1360,30 +1355,16 @@ bool UUnrealEdEngine::IsUserInteracting()
 {
 	// Check to see if the user is in the middle of a drag operation.
 	bool bUserIsInteracting = false;
-	for( int32 ClientIndex = 0 ; ClientIndex < AllViewportClients.Num() ; ++ClientIndex )
+	for (const FEditorViewportClient* VC : AllViewportClients)
 	{
 		// Check for tracking and capture.  If a viewport has mouse capture, it could be locking the mouse to the viewport, which means if we prompt with a dialog
 		// while the mouse is locked to a viewport, we wont be able to interact with the dialog.  
-		if ( AllViewportClients[ClientIndex]->IsTracking() ||  AllViewportClients[ClientIndex]->Viewport->HasMouseCapture() )
+		if (VC->IsTracking() || (VC->Viewport && VC->Viewport->HasMouseCapture()))
 		{
 			bUserIsInteracting = true;
 			break;
 		}
 	}
-	
-	if( !bUserIsInteracting )
-	{
-		// When a property window is open and the user is dragging to modify a property with a spinbox control, 
-		// the viewport clients will have bIsTracking to false. 
-		// We check for the state of the right and left mouse buttons and assume the user is interacting with something if a mouse button is pressed down
-		
-#if PLATFORM_WINDOWS
-		bool bLeftDown = !!(GetAsyncKeyState(VK_LBUTTON) & 0x8000);
-		bool bRightDown = !!(GetAsyncKeyState(VK_RBUTTON) & 0x8000);
-		bUserIsInteracting = bLeftDown || bRightDown;
-#endif
-	}
-
 	return bUserIsInteracting;
 }
 
@@ -1598,6 +1579,9 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 
 		if (bComponentsSelected)
 		{
+			// Same transaction language used in CopySelectedActorsToClipboard below
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "Cut", "Cut"));
+
 			edactCopySelected(InWorld);
 			edactDeleteSelected(InWorld);
 		}
@@ -1649,16 +1633,18 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 			// How should this paste be handled
 			EPasteTo PasteTo = PT_OriginalLocation;
 			FText TransDescription = NSLOCTEXT("UnrealEd", "Paste", "Paste");
-			if (FParse::Value(Str, TEXT("TO="), TempStr, 15))
+
+			FString TempStr;
+			if (FParse::Value(Str, TEXT("TO="), TempStr))
 			{
-				if (!FCString::Strcmp(TempStr, TEXT("HERE")))
+				if (!FCString::Strcmp(*TempStr, TEXT("HERE")))
 				{
 					PasteTo = PT_Here;
 					TransDescription = NSLOCTEXT("UnrealEd", "PasteHere", "Paste Here");
 				}
 				else
 				{
-					if (!FCString::Strcmp(TempStr, TEXT("ORIGIN")))
+					if (!FCString::Strcmp(*TempStr, TEXT("ORIGIN")))
 					{
 						PasteTo = PT_WorldOrigin;
 						TransDescription = NSLOCTEXT("UnrealEd", "PasteToWorldOrigin", "Paste To World Origin");
@@ -1820,14 +1806,11 @@ TArray<FPoly*> GetSelectedPolygons()
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 		FTransform ActorToWorld = Actor->ActorToWorld();
 		
-		TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
-		Actor->GetComponents(StaticMeshComponents);
-
-		for(int32 j=0; j<StaticMeshComponents.Num(); j++)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
 			// If its a static mesh component, with a static mesh
-			UStaticMeshComponent* SMComp = StaticMeshComponents[j];
-			if(SMComp->IsRegistered() && SMComp->GetStaticMesh())
+			UStaticMeshComponent* SMComp = Cast<UStaticMeshComponent>(Component);
+			if (SMComp && SMComp->IsRegistered() && SMComp->GetStaticMesh())
 			{
 				UStaticMesh* StaticMesh = SMComp->GetStaticMesh();
 				if ( StaticMesh )
@@ -2000,6 +1983,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 {
 	// Keep a pointer to the beginning of the string to use for message displaying purposes
 	const TCHAR* const FullStr = Str;
+
+	// Determine whether or not components are selected (used to properly label transaction names)
+	const bool bComponentsSelected = GetSelectedComponentCount() > 0;
 
 	if( FParse::Command(&Str,TEXT("ADD")) )
 	{
@@ -2563,7 +2549,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		// if not specially handled by the current editing mode,
 		if (!bHandled)
 		{
-			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
+			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DeleteComponents", "Delete Components") : NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
 			edactDeleteSelected( InWorld );
 		}
 		return true;
@@ -2746,7 +2732,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		if (!bHandled)
 		{
 			//@todo locked levels - if all actor levels are locked, cancel the transaction
-			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
+			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DuplicateComponents", "Duplicate Components") : NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
 
 			// duplicate selected
 			ABrush::SetSuppressBSPRegeneration(true);
@@ -2981,8 +2967,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 		{
 			GEdSelectionLock=!!DWord1;
 		}
-
-		Word1 = MAX_uint16;
 	}
 
 	if( FParse::Value(Str,TEXT("USESIZINGBOX="), DWord1) )
@@ -2993,7 +2977,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 			UseSizingBox=(UseSizingBox == 0) ? 1 : 0;
 		else
 			UseSizingBox=DWord1;
-		Word1=MAX_uint16;
 	}
 	
 	if(GCurrentLevelEditingViewportClient)

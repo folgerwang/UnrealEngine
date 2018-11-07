@@ -33,7 +33,7 @@ public:
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const override;
-	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;	
+	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;
 	virtual IOnlineTimePtr GetTimeInterface() const override;
 	virtual IOnlineIdentityPtr GetIdentityInterface() const override;
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
@@ -48,6 +48,7 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 	virtual bool Init() override;
 	virtual void PreUnload() override;
 	virtual bool Shutdown() override;
@@ -76,7 +77,7 @@ public:
 PACKAGE_SCOPE:
 
  	/** Only the factory makes instances */
-	FOnlineSubsystemTwitch(FName InInstanceName);
+	explicit FOnlineSubsystemTwitch(FName InInstanceName);
 	
 	/** Default constructor unavailable */
 	FOnlineSubsystemTwitch() = delete;

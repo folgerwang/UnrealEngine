@@ -298,7 +298,7 @@ static void ExtractMaterialInfoFromNode(UnFbx::FFbxImporter* FbxImporter, FbxNod
 					IllegalChar[1] = '\0';
 					if (MaterialInfo->Name.Contains(&IllegalChar[0]))
 					{
-						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], L"_");
+						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], TEXT("_"));
 						DisplayInvalidNameError = true;
 					}
 				}
@@ -509,7 +509,7 @@ TSharedPtr<FFbxSceneInfo> UFbxSceneImportFactory::ConvertSceneInfo(void* VoidFbx
 	UnFbx::FBXImportOptions* FbxImportOptionsPtr = FbxImporter->GetImportOptions();
 	bool OldValueImportMeshesInBoneHierarchy = FbxImportOptionsPtr->bImportMeshesInBoneHierarchy;
 	FbxImportOptionsPtr->bImportMeshesInBoneHierarchy = true;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, false, true);
 	FbxImportOptionsPtr->bImportMeshesInBoneHierarchy = OldValueImportMeshesInBoneHierarchy;
 
 	for (int32 i = 0; i < SkelMeshArray.Num(); i++)
@@ -730,7 +730,7 @@ UObject *FFbxAttributeInfo::GetContentObject()
 		return ContentObject;
 	ContentPackage = nullptr;
 	ContentObject = nullptr;
-	FString ImportPath = PackageTools::SanitizePackageName(GetImportPath());
+	FString ImportPath = UPackageTools::SanitizePackageName(GetImportPath());
 	FString AssetName = GetFullImportName();
 	if (!ImportPath.IsEmpty())
 	{
@@ -814,9 +814,9 @@ UFbxSceneImportData* CreateReImportAsset(const FString &PackagePath, const FStri
 	//The data must have the name of the import file to support drag drop reimport
 	FString FilenameBase = FPaths::GetBaseFilename(FbxImportFileName);
 	FString FbxReImportPkgName = PackagePath + TEXT("/") + FilenameBase;
-	FbxReImportPkgName = PackageTools::SanitizePackageName(FbxReImportPkgName);
+	FbxReImportPkgName = UPackageTools::SanitizePackageName(FbxReImportPkgName);
 	FString AssetName = FilenameBase;
-	AssetName = PackageTools::SanitizePackageName(AssetName);
+	AssetName = UPackageTools::SanitizePackageName(AssetName);
 	UPackage* Pkg = CreatePackage(nullptr, *FbxReImportPkgName);
 	if (!ensure(Pkg))
 	{
@@ -1022,8 +1022,6 @@ FFeedbackContext*	Warn
 	GlobalImportSettings = FbxImporter->GetImportOptions();
 	UnFbx::FBXImportOptions::ResetOptions(GlobalImportSettings);
 	
-	GlobalImportSettings->OriginalMeshCopy = nullptr;
-
 	//Always convert the scene
 	GlobalImportSettings->bConvertScene = true;
 	GlobalImportSettings->bConvertSceneUnit = true;
@@ -1193,7 +1191,7 @@ FFeedbackContext*	Warn
 			{
 				//The location+name of the BP is the user select content path + fbx base filename
 				FString FullnameBP = Path + TEXT("/FbxScene_") + FPaths::GetBaseFilename(UFactory::CurrentFilename);
-				FullnameBP = PackageTools::SanitizePackageName(FullnameBP);
+				FullnameBP = UPackageTools::SanitizePackageName(FullnameBP);
 				FString AssetName = TEXT("FbxScene_") + FPaths::GetBaseFilename(UFactory::CurrentFilename);
 				UPackage *Pkg = CreatePackageForNode(FullnameBP, AssetName);
 
@@ -1948,10 +1946,15 @@ UObject* UFbxSceneImportFactory::ImportOneSkeletalMesh(void* VoidRootNodeToImpor
 				break;
 			RootNodeInfo->AttributeInfo->SetOriginalImportPath(PackageName);
 			FName SkeletalMeshFName = FName(*SkeletalMeshName);
+
+			TArray<FbxNode*> SkeletonNodeArray;
+			FbxImporter->FillFbxSkeletonArray(RootNodeToImport, SkeletonNodeArray);
+
 			//Import the skeletal mesh
 			UnFbx::FFbxImporter::FImportSkeletalMeshArgs ImportSkeletalMeshArgs;
 			ImportSkeletalMeshArgs.InParent = Pkg;
 			ImportSkeletalMeshArgs.NodeArray = bUseSkelMeshNodePivotArray ? SkelMeshNodePivotArray : SkelMeshNodeArray;
+			ImportSkeletalMeshArgs.BoneNodeArray = SkeletonNodeArray;
 			ImportSkeletalMeshArgs.Name = SkeletalMeshFName;
 			ImportSkeletalMeshArgs.Flags = Flags;
 			ImportSkeletalMeshArgs.TemplateImportData = SkeletalMeshImportData;
@@ -2059,7 +2062,7 @@ void UFbxSceneImportFactory::ImportAllSkeletalMesh(void* VoidRootNodeToImport, v
 	FbxNode *RootNodeToImport = (FbxNode *)VoidRootNodeToImport;
 	InterestingNodeCount = 1;
 	TArray< TArray<FbxNode*>* > SkelMeshArray;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, false, true);
 	InterestingNodeCount = SkelMeshArray.Num();
 
 	int32 TotalNumNodes = 0;
@@ -2387,7 +2390,7 @@ bool UFbxSceneImportFactory::FindSceneNodeInfo(TSharedPtr<FFbxSceneInfo> SceneIn
 
 UPackage *UFbxSceneImportFactory::CreatePackageForNode(FString PackageName, FString &StaticMeshName)
 {
-	FString PackageNameOfficial = PackageTools::SanitizePackageName(PackageName);
+	FString PackageNameOfficial = UPackageTools::SanitizePackageName(PackageName);
 	// We can not create assets that share the name of a map file in the same location
 	if (FEditorFileUtils::IsMapPackageAsset(PackageNameOfficial))
 	{
@@ -2404,7 +2407,7 @@ UPackage *UFbxSceneImportFactory::CreatePackageForNode(FString PackageName, FStr
 		PackageNameOfficial = PackageName;
 		PackageNameOfficial += TEXT("_");
 		PackageNameOfficial += FString::FromInt(tryCount++);
-		PackageNameOfficial = PackageTools::SanitizePackageName(PackageNameOfficial);
+		PackageNameOfficial = UPackageTools::SanitizePackageName(PackageNameOfficial);
 		IsPkgExist = FPackageName::DoesPackageExist(PackageNameOfficial);
 		if (!IsPkgExist)
 		{

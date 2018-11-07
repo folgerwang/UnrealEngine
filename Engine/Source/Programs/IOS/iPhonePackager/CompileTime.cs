@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -53,14 +54,14 @@ namespace iPhonePackager
 		/** /MacStagingRootDir/Payload/GameName.app */
 		protected static string RemoteAppDirectory
 		{
-			get { return RemoteAppPayloadDirectory + "/" + Program.GameName + Program.Architecture + ".app"; }
+			get { return RemoteAppPayloadDirectory + "/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app"; }
 		}
 
 
 		/** /MacStagingRootDir/Payload/GameName.app/GameName */
 		protected static string RemoteExecutablePath
 		{
-			get { return RemoteAppDirectory + "/" + Program.GameName + Program.Architecture; }
+			get { return RemoteAppDirectory + "/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture; }
 		}
 
 		private static string CurrentBaseXCodeCommandLine;
@@ -177,6 +178,66 @@ namespace iPhonePackager
 			}
 		}
 
+		static bool FindMobileProvision(string BundleIdentifier, out string OutFileName, bool bCheckCert = true)
+		{
+			bool bNameMatch;
+			string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(BundleIdentifier, out bNameMatch, bCheckCert, true, false);
+			if (!File.Exists(ProvisionWithPrefix))
+			{
+				ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".mobileprovision");
+				if (!File.Exists(ProvisionWithPrefix))
+				{
+					ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory + "/NotForLicensees/", Program.GameName + ".mobileprovision");
+					if (!File.Exists(ProvisionWithPrefix))
+					{
+						ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory, "UE4Game.mobileprovision");
+						if (!File.Exists(ProvisionWithPrefix))
+						{
+							ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory + "/NotForLicensees/", "UE4Game.mobileprovision");
+							if(!File.Exists(ProvisionWithPrefix))
+							{
+								OutFileName = null;
+								return false;
+							}
+						}
+					}
+				}
+			}
+
+			OutFileName = ProvisionWithPrefix;
+			return true;
+		}
+
+		/// <summary>
+		/// Export the certificate to a file
+		/// </summary>
+		static public void ExportCertificate()
+		{
+			if(Config.ProvisionFile == null)
+			{
+				Program.Error("Missing -ProvisionFile=... argument");
+				return;
+			}
+
+			if(Config.OutputCertificate == null)
+			{
+				Program.Error("Missing -OutputCertificate=... argument");
+				return;
+			}
+
+			// export the signing certificate to a file
+			MobileProvision Provision = MobileProvisionParser.ParseFile(Config.ProvisionFile);
+			X509Certificate2 Certificate = CodeSignatureBuilder.FindCertificate(Provision);
+            if (Certificate == null)
+            {
+                Program.Error("Failed to find a valid certificate");
+                return;
+            }
+
+			byte[] Data = Certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, "A");
+			File.WriteAllBytes(Config.OutputCertificate, Data);
+		}
+
 		/// <summary>
 		/// Copy the files always needed (even in a stub IPA)
 		/// </summary>
@@ -208,8 +269,8 @@ namespace iPhonePackager
 					"Default", "Portrait", "{320, 480}",
 					"Default-568h", "Landscape", "{320, 568}",
 					"Default-568h", "Portrait", "{320, 568}",
-					"Default-IPhoneX-Landscape", "Landscape", "{375, 812}",
-					"Default-IPhoneX-Portrait", "Portrait", "{375, 812}",
+					"Default-IPhoneXS-Landscape", "Landscape", "{375, 812}",
+					"Default-IPhoneXS-Portrait", "Portrait", "{375, 812}",
 				};
 
 			StringBuilder NewLaunchImagesString = new StringBuilder("<key>UILaunchImages~iphone</key>\n\t\t<array>\n");
@@ -243,23 +304,12 @@ namespace iPhonePackager
 				// Copy the mobile provision file over
 				string CFBundleIdentifier = null;
 				Info.GetString("CFBundleIdentifier", out CFBundleIdentifier);
-				bool bNameMatch;
-				string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(CFBundleIdentifier, out bNameMatch, true, true, false);
-				if (!File.Exists(ProvisionWithPrefix))
+
+				string ProvisionWithPrefix;
+				if(!FindMobileProvision(CFBundleIdentifier, out ProvisionWithPrefix))
 				{
-					ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".mobileprovision");
-					if (!File.Exists(ProvisionWithPrefix))
-					{
-						ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory + "/NotForLicensees/", Program.GameName + ".mobileprovision");
-						if (!File.Exists(ProvisionWithPrefix))
-						{
-							ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory, "UE4Game.mobileprovision");
-							if (!File.Exists(ProvisionWithPrefix))
-							{
-								ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory + "/NotForLicensees/", "UE4Game.mobileprovision");
-							}
-						}
-					}
+					Program.Error("Unable to find mobileprovision");
+					return;
 				}
 				FinalMobileProvisionFilename = Path.Combine(Config.PCXcodeStagingDir, MacMobileProvisionFilename);
 				FileOperations.CopyRequiredFile(ProvisionWithPrefix, FinalMobileProvisionFilename);
@@ -474,7 +524,7 @@ namespace iPhonePackager
 
 				// NOTE: -y preserves symbolic links which is needed for iOS distro builds
 				// -x excludes a file (excluding the dSYM keeps sizes smaller, and it shouldn't be in the IPA anyways)
-				string dSYMName = "Payload/" + Program.GameName + Program.Architecture + ".app.dSYM";
+				string dSYMName = "Payload/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app.dSYM";
 				DisplayCommandLine = String.Format("zip -q -r -y -{0} -T {1} Payload iTunesArtwork -x {2}/ -x {2}/* " +
 					"-x {2}/Contents/ -x {2}/Contents/* -x {2}/Contents/Resources/ -x {2}/Contents/Resources/* " +
 					" -x {2}/Contents/Resources/DWARF/ -x {2}/Contents/Resources/DWARF/*",
@@ -489,8 +539,8 @@ namespace iPhonePackager
 			case "gendsym":
 				Program.Log( " ... generating DSYM" );
 
-				string ExePath  = "Payload/" + Program.GameName + ".app/" + Program.GameName;
-				string dSYMPath = Program.GameName + ".app.dSYM";
+				string ExePath  = "Payload/" + Program.GameName + (Program.IsClient ? "Client" : "") + ".app/" + Program.GameName + (Program.IsClient ? "Client" : "");
+				string dSYMPath = Program.GameName + (Program.IsClient ? "Client" : "") + ".app.dSYM";
 				DisplayCommandLine = String.Format("dsymutil -o {0} {1}", dSYMPath, ExePath);
 
 				CommandLine = "\"" + MacStagingRootDir + "\"" + DisplayCommandLine;
@@ -686,6 +736,10 @@ namespace iPhonePackager
 					Program.Log("Copying all staged files to Mac " + MacName + " ...");
 					FileOperations.BatchUploadFolder(MacName, Config.PCStagingRootDir, MacStagingRootDir, false);
 					FileOperations.BatchUploadFolder(MacName, Config.PCXcodeStagingDir, MacXcodeStagingDir, false);
+					break;
+
+				case "exportcertificate":
+					CompileTime.ExportCertificate();
 					break;
 
 				default:

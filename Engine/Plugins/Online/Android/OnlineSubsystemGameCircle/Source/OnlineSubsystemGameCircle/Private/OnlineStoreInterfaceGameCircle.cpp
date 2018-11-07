@@ -162,7 +162,7 @@ void FOnlineStoreGameCircle::ProcessQueryAvailablePurchasesResults(EInAppPurchas
 
 bool FOnlineStoreGameCircle::BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InPurchaseStateObject)
 {
-	UE_LOG(LogOnline, Display, TEXT( "FOnlineStoreGameCircle::BeginPurchase" ));
+	UE_LOG_ONLINE_STORE(Display, TEXT( "FOnlineStoreGameCircle::BeginPurchase" ));
 	
 	bool bCreatedNewTransaction = false;
 	
@@ -172,12 +172,12 @@ bool FOnlineStoreGameCircle::BeginPurchase(const FInAppPurchaseProductRequest& P
 
 		extern bool AndroidThunkCpp_Iap_BeginPurchase(const FString&, const bool);
 		bCreatedNewTransaction = AndroidThunkCpp_Iap_BeginPurchase(ProductRequest.ProductIdentifier, ProductRequest.bIsConsumable);
-		UE_LOG(LogOnline, Display, TEXT("Created Transaction? - %s"), 
+		UE_LOG_ONLINE_STORE(Display, TEXT("Created Transaction? - %s"), 
 			bCreatedNewTransaction ? TEXT("Created a transaction.") : TEXT("Failed to create a transaction."));
 
 		if (!bCreatedNewTransaction)
 		{
-			UE_LOG(LogOnline, Display, TEXT("FOnlineStoreGameCircle::BeginPurchase - Could not create a new transaction."));
+			UE_LOG_ONLINE_STORE(Display, TEXT("FOnlineStoreGameCircle::BeginPurchase - Could not create a new transaction."));
 			CachedPurchaseStateObject->ReadState = EOnlineAsyncTaskState::Failed;
 			TriggerOnInAppPurchaseCompleteDelegates(EInAppPurchaseState::Invalid);
 		}
@@ -188,7 +188,7 @@ bool FOnlineStoreGameCircle::BeginPurchase(const FInAppPurchaseProductRequest& P
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("This device is not able to make purchases."));
+		UE_LOG_ONLINE_STORE(Display, TEXT("This device is not able to make purchases."));
 
 		InPurchaseStateObject->ReadState = EOnlineAsyncTaskState::Failed;
 		TriggerOnInAppPurchaseCompleteDelegates(EInAppPurchaseState::NotAllowed);
@@ -282,7 +282,7 @@ bool FOnlineStoreGameCircle::RestorePurchases(const TArray<FInAppPurchaseProduct
 	}
 	else
 	{
-		UE_LOG(LogOnline, Display, TEXT("This device is not able to make purchases."));
+		UE_LOG_ONLINE_STORE(Display, TEXT("This device is not able to make purchases."));
 		TriggerOnInAppPurchaseRestoreCompleteDelegates(EInAppPurchaseState::Failed);
 	}
 

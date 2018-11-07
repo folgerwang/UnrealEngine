@@ -9,7 +9,6 @@
 #include "Stats/Stats.h"
 #include "RHI.h"
 #include "RenderUtils.h"
-#include "ShaderCache.h"
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 #include "HAL/LowLevelMemTracker.h"
@@ -128,22 +127,20 @@ void OpenGLTextureAllocated(FRHITexture* Texture, uint32 Flags)
 	{
 		GCurrentRendertargetMemorySize += Align(TextureSize, 1024) / 1024;
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::RenderTargets, TextureSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::RenderTargets, TextureSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 	else
 	{
 		GCurrentTextureMemorySize += Align(TextureSize, 1024) / 1024;
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::Textures, TextureSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::Textures, TextureSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 }
 
 void OpenGLTextureDeleted( FRHITexture* Texture )
 {
-	FShaderCache::RemoveTexture(Texture);
-	
 	bool bRenderTarget = !ShouldCountAsTextureMemory(Texture->GetFlags());
 	int32 TextureSize = 0;
 	if (Texture->GetTextureCube())
@@ -203,14 +200,14 @@ void OpenGLTextureDeleted( FRHITexture* Texture )
 	{
 		GCurrentRendertargetMemorySize -= Align(TextureSize, 1024) / 1024;
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::RenderTargets, TextureSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::RenderTargets, -TextureSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 	else
 	{
 		GCurrentTextureMemorySize -= Align(TextureSize, 1024) / 1024;
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::Textures, TextureSize, ELLMTracker::Platform, ELLMAllocType::None);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::Textures, -TextureSize, ELLMTracker::Default, ELLMAllocType::None);
 #endif
 	}
 }
@@ -383,11 +380,16 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 
 	bool bAllocatedStorage = false;
 
+	GLenum Target = bCubeTexture ? ((FOpenGLTextureCube*)Texture)->Target : ((FOpenGLTexture2D*)Texture)->Target;
+	const uint32 NumSamplesTileMem = bCubeTexture ? 1 : ((FOpenGLTexture2D*)Texture)->GetNumSamplesTileMem();
+	const bool TileMemDepth = NumSamplesTileMem > 1 && (Flags & TexCreate_DepthStencilTargetable);
+
 	GLuint TextureID = 0;
-	FOpenGL::GenTextures(1, &TextureID);
-	
-	const GLenum Target = bCubeTexture ? ((FOpenGLTextureCube*)Texture)->Target : ((FOpenGLTexture2D*)Texture)->Target;
-	
+	if (!TileMemDepth)
+	{
+		FOpenGL::GenTextures(1, &TextureID);
+	}
+		
 	const bool bSRGB = (Flags&TexCreate_SRGB) != 0;
 	const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[Format];
 	if (GLFormat.InternalFormat[bSRGB] == GL_NONE)
@@ -406,7 +408,7 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 	// For client storage textures we allocate a single backing store buffer.
 	uint8* TextureRange = nullptr;
 	
-	if (NumSamples == 1)
+	if (NumSamples == 1 && !TileMemDepth)
 	{
 		if (Target == GL_TEXTURE_EXTERNAL_OES || !FMath::IsPowerOfTwo(SizeX) || !FMath::IsPowerOfTwo(SizeY))
 		{
@@ -616,6 +618,17 @@ void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, 
 
 			BulkData->Discard();
 		}
+	}
+	else if (TileMemDepth)
+	{
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4		
+		Target = GL_RENDERBUFFER;
+		glGenRenderbuffers(1, &TextureID);
+		glBindRenderbuffer(GL_RENDERBUFFER, TextureID);
+		glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, NumSamplesTileMem, FOpenGL::SupportsPackedDepthStencil() ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT24, SizeX, SizeY);
+		VERIFY_GL(glRenderbufferStorageMultisampleEXT);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+#endif
 	}
 	else
 	{
@@ -1870,7 +1883,7 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 		}
 
 	});
-	FShaderCache::LogSRV(ViewProxy, Texture2DRHI, MipLevel, 1, PF_Unknown);
+
 	return ViewProxy;
 }
 
@@ -1986,7 +1999,7 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 		}
 		return View;
 	});
-	FShaderCache::LogSRV(ViewProxy, Texture2DRHI, MipLevel, NumMipLevels, Format);
+
 	return ViewProxy;
 }
 
@@ -2017,7 +2030,7 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 			return new FOpenGLShaderResourceView(this, Texture3D->Resource, Texture3D->Target, MipLevel, false);
 		}
 	});
-	FShaderCache::LogSRV(ViewProxy, Texture3DRHI, MipLevel, Texture3DRHI->GetNumMips(), Texture3DRHI->GetFormat());
+
 	return ViewProxy;
 }
 
@@ -2048,8 +2061,6 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 		}
 	});
 	
-	FShaderCache::LogSRV(ViewProxy, Texture2DArrayRHI, MipLevel, Texture2DArrayRHI->GetNumMips(), Texture2DArrayRHI->GetFormat());
-
 	return ViewProxy;
 }
 
@@ -2078,8 +2089,6 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 			return new FOpenGLShaderResourceView(this, TextureCube->Resource, TextureCube->Target, MipLevel, false);
 		}
 	});
-
-	FShaderCache::LogSRV(ViewProxy, TextureCubeRHI, MipLevel, TextureCubeRHI->GetNumMips(), TextureCubeRHI->GetFormat());
 
 	return ViewProxy;
 }

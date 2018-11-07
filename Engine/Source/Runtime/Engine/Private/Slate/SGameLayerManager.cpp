@@ -8,16 +8,14 @@
 #include "SceneView.h"
 #include "Engine/Engine.h"
 #include "Types/NavigationMetaData.h"
-
-
 #include "Engine/GameEngine.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "GeneralProjectSettings.h"
-
 #include "Widgets/LayerManager/STooltipPresenter.h"
 #include "Widgets/Layout/SDPIScaler.h"
 #include "Widgets/Layout/SPopup.h"
 #include "Widgets/Layout/SWindowTitleBarArea.h"
+#include "DebugCanvas.h"
 
 /* SGameLayerManager interface
  *****************************************************************************/
@@ -25,6 +23,7 @@
 SGameLayerManager::SGameLayerManager()
 :	DefaultWindowTitleBarHeight(64.0f)
 ,	bIsGameUsingBorderlessWindow(false)
+,	bUseScaledDPI(false)
 {
 }
 
@@ -83,6 +82,12 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 						SAssignNew(TooltipPresenter, STooltipPresenter)
 					]
 				]
+				+ SOverlay::Slot()
+				[
+					SAssignNew(DebugCanvas, SDebugCanvas)
+					.SceneViewport(InArgs._SceneViewport)
+
+				]
 			]
 		];
 
@@ -116,6 +121,12 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 	SetWindowTitleBarState(nullptr, EWindowTitleBarMode::Overlay, false, false, false);
 
 	bIsGameUsingBorderlessWindow = GetDefault<UGeneralProjectSettings>()->bUseBorderlessWindow && PLATFORM_WINDOWS;
+}
+
+void SGameLayerManager::SetSceneViewport(FSceneViewport* InSceneViewport)
+{
+	SceneViewport = InSceneViewport;
+	DebugCanvas->SetSceneViewport(InSceneViewport);
 }
 
 const FGeometry& SGameLayerManager::GetViewportWidgetHostGeometry() const
@@ -253,6 +264,17 @@ bool SGameLayerManager::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipCon
 	return true;
 }
 
+void SGameLayerManager::SetUseFixedDPIValue(const bool bInUseFixedDPI, const FIntPoint ViewportSize /*= FIntPoint()*/)
+{
+	bUseScaledDPI = bInUseFixedDPI;
+	ScaledDPIViewportReference = ViewportSize;
+}
+
+bool SGameLayerManager::IsUsingFixedDPIValue() const
+{
+	return bUseScaledDPI;
+}
+
 float SGameLayerManager::GetGameViewportDPIScale() const
 {
 	const FSceneViewport* Viewport = SceneViewport.Get();
@@ -270,7 +292,19 @@ float SGameLayerManager::GetGameViewportDPIScale() const
 	}
 
 	FIntPoint ViewportSize = Viewport->GetSize();
-	const float GameUIScale = UserInterfaceSettings->GetDPIScaleBasedOnSize(ViewportSize);
+	float GameUIScale;
+
+	if (bUseScaledDPI)
+	{
+		float DPIValue = UserInterfaceSettings->GetDPIScaleBasedOnSize(ScaledDPIViewportReference);
+		float ViewportScale = FMath::Min((float)ViewportSize.X / (float)ScaledDPIViewportReference.X, (float)ViewportSize.Y / (float)ScaledDPIViewportReference.Y);
+
+		GameUIScale = DPIValue * ViewportScale;
+	}
+	else
+	{
+		GameUIScale = UserInterfaceSettings->GetDPIScaleBasedOnSize(ViewportSize);
+	}
 
 	// Remove the platform DPI scale from the incoming size.  Since the platform DPI is already
 	// attempt to normalize the UI for a high DPI, and the DPI scale curve is based on raw resolution

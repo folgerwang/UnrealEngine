@@ -8,6 +8,10 @@
 #include "ObjectEditorUtils.h"
 #include "EditorCategoryUtils.h"
 
+#if WITH_EDITORONLY_DATA
+#include "Engine/Blueprint.h"
+#endif
+
 FObjectPropertyNode::FObjectPropertyNode(void)
 	: FComplexPropertyNode()
 	, BaseClass(NULL)
@@ -408,10 +412,30 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 		}
 	}
 
+	// Create a merged list of user-enforced sorted info, hidden category info, etc...
+	TSet<FName> CategoriesToShow;
+	TArray<FName> SortedCategories;
+
+#if WITH_EDITORONLY_DATA
+	for (UClass* Class : ClassesToConsider)
+	{
+		if (UBlueprint* BP = Cast<UBlueprint>(Class->ClassGeneratedBy))
+		{
+			for (const FName& TestCategory : BP->CategorySorting)
+			{
+				if (!CategoriesToShow.Contains(TestCategory))
+				{
+					CategoriesToShow.Add(TestCategory);
+					SortedCategories.Add(TestCategory);
+				}
+			}
+		}
+	}
+#endif
+
 	const bool bShouldShowHiddenProperties = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties);
 	const bool bShouldShowDisableEditOnInstance = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance);
 
-	TSet<FName> Categories;
 	for( TFieldIterator<UProperty> It(BaseClass.Get()); It; ++It )
 	{
 		bool bHidden = false;
@@ -451,7 +475,11 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 			const bool bShowIfDisableEditOnInstance = !(*It)->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
 			if( bShouldShowHiddenProperties || (bShowIfNonHiddenEditableProperty && bShowIfDisableEditOnInstance) )
 			{
-				Categories.Add( CategoryName );
+				if (!CategoriesToShow.Contains(CategoryName))
+				{
+					CategoriesToShow.Add(CategoryName);
+					SortedCategories.Add(CategoryName);
+				}
 			}
 		}
 	}
@@ -467,7 +495,7 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 
 		TArray< FPropertyNode* > ParentNodesToSort;
 
-		for( const FName& FullCategoryPath : Categories )
+		for( const FName& FullCategoryPath : SortedCategories )
 		{
 			// Figure out the nesting level for this category
 			TArray< FString > FullCategoryPathStrings;

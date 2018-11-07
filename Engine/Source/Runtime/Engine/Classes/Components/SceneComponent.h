@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1107,7 +1107,7 @@ public:
 
 #if WITH_EDITOR
 	/** Called when this component is moved in the editor */
-	virtual void PostEditComponentMove(bool bFinished) {}
+	virtual void PostEditComponentMove(bool bFinished);
 	virtual bool CanEditChange( const UProperty* Property ) const override;
 
 	virtual const int32 GetNumUncachedStaticLightingInteractions() const;
@@ -1228,6 +1228,7 @@ public:
 	ECollisionResponse GetCollisionResponseToComponent(USceneComponent* OtherComponent) const;
 
 	/** Set how often this component is allowed to move during runtime. Causes a component re-register if the component is already registered */
+	UFUNCTION(BlueprintCallable, Category="Utilities|Transformation")
 	virtual void SetMobility(EComponentMobility::Type NewMobility);
 
 	/** Walks up the attachment chain from this SceneComponent and returns the SceneComponent at the top. If AttachParent is NULL, returns this. */
@@ -1237,7 +1238,7 @@ public:
 	AActor* GetAttachmentRootActor() const;
 
 	/** Walks up the attachment chain to see if this component is attached to the supplied component. If TestComp == this, returns false.*/
-	bool IsAttachedTo(USceneComponent* TestComp) const;
+	bool IsAttachedTo(const USceneComponent* TestComp) const;
 
 	/**
 	 * Find the world-space location and rotation of the given named socket.

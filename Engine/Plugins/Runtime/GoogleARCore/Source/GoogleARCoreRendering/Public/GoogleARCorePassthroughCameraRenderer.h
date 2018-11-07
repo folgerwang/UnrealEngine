@@ -17,6 +17,8 @@
 
 #include "GoogleARCorePassthroughCameraRenderer.generated.h"
 
+enum class ARCoreDisplayRotation : int32;
+
 /** A helper class that is used to load the GoogleARCorePassthroughCameraMaterial from its default object. */
 UCLASS()
 class GOOGLEARCORERENDERING_API UGoogleARCoreCameraOverlayMaterialLoader : public UObject
@@ -56,16 +58,14 @@ public:
 
 	void InitializeRenderer_RenderThread(FTextureRHIRef ExternalTexture);
 
-	void UpdateOverlayUVCoordinate_RenderThread(TArray<float>& InOverlayUVs);
+	void UpdateOverlayUVCoordinate_RenderThread(TArray<float>& InOverlayUVs, ARCoreDisplayRotation DisplayRotation);
 	void RenderVideoOverlay_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView);
-	void CopyVideoTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef DstTexture, FIntPoint TargetSize);
 
 	const TArray<float> OverlayQuadUVs;
 private:
 	bool bInitialized;
 	FIndexBufferRHIRef OverlayIndexBufferRHI;
 	FVertexBufferRHIRef OverlayVertexBufferRHI;
-	FVertexBufferRHIRef OverlayCopyVertexBufferRHI;
 	FTextureRHIRef VideoTexture;
 	float OverlayTextureUVs[8];
 	bool bMaterialInitialized;

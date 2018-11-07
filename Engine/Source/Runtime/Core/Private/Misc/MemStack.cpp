@@ -5,6 +5,7 @@
 #include "Misc/CommandLine.h"
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/CoreDelegates.h"
 
 DECLARE_MEMORY_STAT(TEXT("MemStack Large Block"), STAT_MemStackLargeBLock,STATGROUP_Memory);
 DECLARE_MEMORY_STAT(TEXT("PageAllocator Free"), STAT_PageAllocatorFree, STATGROUP_Memory);
@@ -98,7 +99,7 @@ void *FPageAllocator::Alloc()
 		Result = TheAllocatorReady.Pop();
 		if (!Result)
 		{
-			Result = VirtualAlloc(NULL, PageSize, MEM_COMMIT, PAGE_READWRITE);
+			Result = VirtualAlloc(NULL, PageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 			BigBlocksOutstanding.Increment();
 		}
 		BigBlocksInUse.Increment();
@@ -146,7 +147,7 @@ void *FPageAllocator::AllocSmall()
 		Result = TheSmallAllocatorReady.Pop();
 		if (!Result)
 		{
-			Result = VirtualAlloc(NULL, SmallPageSize, MEM_COMMIT, PAGE_READWRITE);
+			Result = VirtualAlloc(NULL, SmallPageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 			SmallBlocksOutstanding.Increment();
 		}
 		SmallBlocksInUse.Increment();
@@ -240,6 +241,11 @@ uint64 FPageAllocator::BytesFree()
 
 void FPageAllocator::LatchProtectedMode()
 {
+	FCoreDelegates::GetMemoryTrimDelegate().AddLambda([]()
+	{
+		TheAllocator.Trim();
+	});
+
 #if MEMSTACK_PUGATORY_COMPILED_IN
 	const bool bNoProtection = FParse::Param(FCommandLine::Get(), TEXT("NoProtectMemStack"));
 	GMemStackProtection = 1;

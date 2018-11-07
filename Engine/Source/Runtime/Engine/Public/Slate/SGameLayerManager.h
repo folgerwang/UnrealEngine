@@ -20,6 +20,9 @@ class SOverlay;
 class STooltipPresenter;
 class UGameViewportClient;
 class ULocalPlayer;
+class SDebugCanvas;
+class SWindowTitleBarArea;
+class SVerticalBox;
 
 /**
  * Allows you to provide a custom layer that multiple sources can contribute to.  Unlike
@@ -51,6 +54,8 @@ enum class EWindowTitleBarMode : uint8
 class IGameLayerManager
 {
 public:
+	virtual void SetSceneViewport(FSceneViewport* SceneViewport) = 0;
+
 	virtual const FGeometry& GetViewportWidgetHostGeometry() const = 0;
 	virtual const FGeometry& GetPlayerWidgetHostGeometry(ULocalPlayer* Player) const = 0;
 
@@ -87,7 +92,7 @@ public:
 		/** Slot for this content (optional) */
 		SLATE_DEFAULT_SLOT(FArguments, Content)
 
-		SLATE_ATTRIBUTE(const FSceneViewport*, SceneViewport)
+		SLATE_ATTRIBUTE(FSceneViewport*, SceneViewport)
 
 	SLATE_END_ARGS()
 
@@ -101,6 +106,7 @@ public:
 	void Construct( const FArguments& InArgs );
 
 	// Begin IGameLayerManager
+	virtual void SetSceneViewport(FSceneViewport* InSceneViewport) override;
 	virtual const FGeometry& GetViewportWidgetHostGeometry() const override;
 	virtual const FGeometry& GetPlayerWidgetHostGeometry(ULocalPlayer* Player) const override;
 
@@ -129,6 +135,14 @@ public:
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	virtual bool OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent) override;
 	// End SWidget overrides
+
+	/**
+	 * Function will instruct internal DPI computations to use a provided reference viewport size instead of the actual viewport size.
+	 * After the DPI will be retrieved it will be scaled down with the ratio between the actual viewport size and the provided one.
+	 * Check GetGameViewportDPIScale() for more information.
+	 */
+	void SetUseFixedDPIValue(const bool bUseFixedDPI, const FIntPoint RefViewportSize = FIntPoint());
+	bool IsUsingFixedDPIValue() const;
 
 private:
 	float GetGameViewportDPIScale() const;
@@ -166,13 +180,14 @@ private:
 
 	TMap < ULocalPlayer*, TSharedPtr<FPlayerLayer> > PlayerLayers;
 
-	TAttribute<const FSceneViewport*> SceneViewport;
-	TSharedPtr<class SVerticalBox> WidgetHost;
+	TAttribute<FSceneViewport*> SceneViewport;
+	TSharedPtr<SVerticalBox> WidgetHost;
 	TSharedPtr<SCanvas> PlayerCanvas;
-	TSharedPtr<class STooltipPresenter> TooltipPresenter;
+	TSharedPtr<SDebugCanvas> DebugCanvas;
+	TSharedPtr<STooltipPresenter> TooltipPresenter;
 
-	TSharedPtr<class SWindowTitleBarArea> TitleBarAreaOverlay;
-	TSharedPtr<class SWindowTitleBarArea> TitleBarAreaVerticalBox;
+	TSharedPtr<SWindowTitleBarArea> TitleBarAreaOverlay;
+	TSharedPtr<SWindowTitleBarArea> TitleBarAreaVerticalBox;
 	TSharedPtr<SBox> WindowTitleBarVerticalBox;
 	TSharedPtr<SBox> WindowTitleBarOverlay;
 
@@ -199,4 +214,7 @@ private:
 	TSharedPtr<SWidget> DefaultTitleBarContentWidget;
 	float DefaultWindowTitleBarHeight;
 	bool bIsGameUsingBorderlessWindow;
+
+	FIntPoint ScaledDPIViewportReference;
+	bool bUseScaledDPI;
 };

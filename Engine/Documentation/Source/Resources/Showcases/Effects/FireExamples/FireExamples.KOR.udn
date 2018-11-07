@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+INTSourceChangelist:4309167
 Availability: Public
 Title:불 예제
 Crumbs:%ROOT%, Resources, Resources/Showcases/Effects
@@ -56,5 +56,3 @@ Version: 4.9
 
 
 
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

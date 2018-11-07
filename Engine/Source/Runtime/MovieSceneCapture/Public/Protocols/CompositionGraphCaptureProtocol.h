@@ -5,11 +5,12 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/SoftObjectPath.h"
-#include "IMovieSceneCaptureProtocol.h"
-#include "MovieSceneCaptureProtocolSettings.h"
+#include "MovieSceneCaptureProtocolBase.h"
 #include "CompositionGraphCaptureProtocol.generated.h"
 
 class FSceneViewport;
+class UMaterialInterface;
+
 struct FMovieSceneCaptureSettings;
 struct FFrameCaptureViewExtension;
 
@@ -36,17 +37,16 @@ struct MOVIESCENECAPTURE_API FCompositionGraphCapturePasses
 	TArray<FString> Value;
 };
 
-UCLASS(DisplayName="Composition Graph Options")
-class MOVIESCENECAPTURE_API UCompositionGraphCaptureSettings : public UMovieSceneCaptureProtocolSettings
+UCLASS(config=EditorPerProjectUserSettings, meta=(DisplayName="Custom Render Passes", CommandLineID="CustomRenderPasses"))
+class MOVIESCENECAPTURE_API UCompositionGraphCaptureProtocol : public UMovieSceneImageCaptureProtocolBase
 {
 public:
-	UCompositionGraphCaptureSettings(const FObjectInitializer& Init) : UMovieSceneCaptureProtocolSettings(Init), bDisableScreenPercentage(true) {}
-
 	GENERATED_BODY()
-	
-	/**~ UMovieSceneCaptureProtocolSettings implementation */
-	virtual void OnReleaseConfig(FMovieSceneCaptureSettings& InSettings) override;
-	virtual void OnLoadConfig(FMovieSceneCaptureSettings& InSettings) override;
+
+	UCompositionGraphCaptureProtocol(const FObjectInitializer& Init)
+		: Super(Init)
+		, bDisableScreenPercentage(true)
+	{}
 
 	/** A list of render passes to include in the capture. Leave empty to export all available passes. */
 	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options")
@@ -71,25 +71,27 @@ public:
 	/** Whether to disable screen percentage */
 	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category="Composition Graph Options")
 	bool bDisableScreenPercentage;
-};
 
-struct MOVIESCENECAPTURE_API FCompositionGraphCaptureProtocol : IMovieSceneCaptureProtocol
-{
-	/**~ IMovieSceneCaptureProtocol implementation */
-	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host);
-	virtual void CaptureFrame(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host);
-	virtual void Tick() override;
-	virtual void Finalize() override;
-	virtual bool HasFinishedProcessing() const override;
-	/**~ End IMovieSceneCaptureProtocol implementation */
+public:
+
+	/**~ UMovieSceneCaptureProtocolBase implementation */
+	virtual bool SetupImpl();
+	virtual void CaptureFrameImpl(const FFrameMetrics& FrameMetrics);
+	virtual void TickImpl() override;
+	virtual void FinalizeImpl() override;
+	virtual bool HasFinishedProcessingImpl() const override;
+	virtual void OnReleaseConfigImpl(FMovieSceneCaptureSettings& InSettings) override;
+	virtual void OnLoadConfigImpl(FMovieSceneCaptureSettings& InSettings) override;
+	/**~ End UMovieSceneCaptureProtocolBase implementation */
 
 private:
+
+	UPROPERTY(transient)
+	UMaterialInterface* PostProcessingMaterialPtr;
+
 	/** The viewport we are capturing from */
 	TWeakPtr<FSceneViewport> SceneViewport;
 
 	/** A view extension that we use to ensure we dump out the composition graph frames with the correct settings */
 	TSharedPtr<FFrameCaptureViewExtension, ESPMode::ThreadSafe> ViewExtension;
-
-	/** The render passes we want to export */
-	TArray<FString> RenderPasses;
 };

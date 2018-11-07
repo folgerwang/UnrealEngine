@@ -12,11 +12,11 @@
 #include "Misc/App.h"
 #include "Misc/OutputDeviceConsole.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Unix/UnixErrorOutputDevice.h"
 
 void FUnixOutputDevices::SetupOutputDevices()
 {
 	check(GLog);
-	check(GLogConsole);
 
 	CachedAbsoluteFilename[0] = 0;
 
@@ -24,11 +24,13 @@ void FUnixOutputDevices::SetupOutputDevices()
 	GLog->AddOutputDevice(FPlatformOutputDevices::GetLog());
 
 	// @todo: set to false for minor utils?
-	bool bLogToConsole = !NO_LOGGING && !FParse::Param(FCommandLine::Get(), TEXT("NOCONSOLE"));
-
-	if (bLogToConsole)
+	if (GLogConsole != nullptr)
 	{
-		GLog->AddOutputDevice(GLogConsole);
+		bool bLogToConsole = !NO_LOGGING && !FParse::Param(FCommandLine::Get(), TEXT("NOCONSOLE"));
+		if (bLogToConsole)
+		{
+			GLog->AddOutputDevice(GLogConsole);
+		}
 	}
 
 	// debug and event logging is not really supported on Unix. 
@@ -44,3 +46,10 @@ class FOutputDevice* FUnixOutputDevices::GetEventLog()
 {
 	return NULL; // @TODO No event logging
 }
+
+FOutputDeviceError* FUnixOutputDevices::GetError()
+{
+	static FUnixErrorOutputDevice Singleton;
+	return &Singleton;
+}
+

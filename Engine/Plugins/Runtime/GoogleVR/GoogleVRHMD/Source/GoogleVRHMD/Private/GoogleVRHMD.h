@@ -158,7 +158,7 @@ public:
 	// Called from RHI thread to perform custom present.
 	// @param InOutSyncInterval - in out param, indicates if vsync is on (>0) or off (==0).
 	// @return	true if native Present should be also be performed; false otherwise. If it returns
-	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal 
+	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal
 	// Present.  Must match value previously returned by NeedsNormalPresent for this frame.
 	virtual bool Present(int32& InOutSyncInterval) override;
 
@@ -283,6 +283,8 @@ public:
 	/** Get the currently set viewer vendor */
 	FString GetViewerVendor();
 
+	void SetRecenterControllerOnly(bool bIsRecenterControllerOnly);
+
 private:
 
 	/** Refresh RT so screen isn't black */
@@ -314,6 +316,8 @@ private:
 	/** Function get called when start loading a map*/
 	void OnPreLoadMap(const FString&);
 
+	void OnControllerRecentered();
+
 	/** Console command handlers */
 	void DistortEnableCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void DistortMethodCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
@@ -327,6 +331,11 @@ private:
 	void SplashScreenDistanceCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void SplashScreenRenderScaleCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void EnableSustainedPerformanceModeHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
+
+	/**
+	Clutch to ensure that changes in r.ScreenPercentage are reflected in render target size.
+	*/
+	void CVarSinkHandler();
 #endif
 public:
 
@@ -385,9 +394,10 @@ private:
 	float PixelDensity;
 	FIntPoint GVRRenderTargetSize;
 	IRendererModule* RendererModule;
-	uint16* DistortionMeshIndices;
-	FDistortionVertex* DistortionMeshVerticesLeftEye;
-	FDistortionVertex* DistortionMeshVerticesRightEye;
+
+	FIndexBufferRHIRef DistortionMeshIndices;
+	FVertexBufferRHIRef DistortionMeshVerticesLeftEye;
+	FVertexBufferRHIRef DistortionMeshVerticesRightEye;
 
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 	GVROverlayView* OverlayView;
@@ -449,10 +459,16 @@ private:
 	FAutoConsoleCommand SplashScreenDistanceCommand;
 	FAutoConsoleCommand SplashScreenRenderScaleCommand;
 	FAutoConsoleCommand EnableSustainedPerformanceModeCommand;
+
+	FAutoConsoleVariableSink CVarSink;
 #endif
 
 	EHMDTrackingOrigin::Type TrackingOrigin;
 	bool bIs6DoFSupported;
+
+	bool bRecenterControllerOnly = false;
+	float yawCorrection = 0.0f;
+	bool bShouldApplyYawCorrection = false;
 
 public:
 	//////////////////////////////////////////////////////
@@ -558,7 +574,7 @@ public:
 	 * @param Type Optionally limit the list of devices to a certain type.
 	 */
 	virtual bool EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTrackedDeviceType Type = EXRTrackedDeviceType::Any) override;
-	
+
     /**
 	 * Get the current pose for a device.
 	 * This method must be callable both on the render thread and the game thread.
@@ -657,7 +673,6 @@ public:
 	 */
 	virtual void OnBeginRendering_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily) override;
 
-
 	/**
 	 * Access optional HMD input override interface.
 	 *
@@ -736,7 +751,7 @@ public:
 	/////////////////////////////////////////////////
 	// Begin IHeadMountedDisplay Virtual Interface //
 	/////////////////////////////////////////////////
-	
+
 	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) override;
 
 	virtual float GetPixelDenity() const override { return PixelDensity; }
@@ -810,6 +825,10 @@ public:
 	*/
 	bool GetRecenterTransform(FQuat& RecenterOrientation, FVector& RecenterPosition);
 
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	gvr::ViewerType GetViewerType() const;
+#endif
+
 private :
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
@@ -817,4 +836,5 @@ private :
 #endif
 
 	bool Is6DOFSupported() const;
+	void TrackYawCorrection(FWorldContext& WorldContext);
 };

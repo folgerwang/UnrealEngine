@@ -306,16 +306,15 @@ public:
 
 			int32 RequiredIDs = FMath::Max(NumInstances, NumUsedIDs);
 			int32 ExistingNumIDs = PrevIDTable().Num();
-
-			//Free ID Table must always be at least as large as the data buffer + it's current size in the case all particles die this frame.
-			FreeIDsTable.SetNumUninitialized(NumInstances + NumFreeIDs);
+			int32 NumNewIDs = RequiredIDs - ExistingNumIDs;
 
 			if (RequiredIDs > ExistingNumIDs)
 			{
 				//UE_LOG(LogNiagara, Warning, TEXT("Growing ID Table! OldSize:%d | NewSize:%d"), ExistingNumIDs, RequiredIDs);
 				IDToIndexTable[CurrBuffer].SetNumUninitialized(RequiredIDs);
 
-				int32 NumNewIDs = RequiredIDs - ExistingNumIDs;
+				//Free ID Table must always be at least as large as the data buffer + it's current size in the case all particles die this frame.
+				FreeIDsTable.AddUninitialized(NumNewIDs);
 
 				//Free table should always have enough room for these new IDs.
 				check(NumFreeIDs + NumNewIDs <= FreeIDsTable.Num());
@@ -347,6 +346,9 @@ public:
 						++CheckedFreeID;
 					}
 				}
+
+				check(NumFreeIDs <= RequiredIDs);
+				FreeIDsTable.SetNumUninitialized(NumFreeIDs);
 			}
 			else
 			{
@@ -578,7 +580,8 @@ public:
 		{
 			DataSetIndices[CurrBuffer].Release();
 		}
-		DataSetIndices[CurrBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_DrawIndirect | BUF_Static);	// always allocate for up to 64 data sets
+		// Use BUF_KeepCPUAccessible here since some platforms will lock it for readonly (depending on the implementation of RHIEnqueueStagedRead) after GPU simulation.
+		DataSetIndices[CurrBuffer].Initialize(sizeof(int32), 64 /*Context->NumDataSets*/, EPixelFormat::PF_R32_UINT, BUF_DrawIndirect | BUF_Static | BUF_KeepCPUAccessible);	// always allocate for up to 64 data sets
 	}
 
 	FORCEINLINE uint32 GetNumFloatComponents()const { return TotalFloatComponents; }
@@ -1379,12 +1382,14 @@ struct FNiagaraDataSetAccessor<FNiagaraSpawnInfo> : public FNiagaraDataSetAccess
 			CountBase = (int32*)DataBuffer->GetComponentPtrInt32(VarLayout->Int32ComponentStart);
 			InterpStartDtBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart);
 			IntervalDtBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart + 1);
+			GroupBase = (int32*)DataBuffer->GetComponentPtrInt32(VarLayout->Int32ComponentStart + 1);
 		}
 		else
 		{
 			CountBase = nullptr;
 			InterpStartDtBase = nullptr;
 			IntervalDtBase = nullptr;
+			GroupBase = nullptr;
 		}
 	}
 
@@ -1415,6 +1420,7 @@ struct FNiagaraDataSetAccessor<FNiagaraSpawnInfo> : public FNiagaraDataSetAccess
 		OutValue.Count = CountBase[Index];
 		OutValue.InterpStartDt = InterpStartDtBase[Index];
 		OutValue.IntervalDt = IntervalDtBase[Index];
+		OutValue.SpawnGroup = GroupBase[Index];
 	}
 
 	FORCEINLINE void Set(int32 Index, const FNiagaraSpawnInfo& InValue)
@@ -1422,16 +1428,18 @@ struct FNiagaraDataSetAccessor<FNiagaraSpawnInfo> : public FNiagaraDataSetAccess
 		CountBase[Index] = InValue.Count;
 		InterpStartDtBase[Index] = InValue.InterpStartDt;
 		IntervalDtBase[Index] = InValue.IntervalDt;
+		GroupBase[Index] = InValue.SpawnGroup;
 	}
 
 
-	FORCEINLINE bool BaseIsValid() const { return CountBase != nullptr && InterpStartDtBase != nullptr && IntervalDtBase != nullptr; }
+	FORCEINLINE bool BaseIsValid() const { return CountBase != nullptr && InterpStartDtBase != nullptr && IntervalDtBase != nullptr && GroupBase != nullptr; }
 
 private:
 
 	int32* CountBase;
 	float* InterpStartDtBase;
 	float* IntervalDtBase;
+	int32* GroupBase;
 };
 
 template<>

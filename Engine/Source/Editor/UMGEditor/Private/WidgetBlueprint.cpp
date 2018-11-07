@@ -5,9 +5,7 @@
 #include "Blueprint/UserWidget.h"
 #include "MovieScene.h"
 
-#if WITH_EDITOR
-	#include "Engine/UserDefinedStruct.h"
-#endif // WITH_EDITOR
+#include "Engine/UserDefinedStruct.h"
 #include "EdGraph/EdGraph.h"
 #include "Blueprint/WidgetTree.h"
 #include "Animation/WidgetAnimation.h"
@@ -16,16 +14,11 @@
 
 #include "Kismet2/CompilerResultsLog.h"
 #include "Binding/PropertyBinding.h"
-#include "Blueprint/WidgetTree.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "UObject/PropertyTag.h"
-#include "WidgetBlueprint.h"
 #include "WidgetBlueprintCompiler.h"
-#include "Binding/PropertyBinding.h"
-#include "Engine/UserDefinedStruct.h"
 #include "UObject/EditorObjectVersion.h"
 #include "WidgetGraphSchema.h"
-#include "WidgetBlueprintCompiler.h"
 #include "UMGEditorProjectSettings.h"
 
 #if WITH_EDITOR
@@ -407,6 +400,31 @@ FDynamicPropertyPath FEditorPropertyPath::ToPropertyPath() const
 	return FDynamicPropertyPath(PropertyChain);
 }
 
+bool FDelegateEditorBinding::IsAttributePropertyBinding(UWidgetBlueprint* Blueprint) const
+{
+	// First find the target widget we'll be attaching the binding to.
+	if (UWidget* TargetWidget = Blueprint->WidgetTree->FindWidget(FName(*ObjectName)))
+	{
+		// Next find the underlying delegate we're actually binding to, if it's an event the name will be the same,
+		// for properties we need to lookup the delegate property we're actually going to be binding to.
+		UDelegateProperty* BindableProperty = FindField<UDelegateProperty>(TargetWidget->GetClass(), FName(*(PropertyName.ToString() + TEXT("Delegate"))));
+		return BindableProperty != nullptr;
+	}
+
+	return false;
+}
+
+bool FDelegateEditorBinding::DoesBindingTargetExist(UWidgetBlueprint* Blueprint) const
+{
+	// First find the target widget we'll be attaching the binding to.
+	if (UWidget* TargetWidget = Blueprint->WidgetTree->FindWidget(FName(*ObjectName)))
+	{
+		return true;
+	}
+
+	return false;
+}
+
 bool FDelegateEditorBinding::IsBindingValid(UClass* BlueprintGeneratedClass, UWidgetBlueprint* Blueprint, FCompilerResultsLog& MessageLog) const
 {
 	FDelegateRuntimeBinding RuntimeBinding = ToRuntimeBinding(Blueprint);
@@ -508,13 +526,14 @@ FDelegateRuntimeBinding FDelegateEditorBinding::ToRuntimeBinding(UWidgetBlueprin
 	return Binding;
 }
 
-bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	static FName AnimationDataName("AnimationData");
 	if(Tag.Type == NAME_StructProperty && Tag.Name == AnimationDataName)
 	{
-		Ar << MovieScene;
-		Ar << AnimationBindings;
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_FIELD(MovieScene);
+		Record << NAMED_FIELD(AnimationBindings);
 		return true;
 	}
 
@@ -525,11 +544,9 @@ bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag
 
 UWidgetBlueprint::UWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, TickFrequency(EWidgetTickFrequency::Auto)
 	, SupportDynamicCreation(EWidgetSupportsDynamicCreation::Default)
+	, TickFrequency(EWidgetTickFrequency::Auto)
 {
-	WidgetTree = CreateDefaultSubobject<UWidgetTree>(TEXT("WidgetTree"));
-	WidgetTree->SetFlags(RF_Transactional);
 }
 
 void UWidgetBlueprint::ReplaceDeprecatedNodes()
@@ -553,8 +570,6 @@ void UWidgetBlueprint::ReplaceDeprecatedNodes()
 void UWidgetBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 	Super::PreSave(TargetPlatform);
-
-	PropertyBindings = Bindings.Num();
 }
 #endif // WITH_EDITORONLY_DATA
 
@@ -621,8 +636,6 @@ void UWidgetBlueprint::PostLoad()
 			Graph->Schema = UWidgetGraphSchema::StaticClass();
 		}
 	}
-
-	PropertyBindings = Bindings.Num();
 }
 
 void UWidgetBlueprint::PostDuplicate(bool bDuplicateForPIE)
@@ -674,8 +687,6 @@ void UWidgetBlueprint::GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDe
 
 bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)
 {
-	bool Result = Super::ValidateGeneratedClass(InClass);
-
 	const UWidgetBlueprintGeneratedClass* GeneratedClass = Cast<const UWidgetBlueprintGeneratedClass>(InClass);
 	if ( !ensure(GeneratedClass) )
 	{
@@ -721,7 +732,7 @@ bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)
 		}
 	}
 
-	return Result;
+	return true;
 }
 
 TSharedPtr<FKismetCompilerContext> UWidgetBlueprint::GetCompilerForWidgetBP(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
@@ -765,59 +776,9 @@ bool UWidgetBlueprint::IsWidgetFreeFromCircularReferences(UUserWidget* UserWidge
 	return true;
 }
 
-TArray<UWidget*> UWidgetBlueprint::GetAllSourceWidgets()
-{
-	TArray<UWidget*> Ret;
-	ForEachSourceWidgetImpl( [&Ret](UWidget* Inner) { Ret.Push(Inner); } );
-	return Ret;
-}
-
-TArray<const UWidget*> UWidgetBlueprint::GetAllSourceWidgets() const
-{
-	TArray<const UWidget*> Ret;
-	ForEachSourceWidgetImpl( [&Ret](UWidget* Inner) { Ret.Push(Inner); } );
-	return Ret;
-}
-
-void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn)
-{
-	ForEachSourceWidgetImpl(Fn);
-}
-
-void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const
-{
-	ForEachSourceWidgetImpl(Fn);
-}
-
 UPackage* UWidgetBlueprint::GetWidgetTemplatePackage() const
 {
 	return GetOutermost();
-}
-
-void UWidgetBlueprint::ForEachSourceWidgetImpl (TFunctionRef<void(UWidget*)> Fn) const
-{
-	// This exists in order to facilitate working with collections of UWidgets wo/ 
-	// relying on user implemented UWidget virtual functions. During blueprint compilation
-	// it is bad practice to call those virtual functions until the class is fully formed
-	// and reinstancing has finished. For instance, GetDefaultObject() calls in those user
-	// functions may create a CDO before the class has been linked, or even before
-	// all member variables have been generated:
-	UWidgetTree* WidgetTreeForCapture = WidgetTree;
-	ForEachObjectWithOuter(
-		WidgetTree, 
-		[Fn, WidgetTreeForCapture](UObject* Inner)
-		{
-			if(UWidget* AsWidget = Cast<UWidget>(Inner))
-			{
-				// Widgets owned by another UWidgetBlueprint aren't really 'source' widgets, E.g. widgets
-				// created by the user *in this blueprint*
-				if(AsWidget->GetTypedOuter<UWidgetTree>() == WidgetTreeForCapture)
-				{
-					Fn(AsWidget);
-				}
-			}
-		}
-	);
 }
 
 static bool HasLatentActions(UEdGraph* Graph)
@@ -973,8 +934,13 @@ bool UWidgetBlueprint::WidgetSupportsDynamicCreation() const
 		return false;
 	case EWidgetSupportsDynamicCreation::Default:
 	default:
-		return GetDefault<UUMGEditorProjectSettings>()->bWidgetSupportsDynamicCreation;
+		return GetDefault<UUMGEditorProjectSettings>()->CompilerOption_SupportsDynamicCreation(this);
 	}
+}
+
+bool UWidgetBlueprint::ArePropertyBindingsAllowed() const
+{
+	return GetDefault<UUMGEditorProjectSettings>()->CompilerOption_PropertyBindingRule(this) == EPropertyBindingPermissionLevel::Allow;
 }
 
 #if WITH_EDITOR

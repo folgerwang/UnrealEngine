@@ -16,6 +16,7 @@ PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV_p = NULL;
 PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_p = NULL;
 PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_p = NULL;
 PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR_p = NULL;
+PFNEGLGETSYNCATTRIBKHRPROC eglGetSyncAttribKHR_p = NULL;
 
 // Occlusion Queries
 PFNGLGENQUERIESEXTPROC 					glGenQueriesEXT = NULL;
@@ -90,9 +91,19 @@ PFNGLGENSAMPLERSPROC					glGenSamplers = NULL;
 PFNGLDELETESAMPLERSPROC					glDeleteSamplers = NULL;
 PFNGLSAMPLERPARAMETERIPROC				glSamplerParameteri = NULL;
 PFNGLBINDSAMPLERPROC					glBindSampler = NULL;
+PFNGLPROGRAMPARAMETERIPROC				glProgramParameteri = NULL;
 
 PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC glFramebufferTextureMultiviewOVR = NULL;
 PFNGLFRAMEBUFFERTEXTUREMULTISAMPLEMULTIVIEWOVRPROC glFramebufferTextureMultisampleMultiviewOVR = NULL;
+
+PFNeglPresentationTimeANDROID eglPresentationTimeANDROID_p = NULL;
+PFNeglGetNextFrameIdANDROID eglGetNextFrameIdANDROID_p = NULL;
+PFNeglGetCompositorTimingANDROID eglGetCompositorTimingANDROID_p = NULL;
+PFNeglGetFrameTimestampsANDROID eglGetFrameTimestampsANDROID_p = NULL;
+PFNeglQueryTimestampSupportedANDROID eglQueryTimestampSupportedANDROID_p = NULL;
+PFNeglQueryTimestampSupportedANDROID eglGetCompositorTimingSupportedANDROID_p = NULL;
+PFNeglQueryTimestampSupportedANDROID eglGetFrameTimestampsSupportedANDROID_p = NULL;
+
 
 int32 FAndroidOpenGL::GLMajorVerion = 0;
 int32 FAndroidOpenGL::GLMinorVersion = 0;
@@ -169,24 +180,23 @@ void* PlatformGetWindow(FPlatformOpenGLContext* Context, void** AddParam)
 	return (void*)&Context->eglContext;
 }
 
-
-static TAutoConsoleVariable<int32> CVarDisableOpenGLGPUSync(
-	TEXT("r.Android.DisableOpenGLGPUSync"),
-	1,
-	TEXT("When true, android OpenGL will not prevent the GPU from running more than one frame behind. This will allow higher performance on some devices but increase input latency."),
-	ECVF_RenderThreadSafe);
-
 bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewport& Viewport, uint32 BackbufferSizeX, uint32 BackbufferSizeY, bool bPresent,bool bLockToVsync, int32 SyncInterval )
 {
 	if (bPresent && Viewport.GetCustomPresent())
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FAndroidOpenGL_PlatformBlitToViewport_CustomPresent);
 		bPresent = Viewport.GetCustomPresent()->Present(SyncInterval);
 	}
 	if (bPresent)
 	{
 		AndroidEGL::GetInstance()->SwapBuffers(bLockToVsync ? SyncInterval : 0);
 	}
-	return bPresent && !CVarDisableOpenGLGPUSync.GetValueOnAnyThread();
+	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("a.UseFrameTimeStampsForPacing"));
+	const bool bForceGPUFence = CVar ? CVar->GetInt() != 0 : false;
+
+
+
+	return bPresent && ShouldUseGPUFencesToLimitLatency();
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
@@ -322,6 +332,24 @@ void FPlatformOpenGLDevice::LoadEXT()
 	eglCreateSyncKHR_p = (PFNEGLCREATESYNCKHRPROC)((void*)eglGetProcAddress("eglCreateSyncKHR"));
 	eglDestroySyncKHR_p = (PFNEGLDESTROYSYNCKHRPROC)((void*)eglGetProcAddress("eglDestroySyncKHR"));
 	eglClientWaitSyncKHR_p = (PFNEGLCLIENTWAITSYNCKHRPROC)((void*)eglGetProcAddress("eglClientWaitSyncKHR"));
+	eglGetSyncAttribKHR_p = (PFNEGLGETSYNCATTRIBKHRPROC)((void*)eglGetProcAddress("eglGetSyncAttribKHR"));
+
+	eglPresentationTimeANDROID_p = (PFNeglPresentationTimeANDROID)((void*)eglGetProcAddress("eglPresentationTimeANDROID"));
+	eglGetNextFrameIdANDROID_p = (PFNeglGetNextFrameIdANDROID)((void*)eglGetProcAddress("eglGetNextFrameIdANDROID"));
+	eglGetCompositorTimingANDROID_p = (PFNeglGetCompositorTimingANDROID)((void*)eglGetProcAddress("eglGetCompositorTimingANDROID"));
+	eglGetFrameTimestampsANDROID_p = (PFNeglGetFrameTimestampsANDROID)((void*)eglGetProcAddress("eglGetFrameTimestampsANDROID"));
+	eglQueryTimestampSupportedANDROID_p = (PFNeglQueryTimestampSupportedANDROID)((void*)eglGetProcAddress("eglQueryTimestampSupportedANDROID"));
+	eglGetCompositorTimingSupportedANDROID_p = (PFNeglQueryTimestampSupportedANDROID)((void*)eglGetProcAddress("eglGetCompositorTimingSupportedANDROID"));
+	eglGetFrameTimestampsSupportedANDROID_p = (PFNeglQueryTimestampSupportedANDROID)((void*)eglGetProcAddress("eglGetFrameTimestampsSupportedANDROID"));
+
+
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglPresentationTimeANDROID"), eglPresentationTimeANDROID_p  ? TEXT("Present") : TEXT("Not Present"));
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglGetNextFrameIdANDROID"), eglGetNextFrameIdANDROID_p ? TEXT("Present") : TEXT("Not Present"));
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglGetCompositorTimingANDROID"), eglGetCompositorTimingANDROID_p  ? TEXT("Present") : TEXT("Not Present"));
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglGetFrameTimestampsANDROID"), eglGetFrameTimestampsANDROID_p  ? TEXT("Present") : TEXT("Not Present"));
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglQueryTimestampSupportedANDROID"), eglQueryTimestampSupportedANDROID_p ? TEXT("Present") : TEXT("Not Present"));
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglGetCompositorTimingSupportedANDROID"), eglGetCompositorTimingSupportedANDROID_p ? TEXT("Present") : TEXT("Not Present"));
+	UE_LOG(LogRHI, Log, TEXT("Extension %s %s"), TEXT("eglGetFrameTimestampsSupportedANDROID"), eglGetFrameTimestampsSupportedANDROID_p ? TEXT("Present") : TEXT("Not Present"));
 
 	glDebugMessageControlKHR = (PFNGLDEBUGMESSAGECONTROLKHRPROC)((void*)eglGetProcAddress("glDebugMessageControlKHR"));
 
@@ -995,6 +1023,7 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		glDeleteSamplers = (PFNGLDELETESAMPLERSPROC)((void*)eglGetProcAddress("glDeleteSamplers"));
 		glSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC)((void*)eglGetProcAddress("glSamplerParameteri"));
 		glBindSampler = (PFNGLBINDSAMPLERPROC)((void*)eglGetProcAddress("glBindSampler"));
+		glProgramParameteri = (PFNGLPROGRAMPARAMETERIPROC)((void*)eglGetProcAddress("glProgramParameteri"));
 
 		// Required by the ES3 spec
 		bSupportsInstancing = true;
@@ -1002,6 +1031,7 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		bSupportsTextureHalfFloat = true;
 		bSupportsRGB10A2 = true;
 		bSupportsVertexHalfFloat = true;
+		bSupportsStandardDerivativesExtension = true;
 
 		// According to https://www.khronos.org/registry/gles/extensions/EXT/EXT_color_buffer_float.txt
 		bSupportsColorBufferHalfFloat = (bSupportsColorBufferHalfFloat || bSupportsColorBufferFloat);
@@ -1075,16 +1105,6 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	{
 		UE_LOG(LogRHI, Warning, TEXT("Disabling support for hardware instancing on Adreno 330 OpenGL ES 3.0 V@66.0 AU@  (CL@)"));
 		bSupportsInstancing = false;
-	}
-
-	// PowerVR Rogue doesn't like glVertexAttribIPointer so disable it
-	if (bIsPoverVRBased && bES30Support)
-	{
-		if (RendererString.Contains(TEXT("Rogue")))
-		{
-			glVertexAttribIPointer = nullptr;
-			UE_LOG(LogRHI, Warning, TEXT("Disabling glVertexAttribIPointer on PowerVR Rogue"));
-		}
 	}
 
 	if (bSupportsBGRA8888)

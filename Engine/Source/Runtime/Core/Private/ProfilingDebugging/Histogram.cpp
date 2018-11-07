@@ -186,6 +186,44 @@ FString FHistogram::DumpToAnalyticsString() const
 	return Result;
 }
 
+FString FHistogram::DumpToJsonString(TFunctionRef<FString (double, double)> ConvertBinToLabel) const
+{
+	// {"Bin":"Name","Count":Count,"Sum":Sum}
+	FString Result;
+	if (LIKELY(Bins.Num()))
+	{
+		Result += TEXT('[');
+		for (int BinIdx = 0, LastBinIdx = Bins.Num() - 1; BinIdx < LastBinIdx+1; ++BinIdx)
+		{
+			const FBin& Bin = Bins[BinIdx];
+			if (BinIdx != 0)
+			{
+				Result += TEXT(',');
+			}
+			Result += FString::Printf(TEXT("{\"Bin\":\"%s\",\"Count\":%d,\"Sum\":%.5f}"), *ConvertBinToLabel(Bin.MinValue, Bin.UpperBound), Bin.Count, Bin.Sum);
+		}
+		Result.AppendChar(TEXT(']'));
+	}
+	return Result;
+}
+
+FString FHistogram::DumpToJsonString() const
+{
+	return DumpToJsonString(&DefaultConvertBinToLabel);
+}
+
+FString FHistogram::DefaultConvertBinToLabel(double MinValue, double UpperBound)
+{
+	if (UpperBound >= FLT_MAX)
+	{
+		return FString::Printf(TEXT("%d_Plus"), (int)MinValue);
+	}
+	else
+	{
+		return FString::Printf(TEXT("%d_%d"), (int)MinValue, (int)UpperBound);
+	}
+}
+
 void FHistogram::DumpToLog(const FString& HistogramName)
 {
 	UE_LOG(LogHistograms, Log, TEXT("Histogram '%s': %d bins"), *HistogramName, Bins.Num());

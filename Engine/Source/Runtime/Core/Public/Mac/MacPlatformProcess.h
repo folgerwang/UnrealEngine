@@ -100,7 +100,6 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	static void* GetDllHandle( const TCHAR* Filename );
 	static void FreeDllHandle( void* DllHandle );
 	static void* GetDllExport( void* DllHandle, const TCHAR* ProcName );
-	static void CleanFileCache();
 	static uint32 GetCurrentProcessId();
 	static const TCHAR* BaseDir();
 	static const TCHAR* UserDir();
@@ -145,6 +144,7 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	// Mac specific
 	static const TCHAR* UserPreferencesDir();
 	static const TCHAR* UserLogsDir();
+	static const TCHAR* UserHomeDir();
 };
 
 typedef FMacPlatformProcess FPlatformProcess;

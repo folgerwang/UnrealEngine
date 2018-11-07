@@ -163,12 +163,17 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnSelectionChangedSections, TArray<UMovieSceneSection*> /*Sections*/);
 
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnCloseEvent, TSharedRef<ISequencer>);
+
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActorAddedToSequencer, AActor*, const FGuid);
 
 public:
 
 	/** Close the sequencer. */
 	virtual void Close() = 0;
+
+	/** @return a multicast delegate which is executed when sequencer closes. */
+	virtual FOnCloseEvent& OnCloseEvent() = 0;
 
 	/** @return Widget used to display the sequencer */
 	virtual TSharedRef<SWidget> GetSequencerWidget() const = 0;
@@ -541,6 +546,28 @@ public:
 	 * @return the widget
 	 */
 	virtual TSharedPtr<class ITimeSlider> GetTopTimeSliderWidget() const = 0;
+
+	/**
+	* Set the selection range's end position to the current global time.
+	*
+	* @see GetSelectionRange, SetSelectionRange, SetSelectionRangeStart
+	*/
+	virtual void SetSelectionRangeEnd() = 0;
+
+	/**
+	* Set the selection range's start position to the current global time.
+	*
+	* @see GetSelectionRange, SetSelectionRange, SetSelectionRangeEnd
+	*/
+	virtual void SetSelectionRangeStart() = 0;
+
+	/**
+	* Get the selection range.
+	*
+	* @return The selection range.
+	* @see SetSelectionRange, SetSelectionRangeEnd, SetSelectionRangeStart
+	*/
+	virtual TRange<FFrameNumber> GetSelectionRange() const = 0;
 
 public:
 

@@ -185,6 +185,7 @@ float ShadowRayTraceThroughCulledObjects(
 
 		if (MinConeVisibility < .01f)
 		{
+			MinConeVisibility = 0.0f;
 			break;
 		}
 	}

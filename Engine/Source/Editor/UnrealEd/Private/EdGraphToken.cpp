@@ -3,30 +3,24 @@
 #include "EdGraphToken.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Misc/UObjectToken.h"
 
-TSharedRef<IMessageToken> FEdGraphToken::Create(const UObject* InObject, const FCompilerResultsLog* Log, UEdGraphNode*& OutSourceNode)
+void FEdGraphToken::Create(const UObject* InObject, FCompilerResultsLog* Log, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNodes)
 {
-	const UObject* SourceNode = Log->FindSourceObject(InObject);
-	if (OutSourceNode == nullptr)
-	{
-		OutSourceNode = const_cast<UEdGraphNode*>(Cast<UEdGraphNode>(SourceNode));
-	}
-	return MakeShareable(new FEdGraphToken(Log->FindSourceObject(InObject), nullptr));
+	return CreateInternal(InObject, Log, OutMessage, OutSourceNodes, nullptr);
 }
 
-TSharedRef<IMessageToken> FEdGraphToken::Create(const UEdGraphPin* InPin, const FCompilerResultsLog* Log, UEdGraphNode*& OutSourceNode)
+void FEdGraphToken::Create(const UEdGraphPin* InPin, FCompilerResultsLog* Log, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNodes)
 {
-	const UObject* SourceNode = InPin ? Log->FindSourceObject(InPin->GetOwningNode()) : nullptr;
-	if (OutSourceNode == nullptr)
+	if(InPin && InPin->GetOwningNode())
 	{
-		OutSourceNode = const_cast<UEdGraphNode*>(Cast<UEdGraphNode>(SourceNode));
+		return CreateInternal(InPin->GetOwningNode(), Log, OutMessage, OutSourceNodes, InPin);
 	}
-	return MakeShareable(new FEdGraphToken(SourceNode, Log->FindSourcePin(InPin)));
 }
 
-TSharedRef<IMessageToken> FEdGraphToken::Create(const TCHAR* String, const FCompilerResultsLog* Log, UEdGraphNode*& OutSourceNode)
+void FEdGraphToken::Create(const TCHAR* String, FCompilerResultsLog* Log, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNode)
 {
-	return FTextToken::Create(FText::FromString(FString(String)));
+	OutMessage.AddToken( FTextToken::Create(FText::FromString(FString(String))) );
 }
 
 const UEdGraphPin* FEdGraphToken::GetPin() const
@@ -74,5 +68,41 @@ FEdGraphToken::FEdGraphToken(const UObject* InObject, const UEdGraphPin* InPin)
 	else
 	{
 		CachedText = NSLOCTEXT("MessageLog", "NoneObjectToken", "<None>");
+	}
+}
+
+void FEdGraphToken::CreateInternal(const UObject* InObject, FCompilerResultsLog* Log, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNodes, const UEdGraphPin* Pin)
+{
+	UObject* SourceObject = Log->FindSourceObject(const_cast<UObject*>(InObject));
+	OutMessage.AddToken( MakeShareable(new FEdGraphToken(SourceObject, Pin ? Log->FindSourcePin(Pin) : nullptr)));
+	if (UEdGraphNode* SourceNode = Cast<UEdGraphNode>(SourceObject))
+	{
+		OutSourceNodes.Add(SourceNode);
+		
+		// If this node came from a macro it actually has two source nodes, look up the other source node and add that as well:
+		if(const UEdGraph* OwningGraph = SourceNode->GetGraph())
+		{
+			if(const UEdGraphSchema* Schema = OwningGraph->GetSchema())
+			{
+				if(Schema->GetGraphType(OwningGraph) == GT_Macro)
+				{
+					if(UObject* MacroSourceObject = Log->FindSourceMacroInstance(Cast<const UEdGraphNode>(InObject)))	
+					{
+						OutMessage.AddToken( FTextToken::Create( NSLOCTEXT("EdGraphToken", "FromMacroInstance", "generated from expanding")) );
+						OutMessage.AddToken( MakeShareable(new FEdGraphToken(MacroSourceObject, nullptr)) );
+						if(UEdGraphNode* MacroSourceNode = Cast<UEdGraphNode>(MacroSourceObject))
+						{
+							OutSourceNodes.Add(MacroSourceNode);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	if(SourceObject)
+	{
+		// The message link is only used when the user double clicks on the line, we'll jump to the first source object by default:
+		OutMessage.SetMessageLink(FUObjectToken::Create(SourceObject));
 	}
 }

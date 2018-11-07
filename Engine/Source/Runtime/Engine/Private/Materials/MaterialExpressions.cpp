@@ -149,6 +149,7 @@
 #include "Materials/MaterialExpressionPreSkinnedNormal.h"
 #include "Materials/MaterialExpressionPreSkinnedPosition.h"
 #include "Materials/MaterialExpressionQualitySwitch.h"
+#include "Materials/MaterialExpressionShadingPathSwitch.h"
 #include "Materials/MaterialExpressionReflectionVectorWS.h"
 #include "Materials/MaterialExpressionRotateAboutAxis.h"
 #include "Materials/MaterialExpressionRotator.h"
@@ -375,6 +376,60 @@ bool CanConnectMaterialValueTypes(uint32 InputType, uint32 OutputType)
 
 #if WITH_EDITOR
 
+
+void ValidateParameterNameInternal(class UMaterialExpression* ExpressionToValidate, class UMaterial* OwningMaterial, const bool bAllowDuplicateName)
+{
+	if (OwningMaterial != nullptr)
+	{
+		int32 NameIndex = 1;
+		bool bFoundValidName = false;
+		FName PotentialName;
+
+		// Find an available unique name
+		while (!bFoundValidName)
+		{
+			PotentialName = ExpressionToValidate->GetParameterName();
+
+			// Parameters cannot be named Name_None, use the default name instead
+			if (PotentialName == NAME_None)
+			{
+				PotentialName = UMaterialExpressionParameter::ParameterDefaultName;
+			}
+
+			if (!bAllowDuplicateName)
+			{
+				if (NameIndex != 1)
+				{
+					PotentialName.SetNumber(NameIndex);
+				}
+
+				bFoundValidName = true;
+
+				for (UMaterialExpression* Expression : OwningMaterial->Expressions)
+				{
+					if (Expression != nullptr && Expression->HasAParameterName())
+					{
+						// Name are unique per class type
+						if (Expression != ExpressionToValidate && Expression->GetClass() == ExpressionToValidate->GetClass() && Expression->GetParameterName() == PotentialName)
+						{
+							bFoundValidName = false;
+							break;
+						}
+					}
+				}
+
+				++NameIndex;
+			}
+			else
+			{
+				bFoundValidName = true;
+			}
+		}
+
+		ExpressionToValidate->SetParameterName(PotentialName);
+	}
+}
+
 /**
  * Helper function that wraps the supplied texture coordinates in the necessary math to transform them for external textures
  *
@@ -582,16 +637,16 @@ void UMaterialExpression::CopyMaterialExpressions(const TArray<UMaterialExpressi
 #endif // WITH_EDITOR
 
 
-void UMaterialExpression::Serialize( FArchive& Ar )
+void UMaterialExpression::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
 #if WITH_EDITORONLY_DATA
 	const TArray<FExpressionInput*> Inputs = GetInputs();
 	for (int32 InputIndex = 0; InputIndex < Inputs.Num(); ++InputIndex)
 	{
 		FExpressionInput* Input = Inputs[InputIndex];
-		DoMaterialAttributeReorder(Input, Ar.UE4Ver());
+		DoMaterialAttributeReorder(Input, Record.GetUnderlyingArchive().UE4Ver());
 	}
 #endif // WITH_EDITORONLY_DATA
 }
@@ -672,6 +727,13 @@ void UMaterialExpression::PostEditChangeProperty(FPropertyChangedEvent& Property
 		bNeedToUpdatePreview = true;
 
 		const FName PropertyName = PropertyThatChanged->GetFName();
+
+		const FName ParameterName = TEXT("ParameterName");
+		if (PropertyName == ParameterName)
+		{
+			ValidateParameterName();
+		}
+
 		if (PropertyName == GET_MEMBER_NAME_CHECKED(UMaterialExpression, Desc) && !IsA(UMaterialExpressionComment::StaticClass()))
 		{
 			if (GraphNode)
@@ -1153,44 +1215,9 @@ void UMaterialExpression::SetEditableName(const FString& NewName)
 	check(false);
 }
 
-void UMaterialExpression::ValidateParameterName()
+void UMaterialExpression::ValidateParameterName(const bool bAllowDuplicateName)
 {
-	if (Material != nullptr)
-	{
-		int32 NameIndex = 1;
-		bool FoundValidName = false;
-		FName PotentialName;
-
-		// Find an available unique name
-		while (!FoundValidName)
-		{
-			PotentialName = GetParameterName();
-
-			if (NameIndex != 1)
-			{
-				PotentialName.SetNumber(NameIndex);
-			}
-
-			FoundValidName = true;
-
-			for (UMaterialExpression* Expression : Material->Expressions)
-			{
-				if (Expression != nullptr && Expression->HasAParameterName())
-				{
-					// Name are unique per class type
-					if (Expression != this && Expression->GetClass() == GetClass() && Expression->GetParameterName() == PotentialName)
-					{
-						FoundValidName = false;
-						break;
-					}
-				}
-			}
-
-			++NameIndex;
-		}
-
-		SetParameterName(PotentialName);
-	}
+	// Incrementing the name is now handled in UMaterialExpressionParameter::ValidateParameterName
 }
 
 #endif // WITH_EDITOR
@@ -1865,6 +1892,12 @@ void UMaterialExpressionTextureSampleParameter::GetCaption(TArray<FString>& OutC
 	OutCaptions.Add(TEXT("Texture Param")); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+void UMaterialExpressionTextureSampleParameter::ValidateParameterName(const bool bAllowDuplicateName)
+{
+	ValidateParameterNameInternal(this, Material, bAllowDuplicateName);
+}
+
 #endif // WITH_EDITOR
 
 bool UMaterialExpressionTextureSampleParameter::IsNamedParameter(const FMaterialParameterInfo& ParameterInfo, UTexture*& OutValue) const
@@ -2934,11 +2967,12 @@ UMaterialExpressionClamp::UMaterialExpressionClamp(const FObjectInitializer& Obj
 #endif
 }
 
-void UMaterialExpressionClamp::Serialize(FArchive& Ar)
+void UMaterialExpressionClamp::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_RETROFIT_CLAMP_EXPRESSIONS_SWAP)
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_RETROFIT_CLAMP_EXPRESSIONS_SWAP)
 	{
 		if (ClampMode == CMODE_ClampMin)
 		{
@@ -4341,13 +4375,14 @@ UMaterialExpressionMakeMaterialAttributes::UMaterialExpressionMakeMaterialAttrib
 #endif
 }
 
-void UMaterialExpressionMakeMaterialAttributes::Serialize(FArchive& Ar)
+void UMaterialExpressionMakeMaterialAttributes::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the legacy masks else fail on vec3 to vec2 conversion
 		Refraction.SetMask(1, 1, 1, 0, 0);
@@ -4465,14 +4500,15 @@ UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttr
 #endif
 }
 
-void UMaterialExpressionBreakMaterialAttributes::Serialize(FArchive& Ar)
+void UMaterialExpressionBreakMaterialAttributes::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 #if WITH_EDITOR
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the masks for legacy content
 		int32 OutputIndex = 0;
@@ -5977,6 +6013,7 @@ int32 UMaterialExpressionDesaturation::Compile(class FMaterialCompiler* Compiler
 //
 //	UMaterialExpressionParameter
 //
+FName UMaterialExpressionParameter::ParameterDefaultName = TEXT("Param");
 
 UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -5985,14 +6022,17 @@ UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitiali
 	struct FConstructorStatics
 	{
 		FText NAME_Parameters;
+		FName ParameterName;
 		FConstructorStatics()
 			: NAME_Parameters(LOCTEXT( "Parameters", "Parameters" ))
+			, ParameterName(UMaterialExpressionParameter::ParameterDefaultName)
 		{
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
 
 	bIsParameterExpression = true;
+	ParameterName = ConstructorStatics.ParameterName;
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
@@ -6013,6 +6053,8 @@ bool UMaterialExpressionParameter::MatchesSearchQuery( const TCHAR* SearchQuery 
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+
+
 
 FString UMaterialExpressionParameter::GetEditableName() const
 {
@@ -6036,6 +6078,13 @@ void UMaterialExpressionParameter::GetAllParameterInfo(TArray<FMaterialParameter
 		OutParameterIds.Add(ExpressionGUID);
 	}
 }
+
+#if WITH_EDITOR
+void UMaterialExpressionParameter::ValidateParameterName(const bool bAllowDuplicateName)
+{
+	ValidateParameterNameInternal(this, Material, bAllowDuplicateName);
+}
+#endif
 
 bool UMaterialExpressionParameter::NeedsLoadForClient() const
 {
@@ -6909,10 +6958,12 @@ bool UMaterialExpressionFeatureLevelSwitch::IsResultMaterialAttributes(int32 Out
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionFeatureLevelSwitch::Serialize(FArchive& Ar)
+void UMaterialExpressionFeatureLevelSwitch::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_RENAME_SM3_TO_ES3_1)
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_RENAME_SM3_TO_ES3_1)
 	{
 		// Copy the ES2 input to SM3 (since SM3 will now become ES3_1 and we don't want broken content)
 		Inputs[ERHIFeatureLevel::ES3_1] = Inputs[ERHIFeatureLevel::ES2];
@@ -6920,6 +6971,130 @@ void UMaterialExpressionFeatureLevelSwitch::Serialize(FArchive& Ar)
 }
 
 bool UMaterialExpressionFeatureLevelSwitch::NeedsLoadForClient() const
+{
+	return true;
+}
+
+//
+//	UMaterialExpressionShadingPathSwitch
+//
+
+UMaterialExpressionShadingPathSwitch::UMaterialExpressionShadingPathSwitch(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+#if WITH_EDITORONLY_DATA
+	MenuCategories.Add(ConstructorStatics.NAME_Utility);
+#endif
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionShadingPathSwitch::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	const EShaderPlatform ShaderPlatform = Compiler->GetShaderPlatform();
+	ERHIShadingPath::Type ShadingPathToCompile = ERHIShadingPath::Deferred;
+
+	if (IsForwardShadingEnabled(ShaderPlatform))
+	{
+		ShadingPathToCompile = ERHIShadingPath::Forward;
+	}
+	else if (Compiler->GetFeatureLevel() < ERHIFeatureLevel::SM4)
+	{
+		ShadingPathToCompile = ERHIShadingPath::Mobile;
+	}
+
+	check(ShadingPathToCompile < ARRAY_COUNT(Inputs));
+	FExpressionInput ShadingPathInput = Inputs[ShadingPathToCompile].GetTracedInput();
+	FExpressionInput DefaultTraced = Default.GetTracedInput();
+
+	if (!DefaultTraced.Expression)
+	{
+		return Compiler->Errorf(TEXT("Shading path switch missing default input"));
+	}
+
+	if (ShadingPathInput.Expression)
+	{
+		return ShadingPathInput.Compile(Compiler);
+	}
+
+	return DefaultTraced.Compile(Compiler);
+}
+
+void UMaterialExpressionShadingPathSwitch::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(FString(TEXT("Shading Path Switch")));
+}
+
+const TArray<FExpressionInput*> UMaterialExpressionShadingPathSwitch::GetInputs()
+{
+	TArray<FExpressionInput*> OutInputs;
+
+	OutInputs.Add(&Default);
+
+	for (int32 InputIndex = 0; InputIndex < ARRAY_COUNT(Inputs); InputIndex++)
+	{
+		OutInputs.Add(&Inputs[InputIndex]);
+	}
+
+	return OutInputs;
+}
+
+FExpressionInput* UMaterialExpressionShadingPathSwitch::GetInput(int32 InputIndex)
+{
+	if (InputIndex == 0)
+	{
+		return &Default;
+	}
+
+	return &Inputs[InputIndex - 1];
+}
+
+FName UMaterialExpressionShadingPathSwitch::GetInputName(int32 InputIndex) const
+{
+	if (InputIndex == 0)
+	{
+		return TEXT("Default");
+	}
+
+	FName ShadingPathName;
+	GetShadingPathName((ERHIShadingPath::Type)(InputIndex - 1), ShadingPathName);
+	return ShadingPathName;
+}
+
+bool UMaterialExpressionShadingPathSwitch::IsInputConnectionRequired(int32 InputIndex) const
+{
+	return InputIndex == 0;
+}
+
+bool UMaterialExpressionShadingPathSwitch::IsResultMaterialAttributes(int32 OutputIndex)
+{
+	check(OutputIndex == 0);
+	TArray<FExpressionInput*> ExpressionInputs = GetInputs();
+
+	for (FExpressionInput* ExpressionInput : ExpressionInputs)
+	{
+		// If there is a loop anywhere in this expression's inputs then we can't risk checking them
+		if (ExpressionInput->Expression && !ExpressionInput->Expression->ContainsInputLoop() && ExpressionInput->Expression->IsResultMaterialAttributes(ExpressionInput->OutputIndex))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+#endif // WITH_EDITOR
+
+bool UMaterialExpressionShadingPathSwitch::NeedsLoadForClient() const
 {
 	return true;
 }
@@ -8718,6 +8893,11 @@ void UMaterialExpressionFontSampleParameter::GetCaption(TArray<FString>& OutCapt
 	OutCaptions.Add(TEXT("Font Param")); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+void UMaterialExpressionFontSampleParameter::ValidateParameterName(const bool bAllowDuplicateName)
+{
+	ValidateParameterNameInternal(this, Material, bAllowDuplicateName);
+}
 #endif // WITH_EDITOR
 
 bool UMaterialExpressionFontSampleParameter::IsNamedParameter(const FMaterialParameterInfo& ParameterInfo, UFont*& OutFontValue, int32& OutFontPage) const
@@ -9297,18 +9477,19 @@ uint32 UMaterialExpressionCustom::GetOutputType(int32 OutputIndex)
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionCustom::Serialize(FArchive& Ar)
+void UMaterialExpressionCustom::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 	// Make a copy of the current code before we change it
 	const FString PreFixUp = Code;
 
 	bool bDidUpdate = false;
 
-	if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
+	if (UnderlyingArchive.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
 	{
 		// Look for WorldPosition rename
 		if (Code.ReplaceInline(TEXT("Parameters.WorldPosition"), TEXT("Parameters.AbsoluteWorldPosition"), ESearchCase::CaseSensitive) > 0)
@@ -9317,7 +9498,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 	// Fix up uniform references that were moved from View to Frame as part of the instanced stereo implementation
-	else if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
+	else if (UnderlyingArchive.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
 	{
 		// Uniform members that were moved from View to Frame
 		static const FString UniformMembers[] = {
@@ -9409,7 +9590,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
 	{
 		if (Code.ReplaceInline(TEXT("View.RenderTargetSize"), TEXT("View.BufferSizeAndInvSize.xy"), ESearchCase::CaseSensitive) > 0)
 		{
@@ -11393,6 +11574,7 @@ void UMaterialExpressionFunctionInput::GetCaption(TArray<FString>& OutCaptions) 
 		TEXT("Vector4"),
 		TEXT("Texture2D"),
 		TEXT("TextureCube"),
+		TEXT("VolumeTexture"),
 		TEXT("StaticBool"),
 		TEXT("MaterialAttributes"),
 		TEXT("External")
@@ -13429,7 +13611,21 @@ int32 UMaterialExpressionDepthFade::Compile(class FMaterialCompiler* Compiler, i
 	// Result = Opacity * saturate((SceneDepth - PixelDepth) / max(FadeDistance, DELTA))
 	const int32 OpacityIndex = InOpacity.GetTracedInput().Expression ? InOpacity.Compile(Compiler) : Compiler->Constant(OpacityDefault);
 	const int32 FadeDistanceIndex = Compiler->Max(FadeDistance.GetTracedInput().Expression ? FadeDistance.Compile(Compiler) : Compiler->Constant(FadeDistanceDefault), Compiler->Constant(DELTA));
-	const int32 FadeIndex = CompileHelperSaturate(Compiler, Compiler->Div(Compiler->Sub(Compiler->SceneDepth(INDEX_NONE, INDEX_NONE, false), Compiler->PixelDepth()), FadeDistanceIndex));
+
+	int32 PixelDepthIndex = -1; 
+	// On mobile scene depth is limited to 65500 
+	// to avoid false fading on objects that are close or exceed this limit we clamp pixel depth to (65500 - FadeDistance)
+	if (Compiler->GetFeatureLevel() <= ERHIFeatureLevel::ES3_1)
+	{
+		PixelDepthIndex = Compiler->Min(Compiler->PixelDepth(), Compiler->Sub(Compiler->Constant(65500.f), FadeDistanceIndex));
+	}
+	else
+	{
+		PixelDepthIndex = Compiler->PixelDepth();
+	}
+	
+	const int32 FadeIndex = CompileHelperSaturate(Compiler, Compiler->Div(Compiler->Sub(Compiler->SceneDepth(INDEX_NONE, INDEX_NONE, false), PixelDepthIndex), FadeDistanceIndex));
+	
 	return Compiler->Mul(OpacityIndex, FadeIndex);
 }
 #endif // WITH_EDITOR
@@ -13947,11 +14143,11 @@ void UMaterialExpressionSpeedTree::GetCaption(TArray<FString>& OutCaptions) cons
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionSpeedTree::Serialize(FArchive& Ar)
+void UMaterialExpressionSpeedTree::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() < VER_UE4_SPEEDTREE_WIND_V7)
+	if (Record.GetUnderlyingArchive().UE4Ver() < VER_UE4_SPEEDTREE_WIND_V7)
 	{
 		// update wind presets for speedtree v7
 		switch (WindType)
@@ -14234,8 +14430,22 @@ int32 UMaterialExpressionVertexInterpolator::Compile(class FMaterialCompiler* Co
 {
 	if (Input.GetTracedInput().Expression)
 	{
-		if (InterpolatorIndex == INDEX_NONE)
+		if (InterpolatorIndex == INDEX_NONE || CompileErrors.Num() > 0)
 		{
+			// Now this node is confirmed part of the graph, append all errors from the input compilation
+			check(CompileErrors.Num() == CompileErrorExpressions.Num());
+			for (int32 Error = 0; Error < CompileErrors.Num(); ++Error)
+			{
+				if (CompileErrorExpressions[Error])
+				{
+					Compiler->AppendExpressionError(CompileErrorExpressions[Error], *CompileErrors[Error]);
+				}
+				else
+				{
+					Compiler->Errorf(*CompileErrors[Error]);
+				}
+			}
+			
 			return Compiler->Errorf(TEXT("Failed to compile interpolator input."));
 		}
 		else
@@ -14255,6 +14465,9 @@ int32 UMaterialExpressionVertexInterpolator::CompileInput(class FMaterialCompile
 	InterpolatorIndex = INDEX_NONE;
 	InterpolatedType = MCT_Unknown;
 	InterpolatorOffset = INDEX_NONE;
+
+	CompileErrors.Empty();
+	CompileErrorExpressions.Empty();
 
 	if (Input.GetTracedInput().Expression)
 	{

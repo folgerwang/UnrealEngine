@@ -109,11 +109,22 @@ DECLARE_LOG_CATEGORY_EXTERN(LogFbx, Log, All);
 namespace UnFbx
 {
 
+UENUM()
+enum EFBXReimportDialogReturnOption
+{
+	FBXRDRO_Ok,
+	FBXRDRO_ResetToFbx,
+	FBXRDRO_Cancel,
+	FBXRDRO_MAX,
+};
+
 struct FBXImportOptions
 {
 	// General options
 	bool bCanShowDialog;
 	bool bImportScene;
+	bool bImportAsSkeletalGeometry;
+	bool bImportAsSkeletalSkinning;
 	bool bImportMaterials;
 	bool bInvertNormalMap;
 	bool bImportTextures;
@@ -161,6 +172,7 @@ struct FBXImportOptions
 	bool bImportAnimations;
 	bool bUpdateSkeletonReferencePose;
 	bool bResample;
+	int32 ResampleRate;
 	bool bImportRigidMesh;
 	bool bUseT0AsRefPose;
 	bool bPreserveSmoothingGroups;
@@ -192,11 +204,6 @@ struct FBXImportOptions
 
 	//This data allow to override some fbx Material(point by the uint64 id) with existing unreal material asset
 	TMap<uint64, class UMaterialInterface*> OverrideMaterials;
-
-	/*
-	 * Temporary copy of the mesh we re-import, we use this copy to compare section shape when matching section
-	*/
-	UObject* OriginalMeshCopy;
 
 	bool ShouldImportNormals()
 	{
@@ -342,20 +349,37 @@ public:
 	UNREALED_API void GetAllNodeNameArray(TArray<FString> &AllNodeNames) const;
 	UNREALED_API void GetAnimatedNodeNameArray(TArray<FString> &AnimatedNodeNames) const;
 	UNREALED_API void GetNodeAnimatedPropertyNameArray(const FString &NodeName, TArray<FString> &AnimatedPropertyNames) const;
+
+	DEPRECATED(4.21, "Please use FRichCurve version instead to get tangent weight support")
 	UNREALED_API void GetCurveData(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, FInterpCurveFloat& CurveData, bool bNegative) const;
+	
+	UNREALED_API void GetCurveData(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, FRichCurve& CurveData, bool bNegative) const;
+
+	
 	UNREALED_API void GetBakeCurveData(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, TArray<float>& CurveData, float PeriodTime, float StartTime = 0.0f, float StopTime= -1.0f, bool bNegative = false) const;
 
 	//Handle API
 	UNREALED_API void GetAllNodePropertyCurveHandles(const FString& NodeName, const FString& PropertyName, TArray<FFbxAnimCurveHandle> &PropertyCurveHandles) const;
 	UNREALED_API void GetCurveHandle(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, FFbxAnimCurveHandle &CurveHandle) const;
+	
+	DEPRECATED(4.21, "Please use FRichCurve version instead to get tangent weight support")
 	UNREALED_API void GetCurveData(const FFbxAnimCurveHandle &CurveHandle, FInterpCurveFloat& CurveData, bool bNegative) const;
+	
+	UNREALED_API void GetCurveData(const FFbxAnimCurveHandle &CurveHandle, FRichCurve& CurveData, bool bNegative) const;
+
 	UNREALED_API void GetBakeCurveData(const FFbxAnimCurveHandle &CurveHandle, TArray<float>& CurveData, float PeriodTime, float StartTime = 0.0f, float StopTime = -1.0f, bool bNegative = false) const;
 
 	//Conversion API
+	DEPRECATED(4.21, "Please use FRichCurve version instead to get tangent weight support")
 	UNREALED_API void GetConvertedTransformCurveData(const FString& NodeName, FInterpCurveFloat& TranslationX, FInterpCurveFloat& TranslationY, FInterpCurveFloat& TranslationZ,
 													 FInterpCurveFloat& EulerRotationX, FInterpCurveFloat& EulerRotationY, FInterpCurveFloat& EulerRotationZ, 
 													 FInterpCurveFloat& ScaleX, FInterpCurveFloat& ScaleY, FInterpCurveFloat& ScaleZ,
 													 FTransform& DefaultTransform) const;
+	
+	UNREALED_API void GetConvertedTransformCurveData(const FString& NodeName, FRichCurve& TranslationX, FRichCurve& TranslationY, FRichCurve& TranslationZ,
+		FRichCurve& EulerRotationX, FRichCurve& EulerRotationY, FRichCurve& EulerRotationZ,
+		FRichCurve& ScaleX, FRichCurve& ScaleY, FRichCurve& ScaleZ,
+		FTransform& DefaultTransform) const;
 
 	FbxScene* Scene;
 	TMap<uint64, FFbxAnimNodeHandle> CurvesData;
@@ -482,7 +506,7 @@ private:
 	static FbxAMatrix JointPostConversionMatrix;
 };
 
-FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh, UObject* ReimportObject = nullptr);
+FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh);
 UNREALED_API void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOutImportOptions);
 
 struct FImportedMaterialData
@@ -605,6 +629,11 @@ public:
 	 * @return bool
 	 */
 	bool OpenFile(FString Filename);
+
+	/*
+	Make sure the file header is read
+	*/
+	bool ReadHeaderFromFile(const FString& Filename, bool bPreventMaterialNameClash = false);
 	
 	/**
 	 * Import Fbx file.
@@ -718,6 +747,11 @@ public:
 	void AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* StaticMesh, int32 LODIndex);
 
 	/**
+	* Return the node that match the staticmesh name. Return nullptr in case there is no match
+	*/
+	FbxNode* GetMeshNodesFromName(UStaticMesh* StaticMesh, TArray<FbxNode*>& FbxMeshArray);
+
+	/**
 	 * re-import Unreal static mesh from updated Fbx file
 	 * if the Fbx mesh is in LODGroup, the LOD of mesh will be updated
 	 *
@@ -783,6 +817,7 @@ public:
 
 		UObject* InParent;
 		TArray<FbxNode*> NodeArray;
+		TArray<FbxNode*> BoneNodeArray;
 		FName Name;
 		EObjectFlags Flags;
 		UFbxSkeletalMeshImportData* TemplateImportData;
@@ -812,7 +847,7 @@ public:
 	/**
 	 * Get Animation Time Span - duration of the animation
 	 */
-	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack, int32 ResampleRate);
+	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack);
 
 	/**
 	 * Import one animation from CurAnimStack
@@ -904,7 +939,7 @@ public:
 	* @param Node Root node to find skeletal meshes
 	* @param outSkelMeshArray return Fbx meshes they are grouped by skeleton
 	*/
-	UNREALED_API void FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bForceFindRigid = false);
+	UNREALED_API void FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bCombineSkeletalMesh, bool bForceFindRigid = false);
 	
 	/**
 	 * Find FBX meshes that match Unreal skeletal mesh according to the bone of mesh
@@ -940,7 +975,15 @@ public:
 	* @param outMeshArray return Fbx meshes
 	*/
 	UNREALED_API void FillFbxMeshArray(FbxNode* Node, TArray<FbxNode*>& outMeshArray, UnFbx::FFbxImporter* FFbxImporter);
-	
+
+	/**
+	* Get all Fbx Skeleton nodes
+	*
+	* @param Node Root node to find skeleton nodes
+	* @param outNodeArray return skeleton nodes
+	*/
+	UNREALED_API void FillFbxSkeletonArray(FbxNode* Node, TArray<FbxNode*>& OutNodeArray);
+
 	/**
 	* Get all Fbx mesh objects not under a LOD group and all LOD group node
 	*
@@ -982,24 +1025,18 @@ public:
 	UNREALED_API FBXImportOptions* GetImportOptions() const;
 
 	/*
-	* This function show a dialog to let the user know what will be change if the fbx is imported
+	* This function show a dialog to let the user know what will be change in the skeleton if the fbx is imported
 	*/
-	void ShowFbxCompareWindow(UObject *SourceObj, UObject *ResultObj, bool &UserCancel);
+	static void ShowFbxSkeletonConflictWindow(USkeletalMesh *SkeletalMesh, USkeleton* Skeleton, ImportCompareHelper::FSkeletonCompareData& SkeletonCompareData);
 
+	template<typename TMaterialType>
+	static void PrepareAndShowMaterialConflictDialog(const TArray<TMaterialType>& CurrentMaterial, TArray<TMaterialType>& ResultMaterial, TArray<int32>& RemapMaterial, TArray<FName>& RemapMaterialName, bool bCanShowDialog, bool bIsPreviewDialog, EFBXReimportDialogReturnOption& OutReturnOption);
 	/*
-	* Function use to retrieve general fbx information for the preview
+	* This function show a dialog to let the user resolve the material conflict that arise when re-importing a mesh
 	*/
-	void FillGeneralFbxFileInformation(void *GeneralInfoPtr);
-	
-	/*
-	* This function show a dialog to let the user resolve the material conflict that arise when re-importing a skeletal mesh
-	*/
-	static void ShowFbxMaterialConflictWindowSK(const TArray<FSkeletalMaterial>& InSourceMaterials, const TArray<FSkeletalMaterial>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& FuzzyRemapMaterials, bool &UserCancel);
+	template<typename TMaterialType>
+	static void ShowFbxMaterialConflictWindow(const TArray<TMaterialType>& InSourceMaterials, const TArray<TMaterialType>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& FuzzyRemapMaterials, EFBXReimportDialogReturnOption& OutReturnOption, bool bIsPreviewConflict = false);
 
-	/*
-	* This function show a dialog to let the user resolve the material conflict that arise when re-importing a static mesh
-	*/
-	static void ShowFbxMaterialConflictWindowSM(const TArray<FStaticMaterial>& InSourceMaterials, const TArray<FStaticMaterial>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& FuzzyRemapMaterials, bool &UserCancel);
 
 	/** helper function **/
 	UNREALED_API static void DumpFBXNode(FbxNode* Node);
@@ -1043,6 +1080,7 @@ public:
 	void MergeAllLayerAnimation(FbxAnimStack* AnimStack, int32 ResampleRate);
 
 private:
+
 	/**
 	* This function fill the last imported Material name. Those named are used to reorder the mesh sections
 	* during a re-import. In case material names use the skinxx workflow the LastImportedMaterialNames array
@@ -1178,6 +1216,16 @@ public:
 
 	FbxGeometryConverter* GetGeometryConverter() { return GeometryConverter; }
 
+	/*
+	 * Cleanup the fbx file data so we can read again another file
+	 */
+	void PartialCleanUp();
+
+	FString GetFbxFileVersion() { return FbxFileVersion; }
+	FString GetFileCreator() { return FbxFileCreator; }
+	FString GetFileUnitSystem() { return FString(UTF8_TO_TCHAR(FileUnitSystem.GetScaleFactorAsString(false).Buffer())); }
+	FString GetFileAxisDirection();
+
 protected:
 	enum IMPORTPHASE
 	{
@@ -1203,6 +1251,7 @@ protected:
 	FString FileBasePath;
 	TWeakObjectPtr<UObject> Parent;
 	FString FbxFileVersion;
+	FString FbxFileCreator;
 
 	//Original File Info
 	FbxAxisSystem FileAxisSystem;
@@ -1324,9 +1373,13 @@ public:
 	*
 	* @returns bool*	true if import successfully.
 	*/
-	bool FillSkeletalMeshImportData(TArray<FbxNode*>& NodeArray, UFbxSkeletalMeshImportData* TemplateImportData, TArray<FbxShape*> *FbxShapeArray, FSkeletalMeshImportData* OutData, TArray<FName> &LastImportedMaterialNames);
+	bool FillSkeletalMeshImportData(TArray<FbxNode*>& NodeArray, UFbxSkeletalMeshImportData* TemplateImportData, TArray<FbxShape*> *FbxShapeArray, FSkeletalMeshImportData* OutData, TArray<FName> &LastImportedMaterialNames, const bool bIsReimport);
 
 protected:
+
+	bool ReplaceSkeletalMeshGeometryImportData(const USkeletalMesh* SkeletalMesh, FSkeletalMeshImportData* ImportData, int32 LodIndex);
+	bool ReplaceSkeletalMeshSkinningImportData(const USkeletalMesh* SkeletalMesh, FSkeletalMeshImportData* ImportData, int32 LodIndex);
+
 	/**
 	* Fill the Points in FSkeletalMeshIMportData from a Fbx Node and a FbxShape if it exists.
 	*
@@ -1648,6 +1701,9 @@ protected:
 	 */
 	bool RetrievePoseFromBindPose(const TArray<FbxNode*>& NodeArray, FbxArray<FbxPose*> & PoseArray) const;
 
+	/** Import the user-defined properties on the node as FBX metadata on the object */
+	void ImportNodeCustomProperties(UObject* Object, FbxNode* Node);
+
 public:
 	/** Import and set up animation related data from mesh **/
 	void SetupAnimationDataFromMesh(USkeletalMesh * SkeletalMesh, UObject* InParent, TArray<FbxNode*>& NodeArray, UFbxAnimSequenceImportData* ImportData, const FString& Filename);
@@ -1656,6 +1712,8 @@ public:
 	UNREALED_API void AddTokenizedErrorMessage(TSharedRef<FTokenizedMessage> Error, FName FbxErrorName );
 	void ClearTokenizedErrorMessages();
 	void FlushToTokenizedErrorMessage(enum EMessageSeverity::Type Severity);
+
+	float GetOriginalFbxFramerate() { return OriginalFbxFramerate; }
 
 private:
 	friend class FFbxLoggerSetter;
@@ -1669,6 +1727,8 @@ private:
 
 	//Cache to create unique name for mesh. This is use to fix name clash
 	TArray<FString> MeshNamesCache;
+
+	float OriginalFbxFramerate;
 
 private:
 

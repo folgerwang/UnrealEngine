@@ -27,6 +27,8 @@
 #include "Engine/PreviewMeshCollection.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Animation/AnimBlueprint.h"
+#include "UObject/AnimObjectVersion.h"
+#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "Skeleton"
 #define ROOT_BONE_PARENT	INDEX_NONE
@@ -153,6 +155,8 @@ void USkeleton::PostDuplicate(bool bDuplicateForPIE)
 
 void USkeleton::Serialize( FArchive& Ar )
 {
+	Ar.UsingCustomVersion(FAnimObjectVersion::GUID);
+
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USkeleton::Serialize"), STAT_Skeleton_Serialize, STATGROUP_LoadTime );
 
 	Super::Serialize(Ar);
@@ -236,6 +240,15 @@ void USkeleton::Serialize( FArchive& Ar )
 		PreviewAttachedAssetContainer.SaveAttachedObjectsFromDeprecatedProperties();
 	}
 #endif
+
+	if (Ar.CustomVer(FAnimObjectVersion::GUID) >= FAnimObjectVersion::StoreMarkerNamesOnSkeleton)
+	{
+		FStripDataFlags StripFlags(Ar);
+		if (!StripFlags.IsEditorDataStripped())
+		{
+			Ar << ExistingMarkerNames;
+		}
+	}
 
 	const bool bRebuildNameMap = false;
 	ReferenceSkeleton.RebuildRefSkeleton(this, bRebuildNameMap);
@@ -705,6 +718,24 @@ void USkeleton::SetBoneTranslationRetargetingMode(const int32 BoneIndex, EBoneTr
 	}
 }
 
+#if WITH_EDITORONLY_DATA
+
+FName USkeleton::GetRetargetSourceForMesh(USkeletalMesh* InMesh) const
+{
+	FSoftObjectPath MeshPath(InMesh);
+	for(const TPair<FName, FReferencePose>& AnimRetargetSource : AnimRetargetSources)
+	{
+		if(AnimRetargetSource.Value.SourceReferenceMesh.ToSoftObjectPath() == MeshPath)
+		{
+			return AnimRetargetSource.Key;
+		}
+	}
+
+	return NAME_None;
+}
+
+#endif
+
 int32 USkeleton::GetAnimationTrackIndex(const int32 InSkeletonBoneIndex, const UAnimSequence* InAnimSeq, const bool bUseRawData)
 {
 	const TArray<FTrackToSkeletonMap>& TrackToSkelMap = bUseRawData ? InAnimSeq->GetRawTrackToSkeletonMapTable() : InAnimSeq->GetCompressedTrackToSkeletonMapTable();
@@ -776,6 +807,10 @@ USkeletalMesh* USkeleton::GetPreviewMesh(bool bFindIfNotSet/*=false*/)
 USkeletalMesh* USkeleton::GetPreviewMesh() const
 {
 #if WITH_EDITORONLY_DATA
+	if (!PreviewSkeletalMesh.IsValid())
+	{
+		PreviewSkeletalMesh.LoadSynchronous();
+	}
 	return PreviewSkeletalMesh.Get();
 #else
 	return nullptr;

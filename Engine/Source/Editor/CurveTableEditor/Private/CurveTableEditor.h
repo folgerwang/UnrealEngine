@@ -11,6 +11,7 @@
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
 #include "CurveTableEditorHandle.h"
+#include "CurveTableEditorUtils.h"
 
 struct FCurveTableEditorColumnHeaderData
 {
@@ -55,6 +56,7 @@ typedef TSharedPtr<FCurveTableEditorRowListViewData>  FCurveTableEditorRowListVi
 /** Viewer/editor for a CurveTable */
 class FCurveTableEditor :
 	public ICurveTableEditor
+	, public FCurveTableEditorUtils::INotifyOnCurveTableChanged
 {
 	friend class SCurveTableListViewRow;
 	friend class SCurveTableCurveViewRow;
@@ -70,7 +72,7 @@ public:
 	 * @param	InitToolkitHost			When Mode is WorldCentric, this is the level editor instance to spawn this editor within
 	 * @param	Table					The table to edit
 	 */
-	void InitCurveTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table );
+	virtual void InitCurveTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table );
 
 	/** Destructor */
 	virtual ~FCurveTableEditor();
@@ -81,8 +83,14 @@ public:
 	virtual FString GetWorldCentricTabPrefix() const override;
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 
+	// INotifyOnDataTableChanged
+	virtual void PreChange(const UCurveTable* Changed, FCurveTableEditorUtils::ECurveTableChangeInfo Info) override;
+	virtual void PostChange(const UCurveTable* Changed, FCurveTableEditorUtils::ECurveTableChangeInfo Info) override;
+
 	/** Get the curve table being edited */
 	const UCurveTable* GetCurveTable() const;
+
+	void HandlePostChange();
 
 	/**	Spawns the tab with the curve table inside */
 	TSharedRef<SDockTab> SpawnTab_CurveTable( const FSpawnTabArgs& Args );
@@ -90,7 +98,10 @@ public:
 	/** Get the mode that we are displaying data in */
 	ECurveTableViewMode GetViewMode() const { return ViewMode; }
 
-private:
+protected:
+
+	/** Handles setting up slate for the curve table editor */
+	virtual TSharedRef< FTabManager::FLayout > InitCurveTableLayout();
 
 	/** Add extra menu items */
 	void ExtendMenu();
@@ -102,7 +113,7 @@ private:
 	void RefreshCachedCurveTable();
 
 	/** Cache the data from the current curve table so that it can be shown in the editor */
-	void CacheDataTableForEditing();
+	void CacheCurveTableForEditing();
 
 	/** Make the widget for a row name entry in the data table row list view */
 	TSharedRef<ITableRow> MakeRowNameWidget(FCurveTableEditorRowListViewDataPtr InRowDataPtr, const TSharedRef<STableViewBase>& OwnerTable);
@@ -139,6 +150,9 @@ private:
 
 	/** Get whether the curve view checkbox should be toggled on */
 	bool IsCurveViewChecked() const;
+
+	virtual bool ShouldCreateDefaultStandaloneMenu() const { return true; }
+	virtual bool ShouldCreateDefaultToolbar() const { return false; }
 
 	/** Array of the columns that are available for editing */
 	TArray<FCurveTableEditorColumnHeaderDataPtr> AvailableColumns;

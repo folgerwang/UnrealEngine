@@ -105,8 +105,6 @@ void FXAudio2SoundSource::FreeResources( void )
 
 	if (XAudio2Buffer && XAudio2Buffer->RealtimeAsyncHeaderParseTask)
 	{
-		check(bResourcesNeedFreeing);
-
 		XAudio2Buffer->RealtimeAsyncHeaderParseTask->EnsureCompletion();
 		delete XAudio2Buffer->RealtimeAsyncHeaderParseTask;
 		XAudio2Buffer->RealtimeAsyncHeaderParseTask = nullptr;
@@ -592,6 +590,8 @@ bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 			bFirstRTBuffersSubmitted = false;
 
 			Update();
+
+			check(!InWaveInstance->WaveData->RawPCMData || InWaveInstance->WaveData->RawPCMDataSize);
 
 			// Initialize the total  number of frames of audio for this sound source
 			int32 NumBytes = InWaveInstance->WaveData->RawPCMDataSize;

@@ -375,14 +375,17 @@ FText SWidgetDetailsView::GetCategoryText() const
 
 const FSlateBrush* SWidgetDetailsView::GetNameIcon() const
 {
-	if ( SelectedObjects.Num() == 1 && SelectedObjects[0].IsValid())
+	if (SelectedObjects.Num() == 1)
 	{
-		UClass* WidgetClass = SelectedObjects[0].Get()->GetClass();
-		if (WidgetClass)
+		const UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
+		if (Widget)
 		{
-			return FSlateIconFinder::FindIconBrushForClass(WidgetClass);
+			const UClass* WidgetClass = Widget->GetClass();
+			if (WidgetClass)
+			{
+				return FSlateIconFinder::FindIconBrushForClass(WidgetClass);
+			}
 		}
-		return nullptr;
 	}
 
 	return nullptr;
@@ -525,6 +528,7 @@ void SWidgetDetailsView::NotifyPostChange(const FPropertyChangedEvent& PropertyC
 		// Any time we migrate a property value we need to mark the blueprint as structurally modified so users don't need 
 		// to recompile it manually before they see it play in game using the latest version.
 		FBlueprintEditorUtils::MarkBlueprintAsModified(BlueprintEditor.Pin()->GetBlueprintObj());
+		ClearFocusIfOwned();
 	}
 
 	// If the property that changed is marked as "DesignerRebuild" we invalidate

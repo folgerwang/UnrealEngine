@@ -11,10 +11,10 @@
 #include "Components/PrimitiveComponent.h"
 #include "Model.h"
 #include "PhysicsPublic.h"
-#include "PhysXPublic.h"
 #include "PhysicsEngine/PhysXSupport.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 /** Returns false if ModelToHulls operation should halt because of vertex count overflow. */
 static bool AddConvexPrim(FKAggregateGeom* OutGeom, TArray<FPlane> &Planes, UModel* InModel)
@@ -243,14 +243,20 @@ FCollisionResponseContainer::FCollisionResponseContainer(ECollisionResponse Defa
 	SetAllChannels(DefaultResponse);
 }
 
+#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+bool FPhysScene::ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
+{
+    return false;
+}
+#else
 /** PxScene visualization for a particular EPhysicsSceneType */
-static bool ExecPxVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
+bool FPhysScene::ExecPxVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
 {
 	check(SceneType < PST_MAX);
 
 #if WITH_PHYSX
 	// Get the scene to set flags on
-	PxScene* PScene = InWorld->GetPhysicsScene()->GetPhysXScene(SceneType);
+	PxScene* PScene = GetPxScene(SceneType);
 
 	struct { const TCHAR* Name; PxVisualizationParameter::Enum Flag; float Size; } Flags[] =
 	{
@@ -335,9 +341,16 @@ static bool ExecPxVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOutp
 
 	return 1;
 }
+#endif
 
+#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+bool FPhysScene::ExecApexVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
+{
+    return false;
+}
+#else
 /** PxScene visualization for a particular EPhysicsSceneType */
-static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
+bool FPhysScene::ExecApexVis(uint32 SceneType, const TCHAR* Cmd, FOutputDevice* Ar)
 {
 	check(Cmd);
 	check(SceneType < PST_MAX);
@@ -345,7 +358,7 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 #if WITH_PHYSX
 #if WITH_APEX
 	// Get the scene to set flags on
-	apex::Scene* ApexScene = InWorld->GetPhysicsScene()->GetApexScene(SceneType);
+	apex::Scene* ApexScene = GetApexScene(SceneType);
 
 	if (ApexScene == NULL)
 	{
@@ -437,6 +450,7 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 
 	return true;
 }
+#endif
 
 #if WITH_PHYSX
 void PvdConnect(FString Host, bool bVisualization)
@@ -455,123 +469,96 @@ void PvdConnect(FString Host, bool bVisualization)
 }
 #endif
 
-void DumpPhysXInstanceMemoryUsage(FOutputDevice* Ar)
+#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+bool FPhysicsInterface::ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 {
-#if WITH_PHYSX
-	for (auto It = GPhysXSceneMap.CreateIterator(); It; ++It)
-	{
-		PxScene* PScene = nullptr;
-#if WITH_APEX
-		if (apex::Scene* Scene = It.Value())
-		{
-			PScene = Scene->getPhysXScene();
-		}
+    return false;
+}
 #else
-		PScene = It.Value();
-#endif
-
-		if (PScene)
+bool FPhysScene::HandleExecCommands(const TCHAR* Cmd, FOutputDevice* Ar)
+{
+	if (FParse::Command(&Cmd, TEXT("PXVIS")))
+	{
+		// See which scene type(s) is(are) requested
+		bool bVisualizeSync = FParse::Command(&Cmd, TEXT("SYNC"));
+		bool bVisualizeAsync = FParse::Command(&Cmd, TEXT("ASYNC")) && HasAsyncScene();
+		if (!bVisualizeSync && !bVisualizeAsync)
 		{
-			SCOPED_SCENE_READ_LOCK(PScene);
-			const uint32 NumActors = PScene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
-			TArray<PxActor*> Actors;
-			Actors.AddZeroed(NumActors);
-			PScene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, Actors.GetData(), sizeof(Actors[0]) * NumActors);
+			// If none are requested, do both
+			bVisualizeSync = true;
+			bVisualizeAsync = HasAsyncScene();
+		}
 
-			Ar->Logf(TEXT("PhysX Actors: %d"), NumActors);
-			for (const PxActor* PActor : Actors)
+		bool bResult = false;
+
+		// Visualize sync scene if requested
+		if (bVisualizeSync)
+		{
+			if (ExecPxVis(PST_Sync, Cmd, Ar) != 0)
 			{
-				if (FBodyInstance* BI = FPhysxUserData::Get<FBodyInstance>(PActor->userData))
-				{
-					Ar->Log(*BI->GetBodyDebugName());
-				}
+				bResult = 1;
 			}
 		}
+
+		// Visualize async scene if requested
+		if (bVisualizeAsync)
+		{
+			if (ExecPxVis(PST_Async, Cmd, Ar) != 0)
+			{
+				bResult = true;
+			}
+		}
+
+		return bResult;
 	}
-#endif
+
+	if (FParse::Command(&Cmd, TEXT("APEXVIS")))
+	{
+		// See which scene type(s) is(are) requested
+		bool bVisualizeSync = FParse::Command(&Cmd, TEXT("SYNC"));
+		bool bVisualizeAsync = FParse::Command(&Cmd, TEXT("ASYNC")) && HasAsyncScene();
+		if (!bVisualizeSync && !bVisualizeAsync)
+		{
+			// If none are requested, do both
+			bVisualizeSync = true;
+			bVisualizeAsync = HasAsyncScene();
+		}
+
+		bool bResult = false;
+
+		// Visualize sync scene if requested
+		if (bVisualizeSync)
+		{
+			if (ExecApexVis(PST_Sync, Cmd, Ar) != 0)
+			{
+				bResult = 1;
+			}
+		}
+
+		// Visualize async scene if requested
+		if (bVisualizeAsync)
+		{
+			if (ExecApexVis(PST_Async, Cmd, Ar) != 0)
+			{
+				bResult = true;
+			}
+		}
+
+		return bResult;
+	}
+
+	return false;
 }
 
 //// EXEC
-bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
+bool FPhysicsInterface::ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 {
 #if WITH_PHYSX
-	if( FParse::Command(&Cmd, TEXT("PXVIS")) )
+	FPhysScene* PhysScene = InWorld->GetPhysicsScene();
+	// Give PhysScene change to handle commands
+	if (PhysScene && PhysScene->HandleExecCommands(Cmd, Ar))
 	{
-		if(InWorld->GetPhysicsScene() == NULL)
-		{
-			return 1;
-		}
-
-		// See which scene type(s) is(are) requested
-		bool bVisualizeSync = FParse::Command(&Cmd, TEXT("SYNC"));
-		bool bVisualizeAsync = FParse::Command(&Cmd, TEXT("ASYNC")) && InWorld->GetPhysicsScene()->HasAsyncScene();
-		if(!bVisualizeSync && !bVisualizeAsync)
-		{
-			// If none are requested, do both
-			bVisualizeSync = true;
-			bVisualizeAsync = InWorld->GetPhysicsScene()->HasAsyncScene();
-		}
-
-		bool bResult = false;
-
-		// Visualize sync scene if requested
-		if(bVisualizeSync)
-		{
-			if( ExecPxVis(InWorld, PST_Sync, Cmd, Ar) != 0 )
-			{
-				bResult = 1;
-			}
-		}
-
-		// Visualize async scene if requested
-		if(bVisualizeAsync)
-		{
-			if( ExecPxVis(InWorld, PST_Async, Cmd, Ar) != 0 )
-			{
-				bResult = 1;
-			}
-		}
-
-		return bResult;
-	}
-	if( FParse::Command(&Cmd, TEXT("APEXVIS")) )
-	{
-		if(InWorld->GetPhysicsScene() == NULL)
-		{
-			return 1;
-		}
-
-		// See which scene type(s) is(are) requested
-		bool bVisualizeSync = FParse::Command(&Cmd, TEXT("SYNC"));
-		bool bVisualizeAsync = FParse::Command(&Cmd, TEXT("ASYNC")) && InWorld->GetPhysicsScene()->HasAsyncScene();
-		if(!bVisualizeSync && !bVisualizeAsync)
-		{
-			// If none are requested, do both
-			bVisualizeSync = true;
-			bVisualizeAsync = InWorld->GetPhysicsScene()->HasAsyncScene();
-		}
-
-		bool bResult = false;
-
-		// Visualize sync scene if requested
-		if(bVisualizeSync)
-		{
-			if( ExecApexVis(InWorld, PST_Sync, Cmd, Ar) != 0 )
-			{
-				bResult = 1;
-			}
-		}
-
-		// Visualize async scene if requested
-		if(bVisualizeAsync)
-		{
-			if( ExecApexVis(InWorld, PST_Async, Cmd, Ar) != 0 )
-			{
-				bResult = 1;
-			}
-		}
-
-		return bResult;
+		return true;
 	}
 	else if(!IsRunningCommandlet() && GPhysXSDK && FParse::Command(&Cmd, TEXT("PVD")) )
 	{
@@ -616,11 +603,6 @@ bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 		FPhysxSharedData::Get().DumpSharedMemoryUsage(Ar);
 		return 1;
 	}
-	else if (FParse::Command(&Cmd, TEXT("PHYSXINSTANCES")))
-	{
-		DumpPhysXInstanceMemoryUsage(Ar);
-		return 1;
-	}
 	else if(FParse::Command(&Cmd, TEXT("PHYSXINFO")))
 	{
 		Ar->Logf(TEXT("PhysX Info:"));
@@ -648,50 +630,5 @@ bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 
 	return 0;
 }
+#endif
 
-#if WITH_PHYSX
-void ListAwakeRigidBodiesFromScene(bool bIncludeKinematic, PxScene* PhysXScene, int32& totalCount)
-{
-	check(PhysXScene != NULL);
-	
-	SCOPED_SCENE_READ_LOCK(PhysXScene);
-
-	PxActor* PhysXActors[2048];
-	int32 NumberActors = PhysXScene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC, PhysXActors, 2048);
-	for( int32 i = 0; i < NumberActors; ++i )
-	{
-		PxRigidDynamic* RgActor = (PxRigidDynamic*)PhysXActors[ i ];
-		if (!RgActor->isSleeping() && (bIncludeKinematic || RgActor->getRigidBodyFlags() != PxRigidBodyFlag::eKINEMATIC))
-		{
-			++totalCount;
-			FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(RgActor->userData);
-			if ( BodyInst )
-			{
-				UE_LOG(LogPhysics, Log, TEXT("BI %s %d"), BodyInst->OwnerComponent.Get() ? *BodyInst->OwnerComponent.Get()->GetPathName() : TEXT("NONE"), BodyInst->InstanceBodyIndex);
-			}
-			else
-			{
-				UE_LOG(LogPhysics, Log, TEXT("BI %s"), TEXT("NONE") );
-			}
-		}
-	}
-}
-#endif // WITH_PHYSX
-
-/** Util to list to log all currently awake rigid bodies */
-void ListAwakeRigidBodies(bool bIncludeKinematic, UWorld* world)
-{
-#if WITH_PHYSX
-	if ( world )
-	{
-		int32 BodyCount = 0;
-		UE_LOG(LogPhysics, Log, TEXT("TOTAL: ListAwakeRigidBodies needs fixing."));
-		ListAwakeRigidBodiesFromScene(bIncludeKinematic, world->GetPhysicsScene()->GetPhysXScene(PST_Sync), BodyCount);
-		if (world->GetPhysicsScene()->HasAsyncScene())
-		{
-			ListAwakeRigidBodiesFromScene(bIncludeKinematic, world->GetPhysicsScene()->GetPhysXScene(PST_Async) ,BodyCount);
-		}
-		UE_LOG(LogPhysics, Log, TEXT("TOTAL: %d awake bodies."), BodyCount);
-	}
-#endif // WITH_PHYSX
-}
