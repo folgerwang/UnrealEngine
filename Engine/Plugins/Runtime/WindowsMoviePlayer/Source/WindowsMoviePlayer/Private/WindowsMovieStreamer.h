@@ -83,6 +83,9 @@ private:
 	/** The video player and sample grabber for use of Media Foundation */
 	class FVideoPlayer* VideoPlayer;
     class FSampleGrabberCallback* SampleGrabberCallback;
+
+	/** Defaults to true, modified to false if video fails to play allowing a retry without sound */
+	bool bUseSound;
 };
 
 /** Video track details */
@@ -112,7 +115,11 @@ public:
 		, MediaSession(NULL)
 		, MediaSource(NULL)
 		, MovieIsFinished(0)
-		, CloseIsPosted(0) {}
+		, CloseIsPosted(0)
+		, bFailedToCreateMediaSink(false)
+	{
+	}
+
 	virtual ~FVideoPlayer()
 	{
 		check(MediaSession == NULL);
@@ -129,7 +136,7 @@ public:
 	STDMETHODIMP Invoke(IMFAsyncResult* AsyncResult);
 
 	/** Opens the specified file, and returns the video dimensions */
-	FIntPoint OpenFile(const FString& FilePath, class FSampleGrabberCallback* SampleGrabberCallback);
+	FIntPoint OpenFile(const FString& FilePath, class FSampleGrabberCallback* SampleGrabberCallback, bool bUseSound);
 	/** Starts the video player playback */
 	void StartPlayback();
 	/** Shuts the video player down, destroying all threads with it */
@@ -140,11 +147,14 @@ public:
 	
 	const FMovieTrackFormat& GetVideoTrackFormat() const { return VideoTrackFormat; }
 
+	/** True when there was an error related to creating a media sink (MESessionTopologySet event received with status MF_E_CANNOT_CREATE_SINK) */
+	bool FailedToCreateMediaSink() const { return bFailedToCreateMediaSink; }
+
 private:
 	/** Sets up the topology of all the nodes in the media session, returning the video dimensions */
-	FIntPoint SetPlaybackTopology(class FSampleGrabberCallback* SampleGrabberCallback);
+	FIntPoint SetPlaybackTopology(class FSampleGrabberCallback* SampleGrabberCallback, bool bUseSound);
 	/** Adds a single audio or video stream to the passed in topology, returning video dimensions if applicable */
-	FIntPoint AddStreamToTopology(IMFTopology* Topology, IMFPresentationDescriptor* PresentationDesc, IMFStreamDescriptor* StreamDesc, class FSampleGrabberCallback* SampleGrabberCallback);
+	FIntPoint AddStreamToTopology(IMFTopology* Topology, IMFPresentationDescriptor* PresentationDesc, IMFStreamDescriptor* StreamDesc, class FSampleGrabberCallback* SampleGrabberCallback, bool bUseSound);
 
 private:
 	/** Media Foundation boilerplate */
@@ -162,6 +172,9 @@ private:
 
 	/* Format of video track */
 	FMovieTrackFormat VideoTrackFormat;
+
+	/** True when there was an error related to creating a media sink (MESessionTopologySet event received with status MF_E_CANNOT_CREATE_SINK) */
+	bool bFailedToCreateMediaSink;
 };
 
 
