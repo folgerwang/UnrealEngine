@@ -84,7 +84,6 @@ static inline bool SupportsBonesBufferSRV(ERHIFeatureLevel::Type InFeatureLevel)
 // ---
 
 
-
 /*-----------------------------------------------------------------------------
  FSharedPoolPolicyData
  -----------------------------------------------------------------------------*/

@@ -1358,14 +1358,9 @@ void FGoogleVRHMD::PostRenderViewFamily_RenderThread(FRHICommandListImmediate& R
 	}
 
 	uint64 result = 0;
-	bool isTextureReadyForReadback = false;
-	while (SentTextureCount < ReadbackTextureCount && RHICmdList.GetRenderQueryResult(ReadbackCopyQueries[SentTextureCount % kReadbackTextureCount], result, false)) {
-		isTextureReadyForReadback = true;
-		SentTextureCount++;
-	}
-
-	if (isTextureReadyForReadback) {
-		int latestReadbackTextureIndex = (SentTextureCount - 1) % kReadbackTextureCount;
+	if (RHICmdList.GetRenderQueryResult(ReadbackCopyQueries[SentTextureCount % kReadbackTextureCount], result, false))
+	{
+		int latestReadbackTextureIndex = SentTextureCount % kReadbackTextureCount;
 		GDynamicRHI->RHIReadSurfaceData(
 			ReadbackTextures[latestReadbackTextureIndex],
 			FIntRect(FIntPoint(0, 0),
@@ -1379,6 +1374,8 @@ void FGoogleVRHMD::PostRenderViewFamily_RenderThread(FRHICommandListImmediate& R
 			ReadbackTextureSizes[latestReadbackTextureIndex].X * 4,
 			instant_preview::PIXEL_FORMAT_BGRA,
 			ReadbackReferencePoses[latestReadbackTextureIndex]);
+
+		SentTextureCount++;
 	}
 }
 #endif  // GOOGLEVRHMD_SUPPORTED_INSTANT_PREVIEW_PLATFORMS

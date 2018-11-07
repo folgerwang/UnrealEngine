@@ -3441,6 +3441,13 @@ protected:
 				for (unsigned j = 0; j < s->length; j++)
 				{
 					ralloc_asprintf_append(buffer, "\t");
+					
+					// HLSL bool is 4 bytes we need to align ours to that as well in structures - do the same for half/short etc?
+					if(GLSL_TYPE_BOOL == s->fields.structure[j].type->base_type)
+					{
+						ralloc_asprintf_append(buffer, "alignas(4) ", "");
+					}
+					
 					print_type_pre(s->fields.structure[j].type);
 					ralloc_asprintf_append(buffer, " %s", s->fields.structure[j].name);
 					if (!s->fields.structure[j].semantic || strncmp(s->fields.structure[j].semantic, "[[", 2))

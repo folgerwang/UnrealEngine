@@ -7,7 +7,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Misc/VarargsHelper.h"
 
-void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure );
+void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure, int32 NumStackFramesToIgnore );
 
 /** Statics to prevent FMsg::Logf from allocating too much stack memory. */
 static FCriticalSection					MsgLogfStaticBufferGuard;
@@ -57,7 +57,8 @@ void FMsg::LogfImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELo
 			Message[ARRAY_COUNT(Message) - 1] = '\0';
 		}
 
-		StaticFailDebug(TEXT("Fatal error:"), File, Line, Message, false);
+		const int32 NumStackFramesToIgnore = 1;
+		StaticFailDebug(TEXT("Fatal error:"), File, Line, Message, false, NumStackFramesToIgnore);
 		FDebug::AssertFailed("", File, Line, Message);
 	}
 #endif
@@ -106,7 +107,8 @@ void FMsg::Logf_InternalImpl(const ANSICHAR* File, int32 Line, const FName& Cate
 			Message[ARRAY_COUNT(Message) - 1] = '\0';
 		}
 
-		StaticFailDebug(TEXT("Fatal error:"), File, Line, Message, false);
+		const int32 NumStackFramesToIgnore = 1;
+		StaticFailDebug(TEXT("Fatal error:"), File, Line, Message, false, NumStackFramesToIgnore);
 	}
 #endif
 }

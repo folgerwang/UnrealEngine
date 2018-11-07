@@ -350,7 +350,7 @@ public:
 	uint32 bSupportsLandscapeRightOrientation : 1;
 
 	// The Preferred Orientation will be used as the initial orientation at launch when both Landscape Left and Landscape Right orientations are to be supported.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations, meta = (DisplayName = "Preferred Landscape Orientation"))
 	EIOSLandscapeOrientation PreferredLandscapeOrientation;
 
 	// Specifies the the display name for the application. This will be displayed under the icon on the device.
@@ -512,4 +512,8 @@ public:
 	virtual void PostInitProperties() override;
 	// End of UObject interface
 #endif
+
+private:
+	virtual void EnsureOrientationInProjectDefaultEngine();
+
 };

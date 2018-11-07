@@ -154,11 +154,15 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 	UPROPERTY(EditAnywhere, Category=Velocity)
 	FBoneReference BaseJoint;
 
-	/* How to set last bone rotation. It copies from previous joint if alpha is 1.f, or 0.f will use animated pose 
-	 * This alpha dictates the blend between parent joint and animated pose
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	float TrailBoneRotationBlendAlpha_DEPRECATED;
+#endif // WITH_EDITORONLY_DATA
+	/* How to set last bone rotation. It copies from previous joint if alpha is 0.f, or 1.f will use animated pose 
+	 * This alpha dictates the blend between parent joint and animated pose, and how much you'd like to use animated pose for
 	 */
 	UPROPERTY(EditAnywhere, Category = Rotation, meta = (EditCondition = bReorientParentToChild))
-	float TrailBoneRotationBlendAlpha;
+	float LastBoneRotationAnimAlphaBlend;
 
 	/** Internal use - we need the timestep to do the relaxation in CalculateNewBoneTransforms. */
 	float	ThisTimstep;

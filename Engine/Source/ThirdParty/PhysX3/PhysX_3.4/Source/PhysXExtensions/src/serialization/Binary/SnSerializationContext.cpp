@@ -58,7 +58,7 @@ PxBase* DeserializationContext::resolveReference(PxU32 kind, size_t reference) c
 	
 void SerializationContext::registerReference(PxBase& serializable, PxU32 kind, size_t reference)
 {
-#if PX_CHECKED
+#if PX_CHECKED && PX_P64_FAMILY
 	if ((kind & PX_SERIAL_REF_KIND_PTR_TYPE_BIT) == 0 && reference > 0xffffffff)
 	{
 		Ps::getFoundation().error(PxErrorCode::eINVALID_PARAMETER, __FILE__, __LINE__, "PxSerializationContext::registerReference: only 32 bit indices supported.");

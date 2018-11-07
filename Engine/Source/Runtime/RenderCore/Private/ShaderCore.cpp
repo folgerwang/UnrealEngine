@@ -256,7 +256,7 @@ bool AllowDebugViewmodes(EShaderPlatform Platform)
 	bool bForceEnable = ForceDebugViewValue == 1;
 	bool bForceDisable = ForceDebugViewValue == 2;
 	ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(ShaderPlatformToPlatformName(Platform).ToString());
-	return (!bForceDisable) && (bForceEnable || !TargetPlatform || (!IsRunningCommandlet() && !TargetPlatform->RequiresCookedData()));
+	return (!bForceDisable) && (bForceEnable || !TargetPlatform || !TargetPlatform->RequiresCookedData());
 #else
 	return AllowDebugViewmodes();
 #endif

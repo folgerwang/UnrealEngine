@@ -92,6 +92,8 @@ namespace UnrealBuildTool.Rules
             List<string> DependenciesToAdd = new List<string>();
             DependenciesToAdd.AddRange(Directory.GetFiles(webRTCProgramsDirectory, "*.exe"));
             DependenciesToAdd.AddRange(Directory.GetFiles(webRTCProgramsDirectory, "*.pdb"));
+            DependenciesToAdd.AddRange(Directory.GetFiles(webRTCProgramsDirectory, "*.bat"));
+            DependenciesToAdd.AddRange(Directory.GetFiles(webRTCProgramsDirectory, "*.ps1"));
 
             foreach (string Dependency in DependenciesToAdd)
             {

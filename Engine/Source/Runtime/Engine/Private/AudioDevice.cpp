@@ -1788,7 +1788,7 @@ void FAudioDevice::RecursiveApplyAdjuster(const FSoundClassAdjuster& InAdjuster,
 	}
 	else
 	{
-		UE_LOG(LogAudio, Warning, TEXT("Sound class '%s' does not exist"), InSoundClass ? *InSoundClass->GetName() : TEXT("<null>"));
+		UE_LOG(LogAudio, Display, TEXT("RecursiveApplyAdjuster failed, likely because we are clearing the level."));
 	}
 }
 
@@ -4190,6 +4190,12 @@ bool FAudioDevice::SoundIsAudible(USoundBase* Sound, const UWorld* World, const 
 	float DistanceScale = 1.0f;
 	if (bHasAttenuationSettings)
 	{
+		// If we are not using distance-based attenuation, this sound will be audible regardless of distance.
+		if (!AttenuationSettingsToApply->bAttenuate)
+		{
+			return true;
+		}
+
 		DistanceScale = AttenuationSettingsToApply->GetFocusDistanceScale(GetGlobalFocusSettings(), FocusFactor);
 	}
 
@@ -4668,9 +4674,6 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 	// Immediately stop all pending active sounds
 	ProcessingPendingActiveSoundStops(WorldToFlush == nullptr || WorldToFlush->bIsTearingDown);
 
-	// Make sure any in-flight audio rendering commands get executed.
-	FlushAudioRenderingCommands();
-
 	// Anytime we flush, make sure to clear all the listeners.  We'll get the right ones soon enough.
 	Listeners.Reset();
 	Listeners.Add(FListener(this));
@@ -4715,6 +4718,9 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 	if (IsAudioMixerEnabled() && (WorldToFlush == nullptr || WorldToFlush->bIsTearingDown))
 	{
 		UpdateHardware();
+
+		// Make sure any in-flight audio rendering commands get executed.
+		FlushAudioRenderingCommands();
 	}
 }
 

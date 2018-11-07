@@ -395,7 +395,7 @@ namespace Audio
 
 	void FEpicSynth1Voice::ClearPatches()
 	{
-
+		// Clear dynamic patches
 		FModulationMatrix* ModMatrix = &ParentSynth->ModMatrix;
 		for (auto PatchEntry : DynamicPatches)
 		{
@@ -452,6 +452,18 @@ namespace Audio
 		bIsFinished = true;
 		bIsActive = false;
 		VoiceGeneration = INDEX_NONE;
+
+		for (int32 i = 0; i < NumOscillators; ++i)
+		{
+			Oscil[i].Reset();
+			OscilPan[i].Reset();
+		}
+
+		OnePoleFilter.Reset();
+		StateVarFilter.Reset();
+		LadderFilter.Reset();
+
+		Amp.Reset();
 	}
 
 	void FEpicSynth1Voice::NoteOn(const uint32 InMidiNote, const float InVelocity, const float InDurationSec)
@@ -848,18 +860,32 @@ namespace Audio
 			else if (FreeVoices.Num() > 0)
 			{
 				uint32 OldestId = GetOldestPlayingId();
-				Voices[OldestId]->Shutdown();
+				if (OldestId < (uint32)Voices.Num())
+				{
+					Voices[OldestId]->Shutdown();
+				}
 				VoiceId = FreeVoices.Pop();
 				Voice = Voices[VoiceId];
 			}
 			else
 			{
 				uint32 OldestId = GetOldestPlayingId();
-				Voices[OldestId]->Kill();
-				--NumActiveVoices;
+				if (OldestId < (uint32)Voices.Num())
+				{
+					Voices[OldestId]->Kill();
+					--NumActiveVoices;
 
-				VoiceId = OldestId;
-				Voice = Voices[OldestId];
+					VoiceId = OldestId;
+					Voice = Voices[OldestId];
+				}
+			}
+
+			// Fallback to grabbing the 0th voice
+			if (VoiceId == INDEX_NONE && Voices.Num() > 0)
+			{
+				Voices[0]->Kill();
+				VoiceId = 0;
+				Voice = Voices[0];
 			}
 
 			++NumActiveVoices;
@@ -1422,8 +1448,11 @@ namespace Audio
 
 	void FEpicSynth1::ClearPatches()
 	{
+		ModMatrix.ResetPatchSourceState();
+
 		for (int32 VoiceId = 0; VoiceId < Voices.Num(); ++VoiceId)
 		{
+			Voices[VoiceId]->Reset();
 			Voices[VoiceId]->ClearPatches();
 		}
 	}

@@ -145,13 +145,16 @@ namespace Audio
 		virtual void SetFilterType(const EFilter::Type InFilterType);
 
 		// Reset the filter
-		virtual void Reset() {}
+		virtual void Reset();
 
 		// Updates the filter
 		virtual void Update();
 
 		// Processes a single frame of audio. Number of channels MUST be what was used during filter initialization.
-		virtual void ProcessAudioFrame(const float* InFrame, float* OutFrame) {}
+		virtual void ProcessAudioFrame(const float* InFrame, float* OutFrame)
+		{
+			ProcessAudio(InFrame, NumChannels, OutFrame);
+		}
 
 		// Process an audio buffer.
 		virtual void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer) = 0;

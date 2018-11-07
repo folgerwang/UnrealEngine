@@ -403,7 +403,7 @@ bool FAssetEditorManager::OpenEditorForAsset(UObject* Asset, const EToolkitMode:
 		FString AssetPath = Asset->GetOuter()->GetPathName();
 		FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 		FMainMRUFavoritesList* RecentlyOpenedAssets = CBModule.GetRecentlyOpenedAssets();
-		if (RecentlyOpenedAssets)
+		if (RecentlyOpenedAssets && FPackageName::IsValidLongPackageName(AssetPath))
 		{
 			RecentlyOpenedAssets->AddMRUItem(AssetPath);
 		}

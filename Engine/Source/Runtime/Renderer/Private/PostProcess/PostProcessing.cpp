@@ -2336,7 +2336,7 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 		// incorrect UTexture::SRGB state. (UTexture::SRGB != HW texture state)
 		bool bSRGBAwareTarget = View.Family->RenderTarget->GetDisplayGamma() == 1.0f
 			&& View.bIsSceneCapture
-			&& View.GetShaderPlatform() == EShaderPlatform::SP_METAL;
+			&& IsMetalMobilePlatform(View.GetShaderPlatform());
 
 		// add the passes we want to add to the graph (commenting a line means the pass is not inserted into the graph) ---------
 		if( View.Family->EngineShowFlags.PostProcessing && bAllowFullPostProcess)

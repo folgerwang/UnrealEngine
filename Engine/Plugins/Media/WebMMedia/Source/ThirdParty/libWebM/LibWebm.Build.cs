@@ -20,7 +20,11 @@ public class LibWebM : ModuleRules
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
-			PublicAdditionalLibraries.Add(RootPath + "/lib/Unix" + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libwebm" : "/libwebm_fPIC") + ".a");
+			PublicAdditionalLibraries.Add(RootPath + "/lib/Unix/" + Target.Architecture + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libwebm" : "/libwebm_fPIC") + ".a");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicAdditionalLibraries.Add(RootPath + "/lib/Mac" + ((Target.LinkType == TargetLinkType.Monolithic) ? "/libwebm" : "/libwebm_fPIC") + ".a");
 		}
 
 		string IncludePath = RootPath + "/include";

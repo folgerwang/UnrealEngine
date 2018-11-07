@@ -125,6 +125,7 @@
 		@com.google.vr.cardboard.UsedByNative *;
 }
 
+-dontwarn com.google.vr.cardboard.R$id
 -dontwarn com.google.protobuf.nano.NanoEnumValue
 -dontwarn sun.misc.Unsafe
 		</insert>

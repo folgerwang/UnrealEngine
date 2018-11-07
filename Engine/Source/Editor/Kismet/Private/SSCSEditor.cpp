@@ -1134,27 +1134,36 @@ void FSCSEditorTreeNodeInstanceAddedComponent::RemoveMeAsChild()
 
 void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InNewName)
 {
-	FScopedTransaction* TransactionContext = NULL;
-	if (!GetAndClearNonTransactionalRenameFlag())
-	{
-		TransactionContext = new FScopedTransaction(LOCTEXT("RenameComponentVariable", "Rename Component Variable"));
-	}
+	bool bIsNonTransactionalRename = GetAndClearNonTransactionalRenameFlag();
+	FScopedTransaction TransactionContext(LOCTEXT("RenameComponentVariable", "Rename Component Variable"), !bIsNonTransactionalRename);
 
 	UActorComponent* ComponentInstance = GetComponentTemplate();
-	check(ComponentInstance != nullptr);
+	if(ComponentInstance == nullptr)
+	{
+		return;
+	}
 
 	ERenameFlags RenameFlags = REN_DontCreateRedirectors;
-	if (!TransactionContext)
+	if (bIsNonTransactionalRename)
 	{
 		RenameFlags |= REN_NonTransactional;
 	}
-
-	ComponentInstance->Rename(*InNewName.ToString(), nullptr, RenameFlags);
-	InstancedComponentName = *InNewName.ToString();
-
-	if (TransactionContext)
+	
+	// name collision could occur due to e.g. our archetype being updated and causing a conflict with our ComponentInstance:
+	FString NewNameAsString = InNewName.ToString();
+	if(StaticFindObject(UObject::StaticClass(), ComponentInstance->GetOuter(), *NewNameAsString) == nullptr)
 	{
-		delete TransactionContext;
+		ComponentInstance->Rename(*NewNameAsString, nullptr, RenameFlags);
+		InstancedComponentName = *NewNameAsString;
+	}
+	else
+	{
+		UObject* Collision = StaticFindObject(UObject::StaticClass(), ComponentInstance->GetOuter(), *NewNameAsString);
+		if(Collision != ComponentInstance)
+		{
+			// use whatever name the ComponentInstance currently has:
+			InstancedComponentName = ComponentInstance->GetFName();
+		}
 	}
 }
 
@@ -4705,7 +4714,8 @@ bool SSCSEditor::ShouldAddInstancedActorComponent(UActorComponent* ActorComp, US
 	return (ActorComp != nullptr
 		&& (!ActorComp->IsVisualizationComponent())
 		&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView)
-		&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)));
+		&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
+		&& (ActorComp->CreationMethod != EComponentCreationMethod::Native || FComponentEditorUtils::CanEditNativeComponent(ActorComp) );
 }
 
 void SSCSEditor::DumpTree()
@@ -5783,9 +5793,8 @@ FSCSEditorTreeNodePtrType SSCSEditor::AddTreeNode(USCS_Node* InSCSNode, FSCSEdit
 	check(InSCSNode != NULL);
 
 	// During diffs, ComponentTemplates can easily be null, so prevent these checks.
-	if (!bIsDiffing)
+	if (!bIsDiffing && InSCSNode->ComponentTemplate)
 	{
-		check(InSCSNode->ComponentTemplate != NULL);
 		checkf(InSCSNode->ParentComponentOrVariableName == NAME_None
 			|| (!InSCSNode->bIsParentComponentNative && InParentNodePtr->GetSCSNode() != NULL && InParentNodePtr->GetSCSNode()->GetVariableName() == InSCSNode->ParentComponentOrVariableName)
 			|| (InSCSNode->bIsParentComponentNative && InParentNodePtr->GetComponentTemplate() != NULL && InParentNodePtr->GetComponentTemplate()->GetFName() == InSCSNode->ParentComponentOrVariableName),

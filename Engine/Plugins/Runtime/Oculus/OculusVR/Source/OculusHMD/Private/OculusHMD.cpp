@@ -1895,7 +1895,7 @@ namespace OculusHMD
 			void* activity = nullptr;
 #endif
 
-			int initializeFlags = ovrpInitializeFlag_SupportsVRToggle;
+			int initializeFlags = GIsEditor ? ovrpInitializeFlag_SupportsVRToggle : 0;
 
 			if (Settings->Flags.bSupportsDash)
 			{

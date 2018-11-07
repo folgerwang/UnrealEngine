@@ -29,6 +29,7 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 	SystemAssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	SystemAssetPickerConfig.Filter.ClassNames.Add(UNiagaraSystem::StaticClass()->GetFName());
 	SystemAssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedSystemAssetsFromPicker);
+	SystemAssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewSystemDialog::OnSystemAssetsActivated);
 
 	TSharedRef<SWidget> SystemAssetPicker = ContentBrowserModule.Get().CreateAssetPicker(SystemAssetPickerConfig);
 
@@ -37,6 +38,7 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 	EmitterAssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	EmitterAssetPickerConfig.Filter.ClassNames.Add(UNiagaraEmitter::StaticClass()->GetFName());
 	EmitterAssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedEmitterAssetsFromPicker);
+	EmitterAssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewSystemDialog::OnEmitterAssetsActivated);
 
 	TSharedRef<SWidget> EmitterAssetPicker = ContentBrowserModule.Get().CreateAssetPicker(EmitterAssetPickerConfig);
 
@@ -46,7 +48,8 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 				LOCTEXT("CreateFromTemplateLabel", "Create a new system from a system template"),
 				LOCTEXT("TemplateLabel", "Select a System Template"),
 				SNiagaraNewAssetDialog::FOnGetSelectedAssetsFromPicker::CreateSP(this, &SNewSystemDialog::GetSelectedSystemTemplateAssets),
-				SAssignNew(TemplateAssetPicker, SNiagaraTemplateAssetPicker, UNiagaraSystem::StaticClass())),
+				SAssignNew(TemplateAssetPicker, SNiagaraTemplateAssetPicker, UNiagaraSystem::StaticClass())
+				.OnTemplateAssetActivated(this, &SNewSystemDialog::OnTemplateAssetActivated)),
 			SNiagaraNewAssetDialog::FNiagaraNewAssetDialogOption(
 				LOCTEXT("CreateFromSelectedEmittersLabel", "Create a new system from a set of selected emitters"),
 				LOCTEXT("ProjectEmittersLabel", "Select Emitters to Add"),
@@ -153,19 +156,54 @@ TArray<FAssetData> SNewSystemDialog::GetSelectedEmitterAssets() const
 	return ConfirmedSelectedEmitterAssets;
 }
 
-TArray<FAssetData> SNewSystemDialog::GetSelectedSystemTemplateAssets()
+void SNewSystemDialog::GetSelectedSystemTemplateAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return TemplateAssetPicker->GetSelectedAssets();
+	OutSelectedAssets.Append(TemplateAssetPicker->GetSelectedAssets());
+	if (ActivatedTemplateSystemAsset.IsValid())
+	{
+		OutSelectedAssets.AddUnique(ActivatedTemplateSystemAsset);
+	}
 }
 
-TArray<FAssetData> SNewSystemDialog::GetSelectedProjectSystemAssets()
+void SNewSystemDialog::GetSelectedProjectSystemAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return GetSelectedSystemAssetsFromPicker.Execute();
+	OutSelectedAssets.Append(GetSelectedSystemAssetsFromPicker.Execute());
+	if (ActivatedProjectSystemAsset.IsValid())
+	{
+		OutSelectedAssets.AddUnique(ActivatedProjectSystemAsset);
+	}
 }
 
-TArray<FAssetData> SNewSystemDialog::GetSelectedProjectEmiterAssets()
+void SNewSystemDialog::GetSelectedProjectEmiterAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return SelectedEmitterAssets;
+	OutSelectedAssets.Append(SelectedEmitterAssets);
+}
+
+void SNewSystemDialog::OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset)
+{
+	// Input handling issues with the list view widget can allow items to be activated but not added to the selection so cache this here
+	// so it can be included in the selection set.
+	ActivatedTemplateSystemAsset = ActivatedTemplateAsset;
+	ConfirmSelection();
+}
+
+void SNewSystemDialog::OnSystemAssetsActivated(const TArray<FAssetData>& ActivatedAssets, EAssetTypeActivationMethod::Type ActivationMethod)
+{
+	if ((ActivationMethod == EAssetTypeActivationMethod::DoubleClicked || ActivationMethod == EAssetTypeActivationMethod::Opened) && ActivatedAssets.Num() == 1)
+	{
+		// Input handling issues with the list view widget can allow items to be activated but not added to the selection so cache this here
+		// so it can be included in the selection set.
+		ActivatedProjectSystemAsset = ActivatedAssets[0];
+		ConfirmSelection();
+	}
+}
+
+void SNewSystemDialog::OnEmitterAssetsActivated(const TArray<FAssetData>& ActivatedAssets, EAssetTypeActivationMethod::Type ActivationMethod)
+{
+	if (ActivationMethod == EAssetTypeActivationMethod::DoubleClicked || ActivationMethod == EAssetTypeActivationMethod::Opened)
+	{
+		AddEmitterAssetsToSelection(ActivatedAssets);
+	}
 }
 
 bool SNewSystemDialog::IsAddEmittersToSelectionButtonEnabled() const
@@ -176,51 +214,53 @@ bool SNewSystemDialog::IsAddEmittersToSelectionButtonEnabled() const
 FReply SNewSystemDialog::AddEmittersToSelectionButtonClicked()
 {
 	TArray<FAssetData> SelectedEmitterAssetsFromPicker = GetSelectedEmitterAssetsFromPicker.Execute();
-	for (const FAssetData& SelectedEmitterAsset : SelectedEmitterAssetsFromPicker)
+	AddEmitterAssetsToSelection(SelectedEmitterAssetsFromPicker);
+	return FReply::Handled();
+}
+
+void SNewSystemDialog::AddEmitterAssetsToSelection(const TArray<FAssetData>& EmitterAssets)
+{
+	for (const FAssetData& SelectedEmitterAsset : EmitterAssets)
 	{
-		if (SelectedEmitterAssets.Contains(SelectedEmitterAsset) == false)
-		{
-			TSharedPtr<SWidget> SelectedEmitterWidget;
-			SelectedEmitterBox->AddSlot()
-				.Padding(FMargin(0, 0, 5, 0))
+		TSharedPtr<SWidget> SelectedEmitterWidget;
+		SelectedEmitterBox->AddSlot()
+			.Padding(FMargin(0, 0, 5, 0))
+			[
+				SAssignNew(SelectedEmitterWidget, SBorder)
+				.BorderImage(FNiagaraEditorStyle::Get().GetBrush("NiagaraEditor.NewAssetDialog.SubBorder"))
+				.BorderBackgroundColor(FNiagaraEditorStyle::Get().GetColor("NiagaraEditor.NewAssetDialog.SubBorderColor"))
 				[
-					SNew(SBorder)
-					.BorderImage(FNiagaraEditorStyle::Get().GetBrush("NiagaraEditor.NewAssetDialog.SubBorder"))
-					.BorderBackgroundColor(FNiagaraEditorStyle::Get().GetColor("NiagaraEditor.NewAssetDialog.SubBorderColor"))
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.Padding(5, 0, 0, 0)
 					[
-						SAssignNew(SelectedEmitterWidget, SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.Padding(5, 0, 0, 0)
+						SNew(STextBlock)
+						.Text(FText::FromName(SelectedEmitterAsset.AssetName))
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.Padding(2, 0, 0, 0)
+					[
+						SNew(SButton)
+						.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+						.OnClicked(this, &SNewSystemDialog::RemoveEmitterFromSelectionButtonClicked, SelectedEmitterAsset)
+						.ToolTipText(LOCTEXT("RemoveSelectedEmitterToolTip", "Remove the selected emitter from the collection\n of emitters to be added to the new system."))
 						[
 							SNew(STextBlock)
-							.Text(FText::FromName(SelectedEmitterAsset.AssetName))
-						]
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						.Padding(2, 0, 0, 0)
-						[
-							SNew(SButton)
-							.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
-							.OnClicked(this, &SNewSystemDialog::RemoveEmitterFromSelectionButtonClicked, SelectedEmitterAsset)
-							.ToolTipText(LOCTEXT("RemoveSelectedEmitterToolTip", "Remove the selected emitter from the collection\n of emitters to be added to the new system."))
-							[
-								SNew(STextBlock)
-								//.TextStyle(FEditorStyle::Get(), "NormalText.Important")
-								.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
-								.Text(FText::FromString(FString(TEXT("\xf057"))) /*times-circle*/)
-								.ColorAndOpacity(FLinearColor(.8f, .2f, .2f, 1.0f))
-							]
+							//.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+							.Text(FText::FromString(FString(TEXT("\xf057"))) /*times-circle*/)
+							.ColorAndOpacity(FLinearColor(.8f, .2f, .2f, 1.0f))
 						]
 					]
-				];
-			SelectedEmitterAssets.Add(SelectedEmitterAsset);
-			SelectedEmitterAssetWidgets.Add(SelectedEmitterWidget);
-		}
+				]
+			];
+		SelectedEmitterAssets.Add(SelectedEmitterAsset);
+		SelectedEmitterAssetWidgets.Add(SelectedEmitterWidget);
 	}
-	return FReply::Handled();
 }
 
 FReply SNewSystemDialog::RemoveEmitterFromSelectionButtonClicked(FAssetData EmitterAsset)

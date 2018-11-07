@@ -3168,7 +3168,15 @@ void GlobalBeginCompileShader(
 	bool bForwardShading = false;
 	{
 		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(ShaderPlatformToPlatformName(EShaderPlatform(Target.Platform)).ToString());
-		bForwardShading = TargetPlatform && TargetPlatform->UsesForwardShading();
+		if (TargetPlatform)
+		{
+			bForwardShading = TargetPlatform->UsesForwardShading();
+		}
+		else
+		{
+			static IConsoleVariable* CVarForwardShading = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ForwardShading"));
+			bForwardShading = CVarForwardShading ? (CVarForwardShading->GetInt() != 0) : false;
+		}
 		Input.Environment.SetDefine(TEXT("FORWARD_SHADING"), bForwardShading);
 	}
 

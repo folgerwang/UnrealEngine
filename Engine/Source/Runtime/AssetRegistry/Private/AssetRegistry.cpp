@@ -1722,18 +1722,18 @@ void UAssetRegistryImpl::ScanPathsAndFilesSynchronous(const TArray<FString>& InP
 		if (OutFoundAssets)
 		{
 			OutFoundAssets->Reserve(OutFoundAssets->Num() + AssetResults.Num());
-			for (const FAssetData* AssetData : AssetResults)
+			for (int32 i = 0; i < AssetResults.Num(); ++i)
 			{
-				OutFoundAssets->Add(AssetData->ObjectPath);
+				OutFoundAssets->Add(AssetResults[i]->ObjectPath);
 			}
 		}
 
 		if (OutFoundPaths)
 		{
 			OutFoundPaths->Reserve(OutFoundPaths->Num() + PathResults.Num());
-			for (const FString& Path : PathResults)
+			for (int32 i = 0; i < PathResults.Num(); ++i)
 			{
-				OutFoundPaths->Add(*Path);
+				OutFoundPaths->Add(*PathResults[i]);
 			}
 		}
 
@@ -2514,26 +2514,32 @@ void UAssetRegistryImpl::GetSubClasses(const TArray<FName>& InClassNames, const 
 	for (FName ClassName : InClassNames)
 	{
 		// Now find all subclass names
-		GetSubClasses_Recursive(ClassName, SubClassNames, ReverseInheritanceMap, ExcludedClassNames);
+		TSet<FName> ProcessedClassNames;
+		GetSubClasses_Recursive(ClassName, SubClassNames, ProcessedClassNames, ReverseInheritanceMap, ExcludedClassNames);
 	}
 }
 
-void UAssetRegistryImpl::GetSubClasses_Recursive(FName InClassName, TSet<FName>& SubClassNames, const TMap<FName, TSet<FName>>& ReverseInheritanceMap, const TSet<FName>& ExcludedClassNames) const
+void UAssetRegistryImpl::GetSubClasses_Recursive(FName InClassName, TSet<FName>& SubClassNames, TSet<FName>& ProcessedClassNames, const TMap<FName, TSet<FName>>& ReverseInheritanceMap, const TSet<FName>& ExcludedClassNames) const
 {
 	if (ExcludedClassNames.Contains(InClassName))
 	{
 		// This class is in the exclusion list. Exclude it.
 	}
+	else if (ProcessedClassNames.Contains(InClassName))
+	{
+		// This class has already been processed. Ignore it.
+	}
 	else
 	{
 		SubClassNames.Add(InClassName);
+		ProcessedClassNames.Add(InClassName);
 
 		const TSet<FName>* FoundSubClassNames = ReverseInheritanceMap.Find(InClassName);
 		if (FoundSubClassNames)
 		{
 			for (FName ClassName : (*FoundSubClassNames))
 			{
-				GetSubClasses_Recursive(ClassName, SubClassNames, ReverseInheritanceMap, ExcludedClassNames);
+				GetSubClasses_Recursive(ClassName, SubClassNames, ProcessedClassNames, ReverseInheritanceMap, ExcludedClassNames);
 			}
 		}
 	}

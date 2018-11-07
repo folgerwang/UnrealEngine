@@ -107,8 +107,8 @@ struct FSearchData
 	/** The Blueprint this search data points to, if available */
 	TWeakObjectPtr<UBlueprint> Blueprint;
 
-	/** The full Blueprint path this search data is associated with */
-	FName BlueprintPath;
+	/** The full asset path this search data is associated with of the form /Game/Path/To/Package.Package */
+	FName AssetPath;
 
 	/** Search data block for the Blueprint */
 	FString Value;

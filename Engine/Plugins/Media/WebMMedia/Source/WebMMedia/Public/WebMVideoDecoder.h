@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_WEBM_LIBS
+
 #include "Templates/SharedPointer.h"
 #include "MediaShaders.h"
 
@@ -24,6 +26,7 @@ public:
 public:
 	bool Initialize(const char* CodecName);
 	void DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames);
+	bool IsBusy() const;
 
 private:
 	struct FConvertParams
@@ -47,3 +50,5 @@ private:
 	void CreateTextures(const vpx_image_t* Image);
 	void Close();
 };
+
+#endif // WITH_WEBM_LIBS

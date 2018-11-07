@@ -468,7 +468,7 @@ bool CopyRemoteFileToLocal(FString const& RemotePath, FString const& LocalPath)
 
 FString GetMetalBinaryPath(uint32 ShaderPlatform)
 {
-	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT || ShaderPlatform == SP_METAL_TVOS || ShaderPlatform == SP_METAL_MRT_TVOS);
 	if(GMetalBinaryPath[bIsMobile].Len() == 0 || GMetalToolsPath[bIsMobile].Len() == 0)
 	{
 		FString XcodePath = GetXcodePath();
@@ -514,7 +514,7 @@ FString GetMetalToolsPath(uint32 ShaderPlatform)
 {
 	GetMetalBinaryPath(ShaderPlatform);
 	
-	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT || ShaderPlatform == SP_METAL_TVOS || ShaderPlatform == SP_METAL_MRT_TVOS);
 	return GMetalToolsPath[bIsMobile];
 }
 
@@ -522,7 +522,7 @@ FString GetMetalLibraryPath(uint32 ShaderPlatform)
 {
 	GetMetalBinaryPath(ShaderPlatform);
 	
-	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT || ShaderPlatform == SP_METAL_TVOS || ShaderPlatform == SP_METAL_MRT_TVOS);
 	return GMetalLibraryPath[bIsMobile];
 }
 
@@ -530,7 +530,7 @@ FString GetMetalCompilerVersion(uint32 ShaderPlatform)
 {
 	GetMetalBinaryPath(ShaderPlatform);
 	
-	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderPlatform == SP_METAL || ShaderPlatform == SP_METAL_MRT || ShaderPlatform == SP_METAL_TVOS || ShaderPlatform == SP_METAL_MRT_TVOS);
 	return GMetalCompilerVers[bIsMobile];
 }
 
@@ -972,10 +972,10 @@ void BuildMetalShaderOutput(
 	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(USFSource, "@SideTable: ");
 	
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
-	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT || ShaderInput.Target.Platform == SP_METAL_TVOS || ShaderInput.Target.Platform == SP_METAL_MRT_TVOS);
 	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
 	FString const* UsingWPO = ShaderInput.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
-	if (UsingWPO && FString("1") == *UsingWPO && (ShaderInput.Target.Platform == SP_METAL_MRT) && Frequency == SF_Vertex)
+	if (UsingWPO && FString("1") == *UsingWPO && (ShaderInput.Target.Platform == SP_METAL_MRT || ShaderInput.Target.Platform == SP_METAL_MRT_TVOS) && Frequency == SF_Vertex)
 	{
 		// WPO requires that we make all multiply/sincos instructions invariant :(
 		bNoFastMath = true;
@@ -1881,7 +1881,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	EHlslCompileTarget MetalCompilerTarget = HCT_FeatureLevelES3_1; // Varies depending on the actual intended Metal target.
 
 	// Work out which standard we need, this is dependent on the shader platform.
-	const bool bIsMobile = (Input.Target.Platform == SP_METAL || Input.Target.Platform == SP_METAL_MRT);
+	const bool bIsMobile = (Input.Target.Platform == SP_METAL || Input.Target.Platform == SP_METAL_MRT || Input.Target.Platform == SP_METAL_TVOS || Input.Target.Platform == SP_METAL_MRT_TVOS);
 	TCHAR const* StandardPlatform = nullptr;
 	if (bIsMobile)
 	{
@@ -1900,6 +1900,8 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 
 	static FName NAME_SF_METAL(TEXT("SF_METAL"));
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
+	static FName NAME_SF_METAL_TVOS(TEXT("SF_METAL_TVOS"));
+	static FName NAME_SF_METAL_MRT_TVOS(TEXT("SF_METAL_MRT_TVOS"));
 	static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 	static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 	static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
@@ -1917,13 +1919,14 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
             LexFromString(VersionEnum, *(*MaxVersion));
         }
     }
-    
-    if (Input.ShaderFormat == NAME_SF_METAL)
+	
+	bool bAppleTV = (Input.ShaderFormat == NAME_SF_METAL_TVOS || Input.ShaderFormat == NAME_SF_METAL_MRT_TVOS);
+    if (Input.ShaderFormat == NAME_SF_METAL || Input.ShaderFormat == NAME_SF_METAL_TVOS)
 	{
         VersionEnum = VersionEnum > 0 ? VersionEnum : 0;
         AdditionalDefines.SetDefine(TEXT("METAL_PROFILE"), 1);
 	}
-	else if (Input.ShaderFormat == NAME_SF_METAL_MRT)
+	else if (Input.ShaderFormat == NAME_SF_METAL_MRT || Input.ShaderFormat == NAME_SF_METAL_MRT_TVOS)
 	{
         UE_CLOG(VersionEnum == 0, LogShaders, Warning, TEXT("Metal shader version should be Metal v1.2 or higher for format %s!"), VersionEnum, *Input.ShaderFormat.ToString());
 		AdditionalDefines.SetDefine(TEXT("METAL_MRT_PROFILE"), 1);
@@ -1987,24 +1990,57 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	{
 		case 4:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
+			TypeMode = EMetalTypeBufferModeTex;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("2.1");
-			MinOSVersion = bIsMobile ? TEXT("") : TEXT("-mmacosx-version-min=10.14");
-			TypeMode = EMetalTypeBufferModeTex;
+			if (bAppleTV)
+			{
+				MinOSVersion = TEXT("-mtvos-version-min=12.0");
+			}
+			else if (bIsMobile)
+			{
+				MinOSVersion = TEXT("-mios-version-min=12.0");
+			}
+			else
+			{
+				MinOSVersion = TEXT("-mmacosx-version-min=10.14");
+			}
 			break;
 		case 3:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
+			TypeMode = EMetalTypeBufferModeUAV;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("2.0");
-			MinOSVersion = bIsMobile ? TEXT("") : TEXT("-mmacosx-version-min=10.13");
-			TypeMode = EMetalTypeBufferModeUAV;
+			if (bAppleTV)
+			{
+				MinOSVersion = TEXT("-mtvos-version-min=11.0");
+			}
+			else if (bIsMobile)
+			{
+				MinOSVersion = TEXT("-mios-version-min=11.0");
+			}
+			else
+			{
+				MinOSVersion = TEXT("-mmacosx-version-min=10.13");
+			}
 			break;
 		case 2:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
+			TypeMode = EMetalTypeBufferModeSRV;
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("1.2");
-			MinOSVersion = bIsMobile ? TEXT("") : TEXT("-mmacosx-version-min=10.12");
-			TypeMode = EMetalTypeBufferModeSRV;
+			if (bAppleTV)
+			{
+				MinOSVersion = TEXT("-mtvos-version-min=10.0");
+			}
+			else if (bIsMobile)
+			{
+				MinOSVersion = TEXT("-mios-version-min=10.0");
+			}
+			else
+			{
+				MinOSVersion = TEXT("-mmacosx-version-min=10.12");
+			}
 			break;
 		case 1:
 			HlslCompilerTarget = bIsMobile ? HlslCompilerTarget : HCT_FeatureLevelSM5;
@@ -2389,6 +2425,8 @@ EShaderPlatform MetalShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 {
 	static FName NAME_SF_METAL(TEXT("SF_METAL"));
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
+	static FName NAME_SF_METAL_TVOS(TEXT("SF_METAL_TVOS"));
+	static FName NAME_SF_METAL_MRT_TVOS(TEXT("SF_METAL_MRT_TVOS"));
 	static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 	static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 	static FName NAME_SF_METAL_MRT_MAC(TEXT("SF_METAL_MRT_MAC"));
@@ -2397,6 +2435,8 @@ EShaderPlatform MetalShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	
 	if (ShaderFormat == NAME_SF_METAL)				return SP_METAL;
 	if (ShaderFormat == NAME_SF_METAL_MRT)			return SP_METAL_MRT;
+	if (ShaderFormat == NAME_SF_METAL_TVOS)			return SP_METAL_TVOS;
+	if (ShaderFormat == NAME_SF_METAL_MRT_TVOS)		return SP_METAL_MRT_TVOS;
 	if (ShaderFormat == NAME_SF_METAL_MRT_MAC)		return SP_METAL_MRT_MAC;
 	if (ShaderFormat == NAME_SF_METAL_SM5)			return SP_METAL_SM5;
 	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)	return SP_METAL_SM5_NOTESS;

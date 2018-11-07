@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMVideoDecoder.h"
+
+#if WITH_WEBM_LIBS
+
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
 #include "WebMMediaTextureSample.h"
@@ -111,6 +114,11 @@ void FWebMVideoDecoder::DecodeVideoFramesAsync(const TArray<TSharedPtr<FWebMFram
 	}, TStatId(), nullptr, ENamedThreads::AnyThread);
 }
 
+bool FWebMVideoDecoder::IsBusy() const
+{
+	return VideoDecodingTask && !VideoDecodingTask->IsComplete();
+}
+
 void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>& VideoFrames)
 {
 	for (const TSharedPtr<FWebMFrame>& VideoFrame : VideoFrames)
@@ -139,7 +147,7 @@ void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>
 
 			TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> VideoSample = VideoSamplePool->AcquireShared();
 
-			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->stride[0], Image->d_h), VideoFrame->Time);
+			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time);
 
 			FConvertParams Params;
 			Params.VideoSample = VideoSample;
@@ -255,7 +263,7 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 			}
 
 			SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
-			PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), MediaShaders::YuvToSrgbDefault, true);
+			PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), FIntPoint(Image->d_w, Image->d_h), MediaShaders::YuvToSrgbDefault, true);
 
 			// draw full-size quad
 			CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
@@ -268,3 +276,5 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		Samples->AddVideo(VideoSample.ToSharedRef());
 	}
 }
+
+#endif // WITH_WEBM_LIBS

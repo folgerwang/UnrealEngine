@@ -637,7 +637,7 @@ public:
 				if (bTagDidAllowNonRestrictedChildren && !bAllowNonRestrictedChildren)
 				{
 					FGameplayTag ActualTag = Manager.RequestGameplayTag(TagName);
-					FGameplayTagContainer ChildTags = Manager.RequestGameplayTagDirectDescendantsInDictionary(ActualTag, EGameplayTagSelectionType::RestrictedOnly);
+					FGameplayTagContainer ChildTags = Manager.RequestGameplayTagDirectDescendantsInDictionary(ActualTag, EGameplayTagSelectionType::NonRestrictedOnly);
 					if (!ChildTags.IsEmpty())
 					{
 						ShowNotification(LOCTEXT("ToggleAllowNonRestrictedChildrenFailure", "Cannot prevent non-restricted children since some already exist! Delete them first."), 10.0f);
@@ -664,23 +664,6 @@ public:
 						}
 					}
 				}
-
-				// nothing to do here for non-restricted tags but this is the code that would handle it if we expand this function
-				// 				else if (TagSource->SourceTagList)
-				// 				{
-				// 					UGameplayTagsList* TagList = TagSource->SourceTagList;
-				//					TagListObj = TagList;
-				// 
-				// 					for (int32 i = 0; i < TagList->GameplayTagList.Num(); i++)
-				// 					{
-				// 						if (TagList->GameplayTagList[i].Tag == TagName)
-				// 						{
-				// 
-				// 							bSuccess = true;
-				// 							break;
-				// 						}
-				// 					}
-				// 				}
 
 				if (bSuccess)
 				{

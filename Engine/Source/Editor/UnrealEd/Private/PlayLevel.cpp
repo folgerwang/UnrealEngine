@@ -1345,7 +1345,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	{
 		if (PlayUsingMobilePreviewTargetDevice.IsEmpty() == false)
 		{
-			AdditionalParameters += TEXT(" -MobileTargetDevice=") + PlayUsingMobilePreviewTargetDevice;
+			AdditionalParameters += TEXT(" -MobileTargetDevice=\"") + PlayUsingMobilePreviewTargetDevice + TEXT("\"");
 		}
 		else
 		{
@@ -1357,6 +1357,8 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 			AdditionalParameters += TEXT(" -opengl");
 		}
 		AdditionalParameters += TEXT(" -faketouches");
+
+		AdditionalParameters += TEXT(" -MultiprocessSaveConfig");
 	}
 
 	if (bPlayUsingVulkanPreview)

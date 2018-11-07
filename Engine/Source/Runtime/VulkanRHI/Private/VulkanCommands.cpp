@@ -126,7 +126,8 @@ void FVulkanCommandListContext::RHIDispatchComputeShader(uint32 ThreadGroupCount
 		GpuProfiler.RegisterGPUWork(1);
 	}
 
-	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer, 2);
+	//#todo-rco: Temp workaround
+	VulkanRHI::/*Debug*/HeavyWeightBarrier(CmdBuffer/*, 2*/);
 }
 
 void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset) 
@@ -156,7 +157,8 @@ void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRH
 		GpuProfiler.RegisterGPUWork(1);
 	}
 
-	VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer, 2);
+	//#todo-rco: Temp workaround
+	VulkanRHI::/*Debug*/HeavyWeightBarrier(CmdBuffer/*, 2*/);
 }
 
 void FVulkanCommandListContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderStateRHI)

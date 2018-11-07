@@ -140,6 +140,14 @@ void FNiagaraShaderScript::RegisterShaderMap()
 	}
 }
 
+void  FNiagaraShaderScript::DiscardShaderMap()
+{
+	if (GameThreadShaderMap)
+	{
+		GameThreadShaderMap->DiscardSerializedShaders();
+	}
+}
+
 void FNiagaraShaderScript::ReleaseShaderMap()
 {
 	if (GameThreadShaderMap)
@@ -441,9 +449,11 @@ bool FNiagaraShaderScript::BeginCompileShaderMap(
 		INiagaraShaderModule NiagaraShaderModule = FModuleManager::GetModuleChecked<INiagaraShaderModule>(TEXT("NiagaraShader"));
 		NiagaraShaderModule.ProcessShaderCompilationQueue();
 	}
-
-	// For async compile, set to nullptr so that we fall back to CPU side simulation until shader compile is finished
-	OutShaderMap = nullptr;
+	else
+	{
+		// For async compile, set to nullptr so that we fall back to CPU side simulation until shader compile is finished
+		OutShaderMap = nullptr;
+	}
 
 	INC_FLOAT_STAT_BY(STAT_ShaderCompiling_NiagaraShaders, (float)NiagaraCompileTime);
 

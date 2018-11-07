@@ -703,7 +703,7 @@ static void AddAndroidConfigExportSubMenus(FMenuBuilder& InMenuBuilder)
 	{
 		FAndroidDeviceInfo& DeviceInfo = Pair.Value;
 
-		FString ModelName = DeviceInfo.Model + TEXT("(") + DeviceInfo.DeviceBrand + TEXT(")");
+		FString ModelName = DeviceInfo.Model + TEXT("[") + DeviceInfo.DeviceBrand + TEXT("]");
 
 		// lambda function called to open the save dialog and trigger device export
 		auto LambdaSaveConfigFile = [DeviceName = Pair.Key, DefaultFileName = ModelName, DeviceDetection]()

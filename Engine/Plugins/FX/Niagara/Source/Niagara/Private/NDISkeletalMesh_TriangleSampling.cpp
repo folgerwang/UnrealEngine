@@ -587,7 +587,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetFilteredTriangleAt(FVectorVMContext& 
 		RealIdx = GetSpecificTriangleAt<FilterMode, AreaWeightingMode>(Accessor, InstData, Tri);
 
 		int32 TriMax = Accessor.IndexBuffer->Num() - 3;
-		RealIdx = FMath::Min(RealIdx, TriMax);
+		RealIdx = FMath::Clamp(RealIdx, 0, TriMax);
 
 		*OutTri.GetDest() = RealIdx;
 		float Coord = 1.0f / 3.0f;
@@ -625,7 +625,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordColor(FVectorVMContext& Conte
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
 		int32 Tri = TriParam.Get();
-		Tri = FMath::Min(Tri, TriMax);
+		Tri = FMath::Clamp(Tri, 0, TriMax);
 
 		int32 Idx0 = IndexBuffer->Get(Tri);
 		int32 Idx1 = IndexBuffer->Get(Tri + 1);
@@ -701,7 +701,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordUV(FVectorVMContext& Context)
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
 		int32 Tri = TriParam.Get();
-		Tri = FMath::Min(Tri, TriMax);
+		Tri = FMath::Clamp(Tri, 0, TriMax);
 
 		int32 Idx0 = IndexBuffer->Get(Tri);
 		int32 Idx1 = IndexBuffer->Get(Tri + 1);
@@ -819,7 +819,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordSkinnedData(FVectorVMContext&
 	FSkeletalMeshLODRenderData& LODData = InstData->GetLODRenderDataAndSkinWeights(SkinWeightBuffer);
 
 	FSkeletalMeshAccessorHelper Accessor;
-	Accessor.Init<TIntegralConstant<int32, 0>, TIntegralConstant<int32, 0>>(InstData);
+	Accessor.Init<TIntegralConstant<ENDISkeletalMesh_FilterMode, ENDISkeletalMesh_FilterMode::None>, TIntegralConstant<ENDISkelMesh_AreaWeightingMode, ENDISkelMesh_AreaWeightingMode::None>>(InstData);
 	int32 TriMax = Accessor.IndexBuffer->Num() - 3;
 	float InvDt = 1.0f / InstData->DeltaSeconds;
 
@@ -836,6 +836,11 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordSkinnedData(FVectorVMContext&
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
 		FMeshTriCoordinate MeshTriCoord(TriParam.GetAndAdvance(), FVector(BaryXParam.GetAndAdvance(), BaryYParam.GetAndAdvance(), BaryZParam.GetAndAdvance()));
+
+		if(MeshTriCoord.Tri < 0 || MeshTriCoord.Tri > TriMax)
+		{
+			MeshTriCoord = FMeshTriCoordinate(0, FVector(1.0f, 0.0f, 0.0f));
+		}
 
 		SkinningHandler.GetTrianlgeIndices(Accessor, MeshTriCoord.Tri, Idx0, Idx1, Idx2);
 
@@ -926,8 +931,11 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordVertices(FVectorVMContext& Co
 	FSkeletalMeshAccessorHelper Accessor;
 	Accessor.Init<TIntegralConstant<int32, 0>, TIntegralConstant<int32, 0>>(InstData);
 
+	int32 TriMax = Accessor.IndexBuffer->Num() - 3;
+
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
+		int32 Tri = FMath::Clamp(TriParam.GetAndAdvance(), 0, TriMax);
 		SkinningHandler.GetTrianlgeIndices(Accessor, TriParam.GetAndAdvance(), Idx0, Idx1, Idx2);
 		*OutV0.GetDestAndAdvance() = Idx0;
 		*OutV1.GetDestAndAdvance() = Idx1;

@@ -42,7 +42,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && (Parameters.Platform != SP_METAL_MRT);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -139,7 +139,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && (Parameters.Platform != SP_METAL_MRT);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -228,7 +228,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && (Parameters.Platform != SP_METAL_MRT);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -326,7 +326,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && (Parameters.Platform != SP_METAL_MRT);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)

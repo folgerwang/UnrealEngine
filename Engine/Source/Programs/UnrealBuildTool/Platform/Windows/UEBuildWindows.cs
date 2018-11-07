@@ -188,6 +188,35 @@ namespace UnrealBuildTool
 		public bool bBuildLargeAddressAwareBinary = true;
 
 		/// <summary>
+		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
+		/// </summary>
+		internal VCEnvironment Environment;
+
+		/// <summary>
+		/// Directory containing the toolchain
+		/// </summary>
+		public string ToolChainDir
+		{
+			get { return (Environment == null)? null : Environment.ToolChainDir.FullName; }
+		}
+
+		/// <summary>
+		/// The version number of the toolchain
+		/// </summary>
+		public string ToolChainVersion
+		{
+			get { return (Environment == null)? null : Environment.ToolChainVersion.ToString(); }
+		}
+
+		/// <summary>
+		/// Root directory containing the Windows Sdk
+		/// </summary>
+		public string WindowsSdkDir
+		{
+			get { return (Environment == null)? null : Environment.WindowsSdkDir.FullName; }
+		}
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -324,6 +353,26 @@ namespace UnrealBuildTool
 			return Inner.GetVisualStudioCompilerVersionName();
 		}
 
+		internal VCEnvironment Environment
+		{
+			get { return Inner.Environment; }
+		}
+
+		public string ToolChainDir
+		{
+			get { return Inner.ToolChainDir; }
+		}
+
+		public string ToolChainVersion
+		{
+			get { return Inner.ToolChainVersion; }
+		}
+
+		public string WindowsSdkDir
+		{
+			get { return Inner.WindowsSdkDir; }
+		}
+
 		#if !__MonoCS__
 		#pragma warning restore CS1591
 		#endif
@@ -458,6 +507,13 @@ namespace UnrealBuildTool
 			{
 				Target.bDisableDebugInfoForGeneratedCode = false;
 			}
+
+			// Initialize the VC environment for the target, and set all the version numbers to the concrete values we chose.
+			VCEnvironment Environment = VCEnvironment.Create(Target.WindowsPlatform.Compiler, DefaultCppPlatform, Target.WindowsPlatform.CompilerVersion, Target.WindowsPlatform.WindowsSdkVersion);
+			Target.WindowsPlatform.Environment = Environment;
+			Target.WindowsPlatform.Compiler = Environment.Compiler;
+			Target.WindowsPlatform.CompilerVersion = Environment.CompilerVersion.ToString();
+			Target.WindowsPlatform.WindowsSdkVersion = Environment.WindowsSdkVersion.ToString();
 
 //			@Todo: Still getting reports of frequent OOM issues with this enabled as of 15.7.
 //			// Enable fast PDB linking if we're on VS2017 15.7 or later. Previous versions have OOM issues with large projects.

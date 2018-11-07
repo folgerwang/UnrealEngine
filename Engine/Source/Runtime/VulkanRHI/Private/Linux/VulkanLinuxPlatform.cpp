@@ -18,6 +18,21 @@ bool FVulkanLinuxPlatform::bAttemptedLoad = false;
 
 bool FVulkanLinuxPlatform::IsSupported()
 {
+	// right now we do not provide an offscreen initialization path, so
+	// report as not supported if we're running without X11 or Wayland
+	bool bHasX11Display = getenv("DISPLAY") != nullptr;
+	bool bHasWaylandSession = false;
+	if (!bHasX11Display)
+	{
+		// check Wayland
+		bHasWaylandSession = getenv("WAYLAND_DISPLAY") != nullptr;
+	}
+
+	if (!bHasX11Display && !bHasWaylandSession)
+	{
+		return false;
+	}
+
 	// just attempt to load the library
 	return LoadVulkanLibrary();
 }

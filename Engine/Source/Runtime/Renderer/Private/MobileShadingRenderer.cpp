@@ -402,7 +402,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		GSupportsShaderFramebufferFetch &&
 		ViewFamily.EngineShowFlags.PostProcessing;
 	bool bOnChipSunMask = bOnChipPP && (View.bLightShaftUse || GetMobileDepthOfFieldScale(View) > 0.0) && !IsMobileDistortionActive(View);
-	bool bOnChipPreResolveMSAA = bOnChipPP && (ViewFamily.GetShaderPlatform() == SP_METAL) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false);
+	bool bOnChipPreResolveMSAA = bOnChipPP && IsMetalMobilePlatform(ViewFamily.GetShaderPlatform()) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false);
 
 	if (!bGammaSpace && (bOnChipSunMask || bOnChipPreResolveMSAA))
 	{

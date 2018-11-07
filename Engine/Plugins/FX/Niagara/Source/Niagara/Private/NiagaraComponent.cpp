@@ -353,14 +353,14 @@ void UNiagaraComponent::TickComponent(float DeltaSeconds, enum ELevelTick TickTy
 		return;
 	}
 
-	if (!bIsActive && bAutoActivate)
-	{
-		Activate();
-	}
-
 	if (!SystemInstance)
 	{
 		return;
+	}
+
+	if (!bIsActive && bAutoActivate && SystemInstance.Get() && SystemInstance->GetAreDataInterfacesInitialized())
+	{
+		Activate();
 	}
 
 	check(SystemInstance->IsSolo());
@@ -738,6 +738,7 @@ void UNiagaraComponent::OnUnregister()
 	if (SystemInstance)
 	{
 		SystemInstance->Deactivate(true);
+		SystemInstance = nullptr;
 	}
 }
 
@@ -1034,7 +1035,6 @@ void UNiagaraComponent::PreEditChange(UProperty* PropertyAboutToChange)
 
 void UNiagaraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-
 	FName PropertyName;
 	if (PropertyChangedEvent.Property)
 	{
@@ -1183,7 +1183,7 @@ bool UNiagaraComponent::IsParameterValueOverriddenLocally(const FName& InParamNa
 	return false;
 }
 
-void UNiagaraComponent::SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverriden)
+void UNiagaraComponent::SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverriden, bool bRequiresSystemInstanceReset)
 {
 	bool* FoundVar = EditorOverridesValue.Find(InParam.GetName());
 
@@ -1200,6 +1200,12 @@ void UNiagaraComponent::SetParameterValueOverriddenLocally(const FNiagaraVariabl
 		EditorOverridesValue.Remove(InParam.GetName());
 		Asset->GetExposedParameters().CopyParameterData(OverrideParameters, InParam);
 	}
+	
+	if (bRequiresSystemInstanceReset)
+	{
+		SystemInstance->Reset(FNiagaraSystemInstance::EResetMode::ResetSystem, true);
+	}
+	
 }
 
 
