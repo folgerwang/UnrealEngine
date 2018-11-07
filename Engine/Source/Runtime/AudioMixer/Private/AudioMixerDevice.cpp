@@ -201,7 +201,7 @@ namespace Audio
 				AudioClockDelta = (double)OpenStreamParams.NumFrames / OpenStreamParams.SampleRate;
 
 				FAudioPluginInitializationParams PluginInitializationParams;
-				PluginInitializationParams.NumSources = MaxChannels;
+				PluginInitializationParams.NumSources = SourceManagerInitParams.NumSources;
 				PluginInitializationParams.SampleRate = SampleRate;
 				PluginInitializationParams.BufferLength = OpenStreamParams.NumFrames;
 				PluginInitializationParams.AudioDevicePtr = this;

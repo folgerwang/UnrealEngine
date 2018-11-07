@@ -184,5 +184,16 @@ void UIOSRuntimeSettings::PostInitProperties()
 	{
 		MinimumiOSVersion = EIOSVersion::IOS_10;
 	}
+
+	EnsureOrientationInProjectDefaultEngine();
 }
 #endif
+
+void UIOSRuntimeSettings::EnsureOrientationInProjectDefaultEngine()
+{
+	// Make sure the values from BaseEngine.ini are written in the project's DefaultEngine.ini
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsPortraitOrientation)), GetDefaultConfigFilename());
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsUpsideDownOrientation)), GetDefaultConfigFilename());
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsLandscapeLeftOrientation)), GetDefaultConfigFilename());
+	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, PreferredLandscapeOrientation)), GetDefaultConfigFilename());
+}
