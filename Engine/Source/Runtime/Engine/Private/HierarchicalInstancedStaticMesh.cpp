@@ -2595,6 +2595,18 @@ void UHierarchicalInstancedStaticMeshComponent::ApplyBuildTreeAsync(ENamedThread
 	PostBuildStats();
 }
 
+void UHierarchicalInstancedStaticMeshComponent::OnComponentCreated()
+{
+	Super::OnComponentCreated();
+
+	if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+	{
+		// if we are pasting/duplicating this component, it may be created with some instances already in place
+		// in this case, need to ensure that the tree is properly created
+		BuildTreeIfOutdated(false, false);
+	}
+}
+
 bool UHierarchicalInstancedStaticMeshComponent::BuildTreeIfOutdated(bool Async, bool ForceUpdate)
 {
 	if (ForceUpdate 
