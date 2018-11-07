@@ -2188,12 +2188,8 @@ void UInstancedStaticMeshComponent::OnComponentCreated()
 	{
 		// if we are pasting/duplicating this component, it may be created with some instances already in place
 		// in this case, need to ensure that the instance render data is properly created
-		if (PerInstanceSMData.Num() > 0)
-		{
-			InstanceUpdateCmdBuffer.Edit();
-		}
-
-		InitPerInstanceRenderData(false);
+		const bool InitializeFromCurrentData = PerInstanceSMData.Num() > 0;
+		InitPerInstanceRenderData(InitializeFromCurrentData);
 	}
 }
 

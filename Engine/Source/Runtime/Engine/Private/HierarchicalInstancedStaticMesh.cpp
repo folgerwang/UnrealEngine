@@ -2603,7 +2603,11 @@ void UHierarchicalInstancedStaticMeshComponent::OnComponentCreated()
 	{
 		// if we are pasting/duplicating this component, it may be created with some instances already in place
 		// in this case, need to ensure that the tree is properly created
-		BuildTreeIfOutdated(false, false);
+		if (PerInstanceSMData.Num() > 0 && ClusterTreePtr->Num() == 0)
+		{
+			const bool bForceUpdate = true;
+			BuildTreeIfOutdated(false, bForceUpdate);
+		}
 	}
 }
 
