@@ -781,6 +781,7 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 					if ( EnabledFrontendFilterNames.Contains(FilterName) )
 					{
 						NewFilter->SetEnabled(true, false);
+						SetFrontendFilterActive(FrontendFilter, NewFilter->IsEnabled());
 					}
 				}
 			}

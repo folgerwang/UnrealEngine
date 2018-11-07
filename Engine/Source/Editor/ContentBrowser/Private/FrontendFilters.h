@@ -312,7 +312,7 @@ public:
 	~FFrontendFilter_Recent();
 
 	// FFrontendFilter implementation
-	virtual FString GetName() const override { return TEXT("Modified"); }
+	virtual FString GetName() const override { return TEXT("RecentlyOpened"); }
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_Recent", "Recently Opened"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_RecentTooltip", "Show only recently opened assets."); }
 	virtual void ActiveStateChanged(bool bActive) override;
