@@ -11,6 +11,11 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
+			PrivateIncludePathModuleNames.AddRange(
+				new string[] {
+					"Media"
+				});
+
 			PrivateIncludePaths.AddRange(
 				new string[] {
 				}
@@ -27,7 +32,9 @@ namespace UnrealBuildTool.Rules
                     "RenderCore",
                     "RHI",
                     "SlateCore",
-                    "Slate"
+                    "Slate",
+					"ShaderCore",
+					"UtilityShaders"
 				}
 				);
 

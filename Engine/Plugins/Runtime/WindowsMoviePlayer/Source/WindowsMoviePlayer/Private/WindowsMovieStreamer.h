@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MoviePlayer.h"
+#include "IMediaTextureSample.h"
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -52,6 +53,8 @@ private:
 	void CloseMovie();
 	/** Cleans up rendering resources once movies are done playing */
 	void CleanupRenderingResources();
+	/** Use shader to generate final image */
+	void ConvertSample();
 
 private:
 	/** A list of all the stored movie paths we have enqueued for playing */
@@ -74,12 +77,31 @@ private:
 	 */
 	TArray<TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe>> TextureFreeList;
 
+	/** Input texture for conversion shader */
+	TRefCountPtr<FRHITexture2D> InputTarget;
+
 	/** The video player and sample grabber for use of Media Foundation */
 	class FVideoPlayer* VideoPlayer;
     class FSampleGrabberCallback* SampleGrabberCallback;
 };
 
+/** Video track details */
+struct FMovieTrackFormat
+{
+public:
+	FMovieTrackFormat() :
+		BufferDim(FIntPoint(0, 0)),
+		BufferStride(0),
+		OutputDim(FIntPoint(0, 0)),
+		SampleFormat(EMediaTextureSampleFormat::Undefined)
+	{
+	}
 
+	FIntPoint BufferDim;
+	uint32 BufferStride;
+	FIntPoint OutputDim;
+	EMediaTextureSampleFormat SampleFormat;
+};
 
 /** The video player is the class which handles all the loading and playing of videos */
 class FVideoPlayer : public IMFAsyncCallback
@@ -116,6 +138,8 @@ public:
 	/** True if the movie is still playing and rendering frames */
 	bool MovieIsRunning() const {return MovieIsFinished.GetValue() == 0;}
 	
+	const FMovieTrackFormat& GetVideoTrackFormat() const { return VideoTrackFormat; }
+
 private:
 	/** Sets up the topology of all the nodes in the media session, returning the video dimensions */
 	FIntPoint SetPlaybackTopology(class FSampleGrabberCallback* SampleGrabberCallback);
@@ -135,6 +159,9 @@ private:
 	FThreadSafeCounter MovieIsFinished;
 	/** This counter locks the ticking thread while all Media Foundation threads shutdown */
 	FThreadSafeCounter CloseIsPosted;
+
+	/* Format of video track */
+	FMovieTrackFormat VideoTrackFormat;
 };
 
 
