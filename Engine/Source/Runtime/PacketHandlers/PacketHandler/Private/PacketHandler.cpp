@@ -33,6 +33,7 @@ PacketHandler::PacketHandler(FDDoSDetection* InDDoS/*=nullptr*/)
 	, bConnectionlessHandler(false)
 	, DDoS(InDDoS)
 	, LowLevelSendDel()
+	, LowLevelSendDel_Deprecated()
 	, HandshakeCompleteDel()
 	, OutgoingPacket()
 	, IncomingPacket()
@@ -605,7 +606,7 @@ void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter&
 	// Prevent any cases where a send happens before the handler is ready.
 	check(State != Handler::State::Uninitialized);
 
-	if (LowLevelSendDel.IsBound())
+	if (LowLevelSendDel.IsBound() || LowLevelSendDel_Deprecated.IsBound())
 	{
 		bool bEncounteredComponent = false;
 
@@ -661,7 +662,8 @@ void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter&
 
 			bRawSend = true;
 
-			LowLevelSendDel.Execute(Writer.GetData(), Writer.GetNumBits(), Traits);
+			LowLevelSendDel_Deprecated.ExecuteIfBound(Writer.GetData(), Writer.GetNumBytes(), Writer.GetNumBits());
+			LowLevelSendDel.ExecuteIfBound(Writer.GetData(), Writer.GetNumBits(), Traits);
 
 			bRawSend = bOldRawSend;
 		}

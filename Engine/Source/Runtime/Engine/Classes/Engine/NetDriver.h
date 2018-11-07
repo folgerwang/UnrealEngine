@@ -726,6 +726,13 @@ public:
 	/** PostTick actions */
 	ENGINE_API virtual void PostTickFlush();
 
+	DEPRECATED(4.21, "Please use the LowLevelSend that requires packet traits for analytics and packet modifiers.")
+	ENGINE_API virtual void LowLevelSend(FString Address, void* Data, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		LowLevelSend(Address, Data, CountBits, EmptyTraits);
+	}
+
 	/**
 	 * Sends a 'connectionless' (not associated with a UNetConection) packet, to the specified address.
 	 * NOTE: Address is an abstract format defined by subclasses. Anything calling this, must use an address supplied by the net driver.

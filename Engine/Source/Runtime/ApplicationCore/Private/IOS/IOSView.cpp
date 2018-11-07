@@ -1105,20 +1105,23 @@ id<MTLDevice> GMetalDevice = nil;
 - (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation
 {
 	FString PreferredLandscapeOrientation = "";
+	bool bSupportsLandscapeLeft = false;
+	bool bSupportsLandscapeRight = false;
 
+	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsLandscapeLeftOrientation"), bSupportsLandscapeLeft, GEngineIni);
+	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsLandscapeRightOrientation"), bSupportsLandscapeRight, GEngineIni);
 	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("PreferredLandscapeOrientation"), PreferredLandscapeOrientation, GEngineIni);
-	if (PreferredLandscapeOrientation.Equals("LandscapeLeft"))
+
+	if(bSupportsLandscapeLeft && bSupportsLandscapeRight)
 	{
+		if (PreferredLandscapeOrientation.Equals("LandscapeRight"))
+		{
+			return UIInterfaceOrientationLandscapeRight;
+		}
 		return UIInterfaceOrientationLandscapeLeft;
 	}
-	else if (PreferredLandscapeOrientation.Equals("LandscapeRight"))
-	{
-		return UIInterfaceOrientationLandscapeRight;
-	}
-	else
-	{
-		return UIInterfaceOrientationPortrait;
-	}
+
+	return UIInterfaceOrientationPortrait;
 }
 
 - (UIRectEdge)preferredScreenEdgesDeferringSystemGestures
