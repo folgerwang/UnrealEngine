@@ -2834,9 +2834,10 @@ public:
 	{
 		check(IsInRenderingThread());
 
-		FRHIRenderTargetView BackBufferView = FRHIRenderTargetView(BackBuffer, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &BackBufferView, FRHIDepthRenderTargetView());
-		RHICmdList.SetRenderTargetsAndClear(Info);
+		FRHIRenderPassInfo RPInfo(BackBuffer, ERenderTargetActions::Clear_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderTexture_RenderThread"));
+		RHICmdList.EndRenderPass();
+
 		const uint32 ViewportWidth = BackBuffer->GetSizeX();
 		const uint32 ViewportHeight = BackBuffer->GetSizeY();
 		RHICmdList.SetViewport( 0,0,0,ViewportWidth, ViewportHeight, 1.0f );
