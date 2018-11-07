@@ -1817,7 +1817,7 @@ struct FRelevancePacket
 				continue;
 			}
 
-			if (ViewRelevance.bDecal)
+			if (ViewRelevance.bDecal && ViewRelevance.bRenderInMainPass)
 			{
 				MeshDecalPrimSet.AddPrim(FMeshDecalPrimSet::GenerateKey(PrimitiveSceneInfo, PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority()));
 			}
