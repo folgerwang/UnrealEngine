@@ -1044,6 +1044,11 @@ bool FText::IsCultureInvariant() const
 	return (Flags & ETextFlag::CultureInvariant) != 0;
 }
 
+bool FText::IsInitializedFromString() const
+{
+	return (Flags & ETextFlag::InitializedFromString) != 0;
+}
+
 bool FText::IsFromStringTable() const
 {
 	return TextData->GetTextHistory().GetType() == ETextHistoryType::StringTableEntry;

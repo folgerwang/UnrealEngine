@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/DataTable.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
+#include "Internationalization/StabilizeLocalizationKeys.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 #include "Serialization/ObjectWriter.h"
 #include "Serialization/ObjectReader.h"
@@ -155,12 +157,28 @@ void UDataTable::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 
 void UDataTable::OnPostDataImported(TArray<FString>& OutCollectedImportProblems)
 {
-	if (RowStruct && RowStruct->IsChildOf(FTableRowBase::StaticStruct()))
+	if (RowStruct)
 	{
+		const bool bIsNativeRowStruct = RowStruct->IsChildOf(FTableRowBase::StaticStruct());
+
+		FString DataTableTextNamespace = GetName();
+#if USE_STABLE_LOCALIZATION_KEYS
+		DataTableTextNamespace = TextNamespaceUtil::BuildFullNamespace(DataTableTextNamespace, TextNamespaceUtil::EnsurePackageNamespace(this), /*bAlwaysApplyPackageNamespace*/true);
+#endif
+
 		for (const TPair<FName, uint8*>& TableRowPair : RowMap)
 		{
-			FTableRowBase* CurRow = reinterpret_cast<FTableRowBase*>(TableRowPair.Value);
-			CurRow->OnPostDataImport(this, TableRowPair.Key, OutCollectedImportProblems);
+			if (bIsNativeRowStruct)
+			{
+				FTableRowBase* CurRow = reinterpret_cast<FTableRowBase*>(TableRowPair.Value);
+				CurRow->OnPostDataImport(this, TableRowPair.Key, OutCollectedImportProblems);
+			}
+
+#if WITH_EDITOR
+			// Perform automatic fix-up on any text properties that have been imported from a raw string to assign them deterministic keys
+			// We do this after OnPostDataImport has been run on the row, as that function may perform custom fix-up logic that will fix the keys differently than the default logic
+			StabilizeLocalizationKeys::StabilizeLocalizationKeysForStruct(RowStruct, TableRowPair.Value, DataTableTextNamespace, TableRowPair.Key.ToString());
+#endif
 		}
 	}
 

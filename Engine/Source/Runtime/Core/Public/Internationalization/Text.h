@@ -523,6 +523,7 @@ public:
 
 	bool IsTransient() const;
 	bool IsCultureInvariant() const;
+	bool IsInitializedFromString() const;
 	bool IsFromStringTable() const;
 
 	bool ShouldGatherForLocalization() const;
