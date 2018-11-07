@@ -1684,8 +1684,9 @@ public:
 	static FString FormatAsNumber( int32 InNumber );
 
 	// To allow more efficient memory handling, automatically adds one for the string termination.
-	FORCEINLINE void Reserve(const uint32 CharacterCount)
+	FORCEINLINE void Reserve(int32 CharacterCount)
 	{
+		checkSlow(CharacterCount >= 0 && CharacterCount < MAX_int32);
 		Data.Reserve(CharacterCount + 1);
 	}
 

@@ -422,7 +422,7 @@ void FString::PathAppend(const TCHAR* Str, int32 StrLength)
 			}
 		}
 
-		Data.Reserve(DataNum + StrLength + 1);
+		Reserve(DataNum + StrLength);
 		Data.Append(Str, StrLength);
 		Data.Add(TEXT('\0'));
 	}
