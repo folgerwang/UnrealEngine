@@ -335,6 +335,8 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 	SetStartupResolution();
 
 	CachedPreviewDesiredSize = FVector2D(0, 0);
+	HeightReadFromSettings = 0;
+	WidthReadFromSettings = 0;
 
 	ResolutionTextFade = FCurveSequence(0.0f, 1.0f);
 	ResolutionTextFade.Play(this->AsShared());
@@ -918,8 +920,6 @@ bool SDesignerView::IsRespectingLocks() const
 
 void SDesignerView::SetStartupResolution()
 {
-	HeightReadFromSettings = 0;
-	WidthReadFromSettings = 0;
 	// Use previously set resolution (or create new entries using default values)
 	// Width
 	if (!GConfig->GetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorPerProjectIni))
