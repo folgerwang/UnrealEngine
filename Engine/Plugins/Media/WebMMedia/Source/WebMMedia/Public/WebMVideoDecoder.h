@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_WEBM_LIBS
+
 #include "Templates/SharedPointer.h"
 #include "MediaShaders.h"
 
@@ -48,3 +50,5 @@ private:
 	void CreateTextures(const vpx_image_t* Image);
 	void Close();
 };
+
+#endif // WITH_WEBM_LIBS

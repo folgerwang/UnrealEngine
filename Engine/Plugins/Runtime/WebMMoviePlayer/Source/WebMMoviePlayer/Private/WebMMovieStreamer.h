@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_WEBM_LIBS
+
 #include "MoviePlayer.h"
 #include "WebMAudioBackend.h"
 #include "WebMMediaFrame.h"
@@ -53,3 +55,5 @@ private:
 	bool SendAudio(float InDeltaTime);
 	bool ReadMoreFrames();
 };
+
+#endif // WITH_WEBM_LIBS

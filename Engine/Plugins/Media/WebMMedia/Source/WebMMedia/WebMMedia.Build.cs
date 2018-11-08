@@ -25,9 +25,19 @@ namespace UnrealBuildTool.Rules
 					"libOpus",
 					"UEOgg",
 					"Vorbis",
+				});
+
+			// Some Linux architectures don't have the libs built yet
+			bool bHaveWebMlibs = (!Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) || Target.Architecture.StartsWith("x86_64"));
+			if (bHaveWebMlibs)
+			{
+				PublicDependencyModuleNames.AddRange(
+					new string[] {
 					"LibVpx",
 					"LibWebM",
-				});
+					});
+			}
+			PublicDefinitions.Add("WITH_WEBM_LIBS=" + (bHaveWebMlibs ? "1" : "0"));
 		}
 	}
 }

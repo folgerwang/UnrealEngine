@@ -1722,18 +1722,18 @@ void UAssetRegistryImpl::ScanPathsAndFilesSynchronous(const TArray<FString>& InP
 		if (OutFoundAssets)
 		{
 			OutFoundAssets->Reserve(OutFoundAssets->Num() + AssetResults.Num());
-			for (const FAssetData* AssetData : AssetResults)
+			for (int32 i = 0; i < AssetResults.Num(); ++i)
 			{
-				OutFoundAssets->Add(AssetData->ObjectPath);
+				OutFoundAssets->Add(AssetResults[i]->ObjectPath);
 			}
 		}
 
 		if (OutFoundPaths)
 		{
 			OutFoundPaths->Reserve(OutFoundPaths->Num() + PathResults.Num());
-			for (const FString& Path : PathResults)
+			for (int32 i = 0; i < PathResults.Num(); ++i)
 			{
-				OutFoundPaths->Add(*Path);
+				OutFoundPaths->Add(*PathResults[i]);
 			}
 		}
 

@@ -24,11 +24,11 @@ public:
 	TOptional<FAssetData> GetSelectedEmitterAsset();
 
 private:
-	TArray<FAssetData> GetSelectedEmitterTemplateAssets();
+	void GetSelectedEmitterTemplateAssets(TArray<FAssetData>& OutSelectedAssets);
 
-	TArray<FAssetData> GetSelectedProjectEmiterAssets();
+	void GetSelectedProjectEmiterAssets(TArray<FAssetData>& OutSelectedAssets);
 
-	void OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset);
+	void OnTemplateAssetActivated(const FAssetData& InActivatedTemplateAsset);
 
 	void OnEmitterAssetsActivated(const TArray<FAssetData>& ActivatedAssets, EAssetTypeActivationMethod::Type ActivationMethod);
 
@@ -36,4 +36,8 @@ private:
 	TSharedPtr<SNiagaraTemplateAssetPicker> TemplateAssetPicker;
 
 	FGetCurrentSelectionDelegate GetSelectedEmitterAssetsFromPicker;
+
+	FAssetData ActivatedTemplateAsset;
+
+	FAssetData ActivatedProjectAsset;
 };

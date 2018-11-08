@@ -2213,10 +2213,10 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						GameProjects.Add(ProjectFile);
-
 						if (!bProjectAlreadyExisted)
 						{
+							GameProjects.Add(ProjectFile);
+
 							// Add the .uproject file for this game/template
 							FileReference UProjectFilePath = FileReference.Combine(BaseFolder, ProjectFileNameBase + ".uproject");
 							if (FileReference.Exists(UProjectFilePath))

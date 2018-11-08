@@ -27,11 +27,11 @@ public:
 	TArray<FAssetData> GetSelectedEmitterAssets() const;
 
 private:
-	TArray<FAssetData> GetSelectedSystemTemplateAssets();
+	void GetSelectedSystemTemplateAssets(TArray<FAssetData>& OutSelectedAssets);
 
-	TArray<FAssetData> GetSelectedProjectSystemAssets();
+	void GetSelectedProjectSystemAssets(TArray<FAssetData>& OutSelectedAssets);
 
-	TArray<FAssetData> GetSelectedProjectEmiterAssets();
+	void GetSelectedProjectEmiterAssets(TArray<FAssetData>& OutSelectedAssets);
 
 	void OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset);
 
@@ -51,6 +51,10 @@ private:
 	FGetCurrentSelectionDelegate GetSelectedSystemAssetsFromPicker;
 
 	FGetCurrentSelectionDelegate GetSelectedEmitterAssetsFromPicker;
+
+	FAssetData ActivatedTemplateSystemAsset;
+
+	FAssetData ActivatedProjectSystemAsset;
 
 	TArray<FAssetData> SelectedEmitterAssets;
 

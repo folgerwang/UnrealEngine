@@ -144,6 +144,19 @@ FSequencerScriptingRange UMovieSceneSequenceExtensions::GetPlaybackRange(UMovieS
 	}
 }
 
+FTimecode UMovieSceneSequenceExtensions::GetTimecodeSource(UMovieSceneSequence* Sequence)
+{
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		return MovieScene->TimecodeSource.Timecode;
+	}
+	else
+	{
+		return FTimecode();
+	}
+}
+
 FSequencerBindingProxy UMovieSceneSequenceExtensions::FindBindingByName(UMovieSceneSequence* Sequence, FString Name)
 {
 	UMovieScene* MovieScene = Sequence->GetMovieScene();

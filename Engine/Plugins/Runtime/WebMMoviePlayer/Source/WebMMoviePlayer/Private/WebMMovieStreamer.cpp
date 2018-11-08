@@ -1,9 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMMovieStreamer.h"
+#include "WebMMovieCommon.h"
+
+#if WITH_WEBM_LIBS
 #include "MediaShaders.h"
 #include "MediaSamples.h"
-#include "WebMMovieCommon.h"
 #include "Misc/Paths.h"
 #include "SceneUtils.h"
 #include "StaticBoundShaderState.h"
@@ -14,9 +16,11 @@
 #include "WebMContainer.h"
 #include "WebMMediaAudioSample.h"
 #include "WebMMediaTextureSample.h"
+#endif // WITH_WEBM_LIBS
 
 DEFINE_LOG_CATEGORY(LogWebMMoviePlayer);
 
+#if WITH_WEBM_LIBS
 FWebMMovieStreamer::FWebMMovieStreamer()
 	: AudioBackend(MakeUnique<FWebMAudioBackend>())
 	, Viewport(MakeShareable(new FMovieViewport()))
@@ -249,7 +253,7 @@ bool FWebMMovieStreamer::ReadMoreFrames()
 	VideoFramesToDecodeLater.Enqueue(VideoFrames);
 
 	// Trigger video decoding
-	while (!VideoFramesToDecodeLater.IsEmpty() && VideoFramesCurrentlyProcessing < 30)
+	while (!VideoFramesToDecodeLater.IsEmpty() && VideoFramesCurrentlyProcessing < 5)
 	{
 		if (VideoFramesToDecodeLater.Dequeue(VideoFrames))
 		{
@@ -266,3 +270,5 @@ bool FWebMMovieStreamer::ReadMoreFrames()
 
 	return VideoFrames.Num() > 0 || AudioFrames.Num() > 0;
 }
+
+#endif // WITH_WEBM_LIBS

@@ -478,41 +478,10 @@ namespace UnrealBuildTool
 			}
 
 			// Include generated code plugin if not building an editor target and project is configured for nativization
-			if (RulesObject.ProjectFile != null
-				&& (RulesObject.Type == TargetType.Game || RulesObject.Type == TargetType.Client || RulesObject.Type == TargetType.Server)
-				&& ShouldIncludeNativizedAssets(RulesObject.ProjectFile.Directory))
+			FileReference NativizedPluginFile = RulesObject.GetNativizedPlugin();
+			if(NativizedPluginFile != null)
 			{
-				string PlatformName;
-				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64)
-				{
-					PlatformName = "Windows";
-				}
-				else
-				{
-					PlatformName = RulesObject.Platform.ToString();
-				}
-
-				// Temp fix to force platforms that only support "Game" configurations at cook time to the correct path.
-				string ProjectTargetType;
-				if (RulesObject.Platform == UnrealTargetPlatform.Win32 || RulesObject.Platform == UnrealTargetPlatform.Win64
-					|| RulesObject.Platform == UnrealTargetPlatform.Linux || RulesObject.Platform == UnrealTargetPlatform.Mac)
-				{
-					ProjectTargetType = RulesObject.Type.ToString();
-				}
-				else
-				{
-					ProjectTargetType = "Game";
-				}
-
-				FileReference PluginFile = FileReference.Combine(RulesObject.ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
-				if (FileReference.Exists(PluginFile))
-				{
-					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, bSkipRulesCompile, RulesAssembly, false);
-				}
-				else
-				{
-					Log.TraceWarning("{0} is configured for nativization, but is missing the generated code plugin at \"{1}\". Make sure to cook {2} data before attempting to build the {3} target. If data was cooked with nativization enabled, this can also mean there were no Blueprint assets that required conversion, in which case this warning can be safely ignored.", RulesObject.Name, PluginFile.FullName, RulesObject.Type.ToString(), RulesObject.Platform.ToString());
-				}
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(NativizedPluginFile, bSkipRulesCompile, RulesAssembly, false);
 			}
 
 			// Generate a build target from this rules module
@@ -926,13 +895,13 @@ namespace UnrealBuildTool
 				ProjectDirectory = ProjectFile.Directory;
 			}
 			else if (Rules.File.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
-			{
-				ProjectDirectory = UnrealBuildTool.EnterpriseDirectory;
-			}
-			else
-			{
-				ProjectDirectory = UnrealBuildTool.EngineDirectory;
-			}
+				{
+					ProjectDirectory = UnrealBuildTool.EnterpriseDirectory;
+				}
+				else
+				{
+					ProjectDirectory = UnrealBuildTool.EngineDirectory;
+				}
 
 			// Build the project intermediate directory
 			if(bUseSharedBuildEnvironment && TargetRulesFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
@@ -1402,7 +1371,7 @@ namespace UnrealBuildTool
 		/// <param name="RuntimeDependencies">Output runtime dependencies</param>
 		/// <param name="HotReload">The hot-reload mode</param>
 		TargetReceipt PrepareReceipt(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<RuntimeDependency> RuntimeDependencies, EHotReload HotReload)
-		{
+			{
 			// Read the version file
 			BuildVersion Version;
 			if (!BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
@@ -2389,25 +2358,25 @@ namespace UnrealBuildTool
 		/// <returns>Map of variable names to values</returns>
 		private Dictionary<string, string> GetTargetVariables(UEBuildPlugin Plugin)
 		{
-			Dictionary<string, string> Variables = new Dictionary<string,string>();
-			Variables.Add("RootDir", UnrealBuildTool.RootDirectory.FullName);
-			Variables.Add("EngineDir", UnrealBuildTool.EngineDirectory.FullName);
-			Variables.Add("EnterpriseDir", UnrealBuildTool.EnterpriseDirectory.FullName);
-			Variables.Add("ProjectDir", ProjectDirectory.FullName);
-			Variables.Add("TargetName", TargetName);
-			Variables.Add("TargetPlatform", Platform.ToString());
-			Variables.Add("TargetConfiguration", Configuration.ToString());
-			Variables.Add("TargetType", TargetType.ToString());
-			if(ProjectFile != null)
-			{
-				Variables.Add("ProjectFile", ProjectFile.FullName);
-			}
+				Dictionary<string, string> Variables = new Dictionary<string,string>();
+				Variables.Add("RootDir", UnrealBuildTool.RootDirectory.FullName);
+				Variables.Add("EngineDir", UnrealBuildTool.EngineDirectory.FullName);
+				Variables.Add("EnterpriseDir", UnrealBuildTool.EnterpriseDirectory.FullName);
+				Variables.Add("ProjectDir", ProjectDirectory.FullName);
+				Variables.Add("TargetName", TargetName);
+				Variables.Add("TargetPlatform", Platform.ToString());
+				Variables.Add("TargetConfiguration", Configuration.ToString());
+				Variables.Add("TargetType", TargetType.ToString());
+				if(ProjectFile != null)
+				{
+					Variables.Add("ProjectFile", ProjectFile.FullName);
+				}
 			if(Plugin != null)
-			{
+				{
 				Variables.Add("PluginDir", Plugin.Directory.FullName);
 			}
 			return Variables;
-		}
+				}
 
 		/// <summary>
 		/// Write scripts containing the custom build steps for the given host platform
@@ -4066,23 +4035,5 @@ namespace UnrealBuildTool
 
 			return FilteredFileItems;
 		}
-
-        static bool ShouldIncludeNativizedAssets(DirectoryReference GameProjectDirectory)
-        {
-            ConfigHierarchy Config = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, GameProjectDirectory, BuildHostPlatform.Current.Platform);
-            if (Config != null)
-            {
-                // Determine whether or not the user has enabled nativization of Blueprint assets at cook time (default is 'Disabled')
-                string BlueprintNativizationMethod;
-                if (!Config.TryGetValue("/Script/UnrealEd.ProjectPackagingSettings", "BlueprintNativizationMethod", out BlueprintNativizationMethod))
-                {
-                    BlueprintNativizationMethod = "Disabled";
-                }
-
-                return BlueprintNativizationMethod != "Disabled";
-            }
-
-            return false;
-        }
 	}
 }

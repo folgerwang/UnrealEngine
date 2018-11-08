@@ -4111,7 +4111,7 @@ namespace ThumbnailTools
 
 
 		// Make sure this is indeed a package
-		if( FileSummary.Tag != PACKAGE_FILE_TAG )
+		if( FileSummary.Tag != PACKAGE_FILE_TAG || FileReader->IsError() )
 		{
 			// Unrecognized or malformed package file
 			return false;

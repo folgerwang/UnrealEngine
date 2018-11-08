@@ -544,34 +544,38 @@ void FMovieSceneCompiler::GatherCompileDataForTrack(FMovieSceneEvaluationTrack& 
 		return Track.HasChildTemplate(EvalData.ImplIndex) && Track.GetChildTemplate(EvalData.ImplIndex).RequiresInitialization();
 	};
 
-	FMovieSceneSequenceTransform SequenceToRootTransform = Params.RootToSequenceTransform.Inverse();
-	FMovieSceneSequenceID CurrentSequenceID              = Params.RootPath.Remap(MovieSceneSequenceID::Root);
+	FMovieSceneSequenceTransform SequenceToRootTransform  = Params.RootToSequenceTransform.Inverse();
+	FMovieSceneSequenceID        CurrentSequenceID        = Params.RootPath.Remap(MovieSceneSequenceID::Root);
+	TRange<FFrameNumber>         CompileClampIntersection = TRange<FFrameNumber>::Intersection(Params.LocalCompileRange, Params.LocalClampRange);
 
-	TArray<FMovieSceneSegmentIdentifier> SegmentIDs      = Track.GetSegmentsInRange(Params.LocalCompileRange);
-	if (SegmentIDs.Num() == 0)
+	FMovieSceneEvaluationTreeRangeIterator TrackIter = Track.IterateFrom(CompileClampIntersection.GetLowerBound());
+	for ( ; TrackIter && TrackIter.Range().Overlaps(CompileClampIntersection); ++TrackIter)
 	{
-		// No segment at this time, so just report the time range of the empty space.
-		TRange<FFrameNumber> EmptyTrackSpace = Track.GetUniqueRangeFromLowerBound(Params.LocalCompileRange.GetLowerBound());
-		TRange<FFrameNumber> ClampedEmptyTrackSpaceRoot = Params.ClampRoot(EmptyTrackSpace * SequenceToRootTransform);
-
-		OutData.EmptySpace.AddTimeRange(ClampedEmptyTrackSpaceRoot);
-	}
-	else for (FMovieSceneSegmentIdentifier SegmentID : SegmentIDs)
-	{
-		const FMovieSceneSegment& ThisSegment = Track.GetSegment(SegmentID);
-
-		FCompileOnTheFlyData Data;
-		Data.Segment = FMovieSceneEvaluationFieldSegmentPtr(CurrentSequenceID, TrackID, SegmentID);
-		Data.GroupEvaluationPriority = GetMovieSceneModule().GetEvaluationGroupParameters(Track.GetEvaluationGroup()).EvaluationPriority;
-		Data.HierarchicalBias = Params.HierarchicalBias;
-		Data.EvaluationPriority = Track.GetEvaluationPriority();
-		Data.Track = &Track;
-		Data.bRequiresInit = ThisSegment.Impls.ContainsByPredicate(RequiresInit);
-
-		TRange<FFrameNumber> IntersectionRange = Params.ClampRoot(ThisSegment.Range * SequenceToRootTransform);
-		if (!IntersectionRange.IsEmpty())
+		FMovieSceneSegmentIdentifier SegmentID = Track.GetSegmentFromIterator(TrackIter);
+		if (!SegmentID.IsValid())
 		{
-			OutData.Tracks.Add(IntersectionRange, Data);
+			// No segment at this time, so just report the time range of the empty space.
+			TRange<FFrameNumber> ClampedEmptyTrackSpaceRoot = Params.ClampRoot(TrackIter.Range() * SequenceToRootTransform);
+			OutData.EmptySpace.AddTimeRange(ClampedEmptyTrackSpaceRoot);
+		}
+		else
+		{
+			const FMovieSceneSegment& ThisSegment = Track.GetSegment(SegmentID);
+
+			FCompileOnTheFlyData Data;
+			Data.Segment = FMovieSceneEvaluationFieldSegmentPtr(CurrentSequenceID, TrackID, SegmentID);
+			Data.GroupEvaluationPriority = GetMovieSceneModule().GetEvaluationGroupParameters(Track.GetEvaluationGroup()).EvaluationPriority;
+			Data.HierarchicalBias = Params.HierarchicalBias;
+			Data.EvaluationPriority = Track.GetEvaluationPriority();
+			Data.Track = &Track;
+			Data.bRequiresInit = ThisSegment.Impls.ContainsByPredicate(RequiresInit);
+
+			TRange<FFrameNumber> SegmentTrackIntersection = TRange<FFrameNumber>::Intersection(ThisSegment.Range, TrackIter.Range());
+			TRange<FFrameNumber> IntersectionRange        = Params.ClampRoot(SegmentTrackIntersection * SequenceToRootTransform);
+			if (!IntersectionRange.IsEmpty())
+			{
+				OutData.Tracks.Add(IntersectionRange, Data);
+			}
 		}
 	}
 }

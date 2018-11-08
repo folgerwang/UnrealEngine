@@ -48,6 +48,15 @@ private:
 	UEngineCustomTimeStep* CustomTimeStep;
 
 public:
+#if WITH_EDITORONLY_DATA
+	/**
+	 * When the profile is the current profile and modifications made it dirty.
+	 * Without re-apply the profile does modification won't take effect.
+	 */
+	bool bNeedToBeReapplied;
+#endif
+
+public:
 
 	/**
 	 * Get the media source for the selected proxy.

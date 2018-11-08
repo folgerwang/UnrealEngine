@@ -614,7 +614,7 @@ UObject* UFbxFactory::FactoryCreateFile
 
 								if ( NewMesh )
 								{
-									if (ImportUI->bImportAnimations)
+									if (ImportOptions->bImportAnimations)
 									{
 										// We need to remove all scaling from the root node before we set up animation data.
 										// Othewise some of the global transform calculations will be incorrect.
@@ -676,7 +676,7 @@ UObject* UFbxFactory::FactoryCreateFile
 							}
 						
 							// import morph target
-							if (CreatedObject && ImportUI->SkeletalMeshImportData->bImportMorphTargets && ImportedSuccessfulLodIndex != INDEX_NONE)
+							if (CreatedObject && ImportOptions->bImportMorph && ImportedSuccessfulLodIndex != INDEX_NONE)
 							{
 								// Disable material importing when importing morph targets
 								uint32 bImportMaterials = ImportOptions->bImportMaterials;

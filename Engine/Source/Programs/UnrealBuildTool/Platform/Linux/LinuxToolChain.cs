@@ -1478,6 +1478,15 @@ namespace UnrealBuildTool
 				if ((AdditionalLibrary.Contains("Plugins") || AdditionalLibrary.Contains("Binaries/ThirdParty") || AdditionalLibrary.Contains("Binaries\\ThirdParty")) && Path.GetDirectoryName(AdditionalLibrary) != Path.GetDirectoryName(OutputFile.AbsolutePath))
 				{
 					string RelativePath = new FileReference(AdditionalLibrary).Directory.MakeRelativeTo(OutputFile.Location.Directory);
+					// On Windows, MakeRelativeTo can silently fail if the engine and the project are located on different drives
+					if (CrossCompiling() && RelativePath.StartsWith(UnrealBuildTool.RootDirectory.FullName))
+					{
+						// do not replace directly, but take care to avoid potential double slashes or missed slashes
+						string PathFromRootDir = RelativePath.Replace(UnrealBuildTool.RootDirectory.FullName, "");
+						// Path.Combine doesn't combine these properly
+						RelativePath = ((PathFromRootDir.StartsWith("\\") || PathFromRootDir.StartsWith("/")) ? "..\\..\\.." : "..\\..\\..\\") + PathFromRootDir;
+					}
+
 					if (!RPaths.Contains(RelativePath))
 					{
 						RPaths.Add(RelativePath);

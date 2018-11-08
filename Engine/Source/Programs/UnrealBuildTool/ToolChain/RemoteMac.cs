@@ -351,7 +351,17 @@ namespace UnrealBuildTool
 			}
 
 			// Compile the rules assembly
-			RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
+			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
+
+			// Create the target rules
+			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault()), new string[0]);
+
+			// Check if we need to enable a nativized plugin, and compile the assembly for that if we do
+			FileReference NativizedPluginFile = Rules.GetNativizedPlugin();
+			if(NativizedPluginFile != null)
+			{
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(NativizedPluginFile, false, RulesAssembly, false);
+			}
 
 			// Path to the local manifest file. This has to be translated from the remote format after the build is complete.
 			List<FileReference> LocalManifestFiles = new List<FileReference>();
@@ -643,7 +653,7 @@ namespace UnrealBuildTool
 			List<string> Arguments = new List<string>(CommonRsyncArguments);
 			Arguments.Add(String.Format("--rsync-path=\"mkdir -p {0} && rsync\"", RemoteDirectory));
 			Arguments.Add(String.Format("\"{0}\"", GetLocalCygwinPath(LocalFile)));
-			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
+			Arguments.Add(String.Format("\"{0}@{1}\":'{2}'", UserName, ServerName, RemoteFile));
 			Arguments.Add("-q");
 
 			int Result = Rsync(String.Join(" ", Arguments));

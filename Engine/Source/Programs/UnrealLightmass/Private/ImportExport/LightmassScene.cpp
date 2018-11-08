@@ -1604,7 +1604,7 @@ FVector PolygonIrradiance( FVector Poly[4] )
  */
 FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalculateForIndirectLighting) const
 {
-	FVector4 ToLight = Position - Point;
+	FVector ToLight = Position - Point;
 
 	FVector AxisY = GetLightTangent();
 	FVector AxisZ = -Direction;
@@ -1613,6 +1613,9 @@ FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalcula
 		LightSourceRadius,
 		LightSourceLength
 	);
+
+	if( ( ToLight | AxisZ ) < 0.0f )
+		return FLinearColor::Black;
 
 	FVector Poly[4];
 	Poly[0] = ToLight - AxisX * Extent.X - AxisY * Extent.Y;
@@ -1625,7 +1628,7 @@ FLinearColor FRectLight::GetDirectIntensity(const FVector4& Point, bool bCalcula
 	// TODO Move CPU cide
 	DistanceAttenuation /= 2 * Extent.X * Extent.Y;
 
-	float DistanceSqr = ToLight.SizeSquared3();
+	float DistanceSqr = ToLight.SizeSquared();
 	float LightRadiusMask = FMath::Square(FMath::Max(0.0f, 1.0f - FMath::Square(DistanceSqr / (Radius * Radius))));
 	DistanceAttenuation *= LightRadiusMask;
 
@@ -1690,6 +1693,23 @@ FVector4 FRectLight::LightCenterPosition(const FVector4& ReceivingPosition, cons
 	float Distance = Dot3( AxisZ, ToLight ) / Dot3( AxisZ, L );
 	return ReceivingPosition + L * Distance;
 #endif
+}
+
+bool FRectLight::AffectsBounds(const FBoxSphereBounds& Bounds) const
+{
+	FPlane Plane( Position, Direction );
+	float DistanceToPlane = ( Bounds.Origin - Position ) | Direction;
+	if( DistanceToPlane < -Bounds.SphereRadius )
+	{
+		return false;
+	}
+
+	if(!FPointLight::AffectsBounds(Bounds))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 /** Returns true if all parts of the light are behind the surface being tested. */

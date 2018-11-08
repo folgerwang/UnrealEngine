@@ -27,7 +27,6 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 	FAssetPickerConfig SystemAssetPickerConfig;
 	SystemAssetPickerConfig.SelectionMode = ESelectionMode::SingleToggle;
 	SystemAssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	SystemAssetPickerConfig.ThumbnailScale = .4f;
 	SystemAssetPickerConfig.Filter.ClassNames.Add(UNiagaraSystem::StaticClass()->GetFName());
 	SystemAssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedSystemAssetsFromPicker);
 	SystemAssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewSystemDialog::OnSystemAssetsActivated);
@@ -37,7 +36,6 @@ void SNewSystemDialog::Construct(const FArguments& InArgs)
 	FAssetPickerConfig EmitterAssetPickerConfig;
 	EmitterAssetPickerConfig.SelectionMode = ESelectionMode::Multi;
 	EmitterAssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	EmitterAssetPickerConfig.ThumbnailScale = .4f;
 	EmitterAssetPickerConfig.Filter.ClassNames.Add(UNiagaraEmitter::StaticClass()->GetFName());
 	EmitterAssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetSelectedEmitterAssetsFromPicker);
 	EmitterAssetPickerConfig.OnAssetsActivated.BindSP(this, &SNewSystemDialog::OnEmitterAssetsActivated);
@@ -158,23 +156,34 @@ TArray<FAssetData> SNewSystemDialog::GetSelectedEmitterAssets() const
 	return ConfirmedSelectedEmitterAssets;
 }
 
-TArray<FAssetData> SNewSystemDialog::GetSelectedSystemTemplateAssets()
+void SNewSystemDialog::GetSelectedSystemTemplateAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return TemplateAssetPicker->GetSelectedAssets();
+	OutSelectedAssets.Append(TemplateAssetPicker->GetSelectedAssets());
+	if (ActivatedTemplateSystemAsset.IsValid())
+	{
+		OutSelectedAssets.AddUnique(ActivatedTemplateSystemAsset);
+	}
 }
 
-TArray<FAssetData> SNewSystemDialog::GetSelectedProjectSystemAssets()
+void SNewSystemDialog::GetSelectedProjectSystemAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return GetSelectedSystemAssetsFromPicker.Execute();
+	OutSelectedAssets.Append(GetSelectedSystemAssetsFromPicker.Execute());
+	if (ActivatedProjectSystemAsset.IsValid())
+	{
+		OutSelectedAssets.AddUnique(ActivatedProjectSystemAsset);
+	}
 }
 
-TArray<FAssetData> SNewSystemDialog::GetSelectedProjectEmiterAssets()
+void SNewSystemDialog::GetSelectedProjectEmiterAssets(TArray<FAssetData>& OutSelectedAssets)
 {
-	return SelectedEmitterAssets;
+	OutSelectedAssets.Append(SelectedEmitterAssets);
 }
 
 void SNewSystemDialog::OnTemplateAssetActivated(const FAssetData& ActivatedTemplateAsset)
 {
+	// Input handling issues with the list view widget can allow items to be activated but not added to the selection so cache this here
+	// so it can be included in the selection set.
+	ActivatedTemplateSystemAsset = ActivatedTemplateAsset;
 	ConfirmSelection();
 }
 
@@ -182,6 +191,9 @@ void SNewSystemDialog::OnSystemAssetsActivated(const TArray<FAssetData>& Activat
 {
 	if ((ActivationMethod == EAssetTypeActivationMethod::DoubleClicked || ActivationMethod == EAssetTypeActivationMethod::Opened) && ActivatedAssets.Num() == 1)
 	{
+		// Input handling issues with the list view widget can allow items to be activated but not added to the selection so cache this here
+		// so it can be included in the selection set.
+		ActivatedProjectSystemAsset = ActivatedAssets[0];
 		ConfirmSelection();
 	}
 }

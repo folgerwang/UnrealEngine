@@ -639,6 +639,12 @@ void FGenericCrashContext::AddPlugin(const FString& PluginDesc)
 
 FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context)
 {
+	// If the callstack is for the executing thread, ignore this function
+	if(Context == nullptr)
+	{
+		NumStackFramesToIgnore++;
+	}
+
 	const int32 MaxDepth = 100;
 	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
 	return SetPortableCallStack(NumStackFramesToIgnore, Stack);

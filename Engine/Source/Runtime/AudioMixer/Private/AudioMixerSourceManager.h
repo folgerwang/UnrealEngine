@@ -342,6 +342,8 @@ namespace Audio
 		FThreadSafeCounter AudioThreadCommandBufferIndex;
 		FThreadSafeCounter RenderThreadCommandBufferIndex;
 
+		FEvent* CommandsProcessedEvent;
+
 		TArray<int32> DebugSoloSources;
 
 		struct FSubmixChannelTypeInfo

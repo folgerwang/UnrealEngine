@@ -282,7 +282,10 @@ private:
 	// Callback for persisting the Level Editor's layout.
 	void HandleTabManagerPersistLayout( const TSharedRef<FTabManager::FLayout>& LayoutToSave )
 	{
-		FLayoutSaveRestore::SaveToConfig(GEditorLayoutIni, LayoutToSave);
+		if (FUnrealEdMisc::Get().IsSavingLayoutOnClosedAllowed())
+		{
+			FLayoutSaveRestore::SaveToConfig(GEditorLayoutIni, LayoutToSave);
+		}
 	}
 
 private:

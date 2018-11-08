@@ -68,7 +68,11 @@ FIOSInputInterface::FIOSInputInterface( const TSharedRef< FGenericApplicationMes
 
 	FMemory::Memzero(Controllers, sizeof(Controllers));
 	
+#if !PLATFORM_TVOS
 	HapticFeedbackSupportLevel = [[[UIDevice currentDevice] valueForKey:@"_feedbackSupportLevel"] intValue];
+#else
+	HapticFeedbackSupportLevel = 0;
+#endif
 }
 
 void FIOSInputInterface::SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )

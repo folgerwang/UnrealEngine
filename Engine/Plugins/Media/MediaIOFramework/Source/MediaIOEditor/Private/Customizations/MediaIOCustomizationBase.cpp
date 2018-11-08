@@ -114,7 +114,6 @@ void FMediaIOCustomizationBase::CustomizeChildren(TSharedRef<IPropertyHandle> In
 			StructBuilder.AddProperty(InStructPropertyHandle->GetChildHandle(Index).ToSharedRef()).IsEnabled(false).ShowPropertyButtons(false);
 		}
 	}
-	InStructPropertyHandle->MarkHiddenByCustomization();
 }
 
 void FMediaIOCustomizationBase::AssignValueImpl(const void* NewValue) const
