@@ -2921,6 +2921,60 @@ void FMetalCodeBackend::ConvertHalfToFloatUniformsAndSamples(exec_list* ir, _mes
 	}
 }
 
+struct FMetalInsertSamplerStates final : public ir_rvalue_visitor
+{
+	_mesa_glsl_parse_state* State;
+	TMap<FString, ir_variable*> SamplerStates;
+	
+	FMetalInsertSamplerStates(_mesa_glsl_parse_state* InState) : State(InState)
+	{}
+	virtual ~FMetalInsertSamplerStates() { }
+	
+	virtual ir_visitor_status visit_leave(ir_texture * tex_op)
+	{
+		switch (tex_op->op)
+		{
+			case ir_tex:
+			case ir_txl:
+			case ir_txb:
+			case ir_txd:
+			case ir_txg:
+				if (tex_op->SamplerStateName && strlen(tex_op->SamplerStateName) > 0 && !tex_op->SamplerState)
+				{
+					ir_variable* Sampler = SamplerStates.FindRef(tex_op->SamplerStateName);
+					if (!Sampler)
+					{
+						Sampler = new (State)ir_variable(glsl_type::sampler_state_type, ralloc_strdup(State, tex_op->SamplerStateName), ir_var_uniform);
+						SamplerStates.Add(tex_op->SamplerStateName, Sampler);
+					}
+					ir_dereference_variable* Deref = new (State)ir_dereference_variable(Sampler);
+					tex_op->SamplerState = Deref;
+				}
+				break;
+			default:
+				break;
+		}
+		return ir_rvalue_visitor::visit_leave(tex_op);
+	}
+	
+	virtual void handle_rvalue(ir_rvalue** RValuePtr) override
+	{
+	}
+};
+
+void FMetalCodeBackend::InsertSamplerStates(exec_list* ir, _mesa_glsl_parse_state* State)
+{
+	FMetalInsertSamplerStates Visitor(State);
+	Visitor.run(ir);
+	
+	ir_function_signature* MainSig = GetMainFunction(ir);
+	check(MainSig);
+	for (auto const& Pair : Visitor.SamplerStates)
+	{
+		MainSig->parameters.push_tail(Pair.Value);
+	}
+}
+
 struct FMetalBreakPrecisionChangesVisitor final : public ir_rvalue_visitor
 {
 	_mesa_glsl_parse_state* State;

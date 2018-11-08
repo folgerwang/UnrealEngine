@@ -1054,7 +1054,18 @@ protected:
 				{
 					auto* PtrType = var->type->is_array() ? var->type->element_type() : var->type;
 					check(!PtrType->is_array());
-					if (var->type->is_sampler())
+					if (var->type->base_type == GLSL_TYPE_SAMPLER_STATE)
+					{
+						bool bAdded = false;
+						int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(var->name, true, bAdded);
+						if (bAdded)
+						{
+							ralloc_asprintf_append(
+												   buffer,
+												   "sampler %s [[ sampler(%d) ]]", var->name, SamplerStateIndex);
+						}
+					}
+					else if (var->type->is_sampler())
 					{
 						if (var->type->sampler_buffer)
 						{
@@ -1102,23 +1113,6 @@ protected:
 							// Regular textures
 							auto* Entry = ParseState->FindPackedSamplerEntry(var->name);
 							check(Entry);
-							//@todo-rco: SamplerStates
-							auto SamplerStateFound = ParseState->TextureToSamplerMap.find(Entry->Name.c_str());
-							if (SamplerStateFound != ParseState->TextureToSamplerMap.end())
-							{
-								auto& SamplerStates = SamplerStateFound->second;
-								for (auto& SamplerState : SamplerStates)
-								{
-									bool bAdded = false;
-									int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(SamplerState, true, bAdded);
-									if (bAdded)
-									{
-										ralloc_asprintf_append(
-											buffer,
-											"sampler %s [[ sampler(%d) ]], ", SamplerState.c_str(), SamplerStateIndex);
-									}
-								}
-							}
 
 							print_type_pre(PtrType);
 							const char* InnerType = "float";
@@ -1957,11 +1951,21 @@ protected:
 			
 			auto* Texture = tex->sampler->variable_referenced();
 			check(Texture);
-			auto* Entry = ParseState->FindPackedSamplerEntry(Texture->name);
-			bool bDummy;
-			int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(tex->SamplerStateName, false, bDummy);
-			check(SamplerStateIndex != INDEX_NONE);
-			ralloc_asprintf_append(buffer, "%s, ", tex->SamplerStateName);
+			
+			if (tex->SamplerState)
+			{
+				tex->SamplerState->accept(this);
+				ralloc_asprintf_append(buffer, ", ");
+			}
+			else
+			{
+				auto* Entry = ParseState->FindPackedSamplerEntry(Texture->name);
+				bool bDummy;
+				check(Entry);
+				int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(tex->SamplerStateName, false, bDummy);
+				check(SamplerStateIndex != INDEX_NONE);
+				ralloc_asprintf_append(buffer, "%s, ", tex->SamplerStateName);
+			}
 			
 			bool bLocalCubeArrayHacks = false;
 			if (tex->sampler->type->sampler_array)
@@ -2193,11 +2197,22 @@ protected:
 			// Sampler
 			auto* Texture = tex->sampler->variable_referenced();
 			check(Texture);
-			bool bDummy;
-			auto* Entry = ParseState->FindPackedSamplerEntry(Texture->name);
-			int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(tex->SamplerStateName, false, bDummy);
-			check(SamplerStateIndex != INDEX_NONE);
-			ralloc_asprintf_append(buffer, "%s, ", tex->SamplerStateName);
+			
+			if (tex->SamplerState)
+			{
+				tex->SamplerState->accept(this);
+				ralloc_asprintf_append(buffer, ", ");
+			}
+			else
+			{
+				bool bDummy;
+				auto* Entry = ParseState->FindPackedSamplerEntry(Texture->name);
+				check (Entry);
+				int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(tex->SamplerStateName, false, bDummy);
+				check(SamplerStateIndex != INDEX_NONE);
+				ralloc_asprintf_append(buffer, "%s, ", tex->SamplerStateName);
+			}
+			
 			// Coord
 			tex->coordinate->accept(this);
 
@@ -4445,6 +4460,8 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 
 		bool bConvertUniformsToFloats = (HlslCompileFlags & HLSLCC_FlattenUniformBuffers) != HLSLCC_FlattenUniformBuffers;
 		ConvertHalfToFloatUniformsAndSamples(ir, state, bConvertUniformsToFloats, true);
+		
+		InsertSamplerStates(ir, state);
 		
 		Validate(ir, state);
 	}
