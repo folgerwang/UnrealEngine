@@ -196,6 +196,10 @@ namespace UnrealBuildTool
 			{
 				return true;
 			}
+			if(IsEnterpriseInstalled() && File.IsUnderDirectory(EnterpriseDirectory))
+			{
+				return true;
+			}
 			if(IsProjectInstalled() && File.IsUnderDirectory(InstalledProjectFile.Directory))
 			{
 				return true;
