@@ -401,11 +401,19 @@ bool do_structure_splitting(exec_list *instructions, _mesa_glsl_parse_state * st
 				entry->var->name,
 				type->fields.structure[i].name);
 
-			entry->components[i] =
-				new(state) ir_variable(type->fields.structure[i].type,
-				name,
-				ir_var_temporary);
-			entry->var->insert_before(entry->components[i]);
+			ir_variable* var = state->symbols->get_variable(name);
+			if (var)
+			{
+				entry->components[i] = var;
+			}
+			else
+			{
+				entry->components[i] =
+					new(state) ir_variable(type->fields.structure[i].type,
+					name,
+					ir_var_temporary);
+				entry->var->insert_before(entry->components[i]);
+			}
 		}
 
 		entry->var->remove();
