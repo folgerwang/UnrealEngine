@@ -504,6 +504,14 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					SortedLightInfo->SortKey.Fields.bShadowed = bDynamicShadows && CheckForProjectedShadows(LightSceneInfo);
 					SortedLightInfo->SortKey.Fields.bLightFunction = ViewFamily.EngineShowFlags.LightFunctions && CheckForLightFunction(LightSceneInfo);
 					SortedLightInfo->SortKey.Fields.bUsesLightingChannels = Views[ViewIndex].bUsesLightingChannels && LightSceneInfo->Proxy->GetLightingChannelMask() != GetDefaultLightingChannelMask();
+
+					// tiled deferred lighting only supported for certain lights that don't use any additional features
+					const bool bTiledDeferredSupported = LightSceneInfo->Proxy->IsTiledDeferredLightingSupported() &&
+						!SortedLightInfo->SortKey.Fields.bTextureProfile &&
+						!SortedLightInfo->SortKey.Fields.bShadowed &&
+						!SortedLightInfo->SortKey.Fields.bLightFunction &&
+						!SortedLightInfo->SortKey.Fields.bUsesLightingChannels;
+					SortedLightInfo->SortKey.Fields.bTiledDeferredNotSupported = !bTiledDeferredSupported;
 					break;
 				}
 			}
@@ -527,40 +535,28 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 		int32 AttenuationLightStart = SortedLights.Num();
 		int32 SupportedByTiledDeferredLightEnd = SortedLights.Num();
-		bool bAnyUnsupportedByTiledDeferred = false;
 
 		// Iterate over all lights to be rendered and build ranges for tiled deferred and unshadowed lights
 		for (int32 LightIndex = 0; LightIndex < SortedLights.Num(); LightIndex++)
 		{
 			const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
-			bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
-			bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
-			bool bTextureLightProfile = SortedLightInfo.SortKey.Fields.bTextureProfile;
-			bool bLightingChannels = SortedLightInfo.SortKey.Fields.bUsesLightingChannels;
+			const bool bDrawShadows = SortedLightInfo.SortKey.Fields.bShadowed;
+			const bool bDrawLightFunction = SortedLightInfo.SortKey.Fields.bLightFunction;
+			const bool bTextureLightProfile = SortedLightInfo.SortKey.Fields.bTextureProfile;
+			const bool bLightingChannels = SortedLightInfo.SortKey.Fields.bUsesLightingChannels;
 
-			if (bTextureLightProfile && SupportedByTiledDeferredLightEnd == SortedLights.Num())
+			if (SortedLightInfo.SortKey.Fields.bTiledDeferredNotSupported && SupportedByTiledDeferredLightEnd == SortedLights.Num())
 			{
-				// Mark the first index to not support tiled deferred due to texture light profile
+				// Mark the first index to not support tiled deferred
 				SupportedByTiledDeferredLightEnd = LightIndex;
 			}
 
 			if (bDrawShadows || bDrawLightFunction || bLightingChannels)
 			{
+				// Once we find a shadowed light, we can exit the loop, these lights should never support tiled deferred rendering either
+				check(SortedLightInfo.SortKey.Fields.bTiledDeferredNotSupported);
 				AttenuationLightStart = LightIndex;
-
-				if (SupportedByTiledDeferredLightEnd == SortedLights.Num())
-				{
-					// Mark the first index to not support tiled deferred due to shadowing
-					SupportedByTiledDeferredLightEnd = LightIndex;
-				}
 				break;
-			}
-
-			if (LightIndex < SupportedByTiledDeferredLightEnd)
-			{
-				// Directional lights currently not supported by tiled deferred
-				bAnyUnsupportedByTiledDeferred = bAnyUnsupportedByTiledDeferred 
-					|| (SortedLightInfo.SortKey.Fields.LightType != LightType_Point && SortedLightInfo.SortKey.Fields.LightType != LightType_Spot);
 			}
 		}
 		
@@ -592,7 +588,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				}
 
 				// Use tiled deferred shading on any unshadowed lights without a texture light profile
-				if (ShouldUseTiledDeferred(SupportedByTiledDeferredLightEnd, SimpleLights.InstanceData.Num()) && !bAnyUnsupportedByTiledDeferred && !bAnyViewIsStereo)
+				if (ShouldUseTiledDeferred(SupportedByTiledDeferredLightEnd, SimpleLights.InstanceData.Num()) && !bAnyViewIsStereo)
 				{
 					// Update the range that needs to be processed by standard deferred to exclude the lights done with tiled
 					StandardDeferredStart = SupportedByTiledDeferredLightEnd;

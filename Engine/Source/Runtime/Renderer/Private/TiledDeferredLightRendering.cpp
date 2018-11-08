@@ -223,11 +223,14 @@ public:
 					LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
 				}
 
+				// Lights with non-0 length don't support tiled deferred pass, should not have gotten into this list
+				ensure(LightParameters.LightSourceLength==0.0f);
+
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(
 						LightParameters.SpotAngles.X,
 						LightParameters.SpotAngles.Y,
 						LightParameters.LightSourceRadius,
-						LightParameters.LightSourceLength);
+						0.0f);
 
 				int32 ShadowMapChannel = LightSceneInfo->Proxy->GetShadowMapChannel();
 
@@ -250,7 +253,7 @@ public:
 				LightData.LightPositionAndInvRadius[LightIndex] = FVector4(SimpleLightPerViewData.Position, 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER));
 				LightData.LightColorAndFalloffExponent[LightIndex] = FVector4(SimpleLight.Color, SimpleLight.Exponent);
 				LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(FVector(1, 0, 0), 0);
-				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(-2, 1, 0, -1);
+				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(-2, 1, 0, 1.0f);
 				LightData2.ShadowMapChannelMask[LightIndex] = FVector4(0, 0, 0, 0);
 			}
 		}
