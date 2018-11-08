@@ -891,8 +891,9 @@ void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& Ou
 	if (NumUAVs > 0)
 	{
 		check(UAVIndex != -1);
-		check(UAVIndex >= OutRTInfo.NumColorRenderTargets);
-		OutRTInfo.NumColorRenderTargets = UAVIndex;
+		int32 StartingUAVIndex = FMath::Max(UAVIndex, OutRTInfo.NumColorRenderTargets);
+		check((StartingUAVIndex+NumUAVs) <= MaxSimultaneousUAVs);
+		OutRTInfo.NumColorRenderTargets = StartingUAVIndex;
 		for (int32 Index = 0; Index < NumUAVs; ++Index)
 		{
 			OutRTInfo.UnorderedAccessView[Index] = UAVs[Index];
