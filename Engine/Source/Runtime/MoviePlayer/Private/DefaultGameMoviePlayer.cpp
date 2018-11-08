@@ -108,10 +108,10 @@ FDefaultGameMoviePlayer::FDefaultGameMoviePlayer()
 	, LoadingIsDone(1)
 	, IsMoviePlaying(false)
 	, bUserCalledFinish(false)
+	, bMainWindowClosed(false)
 	, LoadingScreenAttributes()
 	, LastPlayTime(0.0)
 	, bInitialized(false)
-	, bMainWindowClosed(false)
 {
 	FCoreDelegates::IsLoadingMovieCurrentlyPlaying.BindRaw(this, &FDefaultGameMoviePlayer::IsMovieCurrentlyPlaying);
     FCoreDelegates::RegisterMovieStreamerDelegate.AddRaw(this, &FDefaultGameMoviePlayer::RegisterMovieStreamer);
