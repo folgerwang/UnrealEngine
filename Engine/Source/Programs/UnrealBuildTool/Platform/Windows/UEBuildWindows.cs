@@ -188,6 +188,11 @@ namespace UnrealBuildTool
 		public bool bBuildLargeAddressAwareBinary = true;
 
 		/// <summary>
+		/// Create an image that can be hot patched (/FUNCTIONPADMIN)
+		/// </summary>
+		public bool bCreateHotPatchableImage = false;
+
+		/// <summary>
 		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
 		/// </summary>
 		internal VCEnvironment Environment;
@@ -348,6 +353,11 @@ namespace UnrealBuildTool
 			get { return Inner.bBuildLargeAddressAwareBinary; }
 		}
 
+		public bool bCreateHotpatchableImage
+		{
+			get { return Inner.bCreateHotPatchableImage; }
+		}
+
 		public string GetVisualStudioCompilerVersionName()
 		{
 			return Inner.GetVisualStudioCompilerVersionName();
@@ -440,6 +450,20 @@ namespace UnrealBuildTool
 		public override SDKStatus HasRequiredSDKsInstalled()
 		{
 			return SDK.HasRequiredSDKsInstalled();
+		}
+
+		/// <summary>
+		/// Reset a target's settings to the default
+		/// </summary>
+		/// <param name="Target"></param>
+		public override void ResetTarget(TargetRules Target)
+		{
+			base.ResetTarget(Target);
+
+			if(Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				Target.WindowsPlatform.bCreateHotPatchableImage = true;
+			}
 		}
 
 		/// <summary>
