@@ -1249,13 +1249,21 @@ void FMetalCodeBackend::MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse
 					check(false);
 					break;
 			}
-			if (bIsBuffer)
+			if (Var->type->is_sampler() || Var->type->is_image() || Var->type->is_record() || Var->mode == ir_var_uniform)
 			{
-				OutBuffers.AddBuffer(Var);
+				if (bIsBuffer)
+				{
+					OutBuffers.AddBuffer(Var);
+				}
+				else
+				{
+					OutBuffers.AddTexture(Var);
+				}
 			}
 			else
 			{
-				OutBuffers.AddTexture(Var);
+				Var->remove();
+				MainSig->parameters.push_tail(Var);
 			}
 		}
 	}

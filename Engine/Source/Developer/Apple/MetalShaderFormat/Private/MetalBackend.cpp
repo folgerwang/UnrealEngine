@@ -2114,7 +2114,7 @@ protected:
 					ralloc_asprintf_append(buffer, ", ");
 					tex->coordinate->accept(this);
 					if (bInsertSideTable)
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes)", Index);
+						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, BufferSizes)", Index);
 					else
 						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d)", Index);
 				}
@@ -2131,7 +2131,7 @@ protected:
                         ralloc_asprintf_append(buffer, ", ");
                         tex->coordinate->accept(this);
 						if (bInsertSideTable)
-	                        ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes)");
+	                        ralloc_asprintf_append(buffer, ", BufferSizes)");
 					}
                     else
                     {
@@ -2476,7 +2476,7 @@ protected:
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
 						if (bInsertSideTable)
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes)", Index);
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, BufferSizes)", Index);
 						else
 							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d)", Index);
 					}
@@ -2492,7 +2492,7 @@ protected:
                             ralloc_asprintf_append(buffer, ", ");
                             deref->image_index->accept(this);
 							if (bInsertSideTable)
-	                            ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes)");
+	                            ralloc_asprintf_append(buffer, ", BufferSizes)");
                         }
                         else
                         {
@@ -2636,7 +2636,7 @@ protected:
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
 						if (bInsertSideTable)
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, (constant buffer_meta_table*)BufferSizes, ", Index);
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, BufferSizes, ", Index);
 						else
 							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, ", Index);
 						src->accept(this);
@@ -2654,7 +2654,7 @@ protected:
                         ralloc_asprintf_append(buffer, ", ");
                         deref->image_index->accept(this);
 						if (bInsertSideTable)
-	                        ralloc_asprintf_append(buffer, ", (constant buffer_meta_table*)BufferSizes, ");
+	                        ralloc_asprintf_append(buffer, ", BufferSizes, ");
 						else
 	                        ralloc_asprintf_append(buffer, ", ");
                         src->accept(this);
