@@ -4150,6 +4150,12 @@ ALevelScriptActor* UWorld::GetLevelScriptActor( ULevel* OwnerLevel ) const
 }
 
 
+AWorldSettings* UWorld::K2_GetWorldSettings()
+{
+	return GetWorldSettings(/*bCheckStreamingPersistent*/false, /*bChecked*/false);
+}
+
+
 AWorldSettings* UWorld::GetWorldSettings( const bool bCheckStreamingPersistent, const bool bChecked ) const
 {
 	checkSlow(!IsInActualRenderingThread());
