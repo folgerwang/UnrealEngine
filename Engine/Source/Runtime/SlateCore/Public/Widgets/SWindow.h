@@ -48,6 +48,7 @@ DECLARE_MULTICAST_DELEGATE( FOnWindowDeactivatedEvent );
 
 /** Notification that a window is about to be closed */
 DECLARE_DELEGATE_OneParam( FOnWindowClosed, const TSharedRef<SWindow>& );
+DECLARE_MULTICAST_DELEGATE_OneParam( FOnWindowClosedEvent, const TSharedRef<SWindow>& );
 
 /** Notification that a window has been moved */
 DECLARE_DELEGATE_OneParam( FOnWindowMoved, const TSharedRef<SWindow>& );
@@ -566,6 +567,9 @@ public:
 
 	/** Sets the delegate to execute right before the window is closed */
 	void SetOnWindowClosed( const FOnWindowClosed& InDelegate );
+
+	/** Gets the multicast delegate to execute right before the window is closed */
+	FOnWindowClosedEvent& GetOnWindowClosedEvent() { return WindowClosedEvent; }
 
 	/** Sets the delegate to execute right after the window has been moved */
 	void SetOnWindowMoved( const FOnWindowMoved& InDelegate);
@@ -1095,6 +1099,7 @@ protected:
 
 	/** Invoked when the window is about to be closed. */
 	FOnWindowClosed OnWindowClosed;
+	FOnWindowClosedEvent WindowClosedEvent;
 
 	/** Invoked when the window is moved */
 	FOnWindowMoved OnWindowMoved;

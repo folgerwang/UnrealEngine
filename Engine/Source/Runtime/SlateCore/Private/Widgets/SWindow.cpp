@@ -1271,10 +1271,11 @@ void SWindow::DestroyWindowImmediately()
 	}
 }
 
-/** Calls the OnWindowClosed delegate when this window is about to be closed */
+/** Calls OnWindowClosed delegate and WindowClosedEvent when this window is about to be closed */
 void SWindow::NotifyWindowBeingDestroyed()
 {
 	OnWindowClosed.ExecuteIfBound( SharedThis( this ) );
+	WindowClosedEvent.Broadcast( SharedThis( this ) );
 
 #if WITH_EDITOR
 	if(bIsModalWindow)

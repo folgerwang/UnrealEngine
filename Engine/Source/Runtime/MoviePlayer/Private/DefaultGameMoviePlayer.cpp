@@ -111,6 +111,7 @@ FDefaultGameMoviePlayer::FDefaultGameMoviePlayer()
 	, LoadingScreenAttributes()
 	, LastPlayTime(0.0)
 	, bInitialized(false)
+	, bMainWindowClosed(false)
 {
 	FCoreDelegates::IsLoadingMovieCurrentlyPlaying.BindRaw(this, &FDefaultGameMoviePlayer::IsMovieCurrentlyPlaying);
     FCoreDelegates::RegisterMovieStreamerDelegate.AddRaw(this, &FDefaultGameMoviePlayer::RegisterMovieStreamer);
@@ -238,11 +239,25 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer, TShare
 	}
 
 	MainWindow = GameWindow;
+
+	GameWindow->GetOnWindowClosedEvent().AddRaw(this, &FDefaultGameMoviePlayer::OnMainWindowClosed);
+}
+
+void FDefaultGameMoviePlayer::OnMainWindowClosed(const TSharedRef<SWindow>& Window)
+{
+	bMainWindowClosed = true;
 }
 
 void FDefaultGameMoviePlayer::Shutdown()
 {
 	UE_LOG(LogMoviePlayer, Log, TEXT("Shutting down movie player"));
+
+	TSharedPtr<SWindow> MainWindowShared = MainWindow.Pin();
+	if (MainWindowShared.IsValid())
+	{
+		MainWindowShared->GetOnWindowClosedEvent().RemoveAll(this);
+		MainWindowShared.Reset();
+	}
 
 	StopMovie();
 	WaitForMovieToFinish();
@@ -451,8 +466,12 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 			if (FSlateApplication::IsInitialized())
 			{
 				// Break out of the loop if the main window is closed during the movie.
-				if ( !MainWindow.IsValid() )
+				if ( !MainWindow.IsValid() || bMainWindowClosed.Load() )
 				{
+					if (MovieStreamer.IsValid())
+					{
+						MovieStreamer->ForceCompletion();
+					}
 					break;
 				}
 
