@@ -678,6 +678,7 @@ struct FHlslccMetalHeader : public CrossCompiler::FHlslccHeader
 	uint32 TessellationControlPointIndexBuffer;
 	EMetalOutputWindingMode TessellationOutputWinding;
 	EMetalPartitionMode TessellationPartitioning;
+	int8 SideTable;
 	uint8 Version;
 	bool bUsingTessellation;
 };
@@ -699,6 +700,7 @@ FHlslccMetalHeader::FHlslccMetalHeader(uint8 const InVersion, bool const bInUsin
 	TessellationControlPointOutBuffer = UINT_MAX;
 	TessellationControlPointIndexBuffer = UINT_MAX;
 	
+	SideTable = -1;
 	Version = InVersion;
 	bUsingTessellation = bInUsingTessellation;
 }
@@ -726,7 +728,35 @@ static const int32 Str##PrefixLen = FCStringAnsi::Strlen(Str##Prefix)
 	DEF_PREFIX_STR(TessellationHSTFOutBuffer);
 	DEF_PREFIX_STR(TessellationControlPointOutBuffer);
 	DEF_PREFIX_STR(TessellationControlPointIndexBuffer);
+	DEF_PREFIX_STR(SideTable);
 #undef DEF_PREFIX_STR
+	
+	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(ShaderSource, SideTablePrefix);
+	if (SideTableString)
+	{
+		ShaderSource = SideTableString;
+		ShaderSource += SideTablePrefixLen;
+		while (*ShaderSource && *ShaderSource != '\n')
+		{
+			if (*ShaderSource == '(')
+			{
+				ShaderSource++;
+				if (*ShaderSource && *ShaderSource != '\n')
+				{
+					SideTable = (int8)ParseNumber(ShaderSource);
+				}
+			}
+			else
+			{
+				ShaderSource++;
+			}
+		}
+		if (SideTable < 0)
+		{
+			UE_LOG(LogMetalShaderCompiler, Fatal, TEXT("Couldn't parse the SideTable buffer index for bounds checking"));
+			return false;
+		}
+	}
 	
 	// Early out for non-tessellation...
 	if (Version < 2 || !bUsingTessellation)
@@ -969,8 +999,6 @@ void BuildMetalShaderOutput(
 		UE_LOG(LogMetalShaderCompiler, Fatal, TEXT("Bad hlslcc header found"));
 	}
 	
-	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(USFSource, "@SideTable: ");
-	
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
 	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT || ShaderInput.Target.Platform == SP_METAL_TVOS || ShaderInput.Target.Platform == SP_METAL_MRT_TVOS);
 	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
@@ -1038,34 +1066,6 @@ void BuildMetalShaderOutput(
 		Header.Bindings.TypedBuffers = 0;
 		Header.Bindings.InvariantBuffers = InvariantBuffers|TypedBuffers;
 		Header.Bindings.TypedBufferFormats = TypedBufferFormats;
-	}
-	
-	if (SideTableString)
-	{
-		int32 SideTableLoc = -1;
-		while (*SideTableString && *SideTableString != '\n')
-		{
-			if (*SideTableString == '(')
-			{
-				SideTableString++;
-				if (*SideTableString && *SideTableString != '\n')
-				{
-					SideTableLoc = (int32)ParseNumber(SideTableString);
-				}
-			}
-			else
-			{
-				SideTableString++;
-			}
-		}
-		if (SideTableLoc >= 0)
-		{
-			Header.SideTable = SideTableLoc;
-		}
-		else
-		{
-			UE_LOG(LogMetalShaderCompiler, Fatal, TEXT("Couldn't parse the SideTable buffer index for bounds checking"));
-		}
 	}
 	
 	FShaderParameterMap& ParameterMap = ShaderOutput.ParameterMap;
@@ -1270,6 +1270,7 @@ void BuildMetalShaderOutput(
 	Header.TessellationOutputAttribs            = TessOutputAttribs;
 	Header.bTessFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "indexBufferType [[ function_constant(32) ]]") != nullptr);
 	Header.bDeviceFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "#define __METAL_DEVICE_CONSTANT_INDEX__ 1") != nullptr);
+	Header.SideTable 							= CCHeader.SideTable;
 	
 	// Build the SRT for this shader.
 	{
