@@ -318,7 +318,7 @@ void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInf
 	const bool bIsEnsure = true;
 
 	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
-	CrashContext.SetPortableCallStack(0, Stack);
+	CrashContext.SetPortableCallStack(Stack);
 
 	EErrorReportUI ReportUI = IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode;
 	ReportCrashUsingCrashReportClient(CrashContext, nullptr, ErrorMessage, ReportUI, bIsEnsure);
@@ -567,6 +567,9 @@ private:
 		//     RaiseException()
 		const int32 IgnoreCount = FDebug::HasAsserted() ? 4 : 0;
 		CrashContext.CapturePortableCallStack(IgnoreCount, ContextWrapper);
+
+		// Also mark the same number of frames to be ignored if we symbolicate from the minidump
+		CrashContext.SetNumMinidumpFramesToIgnore(IgnoreCount);
 
 		// First launch the crash reporter client.
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP

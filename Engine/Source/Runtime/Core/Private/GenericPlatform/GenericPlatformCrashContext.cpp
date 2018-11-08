@@ -257,6 +257,7 @@ void FGenericCrashContext::UpdateLocalizedStrings()
 
 FGenericCrashContext::FGenericCrashContext()
 	: bIsEnsure(false)
+	, NumMinidumpFramesToIgnore(0)
 {
 	CommonBuffer.Reserve( 32768 );
 	CrashContextIndex = StaticCrashContextIndex++;
@@ -324,7 +325,8 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddCrashProperty( TEXT( "EpicAccountId" ), *NCachedCrashContextProperties::EpicAccountId );
 
 	// Legacy callstack element for current crash reporter
-	AddCrashProperty(TEXT("CallStack"), TEXT(""));
+	AddCrashProperty( TEXT( "NumMinidumpFramesToIgnore"), NumMinidumpFramesToIgnore );
+	AddCrashProperty( TEXT( "CallStack" ), TEXT("") );
 
 	// Add new portable callstack element with crash stack
 	AddPortableCallStack();
@@ -403,6 +405,11 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 #endif // PLATFORM_DESKTOP
 
 	AddFooter();
+}
+
+void FGenericCrashContext::SetNumMinidumpFramesToIgnore(int InNumMinidumpFramesToIgnore)
+{
+	NumMinidumpFramesToIgnore = InNumMinidumpFramesToIgnore;
 }
 
 void FGenericCrashContext::SetDeploymentName(const FString& EpicApp)
@@ -647,10 +654,10 @@ FORCENOINLINE void FGenericCrashContext::CapturePortableCallStack(int32 NumStack
 
 	const int32 MaxDepth = 100;
 	TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(NumStackFramesToIgnore, MaxDepth, Context);
-	return SetPortableCallStack(NumStackFramesToIgnore, Stack);
+	return SetPortableCallStack(Stack);
 }
 
-void FGenericCrashContext::SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack)
+void FGenericCrashContext::SetPortableCallStack(const TArray<FProgramCounterSymbolInfo>& Stack)
 {
 	uint32 ModuleEntries = (uint32)FPlatformStackWalk::GetProcessModuleCount();
 

@@ -644,7 +644,7 @@ void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInf
 
 		const bool bIsEnsure = true;
 		FUnixCrashContext EnsureContext(bIsEnsure);
-		EnsureContext.SetPortableCallStack(0, Stack);
+		EnsureContext.SetPortableCallStack(Stack);
 		EnsureContext.GenerateCrashInfoAndLaunchReporter(true);
 
 		bReentranceGuard = false;
