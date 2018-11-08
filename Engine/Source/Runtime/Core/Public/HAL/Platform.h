@@ -624,6 +624,11 @@
 	#define COMPILE_ERROR(x) GCC_DIAGNOSTIC_HELPER(GCC error x)
 #endif
 
+// Tells the compiler to put the decorated function in a certain section (aka. segment) of the executable.
+#ifndef PLATFORM_CODE_SECTION
+	#define PLATFORM_CODE_SECTION(Name)
+#endif
+
 // These have to be forced inline on some OSes so the dynamic loader will not
 // resolve to our allocators for the system libraries.
 #ifndef OPERATOR_NEW_INLINE

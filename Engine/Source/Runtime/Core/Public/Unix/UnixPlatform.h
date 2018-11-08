@@ -64,6 +64,8 @@ typedef FUnixPlatformTypes FPlatformTypes;
 	#define PLATFORM_BREAK()							raise(SIGTRAP)
 #endif // PLATFORM_CPU_X86_FAMILY
 
+#define PLATFORM_CODE_SECTION(Name)						__attribute__((section(Name)))
+
 #define PLATFORM_ENABLE_POPCNT_INTRINSIC				1
 
 #if __has_feature(cxx_decltype_auto)

@@ -103,6 +103,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 	#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  __pragma(clang optimize on)
 #endif
 
+// Tells the compiler to put the decorated function in a certain section (aka. segment) of the executable.
+#define PLATFORM_CODE_SECTION(Name) __declspec(code_seg(Name)) 
+
 // Backwater of the spec. All compilers support this except microsoft, and they will soon
 #if !defined(__clang__)		// Clang expects typename outside template
 	#define TYPENAME_OUTSIDE_TEMPLATE
