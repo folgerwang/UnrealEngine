@@ -1093,11 +1093,6 @@ void FObjectReplicator::PostReceivedBunch()
 
 	// Call RepNotifies
 	CallRepNotifies(true);
-
-	if (!Object->IsPendingKill())
-	{
-		Object->PostRepNotifies();
-	}
 }
 
 static FORCEINLINE FPropertyRetirement ** UpdateAckedRetirements( FPropertyRetirement &	Retire, const int32 OutAckPacketId, const UObject* Object )
@@ -1612,6 +1607,11 @@ void FObjectReplicator::CallRepNotifies(bool bSkipIfChannelHasQueuedBunches)
 
 	RepNotifies.Reset();
 	RepNotifyMetaData.Empty();
+
+	if (!Object->IsPendingKill())
+	{
+		Object->PostRepNotifies();
+	}
 }
 
 void FObjectReplicator::UpdateUnmappedObjects( bool & bOutHasMoreUnmapped )
