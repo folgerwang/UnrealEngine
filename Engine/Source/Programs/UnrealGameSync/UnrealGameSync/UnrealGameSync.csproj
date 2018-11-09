@@ -149,6 +149,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="DeleteFilesTask.cs" />
+    <Compile Include="DeploymentSettings.cs" />
     <Compile Include="DetectProjectSettingsTask.cs" />
     <Compile Include="FileFilter.cs" />
     <Compile Include="FindFoldersToCleanTask.cs" />
@@ -317,6 +318,7 @@
       <DependentUpon>SyncFilter.cs</DependentUpon>
     </Compile>
     <Compile Include="ModalTask.cs" />
+    <Compile Include="NotForLicensees\DeploymentSettingsInternal.cs" />
     <Compile Include="PerforceModalTask.cs" />
     <Compile Include="PerforceMonitor.cs" />
     <Compile Include="ProgramApplicationContext.cs" />
@@ -441,11 +443,7 @@
     <None Include="Resources\App.config" />
   </ItemGroup>
   <Choose>
-    <When Condition="Exists('NotForLicensees\ProgramSettings.cs')">
-      <ItemGroup>
-        <Compile Include="NotForLicensees\ProgramSettings.cs" />
-      </ItemGroup>
-    </When>
+    <When Condition="Exists('NotForLicensees\ProgramSettings.cs')" />
   </Choose>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons.png" />

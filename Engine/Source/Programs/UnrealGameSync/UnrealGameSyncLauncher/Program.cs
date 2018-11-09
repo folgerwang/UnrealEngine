@@ -15,14 +15,8 @@ using UnrealGameSync;
 
 namespace UnrealGameSyncLauncher
 {
-	static partial class Program
+	static class Program
 	{
-		/// <summary>
-		/// Specifies the depot path to sync down the stable version of UGS from, without a trailing slash (eg. //depot/UnrealGameSync/bin). This is a site-specific setting. 
-		/// The UnrealGameSync executable should be located at Release/UnrealGameSync.exe under this path, with any dependent DLLs.
-		/// </summary>
-		static readonly string DefaultDepotPath;
-
 		[STAThread]
 		static int Main(string[] Args)
 		{
@@ -70,7 +64,7 @@ namespace UnrealGameSyncLauncher
 				// Read the settings
 				string ServerAndPort = null;
 				string UserName = null;
-				string DepotPath = DefaultDepotPath;
+				string DepotPath = DeploymentSettings.DefaultDepotPath;
 				ReadSettings(ref ServerAndPort, ref UserName, ref DepotPath);
 
 				// If the shift key is held down, immediately show the settings window
@@ -144,7 +138,7 @@ namespace UnrealGameSyncLauncher
 						Key.SetValue("UserName", UserName);
 					}
 
-					if(String.IsNullOrEmpty(DepotPath) || (DefaultDepotPath != null && String.Equals(DepotPath, DefaultDepotPath, StringComparison.InvariantCultureIgnoreCase)))
+					if(String.IsNullOrEmpty(DepotPath) || (DeploymentSettings.DefaultDepotPath != null && String.Equals(DepotPath, DeploymentSettings.DefaultDepotPath, StringComparison.InvariantCultureIgnoreCase)))
 					{
 						try { Key.DeleteValue("DepotPath"); } catch(Exception) { }
 					}

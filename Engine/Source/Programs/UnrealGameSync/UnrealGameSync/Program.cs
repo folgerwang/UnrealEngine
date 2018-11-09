@@ -15,14 +15,8 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
-	static partial class Program
+	static class Program
 	{
-		/// <summary>
-		/// SQL connection string used to connect to the database for telemetry and review data. The 'Program' class is a partial class, to allow an
-		/// opportunistically included C# source file in NotForLicensees/ProgramSettings.cs to override this value in a static constructor.
-		/// </summary>
-		public static readonly string ApiUrl = null;
-
 		public static string SyncVersion = null;
 
 		[STAThread]
@@ -92,12 +86,12 @@ namespace UnrealGameSync
 			string DataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UnrealGameSync");
 			Directory.CreateDirectory(DataFolder);
 
-			using(TelemetryWriter Telemetry = new TelemetryWriter(ApiUrl, Path.Combine(DataFolder, "Telemetry.log")))
+			using(TelemetryWriter Telemetry = new TelemetryWriter(DeploymentSettings.ApiUrl, Path.Combine(DataFolder, "Telemetry.log")))
 			{
 				AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 				using(UpdateMonitor UpdateMonitor = new UpdateMonitor(new PerforceConnection(UserName, null, ServerAndPort), UpdatePath))
 				{
-					ProgramApplicationContext Context = new ProgramApplicationContext(UpdateMonitor, ApiUrl, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn, ProjectFileName, bUnstable);
+					ProgramApplicationContext Context = new ProgramApplicationContext(UpdateMonitor, DeploymentSettings.ApiUrl, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn, ProjectFileName, bUnstable);
 					Application.Run(Context);
 
 					if(UpdateMonitor.IsUpdateAvailable && UpdateSpawn != null)
