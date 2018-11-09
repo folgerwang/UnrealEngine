@@ -33,6 +33,9 @@ protected:
 	/** Return true if the specified sound is playing */
 	bool IsSoundPlaying(USoundBase* Sound) const;
 
+	/** Return true if the specified asset's sound is playing */
+	bool IsSoundPlaying(const FAssetData& AssetData) const;
+
 private:
 	/** Handler for when PlaySound is selected */
 	void ExecutePlaySound(TArray<TWeakObjectPtr<USoundBase>> Objects) const;
