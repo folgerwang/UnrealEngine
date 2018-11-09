@@ -39,31 +39,4 @@ UClass* FFileMediaSourceActions::GetSupportedClass() const
 	return UFileMediaSource::StaticClass();
 }
 
-
-TSharedPtr<class SWidget> FFileMediaSourceActions::GetThumbnailOverlay(const FAssetData& AssetData) const
-{
-	TWeakObjectPtr<UFileMediaSource> FileMediaSource = Cast<UFileMediaSource>(AssetData.GetAsset());
-
-	if (!FileMediaSource.IsValid())
-	{
-		return nullptr;
-	}
-
-	return SNew(SBorder)
-		.BorderImage(FEditorStyle::GetNoBrush())
-		.Visibility_Lambda([=]() -> EVisibility {
-			return (FileMediaSource.IsValid() && FileMediaSource->PrecacheFile)
-				? EVisibility::HitTestInvisible
-				: EVisibility::Hidden;
-		})
-		.Padding(FMargin(0.0f, 0.0f, 2.0f, 7.0f))
-		.HAlign(HAlign_Right)
-		.VAlign(VAlign_Bottom)
-		[
-			SNew(SImage)
-				.Image(Style->GetBrush("MediaPlayerEditor.FileMediaSourcePrecached"))
-		];
-}
-
-
 #undef LOCTEXT_NAMESPACE
