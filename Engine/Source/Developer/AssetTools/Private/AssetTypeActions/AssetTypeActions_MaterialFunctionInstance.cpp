@@ -79,15 +79,13 @@ void FAssetTypeActions_MaterialFunctionInstance::ExecuteFindParent(TArray<TWeakO
 
 UClass* FAssetTypeActions_MaterialFunctionLayerInstance::GetSupportedClass() const
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	UClass* SupportedClass = MaterialEditorModule.MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerInstance::StaticClass() : nullptr;
+	UClass* SupportedClass = IMaterialEditorModule::Get().MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerInstance::StaticClass() : nullptr;
 	return SupportedClass;
 }
 
 bool FAssetTypeActions_MaterialFunctionLayerInstance::CanFilter()
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	return MaterialEditorModule.MaterialLayersEnabled();
+	return IMaterialEditorModule::Get().MaterialLayersEnabled();
 }
 
 void FAssetTypeActions_MaterialFunctionLayerInstance::ExecuteNewMFI(TArray<TWeakObjectPtr<UMaterialFunctionInterface>> Objects)
@@ -148,15 +146,13 @@ void FAssetTypeActions_MaterialFunctionLayerInstance::ExecuteNewMFI(TArray<TWeak
 
 UClass* FAssetTypeActions_MaterialFunctionLayerBlendInstance::GetSupportedClass() const
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	UClass* SupportedClass = MaterialEditorModule.MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerBlendInstance::StaticClass() : nullptr;
+	UClass* SupportedClass = IMaterialEditorModule::Get().MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerBlendInstance::StaticClass() : nullptr;
 	return SupportedClass;
 }
 
 bool FAssetTypeActions_MaterialFunctionLayerBlendInstance::CanFilter()
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	return MaterialEditorModule.MaterialLayersEnabled();
+	return IMaterialEditorModule::Get().MaterialLayersEnabled();
 }
 
 

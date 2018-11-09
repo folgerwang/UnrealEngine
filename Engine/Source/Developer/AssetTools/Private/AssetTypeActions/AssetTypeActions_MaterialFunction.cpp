@@ -170,15 +170,13 @@ UThumbnailInfo* FAssetTypeActions_MaterialFunction::GetThumbnailInfo(UObject* As
 
 UClass* FAssetTypeActions_MaterialFunctionLayer::GetSupportedClass() const
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	UClass* SupportedClass = MaterialEditorModule.MaterialLayersEnabled() ? UMaterialFunctionMaterialLayer::StaticClass() : nullptr;
+	UClass* SupportedClass = IMaterialEditorModule::Get().MaterialLayersEnabled() ? UMaterialFunctionMaterialLayer::StaticClass() : nullptr;
 	return SupportedClass;
 }
 
 bool FAssetTypeActions_MaterialFunctionLayer::CanFilter()
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	return MaterialEditorModule.MaterialLayersEnabled();
+	return IMaterialEditorModule::Get().MaterialLayersEnabled();
 }
 
 
@@ -242,15 +240,13 @@ void FAssetTypeActions_MaterialFunctionLayer::ExecuteNewMFI(TArray<TWeakObjectPt
 
 UClass* FAssetTypeActions_MaterialFunctionLayerBlend::GetSupportedClass() const
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	UClass* SupportedClass = MaterialEditorModule.MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerBlend::StaticClass() : nullptr;
+	UClass* SupportedClass = IMaterialEditorModule::Get().MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerBlend::StaticClass() : nullptr;
 	return SupportedClass;
 }
 
 bool FAssetTypeActions_MaterialFunctionLayerBlend::CanFilter()
 {
-	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
-	return MaterialEditorModule.MaterialLayersEnabled();
+	return IMaterialEditorModule::Get().MaterialLayersEnabled();
 }
 
 void FAssetTypeActions_MaterialFunctionLayerBlend::ExecuteNewMFI(TArray<TWeakObjectPtr<UMaterialFunctionInterface>> Objects)
