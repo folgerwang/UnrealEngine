@@ -79,14 +79,14 @@ void FAssetTypeActions_MaterialFunctionInstance::ExecuteFindParent(TArray<TWeakO
 
 UClass* FAssetTypeActions_MaterialFunctionLayerInstance::GetSupportedClass() const
 {
-	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	UClass* SupportedClass = MaterialEditorModule.MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerInstance::StaticClass() : nullptr;
 	return SupportedClass;
 }
 
 bool FAssetTypeActions_MaterialFunctionLayerInstance::CanFilter()
 {
-	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	return MaterialEditorModule.MaterialLayersEnabled();
 }
 
@@ -148,14 +148,14 @@ void FAssetTypeActions_MaterialFunctionLayerInstance::ExecuteNewMFI(TArray<TWeak
 
 UClass* FAssetTypeActions_MaterialFunctionLayerBlendInstance::GetSupportedClass() const
 {
-	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	UClass* SupportedClass = MaterialEditorModule.MaterialLayersEnabled() ? UMaterialFunctionMaterialLayerBlendInstance::StaticClass() : nullptr;
 	return SupportedClass;
 }
 
 bool FAssetTypeActions_MaterialFunctionLayerBlendInstance::CanFilter()
 {
-	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	static IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
 	return MaterialEditorModule.MaterialLayersEnabled();
 }
 
