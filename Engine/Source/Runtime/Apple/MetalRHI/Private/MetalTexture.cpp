@@ -120,7 +120,10 @@ static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
 	{
 		Usage |= mtlpp::TextureUsage::RenderTarget;
 		Usage |= mtlpp::TextureUsage::ShaderRead;
-		Usage &= ~(mtlpp::TextureUsage::PixelFormatView);
+		if (!(Flags & (TexCreate_ShaderResource)))
+		{
+			Usage &= ~(mtlpp::TextureUsage::PixelFormatView);
+		}
 	}
 	return (mtlpp::TextureUsage)Usage;
 }
