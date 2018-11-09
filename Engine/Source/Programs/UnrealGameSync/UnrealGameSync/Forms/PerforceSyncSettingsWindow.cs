@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -12,11 +12,11 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
-	partial class PerforceSettingsWindow : Form
+	partial class PerforceSyncSettingsWindow : Form
 	{
 		UserSettings Settings;
 
-		public PerforceSettingsWindow(UserSettings Settings)
+		public PerforceSyncSettingsWindow(UserSettings Settings)
 		{
 			this.Settings = Settings;
 			InitializeComponent();

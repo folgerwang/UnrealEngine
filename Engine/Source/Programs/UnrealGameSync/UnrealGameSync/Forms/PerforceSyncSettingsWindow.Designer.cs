@@ -1,6 +1,6 @@
 ﻿namespace UnrealGameSync
 {
-	partial class PerforceSettingsWindow
+	partial class PerforceSyncSettingsWindow
 	{
 		/// <summary>
 		/// Required designer variable.
@@ -28,7 +28,7 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PerforceSettingsWindow));
+			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PerforceSyncSettingsWindow));
 			this.groupBox1 = new System.Windows.Forms.GroupBox();
 			this.NumThreadsTextBox = new System.Windows.Forms.TextBox();
 			this.label3 = new System.Windows.Forms.Label();

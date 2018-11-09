@@ -4218,7 +4218,7 @@ namespace UnrealGameSync
 
 		private void OptionsContextMenu_PerforceSettings_Click(object sender, EventArgs e)
 		{
-			PerforceSettingsWindow Perforce = new PerforceSettingsWindow(Settings);
+			PerforceSyncSettingsWindow Perforce = new PerforceSyncSettingsWindow(Settings);
 			Perforce.ShowDialog();
 		}
 
