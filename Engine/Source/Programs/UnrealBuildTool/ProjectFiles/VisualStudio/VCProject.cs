@@ -159,29 +159,6 @@ namespace UnrealBuildTool
 		/// <returns>Project context matching the given solution context</returns>
 		public abstract MSBuildProjectContext GetMatchingProjectContext(TargetType SolutionTarget, UnrealTargetConfiguration SolutionConfiguration, UnrealTargetPlatform SolutionPlatform);
 
-		static UnrealTargetConfiguration[] GetSupportedConfigurations(TargetRules Rules)
-		{
-			// Otherwise take the SupportedConfigurationsAttribute from the first type in the inheritance chain that supports it
-			for (Type CurrentType = Rules.GetType(); CurrentType != null; CurrentType = CurrentType.BaseType)
-			{
-				object[] Attributes = Rules.GetType().GetCustomAttributes(typeof(SupportedConfigurationsAttribute), false);
-				if (Attributes.Length > 0)
-				{
-					return Attributes.OfType<SupportedConfigurationsAttribute>().SelectMany(x => x.Configurations).Distinct().ToArray();
-				}
-			}
-
-			// Otherwise, get the default for the target type
-			if(Rules.Type == TargetType.Editor)
-			{
-				return new[] { UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.DebugGame, UnrealTargetConfiguration.Development };
-			}
-			else
-			{
-				return ((UnrealTargetConfiguration[])Enum.GetValues(typeof(UnrealTargetConfiguration))).Where(x => x != UnrealTargetConfiguration.Unknown).ToArray();
-			}
-		}
-
 		/// <summary>
 		/// Checks to see if the specified solution platform and configuration is able to map to this project
 		/// </summary>
@@ -222,7 +199,7 @@ namespace UnrealBuildTool
 			if (ProjectTarget.TargetRules != null)
 			{
 				SupportedPlatforms.AddRange(ProjectTarget.SupportedPlatforms);
-				SupportedConfigurations.AddRange(GetSupportedConfigurations(ProjectTarget.TargetRules));
+				SupportedConfigurations.AddRange(ProjectTarget.TargetRules.GetSupportedConfigurations());
 			}
 
 			// Add all of the extra platforms/configurations for this target

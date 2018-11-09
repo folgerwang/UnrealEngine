@@ -3,6 +3,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
+[SupportedConfigurations(UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.Development)]
 public class UnrealFrontendTarget : TargetRules
 {
 	public UnrealFrontendTarget( TargetInfo Target ) : base(Target)

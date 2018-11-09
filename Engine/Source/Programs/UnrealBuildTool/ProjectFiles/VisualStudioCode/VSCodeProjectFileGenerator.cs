@@ -366,7 +366,7 @@ namespace UnrealBuildTool
 					foreach (ProjectTarget Target in Project.ProjectTargets)
 					{
 						Array Configs = Enum.GetValues(typeof(UnrealTargetConfiguration));
-						List<UnrealTargetPlatform> Platforms = new List<UnrealTargetPlatform>(UEBuildTarget.GetSupportedPlatforms(Target.TargetRules));
+						List<UnrealTargetPlatform> Platforms = new List<UnrealTargetPlatform>(Target.TargetRules.GetSupportedPlatforms());
 
 						ProjectData.Target NewTarget = new ProjectData.Target(NewProject, Target.TargetRules.Name, Target.TargetRules.Type);
 

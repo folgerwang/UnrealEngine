@@ -5,6 +5,7 @@ using System.Collections.Generic;
 
 [SupportedPlatforms(UnrealPlatformClass.Desktop)]
 [SupportedPlatforms(UnrealTargetPlatform.IOS)]
+[SupportedConfigurations(UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.Development)]
 public class SlateViewerTarget : TargetRules
 {
 	public SlateViewerTarget(TargetInfo Target) : base(Target)
