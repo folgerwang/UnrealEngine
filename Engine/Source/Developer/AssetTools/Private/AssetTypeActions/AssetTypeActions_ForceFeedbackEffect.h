@@ -39,6 +39,12 @@ public:
 	/** Return if the specified effect is playing*/
 	bool IsEffectPlaying(const TArray<TWeakObjectPtr<UForceFeedbackEffect>>& Objects) const;
 
+	/** Return if the specified effect is playing*/
+	bool IsEffectPlaying(const UForceFeedbackEffect* ForceFeedbackEffect) const;
+
+	/** Return if the specified asset is playing an effect*/
+	bool IsEffectPlaying(const FAssetData& AssetData) const;
+
 	/** Handler for when PlayEffect is selected */
 	void ExecutePlayEffect(TArray<TWeakObjectPtr<UForceFeedbackEffect>> Objects);
 
@@ -48,12 +54,12 @@ public:
 	/** Returns true if only one effect is selected to play */
 	bool CanExecutePlayCommand(TArray<TWeakObjectPtr<UForceFeedbackEffect>> Objects) const;
 
-private:
-	/** Plays the specified sound wave */
+	/** Plays the specified effect */
 	void PlayEffect(UForceFeedbackEffect* Effect);
 
-	/** Stops any currently playing sounds */
+	/** Stops any currently playing effect */
 	void StopEffect();
 
+private:
 	FPreviewForceFeedbackEffect PreviewForceFeedbackEffect;
 };
