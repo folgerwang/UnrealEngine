@@ -41,7 +41,7 @@ namespace UnrealGameSync
 		void SetTabNames(TabLabels TabNames);
 		void SetupScheduledSync();
 		void UpdateProgress();
-		void RequestRestart();
+		void RequestRestart(bool? bUnstableBuild);
 	}
 
 	partial class WorkspaceControl : UserControl, IMainWindowTabPanel
@@ -4224,7 +4224,7 @@ namespace UnrealGameSync
 			PerforceSettingsWindow Perforce = new PerforceSettingsWindow(bUnstable, Settings, Log);
 			if(Perforce.ShowDialog() == DialogResult.OK)
 			{
-				Owner.RequestRestart();
+				Owner.RequestRestart(Perforce.UseUnstableBuildCheckBox.Checked);
 			}
 		}
 

@@ -15,7 +15,7 @@ namespace UnrealGameSync
 {
 	interface IMainWindowOwner
 	{
-		void RequestRestart();
+		void RequestRestart(bool? bUnstableBuild);
 	}
 
 	interface IMainWindowTabPanel : IDisposable
@@ -961,9 +961,9 @@ namespace UnrealGameSync
 			}
 		}
 
-		public void RequestRestart()
+		public void RequestRestart(bool? bUnstableBuild)
 		{
-			MainWindowOwner.RequestRestart();
+			MainWindowOwner.RequestRestart(bUnstableBuild);
 		}
 	}
 }

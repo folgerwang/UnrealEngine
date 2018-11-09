@@ -26,6 +26,8 @@ namespace UnrealGameSync
 		bool bUnstable;
 		bool bIsClosing;
 
+		public bool? bRelaunchUnstable;
+
 		TimestampLogWriter Log;
 		UserSettings Settings;
 		ActivationListener ActivationListener;
@@ -194,8 +196,9 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsTask = null;
 		}
 
-		public void RequestRestart()
+		public void RequestRestart(bool? bRelaunchUnstable)
 		{
+			this.bRelaunchUnstable = bRelaunchUnstable;
 			UpdateMonitor.TriggerUpdate(true);
 		}
 

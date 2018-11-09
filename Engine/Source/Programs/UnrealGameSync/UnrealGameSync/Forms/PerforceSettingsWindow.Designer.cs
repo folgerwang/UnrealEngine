@@ -219,7 +219,7 @@ namespace UnrealGameSync
 		private System.Windows.Forms.Button ViewLogBtn;
 		private System.Windows.Forms.Label label3;
 		private System.Windows.Forms.GroupBox groupBox2;
-		private System.Windows.Forms.CheckBox UseUnstableBuildCheckBox;
+		public System.Windows.Forms.CheckBox UseUnstableBuildCheckBox;
 		private TextBoxWithCueBanner DepotPathTextBox;
 		private System.Windows.Forms.Label label4;
 		private System.Windows.Forms.Button AdvancedBtn;
