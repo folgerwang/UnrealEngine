@@ -9,9 +9,15 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading;
+using System.Reflection;
 
 namespace UnrealGameSync
 {
+	interface IMainWindowOwner
+	{
+		void RequestRestart();
+	}
+
 	interface IMainWindowTabPanel : IDisposable
 	{
 		void Activate();
@@ -53,6 +59,7 @@ namespace UnrealGameSync
 
 		private const int WM_SETREDRAW = 11; 
 
+		IMainWindowOwner MainWindowOwner;
 		SynchronizationContext MainThreadSynchronizationContext;
 
 		string ApiUrl;
@@ -70,18 +77,21 @@ namespace UnrealGameSync
 		System.Threading.Timer ScheduleSettledTimer;
 
 		string OriginalExecutableFileName;
+		bool bUnstable;
 
 		IMainWindowTabPanel CurrentTabPanel;
 
-		public MainWindow(string InApiUrl, string InDataFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, List<DetectProjectSettingsResult> StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
+		public MainWindow(IMainWindowOwner Owner, string InApiUrl, string InDataFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, bool bInUnstable, List<DetectProjectSettingsResult> StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
 
+			MainWindowOwner = Owner;
 			MainThreadSynchronizationContext = SynchronizationContext.Current;
 			ApiUrl = InApiUrl;
 			DataFolder = InDataFolder;
 			bRestoreStateOnLoad = bInRestoreStateOnLoad;
 			OriginalExecutableFileName = InOriginalExecutableFileName;
+			bUnstable = bInUnstable;
 			Log = InLog;
 			Settings = InSettings;
 
@@ -124,6 +134,11 @@ namespace UnrealGameSync
 			}
 
 			StartScheduleTimer();
+
+			if(bUnstable)
+			{
+				Text += String.Format(" (UNSTABLE BUILD {0})", Assembly.GetExecutingAssembly().GetName().Version);
+			}
 		}
 
 		protected override void OnHandleCreated(EventArgs e)
@@ -753,7 +768,7 @@ namespace UnrealGameSync
 			}
 
 			// Now that we have the project settings, we can construct the tab
-			WorkspaceControl NewWorkspace = new WorkspaceControl(this, ApiUrl, OriginalExecutableFileName, ProjectSettings, Log, Settings);
+			WorkspaceControl NewWorkspace = new WorkspaceControl(this, ApiUrl, OriginalExecutableFileName, bUnstable, ProjectSettings, Log, Settings);
 			NewWorkspace.Parent = TabPanel;
 			NewWorkspace.Location = new Point(0, 0);
 			NewWorkspace.Size = new Size(TabPanel.Width, TabPanel.Height);
@@ -944,6 +959,11 @@ namespace UnrealGameSync
 					Taskbar.SetState(Handle, State);
 				}
 			}
+		}
+
+		public void RequestRestart()
+		{
+			MainWindowOwner.RequestRestart();
 		}
 	}
 }

@@ -128,7 +128,7 @@
 			this.CancButton.UseVisualStyleBackColor = true;
 			this.CancButton.Click += new System.EventHandler(this.CancButton_Click);
 			// 
-			// PerforceSettingsWindow
+			// PerforceSyncSettingsWindow
 			// 
 			this.AcceptButton = this.OkButton;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
@@ -140,10 +140,10 @@
 			this.Controls.Add(this.groupBox1);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-			this.Name = "PerforceSettingsWindow";
+			this.Name = "PerforceSyncSettingsWindow";
 			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-			this.Text = "Perforce Settings";
+			this.Text = "Perforce Sync Settings";
 			this.Load += new System.EventHandler(this.PerforceSettingsWindow_Load);
 			this.groupBox1.ResumeLayout(false);
 			this.groupBox1.PerformLayout();

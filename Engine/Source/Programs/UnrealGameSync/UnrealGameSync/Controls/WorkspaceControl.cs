@@ -41,6 +41,7 @@ namespace UnrealGameSync
 		void SetTabNames(TabLabels TabNames);
 		void SetupScheduledSync();
 		void UpdateProgress();
+		void RequestRestart();
 	}
 
 	partial class WorkspaceControl : UserControl, IMainWindowTabPanel
@@ -178,6 +179,7 @@ namespace UnrealGameSync
 		SynchronizationContext MainThreadSynchronizationContext;
 		bool bIsDisposing;
 
+		bool bUnstable;
 		string EditorTargetName;
 		bool bIsEnterpriseProject;
 		PerforceMonitor PerforceMonitor;
@@ -231,7 +233,7 @@ namespace UnrealGameSync
 		bool bUpdateBuildMetadataPosted;
 		bool bUpdateReviewsPosted;
 
-		public WorkspaceControl(IWorkspaceControlOwner InOwner, string InApiUrl, string InOriginalExecutableFileName, DetectProjectSettingsTask DetectSettings, LineBasedTextWriter InLog, UserSettings InSettings)
+		public WorkspaceControl(IWorkspaceControlOwner InOwner, string InApiUrl, string InOriginalExecutableFileName, bool bInUnstable, DetectProjectSettingsTask DetectSettings, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
 
@@ -241,6 +243,7 @@ namespace UnrealGameSync
 			ApiUrl = InApiUrl;
 			DataFolder = DetectSettings.DataFolder;
 			OriginalExecutableFileName = InOriginalExecutableFileName;
+			bUnstable = bInUnstable;
 			Log = InLog;
 			Settings = InSettings;
 			WorkspaceSettings = InSettings.FindOrAddWorkspace(DetectSettings.BranchClientPath);
@@ -4218,8 +4221,11 @@ namespace UnrealGameSync
 
 		private void OptionsContextMenu_PerforceSettings_Click(object sender, EventArgs e)
 		{
-			PerforceSyncSettingsWindow Perforce = new PerforceSyncSettingsWindow(Settings);
-			Perforce.ShowDialog();
+			PerforceSettingsWindow Perforce = new PerforceSettingsWindow(bUnstable, Settings, Log);
+			if(Perforce.ShowDialog() == DialogResult.OK)
+			{
+				Owner.RequestRestart();
+			}
 		}
 
 		private void OptionsContextMenu_TabNames_Stream_Click(object sender, EventArgs e)

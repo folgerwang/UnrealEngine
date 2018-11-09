@@ -14,7 +14,7 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
-	class ProgramApplicationContext : ApplicationContext
+	class ProgramApplicationContext : ApplicationContext, IMainWindowOwner
 	{
 		SynchronizationContext MainThreadSynchronizationContext;
 
@@ -178,11 +178,7 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsWindow = null;
 
 			// Create the main window
-			MainWindowInstance = new MainWindow(ApiUrl, DataFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, DetectStartupProjectSettingsTask.Results, Log, Settings);
-			if(bUnstable)
-			{
-				MainWindowInstance.Text += String.Format(" (UNSTABLE BUILD {0})", Assembly.GetExecutingAssembly().GetName().Version);
-			}
+			MainWindowInstance = new MainWindow(this, ApiUrl, DataFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, bUnstable, DetectStartupProjectSettingsTask.Results, Log, Settings);
 			if(bVisible)
 			{
 				MainWindowInstance.Show();
@@ -198,6 +194,11 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsTask = null;
 		}
 
+		public void RequestRestart()
+		{
+			UpdateMonitor.TriggerUpdate(true);
+		}
+
 		private void MainWindowInstance_FormClosed(object sender, FormClosedEventArgs e)
 		{
 			ExitThread();
@@ -208,7 +209,7 @@ namespace UnrealGameSync
 			// Check if we're trying to reopen with the unstable version; if so, trigger an update to trigger a restart with the new executable
 			if(!bUnstable && (Control.ModifierKeys & Keys.Shift) != 0)
 			{
-				UpdateMonitor.TriggerUpdate();
+				UpdateMonitor.TriggerUpdate(true);
 			}
 			else if(MainWindowInstance != null)
 			{
@@ -221,18 +222,21 @@ namespace UnrealGameSync
 			MainThreadSynchronizationContext.Post((o) => OnActivationListenerCallback(), null);
 		}
 
-		private void OnUpdateAvailable()
+		private void OnUpdateAvailable(bool bForce)
 		{
-			if(MainWindowInstance != null && !bIsClosing && MainWindowInstance.CanPerformUpdate())
+			if(MainWindowInstance != null && !bIsClosing)
 			{
-				bIsClosing = true;
-				MainWindowInstance.ForceClose();
+				if(bForce || MainWindowInstance.CanPerformUpdate())
+				{
+					bIsClosing = true;
+					MainWindowInstance.ForceClose();
+				}
 			}
 		}
 
-		private void OnUpdateAvailableCallback()
+		private void OnUpdateAvailableCallback(bool bForce)
 		{ 
-			MainThreadSynchronizationContext.Post((o) => OnUpdateAvailable(), null);
+			MainThreadSynchronizationContext.Post((o) => OnUpdateAvailable(bForce), null);
 		}
 
 		protected override void Dispose(bool bDisposing)

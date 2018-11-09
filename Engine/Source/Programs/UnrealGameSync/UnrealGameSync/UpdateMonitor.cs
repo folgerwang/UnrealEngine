@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ namespace UnrealGameSync
 		Thread WorkerThread;
 		ManualResetEvent QuitEvent;
 
-		public event Action OnUpdateAvailable;
+		public event Action<bool> OnUpdateAvailable;
 
 		public UpdateMonitor(PerforceConnection InPerforce, string InWatchPath)
 		{
@@ -68,17 +68,17 @@ namespace UnrealGameSync
 				List<PerforceChangeSummary> Changes;
 				if(Perforce.FindChanges(WatchPath, 1, out Changes, Log) && Changes.Count > 0)
 				{
-					TriggerUpdate();
+					TriggerUpdate(false);
 				}
 			}
 		}
 
-		public void TriggerUpdate()
+		public void TriggerUpdate(bool bForce)
 		{
 			IsUpdateAvailable = true;
 			if(OnUpdateAvailable != null)
 			{
-				OnUpdateAvailable();
+				OnUpdateAvailable(bForce);
 			}
 		}
 	}
