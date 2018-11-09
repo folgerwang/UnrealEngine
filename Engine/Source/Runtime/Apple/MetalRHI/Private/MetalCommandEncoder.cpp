@@ -1259,7 +1259,6 @@ void FMetalCommandEncoder::SetShaderBuffer(mtlpp::FunctionType const FunctionTyp
 		ShaderBuffers[uint32(FunctionType)].Lengths[(index*2)+1] = GMetalBufferFormats[Format].DataFormat;
 		ShaderBuffers[uint32(FunctionType)].Usage[index] = Usage;
 		
-		UseResource(Buffer, Usage);
 		if (FunctionType == mtlpp::FunctionType::Vertex)
 		{
 			FenceResource(Buffer);
@@ -1451,7 +1450,6 @@ void FMetalCommandEncoder::SetShaderTexture(mtlpp::FunctionType FunctionType, FM
 	
 	if (Texture)
 	{
-		UseResource(Texture, Usage);
 		TextureBindingHistory.Add(ns::AutoReleased<FMetalTexture>(Texture));
 	}
 }
@@ -1488,6 +1486,20 @@ void FMetalCommandEncoder::SetShaderSideTable(mtlpp::FunctionType const Function
 	{
 		SetShaderData(FunctionType, ShaderBuffers[uint32(FunctionType)].SideTable, 0, Index);
 	}
+}
+
+void FMetalCommandEncoder::UseIndirectArgumentResource(FMetalTexture const& Texture, mtlpp::ResourceUsage const Usage)
+{
+	FenceResource(Texture);
+	UseResource(Texture, Usage);
+	TextureBindingHistory.Add(ns::AutoReleased<FMetalTexture>(Texture));
+}
+
+void FMetalCommandEncoder::UseIndirectArgumentResource(FMetalBuffer const& Buffer, mtlpp::ResourceUsage const Usage)
+{
+	FenceResource(Buffer);
+	UseResource(Buffer, Usage);
+	BufferBindingHistory.Add(ns::AutoReleased<FMetalBuffer>(Buffer));
 }
 
 void FMetalCommandEncoder::TransitionResources(mtlpp::Resource const& Resource)
@@ -1625,8 +1637,6 @@ void FMetalCommandEncoder::SetShaderBufferInternal(mtlpp::FunctionType Function,
 				check(false);
 				break;
 		}
-		
-		UseResource(Buffer, Usage);
 		
 		if (Buffer.IsSingleUse())
 		{

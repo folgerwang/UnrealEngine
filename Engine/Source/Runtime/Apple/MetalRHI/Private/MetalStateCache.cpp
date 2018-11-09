@@ -2221,6 +2221,67 @@ void FMetalStateCache::CommitResourceTable(EShaderFrequency const Frequency, mtl
 			CommandEncoder.SetShaderSamplerState(Type, SamplerBindings.Samplers[Index], Index);
 		}
 	}
+	
+	uint32 ArgumentBuffers = 0;
+	TMap<uint8, TArray<uint8>> ArgumentBufferMasks;
+	switch(Frequency)
+	{
+		case SF_Vertex:
+			ArgumentBuffers = GraphicsPSO->VertexShader->Bindings.ArgumentBuffers;
+			ArgumentBufferMasks = GraphicsPSO->VertexShader->Bindings.ArgumentBufferMasks;
+			break;
+		case SF_Hull:
+			ArgumentBuffers = GraphicsPSO->HullShader->Bindings.ArgumentBuffers;
+			ArgumentBufferMasks = GraphicsPSO->HullShader->Bindings.ArgumentBufferMasks;
+			break;
+		case SF_Domain:
+			ArgumentBuffers = GraphicsPSO->DomainShader->Bindings.ArgumentBuffers;
+			ArgumentBufferMasks = GraphicsPSO->DomainShader->Bindings.ArgumentBufferMasks;
+			break;
+		case SF_Pixel:
+			ArgumentBuffers = GraphicsPSO->PixelShader->Bindings.ArgumentBuffers;
+			ArgumentBufferMasks = GraphicsPSO->PixelShader->Bindings.ArgumentBufferMasks;
+			break;
+		case SF_Compute:
+			ArgumentBuffers = ComputeShader->Bindings.ArgumentBuffers;
+			ArgumentBufferMasks = ComputeShader->Bindings.ArgumentBufferMasks;
+			break;
+		default:
+			break;
+	}
+	
+	while(ArgumentBuffers)
+	{
+		uint32 Index = __builtin_ctz(ArgumentBuffers);
+		ArgumentBuffers &= ~(1 << Index);
+		
+		FMetalUniformBuffer* Buffer = (FMetalUniformBuffer*)BoundUniformBuffers[Frequency][Index];
+		check(Buffer);
+		
+		TArray<uint8>& Mask = ArgumentBufferMasks.FindChecked((uint8)Index);
+		for (uint8 Entry : Mask)
+		{
+			FMetalUniformBuffer::Argument const& Resource = Buffer->IndirectArgumentResources[Entry];
+			if (Resource.Buffer)
+			{
+				CommandEncoder.UseIndirectArgumentResource(Resource.Buffer, Resource.Usage);
+			}
+			else if (Resource.Texture)
+			{
+				CommandEncoder.UseIndirectArgumentResource(Resource.Texture, Resource.Usage);
+			}
+		}
+		
+		if (Buffer->IndirectArgumentBufferSideTable)
+		{
+			CommandEncoder.UseIndirectArgumentResource(Buffer->IndirectArgumentBufferSideTable, mtlpp::ResourceUsage::Read);
+		}
+		
+		if (Buffer->Buffer)
+		{
+			CommandEncoder.UseIndirectArgumentResource(Buffer->Buffer, mtlpp::ResourceUsage::Read);
+		}
+	}
 }
 
 FTexture2DRHIRef FMetalStateCache::CreateFallbackDepthStencilSurface(uint32 Width, uint32 Height)

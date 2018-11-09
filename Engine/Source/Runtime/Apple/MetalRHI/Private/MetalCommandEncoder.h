@@ -356,6 +356,20 @@ public:
 	 */
 	void SetShaderSideTable(mtlpp::FunctionType const FunctionType, NSUInteger const Index);
 	
+    /*
+     * Inform the driver that an indirect argument resource will be used and what the usage mode will be.
+     * @param Texture The texture that will be used as an indirect argument.
+     * @param Usage The usage mode for the texture.
+     */
+	void UseIndirectArgumentResource(FMetalTexture const& Texture, mtlpp::ResourceUsage const Usage);
+    
+    /*
+     * Inform the driver that an indirect argument resource will be used and what the usage mode will be.
+     * @param Buffer The buffer that will be used as an indirect argument.
+     * @param Usage The usage mode for the texture.
+     */
+	void UseIndirectArgumentResource(FMetalBuffer const& Buffer, mtlpp::ResourceUsage const Usage);
+
 	/*
 	 * Transition resource so that we can barrier fragment->vertex stages.
 	 * @param Resource The resource we are going to make readable having been written.

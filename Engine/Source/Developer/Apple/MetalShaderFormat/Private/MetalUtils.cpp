@@ -1813,6 +1813,251 @@ static ir_dereference_variable* GenerateShaderOutput(
 
 #define USE_DS_ATTRIBUTES 0 // @todo Unicorn: consider using this as it would be more elegant, but currently isn't complete.
 
+void FMetalCodeBackend::build_iab_fields(_mesa_glsl_parse_state* ParseState, char const* n, struct glsl_type const* t, TArray<struct glsl_struct_field>& Fields, unsigned& FieldIndex, unsigned& BufferIndex, bool top, FBuffers const& Buffers)
+{
+	switch(t->base_type)
+	{
+		case GLSL_TYPE_UINT:
+		case GLSL_TYPE_INT:
+		case GLSL_TYPE_HALF:
+		case GLSL_TYPE_FLOAT:
+		case GLSL_TYPE_BOOL:
+		case GLSL_TYPE_SAMPLER:
+		case GLSL_TYPE_IMAGE:
+		case GLSL_TYPE_SAMPLER_STATE:
+		case GLSL_TYPE_ARRAY:
+		{
+			// All ignored
+			break;
+		}
+		case GLSL_TYPE_STRUCT:
+		{
+			const char *name = n;
+			for (unsigned j = 0; j < t->length; j++)
+			{
+				switch (t->fields.structure[j].type->base_type)
+				{
+					case GLSL_TYPE_STRUCT:
+					{
+						const char *newname = ralloc_asprintf(ParseState, "%s_%s",
+															  n,
+															  t->fields.structure[j].name);
+						build_iab_fields(ParseState, newname, t->fields.structure[j].type, Fields, FieldIndex, BufferIndex, false, Buffers);
+						break;
+					}
+					case GLSL_TYPE_IMAGE:
+					case GLSL_TYPE_SAMPLER:
+					case GLSL_TYPE_SAMPLER_STATE:
+					{
+						const char *newname = ralloc_asprintf(ParseState, "%s_%s",
+															  name,
+															  t->fields.structure[j].name);
+						glsl_struct_field field(t->fields.structure[j].type, newname);
+						field.semantic = ralloc_asprintf(ParseState, "[[ id(%d) ]]", FieldIndex);
+						if (t->fields.structure[j].type->sampler_buffer)
+						{
+							FieldIndex += 2;
+							BufferIndex++;
+						}
+						else
+						{
+							FieldIndex++;
+						}
+						Fields.Add(field);
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+			}
+			if (top)
+			{
+				if (BufferIndex)
+				{
+					glsl_struct_field field(glsl_type::GetStructuredBufferInstance("StructuredBuffer", glsl_type::uint_type), ralloc_strdup(ParseState, "BufferSizes"));
+					field.semantic = ralloc_asprintf(ParseState, "[[ id(%d) ]]", FieldIndex++);
+					field.patchconstant = 1;
+					Fields.Add(field);
+				}
+				
+				name = ralloc_asprintf(ParseState, "CB_%s", n);
+				struct glsl_type const* c = ParseState->symbols->get_type(name);
+				if (c)
+				{
+					glsl_struct_field field(c, ralloc_strdup(ParseState, n));
+					field.semantic = ralloc_asprintf(ParseState, "[[ id(%d) ]]", FieldIndex++);
+					Fields.Add(field);
+				}
+			}
+			break;
+		}
+		case GLSL_TYPE_INPUTPATCH:
+		case GLSL_TYPE_OUTPUTPATCH:
+		{
+			// Unhandled because I don't think they should appear as globals...
+			check(false);
+			break;
+		}
+		case GLSL_TYPE_VOID:
+		case GLSL_TYPE_OUTPUTSTREAM:
+		case GLSL_TYPE_ERROR:
+		case GLSL_TYPE_MAX:
+		default:
+		{
+			// Invalid types
+			check(false);
+			break;
+		}
+	}
+}
+
+struct glsl_type const* FMetalCodeBackend::create_iab_type(_mesa_glsl_parse_state* ParseState, struct glsl_type const* UBType, char const* n, FBuffers const& Buffers)
+{
+	TArray<struct glsl_struct_field> IABFields;
+	unsigned FieldIndex = 0;
+	unsigned BufferIndex = 0;
+	build_iab_fields(ParseState, n, UBType, IABFields, FieldIndex, BufferIndex, true, Buffers);
+	glsl_struct_field *const fields = ralloc_array(ParseState, glsl_struct_field, IABFields.Num());
+	memcpy(fields, IABFields.GetData(), sizeof(glsl_struct_field) * IABFields.Num());
+	const glsl_type * Result = glsl_type::get_record_instance(fields,
+												IABFields.Num(),
+												ralloc_asprintf(ParseState, "IAB_%s", n));
+	ParseState->AddUserStruct(Result);
+	return Result;
+}
+
+void FMetalCodeBackend::InsertArgumentBuffers(exec_list* ir, _mesa_glsl_parse_state* state, FBuffers& Buffers)
+{
+	ir_function_signature* EntryPointSig = GetMainFunction(ir);
+	check(EntryPointSig);
+	
+	TMap<FString, ir_variable*> IABVars;
+	foreach_iter(exec_list_iterator, Iter, EntryPointSig->parameters)
+	{
+		ir_variable* Variable = (ir_variable*)Iter.get();
+		char const* Underscore = strchr(Variable->name, '_');
+		if (Underscore)
+		{
+			uintptr_t Diff = (Underscore - Variable->name);
+			char* Name = ralloc_strndup(state, Variable->name, Diff);
+			ir_variable* UB = state->symbols->get_variable(Name);
+			if (UB)
+			{
+				ir_variable* IABVariable = IABVars.FindRef(Name);
+				if (!IABVariable)
+				{
+					struct glsl_type const* UBType = UB->type;
+					struct glsl_type const* IABType = create_iab_type(state, UBType, Name, Buffers);
+					ir_variable* NewInputVariable = new(state)ir_variable(IABType, ralloc_asprintf(state, "IAB%s", Name), ir_var_uniform);
+					NewInputVariable->semantic = ralloc_asprintf(state, "%s", Name);
+					NewInputVariable->read_only = true;
+					state->symbols->add_variable(NewInputVariable);
+					
+					IABVariable = NewInputVariable;
+					IABVars.Add(Name, NewInputVariable);
+					
+					glsl_uniform_block* block = glsl_uniform_block::alloc(state, 1);
+					block->vars[0] = NewInputVariable;
+					block->name = ralloc_asprintf(state, NewInputVariable->name);
+					const glsl_uniform_block** blocks = reralloc(state, state->uniform_blocks,
+																 const glsl_uniform_block *,
+																 state->num_uniform_blocks + 1);
+					if (blocks != NULL)
+					{
+						blocks[state->num_uniform_blocks] = block;
+						state->uniform_blocks = blocks;
+						state->num_uniform_blocks++;
+					}
+
+				}
+				
+				ir_dereference_variable* DerefVariable = new (state)ir_dereference_variable(Variable);
+				ir_dereference_record* DerefRecord = new (state)ir_dereference_record(IABVariable, ralloc_strdup(state, Variable->name));
+				int Index = IABVariable->type->field_index(DerefRecord->field);
+				if (Variable->type->base_type == GLSL_TYPE_SAMPLER)
+				{
+					IABVariable->type->fields.structure[Index].type = Variable->type;
+				}
+				ir_assignment* Assign = new (state)ir_assignment(DerefVariable, DerefRecord);
+				
+				IABVariablesMap.Add(Variable, IABVariable);
+				TSet<uint8>& Mask = IABVariableMask.FindOrAdd(IABVariable);
+				Mask.Add(Index);
+				
+				Variable->mode = ir_var_temporary;
+				Iter.remove();
+
+				for (_mesa_glsl_parse_state::TUniformList::iterator It = state->GlobalPackedArraysMap[EArrayType_Sampler].begin(); It != state->GlobalPackedArraysMap[EArrayType_Sampler].end(); ++It)
+				{
+					glsl_packed_uniform& Sampler = *It;
+					if (!strcmp(Variable->name, Sampler.Name.c_str()))
+					{
+						state->GlobalPackedArraysMap[EArrayType_Sampler].erase(It);
+						break;
+					}
+				}
+				for (_mesa_glsl_parse_state::TUniformList::iterator It = state->GlobalPackedArraysMap[EArrayType_Image].begin(); It != state->GlobalPackedArraysMap[EArrayType_Image].end(); ++It)
+				{
+					glsl_packed_uniform& Sampler = *It;
+					if (!strcmp(Variable->name, Sampler.Name.c_str()))
+					{
+						state->GlobalPackedArraysMap[EArrayType_Image].erase(It);
+						break;
+					}
+				}
+				Buffers.Remove(Variable);
+				
+				state->symbols->add_variable(Variable);
+				EntryPointSig->body.push_head(Assign);
+				EntryPointSig->body.push_head(Variable);
+			}
+		}
+	}
+	
+	foreach_iter(exec_list_iterator, Iter, EntryPointSig->parameters)
+	{
+		ir_variable* Variable = (ir_variable*)Iter.get();
+		char* Name = ralloc_strdup(state, Variable->name);
+		
+		ir_variable* UB = state->symbols->get_variable(Name);
+		if (UB && !strncmp(Variable->type->name, "CB_", 3))
+		{
+			ir_variable* IABVariable = IABVars.FindRef(Name);
+			if (IABVariable)
+			{
+				ir_dereference_variable* DerefVariable = new (state)ir_dereference_variable(Variable);
+				ir_dereference_record* DerefRecord = new (state)ir_dereference_record(IABVariable, ralloc_strdup(state, Variable->name));
+				ir_assignment* Assign = new (state)ir_assignment(DerefVariable, DerefRecord);
+				
+				Variable->mode = ir_var_ref;
+				Iter.remove();
+				
+				Buffers.Replace(Variable, IABVariable);
+				IABVariablesMap.Add(Variable, IABVariable);
+				
+				int Index = IABVariable->type->field_index(DerefRecord->field);
+				TSet<uint8>& Mask = IABVariableMask.FindOrAdd(IABVariable);
+				Mask.Add(Index);
+
+				state->symbols->add_variable(Variable);
+				EntryPointSig->body.push_head(Assign);
+				EntryPointSig->body.push_head(Variable);
+			}
+		}
+	}
+	
+	for (auto const& Pair : IABVars)
+	{
+		EntryPointSig->parameters.push_tail(Pair.Value);
+		if (Buffers.GetIndex(Pair.Value) == -1)
+		{
+			Buffers.AddBuffer(Pair.Value);
+		}
+	}
+}
+
 void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, EHlslShaderFrequency Frequency, exec_list& InputVars)
 {
 	ir_function_signature* EntryPointSig = GetMainFunction(Instructions);

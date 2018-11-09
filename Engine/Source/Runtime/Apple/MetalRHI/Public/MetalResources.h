@@ -786,6 +786,11 @@ public:
 	 */
 	void Unlock();
 	
+	/**
+	 * Whether to allocate the resource rom private memory or not.
+	 */
+	bool UsePrivateMemory() const;
+	
 	// balsa buffer memory
 	FMetalBuffer Buffer;
 	
@@ -855,6 +860,20 @@ public:
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
 
+	struct Argument
+	{
+		Argument() {}
+		Argument(FMetalBuffer const& InBuffer, mtlpp::ResourceUsage const InUsage) : Buffer(InBuffer), Usage(InUsage) {}
+		Argument(FMetalTexture const& InTexture, mtlpp::ResourceUsage const InUsage) : Texture(InTexture), Usage(InUsage) {}
+		
+		ns::AutoReleased<FMetalBuffer> Buffer;
+		ns::AutoReleased<FMetalTexture> Texture;
+		mtlpp::ResourceUsage Usage;
+	};
+	
+	TArray<Argument> IndirectArgumentResources;
+	FMetalBuffer IndirectArgumentBuffer;
+	FMetalBuffer IndirectArgumentBufferSideTable;
 };
 
 

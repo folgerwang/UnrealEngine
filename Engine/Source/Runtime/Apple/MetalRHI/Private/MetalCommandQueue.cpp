@@ -90,7 +90,6 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 					Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
 					Features |= EMetalFeaturesFences;
 					Features |= EMetalFeaturesHeaps;
-					Features |= EMetalFeaturesIABs;
 					
 					if (MaxShaderVersion >= 4)
 					{
@@ -151,7 +150,6 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 				Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
 				Features |= EMetalFeaturesFences;
 				Features |= EMetalFeaturesHeaps;
-				Features |= EMetalFeaturesIABs;
 				
 				if (MaxShaderVersion >= 4)
 				{
@@ -225,11 +223,15 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		// Turn on Texture Buffers! These are faster on the GPU as we don't need to do out-of-bounds tests but require Metal 2.1 and macOS 10.14
 		if (FPlatformMisc::MacOSXVersionCompare(10,14,0) >= 0)
 		{
-			Features |= EMetalFeaturesMaxThreadsPerThreadgroup | EMetalFeaturesIABs;
+			Features |= EMetalFeaturesMaxThreadsPerThreadgroup;
 			if (MaxShaderVersion >= 4)
 			{
 				Features |= EMetalFeaturesTextureBuffers;
-			}
+            }
+            if (MaxShaderVersion >= 5)
+            {
+                Features |= EMetalFeaturesIABs;
+            }
 			
 			if (!FParse::Param(FCommandLine::Get(),TEXT("nometalfence")))
 			{

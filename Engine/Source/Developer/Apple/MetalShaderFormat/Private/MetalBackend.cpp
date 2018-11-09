@@ -1351,12 +1351,39 @@ protected:
 						ralloc_asprintf_append(buffer, "atomic_");
 					}
 
+					if (var->mode == ir_var_ref)
+					{
+						ir_instruction* ir = (ir_instruction*)var->next;
+						check(ir && ir->ir_type == ir_type_assignment);
+						ir_assignment* assign = (ir_assignment*)ir;
+						ir_variable* rhs = assign->rhs->variable_referenced();
+						if (rhs->mode == ir_var_uniform)
+						{
+							ralloc_asprintf_append(buffer, "constant ");
+						}
+						else if (rhs->mode == ir_var_in)
+						{
+							ralloc_asprintf_append(buffer, "device ");
+						}
+					}
 					print_type_pre(var->type);
+					if (var->mode == ir_var_ref)
+					{
+						ralloc_asprintf_append(buffer, "&");
+					}
 					ralloc_asprintf_append(buffer, " %s", unique_name(var));
 					print_type_post(var->type);
 					if(var->is_patch_constant)
 					{
 						ralloc_asprintf_append(buffer, "/*???, is_patch_constant*/");
+					}
+					if (var->mode == ir_var_ref)
+					{
+						ir_instruction* ir = (ir_instruction*)var->next;
+						check(ir && ir->ir_type == ir_type_assignment);
+						ralloc_asprintf_append(buffer, " = ");
+						ir_assignment* assign = (ir_assignment*)ir;
+						assign->rhs->accept(this);
 					}
 				}
 			}
@@ -2141,54 +2168,91 @@ protected:
 			if (tex->sampler->type->is_sampler() && tex->sampler->type->sampler_buffer)
 			{
 				auto* Texture = tex->sampler->variable_referenced();
-				int Index = Buffers.GetIndex(Texture);
-				check(Index >= 0);
-				
+				int Index = 0;
+				char const* BufferSizesName = "BufferSizes";
+				int FormatIndex = -1;
+				bool bSideTable = bInsertSideTable;
+				if (Texture->mode == ir_var_temporary)
+				{
+					// IAB sampling path
+					ir_variable* IABVariable = Backend.IABVariablesMap.FindChecked(Texture);
+					int FieldIndex = IABVariable->type->field_index(Texture->name);
+					for (int i = 0; i < FieldIndex; i++)
+					{
+						if (IABVariable->type->fields.structure[i].type->sampler_buffer)
+						{
+							Index++;
+						}
+					}
+					
+					BufferSizesName = ralloc_asprintf(ParseState, "%s.BufferSizes", IABVariable->name);
+					bSideTable = true;
+				}
+				else
+				{
+					// Function argument path
+					Index = Buffers.GetIndex(Texture);
+					FormatIndex = Index;
+				}
+				check(Index >= 0 && Index <= 30);
+					
 				ralloc_asprintf_append(buffer, "(");
 				
 				bool bIsStructuredBuffer = (Texture->type->inner_type->is_record() || !strncmp(Texture->type->name, "RWStructuredBuffer<", 19) || !strncmp(Texture->type->name, "StructuredBuffer<", 17));
 				bool bIsByteAddressBuffer = (!strncmp(Texture->type->name, "RWByteAddressBuffer", 19) || !strncmp(Texture->type->name, "ByteAddressBuffer", 17));
-                bool bIsInvariantType = Texture->invariant;
-                bool bIsAtomic = Buffers.AtomicVariables.find(Texture) != Buffers.AtomicVariables.end();
+				bool bIsInvariantType = Texture->invariant;
+				bool bIsAtomic = Buffers.AtomicVariables.find(Texture) != Buffers.AtomicVariables.end();
 				if (!bIsStructuredBuffer && !bIsByteAddressBuffer && !bIsInvariantType && !bIsAtomic)
 				{
-                    ralloc_asprintf_append(buffer, "buffer::load<");
-                    print_type_pre(Texture->type->inner_type);
-                    ralloc_asprintf_append(buffer, ", %d>(", Index);
+					ralloc_asprintf_append(buffer, "buffer::load<");
+					print_type_pre(Texture->type->inner_type);
+					ralloc_asprintf_append(buffer, ", %d>(", Index);
 					tex->sampler->accept(this);
 					ralloc_asprintf_append(buffer, ", ");
 					tex->coordinate->accept(this);
-					if (bInsertSideTable)
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, BufferSizes)", Index);
+					if (FormatIndex >= 0)
+					{
+						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
+					}
 					else
-						ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d)", Index);
+					{
+						ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
+					}
+					if (bSideTable)
+					{
+						ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
+					}
+					else
+					{
+						ralloc_asprintf_append(buffer, ")");
+					}
 				}
 				else if (Backend.bBoundsChecks)
 				{
 					check(Index <= 30);
 					
-                    if (!bIsAtomic && (!bIsStructuredBuffer || !Texture->type->inner_type->is_record()))
+					if (!bIsAtomic && (!bIsStructuredBuffer || !Texture->type->inner_type->is_record()))
 					{
-                        ralloc_asprintf_append(buffer, "buffer::load<");
-                        print_type_pre(Texture->type->inner_type);
-                        ralloc_asprintf_append(buffer, ", %d>(", Index);
-                        tex->sampler->accept(this);
-                        ralloc_asprintf_append(buffer, ", ");
-                        tex->coordinate->accept(this);
-						if (bInsertSideTable)
-	                        ralloc_asprintf_append(buffer, ", BufferSizes)");
+						ralloc_asprintf_append(buffer, "buffer::load<");
+						print_type_pre(Texture->type->inner_type);
+						ralloc_asprintf_append(buffer, ", %d>(", Index);
+						tex->sampler->accept(this);
+						ralloc_asprintf_append(buffer, ", ");
+						tex->coordinate->accept(this);
+						if (bSideTable)
+							ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
 					}
-                    else
-                    {
-                        tex->sampler->accept(this);
-                        ralloc_asprintf_append(buffer, "[");
-                        ralloc_asprintf_append(buffer, "min(");
-                        tex->coordinate->accept(this);
-                        ralloc_asprintf_append(buffer, ",");
-                        ralloc_asprintf_append(buffer, "((BufferSizes[%d] / sizeof(", Index);
-                        print_type_pre(Texture->type->inner_type);
-                        ralloc_asprintf_append(buffer, "))))]");
-                    }
+					else
+					{
+						tex->sampler->accept(this);
+						ralloc_asprintf_append(buffer, "[");
+						ralloc_asprintf_append(buffer, "min(");
+						tex->coordinate->accept(this);
+						ralloc_asprintf_append(buffer, ",");
+						ralloc_asprintf_append(buffer, "((%s[%d] / sizeof(", BufferSizesName, Index);
+						print_type_pre(Texture->type->inner_type);
+						ralloc_asprintf_append(buffer, "))))]");
+					}
 				}
 				else
 				{
@@ -2433,6 +2497,10 @@ protected:
 			{
 				hash_table_insert(used_uniform_blocks, (void*)var->semantic, var->semantic);
 			}
+			if (hash_table_find(used_uniform_blocks, var->name) == NULL)
+			{
+				hash_table_insert(used_uniform_blocks, (void*)var->name, var->name);
+			}
 		}
 	}
 
@@ -2514,7 +2582,32 @@ protected:
 				else
 				{
 					auto* Texture = deref->image->variable_referenced();
-					int Index = Buffers.GetIndex(Texture);
+					int Index = 0;
+					char const* BufferSizesName = "BufferSizes";
+					int FormatIndex = -1;
+					bool bSideTable = bInsertSideTable;
+					if (Texture->mode == ir_var_temporary)
+					{
+						// IAB sampling path
+						ir_variable* IABVariable = Backend.IABVariablesMap.FindChecked(Texture);
+						int FieldIndex = IABVariable->type->field_index(Texture->name);
+						for (int i = 0; i < FieldIndex; i++)
+						{
+							if (IABVariable->type->fields.structure[i].type->sampler_buffer)
+							{
+								Index++;
+							}
+						}
+						
+						BufferSizesName = ralloc_asprintf(ParseState, "%s.BufferSizes", IABVariable->name);
+						bSideTable = true;
+					}
+					else
+					{
+						// Function argument path
+						Index = Buffers.GetIndex(Texture);
+						FormatIndex = Index;
+					}
 					check(Index >= 0 && Index <= 30);
 					
 					ralloc_asprintf_append(buffer, "(");
@@ -2531,10 +2624,22 @@ protected:
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						if (bInsertSideTable)
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, BufferSizes)", Index);
+						if (FormatIndex >= 0)
+						{
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
+						}
 						else
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d)", Index);
+						{
+							ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
+						}
+						if (bSideTable)
+						{
+							ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
+						}
+						else
+						{
+							ralloc_asprintf_append(buffer, ")");
+						}
 					}
 					else if (Backend.bBoundsChecks)
 					{
@@ -2547,8 +2652,8 @@ protected:
                             deref->image->accept(this);
                             ralloc_asprintf_append(buffer, ", ");
                             deref->image_index->accept(this);
-							if (bInsertSideTable)
-	                            ralloc_asprintf_append(buffer, ", BufferSizes)");
+							if (bSideTable)
+								ralloc_asprintf_append(buffer, ", %s)", BufferSizesName);
                         }
                         else
                         {
@@ -2557,7 +2662,7 @@ protected:
                             ralloc_asprintf_append(buffer, "min(");
                             deref->image_index->accept(this);
                             ralloc_asprintf_append(buffer, ",");
-                            ralloc_asprintf_append(buffer, "((BufferSizes[%d] / sizeof(", Index);
+							ralloc_asprintf_append(buffer, "((%s[%d] / sizeof(", BufferSizesName, Index);
                             print_type_pre(Texture->type->inner_type);
                             ralloc_asprintf_append(buffer, "))))]");
                         }
@@ -2676,41 +2781,75 @@ protected:
 				else
 				{
 					auto* Texture = deref->image->variable_referenced();
+					int Index = 0;
+					char const* BufferSizesName = "BufferSizes";
+					int FormatIndex = -1;
+					bool bSideTable = bInsertSideTable;
+					if (Texture->mode == ir_var_temporary)
+					{
+						// IAB sampling path
+						ir_variable* IABVariable = Backend.IABVariablesMap.FindChecked(Texture);
+						int FieldIndex = IABVariable->type->field_index(Texture->name);
+						for (int i = 0; i < FieldIndex; i++)
+						{
+							if (IABVariable->type->fields.structure[i].type->sampler_buffer)
+							{
+								Index++;
+							}
+						}
+						
+						BufferSizesName = ralloc_asprintf(ParseState, "%s.BufferSizes", IABVariable->name);
+						bSideTable = true;
+					}
+					else
+					{
+						// Function argument path
+						Index = Buffers.GetIndex(Texture);
+						FormatIndex = Index;
+					}
+					check(Index >= 0 && Index <= 30);
+					
 					bool bIsStructuredBuffer = (Texture->type->inner_type->is_record() || !strncmp(Texture->type->name, "RWStructuredBuffer<", 19) || !strncmp(Texture->type->name, "StructuredBuffer<", 17));
 					bool bIsByteAddressBuffer = (!strncmp(Texture->type->name, "RWByteAddressBuffer", 19) || !strncmp(Texture->type->name, "ByteAddressBuffer", 17));
                     bool bIsInvariantType = Texture->invariant;
                     bool bIsAtomic = Buffers.AtomicVariables.find(Texture) != Buffers.AtomicVariables.end();
 					if (!bIsStructuredBuffer && !bIsByteAddressBuffer && !bIsInvariantType && !bIsAtomic)
 					{
-						int Index = Buffers.GetIndex(Texture);
-						check(Index >= 0 && Index <= 30);
-						
-                        ralloc_asprintf_append(buffer, "buffer::store<");
+						ralloc_asprintf_append(buffer, "buffer::store<");
                         print_type_pre(Texture->type->inner_type);
                         ralloc_asprintf_append(buffer, ", %d>(", Index);
 						deref->image->accept(this);
 						ralloc_asprintf_append(buffer, ", ");
 						deref->image_index->accept(this);
-						if (bInsertSideTable)
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, BufferSizes, ", Index);
+						if (FormatIndex >= 0)
+						{
+							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d", Index);
+						}
 						else
-							ralloc_asprintf_append(buffer, ", GMetalTypedBufferFormat%d, ", Index);
+						{
+							ralloc_asprintf_append(buffer, ", GMetalUnknownFormat");
+						}
+						if (bSideTable)
+						{
+							ralloc_asprintf_append(buffer, ", %s, ", BufferSizesName);
+						}
+						else
+						{
+							ralloc_asprintf_append(buffer, ", ");
+						}
 						src->accept(this);
 						ralloc_asprintf_append(buffer, ")");
 					}
 					else if (Backend.bBoundsChecks)
 					{
-                        int Index = Buffers.GetIndex(Texture);
-                        check(Index >= 0 && Index <= 30);
-                        
                         ralloc_asprintf_append(buffer, "buffer::store<");
                         print_type_pre(Texture->type->inner_type);
                         ralloc_asprintf_append(buffer, ", %d>(", Index);
                         deref->image->accept(this);
                         ralloc_asprintf_append(buffer, ", ");
                         deref->image_index->accept(this);
-						if (bInsertSideTable)
-	                        ralloc_asprintf_append(buffer, ", BufferSizes, ");
+						if (bSideTable)
+							ralloc_asprintf_append(buffer, ", %s, ", BufferSizesName);
 						else
 	                        ralloc_asprintf_append(buffer, ", ");
                         src->accept(this);
@@ -2767,7 +2906,7 @@ protected:
 
 		// constant variables with initializers are statically assigned
 		ir_variable *var = assign->lhs->variable_referenced();
-		if (var->has_initializer && var->read_only && (var->constant_initializer || var->constant_value))
+		if ((var->has_initializer && var->read_only && (var->constant_initializer || var->constant_value)) || var->mode == ir_var_ref)
 		{
 			//This will leave a blank line with a semi-colon
 			return;
@@ -3504,7 +3643,34 @@ protected:
 						ralloc_asprintf_append(buffer, "alignas(4) ", "");
 					}
 					
+					
+					const glsl_type* t = s->fields.structure[j].type;
+					if (t->base_type == GLSL_TYPE_IMAGE)
+					{
+						if (t->sampler_buffer)
+						{
+							if (strncmp(t->name, "RWBuffer<", 9))
+							{
+								if (s->fields.structure[j].patchconstant)
+								{
+									ralloc_asprintf_append(buffer, "constant ");
+								}
+								else
+								{
+									ralloc_asprintf_append(buffer, "device ");
+								}
+							}
+						}
+					}
+					if (t->base_type == GLSL_TYPE_STRUCT && !strncmp(t->name, "CB_", 3))
+					{
+						ralloc_asprintf_append(buffer, "constant ");
+					}
 					print_type_pre(s->fields.structure[j].type);
+					if (t->base_type == GLSL_TYPE_STRUCT && !strncmp(t->name, "CB_", 3))
+					{
+						ralloc_asprintf_append(buffer, "&");
+					}
 					ralloc_asprintf_append(buffer, " %s", s->fields.structure[j].name);
 					if (!s->fields.structure[j].semantic || strncmp(s->fields.structure[j].semantic, "[[", 2))
 					{
@@ -3962,11 +4128,11 @@ protected:
 				if (Buffers.Buffers[i])
 				{
 					auto* Var = Buffers.Buffers[i]->as_variable();
-					if (!Var->semantic && !Var->type->is_sampler() && !Var->type->is_image() && state->CBPackedArraysMap.find(Var->name) == state->CBPackedArraysMap.end())
+					if ((!Var->semantic || !strncmp(Var->type->name, "IAB_", 3)) && !Var->type->is_sampler() && !Var->type->is_image() && state->CBPackedArraysMap.find(Var->name) == state->CBPackedArraysMap.end())
 					{
 						ralloc_asprintf_append(buffer, "%s%s(%d)",
 							bFirst ? "// @UniformBlocks: " : ",",
-							Var->name, i);
+							Var->semantic ? Var->semantic : Var->name, i);
 						bFirst = false;
 					}
 				}
@@ -4048,6 +4214,34 @@ protected:
 					ralloc_asprintf_append(buffer, "// @SideTable: %s(%d)", Var->name, i);
 				}
 			}
+		}
+		
+		if (Backend.IABVariableMask.Num())
+		{
+			bool bComma = false;
+			ralloc_asprintf_append(buffer, "// @ArgumentBuffers: ");
+			for (auto const& Pair : Backend.IABVariableMask)
+			{
+				if (bComma)
+				{
+					ralloc_asprintf_append(buffer, ",");
+				}
+				int Index = Buffers.GetIndex(Pair.Key);
+				ralloc_asprintf_append(buffer, "%d[", Index);
+				bool bSetComma = false;
+				for (auto Mask : Pair.Value)
+				{
+					if (bSetComma)
+					{
+						ralloc_asprintf_append(buffer, ",");
+					}
+					ralloc_asprintf_append(buffer, "%u", (uint32)Mask);
+					bSetComma = true;
+				}
+				ralloc_asprintf_append(buffer, "]", Pair.Key->name, Index);
+				bComma = true;
+			}
+			ralloc_asprintf_append(buffer, "\n");
 		}
 		
 		if (Backend.bIsTessellationVSHS || Frequency == tessellation_evaluation_shader)
@@ -4503,6 +4697,11 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 		ConvertHalfToFloatUniformsAndSamples(ir, state, bConvertUniformsToFloats, true);
 		
 		InsertSamplerStates(ir, state);
+		
+		if (Version >= 5 && bIsDesktop == EMetalGPUSemanticsImmediateDesktop)
+		{
+			InsertArgumentBuffers(ir, state, Buffers);
+		}
 		
 		Validate(ir, state);
 	}

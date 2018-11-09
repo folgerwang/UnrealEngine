@@ -678,6 +678,7 @@ struct FHlslccMetalHeader : public CrossCompiler::FHlslccHeader
 	uint32 TessellationControlPointIndexBuffer;
 	EMetalOutputWindingMode TessellationOutputWinding;
 	EMetalPartitionMode TessellationPartitioning;
+	TMap<uint8, TArray<uint8>> ArgumentBuffers;
 	int8 SideTable;
 	uint8 Version;
 	bool bUsingTessellation;
@@ -728,6 +729,7 @@ static const int32 Str##PrefixLen = FCStringAnsi::Strlen(Str##Prefix)
 	DEF_PREFIX_STR(TessellationHSTFOutBuffer);
 	DEF_PREFIX_STR(TessellationControlPointOutBuffer);
 	DEF_PREFIX_STR(TessellationControlPointIndexBuffer);
+	DEF_PREFIX_STR(ArgumentBuffers);
 	DEF_PREFIX_STR(SideTable);
 #undef DEF_PREFIX_STR
 	
@@ -755,6 +757,57 @@ static const int32 Str##PrefixLen = FCStringAnsi::Strlen(Str##Prefix)
 		{
 			UE_LOG(LogMetalShaderCompiler, Fatal, TEXT("Couldn't parse the SideTable buffer index for bounds checking"));
 			return false;
+		}
+	}
+	
+	const ANSICHAR* ArgumentTable = FCStringAnsi::Strstr(ShaderSource, ArgumentBuffersPrefix);
+	if (ArgumentTable)
+	{
+		ShaderSource = ArgumentTable;
+		ShaderSource += ArgumentBuffersPrefixLen;
+		while (*ShaderSource && *ShaderSource != '\n')
+		{
+			int32 ArgumentBufferIndex = -1;
+			if (!CrossCompiler::ParseIntegerNumber(ShaderSource, ArgumentBufferIndex))
+			{
+				return false;
+			}
+			check(ArgumentBufferIndex >= 0);
+			
+			if (!CrossCompiler::Match(ShaderSource, '['))
+			{
+				return false;
+			}
+			
+			TArray<uint8> Mask;
+			while (*ShaderSource && *ShaderSource != ']')
+			{
+				int32 MaskIndex = -1;
+				if (!CrossCompiler::ParseIntegerNumber(ShaderSource, MaskIndex))
+				{
+					return false;
+				}
+				
+				check(MaskIndex >= 0);
+				Mask.Add((uint8)MaskIndex);
+				
+				if (!CrossCompiler::Match(ShaderSource, ',') && *ShaderSource != ']')
+				{
+					return false;
+				}
+			}
+			
+			if (!CrossCompiler::Match(ShaderSource, ']'))
+			{
+				return false;
+			}
+			
+			if (!CrossCompiler::Match(ShaderSource, ',') && *ShaderSource != '\n')
+			{
+				return false;
+			}
+			
+			ArgumentBuffers.Add((uint8)ArgumentBufferIndex, Mask);
 		}
 	}
 	
@@ -1242,6 +1295,11 @@ void BuildMetalShaderOutput(
 
 	for (auto& SamplerState : CCHeader.SamplerStates)
 	{
+		if (!SamplerMap.Contains(SamplerState.Name))
+		{
+			SamplerMap.Add(SamplerState.Name, 1);
+		}
+		
 		ParameterMap.AddParameterAllocation(
 			*SamplerState.Name,
 			0,
@@ -1271,6 +1329,12 @@ void BuildMetalShaderOutput(
 	Header.bTessFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "indexBufferType [[ function_constant(32) ]]") != nullptr);
 	Header.bDeviceFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "#define __METAL_DEVICE_CONSTANT_INDEX__ 1") != nullptr);
 	Header.SideTable 							= CCHeader.SideTable;
+	Header.Bindings.ArgumentBufferMasks			= CCHeader.ArgumentBuffers;
+	Header.Bindings.ArgumentBuffers				= 0;
+	for (auto const& Pair : Header.Bindings.ArgumentBufferMasks)
+	{
+		Header.Bindings.ArgumentBuffers |= (1 << Pair.Key);
+	}
 	
 	// Build the SRT for this shader.
 	{
@@ -1988,7 +2052,25 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	FString MinOSVersion;
 	FString StandardVersion;
 	switch(VersionEnum)
-	{
+    {
+        case 5:
+            // Enable full SM5 feature support so tessellation & fragment UAVs compile
+            TypeMode = EMetalTypeBufferModeTex;
+            HlslCompilerTarget = HCT_FeatureLevelSM5;
+            StandardVersion = TEXT("2.1");
+            if (bAppleTV)
+            {
+                MinOSVersion = TEXT("-mtvos-version-min=12.0");
+            }
+            else if (bIsMobile)
+            {
+                MinOSVersion = TEXT("-mios-version-min=12.0");
+            }
+            else
+            {
+                MinOSVersion = TEXT("-mmacosx-version-min=10.14");
+            }
+            break;
 		case 4:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
 			TypeMode = EMetalTypeBufferModeTex;
@@ -2162,7 +2244,10 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 
 
 	// This requires removing the HLSLCC_NoPreprocess flag later on!
-	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShader);
+    if (VersionEnum < 5)
+    {
+        RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShader);
+    }
 
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
 	if (bDumpDebugInfo && !bDirectCompile)

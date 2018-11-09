@@ -47,7 +47,7 @@ FIndexBufferRHIRef FMetalDynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 S
 	}
 	else if (IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
 	{
-		if (IndexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+		if (IndexBuffer->UsePrivateMemory())
 		{
 			LLM_SCOPE(ELLMTag::IndexBuffer);
 			SafeReleaseMetalBuffer(IndexBuffer->CPUBuffer);
@@ -106,7 +106,7 @@ struct FMetalRHICommandInitialiseIndexBuffer : public FRHICommand<FMetalRHIComma
 		if (Buffer->CPUBuffer)
 		{
 			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
-			if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			if (Buffer->UsePrivateMemory())
 			{
 				LLM_SCOPE(ELLMTag::IndexBuffer);
 				SafeReleaseMetalBuffer(Buffer->CPUBuffer);
@@ -170,7 +170,7 @@ FIndexBufferRHIRef FMetalDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 		}
 		else if (IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
 		{
-			if (IndexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			if (IndexBuffer->UsePrivateMemory())
 			{
 				LLM_SCOPE(ELLMTag::IndexBuffer);
 				SafeReleaseMetalBuffer(IndexBuffer->CPUBuffer);
