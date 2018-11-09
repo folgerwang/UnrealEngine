@@ -360,9 +360,9 @@ void FSlateTextureRenderTarget2DResource::UpdateDeferredResource(FRHICommandList
 	// Clear the target surface to green
 	if (bClearRenderTarget)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(RenderTargetTextureRHI, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		RHICmdList.SetRenderTargetsAndClear(Info);
+		FRHIRenderPassInfo RPInfo(RenderTargetTextureRHI, ERenderTargetActions::Clear_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("Slate2DUpdateDeferred_Clear"));
+		RHICmdList.EndRenderPass();
 	}
 
 	// Copy surface to the texture for use
