@@ -865,9 +865,11 @@ public:
 		Argument() {}
 		Argument(FMetalBuffer const& InBuffer, mtlpp::ResourceUsage const InUsage) : Buffer(InBuffer), Usage(InUsage) {}
 		Argument(FMetalTexture const& InTexture, mtlpp::ResourceUsage const InUsage) : Texture(InTexture), Usage(InUsage) {}
-		
-		ns::AutoReleased<FMetalBuffer> Buffer;
-		ns::AutoReleased<FMetalTexture> Texture;
+		Argument(FMetalSampler const& InSampler) : Sampler(InSampler), Usage(mtlpp::ResourceUsage::Read) {}
+
+		FMetalBuffer Buffer;
+		FMetalTexture Texture;
+		FMetalSampler Sampler;
 		mtlpp::ResourceUsage Usage;
 	};
 	
