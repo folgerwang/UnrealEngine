@@ -113,10 +113,28 @@ FFrameRate UMovieSceneSequenceExtensions::GetDisplayRate(UMovieSceneSequence* Se
 	return MovieScene ? MovieScene->GetDisplayRate() : FFrameRate();
 }
 
+void UMovieSceneSequenceExtensions::SetDisplayRate(UMovieSceneSequence* Sequence, FFrameRate DisplayRate)
+{
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		MovieScene->SetDisplayRate(DisplayRate);
+	}
+}
+
 FFrameRate UMovieSceneSequenceExtensions::GetTickResolution(UMovieSceneSequence* Sequence)
 {
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
 	return MovieScene ? MovieScene->GetTickResolution() : FFrameRate();
+}
+
+void UMovieSceneSequenceExtensions::SetTickResolution(UMovieSceneSequence* Sequence, FFrameRate TickResolution)
+{
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		MovieScene->SetTickResolutionDirectly(TickResolution);
+	}
 }
 
 FSequencerScriptingRange UMovieSceneSequenceExtensions::MakeRange(UMovieSceneSequence* Sequence, int32 StartFrame, int32 Duration)
@@ -141,6 +159,15 @@ FSequencerScriptingRange UMovieSceneSequenceExtensions::GetPlaybackRange(UMovieS
 	else
 	{
 		return FSequencerScriptingRange();
+	}
+}
+
+void UMovieSceneSequenceExtensions::SetPlaybackRange(UMovieSceneSequence* Sequence, FSequencerScriptingRange PlaybackRange)
+{
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		MovieScene->SetPlaybackRange(PlaybackRange.ToNative(GetTickResolution(Sequence)));
 	}
 }
 
