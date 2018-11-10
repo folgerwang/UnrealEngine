@@ -30,7 +30,7 @@ typedef FAndroidPlatformProperties FPlatformProperties;
 typedef FHTML5PlatformProperties FPlatformProperties;
 #elif PLATFORM_QUAIL
 #include "Quail/QuailPlatformProperties.h"
-typedef FQuailPlatformProperties FPlatformProperties;
+typedef FQuailPlatformProperties<!WITH_SERVER_CODE> FPlatformProperties;
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformProperties.h"
 typedef FLinuxPlatformProperties<WITH_EDITORONLY_DATA, UE_SERVER, !WITH_SERVER_CODE> FPlatformProperties;
