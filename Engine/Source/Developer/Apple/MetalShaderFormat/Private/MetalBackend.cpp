@@ -1275,7 +1275,7 @@ protected:
 							var->semantic
 							);
 					}
-					else if(var->semantic && var->type->is_record())
+					else if(var->semantic && strcmp(var->semantic, "stage_in") && var->type->is_record())
 					{
 						ralloc_asprintf_append(buffer,"device ");
 						print_type_pre(var->type);
