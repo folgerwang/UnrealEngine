@@ -704,7 +704,7 @@ public partial class Project : CommandUtils
 
 					// Read the receipt for this target
 					TargetReceipt Receipt;
-					if (!TargetReceipt.TryRead(ReceiptFileName, SC.EngineRoot, null, out Receipt))
+					if (!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
 					{
 						throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
 					}
@@ -2734,7 +2734,7 @@ public partial class Project : CommandUtils
 
 						// Read the receipt for this target
 						TargetReceipt Receipt;
-						if (!TargetReceipt.TryRead(ReceiptFileName, EngineDir, ProjectDir, out Receipt))
+						if (!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
 						{
 							throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
 						}

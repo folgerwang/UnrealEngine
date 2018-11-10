@@ -35,7 +35,7 @@ namespace AutomationTool
 				throw new AutomationException("Unable to find '{0}'", ReceiptFile);
 			}
 
-			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFile, EngineDirectory, DirectoryReference.FromFile(ProjectFile));
+			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFile);
 
 			// Enumerate all the files we want to move
 			List<FileReference> FilesToMove = new List<FileReference>();

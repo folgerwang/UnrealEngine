@@ -669,8 +669,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		static FileReference GetHeaderToolPath(FileReference ReceiptFile)
 		{
-			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFile, UnrealBuildTool.EngineDirectory, null);
-			return Receipt.BuildProducts[0].Path;
+			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFile);
+			return Receipt.Launch;
 		}
 
 		/// <summary>
@@ -691,7 +691,7 @@ namespace UnrealBuildTool
 				}
 
 				TargetReceipt Receipt;
-				if (!TargetReceipt.TryRead(ReceiptPath, UnrealBuildTool.EngineDirectory, null, out Receipt))
+				if (!TargetReceipt.TryRead(ReceiptPath, out Receipt))
 				{
 					Timestamp = DateTime.MaxValue;
 					return false;

@@ -1401,7 +1401,7 @@ namespace UnrealBuildTool
 			}
 
 			// Create the receipt
-			TargetReceipt Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
+			TargetReceipt Receipt = new TargetReceipt(ProjectFile, TargetName, Platform, Configuration, Version);
 
 			// Set the launch executable if there is one
 			if(!Rules.bShouldCompileAsDLL)

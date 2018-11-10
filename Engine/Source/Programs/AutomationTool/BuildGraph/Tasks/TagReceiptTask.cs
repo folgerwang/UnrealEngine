@@ -30,7 +30,7 @@ namespace AutomationTool.Tasks
 		public DirectoryReference EngineDir;
 
 		/// <summary>
-		/// Path to the project folder, used to expand $(ProjectDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
+		/// Path to the project folder, used to expand $(ProjectDir) properties in receipt files. Defaults to the Engine directory for the current workspace. DEPRECATED.
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public DirectoryReference ProjectDir;
@@ -113,11 +113,14 @@ namespace AutomationTool.Tasks
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
+			// Output a warning if the project directory is specified
+			if(Parameters.ProjectDir != null)
+			{
+				CommandUtils.LogWarning("The ProjectDir argument to the TagReceipt parameter is deprecated. This path is now determined automatically from the receipt.");
+			}
+
 			// Set the Engine directory
 			DirectoryReference EngineDir = Parameters.EngineDir ?? CommandUtils.EngineDirectory;
-
-			// Set the Project directory
-			DirectoryReference ProjectDir = Parameters.ProjectDir ?? EngineDir;
 
 			// Resolve the input list
 			IEnumerable<FileReference> TargetFiles = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
@@ -133,7 +136,7 @@ namespace AutomationTool.Tasks
 
 				// Read the receipt
 				TargetReceipt Receipt;
-				if (!TargetReceipt.TryRead(TargetFile, EngineDir, ProjectDir, out Receipt))
+				if (!TargetReceipt.TryRead(TargetFile, EngineDir, out Receipt))
 				{
 					CommandUtils.LogWarning("Unable to load file using TagReceipt task ({0})", TargetFile.FullName);
 					continue;

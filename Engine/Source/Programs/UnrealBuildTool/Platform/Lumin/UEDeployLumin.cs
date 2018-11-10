@@ -282,7 +282,7 @@ namespace UnrealBuildTool
 				ReceiptFilename = TargetReceipt.GetDefaultPath(UnrealBuildTool.EngineDirectory, "UE4Game", Platform, Configuration, "");
 			}
 			Log.TraceInformation("Receipt Filename: {0}", ReceiptFilename);
-			SetLuminPluginData(MLSDKArches, CollectPluginDataPaths(TargetReceipt.Read(ReceiptFilename, UnrealBuildTool.EngineDirectory, ProjectDirectory)));
+			SetLuminPluginData(MLSDKArches, CollectPluginDataPaths(TargetReceipt.Read(ReceiptFilename)));
 
 			//gather all of the xml
 			UPL.Init(MLSDKArches, true, RelativeEnginePath, UE4BuildPath, RelativeProjectPath, ConfigurationString);

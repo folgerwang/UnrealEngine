@@ -25,12 +25,6 @@ namespace AutomationTool.Tasks
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public DirectoryReference EngineDir;
-
-		/// <summary>
-		/// Path to the project folder, used to expand $(ProjectDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public DirectoryReference ProjectDir;
 	}
 
 	/// <summary>
@@ -64,9 +58,6 @@ namespace AutomationTool.Tasks
 			// Set the Engine directory
 			DirectoryReference EngineDir = Parameters.EngineDir ?? CommandUtils.EngineDirectory;
 
-			// Set the Project directory
-			DirectoryReference ProjectDir = Parameters.ProjectDir ?? EngineDir;
-
 			// Resolve the input list
 			IEnumerable<FileReference> TargetFiles = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
 			foreach(FileReference TargetFile in TargetFiles)
@@ -83,7 +74,7 @@ namespace AutomationTool.Tasks
 				{
 					// Read the receipt
 					TargetReceipt Receipt;
-					if (!TargetReceipt.TryRead(TargetFile, EngineDir, ProjectDir, out Receipt))
+					if (!TargetReceipt.TryRead(TargetFile, EngineDir, out Receipt))
 					{
 						CommandUtils.LogWarning("Unable to load file using TagReceipt task ({0})", TargetFile.FullName);
 						continue;
@@ -120,7 +111,7 @@ namespace AutomationTool.Tasks
 					Receipt.RuntimeDependencies = NewRuntimeDependencies;
 				
 					// Save the new receipt
-					Receipt.Write(TargetFile, EngineDir, ProjectDir);
+					Receipt.Write(TargetFile, EngineDir);
 				}
 			}
 		}

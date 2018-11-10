@@ -183,7 +183,7 @@ namespace UnrealBuildTool
             // get the receipt
             if (System.IO.File.Exists(BuildRecieptFileName.FullName))
             {
-                TargetReceipt Receipt = TargetReceipt.Read(BuildRecieptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
+                TargetReceipt Receipt = TargetReceipt.Read(BuildRecieptFileName);
                 IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "SDK");
 
                 if (Results.Count() > 0)

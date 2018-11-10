@@ -175,7 +175,7 @@ namespace UnrealBuildTool
 			if(!UnrealBuildTool.IsFileInstalled(TargetInfo.ReceiptFile))
 			{
 				DirectoryReference.CreateDirectory(TargetInfo.ReceiptFile.Directory);
-				Receipt.Write(TargetInfo.ReceiptFile, UnrealBuildTool.EngineDirectory, DirectoryReference.FromFile(TargetInfo.ProjectFile));
+				Receipt.Write(TargetInfo.ReceiptFile);
 			}
 
 			return 0;

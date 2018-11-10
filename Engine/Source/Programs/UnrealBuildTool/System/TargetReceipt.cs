@@ -256,6 +256,16 @@ namespace UnrealBuildTool
 	public class TargetReceipt
 	{
 		/// <summary>
+		/// Path to the project file for this target
+		/// </summary>
+		public FileReference ProjectFile;
+
+		/// <summary>
+		/// The project directory
+		/// </summary>
+		public DirectoryReference ProjectDir;
+
+		/// <summary>
 		/// The name of this target
 		/// </summary>
 		public string TargetName;
@@ -305,12 +315,15 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
+		/// <param name="InProjectFile">Path to the project file for this target</param>
 		/// <param name="InTargetName">The name of the target being compiled</param>
 		/// <param name="InPlatform">Platform for the target being compiled</param>
 		/// <param name="InConfiguration">Configuration of the target being compiled</param>
 		/// <param name="InVersion">Version information for the target</param>
-		public TargetReceipt(string InTargetName, UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, BuildVersion InVersion)
+		public TargetReceipt(FileReference InProjectFile, string InTargetName, UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, BuildVersion InVersion)
 		{
+			ProjectFile = InProjectFile;
+			ProjectDir = DirectoryReference.FromFile(InProjectFile);
 			TargetName = InTargetName;
 			Platform = InPlatform;
 			Configuration = InConfiguration;
@@ -374,7 +387,7 @@ namespace UnrealBuildTool
 		/// <param name="EngineDir">Value of the $(EngineDir) variable.</param>
 		/// <param name="ProjectDir">Value of the $(ProjectDir) variable.</param>
 		/// <returns>Converted path for the file.</returns>
-		public static string InsertPathVariables(FileReference File, DirectoryReference EngineDir, DirectoryReference ProjectDir)
+		static string InsertPathVariables(FileReference File, DirectoryReference EngineDir, DirectoryReference ProjectDir)
 		{
 			if (File.IsUnderDirectory(EngineDir))
 			{
@@ -397,7 +410,7 @@ namespace UnrealBuildTool
 		/// <param name="EngineDir">Value of the $(EngineDir) variable.</param>
 		/// <param name="ProjectDir">Value of the $(ProjectDir) variable.</param>
 		/// <returns>Converted path for the file.</returns>
-		public static FileReference ExpandPathVariables(string Path, DirectoryReference EngineDir, DirectoryReference ProjectDir)
+		static FileReference ExpandPathVariables(string Path, DirectoryReference EngineDir, DirectoryReference ProjectDir)
 		{
 			const string EnginePrefix = "$(EngineDir)";
 			if(Path.StartsWith(EnginePrefix, StringComparison.InvariantCultureIgnoreCase))
@@ -460,9 +473,17 @@ namespace UnrealBuildTool
 		/// Read a receipt from disk.
 		/// </summary>
 		/// <param name="Location">Filename to read from</param>
+		public static TargetReceipt Read(FileReference Location)
+		{
+			return Read(Location, UnrealBuildTool.EngineDirectory);
+		}
+
+		/// <summary>
+		/// Read a receipt from disk.
+		/// </summary>
+		/// <param name="Location">Filename to read from</param>
 		/// <param name="EngineDir">Engine directory for expanded variables</param>
-		/// <param name="ProjectDir">Project directory for expanded variables</param>
-		public static TargetReceipt Read(FileReference Location, DirectoryReference EngineDir, DirectoryReference ProjectDir)
+		public static TargetReceipt Read(FileReference Location, DirectoryReference EngineDir)
 		{
 			JsonObject RawObject = JsonObject.Read(Location);
 
@@ -478,8 +499,24 @@ namespace UnrealBuildTool
 				throw new JsonParseException("Invalid 'Version' field");
 			}
 
+			// Read the project path
+			FileReference ProjectFile;
+
+			string RelativeProjectFile;
+			if(RawObject.TryGetStringField("Project", out RelativeProjectFile))
+			{
+				ProjectFile = FileReference.Combine(Location.Directory, RelativeProjectFile);
+			}
+			else
+			{
+				ProjectFile = null;
+			}
+
 			// Create the receipt
-			TargetReceipt Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
+			TargetReceipt Receipt = new TargetReceipt(ProjectFile, TargetName, Platform, Configuration, Version);
+
+			// Get the project directory
+			DirectoryReference ProjectDir = Receipt.ProjectDir;
 
 			// Read the launch executable
 			string Launch;
@@ -561,11 +598,21 @@ namespace UnrealBuildTool
 		/// Try to read a receipt from disk, failing gracefully if it can't be read.
 		/// </summary>
 		/// <param name="Location">Filename to read from</param>
-		/// <param name="EngineDir">Engine directory for expanded paths</param>
-		/// <param name="ProjectDir">Project directory for expanded paths</param>
 		/// <param name="Receipt">If successful, the receipt that was read</param>
 		/// <returns>True if successful</returns>
-		public static bool TryRead(FileReference Location, DirectoryReference EngineDir, DirectoryReference ProjectDir, out TargetReceipt Receipt)
+		public static bool TryRead(FileReference Location, out TargetReceipt Receipt)
+		{
+			return TryRead(Location, UnrealBuildTool.EngineDirectory, out Receipt);
+		}
+
+		/// <summary>
+		/// Try to read a receipt from disk, failing gracefully if it can't be read.
+		/// </summary>
+		/// <param name="Location">Filename to read from</param>
+		/// <param name="EngineDir">Engine directory for expanded paths</param>
+		/// <param name="Receipt">If successful, the receipt that was read</param>
+		/// <returns>True if successful</returns>
+		public static bool TryRead(FileReference Location, DirectoryReference EngineDir, out TargetReceipt Receipt)
 		{
 			if (!FileReference.Exists(Location))
 			{
@@ -575,7 +622,7 @@ namespace UnrealBuildTool
 
 			try
 			{
-				Receipt = Read(Location, EngineDir, ProjectDir);
+				Receipt = Read(Location, EngineDir);
 				return true;
 			}
 			catch (Exception)
@@ -589,9 +636,17 @@ namespace UnrealBuildTool
 		/// Write the receipt to disk.
 		/// </summary>
 		/// <param name="Location">Output filename</param>
+		public void Write(FileReference Location)
+		{
+			Write(Location, UnrealBuildTool.EngineDirectory);
+		}
+
+		/// <summary>
+		/// Write the receipt to disk.
+		/// </summary>
+		/// <param name="Location">Output filename</param>
 		/// <param name="EngineDir">Engine directory for expanded paths</param>
-		/// <param name="ProjectDir">Project directory for expanded paths</param>
-		public void Write(FileReference Location, DirectoryReference EngineDir, DirectoryReference ProjectDir)
+		public void Write(FileReference Location, DirectoryReference EngineDir)
 		{
 			using (JsonWriter Writer = new JsonWriter(Location.FullName))
 			{
@@ -599,6 +654,11 @@ namespace UnrealBuildTool
 				Writer.WriteValue("TargetName", TargetName);
 				Writer.WriteValue("Platform", Platform.ToString());
 				Writer.WriteValue("Configuration", Configuration.ToString());
+
+				if(ProjectFile != null)
+				{
+					Writer.WriteValue("Project", ProjectFile.MakeRelativeTo(Location.Directory).Replace(Path.DirectorySeparatorChar, '/'));
+				}
 
 				Writer.WriteObjectStart("Version");
 				Version.WriteProperties(Writer);

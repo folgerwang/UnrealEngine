@@ -4005,7 +4005,7 @@ namespace UnrealBuildTool
 			// get the receipt
 			FileReference ReceiptFilename = InTarget.BuildReceiptFileName;
 			Log.TraceInformation("Receipt Filename: {0}", ReceiptFilename);
-			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFilename, UnrealBuildTool.EngineDirectory, InTarget.ProjectDirectory);
+			TargetReceipt Receipt = TargetReceipt.Read(ReceiptFilename);
 			SetAndroidPluginData(ToolChain.GetAllArchitectures(), CollectPluginDataPaths(Receipt));
 
 			// Get the output paths
