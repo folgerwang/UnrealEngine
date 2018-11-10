@@ -1401,7 +1401,7 @@ namespace UnrealBuildTool
 			}
 
 			// Create the receipt
-			TargetReceipt Receipt = new TargetReceipt(ProjectFile, TargetName, Platform, Configuration, Version);
+			TargetReceipt Receipt = new TargetReceipt(ProjectFile, TargetName, TargetType, Platform, Configuration, Version);
 
 			// Set the launch executable if there is one
 			if(!Rules.bShouldCompileAsDLL)
@@ -1916,6 +1916,7 @@ namespace UnrealBuildTool
 				WriteMetadataAction.StatusDescription = ReceiptFileName.GetFileName();
 				WriteMetadataAction.bCanExecuteRemotely = false;
 				WriteMetadataAction.PrerequisiteItems.AddRange(OutputItems);
+				WriteMetadataAction.PrerequisiteItems.Add(FileItem.GetExistingItemByPath(Assembly.GetExecutingAssembly().Location));
 				WriteMetadataAction.ProducedItems.Add(FileItem.GetItemByFileReference(ReceiptFileName));
 
 				OutputItems.AddRange(WriteMetadataAction.ProducedItems);
