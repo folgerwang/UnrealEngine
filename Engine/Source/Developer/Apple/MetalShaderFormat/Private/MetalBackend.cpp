@@ -2251,7 +2251,7 @@ protected:
 						ralloc_asprintf_append(buffer, "min(");
 						tex->coordinate->accept(this);
 						ralloc_asprintf_append(buffer, ",");
-						ralloc_asprintf_append(buffer, "((%s[%d] / sizeof(", BufferSizesName, Index);
+						ralloc_asprintf_append(buffer, "((%s[%d * 2] / sizeof(", BufferSizesName, Index);
 						print_type_pre(Texture->type->inner_type);
 						ralloc_asprintf_append(buffer, "))))]");
 					}
@@ -2665,7 +2665,7 @@ protected:
                             ralloc_asprintf_append(buffer, "min(");
                             deref->image_index->accept(this);
                             ralloc_asprintf_append(buffer, ",");
-							ralloc_asprintf_append(buffer, "((%s[%d] / sizeof(", BufferSizesName, Index);
+							ralloc_asprintf_append(buffer, "((%s[%d * 2] / sizeof(", BufferSizesName, Index);
                             print_type_pre(Texture->type->inner_type);
                             ralloc_asprintf_append(buffer, "))))]");
                         }
