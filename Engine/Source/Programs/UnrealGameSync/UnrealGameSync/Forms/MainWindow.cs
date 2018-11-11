@@ -958,11 +958,10 @@ namespace UnrealGameSync
 
 		public void ModifyApplicationSettings()
 		{
-			ApplicationSettingsWindow ApplicationSettings = new ApplicationSettingsWindow(UpdateMonitor.Perforce.ServerAndPort, UpdateMonitor.Perforce.UserName, bUnstable, Log);
-			if(ApplicationSettings.ShowDialog() == DialogResult.OK)
+			bool? bRelaunchUnstable = ApplicationSettingsWindow.ShowModal(this, bUnstable, Log);
+			if(bRelaunchUnstable.HasValue)
 			{
-				UpdateMonitor.RelaunchUnstable = ApplicationSettings.UseUnstableBuildCheckBox.Checked;
-				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated);
+				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated, bRelaunchUnstable);
 			}
 		}
 	}

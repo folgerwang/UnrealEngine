@@ -33,7 +33,7 @@ namespace UnrealGameSync
 		public bool? RelaunchUnstable
 		{
 			get;
-			set;
+			private set;
 		}
 
 		public UpdateMonitor(PerforceConnection InPerforce, string InWatchPath)
@@ -85,13 +85,14 @@ namespace UnrealGameSync
 				List<PerforceChangeSummary> Changes;
 				if(Perforce.FindChanges(WatchPath, 1, out Changes, Log) && Changes.Count > 0)
 				{
-					TriggerUpdate(UpdateType.Background);
+					TriggerUpdate(UpdateType.Background, null);
 				}
 			}
 		}
 
-		public void TriggerUpdate(UpdateType UpdateType)
+		public void TriggerUpdate(UpdateType UpdateType, bool? RelaunchUnstable)
 		{
+			this.RelaunchUnstable = RelaunchUnstable;
 			IsUpdateAvailable = true;
 			if(OnUpdateAvailable != null)
 			{

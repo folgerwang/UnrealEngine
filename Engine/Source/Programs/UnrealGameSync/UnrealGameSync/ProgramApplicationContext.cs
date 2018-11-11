@@ -201,12 +201,7 @@ namespace UnrealGameSync
 
 		private void OnActivationListenerCallback()
 		{
-			// Check if we're trying to reopen with the unstable version; if so, trigger an update to trigger a restart with the new executable
-			if(!bUnstable && (Control.ModifierKeys & Keys.Shift) != 0)
-			{
-				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated);
-			}
-			else if(MainWindowInstance != null)
+			if(MainWindowInstance != null)
 			{
 				MainWindowInstance.ShowAndActivate();
 			}

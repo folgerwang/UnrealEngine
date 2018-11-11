@@ -18,6 +18,33 @@ namespace UnrealGameSync
 {
 	partial class ApplicationSettingsWindow : Form
 	{
+		class GetDefaultSettingsTask : IModalTask
+		{
+			TextWriter Log;
+
+			public string ServerAndPort;
+			public string UserName;
+
+			public GetDefaultSettingsTask(TextWriter Log)
+			{
+				this.Log = Log;
+			}
+
+			public bool Run(out string ErrorMessage)
+			{
+				if(PerforceModalTask.TryGetServerSettings(null, ref ServerAndPort, ref UserName, Log))
+				{
+					ErrorMessage = null;
+					return true;
+				}
+				else
+				{
+					ErrorMessage = "Unable to query server settings";
+					return false;
+				}
+			}
+		}
+
 		class PerforceTestConnectionTask : IPerforceModalTask
 		{
 			string DepotPath;
@@ -50,7 +77,7 @@ namespace UnrealGameSync
 		string InitialDepotPath;
 		bool bInitialUnstable;
 
-		public ApplicationSettingsWindow(string ServerAndPort, string UserName, bool bUnstable, TextWriter Log)
+		private ApplicationSettingsWindow(string DefaultServerAndPort, string DefaultUserName, bool bUnstable, TextWriter Log)
 		{
 			InitializeComponent();
 
@@ -58,20 +85,38 @@ namespace UnrealGameSync
 
 			Utility.ReadGlobalPerforceSettings(ref InitialServerAndPort, ref InitialUserName, ref InitialDepotPath);
 			bInitialUnstable = bUnstable;
-
-			this.ServerTextBox.Text = ServerAndPort;
+			
+			this.ServerTextBox.Text = InitialServerAndPort;
 			this.ServerTextBox.Select(ServerTextBox.TextLength, 0);
-			this.ServerTextBox.CueBanner = (ServerAndPort == null)? "Default" : String.Format("Default ({0})", ServerAndPort);
+			this.ServerTextBox.CueBanner = (DefaultServerAndPort == null)? "Default" : String.Format("Default ({0})", DefaultServerAndPort);
 
-			this.UserNameTextBox.Text = UserName;
+			this.UserNameTextBox.Text = InitialUserName;
 			this.UserNameTextBox.Select(UserNameTextBox.TextLength, 0);
-			this.UserNameTextBox.CueBanner = (UserName == null)? "Default" : String.Format("Default ({0})", UserName);
+			this.UserNameTextBox.CueBanner = (DefaultUserName == null)? "Default" : String.Format("Default ({0})", DefaultUserName);
 
 			this.DepotPathTextBox.Text = InitialDepotPath;
 			this.DepotPathTextBox.Select(DepotPathTextBox.TextLength, 0);
 			this.DepotPathTextBox.CueBanner = DeploymentSettings.DefaultDepotPath;
 
 			this.UseUnstableBuildCheckBox.Checked = bUnstable;
+		}
+
+		public static bool? ShowModal(IWin32Window Owner, bool bUnstable, TextWriter Log)
+		{
+			GetDefaultSettingsTask DefaultSettings = new GetDefaultSettingsTask(Log);
+
+			string ErrorMessage;
+			ModalTask.Execute(Owner, DefaultSettings, "Checking Settings", "Checking settings, please wait...", out ErrorMessage);
+
+			ApplicationSettingsWindow ApplicationSettings = new ApplicationSettingsWindow(DefaultSettings.ServerAndPort, DefaultSettings.UserName, bUnstable, Log);
+			if(ApplicationSettings.ShowDialog() == DialogResult.OK)
+			{
+				return ApplicationSettings.UseUnstableBuildCheckBox.Checked;
+			}
+			else
+			{
+				return null;
+			}
 		}
 
 		private void OkBtn_Click(object sender, EventArgs e)
