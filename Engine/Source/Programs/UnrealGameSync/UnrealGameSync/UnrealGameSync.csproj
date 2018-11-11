@@ -207,11 +207,11 @@
     <Compile Include="Forms\PasswordWindow.Designer.cs">
       <DependentUpon>PasswordWindow.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\PerforceSettingsWindow.cs">
+    <Compile Include="Forms\ApplicationSettingsWindow.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\PerforceSettingsWindow.Designer.cs">
-      <DependentUpon>PerforceSettingsWindow.cs</DependentUpon>
+    <Compile Include="Forms\ApplicationSettingsWindow.Designer.cs">
+      <DependentUpon>ApplicationSettingsWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\PerforceSyncSettingsWindow.cs">
       <SubType>Form</SubType>
@@ -377,8 +377,8 @@
     <EmbeddedResource Include="Forms\PasswordWindow.resx">
       <DependentUpon>PasswordWindow.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\PerforceSettingsWindow.resx">
-      <DependentUpon>PerforceSettingsWindow.cs</DependentUpon>
+    <EmbeddedResource Include="Forms\ApplicationSettingsWindow.resx">
+      <DependentUpon>ApplicationSettingsWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\PerforceSyncSettingsWindow.resx">
       <DependentUpon>PerforceSyncSettingsWindow.cs</DependentUpon>
