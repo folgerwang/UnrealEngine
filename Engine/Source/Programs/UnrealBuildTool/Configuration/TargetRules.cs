@@ -883,12 +883,6 @@ namespace UnrealBuildTool
 		public bool bCreateStubIPA = false;
 
 		/// <summary>
-		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
-		/// </summary>
-		[CommandLine("-CopyAppBundleBackToDevice")]
-		public bool bCopyAppBundleBackToDevice = false;
-
-		/// <summary>
 		/// When enabled, allows XGE to compile pre-compiled header files on remote machines.  Otherwise, PCHs are always generated locally.
 		/// </summary>
 		public bool bAllowRemotelyCompiledPCHs = false;
@@ -2026,11 +2020,6 @@ namespace UnrealBuildTool
 		public bool bCreateStubIPA
 		{
 			get { return Inner.bCreateStubIPA; }
-		}
-
-		public bool bCopyAppBundleBackToDevice
-		{
-			get { return Inner.bCopyAppBundleBackToDevice; }
 		}
 
 		public bool bAllowRemotelyCompiledPCHs
