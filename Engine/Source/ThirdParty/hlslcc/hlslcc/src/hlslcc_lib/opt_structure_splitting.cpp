@@ -401,8 +401,10 @@ bool do_structure_splitting(exec_list *instructions, _mesa_glsl_parse_state * st
 				entry->var->name,
 				type->fields.structure[i].name);
 
+			// For platforms that don't normally split input variables we can cheat and reference the global resource directly
+			// This doesn't work on platforms that require structure splitting
 			ir_variable* var = state->symbols->get_variable(name);
-			if (var)
+			if (var && !bSplitInputVariables)
 			{
 				entry->components[i] = var;
 			}
