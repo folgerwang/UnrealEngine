@@ -16,7 +16,7 @@ using UnrealGameSync;
 
 namespace UnrealGameSync
 {
-	partial class PerforceSettingsWindow : Form
+	partial class ApplicationSettingsWindow : Form
 	{
 		class PerforceTestConnectionTask : IPerforceModalTask
 		{
@@ -43,7 +43,6 @@ namespace UnrealGameSync
 			}
 		}
 
-		UserSettings Settings;
 		TextWriter Log;
 
 		string InitialServerAndPort;
@@ -51,21 +50,22 @@ namespace UnrealGameSync
 		string InitialDepotPath;
 		bool bInitialUnstable;
 
-		public PerforceSettingsWindow(bool bUnstable, UserSettings Settings, TextWriter Log)
+		public ApplicationSettingsWindow(string ServerAndPort, string UserName, bool bUnstable, TextWriter Log)
 		{
 			InitializeComponent();
 
-			this.Settings = Settings;
 			this.Log = Log;
 
 			Utility.ReadGlobalPerforceSettings(ref InitialServerAndPort, ref InitialUserName, ref InitialDepotPath);
 			bInitialUnstable = bUnstable;
 
-			this.ServerTextBox.Text = InitialServerAndPort;
+			this.ServerTextBox.Text = ServerAndPort;
 			this.ServerTextBox.Select(ServerTextBox.TextLength, 0);
+			this.ServerTextBox.CueBanner = (ServerAndPort == null)? "Default" : String.Format("Default ({0})", ServerAndPort);
 
-			this.UserNameTextBox.Text = InitialUserName;
+			this.UserNameTextBox.Text = UserName;
 			this.UserNameTextBox.Select(UserNameTextBox.TextLength, 0);
+			this.UserNameTextBox.CueBanner = (UserName == null)? "Default" : String.Format("Default ({0})", UserName);
 
 			this.DepotPathTextBox.Text = InitialDepotPath;
 			this.DepotPathTextBox.Select(DepotPathTextBox.TextLength, 0);
@@ -133,12 +133,6 @@ namespace UnrealGameSync
 		{
 			DialogResult = DialogResult.Cancel;
 			Close();
-		}
-
-		private void AdvancedBtn_Click(object sender, EventArgs e)
-		{
-			PerforceSyncSettingsWindow Window = new PerforceSyncSettingsWindow(Settings);
-			Window.ShowDialog();
 		}
 	}
 }

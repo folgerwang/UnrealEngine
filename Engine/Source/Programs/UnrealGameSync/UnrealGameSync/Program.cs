@@ -97,7 +97,7 @@ namespace UnrealGameSync
 					if(UpdateMonitor.IsUpdateAvailable && UpdateSpawn != null)
 					{
 						InstanceMutex.Close();
-						bool bLaunchUnstable = Context.bRelaunchUnstable ?? bUnstable;
+						bool bLaunchUnstable = UpdateMonitor.RelaunchUnstable ?? bUnstable;
 						Utility.SpawnProcess(UpdateSpawn, "-restorestate" + (bLaunchUnstable? " -unstable" : ""));
 					}
 				}

@@ -14,7 +14,7 @@ using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
-	class ProgramApplicationContext : ApplicationContext, IMainWindowOwner
+	class ProgramApplicationContext : ApplicationContext
 	{
 		SynchronizationContext MainThreadSynchronizationContext;
 
@@ -25,8 +25,6 @@ namespace UnrealGameSync
 		string UpdateSpawn;
 		bool bUnstable;
 		bool bIsClosing;
-
-		public bool? bRelaunchUnstable;
 
 		TimestampLogWriter Log;
 		UserSettings Settings;
@@ -180,7 +178,7 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsWindow = null;
 
 			// Create the main window
-			MainWindowInstance = new MainWindow(this, ApiUrl, DataFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, bUnstable, DetectStartupProjectSettingsTask.Results, Log, Settings);
+			MainWindowInstance = new MainWindow(UpdateMonitor, ApiUrl, DataFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, bUnstable, DetectStartupProjectSettingsTask.Results, Log, Settings);
 			if(bVisible)
 			{
 				MainWindowInstance.Show();
@@ -196,12 +194,6 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsTask = null;
 		}
 
-		public void RequestRestart(bool? bRelaunchUnstable)
-		{
-			this.bRelaunchUnstable = bRelaunchUnstable;
-			UpdateMonitor.TriggerUpdate(true);
-		}
-
 		private void MainWindowInstance_FormClosed(object sender, FormClosedEventArgs e)
 		{
 			ExitThread();
@@ -212,7 +204,7 @@ namespace UnrealGameSync
 			// Check if we're trying to reopen with the unstable version; if so, trigger an update to trigger a restart with the new executable
 			if(!bUnstable && (Control.ModifierKeys & Keys.Shift) != 0)
 			{
-				UpdateMonitor.TriggerUpdate(true);
+				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated);
 			}
 			else if(MainWindowInstance != null)
 			{
@@ -225,11 +217,11 @@ namespace UnrealGameSync
 			MainThreadSynchronizationContext.Post((o) => OnActivationListenerCallback(), null);
 		}
 
-		private void OnUpdateAvailable(bool bForce)
+		private void OnUpdateAvailable(UpdateType Type)
 		{
 			if(MainWindowInstance != null && !bIsClosing)
 			{
-				if(bForce || MainWindowInstance.CanPerformUpdate())
+				if(Type == UpdateType.UserInitiated || MainWindowInstance.CanPerformUpdate())
 				{
 					bIsClosing = true;
 					MainWindowInstance.ForceClose();
@@ -237,9 +229,9 @@ namespace UnrealGameSync
 			}
 		}
 
-		private void OnUpdateAvailableCallback(bool bForce)
+		private void OnUpdateAvailableCallback(UpdateType Type)
 		{ 
-			MainThreadSynchronizationContext.Post((o) => OnUpdateAvailable(bForce), null);
+			MainThreadSynchronizationContext.Post((o) => OnUpdateAvailable(Type), null);
 		}
 
 		protected override void Dispose(bool bDisposing)

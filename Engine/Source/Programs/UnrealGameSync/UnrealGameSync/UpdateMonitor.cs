@@ -10,14 +10,31 @@ using System.Threading.Tasks;
 
 namespace UnrealGameSync
 {
+	enum UpdateType
+	{
+		Background,
+		UserInitiated,
+	}
+
 	class UpdateMonitor : IDisposable
 	{
-		PerforceConnection Perforce;
 		string WatchPath;
 		Thread WorkerThread;
 		ManualResetEvent QuitEvent;
 
-		public event Action<bool> OnUpdateAvailable;
+		public event Action<UpdateType> OnUpdateAvailable;
+
+		public PerforceConnection Perforce
+		{
+			get;
+			private set;
+		}
+
+		public bool? RelaunchUnstable
+		{
+			get;
+			set;
+		}
 
 		public UpdateMonitor(PerforceConnection InPerforce, string InWatchPath)
 		{
@@ -68,17 +85,17 @@ namespace UnrealGameSync
 				List<PerforceChangeSummary> Changes;
 				if(Perforce.FindChanges(WatchPath, 1, out Changes, Log) && Changes.Count > 0)
 				{
-					TriggerUpdate(false);
+					TriggerUpdate(UpdateType.Background);
 				}
 			}
 		}
 
-		public void TriggerUpdate(bool bForce)
+		public void TriggerUpdate(UpdateType UpdateType)
 		{
 			IsUpdateAvailable = true;
 			if(OnUpdateAvailable != null)
 			{
-				OnUpdateAvailable(bForce);
+				OnUpdateAvailable(UpdateType);
 			}
 		}
 	}

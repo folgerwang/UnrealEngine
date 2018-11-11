@@ -13,11 +13,6 @@ using System.Reflection;
 
 namespace UnrealGameSync
 {
-	interface IMainWindowOwner
-	{
-		void RequestRestart(bool? bUnstableBuild);
-	}
-
 	interface IMainWindowTabPanel : IDisposable
 	{
 		void Activate();
@@ -59,7 +54,7 @@ namespace UnrealGameSync
 
 		private const int WM_SETREDRAW = 11; 
 
-		IMainWindowOwner MainWindowOwner;
+		UpdateMonitor UpdateMonitor;
 		SynchronizationContext MainThreadSynchronizationContext;
 
 		string ApiUrl;
@@ -81,11 +76,11 @@ namespace UnrealGameSync
 
 		IMainWindowTabPanel CurrentTabPanel;
 
-		public MainWindow(IMainWindowOwner Owner, string InApiUrl, string InDataFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, bool bInUnstable, List<DetectProjectSettingsResult> StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
+		public MainWindow(UpdateMonitor InUpdateMonitor, string InApiUrl, string InDataFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, bool bInUnstable, List<DetectProjectSettingsResult> StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
 
-			MainWindowOwner = Owner;
+			UpdateMonitor = InUpdateMonitor;
 			MainThreadSynchronizationContext = SynchronizationContext.Current;
 			ApiUrl = InApiUrl;
 			DataFolder = InDataFolder;
@@ -961,9 +956,14 @@ namespace UnrealGameSync
 			}
 		}
 
-		public void RequestRestart(bool? bUnstableBuild)
+		public void ModifyApplicationSettings()
 		{
-			MainWindowOwner.RequestRestart(bUnstableBuild);
+			ApplicationSettingsWindow ApplicationSettings = new ApplicationSettingsWindow(UpdateMonitor.Perforce.ServerAndPort, UpdateMonitor.Perforce.UserName, bUnstable, Log);
+			if(ApplicationSettings.ShowDialog() == DialogResult.OK)
+			{
+				UpdateMonitor.RelaunchUnstable = ApplicationSettings.UseUnstableBuildCheckBox.Checked;
+				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated);
+			}
 		}
 	}
 }
