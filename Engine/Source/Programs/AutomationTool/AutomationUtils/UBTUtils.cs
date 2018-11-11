@@ -25,8 +25,6 @@ namespace AutomationTool
 				throw new AutomationException("Unable to find UBT executable: " + UBTExecutable);
 			}
 
-			CommandLine += " -NoHotReload";
-
 			string BaseLogName = String.Format("UBT-{0}", String.Join("-", SharedUtils.ParseCommandLine(CommandLine).Where(x => !x.Contains('/') && !x.Contains('\\') && !x.StartsWith("-"))));
 			string LogName;
 			for(int Attempt = 1;;Attempt++)

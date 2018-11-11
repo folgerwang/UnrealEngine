@@ -111,7 +111,7 @@ namespace AutomationTool
 
 			ClearExportedXGEXML();
 
-			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: String.Format("-Manifest={0} -nobuilduht -xgeexport {1}", CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName), AddArgs));
+			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: String.Format("-Manifest={0} -nobuilduht -NoHotReload -xgeexport {1}", CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName), AddArgs));
 
 			XGEItem Result = new XGEItem();
 			Result.Platform = Platform;
@@ -183,7 +183,7 @@ namespace AutomationTool
 			PrepareUBT();
 			using(TelemetryStopwatch CleanStopwatch = new TelemetryStopwatch("CleanWithUBT.{0}.{1}.{2}", TargetName, Platform.ToString(), Config))
 			{
-				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: "-clean" + AddArgs);
+				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: "-Clean -NoHotReload" + AddArgs);
 			}
         }
 
@@ -210,7 +210,7 @@ namespace AutomationTool
 			FileReference ManifestFile = GetManifestFile(UprojectPath);
 			CommandUtils.DeleteFile(ManifestFile);
 
-			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: String.Format("{0} -Manifest={1}", AddArgs, CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName)));
+			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: String.Format("{0} -Manifest={1} -NoHotReload", AddArgs, CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName)));
 
 			BuildManifest Manifest = AddBuildProductsFromManifest(ManifestFile);
 			CommandUtils.DeleteFile(ManifestFile);
