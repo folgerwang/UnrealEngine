@@ -879,7 +879,9 @@ namespace UnrealBuildTool
 							}
 							Directory.CreateDirectory(Path.GetDirectoryName(IOSInfoPlistPath));
                             bool bSupportPortrait, bSupportLandscape, bSkipIcons;
-							UEDeployIOS.GenerateIOSPList(ProjectFile, Config.BuildConfig, ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/IOS/Payload", ReceiptFilename, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
+							TargetReceipt Receipt;
+							TargetReceipt.TryRead(ReceiptFilename, out Receipt);
+							UEDeployIOS.GenerateIOSPList(ProjectFile, Config.BuildConfig, ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/IOS/Payload", Receipt, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
 						}
 						if (bCreateTVOSInfoPlist)
 						{
