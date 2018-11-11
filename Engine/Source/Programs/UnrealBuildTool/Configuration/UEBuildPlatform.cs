@@ -639,15 +639,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Whether the build platform requires deployment prep
-		/// </summary>
-		/// <returns></returns>
-		public virtual bool RequiresDeployPrepAfterCompile()
-		{
-			return false;
-		}
-
-		/// <summary>
 		/// Return all valid configurations for this platform
 		/// Typically, this is always Debug, Development, and Shipping - but Test is a likely future addition for some platforms
 		/// </summary>

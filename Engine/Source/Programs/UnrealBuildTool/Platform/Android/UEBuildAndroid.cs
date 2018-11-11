@@ -222,11 +222,6 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public override bool RequiresDeployPrepAfterCompile()
-		{
-			return true;
-		}
-
 		/// <summary>
 		/// Modify the rules for a newly created module, where the target is a different host platform.
 		/// This is not required - but allows for hiding details of a particular platform.
