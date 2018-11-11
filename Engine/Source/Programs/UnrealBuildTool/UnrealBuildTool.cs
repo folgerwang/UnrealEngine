@@ -584,21 +584,12 @@ namespace UnrealBuildTool
 						JunkDeleter.DeleteJunk();
 					}
 
-					if (BuildConfiguration.DeployTargetFile != null)
+					// Build our project
+					if (Result == ECompilationResult.Succeeded)
 					{
-						UEBuildDeployTarget DeployTarget = new UEBuildDeployTarget(BuildConfiguration.DeployTargetFile);
-						Log.WriteLine(LogEventType.Console, "Deploying {0} {1} {2}...", DeployTarget.TargetName, DeployTarget.Platform, DeployTarget.Configuration);
-						UEBuildPlatform.GetBuildPlatform(DeployTarget.Platform).Deploy(DeployTarget);
-						Result = ECompilationResult.Succeeded;
+						Result = RunUBT(BuildConfiguration, Arguments, ProjectFile, true);
 					}
-					else
-					{
-						// Build our project
-						if (Result == ECompilationResult.Succeeded)
-						{
-							Result = RunUBT(BuildConfiguration, Arguments, ProjectFile, true);
-						}
-					}
+
 					// Print some performance info
 					double BuildDuration = (DateTime.UtcNow - StartTime).TotalSeconds;
 					if (UnrealBuildTool.bPrintPerformanceInfo)

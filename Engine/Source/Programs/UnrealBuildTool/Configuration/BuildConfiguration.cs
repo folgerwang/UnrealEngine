@@ -164,12 +164,6 @@ namespace UnrealBuildTool
 		public bool bCleanProject = false;
 
 		/// <summary>
-		/// If we are just running the deployment step, specifies the path to the given deployment settings
-		/// </summary>
-		[CommandLine("-Deploy")]
-		public FileReference DeployTargetFile = null;
-
-		/// <summary>
 		/// If true, force header regeneration. Intended for the build machine
 		/// </summary>
 		[CommandLine("-ForceHeaderGeneration")]
