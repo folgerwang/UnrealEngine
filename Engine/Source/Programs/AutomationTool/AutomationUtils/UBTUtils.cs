@@ -34,10 +34,6 @@ namespace AutomationTool
 			{
 				CommandLine += " -2015";
 			}
-			if (!IsBuildMachine && UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac)
-			{
-				CommandLine += " -nocreatestub";
-			}
 			CommandLine += " -NoHotReload";
 			if (bJunkDeleted || GlobalCommandLine.IgnoreJunk)
 			{

@@ -880,8 +880,7 @@ namespace UnrealBuildTool
 		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
 		/// </summary>
 		[CommandLine("-CreateStub", Value = "true")]
-		[CommandLine("-NoCreateStub", Value = "false")]
-		public bool bCreateStubIPA = true;
+		public bool bCreateStubIPA = false;
 
 		/// <summary>
 		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
@@ -1176,12 +1175,6 @@ namespace UnrealBuildTool
 
 			// If we've got a changelist set, set that we're making a formal build
 			bFormalBuild = (Version.Changelist != 0 && Version.IsPromotedBuild);
-
-			// @todo remove this hacky build system stuff
-			if (bCreateStubIPA && (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("uebp_LOCAL_ROOT")) && BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac))
-			{
-				bCreateStubIPA = false;
-			}
 
 			// Set the default build version
 			if(String.IsNullOrEmpty(BuildVersion))
