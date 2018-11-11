@@ -102,7 +102,6 @@ namespace AutomationTool
 		public static CommandLineArg NoSubmit = new CommandLineArg("-NoSubmit");
 		public static CommandLineArg NoP4 = new CommandLineArg("-NoP4");
 		public static CommandLineArg P4 = new CommandLineArg("-P4");
-        public static CommandLineArg Preprocess = new CommandLineArg("-Preprocess");
         public static CommandLineArg Compile = new CommandLineArg("-Compile");
         /// <summary>
         /// This command is LEGACY because we used to run UAT.exe to compile scripts by default.
@@ -114,12 +113,10 @@ namespace AutomationTool
         public static CommandLineArg NoCompileEditor = new CommandLineArg("-NoCompileEditor");
 		public static CommandLineArg Help = new CommandLineArg("-Help");
 		public static CommandLineArg List = new CommandLineArg("-List");
-		public static CommandLineArg VS2015 = new CommandLineArg("-2015");
 		public static CommandLineArg NoKill = new CommandLineArg("-NoKill");
 		public static CommandLineArg UTF8Output = new CommandLineArg("-UTF8Output");
         public static CommandLineArg AllowStdOutLogVerbosity = new CommandLineArg("-AllowStdOutLogVerbosity");
         public static CommandLineArg NoAutoSDK = new CommandLineArg("-NoAutoSDK");
-		public static CommandLineArg IgnoreJunk = new CommandLineArg("-ignorejunk");
         /// <summary>
         /// Allows you to use local storage for your root build storage dir (default of P:\Builds (on PC) is changed to Engine\Saved\LocalBuilds). Used for local testing.
         /// </summary>

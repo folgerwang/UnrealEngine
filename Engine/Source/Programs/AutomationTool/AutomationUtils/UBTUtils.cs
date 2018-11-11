@@ -12,11 +12,6 @@ namespace AutomationTool
 	public partial class CommandUtils
 	{
 		/// <summary>
-		/// True if UBT has deleted junk files
-		/// </summary>
-		private static bool bJunkDeleted = false;
-
-		/// <summary>
 		/// Runs UBT with the specified commandline. Automatically creates a logfile. When 
 		/// no LogName is specified, the executable name is used as logfile base name.
 		/// </summary>
@@ -30,21 +25,7 @@ namespace AutomationTool
 				throw new AutomationException("Unable to find UBT executable: " + UBTExecutable);
 			}
 
-			if (GlobalCommandLine.VS2015)
-			{
-				CommandLine += " -2015";
-			}
 			CommandLine += " -NoHotReload";
-			if (bJunkDeleted || GlobalCommandLine.IgnoreJunk)
-			{
-				// UBT has already deleted junk files, make sure it doesn't do it again
-				CommandLine += " -ignorejunk";
-			}
-			else
-			{
-				// UBT will delete junk on first run
-				bJunkDeleted = true;
-			}
 
 			string BaseLogName = String.Format("UBT-{0}", String.Join("-", SharedUtils.ParseCommandLine(CommandLine).Where(x => !x.Contains('/') && !x.Contains('\\') && !x.StartsWith("-"))));
 			string LogName;
