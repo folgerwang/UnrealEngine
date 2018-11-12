@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealGameSync
 {
@@ -49,7 +49,7 @@ namespace UnrealGameSync
 			// OkButton
 			// 
 			this.OkButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.OkButton.Location = new System.Drawing.Point(981, 688);
+			this.OkButton.Location = new System.Drawing.Point(888, 688);
 			this.OkButton.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
 			this.OkButton.Name = "OkButton";
 			this.OkButton.Size = new System.Drawing.Size(87, 26);
@@ -62,7 +62,7 @@ namespace UnrealGameSync
 			// 
 			this.CancButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancButton.Location = new System.Drawing.Point(888, 688);
+			this.CancButton.Location = new System.Drawing.Point(981, 688);
 			this.CancButton.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
 			this.CancButton.Name = "CancButton";
 			this.CancButton.Size = new System.Drawing.Size(87, 26);

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealGameSync
 {
@@ -38,20 +38,20 @@ namespace UnrealGameSync
 			// OkBtn
 			// 
 			this.OkBtn.DialogResult = System.Windows.Forms.DialogResult.OK;
-			this.OkBtn.Location = new System.Drawing.Point(496, 46);
+			this.OkBtn.Location = new System.Drawing.Point(403, 46);
 			this.OkBtn.Name = "OkBtn";
 			this.OkBtn.Size = new System.Drawing.Size(87, 26);
-			this.OkBtn.TabIndex = 3;
+			this.OkBtn.TabIndex = 2;
 			this.OkBtn.Text = "Ok";
 			this.OkBtn.UseVisualStyleBackColor = true;
 			// 
 			// CancelBtn
 			// 
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(403, 46);
+			this.CancelBtn.Location = new System.Drawing.Point(496, 46);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(87, 26);
-			this.CancelBtn.TabIndex = 2;
+			this.CancelBtn.TabIndex = 3;
 			this.CancelBtn.Text = "Cancel";
 			this.CancelBtn.UseVisualStyleBackColor = true;
 			// 

@@ -84,11 +84,11 @@ namespace UnrealGameSync
 			// 
 			this.OkBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.OkBtn.DialogResult = System.Windows.Forms.DialogResult.OK;
-			this.OkBtn.Location = new System.Drawing.Point(96, 3);
+			this.OkBtn.Location = new System.Drawing.Point(3, 3);
 			this.OkBtn.Margin = new System.Windows.Forms.Padding(3, 3, 0, 3);
 			this.OkBtn.Name = "OkBtn";
 			this.OkBtn.Size = new System.Drawing.Size(87, 26);
-			this.OkBtn.TabIndex = 5;
+			this.OkBtn.TabIndex = 4;
 			this.OkBtn.Text = "Ok";
 			this.OkBtn.UseVisualStyleBackColor = true;
 			// 
@@ -96,10 +96,10 @@ namespace UnrealGameSync
 			// 
 			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(3, 3);
+			this.CancelBtn.Location = new System.Drawing.Point(93, 3);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(87, 26);
-			this.CancelBtn.TabIndex = 4;
+			this.CancelBtn.TabIndex = 5;
 			this.CancelBtn.Text = "Cancel";
 			this.CancelBtn.UseVisualStyleBackColor = true;
 			// 
@@ -112,7 +112,7 @@ namespace UnrealGameSync
             "latest change",
             "latest good change",
             "latest starred change"});
-			this.ChangeComboBox.Location = new System.Drawing.Point(186, 4);
+			this.ChangeComboBox.Location = new System.Drawing.Point(186, 3);
 			this.ChangeComboBox.Name = "ChangeComboBox";
 			this.ChangeComboBox.Size = new System.Drawing.Size(171, 23);
 			this.ChangeComboBox.TabIndex = 2;
@@ -128,7 +128,7 @@ namespace UnrealGameSync
 			this.ProjectListBox.Location = new System.Drawing.Point(0, 35);
 			this.ProjectListBox.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
 			this.ProjectListBox.Name = "ProjectListBox";
-			this.ProjectListBox.Size = new System.Drawing.Size(680, 179);
+			this.ProjectListBox.Size = new System.Drawing.Size(763, 199);
 			this.ProjectListBox.TabIndex = 8;
 			// 
 			// tableLayoutPanel1
@@ -141,13 +141,13 @@ namespace UnrealGameSync
 			this.tableLayoutPanel1.Controls.Add(this.flowLayoutPanel1, 0, 0);
 			this.tableLayoutPanel1.Controls.Add(this.ProjectListBox, 0, 1);
 			this.tableLayoutPanel1.Controls.Add(this.flowLayoutPanel2, 0, 2);
-			this.tableLayoutPanel1.Location = new System.Drawing.Point(12, 12);
+			this.tableLayoutPanel1.Location = new System.Drawing.Point(14, 12);
 			this.tableLayoutPanel1.Name = "tableLayoutPanel1";
 			this.tableLayoutPanel1.RowCount = 3;
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
-			this.tableLayoutPanel1.Size = new System.Drawing.Size(680, 252);
+			this.tableLayoutPanel1.Size = new System.Drawing.Size(763, 272);
 			this.tableLayoutPanel1.TabIndex = 9;
 			// 
 			// flowLayoutPanel1
@@ -168,9 +168,9 @@ namespace UnrealGameSync
 			// 
 			this.flowLayoutPanel2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.flowLayoutPanel2.AutoSize = true;
-			this.flowLayoutPanel2.Controls.Add(this.CancelBtn);
 			this.flowLayoutPanel2.Controls.Add(this.OkBtn);
-			this.flowLayoutPanel2.Location = new System.Drawing.Point(497, 220);
+			this.flowLayoutPanel2.Controls.Add(this.CancelBtn);
+			this.flowLayoutPanel2.Location = new System.Drawing.Point(580, 240);
 			this.flowLayoutPanel2.Margin = new System.Windows.Forms.Padding(0);
 			this.flowLayoutPanel2.Name = "flowLayoutPanel2";
 			this.flowLayoutPanel2.Size = new System.Drawing.Size(183, 32);
@@ -182,7 +182,7 @@ namespace UnrealGameSync
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
-			this.ClientSize = new System.Drawing.Size(704, 276);
+			this.ClientSize = new System.Drawing.Size(793, 296);
 			this.Controls.Add(this.tableLayoutPanel1);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Icon = global::UnrealGameSync.Properties.Resources.Icon;

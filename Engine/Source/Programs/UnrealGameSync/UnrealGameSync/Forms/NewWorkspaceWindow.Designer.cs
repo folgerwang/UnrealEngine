@@ -106,7 +106,7 @@ namespace UnrealGameSync
 			// OkBtn
 			// 
 			this.OkBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.OkBtn.Location = new System.Drawing.Point(733, 175);
+			this.OkBtn.Location = new System.Drawing.Point(642, 175);
 			this.OkBtn.Name = "OkBtn";
 			this.OkBtn.Size = new System.Drawing.Size(85, 27);
 			this.OkBtn.TabIndex = 1;
@@ -118,7 +118,7 @@ namespace UnrealGameSync
 			// 
 			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(642, 175);
+			this.CancelBtn.Location = new System.Drawing.Point(733, 175);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(85, 27);
 			this.CancelBtn.TabIndex = 2;

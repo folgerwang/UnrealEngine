@@ -327,10 +327,10 @@ namespace UnrealGameSync
 			// OkButton
 			// 
 			this.OkButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.OkButton.Location = new System.Drawing.Point(655, 455);
+			this.OkButton.Location = new System.Drawing.Point(553, 455);
 			this.OkButton.Name = "OkButton";
 			this.OkButton.Size = new System.Drawing.Size(96, 27);
-			this.OkButton.TabIndex = 10;
+			this.OkButton.TabIndex = 9;
 			this.OkButton.Text = "Ok";
 			this.OkButton.UseVisualStyleBackColor = true;
 			this.OkButton.Click += new System.EventHandler(this.OkButton_Click);
@@ -339,10 +339,10 @@ namespace UnrealGameSync
 			// 
 			this.NewCancelButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
 			this.NewCancelButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.NewCancelButton.Location = new System.Drawing.Point(553, 455);
+			this.NewCancelButton.Location = new System.Drawing.Point(655, 455);
 			this.NewCancelButton.Name = "NewCancelButton";
 			this.NewCancelButton.Size = new System.Drawing.Size(96, 27);
-			this.NewCancelButton.TabIndex = 9;
+			this.NewCancelButton.TabIndex = 10;
 			this.NewCancelButton.Text = "Cancel";
 			this.NewCancelButton.UseVisualStyleBackColor = true;
 			this.NewCancelButton.Click += new System.EventHandler(this.NewCancelButton_Click);

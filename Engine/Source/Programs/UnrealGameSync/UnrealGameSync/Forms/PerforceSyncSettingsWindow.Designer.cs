@@ -1,4 +1,4 @@
-﻿namespace UnrealGameSync
+namespace UnrealGameSync
 {
 	partial class PerforceSyncSettingsWindow
 	{
@@ -109,7 +109,7 @@
 			// 
 			// OkButton
 			// 
-			this.OkButton.Location = new System.Drawing.Point(371, 167);
+			this.OkButton.Location = new System.Drawing.Point(278, 167);
 			this.OkButton.Name = "OkButton";
 			this.OkButton.Size = new System.Drawing.Size(87, 26);
 			this.OkButton.TabIndex = 1;
@@ -120,7 +120,7 @@
 			// CancButton
 			// 
 			this.CancButton.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancButton.Location = new System.Drawing.Point(278, 167);
+			this.CancButton.Location = new System.Drawing.Point(371, 167);
 			this.CancButton.Name = "CancButton";
 			this.CancButton.Size = new System.Drawing.Size(87, 26);
 			this.CancButton.TabIndex = 2;

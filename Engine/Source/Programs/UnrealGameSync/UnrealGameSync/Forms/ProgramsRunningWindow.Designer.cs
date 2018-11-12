@@ -42,7 +42,7 @@
 			// 
 			this.IgnoreBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.IgnoreBtn.DialogResult = System.Windows.Forms.DialogResult.OK;
-			this.IgnoreBtn.Location = new System.Drawing.Point(104, 3);
+			this.IgnoreBtn.Location = new System.Drawing.Point(3, 3);
 			this.IgnoreBtn.Name = "IgnoreBtn";
 			this.IgnoreBtn.Size = new System.Drawing.Size(94, 27);
 			this.IgnoreBtn.TabIndex = 0;
@@ -53,7 +53,7 @@
 			// 
 			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(3, 3);
+			this.CancelBtn.Location = new System.Drawing.Point(104, 3);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(95, 27);
 			this.CancelBtn.TabIndex = 1;

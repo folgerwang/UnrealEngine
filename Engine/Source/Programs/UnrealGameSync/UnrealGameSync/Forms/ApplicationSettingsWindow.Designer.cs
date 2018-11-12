@@ -40,7 +40,7 @@ namespace UnrealGameSync
 			this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
 			this.UseUnstableBuildCheckBox = new System.Windows.Forms.CheckBox();
 			this.DepotPathTextBox = new UnrealGameSync.TextBoxWithCueBanner();
-			this.RetryBtn = new System.Windows.Forms.Button();
+			this.OkBtn = new System.Windows.Forms.Button();
 			this.CancelBtn = new System.Windows.Forms.Button();
 			this.ViewLogBtn = new System.Windows.Forms.Button();
 			this.groupBox2 = new System.Windows.Forms.GroupBox();
@@ -177,25 +177,25 @@ namespace UnrealGameSync
 			this.DepotPathTextBox.Size = new System.Drawing.Size(562, 23);
 			this.DepotPathTextBox.TabIndex = 5;
 			// 
-			// RetryBtn
+			// OkBtn
 			// 
-			this.RetryBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.RetryBtn.Location = new System.Drawing.Point(756, 261);
-			this.RetryBtn.Name = "RetryBtn";
-			this.RetryBtn.Size = new System.Drawing.Size(89, 27);
-			this.RetryBtn.TabIndex = 4;
-			this.RetryBtn.Text = "Ok";
-			this.RetryBtn.UseVisualStyleBackColor = true;
-			this.RetryBtn.Click += new System.EventHandler(this.OkBtn_Click);
+			this.OkBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+			this.OkBtn.Location = new System.Drawing.Point(661, 261);
+			this.OkBtn.Name = "OkBtn";
+			this.OkBtn.Size = new System.Drawing.Size(89, 27);
+			this.OkBtn.TabIndex = 3;
+			this.OkBtn.Text = "Ok";
+			this.OkBtn.UseVisualStyleBackColor = true;
+			this.OkBtn.Click += new System.EventHandler(this.OkBtn_Click);
 			// 
 			// CancelBtn
 			// 
 			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(661, 261);
+			this.CancelBtn.Location = new System.Drawing.Point(756, 261);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(89, 27);
-			this.CancelBtn.TabIndex = 3;
+			this.CancelBtn.TabIndex = 4;
 			this.CancelBtn.Text = "Cancel";
 			this.CancelBtn.UseVisualStyleBackColor = true;
 			this.CancelBtn.Click += new System.EventHandler(this.CancelBtn_Click);
@@ -255,14 +255,14 @@ namespace UnrealGameSync
 			// 
 			// ApplicationSettingsWindow
 			// 
-			this.AcceptButton = this.RetryBtn;
+			this.AcceptButton = this.OkBtn;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(857, 300);
 			this.Controls.Add(this.groupBox2);
 			this.Controls.Add(this.CancelBtn);
-			this.Controls.Add(this.RetryBtn);
+			this.Controls.Add(this.OkBtn);
 			this.Controls.Add(this.groupBox1);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
@@ -288,7 +288,7 @@ namespace UnrealGameSync
 		#endregion
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.GroupBox groupBox1;
-		private System.Windows.Forms.Button RetryBtn;
+		private System.Windows.Forms.Button OkBtn;
 		private System.Windows.Forms.Button CancelBtn;
 		private System.Windows.Forms.Button ViewLogBtn;
 		private System.Windows.Forms.Label label3;
