@@ -816,6 +816,7 @@ private:
 					[
 						SNew(STextBlock)
 						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Changelist", "Changelist:"))
+						.Visibility(ISourceControlModule::Get().GetProvider().UsesChangelists() ? EVisibility::SelfHitTestInvisible : EVisibility::Hidden)
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
