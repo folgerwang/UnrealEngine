@@ -96,7 +96,7 @@ namespace UnrealGameSync
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
 			this.tableLayoutPanel1.Size = new System.Drawing.Size(787, 97);
-			this.tableLayoutPanel1.TabIndex = 7;
+			this.tableLayoutPanel1.TabIndex = 0;
 			// 
 			// UserNameTextBox
 			// 
@@ -105,7 +105,7 @@ namespace UnrealGameSync
 			this.UserNameTextBox.Location = new System.Drawing.Point(85, 36);
 			this.UserNameTextBox.Name = "UserNameTextBox";
 			this.UserNameTextBox.Size = new System.Drawing.Size(699, 23);
-			this.UserNameTextBox.TabIndex = 3;
+			this.UserNameTextBox.TabIndex = 1;
 			// 
 			// ServerTextBox
 			// 
@@ -114,7 +114,7 @@ namespace UnrealGameSync
 			this.ServerTextBox.Location = new System.Drawing.Point(85, 4);
 			this.ServerTextBox.Name = "ServerTextBox";
 			this.ServerTextBox.Size = new System.Drawing.Size(699, 23);
-			this.ServerTextBox.TabIndex = 1;
+			this.ServerTextBox.TabIndex = 0;
 			// 
 			// label3
 			// 
@@ -163,7 +163,7 @@ namespace UnrealGameSync
 			this.UseUnstableBuildCheckBox.Margin = new System.Windows.Forms.Padding(10, 3, 3, 3);
 			this.UseUnstableBuildCheckBox.Name = "UseUnstableBuildCheckBox";
 			this.UseUnstableBuildCheckBox.Size = new System.Drawing.Size(124, 19);
-			this.UseUnstableBuildCheckBox.TabIndex = 6;
+			this.UseUnstableBuildCheckBox.TabIndex = 1;
 			this.UseUnstableBuildCheckBox.Text = "Use Unstable Build";
 			this.UseUnstableBuildCheckBox.UseVisualStyleBackColor = true;
 			// 
@@ -175,7 +175,7 @@ namespace UnrealGameSync
 			this.DepotPathTextBox.Location = new System.Drawing.Point(3, 3);
 			this.DepotPathTextBox.Name = "DepotPathTextBox";
 			this.DepotPathTextBox.Size = new System.Drawing.Size(562, 23);
-			this.DepotPathTextBox.TabIndex = 5;
+			this.DepotPathTextBox.TabIndex = 0;
 			// 
 			// OkBtn
 			// 
@@ -183,7 +183,7 @@ namespace UnrealGameSync
 			this.OkBtn.Location = new System.Drawing.Point(661, 261);
 			this.OkBtn.Name = "OkBtn";
 			this.OkBtn.Size = new System.Drawing.Size(89, 27);
-			this.OkBtn.TabIndex = 3;
+			this.OkBtn.TabIndex = 2;
 			this.OkBtn.Text = "Ok";
 			this.OkBtn.UseVisualStyleBackColor = true;
 			this.OkBtn.Click += new System.EventHandler(this.OkBtn_Click);
@@ -195,7 +195,7 @@ namespace UnrealGameSync
 			this.CancelBtn.Location = new System.Drawing.Point(756, 261);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(89, 27);
-			this.CancelBtn.TabIndex = 4;
+			this.CancelBtn.TabIndex = 3;
 			this.CancelBtn.Text = "Cancel";
 			this.CancelBtn.UseVisualStyleBackColor = true;
 			this.CancelBtn.Click += new System.EventHandler(this.CancelBtn_Click);
@@ -213,7 +213,7 @@ namespace UnrealGameSync
 			this.groupBox2.Location = new System.Drawing.Point(17, 12);
 			this.groupBox2.Name = "groupBox2";
 			this.groupBox2.Size = new System.Drawing.Size(822, 88);
-			this.groupBox2.TabIndex = 5;
+			this.groupBox2.TabIndex = 0;
 			this.groupBox2.TabStop = false;
 			this.groupBox2.Text = "Startup and shutdown";
 			// 
@@ -238,7 +238,7 @@ namespace UnrealGameSync
 			this.KeepInTrayCheckBox.Location = new System.Drawing.Point(3, 29);
 			this.KeepInTrayCheckBox.Name = "KeepInTrayCheckBox";
 			this.KeepInTrayCheckBox.Size = new System.Drawing.Size(377, 19);
-			this.KeepInTrayCheckBox.TabIndex = 0;
+			this.KeepInTrayCheckBox.TabIndex = 1;
 			this.KeepInTrayCheckBox.Text = "Keep program running in the system notification area when closed";
 			this.KeepInTrayCheckBox.UseVisualStyleBackColor = true;
 			// 
@@ -249,7 +249,7 @@ namespace UnrealGameSync
 			this.AutomaticallyRunAtStartupCheckBox.Location = new System.Drawing.Point(3, 3);
 			this.AutomaticallyRunAtStartupCheckBox.Name = "AutomaticallyRunAtStartupCheckBox";
 			this.AutomaticallyRunAtStartupCheckBox.Size = new System.Drawing.Size(174, 19);
-			this.AutomaticallyRunAtStartupCheckBox.TabIndex = 1;
+			this.AutomaticallyRunAtStartupCheckBox.TabIndex = 0;
 			this.AutomaticallyRunAtStartupCheckBox.Text = "Automatically run at startup";
 			this.AutomaticallyRunAtStartupCheckBox.UseVisualStyleBackColor = true;
 			// 
