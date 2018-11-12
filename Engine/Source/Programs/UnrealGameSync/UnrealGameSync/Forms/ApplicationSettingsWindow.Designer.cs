@@ -43,9 +43,15 @@ namespace UnrealGameSync
 			this.RetryBtn = new System.Windows.Forms.Button();
 			this.CancelBtn = new System.Windows.Forms.Button();
 			this.ViewLogBtn = new System.Windows.Forms.Button();
+			this.groupBox2 = new System.Windows.Forms.GroupBox();
+			this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
+			this.KeepInTrayCheckBox = new System.Windows.Forms.CheckBox();
+			this.AutomaticallyRunAtStartupCheckBox = new System.Windows.Forms.CheckBox();
 			this.groupBox1.SuspendLayout();
 			this.tableLayoutPanel1.SuspendLayout();
 			this.tableLayoutPanel2.SuspendLayout();
+			this.groupBox2.SuspendLayout();
+			this.tableLayoutPanel3.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// label1
@@ -64,7 +70,7 @@ namespace UnrealGameSync
 			this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.groupBox1.Controls.Add(this.tableLayoutPanel1);
-			this.groupBox1.Location = new System.Drawing.Point(17, 19);
+			this.groupBox1.Location = new System.Drawing.Point(17, 106);
 			this.groupBox1.Name = "groupBox1";
 			this.groupBox1.Size = new System.Drawing.Size(822, 143);
 			this.groupBox1.TabIndex = 1;
@@ -174,7 +180,7 @@ namespace UnrealGameSync
 			// RetryBtn
 			// 
 			this.RetryBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.RetryBtn.Location = new System.Drawing.Point(756, 177);
+			this.RetryBtn.Location = new System.Drawing.Point(756, 261);
 			this.RetryBtn.Name = "RetryBtn";
 			this.RetryBtn.Size = new System.Drawing.Size(89, 27);
 			this.RetryBtn.TabIndex = 4;
@@ -186,7 +192,7 @@ namespace UnrealGameSync
 			// 
 			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(661, 177);
+			this.CancelBtn.Location = new System.Drawing.Point(661, 261);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(89, 27);
 			this.CancelBtn.TabIndex = 3;
@@ -201,13 +207,60 @@ namespace UnrealGameSync
 			this.ViewLogBtn.Size = new System.Drawing.Size(75, 23);
 			this.ViewLogBtn.TabIndex = 0;
 			// 
-			// PerforceSettingsWindow
+			// groupBox2
+			// 
+			this.groupBox2.Controls.Add(this.tableLayoutPanel3);
+			this.groupBox2.Location = new System.Drawing.Point(17, 12);
+			this.groupBox2.Name = "groupBox2";
+			this.groupBox2.Size = new System.Drawing.Size(822, 88);
+			this.groupBox2.TabIndex = 5;
+			this.groupBox2.TabStop = false;
+			this.groupBox2.Text = "Startup and shutdown";
+			// 
+			// tableLayoutPanel3
+			// 
+			this.tableLayoutPanel3.ColumnCount = 1;
+			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+			this.tableLayoutPanel3.Controls.Add(this.KeepInTrayCheckBox, 0, 1);
+			this.tableLayoutPanel3.Controls.Add(this.AutomaticallyRunAtStartupCheckBox, 0, 0);
+			this.tableLayoutPanel3.Location = new System.Drawing.Point(22, 24);
+			this.tableLayoutPanel3.Name = "tableLayoutPanel3";
+			this.tableLayoutPanel3.RowCount = 2;
+			this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+			this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+			this.tableLayoutPanel3.Size = new System.Drawing.Size(787, 52);
+			this.tableLayoutPanel3.TabIndex = 6;
+			// 
+			// KeepInTrayCheckBox
+			// 
+			this.KeepInTrayCheckBox.Anchor = System.Windows.Forms.AnchorStyles.Left;
+			this.KeepInTrayCheckBox.AutoSize = true;
+			this.KeepInTrayCheckBox.Location = new System.Drawing.Point(3, 29);
+			this.KeepInTrayCheckBox.Name = "KeepInTrayCheckBox";
+			this.KeepInTrayCheckBox.Size = new System.Drawing.Size(377, 19);
+			this.KeepInTrayCheckBox.TabIndex = 0;
+			this.KeepInTrayCheckBox.Text = "Keep program running in the system notification area when closed";
+			this.KeepInTrayCheckBox.UseVisualStyleBackColor = true;
+			// 
+			// AutomaticallyRunAtStartupCheckBox
+			// 
+			this.AutomaticallyRunAtStartupCheckBox.Anchor = System.Windows.Forms.AnchorStyles.Left;
+			this.AutomaticallyRunAtStartupCheckBox.AutoSize = true;
+			this.AutomaticallyRunAtStartupCheckBox.Location = new System.Drawing.Point(3, 3);
+			this.AutomaticallyRunAtStartupCheckBox.Name = "AutomaticallyRunAtStartupCheckBox";
+			this.AutomaticallyRunAtStartupCheckBox.Size = new System.Drawing.Size(174, 19);
+			this.AutomaticallyRunAtStartupCheckBox.TabIndex = 1;
+			this.AutomaticallyRunAtStartupCheckBox.Text = "Automatically run at startup";
+			this.AutomaticallyRunAtStartupCheckBox.UseVisualStyleBackColor = true;
+			// 
+			// ApplicationSettingsWindow
 			// 
 			this.AcceptButton = this.RetryBtn;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
-			this.ClientSize = new System.Drawing.Size(857, 216);
+			this.ClientSize = new System.Drawing.Size(857, 300);
+			this.Controls.Add(this.groupBox2);
 			this.Controls.Add(this.CancelBtn);
 			this.Controls.Add(this.RetryBtn);
 			this.Controls.Add(this.groupBox1);
@@ -216,7 +269,7 @@ namespace UnrealGameSync
 			this.Icon = global::UnrealGameSync.Properties.Resources.Icon;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
-			this.Name = "PerforceSettingsWindow";
+			this.Name = "ApplicationSettingsWindow";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Application Settings";
 			this.groupBox1.ResumeLayout(false);
@@ -225,6 +278,9 @@ namespace UnrealGameSync
 			this.tableLayoutPanel1.PerformLayout();
 			this.tableLayoutPanel2.ResumeLayout(false);
 			this.tableLayoutPanel2.PerformLayout();
+			this.groupBox2.ResumeLayout(false);
+			this.tableLayoutPanel3.ResumeLayout(false);
+			this.tableLayoutPanel3.PerformLayout();
 			this.ResumeLayout(false);
 
 		}
@@ -243,5 +299,9 @@ namespace UnrealGameSync
 		private TextBoxWithCueBanner UserNameTextBox;
 		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
 		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
+		private System.Windows.Forms.GroupBox groupBox2;
+		private System.Windows.Forms.CheckBox AutomaticallyRunAtStartupCheckBox;
+		private System.Windows.Forms.CheckBox KeepInTrayCheckBox;
+		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
 	}
 }

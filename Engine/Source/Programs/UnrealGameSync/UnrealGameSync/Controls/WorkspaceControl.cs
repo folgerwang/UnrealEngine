@@ -3279,8 +3279,6 @@ namespace UnrealGameSync
 			OptionsContextMenu_ScheduledSync.Checked = Settings.bScheduleEnabled;
 			OptionsContextMenu_TimeZone_Local.Checked = Settings.bShowLocalTimes;
 			OptionsContextMenu_TimeZone_PerforceServer.Checked = !Settings.bShowLocalTimes;
-			OptionsContextMenu_AutomaticallyRunAtStartup.Checked = IsAutomaticallyRunAtStartup();
-			OptionsContextMenu_KeepInTray.Checked = Settings.bKeepInTray;
 			OptionsContextMenu_ShowChanges_ShowUnreviewed.Checked = Settings.bShowUnreviewedChanges;
 			OptionsContextMenu_ShowChanges_ShowAutomated.Checked = Settings.bShowAutomatedChanges;
 			OptionsContextMenu_TabNames_Stream.Checked = Settings.TabLabels == TabLabels.Stream;
@@ -4092,25 +4090,6 @@ namespace UnrealGameSync
 			return UserBuildStepObjects.Values.Select(x => new BuildStep(x)).OrderBy(x => x.OrderIndex).ToList();
 		}
 
-		private void OptionsContextMenu_AutomaticallyRunAtStartup_Click(object sender, EventArgs e)
-		{
-			RegistryKey Key = Registry.CurrentUser.CreateSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
-			if(IsAutomaticallyRunAtStartup())
-			{
-	            Key.DeleteValue("UnrealGameSync", false);
-			}
-			else
-			{
-				Key.SetValue("UnrealGameSync", String.Format("\"{0}\" -RestoreState", OriginalExecutableFileName));
-			}
-		}
-
-		private bool IsAutomaticallyRunAtStartup()
-		{
-			RegistryKey Key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
-			return (Key.GetValue("UnrealGameSync") != null);
-		}
-
 		private void OptionsContextMenu_SyncPrecompiledEditor_Click(object sender, EventArgs e)
 		{
 			OptionsContextMenu_SyncPrecompiledEditor.Checked ^= true;
@@ -4202,12 +4181,6 @@ namespace UnrealGameSync
 			{
 				StartSync(ChildWindow.ChangeNumber);
 			}
-		}
-
-		private void OptionsContextMenu_KeepInTray_Click(object sender, EventArgs e)
-		{
-			Settings.bKeepInTray ^= true;
-			Settings.Save();
 		}
 
 		private void BuildList_KeyDown(object Sender, KeyEventArgs Args)
