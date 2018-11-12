@@ -679,12 +679,11 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 {
 	PrepareViewRectsForRendering();
 
+#if WITH_EDITOR
+	// HitProxyRT==0 should never happen but better we don't crash
 	TRefCountPtr<IPooledRenderTarget> HitProxyRT;
 	TRefCountPtr<IPooledRenderTarget> HitProxyDepthRT;
 	InitHitProxyRender(RHICmdList, this, HitProxyRT, HitProxyDepthRT);
-
-#if WITH_EDITOR
-	// HitProxyRT==0 should never happen but better we don't crash
 	if (HitProxyRT)
 	{
 		// Find the visible primitives.
