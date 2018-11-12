@@ -401,7 +401,7 @@ FPrimitiveViewRelevance FPaperRenderSceneProxy::GetViewRelevance(const FSceneVie
 {
 	const FEngineShowFlags& EngineShowFlags = View->Family->EngineShowFlags;
 
-	checkSlow(IsInRenderingThread());
+	checkSlow(IsInParallelRenderingThread());
 
 	FPrimitiveViewRelevance Result;
 	Result.bDrawRelevance = IsShown(View) && EngineShowFlags.Paper2DSprites;
