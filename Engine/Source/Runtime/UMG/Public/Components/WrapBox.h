@@ -43,9 +43,11 @@ public:
 
 public:
 
-	/**  */
-	UFUNCTION(BlueprintCallable, Category="Panel")
+	DEPRECATED(4.22, "Deprecated, please use AddChildToWrapBox() instead")
 	UWrapBoxSlot* AddChildWrapBox(UWidget* Content);
+
+	UFUNCTION(BlueprintCallable, Category="Panel")
+	UWrapBoxSlot* AddChildToWrapBox(UWidget* Content);
 
 #if WITH_EDITOR
 	// UWidget interface
