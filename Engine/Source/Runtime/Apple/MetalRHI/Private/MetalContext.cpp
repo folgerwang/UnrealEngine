@@ -715,6 +715,35 @@ void FMetalDeviceContext::ReleaseFence(FMetalFence* Fence)
 	}
 }
 
+void FMetalDeviceContext::RegisterUB(FMetalUniformBuffer* UB)
+{
+	UniformBuffers.Add(UB);
+}
+
+void FMetalDeviceContext::UpdateIABs(FTextureReferenceRHIParamRef ModifiedRef)
+{
+	if(GIsMetalInitialized)
+	{
+		for (FMetalUniformBuffer* UB : UniformBuffers)
+		{
+			if (UB->IAB && UB->TextureReferences.Contains(ModifiedRef))
+			{
+				delete UB->IAB;
+				UB->IAB = nullptr;
+				UB->InitIAB();
+			}
+		}
+	}
+}
+
+void FMetalDeviceContext::UnregisterUB(FMetalUniformBuffer* UB)
+{
+	if(GIsMetalInitialized)
+	{
+		UniformBuffers.Remove(UB);
+	}
+}
+
 FMetalTexture FMetalDeviceContext::CreateTexture(FMetalSurface* Surface, mtlpp::TextureDescriptor Descriptor)
 {
 	FMetalTexture Tex = Heap.CreateTexture(Descriptor, Surface);

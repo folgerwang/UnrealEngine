@@ -22,21 +22,6 @@ FAutoConsoleVariableRef CVarMetalMaxOutstandingAsyncTexUploads(
 															   ECVF_ReadOnly|ECVF_RenderThreadSafe
 															   );
 
-enum EMetalTextureCacheMode
-{
-	EMetalTextureCacheModeOff = 0,
-	EMetalTextureCacheModeInFrame = 1,
-	EMetalTextureCacheModeAlways = 2
-};
-
-int32 GMetalTextureCacheMode = 0;
-FAutoConsoleVariableRef CVarMetalTextureCacheMode(
-												  TEXT("rhi.Metal.TextureCacheMode"),
-												  GMetalTextureCacheMode,
-												  TEXT("Set the internal texture cache mode to use in Metal.\n\t0: Off.\n\t1: Mark as volatile during streaming & either reuse within the frame or delete at the end.\n\t2: Always cache the texture object but if not reused within the frame, mark the backing store as empty to clear from VRAM. Default is 1."),
-												  ECVF_ReadOnly|ECVF_RenderThreadSafe
-												  );
-
 
 /** Texture reference class. */
 class FMetalTextureReference : public FRHITextureReference
@@ -2499,6 +2484,10 @@ void FMetalRHICommandContext::RHIUpdateTextureReference(FTextureReferenceRHIPara
 		if (TextureRef)
 		{
 			TextureRef->SetReferencedTexture(NewTextureRHI);
+			if (NewTextureRHI)
+			{
+				GetMetalDeviceContext().UpdateIABs(TextureRefRHI);
+			}
 		}
 	}
 }

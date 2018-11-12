@@ -861,6 +861,8 @@ public:
 	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
+	
+	TSet<FTextureReferenceRHIParamRef> TextureReferences;
 
 	struct Argument
 	{

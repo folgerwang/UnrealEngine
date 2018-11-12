@@ -232,6 +232,50 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 				check(Resource);
 			}
 			ResourceTable[i] = Resource;
+			
+			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
+			{
+				switch(Layout.Resources[i])
+				{
+					case UBMT_GRAPH_TRACKED_SRV:
+					case UBMT_GRAPH_TRACKED_BUFFER_SRV:
+					case UBMT_SRV:
+					{
+						FMetalShaderResourceView* SRV = (FMetalShaderResourceView*)Resource;
+						FRHITexture* Texture = SRV->SourceTexture.GetReference();
+						if (Texture && Texture->GetTextureReference())
+						{
+							TextureReferences.Add(Texture->GetTextureReference());
+						}
+						break;
+					}
+					case UBMT_GRAPH_TRACKED_UAV:
+					case UBMT_GRAPH_TRACKED_BUFFER_UAV:
+					{
+						FMetalUnorderedAccessView* UAV = (FMetalUnorderedAccessView*)Resource;
+						FRHITexture* Texture = UAV->SourceView->SourceTexture.GetReference();
+						if (Texture && Texture->GetTextureReference())
+						{
+							TextureReferences.Add(Texture->GetTextureReference());
+						}
+						break;
+					}
+					case UBMT_GRAPH_TRACKED_TEXTURE:
+					case UBMT_TEXTURE:
+					{
+						FRHITexture* Texture = (FRHITexture*)Resource;
+						if (Texture && Texture->GetTextureReference())
+						{
+							TextureReferences.Add(Texture->GetTextureReference());
+						}
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+			}
 		}
 		
 		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
@@ -246,6 +290,12 @@ FMetalUniformBuffer::~FMetalUniformBuffer()
 {
 	if (IAB)
 	{
+		// Single draw calls don't need to permit texture-reference updates as that wouldn't make sense.
+		if (!(Usage & UniformBuffer_SingleDraw))
+		{
+			GetMetalDeviceContext().UnregisterUB(this);
+		}
+		
 		delete IAB;
 		IAB = nullptr;
 	}
@@ -522,6 +572,12 @@ void FMetalUniformBuffer::InitIAB()
 		{
 			check(Result != NewIAB);
 			delete NewIAB;
+		}
+		
+		// Single draw calls don't need to permit texture-reference updates as that wouldn't make sense.
+		if (!(Usage & UniformBuffer_SingleDraw))
+		{
+			GetMetalDeviceContext().RegisterUB(this);
 		}
 	}
 }

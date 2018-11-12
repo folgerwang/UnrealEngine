@@ -187,6 +187,9 @@ public:
 	void ReleaseTexture(FMetalSurface* Surface, FMetalTexture& Texture);
 	void ReleaseTexture(FMetalTexture& Texture);
 	void ReleaseFence(FMetalFence* Fence);
+	void RegisterUB(FMetalUniformBuffer* UB);
+	void UpdateIABs(FTextureReferenceRHIParamRef ModifiedRef);
+	void UnregisterUB(FMetalUniformBuffer* UB);
 	
 	void BeginFrame();
 	void FlushFreeList(bool const bFlushFences = true);
@@ -258,6 +261,8 @@ private:
 #endif
 	};
 	TArray<FMetalDelayedFreeList*> DelayedFreeLists;
+	
+	TSet<FMetalUniformBuffer*> UniformBuffers;
 	
 #if METAL_DEBUG_OPTIONS
 	/** The list of fences for the current frame */
