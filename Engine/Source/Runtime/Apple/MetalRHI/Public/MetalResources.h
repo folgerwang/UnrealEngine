@@ -856,6 +856,8 @@ public:
 	virtual ~FMetalUniformBuffer();
 	
 	void const* GetData();
+
+	void InitIAB();
 	
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
@@ -873,9 +875,18 @@ public:
 		mtlpp::ResourceUsage Usage;
 	};
 	
-	TArray<Argument> IndirectArgumentResources;
-	FMetalBuffer IndirectArgumentBuffer;
-	FMetalBuffer IndirectArgumentBufferSideTable;
+	struct FMetalIndirectArgumentBuffer
+	{
+		FMetalIndirectArgumentBuffer();
+		~FMetalIndirectArgumentBuffer();
+		
+		TArray<Argument> IndirectArgumentResources;
+		FMetalBuffer IndirectArgumentBuffer;
+		FMetalBuffer IndirectArgumentBufferSideTable;
+	};
+	
+	FMetalIndirectArgumentBuffer& GetIAB();
+	FMetalIndirectArgumentBuffer* IAB;
 };
 
 

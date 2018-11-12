@@ -2258,10 +2258,12 @@ void FMetalStateCache::CommitResourceTable(EShaderFrequency const Frequency, mtl
 		FMetalUniformBuffer* Buffer = (FMetalUniformBuffer*)BoundUniformBuffers[Frequency][Index];
 		check(Buffer);
 		
+		FMetalUniformBuffer::FMetalIndirectArgumentBuffer& IAB = Buffer->GetIAB();
+		
 		TArray<uint8>& Mask = ArgumentBufferMasks.FindChecked((uint8)Index);
 		for (uint8 Entry : Mask)
 		{
-			FMetalUniformBuffer::Argument const& Resource = Buffer->IndirectArgumentResources[Entry];
+			FMetalUniformBuffer::Argument const& Resource = IAB.IndirectArgumentResources[Entry];
 			if (Resource.Buffer)
 			{
 				CommandEncoder.UseIndirectArgumentResource(Resource.Buffer, Resource.Usage);
@@ -2272,9 +2274,9 @@ void FMetalStateCache::CommitResourceTable(EShaderFrequency const Frequency, mtl
 			}
 		}
 		
-		if (Buffer->IndirectArgumentBufferSideTable)
+		if (IAB.IndirectArgumentBufferSideTable)
 		{
-			CommandEncoder.UseIndirectArgumentResource(Buffer->IndirectArgumentBufferSideTable, mtlpp::ResourceUsage::Read);
+			CommandEncoder.UseIndirectArgumentResource(IAB.IndirectArgumentBufferSideTable, mtlpp::ResourceUsage::Read);
 		}
 		
 		if (Buffer->Buffer)
