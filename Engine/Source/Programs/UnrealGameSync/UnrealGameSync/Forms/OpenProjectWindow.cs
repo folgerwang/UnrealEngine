@@ -113,11 +113,11 @@ namespace UnrealGameSync
 			UpdateWorkspacePathBrowseButton();
 		}
 
-		private void UpdateServerLabel()
+		public static string GetServerLabelText(string ServerAndPort, string UserName)
 		{
 			if(ServerAndPort == null && UserName == null)
 			{
-				ServerLabel.Text = "Using default Perforce server settings.";
+				return "Using default Perforce server settings.";
 			}
 			else
 			{
@@ -139,9 +139,13 @@ namespace UnrealGameSync
 				{
 					Text.AppendFormat("server '{0}'.", ServerAndPort);
 				}
-				ServerLabel.Text = Text.ToString();
+				return Text.ToString();
 			}
+		}
 
+		private void UpdateServerLabel()
+		{
+			ServerLabel.Text = GetServerLabelText(ServerAndPort, UserName);
 			ChangeLink.Location = new Point(ServerLabel.Right + 5, ChangeLink.Location.Y);
 		}
 
@@ -162,7 +166,7 @@ namespace UnrealGameSync
 			WorkspaceRadioBtn.Checked = true;
 			
 			string WorkspaceName;
-			if(NewWorkspaceWindow.ShowModal(this, ServerAndPort, UserName, WorkspaceNameTextBox.Text, Log, out WorkspaceName))
+			if(NewWorkspaceWindow.ShowModal(this, ServerAndPort, UserName, null, WorkspaceNameTextBox.Text, Log, out WorkspaceName))
 			{
 				WorkspaceNameTextBox.Text = WorkspaceName;
 				UpdateOkButton();

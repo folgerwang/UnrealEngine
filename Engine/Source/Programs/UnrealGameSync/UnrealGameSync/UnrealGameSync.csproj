@@ -112,6 +112,7 @@
   <ItemGroup>
     <Compile Include="ActivationListener.cs" />
     <Compile Include="ArchiveManifest.cs" />
+    <Compile Include="AutomationServer.cs" />
     <Compile Include="BuildStep.cs" />
     <Compile Include="ChildProcess.cs" />
     <Compile Include="Controls\CustomListViewControl.cs">
@@ -158,6 +159,12 @@
     </Compile>
     <Compile Include="Forms\ArgumentsWindow.Designer.cs">
       <DependentUpon>ArgumentsWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\AutomatedSyncWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\AutomatedSyncWindow.Designer.cs">
+      <DependentUpon>AutomatedSyncWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\CleanWorkspaceWindow.cs">
       <SubType>Form</SubType>
@@ -352,6 +359,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\ArgumentsWindow.resx">
       <DependentUpon>ArgumentsWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\AutomatedSyncWindow.resx">
+      <DependentUpon>AutomatedSyncWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\CleanWorkspaceWindow.resx">
       <DependentUpon>CleanWorkspaceWindow.cs</DependentUpon>

@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading;
 using System.Reflection;
+using System.Text;
 
 namespace UnrealGameSync
 {
@@ -77,6 +78,9 @@ namespace UnrealGameSync
 
 		IMainWindowTabPanel CurrentTabPanel;
 
+		AutomationServer AutomationServer;
+		TextWriter AutomationLog;
+
 		public MainWindow(UpdateMonitor InUpdateMonitor, string InApiUrl, string InDataFolder, string InCacheFolder, bool bInRestoreStateOnLoad, string InOriginalExecutableFileName, bool bInUnstable, DetectProjectSettingsResult[] StartupProjects, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
@@ -135,6 +139,121 @@ namespace UnrealGameSync
 			if(bUnstable)
 			{
 				Text += String.Format(" (UNSTABLE BUILD {0})", Assembly.GetExecutingAssembly().GetName().Version);
+			}
+
+			AutomationLog = new TimestampLogWriter(new BoundedLogWriter(Path.Combine(DataFolder, "Automation.log")));
+			AutomationServer = new AutomationServer(Request => { MainThreadSynchronizationContext.Post(Obj => PostAutomationRequest(Request), null); }, AutomationLog);
+		}
+
+		void PostAutomationRequest(AutomationRequest Request)
+		{
+			try
+			{
+				if(!CanFocus)
+				{
+					Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Busy));
+				}
+				else if(Request.Input.Type == AutomationRequestType.SyncProject)
+				{
+					AutomationRequestResult Result = StartAutomatedSync(Request);
+					if(Result != AutomationRequestResult.Ok)
+					{
+						Request.SetOutput(new AutomationRequestOutput(Result));
+					}
+				}
+				else
+				{
+					Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Invalid));
+				}
+			}
+			catch(Exception Ex)
+			{
+				Log.WriteLine("Exception running automation request: {0}", Ex);
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Invalid));
+			}
+		}
+
+		AutomationRequestResult StartAutomatedSync(AutomationRequest Request)
+		{
+			ShowAndActivate();
+
+			BinaryReader Reader = new BinaryReader(new MemoryStream(Request.Input.Data));
+			string StreamName = Reader.ReadString();
+			string ProjectPath = Reader.ReadString();
+
+			AutomatedSyncWindow.WorkspaceInfo WorkspaceInfo;
+			if(!AutomatedSyncWindow.ShowModal(this, StreamName, ProjectPath, out WorkspaceInfo, Log))
+			{
+				return AutomationRequestResult.Canceled;
+			}
+
+			if(WorkspaceInfo.bRequiresStreamSwitch)
+			{
+				// Close any tab containing this window
+				for(int ExistingTabIdx = 0; ExistingTabIdx < TabControl.GetTabCount(); ExistingTabIdx++)
+				{
+					WorkspaceControl ExistingWorkspace = TabControl.GetTabData(ExistingTabIdx) as WorkspaceControl;
+					if(ExistingWorkspace != null && ExistingWorkspace.ClientName.Equals(WorkspaceInfo.WorkspaceName))
+					{
+						TabControl.RemoveTab(ExistingTabIdx);
+						break;
+					}
+				}
+
+				// Switch the stream
+				PerforceConnection Perforce = new PerforceConnection(WorkspaceInfo.UserName, WorkspaceInfo.WorkspaceName, WorkspaceInfo.ServerAndPort);
+				if(!Perforce.SwitchStream(StreamName, Log))
+				{
+					Log.WriteLine("Unable to switch stream");
+					return AutomationRequestResult.Error;
+				}
+			}
+
+			UserSelectedProjectSettings SelectedProject = new UserSelectedProjectSettings(WorkspaceInfo.ServerAndPort, WorkspaceInfo.UserName, UserSelectedProjectType.Client, String.Format("//{0}{1}", WorkspaceInfo.WorkspaceName, ProjectPath), null);
+
+			int TabIdx = TryOpenProject(SelectedProject, -1, OpenProjectOptions.None);
+			if(TabIdx == -1)
+			{
+				Log.WriteLine("Unable to open project");
+				return AutomationRequestResult.Error;
+			}
+
+			WorkspaceControl Workspace = TabControl.GetTabData(TabIdx) as WorkspaceControl;
+			if(Workspace == null)
+			{
+				Log.WriteLine("Workspace was unable to open");
+				return AutomationRequestResult.Error;
+			}
+
+			Workspace.AddStartupCallback((Control, bCancel) => StartAutomatedSyncAfterStartup(Control, bCancel, Request));
+			return AutomationRequestResult.Ok;
+		}
+
+		private void StartAutomatedSyncAfterStartup(WorkspaceControl Workspace, bool bCancel, AutomationRequest Request)
+		{
+			if(bCancel)
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Canceled));
+			}
+			else
+			{
+				Workspace.SyncLatestChange(Result => CompleteAutomatedSync(Result, Workspace.SelectedFileName, Request));
+			}
+		}
+
+		void CompleteAutomatedSync(WorkspaceUpdateResult Result, string SelectedFileName, AutomationRequest Request)
+		{
+			if(Result == WorkspaceUpdateResult.Success)
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Ok, Encoding.UTF8.GetBytes(SelectedFileName)));
+			}
+			else if(Result == WorkspaceUpdateResult.Canceled)
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Canceled));
+			}
+			else
+			{
+				Request.SetOutput(new AutomationRequestOutput(AutomationRequestResult.Error));
 			}
 		}
 
@@ -233,6 +352,18 @@ namespace UnrealGameSync
 			}
 
 			StopScheduleTimer();
+
+			if(AutomationServer != null)
+			{
+				AutomationServer.Dispose();
+				AutomationServer = null;
+			}
+
+			if(AutomationLog != null)
+			{
+				AutomationLog.Close();
+				AutomationLog = null;
+			}
 
 			base.Dispose(disposing);
 		}

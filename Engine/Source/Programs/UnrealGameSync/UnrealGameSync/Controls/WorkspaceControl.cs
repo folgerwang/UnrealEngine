@@ -44,6 +44,9 @@ namespace UnrealGameSync
 		void ModifyApplicationSettings();
 	}
 
+	delegate void WorkspaceStartupCallback(WorkspaceControl Workspace, bool bCancel);
+	delegate void WorkspaceUpdateCallback(WorkspaceUpdateResult Result);
+
 	partial class WorkspaceControl : UserControl, IMainWindowTabPanel
 	{
 		enum HorizontalAlignment
@@ -231,6 +234,11 @@ namespace UnrealGameSync
 		bool bUpdateBuildMetadataPosted;
 		bool bUpdateReviewsPosted;
 
+		WorkspaceUpdateCallback UpdateCallback;
+
+		System.Threading.Timer StartupTimer;
+		List<WorkspaceStartupCallback> StartupCallbacks;
+
 		public WorkspaceControl(IWorkspaceControlOwner InOwner, string InApiUrl, string InOriginalExecutableFileName, bool bInUnstable, DetectProjectSettingsTask DetectSettings, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
@@ -331,6 +339,51 @@ namespace UnrealGameSync
 
 			PerforceMonitor.Start();
 			EventMonitor.Start();
+
+			StartupTimer = new System.Threading.Timer(x => MainThreadSynchronizationContext.Post((o) => { if(!IsDisposed){ StartupTimerElapsed(false); } }, null), null, TimeSpan.FromSeconds(20.0), TimeSpan.FromMilliseconds(-1.0));
+			StartupCallbacks = new List<WorkspaceStartupCallback>();
+		}
+
+		private void CheckForStartupComplete()
+		{
+			if(StartupTimer != null)
+			{
+				int LatestChangeNumber;
+				if(FindChangeToSync(Settings.SyncType, out LatestChangeNumber))
+				{
+					StartupTimerElapsed(false);
+				}
+			}
+		}
+
+		private void StartupTimerElapsed(bool bCancel)
+		{
+			if(StartupTimer != null)
+			{
+				StartupTimer.Dispose();
+				StartupTimer = null;
+			}
+
+			if(StartupCallbacks != null)
+			{
+				foreach(WorkspaceStartupCallback StartupCallback in StartupCallbacks)
+				{
+					StartupCallback(this, bCancel);
+				}
+				StartupCallbacks = null;
+			}
+		}
+
+		public void AddStartupCallback(WorkspaceStartupCallback StartupCallback)
+		{
+			if(StartupTimer == null)
+			{
+				StartupCallback(this, false);
+			}
+			else
+			{
+				StartupCallbacks.Add(StartupCallback);
+			}
 		}
 
 		private void UpdateColumnSettings()
@@ -517,6 +570,20 @@ namespace UnrealGameSync
 
 			UpdateTimer.Stop();
 
+			if(StartupCallbacks != null)
+			{
+				foreach(WorkspaceStartupCallback StartupCallback in StartupCallbacks)
+				{
+					StartupCallback(this, true);
+				}
+				StartupCallbacks = null;
+			}
+
+			if(StartupTimer != null)
+			{
+				StartupTimer.Dispose();
+				StartupTimer = null;
+			}
 			if(NotificationWindow != null)
 			{
 				NotificationWindow.Dispose();
@@ -688,6 +755,11 @@ namespace UnrealGameSync
 
 		void StartSync(int ChangeNumber)
 		{
+			StartSync(ChangeNumber, null);
+		}
+
+		void StartSync(int ChangeNumber, WorkspaceUpdateCallback Callback)
+		{
 			WorkspaceUpdateOptions Options = WorkspaceUpdateOptions.Sync | WorkspaceUpdateOptions.SyncArchives | WorkspaceUpdateOptions.GenerateProjectFiles;
 			if(Settings.bAutoResolveConflicts)
 			{
@@ -713,10 +785,15 @@ namespace UnrealGameSync
 			{
 				Options |= WorkspaceUpdateOptions.SyncAllProjects;
 			}
-			StartWorkspaceUpdate(ChangeNumber, Options);
+			StartWorkspaceUpdate(ChangeNumber, Options, Callback);
 		}
 
 		void StartWorkspaceUpdate(int ChangeNumber, WorkspaceUpdateOptions Options)
+		{
+			StartWorkspaceUpdate(ChangeNumber, Options, null);
+		}
+
+		void StartWorkspaceUpdate(int ChangeNumber, WorkspaceUpdateOptions Options, WorkspaceUpdateCallback Callback)
 		{
 			if((Options & (WorkspaceUpdateOptions.Sync | WorkspaceUpdateOptions.Build)) != 0 && GetProcessesRunningInWorkspace().Length > 0)
 			{
@@ -753,11 +830,13 @@ namespace UnrealGameSync
 				}
 				Context.ArchiveTypeToDepotPath.Add(EditorArchiveType, EditorArchivePath);
 			}
-			StartWorkspaceUpdate(Context);
+			StartWorkspaceUpdate(Context, Callback);
 		}
 
-		void StartWorkspaceUpdate(WorkspaceUpdateContext Context)
+		void StartWorkspaceUpdate(WorkspaceUpdateContext Context, WorkspaceUpdateCallback Callback)
 		{
+			UpdateCallback = Callback;
+
 			Context.StartTime = DateTime.UtcNow;
 			Context.PerforceSyncOptions = (PerforceSyncOptions)Settings.SyncOptions.Clone();
 
@@ -809,6 +888,12 @@ namespace UnrealGameSync
 				Settings.Save();
 
 				Workspace.CancelUpdate();
+
+				if(UpdateCallback != null)
+				{
+					UpdateCallback(WorkspaceUpdateResult.Canceled);
+					UpdateCallback = null;
+				}
 
 				UpdateTimer.Stop();
 
@@ -863,7 +948,7 @@ namespace UnrealGameSync
 				DeleteWindow Window = new DeleteWindow(Context.DeleteFiles);
 				if(Window.ShowDialog(this) == DialogResult.OK)
 				{
-					StartWorkspaceUpdate(Context);
+					StartWorkspaceUpdate(Context, UpdateCallback);
 					return;
 				}
 			}
@@ -875,7 +960,7 @@ namespace UnrealGameSync
 				ClobberWindow Window = new ClobberWindow(Context.ClobberFiles);
 				if(Window.ShowDialog(this) == DialogResult.OK)
 				{
-					StartWorkspaceUpdate(Context);
+					StartWorkspaceUpdate(Context, UpdateCallback);
 					return;
 				}
 			}
@@ -897,6 +982,12 @@ namespace UnrealGameSync
 				{
 					OpenSolution();
 				}
+			}
+
+			if(UpdateCallback != null)
+			{
+				UpdateCallback(Result);
+				UpdateCallback = null;
 			}
 
 			DesiredTaskbarState = Tuple.Create((Result == WorkspaceUpdateResult.Success)? TaskbarState.NoProgress : TaskbarState.Error, 0.0f);
@@ -1176,6 +1267,7 @@ namespace UnrealGameSync
 			UpdateServiceBadges();
 			UpdateStatusPanel();
 			UpdateBuildFailureNotification();
+			CheckForStartupComplete();
 		}
 
 		void UpdateMaxBuildBadgeChars()
@@ -1270,6 +1362,7 @@ namespace UnrealGameSync
 			EventMonitor.ApplyUpdates();
 			Refresh();
 			UpdateBuildFailureNotification();
+			CheckForStartupComplete();
 		}
 
 		void UpdateBuildFailureNotification()
@@ -2259,7 +2352,7 @@ namespace UnrealGameSync
 					}
 					else
 					{
-						StartSync(Change.Number);
+						StartSync(Change.Number, null);
 					}
 				}
 			}
@@ -2316,7 +2409,7 @@ namespace UnrealGameSync
 						}
 		
 						WorkspaceUpdateContext Context = new WorkspaceUpdateContext(Workspace.CurrentChangeNumber, Options, null, GetDefaultBuildStepObjects(), ProjectSettings.BuildSteps, null, GetWorkspaceVariables(Workspace.CurrentChangeNumber));
-						StartWorkspaceUpdate(Context);
+						StartWorkspaceUpdate(Context, null);
 					}
 				}
 			}
@@ -2888,7 +2981,7 @@ namespace UnrealGameSync
 				}
 				else if(Workspace.Perforce != null)
 				{
-					if(!Workspace.Perforce.HasOpenFiles(Log) || MessageBox.Show("You have files open for edit in this workspace. If you continue, you will not be able to submit them until you switch back.\n\nContinue switching workspaces?", "Files checked out", MessageBoxButtons.YesNo) == DialogResult.Yes)
+					if(!Workspace.Perforce.HasOpenFiles(Log) || MessageBox.Show("You have files open for edit in this workspace. If you continue, you will not be able to submit them until you switch back.\n\nContinue switching streams?", "Files checked out", MessageBoxButtons.YesNo) == DialogResult.Yes)
 					{
 						if(Workspace.Perforce.SwitchStream(NewStreamName, Log))
 						{
@@ -3002,7 +3095,7 @@ namespace UnrealGameSync
 						Rectangle SyncBadgeRectangle = GetSyncBadgeRectangle(HitTest.Item.SubItems[StatusColumn.Index].Bounds);
 						if(SyncBadgeRectangle.Contains(Args.Location) && CanSyncChange(Change.Number))
 						{
-							StartSync(Change.Number);
+							StartSync(Change.Number, null);
 						}
 					}
 
@@ -3354,6 +3447,11 @@ namespace UnrealGameSync
 
 		public void SyncLatestChange()
 		{
+			SyncLatestChange(null);
+		}
+
+		public void SyncLatestChange(WorkspaceUpdateCallback Callback)
+		{
 			if(Workspace != null)
 			{
 				int ChangeNumber;
@@ -3369,7 +3467,7 @@ namespace UnrealGameSync
 				{
 					Owner.ShowAndActivate();
 					SelectChange(ChangeNumber);
-					StartSync(ChangeNumber);
+					StartSync(ChangeNumber, Callback);
 				}
 			}
 		}
@@ -3920,7 +4018,7 @@ namespace UnrealGameSync
 				else
 				{
 					WorkspaceUpdateContext Context = new WorkspaceUpdateContext(Workspace.CurrentChangeNumber, WorkspaceUpdateOptions.Build, null, GetDefaultBuildStepObjects(), ProjectSettings.BuildSteps, new HashSet<Guid>{ UniqueId }, GetWorkspaceVariables(Workspace.CurrentChangeNumber));
-					StartWorkspaceUpdate(Context);
+					StartWorkspaceUpdate(Context, null);
 				}
 			}
 		}
