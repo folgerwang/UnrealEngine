@@ -307,6 +307,23 @@ void SAssetTileView::Tick(const FGeometry& AllottedGeometry, const double InCurr
 	}
 }
 
+bool SAssetTileView::HasWidgetForAsset(const FName& AssetPathName)
+{
+	for (const TSharedPtr<FAssetViewItem>& Item : WidgetGenerator.ItemsWithGeneratedWidgets)
+	{
+		if (Item.IsValid() && Item->GetType() == EAssetItemType::Normal)
+		{
+			const FName& ObjectPath = StaticCastSharedPtr<FAssetViewAsset>(Item)->Data.ObjectPath;
+			if (ObjectPath == AssetPathName)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 FReply SAssetListView::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	FReply Reply = FAssetViewModeUtils::OnViewModeKeyDown(SelectedItems, InKeyEvent);
@@ -330,6 +347,23 @@ void SAssetListView::Tick(const FGeometry& AllottedGeometry, const double InCurr
 	{
 		SListView<TSharedPtr<FAssetViewItem>>::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	}
+}
+
+bool SAssetListView::HasWidgetForAsset(const FName& AssetPathName)
+{
+	for (const TSharedPtr<FAssetViewItem>& Item : WidgetGenerator.ItemsWithGeneratedWidgets)
+	{
+		if (Item.IsValid() && Item->GetType() == EAssetItemType::Normal)
+		{
+			const FName& ObjectPath = StaticCastSharedPtr<FAssetViewAsset>(Item)->Data.ObjectPath;
+			if (ObjectPath == AssetPathName)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 FReply SAssetColumnView::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -1401,24 +1435,6 @@ void SAssetViewItem::SetForceMipLevelsToBeResident(bool bForce) const
 	}
 }
 
-void SAssetViewItem::HandleAssetLoaded(UObject* InAsset) const
-{
-	if(InAsset != nullptr)
-	{
-		if(AssetItem.IsValid() && AssetItem->GetType() == EAssetItemType::Normal)
-		{
-			const FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
-			if(AssetData.IsValid() && AssetData.IsAssetLoaded())
-			{
-				if(InAsset == AssetData.GetAsset())
-				{
-					SetForceMipLevelsToBeResident(true);
-				}
-			}
-		}
-	}
-}
-
 bool SAssetViewItem::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
 {
 	if(OnVisualizeAssetToolTip.IsBound() && TooltipContent.IsValid() && AssetItem->GetType() != EAssetItemType::Folder)
@@ -1442,7 +1458,7 @@ void SAssetViewItem::OnToolTipClosing()
 
 SAssetListItem::~SAssetListItem()
 {
-	FCoreUObjectDelegates::OnAssetLoaded.RemoveAll(this);
+
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -1563,9 +1579,6 @@ void SAssetListItem::Construct( const FArguments& InArgs )
 	}
 
 	SetForceMipLevelsToBeResident(true);
-
-	// listen for asset loads so we can force mips to stream in if required
-	FCoreUObjectDelegates::OnAssetLoaded.AddSP(this, &SAssetViewItem::HandleAssetLoaded);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -1596,7 +1609,7 @@ FOptionalSize SAssetListItem::GetSCCImageSize() const
 
 SAssetTileItem::~SAssetTileItem()
 {
-	FCoreUObjectDelegates::OnAssetLoaded.RemoveAll(this);
+
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -1703,9 +1716,6 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 	}
 
 	SetForceMipLevelsToBeResident(true);
-
-	// listen for asset loads so we can force mips to stream in if required
-	FCoreUObjectDelegates::OnAssetLoaded.AddSP(this, &SAssetViewItem::HandleAssetLoaded);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 

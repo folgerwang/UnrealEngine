@@ -49,6 +49,7 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/FileHelper.h"
+#include "Materials/Material.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -2649,10 +2650,44 @@ void SAssetView::OnAssetRenamed(const FAssetData& AssetData, const FString& OldO
 
 void SAssetView::OnAssetLoaded(UObject* Asset)
 {
-	if ( Asset != NULL )
+	if (Asset == nullptr)
 	{
-		RecentlyLoadedOrChangedAssets.Add( FName(*Asset->GetPathName()), Asset );
+		return;
 	}
+
+	FName AssetPathName = FName(*Asset->GetPathName());
+	RecentlyLoadedOrChangedAssets.Add( AssetPathName, Asset );
+
+	UTexture2D* Texture2D = Cast<UTexture2D>(Asset);
+	UMaterial* Material = Texture2D ? nullptr : Cast<UMaterial>(Asset);
+	if ((Texture2D && !Texture2D->bForceMiplevelsToBeResident) || Material)
+	{
+		bool bHasWidgetForAsset = false;
+		switch (GetCurrentViewType())
+		{
+		case EAssetViewType::List:
+			bHasWidgetForAsset = ListView->HasWidgetForAsset(AssetPathName);
+			break;
+		case EAssetViewType::Tile:
+			bHasWidgetForAsset = TileView->HasWidgetForAsset(AssetPathName);
+			break;
+		default:
+			bHasWidgetForAsset = false;
+			break;
+		}
+
+		if (bHasWidgetForAsset)
+		{
+			if (Texture2D)
+			{
+				Texture2D->bForceMiplevelsToBeResident = true;
+			}
+			else if (Material)
+			{
+				Material->SetForceMipLevelsToBeResident(true, true, -1.0f);
+			}
+		}
+	};
 }
 
 void SAssetView::OnObjectPropertyChanged(UObject* Object, FPropertyChangedEvent& PropertyChangedEvent)
