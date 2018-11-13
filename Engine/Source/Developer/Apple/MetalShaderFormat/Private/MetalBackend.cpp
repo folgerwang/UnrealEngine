@@ -4262,7 +4262,7 @@ protected:
 				{
 					check(foundSideTable == false);
 					foundSideTable = true;
-					ralloc_asprintf_append(buffer, "// @SideTable: %s(%d)", Var->name, i);
+					ralloc_asprintf_append(buffer, "// @SideTable: %s(%d)\n", Var->name, i);
 				}
 			}
 		}
