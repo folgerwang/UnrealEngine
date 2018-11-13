@@ -636,7 +636,7 @@ void LightScatteringCS(
 
 	if (all(GridCoordinate < VolumetricFog.GridSizeInt))
 	{
-		ScatteringAndExtinction = isnan(ScatteringAndExtinction) || isinf(ScatteringAndExtinction) ? 0 : ScatteringAndExtinction;
+		ScatteringAndExtinction = -min(-ScatteringAndExtinction, float4(0.f, 0.f, 0.f, 0.f));	// vector isnan/isinf are miscompiled by hlslcc (see UE-66179)
 		RWLightScattering[GridCoordinate] = ScatteringAndExtinction;
 	}
 }
