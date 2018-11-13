@@ -171,7 +171,7 @@ void FRHICommandListImmediate::SetCurrentStat(TStatId Stat)
 {
 	if (!Bypass())
 	{
-		new (AllocCommand<FRHICommandStat>()) FRHICommandStat(Stat);
+		ALLOC_COMMAND(FRHICommandStat)(Stat);
 	}
 }
 
@@ -753,7 +753,7 @@ FGraphEventRef FRHICommandListImmediate::RHIThreadFence(bool bSetLockFence)
 
 	if (IsRunningRHIInSeparateThread())
 	{
-		FRHICommandRHIThreadFence* Cmd = new (AllocCommand<FRHICommandRHIThreadFence>()) FRHICommandRHIThreadFence();
+		FRHICommandRHIThreadFence* Cmd = ALLOC_COMMAND(FRHICommandRHIThreadFence)();
 		if (bSetLockFence)
 		{
 			RHIThreadBufferLockFence = Cmd->Fence;
@@ -787,7 +787,7 @@ void FRHICommandListImmediate::QueueAsyncCompute(FRHIAsyncComputeCommandList& RH
 		delete &RHIComputeCmdList;
 		return;
 	}
-	new (AllocCommand<FRHIAsyncComputeSubmitList>()) FRHIAsyncComputeSubmitList(&RHIComputeCmdList);
+	ALLOC_COMMAND(FRHIAsyncComputeSubmitList)(&RHIComputeCmdList);
 }
 	
 void FRHICommandListExecutor::WaitOnRHIThreadFence(FGraphEventRef& Fence)
@@ -1107,7 +1107,7 @@ public:
 			for (int32 Index = 0; Index < NumCommandLists; Index++)
 			{
 				FRHICommandListBase* CmdList = RHICmdLists[Index];
-				new (RHICmdList->AllocCommand<FRHICommandWaitForAndSubmitSubList>()) FRHICommandWaitForAndSubmitSubList(Nothing, CmdList);
+				ALLOC_COMMAND_CL(*RHICmdList, FRHICommandWaitForAndSubmitSubList)(Nothing, CmdList);
 			}
 		}
 		else
@@ -1133,7 +1133,7 @@ public:
 				FGraphEventRef TranslateCompletionEvent = TGraphTask<FParallelTranslateCommandList>::CreateTask(nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&RHICmdLists[Start], 1 + Last - Start, ContextContainer, bIsPrepass);
 				MyCompletionGraphEvent->SetGatherThreadForDontCompleteUntil(ENamedThreads::Type(CPrio_FParallelTranslateCommandList.Get() | ENamedThreads::HighTaskPriority));
 				MyCompletionGraphEvent->DontCompleteUntil(TranslateCompletionEvent);
-				new (RHICmdList->AllocCommand<FRHICommandWaitForAndSubmitSubListParallel>()) FRHICommandWaitForAndSubmitSubListParallel(TranslateCompletionEvent, ContextContainer, EffectiveThreads, ThreadIndex++);
+				ALLOC_COMMAND_CL(*RHICmdList, FRHICommandWaitForAndSubmitSubListParallel)(TranslateCompletionEvent, ContextContainer, EffectiveThreads, ThreadIndex++);
 				Start = Last + 1;
 			}
 			check(EffectiveThreads == ThreadIndex);
@@ -1285,7 +1285,7 @@ void FRHICommandListBase::QueueParallelAsyncCommandListSubmit(FGraphEventRef* An
 				FGraphEventRef TranslateCompletionEvent = TGraphTask<FParallelTranslateCommandList>::CreateTask(&Prereq, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&RHICmdLists[0], 1 + Last - Start, ContextContainer, bIsPrepass);
 
 				AllOutstandingTasks.Add(TranslateCompletionEvent);
-				new (AllocCommand<FRHICommandWaitForAndSubmitSubListParallel>()) FRHICommandWaitForAndSubmitSubListParallel(TranslateCompletionEvent, ContextContainer, EffectiveThreads, ThreadIndex++);
+				ALLOC_COMMAND(FRHICommandWaitForAndSubmitSubListParallel)(TranslateCompletionEvent, ContextContainer, EffectiveThreads, ThreadIndex++);
 				if (IsRunningRHIInSeparateThread())
 				{
 					FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread); // we don't want stuff after the async cmd list to be bundled with it
@@ -1316,7 +1316,7 @@ void FRHICommandListBase::QueueParallelAsyncCommandListSubmit(FGraphEventRef* An
 			}
 			WaitOutstandingTasks.Add(AnyThreadCompletionEvent);
 		}
-		new (AllocCommand<FRHICommandWaitForAndSubmitSubList>()) FRHICommandWaitForAndSubmitSubList(AnyThreadCompletionEvent, CmdList);
+		ALLOC_COMMAND(FRHICommandWaitForAndSubmitSubList)(AnyThreadCompletionEvent, CmdList);
 	}
 	if (IsRunningRHIInSeparateThread())
 	{
@@ -1340,7 +1340,7 @@ void FRHICommandListBase::QueueAsyncCommandListSubmit(FGraphEventRef& AnyThreadC
 		}
 		WaitOutstandingTasks.Add(AnyThreadCompletionEvent);
 	}
-	new (AllocCommand<FRHICommandWaitForAndSubmitSubList>()) FRHICommandWaitForAndSubmitSubList(AnyThreadCompletionEvent, CmdList);
+	ALLOC_COMMAND(FRHICommandWaitForAndSubmitSubList)(AnyThreadCompletionEvent, CmdList);
 	if (IsRunningRHIInSeparateThread())
 	{
 		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread); // we don't want stuff after the async cmd list to be bundled with it
@@ -1401,7 +1401,7 @@ void FRHICommandListBase::QueueRenderThreadCommandListSubmit(FGraphEventRef& Ren
 		check(!IsInActualRenderingThread() && !IsInGameThread() && !IsImmediate());
 		RTTasks.Add(RenderThreadCompletionEvent);
 	}
-	new (AllocCommand<FRHICommandWaitForAndSubmitRTSubList>()) FRHICommandWaitForAndSubmitRTSubList(RenderThreadCompletionEvent, CmdList);
+	ALLOC_COMMAND(FRHICommandWaitForAndSubmitRTSubList)(RenderThreadCompletionEvent, CmdList);
 }
 
 void FRHICommandListBase::QueueAsyncPipelineStateCompile(FGraphEventRef& AsyncCompileCompletionEvent)
@@ -1432,7 +1432,7 @@ struct FRHICommandSubmitSubList final : public FRHICommand<FRHICommandSubmitSubL
 
 void FRHICommandListBase::QueueCommandListSubmit(class FRHICommandList* CmdList)
 {
-	new (AllocCommand<FRHICommandSubmitSubList>()) FRHICommandSubmitSubList(CmdList);
+	ALLOC_COMMAND(FRHICommandSubmitSubList)(CmdList);
 }
 
 
@@ -1444,7 +1444,7 @@ void FRHICommandList::BeginScene()
 		CMD_CONTEXT(RHIBeginScene)();
 		return;
 	}
-	new (AllocCommand<FRHICommandBeginScene>()) FRHICommandBeginScene();
+	ALLOC_COMMAND(FRHICommandBeginScene)();
 	if (!IsRunningRHIInSeparateThread())
 	{
 		// if we aren't running an RHIThread, there is no good reason to buffer this frame advance stuff and that complicates state management, so flush everything out now
@@ -1460,7 +1460,7 @@ void FRHICommandList::EndScene()
 		CMD_CONTEXT(RHIEndScene)();
 		return;
 	}
-	new (AllocCommand<FRHICommandEndScene>()) FRHICommandEndScene();
+	ALLOC_COMMAND(FRHICommandEndScene)();
 	if (!IsRunningRHIInSeparateThread())
 	{
 		// if we aren't running an RHIThread, there is no good reason to buffer this frame advance stuff and that complicates state management, so flush everything out now
@@ -1478,7 +1478,7 @@ void FRHICommandList::BeginDrawingViewport(FViewportRHIParamRef Viewport, FTextu
 		CMD_CONTEXT(RHIBeginDrawingViewport)(Viewport, RenderTargetRHI);
 		return;
 	}
-	new (AllocCommand<FRHICommandBeginDrawingViewport>()) FRHICommandBeginDrawingViewport(Viewport, RenderTargetRHI);
+	ALLOC_COMMAND(FRHICommandBeginDrawingViewport)(Viewport, RenderTargetRHI);
 	if (!IsRunningRHIInSeparateThread())
 	{
 		// if we aren't running an RHIThread, there is no good reason to buffer this frame advance stuff and that complicates state management, so flush everything out now
@@ -1496,7 +1496,7 @@ void FRHICommandList::EndDrawingViewport(FViewportRHIParamRef Viewport, bool bPr
 	}
 	else
 	{
-		new (AllocCommand<FRHICommandEndDrawingViewport>()) FRHICommandEndDrawingViewport(Viewport, bPresent, bLockToVsync);
+		ALLOC_COMMAND(FRHICommandEndDrawingViewport)(Viewport, bPresent, bLockToVsync);
 
 		if (IsRunningRHIInSeparateThread())
 		{
@@ -1531,7 +1531,7 @@ void FRHICommandList::BeginFrame()
 		CMD_CONTEXT(RHIBeginFrame)();
 		return;
 	}
-	new (AllocCommand<FRHICommandBeginFrame>()) FRHICommandBeginFrame();
+	ALLOC_COMMAND(FRHICommandBeginFrame)();
 	if (!IsRunningRHIInSeparateThread())
 	{
 		// if we aren't running an RHIThread, there is no good reason to buffer this frame advance stuff and that complicates state management, so flush everything out now
@@ -1549,7 +1549,7 @@ void FRHICommandList::EndFrame()
 		CMD_CONTEXT(RHIEndFrame)();
 		return;
 	}
-	new (AllocCommand<FRHICommandEndFrame>()) FRHICommandEndFrame();
+	ALLOC_COMMAND(FRHICommandEndFrame)();
 	if (!IsRunningRHIInSeparateThread())
 	{
 		// if we aren't running an RHIThread, there is no good reason to buffer this frame advance stuff and that complicates state management, so flush everything out now
@@ -1998,7 +1998,7 @@ void FDynamicRHI::UnlockVertexBuffer_RenderThread(class FRHICommandListImmediate
 	}	
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandUpdateVertexBuffer>()) FRHICommandUpdateVertexBuffer(VertexBuffer, Params.Buffer, Params.Offset, Params.BufferSize);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandUpdateVertexBuffer)(VertexBuffer, Params.Buffer, Params.Offset, Params.BufferSize);
 		RHICmdList.RHIThreadFence(true);
 		if (GLockTracker.TotalMemoryOutstanding > 256 * 1024)
 		{
@@ -2057,7 +2057,7 @@ void FDynamicRHI::UnlockIndexBuffer_RenderThread(class FRHICommandListImmediate&
 	}	
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandUpdateIndexBuffer>()) FRHICommandUpdateIndexBuffer(IndexBuffer, Params.Buffer, Params.Offset, Params.BufferSize);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandUpdateIndexBuffer)(IndexBuffer, Params.Buffer, Params.Offset, Params.BufferSize);
 		RHICmdList.RHIThreadFence(true);
 		if (GLockTracker.TotalMemoryOutstanding > 256 * 1024)
 		{
@@ -2463,7 +2463,7 @@ void FRHICommandListImmediate::UpdateTextureReference(FTextureReferenceRHIParamR
 		CMD_CONTEXT(RHIUpdateTextureReference)(TextureRef, NewTexture);
 		return;
 	}
-	new (AllocCommand<FRHICommandUpdateTextureReference>()) FRHICommandUpdateTextureReference(TextureRef, NewTexture);
+	ALLOC_COMMAND(FRHICommandUpdateTextureReference)(TextureRef, NewTexture);
 	RHIThreadFence(true);
 	if (GetUsedMemory() > 256 * 1024)
 	{
