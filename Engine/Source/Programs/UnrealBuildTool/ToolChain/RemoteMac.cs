@@ -526,37 +526,41 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			// Download the manifest
-			Log.TraceInformation("[Remote] Downloading {0}", RemoteManifestFile);
-			DownloadFile(RemoteManifestFile);
-
-			// Convert the manifest to local form
-			BuildManifest Manifest = Utils.ReadClass<BuildManifest>(RemoteManifestFile.FullName);
-			for(int Idx = 0; Idx < Manifest.BuildProducts.Count; Idx++)
+			// Don't download anything if we're just doing a clean
+			if(!RemoteArguments.Contains("-Clean", StringComparer.OrdinalIgnoreCase))
 			{
-				Manifest.BuildProducts[Idx] = GetLocalPath(Manifest.BuildProducts[Idx]).FullName;
-			}
+				// Download the manifest
+				Log.TraceInformation("[Remote] Downloading {0}", RemoteManifestFile);
+				DownloadFile(RemoteManifestFile);
 
-			// Download the files from the remote
-			if(TargetDesc.AdditionalArguments.Any(x => x.Equals("-GenerateManifest", StringComparison.InvariantCultureIgnoreCase)))
-			{
-				LocalManifestFiles.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml"));
-			}
-			else
-			{
-				Log.TraceInformation("[Remote] Downloading build products");
+				// Convert the manifest to local form
+				BuildManifest Manifest = Utils.ReadClass<BuildManifest>(RemoteManifestFile.FullName);
+				for(int Idx = 0; Idx < Manifest.BuildProducts.Count; Idx++)
+				{
+					Manifest.BuildProducts[Idx] = GetLocalPath(Manifest.BuildProducts[Idx]).FullName;
+				}
 
-				List<FileReference> FilesToDownload = new List<FileReference>();
-				FilesToDownload.Add(RemoteLogFile);
-				FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
-				DownloadFiles(FilesToDownload);
-			}
+				// Download the files from the remote
+				if(TargetDesc.AdditionalArguments.Any(x => x.Equals("-GenerateManifest", StringComparison.InvariantCultureIgnoreCase)))
+				{
+					LocalManifestFiles.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml"));
+				}
+				else
+				{
+					Log.TraceInformation("[Remote] Downloading build products");
 
-			// Write out all the local manifests
-			foreach(FileReference LocalManifestFile in LocalManifestFiles)
-			{
-				Log.TraceInformation("[Remote] Writing {0}", LocalManifestFile);
-				Utils.WriteClass<BuildManifest>(Manifest, LocalManifestFile.FullName, "");
+					List<FileReference> FilesToDownload = new List<FileReference>();
+					FilesToDownload.Add(RemoteLogFile);
+					FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
+					DownloadFiles(FilesToDownload);
+				}
+
+				// Write out all the local manifests
+				foreach(FileReference LocalManifestFile in LocalManifestFiles)
+				{
+					Log.TraceInformation("[Remote] Writing {0}", LocalManifestFile);
+					Utils.WriteClass<BuildManifest>(Manifest, LocalManifestFile.FullName, "");
+				}
 			}
 			return true;
 		}
