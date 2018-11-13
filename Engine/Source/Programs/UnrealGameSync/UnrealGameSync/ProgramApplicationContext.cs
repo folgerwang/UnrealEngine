@@ -21,6 +21,7 @@ namespace UnrealGameSync
 		UpdateMonitor UpdateMonitor;
 		string ApiUrl;
 		string DataFolder;
+		string CacheFolder;
 		bool bRestoreState;
 		string UpdateSpawn;
 		bool bUnstable;
@@ -50,9 +51,14 @@ namespace UnrealGameSync
 			this.UpdateMonitor = UpdateMonitor;
 			this.ApiUrl = ApiUrl;
 			this.DataFolder = DataFolder;
+			this.CacheFolder = Path.Combine(DataFolder, "Cache");
 			this.bRestoreState = bRestoreState;
 			this.UpdateSpawn = UpdateSpawn;
 			this.bUnstable = bUnstable;
+
+			// Create the directories
+			Directory.CreateDirectory(DataFolder);
+			Directory.CreateDirectory(CacheFolder);
 
 			// Make sure a synchronization context is set. We spawn a bunch of threads (eg. UpdateMonitor) at startup, and need to make sure we can post messages 
 			// back to the main thread at any time.
@@ -152,7 +158,7 @@ namespace UnrealGameSync
 				StartupLog.WriteLine("Detecting settings for {0}", OpenProject);
 				StartupLogs.Add(StartupLog);
 
-				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, new TimestampLogWriter(new PrefixedTextWriter("  ", StartupLog))));
+				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, CacheFolder, new TimestampLogWriter(new PrefixedTextWriter("  ", StartupLog))));
 			}
 
 			// Detect settings for the project we want to open
@@ -190,11 +196,14 @@ namespace UnrealGameSync
 				}
 			}
 
+			// Clear out the cache folder
+			Utility.ClearPrintCache(CacheFolder);
+
 			// Get a list of all the valid projects to open
 			DetectProjectSettingsResult[] StartupProjects = DetectStartupProjectSettingsTask.Results.Where(x => x != null).ToArray();
 
 			// Create the main window
-			MainWindowInstance = new MainWindow(UpdateMonitor, ApiUrl, DataFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, bUnstable, StartupProjects, Log, Settings);
+			MainWindowInstance = new MainWindow(UpdateMonitor, ApiUrl, DataFolder, CacheFolder, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, bUnstable, StartupProjects, Log, Settings);
 			if(bVisible)
 			{
 				MainWindowInstance.Show();

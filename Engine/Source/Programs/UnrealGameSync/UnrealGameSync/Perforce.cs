@@ -199,6 +199,7 @@ namespace UnrealGameSync
 		public int Revision;
 		public bool IsMapped;
 		public bool Unmap;
+		public string Digest;
 
 		public PerforceFileRecord(Dictionary<string, string> Tags)
 		{
@@ -245,6 +246,8 @@ namespace UnrealGameSync
 			{
 				int.TryParse(RevisionString, out Revision);
 			}
+
+			Tags.TryGetValue("digest", out Digest);
 		}
 	}
 
@@ -1078,6 +1081,20 @@ namespace UnrealGameSync
 		public bool Stat(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
 			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError | CommandOptions.IgnoreNoSuchFilesError, Log);
+		}
+
+		public bool Stat(string Options, List<string> Files, out List<PerforceFileRecord> FileRecords, TextWriter Log)
+		{
+			StringBuilder Arguments = new StringBuilder("fstat");
+			if(!String.IsNullOrEmpty(Options))
+			{
+				Arguments.AppendFormat(" {0}", Options);
+			}
+			foreach(string File in Files)
+			{
+				Arguments.AppendFormat(" \"{0}\"", File);
+			}
+			return RunCommand(Arguments.ToString(), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError | CommandOptions.IgnoreNoSuchFilesError, Log);
 		}
 
 		public bool Sync(string Filter, TextWriter Log)

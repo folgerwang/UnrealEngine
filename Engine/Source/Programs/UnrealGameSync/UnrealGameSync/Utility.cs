@@ -347,5 +347,77 @@ namespace UnrealGameSync
 				MessageBox.Show("Unable to save settings.\n\n" + Ex.ToString());
 			}
 		}
+
+		public static bool TryPrintFileUsingCache(PerforceConnection Perforce, string DepotPath, string CacheFolder, string Digest, out List<string> Lines, TextWriter Log)
+		{
+			string CacheFile = Path.Combine(CacheFolder, Digest);
+			if(File.Exists(CacheFile))
+			{
+				Log.WriteLine("Reading cached copy of {0} from {1}", DepotPath, CacheFile);
+				Lines = new List<string>(File.ReadAllLines(CacheFile));
+				try
+				{
+					File.SetLastWriteTimeUtc(CacheFile, DateTime.UtcNow);
+				}
+				catch(Exception Ex)
+				{
+					Log.WriteLine("Exception touching cache file {0}: {1}", CacheFile, Ex.ToString());
+				}
+				return true;
+			}
+			else
+			{
+				string TempFile = String.Format("{0}.{1}.temp", CacheFile, Guid.NewGuid());
+				if(!Perforce.PrintToFile(DepotPath, TempFile, Log))
+				{
+					Lines = null;
+					return false;
+				}
+				else
+				{
+					Lines = new List<string>(File.ReadAllLines(TempFile));
+					try
+					{
+						File.SetAttributes(TempFile, FileAttributes.Normal);
+						File.SetLastWriteTimeUtc(TempFile, DateTime.UtcNow);
+						File.Move(TempFile, CacheFile);
+					}
+					catch
+					{
+						try
+						{
+							File.Delete(TempFile);
+						}
+						catch
+						{
+						}
+					}
+					return true;
+				}
+			}
+		}
+
+		public static void ClearPrintCache(string CacheFolder)
+		{
+			DirectoryInfo CacheDir = new DirectoryInfo(CacheFolder);
+			if(CacheDir.Exists)
+			{
+				DateTime DeleteTime = DateTime.UtcNow - TimeSpan.FromDays(5.0);
+				foreach(FileInfo CacheFile in CacheDir.EnumerateFiles())
+				{
+					if(CacheFile.LastWriteTimeUtc < DeleteTime || CacheFile.Name.EndsWith(".temp", StringComparison.OrdinalIgnoreCase))
+					{
+						try
+						{
+							CacheFile.Attributes = FileAttributes.Normal;
+							CacheFile.Delete();
+						}
+						catch
+						{
+						}
+					}
+				}
+			}
+		}
 	}
 }

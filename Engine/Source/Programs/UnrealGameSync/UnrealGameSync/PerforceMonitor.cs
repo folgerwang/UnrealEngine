@@ -43,6 +43,7 @@ namespace UnrealGameSync
 		BoundedLogWriter LogWriter;
 		bool bIsEnterpriseProject;
 		bool bDisposing;
+		string CacheFolder;
 		List<KeyValuePair<string, DateTime>> LocalConfigFiles;
 
 		public event Action OnUpdate;
@@ -50,7 +51,7 @@ namespace UnrealGameSync
 		public event Action OnStreamChange;
 		public event Action OnLoginExpired;
 
-		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile, List<KeyValuePair<string, DateTime>> InLocalConfigFiles)
+		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile, string InCacheFolder, List<KeyValuePair<string, DateTime>> InLocalConfigFiles)
 		{
 			Perforce = InPerforce;
 			BranchClientPath = InBranchClientPath;
@@ -61,6 +62,7 @@ namespace UnrealGameSync
 			LastCodeChangeByCurrentUser = -1;
 			bIsEnterpriseProject = bInIsEnterpriseProject;
 			LatestProjectConfigFile = InProjectConfigFile;
+			CacheFolder = InCacheFolder;
 			LocalConfigFiles = InLocalConfigFiles;
 
 			LogWriter = new BoundedLogWriter(InLogPath);
@@ -499,57 +501,56 @@ namespace UnrealGameSync
 		void UpdateProjectConfigFile()
 		{
 			LocalConfigFiles.Clear();
-			LatestProjectConfigFile = ReadProjectConfigFile(Perforce, BranchClientPath, SelectedClientFileName, LocalConfigFiles, LogWriter);
+			LatestProjectConfigFile = ReadProjectConfigFile(Perforce, BranchClientPath, SelectedClientFileName, CacheFolder, LocalConfigFiles, LogWriter);
 		}
 
-		public static ConfigFile ReadProjectConfigFile(PerforceConnection Perforce, string BranchClientPath, string SelectedClientFileName, List<KeyValuePair<string, DateTime>> LocalConfigFiles, TextWriter Log)
+		public static ConfigFile ReadProjectConfigFile(PerforceConnection Perforce, string BranchClientPath, string SelectedClientFileName, string CacheFolder, List<KeyValuePair<string, DateTime>> LocalConfigFiles, TextWriter Log)
 		{
 			List<string> ConfigFilePaths = Utility.GetConfigFileLocations(BranchClientPath, SelectedClientFileName, '/');
 
-			List<PerforceFileRecord> OpenFiles;
-			Perforce.GetOpenFiles(String.Format("{0}/....ini", BranchClientPath), out OpenFiles, Log);
-
 			ConfigFile ProjectConfig = new ConfigFile();
-			foreach(string ConfigFilePath in ConfigFilePaths)
-			{
-				List<string> Lines = null;
 
-				// If this file is open for edit, read the local version
-				if(OpenFiles != null && OpenFiles.Any(x => x.ClientPath.Equals(ConfigFilePath, StringComparison.InvariantCultureIgnoreCase)))
+			List<PerforceFileRecord> FileRecords;
+			if(Perforce.Stat("-Ol", ConfigFilePaths, out FileRecords, Log))
+			{
+				foreach(PerforceFileRecord FileRecord in FileRecords)
 				{
-					try
+					List<string> Lines = null;
+
+					// If this file is open for edit, read the local version
+					string LocalFileName = FileRecord.ClientPath;
+					if(LocalFileName != null && File.Exists(LocalFileName) && (File.GetAttributes(LocalFileName) & FileAttributes.ReadOnly) == 0)
 					{
-						string LocalFileName;
-						if(Perforce.ConvertToLocalPath(ConfigFilePath, out LocalFileName, Log))
+						try
 						{
 							DateTime LastModifiedTime = File.GetLastWriteTimeUtc(LocalFileName);
 							LocalConfigFiles.Add(new KeyValuePair<string, DateTime>(LocalFileName, LastModifiedTime));
 							Lines = File.ReadAllLines(LocalFileName).ToList();
 						}
+						catch(Exception Ex)
+						{
+							Log.WriteLine("Failed to read local config file for {0}: {1}", LocalFileName, Ex.ToString());
+						}
 					}
-					catch(Exception Ex)
-					{
-						Log.WriteLine("Failed to read local config file for {0}: {1}", ConfigFilePath, Ex.ToString());
-					}
-				}
 
-				// Otherwise try to get it from perforce
-				if(Lines == null)
-				{
-					Perforce.Print(ConfigFilePath, out Lines, Log);
-				}
-
-				// Merge the text with the config file
-				if(Lines != null)
-				{
-					try
+					// Otherwise try to get it from perforce
+					if(Lines == null)
 					{
-						ProjectConfig.Parse(Lines.ToArray());
-						Log.WriteLine("Read config file from {0}", ConfigFilePath);
+						Utility.TryPrintFileUsingCache(Perforce, FileRecord.DepotPath, CacheFolder, FileRecord.Digest, out Lines, Log);
 					}
-					catch(Exception Ex)
+
+					// Merge the text with the config file
+					if(Lines != null)
 					{
-						Log.WriteLine("Failed to read config file from {0}: {1}", ConfigFilePath, Ex.ToString());
+						try
+						{
+							ProjectConfig.Parse(Lines.ToArray());
+							Log.WriteLine("Read config file from {0}", FileRecord.DepotPath);
+						}
+						catch(Exception Ex)
+						{
+							Log.WriteLine("Failed to read config file from {0}: {1}", FileRecord.DepotPath, Ex.ToString());
+						}
 					}
 				}
 			}

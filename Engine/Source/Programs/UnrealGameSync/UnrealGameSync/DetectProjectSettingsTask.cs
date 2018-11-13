@@ -25,15 +25,17 @@ namespace UnrealGameSync
 		public Image ProjectLogo;
 		public TimeSpan ServerTimeZone;
 		public string DataFolder;
+		public string CacheFolder;
 		public bool bIsEnterpriseProject;
 		public ConfigFile LatestProjectConfigFile;
 		public List<KeyValuePair<string, DateTime>> LocalConfigFiles;
 		TextWriter Log;
 
-		public DetectProjectSettingsTask(UserSelectedProjectSettings SelectedProject, string InDataFolder, TextWriter InLog)
+		public DetectProjectSettingsTask(UserSelectedProjectSettings SelectedProject, string InDataFolder, string InCacheFolder, TextWriter InLog)
 		{
 			this.SelectedProject = SelectedProject;
 			DataFolder = InDataFolder;
+			CacheFolder = InCacheFolder;
 			Log = InLog;
 		}
 
@@ -298,7 +300,7 @@ namespace UnrealGameSync
 
 			// Read the initial config file
 			LocalConfigFiles = new List<KeyValuePair<string, DateTime>>();
-			LatestProjectConfigFile = PerforceMonitor.ReadProjectConfigFile(PerforceClient, BranchClientPath, NewSelectedClientFileName, LocalConfigFiles, Log);
+			LatestProjectConfigFile = PerforceMonitor.ReadProjectConfigFile(PerforceClient, BranchClientPath, NewSelectedClientFileName, CacheFolder, LocalConfigFiles, Log);
 
 			// Succeed!
 			ErrorMessage = null;
