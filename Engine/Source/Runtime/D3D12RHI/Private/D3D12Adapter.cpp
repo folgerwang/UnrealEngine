@@ -556,7 +556,7 @@ void FD3D12Adapter::SignalFrameFence_RenderThread(FRHICommandListImmediate& RHIC
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandSignalFrameFence>()) FRHICommandSignalFrameFence(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandSignalFrameFence)(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
 	}
 }
 

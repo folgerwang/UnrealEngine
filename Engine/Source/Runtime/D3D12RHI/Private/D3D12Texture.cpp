@@ -1702,7 +1702,7 @@ void FD3D12TextureBase::InitializeTextureData(FRHICommandListImmediate* RHICmdLi
 
 	if (ShouldDeferCmdListOperation(RHICmdList))
 	{
-		new (RHICmdList->AllocCommand<FD3D12RHICommandInitializeTexture>()) FD3D12RHICommandInitializeTexture(this, SrcResourceLoc, SizeX, SizeY, SizeZ, NumSlices, NumMips, Format, DestinationState);
+		ALLOC_COMMAND_CL(*RHICmdList, FD3D12RHICommandInitializeTexture)(this, SrcResourceLoc, SizeX, SizeY, SizeZ, NumSlices, NumMips, Format, DestinationState);
 	}
 	else
 	{
@@ -1771,7 +1771,7 @@ void TD3D12Texture2D<RHIResourceType>::UnlockInternal(class FRHICommandListImmed
 			// If we are on the render thread, queue up the copy on the RHIThread so it happens at the correct time.
 			if (ShouldDeferCmdListOperation(RHICmdList))
 			{
-				new (RHICmdList->AllocCommand<FRHICommandUpdateTexture>()) FRHICommandUpdateTexture(this, DestCopyLocation, 0, 0, 0, UploadLocation, PlacedTexture2D);
+				ALLOC_COMMAND_CL(*RHICmdList, FRHICommandUpdateTexture)(this, DestCopyLocation, 0, 0, 0, UploadLocation, PlacedTexture2D);
 			}
 			else
 			{
@@ -1845,7 +1845,7 @@ void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImme
 		// If we are on the render thread, queue up the copy on the RHIThread so it happens at the correct time.
 		if (ShouldDeferCmdListOperation(RHICmdList))
 		{
-			new (RHICmdList->AllocCommand<FRHICommandUpdateTexture>()) FRHICommandUpdateTexture(this, DestCopyLocation, UpdateRegion.DestX, UpdateRegion.DestY, 0, UploadHeapResourceLocation, PlacedTexture2D);
+			ALLOC_COMMAND_CL(*RHICmdList, FRHICommandUpdateTexture)(this, DestCopyLocation, UpdateRegion.DestX, UpdateRegion.DestY, 0, UploadHeapResourceLocation, PlacedTexture2D);
 		}
 		else
 		{
@@ -2149,7 +2149,7 @@ void FD3D12DynamicRHI::EndUpdateTexture3D_Internal(FUpdateTexture3DData& UpdateD
 		}
 		else
 		{
-			new (RHICmdList.AllocCommand<FD3D12RHICmdEndUpdateTexture3D>()) FD3D12RHICmdEndUpdateTexture3D(UpdateData);
+			ALLOC_COMMAND_CL(RHICmdList, FD3D12RHICmdEndUpdateTexture3D)(UpdateData);
 		}
 	}
 }

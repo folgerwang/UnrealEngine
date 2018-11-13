@@ -653,7 +653,7 @@ public:
 		else\
 		{\
 			x ReturnValue = (x)0;\
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([&ReturnValue, GLCommand = MoveTemp(GLCommand)]() { ReturnValue = GLCommand(); }); \
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([&ReturnValue, GLCommand = MoveTemp(GLCommand)]() { ReturnValue = GLCommand(); }); \
 			RHITHREAD_GLTRACE_BLOCKING;\
 			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
 			return ReturnValue;\
@@ -667,7 +667,7 @@ public:
 		}\
 		else\
 		{\
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([&ReturnValue, GLCommand = MoveTemp(GLCommand)]() { ReturnValue = GLCommand(); }); \
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)([&ReturnValue, GLCommand = MoveTemp(GLCommand)]() { ReturnValue = GLCommand(); }); \
 			RHITHREAD_GLTRACE_BLOCKING;\
 			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
 		}\
@@ -680,7 +680,7 @@ public:
 		}\
 		else\
 		{\
-			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand( GLCommand ); \
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandGLCommand)( GLCommand ); \
 			RHITHREAD_GLTRACE_BLOCKING;\
 			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
 		}\

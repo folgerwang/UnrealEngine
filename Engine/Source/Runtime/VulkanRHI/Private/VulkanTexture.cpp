@@ -491,7 +491,7 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 		else
 		{
 			check(IsInRenderingThread());
-			new (RHICmdList.AllocCommand<FRHICommandInitialClearTexture>()) FRHICommandInitialClearTexture(this, CreateInfo.ClearValueBinding, bTransitionToPresentable);
+			ALLOC_COMMAND_CL(RHICmdList, FRHICommandInitialClearTexture)(this, CreateInfo.ClearValueBinding, bTransitionToPresentable);
 		}
 	}
 }
@@ -1002,7 +1002,7 @@ FTexture2DRHIRef FVulkanDynamicRHI::AsyncReallocateTexture2D_RenderThread(class 
 	FRHIResourceCreateInfo CreateInfo;
 	FVulkanTexture2D* NewTexture = new FVulkanTexture2D(*Device, OldTexture->GetFormat(), NewSizeX, NewSizeY, NewMipCount, OldTexture->GetNumSamples(), OldTexture->GetFlags(), CreateInfo);
 
-	new (RHICmdList.AllocCommand<FRHICommandVulkanAsyncReallocateTexture2D>()) FRHICommandVulkanAsyncReallocateTexture2D(Device->GetImmediateContext(), OldTexture, NewTexture, NewMipCount, NewSizeX, NewSizeY, RequestStatus);
+	ALLOC_COMMAND_CL(RHICmdList, FRHICommandVulkanAsyncReallocateTexture2D)(Device->GetImmediateContext(), OldTexture, NewTexture, NewMipCount, NewSizeX, NewSizeY, RequestStatus);
 
 	return NewTexture;
 }
@@ -1105,7 +1105,7 @@ void FVulkanDynamicRHI::InternalUnlockTexture2D(bool bFromRenderingThread, FText
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandLockWriteTexture>()) FRHICommandLockWriteTexture(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
 	}
 }
 
@@ -1181,7 +1181,7 @@ void FVulkanDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef Textu
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandLockWriteTexture>()) FRHICommandLockWriteTexture(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
 	}
 }
 
@@ -1256,7 +1256,7 @@ void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FText
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandLockWriteTexture>()) FRHICommandLockWriteTexture(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
 	}
 }
 
@@ -1338,7 +1338,7 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandLockWriteTexture>()) FRHICommandLockWriteTexture(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
 	}
 }
 
@@ -1568,7 +1568,7 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandLockWriteTexture>()) FRHICommandLockWriteTexture(&Surface, SubresourceRange, Region, StagingBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(&Surface, SubresourceRange, Region, StagingBuffer);
 	}
 }
 
@@ -1906,7 +1906,7 @@ void FVulkanDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture
 	else
 	{
 		check(IsInRenderingThread());
-		new (RHICmdList.AllocCommand<FRHICommandLockWriteTexture>()) FRHICommandLockWriteTexture(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(&Texture->Surface, SubresourceRange, Region, StagingBuffer);
 	}
 }
 
