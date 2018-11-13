@@ -399,12 +399,12 @@ namespace UnrealGameSync
 
 	class DetectMultipleProjectSettingsTask : IModalTask, IDisposable
 	{
-		public List<DetectProjectSettingsTask> Tasks;
-		public List<DetectProjectSettingsResult> Results;
+		public DetectProjectSettingsTask[] Tasks;
+		public DetectProjectSettingsResult[] Results;
 
 		public DetectMultipleProjectSettingsTask(IEnumerable<DetectProjectSettingsTask> Tasks)
 		{
-			this.Tasks = new List<DetectProjectSettingsTask>(Tasks);
+			this.Tasks = Tasks.ToArray();
 		}
 
 		public void Dispose()
@@ -415,7 +415,7 @@ namespace UnrealGameSync
 				{
 					Task.Dispose();
 				}
-				foreach(DetectProjectSettingsResult Result in Results)
+				foreach(DetectProjectSettingsResult Result in Results.Where(x => x != null))
 				{
 					Result.Dispose();
 				}
@@ -425,17 +425,19 @@ namespace UnrealGameSync
 
 		public bool Run(out string ErrorMessage)
 		{
-			Results = new List<DetectProjectSettingsResult>();
-			for(int Idx = 0; Idx < Tasks.Count; Idx++)
-			{
-				string TaskErrorMessage;
-				bool bTaskSucceeded = Tasks[Idx].Run(out TaskErrorMessage);
-				Results.Add(new DetectProjectSettingsResult(Tasks[Idx], bTaskSucceeded, TaskErrorMessage));
-				Tasks[Idx] = null;
-			}
+			Results = new DetectProjectSettingsResult[Tasks.Length];
+			Parallel.For(0, Tasks.Length, new ParallelOptions(){ MaxDegreeOfParallelism = 4 }, Idx => RunTask(Idx));
 
 			ErrorMessage = null;
 			return true;
+		}
+
+		void RunTask(int Idx)
+		{
+			string TaskErrorMessage;
+			bool bTaskSucceeded = Tasks[Idx].Run(out TaskErrorMessage);
+			Results[Idx] = new DetectProjectSettingsResult(Tasks[Idx], bTaskSucceeded, TaskErrorMessage);
+			Tasks[Idx] = null;
 		}
 	}
 }

@@ -53,6 +53,16 @@ namespace UnrealGameSync
 		}
 	}
 
+	class BufferedTextWriter : LineBasedTextWriter
+	{
+		public List<string> Lines = new List<string>();
+
+		protected override void FlushLine(string Line)
+		{
+			Lines.Add(Line);
+		}
+	}
+
 	class PrefixedTextWriter : LineBasedTextWriter
 	{
 		string Prefix;
