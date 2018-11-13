@@ -34,16 +34,14 @@ namespace
 		FScopedDataTableChange(UDataTable* InTable)
 			: Table(InTable)
 		{
-			int8* Count = ScopeCount.Find(Table);
-			if (!Count)
-			{
-				Count = &ScopeCount.Add(Table, 0);
-			}
-			++(*Count);
+			FScopeLock Lock(&CriticalSection);
+			int32& Count = ScopeCount.FindOrAdd(Table);
+			++Count;
 		}
 		~FScopedDataTableChange()
 		{
-			int8& Count = ScopeCount.FindChecked(Table);
+			FScopeLock Lock(&CriticalSection);
+			int32& Count = ScopeCount.FindChecked(Table);
 			--Count;
 			if (Count == 0)
 			{
@@ -55,10 +53,12 @@ namespace
 	private:
 		UDataTable* Table;
 
-		static TMap<UDataTable*, int8> ScopeCount;
+		static TMap<UDataTable*, int32> ScopeCount;
+		static FCriticalSection CriticalSection;
 	};
 
-	TMap< UDataTable*, int8> FScopedDataTableChange::ScopeCount;
+	TMap< UDataTable*, int32> FScopedDataTableChange::ScopeCount;
+	FCriticalSection FScopedDataTableChange::CriticalSection;
 
 #define DATATABLE_CHANGE_SCOPE()	FScopedDataTableChange ActiveScope(this);
 }
