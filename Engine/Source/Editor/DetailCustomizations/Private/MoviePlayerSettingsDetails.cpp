@@ -68,7 +68,7 @@ void FMoviePlayerSettingsDetails::GenerateArrayElementWidget(TSharedRef<IPropert
 					.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
 					.BrowseTitle(LOCTEXT("PropertyEditorTitle", "File picker..."))
 					.FilePath(this, &FMoviePlayerSettingsDetails::HandleFilePathPickerFilePath, PropertyHandle)
-					.FileTypeFilter(TEXT("MPEG-4 Movie (*.mp4)|*.mp4"))
+					.FileTypeFilter(TEXT("MPEG-4 Movie (*.mp4)|*.mp4|Web Movie (*.webm)|*.webm"))
 					.OnPathPicked(this, &FMoviePlayerSettingsDetails::HandleFilePathPickerPathPicked, PropertyHandle)
 			];
 	}

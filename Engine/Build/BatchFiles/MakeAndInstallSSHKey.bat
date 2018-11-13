@@ -33,7 +33,7 @@ echo.
 
 pause
 
-%SSH% -p %SSHPORT% "%USER%@%MACHINE%" "if [[ ! -e .ssh ]]; then mkdir .ssh; fi && cd .ssh && if [[ -e authorized_keys ]]; then cp -f authorized_keys authorized_keys_UEBackup; fi && ssh-keygen -t rsa -f RemoteToolChain && mv -f RemoteToolChain.pub RemoteToolChainPublic.key && mv -f RemoteToolChain RemoteToolChainPrivate.key && cat RemoteToolChainPublic.key >> authorized_keys";
+%SSH% -p %SSHPORT% "%USER%@%MACHINE%" "if [[ ! -e .ssh ]]; then mkdir .ssh; fi && cd .ssh && if [[ -e authorized_keys ]]; then cp -f authorized_keys authorized_keys_UEBackup; fi && ssh-keygen -t rsa -m PEM -f RemoteToolChain && mv -f RemoteToolChain.pub RemoteToolChainPublic.key && mv -f RemoteToolChain RemoteToolChainPrivate.key && cat RemoteToolChainPublic.key >> authorized_keys";
 
 echo.
 echo ================================================================================

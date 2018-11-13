@@ -173,6 +173,17 @@ struct DelayedPacket
 	double SendTime;
 
 public:
+	DEPRECATED(4.21, "Use the constructor that takes PacketTraits for allowing for analytics and flags")
+	FORCEINLINE DelayedPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits)
+		: Data()
+		, SizeBits(InSizeBits)
+		, Traits()
+		, SendTime(0.0)
+	{
+		Data.AddUninitialized(InSizeBytes);
+		FMemory::Memcpy(Data.GetData(), InData, InSizeBytes);
+	}
+
 	FORCEINLINE DelayedPacket(uint8* InData, int32 InSizeBits, FOutPacketTraits& InTraits)
 		: Data()
 		, SizeBits(InSizeBits)
@@ -647,6 +658,13 @@ public:
 	/** Describe the connection. */
 	ENGINE_API virtual FString Describe();
 
+	DEPRECATED(4.21, "Use the method that allows for packet traits for analytics and modification")
+	ENGINE_API virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		LowLevelSend(Data, CountBits, EmptyTraits);
+	}
+
 	/**
 	 * Sends a byte stream to the remote endpoint using the underlying socket
 	 *
@@ -764,6 +782,11 @@ public:
 	 */
 	ENGINE_API virtual void InitConnection(UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed=0, int32 InMaxPacket=0);
 
+	DEPRECATED(4.21, "Analytics providers are now handled in the NetDriver")
+	ENGINE_API virtual void InitHandler(TSharedPtr<IAnalyticsProvider> InProvider)
+	{
+		InitHandler();
+	}
 
 	/**
 	 * Initializes the PacketHandler

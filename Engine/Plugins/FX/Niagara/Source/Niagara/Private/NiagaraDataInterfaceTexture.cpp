@@ -388,7 +388,7 @@ struct FNiagaraDataInterfaceParametersCS_Texture : public FNiagaraDataInterfaceP
 			SetShaderValue(RHICmdList, ComputeShaderRHI, Dimensions, TexDims);
 			return;
 		}
-		FTextureRHIParamRef TextureRHI = Texture->TextureReference.TextureReferenceRHI;
+		FTextureRHIParamRef TextureRHI = Texture->TextureReference.TextureReferenceRHI->GetReferencedTexture();
 		SetTextureParameter(
 			RHICmdList,
 			ComputeShaderRHI,

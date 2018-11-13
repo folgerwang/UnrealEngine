@@ -115,7 +115,7 @@ private:
 /**
  * SteamVR Head Mounted Display
  */
-class FSteamVRHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public FSteamVRAssetManager, public TSharedFromThis<FSteamVRHMD, ESPMode::ThreadSafe>, public TStereoLayerManager<FSteamVRLayer>, public IHeadMountedDisplayVulkanExtensions
+class FSteamVRHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public FSteamVRAssetManager, public TStereoLayerManager<FSteamVRLayer>, public FSceneViewExtensionBase, public IHeadMountedDisplayVulkanExtensions
 {
 public:
 	static const FName SteamSystemName;
@@ -135,7 +135,7 @@ public:
 
 	virtual class TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > GetStereoRenderingDevice() override
 	{
-		return AsShared();
+		return SharedThis(this);
 	}
 
 	virtual bool OnStartGameFrame(FWorldContext& WorldContext) override;
@@ -228,6 +228,16 @@ public:
 	// Create/Set/Get/Destroy inherited from TStereoLayerManager
 	virtual void UpdateSplashScreen() override;
 	virtual void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture) override;
+
+	// ISceneViewExtension interface
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override {};
+	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView) override {}
+	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override {}
+	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override {}
+	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override {}
+	virtual void PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
+	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override;
+
 
 	/** IHeadMountedDisplayVulkanExtensions */
 	virtual bool GetVulkanInstanceExtensionsRequired( TArray<const ANSICHAR*>& Out ) override;
@@ -361,7 +371,7 @@ public:
 	void PoseToOrientationAndPosition(const vr::HmdMatrix34_t& InPose, const float WorldToMetersScale, FQuat& OutOrientation, FVector& OutPosition) const;
 public:
 	/** Constructor */
-	FSteamVRHMD(ISteamVRPlugin* SteamVRPlugin);
+	FSteamVRHMD(const FAutoRegister&, ISteamVRPlugin*);
 
 	/** Destructor */
 	virtual ~FSteamVRHMD();

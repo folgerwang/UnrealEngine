@@ -108,17 +108,15 @@ class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 #if WITH_LOGGING_TO_MEMORY
 #if !IS_PROGRAM && !WITH_EDITORONLY_DATA
 			if (!LogDevice
-// START FORTNITE HACK
-#if !UE_BUILD_SHIPPING
-				 && FParse::Param(FCommandLine::Get(), TEXT("LOGTOMEMORY")) 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				&& FParse::Param(FCommandLine::Get(), TEXT("LOGTOMEMORY"))
 #else
-				 && !FParse::Param(FCommandLine::Get(), TEXT("NOLOGTOMEMORY")) && !FPlatformProperties::IsServerOnly()
+				&& !FParse::Param(FCommandLine::Get(), TEXT("NOLOGTOMEMORY")) && !FPlatformProperties::IsServerOnly()
 #endif
-				 )
+				)
 			{
-				LogDevice = MakeUnique<FOutputDeviceMemory>(256 * 1024, 1024 * 1024);
+				LogDevice = MakeUnique<FOutputDeviceMemory>();
 			}
-// END FORTNITE HACK
 #endif // !IS_PROGRAM && !WITH_EDITORONLY_DATA
 #endif // WITH_LOGGING_TO_MEMORY
 			if (!LogDevice)

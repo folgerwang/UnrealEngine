@@ -346,13 +346,12 @@ public:
 
 	virtual TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > GetVulkanExtensions() override
 	{
-		FSteamVRHMD* SteamVRHMD = new FSteamVRHMD(this);
+		TSharedPtr< FSteamVRHMD, ESPMode::ThreadSafe > SteamVRHMD = FSceneViewExtensions::NewExtension<FSteamVRHMD>(this);
 		if (!SteamVRHMD->IsInitialized())
 		{
-			delete SteamVRHMD;
 			return nullptr;
 		}
-		return TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe >(SteamVRHMD);
+		return SteamVRHMD;
 	}
 
 private:
@@ -368,7 +367,7 @@ IMPLEMENT_MODULE( FSteamVRPlugin, SteamVR )
 TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FSteamVRPlugin::CreateTrackingSystem()
 {
 #if STEAMVR_SUPPORTED_PLATFORMS
-	TSharedPtr< FSteamVRHMD, ESPMode::ThreadSafe > SteamVRHMD( new FSteamVRHMD(this) );
+	TSharedPtr< FSteamVRHMD, ESPMode::ThreadSafe > SteamVRHMD = FSceneViewExtensions::NewExtension<FSteamVRHMD>(this);
 	if( SteamVRHMD->IsInitialized() )
 	{
 		VRSystem = SteamVRHMD->GetVRSystem();
@@ -1493,7 +1492,8 @@ bool FSteamVRHMD::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
 	return false;
 }
 
-FSteamVRHMD::FSteamVRHMD(ISteamVRPlugin* InSteamVRPlugin) :
+FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSteamVRPlugin) :
+	FSceneViewExtensionBase(AutoRegister), 
 	bHmdEnabled(true),
 	HmdWornState(EHMDWornState::Unknown),
 	bStereoDesired(false),

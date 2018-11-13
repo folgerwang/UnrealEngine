@@ -220,6 +220,9 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Print the path to the private key
+			Log.TraceInformation("[Remote] Using private key at {0}", SshPrivateKey);
+
 			// resolve the rest of the strings
 			RsyncAuthentication = ExpandVariables(RsyncAuthentication);
 			SshAuthentication = ExpandVariables(SshAuthentication);
@@ -250,7 +253,7 @@ namespace UnrealBuildTool
 			StringBuilder Output;
 			if(ExecuteAndCaptureOutput("'echo ~'", out Output) != 0)
 			{
-				throw new BuildException("Unable to determine home directory for remote user");
+				throw new BuildException("Unable to determine home directory for remote user. SSH output:\n{0}", StringUtils.Indent(Output.ToString(), "  "));
 			}
 			RemoteBaseDir = String.Format("{0}/UE4/Builds/{1}", Output.ToString().Trim().TrimEnd('/'), Environment.MachineName);
 			Log.TraceInformation("[Remote] Using base directory '{0}'", RemoteBaseDir);
@@ -291,8 +294,13 @@ namespace UnrealBuildTool
 				FileReference KeyFile = FileReference.Combine(Location, "SSHKeys", ServerName, UserName, "RemoteToolChainPrivate.key");
 				if (FileReference.Exists(KeyFile))
 				{
-					OutPrivateKey = KeyFile;
-					return true;
+					// MacOS Mojave includes a new version of SSH that generates keys that are incompatible with our version of SSH. Make sure the detected keys have the right signature.
+					string Text = FileReference.ReadAllText(KeyFile);
+					if(Text.Contains("---BEGIN RSA PRIVATE KEY---"))
+					{
+						OutPrivateKey = KeyFile;
+						return true;
+					}
 				}
 			}
 
@@ -351,7 +359,17 @@ namespace UnrealBuildTool
 			}
 
 			// Compile the rules assembly
-			RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
+			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
+
+			// Create the target rules
+			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault()), new string[0]);
+
+			// Check if we need to enable a nativized plugin, and compile the assembly for that if we do
+			FileReference NativizedPluginFile = Rules.GetNativizedPlugin();
+			if(NativizedPluginFile != null)
+			{
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(NativizedPluginFile, false, RulesAssembly, false);
+			}
 
 			// Path to the local manifest file. This has to be translated from the remote format after the build is complete.
 			List<FileReference> LocalManifestFiles = new List<FileReference>();
@@ -643,7 +661,7 @@ namespace UnrealBuildTool
 			List<string> Arguments = new List<string>(CommonRsyncArguments);
 			Arguments.Add(String.Format("--rsync-path=\"mkdir -p {0} && rsync\"", RemoteDirectory));
 			Arguments.Add(String.Format("\"{0}\"", GetLocalCygwinPath(LocalFile)));
-			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
+			Arguments.Add(String.Format("\"{0}@{1}\":'{2}'", UserName, ServerName, RemoteFile));
 			Arguments.Add("-q");
 
 			int Result = Rsync(String.Join(" ", Arguments));

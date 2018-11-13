@@ -8,6 +8,7 @@
 #include "Sound/SoundEffectBase.h"
 #include "Async/AsyncWork.h"
 #include "Templates/UnrealTypeTraits.h"
+#include "UObject/GCObject.h"
 
 class USoundWave;
 class FAudioDevice;
@@ -281,44 +282,40 @@ namespace Audio
 	/* and call Update on every tick until it returns true, at which point  */
 	/* you may call GetSampleBuffer to get the decoded audio.               */
 	/************************************************************************/
-	class ENGINE_API FSoundWavePCMLoader
+	class ENGINE_API FSoundWavePCMLoader : public FGCObject
 	{
 	public:
 		FSoundWavePCMLoader();
 
-		// Intialize loader with audio device
-		void Init(FAudioDevice* InAudioDevice);
-
 		// Loads a USoundWave, call on game thread.
-		void LoadSoundWave(USoundWave* InSoundWave);
+		void LoadSoundWave(USoundWave* InSoundWave, TFunction<void(const USoundWave* SoundWave, const Audio::FSampleBuffer& OutSampleBuffer)> OnLoaded);
 
-		// Update the loading state. Returns true once the sound wave is loaded/decoded.
-		// Call on game thread.
-		bool Update();
+		// Update the loading state. 
+		void Update();
 
-		// Returns the sample buffer data once the sound wave is loaded/decoded. Call on game thread thread.
-		void GetSampleBuffer(TSampleBuffer<>& OutSampleBuffer);
-
-		// Empties pending sound wave load references. Call on audio rendering thread.
-		void Reset();
-
-		// Queries whether the current sound wave has finished loading/decoding
-		bool IsSoundWaveLoaded() const { return bIsLoaded; }
+		//~ GCObject Interface
+		void AddReferencedObjects(FReferenceCollector& Collector) override;
+		//~ GCObject Interface
 
 	private:
-		
-		// Ptr to the audio device to use to do the decoding
-		FAudioDevice* AudioDevice;
+
+		struct FLoadingSoundWaveInfo
+		{
+			// The sound wave which is loading PCM data
+			USoundWave* SoundWave;
+
+			// The lambda function to call when t he sound wave finishes loading
+			TFunction<void(const USoundWave* SoundWave, const Audio::FSampleBuffer& LoadedSampleBuffer)> OnLoaded;
+
+			// Whether the sound wave load/decode is in-flight
+			bool bIsLoading;
+
+			// Whether or not the sound wave has already been loaded
+			bool bIsLoaded;
+		};
+
 		// Reference to current loading sound wave
-		USoundWave* SoundWave;	
-		// Struct to meta-data of decoded PCM buffer and ptr to PCM data
-		TSampleBuffer<> SampleBuffer;
-		// Queue of sound wave ptrs to hold references to them until fully released in audio render thread
-		TQueue<USoundWave*> PendingStoppingSoundWaves;
-		// Whether the sound wave load/decode is in-flight
-		bool bIsLoading;
-		// Whether or not the sound wave has already been loaded
-		bool bIsLoaded;
+		TArray<FLoadingSoundWaveInfo> LoadingSoundWaves;
 	};
 
 	// Enum used to express the current state of a FSoundWavePCMWriter's current operation.
