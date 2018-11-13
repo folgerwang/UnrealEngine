@@ -26,6 +26,13 @@ public:
 			{
 				UE_LOG(LogSockets, Warning, TEXT("Could not resolve the broadcast address for iOS, this address will just be blank"));
 			}
+			else
+			{
+				bool bUnusedBool;
+				TSharedRef<FInternetAddrBSDIOS> ScopeAddr = 
+					StaticCastSharedRef<FInternetAddrBSDIOS>(SocketSubsystem->GetLocalHostAddr(*GLog, bUnusedBool));
+				SetScopeId(ScopeAddr->GetScopeId());
+			}
 		}
 		else
 		{
