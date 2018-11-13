@@ -556,7 +556,7 @@ void FNvVideoEncoder::FNvVideoEncoderImpl::EncodeFrame(const FVideoEncoderSettin
 		}
 		else
 		{
-			new (RHICmdList.AllocCommand<FRHITransferRenderTargetToNvEnc>()) FRHITransferRenderTargetToNvEnc(this, &Frame);
+			ALLOC_COMMAND_CL(RHICmdList, FRHITransferRenderTargetToNvEnc)(this, &Frame);
 		}
 	}
 

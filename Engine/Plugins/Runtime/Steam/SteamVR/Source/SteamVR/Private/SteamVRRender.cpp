@@ -102,7 +102,7 @@ void FSteamVRHMD::BridgeBaseImpl::BeginRendering_RenderThread(FRHICommandListImm
 {
 	if (IsUsingExplicitTimingMode())
 	{
-		new (RHICmdList.AllocCommand<FRHICommandExecute_BeginRendering>()) FRHICommandExecute_BeginRendering(this);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandExecute_BeginRendering)(this);
 	}
 }
 

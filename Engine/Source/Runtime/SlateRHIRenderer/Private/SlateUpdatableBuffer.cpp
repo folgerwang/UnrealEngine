@@ -100,7 +100,7 @@ void FSlateUpdatableInstanceBuffer::UpdateRenderingData_RenderThread(FRHICommand
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FSlateUpdateInstanceBufferCommand>()) FSlateUpdateInstanceBufferCommand(InstanceBufferResource, RenderThreadBufferData);
+		ALLOC_COMMAND_CL(RHICmdList, FSlateUpdateInstanceBufferCommand)(InstanceBufferResource, RenderThreadBufferData);
 	}
 }
 

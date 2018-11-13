@@ -200,5 +200,5 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 	ISlate3DRendererPtr Self = SharedThis(this);
 
-	new ( InRHICmdList.AllocCommand<TKeepAliveCommand<ISlate3DRendererPtr>>() ) TKeepAliveCommand<ISlate3DRendererPtr>(Self);
+	ALLOC_COMMAND_CL(InRHICmdList, TKeepAliveCommand<ISlate3DRendererPtr>)(Self);
 }

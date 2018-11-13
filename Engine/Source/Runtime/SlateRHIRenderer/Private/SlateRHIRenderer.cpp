@@ -1601,7 +1601,7 @@ void FSlateEndDrawingWindowsCommand::EndDrawingWindows(FRHICommandListImmediate&
 {
 	if (!RHICmdList.Bypass())
 	{
-		new (RHICmdList.AllocCommand<FSlateEndDrawingWindowsCommand>()) FSlateEndDrawingWindowsCommand(Policy, DrawBuffer);
+		ALLOC_COMMAND_CL(RHICmdList, FSlateEndDrawingWindowsCommand)(Policy, DrawBuffer);
 	}
 	else
 	{
