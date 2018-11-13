@@ -1579,6 +1579,7 @@ public class AndroidPlatform : Platform
 
 	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
+		IProcessResult Result = null;
 		//make a copy of the device names, we'll be working through them
 		List<string> DeviceNames = new List<string>();
 		//same with the package names
@@ -1689,6 +1690,10 @@ public class AndroidPlatform : Platform
 					File.WriteAllText(LogFilename, LogFileProcess.Output);
 					File.WriteAllText(ServerLogFilename, LogFileProcess.Output);
 
+					if (Result == null)
+					{
+						Result = LogFileProcess;
+					}
 					DeviceNames.RemoveAt(DeviceIndex);
 					PackageNames.RemoveAt(DeviceIndex);
 
@@ -1697,7 +1702,7 @@ public class AndroidPlatform : Platform
 			}
 		}
 
-		return null;
+		return Result;
 	}
 
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
