@@ -527,7 +527,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 			FString CrashReportLogFilename = LogBaseFilename + TEXT("-CRC") + LogExtension;
 			FString CrashReportLogFilepath = FPaths::Combine(*LogFolder, *CrashReportLogFilename);
 			FString CrashReportClientArguments = TEXT(" -Abslog=");
-			CrashReportClientArguments += *CrashReportLogFilepath;
+			CrashReportClientArguments += TEXT("\"\"") + CrashReportLogFilepath + TEXT("\"\"");
 			CrashReportClientArguments += TEXT(" ");
 
 			if (bUnattended)
@@ -546,7 +546,7 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 				CrashReportClientArguments += TEXT(" -CleanCrashReports ");
 			}
 
-			CrashReportClientArguments += CrashInfoAbsolute + TEXT("/");
+			CrashReportClientArguments += TEXT("\"\"") + CrashInfoAbsolute + TEXT("/\"\"");
 
 			if (bReportingNonCrash)
 			{
