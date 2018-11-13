@@ -665,6 +665,9 @@ private:
 	template <EShaderFrequency ShaderFrequency>
 	void InternalSetShaderResourceView(FD3D11BaseShaderResource* Resource, ID3D11ShaderResourceView* SRV, int32 ResourceIndex, FName SRVName, FD3D11StateCache::ESRV_Type SrvType = FD3D11StateCache::SRV_Unknown);
 
+	void TrackResourceBoundAsVB(FD3D11BaseShaderResource* Resource, int32 StreamIndex);
+	void TrackResourceBoundAsIB(FD3D11BaseShaderResource* Resource);
+
 	void SetCurrentComputeShader(FComputeShaderRHIParamRef ComputeShader)
 	{
 		CurrentComputeShader = ComputeShader;
@@ -684,7 +687,7 @@ public:
 	}
 
 	void ClearState();
-	void ConditionalClearShaderResource(FD3D11BaseShaderResource* Resource);
+	void ConditionalClearShaderResource(FD3D11BaseShaderResource* Resource, bool bCheckBoundInputAssembler);
 	void ClearAllShaderResources();
 
 
@@ -764,7 +767,10 @@ protected:
 	TRefCountPtr<ID3D11DepthStencilView> CurrentDepthStencilTarget;
 	TRefCountPtr<FD3D11TextureBase> CurrentDepthTexture;
 	FD3D11BaseShaderResource* CurrentResourcesBoundAsSRVs[SF_NumFrequencies][D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
+	FD3D11BaseShaderResource* CurrentResourcesBoundAsVBs[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+	FD3D11BaseShaderResource* CurrentResourceBoundAsIB;
 	int32 MaxBoundShaderResourcesIndex[SF_NumFrequencies];
+	int32 MaxBoundVertexBufferIndex;
 	uint32 NumSimultaneousRenderTargets;
 	uint32 NumUAVs;
 

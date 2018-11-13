@@ -64,10 +64,13 @@ void FD3D11DynamicRHI::ClearState()
 	StateCache.ClearState();
 
 	FMemory::Memzero(CurrentResourcesBoundAsSRVs, sizeof(CurrentResourcesBoundAsSRVs));
+	FMemory::Memzero(CurrentResourcesBoundAsVBs, sizeof(CurrentResourcesBoundAsVBs));
+	CurrentResourceBoundAsIB = nullptr;
 	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; Frequency++)
 	{
 		MaxBoundShaderResourcesIndex[Frequency] = INDEX_NONE;
 	}
+	MaxBoundVertexBufferIndex = INDEX_NONE;
 }
 
 void GetMipAndSliceInfoFromSRV(ID3D11ShaderResourceView* SRV, int32& MipLevel, int32& NumMips, int32& ArraySlice, int32& NumSlices)
@@ -236,6 +239,39 @@ void FD3D11DynamicRHI::InternalSetShaderResourceView(FD3D11BaseShaderResource* R
 	StateCache.SetShaderResourceView<ShaderFrequency>(SRV, ResourceIndex, SrvType);
 }
 
+void FD3D11DynamicRHI::TrackResourceBoundAsVB(FD3D11BaseShaderResource* Resource, int32 StreamIndex)
+{
+	check(StreamIndex >= 0 && StreamIndex < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT);
+	if (Resource)
+	{
+		// We are binding a new VB.
+		// Update the max resource index to the highest bound resource index.
+		MaxBoundVertexBufferIndex = FMath::Max(MaxBoundVertexBufferIndex, StreamIndex);
+		CurrentResourcesBoundAsVBs[StreamIndex] = Resource;
+	}
+	else if (CurrentResourcesBoundAsVBs[StreamIndex] != nullptr)
+	{
+		// Unbind the resource from the slot.
+		CurrentResourcesBoundAsVBs[StreamIndex] = nullptr;
+
+		// If this was the highest bound resource...
+		if (MaxBoundVertexBufferIndex == StreamIndex)
+		{
+			// Adjust the max resource index downwards until we
+			// hit the next non-null slot, or we've run out of slots.
+			do
+			{
+				MaxBoundVertexBufferIndex--;
+			} while (MaxBoundVertexBufferIndex >= 0 && CurrentResourcesBoundAsVBs[MaxBoundVertexBufferIndex] == nullptr);
+		}
+	}
+}
+
+void FD3D11DynamicRHI::TrackResourceBoundAsIB(FD3D11BaseShaderResource* Resource)
+{
+	CurrentResourceBoundAsIB = Resource;
+}
+
 template <EShaderFrequency ShaderFrequency>
 void FD3D11DynamicRHI::ClearShaderResourceViews(FD3D11BaseShaderResource* Resource)
 {
@@ -250,7 +286,7 @@ void FD3D11DynamicRHI::ClearShaderResourceViews(FD3D11BaseShaderResource* Resour
 	}
 }
 
-void FD3D11DynamicRHI::ConditionalClearShaderResource(FD3D11BaseShaderResource* Resource)
+void FD3D11DynamicRHI::ConditionalClearShaderResource(FD3D11BaseShaderResource* Resource, bool bCheckBoundInputAssembler)
 {
 	SCOPE_CYCLE_COUNTER(STAT_D3D11ClearShaderResourceTime);
 	check(Resource);
@@ -260,6 +296,25 @@ void FD3D11DynamicRHI::ConditionalClearShaderResource(FD3D11BaseShaderResource* 
 	ClearShaderResourceViews<SF_Pixel>(Resource);
 	ClearShaderResourceViews<SF_Geometry>(Resource);
 	ClearShaderResourceViews<SF_Compute>(Resource);
+
+	if (bCheckBoundInputAssembler)
+	{
+		for (int32 ResourceIndex = MaxBoundVertexBufferIndex; ResourceIndex >= 0; --ResourceIndex)
+		{
+			if (CurrentResourcesBoundAsVBs[ResourceIndex] == Resource)
+			{
+				// Unset the vertex buffer from the device context
+				TrackResourceBoundAsVB(nullptr, ResourceIndex);
+				StateCache.SetStreamSource(nullptr, ResourceIndex, 0);
+			}
+		}
+
+		if (Resource == CurrentResourceBoundAsIB)
+		{
+			TrackResourceBoundAsIB(nullptr);
+			StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_R16_UINT, 0);
+		}
+	}
 }
 
 template <EShaderFrequency ShaderFrequency>

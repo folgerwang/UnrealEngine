@@ -159,6 +159,7 @@ void FD3D11DynamicRHI::RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIPa
 	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	ID3D11Buffer* D3DBuffer = VertexBuffer ? VertexBuffer->Resource : NULL;
+	TrackResourceBoundAsVB(VertexBuffer, StreamIndex);
 	StateCache.SetStreamSource(D3DBuffer, StreamIndex, Offset);
 }
 
@@ -442,7 +443,7 @@ void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShade
 
 	if(UAV)
 	{
-		ConditionalClearShaderResource(UAV->Resource);		
+		ConditionalClearShaderResource(UAV->Resource, true);		
 
 		//check it's safe for r/w for this UAV
 		const EResourceTransitionAccess CurrentUAVAccess = UAV->Resource->GetCurrentGPUAccess();
@@ -467,7 +468,7 @@ void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShade
 	
 	if(UAV)
 	{
-		ConditionalClearShaderResource(UAV->Resource);
+		ConditionalClearShaderResource(UAV->Resource, true);
 
 		//check it's safe for r/w for this UAV
 		const EResourceTransitionAccess CurrentUAVAccess = UAV->Resource->GetCurrentGPUAccess();
@@ -969,7 +970,7 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 		DepthStencilView = NewDepthStencilTarget->GetDepthStencilView(CurrentDSVAccessType);
 
 		// Unbind any shader views of the depth stencil target that are bound.
-		ConditionalClearShaderResource(NewDepthStencilTarget);
+		ConditionalClearShaderResource(NewDepthStencilTarget, false);
 	}
 
 	// Check if the depth stencil target is different from the old state.
@@ -1050,7 +1051,7 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 #endif
 			
 			// Unbind any shader views of the render target that are bound.
-			ConditionalClearShaderResource(NewRenderTarget);
+			ConditionalClearShaderResource(NewRenderTarget, false);
 
 #if UE_BUILD_DEBUG	
 			// A check to allow you to pinpoint what is using mismatching targets
@@ -1116,7 +1117,7 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 			}
 
 			// Unbind any shader views of the UAV's resource.
-			ConditionalClearShaderResource(RHIUAV->Resource);
+			ConditionalClearShaderResource(RHIUAV->Resource, true);
 		}
 
 		if(CurrentUAVs[UAVIndex] != UAV)
@@ -1630,6 +1631,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBuffe
 	uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 
+	TrackResourceBoundAsIB(IndexBuffer);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 
@@ -1668,6 +1670,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuff
 	checkf((StartIndex + IndexCount) * IndexBuffer->GetStride() <= IndexBuffer->GetSize(), 		
 		TEXT("Start %u, Count %u, Type %u, Buffer Size %u, Buffer stride %u"), StartIndex, IndexCount, PrimitiveType, IndexBuffer->GetSize(), IndexBuffer->GetStride());
 
+	TrackResourceBoundAsIB(IndexBuffer);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 
@@ -1698,6 +1701,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitiveIndirect(FIndexBufferRHIParamRef I
 	// Set the index buffer.
 	const uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
+	TrackResourceBoundAsIB(IndexBuffer);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->DrawIndexedInstancedIndirect(ArgumentBuffer->Resource,ArgumentOffset);
@@ -1742,6 +1746,7 @@ void FD3D11DynamicRHI::RHIEndDrawPrimitiveUP()
 	// Issue the draw call.
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
+	TrackResourceBoundAsVB(nullptr, 0);
 	StateCache.SetStreamSource(D3DBuffer, 0, PendingVertexDataStride, VBOffset);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->Draw(PendingNumVertices,0);
@@ -1801,6 +1806,8 @@ void FD3D11DynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 	// Issue the draw call.
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
+	TrackResourceBoundAsVB(nullptr, 0);
+	TrackResourceBoundAsIB(nullptr);
 	StateCache.SetStreamSource(VertexBuffer, 0, PendingVertexDataStride, VBOffset);
 	StateCache.SetIndexBuffer(IndexBuffer, PendingIndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType, bUsingTessellation));

@@ -71,7 +71,7 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 	// Make sure the destination is not bound as a shader resource.
 	if (DestTexture)
 	{
-		ConditionalClearShaderResource(DestTexture);
+		ConditionalClearShaderResource(DestTexture, false);
 	}
 
 	// Determine if the entire destination surface is being resolved to.
@@ -196,7 +196,7 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 
 	if (SourceTexture)
 	{
-		ConditionalClearShaderResource(SourceTexture);
+		ConditionalClearShaderResource(SourceTexture, false);
 	}
 
 	// Reset saved render targets
