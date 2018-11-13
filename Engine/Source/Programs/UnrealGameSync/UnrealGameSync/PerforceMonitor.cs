@@ -51,6 +51,12 @@ namespace UnrealGameSync
 		public event Action OnStreamChange;
 		public event Action OnLoginExpired;
 
+		public TimeSpan ServerTimeZone
+		{
+			get;
+			private set;
+		}
+
 		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile, string InCacheFolder, List<KeyValuePair<string, DateTime>> InLocalConfigFiles)
 		{
 			Perforce = InPerforce;
@@ -123,6 +129,13 @@ namespace UnrealGameSync
 			if(!Perforce.GetActiveStream(out StreamName, LogWriter))
 			{
 				StreamName = null;
+			}
+
+			// Get the perforce server settings
+			PerforceInfoRecord PerforceInfo;
+			if(Perforce.Info(out PerforceInfo, LogWriter))
+			{
+				ServerTimeZone = PerforceInfo.ServerTimeZone;
 			}
 
 			// Try to update the zipped binaries list before anything else, because it causes a state change in the UI

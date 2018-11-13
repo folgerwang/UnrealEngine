@@ -198,8 +198,6 @@ namespace UnrealGameSync
 
 		Dictionary<string, int> NotifiedBuildTypeToChangeNumber = new Dictionary<string,int>();
 
-		TimeSpan ServerTimeZone;
-
 		string HoverBadgeUniqueId = null;
 		bool bHoverSync;
 		PerforceChangeSummary ContextMenuChange;
@@ -283,7 +281,6 @@ namespace UnrealGameSync
 			EditorTargetName = DetectSettings.NewProjectEditorTarget;
 			bIsEnterpriseProject = DetectSettings.bIsEnterpriseProject;
 			StreamName = DetectSettings.StreamName;
-			ServerTimeZone = DetectSettings.ServerTimeZone;
 
 			// Update the branch directory
 			BranchDirectoryName = DetectSettings.BranchDirectoryName;
@@ -1010,7 +1007,7 @@ namespace UnrealGameSync
 							DateTime DisplayTime = Change.Date;
 							if(Settings.bShowLocalTimes)
 							{
-								DisplayTime = (DisplayTime - ServerTimeZone).ToLocalTime();
+								DisplayTime = (DisplayTime - PerforceMonitor.ServerTimeZone).ToLocalTime();
 							}
 
 							string[] SubItemLabels = new string[BuildList.Columns.Count];

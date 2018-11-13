@@ -23,7 +23,6 @@ namespace UnrealGameSync
 		public string NewSelectedClientFileName;
 		public string StreamName;
 		public Image ProjectLogo;
-		public TimeSpan ServerTimeZone;
 		public string DataFolder;
 		public string CacheFolder;
 		public bool bIsEnterpriseProject;
@@ -88,17 +87,6 @@ namespace UnrealGameSync
 
 		public bool Run(PerforceConnection Perforce, TextWriter Log, out string ErrorMessage)
 		{
-			// Get the perforce server settings
-			PerforceInfoRecord PerforceInfo;
-			if(!Perforce.Info(out PerforceInfo, Log))
-			{
-				ErrorMessage = String.Format("Couldn't get Perforce server info");
-				return false;
-			}
-
-			// Configure the time zone
-			ServerTimeZone = PerforceInfo.ServerTimeZone;
-
 			// Use the cached client path to the file if it's available; it's much quicker than trying to find the correct workspace.
 			if(!String.IsNullOrEmpty(SelectedProject.ClientPath))
 			{
@@ -125,6 +113,14 @@ namespace UnrealGameSync
 			}
 			else
 			{
+				// Get the perforce server settings
+				PerforceInfoRecord PerforceInfo;
+				if(!Perforce.Info(out PerforceInfo, Log))
+				{
+					ErrorMessage = String.Format("Couldn't get Perforce server info");
+					return false;
+				}
+
 				// Use the path as the selected filename
 				NewSelectedFileName = SelectedProject.LocalPath;
 
