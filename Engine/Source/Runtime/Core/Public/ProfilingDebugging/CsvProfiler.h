@@ -208,6 +208,8 @@ public:
 
 	CORE_API void SetDeviceProfileName(FString InDeviceProfileName);
 
+	CORE_API FString GetOutputFilename() const { return OutputFilename; }
+
 private:
 	CORE_API static void VARARGS RecordEventfInternal(int32 CategoryIndex, const TCHAR* Fmt, ...);
 

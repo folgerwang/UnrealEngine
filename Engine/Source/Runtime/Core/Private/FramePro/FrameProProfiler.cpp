@@ -333,7 +333,7 @@ void FFrameProProfiler::PopEvent(const ANSICHAR* Override)
 
 void FFrameProProfiler::StartFrameProRecordingFromCommand(const TArray< FString >& Args)
 {
-	FString FilenameRoot = TEXT("Profile");
+	FString FilenameRoot = FString::Printf(TEXT("ProfilePid%d"), FPlatformProcess::GetCurrentProcessId());
 	if (Args.Num() > 0 && Args[0].Len() > 0)
 	{
 		FilenameRoot = Args[0];
@@ -350,7 +350,7 @@ void FFrameProProfiler::StartFrameProRecordingScopeOverrideFromCommand(const TAr
 		MinScopeTime = FCString::Atoi(*Args[0]);
 	}
 
-	StartFrameProRecording(TEXT("Profile"), MinScopeTime);
+	StartFrameProRecording(FString::Printf(TEXT("ProfilePid%d"), FPlatformProcess::GetCurrentProcessId()), MinScopeTime);
 }
 
 FString FFrameProProfiler::StartFrameProRecording(const FString& FilenameRoot, int32 MinScopeTime)
