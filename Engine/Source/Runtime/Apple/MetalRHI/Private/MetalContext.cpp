@@ -717,6 +717,7 @@ void FMetalDeviceContext::ReleaseFence(FMetalFence* Fence)
 
 void FMetalDeviceContext::RegisterUB(FMetalUniformBuffer* UB)
 {
+	FScopeLock Lock(&FreeListMutex);
 	UniformBuffers.Add(UB);
 }
 
@@ -724,13 +725,15 @@ void FMetalDeviceContext::UpdateIABs(FTextureReferenceRHIParamRef ModifiedRef)
 {
 	if(GIsMetalInitialized)
 	{
+		FScopeLock Lock(&FreeListMutex);
 		for (FMetalUniformBuffer* UB : UniformBuffers)
 		{
-			if (UB->IAB && UB->TextureReferences.Contains(ModifiedRef))
+			if (UB && UB->IAB && UB->TextureReferences.Contains(ModifiedRef))
 			{
-				delete UB->IAB;
+				FMetalUniformBuffer::FMetalIndirectArgumentBuffer* IAB = UB->IAB;
 				UB->IAB = nullptr;
 				UB->InitIAB();
+				delete IAB;
 			}
 		}
 	}
@@ -740,6 +743,7 @@ void FMetalDeviceContext::UnregisterUB(FMetalUniformBuffer* UB)
 {
 	if(GIsMetalInitialized)
 	{
+		FScopeLock Lock(&FreeListMutex);
 		UniformBuffers.Remove(UB);
 	}
 }

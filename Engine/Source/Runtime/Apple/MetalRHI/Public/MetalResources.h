@@ -887,6 +887,7 @@ public:
 		FMetalBuffer IndirectArgumentBufferSideTable;
 	};
 	
+	EUniformBufferUsage UniformUsage;
 	FMetalIndirectArgumentBuffer& GetIAB();
 	FMetalIndirectArgumentBuffer* IAB;
 };
