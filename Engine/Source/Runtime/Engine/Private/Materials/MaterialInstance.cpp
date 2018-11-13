@@ -3994,8 +3994,13 @@ USubsurfaceProfile* UMaterialInstance::GetSubsurfaceProfile_Internal() const
 /** Checks to see if an input property should be active, based on the state of the material */
 bool UMaterialInstance::IsPropertyActive(EMaterialProperty InProperty) const
 {
-	const UMaterial* Material = GetMaterial();
-	return Material ? Material->IsPropertyActiveInDerived(InProperty, this) : false;
+	if(InProperty == MP_DiffuseColor || InProperty == MP_SpecularColor)
+	{
+		// to suppress some CompilePropertyEx calls
+		return false;
+	}
+
+	return true;
 }
 
 #if WITH_EDITOR

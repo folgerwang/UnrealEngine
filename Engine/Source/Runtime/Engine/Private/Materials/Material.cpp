@@ -5800,16 +5800,8 @@ USubsurfaceProfile* UMaterial::GetSubsurfaceProfile_Internal() const
 	return SubsurfaceProfile; 
 }
 
-bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
+bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const 
 {
-	return IsPropertyActiveInDerived(InProperty, this);
-}
-
-bool UMaterial::IsPropertyActiveInDerived(EMaterialProperty InProperty, const UMaterialInterface* DerivedMaterial) const
-{
-	const EBlendMode DerivedBlendMode = DerivedMaterial->GetBlendMode();
-	const EMaterialShadingModel DerivedShadingModel = DerivedMaterial->GetShadingModel();
-
 	if(MaterialDomain == MD_PostProcess)
 	{
 		return InProperty == MP_EmissiveColor || ( BlendableOutputAlpha && InProperty == MP_Opacity );
@@ -5961,15 +5953,15 @@ bool UMaterial::IsPropertyActiveInDerived(EMaterialProperty InProperty, const UM
 	{
 		return InProperty == MP_EmissiveColor
 			|| ( InProperty == MP_WorldPositionOffset )
-			|| ( InProperty == MP_OpacityMask && DerivedBlendMode == BLEND_Masked )
-			|| ( InProperty == MP_Opacity && IsTranslucentBlendMode((EBlendMode)DerivedBlendMode) && DerivedBlendMode != BLEND_Modulate )
+			|| ( InProperty == MP_OpacityMask && BlendMode == BLEND_Masked ) 
+			|| ( InProperty == MP_Opacity && IsTranslucentBlendMode((EBlendMode)BlendMode) && BlendMode != BLEND_Modulate )
 			|| ( InProperty >= MP_CustomizedUVs0 && InProperty <= MP_CustomizedUVs7);
 		{
 			return true;
 		}
 	}
 
-	const bool bIsTranslucentBlendMode = IsTranslucentBlendMode((EBlendMode)DerivedBlendMode);
+	const bool bIsTranslucentBlendMode = IsTranslucentBlendMode((EBlendMode)BlendMode);
 	const bool bIsNonDirectionalTranslucencyLightingMode = TranslucencyLightingMode == TLM_VolumetricNonDirectional || TranslucencyLightingMode == TLM_VolumetricPerVertexNonDirectional;
 	const bool bIsVolumetricTranslucencyLightingMode = TranslucencyLightingMode == TLM_VolumetricNonDirectional 
 		|| TranslucencyLightingMode == TLM_VolumetricDirectional 
@@ -5985,41 +5977,41 @@ bool UMaterial::IsPropertyActiveInDerived(EMaterialProperty InProperty, const UM
 		Active = false;
 		break;
 	case MP_Refraction:
-		Active =bIsTranslucentBlendMode && DerivedBlendMode != BLEND_Modulate;
+		Active =bIsTranslucentBlendMode && BlendMode != BLEND_Modulate;
 		break;
 	case MP_Opacity:
-		Active = bIsTranslucentBlendMode && DerivedBlendMode != BLEND_Modulate;
-		if (IsSubsurfaceShadingModel(DerivedShadingModel))
+		Active = bIsTranslucentBlendMode && BlendMode != BLEND_Modulate;
+		if (IsSubsurfaceShadingModel(ShadingModel))
 		{
 			Active = true;
 		}
 		break;
 	case MP_OpacityMask:
-		Active = DerivedBlendMode == BLEND_Masked;
+		Active = BlendMode == BLEND_Masked;
 		break;
 	case MP_BaseColor:
 	case MP_AmbientOcclusion:
-		Active = DerivedShadingModel != MSM_Unlit;
+		Active = ShadingModel != MSM_Unlit;
 		break;
 	case MP_Specular:
 	case MP_Roughness:
-		Active = DerivedShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsVolumetricTranslucencyLightingMode);
+		Active = ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsVolumetricTranslucencyLightingMode);
 		break;
 	case MP_Metallic:
 		// Subsurface models store opacity in place of Metallic in the GBuffer
-		Active = DerivedShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsVolumetricTranslucencyLightingMode);
+		Active = ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsVolumetricTranslucencyLightingMode);
 		break;
 	case MP_Normal:
-		Active = (DerivedShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsNonDirectionalTranslucencyLightingMode)) || Refraction.IsConnected();
+		Active = (ShadingModel != MSM_Unlit && (!bIsTranslucentBlendMode || !bIsNonDirectionalTranslucencyLightingMode)) || Refraction.IsConnected();
 		break;
 	case MP_SubsurfaceColor:
-		Active = DerivedShadingModel == MSM_Subsurface || DerivedShadingModel == MSM_PreintegratedSkin || DerivedShadingModel == MSM_TwoSidedFoliage || DerivedShadingModel == MSM_Cloth;
+		Active = ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin || ShadingModel == MSM_TwoSidedFoliage || ShadingModel == MSM_Cloth;
 		break;
 	case MP_CustomData0:
-		Active = DerivedShadingModel == MSM_ClearCoat || DerivedShadingModel == MSM_Hair || DerivedShadingModel == MSM_Cloth || DerivedShadingModel == MSM_Eye;
+		Active = ShadingModel == MSM_ClearCoat || ShadingModel == MSM_Hair || ShadingModel == MSM_Cloth || ShadingModel == MSM_Eye;
 		break;
 	case MP_CustomData1:
-		Active = DerivedShadingModel == MSM_ClearCoat || DerivedShadingModel == MSM_Eye;
+		Active = ShadingModel == MSM_ClearCoat || ShadingModel == MSM_Eye;
 		break;
 	case MP_TessellationMultiplier:
 	case MP_WorldDisplacement:
