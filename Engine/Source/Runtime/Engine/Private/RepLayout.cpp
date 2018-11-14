@@ -927,9 +927,9 @@ void FRepLayout::OpenAcked(FRepState * RepState) const
 }
 
 void FRepLayout::PostReplicate(
-	FRepState* RepState,
-	FPacketIdRange& PacketRange,
-	bool bReliable) const
+	FRepState*		RepState,
+	FPacketIdRange&	PacketRange,
+	bool			bReliable) const
 {
 	for (int32 i = RepState->HistoryStart; i < RepState->HistoryEnd; i++)
 	{
@@ -2916,10 +2916,10 @@ class FDiffPropertiesImpl : public FRepLayoutCmdIterator<FDiffPropertiesImpl, FC
 public:
 
 	FDiffPropertiesImpl(
-		const EDiffPropertiesFlags InFlags,
-		TArray<UProperty*>*	InRepNotifies,
-		const TArray<FRepParentCmd>& InParents,
-		const TArray<FRepLayoutCmd>& InCmds
+		const EDiffPropertiesFlags		InFlags,
+		TArray<UProperty*>*				InRepNotifies,
+		const TArray<FRepParentCmd>&	InParents,
+		const TArray<FRepLayoutCmd>&	InCmds
 	): 
 		FRepLayoutCmdIterator(InParents, InCmds),
 		Flags(InFlags),
