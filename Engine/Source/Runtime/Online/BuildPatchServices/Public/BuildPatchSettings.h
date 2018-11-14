@@ -6,6 +6,7 @@
 #include "Interfaces/IBuildManifest.h"
 #include "BuildPatchInstall.h"
 #include "BuildPatchVerify.h"
+#include "BuildPatchFeatureLevel.h"
 
 namespace BuildPatchServices
 {
@@ -123,35 +124,43 @@ namespace BuildPatchServices
 	 */
 	struct FGenerationConfiguration
 	{
-		// The directory to analyze
+		// The client feature level to output data for.
+		EFeatureLevel FeatureLevel;
+		// The directory to analyze.
 		FString RootDirectory;
-		// The ID of the app of this build
+		// The ID of the app of this build.
 		uint32 AppId;
-		// The name of the app of this build
+		// The name of the app of this build.
 		FString AppName;
-		// The version string for this build
+		// The version string for this build.
 		FString BuildVersion;
-		// The local exe path that would launch this build
+		// The local exe path that would launch this build.
 		FString LaunchExe;
-		// The command line that would launch this build
+		// The command line that would launch this build.
 		FString LaunchCommand;
+		// The path to a file containing a \r\n separated list of RootDirectory relative files to read.
+		FString InputListFile;
 		// The path to a file containing a \r\n separated list of RootDirectory relative files to ignore.
 		FString IgnoreListFile;
 		// The path to a file containing a \r\n separated list of RootDirectory relative files followed by attribute keywords.
 		FString AttributeListFile;
-		// The set of identifiers which the prerequisites satisfy
+		// The set of identifiers which the prerequisites satisfy.
 		TSet<FString> PrereqIds;
-		// The display name of the prerequisites installer
+		// The display name of the prerequisites installer.
 		FString PrereqName;
-		// The path to the prerequisites installer
+		// The path to the prerequisites installer.
 		FString PrereqPath;
-		// The command line arguments for the prerequisites installer
+		// The command line arguments for the prerequisites installer.
 		FString PrereqArgs;
-		// The maximum age (in days) of existing data files which can be reused in this build
+		// The maximum age (in days) of existing data files which can be reused in this build.
 		float DataAgeThreshold;
-		// Indicates whether data age threshold should be honored. If false, ALL data files can be reused
+		// Indicates whether data age threshold should be honored. If false, ALL data files can be reused.
 		bool bShouldHonorReuseThreshold;
-		// Map of custom fields to add to the manifest
+		// The chunk window size to be used when saving out new data.
+		uint32 OutputChunkWindowSize;
+		// Indicates whether any window size chunks should be matched, rather than just out output window size.
+		bool bShouldMatchAnyWindowSize;
+		// Map of custom fields to add to the manifest.
 		TMap<FString, FVariant> CustomFields;
 		// The cloud directory that all patch data will be saved to. An empty value will use module's global setting.
 		FString CloudDirectory;
@@ -162,7 +171,8 @@ namespace BuildPatchServices
 		 * Default constructor
 		 */
 		FGenerationConfiguration()
-			: RootDirectory()
+			: FeatureLevel(EFeatureLevel::Latest)
+			, RootDirectory()
 			, AppId()
 			, AppName()
 			, BuildVersion()
@@ -176,6 +186,8 @@ namespace BuildPatchServices
 			, PrereqArgs()
 			, DataAgeThreshold()
 			, bShouldHonorReuseThreshold()
+			, OutputChunkWindowSize(1048576)
+			, bShouldMatchAnyWindowSize(true)
 			, CustomFields()
 			, CloudDirectory()
 			, OutputFilename()

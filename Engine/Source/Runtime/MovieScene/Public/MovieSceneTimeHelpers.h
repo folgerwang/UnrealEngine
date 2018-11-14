@@ -98,9 +98,38 @@ inline TRange<FFrameNumber> MakeDiscreteRangeFromUpper(const TRangeBound<FFrameN
  */
 inline int32 DiscreteSize(const TRange<FFrameNumber>& InRange)
 {
-	return ( DiscreteExclusiveUpper(InRange) - DiscreteInclusiveLower(InRange) ).Value;
+	return (int64)DiscreteExclusiveUpper(InRange).Value - (int64)DiscreteInclusiveLower(InRange).Value;
 }
 
+/**
+ * Check whether the specified range contains any integer frame numbers or not
+ */
+inline bool DiscreteRangeIsEmpty(const TRange<FFrameNumber>& InRange)
+{
+	if (InRange.GetLowerBound().IsOpen() || InRange.GetUpperBound().IsOpen())
+	{
+		return false;
+	}
+
+	// From here on we're handling ranges of the form [x,y], [x,y), (x,y] and (x,y)
+	const bool bLowerInclusive = InRange.GetLowerBound().IsInclusive();
+	const bool bUpperInclusive = InRange.GetUpperBound().IsInclusive();
+
+	if (bLowerInclusive)
+	{
+		// Lower is inclusive
+		return bUpperInclusive
+			? InRange.GetLowerBoundValue() >  InRange.GetUpperBoundValue()		// [x, y] - empty if x >  y
+			: InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue();		// [x, y) - empty if x >= y
+	}
+	else
+	{
+		// Lower is exclusive
+		return bUpperInclusive
+			? InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue()		// (x, y] - empty if x >= y
+			: InRange.GetLowerBoundValue() >= InRange.GetUpperBoundValue()-1;	// (x, y) - empty if x >= y-1
+	}
+}
 
 /**
  * Dilate the specified range by adding a specific size to the lower and upper bounds (if closed)

@@ -1111,8 +1111,11 @@ void UCheatManager::SetMouseSensitivityToDefault()
 			const FKey AxisKey = AxisConfigEntry.AxisKeyName;
 			if (AxisKey == EKeys::MouseX)
 			{
-				PlayerInput->SetMouseSensitivity(AxisConfigEntry.AxisProperties.Sensitivity);
-				break;
+				PlayerInput->SetMouseSensitivity(AxisConfigEntry.AxisProperties.Sensitivity,PlayerInput->GetMouseSensitivityY());
+			}
+			else if (AxisKey == EKeys::MouseY)
+			{
+				PlayerInput->SetMouseSensitivity(PlayerInput->GetMouseSensitivityX(),AxisConfigEntry.AxisProperties.Sensitivity);
 			}
 		}
 	}

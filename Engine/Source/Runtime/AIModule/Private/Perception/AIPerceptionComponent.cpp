@@ -48,8 +48,8 @@ const int32 UAIPerceptionComponent::InitialStimuliToProcessArraySize = 10;
 
 UAIPerceptionComponent::UAIPerceptionComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bCleanedUp(false)
 	, PerceptionListenerId(FPerceptionListenerID::InvalidID())
+	, bCleanedUp(false)
 {
 }
 

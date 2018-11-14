@@ -61,7 +61,7 @@ namespace Scalability
 		}
 
 		// Sets all other settings based on an overall value
-		// @param Value 0:low, 1:medium, 2:high, 3:epic (gets clamped if needed)
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
 		void SetFromSingleQualityLevel(int32 Value);
 
 		// Sets all other settings based on an overall value, but relative to the maximum.
@@ -69,8 +69,36 @@ namespace Scalability
 		void SetFromSingleQualityLevelRelativeToMax(int32 Value);
 
 		// Returns the overall value if all settings are set to the same thing
-		// @param Value -1:custom, 0:low, 1:medium, 2:high, 3:epic
+		// @param Value -1:custom, 0:low, 1:medium, 2:high, 3:epic, 4:cinematic
 		int32 GetSingleQualityLevel() const;
+
+		// Sets view distance quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetViewDistanceQuality(int32 Value);
+
+		// Sets anti-aliasing quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetAntiAliasingQuality(int32 Value);
+
+		// Sets shadow quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetShadowQuality(int32 Value);
+
+		// Sets the post-processing quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetPostProcessQuality(int32 Value);
+
+		// Sets the texture quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetTextureQuality(int32 Value);
+
+		// Sets the visual effects quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetEffectsQuality(int32 Value);
+
+		// Sets the foliage quality
+		// @param Value 0:low, 1:medium, 2:high, 3:epic, 4:cinematic (gets clamped if needed)
+		void SetFoliageQuality(int32 Value);
 
 		void SetBenchmarkFallback();
 
@@ -83,6 +111,13 @@ namespace Scalability
 
 	/** This is the only suggested way to get the current state - don't get CVars directly */
 	ENGINE_API FQualityLevels GetQualityLevels();
+
+	/** Applies quality levels for temporary status which will NOT be saved to user settings e.g. mobile device low-power mode.
+		Originally active settings are backed-up or restored on toggle. */
+	ENGINE_API void ToggleTemporaryQualityLevels(bool bEnable);
+
+	/** Are active scalability settings a temporary override. */
+	ENGINE_API bool IsTemporaryQualityLevelActive();
 
 	/** Gets the effects quality directly for the passed thread.
 	*

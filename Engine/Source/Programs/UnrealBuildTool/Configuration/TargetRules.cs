@@ -715,7 +715,7 @@ namespace UnrealBuildTool
 		/// Whether to disable debug info generation for generated files. This improves link times for modules that have a lot of generated glue code.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bDisableDebugInfoForGeneratedCode = true;
+		public bool bDisableDebugInfoForGeneratedCode = false;
 
 		/// <summary>
 		/// Whether to disable debug info on PC in development builds (for faster developer iteration, as link times are extremely fast with debug info disabled).
@@ -935,10 +935,15 @@ namespace UnrealBuildTool
 		[CommandLine("-ToolChain")]
 		public string ToolChainName = null;
 
-        /// <summary>
-        /// Whether to load generated ini files in cooked build
-        /// </summary>
-        public bool bAllowGeneratedIniWhenCooked = true;
+		/// <summary>
+		/// Whether to load generated ini files in cooked build, (GameUserSettings.ini loaded either way)
+		/// </summary>
+		public bool bAllowGeneratedIniWhenCooked = true;
+
+		/// <summary>
+		/// Whether to load non-ufs ini files in cooked build, (GameUserSettings.ini loaded either way)
+		/// </summary>
+		public bool bAllowNonUFSIniWhenCooked = true;
 
 		/// <summary>
 		/// Add all the public folders as include paths for the compile environment.
@@ -1058,6 +1063,11 @@ namespace UnrealBuildTool
 		public string AdditionalLinkerArguments;
 
 		/// <summary>
+		/// When generating project files, specifies the name of the project file to use when there are multiple targets of the same type.
+		/// </summary>
+		public string GeneratedProjectName;
+
+		/// <summary>
 		/// Android-specific target settings.
 		/// </summary>
 		public AndroidTargetRules AndroidPlatform = new AndroidTargetRules();
@@ -1071,6 +1081,11 @@ namespace UnrealBuildTool
 		/// Lumin-specific target settings.
 		/// </summary>
 		public LuminTargetRules LuminPlatform = new LuminTargetRules();
+
+		/// <summary>
+		/// Linux-specific target settings.
+		/// </summary>
+		public LinuxTargetRules LinuxPlatform = new LinuxTargetRules();
 
 		/// <summary>
 		/// Mac-specific target settings.
@@ -1295,6 +1310,58 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Checks whether nativization is enabled for this target, and determine the path for the nativized plugin
+		/// </summary>
+		/// <returns>The nativized plugin file, or null if nativization is not enabled</returns>
+		internal FileReference GetNativizedPlugin()
+		{
+			if (ProjectFile != null && (Type == TargetType.Game || Type == TargetType.Client || Type == TargetType.Server))
+			{
+				// Read the config files for this project
+				ConfigHierarchy Config = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, ProjectFile.Directory, BuildHostPlatform.Current.Platform);
+				if (Config != null)
+				{
+					// Determine whether or not the user has enabled nativization of Blueprint assets at cook time (default is 'Disabled')
+					string NativizationMethod;
+					if (Config.TryGetValue("/Script/UnrealEd.ProjectPackagingSettings", "BlueprintNativizationMethod", out NativizationMethod) && NativizationMethod != "Disabled")
+					{
+						string PlatformName;
+						if (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64)
+						{
+							PlatformName = "Windows";
+						}
+						else
+						{
+							PlatformName = Platform.ToString();
+						}
+
+						// Temp fix to force platforms that only support "Game" configurations at cook time to the correct path.
+						string ProjectTargetType;
+						if (Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64 || Platform == UnrealTargetPlatform.Linux || Platform == UnrealTargetPlatform.Mac)
+						{
+							ProjectTargetType = Type.ToString();
+						}
+						else
+						{
+							ProjectTargetType = "Game";
+						}
+
+						FileReference PluginFile = FileReference.Combine(ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
+						if (FileReference.Exists(PluginFile))
+						{
+							return PluginFile;
+						}
+						else
+						{
+							Log.TraceWarning("{0} is configured for nativization, but is missing the generated code plugin at \"{1}\". Make sure to cook {2} data before attempting to build the {3} target. If data was cooked with nativization enabled, this can also mean there were no Blueprint assets that required conversion, in which case this warning can be safely ignored.", Name, PluginFile.FullName, Type.ToString(), Platform.ToString());
+						}
+					}
+				}
+			}
+			return null;
+		}
+
+		/// <summary>
 		/// Finds all the subobjects which can be configured by command line options and config files
 		/// </summary>
 		/// <returns>Sequence of objects</returns>
@@ -1304,6 +1371,7 @@ namespace UnrealBuildTool
 			yield return AndroidPlatform;
 			yield return IOSPlatform;
 			yield return LuminPlatform;
+			yield return LinuxPlatform;
 			yield return MacPlatform;
 			yield return PS4Platform;
 			yield return SwitchPlatform;
@@ -1357,6 +1425,7 @@ namespace UnrealBuildTool
 			AndroidPlatform = new ReadOnlyAndroidTargetRules(Inner.AndroidPlatform);
 			IOSPlatform = new ReadOnlyIOSTargetRules(Inner.IOSPlatform);
 			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
+			LinuxPlatform = new ReadOnlyLinuxTargetRules(Inner.LinuxPlatform);
 			MacPlatform = new ReadOnlyMacTargetRules(Inner.MacPlatform);
 			PS4Platform = new ReadOnlyPS4TargetRules(Inner.PS4Platform);
 			SwitchPlatform = new ReadOnlySwitchTargetRules(Inner.SwitchPlatform);
@@ -1561,7 +1630,7 @@ namespace UnrealBuildTool
 
 		public bool bForceBuildShaderFormats
 		{
-			get { return Inner.bForceBuildTargetPlatforms; }
+			get { return Inner.bForceBuildShaderFormats; }
 		}
 
 		public bool bCompileSimplygon
@@ -2063,12 +2132,23 @@ namespace UnrealBuildTool
 			get { return Inner.AdditionalLinkerArguments; }
 		}
 
+		public string GeneratedProjectName
+		{
+			get { return Inner.GeneratedProjectName; }
+		}
+
 		public ReadOnlyAndroidTargetRules AndroidPlatform
 		{
 			get;
 			private set;
 		}
 		public ReadOnlyLuminTargetRules LuminPlatform
+		{
+			get;
+			private set;
+		}
+
+		public ReadOnlyLinuxTargetRules LinuxPlatform
 		{
 			get;
 			private set;
@@ -2118,6 +2198,11 @@ namespace UnrealBuildTool
 		public bool bGenerateProjectFiles
 		{
 			get { return Inner.bGenerateProjectFiles; }
+		}
+
+		public bool bIsEngineInstalled
+		{
+			get { return Inner.bIsEngineInstalled; }
 		}
 
 		#if !__MonoCS__

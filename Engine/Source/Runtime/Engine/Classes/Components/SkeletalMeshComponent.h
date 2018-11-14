@@ -284,13 +284,6 @@ public:
 	UPROPERTY(transient)
 	UAnimInstance* PostProcessAnimInstance;
 
-private:
-	/** Controls whether or not this component will evaluate its post process instance. The post-process
-	 *  Instance is dictated by the skeletal mesh so this is used for per-instance control.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintGetter=GetDisablePostProcessBlueprint, BlueprintSetter=SetDisablePostProcessBlueprint, Category = Animation)
-	bool bDisablePostProcessBlueprint;
-
 public:
 
 	/** Toggles whether the post process blueprint will run for this component */
@@ -345,10 +338,6 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
 	EDynamicActorScene UseAsyncScene;
 
-	/** Controls whether blending in physics bones will refresh overlaps on this component, defaults to true but can be disabled in cases where we know anim->physics blending doesn't meaningfully change overlaps */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
-	bool bUpdateOverlapsOnAnimationFinalize;
-
 	/** If we are running physics, should we update non-simulated bones based on the animation bone positions. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	TEnumAsByte<EKinematicBonesUpdateToPhysics::Type> KinematicBonesUpdateType;
@@ -369,7 +358,21 @@ private:
 	/** Teleport type to use on the next update */
 	ETeleportType PendingTeleportType;
 
+	/** Controls whether or not this component will evaluate its post process instance. The post-process
+	 *  Instance is dictated by the skeletal mesh so this is used for per-instance control.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintGetter=GetDisablePostProcessBlueprint, BlueprintSetter=SetDisablePostProcessBlueprint, Category = Animation)
+	uint8 bDisablePostProcessBlueprint:1;
+
 public:
+
+	/** Indicates that simulation (if it's enabled) is entirely responsible for children transforms. This is only ok if you are not animating attachment points relative to the simulation */
+	uint8 bSimulationUpdatesChildTransforms:1;
+
+	/** Controls whether blending in physics bones will refresh overlaps on this component, defaults to true but can be disabled in cases where we know anim->physics blending doesn't meaningfully change overlaps */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
+	uint8 bUpdateOverlapsOnAnimationFinalize:1;
+
 	/** Temporary fix for local space kinematics. This only works for bodies that have no constraints and is needed by vehicles. Proper support will remove this flag */
 	uint8 bLocalSpaceKinematics:1;
 
@@ -510,6 +513,21 @@ public:
 	UPROPERTY()
 	uint8 bEnableLineCheckWithBounds:1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    uint8 bUseBendingElements:1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    uint8 bUseTetrahedralConstraints:1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    uint8 bUseThinShellVolumeConstraints:1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    uint8 bUseSelfCollisions:1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
+    uint8 bUseContinuousCollisionDetection:1;
+
 protected:
 
 	/** Whether the clothing simulation is suspended (not the same as disabled, we no longer run the sim but keep the last valid sim data around) */
@@ -528,17 +546,12 @@ private:
 
 	uint8 bPostEvaluatingAnimation:1;
 
-	/** You can choose to disable certain curves if you prefer. 
-	 * This is transient curves that will be ignored by animation system if you choose this */
-	UPROPERTY(transient)
-	TArray<FName> DisallowedAnimCurves;
-
 public:
 
 	/** Cache AnimCurveUidVersion from Skeleton and this will be used to identify if it needs to be updated */
 	UPROPERTY(transient)
 	uint16 CachedAnimCurveUidVersion;
-	
+
 	/**
 	 * weight to blend between simulated results and key-framed positions
 	 * if weight is 1.0, shows only cloth simulation results and 0.0 will show only skinned results
@@ -563,21 +576,15 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
     float ShapeTargetStiffness;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
-    bool bUseBendingElements;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
-    bool bUseTetrahedralConstraints;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
-    bool bUseThinShellVolumeConstraints;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
-    bool bUseSelfCollisions;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
-    bool bUseContinuousCollisionDetection;
+
+private:
+
+	/** You can choose to disable certain curves if you prefer. 
+	 * This is transient curves that will be ignored by animation system if you choose this */
+	UPROPERTY(transient)
+	TArray<FName> DisallowedAnimCurves;
+
+public:
 
 	/**
 	* Used for per poly collision. In 99% of cases you will be better off using a Physics Asset.
@@ -840,7 +847,7 @@ public:
 
 	/** Gets whether or not the clothing simulation is currently suspended */
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh")
-	bool IsClothingSimulationSuspended();
+	bool IsClothingSimulationSuspended() const;
 
 	/**
 	 * Reset the teleport mode of a next update to 'Continuous'
@@ -1859,13 +1866,13 @@ public:
 	/** Apply animation curves to this component */
 	void ApplyAnimationCurvesToComponent(const TMap<FName, float>* InMaterialParameterCurves, const TMap<FName, float>* InAnimationMorphCurves);
 	
+	// Returns whether we're able to run a simulation (ignoring the suspend flag)
+	bool CanSimulateClothing() const;
+
 protected:
 
 	// Returns whether we need to run the Cloth Tick or not
 	virtual bool ShouldRunClothTick() const;
-
-	// Returns whether we're able to run a simulation (ignoring the suspend flag)
-	bool CanSimulateClothing() const;
 
 private:
 	/** Override USkinnedMeshComponent */

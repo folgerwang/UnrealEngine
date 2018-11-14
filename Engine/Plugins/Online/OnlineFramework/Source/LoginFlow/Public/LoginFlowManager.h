@@ -89,7 +89,16 @@ private:
 		FDelegateHandle AccountCreationFlowUIRequiredDelegateHandle;
 		/** Optional browser context settings if bPersistCookies is false */
 		TSharedPtr<FBrowserContextSettings> BrowserContextSettings;
+		/** Has this context been registered */
+		bool bRegisteredContext = false;
 	};
+
+	/**
+	 * Register a flow with the web browser singleton
+	 *
+	 * @param Params online flow parameters to register
+	 */
+	void RegisterBrowserContext(FOnlineParams* Params);
 
 	/** Mapping of online subsystem identifiers to the parameters they have setup for login flow */
 	TMap<FName, FOnlineParams> OnlineSubsystemsMap;

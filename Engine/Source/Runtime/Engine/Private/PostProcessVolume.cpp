@@ -65,6 +65,7 @@ bool APostProcessVolume::CanEditChange(const UProperty* InProperty) const
 		FString PropertyName = InProperty->GetName();
 
 		// Settings, can be shared for multiple objects types (volume, component, camera, player)
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		{
 			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldScale))
 			{
@@ -173,6 +174,7 @@ bool APostProcessVolume::CanEditChange(const UProperty* InProperty) const
 			}
 
 		}
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(APostProcessVolume, bEnabled))
 		{

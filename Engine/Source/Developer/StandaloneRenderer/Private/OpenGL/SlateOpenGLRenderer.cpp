@@ -10,6 +10,10 @@
 #include "OpenGL/SlateOpenGLRenderingPolicy.h"
 #include "Rendering/ElementBatcher.h"
 
+#if PLATFORM_LINUX
+	#include "HAL/PlatformApplicationMisc.h"
+#endif
+
 class FSlateOpenGLFontAtlasFactory : public ISlateFontAtlasFactory
 {
 public:
@@ -58,6 +62,9 @@ FSlateOpenGLRenderer::FSlateOpenGLRenderer( const ISlateStyle& InStyle )
 							FPlane(0,	0,	1,  0),
 							FPlane(0,	0,	0,	1));
 
+#if PLATFORM_LINUX
+	FPlatformApplicationMisc::UsingOpenGL();
+#endif // PLATFORM_LINUX
 }
 
 FSlateOpenGLRenderer::~FSlateOpenGLRenderer()

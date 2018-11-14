@@ -65,8 +65,8 @@ public:
 		this->max_depth = max_depth;
 		this->depth = 0;
 
-		this->condition_variables = hash_table_ctor(0, hash_table_pointer_hash,
-			hash_table_pointer_compare);
+		this->condition_variables = hash_table_ctor(0, ir_hash_table_pointer_hash,
+			ir_hash_table_pointer_compare);
 	}
 
 	~ir_if_to_cond_assign_visitor()

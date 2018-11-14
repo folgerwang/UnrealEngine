@@ -496,7 +496,7 @@ TArray<FString> DataTableUtils::GetColumnDataAsString(const UDataTable* InTable,
 	UProperty* ColumnProperty = InTable->FindTableProperty(PropertyName);
 	if (ColumnProperty)
 	{
-		for (auto RowIt = InTable->RowMap.CreateConstIterator(); RowIt; ++RowIt)
+		for (auto RowIt = InTable->GetRowMap().CreateConstIterator(); RowIt; ++RowIt)
 		{
 			uint8* RowData = RowIt.Value();
 			Result.Add(GetPropertyValueAsString(ColumnProperty, RowData, InDTExportFlags));

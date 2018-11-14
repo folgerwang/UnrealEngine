@@ -284,9 +284,6 @@ public:
 	 */
 	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage);
 
-	DEPRECATED(4.14, "PreLogin with shared pointer is deprecated, switch to FUniqueNetIdRepl version instead")
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
-
 	/**
 	 * Called to login new players by creating a player controller, overridable by the game
 	 *
@@ -306,9 +303,6 @@ public:
 	 * @return a new player controller for the logged in player, NULL if login failed for any reason
 	 */
 	virtual APlayerController* Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage);
-
-	DEPRECATED(4.14, "Login with shared pointer is deprecated, switch to FUniqueNetIdRepl version instead")
-	virtual APlayerController* Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
 
 	/** Called after a successful login.  This is the first place it is safe to call replicated functions on the PlayerController. */
 	virtual void PostLogin(APlayerController* NewPlayer);
@@ -336,7 +330,7 @@ public:
 	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, const FString& Options);
 
 	DEPRECATED(4.20, "SpawnPlayerController with Location and Rotation is deprecated, call or override the version that takes an Option string instead")
- 	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
+	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
 	DEPRECATED(4.20, "SpawnReplayPlayerController is deprecated, replay controller spawning is handled inside the new version of the SpawnPlayerController function")
 	virtual APlayerController* SpawnReplayPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
 
@@ -507,9 +501,6 @@ protected:
 	 */
 	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
 
-	DEPRECATED(4.14, "InitNewPlayer with shared pointer is deprecated, switch to FUniqueNetIdRepl version instead")
-	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
-
 	/** Initialize the AHUD object for a player. Games can override this to do something different */
 	UFUNCTION(BlueprintNativeEvent, Category=Game)
 	void InitializeHUDForPlayer(APlayerController* NewPlayer);
@@ -575,6 +566,26 @@ private:
 class ENGINE_API FGameModeEvents
 {
 public:
+
+	/**
+	 * GameMode initialization has occurred
+	 * - Called at the end of AGameModeBase::InitGame 
+	 * - AGameSession has also been initialized
+	 * - Possible some child level initialization hasn't finished
+	 *
+	 * @param GameMode the game mode actor that has been initialized
+	 */
+	DECLARE_EVENT_OneParam(AGameModeBase, FGameModeInitializedEvent, AGameModeBase* /*GameMode*/);
+
+	/**
+	 * Client pre login event, triggered when a client first contacts a server
+	 *
+	 * @param GameMode the game mode actor that has been initialized
+	 * @param NewPlayer the unique id of the player attempting to join
+	 * @param ErrorMessage current state of any error messages, setting this value non empty will reject the player
+	 */
+	DECLARE_EVENT_ThreeParams(AGameModeBase, FGameModePreLoginEvent, AGameModeBase* /*GameMode*/, const FUniqueNetIdRepl& /*NewPlayer*/, FString& /*ErrorMessage*/);
+
 	/** 
 	 * Post login event, triggered when a player joins the game as well as after non-seamless ServerTravel
 	 *
@@ -589,7 +600,26 @@ public:
 	 */
 	DECLARE_EVENT_TwoParams(AGameModeBase, FGameModeLogoutEvent, AGameModeBase* /*GameMode*/, AController* /*Exiting*/);
 
+	/**
+	 * Match state has changed via SetMatchState()
+	 *
+	 * @param MatchState new match state
+	 */
+	DECLARE_EVENT_OneParam(AGameModeBase, FGameModeMatchStateSetEvent, FName /*MatchState*/);
+
+public: 
+	
+	static FGameModeInitializedEvent& OnGameModeInitializedEvent() { return GameModeInitializedEvent; } 
+	static FGameModePreLoginEvent& OnGameModePreLoginEvent() { return GameModePreLoginEvent; }
+	static FGameModePostLoginEvent& OnGameModePostLoginEvent() { return GameModePostLoginEvent; }
+	static FGameModeLogoutEvent& OnGameModeLogoutEvent() { return GameModeLogoutEvent; }
+	static FGameModeMatchStateSetEvent& OnGameModeMatchStateSetEvent() { return GameModeMatchStateSetEvent; }
+
+	static FGameModeInitializedEvent GameModeInitializedEvent;
+	static FGameModePreLoginEvent GameModePreLoginEvent;
 	static FGameModePostLoginEvent GameModePostLoginEvent;
 	static FGameModeLogoutEvent GameModeLogoutEvent;
+	static FGameModeMatchStateSetEvent GameModeMatchStateSetEvent;
 };
+
 

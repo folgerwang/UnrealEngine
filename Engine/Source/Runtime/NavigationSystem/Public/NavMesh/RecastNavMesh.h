@@ -398,6 +398,10 @@ class NAVIGATIONSYSTEM_API ARecastNavMesh : public ANavigationData
 	UPROPERTY(VisibleAnywhere, Category = Generation, AdvancedDisplay)
 	int32 PolyRefSaltBits;
 
+	/** Use this if you don't want your tiles to start at (0,0,0) */
+	UPROPERTY(EditAnywhere, Category = Generation, AdvancedDisplay)
+	FVector NavMeshOriginOffset;
+
 	/** navmesh draw distance in game (always visible in editor) */
 	UPROPERTY(config)
 	float DefaultDrawDistance;

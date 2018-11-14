@@ -465,7 +465,23 @@ void APawn::OnRep_Controller()
 	}
 }
 
-void APawn::OnRep_PlayerState() {}
+void APawn::OnRep_PlayerState()
+{
+	SetPlayerState(PlayerState);
+}
+
+void APawn::SetPlayerState(APlayerState* NewPlayerState)
+{
+	if (PlayerState && PlayerState->GetPawn() == this)
+	{
+		FSetPlayerStatePawn(PlayerState, nullptr);
+	}
+	PlayerState = NewPlayerState;
+	if (PlayerState)
+	{
+		FSetPlayerStatePawn(PlayerState, this);
+	}
+}
 
 void APawn::PossessedBy(AController* NewController)
 {
@@ -476,7 +492,7 @@ void APawn::PossessedBy(AController* NewController)
 
 	if (Controller->PlayerState != nullptr)
 	{
-		PlayerState = Controller->PlayerState;
+		SetPlayerState(Controller->PlayerState);
 	}
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -505,7 +521,7 @@ void APawn::UnPossessed()
 
 	ForceNetUpdate();
 
-	PlayerState = nullptr;
+	SetPlayerState(nullptr);
 	SetOwner(nullptr);
 	Controller = nullptr;
 

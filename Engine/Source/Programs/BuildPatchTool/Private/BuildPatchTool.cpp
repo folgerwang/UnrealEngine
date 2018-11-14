@@ -17,7 +17,8 @@ public:
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override
 	{
 		// Only forward verbosities higher than Display as they will already be sent to stdout.
-		if (Verbosity > ELogVerbosity::Display)
+		// For EC to get any logging, we have to forward all.
+		//if (Verbosity > ELogVerbosity::Display)
 		{
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 			printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
@@ -86,6 +87,30 @@ EReturnCode RunBuildPatchTool()
 	return ToolMode->Execute();
 }
 
+int32 NumberOfWorkerThreadsDesired()
+{
+	const int32 MaxThreads = 64;
+	const int32 NumberOfCores = FPlatformMisc::NumberOfCores();
+	// need to spawn at least one worker thread (see FTaskGraphImplementation)
+	return FMath::Max(FMath::Min(NumberOfCores - 1, MaxThreads), 1);
+}
+
+void CheckAndReallocThreadPool()
+{
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		const int32 ThreadsSpawned = GThreadPool->GetNumThreads();
+		const int32 DesiredThreadCount = NumberOfWorkerThreadsDesired();
+		if (ThreadsSpawned < DesiredThreadCount)
+		{
+			UE_LOG(LogBuildPatchTool, Log, TEXT("Engine only spawned %d worker threads, bumping up to %d!"), ThreadsSpawned, DesiredThreadCount);
+			GThreadPool->Destroy();
+			GThreadPool = FQueuedThreadPool::Allocate();
+			verify(GThreadPool->Create(DesiredThreadCount, 128 * 1024));
+		}
+	}
+}
+
 EReturnCode BuildPatchToolMain(const TCHAR* CommandLine)
 {
 	// Add log device for stdout
@@ -104,6 +129,9 @@ EReturnCode BuildPatchToolMain(const TCHAR* CommandLine)
 	// Initialise application
 	GEngineLoop.PreInit(CommandLine);
 	UE_LOG(LogBuildPatchTool, Log, TEXT("Executed with commandline: %s"), CommandLine);
+
+	// Check whether as a program, we should bump up the number of threads in GThreadPool.
+	CheckAndReallocThreadPool();
 
 	// Run the application
 	EReturnCode ReturnCode = RunBuildPatchTool();

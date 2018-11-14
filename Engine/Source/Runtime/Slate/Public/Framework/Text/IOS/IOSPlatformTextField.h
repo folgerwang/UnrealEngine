@@ -30,7 +30,7 @@ typedef FIOSPlatformTextField FPlatformTextField;
 #if !PLATFORM_TVOS
 @interface SlateTextField : NSObject<UIAlertViewDelegate>
 {
-	TSharedPtr<IVirtualKeyboardEntry> TextWidget;
+	TWeakPtr<IVirtualKeyboardEntry> TextWidget;
 	FText TextEntry;
     
 #ifdef __IPHONE_8_0

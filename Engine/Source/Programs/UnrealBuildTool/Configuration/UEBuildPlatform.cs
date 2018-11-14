@@ -657,30 +657,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Return whether this platform has uniquely named binaries across multiple games
-		/// </summary>
-		public virtual bool HasUniqueBinaries()
-		{
-			return true;
-		}
-
-		/// <summary>
-		/// Return whether we wish to have this platform's binaries in our builds
-		/// </summary>
-		public virtual bool IsBuildRequired()
-		{
-			return true;
-		}
-
-		/// <summary>
-		/// Return whether we wish to have this platform's binaries in our CIS tests
-		/// </summary>
-		public virtual bool IsCISRequired()
-		{
-			return true;
-		}
-
-		/// <summary>
 		/// Whether the build platform requires deployment prep
 		/// </summary>
 		/// <returns></returns>

@@ -907,6 +907,10 @@ TSharedPtr<SWidget> FLandscapeEditorCustomNodeBuilder_TargetLayers::OnTargetLaye
 				// Clear
 				FUIAction ClearAction = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorCustomNodeBuilder_TargetLayers::OnClearLayer, Target));
 				MenuBuilder.AddMenuEntry(LOCTEXT("LayerContextMenu.Clear", "Clear Layer"), LOCTEXT("LayerContextMenu.Clear_Tooltip", "Clears this layer to 0% across the entire landscape. If this is a weight-blended (normal) layer, other weight-blended layers will be adjusted to compensate."), FSlateIcon(), ClearAction);
+
+				// Rebuild material instances
+				FUIAction RebuildAction = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorCustomNodeBuilder_TargetLayers::OnRebuildMICs, Target));
+				MenuBuilder.AddMenuEntry(LOCTEXT("LayerContextMenu.Rebuild", "Rebuild Materials"), LOCTEXT("LayerContextMenu.Rebuild_Tooltip", "Rebuild material instances used for this landscape."), FSlateIcon(), ClearAction);
 			}
 			else if (Target->TargetType == ELandscapeToolTargetType::Visibility)
 			{
@@ -1077,6 +1081,15 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnClearLayer(const TSharedR
 		LandscapeEdit.DeleteLayer(Target->LayerInfoObj.Get());
 	}
 }
+
+void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnRebuildMICs(const TSharedRef<FLandscapeTargetListInfo> Target)
+{
+	if (Target->LandscapeInfo.IsValid())
+	{
+		Target->LandscapeInfo.Get()->GetLandscapeProxy()->UpdateAllComponentMaterialInstances();
+	}
+}
+
 
 bool FLandscapeEditorCustomNodeBuilder_TargetLayers::ShouldFilterLayerInfo(const FAssetData& AssetData, FName LayerName)
 {

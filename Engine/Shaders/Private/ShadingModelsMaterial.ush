@@ -50,7 +50,7 @@ void SetGBufferForShadingModel(
 
 		// Average roughness for dual specular.
 		uint SubsurfaceProfileUInt = uint(SubsurfaceProfile * 255.0f + 0.5f);
-		float MaterialRoughnessToAverage = BasePassSSProfilesTexture.Load(int3(SSSS_DUAL_SPECULAR_OFFSET, SubsurfaceProfileUInt, 0)).w * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
+		float MaterialRoughnessToAverage = ActualSSProfilesTexture.Load(int3(SSSS_DUAL_SPECULAR_OFFSET, SubsurfaceProfileUInt, 0)).w * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
 
 		// Smooth blend out dual specular when opacity is low.
 		MaterialRoughnessToAverage = lerp(1.0f, MaterialRoughnessToAverage, saturate(Opacity * 10.0f));
@@ -129,6 +129,8 @@ void SetGBufferForShadingModel(
 	GBuffer.ShadingModelID = SHADINGMODELID_EYE;
 	GBuffer.CustomData.x = EncodeSubsurfaceProfile(SubsurfaceProfile).x;
 	GBuffer.CustomData.w = 1.0f - saturate(GetMaterialCustomData0(MaterialParameters));	// Opacity = 1.0 - Iris Mask
+	GBuffer.Metallic = saturate(GetMaterialCustomData1(MaterialParameters));			// Iris Distance
+
 #if IRIS_NORMAL
 	float IrisMask		= saturate( GetMaterialCustomData0(MaterialParameters) );
 	float IrisDistance	= saturate( GetMaterialCustomData1(MaterialParameters) );

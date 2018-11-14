@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineLeaderboardInterfaceGooglePlay.h"
-#include "Online.h"
 #include "OnlineAsyncTaskGooglePlayReadLeaderboard.h"
 #include "UObject/Class.h"
 #include "OnlineSubsystemGooglePlay.h"
@@ -40,7 +39,7 @@ bool FOnlineLeaderboardsGooglePlay::ReadLeaderboards(const TArray< TSharedRef<co
 
 bool FOnlineLeaderboardsGooglePlay::ReadLeaderboardsForFriends(int32 LocalUserNum, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG(LogOnline, Warning, TEXT("ReadLeaderboardsForFriends is not supported on Google Play."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("ReadLeaderboardsForFriends is not supported on Google Play."));
 	TriggerOnLeaderboardReadCompleteDelegates(false);
 	return false;
 }
@@ -52,7 +51,7 @@ void FOnlineLeaderboardsGooglePlay::FreeStats(FOnlineLeaderboardRead& ReadObject
 
 bool FOnlineLeaderboardsGooglePlay::WriteLeaderboards(const FName& SessionName, const FUniqueNetId& Player, FOnlineLeaderboardWrite& WriteObject)
 {
-	UE_LOG_ONLINE(Display, TEXT("WriteLeaderboards"));
+	UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("WriteLeaderboards"));
 
 	bool bWroteAnyLeaderboard = false;
 
@@ -63,14 +62,14 @@ bool FOnlineLeaderboardsGooglePlay::WriteLeaderboards(const FName& SessionName, 
 		{
 			LeaderboardName = TEXT("leaderboard_00"); //hack to work around leaderboard name mismatch between test module and the format that java call expects
 		}
-		UE_LOG_ONLINE(Display, TEXT("Going through stats for leaderboard :  %s "), *LeaderboardName);
+		UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Going through stats for leaderboard :  %s "), *LeaderboardName);
 		
 		for(FStatPropertyArray::TConstIterator It(WriteObject.Properties); It; ++It)
 		{
 			const FVariantData& Stat = It.Value();
 			uint64 Score;
 
-			UE_LOG_ONLINE(Display, TEXT("Here's a stat"));
+			UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Here's a stat"));
 
 			//Google leaderboard stats are always a long/int64
 			if(Stat.GetType() == EOnlineKeyValuePairDataType::Int64)
@@ -80,7 +79,7 @@ bool FOnlineLeaderboardsGooglePlay::WriteLeaderboards(const FName& SessionName, 
 				FOnlinePendingLeaderboardWrite* UnreportedScore = new (UnreportedScores) FOnlinePendingLeaderboardWrite();
 				UnreportedScore->LeaderboardName = LeaderboardName;
 				UnreportedScore->Score = Score;
-				UE_LOG_ONLINE(Display, TEXT("FOnlineLeaderboardsGooglePlay::WriteLeaderboards() Int64 value Score: %d"), Score);
+				UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("FOnlineLeaderboardsGooglePlay::WriteLeaderboards() Int64 value Score: %d"), Score);
 
 				bWroteAnyLeaderboard = true;
 			}
@@ -94,7 +93,7 @@ bool FOnlineLeaderboardsGooglePlay::WriteLeaderboards(const FName& SessionName, 
 				FOnlinePendingLeaderboardWrite* UnreportedScore = new (UnreportedScores) FOnlinePendingLeaderboardWrite();
 				UnreportedScore->LeaderboardName = LeaderboardName;
 				UnreportedScore->Score = Score;
-				UE_LOG_ONLINE(Display, TEXT("FOnlineLeaderboardsGooglePlay::WriteLeaderboards() Int32 value Score: %d "), Score);
+				UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("FOnlineLeaderboardsGooglePlay::WriteLeaderboards() Int32 value Score: %d "), Score);
 
 				bWroteAnyLeaderboard = true;
 			}
@@ -107,7 +106,7 @@ bool FOnlineLeaderboardsGooglePlay::WriteLeaderboards(const FName& SessionName, 
 
 bool FOnlineLeaderboardsGooglePlay::FlushLeaderboards(const FName& SessionName)
 {
-	UE_LOG_ONLINE(Display, TEXT("flush leaderboards session name :%s"), *SessionName.ToString());
+	UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("flush leaderboards session name :%s"), *SessionName.ToString());
 
 	if (Subsystem->GetGameServices() == nullptr)
 	{
@@ -119,7 +118,7 @@ bool FOnlineLeaderboardsGooglePlay::FlushLeaderboards(const FName& SessionName)
 
 	for(int32 Index = 0; Index < UnreportedScores.Num(); ++Index)
 	{
-		UE_LOG_ONLINE(Display, TEXT("Submitting an unreported score to %s. Value: %d "), *UnreportedScores[Index].LeaderboardName);
+		UE_LOG_ONLINE_LEADERBOARD(Display, TEXT("Submitting an unreported score to %s. Value: %d "), *UnreportedScores[Index].LeaderboardName);
 
 		const FString GoogleId = GetLeaderboardID(UnreportedScores[Index].LeaderboardName);
 
@@ -138,12 +137,12 @@ bool FOnlineLeaderboardsGooglePlay::FlushLeaderboards(const FName& SessionName)
 
 bool FOnlineLeaderboardsGooglePlay::ReadLeaderboardsAroundRank(int32 Rank, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsGooglePlay::ReadLeaderboardsAroundRank is currently not supported."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("FOnlineLeaderboardsGooglePlay::ReadLeaderboardsAroundRank is currently not supported."));
 	return false;
 }
 bool FOnlineLeaderboardsGooglePlay::ReadLeaderboardsAroundUser(TSharedRef<const FUniqueNetId> Player, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineLeaderboardsGooglePlay::ReadLeaderboardsAroundUser is currently not supported."));
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("FOnlineLeaderboardsGooglePlay::ReadLeaderboardsAroundUser is currently not supported."));
 	return false;
 }
 
@@ -164,6 +163,6 @@ FString FOnlineLeaderboardsGooglePlay::GetLeaderboardID(const FString& Leaderboa
 		}
 	}
 
-	UE_LOG(LogOnline, Warning, TEXT( "GetLeaderboardID: No mapping for leaderboard %s"), *LeaderboardName );
+	UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT( "GetLeaderboardID: No mapping for leaderboard %s"), *LeaderboardName );
 	return LeaderboardName;
 }

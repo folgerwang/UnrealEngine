@@ -39,7 +39,6 @@
 #include "Widgets/Input/SFilePathPicker.h"
 #include "EditorDirectories.h"
 #include "EditorFramework/AssetImportData.h"
-#include "GenericPlatform/GenericPlatformMath.h"
 
 const uint32 MaxHullCount = 64;
 const uint32 MinHullCount = 2;
@@ -2444,7 +2443,7 @@ void FMeshMaterialsLayout::OnMaterialNameCommitted(const FText& InValue, ETextCo
 bool FMeshMaterialsLayout::CanDeleteMaterialSlot(int32 MaterialIndex) const
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
-	return (MaterialIndex + 1) == StaticMesh.StaticMaterials.Num();
+	return StaticMesh.StaticMaterials.IsValidIndex(MaterialIndex);
 }
 
 void FMeshMaterialsLayout::OnDeleteMaterialSlot(int32 MaterialIndex)
@@ -2452,10 +2451,37 @@ void FMeshMaterialsLayout::OnDeleteMaterialSlot(int32 MaterialIndex)
 	UStaticMesh& StaticMesh = GetStaticMesh();
 	if (CanDeleteMaterialSlot(MaterialIndex))
 	{
+		if (!bDeleteWarningConsumed)
+		{
+			EAppReturnType::Type Answer = FMessageDialog::Open(EAppMsgType::OkCancel, LOCTEXT("FMeshMaterialsLayout_DeleteMaterialSlot", "WARNING - Deleting a material slot can break the game play blueprint or the game play code. All indexes after the delete slot will change"));
+			if (Answer == EAppReturnType::Cancel)
+			{
+				return;
+			}
+			bDeleteWarningConsumed = true;
+		}
+
 		FScopedTransaction Transaction(LOCTEXT("StaticMeshEditorDeletedMaterialSlot", "Staticmesh editor: Deleted material slot"));
 
 		StaticMesh.Modify();
 		StaticMesh.StaticMaterials.RemoveAt(MaterialIndex);
+
+		//Fix the section info, the FMeshDescription use FName to retrieve the indexes when we build so no need to fix it
+		for (int32 LodIndex = 0; LodIndex < StaticMesh.GetNumLODs(); ++LodIndex)
+		{
+			for (int32 SectionIndex = 0; SectionIndex < StaticMesh.GetNumSections(LodIndex); ++SectionIndex)
+			{
+				if (StaticMesh.SectionInfoMap.IsValidSection(LodIndex, SectionIndex))
+				{
+					FMeshSectionInfo SectionInfo = StaticMesh.SectionInfoMap.Get(LodIndex, SectionIndex);
+					if (SectionInfo.MaterialIndex > MaterialIndex)
+					{
+						SectionInfo.MaterialIndex -= 1;
+						StaticMesh.SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+					}
+				}
+			}
+		}
 
 		StaticMesh.PostEditChange();
 	}
@@ -3150,12 +3176,6 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			if( ReductionSettingsWidgets[LODIndex].IsValid() )
 			{
 				LODCategory.AddCustomBuilder( ReductionSettingsWidgets[LODIndex].ToSharedRef() );
-			}
-
-			UVChannelsWidgets[LODIndex] = MakeShareable(new FUVChannelsLayout(StaticMeshEditor, LODIndex));
-			if (UVChannelsWidgets[LODIndex].IsValid())
-			{
-				LODCategory.AddCustomBuilder(UVChannelsWidgets[LODIndex].ToSharedRef());
 			}
 
 			if (LODIndex != 0)
@@ -3947,201 +3967,5 @@ FText FLevelOfDetailSettingsLayout::GetCurrentLodTooltip() const
 	return FText::GetEmpty();
 }
 
-FUVChannelsLayout::FUVChannelsLayout(IStaticMeshEditor& InStaticMeshEditor, int32 InLODIndex)
-	: StaticMeshEditor(InStaticMeshEditor)
-	, LODIndex(InLODIndex)
-	, UVChannelIndex(0)
-{
-	UpdateNumUVChannels();
-}
-
-FUVChannelsLayout::~FUVChannelsLayout()
-{
-}
-
-void FUVChannelsLayout::UpdateNumUVChannels()
-{
-	if (StaticMeshEditor.GetStaticMesh())
-	{
-		NumUVChannels = StaticMeshEditor.GetStaticMesh()->GetNumUVChannels(LODIndex);
-	}
-}
-
-void FUVChannelsLayout::GenerateHeaderRowContent(FDetailWidgetRow& NodeRow)
-{
-	NodeRow.NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("UVChannels", "UV Channels"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	];
-}
-
-void FUVChannelsLayout::GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder)
-{
-	{
-		ChildrenBuilder.AddCustomRow(LOCTEXT("NumUVChannels", "Number of UV Channels"))
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(LOCTEXT("NumUVChannels", "Number of UV Channels"))
-		]
-		.ValueContent()
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(this, &FUVChannelsLayout::GetNumUVChannelsAsText)
-		];
-	}
-
-	{
-		ChildrenBuilder.AddCustomRow(LOCTEXT("UVChannelIndex", "UV Channel Index"))
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(LOCTEXT("UVChannelIndex", "UV Channel Index"))
-		]
-		.ValueContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(SSpinBox<int32>)
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-				.MinDesiredWidth(100.f)
-				.MinValue(0)
-				.MaxValue(this, &FUVChannelsLayout::GetMaxUVChannelIndex)
-				.Value(this, &FUVChannelsLayout::GetUVChannelIndex)
-				.OnValueChanged(this, &FUVChannelsLayout::OnUVChannelIndexChanged)
-			]
-
-			+ SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-			[
-				SNew(SButton)
-				.ToolTipText(LOCTEXT("InsertUVChannel_Tooltip", "Inserts a UV Channel at index"))
-				.OnClicked(this, &FUVChannelsLayout::OnInsertUVChannel)
-				.IsEnabled(this, &FUVChannelsLayout::CanAddUVChannel)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("InsertUVChannel", "Insert"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-			]
-
-			+ SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-			[
-				SNew(SButton)
-				.ToolTipText(LOCTEXT("RemoveUVChannel_Tooltip", "Removes the UV Channel at index"))
-				.OnClicked(this, &FUVChannelsLayout::OnRemoveUVChannel)
-				.IsEnabled(this, &FUVChannelsLayout::CanRemoveUVChannel)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("RemoveUVChannel", "Remove"))
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-				]
-			]
-		];
-	}
-}
-
-FText FUVChannelsLayout::GetNumUVChannelsAsText() const
-{
-	return FText::AsNumber(NumUVChannels);
-}
-
-TOptional<int32> FUVChannelsLayout::GetMaxUVChannelIndex() const
-{
-	return FGenericPlatformMath::Min(FGenericPlatformMath::Max(NumUVChannels, 0), MAX_MESH_TEXTURE_COORDS - 1);
-}
-
-int32 FUVChannelsLayout::GetUVChannelIndex() const
-{
-	return UVChannelIndex;
-}
-
-void FUVChannelsLayout::OnUVChannelIndexChanged(int32 NewValue)
-{
-	UVChannelIndex = NewValue;
-}
-
-FReply FUVChannelsLayout::OnInsertUVChannel()
-{
-	if (StaticMeshEditor.GetStaticMesh() && StaticMeshEditor.GetStaticMesh()->InsertUVChannel(LODIndex, UVChannelIndex))
-	{
-		StaticMeshEditor.RefreshTool();
-		return FReply::Handled();
-	}
-
-	return FReply::Unhandled();
-}
-
-FReply FUVChannelsLayout::OnRemoveUVChannel()
-{
-	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
-	if (!StaticMesh)
-	{
-		return FReply::Unhandled();
-	}
-
-	FText RemoveUVChannelText = FText::Format(LOCTEXT("ConfirmRemoveUVChannel", "Are you sure you want to remove UV Channel {0} from LOD {1} of {2}?"), UVChannelIndex, LODIndex, FText::FromString(StaticMesh->GetName()));
-	if (FMessageDialog::Open(EAppMsgType::YesNo, RemoveUVChannelText) == EAppReturnType::Yes)
-	{
-		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LODIndex].BuildSettings;
-
-		if (LODBuildSettings.bGenerateLightmapUVs)
-		{
-			FText LightmapText;
-			if (UVChannelIndex == LODBuildSettings.SrcLightmapIndex)
-			{
-				LightmapText = FText::Format(LOCTEXT("ConfirmDisableSourceLightmap", "To remove lightmap source UV at index {0}, \"Generate Lightmap UVs\" must be disabled in the Build Settings. Do you want to disable it?"), UVChannelIndex);
-			}
-			else if (UVChannelIndex == LODBuildSettings.DstLightmapIndex)
-			{
-				LightmapText = FText::Format(LOCTEXT("ConfirmDisableDestLightmap", "To remove lightmap destination UV at index {0}, \"Generate Lightmap UVs\" must be disabled in the Build Settings. Do you want to disable it?"), UVChannelIndex);
-			}
-
-			if (!LightmapText.IsEmpty())
-			{
-				if (FMessageDialog::Open(EAppMsgType::YesNo, LightmapText) == EAppReturnType::Yes)
-				{
-					LODBuildSettings.bGenerateLightmapUVs = false;
-				}
-				else
-				{
-					return FReply::Unhandled();
-				}
-			}
-		}
-
-		if (StaticMesh->RemoveUVChannel(LODIndex, UVChannelIndex))
-		{
-			StaticMeshEditor.RefreshTool();
-			return FReply::Handled();
-		}
-	}
-
-	return FReply::Unhandled();
-}
-
-bool FUVChannelsLayout::CanAddUVChannel() const
-{
-	return NumUVChannels < MAX_MESH_TEXTURE_COORDS;
-}
-
-bool FUVChannelsLayout::CanRemoveUVChannel() const
-{
-	// Some mesh operations assume there's a channel 0
-	return NumUVChannels > 1 && UVChannelIndex < NumUVChannels;
-}
 
 #undef LOCTEXT_NAMESPACE

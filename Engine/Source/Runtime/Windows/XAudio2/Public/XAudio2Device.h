@@ -96,6 +96,8 @@ public:
 #endif
 	}
 
+	virtual void UpdateDeviceDeltaTime() override;
+
 private:
 	virtual void GetAudioDeviceList(TArray<FString>& OutAudioDeviceNames) const override;
 
@@ -107,9 +109,6 @@ private:
 
 	/** Lets the platform any tick actions */
 	virtual void UpdateHardware() override;
-
-	/** Get a sample-accurate time clock. */
-	virtual void UpdateAudioClock() override;
 
 	/** Creates a new platform specific sound source */
 	virtual FAudioEffectsManager* CreateEffectsManager() override;

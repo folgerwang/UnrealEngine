@@ -217,10 +217,12 @@ private:
 
 	/** Returns the names of all subclasses of the class whose name is ClassName */
 	void GetSubClasses(const TArray<FName>& InClassNames, const TSet<FName>& ExcludedClassNames, TSet<FName>& SubClassNames) const;
-	void GetSubClasses_Recursive(FName InClassName, TSet<FName>& SubClassNames, const TMap<FName, TSet<FName>>& ReverseInheritanceMap, const TSet<FName>& ExcludedClassNames) const;
+	void GetSubClasses_Recursive(FName InClassName, TSet<FName>& SubClassNames, TSet<FName>& ProcessedClassNames, const TMap<FName, TSet<FName>>& ReverseInheritanceMap, const TSet<FName>& ExcludedClassNames) const;
 
 	/** Finds all class names of classes capable of generating new UClasses */
 	void CollectCodeGeneratorClasses();
+
+	bool ResolveRedirect(const FString& InPackageName, FString& OutPackageName);
 
 private:
 	
@@ -306,6 +308,16 @@ private:
 
 	/** Handle to the registered OnDirectoryChanged delegate for the OnContentPathMounted handler */
 	FDelegateHandle OnContentPathMountedOnDirectoryChangedDelegateHandle;
+
+
+	struct FAssetRegistryPackageRedirect
+	{
+	public:
+		FAssetRegistryPackageRedirect(const FString& InSourcePackageName, const FString& InDestPackageName) : SourcePackageName(InSourcePackageName), DestPackageName(InDestPackageName) { }
+		FString SourcePackageName;
+		FString DestPackageName;
+	};
+	TArray<FAssetRegistryPackageRedirect> PackageRedirects;
 
 #if WITH_EDITOR
 	/** List of loaded objects that need to be processed */

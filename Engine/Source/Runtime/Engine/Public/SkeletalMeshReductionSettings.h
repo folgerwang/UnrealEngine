@@ -42,9 +42,6 @@ struct FSkeletalMeshOptimizationSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** The method to use when optimizing the skeletal mesh LOD */
-	UPROPERTY(EditAnywhere, Category = ReductionMethod)
-	TEnumAsByte<enum SkeletalMeshOptimizationType> ReductionMethod;
 
 	/** If ReductionMethod equals NumOfTriangles this value is the ratio of triangles percentage to remove from the mesh.
 	 * In code, it ranges from [0, 1]. In the editor UI, it ranges from [0, 100]
@@ -58,9 +55,9 @@ struct FSkeletalMeshOptimizationSettings
 	UPROPERTY(EditAnywhere, Category = ReductionMethod)
 	float MaxDeviationPercentage;
 
-	/* Remap the morph targets from the base LOD onto the reduce LOD. */
-	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings)
-	bool bRemapMorphTargets;
+	/** The method to use when optimizing the skeletal mesh LOD */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod)
+	TEnumAsByte<enum SkeletalMeshOptimizationType> ReductionMethod;
 
 	/** How important the shape of the geometry is. */
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Silhouette"))
@@ -78,13 +75,17 @@ struct FSkeletalMeshOptimizationSettings
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Skinning"))
 	TEnumAsByte<enum SkeletalMeshOptimizationImportance> SkinningImportance;
 
-	/** The welding threshold distance. Vertices under this distance will be welded. */
+	/* Remap the morph targets from the base LOD onto the reduce LOD. */
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings)
-	float WeldingThreshold;
+	uint8 bRemapMorphTargets:1;
 
 	/** Whether Normal smoothing groups should be preserved. If true then Hard Edge Angle (NormalsThreshold) is used **/
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Recompute Normal"))
-	bool bRecalcNormals;
+	uint8 bRecalcNormals:1;
+
+	/** The welding threshold distance. Vertices under this distance will be welded. */
+	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings)
+	float WeldingThreshold;
 
 	/** If the angle between two triangles are above this value, the normals will not be
 	smooth over the edge between those two triangles. Set in degrees. This is only used when bRecalcNormals is set to true*/
@@ -95,31 +96,35 @@ struct FSkeletalMeshOptimizationSettings
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Max Bones Influence"))
 	int32 MaxBonesPerVertex;
 
-	UPROPERTY()
-	TArray<FBoneReference> BonesToRemove_DEPRECATED;
-
 	/** Base LOD index to generate this LOD. By default, we generate from LOD 0 */
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings)
 	int32 BaseLOD;
 
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	TArray<FBoneReference> BonesToRemove_DEPRECATED;
+
 	UPROPERTY()
 	class UAnimSequence* BakePose_DEPRECATED;
+#endif
 
 	FSkeletalMeshOptimizationSettings()
-		: ReductionMethod(SMOT_NumOfTriangles)
-		, NumOfTrianglesPercentage(0.5f)
+		: NumOfTrianglesPercentage(0.5f)
 		, MaxDeviationPercentage(0.5f)
-		, bRemapMorphTargets(false)
+		, ReductionMethod(SMOT_NumOfTriangles)
 		, SilhouetteImportance(SMOI_Normal)
 		, TextureImportance(SMOI_Normal)
 		, ShadingImportance(SMOI_Normal)
 		, SkinningImportance(SMOI_Normal)
-		, WeldingThreshold(0.1f)
+		, bRemapMorphTargets(false)
 		, bRecalcNormals(true)
+		, WeldingThreshold(0.1f)
 		, NormalsThreshold(60.0f)
 		, MaxBonesPerVertex(4)
 		, BaseLOD(0)
+#if WITH_EDITORONLY_DATA
 		, BakePose_DEPRECATED(nullptr)
+#endif
 	{
 	}
 };

@@ -295,10 +295,8 @@ struct FEventLoadGraph
 	void AddArc(FEventLoadNodePtr& PrereqisiteNode, FEventLoadNodePtr& DependentNode);
 	void RemoveNode(FEventLoadNodePtr& NodeToRemove);
 	void NodeWillBeFiredExternally(FEventLoadNodePtr& NodeThatWasFired);
-	void CheckForCycles();
-#if !UE_BUILD_SHIPPING
+	void CheckForCycles(bool bDoSlowTests = (!UE_BUILD_SHIPPING && !UE_BUILD_TEST));
 	bool CheckForCyclesInner(const TMultiMap<FEventLoadNodePtr, FEventLoadNodePtr>& Arcs, TSet<FEventLoadNodePtr>& Visited, TSet<FEventLoadNodePtr>& Stack, const FEventLoadNodePtr& Visit);
-#endif
 };
 
 /** [EDL] Event Load Graph */

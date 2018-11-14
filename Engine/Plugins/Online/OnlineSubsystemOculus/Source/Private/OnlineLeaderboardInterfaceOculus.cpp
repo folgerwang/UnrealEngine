@@ -22,7 +22,7 @@ bool FOnlineLeaderboardOculus::ReadLeaderboards(const TArray< TSharedRef<const F
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Filtering by player ids other than the logged in player is not supported.  Ignoring the 'Players' parameter"));
+			UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Filtering by player ids other than the logged in player is not supported.  Ignoring the 'Players' parameter"));
 		}
 	}
 	return ReadOculusLeaderboards(/* Only Friends */ false, bOnlyLoggedInUser, ReadObject);
@@ -174,7 +174,7 @@ bool FOnlineLeaderboardOculus::WriteLeaderboards(const FName& SessionName, const
 	auto LoggedInPlayerId = OculusSubsystem.GetIdentityInterface()->GetUniquePlayerId(0);
 	if (!(LoggedInPlayerId.IsValid() && Player == *LoggedInPlayerId))
 	{
-		UE_LOG_ONLINE(Error, TEXT("Can only write to leaderboards for logged in player id"));
+		UE_LOG_ONLINE_LEADERBOARD(Error, TEXT("Can only write to leaderboards for logged in player id"));
 		return false;
 	}
 
@@ -182,7 +182,7 @@ bool FOnlineLeaderboardOculus::WriteLeaderboards(const FName& SessionName, const
 
 	if (StatData == nullptr)
 	{
-		UE_LOG_ONLINE(Error, TEXT("Could not find RatedStat: %s"), *WriteObject.RatedStat.ToString());
+		UE_LOG_ONLINE_LEADERBOARD(Error, TEXT("Could not find RatedStat: %s"), *WriteObject.RatedStat.ToString());
 		return false;
 	}
 
@@ -216,7 +216,7 @@ bool FOnlineLeaderboardOculus::WriteLeaderboards(const FName& SessionName, const
 		case EOnlineKeyValuePairDataType::Float:
 		default:
 		{
-			UE_LOG_ONLINE(Error, TEXT("Invalid Stat type to save to the leaderboard: %s"), EOnlineKeyValuePairDataType::ToString(StatData->GetType()));
+			UE_LOG_ONLINE_LEADERBOARD(Error, TEXT("Invalid Stat type to save to the leaderboard: %s"), EOnlineKeyValuePairDataType::ToString(StatData->GetType()));
 			return false;
 		}
 	}
@@ -231,7 +231,7 @@ bool FOnlineLeaderboardOculus::WriteLeaderboards(const FName& SessionName, const
 			{
 				auto Error = ovr_Message_GetError(Message);
 				auto ErrorMessage = ovr_Error_GetMessage(Error);
-				UE_LOG_ONLINE(Error, TEXT("%s"), *FString(ErrorMessage));
+				UE_LOG_ONLINE_LEADERBOARD(Error, TEXT("%s"), *FString(ErrorMessage));
 			}
 		}));
 	}

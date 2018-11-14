@@ -111,6 +111,9 @@ public:
 	/** Whether or not this Mesh object should be imported */
 	bool bShouldImport;
 protected:
+	/** Calculate normals for sample according to available data and user settings */
+	void CalculateNormalsForSample(FAbcMeshSample* Sample);
+
 	/** Alembic representation of this object */
 	const Alembic::AbcGeom::IPolyMesh PolyMesh;
 	/** Schema extracted from Poly Mesh object  */

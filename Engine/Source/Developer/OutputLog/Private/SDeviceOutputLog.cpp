@@ -17,13 +17,8 @@
 
 static bool IsSupportedPlatform(ITargetPlatform* Platform)
 {
-	static const FName AndroidPlaftomName("Android"); // TODO: currently implemented only for Android & Switch. #TODO: perhaps move to ETargetDeviceFeatures ?
-	static const FName SwitchPlatformName("Switch");
-	static const FName IOSPlatformName("IOS");
-	
 	check(Platform);
-	const auto& PlatfromInfo = Platform->GetPlatformInfo();
-	return PlatfromInfo.IsVanilla() && (PlatfromInfo.VanillaPlatformName == AndroidPlaftomName || PlatfromInfo.VanillaPlatformName == SwitchPlatformName || PlatfromInfo.VanillaPlatformName == IOSPlatformName);
+	return Platform->SupportsFeature( ETargetPlatformFeatures::DeviceOutputLog );
 }
 
 
@@ -240,10 +235,6 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 void SDeviceOutputLog::AddDeviceEntry(ITargetDeviceRef TargetDevice)
 {
 	if (FindDeviceEntry(TargetDevice->GetId()))
-	{
-		return;
-	}
-	if (TargetDevice->IsPlatformAggregated())
 	{
 		return;
 	}

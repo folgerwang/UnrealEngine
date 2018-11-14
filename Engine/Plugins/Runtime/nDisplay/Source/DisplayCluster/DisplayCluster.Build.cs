@@ -76,9 +76,10 @@ public class DisplayCluster : ModuleRules
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
 
-		// vrpn
-		AddDependencyVrpn(ROTargetRules);
+        // vrpn
+        AddDependencyVrpn(ROTargetRules);
 	}
 
 	public bool AddDependencyVrpn(ReadOnlyTargetRules ROTargetRules)

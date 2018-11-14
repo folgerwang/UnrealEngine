@@ -25,7 +25,7 @@ namespace TimecodeImpl
 
 STimecode::STimecode()
 {
-	bCanTick = false;
+	SetCanTick(false);
 	bCanSupportFocus = false;
 }
 

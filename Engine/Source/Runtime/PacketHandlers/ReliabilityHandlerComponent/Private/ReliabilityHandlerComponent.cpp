@@ -3,6 +3,7 @@
 #include "ReliabilityHandlerComponent.h"
 #include "Modules/ModuleManager.h"
 #include "PacketAudit.h"
+#include "HAL/PlatformTime.h"
 
 IMPLEMENT_MODULE(FReliabilityHandlerComponentModuleInterface, ReliabilityHandlerComponent);
 
@@ -13,8 +14,8 @@ ReliabilityHandlerComponent::ReliabilityHandlerComponent()
 , LocalPacketIDACKED(0)
 , RemotePacketID(0)
 , RemotePacketIDACKED(0)
-, ResendResolutionTime(0.1f)
-, LastResendTime(0.0f)
+, ResendResolutionTime(0.1)
+, LastResendTime(0.0)
 {
 }
 
@@ -30,7 +31,7 @@ bool ReliabilityHandlerComponent::IsValid() const
 	return true;
 }
 
-void ReliabilityHandlerComponent::Outgoing(FBitWriter& Packet)
+void ReliabilityHandlerComponent::Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 	switch (State)
 	{
@@ -82,8 +83,7 @@ void ReliabilityHandlerComponent::Incoming(FBitReader& Packet)
 				// Out of sequence or duplicate packet, ignore
 				if (RemotePacketID + 1 != IncomingRemotePacketID)
 				{
-					FBitReader Copy(nullptr, 0);
-					Packet = Copy;
+					Packet.SetData(nullptr, 0);
 					return;
 				}
 
@@ -109,7 +109,7 @@ void ReliabilityHandlerComponent::Incoming(FBitReader& Packet)
 
 void ReliabilityHandlerComponent::Tick(float DeltaTime)
 {
-	const float CurrentTime = Handler->Time;
+	const double CurrentTime = FPlatformTime::Seconds();
 
 	if (CurrentTime - LastResendTime < ResendResolutionTime)
 	{
@@ -143,12 +143,12 @@ void ReliabilityHandlerComponent::Tick(float DeltaTime)
 	}
 }
 
-void ReliabilityHandlerComponent::QueuePacketForResending(uint8* Packet, int32 CountBits)
+void ReliabilityHandlerComponent::QueuePacketForResending(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits)
 {
-	BufferedPackets.Add(new BufferedPacket(Packet, CountBits, Handler->Time + ResendResolutionTime, LocalPacketID++));
+	BufferedPackets.Add(new BufferedPacket(Packet, CountBits, Traits, FPlatformTime::Seconds() + ResendResolutionTime, LocalPacketID++));
 }
 
-int32 ReliabilityHandlerComponent::GetReservedPacketBits()
+int32 ReliabilityHandlerComponent::GetReservedPacketBits() const
 {
 	return 64;
 }

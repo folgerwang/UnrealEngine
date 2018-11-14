@@ -24,6 +24,8 @@
 #include "UnrealEngine.h"
 #include "StereoRendering.h"
 #include "StereoRenderTargetManager.h"
+#include "VT/VirtualTextureSystem.h"
+#include "VT/VirtualTextureFeedback.h"
 
 static TAutoConsoleVariable<int32> CVarRSMResolution(
 	TEXT("r.LPV.RSMResolution"),
@@ -200,6 +202,16 @@ static void SnapshotArray(TRefCountPtr<IPooledRenderTarget> (&Dest)[N], const TR
 	}
 }
 
+template <uint32 N>
+static void SnapshotArray(TArray<TRefCountPtr<IPooledRenderTarget>, TInlineAllocator<N>>(&Dest), const TArray<TRefCountPtr<IPooledRenderTarget>, TInlineAllocator<N>>(&Src))
+{
+	Dest.SetNum(Src.Num());
+	for (int32 Index = 0; Index < Src.Num(); Index++)
+	{
+		Dest[Index] = GRenderTargetPool.MakeSnapshot(Src[Index]);
+	}
+}
+
 FSceneRenderTargets::FSceneRenderTargets(const FViewInfo& View, const FSceneRenderTargets& SnapshotSource)
 	: LightAttenuation(GRenderTargetPool.MakeSnapshot(SnapshotSource.LightAttenuation))
 	, LightAccumulation(GRenderTargetPool.MakeSnapshot(SnapshotSource.LightAccumulation))
@@ -267,6 +279,9 @@ FSceneRenderTargets::FSceneRenderTargets(const FViewInfo& View, const FSceneRend
 	, bHMDAllocatedDepthTarget(SnapshotSource.bHMDAllocatedDepthTarget)
 {
 	FMemory::Memcpy(LargestDesiredSizes, SnapshotSource.LargestDesiredSizes);
+#if PREVENT_RENDERTARGET_SIZE_THRASHING
+	FMemory::Memcpy(HistoryFlags, SnapshotSource.HistoryFlags, sizeof(SnapshotSource.HistoryFlags));
+#endif
 	SnapshotArray(SceneColor, SnapshotSource.SceneColor);
 	SnapshotArray(ReflectionColorScratchCubemap, SnapshotSource.ReflectionColorScratchCubemap);
 	SnapshotArray(DiffuseIrradianceScratchCubemap, SnapshotSource.DiffuseIrradianceScratchCubemap);
@@ -285,6 +300,35 @@ inline const TCHAR* GetSceneColorTargetName(EShadingPath ShadingPath)
 	check((uint32)ShadingPath < ARRAY_COUNT(SceneColorNames));
 	return SceneColorNames[(uint32)ShadingPath];
 }
+
+#if PREVENT_RENDERTARGET_SIZE_THRASHING
+
+static inline void UpdateHistoryFlags(uint8& Flags, bool bIsSceneCapture, bool bIsReflectionCapture)
+{
+	Flags |= bIsSceneCapture ? 1 : 0;
+	Flags |= bIsReflectionCapture ? (1 << 1) : 0;
+}
+
+template <uint32 NumEntries>
+static bool AnyCaptureRenderedRecently(const uint8* HitoryFlags)
+{
+	uint8 Result = 0;
+	for (uint32 Idx = 0; Idx < NumEntries; ++Idx)
+	{
+		Result |= HitoryFlags[Idx];
+	}
+	return Result != 0;
+}
+
+#define UPDATE_HISTORY_FLAGS(Flags, bIsSceneCapture, bIsReflectionCapture) UpdateHistoryFlags(Flags, bIsSceneCapture, bIsReflectionCapture)
+#define ANY_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) AnyCaptureRenderedRecently<NumEntries>(HistoryFlags)
+
+#else
+
+#define UPDATE_HISTORY_FLAGS(Flags, bIsSceneCapture, bIsReflectionCapture)
+#define ANY_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) (false)
+
+#endif
 
 FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFamily)
 {
@@ -342,46 +386,47 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 			checkNoEntry();
 	}
 
-	// This is specific to iOS and should not matter elsewhere.
-#if PLATFORM_IOS
-	// Don't consider the history buffer when the aspect ratio changes, the existing buffers won't make much sense at all.
-	// This prevents problems when orientation changes on mobile in particular.
-	float DesiredAspectRatio = (float)DesiredBufferSize.X / (float)DesiredBufferSize.Y;
-	bool bAspectRatioChanged = false;
-	for (int32 i = 0; i < FrameSizeHistoryCount && !bAspectRatioChanged; ++i)
+	const uint32 FrameNumber = ViewFamily.FrameNumber;
+	if (ThisFrameNumber != FrameNumber)
 	{
-		// Ignore 0 sizes as they won't make sense as an aspect ratio as dividing by zero is just bad...
-		if (LargestDesiredSizes[i].X > 0 && LargestDesiredSizes[i].Y > 0)
+		ThisFrameNumber = FrameNumber;
+		if (++CurrentDesiredSizeIndex == FrameSizeHistoryCount)
 		{
-			float LargestAspectRatio = (float)LargestDesiredSizes[i].X / (float)LargestDesiredSizes[i].Y;
-			bAspectRatioChanged = !FMath::IsNearlyEqual(DesiredAspectRatio, LargestAspectRatio);
+			CurrentDesiredSizeIndex -= FrameSizeHistoryCount;
 		}
+		// this allows the BufferSize to shrink each frame (in game)
+		LargestDesiredSizes[CurrentDesiredSizeIndex] = FIntPoint::ZeroValue;
+#if PREVENT_RENDERTARGET_SIZE_THRASHING
+		HistoryFlags[CurrentDesiredSizeIndex] = 0;
+#endif
 	}
-#endif // PLATFORM_IOS
+
+	// this allows The BufferSize to not grow below the SceneCapture requests (happen before scene rendering, in the same frame with a Grow request)
+	FIntPoint& LargestDesiredSizeThisFrame = LargestDesiredSizes[CurrentDesiredSizeIndex];
+	LargestDesiredSizeThisFrame = LargestDesiredSizeThisFrame.ComponentMax(DesiredBufferSize);
+	UPDATE_HISTORY_FLAGS(HistoryFlags[CurrentDesiredSizeIndex], bIsSceneCapture, bIsReflectionCapture);
 
 	// we want to shrink the buffer but as we can have multiple scenecaptures per frame we have to delay that a frame to get all size requests
 	// Don't save buffer size in history while making high-res screenshot.
 	// We have to use the requested size when allocating an hmd depth target to ensure it matches the hmd allocated render target size.
-	if(!GIsHighResScreenshot && !bHMDAllocatedDepthTarget 
-#if PLATFORM_IOS
-		&& !bAspectRatioChanged
-#endif // PLATFORM_IOS
-		)
+	bool bAllowDelayResize = !GIsHighResScreenshot && !bHMDAllocatedDepthTarget;
+
+	// Don't consider the history buffer when the aspect ratio changes, the existing buffers won't make much sense at all.
+	// This prevents problems when orientation changes on mobile in particular.
+	// bIsReflectionCapture is explicitly checked on all platforms to prevent aspect ratio change detection from forcing the immediate buffer resize.
+	// This ensures that 1) buffers are not resized spuriously during reflection rendering 2) all cubemap faces use the same render target size.
+	if (bAllowDelayResize && !bIsReflectionCapture && !ANY_CAPTURE_RENDERED_RECENTLY(HistoryFlags, FrameSizeHistoryCount))
 	{
-		// this allows The BufferSize to not grow below the SceneCapture requests (happen before scene rendering, in the same frame with a Grow request)
-		LargestDesiredSizes[CurrentDesiredSizeIndex] = LargestDesiredSizes[CurrentDesiredSizeIndex].ComponentMax(DesiredBufferSize);
+		const bool bAspectRatioChanged =
+			!BufferSize.Y ||
+			!FMath::IsNearlyEqual(
+				(float)BufferSize.X / BufferSize.Y,
+				(float)DesiredBufferSize.X / DesiredBufferSize.Y);
+		bAllowDelayResize = bAllowDelayResize && !bAspectRatioChanged;
+	}
 
-		uint32 FrameNumber = ViewFamily.FrameNumber;
-
-		// this could be refined to be some time or multiple frame if we have SceneCaptures not running each frame any more
-		if(ThisFrameNumber != FrameNumber)
-		{
-			// this allows the BufferSize to shrink each frame (in game)
-			ThisFrameNumber = FrameNumber;
-			CurrentDesiredSizeIndex = (CurrentDesiredSizeIndex + 1) % FrameSizeHistoryCount;
-			LargestDesiredSizes[CurrentDesiredSizeIndex] = FIntPoint(0, 0);
-		}
-
+	if(bAllowDelayResize)
+	{
 		for (int32 i = 0; i < FrameSizeHistoryCount; ++i)
 		{
 			DesiredBufferSize = DesiredBufferSize.ComponentMax(LargestDesiredSizes[i]);
@@ -400,7 +445,7 @@ uint16 FSceneRenderTargets::GetNumSceneColorMSAASamples(ERHIFeatureLevel::Type I
 		static IConsoleVariable* CVarDefaultAntiAliasing = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DefaultFeature.AntiAliasing"));
 		EAntiAliasingMethod Method = (EAntiAliasingMethod)CVarDefaultAntiAliasing->GetInt();
 
-		if (IsForwardShadingEnabled(InFeatureLevel) && Method == AAM_MSAA)
+		if (IsForwardShadingEnabled(GetFeatureLevelShaderPlatform(InFeatureLevel)) && Method == AAM_MSAA)
 		{
 			NumSamples = FMath::Max(1, CVarMSAACount.GetValueOnRenderThread());
 
@@ -559,7 +604,7 @@ void FSceneRenderTargets::Allocate(FRHICommandListImmediate& RHICmdList, const F
 
 	// Do allocation of render targets if they aren't available for the current shading path
 	CurrentFeatureLevel = NewFeatureLevel;
-	AllocateRenderTargets(RHICmdList);
+	AllocateRenderTargets(RHICmdList, ViewFamily.Views.Num());
 	if (ViewFamily.IsMonoscopicFarFieldEnabled() && ViewFamily.Views.Num() == 3)
 	{
 		AllocSceneMonoRenderTargets(RHICmdList, SceneRenderer->Views[2]);
@@ -588,7 +633,7 @@ int32 FSceneRenderTargets::GetGBufferRenderTargets(ERenderTargetLoadAction Color
 	OutRenderTargets[MRTCount++] = FRHIRenderTargetView(GBufferB->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
 	OutRenderTargets[MRTCount++] = FRHIRenderTargetView(GBufferC->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
 
-	// The velocity buffer needs to be bound before other optionnal rendertargets (when UseSelecUseSelectiveBasePassOutputs() is true).
+	// The velocity buffer needs to be bound before other optionnal rendertargets (when UseSelectiveBasePassOutputs() is true).
 	// Otherwise there is an issue on some AMD hardware where the target does not get updated. Seems to be related to the velocity buffer format as it works fine with other targets.
 	if (bAllocateVelocityGBuffer)
 	{
@@ -626,10 +671,13 @@ void FSceneRenderTargets::SetQuadOverdrawUAV(FRHICommandList& RHICmdList, bool b
 			Info.NumColorRenderTargets = QuadOverdrawIndex;
 			Info.UnorderedAccessView[Info.NumUAVs++] = QuadOverdrawBuffer->GetRenderTargetItem().UAV;
 
-			// Clear to default value
-			const uint32 ClearValue[4] = { 0, 0, 0, 0 };
-			ClearUAV(RHICmdList, QuadOverdrawBuffer->GetRenderTargetItem(), ClearValue);
-			RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToGfx, QuadOverdrawBuffer->GetRenderTargetItem().UAV);
+			if (Info.bClearColor)
+			{
+				// Clear to default value
+				const uint32 ClearValue[4] = { 0, 0, 0, 0 };
+				ClearUAV(RHICmdList, QuadOverdrawBuffer->GetRenderTargetItem(), ClearValue);
+				RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToGfx, QuadOverdrawBuffer->GetRenderTargetItem().UAV);
+			}
 		}
 	}
 }
@@ -688,6 +736,17 @@ void FSceneRenderTargets::BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERe
 	}
 
 	SetQuadOverdrawUAV(RHICmdList, bBindQuadOverdrawBuffers, Info);
+
+	static const auto CVarVirtualTextureLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	if(CVarVirtualTextureLightmaps && CVarVirtualTextureLightmaps->GetValueOnRenderThread() && !bBindQuadOverdrawBuffers )
+	{
+		int32 FeedbackIndex = 7;
+
+		// Increase the rendertarget count in order to control the bound slot of the UAV.
+		check( Info.NumColorRenderTargets <= FeedbackIndex );
+		Info.NumColorRenderTargets = FeedbackIndex;
+		Info.UnorderedAccessView[ Info.NumUAVs++ ] = GVirtualTextureFeedback.FeedbackTextureGPU->GetRenderTargetItem().UAV;
+	}
 
 	// set the render target
 	RHICmdList.SetRenderTargetsAndClear(Info);
@@ -910,7 +969,7 @@ void FSceneRenderTargets::ReleaseGBufferTargets()
 
 void FSceneRenderTargets::PreallocGBufferTargets()
 {
-	bAllocateVelocityGBuffer = FVelocityRendering::OutputsToGBuffer();
+	bAllocateVelocityGBuffer = FVelocityRendering::BasePassCanOutputVelocity(CurrentFeatureLevel);
 }
 
 void FSceneRenderTargets::GetGBufferADesc(FPooledRenderTargetDesc& Desc) const
@@ -1512,8 +1571,12 @@ void FSceneRenderTargets::ResolveDepthTexture(FRHICommandList& RHICmdList, const
 		RHICmdList.SetShaderTexture(ResolvePixelShader, TextureIndex, SourceTexture);
 	}
 
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FScreenVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FScreenVertex) * 4, RLM_WriteOnly);
+
 	// Generate the vertices used
-	FScreenVertex Vertices[4];
+	FScreenVertex* Vertices = (FScreenVertex*)VoidPtr;
 
 	Vertices[0].Position.X = MaxX;
 	Vertices[0].Position.Y = MinY;
@@ -1535,7 +1598,9 @@ void FSceneRenderTargets::ResolveDepthTexture(FRHICommandList& RHICmdList, const
 	Vertices[3].UV.X = MinU;
 	Vertices[3].UV.Y = MaxV;
 
-	DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 }
 void FSceneRenderTargets::ResolveSceneDepthTexture(FRHICommandList& RHICmdList, const FResolveRect& ResolveRect)
 {
@@ -1740,18 +1805,31 @@ void FSceneRenderTargets::AllocateMobileRenderTargets(FRHICommandList& RHICmdLis
 	}
 }
 
+#define RETURN_VOLUME_TEXTURE_NAME(Index) case Index: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir"#Index) : (TCHAR*)TEXT("TranslucentVolume"#Index)
+
 // for easier use of "VisualizeTexture"
 static TCHAR* const GetVolumeName(uint32 Id, bool bDirectional)
 {
-	// (TCHAR*) for non VisualStudio
 	switch(Id)
 	{
-		case 0: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir0") : (TCHAR*)TEXT("TranslucentVolume0");
-		case 1: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir1") : (TCHAR*)TEXT("TranslucentVolume1");
-		case 2: return bDirectional ? (TCHAR*)TEXT("TranslucentVolumeDir2") : (TCHAR*)TEXT("TranslucentVolume2");
+		RETURN_VOLUME_TEXTURE_NAME(0);
+		RETURN_VOLUME_TEXTURE_NAME(1);
+		RETURN_VOLUME_TEXTURE_NAME(2);
 
+		RETURN_VOLUME_TEXTURE_NAME(3);
+		RETURN_VOLUME_TEXTURE_NAME(4);
+		RETURN_VOLUME_TEXTURE_NAME(5);
+
+		RETURN_VOLUME_TEXTURE_NAME(6);
+		RETURN_VOLUME_TEXTURE_NAME(7);
+		RETURN_VOLUME_TEXTURE_NAME(8);
+
+		RETURN_VOLUME_TEXTURE_NAME(9);
+		RETURN_VOLUME_TEXTURE_NAME(10);
+		RETURN_VOLUME_TEXTURE_NAME(11);
+	
 		default:
-			check(0);
+			check(0); // Add texture names up to what you need
 	}
 	return (TCHAR*)TEXT("InvalidName");
 }
@@ -1853,19 +1931,13 @@ void FSceneRenderTargets::AllocateCommonDepthTargets(FRHICommandList& RHICmdList
 		{
 			const uint32 OldElementSize = SceneDepthZ->ComputeMemorySize();
 			bHMDAllocatedDepthTarget = true;
-		
-			/*
-			@TODO: UE-61597 (4.20) - Right now there appears to be an issue with the shared depth buffer and the shader param caching system.
-			The guess is that since SceneDepthZ's resource is changed under the hood and needs to be reset as a param for certain shaders, but
-			the caching system isn't aware of that. For the time being, we've commented out this block, incurring added expense on the deferred
-			renderer (adding a depth copy that theoretically is unneeded)
 
 			// If SRT and texture are different (MSAA), only modify the resolve render target, to avoid creating a swapchain of MSAA textures
 			if (SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture == SceneDepthZ->GetRenderTargetItem().TargetableTexture)
 			{
 				SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture = SceneDepthZ->GetRenderTargetItem().TargetableTexture = SRTex;
 			}
-			else*/
+			else
 			{
 				SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture = SRTex;
 			}
@@ -1944,7 +2016,7 @@ void FSceneRenderTargets::AllocateLightingChannelTexture(FRHICommandList& RHICmd
 	}
 }
 
-void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandListImmediate& RHICmdList, const int32 NumViews)
 {
 	AllocateCommonDepthTargets(RHICmdList);
 
@@ -1982,7 +2054,10 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 				TranslucencyTargetFlags |= TexCreate_UAV;
 			}
 
-			for (int32 RTSetIndex = 0; RTSetIndex < NumTranslucentVolumeRenderTargetSets; RTSetIndex++)
+			TranslucencyLightingVolumeAmbient.SetNum(NumViews * NumTranslucentVolumeRenderTargetSets);
+			TranslucencyLightingVolumeDirectional.SetNum(NumViews * NumTranslucentVolumeRenderTargetSets);
+
+			for (int32 RTSetIndex = 0; RTSetIndex < NumTranslucentVolumeRenderTargetSets * NumViews; RTSetIndex++)
 			{
 				GRenderTargetPool.FindFreeElement(
 					RHICmdList,
@@ -2038,7 +2113,7 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets(FRHICommandLi
 			//these get bound even with the CVAR off, make sure they aren't full of garbage.
 			if (!GUseTranslucentLightingVolumes)
 			{
-				ClearTranslucentVolumeLighting(RHICmdList);
+				ClearTranslucentVolumeLighting(RHICmdList, 0);
 			}
 		}
 	}
@@ -2099,7 +2174,7 @@ EPixelFormat FSceneRenderTargets::GetMobileSceneColorFormat() const
 	return CurrentMobileSceneColorFormat;
 }
 
-void FSceneRenderTargets::ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderTargets::ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList, int32 ViewIndex)
 {
 	if (GSupportsVolumeTextureRendering)
 	{
@@ -2116,8 +2191,8 @@ void FSceneRenderTargets::ClearTranslucentVolumeLighting(FRHICommandListImmediat
 
 		for (int32 Idx = 0; Idx < NumIterations; ++Idx)
 		{
-			RenderTargets[Idx << 1] = TranslucencyLightingVolumeAmbient[Idx]->GetRenderTargetItem().TargetableTexture;
-			RenderTargets[(Idx << 1) + 1] = TranslucencyLightingVolumeDirectional[Idx]->GetRenderTargetItem().TargetableTexture;
+			RenderTargets[Idx << 1] = TranslucencyLightingVolumeAmbient[Idx + NumTranslucentVolumeRenderTargetSets * ViewIndex]->GetRenderTargetItem().TargetableTexture;
+			RenderTargets[(Idx << 1) + 1] = TranslucencyLightingVolumeDirectional[Idx + NumTranslucentVolumeRenderTargetSets * ViewIndex]->GetRenderTargetItem().TargetableTexture;
 		}
 
 		static const FLinearColor ClearColors[Num3DTextures] = { FLinearColor::Transparent };
@@ -2226,7 +2301,7 @@ EPixelFormat FSceneRenderTargets::GetSceneColorFormat(ERHIFeatureLevel::Type InF
 	return SceneColorBufferFormat;
 }
 
-void FSceneRenderTargets::AllocateRenderTargets(FRHICommandListImmediate& RHICmdList)
+void FSceneRenderTargets::AllocateRenderTargets(FRHICommandListImmediate& RHICmdList, const int32 NumViews)
 {
 	if (BufferSize.X > 0 && BufferSize.Y > 0 && (!AreShadingPathRenderTargetsAllocated(GetSceneColorFormatType()) || !AreRenderTargetClearsValid(GetSceneColorFormatType())))
 	{
@@ -2236,7 +2311,7 @@ void FSceneRenderTargets::AllocateRenderTargets(FRHICommandListImmediate& RHICmd
 		}
 		else
 		{
-			AllocateDeferredShadingPathRenderTargets(RHICmdList);
+			AllocateDeferredShadingPathRenderTargets(RHICmdList, NumViews);
 		}
 	}
 }
@@ -2295,7 +2370,8 @@ void FSceneRenderTargets::ReleaseAllTargets()
 
 	SkySHIrradianceMap.SafeRelease();
 
-	for (int32 RTSetIndex = 0; RTSetIndex < NumTranslucentVolumeRenderTargetSets; RTSetIndex++)
+	ensure(TranslucencyLightingVolumeAmbient.Num() == TranslucencyLightingVolumeDirectional.Num());
+	for (int32 RTSetIndex = 0; RTSetIndex < TranslucencyLightingVolumeAmbient.Num(); RTSetIndex++)
 	{
 		TranslucencyLightingVolumeAmbient[RTSetIndex].SafeRelease();
 		TranslucencyLightingVolumeDirectional[RTSetIndex].SafeRelease();

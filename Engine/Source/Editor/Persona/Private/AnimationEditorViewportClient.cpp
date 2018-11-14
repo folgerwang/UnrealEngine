@@ -855,10 +855,11 @@ FText FAnimationViewportClient::GetDisplayInfo(bool bDisplayAllInfo) const
 			{
 				int32 SectionVerts = LODData.RenderSections[SectionIndex].GetNumVertices();
 
-				TextValue = ConcatenateLine(TextValue, FText::Format(LOCTEXT("SectionFormat", " [Section {0}] Verts: {1}, Bones: {2}"),
+				TextValue = ConcatenateLine(TextValue, FText::Format(LOCTEXT("SectionFormat", " [Section {0}] Verts: {1}, Bones: {2}, Max Influences: {3}"),
 					FText::AsNumber(SectionIndex),
 					FText::AsNumber(SectionVerts),
-					FText::AsNumber(LODData.RenderSections[SectionIndex].BoneMap.Num())
+					FText::AsNumber(LODData.RenderSections[SectionIndex].BoneMap.Num()),
+					FText::AsNumber(LODData.RenderSections[SectionIndex].MaxBoneInfluences)
 					));
 			}
 
@@ -1267,9 +1268,9 @@ void FAnimationViewportClient::DrawMeshBones(UDebugSkelMeshComponent * MeshCompo
 void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredBones, const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> & WorldTransforms, const TArray<int32>& InSelectedBones, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness/*=0.f*/, bool bForceDraw/*=false*/) const
 {
 	TArray<int32> SelectedBones = InSelectedBones;
-	if(GetBoneDrawMode() == EBoneDrawMode::SelectedAndParents)
+	if(InSelectedBones.Num() > 0 && GetBoneDrawMode() == EBoneDrawMode::SelectedAndParents)
 	{
-		int32 BoneIndex = GetAnimPreviewScene()->GetSelectedBoneIndex();
+		int32 BoneIndex = InSelectedBones[0];
 		while (BoneIndex != INDEX_NONE)
 		{
 			int32 ParentIndex = RefSkeleton.GetParentIndex(BoneIndex);
@@ -1306,9 +1307,11 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 				End = WorldTransforms[BoneIndex].GetLocation();
 			}
 
+			const float BoneLength = (End - Start).Size();
+			const float AxisLength = FMath::Max(BoneLength * 0.1f, 1.f);
 			//Render Sphere for bone end point and a cone between it and its parent.
 			PDI->SetHitProxy(new HPersonaBoneProxy(RefSkeleton.GetBoneName(BoneIndex)));
-			SkeletalDebugRendering::DrawWireBone(PDI, Start, End, LineColor, SDPG_Foreground);
+			SkeletalDebugRendering::DrawWireBone(PDI, Start, End, LineColor, SDPG_Foreground, AxisLength);
 			PDI->SetHitProxy(NULL);
 
 			// draw gizmo
@@ -1316,7 +1319,8 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 				((GetLocalAxesMode() == ELocalAxesMode::Selected) && SelectedBones.Contains(BoneIndex))
 				)
 			{
-				SkeletalDebugRendering::DrawAxes(PDI, WorldTransforms[BoneIndex], SDPG_Foreground);
+				// we want to say 10 % of bone length is good
+				SkeletalDebugRendering::DrawAxes(PDI, WorldTransforms[BoneIndex], SDPG_Foreground, 0.f , AxisLength);
 			}
 		}
 	}

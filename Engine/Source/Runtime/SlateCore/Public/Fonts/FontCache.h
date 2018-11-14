@@ -843,7 +843,7 @@ public:
 	/**
 	 * Issues a request to clear all cached data from the cache
 	 */
-	void RequestFlushCache();
+	void RequestFlushCache(const FString& FlushReason);
 
 	/**
 	 * Clears just the cached font data, but leaves the atlases alone
@@ -858,7 +858,7 @@ private:
 	/**
 	 * Clears all cached data from the cache
 	 */
-	void FlushCache();
+	bool FlushCache();
 
 	/**
 	 * Clears out any pending UFont objects that were requested to be flushed
@@ -913,10 +913,10 @@ private:
 	volatile bool bFlushRequested;
 
 	/** Number of atlas pages we can have before we request that the cache be flushed */
-	int32 MaxAtlasPagesBeforeFlushRequest;
+	int32 CurrentMaxAtlasPagesBeforeFlushRequest;
 
 	/** Number of non-atlased textures we can have before we request that the cache be flushed */
-	int32 MaxNonAtlasedTexturesBeforeFlushRequest;
+	int32 CurrentMaxNonAtlasedTexturesBeforeFlushRequest;
 
 	/** The frame counter the last time the font cache was asked to be flushed */
 	uint64 FrameCounterLastFlushRequest;

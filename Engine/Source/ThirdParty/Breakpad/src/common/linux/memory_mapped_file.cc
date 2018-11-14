@@ -98,7 +98,7 @@ bool MemoryMappedFile::Map(const char* path, size_t offset) {
     return false;
   }
 #else
-  size_t file_len = GetOSHandleSize(fd);
+  int64_t file_len = GetOSHandleSize(fd);
   if (file_len <= 0) {
     return false;
   }

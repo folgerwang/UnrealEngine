@@ -170,7 +170,7 @@ namespace Audio
 			{
 				// If we're spatializing using HRTF and its an external send, don't need to setup a default/base submix send to master or EQ submix
 				// We'll only be using non-default submix sends (e.g. reverb).
-				if (!(WaveInstance->SpatializationMethod == ESoundSpatializationAlgorithm::SPATIALIZATION_HRTF && MixerDevice->bSpatializationIsExternalSend))
+				if (!(InitParams.bUseHRTFSpatialization && MixerDevice->bSpatializationIsExternalSend))
 				{
 					// If this sound is an ambisonics file, we preempt the normal base submix routing and only send to master ambisonics submix
 					if (WaveInstance->bIsAmbisonics)
@@ -282,9 +282,6 @@ namespace Audio
 			// Update the buffer sample rate to the wave instance sample rate in case it was serialized incorrectly
 			MixerBuffer->InitSampleRate(WaveInstance->WaveData->GetSampleRateForCurrentPlatform());
 
-			// Now we init the mixer source buffer
-			MixerSourceBuffer->Init();
-
 			// Hand off the mixer source buffer decoder
 			InitParams.MixerSourceBuffer = MixerSourceBuffer;
 			MixerSourceBuffer = nullptr;
@@ -392,6 +389,9 @@ namespace Audio
 			}
 		}
 
+		// Clear out our mixer source buffer if things failed
+		MixerSourceBuffer = nullptr;
+
 		// Something went wrong with initializing the generator
 		return false;
 	}
@@ -460,6 +460,13 @@ namespace Audio
 			return;
 		}
 
+		// Don't restart the sound if it was stopping when we paused, just stop it.
+		if (Paused && (bIsStopping || bIsDone))
+		{
+			StopNow();
+			return;
+		}
+
 		// It's possible if Pause and Play are called while a sound is async initializing. In this case
 		// we'll just not actually play the source here. Instead we'll call play when the sound finishes loading.
 		if (MixerSourceVoice && InitializationState == EMixerSourceInitializationState::Initialized)
@@ -512,7 +519,6 @@ namespace Audio
 					StopNow();
 				}
 			}
-
 			Paused = false;
 		}
 	}
@@ -524,7 +530,7 @@ namespace Audio
 		// Immediately stop the sound source
 
 		InitializationState = EMixerSourceInitializationState::NotInitialized;
-		
+
 		IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
 
 		bIsStopping = false;

@@ -16,6 +16,8 @@ FSubmixEffectReverb::FSubmixEffectReverb()
 
 void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	Audio::FPlateReverbSettings NewSettings;
 
 	NewSettings.LateDelayMsec = 0.0f;
@@ -46,6 +48,8 @@ void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 
 void FSubmixEffectReverb::OnPresetChanged()
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	GET_EFFECT_SETTINGS(SubmixEffectReverb);
 
 	FAudioReverbEffect ReverbEffect;
@@ -70,6 +74,8 @@ void FSubmixEffectReverb::OnPresetChanged()
 
 void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	check(InData.NumChannels == 2);
  	if (OutData.NumChannels < 2 || !bIsEnabled) 
 	{
@@ -92,6 +98,7 @@ void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InDa
 			PlateReverb.ProcessAudioFrame(&AudioData[SampleIndex], InData.NumChannels, &OutAudioData[SampleIndex], OutData.NumChannels);
 
 			OutAudioData[SampleIndex] += DryLevel * AudioData[SampleIndex];
+			OutAudioData[SampleIndex + 1] += DryLevel * AudioData[SampleIndex + 1];
 		}
 	}
 	// 5.1 or higher surround sound. Map stereo output to quad output
@@ -101,20 +108,23 @@ void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InDa
 		{
 			// Processed downmixed audio frame
 			PlateReverb.ProcessAudioFrame(&AudioData[InSampleIndex], InData.NumChannels, &OutAudioData[OutSampleIndex], InData.NumChannels);
-
-			OutAudioData[OutSampleIndex] += DryLevel * AudioData[InSampleIndex];
-
 			// Now do a cross-over to the back-left/back-right speakers from the front-left and front-right
 			
 			// Using standard speaker map order map the right output to the BackLeft channel
 			OutAudioData[OutSampleIndex + EAudioMixerChannel::BackRight] = OutAudioData[OutSampleIndex + EAudioMixerChannel::FrontLeft];
 			OutAudioData[OutSampleIndex + EAudioMixerChannel::BackLeft] = OutAudioData[OutSampleIndex + EAudioMixerChannel::FrontRight];
+
+			// Copy dry output to output data to stereo fronts
+			OutAudioData[OutSampleIndex] += DryLevel * AudioData[InSampleIndex];
+			OutAudioData[OutSampleIndex + 1] += DryLevel * AudioData[InSampleIndex + 1];
 		}
 	}
 }
 
 void FSubmixEffectReverb::SetEffectParameters(const FAudioReverbEffect& InParams)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	Audio::FPlateReverbSettings NewSettings;
 
 	NewSettings.EarlyReflections.Gain = FMath::GetMappedRangeValueClamped({ 0.0f, 3.16f }, { 0.0f, 1.0f }, InParams.ReflectionsGain);

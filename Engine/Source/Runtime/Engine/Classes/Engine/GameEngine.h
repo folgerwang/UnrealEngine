@@ -164,7 +164,7 @@ public:
 
 protected:
 
-	const FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
+	FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
 
 	/** Handle to a movie capture implementation to create on startup */
 	FMovieSceneCaptureHandle StartupMovieCaptureHandle;

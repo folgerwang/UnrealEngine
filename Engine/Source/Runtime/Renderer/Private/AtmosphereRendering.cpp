@@ -394,19 +394,6 @@ void FDeferredShadingSceneRenderer::RenderAtmosphere(FRHICommandListImmediate& R
 	// Atmospheric fog?
 	if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4 && Scene->HasAtmosphericFog())
 	{
-		static const FVector2D Vertices[4] =
-		{
-			FVector2D(-1,-1),
-			FVector2D(-1,+1),
-			FVector2D(+1,+1),
-			FVector2D(+1,-1),
-		};
-		static const uint16 Indices[6] =
-		{
-			0, 1, 2,
-			0, 2, 3
-		};
-
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 		
 		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
@@ -432,17 +419,8 @@ void FDeferredShadingSceneRenderer::RenderAtmosphere(FRHICommandListImmediate& R
 			SetAtmosphericFogShaders(RHICmdList, GraphicsPSOInit, Scene, View, LightShaftsOutput.LightShaftOcclusion);
 
 			// Draw a quad covering the view.
-			DrawIndexedPrimitiveUP(
-				RHICmdList,
-				PT_TriangleList,
-				0,
-				ARRAY_COUNT(Vertices),
-				2,
-				Indices,
-				sizeof(Indices[0]),
-				Vertices,
-				sizeof(Vertices[0])
-				);
+			RHICmdList.SetStreamSource(0, GScreenSpaceVertexBuffer.VertexBufferRHI, 0);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2, 1);
 		}
 	}
 }

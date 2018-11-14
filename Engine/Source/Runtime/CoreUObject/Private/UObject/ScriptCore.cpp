@@ -59,6 +59,10 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 struct FPointerToUberGraphFrameCoreUObject
 {
 	uint8* RawPointer;
+
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	uint32 UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 };
 #endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
@@ -203,16 +207,15 @@ PRAGMA_DISABLE_OPTIMIZATION
 
 void PrintScriptCallStackImpl()
 {
-	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
-	if( BlueprintExceptionTracker.ScriptStack.Num() > 0 )
+	const FBlueprintExceptionTracker* BlueprintExceptionTracker = FBlueprintExceptionTracker::TryGet();
+	if (BlueprintExceptionTracker)
 	{
-		FString ScriptStack = TEXT( "\n\nScript Stack:\n" );
-		for (int32 FrameIdx = BlueprintExceptionTracker.ScriptStack.Num() - 1; FrameIdx >= 0; --FrameIdx)
+		FString ScriptStack = FString::Printf(TEXT("\n\nScript Stack (%d frames):\n"), BlueprintExceptionTracker->ScriptStack.Num());
+		for (int32 FrameIdx = BlueprintExceptionTracker->ScriptStack.Num() - 1; FrameIdx >= 0; --FrameIdx)
 		{
-			ScriptStack += BlueprintExceptionTracker.ScriptStack[FrameIdx]->GetStackDescription() + TEXT( "\n" );
+			ScriptStack += BlueprintExceptionTracker->ScriptStack[FrameIdx]->GetStackDescription() + TEXT("\n");
 		}
-
-		UE_LOG( LogOutputDevice, Warning, TEXT( "%s" ), *ScriptStack );
+		UE_LOG(LogOutputDevice, Warning, TEXT("%s"), *ScriptStack);
 	}
 }
 
@@ -1323,7 +1326,7 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 
 #if DO_BLUEPRINT_GUARD
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
-	BlueprintExceptionTracker.ScriptEntryTag++;
+	TGuardValue<int32> EntryCounter( BlueprintExceptionTracker.ScriptEntryTag, BlueprintExceptionTracker.ScriptEntryTag+1);
 
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_BlueprintTime, IsInGameThread() && BlueprintExceptionTracker.ScriptEntryTag == 1);
 #endif
@@ -1496,10 +1499,6 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 #if WITH_EDITORONLY_DATA
 	FBlueprintCoreDelegates::OnScriptExecutionEnd.Broadcast();
 #endif
-#endif
-
-#if DO_BLUEPRINT_GUARD
-	--BlueprintExceptionTracker.ScriptEntryTag;
 #endif
 }
 

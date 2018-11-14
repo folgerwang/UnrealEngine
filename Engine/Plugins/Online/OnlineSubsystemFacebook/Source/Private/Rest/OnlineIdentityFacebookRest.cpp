@@ -13,15 +13,15 @@ FOnlineIdentityFacebook::FOnlineIdentityFacebook(FOnlineSubsystemFacebook* InSub
 {
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("LoginUrl"), LoginURLDetails.LoginUrl, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing LoginUrl= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing LoginUrl= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
 	}
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("LoginRedirectUrl"), LoginURLDetails.LoginRedirectUrl, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing LoginRedirectUrl= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing LoginRedirectUrl= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
 	}
 	if (!GConfig->GetBool(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("bUsePopup"), LoginURLDetails.bUsePopup, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing bUsePopup= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing bUsePopup= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
 	}
 
 	GConfig->GetArray(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("LoginDomains"), LoginDomains, GEngineIni);
@@ -29,7 +29,7 @@ FOnlineIdentityFacebook::FOnlineIdentityFacebook(FOnlineSubsystemFacebook* InSub
 	LoginURLDetails.ClientId = InSubsystem->GetAppId();
 	if (LoginURLDetails.ClientId.IsEmpty())
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
 	}
 
 	LoginURLDetails.LoginUrl.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
@@ -89,7 +89,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG(LogOnline, Error, TEXT("RegisterUser() failed: %s"),
+		UE_LOG_ONLINE_IDENTITY(Error, TEXT("RegisterUser() failed: %s"),
 			*ErrorStr);
 
 		bHasLoginOutstanding = false;
@@ -230,7 +230,7 @@ void FOnlineIdentityFacebook::RequestElevatedPermissions(int32 LocalUserNum, con
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG(LogOnline, Error, TEXT("RequestElevatedPermissions() failed: %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Error, TEXT("RequestElevatedPermissions() failed: %s"), *ErrorStr);
 		bHasLoginOutstanding = false;
 		InCompletionDelegate.ExecuteIfBound(LocalUserNum, false, GetEmptyUniqueId(), ErrorStr);
 	}
@@ -247,7 +247,7 @@ void FOnlineIdentityFacebook::OnExternalUIElevatedPermissionsComplete(TSharedPtr
 		ErrorStr = TEXT("com.epicgames.elevated_perms_failed");
 	}
 
-	UE_LOG(LogOnline, Verbose, TEXT("RequestElevatedPermissions() %s"), bWasSuccessful ? TEXT("success") : TEXT("failed"));
+	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("RequestElevatedPermissions() %s"), bWasSuccessful ? TEXT("success") : TEXT("failed"));
 	TSharedPtr<const FUniqueNetId> ExistingUserId = GetUniquePlayerId(ControllerIndex);
 	InCompletionDelegate.ExecuteIfBound(ControllerIndex, bWasSuccessful, ExistingUserId.IsValid() ? *ExistingUserId : GetEmptyUniqueId(), ErrorStr);
 }
@@ -277,7 +277,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
 		FacebookSubsystem->ExecuteNextTick([this, LocalUserNum]() {
 			TriggerOnLogoutCompleteDelegates(LocalUserNum, false);
 		});

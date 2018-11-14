@@ -693,6 +693,15 @@ public:
 		return ReferenceSkeleton.GetRefBonePose();	
 	}
 
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Find a retarget source for a particular skel mesh.
+	 * @param	InMesh	The skeletal mesh to find a source for
+	 * @return NAME_None if a retarget source was not found, or a valid name if it was
+	 */
+	ENGINE_API FName GetRetargetSourceForMesh(USkeletalMesh* InMesh) const;
+#endif
+
 	/** 
 	 * Get Track index of InAnimSeq for the BoneTreeIndex of BoneTree
 	 * this is slow, and it's not supposed to be used heavily

@@ -99,6 +99,7 @@ FTexturePagePool::FTexturePagePool( uint32 Size, uint32 Dimensions )
 	: vDimensions( Dimensions )
 	, HashTable( 2048, Size )
 	, FreeHeap( Size, Size )
+	, SortedKeysDirty(false)
 {
 	Pages.SetNum( Size );
 	SortedKeys.Reserve( Size );
@@ -119,6 +120,54 @@ FTexturePagePool::FTexturePagePool( uint32 Size, uint32 Dimensions )
 FTexturePagePool::~FTexturePagePool()
 {}
 
+void FTexturePagePool::EvictAllPages()
+{
+	FreeHeap.Clear();
+	HashTable.Clear();
+	UnsortedKeys.Empty();
+	UnsortedIndexes.Empty();
+	SortedKeys.Empty(Pages.Num());
+	SortedIndexes.Empty();
+	SortedSubIndexes.Empty();
+	SortedAddIndexes.Empty();
+	SortedKeysDirty = false; // as everything is clear, no keys can be dirty
+
+	for (int32 i = 0; i < Pages.Num(); i++)
+	{
+		FTexturePage& Page = Pages[i];
+
+		Page.pAddress = i;
+		Page.vAddress = 0;
+		Page.vLevel = 0;
+		Page.ID = 0xff;
+
+		FreeHeap.Add(0, i);
+	}
+}
+
+void FTexturePagePool::EvictPages(uint8 ID)
+{
+	TArray<uint16> PagesToEvict;
+
+	// Find the physical addresses of the pages to remove
+	for (int32 i = 0; i < Pages.Num(); i++)
+	{
+		FTexturePage& Page = Pages[i];
+		if (Page.ID == ID)
+		{
+			check(i == Page.pAddress); // Use of these variables seem to be mixed up in this class
+			PagesToEvict.Add(Page.pAddress);
+		}
+	}
+
+	// Unmap them and mark them to be reused first
+	for (int32 i = 0; i < PagesToEvict.Num(); i++)
+	{
+		UnmapPage(PagesToEvict[i]);
+		FreeHeap.Update(0, PagesToEvict[i]);
+	}
+}
+
 bool FTexturePagePool::AnyFreeAvailable( uint32 Frame ) const
 {
 	if( FreeHeap.Num() > 0 )
@@ -126,6 +175,7 @@ bool FTexturePagePool::AnyFreeAvailable( uint32 Frame ) const
 		// Keys include vLevel to help prevent parent before child ordering
 		uint32 PageIndex = FreeHeap.Top();
 		uint32 PageFrame = FreeHeap.GetKey( PageIndex ) >> 4;
+		// Don't free any pages that were touched this frame
 		return PageFrame != Frame;
 	}
 
@@ -150,7 +200,6 @@ void FTexturePagePool::UpdateUsage( uint32 Frame, uint32 PageIndex )
 {
 	FreeHeap.Update( (Frame << 4) + (Pages[ PageIndex ].vLevel & 0xf), PageIndex );
 }
-
 
 uint32 FTexturePagePool::FindPage( uint8 ID, uint8 vLevel, uint64 vAddress ) const
 {
@@ -201,7 +250,7 @@ void FTexturePagePool::UnmapPage( uint16 pAddress )
 
 		uint32 Ancestor_pAddress = FindNearestPage( Page.ID, Page.vLevel, Page.vAddress );
 		uint8  Ancestor_vLevel = Ancestor_pAddress == ~0u ? 0xff : Pages[ Ancestor_pAddress ].vLevel;
-		GVirtualTextureSystem.GetSpace( Page.ID )->QueueUpdate( Page.vLevel, Page.vAddress, Ancestor_vLevel, Ancestor_pAddress );
+		GetVirtualTextureSystem()->GetSpace( Page.ID )->QueueUpdate( Page.vLevel, Page.vAddress, Ancestor_vLevel, Ancestor_pAddress );
 
 		uint64 OldKey = EncodeSortKey( Page.ID, Page.vLevel, Page.vAddress );
 		uint32 OldIndex = LowerBound( 0, SortedKeys.Num(), OldKey, ~0ull );
@@ -230,7 +279,7 @@ void FTexturePagePool::MapPage( uint8 ID, uint8 vLevel, uint64 vAddress, uint16 
 
 		// Map new page
 		HashTable.Add( HashPage( Page.vLevel, Page.vAddress, vDimensions ), Page.pAddress );
-		GVirtualTextureSystem.GetSpace( Page.ID )->QueueUpdate( Page.vLevel, Page.vAddress, Page.vLevel, Page.pAddress );
+		GetVirtualTextureSystem()->GetSpace( Page.ID )->QueueUpdate( Page.vLevel, Page.vAddress, Page.vLevel, Page.pAddress );
 	}
 
 	SortedKeysDirty = true;

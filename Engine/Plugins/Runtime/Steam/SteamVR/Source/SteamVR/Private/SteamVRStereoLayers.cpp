@@ -219,10 +219,7 @@ void FSteamVRHMD::UpdateStereoLayers_RenderThread()
 	}
 
 	// Metal is not supported yet
-	if (IsMetalPlatform(GMaxRHIShaderPlatform))
-	{
-		return;
-	}
+	check(!IsMetalPlatform(GMaxRHIShaderPlatform));
 
 	static const auto CVarMixLayerPriorities = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.StereoLayers.bMixLayerPriorities"));
 	const bool bUpdateLayerPriorities = (CVarMixLayerPriorities->GetValueOnRenderThread() == 0) && GetStereoLayersDirty();
@@ -378,10 +375,21 @@ void FSteamVRHMD::GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, F
 }
 
 //=============================================================================
-IStereoLayers* FSteamVRHMD::GetStereoLayers ()
+IStereoLayers* FSteamVRHMD::GetStereoLayers()
 {
-	check(VROverlay);
-	return this;
+	// Metal is not supported yet. Fall back to the default portable implementation
+	if (IsMetalPlatform(GMaxRHIShaderPlatform))
+	{
+		return FHeadMountedDisplayBase::GetStereoLayers();
+	}
+
+
+	if (VROverlay)
+	{
+		return this;
+	}
+
+	return nullptr;
 }
 
 #endif //STEAMVR_SUPPORTED_PLATFORMS

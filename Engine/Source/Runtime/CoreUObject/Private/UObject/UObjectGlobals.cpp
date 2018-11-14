@@ -757,8 +757,6 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 	// Strip off the object class.
 	ConstructorHelpers::StripObjectClass( InOutName );
 
-	InOutName = FPackageName::GetDelegateResolvedPackagePath(InOutName);
-
 	// if you're attempting to find an object in any package using a dotted name that isn't fully
 	// qualified (such as ObjectName.SubobjectName - notice no package name there), you normally call
 	// StaticFindObject and pass in ANY_PACKAGE as the value for InPackage.  When StaticFindObject calls ResolveName,
@@ -1130,8 +1128,8 @@ public:
 		}
 
 		FArchive* OtherFile = IFileManager::Get().CreateFileReader(DiffFilename);
-		FDiffFileArchive* DiffArchive = new FDiffFileArchive(Loader, OtherFile);
-		Loader = DiffArchive;
+		FDiffFileArchive* DiffArchive = new FDiffFileArchive(GetLoader(), OtherFile);
+		SetLoader(DiffArchive);
 
 	}
 };
@@ -3144,7 +3142,7 @@ UObject* StaticConstructObject_Internal
 	const bool bIsNativeFromCDO = bIsNativeClass &&
 		(
 			!InTemplate || 
-			(InName != NAME_None && (bAssumeTemplateIsArchetype || (!InTemplate->IsInBlueprint() && InTemplate == UObject::GetArchetypeFromRequiredInfo(InClass, InOuter, InName, InFlags))))
+			(InName != NAME_None && (bAssumeTemplateIsArchetype || InTemplate == UObject::GetArchetypeFromRequiredInfo(InClass, InOuter, InName, InFlags)))
 		);
 #if WITH_HOT_RELOAD
 	// Do not recycle subobjects when performing hot-reload as they may contain old property values.

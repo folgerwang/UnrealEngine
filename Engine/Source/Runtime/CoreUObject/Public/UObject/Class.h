@@ -20,6 +20,7 @@
 #include "Templates/IsEnum.h"
 #include "Misc/Optional.h"
 #include "Misc/EnumClassFlags.h"
+#include "Misc/ScopeRWLock.h"
 
 struct FCustomPropertyListNode;
 struct FFrame;
@@ -537,30 +538,9 @@ struct TStructOpsTypeTraitsBase2
 		WithNetSerializer              = false,                         // struct has a NetSerialize function for serializing its state to an FArchive used for network replication.
 		WithNetDeltaSerializer         = false,                         // struct has a NetDeltaSerialize function for serializing differences in state from a previous NetSerialize operation.
 		WithSerializeFromMismatchedTag = false,                         // struct has a SerializeFromMismatchedTag function for converting from other property tags.
-		WithPostScriptConstruct        = false,							// struct has a PostScriptConstruct function which is called after it is constructed in blueprints
+		WithStructuredSerializeFromMismatchedTag = false,               // struct has an FStructuredArchive-based SerializeFromMismatchedTag function for converting from other property tags.
+		WithPostScriptConstruct        = false,				// struct has a PostScriptConstruct function which is called after it is constructed in blueprints
 		WithNetSharedSerialization     = false,                         // struct has a NetSerialize function that does not require the package map to serialize its state.
-	};
-};
-
-/** type traits to cover the custom aspects of a script struct **/
-struct DEPRECATED(4.16, "TStructOpsTypeTraitsBase has been deprecated, use TStructOpsTypeTraitsBase2<T> instead.") TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithZeroConstructor            = false, // struct can be constructed as a valid object by filling its memory footprint with zeroes.
-		WithNoInitConstructor          = false, // struct has a constructor which takes an EForceInit parameter which will force the constructor to perform initialization, where the default constructor performs 'uninitialization'.
-		WithNoDestructor               = false, // struct will not have its destructor called when it is destroyed.
-		WithCopy                       = false, // struct can be copied via its copy assignment operator.
-		WithIdenticalViaEquality       = false, // struct can be compared via its operator==.  This should be mutually exclusive with WithIdentical.
-		WithIdentical                  = false, // struct can be compared via an Identical(const T* Other, uint32 PortFlags) function.  This should be mutually exclusive with WithIdenticalViaEquality.
-		WithExportTextItem             = false, // struct has an ExportTextItem function used to serialize its state into a string.
-		WithImportTextItem             = false, // struct has an ImportTextItem function used to deserialize a string into an object of that class.
-		WithAddStructReferencedObjects = false, // struct has an AddStructReferencedObjects function which allows it to add references to the garbage collector.
-		WithSerializer                 = false, // struct has a Serialize function for serializing its state to an FArchive.
-		WithPostSerialize              = false, // struct has a PostSerialize function which is called after it is serialized
-		WithNetSerializer              = false, // struct has a NetSerialize function for serializing its state to an FArchive used for network replication.
-		WithNetDeltaSerializer         = false, // struct has a NetDeltaSerialize function for serializing differences in state from a previous NetSerialize operation.
-		WithSerializeFromMismatchedTag = false, // struct has a SerializeFromMismatchedTag function for converting from other property tags.
 	};
 };
 
@@ -782,13 +762,25 @@ FORCEINLINE typename TEnableIf<TStructOpsTypeTraits<CPPSTRUCT>::WithImportTextIt
  * Selection of SerializeFromMismatchedTag call.
  */
 template<class CPPSTRUCT>
-FORCEINLINE typename TEnableIf<!TStructOpsTypeTraits<CPPSTRUCT>::WithSerializeFromMismatchedTag, bool>::Type SerializeFromMismatchedTagOrNot(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, CPPSTRUCT *Data)
+FORCEINLINE typename TEnableIf<!TStructOpsTypeTraits<CPPSTRUCT>::WithSerializeFromMismatchedTag, bool>::Type SerializeFromMismatchedTagOrNot(FPropertyTag const& Tag, FArchive& Ar, CPPSTRUCT *Data)
 {
 	return false;
 }
 
 template<class CPPSTRUCT>
-FORCEINLINE typename TEnableIf<TStructOpsTypeTraits<CPPSTRUCT>::WithSerializeFromMismatchedTag, bool>::Type SerializeFromMismatchedTagOrNot(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, CPPSTRUCT *Data)
+FORCEINLINE typename TEnableIf<TStructOpsTypeTraits<CPPSTRUCT>::WithSerializeFromMismatchedTag, bool>::Type SerializeFromMismatchedTagOrNot(FPropertyTag const& Tag, FArchive& Ar, CPPSTRUCT *Data)
+{
+	return Data->SerializeFromMismatchedTag(Tag, Ar);
+}
+
+template<class CPPSTRUCT>
+FORCEINLINE typename TEnableIf<!TStructOpsTypeTraits<CPPSTRUCT>::WithStructuredSerializeFromMismatchedTag, bool>::Type StructuredSerializeFromMismatchedTagOrNot(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, CPPSTRUCT *Data)
+{
+	return false;
+}
+
+template<class CPPSTRUCT>
+FORCEINLINE typename TEnableIf<TStructOpsTypeTraits<CPPSTRUCT>::WithStructuredSerializeFromMismatchedTag, bool>::Type StructuredSerializeFromMismatchedTagOrNot(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, CPPSTRUCT *Data)
 {
 	return Data->SerializeFromMismatchedTag(Tag, Slot);
 }
@@ -936,11 +928,14 @@ public:
 
 		/** return true if this class wants to serialize from some other tag (usually for conversion purposes) **/
 		virtual bool HasSerializeFromMismatchedTag() = 0;
+		virtual bool HasStructuredSerializeFromMismatchedTag() = 0;
+
 		/** 
 		 * Serialize this structure, from some other tag
 		 * @return true if this succeeded, false will trigger a warning and not serialize at all
 		 */
-		virtual bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, void *Data) = 0;
+		virtual bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar, void *Data) = 0;
+		virtual bool StructuredSerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, void *Data) = 0;
 
 		/** return true if this struct has a GetTypeHash */
 		virtual bool HasGetTypeHash() = 0;
@@ -1104,11 +1099,23 @@ public:
 		{
 			return TTraits::WithSerializeFromMismatchedTag;
 		}
-		virtual bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, void *Data) override
+		virtual bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar, void *Data) override
 		{
 			check(TTraits::WithSerializeFromMismatchedTag); // don't call this if we have indicated it is not allowed
-			return SerializeFromMismatchedTagOrNot(Tag, Slot, (CPPSTRUCT*)Data);
+			return SerializeFromMismatchedTagOrNot(Tag, Ar, (CPPSTRUCT*)Data);
 		}
+		virtual bool HasStructuredSerializeFromMismatchedTag() override
+		{
+			return TTraits::WithStructuredSerializeFromMismatchedTag;
+		}
+		virtual bool StructuredSerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot, void *Data) override
+		{
+			check(TTraits::WithStructuredSerializeFromMismatchedTag); // don't call this if we have indicated it is not allowed
+			return StructuredSerializeFromMismatchedTagOrNot(Tag, Slot, (CPPSTRUCT*)Data);
+		}
+
+		static_assert(!(TTraits::WithSerializeFromMismatchedTag && TTraits::WithStructuredSerializeFromMismatchedTag), "Structs cannot have both WithSerializeFromMismatchedTag and WithStructuredSerializeFromMismatchedTag set");
+
 		virtual bool HasGetTypeHash() override
 		{
 			return THasGetTypeHash<CPPSTRUCT>::Value;
@@ -1769,10 +1776,11 @@ public:
 	 * 
 	 * @param	Key			the metadata tag to find the value for
 	 * @param	NameIndex	if specified, will search the metadata linked for that enum value; otherwise, searches the metadata for the enum itself
+	 * @param	bAllowRemap	if true, the returned value may be remapped from a .ini if the value starts with ini: Pass false when you need the exact string, including any ini:
 	 *
 	 * @return	the value for the key specified, or an empty string if the key wasn't found or had no value.
 	 */
-	const FString& GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
+	FString GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE, bool bAllowRemap=true ) const;
 
 	/**
 	 * Set the metadata value associated with the specified key.
@@ -2222,6 +2230,9 @@ private:
 	/** A cache of all functions by name that exist in a parent (superclass or interface) context */
 	mutable TMap<FName, UFunction*> SuperFuncMap;
 
+	/** Scope lock to avoid the SuperFuncMap being read and written to simultaneously on multiple threads. */
+	mutable FRWLock SuperFuncMapLock;
+
 public:
 	/**
 	 * The list of interfaces which this class implements, along with the pointer property that is located at the offset of the interface's vtable.
@@ -2669,20 +2680,11 @@ public:
 	virtual UObject* GetArchetypeForCDO() const;
 
 	/**
-	 * On save, we order a package's exports in class dependency order (so that
-	 * on load, we create the class dependencies before we create the class).  
-	 * More often than not, the class doesn't require any non-struct objects 
-	 * before it is created/serialized (only super-classes, and its UField 
-	 * members, see FExportReferenceSorter::operator<<() for reference). 
-	 * However, in some special occasions, there might be an export that we 
-	 * would like force loaded prior to the class's serialization (like  
-	 * component templates for blueprint classes). This function returns a list
-	 * of those non-struct dependencies, so that FExportReferenceSorter knows to 
-	 * prioritize them earlier in the ExportMap.
-	 * 
-	 * @param  DependenciesOut	Will be filled with a list of dependencies that need to be created before this class is recreated (on load).
-	 */
-	virtual void GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut) {}
+	* Returns all objects that should be preloaded before the class default object is serialized at load time. Only used by the EDL.
+	*
+	* @param OutDeps		All objects that should be preloaded before the class default object is serialized at load time.
+	*/
+	virtual void GetDefaultObjectPreloadDependencies(TArray<UObject*>& OutDeps) {}
 
 	/**
 	 * Initializes the ClassReps and NetFields arrays used by replication.
@@ -3126,6 +3128,11 @@ struct FStructUtils
 
 	/** Locates a named structure in the package with the given name. Not expected to fail */
 	COREUOBJECT_API static UStruct* FindStructureInPackageChecked(const TCHAR* StructName, const TCHAR* PackageName);
+
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+	/** Looks for uninitialized script struct pointers. Returns the number found */
+	COREUOBJECT_API static int32 AttemptToFindUninitializedScriptStructMembers();
+#endif
 };
 
 /*-----------------------------------------------------------------------------

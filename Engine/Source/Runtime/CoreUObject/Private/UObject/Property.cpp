@@ -302,7 +302,7 @@ struct TStructOpsTypeTraits<FSoftObjectPath> : public TStructOpsTypeTraitsBase2<
 		WithIdenticalViaEquality = true,
 		WithExportTextItem = true,
 		WithImportTextItem = true,
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
 IMPLEMENT_STRUCT(SoftObjectPath);
@@ -318,7 +318,7 @@ struct TStructOpsTypeTraits<FSoftClassPath> : public TStructOpsTypeTraitsBase2<F
 		WithIdenticalViaEquality = true,
 		WithExportTextItem = true,
 		WithImportTextItem = true,
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
 IMPLEMENT_STRUCT(SoftClassPath);
@@ -333,7 +333,7 @@ struct TStructOpsTypeTraits<FPrimaryAssetType> : public TStructOpsTypeTraitsBase
 		WithIdenticalViaEquality = true,
 		WithExportTextItem = true,
 		WithImportTextItem = true,
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
 IMPLEMENT_STRUCT(PrimaryAssetType);
@@ -348,7 +348,7 @@ struct TStructOpsTypeTraits<FPrimaryAssetId> : public TStructOpsTypeTraitsBase2<
 		WithIdenticalViaEquality = true,
 		WithExportTextItem = true,
 		WithImportTextItem = true,
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
 IMPLEMENT_STRUCT(PrimaryAssetId);

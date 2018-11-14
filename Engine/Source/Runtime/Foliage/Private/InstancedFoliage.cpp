@@ -41,6 +41,7 @@ InstancedFoliage.cpp: Instanced foliage implementation.
 #include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "DrawDebugHelpers.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "InstancedFoliage"
 
@@ -1703,16 +1704,21 @@ void AInstancedFoliageActor::MoveInstancesForMovedComponent(UActorComponent* InC
 		return;
 	}
 
-	bool bUpdatedInstances = false;
-	bool bFirst = true;
+	const auto CurrentBaseInfo = InstanceBaseCache.GetInstanceBaseInfo(BaseId);
 
-	const auto OldBaseInfo = InstanceBaseCache.GetInstanceBaseInfo(BaseId);
+	// Found an invalid base so don't try to move instances
+	if (!CurrentBaseInfo.BasePtr.IsValid())
+	{
+		return;
+	}
+
+	bool bFirst = true;
 	const auto NewBaseInfo = InstanceBaseCache.UpdateInstanceBaseInfoTransform(InComponent);
 
 	FMatrix DeltaTransfrom =
-		FTranslationMatrix(-OldBaseInfo.CachedLocation) *
-		FInverseRotationMatrix(OldBaseInfo.CachedRotation) *
-		FScaleMatrix(NewBaseInfo.CachedDrawScale / OldBaseInfo.CachedDrawScale) *
+		FTranslationMatrix(-CurrentBaseInfo.CachedLocation) *
+		FInverseRotationMatrix(CurrentBaseInfo.CachedRotation) *
+		FScaleMatrix(NewBaseInfo.CachedDrawScale / CurrentBaseInfo.CachedDrawScale) *
 		FRotationMatrix(NewBaseInfo.CachedRotation) *
 		FTranslationMatrix(NewBaseInfo.CachedLocation);
 
@@ -2861,8 +2867,66 @@ void AInstancedFoliageActor::PostLoad()
 			}
 		}
 
+#if WITH_EDITORONLY_DATA
+		if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::FoliageLazyObjPtrToSoftObjPtr)
+		{
+			for (auto Iter = InstanceBaseCache.InstanceBaseMap.CreateIterator(); Iter; ++Iter)
+			{
+				TPair<FFoliageInstanceBaseId, FFoliageInstanceBaseInfo>& Pair = *Iter;
+				FFoliageInstanceBaseInfo& BaseInfo = Pair.Value;
+				UActorComponent* Component = BaseInfo.BasePtr_DEPRECATED.Get();
+				BaseInfo.BasePtr_DEPRECATED.Reset();
+
+				if (Component != nullptr)
+				{
+					BaseInfo.BasePtr = Component;
+
+					if (!InstanceBaseCache.InstanceBaseInvMap.Contains(BaseInfo.BasePtr))
+					{
+						InstanceBaseCache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
+					}
+				}
+				else
+				{
+					Iter.RemoveCurrent();
+
+					const FFoliageInstanceBasePtr* BaseInfoPtr = InstanceBaseCache.InstanceBaseInvMap.FindKey(Pair.Key);
+
+					if (BaseInfoPtr != nullptr && BaseInfoPtr->Get() == nullptr)
+					{
+						InstanceBaseCache.InstanceBaseInvMap.Remove(*BaseInfoPtr);
+					}
+				}
+			}
+
+			InstanceBaseCache.InstanceBaseMap.Compact();
+			InstanceBaseCache.InstanceBaseInvMap.Compact();
+
+			for (auto& Pair : InstanceBaseCache.InstanceBaseLevelMap_DEPRECATED)
+			{
+				TArray<FFoliageInstanceBasePtr_DEPRECATED>& BaseInfo_DEPRECATED = Pair.Value;
+				TArray<FFoliageInstanceBasePtr> BaseInfo;
+
+				for (FFoliageInstanceBasePtr_DEPRECATED& BasePtr_DEPRECATED : BaseInfo_DEPRECATED)
+				{
+					UActorComponent* Component = BasePtr_DEPRECATED.Get();
+					BasePtr_DEPRECATED.Reset();
+
+					if (Component != nullptr)
+					{
+						BaseInfo.Add(Component);
+					}
+				}
+
+				InstanceBaseCache.InstanceBaseLevelMap.Add(Pair.Key, BaseInfo);
+			}
+
+			InstanceBaseCache.InstanceBaseLevelMap_DEPRECATED.Empty();
+		}
+
 		// Clean up dead cross-level references
 		FFoliageInstanceBaseCache::CompactInstanceBaseCache(this);
+#endif
 
 		// Clean up invalid foliage type
 		for (UFoliageType* FoliageType : FoliageTypeToRemove)

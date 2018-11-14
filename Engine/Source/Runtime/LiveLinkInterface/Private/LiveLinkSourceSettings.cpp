@@ -12,9 +12,11 @@ void ULiveLinkSourceSettings::Serialize(FArchive& Ar)
 	// but they could have been elsewhere.
 
 	Ar.UsingCustomVersion(FEnterpriseObjectVersion::GUID);
+#if WITH_EDITORONLY_DATA
 	if (Ar.IsLoading() && FEnterpriseObjectVersion::LiveLinkTimeSynchronization > Ar.CustomVer(FEnterpriseObjectVersion::GUID))
 	{
-		Mode = InterpolationSettings.bUseInterpolation ? ELiveLinkSourceMode::Interpolated : ELiveLinkSourceMode::Default;
+		Mode = InterpolationSettings.bUseInterpolation_DEPRECATED ? ELiveLinkSourceMode::Interpolated : ELiveLinkSourceMode::Default;
 	}
+#endif
 }
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

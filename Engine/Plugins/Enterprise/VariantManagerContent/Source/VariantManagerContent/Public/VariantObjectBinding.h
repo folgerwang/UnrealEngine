@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "UObject/SoftObjectPath.h"
 #include "UObject/LazyObjectPtr.h"
-#include "Misc/Guid.h"
 
 #include "VariantObjectBinding.generated.h"
+
+
+class UPropertyValue;
 
 
 UCLASS(BlueprintType)
@@ -16,41 +19,32 @@ class VARIANTMANAGERCONTENT_API UVariantObjectBinding : public UObject
 	GENERATED_UCLASS_BODY()
 
 public:
-	void Init(const UObject* InObject, int32 InSortingOrder = -1)
-	{
-		ObjectPtr = FLazyObjectPtr(InObject);
-		SetSortingOrder(InSortingOrder);
-	}
 
-	// We need this because UVariantObjectBindings have non-UPROPERTY FLazyObjectPtrs
-	// that need to be manually copied
-	UVariantObjectBinding* Clone(UObject* ClonesOuter = INVALID_OBJECT);
-
+	void Init(UObject* InObject);
 	class UVariant* GetParent();
 
-	const FGuid& GetObjectGuid() const
-	{
-		return ObjectPtr.GetUniqueID().GetGuid();
-	}
+	FText GetDisplayText() const;
 
-    UObject* GetObject() const
-    {
-        return ObjectPtr.Get();
-    }
+	FString GetObjectPath() const;
+	UObject* GetObject() const;
 
-	int32 GetSortingOrder() const
-	{
-		return SortingOrder;
-	}
+	// Calls FixupForPIE on our ObjectPtr. It is necessary to call this from a moment where
+	// GPlayInEditorID has a valid ID (like an AActor's BeginPlay), as UMG blueprint function calls
+	// are not one of those. See the comment in the implementation of this function for more details
+	void FixupForPIE();
 
-	void SetSortingOrder(const int32 InSortingOrder)
-	{
-		SortingOrder = InSortingOrder;
-	}
+	void AddCapturedProperties(const TArray<UPropertyValue*>& Properties, int32 Index = INDEX_NONE);
+	const TArray<UPropertyValue*>& GetCapturedProperties() const;
+	void RemoveCapturedProperties(const TArray<UPropertyValue*>& Properties);
 
 private:
-	FLazyObjectPtr ObjectPtr;
 
 	UPROPERTY()
-	int32 SortingOrder;
+	mutable FSoftObjectPath ObjectPtr;
+
+	UPROPERTY()
+	TLazyObjectPtr<UObject> LazyObjectPtr;
+
+	UPROPERTY()
+	TArray<UPropertyValue*> CapturedProperties;
 };

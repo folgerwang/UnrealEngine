@@ -54,14 +54,14 @@ namespace iPhonePackager
 		/** /MacStagingRootDir/Payload/GameName.app */
 		protected static string RemoteAppDirectory
 		{
-			get { return RemoteAppPayloadDirectory + "/" + Program.GameName + Program.Architecture + ".app"; }
+			get { return RemoteAppPayloadDirectory + "/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app"; }
 		}
 
 
 		/** /MacStagingRootDir/Payload/GameName.app/GameName */
 		protected static string RemoteExecutablePath
 		{
-			get { return RemoteAppDirectory + "/" + Program.GameName + Program.Architecture; }
+			get { return RemoteAppDirectory + "/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture; }
 		}
 
 		private static string CurrentBaseXCodeCommandLine;
@@ -213,10 +213,9 @@ namespace iPhonePackager
 		/// </summary>
 		static public void ExportCertificate()
 		{
-			string ProvisionWithPrefix;
-			if(!FindMobileProvision(Config.OverrideBundleName ?? "", out ProvisionWithPrefix, false))
+			if(Config.ProvisionFile == null)
 			{
-				Program.Error("Missing provision");
+				Program.Error("Missing -ProvisionFile=... argument");
 				return;
 			}
 
@@ -227,7 +226,7 @@ namespace iPhonePackager
 			}
 
 			// export the signing certificate to a file
-			MobileProvision Provision = MobileProvisionParser.ParseFile(ProvisionWithPrefix);
+			MobileProvision Provision = MobileProvisionParser.ParseFile(Config.ProvisionFile);
 			X509Certificate2 Certificate = CodeSignatureBuilder.FindCertificate(Provision);
             if (Certificate == null)
             {
@@ -270,8 +269,8 @@ namespace iPhonePackager
 					"Default", "Portrait", "{320, 480}",
 					"Default-568h", "Landscape", "{320, 568}",
 					"Default-568h", "Portrait", "{320, 568}",
-					"Default-IPhoneX-Landscape", "Landscape", "{375, 812}",
-					"Default-IPhoneX-Portrait", "Portrait", "{375, 812}",
+					"Default-IPhoneXS-Landscape", "Landscape", "{375, 812}",
+					"Default-IPhoneXS-Portrait", "Portrait", "{375, 812}",
 				};
 
 			StringBuilder NewLaunchImagesString = new StringBuilder("<key>UILaunchImages~iphone</key>\n\t\t<array>\n");
@@ -525,7 +524,7 @@ namespace iPhonePackager
 
 				// NOTE: -y preserves symbolic links which is needed for iOS distro builds
 				// -x excludes a file (excluding the dSYM keeps sizes smaller, and it shouldn't be in the IPA anyways)
-				string dSYMName = "Payload/" + Program.GameName + Program.Architecture + ".app.dSYM";
+				string dSYMName = "Payload/" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app.dSYM";
 				DisplayCommandLine = String.Format("zip -q -r -y -{0} -T {1} Payload iTunesArtwork -x {2}/ -x {2}/* " +
 					"-x {2}/Contents/ -x {2}/Contents/* -x {2}/Contents/Resources/ -x {2}/Contents/Resources/* " +
 					" -x {2}/Contents/Resources/DWARF/ -x {2}/Contents/Resources/DWARF/*",
@@ -540,8 +539,8 @@ namespace iPhonePackager
 			case "gendsym":
 				Program.Log( " ... generating DSYM" );
 
-				string ExePath  = "Payload/" + Program.GameName + ".app/" + Program.GameName;
-				string dSYMPath = Program.GameName + ".app.dSYM";
+				string ExePath  = "Payload/" + Program.GameName + (Program.IsClient ? "Client" : "") + ".app/" + Program.GameName + (Program.IsClient ? "Client" : "");
+				string dSYMPath = Program.GameName + (Program.IsClient ? "Client" : "") + ".app.dSYM";
 				DisplayCommandLine = String.Format("dsymutil -o {0} {1}", dSYMPath, ExePath);
 
 				CommandLine = "\"" + MacStagingRootDir + "\"" + DisplayCommandLine;

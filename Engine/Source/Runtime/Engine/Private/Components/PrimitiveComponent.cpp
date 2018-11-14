@@ -69,6 +69,14 @@ static FAutoConsoleVariableRef CVarInitialOverlapTolerance(
 	TEXT("Dot product of movement direction and surface normal."),
 	ECVF_Default);
 
+static float HitDistanceToleranceCVar = 0.0f;
+static FAutoConsoleVariableRef CVarHitDistanceTolerance(
+	TEXT("p.HitDistanceTolerance"),
+	HitDistanceToleranceCVar,
+	TEXT("Tolerance for hit distance for overlap test in PrimitiveComponent movement.\n")
+	TEXT("Hits that are less than this distance are ignored."),
+	ECVF_Default);
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 int32 CVarShowInitialOverlaps = 0;
 FAutoConsoleVariableRef CVarRefShowInitialOverlaps(
@@ -273,6 +281,7 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 	LastCheckedAllCollideableDescendantsTime = 0.f;
 	
 	bApplyImpulseOnDamage = true;
+	bReplicatePhysicsToAutonomousProxy = true;
 
 	bReceiveMobileCSMShadows = true;
 #if WITH_EDITORONLY_DATA
@@ -1569,7 +1578,9 @@ UMaterialInstanceDynamic* UPrimitiveComponent::CreateDynamicMaterialInstance(int
 	}
 	else if (!MaterialInstance)
 	{
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
 		UE_LOG(LogPrimitiveComponent, Warning, TEXT("CreateDynamicMaterialInstance on %s: Material index %d is invalid."), *GetPathName(), ElementIndex);
+#endif
 	}
 
 	return MID;
@@ -1733,7 +1744,7 @@ static bool ShouldIgnoreHitResult(const UWorld* InWorld, FHitResult const& TestH
 	
 		// If we started penetrating, we may want to ignore it if we are moving out of penetration.
 		// This helps prevent getting stuck in walls.
-		if ( TestHit.bStartPenetrating && !(MoveFlags & MOVECOMP_NeverIgnoreBlockingOverlaps) )
+		if ( (TestHit.Distance < HitDistanceToleranceCVar || TestHit.bStartPenetrating) && !(MoveFlags & MOVECOMP_NeverIgnoreBlockingOverlaps) )
 		{
  			const float DotTolerance = InitialOverlapToleranceCVar;
 
@@ -1770,7 +1781,7 @@ static bool ShouldIgnoreHitResult(const UWorld* InWorld, FHitResult const& TestH
 
 
 // Returns true if we should check the GetGenerateOverlapEvents() flag when gathering overlaps, otherwise we'll always just do it.
-static bool ShouldCheckOverlapFlagToQueueOverlaps(const UPrimitiveComponent& ThisComponent)
+static FORCEINLINE_DEBUGGABLE bool ShouldCheckOverlapFlagToQueueOverlaps(const UPrimitiveComponent& ThisComponent)
 {
 	const FScopedMovementUpdate* CurrentUpdate = ThisComponent.GetCurrentScopedMovement();
 	if (CurrentUpdate)

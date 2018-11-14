@@ -742,13 +742,22 @@ struct ENGINE_API FRootMotionSourceGroup
 	 *  Whether this group has additive root motion sources
 	 **/
 	UPROPERTY()
-	bool bHasAdditiveSources;
+	uint8 bHasAdditiveSources:1;
 
 	/** 
 	 *  Whether this group has override root motion sources
 	 **/
 	UPROPERTY()
-	bool bHasOverrideSources;
+	uint8 bHasOverrideSources:1;
+
+	/** True when we had additive velocity applied last tick, checked to know if we should restore
+	 *  LastPreAdditiveVelocity before a Velocity computation */
+	UPROPERTY()
+	uint8 bIsAdditiveVelocityApplied:1;
+
+	/** Aggregate Settings of the last group of accumulated sources */
+	UPROPERTY()
+	FRootMotionSourceSettings LastAccumulatedSettings;
 
 	/** Saved off pre-additive-applied Velocity, used for being able to reliably add/remove additive
 	 *  velocity from currently computed Velocity (otherwise we would be removing additive velocity
@@ -757,15 +766,6 @@ struct ENGINE_API FRootMotionSourceGroup
 	 *  this method we override that resulting Velocity due to obstructions */
 	UPROPERTY()
 	FVector_NetQuantize10 LastPreAdditiveVelocity;
-
-	/** True when we had additive velocity applied last tick, checked to know if we should restore
-	 *  LastPreAdditiveVelocity before a Velocity computation */
-	UPROPERTY()
-	bool bIsAdditiveVelocityApplied;
-
-	/** Aggregate Settings of the last group of accumulated sources */
-	UPROPERTY()
-	FRootMotionSourceSettings LastAccumulatedSettings;
 
 	void CleanUpInvalidRootMotion(float DeltaTime, const ACharacter& Character, UCharacterMovementComponent& MoveComponent);
 

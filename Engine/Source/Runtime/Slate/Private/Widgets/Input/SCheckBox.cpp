@@ -37,6 +37,7 @@ void SCheckBox::Construct( const SCheckBox::FArguments& InArgs )
 	CheckBoxTypeOverride = InArgs._Type;
 
 	HorizontalAlignment = InArgs._HAlign;
+	bCheckBoxContentUsesAutoWidth = InArgs._CheckBoxContentUsesAutoWidth;
 
 	bIsPressed = false;
 	bIsFocusable = InArgs._IsFocusable;
@@ -395,6 +396,7 @@ void SCheckBox::BuildCheckBox(TSharedRef<SWidget> InContent)
 	if (CheckBoxType == ESlateCheckBoxType::CheckBox)
 	{
 		// Check boxes use a separate check button to the side of the user's content (often, a text label or icon.)
+		SHorizontalBox::FSlot* ContentSlot;
 		this->ChildSlot
 		[
 			SNew(SHorizontalBox)
@@ -408,9 +410,9 @@ void SCheckBox::BuildCheckBox(TSharedRef<SWidget> InContent)
 				.ColorAndOpacity(this, &SCheckBox::OnGetForegroundColor)
 			]
 			+ SHorizontalBox::Slot()
-			.AutoWidth()
 			.Padding(TAttribute<FMargin>(this, &SCheckBox::OnGetPadding))
 			.VAlign(VAlign_Center)
+			.Expose(ContentSlot)
 			[
 				SAssignNew(ContentContainer, SBorder)
 				.BorderImage(FStyleDefaults::GetNoBrush())
@@ -420,6 +422,10 @@ void SCheckBox::BuildCheckBox(TSharedRef<SWidget> InContent)
 				]
 			]
 		];
+		if (bCheckBoxContentUsesAutoWidth)
+		{
+			ContentSlot->AutoWidth();
+		}
 	}
 	else if (ensure(CheckBoxType == ESlateCheckBoxType::ToggleButton))
 	{

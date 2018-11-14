@@ -174,7 +174,7 @@ public:
 		return nullptr;
 	}
 
-	virtual ITargetPlatform* FindTargetPlatform(FString Name) override
+	virtual ITargetPlatform* FindTargetPlatform(const FString& Name) override
 	{
 		const TArray<ITargetPlatform*>& TargetPlatforms = GetTargetPlatforms();	
 		
@@ -636,6 +636,16 @@ protected:
 #endif
 		FModuleManager::Get().FindModules(*ModuleWildCard, Modules);
 
+#if !IS_MONOLITHIC
+		// Find all module subdirectories and add them so we can load dependent modules for target platform modules
+		TArray<FString> ModuleSubdirs;
+		IFileManager::Get().FindFilesRecursive(ModuleSubdirs, *FPlatformProcess::GetModulesDirectory(), TEXT("*"), false, true);
+		for (const FString& ModuleSubdir : ModuleSubdirs)
+		{
+			FModuleManager::Get().AddBinariesDirectory(*ModuleSubdir, false);
+		}
+#endif
+
 		// remove this module from the list
 		Modules.Remove(FName(TEXT("TargetPlatform")));
 
@@ -682,7 +692,7 @@ RETRY_SETUPANDVALIDATE:
 		}
 	}
 
-	bool UpdatePlatformEnvironment(FString PlatformName, TArray<FString> &Keys, TArray<FString> &Values) override
+	bool UpdatePlatformEnvironment(const FString& PlatformName, TArray<FString> &Keys, TArray<FString> &Values) override
 	{
 		SetupEnvironmentVariables(Keys, Values);
 		return SetupSDKStatus(PlatformName);	
@@ -912,7 +922,7 @@ RETRY_SETUPANDVALIDATE:
 		return SetupSDKStatus(TEXT(""));
 	}
 
-	bool SetupSDKStatus(FString TargetPlatforms)
+	bool SetupSDKStatus(const FString& TargetPlatforms)
 	{
 		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FTargetPlatformManagerModule::SetupSDKStatus" ), STAT_FTargetPlatformManagerModule_SetupSDKStatus, STATGROUP_TargetPlatform );
 

@@ -20,15 +20,20 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void Incoming(FBitReader& Packet) override;
+	virtual void Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits) override;
 
-	virtual void Outgoing(FBitWriter& Packet) override;
-
-	virtual void IncomingConnectionless(FString Address, FBitReader& Packet) override
-	{
-	}
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override {}
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override {}
 
 	/* Queues a packet for resending */
-	void QueuePacketForResending(uint8* Packet, int32 CountBits);
+	void QueuePacketForResending(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits);
+
+	DEPRECATED(4.21, "Use the PacketTraits version for sending packets with additional flags and options")
+	FORCEINLINE void QueueHandlerPacketForResending(HandlerComponent* InComponent, uint8* Packet, int32 CountBits)
+	{
+		FOutPacketTraits EmptyTraits;
+		QueueHandlerPacketForResending(InComponent, Packet, CountBits, EmptyTraits);
+	}
 
 	/**
 	 * Queues a packet sent through SendHandlerPacket, for resending
@@ -37,14 +42,14 @@ public:
 	 * @param Packet		The packet to be queued
 	 * @param CountBits		The number of bits in the packet
 	 */
-	FORCEINLINE void QueueHandlerPacketForResending(HandlerComponent* InComponent, uint8* Packet, int32 CountBits)
+	FORCEINLINE void QueueHandlerPacketForResending(HandlerComponent* InComponent, uint8* Packet, int32 CountBits, FOutPacketTraits& Traits)
 	{
-		QueuePacketForResending(Packet, CountBits);
+		QueuePacketForResending(Packet, CountBits, Traits);
 
 		BufferedPackets[BufferedPackets.Num()-1]->FromComponent = InComponent;
 	}
 
-	virtual int32 GetReservedPacketBits() override;
+	virtual int32 GetReservedPacketBits() const override;
 
 protected:
 	/* Buffered Packets in case they need to be resent */
@@ -63,10 +68,10 @@ protected:
 	uint32 RemotePacketIDACKED;
 
 	/* How long to wait before resending an UNACKED packet */
-	float ResendResolutionTime;
+	double ResendResolutionTime;
 
 	/* Last time we resent UNACKED packets */
-	float LastResendTime;
+	double LastResendTime;
 };
 
 /* Reliability Module Interface */

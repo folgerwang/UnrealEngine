@@ -85,6 +85,15 @@ void UMovieSceneNiagaraEmitterTrack::Initialize(FNiagaraSystemViewModel& InSyste
 	CreateSections(InFrameResolution);
 }
 
+bool UMovieSceneNiagaraEmitterTrack::CanRename() const
+{
+	if (SystemViewModel && SystemViewModel->GetEditMode() == ENiagaraSystemViewModelEditMode::SystemAsset)
+	{
+		return true;
+	}
+	return false;
+}
+
 FNiagaraSystemViewModel& UMovieSceneNiagaraEmitterTrack::GetSystemViewModel() const
 {
 	return *SystemViewModel;

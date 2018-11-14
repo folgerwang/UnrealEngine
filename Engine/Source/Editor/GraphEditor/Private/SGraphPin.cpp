@@ -214,17 +214,22 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 
 		if (ValueWidget != SNullWidget::NullWidget)
 		{
+			TSharedPtr<SBox> ValueBox;
 			LabelAndValue->AddSlot()
 				.Padding(bIsInput ? FMargin(InArgs._SideToSideMargin, 0, 0, 0) : FMargin(0, 0, InArgs._SideToSideMargin, 0))
 				.VAlign(VAlign_Center)
 				[
-					SNew(SBox)
+					SAssignNew(ValueBox, SBox)
 					.Padding(0.0f)
-					.IsEnabled(this, &SGraphPin::IsEditingEnabled)
 					[
 						ValueWidget.ToSharedRef()
 					]
 				];
+
+			if (!DoesWidgetHandleSettingEditingEnabled())
+			{
+				ValueBox->SetEnabled(TAttribute<bool>(this, &SGraphPin::IsEditingEnabled));
+			}
 		}
 
 		LabelAndValue->AddSlot()
@@ -958,7 +963,7 @@ FSlateColor SGraphPin::GetPinColor() const
 		}
 		if (const UEdGraphSchema* Schema = GraphPinObj->GetSchema())
 		{
-			if (!GetPinObj()->GetOwningNode()->IsNodeEnabled() || !IsEditingEnabled())
+			if (!GetPinObj()->GetOwningNode()->IsNodeEnabled() || GetPinObj()->GetOwningNode()->IsDisplayAsDisabledForced() || !IsEditingEnabled())
 			{
 				return Schema->GetPinTypeColor(GraphPinObj->PinType) * FLinearColor(1.0f, 1.0f, 1.0f, 0.5f);
 			}
@@ -981,7 +986,7 @@ FSlateColor SGraphPin::GetPinTextColor() const
 	// If there is no schema there is no owning node (or basically this is a deleted node)
 	if (UEdGraphNode* GraphNode = GraphPinObj->GetOwningNodeUnchecked())
 	{
-		const bool bDisabled = (!GraphNode->IsNodeEnabled() || !IsEditingEnabled());
+		const bool bDisabled = (!GraphNode->IsNodeEnabled() || GraphNode->IsDisplayAsDisabledForced() || !IsEditingEnabled());
 		if (GraphPinObj->bOrphanedPin)
 		{
 			FLinearColor PinColor = FLinearColor::Red;

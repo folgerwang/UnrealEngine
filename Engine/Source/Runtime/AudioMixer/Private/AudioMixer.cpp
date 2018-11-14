@@ -221,6 +221,8 @@ namespace Audio
 		, bPerformingFade(true)
 		, bFadedOut(false)
 		, bIsDeviceInitialized(false)
+		, bIsUsingNullDevice(false)
+		, NullDeviceCallback(nullptr)
 	{
 		FadeParam.SetValue(0.0f);
 	}
@@ -278,6 +280,28 @@ namespace Audio
 		}
 
 		FadeParam.Reset();
+	}
+
+	void IAudioMixerPlatformInterface::StartRunningNullDevice()
+	{
+		if (!NullDeviceCallback.IsValid())
+		{
+			float BufferDuration = ((float) OpenStreamParams.NumFrames) / OpenStreamParams.SampleRate;
+			NullDeviceCallback.Reset(new FMixerNullCallback( BufferDuration, [this]()
+			{
+				this->ReadNextBuffer();
+			}));
+			bIsUsingNullDevice = true;
+		}
+	}
+
+	void IAudioMixerPlatformInterface::StopRunningNullDevice()
+	{
+		if (NullDeviceCallback.IsValid())
+		{
+			NullDeviceCallback.Reset();
+			bIsUsingNullDevice = false;
+		}
 	}
 
 	void IAudioMixerPlatformInterface::ApplyMasterAttenuation()

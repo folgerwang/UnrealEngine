@@ -98,6 +98,12 @@ public:
 	/** Returns all the assets that are selected in the asset view */
 	void GetSelectedAssets(TArray<FAssetData>& SelectedAssets);
 
+	/** Returns all the folders that are selected in the asset view */
+	void GetSelectedFolders(TArray<FString>& SelectedFolders);
+
+	/** Returns the folders that are selected in the path view */
+	TArray<FString> GetSelectedPathViewFolders();
+
 	/** Saves all persistent settings to config and returns a string identifier */
 	void SaveSettings() const;
 
@@ -490,6 +496,9 @@ private:
 
 	/** The splitter between the path & collection view */
 	TSharedPtr<SSplitter> PathCollectionSplitterPtr;
+
+	/** The splitter between the path & favorite view */
+	TSharedPtr<SSplitter> PathFavoriteSplitterPtr;
 
 	/** When viewing a dynamic collection, the active search query will be stashed in this variable so that it can be restored again later */
 	TOptional<FText> StashedSearchBoxText;

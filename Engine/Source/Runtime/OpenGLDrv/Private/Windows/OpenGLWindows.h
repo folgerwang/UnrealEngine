@@ -559,7 +559,7 @@ struct FWindowsOpenGL : public FOpenGL4
 		glGetProgramBinary(Program, BufSize, Length, BinaryFormat, Binary);
 	}
 
-	static FORCEINLINE void ProgramBinary(GLuint Program, GLenum BinaryFormat, void *Binary, GLsizei Length)
+	static FORCEINLINE void ProgramBinary(GLuint Program, GLenum BinaryFormat, const void *Binary, GLsizei Length)
 	{
 		glProgramBinary(Program, BinaryFormat, Binary, Length);
 	}

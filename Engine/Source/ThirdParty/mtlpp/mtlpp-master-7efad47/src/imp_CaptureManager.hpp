@@ -7,7 +7,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<MTLCaptureManager*, void> : public IMPTableBase<MTLCaptureManager*>
+struct MTLPP_EXPORT IMPTable<MTLCaptureManager*, void> : public IMPTableBase<MTLCaptureManager*>
 {
 	IMPTable()
 	{
@@ -39,7 +39,7 @@ struct IMPTable<MTLCaptureManager*, void> : public IMPTableBase<MTLCaptureManage
 };
 
 template<typename InterposeClass>
-struct IMPTable<MTLCaptureManager*, InterposeClass> : public IMPTable<MTLCaptureManager*, void>
+struct MTLPP_EXPORT IMPTable<MTLCaptureManager*, InterposeClass> : public IMPTable<MTLCaptureManager*, void>
 {
 	IMPTable()
 	{

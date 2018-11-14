@@ -293,6 +293,7 @@ private:
 	void HandleModifierChange(NSUInteger NewModifierFlags, NSUInteger FlagsShift, NSUInteger UE4Shift, EMacModifierKeys TranslatedCode);
 
 	FCocoaWindow* FindEventWindow(NSEvent* CocoaEvent) const;
+	FCocoaWindow* FindSlateWindowUnderCursor() const;
 	EWindowZone::Type GetCurrentWindowZone(const TSharedRef<FMacWindow>& Window) const;
 	bool IsEdgeZone(EWindowZone::Type Zone) const;
 	bool IsPrintableKey(uint32 Character) const;
@@ -341,6 +342,7 @@ private:
 	bool bHasLoadedInputPlugins;
 
 	FCocoaWindow* DraggedWindow;
+	FCocoaWindow* WindowUnderCursor;
 
 	TSharedPtr<FMacWindow> ActiveWindow;
 

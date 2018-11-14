@@ -31,6 +31,8 @@
 #include "GameplayTagReferenceHelperDetails.h"
 #include "UObject/UObjectHash.h"
 #include "GameplayTagReferenceHelperDetails.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/FileHelper.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagEditor"
 
@@ -387,7 +389,7 @@ public:
 							break;
 						}
 
-						ShowNotification(FText::Format(LOCTEXT("AddTagFailure", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
+						ShowNotification(FText::Format(LOCTEXT("AddTagFailure_RestrictedTag", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
 
 						return false;
 					}
@@ -635,7 +637,7 @@ public:
 				if (bTagDidAllowNonRestrictedChildren && !bAllowNonRestrictedChildren)
 				{
 					FGameplayTag ActualTag = Manager.RequestGameplayTag(TagName);
-					FGameplayTagContainer ChildTags = Manager.RequestGameplayTagDirectDescendantsInDictionary(ActualTag, EGameplayTagSelectionType::RestrictedOnly);
+					FGameplayTagContainer ChildTags = Manager.RequestGameplayTagDirectDescendantsInDictionary(ActualTag, EGameplayTagSelectionType::NonRestrictedOnly);
 					if (!ChildTags.IsEmpty())
 					{
 						ShowNotification(LOCTEXT("ToggleAllowNonRestrictedChildrenFailure", "Cannot prevent non-restricted children since some already exist! Delete them first."), 10.0f);
@@ -662,23 +664,6 @@ public:
 						}
 					}
 				}
-
-				// nothing to do here for non-restricted tags but this is the code that would handle it if we expand this function
-				// 				else if (TagSource->SourceTagList)
-				// 				{
-				// 					UGameplayTagsList* TagList = TagSource->SourceTagList;
-				//					TagListObj = TagList;
-				// 
-				// 					for (int32 i = 0; i < TagList->GameplayTagList.Num(); i++)
-				// 					{
-				// 						if (TagList->GameplayTagList[i].Tag == TagName)
-				// 						{
-				// 
-				// 							bSuccess = true;
-				// 							break;
-				// 						}
-				// 					}
-				// 				}
 
 				if (bSuccess)
 				{
@@ -792,6 +777,76 @@ public:
 		return true;
 	}
 
+	static bool WriteCustomReport(FString FileName, TArray<FString>& FileLines)
+	{
+		// Has a report been generated
+		bool ReportGenerated = false;
+
+		// Ensure we have a log to write
+		if (FileLines.Num())
+		{
+			// Create the file name		
+			FString FileLocation = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() + TEXT("Reports/"));
+			FString FullPath = FString::Printf(TEXT("%s%s"), *FileLocation, *FileName);
+
+			// save file
+			FArchive* LogFile = IFileManager::Get().CreateFileWriter(*FullPath);
+
+			if (LogFile != NULL)
+			{
+				for (int32 Index = 0; Index < FileLines.Num(); ++Index)
+				{
+					FString LogEntry = FString::Printf(TEXT("%s"), *FileLines[Index]) + LINE_TERMINATOR;
+					LogFile->Serialize(TCHAR_TO_ANSI(*LogEntry), LogEntry.Len());
+				}
+
+				LogFile->Close();
+				delete LogFile;
+
+				// A report has been generated
+				ReportGenerated = true;
+			}
+		}
+
+		return ReportGenerated;
+	}
+
+	static void DumpTagList()
+	{
+		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
+
+		TArray<FString> ReportLines;
+
+		ReportLines.Add(TEXT("Tag,Reference Count,Source,Comment"));
+
+		FGameplayTagContainer AllTags;
+		Manager.RequestAllGameplayTags(AllTags, true);
+
+		TArray<FGameplayTag> ExplicitList;
+		AllTags.GetGameplayTagArray(ExplicitList);
+
+		ExplicitList.Sort();
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		
+		for (const FGameplayTag& Tag : ExplicitList)
+		{
+			TArray<FAssetIdentifier> Referencers;
+			FAssetIdentifier TagId = FAssetIdentifier(FGameplayTag::StaticStruct(), Tag.GetTagName());
+			AssetRegistryModule.Get().GetReferencers(TagId, Referencers, EAssetRegistryDependencyType::SearchableName);
+
+			FString Comment;
+			FName TagSource;
+			bool bExplicit, bRestricted, bAllowNonRestrictedChildren;
+
+			Manager.GetTagEditorData(Tag.GetTagName(), Comment, TagSource, bExplicit, bRestricted, bAllowNonRestrictedChildren);
+
+			ReportLines.Add(FString::Printf(TEXT("%s,%d,%s,%s"), *Tag.ToString(), Referencers.Num(), *TagSource.ToString(), *Comment));
+		}
+
+		WriteCustomReport(TEXT("TagList.csv"), ReportLines);
+	}
+
 	FDelegateHandle AssetImportHandle;
 	FDelegateHandle SettingsChangedHandle;
 
@@ -799,6 +854,11 @@ public:
 	FName GameplayTagStructName;
 };
 
+static FAutoConsoleCommand CVarDumpTagList(
+	TEXT("GameplayTags.DumpTagList"),
+	TEXT("Writes out a csv with all tags to Reports/TagList.csv"),
+	FConsoleCommandDelegate::CreateStatic(FGameplayTagsEditorModule::DumpTagList),
+	ECVF_Cheat);
 
 IMPLEMENT_MODULE(FGameplayTagsEditorModule, GameplayTagsEditor)
 

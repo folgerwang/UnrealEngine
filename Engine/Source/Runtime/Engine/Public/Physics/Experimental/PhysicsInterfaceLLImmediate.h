@@ -351,7 +351,7 @@ public:
 	static void SetCcdEnabled_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, bool bIsCcdEnabled);
 
 	static FTransform GetGlobalPose_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference);
-	static void SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FTransform& InNewPose);
+	static void SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FTransform& InNewPose, bool bAutoWake = true);
 
 	static FTransform GetTransform_AssumesLocked(const FPhysicsActorHandle& InRef, bool bForceGlobalPose = false);
 
@@ -360,10 +360,10 @@ public:
 	static void SetKinematicTarget_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FTransform& InNewTarget);
 
 	static FVector GetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference);
-	static void SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity);
+	static void SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity, bool bAutoWake = true);
 
 	static FVector GetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference);
-	static void SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity);
+	static void SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, const FVector& InNewVelocity, bool bAutoWake = true);
 	static float GetMaxAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference);
 	static void SetMaxAngularVelocity_AssumesLocked(const FPhysicsActorHandle_LLImmediate& InActorReference, float InMaxAngularVelocity);
 

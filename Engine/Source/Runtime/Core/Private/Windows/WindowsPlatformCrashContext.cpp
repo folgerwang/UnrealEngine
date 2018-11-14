@@ -301,20 +301,34 @@ static bool bReentranceGuard = false;
 /**
  * A wrapper for ReportCrashUsingCrashReportClient that creates a new ensure crash context
  */
-int32 ReportEnsureUsingCrashReportClient(EXCEPTION_POINTERS* ExceptionInfo, const TCHAR* ErrorMessage, EErrorReportUI ReportUI)
+int32 ReportEnsureUsingCrashReportClient(HANDLE Thread, EXCEPTION_POINTERS* ExceptionInfo, int32 IgnoreCount, const TCHAR* ErrorMessage, EErrorReportUI ReportUI)
 {
 	const bool bIsEnsure = true;
 	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
+
+	void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, Thread);
+	CrashContext.CapturePortableCallStack(IgnoreCount, ContextWrapper);
 
 	return ReportCrashUsingCrashReportClient(CrashContext, ExceptionInfo, ErrorMessage, ReportUI, bIsEnsure);
 }
 #endif
 
+void ReportHang(const TCHAR* ErrorMessage, const TArray<FProgramCounterSymbolInfo>& Stack)
+{
+	const bool bIsEnsure = true;
+
+	FWindowsPlatformCrashContext CrashContext(bIsEnsure);
+	CrashContext.SetPortableCallStack(0, Stack);
+
+	EErrorReportUI ReportUI = IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode;
+	ReportCrashUsingCrashReportClient(CrashContext, nullptr, ErrorMessage, ReportUI, bIsEnsure);
+}
+
 // #CrashReport: 2015-05-28 This should be named EngineEnsureHandler
 /** 
  * Report an ensure to the crash reporting system
  */
-void NewReportEnsure( const TCHAR* ErrorMessage )
+FORCENOINLINE void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
 	if (ReportCrashCallCount > 0)
 	{
@@ -343,6 +357,9 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	}
 
 	bReentranceGuard = true;
+	
+	// Ignore this function and the RaiseException() call below.
+	NumStackFramesToIgnore += 2;
 
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
 #if !PLATFORM_SEH_EXCEPTIONS_DISABLED
@@ -352,7 +369,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 		FPlatformMisc::RaiseException( 1 );
 	}
 #if !PLATFORM_SEH_EXCEPTIONS_DISABLED
-	__except(ReportEnsureUsingCrashReportClient(GetExceptionInformation(), ErrorMessage, IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode))
+	__except(ReportEnsureUsingCrashReportClient(GetCurrentThread(), GetExceptionInformation(), NumStackFramesToIgnore, ErrorMessage, IsInteractiveEnsureMode() ? EErrorReportUI::ShowDialog : EErrorReportUI::ReportInUnattendedMode))
 	CA_SUPPRESS(6322)
 	{
 	}
@@ -542,10 +559,14 @@ private:
 		// Thread context wrapper for stack operations
 		void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
 
-		// Generate the portable callstack, for non-Asserts pass in a negative IgnoreCount as need top of crash context record, and IgnoreCount is increased by stack walking methods
-		const int32 IgnoreCount = FDebug::HasAsserted() ? 1 : -3;
-		const int32 MaxDepth = 100;
-		FGenericCrashContext::GeneratePortableCallStack(IgnoreCount, MaxDepth, ContextWrapper);
+		// Generate the portable callstack. For asserts, we ignore the following frames:
+		//     FDebug::AssertFailed()
+		//   [ FOutputDevice::Logf() ] - force-inlined; ignored
+		//     FOutputDevice::LogfImpl()
+		//     FWindowsErrorOutputDevice::Serialize()
+		//     RaiseException()
+		const int32 IgnoreCount = FDebug::HasAsserted() ? 4 : 0;
+		CrashContext.CapturePortableCallStack(IgnoreCount, ContextWrapper);
 
 		// First launch the crash reporter client.
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP

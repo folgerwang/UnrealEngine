@@ -50,6 +50,7 @@ private:
 	NSUInteger MinAlign;
 	NSUInteger UsedSize;
 	mtlpp::Buffer ParentBuffer;
+	mutable mtlpp::Heap ParentHeap;
 	TArray<ns::Range> FreeRanges;
 };
 
@@ -106,6 +107,7 @@ private:
 	NSUInteger MinAlign;
 	int64 volatile UsedSize;
 	mtlpp::Buffer ParentBuffer;
+	mutable mtlpp::Heap ParentHeap;
 	TLockFreePointerListLIFO<ns::Range> FreeRanges;
 };
 

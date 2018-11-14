@@ -192,6 +192,10 @@ public:
 	bool IsEditingEnabled() const;
 
 protected:
+
+	/** If true the graph pin subclass is responsible for setting the IsEnabled delegates for the aspects it cares about. If false, the default value widget enabling is done by the base class */
+	virtual bool DoesWidgetHandleSettingEditingEnabled() const { return false; }
+
 	FText GetPinLabel() const;
 
 	/** If we should show the label on this pin */

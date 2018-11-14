@@ -73,6 +73,8 @@ void FSubmixEffectSubmixEQ::Init(const FSoundEffectSubmixInitData& InitData)
 // Called when an audio effect preset is changed
 void FSubmixEffectSubmixEQ::OnPresetChanged()
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	GET_EFFECT_SETTINGS(SubmixEffectSubmixEQ);
 
 	// Don't make any changes if this is the exact same parameters
@@ -85,6 +87,8 @@ void FSubmixEffectSubmixEQ::OnPresetChanged()
 
 void FSubmixEffectSubmixEQ::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
  	SCOPE_CYCLE_COUNTER(STAT_AudioMixerMasterEQ);
 
 	// Update parameters that may have been set from game thread

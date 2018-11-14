@@ -7,7 +7,7 @@
 #include "Common.ush"
 
 #if PS4_PROFILE
-# include "PS4/WideCustomResolveShaders.ush"
+# include "Platform/PS4/WideCustomResolveShaders.ush"
 #else
 
 float2 ResolveOrigin;

@@ -228,6 +228,10 @@ bool FAppleHttpRequest::ProcessRequest()
 	{
 		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. URL '%s' is not a valid HTTP request. %p"), *GetURL(), this);
 	}
+	else if (!FHttpModule::Get().GetHttpManager().IsDomainAllowed(GetURL()))
+	{
+		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. URL '%s' is not using a whitelisted domain. %p"), *GetURL(), this);
+	}
 	else
 	{
 		bStarted = StartRequest();

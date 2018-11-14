@@ -109,11 +109,11 @@ class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 #if !IS_PROGRAM && !WITH_EDITORONLY_DATA
 			if (!LogDevice
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				 && FParse::Param(FCommandLine::Get(), TEXT("LOGTOMEMORY")) 
+				&& FParse::Param(FCommandLine::Get(), TEXT("LOGTOMEMORY"))
 #else
-				 && !FParse::Param(FCommandLine::Get(), TEXT("NOLOGTOMEMORY")) && !FPlatformProperties::IsServerOnly()
+				&& !FParse::Param(FCommandLine::Get(), TEXT("NOLOGTOMEMORY")) && !FPlatformProperties::IsServerOnly()
 #endif
-				 )
+				)
 			{
 				LogDevice = MakeUnique<FOutputDeviceMemory>();
 			}

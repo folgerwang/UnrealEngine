@@ -7,6 +7,7 @@
 #include "D3D11RHIPrivate.h"
 #include "RenderCore.h"
 #include "Engine/RendererSettings.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #ifndef D3D11_WITH_DWMAPI
 #if WINVER > 0x502		// Windows XP doesn't support DWM
@@ -81,7 +82,6 @@ namespace RHIConsoleVariables
 		TEXT("Number of frames that can be queued for render."),
 		ECVF_RenderThreadSafe
 		);
-
 };
 
 extern void D3D11TextureAllocated2D( FD3D11Texture2D& Texture );
@@ -330,6 +330,33 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 			CustomPresent->PostPresent();
 		}
 	}
+
+	FThreadHeartBeat::Get().PresentFrame();
+
+	if (FAILED(Result))
+	{
+		DXGI_SWAP_CHAIN_DESC Desc;
+		UE_LOG(LogRHI, Error, TEXT("SyncInterval %i"), SyncInterval);
+		if (!FAILED(SwapChain->GetDesc(&Desc)))
+		{
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Width %i"), Desc.BufferDesc.Width);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Height %i"), Desc.BufferDesc.Height);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.RefreshRate.Numerator %i"), Desc.BufferDesc.RefreshRate.Numerator);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.RefreshRate.Denominator %i"), Desc.BufferDesc.RefreshRate.Denominator);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Format %i"), Desc.BufferDesc.Format);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.ScanlineOrdering %i"), Desc.BufferDesc.ScanlineOrdering);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferDesc.Scaling %i"), Desc.BufferDesc.Scaling);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.SampleDesc.Count %i"), Desc.SampleDesc.Count);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.SampleDesc.Quality %i"), Desc.SampleDesc.Quality);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferUsage %i"), Desc.BufferUsage);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.BufferCount %i"), Desc.BufferCount);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.OutputWindow %p"), Desc.OutputWindow);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.Windowed %s"), Desc.Windowed ? TEXT("true") : TEXT("false"));
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.SwapEffect %u"), Desc.SwapEffect);
+			UE_LOG(LogRHI, Error, TEXT("SwapChainDesc.Flags %u"), Desc.Flags);
+		}
+	}
+	FThreadHeartBeat::Get().PresentFrame();
 
 	VERIFYD3D11RESULT_EX(Result, D3DRHI->GetDevice());
 	
@@ -628,7 +655,11 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	StateCache.SetGeometryShader(nullptr);
 	// Compute Shader is set to NULL after each Dispatch call, so no need to clear it here
 
-	bool bNativelyPresented = Viewport->Present(bLockToVsync);
+	bool bNativelyPresented = true;
+	if (bPresent)
+	{
+		bNativelyPresented = Viewport->Present(bLockToVsync);
+	}
 
 	// Don't wait on the GPU when using SLI, let the driver determine how many frames behind the GPU should be allowed to get
 	if (GNumAlternateFrameRenderingGroups == 1)

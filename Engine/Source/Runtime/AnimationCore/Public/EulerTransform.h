@@ -16,6 +16,9 @@ struct ANIMATIONCORE_API FEulerTransform
 	static const FEulerTransform Identity;
 
 	FEulerTransform()
+		: Location(ForceInitToZero)
+		, Rotation(ForceInitToZero)
+		, Scale(ForceInitToZero)
 	{
 	}
 

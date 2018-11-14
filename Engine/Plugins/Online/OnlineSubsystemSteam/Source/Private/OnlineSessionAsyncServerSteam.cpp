@@ -82,12 +82,12 @@ void GetServerKeyValuePairsFromSessionSettings(const FOnlineSessionSettings& Ses
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("Empty session setting %s %s of type %s"), *Key.ToString(), *Setting.ToString(), EOnlineKeyValuePairDataType::ToString(Setting.Data.GetType()));
+					UE_LOG_ONLINE_SESSION(Warning, TEXT("Empty session setting %s %s of type %s"), *Key.ToString(), *Setting.ToString(), EOnlineKeyValuePairDataType::ToString(Setting.Data.GetType()));
 				}
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Unsupported session setting %s %s of type %s"), *Key.ToString(), *Setting.ToString(), EOnlineKeyValuePairDataType::ToString(Setting.Data.GetType()));
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Unsupported session setting %s %s of type %s"), *Key.ToString(), *Setting.ToString(), EOnlineKeyValuePairDataType::ToString(Setting.Data.GetType()));
 			}
 		}
 	}
@@ -234,7 +234,7 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 	FSteamSessionKeyValuePairs::TConstIterator It(AdvertisedKeyValuePairs);
 	if (It)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Master Server Data (%s, %s)"), *It.Key(), *It.Value());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Master Server Data (%s, %s)"), *It.Key(), *It.Value());
 		FString NewKey = FString::Printf(TEXT("%s:%s"), *It.Key(), *It.Value());
 
 		if (GameTagsString.Len() + NewKey.Len() < k_cbMaxGameServerTags)
@@ -243,7 +243,7 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Server setting %s overflows Steam SetGameTags call"), *NewKey);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameTags call"), *NewKey);
 		}
 
 		if (NewKey.Len() < k_cbMaxGameServerGameData)
@@ -252,14 +252,14 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Server setting %s overflows Steam SetGameData call"), *NewKey);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameData call"), *NewKey);
 		}
 
 		++It;
 	}
 	for (; It; ++It)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Master Server Data (%s, %s)"), *It.Key(), *It.Value());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Master Server Data (%s, %s)"), *It.Key(), *It.Value());
 		FString NewKey = FString::Printf(TEXT(",%s:%s"), *It.Key(), *It.Value());
 		if (GameTagsString.Len() + NewKey.Len() < k_cbMaxGameServerTags)
 		{
@@ -267,7 +267,7 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Server setting %s overflows Steam SetGameTags call"), *NewKey);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameTags call"), *NewKey);
 		}
 
 		if (GameDataString.Len() + NewKey.Len() < k_cbMaxGameServerGameData)
@@ -276,21 +276,21 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Server setting %s overflows Steam SetGameData call"), *NewKey);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Server setting %s overflows Steam SetGameData call"), *NewKey);
 		}
 	}
 
 	// Small and searchable game tags (returned in initial server query structure)
 	if (GameTagsString.Len() > 0 && GameTagsString.Len() < k_cbMaxGameServerTags)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("SetGameTags(%s)"), *GameTagsString);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("SetGameTags(%s)"), *GameTagsString);
 		SteamGameServerPtr->SetGameTags(TCHAR_TO_UTF8(*GameTagsString));
 	}
 
 	// Large and searchable game data (never returned)
 	if (GameDataString.Len() > 0 && GameDataString.Len() < k_cbMaxGameServerGameData)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("SetGameData(%s)"), *GameDataString);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("SetGameData(%s)"), *GameDataString);
 		SteamGameServerPtr->SetGameData(TCHAR_TO_UTF8(*GameDataString));
 	}
 
@@ -301,14 +301,14 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 	// Key value pairs sent as rules (requires secondary RulesRequest call)
 	for (FSteamSessionKeyValuePairs::TConstIterator AdvKeyIt(AdvertisedKeyValuePairs); AdvKeyIt; ++AdvKeyIt)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Aux Server Data (%s, %s)"), *AdvKeyIt.Key(), *AdvKeyIt.Value());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Aux Server Data (%s, %s)"), *AdvKeyIt.Key(), *AdvKeyIt.Value());
 		SteamGameServerPtr->SetKeyValue(TCHAR_TO_UTF8(*AdvKeyIt.Key()), TCHAR_TO_UTF8(*AdvKeyIt.Value()));
 	}
 
 	// Key value pairs sent as rules (requires secondary RulesRequest call)
 	for (FSteamSessionKeyValuePairs::TConstIterator AuxKeyIt(AuxKeyValuePairs); AuxKeyIt; ++AuxKeyIt)
 	{
-		UE_LOG_ONLINE(Verbose, TEXT("Aux Server Data (%s, %s)"), *AuxKeyIt.Key(), *AuxKeyIt.Value());
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("Aux Server Data (%s, %s)"), *AuxKeyIt.Key(), *AuxKeyIt.Value());
 		SteamGameServerPtr->SetKeyValue(TCHAR_TO_UTF8(*AuxKeyIt.Key()), TCHAR_TO_UTF8(*AuxKeyIt.Value()));
 	}
 }	
@@ -396,11 +396,11 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 			// Create the proper Steam P2P address for this machine
 			NewSessionInfo->SteamP2PAddr = ISocketSubsystem::Get()->GetLocalBindAddr(*GLog);
 			NewSessionInfo->SteamP2PAddr->SetPort(Subsystem->GetGameServerGamePort());
-			UE_LOG_ONLINE(Verbose, TEXT("Server SteamP2P IP: %s"), *NewSessionInfo->SteamP2PAddr->ToString(true));
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("Server SteamP2P IP: %s"), *NewSessionInfo->SteamP2PAddr->ToString(true));
 
 			// Create the proper ip address for this server
 			NewSessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr(SteamGameServerPtr->GetPublicIP(), Subsystem->GetGameServerGamePort());
-			UE_LOG_ONLINE(Verbose, TEXT("Server IP: %s"), *NewSessionInfo->HostAddr->ToString(true));
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("Server IP: %s"), *NewSessionInfo->HostAddr->ToString(true));
 
 			if (!Session->OwningUserId.IsValid())
 			{
@@ -436,7 +436,7 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("No session %s found to update with Steam backend"), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("No session %s found to update with Steam backend"), *SessionName.ToString());
 		}
 	}
 	else
@@ -480,7 +480,7 @@ void FOnlineAsyncTaskSteamUpdateServer::Tick()
 		bool bUsesPresence = Session->SessionSettings.bUsesPresence;
 		if (bUsesPresence != NewSessionSettings.bUsesPresence)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Can't change presence settings on existing session %s, ignoring."), *SessionName.ToString());
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Can't change presence settings on existing session %s, ignoring."), *SessionName.ToString());
 		}
 
 		Session->SessionSettings = NewSessionSettings;
@@ -498,7 +498,7 @@ void FOnlineAsyncTaskSteamUpdateServer::Tick()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No session %s found to update with Steam backend"), *SessionName.ToString());
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("No session %s found to update with Steam backend"), *SessionName.ToString());
 	}
 
 	bIsComplete = true;
@@ -659,7 +659,7 @@ bool FPendingSearchResultSteam::FillSessionFromServerRules()
 			else
 			{
 				bSuccess = false;
-				UE_LOG_ONLINE(Warning, TEXT("Failed to parse setting from key %s value %s"), *It.Key(), *It.Value());
+				UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to parse setting from key %s value %s"), *It.Key(), *It.Value());
 			}
 		}
 	}
@@ -683,7 +683,7 @@ bool FPendingSearchResultSteam::FillSessionFromServerRules()
  */ 
 void FPendingSearchResultSteam::RulesResponded(const char *pchRule, const char *pchValue)
 {
-	UE_LOG_ONLINE(Warning, TEXT("Rules response %s %s"), UTF8_TO_TCHAR(pchRule), UTF8_TO_TCHAR(pchValue));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Rules response %s %s"), UTF8_TO_TCHAR(pchRule), UTF8_TO_TCHAR(pchValue));
 	ParentQuery->ElapsedTime = 0.0f;
 	ServerRules.Add(UTF8_TO_TCHAR(pchRule), UTF8_TO_TCHAR(pchValue));
 }
@@ -693,7 +693,7 @@ void FPendingSearchResultSteam::RulesResponded(const char *pchRule, const char *
  */ 
 void FPendingSearchResultSteam::RulesFailedToRespond()
 {
-	UE_LOG_ONLINE(Warning, TEXT("Rules failed to respond for server"));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Rules failed to respond for server"));
 	ParentQuery->ElapsedTime = 0.0f;
 	RemoveSelf();
 }
@@ -704,7 +704,7 @@ void FPendingSearchResultSteam::RulesFailedToRespond()
  */
 void FPendingSearchResultSteam::RulesRefreshComplete()
 {
-	UE_LOG_ONLINE(Warning, TEXT("Rules refresh complete"));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Rules refresh complete"));
 	ParentQuery->ElapsedTime = 0.0f;
 
 	// Only append this data if there is an existing search (NULL CurrentSessionSearch implies no active search query)
@@ -874,7 +874,7 @@ void FOnlineAsyncTaskSteamFindServerBase::CreateQuery(MatchMakingKeyValuePair_t*
 					}
 					else
 					{
-						UE_LOG_ONLINE(Warning, TEXT("Skipping search clause due to size: %s"), *NewParam);
+						UE_LOG_ONLINE_SESSION(Warning, TEXT("Skipping search clause due to size: %s"), *NewParam);
 					}
 				}
 			}
@@ -933,7 +933,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 	ServerAddr->SetPort(ServerDetails->m_NetAdr.GetConnectionPort());
 	int32 ServerQueryPort = ServerDetails->m_NetAdr.GetQueryPort();
 
-	UE_LOG_ONLINE(Warning, TEXT("Server response IP:%s"), *ServerAddr->ToString(false));
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Server response IP:%s"), *ServerAddr->ToString(false));
 	if (ServerDetails->m_bHadSuccessfulResponse)
 	{
 		FString GameTags(UTF8_TO_TCHAR(ServerDetails->m_szGameTags));
@@ -985,7 +985,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("Removed incompatible build: ServerBuildUniqueId = 0x%08x, GetBuildUniqueId() = 0x%08x"),
 				ServerBuildId, BuildUniqueId);
 		}
 	}
@@ -1012,13 +1012,13 @@ void FOnlineAsyncTaskSteamFindServerBase::Tick()
 #if DEBUG_STEAM_FILTERS
 		for (int32 FilterIdx=0; FilterIdx<NumFilters; FilterIdx++)
 		{
-			UE_LOG_ONLINE(Verbose, TEXT(" \"%s\" \"%s\" "), UTF8_TO_TCHAR(Filters[FilterIdx].m_szKey), UTF8_TO_TCHAR(Filters[FilterIdx].m_szValue));
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT(" \"%s\" \"%s\" "), UTF8_TO_TCHAR(Filters[FilterIdx].m_szKey), UTF8_TO_TCHAR(Filters[FilterIdx].m_szValue));
 		}
 #endif
 
 		if (SearchSettings->MaxSearchResults <= 0)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("FOnlineAsyncTaskSteamFindServerBase::Tick - SearchSettings->MaxSearchResults should be greater than 0, but it is currently %d. No search results will be found."), SearchSettings->MaxSearchResults);
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("FOnlineAsyncTaskSteamFindServerBase::Tick - SearchSettings->MaxSearchResults should be greater than 0, but it is currently %d. No search results will be found."), SearchSettings->MaxSearchResults);
 		}
 
 		if (SearchSettings->bIsLanQuery)
@@ -1112,7 +1112,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ServerFailedToRespond(HServerListReque
 		ServerAddr->SetPort(Server->m_NetAdr.GetConnectionPort());
 		ServerQueryPort = Server->m_NetAdr.GetQueryPort();
 
-		UE_LOG_ONLINE(Warning, TEXT("Failed to respond IP:%s"), *ServerAddr->ToString(false));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Failed to respond IP:%s"), *ServerAddr->ToString(false));
 
 		// Filter out servers that don't match our appid here
 		if (Server->m_nAppID == SteamUtils()->GetAppID())
@@ -1126,7 +1126,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ServerFailedToRespond(HServerListReque
  */
 void FOnlineAsyncTaskSteamFindServerBase::RefreshComplete(HServerListRequest Request, EMatchMakingServerResponse Response)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("Server query complete %s"), *SteamMatchMakingServerResponseString(Response));
+	UE_LOG_ONLINE_SESSION(Verbose, TEXT("Server query complete %s"), *SteamMatchMakingServerResponseString(Response));
 	bServerRefreshComplete = true;
 	ElapsedTime = 0.0f;
 }
@@ -1246,7 +1246,7 @@ void FOnlineAsyncEventSteamInviteAccepted::Finalize()
 		TCHAR ParsedURL[1024];
 		if (!FParse::Value(*ConnectionURL, TEXT("SteamConnectIP="), ParsedURL, ARRAY_COUNT(ParsedURL)))
 		{
-			UE_LOG_ONLINE(Warning, TEXT("FOnlineAsyncEventSteamInviteAccepted: Failed to parse connection URL"));
+			UE_LOG_ONLINE_SESSION(Warning, TEXT("FOnlineAsyncEventSteamInviteAccepted: Failed to parse connection URL"));
 			return;
 		}
 
@@ -1274,7 +1274,7 @@ void FOnlineAsyncEventSteamInviteAccepted::Finalize()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Invalid session or search already in progress when accepting invite.  Ignoring invite request."));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Invalid session or search already in progress when accepting invite.  Ignoring invite request."));
 	}
 }
 

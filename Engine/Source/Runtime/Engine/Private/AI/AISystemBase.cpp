@@ -2,6 +2,8 @@
 
 #include "AI/AISystemBase.h"
 #include "Templates/Casts.h"
+#include "GameFramework/GameModeBase.h"
+
 
 UAISystemBase::UAISystemBase(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -20,7 +22,17 @@ FSoftClassPath UAISystemBase::GetAISystemClassName()
 	return AISystemDefaultObject != NULL ? AISystemDefaultObject->AISystemClassName : FSoftClassPath();
 }
 
+void UAISystemBase::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* NewWorld)
+{
+	FGameModeEvents::OnGameModeMatchStateSetEvent().Remove(OnMatchStateSetHandle);
+}
+
 void UAISystemBase::StartPlay()
+{
+	OnMatchStateSetHandle = FGameModeEvents::OnGameModeMatchStateSetEvent().AddUObject(this, &UAISystemBase::OnMatchStateSet);
+}
+
+void UAISystemBase::OnMatchStateSet(FName NewMatchState)
 {
 
 }

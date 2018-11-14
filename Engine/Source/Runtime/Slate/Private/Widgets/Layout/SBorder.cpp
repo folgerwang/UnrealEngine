@@ -17,7 +17,7 @@ void SBorder::Construct( const SBorder::FArguments& InArgs )
 	// Only do this if we're exactly an SBorder
 	if ( GetType() == SBorderTypeName )
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 
@@ -96,7 +96,7 @@ void SBorder::SetBorderBackgroundColor(const TAttribute<FSlateColor>& InColorAnd
 	if (!BorderBackgroundColor.IdenticalTo(InColorAndOpacity))
 	{
 		BorderBackgroundColor = InColorAndOpacity;
-		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		Invalidate(EInvalidateWidget::PaintAndVolatility);
 	}
 }
 

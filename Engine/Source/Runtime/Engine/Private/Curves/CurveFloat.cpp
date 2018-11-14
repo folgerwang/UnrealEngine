@@ -7,13 +7,13 @@
 #include "Curves/CurveFloat.h"
 
 FRuntimeFloatCurve::FRuntimeFloatCurve()
-	: ExternalCurve(NULL)
+	: ExternalCurve(nullptr)
 {
 }
 
 FRichCurve* FRuntimeFloatCurve::GetRichCurve()
 {
-	if(ExternalCurve != NULL)
+	if (ExternalCurve != nullptr)
 	{
 		return &(ExternalCurve->FloatCurve);
 	}
@@ -25,7 +25,7 @@ FRichCurve* FRuntimeFloatCurve::GetRichCurve()
 
 const FRichCurve* FRuntimeFloatCurve::GetRichCurveConst() const
 {
-	if (ExternalCurve != NULL)
+	if (ExternalCurve != nullptr)
 	{
 		return &(ExternalCurve->FloatCurve);
 	}

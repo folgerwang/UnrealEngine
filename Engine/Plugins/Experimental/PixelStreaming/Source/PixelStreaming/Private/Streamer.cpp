@@ -103,7 +103,7 @@ FStreamer::FStreamer(const TCHAR* IP, uint16 Port, const FTexture2DRHIRef& Frame
 
 	ProxyConnection.Reset(new FProxyConnection(IP, Port, *this));
 
-	UpdateEncoderSettings(FrameBuffer);
+	UpdateEncoderSettings(FrameBuffer, InitialMaxFPS);
 	CreateVideoEncoder(FrameBuffer);
 
 	// This needs to be called last, after ProxyConnection is created
@@ -235,7 +235,7 @@ void FStreamer::ForceIdrFrame()
 	VideoEncoder->ForceIdrFrame();
 }
 
-void FStreamer::UpdateEncoderSettings(const FTexture2DRHIRef& FrameBuffer)
+void FStreamer::UpdateEncoderSettings(const FTexture2DRHIRef& FrameBuffer, int32 Fps)
 {
 	float MaxBitrateMbps = CVarEncoderMaxBitrate.GetValueOnRenderThread();
 
@@ -260,7 +260,7 @@ void FStreamer::UpdateEncoderSettings(const FTexture2DRHIRef& FrameBuffer)
 	VideoEncoderSettings.AverageBitRate = ReducedBitrate;
 	SET_DWORD_STAT(STAT_PixelStreaming_EncodingBitrate, VideoEncoderSettings.AverageBitRate);
 
-	VideoEncoderSettings.FrameRate = GEngine->GetMaxFPS();
+	VideoEncoderSettings.FrameRate = Fps >= 0 ? Fps : GEngine->GetMaxFPS();
 	SET_DWORD_STAT(STAT_PixelStreaming_EncodingFramerate, VideoEncoderSettings.FrameRate);
 
 	bool bUseBackBufferSize = CVarEncoderUseBackBufferSize.GetValueOnAnyThread() > 0;

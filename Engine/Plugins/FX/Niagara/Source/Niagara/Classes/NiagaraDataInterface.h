@@ -53,11 +53,11 @@ struct TNDIParamBinder
 	{
 		if (BindingInfo.InputParamLocations[ParamIdx])
 		{
-			NextBinder::template Bind<ParamTypes..., FConstantHandler<DataType>>(Interface, BindingInfo, InstanceData, OutFunc);
+			NextBinder::template Bind<ParamTypes..., VectorVM::FExternalFuncConstHandler<DataType>>(Interface, BindingInfo, InstanceData, OutFunc);
 		}
 		else
 		{
-			NextBinder::template Bind<ParamTypes..., FRegisterHandler<DataType>>(Interface, BindingInfo, InstanceData, OutFunc);
+			NextBinder::template Bind<ParamTypes..., VectorVM::FExternalFuncRegisterHandler<DataType>>(Interface, BindingInfo, InstanceData, OutFunc);
 		}
 	}
 };
@@ -71,7 +71,6 @@ struct TNDIParamBinder<ParamIdx, DataType, TNDINoopBinder>
 	}
 };
 
-//Helper macros allowing us to define the final binding structs for each vm external function function more concisely.
 #define NDI_FUNC_BINDER(ClassName, FuncName) T##ClassName##_##FuncName##Binder
 
 #define DEFINE_NDI_FUNC_BINDER(ClassName, FuncName)\
@@ -80,21 +79,17 @@ struct NDI_FUNC_BINDER(ClassName, FuncName)\
 	template<typename ... ParamTypes>\
 	static void Bind(UNiagaraDataInterface* Interface, const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)\
 	{\
-		FVMExternalFunction::CreateUObject(CastChecked<ClassName>(Interface), &ClassName::FuncName<ParamTypes...>, OutFunc);\
+		auto Lambda = [Interface](FVectorVMContext& Context) { static_cast<ClassName*>(Interface)->FuncName<ParamTypes...>(Context); };\
+		OutFunc = FVMExternalFunction::CreateLambda(Lambda);\
 	}\
 };
 
-
-
-#define NDI_RAW_FUNC_BINDER(ClassName, FuncName) T##ClassName##_##FuncName##Binder
-
-#define DEFINE_NDI_RAW_FUNC_BINDER(ClassName, FuncName)\
-struct NDI_RAW_FUNC_BINDER(ClassName, FuncName)\
+#define DEFINE_NDI_DIRECT_FUNC_BINDER(ClassName, FuncName)\
+struct NDI_FUNC_BINDER(ClassName, FuncName)\
 {\
-	template<typename ... ParamTypes>\
-	static void Bind(UNiagaraDataInterface* Interface, const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)\
+	static void Bind(UNiagaraDataInterface* Interface, FVMExternalFunction &OutFunc)\
 	{\
-		auto Lambda = [Interface](FVectorVMContext& Context) { static_cast<ClassName*>(Interface)->FuncName<ParamTypes...>(Context); };\
+		auto Lambda = [Interface](FVectorVMContext& Context) { static_cast<ClassName*>(Interface)->FuncName(Context); };\
 		OutFunc = FVMExternalFunction::CreateLambda(Lambda);\
 	}\
 };
@@ -311,7 +306,7 @@ public:
 	}
 
 	//TODO: Make this a texture and get HW filter + clamping?
-	FRWBuffer& GetCurveLUTGPUBuffer();
+	FReadBuffer& GetCurveLUTGPUBuffer();
 
 	//UNiagaraDataInterface interface
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
@@ -328,7 +323,7 @@ protected:
 	virtual bool CompareLUTS(const TArray<float>& OtherLUT) const;
 	//UNiagaraDataInterface interface END
 
-	FRWBuffer CurveLUT;
+	FReadBuffer CurveLUT;
 };
 
 //External function binder choosing between template specializations based on if a curve should use the LUT over full evaluation.

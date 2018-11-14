@@ -1098,6 +1098,104 @@ namespace PropertyEditorHelpers
 		return bIsVisibleStandalone;
 	}
 
+	static const FName NAME_DisplayAfter("DisplayAfter");
+	static const FName NAME_DisplayPriority("DisplayPriority");
+
+	void OrderPropertiesFromMetadata(TArray<UProperty*>& Properties)
+	{
+		TMap<FName, TArray<TTuple<UProperty*, int32>>> DisplayAfterPropertyMap;
+		TArray<TTuple<UProperty*, int32>> OrderedProperties;
+		OrderedProperties.Reserve(Properties.Num());
+
+		// First establish the properties that are not dependent on another property in display priority order
+		// At the same time build a display priority sorted list of order after properties for each property name
+		for (UProperty* Prop : Properties)
+		{
+			const FString& DisplayPriorityStr = Prop->GetMetaData(NAME_DisplayPriority);
+			int32 DisplayPriority = (DisplayPriorityStr.IsEmpty() ? MAX_int32 : FCString::Atoi(*DisplayPriorityStr));
+			if (DisplayPriority == 0 && !FCString::IsNumeric(*DisplayPriorityStr))
+			{
+				// If there was a malformed display priority str Atoi will say it is 0, but we want to treat it as unset
+				DisplayPriority = MAX_int32;
+			}
+
+			auto InsertProperty = [Prop, DisplayPriority](TArray<TTuple<UProperty*, int32>>& InsertToArray)
+			{
+				bool bInserted = false;
+				if (DisplayPriority != MAX_int32)
+				{
+					for (int32 InsertIndex = 0; InsertIndex < InsertToArray.Num(); ++InsertIndex)
+					{
+						const int32 PriorityAtIndex = InsertToArray[InsertIndex].Get<1>();
+						if (DisplayPriority < PriorityAtIndex)
+						{
+							InsertToArray.Insert(MakeTuple(Prop, DisplayPriority), InsertIndex);
+							bInserted = true;
+							break;
+						}
+					}
+				}
+
+				if (!bInserted)
+				{
+					InsertToArray.Emplace(MakeTuple(Prop, DisplayPriority));
+				}
+			};
+
+			const FString& DisplayAfterPropertyName = Prop->GetMetaData(NAME_DisplayAfter);
+			if (DisplayAfterPropertyName.IsEmpty())
+			{
+				InsertProperty(OrderedProperties);
+			}
+			else
+			{
+				TArray<TPair<UProperty*, int32>>& DisplayAfterProperties = DisplayAfterPropertyMap.FindOrAdd(FName(*DisplayAfterPropertyName));
+				InsertProperty(DisplayAfterProperties);
+			}
+		}
+
+		// While there are still properties that need insertion seek out the property they should be listed after and insert them in their pre-display priority sorted order
+		int32 RemainingDisplayAfterNodes = -1; // avoid infinite loop caused by cycles or missing dependencies by tracking that the map shrunk each iteration
+		while (DisplayAfterPropertyMap.Num() > 0 && DisplayAfterPropertyMap.Num() != RemainingDisplayAfterNodes)
+		{
+			RemainingDisplayAfterNodes = DisplayAfterPropertyMap.Num();
+
+			for (int32 InsertIndex = 0; InsertIndex < OrderedProperties.Num(); ++InsertIndex)
+			{
+				UProperty* Prop = OrderedProperties[InsertIndex].Get<0>();
+
+				if (TArray<TTuple<UProperty*, int32>>* DisplayAfterProperties = DisplayAfterPropertyMap.Find(Prop->GetFName()))
+				{
+					OrderedProperties.Insert(MoveTemp(*DisplayAfterProperties), InsertIndex + 1);
+					DisplayAfterPropertyMap.Remove(Prop->GetFName());
+					if (DisplayAfterPropertyMap.Num() == 0)
+					{
+						break;
+					}
+				}
+			}
+		}
+
+		// Copy the sorted properties back in to the original array
+		Properties.Reset();
+		for (const TTuple<UProperty*, int32>& Property : OrderedProperties)
+		{
+			Properties.Add(Property.Get<0>());
+		}
+
+		if (DisplayAfterPropertyMap.Num() != 0)
+		{
+			// If we hit this there is either a cycle or a dependency on something that doesn't exist, so just put them at the end of the list
+			// TODO: Some kind of warning?
+			for (TPair<FName, TArray<TTuple<UProperty*, int32>>>& DisplayAfterProperties : DisplayAfterPropertyMap)
+			{
+				for (const TTuple<UProperty*, int32>& Property : DisplayAfterProperties.Value)
+				{
+					Properties.Add(Property.Get<0>());
+				}
+			}
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

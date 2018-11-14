@@ -11,6 +11,7 @@
 #include "Blueprint/SlateBlueprintLibrary.h"
 #include "Slate/SceneViewport.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
+#include "Slate/SGameLayerManager.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -65,15 +66,16 @@ void USlateBlueprintLibrary::AbsoluteToViewport(UObject* WorldContextObject, FVe
 	{
 		if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
 		{
-			if ( FSceneViewport* Viewport = ViewportClient->GetGameViewport() )
+			TSharedPtr<IGameLayerManager> GameLayerManager = ViewportClient->GetGameLayerManager();
+			if (GameLayerManager.IsValid())
 			{
 				FVector2D ViewportSize;
 				ViewportClient->GetViewportSize(ViewportSize);
 
-				PixelPosition = Viewport->VirtualDesktopPixelToViewport(FIntPoint((int32)AbsoluteDesktopCoordinate.X, (int32)AbsoluteDesktopCoordinate.Y)) * ViewportSize;
+				const FGeometry& ViewportGeometry = GameLayerManager->GetViewportWidgetHostGeometry();
 
-				// Remove DPI Scaling.
-				ViewportPosition = PixelPosition / UWidgetLayoutLibrary::GetViewportScale(ViewportClient);
+				ViewportPosition = ViewportGeometry.AbsoluteToLocal(AbsoluteDesktopCoordinate);
+				PixelPosition = (ViewportPosition / ViewportGeometry.GetLocalSize()) * ViewportSize;
 
 				return;
 			}
@@ -99,15 +101,16 @@ void USlateBlueprintLibrary::ScreenToWidgetAbsolute(UObject* WorldContextObject,
 	{
 		if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
 		{
-			if ( FViewport* Viewport = ViewportClient->Viewport )
+			TSharedPtr<IGameLayerManager> GameLayerManager = ViewportClient->GetGameLayerManager();
+			if (GameLayerManager.IsValid())
 			{
 				FVector2D ViewportSize;
 				ViewportClient->GetViewportSize(ViewportSize);
 
-				const FVector2D NormalizedViewportCoordinates = ScreenPosition / ViewportSize;
+				const FGeometry& ViewportGeometry = GameLayerManager->GetViewportWidgetHostGeometry();
+				const FVector2D ViewportPosition = ViewportGeometry.GetLocalSize() * (ScreenPosition / ViewportSize);
 
-				const FIntPoint VirtualDesktopPoint = Viewport->ViewportToVirtualDesktopPixel(NormalizedViewportCoordinates);
-				AbsoluteCoordinate = FVector2D(VirtualDesktopPoint);
+				AbsoluteCoordinate = ViewportGeometry.LocalToAbsolute(ViewportPosition);
 				return;
 			}
 		}

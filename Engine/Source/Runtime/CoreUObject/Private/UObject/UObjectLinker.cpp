@@ -105,7 +105,7 @@ void UObject::SetLinker( FLinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShoul
 		checkf(!HasAnyFlags(RF_NeedLoad|RF_NeedPostLoad), TEXT("Detaching from existing linker for %s while object %s needs loaded"), *Existing.Linker->GetArchiveName(), *GetFullName());
 		check(Existing.Linker->ExportMap[Existing.LinkerIndex].Object!=NULL);
 		check(Existing.Linker->ExportMap[Existing.LinkerIndex].Object==this);
-		Existing.Linker->ExportMap[Existing.LinkerIndex].Object = NULL;
+		Existing.Linker->ExportMap[Existing.LinkerIndex].ResetObject();
 	}
 
 	if (Existing.Linker == LinkerLoad)

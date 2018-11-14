@@ -140,10 +140,12 @@ public class MacPlatform : Platform
 							BootstrapExeName = SC.ShortProjectName + ".app";
 						}
 
-						string AppPath = Executable.Path.FullName.Substring(0, Executable.Path.FullName.LastIndexOf(".app/") + 4);
+						string AppSuffix = ".app" + Path.DirectorySeparatorChar;
+
+						string AppPath = Executable.Path.FullName.Substring(0, Executable.Path.FullName.LastIndexOf(AppSuffix) + AppSuffix.Length);
 						foreach (var DestPath in StagedFiles)
 						{
-							string AppRelativePath = DestPath.Name.Substring(0, DestPath.Name.LastIndexOf(".app/") + 4);
+							string AppRelativePath = DestPath.Name.Substring(0, DestPath.Name.LastIndexOf(AppSuffix) + AppSuffix.Length);
 							StageBootstrapExecutable(SC, BootstrapExeName, AppPath, AppRelativePath, BootstrapArguments);
 						}
 					}
@@ -383,6 +385,8 @@ public class MacPlatform : Platform
 				Directory.CreateDirectory(CombinePaths(TargetPath, "Engine", "Binaries", "Mac"));
 				Directory.CreateDirectory(CombinePaths(TargetPath, SC.ShortProjectName, "Binaries", "Mac"));
 			}
+
+			Run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", "-f " + BundlePath, null, ERunOptions.Default);
 		}
 	}
 

@@ -7,6 +7,25 @@
 #include "UObject/Object.h"
 #include "CryptoKeysSettings.generated.h"
 
+
+/**
+* UStruct representing a named encryption key
+*/
+USTRUCT()
+struct FCryptoEncryptionKey
+{
+	GENERATED_BODY()
+
+	UPROPERTY(config, VisibleAnywhere, Category = Encryption)
+	FGuid Guid;
+
+	UPROPERTY(config, EditAnywhere, Category = Encryption)
+	FString Name;
+
+	UPROPERTY(config, VisibleAnywhere, Category = Encryption)
+	FString Key;
+};
+
 /**
 * Implements the settings for imported Paper2D assets, such as sprite sheet textures.
 */
@@ -19,6 +38,10 @@ public:
 
 	UCryptoKeysSettings();
 
+	//~ Begin UObject Interface
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent);
+	//~ End UObject Interface
+
 	bool IsEncryptionEnabled() const
 	{
 		return EncryptionKey.Len() > 0 && (bEncryptAllAssetFiles || bEncryptPakIndex || bEncryptPakIniFiles || bEncryptUAssetFiles);
@@ -29,9 +52,13 @@ public:
 		return bEnablePakSigning && SigningModulus.Len() > 0 && SigningPrivateExponent.Len() > 0 && SigningPublicExponent.Len() > 0;
 	}
 
-	// The 128-bit AES encryption key used to protect the pak file
+	// The default encryption key used to protect pak files
 	UPROPERTY(config, VisibleAnywhere, Category = Encryption)
 	FString EncryptionKey;
+
+	// Secondary encryption keys that can be selected for use on different assets. Games are required to make these keys available to the pak platform file at runtime in order to access the data they protect.
+	UPROPERTY(config, EditAnywhere, Category = Encryption)
+	TArray<FCryptoEncryptionKey> SecondaryEncryptionKeys;
 
 	// Encrypts all ini files in the pak. Gives security to the most common sources of mineable information, with minimal runtime IO cost
 	UPROPERTY(config, EditAnywhere, Category = Encryption)

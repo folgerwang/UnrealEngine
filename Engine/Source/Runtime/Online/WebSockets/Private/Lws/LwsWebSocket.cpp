@@ -11,6 +11,9 @@
 #include "Ssl.h"
 #endif
 #include "Misc/ScopeLock.h"
+#include "HttpModule.h"
+#include "HttpManager.h"
+#include "PlatformHttp.h"
 
 // FLwsSendBuffer 
 FLwsSendBuffer::FLwsSendBuffer(const uint8* Data, SIZE_T Size, bool bInIsBinary)
@@ -95,6 +98,15 @@ void FLwsWebSocket::Connect()
 		return;
 	}
 
+	FHttpManager& HttpManager = FHttpModule::Get().GetHttpManager();
+	if (!HttpManager.IsDomainAllowed(Url))
+	{
+		State = EState::Error;
+		UE_LOG(LogWebSockets, Warning, TEXT("FLwsWebSocket[%d]::Connect: %s is not whitelisted. Refusing to connect."), Identifier, *Url);
+		OnConnectionError().Broadcast(TEXT("Invalid Domain"));
+		return;
+	}
+
 	// No lock, we are not being processed on the websockets thread yet
 	State = EState::StartConnecting;
 	LastGameThreadState = State; // This is called on the game thread
@@ -150,7 +162,8 @@ void FLwsWebSocket::SendFromQueue()
 	check(LwsConnection);
 
 	FLwsSendBuffer* CurrentBuffer;
-	while (SendQueue.Peek(CurrentBuffer))
+	// libwebsockets-3.0 only allows us to send once per LWS_CALLBACK_*_WRITABLE event
+	if (SendQueue.Peek(CurrentBuffer))
 	{
 		int32 LastBytesWritten = CurrentBuffer->BytesWritten;
 		const bool bWriteSuccessful = WriteBuffer(*CurrentBuffer);
@@ -172,10 +185,6 @@ void FLwsWebSocket::SendFromQueue()
 		{
 			SendQueue.Dequeue(CurrentBuffer);
 			delete CurrentBuffer;
-		}
-		else
-		{
-			break;
 		}
 	}
 
@@ -336,6 +345,13 @@ int FLwsWebSocket::LwsCallback(lws* Instance, lws_callback_reasons Reason, void*
 		}
 		else
 		{
+			if (State == EState::Connected)
+			{
+				FScopeLock ScopeLock(&StateLock);
+				State = EState::Closed;
+				ClosedReason.bWasClean = false;
+				ClosedReason.CloseStatus = LWS_CLOSE_STATUS_ABNORMAL_CLOSE;
+			}
 			UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::LwsCallback: Received LWS_CALLBACK_WSI_DESTROY, State=%s"), Identifier, ToString(State));
 		}
 		LwsConnection = nullptr;
@@ -432,6 +448,23 @@ int FLwsWebSocket::LwsCallback(lws* Instance, lws_callback_reasons Reason, void*
 		}
 		break;
 	}
+#if WITH_SSL
+	case LWS_CALLBACK_OPENSSL_PERFORM_SERVER_CERT_VERIFICATION:
+	{
+		// in FLwsWebSocketsManager::CallbackWrapper, we copied UserData to Data, so Data is the X509_STORE_CTX* instead of the SSL*
+		X509_STORE_CTX* Context = static_cast<X509_STORE_CTX*>(Data);
+		int PreverifyOk = Length;
+		if (PreverifyOk == 1)
+		{
+			const FString Domain = FGenericPlatformHttp::GetUrlDomain(Url);
+			if (!FSslModule::Get().GetCertificateManager().VerifySslCertificates(Context, Domain))
+			{
+				PreverifyOk = 0;
+			}
+		}
+		return PreverifyOk == 1 ? 0 : 1;
+	}
+#endif
 	default:
 		break;
 	}
@@ -568,7 +601,7 @@ void FLwsWebSocket::ConnectInternal(struct lws_context &LwsContext)
 	{
 		FString Reason(TEXT("Bad URL"));
 
-		UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::ConnectInternal: setting State=%s PreviousState=%s"),
+		UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::ConnectInternal: setting State=%s PreviousState=%s Reason=%s"),
 			Identifier, ToString(EState::Error), ToString(EState::Connecting), *Reason);
 		{
 			FScopeLock ScopeLock(&StateLock);
@@ -603,7 +636,7 @@ void FLwsWebSocket::ConnectInternal(struct lws_context &LwsContext)
 	{
 		FString Reason(FString::Printf(TEXT("Bad protocol '%s'. Use either 'ws', 'wss', or 'wss+insecure'"), UTF8_TO_TCHAR(UrlProtocol)));
 
-		UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::ConnectInternal: setting State=%s PreviousState=%s"),
+		UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::ConnectInternal: setting State=%s PreviousState=%s Reason=%s"),
 			Identifier, ToString(EState::Error), ToString(EState::Connecting), *Reason);
 		{
 			FScopeLock ScopeLock(&StateLock);
@@ -636,7 +669,7 @@ void FLwsWebSocket::ConnectInternal(struct lws_context &LwsContext)
 	{
 		FString Reason(TEXT("Could not initialize connection"));
 		
-		UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::ConnectInternal: setting State=%s PreviousState=%s"),
+		UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::ConnectInternal: setting State=%s PreviousState=%s Reason=%s"),
 			Identifier, ToString(EState::Error), ToString(EState::Connecting), *Reason);
 		{
 			FScopeLock ScopeLock(&StateLock);

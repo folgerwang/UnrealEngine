@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/ScopeLock.h"
 
 #if WITH_CEF3
 
@@ -48,6 +49,9 @@ public:
 		return RenderProcessThreadCreatedDelegate;
 	}
 
+	/** Used to pump the CEF message loop whenever OnScheduleMessagePumpWork is triggered */
+	void TickMessagePump(float DeltaTime, bool bForce);
+
 private:
 	// CefApp methods.
 	virtual CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
@@ -55,10 +59,18 @@ private:
 	// CefBrowserProcessHandler methods:
 	virtual void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> CommandLine) override;
 	virtual void OnRenderProcessThreadCreated(CefRefPtr<CefListValue> ExtraInfo) override;
+#if !PLATFORM_LINUX
+	virtual void OnScheduleMessagePumpWork(int64 delay_ms) override;
+#endif
 
 	FOnRenderProcessThreadCreated RenderProcessThreadCreatedDelegate;
 
 	// Include the default reference counting implementation.
 	IMPLEMENT_REFCOUNTING(FCEFBrowserApp);
+
+	// Lock for access MessagePumpCountdown
+	FCriticalSection MessagePumpCountdownCS;
+	// Countdown in milliseconds until CefDoMessageLoopWork is called.  Updated by OnScheduleMessagePumpWork
+	int64 MessagePumpCountdown;
 };
 #endif

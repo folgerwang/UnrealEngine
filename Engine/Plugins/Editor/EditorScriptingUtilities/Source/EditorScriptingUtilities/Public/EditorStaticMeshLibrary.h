@@ -93,15 +93,17 @@ public:
 
 	/**
 	 * Adds or create a LOD at DestinationLodIndex using the geometry from SourceStaticMesh SourceLodIndex
-	 * @param	DestinationStaticMesh	The static mesh to set the LOD in.
-	 * @param	DestinationLodIndex		The index of the LOD to set.
-	 * @param	SourceStaticMesh		The static mesh to get the LOD from.
-	 * @param	SourceLodIndex			The index of the LOD to get.
+	 * @param	DestinationStaticMesh		The static mesh to set the LOD in.
+	 * @param	DestinationLodIndex			The index of the LOD to set.
+	 * @param	SourceStaticMesh			The static mesh to get the LOD from.
+	 * @param	SourceLodIndex				The index of the LOD to get.
+	 * @param	bReuseExistingMaterialSlots	If true, sections from SourceStaticMesh will be remapped to match the material slots of DestinationStaticMesh
+											when they have the same material assigned. If false, all material slots of SourceStaticMesh will be appended in DestinationStaticMesh.
 	 * @return	The index of the LOD that was set. It can be different than DestinationLodIndex if it wasn't a valid index.
 	 *			A negative value indicates that the LOD was not set. See log for explanation.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
-	static int32 SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex);
+	static int32 SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex, bool bReuseExistingMaterialSlots);
 
 	/**
 	 * Get number of LODs present on a static mesh.
@@ -285,31 +287,37 @@ public:
 	 * @param	StaticMesh			Static mesh on which to generate the UV mapping.
 	 * @param	LODIndex			Index of the StaticMesh LOD.
 	 * @param	UVChannelIndex		Channel where to save the UV mapping.
-	 * @param	UVSettings			The settings to use to generate the UV mapping.
+	 * @param	Position			Position of the center of the projection gizmo.
+	 * @param	Orientation			Rotation to apply to the projection gizmo.
+	 * @param	Tiling				The UV tiling to use to generate the UV mapping.
 	 * @return true if the UV mapping was generated.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
-	static bool GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings);
+	static bool GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector2D& Tiling);
 
 	/**
 	 * Generates cylindrical UV mapping in the specified UV channel on the given LOD of a StaticMesh.
 	 * @param	StaticMesh			Static mesh on which to generate the UV mapping.
 	 * @param	LODIndex			Index of the StaticMesh LOD.
 	 * @param	UVChannelIndex		Channel where to save the UV mapping.
-	 * @param	UVSettings			The settings to use to generate the UV mapping.
+	 * @param	Position			Position of the center of the projection gizmo.
+	 * @param	Orientation			Rotation to apply to the projection gizmo.
+	 * @param	Tiling				The UV tiling to use to generate the UV mapping.
 	 * @return true if the UV mapping was generated.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
-	static bool GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings);
+	static bool GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector2D& Tiling);
 
 	/**
 	 * Generates box UV mapping in the specified UV channel on the given LOD of a StaticMesh.
 	 * @param	StaticMesh			Static mesh on which to generate the UV mapping.
 	 * @param	LODIndex			Index of the StaticMesh LOD.
 	 * @param	UVChannelIndex		Channel where to save the UV mapping.
-	 * @param	UVSettings			The settings to use to generate the UV mapping.
+	 * @param	Position			Position of the center of the projection gizmo.
+	 * @param	Orientation			Rotation to apply to the projection gizmo.
+	 * @param	Size				The size of the box projection gizmo.
 	 * @return true if the UV mapping was generated.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
-	static bool GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings);
+	static bool GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FVector& Position, const FRotator& Orientation, const FVector& Size);
 };

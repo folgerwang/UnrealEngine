@@ -426,6 +426,10 @@ void UMaterialParameterCollection::CreateBufferStruct()
 	NextMemberOffset += VectorArraySize;
 	static FName LayoutName(TEXT("MaterialCollection"));
 	const uint32 StructSize = Align(NextMemberOffset,UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+
+	// If Collections ever get non-numeric resources (eg Textures), OutEnvironment.ResourceTableMap has a map by name
+	// and the N ParameterCollection Uniform Buffers ALL are named "MaterialCollection" with different hashes!
+	// (and the hlsl cbuffers are named MaterialCollection0, etc, so the names don't match the layout)
 	UniformBufferStruct = MakeUnique<FUniformBufferStruct>(
 		LayoutName,
 		TEXT("MaterialCollection"),
@@ -509,7 +513,7 @@ void UMaterialParameterCollectionInstance::SetCollection(UMaterialParameterColle
 
 bool UMaterialParameterCollectionInstance::SetScalarParameterValue(FName ParameterName, float ParameterValue)
 {
-	check(World && Collection);
+	check(World.IsValid() && Collection);
 
 	if (Collection->GetScalarParameterByName(ParameterName))
 	{
@@ -543,7 +547,7 @@ bool UMaterialParameterCollectionInstance::SetScalarParameterValue(FName Paramet
 
 bool UMaterialParameterCollectionInstance::SetVectorParameterValue(FName ParameterName, const FLinearColor& ParameterValue)
 {
-	check(World && Collection);
+	check(World.IsValid() && Collection);
 
 	if (Collection->GetVectorParameterByName(ParameterName))
 	{
@@ -606,7 +610,7 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 void UMaterialParameterCollectionInstance::UpdateRenderState()
 {
 	// Don't need material parameters on the server
-	if (World && World->GetNetMode() == NM_DedicatedServer)
+	if (!World.IsValid() || World->GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
@@ -622,7 +626,7 @@ void UMaterialParameterCollectionInstance::UpdateRenderState()
 
 void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
 {
-	if (bNeedsRenderStateUpdate)
+	if (bNeedsRenderStateUpdate && World.IsValid())
 	{
 		// Propagate the new values to the rendering thread
 		TArray<FVector4> ParameterData;
@@ -723,6 +727,7 @@ void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& I
 	if (InId != FGuid() && Data.Num() > 0)
 	{
 		UniformBufferLayout.ConstantBufferSize = Data.GetTypeSize() * Data.Num();
+		UniformBufferLayout.ComputeHash();
 		check(UniformBufferLayout.Resources.Num() == 0);
 		UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
 	}

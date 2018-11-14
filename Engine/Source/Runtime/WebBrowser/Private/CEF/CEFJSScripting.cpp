@@ -53,7 +53,7 @@ CefRefPtr<CefDictionaryValue> FCEFJSScripting::ConvertStruct(UStruct* TypeInfo, 
 
 	CefRefPtr<CefDictionaryValue> Result = CefDictionaryValue::Create();
 	Result->SetString("$type", "struct");
-	Result->SetString("$ue4Type", *GetBindingName(TypeInfo));
+	Result->SetString("$ue4Type", TCHAR_TO_WCHAR(*GetBindingName(TypeInfo)));
 	Result->SetDictionary("$value", Backend.GetResult());
 	return Result;
 }
@@ -69,11 +69,11 @@ CefRefPtr<CefDictionaryValue> FCEFJSScripting::ConvertObject(UObject* Object)
 	for (TFieldIterator<UFunction> FunctionIt(Class, EFieldIteratorFlags::IncludeSuper); FunctionIt; ++FunctionIt)
 	{
 		UFunction* Function = *FunctionIt;
-		MethodNames->SetString(MethodIndex++, *GetBindingName(Function));
+		MethodNames->SetString(MethodIndex++, TCHAR_TO_WCHAR(*GetBindingName(Function)));
 	}
 
 	Result->SetString("$type", "uobject");
-	Result->SetString("$id", *PtrToGuid(Object).ToString(EGuidFormats::Digits));
+	Result->SetString("$id", TCHAR_TO_WCHAR(*PtrToGuid(Object).ToString(EGuidFormats::Digits)));
 	Result->SetList("$methods", MethodNames);
 	return Result;
 }
@@ -82,7 +82,7 @@ CefRefPtr<CefDictionaryValue> FCEFJSScripting::ConvertObject(UObject* Object)
 bool FCEFJSScripting::OnProcessMessageReceived(CefRefPtr<CefBrowser> Browser, CefProcessId SourceProcess, CefRefPtr<CefProcessMessage> Message)
 {
 	bool Result = false;
-	FString MessageName = Message->GetName().ToWString().c_str();
+	FString MessageName = WCHAR_TO_TCHAR(Message->GetName().ToWString().c_str());
 	if (MessageName == TEXT("UE::ExecuteUObjectMethod"))
 	{
 		Result = HandleExecuteUObjectMethodMessage(Message->GetArgumentList());
@@ -107,7 +107,7 @@ CefRefPtr<CefDictionaryValue> FCEFJSScripting::GetPermanentBindings()
 	CefRefPtr<CefDictionaryValue> Result = CefDictionaryValue::Create();
 	for(auto& Entry : PermanentUObjectsByName)
 	{
-		Result->SetDictionary(*Entry.Key, ConvertObject(Entry.Value));
+		Result->SetDictionary(TCHAR_TO_WCHAR(*Entry.Key), ConvertObject(Entry.Value));
 	}
 	return Result;
 }
@@ -133,10 +133,10 @@ void FCEFJSScripting::BindUObject(const FString& Name, UObject* Object, bool bIs
 		PermanentUObjectsByName.Add(ExposedName, Object);
 	}
 
-	CefRefPtr<CefProcessMessage> SetValueMessage = CefProcessMessage::Create(TEXT("UE::SetValue"));
+	CefRefPtr<CefProcessMessage> SetValueMessage = CefProcessMessage::Create(TCHAR_TO_WCHAR(TEXT("UE::SetValue")));
 	CefRefPtr<CefListValue>MessageArguments = SetValueMessage->GetArgumentList();
 	CefRefPtr<CefDictionaryValue> Value = CefDictionaryValue::Create();
-	Value->SetString("name", *ExposedName);
+	Value->SetString("name", TCHAR_TO_WCHAR(*ExposedName));
 	Value->SetDictionary("value", Converted);
 	Value->SetBool("permanent", bIsPermanent);
 
@@ -163,11 +163,11 @@ void FCEFJSScripting::UnbindUObject(const FString& Name, UObject* Object, bool b
 		}
 	}
 
-	CefRefPtr<CefProcessMessage> DeleteValueMessage = CefProcessMessage::Create(TEXT("UE::DeleteValue"));
+	CefRefPtr<CefProcessMessage> DeleteValueMessage = CefProcessMessage::Create(TCHAR_TO_WCHAR(TEXT("UE::DeleteValue")));
 	CefRefPtr<CefListValue>MessageArguments = DeleteValueMessage->GetArgumentList();
 	CefRefPtr<CefDictionaryValue> Info = CefDictionaryValue::Create();
-	Info->SetString("name", *ExposedName);
-	Info->SetString("id", *PtrToGuid(Object).ToString(EGuidFormats::Digits));
+	Info->SetString("name", TCHAR_TO_WCHAR(*ExposedName));
+	Info->SetString("id", TCHAR_TO_WCHAR(*PtrToGuid(Object).ToString(EGuidFormats::Digits)));
 	Info->SetBool("permanent", bIsPermanent);
 
 	MessageArguments->SetDictionary(0, Info);
@@ -184,7 +184,7 @@ bool FCEFJSScripting::HandleReleaseUObjectMessage(CefRefPtr<CefListValue> Messag
 		return false;
 	}
 
-	if (!FGuid::Parse(FString(MessageArguments->GetString(0).ToWString().c_str()), ObjectKey))
+	if (!FGuid::Parse(FString(WCHAR_TO_TCHAR(MessageArguments->GetString(0).ToWString().c_str())), ObjectKey))
 	{
 		// Invalid GUID
 		return false;
@@ -215,7 +215,7 @@ bool FCEFJSScripting::HandleExecuteUObjectMethodMessage(CefRefPtr<CefListValue> 
 		return false;
 	}
 
-	if (!FGuid::Parse(FString(MessageArguments->GetString(0).ToWString().c_str()), ObjectKey))
+	if (!FGuid::Parse(FString(WCHAR_TO_TCHAR(MessageArguments->GetString(0).ToWString().c_str())), ObjectKey))
 	{
 		// Invalid GUID
 		return false;
@@ -223,7 +223,7 @@ bool FCEFJSScripting::HandleExecuteUObjectMethodMessage(CefRefPtr<CefListValue> 
 
 	// Get the promise callback and use that to report any results from executing this function.
 	FGuid ResultCallbackId;
-	if (!FGuid::Parse(FString(MessageArguments->GetString(2).ToWString().c_str()), ResultCallbackId))
+	if (!FGuid::Parse(FString(WCHAR_TO_TCHAR(MessageArguments->GetString(2).ToWString().c_str())), ResultCallbackId))
 	{
 		// Invalid GUID
 		return false;
@@ -237,7 +237,7 @@ bool FCEFJSScripting::HandleExecuteUObjectMethodMessage(CefRefPtr<CefListValue> 
 		return true;
 	}
 
-	FName MethodName = MessageArguments->GetString(1).ToWString().c_str();
+	FName MethodName = WCHAR_TO_TCHAR(MessageArguments->GetString(1).ToWString().c_str());
 	UFunction* Function = Object->FindFunction(MethodName);
 	if (!Function)
 	{
@@ -274,7 +274,7 @@ bool FCEFJSScripting::HandleExecuteUObjectMethodMessage(CefRefPtr<CefListValue> 
 					}
 					else
 					{
-						CopyContainerValue(NamedArgs, CefArgs, CefString(*GetBindingName(Param)), CurrentArg);
+						CopyContainerValue(NamedArgs, CefArgs, CefString(TCHAR_TO_WCHAR(*GetBindingName(Param))), CurrentArg);
 						CurrentArg++;
 					}
 				}
@@ -314,7 +314,7 @@ bool FCEFJSScripting::HandleExecuteUObjectMethodMessage(CefRefPtr<CefListValue> 
 			CefRefPtr<CefDictionaryValue> ResultDict = ReturnBackend.GetResult();
 
 			// Extract the single return value from the serialized dictionary to an array
-			CopyContainerValue(Results, ResultDict, 0, *GetBindingName(ReturnParam));
+			CopyContainerValue(Results, ResultDict, 0, TCHAR_TO_WCHAR(*GetBindingName(ReturnParam)));
 		}
 		InvokeJSFunction(ResultCallbackId, Results, false);
 	}
@@ -329,7 +329,7 @@ void FCEFJSScripting::UnbindCefBrowser()
 void FCEFJSScripting::InvokeJSErrorResult(FGuid FunctionId, const FString& Error)
 {
 	CefRefPtr<CefListValue> FunctionArguments = CefListValue::Create();
-	FunctionArguments->SetString(0, *Error);
+	FunctionArguments->SetString(0, TCHAR_TO_WCHAR(*Error));
 	InvokeJSFunction(FunctionId, FunctionArguments, true);
 }
 
@@ -345,9 +345,9 @@ void FCEFJSScripting::InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSP
 
 void FCEFJSScripting::InvokeJSFunction(FGuid FunctionId, const CefRefPtr<CefListValue>& FunctionArguments, bool bIsError)
 {
-	CefRefPtr<CefProcessMessage> Message = CefProcessMessage::Create(TEXT("UE::ExecuteJSFunction"));
+	CefRefPtr<CefProcessMessage> Message = CefProcessMessage::Create(TCHAR_TO_WCHAR(TEXT("UE::ExecuteJSFunction")));
 	CefRefPtr<CefListValue> MessageArguments = Message->GetArgumentList();
-	MessageArguments->SetString(0, *FunctionId.ToString(EGuidFormats::Digits));
+	MessageArguments->SetString(0, TCHAR_TO_WCHAR(*FunctionId.ToString(EGuidFormats::Digits)));
 	MessageArguments->SetList(1, FunctionArguments);
 	MessageArguments->SetBool(2, bIsError);
 	SendProcessMessage(Message);

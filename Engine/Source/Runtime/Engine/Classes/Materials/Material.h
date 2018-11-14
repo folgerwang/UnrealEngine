@@ -63,26 +63,31 @@ enum EDecalBlendMode
 {
 	/** Blend full material, updating the GBuffer, does not work for baked lighting. */
 	DBM_Translucent UMETA(DisplayName="Translucent"),
-	/** Modulate BaseColor, blend rest, updating the GBuffer, does not work for baked lighting. */
+	/** Modulate BaseColor, blend rest, updating the GBuffer, does not work for baked lighting. Does not work in DBuffer mode (approximated as Translucent). */
 	DBM_Stain UMETA(DisplayName="Stain"),
 	/** Only blend normal, updating the GBuffer, does not work for baked lighting. */
 	DBM_Normal UMETA(DisplayName="Normal"),
 	/** Additive emissive only. */
 	DBM_Emissive UMETA(DisplayName="Emissive"),
-	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up). */
+	/** Put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up). */
 	DBM_DBuffer_ColorNormalRoughness UMETA(DisplayName="DBuffer Translucent Color,Normal,Roughness"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Color UMETA(DisplayName="DBuffer Translucent Color"),
-	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Color if normal is not hooked up). */
+	/** Put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Color if normal is not hooked up). */
 	DBM_DBuffer_ColorNormal UMETA(DisplayName="DBuffer Translucent Color,Normal"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_ColorRoughness UMETA(DisplayName="DBuffer Translucent Color,Roughness"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Normal UMETA(DisplayName="DBuffer Translucent Normal"),
-	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Roughness if normal is not hooked up). */
+	/** Put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Roughness if normal is not hooked up). */
 	DBM_DBuffer_NormalRoughness UMETA(DisplayName="DBuffer Translucent Normal,Roughness"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Roughness UMETA(DisplayName="DBuffer Translucent Roughness"),
+
+	/** Internal DBffer decal blend modes used for auto-converted decals */
+	DBM_DBuffer_Emissive UMETA(DisplayName = "DBuffer Emissive", Hidden),
+	DBM_DBuffer_AlphaComposite UMETA(DisplayName = "DBuffer AlphaComposite (Premultiplied Alpha)", Hidden),
+	DBM_DBuffer_EmissiveAlphaComposite UMETA(DisplayName = "DBuffer Emissive AlphaComposite (Premultiplied Alpha)", Hidden),
 
 	/** Output signed distance in Opacity depending on LightVector. Note: Can be costly, no shadow casting but receiving, no per pixel normal yet, no quality settings yet */
 	DBM_Volumetric_DistanceFunction UMETA(DisplayName="Volumetric Distance Function (experimental)"),
@@ -107,6 +112,9 @@ inline bool IsDBufferDecalBlendMode(EDecalBlendMode In)
 		case DBM_DBuffer_Normal:
 		case DBM_DBuffer_NormalRoughness:
 		case DBM_DBuffer_Roughness:
+		case DBM_DBuffer_Emissive:
+		case DBM_DBuffer_AlphaComposite:
+		case DBM_DBuffer_EmissiveAlphaComposite:
 			return true;
 	}
 
@@ -153,6 +161,7 @@ struct FMaterialInput
 	UPROPERTY()
 	int32 OutputIndex;
 
+#if WITH_EDITORONLY_DATA
 	/** 
 	 * Optional name of the input.  
 	 * Note that this is the only member which is not derived from the output currently connected. 
@@ -174,6 +183,7 @@ struct FMaterialInput
 
 	UPROPERTY()
 	int32 MaskA;
+#endif
 
 	/** Material expression name that this input is connected to, or None if not connected. Used only in cooked builds */
 	UPROPERTY()
@@ -186,12 +196,13 @@ struct FMaterialInput
 USTRUCT(noexport)
 struct FColorMaterialInput : public FMaterialInput
 {
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	uint32 UseConstant:1;
 
 	UPROPERTY()
 	FColor Constant;
-
+#endif
 };
 #endif
 
@@ -199,12 +210,13 @@ struct FColorMaterialInput : public FMaterialInput
 USTRUCT(noexport)
 struct FScalarMaterialInput : public FMaterialInput
 {
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	uint32 UseConstant:1;
 
 	UPROPERTY()
 	float Constant;
-
+#endif
 };
 #endif
 
@@ -212,12 +224,13 @@ struct FScalarMaterialInput : public FMaterialInput
 USTRUCT(noexport)
 struct FVectorMaterialInput : public FMaterialInput
 {
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	uint32 UseConstant:1;
 
 	UPROPERTY()
 	FVector Constant;
-
+#endif
 };
 #endif
 
@@ -225,6 +238,7 @@ struct FVectorMaterialInput : public FMaterialInput
 USTRUCT(noexport)
 struct FVector2MaterialInput : public FMaterialInput
 {
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	uint32 UseConstant:1;
 
@@ -233,7 +247,7 @@ struct FVector2MaterialInput : public FMaterialInput
 
 	UPROPERTY()
 	float ConstantY;
-
+#endif
 };
 #endif
 
@@ -323,7 +337,7 @@ class UMaterial : public UMaterialInterface
 	class UPhysicalMaterial* PhysMaterial;
 
 	// Reflection.
-	
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FColorMaterialInput DiffuseColor_DEPRECATED;
 
@@ -332,6 +346,7 @@ class UMaterial : public UMaterialInterface
 
 	UPROPERTY()
 	FColorMaterialInput BaseColor;
+#endif
 
 	UPROPERTY()
 	FScalarMaterialInput Metallic;
@@ -339,8 +354,10 @@ class UMaterial : public UMaterialInterface
 	UPROPERTY()
 	FScalarMaterialInput Specular;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FScalarMaterialInput Roughness;
+#endif
 
 	UPROPERTY()
 	FVectorMaterialInput Normal;
@@ -349,12 +366,14 @@ class UMaterial : public UMaterialInterface
 	UPROPERTY()
 	FColorMaterialInput EmissiveColor;
 
+#if WITH_EDITORONLY_DATA
 	// Transmission.
 	UPROPERTY()
 	FScalarMaterialInput Opacity;
 
 	UPROPERTY()
 	FScalarMaterialInput OpacityMask;
+#endif
 
 	/** 
 	 * The domain that the material's attributes will be evaluated in. 
@@ -399,6 +418,7 @@ public:
 	UPROPERTY()
 	FVectorMaterialInput WorldPositionOffset;
 
+#if WITH_EDITORONLY_DATA
 	/** Offset in world space applied to tessellated vertices. */
 	UPROPERTY()
 	FVectorMaterialInput WorldDisplacement;
@@ -422,6 +442,7 @@ public:
 	/** output ambient occlusion to the GBuffer */
 	UPROPERTY()
 	FScalarMaterialInput AmbientOcclusion;
+#endif
 
 	/**
 	 * output refraction index for translucent rendering
@@ -430,12 +451,14 @@ public:
 	UPROPERTY()
 	FScalarMaterialInput Refraction;
 
+#if WITH_EDITORONLY_DATA
 	/** 
 	 * These inputs are evaluated in the vertex shader and allow artists to do arbitrary vertex shader operations and access them in the pixel shader.
 	 * When unconnected or hidden they default to passing through the vertex UVs.
 	 */
 	UPROPERTY()
 	FVector2MaterialInput CustomizedUVs[8];
+#endif
 
 	UPROPERTY()
 	FMaterialAttributesInput MaterialAttributes;
@@ -497,7 +520,7 @@ public:
 	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Directional Lighting Intensity"))
 	float TranslucencyDirectionalLightingIntensity;
 
-	/** Allows a translucenct material to be used with custom depth writing by compiling additional shaders. */
+	/** Allows a translucent material to be used with custom depth writing by compiling additional shaders. */
 	UPROPERTY(EditAnywhere, Category=Translucency, AdvancedDisplay, meta=(DisplayName = "Allow Custom Depth Writes"))
 	uint32 AllowTranslucentCustomDepthWrites:1;
 
@@ -741,6 +764,7 @@ public:
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay, meta=(DisplayName = "Support accurate velocities from Vertex Deformation"))
 	uint32 bOutputVelocityOnBasePass:1;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	int32 EditorX;
 
@@ -752,6 +776,7 @@ public:
 
 	UPROPERTY()
 	int32 EditorYaw;
+#endif // WITH_EDITORONLY_DATA
 
 	/** Array of material expressions, excluding Comments.  Used by the material editor. */
 	UPROPERTY()
@@ -844,6 +869,11 @@ public:
 	UPROPERTY()
 	FGuid StateId;
 
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+	// Relative offset to the beginning of the package containing this
+	uint32 OffsetToFirstResource;
+#endif
+
 	/** 
 	 * FMaterialRenderProxy derivatives that represent this material to the renderer, when the renderer needs to fetch parameter values. 
 	 * Second instance is used when selected, third when hovered.
@@ -900,12 +930,13 @@ public:
 	ENGINE_API virtual const UMaterial* GetMaterial_Concurrent(TMicRecursionGuard& RecursionGuard) const override;
 	ENGINE_API virtual bool GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo,float& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const override;
+#if WITH_EDITOR
 	ENGINE_API virtual bool GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutMinSlider, float& OutMaxSlider) const override;
+#endif
 	ENGINE_API virtual bool GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo,FLinearColor& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool IsVectorParameterUsedAsChannelMask(const FMaterialParameterInfo& ParameterInfo, bool& OutValue) const override;
 	ENGINE_API virtual bool GetTextureParameterValue(const FMaterialParameterInfo& ParameterInfo,class UTexture*& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool GetFontParameterValue(const FMaterialParameterInfo& ParameterInfo,class UFont*& OutFontValue,int32& OutFontPage, bool bOveriddenOnly = false) const override;
-	ENGINE_API virtual bool GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const override;
 	ENGINE_API virtual bool GetRefractionSettings(float& OutBiasValue) const override;
 	ENGINE_API virtual FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered=false) const override;
 	ENGINE_API virtual UPhysicalMaterial* GetPhysicalMaterial() const override;
@@ -925,6 +956,7 @@ public:
 	ENGINE_API virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const override;
 	ENGINE_API virtual bool UpdateLightmassTextureTracking() override;
 #if WITH_EDITOR
+	ENGINE_API virtual bool GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const override;
 	ENGINE_API virtual bool GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetGroupSortPriority(const FString& InGroupName, int32& OutSortPriority) const override;
@@ -1378,12 +1410,12 @@ private:
 	 * And updates any function call nodes in this material so their inputs and outputs stay valid.
 	 */
 	void RebuildMaterialFunctionInfo();
-#endif // WITH_EDITOR
 
 	/** 
 	 * Rebuild the MaterialParameterCollectionInfos array with the current state of the material's parameter collection dependencies.
 	 */
 	void RebuildMaterialParameterCollectionInfo();
+#endif // WITH_EDITOR
 	
 	/** 
 	 * Cache resource shaders for rendering. 
@@ -1541,6 +1573,7 @@ public:
 	static const TCHAR* GetBlendModeString(EBlendMode InBlendMode);
 	static EBlendMode GetBlendModeFromString(const TCHAR* InBlendModeStr);
 
+#if WITH_EDITOR
 	/**
 	*	Get the expression input for the given property
 	*
@@ -1550,6 +1583,7 @@ public:
 	*									or NULL if an invalid property was requested (some properties have been removed from UI, those return NULL).
 	*/
 	ENGINE_API FExpressionInput* GetExpressionInputForProperty(EMaterialProperty InProperty);
+#endif
 
 	/* Returns any UMaterialExpressionCustomOutput expressions */
 	ENGINE_API void GetAllCustomOutputExpressions(TArray<class UMaterialExpressionCustomOutput*>& OutCustomOutputs) const;
@@ -1563,11 +1597,12 @@ public:
 	 *	@param	InStaticParameterSet	Optional static parameter set - if supplied only walk the StaticSwitch branches according to it.
 	 *	@Param	InFeatureLevel			Optional feature level - if supplied, only walk FeatureLevelSwitch branches according to it.
 	 *	@Param	InQuality				Optional quality switch - if supplied, only walk QualitySwitch branches according to it.
+	 *	@Param	InShadingPath			Optional shading path switch - if supplied, only walk ShadingPathSwitch branches according to it.
 	 *
 	 *	@return	bool					true if successful, false if not.
 	 */
 	ENGINE_API virtual bool GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
-		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num);
+		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num, ERHIShadingPath::Type InShadingPath = ERHIShadingPath::Num);
 
 
 	/**
@@ -1578,12 +1613,13 @@ public:
 	 *	@param	InStaticParameterSet	Optional static parameter set - if supplied only walk the StaticSwitch branches according to it.
 	 *	@Param	InFeatureLevel			Optional feature level - if supplied, only walk FeatureLevelSwitch branches according to it.
 	 *	@Param	InQuality				Optional quality switch - if supplied, only walk QualitySwitch branches according to it.
+	 *	@Param	InShadingPath			Optional shading path switch - if supplied, only walk ShadingPathSwitch branches according to it.
 	 *
 	 *	@return	bool					true if successful, false if not.
 	 */
 	ENGINE_API virtual bool GetExpressionsInPropertyChain(EMaterialProperty InProperty, 
 		TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
-		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num);
+		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num, ERHIShadingPath::Type InShadingPath = ERHIShadingPath::Num);
 #endif
 
 	/** Appends textures referenced by expressions, including nested functions. */
@@ -1601,12 +1637,13 @@ protected:
 	 *	@param	InStaticParameterSet	Optional static parameter set - if supplied only walk the StaticSwitch branches according to it.
 	 *	@Param	InFeatureLevel			Optional feature level - if supplied, only walk FeatureLevelSwitch branches according to it.
 	 *	@Param	InQuality				Optional quality switch - if supplied, only walk QualitySwitch branches according to it.
+	 *	@Param	InShadingPath			Optional shading path switch - if supplied, only walk ShadingPathSwitch branches according to it.
 	 *
 	 *	@return	bool					true if successful, false if not.
 	 */
 	ENGINE_API virtual bool RecursiveGetExpressionChain(UMaterialExpression* InExpression, TArray<FExpressionInput*>& InOutProcessedInputs, 
 		TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
-		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num);
+		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num, ERHIShadingPath::Type InShadingPath = ERHIShadingPath::Num);
 
 	/**
 	*	Recursively update the bRealtimePreview for each expression based on whether it is connected to something that is time-varying.
@@ -1625,6 +1662,7 @@ public:
 	ENGINE_API virtual void SaveShaderStableKeysInner(const class ITargetPlatform* TP, const struct FStableShaderKeyAndValue& SaveKeyVal) override;
 
 	bool HasNormalConnected() const { return Normal.IsConnected(); }
+	bool HasEmissiveColorConnected() const { return EmissiveColor.IsConnected(); }
 
 	static void NotifyCompilationFinished(UMaterialInterface* Material);
 

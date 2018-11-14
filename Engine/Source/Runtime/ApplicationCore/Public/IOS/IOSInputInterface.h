@@ -26,6 +26,8 @@ enum TouchType
 	TouchBegan,
 	TouchMoved,
 	TouchEnded,
+	ForceChanged,
+	FirstMove,
 };
 
 struct TouchInput
@@ -175,4 +177,6 @@ private:
 
 	/** Last value sent to mobile haptics */
 	float LastHapticValue;
+	
+	int HapticFeedbackSupportLevel;
 };

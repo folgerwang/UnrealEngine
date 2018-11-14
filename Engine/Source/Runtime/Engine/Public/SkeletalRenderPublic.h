@@ -10,6 +10,7 @@
 #include "ProfilingDebugging/ResourceSize.h"
 #include "PackedNormal.h"
 #include "RenderingThread.h"
+#include "RenderUtils.h"
 #include "Engine/SkeletalMesh.h"
 #include "Components/SkinnedMeshComponent.h"
 
@@ -29,10 +30,7 @@ struct FFinalSkinVertex
 
 	FVector GetTangentY() const
 	{
-		FVector TanX = TangentX.ToFVector();
-		FVector TanZ = TangentZ.ToFVector();
-
-		return (TanZ ^ TanX) * ((float)TangentZ.Vector.W / 127.0f);
+		return GenerateYAxis(TangentX, TangentZ);
 	};
 };
 

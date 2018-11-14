@@ -24,7 +24,7 @@ class ONLINESUBSYSTEMGAMECIRCLE_API FOnlineSubsystemGameCircle :
 {
 public:
 	
-	virtual ~FOnlineSubsystemGameCircle() {}
+	virtual ~FOnlineSubsystemGameCircle() = default;
 
 	//~ Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
@@ -72,8 +72,8 @@ public:
 	
 PACKAGE_SCOPE:
 
-	FOnlineSubsystemGameCircle();
-	FOnlineSubsystemGameCircle(FName InInstanceName);
+	FOnlineSubsystemGameCircle() = delete;
+	explicit FOnlineSubsystemGameCircle(FName InInstanceName);
 
 	FOnlineAGSCallbackManager *const GetCallbackManager() const { return AGSCallbackManager.Get(); }
 

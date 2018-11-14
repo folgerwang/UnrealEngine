@@ -493,6 +493,15 @@ void FRHICommandWaitComputeFence<CmdListType>::Execute(FRHICommandListBase& CmdL
 template struct FRHICommandWaitComputeFence<ECmdList::EGfx>;
 template struct FRHICommandWaitComputeFence<ECmdList::ECompute>;
 
+template<ECmdList CmdListType>
+void FRHICommandEnqueueStagedRead<CmdListType>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(EnqueueStagedRead);
+	INTERNAL_DECORATOR_CONTEXT(RHIEnqueueStagedRead)(StagingBuffer, Fence, Offset, NumBytes);
+}
+template struct FRHICommandEnqueueStagedRead<ECmdList::EGfx>;
+template struct FRHICommandEnqueueStagedRead<ECmdList::ECompute>;
+
 void FRHICommandBuildLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
 {
 	LLM_SCOPE(ELLMTag::Shaders);
@@ -572,6 +581,12 @@ void FRHICommandSubmitCommandsHint<CmdListType>::Execute(FRHICommandListBase& Cm
 template struct FRHICommandSubmitCommandsHint<ECmdList::EGfx>;
 template struct FRHICommandSubmitCommandsHint<ECmdList::ECompute>;
 
+void FRHICommandPollOcclusionQueries::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(PollOcclusionQueries);
+	INTERNAL_DECORATOR(RHIPollOcclusionQueries)();
+}
+
 void FRHICommandUpdateTextureReference::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(UpdateTextureReference);
@@ -618,8 +633,7 @@ template<ECmdList CmdListType>
 void FRHICommandPushEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 #if	RHI_COMMAND_LIST_DEBUG_TRACES
-	extern CORE_API bool GCommandListOnlyDrawEvents;
-	if (GCommandListOnlyDrawEvents)
+	if (GetEmitDrawEventsOnlyOnCommandlist())
 	{
 		return;
 	}
@@ -634,8 +648,7 @@ template<ECmdList CmdListType>
 void FRHICommandPopEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 #if	RHI_COMMAND_LIST_DEBUG_TRACES
-	extern CORE_API bool GCommandListOnlyDrawEvents;
-	if (GCommandListOnlyDrawEvents)
+	if (GetEmitDrawEventsOnlyOnCommandlist())
 	{
 		return;
 	}

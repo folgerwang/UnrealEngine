@@ -16,16 +16,16 @@ namespace BuildPatchServices
 		: public IDownloadServiceStatistics
 	{
 	public:
-		FDownloadServiceStatistics(ISpeedRecorder* SpeedRecorder, IInstallerAnalytics* InstallerAnalytics, FBuildPatchAppManifest* Manifest);
+		FDownloadServiceStatistics(ISpeedRecorder* SpeedRecorder, IDataSizeProvider* DataSizeProvider, IInstallerAnalytics* InstallerAnalytics);
 		~FDownloadServiceStatistics();
 
-		// IDownloadServiceStat interface start.
+		// IDownloadServiceStat interface begin.
 		virtual void OnDownloadStarted(int32 RequestId, const FString& Uri) override;
 		virtual void OnDownloadProgress(int32 RequestId, int32 BytesReceived) override;
 		virtual void OnDownloadComplete(const FDownloadRecord& DownloadRecord) override;
 		// IDownloadServiceStat interface end.
 
-		// IDownloadServiceStatistics interface start.
+		// IDownloadServiceStatistics interface begin.
 		virtual uint64 GetBytesDownloaded() const override;
 		virtual int32 GetNumSuccessfulChunkDownloads() const override;
 		virtual int32 GetNumFailedChunkDownloads() const override;
@@ -34,13 +34,9 @@ namespace BuildPatchServices
 		// IDownloadServiceStatistics interface end.
 
 	private:
-		int64 GetDownloadSize(const FString& Uri) const;
-
-	private:
 		ISpeedRecorder* SpeedRecorder;
+		IDataSizeProvider* DataSizeProvider;
 		IInstallerAnalytics* InstallerAnalytics;
-		FBuildPatchAppManifest* Manifest;
-		TMap<FString, int64> DownloadSizes;
 		FThreadSafeInt64 TotalBytesReceived;
 		FThreadSafeInt32 NumSuccessfulDownloads;
 		FThreadSafeInt32 NumFailedDownloads;
@@ -49,22 +45,14 @@ namespace BuildPatchServices
 		TMap<int32, FDownloadTuple> Downloads;
 	};
 
-	FDownloadServiceStatistics::FDownloadServiceStatistics(ISpeedRecorder* InSpeedRecorder, IInstallerAnalytics* InInstallerAnalytics, FBuildPatchAppManifest* InManifest)
+	FDownloadServiceStatistics::FDownloadServiceStatistics(ISpeedRecorder* InSpeedRecorder, IDataSizeProvider* InDataSizeProvider, IInstallerAnalytics* InInstallerAnalytics)
 		: SpeedRecorder(InSpeedRecorder)
+		, DataSizeProvider(InDataSizeProvider)
 		, InstallerAnalytics(InInstallerAnalytics)
-		, Manifest(InManifest)
 		, TotalBytesReceived(0)
 		, NumSuccessfulDownloads(0)
 		, NumFailedDownloads(0)
 	{
-		// Fill out download size lookup.
-		TSet<FGuid> DataList;
-		Manifest->GetDataList(DataList);
-		for (const FGuid& DataId : DataList)
-		{
-			FString CleanFilename = FPaths::GetCleanFilename(FBuildPatchUtils::GetDataFilename(*Manifest, TEXT(""), DataId));
-			DownloadSizes.Add(MoveTemp(CleanFilename), Manifest->GetDataSize(DataId));
-		}
 	}
 
 	FDownloadServiceStatistics::~FDownloadServiceStatistics()
@@ -133,29 +121,17 @@ namespace BuildPatchServices
 			Result.AddDefaulted();
 			FDownload& Element = Result.Last();
 			Element.Data = FPaths::GetCleanFilename(Download.Value.Get<0>());
-			Element.Size = GetDownloadSize(Element.Data);
+			Element.Size = DataSizeProvider->GetDownloadSize(Element.Data);
 			Element.Received = Download.Value.Get<1>();
 		}
 		return Result;
 	}
 
-	int64 FDownloadServiceStatistics::GetDownloadSize(const FString& Filename) const
-	{
-		checkSlow(IsInGameThread());
-		int64 DownloadSize = BuildPatchServices::ChunkDataSize;
-		const int64* DownloadSizePtr = DownloadSizes.Find(Filename);
-		if (DownloadSizePtr != nullptr)
-		{
-			DownloadSize = *DownloadSizePtr;
-		}
-		return DownloadSize;
-	}
-
-	IDownloadServiceStatistics* FDownloadServiceStatisticsFactory::Create(ISpeedRecorder* SpeedRecorder, IInstallerAnalytics* InstallerAnalytics, FBuildPatchAppManifest* Manifest)
+	IDownloadServiceStatistics* FDownloadServiceStatisticsFactory::Create(ISpeedRecorder* SpeedRecorder, IDataSizeProvider* DataSizeProvider, IInstallerAnalytics* InstallerAnalytics)
 	{
 		check(SpeedRecorder != nullptr);
+		check(DataSizeProvider != nullptr);
 		check(InstallerAnalytics != nullptr);
-		check(Manifest != nullptr);
-		return new FDownloadServiceStatistics(SpeedRecorder, InstallerAnalytics, Manifest);
+		return new FDownloadServiceStatistics(SpeedRecorder, DataSizeProvider, InstallerAnalytics);
 	}
 };

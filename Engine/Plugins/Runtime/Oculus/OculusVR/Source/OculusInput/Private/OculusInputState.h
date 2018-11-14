@@ -247,6 +247,12 @@ struct FOculusTouchControllerState
 	/** Haptic amplitude (zero to disable) */
 	float HapticAmplitude;
 
+	/** Force feedback haptic frequency (zero to disable) */
+	float ForceFeedbackHapticFrequency;
+
+	/** Force feedback haptic amplitude (zero to disable) */
+	float ForceFeedbackHapticAmplitude;
+
 	/** Number of times that controller was recentered (for mobile controllers) */
 	int RecenterCount;
 
@@ -262,6 +268,8 @@ struct FOculusTouchControllerState
 		  bPlayingHapticEffect( false ),
 		  HapticFrequency( 0.0f ),
 		  HapticAmplitude( 0.0f ),
+		  ForceFeedbackHapticFrequency(0.0f),
+		  ForceFeedbackHapticAmplitude(0.0f),
 		  RecenterCount(0)
 	{
 		for( FOculusButtonState& Button : Buttons )

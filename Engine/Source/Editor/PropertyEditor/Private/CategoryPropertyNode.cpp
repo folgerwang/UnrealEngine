@@ -5,7 +5,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "ItemPropertyNode.h"
 #include "ObjectEditorUtils.h"
-
+#include "PropertyEditorHelpers.h"
 
 FCategoryPropertyNode::FCategoryPropertyNode(void)
 	: FPropertyNode()
@@ -78,6 +78,8 @@ void FCategoryPropertyNode::InitChildNodes()
 			}
 		}
 	}
+
+	PropertyEditorHelpers::OrderPropertiesFromMetadata(Properties);
 
 	for( int32 PropertyIndex = 0 ; PropertyIndex < Properties.Num() ; ++PropertyIndex )
 	{

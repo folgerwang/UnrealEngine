@@ -5,14 +5,9 @@
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
 #include "Rendering/ElementBatcher.h"
 #include "Fonts/FontCache.h"
-#include "Stats/SlateStats.h"
 #include "Widgets/SWindow.h"
 #include "Misc/CommandLine.h"
 #include "StandaloneRendererLog.h"
-
-SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElementList, "Renderer DrawElementList");
-SLATE_DECLARE_CYCLE_COUNTER(GRendererUpdateBuffers, "Renderer UpdateBuffers");
-SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElements, "Renderer DrawElements");
 
 TRefCountPtr<ID3D11Device> GD3DDevice;
 TRefCountPtr<ID3D11DeviceContext> GD3DDeviceContext;
@@ -548,7 +543,6 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 
 			FSlateBatchData& BatchData = ElementList.GetBatchData();
 			{
-				SLATE_CYCLE_COUNTER_SCOPE(GRendererUpdateBuffers);
 				BatchData.CreateRenderBatches(ElementList.GetRootDrawLayer().GetElementBatchMap());
 				RenderingPolicy->UpdateVertexAndIndexBuffers(BatchData);
 			}

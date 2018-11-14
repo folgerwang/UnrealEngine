@@ -26,12 +26,17 @@ class TFunction;
 struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 {
 	static void RequestExit( bool Force );
-	static void LowLevelOutputDebugString(const TCHAR *Message);
 	static void LocalPrint(const TCHAR *Message);
+	static bool IsLocalPrintThreadSafe() { return true; }
 	static void PlatformPreInit();
 	static void PlatformInit();
 	static void PlatformTearDown();
 	static void PlatformHandleSplashScreen(bool ShowSplashScreen);
+
+	FORCEINLINE static int32 GetMaxPathLength()
+	{
+		return ANDROID_MAX_PATH;
+	}
 
 	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
@@ -93,6 +98,8 @@ public:
 	// Returns current volume, 0-15
 	static int GetVolumeState(double* OutTimeOfChangeInSec = nullptr);
 
+	static int32 GetDeviceVolume();
+
 #if USE_ANDROID_FILE
 	static const TCHAR* GamePersistentDownloadDir();
 	static FString GetLoginId();
@@ -103,6 +110,7 @@ public:
 #endif
 	static FString GetCPUVendor();
 	static FString GetCPUBrand();
+	static FString GetCPUChipset();
 	static FString GetPrimaryGPUBrand();
 	static void GetOSVersions(FString& out_OSVersionLabel, FString& out_OSSubVersionLabel);
 	static bool GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes);
@@ -125,6 +133,7 @@ public:
 	static FBatteryState GetBatteryState();
 	static int GetBatteryLevel();
 	static bool IsRunningOnBattery();
+	static bool IsInLowPowerMode();
 	static float GetDeviceTemperatureLevel();
 	static bool AreHeadPhonesPluggedIn();
 	static ENetworkConnectionType GetNetworkConnectionType();
@@ -146,11 +155,12 @@ public:
 	static void ShareURL(const FString& URL, const FText& Description, int32 LocationHintX, int32 LocationHintY);
 
 	// ANDROID ONLY:
-	static void SetVersionInfo( FString AndroidVersion, FString DeviceMake, FString DeviceModel, FString OSLanguage );
+	static void SetVersionInfo(FString AndroidVersion, FString DeviceMake, FString DeviceModel, FString DeviceBuildNumber, FString OSLanguage);
 	static const FString GetAndroidVersion();
 	static const FString GetDeviceMake();
 	static const FString GetDeviceModel();
 	static const FString GetOSLanguage();
+	static const FString GetDeviceBuildNumber();
 	static FString GetDefaultLocale();
 	static FString GetGPUFamily();
 	static FString GetGLVersion();
@@ -160,6 +170,8 @@ public:
 #if USE_ANDROID_JNI
 	static int GetAndroidBuildVersion();
 #endif
+	static TMap<FString, FString> GetConfigRulesTMap();
+	static FString* GetConfigRulesVariable(const FString& Key);
 
 	/* HasVulkanDriverSupport
 	 * @return true if this Android device supports a Vulkan API Unreal could use
@@ -184,6 +196,9 @@ public:
 	static void SetOnReInitWindowCallback(ReInitWindowCallbackType InOnReInitWindowCallback);
 	static FString GetOSVersion();
 	static bool GetOverrideResolution(int32 &ResX, int32& ResY) { return false; }
+	typedef TFunction<void()> OnPauseCallBackType;
+	static OnPauseCallBackType GetOnPauseCallback();
+	static void SetOnPauseCallback(OnPauseCallBackType InOnPauseCallback);
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
@@ -258,10 +273,14 @@ public:
 	static FString AndroidVersion; // version of android we are running eg "4.0.4"
 	static FString DeviceMake; // make of the device we are running on eg. "samsung"
 	static FString DeviceModel; // model of the device we are running on eg "SAMSUNG-SGH-I437"
+	static FString DeviceBuildNumber; // platform image build number of device "R16NW.G960NKSU1ARD6"
 	static FString OSLanguage; // language code the device is set to
 
 	// Build version of Android, i.e. API level.
 	static int32 AndroidBuildVersion;
+
+	// Key/Value pair variables from the optional configuration.txt
+	static TMap<FString, FString> ConfigRulesVariables;
 
 	static bool VolumeButtonsHandledBySystem;
 

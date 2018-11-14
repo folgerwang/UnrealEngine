@@ -11,6 +11,7 @@
 #include "Animation/AnimNodeBase.h"
 #include "Animation/AnimInstance.h"
 #include "UObject/AnimObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 /////////////////////////////////////////////////////
 // FStateMachineDebugData
@@ -238,6 +239,7 @@ UAnimBlueprintGeneratedClass::UAnimBlueprintGeneratedClass(const FObjectInitiali
 void UAnimBlueprintGeneratedClass::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FAnimObjectVersion::GUID);
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
 
 	Super::Serialize(Ar);
 }
@@ -265,7 +267,7 @@ void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProper
 					// If we are loading from a newer version, we must verify that there is only one root here.
 					// When linking an older version on load we may find multiple roots until the class is recompiled or saved
 #if DO_CHECK
-					if(Ar.IsLoading() && Ar.CustomVer(FAnimObjectVersion::GUID) >= FAnimObjectVersion::LinkTimeAnimBlueprintRootDiscovery)
+					if(Ar.IsLoading() && Ar.CustomVer(FReleaseObjectVersion::GUID) >= FReleaseObjectVersion::LinkTimeAnimBlueprintRootDiscoveryBugFix)
 					{
 						check(RootAnimNodeProperty == nullptr);
 					}

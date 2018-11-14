@@ -13,11 +13,11 @@ FOnlineIdentityGoogle::FOnlineIdentityGoogle(FOnlineSubsystemGoogle* InSubsystem
 {
 	if (!GConfig->GetString(TEXT("OnlineSubsystemGoogle.OnlineIdentityGoogle"), TEXT("LoginRedirectUrl"), LoginURLDetails.LoginRedirectUrl, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing LoginRedirectUrl= in [OnlineSubsystemGoogle.OnlineIdentityGoogle] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing LoginRedirectUrl= in [OnlineSubsystemGoogle.OnlineIdentityGoogle] of DefaultEngine.ini"));
 	}
 	if (!GConfig->GetInt(TEXT("OnlineSubsystemGoogle.OnlineIdentityGoogle"), TEXT("RedirectPort"), LoginURLDetails.RedirectPort, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing RedirectPort= in [OnlineSubsystemGoogle.OnlineIdentityGoogle] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing RedirectPort= in [OnlineSubsystemGoogle.OnlineIdentityGoogle] of DefaultEngine.ini"));
 	}
 
 	GConfig->GetArray(TEXT("OnlineSubsystemGoogle.OnlineIdentityGoogle"), TEXT("LoginDomains"), LoginDomains, GEngineIni);
@@ -110,7 +110,7 @@ bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCreden
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG(LogOnline, Error, TEXT("FOnlineIdentityGoogle::Login() failed: %s"),	*ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Error, TEXT("FOnlineIdentityGoogle::Login() failed: %s"),	*ErrorStr);
 		OnLoginAttemptComplete(LocalUserNum, ErrorStr);
 		return false;
 	}
@@ -183,7 +183,7 @@ void FOnlineIdentityGoogle::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 	bHasLoginOutstanding = false;
 	if (GetLoginStatus(LocalUserNum) == ELoginStatus::LoggedIn)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Google login was successful"));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Google login was successful"));
 		TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 		check(UserId.IsValid());
 
@@ -268,7 +268,7 @@ void FOnlineIdentityGoogle::ExchangeRequest_HttpRequestComplete(FHttpRequestPtr 
 		ResponseStr = HttpResponse->GetContentAsString();
 		if (EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("ExchangeCode request complete. url=%s code=%d response=%s"),
+			UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("ExchangeCode request complete. url=%s code=%d response=%s"),
 				*HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *ResponseStr);
 
 			if (AuthToken.Parse(ResponseStr))
@@ -300,7 +300,7 @@ void FOnlineIdentityGoogle::ExchangeRequest_HttpRequestComplete(FHttpRequestPtr 
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Exchange request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Exchange request failed. %s"), *ErrorStr);
 	}
 
 	InCompletionDelegate.ExecuteIfBound(InLocalUserNum, bResult, AuthToken, ErrorStr);
@@ -370,7 +370,7 @@ void FOnlineIdentityGoogle::RefreshAuthRequest_HttpRequestComplete(FHttpRequestP
 		ResponseStr = HttpResponse->GetContentAsString();
 		if (EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("RefreshAuth request complete. url=%s code=%d response=%s"),
+			UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("RefreshAuth request complete. url=%s code=%d response=%s"),
 				*HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *ResponseStr);
 
 			if (AuthToken.Parse(ResponseStr, InOldAuthToken))
@@ -402,7 +402,7 @@ void FOnlineIdentityGoogle::RefreshAuthRequest_HttpRequestComplete(FHttpRequestP
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("RefreshAuth request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("RefreshAuth request failed. %s"), *ErrorStr);
 	}
 
 	InCompletionDelegate.ExecuteIfBound(InLocalUserNum, bResult, AuthToken, ErrorStr);
@@ -434,7 +434,7 @@ bool FOnlineIdentityGoogle::Logout(int32 LocalUserNum)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
 		GoogleSubsystem->ExecuteNextTick([this, LocalUserNum]() 
 		{
 			TriggerOnLogoutCompleteDelegates(LocalUserNum, false);

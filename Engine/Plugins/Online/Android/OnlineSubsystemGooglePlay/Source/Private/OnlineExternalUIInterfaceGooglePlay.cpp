@@ -78,7 +78,9 @@ bool FOnlineExternalUIGooglePlay::ShowLeaderboardUI(const FString& LeaderboardNa
 
 bool FOnlineExternalUIGooglePlay::ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate)
 {
-	return false;
+	FPlatformProcess::LaunchURL(*Url, nullptr, nullptr);
+
+	return true;
 }
 
 bool FOnlineExternalUIGooglePlay::CloseWebURL()

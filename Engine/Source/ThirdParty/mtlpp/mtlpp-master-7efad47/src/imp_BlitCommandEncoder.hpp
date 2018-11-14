@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLBlitCommandEncoder>, void> : public IMPTableCommandEncoder<id<MTLBlitCommandEncoder>>
+struct MTLPP_EXPORT IMPTable<id<MTLBlitCommandEncoder>, void> : public IMPTableCommandEncoder<id<MTLBlitCommandEncoder>>
 {
 	IMPTable()
 	{
@@ -46,7 +46,7 @@ struct IMPTable<id<MTLBlitCommandEncoder>, void> : public IMPTableCommandEncoder
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLBlitCommandEncoder>, InterposeClass> : public IMPTable<id<MTLBlitCommandEncoder>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLBlitCommandEncoder>, InterposeClass> : public IMPTable<id<MTLBlitCommandEncoder>, void>
 {
 	IMPTable()
 	{

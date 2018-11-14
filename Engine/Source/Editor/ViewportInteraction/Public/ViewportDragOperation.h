@@ -106,7 +106,7 @@ struct VIEWPORTINTERACTION_API FDraggingTransformableData
 		GizmoStartTransform(FTransform::Identity),
 		GizmoLastTransform(FTransform::Identity),
 		OutGizmoUnsnappedTargetTransform(FTransform::Identity),
-		GizmoStartLocalBounds(EForceInit::ForceInitToZero),
+		GizmoStartLocalBounds(ForceInitToZero),
 		GizmoCoordinateSpace(ECoordSystem::COORD_World),
 		bOutMovedTransformGizmo(false),
 		bOutShouldApplyVelocitiesFromDrag(false),

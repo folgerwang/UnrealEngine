@@ -122,6 +122,9 @@ namespace Audio
 		// Removes the given patch connection between a source and one or more destinations
 		bool RemovePatch(const int32 VoiceId, FPatch* Patch);
 
+		// Reset all patch state
+		void ResetPatchSourceState();
+
 		// Clear all patch connections
 		void ClearPatches(const int32 VoiceId);
 

@@ -160,17 +160,6 @@ public:
 	 */
 	static bool IsPackageExternal(const UPackage& Package);
 
-	/**
-	 * Checks if the passed in packages have any references to  externally loaded packages.  I.E Ones not found automatically in the content directory
-	 *
-	 * @param	PackagesToCheck					The packages to check
-	 * @param	OutPackagesWithExternalRefs		Optional list of packages that do have external references
-	 * @param	LevelToCheck					The ULevel to check
-	 * @param	OutObjectsWithExternalRefs		List of objects gathered from within the given ULevel that have external references
-	 * @return	true if PackagesToCheck has references to an externally loaded package
-	 */
-	static bool CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, ULevel* LevelToCheck=NULL, TArray<UObject*>* OutObjectsWithExternalRefs=NULL );
-
 	/** Saves all the dirty packages for the specified objects*/
 	static bool SavePackagesForObjects(const TArray<UObject*>& ObjectsToSave);
 

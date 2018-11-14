@@ -21,6 +21,8 @@ public:
 	/** Deletes the selected items and removes their nodes from the graph. */
 	TSharedPtr< FUICommandInfo > DeleteItem;
 
+	/** Toggle Execute the Graph */
+	TSharedPtr< FUICommandInfo > ExecuteGraph;
 	/**
 	 * Initialize commands
 	 */

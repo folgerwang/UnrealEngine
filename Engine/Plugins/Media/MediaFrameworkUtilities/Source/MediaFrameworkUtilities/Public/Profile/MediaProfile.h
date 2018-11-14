@@ -48,6 +48,15 @@ private:
 	UEngineCustomTimeStep* CustomTimeStep;
 
 public:
+#if WITH_EDITORONLY_DATA
+	/**
+	 * When the profile is the current profile and modifications made it dirty.
+	 * Without re-apply the profile does modification won't take effect.
+	 */
+	bool bNeedToBeReapplied;
+#endif
+
+public:
 
 	/**
 	 * Get the media source for the selected proxy.
@@ -57,11 +66,21 @@ public:
 	UMediaSource* GetMediaSource(int32 Index) const;
 
 	/**
+	 * Get the number of media source.
+	 */
+	int32 NumMediaSources() const;
+
+	/**
 	 * Get the media output for the selected proxy.
 	 *
 	 * @return The media output, or nullptr if not set.
 	 */
 	UMediaOutput* GetMediaOutput(int32 Index) const;
+
+	/**
+	 * Get the number of media output.
+	 */
+	int32 NumMediaOutputs() const;
 
 	/**
 	 * Get the timecode provider.

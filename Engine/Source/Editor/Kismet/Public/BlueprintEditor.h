@@ -585,6 +585,9 @@ public:
 protected:
 	virtual void AppendExtraCompilerResults(TSharedPtr<class IMessageLogListing> ResultsListing);
 
+	/** Called during initialization of the blueprint editor to register commands and extenders. */
+	virtual void InitalizeExtenders();
+
 	/** Called during initialization of the blueprint editor to register any application modes. */
 	virtual void RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated = false);
 
@@ -810,9 +813,6 @@ protected:
 
 	void PasteNodes();
 	virtual bool CanPasteNodes() const override;
-
-	/** virtual function that gets called post paste to fix up any issue for the graph */
-	virtual void PostPasteNode(TSet<UEdGraphNode*>& PastedNodes) {};
 
 	void DuplicateNodes();
 	bool CanDuplicateNodes() const;

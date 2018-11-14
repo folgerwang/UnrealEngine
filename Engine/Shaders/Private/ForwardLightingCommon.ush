@@ -69,7 +69,14 @@ float2 CalculateNearestResolvedDepthScreenUV(float2 ScreenUV, float SceneDepth)
 
 float4 GetForwardDynamicShadowFactors(float2 ScreenUV)
 {
-	float4 Value = Texture2DSampleLevel(OpaqueBasePass.ForwardScreenSpaceShadowMaskTexture, OpaqueBasePass.ForwardScreenSpaceShadowMaskTextureSampler, ScreenUV, 0);
+	int2 IntScreenUV = int2(trunc(ScreenUV * View_BufferSizeAndInvSize.xy));
+	float4 Value = 1.0f;
+	// Avoid sampling the white texture fallback because Load returns 0 when out-of-bound.
+	BRANCH
+	if (OpaqueBasePass.UseForwardScreenSpaceShadowMask)
+	{
+		Value = OpaqueBasePass.ForwardScreenSpaceShadowMaskTexture.Load(int3(IntScreenUV, 0));
+	}
 	return Square(Value);
 }
 
@@ -81,11 +88,12 @@ float4 UnpackShadowMapChannelMask(uint ShadowMapChannelMaskPacked)
 float GetIndirectOcclusion(float2 ScreenUV, FGBufferData GBufferData)
 {
 	float IndirectOcclusion;
-#if SUPPORTS_INDEPENDENT_SAMPLERS
-	IndirectOcclusion = Texture2DSampleLevel(OpaqueBasePass.IndirectOcclusionTexture, OpaqueBasePass.ForwardScreenSpaceShadowMaskTextureSampler, ScreenUV, 0).x;
-#else
-	IndirectOcclusion = Texture2DSampleLevel(OpaqueBasePass.IndirectOcclusionTexture, OpaqueBasePass.IndirectOcclusionTextureSampler, ScreenUV, 0).x;
-#endif
+
+	uint IndirectOcclusionWidth, IndirectOcclusionHeight;
+	OpaqueBasePass.IndirectOcclusionTexture.GetDimensions(IndirectOcclusionWidth, IndirectOcclusionHeight);
+
+    int2 IntScreenUV = int2(trunc(ScreenUV * float2(IndirectOcclusionWidth, IndirectOcclusionHeight)));
+	IndirectOcclusion = OpaqueBasePass.IndirectOcclusionTexture.Load(int3(IntScreenUV, 0)).x;
 
 	// Reduce self shadowing intensity on characters (reuse distance field bit, really should be HasCapsuleShadowRepresentation)
 	IndirectOcclusion = lerp(1, IndirectOcclusion, HasDynamicIndirectShadowCasterRepresentation(GBufferData) ? View.IndirectCapsuleSelfShadowingIntensity : 1);
@@ -138,7 +146,11 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 			float4 LightAttenuation = float4(WholeSceneShadowing.xx, PerObjectShadowing.xx);
 		#else
 			LightData.ShadowMapChannelMask.x = 1;
-			GBufferData.PrecomputedShadowFactors.x = ComputeDirectionalLightStaticShadowing(WorldPosition).x;
+			#if TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING
+				GBufferData.PrecomputedShadowFactors.x = ComputeDirectionalLightStaticShadowing(WorldPosition).x;
+			#else
+				GBufferData.PrecomputedShadowFactors.x = 1;
+			#endif
 			float DynamicShadowFactor = ComputeDirectionalLightDynamicShadowing(WorldPosition, GBufferData.Depth);
 			float4 LightAttenuation = float4(DynamicShadowFactor.x, DynamicShadowFactor.x, 1, 1);
 		#endif

@@ -147,3 +147,5 @@ void TPBDRigidsEvolution<T, d>::AdvanceOneTimeStep(const T Dt)
 }
 
 template class Apeiron::TPBDRigidsEvolution<float, 3>;
+
+#undef LOCTEXT_NAMESPACE

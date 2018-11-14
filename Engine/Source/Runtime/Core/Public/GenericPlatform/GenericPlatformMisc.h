@@ -68,6 +68,11 @@ namespace EBuildConfigurations
 	CORE_API FText ToText( EBuildConfigurations::Type Configuration );
 }
 
+FORCEINLINE const TCHAR* LexToString(EBuildConfigurations::Type Configuration)
+{
+	return EBuildConfigurations::ToString(Configuration);
+}
+
 
 namespace EBuildTargets
 {
@@ -440,13 +445,20 @@ struct CORE_API FGenericPlatformMisc
 	 */
 	static FString GetCPUBrand();
 
-	/** 
+	/**
+	 * Returns the CPU chipset if known
+	 *
+	 * @return	CPU chipset string (or "Unknown")
+	 */
+	static FString GetCPUChipset();
+
+	/**
 	 * @return primary GPU brand string
 	 */
 	static FString GetPrimaryGPUBrand();
 
 	/**
-	 * @return	"DeviceMake|DeviceModel" if possible, and "CPUVendor|CPUBrand" otherwise
+	 * @return	"DeviceMake|DeviceModel" if possible, and "CPUVendor|CPUBrand" otherwise, optionally returns "DeviceMake|DeviceModel|CPUChipset" if known
 	 */
 	static FString GetDeviceMakeAndModel();
 
@@ -528,6 +540,13 @@ public:
 	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit) {}
 	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit) {}
 
+	/**
+	* Profiler color stack - this overrides the color for named events with undefined colors (e.g stat namedevents)
+	*/
+	static void BeginProfilerColor(const struct FColor& Color) {}
+	static void EndProfilerColor() {}
+
+
 	/** Indicates the start of a frame for named events */
 	FORCEINLINE static void BeginNamedEventFrame()
 	{
@@ -598,6 +617,9 @@ public:
 
 	/** Prints string to the default output */
 	static void LocalPrint( const TCHAR* Str );
+
+	/** Whether LocalPrint can be called from any thread without overlapping */
+	static bool IsLocalPrintThreadSafe() { return false;  }
 
 	/** 
 	 * Whether the platform has a separate debug channel to stdout (eg. OutputDebugString on Windows). Used to suppress messages being output twice 
@@ -758,6 +780,11 @@ public:
 
 	/** Get the application root directory. */
 	static const TCHAR* RootDir();
+
+	/** get additional directories which can be considered as root directories */
+	static const TArray<FString>& GetAdditionalRootDirectories();
+	/** add an additional root directory */
+	static void AddAdditionalRootDirectory(const FString& RootDir);
 
 	/** Get the engine directory */
 	static const TCHAR* EngineDir();
@@ -945,6 +972,8 @@ public:
     FORCEINLINE static void ResetBrightness() { } // resets brightness to brightness application started with
     FORCEINLINE static bool SupportsBrightness() { return false; }
 
+    FORCEINLINE static bool IsInLowPowerMode() { return false;}
+
 	/**
 	 * Returns the current device temperature level.
 	 * Level is a relative value that is platform dependent. Lower is cooler, higher is warmer.
@@ -977,6 +1006,11 @@ public:
 	static bool SupportsTouchInput()
 	{
 		return PLATFORM_HAS_TOUCH_MAIN_SCREEN;
+	}
+
+	static bool SupportsForceTouchInput()
+	{
+		return false;
 	}
 
 	/** 
@@ -1050,6 +1084,14 @@ public:
 	 * @see EScreenOrientation
 	 */
 	static EDeviceScreenOrientation GetDeviceOrientation();
+
+	/**
+	 * Returns the device volume if the device is capable of returning that information.
+	 *  -1 : Unknown
+	 *   0 : Muted
+	 * 100 : Full Volume
+	 */
+	static int32 GetDeviceVolume();
 
 	/**
 	 * Get (or create) the unique ID used to identify this computer.
@@ -1187,7 +1229,7 @@ public:
 		return false;
 	}
 
-	static void RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc);
+	static bool RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QuerySucceededFunc, TFunction<void(const FString&, const FString&)> QueryFailedFunc);
 
 	static TArray<FChunkTagID> GetOnDemandChunkTagIDs();
 	
@@ -1206,6 +1248,9 @@ protected:
 	/** Whether the user should be prompted to allow for a remote debugger to be attached on an ensure */
 	static bool bPromptForRemoteDebugOnEnsure;
 #endif	//#if !UE_BUILD_SHIPPING
+
+private:
+	static TArray<FString>& Internal_GetAdditionalRootDirectories();
 };
 
 

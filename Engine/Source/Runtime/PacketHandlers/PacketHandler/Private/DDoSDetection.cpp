@@ -113,6 +113,8 @@ void FDDoSDetection::InitConfig()
 
 	DetectionSeverity.Empty();
 
+	UE_LOG(PacketHandlerLog, Log, TEXT("DDoS detection status: detection enabled: %d analytics enabled: %d"), bDDoSDetection, bDDoSAnalytics);
+
 	if (bDDoSDetection)
 	{
 		TArray<FString> SeverityCatagories;

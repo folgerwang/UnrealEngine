@@ -75,7 +75,7 @@ FText UAnimGraphNode_PoseDriver::GetNodeTitle(ENodeTitleType::Type TitleType) co
 			if (TotalNumBones > 1)
 			{
 				Args.Add(TEXT("MoreJoint"), FText::AsNumber(TotalNumBones - 1));
-				CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_PoseDriver_Title", "{ControllerDescription}\nSource: {FirstSourceBone} and {MoreJoint} more"), Args), this);
+				CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_PoseDriver_TitleWithBones", "{ControllerDescription}\nSource: {FirstSourceBone} and {MoreJoint} more"), Args), this);
 			}
 			else
 			{
@@ -137,6 +137,13 @@ EAnimAssetHandlerType UAnimGraphNode_PoseDriver::SupportsAssetClass(const UClass
 void UAnimGraphNode_PoseDriver::PostLoad()
 {
 	Super::PostLoad();
+
+	// since this is postload, sometimes pose asset post load isn't finished yet
+	// we mmake sure it finishes since this needs post info
+	if (Node.PoseAsset)
+	{
+		Node.PoseAsset->ConditionalPostLoad();
+	}
 
 	if (GetLinkerCustomVersion(FPoseDriverCustomVersion::GUID) < FPoseDriverCustomVersion::MultiBoneInput)
 	{

@@ -43,6 +43,7 @@ void SSafeZone::Construct( const FArguments& InArgs )
 	bPadRight = InArgs._PadRight;
 	bPadTop = InArgs._PadTop;
 	bPadBottom = InArgs._PadBottom;
+	bSafeMarginNeedsUpdate = true;
 
 #if WITH_EDITOR
 	OverrideScreenSize = InArgs._OverrideScreenSize;
@@ -52,7 +53,7 @@ void SSafeZone::Construct( const FArguments& InArgs )
 
 	SetTitleSafe(bIsTitleSafe);
 
-	OnSafeFrameChangedHandle = FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SSafeZone::SafeAreaUpdated);
+	OnSafeFrameChangedHandle = FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SSafeZone::UpdateSafeMargin);
 }
 
 SSafeZone::~SSafeZone()
@@ -60,13 +61,15 @@ SSafeZone::~SSafeZone()
 	FCoreDelegates::OnSafeFrameChangedEvent.Remove(OnSafeFrameChangedHandle);
 }
 
-void SSafeZone::SafeAreaUpdated()
-{
-	SetTitleSafe(bIsTitleSafe);
-}
-
 void SSafeZone::SetTitleSafe( bool InIsTitleSafe )
 {
+	UpdateSafeMargin();
+}
+
+void SSafeZone::UpdateSafeMargin() const
+{
+	bSafeMarginNeedsUpdate = true;
+
 #if WITH_EDITOR
 	if (OverrideScreenSize.IsSet() && !OverrideScreenSize.GetValue().IsZero())
 	{
@@ -86,6 +89,14 @@ void SSafeZone::SetTitleSafe( bool InIsTitleSafe )
 				const FIntPoint ViewportSize = ViewportInterface->GetSize();
 				FSlateApplication::Get().GetSafeZoneSize(SafeMargin, ViewportSize);
 			}
+			else
+			{
+				return;
+			}
+		}
+		else
+		{
+			return;
 		}
 	}
 
@@ -94,6 +105,8 @@ void SSafeZone::SetTitleSafe( bool InIsTitleSafe )
 #endif
 
 	SafeMargin = FMargin(bPadLeft ? SafeMargin.Left : 0.0f, bPadTop ? SafeMargin.Top : 0.0f, bPadRight ? SafeMargin.Right : 0.0f, bPadBottom ? SafeMargin.Bottom : 0.0f);
+
+	bSafeMarginNeedsUpdate = false;
 }
 
 void SSafeZone::SetSidesToPad(bool InPadLeft, bool InPadRight, bool InPadTop, bool InPadBottom)
@@ -115,15 +128,20 @@ void SSafeZone::SetOverrideScreenInformation(TOptional<FVector2D> InScreenSize, 
 	SetTitleSafe(bIsTitleSafe);
 }
 
-void SSafeZone::DebugSafeAreaUpdated(const FMargin& NewSafeZone)
+void SSafeZone::DebugSafeAreaUpdated(const FMargin& NewSafeZone, bool bShouldRecacheMetrics)
 {
-	SafeAreaUpdated();
+	UpdateSafeMargin();
 }
 
 #endif
 
 FMargin SSafeZone::GetSafeMargin(float InLayoutScale) const
 {
+	if (bSafeMarginNeedsUpdate)
+	{
+		UpdateSafeMargin();
+	}
+
 	const FMargin SlotPadding = Padding.Get() + (ComputeScaledSafeMargin(InLayoutScale) * SafeAreaScale);
 	return SlotPadding;
 }

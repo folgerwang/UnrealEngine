@@ -99,6 +99,9 @@ public:
 
 	virtual void PostRenderAllViewports() override;
 
+	virtual IVirtualTextureSpace *CreateVirtualTextureSpace(const FVirtualTextureSpaceDesc &Desc) override;
+	virtual void DestroyVirtualTextureSpace(IVirtualTextureSpace *Space) override;
+
 private:
 	TSet<FSceneInterface*> AllocatedScenes;
 	ICustomCulling* CustomCullingImpl;

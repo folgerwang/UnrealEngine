@@ -260,10 +260,10 @@ bool FAssetRenameManager::FixReferencesAndRename(const TArray<FAssetRenameData>&
 	TArray<FAssetRenameDataWithReferencers> AssetsToRename;
 	AssetsToRename.Reset(AssetsAndNames.Num());
 	// Avoid duplicates when adding MapBuildData to list
-	TMap<UObject*, bool> AssetsToRenameLookup;
+	TSet<UObject*> AssetsToRenameLookup;
 	for (const FAssetRenameData& AssetRenameData : AssetsAndNames)
 	{
-		AssetsToRenameLookup.FindOrAdd(AssetRenameData.Asset.Get());
+		AssetsToRenameLookup.Add(AssetRenameData.Asset.Get());
 	}
 	for (const FAssetRenameData& AssetRenameData : AssetsAndNames)
 	{
@@ -273,11 +273,15 @@ bool FAssetRenameManager::FixReferencesAndRename(const TArray<FAssetRenameData>&
 			UWorld* World = Cast<UWorld>(AssetRenameData.Asset.Get());
 			if (World && World->PersistentLevel && World->PersistentLevel->MapBuildData && !AssetsToRenameLookup.Contains(World->PersistentLevel->MapBuildData))
 			{
-				FString NewMapBuildDataName = AssetRenameData.NewName + TEXT("_BuiltData");
-				// Perform rename of MapBuildData before world otherwise original files left behind
-				AssetsToRename.EmplaceAt(0, FAssetRenameDataWithReferencers(FAssetRenameData(World->PersistentLevel->MapBuildData, AssetRenameData.NewPackagePath, NewMapBuildDataName)));
-				AssetsToRename[0].bOnlyFixSoftReferences = AssetRenameData.bOnlyFixSoftReferences;
-				AssetsToRenameLookup.Add(World->PersistentLevel->MapBuildData);
+				// Leave MapBuildData inside the map's package
+				if (World->PersistentLevel->MapBuildData->GetOutermost() != World->GetOutermost())
+				{
+					FString NewMapBuildDataName = AssetRenameData.NewName + TEXT("_BuiltData");
+					// Perform rename of MapBuildData before world otherwise original files left behind
+					AssetsToRename.EmplaceAt(0, FAssetRenameDataWithReferencers(FAssetRenameData(World->PersistentLevel->MapBuildData, AssetRenameData.NewPackagePath, NewMapBuildDataName)));
+					AssetsToRename[0].bOnlyFixSoftReferences = AssetRenameData.bOnlyFixSoftReferences;
+					AssetsToRenameLookup.Add(World->PersistentLevel->MapBuildData);
+				}
 			}
 		}
 
@@ -864,6 +868,22 @@ struct FSoftObjectPathRenameSerializer : public FArchiveUObject
 
 	FArchive& operator<<(FSoftObjectPath& Value)
 	{
+		// Ignore untracked references if just doing a search only. We still want to fix them up if they happen to be there
+		if (bSearchOnly)
+		{
+			FSoftObjectPathThreadContext& ThreadContext = FSoftObjectPathThreadContext::Get();
+			FName ReferencingPackageName, ReferencingPropertyName;
+			ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
+			ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
+
+			ThreadContext.GetSerializationOptions(ReferencingPackageName, ReferencingPropertyName, CollectType, SerializeType, this);
+
+			if (CollectType == ESoftObjectPathCollectType::NeverCollect)
+			{
+				return *this;
+			}
+		}
+
 		FString SubPath = Value.GetSubPathString();
 		for (const TPair<FSoftObjectPath, FSoftObjectPath>& Pair : RedirectorMap)
 		{

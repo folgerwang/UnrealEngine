@@ -143,6 +143,6 @@ namespace BuildPatchServices
 	class FBuildStreamerFactory
 	{
 	public:
-		static FBuildStreamerRef Create(const FString& BuildRoot, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager = &IFileManager::Get());
+		static FBuildStreamerRef Create(const FString& BuildRoot, const FString& InputListFile, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager = &IFileManager::Get());
 	};
 }

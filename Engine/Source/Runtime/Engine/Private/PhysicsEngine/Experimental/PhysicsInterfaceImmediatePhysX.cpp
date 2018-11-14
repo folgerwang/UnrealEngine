@@ -988,7 +988,7 @@ FTransform FPhysicsInterface_ImmediatePhysX::GetGlobalPose_AssumesLocked(const F
     return P2UTransform(InActorReference.Scene->RigidBodiesData[InActorReference.Index].body2World);
 }
 
-void FPhysicsInterface_ImmediatePhysX::SetGlobalPose_AssumesLocked(const FPhysicsActorHandle& InActorReference, const FTransform& InNewPose)
+void FPhysicsInterface_ImmediatePhysX::SetGlobalPose_AssumesLocked(const FPhysicsActorHandle& InActorReference, const FTransform& InNewPose, bool bAutoWake)
 {
     InActorReference.Scene->RigidBodiesData[InActorReference.Index].body2World = U2PTransform(InNewPose);
 }
@@ -1029,7 +1029,7 @@ FVector FPhysicsInterface_ImmediatePhysX::GetLinearVelocity_AssumesLocked(const 
     return P2UVector(InActorReference.Scene->RigidBodiesData[InActorReference.Index].linearVelocity);
 }
 
-void FPhysicsInterface_ImmediatePhysX::SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle& InActorReference, const FVector& InNewVelocity)
+void FPhysicsInterface_ImmediatePhysX::SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
     InActorReference.Scene->RigidBodiesData[InActorReference.Index].linearVelocity = U2PVector(InNewVelocity);
 }
@@ -1039,7 +1039,7 @@ FVector FPhysicsInterface_ImmediatePhysX::GetAngularVelocity_AssumesLocked(const
     return P2UVector(InActorReference.Scene->RigidBodiesData[InActorReference.Index].angularVelocity);
 }
 
-void FPhysicsInterface_ImmediatePhysX::SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle& InActorReference, const FVector& InNewVelocity)
+void FPhysicsInterface_ImmediatePhysX::SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle& InActorReference, const FVector& InNewVelocity, bool bAutoWake)
 {
     InActorReference.Scene->RigidBodiesData[InActorReference.Index].angularVelocity = U2PVector(InNewVelocity);
 }

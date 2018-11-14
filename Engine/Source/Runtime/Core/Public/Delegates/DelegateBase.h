@@ -128,6 +128,19 @@ public:
 	}
 
 	/** 
+	 * Returns a pointer to an object bound to this delegate, intended for quick lookup in the timer manager,
+	 *
+	 * @return A pointer to an object referenced by the delegate.
+	 */
+	FORCEINLINE const void* GetObjectForTimerManager() const
+	{
+		IDelegateInstance* Ptr = GetDelegateInstanceProtected();
+
+		const void* Result = Ptr ? Ptr->GetObjectForTimerManager() : nullptr;
+		return Result;
+	}
+
+	/** 
 	 * Checks to see if this delegate is bound to the given user object.
 	 *
 	 * @return True if this delegate is bound to InUserObject, false otherwise.

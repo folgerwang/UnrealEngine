@@ -298,7 +298,7 @@ static void ExtractMaterialInfoFromNode(UnFbx::FFbxImporter* FbxImporter, FbxNod
 					IllegalChar[1] = '\0';
 					if (MaterialInfo->Name.Contains(&IllegalChar[0]))
 					{
-						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], L"_");
+						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], TEXT("_"));
 						DisplayInvalidNameError = true;
 					}
 				}
@@ -509,7 +509,7 @@ TSharedPtr<FFbxSceneInfo> UFbxSceneImportFactory::ConvertSceneInfo(void* VoidFbx
 	UnFbx::FBXImportOptions* FbxImportOptionsPtr = FbxImporter->GetImportOptions();
 	bool OldValueImportMeshesInBoneHierarchy = FbxImportOptionsPtr->bImportMeshesInBoneHierarchy;
 	FbxImportOptionsPtr->bImportMeshesInBoneHierarchy = true;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, false, true);
 	FbxImportOptionsPtr->bImportMeshesInBoneHierarchy = OldValueImportMeshesInBoneHierarchy;
 
 	for (int32 i = 0; i < SkelMeshArray.Num(); i++)
@@ -1022,8 +1022,6 @@ FFeedbackContext*	Warn
 	GlobalImportSettings = FbxImporter->GetImportOptions();
 	UnFbx::FBXImportOptions::ResetOptions(GlobalImportSettings);
 	
-	GlobalImportSettings->OriginalMeshCopy = nullptr;
-
 	//Always convert the scene
 	GlobalImportSettings->bConvertScene = true;
 	GlobalImportSettings->bConvertSceneUnit = true;
@@ -1948,10 +1946,15 @@ UObject* UFbxSceneImportFactory::ImportOneSkeletalMesh(void* VoidRootNodeToImpor
 				break;
 			RootNodeInfo->AttributeInfo->SetOriginalImportPath(PackageName);
 			FName SkeletalMeshFName = FName(*SkeletalMeshName);
+
+			TArray<FbxNode*> SkeletonNodeArray;
+			FbxImporter->FillFbxSkeletonArray(RootNodeToImport, SkeletonNodeArray);
+
 			//Import the skeletal mesh
 			UnFbx::FFbxImporter::FImportSkeletalMeshArgs ImportSkeletalMeshArgs;
 			ImportSkeletalMeshArgs.InParent = Pkg;
 			ImportSkeletalMeshArgs.NodeArray = bUseSkelMeshNodePivotArray ? SkelMeshNodePivotArray : SkelMeshNodeArray;
+			ImportSkeletalMeshArgs.BoneNodeArray = SkeletonNodeArray;
 			ImportSkeletalMeshArgs.Name = SkeletalMeshFName;
 			ImportSkeletalMeshArgs.Flags = Flags;
 			ImportSkeletalMeshArgs.TemplateImportData = SkeletalMeshImportData;
@@ -2059,7 +2062,7 @@ void UFbxSceneImportFactory::ImportAllSkeletalMesh(void* VoidRootNodeToImport, v
 	FbxNode *RootNodeToImport = (FbxNode *)VoidRootNodeToImport;
 	InterestingNodeCount = 1;
 	TArray< TArray<FbxNode*>* > SkelMeshArray;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, false, true);
 	InterestingNodeCount = SkelMeshArray.Num();
 
 	int32 TotalNumNodes = 0;

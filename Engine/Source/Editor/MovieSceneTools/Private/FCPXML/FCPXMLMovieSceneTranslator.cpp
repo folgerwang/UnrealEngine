@@ -53,7 +53,7 @@ FName FFCPXMLImporter::GetMessageLogWindowTitle() const
 
 FText FFCPXMLImporter::GetMessageLogLabel() const
 {
-	return LOCTEXT("FCPXMLExportLogLabel", "FCP 7 XML Import Log");
+	return LOCTEXT("FCPXMLImportLogLabel", "FCP 7 XML Import Log");
 }
 
 bool FFCPXMLImporter::Import(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InFilename, TSharedRef<FMovieSceneTranslatorContext> InContext)

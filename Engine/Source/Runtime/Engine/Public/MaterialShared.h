@@ -22,6 +22,8 @@
 #include "SceneTypes.h"
 #include "StaticParameterSet.h"
 #include "Misc/Optional.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/ArchiveProxy.h"
 
 class FMaterial;
 class FMaterialCompiler;
@@ -58,6 +60,10 @@ template <class ElementType> class TLinkedList;
 // disallow debug data in shipping or on non-desktop Test
 #define ALLOW_SHADERMAP_DEBUG_DATA (!(UE_BUILD_SHIPPING || (UE_BUILD_TEST && !PLATFORM_DESKTOP)))
 
+#ifndef STORE_ONLY_ACTIVE_SHADERMAPS
+#define STORE_ONLY_ACTIVE_SHADERMAPS 0
+#endif
+
 DECLARE_LOG_CATEGORY_EXTERN(LogMaterial,Log,Verbose);
 
 /** Creates a string that represents the given quality level. */
@@ -80,6 +86,9 @@ inline uint32 GetUseSubsurfaceProfileShadingModelMask()
 {
 	return (1 << MSM_SubsurfaceProfile) | (1 << MSM_Eye);
 }
+
+/** Whether to allow dithered LOD transitions for a specific feature level. */
+ENGINE_API bool AllowDitheredLODTransition(ERHIFeatureLevel::Type FeatureLevel);
 
 /**
  * The types which can be used by materials.
@@ -552,7 +561,7 @@ public:
 	~FMaterialShaderMapId()
 	{ }
 
-	ENGINE_API void SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes);
+	ENGINE_API void SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes, EShaderPlatform ShaderPlatform);
 
 	void Serialize(FArchive& Ar);
 
@@ -698,8 +707,10 @@ public:
 	 */
 	static FMaterialShaderMap* FindId(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform Platform);
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	/** Flushes the given shader types from any loaded FMaterialShaderMap's. */
 	static void FlushShaderTypes(TArray<FShaderType*>& ShaderTypesToFlush, TArray<const FShaderPipelineType*>& ShaderPipelineTypesToFlush, TArray<const FVertexFactoryType*>& VFTypesToFlush);
+#endif
 
 	static void FixupShaderTypes(EShaderPlatform Platform, 
 		const TMap<FShaderType*, FString>& ShaderTypeNames,
@@ -800,13 +811,13 @@ public:
 	static const FMaterialShaderMap* GetShaderMapBeingCompiled(const FMaterial* Material);
 
 	/** Serializes the shader map. */
-	void Serialize(FArchive& Ar, bool bInlineShaderResources=true);
+	void Serialize(FArchive& Ar, bool bInlineShaderResources=true, bool bLoadedByCookedMaterial=false);
 
 	/** Saves this shader map to the derived data cache. */
 	void SaveToDerivedDataCache();
 
 	/** Registers all shaders that have been loaded in Serialize */
-	virtual void RegisterSerializedShaders() override;
+	virtual void RegisterSerializedShaders(bool bLoadedByCookedMaterial) override;
 	virtual void DiscardSerializedShaders() override;
 
 	/** Backs up any FShaders in this shader map to memory through serialization and clears FShader references. */
@@ -833,8 +844,10 @@ public:
 		;
 	}
 
+#if WITH_EDITOR
 	/** Returns the maximum number of texture samplers used by any shader in this shader map. */
 	uint32 GetMaxTextureSamplers() const;
+#endif
 
 	// Accessors.
 	ENGINE_API const FMeshMaterialShaderMap* GetMeshShaderMap(FVertexFactoryType* VertexFactoryType) const;
@@ -899,11 +912,13 @@ private:
 	 */
 	static TMap<FMaterialShaderMapId,FMaterialShaderMap*> GIdToMaterialShaderMap[SP_NumPlatforms];
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	/** 
 	 * All material shader maps in memory. 
 	 * No ref counting needed as these are removed on destruction of the shader map.
 	 */
 	static TArray<FMaterialShaderMap*> AllMaterialShaderMaps;
+#endif
 
 	/** The material's cached shaders for vertex factory type dependent shaders. */
 	TIndirectArray<FMeshMaterialShaderMap> MeshShaderMaps;
@@ -1155,7 +1170,7 @@ public:
 	void SerializeInlineShaderMap(FArchive& Ar);
 
 	/** Serializes the shader map inline in this material, including any shader dependencies. */
-	void RegisterInlineShaderMap();
+	void RegisterInlineShaderMap(bool bLoadedByCookedMaterial);
 
 	/** Releases this material's shader map.  Must only be called on materials not exposed to the rendering thread! */
 	void ReleaseShaderMap();
@@ -1243,6 +1258,7 @@ public:
 	virtual uint32 GetDecalBlendMode() const { return 0; }
 	virtual uint32 GetMaterialDecalResponse() const { return 0; }
 	virtual bool HasNormalConnected() const { return false; }
+	virtual bool HasEmissiveColorConnected() const { return false; }
 	virtual bool RequiresSynchronousCompilation() const { return false; };
 	virtual bool IsDefaultMaterial() const { return false; };
 	virtual int32 GetNumCustomizedUVs() const { return 0; }
@@ -1404,16 +1420,7 @@ public:
 	ENGINE_API bool GetMaterialExpressionSource(FString& OutSource);
 
 	/* Helper function to look at both IsMasked and IsDitheredLODTransition to determine if it writes every pixel */
-	ENGINE_API bool WritesEveryPixel(bool bShadowPass = false) const
-	{
-		static TConsoleVariableData<int32>* CVarStencilDitheredLOD =
-			IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
-
-		return !IsMasked()
-			// Render dithered material as masked if a stencil prepass is not used (UE-50064, UE-49537)
-			&& !((bShadowPass || !CVarStencilDitheredLOD->GetValueOnAnyThread()) && IsDitheredLODTransition())
-			&& !IsWireframe();
-	}
+	ENGINE_API bool WritesEveryPixel(bool bShadowPass = false) const;
 
 	/** call during shader compilation jobs setup to fill additional settings that may be required by classes who inherit from this */
 	virtual void SetupExtaCompilationSettings(const EShaderPlatform Platform, FExtraShaderCompilerSettings& Settings) const
@@ -1856,8 +1863,11 @@ public:
 		SetQualityLevelProperties(InQualityLevel, bInQualityLevelHasDifferentNodes, InFeatureLevel);
 	}
 
+#if WITH_EDITOR
 	/** Returns the number of samplers used in this material, or -1 if the material does not have a valid shader map (compile error or still compiling). */
 	ENGINE_API int32 GetSamplerUsage() const;
+#endif
+
 	ENGINE_API void GetUserInterpolatorUsage(uint32& NumUsedUVScalars, uint32& NumUsedCustomInterpolatorScalars) const;
 	ENGINE_API void GetEstimatedNumTextureSamples(uint32& VSSamples, uint32& PSSamples) const;
 
@@ -1916,6 +1926,7 @@ public:
 	ENGINE_API virtual uint32 GetDecalBlendMode() const override;
 	ENGINE_API virtual uint32 GetMaterialDecalResponse() const override;
 	ENGINE_API virtual bool HasNormalConnected() const override;
+	ENGINE_API virtual bool HasEmissiveColorConnected() const override;
 	ENGINE_API virtual enum EMaterialShadingModel GetShadingModel() const override;
 	ENGINE_API virtual enum ETranslucencyLightingMode GetTranslucencyLightingMode() const override;
 	ENGINE_API virtual float GetOpacityMaskClipValue() const override;
@@ -2252,3 +2263,153 @@ private:
 	FString													AttributeDDCString;
 	bool bIsInitialized;
 };
+
+struct FMaterialResourceLocOnDisk
+{
+	// Relative offset to package (uasset/umap + uexp) beginning
+	uint32 Offset;
+	// ERHIFeatureLevel::Type
+	uint8 FeatureLevel;
+	// EMaterialQualityLevel::Type
+	uint8 QualityLevel;
+};
+
+inline FArchive& operator<<(FArchive& Ar, FMaterialResourceLocOnDisk& Loc)
+{
+	Ar << Loc.Offset;
+	Ar << Loc.FeatureLevel;
+	Ar << Loc.QualityLevel;
+	return Ar;
+}
+
+class FMaterialResourceMemoryWriter final : public FMemoryWriter
+{
+public:
+	FMaterialResourceMemoryWriter(FArchive& Ar);
+
+	virtual ~FMaterialResourceMemoryWriter();
+
+	FMaterialResourceMemoryWriter(const FMaterialResourceMemoryWriter&) = delete;
+	FMaterialResourceMemoryWriter(FMaterialResourceMemoryWriter&&) = delete;
+	FMaterialResourceMemoryWriter& operator=(const FMaterialResourceMemoryWriter&) = delete;
+	FMaterialResourceMemoryWriter& operator=(FMaterialResourceMemoryWriter&&) = delete;
+
+	virtual FArchive& operator<<(class FName& Name) override;
+
+	virtual const FCustomVersionContainer& GetCustomVersions() const override { return ParentAr->GetCustomVersions(); }
+
+	virtual FString GetArchiveName() const override { return TEXT("FMaterialResourceMemoryWriter"); }
+
+	inline void BeginSerializingMaterialResource()
+	{
+		Locs.AddUninitialized();
+		int64 ResourceOffset = this->Tell();
+		Locs.Last().Offset = ResourceOffset;
+	}
+
+	inline void EndSerializingMaterialResource(const FMaterialResource& Resource)
+	{
+		static_assert(ERHIFeatureLevel::Num <= 256, "ERHIFeatureLevel doesn't fit into a byte");
+		static_assert(EMaterialQualityLevel::Num <= 256, "EMaterialQualityLevel doesn't fit into a byte");
+		check(Resource.GetMaterialInterface());
+		Locs.Last().FeatureLevel = uint8(Resource.GetFeatureLevel());
+		Locs.Last().QualityLevel = uint8(Resource.GetQualityLevel());
+	}
+
+private:
+	TArray<uint8> Bytes;
+	TArray<FMaterialResourceLocOnDisk> Locs;
+	TMap<NAME_INDEX, int32> Name2Indices;
+	FArchive* ParentAr;
+
+	void SerializeToParentArchive();
+};
+
+class FMaterialResourceWriteScope final
+{
+public:
+	FMaterialResourceWriteScope(
+		FMaterialResourceMemoryWriter* InAr,
+		const FMaterialResource& InResource) :
+		Ar(InAr),
+		Resource(InResource)
+	{
+		check(Ar);
+		Ar->BeginSerializingMaterialResource();
+	}
+
+	~FMaterialResourceWriteScope()
+	{
+		Ar->EndSerializingMaterialResource(Resource);
+	}
+
+private:
+	FMaterialResourceMemoryWriter* Ar;
+	const FMaterialResource& Resource;
+};
+
+class FMaterialResourceProxyReader final : public FArchiveProxy
+{
+public:
+	FMaterialResourceProxyReader(
+		FArchive& Ar,
+		ERHIFeatureLevel::Type FeatureLevel = ERHIFeatureLevel::Num,
+		EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num);
+
+	FMaterialResourceProxyReader(
+		const TCHAR* Filename,
+		uint32 NameMapOffset,
+		ERHIFeatureLevel::Type FeatureLevel = ERHIFeatureLevel::Num,
+		EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num);
+
+	virtual ~FMaterialResourceProxyReader();
+
+	FMaterialResourceProxyReader(const FMaterialResourceProxyReader&) = delete;
+	FMaterialResourceProxyReader(FMaterialResourceProxyReader&&) = delete;
+	FMaterialResourceProxyReader& operator=(const FMaterialResourceProxyReader&) = delete;
+	FMaterialResourceProxyReader& operator=(FMaterialResourceProxyReader&&) = delete;
+
+	virtual int64 Tell() override
+	{
+		return InnerArchive.Tell() - OffsetToFirstResource;
+	}
+
+	virtual void Seek(int64 InPos) override
+	{
+		InnerArchive.Seek(OffsetToFirstResource + InPos);
+	}
+
+	virtual FArchive& operator<<(class FName& Name) override;
+
+	virtual FString GetArchiveName() const override { return TEXT("FMaterialResourceProxyReader"); }
+
+private:
+	TArray<FName> Names;
+	int64 OffsetToFirstResource;
+	int64 OffsetToEnd;
+	bool bReleaseInnerArchive;
+
+	void Initialize(
+		ERHIFeatureLevel::Type FeatureLevel,
+		EMaterialQualityLevel::Type QualityLevel,
+		bool bSeekToEnd = false);
+};
+
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+bool HasMaterialResource(
+	UMaterial* Material,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel);
+
+const FMaterialResourceLocOnDisk* FindMaterialResourceLocOnDisk(
+	const TArray<FMaterialResourceLocOnDisk>& DiskLocations,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel);
+
+bool ReloadMaterialResource(
+	FMaterialResource* InOutMaterialResource,
+	const FString& PackageName,
+	uint32 OffsetToFirstResource,
+	ERHIFeatureLevel::Type FeatureLevel,
+	EMaterialQualityLevel::Type QualityLevel);
+#endif

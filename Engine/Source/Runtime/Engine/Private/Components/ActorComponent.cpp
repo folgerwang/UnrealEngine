@@ -757,7 +757,10 @@ void UActorComponent::BeginPlay()
 	check(!bHasBegunPlay);
 	checkSlow(bTickFunctionsRegistered); // If this fails, someone called BeginPlay() without first calling RegisterAllComponentTickFunctions().
 
-	ReceiveBeginPlay();
+	if (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+	{
+		ReceiveBeginPlay();
+	}
 
 	bHasBegunPlay = true;
 }
@@ -767,7 +770,7 @@ void UActorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	check(bHasBegunPlay);
 
 	// If we're in the process of being garbage collected it is unsafe to call out to blueprints
-	if (!HasAnyFlags(RF_BeginDestroyed) && !IsUnreachable())
+	if (!HasAnyFlags(RF_BeginDestroyed) && !IsUnreachable() && GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
 	{
 		ReceiveEndPlay(EndPlayReason);
 	}
@@ -898,18 +901,21 @@ void UActorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, F
 {
 	check(bRegistered);
 
-	ReceiveTick(DeltaTime);
-
-	if (GTickComponentLatentActionsWithTheComponent)
+	if (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
 	{
-		// Update any latent actions we have for this component, this will update even if paused if bUpdateWhilePaused is enabled
-		// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
-		// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
-		// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
-		// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
-		if (UWorld* ComponentWorld = GetWorld())
+		ReceiveTick(DeltaTime);
+
+		if (GTickComponentLatentActionsWithTheComponent)
 		{
-			ComponentWorld->GetLatentActionManager().ProcessLatentActions(this, ComponentWorld->GetDeltaSeconds());
+			// Update any latent actions we have for this component, this will update even if paused if bUpdateWhilePaused is enabled
+			// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
+			// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
+			// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
+			// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
+			if (UWorld* ComponentWorld = GetWorld())
+			{
+				ComponentWorld->GetLatentActionManager().ProcessLatentActions(this, ComponentWorld->GetDeltaSeconds());
+			}
 		}
 	}
 }

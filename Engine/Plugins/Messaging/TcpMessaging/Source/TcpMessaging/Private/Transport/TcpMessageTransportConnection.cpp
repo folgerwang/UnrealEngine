@@ -162,6 +162,8 @@ bool FTcpMessageTransportConnection::Init()
 
 uint32 FTcpMessageTransportConnection::Run()
 {
+	UE_LOG(LogTcpMessaging, Log, TEXT("Started Connection to '%s'"), *RemoteEndpoint.ToString());
+
 	while (bRun)
 	{
 		// Try sending the header if needed, and receiving messages and detect if they fail or if another connection error is reported.

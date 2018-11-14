@@ -254,7 +254,7 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "LatentActions.h"
 #include "Engine/LevelStreaming.h"
 #include "Engine/LevelStreamingAlwaysLoaded.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "Engine/LevelStreamingPersistent.h"
 #include "Lightmass/LightmappedSurfaceCollection.h"
 #include "GameFramework/LocalMessage.h"

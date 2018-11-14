@@ -309,6 +309,9 @@ protected:
 	/** How much we scrolled while the rmb has been held */
 	float AmountScrolledWhileRightMouseDown;
 
+	/** The location in screenspace the view was pressed */
+	FVector2D PressedScreenSpacePosition;
+
 	/** The amount we have scrolled this tick cycle */
 	float TickScrollDelta;
 

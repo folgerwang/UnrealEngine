@@ -50,6 +50,7 @@ namespace WorldHierarchy
 
 		virtual bool IsVisible() const override;
 		virtual bool IsLocked() const override;
+		virtual bool IsTransient() const override;
 		virtual bool IsReadOnly() const override;
 
 	public:

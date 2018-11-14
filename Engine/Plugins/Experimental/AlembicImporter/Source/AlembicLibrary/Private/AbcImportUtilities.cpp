@@ -1367,7 +1367,7 @@ bool AbcImporterUtilities::IsObjectVisibilityConstant(const Alembic::Abc::IObjec
 
 FBoxSphereBounds AbcImporterUtilities::ExtractBounds(Alembic::Abc::IBox3dProperty InBoxBoundsProperty)
 {
-	FBoxSphereBounds Bounds(EForceInit::ForceInitToZero);
+	FBoxSphereBounds Bounds(ForceInitToZero);
         // Extract data only if the property is found	
 	if (InBoxBoundsProperty.valid())
 	{

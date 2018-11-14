@@ -34,11 +34,9 @@ public class Vorbis : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			PublicAdditionalLibraries.AddRange(
-				new string[] {
-					VorbisPath + "macosx/libvorbis.dylib",
-				}
-			);
+			string DylibPath = Target.UEThirdPartyBinariesDirectory + "Vorbis/Mac/libvorbis.dylib";
+			PublicDelayLoadDLLs.Add(DylibPath);
+			RuntimeDependencies.Add(DylibPath);
 		}
 		else if (Target.Platform == UnrealTargetPlatform.HTML5)
 		{

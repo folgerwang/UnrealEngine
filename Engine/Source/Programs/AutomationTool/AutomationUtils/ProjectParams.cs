@@ -161,7 +161,7 @@ namespace AutomationTool
                         string CmdLineCookFlavor = Command.ParseParamValue("cookflavor");
                         if (!String.IsNullOrEmpty(CmdLineCookFlavor))
                         {
-                            CookFlavors = new List<string>(CmdLineCookFlavor.Split('+'));
+                            CookFlavors = new List<string>(CmdLineCookFlavor.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
                         }
                     }
 
@@ -169,11 +169,11 @@ namespace AutomationTool
 					{
 						// Get all platforms from the param value: Platform_1+Platform_2+...+Platform_k
 						TargetPlatforms = new List<TargetPlatformDescriptor>();
-						var PlatformNames = (new HashSet<string>(CmdLinePlatform.Split('+'))).ToList();
+						var PlatformNames = (new HashSet<string>(CmdLinePlatform.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries))).ToList();
 						foreach (var PlatformName in PlatformNames)
 						{
                             // Look for dependent platforms, Source_1.Dependent_1+Source_2.Dependent_2+Standalone_3
-                            var SubPlatformNames = new List<string>(PlatformName.Split('.'));
+                            var SubPlatformNames = new List<string>(PlatformName.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries));
 
                             foreach (var SubPlatformName in SubPlatformNames)
                             {
@@ -524,7 +524,7 @@ namespace AutomationTool
                     var CookCulturesString = Command.ParseParamValue("CookCultures");
                     if (CookCulturesString != null)
                     {
-                        this.CulturesToCook = new ParamList<string>(CookCulturesString.Split(','));
+                        this.CulturesToCook = new ParamList<string>(CookCulturesString.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                     }
                 }
             }
@@ -567,6 +567,12 @@ namespace AutomationTool
             this.ServerTargetPlatforms = SetupTargetPlatforms(ref this.ServerDependentPlatformMap, Command, ServerTargetPlatforms, this.ClientTargetPlatforms, false, "ServerTargetPlatform", "ServerPlatform");
 
 			this.Build = GetParamValueIfNotSpecified(Command, Build, this.Build, "build");
+			bool bSkipBuild = GetParamValueIfNotSpecified(Command, null, false, "skipbuild");
+			if (bSkipBuild)
+			{
+				this.Build = false;
+			}
+
 			this.SkipBuildClient = GetParamValueIfNotSpecified(Command, SkipBuildClient, this.SkipBuildClient, "skipbuildclient");
 			this.SkipBuildEditor = GetParamValueIfNotSpecified(Command, SkipBuildEditor, this.SkipBuildEditor, "skipbuildeditor");
 			this.Run = GetParamValueIfNotSpecified(Command, Run, this.Run, "run");
@@ -769,12 +775,12 @@ namespace AutomationTool
             string DeviceString = ParseParamValueIfNotSpecified(Command, Device, "device", String.Empty).Trim(new char[] { '\"' });
             if(DeviceString == "")
             {
-                this.Devices = new ParamList<string>();
-                this.DeviceNames = new ParamList<string>();
+                this.Devices = new ParamList<string>("");
+                this.DeviceNames = new ParamList<string>("");
             }
             else
             {
-                this.Devices = new ParamList<string>(DeviceString.Split('+'));
+                this.Devices = new ParamList<string>(DeviceString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
                 this.DeviceNames = new ParamList<string>();
                 foreach (var d in this.Devices)
                 {
@@ -822,7 +828,7 @@ namespace AutomationTool
                     if (ClientConfig != null)
 					{
 						this.ClientConfigsToBuild = new List<UnrealTargetConfiguration>();
-						var Configs = new ParamList<string>(ClientConfig.Split('+'));
+						var Configs = new ParamList<string>(ClientConfig.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
 						foreach (var ConfigName in Configs)
 						{
 							this.ClientConfigsToBuild.Add((UnrealTargetConfiguration)Enum.Parse(typeof(UnrealTargetConfiguration), ConfigName, true));
@@ -844,7 +850,7 @@ namespace AutomationTool
                     var PortString = Command.ParseParamValue("port");
                     if (String.IsNullOrEmpty(PortString) == false)
                     {
-                        var Ports = new ParamList<string>(PortString.Split('+'));
+                        var Ports = new ParamList<string>(PortString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
                         foreach (var P in Ports)
                         {
                             this.Port.Add(P);
@@ -867,7 +873,7 @@ namespace AutomationTool
                     var MapsString = Command.ParseParamValue("MapsToCook");
                     if (String.IsNullOrEmpty(MapsString) == false)
                     {
-                        var MapNames = new ParamList<string>(MapsString.Split('+'));
+                        var MapNames = new ParamList<string>(MapsString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
                         foreach ( var M in MapNames ) 
                         {
                             this.MapsToCook.Add( M );
@@ -889,7 +895,7 @@ namespace AutomationTool
 					var MapsString = Command.ParseParamValue("MapIniSectionsToCook");
 					if (String.IsNullOrEmpty(MapsString) == false)
 					{
-						var MapNames = new ParamList<string>(MapsString.Split('+'));
+						var MapNames = new ParamList<string>(MapsString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
 						foreach (var M in MapNames)
 						{
 							this.MapIniSectionsToCook.Add(M);
@@ -916,7 +922,7 @@ namespace AutomationTool
 					var MapsString = Command.ParseParamValue("MapsToRebuildLightMaps");
 					if (String.IsNullOrEmpty(MapsString) == false)
 					{
-						var MapNames = new ParamList<string>(MapsString.Split('+'));
+						var MapNames = new ParamList<string>(MapsString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
 						foreach (var M in MapNames)
 						{
 							this.MapsToRebuildLightMaps.Add(M);
@@ -938,7 +944,7 @@ namespace AutomationTool
                     var MapsString = Command.ParseParamValue("MapsToRebuildHLODMaps");
                     if (String.IsNullOrEmpty(MapsString) == false)
                     {
-                        var MapNames = new ParamList<string>(MapsString.Split('+'));
+                        var MapNames = new ParamList<string>(MapsString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
                         foreach (var M in MapNames)
                         {
                             this.MapsToRebuildHLODMaps.Add(M);
@@ -960,7 +966,7 @@ namespace AutomationTool
 					var TitleString = Command.ParseParamValue("TitleID");
 					if (String.IsNullOrEmpty(TitleString) == false)
 					{
-						var TitleIDs = new ParamList<string>(TitleString.Split('+'));
+						var TitleIDs = new ParamList<string>(TitleString.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
 						foreach (var T in TitleIDs)
 						{
 							this.TitleID.Add(T);
@@ -985,7 +991,7 @@ namespace AutomationTool
                     if (ServerConfig != null)
 					{
 						this.ServerConfigsToBuild = new List<UnrealTargetConfiguration>();
-						var Configs = new ParamList<string>(ServerConfig.Split('+'));
+						var Configs = new ParamList<string>(ServerConfig.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries));
 						foreach (var ConfigName in Configs)
 						{
 							this.ServerConfigsToBuild.Add((UnrealTargetConfiguration)Enum.Parse(typeof(UnrealTargetConfiguration), ConfigName, true));

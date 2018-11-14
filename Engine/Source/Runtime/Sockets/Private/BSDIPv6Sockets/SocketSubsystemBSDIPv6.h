@@ -23,7 +23,7 @@ public:
 
 	virtual TSharedRef<FInternetAddr> CreateInternetAddr( uint32 Address = 0, uint32 Port = 0 ) override;
 
-	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP = false) override;
+	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType) override;
 
 	virtual FResolveInfoCached* CreateResolveInfoCached(TSharedPtr<FInternetAddr> Addr) const override;
 
@@ -62,6 +62,8 @@ public:
 	}
 
 	virtual ESocketErrors TranslateErrorCode( int32 Code ) override;
+
+	virtual bool IsSocketWaitSupported() const override;
 
 	//~ End ISocketSubsystem Interface
 

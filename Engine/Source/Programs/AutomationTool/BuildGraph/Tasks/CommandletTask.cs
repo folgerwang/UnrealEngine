@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -37,8 +37,8 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// The editor executable to use. Defaults to the development UE4Editor executable for the current platform.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
-		public string EditorExe;
+		[TaskParameter(Optional = true)]
+		public FileReference EditorExe;
 	}
 
 	/// <summary>
@@ -78,13 +78,13 @@ namespace AutomationTool.Tasks
 
 			// Get the path to the editor, and check it exists
 			FileReference EditorExe;
-			if(String.IsNullOrEmpty(Parameters.EditorExe))
+			if(Parameters.EditorExe == null)
 			{
                 EditorExe = new FileReference(HostPlatform.Current.GetUE4ExePath("UE4Editor-Cmd.exe"));
 			}
 			else
 			{
-				EditorExe = ResolveFile(Parameters.EditorExe);
+				EditorExe = Parameters.EditorExe;
 			}
 
 			// Make sure the editor exists

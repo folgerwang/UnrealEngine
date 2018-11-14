@@ -717,7 +717,7 @@ public:
 	ENGINE_API FSpatializationParams GetSpatializationParams();
 
 	/** Returns the contained sound buffer object. */
-	const FSoundBuffer* GetBuffer() const { return Buffer; }
+	virtual const FSoundBuffer* GetBuffer() const { return Buffer; }
 
 	/** Initializes any source effects for this sound source. */
 	virtual void InitializeSourceEffects(uint32 InEffectVoiceId)
@@ -856,19 +856,19 @@ class FWaveModInfo
 public:
 
 	// Pointers to variables in the in-memory WAVE file.
-	uint32* pSamplesPerSec;
-	uint32* pAvgBytesPerSec;
-	uint16* pBlockAlign;
-	uint16* pBitsPerSample;
-	uint16* pChannels;
-	uint16* pFormatTag;
+	const uint32* pSamplesPerSec;
+	const uint32* pAvgBytesPerSec;
+	const uint16* pBlockAlign;
+	const uint16* pBitsPerSample;
+	const uint16* pChannels;
+	const uint16* pFormatTag;
 
-	uint32* pWaveDataSize;
-	uint32* pMasterSize;
-	uint8*  SampleDataStart;
-	uint8*  SampleDataEnd;
+	const uint32* pWaveDataSize;
+	const uint32* pMasterSize;
+	const uint8*  SampleDataStart;
+	const uint8*  SampleDataEnd;
 	uint32  SampleDataSize;
-	uint8*  WaveDataEnd;
+	const uint8*  WaveDataEnd;
 
 	uint32  NewDataSize;
 
@@ -885,12 +885,12 @@ public:
 
 	// Read headers and load all info pointers in WaveModInfo. 
 	// Returns 0 if invalid data encountered.
-	ENGINE_API bool ReadWaveInfo( uint8* WaveData, int32 WaveDataSize, FString* ErrorMessage = NULL, bool InHeaderDataOnly = false, void** OutFormatHeader = NULL );
+	ENGINE_API bool ReadWaveInfo(const uint8* WaveData, int32 WaveDataSize, FString* ErrorMessage = NULL, bool InHeaderDataOnly = false, void** OutFormatHeader = NULL );
 	
 	/**
 	 * Read a wave file header from bulkdata
 	 */
-	ENGINE_API bool ReadWaveHeader(uint8* RawWaveData, int32 Size, int32 Offset );
+	ENGINE_API bool ReadWaveHeader(const uint8* RawWaveData, int32 Size, int32 Offset );
 
 	ENGINE_API void ReportImportFailure() const;
 };

@@ -585,12 +585,11 @@ static const int MAX_MOBILE_SHADOWCASCADES = 4;
   */
 BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FMobileDirectionalLightShaderParameters, ENGINE_API)
 	UNIFORM_MEMBER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector, DirectionalLightDirection, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(float, DirectionalLightShadowTransition, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX(FVector4, DirectionalLightDirectionAndShadowTransition, EShaderPrecisionModifier::Half)
 	UNIFORM_MEMBER_EX(FVector4, DirectionalLightShadowSize, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightScreenToShadow, [MAX_MOBILE_SHADOWCASCADES])
+	UNIFORM_MEMBER_EX(FVector4, DirectionalLightDistanceFadeMAD, EShaderPrecisionModifier::Half) // .zw is not used atm
 	UNIFORM_MEMBER_EX(FVector4, DirectionalLightShadowDistances, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector2D, DirectionalLightDistanceFadeMAD, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightScreenToShadow, [MAX_MOBILE_SHADOWCASCADES])
 	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowTexture)
 	UNIFORM_MEMBER_SAMPLER(SamplerState, DirectionalLightShadowSampler)
 END_UNIFORM_BUFFER_STRUCT(FMobileDirectionalLightShaderParameters)
@@ -1496,6 +1495,9 @@ public:
 
 	/** if true then results of scene rendering are copied/resolved to the RenderTarget. */
 	bool bResolveScene;
+
+	/** if true then each view is not rendered using the same GPUMask. */
+	bool bMultiGPUForkAndJoin;
 
 	/** 
 	 * Which component of the scene rendering should be output to the final render target.

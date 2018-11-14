@@ -375,7 +375,7 @@ struct FSharedAssetDialogConfig
 	virtual EAssetDialogType::Type GetDialogType() const = 0;
 
 	FSharedAssetDialogConfig()
-		: WindowSizeOverride(EForceInit::ForceInitToZero)
+		: WindowSizeOverride(ForceInitToZero)
 	{}
 
 	virtual ~FSharedAssetDialogConfig()
@@ -521,6 +521,12 @@ public:
 
 	/** Generates a list of assets that are selected in the primary content browser */
 	virtual void GetSelectedAssets(TArray<FAssetData>& SelectedAssets) = 0;
+
+	/** Generates a list of folders that are selected in the primary content browser */
+	virtual void GetSelectedFolders(TArray<FString>& SelectedFolders) = 0;
+
+	/** Returns the folders that are selected in the path view */
+	virtual void GetSelectedPathViewFolders(TArray<FString>& SelectedFolders) = 0;
 
 	/**
 	 * Capture active viewport to thumbnail and assigns that thumbnail to incoming assets

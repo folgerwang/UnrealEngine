@@ -72,6 +72,14 @@ void FAsyncTextureStreamingData::UpdatePerfectWantedMips_Async(FStreamingTexture
 
 	const float MaxAllowedSize = StreamingTexture.GetMaxAllowedSize();
 
+#if !UE_BUILD_SHIPPING
+	if (Settings.bStressTest)
+	{
+		// In stress test, we choose between the allowed mips. Combined with "r.Streaming.DropMips=2" this can also generate cancel requests.
+		MaxSize_VisibleOnly = MaxSize = (float)(0x1 << (FMath::RandRange(StreamingTexture.MinAllowedMips, StreamingTexture.MaxAllowedMips) - 1));
+	}
+	else
+#endif
 	if (Settings.bFullyLoadUsedTextures)
 	{
 		if (StreamingTexture.LastRenderTime < 300)
@@ -581,16 +589,18 @@ void FAsyncTextureStreamingTask::DoWork()
 	// Update the distance and size for each bounds.
 	StreamingData.UpdateBoundSizes_Async(Settings);
 	
-	bool bNewFilesLoaded = StreamingManager.GetAndResetNewFilesHaveLoaded();
-	
+	if (StreamingManager.GetAndResetNewFilesHaveLoaded())
+	{
+		for (FStreamingTexture& StreamingTexture : StreamingTextures)
+		{
+			if (IsAborted()) break;
+			StreamingTexture.ClearCachedOptionalMipsState_Async();
+		}
+	}
+
 	for (FStreamingTexture& StreamingTexture : StreamingTextures)
 	{
 		if (IsAborted()) break;
-
-		if (bNewFilesLoaded)
-		{
-			StreamingTexture.ClearCachedOptionalMipsState_Async();
-		}
 
 		StreamingTexture.UpdateOptionalMipsState_Async();
 		

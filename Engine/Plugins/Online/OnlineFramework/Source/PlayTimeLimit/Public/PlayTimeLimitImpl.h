@@ -60,12 +60,14 @@ public:
 	 */
 	bool Tick(float Delta);
 
+	DECLARE_DELEGATE_RetVal_OneParam(FPlayTimeLimitUserRawPtr, OnRequestCreateUserDelegate, const FUniqueNetId&);
+
 	/**
 	 * Register a user to monitor their play time
 	 * @see UnregisterUser
 	 * @param NewUser the user to register
 	 */
-	void RegisterUser(FPlayTimeLimitUser* const NewUser);
+	void RegisterUser(const FUniqueNetId& NewUser);
 
 	/**
 	 * Unregister a user
@@ -104,6 +106,8 @@ public:
 	 */
 	void DumpState();
 
+	OnRequestCreateUserDelegate OnRequestCreateUser;
+
 protected:
 	/**
 	 * Update the next notification time for a user based on their current play time
@@ -115,7 +119,7 @@ protected:
 	FWarnUserPlayTime WarnUserPlayTimeDelegate;
 
 	/** List of users we are monitoring */
-	TArray<TUniquePtr<FPlayTimeLimitUser>> Users;
+	TArray<FPlayTimeLimitUserPtr> Users;
 
 	/** Last time we performed tick logic */
 	double LastTickLogicTime = 0.0;

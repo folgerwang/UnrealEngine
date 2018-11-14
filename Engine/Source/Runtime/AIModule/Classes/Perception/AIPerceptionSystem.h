@@ -108,38 +108,38 @@ public:
 	void UpdateListener(UAIPerceptionComponent& Listener);
 	void UnregisterListener(UAIPerceptionComponent& Listener);
 
-	template<typename FEventClass>
+	template<typename FEventClass, typename FSenseClass = typename FEventClass::FSenseClass>
 	void OnEvent(const FEventClass& Event)
 	{
-		const FAISenseID SenseID = UAISense::GetSenseID<typename FEventClass::FSenseClass>();
+		const FAISenseID SenseID = UAISense::GetSenseID<FSenseClass>();
 		if (Senses.IsValidIndex(SenseID) && Senses[SenseID] != nullptr)
 		{
-			((typename FEventClass::FSenseClass*)Senses[SenseID])->RegisterEvent(Event);
+			((FSenseClass*)Senses[SenseID])->RegisterEvent(Event);
 		}
 		// otherwise there's no one interested in this event, skip it.
 	}
 
-	template<typename FEventClass>
+	template<typename FEventClass, typename FSenseClass = typename FEventClass::FSenseClass>
 	void OnEventsBatch(const TArray<FEventClass>& Events)
 	{
 		if (Events.Num() > 0)
 		{
-			const FAISenseID SenseID = UAISense::GetSenseID<typename FEventClass::FSenseClass>();
+			const FAISenseID SenseID = UAISense::GetSenseID<FSenseClass>();
 			if (Senses.IsValidIndex(SenseID) && Senses[SenseID] != nullptr)
 			{
-				((typename FEventClass::FSenseClass*)Senses[SenseID])->RegisterEventsBatch(Events);
+				((FSenseClass*)Senses[SenseID])->RegisterEventsBatch(Events);
 			}
 		}
 		// otherwise there's no one interested in this event, skip it.
 	}
 
-	template<typename FEventClass>
+	template<typename FEventClass, typename FSenseClass = typename FEventClass::FSenseClass>
 	static void OnEvent(UWorld* World, const FEventClass& Event)
 	{
 		UAIPerceptionSystem* PerceptionSys = GetCurrent(World);
 		if (PerceptionSys != NULL)
 		{
-			PerceptionSys->OnEvent(Event);
+			PerceptionSys->OnEvent<FEventClass, FSenseClass>(Event);
 		}
 	}
 

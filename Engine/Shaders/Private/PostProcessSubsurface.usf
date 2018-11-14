@@ -76,7 +76,7 @@ float4 GetKernel(uint SampleIndex, uint SubsurfaceProfileInt)
 	// profiled on NV670 fullscreen, one pass (total: 2 pass), samples: 13+1+13, large object filling the screen
 
 	// texture lookup
-	float4 Value = SSProfilesTexture.Load(int3(SampleIndex, SubsurfaceProfileInt, 0)) * TableMax;		// 0.88ms for 8bit
+	float4 Value = ActualSSProfilesTexture.Load(int3(SampleIndex, SubsurfaceProfileInt, 0)) * TableMax;		// 0.88ms for 8bit
 	// simulated  8 bit lookup
 //	float4 Value = Quantize8Bit(kernel[SampleIndex] / TableMax) * TableMax;			// 1.33ms same look as texture
 	// float reference

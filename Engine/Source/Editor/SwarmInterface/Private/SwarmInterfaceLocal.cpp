@@ -94,12 +94,16 @@ private:
  */
 FSwarmInterface* FSwarmInterface::GInstance = NULL;
 
-void FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
+bool FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
 {
 	if( GInstance == NULL )
 	{
 		GInstance = new FSwarmInterfaceLocalImpl();
 	}
+
+	FIPv4Endpoint::Initialize();
+
+	return true;
 }
 
 FSwarmInterface& FSwarmInterface::Get( void )
@@ -229,6 +233,8 @@ int32 FSwarmInterfaceLocalImpl::SendMessage( const FMessage& Message )
 
 	while (bIsConnected && !Recepient.IsValid())
 	{
+		MessageEndpoint->Publish(new FSwarmPingMessage(), EMessageScope::Network);
+		
 		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 		FPlatformProcess::Sleep(0.5f);
 

@@ -18,22 +18,18 @@
 
 #define FACEBOOK_DEBUG_ENABLED 0
 
-FOnlineSubsystemFacebook::FOnlineSubsystemFacebook()
-{
-}
-
 FOnlineSubsystemFacebook::FOnlineSubsystemFacebook(FName InInstanceName)
 	: FOnlineSubsystemFacebookCommon(InInstanceName)
 {
 	FString IOSFacebookAppID;
 	if (!GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("FacebookAppID"), IOSFacebookAppID, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("The [IOSRuntimeSettings]:FacebookAppID has not been set"));
+		UE_LOG_ONLINE(Warning, TEXT("The [IOSRuntimeSettings]:FacebookAppID has not been set"));
 	}
 
 	if (ClientId.IsEmpty() || IOSFacebookAppID.IsEmpty() || (IOSFacebookAppID != ClientId))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Inconsistency between OnlineSubsystemFacebook AppId [%s] and IOSRuntimeSettings AppId [%s]"), *ClientId, *IOSFacebookAppID);
+		UE_LOG_ONLINE(Warning, TEXT("Inconsistency between OnlineSubsystemFacebook AppId [%s] and IOSRuntimeSettings AppId [%s]"), *ClientId, *IOSFacebookAppID);
 	}
 }
 
@@ -158,7 +154,7 @@ bool FOnlineSubsystemFacebook::IsEnabled() const
 	// IOSRuntimeSettings holds a value for editor ease of use
 	if (!GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableFacebookSupport"), bEnableFacebookSupport, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("The [IOSRuntimeSettings]:bEnableFacebookSupport flag has not been set"));
+		UE_LOG_ONLINE(Warning, TEXT("The [IOSRuntimeSettings]:bEnableFacebookSupport flag has not been set"));
 
 		// Fallback to regular OSS location
 		bEnableFacebookSupport = FOnlineSubsystemFacebookCommon::IsEnabled();

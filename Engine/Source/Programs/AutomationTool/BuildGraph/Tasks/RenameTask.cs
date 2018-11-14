@@ -28,13 +28,13 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The current file name, or pattern to match (eg. *.txt). Should not include any path separators.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
+		[TaskParameter(Optional = true)]
 		public string From;
 
 		/// <summary>
 		/// The new name for the file(s). Should not include any path separators.
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
+		[TaskParameter]
 		public string To;
 
 		/// <summary>

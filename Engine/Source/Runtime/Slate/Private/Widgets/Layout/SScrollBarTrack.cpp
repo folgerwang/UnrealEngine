@@ -36,7 +36,8 @@ void SScrollBarTrack::Construct(const FArguments& InArgs)
 
 SScrollBarTrack::FTrackSizeInfo SScrollBarTrack::GetTrackSizeInfo(const FGeometry& InTrackGeometry) const
 {
-	return FTrackSizeInfo(InTrackGeometry, Orientation, MinThumbSize, this->ThumbSizeFraction, this->OffsetFraction);
+	const float CurrentMinThumbSize = ThumbSizeFraction <= 0.0f ? 0.0f : MinThumbSize;
+	return FTrackSizeInfo(InTrackGeometry, Orientation, CurrentMinThumbSize, this->ThumbSizeFraction, this->OffsetFraction);
 }
 
 void SScrollBarTrack::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
@@ -119,9 +120,13 @@ void SScrollBarTrack::SetSizes(float InThumbOffsetFraction, float InThumbSizeFra
 	ThumbSizeFraction = InThumbSizeFraction;
 
 	// If you have no thumb, then it's effectively the size of the whole track
-	if (ThumbSizeFraction == 0.0f)
+	if (ThumbSizeFraction == 0.0f && !bIsAlwaysVisible)
 	{
 		ThumbSizeFraction = 1.0f;
+	}
+	else if (ThumbSizeFraction > 1.0f && bIsAlwaysVisible)
+	{
+		ThumbSizeFraction = 0.0f;
 	}
 }
 

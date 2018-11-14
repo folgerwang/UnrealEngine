@@ -265,6 +265,42 @@ protected:
 	TFunction<void()> CompletionCallback;
 };
 
+template<typename ResultType>
+class TLocalFileAsyncGraphTask : public FAsyncGraphTaskBase
+{
+public:
+	TLocalFileAsyncGraphTask(TFunction<ResultType()>&& InFunction, TPromise<ResultType>&& InPromise)
+		: Function(MoveTemp(InFunction))
+		, Promise(MoveTemp(InPromise))
+	{ }
+
+public:
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		SetPromise(Promise, Function);
+	}
+
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::AnyBackgroundThreadNormalTask;
+	}
+
+	TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(TLocalFileAsyncGraphTask, STATGROUP_TaskGraphTasks);
+	}
+
+	TFuture<ResultType> GetFuture()
+	{
+		return Promise.GetFuture();
+	}
+
+private:
+	TFunction<ResultType()> Function;
+	TPromise<ResultType> Promise;
+};
+
 template <typename StorageType>
 class TGenericQueuedLocalFileRequest : public FQueuedLocalFileRequest, public TSharedFromThis<TGenericQueuedLocalFileRequest<StorageType>, ESPMode::ThreadSafe>
 {
@@ -280,12 +316,12 @@ public:
 	{
 		auto SharedRef = this->AsShared();
 
-		Async<void>(EAsyncExecution::TaskGraph, 
+		TGraphTask<TLocalFileAsyncGraphTask<void>>::CreateTask().ConstructAndDispatchWhenReady(
 			[SharedRef]()
 			{
 				SharedRef->RequestFunction(SharedRef->Storage);
 			},
-			[SharedRef]() 
+			TPromise<void>([SharedRef]() 
 			{
 				if (!SharedRef->bCancelled)
 				{
@@ -294,7 +330,7 @@ public:
 						SharedRef->FinishRequest();
 					});
 				}
-			});
+			}));
 	}
 
 	virtual void FinishRequest() override
@@ -529,6 +565,7 @@ protected:
 		FLocalFileSerializationInfo();
 
 		uint32 FileVersion;
+		FString FileFriendlyName;
 	};
 
 	bool ReadReplayInfo(const FString& StreamName, FLocalFileReplayInfo& OutReplayInfo) const;
@@ -588,6 +625,10 @@ protected:
 
 	void AddRequestToCache(int32 ChunkIndex, const TArray<uint8>& RequestData);
 	void CleanupRequestCache();
+
+	bool bCacheFileReadsInMemory;
+	mutable TMap<FString, TArray<uint8>> FileContentsCache;
+	const TArray<uint8>& GetCachedFileContents(const FString& Filename) const;
 
 public:
 	static const FString& GetDefaultDemoSavePath();

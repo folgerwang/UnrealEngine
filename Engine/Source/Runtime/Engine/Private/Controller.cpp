@@ -511,7 +511,15 @@ void AController::InitPlayerState()
 			SpawnInfo.Instigator = Instigator;
 			SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			SpawnInfo.ObjectFlags |= RF_Transient;	// We never want player states to save into a map
-			PlayerState = World->SpawnActor<APlayerState>(GameMode->PlayerStateClass, SpawnInfo );
+
+			TSubclassOf<APlayerState> PlayerStateClassToSpawn = GameMode->PlayerStateClass;
+			if (PlayerStateClassToSpawn.Get() == nullptr)
+			{
+				UE_LOG(LogPlayerController, Log, TEXT("AController::InitPlayerState: the PlayerStateClass of game mode %s is null, falling back to APlayerState."), *GameMode->GetName());
+				PlayerStateClassToSpawn = APlayerState::StaticClass();
+			}
+
+			PlayerState = World->SpawnActor<APlayerState>(PlayerStateClassToSpawn, SpawnInfo);
 	
 			// force a default player name if necessary
 			if (PlayerState && PlayerState->GetPlayerName().IsEmpty())

@@ -75,7 +75,7 @@ namespace BlueprintNativeCodeGenUtilsImpl
 	/** */
 	static FString NativizedDependenciesFileName() { return TEXT("NativizedAssets_Dependencies"); }
 	/** */
-	static bool GenerateNativizedDependenciesSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths);
+	static bool GenerateNativizedDependenciesSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths, bool bExcludeMonolithicEngineHeaders);
 }
 
 //------------------------------------------------------------------------------
@@ -195,6 +195,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 		PchIncludes.Add(EngineHeaderFile);
 	}
 	PchIncludes.Add(TEXT("GeneratedCodeHelpers.h"));
+	PchIncludes.Add(TEXT("Blueprint/BlueprintSupport.h"));
 	PchIncludes.Add(NativizedDependenciesFileName() + TEXT(".h"));
 
 	TArray<FString> FilesToIncludeInModuleHeader;
@@ -218,7 +219,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 }
 
 //------------------------------------------------------------------------------
-static bool BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths)
+static bool BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths, bool bExcludeMonolithicEngineHeaders)
 {
 	FText FailureReason;
 	bool bSuccess = true;
@@ -234,7 +235,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSource
 
 	{
 		const FString SourceFilePath = FPaths::Combine(*TargetPaths.RuntimeSourceDir(FBlueprintNativeCodeGenPaths::CppFile), *BaseFilename) + TEXT(".cpp");
-		const FString SourceFileContent = CodeGenBackend.DependenciesGlobalMapBodyCode(TargetPaths.RuntimeModuleName());
+		const FString SourceFileContent = CodeGenBackend.DependenciesGlobalMapBodyCode(bExcludeMonolithicEngineHeaders ? BaseFilename : TargetPaths.RuntimeModuleName());
 		bSuccess &= GameProjectUtils::WriteOutputFile(SourceFilePath, SourceFileContent, FailureReason);
 	}
 
@@ -337,7 +338,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 	
 	FText ErrorMessage;
 	bool bSuccess = GameProjectUtils::GeneratePluginModuleBuildFile(TargetPaths.RuntimeBuildFile(), TargetPaths.RuntimeModuleName(),
-		PublicDependencies, PrivateDependencies, ErrorMessage, false);
+		PublicDependencies, PrivateDependencies, ErrorMessage, Manifest.GetCompilerNativizationOptions().bExcludeMonolithicHeaders);
 
 	if (!bSuccess)
 	{
@@ -379,10 +380,11 @@ static UClass* BlueprintNativeCodeGenUtilsImpl::ResolveReplacementType(const FCo
 bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest)
 {
 	bool bSuccess = true;
+	const bool bExcludeMonolithicHeaders = Manifest.GetCompilerNativizationOptions().bExcludeMonolithicHeaders;
 	FBlueprintNativeCodeGenPaths TargetPaths = Manifest.GetTargetPaths();
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(Manifest);
-	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(TargetPaths, Manifest.GetCompilerNativizationOptions().bExcludeMonolithicHeaders);
-	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(TargetPaths);
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(TargetPaths, bExcludeMonolithicHeaders);
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(TargetPaths, bExcludeMonolithicHeaders);
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(TargetPaths);
 	return bSuccess;
 }

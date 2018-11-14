@@ -65,7 +65,7 @@ void FDiskChunkStoreSpec::Define()
 		MockChunkDataSerialization->SaveToArchiveFunc = [](FArchive& Ar, const IChunkDataAccess* ChunkPtr)
 		{
 			const FFakeChunkDataAccess* FakeChunkDataAccess = static_cast<const FFakeChunkDataAccess*>(ChunkPtr);
-			Ar.Serialize(FakeChunkDataAccess->ChunkData, FakeChunkDataAccess->ChunkHeader.DataSize);
+			Ar.Serialize(FakeChunkDataAccess->ChunkData, FakeChunkDataAccess->ChunkHeader.DataSizeUncompressed);
 			return BuildPatchServices::EChunkSaveResult::Success;
 		};
 		MakeChunkData();
@@ -363,8 +363,10 @@ void FDiskChunkStoreSpec::MakeChunkData()
 {
 	FakeChunkDataAccessOne->ChunkData = SomeData.GetData();
 	FakeChunkDataAccessTwo->ChunkData = SomeData.GetData();
-	FakeChunkDataAccessOne->ChunkHeader.DataSize = SomeData.Num();
-	FakeChunkDataAccessTwo->ChunkHeader.DataSize = SomeData.Num();
+	FakeChunkDataAccessOne->ChunkHeader.DataSizeCompressed = SomeData.Num();
+	FakeChunkDataAccessTwo->ChunkHeader.DataSizeCompressed = SomeData.Num();
+	FakeChunkDataAccessOne->ChunkHeader.DataSizeUncompressed = SomeData.Num();
+	FakeChunkDataAccessTwo->ChunkHeader.DataSizeUncompressed = SomeData.Num();
 }
 
 void FDiskChunkStoreSpec::MakeUnit()

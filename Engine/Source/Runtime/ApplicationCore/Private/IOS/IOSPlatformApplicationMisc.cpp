@@ -164,6 +164,12 @@ GenericApplication* FIOSPlatformApplicationMisc::CreateApplication()
 	return CachedApplication;
 }
 
+bool FIOSPlatformApplicationMisc::IsScreensaverEnabled()
+{
+	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
+	return [AppDelegate IsIdleTimerEnabled];
+}
+
 bool FIOSPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 {
 	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
@@ -218,7 +224,7 @@ void FIOSPlatformApplicationMisc::ClipboardPaste(class FString& Result)
 EScreenPhysicalAccuracy FIOSPlatformApplicationMisc::ComputePhysicalScreenDensity(int32& ScreenDensity)
 {
 	FPlatformMisc::EIOSDevice Device = FPlatformMisc::GetIOSDeviceType();
-	static_assert( FPlatformMisc::EIOSDevice::IOS_Unknown == 32, "Every device needs to be handled here." );
+	static_assert( FPlatformMisc::EIOSDevice::IOS_Unknown == 38, "Every device needs to be handled here." );
 
 	ScreenDensity = 0;
 	EScreenPhysicalAccuracy Accuracy = EScreenPhysicalAccuracy::Unknown;
@@ -239,6 +245,7 @@ EScreenPhysicalAccuracy FIOSPlatformApplicationMisc::ComputePhysicalScreenDensit
 	case FPlatformMisc::IOS_IPhone6S:
 	case FPlatformMisc::IOS_IPhone7:
 	case FPlatformMisc::IOS_IPhone8:
+    case FPlatformMisc::IOS_IPhoneXR:
 		ScreenDensity = 326;
 		Accuracy = EScreenPhysicalAccuracy::Truth;
 		break;
@@ -247,6 +254,8 @@ EScreenPhysicalAccuracy FIOSPlatformApplicationMisc::ComputePhysicalScreenDensit
 	case FPlatformMisc::IOS_IPhone7Plus:
 	case FPlatformMisc::IOS_IPhone8Plus:
 	case FPlatformMisc::IOS_IPhoneX:
+    case FPlatformMisc::IOS_IPhoneXS:
+    case FPlatformMisc::IOS_IPhoneXSMax:
 		ScreenDensity = 401;
 		Accuracy = EScreenPhysicalAccuracy::Truth;
 		break;
@@ -260,6 +269,7 @@ EScreenPhysicalAccuracy FIOSPlatformApplicationMisc::ComputePhysicalScreenDensit
 	case FPlatformMisc::IOS_IPad3:
 	case FPlatformMisc::IOS_IPad4:
 	case FPlatformMisc::IOS_IPad5:
+	case FPlatformMisc::IOS_IPad6:
 	case FPlatformMisc::IOS_IPadAir:
 	case FPlatformMisc::IOS_IPadAir2:
 	case FPlatformMisc::IOS_IPadPro_97:
@@ -269,7 +279,9 @@ EScreenPhysicalAccuracy FIOSPlatformApplicationMisc::ComputePhysicalScreenDensit
 	case FPlatformMisc::IOS_IPadPro:
 	case FPlatformMisc::IOS_IPadPro_129:
 	case FPlatformMisc::IOS_IPadPro_105:
+	case FPlatformMisc::IOS_IPadPro_11:
 	case FPlatformMisc::IOS_IPadPro2_129:
+	case FPlatformMisc::IOS_IPadPro3_129:
 		ScreenDensity = 264;
 		Accuracy = EScreenPhysicalAccuracy::Truth;
 		break;

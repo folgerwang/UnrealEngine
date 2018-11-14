@@ -36,7 +36,6 @@
 #include "Misc/LevelSequenceEditorActorSpawner.h"
 #include "SequencerSettings.h"
 #include "Misc/MovieSceneSequenceEditor_LevelSequence.h"
-#include "KismetCompilerModule.h"
 #include "BlueprintAssetHandler.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
@@ -49,7 +48,7 @@ TSharedPtr<FLevelSequenceEditorStyle> FLevelSequenceEditorStyle::Singleton;
  * Implements the LevelSequenceEditor module.
  */
 class FLevelSequenceEditorModule
-	: public ILevelSequenceEditorModule, public IBlueprintCompiler, public FGCObject
+	: public ILevelSequenceEditorModule, public FGCObject
 {
 public:
 
@@ -73,9 +72,6 @@ public:
 		RegisterSettings();
 		RegisterSequenceEditor();
 
-		IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
-		KismetCompilerModule.GetCompilers().Add(this);
-
 		class FLevelSequenceAssetBlueprintHandler : public IBlueprintAssetHandler
 		{
 			virtual UBlueprint* RetrieveBlueprint(UObject* InObject) const override
@@ -87,6 +83,15 @@ public:
 			{
 				// Only have a blueprint if it contains the BlueprintPathWithinPackage tag
 				return InAssetData.TagsAndValues.Find(FBlueprintTags::BlueprintPathWithinPackage) != nullptr;
+			}
+
+			virtual bool SupportsNativization(const UObject* InAsset, const UBlueprint* InBlueprint, FText* OutReason) const
+			{
+				if (OutReason)
+				{
+					*OutReason = LOCTEXT("NativizationError", "Level Sequences do not support nativization.");
+				}
+				return false;
 			}
 		};
 
@@ -103,12 +108,6 @@ public:
 		UnregisterPlacementModeExtensions();
 		UnregisterSettings();
 		UnregisterSequenceEditor();
-
-		IKismetCompilerInterface* KismetCompilerModulePtr = FModuleManager::GetModulePtr<IKismetCompilerInterface>("KismetCompiler");
-		if (KismetCompilerModulePtr)
-		{
-			KismetCompilerModulePtr->GetCompilers().Remove(this);
-		}
 	}
 
 protected:
@@ -315,23 +314,6 @@ protected:
 		if (SequencerModule)
 		{
 			SequencerModule->UnregisterSequenceEditor(SequenceEditorHandle);
-		}
-	}
-
-protected:
-
-	virtual bool CanCompile(const UBlueprint* Blueprint) override
-	{
-		return Blueprint && Blueprint->IsA<ULevelSequenceDirectorBlueprint>();
-	}
-
-	virtual void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override
-	{
-		if (ULevelSequenceDirectorBlueprint* LevelSequenceDirectorBP = CastChecked<ULevelSequenceDirectorBlueprint>(Blueprint) )
-		{
-			FLevelSequenceDirectorBlueprintCompiler Compiler(LevelSequenceDirectorBP, Results, CompileOptions, ObjLoaded);
-			Compiler.Compile();
-			check(Compiler.NewClass);
 		}
 	}
 

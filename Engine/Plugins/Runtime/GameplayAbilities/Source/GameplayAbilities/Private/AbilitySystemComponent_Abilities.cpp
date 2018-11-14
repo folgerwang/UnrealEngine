@@ -31,6 +31,7 @@
 #include "TickableAttributeSetInterface.h"
 #include "GameplayTagResponseTable.h"
 #include "Engine/DemoNetDriver.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #define LOCTEXT_NAMESPACE "AbilitySystemComponent"
 
@@ -39,6 +40,8 @@
 
 DECLARE_CYCLE_STAT(TEXT("AbilitySystemComp ServerTryActivate"), STAT_AbilitySystemComp_ServerTryActivate, STATGROUP_AbilitySystem);
 DECLARE_CYCLE_STAT(TEXT("AbilitySystemComp ServerEndAbility"), STAT_AbilitySystemComp_ServerEndAbility, STATGROUP_AbilitySystem);
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 static TAutoConsoleVariable<float> CVarReplayMontageErrorThreshold(TEXT("replay.MontageErrorThreshold"), 0.5f, TEXT("Tolerance level for when montage playback position correction occurs in replays"));
 
@@ -95,6 +98,7 @@ void UAbilitySystemComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 void UAbilitySystemComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {	
 	SCOPE_CYCLE_COUNTER(STAT_TickAbilityTasks);
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AbilityTasks);
 
 	if (IsOwnerActorAuthoritative())
 	{
@@ -243,7 +247,7 @@ FGameplayAbilitySpecHandle UAbilitySystemComponent::GiveAbility(const FGameplayA
 	}
 	
 	OnGiveAbility(OwnedSpec);
-	MarkAbilitySpecDirty(OwnedSpec);
+	MarkAbilitySpecDirty(OwnedSpec, true);
 
 	return OwnedSpec.Handle;
 }
@@ -342,10 +346,13 @@ void UAbilitySystemComponent::ClearAbility(const FGameplayAbilitySpecHandle& Han
 			}
 			else
 			{
-
-				OnRemoveAbility(ActivatableAbilities.Items[Idx]);
-				ActivatableAbilities.Items.RemoveAtSwap(Idx);
-				ActivatableAbilities.MarkArrayDirty();
+				{
+					// OnRemoveAbility will possibly call EndAbility. EndAbility can "do anything" including remove this abilityspec again. So a scoped list lock is necessary here.
+					ABILITYLIST_SCOPE_LOCK();
+					OnRemoveAbility(ActivatableAbilities.Items[Idx]);
+					ActivatableAbilities.Items.RemoveAtSwap(Idx);
+					ActivatableAbilities.MarkArrayDirty();
+				}
 				CheckForClearedAbilities();
 			}
 			return;
@@ -587,12 +594,16 @@ FGameplayAbilitySpec* UAbilitySystemComponent::FindAbilitySpecFromClass(TSubclas
 	return nullptr;
 }
 
-void UAbilitySystemComponent::MarkAbilitySpecDirty(FGameplayAbilitySpec& Spec)
+void UAbilitySystemComponent::MarkAbilitySpecDirty(FGameplayAbilitySpec& Spec, bool WasAddOrRemove)
 {
 	if (IsOwnerActorAuthoritative())
 	{
-		bIsNetDirty = true;
-		ActivatableAbilities.MarkItemDirty(Spec);
+		// Don't mark dirty for specs that are server only unless it was an add/remove
+		if (!(Spec.Ability && Spec.Ability->NetExecutionPolicy == EGameplayAbilityNetExecutionPolicy::ServerOnly && !WasAddOrRemove))
+		{
+			bIsNetDirty = true;
+			ActivatableAbilities.MarkItemDirty(Spec);
+		}
 		AbilitySpecDirtiedCallbacks.Broadcast(Spec);
 	}
 	else
@@ -1103,6 +1114,9 @@ bool UAbilitySystemComponent::InternalTryActivateAbility(FGameplayAbilitySpecHan
 		return false;
 	}
 
+	// Lock ability list so our Spec doesn't get destroyed while activating
+	ABILITYLIST_SCOPE_LOCK();
+
 	const FGameplayAbilityActorInfo* ActorInfo = AbilityActorInfo.Get();
 
 	// make sure the ActorInfo and then Actor on that FGameplayAbilityActorInfo are valid, if not bail out.
@@ -1222,13 +1236,9 @@ bool UAbilitySystemComponent::InternalTryActivateAbility(FGameplayAbilitySpecHan
 	}
 
 	// make sure we do not incur a roll over if we go over the uint8 max, this will need to be updated if the var size changes
-	if (ensure(Spec->ActiveCount < UINT8_MAX))
+	if (ensureMsgf(Spec->ActiveCount < UINT8_MAX, TEXT("TryActivateAbility %s called when the Spec->ActiveCount (%d) >= UINT8_MAX"), *Ability->GetName(), (int32)Spec->ActiveCount))
 	{
 		Spec->ActiveCount++;
-	}
-	else
-	{
-		ABILITY_LOG(Warning, TEXT("TryActivateAbility %s called when the Spec->ActiveCount (%d) >= UINT8_MAX"), *Ability->GetName(), (int32)Spec->ActiveCount);
 	}
 
 	// Setup a fresh ActivationInfo for this AbilitySpec.
@@ -2457,6 +2467,11 @@ void UAbilitySystemComponent::OnRep_ReplicatedAnimMontage()
 {
 	UWorld* World = GetWorld();
 
+	if (RepAnimMontageInfo.bSkipPlayRate)
+	{
+		RepAnimMontageInfo.PlayRate = 1.f;
+	}
+
 	const bool bIsPlayingReplay = World && World->DemoNetDriver && World->DemoNetDriver->IsPlaying();
 
 	const float MONTAGE_REP_POS_ERR_THRESH = bIsPlayingReplay ? CVarReplayMontageErrorThreshold.GetValueOnGameThread() : 0.1f;
@@ -3001,7 +3016,15 @@ void UAbilitySystemComponent::ServerSetReplicatedTargetData_Implementation(FGame
 	ReplicatedData.bTargetConfirmed = true;
 	ReplicatedData.bTargetCancelled = false;
 	ReplicatedData.PredictionKey = CurrentPredictionKey;
-	ReplicatedData.TargetSetDelegate.Broadcast(ReplicatedData.TargetData, ReplicatedData.ApplicationTag);
+
+	
+	{
+		// Make a local copy of the delegate since while broadcasting it we may call back into ASC code and modify this->AbilityTargetDataMap, causing internal memory shifting which would break the delegate out from underneath us.
+		// (Note ReplicatedTargetDataHandle is safe because its owned by the net driver. ReplicatedData.ApplicationTag is safe because it is passed by value).
+		// MoveTemp would be nicer but we wouldn't be able to cleanly handle the case of a new delegate being registered while broadcasting: we would need a way to merge the move temp'd invocation list back in.
+		FAbilityTargetDataSetDelegate LocalTargetSetDelegate = ReplicatedData.TargetSetDelegate;
+		LocalTargetSetDelegate.Broadcast(ReplicatedTargetDataHandle, ReplicatedData.ApplicationTag);
+	}
 }
 
 bool UAbilitySystemComponent::ServerSetReplicatedTargetData_Validate(FGameplayAbilitySpecHandle AbilityHandle, FPredictionKey AbilityOriginalPredictionKey, const FGameplayAbilityTargetDataHandle& ReplicatedTargetDataHandle, FGameplayTag ApplicationTag, FPredictionKey CurrentPredictionKey)

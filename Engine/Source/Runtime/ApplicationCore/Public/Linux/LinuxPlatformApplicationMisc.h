@@ -19,6 +19,7 @@ struct APPLICATIONCORE_API FLinuxPlatformApplicationMisc : public FGenericPlatfo
 	static class GenericApplication* CreateApplication();
 	static bool IsThisApplicationForeground();
 	static void PumpMessages(bool bFromMainLoop);
+	static bool IsScreensaverEnabled();
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static float GetDPIScaleFactorAtPoint(float X, float Y);
 	static void ClipboardCopy(const TCHAR* Str);
@@ -27,6 +28,12 @@ struct APPLICATIONCORE_API FLinuxPlatformApplicationMisc : public FGenericPlatfo
 	// Unix specific
 	static void EarlyUnixInitialization(class FString& OutCommandLine);
 	static bool ShouldIncreaseProcessLimits() { return true; }
+
+	// Linux specific
+	/** Informs ApplicationCore that it needs to create Vulkan-compatible windows (mutually exclusive with OpenGL) */
+	static void UsingVulkan();
+	/** Informs ApplicationCore that it needs to create OpenGL-compatible windows (mutually exclusive with Vulkan) */
+	static void UsingOpenGL();
 };
 
 typedef FLinuxPlatformApplicationMisc FPlatformApplicationMisc;

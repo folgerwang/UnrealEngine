@@ -24,7 +24,7 @@
 #include "Engine/NetworkObjectList.h"
 #include "Net/RepLayout.h"
 #include "GameFramework/SpectatorPawn.h"
-#include "Engine/LevelStreamingKismet.h"
+#include "Engine/LevelStreamingDynamic.h"
 #include "GameFramework/SpectatorPawnMovement.h"
 #include "Net/UnrealNetwork.h"
 #include "UnrealEngine.h"
@@ -63,7 +63,10 @@ static TAutoConsoleVariable<float> CVarDemoCullDistanceOverride( TEXT( "demo.Cul
 static TAutoConsoleVariable<float> CVarDemoRecordHzWhenNotRelevant( TEXT( "demo.RecordHzWhenNotRelevant" ), 2.0f, TEXT( "Record at this frequency when actor is not relevant." ) );
 static TAutoConsoleVariable<int32> CVarLoopDemo(TEXT("demo.Loop"), 0, TEXT("<1> : play replay from beginning once it reaches the end / <0> : stop replay at the end"));
 static TAutoConsoleVariable<int32> CVarDemoFastForwardIgnoreRPCs( TEXT( "demo.FastForwardIgnoreRPCs" ), 1, TEXT( "If true, RPCs will be discarded during playback fast forward." ) );
-static TAutoConsoleVariable<int32> CVarDemoSaveRollbackActorState( TEXT( "demo.SaveRollbackActorState" ), 1, TEXT( "If true, rollback actors will save some replicated state to apply when respawned." ) );
+
+static int32 GDemoSaveRollbackActorState = 1;
+static FAutoConsoleVariableRef CVarDemoSaveRollbackActorState( TEXT( "demo.SaveRollbackActorState" ), GDemoSaveRollbackActorState, TEXT( "If true, rollback actors will save some replicated state to apply when respawned." ) );
+
 static TAutoConsoleVariable<int32> CVarWithLevelStreamingFixes(TEXT("demo.WithLevelStreamingFixes"), 0, TEXT("If 1, provides fixes for level streaming (but breaks backwards compatibility)."));
 static TAutoConsoleVariable<int32> CVarWithDemoTimeBurnIn(TEXT("demo.WithTimeBurnIn"), 0, TEXT("If true, adds an on screen message with the current DemoTime and Changelist."));
 
@@ -1170,11 +1173,24 @@ bool UDemoNetDriver::WriteNetworkDemoHeader(FString& Error)
 		DemoHeader.HeaderFlags |= EReplayHeaderFlags::HasStreamingFixes;
 	}
 
+	DemoHeader.Guid = FGuid::NewGuid();
+
 	// Write the header
 	(*FileAr) << DemoHeader;
 	FileAr->Flush();
 
 	return true;
+}
+
+void UDemoNetDriver::WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData)
+{
+	FNetworkReplayDelegates::OnWriteGameSpecificDemoHeader.Broadcast(GameSpecificData);
+}
+
+bool UDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
+{
+	FNetworkReplayDelegates::OnProcessGameSpecificDemoHeader.Broadcast(GameSpecificData, Error);
+	return Error.Len() == 0;
 }
 
 bool UDemoNetDriver::IsRecording() const
@@ -1909,7 +1925,6 @@ void UDemoNetDriver::LoadExternalData( FArchive& Ar, const float TimeSeconds )
 
 	while ( true )
 	{
-		uint8 ExternalDataBuffer[1024];
 		uint32 ExternalDataNumBits;
 
 		// Read payload into payload/guid map
@@ -1927,16 +1942,16 @@ void UDemoNetDriver::LoadExternalData( FArchive& Ar, const float TimeSeconds )
 
 		int32 ExternalDataNumBytes = ( ExternalDataNumBits + 7 ) >> 3;
 
-		Ar.Serialize( ExternalDataBuffer, ExternalDataNumBytes );
+		FBitReader Reader(nullptr, ExternalDataNumBits);
 
-		FBitReader Reader( ExternalDataBuffer, ExternalDataNumBits );
+		Ar.Serialize(Reader.GetData(), ExternalDataNumBytes);
 
 		Reader.SetEngineNetVer( ServerConnection->EngineNetworkProtocolVersion );
 		Reader.SetGameNetVer( ServerConnection->GameNetworkProtocolVersion );
 
 		FReplayExternalDataArray& ExternalDataArray = ExternalDataToObjectMap.FindOrAdd( NetGUID );
 
-		ExternalDataArray.Add( new FReplayExternalData( Reader, TimeSeconds ) );
+		ExternalDataArray.Add( new FReplayExternalData( MoveTemp(Reader), TimeSeconds ) );
 	}
 }
 
@@ -1979,11 +1994,27 @@ void UDemoNetDriver::EnumerateEventsForActiveReplay(const FString& Group, const 
 	}
 }
 
+void UDemoNetDriver::EnumerateEventsForActiveReplay(const FString& Group, const int32 UserIndex, const FEnumerateEventsCallback& Delegate)
+{
+	if (ReplayStreamer.IsValid())
+	{
+		ReplayStreamer->EnumerateEvents(ActiveReplayName, Group, UserIndex, Delegate);
+	}
+}
+
 void UDemoNetDriver::RequestEventDataForActiveReplay(const FString& EventID, const FRequestEventDataCallback& Delegate)
 {
 	if (ReplayStreamer.IsValid())
 	{
 		ReplayStreamer->RequestEventData(ActiveReplayName, EventID, Delegate);
+	}
+}
+
+void UDemoNetDriver::RequestEventDataForActiveReplay(const FString& EventID, const int32 UserIndex, const FRequestEventDataCallback& Delegate)
+{
+	if (ReplayStreamer.IsValid())
+	{
+		ReplayStreamer->RequestEventData(ActiveReplayName, EventID, UserIndex, Delegate);
 	}
 }
 
@@ -2422,6 +2453,18 @@ bool UDemoNetDriver::ReplicatePrioritizedActor(const FActorPriority& ActorPriori
 
 		if (TotalRecordTimeMS > MaxDesiredRecordTimeMS)
 		{
+			if (UE_LOG_ACTIVE(LogDemo, Log))
+			{
+				static double LastWarningTime = 0.0f;
+				const double CurrentWarningTime = FPlatformTime::Seconds();
+
+				if ((CurrentWarningTime - LastWarningTime) > 1.0)
+				{
+					UE_LOG(LogDemo, Log, TEXT("Exceeded maximum desired recording time.  Max: %.3fms."), MaxDesiredRecordTimeMS);
+					LastWarningTime = CurrentWarningTime;
+				}
+			}
+
 			return false;
 		}
 	}
@@ -2634,7 +2677,7 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar, TArray<FPla
 				continue;
 			}
 
-			ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>(World, NAME_None, RF_NoFlags, nullptr);
+			ULevelStreamingDynamic* StreamingLevel = NewObject<ULevelStreamingDynamic>(World, NAME_None, RF_NoFlags, nullptr);
 
 			StreamingLevel->SetShouldBeLoaded(true);
 			StreamingLevel->SetShouldBeVisible(true);
@@ -3133,29 +3176,22 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 #if CSV_PROFILER
 	{
 		static FCsvDemoSettings CsvDemoSettings = GetCsvDemoSettings();
-		FCsvProfiler* CsvProfiler = FCsvProfiler::Get();
 		if (CsvDemoSettings.bCaptureCsv)
 		{
 			bool bDoCapture = IsPlaying()
 				&& DemoCurrentTime >= CsvDemoSettings.StartTime
 				&& ((DemoCurrentTime <= CsvDemoSettings.EndTime) || (CsvDemoSettings.EndTime < 0));
 
-			// Stop the capture when we reach the specified frame count
-			if (CsvDemoSettings.FrameCount>=0 && CsvProfiler->GetCaptureFrameNumber() >= CsvDemoSettings.FrameCount)
+			static bool bStartedCsvRecording = false;
+			if (!bStartedCsvRecording && bDoCapture)
 			{
-				bDoCapture = false;
+				FCsvProfiler::Get()->BeginCapture(CsvDemoSettings.FrameCount);
+				bStartedCsvRecording = true;
 			}
-
-			if (bDoCapture != CsvProfiler->IsCapturing())
+			else if (bStartedCsvRecording && !bDoCapture)
 			{
-				if (bDoCapture)
-				{
-					CsvProfiler->BeginCapture();
-				}
-				else
-				{
-					CsvProfiler->EndCapture();
-				}
+				FCsvProfiler::Get()->EndCapture();
+				bStartedCsvRecording = false;
 			}
 		}
 	}
@@ -3509,7 +3545,8 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 			}
 		}
 
-		UE_LOG(LogDemo, Log, TEXT("ReplayStreamingReady: playing back replay %s, which was recorded on engine version %s"), *DemoURL.Map, *PlaybackDemoHeader.EngineVersion.ToString());
+		UE_LOG(LogDemo, Log, TEXT("ReplayStreamingReady: playing back replay [%s] %s, which was recorded on engine version %s"),
+			*PlaybackDemoHeader.Guid.ToString(EGuidFormats::Digits), *DemoURL.Map, *PlaybackDemoHeader.EngineVersion.ToString());
 	}
 }
 
@@ -3575,10 +3612,22 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 				UE_LOG( LogDemo, Log, TEXT( "RespawnNecessaryNetStartupActors: NetStartupRollbackActor name doesn't match original: %s, %s" ), *Actor->GetFullName(), *It.Key() );
 			}
 
+			bool bSanityCheckReferences = true;
+
+			for(UObject* ObjRef : RollbackActor.ObjReferences)
+			{
+				if (ObjRef == nullptr)
+				{
+					bSanityCheckReferences = false;
+					UE_LOG(LogDemo, Warning, TEXT("RespawnNecessaryNetStartupActors: Rollback actor reference was gc'd, skipping state restore: %s"), *GetFullNameSafe(Actor));
+					break;
+				}
+			}
+
 			TSharedPtr<FRepLayout> RepLayout = GetObjectClassRepLayout(Actor->GetClass());
 			if (RepLayout.IsValid())
 			{
-				if (RepLayout.IsValid() && RollbackActor.RepState.IsValid())
+				if (RepLayout.IsValid() && RollbackActor.RepState.IsValid() && bSanityCheckReferences)
 				{
 					const ENetRole SavedRole = Actor->Role;
 
@@ -3618,7 +3667,7 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 					{
 						TSharedPtr<FRepState> RepState = RollbackActor.SubObjRepState.FindRef(ActorComp->GetFullName());
 
-						if (SubObjLayout.IsValid() && RepState.IsValid())
+						if (SubObjLayout.IsValid() && RepState.IsValid() && bSanityCheckReferences)
 						{
 							SubObjLayout->DiffStableProperties(&RepState->RepNotifies, nullptr, ActorComp, RepState->StaticBuffer.GetData());
 
@@ -4068,7 +4117,7 @@ bool UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 		ConnectURL.Map = DemoURL.Map;
 		ServerConnection->InitConnection(this, USOCK_Pending, ConnectURL, 1000000);
 
-		GEngine->ForceGarbageCollection();
+		GEngine->ForceGarbageCollection(true);
 
 		ProcessSeamlessTravel(LevelForCheckpoint);
 		CurrentLevelIndex = LevelForCheckpoint;
@@ -4236,7 +4285,7 @@ bool UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 	// Optionally collect garbage after the old actors and connection are cleaned up - there could be a lot of pending-kill objects at this point.
 	if (CVarDemoLoadCheckpointGarbageCollect.GetValueOnGameThread() != 0)
 	{
-		GEngine->ForceGarbageCollection();
+		GEngine->ForceGarbageCollection(true);
 	}
 
 	FURL ConnectURL;
@@ -4627,8 +4676,10 @@ FString UDemoNetConnection::LowLevelGetRemoteAddress( bool bAppendPort )
 	return TEXT( "UDemoNetConnection" );
 }
 
-void UDemoNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+void UDemoNetConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
+	uint32 CountBytes = FMath::DivideAndRoundUp(CountBits, 8);
+
 	if ( CountBytes == 0 )
 	{
 		UE_LOG( LogDemo, Warning, TEXT( "UDemoNetConnection::LowLevelSend: Ignoring empty packet." ) );
@@ -4645,11 +4696,11 @@ void UDemoNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountB
 	if ( bResendAllDataSinceOpen )
 	{
 		// This path is only active for a checkpoint saving out, we need to queue in separate list
-		new( QueuedCheckpointPackets )FQueuedDemoPacket( ( uint8* )Data, CountBytes, CountBits );
+		new( QueuedCheckpointPackets )FQueuedDemoPacket( ( uint8* )Data, CountBits, Traits );
 		return;
 	}
 
-	new(QueuedDemoPackets)FQueuedDemoPacket((uint8*)Data, CountBytes, CountBits);
+	new(QueuedDemoPackets)FQueuedDemoPacket((uint8*)Data, CountBits, Traits);
 }
 
 void UDemoNetConnection::TrackSendForProfiler(const void* Data, int32 NumBytes)
@@ -5007,7 +5058,7 @@ void UDemoNetDriver::QueueNetStartupActorForRollbackViaDeletion( AActor* Actor )
 	RollbackActor.Rotation	= Actor->GetActorRotation();
 	RollbackActor.Level		= Actor->GetLevel();
 
-	if (CVarDemoSaveRollbackActorState.GetValueOnAnyThread())
+	if (GDemoSaveRollbackActorState != 0)
 	{
 		TSharedPtr<FObjectReplicator> NewReplicator = MakeShared<FObjectReplicator>();
 		if (NewReplicator.IsValid())
@@ -5062,6 +5113,20 @@ void UDemoNetDriver::ForceNetUpdate(AActor* Actor)
 	}
 	}
 
+UChannel* UDemoNetDriver::InternalCreateChannel(EChannelType ChType)
+{
+	// In case of recording off the game thread with CVarDemoClientRecordAsyncEndOfFrame,
+	// we need to clear the async flag on the channel so that it will get cleaned up by GC.
+	// This should be safe since channel objects don't interact with async loading, and
+	// async recording happens in a very controlled manner.
+	UChannel* NewChannel = Super::InternalCreateChannel(ChType);
+	if (NewChannel)
+	{
+		NewChannel->ClearInternalFlags(EInternalObjectFlags::Async);
+	}
+	return NewChannel;
+}
+
 void UDemoNetDriver::NotifyDemoPlaybackFailure(EDemoPlayFailure::Type FailureType)
 {
 	const bool bIsPlaying = IsPlaying();
@@ -5078,6 +5143,20 @@ void UDemoNetDriver::NotifyDemoPlaybackFailure(EDemoPlayFailure::Type FailureTyp
 			}
 		}
 	}
+}
+
+FString UDemoNetDriver::GetDemoPath() const
+{
+	if (ReplayStreamer.IsValid())
+	{
+		FString DemoPath;
+		if (ReplayStreamer->GetDemoPath(DemoPath) == EStreamingOperationResult::Success)
+		{
+			return DemoPath;
+		}
+	}
+
+	return FString();
 }
 
 /*-----------------------------------------------------------------------------

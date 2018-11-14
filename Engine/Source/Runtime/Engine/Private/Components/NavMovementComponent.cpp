@@ -16,6 +16,7 @@ UNavMovementComponent::UNavMovementComponent(const FObjectInitializer& ObjectIni
 	, bUseFixedBrakingDistanceForPaths(false)
 	, bStopMovementAbortPaths(true)
 {
+	bComponentShouldUpdatePhysicsVolume = true;
 }
 
 FBasedPosition UNavMovementComponent::GetActorFeetLocationBased() const

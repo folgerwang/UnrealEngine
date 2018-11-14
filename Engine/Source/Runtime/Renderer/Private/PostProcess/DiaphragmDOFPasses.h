@@ -520,7 +520,7 @@ public:
 	/** Returns whether hybrid scattering is supported. */
 	static FORCEINLINE bool IsSupported(EShaderPlatform ShaderPlatform)
 	{
-		return true;
+		return !IsSwitchPlatform(ShaderPlatform);
 	}
 
 	// TODO: pixel shader post filtering to have hierarchical RT layout.

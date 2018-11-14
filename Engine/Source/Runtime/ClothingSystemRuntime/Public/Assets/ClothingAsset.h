@@ -350,6 +350,8 @@ struct FClothConfig
 		, SolverFrequency(120.0f)
 		, StiffnessFrequency(100.0f)
 		, GravityScale(1.0f)
+		, GravityOverride(FVector::ZeroVector)
+		, bUseGravityOverride(false)
 		, TetherStiffness(1.0f)
 		, TetherLimit(1.0f)
 		, CollisionThickness(1.0f)
@@ -442,8 +444,16 @@ struct FClothConfig
 	float StiffnessFrequency;
 
 	// Scale of gravity effect on particles
-	UPROPERTY(EditAnywhere, Category = ClothConfig)
+	UPROPERTY(EditAnywhere, Category = ClothConfig, meta = (EditCondition = "!bUseGravityOverride"))
 	float GravityScale;
+
+	// Direct gravity override value
+	UPROPERTY(EditAnywhere, Category = ClothConfig, meta = (EditCondition = "bUseGravityOverride"))
+	FVector GravityOverride;
+
+	/** Use gravity override value vs gravity scale */
+	UPROPERTY(EditAnywhere, Category = ClothConfig, meta = (InlineEditConditionToggle))
+	bool bUseGravityOverride;
 
 	// Scale for stiffness of particle tethers between each other
 	UPROPERTY(EditAnywhere, Category = ClothConfig)

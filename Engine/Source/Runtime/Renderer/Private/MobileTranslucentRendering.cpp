@@ -182,7 +182,7 @@ public:
 			);
 
 		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
-		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), Parameters.Mesh.MaterialRenderProxy);
 		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType());
 
 		for (int32 BatchElementIndex = 0; BatchElementIndex<Parameters.Mesh.Elements.Num(); BatchElementIndex++)
@@ -311,15 +311,13 @@ void FTranslucentPrimSet::DrawPrimitivesForMobile(FRHICommandListImmediate& RHIC
 	}
 }
 
-void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews)
+void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews, bool bRenderToSceneColor)
 {
 	ETranslucencyPass::Type TranslucencyPass = 
 		ViewFamily.AllowTranslucencyAfterDOF() ? ETranslucencyPass::TPT_StandardTranslucency : ETranslucencyPass::TPT_AllTranslucency;
 		
 	if (ShouldRenderTranslucency(TranslucencyPass))
 	{
-		const bool bGammaSpace = !IsMobileHDR();
-
 		SCOPED_DRAW_EVENT(RHICmdList, Translucency);
 
 		for (int32 ViewIndex = 0; ViewIndex < PassViews.Num(); ViewIndex++)
@@ -337,11 +335,18 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 
 			FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
-			if (!bGammaSpace)
+			if (bRenderToSceneColor)
 			{
 				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 				// Use begin rendering scene color with FExclusiveDepthStencil::DepthRead_StencilRead to avoid starting a new render pass on vulkan.
 				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
+			}
+			else
+			{
+				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+				FTextureRHIParamRef SceneColor = GetMultiViewSceneColor(SceneContext);
+				const FTextureRHIParamRef SceneDepth = (View.bIsMobileMultiViewEnabled) ? SceneContext.MobileMultiViewSceneDepthZ->GetRenderTargetItem().TargetableTexture : static_cast<FTextureRHIRef>(SceneContext.GetSceneDepthTexture());
+				SetRenderTarget(RHICmdList, SceneColor, SceneDepth, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
 			}
 
 			// Mobile multi-view is not side by side stereo
@@ -643,7 +648,7 @@ private:
 
 			FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
 			DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
-			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+			CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()), Mesh.MaterialRenderProxy);
 			DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FMobileOpacityDrawingPolicy::ContextDataType());
 
 			int32 BatchElementIndex = 0;

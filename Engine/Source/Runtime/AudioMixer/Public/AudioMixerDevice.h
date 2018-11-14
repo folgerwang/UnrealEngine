@@ -123,6 +123,8 @@ namespace Audio
 		// Submix buffer listener callbacks
 		virtual void RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
 		virtual void UnregisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
+
+		virtual void FlushAudioRenderingCommands() override;
 		//~ End FAudioDevice
 
 		//~ Begin IAudioMixer

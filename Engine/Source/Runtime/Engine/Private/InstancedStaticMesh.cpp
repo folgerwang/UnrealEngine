@@ -978,6 +978,9 @@ public:
 
 	/** The cached selected instances */
 	TBitArray<> SelectedInstances;
+
+	/* The cached random seed */
+	int32 InstancingRandomSeed;
 };
 #endif
 
@@ -1001,6 +1004,9 @@ FActorComponentInstanceData* UInstancedStaticMeshComponent::GetComponentInstance
 
 	// Back up instance selection
 	StaticMeshInstanceData->SelectedInstances = SelectedInstances;
+
+	// Back up random seed
+	StaticMeshInstanceData->InstancingRandomSeed = InstancingRandomSeed;
 
 	return InstanceData;
 #else
@@ -1051,6 +1057,8 @@ void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticM
 	}
 
 	SelectedInstances = InstancedMeshData->SelectedInstances;
+
+	InstancingRandomSeed = InstancedMeshData->InstancingRandomSeed;
 
 	// Force recreation of the render data
 	InstanceUpdateCmdBuffer.Edit();
@@ -1725,7 +1733,7 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	{
 		TArray<FInstancedStaticMeshInstanceData_DEPRECATED> DeprecatedData;
 		DeprecatedData.BulkSerialize(Ar);
-		PerInstanceSMData.Reserve(DeprecatedData.Num());
+		PerInstanceSMData.Reset(DeprecatedData.Num());
 		Algo::Transform(DeprecatedData, PerInstanceSMData, [](const FInstancedStaticMeshInstanceData_DEPRECATED& OldData){ 
 			return FInstancedStaticMeshInstanceData(OldData.Transform);
 		});

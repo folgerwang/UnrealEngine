@@ -56,7 +56,7 @@ bool FOnlineVoiceOculus::Init()
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
 	}
 
 	return bHasVoiceEnabled;
@@ -68,11 +68,11 @@ void FOnlineVoiceOculus::StartNetworkedVoice(uint8 LocalUserNum)
 	{
 		ovr_Voip_SetMicrophoneMuted(ovrVoipMuteState_Unmuted);
 		bIsLocalPlayerMuted = false;
-		UE_LOG(LogVoice, Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Invalid user specified in StartNetworkedVoice(%d)"),
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Invalid user specified in StartNetworkedVoice(%d)"),
 			static_cast<uint32>(LocalUserNum));
 	}
 }
@@ -83,11 +83,11 @@ void FOnlineVoiceOculus::StopNetworkedVoice(uint8 LocalUserNum)
 	{
 		ovr_Voip_SetMicrophoneMuted(ovrVoipMuteState_Muted);
 		bIsLocalPlayerMuted = true;
-		UE_LOG(LogVoice, Log, TEXT("Stopping networked voice for user: %d"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Stopping networked voice for user: %d"), LocalUserNum);
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Invalid user specified in StartNetworkedVoice(%d)"),
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Invalid user specified in StartNetworkedVoice(%d)"),
 			static_cast<uint32>(LocalUserNum));
 	}
 }
@@ -129,7 +129,7 @@ bool FOnlineVoiceOculus::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId
 {
 	if (!bIsSystemWide)
 	{
-		UE_LOG(LogVoice, Error, TEXT("Only System Wide muting of another player is currently supported"));
+		UE_LOG_ONLINE_VOICE(Error, TEXT("Only System Wide muting of another player is currently supported"));
 		return false;
 	}
 
@@ -144,7 +144,7 @@ bool FOnlineVoiceOculus::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNet
 {
 	if (!bIsSystemWide)
 	{
-		UE_LOG(LogVoice, Error, TEXT("Only System Wide muting of another player is currently supported"));
+		UE_LOG_ONLINE_VOICE(Error, TEXT("Only System Wide muting of another player is currently supported"));
 		return false;
 	}
 
@@ -293,7 +293,7 @@ void FOnlineVoiceOculus::OnVoipConnectionRequest(ovrMessageHandle Message, bool 
 	auto NetworkingPeer = ovr_Message_GetNetworkingPeer(Message);
 	auto PeerID = ovr_NetworkingPeer_GetID(NetworkingPeer);
 
-	UE_LOG(LogVoice, Verbose, TEXT("New incoming peer request: %llu"), PeerID);
+	UE_LOG_ONLINE_VOICE(Verbose, TEXT("New incoming peer request: %llu"), PeerID);
 
 	// Accept the connection
 	ovr_Voip_Accept(PeerID);
@@ -305,24 +305,24 @@ void FOnlineVoiceOculus::OnVoipStateChange(ovrMessageHandle Message, bool bIsErr
 
 	auto PeerID = ovr_NetworkingPeer_GetID(NetworkingPeer);
 
-	UE_LOG(LogVoice, Verbose, TEXT("%llu changed network connection state"), PeerID);
+	UE_LOG_ONLINE_VOICE(Verbose, TEXT("%llu changed network connection state"), PeerID);
 
 	auto State = ovr_NetworkingPeer_GetState(NetworkingPeer);
 	if (State == ovrPeerState_Connected)
 	{
-		UE_LOG(LogVoice, Verbose, TEXT("%llu is connected"), PeerID);
+		UE_LOG_ONLINE_VOICE(Verbose, TEXT("%llu is connected"), PeerID);
 	}
 	else if (State == ovrPeerState_Closed)
 	{
-		UE_LOG(LogVoice, Verbose, TEXT("%llu is closed"), PeerID);
+		UE_LOG_ONLINE_VOICE(Verbose, TEXT("%llu is closed"), PeerID);
 	}
 	else if (State == ovrPeerState_Timeout)
 	{
-		UE_LOG(LogVoice, Warning, TEXT("%llu timed out"), PeerID);
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("%llu timed out"), PeerID);
 	}
 	else
 	{
-		UE_LOG(LogVoice, Warning, TEXT("%llu is in an unknown state"), PeerID);
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("%llu is in an unknown state"), PeerID);
 	}
 
 	auto OculusPeerID = new FUniqueNetIdOculus(PeerID);
@@ -332,7 +332,7 @@ void FOnlineVoiceOculus::OnVoipStateChange(ovrMessageHandle Message, bool bIsErr
 	{
 		if (State == ovrPeerState_Connected)
 		{
-			UE_LOG(LogVoice, Verbose, TEXT("Adding %llu to remote talker list"), PeerID);
+			UE_LOG_ONLINE_VOICE(Verbose, TEXT("Adding %llu to remote talker list"), PeerID);
 			int32 AddIndex = RemoteTalkers.AddZeroed();
 			auto RemoteTalker = &RemoteTalkers[AddIndex];
 			RemoteTalker->TalkerId = MakeShareable(OculusPeerID);
@@ -342,7 +342,7 @@ void FOnlineVoiceOculus::OnVoipStateChange(ovrMessageHandle Message, bool bIsErr
 	{
 		if (State == ovrPeerState_Closed || State == ovrPeerState_Timeout)
 		{
-			UE_LOG(LogVoice, Verbose, TEXT("Removing %llu from remote talker list"), PeerID);
+			UE_LOG_ONLINE_VOICE(Verbose, TEXT("Removing %llu from remote talker list"), PeerID);
 			RemoteTalkers.RemoveAtSwap(Index);
 			if (RemoteTalkerBuffers.Contains(*OculusPeerID))
 			{
@@ -363,11 +363,11 @@ void FOnlineVoiceOculus::OnAudioFinished(UAudioComponent* AC)
 		FRemoteTalkerDataOculus& RemoteData = It.Value();
 		if (RemoteData.AudioComponent->IsPendingKill() || AC == RemoteData.AudioComponent)
 		{
-			UE_LOG(LogVoice, Log, TEXT("Removing VOIP AudioComponent for Id: %s"), *It.Key().ToDebugString());
+			UE_LOG_ONLINE_VOICE(Log, TEXT("Removing VOIP AudioComponent for Id: %s"), *It.Key().ToDebugString());
 			RemoteData.AudioComponent->RemoveFromRoot(); // Let the GC clean this up
 			RemoteData.AudioComponent = nullptr;
 			break;
 		}
 	}
-	UE_LOG(LogVoice, Verbose, TEXT("Audio Finished"));
+	UE_LOG_ONLINE_VOICE(Verbose, TEXT("Audio Finished"));
 }

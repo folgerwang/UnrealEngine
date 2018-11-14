@@ -111,12 +111,8 @@ bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPop
 			IOnlineIdentityPtr OnlineIdentity = OnlineSub->GetIdentityInterface();
 			IOnlineExternalUIPtr OnlineExternalUI = OnlineSub->GetExternalUIInterface();
 			if (OnlineIdentity.IsValid() && OnlineExternalUI.IsValid())
-			{
-				IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
+			{				
 				FString ContextName = FString::Printf(TEXT("LoginFlowContext_%s"), *OnlineIdentifier.ToString());
-#if !UE_BUILD_SHIPPING
-				WebBrowserSingleton->SetDevToolsShortcutEnabled(true);
-#endif
 
 				FOnlineParams& NewParams = OnlineSubsystemsMap.Add(OnlineIdentifier);
 				NewParams.OnlineIdentifier = OnlineIdentifier;
@@ -124,18 +120,7 @@ bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPop
 				NewParams.OnAccountCreationFlowPopup = InCreationFlowPopupDelegate;
 				NewParams.BrowserContextSettings = MakeShared<FBrowserContextSettings>(ContextName);
 				NewParams.BrowserContextSettings->bPersistSessionCookies = bPersistCookies;
-				if (NewParams.BrowserContextSettings->bPersistSessionCookies)
-				{
-					// Taken from FWebBrowserSingleton
-					FString CachePath(FPaths::Combine(WebBrowserSingleton->ApplicationCacheDir(), TEXT("webcache")));
-					CachePath = FPaths::ConvertRelativePathToFull(CachePath);
-					NewParams.BrowserContextSettings->CookieStorageLocation = CachePath;
-				}
-
-				if (!WebBrowserSingleton->RegisterContext(*NewParams.BrowserContextSettings))
-				{
-					UE_LOG(LogLoginFlow, Warning, TEXT("Failed to register context in web browser singleton for %s"), *NewParams.BrowserContextSettings->Id);
-				}
+				NewParams.bRegisteredContext = false;
 
 				NewParams.LoginFlowLogoutDelegateHandle = OnlineIdentity->AddOnLoginFlowLogoutDelegate_Handle(FOnLoginFlowLogoutDelegate::CreateSP(this, &FLoginFlowManager::OnLoginFlowLogout, OnlineIdentifier));
 				
@@ -155,6 +140,31 @@ bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPop
 	}
 
 	return bSuccess;
+}
+
+void FLoginFlowManager::RegisterBrowserContext(FOnlineParams* Params)
+{
+	if (!Params->bRegisteredContext)
+	{
+		IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
+#if !UE_BUILD_SHIPPING
+		WebBrowserSingleton->SetDevToolsShortcutEnabled(true);
+#endif
+		if (Params->BrowserContextSettings->bPersistSessionCookies)
+		{
+			// Taken from FWebBrowserSingleton
+			FString CachePath(FPaths::Combine(WebBrowserSingleton->ApplicationCacheDir(), TEXT("webcache")));
+			CachePath = FPaths::ConvertRelativePathToFull(CachePath);
+			Params->BrowserContextSettings->CookieStorageLocation = CachePath;
+		}
+
+		if (!WebBrowserSingleton->RegisterContext(*Params->BrowserContextSettings))
+		{
+			UE_LOG(LogLoginFlow, Warning, TEXT("Failed to register context in web browser singleton for %s"), *Params->BrowserContextSettings->Id);
+		}
+
+		Params->bRegisteredContext = true;
+	}
 }
 
 bool FLoginFlowManager::HasLoginFlow(FName OnlineIdentifier)
@@ -184,6 +194,8 @@ void FLoginFlowManager::OnLoginFlowStarted(const FString& RequestedURL, const FO
 		}
 
 		bOutShouldContinueLogin = true;
+
+		RegisterBrowserContext(Params);
 
 		// save the pending order for reference later
 		PendingLogin = MakeUnique<FLoginFlowProperties>();
@@ -393,6 +405,8 @@ void FLoginFlowManager::OnAccountCreationFlowStarted(const FString& RequestedURL
 		}
 
 		bOutShouldContinueAccountCreation = true;
+
+		RegisterBrowserContext(Params);
 
 		// save the pending order for reference later
 		PendingAccountCreation = MakeUnique<FAccountCreationFlowProperties>();

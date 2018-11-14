@@ -292,7 +292,11 @@ void DrawTransformedRectangle(
 
 	// we don't do the triangle optimization as this case is rare for the DrawTransformedRectangle case
 
-	FFilterVertex Vertices[4];
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FFilterVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FFilterVertex) * 4, RLM_WriteOnly);
+
+	FFilterVertex* Vertices = reinterpret_cast<FFilterVertex*>(VoidPtr);
 
 	Vertices[0].Position = PosTransform.TransformFVector4(FVector4(X,			Y,			ClipSpaceQuadZ,	1));
 	Vertices[1].Position = PosTransform.TransformFVector4(FVector4(X + SizeX,	Y,			ClipSpaceQuadZ,	1));
@@ -313,9 +317,10 @@ void DrawTransformedRectangle(
 		Vertices[VertexIndex].UV.Y = Vertices[VertexIndex].UV.Y / (float)TextureSize.Y;
 	}
 
-	static const uint16 Indices[] =	{ 0, 1, 3, 0, 3, 2 };
-
-	DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 4, 2, Indices, sizeof(Indices[0]), Vertices, sizeof(Vertices[0]));
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2, 1);
+	VertexBufferRHI.SafeRelease();
 }
 
 void DrawHmdMesh(

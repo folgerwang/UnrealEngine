@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -249,6 +249,9 @@ public:
 
 	/** Get the Static Mesh Editor's the viewport client */
 	virtual class FEditorViewportClient& GetViewportClient() = 0;
+
+	/** Set the display name for the secondary toolbar and its associated menu item */
+	virtual void SetSecondaryToolbarDisplayName(FText DisplayName) = 0;
 };
 
 

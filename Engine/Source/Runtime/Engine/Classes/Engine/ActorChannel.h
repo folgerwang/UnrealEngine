@@ -85,9 +85,9 @@ class ENGINE_API UActorChannel
 	UPROPERTY()
 	TArray< UObject* >					CreateSubObjects;		// Any sub-object we created on this channel
 
-	TArray< FNetworkGUID >				QueuedMustBeMappedGuidsInLastBunch;		// Array of guids that will async load on client. This list is used for queued RPC's.
-
-	TArray< class FOutBunch * >			QueuedExportBunches;			// Bunches that need to be appended to the export list on the next SendBunch call. This list is used for queued RPC's.
+	TArray< FNetworkGUID >				QueuedMustBeMappedGuidsInLastBunch;	// Array of guids that will async load on client. This list is used for queued RPC's.
+	TArray< class FOutBunch * >			QueuedExportBunches;				// Bunches that need to be appended to the export list on the next SendBunch call. This list is used for queued RPC's.
+	bool								bHoldQueuedExportBunchesAndGUIDs;	// Don't export QueuedExportBunches or QueuedMustBeMappedGuidsInLastBunch if this is true
 
 #if !UE_BUILD_SHIPPING
 	/** Whether or not to block sending of NMT_ActorChannelFailure (for NetcodeUnitTest) */
@@ -105,6 +105,7 @@ class ENGINE_API UActorChannel
 	{
 		ChType = CHTYPE_Actor;
 		bClearRecentActorRefs = true;
+		bHoldQueuedExportBunchesAndGUIDs = false;
 	}
 
 public:
@@ -162,13 +163,13 @@ public:
 	void CleanupReplicators( const bool bKeepReplicators = false );
 
 	/** Writes the header for a content block of properties / RPCs for the given object (either the actor a subobject of the actor) */
-	void WriteContentBlockHeader( UObject* Obj, FOutBunch &Bunch, const bool bHasRepLayout );
+	void WriteContentBlockHeader( UObject* Obj, FNetBitWriter &Bunch, const bool bHasRepLayout );
 
 	/** Writes the header for a content block specifically for deleting sub-objects */
 	void WriteContentBlockForSubObjectDelete( FOutBunch & Bunch, FNetworkGUID & GuidToDelete );
 
 	/** Writes header and payload of content block */
-	int32 WriteContentBlockPayload( UObject* Obj, FOutBunch &Bunch, const bool bHasRepLayout, FNetBitWriter& Payload );
+	int32 WriteContentBlockPayload( UObject* Obj, FNetBitWriter &Bunch, const bool bHasRepLayout, FNetBitWriter& Payload );
 
 	/** Reads the header of the content block and instantiates the subobject if necessary */
 	UObject* ReadContentBlockHeader( FInBunch& Bunch, bool& bObjectDeleted, bool& bOutHasRepLayout );
@@ -177,7 +178,7 @@ public:
 	UObject* ReadContentBlockPayload( FInBunch &Bunch, FNetBitReader& OutPayload, bool& bOutHasRepLayout );
 
 	/** Writes property/function header and data blob to network stream */
-	int32 WriteFieldHeaderAndPayload( FNetBitWriter& Bunch, const FClassNetCache* ClassCache, const FFieldNetCache* FieldCache, FNetFieldExportGroup* NetFieldExportGroup, FNetBitWriter& Payload );
+	int32 WriteFieldHeaderAndPayload( FNetBitWriter& Bunch, const FClassNetCache* ClassCache, const FFieldNetCache* FieldCache, FNetFieldExportGroup* NetFieldExportGroup, FNetBitWriter& Payload, bool bIgnoreInternalAck=false );
 
 	/** Reads property/function header and data blob from network stream */
 	bool ReadFieldHeaderAndPayload( UObject* Object, const FClassNetCache* ClassCache, FNetFieldExportGroup* NetFieldExportGroup, FNetBitReader& Bunch, const FFieldNetCache** OutField, FNetBitReader& OutPayload ) const;
@@ -279,6 +280,8 @@ public:
 	bool KeyNeedsToReplicate(int32 ObjID, int32 RepKey);
 	
 	// --------------------------------
+
+	virtual void AddedToChannelPool() override;
 
 protected:
 	

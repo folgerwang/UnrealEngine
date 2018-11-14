@@ -39,11 +39,10 @@ static bool all_expression_operands_are_loop_constant(ir_rvalue *,
 
 static ir_rvalue *get_basic_induction_increment(ir_assignment *, hash_table *);
 
-
 loop_state::loop_state()
 {
-	this->ht = hash_table_ctor(0, hash_table_pointer_hash,
-		hash_table_pointer_compare);
+	this->ht = hash_table_ctor(0, ir_hash_table_pointer_hash,
+		ir_hash_table_pointer_compare);
 	this->mem_ctx = ralloc_context(NULL);
 	this->loop_found = false;
 }
@@ -156,7 +155,7 @@ loop_analysis::loop_analysis()
 	this->if_statement_depth = 0;
 	this->current_assignment = NULL;
 	this->current_atomic = NULL;
-	this->var_ht = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
+	this->var_ht = hash_table_ctor(32, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 }
 
 

@@ -27,11 +27,13 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Freed Per-Frame"), STAT_Met
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Texture Memory Updated Per-Frame"), STAT_MetalTextureMemUpdate, STATGROUP_MetalRHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Buffer Memory"), STAT_MetalBufferMemory, STATGROUP_MetalRHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Memory"), STAT_MetalTextureMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Heap Memory"), STAT_MetalHeapMemory, STATGROUP_MetalRHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Buffer Memory"), STAT_MetalBufferUnusedMemory, STATGROUP_MetalRHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Texture Memory"), STAT_MetalTextureUnusedMemory, STATGROUP_MetalRHI, );
 
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Heap Count"), STAT_MetalHeapCount, STATGROUP_MetalRHI, );
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-On time"), STAT_MetalTexturePageOnTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GPU Work time"), STAT_MetalGPUWorkTime, STATGROUP_MetalRHI, );
@@ -327,11 +329,12 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	,	Context(InContext)
 	,   NumNestedFrames(0)
 	{
-		FMemory::Memzero((void*)&FrameStartGPU[0], sizeof(FrameStartGPU));
-		FMemory::Memzero((void*)&FrameEndGPU[0], sizeof(FrameEndGPU));
-		FMemory::Memzero((void*)&FrameGPUTime[0], sizeof(FrameGPUTime));
-		FMemory::Memzero((void*)&FrameIdleTime[0], sizeof(FrameIdleTime));
-		FMemory::Memzero((void*)&FramePresentTime[0], sizeof(FramePresentTime));
+		FMemory::Memzero((void*)&FrameStartGPUCycles[0], sizeof(FrameStartGPUCycles));
+		FMemory::Memzero((void*)&FrameEndGPUCycles[0], sizeof(FrameEndGPUCycles));
+		FMemory::Memzero((void*)&FrameGPUTimeCycles[0], sizeof(FrameGPUTimeCycles));
+		FMemory::Memzero((void*)&FrameIdleTimeCycles[0], sizeof(FrameIdleTimeCycles));
+		FMemory::Memzero((void*)&FramePresentTimeCycles[0], sizeof(FramePresentTimeCycles));
+		RunningFrameTimeSeconds = 0.0;
 	}
 	
 	virtual ~FMetalGPUProfiler() {}
@@ -346,22 +349,29 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	void BeginFrame();
 	void EndFrame();
 	
-	static void IncrementFrameIndex();
-	static void RecordFrame(mtlpp::CommandBuffer& Buffer);
-	static void RecordPresent(mtlpp::CommandBuffer& Buffer);
-	static void RecordCommandBuffer(mtlpp::CommandBuffer& Buffer);
+	// WARNING:
+	// These functions MUST be called from within Metal scheduled/completion handlers
+	// since they depend on libdispatch to enforce ordering.
+	static void RecordFrame();
+	static void RecordPresent(const mtlpp::CommandBuffer& Buffer);
+	static void RecordCommandBuffer(const mtlpp::CommandBuffer& Buffer);
+	// END WARNING
 	
 #define MAX_FRAME_HISTORY 3
-	static volatile int32 FrameTimeGPUIndex;
-	static volatile int64 FrameStartGPU[MAX_FRAME_HISTORY];
-	static volatile int64 FrameEndGPU[MAX_FRAME_HISTORY];
-	static volatile int64 FrameGPUTime[MAX_FRAME_HISTORY];
-	static volatile int64 FrameIdleTime[MAX_FRAME_HISTORY];
-	static volatile int64 FramePresentTime[MAX_FRAME_HISTORY];
+	static int32 FrameTimeGPUIndex;
+	static int64 FrameStartGPUCycles[MAX_FRAME_HISTORY];
+	static int64 FrameEndGPUCycles[MAX_FRAME_HISTORY];
+	static int64 FrameGPUTimeCycles[MAX_FRAME_HISTORY];
+	static int64 FrameIdleTimeCycles[MAX_FRAME_HISTORY];
+	static int64 FramePresentTimeCycles[MAX_FRAME_HISTORY];
 	
 	FMetalGPUTiming TimingSupport;
 	FMetalContext* Context;
 	int32 NumNestedFrames;
+private:
+	// These must only be accessed from within Metal scheduled/completion handlers. See above.
+	static void IncrementFrameIndex();
+	static double RunningFrameTimeSeconds;
 };
 
 class FMetalProfiler : public FMetalGPUProfiler

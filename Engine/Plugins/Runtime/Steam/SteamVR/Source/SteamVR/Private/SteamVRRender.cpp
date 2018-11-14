@@ -33,7 +33,6 @@ void FSteamVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePass
 void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture, FVector2D WindowSize) const
 {
 	check(IsInRenderingThread());
-	const_cast<FSteamVRHMD*>(this)->UpdateStereoLayers_RenderThread();
 
 	if (bSplashIsShown)
 	{
@@ -45,6 +44,17 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 	SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
 }
 
+void FSteamVRHMD::PostRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
+{
+	check(IsInRenderingThread());
+	UpdateStereoLayers_RenderThread();
+}
+
+bool FSteamVRHMD::IsActiveThisFrame(class FViewport* InViewport) const
+{
+	return GEngine && GEngine->IsStereoscopic3D(InViewport) && !IsMetalPlatform(GMaxRHIShaderPlatform);
+}
+
 static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass, const FHMDViewMesh MeshAssets[])
 {
 	check(IsInRenderingThread());
@@ -54,17 +64,8 @@ static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass Ste
 	const FHMDViewMesh& Mesh = MeshAssets[MeshIndex];
 	check(Mesh.IsValid());
 
-	DrawIndexedPrimitiveUP(
-		RHICmdList,
-		PT_TriangleList,
-		0,
-		Mesh.NumVertices,
-		Mesh.NumTriangles,
-		Mesh.pIndices,
-		sizeof(Mesh.pIndices[0]),
-		Mesh.pVertices,
-		sizeof(Mesh.pVertices[0])
-		);
+	RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 }
 
 void FSteamVRHMD::DrawHiddenAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const
@@ -279,6 +280,12 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 void FSteamVRHMD::VulkanBridge::Reset()
 {
 
+}
+
+void FSteamVRHMD::VulkanBridge::UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI)
+{
+	RenderTargetTexture = Viewport.GetRenderTargetTexture();
+	check(IsValidRef(RenderTargetTexture));
 }
 
 FSteamVRHMD::OpenGLBridge::OpenGLBridge(FSteamVRHMD* plugin):

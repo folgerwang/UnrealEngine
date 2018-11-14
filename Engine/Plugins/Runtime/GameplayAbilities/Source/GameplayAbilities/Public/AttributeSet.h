@@ -342,7 +342,7 @@ struct TStructOpsTypeTraits<FScalableFloat>
 {
 	enum
 	{
-		WithSerializeFromMismatchedTag = true,
+		WithStructuredSerializeFromMismatchedTag = true,
 	};
 };
 

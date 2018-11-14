@@ -31,7 +31,7 @@ bool FDataTableEditorUtils::RemoveRow(UDataTable* DataTable, FName Name)
 		BroadcastPreChange(DataTable, EDataTableChangeInfo::RowList);
 		DataTable->Modify();
 		uint8* RowData = nullptr;
-		const bool bRemoved = DataTable->RowMap.RemoveAndCopyValue(Name, RowData);
+		const bool bRemoved = DataTable->GetNonConstRowMap().RemoveAndCopyValue(Name, RowData);
 		if (bRemoved && RowData)
 		{
 			DataTable->RowStruct->DestroyStruct(RowData);
@@ -39,7 +39,7 @@ bool FDataTableEditorUtils::RemoveRow(UDataTable* DataTable, FName Name)
 			bResult = true;
 
 			// Compact the map so that a subsequent add goes at the end of the table
-			DataTable->RowMap.CompactStable();
+			DataTable->GetNonConstRowMap().CompactStable();
 		}
 		BroadcastPostChange(DataTable, EDataTableChangeInfo::RowList);
 	}
@@ -48,7 +48,7 @@ bool FDataTableEditorUtils::RemoveRow(UDataTable* DataTable, FName Name)
 
 uint8* FDataTableEditorUtils::AddRow(UDataTable* DataTable, FName RowName)
 {
-	if (!DataTable || (RowName == NAME_None) || (DataTable->RowMap.Find(RowName) != nullptr) || !DataTable->RowStruct)
+	if (!DataTable || (RowName == NAME_None) || (DataTable->GetRowMap().Find(RowName) != nullptr) || !DataTable->RowStruct)
 	{
 		return nullptr;
 	}
@@ -63,7 +63,7 @@ uint8* FDataTableEditorUtils::AddRow(UDataTable* DataTable, FName RowName)
 	// And be sure to call DestroyScriptStruct later
 
 	// Add to row map
-	DataTable->RowMap.Add(RowName, RowData);
+	DataTable->AddRowInternal(RowName, RowData);
 	BroadcastPostChange(DataTable, EDataTableChangeInfo::RowList);
 	return RowData;
 }
@@ -79,11 +79,11 @@ bool FDataTableEditorUtils::RenameRow(UDataTable* DataTable, FName OldName, FNam
 		DataTable->Modify();
 
 		uint8* RowData = nullptr;
-		const bool bValidnewName = (NewName != NAME_None) && !DataTable->RowMap.Find(NewName);
-		const bool bRemoved = bValidnewName && DataTable->RowMap.RemoveAndCopyValue(OldName, RowData);
+		const bool bValidnewName = (NewName != NAME_None) && !DataTable->GetRowMap().Find(NewName);
+		const bool bRemoved = bValidnewName && DataTable->GetNonConstRowMap().RemoveAndCopyValue(OldName, RowData);
 		if (bRemoved)
 		{
-			DataTable->RowMap.FindOrAdd(NewName) = RowData;
+			DataTable->GetNonConstRowMap().FindOrAdd(NewName) = RowData;
 			bResult = true;
 		}
 		BroadcastPostChange(DataTable, EDataTableChangeInfo::RowList);
@@ -103,7 +103,7 @@ bool FDataTableEditorUtils::MoveRow(UDataTable* DataTable, FName RowName, ERowMo
 	// make sure that order dependent code (such as exporting and the data table viewer) use that when dealing with rows
 	// This may also require making RowMap private and fixing up all the existing code that references it directly
 	TArray<FName> OrderedRowNames;
-	DataTable->RowMap.GenerateKeyArray(OrderedRowNames);
+	DataTable->GetRowMap().GenerateKeyArray(OrderedRowNames);
 
 	const int32 CurrentRowIndex = OrderedRowNames.IndexOfByKey(RowName);
 	if (CurrentRowIndex == INDEX_NONE)
@@ -155,7 +155,7 @@ bool FDataTableEditorUtils::MoveRow(UDataTable* DataTable, FName RowName, ERowMo
 	DataTable->Modify();
 
 	// Re-sort the map keys to match the new order
-	DataTable->RowMap.KeySort([&NamesToNewIndex](const FName& One, const FName& Two) -> bool
+	DataTable->GetNonConstRowMap().KeySort([&NamesToNewIndex](const FName& One, const FName& Two) -> bool
 	{
 		const int32 OneIndex = NamesToNewIndex.FindRef(One);
 		const int32 TwoIndex = NamesToNewIndex.FindRef(Two);
@@ -180,9 +180,9 @@ bool FDataTableEditorUtils::DiffersFromDefault(UDataTable* DataTable, FName RowN
 {
 	bool bDiffers = false;
 
-	if (DataTable && DataTable->RowMap.Contains(RowName))
+	if (DataTable && DataTable->GetRowMap().Contains(RowName))
 	{
-		uint8* RowData = DataTable->RowMap[RowName];
+		uint8* RowData = DataTable->GetRowMap()[RowName];
 
 		if (const UUserDefinedStruct* UDStruct = Cast<const UUserDefinedStruct>(DataTable->RowStruct))
 		{
@@ -197,14 +197,14 @@ bool FDataTableEditorUtils::ResetToDefault(UDataTable* DataTable, FName RowName)
 {
 	bool bResult = false;
 
-	if (DataTable && DataTable->RowMap.Contains(RowName))
+	if (DataTable && DataTable->GetRowMap().Contains(RowName))
 	{
 		const FScopedTransaction Transaction(LOCTEXT("ResetDataTableRowToDefault", "Reset Data Table Row to Default Values"));
 
 		BroadcastPreChange(DataTable, EDataTableChangeInfo::RowData);
 		DataTable->Modify();
 
-		uint8* RowData = DataTable->RowMap[RowName];
+		uint8* RowData = DataTable->GetRowMap()[RowName];
 
 		if (const UUserDefinedStruct* UDStruct = Cast<const UUserDefinedStruct>(DataTable->RowStruct))
 		{
@@ -294,9 +294,9 @@ void FDataTableEditorUtils::CacheDataTableForEditing(const UDataTable* DataTable
 	}
 
 	// Populate the row data
-	OutAvailableRows.Reset(DataTable->RowMap.Num());
+	OutAvailableRows.Reset(DataTable->GetRowMap().Num());
 	int32 Index = 0;
-	for (auto RowIt = DataTable->RowMap.CreateConstIterator(); RowIt; ++RowIt, ++Index)
+	for (auto RowIt = DataTable->GetRowMap().CreateConstIterator(); RowIt; ++RowIt, ++Index)
 	{
 		FText RowName = FText::FromName(RowIt->Key);
 		FDataTableEditorRowListViewDataPtr CachedRowData;

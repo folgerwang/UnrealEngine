@@ -53,6 +53,26 @@ struct FTextureVertex
 	FVector2D	UV;
 };
 
+inline FVertexBufferRHIRef CreateTempOcculusVertexBuffer()
+{
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FTextureVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FTextureVertex) * 4, RLM_WriteOnly);
+
+	FTextureVertex* Vertices = (FTextureVertex*)VoidPtr;
+	Vertices[0].Position = FVector4(-1.0f, 1.0f, 0, 1.0f);
+	Vertices[1].Position = FVector4(1.0f, 1.0f, 0, 1.0f);
+	Vertices[2].Position = FVector4(-1.0f, -1.0f, 0, 1.0f);
+	Vertices[3].Position = FVector4(1.0f, -1.0f, 0, 1.0f);
+	Vertices[0].UV = FVector2D(0, 0);
+	Vertices[1].UV = FVector2D(1, 0);
+	Vertices[2].UV = FVector2D(0, 1);
+	Vertices[3].UV = FVector2D(1, 1);
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+
+	return VertexBufferRHI;
+}
+
 class FTextureVertexDeclaration : public FRenderResource
 {
 public:
@@ -361,17 +381,8 @@ void FStressTester::DoTickGPU_RenderThread(FRHICommandListImmediate& RHICmdList,
 		PixelShader->SetUniformBuffers(RHICmdList, ConstantParameters, VariableParameters);
 
 		// Draw a fullscreen quad that we can run our pixel shader on
-		FTextureVertex Vertices[4];
-		Vertices[0].Position = FVector4(-1.0f, 1.0f, 0, 1.0f);
-		Vertices[1].Position = FVector4(1.0f, 1.0f, 0, 1.0f);
-		Vertices[2].Position = FVector4(-1.0f, -1.0f, 0, 1.0f);
-		Vertices[3].Position = FVector4(1.0f, -1.0f, 0, 1.0f);
-		Vertices[0].UV = FVector2D(0, 0);
-		Vertices[1].UV = FVector2D(1, 0);
-		Vertices[2].UV = FVector2D(0, 1);
-		Vertices[3].UV = FVector2D(1, 1);
-
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+		RHICmdList.SetStreamSource(0, CreateTempOcculusVertexBuffer(), 0);
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 
 		PixelShader->UnbindBuffers(RHICmdList);
 	}

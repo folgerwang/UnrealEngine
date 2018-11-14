@@ -530,7 +530,7 @@ public:
 
 	// RPC support
 	void InitFromFunction( UFunction * InFunction, const UNetConnection* ServerConnection = nullptr );
-	void SendPropertiesForRPC( UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const;
+	void ENGINE_API SendPropertiesForRPC( UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const;
 	void ReceivePropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitReader & Reader, void* Data, TSet<FNetworkGUID>& UnmappedGuids) const;
 
 	// Builds shared serialization state for a multicast rpc

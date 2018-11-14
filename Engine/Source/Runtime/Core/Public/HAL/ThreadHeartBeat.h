@@ -9,6 +9,28 @@
 #include "HAL/ThreadSafeBool.h"
 
 /**
+ * Our own local clock.
+ * Platforms that support suspend/resume have problems where a suspended title acts like
+ * a long hitch, causing the hang detector to fire incorrectly when the title is resumed.
+ *
+ * To solve this, we accumulate our own time on the hang detector thread.
+ * When the title is suspended, this thread is also suspended, and the local clock stops.
+ * The delta is clamped so if we are resumed, the clock continues from where it left off.
+ */
+class CORE_API FThreadHeartBeatClock
+{
+	uint64 CurrentCycles;
+	uint64 LastRealTickCycles;
+	const uint64 MaxTimeStepCycles;
+
+public:
+	FThreadHeartBeatClock(double InMaxTimeStep);
+
+	void Tick();
+	double Seconds();
+};
+
+/**
  * Thread heartbeat check class.
  * Used by crash handling code to check for hangs.
  */
@@ -40,32 +62,41 @@ class CORE_API FThreadHeartBeat : public FRunnable
 	FCriticalSection HeartBeatCritical;
 	/** Keeps track of the last heartbeat time for threads */
 	TMap<uint32, FHeartBeatInfo> ThreadHeartBeat;
+	/** The last heartbeat time for the rendering or RHI thread frame present. */
+	FHeartBeatInfo PresentHeartBeat;
 	/** True if heartbeat should be measured */
 	FThreadSafeBool bReadyToCheckHeartbeat;
 	/** Max time the thread is allowed to not send the heartbeat*/
 	double ConfigHangDuration;
 	double CurrentHangDuration;
+	double ConfigPresentDuration;
+	double CurrentPresentDuration;
 	double HangDurationMultiplier;
-
+	
 	/** CRC of the last hang's callstack */
 	uint32 LastHangCallstackCRC;
 	/** Id of the last thread that hung */
 	uint32 LastHungThreadId;
+
+	FThreadHeartBeatClock Clock;
 
 	FThreadHeartBeat();
 	virtual ~FThreadHeartBeat();
 
 	void InitSettings();
 
-	void OnApplicationWillEnterBackground();
-	void OnApplicationEnteredForeground();
+	void FORCENOINLINE OnHang(double HangDuration, uint32 ThreadThatHung);
+	void FORCENOINLINE OnPresentHang(double HangDuration);
 
 public:
 
 	enum EConstants
 	{
 		/** Invalid thread Id used by CheckHeartBeat */
-		InvalidThreadId = (uint32)-1
+		InvalidThreadId = (uint32)-1,
+
+		/** Id used to track presented frames (supported platforms only). */
+		PresentThreadId = (uint32)-2
 	};
 
 	/** Gets the heartbeat singleton */
@@ -76,6 +107,8 @@ public:
 	void Start();
 	/** Called from a thread once per frame to update the heartbeat time */
 	void HeartBeat(bool bReadConfig = false);
+	/** Called from the rendering or RHI thread when the platform RHI presents a frame (supported platforms only). */
+	void PresentFrame();
 	/** Called by a supervising thread to check the threads' health */
 	uint32 CheckHeartBeat(double& OutHangDuration);
 	/** Called by a thread when it's no longer expecting to be ticked */
@@ -134,6 +167,8 @@ struct FSlowHeartBeatScope
 
 class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 {
+	static FGameThreadHitchHeartBeat* Singleton;
+
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
 	/** Stops this thread */
@@ -151,6 +186,8 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 
 	int32 SuspendedCount;
 
+	FThreadHeartBeatClock Clock;
+
 #if LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK
 	static const SIZE_T StackTraceSize = 65535;
 	ANSICHAR StackTrace[StackTraceSize];
@@ -160,9 +197,6 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 #endif
 
 	void InitSettings();
-
-	void OnApplicationWillEnterBackground();
-	void OnApplicationEnteredForeground();
 
 	FGameThreadHitchHeartBeat();
 	virtual ~FGameThreadHitchHeartBeat();
@@ -177,6 +211,7 @@ public:
 
 	/** Gets the heartbeat singleton */
 	static FGameThreadHitchHeartBeat& Get();
+	static FGameThreadHitchHeartBeat* GetNoInit();
 
 	/**
 	* Called at the start of a frame to register the time we are looking to detect a hitch
@@ -184,6 +219,7 @@ public:
 	void FrameStart(bool bSkipThisFrame = false);
 
 	double GetFrameStartTime();
+	double GetCurrentTime();
 
 	/**
 	* Suspend heartbeat hitch detection. Must call ResumeHeartBeat later to resume.

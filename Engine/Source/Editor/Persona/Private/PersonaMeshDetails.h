@@ -81,7 +81,11 @@ struct FSectionLocalizer
 class FPersonaMeshDetails : public IDetailCustomization
 {
 public:
-	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit), MeshDetailLayout(nullptr) { CustomLODEditMode = false; }
+	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit), MeshDetailLayout(nullptr)
+	{
+		CustomLODEditMode = false;
+		bDeleteWarningConsumed = false;
+	}
 	~FPersonaMeshDetails();
 
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
@@ -462,6 +466,11 @@ private:
 	 * The key is the union of LOD index and section index.
 	 */
 	TMap<int64, int8> OldGenerateUpToSliderValues;
+
+	/*
+	 * This prevent showing the delete material slot warning dialog more then once per editor session
+	 */
+	bool bDeleteWarningConsumed;
 
 private:
 

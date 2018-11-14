@@ -86,8 +86,13 @@ FGlobalShaderMapId::FGlobalShaderMapId(EShaderPlatform Platform)
 	{
 		FShaderTypeDependency Dependency;
 		Dependency.ShaderType = ShaderTypes[TypeIndex];
-		Dependency.SourceHash = ShaderTypes[TypeIndex]->GetSourceHash();
-		ShaderTypeDependencies.Add(Dependency);
+		Dependency.SourceHash = ShaderTypes[TypeIndex]->GetSourceHash(Platform);
+
+		const TCHAR* ShaderFilename = Dependency.ShaderType->GetShaderFilename();
+
+		TArray<FShaderTypeDependency>& Dependencies = ShaderFilenameToDependenciesMap.FindOrAdd(ShaderFilename);
+
+		Dependencies.Add(Dependency);
 	}
 
 	// Shader pipeline dependencies
@@ -97,18 +102,18 @@ FGlobalShaderMapId::FGlobalShaderMapId(EShaderPlatform Platform)
 		const FShaderPipelineType* Pipeline = ShaderPipelineTypes[TypeIndex];
 		FShaderPipelineTypeDependency Dependency;
 		Dependency.ShaderPipelineType = Pipeline;
-		Dependency.StagesSourceHash = Pipeline->GetSourceHash();
+		Dependency.StagesSourceHash = Pipeline->GetSourceHash(Platform);
 		ShaderPipelineTypeDependencies.Add(Dependency);
 	}
 }
 
-void FGlobalShaderMapId::AppendKeyString(FString& KeyString) const
+void FGlobalShaderMapId::AppendKeyString(FString& KeyString, const TArray<FShaderTypeDependency>& Dependencies) const
 {
 	TMap<const TCHAR*,FCachedUniformBufferDeclaration> ReferencedUniformBuffers;
 
-	for (int32 ShaderIndex = 0; ShaderIndex < ShaderTypeDependencies.Num(); ShaderIndex++)
+	for (int32 ShaderIndex = 0; ShaderIndex < Dependencies.Num(); ShaderIndex++)
 	{
-		const FShaderTypeDependency& ShaderTypeDependency = ShaderTypeDependencies[ShaderIndex];
+		const FShaderTypeDependency& ShaderTypeDependency = Dependencies[ShaderIndex];
 
 		KeyString += TEXT("_");
 		KeyString += ShaderTypeDependency.ShaderType->GetName();
@@ -120,10 +125,10 @@ void FGlobalShaderMapId::AppendKeyString(FString& KeyString) const
 		// Add the serialization history to the key string so that we can detect changes to global shader serialization without a corresponding .usf change
 		ShaderTypeDependency.ShaderType->GetSerializationHistory().AppendKeyString(KeyString);
 
-		const TMap<const TCHAR*,FCachedUniformBufferDeclaration>& ReferencedUniformBufferStructsCache = ShaderTypeDependency.ShaderType->GetReferencedUniformBufferStructsCache();
+		const TMap<const TCHAR*, FCachedUniformBufferDeclaration>& ReferencedUniformBufferStructsCache = ShaderTypeDependency.ShaderType->GetReferencedUniformBufferStructsCache();
 
 		// Gather referenced uniform buffers
-		for (TMap<const TCHAR*,FCachedUniformBufferDeclaration>::TConstIterator It(ReferencedUniformBufferStructsCache); It; ++It)
+		for (TMap<const TCHAR*, FCachedUniformBufferDeclaration>::TConstIterator It(ReferencedUniformBufferStructsCache); It; ++It)
 		{
 			ReferencedUniformBuffers.Add(It.Key(), It.Value());
 		}
@@ -178,8 +183,8 @@ void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup)
 		{
 			TUniquePtr<TArray<uint8>> ShaderData = MakeUnique<TArray<uint8>>();
 			FMemoryWriter Ar(*ShaderData);
-			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true);
-			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
+			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true, false, nullptr);
+			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders(false);
 			GGlobalShaderMap[ShaderPlatform]->Empty();
 			OutGlobalShaderBackup.FeatureLevelShaderData[i] = MoveTemp(ShaderData);
 		}
@@ -202,8 +207,8 @@ void RestoreGlobalShaderMap(const FGlobalShaderBackupData& GlobalShaderBackup)
 			&& GGlobalShaderMap[ShaderPlatform] != nullptr)
 		{
 			FMemoryReader Ar(*GlobalShaderBackup.FeatureLevelShaderData[i]);
-			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true);
-			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
+			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true, false, nullptr);
+			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders(false);
 		}
 	}
 }

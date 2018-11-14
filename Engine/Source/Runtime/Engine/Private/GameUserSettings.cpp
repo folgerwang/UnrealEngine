@@ -24,26 +24,6 @@ const bool GUserSettingsDefaultHDRValue = true;
 const bool GUserSettingsDefaultHDRValue = false;
 #endif
 
-bool IsHDRAllowed()
-{
-	// HDR can be forced on or off on the commandline. Otherwise we check the cvar r.AllowHDR
-	if (FParse::Param(FCommandLine::Get(), TEXT("hdr")))
-	{
-		return true;
-	}
-	else if (FParse::Param(FCommandLine::Get(), TEXT("nohdr")))
-	{
-		return false;
-	}
-
-	static const auto CVarHDRAllow = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowHDR"));
-	if (CVarHDRAllow && CVarHDRAllow->GetValueOnAnyThread() != 0)
-	{
-		return true;
-	}
-	return false;
-}
-
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
 
 enum EGameUserSettingsVersion
@@ -81,7 +61,7 @@ FIntPoint UGameUserSettings::GetDesktopResolution() const
 	{
 		if (FApp::CanEverRender())
 		{
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		}
 		else
 		{
@@ -213,8 +193,6 @@ void UGameUserSettings::ConfirmVideoMode()
 	LastConfirmedFullscreenMode = FullscreenMode;
 	LastUserConfirmedResolutionSizeX = ResolutionSizeX;
 	LastUserConfirmedResolutionSizeY = ResolutionSizeY;
-
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
 }
 
 void UGameUserSettings::RevertVideoMode()
@@ -428,6 +406,8 @@ void UGameUserSettings::ValidateSettings()
 	}
 #endif
 
+	LastConfirmedAudioQualityLevel = AudioQualityLevel;
+
 	// The user settings have now been validated for the current version.
 	UpdateVersion();
 }
@@ -516,13 +496,13 @@ void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrid
 
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
+	RequestUIUpdate();
 }
 
 void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
-	ApplyNonResolutionSettings();
 	ApplyResolutionSettings(bCheckForCommandLineOverrides);
+	ApplyNonResolutionSettings();
 
 	SaveSettings();
 }
@@ -592,12 +572,12 @@ void UGameUserSettings::PreloadResolutionSettings()
 	int32 ResolutionY = GetDefaultResolution().Y;
 	EWindowMode::Type WindowMode = GetDefaultWindowMode();
 	bool bUseDesktopResolution = false;
-	bool bUseHDR = false;
+	bool bUseHDR = GUserSettingsDefaultHDRValue;
 
 	int32 Version=0;
-	if( GConfig->GetInt(*GameUserSettingsCategory, TEXT("Version"), Version, GGameUserSettingsIni ) && Version == UE_GAMEUSERSETTINGS_VERSION )
+	if (GConfig->GetInt(*GameUserSettingsCategory, TEXT("Version"), Version, GGameUserSettingsIni) && Version == UE_GAMEUSERSETTINGS_VERSION)
 	{
-		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseDesktopResolution"), bUseDesktopResolution, GGameUserSettingsIni );
+		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseDesktopResolution"), bUseDesktopResolution, GGameUserSettingsIni);
 
 		int32 WindowModeInt = (int32)WindowMode;
 		GConfig->GetInt(*GameUserSettingsCategory, TEXT("FullscreenMode"), WindowModeInt, GGameUserSettingsIni);
@@ -611,31 +591,27 @@ void UGameUserSettings::PreloadResolutionSettings()
 		{
 			// Grab display metrics so we can get the primary display output size.
 			FDisplayMetrics DisplayMetrics;
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 			ResolutionX = DisplayMetrics.PrimaryDisplayWidth;
 			ResolutionY = DisplayMetrics.PrimaryDisplayHeight;
 		}
 #endif
-		// Initialize HDR based on the high level switch and user settings
-		if ( IsHDRAllowed() )
-		{
-			bool bUserSettingsUseHdr = GUserSettingsDefaultHDRValue;
-			if (GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseHDRDisplayOutput"), bUserSettingsUseHdr, GGameUserSettingsIni))
-			{
-				bUseHDR = bUserSettingsUseHdr;
-			}
-		}
+
+		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseHDRDisplayOutput"), bUseHDR, GGameUserSettingsIni);
+	}
 
 #if !PLATFORM_XBOXONE
-		// Set the HDR switch
+	if ( IsHDRAllowed() )
+	{
+		// Set the user-preference HDR switch
 		static auto CVarHDROutputEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.EnableHDROutput"));
 		if (CVarHDROutputEnabled)
 		{
 			CVarHDROutputEnabled->Set(bUseHDR ? 1 : 0, ECVF_SetByGameSetting);
 		}
-#endif
 	}
+#endif
 
 	RequestResolutionChange(ResolutionX, ResolutionY, WindowMode);
 
@@ -685,6 +661,9 @@ void UGameUserSettings::ResetToCurrentSettings()
 
 		// Reset the quality settings to the current levels
 		ScalabilityQuality = Scalability::GetQualityLevels();
+
+		// Reset the audio quality level
+		AudioQualityLevel = LastConfirmedAudioQualityLevel;
 
 		UpdateResolutionQuality();
 	}
@@ -774,7 +753,7 @@ void UGameUserSettings::SetResolutionScaleNormalized(float NewScaleNormalized)
 
 void UGameUserSettings::SetViewDistanceQuality(int32 Value)
 {
-	ScalabilityQuality.ViewDistanceQuality = Value;
+	ScalabilityQuality.SetViewDistanceQuality(Value);
 }
 
 int32 UGameUserSettings::GetViewDistanceQuality() const
@@ -784,7 +763,7 @@ int32 UGameUserSettings::GetViewDistanceQuality() const
 
 void UGameUserSettings::SetShadowQuality(int32 Value)
 {
-	ScalabilityQuality.ShadowQuality = Value;
+	ScalabilityQuality.SetShadowQuality(Value);
 }
 
 int32 UGameUserSettings::GetShadowQuality() const
@@ -794,7 +773,7 @@ int32 UGameUserSettings::GetShadowQuality() const
 
 void UGameUserSettings::SetAntiAliasingQuality(int32 Value)
 {
-	ScalabilityQuality.AntiAliasingQuality = Value;
+	ScalabilityQuality.SetAntiAliasingQuality(Value);
 }
 
 int32 UGameUserSettings::GetAntiAliasingQuality() const
@@ -804,7 +783,7 @@ int32 UGameUserSettings::GetAntiAliasingQuality() const
 
 void UGameUserSettings::SetTextureQuality(int32 Value)
 {
-	ScalabilityQuality.TextureQuality = Value;
+	ScalabilityQuality.SetTextureQuality(Value);
 }
 
 int32 UGameUserSettings::GetTextureQuality() const
@@ -814,7 +793,7 @@ int32 UGameUserSettings::GetTextureQuality() const
 
 void UGameUserSettings::SetVisualEffectQuality(int32 Value)
 {
-	ScalabilityQuality.EffectsQuality = Value;
+	ScalabilityQuality.SetEffectsQuality(Value);
 }
 
 int32 UGameUserSettings::GetVisualEffectQuality() const
@@ -824,7 +803,7 @@ int32 UGameUserSettings::GetVisualEffectQuality() const
 
 void UGameUserSettings::SetPostProcessingQuality(int32 Value)
 {
-	ScalabilityQuality.PostProcessQuality = Value;
+	ScalabilityQuality.SetPostProcessQuality(Value);
 }
 
 int32 UGameUserSettings::GetPostProcessingQuality() const
@@ -834,7 +813,7 @@ int32 UGameUserSettings::GetPostProcessingQuality() const
 
 void UGameUserSettings::SetFoliageQuality(int32 Value)
 {
-	ScalabilityQuality.FoliageQuality = FMath::Clamp(Value, 0, 3);
+	ScalabilityQuality.SetFoliageQuality(Value);
 }
 
 int32 UGameUserSettings::GetFoliageQuality() const
@@ -873,11 +852,9 @@ bool UGameUserSettings::SupportsHDRDisplayOutput() const
 
 void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /*= 1000*/)
 {
-	static IConsoleVariable* CVarHDROutputDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
-	static IConsoleVariable* CVarHDRColorGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
 	static IConsoleVariable* CVarHDROutputEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.EnableHDROutput"));
 
-	if (ensure(CVarHDROutputDevice && CVarHDRColorGamut && CVarHDROutputEnabled))
+	if (CVarHDROutputEnabled)
 	{
 		if (bEnable && !(GRHISupportsHDROutput && IsHDRAllowed()))
 		{
@@ -891,59 +868,21 @@ void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /
 		// Apply device-specific output encoding
 		if (bEnable)
 		{
-			int32 OutputDevice = 0;
-			int32 ColorGamut = 0;
-
 #if PLATFORM_WINDOWS
 			if (IsRHIDeviceNVIDIA() || IsRHIDeviceAMD())
 			{
-				// ScRGB, 1000 or 2000 nits, Rec2020
-				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
-				ColorGamut = 2;
-
 				// Force exclusive fullscreen
 				SetPreferredFullscreenMode(0);
 				SetFullscreenMode(GetPreferredFullscreenMode());
 				ApplyResolutionSettings(false);
 			}
-#elif PLATFORM_PS4
-			{
-				// PQ, 1000 or 2000 nits, Rec2020
-				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
-				ColorGamut = 2;
-			}
-#elif PLATFORM_MAC
-			{
-				// ScRGB, 1000 or 2000 nits, DCI-P3
-				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
-				ColorGamut = 1;
-			}
-#elif PLATFORM_XBOXONE
-			{
-				// PQ, 1000 or 2000 nits, Rec2020
-				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
-				ColorGamut = 2;
-			}
 #endif
-
-			if (ensure(OutputDevice > 0 && ColorGamut > 0))
-			{
-				CVarHDROutputDevice->Set(OutputDevice, ECVF_SetByGameSetting);
-				CVarHDRColorGamut->Set(ColorGamut, ECVF_SetByGameSetting);
-				CVarHDROutputEnabled->Set(1, ECVF_SetByGameSetting);
-			}
-			else
-			{
-				UE_LOG(LogConsoleResponse, Display, TEXT("Tried to enable HDR display output but failed to find platform defaults, forcing off."));
-				bEnable = false;
-			}
+			CVarHDROutputEnabled->Set(1, ECVF_SetByGameSetting);
 		}
 
 		// Always test this branch as can be used to flush errors
 		if (!bEnable)
 		{
-			CVarHDROutputDevice->Set(0, ECVF_SetByGameSetting);
-			CVarHDRColorGamut->Set(0, ECVF_SetByGameSetting);
 			CVarHDROutputEnabled->Set(0, ECVF_SetByGameSetting);
 		}
 

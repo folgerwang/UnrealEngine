@@ -24,11 +24,11 @@
 #endif
 
 // increment this if you change anything that will affect compression in this file, including FORCED_NORMAL_MAP_COMPRESSION_SIZE_VALUE
-#define BASE_ASTC_FORMAT_VERSION 37
+#define BASE_ASTC_FORMAT_VERSION 38
 
 #define MAX_QUALITY_BY_SIZE 4
 #define MAX_QUALITY_BY_SPEED 3
-#define FORCED_NORMAL_MAP_COMPRESSION_SIZE_VALUE 4
+#define FORCED_NORMAL_MAP_COMPRESSION_SIZE_VALUE 3
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextureFormatASTC, Log, All);

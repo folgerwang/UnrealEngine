@@ -168,7 +168,7 @@ namespace iPhonePackager
 		//@TODO: Deprecate this directory
 		public static string PayloadDirectory
 		{
-			get { return Path.GetFullPath(PCStagingRootDir + @"\Payload\" + Program.GameName + Program.Architecture + ".app"); }
+			get { return Path.GetFullPath(PCStagingRootDir + @"\Payload\" + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".app"); }
 		}
 
 		/// <summary>
@@ -196,11 +196,11 @@ namespace iPhonePackager
 			{
 				if (Program.GameConfiguration == "Development")
 				{
-					return SigningPrefix + Program.GameName + Program.Architecture + ".ipa";
+					return SigningPrefix + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + ".ipa";
 				}
 				else
 				{
-					return SigningPrefix + Program.GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + ".ipa";
+					return SigningPrefix + Program.GameName + (Program.IsClient ? "Client" : "") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + ".ipa";
 				}
 			}
 		}
@@ -236,11 +236,11 @@ namespace iPhonePackager
 
 			if (Program.GameConfiguration == "Development")
 			{
-				Filename = Path.Combine(Config.BinariesDirectory, FilePrefix + Program.GameName + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(Config.BinariesDirectory, FilePrefix + Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + FileSuffix);
 			}
 			else
 			{
-				Filename = Path.Combine(Config.BinariesDirectory, FilePrefix + Program.GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(Config.BinariesDirectory, FilePrefix + Program.GameName + (Program.IsClient ? "Client" : "") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 
 			return Filename;
@@ -262,11 +262,11 @@ namespace iPhonePackager
 			}
 			if (Program.GameConfiguration == "Development")
 			{
-				Filename = Path.Combine(BinariesDir, FilePrefix + (bIsCodeBasedProject ? GameName : "UE4Game") + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(BinariesDir, FilePrefix + (bIsCodeBasedProject ? GameName : "UE4Game") + (Program.IsClient ? "Client" : "") + Program.Architecture + FileSuffix);
 			}
 			else
 			{
-				Filename = Path.Combine(BinariesDir, FilePrefix + (bIsCodeBasedProject ? GameName : "UE4Game") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(BinariesDir, FilePrefix + (bIsCodeBasedProject ? GameName : "UE4Game") + (Program.IsClient ? "Client" : "") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 
 			// ensure the directory exists
@@ -281,11 +281,11 @@ namespace iPhonePackager
 		{
 			if (Program.GameConfiguration == "Development")
 			{
-				return FileOperations.FindPrefixedFile(Config.BinariesDirectory, Program.GameName + Program.Architecture + FileSuffix);
+				return FileOperations.FindPrefixedFile(Config.BinariesDirectory, Program.GameName + (Program.IsClient ? "Client" : "") + Program.Architecture + FileSuffix);
 			}
 			else
 			{
-				return FileOperations.FindPrefixedFile(Config.BinariesDirectory, Program.GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				return FileOperations.FindPrefixedFile(Config.BinariesDirectory, Program.GameName + (Program.IsClient ? "Client" : "") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 		}
 
@@ -350,6 +350,11 @@ namespace iPhonePackager
 		/// </summary>
 		public static string ProvisionUUID = "";
 
+        /// <summary>
+		/// provision to extract certificate for
+		/// </summary>
+		public static string ProvisionFile;
+
 		/// <summary>
 		/// IOS Team ID to be used for automatic signing
 		/// </summary>
@@ -391,7 +396,7 @@ namespace iPhonePackager
 		/// </summary>
 		public static string AppDirectoryInZIP
 		{
-			get { return String.Format("Payload/{0}{1}.app", Program.GameName, Program.Architecture); }
+			get { return String.Format("Payload/{0}{1}.app", Program.GameName + (Program.IsClient ? "Client" : ""), Program.Architecture); }
 		}
 
 		/// <summary>
@@ -479,7 +484,7 @@ namespace iPhonePackager
 			// Root directory on PC for staging files to copy to Mac
 			Config.PCStagingRootDir = String.Format(@"{0}-Deploy\{1}\{2}{3}\",
 				IntermediateDirectory,
-				Program.GameName,
+				Program.GameName + (Program.IsClient ? "Client" : ""),
 				Program.GameConfiguration,
 				Program.Architecture);
 

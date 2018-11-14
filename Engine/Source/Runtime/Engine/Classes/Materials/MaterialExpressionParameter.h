@@ -24,11 +24,11 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	UPROPERTY()
 	FGuid ExpressionGUID;
 
+#if WITH_EDITORONLY_DATA
 	/** The name of the parameter Group to display in MaterialInstance Editor. Default is None group */
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
 	FName Group;
 
-#if WITH_EDITORONLY_DATA
 	/** Controls where the this parameter is displayed in a material instance parameter list.  The lower the number the higher up in the parameter list. */
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
 	int32 SortPriority;
@@ -47,7 +47,7 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	virtual bool HasAParameterName() const override { return true; }
 	virtual FName GetParameterName() const override { return ParameterName; }
 	virtual void SetParameterName(const FName& Name) override { ParameterName = Name; }
-	virtual void ValidateParameterName() override;
+	virtual void ValidateParameterName(const bool bAllowDuplicateName) override;
 #endif
 	//~ End UMaterialExpression Interface
 

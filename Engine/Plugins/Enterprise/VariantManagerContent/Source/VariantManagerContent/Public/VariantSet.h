@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "UObject/TextProperty.h"
 
 #include "VariantSet.generated.h"
+
 
 class UVariant;
 
@@ -17,45 +19,31 @@ class VARIANTMANAGERCONTENT_API UVariantSet : public UObject
 
 public:
 
-	/**~ UObject implementation */
-	//virtual void Serialize(FArchive& Ar) override;
-
-	// We need this because UVariantObjectBindings have non-UPROPERTY FLazyObjectPtrs
-	// that need to be manually copied
-	UVariantSet* Clone(UObject* ClonesOuter = INVALID_OBJECT);
-
 	class ULevelVariantSets* GetParent();
 
-	void SetDisplayName(const FText& NewDisplayName);
-	FText GetDisplayName() const;
-	FText GetDefaultDisplayName() const;
+	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	void SetDisplayText(const FText& NewDisplayText);
 
-	void AddVariant(UVariant* NewVariant);
-	const TArray<UVariant*>& GetVariants() const
-	{
-		return Variants;
-	}
+	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	FText GetDisplayText() const;
 
-	void RemoveVariant(UVariant* ThisVariant);
+	FString GetUniqueVariantName(const FString& InPrefix);
 
-	int32 GetSortingOrder() const
-	{
-		return SortingOrder;
-	}
+	void AddVariants(const TArray<UVariant*>& NewVariants, int32 Index = INDEX_NONE);
+	const TArray<UVariant*>& GetVariants() const;
+	void RemoveVariants(const TArray<UVariant*>& InVariants);
 
-	void SetSortingOrder(const int32 InSortingOrder)
-	{
-		SortingOrder = InSortingOrder;
-	}
+	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	int32 GetNumVariants();
+
+	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	UVariant* GetVariant(int32 VariantIndex);
 
 private:
-	UPROPERTY()
-	FText DisplayName;
 
 	UPROPERTY()
-	int32 SortingOrder;
+	FText DisplayText;
 
-	// We manually duplicate these within our Clone function
-	UPROPERTY(DuplicateTransient)
+	UPROPERTY()
 	TArray<UVariant*> Variants;
 };

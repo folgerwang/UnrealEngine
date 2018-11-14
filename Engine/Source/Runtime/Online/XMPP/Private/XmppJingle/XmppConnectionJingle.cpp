@@ -471,7 +471,7 @@ bool FXmppConnectionJingle::Tick(float DeltaTime)
 	{
 		if (LocalLoginState == EXmppLoginStatus::LoggedIn)
 		{
-			UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().GetFullPath());
+			UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().ToDebugString());
 			if (LocalLastLoginState == EXmppLoginStatus::ProcessingLogin)
 			{
 				OnLoginComplete().Broadcast(GetUserJid(), true, FString());
@@ -480,7 +480,7 @@ bool FXmppConnectionJingle::Tick(float DeltaTime)
 		}
 		else if (LocalLoginState == EXmppLoginStatus::LoggedOut)
 		{
-			UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().GetFullPath());
+			UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().ToDebugString());
 			if (LocalLastLoginState == EXmppLoginStatus::ProcessingLogin)
 			{
 				OnLoginComplete().Broadcast(GetUserJid(), false, FString());
@@ -708,7 +708,7 @@ void FXmppConnectionJingle::Login(const FString& UserId, const FString& Password
 
 		UE_LOG(LogXmpp, Log, TEXT("Starting Login on connection"));
 		UE_LOG(LogXmpp, Log, TEXT("  server = %s:%d"), *ServerConfig.ServerAddr, ServerConfig.ServerPort);
-		UE_LOG(LogXmpp, Log, TEXT("  user = %s"), *UserJid.GetFullPath());
+		UE_LOG(LogXmpp, Log, TEXT("  user = %s"), *UserJid.ToDebugString());
 
 		// socket/thread for pumping connection	
 		if (LoginState == EXmppLoginStatus::ProcessingLogin)

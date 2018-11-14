@@ -15,6 +15,7 @@ using System.Windows.Forms;
 using Ionic.Zlib;
 using System.ComponentModel;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.Win32;
 
 namespace iPhonePackager
 {
@@ -91,6 +92,7 @@ namespace iPhonePackager
 		static public BackgroundWorker BGWorker = null;
 		static public int ProgressIndex = 0;
 		static public string AdditionalCommandline = "";
+		static public bool IsClient = false;
 
 		static public void UpdateStatus(string Line)
 		{
@@ -283,6 +285,17 @@ namespace iPhonePackager
                                 return false;
                             }
                         }
+						else if (Arg == "-provisionfile")
+						{
+							if (Arguments.Length > ArgIndex + 1)
+							{
+								Config.ProvisionFile = Arguments [++ArgIndex];
+							}
+							else
+							{
+								return false;
+							}
+						}
 						else if (Arg == "-teamID")
 						{
 							// make sure there's at least one more arg
@@ -386,6 +399,11 @@ namespace iPhonePackager
 							if (Arguments.Length > ArgIndex + 1)
 							{
 								SchemeConfiguration = Arguments[++ArgIndex];
+
+								if(SchemeConfiguration.EndsWith("Client"))
+								{
+									IsClient = true;
+								}
 							}
 							else
 							{
@@ -694,6 +712,36 @@ namespace iPhonePackager
 			}
 		}
 
+		static string FindWindowsStoreITunesDLL()
+		{
+			string InstallPath = null;
+
+			string PackagesKeyName = "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\PackageRepository\\Packages";
+			
+			RegistryKey PackagesKey = Registry.LocalMachine.OpenSubKey(PackagesKeyName);
+			if (PackagesKey != null)
+			{
+				string[] PackageSubKeyNames = PackagesKey.GetSubKeyNames();
+				
+				foreach (string PackageSubKeyName in PackageSubKeyNames)
+				{
+					if (PackageSubKeyName.Contains("AppleInc.iTunes") && (PackageSubKeyName.Contains("_x64") || PackageSubKeyName.Contains("_x86")))
+					{
+						string FullPackageSubKeyName = PackagesKeyName + "\\" + PackageSubKeyName;
+
+						RegistryKey iTunesKey = Registry.LocalMachine.OpenSubKey(FullPackageSubKeyName);
+						if (iTunesKey != null)
+						{
+							InstallPath = (string)iTunesKey.GetValue("Path") + "\\AMDS32\\MobileDevice.dll";
+							break;
+						}
+					}
+				}
+			}
+
+			return InstallPath;
+		}
+
 		/**
 		 * Main control loop
 		 */
@@ -795,10 +843,14 @@ namespace iPhonePackager
                         }
                         else
 						{
-							dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
+							dllPath = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
 							if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 							{
-								dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
+								dllPath = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
+								if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
+								{
+									dllPath = FindWindowsStoreITunesDLL();
+								}
 							}
 						}
                         if (String.IsNullOrEmpty(dllPath) || (!File.Exists(dllPath) && !Directory.Exists(dllPath)))

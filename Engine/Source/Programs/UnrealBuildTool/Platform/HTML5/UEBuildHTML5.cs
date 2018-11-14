@@ -187,7 +187,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("UNICODE");
 			CompileEnvironment.Definitions.Add("_UNICODE");
 			CompileEnvironment.Definitions.Add("WITH_AUTOMATION_WORKER=0");
-			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 			CompileEnvironment.Definitions.Add("USE_SCENE_LOCK=0");
 

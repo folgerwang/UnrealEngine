@@ -216,6 +216,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category="AI|Logic")
 	virtual void SetDynamicSubtree(FGameplayTag InjectTag, UBehaviorTree* BehaviorAsset);
 
+// Code for timing BT Search for FramePro
+#if !UE_BUILD_SHIPPING
+	static void EndFrame();
+#endif
+
 #if ENABLE_VISUAL_LOG
 	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const override;
 #endif
@@ -261,6 +266,13 @@ protected:
 
 	/** set when at least one debugger window is opened */
 	static int32 ActiveDebuggerCounter;
+#endif
+
+	// Code for timing BT Search for FramePro
+#if !UE_BUILD_SHIPPING
+	static bool bAddedEndFrameCallback;
+	static double FrameSearchTime;
+	static int32 NumSearchTimeCalls;
 #endif
 
 	/** index of last active instance on stack */

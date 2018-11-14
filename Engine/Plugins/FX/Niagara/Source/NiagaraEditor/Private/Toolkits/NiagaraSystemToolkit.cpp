@@ -999,11 +999,29 @@ void FNiagaraSystemToolkit::UpdateOriginalEmitter()
 		Emitter = (UNiagaraEmitter*)StaticDuplicateObject(EditableEmitter, Emitter->GetOuter(),
 			Emitter->GetFName(), RF_AllFlags, Emitter->GetClass());
 
+		TArray<UNiagaraScript*> EmitterScripts;
+		Emitter->GetScripts(EmitterScripts, false);
+
+		TArray<UNiagaraScript*> EditableEmitterScripts;
+		EditableEmitter->GetScripts(EditableEmitterScripts, false);
+
+		// Validate that the change ids on the original emitters match the editable emitters ids to ensure the DDC contents are up to data without having to recompile.
+		if (ensureMsgf(EmitterScripts.Num() == EditableEmitterScripts.Num(), TEXT("Script count mismatch after copying from editable emitter to original emitter.")))
+		{
+			for (UNiagaraScript* EmitterScript : EmitterScripts)
+			{
+				UNiagaraScript** MatchingEditableEmitterScriptPtr = EditableEmitterScripts.FindByPredicate([EmitterScript](UNiagaraScript* EditableEmitterScript) { 
+					return EditableEmitterScript->GetUsage() == EmitterScript->GetUsage() && EditableEmitterScript->GetUsageId() == EmitterScript->GetUsageId(); });
+				if (ensureMsgf(MatchingEditableEmitterScriptPtr != nullptr, TEXT("Matching script could not be found in editable emitter after copying to original emitter.")))
+				{
+					ensureMsgf((*MatchingEditableEmitterScriptPtr)->GetBaseChangeID() == EmitterScript->GetBaseChangeID(), TEXT("Script change ids didn't match after copying from editable emitter to original emitter."));
+				}
+			}
+		}
+
 		// Record the last synced change id to detect future changes.
 		LastSyncedEmitterChangeId = EditableEmitter->GetChangeId();
 		bEmitterThumbnailUpdated = false;
-
-		checkSlow(UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
 
 		// Restore RF_Standalone on the original emitter, as it had been removed from the preview emitter so that it could be GC'd.
 		Emitter->SetFlags(RF_Standalone);
@@ -1011,8 +1029,6 @@ void FNiagaraSystemToolkit::UpdateOriginalEmitter()
 		TArray<UNiagaraEmitter*> AffectedEmitters;
 		AffectedEmitters.Add(Emitter);
 		UpdateExistingEmitters();
-
-		checkSlow(UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
 
 		GWarn->EndSlowTask();
 	}

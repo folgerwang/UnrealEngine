@@ -81,16 +81,19 @@ bool FMeshInstancingTool::RunMerge(const FString& PackageName)
 		for ( const TSharedPtr<FInstanceComponentData>& SelectedComponent : SelectedComponents)
 		{
 			// Determine whether or not this component should be incorporated according the user settings
-			if (SelectedComponent->bShouldIncorporate)
+			if (SelectedComponent->bShouldIncorporate && SelectedComponent->PrimComponent.IsValid())
 			{
 				ComponentsToMerge.Add(SelectedComponent->PrimComponent.Get());
 			}
 		}
-		
-		// spawn the actor that will contain out instances
-		UWorld* World = ComponentsToMerge[0]->GetWorld();
-		checkf(World != nullptr, TEXT("Invalid World retrieved from Mesh components"));
-		MeshUtilities.MergeComponentsToInstances(ComponentsToMerge, World, UniqueLevels[0], SettingsObject->Settings);
+
+		if (ComponentsToMerge.Num())
+		{
+			// spawn the actor that will contain out instances
+			UWorld* World = ComponentsToMerge[0]->GetWorld();
+			checkf(World != nullptr, TEXT("Invalid World retrieved from Mesh components"));
+			MeshUtilities.MergeComponentsToInstances(ComponentsToMerge, World, UniqueLevels[0], SettingsObject->Settings);
+		}
 	}
 
 	InstancingDialog->Reset();

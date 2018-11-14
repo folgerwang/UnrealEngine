@@ -183,16 +183,21 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 
 		for (UWidgetAnimation* Animation : InAnimations)
 		{
-			UWidgetAnimation* Anim = DuplicateObject<UWidgetAnimation>(Animation, UserWidget);
-
-			if ( Anim->GetMovieScene() )
+			// Find property with the same name as the animation and assign the new widget to it.
+			UObjectPropertyBase* AnimationProperty = Animation->GetMovieScene() ? FindField<UObjectPropertyBase>(WidgetBlueprintClass, Animation->GetMovieScene()->GetFName()) : nullptr;
+			if ( AnimationProperty )
 			{
-				// Find property with the same name as the template and assign the new widget to it.
-				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetBlueprintClass, Anim->GetMovieScene()->GetFName());
-				if ( Prop )
+				// If there is already an animation assigned to this property, consign it to oblivion to make space for the new one
+				// Duplicated object's name has to match that of the BPGC to ensure that subobject reinstancing works correctly
+				UObject* ExistingPropertyValue = AnimationProperty->GetObjectPropertyValue_InContainer(UserWidget);
+				if (ExistingPropertyValue)
 				{
-					Prop->SetObjectPropertyValue_InContainer(UserWidget, Anim);
+					FName UniqueDeadName = MakeUniqueObjectName(GetTransientPackage(), UWidgetAnimation::StaticClass(), *(ExistingPropertyValue->GetName() + TEXT("_DEAD")));
+					ExistingPropertyValue->Rename(*UniqueDeadName.ToString(), GetTransientPackage(), REN_DoNotDirty | REN_ForceNoResetLoaders);
 				}
+
+				UWidgetAnimation* DuplicatedAnimation = DuplicateObject<UWidgetAnimation>(Animation, UserWidget);
+				AnimationProperty->SetObjectPropertyValue_InContainer(UserWidget, DuplicatedAnimation);
 			}
 		}
 
@@ -251,15 +256,6 @@ void UWidgetBlueprintGeneratedClass::SetClassRequiresNativeTick(bool InClassRequ
 void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
 {
 	InitializeWidgetStatic(UserWidget, this, HasTemplate(), bAllowDynamicCreation, WidgetTree, Animations, Bindings);
-}
-
-UObject* UWidgetBlueprintGeneratedClass::CreateDefaultObject()
-{
-#if WITH_EDITOR
-	return Super::CreateDefaultObject();
-#else
-	return Super::CreateDefaultObject();
-#endif
 }
 
 void UWidgetBlueprintGeneratedClass::PostLoad()

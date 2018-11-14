@@ -231,6 +231,7 @@ public:
 		const TArray<FTransform>& RefPoseCompactArray = RequiredBones.GetRefPoseCompactArray();
 		this->Bones.Reset(RefPoseCompactArray.Num());
 		this->Bones.Append(RefPoseCompactArray);
+		this->BoneContainer = &RequiredBones;
 
 		// If retargeting is disabled, copy ref pose from Skeleton, rather than mesh.
 		// this is only used in editor and for debugging.

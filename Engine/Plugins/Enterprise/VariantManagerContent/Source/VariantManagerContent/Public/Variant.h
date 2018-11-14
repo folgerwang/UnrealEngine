@@ -3,11 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Internationalization/Text.h"
+#include "UObject/Object.h"
 #include "UObject/ObjectMacros.h"
+#include "UObject/TextProperty.h"
 
 #include "Variant.generated.h"
 
-
+class AActor;
 class UVariantObjectBinding;
 
 
@@ -18,49 +21,33 @@ class VARIANTMANAGERCONTENT_API UVariant : public UObject
 
 public:
 
-	/**~ UObject implementation */
-	//virtual void Serialize(FArchive& Ar) override;
-
-	// We need this because UVariantObjectBindings have non-UPROPERTY FLazyObjectPtrs
-	// that need to be manually copied
-	UVariant* Clone(UObject* ClonesOuter = INVALID_OBJECT);
-
 	class UVariantSet* GetParent();
 
-	void SetDisplayName(const FText& NewDisplayName);
-	FText GetDisplayName() const;
-	FText GetDefaultDisplayName() const;
+	UFUNCTION(BlueprintCallable, Category="Variant")
+	void SetDisplayText(const FText& NewDisplayText);
 
-	void AddActors(TWeakObjectPtr<AActor> InActor);
-	void AddActors(const TArray<TWeakObjectPtr<AActor>>& InActors);
+	UFUNCTION(BlueprintCallable, Category="Variant")
+	FText GetDisplayText() const;
 
-	void AddBinding(UVariantObjectBinding* NewBinding);
+	// In case of a duplicate binding these will destroy the older bindings
+	void AddBindings(const TArray<UVariantObjectBinding*>& NewBindings, int32 Index = INDEX_NONE);
+	const TArray<UVariantObjectBinding*>& GetBindings();
+	void RemoveBindings(const TArray<UVariantObjectBinding*>& Bindings);
 
-	const TArray<UVariantObjectBinding*>& GetBindings()
-	{
-		return ObjectBindings;
-	}
+	UFUNCTION(BlueprintCallable, Category="Variant")
+	int32 GetNumActors();
 
-	void RemoveBinding(UVariantObjectBinding* ThisBinding);
+	UFUNCTION(BlueprintCallable, Category="Variant")
+	AActor* GetActor(int32 ActorIndex);
 
-	int32 GetSortingOrder() const
-	{
-		return SortingOrder;
-	}
-
-	void SetSortingOrder(const int32 InSortingOrder)
-	{
-		SortingOrder = InSortingOrder;
-	}
+	UFUNCTION(BlueprintCallable, Category="Variant")
+	void SwitchOn();
 
 private:
-	UPROPERTY()
-	FText DisplayName;
 
 	UPROPERTY()
-	int32 SortingOrder;
+	FText DisplayText;
 
-	// We manually duplicate these within our Clone function
-	UPROPERTY(DuplicateTransient)
+	UPROPERTY()
 	TArray<UVariantObjectBinding*> ObjectBindings;
 };

@@ -6,7 +6,9 @@
 #include "Misc/QualifiedFrameTime.h"
 #include "EditorStyleSet.h" //for add track stuff mz todo remove maybe
 #include "Features/IModularFeatures.h"
+#include "Styling/SlateIconFinder.h"
 #include "ISequencerSection.h"
+#include "LiveLinkComponent.h"
 
 /**
 * An implementation of live link property sections.
@@ -67,18 +69,6 @@ void FLiveLinkPropertyTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuild
 
 void FLiveLinkPropertyTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 {
-	IModularFeatures& ModularFeatures = IModularFeatures::Get();
-
-
-	MenuBuilder.AddMenuEntry(
-		LOCTEXT("AddLiveLinkTrack", "Live Link Track"),
-		LOCTEXT("AddLiveLinkTrackTooltip", "Adds a new track that exposes Live Link Sources."),
-		FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.Tracks.LiveLink"),
-		FUIAction(
-			FExecuteAction::CreateRaw(this, &FLiveLinkPropertyTrackEditor::HandleAddLiveLinkTrackMenuEntryExecute),
-			FCanExecuteAction::CreateRaw(this, &FLiveLinkPropertyTrackEditor::HandleAddLiveLinkTrackMenuEntryCanExecute)
-		)
-	);
 }
 
 TSharedRef<ISequencerSection> FLiveLinkPropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
@@ -95,6 +85,11 @@ bool FLiveLinkPropertyTrackEditor::SupportsSequence(UMovieSceneSequence* InSeque
 bool FLiveLinkPropertyTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 {
 	return (Type == UMovieSceneLiveLinkTrack::StaticClass());
+}
+
+const FSlateBrush* FLiveLinkPropertyTrackEditor::GetIconBrush() const
+{
+	return FSlateIconFinder::FindIconForClass(ULiveLinkComponent::StaticClass()).GetIcon();
 }
 
 

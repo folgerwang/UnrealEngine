@@ -181,7 +181,6 @@ bool FWidgetPath::MoveFocus(int32 PathLevel, EUINavigation NavigationType)
 			// EFocusMoveDirection::Previous implies move focus up a level.
 			return false;
 		}
-		
 	}
 	else if ( Widgets.Num() > 1 )
 	{
@@ -192,35 +191,38 @@ bool FWidgetPath::MoveFocus(int32 PathLevel, EUINavigation NavigationType)
 		FArrangedChildren ArrangedChildren(EVisibility::Visible);
 		Widgets[PathLevel].Widget->ArrangeChildren( Widgets[PathLevel].Geometry, ArrangedChildren );
 
-		// Find the currently focused child among the children.
-		int32 FocusedChildIndex = ArrangedChildren.FindItemIndex( Widgets[PathLevel+1] );
-		FocusedChildIndex = (FocusedChildIndex) % ArrangedChildren.Num() + MoveDirectionAsInt;
-
-		// Now actually search for the widget.
-		for( ; FocusedChildIndex < ArrangedChildren.Num() && FocusedChildIndex >= 0; FocusedChildIndex += MoveDirectionAsInt )
+		// Don't continue if there are no children in the widget.
+		if (ArrangedChildren.Num() > 0)
 		{
-			// Neither disabled widgets nor their children can be focused.
-			if ( ArrangedChildren[FocusedChildIndex].Widget->IsEnabled() )
+			// Find the currently focused child among the children.
+			int32 FocusedChildIndex = ArrangedChildren.FindItemIndex(Widgets[PathLevel + 1]);
+			FocusedChildIndex = (FocusedChildIndex) % ArrangedChildren.Num() + MoveDirectionAsInt;
+
+			// Now actually search for the widget.
+			for (; FocusedChildIndex < ArrangedChildren.Num() && FocusedChildIndex >= 0; FocusedChildIndex += MoveDirectionAsInt)
 			{
-				// Look for a focusable descendant.
-				FArrangedChildren PathToFocusableChild = GeneratePathToWidget(FFocusableWidgetMatcher(), ArrangedChildren[FocusedChildIndex], NavigationType);
-				// Either we found a focusable descendant, or an immediate child that is focusable.
-				const bool bFoundNextFocusable = ( PathToFocusableChild.Num() > 0 ) || ArrangedChildren[FocusedChildIndex].Widget->SupportsKeyboardFocus();
-				if ( bFoundNextFocusable )
+				// Neither disabled widgets nor their children can be focused.
+				if (ArrangedChildren[FocusedChildIndex].Widget->IsEnabled())
 				{
-					// We found the next focusable widget, so make this path point at the new widget by:
-					// First, truncating the FocusPath up to the current level (i.e. PathLevel).
-					Widgets.Remove( PathLevel+1, Widgets.Num()-PathLevel-1 );
-					// Second, add the immediate child that is focus or whose descendant is focused.
-					Widgets.AddWidget( ArrangedChildren[FocusedChildIndex] );
-					// Add path to focused descendants if any.
-					Widgets.Append( PathToFocusableChild );
-					// We successfully moved focus!
-					return true;
+					// Look for a focusable descendant.
+					FArrangedChildren PathToFocusableChild = GeneratePathToWidget(FFocusableWidgetMatcher(), ArrangedChildren[FocusedChildIndex], NavigationType);
+					// Either we found a focusable descendant, or an immediate child that is focusable.
+					const bool bFoundNextFocusable = (PathToFocusableChild.Num() > 0) || ArrangedChildren[FocusedChildIndex].Widget->SupportsKeyboardFocus();
+					if (bFoundNextFocusable)
+					{
+						// We found the next focusable widget, so make this path point at the new widget by:
+						// First, truncating the FocusPath up to the current level (i.e. PathLevel).
+						Widgets.Remove(PathLevel + 1, Widgets.Num() - PathLevel - 1);
+						// Second, add the immediate child that is focus or whose descendant is focused.
+						Widgets.AddWidget(ArrangedChildren[FocusedChildIndex]);
+						// Add path to focused descendants if any.
+						Widgets.Append(PathToFocusableChild);
+						// We successfully moved focus!
+						return true;
+					}
 				}
 			}
-		}		
-		
+		}
 	}
 
 	return false;

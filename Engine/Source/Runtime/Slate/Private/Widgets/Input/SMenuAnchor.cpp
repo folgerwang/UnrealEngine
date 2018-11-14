@@ -214,8 +214,7 @@ int32 SMenuAnchor::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeo
 		const bool bHasArrangedAnchorContent = FirstChild.Widget == Children[0].GetWidget();
 		if ( bHasArrangedAnchorContent )
 		{
-			const FSlateRect ChildClippingRect = AllottedGeometry.GetLayoutBoundingRect().IntersectionWith(MyCullingRect);
-			LayerId = FirstChild.Widget->Paint(Args.WithNewParent(this), FirstChild.Geometry, ChildClippingRect, OutDrawElements, LayerId + 1, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
+			LayerId = FirstChild.Widget->Paint(Args.WithNewParent(this), FirstChild.Geometry, MyCullingRect, OutDrawElements, LayerId + 1, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
 		}
 
 		const bool bIsOpen = IsOpen();
@@ -622,6 +621,16 @@ SMenuAnchor::~SMenuAnchor()
 	if (PopupMenuPtr.IsValid())
 	{
 		PopupMenuPtr.Pin()->Dismiss();
+
+		// If the menu hasn't been dismissed, then dismiss it now
+		if (!bDismissedThisTick)
+		{
+			bDismissedThisTick = true;
+			if (OnMenuOpenChanged.IsBound())
+			{
+				OnMenuOpenChanged.Execute(false);
+			}
+		}
 	}
 		
 	// We no longer have a popup open, so reset all the tracking state associated.

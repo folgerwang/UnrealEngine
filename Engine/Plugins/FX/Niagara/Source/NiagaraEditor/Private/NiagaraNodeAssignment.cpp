@@ -19,6 +19,7 @@
 #include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ScopedTransaction.h"
+#include "ViewModels/Stack/INiagaraStackItemGroupAddUtilities.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeAssigment"
@@ -194,29 +195,10 @@ void UNiagaraNodeAssignment::MergeUp()
 	//NiagaraStackUtilities::
 }
 
-void UNiagaraNodeAssignment::BuildParameterMenu(FMenuBuilder& MenuBuilder, ENiagaraScriptUsage InUsage, UNiagaraNodeOutput* InGraphOutputNode)
+void UNiagaraNodeAssignment::BuildAddParameterMenu(FMenuBuilder& MenuBuilder, ENiagaraScriptUsage InUsage, UNiagaraNodeOutput* InGraphOutputNode)
 {
-	TArray<FNiagaraParameterMapHistory> Histories = UNiagaraNodeParameterMapBase::GetParameterMaps(InGraphOutputNode->GetNiagaraGraph());
 	TArray<FNiagaraVariable> AvailableParameters;
-
-	if (InGraphOutputNode->GetUsage() == ENiagaraScriptUsage::ParticleSpawnScript ||
-		InGraphOutputNode->GetUsage() == ENiagaraScriptUsage::ParticleSpawnScriptInterpolated ||
-		InGraphOutputNode->GetUsage() == ENiagaraScriptUsage::ParticleUpdateScript ||
-		InGraphOutputNode->GetUsage() == ENiagaraScriptUsage::ParticleEventScript)
-	{
-		AvailableParameters.Append(FNiagaraConstants::GetCommonParticleAttributes());
-	}
-
-	for (FNiagaraParameterMapHistory& History : Histories)
-	{
-		for (FNiagaraVariable& Variable : History.Variables)
-		{
-			if (History.IsPrimaryDataSetOutput(Variable, InGraphOutputNode->GetUsage()))
-			{
-				AvailableParameters.AddUnique(Variable);
-			}
-		}
-	}
+	FNiagaraStackGraphUtilities::GetAvailableParametersForScript(*InGraphOutputNode, AvailableParameters);
 
 	for (const FNiagaraVariable& AvailableParameter : AvailableParameters)
 	{
@@ -226,7 +208,7 @@ void UNiagaraNodeAssignment::BuildParameterMenu(FMenuBuilder& MenuBuilder, ENiag
 		FString VarDefaultValue = FNiagaraConstants::GetAttributeDefaultValue(AvailableParameter);
 		const FText TooltipDesc = FText::Format(LOCTEXT("SetFunctionPopupTooltip", "Description: Set the parameter {0}. {1}"), FText::FromName(AvailableParameter.GetName()), VarDesc);
 		FText CategoryName = LOCTEXT("ModuleSetCategory", "Set Specific Parameters");
-		bool bCanExecute = AssignmentTargets.Contains(AvailableParameter) == false;
+		bool bCanExecute = AssignmentTargets.Contains(AvailableParameter) == false; 
 
 		MenuBuilder.AddMenuEntry(
 			NameText,
@@ -237,6 +219,55 @@ void UNiagaraNodeAssignment::BuildParameterMenu(FMenuBuilder& MenuBuilder, ENiag
 				FCanExecuteAction::CreateLambda([bCanExecute] { return bCanExecute; })));
 	}
 
+}
+
+void UNiagaraNodeAssignment::BuildCreateParameterMenu(FMenuBuilder& MenuBuilder, ENiagaraScriptUsage InUsage, UNiagaraNodeOutput* InGraphOutputNode)
+{
+	// Generate actions for creating new typed parameters.
+	TOptional<FName> NewParameterNamespace = FNiagaraStackGraphUtilities::GetNamespaceForScriptUsage(InGraphOutputNode->GetUsage());
+	if (NewParameterNamespace.IsSet())
+	{
+		// Collect all parameter names for ensuring new param has unique name
+		TArray<const UNiagaraGraph*> Graphs;
+		InGraphOutputNode->GetNiagaraGraph()->GetAllReferencedGraphs(Graphs);
+		TSet<FName> Names;
+		for (const UNiagaraGraph* Graph : Graphs)
+		{
+			for (const TPair<FNiagaraVariable, FNiagaraGraphParameterReferenceCollection>& ParameterElement : Graph->GetParameterMap())
+			{
+				Names.Add(ParameterElement.Key.GetName());
+			}
+		}
+
+		TArray<FNiagaraTypeDefinition> AvailableTypes;
+		FNiagaraStackGraphUtilities::GetNewParameterAvailableTypes(AvailableTypes);
+		for (const FNiagaraTypeDefinition& AvailableType : AvailableTypes)
+		{
+			// Make generic new parameter name
+			const FString NewParameterNameString = NewParameterNamespace.GetValue().ToString() + ".New" + AvailableType.GetName();
+			const FName NewParameterName = FName(*NewParameterNameString);
+
+			// Make NewParameterName unique  
+			const FName UniqueNewParameterName = FNiagaraUtilities::GetUniqueName(NewParameterName, Names);
+
+			// Create the new param
+			FNiagaraVariable NewParameter = FNiagaraVariable(AvailableType, UniqueNewParameterName);
+			FString VarDefaultValue = FNiagaraConstants::GetAttributeDefaultValue(NewParameter);
+			
+			// Tooltip and menu entry Text
+			FText VarDesc = FNiagaraConstants::GetAttributeDescription(NewParameter);
+			const FText TypeText = AvailableType.GetNameText();
+			const FText TooltipDesc = FText::Format(LOCTEXT("NewParameterModuleDescriptionFormat", "Description: Create a new {0} parameter. {1}"), TypeText, VarDesc);
+			FText Category = LOCTEXT("NewParameterModuleCategory", "Create New Parameter");
+
+			MenuBuilder.AddMenuEntry(
+				TypeText,
+				TooltipDesc,
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateUObject(this, &UNiagaraNodeAssignment::AddParameter, NewParameter, VarDefaultValue)));
+		}
+	}
 }
 
 void UNiagaraNodeAssignment::AddParameter(FNiagaraVariable InVar, FString InDefaultValue)

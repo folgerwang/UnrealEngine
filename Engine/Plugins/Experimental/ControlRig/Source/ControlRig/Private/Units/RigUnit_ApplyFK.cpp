@@ -6,7 +6,15 @@
 
 void FRigUnit_ApplyFK::Execute(const FRigUnitContext& InContext)
 {
-	if (InContext.State == EControlRigState::Update)
+	if (InContext.State == EControlRigState::Init)
+	{
+		FRigHierarchy* Hierarchy = HierarchyRef.Get();
+		if (!Hierarchy)
+		{
+			UnitLogHelpers::PrintMissingHierarchy(RigUnitName);
+		}
+	}
+	else if (InContext.State == EControlRigState::Update)
 	{
 		FRigHierarchy* Hierarchy = HierarchyRef.Get();
 		if (Hierarchy)

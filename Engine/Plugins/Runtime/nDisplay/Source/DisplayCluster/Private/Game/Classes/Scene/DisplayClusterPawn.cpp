@@ -3,12 +3,15 @@
 #include "DisplayClusterPawn.h"
 
 #include "Engine/CollisionProfile.h"
+#include "Engine/World.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SphereComponent.h"
+#include "GameFramework/PlayerController.h"
 
 #include "Cluster/IPDisplayClusterClusterManager.h"
 #include "Game/IPDisplayClusterGameManager.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "DisplayClusterSceneComponentSyncParent.h"
 
@@ -94,6 +97,20 @@ void ADisplayClusterPawn::BeginPlay()
 				const FVector CollisionOffset(0.f, 0.f, -CollisionComponent->GetUnscaledSphereRadius());
 				CollisionOffsetComponent->SetRelativeLocation(CollisionOffset);
 				UE_LOG(LogDisplayClusterGame, Log, TEXT("Collision offset: %s"), *CollisionOffset.ToString());
+			}
+		}
+		else
+		{
+			// Turn off input processing on slave nodes
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				APlayerController* PlayerController = World->GetFirstPlayerController();
+				if (PlayerController)
+				{
+					UE_LOG(LogDisplayClusterGame, Log, TEXT("Deactivating input on slave node..."));
+					this->DisableInput(PlayerController);
+				}
 			}
 		}
 	}

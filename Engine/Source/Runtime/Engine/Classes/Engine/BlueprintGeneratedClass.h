@@ -89,9 +89,18 @@ public:
 	// WARNING: This struct layout definition repeated in ScriptCore.cpp as
 	// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues:
 	uint8* RawPointer;
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	uint32 UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	// WARNING: This struct layout definition repeated in ScriptCore.cpp as
+	// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues
+	//////////////////////////////////////////////////////////////////////////
 
 	FPointerToUberGraphFrame()
 		: RawPointer(nullptr)
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+		, UberGraphFunctionKey(0)
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 	{}
 
 	~FPointerToUberGraphFrame()
@@ -562,13 +571,13 @@ struct ENGINE_API FBlueprintCookedComponentInstancingData
 	}
 
 	/** Builds/returns the internal property list that's used for serialization. This is a linked list of UProperty references. */
-	const FCustomPropertyListNode* GetCachedPropertyListForSerialization() const;
+	const FCustomPropertyListNode* GetCachedPropertyList() const;
 
 	/** Called at load time to generate the internal cached property data stream from serialization of the source template object. */
-	void LoadCachedPropertyDataForSerialization(UActorComponent* SourceTemplate);
+	void BuildCachedPropertyDataFromTemplate(UActorComponent* SourceTemplate);
 
 	/** Returns the internal property data stream that's used for fast binary object serialization when instancing components at runtime. */
-	const TArray<uint8>& GetCachedPropertyDataForSerialization() const { return CachedPropertyDataForSerialization; }
+	const TArray<uint8>& GetCachedPropertyData() const { return CachedPropertyData; }
 
 protected:
 	/** Internal method used to help recursively build the cached property list for serialization. */
@@ -582,7 +591,7 @@ private:
 	mutable TIndirectArray<FCustomPropertyListNode> CachedPropertyListForSerialization;
 
 	/** Internal property data stream that's used in binary object serialization at component instancing time. */
-	TArray<uint8> CachedPropertyDataForSerialization;
+	TArray<uint8> CachedPropertyData;
 };
 
 UCLASS()
@@ -626,6 +635,10 @@ public:
 
 	UPROPERTY()
 	UFunction* UberGraphFunction;
+
+#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
+	uint32 UberGraphFunctionKey;
+#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 
 #if WITH_EDITORONLY_DATA
 	// This is a list of event graph call function nodes that are simple (no argument) thunks into the event graph (typically used for animation delegates, etc...)
@@ -693,7 +706,7 @@ public:
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
 	virtual void Bind() override;
-	virtual void GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut) override;
+	virtual void GetDefaultObjectPreloadDependencies(TArray<UObject*>& OutDeps) override;
 	virtual UObject* FindArchetype(UClass* ArchetypeClass, const FName ArchetypeName) const override;
 
 	virtual void InitPropertiesFromCustomList(uint8* DataPtr, const uint8* DefaultDataPtr) override;

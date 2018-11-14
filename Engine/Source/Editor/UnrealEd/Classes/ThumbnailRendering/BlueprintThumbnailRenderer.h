@@ -34,5 +34,5 @@ class UBlueprintThumbnailRenderer : public UDefaultSizedThumbnailRenderer
 	void BlueprintChanged(class UBlueprint* Blueprint);
 
 private:
-	TClassInstanceThumbnailScene<FBlueprintThumbnailScene, 400> ThumbnailScenes;
+	TClassInstanceThumbnailScene<FBlueprintThumbnailScene, 100> ThumbnailScenes;
 };

@@ -24,6 +24,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Internationalization/Internationalization.h"
+#include "ViewModels/Stack/NiagaraStackModuleSpacer.h"
 
 #define LOCTEXT_NAMESPACE "UNiagaraStackScriptItemGroup"
 
@@ -269,6 +270,15 @@ void UNiagaraStackScriptItemGroup::Initialize(
 		FOnGraphChanged::FDelegate::CreateUObject(this, &UNiagaraStackScriptItemGroup::OnScriptGraphChanged));
 }
 
+UNiagaraNodeOutput* UNiagaraStackScriptItemGroup::GetScriptOutputNode() const
+{
+	TSharedPtr<FNiagaraScriptViewModel> ScriptViewModelPinned = ScriptViewModel.Pin();
+	checkf(ScriptViewModelPinned.IsValid(), TEXT("Can not get script output node when the script view model has been deleted."));
+
+	UNiagaraGraph* Graph = ScriptViewModelPinned->GetGraphViewModel()->GetGraph();
+	return Graph->FindEquivalentOutputNode(ScriptUsage, ScriptUsageId);
+}
+
 void UNiagaraStackScriptItemGroup::FinalizeInternal()
 {
 	if (ScriptGraph.IsValid())
@@ -301,13 +311,14 @@ void UNiagaraStackScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagara
 		for (UNiagaraNodeFunctionCall* ModuleNode : ModuleNodes)
 		{
 			FName ModuleSpacerKey = *FString::Printf(TEXT("Module%i"), ModuleIndex);
-			UNiagaraStackSpacer* ModuleSpacer = FindCurrentChildOfTypeByPredicate<UNiagaraStackSpacer>(CurrentChildren,
-				[=](UNiagaraStackSpacer* CurrentModuleSpacer) { return CurrentModuleSpacer->GetSpacerKey() == ModuleSpacerKey; });
+			UNiagaraStackModuleSpacer* ModuleSpacer = FindCurrentChildOfTypeByPredicate<UNiagaraStackModuleSpacer>(CurrentChildren,
+				[=](UNiagaraStackModuleSpacer* CurrentModuleSpacer) { return CurrentModuleSpacer->GetSpacerKey() == ModuleSpacerKey; });
 
 			if (ModuleSpacer == nullptr)
 			{
-				ModuleSpacer = NewObject<UNiagaraStackSpacer>(this);
-				ModuleSpacer->Initialize(CreateDefaultChildRequiredData(), ModuleSpacerKey, 1.4f);
+				ModuleSpacer = NewObject<UNiagaraStackModuleSpacer>(this);
+				ModuleSpacer->Initialize(CreateDefaultChildRequiredData(), GetScriptUsage(), ModuleSpacerKey, 1.4f, UNiagaraStackEntry::EStackRowStyle::None);
+				ModuleSpacer->OnStackSpacerAcceptDrop.BindUObject(this, &UNiagaraStackScriptItemGroup::AddParameterModuleToStack);
 			}
 
 			NewChildren.Add(ModuleSpacer);
@@ -330,13 +341,14 @@ void UNiagaraStackScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagara
 
 		// Add the post items spacer.
 		FName ModuleSpacerKey = *FString::Printf(TEXT("Module%i"), ModuleIndex);
-		UNiagaraStackSpacer* ModuleSpacer = FindCurrentChildOfTypeByPredicate<UNiagaraStackSpacer>(CurrentChildren,
-			[=](UNiagaraStackSpacer* CurrentModuleSpacer) { return CurrentModuleSpacer->GetSpacerKey() == ModuleSpacerKey; });
+		UNiagaraStackModuleSpacer* ModuleSpacer = FindCurrentChildOfTypeByPredicate<UNiagaraStackModuleSpacer>(CurrentChildren,
+			[=](UNiagaraStackModuleSpacer* CurrentModuleSpacer) { return CurrentModuleSpacer->GetSpacerKey() == ModuleSpacerKey; });
 
 		if (ModuleSpacer == nullptr)
 		{
-			ModuleSpacer = NewObject<UNiagaraStackSpacer>(this);
-			ModuleSpacer->Initialize(CreateDefaultChildRequiredData(), ModuleSpacerKey, 1.4f);
+			ModuleSpacer = NewObject<UNiagaraStackModuleSpacer>(this);
+			ModuleSpacer->Initialize(CreateDefaultChildRequiredData(), GetScriptUsage(), ModuleSpacerKey, 1.4f, UNiagaraStackEntry::EStackRowStyle::None);
+			ModuleSpacer->OnStackSpacerAcceptDrop.BindUObject(this, &UNiagaraStackScriptItemGroup::AddParameterModuleToStack);
 		}
 
 		NewChildren.Add(ModuleSpacer);
@@ -629,5 +641,25 @@ void UNiagaraStackScriptItemGroup::OnScriptGraphChanged(const struct FEdGraphEdi
 	}
 }
 
+void UNiagaraStackScriptItemGroup::AddParameterModuleToStack(const UNiagaraStackModuleSpacer* InModuleSpacer, const FNiagaraVariable &InVariable)
+{
+	TArray<FNiagaraVariable> Vars;
+	Vars.Add(InVariable);
+	TArray<FString> DefaultVals;
+	DefaultVals.Add(FNiagaraConstants::GetAttributeDefaultValue(InVariable));
+
+	UNiagaraNodeOutput* OutputNode = GetScriptOutputNode();
+
+	int32 TargetIndex = INDEX_NONE;
+	UNiagaraStackModuleItem** TargetModuleItemPtr = StackSpacerToModuleItemMap.Find(FObjectKey(InModuleSpacer));
+	if (*TargetModuleItemPtr != nullptr)
+	{
+		UNiagaraStackModuleItem* TargetModuleItem = *TargetModuleItemPtr;
+		TargetIndex = TargetModuleItem->GetModuleIndex();
+	}
+
+	FNiagaraStackGraphUtilities::AddParameterModuleToStack(Vars, *OutputNode, TargetIndex, DefaultVals);
+	RefreshChildren();
+}
 
 #undef LOCTEXT_NAMESPACE

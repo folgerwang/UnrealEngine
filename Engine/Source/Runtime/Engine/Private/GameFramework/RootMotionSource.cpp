@@ -326,7 +326,7 @@ FString FRootMotionSource::ToSimpleString() const
 //
 
 FRootMotionSource_ConstantForce::FRootMotionSource_ConstantForce()
-	: Force(EForceInit::ForceInitToZero)
+	: Force(ForceInitToZero)
 	, StrengthOverTime(nullptr)
 {
 	// Disable Partial End Tick for Constant Forces.
@@ -454,7 +454,7 @@ void FRootMotionSource_ConstantForce::AddReferencedObjects(class FReferenceColle
 //
 
 FRootMotionSource_RadialForce::FRootMotionSource_RadialForce()
-	: Location(EForceInit::ForceInitToZero)
+	: Location(ForceInitToZero)
 	, LocationActor(nullptr)
 	, Radius(1.f)
 	, Strength(0.f)
@@ -463,7 +463,7 @@ FRootMotionSource_RadialForce::FRootMotionSource_RadialForce()
 	, StrengthDistanceFalloff(nullptr)
 	, StrengthOverTime(nullptr)
 	, bUseFixedWorldDirection(false)
-	, FixedWorldDirection(EForceInit::ForceInitToZero)
+	, FixedWorldDirection(ForceInitToZero)
 {
 }
 
@@ -636,8 +636,8 @@ void FRootMotionSource_RadialForce::AddReferencedObjects(class FReferenceCollect
 //
 
 FRootMotionSource_MoveToForce::FRootMotionSource_MoveToForce()
-	: StartLocation(EForceInit::ForceInitToZero)
-	, TargetLocation(EForceInit::ForceInitToZero)
+	: StartLocation(ForceInitToZero)
+	, TargetLocation(ForceInitToZero)
 	, bRestrictSpeedToExpected(false)
 	, PathOffsetCurve(nullptr)
 {
@@ -817,9 +817,9 @@ void FRootMotionSource_MoveToForce::AddReferencedObjects(class FReferenceCollect
 //
 
 FRootMotionSource_MoveToDynamicForce::FRootMotionSource_MoveToDynamicForce()
-	: StartLocation(EForceInit::ForceInitToZero)
-	, InitialTargetLocation(EForceInit::ForceInitToZero)
-	, TargetLocation(EForceInit::ForceInitToZero)
+	: StartLocation(ForceInitToZero)
+	, InitialTargetLocation(ForceInitToZero)
+	, TargetLocation(ForceInitToZero)
 	, bRestrictSpeedToExpected(false)
 	, PathOffsetCurve(nullptr)
 	, TimeMappingCurve(nullptr)
@@ -1013,7 +1013,7 @@ void FRootMotionSource_MoveToDynamicForce::AddReferencedObjects(class FReference
 //
 
 FRootMotionSource_JumpForce::FRootMotionSource_JumpForce()
-	: Rotation(EForceInit::ForceInitToZero)
+	: Rotation(ForceInitToZero)
 	, Distance(-1.0f)
 	, Height(-1.0f)
 	, bDisableTimeout(false)
@@ -1266,6 +1266,7 @@ FRootMotionSourceGroup::FRootMotionSourceGroup()
 	: bHasAdditiveSources(false)
 	, bHasOverrideSources(false)
 	, bIsAdditiveVelocityApplied(false)
+	, LastPreAdditiveVelocity(ForceInitToZero)
 {
 }
 
@@ -1915,10 +1916,10 @@ bool FRootMotionSourceGroup::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 		RootMotionSources.SetNumZeroed(SourcesNum);
 	}
 
-	Ar << bHasAdditiveSources;
-	Ar << bHasOverrideSources;
+	FArchive_Serialize_BitfieldBool(Ar, bHasAdditiveSources);
+	FArchive_Serialize_BitfieldBool(Ar, bHasOverrideSources);
 	LastPreAdditiveVelocity.NetSerialize(Ar, Map, bOutSuccess);
-	Ar << bIsAdditiveVelocityApplied;
+	FArchive_Serialize_BitfieldBool(Ar, bIsAdditiveVelocityApplied);
 	Ar << LastAccumulatedSettings.Flags;
 
 	for (int32 i = 0; i < SourcesNum && !Ar.IsError(); ++i)

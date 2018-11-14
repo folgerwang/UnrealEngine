@@ -42,8 +42,6 @@ namespace AutomationTool
 
 	public partial class CommandUtils
 	{
-		#region Commandlets
-
 		/// <summary>
 		/// Runs Cook commandlet.
 		/// </summary>
@@ -235,6 +233,20 @@ namespace AutomationTool
 		/// <param name="Parameters">Command line parameters (without -run=)</param>
 		public static void RunCommandlet(FileReference ProjectName, string UE4Exe, string Commandlet, string Parameters = null)
 		{
+			string LogFile;
+			RunCommandlet(ProjectName, UE4Exe, Commandlet, Parameters, out LogFile);
+		}
+
+		/// <summary>
+		/// Runs a commandlet using Engine/Binaries/Win64/UE4Editor-Cmd.exe.
+		/// </summary>
+		/// <param name="ProjectFile">Project name.</param>
+		/// <param name="UE4Exe">The name of the UE4 Editor executable to use.</param>
+		/// <param name="Commandlet">Commandlet name.</param>
+		/// <param name="Parameters">Command line parameters (without -run=)</param>
+		/// <param name="DestLogFile">Log file after completion</param>
+		public static void RunCommandlet(FileReference ProjectName, string UE4Exe, string Commandlet, string Parameters, out string DestLogFile)
+		{
 			LogInformation("Running UE4Editor {0} for project {1}", Commandlet, ProjectName);
 
             var CWD = Path.GetDirectoryName(UE4Exe);
@@ -268,8 +280,39 @@ namespace AutomationTool
 				Args += " -UTF8Output";
 				Opts |= ERunOptions.UTF8Output;
 			}
-			var RunResult = Run(EditorExe, Args, Options: Opts, Identifier: Commandlet);
+			IProcessResult RunResult = Run(EditorExe, Args, Options: Opts, Identifier: Commandlet);
 			PopDir();
+
+			// If we're running on a Windows build machine, copy any crash dumps into the log folder
+			if(HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64 && IsBuildMachine)
+			{
+				DirectoryInfo CrashesDir = new DirectoryInfo(DirectoryReference.Combine(DirectoryReference.FromFile(ProjectName) ?? CommandUtils.EngineDirectory, "Saved", "Crashes").FullName);
+				if(CrashesDir.Exists)
+				{
+					foreach(DirectoryInfo CrashDir in CrashesDir.EnumerateDirectories())
+					{
+						if(CrashDir.LastWriteTimeUtc > StartTime)
+						{
+							DirectoryInfo OutputCrashesDir = new DirectoryInfo(Path.Combine(CmdEnv.LogFolder, "Crashes", CrashDir.Name));
+							try
+							{
+								CommandUtils.LogInformation("Copying crash data to {0}...", OutputCrashesDir.FullName);
+								OutputCrashesDir.Create();
+
+								foreach(FileInfo CrashFile in CrashDir.EnumerateFiles())
+								{
+									CrashFile.CopyTo(Path.Combine(OutputCrashesDir.FullName, CrashFile.Name));
+								}
+							}
+							catch(Exception Ex)
+							{
+								CommandUtils.LogWarning("Unable to copy crash data; skipping. See log for exception details.");
+								CommandUtils.LogVerbose(Tools.DotNETCommon.ExceptionUtils.FormatExceptionDetails(Ex));
+							}
+						}
+					}
+				}
+			}
 
 			// If we're running on a Mac, dump all the *.crash files that were generated while the editor was running.
 			if(HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Mac)
@@ -315,7 +358,8 @@ namespace AutomationTool
 				foreach(FileInfo CrashFileInfo in CrashFileInfos)
 				{
 					// snmpd seems to often crash (suspect due to it being starved of CPU cycles during cooks)
-					if(!CrashFileInfo.Name.StartsWith("snmpd_"))
+					// also ignore spotlight crash with the excel plugin
+					if(!CrashFileInfo.Name.StartsWith("snmpd_") && !CrashFileInfo.Name.StartsWith("mdworker32_") && !CrashFileInfo.Name.StartsWith("Dock_"))
 					{
 						CommandUtils.LogInformation("Found crash log - {0}", CrashFileInfo.FullName);
 						try
@@ -335,7 +379,7 @@ namespace AutomationTool
 			}
 
 			// Copy the local commandlet log to the destination folder.
-			string DestLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, Commandlet));
+			DestLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, Commandlet));
 			if (!CommandUtils.CopyFile_NoExceptions(LocalLogFile, DestLogFile))
 			{
 				CommandUtils.LogWarning("Commandlet {0} failed to copy the local log file from {1} to {2}. The log file will be lost.", Commandlet, LocalLogFile, DestLogFile);
@@ -460,7 +504,5 @@ namespace AutomationTool
 			}
 			return ProjectFullPath;
 		}
-
-		#endregion
 	}
 }

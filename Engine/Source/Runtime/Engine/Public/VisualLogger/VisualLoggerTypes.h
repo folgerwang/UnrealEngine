@@ -9,6 +9,19 @@ class AActor;
 class UCanvas;
 struct FLogEntryItem;
 
+
+#if ENABLE_VISUAL_LOG
+#define DEFINE_ENUM_TO_STRING(EnumType) FString EnumToString(const EnumType Value) \
+{ \
+	static const UEnum* TypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT(#EnumType)); \
+	return TypeEnum->GetNameStringByIndex(static_cast<int32>(Value)); \
+}
+#define DECLARE_ENUM_TO_STRING(EnumType) FString EnumToString(const EnumType Value)
+#else
+#define DEFINE_ENUM_TO_STRING(EnumType) 
+#define DECLARE_ENUM_TO_STRING(EnumType)
+#endif // ENABLE_VISUAL_LOG
+
 enum class ECreateIfNeeded : int8
 {
 	Invalid = -1,

@@ -286,6 +286,7 @@ void FUYVYConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FR
 BEGIN_UNIFORM_BUFFER_STRUCT(FYUVConvertUB, )
 UNIFORM_MEMBER(FMatrix, ColorTransform)
 UNIFORM_MEMBER(uint32, SrgbToLinear)
+UNIFORM_MEMBER(FVector2D, UVScale)
 UNIFORM_MEMBER_TEXTURE(Texture2D, YTexture)
 UNIFORM_MEMBER_TEXTURE(Texture2D, UTexture)
 UNIFORM_MEMBER_TEXTURE(Texture2D, VTexture)
@@ -298,7 +299,7 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FYUVConvertUB, TEXT("YUVConvertUB"));
 IMPLEMENT_SHADER_TYPE(, FYUVConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("YUVConvertPS"), SF_Pixel);
 
 
-void FYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YTexture, TRefCountPtr<FRHITexture2D> UTexture, TRefCountPtr<FRHITexture2D> VTexture, const FMatrix& ColorTransform, bool SrgbToLinear)
+void FYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> YTexture, TRefCountPtr<FRHITexture2D> UTexture, TRefCountPtr<FRHITexture2D> VTexture, const FIntPoint& OutputDimensions, const FMatrix& ColorTransform, bool SrgbToLinear)
 {
 	FYUVConvertUB UB;
 	{
@@ -310,6 +311,7 @@ void FYUVConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRH
 		UB.YSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.USampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.VSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
+		UB.UVScale = FVector2D((float) OutputDimensions.X / (float) YTexture->GetSizeX(), (float) OutputDimensions.Y / (float) YTexture->GetSizeY());
 	}
 
 	TUniformBufferRef<FYUVConvertUB> Data = TUniformBufferRef<FYUVConvertUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);

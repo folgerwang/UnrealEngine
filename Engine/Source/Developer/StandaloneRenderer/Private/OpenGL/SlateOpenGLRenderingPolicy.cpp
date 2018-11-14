@@ -118,10 +118,21 @@ void FSlateOpenGLRenderingPolicy::UpdateVertexAndIndexBuffers(FSlateBatchData& I
 		uint8* VerticesPtr = (uint8*)VertexBuffer.Lock(0);
 		uint8* IndicesPtr = (uint8*)IndexBuffer.Lock(0);
 
-		InBatchData.FillVertexAndIndexBuffer(VerticesPtr, IndicesPtr, /*bAbsoluteIndices*/ false);
+		//Early out if we have an invalid buffer (might have lost context and now have invalid buffers)
+		if ((nullptr != VerticesPtr) && (nullptr != IndicesPtr))
+		{
+			InBatchData.FillVertexAndIndexBuffer(VerticesPtr, IndicesPtr, /*bAbsoluteIndices*/ false);
+		}
 
-		VertexBuffer.Unlock();
-		IndexBuffer.Unlock();
+		if (nullptr != VerticesPtr)
+		{
+			VertexBuffer.Unlock();
+		}
+
+		if (nullptr != IndicesPtr)
+		{
+			IndexBuffer.Unlock();
+		}
 	}
 }
 

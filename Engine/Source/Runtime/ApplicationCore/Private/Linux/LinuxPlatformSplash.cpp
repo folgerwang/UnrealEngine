@@ -133,7 +133,7 @@ FLinuxSplashState::~FLinuxSplashState()
 		FT_Done_FreeType(FontLibrary);
 	}
 
-	if (CurrentWindow)  // put back any old GL state...
+	if (CurrentWindow && CurrentWindow != SplashWindow)  // put back any old GL state...
 	{
 		SDL_GL_MakeCurrent(CurrentWindow, CurrentContext);
 	}

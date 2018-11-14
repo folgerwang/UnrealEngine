@@ -7,10 +7,39 @@
 #include "RendererInterface.h"
 #include "Rendering/RenderingCommon.h"
 #include "CanvasTypes.h"
+#include "Widgets/SLeafWidget.h"
 
 class FRHICommandListImmediate;
 
 typedef TSharedPtr<FCanvas, ESPMode::ThreadSafe> FCanvasPtr;
+
+/** Widget wrapper that paints the debug canvas */
+class SDebugCanvas : public SLeafWidget
+{
+	SLATE_BEGIN_ARGS(SDebugCanvas)
+	{
+		_Visibility = EVisibility::HitTestInvisible;
+	}
+
+	SLATE_ATTRIBUTE(FSceneViewport*, SceneViewport)
+
+	SLATE_END_ARGS()
+
+public:
+	SDebugCanvas();
+
+	void Construct(const FArguments& InArgs);
+
+	/** SWidget interface */
+	int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override;
+
+	/** Sets the scene viewport that owns the canvas to draw */
+	void SetSceneViewport(FSceneViewport* InSceneViewport);
+private:
+	/** Viewport used for canvas rendering */
+	TAttribute<FSceneViewport*> SceneViewport;
+};
 
 /**
  * Custom Slate drawer to render a debug canvas on top of a Slate window

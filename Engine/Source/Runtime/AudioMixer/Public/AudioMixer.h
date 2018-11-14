@@ -11,6 +11,7 @@
 #include "Stats/Stats.h"
 #include "Sound/AudioSettings.h"
 #include "Misc/SingleThreadRunnable.h"
+#include "AudioMixerNullDevice.h"
 #include "DSP/ParamInterpolator.h"
 
 // defines used for AudioMixer.h
@@ -480,6 +481,12 @@ namespace Audio
 		template<typename BufferType>
 		void ApplyAttenuationInternal(BufferType* BufferDataPtr, const int32 NumFrames);
 
+		/** When called, spins up a thread to start consuming output when no audio device is available. */
+		void StartRunningNullDevice();
+
+		/** When called, terminates the null device. */
+		void StopRunningNullDevice();
+
 	protected:
 
 		/** The audio device stream info. */
@@ -534,5 +541,10 @@ namespace Audio
 		FThreadSafeBool bPerformingFade;
 		FThreadSafeBool bFadedOut;
 		FThreadSafeBool bIsDeviceInitialized;
+
+		FThreadSafeBool bIsUsingNullDevice;
+
+	private:
+		TUniquePtr<FMixerNullCallback> NullDeviceCallback;
 	};
 }

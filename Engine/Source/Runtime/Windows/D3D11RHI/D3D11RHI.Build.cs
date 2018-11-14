@@ -23,6 +23,7 @@ public class D3D11RHI : ModuleRules
         AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAPI");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "AMD_AGS");
         AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
 
 
         if (Target.Configuration != UnrealTargetConfiguration.Shipping)

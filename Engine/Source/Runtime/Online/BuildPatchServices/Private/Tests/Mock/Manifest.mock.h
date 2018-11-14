@@ -161,7 +161,7 @@ namespace BuildPatchServices
 			return true;
 		}
 
-		virtual bool SaveToFile(const FString& Filename, bool bUseBinary) override
+		virtual bool SaveToFile(const FString& Filename, EFeatureLevel InFeatureLevel) override
 		{
 			return true;
 		}
@@ -170,9 +170,9 @@ namespace BuildPatchServices
 		{
 		}
 
-		virtual EBuildPatchAppManifestVersion::Type GetManifestVersion() const override
+		virtual EFeatureLevel GetFeatureLevel() const override
 		{
-			return ManifestVersion;
+			return FeatureLevel;
 		}
 
 		virtual void GetChunksRequiredForFiles(const TSet<FString>& Filenames, TSet<FGuid>& RequiredChunks) const override
@@ -355,7 +355,7 @@ namespace BuildPatchServices
 		int64 TagBuildSize;
 		TArray<FString> RemovableFiles;
 		TMap<FString, FMockManifestField> CustomFields;
-		EBuildPatchAppManifestVersion::Type ManifestVersion;
+		EFeatureLevel FeatureLevel;
 		TSet<FGuid> ChunksRequiredForFiles;
 		uint32 NumberOfChunkReferences;
 		int64 DataSize;

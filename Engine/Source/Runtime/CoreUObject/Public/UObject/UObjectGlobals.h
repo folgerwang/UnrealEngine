@@ -379,6 +379,20 @@ COREUOBJECT_API void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPur
 COREUOBJECT_API bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge = true);
 
 /**
+* Calls ConditionalBeginDestroy on unreachable objects
+*
+* @return true if the time limit passed and there's still objects pending to be unhashed
+*/
+COREUOBJECT_API bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit = 0.0f);
+
+/**
+* Checks if there's objects pending to be unhashed when running incremental purge
+*
+* @return true if the time limit passed and there's still objects pending to be unhashed
+*/
+COREUOBJECT_API bool IsIncrementalUnhashPending();
+
+/**
  * Returns whether an incremental purge is still pending/ in progress.
  *
  * @return	true if incremental purge needs to be kicked off or is currently in progress, false othwerise.

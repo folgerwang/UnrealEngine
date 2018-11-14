@@ -37,6 +37,7 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 
 	FString OutputText;
 
+	UE_LOG(LogVerifyChunkData, Display, TEXT("Searching for files.."));
 	TArray<FString> AllFiles;
 	IFileManager::Get().FindFilesRecursive(AllFiles, *(SearchPath / TEXT("")), TEXT("*"), true, false);
 
@@ -114,7 +115,7 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 		FChunkFileResult Result = ChunkFileResult.Get();
 		if (Result.Get<1>())
 		{
-			UE_LOG(LogVerifyChunkData, Log, TEXT("[%d/%d]: Chunk file good: %s"), ChunkCount++, ChunkNum, *Result.Get<0>());
+			UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Chunk file good: %s"), ChunkCount++, ChunkNum, *Result.Get<0>());
 			GoodChunkData.Add(Result.Get<2>());
 		}
 		else
@@ -159,7 +160,7 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 					}
 					if (bChunkGood)
 					{
-						UE_LOG(LogVerifyChunkData, Log, TEXT("[%d/%d]: Chunk inside of db good: %s"), ChunkContentCount++, ChunkContentNum, *Location.ChunkId.ToString());
+						UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Chunk inside of db good: %s"), ChunkContentCount++, ChunkContentNum, *Location.ChunkId.ToString());
 					}
 					else
 					{
@@ -172,7 +173,7 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 		}
 		if (bDbGood)
 		{
-			UE_LOG(LogVerifyChunkData, Log, TEXT("[%d/%d]: Chunkdb file good: %s"), ChunkDbCount++, ChunkDbNum, *ChunkDbFile);
+			UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Chunkdb file good: %s"), ChunkDbCount++, ChunkDbNum, *ChunkDbFile);
 		}
 		else
 		{
@@ -212,7 +213,7 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 			}
 			else
 			{
-				UE_LOG(LogVerifyChunkData, Log, TEXT("[%d/%d]: Skipping legacy file based manifest file: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+				UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Skipping legacy file based manifest file: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
 			}
 		}
 		else
@@ -223,7 +224,7 @@ bool FBuildVerifyChunkData::VerifyChunkData(const FString& SearchPath, const FSt
 
 		if (bManifestOk)
 		{
-			UE_LOG(LogVerifyChunkData, Log, TEXT("[%d/%d]: Manifest file good: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
+			UE_LOG(LogVerifyChunkData, Display, TEXT("[%d/%d]: Manifest file good: %s"), ManifestCount, ManifestNum, *ManifestFile.Get<1>());
 		}
 		else
 		{

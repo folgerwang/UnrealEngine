@@ -56,6 +56,13 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 	CommandList->QueryInterface(IID_PPV_ARGS(CommandList1.GetInitReference()));
 #endif
 
+#if NAME_OBJECTS
+	TArray<FStringFormatArg> Args;
+	Args.Add(LexToString(ParentDevice->GetGPUIndex()));
+	FString Name = FString::Format(TEXT("FD3D12CommandListData (GPU {0})"), Args);
+	SetName(CommandList, Name.GetCharArray().GetData());
+#endif
+
 	// Initially start with all lists closed.  We'll open them as we allocate them.
 	Close();
 

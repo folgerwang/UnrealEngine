@@ -10,10 +10,16 @@ int GetOSPageSize()
 #endif
 }
 
-int GetOSHandleSize(OSHandle os_handle)
+int64_t GetOSHandleSize(OSHandle os_handle)
 {
 #if defined(_WIN32) || defined(_WIN64)
-  return GetFileSize(os_handle, 0);
+  LARGE_INTEGER Size;
+  if (!GetFileSizeEx(os_handle, &Size))
+  {
+    return 0;
+  }
+
+  return Size.QuadPart;
 #else
   struct stat st;
   if (fstat(os_handle, &st) != 0)
@@ -53,11 +59,10 @@ size_t ReadOSHandle(const OSHandle os_handle, void* buf, size_t size, size_t nme
 #endif
 }
 
-void* CreateOSMapping(void* addr, size_t length, int prot, int flags, OSHandle os_handle, size_t offset)
+void* CreateOSMapping(void* addr, int64_t length, int prot, int flags, OSHandle os_handle, size_t offset)
 {
 #if defined(_WIN32) || defined(_WIN64)
-  // TODO This will only handle DWORD size mappings
-  OSHandle Mapping = CreateFileMapping(os_handle, 0, prot, 0, length, 0);
+  OSHandle Mapping = CreateFileMapping(os_handle, 0, prot, (length >> 32) & 0xFFFFFFFF, length & 0xFFFFFFFF, 0);
   return MapViewOfFile(Mapping, flags, offset, 0, 0);
 #else
   return mmap(addr, length, prot, flags, os_handle, offset);

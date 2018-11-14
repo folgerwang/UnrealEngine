@@ -3,6 +3,7 @@
 
 #include "Installer/DownloadService.h"
 #include "Interfaces/IBuildStatistics.h"
+#include "Common/DataSizeProvider.h"
 
 class FBuildPatchAppManifest;
 
@@ -10,6 +11,7 @@ namespace BuildPatchServices
 {
 	class IInstallerAnalytics;
 	class ISpeedRecorder;
+	class IDataSizeProvider;
 
 	/**
 	 * Interface to the statistics class which provides access to tracked values from a download service stat.
@@ -53,10 +55,10 @@ namespace BuildPatchServices
 		/**
 		 * Creates the download service's dependency interface and exposes additional information.
 		 * @param SpeedRecorder         The speed recorder instance that we send activity records to.
+		 * @param DataSizeProvider      The data size provider for looking up the file size of each downloadable chunk.
 		 * @param InstallerAnalytics    The analytics implementation for reporting the download service events.
-		 * @param Manifest              The manifest for the build being installed.
 		 * @return the new IDownloadServiceStatistics instance created.
 		 */
-		static IDownloadServiceStatistics* Create(ISpeedRecorder* SpeedRecorder, IInstallerAnalytics* InstallerAnalytics, FBuildPatchAppManifest* Manifest);
+		static IDownloadServiceStatistics* Create(ISpeedRecorder* SpeedRecorder, IDataSizeProvider* DataSizeProvider, IInstallerAnalytics* InstallerAnalytics);
 	};
 }

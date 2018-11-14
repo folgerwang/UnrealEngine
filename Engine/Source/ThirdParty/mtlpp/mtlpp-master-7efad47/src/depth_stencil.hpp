@@ -72,7 +72,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class StencilDescriptor : public ns::Object<MTLStencilDescriptor*>
+    class MTLPP_EXPORT StencilDescriptor : public ns::Object<MTLStencilDescriptor*>
     {
     public:
         StencilDescriptor();
@@ -95,7 +95,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class DepthStencilDescriptor : public ns::Object<MTLDepthStencilDescriptor*>
+    class MTLPP_EXPORT DepthStencilDescriptor : public ns::Object<MTLDepthStencilDescriptor*>
     {
     public:
         DepthStencilDescriptor();
@@ -115,7 +115,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class DepthStencilState : public ns::Object<ns::Protocol<id<MTLDepthStencilState>>::type>
+    class MTLPP_EXPORT DepthStencilState : public ns::Object<ns::Protocol<id<MTLDepthStencilState>>::type>
     {
     public:
         DepthStencilState() { }

@@ -564,7 +564,7 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 				if (MemberExistingPartyReservationIdx != INDEX_NONE)
 				{
 					const FPartyReservation& MemberExistingPartyReservation = Reservations[MemberExistingPartyReservationIdx];
-					UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found existing reservation for party member %s"), *PartyMember.UniqueId.ToString());
+					UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found existing reservation for party member %s"), *PartyMember.UniqueId.ToDebugString());
 					ReservationRequest.Dump();
 					MemberExistingPartyReservation.Dump();
 					bContainsExistingMembers = true;
@@ -576,7 +576,7 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 					int32 FoundIdx = State->PlayersPendingJoin.IndexOfByPredicate(PlayerMatch);
 					if (FoundIdx != INDEX_NONE)
 					{
-						UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found party member %s in the pending player list"), *PartyMember.UniqueId.ToString());
+						UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found party member %s in the pending player list"), *PartyMember.UniqueId.ToDebugString());
 						ReservationRequest.Dump();
 						bContainsExistingMembers = true;
 					}
@@ -766,7 +766,7 @@ EPartyReservationResult::Type APartyBeaconHost::UpdatePartyReservation(const FPa
 														State->GetExistingReservation(FormerReservationPlayerEntry.UniqueId) == INDEX_NONE)
 													{
 														// Promote to party leader (for now)
-														UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Promoting member %s to leader"), *FormerReservationPlayerEntry.UniqueId.ToString());
+														UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Promoting member %s to leader"), *FormerReservationPlayerEntry.UniqueId.ToDebugString());
 														FormerReservation.PartyLeader = FormerReservationPlayerEntry.UniqueId;
 														bAnyMemberPromoted = true;
 														break;

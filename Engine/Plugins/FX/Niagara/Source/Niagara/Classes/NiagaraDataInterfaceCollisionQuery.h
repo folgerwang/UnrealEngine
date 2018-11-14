@@ -56,13 +56,8 @@ public:
 	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc) override;
 
 	// VM functions
-	template<typename PosTypeX, typename PosTypeY, typename PosTypeZ, typename VelTypeX, typename VelTypeY, typename VelTypeZ, typename DTType>
 	void SubmitQuery(FVectorVMContext& Context);
-
-	template<typename IDType>
 	void ReadQuery(FVectorVMContext& Context);
-
-	template<typename InQueryIDType, typename PosTypeX, typename PosTypeY, typename PosTypeZ, typename DirTypeX, typename DirTypeY, typename DirTypeZ, typename DTType, typename SizeType, typename DepthBoundsType>
 	void PerformQuery(FVectorVMContext& Context);
 
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;

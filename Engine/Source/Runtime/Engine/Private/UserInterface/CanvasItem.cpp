@@ -1007,7 +1007,7 @@ void FCanvasTextItem::DrawStringInternal_OfflineCache( FCanvas* InCanvas, const 
 		return;
 	}
 
-	FVector2D CurrentPos = FVector2D(EForceInit::ForceInitToZero);
+	FVector2D CurrentPos = FVector2D(ForceInitToZero);
 	FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
 	FTexture* LastTexture = nullptr;
 	UTexture* Tex = nullptr;

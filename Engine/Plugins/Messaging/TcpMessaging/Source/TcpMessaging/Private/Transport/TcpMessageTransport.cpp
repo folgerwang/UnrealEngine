@@ -70,11 +70,13 @@ void FTcpMessageTransport::AddOutgoingConnection(const FIPv4Endpoint& Endpoint)
 	
 	if (Socket == nullptr)
 	{
+		UE_LOG(LogTcpMessaging, Error, TEXT("Failed to create outgoing socket for %s"), *Endpoint.ToString());
 		return;
 	}
 
 	if (!Socket->Connect(*Endpoint.ToInternetAddr()))
 	{
+		UE_LOG(LogTcpMessaging, Error, TEXT("Connect failed on outgoing socket for %s"), *Endpoint.ToString());
 		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
 	}
 	else
@@ -296,11 +298,11 @@ void FTcpMessageTransport::HandleConnectionStateChanged(TSharedPtr<FTcpMessageTr
 		NodeConnectionMapUpdates.Enqueue(FNodeConnectionMapUpdate(true, NodeId, TWeakPtr<FTcpMessageTransportConnection>(Connection)));
 		TransportHandler->DiscoverTransportNode(NodeId);
 
-		UE_LOG(LogTcpMessaging, Verbose, TEXT("Discovered node '%s' on connection '%s'..."), *NodeId.ToString(), *RemoteEndpoint.ToString());
+		UE_LOG(LogTcpMessaging, Log, TEXT("Discovered node '%s' on connection '%s'..."), *NodeId.ToString(), *RemoteEndpoint.ToString());
 	}
 	else if (NodeId.IsValid())
 	{
-		UE_LOG(LogTcpMessaging, Verbose, TEXT("Lost node '%s' on connection '%s'..."), *NodeId.ToString(), *RemoteEndpoint.ToString());
+		UE_LOG(LogTcpMessaging, Log, TEXT("Lost node '%s' on connection '%s'..."), *NodeId.ToString(), *RemoteEndpoint.ToString());
 
 		NodeConnectionMapUpdates.Enqueue(FNodeConnectionMapUpdate(false, NodeId, TWeakPtr<FTcpMessageTransportConnection>(Connection)));
 		TransportHandler->ForgetTransportNode(NodeId);

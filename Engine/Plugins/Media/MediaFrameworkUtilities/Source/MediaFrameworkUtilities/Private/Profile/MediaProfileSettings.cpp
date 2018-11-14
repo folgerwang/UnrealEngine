@@ -8,12 +8,6 @@
 #include "Profile/MediaProfile.h"
 
 
-UMediaProfileSettings::UMediaProfileSettings()
-	: bDisplayInToolbar(true)
-{
-}
-
-
 TArray<UProxyMediaSource*> UMediaProfileSettings::GetAllMediaSourceProxy() const
 {
 	TArray<UProxyMediaSource*> Result;
@@ -43,6 +37,12 @@ TArray<UProxyMediaOutput*> UMediaProfileSettings::GetAllMediaOutputProxy() const
 UMediaProfile* UMediaProfileSettings::GetStartupMediaProfile() const
 {
 	return StartupMediaProfile.LoadSynchronous();
+}
+
+
+UMediaProfileEditorSettings::UMediaProfileEditorSettings()
+	:bDisplayInToolbar(true)
+{
 }
 
 

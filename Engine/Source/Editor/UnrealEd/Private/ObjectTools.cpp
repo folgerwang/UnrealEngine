@@ -1780,10 +1780,12 @@ namespace ObjectTools
 			const FString& PackageFilename = PackageFilesToDelete[PackageFileIdx];
 			if ( ISourceControlModule::Get().IsEnabled() )
 			{
-				const FSourceControlStateRef SourceControlState = PackageSCCStates[PackageFileIdx];
-				const bool bInDepot = SourceControlState->IsSourceControlled();
+				const FSourceControlStatePtr SourceControlState = PackageSCCStates.IsValidIndex(PackageFileIdx) ? PackageSCCStates[PackageFileIdx] : FSourceControlStatePtr();
+				const bool bInDepot = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
 				if ( bInDepot )
 				{
+					check(SourceControlState.IsValid());
+
 					// The file is managed by source control. Open it for delete.
 					FString FullPackageFilename = FPaths::ConvertRelativePathToFull(PackageFilename);
 
@@ -4109,7 +4111,7 @@ namespace ThumbnailTools
 
 
 		// Make sure this is indeed a package
-		if( FileSummary.Tag != PACKAGE_FILE_TAG )
+		if( FileSummary.Tag != PACKAGE_FILE_TAG || FileReader->IsError() )
 		{
 			// Unrecognized or malformed package file
 			return false;

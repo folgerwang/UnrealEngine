@@ -219,7 +219,7 @@ public:
 				ReadyToBuild |= ETargetPlatformReadyStatus::CodeUnsupported;
 			}
 
-			if (IProjectManager::Get().IsNonDefaultPluginEnabled())
+			if (!IProjectManager::Get().HasDefaultPluginSettings())
 			{
 				ReadyToBuild |= ETargetPlatformReadyStatus::PluginsUnsupported;
 			}
@@ -245,14 +245,12 @@ public:
 		// no shaders needed for dedicated server target
 		if (!TProperties::IsServerOnly())
 		{
-			static FName NAME_GLSL_150(TEXT("GLSL_150"));
-			static FName NAME_GLSL_430(TEXT("GLSL_430"));
 			static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+			static FName NAME_GLSL_430(TEXT("GLSL_430"));
 			static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31"));
 
-			OutFormats.AddUnique(NAME_GLSL_150);
-			OutFormats.AddUnique(NAME_GLSL_430);
 			OutFormats.AddUnique(NAME_VULKAN_SM5);
+			OutFormats.AddUnique(NAME_GLSL_430);
 			OutFormats.AddUnique(NAME_VULKAN_ES31);
 		}
 	}
@@ -320,13 +318,22 @@ public:
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override
 	{
 		static FName NAME_OGG(TEXT("OGG"));
+		static FName NAME_OPUS(TEXT("OPUS"));
+
+		if (Wave->IsStreaming())
+		{
+			return NAME_OPUS;
+		}
+
 		return NAME_OGG;
 	}
 
 	virtual void GetAllWaveFormats(TArray<FName>& OutFormats) const override
 	{
 		static FName NAME_OGG(TEXT("OGG"));
+		static FName NAME_OPUS(TEXT("OPUS"));
 		OutFormats.Add(NAME_OGG);
+		OutFormats.Add(NAME_OPUS);
 	}
 
 	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override

@@ -19,7 +19,7 @@ struct FMovieSceneAudioSectionTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieSceneAudioSectionTemplateData() : Sound(nullptr), AudioStartOffset(0.0f), RowIndex(0), bOverrideAttenuation(false), AttenuationSettings(nullptr) {}
+	FMovieSceneAudioSectionTemplateData() : Sound(nullptr), AudioStartOffset(0.0f), SectionStartTimeSeconds(0.0f), RowIndex(0), bOverrideAttenuation(false), AttenuationSettings(nullptr) {}
 	FMovieSceneAudioSectionTemplateData(const UMovieSceneAudioSection& Section);
 
 	/** Ensure that the sound is playing for the specified audio component and data */
@@ -73,8 +73,8 @@ USTRUCT()
 struct FMovieSceneAudioSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
-	
-	FMovieSceneAudioSectionTemplate() {}
+
+	FMovieSceneAudioSectionTemplate();
 	FMovieSceneAudioSectionTemplate(const UMovieSceneAudioSection& Section);
 
 	UPROPERTY()
@@ -84,4 +84,9 @@ private:
 
 	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+	virtual void SetupOverrides() override
+	{
+		EnableOverrides(RequiresTearDownFlag);
+	}
+	virtual void TearDown(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const override;
 };

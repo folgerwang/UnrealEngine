@@ -29,10 +29,10 @@ void UScaleBoxSlot::BuildSlot(TSharedRef<SScaleBox> InScaleBox)
 	ScaleBox = InScaleBox;
 
 	//ScaleBox->SetPadding(Padding);
-	ScaleBox->SetHAlign(HorizontalAlignment);
-	ScaleBox->SetVAlign(VerticalAlignment);
+	ScaleBox.Pin()->SetHAlign(HorizontalAlignment);
+	ScaleBox.Pin()->SetVAlign(VerticalAlignment);
 
-	ScaleBox->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
+	ScaleBox.Pin()->SetContent(Content ? Content->TakeWidget() : SNullWidget::NullWidget);
 }
 
 void UScaleBoxSlot::SetPadding(FMargin InPadding)
@@ -40,7 +40,7 @@ void UScaleBoxSlot::SetPadding(FMargin InPadding)
 	Padding = InPadding;
 	if ( ScaleBox.IsValid() )
 	{
-		//ScaleBox->SetPadding(InPadding);
+		//ScaleBox.Pin()->SetPadding(InPadding);
 	}
 }
 
@@ -49,7 +49,7 @@ void UScaleBoxSlot::SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlig
 	HorizontalAlignment = InHorizontalAlignment;
 	if ( ScaleBox.IsValid() )
 	{
-		ScaleBox->SetHAlign(InHorizontalAlignment);
+		ScaleBox.Pin()->SetHAlign(InHorizontalAlignment);
 	}
 }
 
@@ -58,7 +58,7 @@ void UScaleBoxSlot::SetVerticalAlignment(EVerticalAlignment InVerticalAlignment)
 	VerticalAlignment = InVerticalAlignment;
 	if ( ScaleBox.IsValid() )
 	{
-		ScaleBox->SetVAlign(InVerticalAlignment);
+		ScaleBox.Pin()->SetVAlign(InVerticalAlignment);
 	}
 }
 

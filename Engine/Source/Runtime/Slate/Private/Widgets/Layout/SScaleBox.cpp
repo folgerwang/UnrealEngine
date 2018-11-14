@@ -406,7 +406,7 @@ void SScaleBox::RefreshSafeZoneScale()
 }
 
 #if WITH_EDITOR
-void SScaleBox::DebugSafeAreaUpdated(const FMargin& NewSafeZone)
+void SScaleBox::DebugSafeAreaUpdated(const FMargin& NewSafeZone, bool bShouldRecacheMetrics)
 {
 	RefreshSafeZoneScale();
 }

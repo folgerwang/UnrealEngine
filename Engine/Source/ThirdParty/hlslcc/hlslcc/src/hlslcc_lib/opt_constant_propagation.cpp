@@ -78,11 +78,6 @@ public:
 	unsigned initial_values;
 };
 
-unsigned constprop_hash_table_pointer_hash(const void *key)
-{
-    return (unsigned)((uintptr_t)key >> 4);
-}
-
 class constprop_hash_table
 {
 public:
@@ -90,7 +85,7 @@ public:
 	: acp_ht(nullptr)
 	, mem_ctx(imem_ctx)
 	{
-		this->acp_ht = hash_table_ctor(1543, constprop_hash_table_pointer_hash, hash_table_pointer_compare);
+		this->acp_ht = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	}
 	
 	~constprop_hash_table()
@@ -192,7 +187,7 @@ public:
 		progress = false;
 		mem_ctx = ralloc_context(0);
 		this->acp = new constprop_hash_table(mem_ctx);
-        this->kills = hash_table_ctor(1024, constprop_hash_table_pointer_hash, hash_table_pointer_compare);
+        this->kills = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 		this->killed_all = false;
 		this->conservative_propagation = true;
 	}
@@ -351,7 +346,7 @@ ir_constant_propagation_visitor::visit_enter(ir_function_signature *ir)
 	bool orig_killed_all = this->killed_all;
 
 	this->acp = new constprop_hash_table(mem_ctx);
-	this->kills = hash_table_ctor(1024, constprop_hash_table_pointer_hash, hash_table_pointer_compare);;
+	this->kills = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	this->killed_all = false;
 
 	visit_list_elements(this, &ir->body);
@@ -450,7 +445,7 @@ ir_constant_propagation_visitor::handle_if_block(exec_list *instructions)
 
     /* Populate the initial acp with a constant of the original */
     this->acp = constprop_hash_table::copy(*orig_acp);
-	this->kills = hash_table_ctor(1024, constprop_hash_table_pointer_hash, hash_table_pointer_compare);
+	this->kills = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	this->killed_all = false;
 
 	visit_list_elements(this, instructions);
@@ -497,7 +492,7 @@ ir_constant_propagation_visitor::visit_enter(ir_loop *ir)
 	* cloned minus the killed entries after the first run through.
 	*/
     this->acp = new constprop_hash_table(mem_ctx);
-    this->kills = hash_table_ctor(1024, constprop_hash_table_pointer_hash, hash_table_pointer_compare);
+    this->kills = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	this->killed_all = false;
 
 	visit_list_elements(this, &ir->body_instructions);

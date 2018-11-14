@@ -117,6 +117,7 @@ class FDeferredLightPS : public FGlobalShader
 	DECLARE_GLOBAL_SHADER(FDeferredLightPS)
 
 	class FSourceShapeDim		: SHADER_PERMUTATION_ENUM_CLASS("LIGHT_SOURCE_SHAPE", ELightSourceShape);
+	class FSourceTextureDim		: SHADER_PERMUTATION_BOOL("USE_SOURCE_TEXTURE");
 	class FIESProfileDim		: SHADER_PERMUTATION_BOOL("USE_IES_PROFILE");
 	class FInverseSquaredDim	: SHADER_PERMUTATION_BOOL("INVERSE_SQUARED_FALLOFF");
 	class FVisualizeCullingDim	: SHADER_PERMUTATION_BOOL("VISUALIZE_LIGHT_CULLING");
@@ -125,6 +126,7 @@ class FDeferredLightPS : public FGlobalShader
 
 	using FPermutationDomain = TShaderPermutationDomain<
 		FSourceShapeDim,
+		FSourceTextureDim,
 		FIESProfileDim,
 		FInverseSquaredDim,
 		FVisualizeCullingDim,
@@ -142,10 +144,19 @@ class FDeferredLightPS : public FGlobalShader
 			return false;
 		}
 
-		if( PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Rect &&
-			!PermutationVector.Get< FInverseSquaredDim >() )
+		if( PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Rect )
 		{
-			return false;
+			if(	!PermutationVector.Get< FInverseSquaredDim >() )
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if( PermutationVector.Get< FSourceTextureDim >() )
+			{
+				return false;
+			}
 		}
 
 		/*if( PermutationVector.Get< FVisualizeCullingDim >() && (
@@ -374,6 +385,19 @@ private:
 
 IMPLEMENT_SHADER_TYPE(template<>, TDeferredLightOverlapPS<true>, TEXT("/Engine/Private/StationaryLightOverlapShaders.usf"), TEXT("OverlapRadialPixelMain"), SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>, TDeferredLightOverlapPS<false>, TEXT("/Engine/Private/StationaryLightOverlapShaders.usf"), TEXT("OverlapDirectionalPixelMain"), SF_Pixel);
+
+void FSceneRenderer::SplitSimpleLightsByView(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, const FSimpleLightArray& SimpleLights, FSimpleLightArray* SimpleLightsByView)
+{
+	for (int32 LightIndex = 0; LightIndex < SimpleLights.InstanceData.Num(); ++LightIndex)
+	{
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			FSimpleLightPerViewEntry PerViewEntry = SimpleLights.GetViewDependentData(LightIndex, ViewIndex, Views.Num());
+			SimpleLightsByView[ViewIndex].InstanceData.Add(SimpleLights.InstanceData[LightIndex]);
+			SimpleLightsByView[ViewIndex].PerViewData.Add(PerViewEntry);
+		}
+	}
+}
 
 /** Gathers simple lights from visible primtives in the passed in views. */
 void FSceneRenderer::GatherSimpleLights(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, FSimpleLightArray& SimpleLights)
@@ -606,18 +630,30 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					SCOPED_DRAW_EVENT(RHICmdList, InjectNonShadowedTranslucentLighting);
 					InjectTranslucentVolumeLightingArray(RHICmdList, SortedLights, AttenuationLightStart);
 				}
-				
-				if (SimpleLights.InstanceData.Num() > 0)
+
+				if(SimpleLights.InstanceData.Num() > 0)
 				{
-					SCOPED_DRAW_EVENT(RHICmdList, InjectSimpleLightsTranslucentLighting);
-					InjectSimpleTranslucentVolumeLightingArray(RHICmdList, SimpleLights);
+					FSimpleLightArray* SimpleLightsByView = new FSimpleLightArray[Views.Num()];
+
+					SplitSimpleLightsByView(ViewFamily, Views, SimpleLights, SimpleLightsByView);
+
+					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+					{
+						if (SimpleLightsByView[ViewIndex].InstanceData.Num() > 0)
+						{
+							SCOPED_DRAW_EVENT(RHICmdList, InjectSimpleLightsTranslucentLighting);
+							InjectSimpleTranslucentVolumeLightingArray(RHICmdList, SimpleLightsByView[ViewIndex], Views[ViewIndex], ViewIndex);
+						}
+					}
+
+					delete[] SimpleLightsByView;
 				}
 			}
 		}
 
-		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel]; 
+		EShaderPlatform ShaderPlatformForFeatureLevel = GShaderPlatformForFeatureLevel[FeatureLevel]; 
 
-		if ( IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) )
+		if ( IsFeatureLevelSupported(ShaderPlatformForFeatureLevel, ERHIFeatureLevel::SM5) )
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, IndirectLighting);
 			bool bRenderedRSM = false;
@@ -788,9 +824,12 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			
 				if(bDirectLighting && !bInjectedTranslucentVolume)
 				{
-					SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
-					// Accumulate this light's unshadowed contribution to the translucency lighting volume
-					InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL);
+					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+					{
+						SCOPED_DRAW_EVENT(RHICmdList, InjectTranslucentVolume);
+						// Accumulate this light's unshadowed contribution to the translucency lighting volume
+						InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL, Views[ViewIndex], ViewIndex);
+					}
 				}
 
 				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, ScreenShadowMaskTexture);
@@ -1054,6 +1093,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			{
 				FDeferredLightPS::FPermutationDomain PermutationVector;
 				PermutationVector.Set< FDeferredLightPS::FSourceShapeDim >( LightSceneInfo->Proxy->IsRectLight() ? ELightSourceShape::Rect : ELightSourceShape::Capsule );
+				PermutationVector.Set< FDeferredLightPS::FSourceTextureDim >( LightSceneInfo->Proxy->IsRectLight() && LightSceneInfo->Proxy->HasSourceTexture() );
 				PermutationVector.Set< FDeferredLightPS::FIESProfileDim >( bUseIESTexture );
 				PermutationVector.Set< FDeferredLightPS::FInverseSquaredDim >( LightSceneInfo->Proxy->IsInverseSquared() );
 				PermutationVector.Set< FDeferredLightPS::FVisualizeCullingDim >( View.Family->EngineShowFlags.VisualizeLightCulling );

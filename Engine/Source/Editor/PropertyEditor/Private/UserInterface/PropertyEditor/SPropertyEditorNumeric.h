@@ -300,7 +300,14 @@ public:
 				if (FUnitConversion::Settings().ShouldDisplayUnits())
 				{
 					const FString& DynamicUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("Units"));
-					PropertyUnits = FUnitConversion::UnitFromString(*DynamicUnits);
+					if (!DynamicUnits.IsEmpty())
+					{
+						PropertyUnits = FUnitConversion::UnitFromString(*DynamicUnits);
+					}
+					else
+					{
+						PropertyUnits = FUnitConversion::UnitFromString(*GetMetaDataFromKey("Units"));
+					}
 				}
 
 				if (!PropertyUnits.IsSet())

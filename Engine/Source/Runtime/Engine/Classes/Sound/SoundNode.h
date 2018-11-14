@@ -77,6 +77,8 @@ public:
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #endif //WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
+	virtual bool CanBeClusterRoot() const override;
+	virtual bool CanBeInCluster() const override;
 	//~ End UObject Interface
 
 	//

@@ -4,14 +4,14 @@
 #include "CoreMinimal.h"
 #include "Misc/SecureHash.h"
 
-template< typename DataType, uint32 BufferDataSize >
+template< typename DataType >
 class TRingBuffer
 {
 public:
 	/**
-	 * Default Constructor
+	 * Constructor
 	 */
-	TRingBuffer();
+	TRingBuffer(uint32 BufferDataSize);
 
 	/**
 	 * Default Destructor
@@ -146,6 +146,11 @@ public:
 
 
 private:
+	TRingBuffer(){};
+
+	// Buffer size
+	const uint32 BufferDataSize;
+
 	// The data memory
 	DataType* Data;
 
@@ -161,21 +166,22 @@ private:
 
 /* TRingBuffer implementation
 *****************************************************************************/
-template< typename DataType, uint32 BufferDataSize >
-TRingBuffer< DataType, BufferDataSize >::TRingBuffer()
+template< typename DataType >
+TRingBuffer< DataType >::TRingBuffer(uint32 InBufferDataSize)
+	: BufferDataSize(InBufferDataSize)
 {
 	Data = new DataType[BufferDataSize];
 	Empty();
 }
 
-template< typename DataType, uint32 BufferDataSize >
-TRingBuffer< DataType, BufferDataSize >::~TRingBuffer()
+template< typename DataType >
+TRingBuffer< DataType >::~TRingBuffer()
 {
 	delete[] Data;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-void TRingBuffer< DataType, BufferDataSize >::Empty()
+template< typename DataType >
+void TRingBuffer< DataType >::Empty()
 {
 	FMemory::Memzero(Data, sizeof(DataType)* BufferDataSize);
 	NumDataAvailable = 0;
@@ -183,8 +189,8 @@ void TRingBuffer< DataType, BufferDataSize >::Empty()
 	TotalNumDataPushed = 0;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-void TRingBuffer< DataType, BufferDataSize >::Enqueue(const DataType& Val)
+template< typename DataType >
+void TRingBuffer< DataType >::Enqueue(const DataType& Val)
 {
 	Data[DataIndex++] = Val;
 	DataIndex %= BufferDataSize;
@@ -192,8 +198,8 @@ void TRingBuffer< DataType, BufferDataSize >::Enqueue(const DataType& Val)
 	NumDataAvailable = FMath::Clamp< uint32 >(NumDataAvailable + 1, 0, BufferDataSize);
 }
 
-template< typename DataType, uint32 BufferDataSize >
-void TRingBuffer< DataType, BufferDataSize >::Enqueue(const DataType* ValBuf, const uint32& BufLen)
+template< typename DataType >
+void TRingBuffer< DataType >::Enqueue(const DataType* ValBuf, const uint32& BufLen)
 {
 	check(BufLen <= BufferDataSize);
 	const uint32 FirstPartLen = BufferDataSize - DataIndex;
@@ -208,8 +214,8 @@ void TRingBuffer< DataType, BufferDataSize >::Enqueue(const DataType* ValBuf, co
 	NumDataAvailable = FMath::Clamp<uint32>(NumDataAvailable + BufLen, 0, BufferDataSize);
 }
 
-template< typename DataType, uint32 BufferDataSize >
-bool TRingBuffer< DataType, BufferDataSize >::Dequeue(DataType& ValOut)
+template< typename DataType >
+bool TRingBuffer< DataType >::Dequeue(DataType& ValOut)
 {
 	if (Peek(ValOut))
 	{
@@ -222,16 +228,16 @@ bool TRingBuffer< DataType, BufferDataSize >::Dequeue(DataType& ValOut)
 	}
 }
 
-template< typename DataType, uint32 BufferDataSize >
-uint32 TRingBuffer< DataType, BufferDataSize >::Dequeue(DataType* ValBuf, const uint32& BufLen)
+template< typename DataType >
+uint32 TRingBuffer< DataType >::Dequeue(DataType* ValBuf, const uint32& BufLen)
 {
 	const uint32 DataProvided = Peek(ValBuf, BufLen);
 	NumDataAvailable -= DataProvided;
 	return DataProvided;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-bool TRingBuffer< DataType, BufferDataSize >::Peek(DataType& ValOut) const
+template< typename DataType >
+bool TRingBuffer< DataType >::Peek(DataType& ValOut) const
 {
 	if (NumDataAvailable > 0)
 	{
@@ -244,8 +250,8 @@ bool TRingBuffer< DataType, BufferDataSize >::Peek(DataType& ValOut) const
 	}
 }
 
-template< typename DataType, uint32 BufferDataSize >
-uint32 TRingBuffer< DataType, BufferDataSize >::Peek(DataType* ValBuf, const uint32& BufLen) const
+template< typename DataType >
+uint32 TRingBuffer< DataType >::Peek(DataType* ValBuf, const uint32& BufLen) const
 {
 	const uint32 DataProvided = FMath::Min(BufLen, NumDataAvailable);
 	const uint32 BottomIdx = BottomIndex();
@@ -258,8 +264,8 @@ uint32 TRingBuffer< DataType, BufferDataSize >::Peek(DataType* ValBuf, const uin
 	return DataProvided;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-int32 TRingBuffer< DataType, BufferDataSize >::SerialCompare(const DataType* SerialBuffer, uint32 CompareLen) const
+template< typename DataType >
+int32 TRingBuffer< DataType >::SerialCompare(const DataType* SerialBuffer, uint32 CompareLen) const
 {
 	check(CompareLen <= BufferDataSize);
 	const uint32 FirstPartLen = BufferDataSize - DataIndex;
@@ -271,8 +277,8 @@ int32 TRingBuffer< DataType, BufferDataSize >::SerialCompare(const DataType* Ser
 	return FMemory::Memcmp(Data, &SerialBuffer[FirstPartLen], sizeof(DataType)* (CompareLen - FirstPartLen));
 }
 
-template< typename DataType, uint32 BufferDataSize >
-void TRingBuffer< DataType, BufferDataSize >::GetShaHash(FSHAHash& OutHash) const
+template< typename DataType >
+void TRingBuffer< DataType >::GetShaHash(FSHAHash& OutHash) const
 {
 	const uint32 FirstPartLen = FMath::Min(BufferDataSize - DataIndex, NumDataAvailable);
 	FSHA1 Sha;
@@ -285,8 +291,8 @@ void TRingBuffer< DataType, BufferDataSize >::GetShaHash(FSHAHash& OutHash) cons
 	Sha.GetHash(OutHash.Hash);
 }
 
-template< typename DataType, uint32 BufferDataSize >
-void TRingBuffer< DataType, BufferDataSize >::Serialize(DataType* SerialBuffer) const
+template< typename DataType >
+void TRingBuffer< DataType >::Serialize(DataType* SerialBuffer) const
 {
 	const uint32 BottomIdx = BottomIndex();
 	const uint32 BottomPartLen = BufferDataSize - BottomIdx;
@@ -294,74 +300,74 @@ void TRingBuffer< DataType, BufferDataSize >::Serialize(DataType* SerialBuffer) 
 	FMemory::Memcpy(SerialBuffer + BottomPartLen, Data, sizeof(DataType)* (BufferDataSize - BottomPartLen));
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE const DataType& TRingBuffer< DataType, BufferDataSize >::operator[](const int32& Index) const
+template< typename DataType >
+FORCEINLINE const DataType& TRingBuffer< DataType >::operator[](const int32& Index) const
 {
 	return Data[(BottomIndex() + Index) % BufferDataSize];
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE DataType& TRingBuffer< DataType, BufferDataSize >::operator[](const int32& Index)
+template< typename DataType >
+FORCEINLINE DataType& TRingBuffer< DataType >::operator[](const int32& Index)
 {
 	return Data[(BottomIndex() + Index) % BufferDataSize];
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE const DataType& TRingBuffer< DataType, BufferDataSize >::Top() const
+template< typename DataType >
+FORCEINLINE const DataType& TRingBuffer< DataType >::Top() const
 {
 	return Data[TopIndex()];
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE DataType& TRingBuffer< DataType, BufferDataSize >::Top()
+template< typename DataType >
+FORCEINLINE DataType& TRingBuffer< DataType >::Top()
 {
 	return Data[TopIndex()];
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE const DataType& TRingBuffer< DataType, BufferDataSize >::Bottom() const
+template< typename DataType >
+FORCEINLINE const DataType& TRingBuffer< DataType >::Bottom() const
 {
 	return Data[BottomIndex()];
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE DataType& TRingBuffer< DataType, BufferDataSize >::Bottom()
+template< typename DataType >
+FORCEINLINE DataType& TRingBuffer< DataType >::Bottom()
 {
 	return Data[BottomIndex()];
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE uint32 TRingBuffer< DataType, BufferDataSize >::TopIndex() const
+template< typename DataType >
+FORCEINLINE uint32 TRingBuffer< DataType >::TopIndex() const
 {
 	return (DataIndex + BufferDataSize - 1) % BufferDataSize;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE uint32 TRingBuffer< DataType, BufferDataSize >::BottomIndex() const
+template< typename DataType >
+FORCEINLINE uint32 TRingBuffer< DataType >::BottomIndex() const
 {
 	return (DataIndex + BufferDataSize - NumDataAvailable) % BufferDataSize;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE uint32 TRingBuffer< DataType, BufferDataSize >::NextIndex() const
+template< typename DataType >
+FORCEINLINE uint32 TRingBuffer< DataType >::NextIndex() const
 {
 	return DataIndex;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE uint32 TRingBuffer< DataType, BufferDataSize >::RingDataSize() const
+template< typename DataType >
+FORCEINLINE uint32 TRingBuffer< DataType >::RingDataSize() const
 {
 	return BufferDataSize;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE uint32 TRingBuffer< DataType, BufferDataSize >::RingDataUsage() const
+template< typename DataType >
+FORCEINLINE uint32 TRingBuffer< DataType >::RingDataUsage() const
 {
 	return NumDataAvailable;
 }
 
-template< typename DataType, uint32 BufferDataSize >
-FORCEINLINE uint64 TRingBuffer< DataType, BufferDataSize >::TotalDataPushed() const
+template< typename DataType >
+FORCEINLINE uint64 TRingBuffer< DataType >::TotalDataPushed() const
 {
 	return TotalNumDataPushed;
 }

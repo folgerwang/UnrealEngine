@@ -105,6 +105,8 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FCapsuleL
 {
 	FDirectLighting Lighting = (FDirectLighting)0;
 
+	Capsule.Radius = max( 1, Capsule.Radius );
+
 	const float SphereArea = (4*PI) * Pow2( Capsule.Radius );
 	const float CylinderArea = (2*PI) * Capsule.Radius * Capsule.Length;
 	const float SurfaceArea = SphereArea + CylinderArea;

@@ -3,6 +3,7 @@
 #include "WorkflowOrientedApp/ApplicationMode.h"
 #include "Framework/MultiBox/MultiBoxExtender.h"
 #include "Framework/Docking/LayoutService.h"
+#include "UnrealEdMisc.h"
 
 #define LOCTEXT_NAMESPACE "ApplicationMode"
 
@@ -27,8 +28,10 @@ void FApplicationMode::DeactivateMode(TSharedPtr<FTabManager> InTabManager)
 {
 	// Save the layout to INI
 	check(InTabManager.IsValid());
-	FLayoutSaveRestore::SaveToConfig(GEditorLayoutIni, InTabManager->PersistLayout());
-		
+	if (FUnrealEdMisc::Get().IsSavingLayoutOnClosedAllowed())
+	{
+		FLayoutSaveRestore::SaveToConfig(GEditorLayoutIni, InTabManager->PersistLayout());
+	}
 	// Unregister the tabs
 	/*
 	for (int32 Index = 0; Index < AllowableTabs.Num(); ++Index)
