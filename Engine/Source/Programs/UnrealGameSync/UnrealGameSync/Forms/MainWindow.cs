@@ -421,8 +421,7 @@ namespace UnrealGameSync
 			ErrorPanel.BorderStyle = BorderStyle.FixedSingle;
 			ErrorPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
 			ErrorPanel.Location = new Point(0, 0);
-			ErrorPanel.Size = new Size(TabPanel.Width, TabPanel.Height);
-			ErrorPanel.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+			ErrorPanel.Dock = DockStyle.Fill;
 			ErrorPanel.Hide();
 
 			string SummaryText = String.Format("Unable to open '{0}'.", Project.ToString());
@@ -899,8 +898,7 @@ namespace UnrealGameSync
 			WorkspaceControl NewWorkspace = new WorkspaceControl(this, ApiUrl, OriginalExecutableFileName, bUnstable, ProjectSettings, Log, Settings);
 			NewWorkspace.Parent = TabPanel;
 			NewWorkspace.Location = new Point(0, 0);
-			NewWorkspace.Size = new Size(TabPanel.Width, TabPanel.Height);
-			NewWorkspace.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+			NewWorkspace.Dock = DockStyle.Fill;
 			NewWorkspace.Hide();
 
 			// Add the tab
