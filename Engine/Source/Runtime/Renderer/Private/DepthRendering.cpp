@@ -992,7 +992,9 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		check(RHICmdList.IsInsideRenderPass());
 		ThisRenderer.RenderPrePassViewDynamic(RHICmdList, View, DrawRenderState);
+		RHICmdList.EndRenderPass();
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };
@@ -1019,7 +1021,6 @@ public:
 	virtual ~FPrePassParallelCommandListSet()
 	{
 		// Do not copy-paste. this is a very unusual FParallelCommandListSet because it is a prepass and we want to do some work after starting some tasks
-		SetStateOnCommandList(ParentCmdList);
 		Dispatch(true);
 	}
 
@@ -1034,6 +1035,8 @@ public:
 bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, const FDrawingPolicyRenderState& DrawRenderState, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre)
 {
 	bool bDepthWasCleared = false;
+
+	check(ParentCmdList.IsOutsideRenderPass());
 
 	{
 		FPrePassParallelCommandListSet ParallelCommandListSet(View, this, ParentCmdList,
@@ -1092,9 +1095,6 @@ bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& V
 			CVarRHICmdPrePassDeferredContexts.GetValueOnRenderThread() > 0,
 			CVarRHICmdFlushRenderThreadTasksPrePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0,
 			DrawRenderState);
-
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(ParentCmdList);
-		SceneContext.BeginRenderingPrePass(ParentCmdList, false);
 
 		// Dynamic
 		FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
@@ -1155,6 +1155,7 @@ bool FDeferredShadingSceneRenderer::PreRenderPrePass(FRHICommandListImmediate& R
 	SCOPED_GPU_MASK(RHICmdList, FRHIGPUMask::All()); // Required otherwise emulatestereo gets broken.
 
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_PrePass));
+	// RenderPrePassHMD clears the depth buffer. If this changes we must change RenderPrePass to maintain the correct behavior!
 	bool bDepthWasCleared = RenderPrePassHMD(RHICmdList);
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -1211,6 +1212,9 @@ bool FDeferredShadingSceneRenderer::PreRenderPrePass(FRHICommandListImmediate& R
 				EDRF_UseTriangleOptimization);
 		}
 	}
+	// Need to close the renderpass here since we may call BeginRenderingPrePass later
+	RHICmdList.EndRenderPass();
+
 	return bDepthWasCleared;
 }
 
@@ -1241,6 +1245,8 @@ void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandLis
 
 bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHICmdList, TFunctionRef<void()> AfterTasksAreStarted)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_RenderPrePass, FColor::Emerald);
 	bool bDepthWasCleared = false;
 
@@ -1260,8 +1266,12 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 	{
 		// nothing to be gained by delaying this.
 		AfterTasksAreStarted();
+		// Note: the depth buffer will be cleared under PreRenderPrePass.
 		bDepthWasCleared = PreRenderPrePass(RHICmdList);
 		bDidPrePre = true;
+
+		// PreRenderPrePass will end up clearing the depth buffer so do not clear it again.
+		SceneContext.BeginRenderingPrePass(RHICmdList, false);
 	}
 	else
 	{
@@ -1295,6 +1305,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 
 				if (bParallel)
 				{
+					check(RHICmdList.IsOutsideRenderPass());
 					bDepthWasCleared = RenderPrePassViewParallel(View, RHICmdList, DrawRenderState, AfterTasksAreStarted, !bDidPrePre) || bDepthWasCleared;
 					bDirty = true; // assume dirty since we are not going to wait
 					bDidPrePre = true;
@@ -1305,15 +1316,31 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 				}
 			}
 
+			// Parallel rendering has self contained renderpasses so we need a new one for editor primitives.
+			if (bParallel)
+			{
+				SceneContext.BeginRenderingPrePass(RHICmdList, false);
+			}
 			RenderPrePassEditorPrimitives(RHICmdList, View, DrawRenderState, FDepthDrawingPolicyFactory::ContextType(EarlyZPassMode, true));
+			if (bParallel)
+			{
+				RHICmdList.EndRenderPass();
+			}
 		}
 	}
 	if (!bDidPrePre)
 	{
+		// Only parallel rendering with all views marked as not-to-be-rendered will get here.
 		// For some reason we haven't done this yet. Best do it now for consistency with the old code.
 		AfterTasksAreStarted();
 		bDepthWasCleared = PreRenderPrePass(RHICmdList);
 		bDidPrePre = true;
+	}
+
+	if (bParallel)
+	{
+		// In parallel mode there will be no renderpass here. Need to restart.
+		SceneContext.BeginRenderingPrePass(RHICmdList, false);
 	}
 
 	// Dithered transition stencil mask clear, accounting for all active viewports
@@ -1331,6 +1358,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 		DrawClearQuad(RHICmdList, false, FLinearColor::Transparent, false, 0, true, 0);
 	}
 
+	// Now we are finally finished.
 	SceneContext.FinishRenderingPrePass(RHICmdList);
 
 	return bDepthWasCleared;
@@ -1357,6 +1385,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePassHMD(FRHICommandListImmediate& R
 		return false;
 	}
 
+	// This is the only place the depth buffer is cleared. If this changes we MUST change RenderPrePass and others to maintain the behavior.
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	SceneContext.BeginRenderingPrePass(RHICmdList, true);
 
