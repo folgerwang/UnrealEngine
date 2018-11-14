@@ -172,6 +172,7 @@ namespace UnrealGameSync
 			this.Activated += new System.EventHandler(this.MainWindow_Activated);
 			this.Deactivate += new System.EventHandler(this.MainWindow_Deactivate);
 			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainWindow_FormClosing);
+			this.Load += new System.EventHandler(this.MainWindow_Load);
 			this.TabPanel.ResumeLayout(false);
 			this.TabMenu.ResumeLayout(false);
 			this.ResumeLayout(false);

@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
@@ -212,6 +213,8 @@ namespace UnrealGameSync
 
 		// Window settings
 		public bool bWindowVisible;
+		public FormWindowState WindowState;
+		public Rectangle? WindowBounds;
 		
 		// Schedule settings
 		public bool bScheduleEnabled;
@@ -347,6 +350,11 @@ namespace UnrealGameSync
 
 			// Window settings
 			bWindowVisible = ConfigFile.GetValue("Window.Visible", true);
+			if(!Enum.TryParse(ConfigFile.GetValue("Window.State", ""), true, out WindowState))
+			{
+				WindowState = FormWindowState.Normal;
+			}
+			WindowBounds = ParseRectangleValue(ConfigFile.GetValue("Window.Bounds", ""));
 
 			// Schedule settings
 			bScheduleEnabled = ConfigFile.GetValue("Schedule.Enabled", false);
@@ -374,6 +382,37 @@ namespace UnrealGameSync
 			{
 				SyncOptions.TcpBufferSize = 0;
 			}
+		}
+
+		static Rectangle? ParseRectangleValue(string Text)
+		{
+			ConfigObject Object = new ConfigObject(Text);
+
+			int X = Object.GetValue("X", -1);
+			int Y = Object.GetValue("Y", -1);
+			int W = Object.GetValue("W", -1);
+			int H = Object.GetValue("H", -1);
+
+			if(X == -1 || Y == -1 || W == -1 || H == -1)
+			{
+				return null;
+			}
+			else
+			{
+				return new Rectangle(X, Y, W, H);
+			}
+		}
+
+		static string FormatRectangleValue(Rectangle Value)
+		{
+			ConfigObject Object = new ConfigObject();
+
+			Object.SetValue("X", Value.X);
+			Object.SetValue("Y", Value.Y);
+			Object.SetValue("W", Value.Width);
+			Object.SetValue("H", Value.Height);
+
+			return Object.ToString();
 		}
 
 		public UserWorkspaceSettings FindOrAddWorkspace(string ClientBranchPath)
@@ -569,6 +608,11 @@ namespace UnrealGameSync
 			ConfigSection WindowSection = ConfigFile.FindOrAddSection("Window");
 			WindowSection.Clear();
 			WindowSection.SetValue("Visible", bWindowVisible);
+			WindowSection.SetValue("State", WindowState.ToString());
+			if(WindowBounds != null)
+			{
+				WindowSection.SetValue("Bounds", FormatRectangleValue(WindowBounds.Value));
+			}
 
 			// Current workspace settings
 			foreach(KeyValuePair<string, UserWorkspaceSettings> Pair in WorkspaceKeyToSettings)

@@ -99,6 +99,10 @@ namespace UnrealGameSync
 			Log = InLog;
 			Settings = InSettings;
 
+			// While creating tab controls during startup, we need to prevent layout calls resulting in the window handle being created too early. Disable layout calls here.
+			SuspendLayout();
+			TabPanel.SuspendLayout();
+
 			TabControl.OnTabChanged += TabControl_OnTabChanged;
 			TabControl.OnNewTabClick += TabControl_OnNewTabClick;
 			TabControl.OnTabClicked += TabControl_OnTabClicked;
@@ -108,9 +112,6 @@ namespace UnrealGameSync
 			TabControl.OnButtonClick += TabControl_OnButtonClick;
 
 			SetupDefaultControl();
-
-			// While creating tab controls during startup, we need to prevent layout calls resulting in the window handle being created too early. Disable layout calls here.
-			TabPanel.SuspendLayout();
 
 			int SelectTabIdx = -1;
 			foreach(DetectProjectSettingsResult StartupProject in StartupProjects)
@@ -140,8 +141,6 @@ namespace UnrealGameSync
 				TabControl.SelectTab(0);
 			}
 
-			TabPanel.ResumeLayout(false);
-
 			StartScheduleTimer();
 
 			if(bUnstable)
@@ -151,6 +150,10 @@ namespace UnrealGameSync
 
 			AutomationLog = new TimestampLogWriter(new BoundedLogWriter(Path.Combine(DataFolder, "Automation.log")));
 			AutomationServer = new AutomationServer(Request => { MainThreadSynchronizationContext.Post(Obj => PostAutomationRequest(Request), null); }, AutomationLog);
+
+			// Allow creating controls from now on
+			TabPanel.ResumeLayout(false);
+			ResumeLayout(false);
 
 			bAllowCreatingHandle = true;
 		}
@@ -386,9 +389,6 @@ namespace UnrealGameSync
 			{
 				Hide();
 				EventArgs.Cancel = true;
-
-				Settings.bWindowVisible = Visible;
-				Settings.Save();
 			}
 			else
 			{
@@ -403,10 +403,20 @@ namespace UnrealGameSync
 				}
 
 				StopScheduleTimer();
-
-				Settings.bWindowVisible = Visible;
-				Settings.Save();
 			}
+
+			Settings.bWindowVisible = Visible;
+			Settings.WindowState = WindowState;
+			if(WindowState == FormWindowState.Normal)
+			{
+				Settings.WindowBounds = new Rectangle(Location, Size);
+			}
+			else
+			{
+				Settings.WindowBounds = RestoreBounds;
+			}
+
+			Settings.Save();
 		}
 
 		private void SetupDefaultControl()
@@ -1105,6 +1115,16 @@ namespace UnrealGameSync
 			{
 				UpdateMonitor.TriggerUpdate(UpdateType.UserInitiated, bRelaunchUnstable);
 			}
+		}
+
+		private void MainWindow_Load(object sender, EventArgs e)
+		{
+			if(Settings.WindowBounds != null)
+			{
+				Location = Settings.WindowBounds.Value.Location;
+				Size = Settings.WindowBounds.Value.Size;
+			}
+			WindowState = Settings.WindowState;
 		}
 	}
 }
