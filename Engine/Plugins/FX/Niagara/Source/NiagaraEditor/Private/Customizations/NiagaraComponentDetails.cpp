@@ -233,7 +233,7 @@ private:
 	{
 		check(Component.IsValid());
 		Component->GetOverrideParameters().OnParameterChange();
-		Component->SetParameterValueOverriddenLocally(Var, true, false);
+		Component->SetParameterValueOverriddenLocally(Var, true, true);
 	}
 
 	void OnDataInterfaceChanged(FNiagaraVariable Var)
@@ -254,7 +254,7 @@ private:
 		check(Component.IsValid());
 		FScopedTransaction ScopedTransaction(LOCTEXT("ResetParameterValue", "Reset parameter value to system defaults."));
 		Component->Modify();
-		Component->SetParameterValueOverriddenLocally(Parameter, false, false);
+		Component->SetParameterValueOverriddenLocally(Parameter, false, true);
 		return FReply::Handled();
 	}
 
