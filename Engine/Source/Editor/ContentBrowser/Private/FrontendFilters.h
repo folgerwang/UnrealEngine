@@ -106,6 +106,34 @@ private:
 	void SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
 };
 
+/** A filter that displays assets not tracked by source control */
+class FFrontendFilter_NotSourceControlled : public FFrontendFilter, public TSharedFromThis<FFrontendFilter_NotSourceControlled>
+{
+public:
+	FFrontendFilter_NotSourceControlled(TSharedPtr<FFrontendFilterCategory> InCategory);
+
+	// FFrontendFilter implementation
+	virtual FString GetName() const override { return TEXT("NotSourceControlled"); }
+	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_NotSourceControlled", "Not Source Controlled"); }
+	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_NotSourceControlledTooltip", "Show only assets that are not tracked by source control."); }
+	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
+
+	// IFilter implementation
+	virtual bool PassesFilter(FAssetFilterType InItem) const override;
+
+private:
+
+	/** Request the source control status for this filter */
+	void RequestStatus();
+
+	/** Callback when source control operation has completed */
+	void SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
+
+	bool bSourceControlEnabled;
+	bool bCompletedSourceControlQuery;
+};
+
 /** A filter that displays only modified assets */
 class FFrontendFilter_Modified : public FFrontendFilter
 {

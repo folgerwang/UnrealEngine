@@ -20,6 +20,7 @@
 #include "ContentBrowserModule.h"
 #include "MRUFavoritesList.h"
 #include "Settings/ContentBrowserSettings.h"
+#include "HAL/FileManager.h"
 
 /** Helper functions for frontend filters */
 namespace FrontendFilterHelper
@@ -714,6 +715,80 @@ void FFrontendFilter_CheckedOut::RequestStatus()
 
 void FFrontendFilter_CheckedOut::SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult)
 {
+	BroadcastChangedEvent();
+}
+
+/////////////////////////////////////////
+// FFrontendFilter_NotSourceControlled
+/////////////////////////////////////////
+
+FFrontendFilter_NotSourceControlled::FFrontendFilter_NotSourceControlled(TSharedPtr<FFrontendFilterCategory> InCategory) 
+	: FFrontendFilter(InCategory),
+	bSourceControlEnabled(false),
+	bCompletedSourceControlQuery(false)
+{
+
+}
+
+void FFrontendFilter_NotSourceControlled::ActiveStateChanged(bool bActive)
+{
+	if (bActive)
+	{
+		RequestStatus();
+	}
+	else
+	{
+		bCompletedSourceControlQuery = false;
+	}
+}
+
+void FFrontendFilter_NotSourceControlled::SetCurrentFilter(const FARFilter& InBaseFilter)
+{
+	bSourceControlEnabled = ISourceControlModule::Get().IsEnabled();
+}
+
+bool FFrontendFilter_NotSourceControlled::PassesFilter(FAssetFilterType InItem) const
+{
+	if (!bSourceControlEnabled)
+	{
+		return true;
+	}
+
+	if (!bCompletedSourceControlQuery)
+	{
+		return false;
+	}
+	
+	FSourceControlStatePtr SourceControlState = ISourceControlModule::Get().GetProvider().GetState(SourceControlHelpers::PackageFilename(InItem.PackageName.ToString()), EStateCacheUsage::Use);
+	return !SourceControlState.IsValid() || !SourceControlState->IsSourceControlled();
+}
+
+void FFrontendFilter_NotSourceControlled::RequestStatus()
+{
+	bCompletedSourceControlQuery = false;
+
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	if ( ISourceControlModule::Get().IsEnabled() )
+	{
+		bSourceControlEnabled = true;
+
+		// Request the state of files at filter construction time to make sure files have the correct state for the filter
+		TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> UpdateStatusOperation = ISourceControlOperation::Create<FUpdateStatus>();
+			
+		TArray<FString> Filenames;
+		Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir()));
+		UpdateStatusOperation->SetCheckingAllFiles(false);
+		SourceControlProvider.Execute(UpdateStatusOperation, Filenames, EConcurrency::Asynchronous, FSourceControlOperationComplete::CreateSP(this, &FFrontendFilter_NotSourceControlled::SourceControlOperationComplete));
+	}
+	else
+	{
+		bSourceControlEnabled = false;
+	}
+}
+
+void FFrontendFilter_NotSourceControlled::SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult)
+{
+	bCompletedSourceControlQuery = true;
 	BroadcastChangedEvent();
 }
 
