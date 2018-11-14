@@ -125,7 +125,7 @@ namespace UnrealGameSync
 			this.BuildListMultiContextMenu_ShowServerTimes = new System.Windows.Forms.ToolStripMenuItem();
 			this.BuildListMultiContextMenu_ShowLocalTimes = new System.Windows.Forms.ToolStripMenuItem();
 			this.FilterContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
-			this.FilterContextMenu_ResetToDefault = new System.Windows.Forms.ToolStripMenuItem();
+			this.FilterContextMenu_Default = new System.Windows.Forms.ToolStripMenuItem();
 			this.FilterContextMenu_BeforeBadgeSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.FilterContextMenu_Type = new System.Windows.Forms.ToolStripMenuItem();
 			this.FilterContextMenu_Type_ShowAll = new System.Windows.Forms.ToolStripMenuItem();
@@ -1056,7 +1056,7 @@ namespace UnrealGameSync
 			// FilterContextMenu
 			// 
 			this.FilterContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.FilterContextMenu_ResetToDefault,
+            this.FilterContextMenu_Default,
             this.FilterContextMenu_BeforeBadgeSeparator,
             this.FilterContextMenu_Type,
             this.FilterContextMenu_Badges,
@@ -1065,12 +1065,12 @@ namespace UnrealGameSync
 			this.FilterContextMenu.Name = "FilterContextMenu";
 			this.FilterContextMenu.Size = new System.Drawing.Size(232, 126);
 			// 
-			// FilterContextMenu_ResetToDefault
+			// FilterContextMenu_Default
 			// 
-			this.FilterContextMenu_ResetToDefault.Name = "FilterContextMenu_ResetToDefault";
-			this.FilterContextMenu_ResetToDefault.Size = new System.Drawing.Size(231, 22);
-			this.FilterContextMenu_ResetToDefault.Text = "Reset to Default";
-			this.FilterContextMenu_ResetToDefault.Click += new System.EventHandler(this.FilterContextMenu_ResetToDefault_Click);
+			this.FilterContextMenu_Default.Name = "FilterContextMenu_Default";
+			this.FilterContextMenu_Default.Size = new System.Drawing.Size(231, 22);
+			this.FilterContextMenu_Default.Text = "Default";
+			this.FilterContextMenu_Default.Click += new System.EventHandler(this.FilterContextMenu_Default_Click);
 			// 
 			// FilterContextMenu_BeforeBadgeSeparator
 			// 
@@ -1088,29 +1088,29 @@ namespace UnrealGameSync
 			this.FilterContextMenu_Type.Size = new System.Drawing.Size(231, 22);
 			this.FilterContextMenu_Type.Text = "Type";
 			// 
-			// FilterContextMenu_None
+			// FilterContextMenu_Type_ShowAll
 			// 
-			this.FilterContextMenu_Type_ShowAll.Name = "FilterContextMenu_None";
-			this.FilterContextMenu_Type_ShowAll.Size = new System.Drawing.Size(180, 22);
+			this.FilterContextMenu_Type_ShowAll.Name = "FilterContextMenu_Type_ShowAll";
+			this.FilterContextMenu_Type_ShowAll.Size = new System.Drawing.Size(120, 22);
 			this.FilterContextMenu_Type_ShowAll.Text = "Show All";
 			this.FilterContextMenu_Type_ShowAll.Click += new System.EventHandler(this.FilterContextMenu_Type_ShowAll_Click);
 			// 
 			// toolStripSeparator10
 			// 
 			this.toolStripSeparator10.Name = "toolStripSeparator10";
-			this.toolStripSeparator10.Size = new System.Drawing.Size(177, 6);
+			this.toolStripSeparator10.Size = new System.Drawing.Size(117, 6);
 			// 
 			// FilterContextMenu_Type_Code
 			// 
 			this.FilterContextMenu_Type_Code.Name = "FilterContextMenu_Type_Code";
-			this.FilterContextMenu_Type_Code.Size = new System.Drawing.Size(180, 22);
+			this.FilterContextMenu_Type_Code.Size = new System.Drawing.Size(120, 22);
 			this.FilterContextMenu_Type_Code.Text = "Code";
 			this.FilterContextMenu_Type_Code.Click += new System.EventHandler(this.FilterContextMenu_Type_Code_Click);
 			// 
 			// FilterContextMenu_Type_Content
 			// 
 			this.FilterContextMenu_Type_Content.Name = "FilterContextMenu_Type_Content";
-			this.FilterContextMenu_Type_Content.Size = new System.Drawing.Size(180, 22);
+			this.FilterContextMenu_Type_Content.Size = new System.Drawing.Size(120, 22);
 			this.FilterContextMenu_Type_Content.Text = "Content";
 			this.FilterContextMenu_Type_Content.Click += new System.EventHandler(this.FilterContextMenu_Type_Content_Click);
 			// 
@@ -1278,7 +1278,7 @@ namespace UnrealGameSync
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
 		private System.Windows.Forms.Button FilterButton;
 		private System.Windows.Forms.ContextMenuStrip FilterContextMenu;
-		private System.Windows.Forms.ToolStripMenuItem FilterContextMenu_ResetToDefault;
+		private System.Windows.Forms.ToolStripMenuItem FilterContextMenu_Default;
 		private System.Windows.Forms.ToolStripSeparator FilterContextMenu_BeforeBadgeSeparator;
 		private System.Windows.Forms.ToolStripSeparator FilterContextMenu_AfterBadgeSeparator;
 		private System.Windows.Forms.ToolStripMenuItem FilterContextMenu_ShowBuildMachineChanges;
