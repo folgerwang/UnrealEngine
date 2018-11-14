@@ -291,10 +291,13 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 
 FMetalUniformBuffer::~FMetalUniformBuffer()
 {
-	if (IAB)
+	if (ResourceTable.Num() && FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
 	{
 		GetMetalDeviceContext().UnregisterUB(this);
-		
+	}
+	
+	if (IAB)
+	{
 		delete IAB;
 		IAB = nullptr;
 	}
