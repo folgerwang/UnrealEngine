@@ -1,9 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSRuntimeSettings.h"
-#include "ISettingsModule.h"
-#include "Features/IModularFeatures.h"
-#include "ISettingsSection.h"
+#pragma once
+
+
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "IOSCustomIconProjectBuildMutatorFeature.h"
 
 /**
