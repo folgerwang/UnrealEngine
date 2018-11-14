@@ -1164,6 +1164,14 @@ namespace UnrealGameSync
 
 		bool ShouldShowChange(PerforceChangeSummary Change, string[] ExcludeChanges)
 		{
+			if(ProjectSettings.FilterBadges.Count > 0)
+			{
+				EventSummary Summary = EventMonitor.GetSummaryForChange(Change.Number);
+				if(Summary == null || !Summary.Badges.Any(x => ProjectSettings.FilterBadges.Contains(x.BadgeName)))
+				{
+					return false;
+				}
+			}
 			if(!Settings.bShowAutomatedChanges)
 			{
 				foreach(string ExcludeChange in ExcludeChanges)
@@ -1268,6 +1276,12 @@ namespace UnrealGameSync
 			UpdateStatusPanel();
 			UpdateBuildFailureNotification();
 			CheckForStartupComplete();
+
+			// If we are filtering by badges, we may also need to update the build list
+			if(ProjectSettings.FilterBadges.Count > 0)
+			{
+				UpdateBuildList();
+			}
 		}
 
 		void UpdateMaxBuildBadgeChars()
@@ -4360,8 +4374,7 @@ namespace UnrealGameSync
 			Settings.bShowAutomatedChanges ^= true;
 			Settings.Save();
 
-			UpdateBuildList();
-			UpdateNumRequestedBuilds(true);
+			UpdateBuildListFilter();
 		}
 
 		private void BuildList_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
@@ -4656,6 +4669,81 @@ namespace UnrealGameSync
 			{
 				PerforceMonitor.IsActive = Visible;
 			}
+		}
+
+		private void FilterButton_Click(object sender, EventArgs e)
+		{
+			FilterContextMenu_ResetToDefault.Checked = !Settings.bShowAutomatedChanges && ProjectSettings.FilterBadges.Count == 0;
+
+			FilterContextMenu_Badges.DropDownItems.Clear();
+			FilterContextMenu_Badges.Checked = ProjectSettings.FilterBadges.Count > 0;
+
+			HashSet<string> BadgeNames = new HashSet<string>(ProjectSettings.FilterBadges, StringComparer.OrdinalIgnoreCase);
+			BadgeNames.ExceptWith(BadgeNameAndGroupPairs.Select(x => x.Key));
+
+			List<KeyValuePair<string, string>> DisplayBadgeNameAndGroupPairs = new List<KeyValuePair<string, string>>(BadgeNameAndGroupPairs);
+			DisplayBadgeNameAndGroupPairs.AddRange(BadgeNames.Select(x => new KeyValuePair<string, string>(x, "User")));
+
+			string LastGroup = null;
+			foreach(KeyValuePair<string, string> BadgeNameAndGroupPair in DisplayBadgeNameAndGroupPairs)
+			{
+				if(LastGroup != BadgeNameAndGroupPair.Value)
+				{
+					if(LastGroup != null)
+					{
+						FilterContextMenu_Badges.DropDownItems.Add(new ToolStripSeparator());
+					}
+					LastGroup = BadgeNameAndGroupPair.Value;
+				}
+
+				ToolStripMenuItem Item = new ToolStripMenuItem(BadgeNameAndGroupPair.Key);
+				Item.Checked = ProjectSettings.FilterBadges.Contains(BadgeNameAndGroupPair.Key, StringComparer.OrdinalIgnoreCase);
+				Item.Click += (Sender, Args) => FilterContextMenu_Badge_Click(BadgeNameAndGroupPair.Key);
+				FilterContextMenu_Badges.DropDownItems.Add(Item);
+			}
+
+			FilterContextMenu_Badges.Enabled = FilterContextMenu_Badges.DropDownItems.Count > 0;
+
+			FilterContextMenu_ShowBuildMachineChanges.Checked = Settings.bShowAutomatedChanges;
+			FilterContextMenu.Show(FilterButton, new Point(0, FilterButton.Height));
+		}
+
+		private void FilterContextMenu_Badge_Click(string BadgeName)
+		{
+			if(ProjectSettings.FilterBadges.Contains(BadgeName))
+			{
+				ProjectSettings.FilterBadges.Remove(BadgeName);
+			}
+			else
+			{
+				ProjectSettings.FilterBadges.Add(BadgeName);
+			}
+
+			UpdateBuildListFilter();
+		}
+
+		private void FilterContextMenu_ResetToDefault_Click(object sender, EventArgs e)
+		{
+			ProjectSettings.FilterBadges.Clear();
+
+			Settings.bShowAutomatedChanges = false;
+			Settings.Save();
+
+			UpdateBuildListFilter();
+		}
+
+		private void FilterContextMenu_ShowBuildMachineChanges_Click(object sender, EventArgs e)
+		{
+			Settings.bShowAutomatedChanges ^= true;
+			Settings.Save();
+
+			UpdateBuildListFilter();
+		}
+
+		private void UpdateBuildListFilter()
+		{
+			UpdateBuildList();
+			UpdateNumRequestedBuilds(true);
 		}
 	}
 }

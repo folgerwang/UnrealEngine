@@ -171,6 +171,7 @@ namespace UnrealGameSync
 	class UserProjectSettings
 	{
 		public List<ConfigObject> BuildSteps = new List<ConfigObject>();
+		public HashSet<string> FilterBadges = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 	}
 
 	class UserSettings
@@ -495,6 +496,7 @@ namespace UnrealGameSync
 	
 				ConfigSection ProjectSection = ConfigFile.FindOrAddSection(ClientProjectFileName);
 				CurrentProject.BuildSteps.AddRange(ProjectSection.GetValues("BuildStep", new string[0]).Select(x => new ConfigObject(x)));
+				CurrentProject.FilterBadges.UnionWith(ProjectSection.GetValues("FilterBadges", new string[0]));
 			}
 			return CurrentProject;
 		}
@@ -612,6 +614,7 @@ namespace UnrealGameSync
 				ConfigSection ProjectSection = ConfigFile.FindOrAddSection(CurrentProjectKey);
 				ProjectSection.Clear();
 				ProjectSection.SetValues("BuildStep", CurrentProject.BuildSteps.Select(x => x.ToString()).ToArray());
+				ProjectSection.SetValues("FilterBadges", CurrentProject.FilterBadges.ToArray());
 			}
 
 			// Perforce settings

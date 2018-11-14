@@ -17,6 +17,8 @@ namespace UnrealGameSync
 		{
 			this.components = new System.ComponentModel.Container();
 			this.OptionsContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+			this.OptionsContextMenu_ApplicationSettings = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
 			this.OptionsContextMenu_ScheduledSync = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_SyncPrecompiledEditor = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_AutoResolveConflicts = new System.Windows.Forms.ToolStripMenuItem();
@@ -31,7 +33,6 @@ namespace UnrealGameSync
 			this.OptionsContextMenu_CustomizeBuildSteps = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_EditorArguments = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
-			this.OptionsContextMenu_ApplicationSettings = new System.Windows.Forms.ToolStripMenuItem();
 			this.tabLabelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TabNames_Stream = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TabNames_WorkspaceName = new System.Windows.Forms.ToolStripMenuItem();
@@ -86,23 +87,9 @@ namespace UnrealGameSync
 			this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
 			this.OpenSolutionAfterSyncCheckBox = new System.Windows.Forms.CheckBox();
 			this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
-			this.label1 = new System.Windows.Forms.Label();
 			this.OptionsButton = new System.Windows.Forms.Button();
+			this.FilterButton = new System.Windows.Forms.Button();
 			this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
-			this.Splitter = new UnrealGameSync.LogSplitContainer();
-			this.StatusLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
-			this.StatusPanel = new UnrealGameSync.StatusPanel();
-			this.BuildList = new UnrealGameSync.BuildListControl();
-			this.IconColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.TypeColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.ChangeColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.TimeColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.AuthorColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.DescriptionColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.CISColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.StatusColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.panel1 = new System.Windows.Forms.Panel();
-			this.SyncLog = new UnrealGameSync.LogControl();
 			this.MoreToolsContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
 			this.MoreActionsContextMenu_CustomToolSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.MoreToolsContextMenu_CleanWorkspace = new System.Windows.Forms.ToolStripMenuItem();
@@ -123,22 +110,42 @@ namespace UnrealGameSync
 			this.BuildListMultiContextMenu_TimeZoneSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.BuildListMultiContextMenu_ShowServerTimes = new System.Windows.Forms.ToolStripMenuItem();
 			this.BuildListMultiContextMenu_ShowLocalTimes = new System.Windows.Forms.ToolStripMenuItem();
-			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+			this.FilterContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+			this.FilterContextMenu_ResetToDefault = new System.Windows.Forms.ToolStripMenuItem();
+			this.FilterContextMenu_BeforeBadgeSeparator = new System.Windows.Forms.ToolStripSeparator();
+			this.FilterContextMenu_Badges = new System.Windows.Forms.ToolStripMenuItem();
+			this.FilterContextMenu_AfterBadgeSeparator = new System.Windows.Forms.ToolStripSeparator();
+			this.FilterContextMenu_ShowBuildMachineChanges = new System.Windows.Forms.ToolStripMenuItem();
+			this.Splitter = new UnrealGameSync.LogSplitContainer();
+			this.StatusLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
+			this.StatusPanel = new UnrealGameSync.StatusPanel();
+			this.BuildList = new UnrealGameSync.BuildListControl();
+			this.IconColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.TypeColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.ChangeColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.TimeColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.AuthorColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.DescriptionColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.CISColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.StatusColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.panel1 = new System.Windows.Forms.Panel();
+			this.SyncLog = new UnrealGameSync.LogControl();
 			this.OptionsContextMenu.SuspendLayout();
 			this.BuildListContextMenu.SuspendLayout();
 			this.flowLayoutPanel1.SuspendLayout();
 			this.tableLayoutPanel3.SuspendLayout();
 			this.tableLayoutPanel2.SuspendLayout();
+			this.MoreToolsContextMenu.SuspendLayout();
+			this.SyncContextMenu.SuspendLayout();
+			this.RecentMenu.SuspendLayout();
+			this.BuildListMultiContextMenu.SuspendLayout();
+			this.FilterContextMenu.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.Splitter)).BeginInit();
 			this.Splitter.Panel1.SuspendLayout();
 			this.Splitter.Panel2.SuspendLayout();
 			this.Splitter.SuspendLayout();
 			this.StatusLayoutPanel.SuspendLayout();
 			this.panel1.SuspendLayout();
-			this.MoreToolsContextMenu.SuspendLayout();
-			this.SyncContextMenu.SuspendLayout();
-			this.RecentMenu.SuspendLayout();
-			this.BuildListMultiContextMenu.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// OptionsContextMenu
@@ -163,7 +170,19 @@ namespace UnrealGameSync
             this.toolStripSeparator6,
             this.OptionsContextMenu_Diagnostics});
 			this.OptionsContextMenu.Name = "ToolsMenuStrip";
-			this.OptionsContextMenu.Size = new System.Drawing.Size(262, 358);
+			this.OptionsContextMenu.Size = new System.Drawing.Size(262, 336);
+			// 
+			// OptionsContextMenu_ApplicationSettings
+			// 
+			this.OptionsContextMenu_ApplicationSettings.Name = "OptionsContextMenu_ApplicationSettings";
+			this.OptionsContextMenu_ApplicationSettings.Size = new System.Drawing.Size(261, 22);
+			this.OptionsContextMenu_ApplicationSettings.Text = "Application Settings...";
+			this.OptionsContextMenu_ApplicationSettings.Click += new System.EventHandler(this.OptionsContextMenu_ApplicationSettings_Click);
+			// 
+			// toolStripSeparator2
+			// 
+			this.toolStripSeparator2.Name = "toolStripSeparator2";
+			this.toolStripSeparator2.Size = new System.Drawing.Size(258, 6);
 			// 
 			// OptionsContextMenu_ScheduledSync
 			// 
@@ -263,13 +282,6 @@ namespace UnrealGameSync
 			// 
 			this.toolStripSeparator5.Name = "toolStripSeparator5";
 			this.toolStripSeparator5.Size = new System.Drawing.Size(258, 6);
-			// 
-			// OptionsContextMenu_ApplicationSettings
-			// 
-			this.OptionsContextMenu_ApplicationSettings.Name = "OptionsContextMenu_ApplicationSettings";
-			this.OptionsContextMenu_ApplicationSettings.Size = new System.Drawing.Size(261, 22);
-			this.OptionsContextMenu_ApplicationSettings.Text = "Application Settings...";
-			this.OptionsContextMenu_ApplicationSettings.Click += new System.EventHandler(this.OptionsContextMenu_ApplicationSettings_Click);
 			// 
 			// tabLabelsToolStripMenuItem
 			// 
@@ -658,7 +670,7 @@ namespace UnrealGameSync
 			this.flowLayoutPanel1.Controls.Add(this.BuildAfterSyncCheckBox);
 			this.flowLayoutPanel1.Controls.Add(this.RunAfterSyncCheckBox);
 			this.flowLayoutPanel1.Controls.Add(this.OpenSolutionAfterSyncCheckBox);
-			this.flowLayoutPanel1.Location = new System.Drawing.Point(529, 17);
+			this.flowLayoutPanel1.Location = new System.Drawing.Point(526, 17);
 			this.flowLayoutPanel1.Margin = new System.Windows.Forms.Padding(0, 4, 0, 3);
 			this.flowLayoutPanel1.Name = "flowLayoutPanel1";
 			this.flowLayoutPanel1.Size = new System.Drawing.Size(311, 19);
@@ -686,9 +698,9 @@ namespace UnrealGameSync
 			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
 			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
 			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-			this.tableLayoutPanel3.Controls.Add(this.label1, 0, 0);
 			this.tableLayoutPanel3.Controls.Add(this.flowLayoutPanel1, 1, 0);
 			this.tableLayoutPanel3.Controls.Add(this.OptionsButton, 2, 0);
+			this.tableLayoutPanel3.Controls.Add(this.FilterButton, 0, 0);
 			this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.tableLayoutPanel3.Location = new System.Drawing.Point(0, 713);
 			this.tableLayoutPanel3.Margin = new System.Windows.Forms.Padding(0);
@@ -699,13 +711,6 @@ namespace UnrealGameSync
 			this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
 			this.tableLayoutPanel3.Size = new System.Drawing.Size(1363, 39);
 			this.tableLayoutPanel3.TabIndex = 11;
-			// 
-			// label1
-			// 
-			this.label1.Location = new System.Drawing.Point(3, 13);
-			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(141, 26);
-			this.label1.TabIndex = 1;
 			// 
 			// OptionsButton
 			// 
@@ -721,6 +726,21 @@ namespace UnrealGameSync
 			this.OptionsButton.Text = "Options ";
 			this.OptionsButton.UseVisualStyleBackColor = true;
 			this.OptionsButton.Click += new System.EventHandler(this.OptionsButton_Click);
+			// 
+			// FilterButton
+			// 
+			this.FilterButton.Anchor = System.Windows.Forms.AnchorStyles.Right;
+			this.FilterButton.AutoSize = true;
+			this.FilterButton.Image = global::UnrealGameSync.Properties.Resources.DropList;
+			this.FilterButton.ImageAlign = System.Drawing.ContentAlignment.MiddleRight;
+			this.FilterButton.Location = new System.Drawing.Point(0, 13);
+			this.FilterButton.Margin = new System.Windows.Forms.Padding(0);
+			this.FilterButton.Name = "FilterButton";
+			this.FilterButton.Size = new System.Drawing.Size(141, 26);
+			this.FilterButton.TabIndex = 9;
+			this.FilterButton.Text = "Filter";
+			this.FilterButton.UseVisualStyleBackColor = true;
+			this.FilterButton.Click += new System.EventHandler(this.FilterButton_Click);
 			// 
 			// tableLayoutPanel2
 			// 
@@ -742,6 +762,185 @@ namespace UnrealGameSync
 			this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
 			this.tableLayoutPanel2.Size = new System.Drawing.Size(1363, 752);
 			this.tableLayoutPanel2.TabIndex = 12;
+			// 
+			// MoreToolsContextMenu
+			// 
+			this.MoreToolsContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.MoreActionsContextMenu_CustomToolSeparator,
+            this.MoreToolsContextMenu_CleanWorkspace});
+			this.MoreToolsContextMenu.Name = "MoreActionsContextMenu";
+			this.MoreToolsContextMenu.Size = new System.Drawing.Size(175, 32);
+			// 
+			// MoreActionsContextMenu_CustomToolSeparator
+			// 
+			this.MoreActionsContextMenu_CustomToolSeparator.Name = "MoreActionsContextMenu_CustomToolSeparator";
+			this.MoreActionsContextMenu_CustomToolSeparator.Size = new System.Drawing.Size(171, 6);
+			// 
+			// MoreToolsContextMenu_CleanWorkspace
+			// 
+			this.MoreToolsContextMenu_CleanWorkspace.Name = "MoreToolsContextMenu_CleanWorkspace";
+			this.MoreToolsContextMenu_CleanWorkspace.Size = new System.Drawing.Size(174, 22);
+			this.MoreToolsContextMenu_CleanWorkspace.Text = "Clean Workspace...";
+			this.MoreToolsContextMenu_CleanWorkspace.Click += new System.EventHandler(this.MoreToolsContextMenu_CleanWorkspace_Click);
+			// 
+			// SyncContextMenu
+			// 
+			this.SyncContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.SyncContextMenu_LatestChange,
+            this.SyncContextMenu_LatestGoodChange,
+            this.SyncContextMenu_LatestStarredChange,
+            this.toolStripSeparator8,
+            this.SyncContexMenu_EnterChangelist});
+			this.SyncContextMenu.Name = "SyncContextMenu";
+			this.SyncContextMenu.Size = new System.Drawing.Size(190, 98);
+			// 
+			// SyncContextMenu_LatestChange
+			// 
+			this.SyncContextMenu_LatestChange.Name = "SyncContextMenu_LatestChange";
+			this.SyncContextMenu_LatestChange.Size = new System.Drawing.Size(189, 22);
+			this.SyncContextMenu_LatestChange.Text = "Latest Change";
+			this.SyncContextMenu_LatestChange.Click += new System.EventHandler(this.SyncContextMenu_LatestChange_Click);
+			// 
+			// SyncContextMenu_LatestGoodChange
+			// 
+			this.SyncContextMenu_LatestGoodChange.Name = "SyncContextMenu_LatestGoodChange";
+			this.SyncContextMenu_LatestGoodChange.Size = new System.Drawing.Size(189, 22);
+			this.SyncContextMenu_LatestGoodChange.Text = "Latest Good Change";
+			this.SyncContextMenu_LatestGoodChange.Click += new System.EventHandler(this.SyncContextMenu_LatestGoodChange_Click);
+			// 
+			// SyncContextMenu_LatestStarredChange
+			// 
+			this.SyncContextMenu_LatestStarredChange.Name = "SyncContextMenu_LatestStarredChange";
+			this.SyncContextMenu_LatestStarredChange.Size = new System.Drawing.Size(189, 22);
+			this.SyncContextMenu_LatestStarredChange.Text = "Latest Starred Change";
+			// 
+			// toolStripSeparator8
+			// 
+			this.toolStripSeparator8.Name = "toolStripSeparator8";
+			this.toolStripSeparator8.Size = new System.Drawing.Size(186, 6);
+			// 
+			// SyncContexMenu_EnterChangelist
+			// 
+			this.SyncContexMenu_EnterChangelist.Name = "SyncContexMenu_EnterChangelist";
+			this.SyncContexMenu_EnterChangelist.Size = new System.Drawing.Size(189, 22);
+			this.SyncContexMenu_EnterChangelist.Text = "Specific Changelist...";
+			this.SyncContexMenu_EnterChangelist.Click += new System.EventHandler(this.SyncContextMenu_EnterChangelist_Click);
+			// 
+			// StreamContextMenu
+			// 
+			this.StreamContextMenu.Name = "StreamContextMenu";
+			this.StreamContextMenu.Size = new System.Drawing.Size(61, 4);
+			// 
+			// RecentMenu
+			// 
+			this.RecentMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.RecentMenu_Browse,
+            this.toolStripSeparator9,
+            this.RecentMenu_Separator,
+            this.RecentMenu_ClearList});
+			this.RecentMenu.Name = "RecentMenu";
+			this.RecentMenu.Size = new System.Drawing.Size(123, 60);
+			// 
+			// RecentMenu_Browse
+			// 
+			this.RecentMenu_Browse.Name = "RecentMenu_Browse";
+			this.RecentMenu_Browse.Size = new System.Drawing.Size(122, 22);
+			this.RecentMenu_Browse.Text = "Browse...";
+			this.RecentMenu_Browse.Click += new System.EventHandler(this.RecentMenu_Browse_Click);
+			// 
+			// toolStripSeparator9
+			// 
+			this.toolStripSeparator9.Name = "toolStripSeparator9";
+			this.toolStripSeparator9.Size = new System.Drawing.Size(119, 6);
+			// 
+			// RecentMenu_Separator
+			// 
+			this.RecentMenu_Separator.Name = "RecentMenu_Separator";
+			this.RecentMenu_Separator.Size = new System.Drawing.Size(119, 6);
+			// 
+			// RecentMenu_ClearList
+			// 
+			this.RecentMenu_ClearList.Name = "RecentMenu_ClearList";
+			this.RecentMenu_ClearList.Size = new System.Drawing.Size(122, 22);
+			this.RecentMenu_ClearList.Text = "Clear List";
+			this.RecentMenu_ClearList.Click += new System.EventHandler(this.RecentMenu_ClearList_Click);
+			// 
+			// BuildListMultiContextMenu
+			// 
+			this.BuildListMultiContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.BuildListMultiContextMenu_Bisect,
+            this.BuildListMultiContextMenu_TimeZoneSeparator,
+            this.BuildListMultiContextMenu_ShowServerTimes,
+            this.BuildListMultiContextMenu_ShowLocalTimes});
+			this.BuildListMultiContextMenu.Name = "BuildListContextMenu";
+			this.BuildListMultiContextMenu.Size = new System.Drawing.Size(184, 76);
+			// 
+			// BuildListMultiContextMenu_Bisect
+			// 
+			this.BuildListMultiContextMenu_Bisect.Name = "BuildListMultiContextMenu_Bisect";
+			this.BuildListMultiContextMenu_Bisect.Size = new System.Drawing.Size(183, 22);
+			this.BuildListMultiContextMenu_Bisect.Text = "Bisect these changes";
+			this.BuildListMultiContextMenu_Bisect.Click += new System.EventHandler(this.BuidlListMultiContextMenu_Bisect_Click);
+			// 
+			// BuildListMultiContextMenu_TimeZoneSeparator
+			// 
+			this.BuildListMultiContextMenu_TimeZoneSeparator.Name = "BuildListMultiContextMenu_TimeZoneSeparator";
+			this.BuildListMultiContextMenu_TimeZoneSeparator.Size = new System.Drawing.Size(180, 6);
+			// 
+			// BuildListMultiContextMenu_ShowServerTimes
+			// 
+			this.BuildListMultiContextMenu_ShowServerTimes.Name = "BuildListMultiContextMenu_ShowServerTimes";
+			this.BuildListMultiContextMenu_ShowServerTimes.Size = new System.Drawing.Size(183, 22);
+			this.BuildListMultiContextMenu_ShowServerTimes.Text = "Show server times";
+			this.BuildListMultiContextMenu_ShowServerTimes.Click += new System.EventHandler(this.BuildListContextMenu_ShowServerTimes_Click);
+			// 
+			// BuildListMultiContextMenu_ShowLocalTimes
+			// 
+			this.BuildListMultiContextMenu_ShowLocalTimes.Name = "BuildListMultiContextMenu_ShowLocalTimes";
+			this.BuildListMultiContextMenu_ShowLocalTimes.Size = new System.Drawing.Size(183, 22);
+			this.BuildListMultiContextMenu_ShowLocalTimes.Text = "Show local times";
+			this.BuildListMultiContextMenu_ShowLocalTimes.Click += new System.EventHandler(this.BuildListContextMenu_ShowServerTimes_Click);
+			// 
+			// FilterContextMenu
+			// 
+			this.FilterContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.FilterContextMenu_ResetToDefault,
+            this.FilterContextMenu_BeforeBadgeSeparator,
+            this.FilterContextMenu_Badges,
+            this.FilterContextMenu_AfterBadgeSeparator,
+            this.FilterContextMenu_ShowBuildMachineChanges});
+			this.FilterContextMenu.Name = "FilterContextMenu";
+			this.FilterContextMenu.Size = new System.Drawing.Size(232, 104);
+			// 
+			// FilterContextMenu_ResetToDefault
+			// 
+			this.FilterContextMenu_ResetToDefault.Name = "FilterContextMenu_ResetToDefault";
+			this.FilterContextMenu_ResetToDefault.Size = new System.Drawing.Size(231, 22);
+			this.FilterContextMenu_ResetToDefault.Text = "Reset to Default";
+			this.FilterContextMenu_ResetToDefault.Click += new System.EventHandler(this.FilterContextMenu_ResetToDefault_Click);
+			// 
+			// FilterContextMenu_BeforeBadgeSeparator
+			// 
+			this.FilterContextMenu_BeforeBadgeSeparator.Name = "FilterContextMenu_BeforeBadgeSeparator";
+			this.FilterContextMenu_BeforeBadgeSeparator.Size = new System.Drawing.Size(228, 6);
+			// 
+			// FilterContextMenu_Badges
+			// 
+			this.FilterContextMenu_Badges.Name = "FilterContextMenu_Badges";
+			this.FilterContextMenu_Badges.Size = new System.Drawing.Size(231, 22);
+			this.FilterContextMenu_Badges.Text = "Badges";
+			// 
+			// FilterContextMenu_AfterBadgeSeparator
+			// 
+			this.FilterContextMenu_AfterBadgeSeparator.Name = "FilterContextMenu_AfterBadgeSeparator";
+			this.FilterContextMenu_AfterBadgeSeparator.Size = new System.Drawing.Size(228, 6);
+			// 
+			// FilterContextMenu_ShowBuildMachineChanges
+			// 
+			this.FilterContextMenu_ShowBuildMachineChanges.Name = "FilterContextMenu_ShowBuildMachineChanges";
+			this.FilterContextMenu_ShowBuildMachineChanges.Size = new System.Drawing.Size(231, 22);
+			this.FilterContextMenu_ShowBuildMachineChanges.Text = "Show Build Machine Changes";
+			this.FilterContextMenu_ShowBuildMachineChanges.Click += new System.EventHandler(this.FilterContextMenu_ShowBuildMachineChanges_Click);
 			// 
 			// Splitter
 			// 
@@ -890,149 +1089,6 @@ namespace UnrealGameSync
 			this.SyncLog.Size = new System.Drawing.Size(1361, 239);
 			this.SyncLog.TabIndex = 0;
 			// 
-			// MoreToolsContextMenu
-			// 
-			this.MoreToolsContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.MoreActionsContextMenu_CustomToolSeparator,
-            this.MoreToolsContextMenu_CleanWorkspace});
-			this.MoreToolsContextMenu.Name = "MoreActionsContextMenu";
-			this.MoreToolsContextMenu.Size = new System.Drawing.Size(175, 32);
-			// 
-			// MoreActionsContextMenu_CustomToolSeparator
-			// 
-			this.MoreActionsContextMenu_CustomToolSeparator.Name = "MoreActionsContextMenu_CustomToolSeparator";
-			this.MoreActionsContextMenu_CustomToolSeparator.Size = new System.Drawing.Size(171, 6);
-			// 
-			// MoreToolsContextMenu_CleanWorkspace
-			// 
-			this.MoreToolsContextMenu_CleanWorkspace.Name = "MoreToolsContextMenu_CleanWorkspace";
-			this.MoreToolsContextMenu_CleanWorkspace.Size = new System.Drawing.Size(174, 22);
-			this.MoreToolsContextMenu_CleanWorkspace.Text = "Clean Workspace...";
-			this.MoreToolsContextMenu_CleanWorkspace.Click += new System.EventHandler(this.MoreToolsContextMenu_CleanWorkspace_Click);
-			// 
-			// SyncContextMenu
-			// 
-			this.SyncContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.SyncContextMenu_LatestChange,
-            this.SyncContextMenu_LatestGoodChange,
-            this.SyncContextMenu_LatestStarredChange,
-            this.toolStripSeparator8,
-            this.SyncContexMenu_EnterChangelist});
-			this.SyncContextMenu.Name = "SyncContextMenu";
-			this.SyncContextMenu.Size = new System.Drawing.Size(190, 98);
-			// 
-			// SyncContextMenu_LatestChange
-			// 
-			this.SyncContextMenu_LatestChange.Name = "SyncContextMenu_LatestChange";
-			this.SyncContextMenu_LatestChange.Size = new System.Drawing.Size(189, 22);
-			this.SyncContextMenu_LatestChange.Text = "Latest Change";
-			this.SyncContextMenu_LatestChange.Click += new System.EventHandler(this.SyncContextMenu_LatestChange_Click);
-			// 
-			// SyncContextMenu_LatestGoodChange
-			// 
-			this.SyncContextMenu_LatestGoodChange.Name = "SyncContextMenu_LatestGoodChange";
-			this.SyncContextMenu_LatestGoodChange.Size = new System.Drawing.Size(189, 22);
-			this.SyncContextMenu_LatestGoodChange.Text = "Latest Good Change";
-			this.SyncContextMenu_LatestGoodChange.Click += new System.EventHandler(this.SyncContextMenu_LatestGoodChange_Click);
-			// 
-			// SyncContextMenu_LatestStarredChange
-			// 
-			this.SyncContextMenu_LatestStarredChange.Name = "SyncContextMenu_LatestStarredChange";
-			this.SyncContextMenu_LatestStarredChange.Size = new System.Drawing.Size(189, 22);
-			this.SyncContextMenu_LatestStarredChange.Text = "Latest Starred Change";
-			// 
-			// toolStripSeparator8
-			// 
-			this.toolStripSeparator8.Name = "toolStripSeparator8";
-			this.toolStripSeparator8.Size = new System.Drawing.Size(186, 6);
-			// 
-			// SyncContexMenu_EnterChangelist
-			// 
-			this.SyncContexMenu_EnterChangelist.Name = "SyncContexMenu_EnterChangelist";
-			this.SyncContexMenu_EnterChangelist.Size = new System.Drawing.Size(189, 22);
-			this.SyncContexMenu_EnterChangelist.Text = "Specific Changelist...";
-			this.SyncContexMenu_EnterChangelist.Click += new System.EventHandler(this.SyncContextMenu_EnterChangelist_Click);
-			// 
-			// StreamContextMenu
-			// 
-			this.StreamContextMenu.Name = "StreamContextMenu";
-			this.StreamContextMenu.Size = new System.Drawing.Size(61, 4);
-			// 
-			// RecentMenu
-			// 
-			this.RecentMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.RecentMenu_Browse,
-            this.toolStripSeparator9,
-            this.RecentMenu_Separator,
-            this.RecentMenu_ClearList});
-			this.RecentMenu.Name = "RecentMenu";
-			this.RecentMenu.Size = new System.Drawing.Size(123, 60);
-			// 
-			// RecentMenu_Browse
-			// 
-			this.RecentMenu_Browse.Name = "RecentMenu_Browse";
-			this.RecentMenu_Browse.Size = new System.Drawing.Size(122, 22);
-			this.RecentMenu_Browse.Text = "Browse...";
-			this.RecentMenu_Browse.Click += new System.EventHandler(this.RecentMenu_Browse_Click);
-			// 
-			// toolStripSeparator9
-			// 
-			this.toolStripSeparator9.Name = "toolStripSeparator9";
-			this.toolStripSeparator9.Size = new System.Drawing.Size(119, 6);
-			// 
-			// RecentMenu_Separator
-			// 
-			this.RecentMenu_Separator.Name = "RecentMenu_Separator";
-			this.RecentMenu_Separator.Size = new System.Drawing.Size(119, 6);
-			// 
-			// RecentMenu_ClearList
-			// 
-			this.RecentMenu_ClearList.Name = "RecentMenu_ClearList";
-			this.RecentMenu_ClearList.Size = new System.Drawing.Size(122, 22);
-			this.RecentMenu_ClearList.Text = "Clear List";
-			this.RecentMenu_ClearList.Click += new System.EventHandler(this.RecentMenu_ClearList_Click);
-			// 
-			// BuildListMultiContextMenu
-			// 
-			this.BuildListMultiContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.BuildListMultiContextMenu_Bisect,
-            this.BuildListMultiContextMenu_TimeZoneSeparator,
-            this.BuildListMultiContextMenu_ShowServerTimes,
-            this.BuildListMultiContextMenu_ShowLocalTimes});
-			this.BuildListMultiContextMenu.Name = "BuildListContextMenu";
-			this.BuildListMultiContextMenu.Size = new System.Drawing.Size(184, 76);
-			// 
-			// BuildListMultiContextMenu_Bisect
-			// 
-			this.BuildListMultiContextMenu_Bisect.Name = "BuildListMultiContextMenu_Bisect";
-			this.BuildListMultiContextMenu_Bisect.Size = new System.Drawing.Size(183, 22);
-			this.BuildListMultiContextMenu_Bisect.Text = "Bisect these changes";
-			this.BuildListMultiContextMenu_Bisect.Click += new System.EventHandler(this.BuidlListMultiContextMenu_Bisect_Click);
-			// 
-			// BuildListMultiContextMenu_TimeZoneSeparator
-			// 
-			this.BuildListMultiContextMenu_TimeZoneSeparator.Name = "BuildListMultiContextMenu_TimeZoneSeparator";
-			this.BuildListMultiContextMenu_TimeZoneSeparator.Size = new System.Drawing.Size(180, 6);
-			// 
-			// BuildListMultiContextMenu_ShowServerTimes
-			// 
-			this.BuildListMultiContextMenu_ShowServerTimes.Name = "BuildListMultiContextMenu_ShowServerTimes";
-			this.BuildListMultiContextMenu_ShowServerTimes.Size = new System.Drawing.Size(183, 22);
-			this.BuildListMultiContextMenu_ShowServerTimes.Text = "Show server times";
-			this.BuildListMultiContextMenu_ShowServerTimes.Click += new System.EventHandler(this.BuildListContextMenu_ShowServerTimes_Click);
-			// 
-			// BuildListMultiContextMenu_ShowLocalTimes
-			// 
-			this.BuildListMultiContextMenu_ShowLocalTimes.Name = "BuildListMultiContextMenu_ShowLocalTimes";
-			this.BuildListMultiContextMenu_ShowLocalTimes.Size = new System.Drawing.Size(183, 22);
-			this.BuildListMultiContextMenu_ShowLocalTimes.Text = "Show local times";
-			this.BuildListMultiContextMenu_ShowLocalTimes.Click += new System.EventHandler(this.BuildListContextMenu_ShowServerTimes_Click);
-			// 
-			// toolStripSeparator2
-			// 
-			this.toolStripSeparator2.Name = "toolStripSeparator2";
-			this.toolStripSeparator2.Size = new System.Drawing.Size(258, 6);
-			// 
 			// WorkspaceControl
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
@@ -1053,16 +1109,17 @@ namespace UnrealGameSync
 			this.tableLayoutPanel3.PerformLayout();
 			this.tableLayoutPanel2.ResumeLayout(false);
 			this.tableLayoutPanel2.PerformLayout();
+			this.MoreToolsContextMenu.ResumeLayout(false);
+			this.SyncContextMenu.ResumeLayout(false);
+			this.RecentMenu.ResumeLayout(false);
+			this.BuildListMultiContextMenu.ResumeLayout(false);
+			this.FilterContextMenu.ResumeLayout(false);
 			this.Splitter.Panel1.ResumeLayout(false);
 			this.Splitter.Panel2.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.Splitter)).EndInit();
 			this.Splitter.ResumeLayout(false);
 			this.StatusLayoutPanel.ResumeLayout(false);
 			this.panel1.ResumeLayout(false);
-			this.MoreToolsContextMenu.ResumeLayout(false);
-			this.SyncContextMenu.ResumeLayout(false);
-			this.RecentMenu.ResumeLayout(false);
-			this.BuildListMultiContextMenu.ResumeLayout(false);
 			this.ResumeLayout(false);
 
 		}
@@ -1161,7 +1218,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator9;
 		private System.Windows.Forms.ToolStripSeparator BuildListContextMenu_CustomTool_Start;
 		private System.Windows.Forms.ToolStripMenuItem showChangesToolStripMenuItem;
-		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.ToolStripMenuItem OptionsContextMenu_ShowChanges_ShowUnreviewed;
 		private System.Windows.Forms.ToolStripMenuItem OptionsContextMenu_ShowChanges_ShowAutomated;
 		private System.Windows.Forms.ColumnHeader TypeColumn;
@@ -1177,5 +1233,12 @@ namespace UnrealGameSync
 		private System.Windows.Forms.ToolStripSeparator BuildListContextMenu_Bisect_Separator;
 		private System.Windows.Forms.ToolStripMenuItem OptionsContextMenu_ApplicationSettings;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+		private System.Windows.Forms.Button FilterButton;
+		private System.Windows.Forms.ContextMenuStrip FilterContextMenu;
+		private System.Windows.Forms.ToolStripMenuItem FilterContextMenu_ResetToDefault;
+		private System.Windows.Forms.ToolStripSeparator FilterContextMenu_BeforeBadgeSeparator;
+		private System.Windows.Forms.ToolStripSeparator FilterContextMenu_AfterBadgeSeparator;
+		private System.Windows.Forms.ToolStripMenuItem FilterContextMenu_ShowBuildMachineChanges;
+		private System.Windows.Forms.ToolStripMenuItem FilterContextMenu_Badges;
 	}
 }
