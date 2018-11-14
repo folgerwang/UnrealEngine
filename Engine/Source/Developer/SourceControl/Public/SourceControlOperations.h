@@ -206,6 +206,7 @@ public:
 		: bUpdateHistory(false)
 		, bGetOpenedOnly(false)
 		, bUpdateModifiedState(false)
+		, bCheckingAllFiles(false)
 	{
 	}
 
