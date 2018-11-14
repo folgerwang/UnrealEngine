@@ -4282,13 +4282,15 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 void UMaterial::PreEditChange(UProperty* PropertyThatChanged)
 {
 	Super::PreEditChange(PropertyThatChanged);
-
-	// Flush all pending rendering commands.
-	FlushRenderingCommands();
 }
 
 void UMaterial::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	// PreEditChange is not enforced to be called before PostEditChange.
+	// CacheResourceShadersForRendering if called will cause a rendering thread race condition with a debug mechanism (bDeletedThroughDeferredCleanup) if there is no flush or
+	// FMaterialUpdateContext present.
+	FlushRenderingCommands();
+
 	// If the material changes, then the debug view material must reset to prevent parameters mismatch
 	void ClearAllDebugViewMaterials();
 	ClearAllDebugViewMaterials();
