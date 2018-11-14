@@ -190,7 +190,7 @@ void FVulkanCommandListContext::RHISetUAVParameter(FComputeShaderRHIParamRef Com
 
 void FVulkanCommandListContext::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShaderRHI, uint32 TextureIndex, FTextureRHIParamRef NewTextureRHI)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Vertex)->GetShaderKey() == GetShaderKey(VertexShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey(VertexShaderRHI));
 	FVulkanTextureBase* Texture = GetVulkanTextureFromRHITexture(NewTextureRHI);
 	VkImageLayout Layout = GetLayoutForDescriptor(Texture->Surface);
 	PendingGfxState->SetTextureForStage(ShaderStage::Vertex, TextureIndex, Texture, Layout);
@@ -201,7 +201,7 @@ void FVulkanCommandListContext::RHISetShaderTexture(FHullShaderRHIParamRef HullS
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Hull)->GetId() == GetShaderId(HullShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Hull) == GetShaderKey(HullShaderRHI));
 	FVulkanTextureBase* Texture = GetVulkanTextureFromRHITexture(NewTextureRHI);
 	VkImageLayout Layout = GetLayoutForDescriptor(Texture->Surface);
 	PendingGfxState->SetTexture(ShaderStage::Hull, TextureIndex, Texture, Layout);
@@ -213,7 +213,7 @@ void FVulkanCommandListContext::RHISetShaderTexture(FDomainShaderRHIParamRef Dom
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Domain)->GetId() == GetShaderId(DomainShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Domain) == GetShaderKey(DomainShaderRHI));
 	FVulkanTextureBase* Texture = GetVulkanTextureFromRHITexture(NewTextureRHI);
 	VkImageLayout Layout = GetLayoutForDescriptor(Texture->Surface);
 	PendingGfxState->SetTexture(ShaderStage::Domain, TextureIndex, Texture, Layout);
@@ -224,7 +224,7 @@ void FVulkanCommandListContext::RHISetShaderTexture(FDomainShaderRHIParamRef Dom
 void FVulkanCommandListContext::RHISetShaderTexture(FGeometryShaderRHIParamRef GeometryShaderRHI, uint32 TextureIndex, FTextureRHIParamRef NewTextureRHI)
 {
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Geometry)->GetShaderKey() == GetShaderKey(GeometryShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Geometry) == GetShaderKey(GeometryShaderRHI));
 	FVulkanTextureBase* Texture = GetVulkanTextureFromRHITexture(NewTextureRHI);
 	VkImageLayout Layout = GetLayoutForDescriptor(Texture->Surface);
 	PendingGfxState->SetTextureForStage(ShaderStage::Geometry, TextureIndex, Texture, Layout);
@@ -236,7 +236,7 @@ void FVulkanCommandListContext::RHISetShaderTexture(FGeometryShaderRHIParamRef G
 
 void FVulkanCommandListContext::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShaderRHI, uint32 TextureIndex, FTextureRHIParamRef NewTextureRHI)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Pixel)->GetShaderKey() == GetShaderKey(PixelShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) == GetShaderKey(PixelShaderRHI));
 	FVulkanTextureBase* Texture = GetVulkanTextureFromRHITexture(NewTextureRHI);
 	VkImageLayout Layout = GetLayoutForDescriptor(Texture->Surface);
 	PendingGfxState->SetTextureForStage(ShaderStage::Pixel, TextureIndex, Texture, Layout);
@@ -256,7 +256,7 @@ void FVulkanCommandListContext::RHISetShaderTexture(FComputeShaderRHIParamRef Co
 
 void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FVertexShaderRHIParamRef VertexShaderRHI, uint32 TextureIndex, FShaderResourceViewRHIParamRef SRVRHI)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Vertex)->GetShaderKey() == GetShaderKey(VertexShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey(VertexShaderRHI));
 	FVulkanShaderResourceView* SRV = ResourceCast(SRVRHI);
 	PendingGfxState->SetSRVForStage(ShaderStage::Vertex, TextureIndex, SRV);
 }
@@ -265,7 +265,7 @@ void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FHullShaderRHI
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Hull)->GetId() == GetShaderId(HullShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Hull) == GetShaderKey(HullShaderRHI));
 	FVulkanShaderResourceView* SRV = ResourceCast(SRVRHI);
 	PendingGfxState->SetSRV(ShaderStage::Hull, TextureIndex, SRV);
 */
@@ -275,7 +275,7 @@ void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FDomainShaderR
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Domain)->GetId() == GetShaderId(DomainShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Domain) == GetShaderKey(DomainShaderRHI));
 	FVulkanShaderResourceView* SRV = ResourceCast(SRVRHI);
 	PendingGfxState->SetSRV(ShaderStage::Domain, TextureIndex, SRV);
 */
@@ -284,7 +284,7 @@ void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FDomainShaderR
 void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FGeometryShaderRHIParamRef GeometryShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
 {
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Geometry)->GetShaderKey() == GetShaderKey(GeometryShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Geometry) == GetShaderKey(GeometryShaderRHI));
 	FVulkanShaderResourceView* SRV = ResourceCast(SRVRHI);
 	PendingGfxState->SetSRVForStage(ShaderStage::Geometry, TextureIndex, SRV);
 #else
@@ -294,7 +294,7 @@ void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FGeometryShade
 
 void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRef PixelShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Pixel)->GetShaderKey() == GetShaderKey(PixelShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) == GetShaderKey(PixelShaderRHI));
 	FVulkanShaderResourceView* SRV = ResourceCast(SRVRHI);
 	PendingGfxState->SetSRVForStage(ShaderStage::Pixel, TextureIndex, SRV);
 }
@@ -309,7 +309,7 @@ void FVulkanCommandListContext::RHISetShaderResourceViewParameter(FComputeShader
 
 void FVulkanCommandListContext::RHISetShaderSampler(FVertexShaderRHIParamRef VertexShaderRHI, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Vertex)->GetShaderKey() == GetShaderKey(VertexShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey(VertexShaderRHI));
 	FVulkanSamplerState* Sampler = ResourceCast(NewStateRHI);
 	PendingGfxState->SetSamplerStateForStage(ShaderStage::Vertex, SamplerIndex, Sampler);
 }
@@ -318,7 +318,7 @@ void FVulkanCommandListContext::RHISetShaderSampler(FHullShaderRHIParamRef HullS
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Hull)->GetId() == GetShaderId(HullShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Hull) == GetShaderKey(HullShaderRHI));
 	FVulkanSamplerState* Sampler = ResourceCast(NewStateRHI);
 	PendingGfxState->SetSamplerState(ShaderStage::Hull, SamplerIndex, Sampler);
 */
@@ -328,7 +328,7 @@ void FVulkanCommandListContext::RHISetShaderSampler(FDomainShaderRHIParamRef Dom
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Domain)->GetId() == GetShaderId(DomainShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Domain) == GetShaderKey(DomainShaderRHI));
 	FVulkanSamplerState* Sampler = ResourceCast(NewStateRHI);
 	PendingGfxState->SetSamplerState(ShaderStage::Domain, SamplerIndex, Sampler);
 */
@@ -337,7 +337,7 @@ void FVulkanCommandListContext::RHISetShaderSampler(FDomainShaderRHIParamRef Dom
 void FVulkanCommandListContext::RHISetShaderSampler(FGeometryShaderRHIParamRef GeometryShaderRHI, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Geometry)->GetShaderKey() == GetShaderKey(GeometryShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Geometry) == GetShaderKey(GeometryShaderRHI));
 	FVulkanSamplerState* Sampler = ResourceCast(NewStateRHI);
 	PendingGfxState->SetSamplerStateForStage(ShaderStage::Geometry, SamplerIndex, Sampler);
 #else
@@ -347,7 +347,7 @@ void FVulkanCommandListContext::RHISetShaderSampler(FGeometryShaderRHIParamRef G
 
 void FVulkanCommandListContext::RHISetShaderSampler(FPixelShaderRHIParamRef PixelShaderRHI, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Pixel)->GetShaderKey() == GetShaderKey(PixelShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) == GetShaderKey(PixelShaderRHI));
 	FVulkanSamplerState* Sampler = ResourceCast(NewStateRHI);
 	PendingGfxState->SetSamplerStateForStage(ShaderStage::Pixel, SamplerIndex, Sampler);
 }
@@ -363,7 +363,7 @@ void FVulkanCommandListContext::RHISetShaderSampler(FComputeShaderRHIParamRef Co
 
 void FVulkanCommandListContext::RHISetShaderParameter(FVertexShaderRHIParamRef VertexShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Vertex)->GetShaderKey() == GetShaderKey(VertexShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey(VertexShaderRHI));
 
 	PendingGfxState->SetPackedGlobalShaderParameter(ShaderStage::Vertex, BufferIndex, BaseIndex, NumBytes, NewValue);
 }
@@ -372,7 +372,7 @@ void FVulkanCommandListContext::RHISetShaderParameter(FHullShaderRHIParamRef Hul
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Hull)->GetId() == GetShaderId(HullShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Hull) == GetShaderKey(HullShaderRHI));
 
 	PendingGfxState->SetShaderParameter(ShaderStage::Hull, BufferIndex, BaseIndex, NumBytes, NewValue);
 */
@@ -382,7 +382,7 @@ void FVulkanCommandListContext::RHISetShaderParameter(FDomainShaderRHIParamRef D
 {
 	ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Domain)->GetId() == GetShaderId(DomainShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Domain) == GetShaderKey(DomainShaderRHI));
 
 	PendingGfxState->SetShaderParameter(ShaderStage::Domain, BufferIndex, BaseIndex, NumBytes, NewValue);
 */
@@ -391,7 +391,7 @@ void FVulkanCommandListContext::RHISetShaderParameter(FDomainShaderRHIParamRef D
 void FVulkanCommandListContext::RHISetShaderParameter(FGeometryShaderRHIParamRef GeometryShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Geometry)->GetShaderKey() == GetShaderKey(GeometryShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Geometry) == GetShaderKey(GeometryShaderRHI));
 
 	PendingGfxState->SetPackedGlobalShaderParameter(ShaderStage::Geometry, BufferIndex, BaseIndex, NumBytes, NewValue);
 #else
@@ -401,7 +401,7 @@ void FVulkanCommandListContext::RHISetShaderParameter(FGeometryShaderRHIParamRef
 
 void FVulkanCommandListContext::RHISetShaderParameter(FPixelShaderRHIParamRef PixelShaderRHI, uint32 BufferIndex, uint32 BaseIndex, uint32 NumBytes, const void* NewValue)
 {
-	check(PendingGfxState->GetCurrentShader(ShaderStage::Pixel)->GetShaderKey() == GetShaderKey(PixelShaderRHI));
+	check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) == GetShaderKey(PixelShaderRHI));
 
 	PendingGfxState->SetPackedGlobalShaderParameter(ShaderStage::Pixel, BufferIndex, BaseIndex, NumBytes, NewValue);
 }
@@ -602,7 +602,7 @@ inline void FVulkanCommandListContext::SetShaderUniformBuffer(ShaderStage::EStag
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanSetUniformBufferTime);
 #endif
-	check(Shader->GetShaderKey() == PendingGfxState->GetCurrentShader(Stage)->GetShaderKey());
+	check(Shader->GetShaderKey() == PendingGfxState->GetCurrentShaderKey(Stage));
 
 	const FVulkanShaderHeader& CodeHeader = Shader->GetCodeHeader();
 	const bool bUseRealUBs = FVulkanPlatform::UseRealUBsOptimization(CodeHeader.bHasRealUBs);

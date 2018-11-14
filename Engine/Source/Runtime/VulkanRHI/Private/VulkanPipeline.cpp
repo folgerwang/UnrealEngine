@@ -611,7 +611,9 @@ FVulkanRHIGraphicsPipelineState* FVulkanPipelineStateCacheManager::CreateAndAdd(
 	{
 		// Create the pipeline
 		double BeginTime = FPlatformTime::Seconds();
-		CreateGfxPipelineFromEntry(GfxEntry.Get(), &PSOInitializer.BoundShaderState, Pipeline);
+		FVulkanShader* VulkanShaders[ShaderStage::NumStages];
+		GetVulkanShaders(PSOInitializer.BoundShaderState, VulkanShaders);
+		CreateGfxPipelineFromEntry(GfxEntry.Get(), VulkanShaders, Pipeline);
 
 		// Recover if we failed to create the pipeline.
 		if (!Pipeline->GetHandle())
@@ -1069,17 +1071,13 @@ FGfxEntryKey FVulkanPipelineStateCacheManager::FGfxPipelineEntry::CreateKey() co
 	return Result;
 }
 
-void FVulkanPipelineStateCacheManager::CreateGfxPipelineFromEntry(FGfxPipelineEntry* GfxEntry, const FBoundShaderStateInput* BSI, FVulkanGfxPipeline* Pipeline)
+void FVulkanPipelineStateCacheManager::CreateGfxPipelineFromEntry(FGfxPipelineEntry* GfxEntry, FVulkanShader* Shaders[ShaderStage::NumStages], FVulkanGfxPipeline* Pipeline)
 {
-	FVulkanShader* Shaders[ShaderStage::NumStages];
-
 	if (!GfxEntry->bLoaded)
 	{
-		check(BSI);
-		GetVulkanShaders(*BSI, Shaders);
 		GfxEntry->GetOrCreateShaderModules(Shaders);
 	}
-
+	
 	// Pipeline
 	VkGraphicsPipelineCreateInfo PipelineInfo;
 	ZeroVulkanStruct(PipelineInfo, VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
@@ -1363,48 +1361,6 @@ inline FVulkanLayout* FVulkanPipelineStateCacheManager::FindOrAddLayout(const FV
 	return Layout;
 }
 
-void FVulkanPipelineStateCacheManager::GetVulkanShaders(const FBoundShaderStateInput& BSI, FVulkanShader* OutShaders[ShaderStage::NumStages])
-{
-	FMemory::Memzero(OutShaders, ShaderStage::NumStages * sizeof(*OutShaders));
-
-	OutShaders[ShaderStage::Vertex] = ResourceCast(BSI.VertexShaderRHI);
-
-	if (BSI.PixelShaderRHI)
-	{
-		OutShaders[ShaderStage::Pixel] = ResourceCast(BSI.PixelShaderRHI);
-	}
-	else if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
-	{
-		// Some mobile devices expect PS stage (S7 Adreno)
-		OutShaders[ShaderStage::Pixel] = ResourceCast(TShaderMapRef<FNULLPS>(GetGlobalShaderMap(GMaxRHIFeatureLevel))->GetPixelShader());
-	}
-
-	if (BSI.GeometryShaderRHI)
-	{
-#if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-		OutShaders[ShaderStage::Geometry] = ResourceCast(BSI.GeometryShaderRHI);
-#else
-		ensureMsgf(0, TEXT("Geometry not supported!"));
-#endif
-	}
-
-	if (BSI.HullShaderRHI)
-	{
-		ensureMsgf(0, TEXT("Tessellation not supported yet!"));
-		/*
-		// Can't have Hull w/o Domain
-		check(BSI.DomainShaderRHI);
-		OutShaders[ShaderStage::Hull] = ResourceCast(BSI.HullShaderRHI);
-		OutShaders[ShaderStage::Domain] = ResourceCast(BSI.DomainShaderRHI);
-		*/
-	}
-	else
-	{
-		// Can't have Domain w/o Hull
-		check(BSI.DomainShaderRHI == nullptr);
-	}
-}
-
 FVulkanGfxLayout* FVulkanPipelineStateCacheManager::GetOrGenerateGfxLayout(const FGraphicsPipelineStateInitializer& PSOInitializer,
 	FVulkanShader*const* Shaders, FVulkanVertexInputStateInfo& OutVertexInputState)
 {
@@ -1647,8 +1603,6 @@ FVulkanRHIGraphicsPipelineState* FVulkanPipelineStateCacheManager::FindInRuntime
 
 	if (Found)
 	{
-		// TODO: looks like with enabled shader caching (r.Vulkan.CacheShaders), PSO can end up with stale shader pointers
-		(*Found)->BSI = Initializer.BoundShaderState;
 #if VULKAN_ENABLE_LRU_CACHE
 		PipelineLRU.Touch(*Found);
 #endif
@@ -1840,7 +1794,9 @@ void FVulkanPipelineStateCacheManager::FVKPipelineLRU::EnsureVkPipelineAndAddToL
 
 		if (!GfxPipeline->GetHandle())
 		{
-			PipelineStateCache->CreateGfxPipelineFromEntry(GfxPipelineEntry, &Pipeline->BSI, GfxPipeline);
+			FVulkanShader* VulkanShaders[ShaderStage::NumStages];
+			GetVulkanShaders(GfxPipeline->Device, *Pipeline, VulkanShaders);
+			PipelineStateCache->CreateGfxPipelineFromEntry(GfxPipelineEntry, VulkanShaders, GfxPipeline);
 
 			// Failed to create VkPipeline again
 			check(GfxPipeline->GetHandle());
@@ -1949,3 +1905,56 @@ bool FVulkanPipelineStateCacheManager::FVulkanLRUCacheFile::Load(FArchive& Ar)
 	return true;
 }
 #endif
+
+
+void GetVulkanShaders(const FBoundShaderStateInput& BSI, FVulkanShader* OutShaders[ShaderStage::NumStages])
+{
+	FMemory::Memzero(OutShaders, ShaderStage::NumStages * sizeof(*OutShaders));
+
+	OutShaders[ShaderStage::Vertex] = ResourceCast(BSI.VertexShaderRHI);
+
+	if (BSI.PixelShaderRHI)
+	{
+		OutShaders[ShaderStage::Pixel] = ResourceCast(BSI.PixelShaderRHI);
+	}
+	else if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		// Some mobile devices expect PS stage (S7 Adreno)
+		OutShaders[ShaderStage::Pixel] = ResourceCast(TShaderMapRef<FNULLPS>(GetGlobalShaderMap(GMaxRHIFeatureLevel))->GetPixelShader());
+	}
+
+	if (BSI.GeometryShaderRHI)
+	{
+#if VULKAN_SUPPORTS_GEOMETRY_SHADERS
+		OutShaders[ShaderStage::Geometry] = ResourceCast(BSI.GeometryShaderRHI);
+#else
+		ensureMsgf(0, TEXT("Geometry not supported!"));
+#endif
+	}
+
+	if (BSI.HullShaderRHI)
+	{
+		ensureMsgf(0, TEXT("Tessellation not supported yet!"));
+		/*
+		// Can't have Hull w/o Domain
+		check(BSI.DomainShaderRHI);
+		OutShaders[ShaderStage::Hull] = ResourceCast(BSI.HullShaderRHI);
+		OutShaders[ShaderStage::Domain] = ResourceCast(BSI.DomainShaderRHI);
+		*/
+	}
+	else
+	{
+		// Can't have Domain w/o Hull
+		check(BSI.DomainShaderRHI == nullptr);
+	}
+}
+
+extern void FVulkanShaderFactory_LookupShaders(FVulkanShaderFactory& ShaderFactory, const uint64 InShaderKeys[ShaderStage::NumStages], FVulkanShader* OutShaders[ShaderStage::NumStages]);
+
+void GetVulkanShaders(FVulkanDevice* Device, const FVulkanRHIGraphicsPipelineState& GfxPipelineState, FVulkanShader* OutShaders[ShaderStage::NumStages])
+{
+	FMemory::Memzero(OutShaders, ShaderStage::NumStages * sizeof(*OutShaders));
+	
+	//Device->GetShaderFactory().LookupShaders(GfxPipelineState.ShaderKeys, OutShaders);
+	FVulkanShaderFactory_LookupShaders(Device->GetShaderFactory(), GfxPipelineState.ShaderKeys, OutShaders);
+}

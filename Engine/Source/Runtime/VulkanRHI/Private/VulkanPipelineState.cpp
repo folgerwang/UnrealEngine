@@ -182,6 +182,7 @@ bool FVulkanComputePipelineDescriptorState::InternalUpdateDescriptorSets(FVulkan
 	return true;
 }
 
+extern FVulkanShader* FVulkanShaderFactory_LookupShader(FVulkanShaderFactory& ShaderFactory, EShaderFrequency ShaderFrequency, uint64 ShaderKey);
 
 FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline)
 	: FVulkanCommonPipelineDescriptorState(InDevice)
@@ -200,38 +201,55 @@ FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(F
 
 	UsedSetsMask = PipelineDescriptorInfo->HasDescriptorsInSetMask;
 
-	PackedUniformBuffers[ShaderStage::Vertex].Init(InGfxPipeline->GetShader(SF_Vertex)->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Vertex]);
+	FVulkanShaderFactory& ShaderFactory = Device->GetShaderFactory();
+	
+	//const FVulkanVertexShader* VertexShader = ShaderFactory.LookupShader<FVulkanVertexShader>(InGfxPipeline->GetShaderKey(SF_Vertex));
+	FVulkanShader* VertexShader = FVulkanShaderFactory_LookupShader(ShaderFactory, SF_Vertex, InGfxPipeline->GetShaderKey(SF_Vertex));
+	check(VertexShader);
+
+	PackedUniformBuffers[ShaderStage::Vertex].Init(VertexShader->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Vertex]);
 	UsedStagesMask |= 1 << ShaderStage::Vertex;
 	HasDescriptorsPerStageMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Vertex].IsEmpty() ? 0 : (1 << ShaderStage::Vertex);
 	UsedPackedUBStagesMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Vertex].PackedUBBindingIndices.Num() > 0 ? (1 << ShaderStage::Vertex) : 0;
 
-	if (InGfxPipeline->GetShader(SF_Pixel))
+	uint64 PixelShaderKey = InGfxPipeline->GetShaderKey(SF_Pixel);
+	if (PixelShaderKey)
 	{
-		PackedUniformBuffers[ShaderStage::Pixel].Init(InGfxPipeline->GetShader(SF_Pixel)->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Pixel]);
+		//const FVulkanPixelShader* PixelShader = ShaderFactory.LookupShader<FVulkanPixelShader>(PixelShaderKey);
+		FVulkanShader* PixelShader = FVulkanShaderFactory_LookupShader(ShaderFactory, SF_Pixel, PixelShaderKey);
+		check(PixelShader);
+
+		PackedUniformBuffers[ShaderStage::Pixel].Init(PixelShader->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Pixel]);
 		UsedStagesMask |= 1 << ShaderStage::Pixel;
 		HasDescriptorsPerStageMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Pixel].IsEmpty() ? 0 : (1 << ShaderStage::Pixel);
 		UsedPackedUBStagesMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Pixel].PackedUBBindingIndices.Num() > 0 ? (1 << ShaderStage::Pixel) : 0;
 	}
-	if (InGfxPipeline->GetShader(SF_Geometry))
-	{
+
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-		PackedUniformBuffers[ShaderStage::Geometry].Init(InGfxPipeline->GetShader(SF_Geometry)->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Geometry]);
+	uint64 GeometryShaderKey = InGfxPipeline->GetShaderKey(SF_Geometry);
+	if (GeometryShaderKey)
+	{
+		//const FVulkanGeometryShader* GeometryShader = ShaderFactory.LookupShader<FVulkanGeometryShader>(GeometryShaderKey);
+		FVulkanShader* GeometryShader = FVulkanShaderFactory_LookupShader(ShaderFactory, SF_Geometry, GeometryShaderKey);
+		check(GeometryShader);
+
+		PackedUniformBuffers[ShaderStage::Geometry].Init(GeometryShader->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Geometry]);
 		UsedStagesMask |= 1 << ShaderStage::Geometry;
 		HasDescriptorsPerStageMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Geometry].IsEmpty() ? 0 : (1 << ShaderStage::Geometry);
 		UsedPackedUBStagesMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Geometry].PackedUBBindingIndices.Num() > 0 ? (1 << ShaderStage::Geometry) : 0;
-#else
-		ensureMsgf(0, TEXT("Geometry not supported!"));
-#endif
 	}
-	if (InGfxPipeline->GetShader(SF_Hull))
+#endif
+
+/*
+	uint64 HullShaderKey = InGfxPipeline->GetShaderKey(SF_Hull);
+	if (HullShaderKey)
 	{
 		ensureMsgf(0, TEXT("Tessellation not supported yet!"));
-/*
 		PackedUniformBuffers[ShaderStage::Domain].Init(CodeHeaderPerStage[ShaderStage::Domain], PackedUniformBuffersMask[ShaderStage::Domain], UniformBuffersWithDataMask[ShaderStage::Domain], ResourcesDirtyMask[ShaderStage::Domain]);
 		PackedUniformBuffers[ShaderStage::Hull].Init(CodeHeaderPerStage[ShaderStage::Hull], PackedUniformBuffersMask[ShaderStage::Hull], UniformBuffersWithDataMask[ShaderStage::Hull], ResourcesDirtyMask[ShaderStage::Domain]);
 		UsedStagesMask |= (1 << ShaderStage::Hull) | (1 << ShaderStage::Domain);
-*/
 	}
+*/
 
 	//checkf(PipelineDescriptorInfo->DescriptorSets.Num() <= DescriptorSet::NumGfxStages, TEXT("Update ResourcesDirty & ResourcesDirtyMask!"));
 	for (int32 Index = 0; Index < PipelineDescriptorInfo->RemappingInfo->SetInfos.Num(); ++Index)
