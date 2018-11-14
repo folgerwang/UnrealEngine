@@ -1164,6 +1164,22 @@ namespace UnrealGameSync
 
 		bool ShouldShowChange(PerforceChangeSummary Change, string[] ExcludeChanges)
 		{
+			if(ProjectSettings.FilterType != FilterType.None)
+			{
+				PerforceChangeDetails Details;
+				if(!PerforceMonitor.TryGetChangeDetails(Change.Number, out Details))
+				{
+					return false;
+				}
+				if(ProjectSettings.FilterType == FilterType.Code && !Details.bContainsCode)
+				{
+					return false;
+				}
+				if(ProjectSettings.FilterType == FilterType.Content && !Details.bContainsContent)
+				{
+					return false;
+				}
+			}
 			if(ProjectSettings.FilterBadges.Count > 0)
 			{
 				EventSummary Summary = EventMonitor.GetSummaryForChange(Change.Number);
@@ -4673,7 +4689,12 @@ namespace UnrealGameSync
 
 		private void FilterButton_Click(object sender, EventArgs e)
 		{
-			FilterContextMenu_ResetToDefault.Checked = !Settings.bShowAutomatedChanges && ProjectSettings.FilterBadges.Count == 0;
+			FilterContextMenu_ResetToDefault.Checked = !Settings.bShowAutomatedChanges && ProjectSettings.FilterType == FilterType.None && ProjectSettings.FilterBadges.Count == 0;
+
+			FilterContextMenu_Type.Checked = ProjectSettings.FilterType != FilterType.None;
+			FilterContextMenu_Type_ShowAll.Checked = ProjectSettings.FilterType == FilterType.None;
+			FilterContextMenu_Type_Code.Checked = ProjectSettings.FilterType == FilterType.Code;
+			FilterContextMenu_Type_Content.Checked = ProjectSettings.FilterType == FilterType.Content;
 
 			FilterContextMenu_Badges.DropDownItems.Clear();
 			FilterContextMenu_Badges.Checked = ProjectSettings.FilterBadges.Count > 0;
@@ -4735,6 +4756,30 @@ namespace UnrealGameSync
 		private void FilterContextMenu_ShowBuildMachineChanges_Click(object sender, EventArgs e)
 		{
 			Settings.bShowAutomatedChanges ^= true;
+			Settings.Save();
+
+			UpdateBuildListFilter();
+		}
+
+		private void FilterContextMenu_Type_ShowAll_Click(object sender, EventArgs e)
+		{
+			ProjectSettings.FilterType = FilterType.None;
+			Settings.Save();
+
+			UpdateBuildListFilter();
+		}
+
+		private void FilterContextMenu_Type_Code_Click(object sender, EventArgs e)
+		{
+			ProjectSettings.FilterType = FilterType.Code;
+			Settings.Save();
+
+			UpdateBuildListFilter();
+		}
+
+		private void FilterContextMenu_Type_Content_Click(object sender, EventArgs e)
+		{
+			ProjectSettings.FilterType = FilterType.Content;
 			Settings.Save();
 
 			UpdateBuildListFilter();
