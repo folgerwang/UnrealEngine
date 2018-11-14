@@ -228,6 +228,9 @@ private:
 	//
 	FText GetIOSTeamIDText(TSharedRef<IPropertyHandle> InPropertyHandle) const;
 
+	/** Module callback for when the iOS settings tab is selected */
+	void OnSelect();
+
 	TSharedPtr< SEditableTextBox > BundleIdTextBox;
 
 	TSharedPtr< SEditableTextBox > IOSTeamIDTextBox;

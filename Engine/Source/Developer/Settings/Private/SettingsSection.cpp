@@ -253,3 +253,11 @@ bool FSettingsSection::SaveDefaults()
 
 	return false;
 }
+
+void FSettingsSection::Select() 
+{
+	if (SelectDelegate.IsBound())
+	{
+		SelectDelegate.Execute();
+	}
+}

@@ -35,6 +35,7 @@
 #include "Widgets/Notifications/SErrorText.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformModule.h"
+#include "IOSPlatformEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "IOSTargetSettings"
 DEFINE_LOG_CATEGORY_STATIC(LogIOSTargetSettings, Log, All);
@@ -108,6 +109,9 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	bShowAllCertificates = false;
 	ProvisionList = MakeShareable(new TArray<ProvisionPtr>());
 	CertificateList = MakeShareable(new TArray<CertificatePtr>());
+
+	FIOSPlatformEditorModule::OnSelect.AddRaw(this, &FIOSTargetSettingsCustomization::OnSelect);
+
 }
 
 FIOSTargetSettingsCustomization::~FIOSTargetSettingsCustomization()
@@ -117,6 +121,8 @@ FIOSTargetSettingsCustomization::~FIOSTargetSettingsCustomization()
 		IPPProcess = NULL;
 		FTicker::GetCoreTicker().RemoveTicker(TickerHandle);
 	}
+
+	FIOSPlatformEditorModule::OnSelect.RemoveAll(this);
 }
 
 void FIOSTargetSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
@@ -130,6 +136,11 @@ void FIOSTargetSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& Det
 	BuildRemoteBuildingSection(DetailLayout);
 
 	AudioPluginWidgetManager.BuildAudioCategory(DetailLayout, EAudioPlatform::IOS);
+
+}
+
+void FIOSTargetSettingsCustomization::OnSelect()
+{
 	FindRequiredFiles();
 }
 
