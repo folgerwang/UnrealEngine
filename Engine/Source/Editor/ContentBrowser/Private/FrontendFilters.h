@@ -131,7 +131,8 @@ private:
 	void SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
 
 	bool bSourceControlEnabled;
-	bool bCompletedSourceControlQuery;
+	bool bIsRequestStatusRunning;
+	bool bInitialRequestCompleted;
 };
 
 /** A filter that displays only modified assets */
