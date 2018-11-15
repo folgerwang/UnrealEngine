@@ -41,6 +41,10 @@ public:
 
 	/** Get current GUID Id as a string, for DDC key */
 	FString GetIdString() const;
+
+	ENGINE_API void EmptyOriginalReductionSourceMeshData();
+	/* When user reduce an imported LOD with himself (BaseLOD == TargetLOD), we need to store some imported model data so we can reduce again from the same data.*/
+	TArray<FReductionBaseSkeletalMeshBulkData*> OriginalReductionSourceMeshData;
 #endif
 
 	/** Serialize to/from the specified archive.. */

@@ -31,6 +31,11 @@ void UMovieScene3DAttachTrack::AddConstraint(FFrameNumber KeyTime, int32 Duratio
 	ConstraintSections.Add(NewSection);
 }
 
+bool UMovieScene3DAttachTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene3DAttachSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieScene3DAttachTrack::CreateNewSection()
 {
 	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this, NAME_None, RF_Transactional);

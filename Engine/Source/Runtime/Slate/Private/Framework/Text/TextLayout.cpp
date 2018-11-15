@@ -2680,7 +2680,10 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 		if ( MeasuredRanges[ StartRangeIndex ].BeginIndex == SizeRange.BeginIndex && 
 			MeasuredRanges[ StartRangeIndex ].EndIndex == SizeRange.EndIndex )
 		{
-			BlockSize += MeasuredRangeSizes[ StartRangeIndex ];
+			if (MeasuredRangeSizes.IsValidIndex(StartRangeIndex))
+			{
+				BlockSize += MeasuredRangeSizes[StartRangeIndex];
+			}
 		}
 		else
 		{
@@ -2691,7 +2694,10 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 	{
 		if ( MeasuredRanges[ StartRangeIndex ].BeginIndex == SizeRange.BeginIndex )
 		{
-			BlockSize += MeasuredRangeSizes[ StartRangeIndex ];
+			if (MeasuredRangeSizes.IsValidIndex(StartRangeIndex))
+			{
+				BlockSize += MeasuredRangeSizes[StartRangeIndex];
+			}
 		}
 		else
 		{
@@ -2700,14 +2706,20 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 
 		for (int32 Index = StartRangeIndex + 1; Index < EndRangeIndex; Index++)
 		{
-			BlockSize.X += MeasuredRangeSizes[ Index ].X;
-			BlockSize.Y = FMath::Max( MeasuredRangeSizes[ Index ].Y, BlockSize.Y );
+			if (MeasuredRangeSizes.IsValidIndex(Index))
+			{
+				BlockSize.X += MeasuredRangeSizes[Index].X;
+				BlockSize.Y = FMath::Max(MeasuredRangeSizes[Index].Y, BlockSize.Y);
+			}
 		}
 
 		if ( MeasuredRanges[ EndRangeIndex ].EndIndex == SizeRange.EndIndex )
 		{
-			BlockSize.X += MeasuredRangeSizes[ EndRangeIndex ].X;
-			BlockSize.Y = FMath::Max( MeasuredRangeSizes[ EndRangeIndex ].Y, BlockSize.Y );
+			if (MeasuredRangeSizes.IsValidIndex(EndRangeIndex))
+			{
+				BlockSize.X += MeasuredRangeSizes[EndRangeIndex].X;
+				BlockSize.Y = FMath::Max(MeasuredRangeSizes[EndRangeIndex].Y, BlockSize.Y);
+			}
 		}
 		else
 		{

@@ -47,7 +47,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = Config)
 	bool bBlendRootMotionBasedOnRootBone;
 
-	UPROPERTY(Transient)
 	bool bHasRelevantPoses;
 
 	/*
@@ -58,8 +57,6 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
-
-	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 
 protected:
 
@@ -98,6 +95,7 @@ public:
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 	// End of FAnimNode_Base interface
 
 	void AddPose()

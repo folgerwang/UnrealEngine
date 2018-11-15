@@ -102,6 +102,9 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 public:
 	/** Material parameter setting and caching */
 
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = MaterialParameters)
+	bool bEnableMaterialParameterCaching;
+
 	/** Set all occurrences of Scalar Material Parameters with ParameterName in the set of materials of the SkeletalMesh to ParameterValue */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Material")
 	void SetScalarParameterValueOnMaterials(const FName ParameterName, const float ParameterValue);

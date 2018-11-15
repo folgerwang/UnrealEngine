@@ -13,7 +13,26 @@
 
 DECLARE_CYCLE_STAT(TEXT("Anim Compression (Derived Data)"), STAT_AnimCompressionDerivedData, STATGROUP_Anim);
 
-FDerivedDataAnimationCompression::FDerivedDataAnimationCompression(UAnimSequence* InAnimSequence, TSharedPtr<FAnimCompressContext> InCompressContext, bool bInDoCompressionInPlace)
+template<typename ArrayValue>
+void StripFrames(TArray<ArrayValue>& Keys, const int32 NumFrames)
+{
+	if (Keys.Num() > 1)
+	{
+		check(Keys.Num() == NumFrames);
+
+		for (int32 DstKey = 1, SrcKey = 2; SrcKey < NumFrames; ++DstKey, SrcKey+=2)
+		{
+			Keys[DstKey] = Keys[SrcKey];
+		}
+
+		const int32 HalfSize = (NumFrames - 1) / 2;
+		const int32 StartRemoval = HalfSize + 1;
+
+		Keys.RemoveAt(StartRemoval, NumFrames - StartRemoval);
+	}
+}
+
+FDerivedDataAnimationCompression::FDerivedDataAnimationCompression(UAnimSequence* InAnimSequence, TSharedPtr<FAnimCompressContext> InCompressContext, bool bInDoCompressionInPlace, bool bInTryFrameStripping)
 	: OriginalAnimSequence(InAnimSequence)
 	, DuplicateSequence(nullptr)
 	, CompressContext(InCompressContext)
@@ -21,6 +40,10 @@ FDerivedDataAnimationCompression::FDerivedDataAnimationCompression(UAnimSequence
 {
 	check(InAnimSequence != nullptr && InAnimSequence->GetSkeleton() != nullptr);
 	InAnimSequence->AddToRoot(); //Keep this around until we are finished
+
+	// Can only do stripping on animations that have an even number of frames once the end frame is removed)
+	const bool bStripCandidate = (OriginalAnimSequence->GetRawNumberOfFrames() > 10) && (((OriginalAnimSequence->GetRawNumberOfFrames() - 1) % 2) == 0);
+	bPerformStripping = bStripCandidate && bInTryFrameStripping;
 }
 
 FDerivedDataAnimationCompression::~FDerivedDataAnimationCompression()
@@ -53,10 +76,13 @@ FString FDerivedDataAnimationCompression::GetPluginSpecificCacheKeySuffix() cons
 	char AdditiveType = bCanBakeAdditive ? NibbleToTChar(OriginalAnimSequence->AdditiveAnimType) : '0';
 	char RefType = bCanBakeAdditive ? NibbleToTChar(OriginalAnimSequence->RefPoseType) : '0';
 
-	FString Ret = FString::Printf(TEXT("%i_%i_%i_%s%s%s_%c%c%i_%s_%s"),
+	const int32 StripFrame = bPerformStripping ? 1 : 0;
+
+	FString Ret = FString::Printf(TEXT("%i_%i_%i_%i_%s%s%s_%c%c%i_%s_%s"),
 		(int32)UE_ANIMCOMPRESSION_DERIVEDDATA_VER,
 		(int32)CURRENT_ANIMATION_ENCODING_PACKAGE_VERSION,
 		OriginalAnimSequence->CompressCommandletVersion,
+		StripFrame,
 		*OriginalAnimSequence->GetRawDataGuid().ToString(),
 		*OriginalAnimSequence->GetSkeleton()->GetGuid().ToString(),
 		*OriginalAnimSequence->GetSkeleton()->GetVirtualBoneGuid().ToString(),
@@ -93,7 +119,7 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 	{
 		FScopedAnimSequenceRawDataCache RawDataCache;
 		const bool bHasVirtualBones = AnimToOperateOn->GetSkeleton()->GetVirtualBones().Num() > 0;
-		const bool bNeedToModifyRawData = AnimToOperateOn->CanBakeAdditive() || bHasVirtualBones;
+		const bool bNeedToModifyRawData = AnimToOperateOn->CanBakeAdditive() || bHasVirtualBones || bPerformStripping;
 		if (bDoCompressionInPlace && bNeedToModifyRawData)
 		{
 			//Cache original raw data before we mess with it
@@ -107,6 +133,25 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 		else if(bHasVirtualBones)// If we aren't additive we must bake virtual bones
 		{
 			AnimToOperateOn->BakeOutVirtualBoneTracks();
+		}
+
+		if (bPerformStripping)
+		{
+			const int32 NumFrames = AnimToOperateOn->GetRawNumberOfFrames();
+			const int32 NumTracks = AnimToOperateOn->GetRawAnimationData().Num();
+
+			//Strip every other frame from tracks
+			for (int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex)
+			{
+				FRawAnimSequenceTrack& Track = AnimToOperateOn->GetRawAnimationTrack(TrackIndex);
+
+				StripFrames(Track.PosKeys, NumFrames);
+				StripFrames(Track.RotKeys, NumFrames);
+				StripFrames(Track.ScaleKeys, NumFrames);
+			}
+
+			const int32 StripFrames = AnimToOperateOn->GetRawNumberOfFrames() - 1;
+			AnimToOperateOn->SetRawNumberOfFrame((StripFrames / 2) + 1);
 		}
 
 		AnimToOperateOn->UpdateCompressedTrackMapFromRaw();
@@ -124,6 +169,8 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 		const TCHAR* OutputStr = CompressContext.Get()->bOutput ? TEXT("true") : TEXT("false");
 #endif
 
+		AnimToOperateOn->UpdateCompressedNumFramesFromRaw(); //Do this before compression so compress code can read the correct value
+
 		FAnimationUtils::CompressAnimSequence(AnimToOperateOn, *CompressContext.Get());
 		bCompressionSuccessful = AnimToOperateOn->IsCompressedDataValid();
 
@@ -136,6 +183,7 @@ bool FDerivedDataAnimationCompression::Build( TArray<uint8>& OutData )
 											OutputStr);
 
 		AnimToOperateOn->CompressedRawDataSize = AnimToOperateOn->GetApproxRawSize();
+		AnimToOperateOn->TestEvalauteAnimation(); //Validate that compressed data is readable. 
 	}
 
 	//Our compression scheme may change so copy the new one back

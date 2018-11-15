@@ -120,7 +120,24 @@ public:
 	 * @param ObjectId The guid bound to possessable objects that should be removed.
 	 * @see BindPossessableObject
 	 */
-	virtual void UnbindPossessableObjects(const FGuid& ObjectId) PURE_VIRTUAL(UMovieSceneSequence::UnbindPossessableObjects,);
+	virtual void UnbindPossessableObjects(const FGuid& ObjectId) PURE_VIRTUAL(UMovieSceneSequence::UnbindPossessableObjects, );
+
+	/**
+	 * Unbinds specific objects from the provided GUID
+	 *
+	 * @param ObjectId The guid bound to possessable objects that should be removed.
+	 * @param InObjects The objects to unbind.
+	 * @param Context Optional context required to bind the specified object (for instance, a parent spawnable object)
+	 */
+	virtual void UnbindObjects(const FGuid& ObjectId, const TArray<UObject*>& InObjects, UObject* Context) PURE_VIRTUAL(UMovieSceneSequence::UnbindObjects, );
+
+	/**
+	 * Unbinds specific objects from the provided GUID that do not resolve
+	 *
+	 * @param ObjectId The guid bound to possessable objects that should be removed.
+	 * @param Context Optional context required to bind the specified object (for instance, a parent spawnable object)
+	 */
+	virtual void UnbindInvalidObjects(const FGuid& ObjectId, UObject* Context) PURE_VIRTUAL(UMovieSceneSequence::UnbindInvalidObjects, );
 
 	/**
 	 * Create a spawnable object template from the specified source object

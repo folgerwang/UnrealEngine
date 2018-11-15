@@ -430,7 +430,7 @@ public:
 		TArray<TSharedRef<IRun>> Runs;
 	};
 
-	DEPRECATED(4.11, "Please use the version of AddLine that takes an FNewLineData parameter.")
+	UE_DEPRECATED(4.11, "Please use the version of AddLine that takes an FNewLineData parameter.")
 	void AddLine( const TSharedRef< FString >& Text, const TArray< TSharedRef< IRun > >& Runs );
 
 	void AddLine( const FNewLineData& NewLine );

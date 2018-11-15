@@ -3,6 +3,8 @@
 #include "Engine/SkeletalMeshLODSettings.h"
 #include "Engine/SkeletalMesh.h"
 #include "UObject/UObjectIterator.h"
+#include "Animation/Skeleton.h"
+#include "Animation/AnimSequence.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkeletalMeshLODSettings, Warning, All)
@@ -43,10 +45,35 @@ bool USkeletalMeshLODSettings::SetLODSettingsToMesh(USkeletalMesh* InMesh, int32
 		LODInfo->ReductionSettings = Setting.ReductionSettings;
 		LODInfo->ScreenSize = Setting.ScreenSize;
 		LODInfo->LODHysteresis = Setting.LODHysteresis;
+		LODInfo->WeightOfPrioritization = Setting.WeightOfPrioritization;
+		// if we have available bake pose
+		// it's possible for skeleton to be null if this happens in the middle of importing
+		// so if skeleton is null, we allow copy (the GetBakePose will check correct skeleton when get it)
+		if (Setting.BakePose && (!InMesh->Skeleton || InMesh->Skeleton->IsCompatible(Setting.BakePose->GetSkeleton())))
+		{
+			LODInfo->BakePose = Setting.BakePose;
+		}
+		else
+		{
+			LODInfo->BakePose = nullptr;
+		}
+
 		// select joints that mesh has
 		// reset the list
 		LODInfo->BonesToRemove.Reset();
 		const FReferenceSkeleton& RefSkeleton = InMesh->RefSkeleton;
+
+		// copy the shared setting to mesh setting
+		// make sure we have joint in the mesh 
+		LODInfo->BonesToPrioritize.Reset();
+		for (auto& Bone : Setting.BonesToPrioritize)
+		{
+			if (RefSkeleton.FindBoneIndex(Bone) != INDEX_NONE)
+			{
+				LODInfo->BonesToPrioritize.Add(FBoneReference(Bone));
+			}
+		}
+
 		if (Setting.BoneFilterActionOption == EBoneFilterActionOption::Remove)
 		{
 			for (int32 BoneListIndex = 0; BoneListIndex < Setting.BoneList.Num(); ++BoneListIndex)
@@ -165,6 +192,15 @@ int32 USkeletalMeshLODSettings::SetLODSettingsFromMesh(USkeletalMesh* InMesh)
 			Setting.ReductionSettings = LODInfo->ReductionSettings;
 			Setting.ScreenSize = LODInfo->ScreenSize;
 			Setting.LODHysteresis = LODInfo->LODHysteresis;
+			// copy mesh setting to shared setting
+			Setting.BonesToPrioritize.Reset();
+			for (auto& Bone : LODInfo->BonesToPrioritize)
+			{
+				Setting.BonesToPrioritize.Add(Bone.BoneName);
+			}
+
+			Setting.WeightOfPrioritization = LODInfo->WeightOfPrioritization;
+			Setting.BakePose = LODInfo->BakePose;
 			Setting.BoneFilterActionOption = EBoneFilterActionOption::Remove;
 			// select joints that mesh has
 			// reset the list

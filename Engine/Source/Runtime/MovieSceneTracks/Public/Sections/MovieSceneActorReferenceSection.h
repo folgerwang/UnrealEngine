@@ -132,14 +132,14 @@ public:
 private:
 
 	/** Sorted array of key times */
-	UPROPERTY()
+	UPROPERTY(meta=(KeyTimes))
 	TArray<FFrameNumber> KeyTimes;
 
 	/** Default value used when there are no keys */
 	FMovieSceneActorReferenceKey DefaultValue;
 
 	/** Array of values that correspond to each key time */
-	UPROPERTY()
+	UPROPERTY(meta=(KeyValues))
 	TArray<FMovieSceneActorReferenceKey> KeyValues;
 
 	FMovieSceneKeyHandleMap KeyHandles;

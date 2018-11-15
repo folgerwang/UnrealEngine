@@ -89,7 +89,6 @@
 #include "GenericPlatform/GenericPlatformTLS.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtrTemplates.h"
-#include "UObject/AutoPointer.h"
 #include "Delegates/MulticastDelegateBase.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateSettings.h"
@@ -391,7 +390,6 @@
 #include "Application/SlateApplicationBase.h"
 #include "Application/ThrottleManager.h"
 #include "Layout/WidgetPath.h"
-#include "Logging/IEventLogger.h"
 #include "Types/SlateConstants.h"
 
 // From Slate:

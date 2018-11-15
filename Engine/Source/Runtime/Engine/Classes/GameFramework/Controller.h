@@ -183,7 +183,7 @@ public:
 	}
 
 	/** DEPRECATED! Use the standard "Cast To" node instead. Casts this Controller to a Player Controller, if possible. */
-	DEPRECATED(4.11, "CastToPlayerController has been replaced by the standard Cast To node.")
+	UE_DEPRECATED(4.11, "CastToPlayerController has been replaced by the standard Cast To node.")
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(DeprecatedFunction, DeprecationMessage="Use standard Cast To node instead."))
 	class APlayerController* CastToPlayerController();
 
@@ -367,7 +367,7 @@ private:
 public:
 
 	/** prepares path following component */
-	DEPRECATED(4.20, "InitNavigationControl is depracated. The function lost its meaning due to better Engine-AIModule code separation")
+	UE_DEPRECATED(4.20, "InitNavigationControl is depracated. The function lost its meaning due to better Engine-AIModule code separation")
 	virtual void InitNavigationControl(UObject*& PathFollowingComp) {}
 
 	/** If controller has any navigation-related components then this function
@@ -375,7 +375,7 @@ public:
 	 *	DEPRECATED: this functionality has been taken over by PathFollowingComponent 
 	 *		by observing newly possessed pawns (via OnNewPawn)
 	 */
-	DEPRECATED(4.20, "UpdateNavigationComponents is depracated. The function lost its meaning due to better Engine-AIModule code separation.")
+	UE_DEPRECATED(4.20, "UpdateNavigationComponents is depracated. The function lost its meaning due to better Engine-AIModule code separation.")
 	virtual void UpdateNavigationComponents() {}
 };
 

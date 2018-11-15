@@ -5,6 +5,11 @@
 #include "Sections/MovieSceneVectorSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 
+bool UMovieSceneNiagaraVectorParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneVectorSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneNiagaraVectorParameterTrack::CreateNewSection()
 {
 	UMovieSceneVectorSection* VectorSection = NewObject<UMovieSceneVectorSection>(this, NAME_None, RF_Transactional);

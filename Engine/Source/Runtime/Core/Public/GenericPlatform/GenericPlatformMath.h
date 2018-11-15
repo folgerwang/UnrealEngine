@@ -182,27 +182,11 @@ struct FGenericPlatformMath
 	* Warning: Always returns remainder toward 0, not toward the smaller multiple of Y.
 	*			So for example Fmod(2.8f, 2) gives .8f as you would expect, however, Fmod(-2.8f, 2) gives -.8f, NOT 1.2f 
 	* Use Floor instead when snapping positions that can be negative to a grid
+	*
+	* This is forced to *NOT* inline so that divisions by constant Y does not get optimized in to an inverse scalar multiply,
+	* which is not consistent with the intent nor with the vectorized version.
 	*/
-	static FORCEINLINE float Fmod(float X, float Y)
-	{
-		if (fabsf(Y) <= 1.e-8f)
-		{
-			FmodReportError(X, Y);
-			return 0.f;
-		}
-		const float Quotient = TruncToFloat(X / Y);
-		float IntPortion = Y * Quotient;
-
-		// Rounding and imprecision could cause IntPortion to exceed X and cause the result to be outside the expected range.
-		// For example Fmod(55.8, 9.3) would result in a very small negative value!
-		if (fabsf(IntPortion) > fabsf(X))
-		{
-			IntPortion = X;
-		}
-
-		const float Result = X - IntPortion;
-		return Result;
-	}
+	static CORE_API FORCENOINLINE float Fmod(float X, float Y);
 
 	static FORCEINLINE float Sin( float Value ) { return sinf(Value); }
 	static FORCEINLINE float Asin( float Value ) { return asinf( (Value<-1.f) ? -1.f : ((Value<1.f) ? Value : 1.f) ); }

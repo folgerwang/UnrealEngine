@@ -39,6 +39,7 @@
 #include "IDetailChildrenBuilder.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "BoneControllers/AnimNode_SkeletalControlBase.h"
+#include "AnimGraphNode_StateMachine.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Styling/CoreStyle.h"
 
@@ -276,8 +277,8 @@ TSharedRef<SWidget> FAnimGraphNodeDetails::CreatePropertyWidget(UProperty* Targe
 
 bool FAnimGraphNodeDetails::OnShouldFilterAnimAsset( const FAssetData& AssetData, UClass* NodeToFilterFor ) const
 {
-	const FString* SkeletonName = AssetData.TagsAndValues.Find(TEXT("Skeleton"));
-	if ((SkeletonName != nullptr) && (*SkeletonName == TargetSkeletonName))
+	FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag("Skeleton");
+	if (Result.IsSet() && Result.GetValue() == TargetSkeletonName)
 	{
 		const UClass* AssetClass = AssetData.GetClass();
 		// If node is an 'asset player', only let you select the right kind of asset for it
@@ -771,6 +772,7 @@ TSharedRef<IDetailCustomization> FAnimGraphParentPlayerDetails::MakeInstance(TSh
 	return MakeShareable(new FAnimGraphParentPlayerDetails(InBlueprintEditor));
 }
 
+
 void FAnimGraphParentPlayerDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBuilder)
 {
 	TArray<TWeakObjectPtr<UObject>> SelectedObjects;
@@ -783,39 +785,108 @@ void FAnimGraphParentPlayerDetails::CustomizeDetails(class IDetailLayoutBuilder&
 	IDetailCategoryBuilder& Category = DetailBuilder.EditCategory("AnimGraphOverrides");
 	DetailBuilder.HideProperty("Overrides");
 
+	struct FObjectToEntryBuilder
+	{
+	private:
+		TMap<UObject*, TSharedPtr<FPlayerTreeViewEntry>> ObjectToEntryMap;
+		TArray<TSharedPtr<FPlayerTreeViewEntry>>& ListEntries;
+
+	private:
+		TSharedPtr<FPlayerTreeViewEntry> AddObject(UObject* Object)
+		{
+			TSharedPtr<FPlayerTreeViewEntry> Result = ObjectToEntryMap.FindRef(Object);
+			if (!Result.IsValid() && (Object != nullptr))
+			{
+				bool bTopLevel = false;
+				TSharedPtr<FPlayerTreeViewEntry> ThisNode;
+
+				if (UBlueprint* Blueprint = Cast<UBlueprint>(Object))
+				{
+					ThisNode = MakeShareable(new FPlayerTreeViewEntry(Blueprint->GetName(), EPlayerTreeViewEntryType::Blueprint));
+					bTopLevel = true;
+				}
+				else if (UAnimGraphNode_StateMachine* StateMachineNode = Cast<UAnimGraphNode_StateMachine>(Object))
+				{
+					// Don't create a node for these, the graph speaks for it
+				}
+				else if (UAnimGraphNode_Base* Node = Cast<UAnimGraphNode_Base>(Object))
+				{
+					ThisNode = MakeShareable(new FPlayerTreeViewEntry(Node->GetName(), EPlayerTreeViewEntryType::Node));
+				}
+				else if (UEdGraph* Graph = Cast<UEdGraph>(Object))
+				{
+					ThisNode = MakeShareable(new FPlayerTreeViewEntry(Graph->GetName(), EPlayerTreeViewEntryType::Graph));
+				}
+
+				if (ThisNode.IsValid())
+				{
+					ObjectToEntryMap.Add(Object, ThisNode);
+				}
+
+				if (bTopLevel)
+				{
+					ListEntries.Add(ThisNode);
+					Result = ThisNode;
+				}
+				else
+				{
+					TSharedPtr<FPlayerTreeViewEntry> Outer = AddObject(Object->GetOuter());
+					Result = Outer;
+
+					if (ThisNode.IsValid())
+					{
+						Result = ThisNode;
+						check(Outer.IsValid())
+						Outer->Children.Add(Result);
+					}
+				}
+			}
+
+			return Result;
+		}
+
+		void SortInternal(TArray<TSharedPtr<FPlayerTreeViewEntry>>& ListToSort)
+		{
+			ListToSort.Sort([](TSharedPtr<FPlayerTreeViewEntry> A, TSharedPtr<FPlayerTreeViewEntry> B) { return A->EntryName < B->EntryName; });
+
+			for (TSharedPtr<FPlayerTreeViewEntry>& Entry : ListToSort)
+			{
+				SortInternal(Entry->Children);
+			}
+		}
+
+	public:
+		FObjectToEntryBuilder(TArray<TSharedPtr<FPlayerTreeViewEntry>>& InListEntries)
+			: ListEntries(InListEntries)
+		{
+		}
+
+		void AddNode(UAnimGraphNode_Base* Node, FAnimParentNodeAssetOverride& Override)
+		{
+			TSharedPtr<FPlayerTreeViewEntry> Result = AddObject(Node);
+			if (Result.IsValid())
+			{
+				Result->Override = &Override;
+			}
+		}
+
+		void Sort()
+		{
+			SortInternal(ListEntries);
+		}
+	};
+
+	FObjectToEntryBuilder EntryBuilder(ListEntries);
+
 	// Build a hierarchy of entires for a tree view in the form of Blueprint->Graph->Node
-	for(FAnimParentNodeAssetOverride& Override : EditorObject->Overrides)
+	for (FAnimParentNodeAssetOverride& Override : EditorObject->Overrides)
 	{
 		UAnimGraphNode_Base* Node = EditorObject->GetVisualNodeFromGuid(Override.ParentNodeGuid);
-		TSharedPtr<FPlayerTreeViewEntry> NodeEntry = MakeShareable(new FPlayerTreeViewEntry(Node->GetNodeTitle(ENodeTitleType::ListView).ToString(), EPlayerTreeViewEntryType::Node, &Override));
-		
-		// Process blueprint entry
-		TSharedPtr<FPlayerTreeViewEntry>* ExistingBPEntry = ListEntries.FindByPredicate([Node](const TSharedPtr<FPlayerTreeViewEntry>& Other)
-		{
-			return Node->GetBlueprint()->GetName() == Other->EntryName;
-		});
-
-		if(!ExistingBPEntry)
-		{
-			ListEntries.Add(MakeShareable(new FPlayerTreeViewEntry(Node->GetBlueprint()->GetName(), EPlayerTreeViewEntryType::Blueprint)));
-			ExistingBPEntry = &ListEntries.Last();
-		}
-
-		// Process graph entry
-		TSharedPtr<FPlayerTreeViewEntry>* ExistingGraphEntry = (*ExistingBPEntry)->Children.FindByPredicate([Node](const TSharedPtr<FPlayerTreeViewEntry>& Other)
-		{
-			return Node->GetGraph()->GetName() == Other->EntryName;
-		});
-
-		if(!ExistingGraphEntry)
-		{
-			(*ExistingBPEntry)->Children.Add(MakeShareable(new FPlayerTreeViewEntry(Node->GetGraph()->GetName(), EPlayerTreeViewEntryType::Graph)));
-			ExistingGraphEntry = &(*ExistingBPEntry)->Children.Last();
-		}
-
-		// Process node entry
-		(*ExistingGraphEntry)->Children.Add(NodeEntry);
+		EntryBuilder.AddNode(Node, Override);
 	}
+
+	// Sort the nodes
+	EntryBuilder.Sort();
 
 	FDetailWidgetRow& Row = Category.AddCustomRow(FText::GetEmpty());
 	TSharedRef<STreeView<TSharedPtr<FPlayerTreeViewEntry>>> TreeView = SNew(STreeView<TSharedPtr<FPlayerTreeViewEntry>>)
@@ -836,7 +907,7 @@ void FAnimGraphParentPlayerDetails::CustomizeDetails(class IDetailLayoutBuilder&
 		);
 
 	// Expand top level (blueprint) entries so the panel seems less empty
-	for(TSharedPtr<FPlayerTreeViewEntry> Entry : ListEntries)
+	for (TSharedPtr<FPlayerTreeViewEntry> Entry : ListEntries)
 	{
 		TreeView->SetItemExpansion(Entry, true);
 	}

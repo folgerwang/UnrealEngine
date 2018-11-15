@@ -8,6 +8,7 @@
 #include "PhysicsEngine/BodyInstance.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsPublic.h"
@@ -194,6 +195,11 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 
 	/////// ACCUMULATE ERROR IF NOT APPROACHING SOLUTION ///////
 
+	// Store sleeping state
+	const bool bShouldSleep = (NewState.Flags & ERigidBodyFlags::Sleeping) != 0;
+	const bool bWasAwake = BI->IsInstanceAwake();
+	const bool bAutoWake = false;
+
 	const float Error = (LinDiffSize * ErrorPerLinearDiff) + (AngDiff * ErrorPerAngularDiff);
 	bRestoredState = Error < MaxRestoredStateError;
 	if (bRestoredState)
@@ -243,68 +249,63 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 		{
 			PhysicsTarget.AccumulatedErrorSeconds = FMath::Max(PhysicsTarget.AccumulatedErrorSeconds - DeltaSeconds, 0.0f);
 		}
+
+		// Hard snap if error accumulation or linear error is big enough, and clear the error accumulator.
+		const bool bHardSnap =
+			LinDiffSize > MaxLinearHardSnapDistance ||
+			PhysicsTarget.AccumulatedErrorSeconds > ErrorAccumulationSeconds ||
+			CharacterMovementCVars::AlwaysHardSnap;
+		if (bHardSnap)
+		{
+			PhysicsTarget.AccumulatedErrorSeconds = 0.0f;
+			bRestoredState = true;
+		}
+
+		/////// SIMPLE EXPONENTIAL MATCH ///////
+
+		const FVector NewLinVel = bHardSnap ? FVector(NewState.LinVel) : FVector(NewState.LinVel) + (LinDiff * LinearVelocityCoefficient * DeltaSeconds);
+		const FVector NewAngVel = bHardSnap ? FVector(NewState.AngVel) : FVector(NewState.AngVel) + (AngDiffAxis * AngDiff * AngularVelocityCoefficient * DeltaSeconds);
+
+		const FVector NewPos = FMath::Lerp(CurrentState.Position, TargetPos, bHardSnap ? 1.0f : PositionLerp);
+		const FQuat NewAng = FQuat::Slerp(CurrentState.Quaternion, TargetQuat, bHardSnap ? 1.0f : AngleLerp);
+
+		/////// UPDATE BODY ///////
+
+		// Set the new transform
+		const bool bResetPhysics = CharacterMovementCVars::AlwaysResetPhysics || bHardSnap;
+		const ETeleportType PhysicsTeleportMode = bResetPhysics ? ETeleportType::ResetPhysics : ETeleportType::TeleportPhysics;
+		BI->SetBodyTransform(FTransform(NewAng, NewPos), PhysicsTeleportMode, bAutoWake);
+
+		// Set the new velocities
+		BI->SetLinearVelocity(NewLinVel, false, bAutoWake);
+		BI->SetAngularVelocityInRadians(FMath::DegreesToRadians(NewAngVel), false, bAutoWake);
+
+#if !UE_BUILD_SHIPPING
+		if (CharacterMovementCVars::NetShowCorrections != 0)
+		{
+			PhysicsTarget.ErrorHistory.bAutoAdjustMinMax = false;
+			PhysicsTarget.ErrorHistory.MinValue = 0.0f;
+			PhysicsTarget.ErrorHistory.MaxValue = 1.0f;
+			PhysicsTarget.ErrorHistory.AddSample(PhysicsTarget.AccumulatedErrorSeconds / ErrorAccumulationSeconds);
+			if (UWorld* OwningWorld = GetOwningWorld())
+			{
+				FColor Color = FColor::White;
+				DrawDebugDirectionalArrow(OwningWorld, CurrentState.Position, TargetPos, 5.0f, Color, true, CharacterMovementCVars::NetCorrectionLifetime, 0, 1.5f);
+				DrawDebugFloatHistory(*OwningWorld, PhysicsTarget.ErrorHistory, NewPos + FVector(0.0f, 0.0f, 100.0f), FVector2D(100.0f, 50.0f), FColor::White);
+			}
+		}
+#endif
 	}
-
-	PhysicsTarget.PrevPosTarget = TargetPos;
-	PhysicsTarget.PrevPos = FVector(CurrentState.Position);
-
-	// Hard snap if error accumulation or linear error is big enough, and clear the error accumulator.
-	const bool bHardSnap =
-		LinDiffSize > MaxLinearHardSnapDistance ||
-		PhysicsTarget.AccumulatedErrorSeconds > ErrorAccumulationSeconds ||
-		CharacterMovementCVars::AlwaysHardSnap;
-	if (bHardSnap)
-	{
-		PhysicsTarget.AccumulatedErrorSeconds = 0.0f;
-		bRestoredState = true;
-	}
-
-	/////// SIMPLE EXPONENTIAL MATCH ///////
-
-	const FVector NewLinVel = bHardSnap ? FVector(NewState.LinVel) : FVector(NewState.LinVel) + (LinDiff * LinearVelocityCoefficient * DeltaSeconds);
-	const FVector NewAngVel = bHardSnap ? FVector(NewState.AngVel) : FVector(NewState.AngVel) + (AngDiffAxis * AngDiff * AngularVelocityCoefficient * DeltaSeconds);
-
-	const FVector NewPos = FMath::Lerp(CurrentState.Position, TargetPos, bHardSnap ? 1.0f : PositionLerp);
-	const FQuat NewAng = FQuat::Slerp(CurrentState.Quaternion, TargetQuat, bHardSnap ? 1.0f : AngleLerp);
-
-	/////// UPDATE BODY ///////
-
-	// Store sleeping state
-	const bool bShouldSleep = (NewState.Flags & ERigidBodyFlags::Sleeping) != 0;
-	const bool bWasAwake = BI->IsInstanceAwake();
-	const bool bAutoWake = !bShouldSleep;
-
-	// Set the new transform
-	const bool bResetPhysics = CharacterMovementCVars::AlwaysResetPhysics || bHardSnap;
-	const ETeleportType PhysicsTeleportMode = bResetPhysics ? ETeleportType::ResetPhysics : ETeleportType::TeleportPhysics;
-	BI->SetBodyTransform(FTransform(NewAng, NewPos), PhysicsTeleportMode, bAutoWake);
-
-	// Set the new velocities
-	BI->SetLinearVelocity(NewLinVel, false, bAutoWake);
-	BI->SetAngularVelocityInRadians(FMath::DegreesToRadians(NewAngVel), false, bAutoWake);
 
 	/////// SLEEP UPDATE ///////
 
-	if (bShouldSleep && !bWasAwake)
+	if (bShouldSleep)
 	{
 		BI->PutInstanceToSleep();
 	}
 
-#if !UE_BUILD_SHIPPING
-	if (CharacterMovementCVars::NetShowCorrections != 0)
-	{
-		PhysicsTarget.ErrorHistory.bAutoAdjustMinMax = false;
-		PhysicsTarget.ErrorHistory.MinValue = 0.0f;
-		PhysicsTarget.ErrorHistory.MaxValue = 1.0f;
-		PhysicsTarget.ErrorHistory.AddSample(PhysicsTarget.AccumulatedErrorSeconds / ErrorAccumulationSeconds);
-		if (UWorld* OwningWorld = GetOwningWorld())
-		{
-			FColor Color = FColor::White;
-			DrawDebugDirectionalArrow(OwningWorld, CurrentState.Position, TargetPos, 5.0f, Color, true, CharacterMovementCVars::NetCorrectionLifetime, 0, 1.5f);
-			DrawDebugFloatHistory(*OwningWorld, PhysicsTarget.ErrorHistory, NewPos + FVector(0.0f, 0.0f, 100.0f), FVector2D(100.0f, 50.0f), FColor::White);
-		}
-	}
-#endif
+	PhysicsTarget.PrevPosTarget = TargetPos;
+	PhysicsTarget.PrevPos = FVector(CurrentState.Position);
 
 	return bRestoredState;
 }

@@ -52,6 +52,7 @@ APlayerCameraManager::APlayerCameraManager(const FObjectInitializer& ObjectIniti
 	bUseClientSideCameraUpdates = true;
 	CameraStyle = NAME_Default;
 	bCanBeDamaged = false;
+	TimeSinceLastServerUpdateCamera = 0.0f;
 
 	// create dummy transform component
 	TransformComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TransformComponent0"));
@@ -874,19 +875,26 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 	{
 		DoUpdateCamera(DeltaTime);
 
+		TimeSinceLastServerUpdateCamera += DeltaTime;
+
 		if (bShouldSendClientSideCameraUpdate && IsNetMode(NM_Client))
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ServerUpdateCamera);
 
 			FMinimalViewInfo CurrentPOV = GetCameraCachePOV();
+			
+			if (!CurrentPOV.Equals(GetLastFrameCameraCachePOV()) || TimeSinceLastServerUpdateCamera > ServerUpdateCameraTimeout)
+			{
+				// compress the rotation down to 4 bytes
+				int32 const ShortYaw = FRotator::CompressAxisToShort(CurrentPOV.Rotation.Yaw);
+				int32 const ShortPitch = FRotator::CompressAxisToShort(CurrentPOV.Rotation.Pitch);
+				int32 const CompressedRotation = (ShortYaw << 16) | ShortPitch;
 
-			// compress the rotation down to 4 bytes
-			int32 const ShortYaw = FRotator::CompressAxisToShort(CurrentPOV.Rotation.Yaw);
-			int32 const ShortPitch = FRotator::CompressAxisToShort(CurrentPOV.Rotation.Pitch);
-			int32 const CompressedRotation = (ShortYaw << 16) | ShortPitch;
+				FVector ClientCameraPosition = FRepMovement::RebaseOntoZeroOrigin(CurrentPOV.Location, this);
+				PCOwner->ServerUpdateCamera(ClientCameraPosition, CompressedRotation);
 
-			FVector ClientCameraPosition = FRepMovement::RebaseOntoZeroOrigin(CurrentPOV.Location, this);
-			PCOwner->ServerUpdateCamera(ClientCameraPosition, CompressedRotation);
+				TimeSinceLastServerUpdateCamera = 0.0f;
+			}
 			bShouldSendClientSideCameraUpdate = false;
 		}
 	}

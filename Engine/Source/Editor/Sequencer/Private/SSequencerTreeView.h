@@ -127,6 +127,9 @@ protected:
 	virtual void Private_SelectRangeFromCurrentTo( FDisplayNodeRef InRangeSelectionEnd ) override;
 	virtual void Private_SignalSelectionChanged( ESelectInfo::Type SelectInfo ) override;
 
+	virtual void OnRightMouseButtonDown(const FPointerEvent& MouseEvent) override;
+	virtual void OnRightMouseButtonUp(const FPointerEvent& MouseEvent) override;
+
 private:
 
 	/** Updates the tree selection to match the current sequencer selection. */
@@ -217,6 +220,9 @@ private:
 
 	/** When true, the tree selection is being updated from a change in the sequencer selection. */
 	bool bUpdatingTreeSelection;
+
+	/** Right mouse button is down, don't update sequencer selection. */
+	bool bRightMouseButtonDown;
 
 	/**
 	 * When true a sequencer selection change broadcast was suppressed when updating sequencer selection

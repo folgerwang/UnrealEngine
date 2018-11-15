@@ -10,97 +10,15 @@
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"
 #include "CoreGlobals.h"
+#include "GenericPlatform/GenericApplication.h"
 
 #import <IOKit/graphics/IOGraphicsLib.h>
 #import <IOKit/ps/IOPowerSources.h>
 #import <IOKit/ps/IOPSKeys.h>
-#include <OpenGL/gl3.h>
-
-namespace MacPlatformSurveDefs
-{
-	static const double SurveyTimeoutSeconds = 300.0;
-	static const float WaitSleepSeconds = 2.0;
-}
-
-bool FMacPlatformSurvey::bSurveyPending = false;
-bool FMacPlatformSurvey::bSurveyComplete = false;
-bool FMacPlatformSurvey::bSurveyFailed = false;
-double FMacPlatformSurvey::SurveyStartTimeSeconds = 0.0;
-FHardwareSurveyResults FMacPlatformSurvey::Results;
 
 bool FMacPlatformSurvey::GetSurveyResults( FHardwareSurveyResults& OutResults, bool bWait )
 {
-	// Early out failed state
-	if (bSurveyFailed)
-	{
-		return false;
-	}
-
-	if (!bSurveyComplete)
-	{
-		// Tick survey process
-		double StartWaitTime = FPlatformTime::Seconds();
-		do
-		{
-			if (!bSurveyPending)
-			{
-				// start survey
-				BeginSurveyHardware();
-			}
-			else
-			{
-				// tick pending survey
-				TickSurveyHardware(Results);
-			}
-
-			if (bWait && bSurveyPending)
-			{
-				FPlatformProcess::Sleep(MacPlatformSurveDefs::WaitSleepSeconds);
-			}
-
-		} while (bWait && bSurveyPending);
-	}
-
-	if (bSurveyComplete)
-	{
-		OutResults = Results;
-	}
-	return bSurveyComplete;
-}
-
-void FMacPlatformSurvey::BeginSurveyHardware()
-{
-	if (bSurveyPending)
-	{
-		UE_LOG(LogMac, Error, TEXT("FMacPlatformSurvey::BeginSurveyHardware() survey already in-progress") );
-		bSurveyFailed = true;
-		return;
-	}
-
-	SurveyStartTimeSeconds = FPlatformTime::Seconds();
-	bSurveyPending = true;
-}
-
-void FMacPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults )
-{
-	if (!bSurveyPending)
-	{
-		bSurveyFailed = true;
-		return;
-	}
-
-	if (MacPlatformSurveDefs::SurveyTimeoutSeconds < FPlatformTime::Seconds() - SurveyStartTimeSeconds)
-	{
-		UE_LOG(LogMac, Error, TEXT("FMacPlatformSurvey::EndSurveyHardware() survey timed out") );
-		bSurveyPending = false;
-		bSurveyFailed = true;
-		return;
-	}
-
 	FMemory::Memset(&OutResults, 0, sizeof(FHardwareSurveyResults));
-
-	bSurveyPending = false;
-
 	WriteFStringToResults(OutResults.Platform, TEXT("Mac"));
 
 	// Get memory
@@ -114,67 +32,17 @@ void FMacPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults 
 	uint64_t TotalPhys = FreeMem + UsedMem;
 	OutResults.MemoryMB = uint32(float(TotalPhys/1024.0/1024.0)+ .1f);
 
-	if ([NSOpenGLContext currentContext])
+	// Identify Display Devices
+	FDisplayMetrics DisplayMetrics;
+	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
+
+	OutResults.DisplayCount = FMath::Min(DisplayMetrics.MonitorInfo.Num(), FHardwareSurveyResults::MaxDisplayCount);
+
+	for (uint32 DisplayIndex = 0; DisplayIndex < OutResults.DisplayCount; ++DisplayIndex)
 	{
-		// Get OpenGL version
-		GLint MajorVersion = 0;
-		GLint MinorVersion = 0;
-		glGetIntegerv(GL_MAJOR_VERSION, &MajorVersion);
-		glGetIntegerv(GL_MINOR_VERSION, &MinorVersion);
-		FString OpenGLVerString = FString::Printf(TEXT("%d.%d"), MajorVersion, MinorVersion);
-		WriteFStringToResults(OutResults.MultimediaAPI, OpenGLVerString);
-
-		// Display devices
-		OutResults.DisplayCount = 0;
-		CGDirectDisplayID Displays[FHardwareSurveyResults::MaxDisplayCount];
-		if (CGGetActiveDisplayList(FHardwareSurveyResults::MaxDisplayCount, Displays, &OutResults.DisplayCount) == CGDisplayNoErr)
-		{
-			for (uint32 Index = 0; Index < OutResults.DisplayCount; Index++)
-			{
-				FHardwareDisplay& Display = OutResults.Displays[Index];
-
-				Display.CurrentModeWidth = CGDisplayPixelsWide(Displays[Index]);
-				Display.CurrentModeHeight = CGDisplayPixelsHigh(Displays[Index]);
-
-				WriteFStringToResults(Display.GPUCardName, FString(StringCast<TCHAR>((const char*)glGetString(GL_RENDERER)).Get()));
-				WriteFStringToResults(Display.GPUDriverVersion, FString(StringCast<TCHAR>((const char*)glGetString(GL_VERSION)).Get()));
-
-				CGLRendererInfoObj InfoObject;
-				GLint NumRenderers = 0;
-				if (CGLQueryRendererInfo(CGDisplayIDToOpenGLDisplayMask(Displays[Index]), &InfoObject, &NumRenderers) == kCGLNoError && NumRenderers > 0)
-				{
-					CGLDescribeRenderer(InfoObject, 0, kCGLRPVideoMemoryMegabytes, (GLint*)&Display.GPUDedicatedMemoryMB);
-					CGLDestroyRendererInfo(InfoObject);
-				}
-				else
-				{
-					UE_LOG(LogMac, Warning, TEXT("FMacPlatformSurvey::TickSurveyHardware() failed to query renderer info for disaplay %u"), Index );
-					OutResults.ErrorCount++;
-					WriteFStringToResults(OutResults.LastSurveyError, TEXT("Failed to query renderer info"));
-					WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-				}
-			}
-		}
-		else
-		{
-			UE_LOG(LogMac, Warning, TEXT("FMacPlatformSurvey::TickSurveyHardware() failed to get active displays list") );
-			OutResults.ErrorCount++;
-			WriteFStringToResults(OutResults.LastSurveyError, TEXT("Failed to get active displays list"));
-			WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-		}
-
-		if (OutResults.DisplayCount == 0)
-		{
-			OutResults.ErrorCount++;
-			WriteFStringToResults(OutResults.LastSurveyError, TEXT("Display count zero"));
-			WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-		}
-		else if (OutResults.DisplayCount > 3)
-		{
-			OutResults.ErrorCount++;
-			WriteFStringToResults(OutResults.LastSurveyError, FString::Printf(TEXT("Display count %d"), OutResults.DisplayCount));
-			WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
-		}
+		FMonitorInfo& Info = DisplayMetrics.MonitorInfo[DisplayIndex];
+		OutResults.Displays[DisplayIndex].CurrentModeHeight = Info.NativeHeight;
+		OutResults.Displays[DisplayIndex].CurrentModeWidth = Info.NativeWidth;
 	}
 
 	// Get CPU count
@@ -190,6 +58,10 @@ void FMacPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults 
 	}
 
 	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark, true, 5.f);
+
+	FString RHIName;
+	ISynthBenchmark::Get().GetRHIInfo(OutResults.RHIAdapter, RHIName);
+	WriteFStringToResults(OutResults.RenderingAPI, RHIName);
 
 	// Get CPU speed
 	if (OutResults.CPUCount > 0)
@@ -295,7 +167,7 @@ void FMacPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults 
 		WriteFStringToResults(OutResults.LastSurveyErrorDetail, TEXT(""));
 	}
 
-	bSurveyComplete = true;
+	return true;
 }
 
 void FMacPlatformSurvey::WriteFStringToResults(TCHAR* OutBuffer, const FString& InString)

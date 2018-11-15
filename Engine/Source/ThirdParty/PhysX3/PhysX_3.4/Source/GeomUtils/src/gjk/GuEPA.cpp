@@ -265,7 +265,7 @@ namespace Gu
 	}
 
 	//ML: this function performs a flood fill over the boundary of the current polytope. 
-	void Facet::silhouette(const PxU32 _index, const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, EPAFacetManager& manager) 
+	bool Facet::silhouette(const PxU32 _index, const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, EPAFacetManager& manager)
 	{
 		using namespace Ps::aos;
 		const FloatV zero = FZero();
@@ -288,7 +288,10 @@ namespace Gu
 				{
 					//ML: facet isn't visible from w (we don't have a reflex edge), this facet will be on the boundary and part of the new polytope so that
 					//we will push it into our edgeBuffer
-					edgeBuffer.Insert(f, index);
+					if (!edgeBuffer.Insert(f, index))
+					{
+						return false;
+					}
 				} 
 				else 
 				{
@@ -308,16 +311,21 @@ namespace Gu
 				}
 			}
 		}
+		return true;
 	}
 
 	//ML: this function perform flood fill for the adjancent facet and store the boundary facet into the edgeBuffer
-	void Facet::silhouette(const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, EPAFacetManager& manager)
+	bool Facet::silhouette(const Ps::aos::Vec3VArg w, const Ps::aos::Vec3V* PX_RESTRICT aBuf, const Ps::aos::Vec3V* PX_RESTRICT bBuf, EdgeBuffer& edgeBuffer, EPAFacetManager& manager)
 	{
 		m_obsolete = true;
 		for(PxU32 a = 0; a < 3; ++a)
 		{
-			m_adjFacets[a]->silhouette(PxU32(m_adjEdges[a]), w, aBuf, bBuf, edgeBuffer, manager);
+			if (!m_adjFacets[a]->silhouette(PxU32(m_adjEdges[a]), w, aBuf, bBuf, edgeBuffer, manager))
+			{
+				return false;
+			}
 		}
+		return true;
 	}
 
 	bool EPA::expandPoint(const GjkConvex& a, const GjkConvex& b, PxI32& numVerts, const FloatVArg upperBound)
@@ -620,7 +628,10 @@ namespace Gu
 
 				edgeBuffer.MakeEmpty();
 
-				facet->silhouette(q, aBuf, bBuf, edgeBuffer, facetManager);
+				if (!facet->silhouette(q, aBuf, bBuf, edgeBuffer, facetManager))
+				{
+					return EPA_DEGENERATE;
+				}
 
 				if (edgeBuffer.IsEmpty())
 				{

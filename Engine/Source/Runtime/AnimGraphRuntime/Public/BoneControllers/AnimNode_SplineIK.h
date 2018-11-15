@@ -168,22 +168,17 @@ private:
 	TArray<FSplinePositionLinearApproximation> LinearApproximation;
 
 	/** Spline we maintain internally */
-	UPROPERTY()
 	FSplineCurves BoneSpline;
 
 	/** Cached spline length from when the spline was originally applied to the skeleton */
-	UPROPERTY()
 	float OriginalSplineLength;
 
 	/** Cached data for bones in the IK chain, from start to end */
-	UPROPERTY()
 	TArray<FSplineIKCachedBoneData> CachedBoneReferences;
 
 	/** Cached bone lengths. Same size as CachedBoneReferences */
-	UPROPERTY()
 	TArray<float> CachedBoneLengths;
 
 	/** Cached bone offset rotations. Same size as CachedBoneReferences */
-	UPROPERTY()
 	TArray<FQuat> CachedOffsetRotations;
 };

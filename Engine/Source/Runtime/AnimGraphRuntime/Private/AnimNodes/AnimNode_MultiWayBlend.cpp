@@ -86,7 +86,7 @@ void FAnimNode_MultiWayBlend::UpdateCachedAlphas()
 void FAnimNode_MultiWayBlend::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimationNode_MultiWayBlend_Update);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	UpdateCachedAlphas();
 
 	for (int32 PoseIndex = 0; PoseIndex < Poses.Num(); ++PoseIndex)

@@ -5,7 +5,7 @@
 #include "Sections/MovieSceneSpawnSection.h"
 #include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
-#include "MovieSceneBindingOverridesInterface.h"
+#include "IMovieScenePlaybackClient.h"
 
 DECLARE_CYCLE_STAT(TEXT("Spawn Track Evaluate"), MovieSceneEval_SpawnTrack_Evaluate, STATGROUP_MovieSceneEval);
 DECLARE_CYCLE_STAT(TEXT("Spawn Track Token Execute"), MovieSceneEval_SpawnTrack_TokenExecute, STATGROUP_MovieSceneEval);
@@ -50,11 +50,11 @@ struct FSpawnObjectToken : IMovieSceneExecutionToken
 		bool bHasSpawnedObject = Player.GetSpawnRegister().FindSpawnedObject(Operand.ObjectBindingID, Operand.SequenceID) != nullptr;
 		
 		// Check binding overrides to see if this spawnable has been overridden, and whether it allows the default spawnable to exist
-		const IMovieSceneBindingOverridesInterface* Overrides = Player.GetBindingOverrides();
-		if (Overrides)
+		const IMovieScenePlaybackClient* PlaybackClient = Player.GetPlaybackClient();
+		if (PlaybackClient)
 		{
 			TArray<UObject*, TInlineAllocator<1>> FoundObjects;
-			bool bUseDefaultBinding = Overrides->LocateBoundObjects(Operand.ObjectBindingID, Operand.SequenceID, FoundObjects);
+			bool bUseDefaultBinding = PlaybackClient->RetrieveBindingOverrides(Operand.ObjectBindingID, Operand.SequenceID, FoundObjects);
 			if (!bUseDefaultBinding)
 			{
 				bHasSpawnedObject = true;

@@ -99,7 +99,7 @@ void FOnlineExternalUIGameCircle::GameActivityOnResume()
 					Subsystem->GetIdentityGameCircle()->SetCurrentUserId(PlayerId);
 				}
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Executing ShowLoginUI Delegate if safe. PlayerId - %s  Index=%d"), *PlayerId->ToString(), ShowLoginControllerIndex);
-				ShowLoginDelegate.ExecuteIfBound(PlayerId, ShowLoginControllerIndex, FOnlineError(true));
+				ShowLoginDelegate.ExecuteIfBound(PlayerId, ShowLoginControllerIndex, FOnlineError::Success());
 
 				ShowLoginDelegate.Unbind();
 			}

@@ -27,14 +27,27 @@ void FAssetTypeActions_GameplayAbilitiesBlueprint::OpenAssetEditor( const TArray
 	for (auto ObjIt = InObjects.CreateConstIterator(); ObjIt; ++ObjIt)
 	{
 		auto Blueprint = Cast<UBlueprint>(*ObjIt);
-		if (Blueprint && Blueprint->SkeletonGeneratedClass && Blueprint->GeneratedClass )
+		if (Blueprint )
 		{
-			TSharedRef< FGameplayAbilitiesEditor > NewEditor(new FGameplayAbilitiesEditor());
+			bool bLetOpen = true;
+			if (!Blueprint->ParentClass)
+			{
+				bLetOpen = EAppReturnType::Yes == FMessageDialog::Open(
+					EAppMsgType::YesNo, 
+					LOCTEXT("FailedToLoadAbilityBlueprintWithContinue", 
+						"Gameplay Ability Blueprint could not be loaded because it derives from an invalid class.  Check to make sure the parent class for this blueprint hasn't been removed! Do you want to continue (it can crash the editor)?"
+				));
+			}
+		
+			if (bLetOpen)
+			{
+				TSharedRef< FGameplayAbilitiesEditor > NewEditor(new FGameplayAbilitiesEditor());
 
-			TArray<UBlueprint*> Blueprints;
-			Blueprints.Add(Blueprint);
+				TArray<UBlueprint*> Blueprints;
+				Blueprints.Add(Blueprint);
 
-			NewEditor->InitGameplayAbilitiesEditor(Mode, EditWithinLevelEditor, Blueprints, ShouldUseDataOnlyEditor(Blueprint));
+				NewEditor->InitGameplayAbilitiesEditor(Mode, EditWithinLevelEditor, Blueprints, ShouldUseDataOnlyEditor(Blueprint));
+			}
 		}
 		else
 		{

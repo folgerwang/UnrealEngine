@@ -5977,6 +5977,8 @@ bool UBlueprintFactory::ConfigureProperties()
 	// Enable Class Dynamic Loading
 	Options.bEnableClassDynamicLoading = true;
 
+	Options.NameTypeToDisplay = EClassViewerNameTypeToDisplay::Dynamic;
+
 	// Prevent creating blueprints of classes that require special setup (they'll be allowed in the corresponding factories / via other means)
 	TSharedPtr<FBlueprintParentFilter> Filter = MakeShareable(new FBlueprintParentFilter);
 	Options.ClassFilter = Filter;

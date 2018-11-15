@@ -866,6 +866,38 @@ struct FSoftObjectPathRenameSerializer : public FArchiveUObject
 		this->SetIsSaving(true);
 	}
 
+	virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
+	{
+		if (InProperty->HasAnyPropertyFlags(CPF_Transient | CPF_Deprecated | CPF_IsPlainOldData))
+		{
+			return true;
+		}
+
+		const UClass* PropertyClass = InProperty->GetClass();
+		if (PropertyClass->HasAnyCastFlag(CASTCLASS_UBoolProperty | CASTCLASS_UNameProperty | CASTCLASS_UStrProperty | CASTCLASS_UTextProperty | CASTCLASS_UMulticastDelegateProperty))
+		{
+			return true;
+		}
+
+		if (PropertyClass->HasAnyCastFlag(CASTCLASS_UArrayProperty | CASTCLASS_UMapProperty | CASTCLASS_USetProperty))
+		{
+			if (const UArrayProperty* ArrayProperty = ExactCast<UArrayProperty>(InProperty))
+			{
+				return ShouldSkipProperty(ArrayProperty->Inner);
+			}
+			else if (const UMapProperty* MapProperty = ExactCast<UMapProperty>(InProperty))
+			{
+				return ShouldSkipProperty(MapProperty->KeyProp) && ShouldSkipProperty(MapProperty->ValueProp);
+			}
+			else if (const USetProperty* SetProperty = ExactCast<USetProperty>(InProperty))
+			{
+				return ShouldSkipProperty(SetProperty->ElementProp);
+			}
+		}
+
+		return false;
+	}
+
 	FArchive& operator<<(FSoftObjectPath& Value)
 	{
 		// Ignore untracked references if just doing a search only. We still want to fix them up if they happen to be there

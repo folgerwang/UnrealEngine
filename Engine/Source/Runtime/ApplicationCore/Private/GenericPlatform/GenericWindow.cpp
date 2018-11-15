@@ -190,3 +190,8 @@ void FGenericWindow::SetManualManageDPIChanges(const bool bAutoHandle)
 {
 	// empty default functionality
 }
+
+void FGenericWindow::DrawAttention(const FWindowDrawAttentionParameters& Parameters)
+{
+	// empty default functionality
+}

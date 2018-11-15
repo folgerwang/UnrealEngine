@@ -31,7 +31,7 @@ public:
 				EMovieSceneCompletionMode::ProjectDefault);
 	}
 
-	DEPRECATED(4.18, "Camera guid no longer supported, Use GetCameraBindingID.")
+	UE_DEPRECATED(4.18, "Camera guid no longer supported, Use GetCameraBindingID.")
 	FGuid GetCameraGuid() const
 	{
 		return FGuid();

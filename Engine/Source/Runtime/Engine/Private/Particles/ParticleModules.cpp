@@ -983,6 +983,11 @@ void UParticleModuleSourceMovement::FinalUpdate(FParticleEmitterInstance* Owner,
 	}
 }
 
+bool UParticleModuleSourceMovement::CanTickInAnyThread()
+{
+	return SourceMovementScale.OkForParallel();
+}
+
 /*-----------------------------------------------------------------------------
 	UParticleModuleOrientationBase implementation.
 -----------------------------------------------------------------------------*/

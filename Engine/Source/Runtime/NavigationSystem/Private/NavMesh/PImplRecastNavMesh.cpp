@@ -196,6 +196,11 @@ void FRecastQueryFilter::SetBacktrackingEnabled(const bool bBacktracking)
 	setIsBacktracking(bBacktracking);
 }
 
+void FRecastQueryFilter::SetShouldIgnoreClosedNodes(const bool bIgnoreClosed)
+{
+	setShouldIgnoreClosedNodes(bIgnoreClosed);
+}
+
 bool FRecastQueryFilter::IsBacktrackingEnabled() const
 {
 	return getIsBacktracking();
@@ -966,10 +971,12 @@ float FPImplRecastNavMesh::CalcSegmentCostOnPoly(NavNodeRef PolyID, const dtQuer
 void FPImplRecastNavMesh::PostProcessPath(dtStatus FindPathStatus, FNavMeshPath& Path,
 	const dtNavMeshQuery& NavQuery, const dtQueryFilter* Filter,
 	NavNodeRef StartPolyID, NavNodeRef EndPolyID,
-	const FVector& StartLoc, const FVector& EndLoc,
-	const FVector& RecastStartPos, FVector& RecastEndPos,
+	FVector StartLoc, FVector EndLoc,
+	FVector RecastStartPos, FVector RecastEndPos,
 	dtQueryResult& PathResult) const
 {
+	check(Filter);
+
 	// note that for recast partial path is successful, while we treat it as failed, just marking it as partial
 	if (dtStatusSucceed(FindPathStatus))
 	{
@@ -1009,7 +1016,18 @@ void FPImplRecastNavMesh::PostProcessPath(dtStatus FindPathStatus, FNavMeshPath&
 			*DestCorridorPoly = PathResult.getRef(i);
 		}
 
-		Path.OnPathCorridorUpdated(); 
+		Path.OnPathCorridorUpdated();
+
+		// if we're backtracking this is the time to reverse the path.
+		if (Filter->getIsBacktracking())
+		{
+			// for a proper string-pulling of a backtracking path we need to
+			// reverse the data right now.
+			Path.Invert();
+			Swap(StartPolyID, EndPolyID);
+			Swap(StartLoc, EndLoc);
+			Swap(RecastStartPos, RecastEndPos);
+		}
 
 #if STATS
 		if (dtStatusDetail(FindPathStatus, DT_OUT_OF_NODES))

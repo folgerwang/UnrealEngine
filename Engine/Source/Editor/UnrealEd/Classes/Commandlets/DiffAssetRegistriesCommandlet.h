@@ -140,8 +140,10 @@ private:
 
 	bool	IsInRelevantChunk(FAssetRegistryState& InRegistryState, FName InAssetPath);
 
-	void	LogChangedFiles();
+	void	LogChangedFiles(FArchive *CSVFile, const FString &OldPath, const FString &NewPath);
+	void	SummarizeDeterminism();
 
+	void	PopulateChangelistMap(const FString &Branch, const FString &CL, bool bEnginePackages);
 	void	FillChangelists(FString Branch, FString CL, FString BasePath, FString AssetPath);
 	bool	LaunchP4(const FString& Args, TArray<FString>& Output, int32& OutReturnCode) const;
 
@@ -172,10 +174,13 @@ private:
 	SortOrder			ReportedFileOrder;
 
 	FChangeInfo					ChangeSummary;
+	FChangeInfo					NondeterministicSummary;
+	FChangeInfo					IndirectNondeterministicSummary;
 	TMap<FName, FChangeInfo>	ChangeSummaryByClass;
 	TMap<FName, FChangeInfo>	ChangeInfoByAsset;
+	TMap<int32, FChangeInfo>	ChangeSummaryByChangelist;
 	TMap<FName, FName>			AssetPathToClassName;
-	TMap<FName, int64>			AssetPathToChangelist;
+	TMap<FString, int32>		AssetPathToChangelist;
 	TMap<FName, int32>			AssetPathFlags;
 
 	UPROPERTY(config)

@@ -125,6 +125,7 @@ public:
 	virtual void* GetOSWindowHandle() const  override { return HWnd; }
 	virtual bool IsForegroundWindow() const override;
 	virtual void SetText(const TCHAR* const Text) override;
+	virtual void DrawAttention(const FWindowDrawAttentionParameters& Parameters) override;
 
 public:
 

@@ -33,6 +33,7 @@ class URecastNavMeshDataChunk;
 struct FRecastAreaNavModifierElement;
 class dtNavMesh;
 class dtQueryFilter;
+class FRecastNavMeshGenerator;
 
 UENUM()
 namespace ERecastPartitioning
@@ -54,6 +55,9 @@ namespace ERecastPathFlags
 
 	/** If set, path will contain navigation corridor. */
 	const int32 GenerateCorridor = (1 << 1);
+
+	/** Make your game-specific flags start at this index */
+	const uint8 FirstAvailableFlag = 2;
 }
 
 #if WITH_RECAST
@@ -700,7 +704,7 @@ public:
 	/** Area sort function */
 	virtual void SortAreasForGenerator(TArray<FRecastAreaNavModifierElement>& Areas) const;
 
-	void RecreateDefaultFilter();
+	virtual void RecreateDefaultFilter();
 
 	int32 GetMaxSimultaneousTileGenerationJobsCount() const { return MaxSimultaneousTileGenerationJobsCount; }
 	void SetMaxSimultaneousTileGenerationJobsCount(int32 NewJobsCountLimit);
@@ -879,8 +883,12 @@ protected:
 	/** Spawns an ARecastNavMesh instance, and configures it if AgentProps != NULL */
 	static ARecastNavMesh* SpawnInstance(UNavigationSystem* NavSys, const FNavDataConfig* AgentProps = NULL);
 
+	/** created a new FRecastNavMeshGenerator instance. Overrider to supply your
+	 *	own extentions. Note: needs to derive from FRecastNavMeshGenerator */
+	virtual FRecastNavMeshGenerator* CreateGeneratorInstance();
+
 private:
-	friend class FRecastNavMeshGenerator;
+	friend FRecastNavMeshGenerator;
 	friend class FPImplRecastNavMesh;
 	// destroys FPImplRecastNavMesh instance if it has been created 
 	void DestroyRecastPImpl();

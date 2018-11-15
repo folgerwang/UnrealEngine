@@ -170,17 +170,9 @@ void FHealthSnapshot::Dump(FOutputDevice& Ar)
 
 void FHealthSnapshot::DumpStats(FOutputDevice& Ar, FName CategoryName)
 {
-	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("CPU Memory: Used %.2fMB, Peak %.2fMB"), CPUMemoryMB.Used, CPUMemoryMB.Peak);
-	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Physical Memory: Used %.2fMB, Peak %.2fMB"), PhysicalMemoryMB.Used, PhysicalMemoryMB.Peak);
-
-#if PLATFORM_PS4
-	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Garlic: Used %.2f MB"), GarlicMemoryMB.Used);
-	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Onion: Used %.2f MB"), OnionMemoryMB.Used);
-#endif //PLATFORM_PS4
-
 	if (MeasuredPerfTime > 0)
 	{
-		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("MeasuredPerfTime %.02f Secs"), MeasuredPerfTime);
+		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("MeasuredPerfTime: %.02f secs"), MeasuredPerfTime);
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("MVP: %.02f%%, AvgFPS:%.2f, HitchesPerMinute: %.2f, Avg Hitch %.02fms"), MVP, AvgFPS, HitchesPerMinute, AvgHitchTime * 1000);
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("FT: Avg: %.02fms, Max: %.02fms, Min: %.02fms"), FrameTime.Avg * 1000, FrameTime.Max * 1000, FrameTime.Min * 1000);
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("GT:  Avg %.02fms, Hitches/Min: %.02f, Bound Frames: %.02f%%"), GameThread.AvgTime * 1000, GameThread.HitchesPerMinute, GameThread.PercentFramesBound);
@@ -190,6 +182,14 @@ void FHealthSnapshot::DumpStats(FOutputDevice& Ar, FName CategoryName)
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("DrawCalls: Avg: %d, Max: %d, Min: %d"), DrawCalls.Avg, DrawCalls.Max, DrawCalls.Min);
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("DrawnPrims: Avg: %d, Max: %d, Min: %d"), PrimitivesDrawn.Avg, PrimitivesDrawn.Max, PrimitivesDrawn.Min);
 	}
+
+	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("CPU Memory: Used %.2fMB, Peak %.2fMB"), CPUMemoryMB.Used, CPUMemoryMB.Peak);
+	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Physical Memory: Used %.2fMB, Peak %.2fMB"), PhysicalMemoryMB.Used, PhysicalMemoryMB.Peak);
+
+#if PLATFORM_PS4
+	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Garlic: Used %.2f MB"), GarlicMemoryMB.Used);
+	Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Onion: Used %.2f MB"), OnionMemoryMB.Used);
+#endif //PLATFORM_PS4
 }
 
 UHealthSnapshotBlueprintLibrary::UHealthSnapshotBlueprintLibrary(const FObjectInitializer& ObjectInitializer)

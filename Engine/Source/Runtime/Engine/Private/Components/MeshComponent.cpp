@@ -17,6 +17,7 @@ UMeshComponent::UMeshComponent(const FObjectInitializer& ObjectInitializer)
 	bUseAsOccluder = true;
 	bCanEverAffectNavigation = true;
 	bCachedMaterialParameterIndicesAreDirty = true;
+	bEnableMaterialParameterCaching = false;
 }
 
 UMaterialInterface* UMeshComponent::GetMaterial(int32 ElementIndex) const
@@ -240,23 +241,16 @@ bool UMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) const
 
 void UMeshComponent::SetScalarParameterValueOnMaterials(const FName ParameterName, const float ParameterValue)
 {
-	if (bCachedMaterialParameterIndicesAreDirty)
+	if (!bEnableMaterialParameterCaching)
 	{
-		CacheMaterialParameterNameIndices();
-	}
-
-	// Look up material index array according to ParameterName
-	if (FMaterialParameterCache* ParameterCache = MaterialParameterCache.Find(ParameterName))
-	{
-		const TArray<int32>& MaterialIndices = ParameterCache->ScalarParameterMaterialIndices;
-		// Loop over all the material indices and update set the parameter value on the corresponding materials		
-		for ( int32 MaterialIndex : MaterialIndices)
+		const TArray<UMaterialInterface*> MaterialInterfaces = GetMaterials();		
+		for (int32 MaterialIndex = 0; MaterialIndex < MaterialInterfaces.Num(); ++MaterialIndex)
 		{
-			UMaterialInterface* MaterialInterface = GetMaterial(MaterialIndex);
+			UMaterialInterface* MaterialInterface = MaterialInterfaces[MaterialIndex];
 			if (MaterialInterface)
 			{
 				UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
-				if (!DynamicMaterial) 
+				if (!DynamicMaterial)
 				{
 					DynamicMaterial = CreateAndSetMaterialInstanceDynamic(MaterialIndex);
 				}
@@ -266,25 +260,45 @@ void UMeshComponent::SetScalarParameterValueOnMaterials(const FName ParameterNam
 	}
 	else
 	{
-		UE_LOG(LogMaterialParameter, Log, TEXT("%s material parameter hasn't found on the component %s"), *ParameterName.ToString(), *GetPathName());
+		if (bCachedMaterialParameterIndicesAreDirty)
+		{
+			CacheMaterialParameterNameIndices();
+		}
+
+		// Look up material index array according to ParameterName
+		if (FMaterialParameterCache* ParameterCache = MaterialParameterCache.Find(ParameterName))
+		{
+			const TArray<int32>& MaterialIndices = ParameterCache->ScalarParameterMaterialIndices;
+			// Loop over all the material indices and update set the parameter value on the corresponding materials		
+			for (int32 MaterialIndex : MaterialIndices)
+			{
+				UMaterialInterface* MaterialInterface = GetMaterial(MaterialIndex);
+				if (MaterialInterface)
+				{
+					UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
+					if (!DynamicMaterial)
+					{
+						DynamicMaterial = CreateAndSetMaterialInstanceDynamic(MaterialIndex);
+					}
+					DynamicMaterial->SetScalarParameterValue(ParameterName, ParameterValue);
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(LogMaterialParameter, Log, TEXT("%s material parameter hasn't found on the component %s"), *ParameterName.ToString(), *GetPathName());
+		}
 	}
 }
 
 void UMeshComponent::SetVectorParameterValueOnMaterials(const FName ParameterName, const FVector ParameterValue)
 {
-	if (bCachedMaterialParameterIndicesAreDirty)
+	if (!bEnableMaterialParameterCaching)
 	{
-		CacheMaterialParameterNameIndices();
-	}
-
-	// Look up material index array according to ParameterName
-	if (FMaterialParameterCache* ParameterCache = MaterialParameterCache.Find(ParameterName))
-	{
-		const TArray<int32>& MaterialIndices = ParameterCache->VectorParameterMaterialIndices;
-		// Loop over all the material indices and update set the parameter value on the corresponding materials		
-		for ( int32 MaterialIndex : MaterialIndices )
+		const TArray<UMaterialInterface*> MaterialInterfaces = GetMaterials();
+		for (int32 MaterialIndex = 0; MaterialIndex < MaterialInterfaces.Num(); ++MaterialIndex)
 		{
-			UMaterialInterface* MaterialInterface = GetMaterial(MaterialIndex);
+			UMaterialInterface* MaterialInterface = MaterialInterfaces[MaterialIndex];
 			if (MaterialInterface)
 			{
 				UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
@@ -293,6 +307,33 @@ void UMeshComponent::SetVectorParameterValueOnMaterials(const FName ParameterNam
 					DynamicMaterial = CreateAndSetMaterialInstanceDynamic(MaterialIndex);
 				}
 				DynamicMaterial->SetVectorParameterValue(ParameterName, ParameterValue);
+			}
+		}
+	}
+	else
+	{
+		if (bCachedMaterialParameterIndicesAreDirty)
+		{
+			CacheMaterialParameterNameIndices();
+		}
+
+		// Look up material index array according to ParameterName
+		if (FMaterialParameterCache* ParameterCache = MaterialParameterCache.Find(ParameterName))
+		{
+			const TArray<int32>& MaterialIndices = ParameterCache->VectorParameterMaterialIndices;
+			// Loop over all the material indices and update set the parameter value on the corresponding materials		
+			for (int32 MaterialIndex : MaterialIndices)
+			{
+				UMaterialInterface* MaterialInterface = GetMaterial(MaterialIndex);
+				if (MaterialInterface)
+				{
+					UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
+					if (!DynamicMaterial)
+					{
+						DynamicMaterial = CreateAndSetMaterialInstanceDynamic(MaterialIndex);
+					}
+					DynamicMaterial->SetVectorParameterValue(ParameterName, ParameterValue);
+				}
 			}
 		}
 	}
@@ -306,6 +347,12 @@ void UMeshComponent::MarkCachedMaterialParameterNameIndicesDirty()
 
 void UMeshComponent::CacheMaterialParameterNameIndices()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_CacheMaterialParameterNameIndices);
+	if (!bEnableMaterialParameterCaching)
+	{
+		return;
+	}
+
 	// Clean up possible previous data
 	MaterialParameterCache.Reset();
 

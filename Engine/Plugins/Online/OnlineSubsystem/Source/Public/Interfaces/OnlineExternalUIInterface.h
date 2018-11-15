@@ -47,10 +47,17 @@ typedef FOnExternalUIChange::FDelegate FOnExternalUIChangeDelegate;
  */
 struct FLoginFlowResult
 {
+	FLoginFlowResult()
+		: Error(EOnlineErrorResult::Unknown)
+		, NumericErrorCode(0)
+	{ }
+
 	/** Token returned by the login flow (platform dependent) */
 	FString Token;
 	/** Errors generated during login flow */
 	FOnlineError Error;
+	/** Numeric error code provided by the backend expected to correspond to error stored in ErrorCode */
+	int32 NumericErrorCode;
 
 	/** @return true if this result is usable for further login steps */
 	bool IsValid() const { return !Token.IsEmpty(); }
@@ -58,17 +65,17 @@ struct FLoginFlowResult
 	/** @return true if this result has reached a finished state */
 	bool IsComplete() const
 	{ 
-		const bool bSuccess = Error.bSucceeded && !Token.IsEmpty();
-		const bool bError = !Error.bSucceeded && Error.NumericErrorCode;
+		const bool bSuccess = Error.WasSuccessful() && !Token.IsEmpty();
+		const bool bError = !Error.WasSuccessful() && NumericErrorCode;
 		return bSuccess || bError;
 	}
 
 	FString ToDebugString() const
 	{
 #if UE_BUILD_SHIPPING
-		return FString::Printf(TEXT("Token: [REDACTED] Error: %s"), Error.ToLogString());
+		return FString::Printf(TEXT("Token: [REDACTED] Code: %d Error: %s"), NumericErrorCode, *Error.ToLogString());
 #else
-		return FString::Printf(TEXT("Token: %s Error: %s"), *Token, Error.ToLogString());
+		return FString::Printf(TEXT("Token: %s Code: %d Error: %s"), *Token, NumericErrorCode, *Error.ToLogString());
 #endif
 	}
 };

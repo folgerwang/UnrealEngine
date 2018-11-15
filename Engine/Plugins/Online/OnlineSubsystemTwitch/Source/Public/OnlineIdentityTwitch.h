@@ -130,9 +130,6 @@ public:
 
 	// FOnlineIdentityTwitch
 
-	/** @return an invalid/empty unique id */
-	static const FUniqueNetId& GetEmptyUniqueId();
-
 	/** 
 	 * Set the state prefix
 	 * @param StatePrefix the state prefix

@@ -380,9 +380,9 @@ void UAnimCompress::BitwiseCompressAnimationTracks(
 					PadByteStream(Seq->CompressedByteStream, 4, AnimationPadSentinel);
 
 					// write the key table
-					const int32 NumFrames = Seq->NumFrames;
-					const int32 LastFrame = Seq->NumFrames - 1;
-					const size_t FrameSize = Seq->NumFrames > 0xff ? sizeof(uint16) : sizeof(uint8);
+					const int32 NumFrames = Seq->GetRawNumberOfFrames();
+					const int32 LastFrame = Seq->GetRawNumberOfFrames()-1;
+					const size_t FrameSize = Seq->GetRawNumberOfFrames() > 0xff ? sizeof(uint16) : sizeof(uint8);
 					const float FrameRate = LastFrame / Seq->SequenceLength;
 
 					const int32 TableSize = NumKeysTrans*FrameSize;
@@ -482,9 +482,9 @@ void UAnimCompress::BitwiseCompressAnimationTracks(
 					PadByteStream(Seq->CompressedByteStream, 4, AnimationPadSentinel);
 
 					// write the key table
-					const int32 NumFrames = Seq->NumFrames;
-					const int32 LastFrame = Seq->NumFrames - 1;
-					const size_t FrameSize = Seq->NumFrames > 0xff ? sizeof(uint16) : sizeof(uint8);
+					const int32 NumFrames = Seq->GetRawNumberOfFrames();
+					const int32 LastFrame= Seq->GetRawNumberOfFrames()-1;
+					const size_t FrameSize= Seq->GetRawNumberOfFrames() > 0xff ? sizeof(uint16) : sizeof(uint8);
 					const float FrameRate = LastFrame / Seq->SequenceLength;
 
 					const int32 TableSize = NumKeysRot*FrameSize;
@@ -568,9 +568,9 @@ void UAnimCompress::BitwiseCompressAnimationTracks(
 						PadByteStream(Seq->CompressedByteStream, 4, AnimationPadSentinel);
 
 						// write the key table
-						const int32 NumFrames = Seq->NumFrames;
-						const int32 LastFrame = Seq->NumFrames - 1;
-						const size_t FrameSize = Seq->NumFrames > 0xff ? sizeof(uint16) : sizeof(uint8);
+						const int32 NumFrames = Seq->GetRawNumberOfFrames();
+						const int32 LastFrame = Seq->GetRawNumberOfFrames()-1;
+						const size_t FrameSize = Seq->GetRawNumberOfFrames() > 0xff ? sizeof(uint16) : sizeof(uint8);
 						const float FrameRate = LastFrame / Seq->SequenceLength;
 
 						const int32 TableSize = NumKeysScale*FrameSize;
@@ -1020,8 +1020,8 @@ void UAnimCompress::WriteSortedVariableTrackData(
 	const int32 NumTracks = Segment.RotationData.Num();
 	const bool bHasScale = Segment.ScaleData.Num() > 0;
 
-	const int32 LastFrame = AnimSeq.NumFrames - 1;
-	const float FrameRate = float(AnimSeq.NumFrames - 1) / AnimSeq.SequenceLength;
+	const int32 LastFrame = AnimSeq.GetRawNumberOfFrames() - 1;
+	const float FrameRate = float(AnimSeq.GetRawNumberOfFrames() - 1) / AnimSeq.SequenceLength;
 
 	// Samples are sorted by time needed first, track second to ensure that when we sample a time T, data for all tracks at
 	// that time is contiguous in memory
@@ -1231,8 +1231,8 @@ void UAnimCompress::WriteLinearVariableTrackData(
 	const int32 NumTracks = Segment.RotationData.Num();
 	const bool bHasScale = Segment.ScaleData.Num() > 0;
 
-	const int32 LastFrame = AnimSeq.NumFrames - 1;
-	const float FrameRate = float(AnimSeq.NumFrames - 1) / AnimSeq.SequenceLength;
+	const int32 LastFrame = AnimSeq.GetRawNumberOfFrames() - 1;
+	const float FrameRate = float(AnimSeq.GetRawNumberOfFrames() - 1) / AnimSeq.SequenceLength;
 
 	// The linear packing format is more or less the same as the legacy format.
 	// First we have a list of pairs for each track type (rot, trans, scale): offset in stream, number of keys in stream
@@ -1456,7 +1456,7 @@ void UAnimCompress::BitwiseCompressTrivialAnimationTracks(const UAnimSequence& A
 	const int32 NumFrames = RawSegment.NumFrames;
 	const int32 LastFrame = RawSegment.NumFrames - 1;
 	const size_t FrameSize = RawSegment.NumFrames > 0xff ? sizeof(uint16) : sizeof(uint8);
-	const float FrameRate = AnimSeq.NumFrames / AnimSeq.SequenceLength;
+	const float FrameRate = AnimSeq.GetRawNumberOfFrames() / AnimSeq.SequenceLength;
 
 	SanityCheckTrackData(AnimSeq, RawSegment);
 
@@ -2141,7 +2141,7 @@ static int32 GetNumFrames(const UAnimSequence& AnimSeq, const TArray<FTranslatio
 	}
 
 	// Fallback
-	return AnimSeq.NumFrames;
+	return AnimSeq.GetRawNumberOfFrames();
 }
 
 void UAnimCompress::SeparateRawDataIntoTracks(

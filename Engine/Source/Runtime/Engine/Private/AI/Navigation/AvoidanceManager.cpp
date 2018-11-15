@@ -60,6 +60,7 @@ UAvoidanceManager::UAvoidanceManager(const FObjectInitializer& ObjectInitializer
 	ArtificialRadiusExpansion = 1.5f;
 	TestHeightDifference_DEPRECATED = 500.0f;
 	bRequestedUpdateTimer = false;
+	bAutoPurceOutdatedObjects = true;
 	HeightCheckMargin = 10.0f;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -67,8 +68,38 @@ UAvoidanceManager::UAvoidanceManager(const FObjectInitializer& ObjectInitializer
 #endif
 }
 
+void UAvoidanceManager::RemoveAvoidanceObject(const int32 AvoidanceUID)
+{
+	if (AvoidanceUID < 0)
+	{
+		return;
+	}
+
+	FNavAvoidanceData* ExistingDataPtr = AvoidanceObjects.Find(AvoidanceUID);
+	if (ExistingDataPtr)
+	{
+		ExistingDataPtr->RemainingTimeToLive = 0.0f;
+	}
+
+	//Expired, not in pool yet, assign to pool
+	//DrawDebugLine(GetWorld(), AvoidanceData.Center, AvoidanceData.Center + FVector(0,0,500), FColor(64,255,64), true, 2.0f, SDPG_MAX, 20.0f);
+	NewKeyPool.AddUnique(AvoidanceUID);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (DebugUIDs.Contains(AvoidanceUID))
+	{
+		DebugUIDs.Remove(AvoidanceUID);
+	}
+#endif
+}
+
 void UAvoidanceManager::RemoveOutdatedObjects()
 {
+	if (bAutoPurceOutdatedObjects == false)
+	{
+		// will be handled manually
+		return;
+	}
+
 	SCOPE_CYCLE_COUNTER(STAT_AI_ObstacleAvoidance);
 	bRequestedUpdateTimer = false;
 
@@ -144,12 +175,26 @@ bool UAvoidanceManager::RegisterMovementComponent(UMovementComponent* MovementCo
 		RequestUpdateTimer();
 
 		FNavAvoidanceData AvoidanceData(this, AvoidingComp);
-		UpdateRVO_Internal(AvoidingComp->GetRVOAvoidanceUID(), AvoidanceData);
+		UpdateRVO_Internal(NewAvoidanceUID, AvoidanceData);
 
 		return true;
 	}
 
 	return false;
+}
+
+bool UAvoidanceManager::RegisterMovementComponent(UCharacterMovementComponent* MovementComp, float AvoidanceWeight)
+{
+	const int32 NewAvoidanceUID = GetNewAvoidanceUID();
+	MovementComp->SetRVOAvoidanceUID(NewAvoidanceUID);
+	MovementComp->SetRVOAvoidanceWeight(AvoidanceWeight);
+
+	RequestUpdateTimer();
+
+	FNavAvoidanceData AvoidanceData(this, MovementComp);
+	UpdateRVO_Internal(NewAvoidanceUID, AvoidanceData);
+
+	return true;
 }
 
 FVector UAvoidanceManager::GetAvoidanceVelocityForComponent(UMovementComponent* MovementComp)

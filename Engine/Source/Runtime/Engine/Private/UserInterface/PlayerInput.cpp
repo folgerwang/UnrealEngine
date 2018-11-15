@@ -51,27 +51,27 @@ struct FDelegateDispatchDetails
 	FInputGestureUnifiedDelegate GestureDelegate;
 	float GestureValue;
 
-	FDelegateDispatchDetails(const uint32 InEventIndex, const uint32 InFoundIndex, const FInputChord& InChord, const FInputActionUnifiedDelegate& InDelegate, const EInputEvent InKeyEvent, const FInputActionBinding* InSourceAction = NULL)
+	FDelegateDispatchDetails(const uint32 InEventIndex, const uint32 InFoundIndex, const FInputChord& InChord, FInputActionUnifiedDelegate InDelegate, const EInputEvent InKeyEvent, const FInputActionBinding* InSourceAction = NULL)
 		: EventIndex(InEventIndex)
 		, FoundIndex(InFoundIndex)
-		, ActionDelegate(InDelegate)
+		, ActionDelegate(MoveTemp(InDelegate))
 		, SourceAction(InSourceAction)
 		, Chord(InChord)
 		, KeyEvent(InKeyEvent)
 	{}
 
-	FDelegateDispatchDetails(const uint32 InEventIndex, const uint32 InFoundIndex, const FInputTouchUnifiedDelegate& InDelegate, const FVector InLocation, const ETouchIndex::Type InFingerIndex)
+	FDelegateDispatchDetails(const uint32 InEventIndex, const uint32 InFoundIndex, FInputTouchUnifiedDelegate InDelegate, const FVector InLocation, const ETouchIndex::Type InFingerIndex)
 		: EventIndex(InEventIndex)
 		, FoundIndex(InFoundIndex)
-		, TouchDelegate(InDelegate)
+		, TouchDelegate(MoveTemp(InDelegate))
 		, TouchLocation(InLocation)
 		, FingerIndex(InFingerIndex)
 	{}
 
-	FDelegateDispatchDetails(const uint32 InEventIndex, const uint32 InFoundIndex, const FInputGestureUnifiedDelegate& InDelegate, const float InValue)
+	FDelegateDispatchDetails(const uint32 InEventIndex, const uint32 InFoundIndex, FInputGestureUnifiedDelegate InDelegate, const float InValue)
 		: EventIndex(InEventIndex)
 		, FoundIndex(InFoundIndex)
-		, GestureDelegate(InDelegate)
+		, GestureDelegate(MoveTemp(InDelegate))
 		, GestureValue(InValue)
 	{}
 };
@@ -761,13 +761,17 @@ void UPlayerInput::GetChordsForKeyMapping(const FInputActionKeyMapping& KeyMappi
 										, ((!bGamePaused || ActionBinding.bExecuteWhenPaused) ? ActionBinding.ActionDelegate : FInputActionUnifiedDelegate())
 										, ActionBinding.KeyEvent
 										, &ActionBinding);
-			FoundChords.Add(FoundChord);
 
-			for (int32 EventsIndex = 1; EventsIndex < EventIndices.Num(); ++EventsIndex)
+			const int32 LastEventIndex = EventIndices.Num() - 1;
+			for (int32 EventsIndex = 0; EventsIndex < LastEventIndex; ++EventsIndex)
 			{
 				FoundChord.EventIndex = EventIndices[EventsIndex];
-				FoundChords.Add(FoundChord);
+				FoundChords.Emplace(FoundChord);
 			}
+
+			FoundChord.EventIndex = EventIndices[LastEventIndex];
+			FoundChords.Emplace(MoveTemp(FoundChord));
+
 			bConsumeInput = true;
 		}
 	}
@@ -875,12 +879,17 @@ void UPlayerInput::GetChordForKey(const FInputKeyBinding& KeyBinding, const bool
 												, KeyBinding.Chord
 												, ((!bGamePaused || KeyBinding.bExecuteWhenPaused) ? KeyBinding.KeyDelegate : FInputActionUnifiedDelegate())
 												, KeyBinding.KeyEvent);
-					FoundChords.Add(FoundChord);
-					for (int32 EventsIndex = 1; EventsIndex < EventIndices.Num(); ++EventsIndex)
+
+					const int32 LastEventIndex = EventIndices.Num() - 1;
+					for (int32 EventsIndex = 0; EventsIndex < LastEventIndex; ++EventsIndex)
 					{
 						FoundChord.EventIndex = EventIndices[EventsIndex];
-						FoundChords.Add(FoundChord);
+						FoundChords.Emplace(FoundChord);
 					}
+
+					FoundChord.EventIndex = EventIndices[LastEventIndex];
+					FoundChords.Emplace(MoveTemp(FoundChord));
+
 					bConsumeInput = true;
 				}
 
@@ -967,8 +976,8 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 		FInputAxisUnifiedDelegate Delegate;
 		float Value;
 
-		FAxisDelegateDetails(const FInputAxisUnifiedDelegate& InDelegate, const float InValue)
-			: Delegate(InDelegate)
+		FAxisDelegateDetails(FInputAxisUnifiedDelegate InDelegate, const float InValue)
+			: Delegate(MoveTemp(InDelegate))
 			, Value(InValue)
 		{
 		}
@@ -978,8 +987,8 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 		FInputVectorAxisUnifiedDelegate Delegate;
 		FVector Value;
 
-		FVectorAxisDelegateDetails(const FInputVectorAxisUnifiedDelegate& InDelegate, const FVector InValue)
-			: Delegate(InDelegate)
+		FVectorAxisDelegateDetails(FInputVectorAxisUnifiedDelegate InDelegate, const FVector InValue)
+			: Delegate(MoveTemp(InDelegate))
 			, Value(InValue)
 		{
 		}
@@ -1148,7 +1157,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 						if (TB.bExecuteWhenPaused || !bGamePaused)
 						{
 							check(EventIndices.Num() > 0);
-							FVector *TouchedLocation = TouchEventLocations.Find(EventIndices[0]);
+							FVector* TouchedLocation = TouchEventLocations.Find(EventIndices[0]);
 							FDelegateDispatchDetails TouchInfo(EventIndices[0], NonAxisDelegates.Num(), TB.TouchDelegate, TouchedLocation != nullptr ? *TouchedLocation : FVector(-1.0f, -1.0f, 0.0f), (ETouchIndex::Type)TouchIndex);
 							NonAxisDelegates.Add(TouchInfo);
 							for (int32 EventsIndex = 1; EventsIndex < EventIndices.Num(); ++EventsIndex)
@@ -1180,7 +1189,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 					{
 						check(EventIndices.Num() > 0);
 						FDelegateDispatchDetails GestureInfo(EventIndices[0], NonAxisDelegates.Num(), GB.GestureDelegate, KeyState->Value.X);
-						NonAxisDelegates.Add(GestureInfo);
+						NonAxisDelegates.Emplace(MoveTemp(GestureInfo));
 
 						if (GB.bConsumeInput)
 						{
@@ -1198,7 +1207,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 				AB.AxisValue = DetermineAxisValue(AB, bGamePaused, KeysToConsume);
 				if (AB.AxisDelegate.IsBound())
 				{
-					AxisDelegates.Add(FAxisDelegateDetails(AB.AxisDelegate, AB.AxisValue));
+					AxisDelegates.Emplace(FAxisDelegateDetails(AB.AxisDelegate, AB.AxisValue));
 				}
 			}
 			for (FInputAxisKeyBinding& AxisKeyBinding : IC->AxisKeyBindings)
@@ -1222,7 +1231,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 
 				if (AxisKeyBinding.AxisDelegate.IsBound())
 				{
-					AxisDelegates.Add(FAxisDelegateDetails(AxisKeyBinding.AxisDelegate, AxisKeyBinding.AxisValue));
+					AxisDelegates.Emplace(FAxisDelegateDetails(AxisKeyBinding.AxisDelegate, AxisKeyBinding.AxisValue));
 				}
 			}
 			for (FInputVectorAxisBinding& VectorAxisBinding : IC->VectorAxisBindings)
@@ -1246,7 +1255,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 
 				if (VectorAxisBinding.AxisDelegate.IsBound())
 				{
-					VectorAxisDelegates.Add(FVectorAxisDelegateDetails(VectorAxisBinding.AxisDelegate, VectorAxisBinding.AxisValue));
+					VectorAxisDelegates.Emplace(FVectorAxisDelegateDetails(VectorAxisBinding.AxisDelegate, VectorAxisBinding.AxisValue));
 				}
 			}
 
@@ -1436,8 +1445,15 @@ float UPlayerInput::SmoothMouse(float aMouse, uint8& SampleCount, int32 Index)
 				}
 			}
 
-			check(SampleCount > 0);
-			SmoothedMouse[Index] = aMouse/SampleCount;
+			check(SampleCount >= 0);
+			if (SampleCount == 0)
+			{
+				SmoothedMouse[Index] = 0;
+			}
+			else
+			{
+				SmoothedMouse[Index] = aMouse/SampleCount;
+			}
 		}
 	}
 	else

@@ -75,6 +75,24 @@ void SDetailsView::Construct(const FArguments& InArgs)
 			);
 		}
 
+		if (DetailsViewArgs.bShowCustomFilterOption)
+		{
+			TAttribute<FText> CustomFilterLabelDelegate;
+			CustomFilterLabelDelegate.BindRaw(this, &SDetailsView::GetCustomFilterLabel);
+			DetailViewOptions.AddMenuEntry(
+				CustomFilterLabelDelegate,
+				FText(),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SDetailsView::OnCustomFilterClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SDetailsView::IsCustomFilterChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
+
 		if( DetailsViewArgs.bShowDifferingPropertiesOption )
 		{
 			DetailViewOptions.AddMenuEntry(

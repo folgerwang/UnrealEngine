@@ -33,7 +33,8 @@ public class SkeletalMeshEditor : ModuleRules
                 "PropertyEditor",
                 "RHI",
                 "ClothingSystemRuntime",
-                "ClothingSystemEditorInterface"
+                "ClothingSystemEditorInterface",
+				"ClothingSystemRuntimeInterface"
             }
 		);
 

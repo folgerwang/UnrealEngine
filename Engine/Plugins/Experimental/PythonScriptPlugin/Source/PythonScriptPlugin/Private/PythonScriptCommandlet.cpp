@@ -7,18 +7,25 @@ DEFINE_LOG_CATEGORY_STATIC(LogPythonScriptCommandlet, Log, All);
 
 int32 UPythonScriptCommandlet::Main(const FString& Params)
 {
-	TArray<FString> Tokens;
-	TArray<FString> Switches;
-	TMap<FString, FString> ParamVals;
-	UCommandlet::ParseCommandLine(*Params, Tokens, Switches, ParamVals);
-
-	// Find the Python script to run
+	// We do this parsing manually rather than using the normal command line parsing, as the Python scripts may be quoted and contain escape sequences that the command line parsing doesn't handle well
 	FString PythonScript;
-	if (const FString* ParamVal = ParamVals.Find(TEXT("Script")))
 	{
-		PythonScript = *ParamVal;
+		const FString ScriptTag = TEXT("-Script=");
+		const int32 ScriptTagPos = Params.Find(ScriptTag);
+		if (ScriptTagPos != INDEX_NONE)
+		{
+			const TCHAR* ScriptTagValue = &Params[ScriptTagPos + ScriptTag.Len()];
+			if (*ScriptTagValue == TEXT('"'))
+			{
+				FParse::QuotedString(ScriptTagValue, PythonScript);
+			}
+			else
+			{
+				FParse::Token(ScriptTagValue, PythonScript, false);
+			}
+		}
 	}
-	else
+	if (PythonScript.IsEmpty())
 	{
 		UE_LOG(LogPythonScriptCommandlet, Error, TEXT("-Script argument not specified"));
 		return -1;

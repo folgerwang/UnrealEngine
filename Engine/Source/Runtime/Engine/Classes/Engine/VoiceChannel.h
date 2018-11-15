@@ -31,7 +31,10 @@ class ENGINE_API UVoiceChannel : public UChannel
 	UVoiceChannel(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 		: UChannel(ObjectInitializer)
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		ChType = CHTYPE_Voice;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		ChName = NAME_Voice;
 	}
 
 

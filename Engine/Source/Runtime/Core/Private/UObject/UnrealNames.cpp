@@ -974,7 +974,7 @@ void FName::ToString(FString& Out) const
 		Out.Empty(NameEntry->GetNameLength() + 6);
 		NameEntry->AppendNameToString(Out);
 
-		Out += TEXT("_");
+		Out += TEXT('_');
 		Out.AppendInt(NAME_INTERNAL_TO_EXTERNAL(GetNumber()));
 	}
 }
@@ -992,7 +992,7 @@ void FName::AppendString(FString& Out) const
 		NameEntry->AppendNameToString( Out );
 		if (GetNumber() != NAME_NO_NUMBER_INTERNAL)
 		{
-			Out += TEXT("_");
+			Out += TEXT('_');
 			Out.AppendInt(NAME_INTERNAL_TO_EXTERNAL(GetNumber()));
 		}
 	}

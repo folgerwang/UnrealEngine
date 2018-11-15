@@ -25,10 +25,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SpringBone : public FAnimNode_SkeletalCont
 	UPROPERTY(EditAnywhere, Category=Spring) 
 	FBoneReference SpringBone;
 
-	/** Limit the amount that a bone can stretch from its ref-pose length. */
-	UPROPERTY(EditAnywhere, Category=Spring)
-	bool bLimitDisplacement;
-
 	/** If bLimitDisplacement is true, this indicates how long a bone can stretch beyond its length in the ref-pose. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Spring, meta=(EditCondition="bLimitDisplacement"))
 	float MaxDisplacement;
@@ -45,33 +41,18 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SpringBone : public FAnimNode_SkeletalCont
 	UPROPERTY(EditAnywhere, Category=Spring)
 	float ErrorResetThresh;
 
-	/** If true, Z position is always correct, no spring applied */
-	UPROPERTY()
-	bool bNoZSpring_DEPRECATED;
+	/** World-space location of the bone. */
+	FVector BoneLocation;
 
-	/** If true take the spring calculation for translation in X */
-	UPROPERTY(EditAnywhere, Category=FilterChannels)
-	bool bTranslateX;
+	/** World-space velocity of the bone. */
+	FVector BoneVelocity;
 
-	/** If true take the spring calculation for translation in Y */
-	UPROPERTY(EditAnywhere, Category=FilterChannels)
-	bool bTranslateY;
+	/** Velocity of the owning actor */
+	FVector OwnerVelocity;
 
-	/** If true take the spring calculation for translation in Z */
-	UPROPERTY(EditAnywhere, Category=FilterChannels)
-	bool bTranslateZ;
-
-	/** If true take the spring calculation for rotation in X */
-	UPROPERTY(EditAnywhere, Category=FilterChannels)
-	bool bRotateX;
-
-	/** If true take the spring calculation for rotation in Y */
-	UPROPERTY(EditAnywhere, Category=FilterChannels)
-	bool bRotateY;
-
-	/** If true take the spring calculation for rotation in Z */
-	UPROPERTY(EditAnywhere, Category=FilterChannels)
-	bool bRotateZ;
+	/** Cache of previous frames local bone transform so that when
+	 *  we cannot simulate (timestep == 0) we can still update bone location */
+	FVector LocalBoneTransform;
 
 	/** Internal use - Amount of time we need to simulate. */
 	float RemainingTime;
@@ -82,17 +63,42 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SpringBone : public FAnimNode_SkeletalCont
 	/** Internal use - Current time dilation */
 	float TimeDilation;
 
+#if WITH_EDITORONLY_DATA
+	/** If true, Z position is always correct, no spring applied */
+	UPROPERTY()
+	bool bNoZSpring_DEPRECATED;
+#endif
+
+	/** Limit the amount that a bone can stretch from its ref-pose length. */
+	UPROPERTY(EditAnywhere, Category=Spring)
+	uint8 bLimitDisplacement : 1;
+
+	/** If true take the spring calculation for translation in X */
+	UPROPERTY(EditAnywhere, Category=FilterChannels)
+	uint8 bTranslateX : 1;
+
+	/** If true take the spring calculation for translation in Y */
+	UPROPERTY(EditAnywhere, Category=FilterChannels)
+	uint8 bTranslateY : 1;
+
+	/** If true take the spring calculation for translation in Z */
+	UPROPERTY(EditAnywhere, Category=FilterChannels)
+	uint8 bTranslateZ : 1;
+
+	/** If true take the spring calculation for rotation in X */
+	UPROPERTY(EditAnywhere, Category=FilterChannels)
+	uint8 bRotateX : 1;
+
+	/** If true take the spring calculation for rotation in Y */
+	UPROPERTY(EditAnywhere, Category=FilterChannels)
+	uint8 bRotateY : 1;
+
+	/** If true take the spring calculation for rotation in Z */
+	UPROPERTY(EditAnywhere, Category=FilterChannels)
+	uint8 bRotateZ : 1;
+
 	/** Did we have a non-zero ControlStrength last frame. */
-	bool bHadValidStrength;
-
-	/** World-space location of the bone. */
-	FVector BoneLocation;
-
-	/** World-space velocity of the bone. */
-	FVector BoneVelocity;
-
-	/** Velocity of the owning actor */
-	FVector OwnerVelocity;
+	uint8 bHadValidStrength : 1;
 
 public:
 	FAnimNode_SpringBone();

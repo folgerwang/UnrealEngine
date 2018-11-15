@@ -24,6 +24,53 @@ enum ELocationSkelVertSurfaceSource
 	VERTSURFACESOURCE_MAX,
 };
 
+/** ModuleLocationVertSurface instance payload */
+struct FModuleLocationVertSurfaceInstancePayload
+{
+	/** The skeletal mesh component used as the source of the sockets */
+	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
+	/** Actor that owns the skel mesh component we're using. */
+	TWeakObjectPtr<AActor> CachedActor;
+	/** The index of the vertice this particle system spawns from */
+	int32 VertIndex;
+	/** The number of valid bone indices that which can be used for . */
+	int32 NumValidAssociatedBoneIndices;
+	/** Bone indices for the associated bone names. */
+	TPreallocatedArrayProxy<int32> ValidAssociatedBoneIndices;
+	/** The position of each bone from the previous tick. Used to calculate the inherited bone velocity when spawning particles. */
+	TPreallocatedArrayProxy<FVector> PrevFrameBonePositions;
+	/** The velocity of each bone. Used to calculate the inherited bone velocity when spawning particles. */
+	TPreallocatedArrayProxy<FVector> BoneVelocities;
+
+	/** Min LOD for the current mesh. INDEX_NONE if the mesh is not valid. */
+	int32 MeshMinLOD;
+
+	/** Initialize array proxies and map to memory that has been allocated in the emitter's instance data buffer */
+	void InitArrayProxies(int32 FixedArraySize)
+	{
+		// Calculate offsets into instance data buffer for the arrays and initialize the buffer proxies. The allocation 
+		// size for these arrays is calculated in RequiredBytesPerInstance.
+		const uint32 StructSize = sizeof(FModuleLocationVertSurfaceInstancePayload);
+		ValidAssociatedBoneIndices = TPreallocatedArrayProxy<int32>((uint8*)this + StructSize, FixedArraySize);
+
+		uint32 StructOffset = StructSize + (FixedArraySize * sizeof(int32));
+		PrevFrameBonePositions = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize);
+
+		StructOffset = StructSize + (FixedArraySize * sizeof(int32)) + (FixedArraySize * sizeof(FVector));
+		BoneVelocities = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize);
+	}
+
+	FORCEINLINE bool MeshIsValid() { return SourceComponent.IsValid() && MeshMinLOD != INDEX_NONE; }
+};
+
+/** ModuleLocationVertSurface per-particle payload - only used if updating each frame */
+struct FModuleLocationVertSurfaceParticlePayload
+{
+	/** The index of the socket this particle is 'attached' to */
+	int32 SourceIndex;
+};
+
+
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Skel Vert/Surf Location"))
 class ENGINE_API UParticleModuleLocationSkelVertSurface : public UParticleModuleLocationBase
 {
@@ -159,7 +206,7 @@ class ENGINE_API UParticleModuleLocationSkelVertSurface : public UParticleModule
 	 *	
 	 *	@return	bool					true if successful, false if not
 	 */
-	bool GetParticleLocation(FParticleEmitterInstance* Owner, USkeletalMeshComponent* InSkelMeshComponent, int32 InPrimaryVertexIndex, FVector& OutPosition, FQuat& OutRotation, bool bSpawning = false);
+	bool GetParticleLocation(FParticleEmitterInstance* Owner, FModuleLocationVertSurfaceInstancePayload* InstPayload, USkeletalMeshComponent* InSkelMeshComponent, int32 InPrimaryVertexIndex, FVector& OutPosition, FQuat& OutRotation, bool bSpawning = false);
 
 	/**
 	 *  Check to see if the vert is influenced by a bone on our approved list.
@@ -171,7 +218,7 @@ class ENGINE_API UParticleModuleLocationSkelVertSurface : public UParticleModule
 	 *
 	 *  @return bool					true if it is influenced by an approved bone, false otherwise.
 	 */
-	bool VertInfluencedByActiveBone(FParticleEmitterInstance* Owner, USkeletalMeshComponent* InSkelMeshComponent, int32 InVertexIndex, int32* OutBoneIndex = NULL);
+	bool VertInfluencedByActiveBone(FParticleEmitterInstance* Owner, FModuleLocationVertSurfaceInstancePayload* InstPayload, USkeletalMeshComponent* InSkelMeshComponent, int32 InVertexIndex, int32* OutBoneIndex = NULL);
 
 	/**
 	 *	Updates the indices list with the bone index for each named bone in the editor exposed values.

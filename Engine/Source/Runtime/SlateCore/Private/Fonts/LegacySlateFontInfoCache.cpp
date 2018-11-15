@@ -26,7 +26,7 @@ FLegacySlateFontInfoCache::FLegacySlateFontInfoCache()
 	, LocalizedFallbackFontFrameCounter(0)
 {
 	LastResortFontPath = FPaths::EngineContentDir() / TEXT("SlateDebug/Fonts/LastResort.ttf");
-	bIsLastResortFontAvailable = FPaths::FileExists(LastResortFontPath);
+	bIsLastResortFontAvailable = !FPlatformProperties::RequiresCookedData() && FPaths::FileExists(LastResortFontPath);
 }
 
 TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetCompositeFont(const FName& InLegacyFontName, const EFontHinting InLegacyFontHinting)

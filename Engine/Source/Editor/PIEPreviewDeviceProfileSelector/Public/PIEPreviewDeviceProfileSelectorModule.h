@@ -8,6 +8,7 @@
 #include "Misc/CommandLine.h"
 #include "Widgets/SWindow.h"
 #include "IPIEPreviewDeviceModule.h"
+#include "Dom/JsonObject.h"
 /**
 * Implements the Preview Device Profile Selector module.
 */
@@ -22,7 +23,6 @@ public:
 
 	//~ Begin IDeviceProfileSelectorModule Interface
 	virtual const FString GetRuntimeDeviceProfileName() override;
-
 	//~ End IDeviceProfileSelectorModule Interface
 
 	//~ Begin IModuleInterface Interface
@@ -36,6 +36,8 @@ public:
 	virtual ~FPIEPreviewDeviceModule()
 	{
 	}
+
+	virtual void ApplyCommandLineOverrides() override;
 
 	virtual void ApplyPreviewDeviceState() override;
 	
@@ -82,6 +84,7 @@ private:
 	bool bInitialized;
 	FString DeviceProfile;
 	FString PreviewDevice;
+	TSharedPtr<FJsonObject> JsonRootObject;
 
 	/** delegate handle that will be obtained from UGameViewportClient::OnViewportCreated */ 
 	FDelegateHandle ViewportCreatedDelegate;

@@ -19,6 +19,8 @@ using Tools.DotNETCommon;
 /// -MapsToRebuildHLODMaps		- A list of '+' delimited maps we wish to build HLOD data for.
 /// -CommandletTargetName		- The Target used in running the commandlet
 /// -StakeholdersEmailAddresses	- Users to notify of completion
+/// -Robomerge					- none: do nothing, all: robomerge all changes, deadend: null merge all changes
+/// 													(defaults to all)
 /// 
 /// </remarks>
 namespace AutomationScripts.Automation
@@ -123,7 +125,7 @@ namespace AutomationScripts.Automation
 		{
 			LogInformation("Running Step:- RebuildHLOD::CheckOutMaps");
 			// Setup a P4 Cl we will use to submit the new HLOD data
-			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding HLODs from changelist {1}\n#rb None\n#tests None\n#jira none\n#robomerge[ALL] #DisregardExcludedAuthors", Params.ShortProjectName, P4Env.Changelist));
+			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding HLODs from changelist {1}\n#rb None\n#tests None\n#jira none\n{2}", Params.ShortProjectName, P4Env.Changelist, RobomergeCommand));
 			LogInformation("Working in {0}", WorkingCL);
 
 		}
@@ -347,11 +349,11 @@ namespace AutomationScripts.Automation
 		#region RebuildHLOD Property Set-up
 
 		// Users to notify if the process fails or succeeds.
-		List<String> StakeholdersEmailAddresses
+		List<string> StakeholdersEmailAddresses
 		{
 			get
 			{
-				String UnprocessedEmailList = ParseParamValue("StakeholdersEmailAddresses");
+				string UnprocessedEmailList = ParseParamValue("StakeholdersEmailAddresses");
 				if (String.IsNullOrEmpty(UnprocessedEmailList) == false)
 				{
 					return UnprocessedEmailList.Split('+').ToList();
@@ -360,6 +362,20 @@ namespace AutomationScripts.Automation
 				{
 					return null;
 				}
+			}
+		}
+
+		private string RobomergeCommand
+		{
+			get
+			{
+				string Command = ParseParamValue("Robomerge", "all").ToLower();
+				if (Command == "none")
+				{
+					// RoboMerge default behaviour is to ignore buildmachine changes 
+					return "";
+				}
+				return (Command == "deadend" ? "#ROBOMERGE #DEADEND" : "#ROBOMERGE[ALL]") + " #DisregardExcludedAuthors";
 			}
 		}
 

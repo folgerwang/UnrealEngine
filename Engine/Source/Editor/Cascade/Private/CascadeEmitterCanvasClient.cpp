@@ -429,8 +429,8 @@ bool FCascadeEmitterCanvasClient::InputKey(FViewport* InViewport, int32 Controll
 						}
 
 						// Figure out and save the offset from mouse location to top-left of selected module.
-						FIntPoint ModuleTopLeft = FindModuleTopLeft(Emitter, Module, InViewport);
-						MouseHoldOffset = ModuleTopLeft - MousePressPosition;
+						FVector2D ModuleTopLeft(FindModuleTopLeft(Emitter, Module, InViewport));
+						MouseHoldOffset = (ModuleTopLeft*GetDPIScale()- FVector2D(MousePressPosition)).IntPoint();
 					}
 				}
 				else if (HitResult->IsA(HCascadeEdGraphButton::StaticGetType()))
@@ -1482,9 +1482,8 @@ void FCascadeEmitterCanvasClient::DrawDraggedModule(UParticleModule* Module, FVi
 
 	MousePos += Origin2D;
 	// When dragging, draw the module under the mouse cursor.
-	FVector Translate(MousePos.X + MouseHoldOffset.X, MousePos.Y + MouseHoldOffset.Y, 0);
-	// -0.5 comes from previous FVector(FIntPoint) constructor behaviour, not sure if it was intened here
-	Translate -= FVector(Origin2D.X - 0.5f, Origin2D.Y - 0.5f, 0.f);
+	FVector Translate = FVector(MousePos.X +MouseHoldOffset.X, MousePos.Y+ MouseHoldOffset.Y, 0)/GetDPIScale();
+
 	if (!Module->IsA(UParticleModuleTypeDataBase::StaticClass()))
 	{
 		if (Module->GetModuleType() == EPMT_Required)
@@ -1646,16 +1645,20 @@ void FCascadeEmitterCanvasClient::DrawModuleDump(FViewport* InViewport, FCanvas*
 void FCascadeEmitterCanvasClient::FindDesiredModulePosition(const FIntPoint& Pos, class UParticleEmitter* &OutEmitter, int32 &OutIndex)
 {
 	// Calculate the position on the canvas, not the window...
-	int32 PositionCheck = Pos.X - Origin2D.X;
-	int32 CurrentWidth = 0;
+	float PositionCheck = Pos.X - Origin2D.X;
+	float CurrentWidth = 0;
 	int32 EmitterIndex = -1;
 	UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
+
+	const float ScaledEmitterCollapsedWidth = EmitterCollapsedWidth * GetDPIScale();
+	const float ScaledEmitterWidth = EmitterWidth * GetDPIScale();
+
 	for (int32 CheckIndex = 0; CheckIndex < ParticleSystem->Emitters.Num(); CheckIndex++)
 	{
 		UParticleEmitter* CheckEmitter = ParticleSystem->Emitters[CheckIndex];
 		if (CheckEmitter)
 		{
-			int32 CheckWidth = CheckEmitter->bCollapsed ? EmitterCollapsedWidth : EmitterWidth; 
+			float CheckWidth = CheckEmitter->bCollapsed ? ScaledEmitterCollapsedWidth : ScaledEmitterWidth;
 			if ((PositionCheck > CurrentWidth) && (PositionCheck <= CurrentWidth + CheckWidth))
 			{
 				EmitterIndex = CheckIndex;
@@ -1675,7 +1678,7 @@ void FCascadeEmitterCanvasClient::FindDesiredModulePosition(const FIntPoint& Pos
 
 	OutEmitter = ParticleSystem->Emitters[EmitterIndex];
 	UParticleLODLevel* LODLevel	= OutEmitter->LODLevels[0];
-	OutIndex = FMath::Clamp<int32>(((Pos.Y - Origin2D.Y) - EmitterHeadHeight - ModulesOffset * ModuleHeight) / ModuleHeight, 0, LODLevel->Modules.Num());
+	OutIndex = FMath::Clamp<int32>(((Pos.Y - Origin2D.Y) - (EmitterHeadHeight*GetDPIScale()) - ModulesOffset * (ModuleHeight*GetDPIScale())) / (ModuleHeight*GetDPIScale()), 0, LODLevel->Modules.Num());
 }
 
 FIntPoint FCascadeEmitterCanvasClient::FindModuleTopLeft(class UParticleEmitter* Emitter, class UParticleModule* Module, FViewport* InViewport)

@@ -52,6 +52,11 @@ void UMovieSceneSpawnTrack::PostLoad()
 /* UMovieSceneTrack interface
  *****************************************************************************/
 
+bool UMovieSceneSpawnTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSpawnSection::StaticClass();
+}
+
 UMovieSceneSection* UMovieSceneSpawnTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneSpawnSection>(this, NAME_None, RF_Transactional);

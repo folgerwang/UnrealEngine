@@ -22,7 +22,7 @@ void FAnimNode_RotateRootBone::CacheBones_AnyThread(const FAnimationCacheBonesCo
 
 void FAnimNode_RotateRootBone::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	BasePose.Update(Context);
 
 	ActualPitch = PitchScaleBiasClamp.ApplyTo(Pitch, Context.GetDeltaTime());

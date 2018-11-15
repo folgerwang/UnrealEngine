@@ -159,22 +159,26 @@ public:
 	}
 	
 	/** Shader cache initialisation, called only by the RHI. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void InitShaderCache(uint32 Options, EShaderPlatform ShaderPlatform);
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void InitShaderCache(uint32 Options, EShaderPlatform ShaderPlatform);
 	/** Loads any existing cache of shader binaries, called by the RHI after full initialisation. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void LoadBinaryCache();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void LoadBinaryCache();
 	/** Save binary cache immediately to the given output dir for the given platform. */
 	static void SaveBinaryCache(FString OutputDir, FName PlatformName);
 	/** Shader cache shutdown, called only by the RHI. */
 	static void ShutdownShaderCache();
 	
 	/** Get the global shader cache if it exists or nullptr otherwise. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")  FORCEINLINE FShaderCache* GetShaderCache()
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static FORCEINLINE FShaderCache* GetShaderCache()
 	{
 		return bUseShaderCaching ? Cache : nullptr;
 	}
 	
 	/**Retuns a Cache State object for the Context if we have a ShaderCache - This function is not intended for regular use - objects should cache this result*/
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") FORCEINLINE FShaderCacheState* CreateOrFindCacheStateForContext(const IRHICommandContext* Context)
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static FORCEINLINE FShaderCacheState* CreateOrFindCacheStateForContext(const IRHICommandContext* Context)
 	{
 		if(Cache && Context)
 		{
@@ -335,7 +339,8 @@ public:
 	}
 	
 	/** Called by the RHI. Logs the construction of a bound shader state & will record it for prebinding on subsequent runs. */
-	static DEPRECATED(4.16, "Use SetGraphicsPipelineState") FORCEINLINE void LogBoundShaderState(FShaderCacheState* CacheState,
+	UE_DEPRECATED(4.16, "Use SetGraphicsPipelineState")
+	static FORCEINLINE void LogBoundShaderState(FShaderCacheState* CacheState,
 												EShaderPlatform Platform,
 												FVertexDeclarationRHIParamRef VertexDeclaration,
 												FVertexShaderRHIParamRef VertexShader,
@@ -433,7 +438,8 @@ public:
 	}
 	
 	/** Called by the RHI. Records the current blend state when r.UseShaderDrawLog or r.UseShaderPredraw are enabled. */
-	static DEPRECATED(4.16, "Use SetGraphicsPipelineState") FORCEINLINE void SetBlendState(FShaderCacheState* CacheState,FBlendStateRHIParamRef State)
+	UE_DEPRECATED(4.16, "Use SetGraphicsPipelineState")
+	static FORCEINLINE void SetBlendState(FShaderCacheState* CacheState,FBlendStateRHIParamRef State)
 	{
 		if ( Cache && CacheState )
 		{
@@ -442,7 +448,8 @@ public:
 	}
 	
 	/** Called by the RHI. Records the current rasterizer state when r.UseShaderDrawLog or r.UseShaderPredraw are enabled. */
-	static DEPRECATED(4.16, "Use SetGraphicsPipelineState") FORCEINLINE void SetRasterizerState(FShaderCacheState* CacheState, FRasterizerStateRHIParamRef State)
+	UE_DEPRECATED(4.16, "Use SetGraphicsPipelineState")
+	static FORCEINLINE void SetRasterizerState(FShaderCacheState* CacheState, FRasterizerStateRHIParamRef State)
 	{
 		if ( Cache && CacheState )
 		{
@@ -451,7 +458,8 @@ public:
 	}
 	
 	/** Called by the RHI. Records the current depth stencil state when r.UseShaderDrawLog or r.UseShaderPredraw are enabled. */
-	static DEPRECATED(4.16, "Use SetGraphicsPipelineState") FORCEINLINE void SetDepthStencilState(FShaderCacheState* CacheState, FDepthStencilStateRHIParamRef State)
+	UE_DEPRECATED(4.16, "Use SetGraphicsPipelineState")
+	static FORCEINLINE void SetDepthStencilState(FShaderCacheState* CacheState, FDepthStencilStateRHIParamRef State)
 	{
 		if ( Cache && CacheState)
 		{
@@ -505,7 +513,8 @@ public:
 	}
 	
 	/** Called by the RHI. Records the current bound shader state when r.UseShaderDrawLog or r.UseShaderPredraw are enabled. */
-	static DEPRECATED(4.16, "Use SetGraphicsPipelineState") FORCEINLINE void SetBoundShaderState(FShaderCacheState* CacheState, FBoundShaderStateRHIParamRef State)
+	UE_DEPRECATED(4.16, "Use SetGraphicsPipelineState")
+	static FORCEINLINE void SetBoundShaderState(FShaderCacheState* CacheState, FBoundShaderStateRHIParamRef State)
 	{
 		if ( Cache && CacheState)
 		{
@@ -544,22 +553,28 @@ public:
 	}
 	
 	/** Use the accelerated target precompile frame time (in ms) and predraw batch time (in ms) during a loading screen or other scenario where frame time can be much slower than normal. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void BeginAcceleratedBatching();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void BeginAcceleratedBatching();
 	
 	/** Stops applying the overrides applied with BeginAcceleratedBatching but doesn't flush outstanding work. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void EndAcceleratedBatching();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void EndAcceleratedBatching();
 	
 	/** Flushes all outstanding precompilation/predraw work & then ends accelerated batching as per EndAcceleratedBatching. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void FlushOutstandingBatches();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void FlushOutstandingBatches();
 	
 	/** Pauses precompilation & predraw batching. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void PauseBatching();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void PauseBatching();
 	
 	/** Resumes precompilation & predraw batching. */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") void ResumeBatching();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static void ResumeBatching();
 	
 	/** Returns the number of shaders waiting for precompilation */
-	static DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).") uint32 NumShaderPrecompilesRemaining();
+	UE_DEPRECATED(4.21, "FShaderCacheState is deprecated.  Caching is now achieved by Pipeline State Objects.  See FShaderPipelineCache (which uses FPipelineFileCache to provide storage).")
+	static uint32 NumShaderPrecompilesRemaining();
 		
 public: // From FTickableObjectRenderThread
 	virtual void Tick( float DeltaTime ) final override;

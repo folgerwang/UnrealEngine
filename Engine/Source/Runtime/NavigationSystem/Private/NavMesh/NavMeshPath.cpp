@@ -12,6 +12,7 @@
 #include "NavMesh/RecastNavMesh.h"
 #include "NavAreas/NavArea.h"
 #include "Debug/DebugDrawService.h"
+#include "Algo/Reverse.h"
 
 #define DEBUG_DRAW_OFFSET 0
 #define PATH_OFFSET_KEEP_VISIBLE_POINTS 1
@@ -770,6 +771,17 @@ FVector FNavMeshPath::GetSegmentDirection(uint32 SegmentEndIndex) const
 	}
 
 	return Result;
+}
+
+void FNavMeshPath::Invert()
+{
+	Algo::Reverse(PathPoints);
+	Algo::Reverse(PathCorridor);
+	Algo::Reverse(PathCorridorCost);
+	if (bCorridorEdgesGenerated)
+	{
+		Algo::Reverse(PathCorridorEdges);
+	}
 }
 
 #if ENABLE_VISUAL_LOG

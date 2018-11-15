@@ -17,9 +17,14 @@
 	"Modules" :
 	[
 		{
-			"Name" : "MIDIDevice",
-			"Type" : "Runtime",
-			"LoadingPhase" : "Default"
+			"Name": "MIDIDevice",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Mac"
+			]
 		}
 	]
 }

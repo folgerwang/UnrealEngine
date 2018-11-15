@@ -352,7 +352,7 @@ FKeyHandle FRichCurve::UpdateOrAddKey(float InTime, float InValue, const bool bU
 		}
 	}
 
-	// A key wasnt found, add it now
+	// A key wasn't found, add it now
 	return AddKey(InTime, InValue, bUnwindRotation);
 }
 

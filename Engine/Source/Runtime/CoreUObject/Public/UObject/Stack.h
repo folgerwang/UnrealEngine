@@ -223,12 +223,7 @@ inline FFrame::FFrame( UObject* InObject, UFunction* InNode, void* InLocals, FFr
 template<typename TNumericType>
 inline TNumericType FFrame::ReadInt()
 {
-	TNumericType Result;
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-	Result = *(TNumericType*)Code;
-#else
-	FMemory::Memcpy(&Result, Code, sizeof(TNumericType));	
-#endif
+	TNumericType Result = FPlatformMemory::ReadUnaligned<TNumericType>(Code);
 	Code += sizeof(TNumericType);
 	return Result;
 }
@@ -236,13 +231,7 @@ inline TNumericType FFrame::ReadInt()
 inline UObject* FFrame::ReadObject()
 {
 	// we always pull 64-bits of data out, which is really a UObject* in some representation (depending on platform)
-	ScriptPointerType TempCode;
-
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-	TempCode = *(ScriptPointerType*)Code;
-#else
-	FMemory::Memcpy(&TempCode, Code, sizeof(ScriptPointerType));
-#endif
+	ScriptPointerType TempCode = FPlatformMemory::ReadUnaligned<ScriptPointerType>(Code);
 
 	// turn that uint32 into a UObject pointer
 	UObject* Result = (UObject*)(TempCode);
@@ -270,26 +259,14 @@ inline UProperty* FFrame::ReadPropertyUnchecked()
 
 inline float FFrame::ReadFloat()
 {
-	float Result;
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-	Result = *(float*)Code;
-#else
-	FMemory::Memcpy(&Result, Code, sizeof(float));
-#endif
+	float Result = FPlatformMemory::ReadUnaligned<float>(Code);
 	Code += sizeof(float);
 	return Result;
 }
 
 inline int32 FFrame::ReadWord()
 {
-	int32 Result;
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-	Result = *(uint16*)Code;
-#else
-	uint16 Temporary;
-	FMemory::Memcpy(&Temporary, Code, sizeof(uint16));
-	Result = Temporary;
-#endif
+	int32 Result = FPlatformMemory::ReadUnaligned<uint16>(Code);
 	Code += sizeof(uint16);
 	return Result;
 }
@@ -300,14 +277,7 @@ inline int32 FFrame::ReadWord()
  */
 inline CodeSkipSizeType FFrame::ReadCodeSkipCount()
 {
-	CodeSkipSizeType Result;
-
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-	Result = *(CodeSkipSizeType*)Code;
-#else
-	FMemory::Memcpy(&Result, Code, sizeof(CodeSkipSizeType));
-#endif
-
+	CodeSkipSizeType Result = FPlatformMemory::ReadUnaligned<CodeSkipSizeType>(Code);
 	Code += sizeof(CodeSkipSizeType);
 	return Result;
 }
@@ -333,12 +303,7 @@ inline VariableSizeType FFrame::ReadVariableSize( UProperty** ExpressionField )
 
 inline FName FFrame::ReadName()
 {
-	FScriptName Result;
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-	Result = *(FScriptName*)Code;
-#else
-	FMemory::Memcpy(&Result, Code, sizeof(FScriptName));
-#endif
+	FScriptName Result = FPlatformMemory::ReadUnaligned<FScriptName>(Code);
 	Code += sizeof(FScriptName);
 	return ScriptNameToName(Result);
 }

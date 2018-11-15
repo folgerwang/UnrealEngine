@@ -118,6 +118,12 @@
 #include "Misc/FeedbackContext.h"
 #include "BusyCursor.h"
 #include "AssetExportTask.h"
+#include "Containers/UnrealString.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "AdvancedCopyCustomization.h"
+#include "SAdvancedCopyReportDialog.h"
+#include "AssetToolsSettings.h"
+
 
 #define LOCTEXT_NAMESPACE "AssetTools"
 
@@ -625,6 +631,349 @@ UObject* UAssetToolsImpl::PerformDuplicateAsset(const FString& AssetName, const 
 	}
 
 	return NewObject;
+}
+
+void UAssetToolsImpl::GenerateAdvancedCopyDestinations(FAdvancedCopyParams& InParams, const TArray<FName>& InPackageNamesToCopy, const UAdvancedCopyCustomization* CopyCustomization, TMap<FString, FString>& OutPackagesAndDestinations) const
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	FString DestinationFolder = InParams.GetDropLocationForAdvancedCopy();
+
+	if (ensure(DesktopPlatform))
+	{
+		FPaths::NormalizeFilename(DestinationFolder);
+	}
+	else
+	{
+		// Not on a platform that supports desktop functionality
+		return;
+	}
+
+	bool bGenerateRelativePaths = CopyCustomization->GetShouldGenerateRelativePaths();
+
+	for (auto PackageNameIt = InPackageNamesToCopy.CreateConstIterator(); PackageNameIt; ++PackageNameIt)
+	{
+		FName PackageName = *PackageNameIt;
+
+		const FString& PackageNameString = PackageName.ToString();
+		FString SrcFilename;
+		if (FPackageName::DoesPackageExist(PackageNameString, nullptr, &SrcFilename))
+		{
+			bool bFileOKToCopy = true;
+
+			FString DestFilename = DestinationFolder;
+
+			FString SubFolder;
+			if (SrcFilename.Split(TEXT("/Content/"), nullptr, &SubFolder))
+			{
+				DestFilename += *SubFolder;
+			}
+			else
+			{
+				// Couldn't find Content folder in source path
+				bFileOKToCopy = false;
+			}
+
+			if (bFileOKToCopy)
+			{
+				UPackage* Pkg = LoadPackage(nullptr, *PackageNameString, LOAD_None);
+				if (Pkg)
+				{
+					FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(SrcFilename));
+					UObject* ExistingObject = StaticFindObject(UObject::StaticClass(), Pkg, *Name);
+					if (ExistingObject)
+					{
+						FString Parent = FString();
+						if (bGenerateRelativePaths)
+						{
+							FString RootFolder = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>()->GetPackageThatInitiatedCopy();
+							if (RootFolder != FPaths::GetPath(ExistingObject->GetPathName()))
+							{
+								FString BaseParent = FString();
+								int32 MinLength = RootFolder.Len() < PackageNameString.Len() ? RootFolder.Len() : PackageNameString.Len();
+								for (int Char = 0; Char < MinLength; Char++)
+								{
+									if (RootFolder[Char] == PackageNameString[Char])
+									{
+										BaseParent += RootFolder[Char];
+									}
+									else
+									{
+										break;
+									}
+								}
+								// If we are in the root content folder, don't break down the folder string
+								if (BaseParent == TEXT("/Game"))
+								{
+									Parent = BaseParent;
+								}
+								else
+								{
+									BaseParent.Split(TEXT("/"), &Parent, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+								}
+							}
+						}
+
+						ObjectTools::FMoveDialogInfo MoveDialogInfo;
+						MoveDialogInfo.bOkToAll = InParams.bCopyOverAllDestinationOverlaps;
+						MoveDialogInfo.bPromptForRenameOnConflict = false;
+						// The default value for save packages is true if SCC is enabled because the user can use SCC to revert a change
+						MoveDialogInfo.bSavePackages = ISourceControlModule::Get().IsEnabled();
+						ObjectTools::GetMoveDialogInfo(NSLOCTEXT("UnrealEd", "DuplicateObjects", "Copy Objects"), ExistingObject, InParams.bGenerateUniqueNames, Parent, DestinationFolder, MoveDialogInfo);
+						FString DestinationPackage = MoveDialogInfo.PGN.PackageName + TEXT("/") + MoveDialogInfo.PGN.ObjectName;
+						OutPackagesAndDestinations.Add(PackageNameString, DestinationPackage);
+					}
+				}
+			}
+		}
+	}
+	
+}
+
+bool UAssetToolsImpl::FlattenAdvancedCopyDestinations(const TArray<TMap<FString, FString>> PackagesAndDestinations, TMap<FString, FString>& FlattenedPackagesAndDestinations) const
+{
+	FString CopyErrors;
+	for (TMap<FString, FString> PackageAndDestinationMap : PackagesAndDestinations)
+	{
+		for (auto It = PackageAndDestinationMap.CreateConstIterator(); It; ++It)
+		{
+			const FString& PackageName = It.Key();
+			const FString& DestFilename = It.Value();
+
+			if (FlattenedPackagesAndDestinations.Contains(PackageName))
+			{
+				const FString* ExistingDestinationPtr = FlattenedPackagesAndDestinations.Find(PackageName);
+				const FString ExistingDestination = *ExistingDestinationPtr;
+				if (ExistingDestination != DestFilename)
+				{
+					FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("AdvancedCopy_DuplicateDestinations", "Advanced Copy failed because {0} was being duplicated in two locations, {1} and {2}."),
+						FText::FromString(PackageName),
+						FText::FromString(FPaths::GetPath(ExistingDestination)),
+						FText::FromString(FPaths::GetPath(DestFilename))));
+					return false;
+				}
+			}
+			
+			// File passed all error conditions above, add it to valid flattened list
+			FlattenedPackagesAndDestinations.Add(PackageName, DestFilename);
+		}
+	}
+	// All files passed all validation tests
+	return true;
+}
+
+bool UAssetToolsImpl::ValidateFlattenedAdvancedCopyDestinations(const TMap<FString, FString>& FlattenedPackagesAndDestinations) const
+{
+	FString CopyErrors;
+
+	for (auto It = FlattenedPackagesAndDestinations.CreateConstIterator(); It; ++It)
+	{
+		const FString& PackageName = It.Key();
+		const FString& DestFilename = It.Value();
+
+		// Check for source/destination collisions
+		if (PackageName == FPaths::GetPath(DestFilename))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("AdvancedCopy_DuplicatedSource", "Advanced Copy failed because {0} was being copied over itself."), FText::FromString(PackageName)));
+			return false;
+		}
+		else if (FlattenedPackagesAndDestinations.Contains(FPaths::GetPath(DestFilename)))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("AdvancedCopy_DestinationEqualsSource", "Advanced Copy failed because {0} was being copied over the source file {1}."),
+				FText::FromString(PackageName),
+				FText::FromString(FPaths::GetPath(DestFilename))));
+			return false;
+		}
+
+		// Check for valid copy locations
+		FString SrcFilename;
+		if (!FPackageName::DoesPackageExist(PackageName, nullptr, &SrcFilename))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("AdvancedCopyPackages_PackageMissing", "{0} does not exist on disk."), FText::FromString(PackageName)));
+			return false;
+		}
+		else if (SrcFilename.Contains(FPaths::EngineContentDir()))
+		{
+			const FString LeafName = SrcFilename.Replace(*FPaths::EngineContentDir(), TEXT("Engine/"));
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("AdvancedCopyPackages_EngineContent", "Unable to copy Engine asset {0}. Engine assets cannot be copied using Advanced Copy."),
+				FText::FromString(LeafName)));
+			return false;
+		}
+	}
+	
+	// All files passed all validation tests
+	return true;
+}
+
+void UAssetToolsImpl::GetAllAdvancedCopySources(FName SelectedPackage, FAdvancedCopyParams& CopyParams, TArray<FName>& OutPackageNamesToCopy, TMap<FName, FName>& DependencyMap) const
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	FString CurrentRoot = FString();
+	TArray<FName> CurrentDependencies;
+	if (!OutPackageNamesToCopy.Contains(SelectedPackage))
+	{
+		CurrentDependencies.Add(SelectedPackage);
+		if (CopyParams.bShouldCheckForDependencies)
+		{
+			RecursiveGetDependenciesAdvanced(SelectedPackage, CopyParams, CurrentDependencies, DependencyMap);
+		}
+		OutPackageNamesToCopy.Append(CurrentDependencies);
+	}
+}
+
+bool UAssetToolsImpl::AdvancedCopyPackages(const TMap<FString, FString>& SourceAndDestPackages, const bool bForceAutosave, const bool bCopyOverAllDestinationOverlaps) const
+{
+	if (ValidateFlattenedAdvancedCopyDestinations(SourceAndDestPackages))
+	{
+		TArray<FString> SuccessfullyCopiedFiles;
+		TArray<FString> SuccessfullyCopiedPackages;
+		TArray<UObject*> ExistingObjects;
+		TArray<UObject*> NewObjects;
+		FString CopyErrors;
+		FScopedSlowTask LoopProgress(SourceAndDestPackages.Num(), LOCTEXT("AdvancedCopying", "Copying files and dependencies..."));
+		LoopProgress.MakeDialog();
+		for (auto It = SourceAndDestPackages.CreateConstIterator(); It; ++It)
+		{
+
+			FString PackageName = It.Key();
+			FString DestFilename = It.Value();
+			FString SrcFilename;
+
+			if (FPackageName::DoesPackageExist(PackageName, nullptr, &SrcFilename))
+			{
+				LoopProgress.EnterProgressFrame();
+				UPackage* Pkg = FindPackage(nullptr, *PackageName);
+				if (Pkg)
+				{
+					Pkg->FullyLoad();
+					FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(SrcFilename));
+					UObject* ExistingObject = StaticFindObject(UObject::StaticClass(), Pkg, *Name);
+					if (ExistingObject)
+					{
+						ExistingObjects.Add(ExistingObject);
+						TSet<UPackage*> ObjectsUserRefusedToFullyLoad;
+						ObjectTools::FMoveDialogInfo MoveDialogInfo;
+						MoveDialogInfo.bOkToAll = bCopyOverAllDestinationOverlaps;
+						// The default value for save packages is true if SCC is enabled because the user can use SCC to revert a change
+						MoveDialogInfo.bSavePackages = ISourceControlModule::Get().IsEnabled() || bForceAutosave;
+						MoveDialogInfo.PGN.GroupName = TEXT("");
+						MoveDialogInfo.PGN.ObjectName = FPaths::GetBaseFilename(DestFilename);
+						MoveDialogInfo.PGN.PackageName = FPaths::GetPath(DestFilename);
+						const bool bShouldPromptForDestinationConflict = !bCopyOverAllDestinationOverlaps;
+						UObject* NewObject = ObjectTools::DuplicateSingleObject(ExistingObject, MoveDialogInfo.PGN, ObjectsUserRefusedToFullyLoad, bShouldPromptForDestinationConflict);
+						NewObjects.Add(NewObject);
+						SuccessfullyCopiedPackages.Add(PackageName);
+						SuccessfullyCopiedFiles.Add(DestFilename);
+					}
+				}
+			}
+		}
+
+
+		for (int32 ObjectIdx = 0; ObjectIdx < NewObjects.Num(); ObjectIdx++)
+		{
+			TMap<UObject*, UObject*> ReplacementMap;
+			FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+			TArray<FName> Dependencies;
+			FName SuccessfullyCopiedPackage = FName(*SuccessfullyCopiedPackages[ObjectIdx]);
+			AssetRegistryModule.Get().GetDependencies(SuccessfullyCopiedPackage, Dependencies);
+			for (FName Dependency : Dependencies)
+			{
+				if (SuccessfullyCopiedPackages.Contains(Dependency.ToString()))
+				{
+					int32 DependencyIndex = ExistingObjects.IndexOfByPredicate([&](UObject* Object) { return Object->GetOuter()->GetName() == Dependency.ToString(); });
+					if (DependencyIndex != INDEX_NONE)
+					{
+						ReplacementMap.Add(ExistingObjects[DependencyIndex], NewObjects[DependencyIndex]);
+					}
+				}
+			}
+			FArchiveReplaceObjectRef<UObject> ReplaceAr(NewObjects[ObjectIdx], ReplacementMap, false, true, true);
+		}
+
+
+		FString SourceControlErrors;
+
+		if (SuccessfullyCopiedFiles.Num() > 0)
+		{
+			// attempt to add files to source control (this can quite easily fail, but if it works it is very useful)
+			if (GetDefault<UEditorLoadingSavingSettings>()->bSCCAutoAddNewFiles)
+			{
+				if (ISourceControlModule::Get().IsEnabled())
+				{
+					ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+					if (SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), SuccessfullyCopiedFiles) == ECommandResult::Failed)
+					{
+						for (auto FileIt(SuccessfullyCopiedFiles.CreateConstIterator()); FileIt; FileIt++)
+						{
+							if (!SourceControlProvider.GetState(*FileIt, EStateCacheUsage::Use)->IsAdded())
+							{
+								SourceControlErrors += FText::Format(LOCTEXT("AdvancedCopyPackages_SourceControlError", "{0} could not be added to source control"), FText::FromString(*FileIt)).ToString();
+								SourceControlErrors += LINE_TERMINATOR;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		FMessageLog AdvancedCopyLog("AssetTools");
+		FText LogMessage = FText::FromString(TEXT("Advanced content copy completed successfully!"));
+		FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get().ScanModifiedAssetFiles(SuccessfullyCopiedPackages);
+		EMessageSeverity::Type Severity = EMessageSeverity::Info;
+		if (SourceControlErrors.Len() > 0)
+		{
+			FString ErrorMessage;
+			Severity = EMessageSeverity::Error;
+			if (SourceControlErrors.Len() > 0)
+			{
+				AdvancedCopyLog.NewPage(LOCTEXT("AdvancedCopyPackages_SourceControlErrorsListPage", "Source Control Errors"));
+				AdvancedCopyLog.Error(FText::FromString(*SourceControlErrors));
+				ErrorMessage += LINE_TERMINATOR;
+				ErrorMessage += LOCTEXT("AdvancedCopyPackages_SourceControlErrorsList", "Some files reported source control errors.").ToString();
+			}
+			if (SuccessfullyCopiedPackages.Num() > 0)
+			{
+				AdvancedCopyLog.NewPage(LOCTEXT("AdvancedCopyPackages_CopyErrorsSuccesslistPage", "Copied Successfully"));
+				AdvancedCopyLog.Info(FText::FromString(*SourceControlErrors));
+				ErrorMessage += LINE_TERMINATOR;
+				ErrorMessage += LOCTEXT("AdvancedCopyPackages_CopyErrorsSuccesslist", "Some files were copied successfully.").ToString();
+				for (auto FileIt = SuccessfullyCopiedPackages.CreateConstIterator(); FileIt; ++FileIt)
+				{
+					if (FileIt->Len() > 0)
+					{
+						AdvancedCopyLog.Info(FText::FromString(*FileIt));
+					}
+				}
+			}
+			LogMessage = FText::FromString(ErrorMessage);
+		}
+		else
+		{
+			AdvancedCopyLog.NewPage(LOCTEXT("AdvancedCopyPackages_CompletePage", "Advanced content copy completed successfully!"));
+			for (auto FileIt = SuccessfullyCopiedPackages.CreateConstIterator(); FileIt; ++FileIt)
+			{
+				if (FileIt->Len() > 0)
+				{
+					AdvancedCopyLog.Info(FText::FromString(*FileIt));
+				}
+			}
+		}
+		AdvancedCopyLog.Notify(LogMessage, Severity, true);
+		return true;
+	}
+	return false;
+}
+
+bool UAssetToolsImpl::AdvancedCopyPackages(const FAdvancedCopyParams& CopyParams, const TArray<TMap<FString, FString>> PackagesAndDestinations) const
+{
+	TMap<FString, FString> FlattenedDestinationMap;
+	if (FlattenAdvancedCopyDestinations(PackagesAndDestinations, FlattenedDestinationMap))
+	{
+		return AdvancedCopyPackages(FlattenedDestinationMap, CopyParams.bShouldForceSave, CopyParams.bCopyOverAllDestinationOverlaps);
+	}
+	return false;
 }
 
 bool UAssetToolsImpl::RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const
@@ -2473,6 +2822,34 @@ void UAssetToolsImpl::RecursiveGetDependencies(const FName& PackageName, TSet<FN
 	}
 }
 
+void UAssetToolsImpl::RecursiveGetDependenciesAdvanced(const FName& PackageName, FAdvancedCopyParams& CopyParams, TArray<FName>& AllDependencies, TMap<FName, FName>& DependencyMap) const
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	TArray<FName> Dependencies;
+	AssetRegistryModule.Get().GetDependencies(PackageName, Dependencies);
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	for (auto DependsIt = Dependencies.CreateConstIterator(); DependsIt; ++DependsIt)
+	{
+		if (!AllDependencies.Contains(*DependsIt))
+		{
+			TArray<FAssetData> DependencyAssetData;
+			if (AssetRegistry.GetAssetsByPackageName(*DependsIt, DependencyAssetData))
+			{
+				FARFilter ExclusionFilter = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>()->GetARFilter();
+				AssetRegistry.UseFilterToExcludeAssets(DependencyAssetData, ExclusionFilter);
+				if (DependencyAssetData.IsValidIndex(0))
+				{
+					AllDependencies.Add(*DependsIt);
+					DependencyMap.Add(*DependsIt, PackageName);
+					RecursiveGetDependenciesAdvanced(*DependsIt, CopyParams, AllDependencies, DependencyMap);
+				}
+			}
+		
+		}
+	}
+}
+
 void UAssetToolsImpl::FixupReferencers(const TArray<UObjectRedirector*>& Objects) const
 {
 	AssetFixUpRedirectors->FixupReferencers(Objects);
@@ -2481,6 +2858,157 @@ void UAssetToolsImpl::FixupReferencers(const TArray<UObjectRedirector*>& Objects
 void UAssetToolsImpl::OpenEditorForAssets(const TArray<UObject*>& Assets) const
 {
 	FAssetEditorManager::Get().OpenEditorForAssets(Assets);
+}
+
+void UAssetToolsImpl::BeginAdvancedCopyPackages(const TArray<FName>& PackageNamesToCopy, const FString& TargetPath) const
+{
+	// Packages must be saved for the migration to work
+	const bool bPromptUserToSave = true;
+	const bool bSaveMapPackages = true;
+	const bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		if (AssetRegistryModule.Get().IsLoadingAssets())
+		{
+			// Open a dialog asking the user to wait while assets are being discovered
+			SDiscoveringAssetsDialog::OpenDiscoveringAssetsDialog(
+				SDiscoveringAssetsDialog::FOnAssetsDiscovered::CreateUObject(this, &UAssetToolsImpl::PerformAdvancedCopyPackages, PackageNamesToCopy, TargetPath)
+			);
+		}
+		else
+		{
+			// Assets are already discovered, perform the migration now
+			PerformAdvancedCopyPackages(PackageNamesToCopy, TargetPath);
+		}
+	}
+}
+
+void UAssetToolsImpl::PerformAdvancedCopyPackages(TArray<FName> SelectedPackageNames, FString TargetPath) const
+{	
+	FAdvancedCopyParams CopyParams = FAdvancedCopyParams(SelectedPackageNames, TargetPath);
+	CopyParams.bShouldCheckForDependencies = SelectedPackageNames.Num() == 1;
+
+	for (auto PackageIt = SelectedPackageNames.CreateConstIterator(); PackageIt; ++PackageIt)
+	{
+		UAdvancedCopyCustomization* CopyCustomization = nullptr;
+
+		const UAssetToolsSettings* Settings = GetDefault<UAssetToolsSettings>();
+		FName OriginalPackage = *PackageIt;
+		const FString& PackageNameString = OriginalPackage.ToString();
+		FString SrcFilename;
+		UObject* ExistingObject = nullptr;
+		if (FPackageName::DoesPackageExist(PackageNameString, nullptr, &SrcFilename))
+		{
+			UPackage* Pkg = LoadPackage(nullptr, *PackageNameString, LOAD_None);
+			if (Pkg)
+			{
+				FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(SrcFilename));
+				ExistingObject = StaticFindObject(UObject::StaticClass(), Pkg, *Name);
+			}
+		}
+		if (ExistingObject)
+		{
+			// Try to find the customization in the settings
+			for (const FAdvancedCopyMap Customization : Settings->AdvancedCopyCustomizations)
+			{
+				if (Customization.ClassToCopy.GetAssetPathString() == ExistingObject->GetClass()->GetPathName())
+				{
+					UClass* CustomizationClass = Customization.AdvancedCopyCustomization.TryLoadClass<UAdvancedCopyCustomization>();
+					if (CustomizationClass)
+					{
+						CopyCustomization = CustomizationClass->GetDefaultObject<UAdvancedCopyCustomization>();
+					}
+				}
+			}
+		}
+
+		// If not able to find class in settings, fall back to default customization
+		if (CopyCustomization == nullptr)
+		{
+			CopyCustomization = UAdvancedCopyCustomization::StaticClass()->GetDefaultObject<UAdvancedCopyCustomization>();
+		}
+
+		CopyParams.AddCustomization(CopyCustomization);
+	}
+
+	InitAdvancedCopyFromCopyParams(CopyParams);
+}
+
+
+void UAssetToolsImpl::InitAdvancedCopyFromCopyParams(FAdvancedCopyParams CopyParams) const
+{
+	TArray<TMap<FName, FName>> CompleteDependencyMap;
+	TArray<TMap<FString, FString>> CompleteDestinationMap;
+
+	TArray<FName> SelectedPackageNames = CopyParams.GetSelectedPackageNames();
+
+	FScopedSlowTask SlowTask(SelectedPackageNames.Num(), LOCTEXT("AdvancedCopyPrepareSlowTask", "Preparing Files for Advanced Copy"));
+	SlowTask.MakeDialog();
+
+	TArray<UAdvancedCopyCustomization*> CustomizationsToUse = CopyParams.GetCustomizationsToUse();
+
+	for (int32 CustomizationIndex = 0; CustomizationIndex < CustomizationsToUse.Num(); CustomizationIndex++)
+	{
+		FName Package = SelectedPackageNames[CustomizationIndex];
+		SlowTask.EnterProgressFrame(1, FText::Format(LOCTEXT("AdvancedCopy_PreparingDependencies", "Preparing dependencies for {0}"), FText::FromString(Package.ToString())));
+		UAdvancedCopyCustomization* CopyCustomization = CustomizationsToUse[CustomizationIndex];
+		// Give the customization a chance to edit the copy parameters
+		CopyCustomization->EditCopyParams(CopyParams);
+		TMap<FName, FName> DependencyMap = TMap<FName, FName>();
+		TArray<FName> PackageNamesToCopy;
+
+		// Get all packages to be copied
+		GetAllAdvancedCopySources(Package, CopyParams, PackageNamesToCopy, DependencyMap);
+		// Allow the customization to apply any additional filters
+		CopyCustomization->ApplyAdditionalFiltering(PackageNamesToCopy);
+
+		CopyCustomization->SetPackageThatInitiatedCopy(Package.ToString());
+		TMap<FString, FString> DestinationMap = TMap<FString, FString>();
+
+
+		GenerateAdvancedCopyDestinations(CopyParams, PackageNamesToCopy, CopyCustomization, DestinationMap);
+		CopyCustomization->TransformDestinationPaths(DestinationMap);
+		CompleteDestinationMap.Add(DestinationMap);
+		CompleteDependencyMap.Add(DependencyMap);
+	}
+
+	// Confirm that there is at least one package to move 
+	if (CompleteDestinationMap.Num() == 0)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("AdvancedCopyPackages_NoFilesToMove", "No files were found to move"));
+		return;
+	}
+
+	// Prompt the user displaying all assets that are going to be migrated
+	if (CopyParams.bShouldSuppressUI)
+	{
+		AdvancedCopyPackages_ReportConfirmed(CopyParams, CompleteDestinationMap);
+	}
+	else
+	{
+		const FText ReportMessage = FText::FromString(CopyParams.GetDropLocationForAdvancedCopy());
+
+		SAdvancedCopyReportDialog::FOnReportConfirmed OnReportConfirmed = SAdvancedCopyReportDialog::FOnReportConfirmed::CreateUObject(this, &UAssetToolsImpl::AdvancedCopyPackages_ReportConfirmed, CopyParams, CompleteDestinationMap);
+		SAdvancedCopyReportDialog::OpenPackageReportDialog(CopyParams, ReportMessage, CompleteDestinationMap, CompleteDependencyMap, OnReportConfirmed);
+	}
+}
+
+void UAssetToolsImpl::AdvancedCopyPackages_ReportConfirmed(FAdvancedCopyParams CopyParams, TArray<TMap<FString, FString>> DestinationMap) const
+{
+	TArray<UAdvancedCopyCustomization*> CustomizationsToUse = CopyParams.GetCustomizationsToUse();
+	for (int32 CustomizationIndex = 0; CustomizationIndex < CustomizationsToUse.Num(); CustomizationIndex++)
+	{
+		if (!CustomizationsToUse[CustomizationIndex]->CustomCopyValidate(DestinationMap[CustomizationIndex]))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("AdvancedCopy_FailedCustomValidate", "Advanced Copy failed because the validation rules set in {0} failed."),
+				FText::FromString(CustomizationsToUse[CustomizationIndex]->GetName())));
+
+			return;
+		}
+	}
+	AdvancedCopyPackages(CopyParams, DestinationMap);
 }
 
 #undef LOCTEXT_NAMESPACE

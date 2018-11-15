@@ -278,7 +278,7 @@ struct FMetalRenderPipelineHash
 	uint64 TargetBits;
 };
 
-class DEPRECATED(4.15, "Use GraphicsPipelineState Interface") FMetalBoundShaderState : public FRHIBoundShaderState
+class UE_DEPRECATED(4.15, "Use GraphicsPipelineState Interface") FMetalBoundShaderState : public FRHIBoundShaderState
 {
 };
 

@@ -77,11 +77,20 @@ FProceduralFoliageInstance* UProceduralFoliageTile::NewSeed(const FVector& Locat
 		NewInst->Normal = FVector(0, 0, 1);
 		NewInst->Scale = Scale;
 		NewInst->bBlocker = bBlocker;
-		
-		// Add the seed if possible
-		Broadphase.Insert(NewInst);
-		const bool bSurvived = HandleOverlaps(NewInst);
-		return bSurvived ? NewInst : nullptr;
+
+		// Don't add the seed if outside the quadtree TreeBox...
+		bool bSucceedsAgainstAABBCheck = Broadphase.TestAgainstAABB(NewInst);
+		if (bSucceedsAgainstAABBCheck)
+		{
+			// Add the seed if possible
+			Broadphase.Insert(NewInst);
+			const bool bSurvived = HandleOverlaps(NewInst);
+			return bSurvived ? NewInst : nullptr;
+		}
+		else
+		{
+			return nullptr;
+		}
 	}
 
 	return nullptr;

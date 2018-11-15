@@ -438,6 +438,6 @@ UNavLocalGridManager* UNavLocalGridManager::GetCurrent(const UObject* WorldConte
 #if WITH_ENGINE
 UWorld* UNavLocalGridManager::GetWorld() const
 {
-	return Cast<UWorld>(GetOuter());
+	return GetOuter()->GetWorld();
 }
 #endif // WITH_ENGINE

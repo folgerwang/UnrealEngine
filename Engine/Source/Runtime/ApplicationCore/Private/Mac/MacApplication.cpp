@@ -542,7 +542,7 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 				case NSEventTypeKeyUp:
 					bShouldStopEventDispatch = true;
 					break;
-					
+
 				case NSEventTypeLeftMouseDown:
 				case NSEventTypeRightMouseDown:
 				case NSEventTypeOtherMouseDown:
@@ -553,7 +553,7 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 					bShouldStopEventDispatch = ((FMacCursor*)MacApplication->Cursor.Get())->IsLocked();
 					break;
 			}
-			
+
 			if (bShouldStopEventDispatch)
 			{
 				ReturnEvent = nil;

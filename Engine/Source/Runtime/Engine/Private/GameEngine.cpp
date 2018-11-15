@@ -644,8 +644,7 @@ void UGameEngine::OnGameWindowMoved( const TSharedRef<SWindow>& WindowBeingMoved
 void UGameEngine::RedrawViewports( bool bShouldPresent /*= true*/ )
 {
 	SCOPE_CYCLE_COUNTER(STAT_RedrawViewports);
-	CSV_SCOPED_TIMING_STAT(Basic, RedrawViewports);
-
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ViewportMisc);
 	if ( GameViewport != NULL )
 	{
 		GameViewport->LayoutPlayers();
@@ -1249,8 +1248,8 @@ float UGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing
 
 void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(EngineTickMisc);
 	SCOPE_TIME_GUARD(TEXT("UGameEngine::Tick"));
-
 	SCOPE_CYCLE_COUNTER(STAT_GameEngineTick);
 	NETWORK_PROFILER(GNetworkProfiler.TrackFrameBegin());
 
@@ -1429,7 +1428,6 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	// ----------------------------
 	{
 		SCOPE_TIME_GUARD(TEXT("UGameEngine::Tick - TickObjects"));
-		CSV_SCOPED_TIMING_STAT(Basic, GameEngineTickObjects);
 		FTickableGameObject::TickObjects(nullptr, LEVELTICK_All, false, DeltaSeconds);
 	}
 

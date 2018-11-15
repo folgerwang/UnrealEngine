@@ -99,6 +99,8 @@ UAnimInstance::UAnimInstance(const FObjectInitializer& ObjectInitializer)
 
 	// Default to using threaded animation update.
 	bUseMultiThreadedAnimationUpdate = true;
+
+	PendingDynamicResetTeleportType = ETeleportType::None;
 }
 
 // this is only used by montage marker based sync
@@ -343,6 +345,13 @@ void UAnimInstance::UpdateAnimation(float DeltaSeconds, bool bNeedsValidRootMoti
 
 	// acquire the proxy as we need to update
 	FAnimInstanceProxy& Proxy = GetProxyOnGameThread<FAnimInstanceProxy>();
+
+	// Apply any pending dynamics reset
+	if(PendingDynamicResetTeleportType != ETeleportType::None)
+	{
+		Proxy.ResetDynamics(PendingDynamicResetTeleportType);
+		PendingDynamicResetTeleportType = ETeleportType::None;
+	}
 
 	if (const USkeletalMeshComponent* SkelMeshComp = GetSkelMeshComponent())
 	{
@@ -1056,7 +1065,7 @@ void UAnimInstance::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo&
 
 void UAnimInstance::ResetDynamics(ETeleportType InTeleportType)
 {
-	GetProxyOnGameThread<FAnimInstanceProxy>().ResetDynamics(InTeleportType);
+	PendingDynamicResetTeleportType = FMath::Max(InTeleportType, PendingDynamicResetTeleportType);
 }
 
 void UAnimInstance::ResetDynamics()
@@ -1138,8 +1147,16 @@ void UAnimInstance::PostInitProperties()
 
 void UAnimInstance::AddCurveValue(const FName& CurveName, float Value)
 {
-	FAnimInstanceProxy& Proxy = GetProxyOnGameThread<FAnimInstanceProxy>();
+	const FSmartNameMapping* Mapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
+	if(Mapping)
+	{
+		FAnimInstanceProxy& Proxy = GetProxyOnGameThread<FAnimInstanceProxy>();
+		AddCurveValue(Proxy, *Mapping, CurveName, Value);
+	}
+}
 
+void UAnimInstance::AddCurveValue(FAnimInstanceProxy& Proxy, const FSmartNameMapping& Mapping, const FName& CurveName, float Value)
+{
 	// save curve value, it will overwrite if same exists, 
 	//CurveValues.Add(CurveName, Value);
 	float* CurveValPtr = AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Find(CurveName);
@@ -1156,7 +1173,7 @@ void UAnimInstance::AddCurveValue(const FName& CurveName, float Value)
 
 	check(CurrentSkeleton);
 
-	const FCurveMetaData* CurveMetaData = CurrentSkeleton->GetCurveMetaData(CurveName);
+	const FCurveMetaData* CurveMetaData = Mapping.GetCurveMetaData(CurveName);
 	if (CurveMetaData)
 	{
 		if (CurveMetaData->Type.bMorphtarget)
@@ -1283,15 +1300,23 @@ void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 
 	if (InCurve.UIDToArrayIndexLUT != nullptr)
 	{
-		for (int32 CurveUID = 0; CurveUID < InCurve.UIDToArrayIndexLUT->Num(); ++CurveUID)
+		const FSmartNameMapping* NameMapping = CurrentSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
+		if(NameMapping)
 		{
-			int32 ArrayIndex = InCurve.GetArrayIndexByUID(CurveUID);
-
-			if (ArrayIndex != INDEX_NONE && ensureAlwaysMsgf(InCurve.Elements.IsValidIndex(ArrayIndex), TEXT("%s Animation Instance contains out of bound UIDList."), *GetClass()->GetName())
-				&& InCurve.Elements[ArrayIndex].IsValid())
+			for (int32 CurveUID = 0; CurveUID < InCurve.UIDToArrayIndexLUT->Num(); ++CurveUID)
 			{
-				// had to add to another data type
-				AddCurveValue(CurveUID, InCurve.Elements[ArrayIndex].Value);
+				int32 ArrayIndex = InCurve.GetArrayIndexByUID(CurveUID);
+
+				if (ArrayIndex != INDEX_NONE && ensureAlwaysMsgf(InCurve.Elements.IsValidIndex(ArrayIndex), TEXT("%s Animation Instance contains out of bound UIDList."), *GetClass()->GetName())
+					&& InCurve.Elements[ArrayIndex].IsValid())
+				{
+					FName CurrentCurveName;
+					if(NameMapping->GetName(CurveUID, CurrentCurveName))
+					{
+						// had to add to another data type
+						AddCurveValue(Proxy, *NameMapping, CurrentCurveName, InCurve.Elements[ArrayIndex].Value);
+					}
+				}
 			}
 		}
 	}	
@@ -1309,7 +1334,7 @@ void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 	}
 
 	// update curves to component
-	UpdateCurvesToComponents(GetOwningComponent());
+	UpdateCurvesToComponents(SkelMeshComp);
 }
 
 bool UAnimInstance::HasMorphTargetCurves() const
@@ -1390,8 +1415,13 @@ void UAnimInstance::TriggerSingleAnimNotify(const FAnimNotifyEvent* AnimNotifyEv
 	// This is for non 'state' anim notifies.
 	if (AnimNotifyEvent && (AnimNotifyEvent->NotifyStateClass == NULL))
 	{
-		if (AnimNotifyEvent->Notify != NULL)
+		if (HandleNotify(*AnimNotifyEvent))
 		{
+			return;
+		}
+
+		if (AnimNotifyEvent->Notify != nullptr)
+		{	
 			// Implemented notify: just call Notify. UAnimNotify will forward this to the event which will do the work.
 			AnimNotifyEvent->Notify->Notify(GetSkelMeshComponent(), Cast<UAnimSequenceBase>(AnimNotifyEvent->Notify->GetOuter()));
 		}
@@ -2755,6 +2785,11 @@ int32 UAnimInstance::GetSyncGroupIndexFromName(FName SyncGroupName) const
 	return GetProxyOnGameThread<FAnimInstanceProxy>().GetSyncGroupIndexFromName(SyncGroupName);
 }
 
+bool UAnimInstance::HandleNotify(const FAnimNotifyEvent& AnimNotifyEvent)
+{
+	return false;
+}
+
 bool UAnimInstance::IsRunningParallelEvaluation() const
 {
 	USkeletalMeshComponent* Comp = GetOwningComponent();
@@ -2808,28 +2843,6 @@ const FBoneContainer& UAnimInstance::GetRequiredBonesOnAnyThread() const
 void UAnimInstance::QueueRootMotionBlend(const FTransform& RootTransform, const FName& SlotName, float Weight)
 {
 	RootMotionBlendQueue.Add(FQueuedRootMotionBlend(RootTransform, SlotName, Weight));
-}
-
-void UAnimInstance::PreInitializeRootNode()
-{
-	// This function should only be called on the CDO
-	check(HasAnyFlags(RF_ClassDefaultObject));
-
-	IAnimClassInterface* AnimClassInterface = IAnimClassInterface::GetFromClass(GetClass());
-	if(AnimClassInterface)
-	{
-		for(UStructProperty* Property : AnimClassInterface->GetAnimNodeProperties())
-		{
-			if (Property->Struct->IsChildOf(FAnimNode_Base::StaticStruct()))
-			{
-				FAnimNode_Base* AnimNode = Property->ContainerPtrToValuePtr<FAnimNode_Base>(this);
-				if (AnimNode)
-				{
-					AnimNode->EvaluateGraphExposedInputs.Initialize(AnimNode, this);
-				}
-			}
-		}
-	}
 }
 
 #undef LOCTEXT_NAMESPACE 

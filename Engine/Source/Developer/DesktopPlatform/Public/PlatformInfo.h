@@ -369,9 +369,16 @@ namespace PlatformInfo
 	/**
 	* Returns a list of all defined Platform Groups, excluding None.
     * Used to to present a list in the Per-Platform Properties UI.
-	* @return An EPlatformType value.
+	* @return An array of FNames.
 	*/
 	DESKTOPPLATFORM_API const TArray<FName>& GetAllPlatformGroupNames();
+
+	/**
+	* Returns a list of all defined Platform, in vanilla form.
+    * Used to to present a list in the Per-Platform Properties UI.
+	* @return An array of FNames.
+	*/
+	DESKTOPPLATFORM_API const TArray<FName>& GetAllVanillaPlatformNames();
 }
 
 DESKTOPPLATFORM_API FString LexToString(const PlatformInfo::EPlatformType Value);

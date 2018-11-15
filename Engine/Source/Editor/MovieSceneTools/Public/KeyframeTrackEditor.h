@@ -29,16 +29,16 @@ struct FMovieSceneChannelValueSetter
 
 	/** Templated construction function that can add a key (and potentially also set a default) for the specified channel and value */
 	template<typename ChannelType, typename ValueType>
-	static FMovieSceneChannelValueSetter Create(int32 ChannelIndex, const ValueType& InNewValue, bool bAddKey)
+	static FMovieSceneChannelValueSetter Create(int32 ChannelIndex, ValueType InNewValue, bool bAddKey)
 	{
 		FMovieSceneChannelValueSetter NewValue;
 		if (bAddKey)
 		{
-			NewValue.Impl = TAddKeyImpl<ChannelType, ValueType>(ChannelIndex, InNewValue);
+			NewValue.Impl = TAddKeyImpl<ChannelType, typename TDecay<ValueType>::Type>(ChannelIndex, Forward<ValueType>(InNewValue));
 		}
 		else
 		{
-			NewValue.Impl = TSetDefaultImpl<ChannelType, ValueType>(ChannelIndex, InNewValue);
+			NewValue.Impl = TSetDefaultImpl<ChannelType, typename TDecay<ValueType>::Type>(ChannelIndex, Forward<ValueType>(InNewValue));
 		}
 		return MoveTemp(NewValue);
 	}

@@ -583,7 +583,7 @@ void UAnimCompress_RemoveLinearKeys::UpdateWorldBoneTransformTable(
 	TArray<FTransform>& OutputWorldBones)
 {
 	const FBoneData& Bone		= BoneData[BoneIndex];
-	const int32 NumFrames			= AnimSeq->NumFrames;
+	const int32 NumFrames		= AnimSeq->GetRawNumberOfFrames();
 	const float SequenceLength	= AnimSeq->SequenceLength;
 	const int32 FrameStart		= (BoneIndex*NumFrames);
 	const int32 TrackIndex = AnimSeq->GetSkeleton()->GetAnimationTrackIndex(BoneIndex, AnimSeq, UseRaw);
@@ -764,13 +764,13 @@ static FQuat UnpackQuat(
 static float GetFrameRate(const UAnimSequence& AnimSeq)
 {
 	// We cannot round since some sequences have a non integral frame rate for legacy reasons
-	return float(AnimSeq.NumFrames - 1) / AnimSeq.SequenceLength;
+	return float(AnimSeq.GetRawNumberOfFrames() - 1) / AnimSeq.SequenceLength;
 }
 
 static float FindKeyInterpolationData(const UAnimSequence& AnimSeq, const TArray<float>& KeyTimes, float Time, int32& OutKeyIndex0, int32& OutKeyIndex1)
 {
 	// Use the same logic as the decompression in order to ensure we match 100%
-	const int32 LastFrame = AnimSeq.NumFrames - 1;
+	const int32 LastFrame = AnimSeq.GetRawNumberOfFrames() - 1;
 	const float FrameRate = GetFrameRate(AnimSeq);
 	const float RelativePos = Time / AnimSeq.SequenceLength;
 	const float FramePos = RelativePos * float(LastFrame);
@@ -1287,7 +1287,7 @@ void UAnimCompress_RemoveLinearKeys::ProcessAnimationTracks(
 {
 	// extract all the data we'll need about the skeleton and animation sequence
 	const int32 NumBones			= BoneData.Num();
-	const int32 NumFrames			= AnimSeq->NumFrames;
+	const int32 NumFrames			= AnimSeq->GetRawNumberOfFrames();
 	const float SequenceLength	= AnimSeq->SequenceLength;
 	const int32 LastFrame = NumFrames-1;
 	const float FrameRate = (float)(LastFrame) / SequenceLength;

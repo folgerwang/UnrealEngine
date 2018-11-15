@@ -96,8 +96,6 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	ERHIFeatureLevel::Type PreviewFeatureLevel;
 	if (RHIGetPreviewFeatureLevel(PreviewFeatureLevel))
 	{
-		check(PreviewFeatureLevel == ERHIFeatureLevel::ES2 || PreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
-
 		// ES2/3.1 feature level emulation in D3D11
 		GMaxRHIFeatureLevel = PreviewFeatureLevel;
 		if (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES2)

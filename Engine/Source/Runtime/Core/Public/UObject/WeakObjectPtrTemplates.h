@@ -8,7 +8,6 @@
 #include "Templates/AreTypesEqual.h"
 #include "Templates/AndOrNot.h"
 #include "Containers/Map.h"
-#include "UObject/AutoPointer.h"
 
 struct FWeakObjectPtr;
 
@@ -39,10 +38,6 @@ struct TWeakObjectPtr : private TWeakObjectPtrBase
 	// and are only templates for module organization reasons.
 	static_assert(TAreTypesEqual<TWeakObjectPtrBase, FWeakObjectPtr>::Value, "TWeakObjectPtrBase should not be overridden");
 
-	// These exists only to disambiguate the two constructors below
-	enum EDummy1 { Dummy1 };
-	enum EDummy2 { Dummy2 };
-
 public:
 	TWeakObjectPtr() = default;
 	TWeakObjectPtr(const TWeakObjectPtr&) = default;
@@ -63,39 +58,34 @@ public:
 	**/
 	template <
 		typename U,
-		typename = typename TEnableIf<
-			TAnd<
-				TPointerIsConvertibleFromTo<const volatile U, const volatile T>,
-				TNot<TLosesQualifiersFromTo<U, T>>
-			>::Value
-		>::Type
+		typename = typename TEnableIf<TPointerIsConvertibleFromTo<const volatile U, const volatile T>::Value>::Type
 	>
-	FORCEINLINE TWeakObjectPtr(U* Object, EDummy1 = Dummy1) :
+	FORCEINLINE TWeakObjectPtr(U* Object) :
 		TWeakObjectPtrBase((UObject*)Object)
 	{
-		// This static assert is in here rather than in the body of the class because we want
-		// to be able to define TWeakObjectPtr<UUndefinedClass>.
-		static_assert(TPointerIsConvertibleFromTo<T, const volatile UObject>::Value, "TWeakObjectPtr can only be constructed with UObject types");
-	}
-	template <
-		typename U,
-		typename = typename TEnableIf<
-			TAnd<
-				TPointerIsConvertibleFromTo<const volatile U, const volatile T>,
-				TLosesQualifiersFromTo<U, T>
-			>::Value
-		>::Type
-	>
-	DEPRECATED(4.19, "Implicit conversions from const pointers to non-const TWeakObjectPtrs has been deprecated. Please const-correct this usage.")
-	FORCEINLINE TWeakObjectPtr(U* Object, EDummy2 = Dummy2) :
-		TWeakObjectPtrBase((const UObject*)Object)
-	{
+		// When removing this deprecation warning, change:
+		//
+		// TWeakObjectPtrBase((UObject*)Object)
+		// to:
+		// TWeakObjectPtrBase((const UObject*)Object)
+		//
+		// and:
+		//
+		// typename TEnableIf<TPointerIsConvertibleFromTo<const volatile U, const volatile T>::Value>::Type
+		// to:
+		// typename TEnableIf<TPointerIsConvertibleFromTo<U, T>::Value>::Type
+		UE_STATIC_DEPRECATE(
+			4.19,
+			(TLosesQualifiersFromTo<U, T>::Value),
+			"Implicit conversions from const pointers to non-const TWeakObjectPtrs has been deprecated as it is not const-correct."
+		);
+
 		// This static assert is in here rather than in the body of the class because we want
 		// to be able to define TWeakObjectPtr<UUndefinedClass>.
 		static_assert(TPointerIsConvertibleFromTo<T, const volatile UObject>::Value, "TWeakObjectPtr can only be constructed with UObject types");
 	}
 
-	/**  
+	/**
 	 * Construct from another weak pointer of another type, intended for derived-to-base conversions
 	 * @param Other weak pointer to copy from
 	**/
@@ -127,7 +117,7 @@ public:
 		TWeakObjectPtrBase::operator=(TempObject);
 	}
 	template<class U>
-	DEPRECATED(4.19, "Implicit conversions from const pointers to non-const TWeakObjectPtrs has been deprecated. Please const-correct this usage.")
+	UE_DEPRECATED(4.19, "Implicit conversions from const pointers to non-const TWeakObjectPtrs has been deprecated. Please const-correct this usage.")
 	FORCEINLINE typename TEnableIf<TLosesQualifiersFromTo<U, T>::Value>::Type operator=(U* Object)
 	{
 		const T* TempObject = Object;
@@ -370,34 +360,34 @@ class TAutoWeakObjectPtr : public TWeakObjectPtr<T>
 {
 public:
 	/** NULL constructor **/
-	DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
+	UE_DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
 	FORCEINLINE TAutoWeakObjectPtr()
 	{
 	}
 	/** Construct from a raw pointer **/
-	DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
+	UE_DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
 	FORCEINLINE TAutoWeakObjectPtr(const T* Target)
 		: TWeakObjectPtr<T>(Target)
 	{
 	}
 	/**  Construct from the base type **/
-	DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
+	UE_DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
 	FORCEINLINE TAutoWeakObjectPtr(const TWeakObjectPtr<T>& Other) 
 		: TWeakObjectPtr<T>(Other)
 	{
 	}
-	DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
+	UE_DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
 	FORCEINLINE operator T* () const
 	{
 		return this->Get();
 	}
-	DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
+	UE_DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
 	FORCEINLINE operator const T* () const
 	{
 		return (const T*)this->Get();
 	}
 
-	DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
+	UE_DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
 	FORCEINLINE explicit operator bool() const
 	{
 		return this->Get() != nullptr;

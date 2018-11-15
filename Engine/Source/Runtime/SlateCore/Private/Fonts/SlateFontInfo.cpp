@@ -12,7 +12,7 @@
 
 FFontOutlineSettings FFontOutlineSettings::NoOutline;
 
-
+#if WITH_EDITORONLY_DATA
 bool FFontOutlineSettings::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
@@ -30,6 +30,7 @@ void FFontOutlineSettings::PostSerialize(const FArchive& Ar)
 		bApplyOutlineToDropShadows = true;
 	}
 }
+#endif
 
 FSlateFontInfo::FSlateFontInfo( )
 	: FontObject(nullptr)

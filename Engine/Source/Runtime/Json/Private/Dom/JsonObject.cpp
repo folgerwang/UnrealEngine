@@ -49,7 +49,7 @@ bool FJsonObject::TryGetNumberField(const FString& FieldName, int64& OutNumber) 
 
 void FJsonObject::SetNumberField( const FString& FieldName, double Number )
 {
-	this->Values.Add(FieldName, MakeShareable(new FJsonValueNumber(Number)));
+	this->Values.Add(FieldName, MakeShared<FJsonValueNumber>(Number));
 }
 
 
@@ -100,7 +100,7 @@ bool FJsonObject::TryGetStringArrayField( const FString& FieldName, TArray<FStri
 
 void FJsonObject::SetStringField( const FString& FieldName, const FString& StringValue )
 {
-	this->Values.Add(FieldName, MakeShareable(new FJsonValueString(StringValue)));
+	this->Values.Add(FieldName, MakeShared<FJsonValueString>(StringValue));
 }
 
 
@@ -119,7 +119,7 @@ bool FJsonObject::TryGetBoolField( const FString& FieldName, bool& OutBool ) con
 
 void FJsonObject::SetBoolField( const FString& FieldName, bool InValue )
 {
-	this->Values.Add(FieldName, MakeShareable( new FJsonValueBoolean(InValue)));
+	this->Values.Add(FieldName, MakeShared<FJsonValueBoolean>(InValue));
 }
 
 
@@ -138,7 +138,7 @@ bool FJsonObject::TryGetArrayField(const FString& FieldName, const TArray< TShar
 
 void FJsonObject::SetArrayField( const FString& FieldName, const TArray< TSharedPtr<FJsonValue> >& Array )
 {
-	this->Values.Add(FieldName, MakeShareable(new FJsonValueArray(Array)));
+	this->Values.Add(FieldName, MakeShared<FJsonValueArray>(Array));
 }
 
 
@@ -159,10 +159,10 @@ void FJsonObject::SetObjectField( const FString& FieldName, const TSharedPtr<FJs
 {
 	if (JsonObject.IsValid())
 	{
-		this->Values.Add(FieldName, MakeShareable(new FJsonValueObject(JsonObject.ToSharedRef())));
+		this->Values.Add(FieldName, MakeShared<FJsonValueObject>(JsonObject.ToSharedRef()));
 	}
 	else
 	{
-		this->Values.Add(FieldName, MakeShareable( new FJsonValueNull()));
+		this->Values.Add(FieldName, MakeShared<FJsonValueNull>());
 	}
 }

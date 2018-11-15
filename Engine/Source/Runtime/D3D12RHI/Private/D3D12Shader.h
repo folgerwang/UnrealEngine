@@ -30,6 +30,8 @@ public:
 	{
 		FMemory::Memcpy(StreamStrides, InStrides, sizeof(StreamStrides));
 	}
+
+	virtual bool GetInitializer(FVertexDeclarationElementList& Init) final override;
 };
 
 /** This represents a vertex shader that hasn't been combined with a specific declaration to create a bound shader. */

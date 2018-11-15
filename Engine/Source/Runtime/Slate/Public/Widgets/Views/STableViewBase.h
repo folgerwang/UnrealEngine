@@ -23,6 +23,7 @@ class SHeaderRow;
 class SListPanel;
 class SScrollBar;
 enum class EConsumeMouseWheel : uint8;
+enum class ESlateVisibility : uint8;
 
 /** If the list panel is arranging items horizontally, this enum dictates how the items should be aligned (basically, where any extra space is placed) */
 UENUM(BlueprintType)
@@ -127,6 +128,8 @@ public:
 	/** Add the scroll offset of this view (in items) */
 	void AddScrollOffset(const float InScrollOffsetDelta, bool RefreshList = false);
 
+	void SetScrollbarVisibility(const EVisibility InVisibility);
+
 public:
 
 	// SWidget interface
@@ -216,6 +219,11 @@ protected:
 	 * Default is 1, but may be more in subclasses (like STileView)
 	 */
 	virtual int32 GetNumItemsWide() const;
+
+	/*
+	 * Right click down
+	 */
+	virtual void OnRightMouseButtonDown(const FPointerEvent& MouseEvent) {}
 
 	/**
 	 * Opens a context menu as the result of a right click if OnContextMenuOpening is bound and we are not right click scrolling.

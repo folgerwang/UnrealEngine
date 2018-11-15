@@ -158,7 +158,7 @@ public:
 };
 
 
-class DEPRECATED(4.21, "This class is no longer needed as the base class can handle the proper construction now.") FResolveInfoCachedBSDIPv6 : public FResolveInfoCached
+class UE_DEPRECATED(4.21, "This class is no longer needed as the base class can handle the proper construction now.") FResolveInfoCachedBSDIPv6 : public FResolveInfoCached
 {
 	FResolveInfoCachedBSDIPv6();
 

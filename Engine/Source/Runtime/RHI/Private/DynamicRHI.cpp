@@ -114,7 +114,10 @@ static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
 
 	FGPUHardware DetectedGPUHardware(DriverInfo);
 
-	if (DriverInfo.IsValid())
+	// Pre-GCN GPUs usually don't support updating to latest driver
+	// But it is unclear what is the lastest version supported as it varies from card to card
+	// So just don't complain if pre-gcn
+	if (DriverInfo.IsValid() && !GRHIDeviceIsAMDPreGCNArchitecture)
 	{
 		FBlackListEntry BlackListEntry = DetectedGPUHardware.FindDriverBlacklistEntry();
 
@@ -171,12 +174,23 @@ static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
 		return;
 	}
 
-	if (FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
+	if (FPlatformMisc::MacOSXVersionCompare(10,13,6) < 0)
 	{
-		// this message can be suppressed with r.WarnOfBadDrivers=0
-		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
-									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Body", "Please update to the latest version of macOS for best performance and stability.").ToString(),
-									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
+		const FString BaseName = FApp::HasProjectName() ? FApp::GetProjectName() : TEXT("");
+		if (BaseName == TEXT("FortniteGame"))
+		{
+			// this message can be suppressed with r.WarnOfBadDrivers=0
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_FNS7_Body", "Please update to macOS version 10.13.6 or newer. Older versions will no longer be supported starting December 6, 2018.").ToString(),
+										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
+		}
+		else
+		{
+			// this message can be suppressed with r.WarnOfBadDrivers=0
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Body", "Please update to the latest version of macOS for best performance and stability.").ToString(),
+										 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Title", "Update macOS").ToString());
+		}
 	}
 }
 #endif // PLATFORM_WINDOWS

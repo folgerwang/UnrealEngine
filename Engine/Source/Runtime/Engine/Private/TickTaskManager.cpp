@@ -11,6 +11,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
 #include "UObject/Package.h"
+#include "Containers/SortedMap.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/EngineTypes.h"
@@ -70,7 +71,7 @@ static TAutoConsoleVariable<int32> CVarAllowAsyncTickDispatch(
 
 static TAutoConsoleVariable<int32> CVarAllowAsyncTickCleanup(
 	TEXT("tick.AllowAsyncTickCleanup"),
-	1,
+	0,
 	TEXT("If true, ticks are cleaned up in a task thread."));
 
 static float GTimeguardThresholdMS = 0.0f;
@@ -651,6 +652,7 @@ private:
 
 	void ResetTickGroup(ETickingGroup WorldTickGroup)
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ResetTickGroup);
 		TickCompletionEvents[WorldTickGroup].Reset();
 	}
 
@@ -1173,6 +1175,35 @@ public:
 		DisabledCount += AllDisabledTickFunctions.Num();
 	}
 
+	FORCEINLINE void AddTickFunctionToMap(TSortedMap<FName, int32>& ClassNameToCountMap, FTickFunction* Function, bool bDetailed)
+	{
+		FName ContextName = Function->DiagnosticContext(bDetailed);
+		// Find entry for this context (or add it if not present)
+		int32& CurrentCount = ClassNameToCountMap.FindOrAdd(ContextName);
+		// Increment count
+		CurrentCount++; 
+	}
+
+	void AddTickFunctionsToMap(TSortedMap<FName, int32>& ClassNameToCountMap, int32& EnabledCount, bool bDetailed)
+	{
+		// Add ticks from AllEnabledTickFunctions
+		for (TSet<FTickFunction*>::TIterator It(AllEnabledTickFunctions); It; ++It)
+		{
+			AddTickFunctionToMap(ClassNameToCountMap, *It, bDetailed);
+		}
+		EnabledCount += AllEnabledTickFunctions.Num();
+
+		// Add ticks that are cooling down
+		float CumulativeCooldown = 0.f;
+		FTickFunction* TickFunction = AllCoolingDownTickFunctions.Head;
+		while (TickFunction)
+		{
+			AddTickFunctionToMap(ClassNameToCountMap, TickFunction, bDetailed);
+			TickFunction = TickFunction->Next;
+			++EnabledCount;
+		}
+	}
+
 	/** Remove the tick function from the master list **/
 	void RemoveTickFunction(FTickFunction* TickFunction)
 	{
@@ -1363,7 +1394,7 @@ public:
 	virtual void StartFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType, const TArray<ULevel*>& LevelsToTick) override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_QueueTicks);
-		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_QueueTicks);
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(QueueTicks);
 
 #if !UE_BUILD_SHIPPING
 		if (CVarStallStartFrame.GetValueOnGameThread() > 0.0f)
@@ -1580,30 +1611,89 @@ private:
 		return Level->TickTaskLevel;
 	}
 
+
+
 	/** Dumps all tick functions to output device */
-	virtual void DumpAllTickFunctions(FOutputDevice& Ar, UWorld* InWorld, bool bEnabled, bool bDisabled) override
+	virtual void DumpAllTickFunctions(FOutputDevice& Ar, UWorld* InWorld, bool bEnabled, bool bDisabled, bool bGrouped) override
 	{
 		int32 EnabledCount = 0, DisabledCount = 0;
 
 		Ar.Logf(TEXT(""));
-		Ar.Logf(TEXT("============================ Tick Functions (%s) ============================"), (bEnabled && bDisabled) ? TEXT("All") : (bEnabled ? TEXT("Enabled") : TEXT("Disabled")));
+		Ar.Logf(TEXT("============================ Tick Functions (%s) ============================"), bGrouped ? TEXT("GROUPED") : ((bEnabled && bDisabled) ? TEXT("All") : (bEnabled ? TEXT("Enabled") : TEXT("Disabled"))));
 
 		check(InWorld);
 		check(InWorld->TickTaskLevel);
-		InWorld->TickTaskLevel->DumpAllTickFunctions(Ar, EnabledCount, DisabledCount, bEnabled, bDisabled);
-		for( int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++ )
+
+		if (bGrouped)
+		{
+			TSortedMap<FName, int32> TickContextToCountMap;
+			GetEnabledTickFunctionCounts(InWorld, TickContextToCountMap, EnabledCount, true);
+
+			// Build sorted array of tick context by count
+			struct FSortedTickContextGroup
+			{
+				FName Context;
+				int32 Count;
+			};
+
+			TArray<FSortedTickContextGroup> SortedTickContexts;
+			SortedTickContexts.AddZeroed(TickContextToCountMap.Num());
+			int32 TickNum = 0;
+			for (auto It = TickContextToCountMap.CreateConstIterator(); It; ++It)
+			{
+				SortedTickContexts[TickNum].Context = It->Key;
+				SortedTickContexts[TickNum].Count = It->Value;
+				TickNum++;
+			}
+
+			SortedTickContexts.Sort([](const FSortedTickContextGroup& A, const FSortedTickContextGroup& B) { return A.Count > B.Count; });
+
+			// Now print it
+			for (int32 TickIdx = 0; TickIdx < SortedTickContexts.Num(); TickIdx++)
+			{
+				Ar.Logf(TEXT("%s, %d"), *SortedTickContexts[TickIdx].Context.ToString(), SortedTickContexts[TickIdx].Count);
+			}
+
+			Ar.Logf(TEXT(""));
+			Ar.Logf(TEXT("Total enabled tick functions: %d."), EnabledCount);
+			Ar.Logf(TEXT(""));
+		}
+		else
+		{
+			InWorld->TickTaskLevel->DumpAllTickFunctions(Ar, EnabledCount, DisabledCount, bEnabled, bDisabled);
+			for (int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
+			{
+				ULevel* Level = InWorld->GetLevel(LevelIndex);
+				if (Level->bIsVisible)
+				{
+					check(Level->TickTaskLevel);
+					Level->TickTaskLevel->DumpAllTickFunctions(Ar, EnabledCount, DisabledCount, bEnabled, bDisabled);
+				}
+			}
+
+			Ar.Logf(TEXT(""));
+			Ar.Logf(TEXT("Total registered tick functions: %d, enabled: %d, disabled: %d."), EnabledCount + DisabledCount, EnabledCount, DisabledCount);
+			Ar.Logf(TEXT(""));
+		}
+	}
+
+
+	virtual void GetEnabledTickFunctionCounts(UWorld* InWorld, TSortedMap<FName, int32>& TickContextToCountMap, int32& EnabledCount, bool bDetailed)
+	{
+		check(InWorld);
+		check(InWorld->TickTaskLevel);
+
+		InWorld->TickTaskLevel->AddTickFunctionsToMap(TickContextToCountMap, EnabledCount, bDetailed);
+
+		for (int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++)
 		{
 			ULevel* Level = InWorld->GetLevel(LevelIndex);
 			if (Level->bIsVisible)
 			{
 				check(Level->TickTaskLevel);
-				Level->TickTaskLevel->DumpAllTickFunctions(Ar, EnabledCount, DisabledCount, bEnabled, bDisabled);
+				Level->TickTaskLevel->AddTickFunctionsToMap(TickContextToCountMap, EnabledCount, bDetailed);
 			}
 		}
-
-		Ar.Logf(TEXT(""));
-		Ar.Logf(TEXT("Total registered tick functions: %d, enabled: %d, disabled: %d."), EnabledCount + DisabledCount, EnabledCount, DisabledCount);
-		Ar.Logf(TEXT(""));
 	}
 
 	/** Global Sequencer														*/

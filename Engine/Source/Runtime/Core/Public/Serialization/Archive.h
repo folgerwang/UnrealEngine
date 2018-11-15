@@ -437,12 +437,7 @@ public:
 		const uint8 * RESTRICT Src = Ar.ActiveFPLB->StartFastPathLoadBuffer;
 		if (Src + sizeof(uint32) <= Ar.ActiveFPLB->EndFastPathLoadBuffer)
 		{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-			D = !!*(uint32* RESTRICT)Src;
-#else
-			static_assert(sizeof(uint32) == 4, "assuming sizeof(uint32) == 4");
-			D = !!(Src[0] | Src[1] | Src[2] | Src[3]);
-#endif
+			D = !!FPlatformMemory::ReadUnaligned<uint32>(Src);
 			Ar.ActiveFPLB->StartFastPathLoadBuffer += 4;
 		}
 		else
@@ -1297,24 +1292,22 @@ private:
 		const uint8* RESTRICT Src = ActiveFPLB->StartFastPathLoadBuffer;
 		if (Src + Size <= ActiveFPLB->EndFastPathLoadBuffer)
 		{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 			if (Size == 2)
 			{
 				uint16 * RESTRICT Dest = (uint16 * RESTRICT)InDest;
-				*Dest = *(uint16 * RESTRICT)Src;
+				*Dest = FPlatformMemory::ReadUnaligned<uint16>(Src);
 			}
 			else if (Size == 4)
 			{
 				uint32 * RESTRICT Dest = (uint32 * RESTRICT)InDest;
-				*Dest = *(uint32 * RESTRICT)Src;
+				*Dest = FPlatformMemory::ReadUnaligned<uint32>(Src);
 			}
 			else if (Size == 8)
 			{
 				uint64 * RESTRICT Dest = (uint64 * RESTRICT)InDest;
-				*Dest = *(uint64 * RESTRICT)Src;
+				*Dest = FPlatformMemory::ReadUnaligned<uint64>(Src);
 			}
 			else
-#endif
 			{
 				uint8 * RESTRICT Dest = (uint8 * RESTRICT)InDest;
 				for (SIZE_T Index = 0; Index < Size; Index++)
@@ -1364,31 +1357,31 @@ private:
 
 public:
 	/** Whether this archive is for loading data. */
-	DEPRECATED(4.20, "Direct access to ArIsLoading has been deprecated - please use IsLoading() and SetIsLoading() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsLoading has been deprecated - please use IsLoading() and SetIsLoading() instead.")
 	uint8 ArIsLoading : 1;
 
 	/** Whether this archive is for saving data. */
-	DEPRECATED(4.20, "Direct access to ArIsSaving has been deprecated - please use IsSaving() and SetIsSaving() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsSaving has been deprecated - please use IsSaving() and SetIsSaving() instead.")
 	uint8 ArIsSaving : 1;
 
 	/** Whether archive is transacting. */
-	DEPRECATED(4.20, "Direct access to ArIsTransacting has been deprecated - please use IsTransacting() and SetIsTransacting() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsTransacting has been deprecated - please use IsTransacting() and SetIsTransacting() instead.")
 	uint8 ArIsTransacting : 1;
 
 	/** Whether this archive serializes to a text format. Text format archives should use high level constructs from FStructuredArchive for delimiting data rather than manually seeking through the file. */
-	DEPRECATED(4.20, "Direct access to ArIsTextFormat has been deprecated - please use IsTextFormat() and SetIsTextFormat() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsTextFormat has been deprecated - please use IsTextFormat() and SetIsTextFormat() instead.")
 	uint8 ArIsTextFormat : 1;
 
 	/** Whether this archive wants properties to be serialized in binary form instead of tagged. */
-	DEPRECATED(4.20, "Direct access to ArWantBinaryPropertySerialization has been deprecated - please use WantBinaryPropertySerialization() and SetWantBinaryPropertySerialization() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArWantBinaryPropertySerialization has been deprecated - please use WantBinaryPropertySerialization() and SetWantBinaryPropertySerialization() instead.")
 	uint8 ArWantBinaryPropertySerialization : 1;
 
 	/** Whether this archive wants to always save strings in unicode format */
-	DEPRECATED(4.20, "Direct access to ArForceUnicode has been deprecated - please use ForceUnicode() and SetForceUnicode() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArForceUnicode has been deprecated - please use ForceUnicode() and SetForceUnicode() instead.")
 	uint8 ArForceUnicode : 1;
 
 	/** Whether this archive saves to persistent storage. */
-	DEPRECATED(4.20, "Direct access to ArIsPersistent has been deprecated - please use IsPersistent() and SetIsPersistent() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsPersistent has been deprecated - please use IsPersistent() and SetIsPersistent() instead.")
 	uint8 ArIsPersistent : 1;
 
 	/** Whether this archive contains errors. */

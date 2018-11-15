@@ -344,12 +344,16 @@ VectorRegister TestVectorTransformVector(const VectorRegister&  VecP,  const voi
 */
 MATHTEST_INLINE FQuat TestRotatorToQuaternion( const FRotator& Rotator)
 {
-	const float CR = FMath::Cos(FMath::DegreesToRadians(Rotator.Roll  * 0.5f));
-	const float CP = FMath::Cos(FMath::DegreesToRadians(Rotator.Pitch * 0.5f));
-	const float CY = FMath::Cos(FMath::DegreesToRadians(Rotator.Yaw   * 0.5f));
-	const float SR = FMath::Sin(FMath::DegreesToRadians(Rotator.Roll  * 0.5f));
-	const float SP = FMath::Sin(FMath::DegreesToRadians(Rotator.Pitch * 0.5f));
-	const float SY = FMath::Sin(FMath::DegreesToRadians(Rotator.Yaw   * 0.5f));
+	const float Pitch = FMath::Fmod(Rotator.Pitch, 360.f);
+	const float Yaw = FMath::Fmod(Rotator.Yaw, 360.f);
+	const float Roll = FMath::Fmod(Rotator.Roll, 360.f);
+
+	const float CR = FMath::Cos(FMath::DegreesToRadians(Roll  * 0.5f));
+	const float CP = FMath::Cos(FMath::DegreesToRadians(Pitch * 0.5f));
+	const float CY = FMath::Cos(FMath::DegreesToRadians(Yaw   * 0.5f));
+	const float SR = FMath::Sin(FMath::DegreesToRadians(Roll  * 0.5f));
+	const float SP = FMath::Sin(FMath::DegreesToRadians(Pitch * 0.5f));
+	const float SY = FMath::Sin(FMath::DegreesToRadians(Yaw   * 0.5f));
 
 	FQuat RotationQuat;
 	RotationQuat.W = CR*CP*CY + SR*SP*SY;
@@ -1198,6 +1202,12 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 			FRotator(-45.0f + Nudge, +120.f - Nudge, -270.f + Nudge),
 			FRotator(+315.f - 360.f, -240.f - 360.f, -90.0f - 360.f),
 			FRotator(-315.f + 360.f, +240.f + 360.f, +90.0f + 360.f),
+			FRotator(+360.0f, -720.0f, 1080.0f),
+			FRotator(+360.0f + 1.0f, -720.0f + 1.0f, 1080.0f + 1.0f),
+			FRotator(+360.0f + Nudge, -720.0f - Nudge, 1080.0f - Nudge),
+			FRotator(+360.0f * 1e10f, -720.0f * 1000000.0f, 1080.0f * 12345.f),
+			FRotator(+8388608.f, +8388608.f - 1.1f, -8388608.f - 1.1f),
+			FRotator(+8388608.f + Nudge, +8388607.9f, -8388607.9f)
 		};
 
 		// FRotator tests
@@ -1208,6 +1218,7 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 			{
 				for (auto const& B : RotArray)
 				{
+					//UE_LOG(LogUnrealMathTest, Log, TEXT("A ?= B : %s ?= %s"), *A.ToString(), *B.ToString());
 					const bool bExpected = TestRotatorEqual0(A, B, RotTolerance);
 					LogRotatorTest(bExpected, TEXT("TestRotatorEqual1"), A, B, TestRotatorEqual1(A, B, RotTolerance));
 					LogRotatorTest(bExpected, TEXT("TestRotatorEqual2"), A, B, TestRotatorEqual2(A, B, RotTolerance));
@@ -1228,6 +1239,7 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 
 	// Rotator->Quat->Rotator
 	{
+		const float Nudge = KINDA_SMALL_NUMBER * 0.25f;
 		const FRotator RotArray[] ={
 			FRotator(30.0f, -45.0f, 90.0f),
 			FRotator(45.0f, 60.0f, -120.0f),
@@ -1237,7 +1249,13 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 			FRotator(0.f, -180.f, 0.f),
 			FRotator(90.f, 0.f, 0.f),
 			FRotator(-90.f, 0.f, 0.f),
-			FRotator(150.f, 0.f, 0.f)
+			FRotator(150.f, 0.f, 0.f),
+			FRotator(+360.0f, -720.0f, 1080.0f),
+			FRotator(+360.0f + 1.0f, -720.0f + 1.0f, 1080.0f + 1.0f),
+			FRotator(+360.0f + Nudge, -720.0f - Nudge, 1080.0f - Nudge),
+			FRotator(+360.0f * 1e10f, -720.0f * 1000000.0f, 1080.0f * 12345.f),
+			FRotator(+8388608.f, +8388608.f - 1.1f, -8388608.f - 1.1f),
+			FRotator(+8388609.1f, +8388607.9f, -8388609.1f)
 		};
 
 		for (FRotator const& Rotator0 : RotArray)
@@ -1463,7 +1481,9 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 			const float Y = XY.Y;
 			const float Ours = FMath::Fmod(X, Y);
 			const float Theirs = fmodf(X, Y);
-			
+
+			//UE_LOG(LogUnrealMathTest, Warning, TEXT("fmodf(%f, %f) Ours: %f Theirs: %f"), X, Y, Ours, Theirs);
+
 			// A compiler bug causes stock fmodf() to rarely return NaN for valid input, we don't want to report this as a fatal error.
 			if (Y != 0 && FMath::IsNaN(Theirs))
 			{

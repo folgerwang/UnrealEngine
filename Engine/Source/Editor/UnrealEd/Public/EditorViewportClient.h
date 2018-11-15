@@ -1118,7 +1118,10 @@ public:
 	void SetLowDPIPreview(bool LowDPIPreview);
 	
 	/** Mouse info is usually transformed to gizmo space before FEdMode handles it, this allows raw delta X and Y access */
-	FMouseDeltaTracker* GetMouseDeltaTracker() { return  MouseDeltaTracker; }
+	FMouseDeltaTracker* GetMouseDeltaTracker() const { return  MouseDeltaTracker; }
+
+	virtual uint32 GetCachedMouseX() const { return CachedMouseX; }
+	virtual uint32 GetCachedMouseY() const { return CachedMouseY; }
 	
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/TimelineTemplate.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/Package.h"
 #include "Engine/Blueprint.h"
 #include "Curves/CurveFloat.h"
@@ -39,29 +40,52 @@ UTimelineTemplate::UTimelineTemplate(const FObjectInitializer& ObjectInitializer
 	TimelineGuid = FGuid::NewGuid();
 	bReplicated = false;
 	bValidatedAsWired = false;
+
+	UpdateCachedNames();
 }
 
-FName UTimelineTemplate::GetDirectionPropertyName() const
+const FString UTimelineTemplate::TemplatePostfix(TEXT("_Template"));
+
+void UTimelineTemplate::UpdateCachedNames()
 {
-	const FString TimelineName = TimelineTemplateNameToVariableName(GetFName());
-	FString PropertyName = FString::Printf(TEXT("%s__Direction_%s"), *TimelineName, *TimelineGuid.ToString());
-	SanitizePropertyName(PropertyName);
-	return FName(*PropertyName);
+	FString TimelineName = GetName();
+	TimelineName.RemoveFromEnd(TemplatePostfix);
+
+	VariableName = *TimelineName;
+
+	FString DirectionPropertyNameStr = FString::Printf(TEXT("%s__Direction_%s"), *TimelineName, *TimelineGuid.ToString());
+	SanitizePropertyName(DirectionPropertyNameStr);
+	DirectionPropertyName = *DirectionPropertyNameStr;
+
+	UpdateFunctionName = *FString::Printf(TEXT("%s__UpdateFunc"), *TimelineName);
+	FinishedFunctionName = *FString::Printf(TEXT("%s__FinishedFunc"), *TimelineName);
+
+	for (FTTEventTrack& EventTrack : EventTracks)
+	{
+		EventTrack.SetTrackName(EventTrack.GetTrackName(),this);
+	}
+
+	for (FTTFloatTrack& FloatTrack : FloatTracks)
+	{
+		FloatTrack.SetTrackName(FloatTrack.GetTrackName(), this);
+	}
+
+	for (FTTVectorTrack& VectorTrack : VectorTracks)
+	{
+		VectorTrack.SetTrackName(VectorTrack.GetTrackName(), this);
+	}
+
+	for (FTTLinearColorTrack& LinearColorTrack : LinearColorTracks)
+	{
+		LinearColorTrack.SetTrackName(LinearColorTrack.GetTrackName(), this);
+	}
 }
 
-FName UTimelineTemplate::GetTrackPropertyName(const FName TrackName) const
-{
-	const FString TimelineName = TimelineTemplateNameToVariableName(GetFName());
-	FString PropertyName = FString::Printf(TEXT("%s_%s_%s"), *TimelineName, *TrackName.ToString(), *TimelineGuid.ToString());
-	SanitizePropertyName(PropertyName);
-	return FName(*PropertyName);
-}
-
-int32 UTimelineTemplate::FindFloatTrackIndex(const FName& FloatTrackName)
+int32 UTimelineTemplate::FindFloatTrackIndex(const FName FloatTrackName) const
 {
 	for(int32 i=0; i<FloatTracks.Num(); i++)
 	{
-		if(FloatTracks[i].TrackName == FloatTrackName)
+		if(FloatTracks[i].GetTrackName() == FloatTrackName)
 		{
 			return i;
 		}
@@ -69,11 +93,11 @@ int32 UTimelineTemplate::FindFloatTrackIndex(const FName& FloatTrackName)
 	return INDEX_NONE;
 }
 
-int32 UTimelineTemplate::FindVectorTrackIndex(const FName& VectorTrackName)
+int32 UTimelineTemplate::FindVectorTrackIndex(const FName VectorTrackName) const
 {
 	for(int32 i=0; i<VectorTracks.Num(); i++)
 	{
-		if(VectorTracks[i].TrackName == VectorTrackName)
+		if(VectorTracks[i].GetTrackName() == VectorTrackName)
 		{
 			return i;
 		}
@@ -81,11 +105,11 @@ int32 UTimelineTemplate::FindVectorTrackIndex(const FName& VectorTrackName)
 	return INDEX_NONE;
 }
 
-int32 UTimelineTemplate::FindEventTrackIndex(const FName& EventTrackName)
+int32 UTimelineTemplate::FindEventTrackIndex(const FName EventTrackName) const
 {
 	for(int32 i=0; i<EventTracks.Num(); i++)
 	{
-		if(EventTracks[i].TrackName == EventTrackName)
+		if(EventTracks[i].GetTrackName() == EventTrackName)
 		{
 			return i;
 		}
@@ -93,11 +117,11 @@ int32 UTimelineTemplate::FindEventTrackIndex(const FName& EventTrackName)
 	return INDEX_NONE;
 }
 
-int32 UTimelineTemplate::FindLinearColorTrackIndex(const FName& ColorTrackName)
+int32 UTimelineTemplate::FindLinearColorTrackIndex(const FName ColorTrackName) const
 {
 	for(int32 i=0; i<LinearColorTracks.Num(); i++)
 	{
-		if(LinearColorTracks[i].TrackName == ColorTrackName)
+		if(LinearColorTracks[i].GetTrackName() == ColorTrackName)
 		{
 			return i;
 		}
@@ -105,10 +129,10 @@ int32 UTimelineTemplate::FindLinearColorTrackIndex(const FName& ColorTrackName)
 	return INDEX_NONE;
 }
 
-bool UTimelineTemplate::IsNewTrackNameValid(const FName& NewTrackName)
+bool UTimelineTemplate::IsNewTrackNameValid(const FName NewTrackName) const
 {
 	// can't be NAME_None
-	if(NewTrackName == NAME_None)
+	if (NewTrackName == NAME_None)
 	{
 		return false;
 	}
@@ -116,34 +140,18 @@ bool UTimelineTemplate::IsNewTrackNameValid(const FName& NewTrackName)
 	// Check each type of track to see if it already exists
 	return	FindFloatTrackIndex(NewTrackName) == INDEX_NONE && 
 			FindVectorTrackIndex(NewTrackName) == INDEX_NONE &&
-			FindEventTrackIndex(NewTrackName) == INDEX_NONE;
-}
-
-FName UTimelineTemplate::GetUpdateFunctionName() const
-{
-	const FString TimelineName = TimelineTemplateNameToVariableName(GetFName());
-	FString UpdateFuncString = FString::Printf(TEXT("%s__UpdateFunc"), *TimelineName);
-	return FName(*UpdateFuncString);
-}
-
-FName UTimelineTemplate::GetFinishedFunctionName() const
-{
-	const FString TimelineName = TimelineTemplateNameToVariableName(GetFName());
-	FString FinishedFuncString = FString::Printf(TEXT("%s__FinishedFunc"), *TimelineName);
-	return FName(*FinishedFuncString);
+			FindEventTrackIndex(NewTrackName) == INDEX_NONE &&
+			FindLinearColorTrackIndex(NewTrackName) == INDEX_NONE;
 }
 
 FName UTimelineTemplate::GetEventTrackFunctionName(int32 EventTrackIndex) const
 {
 	check(EventTrackIndex < EventTracks.Num());
 
-	const FName TrackName = EventTracks[EventTrackIndex].TrackName;
-	const FString TimelineName = TimelineTemplateNameToVariableName(GetFName());
-	FString UpdateFuncString = FString::Printf(TEXT("%s__%s__EventFunc"), *TimelineName, *TrackName.ToString());
-	return FName(*UpdateFuncString);
+	return EventTracks[EventTrackIndex].GetFunctionName();
 }
 
-int32 UTimelineTemplate::FindMetaDataEntryIndexForKey(const FName& Key)
+int32 UTimelineTemplate::FindMetaDataEntryIndexForKey(const FName Key) const
 {
 	for(int32 i=0; i<MetaDataArray.Num(); i++)
 	{
@@ -155,27 +163,27 @@ int32 UTimelineTemplate::FindMetaDataEntryIndexForKey(const FName& Key)
 	return INDEX_NONE;
 }
 
-FString UTimelineTemplate::GetMetaData(const FName& Key)
+const FString& UTimelineTemplate::GetMetaData(const FName Key) const
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	check(EntryIndex != INDEX_NONE);
 	return MetaDataArray[EntryIndex].DataValue;
 }
 
-void UTimelineTemplate::SetMetaData(const FName& Key, const FString& Value)
+void UTimelineTemplate::SetMetaData(const FName Key, FString Value)
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	if(EntryIndex != INDEX_NONE)
 	{
-		MetaDataArray[EntryIndex].DataValue = Value;
+		MetaDataArray[EntryIndex].DataValue = MoveTemp(Value);
 	}
 	else
 	{
-		MetaDataArray.Add( FBPVariableMetaDataEntry(Key, Value) );
+		MetaDataArray.Emplace( FBPVariableMetaDataEntry(Key, MoveTemp(Value)) );
 	}
 }
 
-void UTimelineTemplate::RemoveMetaData(const FName& Key)
+void UTimelineTemplate::RemoveMetaData(const FName Key)
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	if(EntryIndex != INDEX_NONE)
@@ -195,22 +203,47 @@ FString UTimelineTemplate::MakeUniqueCurveName(UObject* Obj, UObject* InOuter)
 	return TestName.ToString();
 }
 
-FString UTimelineTemplate::TimelineTemplateNameToVariableName(FName Name)
-{
-	static const FString TemplatetPostfix(TEXT("_Template"));
-	FString NameStr = Name.ToString();
-	// >>> Backwards Compatibility:  VER_UE4_EDITORONLY_BLUEPRINTS
-	if (NameStr.EndsWith(TemplatetPostfix))
-	// <<< End Backwards Compatibility
-	{
-		NameStr = NameStr.LeftChop(TemplatetPostfix.Len());
-	}
-	return NameStr;
-}
-
 FString UTimelineTemplate::TimelineVariableNameToTemplateName(FName Name)
 {
 	return Name.ToString() + TEXT("_Template");
+}
+
+void UTimelineTemplate::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+}
+
+void UTimelineTemplate::PostLoad()
+{
+	Super::PostLoad();
+
+	if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::StoreTimelineNamesInTemplate)
+	{
+		UpdateCachedNames();
+	}
+}
+
+bool UTimelineTemplate::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
+{
+	const FName CurrentName = GetFName();
+
+	bool bSuccess = Super::Rename(InName, NewOuter, Flags);
+
+	if (CurrentName != GetFName())
+	{
+		UpdateCachedNames();
+	}
+
+	return bSuccess;
+}
+
+void UTimelineTemplate::PostEditImport()
+{
+	Super::PostEditImport();
+
+	UpdateCachedNames();
 }
 
 void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
@@ -238,7 +271,7 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *TimelineTemplateNameToVariableName(GetFName()), *Track.TrackName.ToString(), *GetPathNameSafe(GetOuter()));
+			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *GetVariableName().ToString(), *Track.GetTrackName().ToString(), *GetPathNameSafe(GetOuter()));
 		}
 	}
 
@@ -257,7 +290,7 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *TimelineTemplateNameToVariableName(GetFName()), *Track.TrackName.ToString(), *GetPathNameSafe(GetOuter()));
+			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *GetVariableName().ToString(), *Track.GetTrackName().ToString(), *GetPathNameSafe(GetOuter()));
 		}
 	}
 
@@ -276,7 +309,7 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *TimelineTemplateNameToVariableName(GetFName()), *Track.TrackName.ToString(), *GetPathNameSafe(GetOuter()));
+			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *GetVariableName().ToString(), *Track.GetTrackName().ToString(), *GetPathNameSafe(GetOuter()));
 		}
 	}
 
@@ -295,31 +328,54 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *TimelineTemplateNameToVariableName(GetFName()), *Track.TrackName.ToString(), *GetPathNameSafe(GetOuter()));
+			UE_LOG(LogBlueprint, Warning, TEXT("Timeline %s Track %s in %s has an invalid curve.  Please fix!"), *GetVariableName().ToString(), *Track.GetTrackName().ToString(), *GetPathNameSafe(GetOuter()));
 		}
 	}
 
 	TimelineGuid = FGuid::NewGuid();
+
+	UpdateCachedNames();
 }
 
-void UTimelineTemplate::GetAllCurves(TSet<class UCurveBase*>& InOutCurves) const
+void UTimelineTemplate::GetAllCurves(TSet<UCurveBase*>& InOutCurves) const
 {
-	for (auto& Track : EventTracks)
+	for (const FTTEventTrack& Track : EventTracks)
 	{
 		InOutCurves.Add(Track.CurveKeys);
 	}
-	for (auto& Track : FloatTracks)
+	for (const FTTFloatTrack& Track : FloatTracks)
 	{
 		InOutCurves.Add(Track.CurveFloat);
 	}
-	for (auto& Track : VectorTracks)
+	for (const FTTVectorTrack& Track : VectorTracks)
 	{
 		InOutCurves.Add(Track.CurveVector);
 	}
-	for (auto& Track : LinearColorTracks)
+	for (const FTTLinearColorTrack& Track : LinearColorTracks)
 	{
 		InOutCurves.Add(Track.CurveLinearColor);
 	}
+}
+
+void FTTTrackBase::SetTrackName(const FName NewTrackName, UTimelineTemplate* OwningTimeline)
+{
+	TrackName = NewTrackName;
+}
+
+void FTTEventTrack::SetTrackName(const FName NewTrackName, UTimelineTemplate* OwningTimeline)
+{
+	FTTTrackBase::SetTrackName(NewTrackName, OwningTimeline);
+
+	FunctionName = *FString::Printf(TEXT("%s__%s__EventFunc"), *OwningTimeline->GetVariableName().ToString(), *GetTrackName().ToString());
+}
+
+void FTTPropertyTrack::SetTrackName(const FName NewTrackName, UTimelineTemplate* OwningTimeline)
+{
+	FTTTrackBase::SetTrackName(NewTrackName, OwningTimeline);
+
+	FString PropertyNameStr = FString::Printf(TEXT("%s_%s_%s"), *OwningTimeline->GetVariableName().ToString(), *GetTrackName().ToString(), *OwningTimeline->TimelineGuid.ToString());
+	SanitizePropertyName(PropertyNameStr);
+	PropertyName = *PropertyNameStr;
 }
 
 bool FTTTrackBase::operator==( const FTTTrackBase& T2 ) const
@@ -335,7 +391,7 @@ bool FTTEventTrack::operator==( const FTTEventTrack& T2 ) const
 	{
 		bKeyCurvesEqual = (*CurveKeys == *T2.CurveKeys);
 	}
-	return FTTTrackBase::operator==(T2) && bKeyCurvesEqual;
+	return bKeyCurvesEqual && FTTTrackBase::operator==(T2);
 }
 
 bool FTTFloatTrack::operator==( const FTTFloatTrack& T2 ) const
@@ -345,7 +401,7 @@ bool FTTFloatTrack::operator==( const FTTFloatTrack& T2 ) const
 	{
 		bFloatCurvesEqual = (*CurveFloat == *T2.CurveFloat);
 	}
-	return FTTTrackBase::operator==(T2) && bFloatCurvesEqual;
+	return bFloatCurvesEqual && FTTTrackBase::operator==(T2);
 }
 
 bool FTTVectorTrack::operator==( const FTTVectorTrack& T2 ) const
@@ -365,6 +421,6 @@ bool FTTLinearColorTrack::operator==( const FTTLinearColorTrack& T2 ) const
 	{
 		bColorCurvesEqual = (*CurveLinearColor == *T2.CurveLinearColor);
 	}
-	return FTTTrackBase::operator==(T2) && bColorCurvesEqual;
+	return bColorCurvesEqual && FTTTrackBase::operator==(T2);
 }
 

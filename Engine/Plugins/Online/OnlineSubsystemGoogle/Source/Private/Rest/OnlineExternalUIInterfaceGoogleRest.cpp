@@ -55,7 +55,7 @@ bool FOnlineExternalUIGoogle::ShowLoginUI(const int ControllerIndex, bool bShowO
 
 		GoogleSubsystem->ExecuteNextTick([ControllerIndex, Delegate, Error = MoveTemp(Error)]()
 		{
-			Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
+			Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(EOnlineErrorResult::Unknown));
 		});
 	}
 
@@ -123,7 +123,7 @@ FLoginFlowResult FOnlineExternalUIGoogle::OnLoginRedirectURL(const FString& Redi
 									Result.Error.ErrorMessage = FText::FromString(LOGIN_CANCELLED);
 									Result.Error.ErrorCode = LOGIN_CANCELLED;
 									Result.Error.ErrorMessage = NSLOCTEXT("GoogleAuth", "GoogleAuthDeny", "Google Auth Denied");
-									Result.Error.NumericErrorCode = -1;
+									Result.NumericErrorCode = -1;
 								}
 								else
 								{
@@ -132,7 +132,7 @@ FLoginFlowResult FOnlineExternalUIGoogle::OnLoginRedirectURL(const FString& Redi
 									// there is no descriptive error text
 									Result.Error.ErrorMessage = NSLOCTEXT("GoogleAuth", "GoogleAuthError", "Google Auth Error");
 									// there is no error code
-									Result.Error.NumericErrorCode = 0;
+									Result.NumericErrorCode = 0;
 								}
 							}
 							else
@@ -141,7 +141,7 @@ FLoginFlowResult FOnlineExternalUIGoogle::OnLoginRedirectURL(const FString& Redi
 								Result.Error.ErrorRaw = LOGIN_ERROR_UNKNOWN;
 								Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_UNKNOWN);
 								Result.Error.ErrorCode = LOGIN_ERROR_UNKNOWN;
-								Result.Error.NumericErrorCode = -2;
+								Result.NumericErrorCode = -2;
 							}
 						}
 					}

@@ -13,7 +13,7 @@ class FClothingSimulationContextNv;
 DECLARE_DELEGATE_TwoParams(NvInteractorCommand, FClothingSimulationNv*, FClothingSimulationContextNv*)
 
 UCLASS(BlueprintType)
-class UClothingSimulationInteractorNv : public UClothingSimulationInteractor
+class CLOTHINGSYSTEMRUNTIME_API UClothingSimulationInteractorNv : public UClothingSimulationInteractor
 {
 	GENERATED_BODY()
 

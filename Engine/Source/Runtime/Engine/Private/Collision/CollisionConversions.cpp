@@ -445,7 +445,7 @@ static bool FirstNaNCheck = true;
 			UE_LOG(LogCollision, Warning, TEXT("Hit %d at %f, %f, %f"), ii, Hits[ii].position.x, Hits[ii].position.y, Hits[ii].position.z); \
 			UE_LOG(LogCollision, Warning, TEXT("Hit %d normal %f, %f, %f"), ii, Hits[ii].normal.x, Hits[ii].normal.y, Hits[ii].normal.z); \
 			UE_LOG(LogCollision, Warning, TEXT("Hit %d flags %d, distance %f"), ii, (PxU16)Hits[ii].flags, Hits[ii].distance); \
-			UE_LOG(LogCollision, Warning, TEXT("Hit %d actor is %s with pointer %p"), ii, Hits[ii].actor ? Hits[ii].actor->getName() : "None", (void*)Hits[ii].actor); \
+			UE_LOG(LogCollision, Warning, TEXT("Hit %d actor is %s with pointer %p"), ii, Hits[ii].actor ? ANSI_TO_TCHAR(Hits[ii].actor->getName()) : TEXT("None"), (void*)Hits[ii].actor); \
 		} \
 		logOrEnsureNanError(TEXT("Failed!")); \
 	}

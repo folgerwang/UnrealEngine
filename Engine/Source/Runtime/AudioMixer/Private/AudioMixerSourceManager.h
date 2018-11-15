@@ -31,7 +31,7 @@ namespace Audio
 	struct FMixerSourceVoiceBuffer
 	{
 		/** PCM float data. */
-		TArray<float> AudioData;
+		AlignedFloatBuffer AudioData;
 
 		/** The amount of samples of audio data in the float buffer array. */
 		uint32 Samples;

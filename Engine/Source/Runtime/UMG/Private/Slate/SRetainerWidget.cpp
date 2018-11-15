@@ -14,27 +14,21 @@ DECLARE_CYCLE_STAT(TEXT("Retainer Widget Tick"), STAT_SlateRetainerWidgetTick, S
 DECLARE_CYCLE_STAT(TEXT("Retainer Widget Paint"), STAT_SlateRetainerWidgetPaint, STATGROUP_Slate);
 
 #if !UE_BUILD_SHIPPING
+FOnRetainedModeChanged SRetainerWidget::OnRetainerModeChangedDelegate;
+#endif
 
 /** True if we should allow widgets to be cached in the UI at all. */
-TAutoConsoleVariable<int32> EnableRetainedRendering(
+int32 GEnableRetainedRendering = 1;
+FAutoConsoleVariableRef EnableRetainedRendering(
 	TEXT("Slate.EnableRetainedRendering"),
-	true,
-	TEXT("Whether to attempt to render things in SRetainerWidgets to render targets first."));
+	GEnableRetainedRendering,
+	TEXT("Whether to attempt to render things in SRetainerWidgets to render targets first.") 
+);
 
 static bool IsRetainedRenderingEnabled()
 {
-	return EnableRetainedRendering.GetValueOnGameThread() == 1;
+	return GEnableRetainedRendering != 0;
 }
-
-FOnRetainedModeChanged SRetainerWidget::OnRetainerModeChangedDelegate;
-#else
-
-static bool IsRetainedRenderingEnabled()
-{
-	return true;
-}
-
-#endif
 
 /** Whether or not the platform should have deferred retainer widget render target updating enabled by default */
 #define PLATFORM_REQUIRES_DEFERRED_RETAINER_UPDATE PLATFORM_IOS || PLATFORM_ANDROID;
@@ -89,6 +83,7 @@ SRetainerWidget::SRetainerWidget()
 	: EmptyChildSlot(this)
 	, RenderingResources(new FRetainerWidgetRenderingResources)
 {
+	SetCanTick(false);
 }
 
 SRetainerWidget::~SRetainerWidget()
@@ -194,7 +189,7 @@ void SRetainerWidget::Construct(const FArguments& InArgs)
 		if ( !bStaticInit )
 		{
 			bStaticInit = true;
-			EnableRetainedRendering.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&SRetainerWidget::OnRetainerModeCVarChanged));
+			EnableRetainedRendering->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&SRetainerWidget::OnRetainerModeCVarChanged));
 		}
 #endif
 	}

@@ -290,13 +290,13 @@ public:
 	//////////////////////////////////////////////////////////////////////////
 	// DEPRECATED SUPPORT
 
-	DEPRECATED(4.14, "This function is now deprecated, please use the one with float CellSize argument")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use the one with float CellSize argument")
 	void Init(uint32 InCellSize, const FBox& Bounds)
 	{
 		Init(1.0f * InCellSize, Bounds);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
 	FIntVector WorldToCellCoords(const FVector& WorldLocation) const
 	{
 		const uint32 LocationX = FMath::TruncToInt((WorldLocation.X - Origin.X) / CellSize);
@@ -304,14 +304,14 @@ public:
 		return FIntVector(LocationX, LocationY, 0);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
 	void WorldToCellCoords(const FVector& WorldLocation, uint32& LocationX, uint32& LocationY) const
 	{
 		LocationX = FMath::TruncToInt((WorldLocation.X - Origin.X) / CellSize);
 		LocationY = FMath::TruncToInt((WorldLocation.Y - Origin.Y) / CellSize);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellIndex instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellIndex instead.")
 	uint32 WorldToCellIndex(const FVector& WorldLocation) const
 	{
 		const uint32 LocationX = FMath::TruncToInt((WorldLocation.X - Origin.X) / CellSize);
@@ -319,13 +319,13 @@ public:
 		return GetCellIndex(LocationX, LocationY);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
 	FIntVector CellIndexToCoords(uint32 CellIndex) const
 	{
 		return FIntVector(CellIndex / GridSize.Height, CellIndex % GridSize.Height, 0);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
 	FIntVector CellIndexToCoords(uint32 CellIndex, uint32& LocationX, uint32& LocationY) const
 	{
 		LocationX = CellIndex / GridSize.Height;
@@ -333,25 +333,25 @@ public:
 		return FIntVector(LocationX, LocationY, 0);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellIndex instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellIndex instead.")
 	uint32 CellCoordsToCellIndex(const int32 LocationX, const int32 LocationY) const
 	{
 		return (LocationX * GridSize.Height) + LocationY;
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetCellAtWorldLocation instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetCellAtWorldLocation instead.")
 	const FCellType& GetCellAtWorldLocationSafe(const FVector& WorldLocation) const
 	{
 		return GetCellAtWorldLocation(WorldLocation);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use GetAllocatedSize instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use GetAllocatedSize instead.")
 	uint32 GetValuesMemorySize() const
 	{
 		return GridSize.Height * GridSize.Width * sizeof(FCellType);
 	}
 
-	DEPRECATED(4.14, "This function is now deprecated, please use IsValidIndex instead.")
+	UE_DEPRECATED(4.14, "This function is now deprecated, please use IsValidIndex instead.")
 	bool IsValidCellIndex(const int32 CellIndex) const
 	{
 		return IsValidIndex(CellIndex);

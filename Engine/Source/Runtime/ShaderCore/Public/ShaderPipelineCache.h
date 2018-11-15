@@ -8,6 +8,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/List.h"
 #include "Stats/Stats.h"
 #include "RHI.h"
 #include "TickableObjectRenderThread.h"
@@ -71,6 +72,7 @@ class SHADERCORE_API FShaderPipelineCache : public FTickableObjectRenderThread
 	{
 		FPipelineCacheFileFormatPSO PSO;
 		FShaderPipelineCacheArchive* ReadRequests;
+		TSet<FSHAHash> ShaderCodeReads;
 	};
 
 public:
@@ -116,6 +118,12 @@ public:
 	static void ClosePipelineFileCache();
 
 	static int32 GetGameVersionForPSOFileCache();
+	
+	/**
+	 * Set the current PSO Game Usage Mask and comparsion function .  Returns true if this mask is different from the old mask or false if not or the cache system is disabled or if the mask feature is disabled
+	 * Any new PSO's found will be logged with this value or existing PSO should have their masks updated.  See FPipelineFileCache for more details.
+	 */
+	static bool SetGameUsageMaskWithComparison(uint64 Mask, FPSOMaskComparisonFn InComparisonFnPtr);
 
 	FShaderPipelineCache(EShaderPlatform Platform);
 	virtual ~FShaderPipelineCache();
@@ -193,13 +201,13 @@ private:
 	void Close();
 
 	bool Precompile(FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FPipelineCacheFileFormatPSO const& PSO);
-	void PreparePipelineBatch(TArray<FPipelineCacheFileFormatPSORead*>& PipelineBatch);
+	void PreparePipelineBatch(TDoubleLinkedList<FPipelineCacheFileFormatPSORead*>& PipelineBatch);
 	bool ReadyForPrecompile();
 	void PrecompilePipelineBatch();
 	bool ReadyForNextBatch() const;
 	bool ReadyForAutoSave() const;
 	void PollShutdownItems();
-	void Flush();
+	void Flush(bool bClearCompiled = true);
     
     void OnShaderLibraryStateChanged(ELibraryState State, EShaderPlatform Platform, FString const& Name);
 
@@ -208,14 +216,16 @@ private:
 	TArray<CompileJob> ReadTasks;
 	TArray<CompileJob> CompileTasks;
 	TArray<FPipelineCachePSOHeader> OrderedCompileTasks;
-	TArray<FPipelineCacheFileFormatPSORead*> FetchTasks;
+	TDoubleLinkedList<FPipelineCacheFileFormatPSORead*> FetchTasks;
 	TSet<uint32> CompiledHashes;
 	FString FileName;
     EShaderPlatform CurrentPlatform;
+	FGuid CacheFileGuid;
 	uint32 BatchSize;
 	float BatchTime;
 	bool bPaused;
 	bool bOpened;
+	bool bReady;
 	FShaderCachePrecompileContext ShaderCachePrecompileContext;
 	
     volatile int64 TotalActiveTasks;
@@ -229,8 +239,8 @@ private:
 	
 	FGraphEventRef LastPrecompileRHIFence;
 
-	TArray<CompileJob> ShutdownReadTasks;
-	TArray<FPipelineCacheFileFormatPSORead*> ShutdownFetchTasks;
+	TArray<CompileJob> ShutdownReadCompileTasks;
+	TDoubleLinkedList<FPipelineCacheFileFormatPSORead*> ShutdownFetchTasks;
     
     static FShaderCacheOpenedDelegate OnCachedOpened;
     static FShaderCacheClosedDelegate OnCachedClosed;
@@ -240,4 +250,6 @@ private:
 	double LastAutoSaveTime;
 	double LastAutoSaveTimeLogBoundPSO;
 	int32 LastAutoSaveNum;
+	
+	TSet<uint64> CompletedMasks;
 };

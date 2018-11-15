@@ -565,7 +565,7 @@ public:
 	}
 
 	/** Tracks the container's memory use through an archive. */
-	void CountBytes(FArchive& Ar)
+	void CountBytes(FArchive& Ar) const
 	{
 		Ar.CountBytes(
 			FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD) * sizeof(uint32),

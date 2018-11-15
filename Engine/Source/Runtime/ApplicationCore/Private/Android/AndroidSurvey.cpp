@@ -19,8 +19,8 @@ bool FAndroidPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults
 	FCString::Strcpy(OutResults.OSVersion, *FAndroidMisc::GetAndroidVersion());
 	FCString::Strcpy(OutResults.OSLanguage, *FPlatformMisc::GetDefaultLocale());
 	// @todo vulkan: Get Vulkan version somehow
-	FCString::Strcpy(OutResults.MultimediaAPI, FAndroidMisc::ShouldUseVulkan() ? TEXT("Vulkan") : *FAndroidMisc::GetGLVersion());
-	FCString::Strcpy(OutResults.Displays[0].GPUCardName, *FAndroidMisc::GetGPUFamily());
+	FCString::Strcpy(OutResults.RenderingAPI, FAndroidMisc::ShouldUseVulkan() ? TEXT("Vulkan") : *FAndroidMisc::GetGLVersion());
+	FCString::Strcpy(OutResults.RHIAdapter.AdapterName, *FAndroidMisc::GetGPUFamily());
 
 	// display 0 is max size
 	int32 ScreenWidth, ScreenHeight;

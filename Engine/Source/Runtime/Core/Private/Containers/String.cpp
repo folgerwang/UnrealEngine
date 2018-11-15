@@ -647,8 +647,9 @@ void FString::AppendInt( int32 InNum )
 	int64 Num						= InNum; // This avoids having to deal with negating -MAX_int32-1
 	const TCHAR* NumberChar[11]		= { TEXT("0"), TEXT("1"), TEXT("2"), TEXT("3"), TEXT("4"), TEXT("5"), TEXT("6"), TEXT("7"), TEXT("8"), TEXT("9"), TEXT("-") };
 	bool bIsNumberNegative			= false;
-	TCHAR TempNum[16];				// 16 is big enough
-	int32 TempAt					= 16; // fill the temp string from the top down.
+	const int32 TempBufferSize		= 16; // 16 is big enough
+	TCHAR TempNum[TempBufferSize];				
+	int32 TempAt					= TempBufferSize; // fill the temp string from the top down.
 
 	// Correctly handle negative numbers and convert to positive integer.
 	if( Num < 0 )
@@ -672,7 +673,9 @@ void FString::AppendInt( int32 InNum )
 		TempNum[--TempAt] = *NumberChar[10];
 	}
 
-	*this += TempNum + TempAt;
+	const TCHAR* CharPtr = TempNum + TempAt;
+	const int32 NumChars = TempBufferSize - TempAt - 1;
+	Append(CharPtr, NumChars);
 }
 
 

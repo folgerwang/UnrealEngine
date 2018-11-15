@@ -494,15 +494,16 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 					else
 					{
 						AVAudioSessionCategoryOptions opts =
-    						AVAudioSessionCategoryOptionAllowBluetoothA2DP |
+							AVAudioSessionCategoryOptionAllowBluetoothA2DP |
 #if !PLATFORM_TVOS
-    						AVAudioSessionCategoryOptionDefaultToSpeaker |
+							AVAudioSessionCategoryOptionAllowBluetooth |
+							AVAudioSessionCategoryOptionDefaultToSpeaker |
 #endif
-    						AVAudioSessionCategoryOptionMixWithOthers;
+							AVAudioSessionCategoryOptionMixWithOthers;
 						
 						if (@available(iOS 10, *))
 						{
-							[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord mode:AVAudioSessionModeVoiceChat options:opts error:&ActiveError];
+							[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord mode:AVAudioSessionModeDefault options:opts error:&ActiveError];
 						}
 						else
 						{
@@ -567,15 +568,16 @@ bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
 				else
 				{
 					AVAudioSessionCategoryOptions opts =
-					AVAudioSessionCategoryOptionAllowBluetoothA2DP |
+						AVAudioSessionCategoryOptionAllowBluetoothA2DP |
 #if !PLATFORM_TVOS
-					AVAudioSessionCategoryOptionDefaultToSpeaker |
+						AVAudioSessionCategoryOptionAllowBluetooth |
+						AVAudioSessionCategoryOptionDefaultToSpeaker |
 #endif
-					AVAudioSessionCategoryOptionMixWithOthers;
+						AVAudioSessionCategoryOptionMixWithOthers;
 					
 					if (@available(iOS 10, *))
 					{
-						[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord mode:AVAudioSessionModeVoiceChat options:opts error:&ActiveError];
+						[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord mode:AVAudioSessionModeDefault options:opts error:&ActiveError];
 					}
 					else
 					{
@@ -1193,8 +1195,11 @@ FCriticalSection RenderSuspend;
     FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Broadcast();
 }
 
+extern double GCStartTime;
 - (void)applicationDidBecomeActive:(UIApplication *)application
 {
+    // make sure a GC will not timeout because it was started before entering background
+    GCStartTime = FPlatformTime::Seconds();
 	/*
 	 Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
 	 */

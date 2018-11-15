@@ -33,7 +33,7 @@ private:
 	/**
 	 * Should use the initialization constructor instead
 	 */
-	FOnlineFriendsFacebook();
+	FOnlineFriendsFacebook() = delete;
 
 };
 

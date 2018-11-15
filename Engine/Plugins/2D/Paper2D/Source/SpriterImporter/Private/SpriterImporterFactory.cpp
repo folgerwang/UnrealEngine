@@ -343,6 +343,7 @@ UObject* USpriterImporterFactory::FactoryCreateText(UClass* InClass, UObject* In
 			FSkeletalMeshModel* ImportedModel = SkeletalMesh->GetImportedModel();
 			check(ImportedModel->LODModels.Num() == 0);
 			ImportedModel->LODModels.Empty();
+			ImportedModel->EmptyOriginalReductionSourceMeshData();
 			FSkeletalMeshLODModel& LODModel = *new (ImportedModel->LODModels) FSkeletalMeshLODModel();
 
 			SkeletalMesh->ResetLODInfo()

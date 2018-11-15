@@ -247,7 +247,7 @@ class UExporter : public UObject
 	 *
 	 * @return	1 if the the object was successfully exported, 0 if a fatal error was encountered during export, or -1 if a non fatal error was encountered
 	 */
-	DEPRECATED(4.20, "ExportToFileEx was deprecated, please use RunAssetExportTask.")
+	UE_DEPRECATED(4.20, "ExportToFileEx was deprecated, please use RunAssetExportTask.")
 	ENGINE_API static int32 ExportToFileEx( FExportToFileParams& ExportParams );
 
 	/**

@@ -132,6 +132,12 @@ void UEditableText::SetIsReadOnly(bool InbIsReadyOnly)
 	}
 }
 
+void UEditableText::SetClearKeyboardFocusOnCommit(bool bInClearKeyboardFocusOnCommit)
+{
+	ClearKeyboardFocusOnCommit = bInClearKeyboardFocusOnCommit;
+	MyEditableText->SetClearKeyboardFocusOnCommit(ClearKeyboardFocusOnCommit);
+}
+
 void UEditableText::HandleOnTextChanged(const FText& InText)
 {
 	OnTextChanged.Broadcast(InText);

@@ -17,6 +17,7 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Channels/MovieSceneChannelEditorData.h"
 #include "FloatChannelCurveModel.h"
+#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "BuiltInChannelEditors"
 
@@ -92,6 +93,10 @@ bool CanCreateKeyEditor(const FMovieSceneFloatChannel*   Channel)
 	return true;
 }
 bool CanCreateKeyEditor(const FMovieSceneStringChannel*  Channel)
+{
+	return true;
+}
+bool CanCreateKeyEditor(const FMovieSceneObjectPathChannel* Channel)
 {
 	return true;
 }
@@ -191,46 +196,111 @@ TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneBy
 	}
 }
 
-TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneBoolChannel>&     ChannelHandle, FKeyHandle InHandle)
+TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneObjectPathChannel>& Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
 {
-	return CreateKeyStruct<FMovieSceneBoolKeyStruct>(ChannelHandle, InHandle);
+	const TMovieSceneExternalValue<UObject*>* ExternalValue = Channel.GetExtendedEditorData();
+	const FMovieSceneObjectPathChannel*       RawChannel    = Channel.Get();
+	if (ExternalValue && RawChannel)
+	{
+		TSequencerKeyEditor<FMovieSceneObjectPathChannel, UObject*> KeyEditor(InObjectBindingID, Channel, Section, InSequencer, PropertyBindings, ExternalValue->OnGetExternalValue);
+
+		auto OnSetObjectLambda = [KeyEditor](const FAssetData& Asset) mutable
+		{
+			FScopedTransaction Transaction(LOCTEXT("SetKey", "Set Enum Key Value"));
+			KeyEditor.SetValueWithNotify(Asset.GetAsset(), EMovieSceneDataChangeType::TrackValueChangedRefreshImmediately);
+		};
+
+		auto GetObjectPathLambda = [KeyEditor]() -> FString
+		{
+			UObject* Obj = KeyEditor.GetCurrentValue();
+			return Obj ? Obj->GetPathName() : FString();
+		};
+
+		return SNew(SObjectPropertyEntryBox)
+		.DisplayBrowse(false)
+		.DisplayUseSelected(false)
+		.ObjectPath_Lambda(GetObjectPathLambda)
+		.AllowedClass(RawChannel->GetPropertyClass())
+		.OnObjectChanged_Lambda(OnSetObjectLambda);
+	}
+
+	return SNullWidget::NullWidget;
 }
-TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneByteChannel>&     ChannelHandle, FKeyHandle InHandle)
+
+UMovieSceneKeyStructType* InstanceGeneratedStruct(FMovieSceneByteChannel* Channel, FSequencerKeyStructGenerator* Generator)
 {
-	return CreateKeyStruct<FMovieSceneByteKeyStruct>(ChannelHandle, InHandle);
-}
-TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneIntegerChannel>&  ChannelHandle, FKeyHandle InHandle)
-{
-	return CreateKeyStruct<FMovieSceneIntegerKeyStruct>(ChannelHandle, InHandle);
-}
-TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneStringChannel>&   ChannelHandle, FKeyHandle InHandle)
-{
-	return CreateKeyStruct<FMovieSceneStringKeyStruct>(ChannelHandle, InHandle);
-}
-TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneParticleChannel>& ChannelHandle, FKeyHandle InHandle)
-{
-	FMovieSceneParticleChannel* Channel = ChannelHandle.Get();
-	if (!Channel)
+	UEnum* ByteEnum = Channel->GetEnum();
+	if (!ByteEnum)
+	{
+		// No enum so just use the default (which will create a generated struct with a byte property)
+		return Generator->DefaultInstanceGeneratedStruct(FMovieSceneByteChannel::StaticStruct());
+	}
+
+	FName GeneratedTypeName = *FString::Printf(TEXT("MovieSceneByteChannel_%s"), *ByteEnum->GetName());
+
+	UMovieSceneKeyStructType* Existing = Generator->FindGeneratedStruct(GeneratedTypeName);
+	if (Existing)
+	{
+		return Existing;
+	}
+
+	UMovieSceneKeyStructType* NewStruct = FSequencerKeyStructGenerator::AllocateNewKeyStruct(FMovieSceneByteChannel::StaticStruct());
+	if (!NewStruct)
 	{
 		return nullptr;
 	}
 
-	TMovieSceneChannelData<uint8> ChannelData = Channel->GetData();
-	const int32 KeyIndex = ChannelData.GetIndex(InHandle);
+	UByteProperty* NewValueProperty = NewObject<UByteProperty>(NewStruct, "Value");
+	NewValueProperty->SetPropertyFlags(CPF_Edit);
+	NewValueProperty->SetMetaData("Category", TEXT("Key"));
+	NewValueProperty->ArrayDim = 1;
+	NewValueProperty->Enum = ByteEnum;
 
-	if (KeyIndex == INDEX_NONE)
+	NewStruct->AddCppProperty(NewValueProperty);
+	NewStruct->DestValueProperty = NewValueProperty;
+
+	FSequencerKeyStructGenerator::FinalizeNewKeyStruct(NewStruct);
+
+	Generator->AddGeneratedStruct(GeneratedTypeName, NewStruct);
+	return NewStruct;
+}
+
+UMovieSceneKeyStructType* InstanceGeneratedStruct(FMovieSceneObjectPathChannel* Channel, FSequencerKeyStructGenerator* Generator)
+{
+	UClass* PropertyClass = Channel->GetPropertyClass();
+	if (!PropertyClass)
+	{
+		// No specific property class so just use the default (which will create a generated struct with an object property)
+		return Generator->DefaultInstanceGeneratedStruct(FMovieSceneObjectPathChannel::StaticStruct());
+	}
+
+	FName GeneratedTypeName = *FString::Printf(TEXT("MovieSceneObjectPathChannel_%s"), *PropertyClass->GetName());
+
+	UMovieSceneKeyStructType* Existing = Generator->FindGeneratedStruct(GeneratedTypeName);
+	if (Existing)
+	{
+		return Existing;
+	}
+
+	UMovieSceneKeyStructType* NewStruct = FSequencerKeyStructGenerator::AllocateNewKeyStruct(FMovieSceneObjectPathChannel::StaticStruct());
+	if (!NewStruct)
 	{
 		return nullptr;
 	}
 
-	TSharedPtr<FStructOnScope> KeyStruct = MakeShared<FStructOnScope>(FMovieSceneParticleKeyStruct::StaticStruct());
-	FMovieSceneParticleKeyStruct* Struct = reinterpret_cast<FMovieSceneParticleKeyStruct*>(KeyStruct->GetStructMemory());
+	USoftObjectProperty* NewValueProperty = NewObject<USoftObjectProperty>(NewStruct, "Value");
+	NewValueProperty->SetPropertyFlags(CPF_Edit);
+	NewValueProperty->SetMetaData("Category", TEXT("Key"));
+	NewValueProperty->PropertyClass = PropertyClass;
+	NewValueProperty->ArrayDim = 1;
 
-	Struct->Time  = ChannelData.GetTimes()[KeyIndex];
-	Struct->Value = (EParticleKey)ChannelData.GetValues()[KeyIndex];
+	NewStruct->AddCppProperty(NewValueProperty);
+	NewStruct->DestValueProperty = NewValueProperty;
 
-	Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelHandle, &Struct->Value, MakeTuple(InHandle, Struct->Time)));
-	return KeyStruct;
+	FSequencerKeyStructGenerator::FinalizeNewKeyStruct(NewStruct);
+
+	Generator->AddGeneratedStruct(GeneratedTypeName, NewStruct);
+	return NewStruct;
 }
 
 void DrawKeys(FMovieSceneFloatChannel* Channel, TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)

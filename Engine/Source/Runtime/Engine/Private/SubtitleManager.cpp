@@ -266,7 +266,7 @@ void FSubtitleManager::DisplaySubtitle_ToDisplays(FActiveSubtitle* Subtitle)
 		}
 	}
 
-	OnSetSubtitleTextDelegate.Broadcast(FText::FromString(SubtitleString));
+	OnSetSubtitleTextDelegate.Broadcast(SubtitleString.IsEmpty() ? FText::GetEmpty() : FText::FromString(SubtitleString));
 }
 
 
