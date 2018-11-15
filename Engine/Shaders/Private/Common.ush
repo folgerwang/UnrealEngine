@@ -1338,7 +1338,9 @@ float AntialiasedTextureMask( Texture2D Tex, SamplerState Sampler, float2 UV, fl
 	return Result;
 }
 
-float Noise3D_Multiplexer(int Function, float3 Position, int Quality, bool bTiling, uint RepeatSize)
+// While RepeatSize is a float here, the expectation is that it would be largely integer values coming in from the UI. The downstream logic assumes
+// floats for all called functions (NoiseTileWrap) and this prevents any float-to-int conversion errors from automatic type conversion.
+float Noise3D_Multiplexer(int Function, float3 Position, int Quality, bool bTiling, float RepeatSize)
 {
 	// verified, HLSL compiled out the switch if Function is a constant
 	switch(Function)
